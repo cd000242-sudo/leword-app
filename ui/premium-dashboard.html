@@ -1,0 +1,507 @@
+<!DOCTYPE html>
+<html lang="ko">
+
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>LEWORD PREMIUM - VVIP Dashboard</title>
+    <link rel="stylesheet" href="https://cdn.jsdelivr.net/npm/pretendard/dist/web/static/pretendard.css">
+    <style>
+        :root {
+            --primary: #8b5cf6;
+            --secondary: #ec4899;
+            --dark-bg: #0f172a;
+            --card-bg: rgba(30, 41, 59, 0.7);
+            --text-main: #f8fafc;
+            --text-muted: #94a3b8;
+        }
+
+        * {
+            margin: 0;
+            padding: 0;
+            box-sizing: border-box;
+            font-family: 'Pretendard', sans-serif;
+        }
+
+        body {
+            background: linear-gradient(135deg, #0f172a 0%, #1e1b4b 100%);
+            color: var(--text-main);
+            min-height: 100vh;
+            padding: 40px;
+        }
+
+        .container {
+            max-width: 1200px;
+            margin: 0 auto;
+        }
+
+        header {
+            text-align: center;
+            margin-bottom: 60px;
+        }
+
+        h1 {
+            font-size: 48px;
+            font-weight: 800;
+            background: linear-gradient(to right, #c084fc, #f472b6);
+            -webkit-background-clip: text;
+            -webkit-text-fill-color: transparent;
+            margin-bottom: 16px;
+            letter-spacing: -1px;
+        }
+
+        .badge {
+            display: inline-block;
+            padding: 6px 16px;
+            background: rgba(255, 255, 255, 0.1);
+            border-radius: 999px;
+            font-size: 14px;
+            font-weight: 600;
+            border: 1px solid rgba(255, 255, 255, 0.1);
+            color: #e2e8f0;
+        }
+
+        .tabs {
+            display: flex;
+            justify-content: center;
+            gap: 20px;
+            margin-bottom: 40px;
+        }
+
+        .tab-btn {
+            background: transparent;
+            border: none;
+            color: var(--text-muted);
+            font-size: 18px;
+            padding: 12px 24px;
+            border-radius: 12px;
+            cursor: pointer;
+            font-weight: 600;
+            transition: all 0.3s ease;
+            position: relative;
+        }
+
+        .tab-btn.active {
+            color: white;
+            background: rgba(139, 92, 246, 0.2);
+        }
+
+        .tab-btn.active::after {
+            content: '';
+            position: absolute;
+            bottom: -10px;
+            left: 50%;
+            transform: translateX(-50%);
+            width: 40%;
+            height: 3px;
+            background: var(--primary);
+            border-radius: 3px;
+        }
+
+        .tab-content {
+            display: none;
+            animation: fadeIn 0.4s ease-out;
+        }
+
+        .tab-content.active {
+            display: block;
+        }
+
+        @keyframes fadeIn {
+            from {
+                opacity: 0;
+                transform: translateY(10px);
+            }
+
+            to {
+                opacity: 1;
+                transform: translateY(0);
+            }
+        }
+
+        .card {
+            background: var(--card-bg);
+            backdrop-filter: blur(20px);
+            border: 1px solid rgba(255, 255, 255, 0.1);
+            border-radius: 24px;
+            padding: 40px;
+            box-shadow: 0 25px 50px -12px rgba(0, 0, 0, 0.5);
+        }
+
+        .input-group {
+            display: flex;
+            gap: 16px;
+            margin-bottom: 32px;
+        }
+
+        input,
+        textarea {
+            flex: 1;
+            background: rgba(0, 0, 0, 0.3);
+            border: 1px solid rgba(255, 255, 255, 0.15);
+            border-radius: 12px;
+            padding: 16px 24px;
+            color: white;
+            font-size: 16px;
+            transition: all 0.3s;
+        }
+
+        input:focus,
+        textarea:focus {
+            outline: none;
+            border-color: var(--primary);
+            box-shadow: 0 0 0 2px rgba(139, 92, 246, 0.2);
+        }
+
+        .action-btn {
+            background: linear-gradient(135deg, var(--primary), var(--secondary));
+            color: white;
+            border: none;
+            padding: 0 40px;
+            border-radius: 12px;
+            font-size: 16px;
+            font-weight: 700;
+            cursor: pointer;
+            transition: all 0.3s;
+        }
+
+        .action-btn:hover {
+            transform: translateY(-2px);
+            box-shadow: 0 10px 25px rgba(139, 92, 246, 0.4);
+        }
+
+        .action-btn:disabled {
+            opacity: 0.5;
+            cursor: not-allowed;
+        }
+
+        /* Sniper Results */
+        .sniper-grid {
+            display: grid;
+            gap: 20px;
+        }
+
+        .sniper-item {
+            background: rgba(255, 255, 255, 0.05);
+            border-radius: 16px;
+            padding: 24px;
+            border-left: 4px solid var(--primary);
+            transition: transform 0.2s;
+        }
+
+        .sniper-item:hover {
+            transform: translateX(5px);
+            background: rgba(255, 255, 255, 0.08);
+        }
+
+        .sniper-header {
+            display: flex;
+            justify-content: space-between;
+            align-items: center;
+            margin-bottom: 16px;
+        }
+
+        .rank-type {
+            font-size: 14px;
+            font-weight: 700;
+            color: #4ade80;
+        }
+
+        .rank-type.influencer {
+            color: #60a5fa;
+        }
+
+        .blogger-name {
+            font-size: 20px;
+            font-weight: 700;
+        }
+
+        .score-badge {
+            background: rgba(139, 92, 246, 0.2);
+            color: var(--primary);
+            padding: 4px 12px;
+            border-radius: 8px;
+            font-weight: 700;
+        }
+
+        .keywords-tag {
+            font-size: 14px;
+            color: var(--text-muted);
+            margin-bottom: 12px;
+        }
+
+        .advice-box {
+            background: rgba(255, 241, 242, 0.1);
+            padding: 12px;
+            border-radius: 8px;
+            font-size: 14px;
+            color: #fda4af;
+            margin-top: 10px;
+        }
+
+        /* Index Results */
+        .index-display {
+            text-align: center;
+            margin: 40px 0;
+        }
+
+        .index-score {
+            font-size: 72px;
+            font-weight: 900;
+            color: #fbbf24;
+            text-shadow: 0 0 30px rgba(251, 191, 36, 0.3);
+        }
+
+        .stats-row {
+            display: flex;
+            justify-content: center;
+            gap: 40px;
+            margin-top: 30px;
+        }
+
+        .stat-box {
+            text-align: center;
+        }
+
+        .stat-label {
+            font-size: 14px;
+            color: var(--text-muted);
+            margin-bottom: 4px;
+        }
+
+        .stat-value {
+            font-size: 24px;
+            font-weight: 700;
+        }
+
+        .loading-spinner {
+            border: 4px solid rgba(255, 255, 255, 0.1);
+            border-left-color: var(--primary);
+            border-radius: 50%;
+            width: 40px;
+            height: 40px;
+            animation: spin 1s linear infinite;
+            margin: 40px auto;
+        }
+
+        @keyframes spin {
+            0% {
+                transform: rotate(0deg);
+            }
+
+            100% {
+                transform: rotate(360deg);
+            }
+        }
+    </style>
+</head>
+
+<body>
+
+    <!-- Electron Polyfill -->
+    <script>
+        if (typeof require !== 'undefined') {
+            const { ipcRenderer, shell } = require('electron');
+            window.electronAPI = {
+                invoke: (channel, ...args) => ipcRenderer.invoke(channel, ...args),
+                openExternal: (url) => shell.openExternal(url)
+            };
+        }
+    </script>
+
+    <div class="container">
+        <header>
+            <div class="badge">LEWORD PREMIUM V2.0</div>
+            <h1>Premium Intelligence</h1>
+            <p style="color: var(--text-muted);">대한민국 상위 1% 블로거를 위한 시크릿 도구</p>
+        </header>
+
+        <div class="tabs">
+            <button class="tab-btn active" onclick="switchTab('sniper')">🕵️ 벤치마크 스나이퍼</button>
+            <button class="tab-btn" onclick="switchTab('index')">📊 블로그 정밀 진단</button>
+        </div>
+
+        <!-- Tab 1: Benchmark Sniper -->
+        <div id="sniper" class="tab-content active">
+            <div class="card">
+                <h2 style="margin-bottom: 10px;">황금 키워드 경쟁자 분석</h2>
+                <p style="color: var(--text-muted); margin-bottom: 30px;">
+                    키워드를 입력하면(콤마로 구분) 상위 노출 블로그를 분석하여 승리 전략을 도출합니다.<br>
+                    특히 '인플루언서가 아닌데 상위 노출된' <strong>재야의 고수</strong>를 찾아냅니다.
+                </p>
+
+                <div class="input-group">
+                    <input type="text" id="sniperKeywords" placeholder="예: 아이유 콘서트, 강남 맛집, 2025 트렌드 (콤마로 구분)"
+                        value="서울 데이트 코스, 주말 여행지 추천, 2025 다이어리">
+                    <button class="action-btn" onclick="runSniper()">분석 시작</button>
+                </div>
+
+                <div id="sniperLoading" style="display: none;">
+                    <div class="loading-spinner"></div>
+                    <p style="text-align: center; color: var(--text-muted);">최상위 블로거를 추적 중입니다...</p>
+                </div>
+
+                <div id="sniperResults" class="sniper-grid"></div>
+            </div>
+        </div>
+
+        <!-- Tab 2: Blog Index -->
+        <div id="index" class="tab-content">
+            <div class="card">
+                <h2 style="margin-bottom: 10px;">블로그 정밀 진단 (Index Check)</h2>
+                <p style="color: var(--text-muted); margin-bottom: 30px;">
+                    네이버 블로그 ID만 입력하면 내부 로직으로 정밀한 지수(Index)를 추정합니다.<br>
+                    단순 방문자 수가 아닌 <strong>콘텐츠 품질과 활동성</strong>을 종합 평가합니다.
+                </p>
+
+                <div class="input-group">
+                    <input type="text" id="blogIdInput" placeholder="네이버 블로그 ID 입력 (예: elonmusk)">
+                    <button class="action-btn" onclick="runIndexCheck()">진단하기</button>
+                </div>
+
+                <div id="indexLoading" style="display: none;">
+                    <div class="loading-spinner"></div>
+                    <p style="text-align: center; color: var(--text-muted);">블로그 데이터를 스캔하고 있습니다...</p>
+                </div>
+
+                <div id="indexResultArea" style="display: none;">
+                    <div class="index-display">
+                        <div style="font-size: 18px; margin-bottom: 10px; color: var(--text-muted);">추정 블로그 지수</div>
+                        <div class="index-score" id="indexScoreDisplay">0</div>
+                        <div id="indexGrade" class="badge"
+                            style="margin-top: 10px; background: rgba(251, 191, 36, 0.2); color: #fbbf24;">Evaluating...
+                        </div>
+                    </div>
+
+                    <div class="stats-row">
+                        <div class="stat-box">
+                            <div class="stat-label">총 포스트</div>
+                            <div class="stat-value" id="statTotalPosts">-</div>
+                        </div>
+                        <div class="stat-box">
+                            <div class="stat-label">운영 기간</div>
+                            <div class="stat-value" id="statAge">-</div>
+                        </div>
+                        <div class="stat-box">
+                            <div class="stat-label">활동 상태</div>
+                            <div class="stat-value" id="statActive">-</div>
+                        </div>
+                    </div>
+                </div>
+            </div>
+        </div>
+
+    </div>
+
+    <script>
+        function switchTab(tabId) {
+            document.querySelectorAll('.tab-btn').forEach(btn => btn.classList.remove('active'));
+            document.querySelectorAll('.tab-content').forEach(content => content.classList.remove('active'));
+
+            event.target.classList.add('active');
+            document.getElementById(tabId).classList.add('active');
+        }
+
+        async function runSniper() {
+            const input = document.getElementById('sniperKeywords').value;
+            if (!input.trim()) return alert("키워드를 입력해주세요.");
+
+            const keywords = input.split(',').map(k => k.trim()).filter(k => k);
+
+            document.getElementById('sniperLoading').style.display = 'block';
+            document.getElementById('sniperResults').innerHTML = '';
+
+            try {
+                const result = await window.electronAPI.invoke('analyze-benchmark-sniper', keywords);
+
+                if (result.success && result.data) {
+                    renderSniperResults(result.data);
+                } else {
+                    alert('분석 실패: ' + (result.message || '알 수 없는 오류'));
+                }
+            } catch (e) {
+                alert('시스템 오류: ' + e.message);
+            } finally {
+                document.getElementById('sniperLoading').style.display = 'none';
+            }
+        }
+
+        function renderSniperResults(items) {
+            const container = document.getElementById('sniperResults');
+            if (items.length === 0) {
+                container.innerHTML = '<div style="text-align:center; padding:20px;">결과를 찾지 못했습니다.</div>';
+                return;
+            }
+
+            items.forEach(item => {
+                const isInfluencer = item.rank_type.includes('인플루언서');
+                const div = document.createElement('div');
+                div.className = 'sniper-item';
+                div.innerHTML = `
+          <div class="sniper-header">
+            <div class="rank-type ${isInfluencer ? 'influencer' : ''}">${item.rank_type}</div>
+            <div class="score-badge">${item.score}점</div>
+          </div>
+          <div class="blogger-name">${item.name}</div>
+          <div class="keywords-tag">주요 키워드: ${item.main_keywords}</div>
+          
+          <div style="background: rgba(0,0,0,0.3); padding: 15px; border-radius: 8px; margin: 10px 0;">
+            <div style="font-size:12px; color: #94a3b8; margin-bottom: 8px;">벤치마킹할 제목 패턴</div>
+            ${item.title_patterns.map((t, i) => `
+              <div style="margin-bottom: 4px; font-size: 14px;">${i + 1}. ${t}</div>
+            `).join('')}
+          </div>
+
+          <div class="advice-box">💡 ${item.advice}</div>
+          
+          <div style="margin-top: 15px; text-align: right;">
+            <a href="#" onclick="window.electronAPI.openExternal('${item.url}')" style="color: var(--primary); text-decoration: none; font-weight: 600; font-size: 14px;">블로그 방문하기 →</a>
+          </div>
+        `;
+                container.appendChild(div);
+            });
+        }
+
+        async function runIndexCheck() {
+            const blogId = document.getElementById('blogIdInput').value;
+            if (!blogId.trim()) return alert("블로그 ID를 입력해주세요.");
+
+            document.getElementById('indexLoading').style.display = 'block';
+            document.getElementById('indexResultArea').style.display = 'none';
+
+            try {
+                const result = await window.electronAPI.invoke('analyze-blog-index', blogId.trim());
+
+                if (result.success && result.data) {
+                    renderIndexResult(result.data);
+                } else {
+                    alert('진단 실패: ' + (result.message || '블로그를 찾을 수 없습니다.'));
+                }
+            } catch (e) {
+                alert('시스템 오류: ' + e.message);
+            } finally {
+                document.getElementById('indexLoading').style.display = 'none';
+            }
+        }
+
+        function renderIndexResult(data) {
+            const score = data.blogIndex;
+            const formatScore = score.toLocaleString();
+
+            document.getElementById('indexScoreDisplay').innerText = formatScore;
+            document.getElementById('statTotalPosts').innerText = data.stats.totalPosts ? data.stats.totalPosts.toLocaleString() : '-';
+            document.getElementById('statAge').innerText = data.stats.blogAge || '-';
+            document.getElementById('statActive').innerText = data.stats.recentActivity || '-';
+
+            const gradeEl = document.getElementById('indexGrade');
+            if (score >= 100000) { gradeEl.innerText = 'S+ (최상위 티어)'; gradeEl.style.color = '#ef4444'; }
+            else if (score >= 50000) { gradeEl.innerText = 'A (상위 티어)'; gradeEl.style.color = '#f59e0b'; }
+            else if (score >= 20000) { gradeEl.innerText = 'B (중상위)'; gradeEl.style.color = '#10b981'; }
+            else { gradeEl.innerText = 'C (일반)'; gradeEl.style.color = '#94a3b8'; }
+
+            document.getElementById('indexResultArea').style.display = 'block';
+        }
+    </script>
+</body>
+
+</html>

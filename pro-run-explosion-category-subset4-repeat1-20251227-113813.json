@@ -1,0 +1,272 @@
+{
+  "generatedAt": "2025-12-27T02:38:13.984Z",
+  "mode": "category",
+  "explosionMode": true,
+  "count": 5,
+  "timeoutMs": 240000,
+  "retries": 0,
+  "results": [
+    {
+      "success": false,
+      "category": "business",
+      "runIndex": 1,
+      "mode": "category",
+      "explosionMode": true,
+      "count": 5,
+      "summary": {
+        "totalFound": 0,
+        "sssCount": 0,
+        "ssCount": 0,
+        "sCount": 0,
+        "rookieFriendlyCount": 0,
+        "urgentCount": 0,
+        "blueOceanCount": 0,
+        "explosionFunnel": {
+          "candidates": 0,
+          "verified": 0,
+          "gradeOk": 0,
+          "ratioOk": 0,
+          "docOk": 0,
+          "svOk": 0,
+          "strictOk": 0,
+          "minSv": 30,
+          "internalMetrics": {
+            "seedCount": 130,
+            "allKeywordsCount": 343,
+            "profitableCount": 30,
+            "uniqueKeywordsCount": 30,
+            "sortedResultsCount": 30,
+            "verifiedResultsCount": 0,
+            "searchAdEnabled": true,
+            "searchAdAdded": 152,
+            "autocompleteAdded": 67
+          },
+          "topByExplosion": []
+        }
+      },
+      "keywords": [],
+      "attempts": 1,
+      "durationMs": 73853
+    },
+    {
+      "success": false,
+      "category": "self_development",
+      "runIndex": 1,
+      "mode": "category",
+      "explosionMode": true,
+      "count": 5,
+      "summary": {
+        "totalFound": 0,
+        "sssCount": 0,
+        "ssCount": 0,
+        "sCount": 0,
+        "rookieFriendlyCount": 0,
+        "urgentCount": 0,
+        "blueOceanCount": 0,
+        "explosionFunnel": {
+          "candidates": 0,
+          "verified": 0,
+          "gradeOk": 0,
+          "ratioOk": 0,
+          "docOk": 0,
+          "svOk": 0,
+          "strictOk": 0,
+          "minSv": 30,
+          "internalMetrics": {
+            "seedCount": 170,
+            "allKeywordsCount": 247,
+            "profitableCount": 165,
+            "uniqueKeywordsCount": 165,
+            "sortedResultsCount": 165,
+            "verifiedResultsCount": 0,
+            "searchAdEnabled": true,
+            "searchAdAdded": 42,
+            "autocompleteAdded": 39
+          },
+          "topByExplosion": []
+        }
+      },
+      "keywords": [],
+      "attempts": 1,
+      "durationMs": 162071
+    },
+    {
+      "success": true,
+      "category": "celeb",
+      "runIndex": 1,
+      "mode": "category",
+      "explosionMode": true,
+      "count": 5,
+      "summary": {
+        "totalFound": 5,
+        "sssCount": 0,
+        "ssCount": 2,
+        "sCount": 3,
+        "rookieFriendlyCount": 0,
+        "urgentCount": 0,
+        "blueOceanCount": 0,
+        "explosionFunnel": {
+          "candidates": 10,
+          "verified": 10,
+          "gradeOk": 5,
+          "ratioOk": 5,
+          "docOk": 9,
+          "svOk": 10,
+          "strictOk": 5,
+          "minSv": 500,
+          "internalMetrics": {
+            "seedCount": 140,
+            "allKeywordsCount": 323,
+            "profitableCount": 83,
+            "uniqueKeywordsCount": 83,
+            "sortedResultsCount": 82,
+            "verifiedResultsCount": 10,
+            "searchAdEnabled": true,
+            "searchAdAdded": 122,
+            "autocompleteAdded": 67
+          },
+          "topByExplosion": [
+            "도경수콘서트 | grade=S gr=0.7413509060955519 sv=7650 dc=10319 src=티켓팅(0) ex=65",
+            "악동뮤지션콘서트 | grade=S gr=0.6422413793103449 sv=4470 dc=6960 src=티켓팅(0) ex=65",
+            "에일리콘서트 | grade=A gr=0.46474048219248915 sv=7190 dc=15471 src=티켓팅(0) ex=65",
+            "SG워너비콘서트 | grade=A gr=0.42129327237099934 sv=5160 dc=12248 src=티켓팅(0) ex=65",
+            "성시경콘서트티켓 | grade=A gr=0.37872562934189885 sv=5070 dc=13387 src=티켓팅(0) ex=65"
+          ]
+        }
+      },
+      "keywords": [
+        {
+          "keyword": "도경수콘서트",
+          "grade": "SS",
+          "searchVolume": 7650,
+          "documentCount": 10319,
+          "goldenRatio": 0.7413509060955519,
+          "source": "티켓팅"
+        },
+        {
+          "keyword": "악동뮤지션콘서트",
+          "grade": "SS",
+          "searchVolume": 4470,
+          "documentCount": 6960,
+          "goldenRatio": 0.6422413793103449,
+          "source": "티켓팅"
+        },
+        {
+          "keyword": "에일리콘서트",
+          "grade": "S",
+          "searchVolume": 7190,
+          "documentCount": 15471,
+          "goldenRatio": 0.46474048219248915,
+          "source": "티켓팅"
+        },
+        {
+          "keyword": "SG워너비콘서트",
+          "grade": "S",
+          "searchVolume": 5160,
+          "documentCount": 12248,
+          "goldenRatio": 0.42129327237099934,
+          "source": "티켓팅"
+        },
+        {
+          "keyword": "성시경콘서트티켓",
+          "grade": "S",
+          "searchVolume": 5070,
+          "documentCount": 13387,
+          "goldenRatio": 0.37872562934189885,
+          "source": "티켓팅"
+        }
+      ],
+      "attempts": 1,
+      "durationMs": 67495
+    },
+    {
+      "success": true,
+      "category": "fashion",
+      "runIndex": 1,
+      "mode": "category",
+      "explosionMode": true,
+      "count": 5,
+      "summary": {
+        "totalFound": 5,
+        "sssCount": 5,
+        "ssCount": 0,
+        "sCount": 0,
+        "rookieFriendlyCount": 2,
+        "urgentCount": 0,
+        "blueOceanCount": 4,
+        "explosionFunnel": {
+          "candidates": 10,
+          "verified": 10,
+          "gradeOk": 6,
+          "ratioOk": 6,
+          "docOk": 7,
+          "svOk": 10,
+          "strictOk": 6,
+          "minSv": 500,
+          "internalMetrics": {
+            "seedCount": 130,
+            "allKeywordsCount": 348,
+            "profitableCount": 87,
+            "uniqueKeywordsCount": 87,
+            "sortedResultsCount": 84,
+            "verifiedResultsCount": 10,
+            "searchAdEnabled": true,
+            "searchAdAdded": 161,
+            "autocompleteAdded": 63
+          },
+          "topByExplosion": [
+            "패션플러스 | grade=SSS gr=53.62656568598893 sv=368200 dc=6866 src=인스타(25) ex=106",
+            "코디너리 | grade=SSS gr=6.113207547169812 sv=4860 dc=795 src=인스타(25) ex=106",
+            "패션풀 | grade=SSS gr=2.6089997668454186 sv=11190 dc=4289 src=인스타(25) ex=106",
+            "코디아이 | grade=SSS gr=2.0584269662921346 sv=9160 dc=4450 src=인스타(25) ex=106",
+            "남자옷쇼핑몰 | grade=SS gr=1.3848777714610574 sv=12180 dc=8795 src=인스타(25) ex=106"
+          ]
+        }
+      },
+      "keywords": [
+        {
+          "keyword": "패션플러스",
+          "grade": "SSS",
+          "searchVolume": 368200,
+          "documentCount": 6866,
+          "goldenRatio": 53.62656568598893,
+          "source": "인스타"
+        },
+        {
+          "keyword": "코디너리",
+          "grade": "SSS",
+          "searchVolume": 4860,
+          "documentCount": 795,
+          "goldenRatio": 6.113207547169812,
+          "source": "인스타"
+        },
+        {
+          "keyword": "패션풀",
+          "grade": "SSS",
+          "searchVolume": 11190,
+          "documentCount": 4289,
+          "goldenRatio": 2.6089997668454186,
+          "source": "인스타"
+        },
+        {
+          "keyword": "코디아이",
+          "grade": "SSS",
+          "searchVolume": 9160,
+          "documentCount": 4450,
+          "goldenRatio": 2.0584269662921346,
+          "source": "인스타"
+        },
+        {
+          "keyword": "남자옷쇼핑몰",
+          "grade": "SSS",
+          "searchVolume": 12180,
+          "documentCount": 8795,
+          "goldenRatio": 1.3848777714610574,
+          "source": "인스타"
+        }
+      ],
+      "attempts": 1,
+      "durationMs": 71822
+    }
+  ]
+}

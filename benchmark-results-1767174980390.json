@@ -1,0 +1,198 @@
+{
+  "results": [
+    {
+      "iteration": 1,
+      "timestamp": "2025-12-31T09:55:24.743Z",
+      "keywords": [
+        {
+          "keyword": "매일경제신문구독",
+          "grade": "SSS",
+          "searchVolume": 6160,
+          "documentCount": 24268,
+          "goldenRatio": 0.2538322070215922
+        },
+        {
+          "keyword": "매일경제신문",
+          "grade": "SSS",
+          "searchVolume": 25290,
+          "documentCount": 304263,
+          "goldenRatio": 0.08311888070517941
+        },
+        {
+          "keyword": "초기창업패키지",
+          "grade": "B",
+          "searchVolume": 3480,
+          "documentCount": 59868,
+          "goldenRatio": 0.05812788133894568
+        },
+        {
+          "keyword": "매일경제구독",
+          "grade": "B",
+          "searchVolume": 1800,
+          "documentCount": 37967,
+          "goldenRatio": 0.04740959254089078
+        }
+      ],
+      "stats": {
+        "sssCount": 2,
+        "ssCount": 0,
+        "sCount": 0,
+        "avgGoldenRatio": 0.11,
+        "maxGoldenRatio": 0.25
+      }
+    },
+    {
+      "iteration": 2,
+      "timestamp": "2025-12-31T09:55:38.430Z",
+      "keywords": [
+        {
+          "keyword": "매일경제신문구독",
+          "grade": "B",
+          "searchVolume": 6160,
+          "documentCount": 24268,
+          "goldenRatio": 0.2538322070215922
+        },
+        {
+          "keyword": "초기창업패키지",
+          "grade": "B",
+          "searchVolume": 3480,
+          "documentCount": 59868,
+          "goldenRatio": 0.05812788133894568
+        },
+        {
+          "keyword": "매일경제구독",
+          "grade": "B",
+          "searchVolume": 1800,
+          "documentCount": 37967,
+          "goldenRatio": 0.04740959254089078
+        }
+      ],
+      "stats": {
+        "sssCount": 0,
+        "ssCount": 0,
+        "sCount": 0,
+        "avgGoldenRatio": 0.12,
+        "maxGoldenRatio": 0.25
+      }
+    },
+    {
+      "iteration": 3,
+      "timestamp": "2025-12-31T09:55:52.317Z",
+      "keywords": [
+        {
+          "keyword": "매일경제신문구독",
+          "grade": "SSS",
+          "searchVolume": 6160,
+          "documentCount": 24268,
+          "goldenRatio": 0.2538322070215922
+        },
+        {
+          "keyword": "매일경제신문",
+          "grade": "SSS",
+          "searchVolume": 25290,
+          "documentCount": 304263,
+          "goldenRatio": 0.08311888070517941
+        },
+        {
+          "keyword": "초기창업패키지",
+          "grade": "B",
+          "searchVolume": 3480,
+          "documentCount": 59868,
+          "goldenRatio": 0.05812788133894568
+        },
+        {
+          "keyword": "매일경제구독",
+          "grade": "B",
+          "searchVolume": 1800,
+          "documentCount": 37967,
+          "goldenRatio": 0.04740959254089078
+        }
+      ],
+      "stats": {
+        "sssCount": 2,
+        "ssCount": 0,
+        "sCount": 0,
+        "avgGoldenRatio": 0.11,
+        "maxGoldenRatio": 0.25
+      }
+    },
+    {
+      "iteration": 4,
+      "timestamp": "2025-12-31T09:56:06.530Z",
+      "keywords": [
+        {
+          "keyword": "매일경제신문구독",
+          "grade": "B",
+          "searchVolume": 6160,
+          "documentCount": 24268,
+          "goldenRatio": 0.2538322070215922
+        },
+        {
+          "keyword": "초기창업패키지",
+          "grade": "B",
+          "searchVolume": 3480,
+          "documentCount": 59868,
+          "goldenRatio": 0.05812788133894568
+        },
+        {
+          "keyword": "매일경제구독",
+          "grade": "B",
+          "searchVolume": 1800,
+          "documentCount": 37967,
+          "goldenRatio": 0.04740959254089078
+        }
+      ],
+      "stats": {
+        "sssCount": 0,
+        "ssCount": 0,
+        "sCount": 0,
+        "avgGoldenRatio": 0.12,
+        "maxGoldenRatio": 0.25
+      }
+    },
+    {
+      "iteration": 5,
+      "timestamp": "2025-12-31T09:56:20.386Z",
+      "keywords": [
+        {
+          "keyword": "주식",
+          "grade": "S",
+          "searchVolume": 680500,
+          "documentCount": 13019489,
+          "goldenRatio": 0.052267796378183504
+        },
+        {
+          "keyword": "매일경제신문구독",
+          "grade": "B",
+          "searchVolume": 6160,
+          "documentCount": 24268,
+          "goldenRatio": 0.2538322070215922
+        },
+        {
+          "keyword": "매일경제구독",
+          "grade": "B",
+          "searchVolume": 1800,
+          "documentCount": 37967,
+          "goldenRatio": 0.04740959254089078
+        }
+      ],
+      "stats": {
+        "sssCount": 0,
+        "ssCount": 0,
+        "sCount": 1,
+        "avgGoldenRatio": 0.12,
+        "maxGoldenRatio": 0.25
+      }
+    }
+  ],
+  "summary": {
+    "totalSss": 4,
+    "totalKeywords": 25,
+    "sssRate": 16,
+    "allSssKeywords": [
+      "매일경제신문구독",
+      "매일경제신문"
+    ],
+    "score": 28
+  }
+}

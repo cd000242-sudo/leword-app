@@ -1,0 +1,1651 @@
+{
+  "generatedAt": "2025-12-25T08:09:42.709Z",
+  "mode": "category",
+  "explosionMode": false,
+  "count": 10,
+  "timeoutMs": 240000,
+  "retries": 0,
+  "results": [
+    {
+      "success": false,
+      "category": "book",
+      "runIndex": 1,
+      "mode": "category",
+      "explosionMode": false,
+      "count": 10,
+      "summary": {
+        "totalFound": 0,
+        "sssCount": 0,
+        "ssCount": 0,
+        "sCount": 0,
+        "rookieFriendlyCount": 0,
+        "urgentCount": 0,
+        "blueOceanCount": 0
+      },
+      "keywords": [],
+      "attempts": 1,
+      "durationMs": 17933
+    },
+    {
+      "success": false,
+      "category": "movie",
+      "runIndex": 1,
+      "mode": "category",
+      "explosionMode": false,
+      "count": 10,
+      "summary": {
+        "totalFound": 0,
+        "sssCount": 0,
+        "ssCount": 0,
+        "sCount": 0,
+        "rookieFriendlyCount": 0,
+        "urgentCount": 0,
+        "blueOceanCount": 0
+      },
+      "keywords": [],
+      "attempts": 1,
+      "durationMs": 18942
+    },
+    {
+      "success": false,
+      "category": "art",
+      "runIndex": 1,
+      "mode": "category",
+      "explosionMode": false,
+      "count": 10,
+      "summary": {
+        "totalFound": 0,
+        "sssCount": 0,
+        "ssCount": 0,
+        "sCount": 0,
+        "rookieFriendlyCount": 0,
+        "urgentCount": 0,
+        "blueOceanCount": 0
+      },
+      "keywords": [],
+      "attempts": 1,
+      "durationMs": 8186
+    },
+    {
+      "success": false,
+      "category": "performance",
+      "runIndex": 1,
+      "mode": "category",
+      "explosionMode": false,
+      "count": 10,
+      "summary": {
+        "totalFound": 0,
+        "sssCount": 0,
+        "ssCount": 0,
+        "sCount": 0,
+        "rookieFriendlyCount": 0,
+        "urgentCount": 0,
+        "blueOceanCount": 0
+      },
+      "keywords": [],
+      "attempts": 1,
+      "durationMs": 7005
+    },
+    {
+      "success": false,
+      "category": "music",
+      "runIndex": 1,
+      "mode": "category",
+      "explosionMode": false,
+      "count": 10,
+      "summary": {
+        "totalFound": 0,
+        "sssCount": 0,
+        "ssCount": 0,
+        "sCount": 0,
+        "rookieFriendlyCount": 0,
+        "urgentCount": 0,
+        "blueOceanCount": 0
+      },
+      "keywords": [],
+      "attempts": 1,
+      "durationMs": 7637
+    },
+    {
+      "success": false,
+      "category": "drama",
+      "runIndex": 1,
+      "mode": "category",
+      "explosionMode": false,
+      "count": 10,
+      "summary": {
+        "totalFound": 0,
+        "sssCount": 0,
+        "ssCount": 0,
+        "sCount": 0,
+        "rookieFriendlyCount": 0,
+        "urgentCount": 0,
+        "blueOceanCount": 0
+      },
+      "keywords": [],
+      "attempts": 1,
+      "durationMs": 12959
+    },
+    {
+      "success": true,
+      "category": "celeb",
+      "runIndex": 1,
+      "mode": "category",
+      "explosionMode": false,
+      "count": 10,
+      "summary": {
+        "totalFound": 10,
+        "sssCount": 4,
+        "ssCount": 0,
+        "sCount": 0,
+        "rookieFriendlyCount": 10,
+        "urgentCount": 2,
+        "blueOceanCount": 0
+      },
+      "keywords": [
+        {
+          "keyword": "팬미팅 신청 방법 2025",
+          "grade": "SSS",
+          "searchVolume": 20,
+          "documentCount": 1208,
+          "goldenRatio": 0.016556291390728478,
+          "source": "seed"
+        },
+        {
+          "keyword": "직장인 팬미팅 신청 방법",
+          "grade": "SSS",
+          "searchVolume": 20,
+          "documentCount": 314,
+          "goldenRatio": 0.06369426751592357,
+          "source": "seed"
+        },
+        {
+          "keyword": "학생 팬미팅 신청 방법",
+          "grade": "SSS",
+          "searchVolume": 20,
+          "documentCount": 754,
+          "goldenRatio": 0.026525198938992044,
+          "source": "seed"
+        },
+        {
+          "keyword": "2025 팬미팅 신청 방법",
+          "grade": "SSS",
+          "searchVolume": 20,
+          "documentCount": 1208,
+          "goldenRatio": 0.016556291390728478,
+          "source": "seed"
+        },
+        {
+          "keyword": "입문자 팬미팅 신청 방법",
+          "grade": "A",
+          "searchVolume": 20,
+          "documentCount": 13,
+          "goldenRatio": 1.5384615384615385,
+          "source": "seed"
+        },
+        {
+          "keyword": "입문자 콘서트 티켓 예매",
+          "grade": "A",
+          "searchVolume": 20,
+          "documentCount": 666,
+          "goldenRatio": 0.03003003003003003,
+          "source": "seed"
+        },
+        {
+          "keyword": "입문자 아이돌 컴백 일정",
+          "grade": "A",
+          "searchVolume": 20,
+          "documentCount": 17,
+          "goldenRatio": 1.1764705882352942,
+          "source": "seed"
+        },
+        {
+          "keyword": "초보자 아이돌 컴백 일정",
+          "grade": "A",
+          "searchVolume": 20,
+          "documentCount": 51,
+          "goldenRatio": 0.39215686274509803,
+          "source": "seed"
+        },
+        {
+          "keyword": "직장인 아이돌 컴백 일정",
+          "grade": "A",
+          "searchVolume": 20,
+          "documentCount": 581,
+          "goldenRatio": 0.03442340791738382,
+          "source": "seed"
+        },
+        {
+          "keyword": "초보자 팬미팅 신청 방법",
+          "grade": "B",
+          "searchVolume": 20,
+          "documentCount": 91,
+          "goldenRatio": 0.21978021978021978,
+          "source": "seed"
+        }
+      ],
+      "attempts": 1,
+      "durationMs": 82024
+    },
+    {
+      "success": false,
+      "category": "anime",
+      "runIndex": 1,
+      "mode": "category",
+      "explosionMode": false,
+      "count": 10,
+      "summary": {
+        "totalFound": 0,
+        "sssCount": 0,
+        "ssCount": 0,
+        "sCount": 0,
+        "rookieFriendlyCount": 0,
+        "urgentCount": 0,
+        "blueOceanCount": 0
+      },
+      "keywords": [],
+      "attempts": 1,
+      "durationMs": 19675
+    },
+    {
+      "success": false,
+      "category": "broadcast",
+      "runIndex": 1,
+      "mode": "category",
+      "explosionMode": false,
+      "count": 10,
+      "summary": {
+        "totalFound": 0,
+        "sssCount": 0,
+        "ssCount": 0,
+        "sCount": 0,
+        "rookieFriendlyCount": 0,
+        "urgentCount": 0,
+        "blueOceanCount": 0
+      },
+      "keywords": [],
+      "attempts": 1,
+      "durationMs": 15253
+    },
+    {
+      "success": false,
+      "category": "daily",
+      "runIndex": 1,
+      "mode": "category",
+      "explosionMode": false,
+      "count": 10,
+      "summary": {
+        "totalFound": 0,
+        "sssCount": 0,
+        "ssCount": 0,
+        "sCount": 0,
+        "rookieFriendlyCount": 0,
+        "urgentCount": 0,
+        "blueOceanCount": 0
+      },
+      "keywords": [],
+      "attempts": 1,
+      "durationMs": 20446
+    },
+    {
+      "success": true,
+      "category": "life_tips",
+      "runIndex": 1,
+      "mode": "category",
+      "explosionMode": false,
+      "count": 10,
+      "summary": {
+        "totalFound": 10,
+        "sssCount": 0,
+        "ssCount": 3,
+        "sCount": 1,
+        "rookieFriendlyCount": 10,
+        "urgentCount": 2,
+        "blueOceanCount": 0
+      },
+      "keywords": [
+        {
+          "keyword": "2025 가스비 절약 꿀팁",
+          "grade": "SS",
+          "searchVolume": 20,
+          "documentCount": 716,
+          "goldenRatio": 0.027932960893854747,
+          "source": "seed"
+        },
+        {
+          "keyword": "입문자 통신비 절약 방법",
+          "grade": "SS",
+          "searchVolume": 20,
+          "documentCount": 217,
+          "goldenRatio": 0.09216589861751152,
+          "source": "seed"
+        },
+        {
+          "keyword": "직장인 가스비 절약 꿀팁",
+          "grade": "S",
+          "searchVolume": 20,
+          "documentCount": 169,
+          "goldenRatio": 0.11834319526627218,
+          "source": "seed"
+        },
+        {
+          "keyword": "가스비 절약 꿀팁 2025",
+          "grade": "SS",
+          "searchVolume": 20,
+          "documentCount": 716,
+          "goldenRatio": 0.027932960893854747,
+          "source": "seed"
+        },
+        {
+          "keyword": "통신비 절약 방법 청소",
+          "grade": "A",
+          "searchVolume": 20,
+          "documentCount": 1453,
+          "goldenRatio": 0.013764624913971095,
+          "source": "seed"
+        },
+        {
+          "keyword": "입문자 가스비 절약 꿀팁",
+          "grade": "A",
+          "searchVolume": 20,
+          "documentCount": 5,
+          "goldenRatio": 4,
+          "source": "seed"
+        },
+        {
+          "keyword": "초보자 가스비 절약 꿀팁",
+          "grade": "B",
+          "searchVolume": 20,
+          "documentCount": 84,
+          "goldenRatio": 0.23809523809523808,
+          "source": "seed"
+        },
+        {
+          "keyword": "학생 가스비 절약 꿀팁",
+          "grade": "B",
+          "searchVolume": 20,
+          "documentCount": 85,
+          "goldenRatio": 0.23529411764705882,
+          "source": "seed"
+        },
+        {
+          "keyword": "가스비 절약 꿀팁 정리",
+          "grade": "B",
+          "searchVolume": 20,
+          "documentCount": 1578,
+          "goldenRatio": 0.012674271229404309,
+          "source": "seed"
+        },
+        {
+          "keyword": "가스비 절약 꿀팁 청소",
+          "grade": "B",
+          "searchVolume": 20,
+          "documentCount": 1846,
+          "goldenRatio": 0.010834236186348862,
+          "source": "seed"
+        }
+      ],
+      "attempts": 1,
+      "durationMs": 114643
+    },
+    {
+      "success": true,
+      "category": "parenting",
+      "runIndex": 1,
+      "mode": "category",
+      "explosionMode": false,
+      "count": 10,
+      "summary": {
+        "totalFound": 10,
+        "sssCount": 2,
+        "ssCount": 4,
+        "sCount": 0,
+        "rookieFriendlyCount": 8,
+        "urgentCount": 2,
+        "blueOceanCount": 0
+      },
+      "keywords": [
+        {
+          "keyword": "2025 아기띠 종류 차이",
+          "grade": "SSS",
+          "searchVolume": 20,
+          "documentCount": 156,
+          "goldenRatio": 0.1282051282051282,
+          "source": "seed"
+        },
+        {
+          "keyword": "아기띠 종류 차이 가격",
+          "grade": "SS",
+          "searchVolume": 20,
+          "documentCount": 7850,
+          "goldenRatio": 0.0025477707006369425,
+          "source": "seed"
+        },
+        {
+          "keyword": "아기띠 종류 차이 추천",
+          "grade": "SS",
+          "searchVolume": 20,
+          "documentCount": 7601,
+          "goldenRatio": 0.002631232732535193,
+          "source": "seed"
+        },
+        {
+          "keyword": "아기띠 종류 차이 비교",
+          "grade": "SS",
+          "searchVolume": 20,
+          "documentCount": 7200,
+          "goldenRatio": 0.002777777777777778,
+          "source": "seed"
+        },
+        {
+          "keyword": "아기띠 종류 차이 후기",
+          "grade": "SS",
+          "searchVolume": 20,
+          "documentCount": 5187,
+          "goldenRatio": 0.00385579332947754,
+          "source": "seed"
+        },
+        {
+          "keyword": "아기띠 종류 차이 2025",
+          "grade": "SSS",
+          "searchVolume": 20,
+          "documentCount": 156,
+          "goldenRatio": 0.1282051282051282,
+          "source": "seed"
+        },
+        {
+          "keyword": "아기띠 종류 차이 방법",
+          "grade": "A",
+          "searchVolume": 20,
+          "documentCount": 6052,
+          "goldenRatio": 0.003304692663582287,
+          "source": "seed"
+        },
+        {
+          "keyword": "아기띠 종류 차이 시기",
+          "grade": "A",
+          "searchVolume": 20,
+          "documentCount": 4304,
+          "goldenRatio": 0.004646840148698885,
+          "source": "seed"
+        },
+        {
+          "keyword": "육아용품 필수 비교",
+          "grade": "A",
+          "searchVolume": 20,
+          "documentCount": 45099,
+          "goldenRatio": 0.00044346881305572185,
+          "source": "seed"
+        },
+        {
+          "keyword": "아기띠 종류 차이",
+          "grade": "A",
+          "searchVolume": 20,
+          "documentCount": 10834,
+          "goldenRatio": 0.0018460402436773122,
+          "source": "seed"
+        }
+      ],
+      "attempts": 1,
+      "durationMs": 54021
+    },
+    {
+      "success": true,
+      "category": "pet",
+      "runIndex": 1,
+      "mode": "category",
+      "explosionMode": false,
+      "count": 10,
+      "summary": {
+        "totalFound": 10,
+        "sssCount": 3,
+        "ssCount": 1,
+        "sCount": 0,
+        "rookieFriendlyCount": 9,
+        "urgentCount": 0,
+        "blueOceanCount": 0
+      },
+      "keywords": [
+        {
+          "keyword": "펫 보험 비교",
+          "grade": "SS",
+          "searchVolume": 6060,
+          "documentCount": 4792,
+          "goldenRatio": 1.2646076794657763,
+          "source": "seed"
+        },
+        {
+          "keyword": "펫 보험 비교 효과",
+          "grade": "SSS",
+          "searchVolume": 20,
+          "documentCount": 425,
+          "goldenRatio": 0.047058823529411764,
+          "source": "seed"
+        },
+        {
+          "keyword": "직장인 펫 보험 비교",
+          "grade": "SSS",
+          "searchVolume": 20,
+          "documentCount": 121,
+          "goldenRatio": 0.1652892561983471,
+          "source": "seed"
+        },
+        {
+          "keyword": "강아지 사료 추천 나이별",
+          "grade": "SSS",
+          "searchVolume": 20,
+          "documentCount": 644,
+          "goldenRatio": 0.031055900621118012,
+          "source": "seed"
+        },
+        {
+          "keyword": "펫 보험 비교 성분",
+          "grade": "A",
+          "searchVolume": 20,
+          "documentCount": 46,
+          "goldenRatio": 0.43478260869565216,
+          "source": "seed"
+        },
+        {
+          "keyword": "입문자 펫 보험 비교",
+          "grade": "A",
+          "searchVolume": 20,
+          "documentCount": 1,
+          "goldenRatio": 20,
+          "source": "seed"
+        },
+        {
+          "keyword": "초보자 펫 보험 비교",
+          "grade": "A",
+          "searchVolume": 20,
+          "documentCount": 32,
+          "goldenRatio": 0.625,
+          "source": "seed"
+        },
+        {
+          "keyword": "반려동물 등록 방법",
+          "grade": "B",
+          "searchVolume": 340,
+          "documentCount": 109016,
+          "goldenRatio": 0.0031188082483305205,
+          "source": "seed"
+        },
+        {
+          "keyword": "입문자 고양이 간식 성분",
+          "grade": "B",
+          "searchVolume": 20,
+          "documentCount": 67,
+          "goldenRatio": 0.29850746268656714,
+          "source": "seed"
+        },
+        {
+          "keyword": "학생 펫 보험 비교",
+          "grade": "B",
+          "searchVolume": 20,
+          "documentCount": 70,
+          "goldenRatio": 0.2857142857142857,
+          "source": "seed"
+        }
+      ],
+      "attempts": 1,
+      "durationMs": 84554
+    },
+    {
+      "success": false,
+      "category": "quotes",
+      "runIndex": 1,
+      "mode": "category",
+      "explosionMode": false,
+      "count": 10,
+      "summary": {
+        "totalFound": 0,
+        "sssCount": 0,
+        "ssCount": 0,
+        "sCount": 0,
+        "rookieFriendlyCount": 0,
+        "urgentCount": 0,
+        "blueOceanCount": 0
+      },
+      "keywords": [],
+      "attempts": 1,
+      "durationMs": 4979
+    },
+    {
+      "success": false,
+      "category": "fashion",
+      "runIndex": 1,
+      "mode": "category",
+      "explosionMode": false,
+      "count": 10,
+      "summary": {
+        "totalFound": 0,
+        "sssCount": 0,
+        "ssCount": 0,
+        "sCount": 0,
+        "rookieFriendlyCount": 0,
+        "urgentCount": 0,
+        "blueOceanCount": 0
+      },
+      "keywords": [],
+      "attempts": 1,
+      "durationMs": 4878
+    },
+    {
+      "success": true,
+      "category": "interior",
+      "runIndex": 1,
+      "mode": "category",
+      "explosionMode": false,
+      "count": 10,
+      "summary": {
+        "totalFound": 10,
+        "sssCount": 2,
+        "ssCount": 0,
+        "sCount": 0,
+        "rookieFriendlyCount": 9,
+        "urgentCount": 2,
+        "blueOceanCount": 0
+      },
+      "keywords": [
+        {
+          "keyword": "수납장 추천 좁은방 DIY",
+          "grade": "SSS",
+          "searchVolume": 20,
+          "documentCount": 200,
+          "goldenRatio": 0.1,
+          "source": "seed"
+        },
+        {
+          "keyword": "수납장 추천 좁은방 꿀팁",
+          "grade": "SSS",
+          "searchVolume": 20,
+          "documentCount": 288,
+          "goldenRatio": 0.06944444444444445,
+          "source": "seed"
+        },
+        {
+          "keyword": "수납장 추천 좁은방 2025",
+          "grade": "A",
+          "searchVolume": 20,
+          "documentCount": 57,
+          "goldenRatio": 0.3508771929824561,
+          "source": "seed"
+        },
+        {
+          "keyword": "입문자 수납장 추천 좁은방",
+          "grade": "A",
+          "searchVolume": 20,
+          "documentCount": 10,
+          "goldenRatio": 2,
+          "source": "seed"
+        },
+        {
+          "keyword": "입문자 원룸 인테리어 꿀팁",
+          "grade": "A",
+          "searchVolume": 20,
+          "documentCount": 50,
+          "goldenRatio": 0.4,
+          "source": "seed"
+        },
+        {
+          "keyword": "입문자 시스템행거 설치",
+          "grade": "A",
+          "searchVolume": 20,
+          "documentCount": 29,
+          "goldenRatio": 0.6896551724137931,
+          "source": "seed"
+        },
+        {
+          "keyword": "수납장 추천 좁은방 가성비",
+          "grade": "A",
+          "searchVolume": 20,
+          "documentCount": 33,
+          "goldenRatio": 0.6060606060606061,
+          "source": "seed"
+        },
+        {
+          "keyword": "2025 수납장 추천 좁은방",
+          "grade": "A",
+          "searchVolume": 20,
+          "documentCount": 57,
+          "goldenRatio": 0.3508771929824561,
+          "source": "seed"
+        },
+        {
+          "keyword": "시스템행거 설치",
+          "grade": "B",
+          "searchVolume": 540,
+          "documentCount": 114727,
+          "goldenRatio": 0.0047068257689994505,
+          "source": "seed"
+        },
+        {
+          "keyword": "직장인 수납장 추천 좁은방",
+          "grade": "B",
+          "searchVolume": 20,
+          "documentCount": 98,
+          "goldenRatio": 0.20408163265306123,
+          "source": "seed"
+        }
+      ],
+      "attempts": 1,
+      "durationMs": 85401
+    },
+    {
+      "success": true,
+      "category": "recipe",
+      "runIndex": 1,
+      "mode": "category",
+      "explosionMode": false,
+      "count": 10,
+      "summary": {
+        "totalFound": 10,
+        "sssCount": 1,
+        "ssCount": 2,
+        "sCount": 0,
+        "rookieFriendlyCount": 9,
+        "urgentCount": 4,
+        "blueOceanCount": 0
+      },
+      "keywords": [
+        {
+          "keyword": "2025 자취 요리 레시피",
+          "grade": "SS",
+          "searchVolume": 20,
+          "documentCount": 132,
+          "goldenRatio": 0.15151515151515152,
+          "source": "seed"
+        },
+        {
+          "keyword": "자취 요리 레시피 비교",
+          "grade": "SSS",
+          "searchVolume": 20,
+          "documentCount": 504,
+          "goldenRatio": 0.03968253968253968,
+          "source": "seed"
+        },
+        {
+          "keyword": "자취 요리 레시피 2025",
+          "grade": "SS",
+          "searchVolume": 20,
+          "documentCount": 132,
+          "goldenRatio": 0.15151515151515152,
+          "source": "seed"
+        },
+        {
+          "keyword": "간단 요리 만들기 2025",
+          "grade": "A",
+          "searchVolume": 20,
+          "documentCount": 66,
+          "goldenRatio": 0.30303030303030304,
+          "source": "seed"
+        },
+        {
+          "keyword": "입문자 자취 요리 레시피",
+          "grade": "A",
+          "searchVolume": 20,
+          "documentCount": 21,
+          "goldenRatio": 0.9523809523809523,
+          "source": "seed"
+        },
+        {
+          "keyword": "입문자 에어프라이어 레시피",
+          "grade": "A",
+          "searchVolume": 20,
+          "documentCount": 449,
+          "goldenRatio": 0.044543429844097995,
+          "source": "seed"
+        },
+        {
+          "keyword": "2025 간단 요리 만들기",
+          "grade": "A",
+          "searchVolume": 20,
+          "documentCount": 66,
+          "goldenRatio": 0.30303030303030304,
+          "source": "seed"
+        },
+        {
+          "keyword": "간단 요리 만들기 비교",
+          "grade": "B",
+          "searchVolume": 20,
+          "documentCount": 67,
+          "goldenRatio": 0.29850746268656714,
+          "source": "seed"
+        },
+        {
+          "keyword": "입문자 다이어트 레시피",
+          "grade": "B",
+          "searchVolume": 20,
+          "documentCount": 132,
+          "goldenRatio": 0.15151515151515152,
+          "source": "seed"
+        },
+        {
+          "keyword": "자취 요리 레시피",
+          "grade": "B",
+          "searchVolume": 110,
+          "documentCount": 20087,
+          "goldenRatio": 0.005476178622989994,
+          "source": "seed"
+        }
+      ],
+      "attempts": 1,
+      "durationMs": 77635
+    },
+    {
+      "success": true,
+      "category": "review",
+      "runIndex": 1,
+      "mode": "category",
+      "explosionMode": false,
+      "count": 10,
+      "summary": {
+        "totalFound": 10,
+        "sssCount": 0,
+        "ssCount": 0,
+        "sCount": 2,
+        "rookieFriendlyCount": 2,
+        "urgentCount": 3,
+        "blueOceanCount": 0
+      },
+      "keywords": [
+        {
+          "keyword": "2025 실사용 후기",
+          "grade": "S",
+          "searchVolume": 20,
+          "documentCount": 25980,
+          "goldenRatio": 0.0007698229407236335,
+          "source": "seed"
+        },
+        {
+          "keyword": "실사용 후기 2025",
+          "grade": "S",
+          "searchVolume": 20,
+          "documentCount": 25980,
+          "goldenRatio": 0.0007698229407236335,
+          "source": "seed"
+        },
+        {
+          "keyword": "가전 추천 2025",
+          "grade": "A",
+          "searchVolume": 20,
+          "documentCount": 65942,
+          "goldenRatio": 0.0003032968366139941,
+          "source": "seed"
+        },
+        {
+          "keyword": "실사용 후기 장단점",
+          "grade": "A",
+          "searchVolume": 20,
+          "documentCount": 36530,
+          "goldenRatio": 0.0005474952094169176,
+          "source": "seed"
+        },
+        {
+          "keyword": "가성비 추천 장단점",
+          "grade": "A",
+          "searchVolume": 20,
+          "documentCount": 6,
+          "goldenRatio": 3.3333333333333335,
+          "source": "seed"
+        },
+        {
+          "keyword": "언박싱 후기 장단점",
+          "grade": "A",
+          "searchVolume": 20,
+          "documentCount": 16554,
+          "goldenRatio": 0.0012081672103419112,
+          "source": "seed"
+        },
+        {
+          "keyword": "입문자 가전 추천",
+          "grade": "A",
+          "searchVolume": 20,
+          "documentCount": 3869,
+          "goldenRatio": 0.0051692943913155855,
+          "source": "seed"
+        },
+        {
+          "keyword": "초보자 가전 추천",
+          "grade": "A",
+          "searchVolume": 20,
+          "documentCount": 42064,
+          "goldenRatio": 0.00047546595663750473,
+          "source": "seed"
+        },
+        {
+          "keyword": "언박싱 후기 비교",
+          "grade": "B",
+          "searchVolume": 20,
+          "documentCount": 114717,
+          "goldenRatio": 0.00017434207658847424,
+          "source": "seed"
+        },
+        {
+          "keyword": "가전 추천 장단점",
+          "grade": "B",
+          "searchVolume": 20,
+          "documentCount": 70870,
+          "goldenRatio": 0.00028220685762664035,
+          "source": "seed"
+        }
+      ],
+      "attempts": 1,
+      "durationMs": 72839
+    },
+    {
+      "success": false,
+      "category": "garden",
+      "runIndex": 1,
+      "mode": "category",
+      "explosionMode": false,
+      "count": 10,
+      "summary": {
+        "totalFound": 0,
+        "sssCount": 0,
+        "ssCount": 0,
+        "sCount": 0,
+        "rookieFriendlyCount": 0,
+        "urgentCount": 0,
+        "blueOceanCount": 0
+      },
+      "keywords": [],
+      "attempts": 1,
+      "durationMs": 7510
+    },
+    {
+      "success": false,
+      "category": "game",
+      "runIndex": 1,
+      "mode": "category",
+      "explosionMode": false,
+      "count": 10,
+      "summary": {
+        "totalFound": 0,
+        "sssCount": 0,
+        "ssCount": 0,
+        "sCount": 0,
+        "rookieFriendlyCount": 0,
+        "urgentCount": 0,
+        "blueOceanCount": 0
+      },
+      "keywords": [],
+      "attempts": 1,
+      "durationMs": 7158
+    },
+    {
+      "success": true,
+      "category": "sports",
+      "runIndex": 1,
+      "mode": "category",
+      "explosionMode": false,
+      "count": 10,
+      "summary": {
+        "totalFound": 10,
+        "sssCount": 0,
+        "ssCount": 1,
+        "sCount": 2,
+        "rookieFriendlyCount": 5,
+        "urgentCount": 3,
+        "blueOceanCount": 0
+      },
+      "keywords": [
+        {
+          "keyword": "헬스 장갑 추천 2025",
+          "grade": "S",
+          "searchVolume": 20,
+          "documentCount": 778,
+          "goldenRatio": 0.02570694087403599,
+          "source": "seed"
+        },
+        {
+          "keyword": "2025 홈트 기구 추천",
+          "grade": "SS",
+          "searchVolume": 20,
+          "documentCount": 1593,
+          "goldenRatio": 0.012554927809165096,
+          "source": "seed"
+        },
+        {
+          "keyword": "2025 헬스 장갑 추천",
+          "grade": "S",
+          "searchVolume": 20,
+          "documentCount": 778,
+          "goldenRatio": 0.02570694087403599,
+          "source": "seed"
+        },
+        {
+          "keyword": "헬스 장갑 추천 순위",
+          "grade": "A",
+          "searchVolume": 20,
+          "documentCount": 1051,
+          "goldenRatio": 0.019029495718363463,
+          "source": "seed"
+        },
+        {
+          "keyword": "홈트 기구 추천 후기",
+          "grade": "A",
+          "searchVolume": 20,
+          "documentCount": 26211,
+          "goldenRatio": 0.0007630384189843959,
+          "source": "seed"
+        },
+        {
+          "keyword": "러닝화 추천 후기",
+          "grade": "A",
+          "searchVolume": 20,
+          "documentCount": 43103,
+          "goldenRatio": 0.00046400482565018674,
+          "source": "seed"
+        },
+        {
+          "keyword": "초보자 러닝화 추천",
+          "grade": "B",
+          "searchVolume": 140,
+          "documentCount": 10008,
+          "goldenRatio": 0.013988808952837729,
+          "source": "seed"
+        },
+        {
+          "keyword": "헬스 장갑 추천 후기",
+          "grade": "B",
+          "searchVolume": 20,
+          "documentCount": 6714,
+          "goldenRatio": 0.002978850163836759,
+          "source": "seed"
+        },
+        {
+          "keyword": "요가매트 추천 후기",
+          "grade": "B",
+          "searchVolume": 20,
+          "documentCount": 59751,
+          "goldenRatio": 0.00033472243142374186,
+          "source": "seed"
+        },
+        {
+          "keyword": "헬스 장갑 추천",
+          "grade": "B",
+          "searchVolume": 390,
+          "documentCount": 21579,
+          "goldenRatio": 0.01807312665091061,
+          "source": "seed"
+        }
+      ],
+      "attempts": 1,
+      "durationMs": 83713
+    },
+    {
+      "success": false,
+      "category": "photo",
+      "runIndex": 1,
+      "mode": "category",
+      "explosionMode": false,
+      "count": 10,
+      "summary": {
+        "totalFound": 0,
+        "sssCount": 0,
+        "ssCount": 0,
+        "sCount": 0,
+        "rookieFriendlyCount": 0,
+        "urgentCount": 0,
+        "blueOceanCount": 0
+      },
+      "keywords": [],
+      "attempts": 1,
+      "durationMs": 4696
+    },
+    {
+      "success": false,
+      "category": "car",
+      "runIndex": 1,
+      "mode": "category",
+      "explosionMode": false,
+      "count": 10,
+      "summary": {
+        "totalFound": 0,
+        "sssCount": 0,
+        "ssCount": 0,
+        "sCount": 0,
+        "rookieFriendlyCount": 0,
+        "urgentCount": 0,
+        "blueOceanCount": 0
+      },
+      "keywords": [],
+      "attempts": 1,
+      "durationMs": 4701
+    },
+    {
+      "success": false,
+      "category": "hobby",
+      "runIndex": 1,
+      "mode": "category",
+      "explosionMode": false,
+      "count": 10,
+      "summary": {
+        "totalFound": 0,
+        "sssCount": 0,
+        "ssCount": 0,
+        "sCount": 0,
+        "rookieFriendlyCount": 0,
+        "urgentCount": 0,
+        "blueOceanCount": 0
+      },
+      "keywords": [],
+      "attempts": 1,
+      "durationMs": 4629
+    },
+    {
+      "success": false,
+      "category": "travel_domestic",
+      "runIndex": 1,
+      "mode": "category",
+      "explosionMode": false,
+      "count": 10,
+      "summary": {
+        "totalFound": 0,
+        "sssCount": 0,
+        "ssCount": 0,
+        "sCount": 0,
+        "rookieFriendlyCount": 0,
+        "urgentCount": 0,
+        "blueOceanCount": 0
+      },
+      "keywords": [],
+      "attempts": 1,
+      "durationMs": 6800
+    },
+    {
+      "success": false,
+      "category": "travel_overseas",
+      "runIndex": 1,
+      "mode": "category",
+      "explosionMode": false,
+      "count": 10,
+      "summary": {
+        "totalFound": 0,
+        "sssCount": 0,
+        "ssCount": 0,
+        "sCount": 0,
+        "rookieFriendlyCount": 0,
+        "urgentCount": 0,
+        "blueOceanCount": 0
+      },
+      "keywords": [],
+      "attempts": 1,
+      "durationMs": 5085
+    },
+    {
+      "success": true,
+      "category": "food",
+      "runIndex": 1,
+      "mode": "category",
+      "explosionMode": false,
+      "count": 10,
+      "summary": {
+        "totalFound": 1,
+        "sssCount": 0,
+        "ssCount": 0,
+        "sCount": 0,
+        "rookieFriendlyCount": 0,
+        "urgentCount": 0,
+        "blueOceanCount": 0
+      },
+      "keywords": [
+        {
+          "keyword": "차이나타운 맛집",
+          "grade": "B",
+          "searchVolume": 12750,
+          "documentCount": 230003,
+          "goldenRatio": 0.05543405955574492,
+          "source": "차이"
+        }
+      ],
+      "attempts": 1,
+      "durationMs": 9102
+    },
+    {
+      "success": true,
+      "category": "it",
+      "runIndex": 1,
+      "mode": "category",
+      "explosionMode": false,
+      "count": 10,
+      "summary": {
+        "totalFound": 10,
+        "sssCount": 1,
+        "ssCount": 0,
+        "sCount": 0,
+        "rookieFriendlyCount": 7,
+        "urgentCount": 0,
+        "blueOceanCount": 1
+      },
+      "keywords": [
+        {
+          "keyword": "기계식 키보드 축 차이",
+          "grade": "SSS",
+          "searchVolume": 90,
+          "documentCount": 11,
+          "goldenRatio": 8.181818181818182,
+          "source": "기계식 키보드 축"
+        },
+        {
+          "keyword": "외장 ssd 추천 디시",
+          "grade": "A",
+          "searchVolume": 20,
+          "documentCount": 1,
+          "goldenRatio": 20,
+          "source": "외장 SSD 추천"
+        },
+        {
+          "keyword": "기계식 키보드 축 순위",
+          "grade": "A",
+          "searchVolume": 20,
+          "documentCount": 5,
+          "goldenRatio": 4,
+          "source": "seed"
+        },
+        {
+          "keyword": "입문자 모니터 추천 용도별",
+          "grade": "A",
+          "searchVolume": 20,
+          "documentCount": 53,
+          "goldenRatio": 0.37735849056603776,
+          "source": "seed"
+        },
+        {
+          "keyword": "기계식 키보드 축 리뷰",
+          "grade": "A",
+          "searchVolume": 20,
+          "documentCount": 53,
+          "goldenRatio": 0.37735849056603776,
+          "source": "seed"
+        },
+        {
+          "keyword": "기계식 키보드 축 변경",
+          "grade": "A",
+          "searchVolume": 20,
+          "documentCount": 22,
+          "goldenRatio": 0.9090909090909091,
+          "source": "기계식 키보드 축"
+        },
+        {
+          "keyword": "외장 SSD 추천",
+          "grade": "B",
+          "searchVolume": 290,
+          "documentCount": 81013,
+          "goldenRatio": 0.00357967239825707,
+          "source": "seed"
+        },
+        {
+          "keyword": "외장 ssd 추천",
+          "grade": "B",
+          "searchVolume": 290,
+          "documentCount": 81013,
+          "goldenRatio": 0.00357967239825707,
+          "source": "외장 SSD 추천"
+        },
+        {
+          "keyword": "무선 이어폰 비교",
+          "grade": "B",
+          "searchVolume": 80,
+          "documentCount": 101161,
+          "goldenRatio": 0.0007908185960992873,
+          "source": "seed"
+        },
+        {
+          "keyword": "기계식 키보드 축 추천",
+          "grade": "B",
+          "searchVolume": 20,
+          "documentCount": 93,
+          "goldenRatio": 0.21505376344086022,
+          "source": "기계식 키보드 축"
+        }
+      ],
+      "attempts": 1,
+      "durationMs": 68364
+    },
+    {
+      "success": false,
+      "category": "society",
+      "runIndex": 1,
+      "mode": "category",
+      "explosionMode": false,
+      "count": 10,
+      "summary": {
+        "totalFound": 0,
+        "sssCount": 0,
+        "ssCount": 0,
+        "sCount": 0,
+        "rookieFriendlyCount": 0,
+        "urgentCount": 0,
+        "blueOceanCount": 0
+      },
+      "keywords": [],
+      "attempts": 1,
+      "durationMs": 13947
+    },
+    {
+      "success": true,
+      "category": "health",
+      "runIndex": 1,
+      "mode": "category",
+      "explosionMode": false,
+      "count": 10,
+      "summary": {
+        "totalFound": 5,
+        "sssCount": 0,
+        "ssCount": 0,
+        "sCount": 0,
+        "rookieFriendlyCount": 0,
+        "urgentCount": 0,
+        "blueOceanCount": 0
+      },
+      "keywords": [
+        {
+          "keyword": "비타민D3 K2 함께 차이",
+          "grade": "A",
+          "searchVolume": 20,
+          "documentCount": 17060,
+          "goldenRatio": 0.0011723329425556857,
+          "source": "seed"
+        },
+        {
+          "keyword": "비타민D3 K2 함께 부작용",
+          "grade": "B",
+          "searchVolume": 20,
+          "documentCount": 21765,
+          "goldenRatio": 0.0009189065012634965,
+          "source": "seed"
+        },
+        {
+          "keyword": "비타민D3 K2 함께 효능",
+          "grade": "B",
+          "searchVolume": 20,
+          "documentCount": 28834,
+          "goldenRatio": 0.000693625580911424,
+          "source": "seed"
+        },
+        {
+          "keyword": "비타민D3 K2 함께 복용법",
+          "grade": "B",
+          "searchVolume": 20,
+          "documentCount": 9889,
+          "goldenRatio": 0.0020224491859642028,
+          "source": "seed"
+        },
+        {
+          "keyword": "비타민D3 K2 함께",
+          "grade": "B",
+          "searchVolume": 20,
+          "documentCount": 6608,
+          "goldenRatio": 0.003026634382566586,
+          "source": "seed"
+        }
+      ],
+      "attempts": 1,
+      "durationMs": 20731
+    },
+    {
+      "success": true,
+      "category": "business",
+      "runIndex": 1,
+      "mode": "category",
+      "explosionMode": false,
+      "count": 10,
+      "summary": {
+        "totalFound": 10,
+        "sssCount": 0,
+        "ssCount": 2,
+        "sCount": 0,
+        "rookieFriendlyCount": 3,
+        "urgentCount": 10,
+        "blueOceanCount": 0
+      },
+      "keywords": [
+        {
+          "keyword": "연말정산 환급금 조회 신청",
+          "grade": "SS",
+          "searchVolume": 20,
+          "documentCount": 18875,
+          "goldenRatio": 0.0010596026490066225,
+          "source": "seed"
+        },
+        {
+          "keyword": "초보자 연말정산 환급금 조회",
+          "grade": "SS",
+          "searchVolume": 20,
+          "documentCount": 620,
+          "goldenRatio": 0.03225806451612903,
+          "source": "seed"
+        },
+        {
+          "keyword": "연말정산 환급금 조회",
+          "grade": "A",
+          "searchVolume": 24630,
+          "documentCount": 35753,
+          "goldenRatio": 0.6888932397281347,
+          "source": "category_fallback"
+        },
+        {
+          "keyword": "입문자 연말정산 환급금 조회",
+          "grade": "A",
+          "searchVolume": 20,
+          "documentCount": 25,
+          "goldenRatio": 0.8,
+          "source": "seed"
+        },
+        {
+          "keyword": "입문자 연말정산 간소화",
+          "grade": "A",
+          "searchVolume": 20,
+          "documentCount": 44,
+          "goldenRatio": 0.45454545454545453,
+          "source": "seed"
+        },
+        {
+          "keyword": "연말정산 간소화 신청",
+          "grade": "B",
+          "searchVolume": 310,
+          "documentCount": 44575,
+          "goldenRatio": 0.006954570947840718,
+          "source": "seed"
+        },
+        {
+          "keyword": "연말정산 환급금 조회 방법",
+          "grade": "B",
+          "searchVolume": 170,
+          "documentCount": 27124,
+          "goldenRatio": 0.006267512166347146,
+          "source": "seed"
+        },
+        {
+          "keyword": "연말정산 간소화 기간",
+          "grade": "B",
+          "searchVolume": 1810,
+          "documentCount": 38762,
+          "goldenRatio": 0.046695216965068884,
+          "source": "seed"
+        },
+        {
+          "keyword": "연말정산 간소화",
+          "grade": "B",
+          "searchVolume": 13460,
+          "documentCount": 102822,
+          "goldenRatio": 0.1309058372721791,
+          "source": "seed"
+        },
+        {
+          "keyword": "2025 연말정산 간소화",
+          "grade": "B",
+          "searchVolume": 380,
+          "documentCount": 12991,
+          "goldenRatio": 0.02925101993687938,
+          "source": "seed"
+        }
+      ],
+      "attempts": 1,
+      "durationMs": 51959
+    },
+    {
+      "success": false,
+      "category": "language",
+      "runIndex": 1,
+      "mode": "category",
+      "explosionMode": false,
+      "count": 10,
+      "summary": {
+        "totalFound": 0,
+        "sssCount": 0,
+        "ssCount": 0,
+        "sCount": 0,
+        "rookieFriendlyCount": 0,
+        "urgentCount": 0,
+        "blueOceanCount": 0
+      },
+      "keywords": [],
+      "attempts": 1,
+      "durationMs": 6806
+    },
+    {
+      "success": true,
+      "category": "education",
+      "runIndex": 1,
+      "mode": "category",
+      "explosionMode": false,
+      "count": 10,
+      "summary": {
+        "totalFound": 10,
+        "sssCount": 0,
+        "ssCount": 0,
+        "sCount": 0,
+        "rookieFriendlyCount": 9,
+        "urgentCount": 2,
+        "blueOceanCount": 0
+      },
+      "keywords": [
+        {
+          "keyword": "2025 정보처리기사 합격률",
+          "grade": "A",
+          "searchVolume": 40,
+          "documentCount": 1092,
+          "goldenRatio": 0.03663003663003663,
+          "source": "seed"
+        },
+        {
+          "keyword": "입문자 정보처리기사 합격률",
+          "grade": "A",
+          "searchVolume": 20,
+          "documentCount": 185,
+          "goldenRatio": 0.10810810810810811,
+          "source": "seed"
+        },
+        {
+          "keyword": "초보자 정보처리기사 합격률",
+          "grade": "A",
+          "searchVolume": 20,
+          "documentCount": 340,
+          "goldenRatio": 0.058823529411764705,
+          "source": "seed"
+        },
+        {
+          "keyword": "정보처리기사 합격률 공부법",
+          "grade": "A",
+          "searchVolume": 20,
+          "documentCount": 870,
+          "goldenRatio": 0.022988505747126436,
+          "source": "seed"
+        },
+        {
+          "keyword": "직장인 정보처리기사 합격률",
+          "grade": "A",
+          "searchVolume": 20,
+          "documentCount": 816,
+          "goldenRatio": 0.024509803921568627,
+          "source": "seed"
+        },
+        {
+          "keyword": "학생 정보처리기사 합격률",
+          "grade": "B",
+          "searchVolume": 20,
+          "documentCount": 1396,
+          "goldenRatio": 0.014326647564469915,
+          "source": "seed"
+        },
+        {
+          "keyword": "공인중개사 난이도 공부법",
+          "grade": "B",
+          "searchVolume": 20,
+          "documentCount": 2408,
+          "goldenRatio": 0.008305647840531562,
+          "source": "seed"
+        },
+        {
+          "keyword": "정보처리기사 합격률 독학",
+          "grade": "B",
+          "searchVolume": 20,
+          "documentCount": 2100,
+          "goldenRatio": 0.009523809523809525,
+          "source": "seed"
+        },
+        {
+          "keyword": "정보처리기사 합격률 2025",
+          "grade": "B",
+          "searchVolume": 180,
+          "documentCount": 1093,
+          "goldenRatio": 0.16468435498627632,
+          "source": "seed"
+        },
+        {
+          "keyword": "정보처리기사 합격률",
+          "grade": "B",
+          "searchVolume": 2460,
+          "documentCount": 9371,
+          "goldenRatio": 0.2625120051221855,
+          "source": "seed"
+        }
+      ],
+      "attempts": 1,
+      "durationMs": 31810
+    },
+    {
+      "success": false,
+      "category": "realestate",
+      "runIndex": 1,
+      "mode": "category",
+      "explosionMode": false,
+      "count": 10,
+      "summary": {
+        "totalFound": 0,
+        "sssCount": 0,
+        "ssCount": 0,
+        "sCount": 0,
+        "rookieFriendlyCount": 0,
+        "urgentCount": 0,
+        "blueOceanCount": 0
+      },
+      "keywords": [],
+      "attempts": 1,
+      "durationMs": 15015
+    },
+    {
+      "success": false,
+      "category": "self_development",
+      "runIndex": 1,
+      "mode": "category",
+      "explosionMode": false,
+      "count": 10,
+      "summary": {
+        "totalFound": 0,
+        "sssCount": 0,
+        "ssCount": 0,
+        "sCount": 0,
+        "rookieFriendlyCount": 0,
+        "urgentCount": 0,
+        "blueOceanCount": 0
+      },
+      "keywords": [],
+      "attempts": 1,
+      "durationMs": 20346
+    }
+  ]
+}

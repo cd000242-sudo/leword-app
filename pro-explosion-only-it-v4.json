@@ -1,0 +1,20 @@
+{
+  "generatedAt": "2025-12-24T02:46:00.724Z",
+  "mode": "category",
+  "explosionMode": true,
+  "count": 10,
+  "timeoutMs": 120000,
+  "retries": 0,
+  "results": [
+    {
+      "success": false,
+      "category": "it",
+      "mode": "category",
+      "explosionMode": true,
+      "count": 10,
+      "error": "empty output",
+      "attempts": 1,
+      "durationMs": 8750
+    }
+  ]
+}

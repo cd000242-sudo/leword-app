@@ -1,0 +1,32 @@
+{
+  "results": [
+    {
+      "iteration": 1,
+      "timestamp": "2025-12-31T23:15:51.567Z",
+      "keywords": [
+        {
+          "keyword": "제니",
+          "grade": "A",
+          "searchVolume": 170200,
+          "documentCount": 986560,
+          "goldenRatio": 0.17251865066493674,
+          "highlightReason": "✅ 언제든/안정 | 폭발 15 | 구매의도 30 | 월 46,020원⚠️ | 경쟁도 10"
+        }
+      ],
+      "stats": {
+        "sssCount": 0,
+        "ssCount": 0,
+        "sCount": 0,
+        "avgGoldenRatio": 0.17,
+        "maxGoldenRatio": 0.17
+      }
+    }
+  ],
+  "summary": {
+    "totalSss": 0,
+    "totalKeywords": 10,
+    "sssRate": 0,
+    "allSssKeywords": [],
+    "score": 0
+  }
+}

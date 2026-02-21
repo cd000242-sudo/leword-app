@@ -1,0 +1,4549 @@
+{
+  "generatedAt": "2025-12-24T10:51:29.765Z",
+  "mode": "category",
+  "explosionMode": true,
+  "count": 10,
+  "timeoutMs": 420000,
+  "retries": 0,
+  "results": [
+    {
+      "success": true,
+      "category": "life_tips",
+      "mode": "category",
+      "explosionMode": true,
+      "count": 10,
+      "summary": {
+        "totalFound": 9,
+        "sssCount": 1,
+        "ssCount": 1,
+        "sCount": 0,
+        "rookieFriendlyCount": 0,
+        "urgentCount": 0,
+        "blueOceanCount": 1,
+        "explosionFunnel": {
+          "candidates": 60,
+          "verified": 60,
+          "gradeOk": 12,
+          "ratioOk": 14,
+          "docOk": 42,
+          "svOk": 27,
+          "strictOk": 9,
+          "minSv": 500,
+          "internalMetrics": {
+            "seedCount": 98,
+            "allKeywordsCount": 335,
+            "profitableCount": 94,
+            "uniqueKeywordsCount": 94,
+            "sortedResultsCount": 94,
+            "verifiedResultsCount": 31,
+            "searchAdEnabled": true,
+            "searchAdAdded": 242,
+            "autocompleteAdded": 0
+          },
+          "topByExplosion": [
+            "유지아우가르텐주방용품접기 | grade=A gr=20 sv=20 dc=1 src=쇼핑(25) ex=78",
+            "입문자 가스비 절약 꿀팁 | grade=A gr=4 sv=20 dc=5 src=seed(0) ex=40",
+            "데이코냉장고 | grade=SSS gr=2.0695807314897414 sv=2320 dc=1121 src=냉장고(0) ex=65",
+            "냉장고500리터 | grade=SS gr=1.226962237401727 sv=9520 dc=7759 src=냉장고(0) ex=65",
+            "냉장고200리터 | grade=A gr=0.4897238278741169 sv=3050 dc=6228 src=냉장고(0) ex=65"
+          ]
+        }
+      },
+      "keywords": [
+        {
+          "keyword": "데이코냉장고",
+          "searchVolume": 2320,
+          "documentCount": 1121,
+          "goldenRatio": 2.0695807314897414,
+          "rookieFriendly": {
+            "score": 60,
+            "grade": "B",
+            "reason": "문서수 5,000개 미만 → 경쟁 낮음 | 숏테일 키워드 → 대형 블로그와 경쟁",
+            "canRankWithin": "1~2주 내 가능",
+            "requiredBlogIndex": "준최 5 이상 권장"
+          },
+          "timing": {
+            "score": 50,
+            "urgency": "ANYTIME",
+            "bestPublishTime": "오전 6~8시 또는 저녁 8~10시",
+            "trendDirection": "stable",
+            "peakPrediction": "꾸준한 검색량 유지"
+          },
+          "blueOcean": {
+            "score": 71,
+            "competitorStrength": "weak",
+            "avgCompetitorBlogAge": "1~2년 (약한 경쟁)",
+            "oldPostRatio": 70,
+            "opportunity": "🔥 극상의 블루오션! 지금 선점하세요"
+          },
+          "trafficEstimate": {
+            "daily": "3~7명",
+            "weekly": "21~49명",
+            "monthly": "90~210명",
+            "confidence": 50,
+            "disclaimer": "📌 트래픽은 순위/CTR/계절성에 따라 달라질 수 있는 추정치입니다."
+          },
+          "revenueEstimate": {
+            "dailyRevenue": "81원 ⚠️추정",
+            "monthlyRevenue": "2,430원 ⚠️추정",
+            "estimatedCPC": 180,
+            "estimatedRPM": 4500,
+            "adType": "애드센스",
+            "revenueGrade": "B",
+            "revenueReason": "📌 보통. 롱테일 확장 추천"
+          },
+          "entryAnalysis": {
+            "canEntry": true,
+            "difficulty": "easy",
+            "difficultyScore": 21,
+            "message": "🟢 진입 쉬움 - 신생 블로거도 상위노출 가능!",
+            "topCompetitorStrength": "약함 (저품질 블로그 다수)",
+            "recommendedBlogIndex": "지수 무관 (신생도 OK)",
+            "estimatedRankingTime": "1~3일 내 가능"
+          },
+          "totalScore": 116,
+          "grade": "SSS",
+          "proStrategy": {
+            "title": "2025 데이코냉장고 완벽 정리 | 초보자도 쉽게 이해하는 가이드",
+            "outline": [
+              "1. 데이코냉장고란? (기본 개념)",
+              "2. 데이코냉장고 핵심 포인트 3가지",
+              "3. 데이코냉장고 장단점 비교",
+              "4. 데이코냉장고 실제 후기/경험담",
+              "5. 데이코냉장고 Q&A (자주 묻는 질문)",
+              "6. 결론 및 추천"
+            ],
+            "wordCount": 2500,
+            "mustInclude": [
+              "핵심 키워드 2~3회 자연스럽게 삽입",
+              "실제 이미지/사진 3장 이상",
+              "표 또는 비교 차트 1개 이상",
+              "자주 묻는 질문(FAQ) 섹션",
+              "결론 및 추천 섹션"
+            ],
+            "avoidTopics": [
+              "과장된 표현 (100%, 무조건, 반드시)",
+              "허위 정보나 검증되지 않은 내용",
+              "다른 블로그 복사/붙여넣기",
+              "광고성 링크 과다 삽입"
+            ],
+            "monetization": "애드센스 + 쿠팡파트너스 조합 추천"
+          },
+          "platformTitles": {
+            "naver": {
+              "title": "핵심 정리: 데이코냉장고 2025 최신 가이드 (월 2,320)",
+              "alternatives": [
+                "데이코냉장고 2025 완벽 정리: 핵심만 5분 요약",
+                "데이코냉장고 초보도 쉽게: 실패 없는 체크리스트"
+              ],
+              "subKeywords": [
+                "데이코냉장고 방법",
+                "데이코냉장고 추천",
+                "데이코냉장고 후기"
+              ],
+              "tags": [
+                "데이코냉장고",
+                "💎 블루오션"
+              ],
+              "tip": "서두 100자 내에 키워드를 2회 노출하고, 결론 요약을 맨 위에 한 번 더 넣으세요.",
+              "hookPoint": "핵심 정리 포인트를 제목/썸네일에 강조"
+            },
+            "tistory": {
+              "title": "데이코냉장고 2025 정리: 한 번에 이해하는 핵심 포인트 (월 2,320)",
+              "alternatives": [
+                "데이코냉장고 제대로 하는 법 (체크리스트 포함)",
+                "데이코냉장고 추천/비교: 선택 기준 3가지"
+              ],
+              "subKeywords": [
+                "데이코냉장고 방법",
+                "데이코냉장고 추천",
+                "데이코냉장고 후기"
+              ],
+              "tags": [
+                "데이코냉장고",
+                "💎 블루오션"
+              ],
+              "tip": "표/리스트를 많이 써서 스크롤 체류시간을 늘리세요.",
+              "hookPoint": "“핵심 3가지”처럼 숫자를 넣어 클릭률을 올리기"
+            },
+            "wordpress": {
+              "title": "데이코냉장고: 2025 Complete Guide (Checklist & Tips) (월 2,320)",
+              "alternatives": [
+                "데이코냉장고 Guide: Common Mistakes & Quick Fixes",
+                "데이코냉장고 Step-by-Step: What to Do First"
+              ],
+              "subKeywords": [
+                "데이코냉장고 방법",
+                "데이코냉장고 추천",
+                "데이코냉장고 후기"
+              ],
+              "tags": [
+                "데이코냉장고",
+                "💎 블루오션"
+              ],
+              "tip": "H2/H3로 구조를 만들고, FAQ 섹션을 넣어 SEO를 강화하세요.",
+              "hookPoint": "FAQ + 체크리스트 조합으로 체류시간/리치 증가"
+            },
+            "blogspot": {
+              "title": "데이코냉장고 2025: Quick Start + Best Practices (월 2,320)",
+              "alternatives": [
+                "데이코냉장고 Quick Guide: Do & Don't",
+                "데이코냉장고 Essentials: What You Need to Know"
+              ],
+              "subKeywords": [
+                "데이코냉장고 방법",
+                "데이코냉장고 추천",
+                "데이코냉장고 후기"
+              ],
+              "tags": [
+                "데이코냉장고",
+                "💎 블루오션"
+              ],
+              "tip": "이미지 2~3장 + 요약 박스를 넣어 가독성을 올리세요.",
+              "hookPoint": "첫 화면에 요약(결론)을 배치해 이탈률을 낮추기"
+            }
+          },
+          "expandedKeywords": {
+            "relatedGolden": [
+              "데이코냉장고 추천",
+              "데이코냉장고 비교",
+              "데이코냉장고 후기",
+              "데이코냉장고 가격"
+            ],
+            "longtailGolden": [
+              "데이코냉장고 초보",
+              "데이코냉장고 쉽게",
+              "데이코냉장고 단계별",
+              "데이코냉장고 정리"
+            ],
+            "blueOceanGolden": [
+              "데이코냉장고 최신",
+              "데이코냉장고 2025",
+              "데이코냉장고 체크리스트",
+              "데이코냉장고 실패하지 않는 법"
+            ]
+          },
+          "type": "💎 블루오션",
+          "category": "life_tips",
+          "safetyLevel": "safe",
+          "safetyReason": "✅ 안전한 키워드. 신생 블로거도 작성 가능",
+          "source": "냉장고",
+          "profitAnalysis": {
+            "keyword": "데이코냉장고",
+            "searchVolume": 2320,
+            "documentCount": 1121,
+            "estimatedCPC": 180,
+            "purchaseIntentScore": 30,
+            "competitionLevel": 4,
+            "freshnessOpportunity": 1,
+            "profitGoldenRatio": 4.96,
+            "estimatedDailyRevenue": 81,
+            "estimatedMonthlyRevenue": 2430,
+            "grade": "B",
+            "gradeReason": "📌 보통. 롱테일 확장 추천",
+            "isRealBlueOcean": false,
+            "blueOceanReason": "📗 잠재 블루오션. 상위노출 가능성 있음",
+            "strategy": {
+              "approach": "🔍 롱테일 확장 후 작성. \"초보자\", \"2025\", \"비교\" 등 붙여서 경쟁 낮추기",
+              "monetization": "📝 트래픽 확보 우선. 이후 관련 고수익 키워드로 내부링크",
+              "timing": "🗓️ 여유있게 준비. 롱테일 전략으로 접근",
+              "titleSuggestion": "데이코냉장고 완벽 가이드 | 초보자도 쉽게 따라하기"
+            }
+          },
+          "timestamp": "2025-12-24T10:50:46.725Z",
+          "isGolden": true,
+          "trendAnalysis": {
+            "trendingReason": "데이코, 美컨슈머리포트 빌트인 관련 최근 이슈",
+            "whyNow": "최근 5개 이상의 뉴스에서 다뤄지며 이슈화 진행 중 • 최신 이슈로 실시간 관심 집중 중 • \"데이코, 美컨슈머리포트 빌트인 4도어냉장고 평가 1∼5위\" 관련 최신 뉴스로 조기 진입 효과 기대",
+            "newsSource": "자동 분석"
+          },
+          "keywordGuide": {
+            "summary": "여유 있을 때 공략하면 좋은 키워드입니다. (등급: SSS, 점수: 116점)",
+            "whyItMovesNow": "데이코, 美컨슈머리포트 빌트인 관련 최근 이슈 최근 5개 이상의 뉴스에서 다뤄지며 이슈화 진행 중 • 최신 이슈로 실시간 관심 집중 중 • \"데이코, 美컨슈머리포트 빌트인 4도어냉장고 평가 1∼5위\" 관련 최신 뉴스로 조기 진입 효과 기대",
+            "immediateTrafficPlan": [
+              "제목 앞부분에 \"데이코냉장고\"를 배치하고, 2025/최신/정리 같은 보조 키워드를 1개만 추가하세요.",
+              "본문 서두 100자 안에 \"데이코냉장고\"를 자연스럽게 2회 노출하세요.",
+              "최소 1개는 비교/체크리스트/요약 섹션을 넣어 체류시간을 늘리세요."
+            ],
+            "naverHomeExposureTips": [
+              "첫 이미지에 키워드가 들어간 문구를 넣고, alt 텍스트도 키워드 포함",
+              "목차를 만들고 H2/H3에 서브 키워드 배치",
+              "태그는 5~10개로 과도한 반복을 피하고, 유사어를 섞기"
+            ]
+          },
+          "ultimateAnalysis": {
+            "timing": {
+              "seasonal": {
+                "peakMonths": [
+                  1,
+                  2,
+                  3,
+                  4,
+                  5,
+                  6,
+                  7,
+                  8,
+                  9,
+                  10,
+                  11,
+                  12
+                ],
+                "peakReason": "연중 꾸준한 검색량",
+                "currentSeasonScore": 70,
+                "nextPeakDate": "항상",
+                "daysUntilPeak": 0,
+                "recommendation": "📝 에버그린 키워드입니다. 언제든 작성해도 좋습니다.",
+                "seasonalPattern": "evergreen"
+              },
+              "trend": {
+                "trendDirection": "stable",
+                "changeRate": 21,
+                "comparedTo": "전월 대비",
+                "explosiveScore": 31,
+                "relatedNews": [],
+                "recommendation": "📊 안정적인 키워드입니다."
+              },
+              "alert": {
+                "optimalPublishDate": "0일 내",
+                "reason": "📝 에버그린 키워드입니다. 언제든 작성해도 좋습니다.",
+                "urgencyLevel": "⚡ 이번 주",
+                "expectedPeakDate": "항상",
+                "competitorActivity": "경쟁자 보통"
+              }
+            },
+            "revenue": {
+              "cpc": {
+                "estimatedCpc": 200,
+                "cpcRange": {
+                  "min": 100,
+                  "max": 400
+                },
+                "cpcTier": "🥈 중수익",
+                "industryAverage": 200,
+                "recommendation": "📝 일반적인 수익 구조입니다. 트래픽 확보에 집중하세요."
+              },
+              "affiliate": {
+                "recommendedPrograms": [
+                  {
+                    "name": "쿠팡파트너스",
+                    "type": "coupang",
+                    "commissionRate": "3~5%",
+                    "estimatedEarningPerClick": 50,
+                    "matchScore": 100
+                  },
+                  {
+                    "name": "네이버 쇼핑",
+                    "type": "naver",
+                    "commissionRate": "1~3%",
+                    "estimatedEarningPerClick": 30,
+                    "matchScore": 85
+                  }
+                ],
+                "bestMatch": "쿠팡파트너스",
+                "potentialProducts": [
+                  "데이코냉장고 추천",
+                  "데이코냉장고 순위",
+                  "데이코냉장고 비교",
+                  "데이코냉장고 후기",
+                  "데이코냉장고 가격",
+                  "데이코냉장고 구매"
+                ]
+              },
+              "projection": {
+                "estimatedDailyVisitors": 6,
+                "estimatedMonthlyVisitors": 180,
+                "adsenseRevenue": {
+                  "daily": 36,
+                  "monthly": 1080,
+                  "assumptions": "CPC 200원, CTR 2%, 페이지뷰율 1.5 가정"
+                },
+                "affiliateRevenue": {
+                  "daily": 1,
+                  "monthly": 30,
+                  "conversionRate": 3,
+                  "assumptions": "클릭률 10%, 전환율 3%, 평균 수수료 50원 가정"
+                },
+                "totalMonthlyRevenue": 1110,
+                "revenueBreakdown": "애드센스 97% + 제휴 3%",
+                "revenueTier": "📝 월 1만원+"
+              }
+            },
+            "content": {
+              "titles": {
+                "titles": [
+                  {
+                    "title": "데이코냉장고 추천 TOP 10 (2025년 최신)",
+                    "type": "number",
+                    "estimatedCTR": 8.5,
+                    "psychologyUsed": "숫자 + 최신 정보"
+                  },
+                  {
+                    "title": "데이코냉장고 하는 법, 초보자도 쉽게 따라하기",
+                    "type": "how-to",
+                    "estimatedCTR": 7.5,
+                    "psychologyUsed": "실용성 + 접근성"
+                  },
+                  {
+                    "title": "데이코냉장고, 이것만 알면 끝! 완벽 가이드",
+                    "type": "benefit",
+                    "estimatedCTR": 7.2,
+                    "psychologyUsed": "완결성 + 가치 제안"
+                  },
+                  {
+                    "title": "[2025년] 데이코냉장고 총정리 (+ 꿀팁 공개)",
+                    "type": "news",
+                    "estimatedCTR": 7,
+                    "psychologyUsed": "최신성 + 보너스 가치"
+                  },
+                  {
+                    "title": "아직도 데이코냉장고 몰라요? 지금 당장 확인하세요",
+                    "type": "curiosity",
+                    "estimatedCTR": 6.8,
+                    "psychologyUsed": "호기심 + 긴급성"
+                  },
+                  {
+                    "title": "데이코냉장고 실제 후기 (장단점 솔직 비교)",
+                    "type": "comparison",
+                    "estimatedCTR": 6.5,
+                    "psychologyUsed": "신뢰성 + 비교 심리"
+                  }
+                ],
+                "bestTitle": "데이코냉장고 추천 TOP 10 (2025년 최신)",
+                "titleFormula": "숫자 + 키워드 + 최신연도 + 가치제안"
+              },
+              "structure": {
+                "recommendedStructure": {
+                  "intro": {
+                    "purpose": "독자의 관심 끌기 + 키워드 자연스럽게 배치",
+                    "template": "\"데이코냉장고\"에 대해 고민하고 계신가요? 이 글에서 핵심 정보를 모두 정리해드립니다.",
+                    "keywordPlacement": "첫 문장에 키워드 포함"
+                  },
+                  "sections": [
+                    {
+                      "heading": "데이코냉장고란? (기본 개념)",
+                      "purpose": "기초 정보 제공",
+                      "contentGuide": "핵심 정의, 중요성, 왜 알아야 하는지 설명",
+                      "recommendedLength": 300,
+                      "keywordUsage": "소제목과 본문에 1~2회"
+                    },
+                    {
+                      "heading": "데이코냉장고 추천 BEST 5",
+                      "purpose": "실질적인 가치 제공 (핵심 섹션)",
+                      "contentGuide": "순위별 상세 설명, 장단점, 추천 이유",
+                      "recommendedLength": 800,
+                      "keywordUsage": "각 항목 설명에 자연스럽게 포함"
+                    },
+                    {
+                      "heading": "데이코냉장고 선택 시 주의사항",
+                      "purpose": "신뢰도 향상",
+                      "contentGuide": "흔한 실수, 피해야 할 것, 체크리스트",
+                      "recommendedLength": 400,
+                      "keywordUsage": "주의사항 설명에 1~2회"
+                    },
+                    {
+                      "heading": "자주 묻는 질문 (FAQ)",
+                      "purpose": "SEO 강화 + 체류시간 증가",
+                      "contentGuide": "실제 검색되는 질문 5개 + 명확한 답변",
+                      "recommendedLength": 500,
+                      "keywordUsage": "질문에 롱테일 키워드 활용"
+                    }
+                  ],
+                  "conclusion": {
+                    "purpose": "요약 + CTA",
+                    "template": "지금까지 데이코냉장고에 대해 알아봤습니다. 도움이 되셨다면 공유해주세요!",
+                    "ctaRecommendation": "댓글, 공유, 관련 글 링크 유도"
+                  }
+                },
+                "seoChecklist": [
+                  {
+                    "item": "제목에 키워드 포함",
+                    "importance": "critical",
+                    "howTo": "제목 앞부분에 메인 키워드 배치"
+                  },
+                  {
+                    "item": "첫 문단에 키워드",
+                    "importance": "critical",
+                    "howTo": "첫 100자 내 키워드 자연스럽게 삽입"
+                  },
+                  {
+                    "item": "소제목 H2/H3 활용",
+                    "importance": "high",
+                    "howTo": "3~5개 소제목, 키워드 변형 사용"
+                  },
+                  {
+                    "item": "이미지 ALT 태그",
+                    "importance": "high",
+                    "howTo": "모든 이미지에 키워드 포함 설명"
+                  },
+                  {
+                    "item": "내부링크 2개 이상",
+                    "importance": "medium",
+                    "howTo": "관련 글 자연스럽게 연결"
+                  },
+                  {
+                    "item": "3000자 이상 작성",
+                    "importance": "high",
+                    "howTo": "충분한 깊이의 콘텐츠 제공"
+                  }
+                ],
+                "totalRecommendedLength": 3000,
+                "estimatedWriteTime": 90
+              },
+              "images": {
+                "mainImage": {
+                  "searchKeyword": "데이코냉장고 대표이미지",
+                  "style": "깔끔한 인포그래픽 또는 고화질 사진",
+                  "source": [
+                    "Unsplash",
+                    "Pixabay",
+                    "직접 제작"
+                  ],
+                  "altText": "데이코냉장고 완벽 가이드 대표 이미지"
+                },
+                "sectionImages": [
+                  {
+                    "section": "기본 개념",
+                    "searchKeyword": "데이코냉장고 설명",
+                    "purpose": "이해 돕기",
+                    "style": "다이어그램"
+                  },
+                  {
+                    "section": "TOP 5",
+                    "searchKeyword": "데이코냉장고 비교",
+                    "purpose": "시각적 비교",
+                    "style": "비교표"
+                  },
+                  {
+                    "section": "주의사항",
+                    "searchKeyword": "주의 아이콘",
+                    "purpose": "강조",
+                    "style": "아이콘"
+                  }
+                ],
+                "infographicIdeas": [
+                  "데이코냉장고 선택 가이드 플로우차트",
+                  "데이코냉장고 TOP 5 비교표",
+                  "데이코냉장고 체크리스트"
+                ],
+                "totalRecommendedImages": 7,
+                "imageStrategy": "섹션당 1~2개, 총 7~10개 이미지로 가독성과 체류시간 향상"
+              }
+            },
+            "ultimateScore": {
+              "total": 50,
+              "breakdown": {
+                "goldenRatio": 20.695807314897415,
+                "timing": 70,
+                "revenue": 40,
+                "competition": 80,
+                "potential": 53
+              },
+              "grade": "🥉 B",
+              "verdict": "📝 작성 가치 있음",
+              "topActions": [
+                "0일 내 작성 권장",
+                "데이코냉장고 추천 TOP 10 (2025년 최신)",
+                "3000자 이상, 7개 이미지 권장"
+              ]
+            }
+          },
+          "highlightReason": "✅ ANYTIME/stable | 폭발 65 | 구매의도 30 | 월 2,430원⚠️ | 경쟁도 4"
+        },
+        {
+          "keyword": "냉장고500리터",
+          "searchVolume": 9520,
+          "documentCount": 7759,
+          "goldenRatio": 1.226962237401727,
+          "rookieFriendly": {
+            "score": 50,
+            "grade": "C",
+            "reason": "문서수 10,000개 미만 → 경쟁 보통 | 숏테일 키워드 → 대형 블로그와 경쟁",
+            "canRankWithin": "2~4주 내 가능",
+            "requiredBlogIndex": "최적 1 이상 권장"
+          },
+          "timing": {
+            "score": 50,
+            "urgency": "ANYTIME",
+            "bestPublishTime": "오전 6~8시 또는 저녁 8~10시",
+            "trendDirection": "stable",
+            "peakPrediction": "꾸준한 검색량 유지"
+          },
+          "blueOcean": {
+            "score": 62,
+            "competitorStrength": "medium",
+            "avgCompetitorBlogAge": "2~5년 (보통 경쟁)",
+            "oldPostRatio": 50,
+            "opportunity": "✅ 좋은 기회입니다. 품질 콘텐츠로 승부"
+          },
+          "trafficEstimate": {
+            "daily": "8~18명",
+            "weekly": "56~126명",
+            "monthly": "240~540명",
+            "confidence": 50,
+            "disclaimer": "📌 트래픽은 순위/CTR/계절성에 따라 달라질 수 있는 추정치입니다."
+          },
+          "revenueEstimate": {
+            "dailyRevenue": "298원 ⚠️추정",
+            "monthlyRevenue": "8,940원 ⚠️추정",
+            "estimatedCPC": 207,
+            "estimatedRPM": 5175,
+            "adType": "애드센스",
+            "revenueGrade": "A",
+            "revenueReason": "✅ 양호! 월 9천원 예상"
+          },
+          "entryAnalysis": {
+            "canEntry": true,
+            "difficulty": "possible",
+            "difficultyScore": 35,
+            "message": "🟡 진입 가능 - 품질 콘텐츠로 충분히 경쟁 가능",
+            "topCompetitorStrength": "보통 (일반 블로그 혼재)",
+            "recommendedBlogIndex": "준최 3 이상 권장",
+            "estimatedRankingTime": "3~7일 내 가능"
+          },
+          "totalScore": 83,
+          "grade": "SS",
+          "proStrategy": {
+            "title": "2025 냉장고500리터 완벽 정리 | 초보자도 쉽게 이해하는 가이드",
+            "outline": [
+              "1. 냉장고500리터란? (기본 개념)",
+              "2. 냉장고500리터 핵심 포인트 3가지",
+              "3. 냉장고500리터 장단점 비교",
+              "4. 냉장고500리터 실제 후기/경험담",
+              "5. 냉장고500리터 Q&A (자주 묻는 질문)",
+              "6. 결론 및 추천"
+            ],
+            "wordCount": 2500,
+            "mustInclude": [
+              "핵심 키워드 2~3회 자연스럽게 삽입",
+              "실제 이미지/사진 3장 이상",
+              "표 또는 비교 차트 1개 이상",
+              "자주 묻는 질문(FAQ) 섹션",
+              "결론 및 추천 섹션"
+            ],
+            "avoidTopics": [
+              "과장된 표현 (100%, 무조건, 반드시)",
+              "허위 정보나 검증되지 않은 내용",
+              "다른 블로그 복사/붙여넣기",
+              "광고성 링크 과다 삽입"
+            ],
+            "monetization": "애드센스 + 쿠팡파트너스 조합 추천"
+          },
+          "platformTitles": {
+            "naver": {
+              "title": "핵심 정리: 냉장고500리터 2025 최신 가이드 (월 9,520)",
+              "alternatives": [
+                "냉장고500리터 2025 완벽 정리: 핵심만 5분 요약",
+                "냉장고500리터 초보도 쉽게: 실패 없는 체크리스트"
+              ],
+              "subKeywords": [
+                "냉장고500리터 방법",
+                "냉장고500리터 추천",
+                "냉장고500리터 후기"
+              ],
+              "tags": [
+                "냉장고500리터",
+                "📰 이슈키워드"
+              ],
+              "tip": "서두 100자 내에 키워드를 2회 노출하고, 결론 요약을 맨 위에 한 번 더 넣으세요.",
+              "hookPoint": "핵심 정리 포인트를 제목/썸네일에 강조"
+            },
+            "tistory": {
+              "title": "냉장고500리터 2025 정리: 한 번에 이해하는 핵심 포인트 (월 9,520)",
+              "alternatives": [
+                "냉장고500리터 제대로 하는 법 (체크리스트 포함)",
+                "냉장고500리터 추천/비교: 선택 기준 3가지"
+              ],
+              "subKeywords": [
+                "냉장고500리터 방법",
+                "냉장고500리터 추천",
+                "냉장고500리터 후기"
+              ],
+              "tags": [
+                "냉장고500리터",
+                "📰 이슈키워드"
+              ],
+              "tip": "표/리스트를 많이 써서 스크롤 체류시간을 늘리세요.",
+              "hookPoint": "“핵심 3가지”처럼 숫자를 넣어 클릭률을 올리기"
+            },
+            "wordpress": {
+              "title": "냉장고500리터: 2025 Complete Guide (Checklist & Tips) (월 9,520)",
+              "alternatives": [
+                "냉장고500리터 Guide: Common Mistakes & Quick Fixes",
+                "냉장고500리터 Step-by-Step: What to Do First"
+              ],
+              "subKeywords": [
+                "냉장고500리터 방법",
+                "냉장고500리터 추천",
+                "냉장고500리터 후기"
+              ],
+              "tags": [
+                "냉장고500리터",
+                "📰 이슈키워드"
+              ],
+              "tip": "H2/H3로 구조를 만들고, FAQ 섹션을 넣어 SEO를 강화하세요.",
+              "hookPoint": "FAQ + 체크리스트 조합으로 체류시간/리치 증가"
+            },
+            "blogspot": {
+              "title": "냉장고500리터 2025: Quick Start + Best Practices (월 9,520)",
+              "alternatives": [
+                "냉장고500리터 Quick Guide: Do & Don't",
+                "냉장고500리터 Essentials: What You Need to Know"
+              ],
+              "subKeywords": [
+                "냉장고500리터 방법",
+                "냉장고500리터 추천",
+                "냉장고500리터 후기"
+              ],
+              "tags": [
+                "냉장고500리터",
+                "📰 이슈키워드"
+              ],
+              "tip": "이미지 2~3장 + 요약 박스를 넣어 가독성을 올리세요.",
+              "hookPoint": "첫 화면에 요약(결론)을 배치해 이탈률을 낮추기"
+            }
+          },
+          "expandedKeywords": {
+            "relatedGolden": [
+              "냉장고500리터 추천",
+              "냉장고500리터 비교",
+              "냉장고500리터 후기",
+              "냉장고500리터 가격"
+            ],
+            "longtailGolden": [
+              "냉장고500리터 초보",
+              "냉장고500리터 쉽게",
+              "냉장고500리터 단계별",
+              "냉장고500리터 정리"
+            ],
+            "blueOceanGolden": [
+              "냉장고500리터 최신",
+              "냉장고500리터 2025",
+              "냉장고500리터 체크리스트",
+              "냉장고500리터 실패하지 않는 법"
+            ]
+          },
+          "type": "📰 이슈키워드",
+          "category": "life_tips",
+          "safetyLevel": "safe",
+          "safetyReason": "✅ 안전한 키워드. 신생 블로거도 작성 가능",
+          "source": "냉장고",
+          "profitAnalysis": {
+            "keyword": "냉장고500리터",
+            "searchVolume": 9520,
+            "documentCount": 7759,
+            "estimatedCPC": 207,
+            "purchaseIntentScore": 30,
+            "competitionLevel": 6,
+            "freshnessOpportunity": 1,
+            "profitGoldenRatio": 15.6,
+            "estimatedDailyRevenue": 298,
+            "estimatedMonthlyRevenue": 8940,
+            "grade": "A",
+            "gradeReason": "✅ 양호! 월 9천원 예상",
+            "isRealBlueOcean": false,
+            "blueOceanReason": "📕 경쟁 시장. 차별화 전략 필요",
+            "strategy": {
+              "approach": "✍️ 빠른 작성 권장. 1500자+ 품질 콘텐츠로 상위 노출 노려볼만",
+              "monetization": "📝 트래픽 확보 우선. 이후 관련 고수익 키워드로 내부링크",
+              "timing": "📅 이번 주 내 작성. 2~4주 내 상위노출 기대",
+              "titleSuggestion": "냉장고500리터 완벽 가이드 | 초보자도 쉽게 따라하기"
+            }
+          },
+          "timestamp": "2025-12-24T10:50:46.722Z",
+          "isGolden": true,
+          "trendAnalysis": {
+            "trendingReason": "캐리어냉장, 500리터대 세미빌트인 관련 최근 이슈",
+            "whyNow": "최근 5개 이상의 뉴스에서 다뤄지며 이슈화 진행 중 • \"출시\" 관련 구체적 사건으로 실시간 관심 집중 • 최신 이슈로 실시간 관심 집중 중 • \"캐리어냉장, 500리터대 세미빌트인 냉장고 시장 진출\" 관련 최신 뉴스로 조기 진입 효과 기대",
+            "newsSource": "자동 분석"
+          },
+          "keywordGuide": {
+            "summary": "여유 있을 때 공략하면 좋은 키워드입니다. (등급: SS, 점수: 83점)",
+            "whyItMovesNow": "캐리어냉장, 500리터대 세미빌트인 관련 최근 이슈 최근 5개 이상의 뉴스에서 다뤄지며 이슈화 진행 중 • \"출시\" 관련 구체적 사건으로 실시간 관심 집중 • 최신 이슈로 실시간 관심 집중 중 • \"캐리어냉장, 500리터대 세미빌트인 냉장고 시장 진출\" 관련 최신 뉴스로 조기 진입 효과 기대",
+            "immediateTrafficPlan": [
+              "제목 앞부분에 \"냉장고500리터\"를 배치하고, 2025/최신/정리 같은 보조 키워드를 1개만 추가하세요.",
+              "본문 서두 100자 안에 \"냉장고500리터\"를 자연스럽게 2회 노출하세요.",
+              "최소 1개는 비교/체크리스트/요약 섹션을 넣어 체류시간을 늘리세요."
+            ],
+            "naverHomeExposureTips": [
+              "첫 이미지에 키워드가 들어간 문구를 넣고, alt 텍스트도 키워드 포함",
+              "목차를 만들고 H2/H3에 서브 키워드 배치",
+              "태그는 5~10개로 과도한 반복을 피하고, 유사어를 섞기"
+            ]
+          },
+          "ultimateAnalysis": {
+            "timing": {
+              "seasonal": {
+                "peakMonths": [
+                  1,
+                  2,
+                  3,
+                  4,
+                  5,
+                  6,
+                  7,
+                  8,
+                  9,
+                  10,
+                  11,
+                  12
+                ],
+                "peakReason": "연중 꾸준한 검색량",
+                "currentSeasonScore": 70,
+                "nextPeakDate": "항상",
+                "daysUntilPeak": 0,
+                "recommendation": "📝 에버그린 키워드입니다. 언제든 작성해도 좋습니다.",
+                "seasonalPattern": "evergreen"
+              },
+              "trend": {
+                "trendDirection": "falling",
+                "changeRate": 12,
+                "comparedTo": "전월 대비",
+                "explosiveScore": 18,
+                "relatedNews": [],
+                "recommendation": "📊 안정적인 키워드입니다."
+              },
+              "alert": {
+                "optimalPublishDate": "0일 내",
+                "reason": "📝 에버그린 키워드입니다. 언제든 작성해도 좋습니다.",
+                "urgencyLevel": "⚡ 이번 주",
+                "expectedPeakDate": "항상",
+                "competitorActivity": "경쟁자 보통"
+              }
+            },
+            "revenue": {
+              "cpc": {
+                "estimatedCpc": 200,
+                "cpcRange": {
+                  "min": 100,
+                  "max": 400
+                },
+                "cpcTier": "🥈 중수익",
+                "industryAverage": 200,
+                "recommendation": "📝 일반적인 수익 구조입니다. 트래픽 확보에 집중하세요."
+              },
+              "affiliate": {
+                "recommendedPrograms": [
+                  {
+                    "name": "쿠팡파트너스",
+                    "type": "coupang",
+                    "commissionRate": "3~5%",
+                    "estimatedEarningPerClick": 50,
+                    "matchScore": 100
+                  },
+                  {
+                    "name": "네이버 쇼핑",
+                    "type": "naver",
+                    "commissionRate": "1~3%",
+                    "estimatedEarningPerClick": 30,
+                    "matchScore": 85
+                  }
+                ],
+                "bestMatch": "쿠팡파트너스",
+                "potentialProducts": [
+                  "냉장고500리터 추천",
+                  "냉장고500리터 순위",
+                  "냉장고500리터 비교",
+                  "냉장고500리터 후기",
+                  "냉장고500리터 가격",
+                  "냉장고500리터 구매"
+                ]
+              },
+              "projection": {
+                "estimatedDailyVisitors": 16,
+                "estimatedMonthlyVisitors": 480,
+                "adsenseRevenue": {
+                  "daily": 96,
+                  "monthly": 2880,
+                  "assumptions": "CPC 200원, CTR 2%, 페이지뷰율 1.5 가정"
+                },
+                "affiliateRevenue": {
+                  "daily": 2,
+                  "monthly": 60,
+                  "conversionRate": 3,
+                  "assumptions": "클릭률 10%, 전환율 3%, 평균 수수료 50원 가정"
+                },
+                "totalMonthlyRevenue": 2940,
+                "revenueBreakdown": "애드센스 98% + 제휴 2%",
+                "revenueTier": "📝 월 1만원+"
+              }
+            },
+            "content": {
+              "titles": {
+                "titles": [
+                  {
+                    "title": "냉장고500리터 추천 TOP 10 (2025년 최신)",
+                    "type": "number",
+                    "estimatedCTR": 8.5,
+                    "psychologyUsed": "숫자 + 최신 정보"
+                  },
+                  {
+                    "title": "냉장고500리터 하는 법, 초보자도 쉽게 따라하기",
+                    "type": "how-to",
+                    "estimatedCTR": 7.5,
+                    "psychologyUsed": "실용성 + 접근성"
+                  },
+                  {
+                    "title": "냉장고500리터, 이것만 알면 끝! 완벽 가이드",
+                    "type": "benefit",
+                    "estimatedCTR": 7.2,
+                    "psychologyUsed": "완결성 + 가치 제안"
+                  },
+                  {
+                    "title": "[2025년] 냉장고500리터 총정리 (+ 꿀팁 공개)",
+                    "type": "news",
+                    "estimatedCTR": 7,
+                    "psychologyUsed": "최신성 + 보너스 가치"
+                  },
+                  {
+                    "title": "아직도 냉장고500리터 몰라요? 지금 당장 확인하세요",
+                    "type": "curiosity",
+                    "estimatedCTR": 6.8,
+                    "psychologyUsed": "호기심 + 긴급성"
+                  },
+                  {
+                    "title": "냉장고500리터 실제 후기 (장단점 솔직 비교)",
+                    "type": "comparison",
+                    "estimatedCTR": 6.5,
+                    "psychologyUsed": "신뢰성 + 비교 심리"
+                  }
+                ],
+                "bestTitle": "냉장고500리터 추천 TOP 10 (2025년 최신)",
+                "titleFormula": "숫자 + 키워드 + 최신연도 + 가치제안"
+              },
+              "structure": {
+                "recommendedStructure": {
+                  "intro": {
+                    "purpose": "독자의 관심 끌기 + 키워드 자연스럽게 배치",
+                    "template": "\"냉장고500리터\"에 대해 고민하고 계신가요? 이 글에서 핵심 정보를 모두 정리해드립니다.",
+                    "keywordPlacement": "첫 문장에 키워드 포함"
+                  },
+                  "sections": [
+                    {
+                      "heading": "냉장고500리터란? (기본 개념)",
+                      "purpose": "기초 정보 제공",
+                      "contentGuide": "핵심 정의, 중요성, 왜 알아야 하는지 설명",
+                      "recommendedLength": 300,
+                      "keywordUsage": "소제목과 본문에 1~2회"
+                    },
+                    {
+                      "heading": "냉장고500리터 추천 BEST 5",
+                      "purpose": "실질적인 가치 제공 (핵심 섹션)",
+                      "contentGuide": "순위별 상세 설명, 장단점, 추천 이유",
+                      "recommendedLength": 800,
+                      "keywordUsage": "각 항목 설명에 자연스럽게 포함"
+                    },
+                    {
+                      "heading": "냉장고500리터 선택 시 주의사항",
+                      "purpose": "신뢰도 향상",
+                      "contentGuide": "흔한 실수, 피해야 할 것, 체크리스트",
+                      "recommendedLength": 400,
+                      "keywordUsage": "주의사항 설명에 1~2회"
+                    },
+                    {
+                      "heading": "자주 묻는 질문 (FAQ)",
+                      "purpose": "SEO 강화 + 체류시간 증가",
+                      "contentGuide": "실제 검색되는 질문 5개 + 명확한 답변",
+                      "recommendedLength": 500,
+                      "keywordUsage": "질문에 롱테일 키워드 활용"
+                    }
+                  ],
+                  "conclusion": {
+                    "purpose": "요약 + CTA",
+                    "template": "지금까지 냉장고500리터에 대해 알아봤습니다. 도움이 되셨다면 공유해주세요!",
+                    "ctaRecommendation": "댓글, 공유, 관련 글 링크 유도"
+                  }
+                },
+                "seoChecklist": [
+                  {
+                    "item": "제목에 키워드 포함",
+                    "importance": "critical",
+                    "howTo": "제목 앞부분에 메인 키워드 배치"
+                  },
+                  {
+                    "item": "첫 문단에 키워드",
+                    "importance": "critical",
+                    "howTo": "첫 100자 내 키워드 자연스럽게 삽입"
+                  },
+                  {
+                    "item": "소제목 H2/H3 활용",
+                    "importance": "high",
+                    "howTo": "3~5개 소제목, 키워드 변형 사용"
+                  },
+                  {
+                    "item": "이미지 ALT 태그",
+                    "importance": "high",
+                    "howTo": "모든 이미지에 키워드 포함 설명"
+                  },
+                  {
+                    "item": "내부링크 2개 이상",
+                    "importance": "medium",
+                    "howTo": "관련 글 자연스럽게 연결"
+                  },
+                  {
+                    "item": "3000자 이상 작성",
+                    "importance": "high",
+                    "howTo": "충분한 깊이의 콘텐츠 제공"
+                  }
+                ],
+                "totalRecommendedLength": 3000,
+                "estimatedWriteTime": 90
+              },
+              "images": {
+                "mainImage": {
+                  "searchKeyword": "냉장고500리터 대표이미지",
+                  "style": "깔끔한 인포그래픽 또는 고화질 사진",
+                  "source": [
+                    "Unsplash",
+                    "Pixabay",
+                    "직접 제작"
+                  ],
+                  "altText": "냉장고500리터 완벽 가이드 대표 이미지"
+                },
+                "sectionImages": [
+                  {
+                    "section": "기본 개념",
+                    "searchKeyword": "냉장고500리터 설명",
+                    "purpose": "이해 돕기",
+                    "style": "다이어그램"
+                  },
+                  {
+                    "section": "TOP 5",
+                    "searchKeyword": "냉장고500리터 비교",
+                    "purpose": "시각적 비교",
+                    "style": "비교표"
+                  },
+                  {
+                    "section": "주의사항",
+                    "searchKeyword": "주의 아이콘",
+                    "purpose": "강조",
+                    "style": "아이콘"
+                  }
+                ],
+                "infographicIdeas": [
+                  "냉장고500리터 선택 가이드 플로우차트",
+                  "냉장고500리터 TOP 5 비교표",
+                  "냉장고500리터 체크리스트"
+                ],
+                "totalRecommendedImages": 7,
+                "imageStrategy": "섹션당 1~2개, 총 7~10개 이미지로 가독성과 체류시간 향상"
+              }
+            },
+            "ultimateScore": {
+              "total": 42,
+              "breakdown": {
+                "goldenRatio": 12.26962237401727,
+                "timing": 70,
+                "revenue": 40,
+                "competition": 60,
+                "potential": 46
+              },
+              "grade": "📝 C",
+              "verdict": "⚠️ 신중히 검토 필요",
+              "topActions": [
+                "0일 내 작성 권장",
+                "냉장고500리터 추천 TOP 10 (2025년 최신)",
+                "3000자 이상, 7개 이미지 권장"
+              ]
+            }
+          },
+          "highlightReason": "✅ ANYTIME/stable | 폭발 65 | 구매의도 30 | 월 8,940원⚠️ | 경쟁도 6"
+        },
+        {
+          "keyword": "냉장고200리터",
+          "searchVolume": 3050,
+          "documentCount": 6228,
+          "goldenRatio": 0.4897238278741169,
+          "rookieFriendly": {
+            "score": 35,
+            "grade": "D",
+            "reason": "문서수 10,000개 미만 → 경쟁 보통 | 황금비율 1 미만 → 공급 과잉 | 숏테일 키워드 → 대형 블로그와 경쟁",
+            "canRankWithin": "1개월 이상 소요 예상",
+            "requiredBlogIndex": "최적 1 이상 권장"
+          },
+          "timing": {
+            "score": 50,
+            "urgency": "ANYTIME",
+            "bestPublishTime": "오전 6~8시 또는 저녁 8~10시",
+            "trendDirection": "stable",
+            "peakPrediction": "꾸준한 검색량 유지"
+          },
+          "blueOcean": {
+            "score": 50,
+            "competitorStrength": "medium",
+            "avgCompetitorBlogAge": "2~5년 (보통 경쟁)",
+            "oldPostRatio": 50,
+            "opportunity": "⚠️ 경쟁 있음. 차별화된 콘텐츠 필요"
+          },
+          "trafficEstimate": {
+            "daily": "2~4명",
+            "weekly": "14~28명",
+            "monthly": "60~120명",
+            "confidence": 50,
+            "disclaimer": "📌 트래픽은 순위/CTR/계절성에 따라 달라질 수 있는 추정치입니다."
+          },
+          "revenueEstimate": {
+            "dailyRevenue": "81원 ⚠️추정",
+            "monthlyRevenue": "2,430원 ⚠️추정",
+            "estimatedCPC": 207,
+            "estimatedRPM": 5175,
+            "adType": "애드센스",
+            "revenueGrade": "B",
+            "revenueReason": "📌 보통. 롱테일 확장 추천"
+          },
+          "entryAnalysis": {
+            "canEntry": true,
+            "difficulty": "hard",
+            "difficultyScore": 60,
+            "message": "🟠 진입 도전적 - 차별화된 콘텐츠 필요",
+            "topCompetitorStrength": "보통 (일반 블로그 혼재)",
+            "recommendedBlogIndex": "준최 5 이상 권장",
+            "estimatedRankingTime": "1~3주 내 가능"
+          },
+          "totalScore": 50,
+          "grade": "A",
+          "proStrategy": {
+            "title": "2025 냉장고200리터 완벽 정리 | 초보자도 쉽게 이해하는 가이드",
+            "outline": [
+              "1. 냉장고200리터란? (기본 개념)",
+              "2. 냉장고200리터 핵심 포인트 3가지",
+              "3. 냉장고200리터 장단점 비교",
+              "4. 냉장고200리터 실제 후기/경험담",
+              "5. 냉장고200리터 Q&A (자주 묻는 질문)",
+              "6. 결론 및 추천"
+            ],
+            "wordCount": 2500,
+            "mustInclude": [
+              "핵심 키워드 2~3회 자연스럽게 삽입",
+              "실제 이미지/사진 3장 이상",
+              "표 또는 비교 차트 1개 이상",
+              "자주 묻는 질문(FAQ) 섹션",
+              "결론 및 추천 섹션"
+            ],
+            "avoidTopics": [
+              "과장된 표현 (100%, 무조건, 반드시)",
+              "허위 정보나 검증되지 않은 내용",
+              "다른 블로그 복사/붙여넣기",
+              "광고성 링크 과다 삽입"
+            ],
+            "monetization": "애드센스 + 쿠팡파트너스 조합 추천"
+          },
+          "platformTitles": {
+            "naver": {
+              "title": "핵심 정리: 냉장고200리터 2025 최신 가이드 (월 3,050)",
+              "alternatives": [
+                "냉장고200리터 2025 완벽 정리: 핵심만 5분 요약",
+                "냉장고200리터 초보도 쉽게: 실패 없는 체크리스트"
+              ],
+              "subKeywords": [
+                "냉장고200리터 방법",
+                "냉장고200리터 추천",
+                "냉장고200리터 후기"
+              ],
+              "tags": [
+                "냉장고200리터",
+                "📰 이슈키워드"
+              ],
+              "tip": "서두 100자 내에 키워드를 2회 노출하고, 결론 요약을 맨 위에 한 번 더 넣으세요.",
+              "hookPoint": "핵심 정리 포인트를 제목/썸네일에 강조"
+            },
+            "tistory": {
+              "title": "냉장고200리터 2025 정리: 한 번에 이해하는 핵심 포인트 (월 3,050)",
+              "alternatives": [
+                "냉장고200리터 제대로 하는 법 (체크리스트 포함)",
+                "냉장고200리터 추천/비교: 선택 기준 3가지"
+              ],
+              "subKeywords": [
+                "냉장고200리터 방법",
+                "냉장고200리터 추천",
+                "냉장고200리터 후기"
+              ],
+              "tags": [
+                "냉장고200리터",
+                "📰 이슈키워드"
+              ],
+              "tip": "표/리스트를 많이 써서 스크롤 체류시간을 늘리세요.",
+              "hookPoint": "“핵심 3가지”처럼 숫자를 넣어 클릭률을 올리기"
+            },
+            "wordpress": {
+              "title": "냉장고200리터: 2025 Complete Guide (Checklist & Tips) (월 3,050)",
+              "alternatives": [
+                "냉장고200리터 Guide: Common Mistakes & Quick Fixes",
+                "냉장고200리터 Step-by-Step: What to Do First"
+              ],
+              "subKeywords": [
+                "냉장고200리터 방법",
+                "냉장고200리터 추천",
+                "냉장고200리터 후기"
+              ],
+              "tags": [
+                "냉장고200리터",
+                "📰 이슈키워드"
+              ],
+              "tip": "H2/H3로 구조를 만들고, FAQ 섹션을 넣어 SEO를 강화하세요.",
+              "hookPoint": "FAQ + 체크리스트 조합으로 체류시간/리치 증가"
+            },
+            "blogspot": {
+              "title": "냉장고200리터 2025: Quick Start + Best Practices (월 3,050)",
+              "alternatives": [
+                "냉장고200리터 Quick Guide: Do & Don't",
+                "냉장고200리터 Essentials: What You Need to Know"
+              ],
+              "subKeywords": [
+                "냉장고200리터 방법",
+                "냉장고200리터 추천",
+                "냉장고200리터 후기"
+              ],
+              "tags": [
+                "냉장고200리터",
+                "📰 이슈키워드"
+              ],
+              "tip": "이미지 2~3장 + 요약 박스를 넣어 가독성을 올리세요.",
+              "hookPoint": "첫 화면에 요약(결론)을 배치해 이탈률을 낮추기"
+            }
+          },
+          "expandedKeywords": {
+            "relatedGolden": [
+              "냉장고200리터 추천",
+              "냉장고200리터 비교",
+              "냉장고200리터 후기",
+              "냉장고200리터 가격"
+            ],
+            "longtailGolden": [
+              "냉장고200리터 초보",
+              "냉장고200리터 쉽게",
+              "냉장고200리터 단계별",
+              "냉장고200리터 정리"
+            ],
+            "blueOceanGolden": [
+              "냉장고200리터 최신",
+              "냉장고200리터 2025",
+              "냉장고200리터 체크리스트",
+              "냉장고200리터 실패하지 않는 법"
+            ]
+          },
+          "type": "📰 이슈키워드",
+          "category": "life_tips",
+          "safetyLevel": "safe",
+          "safetyReason": "✅ 안전한 키워드. 신생 블로거도 작성 가능",
+          "source": "냉장고",
+          "profitAnalysis": {
+            "keyword": "냉장고200리터",
+            "searchVolume": 3050,
+            "documentCount": 6228,
+            "estimatedCPC": 207,
+            "purchaseIntentScore": 30,
+            "competitionLevel": 7,
+            "freshnessOpportunity": 1,
+            "profitGoldenRatio": 4.28,
+            "estimatedDailyRevenue": 81,
+            "estimatedMonthlyRevenue": 2430,
+            "grade": "B",
+            "gradeReason": "📌 보통. 롱테일 확장 추천",
+            "isRealBlueOcean": false,
+            "blueOceanReason": "📕 경쟁 시장. 차별화 전략 필요",
+            "strategy": {
+              "approach": "🔍 롱테일 확장 후 작성. \"초보자\", \"2025\", \"비교\" 등 붙여서 경쟁 낮추기",
+              "monetization": "📝 트래픽 확보 우선. 이후 관련 고수익 키워드로 내부링크",
+              "timing": "🗓️ 여유있게 준비. 롱테일 전략으로 접근",
+              "titleSuggestion": "냉장고200리터 완벽 가이드 | 초보자도 쉽게 따라하기"
+            }
+          },
+          "timestamp": "2025-12-24T10:50:46.724Z",
+          "isGolden": true,
+          "trendAnalysis": {
+            "trendingReason": "김치냉장고, 200리터 이상 관련 최근 이슈",
+            "whyNow": "최근 5개 이상의 뉴스에서 다뤄지며 이슈화 진행 중 • \"출시\" 관련 구체적 사건으로 실시간 관심 집중 • 뉴스에서 \"인기\" 키워드로 언급되며 화제성 확보 • 최신 이슈로 실시간 관심 집중 중 • \"김치냉장고, 200리터 이상 초대형화 바람\" 관련 최신 뉴스로 조기 진입 효과 기대",
+            "newsSource": "자동 분석"
+          },
+          "keywordGuide": {
+            "summary": "여유 있을 때 공략하면 좋은 키워드입니다. (등급: A, 점수: 50점)",
+            "whyItMovesNow": "김치냉장고, 200리터 이상 관련 최근 이슈 최근 5개 이상의 뉴스에서 다뤄지며 이슈화 진행 중 • \"출시\" 관련 구체적 사건으로 실시간 관심 집중 • 뉴스에서 \"인기\" 키워드로 언급되며 화제성 확보 • 최신 이슈로 실시간 관심 집중 중 • \"김치냉장고, 200리터 이상 초대형화 바람\" 관련 최신 뉴스로 조기 진입 효과 기대",
+            "immediateTrafficPlan": [
+              "제목 앞부분에 \"냉장고200리터\"를 배치하고, 2025/최신/정리 같은 보조 키워드를 1개만 추가하세요.",
+              "본문 서두 100자 안에 \"냉장고200리터\"를 자연스럽게 2회 노출하세요.",
+              "최소 1개는 비교/체크리스트/요약 섹션을 넣어 체류시간을 늘리세요."
+            ],
+            "naverHomeExposureTips": [
+              "첫 이미지에 키워드가 들어간 문구를 넣고, alt 텍스트도 키워드 포함",
+              "목차를 만들고 H2/H3에 서브 키워드 배치",
+              "태그는 5~10개로 과도한 반복을 피하고, 유사어를 섞기"
+            ]
+          },
+          "ultimateAnalysis": {
+            "timing": {
+              "seasonal": {
+                "peakMonths": [
+                  1,
+                  2,
+                  3,
+                  4,
+                  5,
+                  6,
+                  7,
+                  8,
+                  9,
+                  10,
+                  11,
+                  12
+                ],
+                "peakReason": "연중 꾸준한 검색량",
+                "currentSeasonScore": 70,
+                "nextPeakDate": "항상",
+                "daysUntilPeak": 0,
+                "recommendation": "📝 에버그린 키워드입니다. 언제든 작성해도 좋습니다.",
+                "seasonalPattern": "evergreen"
+              },
+              "trend": {
+                "trendDirection": "falling",
+                "changeRate": 5,
+                "comparedTo": "전월 대비",
+                "explosiveScore": 7,
+                "relatedNews": [],
+                "recommendation": "📊 안정적인 키워드입니다."
+              },
+              "alert": {
+                "optimalPublishDate": "0일 내",
+                "reason": "📝 에버그린 키워드입니다. 언제든 작성해도 좋습니다.",
+                "urgencyLevel": "⚡ 이번 주",
+                "expectedPeakDate": "항상",
+                "competitorActivity": "경쟁자 보통"
+              }
+            },
+            "revenue": {
+              "cpc": {
+                "estimatedCpc": 200,
+                "cpcRange": {
+                  "min": 100,
+                  "max": 400
+                },
+                "cpcTier": "🥈 중수익",
+                "industryAverage": 200,
+                "recommendation": "📝 일반적인 수익 구조입니다. 트래픽 확보에 집중하세요."
+              },
+              "affiliate": {
+                "recommendedPrograms": [
+                  {
+                    "name": "쿠팡파트너스",
+                    "type": "coupang",
+                    "commissionRate": "3~5%",
+                    "estimatedEarningPerClick": 50,
+                    "matchScore": 100
+                  },
+                  {
+                    "name": "네이버 쇼핑",
+                    "type": "naver",
+                    "commissionRate": "1~3%",
+                    "estimatedEarningPerClick": 30,
+                    "matchScore": 85
+                  }
+                ],
+                "bestMatch": "쿠팡파트너스",
+                "potentialProducts": [
+                  "냉장고200리터 추천",
+                  "냉장고200리터 순위",
+                  "냉장고200리터 비교",
+                  "냉장고200리터 후기",
+                  "냉장고200리터 가격",
+                  "냉장고200리터 구매"
+                ]
+              },
+              "projection": {
+                "estimatedDailyVisitors": 3,
+                "estimatedMonthlyVisitors": 90,
+                "adsenseRevenue": {
+                  "daily": 18,
+                  "monthly": 540,
+                  "assumptions": "CPC 200원, CTR 2%, 페이지뷰율 1.5 가정"
+                },
+                "affiliateRevenue": {
+                  "daily": 0,
+                  "monthly": 0,
+                  "conversionRate": 3,
+                  "assumptions": "클릭률 10%, 전환율 3%, 평균 수수료 50원 가정"
+                },
+                "totalMonthlyRevenue": 540,
+                "revenueBreakdown": "애드센스 100% + 제휴 0%",
+                "revenueTier": "📝 월 1만원+"
+              }
+            },
+            "content": {
+              "titles": {
+                "titles": [
+                  {
+                    "title": "냉장고200리터 추천 TOP 10 (2025년 최신)",
+                    "type": "number",
+                    "estimatedCTR": 8.5,
+                    "psychologyUsed": "숫자 + 최신 정보"
+                  },
+                  {
+                    "title": "냉장고200리터 하는 법, 초보자도 쉽게 따라하기",
+                    "type": "how-to",
+                    "estimatedCTR": 7.5,
+                    "psychologyUsed": "실용성 + 접근성"
+                  },
+                  {
+                    "title": "냉장고200리터, 이것만 알면 끝! 완벽 가이드",
+                    "type": "benefit",
+                    "estimatedCTR": 7.2,
+                    "psychologyUsed": "완결성 + 가치 제안"
+                  },
+                  {
+                    "title": "[2025년] 냉장고200리터 총정리 (+ 꿀팁 공개)",
+                    "type": "news",
+                    "estimatedCTR": 7,
+                    "psychologyUsed": "최신성 + 보너스 가치"
+                  },
+                  {
+                    "title": "아직도 냉장고200리터 몰라요? 지금 당장 확인하세요",
+                    "type": "curiosity",
+                    "estimatedCTR": 6.8,
+                    "psychologyUsed": "호기심 + 긴급성"
+                  },
+                  {
+                    "title": "냉장고200리터 실제 후기 (장단점 솔직 비교)",
+                    "type": "comparison",
+                    "estimatedCTR": 6.5,
+                    "psychologyUsed": "신뢰성 + 비교 심리"
+                  }
+                ],
+                "bestTitle": "냉장고200리터 추천 TOP 10 (2025년 최신)",
+                "titleFormula": "숫자 + 키워드 + 최신연도 + 가치제안"
+              },
+              "structure": {
+                "recommendedStructure": {
+                  "intro": {
+                    "purpose": "독자의 관심 끌기 + 키워드 자연스럽게 배치",
+                    "template": "\"냉장고200리터\"에 대해 고민하고 계신가요? 이 글에서 핵심 정보를 모두 정리해드립니다.",
+                    "keywordPlacement": "첫 문장에 키워드 포함"
+                  },
+                  "sections": [
+                    {
+                      "heading": "냉장고200리터란? (기본 개념)",
+                      "purpose": "기초 정보 제공",
+                      "contentGuide": "핵심 정의, 중요성, 왜 알아야 하는지 설명",
+                      "recommendedLength": 300,
+                      "keywordUsage": "소제목과 본문에 1~2회"
+                    },
+                    {
+                      "heading": "냉장고200리터 추천 BEST 5",
+                      "purpose": "실질적인 가치 제공 (핵심 섹션)",
+                      "contentGuide": "순위별 상세 설명, 장단점, 추천 이유",
+                      "recommendedLength": 800,
+                      "keywordUsage": "각 항목 설명에 자연스럽게 포함"
+                    },
+                    {
+                      "heading": "냉장고200리터 선택 시 주의사항",
+                      "purpose": "신뢰도 향상",
+                      "contentGuide": "흔한 실수, 피해야 할 것, 체크리스트",
+                      "recommendedLength": 400,
+                      "keywordUsage": "주의사항 설명에 1~2회"
+                    },
+                    {
+                      "heading": "자주 묻는 질문 (FAQ)",
+                      "purpose": "SEO 강화 + 체류시간 증가",
+                      "contentGuide": "실제 검색되는 질문 5개 + 명확한 답변",
+                      "recommendedLength": 500,
+                      "keywordUsage": "질문에 롱테일 키워드 활용"
+                    }
+                  ],
+                  "conclusion": {
+                    "purpose": "요약 + CTA",
+                    "template": "지금까지 냉장고200리터에 대해 알아봤습니다. 도움이 되셨다면 공유해주세요!",
+                    "ctaRecommendation": "댓글, 공유, 관련 글 링크 유도"
+                  }
+                },
+                "seoChecklist": [
+                  {
+                    "item": "제목에 키워드 포함",
+                    "importance": "critical",
+                    "howTo": "제목 앞부분에 메인 키워드 배치"
+                  },
+                  {
+                    "item": "첫 문단에 키워드",
+                    "importance": "critical",
+                    "howTo": "첫 100자 내 키워드 자연스럽게 삽입"
+                  },
+                  {
+                    "item": "소제목 H2/H3 활용",
+                    "importance": "high",
+                    "howTo": "3~5개 소제목, 키워드 변형 사용"
+                  },
+                  {
+                    "item": "이미지 ALT 태그",
+                    "importance": "high",
+                    "howTo": "모든 이미지에 키워드 포함 설명"
+                  },
+                  {
+                    "item": "내부링크 2개 이상",
+                    "importance": "medium",
+                    "howTo": "관련 글 자연스럽게 연결"
+                  },
+                  {
+                    "item": "3000자 이상 작성",
+                    "importance": "high",
+                    "howTo": "충분한 깊이의 콘텐츠 제공"
+                  }
+                ],
+                "totalRecommendedLength": 3000,
+                "estimatedWriteTime": 90
+              },
+              "images": {
+                "mainImage": {
+                  "searchKeyword": "냉장고200리터 대표이미지",
+                  "style": "깔끔한 인포그래픽 또는 고화질 사진",
+                  "source": [
+                    "Unsplash",
+                    "Pixabay",
+                    "직접 제작"
+                  ],
+                  "altText": "냉장고200리터 완벽 가이드 대표 이미지"
+                },
+                "sectionImages": [
+                  {
+                    "section": "기본 개념",
+                    "searchKeyword": "냉장고200리터 설명",
+                    "purpose": "이해 돕기",
+                    "style": "다이어그램"
+                  },
+                  {
+                    "section": "TOP 5",
+                    "searchKeyword": "냉장고200리터 비교",
+                    "purpose": "시각적 비교",
+                    "style": "비교표"
+                  },
+                  {
+                    "section": "주의사항",
+                    "searchKeyword": "주의 아이콘",
+                    "purpose": "강조",
+                    "style": "아이콘"
+                  }
+                ],
+                "infographicIdeas": [
+                  "냉장고200리터 선택 가이드 플로우차트",
+                  "냉장고200리터 TOP 5 비교표",
+                  "냉장고200리터 체크리스트"
+                ],
+                "totalRecommendedImages": 7,
+                "imageStrategy": "섹션당 1~2개, 총 7~10개 이미지로 가독성과 체류시간 향상"
+              }
+            },
+            "ultimateScore": {
+              "total": 40,
+              "breakdown": {
+                "goldenRatio": 4.897238278741169,
+                "timing": 70,
+                "revenue": 40,
+                "competition": 60,
+                "potential": 44
+              },
+              "grade": "📝 C",
+              "verdict": "⚠️ 신중히 검토 필요",
+              "topActions": [
+                "0일 내 작성 권장",
+                "냉장고200리터 추천 TOP 10 (2025년 최신)",
+                "3000자 이상, 7개 이미지 권장"
+              ]
+            }
+          },
+          "highlightReason": "✅ ANYTIME/stable | 폭발 65 | 구매의도 30 | 월 2,430원⚠️ | 경쟁도 7"
+        },
+        {
+          "keyword": "LG전자냉장고",
+          "searchVolume": 2720,
+          "documentCount": 6562,
+          "goldenRatio": 0.41450777202072536,
+          "rookieFriendly": {
+            "score": 35,
+            "grade": "D",
+            "reason": "문서수 10,000개 미만 → 경쟁 보통 | 황금비율 1 미만 → 공급 과잉 | 숏테일 키워드 → 대형 블로그와 경쟁",
+            "canRankWithin": "1개월 이상 소요 예상",
+            "requiredBlogIndex": "최적 1 이상 권장"
+          },
+          "timing": {
+            "score": 50,
+            "urgency": "ANYTIME",
+            "bestPublishTime": "오전 6~8시 또는 저녁 8~10시",
+            "trendDirection": "stable",
+            "peakPrediction": "꾸준한 검색량 유지"
+          },
+          "blueOcean": {
+            "score": 50,
+            "competitorStrength": "medium",
+            "avgCompetitorBlogAge": "2~5년 (보통 경쟁)",
+            "oldPostRatio": 50,
+            "opportunity": "⚠️ 경쟁 있음. 차별화된 콘텐츠 필요"
+          },
+          "trafficEstimate": {
+            "daily": "2~4명",
+            "weekly": "14~28명",
+            "monthly": "60~120명",
+            "confidence": 50,
+            "disclaimer": "📌 트래픽은 순위/CTR/계절성에 따라 달라질 수 있는 추정치입니다."
+          },
+          "revenueEstimate": {
+            "dailyRevenue": "68원 ⚠️추정",
+            "monthlyRevenue": "2,040원 ⚠️추정",
+            "estimatedCPC": 207,
+            "estimatedRPM": 5175,
+            "adType": "애드센스",
+            "revenueGrade": "C",
+            "revenueReason": "⚠️ 경쟁 높음. 틈새 접근 필요"
+          },
+          "entryAnalysis": {
+            "canEntry": true,
+            "difficulty": "hard",
+            "difficultyScore": 60,
+            "message": "🟠 진입 도전적 - 차별화된 콘텐츠 필요",
+            "topCompetitorStrength": "보통 (일반 블로그 혼재)",
+            "recommendedBlogIndex": "준최 5 이상 권장",
+            "estimatedRankingTime": "1~3주 내 가능"
+          },
+          "totalScore": 44,
+          "grade": "A",
+          "proStrategy": {
+            "title": "2025 LG전자냉장고 완벽 정리 | 초보자도 쉽게 이해하는 가이드",
+            "outline": [
+              "1. LG전자냉장고란? (기본 개념)",
+              "2. LG전자냉장고 핵심 포인트 3가지",
+              "3. LG전자냉장고 장단점 비교",
+              "4. LG전자냉장고 실제 후기/경험담",
+              "5. LG전자냉장고 Q&A (자주 묻는 질문)",
+              "6. 결론 및 추천"
+            ],
+            "wordCount": 2500,
+            "mustInclude": [
+              "핵심 키워드 2~3회 자연스럽게 삽입",
+              "실제 이미지/사진 3장 이상",
+              "표 또는 비교 차트 1개 이상",
+              "자주 묻는 질문(FAQ) 섹션",
+              "결론 및 추천 섹션"
+            ],
+            "avoidTopics": [
+              "과장된 표현 (100%, 무조건, 반드시)",
+              "허위 정보나 검증되지 않은 내용",
+              "다른 블로그 복사/붙여넣기",
+              "광고성 링크 과다 삽입"
+            ],
+            "monetization": "애드센스 + 쿠팡파트너스 조합 추천"
+          },
+          "platformTitles": {
+            "naver": {
+              "title": "핵심 정리: LG전자냉장고 2025 최신 가이드 (월 2,720)",
+              "alternatives": [
+                "LG전자냉장고 2025 완벽 정리: 핵심만 5분 요약",
+                "LG전자냉장고 초보도 쉽게: 실패 없는 체크리스트"
+              ],
+              "subKeywords": [
+                "LG전자냉장고 방법",
+                "LG전자냉장고 추천",
+                "LG전자냉장고 후기"
+              ],
+              "tags": [
+                "LG전자냉장고",
+                "📰 이슈키워드"
+              ],
+              "tip": "서두 100자 내에 키워드를 2회 노출하고, 결론 요약을 맨 위에 한 번 더 넣으세요.",
+              "hookPoint": "핵심 정리 포인트를 제목/썸네일에 강조"
+            },
+            "tistory": {
+              "title": "LG전자냉장고 2025 정리: 한 번에 이해하는 핵심 포인트 (월 2,720)",
+              "alternatives": [
+                "LG전자냉장고 제대로 하는 법 (체크리스트 포함)",
+                "LG전자냉장고 추천/비교: 선택 기준 3가지"
+              ],
+              "subKeywords": [
+                "LG전자냉장고 방법",
+                "LG전자냉장고 추천",
+                "LG전자냉장고 후기"
+              ],
+              "tags": [
+                "LG전자냉장고",
+                "📰 이슈키워드"
+              ],
+              "tip": "표/리스트를 많이 써서 스크롤 체류시간을 늘리세요.",
+              "hookPoint": "“핵심 3가지”처럼 숫자를 넣어 클릭률을 올리기"
+            },
+            "wordpress": {
+              "title": "LG전자냉장고: 2025 Complete Guide (Checklist & Tips) (월 2,720)",
+              "alternatives": [
+                "LG전자냉장고 Guide: Common Mistakes & Quick Fixes",
+                "LG전자냉장고 Step-by-Step: What to Do First"
+              ],
+              "subKeywords": [
+                "LG전자냉장고 방법",
+                "LG전자냉장고 추천",
+                "LG전자냉장고 후기"
+              ],
+              "tags": [
+                "LG전자냉장고",
+                "📰 이슈키워드"
+              ],
+              "tip": "H2/H3로 구조를 만들고, FAQ 섹션을 넣어 SEO를 강화하세요.",
+              "hookPoint": "FAQ + 체크리스트 조합으로 체류시간/리치 증가"
+            },
+            "blogspot": {
+              "title": "LG전자냉장고 2025: Quick Start + Best Practices (월 2,720)",
+              "alternatives": [
+                "LG전자냉장고 Quick Guide: Do & Don't",
+                "LG전자냉장고 Essentials: What You Need to Know"
+              ],
+              "subKeywords": [
+                "LG전자냉장고 방법",
+                "LG전자냉장고 추천",
+                "LG전자냉장고 후기"
+              ],
+              "tags": [
+                "LG전자냉장고",
+                "📰 이슈키워드"
+              ],
+              "tip": "이미지 2~3장 + 요약 박스를 넣어 가독성을 올리세요.",
+              "hookPoint": "첫 화면에 요약(결론)을 배치해 이탈률을 낮추기"
+            }
+          },
+          "expandedKeywords": {
+            "relatedGolden": [
+              "LG전자냉장고 추천",
+              "LG전자냉장고 비교",
+              "LG전자냉장고 후기",
+              "LG전자냉장고 가격"
+            ],
+            "longtailGolden": [
+              "LG전자냉장고 초보",
+              "LG전자냉장고 쉽게",
+              "LG전자냉장고 단계별",
+              "LG전자냉장고 정리"
+            ],
+            "blueOceanGolden": [
+              "LG전자냉장고 최신",
+              "LG전자냉장고 2025",
+              "LG전자냉장고 체크리스트",
+              "LG전자냉장고 실패하지 않는 법"
+            ]
+          },
+          "type": "📰 이슈키워드",
+          "category": "life_tips",
+          "safetyLevel": "safe",
+          "safetyReason": "✅ 안전한 키워드. 신생 블로거도 작성 가능",
+          "source": "냉장고",
+          "profitAnalysis": {
+            "keyword": "LG전자냉장고",
+            "searchVolume": 2720,
+            "documentCount": 6562,
+            "estimatedCPC": 207,
+            "purchaseIntentScore": 30,
+            "competitionLevel": 7,
+            "freshnessOpportunity": 1,
+            "profitGoldenRatio": 3.82,
+            "estimatedDailyRevenue": 68,
+            "estimatedMonthlyRevenue": 2040,
+            "grade": "C",
+            "gradeReason": "⚠️ 경쟁 높음. 틈새 접근 필요",
+            "isRealBlueOcean": false,
+            "blueOceanReason": "📕 경쟁 시장. 차별화 전략 필요",
+            "strategy": {
+              "approach": "⏸️ 보류. 더 좋은 키워드 찾기 추천",
+              "monetization": "📝 트래픽 확보 우선. 이후 관련 고수익 키워드로 내부링크",
+              "timing": "🗓️ 여유있게 준비. 롱테일 전략으로 접근",
+              "titleSuggestion": "LG전자냉장고 완벽 가이드 | 초보자도 쉽게 따라하기"
+            }
+          },
+          "timestamp": "2025-12-24T10:50:46.724Z",
+          "isGolden": true,
+          "trendAnalysis": {
+            "trendingReason": "LG전자 베스트샵, 역대급 관련 최근 이슈",
+            "whyNow": "최근 5개 이상의 뉴스에서 다뤄지며 이슈화 진행 중 • \"확인\" 관련 구체적 사건으로 실시간 관심 집중 • 최신 이슈로 실시간 관심 집중 중 • \"LG전자 베스트샵, 역대급 혜택 ‘엘라쇼’ 실시\" 관련 최신 뉴스로 조기 진입 효과 기대",
+            "newsSource": "자동 분석"
+          },
+          "keywordGuide": {
+            "summary": "여유 있을 때 공략하면 좋은 키워드입니다. (등급: A, 점수: 44점)",
+            "whyItMovesNow": "LG전자 베스트샵, 역대급 관련 최근 이슈 최근 5개 이상의 뉴스에서 다뤄지며 이슈화 진행 중 • \"확인\" 관련 구체적 사건으로 실시간 관심 집중 • 최신 이슈로 실시간 관심 집중 중 • \"LG전자 베스트샵, 역대급 혜택 ‘엘라쇼’ 실시\" 관련 최신 뉴스로 조기 진입 효과 기대",
+            "immediateTrafficPlan": [
+              "제목 앞부분에 \"LG전자냉장고\"를 배치하고, 2025/최신/정리 같은 보조 키워드를 1개만 추가하세요.",
+              "본문 서두 100자 안에 \"LG전자냉장고\"를 자연스럽게 2회 노출하세요.",
+              "최소 1개는 비교/체크리스트/요약 섹션을 넣어 체류시간을 늘리세요."
+            ],
+            "naverHomeExposureTips": [
+              "첫 이미지에 키워드가 들어간 문구를 넣고, alt 텍스트도 키워드 포함",
+              "목차를 만들고 H2/H3에 서브 키워드 배치",
+              "태그는 5~10개로 과도한 반복을 피하고, 유사어를 섞기"
+            ]
+          },
+          "ultimateAnalysis": {
+            "timing": {
+              "seasonal": {
+                "peakMonths": [
+                  1,
+                  2,
+                  3,
+                  4,
+                  5,
+                  6,
+                  7,
+                  8,
+                  9,
+                  10,
+                  11,
+                  12
+                ],
+                "peakReason": "연중 꾸준한 검색량",
+                "currentSeasonScore": 70,
+                "nextPeakDate": "항상",
+                "daysUntilPeak": 0,
+                "recommendation": "📝 에버그린 키워드입니다. 언제든 작성해도 좋습니다.",
+                "seasonalPattern": "evergreen"
+              },
+              "trend": {
+                "trendDirection": "falling",
+                "changeRate": 4,
+                "comparedTo": "전월 대비",
+                "explosiveScore": 6,
+                "relatedNews": [],
+                "recommendation": "📊 안정적인 키워드입니다."
+              },
+              "alert": {
+                "optimalPublishDate": "0일 내",
+                "reason": "📝 에버그린 키워드입니다. 언제든 작성해도 좋습니다.",
+                "urgencyLevel": "⚡ 이번 주",
+                "expectedPeakDate": "항상",
+                "competitorActivity": "경쟁자 보통"
+              }
+            },
+            "revenue": {
+              "cpc": {
+                "estimatedCpc": 200,
+                "cpcRange": {
+                  "min": 100,
+                  "max": 400
+                },
+                "cpcTier": "🥈 중수익",
+                "industryAverage": 200,
+                "recommendation": "📝 일반적인 수익 구조입니다. 트래픽 확보에 집중하세요."
+              },
+              "affiliate": {
+                "recommendedPrograms": [
+                  {
+                    "name": "쿠팡파트너스",
+                    "type": "coupang",
+                    "commissionRate": "3~5%",
+                    "estimatedEarningPerClick": 50,
+                    "matchScore": 100
+                  },
+                  {
+                    "name": "네이버 쇼핑",
+                    "type": "naver",
+                    "commissionRate": "1~3%",
+                    "estimatedEarningPerClick": 30,
+                    "matchScore": 85
+                  }
+                ],
+                "bestMatch": "쿠팡파트너스",
+                "potentialProducts": [
+                  "LG전자냉장고 추천",
+                  "LG전자냉장고 순위",
+                  "LG전자냉장고 비교",
+                  "LG전자냉장고 후기",
+                  "LG전자냉장고 가격",
+                  "LG전자냉장고 구매"
+                ]
+              },
+              "projection": {
+                "estimatedDailyVisitors": 3,
+                "estimatedMonthlyVisitors": 90,
+                "adsenseRevenue": {
+                  "daily": 18,
+                  "monthly": 540,
+                  "assumptions": "CPC 200원, CTR 2%, 페이지뷰율 1.5 가정"
+                },
+                "affiliateRevenue": {
+                  "daily": 0,
+                  "monthly": 0,
+                  "conversionRate": 3,
+                  "assumptions": "클릭률 10%, 전환율 3%, 평균 수수료 50원 가정"
+                },
+                "totalMonthlyRevenue": 540,
+                "revenueBreakdown": "애드센스 100% + 제휴 0%",
+                "revenueTier": "📝 월 1만원+"
+              }
+            },
+            "content": {
+              "titles": {
+                "titles": [
+                  {
+                    "title": "LG전자냉장고 추천 TOP 10 (2025년 최신)",
+                    "type": "number",
+                    "estimatedCTR": 8.5,
+                    "psychologyUsed": "숫자 + 최신 정보"
+                  },
+                  {
+                    "title": "LG전자냉장고 하는 법, 초보자도 쉽게 따라하기",
+                    "type": "how-to",
+                    "estimatedCTR": 7.5,
+                    "psychologyUsed": "실용성 + 접근성"
+                  },
+                  {
+                    "title": "LG전자냉장고, 이것만 알면 끝! 완벽 가이드",
+                    "type": "benefit",
+                    "estimatedCTR": 7.2,
+                    "psychologyUsed": "완결성 + 가치 제안"
+                  },
+                  {
+                    "title": "[2025년] LG전자냉장고 총정리 (+ 꿀팁 공개)",
+                    "type": "news",
+                    "estimatedCTR": 7,
+                    "psychologyUsed": "최신성 + 보너스 가치"
+                  },
+                  {
+                    "title": "아직도 LG전자냉장고 몰라요? 지금 당장 확인하세요",
+                    "type": "curiosity",
+                    "estimatedCTR": 6.8,
+                    "psychologyUsed": "호기심 + 긴급성"
+                  },
+                  {
+                    "title": "LG전자냉장고 실제 후기 (장단점 솔직 비교)",
+                    "type": "comparison",
+                    "estimatedCTR": 6.5,
+                    "psychologyUsed": "신뢰성 + 비교 심리"
+                  }
+                ],
+                "bestTitle": "LG전자냉장고 추천 TOP 10 (2025년 최신)",
+                "titleFormula": "숫자 + 키워드 + 최신연도 + 가치제안"
+              },
+              "structure": {
+                "recommendedStructure": {
+                  "intro": {
+                    "purpose": "독자의 관심 끌기 + 키워드 자연스럽게 배치",
+                    "template": "\"LG전자냉장고\"에 대해 고민하고 계신가요? 이 글에서 핵심 정보를 모두 정리해드립니다.",
+                    "keywordPlacement": "첫 문장에 키워드 포함"
+                  },
+                  "sections": [
+                    {
+                      "heading": "LG전자냉장고란? (기본 개념)",
+                      "purpose": "기초 정보 제공",
+                      "contentGuide": "핵심 정의, 중요성, 왜 알아야 하는지 설명",
+                      "recommendedLength": 300,
+                      "keywordUsage": "소제목과 본문에 1~2회"
+                    },
+                    {
+                      "heading": "LG전자냉장고 추천 BEST 5",
+                      "purpose": "실질적인 가치 제공 (핵심 섹션)",
+                      "contentGuide": "순위별 상세 설명, 장단점, 추천 이유",
+                      "recommendedLength": 800,
+                      "keywordUsage": "각 항목 설명에 자연스럽게 포함"
+                    },
+                    {
+                      "heading": "LG전자냉장고 선택 시 주의사항",
+                      "purpose": "신뢰도 향상",
+                      "contentGuide": "흔한 실수, 피해야 할 것, 체크리스트",
+                      "recommendedLength": 400,
+                      "keywordUsage": "주의사항 설명에 1~2회"
+                    },
+                    {
+                      "heading": "자주 묻는 질문 (FAQ)",
+                      "purpose": "SEO 강화 + 체류시간 증가",
+                      "contentGuide": "실제 검색되는 질문 5개 + 명확한 답변",
+                      "recommendedLength": 500,
+                      "keywordUsage": "질문에 롱테일 키워드 활용"
+                    }
+                  ],
+                  "conclusion": {
+                    "purpose": "요약 + CTA",
+                    "template": "지금까지 LG전자냉장고에 대해 알아봤습니다. 도움이 되셨다면 공유해주세요!",
+                    "ctaRecommendation": "댓글, 공유, 관련 글 링크 유도"
+                  }
+                },
+                "seoChecklist": [
+                  {
+                    "item": "제목에 키워드 포함",
+                    "importance": "critical",
+                    "howTo": "제목 앞부분에 메인 키워드 배치"
+                  },
+                  {
+                    "item": "첫 문단에 키워드",
+                    "importance": "critical",
+                    "howTo": "첫 100자 내 키워드 자연스럽게 삽입"
+                  },
+                  {
+                    "item": "소제목 H2/H3 활용",
+                    "importance": "high",
+                    "howTo": "3~5개 소제목, 키워드 변형 사용"
+                  },
+                  {
+                    "item": "이미지 ALT 태그",
+                    "importance": "high",
+                    "howTo": "모든 이미지에 키워드 포함 설명"
+                  },
+                  {
+                    "item": "내부링크 2개 이상",
+                    "importance": "medium",
+                    "howTo": "관련 글 자연스럽게 연결"
+                  },
+                  {
+                    "item": "3000자 이상 작성",
+                    "importance": "high",
+                    "howTo": "충분한 깊이의 콘텐츠 제공"
+                  }
+                ],
+                "totalRecommendedLength": 3000,
+                "estimatedWriteTime": 90
+              },
+              "images": {
+                "mainImage": {
+                  "searchKeyword": "LG전자냉장고 대표이미지",
+                  "style": "깔끔한 인포그래픽 또는 고화질 사진",
+                  "source": [
+                    "Unsplash",
+                    "Pixabay",
+                    "직접 제작"
+                  ],
+                  "altText": "LG전자냉장고 완벽 가이드 대표 이미지"
+                },
+                "sectionImages": [
+                  {
+                    "section": "기본 개념",
+                    "searchKeyword": "LG전자냉장고 설명",
+                    "purpose": "이해 돕기",
+                    "style": "다이어그램"
+                  },
+                  {
+                    "section": "TOP 5",
+                    "searchKeyword": "LG전자냉장고 비교",
+                    "purpose": "시각적 비교",
+                    "style": "비교표"
+                  },
+                  {
+                    "section": "주의사항",
+                    "searchKeyword": "주의 아이콘",
+                    "purpose": "강조",
+                    "style": "아이콘"
+                  }
+                ],
+                "infographicIdeas": [
+                  "LG전자냉장고 선택 가이드 플로우차트",
+                  "LG전자냉장고 TOP 5 비교표",
+                  "LG전자냉장고 체크리스트"
+                ],
+                "totalRecommendedImages": 7,
+                "imageStrategy": "섹션당 1~2개, 총 7~10개 이미지로 가독성과 체류시간 향상"
+              }
+            },
+            "ultimateScore": {
+              "total": 40,
+              "breakdown": {
+                "goldenRatio": 4.1450777202072535,
+                "timing": 70,
+                "revenue": 40,
+                "competition": 60,
+                "potential": 44
+              },
+              "grade": "📝 C",
+              "verdict": "⚠️ 신중히 검토 필요",
+              "topActions": [
+                "0일 내 작성 권장",
+                "LG전자냉장고 추천 TOP 10 (2025년 최신)",
+                "3000자 이상, 7개 이미지 권장"
+              ]
+            }
+          },
+          "highlightReason": "✅ ANYTIME/stable | 폭발 65 | 구매의도 30 | 월 2,040원⚠️ | 경쟁도 7"
+        },
+        {
+          "keyword": "LG컨버터블냉장고",
+          "searchVolume": 3450,
+          "documentCount": 13636,
+          "goldenRatio": 0.2530067468465826,
+          "rookieFriendly": {
+            "score": 25,
+            "grade": "D",
+            "reason": "황금비율 1 미만 → 공급 과잉 | 숏테일 키워드 → 대형 블로그와 경쟁",
+            "canRankWithin": "1개월 이상 소요 예상",
+            "requiredBlogIndex": "최적 1 이상 권장"
+          },
+          "timing": {
+            "score": 50,
+            "urgency": "ANYTIME",
+            "bestPublishTime": "오전 6~8시 또는 저녁 8~10시",
+            "trendDirection": "stable",
+            "peakPrediction": "꾸준한 검색량 유지"
+          },
+          "blueOcean": {
+            "score": 35,
+            "competitorStrength": "medium",
+            "avgCompetitorBlogAge": "2~5년 (보통 경쟁)",
+            "oldPostRatio": 30,
+            "opportunity": "❌ 레드오션. 다른 키워드 추천"
+          },
+          "trafficEstimate": {
+            "daily": "2~4명",
+            "weekly": "14~28명",
+            "monthly": "60~120명",
+            "confidence": 50,
+            "disclaimer": "📌 트래픽은 순위/CTR/계절성에 따라 달라질 수 있는 추정치입니다."
+          },
+          "revenueEstimate": {
+            "dailyRevenue": "68원 ⚠️추정",
+            "monthlyRevenue": "2,040원 ⚠️추정",
+            "estimatedCPC": 207,
+            "estimatedRPM": 5175,
+            "adType": "애드센스",
+            "revenueGrade": "B",
+            "revenueReason": "📌 보통. 롱테일 확장 추천"
+          },
+          "entryAnalysis": {
+            "canEntry": false,
+            "difficulty": "very_hard",
+            "difficultyScore": 74,
+            "message": "🔴 진입 어려움 - 상위 블로거 독점 키워드",
+            "topCompetitorStrength": "강함 (전문 블로거 다수)",
+            "recommendedBlogIndex": "최적 1 이상 권장",
+            "estimatedRankingTime": "1개월 이상 소요 예상"
+          },
+          "totalScore": 43,
+          "grade": "B",
+          "proStrategy": {
+            "title": "2025 LG컨버터블냉장고 완벽 정리 | 초보자도 쉽게 이해하는 가이드",
+            "outline": [
+              "1. LG컨버터블냉장고란? (기본 개념)",
+              "2. LG컨버터블냉장고 핵심 포인트 3가지",
+              "3. LG컨버터블냉장고 장단점 비교",
+              "4. LG컨버터블냉장고 실제 후기/경험담",
+              "5. LG컨버터블냉장고 Q&A (자주 묻는 질문)",
+              "6. 결론 및 추천"
+            ],
+            "wordCount": 2500,
+            "mustInclude": [
+              "핵심 키워드 2~3회 자연스럽게 삽입",
+              "실제 이미지/사진 3장 이상",
+              "표 또는 비교 차트 1개 이상",
+              "자주 묻는 질문(FAQ) 섹션",
+              "결론 및 추천 섹션"
+            ],
+            "avoidTopics": [
+              "과장된 표현 (100%, 무조건, 반드시)",
+              "허위 정보나 검증되지 않은 내용",
+              "다른 블로그 복사/붙여넣기",
+              "광고성 링크 과다 삽입"
+            ],
+            "monetization": "애드센스 + 쿠팡파트너스 조합 추천"
+          },
+          "platformTitles": {
+            "naver": {
+              "title": "핵심 정리: LG컨버터블냉장고 2025 최신 가이드 (월 3,450)",
+              "alternatives": [
+                "LG컨버터블냉장고 2025 완벽 정리: 핵심만 5분 요약",
+                "LG컨버터블냉장고 초보도 쉽게: 실패 없는 체크리스트"
+              ],
+              "subKeywords": [
+                "LG컨버터블냉장고 방법",
+                "LG컨버터블냉장고 추천",
+                "LG컨버터블냉장고 후기"
+              ],
+              "tags": [
+                "LG컨버터블냉장고",
+                "📰 이슈키워드"
+              ],
+              "tip": "서두 100자 내에 키워드를 2회 노출하고, 결론 요약을 맨 위에 한 번 더 넣으세요.",
+              "hookPoint": "핵심 정리 포인트를 제목/썸네일에 강조"
+            },
+            "tistory": {
+              "title": "LG컨버터블냉장고 2025 정리: 한 번에 이해하는 핵심 포인트 (월 3,450)",
+              "alternatives": [
+                "LG컨버터블냉장고 제대로 하는 법 (체크리스트 포함)",
+                "LG컨버터블냉장고 추천/비교: 선택 기준 3가지"
+              ],
+              "subKeywords": [
+                "LG컨버터블냉장고 방법",
+                "LG컨버터블냉장고 추천",
+                "LG컨버터블냉장고 후기"
+              ],
+              "tags": [
+                "LG컨버터블냉장고",
+                "📰 이슈키워드"
+              ],
+              "tip": "표/리스트를 많이 써서 스크롤 체류시간을 늘리세요.",
+              "hookPoint": "“핵심 3가지”처럼 숫자를 넣어 클릭률을 올리기"
+            },
+            "wordpress": {
+              "title": "LG컨버터블냉장고: 2025 Complete Guide (Checklist & Tips) (월 3,450)",
+              "alternatives": [
+                "LG컨버터블냉장고 Guide: Common Mistakes & Quick Fixes",
+                "LG컨버터블냉장고 Step-by-Step: What to Do First"
+              ],
+              "subKeywords": [
+                "LG컨버터블냉장고 방법",
+                "LG컨버터블냉장고 추천",
+                "LG컨버터블냉장고 후기"
+              ],
+              "tags": [
+                "LG컨버터블냉장고",
+                "📰 이슈키워드"
+              ],
+              "tip": "H2/H3로 구조를 만들고, FAQ 섹션을 넣어 SEO를 강화하세요.",
+              "hookPoint": "FAQ + 체크리스트 조합으로 체류시간/리치 증가"
+            },
+            "blogspot": {
+              "title": "LG컨버터블냉장고 2025: Quick Start + Best Practices (월 3,450)",
+              "alternatives": [
+                "LG컨버터블냉장고 Quick Guide: Do & Don't",
+                "LG컨버터블냉장고 Essentials: What You Need to Know"
+              ],
+              "subKeywords": [
+                "LG컨버터블냉장고 방법",
+                "LG컨버터블냉장고 추천",
+                "LG컨버터블냉장고 후기"
+              ],
+              "tags": [
+                "LG컨버터블냉장고",
+                "📰 이슈키워드"
+              ],
+              "tip": "이미지 2~3장 + 요약 박스를 넣어 가독성을 올리세요.",
+              "hookPoint": "첫 화면에 요약(결론)을 배치해 이탈률을 낮추기"
+            }
+          },
+          "expandedKeywords": {
+            "relatedGolden": [
+              "LG컨버터블냉장고 추천",
+              "LG컨버터블냉장고 비교",
+              "LG컨버터블냉장고 후기",
+              "LG컨버터블냉장고 가격"
+            ],
+            "longtailGolden": [
+              "LG컨버터블냉장고 초보",
+              "LG컨버터블냉장고 쉽게",
+              "LG컨버터블냉장고 단계별",
+              "LG컨버터블냉장고 정리"
+            ],
+            "blueOceanGolden": [
+              "LG컨버터블냉장고 최신",
+              "LG컨버터블냉장고 2025",
+              "LG컨버터블냉장고 체크리스트",
+              "LG컨버터블냉장고 실패하지 않는 법"
+            ]
+          },
+          "type": "📰 이슈키워드",
+          "category": "life_tips",
+          "safetyLevel": "safe",
+          "safetyReason": "✅ 안전한 키워드. 신생 블로거도 작성 가능",
+          "source": "냉장고",
+          "profitAnalysis": {
+            "keyword": "LG컨버터블냉장고",
+            "searchVolume": 3450,
+            "documentCount": 13636,
+            "estimatedCPC": 207,
+            "purchaseIntentScore": 30,
+            "competitionLevel": 8,
+            "freshnessOpportunity": 1,
+            "profitGoldenRatio": 4.24,
+            "estimatedDailyRevenue": 68,
+            "estimatedMonthlyRevenue": 2040,
+            "grade": "B",
+            "gradeReason": "📌 보통. 롱테일 확장 추천",
+            "isRealBlueOcean": false,
+            "blueOceanReason": "📕 경쟁 시장. 차별화 전략 필요",
+            "strategy": {
+              "approach": "🔍 롱테일 확장 후 작성. \"초보자\", \"2025\", \"비교\" 등 붙여서 경쟁 낮추기",
+              "monetization": "📝 트래픽 확보 우선. 이후 관련 고수익 키워드로 내부링크",
+              "timing": "🗓️ 여유있게 준비. 롱테일 전략으로 접근",
+              "titleSuggestion": "LG컨버터블냉장고 완벽 가이드 | 초보자도 쉽게 따라하기"
+            }
+          },
+          "timestamp": "2025-12-24T10:50:46.724Z",
+          "isGolden": true,
+          "trendAnalysis": {
+            "trendingReason": "TV·김치냉장고·세탁기 살펴볼까..롯데하이마트, 이달 관련 최근 이슈",
+            "whyNow": "최근 5개 이상의 뉴스에서 다뤄지며 이슈화 진행 중",
+            "newsSource": "자동 분석"
+          },
+          "keywordGuide": {
+            "summary": "여유 있을 때 공략하면 좋은 키워드입니다. (등급: B, 점수: 43점)",
+            "whyItMovesNow": "TV·김치냉장고·세탁기 살펴볼까..롯데하이마트, 이달 관련 최근 이슈 최근 5개 이상의 뉴스에서 다뤄지며 이슈화 진행 중",
+            "immediateTrafficPlan": [
+              "제목 앞부분에 \"LG컨버터블냉장고\"를 배치하고, 2025/최신/정리 같은 보조 키워드를 1개만 추가하세요.",
+              "본문 서두 100자 안에 \"LG컨버터블냉장고\"를 자연스럽게 2회 노출하세요.",
+              "최소 1개는 비교/체크리스트/요약 섹션을 넣어 체류시간을 늘리세요."
+            ],
+            "naverHomeExposureTips": [
+              "첫 이미지에 키워드가 들어간 문구를 넣고, alt 텍스트도 키워드 포함",
+              "목차를 만들고 H2/H3에 서브 키워드 배치",
+              "태그는 5~10개로 과도한 반복을 피하고, 유사어를 섞기"
+            ]
+          },
+          "ultimateAnalysis": {
+            "timing": {
+              "seasonal": {
+                "peakMonths": [
+                  1,
+                  2,
+                  3,
+                  4,
+                  5,
+                  6,
+                  7,
+                  8,
+                  9,
+                  10,
+                  11,
+                  12
+                ],
+                "peakReason": "연중 꾸준한 검색량",
+                "currentSeasonScore": 70,
+                "nextPeakDate": "항상",
+                "daysUntilPeak": 0,
+                "recommendation": "📝 에버그린 키워드입니다. 언제든 작성해도 좋습니다.",
+                "seasonalPattern": "evergreen"
+              },
+              "trend": {
+                "trendDirection": "falling",
+                "changeRate": 3,
+                "comparedTo": "전월 대비",
+                "explosiveScore": 4,
+                "relatedNews": [],
+                "recommendation": "📊 안정적인 키워드입니다."
+              },
+              "alert": {
+                "optimalPublishDate": "0일 내",
+                "reason": "📝 에버그린 키워드입니다. 언제든 작성해도 좋습니다.",
+                "urgencyLevel": "⚡ 이번 주",
+                "expectedPeakDate": "항상",
+                "competitorActivity": "경쟁자 많음"
+              }
+            },
+            "revenue": {
+              "cpc": {
+                "estimatedCpc": 200,
+                "cpcRange": {
+                  "min": 100,
+                  "max": 400
+                },
+                "cpcTier": "🥈 중수익",
+                "industryAverage": 200,
+                "recommendation": "📝 일반적인 수익 구조입니다. 트래픽 확보에 집중하세요."
+              },
+              "affiliate": {
+                "recommendedPrograms": [
+                  {
+                    "name": "쿠팡파트너스",
+                    "type": "coupang",
+                    "commissionRate": "3~5%",
+                    "estimatedEarningPerClick": 50,
+                    "matchScore": 100
+                  },
+                  {
+                    "name": "네이버 쇼핑",
+                    "type": "naver",
+                    "commissionRate": "1~3%",
+                    "estimatedEarningPerClick": 30,
+                    "matchScore": 85
+                  }
+                ],
+                "bestMatch": "쿠팡파트너스",
+                "potentialProducts": [
+                  "LG컨버터블냉장고 추천",
+                  "LG컨버터블��장고 순위",
+                  "LG컨버터블냉장고 비교",
+                  "LG컨버터블냉장고 후기",
+                  "LG컨버터블냉장고 가격",
+                  "LG컨버터블냉장고 구매"
+                ]
+              },
+              "projection": {
+                "estimatedDailyVisitors": 3,
+                "estimatedMonthlyVisitors": 90,
+                "adsenseRevenue": {
+                  "daily": 18,
+                  "monthly": 540,
+                  "assumptions": "CPC 200원, CTR 2%, 페이지뷰율 1.5 가정"
+                },
+                "affiliateRevenue": {
+                  "daily": 0,
+                  "monthly": 0,
+                  "conversionRate": 3,
+                  "assumptions": "클릭률 10%, 전환율 3%, 평균 수수료 50원 가정"
+                },
+                "totalMonthlyRevenue": 540,
+                "revenueBreakdown": "애드센스 100% + 제휴 0%",
+                "revenueTier": "📝 월 1만원+"
+              }
+            },
+            "content": {
+              "titles": {
+                "titles": [
+                  {
+                    "title": "LG컨버터블냉장고 추천 TOP 10 (2025년 최신)",
+                    "type": "number",
+                    "estimatedCTR": 8.5,
+                    "psychologyUsed": "숫자 + 최신 정보"
+                  },
+                  {
+                    "title": "LG컨버터블냉장고 하는 법, 초보자도 쉽게 따라하기",
+                    "type": "how-to",
+                    "estimatedCTR": 7.5,
+                    "psychologyUsed": "실용성 + 접근성"
+                  },
+                  {
+                    "title": "LG컨버터블냉장고, 이것만 알면 끝! 완벽 가이드",
+                    "type": "benefit",
+                    "estimatedCTR": 7.2,
+                    "psychologyUsed": "완결성 + 가치 제안"
+                  },
+                  {
+                    "title": "[2025년] LG컨버터블냉장고 총정리 (+ 꿀팁 공개)",
+                    "type": "news",
+                    "estimatedCTR": 7,
+                    "psychologyUsed": "최신성 + 보너스 가치"
+                  },
+                  {
+                    "title": "아직도 LG컨버터블냉장고 몰라요? 지금 당장 확인하세요",
+                    "type": "curiosity",
+                    "estimatedCTR": 6.8,
+                    "psychologyUsed": "호기심 + 긴급성"
+                  },
+                  {
+                    "title": "LG컨버터블냉장고 실제 후기 (장단점 솔직 비교)",
+                    "type": "comparison",
+                    "estimatedCTR": 6.5,
+                    "psychologyUsed": "신뢰성 + 비교 심리"
+                  }
+                ],
+                "bestTitle": "LG컨버터블냉장고 추천 TOP 10 (2025년 최신)",
+                "titleFormula": "숫자 + 키워드 + 최신연도 + 가치제안"
+              },
+              "structure": {
+                "recommendedStructure": {
+                  "intro": {
+                    "purpose": "독자의 관심 끌기 + 키워드 자연스럽게 배치",
+                    "template": "\"LG컨버터블냉장고\"에 대해 고민하고 계신가요? 이 글에서 핵심 정보를 모두 정리해드립니다.",
+                    "keywordPlacement": "첫 문장에 키워드 포함"
+                  },
+                  "sections": [
+                    {
+                      "heading": "LG컨버터블냉장고란? (기본 개념)",
+                      "purpose": "기초 정보 제공",
+                      "contentGuide": "핵심 정의, 중요성, 왜 알아야 하는지 설명",
+                      "recommendedLength": 300,
+                      "keywordUsage": "소제목과 본문에 1~2회"
+                    },
+                    {
+                      "heading": "LG컨버터블냉장고 추천 BEST 5",
+                      "purpose": "실질적인 가치 제공 (핵심 섹션)",
+                      "contentGuide": "순위별 상세 설명, 장단점, 추천 이유",
+                      "recommendedLength": 800,
+                      "keywordUsage": "각 항목 설명에 자연스럽게 포함"
+                    },
+                    {
+                      "heading": "LG컨버터블냉장고 선택 시 주의사항",
+                      "purpose": "신뢰도 향상",
+                      "contentGuide": "흔한 실수, 피해야 할 것, 체크리스트",
+                      "recommendedLength": 400,
+                      "keywordUsage": "주의사항 설명에 1~2회"
+                    },
+                    {
+                      "heading": "자주 묻는 질문 (FAQ)",
+                      "purpose": "SEO 강화 + 체류시간 증가",
+                      "contentGuide": "실제 검색되는 질문 5개 + 명확한 답변",
+                      "recommendedLength": 500,
+                      "keywordUsage": "질문에 롱테일 키워드 활용"
+                    }
+                  ],
+                  "conclusion": {
+                    "purpose": "요약 + CTA",
+                    "template": "지금까지 LG컨버터블냉장고에 대해 알아봤습니다. 도움이 되셨다면 공유해주세요!",
+                    "ctaRecommendation": "댓글, 공유, 관련 글 링크 유도"
+                  }
+                },
+                "seoChecklist": [
+                  {
+                    "item": "제목에 키워드 포함",
+                    "importance": "critical",
+                    "howTo": "제목 앞부분에 메인 키워드 배치"
+                  },
+                  {
+                    "item": "첫 문단에 키워드",
+                    "importance": "critical",
+                    "howTo": "첫 100자 내 키워드 자연스럽게 삽입"
+                  },
+                  {
+                    "item": "소제목 H2/H3 활용",
+                    "importance": "high",
+                    "howTo": "3~5개 소제목, 키워드 변형 사용"
+                  },
+                  {
+                    "item": "이미지 ALT 태그",
+                    "importance": "high",
+                    "howTo": "모든 이미지에 키워드 포함 설명"
+                  },
+                  {
+                    "item": "내부링크 2개 이상",
+                    "importance": "medium",
+                    "howTo": "관련 글 자연스럽게 연결"
+                  },
+                  {
+                    "item": "3000자 이상 작성",
+                    "importance": "high",
+                    "howTo": "충분한 깊이의 콘텐츠 제공"
+                  }
+                ],
+                "totalRecommendedLength": 3000,
+                "estimatedWriteTime": 90
+              },
+              "images": {
+                "mainImage": {
+                  "searchKeyword": "LG컨버터블냉장고 대표이미지",
+                  "style": "깔끔한 인포그래픽 또는 고화질 사진",
+                  "source": [
+                    "Unsplash",
+                    "Pixabay",
+                    "직접 제작"
+                  ],
+                  "altText": "LG컨버터블냉장고 완벽 가이드 대표 이미지"
+                },
+                "sectionImages": [
+                  {
+                    "section": "기본 개념",
+                    "searchKeyword": "LG컨버터블냉장고 설명",
+                    "purpose": "이해 돕기",
+                    "style": "다이어그램"
+                  },
+                  {
+                    "section": "TOP 5",
+                    "searchKeyword": "LG컨버터블냉장고 비교",
+                    "purpose": "시각적 비교",
+                    "style": "비교표"
+                  },
+                  {
+                    "section": "주의사항",
+                    "searchKeyword": "주의 아이콘",
+                    "purpose": "강조",
+                    "style": "아이콘"
+                  }
+                ],
+                "infographicIdeas": [
+                  "LG컨버터블냉장고 선택 가이드 플로우차트",
+                  "LG컨버터블냉장고 TOP 5 비교표",
+                  "LG컨버터블냉장고 체크리스트"
+                ],
+                "totalRecommendedImages": 7,
+                "imageStrategy": "섹션당 1~2개, 총 7~10개 이미지로 가독성과 체류시간 향상"
+              }
+            },
+            "ultimateScore": {
+              "total": 35,
+              "breakdown": {
+                "goldenRatio": 2.530067468465826,
+                "timing": 70,
+                "revenue": 40,
+                "competition": 40,
+                "potential": 38
+              },
+              "grade": "📝 C",
+              "verdict": "⚠️ 신중히 검토 필요",
+              "topActions": [
+                "0일 내 작성 권장",
+                "LG컨버터블냉장고 추천 TOP 10 (2025년 최신)",
+                "3000자 이상, 7개 이미지 권장"
+              ]
+            }
+          },
+          "highlightReason": "✅ ANYTIME/stable | 폭발 65 | 구매의도 30 | 월 2,040원⚠️ | 경쟁도 8"
+        },
+        {
+          "keyword": "냉장고300리터",
+          "searchVolume": 1920,
+          "documentCount": 7829,
+          "goldenRatio": 0.24524204879294928,
+          "rookieFriendly": {
+            "score": 35,
+            "grade": "D",
+            "reason": "문서수 10,000개 미만 → 경쟁 보통 | 황금비율 1 미만 → 공급 과잉 | 숏테일 키워드 → 대형 블로그와 경쟁",
+            "canRankWithin": "1개월 이상 소요 예상",
+            "requiredBlogIndex": "최적 1 이상 권장"
+          },
+          "timing": {
+            "score": 50,
+            "urgency": "ANYTIME",
+            "bestPublishTime": "오전 6~8시 또는 저녁 8~10시",
+            "trendDirection": "stable",
+            "peakPrediction": "꾸준한 검색량 유지"
+          },
+          "blueOcean": {
+            "score": 50,
+            "competitorStrength": "medium",
+            "avgCompetitorBlogAge": "2~5년 (보통 경쟁)",
+            "oldPostRatio": 50,
+            "opportunity": "⚠️ 경쟁 있음. 차별화된 콘텐츠 필요"
+          },
+          "trafficEstimate": {
+            "daily": "1~3명",
+            "weekly": "7~21명",
+            "monthly": "30~90명",
+            "confidence": 50,
+            "disclaimer": "📌 트래픽은 순위/CTR/계절성에 따라 달라질 수 있는 추정치입니다."
+          },
+          "revenueEstimate": {
+            "dailyRevenue": "50원 ⚠️추정",
+            "monthlyRevenue": "1,500원 ⚠️추정",
+            "estimatedCPC": 207,
+            "estimatedRPM": 5175,
+            "adType": "애드센스",
+            "revenueGrade": "C",
+            "revenueReason": "⚠️ 경쟁 높음. 틈새 접근 필요"
+          },
+          "entryAnalysis": {
+            "canEntry": true,
+            "difficulty": "hard",
+            "difficultyScore": 60,
+            "message": "🟠 진입 도전적 - 차별화된 콘텐츠 필요",
+            "topCompetitorStrength": "보통 (일반 블로그 혼재)",
+            "recommendedBlogIndex": "준최 5 이상 권장",
+            "estimatedRankingTime": "1~3주 내 가능"
+          },
+          "totalScore": 43,
+          "grade": "B",
+          "proStrategy": {
+            "title": "2025 냉장고300리터 완벽 정리 | 초보자도 쉽게 이해하는 가이드",
+            "outline": [
+              "1. 냉장고300리터란? (기본 개념)",
+              "2. 냉장고300리터 핵심 포인트 3가지",
+              "3. 냉장고300리터 장단점 비교",
+              "4. 냉장고300리터 실제 후기/경험담",
+              "5. 냉장고300리터 Q&A (자주 묻는 질문)",
+              "6. 결론 및 추천"
+            ],
+            "wordCount": 2500,
+            "mustInclude": [
+              "핵심 키워드 2~3회 자연스럽게 삽입",
+              "실제 이미지/사진 3장 이상",
+              "표 또는 비교 차트 1개 이상",
+              "자주 묻는 질문(FAQ) 섹션",
+              "결론 및 추천 섹션"
+            ],
+            "avoidTopics": [
+              "과장된 표현 (100%, 무조건, 반드시)",
+              "허위 정보나 검증되지 않은 내용",
+              "다른 블로그 복사/붙여넣기",
+              "광고성 링크 과다 삽입"
+            ],
+            "monetization": "애드센스 + 쿠팡파트너스 조합 추천"
+          },
+          "platformTitles": {
+            "naver": {
+              "title": "핵심 정리: 냉장고300리터 2025 최신 가이드 (월 1,920)",
+              "alternatives": [
+                "냉장고300리터 2025 완벽 정리: 핵심만 5분 요약",
+                "냉장고300리터 초보도 쉽게: 실패 없는 체크리스트"
+              ],
+              "subKeywords": [
+                "냉장고300리터 방법",
+                "냉장고300리터 추천",
+                "냉장고300리터 후기"
+              ],
+              "tags": [
+                "냉장고300리터",
+                "📰 이슈키워드"
+              ],
+              "tip": "서두 100자 내에 키워드를 2회 노출하고, 결론 요약을 맨 위에 한 번 더 넣으세요.",
+              "hookPoint": "핵심 정리 포인트를 제목/썸네일에 강조"
+            },
+            "tistory": {
+              "title": "냉장고300리터 2025 정리: 한 번에 이해하는 핵심 포인트 (월 1,920)",
+              "alternatives": [
+                "냉장고300리터 제대로 하는 법 (체크리스트 포함)",
+                "냉장고300리터 추천/비교: 선택 기준 3가지"
+              ],
+              "subKeywords": [
+                "냉장고300리터 방법",
+                "냉장고300리터 추천",
+                "냉장고300리터 후기"
+              ],
+              "tags": [
+                "냉장고300리터",
+                "📰 이슈키워드"
+              ],
+              "tip": "표/리스트를 많이 써서 스크롤 체류시간을 늘리세요.",
+              "hookPoint": "“핵심 3가지”처럼 숫자를 넣어 클릭률을 올리기"
+            },
+            "wordpress": {
+              "title": "냉장고300리터: 2025 Complete Guide (Checklist & Tips) (월 1,920)",
+              "alternatives": [
+                "냉장고300리터 Guide: Common Mistakes & Quick Fixes",
+                "냉장고300리터 Step-by-Step: What to Do First"
+              ],
+              "subKeywords": [
+                "냉장고300리터 방법",
+                "냉장고300리터 추천",
+                "냉장고300리터 후기"
+              ],
+              "tags": [
+                "냉장고300리터",
+                "📰 이슈키워드"
+              ],
+              "tip": "H2/H3로 구조를 만들고, FAQ 섹션을 넣어 SEO를 강화하세요.",
+              "hookPoint": "FAQ + 체크리스트 조합으로 체류시간/리치 증가"
+            },
+            "blogspot": {
+              "title": "냉장고300리터 2025: Quick Start + Best Practices (월 1,920)",
+              "alternatives": [
+                "냉장고300리터 Quick Guide: Do & Don't",
+                "냉장고300리터 Essentials: What You Need to Know"
+              ],
+              "subKeywords": [
+                "냉장고300리터 방법",
+                "냉장고300리터 추천",
+                "냉장고300리터 후기"
+              ],
+              "tags": [
+                "냉장고300리터",
+                "📰 이슈키워드"
+              ],
+              "tip": "이미지 2~3장 + 요약 박스를 넣어 가독성을 올리세요.",
+              "hookPoint": "첫 화면에 요약(결론)을 배치해 이탈률을 낮추기"
+            }
+          },
+          "expandedKeywords": {
+            "relatedGolden": [
+              "냉장고300리터 추천",
+              "냉장고300리터 비교",
+              "냉장고300리터 후기",
+              "냉장고300리터 가격"
+            ],
+            "longtailGolden": [
+              "냉장고300리터 초보",
+              "냉장고300리터 쉽게",
+              "냉장고300리터 단계별",
+              "냉장고300리터 정리"
+            ],
+            "blueOceanGolden": [
+              "냉장고300리터 최신",
+              "냉장고300리터 2025",
+              "냉장고300리터 체크리스트",
+              "냉장고300리터 실패하지 않는 법"
+            ]
+          },
+          "type": "📰 이슈키워드",
+          "category": "life_tips",
+          "safetyLevel": "safe",
+          "safetyReason": "✅ 안전한 키워드. 신생 블로거도 작성 가능",
+          "source": "냉장고",
+          "profitAnalysis": {
+            "keyword": "냉장고300리터",
+            "searchVolume": 1920,
+            "documentCount": 7829,
+            "estimatedCPC": 207,
+            "purchaseIntentScore": 30,
+            "competitionLevel": 7,
+            "freshnessOpportunity": 1,
+            "profitGoldenRatio": 2.7,
+            "estimatedDailyRevenue": 50,
+            "estimatedMonthlyRevenue": 1500,
+            "grade": "C",
+            "gradeReason": "⚠️ 경쟁 높음. 틈새 접근 필요",
+            "isRealBlueOcean": false,
+            "blueOceanReason": "📕 경쟁 시장. 차별화 전략 필요",
+            "strategy": {
+              "approach": "⏸️ 보류. 더 좋은 키워드 찾기 추천",
+              "monetization": "📝 트래픽 확보 우선. 이후 관련 고수익 키워드로 내부링크",
+              "timing": "🗓️ 여유있게 준비. 롱테일 전략으로 접근",
+              "titleSuggestion": "냉장고300리터 완벽 가이드 | 초보자도 쉽게 따라하기"
+            }
+          },
+          "timestamp": "2025-12-24T10:50:46.726Z",
+          "isGolden": true,
+          "trendAnalysis": {
+            "trendingReason": "르포 70년대에 볼법한 관련 최근 이슈",
+            "whyNow": "최근 5개 이상의 뉴스에서 다뤄지며 이슈화 진행 중 • 뉴스에서 \"인기\" 키워드로 언급되며 화제성 확보 • 최신 이슈로 실시간 관심 집중 중",
+            "newsSource": "자동 분석"
+          },
+          "keywordGuide": {
+            "summary": "여유 있을 때 공략하면 좋은 키워드입니다. (등급: B, 점수: 43점)",
+            "whyItMovesNow": "르포 70년대에 볼법한 관련 최근 이슈 최근 5개 이상의 뉴스에서 다뤄지며 이슈화 진행 중 • 뉴스에서 \"인기\" 키워드로 언급되며 화제성 확보 • 최신 이슈로 실시간 관심 집중 중",
+            "immediateTrafficPlan": [
+              "제목 앞부분에 \"냉장고300리터\"를 배치하고, 2025/최신/정리 같은 보조 키워드를 1개만 추가하세요.",
+              "본문 서두 100자 안에 \"냉장고300리터\"를 자연스럽게 2회 노출하세요.",
+              "최소 1개는 비교/체크리스트/요약 섹션을 넣어 체류시간을 늘리세요."
+            ],
+            "naverHomeExposureTips": [
+              "첫 이미지에 키워드가 들어간 문구를 넣고, alt 텍스트도 키워드 포함",
+              "목차를 만들고 H2/H3에 서브 키워드 배치",
+              "태그는 5~10개로 과도한 반복을 피하고, 유사어를 섞기"
+            ]
+          },
+          "ultimateAnalysis": {
+            "timing": {
+              "seasonal": {
+                "peakMonths": [
+                  1,
+                  2,
+                  3,
+                  4,
+                  5,
+                  6,
+                  7,
+                  8,
+                  9,
+                  10,
+                  11,
+                  12
+                ],
+                "peakReason": "연중 꾸준한 검색량",
+                "currentSeasonScore": 70,
+                "nextPeakDate": "항상",
+                "daysUntilPeak": 0,
+                "recommendation": "📝 에버그린 키워드입니다. 언제든 작성해도 좋습니다.",
+                "seasonalPattern": "evergreen"
+              },
+              "trend": {
+                "trendDirection": "falling",
+                "changeRate": 2,
+                "comparedTo": "전월 대비",
+                "explosiveScore": 4,
+                "relatedNews": [],
+                "recommendation": "📊 안정적인 키워드입니다."
+              },
+              "alert": {
+                "optimalPublishDate": "0일 내",
+                "reason": "📝 에버그린 키워드입니다. 언제든 작성해도 좋습니다.",
+                "urgencyLevel": "⚡ 이번 주",
+                "expectedPeakDate": "항상",
+                "competitorActivity": "경쟁자 보통"
+              }
+            },
+            "revenue": {
+              "cpc": {
+                "estimatedCpc": 200,
+                "cpcRange": {
+                  "min": 100,
+                  "max": 400
+                },
+                "cpcTier": "🥈 중수익",
+                "industryAverage": 200,
+                "recommendation": "📝 일반적인 수익 구조입니다. 트래픽 확보에 집중하세요."
+              },
+              "affiliate": {
+                "recommendedPrograms": [
+                  {
+                    "name": "쿠팡파트너스",
+                    "type": "coupang",
+                    "commissionRate": "3~5%",
+                    "estimatedEarningPerClick": 50,
+                    "matchScore": 100
+                  },
+                  {
+                    "name": "네이버 쇼핑",
+                    "type": "naver",
+                    "commissionRate": "1~3%",
+                    "estimatedEarningPerClick": 30,
+                    "matchScore": 85
+                  }
+                ],
+                "bestMatch": "쿠팡파트너스",
+                "potentialProducts": [
+                  "냉장고300리터 추천",
+                  "냉장고300리터 순위",
+                  "냉장고300리터 비교",
+                  "냉장고300리터 후기",
+                  "냉장고300리터 가격",
+                  "냉장고300리터 구매"
+                ]
+              },
+              "projection": {
+                "estimatedDailyVisitors": 2,
+                "estimatedMonthlyVisitors": 60,
+                "adsenseRevenue": {
+                  "daily": 12,
+                  "monthly": 360,
+                  "assumptions": "CPC 200원, CTR 2%, 페이지뷰율 1.5 가정"
+                },
+                "affiliateRevenue": {
+                  "daily": 0,
+                  "monthly": 0,
+                  "conversionRate": 3,
+                  "assumptions": "클릭률 10%, 전환율 3%, 평균 수수료 50원 가정"
+                },
+                "totalMonthlyRevenue": 360,
+                "revenueBreakdown": "애드센스 100% + 제휴 0%",
+                "revenueTier": "📝 월 1만원+"
+              }
+            },
+            "content": {
+              "titles": {
+                "titles": [
+                  {
+                    "title": "냉장고300리터 추천 TOP 10 (2025년 최신)",
+                    "type": "number",
+                    "estimatedCTR": 8.5,
+                    "psychologyUsed": "숫자 + 최신 정보"
+                  },
+                  {
+                    "title": "냉장고300리터 하는 법, 초보자도 쉽게 따라하기",
+                    "type": "how-to",
+                    "estimatedCTR": 7.5,
+                    "psychologyUsed": "실용성 + 접근성"
+                  },
+                  {
+                    "title": "냉장고300리터, 이것만 알면 끝! 완벽 가이드",
+                    "type": "benefit",
+                    "estimatedCTR": 7.2,
+                    "psychologyUsed": "완결성 + 가치 제안"
+                  },
+                  {
+                    "title": "[2025년] 냉장고300리터 총정리 (+ 꿀팁 공개)",
+                    "type": "news",
+                    "estimatedCTR": 7,
+                    "psychologyUsed": "최신성 + 보너스 가치"
+                  },
+                  {
+                    "title": "아직도 냉장고300리터 몰라요? 지금 당장 확인하세요",
+                    "type": "curiosity",
+                    "estimatedCTR": 6.8,
+                    "psychologyUsed": "호기심 + 긴급성"
+                  },
+                  {
+                    "title": "냉장고300리터 실제 후기 (장단점 솔직 비교)",
+                    "type": "comparison",
+                    "estimatedCTR": 6.5,
+                    "psychologyUsed": "신뢰성 + 비교 심리"
+                  }
+                ],
+                "bestTitle": "냉장고300리터 추천 TOP 10 (2025년 최신)",
+                "titleFormula": "숫자 + 키워드 + 최신연도 + 가치제안"
+              },
+              "structure": {
+                "recommendedStructure": {
+                  "intro": {
+                    "purpose": "독자의 관심 끌기 + 키워드 자연스럽게 배치",
+                    "template": "\"냉장고300리터\"에 대해 고민하고 계신가요? 이 글에서 핵심 정보를 모두 정리해드립니다.",
+                    "keywordPlacement": "첫 문장에 키워드 포함"
+                  },
+                  "sections": [
+                    {
+                      "heading": "냉장고300리터란? (기본 개념)",
+                      "purpose": "기초 정보 제공",
+                      "contentGuide": "핵심 정의, 중요성, 왜 알아야 하는지 설명",
+                      "recommendedLength": 300,
+                      "keywordUsage": "소제목과 본문에 1~2회"
+                    },
+                    {
+                      "heading": "냉장고300리터 추천 BEST 5",
+                      "purpose": "실질적인 가치 제공 (핵심 섹션)",
+                      "contentGuide": "순위별 상세 설명, 장단점, 추천 이유",
+                      "recommendedLength": 800,
+                      "keywordUsage": "각 항목 설명에 자연스럽게 포함"
+                    },
+                    {
+                      "heading": "냉장고300리터 선택 시 주의사항",
+                      "purpose": "신뢰도 향상",
+                      "contentGuide": "흔한 실수, 피해야 할 것, 체크리스트",
+                      "recommendedLength": 400,
+                      "keywordUsage": "주의사항 설명에 1~2회"
+                    },
+                    {
+                      "heading": "자주 묻는 질문 (FAQ)",
+                      "purpose": "SEO 강화 + 체류시간 증가",
+                      "contentGuide": "실제 검색되는 질문 5개 + 명확한 답변",
+                      "recommendedLength": 500,
+                      "keywordUsage": "질문에 롱테일 키워드 활용"
+                    }
+                  ],
+                  "conclusion": {
+                    "purpose": "요약 + CTA",
+                    "template": "지금까지 냉장고300리터에 대해 알아봤습니다. 도움이 되셨다면 공유해주세요!",
+                    "ctaRecommendation": "댓글, 공유, 관련 글 링크 유도"
+                  }
+                },
+                "seoChecklist": [
+                  {
+                    "item": "제목에 키워드 포함",
+                    "importance": "critical",
+                    "howTo": "제목 앞부분에 메인 키워드 배치"
+                  },
+                  {
+                    "item": "첫 문단에 키워드",
+                    "importance": "critical",
+                    "howTo": "첫 100자 내 키워드 자연스럽게 삽입"
+                  },
+                  {
+                    "item": "소제목 H2/H3 활용",
+                    "importance": "high",
+                    "howTo": "3~5개 소제목, 키워드 변형 사용"
+                  },
+                  {
+                    "item": "이미지 ALT 태그",
+                    "importance": "high",
+                    "howTo": "모든 이미지에 키워드 포함 설명"
+                  },
+                  {
+                    "item": "내부링크 2개 이상",
+                    "importance": "medium",
+                    "howTo": "관련 글 자연스럽게 연결"
+                  },
+                  {
+                    "item": "3000자 이상 작성",
+                    "importance": "high",
+                    "howTo": "충분한 깊이의 콘텐츠 제공"
+                  }
+                ],
+                "totalRecommendedLength": 3000,
+                "estimatedWriteTime": 90
+              },
+              "images": {
+                "mainImage": {
+                  "searchKeyword": "냉장고300리터 대표이미지",
+                  "style": "깔끔한 인포그래픽 또는 고화질 사진",
+                  "source": [
+                    "Unsplash",
+                    "Pixabay",
+                    "직접 제작"
+                  ],
+                  "altText": "냉장고300리터 완벽 가이드 대표 이미지"
+                },
+                "sectionImages": [
+                  {
+                    "section": "기본 개념",
+                    "searchKeyword": "냉장고300리터 설명",
+                    "purpose": "이해 돕기",
+                    "style": "다이어그램"
+                  },
+                  {
+                    "section": "TOP 5",
+                    "searchKeyword": "냉장고300리터 비교",
+                    "purpose": "시각적 비교",
+                    "style": "비교표"
+                  },
+                  {
+                    "section": "주의사항",
+                    "searchKeyword": "주의 아이콘",
+                    "purpose": "강조",
+                    "style": "아이콘"
+                  }
+                ],
+                "infographicIdeas": [
+                  "냉장고300리터 선택 가이드 플로우차트",
+                  "냉장고300리터 TOP 5 비교표",
+                  "냉장고300리터 체크리스트"
+                ],
+                "totalRecommendedImages": 7,
+                "imageStrategy": "섹션당 1~2개, 총 7~10개 이미지로 가독성과 체류시간 향상"
+              }
+            },
+            "ultimateScore": {
+              "total": 39,
+              "breakdown": {
+                "goldenRatio": 2.452420487929493,
+                "timing": 70,
+                "revenue": 40,
+                "competition": 60,
+                "potential": 43
+              },
+              "grade": "📝 C",
+              "verdict": "⚠️ 신중히 검토 필요",
+              "topActions": [
+                "0일 내 작성 권장",
+                "냉장고300리터 추천 TOP 10 (2025년 최신)",
+                "3000자 이상, 7개 이미지 권장"
+              ]
+            }
+          },
+          "highlightReason": "✅ ANYTIME/stable | 폭발 65 | 구매의도 30 | 월 1,500원⚠️ | 경쟁도 7"
+        },
+        {
+          "keyword": "엘지냉장고2도어",
+          "searchVolume": 4920,
+          "documentCount": 23005,
+          "goldenRatio": 0.213866550749837,
+          "rookieFriendly": {
+            "score": 25,
+            "grade": "D",
+            "reason": "황금비율 1 미만 → 공급 과잉 | 숏테일 키워드 → 대형 블로그와 경쟁",
+            "canRankWithin": "1개월 이상 소요 예상",
+            "requiredBlogIndex": "최적 1 이상 권장"
+          },
+          "timing": {
+            "score": 50,
+            "urgency": "ANYTIME",
+            "bestPublishTime": "오전 6~8시 또는 저녁 8~10시",
+            "trendDirection": "stable",
+            "peakPrediction": "꾸준한 검색량 유지"
+          },
+          "blueOcean": {
+            "score": 35,
+            "competitorStrength": "medium",
+            "avgCompetitorBlogAge": "2~5년 (보통 경쟁)",
+            "oldPostRatio": 30,
+            "opportunity": "❌ 레드오션. 다른 키워드 추천"
+          },
+          "trafficEstimate": {
+            "daily": "3~7명",
+            "weekly": "21~49명",
+            "monthly": "90~210명",
+            "confidence": 50,
+            "disclaimer": "📌 트래픽은 순위/CTR/계절성에 따라 달라질 수 있는 추정치입니다."
+          },
+          "revenueEstimate": {
+            "dailyRevenue": "99원 ⚠️추정",
+            "monthlyRevenue": "2,970원 ⚠️추정",
+            "estimatedCPC": 207,
+            "estimatedRPM": 5175,
+            "adType": "애드센스",
+            "revenueGrade": "B",
+            "revenueReason": "📌 보통. 롱테일 확장 추천"
+          },
+          "entryAnalysis": {
+            "canEntry": false,
+            "difficulty": "very_hard",
+            "difficultyScore": 89,
+            "message": "🔴 진입 어려움 - 상위 블로거 독점 키워드",
+            "topCompetitorStrength": "강함 (전문 블로거 다수)",
+            "recommendedBlogIndex": "최적 1 이상 권장",
+            "estimatedRankingTime": "1개월 이상 소요 예상"
+          },
+          "totalScore": 42,
+          "grade": "B",
+          "proStrategy": {
+            "title": "2025 엘지냉장고2도어 완벽 정리 | 초보자도 쉽게 이해하는 가이드",
+            "outline": [
+              "1. 엘지냉장고2도어란? (기본 개념)",
+              "2. 엘지냉장고2도어 핵심 포인트 3가지",
+              "3. 엘지냉장고2도어 장단점 비교",
+              "4. 엘지냉장고2도어 실제 후기/경험담",
+              "5. 엘지냉장고2도어 Q&A (자주 묻는 질문)",
+              "6. 결론 및 추천"
+            ],
+            "wordCount": 2500,
+            "mustInclude": [
+              "핵심 키워드 2~3회 자연스럽게 삽입",
+              "실제 이미지/사진 3장 이상",
+              "표 또는 비교 차트 1개 이상",
+              "자주 묻는 질문(FAQ) 섹션",
+              "결론 및 추천 섹션"
+            ],
+            "avoidTopics": [
+              "과장된 표현 (100%, 무조건, 반드시)",
+              "허위 정보나 검증되지 않은 내용",
+              "다른 블로그 복사/붙여넣기",
+              "광고성 링크 과다 삽입"
+            ],
+            "monetization": "애드센스 + 쿠팡파트너스 조합 추천"
+          },
+          "platformTitles": {
+            "naver": {
+              "title": "핵심 정리: 엘지냉장고2도어 2025 최신 가이드 (월 4,920)",
+              "alternatives": [
+                "엘지냉장고2도어 2025 완벽 정리: 핵심만 5분 요약",
+                "엘지냉장고2도어 초보도 쉽게: 실패 없는 체크리스트"
+              ],
+              "subKeywords": [
+                "엘지냉장고2도어 방법",
+                "엘지냉장고2도어 추천",
+                "엘지냉장고2도어 후기"
+              ],
+              "tags": [
+                "엘지냉장고2도어",
+                "📰 이슈키워드"
+              ],
+              "tip": "서두 100자 내에 키워드를 2회 노출하고, 결론 요약을 맨 위에 한 번 더 넣으세요.",
+              "hookPoint": "핵심 정리 포인트를 제목/썸네일에 강조"
+            },
+            "tistory": {
+              "title": "엘지냉장고2도어 2025 정리: 한 번에 이해하는 핵심 포인트 (월 4,920)",
+              "alternatives": [
+                "엘지냉장고2도어 제대로 하는 법 (체크리스트 포함)",
+                "엘지냉장고2도어 추천/비교: 선택 기준 3가지"
+              ],
+              "subKeywords": [
+                "엘지냉장고2도어 방법",
+                "엘지냉장고2도어 추천",
+                "엘지냉장고2도어 후기"
+              ],
+              "tags": [
+                "엘지냉장고2도어",
+                "📰 이슈키워드"
+              ],
+              "tip": "표/리스트를 많이 써서 스크롤 체류시간을 늘리세요.",
+              "hookPoint": "“핵심 3가지”처럼 숫자를 넣어 클릭률을 올리기"
+            },
+            "wordpress": {
+              "title": "엘지냉장고2도어: 2025 Complete Guide (Checklist & Tips) (월 4,920)",
+              "alternatives": [
+                "엘지냉장고2도어 Guide: Common Mistakes & Quick Fixes",
+                "엘지냉장고2도어 Step-by-Step: What to Do First"
+              ],
+              "subKeywords": [
+                "엘지냉장고2도어 방법",
+                "엘지냉장고2도어 추천",
+                "엘지냉장고2도어 후기"
+              ],
+              "tags": [
+                "엘지냉장고2도어",
+                "📰 이슈키워드"
+              ],
+              "tip": "H2/H3로 구조를 만들고, FAQ 섹션을 넣어 SEO를 강화하세요.",
+              "hookPoint": "FAQ + 체크리스트 조합으로 체류시간/리치 증가"
+            },
+            "blogspot": {
+              "title": "엘지냉장고2도어 2025: Quick Start + Best Practices (월 4,920)",
+              "alternatives": [
+                "엘지냉장고2도어 Quick Guide: Do & Don't",
+                "엘지냉장고2도어 Essentials: What You Need to Know"
+              ],
+              "subKeywords": [
+                "엘지냉장고2도어 방법",
+                "엘지냉장고2도어 추천",
+                "엘지냉장고2도어 후기"
+              ],
+              "tags": [
+                "엘지냉장고2도어",
+                "📰 이슈키워드"
+              ],
+              "tip": "이미지 2~3장 + 요약 박스를 넣어 가독성을 올리세요.",
+              "hookPoint": "첫 화면에 요약(결론)을 배치해 이탈률을 낮추기"
+            }
+          },
+          "expandedKeywords": {
+            "relatedGolden": [
+              "엘지냉장고2도어 추천",
+              "엘지냉장고2도어 비교",
+              "엘지냉장고2도어 후기",
+              "엘지냉장고2도어 가격"
+            ],
+            "longtailGolden": [
+              "엘지냉장고2도어 초보",
+              "엘지냉장고2도어 쉽게",
+              "엘지냉장고2도어 단계별",
+              "엘지냉장고2도어 정리"
+            ],
+            "blueOceanGolden": [
+              "엘지냉장고2도어 최신",
+              "엘지냉장고2도어 2025",
+              "엘지냉장고2도어 체크리스트",
+              "엘지냉장고2도어 실패하지 않는 법"
+            ]
+          },
+          "type": "📰 이슈키워드",
+          "category": "life_tips",
+          "safetyLevel": "safe",
+          "safetyReason": "✅ 안전한 키워드. 신생 블로거도 작성 가능",
+          "source": "냉장고",
+          "profitAnalysis": {
+            "keyword": "엘지냉장고2도어",
+            "searchVolume": 4920,
+            "documentCount": 23005,
+            "estimatedCPC": 207,
+            "purchaseIntentScore": 30,
+            "competitionLevel": 8,
+            "freshnessOpportunity": 1,
+            "profitGoldenRatio": 6.05,
+            "estimatedDailyRevenue": 99,
+            "estimatedMonthlyRevenue": 2970,
+            "grade": "B",
+            "gradeReason": "📌 보통. 롱테일 확장 추천",
+            "isRealBlueOcean": false,
+            "blueOceanReason": "📕 경쟁 시장. 차별화 전략 필요",
+            "strategy": {
+              "approach": "🔍 롱테일 확장 후 작성. \"초보자\", \"2025\", \"비교\" 등 붙여서 경쟁 낮추기",
+              "monetization": "📝 트래픽 확보 우선. 이후 관련 고수익 키워드로 내부링크",
+              "timing": "🗓️ 여유있게 준비. 롱테일 전략으로 접근",
+              "titleSuggestion": "엘지냉장고2도어 완벽 가이드 | 초보자도 쉽게 따라하기"
+            }
+          },
+          "timestamp": "2025-12-24T10:50:46.724Z",
+          "isGolden": true,
+          "trendAnalysis": {
+            "trendingReason": "Part 미래성장동력 AI에 관련 최근 이슈",
+            "whyNow": "최근 5개 이상의 뉴스에서 다뤄지며 이슈화 진행 중 • \"출시\" 관련 구체적 사건으로 실시간 관심 집중",
+            "newsSource": "자동 분석"
+          },
+          "keywordGuide": {
+            "summary": "여유 있을 때 공략하면 좋은 키워드입니다. (등급: B, 점수: 42점)",
+            "whyItMovesNow": "Part 미래성장동력 AI에 관련 최근 이슈 최근 5개 이상의 뉴스에서 다뤄지며 이슈화 진행 중 • \"출시\" 관련 구체적 사건으로 실시간 관심 집중",
+            "immediateTrafficPlan": [
+              "제목 앞부분에 \"엘지냉장고2도어\"를 배치하고, 2025/최신/정리 같은 보조 키워드를 1개만 추가하세요.",
+              "본문 서두 100자 안에 \"엘지냉장고2도어\"를 자연스럽게 2회 노출하세요.",
+              "최소 1개는 비교/체크리스트/요약 섹션을 넣어 체류시간을 늘리세요."
+            ],
+            "naverHomeExposureTips": [
+              "첫 이미지에 키워드가 들어간 문구를 넣고, alt 텍스트도 키워드 포함",
+              "목차를 만들고 H2/H3에 서브 키워드 배치",
+              "태그는 5~10개로 과도한 반복을 피하고, 유사어를 섞기"
+            ]
+          },
+          "ultimateAnalysis": {
+            "timing": {
+              "seasonal": {
+                "peakMonths": [
+                  1,
+                  2,
+                  3,
+                  4,
+                  5,
+                  6,
+                  7,
+                  8,
+                  9,
+                  10,
+                  11,
+                  12
+                ],
+                "peakReason": "연중 꾸준한 검색량",
+                "currentSeasonScore": 70,
+                "nextPeakDate": "항상",
+                "daysUntilPeak": 0,
+                "recommendation": "📝 에버그린 키워드입니다. 언제든 작성해도 좋습니다.",
+                "seasonalPattern": "evergreen"
+              },
+              "trend": {
+                "trendDirection": "falling",
+                "changeRate": 2,
+                "comparedTo": "전월 대비",
+                "explosiveScore": 3,
+                "relatedNews": [],
+                "recommendation": "📊 안정적인 키워드입니다."
+              },
+              "alert": {
+                "optimalPublishDate": "0일 내",
+                "reason": "📝 에버그린 키워드입니다. 언제든 작성해도 좋습니다.",
+                "urgencyLevel": "⚡ 이번 주",
+                "expectedPeakDate": "항상",
+                "competitorActivity": "경쟁자 많음"
+              }
+            },
+            "revenue": {
+              "cpc": {
+                "estimatedCpc": 200,
+                "cpcRange": {
+                  "min": 100,
+                  "max": 400
+                },
+                "cpcTier": "🥈 중수익",
+                "industryAverage": 200,
+                "recommendation": "📝 일반적인 수익 구조입니다. 트래픽 확보에 집중하세요."
+              },
+              "affiliate": {
+                "recommendedPrograms": [
+                  {
+                    "name": "쿠팡파트너스",
+                    "type": "coupang",
+                    "commissionRate": "3~5%",
+                    "estimatedEarningPerClick": 50,
+                    "matchScore": 100
+                  },
+                  {
+                    "name": "네이버 쇼핑",
+                    "type": "naver",
+                    "commissionRate": "1~3%",
+                    "estimatedEarningPerClick": 30,
+                    "matchScore": 85
+                  }
+                ],
+                "bestMatch": "쿠팡파트너스",
+                "potentialProducts": [
+                  "엘지냉장고2도어 추천",
+                  "엘지냉장고2도어 순위",
+                  "엘지냉장고2도어 비교",
+                  "엘지냉장고2도어 후기",
+                  "엘지냉장고2도어 가격",
+                  "엘지냉장고2도어 구매"
+                ]
+              },
+              "projection": {
+                "estimatedDailyVisitors": 5,
+                "estimatedMonthlyVisitors": 150,
+                "adsenseRevenue": {
+                  "daily": 30,
+                  "monthly": 900,
+                  "assumptions": "CPC 200원, CTR 2%, 페이지뷰율 1.5 가정"
+                },
+                "affiliateRevenue": {
+                  "daily": 1,
+                  "monthly": 30,
+                  "conversionRate": 3,
+                  "assumptions": "클릭률 10%, 전환율 3%, 평균 수수료 50원 가정"
+                },
+                "totalMonthlyRevenue": 930,
+                "revenueBreakdown": "애드센스 97% + 제휴 3%",
+                "revenueTier": "📝 월 1만원+"
+              }
+            },
+            "content": {
+              "titles": {
+                "titles": [
+                  {
+                    "title": "엘지냉장고2도어 추천 TOP 10 (2025년 최신)",
+                    "type": "number",
+                    "estimatedCTR": 8.5,
+                    "psychologyUsed": "숫자 + 최신 정보"
+                  },
+                  {
+                    "title": "엘지냉장고2도어 하는 법, 초보자도 쉽게 따라하기",
+                    "type": "how-to",
+                    "estimatedCTR": 7.5,
+                    "psychologyUsed": "실용성 + 접근성"
+                  },
+                  {
+                    "title": "엘지냉장고2도어, 이것만 알면 끝! 완벽 가이드",
+                    "type": "benefit",
+                    "estimatedCTR": 7.2,
+                    "psychologyUsed": "완결성 + 가치 제안"
+                  },
+                  {
+                    "title": "[2025년] 엘지냉장고2도어 총정리 (+ 꿀팁 공개)",
+                    "type": "news",
+                    "estimatedCTR": 7,
+                    "psychologyUsed": "최신성 + 보너스 가치"
+                  },
+                  {
+                    "title": "아직도 엘지냉장고2도어 몰라요? 지금 당장 확인하세요",
+                    "type": "curiosity",
+                    "estimatedCTR": 6.8,
+                    "psychologyUsed": "호기심 + 긴급성"
+                  },
+                  {
+                    "title": "엘지냉장고2도어 실제 후기 (장단점 솔직 비교)",
+                    "type": "comparison",
+                    "estimatedCTR": 6.5,
+                    "psychologyUsed": "신뢰성 + 비교 심리"
+                  }
+                ],
+                "bestTitle": "엘지냉장고2도어 추천 TOP 10 (2025년 최신)",
+                "titleFormula": "숫자 + 키워드 + 최신연도 + 가치제안"
+              },
+              "structure": {
+                "recommendedStructure": {
+                  "intro": {
+                    "purpose": "독자의 관심 끌기 + 키워드 자연스럽게 배치",
+                    "template": "\"엘지냉장고2도어\"에 대해 고민하고 계신가요? 이 글에서 핵심 정보를 모두 정리해드립니다.",
+                    "keywordPlacement": "첫 문장에 키워드 포함"
+                  },
+                  "sections": [
+                    {
+                      "heading": "엘지냉장고2도어란? (기본 개념)",
+                      "purpose": "기초 정보 제공",
+                      "contentGuide": "핵심 정의, 중요성, 왜 알아야 하는지 설명",
+                      "recommendedLength": 300,
+                      "keywordUsage": "소제목과 본문에 1~2회"
+                    },
+                    {
+                      "heading": "엘지냉장고2도어 추천 BEST 5",
+                      "purpose": "실질적인 가치 제공 (핵심 섹션)",
+                      "contentGuide": "순위별 상세 설명, 장단점, 추천 이유",
+                      "recommendedLength": 800,
+                      "keywordUsage": "각 항목 설명에 자연스럽게 포함"
+                    },
+                    {
+                      "heading": "엘지냉장고2도어 선택 시 주의사항",
+                      "purpose": "신뢰도 향상",
+                      "contentGuide": "흔한 실수, 피해야 할 것, 체크리스트",
+                      "recommendedLength": 400,
+                      "keywordUsage": "주의사항 설명에 1~2회"
+                    },
+                    {
+                      "heading": "자주 묻는 질문 (FAQ)",
+                      "purpose": "SEO 강화 + 체류시간 증가",
+                      "contentGuide": "실제 검색되는 질문 5개 + 명확한 답변",
+                      "recommendedLength": 500,
+                      "keywordUsage": "질문에 롱테일 키워드 활용"
+                    }
+                  ],
+                  "conclusion": {
+                    "purpose": "요약 + CTA",
+                    "template": "지금까지 엘지냉장고2도어에 대해 알아봤습니다. 도움이 되셨다면 공유해주세요!",
+                    "ctaRecommendation": "댓글, 공유, 관련 글 링크 유도"
+                  }
+                },
+                "seoChecklist": [
+                  {
+                    "item": "제목에 키워드 포함",
+                    "importance": "critical",
+                    "howTo": "제목 앞부분에 메인 키워드 배치"
+                  },
+                  {
+                    "item": "첫 문단에 키워드",
+                    "importance": "critical",
+                    "howTo": "첫 100자 내 키워드 자연스럽게 삽입"
+                  },
+                  {
+                    "item": "소제목 H2/H3 활용",
+                    "importance": "high",
+                    "howTo": "3~5개 소제목, 키워드 변형 사용"
+                  },
+                  {
+                    "item": "이미지 ALT 태그",
+                    "importance": "high",
+                    "howTo": "모든 이미지에 키워드 포함 설명"
+                  },
+                  {
+                    "item": "내부링크 2개 이상",
+                    "importance": "medium",
+                    "howTo": "관련 글 자연스럽게 연결"
+                  },
+                  {
+                    "item": "3000자 이상 작성",
+                    "importance": "high",
+                    "howTo": "충분한 깊이의 콘텐츠 제공"
+                  }
+                ],
+                "totalRecommendedLength": 3000,
+                "estimatedWriteTime": 90
+              },
+              "images": {
+                "mainImage": {
+                  "searchKeyword": "엘지냉장고2도어 대표이미지",
+                  "style": "깔끔한 인포그래픽 또는 고화질 사진",
+                  "source": [
+                    "Unsplash",
+                    "Pixabay",
+                    "직접 제작"
+                  ],
+                  "altText": "엘지냉장고2도어 완벽 가이드 대표 이미지"
+                },
+                "sectionImages": [
+                  {
+                    "section": "기본 개념",
+                    "searchKeyword": "엘지냉장고2도어 설명",
+                    "purpose": "이해 돕기",
+                    "style": "다이어그램"
+                  },
+                  {
+                    "section": "TOP 5",
+                    "searchKeyword": "엘지냉장고2도어 비교",
+                    "purpose": "시각적 비교",
+                    "style": "비교표"
+                  },
+                  {
+                    "section": "주의사항",
+                    "searchKeyword": "주의 아이콘",
+                    "purpose": "강조",
+                    "style": "아이콘"
+                  }
+                ],
+                "infographicIdeas": [
+                  "엘지냉장고2도어 선택 가이드 플로우차트",
+                  "엘지냉장고2도어 TOP 5 비교표",
+                  "엘지냉장고2도어 체크리스트"
+                ],
+                "totalRecommendedImages": 7,
+                "imageStrategy": "섹션당 1~2개, 총 7~10개 이미지로 가독성과 체류시간 향상"
+              }
+            },
+            "ultimateScore": {
+              "total": 34,
+              "breakdown": {
+                "goldenRatio": 2.13866550749837,
+                "timing": 70,
+                "revenue": 40,
+                "competition": 40,
+                "potential": 38
+              },
+              "grade": "📝 C",
+              "verdict": "⚠️ 신중히 검토 필요",
+              "topActions": [
+                "0일 내 작성 권장",
+                "엘지냉장고2도어 추천 TOP 10 (2025년 최신)",
+                "3000자 이상, 7개 이미지 권장"
+              ]
+            }
+          },
+          "highlightReason": "✅ ANYTIME/stable | 폭발 65 | 구매의도 30 | 월 2,970원⚠️ | 경쟁도 8"
+        },
+        {
+          "keyword": "LG냉장고키친핏",
+          "searchVolume": 3240,
+          "documentCount": 15493,
+          "goldenRatio": 0.20912670238172076,
+          "rookieFriendly": {
+            "score": 25,
+            "grade": "D",
+            "reason": "황금비율 1 미만 → 공급 과잉 | 숏테일 키워드 → 대형 블로그와 경쟁",
+            "canRankWithin": "1개월 이상 소요 예상",
+            "requiredBlogIndex": "최적 1 이상 권장"
+          },
+          "timing": {
+            "score": 50,
+            "urgency": "ANYTIME",
+            "bestPublishTime": "오전 6~8시 또는 저녁 8~10시",
+            "trendDirection": "stable",
+            "peakPrediction": "꾸준한 검색량 유지"
+          },
+          "blueOcean": {
+            "score": 35,
+            "competitorStrength": "medium",
+            "avgCompetitorBlogAge": "2~5년 (보통 경쟁)",
+            "oldPostRatio": 30,
+            "opportunity": "❌ 레드오션. 다른 키워드 추천"
+          },
+          "trafficEstimate": {
+            "daily": "2~4명",
+            "weekly": "14~28명",
+            "monthly": "60~120명",
+            "confidence": 50,
+            "disclaimer": "📌 트래픽은 순위/CTR/계절성에 따라 달라질 수 있는 추정치입니다."
+          },
+          "revenueEstimate": {
+            "dailyRevenue": "68원 ⚠️추정",
+            "monthlyRevenue": "2,040원 ⚠️추정",
+            "estimatedCPC": 207,
+            "estimatedRPM": 5175,
+            "adType": "애드센스",
+            "revenueGrade": "C",
+            "revenueReason": "⚠️ 경쟁 높음. 틈새 접근 필요"
+          },
+          "entryAnalysis": {
+            "canEntry": false,
+            "difficulty": "very_hard",
+            "difficultyScore": 74,
+            "message": "🔴 진입 어려움 - 상위 블로거 독점 키워드",
+            "topCompetitorStrength": "강함 (전문 블로거 다수)",
+            "recommendedBlogIndex": "최적 1 이상 권장",
+            "estimatedRankingTime": "1개월 이상 소요 예상"
+          },
+          "totalScore": 36,
+          "grade": "B",
+          "proStrategy": {
+            "title": "2025 LG냉장고키친핏 완벽 정리 | 초보자도 쉽게 이해하는 가이드",
+            "outline": [
+              "1. LG냉장고키친핏란? (기본 개념)",
+              "2. LG냉장고키친핏 핵심 포인트 3가지",
+              "3. LG냉장고키친핏 장단점 비교",
+              "4. LG냉장고키친핏 실제 후기/경험담",
+              "5. LG냉장고키친핏 Q&A (자주 묻는 질문)",
+              "6. 결론 및 추천"
+            ],
+            "wordCount": 2500,
+            "mustInclude": [
+              "핵심 키워드 2~3회 자연스럽게 삽입",
+              "실제 이미지/사진 3장 이상",
+              "표 또는 비교 차트 1개 이상",
+              "자주 묻는 질문(FAQ) 섹션",
+              "결론 및 추천 섹션"
+            ],
+            "avoidTopics": [
+              "과장된 표현 (100%, 무조건, 반드시)",
+              "허위 정보나 검증되지 않은 내용",
+              "다른 블로그 복사/붙여넣기",
+              "광고성 링크 과다 삽입"
+            ],
+            "monetization": "애드센스 + 쿠팡파트너스 조합 추천"
+          },
+          "platformTitles": {
+            "naver": {
+              "title": "핵심 정리: LG냉장고키친핏 2025 최신 가이드 (월 3,240)",
+              "alternatives": [
+                "LG냉장고키친핏 2025 완벽 정리: 핵심만 5분 요약",
+                "LG냉장고키친핏 초보도 쉽게: 실패 없는 체크리스트"
+              ],
+              "subKeywords": [
+                "LG냉장고키친핏 방법",
+                "LG냉장고키친핏 추천",
+                "LG냉장고키친핏 후기"
+              ],
+              "tags": [
+                "LG냉장고키친핏",
+                "📰 이슈키워드"
+              ],
+              "tip": "서두 100자 내에 키워드를 2회 노출하고, 결론 요약을 맨 위에 한 번 더 넣으세요.",
+              "hookPoint": "핵심 정리 포인트를 제목/썸네일에 강조"
+            },
+            "tistory": {
+              "title": "LG냉장고키친핏 2025 정리: 한 번에 이해하는 핵심 포인트 (월 3,240)",
+              "alternatives": [
+                "LG냉장고키친핏 제대로 하는 법 (체크리스트 포함)",
+                "LG냉장고키친핏 추천/비교: 선택 기준 3가지"
+              ],
+              "subKeywords": [
+                "LG냉장고키친핏 방법",
+                "LG냉장고키친핏 추천",
+                "LG냉장고키친핏 후기"
+              ],
+              "tags": [
+                "LG냉장고키친핏",
+                "📰 이슈키워드"
+              ],
+              "tip": "표/리스트를 많이 써서 스크롤 체류시간을 늘리세요.",
+              "hookPoint": "“핵심 3가지”처럼 숫자를 넣어 클릭률을 올리기"
+            },
+            "wordpress": {
+              "title": "LG냉장고키친핏: 2025 Complete Guide (Checklist & Tips) (월 3,240)",
+              "alternatives": [
+                "LG냉장고키친핏 Guide: Common Mistakes & Quick Fixes",
+                "LG냉장고키친핏 Step-by-Step: What to Do First"
+              ],
+              "subKeywords": [
+                "LG냉장고키친핏 방법",
+                "LG냉장고키친핏 추천",
+                "LG냉장고키친핏 후기"
+              ],
+              "tags": [
+                "LG냉장고키친핏",
+                "📰 이슈키워드"
+              ],
+              "tip": "H2/H3로 구조를 만들고, FAQ 섹션을 넣어 SEO를 강화하세요.",
+              "hookPoint": "FAQ + 체크리스트 조합으로 체류시간/리치 증가"
+            },
+            "blogspot": {
+              "title": "LG냉장고키친핏 2025: Quick Start + Best Practices (월 3,240)",
+              "alternatives": [
+                "LG냉장고키친핏 Quick Guide: Do & Don't",
+                "LG냉장고키친핏 Essentials: What You Need to Know"
+              ],
+              "subKeywords": [
+                "LG냉장고키친핏 방법",
+                "LG냉장고키친핏 추천",
+                "LG냉장고키친핏 후기"
+              ],
+              "tags": [
+                "LG냉장고키친핏",
+                "📰 이슈키워드"
+              ],
+              "tip": "이미지 2~3장 + 요약 박스를 넣어 가독성을 올리세요.",
+              "hookPoint": "첫 화면에 요약(결론)을 배치해 이탈률을 낮추기"
+            }
+          },
+          "expandedKeywords": {
+            "relatedGolden": [
+              "LG냉장고키친핏 추천",
+              "LG냉장고키친핏 비교",
+              "LG냉장고키친핏 후기",
+              "LG냉장고키친핏 가격"
+            ],
+            "longtailGolden": [
+              "LG냉장고키친핏 초보",
+              "LG냉장고키친핏 쉽게",
+              "LG냉장고키친핏 단계별",
+              "LG냉장고키친핏 정리"
+            ],
+            "blueOceanGolden": [
+              "LG냉장고키친핏 최신",
+              "LG냉장고키친핏 2025",
+              "LG냉장고키친핏 체크리스트",
+              "LG냉장고키친핏 실패하지 않는 법"
+            ]
+          },
+          "type": "📰 이슈키워드",
+          "category": "life_tips",
+          "safetyLevel": "safe",
+          "safetyReason": "✅ 안전한 키워드. 신생 블로거도 작성 가능",
+          "source": "냉장고",
+          "profitAnalysis": {
+            "keyword": "LG냉장고키친핏",
+            "searchVolume": 3240,
+            "documentCount": 15493,
+            "estimatedCPC": 207,
+            "purchaseIntentScore": 30,
+            "competitionLevel": 8,
+            "freshnessOpportunity": 1,
+            "profitGoldenRatio": 3.98,
+            "estimatedDailyRevenue": 68,
+            "estimatedMonthlyRevenue": 2040,
+            "grade": "C",
+            "gradeReason": "⚠️ 경쟁 높음. 틈새 접근 필요",
+            "isRealBlueOcean": false,
+            "blueOceanReason": "📕 경쟁 시장. 차별화 전략 필요",
+            "strategy": {
+              "approach": "⏸️ 보류. 더 좋은 키워드 찾기 추천",
+              "monetization": "📝 트래픽 확보 우선. 이후 관련 고수익 키워드로 내부링크",
+              "timing": "🗓️ 여유있게 준비. 롱테일 전략으로 접근",
+              "titleSuggestion": "LG냉장고키친핏 완벽 가이드 | 초보자도 쉽게 따라하기"
+            }
+          },
+          "timestamp": "2025-12-24T10:50:46.724Z",
+          "isGolden": true,
+          "trendAnalysis": {
+            "trendingReason": "삼성·LG전자, '공간 혁신' 관련 최근 이슈",
+            "whyNow": "최근 5개 이상의 뉴스에서 다뤄지며 이슈화 진행 중 • \"삼성·LG전자, 가전 넘어 '공간 혁신' 경쟁 격화\" 관련 최신 뉴스로 조기 진입 효과 기대",
+            "newsSource": "자동 분석"
+          },
+          "keywordGuide": {
+            "summary": "여유 있을 때 공략하면 좋은 키워드입니다. (등급: B, 점수: 36점)",
+            "whyItMovesNow": "삼성·LG전자, '공간 혁신' 관련 최근 이슈 최근 5개 이상의 뉴스에서 다뤄지며 이슈화 진행 중 • \"삼성·LG전자, 가전 넘어 '공간 혁신' 경쟁 격화\" 관련 최신 뉴스로 조기 진입 효과 기대",
+            "immediateTrafficPlan": [
+              "제목 앞부분에 \"LG냉장고키친핏\"를 배치하고, 2025/최신/정리 같은 보조 키워드를 1개만 추가하세요.",
+              "본문 서두 100자 안에 \"LG냉장고키친핏\"를 자연스럽게 2회 노출하세요.",
+              "최소 1개는 비교/체크리스트/요약 섹션을 넣어 체류시간을 늘리세요."
+            ],
+            "naverHomeExposureTips": [
+              "첫 이미지에 키워드가 들어간 문구를 넣고, alt 텍스트도 키워드 포함",
+              "목차를 만들고 H2/H3에 서브 키워드 배치",
+              "태그는 5~10개로 과도한 반복을 피하고, 유사어를 섞기"
+            ]
+          },
+          "ultimateAnalysis": {
+            "timing": {
+              "seasonal": {
+                "peakMonths": [
+                  1,
+                  2,
+                  3,
+                  4,
+                  5,
+                  6,
+                  7,
+                  8,
+                  9,
+                  10,
+                  11,
+                  12
+                ],
+                "peakReason": "연중 꾸준한 검색량",
+                "currentSeasonScore": 70,
+                "nextPeakDate": "항상",
+                "daysUntilPeak": 0,
+                "recommendation": "📝 에버그린 키워드입니다. 언제든 작성해도 좋습니다.",
+                "seasonalPattern": "evergreen"
+              },
+              "trend": {
+                "trendDirection": "falling",
+                "changeRate": 2,
+                "comparedTo": "전월 대비",
+                "explosiveScore": 3,
+                "relatedNews": [],
+                "recommendation": "📊 안정적인 키워드입니다."
+              },
+              "alert": {
+                "optimalPublishDate": "0일 내",
+                "reason": "📝 에버그린 키워드입니다. 언제든 작성해도 좋습니다.",
+                "urgencyLevel": "⚡ 이번 주",
+                "expectedPeakDate": "항상",
+                "competitorActivity": "경쟁자 많음"
+              }
+            },
+            "revenue": {
+              "cpc": {
+                "estimatedCpc": 200,
+                "cpcRange": {
+                  "min": 100,
+                  "max": 400
+                },
+                "cpcTier": "🥈 중수익",
+                "industryAverage": 200,
+                "recommendation": "📝 일반적인 수익 구조입니다. 트래픽 확보에 집중하세요."
+              },
+              "affiliate": {
+                "recommendedPrograms": [
+                  {
+                    "name": "쿠팡파트너스",
+                    "type": "coupang",
+                    "commissionRate": "3~5%",
+                    "estimatedEarningPerClick": 50,
+                    "matchScore": 100
+                  },
+                  {
+                    "name": "네이버 쇼핑",
+                    "type": "naver",
+                    "commissionRate": "1~3%",
+                    "estimatedEarningPerClick": 30,
+                    "matchScore": 85
+                  }
+                ],
+                "bestMatch": "쿠팡파트너스",
+                "potentialProducts": [
+                  "LG냉장고키친핏 추천",
+                  "LG냉장고키친핏 순위",
+                  "LG냉장고키친핏 비교",
+                  "LG냉장고키친핏 후기",
+                  "LG냉장고키친핏 가격",
+                  "LG냉장고키친핏 구매"
+                ]
+              },
+              "projection": {
+                "estimatedDailyVisitors": 3,
+                "estimatedMonthlyVisitors": 90,
+                "adsenseRevenue": {
+                  "daily": 18,
+                  "monthly": 540,
+                  "assumptions": "CPC 200원, CTR 2%, 페이지뷰율 1.5 가정"
+                },
+                "affiliateRevenue": {
+                  "daily": 0,
+                  "monthly": 0,
+                  "conversionRate": 3,
+                  "assumptions": "클릭률 10%, 전환율 3%, 평균 수수료 50원 가정"
+                },
+                "totalMonthlyRevenue": 540,
+                "revenueBreakdown": "애드센스 100% + 제휴 0%",
+                "revenueTier": "📝 월 1만원+"
+              }
+            },
+            "content": {
+              "titles": {
+                "titles": [
+                  {
+                    "title": "LG냉장고키친핏 추천 TOP 10 (2025년 최신)",
+                    "type": "number",
+                    "estimatedCTR": 8.5,
+                    "psychologyUsed": "숫자 + 최신 정보"
+                  },
+                  {
+                    "title": "LG냉장고키친핏 하는 법, 초보자도 쉽게 따라하기",
+                    "type": "how-to",
+                    "estimatedCTR": 7.5,
+                    "psychologyUsed": "실용성 + 접근성"
+                  },
+                  {
+                    "title": "LG냉장고키친핏, 이것만 알면 끝! 완벽 가이드",
+                    "type": "benefit",
+                    "estimatedCTR": 7.2,
+                    "psychologyUsed": "완결성 + 가치 제안"
+                  },
+                  {
+                    "title": "[2025년] LG냉장고키친핏 총정리 (+ 꿀팁 공개)",
+                    "type": "news",
+                    "estimatedCTR": 7,
+                    "psychologyUsed": "최신성 + 보너스 가치"
+                  },
+                  {
+                    "title": "아직도 LG냉장고키친핏 몰라요? 지금 당장 확인하세요",
+                    "type": "curiosity",
+                    "estimatedCTR": 6.8,
+                    "psychologyUsed": "호기심 + 긴급성"
+                  },
+                  {
+                    "title": "LG냉장고키친핏 실제 후기 (장단점 솔직 비교)",
+                    "type": "comparison",
+                    "estimatedCTR": 6.5,
+                    "psychologyUsed": "신뢰성 + 비교 심리"
+                  }
+                ],
+                "bestTitle": "LG냉장고키친핏 추천 TOP 10 (2025년 최신)",
+                "titleFormula": "숫자 + 키워드 + 최신연도 + 가치제안"
+              },
+              "structure": {
+                "recommendedStructure": {
+                  "intro": {
+                    "purpose": "독자의 관심 끌기 + 키워드 자연스럽게 배치",
+                    "template": "\"LG냉장고키친핏\"에 대해 고민하고 계신가요? 이 글에서 핵심 정보를 모두 정리해드립니다.",
+                    "keywordPlacement": "첫 문장에 키워드 포함"
+                  },
+                  "sections": [
+                    {
+                      "heading": "LG냉장고키친핏란? (기본 개념)",
+                      "purpose": "기초 정보 제공",
+                      "contentGuide": "핵심 정의, 중요성, 왜 알아야 하는지 설명",
+                      "recommendedLength": 300,
+                      "keywordUsage": "소제목과 본문에 1~2회"
+                    },
+                    {
+                      "heading": "LG냉장고키친핏 추천 BEST 5",
+                      "purpose": "실질적인 가치 제공 (핵심 섹션)",
+                      "contentGuide": "순위별 상세 설명, 장단점, 추천 이유",
+                      "recommendedLength": 800,
+                      "keywordUsage": "각 항목 설명에 자연스럽게 포함"
+                    },
+                    {
+                      "heading": "LG냉장고키친핏 선택 시 주의사항",
+                      "purpose": "신뢰도 향상",
+                      "contentGuide": "흔한 실수, 피해야 할 것, 체크리스트",
+                      "recommendedLength": 400,
+                      "keywordUsage": "주의사항 설명에 1~2회"
+                    },
+                    {
+                      "heading": "자주 묻는 질문 (FAQ)",
+                      "purpose": "SEO 강화 + 체류시간 증가",
+                      "contentGuide": "실제 검색되는 질문 5개 + 명확한 답변",
+                      "recommendedLength": 500,
+                      "keywordUsage": "질문에 롱테일 키워드 활용"
+                    }
+                  ],
+                  "conclusion": {
+                    "purpose": "요약 + CTA",
+                    "template": "지금까지 LG냉장고키친핏에 대해 알아봤습니다. 도움이 되셨다면 공유해주세요!",
+                    "ctaRecommendation": "댓글, 공유, 관련 글 링크 유도"
+                  }
+                },
+                "seoChecklist": [
+                  {
+                    "item": "제목에 키워드 포함",
+                    "importance": "critical",
+                    "howTo": "제목 앞부분에 메인 키워드 배치"
+                  },
+                  {
+                    "item": "첫 문단에 키워드",
+                    "importance": "critical",
+                    "howTo": "첫 100자 내 키워드 자연스럽게 삽입"
+                  },
+                  {
+                    "item": "소제목 H2/H3 활용",
+                    "importance": "high",
+                    "howTo": "3~5개 소제목, 키워드 변형 사용"
+                  },
+                  {
+                    "item": "이미지 ALT 태그",
+                    "importance": "high",
+                    "howTo": "모든 이미지에 키워드 포함 설명"
+                  },
+                  {
+                    "item": "내부링크 2개 이상",
+                    "importance": "medium",
+                    "howTo": "관련 글 자연스럽게 연결"
+                  },
+                  {
+                    "item": "3000자 이상 작성",
+                    "importance": "high",
+                    "howTo": "충분한 깊이의 콘텐츠 제공"
+                  }
+                ],
+                "totalRecommendedLength": 3000,
+                "estimatedWriteTime": 90
+              },
+              "images": {
+                "mainImage": {
+                  "searchKeyword": "LG냉장고키친핏 대표이미지",
+                  "style": "깔끔한 인포그래픽 또는 고화질 사진",
+                  "source": [
+                    "Unsplash",
+                    "Pixabay",
+                    "직접 제작"
+                  ],
+                  "altText": "LG냉장고키친핏 완벽 가이드 대표 이미지"
+                },
+                "sectionImages": [
+                  {
+                    "section": "기본 개념",
+                    "searchKeyword": "LG냉장고키친핏 설명",
+                    "purpose": "이해 돕기",
+                    "style": "다이어그램"
+                  },
+                  {
+                    "section": "TOP 5",
+                    "searchKeyword": "LG냉장고키친핏 비교",
+                    "purpose": "시각적 비교",
+                    "style": "비교표"
+                  },
+                  {
+                    "section": "주의사항",
+                    "searchKeyword": "주의 아이콘",
+                    "purpose": "강조",
+                    "style": "아이콘"
+                  }
+                ],
+                "infographicIdeas": [
+                  "LG냉장고키친핏 선택 가이드 플로우차트",
+                  "LG냉장고키친핏 TOP 5 비교표",
+                  "LG냉장고키친핏 체크리스트"
+                ],
+                "totalRecommendedImages": 7,
+                "imageStrategy": "섹션당 1~2개, 총 7~10개 이미지로 가독성과 체류시간 향상"
+              }
+            },
+            "ultimateScore": {
+              "total": 34,
+              "breakdown": {
+                "goldenRatio": 2.0912670238172075,
+                "timing": 70,
+                "revenue": 40,
+                "competition": 40,
+                "potential": 38
+              },
+              "grade": "📝 C",
+              "verdict": "⚠️ 신중히 검토 필요",
+              "topActions": [
+                "0일 내 작성 권장",
+                "LG냉장고키친핏 추천 TOP 10 (2025년 최신)",
+                "3000자 이상, 7개 이미지 권장"
+              ]
+            }
+          },
+          "highlightReason": "✅ ANYTIME/stable | 폭발 65 | 구매의도 30 | 월 2,040원⚠️ | 경쟁도 8"
+        },
+        {
+          "keyword": "하이얼냉장고",
+          "searchVolume": 2820,
+          "documentCount": 17305,
+          "goldenRatio": 0.16295868246171627,
+          "rookieFriendly": {
+            "score": 25,
+            "grade": "D",
+            "reason": "황금비율 1 미만 → 공급 과잉 | 숏테일 키워드 → 대형 블로그와 경쟁",
+            "canRankWithin": "1개월 이상 소요 예상",
+            "requiredBlogIndex": "최적 1 이상 권장"
+          },
+          "timing": {
+            "score": 50,
+            "urgency": "ANYTIME",
+            "bestPublishTime": "오전 6~8시 또는 저녁 8~10시",
+            "trendDirection": "stable",
+            "peakPrediction": "꾸준한 검색량 유지"
+          },
+          "blueOcean": {
+            "score": 35,
+            "competitorStrength": "medium",
+            "avgCompetitorBlogAge": "2~5년 (보통 경쟁)",
+            "oldPostRatio": 30,
+            "opportunity": "❌ 레드오션. 다른 키워드 추천"
+          },
+          "trafficEstimate": {
+            "daily": "2~4명",
+            "weekly": "14~28명",
+            "monthly": "60~120명",
+            "confidence": 50,
+            "disclaimer": "📌 트래픽은 순위/CTR/계절성에 따라 달라질 수 있는 추정치입니다."
+          },
+          "revenueEstimate": {
+            "dailyRevenue": "49원 ⚠️추정",
+            "monthlyRevenue": "1,470원 ⚠️추정",
+            "estimatedCPC": 180,
+            "estimatedRPM": 4500,
+            "adType": "애드센스",
+            "revenueGrade": "C",
+            "revenueReason": "⚠️ 경쟁 높음. 틈새 접근 필요"
+          },
+          "entryAnalysis": {
+            "canEntry": false,
+            "difficulty": "very_hard",
+            "difficultyScore": 74,
+            "message": "🔴 진입 어려움 - 상위 블로거 독점 키워드",
+            "topCompetitorStrength": "강함 (전문 블로거 다수)",
+            "recommendedBlogIndex": "최적 1 이상 권장",
+            "estimatedRankingTime": "1개월 이상 소요 예상"
+          },
+          "totalScore": 36,
+          "grade": "B",
+          "proStrategy": {
+            "title": "2025 하이얼냉장고 완벽 정리 | 초보자도 쉽게 이해하는 가이드",
+            "outline": [
+              "1. 하이얼냉장고란? (기본 개념)",
+              "2. 하이얼냉장고 핵심 포인트 3가지",
+              "3. 하이얼냉장고 장단점 비교",
+              "4. 하이얼냉장고 실제 후기/경험담",
+              "5. 하이얼냉장고 Q&A (자주 묻는 질문)",
+              "6. 결론 및 추천"
+            ],
+            "wordCount": 2500,
+            "mustInclude": [
+              "핵심 키워드 2~3회 자연스럽게 삽입",
+              "실제 이미지/사진 3장 이상",
+              "표 또는 비교 차트 1개 이상",
+              "자주 묻는 질문(FAQ) 섹션",
+              "결론 및 추천 섹션"
+            ],
+            "avoidTopics": [
+              "과장된 표현 (100%, 무조건, 반드시)",
+              "허위 정보나 검증되지 않은 내용",
+              "다른 블로그 복사/붙여넣기",
+              "광고성 링크 과다 삽입"
+            ],
+            "monetization": "애드센스 + 쿠팡파트너스 조합 추천"
+          },
+          "platformTitles": {
+            "naver": {
+              "title": "핵심 정리: 하이얼냉장고 2025 최신 가이드 (월 2,820)",
+              "alternatives": [
+                "하이얼냉장고 2025 완벽 정리: 핵심만 5분 요약",
+                "하이얼냉장고 초보도 쉽게: 실패 없는 체크리스트"
+              ],
+              "subKeywords": [
+                "하이얼냉장고 방법",
+                "하이얼냉장고 추천",
+                "하이얼냉장고 후기"
+              ],
+              "tags": [
+                "하이얼냉장고",
+                "📰 이슈키워드"
+              ],
+              "tip": "서두 100자 내에 키워드를 2회 노출하고, 결론 요약을 맨 위에 한 번 더 넣으세요.",
+              "hookPoint": "핵심 정리 포인트를 제목/썸네일에 강조"
+            },
+            "tistory": {
+              "title": "하이얼냉장고 2025 정리: 한 번에 이해하는 핵심 포인트 (월 2,820)",
+              "alternatives": [
+                "하이얼냉장고 제대로 하는 법 (체크리스트 포함)",
+                "하이얼냉장고 추천/비교: 선택 기준 3가지"
+              ],
+              "subKeywords": [
+                "하이얼냉장고 방법",
+                "하이얼냉장고 추천",
+                "하이얼냉장고 후기"
+              ],
+              "tags": [
+                "하이얼냉장고",
+                "📰 이슈키워드"
+              ],
+              "tip": "표/리스트를 많이 써서 스크롤 체류시간을 늘리세요.",
+              "hookPoint": "“핵심 3가지”처럼 숫자를 넣어 클릭률을 올리기"
+            },
+            "wordpress": {
+              "title": "하이얼냉장고: 2025 Complete Guide (Checklist & Tips) (월 2,820)",
+              "alternatives": [
+                "하이얼냉장고 Guide: Common Mistakes & Quick Fixes",
+                "하이얼냉장고 Step-by-Step: What to Do First"
+              ],
+              "subKeywords": [
+                "하이얼냉장고 방법",
+                "하이얼냉장고 추천",
+                "하이얼냉장고 후기"
+              ],
+              "tags": [
+                "하이얼냉장고",
+                "📰 이슈키워드"
+              ],
+              "tip": "H2/H3로 구조를 만들고, FAQ 섹션을 넣어 SEO를 강화하세요.",
+              "hookPoint": "FAQ + 체크리스트 조합으로 체류시간/리치 증가"
+            },
+            "blogspot": {
+              "title": "하이얼냉장고 2025: Quick Start + Best Practices (월 2,820)",
+              "alternatives": [
+                "하이얼냉장고 Quick Guide: Do & Don't",
+                "하이얼냉장고 Essentials: What You Need to Know"
+              ],
+              "subKeywords": [
+                "하이얼냉장고 방법",
+                "하이얼냉장고 추천",
+                "하이얼냉장고 후기"
+              ],
+              "tags": [
+                "하이얼냉장고",
+                "📰 이슈키워드"
+              ],
+              "tip": "이미지 2~3장 + 요약 박스를 넣어 가독성을 올리세요.",
+              "hookPoint": "첫 화면에 요약(결론)을 배치해 이탈률을 낮추기"
+            }
+          },
+          "expandedKeywords": {
+            "relatedGolden": [
+              "하이얼냉장고 추천",
+              "하이얼냉장고 비교",
+              "하이얼냉장고 후기",
+              "하이얼냉장고 가격"
+            ],
+            "longtailGolden": [
+              "하이얼냉장고 초보",
+              "하이얼냉장고 쉽게",
+              "하이얼냉장고 단계별",
+              "하이얼냉장고 정리"
+            ],
+            "blueOceanGolden": [
+              "하이얼냉장고 최신",
+              "하이얼냉장고 2025",
+              "하이얼냉장고 체크리스트",
+              "하이얼냉장고 실패하지 않는 법"
+            ]
+          },
+          "type": "📰 이슈키워드",
+          "category": "life_tips",
+          "safetyLevel": "safe",
+          "safetyReason": "✅ 안전한 키워드. 신생 블로거도 작성 가능",
+          "source": "냉장고",
+          "profitAnalysis": {
+            "keyword": "하이얼냉장고",
+            "searchVolume": 2820,
+            "documentCount": 17305,
+            "estimatedCPC": 180,
+            "purchaseIntentScore": 30,
+            "competitionLevel": 8,
+            "freshnessOpportunity": 1,
+            "profitGoldenRatio": 3.01,
+            "estimatedDailyRevenue": 49,
+            "estimatedMonthlyRevenue": 1470,
+            "grade": "C",
+            "gradeReason": "⚠️ 경쟁 높음. 틈새 접근 필요",
+            "isRealBlueOcean": false,
+            "blueOceanReason": "📕 경쟁 시장. 차별화 전략 필요",
+            "strategy": {
+              "approach": "⏸️ 보류. 더 좋은 키워드 찾기 추천",
+              "monetization": "📝 트래픽 확보 우선. 이후 관련 고수익 키워드로 내부링크",
+              "timing": "🗓️ 여유있게 준비. 롱테일 전략으로 접근",
+              "titleSuggestion": "하이얼냉장고 완벽 가이드 | 초보자도 쉽게 따라하기"
+            }
+          },
+          "timestamp": "2025-12-24T10:50:46.724Z",
+          "isGolden": true,
+          "trendAnalysis": {
+            "trendingReason": "하이얼 '슈퍼슬림 컨버터블 김치냉장고' 관련 최근 이슈",
+            "whyNow": "최근 5개 이상의 뉴스에서 다뤄지며 이슈화 진행 중",
+            "newsSource": "자동 분석"
+          },
+          "keywordGuide": {
+            "summary": "여유 있을 때 공략하면 좋은 키워드입니다. (등급: B, 점수: 36점)",
+            "whyItMovesNow": "하이얼 '슈퍼슬림 컨버터블 김치냉장고' 관련 최근 이슈 최근 5개 이상의 뉴스에서 다뤄지며 이슈화 진행 중",
+            "immediateTrafficPlan": [
+              "제목 앞부분에 \"하이얼냉장고\"를 배치하고, 2025/최신/정리 같은 보조 키워드를 1개만 추가하세요.",
+              "본문 서두 100자 안에 \"하이얼냉장고\"를 자연스럽게 2회 노출하세요.",
+              "최소 1개는 비교/체크리스트/요약 섹션을 넣어 체류시간을 늘리세요."
+            ],
+            "naverHomeExposureTips": [
+              "첫 이미지에 키워드가 들어간 문구를 넣고, alt 텍스트도 키워드 포함",
+              "목차를 만들고 H2/H3에 서브 키워드 배치",
+              "태그는 5~10개로 과도한 반복을 피하고, 유사어를 섞기"
+            ]
+          },
+          "ultimateAnalysis": {
+            "timing": {
+              "seasonal": {
+                "peakMonths": [
+                  1,
+                  2,
+                  3,
+                  4,
+                  5,
+                  6,
+                  7,
+                  8,
+                  9,
+                  10,
+                  11,
+                  12
+                ],
+                "peakReason": "연중 꾸준한 검색량",
+                "currentSeasonScore": 70,
+                "nextPeakDate": "항상",
+                "daysUntilPeak": 0,
+                "recommendation": "📝 에버그린 키워드입니다. 언제든 작성해도 좋습니다.",
+                "seasonalPattern": "evergreen"
+              },
+              "trend": {
+                "trendDirection": "falling",
+                "changeRate": 2,
+                "comparedTo": "전월 대비",
+                "explosiveScore": 2,
+                "relatedNews": [],
+                "recommendation": "📊 안정적인 키워드입니다."
+              },
+              "alert": {
+                "optimalPublishDate": "0일 내",
+                "reason": "📝 에버그린 키워드입니다. 언제든 작성해도 좋습니다.",
+                "urgencyLevel": "⚡ 이번 주",
+                "expectedPeakDate": "항상",
+                "competitorActivity": "경쟁자 많음"
+              }
+            },
+            "revenue": {
+              "cpc": {
+                "estimatedCpc": 200,
+                "cpcRange": {
+                  "min": 100,
+                  "max": 400
+                },
+                "cpcTier": "🥈 중수익",
+                "industryAverage": 200,
+                "recommendation": "📝 일반적인 수익 구조입니다. 트래픽 확보에 집중하세요."
+              },
+              "affiliate": {
+                "recommendedPrograms": [
+                  {
+                    "name": "쿠팡파트너스",
+                    "type": "coupang",
+                    "commissionRate": "3~5%",
+                    "estimatedEarningPerClick": 50,
+                    "matchScore": 100
+                  },
+                  {
+                    "name": "네이버 쇼핑",
+                    "type": "naver",
+                    "commissionRate": "1~3%",
+                    "estimatedEarningPerClick": 30,
+                    "matchScore": 85
+                  }
+                ],
+                "bestMatch": "쿠팡파트너스",
+                "potentialProducts": [
+                  "하이얼냉장고 추천",
+                  "하이얼냉장고 순위",
+                  "하이얼냉장고 비교",
+                  "하이얼냉장고 후기",
+                  "하이얼냉장고 가격",
+                  "하이얼냉장고 구매"
+                ]
+              },
+              "projection": {
+                "estimatedDailyVisitors": 3,
+                "estimatedMonthlyVisitors": 90,
+                "adsenseRevenue": {
+                  "daily": 18,
+                  "monthly": 540,
+                  "assumptions": "CPC 200원, CTR 2%, 페이지뷰율 1.5 가정"
+                },
+                "affiliateRevenue": {
+                  "daily": 0,
+                  "monthly": 0,
+                  "conversionRate": 3,
+                  "assumptions": "클릭률 10%, 전환율 3%, 평균 수수료 50원 가정"
+                },
+                "totalMonthlyRevenue": 540,
+                "revenueBreakdown": "애드센스 100% + 제휴 0%",
+                "revenueTier": "📝 월 1만원+"
+              }
+            },
+            "content": {
+              "titles": {
+                "titles": [
+                  {
+                    "title": "하이얼냉장고 추천 TOP 10 (2025년 최신)",
+                    "type": "number",
+                    "estimatedCTR": 8.5,
+                    "psychologyUsed": "숫자 + 최신 정보"
+                  },
+                  {
+                    "title": "하이얼냉장고 하는 법, 초보자도 쉽게 따라하기",
+                    "type": "how-to",
+                    "estimatedCTR": 7.5,
+                    "psychologyUsed": "실용성 + 접근성"
+                  },
+                  {
+                    "title": "하이얼냉장고, 이것만 알면 끝! 완벽 가이드",
+                    "type": "benefit",
+                    "estimatedCTR": 7.2,
+                    "psychologyUsed": "완결성 + 가치 제안"
+                  },
+                  {
+                    "title": "[2025년] 하이얼냉장고 총정리 (+ 꿀팁 공개)",
+                    "type": "news",
+                    "estimatedCTR": 7,
+                    "psychologyUsed": "최신성 + 보너스 가치"
+                  },
+                  {
+                    "title": "아직도 하이얼냉장고 몰라요? 지금 당장 확인하세요",
+                    "type": "curiosity",
+                    "estimatedCTR": 6.8,
+                    "psychologyUsed": "호기심 + 긴급성"
+                  },
+                  {
+                    "title": "하이얼냉장고 실제 후기 (장단점 솔직 비교)",
+                    "type": "comparison",
+                    "estimatedCTR": 6.5,
+                    "psychologyUsed": "신뢰성 + 비교 심리"
+                  }
+                ],
+                "bestTitle": "하이얼냉장고 추천 TOP 10 (2025년 최신)",
+                "titleFormula": "숫자 + 키워드 + 최신연도 + 가치제안"
+              },
+              "structure": {
+                "recommendedStructure": {
+                  "intro": {
+                    "purpose": "독자의 관심 끌기 + 키워드 자연스럽게 배치",
+                    "template": "\"하이얼냉장고\"에 대해 고민하고 계신가요? 이 글에서 핵심 정보를 모두 정리해드립니다.",
+                    "keywordPlacement": "첫 문장에 키워드 포함"
+                  },
+                  "sections": [
+                    {
+                      "heading": "하이얼냉장고란? (기본 개념)",
+                      "purpose": "기초 정보 제공",
+                      "contentGuide": "핵심 정의, 중요성, 왜 알아야 하는지 설명",
+                      "recommendedLength": 300,
+                      "keywordUsage": "소제목과 본문에 1~2회"
+                    },
+                    {
+                      "heading": "하이얼냉장고 추천 BEST 5",
+                      "purpose": "실질적인 가치 제공 (핵심 섹션)",
+                      "contentGuide": "순위별 상세 설명, 장단점, 추천 이유",
+                      "recommendedLength": 800,
+                      "keywordUsage": "각 항목 설명에 자연스럽게 포함"
+                    },
+                    {
+                      "heading": "하이얼냉장고 선택 시 주의사항",
+                      "purpose": "신뢰도 향상",
+                      "contentGuide": "흔한 실수, 피해야 할 것, 체크리스트",
+                      "recommendedLength": 400,
+                      "keywordUsage": "주의사항 설명에 1~2회"
+                    },
+                    {
+                      "heading": "자주 묻는 질문 (FAQ)",
+                      "purpose": "SEO 강화 + 체류시간 증가",
+                      "contentGuide": "실제 검색되는 질문 5개 + 명확한 답변",
+                      "recommendedLength": 500,
+                      "keywordUsage": "질문에 롱테일 키워드 활용"
+                    }
+                  ],
+                  "conclusion": {
+                    "purpose": "요약 + CTA",
+                    "template": "지금까지 하이얼냉장고에 대해 알아봤습니다. 도움이 되셨다면 공유해주세요!",
+                    "ctaRecommendation": "댓글, 공유, 관련 글 링크 유도"
+                  }
+                },
+                "seoChecklist": [
+                  {
+                    "item": "제목에 키워드 포함",
+                    "importance": "critical",
+                    "howTo": "제목 앞부분에 메인 키워드 배치"
+                  },
+                  {
+                    "item": "첫 문단에 키워드",
+                    "importance": "critical",
+                    "howTo": "첫 100자 내 키워드 자연스럽게 삽입"
+                  },
+                  {
+                    "item": "소제목 H2/H3 활용",
+                    "importance": "high",
+                    "howTo": "3~5개 소제목, 키워드 변형 사용"
+                  },
+                  {
+                    "item": "이미지 ALT 태그",
+                    "importance": "high",
+                    "howTo": "모든 이미지에 키워드 포함 설명"
+                  },
+                  {
+                    "item": "내부링크 2개 이상",
+                    "importance": "medium",
+                    "howTo": "관련 글 자연스럽게 연결"
+                  },
+                  {
+                    "item": "3000자 이상 작성",
+                    "importance": "high",
+                    "howTo": "충분한 깊이의 콘텐츠 제공"
+                  }
+                ],
+                "totalRecommendedLength": 3000,
+                "estimatedWriteTime": 90
+              },
+              "images": {
+                "mainImage": {
+                  "searchKeyword": "하이얼냉장고 대표이미지",
+                  "style": "깔끔한 인포그래픽 또는 고화질 사진",
+                  "source": [
+                    "Unsplash",
+                    "Pixabay",
+                    "직접 제작"
+                  ],
+                  "altText": "하이얼냉장고 완벽 가이드 대표 이미지"
+                },
+                "sectionImages": [
+                  {
+                    "section": "기본 개념",
+                    "searchKeyword": "하이얼냉장고 설명",
+                    "purpose": "이해 돕기",
+                    "style": "다이어그램"
+                  },
+                  {
+                    "section": "TOP 5",
+                    "searchKeyword": "하이얼냉장고 비교",
+                    "purpose": "시각적 비교",
+                    "style": "비교표"
+                  },
+                  {
+                    "section": "주의사항",
+                    "searchKeyword": "주의 아이콘",
+                    "purpose": "강조",
+                    "style": "아이콘"
+                  }
+                ],
+                "infographicIdeas": [
+                  "하이얼냉장고 선택 가이드 플로우차트",
+                  "하이얼냉장고 TOP 5 비교표",
+                  "하이얼냉장고 체크리스트"
+                ],
+                "totalRecommendedImages": 7,
+                "imageStrategy": "섹션당 1~2개, 총 7~10개 이미지로 가독성과 체류시간 향상"
+              }
+            },
+            "ultimateScore": {
+              "total": 34,
+              "breakdown": {
+                "goldenRatio": 1.6295868246171628,
+                "timing": 70,
+                "revenue": 40,
+                "competition": 40,
+                "potential": 38
+              },
+              "grade": "📝 C",
+              "verdict": "⚠️ 신중히 검토 필요",
+              "topActions": [
+                "0일 내 작성 권장",
+                "하이얼냉장고 추천 TOP 10 (2025년 최신)",
+                "3000자 이상, 7개 이미지 권장"
+              ]
+            }
+          },
+          "highlightReason": "✅ ANYTIME/stable | 폭발 65 | 구매의도 30 | 월 1,470원⚠️ | 경쟁도 8"
+        }
+      ],
+      "attempts": 1,
+      "durationMs": 106882
+    }
+  ]
+}

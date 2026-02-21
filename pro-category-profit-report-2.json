@@ -1,0 +1,1123 @@
+{
+  "generatedAt": "2025-12-22T14:47:22.011Z",
+  "mode": "category",
+  "explosionMode": false,
+  "count": 10,
+  "timeoutMs": 180000,
+  "retries": 0,
+  "results": [
+    {
+      "success": false,
+      "category": "life_tips",
+      "mode": "category",
+      "explosionMode": false,
+      "count": 10,
+      "summary": {
+        "totalFound": 0,
+        "sssCount": 0,
+        "ssCount": 0,
+        "sCount": 0,
+        "rookieFriendlyCount": 0,
+        "urgentCount": 0,
+        "blueOceanCount": 0
+      },
+      "keywords": [],
+      "attempts": 1,
+      "durationMs": 52860
+    },
+    {
+      "success": false,
+      "category": "interior",
+      "mode": "category",
+      "explosionMode": false,
+      "count": 10,
+      "summary": {
+        "totalFound": 0,
+        "sssCount": 0,
+        "ssCount": 0,
+        "sCount": 0,
+        "rookieFriendlyCount": 0,
+        "urgentCount": 0,
+        "blueOceanCount": 0
+      },
+      "keywords": [],
+      "attempts": 1,
+      "durationMs": 56438
+    },
+    {
+      "success": true,
+      "category": "review",
+      "mode": "category",
+      "explosionMode": false,
+      "count": 10,
+      "summary": {
+        "totalFound": 2,
+        "sssCount": 1,
+        "ssCount": 0,
+        "sCount": 0,
+        "rookieFriendlyCount": 2,
+        "urgentCount": 0,
+        "blueOceanCount": 1
+      },
+      "keywords": [
+        {
+          "keyword": "알뜰폰비교 모요",
+          "searchVolume": 280,
+          "documentCount": 5,
+          "goldenRatio": 56,
+          "rookieFriendly": {
+            "score": 100,
+            "grade": "S",
+            "reason": "문서수 1,000개 미만 → 경쟁 매우 낮음 | 황금비율 10 이상 → 수요 대비 공급 부족 | 중길이 키워드 | 질문형 키워드 → 경쟁 낮음",
+            "canRankWithin": "1~3일 내 가능",
+            "requiredBlogIndex": "지수 무관 (신생도 OK)"
+          },
+          "timing": {
+            "score": 50,
+            "urgency": "ANYTIME",
+            "bestPublishTime": "오전 6~8시 또는 저녁 8~10시",
+            "trendDirection": "stable",
+            "peakPrediction": "꾸준한 검색량 유지"
+          },
+          "blueOcean": {
+            "score": 100,
+            "competitorStrength": "weak",
+            "avgCompetitorBlogAge": "1~2년 (약한 경쟁)",
+            "oldPostRatio": 70,
+            "opportunity": "🔥 극상의 블루오션! 지금 선점하세요"
+          },
+          "trafficEstimate": {
+            "daily": "1~1명",
+            "weekly": "7~7명",
+            "monthly": "30~30명",
+            "confidence": 70,
+            "disclaimer": "📌 트래픽은 순위/CTR/계절성에 따라 달라질 수 있는 추정치입니다."
+          },
+          "revenueEstimate": {
+            "dailyRevenue": "4~11원",
+            "monthlyRevenue": "120~330원",
+            "estimatedCPC": 375,
+            "estimatedRPM": 7500,
+            "adType": "쿠팡파트너스 + 애드센스",
+            "revenueGrade": "C",
+            "revenueReason": "📊 트래픽 확보 후 수익 기대. 블로그 성장용"
+          },
+          "entryAnalysis": {
+            "canEntry": true,
+            "difficulty": "easy",
+            "difficultyScore": 0,
+            "message": "🟢 진입 쉬움 - 신생 블로거도 상위노출 가능!",
+            "topCompetitorStrength": "약함 (저품질 블로그 다수)",
+            "recommendedBlogIndex": "지수 무관 (신생도 OK)",
+            "estimatedRankingTime": "1~3일 내 가능"
+          },
+          "totalScore": 100,
+          "grade": "SSS",
+          "proStrategy": {
+            "title": "2025 알뜰폰비교 모요 완벽 정리 | 초보자도 쉽게 이해하는 가이드",
+            "outline": [
+              "1. 알뜰폰비교 모요란? (기본 개념)",
+              "2. 알뜰폰비교 모요 핵심 포인트 3가지",
+              "3. 알뜰폰비교 모요 장단점 비교",
+              "4. 알뜰폰비교 모요 실제 후기/경험담",
+              "5. 알뜰폰비교 모요 Q&A (자주 묻는 질문)",
+              "6. 결론 및 추천"
+            ],
+            "wordCount": 2500,
+            "mustInclude": [
+              "핵심 키워드 2~3회 자연스럽게 삽입",
+              "실제 이미지/사진 3장 이상",
+              "표 또는 비교 차트 1개 이상",
+              "자주 묻는 질문(FAQ) 섹션",
+              "결론 및 추천 섹션"
+            ],
+            "avoidTopics": [
+              "과장된 표현 (100%, 무조건, 반드시)",
+              "허위 정보나 검증되지 않은 내용",
+              "다른 블로그 복사/붙여넣기",
+              "광고성 링크 과다 삽입"
+            ],
+            "monetization": "쿠팡파트너스/제휴마케팅 메인 (구매 전환 유도)"
+          },
+          "platformTitles": {
+            "naver": {
+              "title": "핵심 정리: 알뜰폰비교 모요 2025 최신 가이드 (월 280)",
+              "alternatives": [
+                "알뜰폰비교 모요 2025 완벽 정리: 핵심만 5분 요약",
+                "알뜰폰비교 모요 초보도 쉽게: 실패 없는 체크리스트"
+              ],
+              "subKeywords": [
+                "알뜰폰비교 모요 방법",
+                "알뜰폰비교 모요 추천",
+                "알뜰폰비교 모요 후기"
+              ],
+              "tags": [
+                "알뜰폰비교모요",
+                "알뜰폰비교",
+                "💎 블루오션"
+              ],
+              "tip": "서두 100자 내에 키워드를 2회 노출하고, 결론 요약을 맨 위에 한 번 더 넣으세요.",
+              "hookPoint": "핵심 정리 포인트를 제목/썸네일에 강조"
+            },
+            "tistory": {
+              "title": "알뜰폰비교 모요 2025 정리: 한 번에 이해하는 핵심 포인트 (월 280)",
+              "alternatives": [
+                "알뜰폰비교 모요 제대로 하는 법 (체크리스트 포함)",
+                "알뜰폰비교 모요 추천/비교: 선택 기준 3가지"
+              ],
+              "subKeywords": [
+                "알뜰폰비교 모요 방법",
+                "알뜰폰비교 모요 추천",
+                "알뜰폰비교 모요 후기"
+              ],
+              "tags": [
+                "알뜰폰비교모요",
+                "알뜰폰비교",
+                "💎 블루오션"
+              ],
+              "tip": "표/리스트를 많이 써서 스크롤 체류시간을 늘리세요.",
+              "hookPoint": "“핵심 3가지”처럼 숫자를 넣어 클릭률을 올리기"
+            },
+            "wordpress": {
+              "title": "알뜰폰비교 모요: 2025 Complete Guide (Checklist & Tips) (월 280)",
+              "alternatives": [
+                "알뜰폰비교 모요 Guide: Common Mistakes & Quick Fixes",
+                "알뜰폰비교 모요 Step-by-Step: What to Do First"
+              ],
+              "subKeywords": [
+                "알뜰폰비교 모요 방법",
+                "알뜰폰비교 모요 추천",
+                "알뜰폰비교 모요 후기"
+              ],
+              "tags": [
+                "알뜰폰비교모요",
+                "알뜰폰비교",
+                "💎 블루오션"
+              ],
+              "tip": "H2/H3로 구조를 만들고, FAQ 섹션을 넣어 SEO를 강화하세요.",
+              "hookPoint": "FAQ + 체크리스트 조합으로 체류시간/리치 증가"
+            },
+            "blogspot": {
+              "title": "알뜰폰비교 모요 2025: Quick Start + Best Practices (월 280)",
+              "alternatives": [
+                "알뜰폰비교 모요 Quick Guide: Do & Don't",
+                "알뜰폰비교 모요 Essentials: What You Need to Know"
+              ],
+              "subKeywords": [
+                "알뜰폰비교 모요 방법",
+                "알뜰폰비교 모요 추천",
+                "알뜰폰비교 모요 후기"
+              ],
+              "tags": [
+                "알뜰폰비교모요",
+                "알뜰폰비교",
+                "💎 블루오션"
+              ],
+              "tip": "이미지 2~3장 + 요약 박스를 넣어 가독성을 올리세요.",
+              "hookPoint": "첫 화면에 요약(결론)을 배치해 이탈률을 낮추기"
+            }
+          },
+          "expandedKeywords": {
+            "relatedGolden": [
+              "알뜰폰비교 모요 추천",
+              "알뜰폰비교 모요 비교",
+              "알뜰폰비교 모요 후기",
+              "알뜰폰비교 모요 가격"
+            ],
+            "longtailGolden": [
+              "알뜰폰비교 모요 초보",
+              "알뜰폰비교 모요 쉽게",
+              "알뜰폰비교 모요 단계별",
+              "알뜰폰비교 모요 정리"
+            ],
+            "blueOceanGolden": [
+              "알뜰폰비교 모요 최신",
+              "알뜰폰비교 모요 2025",
+              "알뜰폰비교 모요 체크리스트",
+              "알뜰폰비교 모요 실패하지 않는 법"
+            ]
+          },
+          "type": "💎 블루오션",
+          "category": "review",
+          "safetyLevel": "safe",
+          "safetyReason": "✅ 안전한 키워드. 신생 블로거도 작성 가능",
+          "source": "비교 2025",
+          "timestamp": "2025-12-22T14:45:19.925Z",
+          "isGolden": true,
+          "trendAnalysis": {
+            "trendingReason": "알뜰폰 요금제 비교 관련 최근 이슈",
+            "whyNow": "최근 5개 이상의 뉴스에서 다뤄지며 이슈화 진행 중 • \"알뜰폰 요금제 비교 플랫폼 '모요', 정보보호 체계 강화\" 관련 최신 뉴스로 조기 진입 효과 기대",
+            "newsSource": "자동 분석"
+          },
+          "keywordGuide": {
+            "summary": "여유 있을 때 공략하면 좋은 키워드입니다. (등급: SSS, 점수: 100점)",
+            "whyItMovesNow": "알뜰폰 요금제 비교 관련 최근 이슈 최근 5개 이상의 뉴스에서 다뤄지며 이슈화 진행 중 • \"알뜰폰 요금제 비교 플랫폼 '모요', 정보보호 체계 강화\" 관련 최신 뉴스로 조기 진입 효과 기대",
+            "immediateTrafficPlan": [
+              "제목 앞부분에 \"알뜰폰비교 모요\"를 배치하고, 2025/최신/정리 같은 보조 키워드를 1개만 추가하세요.",
+              "본문 서두 100자 안에 \"알뜰폰비교 모요\"를 자연스럽게 2회 노출하세요.",
+              "최소 1개는 비교/체크리스트/요약 섹션을 넣어 체류시간을 늘리세요."
+            ],
+            "naverHomeExposureTips": [
+              "첫 이미지에 키워드가 들어간 문구를 넣고, alt 텍스트도 키워드 포함",
+              "목차를 만들고 H2/H3에 서브 키워드 배치",
+              "태그는 5~10개로 과도한 반복을 피하고, 유사어를 섞기"
+            ]
+          },
+          "ultimateAnalysis": {
+            "timing": {
+              "seasonal": {
+                "peakMonths": [
+                  1,
+                  2,
+                  3,
+                  4,
+                  5,
+                  6,
+                  7,
+                  8,
+                  9,
+                  10,
+                  11,
+                  12
+                ],
+                "peakReason": "연중 꾸준한 검색량",
+                "currentSeasonScore": 70,
+                "nextPeakDate": "항상",
+                "daysUntilPeak": 0,
+                "recommendation": "📝 에버그린 키워드입니다. 언제든 작성해도 좋습니다.",
+                "seasonalPattern": "evergreen"
+              },
+              "trend": {
+                "trendDirection": "rising",
+                "changeRate": 560,
+                "comparedTo": "전월 대비",
+                "explosiveScore": 100,
+                "relatedNews": [],
+                "recommendation": "📈 상승세입니다! 지금이 적기!"
+              },
+              "alert": {
+                "optimalPublishDate": "0일 내",
+                "reason": "📝 에버그린 키워드입니다. 언제든 작성해도 좋습니다.",
+                "urgencyLevel": "⚡ 이번 주",
+                "expectedPeakDate": "항상",
+                "competitorActivity": "경쟁자 적음"
+              }
+            },
+            "revenue": {
+              "cpc": {
+                "estimatedCpc": 150,
+                "cpcRange": {
+                  "min": 80,
+                  "max": 300
+                },
+                "cpcTier": "🥈 중수익",
+                "industryAverage": 150,
+                "recommendation": "📝 일반적인 수익 구조입니다. 트래픽 확보에 집중하세요."
+              },
+              "affiliate": {
+                "recommendedPrograms": [
+                  {
+                    "name": "쿠팡파트너스",
+                    "type": "coupang",
+                    "commissionRate": "3~5%",
+                    "estimatedEarningPerClick": 50,
+                    "matchScore": 100
+                  },
+                  {
+                    "name": "네이버 쇼핑",
+                    "type": "naver",
+                    "commissionRate": "1~3%",
+                    "estimatedEarningPerClick": 30,
+                    "matchScore": 85
+                  }
+                ],
+                "bestMatch": "쿠팡파트너스",
+                "potentialProducts": [
+                  "알뜰폰비교 모요 추천",
+                  "알뜰폰비교 모요 순위",
+                  "알뜰폰비교 모요 비교",
+                  "알뜰폰비교 모요 후기",
+                  "알뜰폰비교 모요 가격",
+                  "알뜰폰비교 모요 구매"
+                ]
+              },
+              "projection": {
+                "estimatedDailyVisitors": 3,
+                "estimatedMonthlyVisitors": 90,
+                "adsenseRevenue": {
+                  "daily": 14,
+                  "monthly": 420,
+                  "assumptions": "CPC 150원, CTR 2%, 페이지뷰율 1.5 가정"
+                },
+                "affiliateRevenue": {
+                  "daily": 0,
+                  "monthly": 0,
+                  "conversionRate": 3,
+                  "assumptions": "클릭률 10%, 전환율 3%, 평균 수수료 50원 가정"
+                },
+                "totalMonthlyRevenue": 420,
+                "revenueBreakdown": "애드센스 100% + 제휴 0%",
+                "revenueTier": "📝 월 1만원+"
+              }
+            },
+            "content": {
+              "titles": {
+                "titles": [
+                  {
+                    "title": "알뜰폰비교 모요 추천 TOP 10 (2025년 최신)",
+                    "type": "number",
+                    "estimatedCTR": 8.5,
+                    "psychologyUsed": "숫자 + 최신 정보"
+                  },
+                  {
+                    "title": "알뜰폰비교 모요 하는 법, 초보자도 쉽게 따라하기",
+                    "type": "how-to",
+                    "estimatedCTR": 7.5,
+                    "psychologyUsed": "실용성 + 접근성"
+                  },
+                  {
+                    "title": "알뜰폰비교 모요, 이것만 알면 끝! 완벽 가이드",
+                    "type": "benefit",
+                    "estimatedCTR": 7.2,
+                    "psychologyUsed": "완결성 + 가치 제안"
+                  },
+                  {
+                    "title": "[2025년] 알뜰폰비교 모요 총정리 (+ 꿀팁 공개)",
+                    "type": "news",
+                    "estimatedCTR": 7,
+                    "psychologyUsed": "최신성 + 보너스 가치"
+                  },
+                  {
+                    "title": "아직도 알뜰폰비교 모요 몰라요? 지금 당장 확인하세요",
+                    "type": "curiosity",
+                    "estimatedCTR": 6.8,
+                    "psychologyUsed": "호기심 + 긴급성"
+                  },
+                  {
+                    "title": "알뜰폰비교 모요 실제 후기 (장단점 솔직 비교)",
+                    "type": "comparison",
+                    "estimatedCTR": 6.5,
+                    "psychologyUsed": "신뢰성 + 비교 심리"
+                  }
+                ],
+                "bestTitle": "알뜰폰비교 모요 추천 TOP 10 (2025년 최신)",
+                "titleFormula": "숫자 + 키워드 + 최신연도 + 가치제안"
+              },
+              "structure": {
+                "recommendedStructure": {
+                  "intro": {
+                    "purpose": "독자의 관심 끌기 + 키워드 자연스럽게 배치",
+                    "template": "\"알뜰폰비교 모요\"에 대해 고민하고 계신가요? 이 글에서 핵심 정보를 모두 정리해드립니다.",
+                    "keywordPlacement": "첫 문장에 키워드 포함"
+                  },
+                  "sections": [
+                    {
+                      "heading": "알뜰폰비교 모요란? (기본 개념)",
+                      "purpose": "기초 정보 제공",
+                      "contentGuide": "핵심 정의, 중요성, 왜 알아야 하는지 설명",
+                      "recommendedLength": 300,
+                      "keywordUsage": "소제목과 본문에 1~2회"
+                    },
+                    {
+                      "heading": "알뜰폰비교 모요 추천 BEST 5",
+                      "purpose": "실질적인 가치 제공 (핵심 섹션)",
+                      "contentGuide": "순위별 상세 설명, 장단점, 추천 이유",
+                      "recommendedLength": 800,
+                      "keywordUsage": "각 항목 설명에 자연스럽게 포함"
+                    },
+                    {
+                      "heading": "알뜰폰비교 모요 선택 시 주의사항",
+                      "purpose": "신뢰도 향상",
+                      "contentGuide": "흔한 실수, 피해야 할 것, 체크리스트",
+                      "recommendedLength": 400,
+                      "keywordUsage": "주의사항 설명에 1~2회"
+                    },
+                    {
+                      "heading": "자주 묻는 질문 (FAQ)",
+                      "purpose": "SEO 강화 + 체류시간 증가",
+                      "contentGuide": "실제 검색되는 질문 5개 + 명확한 답변",
+                      "recommendedLength": 500,
+                      "keywordUsage": "질문에 롱테일 키워드 활용"
+                    }
+                  ],
+                  "conclusion": {
+                    "purpose": "요약 + CTA",
+                    "template": "지금까지 알뜰폰비교 모요에 대해 알아봤습니다. 도움이 되셨다면 공유해주세요!",
+                    "ctaRecommendation": "댓글, 공유, 관련 글 링크 유도"
+                  }
+                },
+                "seoChecklist": [
+                  {
+                    "item": "제목에 키워드 포함",
+                    "importance": "critical",
+                    "howTo": "제목 앞부분에 메인 키워드 배치"
+                  },
+                  {
+                    "item": "첫 문단에 키워드",
+                    "importance": "critical",
+                    "howTo": "첫 100자 내 키워드 자연스럽게 삽입"
+                  },
+                  {
+                    "item": "소제목 H2/H3 활용",
+                    "importance": "high",
+                    "howTo": "3~5개 소제목, 키워드 변형 사용"
+                  },
+                  {
+                    "item": "이미지 ALT 태그",
+                    "importance": "high",
+                    "howTo": "모든 이미지에 키워드 포함 설명"
+                  },
+                  {
+                    "item": "내부링크 2개 이상",
+                    "importance": "medium",
+                    "howTo": "관련 글 자연스럽게 연결"
+                  },
+                  {
+                    "item": "3000자 이상 작성",
+                    "importance": "high",
+                    "howTo": "충분한 깊이의 콘텐츠 제공"
+                  }
+                ],
+                "totalRecommendedLength": 3000,
+                "estimatedWriteTime": 90
+              },
+              "images": {
+                "mainImage": {
+                  "searchKeyword": "알뜰폰비교 모요 대표이미지",
+                  "style": "깔끔한 인포그래픽 또는 고화질 사진",
+                  "source": [
+                    "Unsplash",
+                    "Pixabay",
+                    "직접 제작"
+                  ],
+                  "altText": "알뜰폰비교 모요 완벽 가이드 대표 이미지"
+                },
+                "sectionImages": [
+                  {
+                    "section": "기본 개념",
+                    "searchKeyword": "알뜰폰비교 모요 설명",
+                    "purpose": "이해 돕기",
+                    "style": "다이어그램"
+                  },
+                  {
+                    "section": "TOP 5",
+                    "searchKeyword": "알뜰폰비교 모요 비교",
+                    "purpose": "시각적 비교",
+                    "style": "비교표"
+                  },
+                  {
+                    "section": "주의사항",
+                    "searchKeyword": "주의 아이콘",
+                    "purpose": "강조",
+                    "style": "아이콘"
+                  }
+                ],
+                "infographicIdeas": [
+                  "알뜰폰비교 모요 선택 가이드 플로우차트",
+                  "알뜰폰비교 모요 TOP 5 비교표",
+                  "알뜰폰비교 모요 체크리스트"
+                ],
+                "totalRecommendedImages": 7,
+                "imageStrategy": "섹션당 1~2개, 총 7~10개 이미지로 가독성과 체류시간 향상"
+              }
+            },
+            "ultimateScore": {
+              "total": 80,
+              "breakdown": {
+                "goldenRatio": 100,
+                "timing": 70,
+                "revenue": 40,
+                "competition": 100,
+                "potential": 78
+              },
+              "grade": "🏆 SS",
+              "verdict": "🎯 적극 공략 추천!",
+              "topActions": [
+                "0일 내 작성 권장",
+                "알뜰폰비교 모요 추천 TOP 10 (2025년 최신)",
+                "3000자 이상, 7개 이미지 권장"
+              ]
+            }
+          }
+        },
+        {
+          "keyword": "클레 후기무른밥",
+          "searchVolume": 300,
+          "documentCount": 669,
+          "goldenRatio": 0.4484304932735426,
+          "rookieFriendly": {
+            "score": 80,
+            "grade": "A",
+            "reason": "문서수 1,000개 미만 → 경쟁 매우 낮음 | 황금비율 1 미만 → 공급 과잉 | 중길이 키워드 | 질문형 키워드 → 경쟁 낮음",
+            "canRankWithin": "3~7일 내 가능",
+            "requiredBlogIndex": "준최 3 이상 권장"
+          },
+          "timing": {
+            "score": 50,
+            "urgency": "ANYTIME",
+            "bestPublishTime": "오전 6~8시 또는 저녁 8~10시",
+            "trendDirection": "stable",
+            "peakPrediction": "꾸준한 검색량 유지"
+          },
+          "blueOcean": {
+            "score": 65,
+            "competitorStrength": "weak",
+            "avgCompetitorBlogAge": "1~2년 (약한 경쟁)",
+            "oldPostRatio": 70,
+            "opportunity": "✅ 좋은 기회입니다. 품질 콘텐츠로 승부"
+          },
+          "trafficEstimate": {
+            "daily": "1~1명",
+            "weekly": "7~7명",
+            "monthly": "30~30명",
+            "confidence": 60,
+            "disclaimer": "📌 트래픽은 순위/CTR/계절성에 따라 달라질 수 있는 추정치입니다."
+          },
+          "revenueEstimate": {
+            "dailyRevenue": "3~10원",
+            "monthlyRevenue": "90~300원",
+            "estimatedCPC": 325,
+            "estimatedRPM": 6500,
+            "adType": "애드센스",
+            "revenueGrade": "C",
+            "revenueReason": "📊 트래픽 확보 후 수익 기대. 블로그 성장용"
+          },
+          "entryAnalysis": {
+            "canEntry": true,
+            "difficulty": "possible",
+            "difficultyScore": 35,
+            "message": "🟡 진입 가능 - 품질 콘텐츠로 충분히 경쟁 가능",
+            "topCompetitorStrength": "약함 (저품질 블로그 다수)",
+            "recommendedBlogIndex": "준최 3 이상 권장",
+            "estimatedRankingTime": "3~7일 내 가능"
+          },
+          "totalScore": 74,
+          "grade": "A",
+          "proStrategy": {
+            "title": "2025 클레 후기무른밥 완벽 정리 | 초보자도 쉽게 이해하는 가이드",
+            "outline": [
+              "1. 클레 후기무른밥란? (기본 개념)",
+              "2. 클레 후기무른밥 핵심 포인트 3가지",
+              "3. 클레 후기무른밥 장단점 비교",
+              "4. 클레 후기무른밥 실제 후기/경험담",
+              "5. 클레 후기무른밥 Q&A (자주 묻는 질문)",
+              "6. 결론 및 추천"
+            ],
+            "wordCount": 2500,
+            "mustInclude": [
+              "핵심 키워드 2~3회 자연스럽게 삽입",
+              "실제 이미지/사진 3장 이상",
+              "표 또는 비교 차트 1개 이상",
+              "자주 묻는 질문(FAQ) 섹션",
+              "결론 및 추천 섹션"
+            ],
+            "avoidTopics": [
+              "과장된 표현 (100%, 무조건, 반드시)",
+              "허위 정보나 검증되지 않은 내용",
+              "다른 블로그 복사/붙여넣기",
+              "광고성 링크 과다 삽입"
+            ],
+            "monetization": "애드센스 + 쿠팡파트너스 조합 추천"
+          },
+          "platformTitles": {
+            "naver": {
+              "title": "핵심 정리: 클레 후기무른밥 2025 최신 가이드 (월 300)",
+              "alternatives": [
+                "클레 후기무른밥 2025 완벽 정리: 핵심만 5분 요약",
+                "클레 후기무른밥 초보도 쉽게: 실패 없는 체크리스트"
+              ],
+              "subKeywords": [
+                "클레 후기무른밥 방법",
+                "클레 후기무른밥 추천",
+                "클레 후기무른밥 후기"
+              ],
+              "tags": [
+                "클레후기무른밥",
+                "클레",
+                "❓ 질문형키워드"
+              ],
+              "tip": "서두 100자 내에 키워드를 2회 노출하고, 결론 요약을 맨 위에 한 번 더 넣으세요.",
+              "hookPoint": "핵심 정리 포인트를 제목/썸네일에 강조"
+            },
+            "tistory": {
+              "title": "클레 후기무른밥 2025 정리: 한 번에 이해하는 핵심 포인트 (월 300)",
+              "alternatives": [
+                "클레 후기무른밥 제대로 하는 법 (체크리스트 포함)",
+                "클레 후기무른밥 추천/비교: 선택 기준 3가지"
+              ],
+              "subKeywords": [
+                "클레 후기무른밥 방법",
+                "클레 후기무른밥 추천",
+                "클레 후기무른밥 후기"
+              ],
+              "tags": [
+                "클레후기무른밥",
+                "클레",
+                "❓ 질문형키워드"
+              ],
+              "tip": "표/리스트를 많이 써서 스크롤 체류시간을 늘리세요.",
+              "hookPoint": "“핵심 3가지”처럼 숫자를 넣어 클릭률을 올리기"
+            },
+            "wordpress": {
+              "title": "클레 후기무른밥: 2025 Complete Guide (Checklist & Tips) (월 300)",
+              "alternatives": [
+                "클레 후기무른밥 Guide: Common Mistakes & Quick Fixes",
+                "클레 후기무른밥 Step-by-Step: What to Do First"
+              ],
+              "subKeywords": [
+                "클레 후기무른밥 방법",
+                "클레 후기무른밥 추천",
+                "클레 후기무른밥 후기"
+              ],
+              "tags": [
+                "클레후기무른밥",
+                "클레",
+                "❓ 질문형키워드"
+              ],
+              "tip": "H2/H3로 구조를 만들고, FAQ 섹션을 넣어 SEO를 강화하세요.",
+              "hookPoint": "FAQ + 체크리스트 조합으로 체류시간/리치 증가"
+            },
+            "blogspot": {
+              "title": "클레 후기무른밥 2025: Quick Start + Best Practices (월 300)",
+              "alternatives": [
+                "클레 후기무른밥 Quick Guide: Do & Don't",
+                "클레 후기무른밥 Essentials: What You Need to Know"
+              ],
+              "subKeywords": [
+                "클레 후기무른밥 방법",
+                "클레 후기무른밥 추천",
+                "클레 후기무른밥 후기"
+              ],
+              "tags": [
+                "클레후기무른밥",
+                "클레",
+                "❓ 질문형키워드"
+              ],
+              "tip": "이미지 2~3장 + 요약 박스를 넣어 가독성을 올리세요.",
+              "hookPoint": "첫 화면에 요약(결론)을 배치해 이탈률을 낮추기"
+            }
+          },
+          "expandedKeywords": {
+            "relatedGolden": [
+              "클레 후기무른밥 추천",
+              "클레 후기무른밥 비교",
+              "클레 후기무른밥 후기",
+              "클레 후기무른밥 가격"
+            ],
+            "longtailGolden": [
+              "클레 후기무른밥 초보",
+              "클레 후기무른밥 쉽게",
+              "클레 후기무른밥 단계별",
+              "클레 후기무른밥 정리"
+            ],
+            "blueOceanGolden": [
+              "클레 후기무른밥 최신",
+              "클레 후기무른밥 2025",
+              "클레 후기무른밥 체크리스트",
+              "클레 후기무른밥 실패하지 않는 법"
+            ]
+          },
+          "type": "❓ 질문형키워드",
+          "category": "review",
+          "safetyLevel": "safe",
+          "safetyReason": "✅ 안전한 키워드. 신생 블로거도 작성 가능",
+          "source": "후기 2025",
+          "timestamp": "2025-12-22T14:45:19.925Z",
+          "isGolden": true,
+          "trendAnalysis": {
+            "trendingReason": "이유식 출시 관련 최근 이슈",
+            "whyNow": "최근 5개 이상의 뉴스에서 다뤄지며 이슈화 진행 중 • \"출시\" 관련 구체적 사건으로 실시간 관심 집중 • 최신 이슈로 실시간 관심 집중 중 • \"푸드케어 클레, 홀리데이 한정 이유식 출시...크리스마스 프로모션 진행\" 관련 최신 뉴스로 조기 진입 효과 기대",
+            "newsSource": "자동 분석"
+          },
+          "keywordGuide": {
+            "summary": "여유 있을 때 공략하면 좋은 키워드입니다. (등급: A, 점수: 74점)",
+            "whyItMovesNow": "이유식 출시 관련 최근 이슈 최근 5개 이상의 뉴스에서 다뤄지며 이슈화 진행 중 • \"출시\" 관련 구체적 사건으로 실시간 관심 집중 • 최신 이슈로 실시간 관심 집중 중 • \"푸드케어 클레, 홀리데이 한정 이유식 출시...크리스마스 프로모션 진행\" 관련 최신 뉴스로 조기 진입 효과 기대",
+            "immediateTrafficPlan": [
+              "제목 앞부분에 \"클레 후기무른밥\"를 배치하고, 2025/최신/정리 같은 보조 키워드를 1개만 추가하세요.",
+              "본문 서두 100자 안에 \"클레 후기무른밥\"를 자연스럽게 2회 노출하세요.",
+              "최소 1개는 비교/체크리스트/요약 섹션을 넣어 체류시간을 늘리세요."
+            ],
+            "naverHomeExposureTips": [
+              "첫 이미지에 키워드가 들어간 문구를 넣고, alt 텍스트도 키워드 포함",
+              "목차를 만들고 H2/H3에 서브 키워드 배치",
+              "태그는 5~10개로 과도한 반복을 피하고, 유사어를 섞기"
+            ]
+          },
+          "ultimateAnalysis": {
+            "timing": {
+              "seasonal": {
+                "peakMonths": [
+                  1,
+                  2,
+                  3,
+                  4,
+                  5,
+                  6,
+                  7,
+                  8,
+                  9,
+                  10,
+                  11,
+                  12
+                ],
+                "peakReason": "연중 꾸준한 검색량",
+                "currentSeasonScore": 70,
+                "nextPeakDate": "항상",
+                "daysUntilPeak": 0,
+                "recommendation": "📝 에버그린 키워드입니다. 언제든 작성해도 좋습니다.",
+                "seasonalPattern": "evergreen"
+              },
+              "trend": {
+                "trendDirection": "falling",
+                "changeRate": 4,
+                "comparedTo": "전월 대비",
+                "explosiveScore": 7,
+                "relatedNews": [],
+                "recommendation": "📊 안정적인 키워드입니다."
+              },
+              "alert": {
+                "optimalPublishDate": "0일 내",
+                "reason": "📝 에버그린 키워드입니다. 언제든 작성해도 좋습니다.",
+                "urgencyLevel": "⚡ 이번 주",
+                "expectedPeakDate": "항상",
+                "competitorActivity": "경쟁자 적음"
+              }
+            },
+            "revenue": {
+              "cpc": {
+                "estimatedCpc": 150,
+                "cpcRange": {
+                  "min": 80,
+                  "max": 300
+                },
+                "cpcTier": "🥈 중수익",
+                "industryAverage": 150,
+                "recommendation": "📝 일반적인 수익 구조입니다. 트래픽 확보에 집중하세요."
+              },
+              "affiliate": {
+                "recommendedPrograms": [
+                  {
+                    "name": "쿠팡파트너스",
+                    "type": "coupang",
+                    "commissionRate": "3~5%",
+                    "estimatedEarningPerClick": 50,
+                    "matchScore": 100
+                  },
+                  {
+                    "name": "네이버 쇼핑",
+                    "type": "naver",
+                    "commissionRate": "1~3%",
+                    "estimatedEarningPerClick": 30,
+                    "matchScore": 85
+                  }
+                ],
+                "bestMatch": "쿠팡파트너스",
+                "potentialProducts": [
+                  "클레 후기무른밥 추천",
+                  "클레 후기무른밥 순위",
+                  "클레 후기무른밥 비교",
+                  "클레 후기무른밥 후기",
+                  "클레 후기무른밥 가격",
+                  "클레 후기무른밥 구매"
+                ]
+              },
+              "projection": {
+                "estimatedDailyVisitors": 0,
+                "estimatedMonthlyVisitors": 0,
+                "adsenseRevenue": {
+                  "daily": 0,
+                  "monthly": 0,
+                  "assumptions": "CPC 150원, CTR 2%, 페이지뷰율 1.5 가정"
+                },
+                "affiliateRevenue": {
+                  "daily": 0,
+                  "monthly": 0,
+                  "conversionRate": 3,
+                  "assumptions": "클릭률 10%, 전환율 3%, 평균 수수료 50원 가정"
+                },
+                "totalMonthlyRevenue": 0,
+                "revenueBreakdown": "애드센스 NaN% + 제휴 NaN%",
+                "revenueTier": "📝 월 1만원+"
+              }
+            },
+            "content": {
+              "titles": {
+                "titles": [
+                  {
+                    "title": "클레 후기무른밥 추천 TOP 10 (2025년 최신)",
+                    "type": "number",
+                    "estimatedCTR": 8.5,
+                    "psychologyUsed": "숫자 + 최신 정보"
+                  },
+                  {
+                    "title": "클레 후기무른밥 하는 법, 초보자도 쉽게 따라하기",
+                    "type": "how-to",
+                    "estimatedCTR": 7.5,
+                    "psychologyUsed": "실용성 + 접근성"
+                  },
+                  {
+                    "title": "클레 후기무른밥, 이것만 알면 끝! 완벽 가이드",
+                    "type": "benefit",
+                    "estimatedCTR": 7.2,
+                    "psychologyUsed": "완결성 + 가치 제안"
+                  },
+                  {
+                    "title": "[2025년] 클레 후기무른밥 총정리 (+ 꿀팁 공개)",
+                    "type": "news",
+                    "estimatedCTR": 7,
+                    "psychologyUsed": "최신성 + 보너스 가치"
+                  },
+                  {
+                    "title": "아직도 클레 후기무른밥 몰라요? 지금 당장 확인하세요",
+                    "type": "curiosity",
+                    "estimatedCTR": 6.8,
+                    "psychologyUsed": "호기심 + 긴급성"
+                  },
+                  {
+                    "title": "클레 후기무른밥 실제 후기 (장단점 솔직 비교)",
+                    "type": "comparison",
+                    "estimatedCTR": 6.5,
+                    "psychologyUsed": "신뢰성 + 비교 심리"
+                  }
+                ],
+                "bestTitle": "클레 후기무른밥 추천 TOP 10 (2025년 최신)",
+                "titleFormula": "숫자 + 키워드 + 최신연도 + 가치제안"
+              },
+              "structure": {
+                "recommendedStructure": {
+                  "intro": {
+                    "purpose": "독자의 관심 끌기 + 키워드 자연스럽게 배치",
+                    "template": "\"클레 후기무른밥\"에 대해 고민하고 계신가요? 이 글에서 핵심 정보를 모두 정리해드립니다.",
+                    "keywordPlacement": "첫 문장에 키워드 포함"
+                  },
+                  "sections": [
+                    {
+                      "heading": "클레 후기무른밥란? (기본 개념)",
+                      "purpose": "기초 정보 제공",
+                      "contentGuide": "핵심 정의, 중요성, 왜 알아야 하는지 설명",
+                      "recommendedLength": 300,
+                      "keywordUsage": "소제목과 본문에 1~2회"
+                    },
+                    {
+                      "heading": "클레 후기무른밥 추천 BEST 5",
+                      "purpose": "실질적인 가치 제공 (핵심 섹션)",
+                      "contentGuide": "순위별 상세 설명, 장단점, 추천 이유",
+                      "recommendedLength": 800,
+                      "keywordUsage": "각 항목 설명에 자연스럽게 포함"
+                    },
+                    {
+                      "heading": "클레 후기무른밥 선택 시 주의사항",
+                      "purpose": "신뢰도 향상",
+                      "contentGuide": "흔한 실수, 피해야 할 것, 체크리스트",
+                      "recommendedLength": 400,
+                      "keywordUsage": "주의사항 설명에 1~2회"
+                    },
+                    {
+                      "heading": "자주 묻는 질문 (FAQ)",
+                      "purpose": "SEO 강화 + 체류시간 증가",
+                      "contentGuide": "실제 검색되는 질문 5개 + 명확한 답변",
+                      "recommendedLength": 500,
+                      "keywordUsage": "질문에 롱테일 키워드 활용"
+                    }
+                  ],
+                  "conclusion": {
+                    "purpose": "요약 + CTA",
+                    "template": "지금까지 클레 후기무른밥에 대해 알아봤습니다. 도움이 되셨다면 공유해주세요!",
+                    "ctaRecommendation": "댓글, 공유, 관련 글 링크 유도"
+                  }
+                },
+                "seoChecklist": [
+                  {
+                    "item": "제목에 키워드 포함",
+                    "importance": "critical",
+                    "howTo": "제목 앞부분에 메인 키워드 배치"
+                  },
+                  {
+                    "item": "첫 문단에 키워드",
+                    "importance": "critical",
+                    "howTo": "첫 100자 내 키워드 자연스럽게 삽입"
+                  },
+                  {
+                    "item": "소제목 H2/H3 활용",
+                    "importance": "high",
+                    "howTo": "3~5개 소제목, 키워드 변형 사용"
+                  },
+                  {
+                    "item": "이미지 ALT 태그",
+                    "importance": "high",
+                    "howTo": "모든 이미지에 키워드 포함 설명"
+                  },
+                  {
+                    "item": "내부링크 2개 이상",
+                    "importance": "medium",
+                    "howTo": "관련 글 자연스럽게 연결"
+                  },
+                  {
+                    "item": "3000자 이상 작성",
+                    "importance": "high",
+                    "howTo": "충분한 깊이의 콘텐츠 제공"
+                  }
+                ],
+                "totalRecommendedLength": 3000,
+                "estimatedWriteTime": 90
+              },
+              "images": {
+                "mainImage": {
+                  "searchKeyword": "클레 후기무른밥 대표이미지",
+                  "style": "깔끔한 인포그래픽 또는 고화질 사진",
+                  "source": [
+                    "Unsplash",
+                    "Pixabay",
+                    "직접 제작"
+                  ],
+                  "altText": "클레 후기무른밥 완벽 가이드 대표 이미지"
+                },
+                "sectionImages": [
+                  {
+                    "section": "기본 개념",
+                    "searchKeyword": "클레 후기무른밥 설명",
+                    "purpose": "이해 돕기",
+                    "style": "다이어그램"
+                  },
+                  {
+                    "section": "TOP 5",
+                    "searchKeyword": "클레 후기무른밥 비교",
+                    "purpose": "시각적 비교",
+                    "style": "비교표"
+                  },
+                  {
+                    "section": "주의사항",
+                    "searchKeyword": "주의 아이콘",
+                    "purpose": "강조",
+                    "style": "아이콘"
+                  }
+                ],
+                "infographicIdeas": [
+                  "클레 후기무른밥 선택 가이드 플로우차트",
+                  "클레 후기무른밥 TOP 5 비교표",
+                  "클레 후기무른밥 체크리스트"
+                ],
+                "totalRecommendedImages": 7,
+                "imageStrategy": "섹션당 1~2개, 총 7~10개 이미지로 가독성과 체류시간 향상"
+              }
+            },
+            "ultimateScore": {
+              "total": 49,
+              "breakdown": {
+                "goldenRatio": 4.4843049327354265,
+                "timing": 70,
+                "revenue": 40,
+                "competition": 100,
+                "potential": 54
+              },
+              "grade": "📝 C",
+              "verdict": "⚠️ 신중히 검토 필요",
+              "topActions": [
+                "0일 내 작성 권장",
+                "클레 후기무른밥 추천 TOP 10 (2025년 최신)",
+                "3000자 이상, 7개 이미지 권장"
+              ]
+            }
+          }
+        }
+      ],
+      "attempts": 1,
+      "durationMs": 55835
+    },
+    {
+      "success": false,
+      "category": "recipe",
+      "mode": "category",
+      "explosionMode": false,
+      "count": 10,
+      "summary": {
+        "totalFound": 0,
+        "sssCount": 0,
+        "ssCount": 0,
+        "sCount": 0,
+        "rookieFriendlyCount": 0,
+        "urgentCount": 0,
+        "blueOceanCount": 0
+      },
+      "keywords": [],
+      "attempts": 1,
+      "durationMs": 12581
+    },
+    {
+      "success": false,
+      "category": "celeb",
+      "mode": "category",
+      "explosionMode": false,
+      "count": 10,
+      "summary": {
+        "totalFound": 0,
+        "sssCount": 0,
+        "ssCount": 0,
+        "sCount": 0,
+        "rookieFriendlyCount": 0,
+        "urgentCount": 0,
+        "blueOceanCount": 0
+      },
+      "keywords": [],
+      "attempts": 1,
+      "durationMs": 48619
+    },
+    {
+      "success": false,
+      "category": "it",
+      "mode": "category",
+      "explosionMode": false,
+      "count": 10,
+      "summary": {
+        "totalFound": 0,
+        "sssCount": 0,
+        "ssCount": 0,
+        "sCount": 0,
+        "rookieFriendlyCount": 0,
+        "urgentCount": 0,
+        "blueOceanCount": 0
+      },
+      "keywords": [],
+      "attempts": 1,
+      "durationMs": 13026
+    },
+    {
+      "success": false,
+      "category": "business",
+      "mode": "category",
+      "explosionMode": false,
+      "count": 10,
+      "summary": {
+        "totalFound": 0,
+        "sssCount": 0,
+        "ssCount": 0,
+        "sCount": 0,
+        "rookieFriendlyCount": 0,
+        "urgentCount": 0,
+        "blueOceanCount": 0
+      },
+      "keywords": [],
+      "attempts": 1,
+      "durationMs": 14580
+    },
+    {
+      "success": false,
+      "category": "sports",
+      "mode": "category",
+      "explosionMode": false,
+      "count": 10,
+      "summary": {
+        "totalFound": 0,
+        "sssCount": 0,
+        "ssCount": 0,
+        "sCount": 0,
+        "rookieFriendlyCount": 0,
+        "urgentCount": 0,
+        "blueOceanCount": 0
+      },
+      "keywords": [],
+      "attempts": 1,
+      "durationMs": 14167
+    }
+  ]
+}

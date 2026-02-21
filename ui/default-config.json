@@ -1,0 +1,20 @@
+{
+  "openaiApiKey": "",
+  "geminiApiKey": "",
+  "pexelsApiKey": "",
+  "dalleApiKey": "",
+  "naverClientId": "",
+  "naverClientSecret": "",
+  "naverSearchAdAccessLicense": "",
+  "naverSearchAdSecretKey": "",
+  "naverSearchAdCustomerId": "",
+  "googleApiKey": "",
+  "googleCseKey": "",
+  "googleCseId": "",
+  "googleCseCx": "",
+  "youtubeApiKey": "",
+  "massCrawlingEnabled": false,
+  "maxConcurrentRequests": 5,
+  "maxResultsPerSource": 100,
+  "enableFullContentCrawling": false
+}

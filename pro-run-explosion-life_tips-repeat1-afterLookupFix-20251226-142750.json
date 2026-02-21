@@ -1,0 +1,52 @@
+{
+  "generatedAt": "2025-12-26T05:30:25.989Z",
+  "mode": "category",
+  "explosionMode": true,
+  "count": 5,
+  "timeoutMs": 240000,
+  "retries": 0,
+  "results": [
+    {
+      "success": false,
+      "category": "life_tips",
+      "runIndex": 1,
+      "mode": "category",
+      "explosionMode": true,
+      "count": 5,
+      "summary": {
+        "totalFound": 0,
+        "sssCount": 0,
+        "ssCount": 0,
+        "sCount": 0,
+        "rookieFriendlyCount": 0,
+        "urgentCount": 0,
+        "blueOceanCount": 0,
+        "explosionFunnel": {
+          "candidates": 0,
+          "verified": 0,
+          "gradeOk": 0,
+          "ratioOk": 0,
+          "docOk": 0,
+          "svOk": 0,
+          "strictOk": 0,
+          "minSv": 30,
+          "internalMetrics": {
+            "seedCount": 108,
+            "allKeywordsCount": 407,
+            "profitableCount": 145,
+            "uniqueKeywordsCount": 130,
+            "sortedResultsCount": 130,
+            "verifiedResultsCount": 0,
+            "searchAdEnabled": true,
+            "searchAdAdded": 241,
+            "autocompleteAdded": 66
+          },
+          "topByExplosion": []
+        }
+      },
+      "keywords": [],
+      "attempts": 1,
+      "durationMs": 149668
+    }
+  ]
+}

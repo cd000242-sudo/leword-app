@@ -1,0 +1,4594 @@
+{
+  "generatedAt": "2025-12-20T06:52:56.719Z",
+  "mode": "realtime",
+  "explosionMode": true,
+  "count": 20,
+  "timeoutMs": 90000,
+  "retries": 0,
+  "results": [
+    {
+      "success": false,
+      "category": "celeb",
+      "mode": "realtime",
+      "explosionMode": true,
+      "count": 20,
+      "summary": {
+        "totalFound": 0,
+        "sssCount": 0,
+        "ssCount": 0,
+        "sCount": 0,
+        "rookieFriendlyCount": 0,
+        "urgentCount": 0,
+        "blueOceanCount": 0
+      },
+      "keywords": [],
+      "attempts": 1,
+      "durationMs": 57800
+    },
+    {
+      "success": true,
+      "category": "life_tips",
+      "mode": "realtime",
+      "explosionMode": true,
+      "count": 20,
+      "summary": {
+        "totalFound": 3,
+        "sssCount": 0,
+        "ssCount": 0,
+        "sCount": 0,
+        "rookieFriendlyCount": 0,
+        "urgentCount": 0,
+        "blueOceanCount": 0
+      },
+      "keywords": [
+        {
+          "keyword": "노하우드",
+          "searchVolume": 25,
+          "documentCount": 221,
+          "goldenRatio": 0.11312217194570136,
+          "rookieFriendly": {
+            "score": 55,
+            "grade": "B",
+            "reason": "문서수 1,000개 미만 → 경쟁 매우 낮음 | 황금비율 1 미만 → 공급 과잉 | 숏테일 키워드 → 대형 블로그와 경쟁",
+            "canRankWithin": "1~2주 내 가능",
+            "requiredBlogIndex": "준최 5 이상 권장"
+          },
+          "timing": {
+            "score": 50,
+            "urgency": "ANYTIME",
+            "bestPublishTime": "오전 6~8시 또는 저녁 8~10시",
+            "trendDirection": "stable",
+            "peakPrediction": "꾸준한 검색량 유지"
+          },
+          "blueOcean": {
+            "score": 65,
+            "competitorStrength": "weak",
+            "avgCompetitorBlogAge": "1~2년 (약한 경쟁)",
+            "oldPostRatio": 70,
+            "opportunity": "✅ 좋은 기회입니다. 품질 콘텐츠로 승부"
+          },
+          "trafficEstimate": {
+            "daily": "측정 불가",
+            "weekly": "측정 불가",
+            "monthly": "측정 불가",
+            "confidence": 67,
+            "disclaimer": "⚠️ 실제 API 데이터 기반 계산. 트래픽은 콘텐츠 품질, 순위, 시즌에 따라 달라집니다."
+          },
+          "revenueEstimate": {
+            "dailyRevenue": "측정 불가",
+            "monthlyRevenue": "측정 불가",
+            "estimatedCPC": 250,
+            "estimatedRPM": 5000,
+            "adType": "애드센스",
+            "revenueGrade": "C",
+            "revenueReason": "📊 트래픽 확보 후 수익 기대. 블로그 성장용"
+          },
+          "entryAnalysis": {
+            "canEntry": true,
+            "difficulty": "possible",
+            "difficultyScore": 35,
+            "message": "🟡 진입 가능 - 품질 콘텐츠로 충분히 경쟁 가능",
+            "topCompetitorStrength": "약함 (저품질 블로그 다수)",
+            "recommendedBlogIndex": "상위 25% 이상 권장",
+            "estimatedRankingTime": "1~2주 내 상위노출 예상"
+          },
+          "totalScore": 51,
+          "grade": "B",
+          "proStrategy": {
+            "title": "2025 노하우드 완벽 정리 | 초보자도 쉽게 이해하는 가이드",
+            "outline": [
+              "1. 노하우드란? (기본 개념)",
+              "2. 노하우드 핵심 포인트 3가지",
+              "3. 노하우드 장단점 비교",
+              "4. 노하우드 실제 후기/경험담",
+              "5. 노하우드 Q&A (자주 묻는 질문)",
+              "6. 결론 및 추천"
+            ],
+            "wordCount": 2500,
+            "mustInclude": [
+              "핵심 키워드 2~3회 자연스럽게 삽입",
+              "실제 이미지/사진 3장 이상",
+              "표 또는 비교 차트 1개 이상",
+              "자주 묻는 질문(FAQ) 섹션",
+              "결론 및 추천 섹션"
+            ],
+            "avoidTopics": [
+              "과장된 표현 (100%, 무조건, 반드시)",
+              "허위 정보나 검증되지 않은 내용",
+              "다른 블로그 복사/붙여넣기",
+              "광고성 링크 과다 삽입"
+            ],
+            "monetization": "애드센스 + 쿠팡파트너스 조합 추천"
+          },
+          "platformTitles": {
+            "naver": {
+              "title": "노하우드 총정리 | 핵심 정리 (12월 최신)",
+              "alternatives": [
+                "노하우드 | 네이버에서 바로 찾는 방법 (+체크리스트)",
+                "노하우드 상위노출 포인트 5개 | 제목/소제목 이렇게",
+                "노하우드 핵심 정리 | 핵심 정리",
+                "노하우드 5분 총정리 (12월 최신)",
+                "노하우드 이것만 알면 끝! | 지금 안 보면 손해"
+              ],
+              "subKeywords": [
+                "노하우드 핵심",
+                "노하우드 쉽게",
+                "노하우드 총정리"
+              ],
+              "tags": [
+                "노하우드",
+                "노하우드 핵심",
+                "노하우드 쉽게",
+                "노하우드 총정리",
+                "노하우드 꿀팁",
+                "노하우드 후기"
+              ],
+              "tip": "📌 이미지 5장+ 본문 2,000자+ 소제목 5개+ 작성",
+              "hookPoint": "💡 복잡한 내용 쉽게 정리"
+            },
+            "tistory": {
+              "title": "[2025] 노하우드 완벽 정리 - 정보가 필요할 때 핵심 정리",
+              "alternatives": [
+                "[2025] 노하우드 정리 - 검색 유입 늘리는 구조",
+                "노하우드 SEO 글쓰기 템플릿 (H2/H3 포함)",
+                "노하우드 핵심 정리 | 핵심 정리",
+                "노하우드 5분 총정리 (12월 최신)",
+                "노하우드 이것만 알면 끝! | 지금 안 보면 손해"
+              ],
+              "subKeywords": [
+                "노하우드 기초",
+                "노하우드 개념",
+                "노하우드 예시"
+              ],
+              "tags": [
+                "노하우드",
+                "노하우드 기초",
+                "노하우드 개념",
+                "노하우드 예시",
+                "노하우드방법",
+                "노하우드정리"
+              ],
+              "tip": "📌 H2 3개+ H3 5개+ 목차 삽입 + 3,000자 이상",
+              "hookPoint": "🔍 핵심만 콕 집어서 설명"
+            },
+            "wordpress": {
+              "title": "노하우드: Complete Guide for 2025",
+              "alternatives": [
+                "노하우드 Guide (2025): Tips, Checklist & FAQ",
+                "노하우드: What to Know Before You Start",
+                "노하우드 핵심 정리 | 핵심 정리",
+                "노하우드 5분 총정리 (12월 최신)",
+                "노하우드 이것만 알면 끝! | 지금 안 보면 손해"
+              ],
+              "subKeywords": [
+                "complete guide",
+                "explained",
+                "basics"
+              ],
+              "tags": [
+                "노하우드",
+                "노하우드-tips",
+                "노하우드-guide",
+                "노하우드-2025"
+              ],
+              "tip": "📌 Featured Image + Yoast SEO 녹색 + 2,500+ words",
+              "hookPoint": "🌍 Everything you need to know"
+            },
+            "blogspot": {
+              "title": "노하우드 Explained Simply (2025)",
+              "alternatives": [
+                "노하우드 Explained (2025) - Quick Guide",
+                "노하우드: Key Facts & Tips",
+                "노하우드 핵심 정리 | 핵심 정리",
+                "노하우드 5분 총정리 (12월 최신)",
+                "노하우드 이것만 알면 끝! | 지금 안 보면 손해"
+              ],
+              "subKeywords": [
+                "simple guide",
+                "beginner",
+                "overview"
+              ],
+              "tags": [
+                "노하우드",
+                "노하우드-how-to",
+                "노하우드-best",
+                "노하우드-review"
+              ],
+              "tip": "📌 Simple layout + Image alt tags + 2,000+ words",
+              "hookPoint": "📈 Quick and easy guide"
+            }
+          },
+          "expandedKeywords": {
+            "relatedGolden": [
+              "노하우드 뜻",
+              "노하우드 정리",
+              "노하우드 총정리"
+            ],
+            "longtailGolden": [
+              "노하우드 총정리",
+              "노하우드 핵심",
+              "노하우드 요약"
+            ],
+            "blueOceanGolden": [
+              "노하우드 꿀팁",
+              "노하우드 주의사항",
+              "노하우드 FAQ"
+            ]
+          },
+          "type": "📰 이슈키워드",
+          "category": "life_tips",
+          "safetyLevel": "safe",
+          "safetyReason": "✅ 안전한 키워드. 신생 블로거도 작성 가능",
+          "source": "노하우",
+          "timestamp": "2025-12-20T06:49:06.135Z",
+          "trendAnalysis": {
+            "trendingReason": "FIBA WC 베이루트 관련 최근 이슈",
+            "whyNow": "최근 5개 이상의 뉴스에서 다뤄지며 이슈화 진행 중",
+            "newsSource": "자동 분석"
+          },
+          "keywordGuide": {
+            "summary": "검색량 25, 문서수 221, 황금비율 0.11 | 🟡 진입 가능 - 품질 콘텐츠로 충분히 경쟁 가능 | 문서수 1,000개 미만 → 경쟁 매우 낮음 | 황금비율 1 미만 → 공급 과잉 | 숏테일 키워드 → 대형 블로그와 경쟁",
+            "whyItMovesNow": "FIBA WC 베이루트 관련 최근 이슈 / 최근 5개 이상의 뉴스에서 다뤄지며 이슈화 진행 중",
+            "immediateTrafficPlan": [
+              "중장기 유입도 같이 노리는 글 구조로 작성하세요 (첫 3문단에 핵심 답 + 결론 요약).",
+              "제목/소제목에 \"노하우드\"를 자연스럽게 반복하고, 서브키워드 2~3개를 소제목으로 배치하세요.",
+              "발행 직후 30분 내 수정 1회(오탈자/이미지 추가)로 체류시간을 늘리세요.",
+              "이미지 5장 이상 + 표/체크리스트 1개를 넣어서 저장/스크랩을 유도하세요."
+            ],
+            "naverHomeExposureTips": [
+              "첫 이미지(썸네일)는 텍스트 5~8자 + 대비 강하게(홈피드 CTR 상승).",
+              "상단 200자에 \"한 줄 요약\" + \"체크리스트\"를 넣어 저장/공유 시그널을 유도.",
+              "뉴스/이슈 키워드는 근거(출처 1~2개) + 내 경험/정리 50%로 구성(복붙 느낌 금지).",
+              "발행 후 1시간 내 댓글 유도 문장 1개 추가(반응 시그널)."
+            ]
+          },
+          "ultimateAnalysis": {
+            "timing": {
+              "seasonal": {
+                "peakMonths": [
+                  1,
+                  2,
+                  3,
+                  4,
+                  5,
+                  6,
+                  7,
+                  8,
+                  9,
+                  10,
+                  11,
+                  12
+                ],
+                "peakReason": "연중 꾸준한 검색량",
+                "currentSeasonScore": 70,
+                "nextPeakDate": "항상",
+                "daysUntilPeak": 0,
+                "recommendation": "📝 에버그린 키워드입니다. 언제든 작성해도 좋습니다.",
+                "seasonalPattern": "evergreen"
+              },
+              "trend": {
+                "trendDirection": "falling",
+                "changeRate": 1,
+                "comparedTo": "전월 대비",
+                "explosiveScore": 2,
+                "relatedNews": [],
+                "recommendation": "📊 안정적인 키워드입니다."
+              },
+              "alert": {
+                "optimalPublishDate": "0일 내",
+                "reason": "📝 에버그린 키워드입니다. 언제든 작성해도 좋습니다.",
+                "urgencyLevel": "⚡ 이번 주",
+                "expectedPeakDate": "항상",
+                "competitorActivity": "경쟁자 적음"
+              }
+            },
+            "revenue": {
+              "cpc": {
+                "estimatedCpc": 100,
+                "cpcRange": {
+                  "min": 50,
+                  "max": 200
+                },
+                "cpcTier": "🥉 저수익",
+                "industryAverage": 100,
+                "recommendation": "📝 일반적인 수익 구조입니다. 트래픽 확보에 집중하세요."
+              },
+              "affiliate": {
+                "recommendedPrograms": [
+                  {
+                    "name": "쿠팡파트너스",
+                    "type": "coupang",
+                    "commissionRate": "3~5%",
+                    "estimatedEarningPerClick": 50,
+                    "matchScore": 100
+                  },
+                  {
+                    "name": "네이버 쇼핑",
+                    "type": "naver",
+                    "commissionRate": "1~3%",
+                    "estimatedEarningPerClick": 30,
+                    "matchScore": 85
+                  }
+                ],
+                "bestMatch": "쿠팡파트너스",
+                "potentialProducts": [
+                  "노하우드 추천",
+                  "노하우드 순위",
+                  "노하우드 비교",
+                  "노하우드 후기",
+                  "노하우드 가격",
+                  "노하우드 구매"
+                ]
+              },
+              "projection": {
+                "estimatedDailyVisitors": 0,
+                "estimatedMonthlyVisitors": 0,
+                "adsenseRevenue": {
+                  "daily": 0,
+                  "monthly": 0,
+                  "assumptions": "CPC 100원, CTR 2%, 페이지뷰율 1.5 가정"
+                },
+                "affiliateRevenue": {
+                  "daily": 0,
+                  "monthly": 0,
+                  "conversionRate": 3,
+                  "assumptions": "클릭률 10%, 전환율 3%, 평균 수수료 50원 가정"
+                },
+                "totalMonthlyRevenue": 0,
+                "revenueBreakdown": "애드센스 NaN% + 제휴 NaN%",
+                "revenueTier": "📝 월 1만원+"
+              }
+            },
+            "content": {
+              "titles": {
+                "titles": [
+                  {
+                    "title": "노하우드 추천 TOP 10 (2025년 최신)",
+                    "type": "number",
+                    "estimatedCTR": 8.5,
+                    "psychologyUsed": "숫자 + 최신 정보"
+                  },
+                  {
+                    "title": "노하우드 하는 법, 초보자도 쉽게 따라하기",
+                    "type": "how-to",
+                    "estimatedCTR": 7.5,
+                    "psychologyUsed": "실용성 + 접근성"
+                  },
+                  {
+                    "title": "노하우드, 이것만 알면 끝! 완벽 가이드",
+                    "type": "benefit",
+                    "estimatedCTR": 7.2,
+                    "psychologyUsed": "완결성 + 가치 제안"
+                  },
+                  {
+                    "title": "[2025년] 노하우드 총정리 (+ 꿀팁 공개)",
+                    "type": "news",
+                    "estimatedCTR": 7,
+                    "psychologyUsed": "최신성 + 보너스 가치"
+                  },
+                  {
+                    "title": "아직도 노하우드 몰라요? 지금 당장 확인하세요",
+                    "type": "curiosity",
+                    "estimatedCTR": 6.8,
+                    "psychologyUsed": "호기심 + 긴급성"
+                  },
+                  {
+                    "title": "노하우드 실제 후기 (장단점 솔직 비교)",
+                    "type": "comparison",
+                    "estimatedCTR": 6.5,
+                    "psychologyUsed": "신뢰성 + 비교 심리"
+                  }
+                ],
+                "bestTitle": "노하우드 추천 TOP 10 (2025년 최신)",
+                "titleFormula": "숫자 + 키워드 + 최신연도 + 가치제안"
+              },
+              "structure": {
+                "recommendedStructure": {
+                  "intro": {
+                    "purpose": "독자의 관심 끌기 + 키워드 자연스럽게 배치",
+                    "template": "\"노하우드\"에 대해 고민하고 계신가요? 이 글에서 핵심 정보를 모두 정리해드립니다.",
+                    "keywordPlacement": "첫 문장에 키워드 포함"
+                  },
+                  "sections": [
+                    {
+                      "heading": "노하우드란? (기본 개념)",
+                      "purpose": "기초 정보 제공",
+                      "contentGuide": "핵심 정의, 중요성, 왜 알아야 하는지 설명",
+                      "recommendedLength": 300,
+                      "keywordUsage": "소제목과 본문에 1~2회"
+                    },
+                    {
+                      "heading": "노하우드 추천 BEST 5",
+                      "purpose": "실질적인 가치 제공 (핵심 섹션)",
+                      "contentGuide": "순위별 상세 설명, 장단점, 추천 이유",
+                      "recommendedLength": 800,
+                      "keywordUsage": "각 항목 설명에 자연스럽게 포함"
+                    },
+                    {
+                      "heading": "노하우드 선택 시 주의사항",
+                      "purpose": "신뢰도 향상",
+                      "contentGuide": "흔한 실수, 피해야 할 것, 체크리스트",
+                      "recommendedLength": 400,
+                      "keywordUsage": "주의사항 설명에 1~2회"
+                    },
+                    {
+                      "heading": "자주 묻는 질문 (FAQ)",
+                      "purpose": "SEO 강화 + 체류시간 증가",
+                      "contentGuide": "실제 검색되는 질문 5개 + 명확한 답변",
+                      "recommendedLength": 500,
+                      "keywordUsage": "질문에 롱테일 키워드 활용"
+                    }
+                  ],
+                  "conclusion": {
+                    "purpose": "요약 + CTA",
+                    "template": "지금까지 노하우드에 대해 알아봤습니다. 도움이 되셨다면 공유해주세요!",
+                    "ctaRecommendation": "댓글, 공유, 관련 글 링크 유도"
+                  }
+                },
+                "seoChecklist": [
+                  {
+                    "item": "제목에 키워드 포함",
+                    "importance": "critical",
+                    "howTo": "제목 앞부분에 메인 키워드 배치"
+                  },
+                  {
+                    "item": "첫 문단에 키워드",
+                    "importance": "critical",
+                    "howTo": "첫 100자 내 키워드 자연스럽게 삽입"
+                  },
+                  {
+                    "item": "소제목 H2/H3 활용",
+                    "importance": "high",
+                    "howTo": "3~5개 소제목, 키워드 변형 사용"
+                  },
+                  {
+                    "item": "이미지 ALT 태그",
+                    "importance": "high",
+                    "howTo": "모든 이미지에 키워드 포함 설명"
+                  },
+                  {
+                    "item": "내부링크 2개 이상",
+                    "importance": "medium",
+                    "howTo": "관련 글 자연스럽게 연결"
+                  },
+                  {
+                    "item": "3000자 이상 작성",
+                    "importance": "high",
+                    "howTo": "충분한 깊이의 콘텐츠 제공"
+                  }
+                ],
+                "totalRecommendedLength": 3000,
+                "estimatedWriteTime": 90
+              },
+              "images": {
+                "mainImage": {
+                  "searchKeyword": "노하우드 대표이미지",
+                  "style": "깔끔한 인포그래픽 또는 고화질 사진",
+                  "source": [
+                    "Unsplash",
+                    "Pixabay",
+                    "직접 제작"
+                  ],
+                  "altText": "노하우드 완벽 가이드 대표 이미지"
+                },
+                "sectionImages": [
+                  {
+                    "section": "기본 개념",
+                    "searchKeyword": "노하우드 설명",
+                    "purpose": "이해 돕기",
+                    "style": "다이어그램"
+                  },
+                  {
+                    "section": "TOP 5",
+                    "searchKeyword": "노하우드 비교",
+                    "purpose": "시각적 비교",
+                    "style": "비교표"
+                  },
+                  {
+                    "section": "주의사항",
+                    "searchKeyword": "주의 아이콘",
+                    "purpose": "강조",
+                    "style": "아이콘"
+                  }
+                ],
+                "infographicIdeas": [
+                  "노하우드 선택 가이드 플로우차트",
+                  "노하우드 TOP 5 비교표",
+                  "노하우드 체크리스트"
+                ],
+                "totalRecommendedImages": 7,
+                "imageStrategy": "섹션당 1~2개, 총 7~10개 이미지로 가독성과 체류시간 향상"
+              }
+            },
+            "ultimateScore": {
+              "total": 48,
+              "breakdown": {
+                "goldenRatio": 1.1312217194570136,
+                "timing": 70,
+                "revenue": 40,
+                "competition": 100,
+                "potential": 53
+              },
+              "grade": "📝 C",
+              "verdict": "⚠️ 신중히 검토 필요",
+              "topActions": [
+                "0일 내 작성 권장",
+                "노하우드 추천 TOP 10 (2025년 최신)",
+                "3000자 이상, 7개 이미지 권장"
+              ]
+            }
+          }
+        },
+        {
+          "keyword": "화장실청소 방법",
+          "searchVolume": 1380,
+          "documentCount": 109485,
+          "goldenRatio": 0.012604466365255515,
+          "rookieFriendly": {
+            "score": 30,
+            "grade": "D",
+            "reason": "문서수 50,000개 이상 → 경쟁 치열 | 황금비율 1 미만 → 공급 과잉 | 중길이 키워드 | 질문형 키워드 → 경쟁 낮음",
+            "canRankWithin": "1개월 이상 소요 예상",
+            "requiredBlogIndex": "최적 1 이상 권장"
+          },
+          "timing": {
+            "score": 50,
+            "urgency": "ANYTIME",
+            "bestPublishTime": "오전 6~8시 또는 저녁 8~10시",
+            "trendDirection": "stable",
+            "peakPrediction": "꾸준한 검색량 유지"
+          },
+          "blueOcean": {
+            "score": 15,
+            "competitorStrength": "strong",
+            "avgCompetitorBlogAge": "5년 이상 (강한 경쟁)",
+            "oldPostRatio": 30,
+            "opportunity": "❌ 레드오션. 다른 키워드 추천"
+          },
+          "trafficEstimate": {
+            "daily": "측정 불가",
+            "weekly": "측정 불가",
+            "monthly": "측정 불가",
+            "confidence": 59,
+            "disclaimer": "⚠️ 실제 API 데이터 기반 계산. 트래픽은 콘텐츠 품질, 순위, 시즌에 따라 달라집니다."
+          },
+          "revenueEstimate": {
+            "dailyRevenue": "3~8원",
+            "monthlyRevenue": "90~240원",
+            "estimatedCPC": 250,
+            "estimatedRPM": 5000,
+            "adType": "애드센스",
+            "revenueGrade": "C",
+            "revenueReason": "📊 트래픽 확보 후 수익 기대. 블로그 성장용"
+          },
+          "entryAnalysis": {
+            "canEntry": false,
+            "difficulty": "very_hard",
+            "difficultyScore": 100,
+            "message": "🔴 진입 어려움 - 상위 블로거 독점 키워드",
+            "topCompetitorStrength": "매우 강함 (최적 블로거 독점)",
+            "recommendedBlogIndex": "상위 5% (최적 블로그) 필요",
+            "estimatedRankingTime": "3개월 이상 또는 어려움"
+          },
+          "totalScore": 36,
+          "grade": "C",
+          "proStrategy": {
+            "title": "2025 화장실청소 방법 완벽 정리 | 초보자도 쉽게 이해하는 가이드",
+            "outline": [
+              "1. 화장실청소 방법란? (기본 개념)",
+              "2. 화장실청소 방법 핵심 포인트 3가지",
+              "3. 화장실청소 방법 장단점 비교",
+              "4. 화장실청소 방법 실제 후기/경험담",
+              "5. 화장실청소 방법 Q&A (자주 묻는 질문)",
+              "6. 결론 및 추천"
+            ],
+            "wordCount": 2500,
+            "mustInclude": [
+              "핵심 키워드 2~3회 자연스럽게 삽입",
+              "실제 이미지/사진 3장 이상",
+              "표 또는 비교 차트 1개 이상",
+              "자주 묻는 질문(FAQ) 섹션",
+              "결론 및 추천 섹션"
+            ],
+            "avoidTopics": [
+              "과장된 표현 (100%, 무조건, 반드시)",
+              "허위 정보나 검증되지 않은 내용",
+              "다른 블로그 복사/붙여넣기",
+              "광고성 링크 과다 삽입"
+            ],
+            "monetization": "애드센스 + 쿠팡파트너스 조합 추천"
+          },
+          "platformTitles": {
+            "naver": {
+              "title": "화장실청소 방법 3단계 꿀팁 (생각보다 간단!) | 쉽게 따라하기 가능",
+              "alternatives": [
+                "화장실청소 방법 | 네이버에서 바로 찾는 방법 (+체크리스트)",
+                "화장실청소 방법 상위노출 포인트 5개 | 제목/소제목 이렇게",
+                "화장실청소 방법 핵심 정리 | 쉽게 따라하기",
+                "화장실청소 방법 3단계 총정리 (12월 최신)",
+                "화장실청소 방법 생각보다 간단! | 지금 안 보면 손해"
+              ],
+              "subKeywords": [
+                "화장실청소 방법 쉽게",
+                "화장실청소 방법 빠르게",
+                "화장실청소 방법 집에서"
+              ],
+              "tags": [
+                "화장실청소 방법",
+                "화장실청소 방법 쉽게",
+                "화장실청소 방법 빠르게",
+                "화장실청소 방법 집에서",
+                "화장실청소 방법 꿀팁",
+                "화장실청소 방법 후기"
+              ],
+              "tip": "📌 이미지 5장+ 본문 2,000자+ 소제목 5개+ 작성",
+              "hookPoint": "💡 이대로만 따라하면 바로 성공"
+            },
+            "tistory": {
+              "title": "[2025] 화장실청소 방법 완벽 정리 - 방법이 궁금할 때 쉽게 따라하기하는 3단계 방법",
+              "alternatives": [
+                "[2025] 화장실청소 방법 정리 - 검색 유입 늘리는 구조",
+                "화장실청소 방법 SEO 글쓰기 템플릿 (H2/H3 포함)",
+                "화장실청소 방법 핵심 정리 | 쉽게 따라하기",
+                "화장실청소 방법 3단계 총정리 (12월 최신)",
+                "화장실청소 방법 생각보다 간단! | 지금 안 보면 손해"
+              ],
+              "subKeywords": [
+                "화장실청소 방법 초보",
+                "화장실청소 방법 꿀팁",
+                "화장실청소 방법 주의사항"
+              ],
+              "tags": [
+                "화장실청소 방법",
+                "화장실청소 방법 초보",
+                "화장실청소 방법 꿀팁",
+                "화장실청소 방법 주의사항",
+                "화장실청소 방법방법",
+                "화장실청소 방법정리"
+              ],
+              "tip": "📌 H2 3개+ H3 5개+ 목차 삽입 + 3,000자 이상",
+              "hookPoint": "🔍 초보도 5분만에 완료하는 방법"
+            },
+            "wordpress": {
+              "title": "How to 화장실청소 방법: 3단계 Proven Methods That Work (2025)",
+              "alternatives": [
+                "화장실청소 방법 Guide (2025): Tips, Checklist & FAQ",
+                "화장실청소 방법: What to Know Before You Start",
+                "화장실청소 방법 핵심 정리 | 쉽게 따라하기",
+                "화장실청소 방법 3단계 총정리 (12월 최신)",
+                "화장실청소 방법 생각보다 간단! | 지금 안 보면 손해"
+              ],
+              "subKeywords": [
+                "quick method",
+                "easy way",
+                "at home"
+              ],
+              "tags": [
+                "화장실청소-방법",
+                "화장실청소-방법-tips",
+                "화장실청소-방법-guide",
+                "화장실청소-방법-2025"
+              ],
+              "tip": "📌 Featured Image + Yoast SEO 녹색 + 2,500+ words",
+              "hookPoint": "🌍 Step-by-step guide anyone can follow"
+            },
+            "blogspot": {
+              "title": "화장실청소 방법 Made Easy: 3단계 Quick Tips for 2025",
+              "alternatives": [
+                "화장실청소 방법 Explained (2025) - Quick Guide",
+                "화장실청소 방법: Key Facts & Tips",
+                "화장실청소 방법 핵심 정리 | 쉽게 따라하기",
+                "화장실청소 방법 3단계 총정리 (12월 최신)",
+                "화장실청소 방법 생각보다 간단! | 지금 안 보면 손해"
+              ],
+              "subKeywords": [
+                "simple tips",
+                "DIY method",
+                "step by step"
+              ],
+              "tags": [
+                "화장실청소-방법",
+                "화장실청소-방법-how-to",
+                "화장실청소-방법-best",
+                "화장실청소-방법-review"
+              ],
+              "tip": "📌 Simple layout + Image alt tags + 2,000+ words",
+              "hookPoint": "📈 Easy tutorial with screenshots"
+            }
+          },
+          "expandedKeywords": {
+            "relatedGolden": [
+              "화장실청소 방법 쉽게",
+              "화장실청소 방법 빠르게",
+              "화장실청소 방법 무료로"
+            ],
+            "longtailGolden": [
+              "화장실청소 방법 초보자",
+              "화장실청소 방법 집에서",
+              "화장실청소 방법 핸드폰으로"
+            ],
+            "blueOceanGolden": [
+              "화장실청소 방법 꿀팁",
+              "화장실청소 방법 주의사항",
+              "화장실청소 방법 실수 방지"
+            ]
+          },
+          "type": "❓ 질문형키워드",
+          "category": "life_tips",
+          "safetyLevel": "safe",
+          "safetyReason": "✅ 안전한 키워드. 신생 블로거도 작성 가능",
+          "source": "category_fallback",
+          "timestamp": "2025-12-20T06:49:20.741Z",
+          "trendAnalysis": {
+            "trendingReason": "락스보다 효과 좋다…보기 관련 최근 이슈",
+            "whyNow": "최근 5개 이상의 뉴스에서 다뤄지며 이슈화 진행 중 • \"락스보다 효과 좋다…보기 싫은 화장실 줄눈 깨끗하게 만드는 방법\" 관련 최신 뉴스로 조기 진입 효과 기대",
+            "newsSource": "자동 분석"
+          },
+          "keywordGuide": {
+            "summary": "검색량 1,380, 문서수 109,485, 황금비율 0.01 | 🔴 진입 어려움 - 상위 블로거 독점 키워드 | 문서수 50,000개 이상 → 경쟁 치열 | 황금비율 1 미만 → 공급 과잉 | 중길이 키워드 | 질문형 키워드 → 경쟁 낮음",
+            "whyItMovesNow": "락스보다 효과 좋다…보기 관련 최근 이슈 / 최근 5개 이상의 뉴스에서 다뤄지며 이슈화 진행 중 • \"락스보다 효과 좋다…보기 싫은 화장실 줄눈 깨끗하게 만드는 방법\" 관련 최신 뉴스로 조기 진입 효과 기대",
+            "immediateTrafficPlan": [
+              "중장기 유입도 같이 노리는 글 구조로 작성하세요 (첫 3문단에 핵심 답 + 결론 요약).",
+              "제목/소제목에 \"화장실청소 방법\"를 자연스럽게 반복하고, 서브키워드 2~3개를 소제목으로 배치하세요.",
+              "발행 직후 30분 내 수정 1회(오탈자/이미지 추가)로 체류시간을 늘리세요.",
+              "이미지 5장 이상 + 표/체크리스트 1개를 넣어서 저장/스크랩을 유도하세요."
+            ],
+            "naverHomeExposureTips": [
+              "첫 이미지(썸네일)는 텍스트 5~8자 + 대비 강하게(홈피드 CTR 상승).",
+              "상단 200자에 \"한 줄 요약\" + \"체크리스트\"를 넣어 저장/공유 시그널을 유도.",
+              "뉴스/이슈 키워드는 근거(출처 1~2개) + 내 경험/정리 50%로 구성(복붙 느낌 금지).",
+              "발행 후 1시간 내 댓글 유도 문장 1개 추가(반응 시그널)."
+            ]
+          },
+          "ultimateAnalysis": {
+            "timing": {
+              "seasonal": {
+                "peakMonths": [
+                  1,
+                  2,
+                  3,
+                  4,
+                  5,
+                  6,
+                  7,
+                  8,
+                  9,
+                  10,
+                  11,
+                  12
+                ],
+                "peakReason": "연중 꾸준한 검색량",
+                "currentSeasonScore": 70,
+                "nextPeakDate": "항상",
+                "daysUntilPeak": 0,
+                "recommendation": "📝 에버그린 키워드입니다. 언제든 작성해도 좋습니다.",
+                "seasonalPattern": "evergreen"
+              },
+              "trend": {
+                "trendDirection": "falling",
+                "changeRate": 0,
+                "comparedTo": "전월 대비",
+                "explosiveScore": 0,
+                "relatedNews": [],
+                "recommendation": "📊 안정적인 키워드입니다."
+              },
+              "alert": {
+                "optimalPublishDate": "0일 내",
+                "reason": "📝 에버그린 키워드입니다. 언제든 작성해도 좋습니다.",
+                "urgencyLevel": "⚡ 이번 주",
+                "expectedPeakDate": "항상",
+                "competitorActivity": "경쟁자 많음"
+              }
+            },
+            "revenue": {
+              "cpc": {
+                "estimatedCpc": 100,
+                "cpcRange": {
+                  "min": 50,
+                  "max": 200
+                },
+                "cpcTier": "🥉 저수익",
+                "industryAverage": 100,
+                "recommendation": "📝 일반적인 수익 구조입니다. 트래픽 확보에 집중하세요."
+              },
+              "affiliate": {
+                "recommendedPrograms": [
+                  {
+                    "name": "쿠팡파트너스",
+                    "type": "coupang",
+                    "commissionRate": "3~5%",
+                    "estimatedEarningPerClick": 50,
+                    "matchScore": 100
+                  },
+                  {
+                    "name": "네이버 쇼핑",
+                    "type": "naver",
+                    "commissionRate": "1~3%",
+                    "estimatedEarningPerClick": 30,
+                    "matchScore": 85
+                  }
+                ],
+                "bestMatch": "쿠팡파트너스",
+                "potentialProducts": [
+                  "화장실청소 방법 추천",
+                  "화장실청소 방법 순위",
+                  "화장실청소 방법 비교",
+                  "화장실청소 방법 후기",
+                  "화장실청소 방법 가격",
+                  "화장실청소 방법 구매"
+                ]
+              },
+              "projection": {
+                "estimatedDailyVisitors": 1,
+                "estimatedMonthlyVisitors": 30,
+                "adsenseRevenue": {
+                  "daily": 3,
+                  "monthly": 90,
+                  "assumptions": "CPC 100원, CTR 2%, 페이지뷰율 1.5 가정"
+                },
+                "affiliateRevenue": {
+                  "daily": 0,
+                  "monthly": 0,
+                  "conversionRate": 3,
+                  "assumptions": "클릭률 10%, 전환율 3%, 평균 수수료 50원 가정"
+                },
+                "totalMonthlyRevenue": 90,
+                "revenueBreakdown": "애드센스 100% + 제휴 0%",
+                "revenueTier": "📝 월 1만원+"
+              }
+            },
+            "content": {
+              "titles": {
+                "titles": [
+                  {
+                    "title": "화장실청소 방법 추천 TOP 10 (2025년 최신)",
+                    "type": "number",
+                    "estimatedCTR": 8.5,
+                    "psychologyUsed": "숫자 + 최신 정보"
+                  },
+                  {
+                    "title": "화장실청소 방법 하는 법, 초보자도 쉽게 따라하기",
+                    "type": "how-to",
+                    "estimatedCTR": 7.5,
+                    "psychologyUsed": "실용성 + 접근성"
+                  },
+                  {
+                    "title": "화장실청소 방법, 이것만 알면 끝! 완벽 가이드",
+                    "type": "benefit",
+                    "estimatedCTR": 7.2,
+                    "psychologyUsed": "완결성 + 가치 제안"
+                  },
+                  {
+                    "title": "[2025년] 화장실청소 방법 총정리 (+ 꿀팁 공개)",
+                    "type": "news",
+                    "estimatedCTR": 7,
+                    "psychologyUsed": "최신성 + 보너스 가치"
+                  },
+                  {
+                    "title": "아직도 화장실청소 방법 몰라요? 지금 당장 확인하세요",
+                    "type": "curiosity",
+                    "estimatedCTR": 6.8,
+                    "psychologyUsed": "호기심 + 긴급성"
+                  },
+                  {
+                    "title": "화장실청소 방법 실제 후기 (장단점 솔직 비교)",
+                    "type": "comparison",
+                    "estimatedCTR": 6.5,
+                    "psychologyUsed": "신뢰성 + 비교 심리"
+                  }
+                ],
+                "bestTitle": "화장실청소 방법 추천 TOP 10 (2025년 최신)",
+                "titleFormula": "숫자 + 키워드 + 최신연도 + 가치제안"
+              },
+              "structure": {
+                "recommendedStructure": {
+                  "intro": {
+                    "purpose": "독자의 관심 끌기 + 키워드 자연스럽게 배치",
+                    "template": "\"화장실청소 방법\"에 대해 고민하고 계신가요? 이 글에서 핵심 정보를 모두 정리해드립니다.",
+                    "keywordPlacement": "첫 문장에 키워드 포함"
+                  },
+                  "sections": [
+                    {
+                      "heading": "화장실청소 방법란? (기본 개념)",
+                      "purpose": "기초 정보 제공",
+                      "contentGuide": "핵심 정의, 중요성, 왜 알아야 하는지 설명",
+                      "recommendedLength": 300,
+                      "keywordUsage": "소제목과 본문에 1~2회"
+                    },
+                    {
+                      "heading": "화장실청소 방법 추천 BEST 5",
+                      "purpose": "실질적인 가치 제공 (핵심 섹션)",
+                      "contentGuide": "순위별 상세 설명, 장단점, 추천 이유",
+                      "recommendedLength": 800,
+                      "keywordUsage": "각 항목 설명에 자연스럽게 포함"
+                    },
+                    {
+                      "heading": "화장실청소 방법 선택 시 주의사항",
+                      "purpose": "신뢰도 향상",
+                      "contentGuide": "흔한 실수, 피해야 할 것, 체크리스트",
+                      "recommendedLength": 400,
+                      "keywordUsage": "주의사항 설명에 1~2회"
+                    },
+                    {
+                      "heading": "자주 묻는 질문 (FAQ)",
+                      "purpose": "SEO 강화 + 체류시간 증가",
+                      "contentGuide": "실제 검색되는 질문 5개 + 명확한 답변",
+                      "recommendedLength": 500,
+                      "keywordUsage": "질문에 롱테일 키워드 활용"
+                    }
+                  ],
+                  "conclusion": {
+                    "purpose": "요약 + CTA",
+                    "template": "지금까지 화장실청소 방법에 대해 알아봤습니다. 도움이 되셨다면 공유해주세요!",
+                    "ctaRecommendation": "댓글, 공유, 관련 글 링크 유도"
+                  }
+                },
+                "seoChecklist": [
+                  {
+                    "item": "제목에 키워드 포함",
+                    "importance": "critical",
+                    "howTo": "제목 앞부분에 메인 키워드 배치"
+                  },
+                  {
+                    "item": "첫 문단에 키워드",
+                    "importance": "critical",
+                    "howTo": "첫 100자 내 키워드 자연스럽게 삽입"
+                  },
+                  {
+                    "item": "소제목 H2/H3 활용",
+                    "importance": "high",
+                    "howTo": "3~5개 소제목, 키워드 변형 사용"
+                  },
+                  {
+                    "item": "이미지 ALT 태그",
+                    "importance": "high",
+                    "howTo": "모든 이미지에 키워드 포함 설명"
+                  },
+                  {
+                    "item": "내부링크 2개 이상",
+                    "importance": "medium",
+                    "howTo": "관련 글 자연스럽게 연결"
+                  },
+                  {
+                    "item": "3000자 이상 작성",
+                    "importance": "high",
+                    "howTo": "충분한 깊이의 콘텐츠 제공"
+                  }
+                ],
+                "totalRecommendedLength": 3000,
+                "estimatedWriteTime": 90
+              },
+              "images": {
+                "mainImage": {
+                  "searchKeyword": "화장실청소 방법 대표이미지",
+                  "style": "깔끔한 인포그래픽 또는 고화질 사진",
+                  "source": [
+                    "Unsplash",
+                    "Pixabay",
+                    "직접 제작"
+                  ],
+                  "altText": "화장실청소 방법 완벽 가이드 대표 이미지"
+                },
+                "sectionImages": [
+                  {
+                    "section": "기본 개념",
+                    "searchKeyword": "화장실청소 방법 설명",
+                    "purpose": "이해 돕기",
+                    "style": "다이어그램"
+                  },
+                  {
+                    "section": "TOP 5",
+                    "searchKeyword": "화장실청소 방법 비교",
+                    "purpose": "시각적 비교",
+                    "style": "비교표"
+                  },
+                  {
+                    "section": "주의사항",
+                    "searchKeyword": "주의 아이콘",
+                    "purpose": "강조",
+                    "style": "아이콘"
+                  }
+                ],
+                "infographicIdeas": [
+                  "화장실청소 방법 선택 가이드 플로우차트",
+                  "화장실청소 방법 TOP 5 비교표",
+                  "화장실청소 방법 체크리스트"
+                ],
+                "totalRecommendedImages": 7,
+                "imageStrategy": "섹션당 1~2개, 총 7~10개 이미지로 가독성과 체류시간 향상"
+              }
+            },
+            "ultimateScore": {
+              "total": 34,
+              "breakdown": {
+                "goldenRatio": 0.12604466365255515,
+                "timing": 70,
+                "revenue": 40,
+                "competition": 40,
+                "potential": 38
+              },
+              "grade": "📝 C",
+              "verdict": "⚠️ 신중히 검토 필요",
+              "topActions": [
+                "0일 내 작성 권장",
+                "화장실청소 방법 추천 TOP 10 (2025년 최신)",
+                "3000자 이상, 7개 이미지 권장"
+              ]
+            }
+          }
+        },
+        {
+          "keyword": "전자레인지청소 방법",
+          "searchVolume": 250,
+          "documentCount": 97801,
+          "goldenRatio": 0.0025562110816862815,
+          "rookieFriendly": {
+            "score": 30,
+            "grade": "D",
+            "reason": "문서수 50,000개 이상 → 경쟁 치열 | 황금비율 1 미만 → 공급 과잉 | 중길이 키워드 | 질문형 키워드 → 경쟁 낮음",
+            "canRankWithin": "1개월 이상 소요 예상",
+            "requiredBlogIndex": "최적 1 이상 권장"
+          },
+          "timing": {
+            "score": 50,
+            "urgency": "ANYTIME",
+            "bestPublishTime": "오전 6~8시 또는 저녁 8~10시",
+            "trendDirection": "stable",
+            "peakPrediction": "꾸준한 검색량 유지"
+          },
+          "blueOcean": {
+            "score": 15,
+            "competitorStrength": "strong",
+            "avgCompetitorBlogAge": "5년 이상 (강한 경쟁)",
+            "oldPostRatio": 30,
+            "opportunity": "❌ 레드오션. 다른 키워드 추천"
+          },
+          "trafficEstimate": {
+            "daily": "측정 불가",
+            "weekly": "측정 불가",
+            "monthly": "측정 불가",
+            "confidence": 59,
+            "disclaimer": "⚠️ 실제 API 데이터 기반 계산. 트래픽은 콘텐츠 품질, 순위, 시즌에 따라 달라집니다."
+          },
+          "revenueEstimate": {
+            "dailyRevenue": "측정 불가",
+            "monthlyRevenue": "측정 불가",
+            "estimatedCPC": 250,
+            "estimatedRPM": 5000,
+            "adType": "애드센스",
+            "revenueGrade": "C",
+            "revenueReason": "📊 트래픽 확보 후 수익 기대. 블로그 성장용"
+          },
+          "entryAnalysis": {
+            "canEntry": false,
+            "difficulty": "very_hard",
+            "difficultyScore": 100,
+            "message": "🔴 진입 어려움 - 상위 블로거 독점 키워드",
+            "topCompetitorStrength": "매우 강함 (최적 블로거 독점)",
+            "recommendedBlogIndex": "상위 5% (최적 블로그) 필요",
+            "estimatedRankingTime": "3개월 이상 또는 어려움"
+          },
+          "totalScore": 36,
+          "grade": "C",
+          "proStrategy": {
+            "title": "2025 전자레인지청소 방법 완벽 정리 | 초보자도 쉽게 이해하는 가이드",
+            "outline": [
+              "1. 전자레인지청소 방법란? (기본 개념)",
+              "2. 전자레인지청소 방법 핵심 포인트 3가지",
+              "3. 전자레인지청소 방법 장단점 비교",
+              "4. 전자레인지청소 방법 실제 후기/경험담",
+              "5. 전자레인지청소 방법 Q&A (자주 묻는 질문)",
+              "6. 결론 및 추천"
+            ],
+            "wordCount": 2500,
+            "mustInclude": [
+              "핵심 키워드 2~3회 자연스럽게 삽입",
+              "실제 이미지/사진 3장 이상",
+              "표 또는 비교 차트 1개 이상",
+              "자주 묻는 질문(FAQ) 섹션",
+              "결론 및 추천 섹션"
+            ],
+            "avoidTopics": [
+              "과장된 표현 (100%, 무조건, 반드시)",
+              "허위 정보나 검증되지 않은 내용",
+              "다른 블로그 복사/붙여넣기",
+              "광고성 링크 과다 삽입"
+            ],
+            "monetization": "애드센스 + 쿠팡파트너스 조합 추천"
+          },
+          "platformTitles": {
+            "naver": {
+              "title": "전자레인지청소 방법 3단계 꿀팁 (생각보다 간단!) | 쉽게 따라하기 가능",
+              "alternatives": [
+                "전자레인지청소 방법 | 네이버에서 바로 찾는 방법 (+체크리스트)",
+                "전자레인지청소 방법 상위노출 포인트 5개 | 제목/소제목 이렇게",
+                "전자레인지청소 방법 핵심 정리 | 쉽게 따라하기",
+                "전자레인지청소 방법 3단계 총정리 (12월 최신)",
+                "전자레인지청소 방법 생각보다 간단! | 지금 안 보면 손해"
+              ],
+              "subKeywords": [
+                "전자레인지청소 방법 쉽게",
+                "전자레인지청소 방법 빠르게",
+                "전자레인지청소 방법 집에서"
+              ],
+              "tags": [
+                "전자레인지청소 방법",
+                "전자레인지청소 방법 쉽게",
+                "전자레인지청소 방법 빠르게",
+                "전자레인지청소 방법 집에서",
+                "전자레인지청소 방법 꿀팁",
+                "전자레인지청소 방법 후기"
+              ],
+              "tip": "📌 이미지 5장+ 본문 2,000자+ 소제목 5개+ 작성",
+              "hookPoint": "💡 이대로만 따라하면 바로 성공"
+            },
+            "tistory": {
+              "title": "[2025] 전자레인지청소 방법 완벽 정리 - 방법이 궁금할 때 쉽게 따라하기하는 3단계 방법",
+              "alternatives": [
+                "[2025] 전자레인지청소 방법 정리 - 검색 유입 늘리는 구조",
+                "전자레인지청소 방법 SEO 글쓰기 템플릿 (H2/H3 포함)",
+                "전자레인지청소 방법 핵심 정리 | 쉽게 따라하기",
+                "전자레인지청소 방법 3단계 총정리 (12월 최신)",
+                "전자레인지청소 방법 생각보다 간단! | 지금 안 보면 손해"
+              ],
+              "subKeywords": [
+                "전자레인지청소 방법 초보",
+                "전자레인지청소 방법 꿀팁",
+                "전자레인지청소 방법 주의사항"
+              ],
+              "tags": [
+                "전자레인지청소 방법",
+                "전자레인지청소 방법 초보",
+                "전자레인지청소 방법 꿀팁",
+                "전자레인지청소 방법 주의사항",
+                "전자레인지청소 방법방법",
+                "전자레인지청소 방법정리"
+              ],
+              "tip": "📌 H2 3개+ H3 5개+ 목차 삽입 + 3,000자 이상",
+              "hookPoint": "🔍 초보도 5분만에 완료하는 방법"
+            },
+            "wordpress": {
+              "title": "How to 전자레인지청소 방법: 3단계 Proven Methods That Work (2025)",
+              "alternatives": [
+                "전자레인지청소 방법 Guide (2025): Tips, Checklist & FAQ",
+                "전자레인지청소 방법: What to Know Before You Start",
+                "전자레인지청소 방법 핵심 정리 | 쉽게 따라하기",
+                "전자레인지청소 방법 3단계 총정리 (12월 최신)",
+                "전자레인지청소 방법 생각보다 간단! | 지금 안 보면 손해"
+              ],
+              "subKeywords": [
+                "quick method",
+                "easy way",
+                "at home"
+              ],
+              "tags": [
+                "전자레인지청소-방법",
+                "전자레인지청소-방법-tips",
+                "전자레인지청소-방법-guide",
+                "전자레인지청소-방법-2025"
+              ],
+              "tip": "📌 Featured Image + Yoast SEO 녹색 + 2,500+ words",
+              "hookPoint": "🌍 Step-by-step guide anyone can follow"
+            },
+            "blogspot": {
+              "title": "전자레인지청소 방법 Made Easy: 3단계 Quick Tips for 2025",
+              "alternatives": [
+                "전자레인지청소 방법 Explained (2025) - Quick Guide",
+                "전자레인지청소 방법: Key Facts & Tips",
+                "전자레인지청소 방법 핵심 정리 | 쉽게 따라하기",
+                "전자레인지청소 방법 3단계 총정리 (12월 최신)",
+                "전자레인지청소 방법 생각보다 간단! | 지금 안 보면 손해"
+              ],
+              "subKeywords": [
+                "simple tips",
+                "DIY method",
+                "step by step"
+              ],
+              "tags": [
+                "전자레인지청소-방법",
+                "전자레인지청소-방법-how-to",
+                "전자레인지청소-방법-best",
+                "전자레인지청소-방법-review"
+              ],
+              "tip": "📌 Simple layout + Image alt tags + 2,000+ words",
+              "hookPoint": "📈 Easy tutorial with screenshots"
+            }
+          },
+          "expandedKeywords": {
+            "relatedGolden": [
+              "전자레인지청소 방법 쉽게",
+              "전자레인지청소 방법 빠르게",
+              "전자레인지청소 방법 무료로"
+            ],
+            "longtailGolden": [
+              "전자레인지청소 방법 초보자",
+              "전자레인지청소 방법 집에서",
+              "전자레인지청소 방법 핸드폰으로"
+            ],
+            "blueOceanGolden": [
+              "전자레인지청소 방법 꿀팁",
+              "전자레인지청소 방법 주의사항",
+              "전자레인지청소 방법 실수 방지"
+            ]
+          },
+          "type": "❓ 질문형키워드",
+          "category": "life_tips",
+          "safetyLevel": "safe",
+          "safetyReason": "✅ 안전한 키워드. 신생 블로거도 작성 가능",
+          "source": "category_fallback",
+          "timestamp": "2025-12-20T06:49:20.690Z",
+          "trendAnalysis": {
+            "trendingReason": "보쌈 전자레인지에 데우다 관련 최근 이슈",
+            "whyNow": "최근 5개 이상의 뉴스에서 다뤄지며 이슈화 진행 중 • \"확인\" 관련 구체적 사건으로 실시간 관심 집중 • 뉴스에서 \"폭발\" 키워드로 언급되며 화제성 확보 • \"보쌈 전자레인지에 데우다 1분만에 ‘펑’…안전한 방법은? [알쓸톡]\" 관련 최신 뉴스로 조기 진입 효과 기대",
+            "newsSource": "자동 분석"
+          },
+          "keywordGuide": {
+            "summary": "검색량 250, 문서수 97,801, 황금비율 0.00 | 🔴 진입 어려움 - 상위 블로거 독점 키워드 | 문서수 50,000개 이상 → 경쟁 치열 | 황금비율 1 미만 → 공급 과잉 | 중길이 키워드 | 질문형 키워드 → 경쟁 낮음",
+            "whyItMovesNow": "보쌈 전자레인지에 데우다 관련 최근 이슈 / 최근 5개 이상의 뉴스에서 다뤄지며 이슈화 진행 중 • \"확인\" 관련 구체적 사건으로 실시간 관심 집중 • 뉴스에서 \"폭발\" 키워드로 언급되며 화제성 확보 • \"보쌈 전자레인지에 데우다 1분만에 ‘펑’…안전한 방법은? [알쓸톡]\" 관련 최신 뉴스로 조기 진입 효과 기대",
+            "immediateTrafficPlan": [
+              "중장기 유입도 같이 노리는 글 구조로 작성하세요 (첫 3문단에 핵심 답 + 결론 요약).",
+              "제목/소제목에 \"전자레인지청소 방법\"를 자연스럽게 반복하고, 서브키워드 2~3개를 소제목으로 배치하세요.",
+              "발행 직후 30분 내 수정 1회(오탈자/이미지 추가)로 체류시간을 늘리세요.",
+              "이미지 5장 이상 + 표/체크리스트 1개를 넣어서 저장/스크랩을 유도하세요."
+            ],
+            "naverHomeExposureTips": [
+              "첫 이미지(썸네일)는 텍스트 5~8자 + 대비 강하게(홈피드 CTR 상승).",
+              "상단 200자에 \"한 줄 요약\" + \"체크리스트\"를 넣어 저장/공유 시그널을 유도.",
+              "뉴스/이슈 키워드는 근거(출처 1~2개) + 내 경험/정리 50%로 구성(복붙 느낌 금지).",
+              "발행 후 1시간 내 댓글 유도 문장 1개 추가(반응 시그널)."
+            ]
+          },
+          "ultimateAnalysis": {
+            "timing": {
+              "seasonal": {
+                "peakMonths": [
+                  1,
+                  2,
+                  3,
+                  4,
+                  5,
+                  6,
+                  7,
+                  8,
+                  9,
+                  10,
+                  11,
+                  12
+                ],
+                "peakReason": "연중 꾸준한 검색량",
+                "currentSeasonScore": 70,
+                "nextPeakDate": "항상",
+                "daysUntilPeak": 0,
+                "recommendation": "📝 에버그린 키워드입니다. 언제든 작성해도 좋습니다.",
+                "seasonalPattern": "evergreen"
+              },
+              "trend": {
+                "trendDirection": "falling",
+                "changeRate": 0,
+                "comparedTo": "전월 대비",
+                "explosiveScore": 0,
+                "relatedNews": [],
+                "recommendation": "📊 안정적인 키워드입니다."
+              },
+              "alert": {
+                "optimalPublishDate": "0일 내",
+                "reason": "📝 에버그린 키워드입니다. 언제든 작성해도 좋습니다.",
+                "urgencyLevel": "⚡ 이번 주",
+                "expectedPeakDate": "항상",
+                "competitorActivity": "경쟁자 많음"
+              }
+            },
+            "revenue": {
+              "cpc": {
+                "estimatedCpc": 100,
+                "cpcRange": {
+                  "min": 50,
+                  "max": 200
+                },
+                "cpcTier": "🥉 저수익",
+                "industryAverage": 100,
+                "recommendation": "📝 일반적인 수익 구조입니다. 트래픽 확보에 집중하세요."
+              },
+              "affiliate": {
+                "recommendedPrograms": [
+                  {
+                    "name": "쿠팡파트너스",
+                    "type": "coupang",
+                    "commissionRate": "3~5%",
+                    "estimatedEarningPerClick": 50,
+                    "matchScore": 100
+                  },
+                  {
+                    "name": "네이버 쇼핑",
+                    "type": "naver",
+                    "commissionRate": "1~3%",
+                    "estimatedEarningPerClick": 30,
+                    "matchScore": 85
+                  }
+                ],
+                "bestMatch": "쿠팡파트너스",
+                "potentialProducts": [
+                  "전자레인지청소 방법 추천",
+                  "전자레인지청소 방법 순위",
+                  "전자레인지청소 방법 비교",
+                  "전자레인지청소 방법 후기",
+                  "전자레인지청소 방법 가격",
+                  "전자레인지청소 방법 구매"
+                ]
+              },
+              "projection": {
+                "estimatedDailyVisitors": 0,
+                "estimatedMonthlyVisitors": 0,
+                "adsenseRevenue": {
+                  "daily": 0,
+                  "monthly": 0,
+                  "assumptions": "CPC 100원, CTR 2%, 페이지뷰율 1.5 가정"
+                },
+                "affiliateRevenue": {
+                  "daily": 0,
+                  "monthly": 0,
+                  "conversionRate": 3,
+                  "assumptions": "클릭률 10%, 전환율 3%, 평균 수수료 50원 가정"
+                },
+                "totalMonthlyRevenue": 0,
+                "revenueBreakdown": "애드센스 NaN% + 제휴 NaN%",
+                "revenueTier": "📝 월 1만원+"
+              }
+            },
+            "content": {
+              "titles": {
+                "titles": [
+                  {
+                    "title": "전자레인지청소 방법 추천 TOP 10 (2025년 최신)",
+                    "type": "number",
+                    "estimatedCTR": 8.5,
+                    "psychologyUsed": "숫자 + 최신 정보"
+                  },
+                  {
+                    "title": "전자레인지청소 방법 하는 법, 초보자도 쉽게 따라하기",
+                    "type": "how-to",
+                    "estimatedCTR": 7.5,
+                    "psychologyUsed": "실용성 + 접근성"
+                  },
+                  {
+                    "title": "전자레인지청소 방법, 이것만 알면 끝! 완벽 가이드",
+                    "type": "benefit",
+                    "estimatedCTR": 7.2,
+                    "psychologyUsed": "완결성 + 가치 제안"
+                  },
+                  {
+                    "title": "[2025년] 전자레인지청소 방법 총정리 (+ 꿀팁 공개)",
+                    "type": "news",
+                    "estimatedCTR": 7,
+                    "psychologyUsed": "최신성 + 보너스 가치"
+                  },
+                  {
+                    "title": "아직도 전자레인지청소 방법 몰라요? 지금 당장 확인하세요",
+                    "type": "curiosity",
+                    "estimatedCTR": 6.8,
+                    "psychologyUsed": "호기심 + 긴급성"
+                  },
+                  {
+                    "title": "전자레인지청소 방법 실제 후기 (장단점 솔직 비교)",
+                    "type": "comparison",
+                    "estimatedCTR": 6.5,
+                    "psychologyUsed": "신뢰성 + 비교 심리"
+                  }
+                ],
+                "bestTitle": "전자레인지청소 방법 추천 TOP 10 (2025년 최신)",
+                "titleFormula": "숫자 + 키워드 + 최신연도 + 가치제안"
+              },
+              "structure": {
+                "recommendedStructure": {
+                  "intro": {
+                    "purpose": "독자의 관심 끌기 + 키워드 자연스럽게 배치",
+                    "template": "\"전자레인지청소 방법\"에 대해 고민하고 계신가요? 이 글에서 핵심 정보를 모두 정리해드립니다.",
+                    "keywordPlacement": "첫 문장에 키워드 포함"
+                  },
+                  "sections": [
+                    {
+                      "heading": "전자레인지청소 방법란? (기본 개념)",
+                      "purpose": "기초 정보 제공",
+                      "contentGuide": "핵심 정의, 중요성, 왜 알아야 하는지 설명",
+                      "recommendedLength": 300,
+                      "keywordUsage": "소제목과 본문에 1~2회"
+                    },
+                    {
+                      "heading": "전자레인지청소 방법 추천 BEST 5",
+                      "purpose": "실질적인 가치 제공 (핵심 섹션)",
+                      "contentGuide": "순위별 상세 설명, 장단점, 추천 이유",
+                      "recommendedLength": 800,
+                      "keywordUsage": "각 항목 설명에 자연스럽게 포함"
+                    },
+                    {
+                      "heading": "전자레인지청소 방법 선택 시 주의사항",
+                      "purpose": "신뢰도 향상",
+                      "contentGuide": "흔한 실수, 피해야 할 것, 체크리스트",
+                      "recommendedLength": 400,
+                      "keywordUsage": "주의사항 설명에 1~2회"
+                    },
+                    {
+                      "heading": "자주 묻는 질문 (FAQ)",
+                      "purpose": "SEO 강화 + 체류시간 증가",
+                      "contentGuide": "실제 검색되는 질문 5개 + 명확한 답변",
+                      "recommendedLength": 500,
+                      "keywordUsage": "질문에 롱테일 키워드 활용"
+                    }
+                  ],
+                  "conclusion": {
+                    "purpose": "요약 + CTA",
+                    "template": "지금까지 전자레인지청소 방법에 대해 알아봤습니다. 도움이 되셨다면 공유해주세요!",
+                    "ctaRecommendation": "댓글, 공유, 관련 글 링크 유도"
+                  }
+                },
+                "seoChecklist": [
+                  {
+                    "item": "제목에 키워드 포함",
+                    "importance": "critical",
+                    "howTo": "제목 앞부분에 메인 키워드 배치"
+                  },
+                  {
+                    "item": "첫 문단에 키워드",
+                    "importance": "critical",
+                    "howTo": "첫 100자 내 키워드 자연스럽게 삽입"
+                  },
+                  {
+                    "item": "소제목 H2/H3 활용",
+                    "importance": "high",
+                    "howTo": "3~5개 소제목, 키워드 변형 사용"
+                  },
+                  {
+                    "item": "이미지 ALT 태그",
+                    "importance": "high",
+                    "howTo": "모든 이미지에 키워드 포함 설명"
+                  },
+                  {
+                    "item": "내부링크 2개 이상",
+                    "importance": "medium",
+                    "howTo": "관련 글 자연스럽게 연결"
+                  },
+                  {
+                    "item": "3000자 이상 작성",
+                    "importance": "high",
+                    "howTo": "충분한 깊이의 콘텐츠 제공"
+                  }
+                ],
+                "totalRecommendedLength": 3000,
+                "estimatedWriteTime": 90
+              },
+              "images": {
+                "mainImage": {
+                  "searchKeyword": "전자레인지청소 방법 대표이미지",
+                  "style": "깔끔한 인포그래픽 또는 고화질 사진",
+                  "source": [
+                    "Unsplash",
+                    "Pixabay",
+                    "직접 제작"
+                  ],
+                  "altText": "전자레인지청소 방법 완벽 가이드 대표 이미지"
+                },
+                "sectionImages": [
+                  {
+                    "section": "기본 개념",
+                    "searchKeyword": "전자레인지청소 방법 설명",
+                    "purpose": "이해 돕기",
+                    "style": "다이어그램"
+                  },
+                  {
+                    "section": "TOP 5",
+                    "searchKeyword": "전자레인지청소 방법 비교",
+                    "purpose": "시각적 비교",
+                    "style": "비교표"
+                  },
+                  {
+                    "section": "주의사항",
+                    "searchKeyword": "주의 아이콘",
+                    "purpose": "강조",
+                    "style": "아이콘"
+                  }
+                ],
+                "infographicIdeas": [
+                  "전자레인지청소 방법 선택 가이드 플로우차트",
+                  "전자레인지청소 방법 TOP 5 비교표",
+                  "전자레인지청소 방법 체크리스트"
+                ],
+                "totalRecommendedImages": 7,
+                "imageStrategy": "섹션당 1~2개, 총 7~10개 이미지로 가독성과 체류시간 향상"
+              }
+            },
+            "ultimateScore": {
+              "total": 34,
+              "breakdown": {
+                "goldenRatio": 0.025562110816862816,
+                "timing": 70,
+                "revenue": 40,
+                "competition": 40,
+                "potential": 38
+              },
+              "grade": "📝 C",
+              "verdict": "⚠️ 신중히 검토 필요",
+              "topActions": [
+                "0일 내 작성 권장",
+                "전자레인지청소 방법 추천 TOP 10 (2025년 최신)",
+                "3000자 이상, 7개 이미지 권장"
+              ]
+            }
+          }
+        }
+      ],
+      "attempts": 1,
+      "durationMs": 59614
+    },
+    {
+      "success": true,
+      "category": "interior",
+      "mode": "realtime",
+      "explosionMode": true,
+      "count": 20,
+      "summary": {
+        "totalFound": 1,
+        "sssCount": 0,
+        "ssCount": 0,
+        "sCount": 0,
+        "rookieFriendlyCount": 0,
+        "urgentCount": 0,
+        "blueOceanCount": 0
+      },
+      "keywords": [
+        {
+          "keyword": "철재수납장",
+          "searchVolume": 2470,
+          "documentCount": 21239,
+          "goldenRatio": 0.1162954941381421,
+          "rookieFriendly": {
+            "score": 25,
+            "grade": "D",
+            "reason": "황금비율 1 미만 → 공급 과잉 | 숏테일 키워드 → 대형 블로그와 경쟁",
+            "canRankWithin": "1개월 이상 소요 예상",
+            "requiredBlogIndex": "최적 1 이상 권장"
+          },
+          "timing": {
+            "score": 50,
+            "urgency": "ANYTIME",
+            "bestPublishTime": "오전 6~8시 또는 저녁 8~10시",
+            "trendDirection": "stable",
+            "peakPrediction": "꾸준한 검색량 유지"
+          },
+          "blueOcean": {
+            "score": 35,
+            "competitorStrength": "medium",
+            "avgCompetitorBlogAge": "2~5년 (보통 경쟁)",
+            "oldPostRatio": 30,
+            "opportunity": "❌ 레드오션. 다른 키워드 추천"
+          },
+          "trafficEstimate": {
+            "daily": "1~2명",
+            "weekly": "7~14명",
+            "monthly": "30~60명",
+            "confidence": 58,
+            "disclaimer": "⚠️ 실제 API 데이터 기반 계산. 트래픽은 콘텐츠 품질, 순위, 시즌에 따라 달라집니다."
+          },
+          "revenueEstimate": {
+            "dailyRevenue": "5~15원",
+            "monthlyRevenue": "150~450원",
+            "estimatedCPC": 250,
+            "estimatedRPM": 5000,
+            "adType": "애드센스",
+            "revenueGrade": "C",
+            "revenueReason": "📊 트래픽 확보 후 수익 기대. 블로그 성장용"
+          },
+          "entryAnalysis": {
+            "canEntry": false,
+            "difficulty": "very_hard",
+            "difficultyScore": 89,
+            "message": "🔴 진입 어려움 - 상위 블로거 독점 키워드",
+            "topCompetitorStrength": "강함 (전문 블로거 다수)",
+            "recommendedBlogIndex": "상위 5% (최적 블로그) 필요",
+            "estimatedRankingTime": "3개월 이상 또는 어려움"
+          },
+          "totalScore": 36,
+          "grade": "C",
+          "proStrategy": {
+            "title": "2025 철재수납장 완벽 정리 | 초보자도 쉽게 이해하는 가이드",
+            "outline": [
+              "1. 철재수납장란? (기본 개념)",
+              "2. 철재수납장 핵심 포인트 3가지",
+              "3. 철재수납장 장단점 비교",
+              "4. 철재수납장 실제 후기/경험담",
+              "5. 철재수납장 Q&A (자주 묻는 질문)",
+              "6. 결론 및 추천"
+            ],
+            "wordCount": 2500,
+            "mustInclude": [
+              "핵심 키워드 2~3회 자연스럽게 삽입",
+              "실제 이미지/사진 3장 이상",
+              "표 또는 비교 차트 1개 이상",
+              "자주 묻는 질문(FAQ) 섹션",
+              "결론 및 추천 섹션"
+            ],
+            "avoidTopics": [
+              "과장된 표현 (100%, 무조건, 반드시)",
+              "허위 정보나 검증되지 않은 내용",
+              "다른 블로그 복사/붙여넣기",
+              "광고성 링크 과다 삽입"
+            ],
+            "monetization": "애드센스 + 쿠팡파트너스 조합 추천"
+          },
+          "platformTitles": {
+            "naver": {
+              "title": "철재수납장 총정리 | 핵심 정리 (12월 최신)",
+              "alternatives": [
+                "철재수납장 | 네이버에서 바로 찾는 방법 (+체크리스트)",
+                "철재수납장 상위노출 포인트 5개 | 제목/소제목 이렇게",
+                "철재수납장 핵심 정리 | 핵심 정리",
+                "철재수납장 5분 총정리 (12월 최신)",
+                "철재수납장 이것만 알면 끝! | 지금 안 보면 손해"
+              ],
+              "subKeywords": [
+                "철재수납장 핵심",
+                "철재수납장 쉽게",
+                "철재수납장 총정리"
+              ],
+              "tags": [
+                "철재수납장",
+                "철재수납장 핵심",
+                "철재수납장 쉽게",
+                "철재수납장 총정리",
+                "철재수납장 꿀팁",
+                "철재수납장 후기"
+              ],
+              "tip": "📌 이미지 5장+ 본문 2,000자+ 소제목 5개+ 작성",
+              "hookPoint": "💡 복잡한 내용 쉽게 정리"
+            },
+            "tistory": {
+              "title": "[2025] 철재수납장 완벽 정리 - 정보가 필요할 때 핵심 정리",
+              "alternatives": [
+                "[2025] 철재수납장 정리 - 검색 유입 늘리는 구조",
+                "철재수납장 SEO 글쓰기 템플릿 (H2/H3 포함)",
+                "철재수납장 핵심 정리 | 핵심 정리",
+                "철재수납장 5분 총정리 (12월 최신)",
+                "철재수납장 이것만 알면 끝! | 지금 안 보면 손해"
+              ],
+              "subKeywords": [
+                "철재수납장 기초",
+                "철재수납장 개념",
+                "철재수납장 예시"
+              ],
+              "tags": [
+                "철재수납장",
+                "철재수납장 기초",
+                "철재수납장 개념",
+                "철재수납장 예시",
+                "철재수납장방법",
+                "철재수납장정리"
+              ],
+              "tip": "📌 H2 3개+ H3 5개+ 목차 삽입 + 3,000자 이상",
+              "hookPoint": "🔍 핵심만 콕 집어서 설명"
+            },
+            "wordpress": {
+              "title": "철재수납장: Complete Guide for 2025",
+              "alternatives": [
+                "철재수납장 Guide (2025): Tips, Checklist & FAQ",
+                "철재수납장: What to Know Before You Start",
+                "철재수납장 핵심 정리 | 핵심 정리",
+                "철재수납장 5분 총정리 (12월 최신)",
+                "철재수납장 이것만 알면 끝! | 지금 안 보면 손해"
+              ],
+              "subKeywords": [
+                "complete guide",
+                "explained",
+                "basics"
+              ],
+              "tags": [
+                "철재수납장",
+                "철재수납장-tips",
+                "철재수납장-guide",
+                "철재수납장-2025"
+              ],
+              "tip": "📌 Featured Image + Yoast SEO 녹색 + 2,500+ words",
+              "hookPoint": "🌍 Everything you need to know"
+            },
+            "blogspot": {
+              "title": "철재수납장 Explained Simply (2025)",
+              "alternatives": [
+                "철재수납장 Explained (2025) - Quick Guide",
+                "철재수납장: Key Facts & Tips",
+                "철재수납장 핵심 정리 | 핵심 정리",
+                "철재수납장 5분 총정리 (12월 최신)",
+                "철재수납장 이것만 알면 끝! | 지금 안 보면 손해"
+              ],
+              "subKeywords": [
+                "simple guide",
+                "beginner",
+                "overview"
+              ],
+              "tags": [
+                "철재수납장",
+                "철재수납장-how-to",
+                "철재수납장-best",
+                "철재수납장-review"
+              ],
+              "tip": "📌 Simple layout + Image alt tags + 2,000+ words",
+              "hookPoint": "📈 Quick and easy guide"
+            }
+          },
+          "expandedKeywords": {
+            "relatedGolden": [
+              "철재수납장 뜻",
+              "철재수납장 정리",
+              "철재수납장 총정리"
+            ],
+            "longtailGolden": [
+              "철재수납장 총정리",
+              "철재수납장 핵심",
+              "철재수납장 요약"
+            ],
+            "blueOceanGolden": [
+              "철재수납장 꿀팁",
+              "철재수납장 주의사항",
+              "철재수납장 FAQ"
+            ]
+          },
+          "type": "📰 이슈키워드",
+          "category": "interior",
+          "safetyLevel": "safe",
+          "safetyReason": "✅ 안전한 키워드. 신생 블로거도 작성 가능",
+          "source": "옷장추천",
+          "timestamp": "2025-12-20T06:50:09.059Z",
+          "trendAnalysis": {
+            "trendingReason": "수납의 '철재 조립식 수납장' 관련 최근 이슈",
+            "whyNow": "최근 5개 이상의 뉴스에서 다뤄지며 이슈화 진행 중 • \"수납의 계절 가을, 마켓비 '철재 조립식 수납장'으로 가벼워지다\" 관련 최신 뉴스로 조기 진입 효과 기대",
+            "newsSource": "자동 분석"
+          },
+          "keywordGuide": {
+            "summary": "검색량 2,470, 문서수 21,239, 황금비율 0.12 | 🔴 진입 어려움 - 상위 블로거 독점 키워드 | 황금비율 1 미만 → 공급 과잉 | 숏테일 키워드 → 대형 블로그와 경쟁",
+            "whyItMovesNow": "수납의 '철재 조립식 수납장' 관련 최근 이슈 / 최근 5개 이상의 뉴스에서 다뤄지며 이슈화 진행 중 • \"수납의 계절 가을, 마켓비 '철재 조립식 수납장'으로 가벼워지다\" 관련 최신 뉴스로 조기 진입 효과 기대",
+            "immediateTrafficPlan": [
+              "중장기 유입도 같이 노리는 글 구조로 작성하세요 (첫 3문단에 핵심 답 + 결론 요약).",
+              "제목/소제목에 \"철재수납장\"를 자연스럽게 반복하고, 서브키워드 2~3개를 소제목으로 배치하세요.",
+              "발행 직후 30분 내 수정 1회(오탈자/이미지 추가)로 체류시간을 늘리세요.",
+              "이미지 5장 이상 + 표/체크리스트 1개를 넣어서 저장/스크랩을 유도하세요."
+            ],
+            "naverHomeExposureTips": [
+              "첫 이미지(썸네일)는 텍스트 5~8자 + 대비 강하게(홈피드 CTR 상승).",
+              "상단 200자에 \"한 줄 요약\" + \"체크리스트\"를 넣어 저장/공유 시그널을 유도.",
+              "뉴스/이슈 키워드는 근거(출처 1~2개) + 내 경험/정리 50%로 구성(복붙 느낌 금지).",
+              "발행 후 1시간 내 댓글 유도 문장 1개 추가(반응 시그널)."
+            ]
+          },
+          "ultimateAnalysis": {
+            "timing": {
+              "seasonal": {
+                "peakMonths": [
+                  1,
+                  2,
+                  3,
+                  4,
+                  5,
+                  6,
+                  7,
+                  8,
+                  9,
+                  10,
+                  11,
+                  12
+                ],
+                "peakReason": "연중 꾸준한 검색량",
+                "currentSeasonScore": 70,
+                "nextPeakDate": "항상",
+                "daysUntilPeak": 0,
+                "recommendation": "📝 에버그린 키워드입니다. 언제든 작성해도 좋습니다.",
+                "seasonalPattern": "evergreen"
+              },
+              "trend": {
+                "trendDirection": "falling",
+                "changeRate": 1,
+                "comparedTo": "전월 대비",
+                "explosiveScore": 2,
+                "relatedNews": [],
+                "recommendation": "📊 안정적인 키워드입니다."
+              },
+              "alert": {
+                "optimalPublishDate": "0일 내",
+                "reason": "📝 에버그린 키워드입니다. 언제든 작성해도 좋습니다.",
+                "urgencyLevel": "⚡ 이번 주",
+                "expectedPeakDate": "항상",
+                "competitorActivity": "경쟁자 많음"
+              }
+            },
+            "revenue": {
+              "cpc": {
+                "estimatedCpc": 100,
+                "cpcRange": {
+                  "min": 50,
+                  "max": 200
+                },
+                "cpcTier": "🥉 저수익",
+                "industryAverage": 100,
+                "recommendation": "📝 일반적인 수익 구조입니다. 트래픽 확보에 집중하세요."
+              },
+              "affiliate": {
+                "recommendedPrograms": [
+                  {
+                    "name": "쿠팡파트너스",
+                    "type": "coupang",
+                    "commissionRate": "3~5%",
+                    "estimatedEarningPerClick": 50,
+                    "matchScore": 100
+                  },
+                  {
+                    "name": "네이버 쇼핑",
+                    "type": "naver",
+                    "commissionRate": "1~3%",
+                    "estimatedEarningPerClick": 30,
+                    "matchScore": 85
+                  }
+                ],
+                "bestMatch": "쿠팡파트너스",
+                "potentialProducts": [
+                  "철재수납장 추천",
+                  "철재수납장 순위",
+                  "철재수납장 비교",
+                  "철재수납장 후기",
+                  "철재수납장 가격",
+                  "철재수납장 구매"
+                ]
+              },
+              "projection": {
+                "estimatedDailyVisitors": 2,
+                "estimatedMonthlyVisitors": 60,
+                "adsenseRevenue": {
+                  "daily": 6,
+                  "monthly": 180,
+                  "assumptions": "CPC 100원, CTR 2%, 페이지뷰율 1.5 가정"
+                },
+                "affiliateRevenue": {
+                  "daily": 0,
+                  "monthly": 0,
+                  "conversionRate": 3,
+                  "assumptions": "클릭률 10%, 전환율 3%, 평균 수수료 50원 가정"
+                },
+                "totalMonthlyRevenue": 180,
+                "revenueBreakdown": "애드센스 100% + 제휴 0%",
+                "revenueTier": "📝 월 1만원+"
+              }
+            },
+            "content": {
+              "titles": {
+                "titles": [
+                  {
+                    "title": "철재수납장 추천 TOP 10 (2025년 최신)",
+                    "type": "number",
+                    "estimatedCTR": 8.5,
+                    "psychologyUsed": "숫자 + 최신 정보"
+                  },
+                  {
+                    "title": "철재수납장 하는 법, 초보자도 쉽게 따라하기",
+                    "type": "how-to",
+                    "estimatedCTR": 7.5,
+                    "psychologyUsed": "실용성 + 접근성"
+                  },
+                  {
+                    "title": "철재수납장, 이것만 알면 끝! 완벽 가이드",
+                    "type": "benefit",
+                    "estimatedCTR": 7.2,
+                    "psychologyUsed": "완결성 + 가치 제안"
+                  },
+                  {
+                    "title": "[2025년] 철재수납장 총정리 (+ 꿀팁 공개)",
+                    "type": "news",
+                    "estimatedCTR": 7,
+                    "psychologyUsed": "최신성 + 보너스 가치"
+                  },
+                  {
+                    "title": "아직도 철재수납장 몰라요? 지금 당장 확인하세요",
+                    "type": "curiosity",
+                    "estimatedCTR": 6.8,
+                    "psychologyUsed": "호기심 + 긴급성"
+                  },
+                  {
+                    "title": "철재수납장 실제 후기 (장단점 솔직 비교)",
+                    "type": "comparison",
+                    "estimatedCTR": 6.5,
+                    "psychologyUsed": "신뢰성 + 비교 심리"
+                  }
+                ],
+                "bestTitle": "철재수납장 추천 TOP 10 (2025년 최신)",
+                "titleFormula": "숫자 + 키워드 + 최신연도 + 가치제안"
+              },
+              "structure": {
+                "recommendedStructure": {
+                  "intro": {
+                    "purpose": "독자의 관심 끌기 + 키워드 자연스럽게 배치",
+                    "template": "\"철재수납장\"에 대해 고민하고 계신가요? 이 글에서 핵심 정보를 모두 정리해드립니다.",
+                    "keywordPlacement": "첫 문장에 키워드 포함"
+                  },
+                  "sections": [
+                    {
+                      "heading": "철재수납장란? (기본 개념)",
+                      "purpose": "기초 정보 제공",
+                      "contentGuide": "핵심 정의, 중요성, 왜 알아야 하는지 설명",
+                      "recommendedLength": 300,
+                      "keywordUsage": "소제목과 본문에 1~2회"
+                    },
+                    {
+                      "heading": "철재수납장 추천 BEST 5",
+                      "purpose": "실질적인 가치 제공 (핵심 섹션)",
+                      "contentGuide": "순위별 상세 설명, 장단점, 추천 이유",
+                      "recommendedLength": 800,
+                      "keywordUsage": "각 항목 설명에 자연스럽게 포함"
+                    },
+                    {
+                      "heading": "철재수납장 선택 시 주의사항",
+                      "purpose": "신뢰도 향상",
+                      "contentGuide": "흔한 실수, 피해야 할 것, 체크리스트",
+                      "recommendedLength": 400,
+                      "keywordUsage": "주의사항 설명에 1~2회"
+                    },
+                    {
+                      "heading": "자주 묻는 질문 (FAQ)",
+                      "purpose": "SEO 강화 + 체류시간 증가",
+                      "contentGuide": "실제 검색되는 질문 5개 + 명확한 답변",
+                      "recommendedLength": 500,
+                      "keywordUsage": "질문에 롱테일 키워드 활용"
+                    }
+                  ],
+                  "conclusion": {
+                    "purpose": "요약 + CTA",
+                    "template": "지금까지 철재수납장에 대해 알아봤습니다. 도움이 되셨다면 공유해주세요!",
+                    "ctaRecommendation": "댓글, 공유, 관련 글 링크 유도"
+                  }
+                },
+                "seoChecklist": [
+                  {
+                    "item": "제목에 키워드 포함",
+                    "importance": "critical",
+                    "howTo": "제목 앞부분에 메인 키워드 배치"
+                  },
+                  {
+                    "item": "첫 문단에 키워드",
+                    "importance": "critical",
+                    "howTo": "첫 100자 내 키워드 자연스럽게 삽입"
+                  },
+                  {
+                    "item": "소제목 H2/H3 활용",
+                    "importance": "high",
+                    "howTo": "3~5개 소제목, 키워드 변형 사용"
+                  },
+                  {
+                    "item": "이미지 ALT 태그",
+                    "importance": "high",
+                    "howTo": "모든 이미지에 키워드 포함 설명"
+                  },
+                  {
+                    "item": "내부링크 2개 이상",
+                    "importance": "medium",
+                    "howTo": "관련 글 자연스럽게 연결"
+                  },
+                  {
+                    "item": "3000자 이상 작성",
+                    "importance": "high",
+                    "howTo": "충분한 깊이의 콘텐츠 제공"
+                  }
+                ],
+                "totalRecommendedLength": 3000,
+                "estimatedWriteTime": 90
+              },
+              "images": {
+                "mainImage": {
+                  "searchKeyword": "철재수납장 대표이미지",
+                  "style": "깔끔한 인포그래픽 또는 고화질 사진",
+                  "source": [
+                    "Unsplash",
+                    "Pixabay",
+                    "직접 제작"
+                  ],
+                  "altText": "철재수납장 완벽 가이드 대표 이미지"
+                },
+                "sectionImages": [
+                  {
+                    "section": "기본 개념",
+                    "searchKeyword": "철재수납장 설명",
+                    "purpose": "이해 돕기",
+                    "style": "다이어그램"
+                  },
+                  {
+                    "section": "TOP 5",
+                    "searchKeyword": "철재수납장 비교",
+                    "purpose": "시각적 비교",
+                    "style": "비교표"
+                  },
+                  {
+                    "section": "주의사항",
+                    "searchKeyword": "주의 아이콘",
+                    "purpose": "강조",
+                    "style": "아이콘"
+                  }
+                ],
+                "infographicIdeas": [
+                  "철재수납장 선택 가이드 플로우차트",
+                  "철재수납장 TOP 5 비교표",
+                  "철재수납장 체크리스트"
+                ],
+                "totalRecommendedImages": 7,
+                "imageStrategy": "섹션당 1~2개, 총 7~10개 이미지로 가독성과 체류시간 향상"
+              }
+            },
+            "ultimateScore": {
+              "total": 34,
+              "breakdown": {
+                "goldenRatio": 1.1629549413814209,
+                "timing": 70,
+                "revenue": 40,
+                "competition": 40,
+                "potential": 38
+              },
+              "grade": "📝 C",
+              "verdict": "⚠️ 신중히 검토 필요",
+              "topActions": [
+                "0일 내 작성 권장",
+                "철재수납장 추천 TOP 10 (2025년 최신)",
+                "3000자 이상, 7개 이미지 권장"
+              ]
+            }
+          }
+        }
+      ],
+      "attempts": 1,
+      "durationMs": 63145
+    },
+    {
+      "success": true,
+      "category": "it",
+      "mode": "realtime",
+      "explosionMode": true,
+      "count": 20,
+      "summary": {
+        "totalFound": 2,
+        "sssCount": 1,
+        "ssCount": 0,
+        "sCount": 0,
+        "rookieFriendlyCount": 0,
+        "urgentCount": 0,
+        "blueOceanCount": 1
+      },
+      "keywords": [
+        {
+          "keyword": "아이폰SE1",
+          "searchVolume": 12130,
+          "documentCount": 4743,
+          "goldenRatio": 2.5574530887623865,
+          "rookieFriendly": {
+            "score": 60,
+            "grade": "B",
+            "reason": "문서수 5,000개 미만 → 경쟁 낮음 | 숏테일 키워드 → 대형 블로그와 경쟁",
+            "canRankWithin": "1~2주 내 가능",
+            "requiredBlogIndex": "준최 5 이상 권장"
+          },
+          "timing": {
+            "score": 50,
+            "urgency": "ANYTIME",
+            "bestPublishTime": "오전 6~8시 또는 저녁 8~10시",
+            "trendDirection": "stable",
+            "peakPrediction": "꾸준한 검색량 유지"
+          },
+          "blueOcean": {
+            "score": 76,
+            "competitorStrength": "medium",
+            "avgCompetitorBlogAge": "2~5년 (보통 경쟁)",
+            "oldPostRatio": 50,
+            "opportunity": "✅ 좋은 기회입니다. 품질 콘텐츠로 승부"
+          },
+          "trafficEstimate": {
+            "daily": "8~24명",
+            "weekly": "56~168명",
+            "monthly": "240~720명",
+            "confidence": 68,
+            "disclaimer": "⚠️ 실제 API 데이터 기반 계산. 트래픽은 콘텐츠 품질, 순위, 시즌에 따라 달라집니다."
+          },
+          "revenueEstimate": {
+            "dailyRevenue": "60~180원",
+            "monthlyRevenue": "1,800~5,400원",
+            "estimatedCPC": 250,
+            "estimatedRPM": 5000,
+            "adType": "애드센스",
+            "revenueGrade": "B",
+            "revenueReason": "📊 트래픽 확보 후 수익 기대. 블로그 성장용"
+          },
+          "entryAnalysis": {
+            "canEntry": true,
+            "difficulty": "possible",
+            "difficultyScore": 35,
+            "message": "🟡 진입 가능 - 품질 콘텐츠로 충분히 경쟁 가능",
+            "topCompetitorStrength": "보통 (일반 블로그 혼재)",
+            "recommendedBlogIndex": "상위 25% 이상 권장",
+            "estimatedRankingTime": "1~2주 내 상위노출 예상"
+          },
+          "totalScore": 97,
+          "grade": "SSS",
+          "proStrategy": {
+            "title": "2025 아이폰SE1 완벽 정리 | 초보자도 쉽게 이해하는 가이드",
+            "outline": [
+              "1. 아이폰SE1란? (기본 개념)",
+              "2. 아이폰SE1 핵심 포인트 3가지",
+              "3. 아이폰SE1 장단점 비교",
+              "4. 아이폰SE1 실제 후기/경험담",
+              "5. 아이폰SE1 Q&A (자주 묻는 질문)",
+              "6. 결론 및 추천"
+            ],
+            "wordCount": 2500,
+            "mustInclude": [
+              "핵심 키워드 2~3회 자연스럽게 삽입",
+              "실제 이미지/사진 3장 이상",
+              "표 또는 비교 차트 1개 이상",
+              "자주 묻는 질문(FAQ) 섹션",
+              "결론 및 추천 섹션"
+            ],
+            "avoidTopics": [
+              "과장된 표현 (100%, 무조건, 반드시)",
+              "허위 정보나 검증되지 않은 내용",
+              "다른 블로그 복사/붙여넣기",
+              "광고성 링크 과다 삽입"
+            ],
+            "monetization": "애드센스 메인 (트래픽 많으면 효과적)"
+          },
+          "platformTitles": {
+            "naver": {
+              "title": "아이폰SE1 총정리 | 스펙 + 사용법 + 꿀팁 (12월)",
+              "alternatives": [
+                "아이폰SE1 | 네이버에서 바로 찾는 방법 (+체크리스트)",
+                "아이폰SE1 상위노출 포인트 5개 | 제목/소제목 이렇게",
+                "아이폰SE1 핵심 정리 | 사용법/스펙/해결책 총정리",
+                "아이폰SE1 최신 정보 총정리 (12월 최신)",
+                "아이폰SE1 숨은 기능! | 지금 안 보면 손해"
+              ],
+              "subKeywords": [
+                "아이폰SE1 스펙",
+                "아이폰SE1 사용법",
+                "아이폰SE1 비교"
+              ],
+              "tags": [
+                "아이폰SE1",
+                "아이폰SE1 스펙",
+                "아이폰SE1 사용법",
+                "아이폰SE1 비교",
+                "아이폰SE1 꿀팁",
+                "아이폰SE1 후기"
+              ],
+              "tip": "📌 이미지 5장+ 본문 2,000자+ 소제목 5개+ 작성",
+              "hookPoint": "💡 스펙 + 사용법 + 꿀팁 총정리"
+            },
+            "tistory": {
+              "title": "[2025] 아이폰SE1 완벽 가이드 - 비교 + 설정방법 + 오류해결",
+              "alternatives": [
+                "[2025] 아이폰SE1 정리 - 검색 유입 늘리는 구조",
+                "아이폰SE1 SEO 글쓰기 템플릿 (H2/H3 포함)",
+                "아이폰SE1 핵심 정리 | 사용법/스펙/해결책 총정리",
+                "아이폰SE1 최신 정보 총정리 (12월 최신)",
+                "아이폰SE1 숨은 기능! | 지금 안 보면 손해"
+              ],
+              "subKeywords": [
+                "아이폰SE1 설정",
+                "아이폰SE1 오류",
+                "아이폰SE1 꿀팁"
+              ],
+              "tags": [
+                "아이폰SE1",
+                "아이폰SE1 설정",
+                "아이폰SE1 오류",
+                "아이폰SE1 꿀팁",
+                "아이폰SE1방법",
+                "아이폰SE1정리"
+              ],
+              "tip": "📌 H2 3개+ H3 5개+ 목차 삽입 + 3,000자 이상",
+              "hookPoint": "🔍 비교 + 설정방법 + 오류해결"
+            },
+            "wordpress": {
+              "title": "아이폰SE1 Tech Guide (2025)",
+              "alternatives": [
+                "아이폰SE1 Guide (2025): Tips, Checklist & FAQ",
+                "아이폰SE1: What to Know Before You Start",
+                "아이폰SE1 핵심 정리 | 사용법/스펙/해결책 총정리",
+                "아이폰SE1 최신 정보 총정리 (12월 최신)",
+                "아이폰SE1 숨은 기능! | 지금 안 보면 손해"
+              ],
+              "subKeywords": [
+                "specs",
+                "review",
+                "guide"
+              ],
+              "tags": [
+                "아이폰se1",
+                "아이폰se1-tips",
+                "아이폰se1-guide",
+                "아이폰se1-2025"
+              ],
+              "tip": "📌 Featured Image + Yoast SEO 녹색 + 2,500+ words",
+              "hookPoint": "🌍 Complete tech guide"
+            },
+            "blogspot": {
+              "title": "아이폰SE1 Complete Tech Review (2025)",
+              "alternatives": [
+                "아이폰SE1 Explained (2025) - Quick Guide",
+                "아이폰SE1: Key Facts & Tips",
+                "아이폰SE1 핵심 정리 | 사용법/스펙/해결책 총정리",
+                "아이폰SE1 최신 정보 총정리 (12월 최신)",
+                "아이폰SE1 숨은 기능! | 지금 안 보면 손해"
+              ],
+              "subKeywords": [
+                "features",
+                "tips",
+                "comparison"
+              ],
+              "tags": [
+                "아이폰se1",
+                "아이폰se1-how-to",
+                "아이폰se1-best",
+                "아이폰se1-review"
+              ],
+              "tip": "📌 Simple layout + Image alt tags + 2,000+ words",
+              "hookPoint": "📈 Tips & troubleshooting"
+            }
+          },
+          "expandedKeywords": {
+            "relatedGolden": [
+              "아이폰SE1 스펙",
+              "아이폰SE1 사용법",
+              "아이폰SE1 비교"
+            ],
+            "longtailGolden": [
+              "아이폰SE1 설정",
+              "아이폰SE1 오류",
+              "아이폰SE1 꿀팁"
+            ],
+            "blueOceanGolden": [
+              "아이폰SE1 단점",
+              "아이폰SE1 대안",
+              "아이폰SE1 업데이트"
+            ]
+          },
+          "type": "📰 이슈키워드",
+          "category": "it",
+          "safetyLevel": "safe",
+          "safetyReason": "✅ 안전한 키워드. 신생 블로거도 작성 가능",
+          "source": "아이폰추천",
+          "timestamp": "2025-12-20T06:51:15.313Z",
+          "trendAnalysis": {
+            "trendingReason": "아이돌 감성샷의 비밀, 관련 최근 이슈",
+            "whyNow": "최근 5개 이상의 뉴스에서 다뤄지며 이슈화 진행 중 • \"출시\" 관련 구체적 사건으로 실시간 관심 집중 • \"아이돌 감성샷의 비밀, 휘브 이정과 엑디즈 오드의 아이폰\" 관련 최신 뉴스로 조기 진입 효과 기대",
+            "newsSource": "자동 분석"
+          },
+          "keywordGuide": {
+            "summary": "검색량 12,130, 문서수 4,743, 황금비율 2.56 | 🟡 진입 가능 - 품질 콘텐츠로 충분히 경쟁 가능 | 문서수 5,000개 미만 → 경쟁 낮음 | 숏테일 키워드 → 대형 블로그와 경쟁",
+            "whyItMovesNow": "아이돌 감성샷의 비밀, 관련 최근 이슈 / 최근 5개 이상의 뉴스에서 다뤄지며 이슈화 진행 중 • \"출시\" 관련 구체적 사건으로 실시간 관심 집중 • \"아이돌 감성샷의 비밀, 휘브 이정과 엑디즈 오드의 아이폰\" 관련 최신 뉴스로 조기 진입 효과 기대",
+            "immediateTrafficPlan": [
+              "중장기 유입도 같이 노리는 글 구조로 작성하세요 (첫 3문단에 핵심 답 + 결론 요약).",
+              "제목/소제목에 \"아이폰SE1\"를 자연스럽게 반복하고, 서브키워드 2~3개를 소제목으로 배치하세요.",
+              "발행 직후 30분 내 수정 1회(오탈자/이미지 추가)로 체류시간을 늘리세요.",
+              "이미지 5장 이상 + 표/체크리스트 1개를 넣어서 저장/스크랩을 유도하세요."
+            ],
+            "naverHomeExposureTips": [
+              "첫 이미지(썸네일)는 텍스트 5~8자 + 대비 강하게(홈피드 CTR 상승).",
+              "상단 200자에 \"한 줄 요약\" + \"체크리스트\"를 넣어 저장/공유 시그널을 유도.",
+              "뉴스/이슈 키워드는 근거(출처 1~2개) + 내 경험/정리 50%로 구성(복붙 느낌 금지).",
+              "발행 후 1시간 내 댓글 유도 문장 1개 추가(반응 시그널)."
+            ]
+          },
+          "ultimateAnalysis": {
+            "timing": {
+              "seasonal": {
+                "peakMonths": [
+                  1,
+                  2,
+                  3,
+                  4,
+                  5,
+                  6,
+                  7,
+                  8,
+                  9,
+                  10,
+                  11,
+                  12
+                ],
+                "peakReason": "연중 꾸준한 검색량",
+                "currentSeasonScore": 70,
+                "nextPeakDate": "항상",
+                "daysUntilPeak": 0,
+                "recommendation": "📝 에버그린 키워드입니다. 언제든 작성해도 좋습니다.",
+                "seasonalPattern": "evergreen"
+              },
+              "trend": {
+                "trendDirection": "stable",
+                "changeRate": 26,
+                "comparedTo": "전월 대비",
+                "explosiveScore": 38,
+                "relatedNews": [],
+                "recommendation": "📊 안정적인 키워드입니다."
+              },
+              "alert": {
+                "optimalPublishDate": "0일 내",
+                "reason": "📝 에버그린 키워드입니다. 언제든 작성해도 좋습니다.",
+                "urgencyLevel": "⚡ 이번 주",
+                "expectedPeakDate": "항상",
+                "competitorActivity": "경쟁자 보통"
+              }
+            },
+            "revenue": {
+              "cpc": {
+                "estimatedCpc": 100,
+                "cpcRange": {
+                  "min": 50,
+                  "max": 200
+                },
+                "cpcTier": "🥉 저수익",
+                "industryAverage": 100,
+                "recommendation": "📝 일반적인 수익 구조입니다. 트래픽 확보에 집중하세요."
+              },
+              "affiliate": {
+                "recommendedPrograms": [
+                  {
+                    "name": "쿠팡파트너스",
+                    "type": "coupang",
+                    "commissionRate": "3~5%",
+                    "estimatedEarningPerClick": 50,
+                    "matchScore": 100
+                  },
+                  {
+                    "name": "네이버 쇼핑",
+                    "type": "naver",
+                    "commissionRate": "1~3%",
+                    "estimatedEarningPerClick": 30,
+                    "matchScore": 85
+                  }
+                ],
+                "bestMatch": "쿠팡파트너스",
+                "potentialProducts": [
+                  "아이폰SE1 추천",
+                  "아이폰SE1 순위",
+                  "아이폰SE1 비교",
+                  "아이폰SE1 후기",
+                  "아이폰SE1 가격",
+                  "아이폰SE1 구매"
+                ]
+              },
+              "projection": {
+                "estimatedDailyVisitors": 32,
+                "estimatedMonthlyVisitors": 960,
+                "adsenseRevenue": {
+                  "daily": 96,
+                  "monthly": 2880,
+                  "assumptions": "CPC 100원, CTR 2%, 페이지뷰율 1.5 가정"
+                },
+                "affiliateRevenue": {
+                  "daily": 5,
+                  "monthly": 150,
+                  "conversionRate": 3,
+                  "assumptions": "클릭률 10%, 전환율 3%, 평균 수수료 50원 가정"
+                },
+                "totalMonthlyRevenue": 3030,
+                "revenueBreakdown": "애드센스 95% + 제휴 5%",
+                "revenueTier": "📝 월 1만원+"
+              }
+            },
+            "content": {
+              "titles": {
+                "titles": [
+                  {
+                    "title": "아이폰SE1 추천 TOP 10 (2025년 최신)",
+                    "type": "number",
+                    "estimatedCTR": 8.5,
+                    "psychologyUsed": "숫자 + 최신 정보"
+                  },
+                  {
+                    "title": "아이폰SE1 하는 법, 초보자도 쉽게 따라하기",
+                    "type": "how-to",
+                    "estimatedCTR": 7.5,
+                    "psychologyUsed": "실용성 + 접근성"
+                  },
+                  {
+                    "title": "아이폰SE1, 이것만 알면 끝! 완벽 가이드",
+                    "type": "benefit",
+                    "estimatedCTR": 7.2,
+                    "psychologyUsed": "완결성 + 가치 제안"
+                  },
+                  {
+                    "title": "[2025년] 아이폰SE1 총정리 (+ 꿀팁 공개)",
+                    "type": "news",
+                    "estimatedCTR": 7,
+                    "psychologyUsed": "최신성 + 보너스 가치"
+                  },
+                  {
+                    "title": "아직도 아이폰SE1 몰라요? 지금 당장 확인하세요",
+                    "type": "curiosity",
+                    "estimatedCTR": 6.8,
+                    "psychologyUsed": "호기심 + 긴급성"
+                  },
+                  {
+                    "title": "아이폰SE1 실제 후기 (장단점 솔직 비교)",
+                    "type": "comparison",
+                    "estimatedCTR": 6.5,
+                    "psychologyUsed": "신뢰성 + 비교 심리"
+                  }
+                ],
+                "bestTitle": "아이폰SE1 추천 TOP 10 (2025년 최신)",
+                "titleFormula": "숫자 + 키워드 + 최신연도 + 가치제안"
+              },
+              "structure": {
+                "recommendedStructure": {
+                  "intro": {
+                    "purpose": "독자의 관심 끌기 + 키워드 자연스럽게 배치",
+                    "template": "\"아이폰SE1\"에 대해 고민하고 계신가요? 이 글에서 핵심 정보를 모두 정리해드립니다.",
+                    "keywordPlacement": "첫 문장에 키워드 포함"
+                  },
+                  "sections": [
+                    {
+                      "heading": "아이폰SE1란? (기본 개념)",
+                      "purpose": "기초 정보 제공",
+                      "contentGuide": "핵심 정의, 중요성, 왜 알아야 하는지 설명",
+                      "recommendedLength": 300,
+                      "keywordUsage": "소제목과 본문에 1~2회"
+                    },
+                    {
+                      "heading": "아이폰SE1 추천 BEST 5",
+                      "purpose": "실질적인 가치 제공 (핵심 섹션)",
+                      "contentGuide": "순위별 상세 설명, 장단점, 추천 이유",
+                      "recommendedLength": 800,
+                      "keywordUsage": "각 항목 설명에 자연스럽게 포함"
+                    },
+                    {
+                      "heading": "아이폰SE1 선택 시 주의사항",
+                      "purpose": "신뢰도 향상",
+                      "contentGuide": "흔한 실수, 피해야 할 것, 체크리스트",
+                      "recommendedLength": 400,
+                      "keywordUsage": "주의사항 설명에 1~2회"
+                    },
+                    {
+                      "heading": "자주 묻는 질문 (FAQ)",
+                      "purpose": "SEO 강화 + 체류시간 증가",
+                      "contentGuide": "실제 검색되는 질문 5개 + 명확한 답변",
+                      "recommendedLength": 500,
+                      "keywordUsage": "질문에 롱테일 키워드 활용"
+                    }
+                  ],
+                  "conclusion": {
+                    "purpose": "요약 + CTA",
+                    "template": "지금까지 아이폰SE1에 대해 알아봤습니다. 도움이 되셨다면 공유해주세요!",
+                    "ctaRecommendation": "댓글, 공유, 관련 글 링크 유도"
+                  }
+                },
+                "seoChecklist": [
+                  {
+                    "item": "제목에 키워드 포함",
+                    "importance": "critical",
+                    "howTo": "제목 앞부분에 메인 키워드 배치"
+                  },
+                  {
+                    "item": "첫 문단에 키워드",
+                    "importance": "critical",
+                    "howTo": "첫 100자 내 키워드 자연스럽게 삽입"
+                  },
+                  {
+                    "item": "소제목 H2/H3 활용",
+                    "importance": "high",
+                    "howTo": "3~5개 소제목, 키워드 변형 사용"
+                  },
+                  {
+                    "item": "이미지 ALT 태그",
+                    "importance": "high",
+                    "howTo": "모든 이미지에 키워드 포함 설명"
+                  },
+                  {
+                    "item": "내부링크 2개 이상",
+                    "importance": "medium",
+                    "howTo": "관련 글 자연스럽게 연결"
+                  },
+                  {
+                    "item": "3000자 이상 작성",
+                    "importance": "high",
+                    "howTo": "충분한 깊이의 콘텐츠 제공"
+                  }
+                ],
+                "totalRecommendedLength": 3000,
+                "estimatedWriteTime": 90
+              },
+              "images": {
+                "mainImage": {
+                  "searchKeyword": "아이폰SE1 대표이미지",
+                  "style": "깔끔한 인포그래픽 또는 고화질 사진",
+                  "source": [
+                    "Unsplash",
+                    "Pixabay",
+                    "직접 제작"
+                  ],
+                  "altText": "아이폰SE1 완벽 가이드 대표 이미지"
+                },
+                "sectionImages": [
+                  {
+                    "section": "기본 개념",
+                    "searchKeyword": "아이폰SE1 설명",
+                    "purpose": "이해 돕기",
+                    "style": "다이어그램"
+                  },
+                  {
+                    "section": "TOP 5",
+                    "searchKeyword": "아이폰SE1 비교",
+                    "purpose": "시각적 비교",
+                    "style": "비교표"
+                  },
+                  {
+                    "section": "주의사항",
+                    "searchKeyword": "주의 아이콘",
+                    "purpose": "강조",
+                    "style": "아이콘"
+                  }
+                ],
+                "infographicIdeas": [
+                  "아이폰SE1 선택 가이드 플로우차트",
+                  "아이폰SE1 TOP 5 비교표",
+                  "아이폰SE1 체크리스트"
+                ],
+                "totalRecommendedImages": 7,
+                "imageStrategy": "섹션당 1~2개, 총 7~10개 이미지로 가독성과 체류시간 향상"
+              }
+            },
+            "ultimateScore": {
+              "total": 51,
+              "breakdown": {
+                "goldenRatio": 25.574530887623865,
+                "timing": 70,
+                "revenue": 40,
+                "competition": 80,
+                "potential": 54
+              },
+              "grade": "🥉 B",
+              "verdict": "📝 작성 가치 있음",
+              "topActions": [
+                "0일 내 작성 권장",
+                "아이폰SE1 추천 TOP 10 (2025년 최신)",
+                "3000자 이상, 7개 이미지 권장"
+              ]
+            }
+          }
+        },
+        {
+          "keyword": "아이폰중고",
+          "searchVolume": 7760,
+          "documentCount": 32800,
+          "goldenRatio": 0.23658536585365852,
+          "rookieFriendly": {
+            "score": 25,
+            "grade": "D",
+            "reason": "황금비율 1 미만 → 공급 과잉 | 숏테일 키워드 → 대형 블로그와 경쟁",
+            "canRankWithin": "1개월 이상 소요 예상",
+            "requiredBlogIndex": "최적 1 이상 권장"
+          },
+          "timing": {
+            "score": 50,
+            "urgency": "ANYTIME",
+            "bestPublishTime": "오전 6~8시 또는 저녁 8~10시",
+            "trendDirection": "stable",
+            "peakPrediction": "꾸준한 검색량 유지"
+          },
+          "blueOcean": {
+            "score": 15,
+            "competitorStrength": "strong",
+            "avgCompetitorBlogAge": "5년 이상 (강한 경쟁)",
+            "oldPostRatio": 30,
+            "opportunity": "❌ 레드오션. 다른 키워드 추천"
+          },
+          "trafficEstimate": {
+            "daily": "3~8명",
+            "weekly": "21~56명",
+            "monthly": "90~240명",
+            "confidence": 58,
+            "disclaimer": "⚠️ 실제 API 데이터 기반 계산. 트래픽은 콘텐츠 품질, 순위, 시즌에 따라 달라집니다."
+          },
+          "revenueEstimate": {
+            "dailyRevenue": "20~60원",
+            "monthlyRevenue": "600~1,800원",
+            "estimatedCPC": 250,
+            "estimatedRPM": 5000,
+            "adType": "애드센스",
+            "revenueGrade": "C",
+            "revenueReason": "📊 트래픽 확보 후 수익 기대. 블로그 성장용"
+          },
+          "entryAnalysis": {
+            "canEntry": false,
+            "difficulty": "very_hard",
+            "difficultyScore": 95,
+            "message": "🔴 진입 어려움 - 상위 블로거 독점 키워드",
+            "topCompetitorStrength": "매우 강함 (최적 블로거 독점)",
+            "recommendedBlogIndex": "상위 5% (최적 블로그) 필요",
+            "estimatedRankingTime": "3개월 이상 또는 어려움"
+          },
+          "totalScore": 31,
+          "grade": "B",
+          "proStrategy": {
+            "title": "2025 아이폰중고 완벽 정리 | 초보자도 쉽게 이해하는 가이드",
+            "outline": [
+              "1. 아이폰중고란? (기본 개념)",
+              "2. 아이폰중고 핵심 포인트 3가지",
+              "3. 아이폰중고 장단점 비교",
+              "4. 아이폰중고 실제 후기/경험담",
+              "5. 아이폰중고 Q&A (자주 묻는 질문)",
+              "6. 결론 및 추천"
+            ],
+            "wordCount": 2500,
+            "mustInclude": [
+              "핵심 키워드 2~3회 자연스럽게 삽입",
+              "실제 이미지/사진 3장 이상",
+              "표 또는 비교 차트 1개 이상",
+              "자주 묻는 질문(FAQ) 섹션",
+              "결론 및 추천 섹션"
+            ],
+            "avoidTopics": [
+              "과장된 표현 (100%, 무조건, 반드시)",
+              "허위 정보나 검증되지 않은 내용",
+              "다른 블로그 복사/붙여넣기",
+              "광고성 링크 과다 삽입"
+            ],
+            "monetization": "애드센스 + 쿠팡파트너스 조합 추천"
+          },
+          "platformTitles": {
+            "naver": {
+              "title": "아이폰중고 총정리 | 스펙 + 사용법 + 꿀팁 (12월)",
+              "alternatives": [
+                "아이폰중고 | 네이버에서 바로 찾는 방법 (+체크리스트)",
+                "아이폰중고 상위노출 포인트 5개 | 제목/소제목 이렇게",
+                "아이폰중고 핵심 정리 | 사용법/스펙/해결책 총정리",
+                "아이폰중고 최신 정보 총정리 (12월 최신)",
+                "아이폰중고 숨은 기능! | 지금 안 보면 손해"
+              ],
+              "subKeywords": [
+                "아이폰중고 스펙",
+                "아이폰중고 사용법",
+                "아이폰중고 비교"
+              ],
+              "tags": [
+                "아이폰중고",
+                "아이폰중고 스펙",
+                "아이폰중고 사용법",
+                "아이폰중고 비교",
+                "아이폰중고 꿀팁",
+                "아이폰중고 후기"
+              ],
+              "tip": "📌 이미지 5장+ 본문 2,000자+ 소제목 5개+ 작성",
+              "hookPoint": "💡 스펙 + 사용법 + 꿀팁 총정리"
+            },
+            "tistory": {
+              "title": "[2025] 아이폰중고 완벽 가이드 - 비교 + 설정방법 + 오류해결",
+              "alternatives": [
+                "[2025] 아이폰중고 정리 - 검색 유입 늘리는 구조",
+                "아이폰중고 SEO 글쓰기 템플릿 (H2/H3 포함)",
+                "아이폰중고 핵심 정리 | 사용법/스펙/해결책 총정리",
+                "아이폰중고 최신 정보 총정리 (12월 최신)",
+                "아이폰중고 숨은 기능! | 지금 안 보면 손해"
+              ],
+              "subKeywords": [
+                "아이폰중고 설정",
+                "아이폰중고 오류",
+                "아이폰중고 꿀팁"
+              ],
+              "tags": [
+                "아이폰중고",
+                "아이폰중고 설정",
+                "아이폰중고 오류",
+                "아이폰중고 꿀팁",
+                "아이폰중고방법",
+                "아이폰중고정리"
+              ],
+              "tip": "📌 H2 3개+ H3 5개+ 목차 삽입 + 3,000자 이상",
+              "hookPoint": "🔍 비교 + 설정방법 + 오류해결"
+            },
+            "wordpress": {
+              "title": "아이폰중고 Tech Guide (2025)",
+              "alternatives": [
+                "아이폰중고 Guide (2025): Tips, Checklist & FAQ",
+                "아이폰중고: What to Know Before You Start",
+                "아이폰중고 핵심 정리 | 사용법/스펙/해결책 총정리",
+                "아이폰중고 최신 정보 총정리 (12월 최신)",
+                "아이폰중고 숨은 기능! | 지금 안 보면 손해"
+              ],
+              "subKeywords": [
+                "specs",
+                "review",
+                "guide"
+              ],
+              "tags": [
+                "아이폰중고",
+                "아이폰중고-tips",
+                "아이폰중고-guide",
+                "아이폰중고-2025"
+              ],
+              "tip": "📌 Featured Image + Yoast SEO 녹색 + 2,500+ words",
+              "hookPoint": "🌍 Complete tech guide"
+            },
+            "blogspot": {
+              "title": "아이폰중고 Complete Tech Review (2025)",
+              "alternatives": [
+                "아이폰중고 Explained (2025) - Quick Guide",
+                "아이폰중고: Key Facts & Tips",
+                "아이폰중고 핵심 정리 | 사용법/스펙/해결책 총정리",
+                "아이폰중고 최신 정보 총정리 (12월 최신)",
+                "아이폰중고 숨은 기능! | 지금 안 보면 손해"
+              ],
+              "subKeywords": [
+                "features",
+                "tips",
+                "comparison"
+              ],
+              "tags": [
+                "아이폰중고",
+                "아이폰중고-how-to",
+                "아이폰중고-best",
+                "아이폰중고-review"
+              ],
+              "tip": "📌 Simple layout + Image alt tags + 2,000+ words",
+              "hookPoint": "📈 Tips & troubleshooting"
+            }
+          },
+          "expandedKeywords": {
+            "relatedGolden": [
+              "아이폰중고 스펙",
+              "아이폰중고 사용법",
+              "아이폰중고 비교"
+            ],
+            "longtailGolden": [
+              "아이폰중고 설정",
+              "아이폰중고 오류",
+              "아이폰중고 꿀팁"
+            ],
+            "blueOceanGolden": [
+              "아이폰중고 단점",
+              "아이폰중고 대안",
+              "아이폰중고 업데이트"
+            ]
+          },
+          "type": "📰 이슈키워드",
+          "category": "it",
+          "safetyLevel": "safe",
+          "safetyReason": "✅ 안전한 키워드. 신생 블로거도 작성 가능",
+          "source": "아이폰추천",
+          "timestamp": "2025-12-20T06:51:15.313Z",
+          "trendAnalysis": {
+            "trendingReason": "핑크됐다”… 출시 관련 최근 이슈",
+            "whyNow": "최근 5개 이상의 뉴스에서 다뤄지며 이슈화 진행 중 • \"논란\" 관련 구체적 사건으로 실시간 관심 집중 • 뉴스에서 \"논란\" 키워드로 언급되며 화제성 확보 • \"알루미늄이 화근이었나…아이폰17 프로 변색 논란\" 관련 최신 뉴스로 조기 진입 효과 기대",
+            "newsSource": "자동 분석"
+          },
+          "keywordGuide": {
+            "summary": "검색량 7,760, 문서수 32,800, 황금비율 0.24 | 🔴 진입 어려움 - 상위 블로거 독점 키워드 | 황금비율 1 미만 → 공급 과잉 | 숏테일 키워드 → 대형 블로그와 경쟁",
+            "whyItMovesNow": "핑크됐다”… 출시 관련 최근 이슈 / 최근 5개 이상의 뉴스에서 다뤄지며 이슈화 진행 중 • \"논란\" 관련 구체적 사건으로 실시간 관심 집중 • 뉴스에서 \"논란\" 키워드로 언급되며 화제성 확보 • \"알루미늄이 화근이었나…아이폰17 프로 변색 논란\" 관련 최신 뉴스로 조기 진입 효과 기대",
+            "immediateTrafficPlan": [
+              "중장기 유입도 같이 노리는 글 구조로 작성하세요 (첫 3문단에 핵심 답 + 결론 요약).",
+              "제목/소제목에 \"아이폰중고\"를 자연스럽게 반복하고, 서브키워드 2~3개를 소제목으로 배치하세요.",
+              "발행 직후 30분 내 수정 1회(오탈자/이미지 추가)로 체류시간을 늘리세요.",
+              "이미지 5장 이상 + 표/체크리스트 1개를 넣어서 저장/스크랩을 유도하세요."
+            ],
+            "naverHomeExposureTips": [
+              "첫 이미지(썸네일)는 텍스트 5~8자 + 대비 강하게(홈피드 CTR 상승).",
+              "상단 200자에 \"한 줄 요약\" + \"체크리스트\"를 넣어 저장/공유 시그널을 유도.",
+              "뉴스/이슈 키워드는 근거(출처 1~2개) + 내 경험/정리 50%로 구성(복붙 느낌 금지).",
+              "발행 후 1시간 내 댓글 유도 문장 1개 추가(반응 시그널)."
+            ]
+          },
+          "ultimateAnalysis": {
+            "timing": {
+              "seasonal": {
+                "peakMonths": [
+                  1,
+                  2,
+                  3,
+                  4,
+                  5,
+                  6,
+                  7,
+                  8,
+                  9,
+                  10,
+                  11,
+                  12
+                ],
+                "peakReason": "연중 꾸준한 검색량",
+                "currentSeasonScore": 70,
+                "nextPeakDate": "항상",
+                "daysUntilPeak": 0,
+                "recommendation": "📝 에버그린 키워드입니다. 언제든 작성해도 좋습니다.",
+                "seasonalPattern": "evergreen"
+              },
+              "trend": {
+                "trendDirection": "falling",
+                "changeRate": 2,
+                "comparedTo": "전월 대비",
+                "explosiveScore": 4,
+                "relatedNews": [],
+                "recommendation": "📊 안정적인 키워드입니다."
+              },
+              "alert": {
+                "optimalPublishDate": "0일 내",
+                "reason": "📝 에버그린 키워드입니다. 언제든 작성해도 좋습니다.",
+                "urgencyLevel": "⚡ 이번 주",
+                "expectedPeakDate": "항상",
+                "competitorActivity": "경쟁자 많음"
+              }
+            },
+            "revenue": {
+              "cpc": {
+                "estimatedCpc": 100,
+                "cpcRange": {
+                  "min": 50,
+                  "max": 200
+                },
+                "cpcTier": "🥉 저수익",
+                "industryAverage": 100,
+                "recommendation": "📝 일반적인 수익 구조입니다. 트래픽 확보에 집중하세요."
+              },
+              "affiliate": {
+                "recommendedPrograms": [
+                  {
+                    "name": "쿠팡파트너스",
+                    "type": "coupang",
+                    "commissionRate": "3~5%",
+                    "estimatedEarningPerClick": 50,
+                    "matchScore": 100
+                  },
+                  {
+                    "name": "네이버 쇼핑",
+                    "type": "naver",
+                    "commissionRate": "1~3%",
+                    "estimatedEarningPerClick": 30,
+                    "matchScore": 85
+                  }
+                ],
+                "bestMatch": "쿠팡파트너스",
+                "potentialProducts": [
+                  "아이폰중고 추천",
+                  "아이폰중고 순위",
+                  "아이폰중고 비교",
+                  "아이폰중고 후기",
+                  "아이폰중고 가격",
+                  "아이폰중고 구매"
+                ]
+              },
+              "projection": {
+                "estimatedDailyVisitors": 8,
+                "estimatedMonthlyVisitors": 240,
+                "adsenseRevenue": {
+                  "daily": 24,
+                  "monthly": 720,
+                  "assumptions": "CPC 100원, CTR 2%, 페이지뷰율 1.5 가정"
+                },
+                "affiliateRevenue": {
+                  "daily": 1,
+                  "monthly": 30,
+                  "conversionRate": 3,
+                  "assumptions": "클릭률 10%, 전환율 3%, 평균 수수료 50원 가정"
+                },
+                "totalMonthlyRevenue": 750,
+                "revenueBreakdown": "애드센스 96% + 제휴 4%",
+                "revenueTier": "📝 월 1만원+"
+              }
+            },
+            "content": {
+              "titles": {
+                "titles": [
+                  {
+                    "title": "아이폰중고 추천 TOP 10 (2025년 최신)",
+                    "type": "number",
+                    "estimatedCTR": 8.5,
+                    "psychologyUsed": "숫자 + 최신 정보"
+                  },
+                  {
+                    "title": "아이폰중고 하는 법, 초보자도 쉽게 따라하기",
+                    "type": "how-to",
+                    "estimatedCTR": 7.5,
+                    "psychologyUsed": "실용성 + 접근성"
+                  },
+                  {
+                    "title": "아이폰중고, 이것만 알면 끝! 완벽 가이드",
+                    "type": "benefit",
+                    "estimatedCTR": 7.2,
+                    "psychologyUsed": "완결성 + 가치 제안"
+                  },
+                  {
+                    "title": "[2025년] 아이폰중고 총정리 (+ 꿀팁 공개)",
+                    "type": "news",
+                    "estimatedCTR": 7,
+                    "psychologyUsed": "최신성 + 보너스 가치"
+                  },
+                  {
+                    "title": "아직도 아이폰중고 몰라요? 지금 당장 확인하세요",
+                    "type": "curiosity",
+                    "estimatedCTR": 6.8,
+                    "psychologyUsed": "호기심 + 긴급성"
+                  },
+                  {
+                    "title": "아이폰중고 실제 후기 (장단점 솔직 비교)",
+                    "type": "comparison",
+                    "estimatedCTR": 6.5,
+                    "psychologyUsed": "신뢰성 + 비교 심리"
+                  }
+                ],
+                "bestTitle": "아이폰중고 추천 TOP 10 (2025년 최신)",
+                "titleFormula": "숫자 + 키워드 + 최신연도 + 가치제안"
+              },
+              "structure": {
+                "recommendedStructure": {
+                  "intro": {
+                    "purpose": "독자의 관심 끌기 + 키워드 자연스럽게 배치",
+                    "template": "\"아이폰중고\"에 대해 고민하고 계신가요? 이 글에서 핵심 정보를 모두 정리해드립니다.",
+                    "keywordPlacement": "첫 문장에 키워드 포함"
+                  },
+                  "sections": [
+                    {
+                      "heading": "아이폰중고란? (기본 개념)",
+                      "purpose": "기초 정보 제공",
+                      "contentGuide": "핵심 정의, 중요성, 왜 알아야 하는지 설명",
+                      "recommendedLength": 300,
+                      "keywordUsage": "소제목과 본문에 1~2회"
+                    },
+                    {
+                      "heading": "아이폰중고 추천 BEST 5",
+                      "purpose": "실질적인 가치 제공 (핵심 섹션)",
+                      "contentGuide": "순위별 상세 설명, 장단점, 추천 이유",
+                      "recommendedLength": 800,
+                      "keywordUsage": "각 항목 설명에 자연스럽게 포함"
+                    },
+                    {
+                      "heading": "아이폰중고 선택 시 주의사항",
+                      "purpose": "신뢰도 향상",
+                      "contentGuide": "흔한 실수, 피해야 할 것, 체크리스트",
+                      "recommendedLength": 400,
+                      "keywordUsage": "주의사항 설명에 1~2회"
+                    },
+                    {
+                      "heading": "자주 묻는 질문 (FAQ)",
+                      "purpose": "SEO 강화 + 체류시간 증가",
+                      "contentGuide": "실제 검색되는 질문 5개 + 명확한 답변",
+                      "recommendedLength": 500,
+                      "keywordUsage": "질문에 롱테일 키워드 활용"
+                    }
+                  ],
+                  "conclusion": {
+                    "purpose": "요약 + CTA",
+                    "template": "지금까지 아이폰중고에 대해 알아봤습니다. 도움이 되셨다면 공유해주세요!",
+                    "ctaRecommendation": "댓글, 공유, 관련 글 링크 유도"
+                  }
+                },
+                "seoChecklist": [
+                  {
+                    "item": "제목에 키워드 포함",
+                    "importance": "critical",
+                    "howTo": "제목 앞부분에 메인 키워드 배치"
+                  },
+                  {
+                    "item": "첫 문단에 키워드",
+                    "importance": "critical",
+                    "howTo": "첫 100자 내 키워드 자연스럽게 삽입"
+                  },
+                  {
+                    "item": "소제목 H2/H3 활용",
+                    "importance": "high",
+                    "howTo": "3~5개 소제목, 키워드 변형 사용"
+                  },
+                  {
+                    "item": "이미지 ALT 태그",
+                    "importance": "high",
+                    "howTo": "모든 이미지에 키워드 포함 설명"
+                  },
+                  {
+                    "item": "내부링크 2개 이상",
+                    "importance": "medium",
+                    "howTo": "관련 글 자연스럽게 연결"
+                  },
+                  {
+                    "item": "3000자 이상 작성",
+                    "importance": "high",
+                    "howTo": "충분한 깊이의 콘텐츠 제공"
+                  }
+                ],
+                "totalRecommendedLength": 3000,
+                "estimatedWriteTime": 90
+              },
+              "images": {
+                "mainImage": {
+                  "searchKeyword": "아이폰중고 대표이미지",
+                  "style": "깔끔한 인포그래픽 또는 고화질 사진",
+                  "source": [
+                    "Unsplash",
+                    "Pixabay",
+                    "직접 제작"
+                  ],
+                  "altText": "아이폰중고 완벽 가이드 대표 이미지"
+                },
+                "sectionImages": [
+                  {
+                    "section": "기본 개념",
+                    "searchKeyword": "아이폰중고 설명",
+                    "purpose": "이해 돕기",
+                    "style": "다이어그램"
+                  },
+                  {
+                    "section": "TOP 5",
+                    "searchKeyword": "아이폰중고 비교",
+                    "purpose": "시각적 비교",
+                    "style": "비교표"
+                  },
+                  {
+                    "section": "주의사항",
+                    "searchKeyword": "주의 아이콘",
+                    "purpose": "강조",
+                    "style": "아이콘"
+                  }
+                ],
+                "infographicIdeas": [
+                  "아이폰중고 선택 가이드 플로우차트",
+                  "아이폰중고 TOP 5 비교표",
+                  "아이폰중고 체크리스트"
+                ],
+                "totalRecommendedImages": 7,
+                "imageStrategy": "섹션당 1~2개, 총 7~10개 이미지로 가독성과 체류시간 향상"
+              }
+            },
+            "ultimateScore": {
+              "total": 35,
+              "breakdown": {
+                "goldenRatio": 2.3658536585365852,
+                "timing": 70,
+                "revenue": 40,
+                "competition": 40,
+                "potential": 38
+              },
+              "grade": "📝 C",
+              "verdict": "⚠️ 신중히 검토 필요",
+              "topActions": [
+                "0일 내 작성 권장",
+                "아이폰중고 추천 TOP 10 (2025년 최신)",
+                "3000자 이상, 7개 이미지 권장"
+              ]
+            }
+          }
+        }
+      ],
+      "attempts": 1,
+      "durationMs": 59789
+    },
+    {
+      "success": true,
+      "category": "business",
+      "mode": "realtime",
+      "explosionMode": true,
+      "count": 20,
+      "summary": {
+        "totalFound": 3,
+        "sssCount": 0,
+        "ssCount": 0,
+        "sCount": 0,
+        "rookieFriendlyCount": 0,
+        "urgentCount": 2,
+        "blueOceanCount": 0
+      },
+      "keywords": [
+        {
+          "keyword": "2026 연말정산",
+          "searchVolume": 2250,
+          "documentCount": 13243,
+          "goldenRatio": 0.16990107981575173,
+          "rookieFriendly": {
+            "score": 40,
+            "grade": "C",
+            "reason": "황금비율 1 미만 → 공급 과잉 | 중길이 키워드",
+            "canRankWithin": "2~4주 내 가능",
+            "requiredBlogIndex": "최적 1 이상 권장"
+          },
+          "timing": {
+            "score": 100,
+            "urgency": "NOW",
+            "bestPublishTime": "지금 바로 발행!",
+            "trendDirection": "peak",
+            "peakPrediction": "현재 피크 - 빠른 발행 필요"
+          },
+          "blueOcean": {
+            "score": 38,
+            "competitorStrength": "medium",
+            "avgCompetitorBlogAge": "2~5년 (보통 경쟁)",
+            "oldPostRatio": 30,
+            "opportunity": "❌ 레드오션. 다른 키워드 추천"
+          },
+          "trafficEstimate": {
+            "daily": "1~2명",
+            "weekly": "7~14명",
+            "monthly": "30~60명",
+            "confidence": 62,
+            "disclaimer": "⚠️ 실제 API 데이터 기반 계산. 트래픽은 콘텐츠 품질, 순위, 시즌에 따라 달라집니다."
+          },
+          "revenueEstimate": {
+            "dailyRevenue": "5~15원",
+            "monthlyRevenue": "150~450원",
+            "estimatedCPC": 250,
+            "estimatedRPM": 5000,
+            "adType": "애드센스",
+            "revenueGrade": "C",
+            "revenueReason": "📊 트래픽 확보 후 수익 기대. 블로그 성장용"
+          },
+          "entryAnalysis": {
+            "canEntry": false,
+            "difficulty": "very_hard",
+            "difficultyScore": 74,
+            "message": "🔴 진입 어려움 - 상위 블로거 독점 키워드",
+            "topCompetitorStrength": "강함 (전문 블로거 다수)",
+            "recommendedBlogIndex": "상위 5% (최적 블로그) 필요",
+            "estimatedRankingTime": "3개월 이상 또는 어려움"
+          },
+          "totalScore": 83,
+          "grade": "C",
+          "proStrategy": {
+            "title": "2025 2026 연말정산 완벽 정리 | 초보자도 쉽게 이해하는 가이드",
+            "outline": [
+              "1. 2026 연말정산란? (기본 개념)",
+              "2. 2026 연말정산 핵심 포인트 3가지",
+              "3. 2026 연말정산 장단점 비교",
+              "4. 2026 연말정산 실제 후기/경험담",
+              "5. 2026 연말정산 Q&A (자주 묻는 질문)",
+              "6. 결론 및 추천"
+            ],
+            "wordCount": 1500,
+            "mustInclude": [
+              "핵심 키워드 2~3회 자연스럽게 삽입",
+              "실제 이미지/사진 3장 이상",
+              "표 또는 비교 차트 1개 이상",
+              "자주 묻는 질문(FAQ) 섹션",
+              "결론 및 추천 섹션"
+            ],
+            "avoidTopics": [
+              "과장된 표현 (100%, 무조건, 반드시)",
+              "허위 정보나 검증되지 않은 내용",
+              "다른 블로그 복사/붙여넣기",
+              "광고성 링크 과다 삽입"
+            ],
+            "monetization": "애드센스 + 쿠팡파트너스 조합 추천"
+          },
+          "platformTitles": {
+            "naver": {
+              "title": "2026 연말정산 총정리 | 핵심 정리 (12월 최신)",
+              "alternatives": [
+                "🚨 2026 연말정산 총정리 | 핵심 정리 (12월 최신)",
+                "🚨 2026 연말정산 | 네이버에서 바로 찾는 방법 (+체크리스트)",
+                "🚨 2026 연말정산 상위노출 포인트 5개 | 제목/소제목 이렇게",
+                "🚨 2026 연말정산 핵심 정리 | 핵심 정리",
+                "🚨 2026 연말정산 5분 총정리 (12월 최신)"
+              ],
+              "subKeywords": [
+                "2026 연말정산 핵심",
+                "2026 연말정산 쉽게",
+                "2026 연말정산 총정리"
+              ],
+              "tags": [
+                "2026 연말정산",
+                "2026 연말정산 핵심",
+                "2026 연말정산 쉽게",
+                "2026 연말정산 총정리",
+                "2026 연말정산 꿀팁",
+                "2026 연말정산 후기"
+              ],
+              "tip": "🚨 지금 바로 발행! 30분 내 작성 → 1시간 내 상위노출",
+              "hookPoint": "💡 복잡한 내용 쉽게 정리"
+            },
+            "tistory": {
+              "title": "[2025] 2026 연말정산 완벽 정리 - 정보가 필요할 때 핵심 정리",
+              "alternatives": [
+                "🚨 [2025] 2026 연말정산 완벽 정리 - 정보가 필요할 때 핵심 정리",
+                "🚨 [2025] 2026 연말정산 정리 - 검색 유입 늘리는 구조",
+                "🚨 2026 연말정산 SEO 글쓰기 템플릿 (H2/H3 포함)",
+                "🚨 2026 연말정산 핵심 정리 | 핵심 정리",
+                "🚨 2026 연말정산 5분 총정리 (12월 최신)"
+              ],
+              "subKeywords": [
+                "2026 연말정산 기초",
+                "2026 연말정산 개념",
+                "2026 연말정산 예시"
+              ],
+              "tags": [
+                "2026 연말정산",
+                "2026 연말정산 기초",
+                "2026 연말정산 개념",
+                "2026 연말정산 예시",
+                "2026 연말정산방법",
+                "2026 연말정산정리"
+              ],
+              "tip": "🚨 즉시 발행 + 트위터/페북 공유 → 구글 빠른 색인",
+              "hookPoint": "🔍 핵심만 콕 집어서 설명"
+            },
+            "wordpress": {
+              "title": "2026 연말정산: Complete Guide for 2025",
+              "alternatives": [
+                "🚨 2026 연말정산: Complete Guide for 2025",
+                "🚨 2026 연말정산 Guide (2025): Tips, Checklist & FAQ",
+                "🚨 2026 연말정산: What to Know Before You Start",
+                "🚨 2026 연말정산 핵심 정리 | 핵심 정리",
+                "🚨 2026 연말정산 5분 총정리 (12월 최신)"
+              ],
+              "subKeywords": [
+                "complete guide",
+                "explained",
+                "basics"
+              ],
+              "tags": [
+                "2026-연말정산",
+                "2026-연말정산-tips",
+                "2026-연말정산-guide",
+                "2026-연말정산-2025"
+              ],
+              "tip": "🚨 Publish NOW + Submit to Google Search Console",
+              "hookPoint": "🌍 Everything you need to know"
+            },
+            "blogspot": {
+              "title": "2026 연말정산 Explained Simply (2025)",
+              "alternatives": [
+                "🚨 2026 연말정산 Explained Simply (2025)",
+                "🚨 2026 연말정산 Explained (2025) - Quick Guide",
+                "🚨 2026 연말정산: Key Facts & Tips",
+                "🚨 2026 연말정산 핵심 정리 | 핵심 정리",
+                "🚨 2026 연말정산 5분 총정리 (12월 최신)"
+              ],
+              "subKeywords": [
+                "simple guide",
+                "beginner",
+                "overview"
+              ],
+              "tags": [
+                "2026-연말정산",
+                "2026-연말정산-how-to",
+                "2026-연말정산-best",
+                "2026-연말정산-review"
+              ],
+              "tip": "🚨 Quick publish + Share on social media immediately",
+              "hookPoint": "📈 Quick and easy guide"
+            }
+          },
+          "expandedKeywords": {
+            "relatedGolden": [
+              "2026 연말정산 뜻",
+              "2026 연말정산 정리",
+              "2026 연말정산 총정리"
+            ],
+            "longtailGolden": [
+              "2026 연말정산 총정리",
+              "2026 연말정산 핵심",
+              "2026 연말정산 요약"
+            ],
+            "blueOceanGolden": [
+              "2026 연말정산 꿀팁",
+              "2026 연말정산 주의사항",
+              "2026 연말정산 FAQ"
+            ]
+          },
+          "type": "🚀 타이밍키워드",
+          "category": "business",
+          "safetyLevel": "safe",
+          "safetyReason": "✅ 안전한 키워드. 신생 블로거도 작성 가능",
+          "source": "시즌",
+          "timestamp": "2025-12-20T06:51:55.581Z",
+          "trendAnalysis": {
+            "trendingReason": "‘이것’부터 확인 관련 최근 이슈",
+            "whyNow": "최근 5개 이상의 뉴스에서 다뤄지며 이슈화 진행 중 • \"확인\" 관련 구체적 사건으로 실시간 관심 집중 • 최신 이슈로 실시간 관심 집중 중 • \"[만나보니] “나만 못 받나?” 연말정산 ‘이것’부터 확인하세요\" 관련 최신 뉴스로 조기 진입 효과 기대",
+            "newsSource": "자동 분석"
+          },
+          "keywordGuide": {
+            "summary": "검색량 2,250, 문서수 13,243, 황금비율 0.17 | 🔴 진입 어려움 - 상위 블로거 독점 키워드 | 황금비율 1 미만 → 공급 과잉 | 중길이 키워드",
+            "whyItMovesNow": "‘이것’부터 확인 관련 최근 이슈 / 최근 5개 이상의 뉴스에서 다뤄지며 이슈화 진행 중 • \"확인\" 관련 구체적 사건으로 실시간 관심 집중 • 최신 이슈로 실시간 관심 집중 중 • \"[만나보니] “나만 못 받나?” 연말정산 ‘이것’부터 확인하세요\" 관련 최신 뉴스로 조기 진입 효과 기대",
+            "immediateTrafficPlan": [
+              "오늘 안에 바로 효과를 보는 글 구조로 작성하세요 (첫 3문단에 핵심 답 + 결론 요약).",
+              "제목/소제목에 \"2026 연말정산\"를 자연스럽게 반복하고, 서브키워드 2~3개를 소제목으로 배치하세요.",
+              "발행 직후 30분 내 수정 1회(오탈자/이미지 추가)로 체류시간을 늘리세요.",
+              "이미지 5장 이상 + 표/체크리스트 1개를 넣어서 저장/스크랩을 유도하세요."
+            ],
+            "naverHomeExposureTips": [
+              "NOW/TODAY 키워드는 “오늘/방금/최신” 같은 신선도 단어를 제목 또는 첫 문단에 포함하세요.",
+              "첫 이미지(썸네일)는 텍스트 5~8자 + 대비 강하게(홈피드 CTR 상승).",
+              "상단 200자에 \"한 줄 요약\" + \"체크리스트\"를 넣어 저장/공유 시그널을 유도.",
+              "뉴스/이슈 키워드는 근거(출처 1~2개) + 내 경험/정리 50%로 구성(복붙 느낌 금지).",
+              "발행 후 1시간 내 댓글 유도 문장 1개 추가(반응 시그널)."
+            ]
+          },
+          "ultimateAnalysis": {
+            "timing": {
+              "seasonal": {
+                "peakMonths": [
+                  12,
+                  1,
+                  2
+                ],
+                "peakReason": "연말정산 시즌",
+                "currentSeasonScore": 100,
+                "nextPeakDate": "12월",
+                "daysUntilPeak": 711,
+                "recommendation": "🔥 지금이 피크 시즌입니다! 바로 작성하세요!",
+                "seasonalPattern": "seasonal"
+              },
+              "trend": {
+                "trendDirection": "falling",
+                "changeRate": 2,
+                "comparedTo": "전월 대비",
+                "explosiveScore": 3,
+                "relatedNews": [],
+                "recommendation": "📊 안정적인 키워드입니다."
+              },
+              "alert": {
+                "optimalPublishDate": "오늘",
+                "reason": "🔥 지금이 피크 시즌입니다! 바로 작성하세요!",
+                "urgencyLevel": "🔥 지금 당장",
+                "expectedPeakDate": "12월",
+                "competitorActivity": "경쟁자 많음"
+              }
+            },
+            "revenue": {
+              "cpc": {
+                "estimatedCpc": 100,
+                "cpcRange": {
+                  "min": 50,
+                  "max": 200
+                },
+                "cpcTier": "🥉 저수익",
+                "industryAverage": 100,
+                "recommendation": "📝 일반적인 수익 구조입니다. 트래픽 확보에 집중하세요."
+              },
+              "affiliate": {
+                "recommendedPrograms": [
+                  {
+                    "name": "쿠팡파트너스",
+                    "type": "coupang",
+                    "commissionRate": "3~5%",
+                    "estimatedEarningPerClick": 50,
+                    "matchScore": 100
+                  },
+                  {
+                    "name": "네이버 쇼핑",
+                    "type": "naver",
+                    "commissionRate": "1~3%",
+                    "estimatedEarningPerClick": 30,
+                    "matchScore": 85
+                  }
+                ],
+                "bestMatch": "쿠팡파트너스",
+                "potentialProducts": [
+                  "2026 연말정산 추천",
+                  "2026 연말정산 순위",
+                  "2026 연말정산 비교",
+                  "2026 연말정산 후기",
+                  "2026 연말정산 가격",
+                  "2026 연말정산 구매"
+                ]
+              },
+              "projection": {
+                "estimatedDailyVisitors": 2,
+                "estimatedMonthlyVisitors": 60,
+                "adsenseRevenue": {
+                  "daily": 6,
+                  "monthly": 180,
+                  "assumptions": "CPC 100원, CTR 2%, 페이지뷰율 1.5 가정"
+                },
+                "affiliateRevenue": {
+                  "daily": 0,
+                  "monthly": 0,
+                  "conversionRate": 3,
+                  "assumptions": "클릭률 10%, 전환율 3%, 평균 수수료 50원 가정"
+                },
+                "totalMonthlyRevenue": 180,
+                "revenueBreakdown": "애드센스 100% + 제휴 0%",
+                "revenueTier": "📝 월 1만원+"
+              }
+            },
+            "content": {
+              "titles": {
+                "titles": [
+                  {
+                    "title": "2026 연말정산 추천 TOP 10 (2025년 최신)",
+                    "type": "number",
+                    "estimatedCTR": 8.5,
+                    "psychologyUsed": "숫자 + 최신 정보"
+                  },
+                  {
+                    "title": "2026 연말정산 하는 법, 초보자도 쉽게 따라하기",
+                    "type": "how-to",
+                    "estimatedCTR": 7.5,
+                    "psychologyUsed": "실용성 + 접근성"
+                  },
+                  {
+                    "title": "2026 연말정산, 이것만 알면 끝! 완벽 가이드",
+                    "type": "benefit",
+                    "estimatedCTR": 7.2,
+                    "psychologyUsed": "완결성 + 가치 제안"
+                  },
+                  {
+                    "title": "[2025년] 2026 연말정산 총정리 (+ 꿀팁 공개)",
+                    "type": "news",
+                    "estimatedCTR": 7,
+                    "psychologyUsed": "최신성 + 보너스 가치"
+                  },
+                  {
+                    "title": "아직도 2026 연말정산 몰라요? 지금 당장 확인하세요",
+                    "type": "curiosity",
+                    "estimatedCTR": 6.8,
+                    "psychologyUsed": "호기심 + 긴급성"
+                  },
+                  {
+                    "title": "2026 연말정산 실제 후기 (장단점 솔직 비교)",
+                    "type": "comparison",
+                    "estimatedCTR": 6.5,
+                    "psychologyUsed": "신뢰성 + 비교 심리"
+                  }
+                ],
+                "bestTitle": "2026 연말정산 추천 TOP 10 (2025년 최신)",
+                "titleFormula": "숫자 + 키워드 + 최신연도 + 가치제안"
+              },
+              "structure": {
+                "recommendedStructure": {
+                  "intro": {
+                    "purpose": "독자의 관심 끌기 + 키워드 자연스럽게 배치",
+                    "template": "\"2026 연말정산\"에 대해 고민하고 계신가요? 이 글에서 핵심 정보를 모두 정리해드립니다.",
+                    "keywordPlacement": "첫 문장에 키워드 포함"
+                  },
+                  "sections": [
+                    {
+                      "heading": "2026 연말정산란? (기본 개념)",
+                      "purpose": "기초 정보 제공",
+                      "contentGuide": "핵심 정의, 중요성, 왜 알아야 하는지 설명",
+                      "recommendedLength": 300,
+                      "keywordUsage": "소제목과 본문에 1~2회"
+                    },
+                    {
+                      "heading": "2026 연말정산 추천 BEST 5",
+                      "purpose": "실질적인 가치 제공 (핵심 섹션)",
+                      "contentGuide": "순위별 상세 설명, 장단점, 추천 이유",
+                      "recommendedLength": 800,
+                      "keywordUsage": "각 항목 설명에 자연스럽게 포함"
+                    },
+                    {
+                      "heading": "2026 연말정산 선택 시 주의사항",
+                      "purpose": "신뢰도 향상",
+                      "contentGuide": "흔한 실수, 피해야 할 것, 체크리스트",
+                      "recommendedLength": 400,
+                      "keywordUsage": "주의사항 설명에 1~2회"
+                    },
+                    {
+                      "heading": "자주 묻는 질문 (FAQ)",
+                      "purpose": "SEO 강화 + 체류시간 증가",
+                      "contentGuide": "실제 검색되는 질문 5개 + 명확한 답변",
+                      "recommendedLength": 500,
+                      "keywordUsage": "질문에 롱테일 키워드 활용"
+                    }
+                  ],
+                  "conclusion": {
+                    "purpose": "요약 + CTA",
+                    "template": "지금까지 2026 연말정산에 대해 알아봤습니다. 도움이 되셨다면 공유해주세요!",
+                    "ctaRecommendation": "댓글, 공유, 관련 글 링크 유도"
+                  }
+                },
+                "seoChecklist": [
+                  {
+                    "item": "제목에 키워드 포함",
+                    "importance": "critical",
+                    "howTo": "제목 앞부분에 메인 키워드 배치"
+                  },
+                  {
+                    "item": "첫 문단에 키워드",
+                    "importance": "critical",
+                    "howTo": "첫 100자 내 키워드 자연스럽게 삽입"
+                  },
+                  {
+                    "item": "소제목 H2/H3 활용",
+                    "importance": "high",
+                    "howTo": "3~5개 소제목, 키워드 변형 사용"
+                  },
+                  {
+                    "item": "이미지 ALT 태그",
+                    "importance": "high",
+                    "howTo": "모든 이미지에 키워드 포함 설명"
+                  },
+                  {
+                    "item": "내부링크 2개 이상",
+                    "importance": "medium",
+                    "howTo": "관련 글 자연스럽게 연결"
+                  },
+                  {
+                    "item": "3000자 이상 작성",
+                    "importance": "high",
+                    "howTo": "충분한 깊이의 콘텐츠 제공"
+                  }
+                ],
+                "totalRecommendedLength": 3000,
+                "estimatedWriteTime": 90
+              },
+              "images": {
+                "mainImage": {
+                  "searchKeyword": "2026 연말정산 대표이미지",
+                  "style": "깔끔한 인포그래픽 또는 고화질 사진",
+                  "source": [
+                    "Unsplash",
+                    "Pixabay",
+                    "직접 제작"
+                  ],
+                  "altText": "2026 연말정산 완벽 가이드 대표 이미지"
+                },
+                "sectionImages": [
+                  {
+                    "section": "기본 개념",
+                    "searchKeyword": "2026 연말정산 설명",
+                    "purpose": "이해 돕기",
+                    "style": "다이어그램"
+                  },
+                  {
+                    "section": "TOP 5",
+                    "searchKeyword": "2026 연말정산 비교",
+                    "purpose": "시각적 비교",
+                    "style": "비교표"
+                  },
+                  {
+                    "section": "주의사항",
+                    "searchKeyword": "주의 아이콘",
+                    "purpose": "강조",
+                    "style": "아이콘"
+                  }
+                ],
+                "infographicIdeas": [
+                  "2026 연말정산 선택 가이드 플로우차트",
+                  "2026 연말정산 TOP 5 비교표",
+                  "2026 연말정산 체크리스트"
+                ],
+                "totalRecommendedImages": 7,
+                "imageStrategy": "섹션당 1~2개, 총 7~10개 이미지로 가독성과 체류시간 향상"
+              }
+            },
+            "ultimateScore": {
+              "total": 41,
+              "breakdown": {
+                "goldenRatio": 1.6990107981575173,
+                "timing": 100,
+                "revenue": 40,
+                "competition": 40,
+                "potential": 45
+              },
+              "grade": "📝 C",
+              "verdict": "⚠️ 신중히 검토 필요",
+              "topActions": [
+                "지금 바로 글 작성 시작!",
+                "2026 연말정산 추천 TOP 10 (2025년 최신)",
+                "3000자 이상, 7개 이미지 권장"
+              ]
+            }
+          }
+        },
+        {
+          "keyword": "주식투자 하는법",
+          "searchVolume": 1450,
+          "documentCount": 8896,
+          "goldenRatio": 0.16299460431654678,
+          "rookieFriendly": {
+            "score": 60,
+            "grade": "B",
+            "reason": "문서수 10,000개 미만 → 경쟁 보통 | 황금비율 1 미만 → 공급 과잉 | 중길이 키워드 | 질문형 키워드 → 경쟁 낮음",
+            "canRankWithin": "1~2주 내 가능",
+            "requiredBlogIndex": "준최 5 이상 권장"
+          },
+          "timing": {
+            "score": 50,
+            "urgency": "ANYTIME",
+            "bestPublishTime": "오전 6~8시 또는 저녁 8~10시",
+            "trendDirection": "stable",
+            "peakPrediction": "꾸준한 검색량 유지"
+          },
+          "blueOcean": {
+            "score": 50,
+            "competitorStrength": "medium",
+            "avgCompetitorBlogAge": "2~5년 (보통 경쟁)",
+            "oldPostRatio": 50,
+            "opportunity": "⚠️ 경쟁 있음. 차별화된 콘텐츠 필요"
+          },
+          "trafficEstimate": {
+            "daily": "1~3명",
+            "weekly": "7~21명",
+            "monthly": "30~90명",
+            "confidence": 68,
+            "disclaimer": "⚠️ 실제 API 데이터 기반 계산. 트래픽은 콘텐츠 품질, 순위, 시즌에 따라 달라집니다."
+          },
+          "revenueEstimate": {
+            "dailyRevenue": "8~23원",
+            "monthlyRevenue": "240~690원",
+            "estimatedCPC": 250,
+            "estimatedRPM": 5000,
+            "adType": "애드센스",
+            "revenueGrade": "C",
+            "revenueReason": "📊 트래픽 확보 후 수익 기대. 블로그 성장용"
+          },
+          "entryAnalysis": {
+            "canEntry": true,
+            "difficulty": "hard",
+            "difficultyScore": 60,
+            "message": "🟠 진입 도전적 - 차별화된 콘텐츠 필요",
+            "topCompetitorStrength": "보통 (일반 블로그 혼재)",
+            "recommendedBlogIndex": "상위 10% 이상 필요",
+            "estimatedRankingTime": "1~2개월 소요 예상"
+          },
+          "totalScore": 56,
+          "grade": "C",
+          "proStrategy": {
+            "title": "2025 주식투자 하는법 완벽 정리 | 초보자도 쉽게 이해하는 가이드",
+            "outline": [
+              "1. 주식투자 하는법란? (기본 개념)",
+              "2. 주식투자 하는법 핵심 포인트 3가지",
+              "3. 주식투자 하는법 장단점 비교",
+              "4. 주식투자 하는법 실제 후기/경험담",
+              "5. 주식투자 하는법 Q&A (자주 묻는 질문)",
+              "6. 결론 및 추천"
+            ],
+            "wordCount": 2500,
+            "mustInclude": [
+              "핵심 키워드 2~3회 자연스럽게 삽입",
+              "실제 이미지/사진 3장 이상",
+              "표 또는 비교 차트 1개 이상",
+              "자주 묻는 질문(FAQ) 섹션",
+              "결론 및 추천 섹션"
+            ],
+            "avoidTopics": [
+              "과장된 표현 (100%, 무조건, 반드시)",
+              "허위 정보나 검증되지 않은 내용",
+              "다른 블로그 복사/붙여넣기",
+              "광고성 링크 과다 삽입"
+            ],
+            "monetization": "애드센스 + 쿠팡파트너스 조합 추천"
+          },
+          "platformTitles": {
+            "naver": {
+              "title": "주식투자 하는법 총정리 | 금리 + 조건 + 한도 비교 (12월)",
+              "alternatives": [
+                "주식투자 하는법 | 네이버에서 바로 찾는 방법 (+체크리스트)",
+                "주식투자 하는법 상위노출 포인트 5개 | 제목/소제목 이렇게",
+                "주식투자 하는법 핵심 정리 | 조건/금리/한도 총정리",
+                "주식투자 하는법 최신 정보 총정리 (12월 최신)",
+                "주식투자 하는법 최저금리 비교! | 지금 안 보면 손해"
+              ],
+              "subKeywords": [
+                "주식투자 하는법 금리",
+                "주식투자 하는법 조건",
+                "주식투자 하는법 한도"
+              ],
+              "tags": [
+                "주식투자 하는법",
+                "주식투자 하는법 금리",
+                "주식투자 하는법 조건",
+                "주식투자 하는법 한도",
+                "주식투자 하는법 꿀팁",
+                "주식투자 하는법 후기"
+              ],
+              "tip": "📌 이미지 5장+ 본문 2,000자+ 소제목 5개+ 작성",
+              "hookPoint": "💡 금리 + 조건 + 한도 비교"
+            },
+            "tistory": {
+              "title": "[2025] 주식투자 하는법 완벽 가이드 - 신청방법 + 서류 + 주의사항",
+              "alternatives": [
+                "[2025] 주식투자 하는법 정리 - 검색 유입 늘리는 구조",
+                "주식투자 하는법 SEO 글쓰기 템플릿 (H2/H3 포함)",
+                "주식투자 하는법 핵심 정리 | 조건/금리/한도 총정리",
+                "주식투자 하는법 최신 정보 총정리 (12월 최신)",
+                "주식투자 하는법 최저금리 비교! | 지금 안 보면 손해"
+              ],
+              "subKeywords": [
+                "주식투자 하는법 신청",
+                "주식투자 하는법 비교",
+                "주식투자 하는법 서류"
+              ],
+              "tags": [
+                "주식투자 하는법",
+                "주식투자 하는법 신청",
+                "주식투자 하는법 비교",
+                "주식투자 하는법 서류",
+                "주식투자 하는법방법",
+                "주식투자 하는법정리"
+              ],
+              "tip": "📌 H2 3개+ H3 5개+ 목차 삽입 + 3,000자 이상",
+              "hookPoint": "🔍 신청방법 + 서류 + 주의사항"
+            },
+            "wordpress": {
+              "title": "주식투자 하는법 Guide: Rates & Conditions (2025)",
+              "alternatives": [
+                "주식투자 하는법 Guide (2025): Tips, Checklist & FAQ",
+                "주식투자 하는법: What to Know Before You Start",
+                "주식투자 하는법 핵심 정리 | 조건/금리/한도 총정리",
+                "주식투자 하는법 최신 정보 총정리 (12월 최신)",
+                "주식투자 하는법 최저금리 비교! | 지금 안 보면 손해"
+              ],
+              "subKeywords": [
+                "rates",
+                "conditions",
+                "comparison"
+              ],
+              "tags": [
+                "주식투자-하는법",
+                "주식투자-하는법-tips",
+                "주식투자-하는법-guide",
+                "주식투자-하는법-2025"
+              ],
+              "tip": "📌 Featured Image + Yoast SEO 녹색 + 2,500+ words",
+              "hookPoint": "🌍 Complete finance guide"
+            },
+            "blogspot": {
+              "title": "주식투자 하는법 Complete Finance Guide (2025)",
+              "alternatives": [
+                "주식투자 하는법 Explained (2025) - Quick Guide",
+                "주식투자 하는법: Key Facts & Tips",
+                "주식투자 하는법 핵심 정리 | 조건/금리/한도 총정리",
+                "주식투자 하는법 최신 정보 총정리 (12월 최신)",
+                "주식투자 하는법 최저금리 비교! | 지금 안 보면 손해"
+              ],
+              "subKeywords": [
+                "application",
+                "requirements",
+                "tips"
+              ],
+              "tags": [
+                "주식투자-하는법",
+                "주식투자-하는법-how-to",
+                "주식투자-하는법-best",
+                "주식투자-하는법-review"
+              ],
+              "tip": "📌 Simple layout + Image alt tags + 2,000+ words",
+              "hookPoint": "📈 Best rates & conditions"
+            }
+          },
+          "expandedKeywords": {
+            "relatedGolden": [
+              "주식투자 하는법 쉽게",
+              "주식투자 하는법 빠르게",
+              "주식투자 하는법 무료로"
+            ],
+            "longtailGolden": [
+              "주식투자 하는법 초보자",
+              "주식투자 하는법 집에서",
+              "주식투자 하는법 핸드폰으로"
+            ],
+            "blueOceanGolden": [
+              "주식투자 하는법 꿀팁",
+              "주식투자 하는법 주의사항",
+              "주식투자 하는법 실수 방지"
+            ]
+          },
+          "type": "❓ 질문형키워드",
+          "category": "business",
+          "safetyLevel": "caution",
+          "safetyReason": "⚠️ 경쟁 치열 키워드. 고품질 콘텐츠 필수",
+          "source": "seed",
+          "timestamp": "2025-12-20T06:51:55.580Z",
+          "trendAnalysis": {
+            "trendingReason": "은행 외화 풀고 관련 최근 이슈",
+            "whyNow": "최근 5개 이상의 뉴스에서 다뤄지며 이슈화 진행 중 • 최신 이슈로 실시간 관심 집중 중 • \"은행 외화 풀고 외국인 주식투자 문턱 낮춰…달러 공급 늘린다(종합)\" 관련 최신 뉴스로 조기 진입 효과 기대",
+            "newsSource": "자동 분석"
+          },
+          "keywordGuide": {
+            "summary": "검색량 1,450, 문서수 8,896, 황금비율 0.16 | 🟠 진입 도전적 - 차별화된 콘텐츠 필요 | 문서수 10,000개 미만 → 경쟁 보통 | 황금비율 1 미만 → 공급 과잉 | 중길이 키워드 | 질문형 키워드 → 경쟁 낮음",
+            "whyItMovesNow": "은행 외화 풀고 관련 최근 이슈 / 최근 5개 이상의 뉴스에서 다뤄지며 이슈화 진행 중 • 최신 이슈로 실시간 관심 집중 중 • \"은행 외화 풀고 외국인 주식투자 문턱 낮춰…달러 공급 늘린다(종합)\" 관련 최신 뉴스로 조기 진입 효과 기대",
+            "immediateTrafficPlan": [
+              "중장기 유입도 같이 노리는 글 구조로 작성하세요 (첫 3문단에 핵심 답 + 결론 요약).",
+              "제목/소제목에 \"주식투자 하는법\"를 자연스럽게 반복하고, 서브키워드 2~3개를 소제목으로 배치하세요.",
+              "발행 직후 30분 내 수정 1회(오탈자/이미지 추가)로 체류시간을 늘리세요.",
+              "이미지 5장 이상 + 표/체크리스트 1개를 넣어서 저장/스크랩을 유도하세요."
+            ],
+            "naverHomeExposureTips": [
+              "첫 이미지(썸네일)는 텍스트 5~8자 + 대비 강하게(홈피드 CTR 상승).",
+              "상단 200자에 \"한 줄 요약\" + \"체크리스트\"를 넣어 저장/공유 시그널을 유도.",
+              "뉴스/이슈 키워드는 근거(출처 1~2개) + 내 경험/정리 50%로 구성(복붙 느낌 금지).",
+              "발행 후 1시간 내 댓글 유도 문장 1개 추가(반응 시그널)."
+            ]
+          },
+          "ultimateAnalysis": {
+            "timing": {
+              "seasonal": {
+                "peakMonths": [
+                  1,
+                  2,
+                  3,
+                  4,
+                  5,
+                  6,
+                  7,
+                  8,
+                  9,
+                  10,
+                  11,
+                  12
+                ],
+                "peakReason": "연중 꾸준한 검색량",
+                "currentSeasonScore": 70,
+                "nextPeakDate": "항상",
+                "daysUntilPeak": 0,
+                "recommendation": "📝 에버그린 키워드입니다. 언제든 작성해도 좋습니다.",
+                "seasonalPattern": "evergreen"
+              },
+              "trend": {
+                "trendDirection": "falling",
+                "changeRate": 2,
+                "comparedTo": "전월 대비",
+                "explosiveScore": 2,
+                "relatedNews": [],
+                "recommendation": "📊 안정적인 키워드입니다."
+              },
+              "alert": {
+                "optimalPublishDate": "0일 내",
+                "reason": "📝 에버그린 키워드입니다. 언제든 작성해도 좋습니다.",
+                "urgencyLevel": "⚡ 이번 주",
+                "expectedPeakDate": "항상",
+                "competitorActivity": "경쟁자 보통"
+              }
+            },
+            "revenue": {
+              "cpc": {
+                "estimatedCpc": 100,
+                "cpcRange": {
+                  "min": 50,
+                  "max": 200
+                },
+                "cpcTier": "🥉 저수익",
+                "industryAverage": 100,
+                "recommendation": "📝 일반적인 수익 구조입니다. 트래픽 확보에 집중하세요."
+              },
+              "affiliate": {
+                "recommendedPrograms": [
+                  {
+                    "name": "쿠팡파트너스",
+                    "type": "coupang",
+                    "commissionRate": "3~5%",
+                    "estimatedEarningPerClick": 50,
+                    "matchScore": 100
+                  },
+                  {
+                    "name": "네이버 쇼핑",
+                    "type": "naver",
+                    "commissionRate": "1~3%",
+                    "estimatedEarningPerClick": 30,
+                    "matchScore": 85
+                  }
+                ],
+                "bestMatch": "쿠팡파트너스",
+                "potentialProducts": [
+                  "주식투자 하는법 추천",
+                  "주식투자 하는법 순위",
+                  "주식투자 하는법 비교",
+                  "주식투자 하는법 후기",
+                  "주식투자 하는법 가격",
+                  "주식투자 하는법 구매"
+                ]
+              },
+              "projection": {
+                "estimatedDailyVisitors": 1,
+                "estimatedMonthlyVisitors": 30,
+                "adsenseRevenue": {
+                  "daily": 3,
+                  "monthly": 90,
+                  "assumptions": "CPC 100원, CTR 2%, 페이지뷰율 1.5 가정"
+                },
+                "affiliateRevenue": {
+                  "daily": 0,
+                  "monthly": 0,
+                  "conversionRate": 3,
+                  "assumptions": "클릭률 10%, 전환율 3%, 평균 수수료 50원 가정"
+                },
+                "totalMonthlyRevenue": 90,
+                "revenueBreakdown": "애드센스 100% + 제휴 0%",
+                "revenueTier": "📝 월 1만원+"
+              }
+            },
+            "content": {
+              "titles": {
+                "titles": [
+                  {
+                    "title": "주식투자 하는법 추천 TOP 10 (2025년 최신)",
+                    "type": "number",
+                    "estimatedCTR": 8.5,
+                    "psychologyUsed": "숫자 + 최신 정보"
+                  },
+                  {
+                    "title": "주식투자 하는법 하는 법, 초보자도 쉽게 따라하기",
+                    "type": "how-to",
+                    "estimatedCTR": 7.5,
+                    "psychologyUsed": "실용성 + 접근성"
+                  },
+                  {
+                    "title": "주식투자 하는법, 이것만 알면 끝! 완벽 가이드",
+                    "type": "benefit",
+                    "estimatedCTR": 7.2,
+                    "psychologyUsed": "완결성 + 가치 제안"
+                  },
+                  {
+                    "title": "[2025년] 주식투자 하는법 총정리 (+ 꿀팁 공개)",
+                    "type": "news",
+                    "estimatedCTR": 7,
+                    "psychologyUsed": "최신성 + 보너스 가치"
+                  },
+                  {
+                    "title": "아직도 주식투자 하는법 몰라요? 지금 당장 확인하세요",
+                    "type": "curiosity",
+                    "estimatedCTR": 6.8,
+                    "psychologyUsed": "호기심 + 긴급성"
+                  },
+                  {
+                    "title": "주식투자 하는법 실제 후기 (장단점 솔직 비교)",
+                    "type": "comparison",
+                    "estimatedCTR": 6.5,
+                    "psychologyUsed": "신뢰성 + 비교 심리"
+                  }
+                ],
+                "bestTitle": "주식투자 하는법 추천 TOP 10 (2025년 최신)",
+                "titleFormula": "숫자 + 키워드 + 최신연도 + 가치제안"
+              },
+              "structure": {
+                "recommendedStructure": {
+                  "intro": {
+                    "purpose": "독자의 관심 끌기 + 키워드 자연스럽게 배치",
+                    "template": "\"주식투자 하는법\"에 대해 고민하고 계신가요? 이 글에서 핵심 정보를 모두 정리해드립니다.",
+                    "keywordPlacement": "첫 문장에 키워드 포함"
+                  },
+                  "sections": [
+                    {
+                      "heading": "주식투자 하는법란? (기본 개념)",
+                      "purpose": "기초 정보 제공",
+                      "contentGuide": "핵심 정의, 중요성, 왜 알아야 하는지 설명",
+                      "recommendedLength": 300,
+                      "keywordUsage": "소제목과 본문에 1~2회"
+                    },
+                    {
+                      "heading": "주식투자 하는법 추천 BEST 5",
+                      "purpose": "실질적인 가치 제공 (핵심 섹션)",
+                      "contentGuide": "순위별 상세 설명, 장단점, 추천 이유",
+                      "recommendedLength": 800,
+                      "keywordUsage": "각 항목 설명에 자연스럽게 포함"
+                    },
+                    {
+                      "heading": "주식투자 하는법 선택 시 주의사항",
+                      "purpose": "신뢰도 향상",
+                      "contentGuide": "흔한 실수, 피해야 할 것, 체크리스트",
+                      "recommendedLength": 400,
+                      "keywordUsage": "주의사항 설명에 1~2회"
+                    },
+                    {
+                      "heading": "자주 묻는 질문 (FAQ)",
+                      "purpose": "SEO 강화 + 체류시간 증가",
+                      "contentGuide": "실제 검색되는 질문 5개 + 명확한 답변",
+                      "recommendedLength": 500,
+                      "keywordUsage": "질문에 롱테일 키워드 활용"
+                    }
+                  ],
+                  "conclusion": {
+                    "purpose": "요약 + CTA",
+                    "template": "지금까지 주식투자 하는법에 대해 알아봤습니다. 도움이 되셨다면 공유해주세요!",
+                    "ctaRecommendation": "댓글, 공유, 관련 글 링크 유도"
+                  }
+                },
+                "seoChecklist": [
+                  {
+                    "item": "제목에 키워드 포함",
+                    "importance": "critical",
+                    "howTo": "제목 앞부분에 메인 키워드 배치"
+                  },
+                  {
+                    "item": "첫 문단에 키워드",
+                    "importance": "critical",
+                    "howTo": "첫 100자 내 키워드 자연스럽게 삽입"
+                  },
+                  {
+                    "item": "소제목 H2/H3 활용",
+                    "importance": "high",
+                    "howTo": "3~5개 소제목, 키워드 변형 사용"
+                  },
+                  {
+                    "item": "이미지 ALT 태그",
+                    "importance": "high",
+                    "howTo": "모든 이미지에 키워드 포함 설명"
+                  },
+                  {
+                    "item": "내부링크 2개 이상",
+                    "importance": "medium",
+                    "howTo": "관련 글 자연스럽게 연결"
+                  },
+                  {
+                    "item": "3000자 이상 작성",
+                    "importance": "high",
+                    "howTo": "충분한 깊이의 콘텐츠 제공"
+                  }
+                ],
+                "totalRecommendedLength": 3000,
+                "estimatedWriteTime": 90
+              },
+              "images": {
+                "mainImage": {
+                  "searchKeyword": "주식투자 하는법 대표이미지",
+                  "style": "깔끔한 인포그래픽 또는 고화질 사진",
+                  "source": [
+                    "Unsplash",
+                    "Pixabay",
+                    "직접 제작"
+                  ],
+                  "altText": "주식투자 하는법 완벽 가이드 대표 이미지"
+                },
+                "sectionImages": [
+                  {
+                    "section": "기본 개념",
+                    "searchKeyword": "주식투자 하는법 설명",
+                    "purpose": "이해 돕기",
+                    "style": "다이어그램"
+                  },
+                  {
+                    "section": "TOP 5",
+                    "searchKeyword": "주식투자 하는법 비교",
+                    "purpose": "시각적 비교",
+                    "style": "비교표"
+                  },
+                  {
+                    "section": "주의사항",
+                    "searchKeyword": "주의 아이콘",
+                    "purpose": "강조",
+                    "style": "아이콘"
+                  }
+                ],
+                "infographicIdeas": [
+                  "주식투자 하는법 선택 가이드 플로우차트",
+                  "주식투자 하는법 TOP 5 비교표",
+                  "주식투자 하는법 체크리스트"
+                ],
+                "totalRecommendedImages": 7,
+                "imageStrategy": "섹션당 1~2개, 총 7~10개 이미지로 가독성과 체류시간 향상"
+              }
+            },
+            "ultimateScore": {
+              "total": 39,
+              "breakdown": {
+                "goldenRatio": 1.6299460431654678,
+                "timing": 70,
+                "revenue": 40,
+                "competition": 60,
+                "potential": 43
+              },
+              "grade": "📝 C",
+              "verdict": "⚠️ 신중히 검토 필요",
+              "topActions": [
+                "0일 내 작성 권장",
+                "주식투자 하는법 추천 TOP 10 (2025년 최신)",
+                "3000자 이상, 7개 이미지 권장"
+              ]
+            }
+          }
+        },
+        {
+          "keyword": "2025년 연말정산",
+          "searchVolume": 4160,
+          "documentCount": 62865,
+          "goldenRatio": 0.06617354648850712,
+          "rookieFriendly": {
+            "score": 20,
+            "grade": "D",
+            "reason": "문서수 50,000개 이상 → 경쟁 치열 | 황금비율 1 미만 → 공급 과잉 | 중길이 키워드",
+            "canRankWithin": "1개월 이상 소요 예상",
+            "requiredBlogIndex": "최적 1 이상 권장"
+          },
+          "timing": {
+            "score": 100,
+            "urgency": "NOW",
+            "bestPublishTime": "지금 바로 발행!",
+            "trendDirection": "peak",
+            "peakPrediction": "현재 피크 - 빠른 발행 필요"
+          },
+          "blueOcean": {
+            "score": 15,
+            "competitorStrength": "strong",
+            "avgCompetitorBlogAge": "5년 이상 (강한 경쟁)",
+            "oldPostRatio": 30,
+            "opportunity": "❌ 레드오션. 다른 키워드 추천"
+          },
+          "trafficEstimate": {
+            "daily": "1~4명",
+            "weekly": "7~28명",
+            "monthly": "30~120명",
+            "confidence": 56,
+            "disclaimer": "⚠️ 실제 API 데이터 기반 계산. 트래픽은 콘텐츠 품질, 순위, 시즌에 따라 달라집니다."
+          },
+          "revenueEstimate": {
+            "dailyRevenue": "10~30원",
+            "monthlyRevenue": "300~900원",
+            "estimatedCPC": 250,
+            "estimatedRPM": 5000,
+            "adType": "애드센스",
+            "revenueGrade": "C",
+            "revenueReason": "📊 트래픽 확보 후 수익 기대. 블로그 성장용"
+          },
+          "entryAnalysis": {
+            "canEntry": false,
+            "difficulty": "very_hard",
+            "difficultyScore": 100,
+            "message": "🔴 진입 어려움 - 상위 블로거 독점 키워드",
+            "topCompetitorStrength": "매우 강함 (최적 블로거 독점)",
+            "recommendedBlogIndex": "상위 5% (최적 블로그) 필요",
+            "estimatedRankingTime": "3개월 이상 또는 어려움"
+          },
+          "totalScore": 59,
+          "grade": "A",
+          "proStrategy": {
+            "title": "2025년 연말정산 완벽 정리 | 초보자도 쉽게 이해하는 가이드",
+            "outline": [
+              "1. 2025년 연말정산란? (기본 개념)",
+              "2. 2025년 연말정산 핵심 포인트 3가지",
+              "3. 2025년 연말정산 장단점 비교",
+              "4. 2025년 연말정산 실제 후기/경험담",
+              "5. 2025년 연말정산 Q&A (자주 묻는 질문)",
+              "6. 결론 및 추천"
+            ],
+            "wordCount": 1500,
+            "mustInclude": [
+              "핵심 키워드 2~3회 자연스럽게 삽입",
+              "실제 이미지/사진 3장 이상",
+              "표 또는 비교 차트 1개 이상",
+              "자주 묻는 질문(FAQ) 섹션",
+              "결론 및 추천 섹션"
+            ],
+            "avoidTopics": [
+              "과장된 표현 (100%, 무조건, 반드시)",
+              "허위 정보나 검증되지 않은 내용",
+              "다른 블로그 복사/붙여넣기",
+              "광고성 링크 과다 삽입"
+            ],
+            "monetization": "애드센스 + 쿠팡파트너스 조합 추천"
+          },
+          "platformTitles": {
+            "naver": {
+              "title": "2025년 연말정산 총정리 | 핵심 정리 (12월 최신)",
+              "alternatives": [
+                "🚨 2025년 연말정산 총정리 | 핵심 정리 (12월 최신)",
+                "🚨 2025년 연말정산 | 네이버에서 바로 찾는 방법 (+체크리스트)",
+                "🚨 2025년 연말정산 상위노출 포인트 5개 | 제목/소제목 이렇게",
+                "🚨 2025년 연말정산 핵심 정리 | 핵심 정리",
+                "🚨 2025년 연말정산 5분 총정리 (12월 최신)"
+              ],
+              "subKeywords": [
+                "2025년 연말정산 핵심",
+                "2025년 연말정산 쉽게",
+                "2025년 연말정산 총정리"
+              ],
+              "tags": [
+                "2025년 연말정산",
+                "2025년 연말정산 핵심",
+                "2025년 연말정산 쉽게",
+                "2025년 연말정산 총정리",
+                "2025년 연말정산 꿀팁",
+                "2025년 연말정산 후기"
+              ],
+              "tip": "🚨 지금 바로 발행! 30분 내 작성 → 1시간 내 상위노출",
+              "hookPoint": "💡 복잡한 내용 쉽게 정리"
+            },
+            "tistory": {
+              "title": "[2025] 2025년 연말정산 완벽 정리 - 정보가 필요할 때 핵심 정리",
+              "alternatives": [
+                "🚨 [2025] 2025년 연말정산 완벽 정리 - 정보가 필요할 때 핵심 정리",
+                "🚨 [2025] 2025년 연말정산 정리 - 검색 유입 늘리는 구조",
+                "🚨 2025년 연말정산 SEO 글쓰기 템플릿 (H2/H3 포함)",
+                "🚨 2025년 연말정산 핵심 정리 | 핵심 정리",
+                "🚨 2025년 연말정산 5분 총정리 (12월 최신)"
+              ],
+              "subKeywords": [
+                "2025년 연말정산 기초",
+                "2025년 연말정산 개념",
+                "2025년 연말정산 예시"
+              ],
+              "tags": [
+                "2025년 연말정산",
+                "2025년 연말정산 기초",
+                "2025년 연말정산 개념",
+                "2025년 연말정산 예시",
+                "2025년 연말정산방법",
+                "2025년 연말정산정리"
+              ],
+              "tip": "🚨 즉시 발행 + 트위터/페북 공유 → 구글 빠른 색인",
+              "hookPoint": "🔍 핵심만 콕 집어서 설명"
+            },
+            "wordpress": {
+              "title": "2025년 연말정산: Complete Guide for 2025",
+              "alternatives": [
+                "🚨 2025년 연말정산: Complete Guide for 2025",
+                "🚨 2025년 연말정산 Guide (2025): Tips, Checklist & FAQ",
+                "🚨 2025년 연말정산: What to Know Before You Start",
+                "🚨 2025년 연말정산 핵심 정리 | 핵심 정리",
+                "🚨 2025년 연말정산 5분 총정리 (12월 최신)"
+              ],
+              "subKeywords": [
+                "complete guide",
+                "explained",
+                "basics"
+              ],
+              "tags": [
+                "2025년-연말정산",
+                "2025년-연말정산-tips",
+                "2025년-연말정산-guide",
+                "2025년-연말정산-2025"
+              ],
+              "tip": "🚨 Publish NOW + Submit to Google Search Console",
+              "hookPoint": "🌍 Everything you need to know"
+            },
+            "blogspot": {
+              "title": "2025년 연말정산 Explained Simply (2025)",
+              "alternatives": [
+                "🚨 2025년 연말정산 Explained Simply (2025)",
+                "🚨 2025년 연말정산 Explained (2025) - Quick Guide",
+                "🚨 2025년 연말정산: Key Facts & Tips",
+                "🚨 2025년 연말정산 핵심 정리 | 핵심 정리",
+                "🚨 2025년 연말정산 5분 총정리 (12월 최신)"
+              ],
+              "subKeywords": [
+                "simple guide",
+                "beginner",
+                "overview"
+              ],
+              "tags": [
+                "2025년-연말정산",
+                "2025년-연말정산-how-to",
+                "2025년-연말정산-best",
+                "2025년-연말정산-review"
+              ],
+              "tip": "🚨 Quick publish + Share on social media immediately",
+              "hookPoint": "📈 Quick and easy guide"
+            }
+          },
+          "expandedKeywords": {
+            "relatedGolden": [
+              "2025년 연말정산 뜻",
+              "2025년 연말정산 정리",
+              "2025년 연말정산 총정리"
+            ],
+            "longtailGolden": [
+              "2025년 연말정산 총정리",
+              "2025년 연말정산 핵심",
+              "2025년 연말정산 요약"
+            ],
+            "blueOceanGolden": [
+              "2025년 연말정산 꿀팁",
+              "2025년 연말정산 주의사항",
+              "2025년 연말정산 FAQ"
+            ]
+          },
+          "type": "🚀 타이밍키워드",
+          "category": "business",
+          "safetyLevel": "safe",
+          "safetyReason": "✅ 안전한 키워드. 신생 블로거도 작성 가능",
+          "source": "category_fallback",
+          "timestamp": "2025-12-20T06:52:04.057Z",
+          "trendAnalysis": {
+            "trendingReason": "국세청, 연말정산 혜택 관련 최근 이슈",
+            "whyNow": "최근 5개 이상의 뉴스에서 다뤄지며 이슈화 진행 중 • \"공개\" 관련 구체적 사건으로 실시간 관심 집중 • \"국세청, 연말정산 혜택 확대…자녀·주택·기부 공제 늘어\" 관련 최신 뉴스로 조기 진입 효과 기대",
+            "newsSource": "자동 분석"
+          },
+          "keywordGuide": {
+            "summary": "검색량 4,160, 문서수 62,865, 황금비율 0.07 | 🔴 진입 어려움 - 상위 블로거 독점 키워드 | 문서수 50,000개 이상 → 경쟁 치열 | 황금비율 1 미만 → 공급 과잉 | 중길이 키워드",
+            "whyItMovesNow": "국세청, 연말정산 혜택 관련 최근 이슈 / 최근 5개 이상의 뉴스에서 다뤄지며 이슈화 진행 중 • \"공개\" 관련 구체적 사건으로 실시간 관심 집중 • \"국세청, 연말정산 혜택 확대…자녀·주택·기부 공제 늘어\" 관련 최신 뉴스로 조기 진입 효과 기대",
+            "immediateTrafficPlan": [
+              "오늘 안에 바로 효과를 보는 글 구조로 작성하세요 (첫 3문단에 핵심 답 + 결론 요약).",
+              "제목/소제목에 \"2025년 연말정산\"를 자연스럽게 반복하고, 서브키워드 2~3개를 소제목으로 배치하세요.",
+              "발행 직후 30분 내 수정 1회(오탈자/이미지 추가)로 체류시간을 늘리세요.",
+              "이미지 5장 이상 + 표/체크리스트 1개를 넣어서 저장/스크랩을 유도하세요."
+            ],
+            "naverHomeExposureTips": [
+              "NOW/TODAY 키워드는 “오늘/방금/최신” 같은 신선도 단어를 제목 또는 첫 문단에 포함하세요.",
+              "첫 이미지(썸네일)는 텍스트 5~8자 + 대비 강하게(홈피드 CTR 상승).",
+              "상단 200자에 \"한 줄 요약\" + \"체크리스트\"를 넣어 저장/공유 시그널을 유도.",
+              "뉴스/이슈 키워드는 근거(출처 1~2개) + 내 경험/정리 50%로 구성(복붙 느낌 금지).",
+              "발행 후 1시간 내 댓글 유도 문장 1개 추가(반응 시그널)."
+            ]
+          },
+          "ultimateAnalysis": {
+            "timing": {
+              "seasonal": {
+                "peakMonths": [
+                  12,
+                  1,
+                  2
+                ],
+                "peakReason": "연말정산 시즌",
+                "currentSeasonScore": 100,
+                "nextPeakDate": "12월",
+                "daysUntilPeak": 711,
+                "recommendation": "🔥 지금이 피크 시즌입니다! 바로 작성하세요!",
+                "seasonalPattern": "seasonal"
+              },
+              "trend": {
+                "trendDirection": "falling",
+                "changeRate": 1,
+                "comparedTo": "전월 대비",
+                "explosiveScore": 1,
+                "relatedNews": [],
+                "recommendation": "📊 안정적인 키워드입니다."
+              },
+              "alert": {
+                "optimalPublishDate": "오늘",
+                "reason": "🔥 지금이 피크 시즌입니다! 바로 작성하세요!",
+                "urgencyLevel": "🔥 지금 당장",
+                "expectedPeakDate": "12월",
+                "competitorActivity": "경쟁자 많음"
+              }
+            },
+            "revenue": {
+              "cpc": {
+                "estimatedCpc": 100,
+                "cpcRange": {
+                  "min": 50,
+                  "max": 200
+                },
+                "cpcTier": "🥉 저수익",
+                "industryAverage": 100,
+                "recommendation": "📝 일반적인 수익 구조입니다. 트래픽 확보에 집중하세요."
+              },
+              "affiliate": {
+                "recommendedPrograms": [
+                  {
+                    "name": "쿠팡파트너스",
+                    "type": "coupang",
+                    "commissionRate": "3~5%",
+                    "estimatedEarningPerClick": 50,
+                    "matchScore": 100
+                  },
+                  {
+                    "name": "네이버 쇼핑",
+                    "type": "naver",
+                    "commissionRate": "1~3%",
+                    "estimatedEarningPerClick": 30,
+                    "matchScore": 85
+                  }
+                ],
+                "bestMatch": "쿠팡파트너스",
+                "potentialProducts": [
+                  "2025년 연말정산 추천",
+                  "2025년 연말정산 순위",
+                  "2025년 연말정산 비교",
+                  "2025년 연말정산 후기",
+                  "2025년 연말정산 가격",
+                  "2025년 연말정산 구매"
+                ]
+              },
+              "projection": {
+                "estimatedDailyVisitors": 4,
+                "estimatedMonthlyVisitors": 120,
+                "adsenseRevenue": {
+                  "daily": 12,
+                  "monthly": 360,
+                  "assumptions": "CPC 100원, CTR 2%, 페이지뷰율 1.5 가정"
+                },
+                "affiliateRevenue": {
+                  "daily": 1,
+                  "monthly": 30,
+                  "conversionRate": 3,
+                  "assumptions": "클릭률 10%, 전환율 3%, 평균 수수료 50원 가정"
+                },
+                "totalMonthlyRevenue": 390,
+                "revenueBreakdown": "애드센스 92% + 제휴 8%",
+                "revenueTier": "📝 월 1만원+"
+              }
+            },
+            "content": {
+              "titles": {
+                "titles": [
+                  {
+                    "title": "2025년 연말정산 추천 TOP 10 (2025년 최신)",
+                    "type": "number",
+                    "estimatedCTR": 8.5,
+                    "psychologyUsed": "숫자 + 최신 정보"
+                  },
+                  {
+                    "title": "2025년 연말정산 하는 법, 초보자도 쉽게 따라하기",
+                    "type": "how-to",
+                    "estimatedCTR": 7.5,
+                    "psychologyUsed": "실용성 + 접근성"
+                  },
+                  {
+                    "title": "2025년 연말정산, 이것만 알면 끝! 완벽 가이드",
+                    "type": "benefit",
+                    "estimatedCTR": 7.2,
+                    "psychologyUsed": "완결성 + 가치 제안"
+                  },
+                  {
+                    "title": "[2025년] 2025년 연말정산 총정리 (+ 꿀팁 공개)",
+                    "type": "news",
+                    "estimatedCTR": 7,
+                    "psychologyUsed": "최신성 + 보너스 가치"
+                  },
+                  {
+                    "title": "아직도 2025년 연말정산 몰라요? 지금 당장 확인하세요",
+                    "type": "curiosity",
+                    "estimatedCTR": 6.8,
+                    "psychologyUsed": "호기심 + 긴급성"
+                  },
+                  {
+                    "title": "2025년 연말정산 실제 후기 (장단점 솔직 비교)",
+                    "type": "comparison",
+                    "estimatedCTR": 6.5,
+                    "psychologyUsed": "신뢰성 + 비교 심리"
+                  }
+                ],
+                "bestTitle": "2025년 연말정산 추천 TOP 10 (2025년 최신)",
+                "titleFormula": "숫자 + 키워드 + 최신연도 + 가치제안"
+              },
+              "structure": {
+                "recommendedStructure": {
+                  "intro": {
+                    "purpose": "독자의 관심 끌기 + 키워드 자연스럽게 배치",
+                    "template": "\"2025년 연말정산\"에 대해 고민하고 계신가요? 이 글에서 핵심 정보를 모두 정리해드립니다.",
+                    "keywordPlacement": "첫 문장에 키워드 포함"
+                  },
+                  "sections": [
+                    {
+                      "heading": "2025년 연말정산란? (기본 개념)",
+                      "purpose": "기초 정보 제공",
+                      "contentGuide": "핵심 정의, 중요성, 왜 알아야 하는지 설명",
+                      "recommendedLength": 300,
+                      "keywordUsage": "소제목과 본문에 1~2회"
+                    },
+                    {
+                      "heading": "2025년 연말정산 추천 BEST 5",
+                      "purpose": "실질적인 가치 제공 (핵심 섹션)",
+                      "contentGuide": "순위별 상세 설명, 장단점, 추천 이유",
+                      "recommendedLength": 800,
+                      "keywordUsage": "각 항목 설명에 자연스럽게 포함"
+                    },
+                    {
+                      "heading": "2025년 연말정산 선택 시 주의사항",
+                      "purpose": "신뢰도 향상",
+                      "contentGuide": "흔한 실수, 피해야 할 것, 체크리스트",
+                      "recommendedLength": 400,
+                      "keywordUsage": "주의사항 설명에 1~2회"
+                    },
+                    {
+                      "heading": "자주 묻는 질문 (FAQ)",
+                      "purpose": "SEO 강화 + 체류시간 증가",
+                      "contentGuide": "실제 검색되는 질문 5개 + 명확한 답변",
+                      "recommendedLength": 500,
+                      "keywordUsage": "질문에 롱테일 키워드 활용"
+                    }
+                  ],
+                  "conclusion": {
+                    "purpose": "요약 + CTA",
+                    "template": "지금까지 2025년 연말정산에 대해 알아봤습니다. 도움이 되셨다면 공유해주세요!",
+                    "ctaRecommendation": "댓글, 공유, 관련 글 링크 유도"
+                  }
+                },
+                "seoChecklist": [
+                  {
+                    "item": "제목에 키워드 포함",
+                    "importance": "critical",
+                    "howTo": "제목 앞부분에 메인 키워드 배치"
+                  },
+                  {
+                    "item": "첫 문단에 키워드",
+                    "importance": "critical",
+                    "howTo": "첫 100자 내 키워드 자연스럽게 삽입"
+                  },
+                  {
+                    "item": "소제목 H2/H3 활용",
+                    "importance": "high",
+                    "howTo": "3~5개 소제목, 키워드 변형 사용"
+                  },
+                  {
+                    "item": "이미지 ALT 태그",
+                    "importance": "high",
+                    "howTo": "모든 이미지에 키워드 포함 설명"
+                  },
+                  {
+                    "item": "내부링크 2개 이상",
+                    "importance": "medium",
+                    "howTo": "관련 글 자연스럽게 연결"
+                  },
+                  {
+                    "item": "3000자 이상 작성",
+                    "importance": "high",
+                    "howTo": "충분한 깊이의 콘텐츠 제공"
+                  }
+                ],
+                "totalRecommendedLength": 3000,
+                "estimatedWriteTime": 90
+              },
+              "images": {
+                "mainImage": {
+                  "searchKeyword": "2025년 연말정산 대표이미지",
+                  "style": "깔끔한 인포그래픽 또는 고화질 사진",
+                  "source": [
+                    "Unsplash",
+                    "Pixabay",
+                    "직접 제작"
+                  ],
+                  "altText": "2025년 연말정산 완벽 가이드 대표 이미지"
+                },
+                "sectionImages": [
+                  {
+                    "section": "기본 개념",
+                    "searchKeyword": "2025년 연말정산 설명",
+                    "purpose": "이해 돕기",
+                    "style": "다이어그램"
+                  },
+                  {
+                    "section": "TOP 5",
+                    "searchKeyword": "2025년 연말정산 비교",
+                    "purpose": "시각적 비교",
+                    "style": "비교표"
+                  },
+                  {
+                    "section": "주의사항",
+                    "searchKeyword": "주의 아이콘",
+                    "purpose": "강조",
+                    "style": "아이콘"
+                  }
+                ],
+                "infographicIdeas": [
+                  "2025년 연말정산 선택 가이드 플로우차트",
+                  "2025년 연말정산 TOP 5 비교표",
+                  "2025년 연말정산 체크리스트"
+                ],
+                "totalRecommendedImages": 7,
+                "imageStrategy": "섹션당 1~2개, 총 7~10개 이미지로 가독성과 체류시간 향상"
+              }
+            },
+            "ultimateScore": {
+              "total": 41,
+              "breakdown": {
+                "goldenRatio": 0.6617354648850713,
+                "timing": 100,
+                "revenue": 40,
+                "competition": 40,
+                "potential": 45
+              },
+              "grade": "📝 C",
+              "verdict": "⚠️ 신중히 검토 필요",
+              "topActions": [
+                "지금 바로 글 작성 시작!",
+                "2025년 연말정산 추천 TOP 10 (2025년 최신)",
+                "3000자 이상, 7개 이미지 권장"
+              ]
+            }
+          }
+        }
+      ],
+      "attempts": 1,
+      "durationMs": 40424
+    },
+    {
+      "success": false,
+      "category": "health",
+      "mode": "realtime",
+      "explosionMode": true,
+      "count": 20,
+      "summary": {
+        "totalFound": 0,
+        "sssCount": 0,
+        "ssCount": 0,
+        "sCount": 0,
+        "rookieFriendlyCount": 0,
+        "urgentCount": 0,
+        "blueOceanCount": 0
+      },
+      "keywords": [],
+      "attempts": 1,
+      "durationMs": 52229
+    }
+  ]
+}

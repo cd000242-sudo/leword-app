@@ -1,0 +1,328 @@
+{
+  "generatedAt": "2025-12-27T13:12:10.222Z",
+  "mode": "category",
+  "explosionMode": true,
+  "count": 5,
+  "timeoutMs": 240000,
+  "retries": 0,
+  "results": [
+    {
+      "success": false,
+      "category": "business",
+      "runIndex": 1,
+      "mode": "category",
+      "explosionMode": true,
+      "count": 5,
+      "error": "timeout",
+      "attempts": 1,
+      "durationMs": 240030
+    },
+    {
+      "success": false,
+      "category": "business",
+      "runIndex": 2,
+      "mode": "category",
+      "explosionMode": true,
+      "count": 5,
+      "error": "timeout",
+      "attempts": 1,
+      "durationMs": 240011
+    },
+    {
+      "success": false,
+      "category": "business",
+      "runIndex": 3,
+      "mode": "category",
+      "explosionMode": true,
+      "count": 5,
+      "error": "timeout",
+      "attempts": 1,
+      "durationMs": 240016
+    },
+    {
+      "success": false,
+      "category": "self_development",
+      "runIndex": 1,
+      "mode": "category",
+      "explosionMode": true,
+      "count": 5,
+      "error": "timeout",
+      "attempts": 1,
+      "durationMs": 240010
+    },
+    {
+      "success": false,
+      "category": "self_development",
+      "runIndex": 2,
+      "mode": "category",
+      "explosionMode": true,
+      "count": 5,
+      "error": "timeout",
+      "attempts": 1,
+      "durationMs": 240011
+    },
+    {
+      "success": false,
+      "category": "self_development",
+      "runIndex": 3,
+      "mode": "category",
+      "explosionMode": true,
+      "count": 5,
+      "error": "timeout",
+      "attempts": 1,
+      "durationMs": 240020
+    },
+    {
+      "success": false,
+      "category": "celeb",
+      "runIndex": 1,
+      "mode": "category",
+      "explosionMode": true,
+      "count": 5,
+      "summary": {
+        "totalFound": 0,
+        "sssCount": 0,
+        "ssCount": 0,
+        "sCount": 0,
+        "rookieFriendlyCount": 0,
+        "urgentCount": 0,
+        "blueOceanCount": 0,
+        "explosionFunnel": {
+          "candidates": 0,
+          "verified": 0,
+          "gradeOk": 0,
+          "ratioOk": 0,
+          "docOk": 0,
+          "svOk": 0,
+          "strictOk": 0,
+          "minSv": 30,
+          "internalMetrics": {
+            "seedCount": 140,
+            "allKeywordsCount": 286,
+            "profitableCount": 77,
+            "uniqueKeywordsCount": 71,
+            "sortedResultsCount": 71,
+            "verifiedResultsCount": 0,
+            "searchAdEnabled": true,
+            "searchAdAdded": 82,
+            "autocompleteAdded": 69
+          },
+          "topByExplosion": []
+        }
+      },
+      "keywords": [],
+      "attempts": 1,
+      "durationMs": 123278
+    },
+    {
+      "success": false,
+      "category": "celeb",
+      "runIndex": 2,
+      "mode": "category",
+      "explosionMode": true,
+      "count": 5,
+      "summary": {
+        "totalFound": 0,
+        "sssCount": 0,
+        "ssCount": 0,
+        "sCount": 0,
+        "rookieFriendlyCount": 0,
+        "urgentCount": 0,
+        "blueOceanCount": 0,
+        "explosionFunnel": {
+          "candidates": 0,
+          "verified": 0,
+          "gradeOk": 0,
+          "ratioOk": 0,
+          "docOk": 0,
+          "svOk": 0,
+          "strictOk": 0,
+          "minSv": 30,
+          "internalMetrics": {
+            "seedCount": 140,
+            "allKeywordsCount": 278,
+            "profitableCount": 78,
+            "uniqueKeywordsCount": 73,
+            "sortedResultsCount": 73,
+            "verifiedResultsCount": 0,
+            "searchAdEnabled": true,
+            "searchAdAdded": 83,
+            "autocompleteAdded": 61
+          },
+          "topByExplosion": []
+        }
+      },
+      "keywords": [],
+      "attempts": 1,
+      "durationMs": 122513
+    },
+    {
+      "success": false,
+      "category": "celeb",
+      "runIndex": 3,
+      "mode": "category",
+      "explosionMode": true,
+      "count": 5,
+      "summary": {
+        "totalFound": 0,
+        "sssCount": 0,
+        "ssCount": 0,
+        "sCount": 0,
+        "rookieFriendlyCount": 0,
+        "urgentCount": 0,
+        "blueOceanCount": 0,
+        "explosionFunnel": {
+          "candidates": 0,
+          "verified": 0,
+          "gradeOk": 0,
+          "ratioOk": 0,
+          "docOk": 0,
+          "svOk": 0,
+          "strictOk": 0,
+          "minSv": 30,
+          "internalMetrics": {
+            "seedCount": 140,
+            "allKeywordsCount": 396,
+            "profitableCount": 97,
+            "uniqueKeywordsCount": 78,
+            "sortedResultsCount": 78,
+            "verifiedResultsCount": 0,
+            "searchAdEnabled": true,
+            "searchAdAdded": 203,
+            "autocompleteAdded": 60
+          },
+          "topByExplosion": []
+        }
+      },
+      "keywords": [],
+      "attempts": 1,
+      "durationMs": 123923
+    },
+    {
+      "success": false,
+      "category": "fashion",
+      "runIndex": 1,
+      "mode": "category",
+      "explosionMode": true,
+      "count": 5,
+      "summary": {
+        "totalFound": 0,
+        "sssCount": 0,
+        "ssCount": 0,
+        "sCount": 0,
+        "rookieFriendlyCount": 0,
+        "urgentCount": 0,
+        "blueOceanCount": 0,
+        "explosionFunnel": {
+          "candidates": 0,
+          "verified": 0,
+          "gradeOk": 0,
+          "ratioOk": 0,
+          "docOk": 0,
+          "svOk": 0,
+          "strictOk": 0,
+          "minSv": 30,
+          "internalMetrics": {
+            "seedCount": 130,
+            "allKeywordsCount": 291,
+            "profitableCount": 151,
+            "uniqueKeywordsCount": 144,
+            "sortedResultsCount": 144,
+            "verifiedResultsCount": 0,
+            "searchAdEnabled": true,
+            "searchAdAdded": 89,
+            "autocompleteAdded": 78
+          },
+          "topByExplosion": []
+        }
+      },
+      "keywords": [],
+      "attempts": 1,
+      "durationMs": 228599
+    },
+    {
+      "success": false,
+      "category": "fashion",
+      "runIndex": 2,
+      "mode": "category",
+      "explosionMode": true,
+      "count": 5,
+      "summary": {
+        "totalFound": 0,
+        "sssCount": 0,
+        "ssCount": 0,
+        "sCount": 0,
+        "rookieFriendlyCount": 0,
+        "urgentCount": 0,
+        "blueOceanCount": 0,
+        "explosionFunnel": {
+          "candidates": 0,
+          "verified": 0,
+          "gradeOk": 0,
+          "ratioOk": 0,
+          "docOk": 0,
+          "svOk": 0,
+          "strictOk": 0,
+          "minSv": 30,
+          "internalMetrics": {
+            "seedCount": 130,
+            "allKeywordsCount": 291,
+            "profitableCount": 151,
+            "uniqueKeywordsCount": 144,
+            "sortedResultsCount": 144,
+            "verifiedResultsCount": 0,
+            "searchAdEnabled": true,
+            "searchAdAdded": 89,
+            "autocompleteAdded": 78
+          },
+          "topByExplosion": []
+        }
+      },
+      "keywords": [],
+      "attempts": 1,
+      "durationMs": 228387
+    },
+    {
+      "success": false,
+      "category": "fashion",
+      "runIndex": 3,
+      "mode": "category",
+      "explosionMode": true,
+      "count": 5,
+      "summary": {
+        "totalFound": 0,
+        "sssCount": 0,
+        "ssCount": 0,
+        "sCount": 0,
+        "rookieFriendlyCount": 0,
+        "urgentCount": 0,
+        "blueOceanCount": 0,
+        "explosionFunnel": {
+          "candidates": 0,
+          "verified": 0,
+          "gradeOk": 0,
+          "ratioOk": 0,
+          "docOk": 0,
+          "svOk": 0,
+          "strictOk": 0,
+          "minSv": 30,
+          "internalMetrics": {
+            "seedCount": 130,
+            "allKeywordsCount": 322,
+            "profitableCount": 135,
+            "uniqueKeywordsCount": 135,
+            "sortedResultsCount": 135,
+            "verifiedResultsCount": 0,
+            "searchAdEnabled": true,
+            "searchAdAdded": 122,
+            "autocompleteAdded": 76
+          },
+          "topByExplosion": []
+        }
+      },
+      "keywords": [],
+      "attempts": 1,
+      "durationMs": 227371
+    }
+  ]
+}

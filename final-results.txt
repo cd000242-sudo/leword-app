@@ -1,0 +1,105 @@
+﻿
+========== Instant Niche Finder FINAL 테스트 ==========
+
+[ENV] 일반 환경 경로 사용: C:\Users\박성현\AppData\Roaming
+[ENV] Config 파일 경로: C:\Users\박성현\AppData\Roaming\config.json
+[ENV] 사용자 데이터 디렉토리 .env 파일에서 설정 로드: C:\Users\박성현\AppData\Roaming\blogger-gpt-cli\.env
+[ENV] ✅ config.json 파일 내용 로드 성공: {
+  filePath: 'C:\\Users\\박성현\\AppData\\Roaming\\config.json',
+  fileSize: 1117,
+  hasSearchAdLicense: true,
+  hasSearchAdSecret: true,
+  hasSearchAdCustomerId: true,
+  licenseLength: 74,
+  secretLength: 52,
+  customerIdLength: 7,
+  customerIdValue: '3992868',
+  allKeys: [
+    'openaiApiKey',
+    'geminiApiKey',
+    'pexelsApiKey',
+    'dalleApiKey',
+    'naverClientId',
+    'naverClientSecret',
+    'naverSearchAdAccessLicense',
+    'naverSearchAdSecretKey',
+    'naverSearchAdCustomerId',
+    'googleApiKey',
+    'googleCseId',
+    'youtubeApiKey',
+    'massCrawlingEnabled',
+    'maxConcurrentRequests',
+    'maxResultsPerSource',
+    'enableFullContentCrawling'
+  ]
+}
+[ENV] ✅ config.json에서 설정 로드 완료: C:\Users\박성현\AppData\Roaming\config.json
+[ENV] ✅ 최종 설정 상태: {
+  naverClientId: '✅ (20자)',
+  naverClientSecret: '✅ (10자)',
+  youtubeApiKey: '✅ (39자)',
+  naverSearchAdAccessLicense: '✅ (74자)',
+  naverSearchAdSecretKey: '✅ (52자)',
+  naverSearchAdCustomerId: '✅ (7자) [3992868]',
+  source: 'config.json'
+}
+[INSTANT-FINAL] 1단계: 키워드 수집...
+[INSTANT-FINAL] 수집: 20개
+[INSTANT-FINAL] 2단계: API로 메트릭 조회...
+[NAVER-VOLUME] ✅ 블로그 검색 API "로봇청소기": 문서수=552019
+[NAVER-VOLUME] ✅ 검색광고 API "로봇청소기" (원본: "로봇청소기"): PC=24400, 모바일=103900
+[NAVER-VOLUME] ✅ 검색광고 API "로봇청소기중고" (원본: "로봇청소기중고"): PC=90, 모바일=860
+[NAVER-VOLUME] ✅ 블로그 검색 API "로봇청소기중고": 문서수=12298
+[NAVER-VOLUME] ✅ 블로그 검색 API "로봇청소기문턱": 문서수=21682
+[NAVER-VOLUME] ✅ 검색광고 API "로봇청소기문턱" (원본: "로봇청소기문턱"): PC=470, 모바일=2860
+[NAVER-VOLUME] ✅ 검색광고 API "로봇청소기추천순위" (원본: "로봇청소기 추천 순위"): PC=270, 모바일=990
+[NAVER-VOLUME] ✅ 블로그 검색 API "로봇청소기 추천 순위": 문서수=7100
+[NAVER-VOLUME] ✅ 블로그 검색 API "로봇청소기 추천": 문서수=186098
+[NAVER-VOLUME] ✅ 검색광고 API "로봇청소기추천" (원본: "로봇청소기 추천"): PC=3210, 모바일=12200
+[NAVER-VOLUME] ✅ 검색광고 API "로봇청소기가성비" (원본: "로봇청소기 가성비"): PC=70, 모바일=230
+[NAVER-VOLUME] ✅ 블로그 검색 API "로봇청소기 가성비": 문서수=71749
+[NAVER-VOLUME] ✅ 검색광고 API "로봇청소기가성비순위" (원본: "로봇청소기 가성비 순위"): PC=10, 모바일=50
+[NAVER-VOLUME] ✅ 블로그 검색 API "로봇청소기 가성비 순위": 문서수=3448
+[NAVER-VOLUME] ✅ 블로그 검색 API "로봇청소기 순위": 문서수=15390
+[NAVER-VOLUME] ✅ 검색광고 API "로봇청소기순위" (원본: "로봇청소기 순위"): PC=400, 모바일=1290
+[NAVER-VOLUME] ✅ 블로그 검색 API "청년지원금": 문서수=365638
+[NAVER-VOLUME] ✅ 검색광고 API "청년지원금" (원본: "청년지원금"): PC=7660, 모바일=29900
+[NAVER-VOLUME] ✅ 검색광고 API "청년지원금신청" (원본: "청년지원금 신청"): PC=640, 모바일=4180
+[NAVER-VOLUME] ✅ 블로그 검색 API "청년지원금 신청": 문서수=241960
+[NAVER-VOLUME] ✅ 검색광고 API "청년지원금경기도" (원본: "청년지원금 경기도"): PC=180, 모바일=890
+[NAVER-VOLUME] ✅ 블로그 검색 API "청년지원금 경기도": 문서수=41004
+[NAVER-VOLUME] ✅ 블로그 검색 API "에어프라이어 고구마": 문서수=166101
+[NAVER-VOLUME] ✅ 검색광고 API "에어프라이어고구마" (원본: "에어프라이어 고구마"): PC=1760, 모바일=30400
+[NAVER-VOLUME] ✅ 블로그 검색 API "에어프라이어": 문서수=1365422
+[NAVER-VOLUME] ✅ 검색광고 API "에어프라이어" (원본: "에어프라이어"): PC=23100, 모바일=156700
+[NAVER-VOLUME] ✅ 블로그 검색 API "에어프라이어 추천": 문서수=515047
+[NAVER-VOLUME] ✅ 검색광고 API "에어프라이어추천" (원본: "에어프라이어 추천"): PC=2690, 모바일=14400
+[NAVER-VOLUME] ✅ 검색광고 API "에어프라이어추천내돈내산" (원본: "에어프라이어 추천 내돈내산"): PC=90, 모바일=340
+[NAVER-VOLUME] ✅ 블로그 검색 API "에어프라이어 추천 내돈내산": 문서수=46311
+[NAVER-VOLUME] ✅ 검색광고 API "에어프라이어가성비" (원본: "에어프라이어 가성비"): PC=20, 모바일=60
+[NAVER-VOLUME] ✅ 블로그 검색 API "에어프라이어 가성비": 문서수=129438
+[NAVER-VOLUME] ✅ 검색광고 API "에어프라이어순위" (원본: "에어프라이어 순위"): PC=60, 모바일=260
+[NAVER-VOLUME] ✅ 블로그 검색 API "에어프라이어 순위": 문서수=15826
+[NAVER-VOLUME] ✅ 검색광고 API "민생지원금3차" (원본: "민생지원금 3차"): PC=10100, 모바일=108600
+[NAVER-VOLUME] ✅ 블로그 검색 API "민생지원금 3차": 문서수=6383
+[NAVER-VOLUME] ✅ 검색광고 API "민생지원금" (원본: "민생지원금"): PC=0, 모바일=10
+[NAVER-VOLUME] ✅ 블로그 검색 API "민생지원금": 문서수=274030
+[NAVER-VOLUME] ✅ 블로그 검색 API "민생지원금 사용기간": 문서수=55900
+[INSTANT-FINAL] 3단계: 틈새 분석...
+[INSTANT-FINAL] ✅ 완료: 1개 틈새 키워드 (13420ms)
+
+🎯 1개 틈새 키워드 발굴!
+
+   총 발견: 20개
+   메트릭 조회: 20개
+   틈새 필터: 1개
+   소요시간: 13420ms
+
+1. 💰 "민생지원금 3차"
+   💰 꿀통! 검색량 118,700 (비율 18.6)
+   검색량: 118,700 (PC 10100 + Mobile 108600)
+   문서수: 6,383 | 비율: 18.6 | CPC: 150원
+   점수: 100 | 카테고리: policy
+
+========== 테스트 완료 ==========
+

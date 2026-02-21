@@ -1,0 +1,59 @@
+{
+  "results": [
+    {
+      "iteration": 1,
+      "timestamp": "2025-12-31T23:11:49.775Z",
+      "keywords": [
+        {
+          "keyword": "에스파시즌그리팅",
+          "grade": "S",
+          "searchVolume": 540,
+          "documentCount": 703,
+          "goldenRatio": 0.7681365576102418
+        },
+        {
+          "keyword": "르세라핌",
+          "grade": "B",
+          "searchVolume": 110700,
+          "documentCount": 140755,
+          "goldenRatio": 0.7864729494511741
+        },
+        {
+          "keyword": "에스파",
+          "grade": "B",
+          "searchVolume": 165800,
+          "documentCount": 252218,
+          "goldenRatio": 0.657367832589268
+        },
+        {
+          "keyword": "유퀴즈",
+          "grade": "B",
+          "searchVolume": 175200,
+          "documentCount": 357556,
+          "goldenRatio": 0.48999317589412567
+        },
+        {
+          "keyword": "장원영포카",
+          "grade": "B",
+          "searchVolume": 530,
+          "documentCount": 3053,
+          "goldenRatio": 0.17359973796265968
+        }
+      ],
+      "stats": {
+        "sssCount": 0,
+        "ssCount": 0,
+        "sCount": 1,
+        "avgGoldenRatio": 0.32,
+        "maxGoldenRatio": 0.79
+      }
+    }
+  ],
+  "summary": {
+    "totalSss": 0,
+    "totalKeywords": 10,
+    "sssRate": 0,
+    "allSssKeywords": [],
+    "score": 0
+  }
+}

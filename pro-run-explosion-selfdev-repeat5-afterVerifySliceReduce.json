@@ -1,0 +1,455 @@
+{
+  "generatedAt": "2025-12-25T10:21:59.758Z",
+  "mode": "category",
+  "explosionMode": true,
+  "count": 5,
+  "timeoutMs": 240000,
+  "retries": 0,
+  "results": [
+    {
+      "success": true,
+      "category": "self_development",
+      "runIndex": 1,
+      "mode": "category",
+      "explosionMode": true,
+      "count": 5,
+      "summary": {
+        "totalFound": 5,
+        "sssCount": 1,
+        "ssCount": 1,
+        "sCount": 3,
+        "rookieFriendlyCount": 2,
+        "urgentCount": 0,
+        "blueOceanCount": 1,
+        "explosionFunnel": {
+          "candidates": 187,
+          "verified": 187,
+          "gradeOk": 5,
+          "ratioOk": 5,
+          "docOk": 162,
+          "svOk": 35,
+          "strictOk": 5,
+          "minSv": 500,
+          "internalMetrics": {
+            "seedCount": 170,
+            "allKeywordsCount": 966,
+            "profitableCount": 208,
+            "uniqueKeywordsCount": 208,
+            "sortedResultsCount": 208,
+            "verifiedResultsCount": 75,
+            "searchAdEnabled": true,
+            "searchAdAdded": 221,
+            "autocompleteAdded": 586
+          },
+          "topByExplosion": [
+            "토익 점수 환산기 | grade=SSS gr=2.8986272439281944 sv=5490 dc=1894 src=토익 점수(0) ex=65",
+            "토익 점수 계산기 | grade=S gr=0.8655490933971947 sv=2530 dc=2923 src=토익 점수(0) ex=65",
+            "ADSP 독학 | grade=A gr=0.4272604182337897 sv=2840 dc=6647 src=seed(0) ex=65",
+            "노션 템플릿 | grade=A gr=0.30855688686247484 sv=8730 dc=28293 src=seed(0) ex=65",
+            "SQLD 독학 | grade=A gr=0.30390738060781475 sv=1260 dc=4146 src=seed(0) ex=65"
+          ]
+        }
+      },
+      "keywords": [
+        {
+          "keyword": "토익 점수 환산기",
+          "grade": "SSS",
+          "searchVolume": 5490,
+          "documentCount": 1894,
+          "goldenRatio": 2.8986272439281944,
+          "source": "토익 점수"
+        },
+        {
+          "keyword": "토익 점수 계산기",
+          "grade": "SS",
+          "searchVolume": 2530,
+          "documentCount": 2923,
+          "goldenRatio": 0.8655490933971947,
+          "source": "토익 점수"
+        },
+        {
+          "keyword": "ADSP 독학",
+          "grade": "S",
+          "searchVolume": 2840,
+          "documentCount": 6647,
+          "goldenRatio": 0.4272604182337897,
+          "source": "seed"
+        },
+        {
+          "keyword": "노션 템플릿",
+          "grade": "S",
+          "searchVolume": 8730,
+          "documentCount": 28293,
+          "goldenRatio": 0.30855688686247484,
+          "source": "seed"
+        },
+        {
+          "keyword": "SQLD 독학",
+          "grade": "S",
+          "searchVolume": 1260,
+          "documentCount": 4146,
+          "goldenRatio": 0.30390738060781475,
+          "source": "seed"
+        }
+      ],
+      "attempts": 1,
+      "durationMs": 211415
+    },
+    {
+      "success": true,
+      "category": "self_development",
+      "runIndex": 2,
+      "mode": "category",
+      "explosionMode": true,
+      "count": 5,
+      "summary": {
+        "totalFound": 5,
+        "sssCount": 1,
+        "ssCount": 1,
+        "sCount": 3,
+        "rookieFriendlyCount": 2,
+        "urgentCount": 0,
+        "blueOceanCount": 1,
+        "explosionFunnel": {
+          "candidates": 195,
+          "verified": 195,
+          "gradeOk": 7,
+          "ratioOk": 7,
+          "docOk": 165,
+          "svOk": 37,
+          "strictOk": 6,
+          "minSv": 500,
+          "internalMetrics": {
+            "seedCount": 170,
+            "allKeywordsCount": 1047,
+            "profitableCount": 217,
+            "uniqueKeywordsCount": 217,
+            "sortedResultsCount": 217,
+            "verifiedResultsCount": 83,
+            "searchAdEnabled": true,
+            "searchAdAdded": 576,
+            "autocompleteAdded": 315
+          },
+          "topByExplosion": [
+            "adsp 독학 책 | grade=SSS gr=5.294117647058823 sv=90 dc=17 src=ADSP 독학(0) ex=46",
+            "토익 점수 환산기 | grade=SSS gr=2.8986272439281944 sv=5490 dc=1894 src=토익 점수(0) ex=65",
+            "토익 점수 계산기 | grade=S gr=0.8655490933971947 sv=2530 dc=2923 src=토익 점수(0) ex=65",
+            "ADSP 독학 | grade=A gr=0.4272604182337897 sv=2840 dc=6647 src=seed(0) ex=65",
+            "adsp 독학 | grade=A gr=0.4272604182337897 sv=2840 dc=6647 src=ADSP 독학(0) ex=65"
+          ]
+        }
+      },
+      "keywords": [
+        {
+          "keyword": "토익 점수 환산기",
+          "grade": "SSS",
+          "searchVolume": 5490,
+          "documentCount": 1894,
+          "goldenRatio": 2.8986272439281944,
+          "source": "토익 점수"
+        },
+        {
+          "keyword": "토익 점수 계산기",
+          "grade": "SS",
+          "searchVolume": 2530,
+          "documentCount": 2923,
+          "goldenRatio": 0.8655490933971947,
+          "source": "토익 점수"
+        },
+        {
+          "keyword": "adsp 독학",
+          "grade": "S",
+          "searchVolume": 2840,
+          "documentCount": 6647,
+          "goldenRatio": 0.4272604182337897,
+          "source": "ADSP 독학"
+        },
+        {
+          "keyword": "ADSP 독학",
+          "grade": "S",
+          "searchVolume": 2840,
+          "documentCount": 6647,
+          "goldenRatio": 0.4272604182337897,
+          "source": "seed"
+        },
+        {
+          "keyword": "노션 템플릿",
+          "grade": "S",
+          "searchVolume": 8730,
+          "documentCount": 28293,
+          "goldenRatio": 0.30855688686247484,
+          "source": "seed"
+        }
+      ],
+      "attempts": 1,
+      "durationMs": 228343
+    },
+    {
+      "success": true,
+      "category": "self_development",
+      "runIndex": 3,
+      "mode": "category",
+      "explosionMode": true,
+      "count": 5,
+      "summary": {
+        "totalFound": 5,
+        "sssCount": 1,
+        "ssCount": 1,
+        "sCount": 3,
+        "rookieFriendlyCount": 2,
+        "urgentCount": 0,
+        "blueOceanCount": 1,
+        "explosionFunnel": {
+          "candidates": 169,
+          "verified": 169,
+          "gradeOk": 5,
+          "ratioOk": 5,
+          "docOk": 146,
+          "svOk": 33,
+          "strictOk": 5,
+          "minSv": 500,
+          "internalMetrics": {
+            "seedCount": 170,
+            "allKeywordsCount": 808,
+            "profitableCount": 189,
+            "uniqueKeywordsCount": 189,
+            "sortedResultsCount": 189,
+            "verifiedResultsCount": 69,
+            "searchAdEnabled": true,
+            "searchAdAdded": 369,
+            "autocompleteAdded": 280
+          },
+          "topByExplosion": [
+            "토익 점수 환산기 | grade=SSS gr=2.8986272439281944 sv=5490 dc=1894 src=토익 점수(0) ex=65",
+            "토익 점수 계산기 | grade=S gr=0.8655490933971947 sv=2530 dc=2923 src=토익 점수(0) ex=65",
+            "ADSP 독학 | grade=A gr=0.4272604182337897 sv=2840 dc=6647 src=seed(0) ex=65",
+            "노션 템플릿 | grade=A gr=0.30855688686247484 sv=8730 dc=28293 src=seed(0) ex=65",
+            "SQLD 독학 | grade=A gr=0.30390738060781475 sv=1260 dc=4146 src=seed(0) ex=65"
+          ]
+        }
+      },
+      "keywords": [
+        {
+          "keyword": "토익 점수 환산기",
+          "grade": "SSS",
+          "searchVolume": 5490,
+          "documentCount": 1894,
+          "goldenRatio": 2.8986272439281944,
+          "source": "토익 점수"
+        },
+        {
+          "keyword": "토익 점수 계산기",
+          "grade": "SS",
+          "searchVolume": 2530,
+          "documentCount": 2923,
+          "goldenRatio": 0.8655490933971947,
+          "source": "토익 점수"
+        },
+        {
+          "keyword": "ADSP 독학",
+          "grade": "S",
+          "searchVolume": 2840,
+          "documentCount": 6647,
+          "goldenRatio": 0.4272604182337897,
+          "source": "seed"
+        },
+        {
+          "keyword": "노션 템플릿",
+          "grade": "S",
+          "searchVolume": 8730,
+          "documentCount": 28293,
+          "goldenRatio": 0.30855688686247484,
+          "source": "seed"
+        },
+        {
+          "keyword": "SQLD 독학",
+          "grade": "S",
+          "searchVolume": 1260,
+          "documentCount": 4146,
+          "goldenRatio": 0.30390738060781475,
+          "source": "seed"
+        }
+      ],
+      "attempts": 1,
+      "durationMs": 210250
+    },
+    {
+      "success": true,
+      "category": "self_development",
+      "runIndex": 4,
+      "mode": "category",
+      "explosionMode": true,
+      "count": 5,
+      "summary": {
+        "totalFound": 5,
+        "sssCount": 1,
+        "ssCount": 1,
+        "sCount": 3,
+        "rookieFriendlyCount": 3,
+        "urgentCount": 0,
+        "blueOceanCount": 1,
+        "explosionFunnel": {
+          "candidates": 203,
+          "verified": 203,
+          "gradeOk": 7,
+          "ratioOk": 8,
+          "docOk": 190,
+          "svOk": 35,
+          "strictOk": 7,
+          "minSv": 500,
+          "internalMetrics": {
+            "seedCount": 170,
+            "allKeywordsCount": 1069,
+            "profitableCount": 257,
+            "uniqueKeywordsCount": 257,
+            "sortedResultsCount": 257,
+            "verifiedResultsCount": 79,
+            "searchAdEnabled": true,
+            "searchAdAdded": 232,
+            "autocompleteAdded": 677
+          },
+          "topByExplosion": [
+            "토익 점수 환산기 | grade=SSS gr=2.8986272439281944 sv=5490 dc=1894 src=토익 점수(0) ex=65",
+            "토익 점수 계산기 | grade=S gr=0.8655490933971947 sv=2530 dc=2923 src=토익 점수(0) ex=65",
+            "컴활 응시료 지원 전주 | grade=A gr=0.5714285714285714 sv=20 dc=35 src=컴활 응시료(0) ex=40",
+            "경기도 토익 응시료 지원 | grade=S gr=0.5141388174807198 sv=600 dc=1167 src=토익 응시료(0) ex=58",
+            "우선순위 영단어 | grade=A gr=0.4740638955685331 sv=1380 dc=2911 src=순위(0) ex=65"
+          ]
+        }
+      },
+      "keywords": [
+        {
+          "keyword": "토익 점수 환산기",
+          "grade": "SSS",
+          "searchVolume": 5490,
+          "documentCount": 1894,
+          "goldenRatio": 2.8986272439281944,
+          "source": "토익 점수"
+        },
+        {
+          "keyword": "토익 점수 계산기",
+          "grade": "SS",
+          "searchVolume": 2530,
+          "documentCount": 2923,
+          "goldenRatio": 0.8655490933971947,
+          "source": "토익 점수"
+        },
+        {
+          "keyword": "경기도 토익 응시료 지원",
+          "grade": "S",
+          "searchVolume": 600,
+          "documentCount": 1167,
+          "goldenRatio": 0.5141388174807198,
+          "source": "토익 응시료"
+        },
+        {
+          "keyword": "우선순위 영단어",
+          "grade": "S",
+          "searchVolume": 1380,
+          "documentCount": 2911,
+          "goldenRatio": 0.4740638955685331,
+          "source": "순위"
+        },
+        {
+          "keyword": "ADSP 독학",
+          "grade": "S",
+          "searchVolume": 2840,
+          "documentCount": 6647,
+          "goldenRatio": 0.4272604182337897,
+          "source": "seed"
+        }
+      ],
+      "attempts": 1,
+      "durationMs": 219195
+    },
+    {
+      "success": true,
+      "category": "self_development",
+      "runIndex": 5,
+      "mode": "category",
+      "explosionMode": true,
+      "count": 5,
+      "summary": {
+        "totalFound": 5,
+        "sssCount": 1,
+        "ssCount": 1,
+        "sCount": 3,
+        "rookieFriendlyCount": 2,
+        "urgentCount": 0,
+        "blueOceanCount": 1,
+        "explosionFunnel": {
+          "candidates": 200,
+          "verified": 200,
+          "gradeOk": 5,
+          "ratioOk": 5,
+          "docOk": 177,
+          "svOk": 34,
+          "strictOk": 5,
+          "minSv": 500,
+          "internalMetrics": {
+            "seedCount": 170,
+            "allKeywordsCount": 871,
+            "profitableCount": 222,
+            "uniqueKeywordsCount": 222,
+            "sortedResultsCount": 222,
+            "verifiedResultsCount": 78,
+            "searchAdEnabled": true,
+            "searchAdAdded": 296,
+            "autocompleteAdded": 418
+          },
+          "topByExplosion": [
+            "토익 점수 환산기 | grade=SSS gr=2.8986272439281944 sv=5490 dc=1894 src=토익 점수(0) ex=65",
+            "토익 점수 계산기 | grade=S gr=0.8655490933971947 sv=2530 dc=2923 src=토익 점수(0) ex=65",
+            "ADSP 독학 | grade=A gr=0.4272604182337897 sv=2840 dc=6647 src=seed(0) ex=65",
+            "노션 템플릿 | grade=A gr=0.30855688686247484 sv=8730 dc=28293 src=seed(0) ex=65",
+            "SQLD 독학 | grade=A gr=0.30390738060781475 sv=1260 dc=4146 src=seed(0) ex=65"
+          ]
+        }
+      },
+      "keywords": [
+        {
+          "keyword": "토익 점수 환산기",
+          "grade": "SSS",
+          "searchVolume": 5490,
+          "documentCount": 1894,
+          "goldenRatio": 2.8986272439281944,
+          "source": "토익 점수"
+        },
+        {
+          "keyword": "토익 점수 계산기",
+          "grade": "SS",
+          "searchVolume": 2530,
+          "documentCount": 2923,
+          "goldenRatio": 0.8655490933971947,
+          "source": "토익 점수"
+        },
+        {
+          "keyword": "ADSP 독학",
+          "grade": "S",
+          "searchVolume": 2840,
+          "documentCount": 6647,
+          "goldenRatio": 0.4272604182337897,
+          "source": "seed"
+        },
+        {
+          "keyword": "노션 템플릿",
+          "grade": "S",
+          "searchVolume": 8730,
+          "documentCount": 28293,
+          "goldenRatio": 0.30855688686247484,
+          "source": "seed"
+        },
+        {
+          "keyword": "SQLD 독학",
+          "grade": "S",
+          "searchVolume": 1260,
+          "documentCount": 4146,
+          "goldenRatio": 0.30390738060781475,
+          "source": "seed"
+        }
+      ],
+      "attempts": 1,
+      "durationMs": 222673
+    }
+  ]
+}

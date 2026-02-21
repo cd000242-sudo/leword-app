@@ -1,0 +1,62 @@
+{
+  "results": [
+    {
+      "iteration": 1,
+      "timestamp": "2025-12-31T22:54:30.853Z",
+      "keywords": [
+        {
+          "keyword": "아이브포카공굿",
+          "grade": "SSS",
+          "searchVolume": 580,
+          "documentCount": 206,
+          "goldenRatio": 2.8155339805825244
+        },
+        {
+          "keyword": "아이브시즌그리팅",
+          "grade": "SSS",
+          "searchVolume": 3120,
+          "documentCount": 1375,
+          "goldenRatio": 2.269090909090909
+        },
+        {
+          "keyword": "에스파시즌그리팅",
+          "grade": "S",
+          "searchVolume": 540,
+          "documentCount": 703,
+          "goldenRatio": 0.7681365576102418
+        },
+        {
+          "keyword": "아이브포카",
+          "grade": "S",
+          "searchVolume": 5980,
+          "documentCount": 11398,
+          "goldenRatio": 0.5246534479733287
+        },
+        {
+          "keyword": "투바투앨범",
+          "grade": "A",
+          "searchVolume": 3240,
+          "documentCount": 9484,
+          "goldenRatio": 0.34162800506115565
+        }
+      ],
+      "stats": {
+        "sssCount": 2,
+        "ssCount": 0,
+        "sCount": 2,
+        "avgGoldenRatio": 0.76,
+        "maxGoldenRatio": 2.82
+      }
+    }
+  ],
+  "summary": {
+    "totalSss": 2,
+    "totalKeywords": 10,
+    "sssRate": 20,
+    "allSssKeywords": [
+      "아이브포카공굿",
+      "아이브시즌그리팅"
+    ],
+    "score": 20
+  }
+}

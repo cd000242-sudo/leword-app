@@ -1,0 +1,445 @@
+{
+  "generatedAt": "2025-12-25T08:39:33.522Z",
+  "mode": "category",
+  "explosionMode": true,
+  "count": 5,
+  "timeoutMs": 240000,
+  "retries": 0,
+  "results": [
+    {
+      "success": false,
+      "category": "book",
+      "runIndex": 1,
+      "mode": "category",
+      "explosionMode": true,
+      "count": 5,
+      "summary": {
+        "totalFound": 0,
+        "sssCount": 0,
+        "ssCount": 0,
+        "sCount": 0,
+        "rookieFriendlyCount": 0,
+        "urgentCount": 0,
+        "blueOceanCount": 0,
+        "explosionFunnel": {
+          "candidates": 27,
+          "verified": 27,
+          "gradeOk": 0,
+          "ratioOk": 0,
+          "docOk": 20,
+          "svOk": 15,
+          "strictOk": 0,
+          "minSv": 30,
+          "internalMetrics": {
+            "seedCount": 120,
+            "allKeywordsCount": 1143,
+            "profitableCount": 38,
+            "uniqueKeywordsCount": 38,
+            "sortedResultsCount": 37,
+            "verifiedResultsCount": 10,
+            "searchAdEnabled": true,
+            "searchAdAdded": 434,
+            "autocompleteAdded": 601
+          },
+          "topByExplosion": [
+            "청년정책사용설명서 | grade=B gr=0.09216589861751152 sv=260 dc=2821 src=청년정책(0) ex=72",
+            "청년정책 이장단 | grade=A gr=0.047058823529411764 sv=20 dc=425 src=청년정책(0) ex=60",
+            "청년정책과 결혼축하금 | grade=B gr=0.03173164097914778 sv=70 dc=2206 src=청년정책(0) ex=60",
+            "청년정책플랫폼 | grade=B gr=0.029830138667530322 sv=3500 dc=117331 src=청년정책(0) ex=85",
+            "청년정책114 | grade=B gr=0.027819387973464584 sv=260 dc=9346 src=청년정책(0) ex=72"
+          ]
+        }
+      },
+      "keywords": [],
+      "attempts": 1,
+      "durationMs": 67710
+    },
+    {
+      "success": true,
+      "category": "movie",
+      "runIndex": 1,
+      "mode": "category",
+      "explosionMode": true,
+      "count": 5,
+      "summary": {
+        "totalFound": 1,
+        "sssCount": 0,
+        "ssCount": 1,
+        "sCount": 0,
+        "rookieFriendlyCount": 1,
+        "urgentCount": 0,
+        "blueOceanCount": 0,
+        "explosionFunnel": {
+          "candidates": 9,
+          "verified": 9,
+          "gradeOk": 1,
+          "ratioOk": 1,
+          "docOk": 7,
+          "svOk": 9,
+          "strictOk": 1,
+          "minSv": 30,
+          "internalMetrics": {
+            "seedCount": 120,
+            "allKeywordsCount": 1160,
+            "profitableCount": 16,
+            "uniqueKeywordsCount": 16,
+            "sortedResultsCount": 15,
+            "verifiedResultsCount": 8,
+            "searchAdEnabled": true,
+            "searchAdAdded": 273,
+            "autocompleteAdded": 779
+          },
+          "topByExplosion": [
+            "공포영화 추천 넷플 | grade=S gr=0.7055961070559611 sv=290 dc=411 src=추천(0) ex=52",
+            "cgv 팝콘 가격 2025 | grade=B gr=0.17439192290041303 sv=380 dc=2179 src=가격 2025(0) ex=82",
+            "영화순위 2025 | grade=B gr=0.108721784426339 sv=4070 dc=37435 src=순위 2025(0) ex=95",
+            "cgv 영화 가격 청소년 | grade=B gr=0.08362676056338028 sv=570 dc=6816 src=가격 2025(0) ex=58",
+            "미드 추천 넷플릭스 | grade=B gr=0.008976477548605586 sv=440 dc=49017 src=추천(0) ex=52"
+          ]
+        }
+      },
+      "keywords": [
+        {
+          "keyword": "공포영화 추천 넷플",
+          "grade": "SS",
+          "searchVolume": 290,
+          "documentCount": 411,
+          "goldenRatio": 0.7055961070559611,
+          "source": "추천"
+        }
+      ],
+      "attempts": 1,
+      "durationMs": 43399
+    },
+    {
+      "success": false,
+      "category": "music",
+      "runIndex": 1,
+      "mode": "category",
+      "explosionMode": true,
+      "count": 5,
+      "summary": {
+        "totalFound": 0,
+        "sssCount": 0,
+        "ssCount": 0,
+        "sCount": 0,
+        "rookieFriendlyCount": 0,
+        "urgentCount": 0,
+        "blueOceanCount": 0,
+        "explosionFunnel": {
+          "candidates": 4,
+          "verified": 4,
+          "gradeOk": 0,
+          "ratioOk": 0,
+          "docOk": 3,
+          "svOk": 1,
+          "strictOk": 0,
+          "minSv": 30,
+          "internalMetrics": {
+            "seedCount": 120,
+            "allKeywordsCount": 1128,
+            "profitableCount": 6,
+            "uniqueKeywordsCount": 6,
+            "sortedResultsCount": 5,
+            "verifiedResultsCount": 1,
+            "searchAdEnabled": true,
+            "searchAdAdded": 296,
+            "autocompleteAdded": 719
+          },
+          "topByExplosion": [
+            "김영대를 추모하는 음악 평론가 | grade=A gr=0.08695652173913043 sv=20 dc=230 src=Signal.bz(35) ex=93",
+            "브이로그 노래 넣는법 | grade=A gr=0.033444816053511704 sv=20 dc=598 src=틱톡(25) ex=78",
+            "브이로그 노래 찾는법 | grade=B gr=0.017196904557179708 sv=20 dc=1163 src=틱톡(25) ex=78",
+            "롯데월드 노래 | grade=B gr=0.00277568854983704 sv=310 dc=111684 src=Signal.bz(35) ex=105"
+          ]
+        }
+      },
+      "keywords": [],
+      "attempts": 1,
+      "durationMs": 58811
+    },
+    {
+      "success": false,
+      "category": "drama",
+      "runIndex": 1,
+      "mode": "category",
+      "explosionMode": true,
+      "count": 5,
+      "summary": {
+        "totalFound": 0,
+        "sssCount": 0,
+        "ssCount": 0,
+        "sCount": 0,
+        "rookieFriendlyCount": 0,
+        "urgentCount": 0,
+        "blueOceanCount": 0,
+        "explosionFunnel": {
+          "candidates": 9,
+          "verified": 9,
+          "gradeOk": 0,
+          "ratioOk": 0,
+          "docOk": 6,
+          "svOk": 7,
+          "strictOk": 0,
+          "minSv": 30,
+          "internalMetrics": {
+            "seedCount": 120,
+            "allKeywordsCount": 1025,
+            "profitableCount": 15,
+            "uniqueKeywordsCount": 15,
+            "sortedResultsCount": 15,
+            "verifiedResultsCount": 5,
+            "searchAdEnabled": true,
+            "searchAdAdded": 244,
+            "autocompleteAdded": 668
+          },
+          "topByExplosion": [
+            "숏폼 드라마 | grade=B gr=0.1829452169542637 sv=5460 dc=29845 src=틱톡(25) ex=103",
+            "숏폼드라마 | grade=B gr=0.1829452169542637 sv=5460 dc=29845 src=틱톡(25) ex=103",
+            "숏폼 드라마 무료 | grade=B gr=0.15130288596245448 sv=540 dc=3569 src=틱톡(25) ex=96",
+            "숏폼 드라마 배우 | grade=B gr=0.023064858381769537 sv=250 dc=10839 src=틱톡(25) ex=90",
+            "드라마 방법 결말 | grade=B gr=0.001666870395270533 sv=150 dc=89989 src=방법(0) ex=46"
+          ]
+        }
+      },
+      "keywords": [],
+      "attempts": 1,
+      "durationMs": 42491
+    },
+    {
+      "success": false,
+      "category": "anime",
+      "runIndex": 1,
+      "mode": "category",
+      "explosionMode": true,
+      "count": 5,
+      "summary": {
+        "totalFound": 0,
+        "sssCount": 0,
+        "ssCount": 0,
+        "sCount": 0,
+        "rookieFriendlyCount": 0,
+        "urgentCount": 0,
+        "blueOceanCount": 0,
+        "explosionFunnel": {
+          "candidates": 1,
+          "verified": 1,
+          "gradeOk": 0,
+          "ratioOk": 0,
+          "docOk": 0,
+          "svOk": 1,
+          "strictOk": 0,
+          "minSv": 30,
+          "internalMetrics": {
+            "seedCount": 120,
+            "allKeywordsCount": 1083,
+            "profitableCount": 1,
+            "uniqueKeywordsCount": 1,
+            "sortedResultsCount": 1,
+            "verifiedResultsCount": 1,
+            "searchAdEnabled": true,
+            "searchAdAdded": 200,
+            "autocompleteAdded": 770
+          },
+          "topByExplosion": [
+            "패션 웹툰 | grade=B gr=0.024018797319641457 sv=1380 dc=57455 src=인스타(25) ex=103"
+          ]
+        }
+      },
+      "keywords": [],
+      "attempts": 1,
+      "durationMs": 30160
+    },
+    {
+      "success": false,
+      "category": "broadcast",
+      "runIndex": 1,
+      "mode": "category",
+      "explosionMode": true,
+      "count": 5,
+      "summary": {
+        "totalFound": 0,
+        "sssCount": 0,
+        "ssCount": 0,
+        "sCount": 0,
+        "rookieFriendlyCount": 0,
+        "urgentCount": 0,
+        "blueOceanCount": 0,
+        "explosionFunnel": {
+          "candidates": 18,
+          "verified": 18,
+          "gradeOk": 0,
+          "ratioOk": 0,
+          "docOk": 12,
+          "svOk": 18,
+          "strictOk": 0,
+          "minSv": 30,
+          "internalMetrics": {
+            "seedCount": 120,
+            "allKeywordsCount": 1558,
+            "profitableCount": 54,
+            "uniqueKeywordsCount": 43,
+            "sortedResultsCount": 43,
+            "verifiedResultsCount": 16,
+            "searchAdEnabled": true,
+            "searchAdAdded": 608,
+            "autocompleteAdded": 840
+          },
+          "topByExplosion": [
+            "유튜브용마이크 | grade=B gr=0.20608899297423888 sv=440 dc=2135 src=틱톡(25) ex=90",
+            "유튜브쇼츠광고 | grade=B gr=0.08699411033662938 sv=3220 dc=37014 src=틱톡(25) ex=103",
+            "유튜브스폰서광고 | grade=B gr=0.07309779599069664 sv=660 dc=9029 src=틱톡(25) ex=96",
+            "방송용마이크 | grade=B gr=0.07272861520286485 sv=1970 dc=27087 src=틱톡(25) ex=103",
+            "유튜브숏츠만들기 | grade=B gr=0.06721277042638102 sv=640 dc=9522 src=틱톡(25) ex=96"
+          ]
+        }
+      },
+      "keywords": [],
+      "attempts": 1,
+      "durationMs": 68290
+    },
+    {
+      "success": true,
+      "category": "daily",
+      "runIndex": 1,
+      "mode": "category",
+      "explosionMode": true,
+      "count": 5,
+      "summary": {
+        "totalFound": 1,
+        "sssCount": 1,
+        "ssCount": 0,
+        "sCount": 0,
+        "rookieFriendlyCount": 1,
+        "urgentCount": 0,
+        "blueOceanCount": 1,
+        "explosionFunnel": {
+          "candidates": 45,
+          "verified": 45,
+          "gradeOk": 1,
+          "ratioOk": 2,
+          "docOk": 37,
+          "svOk": 21,
+          "strictOk": 1,
+          "minSv": 30,
+          "internalMetrics": {
+            "seedCount": 120,
+            "allKeywordsCount": 1526,
+            "profitableCount": 63,
+            "uniqueKeywordsCount": 63,
+            "sortedResultsCount": 63,
+            "verifiedResultsCount": 20,
+            "searchAdEnabled": true,
+            "searchAdAdded": 514,
+            "autocompleteAdded": 904
+          },
+          "topByExplosion": [
+            "일상미당캐시 | grade=SSS gr=2.681159420289855 sv=740 dc=276 src=인스타(25) ex=99",
+            "브이로그 더빙 넣는법 | grade=A gr=0.4878048780487805 sv=20 dc=41 src=틱톡(25) ex=78",
+            "일상 기도 종류 | grade=S gr=0.19230769230769232 sv=20 dc=104 src=인스타(25) ex=78",
+            "브이로그 가요 넣는법 | grade=A gr=0.13245033112582782 sv=20 dc=151 src=틱톡(25) ex=78",
+            "브이로그 뜻 | grade=B gr=0.13063233623627413 sv=5520 dc=42256 src=틱톡(25) ex=103"
+          ]
+        }
+      },
+      "keywords": [
+        {
+          "keyword": "일상미당캐시",
+          "grade": "SSS",
+          "searchVolume": 740,
+          "documentCount": 276,
+          "goldenRatio": 2.681159420289855,
+          "source": "인스타"
+        }
+      ],
+      "attempts": 1,
+      "durationMs": 79745
+    },
+    {
+      "success": false,
+      "category": "realestate",
+      "runIndex": 1,
+      "mode": "category",
+      "explosionMode": true,
+      "count": 5,
+      "summary": {
+        "totalFound": 0,
+        "sssCount": 0,
+        "ssCount": 0,
+        "sCount": 0,
+        "rookieFriendlyCount": 0,
+        "urgentCount": 0,
+        "blueOceanCount": 0,
+        "explosionFunnel": {
+          "candidates": 1,
+          "verified": 1,
+          "gradeOk": 0,
+          "ratioOk": 0,
+          "docOk": 0,
+          "svOk": 0,
+          "strictOk": 0,
+          "minSv": 30,
+          "internalMetrics": {
+            "seedCount": 120,
+            "allKeywordsCount": 904,
+            "profitableCount": 2,
+            "uniqueKeywordsCount": 2,
+            "sortedResultsCount": 1,
+            "verifiedResultsCount": 0,
+            "searchAdEnabled": true,
+            "searchAdAdded": 200,
+            "autocompleteAdded": 591
+          },
+          "topByExplosion": [
+            "전입신고 하는법 | grade=C gr=0.00009591130122862377 sv=20 dc=208526 src=하는법(0) ex=40"
+          ]
+        }
+      },
+      "keywords": [],
+      "attempts": 1,
+      "durationMs": 25249
+    },
+    {
+      "success": false,
+      "category": "self_development",
+      "runIndex": 1,
+      "mode": "category",
+      "explosionMode": true,
+      "count": 5,
+      "summary": {
+        "totalFound": 0,
+        "sssCount": 0,
+        "ssCount": 0,
+        "sCount": 0,
+        "rookieFriendlyCount": 0,
+        "urgentCount": 0,
+        "blueOceanCount": 0,
+        "explosionFunnel": {
+          "candidates": 0,
+          "verified": 0,
+          "gradeOk": 0,
+          "ratioOk": 0,
+          "docOk": 0,
+          "svOk": 0,
+          "strictOk": 0,
+          "minSv": 30,
+          "internalMetrics": {
+            "seedCount": 120,
+            "allKeywordsCount": 922,
+            "profitableCount": 0,
+            "uniqueKeywordsCount": 0,
+            "sortedResultsCount": 0,
+            "verifiedResultsCount": 0,
+            "searchAdEnabled": true,
+            "searchAdAdded": 156,
+            "autocompleteAdded": 652
+          },
+          "topByExplosion": []
+        }
+      },
+      "keywords": [],
+      "attempts": 1,
+      "durationMs": 23382
+    }
+  ]
+}

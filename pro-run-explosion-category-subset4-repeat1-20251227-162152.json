@@ -1,0 +1,259 @@
+{
+  "generatedAt": "2025-12-27T07:21:52.678Z",
+  "mode": "category",
+  "explosionMode": true,
+  "count": 5,
+  "timeoutMs": 240000,
+  "retries": 0,
+  "results": [
+    {
+      "success": true,
+      "category": "business",
+      "runIndex": 1,
+      "mode": "category",
+      "explosionMode": true,
+      "count": 5,
+      "summary": {
+        "totalFound": 2,
+        "sssCount": 1,
+        "ssCount": 0,
+        "sCount": 1,
+        "rookieFriendlyCount": 0,
+        "urgentCount": 2,
+        "blueOceanCount": 1,
+        "explosionFunnel": {
+          "candidates": 3,
+          "verified": 3,
+          "gradeOk": 2,
+          "ratioOk": 2,
+          "docOk": 2,
+          "svOk": 3,
+          "strictOk": 2,
+          "minSv": 30,
+          "internalMetrics": {
+            "seedCount": 130,
+            "allKeywordsCount": 209,
+            "profitableCount": 30,
+            "uniqueKeywordsCount": 30,
+            "sortedResultsCount": 27,
+            "verifiedResultsCount": 1,
+            "searchAdEnabled": true,
+            "searchAdAdded": 45,
+            "autocompleteAdded": 40
+          },
+          "topByExplosion": [
+            "연말정산모의계산 | grade=SSS gr=4.766523486213108 sv=34400 dc=7217 src=연말정산(0) ex=134",
+            "연말정산환급금조회 | grade=S gr=1.0154241645244215 sv=26860 dc=26452 src=category_fallback(0) ex=134",
+            "연말정산간소화서비스 | grade=B gr=0.2279339219307344 sv=18020 dc=79058 src=연말정산(0) ex=134"
+          ]
+        }
+      },
+      "keywords": [
+        {
+          "keyword": "연말정산모의계산",
+          "grade": "SSS",
+          "searchVolume": 34400,
+          "documentCount": 7217,
+          "goldenRatio": 4.766523486213108,
+          "source": "연말정산"
+        },
+        {
+          "keyword": "연말정산환급금조회",
+          "grade": "S",
+          "searchVolume": 26860,
+          "documentCount": 26452,
+          "goldenRatio": 1.0154241645244215,
+          "source": "category_fallback"
+        }
+      ],
+      "attempts": 1,
+      "durationMs": 69181
+    },
+    {
+      "success": false,
+      "category": "self_development",
+      "runIndex": 1,
+      "mode": "category",
+      "explosionMode": true,
+      "count": 5,
+      "summary": {
+        "totalFound": 0,
+        "sssCount": 0,
+        "ssCount": 0,
+        "sCount": 0,
+        "rookieFriendlyCount": 0,
+        "urgentCount": 0,
+        "blueOceanCount": 0,
+        "explosionFunnel": {
+          "candidates": 1,
+          "verified": 1,
+          "gradeOk": 0,
+          "ratioOk": 0,
+          "docOk": 0,
+          "svOk": 1,
+          "strictOk": 0,
+          "minSv": 30,
+          "internalMetrics": {
+            "seedCount": 170,
+            "allKeywordsCount": 297,
+            "profitableCount": 167,
+            "uniqueKeywordsCount": 167,
+            "sortedResultsCount": 167,
+            "verifiedResultsCount": 0,
+            "searchAdEnabled": true,
+            "searchAdAdded": 81,
+            "autocompleteAdded": 50
+          },
+          "topByExplosion": [
+            "취업성공패키지 | grade=B gr=0.04542357483533954 sv=3800 dc=83657 src=청년정책(0) ex=65"
+          ]
+        }
+      },
+      "keywords": [],
+      "attempts": 1,
+      "durationMs": 203582
+    },
+    {
+      "success": true,
+      "category": "celeb",
+      "runIndex": 1,
+      "mode": "category",
+      "explosionMode": true,
+      "count": 5,
+      "summary": {
+        "totalFound": 1,
+        "sssCount": 1,
+        "ssCount": 0,
+        "sCount": 0,
+        "rookieFriendlyCount": 0,
+        "urgentCount": 0,
+        "blueOceanCount": 1,
+        "explosionFunnel": {
+          "candidates": 1,
+          "verified": 1,
+          "gradeOk": 1,
+          "ratioOk": 1,
+          "docOk": 1,
+          "svOk": 1,
+          "strictOk": 1,
+          "minSv": 30,
+          "internalMetrics": {
+            "seedCount": 140,
+            "allKeywordsCount": 566,
+            "profitableCount": 68,
+            "uniqueKeywordsCount": 68,
+            "sortedResultsCount": 68,
+            "verifiedResultsCount": 1,
+            "searchAdEnabled": true,
+            "searchAdAdded": 362,
+            "autocompleteAdded": 76
+          },
+          "topByExplosion": [
+            "겨울결혼식하객룩 | grade=SSS gr=3.1904761904761907 sv=10050 dc=3150 src=틱톡(25) ex=106"
+          ]
+        }
+      },
+      "keywords": [
+        {
+          "keyword": "겨울결혼식하객룩",
+          "grade": "SSS",
+          "searchVolume": 10050,
+          "documentCount": 3150,
+          "goldenRatio": 3.1904761904761907,
+          "source": "틱톡"
+        }
+      ],
+      "attempts": 1,
+      "durationMs": 107917
+    },
+    {
+      "success": true,
+      "category": "fashion",
+      "runIndex": 1,
+      "mode": "category",
+      "explosionMode": true,
+      "count": 5,
+      "summary": {
+        "totalFound": 5,
+        "sssCount": 3,
+        "ssCount": 0,
+        "sCount": 2,
+        "rookieFriendlyCount": 1,
+        "urgentCount": 0,
+        "blueOceanCount": 2,
+        "explosionFunnel": {
+          "candidates": 13,
+          "verified": 13,
+          "gradeOk": 5,
+          "ratioOk": 5,
+          "docOk": 8,
+          "svOk": 13,
+          "strictOk": 5,
+          "minSv": 500,
+          "internalMetrics": {
+            "seedCount": 130,
+            "allKeywordsCount": 438,
+            "profitableCount": 60,
+            "uniqueKeywordsCount": 60,
+            "sortedResultsCount": 56,
+            "verifiedResultsCount": 3,
+            "searchAdEnabled": true,
+            "searchAdAdded": 242,
+            "autocompleteAdded": 75
+          },
+          "topByExplosion": [
+            "패션플러스 | grade=SSS gr=53.61875637104995 sv=368200 dc=6867 src=인스타(25) ex=106",
+            "패션풀 | grade=SSS gr=2.6089997668454186 sv=11190 dc=4289 src=인스타(25) ex=106",
+            "상견례옷차림 | grade=SS gr=1.3752333540759178 sv=13260 dc=9642 src=인스타(25) ex=106",
+            "필립스커피머신 | grade=S gr=1.061131668208449 sv=27530 dc=25944 src=category_fallback(0) ex=65",
+            "패션포유 | grade=S gr=0.5575247070597557 sv=13370 dc=23981 src=category_fallback(0) ex=65"
+          ]
+        }
+      },
+      "keywords": [
+        {
+          "keyword": "패션플러스",
+          "grade": "SSS",
+          "searchVolume": 368200,
+          "documentCount": 6867,
+          "goldenRatio": 53.61875637104995,
+          "source": "인스타"
+        },
+        {
+          "keyword": "패션풀",
+          "grade": "SSS",
+          "searchVolume": 11190,
+          "documentCount": 4289,
+          "goldenRatio": 2.6089997668454186,
+          "source": "인스타"
+        },
+        {
+          "keyword": "상견례옷차림",
+          "grade": "SSS",
+          "searchVolume": 13260,
+          "documentCount": 9642,
+          "goldenRatio": 1.3752333540759178,
+          "source": "인스타"
+        },
+        {
+          "keyword": "필립스커피머신",
+          "grade": "S",
+          "searchVolume": 27530,
+          "documentCount": 25944,
+          "goldenRatio": 1.061131668208449,
+          "source": "category_fallback"
+        },
+        {
+          "keyword": "패션포유",
+          "grade": "S",
+          "searchVolume": 13370,
+          "documentCount": 23981,
+          "goldenRatio": 0.5575247070597557,
+          "source": "category_fallback"
+        }
+      ],
+      "attempts": 1,
+      "durationMs": 81188
+    }
+  ]
+}

@@ -1,0 +1,45 @@
+{
+  "generatedAt": "2025-12-24T04:19:21.150Z",
+  "mode": "category",
+  "explosionMode": true,
+  "count": 10,
+  "timeoutMs": 120000,
+  "retries": 0,
+  "results": [
+    {
+      "success": false,
+      "category": "it",
+      "mode": "category",
+      "explosionMode": true,
+      "count": 10,
+      "summary": {
+        "totalFound": 0,
+        "sssCount": 0,
+        "ssCount": 0,
+        "sCount": 0,
+        "rookieFriendlyCount": 0,
+        "urgentCount": 0,
+        "blueOceanCount": 0,
+        "explosionFunnel": {
+          "candidates": 18,
+          "verified": 18,
+          "svOk": 2,
+          "ratioOk": 3,
+          "scoreOk": 0,
+          "signalOk": 3,
+          "strictOk": 0,
+          "topByExplosion": [
+            "2025 사무용 노트북 비교 | ex=70 sv=20 dc=2549 gr=0.007846214201647704 src=seed(0) TODAY/stable",
+            "2025 기계식 키보드 축 | ex=70 sv=20 dc=427 gr=0.0468384074941452 src=seed(0) TODAY/stable",
+            "기계식 키보드 축 2025 | ex=70 sv=20 dc=427 gr=0.0468384074941452 src=seed(0) TODAY/stable",
+            "외장 SSD 추천 | ex=52 sv=280 dc=80954 gr=0.003458754354324678 src=seed(0) ANYTIME/stable",
+            "기계식 키보드 축 차이 | ex=46 sv=80 dc=11 gr=7.2727272727272725 src=seed(0) ANYTIME/stable"
+          ]
+        }
+      },
+      "keywords": [],
+      "attempts": 1,
+      "durationMs": 30536
+    }
+  ]
+}

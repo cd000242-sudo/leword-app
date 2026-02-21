@@ -1,0 +1,46 @@
+{
+  "generatedAt": "2025-12-24T10:04:20.706Z",
+  "mode": "category",
+  "explosionMode": true,
+  "count": 10,
+  "timeoutMs": 240000,
+  "retries": 0,
+  "results": [
+    {
+      "success": false,
+      "category": "life_tips",
+      "mode": "category",
+      "explosionMode": true,
+      "count": 10,
+      "summary": {
+        "totalFound": 0,
+        "sssCount": 0,
+        "ssCount": 0,
+        "sCount": 0,
+        "rookieFriendlyCount": 0,
+        "urgentCount": 0,
+        "blueOceanCount": 0,
+        "explosionFunnel": {
+          "candidates": 34,
+          "verified": 34,
+          "gradeOk": 6,
+          "ratioOk": 2,
+          "docOk": 30,
+          "svOk": 1,
+          "strictOk": 0,
+          "minSv": 30,
+          "topByExplosion": [
+            "유지아우가르텐주방용품접기 | grade=A gr=20 sv=20 dc=1 src=쇼핑(25) ex=78",
+            "입문자 가스비 절약 꿀팁 | grade=A gr=4 sv=20 dc=5 src=seed(0) ex=40",
+            "초보자 가스비 절약 꿀팁 | grade=B gr=0.23809523809523808 sv=20 dc=84 src=seed(0) ex=40",
+            "학생 가스비 절약 꿀팁 | grade=B gr=0.23529411764705882 sv=20 dc=85 src=seed(0) ex=40",
+            "직장인 가스비 절약 꿀팁 | grade=S gr=0.11834319526627218 sv=20 dc=169 src=seed(0) ex=40"
+          ]
+        }
+      },
+      "keywords": [],
+      "attempts": 1,
+      "durationMs": 87983
+    }
+  ]
+}

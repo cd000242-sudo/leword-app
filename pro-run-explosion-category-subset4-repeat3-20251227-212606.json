@@ -1,0 +1,484 @@
+{
+  "generatedAt": "2025-12-27T12:26:06.587Z",
+  "mode": "category",
+  "explosionMode": true,
+  "count": 5,
+  "timeoutMs": 240000,
+  "retries": 0,
+  "results": [
+    {
+      "success": true,
+      "category": "business",
+      "runIndex": 1,
+      "mode": "category",
+      "explosionMode": true,
+      "count": 5,
+      "summary": {
+        "totalFound": 5,
+        "sssCount": 2,
+        "ssCount": 2,
+        "sCount": 1,
+        "rookieFriendlyCount": 0,
+        "urgentCount": 2,
+        "blueOceanCount": 1,
+        "explosionFunnel": {
+          "candidates": 15,
+          "verified": 15,
+          "gradeOk": 6,
+          "ratioOk": 7,
+          "docOk": 7,
+          "svOk": 15,
+          "strictOk": 5,
+          "minSv": 500,
+          "internalMetrics": {
+            "seedCount": 130,
+            "allKeywordsCount": 463,
+            "profitableCount": 245,
+            "uniqueKeywordsCount": 225,
+            "sortedResultsCount": 215,
+            "verifiedResultsCount": 4,
+            "searchAdEnabled": true,
+            "searchAdAdded": 281,
+            "autocompleteAdded": 64
+          },
+          "topByExplosion": [
+            "4대보험계산기 | grade=SS gr=7.341344348479159 sv=117300 dc=15978 src=category_fallback(0) ex=65",
+            "연말정산모의계산 | grade=SSS gr=4.765863119977833 sv=34400 dc=7218 src=연말정산(0) ex=134",
+            "연말정산모의계산 | grade=SSS gr=4.765863119977833 sv=34400 dc=7218 src=연말정산(0) ex=134",
+            "연말정산 모의계산 | grade=SSS gr=4.765863119977833 sv=34400 dc=7218 src=연말정산(0) ex=134",
+            "상표등록조회 | grade=S gr=0.7410334346504559 sv=12190 dc=16450 src=상표등록(0) ex=65"
+          ]
+        }
+      },
+      "keywords": [
+        {
+          "keyword": "4대보험계산기",
+          "grade": "SS",
+          "searchVolume": 117300,
+          "documentCount": 15978,
+          "goldenRatio": 7.341344348479159,
+          "source": "category_fallback"
+        },
+        {
+          "keyword": "연말정산모의계산",
+          "grade": "SSS",
+          "searchVolume": 34400,
+          "documentCount": 7218,
+          "goldenRatio": 4.765863119977833,
+          "source": "연말정산"
+        },
+        {
+          "keyword": "연말정산 모의계산",
+          "grade": "SSS",
+          "searchVolume": 34400,
+          "documentCount": 7218,
+          "goldenRatio": 4.765863119977833,
+          "source": "연말정산"
+        },
+        {
+          "keyword": "상표등록조회",
+          "grade": "SS",
+          "searchVolume": 12190,
+          "documentCount": 16450,
+          "goldenRatio": 0.7410334346504559,
+          "source": "상표등록"
+        },
+        {
+          "keyword": "종합소득세중간예납",
+          "grade": "S",
+          "searchVolume": 9690,
+          "documentCount": 18522,
+          "goldenRatio": 0.5231616456106252,
+          "source": "세무기장"
+        }
+      ],
+      "attempts": 1,
+      "durationMs": 202229
+    },
+    {
+      "success": true,
+      "category": "business",
+      "runIndex": 2,
+      "mode": "category",
+      "explosionMode": true,
+      "count": 5,
+      "summary": {
+        "totalFound": 5,
+        "sssCount": 2,
+        "ssCount": 0,
+        "sCount": 3,
+        "rookieFriendlyCount": 0,
+        "urgentCount": 3,
+        "blueOceanCount": 1,
+        "explosionFunnel": {
+          "candidates": 17,
+          "verified": 17,
+          "gradeOk": 7,
+          "ratioOk": 8,
+          "docOk": 9,
+          "svOk": 17,
+          "strictOk": 5,
+          "minSv": 500,
+          "internalMetrics": {
+            "seedCount": 130,
+            "allKeywordsCount": 429,
+            "profitableCount": 249,
+            "uniqueKeywordsCount": 219,
+            "sortedResultsCount": 210,
+            "verifiedResultsCount": 3,
+            "searchAdEnabled": true,
+            "searchAdAdded": 240,
+            "autocompleteAdded": 69
+          },
+          "topByExplosion": [
+            "부가세계산기 | grade=S gr=6.299176154771823 sv=136100 dc=21606 src=category_fallback(0) ex=65",
+            "연말정산 모의계산 | grade=SSS gr=4.765863119977833 sv=34400 dc=7218 src=연말정산(0) ex=134",
+            "연말정산모의계산 | grade=SSS gr=4.765863119977833 sv=34400 dc=7218 src=연말정산(0) ex=134",
+            "연말정산 모의계산 | grade=SSS gr=4.765863119977833 sv=34400 dc=7218 src=연말정산(0) ex=134",
+            "연말정산모의계산 | grade=SSS gr=4.765863119977833 sv=34400 dc=7218 src=연말정산(0) ex=134"
+          ]
+        }
+      },
+      "keywords": [
+        {
+          "keyword": "부가세계산기",
+          "grade": "S",
+          "searchVolume": 136100,
+          "documentCount": 21606,
+          "goldenRatio": 6.299176154771823,
+          "source": "category_fallback"
+        },
+        {
+          "keyword": "연말정산 모의계산",
+          "grade": "SSS",
+          "searchVolume": 34400,
+          "documentCount": 7218,
+          "goldenRatio": 4.765863119977833,
+          "source": "연말정산"
+        },
+        {
+          "keyword": "연말정산모의계산",
+          "grade": "SSS",
+          "searchVolume": 34400,
+          "documentCount": 7218,
+          "goldenRatio": 4.765863119977833,
+          "source": "연말정산"
+        },
+        {
+          "keyword": "연말정산환급금조회",
+          "grade": "S",
+          "searchVolume": 26860,
+          "documentCount": 26467,
+          "goldenRatio": 1.0148486794876639,
+          "source": "category_fallback"
+        },
+        {
+          "keyword": "종합소득세중간예납",
+          "grade": "S",
+          "searchVolume": 9690,
+          "documentCount": 18522,
+          "goldenRatio": 0.5231616456106252,
+          "source": "세무기장"
+        }
+      ],
+      "attempts": 1,
+      "durationMs": 196071
+    },
+    {
+      "success": false,
+      "category": "business",
+      "runIndex": 3,
+      "mode": "category",
+      "explosionMode": true,
+      "count": 5,
+      "error": "timeout",
+      "attempts": 1,
+      "durationMs": 240027
+    },
+    {
+      "success": false,
+      "category": "self_development",
+      "runIndex": 1,
+      "mode": "category",
+      "explosionMode": true,
+      "count": 5,
+      "error": "timeout",
+      "attempts": 1,
+      "durationMs": 240054
+    },
+    {
+      "success": false,
+      "category": "self_development",
+      "runIndex": 2,
+      "mode": "category",
+      "explosionMode": true,
+      "count": 5,
+      "error": "timeout",
+      "attempts": 1,
+      "durationMs": 240031
+    },
+    {
+      "success": false,
+      "category": "self_development",
+      "runIndex": 3,
+      "mode": "category",
+      "explosionMode": true,
+      "count": 5,
+      "error": "timeout",
+      "attempts": 1,
+      "durationMs": 240025
+    },
+    {
+      "success": false,
+      "category": "celeb",
+      "runIndex": 1,
+      "mode": "category",
+      "explosionMode": true,
+      "count": 5,
+      "summary": {
+        "totalFound": 0,
+        "sssCount": 0,
+        "ssCount": 0,
+        "sCount": 0,
+        "rookieFriendlyCount": 0,
+        "urgentCount": 0,
+        "blueOceanCount": 0,
+        "explosionFunnel": {
+          "candidates": 0,
+          "verified": 0,
+          "gradeOk": 0,
+          "ratioOk": 0,
+          "docOk": 0,
+          "svOk": 0,
+          "strictOk": 0,
+          "minSv": 30,
+          "internalMetrics": {
+            "seedCount": 140,
+            "allKeywordsCount": 285,
+            "profitableCount": 79,
+            "uniqueKeywordsCount": 74,
+            "sortedResultsCount": 74,
+            "verifiedResultsCount": 0,
+            "searchAdEnabled": true,
+            "searchAdAdded": 82,
+            "autocompleteAdded": 68
+          },
+          "topByExplosion": []
+        }
+      },
+      "keywords": [],
+      "attempts": 1,
+      "durationMs": 128145
+    },
+    {
+      "success": false,
+      "category": "celeb",
+      "runIndex": 2,
+      "mode": "category",
+      "explosionMode": true,
+      "count": 5,
+      "summary": {
+        "totalFound": 0,
+        "sssCount": 0,
+        "ssCount": 0,
+        "sCount": 0,
+        "rookieFriendlyCount": 0,
+        "urgentCount": 0,
+        "blueOceanCount": 0,
+        "explosionFunnel": {
+          "candidates": 0,
+          "verified": 0,
+          "gradeOk": 0,
+          "ratioOk": 0,
+          "docOk": 0,
+          "svOk": 0,
+          "strictOk": 0,
+          "minSv": 30,
+          "internalMetrics": {
+            "seedCount": 140,
+            "allKeywordsCount": 365,
+            "profitableCount": 103,
+            "uniqueKeywordsCount": 78,
+            "sortedResultsCount": 78,
+            "verifiedResultsCount": 0,
+            "searchAdEnabled": true,
+            "searchAdAdded": 162,
+            "autocompleteAdded": 68
+          },
+          "topByExplosion": []
+        }
+      },
+      "keywords": [],
+      "attempts": 1,
+      "durationMs": 128335
+    },
+    {
+      "success": false,
+      "category": "celeb",
+      "runIndex": 3,
+      "mode": "category",
+      "explosionMode": true,
+      "count": 5,
+      "summary": {
+        "totalFound": 0,
+        "sssCount": 0,
+        "ssCount": 0,
+        "sCount": 0,
+        "rookieFriendlyCount": 0,
+        "urgentCount": 0,
+        "blueOceanCount": 0,
+        "explosionFunnel": {
+          "candidates": 0,
+          "verified": 0,
+          "gradeOk": 0,
+          "ratioOk": 0,
+          "docOk": 0,
+          "svOk": 0,
+          "strictOk": 0,
+          "minSv": 30,
+          "internalMetrics": {
+            "seedCount": 140,
+            "allKeywordsCount": 359,
+            "profitableCount": 97,
+            "uniqueKeywordsCount": 76,
+            "sortedResultsCount": 76,
+            "verifiedResultsCount": 0,
+            "searchAdEnabled": true,
+            "searchAdAdded": 165,
+            "autocompleteAdded": 60
+          },
+          "topByExplosion": []
+        }
+      },
+      "keywords": [],
+      "attempts": 1,
+      "durationMs": 127611
+    },
+    {
+      "success": false,
+      "category": "fashion",
+      "runIndex": 1,
+      "mode": "category",
+      "explosionMode": true,
+      "count": 5,
+      "summary": {
+        "totalFound": 0,
+        "sssCount": 0,
+        "ssCount": 0,
+        "sCount": 0,
+        "rookieFriendlyCount": 0,
+        "urgentCount": 0,
+        "blueOceanCount": 0,
+        "explosionFunnel": {
+          "candidates": 0,
+          "verified": 0,
+          "gradeOk": 0,
+          "ratioOk": 0,
+          "docOk": 0,
+          "svOk": 0,
+          "strictOk": 0,
+          "minSv": 30,
+          "internalMetrics": {
+            "seedCount": 130,
+            "allKeywordsCount": 291,
+            "profitableCount": 156,
+            "uniqueKeywordsCount": 148,
+            "sortedResultsCount": 148,
+            "verifiedResultsCount": 0,
+            "searchAdEnabled": true,
+            "searchAdAdded": 89,
+            "autocompleteAdded": 78
+          },
+          "topByExplosion": []
+        }
+      },
+      "keywords": [],
+      "attempts": 1,
+      "durationMs": 233546
+    },
+    {
+      "success": false,
+      "category": "fashion",
+      "runIndex": 2,
+      "mode": "category",
+      "explosionMode": true,
+      "count": 5,
+      "summary": {
+        "totalFound": 0,
+        "sssCount": 0,
+        "ssCount": 0,
+        "sCount": 0,
+        "rookieFriendlyCount": 0,
+        "urgentCount": 0,
+        "blueOceanCount": 0,
+        "explosionFunnel": {
+          "candidates": 0,
+          "verified": 0,
+          "gradeOk": 0,
+          "ratioOk": 0,
+          "docOk": 0,
+          "svOk": 0,
+          "strictOk": 0,
+          "minSv": 30,
+          "internalMetrics": {
+            "seedCount": 130,
+            "allKeywordsCount": 291,
+            "profitableCount": 153,
+            "uniqueKeywordsCount": 147,
+            "sortedResultsCount": 147,
+            "verifiedResultsCount": 0,
+            "searchAdEnabled": true,
+            "searchAdAdded": 89,
+            "autocompleteAdded": 78
+          },
+          "topByExplosion": []
+        }
+      },
+      "keywords": [],
+      "attempts": 1,
+      "durationMs": 231655
+    },
+    {
+      "success": false,
+      "category": "fashion",
+      "runIndex": 3,
+      "mode": "category",
+      "explosionMode": true,
+      "count": 5,
+      "summary": {
+        "totalFound": 0,
+        "sssCount": 0,
+        "ssCount": 0,
+        "sCount": 0,
+        "rookieFriendlyCount": 0,
+        "urgentCount": 0,
+        "blueOceanCount": 0,
+        "explosionFunnel": {
+          "candidates": 0,
+          "verified": 0,
+          "gradeOk": 0,
+          "ratioOk": 0,
+          "docOk": 0,
+          "svOk": 0,
+          "strictOk": 0,
+          "minSv": 30,
+          "internalMetrics": {
+            "seedCount": 130,
+            "allKeywordsCount": 291,
+            "profitableCount": 154,
+            "uniqueKeywordsCount": 147,
+            "sortedResultsCount": 147,
+            "verifiedResultsCount": 0,
+            "searchAdEnabled": true,
+            "searchAdAdded": 89,
+            "autocompleteAdded": 78
+          },
+          "topByExplosion": []
+        }
+      },
+      "keywords": [],
+      "attempts": 1,
+      "durationMs": 232598
+    }
+  ]
+}

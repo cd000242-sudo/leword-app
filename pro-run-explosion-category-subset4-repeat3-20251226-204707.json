@@ -1,0 +1,575 @@
+{
+  "generatedAt": "2025-12-26T11:47:07.659Z",
+  "mode": "category",
+  "explosionMode": true,
+  "count": 5,
+  "timeoutMs": 240000,
+  "retries": 0,
+  "results": [
+    {
+      "success": false,
+      "category": "business",
+      "runIndex": 1,
+      "mode": "category",
+      "explosionMode": true,
+      "count": 5,
+      "summary": {
+        "totalFound": 0,
+        "sssCount": 0,
+        "ssCount": 0,
+        "sCount": 0,
+        "rookieFriendlyCount": 0,
+        "urgentCount": 0,
+        "blueOceanCount": 0,
+        "explosionFunnel": {
+          "candidates": 0,
+          "verified": 0,
+          "gradeOk": 0,
+          "ratioOk": 0,
+          "docOk": 0,
+          "svOk": 0,
+          "strictOk": 0,
+          "minSv": 30,
+          "internalMetrics": {
+            "seedCount": 113,
+            "allKeywordsCount": 425,
+            "profitableCount": 50,
+            "uniqueKeywordsCount": 50,
+            "sortedResultsCount": 50,
+            "verifiedResultsCount": 0,
+            "searchAdEnabled": true,
+            "searchAdAdded": 241,
+            "autocompleteAdded": 76
+          },
+          "topByExplosion": []
+        }
+      },
+      "keywords": [],
+      "attempts": 1,
+      "durationMs": 143442
+    },
+    {
+      "success": true,
+      "category": "business",
+      "runIndex": 2,
+      "mode": "category",
+      "explosionMode": true,
+      "count": 5,
+      "summary": {
+        "totalFound": 2,
+        "sssCount": 2,
+        "ssCount": 0,
+        "sCount": 0,
+        "rookieFriendlyCount": 0,
+        "urgentCount": 0,
+        "blueOceanCount": 2,
+        "explosionFunnel": {
+          "candidates": 3,
+          "verified": 3,
+          "gradeOk": 2,
+          "ratioOk": 2,
+          "docOk": 3,
+          "svOk": 3,
+          "strictOk": 2,
+          "minSv": 30,
+          "internalMetrics": {
+            "seedCount": 117,
+            "allKeywordsCount": 299,
+            "profitableCount": 51,
+            "uniqueKeywordsCount": 51,
+            "sortedResultsCount": 51,
+            "verifiedResultsCount": 2,
+            "searchAdEnabled": true,
+            "searchAdAdded": 123,
+            "autocompleteAdded": 65
+          },
+          "topByExplosion": [
+            "스타트업투자 | grade=SSS gr=176.66666666666666 sv=530 dc=3 src=데이터랩(30) ex=108",
+            "엔젤투자 | grade=SSS gr=2.6325411334552102 sv=1440 dc=547 src=데이터랩(30) ex=115",
+            "스타트업투자유치 | grade=B gr=0.03414634146341464 sv=70 dc=2050 src=데이터랩(30) ex=90"
+          ]
+        }
+      },
+      "keywords": [
+        {
+          "keyword": "스타트업투자",
+          "grade": "SSS",
+          "searchVolume": 530,
+          "documentCount": 3,
+          "goldenRatio": 176.66666666666666,
+          "source": "데이터랩"
+        },
+        {
+          "keyword": "엔젤투자",
+          "grade": "SSS",
+          "searchVolume": 1440,
+          "documentCount": 547,
+          "goldenRatio": 2.6325411334552102,
+          "source": "데이터랩"
+        }
+      ],
+      "attempts": 1,
+      "durationMs": 136962
+    },
+    {
+      "success": false,
+      "category": "business",
+      "runIndex": 3,
+      "mode": "category",
+      "explosionMode": true,
+      "count": 5,
+      "summary": {
+        "totalFound": 0,
+        "sssCount": 0,
+        "ssCount": 0,
+        "sCount": 0,
+        "rookieFriendlyCount": 0,
+        "urgentCount": 0,
+        "blueOceanCount": 0,
+        "explosionFunnel": {
+          "candidates": 0,
+          "verified": 0,
+          "gradeOk": 0,
+          "ratioOk": 0,
+          "docOk": 0,
+          "svOk": 0,
+          "strictOk": 0,
+          "minSv": 30,
+          "internalMetrics": {
+            "seedCount": 110,
+            "allKeywordsCount": 420,
+            "profitableCount": 42,
+            "uniqueKeywordsCount": 42,
+            "sortedResultsCount": 42,
+            "verifiedResultsCount": 0,
+            "searchAdEnabled": true,
+            "searchAdAdded": 241,
+            "autocompleteAdded": 76
+          },
+          "topByExplosion": []
+        }
+      },
+      "keywords": [],
+      "attempts": 1,
+      "durationMs": 140574
+    },
+    {
+      "success": false,
+      "category": "self_development",
+      "runIndex": 1,
+      "mode": "category",
+      "explosionMode": true,
+      "count": 5,
+      "summary": {
+        "totalFound": 0,
+        "sssCount": 0,
+        "ssCount": 0,
+        "sCount": 0,
+        "rookieFriendlyCount": 0,
+        "urgentCount": 0,
+        "blueOceanCount": 0,
+        "explosionFunnel": {
+          "candidates": 0,
+          "verified": 0,
+          "gradeOk": 0,
+          "ratioOk": 0,
+          "docOk": 0,
+          "svOk": 0,
+          "strictOk": 0,
+          "minSv": 30,
+          "internalMetrics": {
+            "seedCount": 170,
+            "allKeywordsCount": 607,
+            "profitableCount": 85,
+            "uniqueKeywordsCount": 85,
+            "sortedResultsCount": 85,
+            "verifiedResultsCount": 0,
+            "searchAdEnabled": true,
+            "searchAdAdded": 375,
+            "autocompleteAdded": 78
+          },
+          "topByExplosion": []
+        }
+      },
+      "keywords": [],
+      "attempts": 1,
+      "durationMs": 227593
+    },
+    {
+      "success": false,
+      "category": "self_development",
+      "runIndex": 2,
+      "mode": "category",
+      "explosionMode": true,
+      "count": 5,
+      "summary": {
+        "totalFound": 0,
+        "sssCount": 0,
+        "ssCount": 0,
+        "sCount": 0,
+        "rookieFriendlyCount": 0,
+        "urgentCount": 0,
+        "blueOceanCount": 0,
+        "explosionFunnel": {
+          "candidates": 0,
+          "verified": 0,
+          "gradeOk": 0,
+          "ratioOk": 0,
+          "docOk": 0,
+          "svOk": 0,
+          "strictOk": 0,
+          "minSv": 30,
+          "internalMetrics": {
+            "seedCount": 170,
+            "allKeywordsCount": 601,
+            "profitableCount": 83,
+            "uniqueKeywordsCount": 83,
+            "sortedResultsCount": 83,
+            "verifiedResultsCount": 0,
+            "searchAdEnabled": true,
+            "searchAdAdded": 369,
+            "autocompleteAdded": 79
+          },
+          "topByExplosion": []
+        }
+      },
+      "keywords": [],
+      "attempts": 1,
+      "durationMs": 220647
+    },
+    {
+      "success": false,
+      "category": "self_development",
+      "runIndex": 3,
+      "mode": "category",
+      "explosionMode": true,
+      "count": 5,
+      "summary": {
+        "totalFound": 0,
+        "sssCount": 0,
+        "ssCount": 0,
+        "sCount": 0,
+        "rookieFriendlyCount": 0,
+        "urgentCount": 0,
+        "blueOceanCount": 0,
+        "explosionFunnel": {
+          "candidates": 0,
+          "verified": 0,
+          "gradeOk": 0,
+          "ratioOk": 0,
+          "docOk": 0,
+          "svOk": 0,
+          "strictOk": 0,
+          "minSv": 30,
+          "internalMetrics": {
+            "seedCount": 170,
+            "allKeywordsCount": 445,
+            "profitableCount": 85,
+            "uniqueKeywordsCount": 85,
+            "sortedResultsCount": 85,
+            "verifiedResultsCount": 0,
+            "searchAdEnabled": true,
+            "searchAdAdded": 207,
+            "autocompleteAdded": 80
+          },
+          "topByExplosion": []
+        }
+      },
+      "keywords": [],
+      "attempts": 1,
+      "durationMs": 200443
+    },
+    {
+      "success": false,
+      "category": "celeb",
+      "runIndex": 1,
+      "mode": "category",
+      "explosionMode": true,
+      "count": 5,
+      "summary": {
+        "totalFound": 0,
+        "sssCount": 0,
+        "ssCount": 0,
+        "sCount": 0,
+        "rookieFriendlyCount": 0,
+        "urgentCount": 0,
+        "blueOceanCount": 0,
+        "explosionFunnel": {
+          "candidates": 0,
+          "verified": 0,
+          "gradeOk": 0,
+          "ratioOk": 0,
+          "docOk": 0,
+          "svOk": 0,
+          "strictOk": 0,
+          "minSv": 30,
+          "internalMetrics": {
+            "seedCount": 113,
+            "allKeywordsCount": 620,
+            "profitableCount": 71,
+            "uniqueKeywordsCount": 71,
+            "sortedResultsCount": 71,
+            "verifiedResultsCount": 0,
+            "searchAdEnabled": true,
+            "searchAdAdded": 443,
+            "autocompleteAdded": 77
+          },
+          "topByExplosion": []
+        }
+      },
+      "keywords": [],
+      "attempts": 1,
+      "durationMs": 210130
+    },
+    {
+      "success": false,
+      "category": "celeb",
+      "runIndex": 2,
+      "mode": "category",
+      "explosionMode": true,
+      "count": 5,
+      "summary": {
+        "totalFound": 0,
+        "sssCount": 0,
+        "ssCount": 0,
+        "sCount": 0,
+        "rookieFriendlyCount": 0,
+        "urgentCount": 0,
+        "blueOceanCount": 0,
+        "explosionFunnel": {
+          "candidates": 0,
+          "verified": 0,
+          "gradeOk": 0,
+          "ratioOk": 0,
+          "docOk": 0,
+          "svOk": 0,
+          "strictOk": 0,
+          "minSv": 30,
+          "internalMetrics": {
+            "seedCount": 117,
+            "allKeywordsCount": 575,
+            "profitableCount": 71,
+            "uniqueKeywordsCount": 71,
+            "sortedResultsCount": 71,
+            "verifiedResultsCount": 0,
+            "searchAdEnabled": true,
+            "searchAdAdded": 404,
+            "autocompleteAdded": 67
+          },
+          "topByExplosion": []
+        }
+      },
+      "keywords": [],
+      "attempts": 1,
+      "durationMs": 201498
+    },
+    {
+      "success": false,
+      "category": "celeb",
+      "runIndex": 3,
+      "mode": "category",
+      "explosionMode": true,
+      "count": 5,
+      "summary": {
+        "totalFound": 0,
+        "sssCount": 0,
+        "ssCount": 0,
+        "sCount": 0,
+        "rookieFriendlyCount": 0,
+        "urgentCount": 0,
+        "blueOceanCount": 0,
+        "explosionFunnel": {
+          "candidates": 0,
+          "verified": 0,
+          "gradeOk": 0,
+          "ratioOk": 0,
+          "docOk": 0,
+          "svOk": 0,
+          "strictOk": 0,
+          "minSv": 30,
+          "internalMetrics": {
+            "seedCount": 114,
+            "allKeywordsCount": 368,
+            "profitableCount": 71,
+            "uniqueKeywordsCount": 71,
+            "sortedResultsCount": 71,
+            "verifiedResultsCount": 0,
+            "searchAdEnabled": true,
+            "searchAdAdded": 205,
+            "autocompleteAdded": 60
+          },
+          "topByExplosion": []
+        }
+      },
+      "keywords": [],
+      "attempts": 1,
+      "durationMs": 210360
+    },
+    {
+      "success": true,
+      "category": "fashion",
+      "runIndex": 1,
+      "mode": "category",
+      "explosionMode": true,
+      "count": 5,
+      "summary": {
+        "totalFound": 2,
+        "sssCount": 2,
+        "ssCount": 0,
+        "sCount": 0,
+        "rookieFriendlyCount": 0,
+        "urgentCount": 0,
+        "blueOceanCount": 2,
+        "explosionFunnel": {
+          "candidates": 2,
+          "verified": 2,
+          "gradeOk": 2,
+          "ratioOk": 2,
+          "docOk": 2,
+          "svOk": 2,
+          "strictOk": 2,
+          "minSv": 30,
+          "internalMetrics": {
+            "seedCount": 130,
+            "allKeywordsCount": 553,
+            "profitableCount": 49,
+            "uniqueKeywordsCount": 49,
+            "sortedResultsCount": 49,
+            "verifiedResultsCount": 2,
+            "searchAdEnabled": true,
+            "searchAdAdded": 360,
+            "autocompleteAdded": 77
+          },
+          "topByExplosion": [
+            "코디네이터 | grade=SSS gr=140.28571428571428 sv=4910 dc=35 src=인스타(25) ex=106",
+            "산본미용실 | grade=SSS gr=2.1925 sv=8770 dc=4000 src=인스타(25) ex=106"
+          ]
+        }
+      },
+      "keywords": [
+        {
+          "keyword": "코디네이터",
+          "grade": "SSS",
+          "searchVolume": 4910,
+          "documentCount": 35,
+          "goldenRatio": 140.28571428571428,
+          "source": "인스타"
+        },
+        {
+          "keyword": "산본미용실",
+          "grade": "SSS",
+          "searchVolume": 8770,
+          "documentCount": 4000,
+          "goldenRatio": 2.1925,
+          "source": "인스타"
+        }
+      ],
+      "attempts": 1,
+      "durationMs": 221635
+    },
+    {
+      "success": false,
+      "category": "fashion",
+      "runIndex": 2,
+      "mode": "category",
+      "explosionMode": true,
+      "count": 5,
+      "summary": {
+        "totalFound": 0,
+        "sssCount": 0,
+        "ssCount": 0,
+        "sCount": 0,
+        "rookieFriendlyCount": 0,
+        "urgentCount": 0,
+        "blueOceanCount": 0,
+        "explosionFunnel": {
+          "candidates": 0,
+          "verified": 0,
+          "gradeOk": 0,
+          "ratioOk": 0,
+          "docOk": 0,
+          "svOk": 0,
+          "strictOk": 0,
+          "minSv": 30,
+          "internalMetrics": {
+            "seedCount": 128,
+            "allKeywordsCount": 503,
+            "profitableCount": 41,
+            "uniqueKeywordsCount": 41,
+            "sortedResultsCount": 41,
+            "verifiedResultsCount": 0,
+            "searchAdEnabled": true,
+            "searchAdAdded": 306,
+            "autocompleteAdded": 79
+          },
+          "topByExplosion": []
+        }
+      },
+      "keywords": [],
+      "attempts": 1,
+      "durationMs": 194777
+    },
+    {
+      "success": true,
+      "category": "fashion",
+      "runIndex": 3,
+      "mode": "category",
+      "explosionMode": true,
+      "count": 5,
+      "summary": {
+        "totalFound": 2,
+        "sssCount": 2,
+        "ssCount": 0,
+        "sCount": 0,
+        "rookieFriendlyCount": 0,
+        "urgentCount": 0,
+        "blueOceanCount": 2,
+        "explosionFunnel": {
+          "candidates": 2,
+          "verified": 2,
+          "gradeOk": 2,
+          "ratioOk": 2,
+          "docOk": 2,
+          "svOk": 2,
+          "strictOk": 2,
+          "minSv": 30,
+          "internalMetrics": {
+            "seedCount": 130,
+            "allKeywordsCount": 434,
+            "profitableCount": 31,
+            "uniqueKeywordsCount": 31,
+            "sortedResultsCount": 31,
+            "verifiedResultsCount": 2,
+            "searchAdEnabled": true,
+            "searchAdAdded": 239,
+            "autocompleteAdded": 76
+          },
+          "topByExplosion": [
+            "코디네이터 | grade=SSS gr=140.28571428571428 sv=4910 dc=35 src=인스타(25) ex=106",
+            "남성전문미용실 | grade=SSS gr=97 sv=970 dc=10 src=인스타(25) ex=99"
+          ]
+        }
+      },
+      "keywords": [
+        {
+          "keyword": "코디네이터",
+          "grade": "SSS",
+          "searchVolume": 4910,
+          "documentCount": 35,
+          "goldenRatio": 140.28571428571428,
+          "source": "인스타"
+        },
+        {
+          "keyword": "남성전문미용실",
+          "grade": "SSS",
+          "searchVolume": 970,
+          "documentCount": 10,
+          "goldenRatio": 97,
+          "source": "인스타"
+        }
+      ],
+      "attempts": 1,
+      "durationMs": 128544
+    }
+  ]
+}

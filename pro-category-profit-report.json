@@ -1,0 +1,162 @@
+{
+  "generatedAt": "2025-12-22T14:35:22.385Z",
+  "mode": "category",
+  "explosionMode": false,
+  "count": 10,
+  "timeoutMs": 180000,
+  "retries": 0,
+  "results": [
+    {
+      "success": false,
+      "category": "life_tips",
+      "mode": "category",
+      "explosionMode": false,
+      "count": 10,
+      "summary": {
+        "totalFound": 0,
+        "sssCount": 0,
+        "ssCount": 0,
+        "sCount": 0,
+        "rookieFriendlyCount": 0,
+        "urgentCount": 0,
+        "blueOceanCount": 0
+      },
+      "keywords": [],
+      "attempts": 1,
+      "durationMs": 41487
+    },
+    {
+      "success": false,
+      "category": "interior",
+      "mode": "category",
+      "explosionMode": false,
+      "count": 10,
+      "summary": {
+        "totalFound": 0,
+        "sssCount": 0,
+        "ssCount": 0,
+        "sCount": 0,
+        "rookieFriendlyCount": 0,
+        "urgentCount": 0,
+        "blueOceanCount": 0
+      },
+      "keywords": [],
+      "attempts": 1,
+      "durationMs": 58554
+    },
+    {
+      "success": false,
+      "category": "review",
+      "mode": "category",
+      "explosionMode": false,
+      "count": 10,
+      "summary": {
+        "totalFound": 0,
+        "sssCount": 0,
+        "ssCount": 0,
+        "sCount": 0,
+        "rookieFriendlyCount": 0,
+        "urgentCount": 0,
+        "blueOceanCount": 0
+      },
+      "keywords": [],
+      "attempts": 1,
+      "durationMs": 42657
+    },
+    {
+      "success": false,
+      "category": "recipe",
+      "mode": "category",
+      "explosionMode": false,
+      "count": 10,
+      "summary": {
+        "totalFound": 0,
+        "sssCount": 0,
+        "ssCount": 0,
+        "sCount": 0,
+        "rookieFriendlyCount": 0,
+        "urgentCount": 0,
+        "blueOceanCount": 0
+      },
+      "keywords": [],
+      "attempts": 1,
+      "durationMs": 7234
+    },
+    {
+      "success": false,
+      "category": "celeb",
+      "mode": "category",
+      "explosionMode": false,
+      "count": 10,
+      "summary": {
+        "totalFound": 0,
+        "sssCount": 0,
+        "ssCount": 0,
+        "sCount": 0,
+        "rookieFriendlyCount": 0,
+        "urgentCount": 0,
+        "blueOceanCount": 0
+      },
+      "keywords": [],
+      "attempts": 1,
+      "durationMs": 66397
+    },
+    {
+      "success": false,
+      "category": "it",
+      "mode": "category",
+      "explosionMode": false,
+      "count": 10,
+      "summary": {
+        "totalFound": 0,
+        "sssCount": 0,
+        "ssCount": 0,
+        "sCount": 0,
+        "rookieFriendlyCount": 0,
+        "urgentCount": 0,
+        "blueOceanCount": 0
+      },
+      "keywords": [],
+      "attempts": 1,
+      "durationMs": 31282
+    },
+    {
+      "success": false,
+      "category": "business",
+      "mode": "category",
+      "explosionMode": false,
+      "count": 10,
+      "summary": {
+        "totalFound": 0,
+        "sssCount": 0,
+        "ssCount": 0,
+        "sCount": 0,
+        "rookieFriendlyCount": 0,
+        "urgentCount": 0,
+        "blueOceanCount": 0
+      },
+      "keywords": [],
+      "attempts": 1,
+      "durationMs": 27852
+    },
+    {
+      "success": false,
+      "category": "sports",
+      "mode": "category",
+      "explosionMode": false,
+      "count": 10,
+      "summary": {
+        "totalFound": 0,
+        "sssCount": 0,
+        "ssCount": 0,
+        "sCount": 0,
+        "rookieFriendlyCount": 0,
+        "urgentCount": 0,
+        "blueOceanCount": 0
+      },
+      "keywords": [],
+      "attempts": 1,
+      "durationMs": 31174
+    }
+  ]
+}

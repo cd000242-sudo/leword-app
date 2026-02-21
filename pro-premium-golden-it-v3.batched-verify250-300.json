@@ -1,0 +1,5084 @@
+{
+  "generatedAt": "2025-12-24T11:34:19.114Z",
+  "mode": "category",
+  "explosionMode": true,
+  "count": 10,
+  "timeoutMs": 420000,
+  "retries": 0,
+  "results": [
+    {
+      "success": true,
+      "category": "it",
+      "mode": "category",
+      "explosionMode": true,
+      "count": 10,
+      "summary": {
+        "totalFound": 10,
+        "sssCount": 7,
+        "ssCount": 1,
+        "sCount": 1,
+        "rookieFriendlyCount": 8,
+        "urgentCount": 0,
+        "blueOceanCount": 8,
+        "explosionFunnel": {
+          "candidates": 200,
+          "verified": 200,
+          "gradeOk": 17,
+          "ratioOk": 25,
+          "docOk": 165,
+          "svOk": 32,
+          "strictOk": 11,
+          "minSv": 500,
+          "internalMetrics": {
+            "seedCount": 118,
+            "allKeywordsCount": 1415,
+            "profitableCount": 238,
+            "uniqueKeywordsCount": 238,
+            "sortedResultsCount": 238,
+            "verifiedResultsCount": 75,
+            "searchAdEnabled": true,
+            "searchAdAdded": 727,
+            "autocompleteAdded": 588
+          },
+          "topByExplosion": [
+            "기계식 키보드 닌자 108 se | grade=SSS gr=210 sv=210 dc=1 src=기계식 키보드(0) ex=52",
+            "기계식키보드 x500 | grade=SSS gr=52 sv=780 dc=15 src=기계식 키보드(0) ex=58",
+            "디월트이어폰 | grade=SSS gr=42.63681592039801 sv=17140 dc=402 src=쇼핑(25) ex=106",
+            "디월트 이어폰 | grade=SSS gr=42.63681592039801 sv=17140 dc=402 src=쇼핑(25) ex=106",
+            "릴스 나레이션 ai | grade=SSS gr=21.6 sv=540 dc=25 src=틱톡(25) ex=99"
+          ]
+        }
+      },
+      "keywords": [
+        {
+          "keyword": "기계식키보드 x500",
+          "searchVolume": 780,
+          "documentCount": 15,
+          "goldenRatio": 52,
+          "rookieFriendly": {
+            "score": 100,
+            "grade": "S",
+            "reason": "문서수 1,000개 미만 → 경쟁 매우 낮음 | 황금비율 10 이상 → 수요 대비 공급 부족 | 중길이 키워드",
+            "canRankWithin": "1~3일 내 가능",
+            "requiredBlogIndex": "지수 무관 (신생도 OK)"
+          },
+          "timing": {
+            "score": 50,
+            "urgency": "ANYTIME",
+            "bestPublishTime": "오전 6~8시 또는 저녁 8~10시",
+            "trendDirection": "stable",
+            "peakPrediction": "꾸준한 검색량 유지"
+          },
+          "blueOcean": {
+            "score": 100,
+            "competitorStrength": "weak",
+            "avgCompetitorBlogAge": "1~2년 (약한 경쟁)",
+            "oldPostRatio": 70,
+            "opportunity": "🔥 극상의 블루오션! 지금 선점하세요"
+          },
+          "trafficEstimate": {
+            "daily": "2~4명",
+            "weekly": "14~28명",
+            "monthly": "60~120명",
+            "confidence": 70,
+            "disclaimer": "📌 트래픽은 순위/CTR/계절성에 따라 달라질 수 있는 추정치입니다."
+          },
+          "revenueEstimate": {
+            "dailyRevenue": "38원 ⚠️추정",
+            "monthlyRevenue": "1,140원 ⚠️추정",
+            "estimatedCPC": 180,
+            "estimatedRPM": 4500,
+            "adType": "애드센스",
+            "revenueGrade": "B",
+            "revenueReason": "📌 보통. 롱테일 확장 추천"
+          },
+          "entryAnalysis": {
+            "canEntry": true,
+            "difficulty": "easy",
+            "difficultyScore": 0,
+            "message": "🟢 진입 쉬움 - 신생 블로거도 상위노출 가능!",
+            "topCompetitorStrength": "약함 (저품질 블로그 다수)",
+            "recommendedBlogIndex": "지수 무관 (신생도 OK)",
+            "estimatedRankingTime": "1~3일 내 가능"
+          },
+          "totalScore": 120,
+          "grade": "SSS",
+          "proStrategy": {
+            "title": "2025 기계식키보드 x500 완벽 정리 | 초보자도 쉽게 이해하는 가이드",
+            "outline": [
+              "1. 기계식키보드 x500란? (기본 개념)",
+              "2. 기계식키보드 x500 핵심 포인트 3가지",
+              "3. 기계식키보드 x500 장단점 비교",
+              "4. 기계식키보드 x500 실제 후기/경험담",
+              "5. 기계식키보드 x500 Q&A (자주 묻는 질문)",
+              "6. 결론 및 추천"
+            ],
+            "wordCount": 2500,
+            "mustInclude": [
+              "핵심 키워드 2~3회 자연스럽게 삽입",
+              "실제 이미지/사진 3장 이상",
+              "표 또는 비교 차트 1개 이상",
+              "자주 묻는 질문(FAQ) 섹션",
+              "결론 및 추천 섹션"
+            ],
+            "avoidTopics": [
+              "과장된 표현 (100%, 무조건, 반드시)",
+              "허위 정보나 검증되지 않은 내용",
+              "다른 블로그 복사/붙여넣기",
+              "광고성 링크 과다 삽입"
+            ],
+            "monetization": "애드센스 + 쿠팡파트너스 조합 추천"
+          },
+          "platformTitles": {
+            "naver": {
+              "title": "핵심 정리: 기계식키보드 x500 2025 최신 가이드 (월 780)",
+              "alternatives": [
+                "기계식키보드 x500 2025 완벽 정리: 핵심만 5분 요약",
+                "기계식키보드 x500 초보도 쉽게: 실패 없는 체크리스트"
+              ],
+              "subKeywords": [
+                "기계식키보드 x500 방법",
+                "기계식키보드 x500 추천",
+                "기계식키보드 x500 후기"
+              ],
+              "tags": [
+                "기계식키보드x500",
+                "기계식키보드",
+                "💎 블루오션"
+              ],
+              "tip": "서두 100자 내에 키워드를 2회 노출하고, 결론 요약을 맨 위에 한 번 더 넣으세요.",
+              "hookPoint": "핵심 정리 포인트를 제목/썸네일에 강조"
+            },
+            "tistory": {
+              "title": "기계식키보드 x500 2025 정리: 한 번에 이해하는 핵심 포인트 (월 780)",
+              "alternatives": [
+                "기계식키보드 x500 제대로 하는 법 (체크리스트 포함)",
+                "기계식키보드 x500 추천/비교: 선택 기준 3가지"
+              ],
+              "subKeywords": [
+                "기계식키보드 x500 방법",
+                "기계식키보드 x500 추천",
+                "기계식키보드 x500 후기"
+              ],
+              "tags": [
+                "기계식키보드x500",
+                "기계식키보드",
+                "💎 블루오션"
+              ],
+              "tip": "표/리스트를 많이 써서 스크롤 체류시간을 늘리세요.",
+              "hookPoint": "“핵심 3가지”처럼 숫자를 넣어 클릭률을 올리기"
+            },
+            "wordpress": {
+              "title": "기계식키보드 x500: 2025 Complete Guide (Checklist & Tips) (월 780)",
+              "alternatives": [
+                "기계식키보드 x500 Guide: Common Mistakes & Quick Fixes",
+                "기계식키보드 x500 Step-by-Step: What to Do First"
+              ],
+              "subKeywords": [
+                "기계식키보드 x500 방법",
+                "기계식키보드 x500 추천",
+                "기계식키보드 x500 후기"
+              ],
+              "tags": [
+                "기계식키보드x500",
+                "기계식키보드",
+                "💎 블루오션"
+              ],
+              "tip": "H2/H3로 구조를 만들고, FAQ 섹션을 넣어 SEO를 강화하세요.",
+              "hookPoint": "FAQ + 체크리스트 조합으로 체류시간/리치 증가"
+            },
+            "blogspot": {
+              "title": "기계식키보드 x500 2025: Quick Start + Best Practices (월 780)",
+              "alternatives": [
+                "기계식키보드 x500 Quick Guide: Do & Don't",
+                "기계식키보드 x500 Essentials: What You Need to Know"
+              ],
+              "subKeywords": [
+                "기계식키보드 x500 방법",
+                "기계식키보드 x500 추천",
+                "기계식키보드 x500 후기"
+              ],
+              "tags": [
+                "기계식키보드x500",
+                "기계식키보드",
+                "💎 블루오션"
+              ],
+              "tip": "이미지 2~3장 + 요약 박스를 넣어 가독성을 올리세요.",
+              "hookPoint": "첫 화면에 요약(결론)을 배치해 이탈률을 낮추기"
+            }
+          },
+          "expandedKeywords": {
+            "relatedGolden": [
+              "기계식키보드 x500 추천",
+              "기계식키보드 x500 비교",
+              "기계식키보드 x500 후기",
+              "기계식키보드 x500 가격"
+            ],
+            "longtailGolden": [
+              "기계식키보드 x500 초보",
+              "기계식키보드 x500 쉽게",
+              "기계식키보드 x500 단계별",
+              "기계식키보드 x500 정리"
+            ],
+            "blueOceanGolden": [
+              "기계식키보드 x500 최신",
+              "기계식키보드 x500 2025",
+              "기계식키보드 x500 체크리스트",
+              "기계식키보드 x500 실패하지 않는 법"
+            ]
+          },
+          "type": "💎 블루오션",
+          "category": "all",
+          "safetyLevel": "safe",
+          "safetyReason": "✅ 안전한 키워드. 신생 블로거도 작성 가능",
+          "source": "기계식 키보드",
+          "profitAnalysis": {
+            "keyword": "기계식키보드 x500",
+            "searchVolume": 780,
+            "documentCount": 15,
+            "estimatedCPC": 180,
+            "purchaseIntentScore": 30,
+            "competitionLevel": 1,
+            "freshnessOpportunity": 1,
+            "profitGoldenRatio": 6.67,
+            "estimatedDailyRevenue": 38,
+            "estimatedMonthlyRevenue": 1140,
+            "grade": "B",
+            "gradeReason": "📌 보통. 롱테일 확장 추천",
+            "isRealBlueOcean": false,
+            "blueOceanReason": "📘 문서수 적음 (15개). 검색량 확인 필요",
+            "strategy": {
+              "approach": "🔍 롱테일 확장 후 작성. \"초보자\", \"2025\", \"비교\" 등 붙여서 경쟁 낮추기",
+              "monetization": "📝 트래픽 확보 우선. 이후 관련 고수익 키워드로 내부링크",
+              "timing": "🗓️ 여유있게 준비. 롱테일 전략으로 접근",
+              "titleSuggestion": "기계식키보드 x500 완벽 가이드 | 초보자도 쉽게 따라하기"
+            }
+          },
+          "timestamp": "2025-12-24T11:31:57.003Z",
+          "isGolden": true,
+          "trendAnalysis": {
+            "trendingReason": "프로 '한국의 결 에디션' 관련 최근 이슈",
+            "whyNow": "최근 뉴스에서 이슈화되며 검색량 급증 중 • \"공개\" 관련 구체적 사건으로 실시간 관심 집중 • \"몬스타기어, 'X500 프로 한국의 결 에디션' 공개\" 관련 최신 뉴스로 조기 진입 효과 기대",
+            "newsSource": "자동 분석"
+          },
+          "keywordGuide": {
+            "summary": "여유 있을 때 공략하면 좋은 키워드입니다. (등급: SSS, 점수: 120점)",
+            "whyItMovesNow": "프로 '한국의 결 에디션' 관련 최근 이슈 최근 뉴스에서 이슈화되며 검색량 급증 중 • \"공개\" 관련 구체적 사건으로 실시간 관심 집중 • \"몬스타기어, 'X500 프로 한국의 결 에디션' 공개\" 관련 최신 뉴스로 조기 진입 효과 기대",
+            "immediateTrafficPlan": [
+              "제목 앞부분에 \"기계식키보드 x500\"를 배치하고, 2025/최신/정리 같은 보조 키워드를 1개만 추가하세요.",
+              "본문 서두 100자 안에 \"기계식키보드 x500\"를 자연스럽게 2회 노출하세요.",
+              "최소 1개는 비교/체크리스트/요약 섹션을 넣어 체류시간을 늘리세요."
+            ],
+            "naverHomeExposureTips": [
+              "첫 이미지에 키워드가 들어간 문구를 넣고, alt 텍스트도 키워드 포함",
+              "목차를 만들고 H2/H3에 서브 키워드 배치",
+              "태그는 5~10개로 과도한 반복을 피하고, 유사어를 섞기"
+            ]
+          },
+          "ultimateAnalysis": {
+            "timing": {
+              "seasonal": {
+                "peakMonths": [
+                  1,
+                  2,
+                  3,
+                  4,
+                  5,
+                  6,
+                  7,
+                  8,
+                  9,
+                  10,
+                  11,
+                  12
+                ],
+                "peakReason": "연중 꾸준한 검색량",
+                "currentSeasonScore": 70,
+                "nextPeakDate": "항상",
+                "daysUntilPeak": 0,
+                "recommendation": "📝 에버그린 키워드입니다. 언제든 작성해도 좋습니다.",
+                "seasonalPattern": "evergreen"
+              },
+              "trend": {
+                "trendDirection": "rising",
+                "changeRate": 520,
+                "comparedTo": "전월 대비",
+                "explosiveScore": 100,
+                "relatedNews": [],
+                "recommendation": "📈 상승세입니다! 지금이 적기!"
+              },
+              "alert": {
+                "optimalPublishDate": "0일 내",
+                "reason": "📝 에버그린 키워드입니다. 언제든 작성해도 좋습니다.",
+                "urgencyLevel": "⚡ 이번 주",
+                "expectedPeakDate": "항상",
+                "competitorActivity": "경쟁자 적음"
+              }
+            },
+            "revenue": {
+              "cpc": {
+                "estimatedCpc": 100,
+                "cpcRange": {
+                  "min": 50,
+                  "max": 200
+                },
+                "cpcTier": "🥉 저수익",
+                "industryAverage": 100,
+                "recommendation": "📝 일반적인 수익 구조입니다. 트래픽 확보에 집중하세요."
+              },
+              "affiliate": {
+                "recommendedPrograms": [
+                  {
+                    "name": "쿠팡파트너스",
+                    "type": "coupang",
+                    "commissionRate": "3~5%",
+                    "estimatedEarningPerClick": 50,
+                    "matchScore": 100
+                  },
+                  {
+                    "name": "네이버 쇼핑",
+                    "type": "naver",
+                    "commissionRate": "1~3%",
+                    "estimatedEarningPerClick": 30,
+                    "matchScore": 85
+                  }
+                ],
+                "bestMatch": "쿠팡파트너스",
+                "potentialProducts": [
+                  "기계식키보드 x500 추천",
+                  "기계식키보드 x500 순위",
+                  "기계식키보드 x500 비교",
+                  "기계식키보드 x500 후기",
+                  "기계식키보드 x500 가격",
+                  "기계식키보드 x500 구매"
+                ]
+              },
+              "projection": {
+                "estimatedDailyVisitors": 8,
+                "estimatedMonthlyVisitors": 240,
+                "adsenseRevenue": {
+                  "daily": 24,
+                  "monthly": 720,
+                  "assumptions": "CPC 100원, CTR 2%, 페이지뷰율 1.5 가정"
+                },
+                "affiliateRevenue": {
+                  "daily": 1,
+                  "monthly": 30,
+                  "conversionRate": 3,
+                  "assumptions": "클릭률 10%, 전환율 3%, 평균 수수료 50원 가정"
+                },
+                "totalMonthlyRevenue": 750,
+                "revenueBreakdown": "애드센스 96% + 제휴 4%",
+                "revenueTier": "📝 월 1만원+"
+              }
+            },
+            "content": {
+              "titles": {
+                "titles": [
+                  {
+                    "title": "기계식키보드 x500 추천 TOP 10 (2025년 최신)",
+                    "type": "number",
+                    "estimatedCTR": 8.5,
+                    "psychologyUsed": "숫자 + 최신 정보"
+                  },
+                  {
+                    "title": "기계식키보드 x500 하는 법, 초보자도 쉽게 따라하기",
+                    "type": "how-to",
+                    "estimatedCTR": 7.5,
+                    "psychologyUsed": "실용성 + 접근성"
+                  },
+                  {
+                    "title": "기계식키보드 x500, 이것만 알면 끝! 완벽 가이드",
+                    "type": "benefit",
+                    "estimatedCTR": 7.2,
+                    "psychologyUsed": "완결성 + 가치 제안"
+                  },
+                  {
+                    "title": "[2025년] 기계식키보드 x500 총정리 (+ 꿀팁 공개)",
+                    "type": "news",
+                    "estimatedCTR": 7,
+                    "psychologyUsed": "최신성 + 보너스 가치"
+                  },
+                  {
+                    "title": "아직도 기계식키보드 x500 몰라요? 지금 당장 확인하세요",
+                    "type": "curiosity",
+                    "estimatedCTR": 6.8,
+                    "psychologyUsed": "호기심 + 긴급성"
+                  },
+                  {
+                    "title": "기계식키보드 x500 실제 후기 (장단점 솔직 비교)",
+                    "type": "comparison",
+                    "estimatedCTR": 6.5,
+                    "psychologyUsed": "신뢰성 + 비교 심리"
+                  }
+                ],
+                "bestTitle": "기계식키보드 x500 추천 TOP 10 (2025년 최신)",
+                "titleFormula": "숫자 + 키워드 + 최신연도 + 가치제안"
+              },
+              "structure": {
+                "recommendedStructure": {
+                  "intro": {
+                    "purpose": "독자의 관심 끌기 + 키워드 자연스럽게 배치",
+                    "template": "\"기계식키보드 x500\"에 대해 고민하고 계신가요? 이 글에서 핵심 정보를 모두 정리해드립니다.",
+                    "keywordPlacement": "첫 문장에 키워드 포함"
+                  },
+                  "sections": [
+                    {
+                      "heading": "기계식키보드 x500란? (기본 개념)",
+                      "purpose": "기초 정보 제공",
+                      "contentGuide": "핵심 정의, 중요성, 왜 알아야 하는지 설명",
+                      "recommendedLength": 300,
+                      "keywordUsage": "소제목과 본문에 1~2회"
+                    },
+                    {
+                      "heading": "기계식키보드 x500 추천 BEST 5",
+                      "purpose": "실질적인 가치 제공 (핵심 섹션)",
+                      "contentGuide": "순위별 상세 설명, 장단점, 추천 이유",
+                      "recommendedLength": 800,
+                      "keywordUsage": "각 항목 설명에 자연스럽게 포함"
+                    },
+                    {
+                      "heading": "기계식키보드 x500 선택 시 주의사항",
+                      "purpose": "신뢰도 향상",
+                      "contentGuide": "흔한 실수, 피해야 할 것, 체크리스트",
+                      "recommendedLength": 400,
+                      "keywordUsage": "주의사항 설명에 1~2회"
+                    },
+                    {
+                      "heading": "자주 묻는 질문 (FAQ)",
+                      "purpose": "SEO 강화 + 체류시간 증가",
+                      "contentGuide": "실제 검색되는 질문 5개 + 명확한 답변",
+                      "recommendedLength": 500,
+                      "keywordUsage": "질문에 롱테일 키워드 활용"
+                    }
+                  ],
+                  "conclusion": {
+                    "purpose": "요약 + CTA",
+                    "template": "지금까지 기계식키보드 x500에 대해 알아봤습니다. 도움이 되셨다면 공유해주세요!",
+                    "ctaRecommendation": "댓글, 공유, 관련 글 링크 유도"
+                  }
+                },
+                "seoChecklist": [
+                  {
+                    "item": "제목에 키워드 포함",
+                    "importance": "critical",
+                    "howTo": "제목 앞부분에 메인 키워드 배치"
+                  },
+                  {
+                    "item": "첫 문단에 키워드",
+                    "importance": "critical",
+                    "howTo": "첫 100자 내 키워드 자연스럽게 삽입"
+                  },
+                  {
+                    "item": "소제목 H2/H3 활용",
+                    "importance": "high",
+                    "howTo": "3~5개 소제목, 키워드 변형 사용"
+                  },
+                  {
+                    "item": "이미지 ALT 태그",
+                    "importance": "high",
+                    "howTo": "모든 이미지에 키워드 포함 설명"
+                  },
+                  {
+                    "item": "내부링크 2개 이상",
+                    "importance": "medium",
+                    "howTo": "관련 글 자연스럽게 연결"
+                  },
+                  {
+                    "item": "3000자 이상 작성",
+                    "importance": "high",
+                    "howTo": "충분한 깊이의 콘텐츠 제공"
+                  }
+                ],
+                "totalRecommendedLength": 3000,
+                "estimatedWriteTime": 90
+              },
+              "images": {
+                "mainImage": {
+                  "searchKeyword": "기계식키보드 x500 대표이미지",
+                  "style": "깔끔한 인포그래픽 또는 고화질 사진",
+                  "source": [
+                    "Unsplash",
+                    "Pixabay",
+                    "직접 제작"
+                  ],
+                  "altText": "기계식키보드 x500 완벽 가이드 대표 이미지"
+                },
+                "sectionImages": [
+                  {
+                    "section": "기본 개념",
+                    "searchKeyword": "기계식키보드 x500 설명",
+                    "purpose": "이해 돕기",
+                    "style": "다이어그램"
+                  },
+                  {
+                    "section": "TOP 5",
+                    "searchKeyword": "기계식키보드 x500 비교",
+                    "purpose": "시각적 비교",
+                    "style": "비교표"
+                  },
+                  {
+                    "section": "주의사항",
+                    "searchKeyword": "주의 아이콘",
+                    "purpose": "강조",
+                    "style": "아이콘"
+                  }
+                ],
+                "infographicIdeas": [
+                  "기계식키보드 x500 선택 가이드 플로우차트",
+                  "기계식키보드 x500 TOP 5 비교표",
+                  "기계식키보드 x500 체크리스트"
+                ],
+                "totalRecommendedImages": 7,
+                "imageStrategy": "섹션당 1~2개, 총 7~10개 이미지로 가독성과 체류시간 향상"
+              }
+            },
+            "ultimateScore": {
+              "total": 80,
+              "breakdown": {
+                "goldenRatio": 100,
+                "timing": 70,
+                "revenue": 40,
+                "competition": 100,
+                "potential": 78
+              },
+              "grade": "🏆 SS",
+              "verdict": "🎯 적극 공략 추천!",
+              "topActions": [
+                "0일 내 작성 권장",
+                "기계식키보드 x500 추천 TOP 10 (2025년 최신)",
+                "3000자 이상, 7개 이미지 권장"
+              ]
+            }
+          },
+          "highlightReason": "✅ ANYTIME/stable | 폭발 58 | 구매의도 30 | 월 1,140원⚠️ | 경쟁도 1"
+        },
+        {
+          "keyword": "디월트이어폰",
+          "searchVolume": 17140,
+          "documentCount": 402,
+          "goldenRatio": 42.63681592039801,
+          "rookieFriendly": {
+            "score": 90,
+            "grade": "S",
+            "reason": "문서수 1,000개 미만 → 경쟁 매우 낮음 | 황금비율 10 이상 → 수요 대비 공급 부족 | 숏테일 키워드 → 대형 블로그와 경쟁",
+            "canRankWithin": "1~3일 내 가능",
+            "requiredBlogIndex": "지수 무관 (신생도 OK)"
+          },
+          "timing": {
+            "score": 63,
+            "urgency": "ANYTIME",
+            "bestPublishTime": "오전 6~8시 또는 저녁 8~10시",
+            "trendDirection": "stable",
+            "peakPrediction": "꾸준한 검색량 유지"
+          },
+          "blueOcean": {
+            "score": 100,
+            "competitorStrength": "weak",
+            "avgCompetitorBlogAge": "1~2년 (약한 경쟁)",
+            "oldPostRatio": 70,
+            "opportunity": "🔥 극상의 블루오션! 지금 선점하세요"
+          },
+          "trafficEstimate": {
+            "daily": "38~88명",
+            "weekly": "266~616명",
+            "monthly": "1,140~2,640명",
+            "confidence": 85,
+            "disclaimer": "📌 트래픽은 순위/CTR/계절성에 따라 달라질 수 있는 추정치입니다."
+          },
+          "revenueEstimate": {
+            "dailyRevenue": "848원 ⚠️추정",
+            "monthlyRevenue": "25,440원 ⚠️추정",
+            "estimatedCPC": 180,
+            "estimatedRPM": 4500,
+            "adType": "애드센스",
+            "revenueGrade": "S",
+            "revenueReason": "⭐ 추천! 월 25천원 예상"
+          },
+          "entryAnalysis": {
+            "canEntry": true,
+            "difficulty": "easy",
+            "difficultyScore": 0,
+            "message": "🟢 진입 쉬움 - 신생 블로거도 상위노출 가능!",
+            "topCompetitorStrength": "약함 (저품질 블로그 다수)",
+            "recommendedBlogIndex": "지수 무관 (신생도 OK)",
+            "estimatedRankingTime": "1~3일 내 가능"
+          },
+          "totalScore": 125,
+          "grade": "SSS",
+          "proStrategy": {
+            "title": "2025 디월트이어폰 완벽 정리 | 초보자도 쉽게 이해하는 가이드",
+            "outline": [
+              "1. 디월트이어폰란? (기본 개념)",
+              "2. 디월트이어폰 핵심 포인트 3가지",
+              "3. 디월트이어폰 장단점 비교",
+              "4. 디월트이어폰 실제 후기/경험담",
+              "5. 디월트이어폰 Q&A (자주 묻는 질문)",
+              "6. 결론 및 추천"
+            ],
+            "wordCount": 2500,
+            "mustInclude": [
+              "핵심 키워드 2~3회 자연스럽게 삽입",
+              "실제 이미지/사진 3장 이상",
+              "표 또는 비교 차트 1개 이상",
+              "자주 묻는 질문(FAQ) 섹션",
+              "결론 및 추천 섹션"
+            ],
+            "avoidTopics": [
+              "과장된 표현 (100%, 무조건, 반드시)",
+              "허위 정보나 검증되지 않은 내용",
+              "다른 블로그 복사/붙여넣기",
+              "광고성 링크 과다 삽입"
+            ],
+            "monetization": "애드센스 메인 (트래픽 많으면 효과적)"
+          },
+          "platformTitles": {
+            "naver": {
+              "title": "핵심 정리: 디월트이어폰 2025 최신 가이드 (월 17,140)",
+              "alternatives": [
+                "디월트이어폰 2025 완벽 정리: 핵심만 5분 요약",
+                "디월트이어폰 초보도 쉽게: 실패 없는 체크리스트"
+              ],
+              "subKeywords": [
+                "디월트이어폰 방법",
+                "디월트이어폰 추천",
+                "디월트이어폰 후기"
+              ],
+              "tags": [
+                "디월트이어폰",
+                "💎 블루오션"
+              ],
+              "tip": "서두 100자 내에 키워드를 2회 노출하고, 결론 요약을 맨 위에 한 번 더 넣으세요.",
+              "hookPoint": "핵심 정리 포인트를 제목/썸네일에 강조"
+            },
+            "tistory": {
+              "title": "디월트이어폰 2025 정리: 한 번에 이해하는 핵심 포인트 (월 17,140)",
+              "alternatives": [
+                "디월트이어폰 제대로 하는 법 (체크리스트 포함)",
+                "디월트이어폰 추천/비교: 선택 기준 3가지"
+              ],
+              "subKeywords": [
+                "디월트이어폰 방법",
+                "디월트이어폰 추천",
+                "디월트이어폰 후기"
+              ],
+              "tags": [
+                "디월트이어폰",
+                "💎 블루오션"
+              ],
+              "tip": "표/리스트를 많이 써서 스크롤 체류시간을 늘리세요.",
+              "hookPoint": "“핵심 3가지”처럼 숫자를 넣어 클릭률을 올리기"
+            },
+            "wordpress": {
+              "title": "디월트이어폰: 2025 Complete Guide (Checklist & Tips) (월 17,140)",
+              "alternatives": [
+                "디월트이어폰 Guide: Common Mistakes & Quick Fixes",
+                "디월트이어폰 Step-by-Step: What to Do First"
+              ],
+              "subKeywords": [
+                "디월트이어폰 방법",
+                "디월트이어폰 추천",
+                "디월트이어폰 후기"
+              ],
+              "tags": [
+                "디월트이어폰",
+                "💎 블루오션"
+              ],
+              "tip": "H2/H3로 구조를 만들고, FAQ 섹션을 넣어 SEO를 강화하세요.",
+              "hookPoint": "FAQ + 체크리스트 조합으로 체류시간/리치 증가"
+            },
+            "blogspot": {
+              "title": "디월트이어폰 2025: Quick Start + Best Practices (월 17,140)",
+              "alternatives": [
+                "디월트이어폰 Quick Guide: Do & Don't",
+                "디월트이어폰 Essentials: What You Need to Know"
+              ],
+              "subKeywords": [
+                "디월트이어폰 방법",
+                "디월트이어폰 추천",
+                "디월트이어폰 후기"
+              ],
+              "tags": [
+                "디월트이어폰",
+                "💎 블루오션"
+              ],
+              "tip": "이미지 2~3장 + 요약 박스를 넣어 가독성을 올리세요.",
+              "hookPoint": "첫 화면에 요약(결론)을 배치해 이탈률을 낮추기"
+            }
+          },
+          "expandedKeywords": {
+            "relatedGolden": [
+              "디월트이어폰 추천",
+              "디월트이어폰 비교",
+              "디월트이어폰 후기",
+              "디월트이어폰 가격"
+            ],
+            "longtailGolden": [
+              "디월트이어폰 초보",
+              "디월트이어폰 쉽게",
+              "디월트이어폰 단계별",
+              "디월트이어폰 정리"
+            ],
+            "blueOceanGolden": [
+              "디월트이어폰 최신",
+              "디월트이어폰 2025",
+              "디월트이어폰 체크리스트",
+              "디월트이어폰 실패하지 않는 법"
+            ]
+          },
+          "type": "💎 블루오션",
+          "category": "all",
+          "safetyLevel": "safe",
+          "safetyReason": "✅ 안전한 키워드. 신생 블로거도 작성 가능",
+          "source": "쇼핑",
+          "profitAnalysis": {
+            "keyword": "디월트이어폰",
+            "searchVolume": 17140,
+            "documentCount": 402,
+            "estimatedCPC": 180,
+            "purchaseIntentScore": 30,
+            "competitionLevel": 1,
+            "freshnessOpportunity": 1,
+            "profitGoldenRatio": 146.55,
+            "estimatedDailyRevenue": 848,
+            "estimatedMonthlyRevenue": 25440,
+            "grade": "S",
+            "gradeReason": "⭐ 추천! 월 25천원 예상",
+            "isRealBlueOcean": false,
+            "blueOceanReason": "📘 문서수 적음 (402개). 검색량 확인 필요",
+            "strategy": {
+              "approach": "✍️ 빠른 작성 권장. 1500자+ 품질 콘텐츠로 상위 노출 노려볼만",
+              "monetization": "📝 트래픽 확보 우선. 이후 관련 고수익 키워드로 내부링크",
+              "timing": "📅 이번 주 내 작성. 2~4주 내 상위노출 기대",
+              "titleSuggestion": "디월트이어폰 완벽 가이드 | 초보자도 쉽게 따라하기"
+            }
+          },
+          "timestamp": "2025-12-24T11:31:56.985Z",
+          "isGolden": true,
+          "trendAnalysis": {
+            "trendingReason": "삼성SDI, 인터배터리 2025서 관련 최근 이슈",
+            "whyNow": "최근 5개 이상의 뉴스에서 다뤄지며 이슈화 진행 중 • \"공개\" 관련 구체적 사건으로 실시간 관심 집중 • 뉴스에서 \"주목\" 키워드로 언급되며 화제성 확보 • \"삼성SDI, 인터배터리 2025서 각형 배터리 기술력 강조\" 관련 최신 뉴스로 조기 진입 효과 기대",
+            "newsSource": "자동 분석"
+          },
+          "keywordGuide": {
+            "summary": "여유 있을 때 공략하면 좋은 키워드입니다. (등급: SSS, 점수: 125점)",
+            "whyItMovesNow": "삼성SDI, 인터배터리 2025서 관련 최근 이슈 최근 5개 이상의 뉴스에서 다뤄지며 이슈화 진행 중 • \"공개\" 관련 구체적 사건으로 실시간 관심 집중 • 뉴스에서 \"주목\" 키워드로 언급되며 화제성 확보 • \"삼성SDI, 인터배터리 2025서 각형 배터리 기술력 강조\" 관련 최신 뉴스로 조기 진입 효과 기대",
+            "immediateTrafficPlan": [
+              "제목 앞부분에 \"디월트이어폰\"를 배치하고, 2025/최신/정리 같은 보조 키워드를 1개만 추가하세요.",
+              "본문 서두 100자 안에 \"디월트이어폰\"를 자연스럽게 2회 노출하세요.",
+              "최소 1개는 비교/체크리스트/요약 섹션을 넣어 체류시간을 늘리세요."
+            ],
+            "naverHomeExposureTips": [
+              "첫 이미지에 키워드가 들어간 문구를 넣고, alt 텍스트도 키워드 포함",
+              "목차를 만들고 H2/H3에 서브 키워드 배치",
+              "태그는 5~10개로 과도한 반복을 피하고, 유사어를 섞기"
+            ]
+          },
+          "ultimateAnalysis": {
+            "timing": {
+              "seasonal": {
+                "peakMonths": [
+                  1,
+                  2,
+                  3,
+                  4,
+                  5,
+                  6,
+                  7,
+                  8,
+                  9,
+                  10,
+                  11,
+                  12
+                ],
+                "peakReason": "연중 꾸준한 검색량",
+                "currentSeasonScore": 70,
+                "nextPeakDate": "항상",
+                "daysUntilPeak": 0,
+                "recommendation": "📝 에버그린 키워드입니다. 언제든 작성해도 좋습니다.",
+                "seasonalPattern": "evergreen"
+              },
+              "trend": {
+                "trendDirection": "rising",
+                "changeRate": 426,
+                "comparedTo": "전월 대비",
+                "explosiveScore": 100,
+                "relatedNews": [],
+                "recommendation": "📈 상승세입니다! 지금이 적기!"
+              },
+              "alert": {
+                "optimalPublishDate": "0일 내",
+                "reason": "📝 에버그린 키워드입니다. 언제든 작성해도 좋습니다.",
+                "urgencyLevel": "⚡ 이번 주",
+                "expectedPeakDate": "항상",
+                "competitorActivity": "경쟁자 적음"
+              }
+            },
+            "revenue": {
+              "cpc": {
+                "estimatedCpc": 100,
+                "cpcRange": {
+                  "min": 50,
+                  "max": 200
+                },
+                "cpcTier": "🥉 저수익",
+                "industryAverage": 100,
+                "recommendation": "📝 일반적인 수익 구조입니다. 트래픽 확보에 집중하세요."
+              },
+              "affiliate": {
+                "recommendedPrograms": [
+                  {
+                    "name": "쿠팡파트너스",
+                    "type": "coupang",
+                    "commissionRate": "3~5%",
+                    "estimatedEarningPerClick": 50,
+                    "matchScore": 100
+                  },
+                  {
+                    "name": "네이버 쇼핑",
+                    "type": "naver",
+                    "commissionRate": "1~3%",
+                    "estimatedEarningPerClick": 30,
+                    "matchScore": 85
+                  }
+                ],
+                "bestMatch": "쿠팡파트너스",
+                "potentialProducts": [
+                  "디월트이어폰 추천",
+                  "디월트이어폰 순위",
+                  "디월트이어폰 비교",
+                  "디월트이어폰 후기",
+                  "디월트이어폰 가격",
+                  "디월트이어폰 구매"
+                ]
+              },
+              "projection": {
+                "estimatedDailyVisitors": 171,
+                "estimatedMonthlyVisitors": 5130,
+                "adsenseRevenue": {
+                  "daily": 513,
+                  "monthly": 15390,
+                  "assumptions": "CPC 100원, CTR 2%, 페이지뷰율 1.5 가정"
+                },
+                "affiliateRevenue": {
+                  "daily": 26,
+                  "monthly": 780,
+                  "conversionRate": 3,
+                  "assumptions": "클릭률 10%, 전환율 3%, 평균 수수료 50원 가정"
+                },
+                "totalMonthlyRevenue": 16170,
+                "revenueBreakdown": "애드센스 95% + 제휴 5%",
+                "revenueTier": "📝 월 1만원+"
+              }
+            },
+            "content": {
+              "titles": {
+                "titles": [
+                  {
+                    "title": "디월트이어폰 추천 TOP 10 (2025년 최신)",
+                    "type": "number",
+                    "estimatedCTR": 8.5,
+                    "psychologyUsed": "숫자 + 최신 정보"
+                  },
+                  {
+                    "title": "디월트이어폰 하는 법, 초보자도 쉽게 따라하기",
+                    "type": "how-to",
+                    "estimatedCTR": 7.5,
+                    "psychologyUsed": "실용성 + 접근성"
+                  },
+                  {
+                    "title": "디월트이어폰, 이것만 알면 끝! 완벽 가이드",
+                    "type": "benefit",
+                    "estimatedCTR": 7.2,
+                    "psychologyUsed": "완결성 + 가치 제안"
+                  },
+                  {
+                    "title": "[2025년] 디월트이어폰 총정리 (+ 꿀팁 공개)",
+                    "type": "news",
+                    "estimatedCTR": 7,
+                    "psychologyUsed": "최신성 + 보너스 가치"
+                  },
+                  {
+                    "title": "아직도 디월트이어폰 몰라요? 지금 당장 확인하세요",
+                    "type": "curiosity",
+                    "estimatedCTR": 6.8,
+                    "psychologyUsed": "호기심 + 긴급성"
+                  },
+                  {
+                    "title": "디월트이어폰 실제 후기 (장단점 솔직 비교)",
+                    "type": "comparison",
+                    "estimatedCTR": 6.5,
+                    "psychologyUsed": "신뢰성 + 비교 심리"
+                  }
+                ],
+                "bestTitle": "디월트이어폰 추천 TOP 10 (2025년 최신)",
+                "titleFormula": "숫자 + 키워드 + 최신연도 + 가치제안"
+              },
+              "structure": {
+                "recommendedStructure": {
+                  "intro": {
+                    "purpose": "독자의 관심 끌기 + 키워드 자연스럽게 배치",
+                    "template": "\"디월트이어폰\"에 대해 고민하고 계신가요? 이 글에서 핵심 정보를 모두 정리해드립니다.",
+                    "keywordPlacement": "첫 문장에 키워드 포함"
+                  },
+                  "sections": [
+                    {
+                      "heading": "디월트이어폰란? (기본 개념)",
+                      "purpose": "기초 정보 제공",
+                      "contentGuide": "핵심 정의, 중요성, 왜 알아야 하는지 설명",
+                      "recommendedLength": 300,
+                      "keywordUsage": "소제목과 본문에 1~2회"
+                    },
+                    {
+                      "heading": "디월트이어폰 추천 BEST 5",
+                      "purpose": "실질적인 가치 제공 (핵심 섹션)",
+                      "contentGuide": "순위별 상세 설명, 장단점, 추천 이유",
+                      "recommendedLength": 800,
+                      "keywordUsage": "각 항목 설명에 자연스럽게 포함"
+                    },
+                    {
+                      "heading": "디월트이어폰 선택 시 주의사항",
+                      "purpose": "신뢰도 향상",
+                      "contentGuide": "흔한 실수, 피해야 할 것, 체크리스트",
+                      "recommendedLength": 400,
+                      "keywordUsage": "주의사항 설명에 1~2회"
+                    },
+                    {
+                      "heading": "자주 묻는 질문 (FAQ)",
+                      "purpose": "SEO 강화 + 체류시간 증가",
+                      "contentGuide": "실제 검색되는 질문 5개 + 명확한 답변",
+                      "recommendedLength": 500,
+                      "keywordUsage": "질문에 롱테일 키워드 활용"
+                    }
+                  ],
+                  "conclusion": {
+                    "purpose": "요약 + CTA",
+                    "template": "지금까지 디월트이어폰에 대해 알아봤습니다. 도움이 되셨다면 공유해주세요!",
+                    "ctaRecommendation": "댓글, 공유, 관련 글 링크 유도"
+                  }
+                },
+                "seoChecklist": [
+                  {
+                    "item": "제목에 키워드 포함",
+                    "importance": "critical",
+                    "howTo": "제목 앞부분에 메인 키워드 배치"
+                  },
+                  {
+                    "item": "첫 문단에 키워드",
+                    "importance": "critical",
+                    "howTo": "첫 100자 내 키워드 자연스럽게 삽입"
+                  },
+                  {
+                    "item": "소제목 H2/H3 활용",
+                    "importance": "high",
+                    "howTo": "3~5개 소제목, 키워드 변형 사용"
+                  },
+                  {
+                    "item": "이미지 ALT 태그",
+                    "importance": "high",
+                    "howTo": "모든 이미지에 키워드 포함 설명"
+                  },
+                  {
+                    "item": "내부링크 2개 이상",
+                    "importance": "medium",
+                    "howTo": "관련 글 자연스럽게 연결"
+                  },
+                  {
+                    "item": "3000자 이상 작성",
+                    "importance": "high",
+                    "howTo": "충분한 깊이의 콘텐츠 제공"
+                  }
+                ],
+                "totalRecommendedLength": 3000,
+                "estimatedWriteTime": 90
+              },
+              "images": {
+                "mainImage": {
+                  "searchKeyword": "디월트이어폰 대표이미지",
+                  "style": "깔끔한 인포그래픽 또는 고화질 사진",
+                  "source": [
+                    "Unsplash",
+                    "Pixabay",
+                    "직접 제작"
+                  ],
+                  "altText": "디월트이어폰 완벽 가이드 대표 이미지"
+                },
+                "sectionImages": [
+                  {
+                    "section": "기본 개념",
+                    "searchKeyword": "디월트이어폰 설명",
+                    "purpose": "이해 돕기",
+                    "style": "다이어그램"
+                  },
+                  {
+                    "section": "TOP 5",
+                    "searchKeyword": "디월트이어폰 비교",
+                    "purpose": "시각적 비교",
+                    "style": "비교표"
+                  },
+                  {
+                    "section": "주의사항",
+                    "searchKeyword": "주의 아이콘",
+                    "purpose": "강조",
+                    "style": "아이콘"
+                  }
+                ],
+                "infographicIdeas": [
+                  "디월트이어폰 선택 가이드 플로우차트",
+                  "디월트이어폰 TOP 5 비교표",
+                  "디월트이어폰 체크리스트"
+                ],
+                "totalRecommendedImages": 7,
+                "imageStrategy": "섹션당 1~2개, 총 7~10개 이미지로 가독성과 체류시간 향상"
+              }
+            },
+            "ultimateScore": {
+              "total": 84,
+              "breakdown": {
+                "goldenRatio": 100,
+                "timing": 70,
+                "revenue": 60,
+                "competition": 100,
+                "potential": 83
+              },
+              "grade": "🏆 SS",
+              "verdict": "🎯 적극 공략 추천!",
+              "topActions": [
+                "0일 내 작성 권장",
+                "디월트이어폰 추천 TOP 10 (2025년 최신)",
+                "3000자 이상, 7개 이미지 권장"
+              ]
+            }
+          },
+          "highlightReason": "✅ ANYTIME/stable | 폭발 106 | 구매의도 30 | 월 25,440원⚠️ | 경쟁도 1"
+        },
+        {
+          "keyword": "디월트 이어폰",
+          "searchVolume": 17140,
+          "documentCount": 402,
+          "goldenRatio": 42.63681592039801,
+          "rookieFriendly": {
+            "score": 100,
+            "grade": "S",
+            "reason": "문서수 1,000개 미만 → 경쟁 매우 낮음 | 황금비율 10 이상 → 수요 대비 공급 부족 | 중길이 키워드",
+            "canRankWithin": "1~3일 내 가능",
+            "requiredBlogIndex": "지수 무관 (신생도 OK)"
+          },
+          "timing": {
+            "score": 63,
+            "urgency": "ANYTIME",
+            "bestPublishTime": "오전 6~8시 또는 저녁 8~10시",
+            "trendDirection": "stable",
+            "peakPrediction": "꾸준한 검색량 유지"
+          },
+          "blueOcean": {
+            "score": 100,
+            "competitorStrength": "weak",
+            "avgCompetitorBlogAge": "1~2년 (약한 경쟁)",
+            "oldPostRatio": 70,
+            "opportunity": "🔥 극상의 블루오션! 지금 선점하세요"
+          },
+          "trafficEstimate": {
+            "daily": "38~88명",
+            "weekly": "266~616명",
+            "monthly": "1,140~2,640명",
+            "confidence": 85,
+            "disclaimer": "📌 트래픽은 순위/CTR/계절성에 따라 달라질 수 있는 추정치입니다."
+          },
+          "revenueEstimate": {
+            "dailyRevenue": "848원 ⚠️추정",
+            "monthlyRevenue": "25,440원 ⚠️추정",
+            "estimatedCPC": 180,
+            "estimatedRPM": 4500,
+            "adType": "애드센스",
+            "revenueGrade": "S",
+            "revenueReason": "⭐ 추천! 월 25천원 예상"
+          },
+          "entryAnalysis": {
+            "canEntry": true,
+            "difficulty": "easy",
+            "difficultyScore": 0,
+            "message": "🟢 진입 쉬움 - 신생 블로거도 상위노출 가능!",
+            "topCompetitorStrength": "약함 (저품질 블로그 다수)",
+            "recommendedBlogIndex": "지수 무관 (신생도 OK)",
+            "estimatedRankingTime": "1~3일 내 가능"
+          },
+          "totalScore": 125,
+          "grade": "SSS",
+          "proStrategy": {
+            "title": "2025 디월트 이어폰 완벽 정리 | 초보자도 쉽게 이해하는 가이드",
+            "outline": [
+              "1. 디월트 이어폰란? (기본 개념)",
+              "2. 디월트 이어폰 핵심 포인트 3가지",
+              "3. 디월트 이어폰 장단점 비교",
+              "4. 디월트 이어폰 실제 후기/경험담",
+              "5. 디월트 이어폰 Q&A (자주 묻는 질문)",
+              "6. 결론 및 추천"
+            ],
+            "wordCount": 2500,
+            "mustInclude": [
+              "핵심 키워드 2~3회 자연스럽게 삽입",
+              "실제 이미지/사진 3장 이상",
+              "표 또는 비교 차트 1개 이상",
+              "자주 묻는 질문(FAQ) 섹션",
+              "결론 및 추천 섹션"
+            ],
+            "avoidTopics": [
+              "과장된 표현 (100%, 무조건, 반드시)",
+              "허위 정보나 검증되지 않은 내용",
+              "다른 블로그 복사/붙여넣기",
+              "광고성 링크 과다 삽입"
+            ],
+            "monetization": "애드센스 메인 (트래픽 많으면 효과적)"
+          },
+          "platformTitles": {
+            "naver": {
+              "title": "핵심 정리: 디월트 이어폰 2025 최신 가이드 (월 17,140)",
+              "alternatives": [
+                "디월트 이어폰 2025 완벽 정리: 핵심만 5분 요약",
+                "디월트 이어폰 초보도 쉽게: 실패 없는 체크리스트"
+              ],
+              "subKeywords": [
+                "디월트 이어폰 방법",
+                "디월트 이어폰 추천",
+                "디월트 이어폰 후기"
+              ],
+              "tags": [
+                "디월트이어폰",
+                "디월트",
+                "💎 블루오션"
+              ],
+              "tip": "서두 100자 내에 키워드를 2회 노출하고, 결론 요약을 맨 위에 한 번 더 넣으세요.",
+              "hookPoint": "핵심 정리 포인트를 제목/썸네일에 강조"
+            },
+            "tistory": {
+              "title": "디월트 이어폰 2025 정리: 한 번에 이해하는 핵심 포인트 (월 17,140)",
+              "alternatives": [
+                "디월트 이어폰 제대로 하는 법 (체크리스트 포함)",
+                "디월트 이어폰 추천/비교: 선택 기준 3가지"
+              ],
+              "subKeywords": [
+                "디월트 이어폰 방법",
+                "디월트 이어폰 추천",
+                "디월트 이어폰 후기"
+              ],
+              "tags": [
+                "디월트이어폰",
+                "디월트",
+                "💎 블루오션"
+              ],
+              "tip": "표/리스트를 많이 써서 스크롤 체류시간을 늘리세요.",
+              "hookPoint": "“핵심 3가지”처럼 숫자를 넣어 클릭률을 올리기"
+            },
+            "wordpress": {
+              "title": "디월트 이어폰: 2025 Complete Guide (Checklist & Tips) (월 17,140)",
+              "alternatives": [
+                "디월트 이어폰 Guide: Common Mistakes & Quick Fixes",
+                "디월트 이어폰 Step-by-Step: What to Do First"
+              ],
+              "subKeywords": [
+                "디월트 이어폰 방법",
+                "디월트 이어폰 추천",
+                "디월트 이어폰 후기"
+              ],
+              "tags": [
+                "디월트이어폰",
+                "디월트",
+                "💎 블루오션"
+              ],
+              "tip": "H2/H3로 구조를 만들고, FAQ 섹션을 넣어 SEO를 강화하세요.",
+              "hookPoint": "FAQ + 체크리스트 조합으로 체류시간/리치 증가"
+            },
+            "blogspot": {
+              "title": "디월트 이어폰 2025: Quick Start + Best Practices (월 17,140)",
+              "alternatives": [
+                "디월트 이어폰 Quick Guide: Do & Don't",
+                "디월트 이어폰 Essentials: What You Need to Know"
+              ],
+              "subKeywords": [
+                "디월트 이어폰 방법",
+                "디월트 이어폰 추천",
+                "디월트 이어폰 후기"
+              ],
+              "tags": [
+                "디월트이어폰",
+                "디월트",
+                "💎 블루오션"
+              ],
+              "tip": "이미지 2~3장 + 요약 박스를 넣어 가독성을 올리세요.",
+              "hookPoint": "첫 화면에 요약(결론)을 배치해 이탈률을 낮추기"
+            }
+          },
+          "expandedKeywords": {
+            "relatedGolden": [
+              "디월트 이어폰 추천",
+              "디월트 이어폰 비교",
+              "디월트 이어폰 후기",
+              "디월트 이어폰 가격"
+            ],
+            "longtailGolden": [
+              "디월트 이어폰 초보",
+              "디월트 이어폰 쉽게",
+              "디월트 이어폰 단계별",
+              "디월트 이어폰 정리"
+            ],
+            "blueOceanGolden": [
+              "디월트 이어폰 최신",
+              "디월트 이어폰 2025",
+              "디월트 이어폰 체크리스트",
+              "디월트 이어폰 실패하지 않는 법"
+            ]
+          },
+          "type": "💎 블루오션",
+          "category": "all",
+          "safetyLevel": "safe",
+          "safetyReason": "✅ 안전한 키워드. 신생 블로거도 작성 가능",
+          "source": "쇼핑",
+          "profitAnalysis": {
+            "keyword": "디월트 이어폰",
+            "searchVolume": 17140,
+            "documentCount": 402,
+            "estimatedCPC": 180,
+            "purchaseIntentScore": 30,
+            "competitionLevel": 1,
+            "freshnessOpportunity": 1,
+            "profitGoldenRatio": 146.55,
+            "estimatedDailyRevenue": 848,
+            "estimatedMonthlyRevenue": 25440,
+            "grade": "S",
+            "gradeReason": "⭐ 추천! 월 25천원 예상",
+            "isRealBlueOcean": false,
+            "blueOceanReason": "📘 문서수 적음 (402개). 검색량 확인 필요",
+            "strategy": {
+              "approach": "✍️ 빠른 작성 권장. 1500자+ 품질 콘텐츠로 상위 노출 노려볼만",
+              "monetization": "📝 트래픽 확보 우선. 이후 관련 고수익 키워드로 내부링크",
+              "timing": "📅 이번 주 내 작성. 2~4주 내 상위노출 기대",
+              "titleSuggestion": "디월트 이어폰 완벽 가이드 | 초보자도 쉽게 따라하기"
+            }
+          },
+          "timestamp": "2025-12-24T11:31:56.997Z",
+          "isGolden": true,
+          "trendAnalysis": {
+            "trendingReason": "삼성SDI, 인터배터리 2025서 관련 최근 이슈",
+            "whyNow": "최근 5개 이상의 뉴스에서 다뤄지며 이슈화 진행 중 • \"공개\" 관련 구체적 사건으로 실시간 관심 집중 • 뉴스에서 \"주목\" 키워드로 언급되며 화제성 확보 • \"삼성SDI, 인터배터리 2025서 각형 배터리 기술력 강조\" 관련 최신 뉴스로 조기 진입 효과 기대",
+            "newsSource": "자동 분석"
+          },
+          "keywordGuide": {
+            "summary": "여유 있을 때 공략하면 좋은 키워드입니다. (등급: SSS, 점수: 125점)",
+            "whyItMovesNow": "삼성SDI, 인터배터리 2025서 관련 최근 이슈 최근 5개 이상의 뉴스에서 다뤄지며 이슈화 진행 중 • \"공개\" 관련 구체적 사건으로 실시간 관심 집중 • 뉴스에서 \"주목\" 키워드로 언급되며 화제성 확보 • \"삼성SDI, 인터배터리 2025서 각형 배터리 기술력 강조\" 관련 최신 뉴스로 조기 진입 효과 기대",
+            "immediateTrafficPlan": [
+              "제목 앞부분에 \"디월트 이어폰\"를 배치하고, 2025/최신/정리 같은 보조 키워드를 1개만 추가하세요.",
+              "본문 서두 100자 안에 \"디월트 이어폰\"를 자연스럽게 2회 노출하세요.",
+              "최소 1개는 비교/체크리스트/요약 섹션을 넣어 체류시간을 늘리세요."
+            ],
+            "naverHomeExposureTips": [
+              "첫 이미지에 키워드가 들어간 문구를 넣고, alt 텍스트도 키워드 포함",
+              "목차를 만들고 H2/H3에 서브 키워드 배치",
+              "태그는 5~10개로 과도한 반복을 피하고, 유사어를 섞기"
+            ]
+          },
+          "ultimateAnalysis": {
+            "timing": {
+              "seasonal": {
+                "peakMonths": [
+                  1,
+                  2,
+                  3,
+                  4,
+                  5,
+                  6,
+                  7,
+                  8,
+                  9,
+                  10,
+                  11,
+                  12
+                ],
+                "peakReason": "연중 꾸준한 검색량",
+                "currentSeasonScore": 70,
+                "nextPeakDate": "항상",
+                "daysUntilPeak": 0,
+                "recommendation": "📝 에버그린 키워드입니다. 언제든 작성해도 좋습니다.",
+                "seasonalPattern": "evergreen"
+              },
+              "trend": {
+                "trendDirection": "rising",
+                "changeRate": 426,
+                "comparedTo": "전월 대비",
+                "explosiveScore": 100,
+                "relatedNews": [],
+                "recommendation": "📈 상승세입니다! 지금이 적기!"
+              },
+              "alert": {
+                "optimalPublishDate": "0일 내",
+                "reason": "📝 에버그린 키워드입니다. 언제든 작성해도 좋습니다.",
+                "urgencyLevel": "⚡ 이번 주",
+                "expectedPeakDate": "항상",
+                "competitorActivity": "경쟁자 적음"
+              }
+            },
+            "revenue": {
+              "cpc": {
+                "estimatedCpc": 100,
+                "cpcRange": {
+                  "min": 50,
+                  "max": 200
+                },
+                "cpcTier": "🥉 저수익",
+                "industryAverage": 100,
+                "recommendation": "📝 일반적인 수익 구조입니다. 트래픽 확보에 집중하세요."
+              },
+              "affiliate": {
+                "recommendedPrograms": [
+                  {
+                    "name": "쿠팡파트너스",
+                    "type": "coupang",
+                    "commissionRate": "3~5%",
+                    "estimatedEarningPerClick": 50,
+                    "matchScore": 100
+                  },
+                  {
+                    "name": "네이버 쇼핑",
+                    "type": "naver",
+                    "commissionRate": "1~3%",
+                    "estimatedEarningPerClick": 30,
+                    "matchScore": 85
+                  }
+                ],
+                "bestMatch": "쿠팡파트너스",
+                "potentialProducts": [
+                  "디월트 이어폰 추천",
+                  "디월트 이어폰 순위",
+                  "디월트 이어폰 비교",
+                  "디월트 이어폰 후기",
+                  "디월트 이어폰 가격",
+                  "디월트 이어폰 구매"
+                ]
+              },
+              "projection": {
+                "estimatedDailyVisitors": 171,
+                "estimatedMonthlyVisitors": 5130,
+                "adsenseRevenue": {
+                  "daily": 513,
+                  "monthly": 15390,
+                  "assumptions": "CPC 100원, CTR 2%, 페이지뷰율 1.5 가정"
+                },
+                "affiliateRevenue": {
+                  "daily": 26,
+                  "monthly": 780,
+                  "conversionRate": 3,
+                  "assumptions": "클릭률 10%, 전환율 3%, 평균 수수료 50원 가정"
+                },
+                "totalMonthlyRevenue": 16170,
+                "revenueBreakdown": "애드센스 95% + 제휴 5%",
+                "revenueTier": "📝 월 1만원+"
+              }
+            },
+            "content": {
+              "titles": {
+                "titles": [
+                  {
+                    "title": "디월트 이어폰 추천 TOP 10 (2025년 최신)",
+                    "type": "number",
+                    "estimatedCTR": 8.5,
+                    "psychologyUsed": "숫자 + 최신 정보"
+                  },
+                  {
+                    "title": "디월트 이어폰 하는 법, 초보자도 쉽게 따라하기",
+                    "type": "how-to",
+                    "estimatedCTR": 7.5,
+                    "psychologyUsed": "실용성 + 접근성"
+                  },
+                  {
+                    "title": "디월트 이어폰, 이것만 알면 끝! 완벽 가이드",
+                    "type": "benefit",
+                    "estimatedCTR": 7.2,
+                    "psychologyUsed": "완결성 + 가치 제안"
+                  },
+                  {
+                    "title": "[2025년] 디월트 이어폰 총정리 (+ 꿀팁 공개)",
+                    "type": "news",
+                    "estimatedCTR": 7,
+                    "psychologyUsed": "최신성 + 보너스 가치"
+                  },
+                  {
+                    "title": "아직도 디월트 이어폰 몰라요? 지금 당장 확인하세요",
+                    "type": "curiosity",
+                    "estimatedCTR": 6.8,
+                    "psychologyUsed": "호기심 + 긴급성"
+                  },
+                  {
+                    "title": "디월트 이어폰 실제 후기 (장단점 솔직 비교)",
+                    "type": "comparison",
+                    "estimatedCTR": 6.5,
+                    "psychologyUsed": "신뢰성 + 비교 심리"
+                  }
+                ],
+                "bestTitle": "디월트 이어폰 추천 TOP 10 (2025년 최신)",
+                "titleFormula": "숫자 + 키워드 + 최신연도 + 가치제안"
+              },
+              "structure": {
+                "recommendedStructure": {
+                  "intro": {
+                    "purpose": "독자의 관심 끌기 + 키워드 자연스럽게 배치",
+                    "template": "\"디월트 이어폰\"에 대해 고민하고 계신가요? 이 글에서 핵심 정보를 모두 정리해드립니다.",
+                    "keywordPlacement": "첫 문장에 키워드 포함"
+                  },
+                  "sections": [
+                    {
+                      "heading": "디월트 이어폰란? (기본 개념)",
+                      "purpose": "기초 정보 제공",
+                      "contentGuide": "핵심 정의, 중요성, 왜 알아야 하는지 설명",
+                      "recommendedLength": 300,
+                      "keywordUsage": "소제목과 본문에 1~2회"
+                    },
+                    {
+                      "heading": "디월트 이어폰 추천 BEST 5",
+                      "purpose": "실질적인 가치 제공 (핵심 섹션)",
+                      "contentGuide": "순위별 상세 설명, 장단점, 추천 이유",
+                      "recommendedLength": 800,
+                      "keywordUsage": "각 항목 설명에 자연스럽게 포함"
+                    },
+                    {
+                      "heading": "디월트 이어폰 선택 시 주의사항",
+                      "purpose": "신뢰도 향상",
+                      "contentGuide": "흔한 실수, 피해야 할 것, 체크리스트",
+                      "recommendedLength": 400,
+                      "keywordUsage": "주의사항 설명에 1~2회"
+                    },
+                    {
+                      "heading": "자주 묻는 질문 (FAQ)",
+                      "purpose": "SEO 강화 + 체류시간 증가",
+                      "contentGuide": "실제 검색되는 질문 5개 + 명확한 답변",
+                      "recommendedLength": 500,
+                      "keywordUsage": "질문에 롱테일 키워드 활용"
+                    }
+                  ],
+                  "conclusion": {
+                    "purpose": "요약 + CTA",
+                    "template": "지금까지 디월트 이어폰에 대해 알아봤습니다. 도움이 되셨다면 공유해주세요!",
+                    "ctaRecommendation": "댓글, 공유, 관련 글 링크 유도"
+                  }
+                },
+                "seoChecklist": [
+                  {
+                    "item": "제목에 키워드 포함",
+                    "importance": "critical",
+                    "howTo": "제목 앞부분에 메인 키워드 배치"
+                  },
+                  {
+                    "item": "첫 문단에 키워드",
+                    "importance": "critical",
+                    "howTo": "첫 100자 내 키워드 자연스럽게 삽입"
+                  },
+                  {
+                    "item": "소제목 H2/H3 활용",
+                    "importance": "high",
+                    "howTo": "3~5개 소제목, 키워드 변형 사용"
+                  },
+                  {
+                    "item": "이미지 ALT 태그",
+                    "importance": "high",
+                    "howTo": "모든 이미지에 키워드 포함 설명"
+                  },
+                  {
+                    "item": "내부링크 2개 이상",
+                    "importance": "medium",
+                    "howTo": "관련 글 자연스럽게 연결"
+                  },
+                  {
+                    "item": "3000자 이상 작성",
+                    "importance": "high",
+                    "howTo": "충분한 깊이의 콘텐츠 제공"
+                  }
+                ],
+                "totalRecommendedLength": 3000,
+                "estimatedWriteTime": 90
+              },
+              "images": {
+                "mainImage": {
+                  "searchKeyword": "디월트 이어폰 대표이미지",
+                  "style": "깔끔한 인포그래픽 또는 고화질 사진",
+                  "source": [
+                    "Unsplash",
+                    "Pixabay",
+                    "직접 제작"
+                  ],
+                  "altText": "디월트 이어폰 완벽 가이드 대표 이미지"
+                },
+                "sectionImages": [
+                  {
+                    "section": "기본 개념",
+                    "searchKeyword": "디월트 이어폰 설명",
+                    "purpose": "이해 돕기",
+                    "style": "다이어그램"
+                  },
+                  {
+                    "section": "TOP 5",
+                    "searchKeyword": "디월트 이어폰 비교",
+                    "purpose": "시각적 비교",
+                    "style": "비교표"
+                  },
+                  {
+                    "section": "주의사항",
+                    "searchKeyword": "주의 아이콘",
+                    "purpose": "강조",
+                    "style": "아이콘"
+                  }
+                ],
+                "infographicIdeas": [
+                  "디월트 이어폰 선택 가이드 플로우차트",
+                  "디월트 이어폰 TOP 5 비교표",
+                  "디월트 이어폰 체크리스트"
+                ],
+                "totalRecommendedImages": 7,
+                "imageStrategy": "섹션당 1~2개, 총 7~10개 이미지로 가독성과 체류시간 향상"
+              }
+            },
+            "ultimateScore": {
+              "total": 84,
+              "breakdown": {
+                "goldenRatio": 100,
+                "timing": 70,
+                "revenue": 60,
+                "competition": 100,
+                "potential": 83
+              },
+              "grade": "🏆 SS",
+              "verdict": "🎯 적극 공략 추천!",
+              "topActions": [
+                "0일 내 작성 권장",
+                "디월트 이어폰 추천 TOP 10 (2025년 최신)",
+                "3000자 이상, 7개 이미지 권장"
+              ]
+            }
+          },
+          "highlightReason": "✅ ANYTIME/stable | 폭발 106 | 구매의도 30 | 월 25,440원⚠️ | 경쟁도 1"
+        },
+        {
+          "keyword": "릴스 나레이션 ai",
+          "searchVolume": 540,
+          "documentCount": 25,
+          "goldenRatio": 21.6,
+          "rookieFriendly": {
+            "score": 100,
+            "grade": "S",
+            "reason": "문서수 1,000개 미만 → 경쟁 매우 낮음 | 황금비율 10 이상 → 수요 대비 공급 부족 | 롱테일 키워드 → 신생도 상위노출 가능",
+            "canRankWithin": "1~3일 내 가능",
+            "requiredBlogIndex": "지수 무관 (신생도 OK)"
+          },
+          "timing": {
+            "score": 63,
+            "urgency": "ANYTIME",
+            "bestPublishTime": "오전 6~8시 또는 저녁 8~10시",
+            "trendDirection": "stable",
+            "peakPrediction": "꾸준한 검색량 유지"
+          },
+          "blueOcean": {
+            "score": 100,
+            "competitorStrength": "weak",
+            "avgCompetitorBlogAge": "1~2년 (약한 경쟁)",
+            "oldPostRatio": 70,
+            "opportunity": "🔥 극상의 블루오션! 지금 선점하세요"
+          },
+          "trafficEstimate": {
+            "daily": "1~3명",
+            "weekly": "7~21명",
+            "monthly": "30~90명",
+            "confidence": 70,
+            "disclaimer": "📌 트래픽은 순위/CTR/계절성에 따라 달라질 수 있는 추정치입니다."
+          },
+          "revenueEstimate": {
+            "dailyRevenue": "48원 ⚠️추정",
+            "monthlyRevenue": "1,440원 ⚠️추정",
+            "estimatedCPC": 320,
+            "estimatedRPM": 8000,
+            "adType": "애드센스",
+            "revenueGrade": "B",
+            "revenueReason": "📌 보통. 롱테일 확장 추천"
+          },
+          "entryAnalysis": {
+            "canEntry": true,
+            "difficulty": "easy",
+            "difficultyScore": 0,
+            "message": "🟢 진입 쉬움 - 신생 블로거도 상위노출 가능!",
+            "topCompetitorStrength": "약함 (저품질 블로그 다수)",
+            "recommendedBlogIndex": "지수 무관 (신생도 OK)",
+            "estimatedRankingTime": "1~3일 내 가능"
+          },
+          "totalScore": 145,
+          "grade": "SSS",
+          "proStrategy": {
+            "title": "2025 릴스 나레이션 ai 완벽 정리 | 초보자도 쉽게 이해하는 가이드",
+            "outline": [
+              "1. 릴스 나레이션 ai란? (기본 개념)",
+              "2. 릴스 나레이션 ai 핵심 포인트 3가지",
+              "3. 릴스 나레이션 ai 장단점 비교",
+              "4. 릴스 나레이션 ai 실제 후기/경험담",
+              "5. 릴스 나레이션 ai Q&A (자주 묻는 질문)",
+              "6. 결론 및 추천"
+            ],
+            "wordCount": 2500,
+            "mustInclude": [
+              "핵심 키워드 2~3회 자연스럽게 삽입",
+              "실제 이미지/사진 3장 이상",
+              "표 또는 비교 차트 1개 이상",
+              "자주 묻는 질문(FAQ) 섹션",
+              "결론 및 추천 섹션"
+            ],
+            "avoidTopics": [
+              "과장된 표현 (100%, 무조건, 반드시)",
+              "허위 정보나 검증되지 않은 내용",
+              "다른 블로그 복사/붙여넣기",
+              "광고성 링크 과다 삽입"
+            ],
+            "monetization": "애드센스 + 쿠팡파트너스 조합 추천"
+          },
+          "platformTitles": {
+            "naver": {
+              "title": "핵심 정리: 릴스 나레이션 ai 2025 최신 가이드 (월 540)",
+              "alternatives": [
+                "릴스 나레이션 ai 2025 완벽 정리: 핵심만 5분 요약",
+                "릴스 나레이션 ai 초보도 쉽게: 실패 없는 체크리스트"
+              ],
+              "subKeywords": [
+                "릴스 나레이션 ai 방법",
+                "릴스 나레이션 ai 추천",
+                "릴스 나레이션 ai 후기"
+              ],
+              "tags": [
+                "릴스나레이션ai",
+                "릴스",
+                "💎 블루오션"
+              ],
+              "tip": "서두 100자 내에 키워드를 2회 노출하고, 결론 요약을 맨 위에 한 번 더 넣으세요.",
+              "hookPoint": "핵심 정리 포인트를 제목/썸네일에 강조"
+            },
+            "tistory": {
+              "title": "릴스 나레이션 ai 2025 정리: 한 번에 이해하는 핵심 포인트 (월 540)",
+              "alternatives": [
+                "릴스 나레이션 ai 제대로 하는 법 (체크리스트 포함)",
+                "릴스 나레이션 ai 추천/비교: 선택 기준 3가지"
+              ],
+              "subKeywords": [
+                "릴스 나레이션 ai 방법",
+                "릴스 나레이션 ai 추천",
+                "릴스 나레이션 ai 후기"
+              ],
+              "tags": [
+                "릴스나레이션ai",
+                "릴스",
+                "💎 블루오션"
+              ],
+              "tip": "표/리스트를 많이 써서 스크롤 체류시간을 늘리세요.",
+              "hookPoint": "“핵심 3가지”처럼 숫자를 넣어 클릭률을 올리기"
+            },
+            "wordpress": {
+              "title": "릴스 나레이션 ai: 2025 Complete Guide (Checklist & Tips) (월 540)",
+              "alternatives": [
+                "릴스 나레이션 ai Guide: Common Mistakes & Quick Fixes",
+                "릴스 나레이션 ai Step-by-Step: What to Do First"
+              ],
+              "subKeywords": [
+                "릴스 나레이션 ai 방법",
+                "릴스 나레이션 ai 추천",
+                "릴스 나레이션 ai 후기"
+              ],
+              "tags": [
+                "릴스나레이션ai",
+                "릴스",
+                "💎 블루오션"
+              ],
+              "tip": "H2/H3로 구조를 만들고, FAQ 섹션을 넣어 SEO를 강화하세요.",
+              "hookPoint": "FAQ + 체크리스트 조합으로 체류시간/리치 증가"
+            },
+            "blogspot": {
+              "title": "릴스 나레이션 ai 2025: Quick Start + Best Practices (월 540)",
+              "alternatives": [
+                "릴스 나레이션 ai Quick Guide: Do & Don't",
+                "릴스 나레이션 ai Essentials: What You Need to Know"
+              ],
+              "subKeywords": [
+                "릴스 나레이션 ai 방법",
+                "릴스 나레이션 ai 추천",
+                "릴스 나레이션 ai 후기"
+              ],
+              "tags": [
+                "릴스나레이션ai",
+                "릴스",
+                "💎 블루오션"
+              ],
+              "tip": "이미지 2~3장 + 요약 박스를 넣어 가독성을 올리세요.",
+              "hookPoint": "첫 화면에 요약(결론)을 배치해 이탈률을 낮추기"
+            }
+          },
+          "expandedKeywords": {
+            "relatedGolden": [
+              "릴스 나레이션 ai 추천",
+              "릴스 나레이션 ai 비교",
+              "릴스 나레이션 ai 후기",
+              "릴스 나레이션 ai 가격"
+            ],
+            "longtailGolden": [
+              "릴스 나레이션 ai 초보",
+              "릴스 나레이션 ai 쉽게",
+              "릴스 나레이션 ai 단계별",
+              "릴스 나레이션 ai 정리"
+            ],
+            "blueOceanGolden": [
+              "릴스 나레이션 ai 최신",
+              "릴스 나레이션 ai 2025",
+              "릴스 나레이션 ai 체크리스트",
+              "릴스 나레이션 ai 실패하지 않는 법"
+            ]
+          },
+          "type": "💎 블루오션",
+          "category": "it",
+          "safetyLevel": "safe",
+          "safetyReason": "✅ 안전한 키워드. 신생 블로거도 작성 가능",
+          "source": "틱톡",
+          "profitAnalysis": {
+            "keyword": "릴스 나레이션 ai",
+            "searchVolume": 540,
+            "documentCount": 25,
+            "estimatedCPC": 320,
+            "purchaseIntentScore": 40,
+            "competitionLevel": 1,
+            "freshnessOpportunity": 1,
+            "profitGoldenRatio": 9.5,
+            "estimatedDailyRevenue": 48,
+            "estimatedMonthlyRevenue": 1440,
+            "grade": "B",
+            "gradeReason": "📌 보통. 롱테일 확장 추천",
+            "isRealBlueOcean": false,
+            "blueOceanReason": "📘 문서수 적음 (25개). 검색량 확인 필요",
+            "strategy": {
+              "approach": "🔍 롱테일 확장 후 작성. \"초보자\", \"2025\", \"비교\" 등 붙여서 경쟁 낮추기",
+              "monetization": "📊 애드센스 메인. 광고 위치 최적화로 RPM 극대화",
+              "timing": "🗓️ 여유있게 준비. 롱테일 전략으로 접근",
+              "titleSuggestion": "릴스 나레이션 ai 완벽 가이드 | 초보자도 쉽게 따라하기"
+            }
+          },
+          "timestamp": "2025-12-24T11:31:56.986Z",
+          "isGolden": true,
+          "trendAnalysis": {
+            "trendingReason": "유학썰 풀던 틱톡커서 관련 최근 이슈",
+            "whyNow": "최근 5개 이상의 뉴스에서 다뤄지며 이슈화 진행 중",
+            "newsSource": "자동 분석"
+          },
+          "keywordGuide": {
+            "summary": "여유 있을 때 공략하면 좋은 키워드입니다. (등급: SSS, 점수: 145점)",
+            "whyItMovesNow": "유학썰 풀던 틱톡커서 관련 최근 이슈 최근 5개 이상의 뉴스에서 다뤄지며 이슈화 진행 중",
+            "immediateTrafficPlan": [
+              "제목 앞부분에 \"릴스 나레이션 ai\"를 배치하고, 2025/최신/정리 같은 보조 키워드를 1개만 추가하세요.",
+              "본문 서두 100자 안에 \"릴스 나레이션 ai\"를 자연스럽게 2회 노출하세요.",
+              "최소 1개는 비교/체크리스트/요약 섹션을 넣어 체류시간을 늘리세요."
+            ],
+            "naverHomeExposureTips": [
+              "첫 이미지에 키워드가 들어간 문구를 넣고, alt 텍스트도 키워드 포함",
+              "목차를 만들고 H2/H3에 서브 키워드 배치",
+              "태그는 5~10개로 과도한 반복을 피하고, 유사어를 섞기"
+            ]
+          },
+          "ultimateAnalysis": {
+            "timing": {
+              "seasonal": {
+                "peakMonths": [
+                  1,
+                  2,
+                  3,
+                  4,
+                  5,
+                  6,
+                  7,
+                  8,
+                  9,
+                  10,
+                  11,
+                  12
+                ],
+                "peakReason": "연중 꾸준한 검색량",
+                "currentSeasonScore": 70,
+                "nextPeakDate": "항상",
+                "daysUntilPeak": 0,
+                "recommendation": "📝 에버그린 키워드입니다. 언제든 작성해도 좋습니다.",
+                "seasonalPattern": "evergreen"
+              },
+              "trend": {
+                "trendDirection": "rising",
+                "changeRate": 216,
+                "comparedTo": "전월 대비",
+                "explosiveScore": 100,
+                "relatedNews": [],
+                "recommendation": "📈 상승세입니다! 지금이 적기!"
+              },
+              "alert": {
+                "optimalPublishDate": "0일 내",
+                "reason": "📝 에버그린 키워드입니다. 언제든 작성해도 좋습니다.",
+                "urgencyLevel": "⚡ 이번 주",
+                "expectedPeakDate": "항상",
+                "competitorActivity": "경쟁자 적음"
+              }
+            },
+            "revenue": {
+              "cpc": {
+                "estimatedCpc": 100,
+                "cpcRange": {
+                  "min": 50,
+                  "max": 200
+                },
+                "cpcTier": "🥉 저수익",
+                "industryAverage": 100,
+                "recommendation": "📝 일반적인 수익 구조입니다. 트래픽 확보에 집중하세요."
+              },
+              "affiliate": {
+                "recommendedPrograms": [
+                  {
+                    "name": "쿠팡파트너스",
+                    "type": "coupang",
+                    "commissionRate": "3~5%",
+                    "estimatedEarningPerClick": 50,
+                    "matchScore": 100
+                  },
+                  {
+                    "name": "네이버 쇼핑",
+                    "type": "naver",
+                    "commissionRate": "1~3%",
+                    "estimatedEarningPerClick": 30,
+                    "matchScore": 85
+                  }
+                ],
+                "bestMatch": "쿠팡파트너스",
+                "potentialProducts": [
+                  "릴스 나레이션 ai 추천",
+                  "릴스 나레이션 ai 순위",
+                  "릴스 나레이션 ai 비교",
+                  "릴스 나레이션 ai 후기",
+                  "릴스 나레이션 ai 가격",
+                  "릴스 나레이션 ai 구매"
+                ]
+              },
+              "projection": {
+                "estimatedDailyVisitors": 5,
+                "estimatedMonthlyVisitors": 150,
+                "adsenseRevenue": {
+                  "daily": 15,
+                  "monthly": 450,
+                  "assumptions": "CPC 100원, CTR 2%, 페이지뷰율 1.5 가정"
+                },
+                "affiliateRevenue": {
+                  "daily": 1,
+                  "monthly": 30,
+                  "conversionRate": 3,
+                  "assumptions": "클릭률 10%, 전환율 3%, 평균 수수료 50원 가정"
+                },
+                "totalMonthlyRevenue": 480,
+                "revenueBreakdown": "애드센스 94% + 제휴 6%",
+                "revenueTier": "📝 월 1만원+"
+              }
+            },
+            "content": {
+              "titles": {
+                "titles": [
+                  {
+                    "title": "릴스 나레이션 ai 추천 TOP 10 (2025년 최신)",
+                    "type": "number",
+                    "estimatedCTR": 8.5,
+                    "psychologyUsed": "숫자 + 최신 정보"
+                  },
+                  {
+                    "title": "릴스 나레이션 ai 하는 법, 초보자도 쉽게 따라하기",
+                    "type": "how-to",
+                    "estimatedCTR": 7.5,
+                    "psychologyUsed": "실용성 + 접근성"
+                  },
+                  {
+                    "title": "릴스 나레이션 ai, 이것만 알면 끝! 완벽 가이드",
+                    "type": "benefit",
+                    "estimatedCTR": 7.2,
+                    "psychologyUsed": "완결성 + 가치 제안"
+                  },
+                  {
+                    "title": "[2025년] 릴스 나레이션 ai 총정리 (+ 꿀팁 공개)",
+                    "type": "news",
+                    "estimatedCTR": 7,
+                    "psychologyUsed": "최신성 + 보너스 가치"
+                  },
+                  {
+                    "title": "아직도 릴스 나레이션 ai 몰라요? 지금 당장 확인하세요",
+                    "type": "curiosity",
+                    "estimatedCTR": 6.8,
+                    "psychologyUsed": "호기심 + 긴급성"
+                  },
+                  {
+                    "title": "릴스 나레이션 ai 실제 후기 (장단점 솔직 비교)",
+                    "type": "comparison",
+                    "estimatedCTR": 6.5,
+                    "psychologyUsed": "신뢰성 + 비교 심리"
+                  }
+                ],
+                "bestTitle": "릴스 나레이션 ai 추천 TOP 10 (2025년 최신)",
+                "titleFormula": "숫자 + 키워드 + 최신연도 + 가치제안"
+              },
+              "structure": {
+                "recommendedStructure": {
+                  "intro": {
+                    "purpose": "독자의 관심 끌기 + 키워드 자연스럽게 배치",
+                    "template": "\"릴스 나레이션 ai\"에 대해 고민하고 계신가요? 이 글에서 핵심 정보를 모두 정리해드립니다.",
+                    "keywordPlacement": "첫 문장에 키워드 포함"
+                  },
+                  "sections": [
+                    {
+                      "heading": "릴스 나레이션 ai란? (기본 개념)",
+                      "purpose": "기초 정보 제공",
+                      "contentGuide": "핵심 정의, 중요성, 왜 알아야 하는지 설명",
+                      "recommendedLength": 300,
+                      "keywordUsage": "소제목과 본문에 1~2회"
+                    },
+                    {
+                      "heading": "릴스 나레이션 ai 추천 BEST 5",
+                      "purpose": "실질적인 가치 제공 (핵심 섹션)",
+                      "contentGuide": "순위별 상세 설명, 장단점, 추천 이유",
+                      "recommendedLength": 800,
+                      "keywordUsage": "각 항목 설명에 자연스럽게 포함"
+                    },
+                    {
+                      "heading": "릴스 나레이션 ai 선택 시 주의사항",
+                      "purpose": "신뢰도 향상",
+                      "contentGuide": "흔한 실수, 피해야 할 것, 체크리스트",
+                      "recommendedLength": 400,
+                      "keywordUsage": "주의사항 설명에 1~2회"
+                    },
+                    {
+                      "heading": "자주 묻는 질문 (FAQ)",
+                      "purpose": "SEO 강화 + 체류시간 증가",
+                      "contentGuide": "실제 검색되는 질문 5개 + 명확한 답변",
+                      "recommendedLength": 500,
+                      "keywordUsage": "질문에 롱테일 키워드 활용"
+                    }
+                  ],
+                  "conclusion": {
+                    "purpose": "요약 + CTA",
+                    "template": "지금까지 릴스 나레이션 ai에 대해 알아봤습니다. 도움이 되셨다면 공유해주세요!",
+                    "ctaRecommendation": "댓글, 공유, 관련 글 링크 유도"
+                  }
+                },
+                "seoChecklist": [
+                  {
+                    "item": "제목에 키워드 포함",
+                    "importance": "critical",
+                    "howTo": "제목 앞부분에 메인 키워드 배치"
+                  },
+                  {
+                    "item": "첫 문단에 키워드",
+                    "importance": "critical",
+                    "howTo": "첫 100자 내 키워드 자연스럽게 삽입"
+                  },
+                  {
+                    "item": "소제목 H2/H3 활용",
+                    "importance": "high",
+                    "howTo": "3~5개 소제목, 키워드 변형 사용"
+                  },
+                  {
+                    "item": "이미지 ALT 태그",
+                    "importance": "high",
+                    "howTo": "모든 이미지에 키워드 포함 설명"
+                  },
+                  {
+                    "item": "내부링크 2개 이상",
+                    "importance": "medium",
+                    "howTo": "관련 글 자연스럽게 연결"
+                  },
+                  {
+                    "item": "3000자 이상 작성",
+                    "importance": "high",
+                    "howTo": "충분한 깊이의 콘텐츠 제공"
+                  }
+                ],
+                "totalRecommendedLength": 3000,
+                "estimatedWriteTime": 90
+              },
+              "images": {
+                "mainImage": {
+                  "searchKeyword": "릴스 나레이션 ai 대표이미지",
+                  "style": "깔끔한 인포그래픽 또는 고화질 사진",
+                  "source": [
+                    "Unsplash",
+                    "Pixabay",
+                    "직접 제작"
+                  ],
+                  "altText": "릴스 나레이션 ai 완벽 가이드 대표 이미지"
+                },
+                "sectionImages": [
+                  {
+                    "section": "기본 개념",
+                    "searchKeyword": "릴스 나레이션 ai 설명",
+                    "purpose": "이해 돕기",
+                    "style": "다이어그램"
+                  },
+                  {
+                    "section": "TOP 5",
+                    "searchKeyword": "릴스 나레이션 ai 비교",
+                    "purpose": "시각적 비교",
+                    "style": "비교표"
+                  },
+                  {
+                    "section": "주의사항",
+                    "searchKeyword": "주의 아이콘",
+                    "purpose": "강조",
+                    "style": "아이콘"
+                  }
+                ],
+                "infographicIdeas": [
+                  "릴스 나레이션 ai 선택 가이드 플로우차트",
+                  "릴스 나레이션 ai TOP 5 비교표",
+                  "릴스 나레이션 ai 체크리스트"
+                ],
+                "totalRecommendedImages": 7,
+                "imageStrategy": "섹션당 1~2개, 총 7~10개 이미지로 가독성과 체류시간 향상"
+              }
+            },
+            "ultimateScore": {
+              "total": 80,
+              "breakdown": {
+                "goldenRatio": 100,
+                "timing": 70,
+                "revenue": 40,
+                "competition": 100,
+                "potential": 78
+              },
+              "grade": "🏆 SS",
+              "verdict": "🎯 적극 공략 추천!",
+              "topActions": [
+                "0일 내 작성 권장",
+                "릴스 나레이션 ai 추천 TOP 10 (2025년 최신)",
+                "3000자 이상, 7개 이미지 권장"
+              ]
+            }
+          },
+          "highlightReason": "✅ ANYTIME/stable | 폭발 99 | 구매의도 40 | 월 1,440원⚠️ | 경쟁도 1"
+        },
+        {
+          "keyword": "디월트 무선 이어폰",
+          "searchVolume": 1760,
+          "documentCount": 222,
+          "goldenRatio": 7.927927927927928,
+          "rookieFriendly": {
+            "score": 100,
+            "grade": "S",
+            "reason": "문서수 1,000개 미만 → 경쟁 매우 낮음 | 황금비율 5 이상 → 적정 경쟁 | 롱테일 키워드 → 신생도 상위노출 가능",
+            "canRankWithin": "1~3일 내 가능",
+            "requiredBlogIndex": "지수 무관 (신생도 OK)"
+          },
+          "timing": {
+            "score": 50,
+            "urgency": "ANYTIME",
+            "bestPublishTime": "오전 6~8시 또는 저녁 8~10시",
+            "trendDirection": "stable",
+            "peakPrediction": "꾸준한 검색량 유지"
+          },
+          "blueOcean": {
+            "score": 100,
+            "competitorStrength": "weak",
+            "avgCompetitorBlogAge": "1~2년 (약한 경쟁)",
+            "oldPostRatio": 70,
+            "opportunity": "🔥 극상의 블루오션! 지금 선점하세요"
+          },
+          "trafficEstimate": {
+            "daily": "4~8명",
+            "weekly": "28~56명",
+            "monthly": "120~240명",
+            "confidence": 70,
+            "disclaimer": "📌 트래픽은 순위/CTR/계절성에 따라 달라질 수 있는 추정치입니다."
+          },
+          "revenueEstimate": {
+            "dailyRevenue": "86원 ⚠️추정",
+            "monthlyRevenue": "2,580원 ⚠️추정",
+            "estimatedCPC": 180,
+            "estimatedRPM": 4500,
+            "adType": "애드센스",
+            "revenueGrade": "B",
+            "revenueReason": "📌 보통. 롱테일 확장 추천"
+          },
+          "entryAnalysis": {
+            "canEntry": true,
+            "difficulty": "easy",
+            "difficultyScore": 0,
+            "message": "🟢 진입 쉬움 - 신생 블로거도 상위노출 가능!",
+            "topCompetitorStrength": "약함 (저품질 블로그 다수)",
+            "recommendedBlogIndex": "지수 무관 (신생도 OK)",
+            "estimatedRankingTime": "1~3일 내 가능"
+          },
+          "totalScore": 120,
+          "grade": "SSS",
+          "proStrategy": {
+            "title": "2025 디월트 무선 이어폰 완벽 정리 | 초보자도 쉽게 이해하는 가이드",
+            "outline": [
+              "1. 디월트 무선 이어폰란? (기본 개념)",
+              "2. 디월트 무선 이어폰 핵심 포인트 3가지",
+              "3. 디월트 무선 이어폰 장단점 비교",
+              "4. 디월트 무선 이어폰 실제 후기/경험담",
+              "5. 디월트 무선 이어폰 Q&A (자주 묻는 질문)",
+              "6. 결론 및 추천"
+            ],
+            "wordCount": 2500,
+            "mustInclude": [
+              "핵심 키워드 2~3회 자연스럽게 삽입",
+              "실제 이미지/사진 3장 이상",
+              "표 또는 비교 차트 1개 이상",
+              "자주 묻는 질문(FAQ) 섹션",
+              "결론 및 추천 섹션"
+            ],
+            "avoidTopics": [
+              "과장된 표현 (100%, 무조건, 반드시)",
+              "허위 정보나 검증되지 않은 내용",
+              "다른 블로그 복사/붙여넣기",
+              "광고성 링크 과다 삽입"
+            ],
+            "monetization": "애드센스 + 쿠팡파트너스 조합 추천"
+          },
+          "platformTitles": {
+            "naver": {
+              "title": "핵심 정리: 디월트 무선 이어폰 2025 최신 가이드 (월 1,760)",
+              "alternatives": [
+                "디월트 무선 이어폰 2025 완벽 정리: 핵심만 5분 요약",
+                "디월트 무선 이어폰 초보도 쉽게: 실패 없는 체크리스트"
+              ],
+              "subKeywords": [
+                "디월트 무선 이어폰 방법",
+                "디월트 무선 이어폰 추천",
+                "디월트 무선 이어폰 후기"
+              ],
+              "tags": [
+                "디월트무선이어폰",
+                "디월트",
+                "💎 블루오션"
+              ],
+              "tip": "서두 100자 내에 키워드를 2회 노출하고, 결론 요약을 맨 위에 한 번 더 넣으세요.",
+              "hookPoint": "핵심 정리 포인트를 제목/썸네일에 강조"
+            },
+            "tistory": {
+              "title": "디월트 무선 이어폰 2025 정리: 한 번에 이해하는 핵심 포인트 (월 1,760)",
+              "alternatives": [
+                "디월트 무선 이어폰 제대로 하는 법 (체크리스트 포함)",
+                "디월트 무선 이어폰 추천/비교: 선택 기준 3가지"
+              ],
+              "subKeywords": [
+                "디월트 무선 이어폰 방법",
+                "디월트 무선 이어폰 추천",
+                "디월트 무선 이어폰 후기"
+              ],
+              "tags": [
+                "디월트무선이어폰",
+                "디월트",
+                "💎 블루오션"
+              ],
+              "tip": "표/리스트를 많이 써서 스크롤 체류시간을 늘리세요.",
+              "hookPoint": "“핵심 3가지”처럼 숫자를 넣어 클릭률을 올리기"
+            },
+            "wordpress": {
+              "title": "디월트 무선 이어폰: 2025 Complete Guide (Checklist & Tips) (월 1,760)",
+              "alternatives": [
+                "디월트 무선 이어폰 Guide: Common Mistakes & Quick Fixes",
+                "디월트 무선 이어폰 Step-by-Step: What to Do First"
+              ],
+              "subKeywords": [
+                "디월트 무선 이어폰 방법",
+                "디월트 무선 이어폰 추천",
+                "디월트 무선 이어폰 후기"
+              ],
+              "tags": [
+                "디월트무선이어폰",
+                "디월트",
+                "💎 블루오션"
+              ],
+              "tip": "H2/H3로 구조를 만들고, FAQ 섹션을 넣어 SEO를 강화하세요.",
+              "hookPoint": "FAQ + 체크리스트 조합으로 체류시간/리치 증가"
+            },
+            "blogspot": {
+              "title": "디월트 무선 이어폰 2025: Quick Start + Best Practices (월 1,760)",
+              "alternatives": [
+                "디월트 무선 이어폰 Quick Guide: Do & Don't",
+                "디월트 무선 이어폰 Essentials: What You Need to Know"
+              ],
+              "subKeywords": [
+                "디월트 무선 이어폰 방법",
+                "디월트 무선 이어폰 추천",
+                "디월트 무선 이어폰 후기"
+              ],
+              "tags": [
+                "디월트무선이어폰",
+                "디월트",
+                "💎 블루오션"
+              ],
+              "tip": "이미지 2~3장 + 요약 박스를 넣어 가독성을 올리세요.",
+              "hookPoint": "첫 화면에 요약(결론)을 배치해 이탈률을 낮추기"
+            }
+          },
+          "expandedKeywords": {
+            "relatedGolden": [
+              "디월트 무선 이어폰 추천",
+              "디월트 무선 이어폰 비교",
+              "디월트 무선 이어폰 후기",
+              "디월트 무선 이어폰 가격"
+            ],
+            "longtailGolden": [
+              "디월트 무선 이어폰 초보",
+              "디월트 무선 이어폰 쉽게",
+              "디월트 무선 이어폰 단계별",
+              "디월트 무선 이어폰 정리"
+            ],
+            "blueOceanGolden": [
+              "디월트 무선 이어폰 최신",
+              "디월트 무선 이어폰 2025",
+              "디월트 무선 이어폰 체크리스트",
+              "디월트 무선 이어폰 실패하지 않는 법"
+            ]
+          },
+          "type": "💎 블루오션",
+          "category": "all",
+          "safetyLevel": "safe",
+          "safetyReason": "✅ 안전한 키워드. 신생 블로거도 작성 가능",
+          "source": "무선 이어폰",
+          "profitAnalysis": {
+            "keyword": "디월트 무선 이어폰",
+            "searchVolume": 1760,
+            "documentCount": 222,
+            "estimatedCPC": 180,
+            "purchaseIntentScore": 40,
+            "competitionLevel": 1,
+            "freshnessOpportunity": 1,
+            "profitGoldenRatio": 17.42,
+            "estimatedDailyRevenue": 86,
+            "estimatedMonthlyRevenue": 2580,
+            "grade": "B",
+            "gradeReason": "📌 보통. 롱테일 확장 추천",
+            "isRealBlueOcean": true,
+            "blueOceanReason": "🌊 진짜 블루오션! 검색량 1760, 문서 222개, CPC 180원",
+            "strategy": {
+              "approach": "🔍 롱테일 확장 후 작성. \"초보자\", \"2025\", \"비교\" 등 붙여서 경쟁 낮추기",
+              "monetization": "📝 트래픽 확보 우선. 이후 관련 고수익 키워드로 내부링크",
+              "timing": "🗓️ 여유있게 준비. 롱테일 전략으로 접근",
+              "titleSuggestion": "디월트 무선 이어폰 완벽 가이드 | 초보자도 쉽게 따라하기"
+            }
+          },
+          "timestamp": "2025-12-24T11:31:56.993Z",
+          "isGolden": true,
+          "trendAnalysis": {
+            "trendingReason": "삼성SDI, 인터배터리 2025서 관련 최근 이슈",
+            "whyNow": "최근 3개 이상의 뉴스에서 다뤄지며 주목도 상승 중 • \"공개\" 관련 구체적 사건으로 실시간 관심 집중 • 뉴스에서 \"주목\" 키워드로 언급되며 화제성 확보 • \"삼성SDI, 인터배터리 2025서 각형 배터리 기술력 강조\" 관련 최신 뉴스로 조기 진입 효과 기대",
+            "newsSource": "자동 분석"
+          },
+          "keywordGuide": {
+            "summary": "여유 있을 때 공략하면 좋은 키워드입니다. (등급: SSS, 점수: 120점)",
+            "whyItMovesNow": "삼성SDI, 인터배터리 2025서 관련 최근 이슈 최근 3개 이상의 뉴스에서 다뤄지며 주목도 상승 중 • \"공개\" 관련 구체적 사건으로 실시간 관심 집중 • 뉴스에서 \"주목\" 키워드로 언급되며 화제성 확보 • \"삼성SDI, 인터배터리 2025서 각형 배터리 기술력 강조\" 관련 최신 뉴스로 조기 진입 효과 기대",
+            "immediateTrafficPlan": [
+              "제목 앞부분에 \"디월트 무선 이어폰\"를 배치하고, 2025/최신/정리 같은 보조 키워드를 1개만 추가하세요.",
+              "본문 서두 100자 안에 \"디월트 무선 이어폰\"를 자연스럽게 2회 노출하세요.",
+              "최소 1개는 비교/체크리스트/요약 섹션을 넣어 체류시간을 늘리세요."
+            ],
+            "naverHomeExposureTips": [
+              "첫 이미지에 키워드가 들어간 문구를 넣고, alt 텍스트도 키워드 포함",
+              "목차를 만들고 H2/H3에 서브 키워드 배치",
+              "태그는 5~10개로 과도한 반복을 피하고, 유사어를 섞기"
+            ]
+          },
+          "ultimateAnalysis": {
+            "timing": {
+              "seasonal": {
+                "peakMonths": [
+                  1,
+                  2,
+                  3,
+                  4,
+                  5,
+                  6,
+                  7,
+                  8,
+                  9,
+                  10,
+                  11,
+                  12
+                ],
+                "peakReason": "연중 꾸준한 검색량",
+                "currentSeasonScore": 70,
+                "nextPeakDate": "항상",
+                "daysUntilPeak": 0,
+                "recommendation": "📝 에버그린 키워드입니다. 언제든 작성해도 좋습니다.",
+                "seasonalPattern": "evergreen"
+              },
+              "trend": {
+                "trendDirection": "rising",
+                "changeRate": 79,
+                "comparedTo": "전월 대비",
+                "explosiveScore": 100,
+                "relatedNews": [],
+                "recommendation": "📈 상승세입니다! 지금이 적기!"
+              },
+              "alert": {
+                "optimalPublishDate": "0일 내",
+                "reason": "📝 에버그린 키워드입니다. 언제든 작성해도 좋습니다.",
+                "urgencyLevel": "⚡ 이번 주",
+                "expectedPeakDate": "항상",
+                "competitorActivity": "경쟁자 적음"
+              }
+            },
+            "revenue": {
+              "cpc": {
+                "estimatedCpc": 100,
+                "cpcRange": {
+                  "min": 50,
+                  "max": 200
+                },
+                "cpcTier": "🥉 저수익",
+                "industryAverage": 100,
+                "recommendation": "📝 일반적인 수익 구조입니다. 트래픽 확보에 집중하세요."
+              },
+              "affiliate": {
+                "recommendedPrograms": [
+                  {
+                    "name": "쿠팡파트너스",
+                    "type": "coupang",
+                    "commissionRate": "3~5%",
+                    "estimatedEarningPerClick": 50,
+                    "matchScore": 100
+                  },
+                  {
+                    "name": "네이버 쇼핑",
+                    "type": "naver",
+                    "commissionRate": "1~3%",
+                    "estimatedEarningPerClick": 30,
+                    "matchScore": 85
+                  }
+                ],
+                "bestMatch": "쿠팡파트너스",
+                "potentialProducts": [
+                  "디월트 무선 이어폰 추천",
+                  "디월트 무선 이어폰 순위",
+                  "디월트 무선 이어폰 비교",
+                  "디월트 무선 이어폰 후기",
+                  "디월트 무선 이어폰 가격",
+                  "디월트 무선 이어폰 구매"
+                ]
+              },
+              "projection": {
+                "estimatedDailyVisitors": 9,
+                "estimatedMonthlyVisitors": 270,
+                "adsenseRevenue": {
+                  "daily": 27,
+                  "monthly": 810,
+                  "assumptions": "CPC 100원, CTR 2%, 페이지뷰율 1.5 가정"
+                },
+                "affiliateRevenue": {
+                  "daily": 1,
+                  "monthly": 30,
+                  "conversionRate": 3,
+                  "assumptions": "클릭률 10%, 전환율 3%, 평균 수수료 50원 가정"
+                },
+                "totalMonthlyRevenue": 840,
+                "revenueBreakdown": "애드센스 96% + 제휴 4%",
+                "revenueTier": "📝 월 1만원+"
+              }
+            },
+            "content": {
+              "titles": {
+                "titles": [
+                  {
+                    "title": "디월트 무선 이어폰 추천 TOP 10 (2025년 최신)",
+                    "type": "number",
+                    "estimatedCTR": 8.5,
+                    "psychologyUsed": "숫자 + 최신 정보"
+                  },
+                  {
+                    "title": "디월트 무선 이어폰 하는 법, 초보자도 쉽게 따라하기",
+                    "type": "how-to",
+                    "estimatedCTR": 7.5,
+                    "psychologyUsed": "실용성 + 접근성"
+                  },
+                  {
+                    "title": "디월트 무선 이어폰, 이것만 알면 끝! 완벽 가이드",
+                    "type": "benefit",
+                    "estimatedCTR": 7.2,
+                    "psychologyUsed": "완결성 + 가치 제안"
+                  },
+                  {
+                    "title": "[2025년] 디월트 무선 이어폰 총정리 (+ 꿀팁 공개)",
+                    "type": "news",
+                    "estimatedCTR": 7,
+                    "psychologyUsed": "최신성 + 보너스 가치"
+                  },
+                  {
+                    "title": "아직도 디월트 무선 이어폰 몰라요? 지금 당장 확인하세요",
+                    "type": "curiosity",
+                    "estimatedCTR": 6.8,
+                    "psychologyUsed": "호기심 + 긴급성"
+                  },
+                  {
+                    "title": "디월트 무선 이어폰 실제 후기 (장단점 솔직 비교)",
+                    "type": "comparison",
+                    "estimatedCTR": 6.5,
+                    "psychologyUsed": "신뢰성 + 비교 심리"
+                  }
+                ],
+                "bestTitle": "디월트 무선 이어폰 추천 TOP 10 (2025년 최신)",
+                "titleFormula": "숫자 + 키워드 + 최신연도 + 가치제안"
+              },
+              "structure": {
+                "recommendedStructure": {
+                  "intro": {
+                    "purpose": "독자의 관심 끌기 + 키워드 자연스럽게 배치",
+                    "template": "\"디월트 무선 이어폰\"에 대해 고민하고 계신가요? 이 글에서 핵심 정보를 모두 정리해드립니다.",
+                    "keywordPlacement": "첫 문장에 키워드 포함"
+                  },
+                  "sections": [
+                    {
+                      "heading": "디월트 무선 이어폰란? (기본 개념)",
+                      "purpose": "기초 정보 제공",
+                      "contentGuide": "핵심 정의, 중요성, 왜 알아야 하는지 설명",
+                      "recommendedLength": 300,
+                      "keywordUsage": "소제목과 본문에 1~2회"
+                    },
+                    {
+                      "heading": "디월트 무선 이어폰 추천 BEST 5",
+                      "purpose": "실질적인 가치 제공 (핵심 섹션)",
+                      "contentGuide": "순위별 상세 설명, 장단점, 추천 이유",
+                      "recommendedLength": 800,
+                      "keywordUsage": "각 항목 설명에 자연스럽게 포함"
+                    },
+                    {
+                      "heading": "디월트 무선 이어폰 선택 시 주의사항",
+                      "purpose": "신뢰도 향상",
+                      "contentGuide": "흔한 실수, 피해야 할 것, 체크리스트",
+                      "recommendedLength": 400,
+                      "keywordUsage": "주의사항 설명에 1~2회"
+                    },
+                    {
+                      "heading": "자주 묻는 질문 (FAQ)",
+                      "purpose": "SEO 강화 + 체류시간 증가",
+                      "contentGuide": "실제 검색되는 질문 5개 + 명확한 답변",
+                      "recommendedLength": 500,
+                      "keywordUsage": "질문에 롱테일 키워드 활용"
+                    }
+                  ],
+                  "conclusion": {
+                    "purpose": "요약 + CTA",
+                    "template": "지금까지 디월트 무선 이어폰에 대해 알아봤습니다. 도움이 되셨다면 공유해주세요!",
+                    "ctaRecommendation": "댓글, 공유, 관련 글 링크 유도"
+                  }
+                },
+                "seoChecklist": [
+                  {
+                    "item": "제목에 키워드 포함",
+                    "importance": "critical",
+                    "howTo": "제목 앞부분에 메인 키워드 배치"
+                  },
+                  {
+                    "item": "첫 문단에 키워드",
+                    "importance": "critical",
+                    "howTo": "첫 100자 내 키워드 자연스럽게 삽입"
+                  },
+                  {
+                    "item": "소제목 H2/H3 활용",
+                    "importance": "high",
+                    "howTo": "3~5개 소제목, 키워드 변형 사용"
+                  },
+                  {
+                    "item": "이미지 ALT 태그",
+                    "importance": "high",
+                    "howTo": "모든 이미지에 키워드 포함 설명"
+                  },
+                  {
+                    "item": "내부링크 2개 이상",
+                    "importance": "medium",
+                    "howTo": "관련 글 자연스럽게 연결"
+                  },
+                  {
+                    "item": "3000자 이상 작성",
+                    "importance": "high",
+                    "howTo": "충분한 깊이의 콘텐츠 제공"
+                  }
+                ],
+                "totalRecommendedLength": 3000,
+                "estimatedWriteTime": 90
+              },
+              "images": {
+                "mainImage": {
+                  "searchKeyword": "디월트 무선 이어폰 대표이미지",
+                  "style": "깔끔한 인포그래픽 또는 고화질 사진",
+                  "source": [
+                    "Unsplash",
+                    "Pixabay",
+                    "직접 제작"
+                  ],
+                  "altText": "디월트 무선 이어폰 완벽 가이드 대표 이미지"
+                },
+                "sectionImages": [
+                  {
+                    "section": "기본 개념",
+                    "searchKeyword": "디월트 무선 이어폰 설명",
+                    "purpose": "이해 돕기",
+                    "style": "다이어그램"
+                  },
+                  {
+                    "section": "TOP 5",
+                    "searchKeyword": "디월트 무선 이어폰 비교",
+                    "purpose": "시각적 비교",
+                    "style": "비교표"
+                  },
+                  {
+                    "section": "주의사항",
+                    "searchKeyword": "주의 아이콘",
+                    "purpose": "강조",
+                    "style": "아이콘"
+                  }
+                ],
+                "infographicIdeas": [
+                  "디월트 무선 이어폰 선택 가이드 플로우차트",
+                  "디월트 무선 이어폰 TOP 5 비교표",
+                  "디월트 무선 이어폰 체크리스트"
+                ],
+                "totalRecommendedImages": 7,
+                "imageStrategy": "섹션당 1~2개, 총 7~10개 이미지로 가독성과 체류시간 향상"
+              }
+            },
+            "ultimateScore": {
+              "total": 73,
+              "breakdown": {
+                "goldenRatio": 79.27927927927928,
+                "timing": 70,
+                "revenue": 40,
+                "competition": 100,
+                "potential": 72
+              },
+              "grade": "🥇 S",
+              "verdict": "🎯 적극 공략 추천!",
+              "topActions": [
+                "0일 내 작성 권장",
+                "디월트 무선 이어폰 추천 TOP 10 (2025년 최신)",
+                "3000자 이상, 7개 이미지 권장"
+              ]
+            }
+          },
+          "highlightReason": "✅ ANYTIME/stable | 폭발 65 | 구매의도 40 | 월 2,580원⚠️ | 경쟁도 1"
+        },
+        {
+          "keyword": "기계식 키보드 닌자108",
+          "searchVolume": 900,
+          "documentCount": 214,
+          "goldenRatio": 4.205607476635514,
+          "rookieFriendly": {
+            "score": 95,
+            "grade": "S",
+            "reason": "문서수 1,000개 미만 → 경쟁 매우 낮음 | 롱테일 키워드 → 신생도 상위노출 가능",
+            "canRankWithin": "1~3일 내 가능",
+            "requiredBlogIndex": "지수 무관 (신생도 OK)"
+          },
+          "timing": {
+            "score": 50,
+            "urgency": "ANYTIME",
+            "bestPublishTime": "오전 6~8시 또는 저녁 8~10시",
+            "trendDirection": "stable",
+            "peakPrediction": "꾸준한 검색량 유지"
+          },
+          "blueOcean": {
+            "score": 92,
+            "competitorStrength": "weak",
+            "avgCompetitorBlogAge": "1~2년 (약한 경쟁)",
+            "oldPostRatio": 70,
+            "opportunity": "🔥 극상의 블루오션! 지금 선점하세요"
+          },
+          "trafficEstimate": {
+            "daily": "2~4명",
+            "weekly": "14~28명",
+            "monthly": "60~120명",
+            "confidence": 60,
+            "disclaimer": "📌 트래픽은 순위/CTR/계절성에 따라 달라질 수 있는 추정치입니다."
+          },
+          "revenueEstimate": {
+            "dailyRevenue": "50원 ⚠️추정",
+            "monthlyRevenue": "1,500원 ⚠️추정",
+            "estimatedCPC": 207,
+            "estimatedRPM": 5175,
+            "adType": "애드센스",
+            "revenueGrade": "B",
+            "revenueReason": "📌 보통. 롱테일 확장 추천"
+          },
+          "entryAnalysis": {
+            "canEntry": true,
+            "difficulty": "easy",
+            "difficultyScore": 11,
+            "message": "🟢 진입 쉬움 - 신생 블로거도 상위노출 가능!",
+            "topCompetitorStrength": "약함 (저품질 블로그 다수)",
+            "recommendedBlogIndex": "지수 무관 (신생도 OK)",
+            "estimatedRankingTime": "1~3일 내 가능"
+          },
+          "totalScore": 120,
+          "grade": "SSS",
+          "proStrategy": {
+            "title": "2025 기계식 키보드 닌자108 완벽 정리 | 초보자도 쉽게 이해하는 가이드",
+            "outline": [
+              "1. 기계식 키보드 닌자108란? (기본 개념)",
+              "2. 기계식 키보드 닌자108 핵심 포인트 3가지",
+              "3. 기계식 키보드 닌자108 장단점 비교",
+              "4. 기계식 키보드 닌자108 실제 후기/경험담",
+              "5. 기계식 키보드 닌자108 Q&A (자주 묻는 질문)",
+              "6. 결론 및 추천"
+            ],
+            "wordCount": 2500,
+            "mustInclude": [
+              "핵심 키워드 2~3회 자연스럽게 삽입",
+              "실제 이미지/사진 3장 이상",
+              "표 또는 비교 차트 1개 이상",
+              "자주 묻는 질문(FAQ) 섹션",
+              "결론 및 추천 섹션"
+            ],
+            "avoidTopics": [
+              "과장된 표현 (100%, 무조건, 반드시)",
+              "허위 정보나 검증되지 않은 내용",
+              "다른 블로그 복사/붙여넣기",
+              "광고성 링크 과다 삽입"
+            ],
+            "monetization": "애드센스 + 쿠팡파트너스 조합 추천"
+          },
+          "platformTitles": {
+            "naver": {
+              "title": "핵심 정리: 기계식 키보드 닌자108 2025 최신 가이드 (월 900)",
+              "alternatives": [
+                "기계식 키보드 닌자108 2025 완벽 정리: 핵심만 5분 요약",
+                "기계식 키보드 닌자108 초보도 쉽게: 실패 없는 체크리스트"
+              ],
+              "subKeywords": [
+                "기계식 키보드 닌자108 방법",
+                "기계식 키보드 닌자108 추천",
+                "기계식 키보드 닌자108 후기"
+              ],
+              "tags": [
+                "기계식키보드닌자108",
+                "기계식",
+                "💎 블루오션"
+              ],
+              "tip": "서두 100자 내에 키워드를 2회 노출하고, 결론 요약을 맨 위에 한 번 더 넣으세요.",
+              "hookPoint": "핵심 정리 포인트를 제목/썸네일에 강조"
+            },
+            "tistory": {
+              "title": "기계식 키보드 닌자108 2025 정리: 한 번에 이해하는 핵심 포인트 (월 900)",
+              "alternatives": [
+                "기계식 키보드 닌자108 제대로 하는 법 (체크리스트 포함)",
+                "기계식 키보드 닌자108 추천/비교: 선택 기준 3가지"
+              ],
+              "subKeywords": [
+                "기계식 키보드 닌자108 방법",
+                "기계식 키보드 닌자108 추천",
+                "기계식 키보드 닌자108 후기"
+              ],
+              "tags": [
+                "기계식키보드닌자108",
+                "기계식",
+                "💎 블루오션"
+              ],
+              "tip": "표/리스트를 많이 써서 스크롤 체류시간을 늘리세요.",
+              "hookPoint": "“핵심 3가지”처럼 숫자를 넣어 클릭률을 올리기"
+            },
+            "wordpress": {
+              "title": "기계식 키보드 닌자108: 2025 Complete Guide (Checklist & Tips) (월 900)",
+              "alternatives": [
+                "기계식 키보드 닌자108 Guide: Common Mistakes & Quick Fixes",
+                "기계식 키보드 닌자108 Step-by-Step: What to Do First"
+              ],
+              "subKeywords": [
+                "기계식 키보드 닌자108 방법",
+                "기계식 키보드 닌자108 추천",
+                "기계식 키보드 닌자108 후기"
+              ],
+              "tags": [
+                "기계식키보드닌자108",
+                "기계식",
+                "💎 블루오션"
+              ],
+              "tip": "H2/H3로 구조를 만들고, FAQ 섹션을 넣어 SEO를 강화하세요.",
+              "hookPoint": "FAQ + 체크리스트 조합으로 체류시간/리치 증가"
+            },
+            "blogspot": {
+              "title": "기계식 키보드 닌자108 2025: Quick Start + Best Practices (월 900)",
+              "alternatives": [
+                "기계식 키보드 닌자108 Quick Guide: Do & Don't",
+                "기계식 키보드 닌자108 Essentials: What You Need to Know"
+              ],
+              "subKeywords": [
+                "기계식 키보드 닌자108 방법",
+                "기계식 키보드 닌자108 추천",
+                "기계식 키보드 닌자108 후기"
+              ],
+              "tags": [
+                "기계식키보드닌자108",
+                "기계식",
+                "💎 블루오션"
+              ],
+              "tip": "이미지 2~3장 + 요약 박스를 넣어 가독성을 올리세요.",
+              "hookPoint": "첫 화면에 요약(결론)을 배치해 이탈률을 낮추기"
+            }
+          },
+          "expandedKeywords": {
+            "relatedGolden": [
+              "기계식 키보드 닌자108 추천",
+              "기계식 키보드 닌자108 비교",
+              "기계식 키보드 닌자108 후기",
+              "기계식 키보드 닌자108 가격"
+            ],
+            "longtailGolden": [
+              "기계식 키보드 닌자108 초보",
+              "기계식 키보드 닌자108 쉽게",
+              "기계식 키보드 닌자108 단계별",
+              "기계식 키보드 닌자108 정리"
+            ],
+            "blueOceanGolden": [
+              "기계식 키보드 닌자108 최신",
+              "기계식 키보드 닌자108 2025",
+              "기계식 키보드 닌자108 체크리스트",
+              "기계식 키보드 닌자108 실패하지 않는 법"
+            ]
+          },
+          "type": "💎 블루오션",
+          "category": "all",
+          "safetyLevel": "safe",
+          "safetyReason": "✅ 안전한 키워드. 신생 블로거도 작성 가능",
+          "source": "기계식 키보드",
+          "profitAnalysis": {
+            "keyword": "기계식 키보드 닌자108",
+            "searchVolume": 900,
+            "documentCount": 214,
+            "estimatedCPC": 207,
+            "purchaseIntentScore": 40,
+            "competitionLevel": 2,
+            "freshnessOpportunity": 1,
+            "profitGoldenRatio": 5.12,
+            "estimatedDailyRevenue": 50,
+            "estimatedMonthlyRevenue": 1500,
+            "grade": "B",
+            "gradeReason": "📌 보통. 롱테일 확장 추천",
+            "isRealBlueOcean": false,
+            "blueOceanReason": "📘 문서수 적음 (214개). 검색량 확인 필요",
+            "strategy": {
+              "approach": "🔍 롱테일 확장 후 작성. \"초보자\", \"2025\", \"비교\" 등 붙여서 경쟁 낮추기",
+              "monetization": "📝 트래픽 확보 우선. 이후 관련 고수익 키워드로 내부링크",
+              "timing": "🗓️ 여유있게 준비. 롱테일 전략으로 접근",
+              "titleSuggestion": "기계식 키보드 닌자108 완벽 가이드 | 초보자도 쉽게 따라하기"
+            }
+          },
+          "timestamp": "2025-12-24T11:31:57.003Z",
+          "isGolden": true,
+          "trendAnalysis": {
+            "trendingReason": "몬스타기어, 커스텀 핫스왑 관련 최근 이슈",
+            "whyNow": "최근 5개 이상의 뉴스에서 다뤄지며 이슈화 진행 중 • \"출시\" 관련 구체적 사건으로 실시간 관심 집중",
+            "newsSource": "자동 분석"
+          },
+          "keywordGuide": {
+            "summary": "여유 있을 때 공략하면 좋은 키워드입니다. (등급: SSS, 점수: 120점)",
+            "whyItMovesNow": "몬스타기어, 커스텀 핫스왑 관련 최근 이슈 최근 5개 이상의 뉴스에서 다뤄지며 이슈화 진행 중 • \"출시\" 관련 구체적 사건으로 실시간 관심 집중",
+            "immediateTrafficPlan": [
+              "제목 앞부분에 \"기계식 키보드 닌자108\"를 배치하고, 2025/최신/정리 같은 보조 키워드를 1개만 추가하세요.",
+              "본문 서두 100자 안에 \"기계식 키보드 닌자108\"를 자연스럽게 2회 노출하세요.",
+              "최소 1개는 비교/체크리스트/요약 섹션을 넣어 체류시간을 늘리세요."
+            ],
+            "naverHomeExposureTips": [
+              "첫 이미지에 키워드가 들어간 문구를 넣고, alt 텍스트도 키워드 포함",
+              "목차를 만들고 H2/H3에 서브 키워드 배치",
+              "태그는 5~10개로 과도한 반복을 피하고, 유사어를 섞기"
+            ]
+          },
+          "ultimateAnalysis": {
+            "timing": {
+              "seasonal": {
+                "peakMonths": [
+                  1,
+                  2,
+                  3,
+                  4,
+                  5,
+                  6,
+                  7,
+                  8,
+                  9,
+                  10,
+                  11,
+                  12
+                ],
+                "peakReason": "연중 꾸준한 검색량",
+                "currentSeasonScore": 70,
+                "nextPeakDate": "항상",
+                "daysUntilPeak": 0,
+                "recommendation": "📝 에버그린 키워드입니다. 언제든 작성해도 좋습니다.",
+                "seasonalPattern": "evergreen"
+              },
+              "trend": {
+                "trendDirection": "stable",
+                "changeRate": 42,
+                "comparedTo": "전월 대비",
+                "explosiveScore": 63,
+                "relatedNews": [],
+                "recommendation": "📊 안정적인 키워드입니다."
+              },
+              "alert": {
+                "optimalPublishDate": "0일 내",
+                "reason": "📝 에버그린 키워드입니다. 언제든 작성해도 좋습니다.",
+                "urgencyLevel": "⚡ 이번 주",
+                "expectedPeakDate": "항상",
+                "competitorActivity": "경쟁자 적음"
+              }
+            },
+            "revenue": {
+              "cpc": {
+                "estimatedCpc": 100,
+                "cpcRange": {
+                  "min": 50,
+                  "max": 200
+                },
+                "cpcTier": "🥉 저수익",
+                "industryAverage": 100,
+                "recommendation": "📝 일반적인 수익 구조입니다. 트래픽 확보에 집중하세요."
+              },
+              "affiliate": {
+                "recommendedPrograms": [
+                  {
+                    "name": "쿠팡파트너스",
+                    "type": "coupang",
+                    "commissionRate": "3~5%",
+                    "estimatedEarningPerClick": 50,
+                    "matchScore": 100
+                  },
+                  {
+                    "name": "네이버 쇼핑",
+                    "type": "naver",
+                    "commissionRate": "1~3%",
+                    "estimatedEarningPerClick": 30,
+                    "matchScore": 85
+                  }
+                ],
+                "bestMatch": "쿠팡파트너스",
+                "potentialProducts": [
+                  "기계식 키보드 닌자108 추천",
+                  "기계식 키보드 닌자108 순위",
+                  "기계식 키보드 닌자108 비교",
+                  "기계식 키보드 닌자108 후기",
+                  "기계식 키보드 닌자108 가격",
+                  "기계식 키보드 닌자108 구매"
+                ]
+              },
+              "projection": {
+                "estimatedDailyVisitors": 2,
+                "estimatedMonthlyVisitors": 60,
+                "adsenseRevenue": {
+                  "daily": 6,
+                  "monthly": 180,
+                  "assumptions": "CPC 100원, CTR 2%, 페이지뷰율 1.5 가정"
+                },
+                "affiliateRevenue": {
+                  "daily": 0,
+                  "monthly": 0,
+                  "conversionRate": 3,
+                  "assumptions": "클릭률 10%, 전환율 3%, 평균 수수료 50원 가정"
+                },
+                "totalMonthlyRevenue": 180,
+                "revenueBreakdown": "애드센스 100% + 제휴 0%",
+                "revenueTier": "📝 월 1만원+"
+              }
+            },
+            "content": {
+              "titles": {
+                "titles": [
+                  {
+                    "title": "기계식 키보드 닌자108 추천 TOP 10 (2025년 최신)",
+                    "type": "number",
+                    "estimatedCTR": 8.5,
+                    "psychologyUsed": "숫자 + 최신 정보"
+                  },
+                  {
+                    "title": "기계식 키보드 닌자108 하는 법, 초보자도 쉽게 따라하기",
+                    "type": "how-to",
+                    "estimatedCTR": 7.5,
+                    "psychologyUsed": "실용성 + 접근성"
+                  },
+                  {
+                    "title": "기계식 키보드 닌자108, 이것만 알면 끝! 완벽 가이드",
+                    "type": "benefit",
+                    "estimatedCTR": 7.2,
+                    "psychologyUsed": "완결성 + 가치 제안"
+                  },
+                  {
+                    "title": "[2025년] 기계식 키보드 닌자108 총정리 (+ 꿀팁 공개)",
+                    "type": "news",
+                    "estimatedCTR": 7,
+                    "psychologyUsed": "최신성 + 보너스 가치"
+                  },
+                  {
+                    "title": "아직도 기계식 키보드 닌자108 몰라요? 지금 당장 확인하세요",
+                    "type": "curiosity",
+                    "estimatedCTR": 6.8,
+                    "psychologyUsed": "호기심 + 긴급성"
+                  },
+                  {
+                    "title": "기계식 키보드 닌자108 실제 후기 (장단점 솔직 비교)",
+                    "type": "comparison",
+                    "estimatedCTR": 6.5,
+                    "psychologyUsed": "신뢰성 + 비교 심리"
+                  }
+                ],
+                "bestTitle": "기계식 키보드 닌자108 추천 TOP 10 (2025년 최신)",
+                "titleFormula": "숫자 + 키워드 + 최신연도 + 가치제안"
+              },
+              "structure": {
+                "recommendedStructure": {
+                  "intro": {
+                    "purpose": "독자의 관심 끌기 + 키워드 자연스럽게 배치",
+                    "template": "\"기계식 키보드 닌자108\"에 대해 고민하고 계신가요? 이 글에서 핵심 정보를 모두 정리해드립니다.",
+                    "keywordPlacement": "첫 문장에 키워드 포함"
+                  },
+                  "sections": [
+                    {
+                      "heading": "기계식 키보드 닌자108란? (기본 개념)",
+                      "purpose": "기초 정보 제공",
+                      "contentGuide": "핵심 정의, 중요성, 왜 알아야 하는지 설명",
+                      "recommendedLength": 300,
+                      "keywordUsage": "소제목과 본문에 1~2회"
+                    },
+                    {
+                      "heading": "기계식 키보드 닌자108 추천 BEST 5",
+                      "purpose": "실질적인 가치 제공 (핵심 섹션)",
+                      "contentGuide": "순위별 상세 설명, 장단점, 추천 이유",
+                      "recommendedLength": 800,
+                      "keywordUsage": "각 항목 설명에 자연스럽게 포함"
+                    },
+                    {
+                      "heading": "기계식 키보드 닌자108 선택 시 주의사항",
+                      "purpose": "신뢰도 향상",
+                      "contentGuide": "흔한 실수, 피해야 할 것, 체크리스트",
+                      "recommendedLength": 400,
+                      "keywordUsage": "주의사항 설명에 1~2회"
+                    },
+                    {
+                      "heading": "자주 묻는 질문 (FAQ)",
+                      "purpose": "SEO 강화 + 체류시간 증가",
+                      "contentGuide": "실제 검색되는 질문 5개 + 명확한 답변",
+                      "recommendedLength": 500,
+                      "keywordUsage": "질문에 롱테일 키워드 활용"
+                    }
+                  ],
+                  "conclusion": {
+                    "purpose": "요약 + CTA",
+                    "template": "지금까지 기계식 키보드 닌자108에 대해 알아봤습니다. 도움이 되셨다면 공유해주세요!",
+                    "ctaRecommendation": "댓글, 공유, 관련 글 링크 유도"
+                  }
+                },
+                "seoChecklist": [
+                  {
+                    "item": "제목에 키워드 포함",
+                    "importance": "critical",
+                    "howTo": "제목 앞부분에 메인 키워드 배치"
+                  },
+                  {
+                    "item": "첫 문단에 키워드",
+                    "importance": "critical",
+                    "howTo": "첫 100자 내 키워드 자연스럽게 삽입"
+                  },
+                  {
+                    "item": "소제목 H2/H3 활용",
+                    "importance": "high",
+                    "howTo": "3~5개 소제목, 키워드 변형 사용"
+                  },
+                  {
+                    "item": "이미지 ALT 태그",
+                    "importance": "high",
+                    "howTo": "모든 이미지에 키워드 포함 설명"
+                  },
+                  {
+                    "item": "내부링크 2개 이상",
+                    "importance": "medium",
+                    "howTo": "관련 글 자연스럽게 연결"
+                  },
+                  {
+                    "item": "3000자 이상 작성",
+                    "importance": "high",
+                    "howTo": "충분한 깊이의 콘텐츠 제공"
+                  }
+                ],
+                "totalRecommendedLength": 3000,
+                "estimatedWriteTime": 90
+              },
+              "images": {
+                "mainImage": {
+                  "searchKeyword": "기계식 키보드 닌자108 대표이미지",
+                  "style": "깔끔한 인포그래픽 또는 고화질 사진",
+                  "source": [
+                    "Unsplash",
+                    "Pixabay",
+                    "직접 제작"
+                  ],
+                  "altText": "기계식 키보드 닌자108 완벽 가이드 대표 이미지"
+                },
+                "sectionImages": [
+                  {
+                    "section": "기본 개념",
+                    "searchKeyword": "기계식 키보드 닌자108 설명",
+                    "purpose": "이해 돕기",
+                    "style": "다이어그램"
+                  },
+                  {
+                    "section": "TOP 5",
+                    "searchKeyword": "기계식 키보드 닌자108 비교",
+                    "purpose": "시각적 비교",
+                    "style": "비교표"
+                  },
+                  {
+                    "section": "주의사항",
+                    "searchKeyword": "주의 아이콘",
+                    "purpose": "강조",
+                    "style": "아이콘"
+                  }
+                ],
+                "infographicIdeas": [
+                  "기계식 키보드 닌자108 선택 가이드 플로우차트",
+                  "기계식 키보드 닌자108 TOP 5 비교표",
+                  "기계식 키보드 닌자108 체크리스트"
+                ],
+                "totalRecommendedImages": 7,
+                "imageStrategy": "섹션당 1~2개, 총 7~10개 이미지로 가독성과 체류시간 향상"
+              }
+            },
+            "ultimateScore": {
+              "total": 61,
+              "breakdown": {
+                "goldenRatio": 42.05607476635514,
+                "timing": 70,
+                "revenue": 40,
+                "competition": 100,
+                "potential": 63
+              },
+              "grade": "🥈 A",
+              "verdict": "📝 작성 가치 있음",
+              "topActions": [
+                "0일 내 작성 권장",
+                "기계식 키보드 닌자108 추천 TOP 10 (2025년 최신)",
+                "3000자 이상, 7개 이미지 권장"
+              ]
+            }
+          },
+          "highlightReason": "✅ ANYTIME/stable | 폭발 58 | 구매의도 40 | 월 1,500원⚠️ | 경쟁도 2"
+        },
+        {
+          "keyword": "기계식키보드 닌자108",
+          "searchVolume": 900,
+          "documentCount": 214,
+          "goldenRatio": 4.205607476635514,
+          "rookieFriendly": {
+            "score": 85,
+            "grade": "S",
+            "reason": "문서수 1,000개 미만 → 경쟁 매우 낮음 | 중길이 키워드",
+            "canRankWithin": "1~3일 내 가능",
+            "requiredBlogIndex": "지수 무관 (신생도 OK)"
+          },
+          "timing": {
+            "score": 50,
+            "urgency": "ANYTIME",
+            "bestPublishTime": "오전 6~8시 또는 저녁 8~10시",
+            "trendDirection": "stable",
+            "peakPrediction": "꾸준한 검색량 유지"
+          },
+          "blueOcean": {
+            "score": 92,
+            "competitorStrength": "weak",
+            "avgCompetitorBlogAge": "1~2년 (약한 경쟁)",
+            "oldPostRatio": 70,
+            "opportunity": "🔥 극상의 블루오션! 지금 선점하세요"
+          },
+          "trafficEstimate": {
+            "daily": "2~4명",
+            "weekly": "14~28명",
+            "monthly": "60~120명",
+            "confidence": 60,
+            "disclaimer": "📌 트래픽은 순위/CTR/계절성에 따라 달라질 수 있는 추정치입니다."
+          },
+          "revenueEstimate": {
+            "dailyRevenue": "50원 ⚠️추정",
+            "monthlyRevenue": "1,500원 ⚠️추정",
+            "estimatedCPC": 207,
+            "estimatedRPM": 5175,
+            "adType": "애드센스",
+            "revenueGrade": "B",
+            "revenueReason": "📌 보통. 롱테일 확장 추천"
+          },
+          "entryAnalysis": {
+            "canEntry": true,
+            "difficulty": "easy",
+            "difficultyScore": 11,
+            "message": "🟢 진입 쉬움 - 신생 블로거도 상위노출 가능!",
+            "topCompetitorStrength": "약함 (저품질 블로그 다수)",
+            "recommendedBlogIndex": "지수 무관 (신생도 OK)",
+            "estimatedRankingTime": "1~3일 내 가능"
+          },
+          "totalScore": 120,
+          "grade": "SSS",
+          "proStrategy": {
+            "title": "2025 기계식키보드 닌자108 완벽 정리 | 초보자도 쉽게 이해하는 가이드",
+            "outline": [
+              "1. 기계식키보드 닌자108란? (기본 개념)",
+              "2. 기계식키보드 닌자108 핵심 포인트 3가지",
+              "3. 기계식키보드 닌자108 장단점 비교",
+              "4. 기계식키보드 닌자108 실제 후기/경험담",
+              "5. 기계식키보드 닌자108 Q&A (자주 묻는 질문)",
+              "6. 결론 및 추천"
+            ],
+            "wordCount": 2500,
+            "mustInclude": [
+              "핵심 키워드 2~3회 자연스럽게 삽입",
+              "실제 이미지/사진 3장 이상",
+              "표 또는 비교 차트 1개 이상",
+              "자주 묻는 질문(FAQ) 섹션",
+              "결론 및 추천 섹션"
+            ],
+            "avoidTopics": [
+              "과장된 표현 (100%, 무조건, 반드시)",
+              "허위 정보나 검증되지 않은 내용",
+              "다른 블로그 복사/붙여넣기",
+              "광고성 링크 과다 삽입"
+            ],
+            "monetization": "애드센스 + 쿠팡파트너스 조합 추천"
+          },
+          "platformTitles": {
+            "naver": {
+              "title": "핵심 정리: 기계식키보드 닌자108 2025 최신 가이드 (월 900)",
+              "alternatives": [
+                "기계식키보드 닌자108 2025 완벽 정리: 핵심만 5분 요약",
+                "기계식키보드 닌자108 초보도 쉽게: 실패 없는 체크리스트"
+              ],
+              "subKeywords": [
+                "기계식키보드 닌자108 방법",
+                "기계식키보드 닌자108 추천",
+                "기계식키보드 닌자108 후기"
+              ],
+              "tags": [
+                "기계식키보드닌자108",
+                "기계식키보드",
+                "💎 블루오션"
+              ],
+              "tip": "서두 100자 내에 키워드를 2회 노출하고, 결론 요약을 맨 위에 한 번 더 넣으세요.",
+              "hookPoint": "핵심 정리 포인트를 제목/썸네일에 강조"
+            },
+            "tistory": {
+              "title": "기계식키보드 닌자108 2025 정리: 한 번에 이해하는 핵심 포인트 (월 900)",
+              "alternatives": [
+                "기계식키보드 닌자108 제대로 하는 법 (체크리스트 포함)",
+                "기계식키보드 닌자108 추천/비교: 선택 기준 3가지"
+              ],
+              "subKeywords": [
+                "기계식키보드 닌자108 방법",
+                "기계식키보드 닌자108 추천",
+                "기계식키보드 닌자108 후기"
+              ],
+              "tags": [
+                "기계식키보드닌자108",
+                "기계식키보드",
+                "💎 블루오션"
+              ],
+              "tip": "표/리스트를 많이 써서 스크롤 체류시간을 늘리세요.",
+              "hookPoint": "“핵심 3가지”처럼 숫자를 넣어 클릭률을 올리기"
+            },
+            "wordpress": {
+              "title": "기계식키보드 닌자108: 2025 Complete Guide (Checklist & Tips) (월 900)",
+              "alternatives": [
+                "기계식키보드 닌자108 Guide: Common Mistakes & Quick Fixes",
+                "기계식키보드 닌자108 Step-by-Step: What to Do First"
+              ],
+              "subKeywords": [
+                "기계식키보드 닌자108 방법",
+                "기계식키보드 닌자108 추천",
+                "기계식키보드 닌자108 후기"
+              ],
+              "tags": [
+                "기계식키보드닌자108",
+                "기계식키보드",
+                "💎 블루오션"
+              ],
+              "tip": "H2/H3로 구조를 만들고, FAQ 섹션을 넣어 SEO를 강화하세요.",
+              "hookPoint": "FAQ + 체크리스트 조합으로 체류시간/리치 증가"
+            },
+            "blogspot": {
+              "title": "기계식키보드 닌자108 2025: Quick Start + Best Practices (월 900)",
+              "alternatives": [
+                "기계식키보드 닌자108 Quick Guide: Do & Don't",
+                "기계식키보드 닌자108 Essentials: What You Need to Know"
+              ],
+              "subKeywords": [
+                "기계식키보드 닌자108 방법",
+                "기계식키보드 닌자108 추천",
+                "기계식키보드 닌자108 후기"
+              ],
+              "tags": [
+                "기계식키보드닌자108",
+                "기계식키보드",
+                "💎 블루오션"
+              ],
+              "tip": "이미지 2~3장 + 요약 박스를 넣어 가독성을 올리세요.",
+              "hookPoint": "첫 화면에 요약(결론)을 배치해 이탈률을 낮추기"
+            }
+          },
+          "expandedKeywords": {
+            "relatedGolden": [
+              "기계식키보드 닌자108 추천",
+              "기계식키보드 닌자108 비교",
+              "기계식키보드 닌자108 후기",
+              "기계식키보드 닌자108 가격"
+            ],
+            "longtailGolden": [
+              "기계식키보드 닌자108 초보",
+              "기계식키보드 닌자108 쉽게",
+              "기계식키보드 닌자108 단계별",
+              "기계식키보드 닌자108 정리"
+            ],
+            "blueOceanGolden": [
+              "기계식키보드 닌자108 최신",
+              "기계식키보드 닌자108 2025",
+              "기계식키보드 닌자108 체크리스트",
+              "기계식키보드 닌자108 실패하지 않는 법"
+            ]
+          },
+          "type": "💎 블루오션",
+          "category": "all",
+          "safetyLevel": "safe",
+          "safetyReason": "✅ 안전한 키워드. 신생 블로거도 작성 가능",
+          "source": "기계식 키보드",
+          "profitAnalysis": {
+            "keyword": "기계식키보드 닌자108",
+            "searchVolume": 900,
+            "documentCount": 214,
+            "estimatedCPC": 207,
+            "purchaseIntentScore": 30,
+            "competitionLevel": 2,
+            "freshnessOpportunity": 1,
+            "profitGoldenRatio": 4.42,
+            "estimatedDailyRevenue": 50,
+            "estimatedMonthlyRevenue": 1500,
+            "grade": "B",
+            "gradeReason": "📌 보통. 롱테일 확장 추천",
+            "isRealBlueOcean": false,
+            "blueOceanReason": "📘 문서수 적음 (214개). 검색량 확인 필요",
+            "strategy": {
+              "approach": "🔍 롱테일 확장 후 작성. \"초보자\", \"2025\", \"비교\" 등 붙여서 경쟁 낮추기",
+              "monetization": "📝 트래픽 확보 우선. 이후 관련 고수익 키워드로 내부링크",
+              "timing": "🗓️ 여유있게 준비. 롱테일 전략으로 접근",
+              "titleSuggestion": "기계식키보드 닌자108 완벽 가이드 | 초보자도 쉽게 따라하기"
+            }
+          },
+          "timestamp": "2025-12-24T11:31:57.003Z",
+          "isGolden": true,
+          "trendAnalysis": {
+            "trendingReason": "몬스타기어, 커스텀 핫스왑 관련 최근 이슈",
+            "whyNow": "최근 5개 이상의 뉴스에서 다뤄지며 이슈화 진행 중 • \"출시\" 관련 구체적 사건으로 실시간 관심 집중",
+            "newsSource": "자동 분석"
+          },
+          "keywordGuide": {
+            "summary": "여유 있을 때 공략하면 좋은 키워드입니다. (등급: SSS, 점수: 120점)",
+            "whyItMovesNow": "몬스타기어, 커스텀 핫스왑 관련 최근 이슈 최근 5개 이상의 뉴스에서 다뤄지며 이슈화 진행 중 • \"출시\" 관련 구체적 사건으로 실시간 관심 집중",
+            "immediateTrafficPlan": [
+              "제목 앞부분에 \"기계식키보드 닌자108\"를 배치하고, 2025/최신/정리 같은 보조 키워드를 1개만 추가하세요.",
+              "본문 서두 100자 안에 \"기계식키보드 닌자108\"를 자연스럽게 2회 노출하세요.",
+              "최소 1개는 비교/체크리스트/요약 섹션을 넣어 체류시간을 늘리세요."
+            ],
+            "naverHomeExposureTips": [
+              "첫 이미지에 키워드가 들어간 문구를 넣고, alt 텍스트도 키워드 포함",
+              "목차를 만들고 H2/H3에 서브 키워드 배치",
+              "태그는 5~10개로 과도한 반복을 피하고, 유사어를 섞기"
+            ]
+          },
+          "ultimateAnalysis": {
+            "timing": {
+              "seasonal": {
+                "peakMonths": [
+                  1,
+                  2,
+                  3,
+                  4,
+                  5,
+                  6,
+                  7,
+                  8,
+                  9,
+                  10,
+                  11,
+                  12
+                ],
+                "peakReason": "연중 꾸준한 검색량",
+                "currentSeasonScore": 70,
+                "nextPeakDate": "항상",
+                "daysUntilPeak": 0,
+                "recommendation": "📝 에버그린 키워드입니다. 언제든 작성해도 좋습니다.",
+                "seasonalPattern": "evergreen"
+              },
+              "trend": {
+                "trendDirection": "stable",
+                "changeRate": 42,
+                "comparedTo": "전월 대비",
+                "explosiveScore": 63,
+                "relatedNews": [],
+                "recommendation": "📊 안정적인 키워드입니다."
+              },
+              "alert": {
+                "optimalPublishDate": "0일 내",
+                "reason": "📝 에버그린 키워드입니다. 언제든 작성해도 좋습니다.",
+                "urgencyLevel": "⚡ 이번 주",
+                "expectedPeakDate": "항상",
+                "competitorActivity": "경쟁자 적음"
+              }
+            },
+            "revenue": {
+              "cpc": {
+                "estimatedCpc": 100,
+                "cpcRange": {
+                  "min": 50,
+                  "max": 200
+                },
+                "cpcTier": "🥉 저수익",
+                "industryAverage": 100,
+                "recommendation": "📝 일반적인 수익 구조입니다. 트래픽 확보에 집중하세요."
+              },
+              "affiliate": {
+                "recommendedPrograms": [
+                  {
+                    "name": "쿠팡파트너스",
+                    "type": "coupang",
+                    "commissionRate": "3~5%",
+                    "estimatedEarningPerClick": 50,
+                    "matchScore": 100
+                  },
+                  {
+                    "name": "네이버 쇼핑",
+                    "type": "naver",
+                    "commissionRate": "1~3%",
+                    "estimatedEarningPerClick": 30,
+                    "matchScore": 85
+                  }
+                ],
+                "bestMatch": "쿠팡파트너스",
+                "potentialProducts": [
+                  "기계식키보드 닌자108 추천",
+                  "기계식키보드 닌자108 순위",
+                  "기계식키보드 닌자108 비교",
+                  "기계식키보드 닌자108 후기",
+                  "기계식키보드 닌자108 가격",
+                  "기계식키보드 닌자108 구매"
+                ]
+              },
+              "projection": {
+                "estimatedDailyVisitors": 2,
+                "estimatedMonthlyVisitors": 60,
+                "adsenseRevenue": {
+                  "daily": 6,
+                  "monthly": 180,
+                  "assumptions": "CPC 100원, CTR 2%, 페이지뷰율 1.5 가정"
+                },
+                "affiliateRevenue": {
+                  "daily": 0,
+                  "monthly": 0,
+                  "conversionRate": 3,
+                  "assumptions": "클릭률 10%, 전환율 3%, 평균 수수료 50원 가정"
+                },
+                "totalMonthlyRevenue": 180,
+                "revenueBreakdown": "애드센스 100% + 제휴 0%",
+                "revenueTier": "📝 월 1만원+"
+              }
+            },
+            "content": {
+              "titles": {
+                "titles": [
+                  {
+                    "title": "기계식키보드 닌자108 추천 TOP 10 (2025년 최신)",
+                    "type": "number",
+                    "estimatedCTR": 8.5,
+                    "psychologyUsed": "숫자 + 최신 정보"
+                  },
+                  {
+                    "title": "기계식키보드 닌자108 하는 법, 초보자도 쉽게 따라하기",
+                    "type": "how-to",
+                    "estimatedCTR": 7.5,
+                    "psychologyUsed": "실용성 + 접근성"
+                  },
+                  {
+                    "title": "기계식키보드 닌자108, 이것만 알면 끝! 완벽 가이드",
+                    "type": "benefit",
+                    "estimatedCTR": 7.2,
+                    "psychologyUsed": "완결성 + 가치 제안"
+                  },
+                  {
+                    "title": "[2025년] 기계식키보드 닌자108 총정리 (+ 꿀팁 공개)",
+                    "type": "news",
+                    "estimatedCTR": 7,
+                    "psychologyUsed": "최신성 + 보너스 가치"
+                  },
+                  {
+                    "title": "아직도 기계식키보드 닌자108 몰라요? 지금 당장 확인하세요",
+                    "type": "curiosity",
+                    "estimatedCTR": 6.8,
+                    "psychologyUsed": "호기심 + 긴급성"
+                  },
+                  {
+                    "title": "기계식키보드 닌자108 실제 후기 (장단점 솔직 비교)",
+                    "type": "comparison",
+                    "estimatedCTR": 6.5,
+                    "psychologyUsed": "신뢰성 + 비교 심리"
+                  }
+                ],
+                "bestTitle": "기계식키보드 닌자108 추천 TOP 10 (2025년 최신)",
+                "titleFormula": "숫자 + 키워드 + 최신연도 + 가치제안"
+              },
+              "structure": {
+                "recommendedStructure": {
+                  "intro": {
+                    "purpose": "독자의 관심 끌기 + 키워드 자연스럽게 배치",
+                    "template": "\"기계식키보드 닌자108\"에 대해 고민하고 계신가요? 이 글에서 핵심 정보를 모두 정리해드립니다.",
+                    "keywordPlacement": "첫 문장에 키워드 포함"
+                  },
+                  "sections": [
+                    {
+                      "heading": "기계식키보드 닌자108란? (기본 개념)",
+                      "purpose": "기초 정보 제공",
+                      "contentGuide": "핵심 정의, 중요성, 왜 알아야 하는지 설명",
+                      "recommendedLength": 300,
+                      "keywordUsage": "소제목과 본문에 1~2회"
+                    },
+                    {
+                      "heading": "기계식키보드 닌자108 추천 BEST 5",
+                      "purpose": "실질적인 가치 제공 (핵심 섹션)",
+                      "contentGuide": "순위별 상세 설명, 장단점, 추천 이유",
+                      "recommendedLength": 800,
+                      "keywordUsage": "각 항목 설명에 자연스럽게 포함"
+                    },
+                    {
+                      "heading": "기계식키보드 닌자108 선택 시 주의사항",
+                      "purpose": "신뢰도 향상",
+                      "contentGuide": "흔한 실수, 피해야 할 것, 체크리스트",
+                      "recommendedLength": 400,
+                      "keywordUsage": "주의사항 설명에 1~2회"
+                    },
+                    {
+                      "heading": "자주 묻는 질문 (FAQ)",
+                      "purpose": "SEO 강화 + 체류시간 증가",
+                      "contentGuide": "실제 검색되는 질문 5개 + 명확한 답변",
+                      "recommendedLength": 500,
+                      "keywordUsage": "질문에 롱테일 키워드 활용"
+                    }
+                  ],
+                  "conclusion": {
+                    "purpose": "요약 + CTA",
+                    "template": "지금까지 기계식키보드 닌자108에 대해 알아봤습니다. 도움이 되셨다면 공유해주세요!",
+                    "ctaRecommendation": "댓글, 공유, 관련 글 링크 유도"
+                  }
+                },
+                "seoChecklist": [
+                  {
+                    "item": "제목에 키워드 포함",
+                    "importance": "critical",
+                    "howTo": "제목 앞부분에 메인 키워드 배치"
+                  },
+                  {
+                    "item": "첫 문단에 키워드",
+                    "importance": "critical",
+                    "howTo": "첫 100자 내 키워드 자연스럽게 삽입"
+                  },
+                  {
+                    "item": "소제목 H2/H3 활용",
+                    "importance": "high",
+                    "howTo": "3~5개 소제목, 키워드 변형 사용"
+                  },
+                  {
+                    "item": "이미지 ALT 태그",
+                    "importance": "high",
+                    "howTo": "모든 이미지에 키워드 포함 설명"
+                  },
+                  {
+                    "item": "내부링크 2개 이상",
+                    "importance": "medium",
+                    "howTo": "관련 글 자연스럽게 연결"
+                  },
+                  {
+                    "item": "3000자 이상 작성",
+                    "importance": "high",
+                    "howTo": "충분한 깊이의 콘텐츠 제공"
+                  }
+                ],
+                "totalRecommendedLength": 3000,
+                "estimatedWriteTime": 90
+              },
+              "images": {
+                "mainImage": {
+                  "searchKeyword": "기계식키보드 닌자108 대표이미지",
+                  "style": "깔끔한 인포그래픽 또는 고화질 사진",
+                  "source": [
+                    "Unsplash",
+                    "Pixabay",
+                    "직접 제작"
+                  ],
+                  "altText": "기계식키보드 닌자108 완벽 가이드 대표 이미지"
+                },
+                "sectionImages": [
+                  {
+                    "section": "기본 개념",
+                    "searchKeyword": "기계식키보드 닌자108 설명",
+                    "purpose": "이해 돕기",
+                    "style": "다이어그램"
+                  },
+                  {
+                    "section": "TOP 5",
+                    "searchKeyword": "기계식키보드 닌자108 비교",
+                    "purpose": "시각적 비교",
+                    "style": "비교표"
+                  },
+                  {
+                    "section": "주의사항",
+                    "searchKeyword": "주의 아이콘",
+                    "purpose": "강조",
+                    "style": "아이콘"
+                  }
+                ],
+                "infographicIdeas": [
+                  "기계식키보드 닌자108 선택 가이드 플로우차트",
+                  "기계식키보드 닌자108 TOP 5 비교표",
+                  "기계식키보드 닌자108 체크리스트"
+                ],
+                "totalRecommendedImages": 7,
+                "imageStrategy": "섹션당 1~2개, 총 7~10개 이미지로 가독성과 체류시간 향상"
+              }
+            },
+            "ultimateScore": {
+              "total": 61,
+              "breakdown": {
+                "goldenRatio": 42.05607476635514,
+                "timing": 70,
+                "revenue": 40,
+                "competition": 100,
+                "potential": 63
+              },
+              "grade": "🥈 A",
+              "verdict": "📝 작성 가치 있음",
+              "topActions": [
+                "0일 내 작성 권장",
+                "기계식키보드 닌자108 추천 TOP 10 (2025년 최신)",
+                "3000자 이상, 7개 이미지 권장"
+              ]
+            }
+          },
+          "highlightReason": "✅ ANYTIME/stable | 폭발 58 | 구매의도 30 | 월 1,500원⚠️ | 경쟁도 2"
+        },
+        {
+          "keyword": "기계식키보드 몬스타가츠",
+          "searchVolume": 700,
+          "documentCount": 355,
+          "goldenRatio": 1.971830985915493,
+          "rookieFriendly": {
+            "score": 85,
+            "grade": "S",
+            "reason": "문서수 1,000개 미만 → 경쟁 매우 낮음 | 중길이 키워드",
+            "canRankWithin": "1~3일 내 가능",
+            "requiredBlogIndex": "지수 무관 (신생도 OK)"
+          },
+          "timing": {
+            "score": 50,
+            "urgency": "ANYTIME",
+            "bestPublishTime": "오전 6~8시 또는 저녁 8~10시",
+            "trendDirection": "stable",
+            "peakPrediction": "꾸준한 검색량 유지"
+          },
+          "blueOcean": {
+            "score": 70,
+            "competitorStrength": "weak",
+            "avgCompetitorBlogAge": "1~2년 (약한 경쟁)",
+            "oldPostRatio": 70,
+            "opportunity": "🔥 극상의 블루오션! 지금 선점하세요"
+          },
+          "trafficEstimate": {
+            "daily": "1~3명",
+            "weekly": "7~21명",
+            "monthly": "30~90명",
+            "confidence": 60,
+            "disclaimer": "📌 트래픽은 순위/CTR/계절성에 따라 달라질 수 있는 추정치입니다."
+          },
+          "revenueEstimate": {
+            "dailyRevenue": "32원 ⚠️추정",
+            "monthlyRevenue": "960원 ⚠️추정",
+            "estimatedCPC": 180,
+            "estimatedRPM": 4500,
+            "adType": "애드센스",
+            "revenueGrade": "C",
+            "revenueReason": "⚠️ 경쟁 높음. 틈새 접근 필요"
+          },
+          "entryAnalysis": {
+            "canEntry": true,
+            "difficulty": "easy",
+            "difficultyScore": 11,
+            "message": "🟢 진입 쉬움 - 신생 블로거도 상위노출 가능!",
+            "topCompetitorStrength": "약함 (저품질 블로그 다수)",
+            "recommendedBlogIndex": "지수 무관 (신생도 OK)",
+            "estimatedRankingTime": "1~3일 내 가능"
+          },
+          "totalScore": 120,
+          "grade": "SS",
+          "proStrategy": {
+            "title": "2025 기계식키보드 몬스타가츠 완벽 정리 | 초보자도 쉽게 이해하는 가이드",
+            "outline": [
+              "1. 기계식키보드 몬스타가츠란? (기본 개념)",
+              "2. 기계식키보드 몬스타가츠 핵심 포인트 3가지",
+              "3. 기계식키보드 몬스타가츠 장단점 비교",
+              "4. 기계식키보드 몬스타가츠 실제 후기/경험담",
+              "5. 기계식키보드 몬스타가츠 Q&A (자주 묻는 질문)",
+              "6. 결론 및 추천"
+            ],
+            "wordCount": 2500,
+            "mustInclude": [
+              "핵심 키워드 2~3회 자연스럽게 삽입",
+              "실제 이미지/사진 3장 이상",
+              "표 또는 비교 차트 1개 이상",
+              "자주 묻는 질문(FAQ) 섹션",
+              "결론 및 추천 섹션"
+            ],
+            "avoidTopics": [
+              "과장된 표현 (100%, 무조건, 반드시)",
+              "허위 정보나 검증되지 않은 내용",
+              "다른 블로그 복사/붙여넣기",
+              "광고성 링크 과다 삽입"
+            ],
+            "monetization": "애드센스 + 쿠팡파트너스 조합 추천"
+          },
+          "platformTitles": {
+            "naver": {
+              "title": "핵심 정리: 기계식키보드 몬스타가츠 2025 최신 가이드 (월 700)",
+              "alternatives": [
+                "기계식키보드 몬스타가츠 2025 완벽 정리: 핵심만 5분 요약",
+                "기계식키보드 몬스타가츠 초보도 쉽게: 실패 없는 체크리스트"
+              ],
+              "subKeywords": [
+                "기계식키보드 몬스타가츠 방법",
+                "기계식키보드 몬스타가츠 추천",
+                "기계식키보드 몬스타가츠 후기"
+              ],
+              "tags": [
+                "기계식키보드몬스타가츠",
+                "기계식키보드",
+                "💎 블루오션"
+              ],
+              "tip": "서두 100자 내에 키워드를 2회 노출하고, 결론 요약을 맨 위에 한 번 더 넣으세요.",
+              "hookPoint": "핵심 정리 포인트를 제목/썸네일에 강조"
+            },
+            "tistory": {
+              "title": "기계식키보드 몬스타가츠 2025 정리: 한 번에 이해하는 핵심 포인트 (월 700)",
+              "alternatives": [
+                "기계식키보드 몬스타가츠 제대로 하는 법 (체크리스트 포함)",
+                "기계식키보드 몬스타가츠 추천/비교: 선택 기준 3가지"
+              ],
+              "subKeywords": [
+                "기계식키보드 몬스타가츠 방법",
+                "기계식키보드 몬스타가츠 추천",
+                "기계식키보드 몬스타가츠 후기"
+              ],
+              "tags": [
+                "기계식키보드몬스타가츠",
+                "기계식키보드",
+                "💎 블루오션"
+              ],
+              "tip": "표/리스트를 많이 써서 스크롤 체류시간을 늘리세요.",
+              "hookPoint": "“핵심 3가지”처럼 숫자를 넣어 클릭률을 올리기"
+            },
+            "wordpress": {
+              "title": "기계식키보드 몬스타가츠: 2025 Complete Guide (Checklist & Tips) (월 700)",
+              "alternatives": [
+                "기계식키보드 몬스타가츠 Guide: Common Mistakes & Quick Fixes",
+                "기계식키보드 몬스타가츠 Step-by-Step: What to Do First"
+              ],
+              "subKeywords": [
+                "기계식키보드 몬스타가츠 방법",
+                "기계식키보드 몬스타가츠 추천",
+                "기계식키보드 몬스타가츠 후기"
+              ],
+              "tags": [
+                "기계식키보드몬스타가츠",
+                "기계식키보드",
+                "💎 블루오션"
+              ],
+              "tip": "H2/H3로 구조를 만들고, FAQ 섹션을 넣어 SEO를 강화하세요.",
+              "hookPoint": "FAQ + 체크리스트 조합으로 체류시간/리치 증가"
+            },
+            "blogspot": {
+              "title": "기계식키보드 몬스타가츠 2025: Quick Start + Best Practices (월 700)",
+              "alternatives": [
+                "기계식키보드 몬스타가츠 Quick Guide: Do & Don't",
+                "기계식키보드 몬스타가츠 Essentials: What You Need to Know"
+              ],
+              "subKeywords": [
+                "기계식키보드 몬스타가츠 방법",
+                "기계식키보드 몬스타가츠 추천",
+                "기계식키보드 몬스타가츠 후기"
+              ],
+              "tags": [
+                "기계식키보드몬스타가츠",
+                "기계식키보드",
+                "💎 블루오션"
+              ],
+              "tip": "이미지 2~3장 + 요약 박스를 넣어 가독성을 올리세요.",
+              "hookPoint": "첫 화면에 요약(결론)을 배치해 이탈률을 낮추기"
+            }
+          },
+          "expandedKeywords": {
+            "relatedGolden": [
+              "기계식키보드 몬스타가츠 추천",
+              "기계식키보드 몬스타가츠 비교",
+              "기계식키보드 몬스타가츠 후기",
+              "기계식키보드 몬스타가츠 가격"
+            ],
+            "longtailGolden": [
+              "기계식키보드 몬스타가츠 초보",
+              "기계식키보드 몬스타가츠 쉽게",
+              "기계식키보드 몬스타가츠 단계별",
+              "기계식키보드 몬스타가츠 정리"
+            ],
+            "blueOceanGolden": [
+              "기계식키보드 몬스타가츠 최신",
+              "기계식키보드 몬스타가츠 2025",
+              "기계식키보드 몬스타가츠 체크리스트",
+              "기계식키보드 몬스타가츠 실패하지 않는 법"
+            ]
+          },
+          "type": "💎 블루오션",
+          "category": "all",
+          "safetyLevel": "safe",
+          "safetyReason": "✅ 안전한 키워드. 신생 블로거도 작성 가능",
+          "source": "기계식 키보드",
+          "profitAnalysis": {
+            "keyword": "기계식키보드 몬스타가츠",
+            "searchVolume": 700,
+            "documentCount": 355,
+            "estimatedCPC": 180,
+            "purchaseIntentScore": 30,
+            "competitionLevel": 2,
+            "freshnessOpportunity": 1,
+            "profitGoldenRatio": 2.99,
+            "estimatedDailyRevenue": 32,
+            "estimatedMonthlyRevenue": 960,
+            "grade": "C",
+            "gradeReason": "⚠️ 경쟁 높음. 틈새 접근 필요",
+            "isRealBlueOcean": false,
+            "blueOceanReason": "📘 문서수 적음 (355개). 검색량 확인 필요",
+            "strategy": {
+              "approach": "⏸️ 보류. 더 좋은 키워드 찾기 추천",
+              "monetization": "📝 트래픽 확보 우선. 이후 관련 고수익 키워드로 내부링크",
+              "timing": "🗓️ 여유있게 준비. 롱테일 전략으로 접근",
+              "titleSuggestion": "기계식키보드 몬스타가츠 완벽 가이드 | 초보자도 쉽게 따라하기"
+            }
+          },
+          "timestamp": "2025-12-24T11:31:57.003Z",
+          "isGolden": true,
+          "trendAnalysis": {
+            "trendingReason": "몬스타기어, 'GUTS MGT KP21' 관련 최근 이슈",
+            "whyNow": "최근 5개 이상의 뉴스에서 다뤄지며 이슈화 진행 중 • \"공개\" 관련 구체적 사건으로 실시간 관심 집중 • 최신 이슈로 실시간 관심 집중 중",
+            "newsSource": "자동 분석"
+          },
+          "keywordGuide": {
+            "summary": "여유 있을 때 공략하면 좋은 키워드입니다. (등급: SS, 점수: 120점)",
+            "whyItMovesNow": "몬스타기어, 'GUTS MGT KP21' 관련 최근 이슈 최근 5개 이상의 뉴스에서 다뤄지며 이슈화 진행 중 • \"공개\" 관련 구체적 사건으로 실시간 관심 집중 • 최신 이슈로 실시간 관심 집중 중",
+            "immediateTrafficPlan": [
+              "제목 앞부분에 \"기계식키보드 몬스타가츠\"를 배치하고, 2025/최신/정리 같은 보조 키워드를 1개만 추가하세요.",
+              "본문 서두 100자 안에 \"기계식키보드 몬스타가츠\"를 자연스럽게 2회 노출하세요.",
+              "최소 1개는 비교/체크리스트/요약 섹션을 넣어 체류시간을 늘리세요."
+            ],
+            "naverHomeExposureTips": [
+              "첫 이미지에 키워드가 들어간 문구를 넣고, alt 텍스트도 키워드 포함",
+              "목차를 만들고 H2/H3에 서브 키워드 배치",
+              "태그는 5~10개로 과도한 반복을 피하고, 유사어를 섞기"
+            ]
+          },
+          "ultimateAnalysis": {
+            "timing": {
+              "seasonal": {
+                "peakMonths": [
+                  1,
+                  2,
+                  3,
+                  4,
+                  5,
+                  6,
+                  7,
+                  8,
+                  9,
+                  10,
+                  11,
+                  12
+                ],
+                "peakReason": "연중 꾸준한 검색량",
+                "currentSeasonScore": 70,
+                "nextPeakDate": "항상",
+                "daysUntilPeak": 0,
+                "recommendation": "📝 에버그린 키워드입니다. 언제든 작성해도 좋습니다.",
+                "seasonalPattern": "evergreen"
+              },
+              "trend": {
+                "trendDirection": "falling",
+                "changeRate": 20,
+                "comparedTo": "전월 대비",
+                "explosiveScore": 30,
+                "relatedNews": [],
+                "recommendation": "📊 안정적인 키워드입니다."
+              },
+              "alert": {
+                "optimalPublishDate": "0일 내",
+                "reason": "📝 에버그린 키워드입니다. 언제든 작성해도 좋습니다.",
+                "urgencyLevel": "⚡ 이번 주",
+                "expectedPeakDate": "항상",
+                "competitorActivity": "경쟁자 적음"
+              }
+            },
+            "revenue": {
+              "cpc": {
+                "estimatedCpc": 100,
+                "cpcRange": {
+                  "min": 50,
+                  "max": 200
+                },
+                "cpcTier": "🥉 저수익",
+                "industryAverage": 100,
+                "recommendation": "📝 일반적인 수익 구조입니다. 트래픽 확보에 집중하세요."
+              },
+              "affiliate": {
+                "recommendedPrograms": [
+                  {
+                    "name": "쿠팡파트너스",
+                    "type": "coupang",
+                    "commissionRate": "3~5%",
+                    "estimatedEarningPerClick": 50,
+                    "matchScore": 100
+                  },
+                  {
+                    "name": "네이버 쇼핑",
+                    "type": "naver",
+                    "commissionRate": "1~3%",
+                    "estimatedEarningPerClick": 30,
+                    "matchScore": 85
+                  }
+                ],
+                "bestMatch": "쿠팡파트너스",
+                "potentialProducts": [
+                  "기계식키보드 몬스타가츠 추천",
+                  "기계식키보드 몬스타가츠 순위",
+                  "기계식키보드 몬스타가츠 비교",
+                  "기계식키보드 몬스타가츠 후기",
+                  "기계식키보드 몬스타가츠 가격",
+                  "기계식키보드 몬스타가츠 구매"
+                ]
+              },
+              "projection": {
+                "estimatedDailyVisitors": 1,
+                "estimatedMonthlyVisitors": 30,
+                "adsenseRevenue": {
+                  "daily": 3,
+                  "monthly": 90,
+                  "assumptions": "CPC 100원, CTR 2%, 페이지뷰율 1.5 가정"
+                },
+                "affiliateRevenue": {
+                  "daily": 0,
+                  "monthly": 0,
+                  "conversionRate": 3,
+                  "assumptions": "클릭률 10%, 전환율 3%, 평균 수수료 50원 가정"
+                },
+                "totalMonthlyRevenue": 90,
+                "revenueBreakdown": "애드센스 100% + 제휴 0%",
+                "revenueTier": "📝 월 1만원+"
+              }
+            },
+            "content": {
+              "titles": {
+                "titles": [
+                  {
+                    "title": "기계식키보드 몬스타가츠 추천 TOP 10 (2025년 최신)",
+                    "type": "number",
+                    "estimatedCTR": 8.5,
+                    "psychologyUsed": "숫자 + 최신 정보"
+                  },
+                  {
+                    "title": "기계식키보드 몬스타가츠 하는 법, 초보자도 쉽게 따라하기",
+                    "type": "how-to",
+                    "estimatedCTR": 7.5,
+                    "psychologyUsed": "실용성 + 접근성"
+                  },
+                  {
+                    "title": "기계식키보드 몬스타가츠, 이것만 알면 끝! 완벽 가이드",
+                    "type": "benefit",
+                    "estimatedCTR": 7.2,
+                    "psychologyUsed": "완결성 + 가치 제안"
+                  },
+                  {
+                    "title": "[2025년] 기계식키보드 몬스타가츠 총정리 (+ 꿀팁 공개)",
+                    "type": "news",
+                    "estimatedCTR": 7,
+                    "psychologyUsed": "최신성 + 보너스 가치"
+                  },
+                  {
+                    "title": "아직도 기계식키보드 몬스타가츠 몰라요? 지금 당장 확인하세요",
+                    "type": "curiosity",
+                    "estimatedCTR": 6.8,
+                    "psychologyUsed": "호기심 + 긴급성"
+                  },
+                  {
+                    "title": "기계식키보드 몬스타가츠 실제 후기 (장단점 솔직 비교)",
+                    "type": "comparison",
+                    "estimatedCTR": 6.5,
+                    "psychologyUsed": "신뢰성 + 비교 심리"
+                  }
+                ],
+                "bestTitle": "기계식키보드 몬스타가츠 추천 TOP 10 (2025년 최신)",
+                "titleFormula": "숫자 + 키워드 + 최신연도 + 가치제안"
+              },
+              "structure": {
+                "recommendedStructure": {
+                  "intro": {
+                    "purpose": "독자의 관심 끌기 + 키워드 자연스럽게 배치",
+                    "template": "\"기계식키보드 몬스타가츠\"에 대해 고민하고 계신가요? 이 글에서 핵심 정보를 모두 정리해드립니다.",
+                    "keywordPlacement": "첫 문장에 키워드 포함"
+                  },
+                  "sections": [
+                    {
+                      "heading": "기계식키보드 몬스타가츠란? (기본 개념)",
+                      "purpose": "기초 정보 제공",
+                      "contentGuide": "핵심 정의, 중요성, 왜 알아야 하는지 설명",
+                      "recommendedLength": 300,
+                      "keywordUsage": "소제목과 본문에 1~2회"
+                    },
+                    {
+                      "heading": "기계식키보드 몬스타가츠 추천 BEST 5",
+                      "purpose": "실질적인 가치 제공 (핵심 섹션)",
+                      "contentGuide": "순위별 상세 설명, 장단점, 추천 이유",
+                      "recommendedLength": 800,
+                      "keywordUsage": "각 항목 설명에 자연스럽게 포함"
+                    },
+                    {
+                      "heading": "기계식키보드 몬스타가츠 선택 시 주의사항",
+                      "purpose": "신뢰도 향상",
+                      "contentGuide": "흔한 실수, 피해야 할 것, 체크리스트",
+                      "recommendedLength": 400,
+                      "keywordUsage": "주의사항 설명에 1~2회"
+                    },
+                    {
+                      "heading": "자주 묻는 질문 (FAQ)",
+                      "purpose": "SEO 강화 + 체류시간 증가",
+                      "contentGuide": "실제 검색되는 질문 5개 + 명확한 답변",
+                      "recommendedLength": 500,
+                      "keywordUsage": "질문에 롱테일 키워드 활용"
+                    }
+                  ],
+                  "conclusion": {
+                    "purpose": "요약 + CTA",
+                    "template": "지금까지 기계식키보드 몬스타가츠에 대해 알아봤습니다. 도움이 되셨다면 공유해주세요!",
+                    "ctaRecommendation": "댓글, 공유, 관련 글 링크 유도"
+                  }
+                },
+                "seoChecklist": [
+                  {
+                    "item": "제목에 키워드 포함",
+                    "importance": "critical",
+                    "howTo": "제목 앞부분에 메인 키워드 배치"
+                  },
+                  {
+                    "item": "첫 문단에 키워드",
+                    "importance": "critical",
+                    "howTo": "첫 100자 내 키워드 자연스럽게 삽입"
+                  },
+                  {
+                    "item": "소제목 H2/H3 활용",
+                    "importance": "high",
+                    "howTo": "3~5개 소제목, 키워드 변형 사용"
+                  },
+                  {
+                    "item": "이미지 ALT 태그",
+                    "importance": "high",
+                    "howTo": "모든 이미지에 키워드 포함 설명"
+                  },
+                  {
+                    "item": "내부링크 2개 이상",
+                    "importance": "medium",
+                    "howTo": "관련 글 자연스럽게 연결"
+                  },
+                  {
+                    "item": "3000자 이상 작성",
+                    "importance": "high",
+                    "howTo": "충분한 깊이의 콘텐츠 제공"
+                  }
+                ],
+                "totalRecommendedLength": 3000,
+                "estimatedWriteTime": 90
+              },
+              "images": {
+                "mainImage": {
+                  "searchKeyword": "기계식키보드 몬스타가츠 대표이미지",
+                  "style": "깔끔한 인포그래픽 또는 고화질 사진",
+                  "source": [
+                    "Unsplash",
+                    "Pixabay",
+                    "직접 제작"
+                  ],
+                  "altText": "기계식키보드 몬스타가츠 완벽 가이드 대표 이미지"
+                },
+                "sectionImages": [
+                  {
+                    "section": "기본 개념",
+                    "searchKeyword": "기계식키보드 몬스타가츠 설명",
+                    "purpose": "이해 돕기",
+                    "style": "다이어그램"
+                  },
+                  {
+                    "section": "TOP 5",
+                    "searchKeyword": "기계식키보드 몬스타가츠 비교",
+                    "purpose": "시각적 비교",
+                    "style": "비교표"
+                  },
+                  {
+                    "section": "주의사항",
+                    "searchKeyword": "주의 아이콘",
+                    "purpose": "강조",
+                    "style": "아이콘"
+                  }
+                ],
+                "infographicIdeas": [
+                  "기계식키보드 몬스타가츠 선택 가이드 플로우차트",
+                  "기계식키보드 몬스타가츠 TOP 5 비교표",
+                  "기계식키보드 몬스타가츠 체크리스트"
+                ],
+                "totalRecommendedImages": 7,
+                "imageStrategy": "섹션당 1~2개, 총 7~10개 이미지로 가독성과 체류시간 향상"
+              }
+            },
+            "ultimateScore": {
+              "total": 54,
+              "breakdown": {
+                "goldenRatio": 19.718309859154928,
+                "timing": 70,
+                "revenue": 40,
+                "competition": 100,
+                "potential": 57
+              },
+              "grade": "🥉 B",
+              "verdict": "📝 작성 가치 있음",
+              "topActions": [
+                "0일 내 작성 권장",
+                "기계식키보드 몬스타가츠 추천 TOP 10 (2025년 최신)",
+                "3000자 이상, 7개 이미지 권장"
+              ]
+            }
+          },
+          "highlightReason": "✅ ANYTIME/stable | 폭발 58 | 구매의도 30 | 월 960원⚠️ | 경쟁도 2"
+        },
+        {
+          "keyword": "다이소 무선 이어폰",
+          "searchVolume": 4600,
+          "documentCount": 7426,
+          "goldenRatio": 0.6194451925666576,
+          "rookieFriendly": {
+            "score": 60,
+            "grade": "B",
+            "reason": "문서수 10,000개 미만 → 경쟁 보통 | 황금비율 1 미만 → 공급 과잉 | 롱테일 키워드 → 신생도 상위노출 가능",
+            "canRankWithin": "1~2주 내 가능",
+            "requiredBlogIndex": "준최 5 이상 권장"
+          },
+          "timing": {
+            "score": 50,
+            "urgency": "ANYTIME",
+            "bestPublishTime": "오전 6~8시 또는 저녁 8~10시",
+            "trendDirection": "stable",
+            "peakPrediction": "꾸준한 검색량 유지"
+          },
+          "blueOcean": {
+            "score": 60,
+            "competitorStrength": "medium",
+            "avgCompetitorBlogAge": "2~5년 (보통 경쟁)",
+            "oldPostRatio": 50,
+            "opportunity": "⚠️ 경쟁 있음. 차별화된 콘텐츠 필요"
+          },
+          "trafficEstimate": {
+            "daily": "5~11명",
+            "weekly": "35~77명",
+            "monthly": "150~330명",
+            "confidence": 50,
+            "disclaimer": "📌 트래픽은 순위/CTR/계절성에 따라 달라질 수 있는 추정치입니다."
+          },
+          "revenueEstimate": {
+            "dailyRevenue": "124원 ⚠️추정",
+            "monthlyRevenue": "3,720원 ⚠️추정",
+            "estimatedCPC": 180,
+            "estimatedRPM": 4500,
+            "adType": "애드센스",
+            "revenueGrade": "B",
+            "revenueReason": "📌 보통. 롱테일 확장 추천"
+          },
+          "entryAnalysis": {
+            "canEntry": true,
+            "difficulty": "possible",
+            "difficultyScore": 40,
+            "message": "🟡 진입 가능 - 품질 콘텐츠로 충분히 경쟁 가능",
+            "topCompetitorStrength": "보통 (일반 블로그 혼재)",
+            "recommendedBlogIndex": "준최 3 이상 권장",
+            "estimatedRankingTime": "3~7일 내 가능"
+          },
+          "totalScore": 64,
+          "grade": "S",
+          "proStrategy": {
+            "title": "2025 다이소 무선 이어폰 완벽 정리 | 초보자도 쉽게 이해하는 가이드",
+            "outline": [
+              "1. 다이소 무선 이어폰란? (기본 개념)",
+              "2. 다이소 무선 이어폰 핵심 포인트 3가지",
+              "3. 다이소 무선 이어폰 장단점 비교",
+              "4. 다이소 무선 이어폰 실제 후기/경험담",
+              "5. 다이소 무선 이어폰 Q&A (자주 묻는 질문)",
+              "6. 결론 및 추천"
+            ],
+            "wordCount": 2500,
+            "mustInclude": [
+              "핵심 키워드 2~3회 자연스럽게 삽입",
+              "실제 이미지/사진 3장 이상",
+              "표 또는 비교 차트 1개 이상",
+              "자주 묻는 질문(FAQ) 섹션",
+              "결론 및 추천 섹션"
+            ],
+            "avoidTopics": [
+              "과장된 표현 (100%, 무조건, 반드시)",
+              "허위 정보나 검증되지 않은 내용",
+              "다른 블로그 복사/붙여넣기",
+              "광고성 링크 과다 삽입"
+            ],
+            "monetization": "애드센스 + 쿠팡파트너스 조합 추천"
+          },
+          "platformTitles": {
+            "naver": {
+              "title": "핵심 정리: 다이소 무선 이어폰 2025 최신 가이드 (월 4,600)",
+              "alternatives": [
+                "다이소 무선 이어폰 2025 완벽 정리: 핵심만 5분 요약",
+                "다이소 무선 이어폰 초보도 쉽게: 실패 없는 체크리스트"
+              ],
+              "subKeywords": [
+                "다이소 무선 이어폰 방법",
+                "다이소 무선 이어폰 추천",
+                "다이소 무선 이어폰 후기"
+              ],
+              "tags": [
+                "다이소무선이어폰",
+                "다이소",
+                "📰 이슈키워드"
+              ],
+              "tip": "서두 100자 내에 키워드를 2회 노출하고, 결론 요약을 맨 위에 한 번 더 넣으세요.",
+              "hookPoint": "핵심 정리 포인트를 제목/썸네일에 강조"
+            },
+            "tistory": {
+              "title": "다이소 무선 이어폰 2025 정리: 한 번에 이해하는 핵심 포인트 (월 4,600)",
+              "alternatives": [
+                "다이소 무선 이어폰 제대로 하는 법 (체크리스트 포함)",
+                "다이소 무선 이어폰 추천/비교: 선택 기준 3가지"
+              ],
+              "subKeywords": [
+                "다이소 무선 이어폰 방법",
+                "다이소 무선 이어폰 추천",
+                "다이소 무선 이어폰 후기"
+              ],
+              "tags": [
+                "다이소무선이어폰",
+                "다이소",
+                "📰 이슈키워드"
+              ],
+              "tip": "표/리스트를 많이 써서 스크롤 체류시간을 늘리세요.",
+              "hookPoint": "“핵심 3가지”처럼 숫자를 넣어 클릭률을 올리기"
+            },
+            "wordpress": {
+              "title": "다이소 무선 이어폰: 2025 Complete Guide (Checklist & Tips) (월 4,600)",
+              "alternatives": [
+                "다이소 무선 이어폰 Guide: Common Mistakes & Quick Fixes",
+                "다이소 무선 이어폰 Step-by-Step: What to Do First"
+              ],
+              "subKeywords": [
+                "다이소 무선 이어폰 방법",
+                "다이소 무선 이어폰 추천",
+                "다이소 무선 이어폰 후기"
+              ],
+              "tags": [
+                "다이소무선이어폰",
+                "다이소",
+                "📰 이슈키워드"
+              ],
+              "tip": "H2/H3로 구조를 만들고, FAQ 섹션을 넣어 SEO를 강화하세요.",
+              "hookPoint": "FAQ + 체크리스트 조합으로 체류시간/리치 증가"
+            },
+            "blogspot": {
+              "title": "다이소 무선 이어폰 2025: Quick Start + Best Practices (월 4,600)",
+              "alternatives": [
+                "다이소 무선 이어폰 Quick Guide: Do & Don't",
+                "다이소 무선 이어폰 Essentials: What You Need to Know"
+              ],
+              "subKeywords": [
+                "다이소 무선 이어폰 방법",
+                "다이소 무선 이어폰 추천",
+                "다이소 무선 이어폰 후기"
+              ],
+              "tags": [
+                "다이소무선이어폰",
+                "다이소",
+                "📰 이슈키워드"
+              ],
+              "tip": "이미지 2~3장 + 요약 박스를 넣어 가독성을 올리세요.",
+              "hookPoint": "첫 화면에 요약(결론)을 배치해 이탈률을 낮추기"
+            }
+          },
+          "expandedKeywords": {
+            "relatedGolden": [
+              "다이소 무선 이어폰 추천",
+              "다이소 무선 이어폰 비교",
+              "다이소 무선 이어폰 후기",
+              "다이소 무선 이어폰 가격"
+            ],
+            "longtailGolden": [
+              "다이소 무선 이어폰 초보",
+              "다이소 무선 이어폰 쉽게",
+              "다이소 무선 이어폰 단계별",
+              "다이소 무선 이어폰 정리"
+            ],
+            "blueOceanGolden": [
+              "다이소 무선 이어폰 최신",
+              "다이소 무선 이어폰 2025",
+              "다이소 무선 이어폰 체크리스트",
+              "다이소 무선 이어폰 실패하지 않는 법"
+            ]
+          },
+          "type": "📰 이슈키워드",
+          "category": "all",
+          "safetyLevel": "safe",
+          "safetyReason": "✅ 안전한 키워드. 신생 블로거도 작성 가능",
+          "source": "무선 이어폰",
+          "profitAnalysis": {
+            "keyword": "다이소 무선 이어폰",
+            "searchVolume": 4600,
+            "documentCount": 7426,
+            "estimatedCPC": 180,
+            "purchaseIntentScore": 40,
+            "competitionLevel": 6,
+            "freshnessOpportunity": 1,
+            "profitGoldenRatio": 7.59,
+            "estimatedDailyRevenue": 124,
+            "estimatedMonthlyRevenue": 3720,
+            "grade": "B",
+            "gradeReason": "📌 보통. 롱테일 확장 추천",
+            "isRealBlueOcean": false,
+            "blueOceanReason": "📕 경쟁 시장. 차별화 전략 필요",
+            "strategy": {
+              "approach": "🔍 롱테일 확장 후 작성. \"초보자\", \"2025\", \"비교\" 등 붙여서 경쟁 낮추기",
+              "monetization": "📝 트래픽 확보 우선. 이후 관련 고수익 키워드로 내부링크",
+              "timing": "🗓️ 여유있게 준비. 롱테일 전략으로 접근",
+              "titleSuggestion": "다이소 무선 이어폰 완벽 가이드 | 초보자도 쉽게 따라하기"
+            }
+          },
+          "timestamp": "2025-12-24T11:31:56.994Z",
+          "isGolden": true,
+          "trendAnalysis": {
+            "trendingReason": "다이소 뉴핫템 ‘5000원 관련 최근 이슈",
+            "whyNow": "최근 5개 이상의 뉴스에서 다뤄지며 이슈화 진행 중 • \"출시\" 관련 구체적 사건으로 실시간 관심 집중 • 뉴스에서 \"인기\" 키워드로 언급되며 화제성 확보",
+            "newsSource": "자동 분석"
+          },
+          "keywordGuide": {
+            "summary": "여유 있을 때 공략하면 좋은 키워드입니다. (등급: S, 점수: 64점)",
+            "whyItMovesNow": "다이소 뉴핫템 ‘5000원 관련 최근 이슈 최근 5개 이상의 뉴스에서 다뤄지며 이슈화 진행 중 • \"출시\" 관련 구체적 사건으로 실시간 관심 집중 • 뉴스에서 \"인기\" 키워드로 언급되며 화제성 확보",
+            "immediateTrafficPlan": [
+              "제목 앞부분에 \"다이소 무선 이어폰\"를 배치하고, 2025/최신/정리 같은 보조 키워드를 1개만 추가하세요.",
+              "본문 서두 100자 안에 \"다이소 무선 이어폰\"를 자연스럽게 2회 노출하세요.",
+              "최소 1개는 비교/체크리스트/요약 섹션을 넣어 체류시간을 늘리세요."
+            ],
+            "naverHomeExposureTips": [
+              "첫 이미지에 키워드가 들어간 문구를 넣고, alt 텍스트도 키워드 포함",
+              "목차를 만들고 H2/H3에 서브 키워드 배치",
+              "태그는 5~10개로 과도한 반복을 피하고, 유사어를 섞기"
+            ]
+          },
+          "ultimateAnalysis": {
+            "timing": {
+              "seasonal": {
+                "peakMonths": [
+                  1,
+                  2,
+                  3,
+                  4,
+                  5,
+                  6,
+                  7,
+                  8,
+                  9,
+                  10,
+                  11,
+                  12
+                ],
+                "peakReason": "연중 꾸준한 검색량",
+                "currentSeasonScore": 70,
+                "nextPeakDate": "항상",
+                "daysUntilPeak": 0,
+                "recommendation": "📝 에버그린 키워드입니다. 언제든 작성해도 좋습니다.",
+                "seasonalPattern": "evergreen"
+              },
+              "trend": {
+                "trendDirection": "falling",
+                "changeRate": 6,
+                "comparedTo": "전월 대비",
+                "explosiveScore": 9,
+                "relatedNews": [],
+                "recommendation": "📊 안정적인 키워드입니다."
+              },
+              "alert": {
+                "optimalPublishDate": "0일 내",
+                "reason": "📝 에버그린 키워드입니다. 언제든 작성해도 좋습니다.",
+                "urgencyLevel": "⚡ 이번 주",
+                "expectedPeakDate": "항상",
+                "competitorActivity": "경쟁자 보통"
+              }
+            },
+            "revenue": {
+              "cpc": {
+                "estimatedCpc": 100,
+                "cpcRange": {
+                  "min": 50,
+                  "max": 200
+                },
+                "cpcTier": "🥉 저수익",
+                "industryAverage": 100,
+                "recommendation": "📝 일반적인 수익 구조입니다. 트래픽 확보에 집중하세요."
+              },
+              "affiliate": {
+                "recommendedPrograms": [
+                  {
+                    "name": "쿠팡파트너스",
+                    "type": "coupang",
+                    "commissionRate": "3~5%",
+                    "estimatedEarningPerClick": 50,
+                    "matchScore": 100
+                  },
+                  {
+                    "name": "네이버 쇼핑",
+                    "type": "naver",
+                    "commissionRate": "1~3%",
+                    "estimatedEarningPerClick": 30,
+                    "matchScore": 85
+                  }
+                ],
+                "bestMatch": "쿠팡파트너스",
+                "potentialProducts": [
+                  "다이소 무선 이어폰 추천",
+                  "다이소 무선 이어폰 순위",
+                  "다이소 무선 이어폰 비교",
+                  "다이소 무선 이어폰 후기",
+                  "다이소 무선 이어폰 가격",
+                  "다이소 무선 이어폰 구매"
+                ]
+              },
+              "projection": {
+                "estimatedDailyVisitors": 5,
+                "estimatedMonthlyVisitors": 150,
+                "adsenseRevenue": {
+                  "daily": 15,
+                  "monthly": 450,
+                  "assumptions": "CPC 100원, CTR 2%, 페이지뷰율 1.5 가정"
+                },
+                "affiliateRevenue": {
+                  "daily": 1,
+                  "monthly": 30,
+                  "conversionRate": 3,
+                  "assumptions": "클릭률 10%, 전환율 3%, 평균 수수료 50원 가정"
+                },
+                "totalMonthlyRevenue": 480,
+                "revenueBreakdown": "애드센스 94% + 제휴 6%",
+                "revenueTier": "📝 월 1만원+"
+              }
+            },
+            "content": {
+              "titles": {
+                "titles": [
+                  {
+                    "title": "다이소 무선 이어폰 추천 TOP 10 (2025년 최신)",
+                    "type": "number",
+                    "estimatedCTR": 8.5,
+                    "psychologyUsed": "숫자 + 최신 정보"
+                  },
+                  {
+                    "title": "다이소 무선 이어폰 하는 법, 초보자도 쉽게 따라하기",
+                    "type": "how-to",
+                    "estimatedCTR": 7.5,
+                    "psychologyUsed": "실용성 + 접근성"
+                  },
+                  {
+                    "title": "다이소 무선 이어폰, 이것만 알면 끝! 완벽 가이드",
+                    "type": "benefit",
+                    "estimatedCTR": 7.2,
+                    "psychologyUsed": "완결성 + 가치 제안"
+                  },
+                  {
+                    "title": "[2025년] 다이소 무선 이어폰 총정리 (+ 꿀팁 공개)",
+                    "type": "news",
+                    "estimatedCTR": 7,
+                    "psychologyUsed": "최신성 + 보너스 가치"
+                  },
+                  {
+                    "title": "아직도 다이소 무선 이어폰 몰라요? 지금 당장 확인하세요",
+                    "type": "curiosity",
+                    "estimatedCTR": 6.8,
+                    "psychologyUsed": "호기심 + 긴급성"
+                  },
+                  {
+                    "title": "다이소 무선 이어폰 실제 후기 (장단점 솔직 비교)",
+                    "type": "comparison",
+                    "estimatedCTR": 6.5,
+                    "psychologyUsed": "신뢰성 + 비교 심리"
+                  }
+                ],
+                "bestTitle": "다이소 무선 이어폰 추천 TOP 10 (2025년 최신)",
+                "titleFormula": "숫자 + 키워드 + 최신연도 + 가치제안"
+              },
+              "structure": {
+                "recommendedStructure": {
+                  "intro": {
+                    "purpose": "독자의 관심 끌기 + 키워드 자연스럽게 배치",
+                    "template": "\"다이소 무선 이어폰\"에 대해 고민하고 계신가요? 이 글에서 핵심 정보를 모두 정리해드립니다.",
+                    "keywordPlacement": "첫 문장에 키워드 포함"
+                  },
+                  "sections": [
+                    {
+                      "heading": "다이소 무선 이어폰란? (기본 개념)",
+                      "purpose": "기초 정보 제공",
+                      "contentGuide": "핵심 정의, 중요성, 왜 알아야 하는지 설명",
+                      "recommendedLength": 300,
+                      "keywordUsage": "소제목과 본문에 1~2회"
+                    },
+                    {
+                      "heading": "다이소 무선 이어폰 추천 BEST 5",
+                      "purpose": "실질적인 가치 제공 (핵심 섹션)",
+                      "contentGuide": "순위별 상세 설명, 장단점, 추천 이유",
+                      "recommendedLength": 800,
+                      "keywordUsage": "각 항목 설명에 자연스럽게 포함"
+                    },
+                    {
+                      "heading": "다이소 무선 이어폰 선택 시 주의사항",
+                      "purpose": "신뢰도 향상",
+                      "contentGuide": "흔한 실수, 피해야 할 것, 체크리스트",
+                      "recommendedLength": 400,
+                      "keywordUsage": "주의사항 설명에 1~2회"
+                    },
+                    {
+                      "heading": "자주 묻는 질문 (FAQ)",
+                      "purpose": "SEO 강화 + 체류시간 증가",
+                      "contentGuide": "실제 검색되는 질문 5개 + 명확한 답변",
+                      "recommendedLength": 500,
+                      "keywordUsage": "질문에 롱테일 키워드 활용"
+                    }
+                  ],
+                  "conclusion": {
+                    "purpose": "요약 + CTA",
+                    "template": "지금까지 다이소 무선 이어폰에 대해 알아봤습니다. 도움이 되셨다면 공유해주세요!",
+                    "ctaRecommendation": "댓글, 공유, 관련 글 링크 유도"
+                  }
+                },
+                "seoChecklist": [
+                  {
+                    "item": "제목에 키워드 포함",
+                    "importance": "critical",
+                    "howTo": "제목 앞부분에 메인 키워드 배치"
+                  },
+                  {
+                    "item": "첫 문단에 키워드",
+                    "importance": "critical",
+                    "howTo": "첫 100자 내 키워드 자연스럽게 삽입"
+                  },
+                  {
+                    "item": "소제목 H2/H3 활용",
+                    "importance": "high",
+                    "howTo": "3~5개 소제목, 키워드 변형 사용"
+                  },
+                  {
+                    "item": "이미지 ALT 태그",
+                    "importance": "high",
+                    "howTo": "모든 이미지에 키워드 포함 설명"
+                  },
+                  {
+                    "item": "내부링크 2개 이상",
+                    "importance": "medium",
+                    "howTo": "관련 글 자연스럽게 연결"
+                  },
+                  {
+                    "item": "3000자 이상 작성",
+                    "importance": "high",
+                    "howTo": "충분한 깊이의 콘텐츠 제공"
+                  }
+                ],
+                "totalRecommendedLength": 3000,
+                "estimatedWriteTime": 90
+              },
+              "images": {
+                "mainImage": {
+                  "searchKeyword": "다이소 무선 이어폰 대표이미지",
+                  "style": "깔끔한 인포그래픽 또는 고화질 사진",
+                  "source": [
+                    "Unsplash",
+                    "Pixabay",
+                    "직접 제작"
+                  ],
+                  "altText": "다이소 무선 이어폰 완벽 가이드 대표 이미지"
+                },
+                "sectionImages": [
+                  {
+                    "section": "기본 개념",
+                    "searchKeyword": "다이소 무선 이어폰 설명",
+                    "purpose": "이해 돕기",
+                    "style": "다이어그램"
+                  },
+                  {
+                    "section": "TOP 5",
+                    "searchKeyword": "다이소 무선 이어폰 비교",
+                    "purpose": "시각적 비교",
+                    "style": "비교표"
+                  },
+                  {
+                    "section": "주의사항",
+                    "searchKeyword": "주의 아이콘",
+                    "purpose": "강조",
+                    "style": "아이콘"
+                  }
+                ],
+                "infographicIdeas": [
+                  "다이소 무선 이어폰 선택 가이드 플로우차트",
+                  "다이소 무선 이어폰 TOP 5 비교표",
+                  "다이소 무선 이어폰 체크리스트"
+                ],
+                "totalRecommendedImages": 7,
+                "imageStrategy": "섹션당 1~2개, 총 7~10개 이미지로 가독성과 체류시간 향상"
+              }
+            },
+            "ultimateScore": {
+              "total": 40,
+              "breakdown": {
+                "goldenRatio": 6.194451925666576,
+                "timing": 70,
+                "revenue": 40,
+                "competition": 60,
+                "potential": 44
+              },
+              "grade": "📝 C",
+              "verdict": "⚠️ 신중히 검토 필요",
+              "topActions": [
+                "0일 내 작성 권장",
+                "다이소 무선 이어폰 추천 TOP 10 (2025년 최신)",
+                "3000자 이상, 7개 이미지 권장"
+              ]
+            }
+          },
+          "highlightReason": "✅ ANYTIME/stable | 폭발 65 | 구매의도 40 | 월 3,720원⚠️ | 경쟁도 6"
+        },
+        {
+          "keyword": "무소음 기계식 키보드",
+          "searchVolume": 1440,
+          "documentCount": 6579,
+          "goldenRatio": 0.2188782489740082,
+          "rookieFriendly": {
+            "score": 60,
+            "grade": "B",
+            "reason": "문서수 10,000개 미만 → 경쟁 보통 | 황금비율 1 미만 → 공급 과잉 | 롱테일 키워드 → 신생도 상위노출 가능",
+            "canRankWithin": "1~2주 내 가능",
+            "requiredBlogIndex": "준최 5 이상 권장"
+          },
+          "timing": {
+            "score": 50,
+            "urgency": "ANYTIME",
+            "bestPublishTime": "오전 6~8시 또는 저녁 8~10시",
+            "trendDirection": "stable",
+            "peakPrediction": "꾸준한 검색량 유지"
+          },
+          "blueOcean": {
+            "score": 50,
+            "competitorStrength": "medium",
+            "avgCompetitorBlogAge": "2~5년 (보통 경쟁)",
+            "oldPostRatio": 50,
+            "opportunity": "⚠️ 경쟁 있음. 차별화된 콘텐츠 필요"
+          },
+          "trafficEstimate": {
+            "daily": "1~3명",
+            "weekly": "7~21명",
+            "monthly": "30~90명",
+            "confidence": 50,
+            "disclaimer": "📌 트래픽은 순위/CTR/계절성에 따라 달라질 수 있는 추정치입니다."
+          },
+          "revenueEstimate": {
+            "dailyRevenue": "32원 ⚠️추정",
+            "monthlyRevenue": "960원 ⚠️추정",
+            "estimatedCPC": 180,
+            "estimatedRPM": 4500,
+            "adType": "애드센스",
+            "revenueGrade": "C",
+            "revenueReason": "⚠️ 경쟁 높음. 틈새 접근 필요"
+          },
+          "entryAnalysis": {
+            "canEntry": true,
+            "difficulty": "hard",
+            "difficultyScore": 60,
+            "message": "🟠 진입 도전적 - 차별화된 콘텐츠 필요",
+            "topCompetitorStrength": "보통 (일반 블로그 혼재)",
+            "recommendedBlogIndex": "준최 5 이상 권장",
+            "estimatedRankingTime": "1~3주 내 가능"
+          },
+          "totalScore": 49,
+          "grade": "B",
+          "proStrategy": {
+            "title": "2025 무소음 기계식 키보드 완벽 정리 | 초보자도 쉽게 이해하는 가이드",
+            "outline": [
+              "1. 무소음 기계식 키보드란? (기본 개념)",
+              "2. 무소음 기계식 키보드 핵심 포인트 3가지",
+              "3. 무소음 기계식 키보드 장단점 비교",
+              "4. 무소음 기계식 키보드 실제 후기/경험담",
+              "5. 무소음 기계식 키보드 Q&A (자주 묻는 질문)",
+              "6. 결론 및 추천"
+            ],
+            "wordCount": 2500,
+            "mustInclude": [
+              "핵심 키워드 2~3회 자연스럽게 삽입",
+              "실제 이미지/사진 3장 이상",
+              "표 또는 비교 차트 1개 이상",
+              "자주 묻는 질문(FAQ) 섹션",
+              "결론 및 추천 섹션"
+            ],
+            "avoidTopics": [
+              "과장된 표현 (100%, 무조건, 반드시)",
+              "허위 정보나 검증되지 않은 내용",
+              "다른 블로그 복사/붙여넣기",
+              "광고성 링크 과다 삽입"
+            ],
+            "monetization": "애드센스 + 쿠팡파트너스 조합 추천"
+          },
+          "platformTitles": {
+            "naver": {
+              "title": "핵심 정리: 무소음 기계식 키보드 2025 최신 가이드 (월 1,440)",
+              "alternatives": [
+                "무소음 기계식 키보드 2025 완벽 정리: 핵심만 5분 요약",
+                "무소음 기계식 키보드 초보도 쉽게: 실패 없는 체크리스트"
+              ],
+              "subKeywords": [
+                "무소음 기계식 키보드 방법",
+                "무소음 기계식 키보드 추천",
+                "무소음 기계식 키보드 후기"
+              ],
+              "tags": [
+                "무소음기계식키보드",
+                "무소음",
+                "📰 이슈키워드"
+              ],
+              "tip": "서두 100자 내에 키워드를 2회 노출하고, 결론 요약을 맨 위에 한 번 더 넣으세요.",
+              "hookPoint": "핵심 정리 포인트를 제목/썸네일에 강조"
+            },
+            "tistory": {
+              "title": "무소음 기계식 키보드 2025 정리: 한 번에 이해하는 핵심 포인트 (월 1,440)",
+              "alternatives": [
+                "무소음 기계식 키보드 제대로 하는 법 (체크리스트 포함)",
+                "무소음 기계식 키보드 추천/비교: 선택 기준 3가지"
+              ],
+              "subKeywords": [
+                "무소음 기계식 키보드 방법",
+                "무소음 기계식 키보드 추천",
+                "무소음 기계식 키보드 후기"
+              ],
+              "tags": [
+                "무소음기계식키보드",
+                "무소음",
+                "📰 이슈키워드"
+              ],
+              "tip": "표/리스트를 많이 써서 스크롤 체류시간을 늘리세요.",
+              "hookPoint": "“핵심 3가지”처럼 숫자를 넣어 클릭률을 올리기"
+            },
+            "wordpress": {
+              "title": "무소음 기계식 키보드: 2025 Complete Guide (Checklist & Tips) (월 1,440)",
+              "alternatives": [
+                "무소음 기계식 키보드 Guide: Common Mistakes & Quick Fixes",
+                "무소음 기계식 키보드 Step-by-Step: What to Do First"
+              ],
+              "subKeywords": [
+                "무소음 기계식 키보드 방법",
+                "무소음 기계식 키보드 추천",
+                "무소음 기계식 키보드 후기"
+              ],
+              "tags": [
+                "무소음기계식키보드",
+                "무소음",
+                "📰 이슈키워드"
+              ],
+              "tip": "H2/H3로 구조를 만들고, FAQ 섹션을 넣어 SEO를 강화하세요.",
+              "hookPoint": "FAQ + 체크리스트 조합으로 체류시간/리치 증가"
+            },
+            "blogspot": {
+              "title": "무소음 기계식 키보드 2025: Quick Start + Best Practices (월 1,440)",
+              "alternatives": [
+                "무소음 기계식 키보드 Quick Guide: Do & Don't",
+                "무소음 기계식 키보드 Essentials: What You Need to Know"
+              ],
+              "subKeywords": [
+                "무소음 기계식 키보드 방법",
+                "무소음 기계식 키보드 추천",
+                "무소음 기계식 키보드 후기"
+              ],
+              "tags": [
+                "무소음기계식키보드",
+                "무소음",
+                "📰 이슈키워드"
+              ],
+              "tip": "이미지 2~3장 + 요약 박스를 넣어 가독성을 올리세요.",
+              "hookPoint": "첫 화면에 요약(결론)을 배치해 이탈률을 낮추기"
+            }
+          },
+          "expandedKeywords": {
+            "relatedGolden": [
+              "무소음 기계식 키보드 추천",
+              "무소음 기계식 키보드 비교",
+              "무소음 기계식 키보드 후기",
+              "무소음 기계식 키보드 가격"
+            ],
+            "longtailGolden": [
+              "무소음 기계식 키보드 초보",
+              "무소음 기계식 키보드 쉽게",
+              "무소음 기계식 키보드 단계별",
+              "무소음 기계식 키보드 정리"
+            ],
+            "blueOceanGolden": [
+              "무소음 기계식 키보드 최신",
+              "무소음 기계식 키보드 2025",
+              "무소음 기계식 키보드 체크리스트",
+              "무소음 기계식 키보드 실패하지 않는 법"
+            ]
+          },
+          "type": "📰 이슈키워드",
+          "category": "all",
+          "safetyLevel": "safe",
+          "safetyReason": "✅ 안전한 키워드. 신생 블로거도 작성 가능",
+          "source": "기계식 키보드",
+          "profitAnalysis": {
+            "keyword": "무소음 기계식 키보드",
+            "searchVolume": 1440,
+            "documentCount": 6579,
+            "estimatedCPC": 180,
+            "purchaseIntentScore": 40,
+            "competitionLevel": 7,
+            "freshnessOpportunity": 1,
+            "profitGoldenRatio": 2.04,
+            "estimatedDailyRevenue": 32,
+            "estimatedMonthlyRevenue": 960,
+            "grade": "C",
+            "gradeReason": "⚠️ 경쟁 높음. 틈새 접근 필요",
+            "isRealBlueOcean": false,
+            "blueOceanReason": "📕 경쟁 시장. 차별화 전략 필요",
+            "strategy": {
+              "approach": "⏸️ 보류. 더 좋은 키워드 찾기 추천",
+              "monetization": "📝 트래픽 확보 우선. 이후 관련 고수익 키워드로 내부링크",
+              "timing": "🗓️ 여유있게 준비. 롱테일 전략으로 접근",
+              "titleSuggestion": "무소음 기계식 키보드 완벽 가이드 | 초보자도 쉽게 따라하기"
+            }
+          },
+          "timestamp": "2025-12-24T11:31:57.003Z",
+          "isGolden": true,
+          "trendAnalysis": {
+            "trendingReason": "리뷰 실리콘 사운드 관련 최근 이슈",
+            "whyNow": "최근 5개 이상의 뉴스에서 다뤄지며 이슈화 진행 중 • \"출시\" 관련 구체적 사건으로 실시간 관심 집중",
+            "newsSource": "자동 분석"
+          },
+          "keywordGuide": {
+            "summary": "여유 있을 때 공략하면 좋은 키워드입니다. (등급: B, 점수: 49점)",
+            "whyItMovesNow": "리뷰 실리콘 사운드 관련 최근 이슈 최근 5개 이상의 뉴스에서 다뤄지며 이슈화 진행 중 • \"출시\" 관련 구체적 사건으로 실시간 관심 집중",
+            "immediateTrafficPlan": [
+              "제목 앞부분에 \"무소음 기계식 키보드\"를 배치하고, 2025/최신/정리 같은 보조 키워드를 1개만 추가하세요.",
+              "본문 서두 100자 안에 \"무소음 기계식 키보드\"를 자연스럽게 2회 노출하세요.",
+              "최소 1개는 비교/체크리스트/요약 섹션을 넣어 체류시간을 늘리세요."
+            ],
+            "naverHomeExposureTips": [
+              "첫 이미지에 키워드가 들어간 문구를 넣고, alt 텍스트도 키워드 포함",
+              "목차를 만들고 H2/H3에 서브 키워드 배치",
+              "태그는 5~10개로 과도한 반복을 피하고, 유사어를 섞기"
+            ]
+          },
+          "ultimateAnalysis": {
+            "timing": {
+              "seasonal": {
+                "peakMonths": [
+                  1,
+                  2,
+                  3,
+                  4,
+                  5,
+                  6,
+                  7,
+                  8,
+                  9,
+                  10,
+                  11,
+                  12
+                ],
+                "peakReason": "연중 꾸준한 검색량",
+                "currentSeasonScore": 70,
+                "nextPeakDate": "항상",
+                "daysUntilPeak": 0,
+                "recommendation": "📝 에버그린 키워드입니다. 언제든 작성해도 좋습니다.",
+                "seasonalPattern": "evergreen"
+              },
+              "trend": {
+                "trendDirection": "falling",
+                "changeRate": 2,
+                "comparedTo": "전월 대비",
+                "explosiveScore": 3,
+                "relatedNews": [],
+                "recommendation": "📊 안정적인 키워드입니다."
+              },
+              "alert": {
+                "optimalPublishDate": "0일 내",
+                "reason": "📝 에버그린 키워드입니다. 언제든 작성해도 좋습니다.",
+                "urgencyLevel": "⚡ 이번 주",
+                "expectedPeakDate": "항상",
+                "competitorActivity": "경쟁자 보통"
+              }
+            },
+            "revenue": {
+              "cpc": {
+                "estimatedCpc": 100,
+                "cpcRange": {
+                  "min": 50,
+                  "max": 200
+                },
+                "cpcTier": "🥉 저수익",
+                "industryAverage": 100,
+                "recommendation": "📝 일반적인 수익 구조입니다. 트래픽 확보에 집중하세요."
+              },
+              "affiliate": {
+                "recommendedPrograms": [
+                  {
+                    "name": "쿠팡파트너스",
+                    "type": "coupang",
+                    "commissionRate": "3~5%",
+                    "estimatedEarningPerClick": 50,
+                    "matchScore": 100
+                  },
+                  {
+                    "name": "네이버 쇼핑",
+                    "type": "naver",
+                    "commissionRate": "1~3%",
+                    "estimatedEarningPerClick": 30,
+                    "matchScore": 85
+                  }
+                ],
+                "bestMatch": "쿠팡파트너스",
+                "potentialProducts": [
+                  "무소음 기계식 키보드 추천",
+                  "무소음 기계식 키보드 순위",
+                  "무소음 기계식 키보드 비교",
+                  "무소음 기계식 키보드 후기",
+                  "무소음 기계식 키보드 가격",
+                  "무소음 기계식 키보드 구매"
+                ]
+              },
+              "projection": {
+                "estimatedDailyVisitors": 1,
+                "estimatedMonthlyVisitors": 30,
+                "adsenseRevenue": {
+                  "daily": 3,
+                  "monthly": 90,
+                  "assumptions": "CPC 100원, CTR 2%, 페이지뷰율 1.5 가정"
+                },
+                "affiliateRevenue": {
+                  "daily": 0,
+                  "monthly": 0,
+                  "conversionRate": 3,
+                  "assumptions": "클릭률 10%, 전환율 3%, 평균 수수료 50원 가정"
+                },
+                "totalMonthlyRevenue": 90,
+                "revenueBreakdown": "애드센스 100% + 제휴 0%",
+                "revenueTier": "📝 월 1만원+"
+              }
+            },
+            "content": {
+              "titles": {
+                "titles": [
+                  {
+                    "title": "무소음 기계식 키보드 추천 TOP 10 (2025년 최신)",
+                    "type": "number",
+                    "estimatedCTR": 8.5,
+                    "psychologyUsed": "숫자 + 최신 정보"
+                  },
+                  {
+                    "title": "무소음 기계식 키보드 하는 법, 초보자도 쉽게 따라하기",
+                    "type": "how-to",
+                    "estimatedCTR": 7.5,
+                    "psychologyUsed": "실용성 + 접근성"
+                  },
+                  {
+                    "title": "무소음 기계식 키보드, 이것만 알면 끝! 완벽 가이드",
+                    "type": "benefit",
+                    "estimatedCTR": 7.2,
+                    "psychologyUsed": "완결성 + 가치 제안"
+                  },
+                  {
+                    "title": "[2025년] 무소음 기계식 키보드 총정리 (+ 꿀팁 공개)",
+                    "type": "news",
+                    "estimatedCTR": 7,
+                    "psychologyUsed": "최신성 + 보너스 가치"
+                  },
+                  {
+                    "title": "아직도 무소음 기계식 키보드 몰라요? 지금 당장 확인하세요",
+                    "type": "curiosity",
+                    "estimatedCTR": 6.8,
+                    "psychologyUsed": "호기심 + 긴급성"
+                  },
+                  {
+                    "title": "무소음 기계식 키보드 실제 후기 (장단점 솔직 비교)",
+                    "type": "comparison",
+                    "estimatedCTR": 6.5,
+                    "psychologyUsed": "신뢰성 + 비교 심리"
+                  }
+                ],
+                "bestTitle": "무소음 기계식 키보드 추천 TOP 10 (2025년 최신)",
+                "titleFormula": "숫자 + 키워드 + 최신연도 + 가치제안"
+              },
+              "structure": {
+                "recommendedStructure": {
+                  "intro": {
+                    "purpose": "독자의 관심 끌기 + 키워드 자연스럽게 배치",
+                    "template": "\"무소음 기계식 키보드\"에 대해 고민하고 계신가요? 이 글에서 핵심 정보를 모두 정리해드립니다.",
+                    "keywordPlacement": "첫 문장에 키워드 포함"
+                  },
+                  "sections": [
+                    {
+                      "heading": "무소음 기계식 키보드란? (기본 개념)",
+                      "purpose": "기초 정보 제공",
+                      "contentGuide": "핵심 정의, 중요성, 왜 알아야 하는지 설명",
+                      "recommendedLength": 300,
+                      "keywordUsage": "소제목과 본문에 1~2회"
+                    },
+                    {
+                      "heading": "무소음 기계식 키보드 추천 BEST 5",
+                      "purpose": "실질적인 가치 제공 (핵심 섹션)",
+                      "contentGuide": "순위별 상세 설명, 장단점, 추천 이유",
+                      "recommendedLength": 800,
+                      "keywordUsage": "각 항목 설명에 자연스럽게 포함"
+                    },
+                    {
+                      "heading": "무소음 기계식 키보드 선택 시 주의사항",
+                      "purpose": "신뢰도 향상",
+                      "contentGuide": "흔한 실수, 피해야 할 것, 체크리스트",
+                      "recommendedLength": 400,
+                      "keywordUsage": "주의사항 설명에 1~2회"
+                    },
+                    {
+                      "heading": "자주 묻는 질문 (FAQ)",
+                      "purpose": "SEO 강화 + 체류시간 증가",
+                      "contentGuide": "실제 검색되는 질문 5개 + 명확한 답변",
+                      "recommendedLength": 500,
+                      "keywordUsage": "질문에 롱테일 키워드 활용"
+                    }
+                  ],
+                  "conclusion": {
+                    "purpose": "요약 + CTA",
+                    "template": "지금까지 무소음 기계식 키보드에 대해 알아봤습니다. 도움이 되셨다면 공유해주세요!",
+                    "ctaRecommendation": "댓글, 공유, 관련 글 링크 유도"
+                  }
+                },
+                "seoChecklist": [
+                  {
+                    "item": "제목에 키워드 포함",
+                    "importance": "critical",
+                    "howTo": "제목 앞부분에 메인 키워드 배치"
+                  },
+                  {
+                    "item": "첫 문단에 키워드",
+                    "importance": "critical",
+                    "howTo": "첫 100자 내 키워드 자연스럽게 삽입"
+                  },
+                  {
+                    "item": "소제목 H2/H3 활용",
+                    "importance": "high",
+                    "howTo": "3~5개 소제목, 키워드 변형 사용"
+                  },
+                  {
+                    "item": "이미지 ALT 태그",
+                    "importance": "high",
+                    "howTo": "모든 이미지에 키워드 포함 설명"
+                  },
+                  {
+                    "item": "내부링크 2개 이상",
+                    "importance": "medium",
+                    "howTo": "관련 글 자연스럽게 연결"
+                  },
+                  {
+                    "item": "3000자 이상 작성",
+                    "importance": "high",
+                    "howTo": "충분한 깊이의 콘텐츠 제공"
+                  }
+                ],
+                "totalRecommendedLength": 3000,
+                "estimatedWriteTime": 90
+              },
+              "images": {
+                "mainImage": {
+                  "searchKeyword": "무소음 기계식 키보드 대표이미지",
+                  "style": "깔끔한 인포그래픽 또는 고화질 사진",
+                  "source": [
+                    "Unsplash",
+                    "Pixabay",
+                    "직접 제작"
+                  ],
+                  "altText": "무소음 기계식 키보드 완벽 가이드 대표 이미지"
+                },
+                "sectionImages": [
+                  {
+                    "section": "기본 개념",
+                    "searchKeyword": "무소음 기계식 키보드 설명",
+                    "purpose": "이해 돕기",
+                    "style": "다이어그램"
+                  },
+                  {
+                    "section": "TOP 5",
+                    "searchKeyword": "무소음 기계식 키보드 비교",
+                    "purpose": "시각적 비교",
+                    "style": "비교표"
+                  },
+                  {
+                    "section": "주의사항",
+                    "searchKeyword": "주의 아이콘",
+                    "purpose": "강조",
+                    "style": "아이콘"
+                  }
+                ],
+                "infographicIdeas": [
+                  "무소음 기계식 키보드 선택 가이드 플로우차트",
+                  "무소음 기계식 키보드 TOP 5 비교표",
+                  "무소음 기계식 키보드 체크리스트"
+                ],
+                "totalRecommendedImages": 7,
+                "imageStrategy": "섹션당 1~2개, 총 7~10개 이미지로 가독성과 체류시간 향상"
+              }
+            },
+            "ultimateScore": {
+              "total": 39,
+              "breakdown": {
+                "goldenRatio": 2.188782489740082,
+                "timing": 70,
+                "revenue": 40,
+                "competition": 60,
+                "potential": 43
+              },
+              "grade": "📝 C",
+              "verdict": "⚠️ 신중히 검토 필요",
+              "topActions": [
+                "0일 내 작성 권장",
+                "무소음 기계식 키보드 추천 TOP 10 (2025년 최신)",
+                "3000자 이상, 7개 이미지 권장"
+              ]
+            }
+          },
+          "highlightReason": "✅ ANYTIME/stable | 폭발 65 | 구매의도 40 | 월 960원⚠️ | 경쟁도 7"
+        }
+      ],
+      "attempts": 1,
+      "durationMs": 212185
+    }
+  ]
+}

@@ -1,0 +1,234 @@
+{
+  "generatedAt": "2025-12-27T06:43:17.021Z",
+  "mode": "category",
+  "explosionMode": true,
+  "count": 5,
+  "timeoutMs": 240000,
+  "retries": 0,
+  "results": [
+    {
+      "success": false,
+      "category": "business",
+      "runIndex": 1,
+      "mode": "category",
+      "explosionMode": true,
+      "count": 5,
+      "summary": {
+        "totalFound": 0,
+        "sssCount": 0,
+        "ssCount": 0,
+        "sCount": 0,
+        "rookieFriendlyCount": 0,
+        "urgentCount": 0,
+        "blueOceanCount": 0,
+        "explosionFunnel": {
+          "candidates": 4,
+          "verified": 4,
+          "gradeOk": 0,
+          "ratioOk": 0,
+          "docOk": 1,
+          "svOk": 4,
+          "strictOk": 0,
+          "minSv": 30,
+          "internalMetrics": {
+            "seedCount": 130,
+            "allKeywordsCount": 431,
+            "profitableCount": 27,
+            "uniqueKeywordsCount": 27,
+            "sortedResultsCount": 26,
+            "verifiedResultsCount": 0,
+            "searchAdEnabled": true,
+            "searchAdAdded": 243,
+            "autocompleteAdded": 67
+          },
+          "topByExplosion": [
+            "청년창업지원금 | grade=B gr=0.28471866352362407 sv=13890 dc=48785 src=청년지원금(0) ex=85",
+            "초기창업패키지 | grade=C gr=0.05471083811633605 sv=3260 dc=59586 src=사업자등록(0) ex=65",
+            "네이버스토어창업 | grade=C gr=0.0370099829559289 sv=3040 dc=82140 src=사업자등록(0) ex=65",
+            "소자본1인창업 | grade=C gr=0.03623914495657982 sv=2170 dc=59880 src=사업자등록(0) ex=65"
+          ]
+        }
+      },
+      "keywords": [],
+      "attempts": 1,
+      "durationMs": 68368
+    },
+    {
+      "success": false,
+      "category": "self_development",
+      "runIndex": 1,
+      "mode": "category",
+      "explosionMode": true,
+      "count": 5,
+      "summary": {
+        "totalFound": 0,
+        "sssCount": 0,
+        "ssCount": 0,
+        "sCount": 0,
+        "rookieFriendlyCount": 0,
+        "urgentCount": 0,
+        "blueOceanCount": 0,
+        "explosionFunnel": {
+          "candidates": 0,
+          "verified": 0,
+          "gradeOk": 0,
+          "ratioOk": 0,
+          "docOk": 0,
+          "svOk": 0,
+          "strictOk": 0,
+          "minSv": 30,
+          "internalMetrics": {
+            "seedCount": 170,
+            "allKeywordsCount": 380,
+            "profitableCount": 137,
+            "uniqueKeywordsCount": 137,
+            "sortedResultsCount": 137,
+            "verifiedResultsCount": 0,
+            "searchAdEnabled": true,
+            "searchAdAdded": 164,
+            "autocompleteAdded": 56
+          },
+          "topByExplosion": []
+        }
+      },
+      "keywords": [],
+      "attempts": 1,
+      "durationMs": 152273
+    },
+    {
+      "success": true,
+      "category": "celeb",
+      "runIndex": 1,
+      "mode": "category",
+      "explosionMode": true,
+      "count": 5,
+      "summary": {
+        "totalFound": 5,
+        "sssCount": 0,
+        "ssCount": 2,
+        "sCount": 3,
+        "rookieFriendlyCount": 0,
+        "urgentCount": 0,
+        "blueOceanCount": 0,
+        "explosionFunnel": {
+          "candidates": 6,
+          "verified": 6,
+          "gradeOk": 5,
+          "ratioOk": 5,
+          "docOk": 6,
+          "svOk": 6,
+          "strictOk": 5,
+          "minSv": 500,
+          "internalMetrics": {
+            "seedCount": 140,
+            "allKeywordsCount": 317,
+            "profitableCount": 81,
+            "uniqueKeywordsCount": 81,
+            "sortedResultsCount": 80,
+            "verifiedResultsCount": 5,
+            "searchAdEnabled": true,
+            "searchAdAdded": 123,
+            "autocompleteAdded": 61
+          },
+          "topByExplosion": [
+            "도경수콘서트 | grade=S gr=0.741207247359752 sv=7650 dc=10321 src=티켓팅(0) ex=65",
+            "악동뮤지션콘서트 | grade=S gr=0.6422413793103449 sv=4470 dc=6960 src=티켓팅(0) ex=65",
+            "에일리콘서트 | grade=A gr=0.4646804110385833 sv=7190 dc=15473 src=티켓팅(0) ex=65",
+            "SG워너비콘서트 | grade=A gr=0.42129327237099934 sv=5160 dc=12248 src=티켓팅(0) ex=65",
+            "성시경콘서트티켓 | grade=A gr=0.37793514722325755 sv=5070 dc=13415 src=티켓팅(0) ex=65"
+          ]
+        }
+      },
+      "keywords": [
+        {
+          "keyword": "도경수콘서트",
+          "grade": "SS",
+          "searchVolume": 7650,
+          "documentCount": 10321,
+          "goldenRatio": 0.741207247359752,
+          "source": "티켓팅"
+        },
+        {
+          "keyword": "악동뮤지션콘서트",
+          "grade": "SS",
+          "searchVolume": 4470,
+          "documentCount": 6960,
+          "goldenRatio": 0.6422413793103449,
+          "source": "티켓팅"
+        },
+        {
+          "keyword": "에일리콘서트",
+          "grade": "S",
+          "searchVolume": 7190,
+          "documentCount": 15473,
+          "goldenRatio": 0.4646804110385833,
+          "source": "티켓팅"
+        },
+        {
+          "keyword": "SG워너비콘서트",
+          "grade": "S",
+          "searchVolume": 5160,
+          "documentCount": 12248,
+          "goldenRatio": 0.42129327237099934,
+          "source": "티켓팅"
+        },
+        {
+          "keyword": "성시경콘서트티켓",
+          "grade": "S",
+          "searchVolume": 5070,
+          "documentCount": 13415,
+          "goldenRatio": 0.37793514722325755,
+          "source": "티켓팅"
+        }
+      ],
+      "attempts": 1,
+      "durationMs": 62355
+    },
+    {
+      "success": false,
+      "category": "fashion",
+      "runIndex": 1,
+      "mode": "category",
+      "explosionMode": true,
+      "count": 5,
+      "summary": {
+        "totalFound": 0,
+        "sssCount": 0,
+        "ssCount": 0,
+        "sCount": 0,
+        "rookieFriendlyCount": 0,
+        "urgentCount": 0,
+        "blueOceanCount": 0,
+        "explosionFunnel": {
+          "candidates": 3,
+          "verified": 3,
+          "gradeOk": 0,
+          "ratioOk": 0,
+          "docOk": 0,
+          "svOk": 3,
+          "strictOk": 0,
+          "minSv": 30,
+          "internalMetrics": {
+            "seedCount": 130,
+            "allKeywordsCount": 349,
+            "profitableCount": 69,
+            "uniqueKeywordsCount": 67,
+            "sortedResultsCount": 66,
+            "verifiedResultsCount": 0,
+            "searchAdEnabled": true,
+            "searchAdAdded": 163,
+            "autocompleteAdded": 65
+          },
+          "topByExplosion": [
+            "중단발헤어스타일 | grade=C gr=0.2157812674017151 sv=23250 dc=107748 src=미용실(0) ex=65",
+            "인그로운헤어 | grade=C gr=0.05656908499505021 sv=6400 dc=113136 src=왁싱(0) ex=65",
+            "인그로운헤어제거 | grade=C gr=0.05026495079485239 sv=3320 dc=66050 src=왁싱(0) ex=65"
+          ]
+        }
+      },
+      "keywords": [],
+      "attempts": 1,
+      "durationMs": 99028
+    }
+  ]
+}

@@ -1,0 +1,655 @@
+{
+  "generatedAt": "2025-12-25T04:29:11.784Z",
+  "mode": "category",
+  "explosionMode": true,
+  "count": 10,
+  "timeoutMs": 600000,
+  "retries": 0,
+  "results": [
+    {
+      "success": true,
+      "category": "celeb",
+      "runIndex": 1,
+      "mode": "category",
+      "explosionMode": true,
+      "count": 10,
+      "summary": {
+        "totalFound": 10,
+        "sssCount": 4,
+        "ssCount": 0,
+        "sCount": 6,
+        "rookieFriendlyCount": 9,
+        "urgentCount": 0,
+        "blueOceanCount": 2,
+        "explosionFunnel": {
+          "candidates": 158,
+          "verified": 158,
+          "gradeOk": 18,
+          "ratioOk": 22,
+          "docOk": 138,
+          "svOk": 28,
+          "strictOk": 10,
+          "minSv": 500,
+          "internalMetrics": {
+            "seedCount": 110,
+            "allKeywordsCount": 1414,
+            "profitableCount": 170,
+            "uniqueKeywordsCount": 170,
+            "sortedResultsCount": 170,
+            "verifiedResultsCount": 59,
+            "searchAdEnabled": true,
+            "searchAdAdded": 486,
+            "autocompleteAdded": 832
+          },
+          "topByExplosion": [
+            "강태오 팬미팅 티켓팅 | grade=SSS gr=32.5 sv=650 dc=20 src=팬미팅 티켓(0) ex=58",
+            "벡스코 콘서트 좌석수 | grade=SSS gr=2.441860465116279 sv=210 dc=86 src=콘서트 좌석(0) ex=52",
+            "김건모 콘서트 예매 | grade=SSS gr=2.3088344469190796 sv=3110 dc=1347 src=콘서트 예매(0) ex=65",
+            "하츠투하츠 팬미팅 티켓팅 | grade=SSS gr=2.03125 sv=130 dc=64 src=팬미팅 티켓(0) ex=46",
+            "고척돔 콘서트 좌석수 | grade=SS gr=1.8803418803418803 sv=440 dc=234 src=콘서트 좌석(0) ex=52"
+          ]
+        }
+      },
+      "keywords": [
+        {
+          "keyword": "강태오 팬미팅 티켓팅",
+          "grade": "SSS",
+          "searchVolume": 650,
+          "documentCount": 20,
+          "goldenRatio": 32.5,
+          "source": "팬미팅 티켓"
+        },
+        {
+          "keyword": "김건모 콘서트 예매",
+          "grade": "SSS",
+          "searchVolume": 3110,
+          "documentCount": 1347,
+          "goldenRatio": 2.3088344469190796,
+          "source": "콘서트 예매"
+        },
+        {
+          "keyword": "브아솔 콘서트 예매",
+          "grade": "SSS",
+          "searchVolume": 1780,
+          "documentCount": 1022,
+          "goldenRatio": 1.741682974559687,
+          "source": "콘서트 예매"
+        },
+        {
+          "keyword": "조용필 콘서트 예매",
+          "grade": "SSS",
+          "searchVolume": 5580,
+          "documentCount": 4470,
+          "goldenRatio": 1.2483221476510067,
+          "source": "콘서트 예매"
+        },
+        {
+          "keyword": "임영웅 부산콘서트 좌석",
+          "grade": "S",
+          "searchVolume": 1130,
+          "documentCount": 2160,
+          "goldenRatio": 0.5231481481481481,
+          "source": "콘서트 좌석"
+        },
+        {
+          "keyword": "임재범 콘서트 예매",
+          "grade": "S",
+          "searchVolume": 560,
+          "documentCount": 1118,
+          "goldenRatio": 0.5008944543828264,
+          "source": "콘서트 예매"
+        },
+        {
+          "keyword": "성시경 콘서트 예매대기",
+          "grade": "S",
+          "searchVolume": 1190,
+          "documentCount": 2783,
+          "goldenRatio": 0.42759611929572405,
+          "source": "콘서트 예매"
+        },
+        {
+          "keyword": "임영웅 대전 콘서트 좌석",
+          "grade": "S",
+          "searchVolume": 700,
+          "documentCount": 1924,
+          "goldenRatio": 0.36382536382536385,
+          "source": "콘서트 좌석"
+        },
+        {
+          "keyword": "성시경 콘서트 티켓",
+          "grade": "S",
+          "searchVolume": 4650,
+          "documentCount": 13247,
+          "goldenRatio": 0.3510228731033442,
+          "source": "콘서트 티켓"
+        },
+        {
+          "keyword": "다비치 콘서트 티켓",
+          "grade": "S",
+          "searchVolume": 1040,
+          "documentCount": 3186,
+          "goldenRatio": 0.32642812303829255,
+          "source": "콘서트 티켓"
+        }
+      ],
+      "attempts": 1,
+      "durationMs": 165653
+    },
+    {
+      "success": true,
+      "category": "celeb",
+      "runIndex": 2,
+      "mode": "category",
+      "explosionMode": true,
+      "count": 10,
+      "summary": {
+        "totalFound": 10,
+        "sssCount": 4,
+        "ssCount": 2,
+        "sCount": 4,
+        "rookieFriendlyCount": 2,
+        "urgentCount": 0,
+        "blueOceanCount": 2,
+        "explosionFunnel": {
+          "candidates": 182,
+          "verified": 182,
+          "gradeOk": 25,
+          "ratioOk": 29,
+          "docOk": 161,
+          "svOk": 49,
+          "strictOk": 17,
+          "minSv": 500,
+          "internalMetrics": {
+            "seedCount": 117,
+            "allKeywordsCount": 1284,
+            "profitableCount": 206,
+            "uniqueKeywordsCount": 206,
+            "sortedResultsCount": 205,
+            "verifiedResultsCount": 86,
+            "searchAdEnabled": true,
+            "searchAdAdded": 363,
+            "autocompleteAdded": 814
+          },
+          "topByExplosion": [
+            "강태오 팬미팅 티켓팅 | grade=SSS gr=32.5 sv=650 dc=20 src=팬미팅 티켓(0) ex=58",
+            "벡스코 콘서트 좌석수 | grade=SSS gr=2.441860465116279 sv=210 dc=86 src=콘서트 좌석(0) ex=52",
+            "김건모 콘서트 예매 | grade=SSS gr=2.3088344469190796 sv=3110 dc=1347 src=콘서트 예매(0) ex=65",
+            "하츠투하츠 팬미팅 티켓팅 | grade=SSS gr=2.03125 sv=130 dc=64 src=팬미팅 티켓(0) ex=46",
+            "고척돔 콘서트 좌석수 | grade=SS gr=1.8803418803418803 sv=440 dc=234 src=콘서트 좌석(0) ex=52"
+          ]
+        }
+      },
+      "keywords": [
+        {
+          "keyword": "강태오 팬미팅 티켓팅",
+          "grade": "SSS",
+          "searchVolume": 650,
+          "documentCount": 20,
+          "goldenRatio": 32.5,
+          "source": "팬미팅 티켓"
+        },
+        {
+          "keyword": "김건모 콘서트 예매",
+          "grade": "SSS",
+          "searchVolume": 3110,
+          "documentCount": 1347,
+          "goldenRatio": 2.3088344469190796,
+          "source": "콘서트 예매"
+        },
+        {
+          "keyword": "브아솔 콘서트 예매",
+          "grade": "SSS",
+          "searchVolume": 1780,
+          "documentCount": 1022,
+          "goldenRatio": 1.741682974559687,
+          "source": "콘서트 예매"
+        },
+        {
+          "keyword": "조용필 콘서트 예매",
+          "grade": "SSS",
+          "searchVolume": 5580,
+          "documentCount": 4470,
+          "goldenRatio": 1.2483221476510067,
+          "source": "콘서트 예매"
+        },
+        {
+          "keyword": "도경수콘서트",
+          "grade": "SS",
+          "searchVolume": 7890,
+          "documentCount": 10303,
+          "goldenRatio": 0.7657963699893235,
+          "source": "티켓팅"
+        },
+        {
+          "keyword": "악동뮤지션콘서트",
+          "grade": "SS",
+          "searchVolume": 4770,
+          "documentCount": 6957,
+          "goldenRatio": 0.685640362225097,
+          "source": "티켓팅"
+        },
+        {
+          "keyword": "임영웅 부산콘서트 좌석",
+          "grade": "S",
+          "searchVolume": 1130,
+          "documentCount": 2160,
+          "goldenRatio": 0.5231481481481481,
+          "source": "콘서트 좌석"
+        },
+        {
+          "keyword": "임재범 콘서트 예매",
+          "grade": "S",
+          "searchVolume": 560,
+          "documentCount": 1118,
+          "goldenRatio": 0.5008944543828264,
+          "source": "콘서트 예매"
+        },
+        {
+          "keyword": "임영웅콘서트티켓양도",
+          "grade": "S",
+          "searchVolume": 750,
+          "documentCount": 1513,
+          "goldenRatio": 0.495703899537343,
+          "source": "티켓팅"
+        },
+        {
+          "keyword": "SG워너비콘서트",
+          "grade": "S",
+          "searchVolume": 5780,
+          "documentCount": 12247,
+          "goldenRatio": 0.47195231485261696,
+          "source": "티켓팅"
+        }
+      ],
+      "attempts": 1,
+      "durationMs": 181264
+    },
+    {
+      "success": true,
+      "category": "celeb",
+      "runIndex": 3,
+      "mode": "category",
+      "explosionMode": true,
+      "count": 10,
+      "summary": {
+        "totalFound": 10,
+        "sssCount": 4,
+        "ssCount": 2,
+        "sCount": 4,
+        "rookieFriendlyCount": 2,
+        "urgentCount": 0,
+        "blueOceanCount": 2,
+        "explosionFunnel": {
+          "candidates": 182,
+          "verified": 182,
+          "gradeOk": 24,
+          "ratioOk": 28,
+          "docOk": 159,
+          "svOk": 48,
+          "strictOk": 17,
+          "minSv": 500,
+          "internalMetrics": {
+            "seedCount": 112,
+            "allKeywordsCount": 1306,
+            "profitableCount": 201,
+            "uniqueKeywordsCount": 201,
+            "sortedResultsCount": 200,
+            "verifiedResultsCount": 82,
+            "searchAdEnabled": true,
+            "searchAdAdded": 481,
+            "autocompleteAdded": 723
+          },
+          "topByExplosion": [
+            "강태오 팬미팅 티켓팅 | grade=SSS gr=32.5 sv=650 dc=20 src=팬미팅 티켓(0) ex=58",
+            "벡스코 콘서트 좌석수 | grade=SSS gr=2.441860465116279 sv=210 dc=86 src=콘서트 좌석(0) ex=52",
+            "김건모 콘서트 예매 | grade=SSS gr=2.3088344469190796 sv=3110 dc=1347 src=콘서트 예매(0) ex=65",
+            "하츠투하츠 팬미팅 티켓팅 | grade=SSS gr=2.03125 sv=130 dc=64 src=팬미팅 티켓(0) ex=46",
+            "고척돔 콘서트 좌석수 | grade=SS gr=1.8803418803418803 sv=440 dc=234 src=콘서트 좌석(0) ex=52"
+          ]
+        }
+      },
+      "keywords": [
+        {
+          "keyword": "강태오 팬미팅 티켓팅",
+          "grade": "SSS",
+          "searchVolume": 650,
+          "documentCount": 20,
+          "goldenRatio": 32.5,
+          "source": "팬미팅 티켓"
+        },
+        {
+          "keyword": "김건모 콘서트 예매",
+          "grade": "SSS",
+          "searchVolume": 3110,
+          "documentCount": 1347,
+          "goldenRatio": 2.3088344469190796,
+          "source": "콘서트 예매"
+        },
+        {
+          "keyword": "브아솔 콘서트 예매",
+          "grade": "SSS",
+          "searchVolume": 1780,
+          "documentCount": 1022,
+          "goldenRatio": 1.741682974559687,
+          "source": "콘서트 예매"
+        },
+        {
+          "keyword": "조용필 콘서트 예매",
+          "grade": "SSS",
+          "searchVolume": 5580,
+          "documentCount": 4470,
+          "goldenRatio": 1.2483221476510067,
+          "source": "콘서트 예매"
+        },
+        {
+          "keyword": "도경수콘서트",
+          "grade": "SS",
+          "searchVolume": 7890,
+          "documentCount": 10303,
+          "goldenRatio": 0.7657963699893235,
+          "source": "티켓팅"
+        },
+        {
+          "keyword": "악동뮤지션콘서트",
+          "grade": "SS",
+          "searchVolume": 4770,
+          "documentCount": 6957,
+          "goldenRatio": 0.685640362225097,
+          "source": "티켓팅"
+        },
+        {
+          "keyword": "임영웅 부산콘서트 좌석",
+          "grade": "S",
+          "searchVolume": 1130,
+          "documentCount": 2160,
+          "goldenRatio": 0.5231481481481481,
+          "source": "콘서트 좌석"
+        },
+        {
+          "keyword": "임재범 콘서트 예매",
+          "grade": "S",
+          "searchVolume": 560,
+          "documentCount": 1118,
+          "goldenRatio": 0.5008944543828264,
+          "source": "콘서트 예매"
+        },
+        {
+          "keyword": "임영웅콘서트티켓양도",
+          "grade": "S",
+          "searchVolume": 750,
+          "documentCount": 1513,
+          "goldenRatio": 0.495703899537343,
+          "source": "티켓팅"
+        },
+        {
+          "keyword": "SG워너비콘서트",
+          "grade": "S",
+          "searchVolume": 5780,
+          "documentCount": 12247,
+          "goldenRatio": 0.47195231485261696,
+          "source": "티켓팅"
+        }
+      ],
+      "attempts": 1,
+      "durationMs": 186522
+    },
+    {
+      "success": true,
+      "category": "celeb",
+      "runIndex": 4,
+      "mode": "category",
+      "explosionMode": true,
+      "count": 10,
+      "summary": {
+        "totalFound": 10,
+        "sssCount": 1,
+        "ssCount": 2,
+        "sCount": 7,
+        "rookieFriendlyCount": 1,
+        "urgentCount": 0,
+        "blueOceanCount": 1,
+        "explosionFunnel": {
+          "candidates": 120,
+          "verified": 120,
+          "gradeOk": 10,
+          "ratioOk": 13,
+          "docOk": 102,
+          "svOk": 35,
+          "strictOk": 10,
+          "minSv": 500,
+          "internalMetrics": {
+            "seedCount": 114,
+            "allKeywordsCount": 1658,
+            "profitableCount": 137,
+            "uniqueKeywordsCount": 137,
+            "sortedResultsCount": 136,
+            "verifiedResultsCount": 54,
+            "searchAdEnabled": true,
+            "searchAdAdded": 774,
+            "autocompleteAdded": 781
+          },
+          "topByExplosion": [
+            "겨울결혼식하객룩 | grade=SSS gr=3.230130864985637 sv=10120 dc=3133 src=틱톡(25) ex=106",
+            "입문자 팬미팅 신청 방법 | grade=A gr=1.5384615384615385 sv=20 dc=13 src=seed(0) ex=60",
+            "입문자 아이돌 컴백 일정 | grade=A gr=1.1764705882352942 sv=20 dc=17 src=seed(0) ex=40",
+            "도경수콘서트 | grade=S gr=0.7657963699893235 sv=7890 dc=10303 src=티켓팅(0) ex=65",
+            "악동뮤지션콘서트 | grade=S gr=0.685640362225097 sv=4770 dc=6957 src=티켓팅(0) ex=65"
+          ]
+        }
+      },
+      "keywords": [
+        {
+          "keyword": "겨울결혼식하객룩",
+          "grade": "SSS",
+          "searchVolume": 10120,
+          "documentCount": 3133,
+          "goldenRatio": 3.230130864985637,
+          "source": "틱톡"
+        },
+        {
+          "keyword": "도경수콘서트",
+          "grade": "SS",
+          "searchVolume": 7890,
+          "documentCount": 10303,
+          "goldenRatio": 0.7657963699893235,
+          "source": "티켓팅"
+        },
+        {
+          "keyword": "악동뮤지션콘서트",
+          "grade": "SS",
+          "searchVolume": 4770,
+          "documentCount": 6957,
+          "goldenRatio": 0.685640362225097,
+          "source": "티켓팅"
+        },
+        {
+          "keyword": "임영웅콘서트티켓양도",
+          "grade": "S",
+          "searchVolume": 750,
+          "documentCount": 1513,
+          "goldenRatio": 0.495703899537343,
+          "source": "티켓팅"
+        },
+        {
+          "keyword": "SG워너비콘서트",
+          "grade": "S",
+          "searchVolume": 5780,
+          "documentCount": 12247,
+          "goldenRatio": 0.47195231485261696,
+          "source": "티켓팅"
+        },
+        {
+          "keyword": "에일리콘서트",
+          "grade": "S",
+          "searchVolume": 7140,
+          "documentCount": 15463,
+          "goldenRatio": 0.4617473970122227,
+          "source": "티켓팅"
+        },
+        {
+          "keyword": "성시경 콘서트 티켓",
+          "grade": "S",
+          "searchVolume": 4650,
+          "documentCount": 13247,
+          "goldenRatio": 0.3510228731033442,
+          "source": "콘서트 티켓"
+        },
+        {
+          "keyword": "성시경콘서트티켓",
+          "grade": "S",
+          "searchVolume": 4650,
+          "documentCount": 13247,
+          "goldenRatio": 0.3510228731033442,
+          "source": "티켓팅"
+        },
+        {
+          "keyword": "다비치 콘서트 티켓",
+          "grade": "S",
+          "searchVolume": 1040,
+          "documentCount": 3186,
+          "goldenRatio": 0.32642812303829255,
+          "source": "콘서트 티켓"
+        },
+        {
+          "keyword": "다비치콘서트티켓",
+          "grade": "S",
+          "searchVolume": 1040,
+          "documentCount": 3186,
+          "goldenRatio": 0.32642812303829255,
+          "source": "티켓팅"
+        }
+      ],
+      "attempts": 1,
+      "durationMs": 161668
+    },
+    {
+      "success": true,
+      "category": "celeb",
+      "runIndex": 5,
+      "mode": "category",
+      "explosionMode": true,
+      "count": 10,
+      "summary": {
+        "totalFound": 10,
+        "sssCount": 3,
+        "ssCount": 3,
+        "sCount": 4,
+        "rookieFriendlyCount": 9,
+        "urgentCount": 0,
+        "blueOceanCount": 2,
+        "explosionFunnel": {
+          "candidates": 137,
+          "verified": 137,
+          "gradeOk": 13,
+          "ratioOk": 16,
+          "docOk": 118,
+          "svOk": 35,
+          "strictOk": 11,
+          "minSv": 200,
+          "internalMetrics": {
+            "seedCount": 114,
+            "allKeywordsCount": 1284,
+            "profitableCount": 149,
+            "uniqueKeywordsCount": 149,
+            "sortedResultsCount": 149,
+            "verifiedResultsCount": 50,
+            "searchAdEnabled": true,
+            "searchAdAdded": 598,
+            "autocompleteAdded": 585
+          },
+          "topByExplosion": [
+            "벡스코 콘서트 좌석수 | grade=SSS gr=2.441860465116279 sv=210 dc=86 src=콘서트 좌석(0) ex=52",
+            "김건모 콘서트 예매 | grade=SSS gr=2.3088344469190796 sv=3110 dc=1347 src=콘서트 예매(0) ex=65",
+            "고척돔 콘서트 좌석수 | grade=SS gr=1.8803418803418803 sv=440 dc=234 src=콘서트 좌석(0) ex=52",
+            "브아솔 콘서트 예매 | grade=SS gr=1.741682974559687 sv=1780 dc=1022 src=콘서트 예매(0) ex=65",
+            "입문자 팬미팅 신청 방법 | grade=A gr=1.5384615384615385 sv=20 dc=13 src=seed(0) ex=60"
+          ]
+        }
+      },
+      "keywords": [
+        {
+          "keyword": "벡스코 콘서트 좌석수",
+          "grade": "SS",
+          "searchVolume": 210,
+          "documentCount": 86,
+          "goldenRatio": 2.441860465116279,
+          "source": "콘서트 좌석"
+        },
+        {
+          "keyword": "김건모 콘서트 예매",
+          "grade": "SSS",
+          "searchVolume": 3110,
+          "documentCount": 1347,
+          "goldenRatio": 2.3088344469190796,
+          "source": "콘서트 예매"
+        },
+        {
+          "keyword": "고척돔 콘서트 좌석수",
+          "grade": "SS",
+          "searchVolume": 440,
+          "documentCount": 234,
+          "goldenRatio": 1.8803418803418803,
+          "source": "콘서트 좌석"
+        },
+        {
+          "keyword": "브아솔 콘서트 예매",
+          "grade": "SSS",
+          "searchVolume": 1780,
+          "documentCount": 1022,
+          "goldenRatio": 1.741682974559687,
+          "source": "콘서트 예매"
+        },
+        {
+          "keyword": "조용필 콘서트 예매",
+          "grade": "SSS",
+          "searchVolume": 5580,
+          "documentCount": 4470,
+          "goldenRatio": 1.2483221476510067,
+          "source": "콘서트 예매"
+        },
+        {
+          "keyword": "브아솔 콘서트 좌석",
+          "grade": "SS",
+          "searchVolume": 470,
+          "documentCount": 550,
+          "goldenRatio": 0.8545454545454545,
+          "source": "콘서트 좌석"
+        },
+        {
+          "keyword": "임영웅 부산콘서트 좌석",
+          "grade": "S",
+          "searchVolume": 1130,
+          "documentCount": 2160,
+          "goldenRatio": 0.5231481481481481,
+          "source": "콘서트 좌석"
+        },
+        {
+          "keyword": "성시경 콘서트 예매대기",
+          "grade": "S",
+          "searchVolume": 1190,
+          "documentCount": 2783,
+          "goldenRatio": 0.42759611929572405,
+          "source": "콘서트 예매"
+        },
+        {
+          "keyword": "임영웅 대전 콘서트 좌석",
+          "grade": "S",
+          "searchVolume": 700,
+          "documentCount": 1924,
+          "goldenRatio": 0.36382536382536385,
+          "source": "콘서트 좌석"
+        },
+        {
+          "keyword": "성시경 콘서트 티켓",
+          "grade": "S",
+          "searchVolume": 4650,
+          "documentCount": 13248,
+          "goldenRatio": 0.3509963768115942,
+          "source": "콘서트 티켓"
+        }
+      ],
+      "attempts": 1,
+      "durationMs": 176230
+    }
+  ]
+}

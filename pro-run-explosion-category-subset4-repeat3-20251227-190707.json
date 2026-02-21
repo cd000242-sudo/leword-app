@@ -1,0 +1,142 @@
+{
+  "generatedAt": "2025-12-27T10:07:07.454Z",
+  "mode": "category",
+  "explosionMode": true,
+  "count": 5,
+  "timeoutMs": 240000,
+  "retries": 0,
+  "results": [
+    {
+      "success": false,
+      "category": "business",
+      "runIndex": 1,
+      "mode": "category",
+      "explosionMode": true,
+      "count": 5,
+      "error": "empty output",
+      "attempts": 1,
+      "durationMs": 3337
+    },
+    {
+      "success": false,
+      "category": "business",
+      "runIndex": 2,
+      "mode": "category",
+      "explosionMode": true,
+      "count": 5,
+      "error": "empty output",
+      "attempts": 1,
+      "durationMs": 3287
+    },
+    {
+      "success": false,
+      "category": "business",
+      "runIndex": 3,
+      "mode": "category",
+      "explosionMode": true,
+      "count": 5,
+      "error": "empty output",
+      "attempts": 1,
+      "durationMs": 3697
+    },
+    {
+      "success": false,
+      "category": "self_development",
+      "runIndex": 1,
+      "mode": "category",
+      "explosionMode": true,
+      "count": 5,
+      "error": "empty output",
+      "attempts": 1,
+      "durationMs": 3498
+    },
+    {
+      "success": false,
+      "category": "self_development",
+      "runIndex": 2,
+      "mode": "category",
+      "explosionMode": true,
+      "count": 5,
+      "error": "empty output",
+      "attempts": 1,
+      "durationMs": 3093
+    },
+    {
+      "success": false,
+      "category": "self_development",
+      "runIndex": 3,
+      "mode": "category",
+      "explosionMode": true,
+      "count": 5,
+      "error": "empty output",
+      "attempts": 1,
+      "durationMs": 3019
+    },
+    {
+      "success": false,
+      "category": "celeb",
+      "runIndex": 1,
+      "mode": "category",
+      "explosionMode": true,
+      "count": 5,
+      "error": "empty output",
+      "attempts": 1,
+      "durationMs": 3087
+    },
+    {
+      "success": false,
+      "category": "celeb",
+      "runIndex": 2,
+      "mode": "category",
+      "explosionMode": true,
+      "count": 5,
+      "error": "empty output",
+      "attempts": 1,
+      "durationMs": 3543
+    },
+    {
+      "success": false,
+      "category": "celeb",
+      "runIndex": 3,
+      "mode": "category",
+      "explosionMode": true,
+      "count": 5,
+      "error": "empty output",
+      "attempts": 1,
+      "durationMs": 3419
+    },
+    {
+      "success": false,
+      "category": "fashion",
+      "runIndex": 1,
+      "mode": "category",
+      "explosionMode": true,
+      "count": 5,
+      "error": "empty output",
+      "attempts": 1,
+      "durationMs": 3734
+    },
+    {
+      "success": false,
+      "category": "fashion",
+      "runIndex": 2,
+      "mode": "category",
+      "explosionMode": true,
+      "count": 5,
+      "error": "empty output",
+      "attempts": 1,
+      "durationMs": 3355
+    },
+    {
+      "success": false,
+      "category": "fashion",
+      "runIndex": 3,
+      "mode": "category",
+      "explosionMode": true,
+      "count": 5,
+      "error": "empty output",
+      "attempts": 1,
+      "durationMs": 3177
+    }
+  ]
+}

@@ -1,0 +1,4044 @@
+{
+  "generatedAt": "2025-12-20T05:18:41.247Z",
+  "mode": "realtime",
+  "explosionMode": true,
+  "count": 20,
+  "timeoutMs": 90000,
+  "retries": 0,
+  "results": [
+    {
+      "success": true,
+      "category": "celeb",
+      "mode": "realtime",
+      "explosionMode": true,
+      "count": 20,
+      "summary": {
+        "totalFound": 2,
+        "sssCount": 0,
+        "ssCount": 0,
+        "sCount": 0,
+        "rookieFriendlyCount": 0,
+        "urgentCount": 0,
+        "blueOceanCount": 0
+      },
+      "keywords": [
+        {
+          "keyword": "팬미팅일정",
+          "searchVolume": 280,
+          "documentCount": 62170,
+          "goldenRatio": 0.0045037799581791865,
+          "rookieFriendly": {
+            "score": 5,
+            "grade": "D",
+            "reason": "문서수 50,000개 이상 → 경쟁 치열 | 황금비율 1 미만 → 공급 과잉 | 숏테일 키워드 → 대형 블로그와 경쟁",
+            "canRankWithin": "1개월 이상 소요 예상",
+            "requiredBlogIndex": "최적 1 이상 권장"
+          },
+          "timing": {
+            "score": 50,
+            "urgency": "ANYTIME",
+            "bestPublishTime": "오전 6~8시 또는 저녁 8~10시",
+            "trendDirection": "stable",
+            "peakPrediction": "꾸준한 검색량 유지"
+          },
+          "blueOcean": {
+            "score": 15,
+            "competitorStrength": "strong",
+            "avgCompetitorBlogAge": "5년 이상 (강한 경쟁)",
+            "oldPostRatio": 30,
+            "opportunity": "❌ 레드오션. 다른 키워드 추천"
+          },
+          "trafficEstimate": {
+            "daily": "측정 불가",
+            "weekly": "측정 불가",
+            "monthly": "측정 불가",
+            "confidence": 52,
+            "disclaimer": "⚠️ 실제 API 데이터 기반 계산. 트래픽은 콘텐츠 품질, 순위, 시즌에 따라 달라집니다."
+          },
+          "revenueEstimate": {
+            "dailyRevenue": "측정 불가",
+            "monthlyRevenue": "측정 불가",
+            "estimatedCPC": 250,
+            "estimatedRPM": 5000,
+            "adType": "애드센스",
+            "revenueGrade": "C",
+            "revenueReason": "📊 트래픽 확보 후 수익 기대. 블로그 성장용"
+          },
+          "entryAnalysis": {
+            "canEntry": false,
+            "difficulty": "very_hard",
+            "difficultyScore": 100,
+            "message": "🔴 진입 어려움 - 상위 블로거 독점 키워드",
+            "topCompetitorStrength": "매우 강함 (최적 블로거 독점)",
+            "recommendedBlogIndex": "상위 5% (최적 블로그) 필요",
+            "estimatedRankingTime": "3개월 이상 또는 어려움"
+          },
+          "totalScore": 20,
+          "grade": "C",
+          "proStrategy": {
+            "title": "2025 팬미팅일정 완벽 정리 | 초보자도 쉽게 이해하는 가이드",
+            "outline": [
+              "1. 팬미팅일정란? (기본 개념)",
+              "2. 팬미팅일정 핵심 포인트 3가지",
+              "3. 팬미팅일정 장단점 비교",
+              "4. 팬미팅일정 실제 후기/경험담",
+              "5. 팬미팅일정 Q&A (자주 묻는 질문)",
+              "6. 결론 및 추천"
+            ],
+            "wordCount": 2500,
+            "mustInclude": [
+              "핵심 키워드 2~3회 자연스럽게 삽입",
+              "실제 이미지/사진 3장 이상",
+              "표 또는 비교 차트 1개 이상",
+              "자주 묻는 질문(FAQ) 섹션",
+              "결론 및 추천 섹션"
+            ],
+            "avoidTopics": [
+              "과장된 표현 (100%, 무조건, 반드시)",
+              "허위 정보나 검증되지 않은 내용",
+              "다른 블로그 복사/붙여넣기",
+              "광고성 링크 과다 삽입"
+            ],
+            "monetization": "애드센스 + 쿠팡파트너스 조합 추천"
+          },
+          "platformTitles": {
+            "naver": {
+              "title": "팬미팅일정 가이드 | 가는법 + 코스 + 숙소 총정리 (12월)",
+              "alternatives": [
+                "팬미팅일정 | 네이버에서 바로 찾는 방법 (+체크리스트)",
+                "팬미팅일정 상위노출 포인트 5개 | 제목/소제목 이렇게",
+                "팬미팅일정 핵심 정리 | 코스/숙소/맛집 총정리",
+                "팬미팅일정 추천 코스 총정리 (12월 최신)",
+                "팬미팅일정 현지인 꿀팁! | 지금 안 보면 손해"
+              ],
+              "subKeywords": [
+                "팬미팅일정 가는법",
+                "팬미팅일정 코스",
+                "팬미팅일정 숙소"
+              ],
+              "tags": [
+                "팬미팅일정",
+                "팬미팅일정 가는법",
+                "팬미팅일정 코스",
+                "팬미팅일정 숙소",
+                "팬미팅일정 꿀팁",
+                "팬미팅일정 후기"
+              ],
+              "tip": "📌 이미지 5장+ 본문 2,000자+ 소제목 5개+ 작성",
+              "hookPoint": "💡 가는법 + 추천코스 + 숙소 총정리"
+            },
+            "tistory": {
+              "title": "[2025] 팬미팅일정 여행 완벽 가이드 - 일정 + 맛집 + 입장료",
+              "alternatives": [
+                "[2025] 팬미팅일정 정리 - 검색 유입 늘리는 구조",
+                "팬미팅일정 SEO 글쓰기 템플릿 (H2/H3 포함)",
+                "팬미팅일정 핵심 정리 | 코스/숙소/맛집 총정리",
+                "팬미팅일정 추천 코스 총정리 (12월 최신)",
+                "팬미팅일정 현지인 꿀팁! | 지금 안 보면 손해"
+              ],
+              "subKeywords": [
+                "팬미팅일정 맛집",
+                "팬미팅일정 입장료",
+                "팬미팅일정 일정"
+              ],
+              "tags": [
+                "팬미팅일정",
+                "팬미팅일정 맛집",
+                "팬미팅일정 입장료",
+                "팬미팅일정 일정",
+                "팬미팅일정방법",
+                "팬미팅일정정리"
+              ],
+              "tip": "📌 H2 3개+ H3 5개+ 목차 삽입 + 3,000자 이상",
+              "hookPoint": "🔍 일정표 + 맛집 + 입장료 정보"
+            },
+            "wordpress": {
+              "title": "팬미팅일정 Travel Guide: Itinerary & Tips (2025)",
+              "alternatives": [
+                "팬미팅일정 Guide (2025): Tips, Checklist & FAQ",
+                "팬미팅일정: What to Know Before You Start",
+                "팬미팅일정 핵심 정리 | 코스/숙소/맛집 총정리",
+                "팬미팅일정 추천 코스 총정리 (12월 최신)",
+                "팬미팅일정 현지인 꿀팁! | 지금 안 보면 손해"
+              ],
+              "subKeywords": [
+                "itinerary",
+                "hotel",
+                "tips"
+              ],
+              "tags": [
+                "팬미팅일정",
+                "팬미팅일정-tips",
+                "팬미팅일정-guide",
+                "팬미팅일정-2025"
+              ],
+              "tip": "📌 Featured Image + Yoast SEO 녹색 + 2,500+ words",
+              "hookPoint": "🌍 Complete travel guide"
+            },
+            "blogspot": {
+              "title": "팬미팅일정 Complete Travel Guide (2025)",
+              "alternatives": [
+                "팬미팅일정 Explained (2025) - Quick Guide",
+                "팬미팅일정: Key Facts & Tips",
+                "팬미팅일정 핵심 정리 | 코스/숙소/맛집 총정리",
+                "팬미팅일정 추천 코스 총정리 (12월 최신)",
+                "팬미팅일정 현지인 꿀팁! | 지금 안 보면 손해"
+              ],
+              "subKeywords": [
+                "guide",
+                "attractions",
+                "budget"
+              ],
+              "tags": [
+                "팬미팅일정",
+                "팬미팅일정-how-to",
+                "팬미팅일정-best",
+                "팬미팅일정-review"
+              ],
+              "tip": "📌 Simple layout + Image alt tags + 2,000+ words",
+              "hookPoint": "📈 Best itinerary & tips"
+            }
+          },
+          "expandedKeywords": {
+            "relatedGolden": [
+              "팬미팅일정 가는법",
+              "팬미팅일정 코스",
+              "팬미팅일정 숙소"
+            ],
+            "longtailGolden": [
+              "팬미팅일정 맛집",
+              "팬미팅일정 입장료",
+              "팬미팅일정 일정"
+            ],
+            "blueOceanGolden": [
+              "팬미팅일정 꿀팁",
+              "팬미팅일정 주의사항",
+              "팬미팅일정 비용"
+            ]
+          },
+          "type": "📰 이슈키워드",
+          "category": "celeb",
+          "safetyLevel": "safe",
+          "safetyReason": "✅ 안전한 키워드. 신생 블로거도 작성 가능",
+          "source": "category_fallback",
+          "timestamp": "2025-12-20T05:13:02.858Z",
+          "trendAnalysis": {
+            "trendingReason": "&quot;황가람·이병찬, '미스터라디오' 관련 최근 이슈",
+            "whyNow": "최근 5개 이상의 뉴스에서 다뤄지며 이슈화 진행 중 • \"공개\" 관련 구체적 사건으로 실시간 관심 집중 • 뉴스에서 \"관심\" 키워드로 언급되며 화제성 확보 • 최신 이슈로 실시간 관심 집중 중",
+            "newsSource": "자동 분석"
+          },
+          "keywordGuide": {
+            "summary": "검색량 280, 문서수 62,170, 황금비율 0.00 | 🔴 진입 어려움 - 상위 블로거 독점 키워드 | 문서수 50,000개 이상 → 경쟁 치열 | 황금비율 1 미만 → 공급 과잉 | 숏테일 키워드 → 대형 블로그와 경쟁",
+            "whyItMovesNow": "&quot;황가람·이병찬, '미스터라디오' 관련 최근 이슈 / 최근 5개 이상의 뉴스에서 다뤄지며 이슈화 진행 중 • \"공개\" 관련 구체적 사건으로 실시간 관심 집중 • 뉴스에서 \"관심\" 키워드로 언급되며 화제성 확보 • 최신 이슈로 실시간 관심 집중 중",
+            "immediateTrafficPlan": [
+              "중장기 유입도 같이 노리는 글 구조로 작성하세요 (첫 3문단에 핵심 답 + 결론 요약).",
+              "제목/소제목에 \"팬미팅일정\"를 자연스럽게 반복하고, 서브키워드 2~3개를 소제목으로 배치하세요.",
+              "발행 직후 30분 내 수정 1회(오탈자/이미지 추가)로 체류시간을 늘리세요.",
+              "이미지 5장 이상 + 표/체크리스트 1개를 넣어서 저장/스크랩을 유도하세요."
+            ],
+            "naverHomeExposureTips": [
+              "첫 이미지(썸네일)는 텍스트 5~8자 + 대비 강하게(홈피드 CTR 상승).",
+              "상단 200자에 \"한 줄 요약\" + \"체크리스트\"를 넣어 저장/공유 시그널을 유도.",
+              "뉴스/이슈 키워드는 근거(출처 1~2개) + 내 경험/정리 50%로 구성(복붙 느낌 금지).",
+              "발행 후 1시간 내 댓글 유도 문장 1개 추가(반응 시그널)."
+            ]
+          },
+          "ultimateAnalysis": {
+            "timing": {
+              "seasonal": {
+                "peakMonths": [
+                  1,
+                  2,
+                  3,
+                  4,
+                  5,
+                  6,
+                  7,
+                  8,
+                  9,
+                  10,
+                  11,
+                  12
+                ],
+                "peakReason": "연중 꾸준한 검색량",
+                "currentSeasonScore": 70,
+                "nextPeakDate": "항상",
+                "daysUntilPeak": 0,
+                "recommendation": "📝 에버그린 키워드입니다. 언제든 작성해도 좋습니다.",
+                "seasonalPattern": "evergreen"
+              },
+              "trend": {
+                "trendDirection": "falling",
+                "changeRate": 0,
+                "comparedTo": "전월 대비",
+                "explosiveScore": 0,
+                "relatedNews": [],
+                "recommendation": "📊 안정적인 키워드입니다."
+              },
+              "alert": {
+                "optimalPublishDate": "0일 내",
+                "reason": "📝 에버그린 키워드입니다. 언제든 작성해도 좋습니다.",
+                "urgencyLevel": "⚡ 이번 주",
+                "expectedPeakDate": "항상",
+                "competitorActivity": "경쟁자 많음"
+              }
+            },
+            "revenue": {
+              "cpc": {
+                "estimatedCpc": 100,
+                "cpcRange": {
+                  "min": 50,
+                  "max": 200
+                },
+                "cpcTier": "🥉 저수익",
+                "industryAverage": 100,
+                "recommendation": "📝 일반적인 수익 구조입니다. 트래픽 확보에 집중하세요."
+              },
+              "affiliate": {
+                "recommendedPrograms": [
+                  {
+                    "name": "쿠팡파트너스",
+                    "type": "coupang",
+                    "commissionRate": "3~5%",
+                    "estimatedEarningPerClick": 50,
+                    "matchScore": 100
+                  },
+                  {
+                    "name": "네이버 쇼핑",
+                    "type": "naver",
+                    "commissionRate": "1~3%",
+                    "estimatedEarningPerClick": 30,
+                    "matchScore": 85
+                  }
+                ],
+                "bestMatch": "쿠팡파트너스",
+                "potentialProducts": [
+                  "팬미팅일정 추천",
+                  "팬미팅일정 순위",
+                  "팬미팅일정 비교",
+                  "팬미팅일정 후기",
+                  "팬미팅일정 가격",
+                  "팬미팅일정 구매"
+                ]
+              },
+              "projection": {
+                "estimatedDailyVisitors": 0,
+                "estimatedMonthlyVisitors": 0,
+                "adsenseRevenue": {
+                  "daily": 0,
+                  "monthly": 0,
+                  "assumptions": "CPC 100원, CTR 2%, 페이지뷰율 1.5 가정"
+                },
+                "affiliateRevenue": {
+                  "daily": 0,
+                  "monthly": 0,
+                  "conversionRate": 3,
+                  "assumptions": "클릭률 10%, 전환율 3%, 평균 수수료 50원 가정"
+                },
+                "totalMonthlyRevenue": 0,
+                "revenueBreakdown": "애드센스 NaN% + 제휴 NaN%",
+                "revenueTier": "📝 월 1만원+"
+              }
+            },
+            "content": {
+              "titles": {
+                "titles": [
+                  {
+                    "title": "팬미팅일정 추천 TOP 10 (2025년 최신)",
+                    "type": "number",
+                    "estimatedCTR": 8.5,
+                    "psychologyUsed": "숫자 + 최신 정보"
+                  },
+                  {
+                    "title": "팬미팅일정 하는 법, 초보자도 쉽게 따라하기",
+                    "type": "how-to",
+                    "estimatedCTR": 7.5,
+                    "psychologyUsed": "실용성 + 접근성"
+                  },
+                  {
+                    "title": "팬미팅일정, 이것만 알면 끝! 완벽 가이드",
+                    "type": "benefit",
+                    "estimatedCTR": 7.2,
+                    "psychologyUsed": "완결성 + 가치 제안"
+                  },
+                  {
+                    "title": "[2025년] 팬미팅일정 총정리 (+ 꿀팁 공개)",
+                    "type": "news",
+                    "estimatedCTR": 7,
+                    "psychologyUsed": "최신성 + 보너스 가치"
+                  },
+                  {
+                    "title": "아직도 팬미팅일정 몰라요? 지금 당장 확인하세요",
+                    "type": "curiosity",
+                    "estimatedCTR": 6.8,
+                    "psychologyUsed": "호기심 + 긴급성"
+                  },
+                  {
+                    "title": "팬미팅일정 실제 후기 (장단점 솔직 비교)",
+                    "type": "comparison",
+                    "estimatedCTR": 6.5,
+                    "psychologyUsed": "신뢰성 + 비교 심리"
+                  }
+                ],
+                "bestTitle": "팬미팅일정 추천 TOP 10 (2025년 최신)",
+                "titleFormula": "숫자 + 키워드 + 최신연도 + 가치제안"
+              },
+              "structure": {
+                "recommendedStructure": {
+                  "intro": {
+                    "purpose": "독자의 관심 끌기 + 키워드 자연스럽게 배치",
+                    "template": "\"팬미팅일정\"에 대해 고민하고 계신가요? 이 글에서 핵심 정보를 모두 정리해드립니다.",
+                    "keywordPlacement": "첫 문장에 키워드 포함"
+                  },
+                  "sections": [
+                    {
+                      "heading": "팬미팅일정란? (기본 개념)",
+                      "purpose": "기초 정보 제공",
+                      "contentGuide": "핵심 정의, 중요성, 왜 알아야 하는지 설명",
+                      "recommendedLength": 300,
+                      "keywordUsage": "소제목과 본문에 1~2회"
+                    },
+                    {
+                      "heading": "팬미팅일정 추천 BEST 5",
+                      "purpose": "실질적인 가치 제공 (핵심 섹션)",
+                      "contentGuide": "순위별 상세 설명, 장단점, 추천 이유",
+                      "recommendedLength": 800,
+                      "keywordUsage": "각 항목 설명에 자연스럽게 포함"
+                    },
+                    {
+                      "heading": "팬미팅일정 선택 시 주의사항",
+                      "purpose": "신뢰도 향상",
+                      "contentGuide": "흔한 실수, 피해야 할 것, 체크리스트",
+                      "recommendedLength": 400,
+                      "keywordUsage": "주의사항 설명에 1~2회"
+                    },
+                    {
+                      "heading": "자주 묻는 질문 (FAQ)",
+                      "purpose": "SEO 강화 + 체류시간 증가",
+                      "contentGuide": "실제 검색되는 질문 5개 + 명확한 답변",
+                      "recommendedLength": 500,
+                      "keywordUsage": "질문에 롱테일 키워드 활용"
+                    }
+                  ],
+                  "conclusion": {
+                    "purpose": "요약 + CTA",
+                    "template": "지금까지 팬미팅일정에 대해 알아봤습니다. 도움이 되셨다면 공유해주세요!",
+                    "ctaRecommendation": "댓글, 공유, 관련 글 링크 유도"
+                  }
+                },
+                "seoChecklist": [
+                  {
+                    "item": "제목에 키워드 포함",
+                    "importance": "critical",
+                    "howTo": "제목 앞부분에 메인 키워드 배치"
+                  },
+                  {
+                    "item": "첫 문단에 키워드",
+                    "importance": "critical",
+                    "howTo": "첫 100자 내 키워드 자연스럽게 삽입"
+                  },
+                  {
+                    "item": "소제목 H2/H3 활용",
+                    "importance": "high",
+                    "howTo": "3~5개 소제목, 키워드 변형 사용"
+                  },
+                  {
+                    "item": "이미지 ALT 태그",
+                    "importance": "high",
+                    "howTo": "모든 이미지에 키워드 포함 설명"
+                  },
+                  {
+                    "item": "내부링크 2개 이상",
+                    "importance": "medium",
+                    "howTo": "관련 글 자연스럽게 연결"
+                  },
+                  {
+                    "item": "3000자 이상 작성",
+                    "importance": "high",
+                    "howTo": "충분한 깊이의 콘텐츠 제공"
+                  }
+                ],
+                "totalRecommendedLength": 3000,
+                "estimatedWriteTime": 90
+              },
+              "images": {
+                "mainImage": {
+                  "searchKeyword": "팬미팅일정 대표이미지",
+                  "style": "깔끔한 인포그래픽 또는 고화질 사진",
+                  "source": [
+                    "Unsplash",
+                    "Pixabay",
+                    "직접 제작"
+                  ],
+                  "altText": "팬미팅일정 완벽 가이드 대표 이미지"
+                },
+                "sectionImages": [
+                  {
+                    "section": "기본 개념",
+                    "searchKeyword": "팬미팅일정 설명",
+                    "purpose": "이해 돕기",
+                    "style": "다이어그램"
+                  },
+                  {
+                    "section": "TOP 5",
+                    "searchKeyword": "팬미팅일정 비교",
+                    "purpose": "시각적 비교",
+                    "style": "비교표"
+                  },
+                  {
+                    "section": "주의사항",
+                    "searchKeyword": "주의 아이콘",
+                    "purpose": "강조",
+                    "style": "아이콘"
+                  }
+                ],
+                "infographicIdeas": [
+                  "팬미팅일정 선택 가이드 플로우차트",
+                  "팬미팅일정 TOP 5 비교표",
+                  "팬미팅일정 체크리스트"
+                ],
+                "totalRecommendedImages": 7,
+                "imageStrategy": "섹션당 1~2개, 총 7~10개 이미지로 가독성과 체류시간 향상"
+              }
+            },
+            "ultimateScore": {
+              "total": 34,
+              "breakdown": {
+                "goldenRatio": 0.04503779958179187,
+                "timing": 70,
+                "revenue": 40,
+                "competition": 40,
+                "potential": 38
+              },
+              "grade": "📝 C",
+              "verdict": "⚠️ 신중히 검토 필요",
+              "topActions": [
+                "0일 내 작성 권장",
+                "팬미팅일정 추천 TOP 10 (2025년 최신)",
+                "3000자 이상, 7개 이미지 권장"
+              ]
+            }
+          }
+        },
+        {
+          "keyword": "아이돌신곡",
+          "searchVolume": 230,
+          "documentCount": 115089,
+          "goldenRatio": 0.001998453370869501,
+          "rookieFriendly": {
+            "score": 5,
+            "grade": "D",
+            "reason": "문서수 50,000개 이상 → 경쟁 치열 | 황금비율 1 미만 → 공급 과잉 | 숏테일 키워드 → 대형 블로그와 경쟁",
+            "canRankWithin": "1개월 이상 소요 예상",
+            "requiredBlogIndex": "최적 1 이상 권장"
+          },
+          "timing": {
+            "score": 50,
+            "urgency": "ANYTIME",
+            "bestPublishTime": "오전 6~8시 또는 저녁 8~10시",
+            "trendDirection": "stable",
+            "peakPrediction": "꾸준한 검색량 유지"
+          },
+          "blueOcean": {
+            "score": 15,
+            "competitorStrength": "strong",
+            "avgCompetitorBlogAge": "5년 이상 (강한 경쟁)",
+            "oldPostRatio": 30,
+            "opportunity": "❌ 레드오션. 다른 키워드 추천"
+          },
+          "trafficEstimate": {
+            "daily": "측정 불가",
+            "weekly": "측정 불가",
+            "monthly": "측정 불가",
+            "confidence": 52,
+            "disclaimer": "⚠️ 실제 API 데이터 기반 계산. 트래픽은 콘텐츠 품질, 순위, 시즌에 따라 달라집니다."
+          },
+          "revenueEstimate": {
+            "dailyRevenue": "측정 불가",
+            "monthlyRevenue": "측정 불가",
+            "estimatedCPC": 250,
+            "estimatedRPM": 5000,
+            "adType": "애드센스",
+            "revenueGrade": "C",
+            "revenueReason": "📊 트래픽 확보 후 수익 기대. 블로그 성장용"
+          },
+          "entryAnalysis": {
+            "canEntry": false,
+            "difficulty": "very_hard",
+            "difficultyScore": 100,
+            "message": "🔴 진입 어려움 - 상위 블로거 독점 키워드",
+            "topCompetitorStrength": "매우 강함 (최적 블로거 독점)",
+            "recommendedBlogIndex": "상위 5% (최적 블로그) 필요",
+            "estimatedRankingTime": "3개월 이상 또는 어려움"
+          },
+          "totalScore": 20,
+          "grade": "C",
+          "proStrategy": {
+            "title": "2025 아이돌신곡 완벽 정리 | 초보자도 쉽게 이해하는 가이드",
+            "outline": [
+              "1. 아이돌신곡란? (기본 개념)",
+              "2. 아이돌신곡 핵심 포인트 3가지",
+              "3. 아이돌신곡 장단점 비교",
+              "4. 아이돌신곡 실제 후기/경험담",
+              "5. 아이돌신곡 Q&A (자주 묻는 질문)",
+              "6. 결론 및 추천"
+            ],
+            "wordCount": 2500,
+            "mustInclude": [
+              "핵심 키워드 2~3회 자연스럽게 삽입",
+              "실제 이미지/사진 3장 이상",
+              "표 또는 비교 차트 1개 이상",
+              "자주 묻는 질문(FAQ) 섹션",
+              "결론 및 추천 섹션"
+            ],
+            "avoidTopics": [
+              "과장된 표현 (100%, 무조건, 반드시)",
+              "허위 정보나 검증되지 않은 내용",
+              "다른 블로그 복사/붙여넣기",
+              "광고성 링크 과다 삽입"
+            ],
+            "monetization": "애드센스 + 쿠팡파트너스 조합 추천"
+          },
+          "platformTitles": {
+            "naver": {
+              "title": "아이돌신곡 총정리 | 핵심 정리 (12월 최신)",
+              "alternatives": [
+                "아이돌신곡 | 네이버에서 바로 찾는 방법 (+체크리스트)",
+                "아이돌신곡 상위노출 포인트 5개 | 제목/소제목 이렇게",
+                "아이돌신곡 핵심 정리 | 핵심 정리",
+                "아이돌신곡 5분 총정리 (12월 최신)",
+                "아이돌신곡 이것만 알면 끝! | 지금 안 보면 손해"
+              ],
+              "subKeywords": [
+                "아이돌신곡 핵심",
+                "아이돌신곡 쉽게",
+                "아이돌신곡 총정리"
+              ],
+              "tags": [
+                "아이돌신곡",
+                "아이돌신곡 핵심",
+                "아이돌신곡 쉽게",
+                "아이돌신곡 총정리",
+                "아이돌신곡 꿀팁",
+                "아이돌신곡 후기"
+              ],
+              "tip": "📌 이미지 5장+ 본문 2,000자+ 소제목 5개+ 작성",
+              "hookPoint": "💡 복잡한 내용 쉽게 정리"
+            },
+            "tistory": {
+              "title": "[2025] 아이돌신곡 완벽 정리 - 정보가 필요할 때 핵심 정리",
+              "alternatives": [
+                "[2025] 아이돌신곡 정리 - 검색 유입 늘리는 구조",
+                "아이돌신곡 SEO 글쓰기 템플릿 (H2/H3 포함)",
+                "아이돌신곡 핵심 정리 | 핵심 정리",
+                "아이돌신곡 5분 총정리 (12월 최신)",
+                "아이돌신곡 이것만 알면 끝! | 지금 안 보면 손해"
+              ],
+              "subKeywords": [
+                "아이돌신곡 기초",
+                "아이돌신곡 개념",
+                "아이돌신곡 예시"
+              ],
+              "tags": [
+                "아이돌신곡",
+                "아이돌신곡 기초",
+                "아이돌신곡 개념",
+                "아이돌신곡 예시",
+                "아이돌신곡방법",
+                "아이돌신곡정리"
+              ],
+              "tip": "📌 H2 3개+ H3 5개+ 목차 삽입 + 3,000자 이상",
+              "hookPoint": "🔍 핵심만 콕 집어서 설명"
+            },
+            "wordpress": {
+              "title": "아이돌신곡: Complete Guide for 2025",
+              "alternatives": [
+                "아이돌신곡 Guide (2025): Tips, Checklist & FAQ",
+                "아이돌신곡: What to Know Before You Start",
+                "아이돌신곡 핵심 정리 | 핵심 정리",
+                "아이돌신곡 5분 총정리 (12월 최신)",
+                "아이돌신곡 이것만 알면 끝! | 지금 안 보면 손해"
+              ],
+              "subKeywords": [
+                "complete guide",
+                "explained",
+                "basics"
+              ],
+              "tags": [
+                "아이돌신곡",
+                "아이돌신곡-tips",
+                "아이돌신곡-guide",
+                "아이돌신곡-2025"
+              ],
+              "tip": "📌 Featured Image + Yoast SEO 녹색 + 2,500+ words",
+              "hookPoint": "🌍 Everything you need to know"
+            },
+            "blogspot": {
+              "title": "아이돌신곡 Explained Simply (2025)",
+              "alternatives": [
+                "아이돌신곡 Explained (2025) - Quick Guide",
+                "아이돌신곡: Key Facts & Tips",
+                "아이돌신곡 핵심 정리 | 핵심 정리",
+                "아이돌신곡 5분 총정리 (12월 최신)",
+                "아이돌신곡 이것만 알면 끝! | 지금 안 보면 손해"
+              ],
+              "subKeywords": [
+                "simple guide",
+                "beginner",
+                "overview"
+              ],
+              "tags": [
+                "아이돌신곡",
+                "아이돌신곡-how-to",
+                "아이돌신곡-best",
+                "아이돌신곡-review"
+              ],
+              "tip": "📌 Simple layout + Image alt tags + 2,000+ words",
+              "hookPoint": "📈 Quick and easy guide"
+            }
+          },
+          "expandedKeywords": {
+            "relatedGolden": [
+              "아이돌신곡 뜻",
+              "아이돌신곡 정리",
+              "아이돌신곡 총정리"
+            ],
+            "longtailGolden": [
+              "아이돌신곡 총정리",
+              "아이돌신곡 핵심",
+              "아이돌신곡 요약"
+            ],
+            "blueOceanGolden": [
+              "아이돌신곡 꿀팁",
+              "아이돌신곡 주의사항",
+              "아이돌신곡 FAQ"
+            ]
+          },
+          "type": "📰 이슈키워드",
+          "category": "celeb",
+          "safetyLevel": "safe",
+          "safetyReason": "✅ 안전한 키워드. 신생 블로거도 작성 가능",
+          "source": "category_fallback",
+          "timestamp": "2025-12-20T05:13:02.858Z",
+          "trendAnalysis": {
+            "trendingReason": "MV '티저 ' 관련 최근 이슈",
+            "whyNow": "최근 5개 이상의 뉴스에서 다뤄지며 이슈화 진행 중 • \"공개\" 관련 구체적 사건으로 실시간 관심 집중 • 뉴스에서 \"주목\" 키워드로 언급되며 화제성 확보",
+            "newsSource": "자동 분석"
+          },
+          "keywordGuide": {
+            "summary": "검색량 230, 문서수 115,089, 황금비율 0.00 | 🔴 진입 어려움 - 상위 블로거 독점 키워드 | 문서수 50,000개 이상 → 경쟁 치열 | 황금비율 1 미만 → 공급 과잉 | 숏테일 키워드 → 대형 블로그와 경쟁",
+            "whyItMovesNow": "MV '티저 ' 관련 최근 이슈 / 최근 5개 이상의 뉴스에서 다뤄지며 이슈화 진행 중 • \"공개\" 관련 구체적 사건으로 실시간 관심 집중 • 뉴스에서 \"주목\" 키워드로 언급되며 화제성 확보",
+            "immediateTrafficPlan": [
+              "중장기 유입도 같이 노리는 글 구조로 작성하세요 (첫 3문단에 핵심 답 + 결론 요약).",
+              "제목/소제목에 \"아이돌신곡\"를 자연스럽게 반복하고, 서브키워드 2~3개를 소제목으로 배치하세요.",
+              "발행 직후 30분 내 수정 1회(오탈자/이미지 추가)로 체류시간을 늘리세요.",
+              "이미지 5장 이상 + 표/체크리스트 1개를 넣어서 저장/스크랩을 유도하세요."
+            ],
+            "naverHomeExposureTips": [
+              "첫 이미지(썸네일)는 텍스트 5~8자 + 대비 강하게(홈피드 CTR 상승).",
+              "상단 200자에 \"한 줄 요약\" + \"체크리스트\"를 넣어 저장/공유 시그널을 유도.",
+              "뉴스/이슈 키워드는 근거(출처 1~2개) + 내 경험/정리 50%로 구성(복붙 느낌 금지).",
+              "발행 후 1시간 내 댓글 유도 문장 1개 추가(반응 시그널)."
+            ]
+          },
+          "ultimateAnalysis": {
+            "timing": {
+              "seasonal": {
+                "peakMonths": [
+                  1,
+                  2,
+                  3,
+                  4,
+                  5,
+                  6,
+                  7,
+                  8,
+                  9,
+                  10,
+                  11,
+                  12
+                ],
+                "peakReason": "연중 꾸준한 검색량",
+                "currentSeasonScore": 70,
+                "nextPeakDate": "항상",
+                "daysUntilPeak": 0,
+                "recommendation": "📝 에버그린 키워드입니다. 언제든 작성해도 좋습니다.",
+                "seasonalPattern": "evergreen"
+              },
+              "trend": {
+                "trendDirection": "falling",
+                "changeRate": 0,
+                "comparedTo": "전월 대비",
+                "explosiveScore": 0,
+                "relatedNews": [],
+                "recommendation": "📊 안정적인 키워드입니다."
+              },
+              "alert": {
+                "optimalPublishDate": "0일 내",
+                "reason": "📝 에버그린 키워드입니다. 언제든 작성해도 좋습니다.",
+                "urgencyLevel": "⚡ 이번 주",
+                "expectedPeakDate": "항상",
+                "competitorActivity": "경쟁자 많음"
+              }
+            },
+            "revenue": {
+              "cpc": {
+                "estimatedCpc": 100,
+                "cpcRange": {
+                  "min": 50,
+                  "max": 200
+                },
+                "cpcTier": "🥉 저수익",
+                "industryAverage": 100,
+                "recommendation": "📝 일반적인 수익 구조입니다. 트래픽 확보에 집중하세요."
+              },
+              "affiliate": {
+                "recommendedPrograms": [
+                  {
+                    "name": "쿠팡파트너스",
+                    "type": "coupang",
+                    "commissionRate": "3~5%",
+                    "estimatedEarningPerClick": 50,
+                    "matchScore": 100
+                  },
+                  {
+                    "name": "네이버 쇼핑",
+                    "type": "naver",
+                    "commissionRate": "1~3%",
+                    "estimatedEarningPerClick": 30,
+                    "matchScore": 85
+                  }
+                ],
+                "bestMatch": "쿠팡파트너스",
+                "potentialProducts": [
+                  "아이돌신곡 추천",
+                  "아이돌신곡 순위",
+                  "아이돌신곡 비교",
+                  "아이돌신곡 후기",
+                  "아이돌신곡 가격",
+                  "아이돌신곡 구매"
+                ]
+              },
+              "projection": {
+                "estimatedDailyVisitors": 0,
+                "estimatedMonthlyVisitors": 0,
+                "adsenseRevenue": {
+                  "daily": 0,
+                  "monthly": 0,
+                  "assumptions": "CPC 100원, CTR 2%, 페이지뷰율 1.5 가정"
+                },
+                "affiliateRevenue": {
+                  "daily": 0,
+                  "monthly": 0,
+                  "conversionRate": 3,
+                  "assumptions": "클릭률 10%, 전환율 3%, 평균 수수료 50원 가정"
+                },
+                "totalMonthlyRevenue": 0,
+                "revenueBreakdown": "애드센스 NaN% + 제휴 NaN%",
+                "revenueTier": "📝 월 1만원+"
+              }
+            },
+            "content": {
+              "titles": {
+                "titles": [
+                  {
+                    "title": "아이돌신곡 추천 TOP 10 (2025년 최신)",
+                    "type": "number",
+                    "estimatedCTR": 8.5,
+                    "psychologyUsed": "숫자 + 최신 정보"
+                  },
+                  {
+                    "title": "아이돌신곡 하는 법, 초보자도 쉽게 따라하기",
+                    "type": "how-to",
+                    "estimatedCTR": 7.5,
+                    "psychologyUsed": "실용성 + 접근성"
+                  },
+                  {
+                    "title": "아이돌신곡, 이것만 알면 끝! 완벽 가이드",
+                    "type": "benefit",
+                    "estimatedCTR": 7.2,
+                    "psychologyUsed": "완결성 + 가치 제안"
+                  },
+                  {
+                    "title": "[2025년] 아이돌신곡 총정리 (+ 꿀팁 공개)",
+                    "type": "news",
+                    "estimatedCTR": 7,
+                    "psychologyUsed": "최신성 + 보너스 가치"
+                  },
+                  {
+                    "title": "아직도 아이돌신곡 몰라요? 지금 당장 확인하세요",
+                    "type": "curiosity",
+                    "estimatedCTR": 6.8,
+                    "psychologyUsed": "호기심 + 긴급성"
+                  },
+                  {
+                    "title": "아이돌신곡 실제 후기 (장단점 솔직 비교)",
+                    "type": "comparison",
+                    "estimatedCTR": 6.5,
+                    "psychologyUsed": "신뢰성 + 비교 심리"
+                  }
+                ],
+                "bestTitle": "아이돌신곡 추천 TOP 10 (2025년 최신)",
+                "titleFormula": "숫자 + 키워드 + 최신연도 + 가치제안"
+              },
+              "structure": {
+                "recommendedStructure": {
+                  "intro": {
+                    "purpose": "독자의 관심 끌기 + 키워드 자연스럽게 배치",
+                    "template": "\"아이돌신곡\"에 대해 고민하고 계신가요? 이 글에서 핵심 정보를 모두 정리해드립니다.",
+                    "keywordPlacement": "첫 문장에 키워드 포함"
+                  },
+                  "sections": [
+                    {
+                      "heading": "아이돌신곡란? (기본 개념)",
+                      "purpose": "기초 정보 제공",
+                      "contentGuide": "핵심 정의, 중요성, 왜 알아야 하는지 설명",
+                      "recommendedLength": 300,
+                      "keywordUsage": "소제목과 본문에 1~2회"
+                    },
+                    {
+                      "heading": "아이돌신곡 추천 BEST 5",
+                      "purpose": "실질적인 가치 제공 (핵심 섹션)",
+                      "contentGuide": "순위별 상세 설명, 장단점, 추천 이유",
+                      "recommendedLength": 800,
+                      "keywordUsage": "각 항목 설명에 자연스럽게 포함"
+                    },
+                    {
+                      "heading": "아이돌신곡 선택 시 주의사항",
+                      "purpose": "신뢰도 향상",
+                      "contentGuide": "흔한 실수, 피해야 할 것, 체크리스트",
+                      "recommendedLength": 400,
+                      "keywordUsage": "주의사항 설명에 1~2회"
+                    },
+                    {
+                      "heading": "자주 묻는 질문 (FAQ)",
+                      "purpose": "SEO 강화 + 체류시간 증가",
+                      "contentGuide": "실제 검색되는 질문 5개 + 명확한 답변",
+                      "recommendedLength": 500,
+                      "keywordUsage": "질문에 롱테일 키워드 활용"
+                    }
+                  ],
+                  "conclusion": {
+                    "purpose": "요약 + CTA",
+                    "template": "지금까지 아이돌신곡에 대해 알아봤습니다. 도움이 되셨다면 공유해주세요!",
+                    "ctaRecommendation": "댓글, 공유, 관련 글 링크 유도"
+                  }
+                },
+                "seoChecklist": [
+                  {
+                    "item": "제목에 키워드 포함",
+                    "importance": "critical",
+                    "howTo": "제목 앞부분에 메인 키워드 배치"
+                  },
+                  {
+                    "item": "첫 문단에 키워드",
+                    "importance": "critical",
+                    "howTo": "첫 100자 내 키워드 자연스럽게 삽입"
+                  },
+                  {
+                    "item": "소제목 H2/H3 활용",
+                    "importance": "high",
+                    "howTo": "3~5개 소제목, 키워드 변형 사용"
+                  },
+                  {
+                    "item": "이미지 ALT 태그",
+                    "importance": "high",
+                    "howTo": "모든 이미지에 키워드 포함 설명"
+                  },
+                  {
+                    "item": "내부링크 2개 이상",
+                    "importance": "medium",
+                    "howTo": "관련 글 자연스럽게 연결"
+                  },
+                  {
+                    "item": "3000자 이상 작성",
+                    "importance": "high",
+                    "howTo": "충분한 깊이의 콘텐츠 제공"
+                  }
+                ],
+                "totalRecommendedLength": 3000,
+                "estimatedWriteTime": 90
+              },
+              "images": {
+                "mainImage": {
+                  "searchKeyword": "아이돌신곡 대표이미지",
+                  "style": "깔끔한 인포그래픽 또는 고화질 사진",
+                  "source": [
+                    "Unsplash",
+                    "Pixabay",
+                    "직접 제작"
+                  ],
+                  "altText": "아이돌신곡 완벽 가이드 대표 이미지"
+                },
+                "sectionImages": [
+                  {
+                    "section": "기본 개념",
+                    "searchKeyword": "아이돌신곡 설명",
+                    "purpose": "이해 돕기",
+                    "style": "다이어그램"
+                  },
+                  {
+                    "section": "TOP 5",
+                    "searchKeyword": "아이돌신곡 비교",
+                    "purpose": "시각적 비교",
+                    "style": "비교표"
+                  },
+                  {
+                    "section": "주의사항",
+                    "searchKeyword": "주의 아이콘",
+                    "purpose": "강조",
+                    "style": "아이콘"
+                  }
+                ],
+                "infographicIdeas": [
+                  "아이돌신곡 선택 가이드 플로우차트",
+                  "아이돌신곡 TOP 5 비교표",
+                  "아이돌신곡 체크리스트"
+                ],
+                "totalRecommendedImages": 7,
+                "imageStrategy": "섹션당 1~2개, 총 7~10개 이미지로 가독성과 체류시간 향상"
+              }
+            },
+            "ultimateScore": {
+              "total": 34,
+              "breakdown": {
+                "goldenRatio": 0.01998453370869501,
+                "timing": 70,
+                "revenue": 40,
+                "competition": 40,
+                "potential": 38
+              },
+              "grade": "📝 C",
+              "verdict": "⚠️ 신중히 검토 필요",
+              "topActions": [
+                "0일 내 작성 권장",
+                "아이돌신곡 추천 TOP 10 (2025년 최신)",
+                "3000자 이상, 7개 이미지 권장"
+              ]
+            }
+          }
+        }
+      ],
+      "attempts": 1,
+      "durationMs": 62362
+    },
+    {
+      "success": false,
+      "category": "life_tips",
+      "mode": "realtime",
+      "explosionMode": true,
+      "count": 20,
+      "summary": {
+        "totalFound": 0,
+        "sssCount": 0,
+        "ssCount": 0,
+        "sCount": 0,
+        "rookieFriendlyCount": 0,
+        "urgentCount": 0,
+        "blueOceanCount": 0
+      },
+      "keywords": [],
+      "attempts": 1,
+      "durationMs": 53913
+    },
+    {
+      "success": false,
+      "category": "interior",
+      "mode": "realtime",
+      "explosionMode": true,
+      "count": 20,
+      "summary": {
+        "totalFound": 0,
+        "sssCount": 0,
+        "ssCount": 0,
+        "sCount": 0,
+        "rookieFriendlyCount": 0,
+        "urgentCount": 0,
+        "blueOceanCount": 0
+      },
+      "keywords": [],
+      "attempts": 1,
+      "durationMs": 58523
+    },
+    {
+      "success": false,
+      "category": "it",
+      "mode": "realtime",
+      "explosionMode": true,
+      "count": 20,
+      "error": "timeout",
+      "attempts": 1,
+      "durationMs": 90021
+    },
+    {
+      "success": true,
+      "category": "business",
+      "mode": "realtime",
+      "explosionMode": true,
+      "count": 20,
+      "summary": {
+        "totalFound": 6,
+        "sssCount": 0,
+        "ssCount": 0,
+        "sCount": 0,
+        "rookieFriendlyCount": 0,
+        "urgentCount": 6,
+        "blueOceanCount": 0
+      },
+      "keywords": [
+        {
+          "keyword": "2026 연말정산",
+          "searchVolume": 2250,
+          "documentCount": 13235,
+          "goldenRatio": 0.17000377786173027,
+          "rookieFriendly": {
+            "score": 40,
+            "grade": "C",
+            "reason": "황금비율 1 미만 → 공급 과잉 | 중길이 키워드",
+            "canRankWithin": "2~4주 내 가능",
+            "requiredBlogIndex": "최적 1 이상 권장"
+          },
+          "timing": {
+            "score": 100,
+            "urgency": "NOW",
+            "bestPublishTime": "지금 바로 발행!",
+            "trendDirection": "peak",
+            "peakPrediction": "현재 피크 - 빠른 발행 필요"
+          },
+          "blueOcean": {
+            "score": 38,
+            "competitorStrength": "medium",
+            "avgCompetitorBlogAge": "2~5년 (보통 경쟁)",
+            "oldPostRatio": 30,
+            "opportunity": "❌ 레드오션. 다른 키워드 추천"
+          },
+          "trafficEstimate": {
+            "daily": "1~2명",
+            "weekly": "7~14명",
+            "monthly": "30~60명",
+            "confidence": 62,
+            "disclaimer": "⚠️ 실제 API 데이터 기반 계산. 트래픽은 콘텐츠 품질, 순위, 시즌에 따라 달라집니다."
+          },
+          "revenueEstimate": {
+            "dailyRevenue": "5~15원",
+            "monthlyRevenue": "150~450원",
+            "estimatedCPC": 250,
+            "estimatedRPM": 5000,
+            "adType": "애드센스",
+            "revenueGrade": "C",
+            "revenueReason": "📊 트래픽 확보 후 수익 기대. 블로그 성장용"
+          },
+          "entryAnalysis": {
+            "canEntry": false,
+            "difficulty": "very_hard",
+            "difficultyScore": 74,
+            "message": "🔴 진입 어려움 - 상위 블로거 독점 키워드",
+            "topCompetitorStrength": "강함 (전문 블로거 다수)",
+            "recommendedBlogIndex": "상위 5% (최적 블로그) 필요",
+            "estimatedRankingTime": "3개월 이상 또는 어려움"
+          },
+          "totalScore": 83,
+          "grade": "C",
+          "proStrategy": {
+            "title": "2025 2026 연말정산 완벽 정리 | 초보자도 쉽게 이해하는 가이드",
+            "outline": [
+              "1. 2026 연말정산란? (기본 개념)",
+              "2. 2026 연말정산 핵심 포인트 3가지",
+              "3. 2026 연말정산 장단점 비교",
+              "4. 2026 연말정산 실제 후기/경험담",
+              "5. 2026 연말정산 Q&A (자주 묻는 질문)",
+              "6. 결론 및 추천"
+            ],
+            "wordCount": 1500,
+            "mustInclude": [
+              "핵심 키워드 2~3회 자연스럽게 삽입",
+              "실제 이미지/사진 3장 이상",
+              "표 또는 비교 차트 1개 이상",
+              "자주 묻는 질문(FAQ) 섹션",
+              "결론 및 추천 섹션"
+            ],
+            "avoidTopics": [
+              "과장된 표현 (100%, 무조건, 반드시)",
+              "허위 정보나 검증되지 않은 내용",
+              "다른 블로그 복사/붙여넣기",
+              "광고성 링크 과다 삽입"
+            ],
+            "monetization": "애드센스 + 쿠팡파트너스 조합 추천"
+          },
+          "platformTitles": {
+            "naver": {
+              "title": "2026 연말정산 총정리 | 핵심 정리 (12월 최신)",
+              "alternatives": [
+                "🚨 2026 연말정산 총정리 | 핵심 정리 (12월 최신)",
+                "🚨 2026 연말정산 | 네이버에서 바로 찾는 방법 (+체크리스트)",
+                "🚨 2026 연말정산 상위노출 포인트 5개 | 제목/소제목 이렇게",
+                "🚨 2026 연말정산 핵심 정리 | 핵심 정리",
+                "🚨 2026 연말정산 5분 총정리 (12월 최신)"
+              ],
+              "subKeywords": [
+                "2026 연말정산 핵심",
+                "2026 연말정산 쉽게",
+                "2026 연말정산 총정리"
+              ],
+              "tags": [
+                "2026 연말정산",
+                "2026 연말정산 핵심",
+                "2026 연말정산 쉽게",
+                "2026 연말정산 총정리",
+                "2026 연말정산 꿀팁",
+                "2026 연말정산 후기"
+              ],
+              "tip": "🚨 지금 바로 발행! 30분 내 작성 → 1시간 내 상위노출",
+              "hookPoint": "💡 복잡한 내용 쉽게 정리"
+            },
+            "tistory": {
+              "title": "[2025] 2026 연말정산 완벽 정리 - 정보가 필요할 때 핵심 정리",
+              "alternatives": [
+                "🚨 [2025] 2026 연말정산 완벽 정리 - 정보가 필요할 때 핵심 정리",
+                "🚨 [2025] 2026 연말정산 정리 - 검색 유입 늘리는 구조",
+                "🚨 2026 연말정산 SEO 글쓰기 템플릿 (H2/H3 포함)",
+                "🚨 2026 연말정산 핵심 정리 | 핵심 정리",
+                "🚨 2026 연말정산 5분 총정리 (12월 최신)"
+              ],
+              "subKeywords": [
+                "2026 연말정산 기초",
+                "2026 연말정산 개념",
+                "2026 연말정산 예시"
+              ],
+              "tags": [
+                "2026 연말정산",
+                "2026 연말정산 기초",
+                "2026 연말정산 개념",
+                "2026 연말정산 예시",
+                "2026 연말정산방법",
+                "2026 연말정산정리"
+              ],
+              "tip": "🚨 즉시 발행 + 트위터/페북 공유 → 구글 빠른 색인",
+              "hookPoint": "🔍 핵심만 콕 집어서 설명"
+            },
+            "wordpress": {
+              "title": "2026 연말정산: Complete Guide for 2025",
+              "alternatives": [
+                "🚨 2026 연말정산: Complete Guide for 2025",
+                "🚨 2026 연말정산 Guide (2025): Tips, Checklist & FAQ",
+                "🚨 2026 연말정산: What to Know Before You Start",
+                "🚨 2026 연말정산 핵심 정리 | 핵심 정리",
+                "🚨 2026 연말정산 5분 총정리 (12월 최신)"
+              ],
+              "subKeywords": [
+                "complete guide",
+                "explained",
+                "basics"
+              ],
+              "tags": [
+                "2026-연말정산",
+                "2026-연말정산-tips",
+                "2026-연말정산-guide",
+                "2026-연말정산-2025"
+              ],
+              "tip": "🚨 Publish NOW + Submit to Google Search Console",
+              "hookPoint": "🌍 Everything you need to know"
+            },
+            "blogspot": {
+              "title": "2026 연말정산 Explained Simply (2025)",
+              "alternatives": [
+                "🚨 2026 연말정산 Explained Simply (2025)",
+                "🚨 2026 연말정산 Explained (2025) - Quick Guide",
+                "🚨 2026 연말정산: Key Facts & Tips",
+                "🚨 2026 연말정산 핵심 정리 | 핵심 정리",
+                "🚨 2026 연말정산 5분 총정리 (12월 최신)"
+              ],
+              "subKeywords": [
+                "simple guide",
+                "beginner",
+                "overview"
+              ],
+              "tags": [
+                "2026-연말정산",
+                "2026-연말정산-how-to",
+                "2026-연말정산-best",
+                "2026-연말정산-review"
+              ],
+              "tip": "🚨 Quick publish + Share on social media immediately",
+              "hookPoint": "📈 Quick and easy guide"
+            }
+          },
+          "expandedKeywords": {
+            "relatedGolden": [
+              "2026 연말정산 뜻",
+              "2026 연말정산 정리",
+              "2026 연말정산 총정리"
+            ],
+            "longtailGolden": [
+              "2026 연말정산 총정리",
+              "2026 연말정산 핵심",
+              "2026 연말정산 요약"
+            ],
+            "blueOceanGolden": [
+              "2026 연말정산 꿀팁",
+              "2026 연말정산 주의사항",
+              "2026 연말정산 FAQ"
+            ]
+          },
+          "type": "🚀 타이밍키워드",
+          "category": "business",
+          "safetyLevel": "safe",
+          "safetyReason": "✅ 안전한 키워드. 신생 블로거도 작성 가능",
+          "source": "시즌",
+          "timestamp": "2025-12-20T05:16:57.866Z",
+          "trendAnalysis": {
+            "trendingReason": "‘이것’부터 확인 관련 최근 이슈",
+            "whyNow": "최근 5개 이상의 뉴스에서 다뤄지며 이슈화 진행 중 • \"확인\" 관련 구체적 사건으로 실시간 관심 집중 • 최신 이슈로 실시간 관심 집중 중 • \"[만나보니] “나만 못 받나?” 연말정산 ‘이것’부터 확인하세요\" 관련 최신 뉴스로 조기 진입 효과 기대",
+            "newsSource": "자동 분석"
+          },
+          "keywordGuide": {
+            "summary": "검색량 2,250, 문서수 13,235, 황금비율 0.17 | 🔴 진입 어려움 - 상위 블로거 독점 키워드 | 황금비율 1 미만 → 공급 과잉 | 중길이 키워드",
+            "whyItMovesNow": "‘이것’부터 확인 관련 최근 이슈 / 최근 5개 이상의 뉴스에서 다뤄지며 이슈화 진행 중 • \"확인\" 관련 구체적 사건으로 실시간 관심 집중 • 최신 이슈로 실시간 관심 집중 중 • \"[만나보니] “나만 못 받나?” 연말정산 ‘이것’부터 확인하세요\" 관련 최신 뉴스로 조기 진입 효과 기대",
+            "immediateTrafficPlan": [
+              "오늘 안에 바로 효과를 보는 글 구조로 작성하세요 (첫 3문단에 핵심 답 + 결론 요약).",
+              "제목/소제목에 \"2026 연말정산\"를 자연스럽게 반복하고, 서브키워드 2~3개를 소제목으로 배치하세요.",
+              "발행 직후 30분 내 수정 1회(오탈자/이미지 추가)로 체류시간을 늘리세요.",
+              "이미지 5장 이상 + 표/체크리스트 1개를 넣어서 저장/스크랩을 유도하세요."
+            ],
+            "naverHomeExposureTips": [
+              "NOW/TODAY 키워드는 “오늘/방금/최신” 같은 신선도 단어를 제목 또는 첫 문단에 포함하세요.",
+              "첫 이미지(썸네일)는 텍스트 5~8자 + 대비 강하게(홈피드 CTR 상승).",
+              "상단 200자에 \"한 줄 요약\" + \"체크리스트\"를 넣어 저장/공유 시그널을 유도.",
+              "뉴스/이슈 키워드는 근거(출처 1~2개) + 내 경험/정리 50%로 구성(복붙 느낌 금지).",
+              "발행 후 1시간 내 댓글 유도 문장 1개 추가(반응 시그널)."
+            ]
+          },
+          "ultimateAnalysis": {
+            "timing": {
+              "seasonal": {
+                "peakMonths": [
+                  12,
+                  1,
+                  2
+                ],
+                "peakReason": "연말정산 시즌",
+                "currentSeasonScore": 100,
+                "nextPeakDate": "12월",
+                "daysUntilPeak": 711,
+                "recommendation": "🔥 지금이 피크 시즌입니다! 바로 작성하세요!",
+                "seasonalPattern": "seasonal"
+              },
+              "trend": {
+                "trendDirection": "falling",
+                "changeRate": 2,
+                "comparedTo": "전월 대비",
+                "explosiveScore": 3,
+                "relatedNews": [],
+                "recommendation": "📊 안정적인 키워드입니다."
+              },
+              "alert": {
+                "optimalPublishDate": "오늘",
+                "reason": "🔥 지금이 피크 시즌입니다! 바로 작성하세요!",
+                "urgencyLevel": "🔥 지금 당장",
+                "expectedPeakDate": "12월",
+                "competitorActivity": "경쟁자 많음"
+              }
+            },
+            "revenue": {
+              "cpc": {
+                "estimatedCpc": 100,
+                "cpcRange": {
+                  "min": 50,
+                  "max": 200
+                },
+                "cpcTier": "🥉 저수익",
+                "industryAverage": 100,
+                "recommendation": "📝 일반적인 수익 구조입니다. 트래픽 확보에 집중하세요."
+              },
+              "affiliate": {
+                "recommendedPrograms": [
+                  {
+                    "name": "쿠팡파트너스",
+                    "type": "coupang",
+                    "commissionRate": "3~5%",
+                    "estimatedEarningPerClick": 50,
+                    "matchScore": 100
+                  },
+                  {
+                    "name": "네이버 쇼핑",
+                    "type": "naver",
+                    "commissionRate": "1~3%",
+                    "estimatedEarningPerClick": 30,
+                    "matchScore": 85
+                  }
+                ],
+                "bestMatch": "쿠팡파트너스",
+                "potentialProducts": [
+                  "2026 연말정산 추천",
+                  "2026 연말정산 순위",
+                  "2026 연말정산 비교",
+                  "2026 연말정산 후기",
+                  "2026 연말정산 가격",
+                  "2026 연말정산 구매"
+                ]
+              },
+              "projection": {
+                "estimatedDailyVisitors": 2,
+                "estimatedMonthlyVisitors": 60,
+                "adsenseRevenue": {
+                  "daily": 6,
+                  "monthly": 180,
+                  "assumptions": "CPC 100원, CTR 2%, 페이지뷰율 1.5 가정"
+                },
+                "affiliateRevenue": {
+                  "daily": 0,
+                  "monthly": 0,
+                  "conversionRate": 3,
+                  "assumptions": "클릭률 10%, 전환율 3%, 평균 수수료 50원 가정"
+                },
+                "totalMonthlyRevenue": 180,
+                "revenueBreakdown": "애드센스 100% + 제휴 0%",
+                "revenueTier": "📝 월 1만원+"
+              }
+            },
+            "content": {
+              "titles": {
+                "titles": [
+                  {
+                    "title": "2026 연말정산 추천 TOP 10 (2025년 최신)",
+                    "type": "number",
+                    "estimatedCTR": 8.5,
+                    "psychologyUsed": "숫자 + 최신 정보"
+                  },
+                  {
+                    "title": "2026 연말정산 하는 법, 초보자도 쉽게 따라하기",
+                    "type": "how-to",
+                    "estimatedCTR": 7.5,
+                    "psychologyUsed": "실용성 + 접근성"
+                  },
+                  {
+                    "title": "2026 연말정산, 이것만 알면 끝! 완벽 가이드",
+                    "type": "benefit",
+                    "estimatedCTR": 7.2,
+                    "psychologyUsed": "완결성 + 가치 제안"
+                  },
+                  {
+                    "title": "[2025년] 2026 연말정산 총정리 (+ 꿀팁 공개)",
+                    "type": "news",
+                    "estimatedCTR": 7,
+                    "psychologyUsed": "최신성 + 보너스 가치"
+                  },
+                  {
+                    "title": "아직도 2026 연말정산 몰라요? 지금 당장 확인하세요",
+                    "type": "curiosity",
+                    "estimatedCTR": 6.8,
+                    "psychologyUsed": "호기심 + 긴급성"
+                  },
+                  {
+                    "title": "2026 연말정산 실제 후기 (장단점 솔직 비교)",
+                    "type": "comparison",
+                    "estimatedCTR": 6.5,
+                    "psychologyUsed": "신뢰성 + 비교 심리"
+                  }
+                ],
+                "bestTitle": "2026 연말정산 추천 TOP 10 (2025년 최신)",
+                "titleFormula": "숫자 + 키워드 + 최신연도 + 가치제안"
+              },
+              "structure": {
+                "recommendedStructure": {
+                  "intro": {
+                    "purpose": "독자의 관심 끌기 + 키워드 자연스럽게 배치",
+                    "template": "\"2026 연말정산\"에 대해 고민하고 계신가요? 이 글에서 핵심 정보를 모두 정리해드립니다.",
+                    "keywordPlacement": "첫 문장에 키워드 포함"
+                  },
+                  "sections": [
+                    {
+                      "heading": "2026 연말정산란? (기본 개념)",
+                      "purpose": "기초 정보 제공",
+                      "contentGuide": "핵심 정의, 중요성, 왜 알아야 하는지 설명",
+                      "recommendedLength": 300,
+                      "keywordUsage": "소제목과 본문에 1~2회"
+                    },
+                    {
+                      "heading": "2026 연말정산 추천 BEST 5",
+                      "purpose": "실질적인 가치 제공 (핵심 섹션)",
+                      "contentGuide": "순위별 상세 설명, 장단점, 추천 이유",
+                      "recommendedLength": 800,
+                      "keywordUsage": "각 항목 설명에 자연스럽게 포함"
+                    },
+                    {
+                      "heading": "2026 연말정산 선택 시 주의사항",
+                      "purpose": "신뢰도 향상",
+                      "contentGuide": "흔한 실수, 피해야 할 것, 체크리스트",
+                      "recommendedLength": 400,
+                      "keywordUsage": "주의사항 설명에 1~2회"
+                    },
+                    {
+                      "heading": "자주 묻는 질문 (FAQ)",
+                      "purpose": "SEO 강화 + 체류시간 증가",
+                      "contentGuide": "실제 검색되는 질문 5개 + 명확한 답변",
+                      "recommendedLength": 500,
+                      "keywordUsage": "질문에 롱테일 키워드 활용"
+                    }
+                  ],
+                  "conclusion": {
+                    "purpose": "요약 + CTA",
+                    "template": "지금까지 2026 연말정산에 대해 알아봤습니다. 도움이 되셨다면 공유해주세요!",
+                    "ctaRecommendation": "댓글, 공유, 관련 글 링크 유도"
+                  }
+                },
+                "seoChecklist": [
+                  {
+                    "item": "제목에 키워드 포함",
+                    "importance": "critical",
+                    "howTo": "제목 앞부분에 메인 키워드 배치"
+                  },
+                  {
+                    "item": "첫 문단에 키워드",
+                    "importance": "critical",
+                    "howTo": "첫 100자 내 키워드 자연스럽게 삽입"
+                  },
+                  {
+                    "item": "소제목 H2/H3 활용",
+                    "importance": "high",
+                    "howTo": "3~5개 소제목, 키워드 변형 사용"
+                  },
+                  {
+                    "item": "이미지 ALT 태그",
+                    "importance": "high",
+                    "howTo": "모든 이미지에 키워드 포함 설명"
+                  },
+                  {
+                    "item": "내부링크 2개 이상",
+                    "importance": "medium",
+                    "howTo": "관련 글 자연스럽게 연결"
+                  },
+                  {
+                    "item": "3000자 이상 작성",
+                    "importance": "high",
+                    "howTo": "충분한 깊이의 콘텐츠 제공"
+                  }
+                ],
+                "totalRecommendedLength": 3000,
+                "estimatedWriteTime": 90
+              },
+              "images": {
+                "mainImage": {
+                  "searchKeyword": "2026 연말정산 대표이미지",
+                  "style": "깔끔한 인포그래픽 또는 고화질 사진",
+                  "source": [
+                    "Unsplash",
+                    "Pixabay",
+                    "직접 제작"
+                  ],
+                  "altText": "2026 연말정산 완벽 가이드 대표 이미지"
+                },
+                "sectionImages": [
+                  {
+                    "section": "기본 개념",
+                    "searchKeyword": "2026 연말정산 설명",
+                    "purpose": "이해 돕기",
+                    "style": "다이어그램"
+                  },
+                  {
+                    "section": "TOP 5",
+                    "searchKeyword": "2026 연말정산 비교",
+                    "purpose": "시각적 비교",
+                    "style": "비교표"
+                  },
+                  {
+                    "section": "주의사항",
+                    "searchKeyword": "주의 아이콘",
+                    "purpose": "강조",
+                    "style": "아이콘"
+                  }
+                ],
+                "infographicIdeas": [
+                  "2026 연말정산 선택 가이드 플로우차트",
+                  "2026 연말정산 TOP 5 비교표",
+                  "2026 연말정산 체크리스트"
+                ],
+                "totalRecommendedImages": 7,
+                "imageStrategy": "섹션당 1~2개, 총 7~10개 이미지로 가독성과 체류시간 향상"
+              }
+            },
+            "ultimateScore": {
+              "total": 41,
+              "breakdown": {
+                "goldenRatio": 1.7000377786173027,
+                "timing": 100,
+                "revenue": 40,
+                "competition": 40,
+                "potential": 45
+              },
+              "grade": "📝 C",
+              "verdict": "⚠️ 신중히 검토 필요",
+              "topActions": [
+                "지금 바로 글 작성 시작!",
+                "2026 연말정산 추천 TOP 10 (2025년 최신)",
+                "3000자 이상, 7개 이미지 권장"
+              ]
+            }
+          }
+        },
+        {
+          "keyword": "2026년 연말정산",
+          "searchVolume": 1570,
+          "documentCount": 11988,
+          "goldenRatio": 0.1309642976309643,
+          "rookieFriendly": {
+            "score": 40,
+            "grade": "C",
+            "reason": "황금비율 1 미만 → 공급 과잉 | 중길이 키워드",
+            "canRankWithin": "2~4주 내 가능",
+            "requiredBlogIndex": "최적 1 이상 권장"
+          },
+          "timing": {
+            "score": 100,
+            "urgency": "NOW",
+            "bestPublishTime": "지금 바로 발행!",
+            "trendDirection": "peak",
+            "peakPrediction": "현재 피크 - 빠른 발행 필요"
+          },
+          "blueOcean": {
+            "score": 38,
+            "competitorStrength": "medium",
+            "avgCompetitorBlogAge": "2~5년 (보통 경쟁)",
+            "oldPostRatio": 30,
+            "opportunity": "❌ 레드오션. 다른 키워드 추천"
+          },
+          "trafficEstimate": {
+            "daily": "1~2명",
+            "weekly": "7~14명",
+            "monthly": "30~60명",
+            "confidence": 62,
+            "disclaimer": "⚠️ 실제 API 데이터 기반 계산. 트래픽은 콘텐츠 품질, 순위, 시즌에 따라 달라집니다."
+          },
+          "revenueEstimate": {
+            "dailyRevenue": "5~15원",
+            "monthlyRevenue": "150~450원",
+            "estimatedCPC": 250,
+            "estimatedRPM": 5000,
+            "adType": "애드센스",
+            "revenueGrade": "C",
+            "revenueReason": "📊 트래픽 확보 후 수익 기대. 블로그 성장용"
+          },
+          "entryAnalysis": {
+            "canEntry": false,
+            "difficulty": "very_hard",
+            "difficultyScore": 74,
+            "message": "🔴 진입 어려움 - 상위 블로거 독점 키워드",
+            "topCompetitorStrength": "강함 (전문 블로거 다수)",
+            "recommendedBlogIndex": "상위 5% (최적 블로그) 필요",
+            "estimatedRankingTime": "3개월 이상 또는 어려움"
+          },
+          "totalScore": 83,
+          "grade": "C",
+          "proStrategy": {
+            "title": "2025 2026년 연말정산 완벽 정리 | 초보자도 쉽게 이해하는 가이드",
+            "outline": [
+              "1. 2026년 연말정산란? (기본 개념)",
+              "2. 2026년 연말정산 핵심 포인트 3가지",
+              "3. 2026년 연말정산 장단점 비교",
+              "4. 2026년 연말정산 실제 후기/경험담",
+              "5. 2026년 연말정산 Q&A (자주 묻는 질문)",
+              "6. 결론 및 추천"
+            ],
+            "wordCount": 1500,
+            "mustInclude": [
+              "핵심 키워드 2~3회 자연스럽게 삽입",
+              "실제 이미지/사진 3장 이상",
+              "표 또는 비교 차트 1개 이상",
+              "자주 묻는 질문(FAQ) 섹션",
+              "결론 및 추천 섹션"
+            ],
+            "avoidTopics": [
+              "과장된 표현 (100%, 무조건, 반드시)",
+              "허위 정보나 검증되지 않은 내용",
+              "다른 블로그 복사/붙여넣기",
+              "광고성 링크 과다 삽입"
+            ],
+            "monetization": "애드센스 + 쿠팡파트너스 조합 추천"
+          },
+          "platformTitles": {
+            "naver": {
+              "title": "2026년 연말정산 총정리 | 핵심 정리 (12월 최신)",
+              "alternatives": [
+                "🚨 2026년 연말정산 총정리 | 핵심 정리 (12월 최신)",
+                "🚨 2026년 연말정산 | 네이버에서 바로 찾는 방법 (+체크리스트)",
+                "🚨 2026년 연말정산 상위노출 포인트 5개 | 제목/소제목 이렇게",
+                "🚨 2026년 연말정산 핵심 정리 | 핵심 정리",
+                "🚨 2026년 연말정산 5분 총정리 (12월 최신)"
+              ],
+              "subKeywords": [
+                "2026년 연말정산 핵심",
+                "2026년 연말정산 쉽게",
+                "2026년 연말정산 총정리"
+              ],
+              "tags": [
+                "2026년 연말정산",
+                "2026년 연말정산 핵심",
+                "2026년 연말정산 쉽게",
+                "2026년 연말정산 총정리",
+                "2026년 연말정산 꿀팁",
+                "2026년 연말정산 후기"
+              ],
+              "tip": "🚨 지금 바로 발행! 30분 내 작성 → 1시간 내 상위노출",
+              "hookPoint": "💡 복잡한 내용 쉽게 정리"
+            },
+            "tistory": {
+              "title": "[2025] 2026년 연말정산 완벽 정리 - 정보가 필요할 때 핵심 정리",
+              "alternatives": [
+                "🚨 [2025] 2026년 연말정산 완벽 정리 - 정보가 필요할 때 핵심 정리",
+                "🚨 [2025] 2026년 연말정산 정리 - 검색 유입 늘리는 구조",
+                "🚨 2026년 연말정산 SEO 글쓰기 템플릿 (H2/H3 포함)",
+                "🚨 2026년 연말정산 핵심 정리 | 핵심 정리",
+                "🚨 2026년 연말정산 5분 총정리 (12월 최신)"
+              ],
+              "subKeywords": [
+                "2026년 연말정산 기초",
+                "2026년 연말정산 개념",
+                "2026년 연말정산 예시"
+              ],
+              "tags": [
+                "2026년 연말정산",
+                "2026년 연말정산 기초",
+                "2026년 연말정산 개념",
+                "2026년 연말정산 예시",
+                "2026년 연말정산방법",
+                "2026년 연말정산정리"
+              ],
+              "tip": "🚨 즉시 발행 + 트위터/페북 공유 → 구글 빠른 색인",
+              "hookPoint": "🔍 핵심만 콕 집어서 설명"
+            },
+            "wordpress": {
+              "title": "2026년 연말정산: Complete Guide for 2025",
+              "alternatives": [
+                "🚨 2026년 연말정산: Complete Guide for 2025",
+                "🚨 2026년 연말정산 Guide (2025): Tips, Checklist & FAQ",
+                "🚨 2026년 연말정산: What to Know Before You Start",
+                "🚨 2026년 연말정산 핵심 정리 | 핵심 정리",
+                "🚨 2026년 연말정산 5분 총정리 (12월 최신)"
+              ],
+              "subKeywords": [
+                "complete guide",
+                "explained",
+                "basics"
+              ],
+              "tags": [
+                "2026년-연말정산",
+                "2026년-연말정산-tips",
+                "2026년-연말정산-guide",
+                "2026년-연말정산-2025"
+              ],
+              "tip": "🚨 Publish NOW + Submit to Google Search Console",
+              "hookPoint": "🌍 Everything you need to know"
+            },
+            "blogspot": {
+              "title": "2026년 연말정산 Explained Simply (2025)",
+              "alternatives": [
+                "🚨 2026년 연말정산 Explained Simply (2025)",
+                "🚨 2026년 연말정산 Explained (2025) - Quick Guide",
+                "🚨 2026년 연말정산: Key Facts & Tips",
+                "🚨 2026년 연말정산 핵심 정리 | 핵심 정리",
+                "🚨 2026년 연말정산 5분 총정리 (12월 최신)"
+              ],
+              "subKeywords": [
+                "simple guide",
+                "beginner",
+                "overview"
+              ],
+              "tags": [
+                "2026년-연말정산",
+                "2026년-연말정산-how-to",
+                "2026년-연말정산-best",
+                "2026년-연말정산-review"
+              ],
+              "tip": "🚨 Quick publish + Share on social media immediately",
+              "hookPoint": "📈 Quick and easy guide"
+            }
+          },
+          "expandedKeywords": {
+            "relatedGolden": [
+              "2026년 연말정산 뜻",
+              "2026년 연말정산 정리",
+              "2026년 연말정산 총정리"
+            ],
+            "longtailGolden": [
+              "2026년 연말정산 총정리",
+              "2026년 연말정산 핵심",
+              "2026년 연말정산 요약"
+            ],
+            "blueOceanGolden": [
+              "2026년 연말정산 꿀팁",
+              "2026년 연말정산 주의사항",
+              "2026년 연말정산 FAQ"
+            ]
+          },
+          "type": "🚀 타이밍키워드",
+          "category": "business",
+          "safetyLevel": "safe",
+          "safetyReason": "✅ 안전한 키워드. 신생 블로거도 작성 가능",
+          "source": "시즌",
+          "timestamp": "2025-12-20T05:16:57.868Z",
+          "trendAnalysis": {
+            "trendingReason": "‘이것’부터 확인 관련 최근 이슈",
+            "whyNow": "최근 5개 이상의 뉴스에서 다뤄지며 이슈화 진행 중 • \"확인\" 관련 구체적 사건으로 실시간 관심 집중 • 최신 이슈로 실시간 관심 집중 중 • \"[만나보니] “나만 못 받나?” 연말정산 ‘이것’부터 확인하세요\" 관련 최신 뉴스로 조기 진입 효과 기대",
+            "newsSource": "자동 분석"
+          },
+          "keywordGuide": {
+            "summary": "검색량 1,570, 문서수 11,988, 황금비율 0.13 | 🔴 진입 어려움 - 상위 블로거 독점 키워드 | 황금비율 1 미만 → 공급 과잉 | 중길이 키워드",
+            "whyItMovesNow": "‘이것’부터 확인 관련 최근 이슈 / 최근 5개 이상의 뉴스에서 다뤄지며 이슈화 진행 중 • \"확인\" 관련 구체적 사건으로 실시간 관심 집중 • 최신 이슈로 실시간 관심 집중 중 • \"[만나보니] “나만 못 받나?” 연말정산 ‘이것’부터 확인하세요\" 관련 최신 뉴스로 조기 진입 효과 기대",
+            "immediateTrafficPlan": [
+              "오늘 안에 바로 효과를 보는 글 구조로 작성하세요 (첫 3문단에 핵심 답 + 결론 요약).",
+              "제목/소제목에 \"2026년 연말정산\"를 자연스럽게 반복하고, 서브키워드 2~3개를 소제목으로 배치하세요.",
+              "발행 직후 30분 내 수정 1회(오탈자/이미지 추가)로 체류시간을 늘리세요.",
+              "이미지 5장 이상 + 표/체크리스트 1개를 넣어서 저장/스크랩을 유도하세요."
+            ],
+            "naverHomeExposureTips": [
+              "NOW/TODAY 키워드는 “오늘/방금/최신” 같은 신선도 단어를 제목 또는 첫 문단에 포함하세요.",
+              "첫 이미지(썸네일)는 텍스트 5~8자 + 대비 강하게(홈피드 CTR 상승).",
+              "상단 200자에 \"한 줄 요약\" + \"체크리스트\"를 넣어 저장/공유 시그널을 유도.",
+              "뉴스/이슈 키워드는 근거(출처 1~2개) + 내 경험/정리 50%로 구성(복붙 느낌 금지).",
+              "발행 후 1시간 내 댓글 유도 문장 1개 추가(반응 시그널)."
+            ]
+          },
+          "ultimateAnalysis": {
+            "timing": {
+              "seasonal": {
+                "peakMonths": [
+                  12,
+                  1,
+                  2
+                ],
+                "peakReason": "연말정산 시즌",
+                "currentSeasonScore": 100,
+                "nextPeakDate": "12월",
+                "daysUntilPeak": 711,
+                "recommendation": "🔥 지금이 피크 시즌입니다! 바로 작성하세요!",
+                "seasonalPattern": "seasonal"
+              },
+              "trend": {
+                "trendDirection": "falling",
+                "changeRate": 1,
+                "comparedTo": "전월 대비",
+                "explosiveScore": 2,
+                "relatedNews": [],
+                "recommendation": "📊 안정적인 키워드입니다."
+              },
+              "alert": {
+                "optimalPublishDate": "오늘",
+                "reason": "🔥 지금이 피크 시즌입니다! 바로 작성하세요!",
+                "urgencyLevel": "🔥 지금 당장",
+                "expectedPeakDate": "12월",
+                "competitorActivity": "경쟁자 많음"
+              }
+            },
+            "revenue": {
+              "cpc": {
+                "estimatedCpc": 100,
+                "cpcRange": {
+                  "min": 50,
+                  "max": 200
+                },
+                "cpcTier": "🥉 저수익",
+                "industryAverage": 100,
+                "recommendation": "📝 일반적인 수익 구조입니다. 트래픽 확보에 집중하세요."
+              },
+              "affiliate": {
+                "recommendedPrograms": [
+                  {
+                    "name": "쿠팡파트너스",
+                    "type": "coupang",
+                    "commissionRate": "3~5%",
+                    "estimatedEarningPerClick": 50,
+                    "matchScore": 100
+                  },
+                  {
+                    "name": "네이버 쇼핑",
+                    "type": "naver",
+                    "commissionRate": "1~3%",
+                    "estimatedEarningPerClick": 30,
+                    "matchScore": 85
+                  }
+                ],
+                "bestMatch": "쿠팡파트너스",
+                "potentialProducts": [
+                  "2026년 연말정산 추천",
+                  "2026년 연말정산 순위",
+                  "2026년 연말정산 비교",
+                  "2026년 연말정산 후기",
+                  "2026년 연말정산 가격",
+                  "2026년 연말정산 구매"
+                ]
+              },
+              "projection": {
+                "estimatedDailyVisitors": 2,
+                "estimatedMonthlyVisitors": 60,
+                "adsenseRevenue": {
+                  "daily": 6,
+                  "monthly": 180,
+                  "assumptions": "CPC 100원, CTR 2%, 페이지뷰율 1.5 가정"
+                },
+                "affiliateRevenue": {
+                  "daily": 0,
+                  "monthly": 0,
+                  "conversionRate": 3,
+                  "assumptions": "클릭률 10%, 전환율 3%, 평균 수수료 50원 가정"
+                },
+                "totalMonthlyRevenue": 180,
+                "revenueBreakdown": "애드센스 100% + 제휴 0%",
+                "revenueTier": "📝 월 1만원+"
+              }
+            },
+            "content": {
+              "titles": {
+                "titles": [
+                  {
+                    "title": "2026년 연말정산 추천 TOP 10 (2025년 최신)",
+                    "type": "number",
+                    "estimatedCTR": 8.5,
+                    "psychologyUsed": "숫자 + 최신 정보"
+                  },
+                  {
+                    "title": "2026년 연말정산 하는 법, 초보자도 쉽게 따라하기",
+                    "type": "how-to",
+                    "estimatedCTR": 7.5,
+                    "psychologyUsed": "실용성 + 접근성"
+                  },
+                  {
+                    "title": "2026년 연말정산, 이것만 알면 끝! 완벽 가이드",
+                    "type": "benefit",
+                    "estimatedCTR": 7.2,
+                    "psychologyUsed": "완결성 + 가치 제안"
+                  },
+                  {
+                    "title": "[2025년] 2026년 연말정산 총정리 (+ 꿀팁 공개)",
+                    "type": "news",
+                    "estimatedCTR": 7,
+                    "psychologyUsed": "최신성 + 보너스 가치"
+                  },
+                  {
+                    "title": "아직도 2026년 연말정산 몰라요? 지금 당장 확인하세요",
+                    "type": "curiosity",
+                    "estimatedCTR": 6.8,
+                    "psychologyUsed": "호기심 + 긴급성"
+                  },
+                  {
+                    "title": "2026년 연말정산 실제 후기 (장단점 솔직 비교)",
+                    "type": "comparison",
+                    "estimatedCTR": 6.5,
+                    "psychologyUsed": "신뢰성 + 비교 심리"
+                  }
+                ],
+                "bestTitle": "2026년 연말정산 추천 TOP 10 (2025년 최신)",
+                "titleFormula": "숫자 + 키워드 + 최신연도 + 가치제안"
+              },
+              "structure": {
+                "recommendedStructure": {
+                  "intro": {
+                    "purpose": "독자의 관심 끌기 + 키워드 자연스럽게 배치",
+                    "template": "\"2026년 연말정산\"에 대해 고민하고 계신가요? 이 글에서 핵심 정보를 모두 정리해드립니다.",
+                    "keywordPlacement": "첫 문장에 키워드 포함"
+                  },
+                  "sections": [
+                    {
+                      "heading": "2026년 연말정산란? (기본 개념)",
+                      "purpose": "기초 정보 제공",
+                      "contentGuide": "핵심 정의, 중요성, 왜 알아야 하는지 설명",
+                      "recommendedLength": 300,
+                      "keywordUsage": "소제목과 본문에 1~2회"
+                    },
+                    {
+                      "heading": "2026년 연말정산 추천 BEST 5",
+                      "purpose": "실질적인 가치 제공 (핵심 섹션)",
+                      "contentGuide": "순위별 상세 설명, 장단점, 추천 이유",
+                      "recommendedLength": 800,
+                      "keywordUsage": "각 항목 설명에 자연스럽게 포함"
+                    },
+                    {
+                      "heading": "2026년 연말정산 선택 시 주의사항",
+                      "purpose": "신뢰도 향상",
+                      "contentGuide": "흔한 실수, 피해야 할 것, 체크리스트",
+                      "recommendedLength": 400,
+                      "keywordUsage": "주의사항 설명에 1~2회"
+                    },
+                    {
+                      "heading": "자주 묻는 질문 (FAQ)",
+                      "purpose": "SEO 강화 + 체류시간 증가",
+                      "contentGuide": "실제 검색되는 질문 5개 + 명확한 답변",
+                      "recommendedLength": 500,
+                      "keywordUsage": "질문에 롱테일 키워드 활용"
+                    }
+                  ],
+                  "conclusion": {
+                    "purpose": "요약 + CTA",
+                    "template": "지금까지 2026년 연말정산에 대해 알아봤습니다. 도움이 되셨다면 공유해주세요!",
+                    "ctaRecommendation": "댓글, 공유, 관련 글 링크 유도"
+                  }
+                },
+                "seoChecklist": [
+                  {
+                    "item": "제목에 키워드 포함",
+                    "importance": "critical",
+                    "howTo": "제목 앞부분에 메인 키워드 배치"
+                  },
+                  {
+                    "item": "첫 문단에 키워드",
+                    "importance": "critical",
+                    "howTo": "첫 100자 내 키워드 자연스럽게 삽입"
+                  },
+                  {
+                    "item": "소제목 H2/H3 활용",
+                    "importance": "high",
+                    "howTo": "3~5개 소제목, 키워드 변형 사용"
+                  },
+                  {
+                    "item": "이미지 ALT 태그",
+                    "importance": "high",
+                    "howTo": "모든 이미지에 키워드 포함 설명"
+                  },
+                  {
+                    "item": "내부링크 2개 이상",
+                    "importance": "medium",
+                    "howTo": "관련 글 자연스럽게 연결"
+                  },
+                  {
+                    "item": "3000자 이상 작성",
+                    "importance": "high",
+                    "howTo": "충분한 깊이의 콘텐츠 제공"
+                  }
+                ],
+                "totalRecommendedLength": 3000,
+                "estimatedWriteTime": 90
+              },
+              "images": {
+                "mainImage": {
+                  "searchKeyword": "2026년 연말정산 대표이미지",
+                  "style": "깔끔한 인포그래픽 또는 고화질 사진",
+                  "source": [
+                    "Unsplash",
+                    "Pixabay",
+                    "직접 제작"
+                  ],
+                  "altText": "2026년 연말정산 완벽 가이드 대표 이미지"
+                },
+                "sectionImages": [
+                  {
+                    "section": "기본 개념",
+                    "searchKeyword": "2026년 연말정산 설명",
+                    "purpose": "이해 돕기",
+                    "style": "다이어그램"
+                  },
+                  {
+                    "section": "TOP 5",
+                    "searchKeyword": "2026년 연말정산 비교",
+                    "purpose": "시각적 비교",
+                    "style": "비교표"
+                  },
+                  {
+                    "section": "주의사항",
+                    "searchKeyword": "주의 아이콘",
+                    "purpose": "강조",
+                    "style": "아이콘"
+                  }
+                ],
+                "infographicIdeas": [
+                  "2026년 연말정산 선택 가이드 플로우차트",
+                  "2026년 연말정산 TOP 5 비교표",
+                  "2026년 연말정산 체크리스트"
+                ],
+                "totalRecommendedImages": 7,
+                "imageStrategy": "섹션당 1~2개, 총 7~10개 이미지로 가독성과 체류시간 향상"
+              }
+            },
+            "ultimateScore": {
+              "total": 41,
+              "breakdown": {
+                "goldenRatio": 1.3096429763096429,
+                "timing": 100,
+                "revenue": 40,
+                "competition": 40,
+                "potential": 45
+              },
+              "grade": "📝 C",
+              "verdict": "⚠️ 신중히 검토 필요",
+              "topActions": [
+                "지금 바로 글 작성 시작!",
+                "2026년 연말정산 추천 TOP 10 (2025년 최신)",
+                "3000자 이상, 7개 이미지 권장"
+              ]
+            }
+          }
+        },
+        {
+          "keyword": "2025 연말정산",
+          "searchVolume": 6090,
+          "documentCount": 72877,
+          "goldenRatio": 0.08356545961002786,
+          "rookieFriendly": {
+            "score": 20,
+            "grade": "D",
+            "reason": "문서수 50,000개 이상 → 경쟁 치열 | 황금비율 1 미만 → 공급 과잉 | 중길이 키워드",
+            "canRankWithin": "1개월 이상 소요 예상",
+            "requiredBlogIndex": "최적 1 이상 권장"
+          },
+          "timing": {
+            "score": 100,
+            "urgency": "NOW",
+            "bestPublishTime": "지금 바로 발행!",
+            "trendDirection": "peak",
+            "peakPrediction": "현재 피크 - 빠른 발행 필요"
+          },
+          "blueOcean": {
+            "score": 15,
+            "competitorStrength": "strong",
+            "avgCompetitorBlogAge": "5년 이상 (강한 경쟁)",
+            "oldPostRatio": 30,
+            "opportunity": "❌ 레드오션. 다른 키워드 추천"
+          },
+          "trafficEstimate": {
+            "daily": "2~6명",
+            "weekly": "14~42명",
+            "monthly": "60~180명",
+            "confidence": 56,
+            "disclaimer": "⚠️ 실제 API 데이터 기반 계산. 트래픽은 콘텐츠 품질, 순위, 시즌에 따라 달라집니다."
+          },
+          "revenueEstimate": {
+            "dailyRevenue": "15~45원",
+            "monthlyRevenue": "450~1,350원",
+            "estimatedCPC": 250,
+            "estimatedRPM": 5000,
+            "adType": "애드센스",
+            "revenueGrade": "C",
+            "revenueReason": "📊 트래픽 확보 후 수익 기대. 블로그 성장용"
+          },
+          "entryAnalysis": {
+            "canEntry": false,
+            "difficulty": "very_hard",
+            "difficultyScore": 100,
+            "message": "🔴 진입 어려움 - 상위 블로거 독점 키워드",
+            "topCompetitorStrength": "매우 강함 (최적 블로거 독점)",
+            "recommendedBlogIndex": "상위 5% (최적 블로그) 필요",
+            "estimatedRankingTime": "3개월 이상 또는 어려움"
+          },
+          "totalScore": 59,
+          "grade": "A",
+          "proStrategy": {
+            "title": "2025 연말정산 완벽 정리 | 초보자도 쉽게 이해하는 가이드",
+            "outline": [
+              "1. 2025 연말정산란? (기본 개념)",
+              "2. 2025 연말정산 핵심 포인트 3가지",
+              "3. 2025 연말정산 장단점 비교",
+              "4. 2025 연말정산 실제 후기/경험담",
+              "5. 2025 연말정산 Q&A (자주 묻는 질문)",
+              "6. 결론 및 추천"
+            ],
+            "wordCount": 1500,
+            "mustInclude": [
+              "핵심 키워드 2~3회 자연스럽게 삽입",
+              "실제 이미지/사진 3장 이상",
+              "표 또는 비교 차트 1개 이상",
+              "자주 묻는 질문(FAQ) 섹션",
+              "결론 및 추천 섹션"
+            ],
+            "avoidTopics": [
+              "과장된 표현 (100%, 무조건, 반드시)",
+              "허위 정보나 검증되지 않은 내용",
+              "다른 블로그 복사/붙여넣기",
+              "광고성 링크 과다 삽입"
+            ],
+            "monetization": "애드센스 + 쿠팡파트너스 조합 추천"
+          },
+          "platformTitles": {
+            "naver": {
+              "title": "2025 연말정산 총정리 | 핵심 정리 (12월 최신)",
+              "alternatives": [
+                "🚨 2025 연말정산 총정리 | 핵심 정리 (12월 최신)",
+                "🚨 2025 연말정산 | 네이버에서 바로 찾는 방법 (+체크리스트)",
+                "🚨 2025 연말정산 상위노출 포인트 5개 | 제목/소제목 이렇게",
+                "🚨 2025 연말정산 핵심 정리 | 핵심 정리",
+                "🚨 2025 연말정산 5분 총정리 (12월 최신)"
+              ],
+              "subKeywords": [
+                "2025 연말정산 핵심",
+                "2025 연말정산 쉽게",
+                "2025 연말정산 총정리"
+              ],
+              "tags": [
+                "2025 연말정산",
+                "2025 연말정산 핵심",
+                "2025 연말정산 쉽게",
+                "2025 연말정산 총정리",
+                "2025 연말정산 꿀팁",
+                "2025 연말정산 후기"
+              ],
+              "tip": "🚨 지금 바로 발행! 30분 내 작성 → 1시간 내 상위노출",
+              "hookPoint": "💡 복잡한 내용 쉽게 정리"
+            },
+            "tistory": {
+              "title": "[2025] 2025 연말정산 완벽 정리 - 정보가 필요할 때 핵심 정리",
+              "alternatives": [
+                "🚨 [2025] 2025 연말정산 완벽 정리 - 정보가 필요할 때 핵심 정리",
+                "🚨 [2025] 2025 연말정산 정리 - 검색 유입 늘리는 구조",
+                "🚨 2025 연말정산 SEO 글쓰기 템플릿 (H2/H3 포함)",
+                "🚨 2025 연말정산 핵심 정리 | 핵심 정리",
+                "🚨 2025 연말정산 5분 총정리 (12월 최신)"
+              ],
+              "subKeywords": [
+                "2025 연말정산 기초",
+                "2025 연말정산 개념",
+                "2025 연말정산 예시"
+              ],
+              "tags": [
+                "2025 연말정산",
+                "2025 연말정산 기초",
+                "2025 연말정산 개념",
+                "2025 연말정산 예시",
+                "2025 연말정산방법",
+                "2025 연말정산정리"
+              ],
+              "tip": "🚨 즉시 발행 + 트위터/페북 공유 → 구글 빠른 색인",
+              "hookPoint": "🔍 핵심만 콕 집어서 설명"
+            },
+            "wordpress": {
+              "title": "2025 연말정산: Complete Guide for 2025",
+              "alternatives": [
+                "🚨 2025 연말정산: Complete Guide for 2025",
+                "🚨 2025 연말정산 Guide (2025): Tips, Checklist & FAQ",
+                "🚨 2025 연말정산: What to Know Before You Start",
+                "🚨 2025 연말정산 핵심 정리 | 핵심 정리",
+                "🚨 2025 연말정산 5분 총정리 (12월 최신)"
+              ],
+              "subKeywords": [
+                "complete guide",
+                "explained",
+                "basics"
+              ],
+              "tags": [
+                "2025-연말정산",
+                "2025-연말정산-tips",
+                "2025-연말정산-guide",
+                "2025-연말정산-2025"
+              ],
+              "tip": "🚨 Publish NOW + Submit to Google Search Console",
+              "hookPoint": "🌍 Everything you need to know"
+            },
+            "blogspot": {
+              "title": "2025 연말정산 Explained Simply (2025)",
+              "alternatives": [
+                "🚨 2025 연말정산 Explained Simply (2025)",
+                "🚨 2025 연말정산 Explained (2025) - Quick Guide",
+                "🚨 2025 연말정산: Key Facts & Tips",
+                "🚨 2025 연말정산 핵심 정리 | 핵심 정리",
+                "🚨 2025 연말정산 5분 총정리 (12월 최신)"
+              ],
+              "subKeywords": [
+                "simple guide",
+                "beginner",
+                "overview"
+              ],
+              "tags": [
+                "2025-연말정산",
+                "2025-연말정산-how-to",
+                "2025-연말정산-best",
+                "2025-연말정산-review"
+              ],
+              "tip": "🚨 Quick publish + Share on social media immediately",
+              "hookPoint": "📈 Quick and easy guide"
+            }
+          },
+          "expandedKeywords": {
+            "relatedGolden": [
+              "2025 연말정산 뜻",
+              "2025 연말정산 정리",
+              "2025 연말정산 총정리"
+            ],
+            "longtailGolden": [
+              "2025 연말정산 총정리",
+              "2025 연말정산 핵심",
+              "2025 연말정산 요약"
+            ],
+            "blueOceanGolden": [
+              "2025 연말정산 꿀팁",
+              "2025 연말정산 주의사항",
+              "2025 연말정산 FAQ"
+            ]
+          },
+          "type": "🚀 타이밍키워드",
+          "category": "business",
+          "safetyLevel": "safe",
+          "safetyReason": "✅ 안전한 키워드. 신생 블로거도 작성 가능",
+          "source": "category_fallback",
+          "timestamp": "2025-12-20T05:17:10.781Z",
+          "trendAnalysis": {
+            "trendingReason": "국세청, 연말정산 혜택 관련 최근 이슈",
+            "whyNow": "최근 5개 이상의 뉴스에서 다뤄지며 이슈화 진행 중 • \"공개\" 관련 구체적 사건으로 실시간 관심 집중 • \"국세청, 연말정산 혜택 확대…자녀·주택·기부 공제 늘어\" 관련 최신 뉴스로 조기 진입 효과 기대",
+            "newsSource": "자동 분석"
+          },
+          "keywordGuide": {
+            "summary": "검색량 6,090, 문서수 72,877, 황금비율 0.08 | 🔴 진입 어려움 - 상위 블로거 독점 키워드 | 문서수 50,000개 이상 → 경쟁 치열 | 황금비율 1 미만 → 공급 과잉 | 중길이 키워드",
+            "whyItMovesNow": "국세청, 연말정산 혜택 관련 최근 이슈 / 최근 5개 이상의 뉴스에서 다뤄지며 이슈화 진행 중 • \"공개\" 관련 구체적 사건으로 실시간 관심 집중 • \"국세청, 연말정산 혜택 확대…자녀·주택·기부 공제 늘어\" 관련 최신 뉴스로 조기 진입 효과 기대",
+            "immediateTrafficPlan": [
+              "오늘 안에 바로 효과를 보는 글 구조로 작성하세요 (첫 3문단에 핵심 답 + 결론 요약).",
+              "제목/소제목에 \"2025 연말정산\"를 자연스럽게 반복하고, 서브키워드 2~3개를 소제목으로 배치하세요.",
+              "발행 직후 30분 내 수정 1회(오탈자/이미지 추가)로 체류시간을 늘리세요.",
+              "이미지 5장 이상 + 표/체크리스트 1개를 넣어서 저장/스크랩을 유도하세요."
+            ],
+            "naverHomeExposureTips": [
+              "NOW/TODAY 키워드는 “오늘/방금/최신” 같은 신선도 단어를 제목 또는 첫 문단에 포함하세요.",
+              "첫 이미지(썸네일)는 텍스트 5~8자 + 대비 강하게(홈피드 CTR 상승).",
+              "상단 200자에 \"한 줄 요약\" + \"체크리스트\"를 넣어 저장/공유 시그널을 유도.",
+              "뉴스/이슈 키워드는 근거(출처 1~2개) + 내 경험/정리 50%로 구성(복붙 느낌 금지).",
+              "발행 후 1시간 내 댓글 유도 문장 1개 추가(반응 시그널)."
+            ]
+          },
+          "ultimateAnalysis": {
+            "timing": {
+              "seasonal": {
+                "peakMonths": [
+                  12,
+                  1,
+                  2
+                ],
+                "peakReason": "연말정산 시즌",
+                "currentSeasonScore": 100,
+                "nextPeakDate": "12월",
+                "daysUntilPeak": 711,
+                "recommendation": "🔥 지금이 피크 시즌입니다! 바로 작성하세요!",
+                "seasonalPattern": "seasonal"
+              },
+              "trend": {
+                "trendDirection": "falling",
+                "changeRate": 1,
+                "comparedTo": "전월 대비",
+                "explosiveScore": 1,
+                "relatedNews": [],
+                "recommendation": "📊 안정적인 키워드입니다."
+              },
+              "alert": {
+                "optimalPublishDate": "오늘",
+                "reason": "🔥 지금이 피크 시즌입니다! 바로 작성하세요!",
+                "urgencyLevel": "🔥 지금 당장",
+                "expectedPeakDate": "12월",
+                "competitorActivity": "경쟁자 많음"
+              }
+            },
+            "revenue": {
+              "cpc": {
+                "estimatedCpc": 100,
+                "cpcRange": {
+                  "min": 50,
+                  "max": 200
+                },
+                "cpcTier": "🥉 저수익",
+                "industryAverage": 100,
+                "recommendation": "📝 일반적인 수익 구조입니다. 트래픽 확보에 집중하세요."
+              },
+              "affiliate": {
+                "recommendedPrograms": [
+                  {
+                    "name": "쿠팡파트너스",
+                    "type": "coupang",
+                    "commissionRate": "3~5%",
+                    "estimatedEarningPerClick": 50,
+                    "matchScore": 100
+                  },
+                  {
+                    "name": "네이버 쇼핑",
+                    "type": "naver",
+                    "commissionRate": "1~3%",
+                    "estimatedEarningPerClick": 30,
+                    "matchScore": 85
+                  }
+                ],
+                "bestMatch": "쿠팡파트너스",
+                "potentialProducts": [
+                  "2025 연말정산 추천",
+                  "2025 연말정산 순위",
+                  "2025 연말정산 비교",
+                  "2025 연말정산 후기",
+                  "2025 연말정산 가격",
+                  "2025 연말정산 구매"
+                ]
+              },
+              "projection": {
+                "estimatedDailyVisitors": 6,
+                "estimatedMonthlyVisitors": 180,
+                "adsenseRevenue": {
+                  "daily": 18,
+                  "monthly": 540,
+                  "assumptions": "CPC 100원, CTR 2%, 페이지뷰율 1.5 가정"
+                },
+                "affiliateRevenue": {
+                  "daily": 1,
+                  "monthly": 30,
+                  "conversionRate": 3,
+                  "assumptions": "클릭률 10%, 전환율 3%, 평균 수수료 50원 가정"
+                },
+                "totalMonthlyRevenue": 570,
+                "revenueBreakdown": "애드센스 95% + 제휴 5%",
+                "revenueTier": "📝 월 1만원+"
+              }
+            },
+            "content": {
+              "titles": {
+                "titles": [
+                  {
+                    "title": "2025 연말정산 추천 TOP 10 (2025년 최신)",
+                    "type": "number",
+                    "estimatedCTR": 8.5,
+                    "psychologyUsed": "숫자 + 최신 정보"
+                  },
+                  {
+                    "title": "2025 연말정산 하는 법, 초보자도 쉽게 따라하기",
+                    "type": "how-to",
+                    "estimatedCTR": 7.5,
+                    "psychologyUsed": "실용성 + 접근성"
+                  },
+                  {
+                    "title": "2025 연말정산, 이것만 알면 끝! 완벽 가이드",
+                    "type": "benefit",
+                    "estimatedCTR": 7.2,
+                    "psychologyUsed": "완결성 + 가치 제안"
+                  },
+                  {
+                    "title": "[2025년] 2025 연말정산 총정리 (+ 꿀팁 공개)",
+                    "type": "news",
+                    "estimatedCTR": 7,
+                    "psychologyUsed": "최신성 + 보너스 가치"
+                  },
+                  {
+                    "title": "아직도 2025 연말정산 몰라요? 지금 당장 확인하세요",
+                    "type": "curiosity",
+                    "estimatedCTR": 6.8,
+                    "psychologyUsed": "호기심 + 긴급성"
+                  },
+                  {
+                    "title": "2025 연말정산 실제 후기 (장단점 솔직 비교)",
+                    "type": "comparison",
+                    "estimatedCTR": 6.5,
+                    "psychologyUsed": "신뢰성 + 비교 심리"
+                  }
+                ],
+                "bestTitle": "2025 연말정산 추천 TOP 10 (2025년 최신)",
+                "titleFormula": "숫자 + 키워드 + 최신연도 + 가치제안"
+              },
+              "structure": {
+                "recommendedStructure": {
+                  "intro": {
+                    "purpose": "독자의 관심 끌기 + 키워드 자연스럽게 배치",
+                    "template": "\"2025 연말정산\"에 대해 고민하고 계신가요? 이 글에서 핵심 정보를 모두 정리해드립니다.",
+                    "keywordPlacement": "첫 문장에 키워드 포함"
+                  },
+                  "sections": [
+                    {
+                      "heading": "2025 연말정산란? (기본 개념)",
+                      "purpose": "기초 정보 제공",
+                      "contentGuide": "핵심 정의, 중요성, 왜 알아야 하는지 설명",
+                      "recommendedLength": 300,
+                      "keywordUsage": "소제목과 본문에 1~2회"
+                    },
+                    {
+                      "heading": "2025 연말정산 추천 BEST 5",
+                      "purpose": "실질적인 가치 제공 (핵심 섹션)",
+                      "contentGuide": "순위별 상세 설명, 장단점, 추천 이유",
+                      "recommendedLength": 800,
+                      "keywordUsage": "각 항목 설명에 자연스럽게 포함"
+                    },
+                    {
+                      "heading": "2025 연말정산 선택 시 주의사항",
+                      "purpose": "신뢰도 향상",
+                      "contentGuide": "흔한 실수, 피해야 할 것, 체크리스트",
+                      "recommendedLength": 400,
+                      "keywordUsage": "주의사항 설명에 1~2회"
+                    },
+                    {
+                      "heading": "자주 묻는 질문 (FAQ)",
+                      "purpose": "SEO 강화 + 체류시간 증가",
+                      "contentGuide": "실제 검색되는 질문 5개 + 명확한 답변",
+                      "recommendedLength": 500,
+                      "keywordUsage": "질문에 롱테일 키워드 활용"
+                    }
+                  ],
+                  "conclusion": {
+                    "purpose": "요약 + CTA",
+                    "template": "지금까지 2025 연말정산에 대해 알아봤습니다. 도움이 되셨다면 공유해주세요!",
+                    "ctaRecommendation": "댓글, 공유, 관련 글 링크 유도"
+                  }
+                },
+                "seoChecklist": [
+                  {
+                    "item": "제목에 키워드 포함",
+                    "importance": "critical",
+                    "howTo": "제목 앞부분에 메인 키워드 배치"
+                  },
+                  {
+                    "item": "첫 문단에 키워드",
+                    "importance": "critical",
+                    "howTo": "첫 100자 내 키워드 자연스럽게 삽입"
+                  },
+                  {
+                    "item": "소제목 H2/H3 활용",
+                    "importance": "high",
+                    "howTo": "3~5개 소제목, 키워드 변형 사용"
+                  },
+                  {
+                    "item": "이미지 ALT 태그",
+                    "importance": "high",
+                    "howTo": "모든 이미지에 키워드 포함 설명"
+                  },
+                  {
+                    "item": "내부링크 2개 이상",
+                    "importance": "medium",
+                    "howTo": "관련 글 자연스럽게 연결"
+                  },
+                  {
+                    "item": "3000자 이상 작성",
+                    "importance": "high",
+                    "howTo": "충분한 깊이의 콘텐츠 제공"
+                  }
+                ],
+                "totalRecommendedLength": 3000,
+                "estimatedWriteTime": 90
+              },
+              "images": {
+                "mainImage": {
+                  "searchKeyword": "2025 연말정산 대표이미지",
+                  "style": "깔끔한 인포그래픽 또는 고화질 사진",
+                  "source": [
+                    "Unsplash",
+                    "Pixabay",
+                    "직접 제작"
+                  ],
+                  "altText": "2025 연말정산 완벽 가이드 대표 이미지"
+                },
+                "sectionImages": [
+                  {
+                    "section": "기본 개념",
+                    "searchKeyword": "2025 연말정산 설명",
+                    "purpose": "이해 돕기",
+                    "style": "다이어그램"
+                  },
+                  {
+                    "section": "TOP 5",
+                    "searchKeyword": "2025 연말정산 비교",
+                    "purpose": "시각적 비교",
+                    "style": "비교표"
+                  },
+                  {
+                    "section": "주의사항",
+                    "searchKeyword": "주의 아이콘",
+                    "purpose": "강조",
+                    "style": "아이콘"
+                  }
+                ],
+                "infographicIdeas": [
+                  "2025 연말정산 선택 가이드 플로우차트",
+                  "2025 연말정산 TOP 5 비교표",
+                  "2025 연말정산 체크리스트"
+                ],
+                "totalRecommendedImages": 7,
+                "imageStrategy": "섹션당 1~2개, 총 7~10개 이미지로 가독성과 체류시간 향상"
+              }
+            },
+            "ultimateScore": {
+              "total": 41,
+              "breakdown": {
+                "goldenRatio": 0.8356545961002786,
+                "timing": 100,
+                "revenue": 40,
+                "competition": 40,
+                "potential": 45
+              },
+              "grade": "📝 C",
+              "verdict": "⚠️ 신중히 검토 필요",
+              "topActions": [
+                "지금 바로 글 작성 시작!",
+                "2025 연말정산 추천 TOP 10 (2025년 최신)",
+                "3000자 이상, 7개 이미지 권장"
+              ]
+            }
+          }
+        },
+        {
+          "keyword": "2025년 연말정산",
+          "searchVolume": 4160,
+          "documentCount": 62848,
+          "goldenRatio": 0.06619144602851323,
+          "rookieFriendly": {
+            "score": 20,
+            "grade": "D",
+            "reason": "문서수 50,000개 이상 → 경쟁 치열 | 황금비율 1 미만 → 공급 과잉 | 중길이 키워드",
+            "canRankWithin": "1개월 이상 소요 예상",
+            "requiredBlogIndex": "최적 1 이상 권장"
+          },
+          "timing": {
+            "score": 100,
+            "urgency": "NOW",
+            "bestPublishTime": "지금 바로 발행!",
+            "trendDirection": "peak",
+            "peakPrediction": "현재 피크 - 빠른 발행 필요"
+          },
+          "blueOcean": {
+            "score": 15,
+            "competitorStrength": "strong",
+            "avgCompetitorBlogAge": "5년 이상 (강한 경쟁)",
+            "oldPostRatio": 30,
+            "opportunity": "❌ 레드오션. 다른 키워드 추천"
+          },
+          "trafficEstimate": {
+            "daily": "1~4명",
+            "weekly": "7~28명",
+            "monthly": "30~120명",
+            "confidence": 56,
+            "disclaimer": "⚠️ 실제 API 데이터 기반 계산. 트래픽은 콘텐츠 품질, 순위, 시즌에 따라 달라집니다."
+          },
+          "revenueEstimate": {
+            "dailyRevenue": "10~30원",
+            "monthlyRevenue": "300~900원",
+            "estimatedCPC": 250,
+            "estimatedRPM": 5000,
+            "adType": "애드센스",
+            "revenueGrade": "C",
+            "revenueReason": "📊 트래픽 확보 후 수익 기대. 블로그 성장용"
+          },
+          "entryAnalysis": {
+            "canEntry": false,
+            "difficulty": "very_hard",
+            "difficultyScore": 100,
+            "message": "🔴 진입 어려움 - 상위 블로거 독점 키워드",
+            "topCompetitorStrength": "매우 강함 (최적 블로거 독점)",
+            "recommendedBlogIndex": "상위 5% (최적 블로그) 필요",
+            "estimatedRankingTime": "3개월 이상 또는 어려움"
+          },
+          "totalScore": 59,
+          "grade": "A",
+          "proStrategy": {
+            "title": "2025년 연말정산 완벽 정리 | 초보자도 쉽게 이해하는 가이드",
+            "outline": [
+              "1. 2025년 연말정산란? (기본 개념)",
+              "2. 2025년 연말정산 핵심 포인트 3가지",
+              "3. 2025년 연말정산 장단점 비교",
+              "4. 2025년 연말정산 실제 후기/경험담",
+              "5. 2025년 연말정산 Q&A (자주 묻는 질문)",
+              "6. 결론 및 추천"
+            ],
+            "wordCount": 1500,
+            "mustInclude": [
+              "핵심 키워드 2~3회 자연스럽게 삽입",
+              "실제 이미지/사진 3장 이상",
+              "표 또는 비교 차트 1개 이상",
+              "자주 묻는 질문(FAQ) 섹션",
+              "결론 및 추천 섹션"
+            ],
+            "avoidTopics": [
+              "과장된 표현 (100%, 무조건, 반드시)",
+              "허위 정보나 검증되지 않은 내용",
+              "다른 블로그 복사/붙여넣기",
+              "광고성 링크 과다 삽입"
+            ],
+            "monetization": "애드센스 + 쿠팡파트너스 조합 추천"
+          },
+          "platformTitles": {
+            "naver": {
+              "title": "2025년 연말정산 총정리 | 핵심 정리 (12월 최신)",
+              "alternatives": [
+                "🚨 2025년 연말정산 총정리 | 핵심 정리 (12월 최신)",
+                "🚨 2025년 연말정산 | 네이버에서 바로 찾는 방법 (+체크리스트)",
+                "🚨 2025년 연말정산 상위노출 포인트 5개 | 제목/소제목 이렇게",
+                "🚨 2025년 연말정산 핵심 정리 | 핵심 정리",
+                "🚨 2025년 연말정산 5분 총정리 (12월 최신)"
+              ],
+              "subKeywords": [
+                "2025년 연말정산 핵심",
+                "2025년 연말정산 쉽게",
+                "2025년 연말정산 총정리"
+              ],
+              "tags": [
+                "2025년 연말정산",
+                "2025년 연말정산 핵심",
+                "2025년 연말정산 쉽게",
+                "2025년 연말정산 총정리",
+                "2025년 연말정산 꿀팁",
+                "2025년 연말정산 후기"
+              ],
+              "tip": "🚨 지금 바로 발행! 30분 내 작성 → 1시간 내 상위노출",
+              "hookPoint": "💡 복잡한 내용 쉽게 정리"
+            },
+            "tistory": {
+              "title": "[2025] 2025년 연말정산 완벽 정리 - 정보가 필요할 때 핵심 정리",
+              "alternatives": [
+                "🚨 [2025] 2025년 연말정산 완벽 정리 - 정보가 필요할 때 핵심 정리",
+                "🚨 [2025] 2025년 연말정산 정리 - 검색 유입 늘리는 구조",
+                "🚨 2025년 연말정산 SEO 글쓰기 템플릿 (H2/H3 포함)",
+                "🚨 2025년 연말정산 핵심 정리 | 핵심 정리",
+                "🚨 2025년 연말정산 5분 총정리 (12월 최신)"
+              ],
+              "subKeywords": [
+                "2025년 연말정산 기초",
+                "2025년 연말정산 개념",
+                "2025년 연말정산 예시"
+              ],
+              "tags": [
+                "2025년 연말정산",
+                "2025년 연말정산 기초",
+                "2025년 연말정산 개념",
+                "2025년 연말정산 예시",
+                "2025년 연말정산방법",
+                "2025년 연말정산정리"
+              ],
+              "tip": "🚨 즉시 발행 + 트위터/페북 공유 → 구글 빠른 색인",
+              "hookPoint": "🔍 핵심만 콕 집어서 설명"
+            },
+            "wordpress": {
+              "title": "2025년 연말정산: Complete Guide for 2025",
+              "alternatives": [
+                "🚨 2025년 연말정산: Complete Guide for 2025",
+                "🚨 2025년 연말정산 Guide (2025): Tips, Checklist & FAQ",
+                "🚨 2025년 연말정산: What to Know Before You Start",
+                "🚨 2025년 연말정산 핵심 정리 | 핵심 정리",
+                "🚨 2025년 연말정산 5분 총정리 (12월 최신)"
+              ],
+              "subKeywords": [
+                "complete guide",
+                "explained",
+                "basics"
+              ],
+              "tags": [
+                "2025년-연말정산",
+                "2025년-연말정산-tips",
+                "2025년-연말정산-guide",
+                "2025년-연말정산-2025"
+              ],
+              "tip": "🚨 Publish NOW + Submit to Google Search Console",
+              "hookPoint": "🌍 Everything you need to know"
+            },
+            "blogspot": {
+              "title": "2025년 연말정산 Explained Simply (2025)",
+              "alternatives": [
+                "🚨 2025년 연말정산 Explained Simply (2025)",
+                "🚨 2025년 연말정산 Explained (2025) - Quick Guide",
+                "🚨 2025년 연말정산: Key Facts & Tips",
+                "🚨 2025년 연말정산 핵심 정리 | 핵심 정리",
+                "🚨 2025년 연말정산 5분 총정리 (12월 최신)"
+              ],
+              "subKeywords": [
+                "simple guide",
+                "beginner",
+                "overview"
+              ],
+              "tags": [
+                "2025년-연말정산",
+                "2025년-연말정산-how-to",
+                "2025년-연말정산-best",
+                "2025년-연말정산-review"
+              ],
+              "tip": "🚨 Quick publish + Share on social media immediately",
+              "hookPoint": "📈 Quick and easy guide"
+            }
+          },
+          "expandedKeywords": {
+            "relatedGolden": [
+              "2025년 연말정산 뜻",
+              "2025년 연말정산 정리",
+              "2025년 연말정산 총정리"
+            ],
+            "longtailGolden": [
+              "2025년 연말정산 총정리",
+              "2025년 연말정산 핵심",
+              "2025년 연말정산 요약"
+            ],
+            "blueOceanGolden": [
+              "2025년 연말정산 꿀팁",
+              "2025년 연말정산 주의사항",
+              "2025년 연말정산 FAQ"
+            ]
+          },
+          "type": "🚀 타이밍키워드",
+          "category": "business",
+          "safetyLevel": "safe",
+          "safetyReason": "✅ 안전한 키워드. 신생 블로거도 작성 가능",
+          "source": "category_fallback",
+          "timestamp": "2025-12-20T05:17:10.781Z",
+          "trendAnalysis": {
+            "trendingReason": "국세청, 연말정산 혜택 관련 최근 이슈",
+            "whyNow": "최근 5개 이상의 뉴스에서 다뤄지며 이슈화 진행 중 • \"공개\" 관련 구체적 사건으로 실시간 관심 집중 • \"국세청, 연말정산 혜택 확대…자녀·주택·기부 공제 늘어\" 관련 최신 뉴스로 조기 진입 효과 기대",
+            "newsSource": "자동 분석"
+          },
+          "keywordGuide": {
+            "summary": "검색량 4,160, 문서수 62,848, 황금비율 0.07 | 🔴 진입 어려움 - 상위 블로거 독점 키워드 | 문서수 50,000개 이상 → 경쟁 치열 | 황금비율 1 미만 → 공급 과잉 | 중길이 키워드",
+            "whyItMovesNow": "국세청, 연말정산 혜택 관련 최근 이슈 / 최근 5개 이상의 뉴스에서 다뤄지며 이슈화 진행 중 • \"공개\" 관련 구체적 사건으로 실시간 관심 집중 • \"국세청, 연말정산 혜택 확대…자녀·주택·기부 공제 늘어\" 관련 최신 뉴스로 조기 진입 효과 기대",
+            "immediateTrafficPlan": [
+              "오늘 안에 바로 효과를 보는 글 구조로 작성하세요 (첫 3문단에 핵심 답 + 결론 요약).",
+              "제목/소제목에 \"2025년 연말정산\"를 자연스럽게 반복하고, 서브키워드 2~3개를 소제목으로 배치하세요.",
+              "발행 직후 30분 내 수정 1회(오탈자/이미지 추가)로 체류시간을 늘리세요.",
+              "이미지 5장 이상 + 표/체크리스트 1개를 넣어서 저장/스크랩을 유도하세요."
+            ],
+            "naverHomeExposureTips": [
+              "NOW/TODAY 키워드는 “오늘/방금/최신” 같은 신선도 단어를 제목 또는 첫 문단에 포함하세요.",
+              "첫 이미지(썸네일)는 텍스트 5~8자 + 대비 강하게(홈피드 CTR 상승).",
+              "상단 200자에 \"한 줄 요약\" + \"체크리스트\"를 넣어 저장/공유 시그널을 유도.",
+              "뉴스/이슈 키워드는 근거(출처 1~2개) + 내 경험/정리 50%로 구성(복붙 느낌 금지).",
+              "발행 후 1시간 내 댓글 유도 문장 1개 추가(반응 시그널)."
+            ]
+          },
+          "ultimateAnalysis": {
+            "timing": {
+              "seasonal": {
+                "peakMonths": [
+                  12,
+                  1,
+                  2
+                ],
+                "peakReason": "연말정산 시즌",
+                "currentSeasonScore": 100,
+                "nextPeakDate": "12월",
+                "daysUntilPeak": 711,
+                "recommendation": "🔥 지금이 피크 시즌입니다! 바로 작성하세요!",
+                "seasonalPattern": "seasonal"
+              },
+              "trend": {
+                "trendDirection": "falling",
+                "changeRate": 1,
+                "comparedTo": "전월 대비",
+                "explosiveScore": 1,
+                "relatedNews": [],
+                "recommendation": "📊 안정적인 키워드입니다."
+              },
+              "alert": {
+                "optimalPublishDate": "오늘",
+                "reason": "🔥 지금이 피크 시즌입니다! 바로 작성하세요!",
+                "urgencyLevel": "🔥 지금 당장",
+                "expectedPeakDate": "12월",
+                "competitorActivity": "경쟁자 많음"
+              }
+            },
+            "revenue": {
+              "cpc": {
+                "estimatedCpc": 100,
+                "cpcRange": {
+                  "min": 50,
+                  "max": 200
+                },
+                "cpcTier": "🥉 저수익",
+                "industryAverage": 100,
+                "recommendation": "📝 일반적인 수익 구조입니다. 트래픽 확보에 집중하세요."
+              },
+              "affiliate": {
+                "recommendedPrograms": [
+                  {
+                    "name": "쿠팡파트너스",
+                    "type": "coupang",
+                    "commissionRate": "3~5%",
+                    "estimatedEarningPerClick": 50,
+                    "matchScore": 100
+                  },
+                  {
+                    "name": "네이버 쇼핑",
+                    "type": "naver",
+                    "commissionRate": "1~3%",
+                    "estimatedEarningPerClick": 30,
+                    "matchScore": 85
+                  }
+                ],
+                "bestMatch": "쿠팡파트너스",
+                "potentialProducts": [
+                  "2025년 연말정산 추천",
+                  "2025년 연말정산 순위",
+                  "2025년 연말정산 비교",
+                  "2025년 연말정산 후기",
+                  "2025년 연말정산 가격",
+                  "2025년 연말정산 구매"
+                ]
+              },
+              "projection": {
+                "estimatedDailyVisitors": 4,
+                "estimatedMonthlyVisitors": 120,
+                "adsenseRevenue": {
+                  "daily": 12,
+                  "monthly": 360,
+                  "assumptions": "CPC 100원, CTR 2%, 페이지뷰율 1.5 가정"
+                },
+                "affiliateRevenue": {
+                  "daily": 1,
+                  "monthly": 30,
+                  "conversionRate": 3,
+                  "assumptions": "클릭률 10%, 전환율 3%, 평균 수수료 50원 가정"
+                },
+                "totalMonthlyRevenue": 390,
+                "revenueBreakdown": "애드센스 92% + 제휴 8%",
+                "revenueTier": "📝 월 1만원+"
+              }
+            },
+            "content": {
+              "titles": {
+                "titles": [
+                  {
+                    "title": "2025년 연말정산 추천 TOP 10 (2025년 최신)",
+                    "type": "number",
+                    "estimatedCTR": 8.5,
+                    "psychologyUsed": "숫자 + 최신 정보"
+                  },
+                  {
+                    "title": "2025년 연말정산 하는 법, 초보자도 쉽게 따라하기",
+                    "type": "how-to",
+                    "estimatedCTR": 7.5,
+                    "psychologyUsed": "실용성 + 접근성"
+                  },
+                  {
+                    "title": "2025년 연말정산, 이것만 알면 끝! 완벽 가이드",
+                    "type": "benefit",
+                    "estimatedCTR": 7.2,
+                    "psychologyUsed": "완결성 + 가치 제안"
+                  },
+                  {
+                    "title": "[2025년] 2025년 연말정산 총정리 (+ 꿀팁 공개)",
+                    "type": "news",
+                    "estimatedCTR": 7,
+                    "psychologyUsed": "최신성 + 보너스 가치"
+                  },
+                  {
+                    "title": "아직도 2025년 연말정산 몰라요? 지금 당장 확인하세요",
+                    "type": "curiosity",
+                    "estimatedCTR": 6.8,
+                    "psychologyUsed": "호기심 + 긴급성"
+                  },
+                  {
+                    "title": "2025년 연말정산 실제 후기 (장단점 솔직 비교)",
+                    "type": "comparison",
+                    "estimatedCTR": 6.5,
+                    "psychologyUsed": "신뢰성 + 비교 심리"
+                  }
+                ],
+                "bestTitle": "2025년 연말정산 추천 TOP 10 (2025년 최신)",
+                "titleFormula": "숫자 + 키워드 + 최신연도 + 가치제안"
+              },
+              "structure": {
+                "recommendedStructure": {
+                  "intro": {
+                    "purpose": "독자의 관심 끌기 + 키워드 자연스럽게 배치",
+                    "template": "\"2025년 연말정산\"에 대해 고민하고 계신가요? 이 글에서 핵심 정보를 모두 정리해드립니다.",
+                    "keywordPlacement": "첫 문장에 키워드 포함"
+                  },
+                  "sections": [
+                    {
+                      "heading": "2025년 연말정산란? (기본 개념)",
+                      "purpose": "기초 정보 제공",
+                      "contentGuide": "핵심 정의, 중요성, 왜 알아야 하는지 설명",
+                      "recommendedLength": 300,
+                      "keywordUsage": "소제목과 본문에 1~2회"
+                    },
+                    {
+                      "heading": "2025년 연말정산 추천 BEST 5",
+                      "purpose": "실질적인 가치 제공 (핵심 섹션)",
+                      "contentGuide": "순위별 상세 설명, 장단점, 추천 이유",
+                      "recommendedLength": 800,
+                      "keywordUsage": "각 항목 설명에 자연스럽게 포함"
+                    },
+                    {
+                      "heading": "2025년 연말정산 선택 시 주의사항",
+                      "purpose": "신뢰도 향상",
+                      "contentGuide": "흔한 실수, 피해야 할 것, 체크리스트",
+                      "recommendedLength": 400,
+                      "keywordUsage": "주의사항 설명에 1~2회"
+                    },
+                    {
+                      "heading": "자주 묻는 질문 (FAQ)",
+                      "purpose": "SEO 강화 + 체류시간 증가",
+                      "contentGuide": "실제 검색되는 질문 5개 + 명확한 답변",
+                      "recommendedLength": 500,
+                      "keywordUsage": "질문에 롱테일 키워드 활용"
+                    }
+                  ],
+                  "conclusion": {
+                    "purpose": "요약 + CTA",
+                    "template": "지금까지 2025년 연말정산에 대해 알아봤습니다. 도움이 되셨다면 공유해주세요!",
+                    "ctaRecommendation": "댓글, 공유, 관련 글 링크 유도"
+                  }
+                },
+                "seoChecklist": [
+                  {
+                    "item": "제목에 키워드 포함",
+                    "importance": "critical",
+                    "howTo": "제목 앞부분에 메인 키워드 배치"
+                  },
+                  {
+                    "item": "첫 문단에 키워드",
+                    "importance": "critical",
+                    "howTo": "첫 100자 내 키워드 자연스럽게 삽입"
+                  },
+                  {
+                    "item": "소제목 H2/H3 활용",
+                    "importance": "high",
+                    "howTo": "3~5개 소제목, 키워드 변형 사용"
+                  },
+                  {
+                    "item": "이미지 ALT 태그",
+                    "importance": "high",
+                    "howTo": "모든 이미지에 키워드 포함 설명"
+                  },
+                  {
+                    "item": "내부링크 2개 이상",
+                    "importance": "medium",
+                    "howTo": "관련 글 자연스럽게 연결"
+                  },
+                  {
+                    "item": "3000자 이상 작성",
+                    "importance": "high",
+                    "howTo": "충분한 깊이의 콘텐츠 제공"
+                  }
+                ],
+                "totalRecommendedLength": 3000,
+                "estimatedWriteTime": 90
+              },
+              "images": {
+                "mainImage": {
+                  "searchKeyword": "2025년 연말정산 대표이미지",
+                  "style": "깔끔한 인포그래픽 또는 고화질 사진",
+                  "source": [
+                    "Unsplash",
+                    "Pixabay",
+                    "직접 제작"
+                  ],
+                  "altText": "2025년 연말정산 완벽 가이드 대표 이미지"
+                },
+                "sectionImages": [
+                  {
+                    "section": "기본 개념",
+                    "searchKeyword": "2025년 연말정산 설명",
+                    "purpose": "이해 돕기",
+                    "style": "다이어그램"
+                  },
+                  {
+                    "section": "TOP 5",
+                    "searchKeyword": "2025년 연말정산 비교",
+                    "purpose": "시각적 비교",
+                    "style": "비교표"
+                  },
+                  {
+                    "section": "주의사항",
+                    "searchKeyword": "주의 아이콘",
+                    "purpose": "강조",
+                    "style": "아이콘"
+                  }
+                ],
+                "infographicIdeas": [
+                  "2025년 연말정산 선택 가이드 플로우차트",
+                  "2025년 연말정산 TOP 5 비교표",
+                  "2025년 연말정산 체크리스트"
+                ],
+                "totalRecommendedImages": 7,
+                "imageStrategy": "섹션당 1~2개, 총 7~10개 이미지로 가독성과 체류시간 향상"
+              }
+            },
+            "ultimateScore": {
+              "total": 41,
+              "breakdown": {
+                "goldenRatio": 0.6619144602851323,
+                "timing": 100,
+                "revenue": 40,
+                "competition": 40,
+                "potential": 45
+              },
+              "grade": "📝 C",
+              "verdict": "⚠️ 신중히 검토 필요",
+              "topActions": [
+                "지금 바로 글 작성 시작!",
+                "2025년 연말정산 추천 TOP 10 (2025년 최신)",
+                "3000자 이상, 7개 이미지 권장"
+              ]
+            }
+          }
+        },
+        {
+          "keyword": "연말정산 2026",
+          "searchVolume": 410,
+          "documentCount": 13183,
+          "goldenRatio": 0.03110065994083289,
+          "rookieFriendly": {
+            "score": 40,
+            "grade": "C",
+            "reason": "황금비율 1 미만 → 공급 과잉 | 중길이 키워드",
+            "canRankWithin": "2~4주 내 가능",
+            "requiredBlogIndex": "최적 1 이상 권장"
+          },
+          "timing": {
+            "score": 95,
+            "urgency": "NOW",
+            "bestPublishTime": "지금 바로 발행!",
+            "trendDirection": "peak",
+            "peakPrediction": "현재 피크 - 빠른 발행 필요"
+          },
+          "blueOcean": {
+            "score": 35,
+            "competitorStrength": "medium",
+            "avgCompetitorBlogAge": "2~5년 (보통 경쟁)",
+            "oldPostRatio": 30,
+            "opportunity": "❌ 레드오션. 다른 키워드 추천"
+          },
+          "trafficEstimate": {
+            "daily": "측정 불가",
+            "weekly": "측정 불가",
+            "monthly": "측정 불가",
+            "confidence": 62,
+            "disclaimer": "⚠️ 실제 API 데이터 기반 계산. 트래픽은 콘텐츠 품질, 순위, 시즌에 따라 달라집니다."
+          },
+          "revenueEstimate": {
+            "dailyRevenue": "측정 불가",
+            "monthlyRevenue": "측정 불가",
+            "estimatedCPC": 250,
+            "estimatedRPM": 5000,
+            "adType": "애드센스",
+            "revenueGrade": "C",
+            "revenueReason": "📊 트래픽 확보 후 수익 기대. 블로그 성장용"
+          },
+          "entryAnalysis": {
+            "canEntry": false,
+            "difficulty": "very_hard",
+            "difficultyScore": 74,
+            "message": "🔴 진입 어려움 - 상위 블로거 독점 키워드",
+            "topCompetitorStrength": "강함 (전문 블로거 다수)",
+            "recommendedBlogIndex": "상위 5% (최적 블로그) 필요",
+            "estimatedRankingTime": "3개월 이상 또는 어려움"
+          },
+          "totalScore": 67,
+          "grade": "A",
+          "proStrategy": {
+            "title": "2025 연말정산 2026 완벽 정리 | 초보자도 쉽게 이해하는 가이드",
+            "outline": [
+              "1. 연말정산 2026란? (기본 개념)",
+              "2. 연말정산 2026 핵심 포인트 3가지",
+              "3. 연말정산 2026 장단점 비교",
+              "4. 연말정산 2026 실제 후기/경험담",
+              "5. 연말정산 2026 Q&A (자주 묻는 질문)",
+              "6. 결론 및 추천"
+            ],
+            "wordCount": 1500,
+            "mustInclude": [
+              "핵심 키워드 2~3회 자연스럽게 삽입",
+              "실제 이미지/사진 3장 이상",
+              "표 또는 비교 차트 1개 이상",
+              "자주 묻는 질문(FAQ) 섹션",
+              "결론 및 추천 섹션"
+            ],
+            "avoidTopics": [
+              "과장된 표현 (100%, 무조건, 반드시)",
+              "허위 정보나 검증되지 않은 내용",
+              "다른 블로그 복사/붙여넣기",
+              "광고성 링크 과다 삽입"
+            ],
+            "monetization": "애드센스 + 쿠팡파트너스 조합 추천"
+          },
+          "platformTitles": {
+            "naver": {
+              "title": "연말정산 2026 총정리 | 핵심 정리 (12월 최신)",
+              "alternatives": [
+                "🚨 연말정산 2026 총정리 | 핵심 정리 (12월 최신)",
+                "🚨 연말정산 2026 | 네이버에서 바로 찾는 방법 (+체크리스트)",
+                "🚨 연말정산 2026 상위노출 포인트 5개 | 제목/소제목 이렇게",
+                "🚨 연말정산 2026 핵심 정리 | 핵심 정리",
+                "🚨 연말정산 2026 5분 총정리 (12월 최신)"
+              ],
+              "subKeywords": [
+                "연말정산 2026 핵심",
+                "연말정산 2026 쉽게",
+                "연말정산 2026 총정리"
+              ],
+              "tags": [
+                "연말정산 2026",
+                "연말정산 2026 핵심",
+                "연말정산 2026 쉽게",
+                "연말정산 2026 총정리",
+                "연말정산 2026 꿀팁",
+                "연말정산 2026 후기"
+              ],
+              "tip": "🚨 지금 바로 발행! 30분 내 작성 → 1시간 내 상위노출",
+              "hookPoint": "💡 복잡한 내용 쉽게 정리"
+            },
+            "tistory": {
+              "title": "[2025] 연말정산 2026 완벽 정리 - 정보가 필요할 때 핵심 정리",
+              "alternatives": [
+                "🚨 [2025] 연말정산 2026 완벽 정리 - 정보가 필요할 때 핵심 정리",
+                "🚨 [2025] 연말정산 2026 정리 - 검색 유입 늘리는 구조",
+                "🚨 연말정산 2026 SEO 글쓰기 템플릿 (H2/H3 포함)",
+                "🚨 연말정산 2026 핵심 정리 | 핵심 정리",
+                "🚨 연말정산 2026 5분 총정리 (12월 최신)"
+              ],
+              "subKeywords": [
+                "연말정산 2026 기초",
+                "연말정산 2026 개념",
+                "연말정산 2026 예시"
+              ],
+              "tags": [
+                "연말정산 2026",
+                "연말정산 2026 기초",
+                "연말정산 2026 개념",
+                "연말정산 2026 예시",
+                "연말정산 2026방법",
+                "연말정산 2026정리"
+              ],
+              "tip": "🚨 즉시 발행 + 트위터/페북 공유 → 구글 빠른 색인",
+              "hookPoint": "🔍 핵심만 콕 집어서 설명"
+            },
+            "wordpress": {
+              "title": "연말정산 2026: Complete Guide for 2025",
+              "alternatives": [
+                "🚨 연말정산 2026: Complete Guide for 2025",
+                "🚨 연말정산 2026 Guide (2025): Tips, Checklist & FAQ",
+                "🚨 연말정산 2026: What to Know Before You Start",
+                "🚨 연말정산 2026 핵심 정리 | 핵심 정리",
+                "🚨 연말정산 2026 5분 총정리 (12월 최신)"
+              ],
+              "subKeywords": [
+                "complete guide",
+                "explained",
+                "basics"
+              ],
+              "tags": [
+                "연말정산-2026",
+                "연말정산-2026-tips",
+                "연말정산-2026-guide",
+                "연말정산-2026-2025"
+              ],
+              "tip": "🚨 Publish NOW + Submit to Google Search Console",
+              "hookPoint": "🌍 Everything you need to know"
+            },
+            "blogspot": {
+              "title": "연말정산 2026 Explained Simply (2025)",
+              "alternatives": [
+                "🚨 연말정산 2026 Explained Simply (2025)",
+                "🚨 연말정산 2026 Explained (2025) - Quick Guide",
+                "🚨 연말정산 2026: Key Facts & Tips",
+                "🚨 연말정산 2026 핵심 정리 | 핵심 정리",
+                "🚨 연말정산 2026 5분 총정리 (12월 최신)"
+              ],
+              "subKeywords": [
+                "simple guide",
+                "beginner",
+                "overview"
+              ],
+              "tags": [
+                "연말정산-2026",
+                "연말정산-2026-how-to",
+                "연말정산-2026-best",
+                "연말정산-2026-review"
+              ],
+              "tip": "🚨 Quick publish + Share on social media immediately",
+              "hookPoint": "📈 Quick and easy guide"
+            }
+          },
+          "expandedKeywords": {
+            "relatedGolden": [
+              "연말정산 2026 뜻",
+              "연말정산 2026 정리",
+              "연말정산 2026 총정리"
+            ],
+            "longtailGolden": [
+              "연말정산 2026 총정리",
+              "연말정산 2026 핵심",
+              "연말정산 2026 요약"
+            ],
+            "blueOceanGolden": [
+              "연말정산 2026 꿀팁",
+              "연말정산 2026 주의사항",
+              "연말정산 2026 FAQ"
+            ]
+          },
+          "type": "🚀 타이밍키워드",
+          "category": "business",
+          "safetyLevel": "safe",
+          "safetyReason": "✅ 안전한 키워드. 신생 블로거도 작성 가능",
+          "source": "category_fallback",
+          "timestamp": "2025-12-20T05:17:10.781Z",
+          "trendAnalysis": {
+            "trendingReason": "‘이것’부터 확인 관련 최근 이슈",
+            "whyNow": "최근 5개 이상의 뉴스에서 다뤄지며 이슈화 진행 중 • \"확인\" 관련 구체적 사건으로 실시간 관심 집중 • 최신 이슈로 실시간 관심 집중 중 • \"[만나보니] “나만 못 받나?” 연말정산 ‘이것’부터 확인하세요\" 관련 최신 뉴스로 조기 진입 효과 기대",
+            "newsSource": "자동 분석"
+          },
+          "keywordGuide": {
+            "summary": "검색량 410, 문서수 13,183, 황금비율 0.03 | 🔴 진입 어려움 - 상위 블로거 독점 키워드 | 황금비율 1 미만 → 공급 과잉 | 중길이 키워드",
+            "whyItMovesNow": "‘이것’부터 확인 관련 최근 이슈 / 최근 5개 이상의 뉴스에서 다뤄지며 이슈화 진행 중 • \"확인\" 관련 구체적 사건으로 실시간 관심 집중 • 최신 이슈로 실시간 관심 집중 중 • \"[만나보니] “나만 못 받나?” 연말정산 ‘이것’부터 확인하세요\" 관련 최신 뉴스로 조기 진입 효과 기대",
+            "immediateTrafficPlan": [
+              "오늘 안에 바로 효과를 보는 글 구조로 작성하세요 (첫 3문단에 핵심 답 + 결론 요약).",
+              "제목/소제목에 \"연말정산 2026\"를 자연스럽게 반복하고, 서브키워드 2~3개를 소제목으로 배치하세요.",
+              "발행 직후 30분 내 수정 1회(오탈자/이미지 추가)로 체류시간을 늘리세요.",
+              "이미지 5장 이상 + 표/체크리스트 1개를 넣어서 저장/스크랩을 유도하세요."
+            ],
+            "naverHomeExposureTips": [
+              "NOW/TODAY 키워드는 “오늘/방금/최신” 같은 신선도 단어를 제목 또는 첫 문단에 포함하세요.",
+              "첫 이미지(썸네일)는 텍스트 5~8자 + 대비 강하게(홈피드 CTR 상승).",
+              "상단 200자에 \"한 줄 요약\" + \"체크리스트\"를 넣어 저장/공유 시그널을 유도.",
+              "뉴스/이슈 키워드는 근거(출처 1~2개) + 내 경험/정리 50%로 구성(복붙 느낌 금지).",
+              "발행 후 1시간 내 댓글 유도 문장 1개 추가(반응 시그널)."
+            ]
+          },
+          "ultimateAnalysis": {
+            "timing": {
+              "seasonal": {
+                "peakMonths": [
+                  12,
+                  1,
+                  2
+                ],
+                "peakReason": "연말정산 시즌",
+                "currentSeasonScore": 100,
+                "nextPeakDate": "12월",
+                "daysUntilPeak": 711,
+                "recommendation": "🔥 지금이 피크 시즌입니다! 바로 작성하세요!",
+                "seasonalPattern": "seasonal"
+              },
+              "trend": {
+                "trendDirection": "falling",
+                "changeRate": 0,
+                "comparedTo": "전월 대비",
+                "explosiveScore": 0,
+                "relatedNews": [],
+                "recommendation": "📊 안정적인 키워드입니다."
+              },
+              "alert": {
+                "optimalPublishDate": "���늘",
+                "reason": "🔥 지금이 피크 시즌입니다! 바로 작성하세요!",
+                "urgencyLevel": "🔥 지금 당장",
+                "expectedPeakDate": "12월",
+                "competitorActivity": "경쟁자 많음"
+              }
+            },
+            "revenue": {
+              "cpc": {
+                "estimatedCpc": 100,
+                "cpcRange": {
+                  "min": 50,
+                  "max": 200
+                },
+                "cpcTier": "🥉 저수익",
+                "industryAverage": 100,
+                "recommendation": "📝 일반적인 수익 구조입니다. 트래픽 확보에 집중하세요."
+              },
+              "affiliate": {
+                "recommendedPrograms": [
+                  {
+                    "name": "쿠팡파트너스",
+                    "type": "coupang",
+                    "commissionRate": "3~5%",
+                    "estimatedEarningPerClick": 50,
+                    "matchScore": 100
+                  },
+                  {
+                    "name": "네이버 쇼핑",
+                    "type": "naver",
+                    "commissionRate": "1~3%",
+                    "estimatedEarningPerClick": 30,
+                    "matchScore": 85
+                  }
+                ],
+                "bestMatch": "쿠팡파트너스",
+                "potentialProducts": [
+                  "연말정산 2026 추천",
+                  "연말정산 2026 순위",
+                  "연말정산 2026 비교",
+                  "연말정산 2026 후기",
+                  "연말정산 2026 가격",
+                  "연말정산 2026 구매"
+                ]
+              },
+              "projection": {
+                "estimatedDailyVisitors": 0,
+                "estimatedMonthlyVisitors": 0,
+                "adsenseRevenue": {
+                  "daily": 0,
+                  "monthly": 0,
+                  "assumptions": "CPC 100원, CTR 2%, 페이지뷰율 1.5 가정"
+                },
+                "affiliateRevenue": {
+                  "daily": 0,
+                  "monthly": 0,
+                  "conversionRate": 3,
+                  "assumptions": "클릭률 10%, 전환율 3%, 평균 수수료 50원 가정"
+                },
+                "totalMonthlyRevenue": 0,
+                "revenueBreakdown": "애드센스 NaN% + 제휴 NaN%",
+                "revenueTier": "📝 월 1만원+"
+              }
+            },
+            "content": {
+              "titles": {
+                "titles": [
+                  {
+                    "title": "연말정산 2026 추천 TOP 10 (2025년 최신)",
+                    "type": "number",
+                    "estimatedCTR": 8.5,
+                    "psychologyUsed": "숫자 + 최신 정보"
+                  },
+                  {
+                    "title": "연말정산 2026 하는 법, 초보자도 쉽게 따라하기",
+                    "type": "how-to",
+                    "estimatedCTR": 7.5,
+                    "psychologyUsed": "실용성 + 접근성"
+                  },
+                  {
+                    "title": "연말정산 2026, 이것만 알면 끝! 완벽 가이드",
+                    "type": "benefit",
+                    "estimatedCTR": 7.2,
+                    "psychologyUsed": "완결성 + 가치 제안"
+                  },
+                  {
+                    "title": "[2025년] 연말정산 2026 총정리 (+ 꿀팁 공개)",
+                    "type": "news",
+                    "estimatedCTR": 7,
+                    "psychologyUsed": "최신성 + 보너스 가치"
+                  },
+                  {
+                    "title": "아직도 연말정산 2026 몰라요? 지금 당장 확인하세요",
+                    "type": "curiosity",
+                    "estimatedCTR": 6.8,
+                    "psychologyUsed": "호기심 + 긴급성"
+                  },
+                  {
+                    "title": "연말정산 2026 실제 후기 (장단점 솔직 비교)",
+                    "type": "comparison",
+                    "estimatedCTR": 6.5,
+                    "psychologyUsed": "신뢰성 + 비교 심리"
+                  }
+                ],
+                "bestTitle": "연말정산 2026 추천 TOP 10 (2025년 최신)",
+                "titleFormula": "숫자 + 키워드 + 최신연도 + 가치제안"
+              },
+              "structure": {
+                "recommendedStructure": {
+                  "intro": {
+                    "purpose": "독자의 관심 끌기 + 키워드 자연스럽게 배치",
+                    "template": "\"연말정산 2026\"에 대해 고민하고 계신가요? 이 글에서 핵심 정보를 모두 정리해드립니다.",
+                    "keywordPlacement": "첫 문장에 키워드 포함"
+                  },
+                  "sections": [
+                    {
+                      "heading": "연말정산 2026란? (기본 개념)",
+                      "purpose": "기초 정보 제공",
+                      "contentGuide": "핵심 정의, 중요성, 왜 알아야 하는지 설명",
+                      "recommendedLength": 300,
+                      "keywordUsage": "소제목과 본문에 1~2회"
+                    },
+                    {
+                      "heading": "연말정산 2026 추천 BEST 5",
+                      "purpose": "실질적인 가치 제공 (핵심 섹션)",
+                      "contentGuide": "순위별 상세 설명, 장단점, 추천 이유",
+                      "recommendedLength": 800,
+                      "keywordUsage": "각 항목 설명에 자연스럽게 포함"
+                    },
+                    {
+                      "heading": "연말정산 2026 선택 시 주의사항",
+                      "purpose": "신뢰도 향상",
+                      "contentGuide": "흔한 실수, 피해야 할 것, 체크리스트",
+                      "recommendedLength": 400,
+                      "keywordUsage": "주의사항 설명에 1~2회"
+                    },
+                    {
+                      "heading": "자주 묻는 질문 (FAQ)",
+                      "purpose": "SEO 강화 + 체류시간 증가",
+                      "contentGuide": "실제 검색되는 질문 5개 + 명확한 답변",
+                      "recommendedLength": 500,
+                      "keywordUsage": "질문에 롱테일 키워드 활용"
+                    }
+                  ],
+                  "conclusion": {
+                    "purpose": "요약 + CTA",
+                    "template": "지금까지 연말정산 2026에 대해 알아봤습니다. 도움이 되셨다면 공유해주세요!",
+                    "ctaRecommendation": "댓글, 공유, 관련 글 링크 유도"
+                  }
+                },
+                "seoChecklist": [
+                  {
+                    "item": "제목에 키워드 포함",
+                    "importance": "critical",
+                    "howTo": "제목 앞부분에 메인 키워드 배치"
+                  },
+                  {
+                    "item": "첫 문단에 키워드",
+                    "importance": "critical",
+                    "howTo": "첫 100자 내 키워드 자연스럽게 삽입"
+                  },
+                  {
+                    "item": "소제목 H2/H3 활용",
+                    "importance": "high",
+                    "howTo": "3~5개 소제목, 키워드 변형 사용"
+                  },
+                  {
+                    "item": "이미지 ALT 태그",
+                    "importance": "high",
+                    "howTo": "모든 이미지에 키워드 포함 설명"
+                  },
+                  {
+                    "item": "내부링크 2개 이상",
+                    "importance": "medium",
+                    "howTo": "관련 글 자연스럽게 연결"
+                  },
+                  {
+                    "item": "3000자 이상 작성",
+                    "importance": "high",
+                    "howTo": "충분한 깊이의 콘텐츠 제공"
+                  }
+                ],
+                "totalRecommendedLength": 3000,
+                "estimatedWriteTime": 90
+              },
+              "images": {
+                "mainImage": {
+                  "searchKeyword": "연말정산 2026 대표이미지",
+                  "style": "깔끔한 인포그래픽 또는 고화질 사진",
+                  "source": [
+                    "Unsplash",
+                    "Pixabay",
+                    "직접 제작"
+                  ],
+                  "altText": "연말정산 2026 완벽 가이드 대표 이미지"
+                },
+                "sectionImages": [
+                  {
+                    "section": "기본 개념",
+                    "searchKeyword": "연말정산 2026 설명",
+                    "purpose": "이해 돕기",
+                    "style": "다이어그램"
+                  },
+                  {
+                    "section": "TOP 5",
+                    "searchKeyword": "연말정산 2026 비교",
+                    "purpose": "시각적 비교",
+                    "style": "비교표"
+                  },
+                  {
+                    "section": "주의사항",
+                    "searchKeyword": "주의 아이콘",
+                    "purpose": "강조",
+                    "style": "아이콘"
+                  }
+                ],
+                "infographicIdeas": [
+                  "연말정산 2026 선택 가이드 플로우차트",
+                  "연말정산 2026 TOP 5 비교표",
+                  "연말정산 2026 체크리스트"
+                ],
+                "totalRecommendedImages": 7,
+                "imageStrategy": "섹션당 1~2개, 총 7~10개 이미지로 가독성과 체류시간 향상"
+              }
+            },
+            "ultimateScore": {
+              "total": 41,
+              "breakdown": {
+                "goldenRatio": 0.3110065994083289,
+                "timing": 100,
+                "revenue": 40,
+                "competition": 40,
+                "potential": 45
+              },
+              "grade": "📝 C",
+              "verdict": "⚠️ 신중히 검토 필요",
+              "topActions": [
+                "지금 바로 글 작성 시작!",
+                "연말정산 2026 추천 TOP 10 (2025년 최신)",
+                "3000자 이상, 7개 이미지 권장"
+              ]
+            }
+          }
+        },
+        {
+          "keyword": "연말정산 2025",
+          "searchVolume": 730,
+          "documentCount": 72612,
+          "goldenRatio": 0.010053434693989975,
+          "rookieFriendly": {
+            "score": 20,
+            "grade": "D",
+            "reason": "문서수 50,000개 이상 → 경쟁 치열 | 황금비율 1 미만 → 공급 과잉 | 중길이 키워드",
+            "canRankWithin": "1개월 이상 소요 예상",
+            "requiredBlogIndex": "최적 1 이상 권장"
+          },
+          "timing": {
+            "score": 100,
+            "urgency": "NOW",
+            "bestPublishTime": "지금 바로 발행!",
+            "trendDirection": "peak",
+            "peakPrediction": "현재 피크 - 빠른 발행 필요"
+          },
+          "blueOcean": {
+            "score": 15,
+            "competitorStrength": "strong",
+            "avgCompetitorBlogAge": "5년 이상 (강한 경쟁)",
+            "oldPostRatio": 30,
+            "opportunity": "❌ 레드오션. 다른 키워드 추천"
+          },
+          "trafficEstimate": {
+            "daily": "측정 불가",
+            "weekly": "측정 불가",
+            "monthly": "측정 불가",
+            "confidence": 56,
+            "disclaimer": "⚠️ 실제 API 데이터 기반 계산. 트래픽은 콘텐츠 품질, 순위, 시즌에 따라 달라집니다."
+          },
+          "revenueEstimate": {
+            "dailyRevenue": "3~8원",
+            "monthlyRevenue": "90~240원",
+            "estimatedCPC": 250,
+            "estimatedRPM": 5000,
+            "adType": "애드센스",
+            "revenueGrade": "C",
+            "revenueReason": "📊 트래픽 확보 후 수익 기대. 블로그 성장용"
+          },
+          "entryAnalysis": {
+            "canEntry": false,
+            "difficulty": "very_hard",
+            "difficultyScore": 100,
+            "message": "🔴 진입 어려움 - 상위 블로거 독점 키워드",
+            "topCompetitorStrength": "매우 강함 (최적 블로거 독점)",
+            "recommendedBlogIndex": "상위 5% (최적 블로그) 필요",
+            "estimatedRankingTime": "3개월 이상 또는 어려움"
+          },
+          "totalScore": 59,
+          "grade": "A",
+          "proStrategy": {
+            "title": "연말정산 2025 완벽 정리 | 초보자도 쉽게 이해하는 가이드",
+            "outline": [
+              "1. 연말정산 2025란? (기본 개념)",
+              "2. 연말정산 2025 핵심 포인트 3가지",
+              "3. 연말정산 2025 장단점 비교",
+              "4. 연말정산 2025 실제 후기/경험담",
+              "5. 연말정산 2025 Q&A (자주 묻는 질문)",
+              "6. 결론 및 추천"
+            ],
+            "wordCount": 1500,
+            "mustInclude": [
+              "핵심 키워드 2~3회 자연스럽게 삽입",
+              "실제 이미지/사진 3장 이상",
+              "표 또는 비교 차트 1개 이상",
+              "자주 묻는 질문(FAQ) 섹션",
+              "결론 및 추천 섹션"
+            ],
+            "avoidTopics": [
+              "과장된 표현 (100%, 무조건, 반드시)",
+              "허위 정보나 검증되지 않은 내용",
+              "다른 블로그 복사/붙여넣기",
+              "광고성 링크 과다 삽입"
+            ],
+            "monetization": "애드센스 + 쿠팡파트너스 조합 추천"
+          },
+          "platformTitles": {
+            "naver": {
+              "title": "연말정산 2025 총정리 | 핵심 정리 (12월 최신)",
+              "alternatives": [
+                "🚨 연말정산 2025 총정리 | 핵심 정리 (12월 최신)",
+                "🚨 연말정산 2025 | 네이버에서 바로 찾는 방법 (+체크리스트)",
+                "🚨 연말정산 2025 상위노출 포인트 5개 | 제목/소제목 이렇게",
+                "🚨 연말정산 2025 핵심 정리 | 핵심 정리",
+                "🚨 연말정산 2025 5분 총정리 (12월 최신)"
+              ],
+              "subKeywords": [
+                "연말정산 2025 핵심",
+                "연말정산 2025 쉽게",
+                "연말정산 2025 총정리"
+              ],
+              "tags": [
+                "연말정산 2025",
+                "연말정산 2025 핵심",
+                "연말정산 2025 쉽게",
+                "연말정산 2025 총정리",
+                "연말정산 2025 꿀팁",
+                "연말정산 2025 후기"
+              ],
+              "tip": "🚨 지금 바로 발행! 30분 내 작성 → 1시간 내 상위노출",
+              "hookPoint": "💡 복잡한 내용 쉽게 정리"
+            },
+            "tistory": {
+              "title": "[2025] 연말정산 2025 완벽 정리 - 정보가 필요할 때 핵심 정리",
+              "alternatives": [
+                "🚨 [2025] 연말정산 2025 완벽 정리 - 정보가 필요할 때 핵심 정리",
+                "🚨 [2025] 연말정산 2025 정리 - 검색 유입 늘리는 구조",
+                "🚨 연말정산 2025 SEO 글쓰기 템플릿 (H2/H3 포함)",
+                "🚨 연말정산 2025 핵심 정리 | 핵심 정리",
+                "🚨 연말정산 2025 5분 총정리 (12월 최신)"
+              ],
+              "subKeywords": [
+                "연말정산 2025 기초",
+                "연말정산 2025 개념",
+                "연말정산 2025 예시"
+              ],
+              "tags": [
+                "연말정산 2025",
+                "연말정산 2025 기초",
+                "연말정산 2025 개념",
+                "연말정산 2025 예시",
+                "연말정산 2025방법",
+                "연말정산 2025정리"
+              ],
+              "tip": "🚨 즉시 발행 + 트위터/페북 공유 → 구글 빠른 색인",
+              "hookPoint": "🔍 핵심만 콕 집어서 설명"
+            },
+            "wordpress": {
+              "title": "연말정산 2025: Complete Guide for 2025",
+              "alternatives": [
+                "🚨 연말정산 2025: Complete Guide for 2025",
+                "🚨 연말정산 2025 Guide (2025): Tips, Checklist & FAQ",
+                "🚨 연말정산 2025: What to Know Before You Start",
+                "🚨 연말정산 2025 핵심 정리 | 핵심 정리",
+                "🚨 연말정산 2025 5분 총정리 (12월 최신)"
+              ],
+              "subKeywords": [
+                "complete guide",
+                "explained",
+                "basics"
+              ],
+              "tags": [
+                "연말정산-2025",
+                "연말정산-2025-tips",
+                "연말정산-2025-guide",
+                "연말정산-2025-2025"
+              ],
+              "tip": "🚨 Publish NOW + Submit to Google Search Console",
+              "hookPoint": "🌍 Everything you need to know"
+            },
+            "blogspot": {
+              "title": "연말정산 2025 Explained Simply (2025)",
+              "alternatives": [
+                "🚨 연말정산 2025 Explained Simply (2025)",
+                "🚨 연말정산 2025 Explained (2025) - Quick Guide",
+                "🚨 연말정산 2025: Key Facts & Tips",
+                "🚨 연말정산 2025 핵심 정리 | 핵심 정리",
+                "🚨 연말정산 2025 5분 총정리 (12월 최신)"
+              ],
+              "subKeywords": [
+                "simple guide",
+                "beginner",
+                "overview"
+              ],
+              "tags": [
+                "연말정산-2025",
+                "연말정산-2025-how-to",
+                "연말정산-2025-best",
+                "연말정산-2025-review"
+              ],
+              "tip": "🚨 Quick publish + Share on social media immediately",
+              "hookPoint": "📈 Quick and easy guide"
+            }
+          },
+          "expandedKeywords": {
+            "relatedGolden": [
+              "연말정산 2025 뜻",
+              "연말정산 2025 정리",
+              "연말정산 2025 총정리"
+            ],
+            "longtailGolden": [
+              "연말정산 2025 총정리",
+              "연말정산 2025 핵심",
+              "연말정산 2025 요약"
+            ],
+            "blueOceanGolden": [
+              "연말정산 2025 꿀팁",
+              "연말정산 2025 주의사항",
+              "연말정산 2025 FAQ"
+            ]
+          },
+          "type": "🚀 타이밍키워드",
+          "category": "business",
+          "safetyLevel": "safe",
+          "safetyReason": "✅ 안전한 키워드. 신생 블로거도 작성 가능",
+          "source": "category_fallback",
+          "timestamp": "2025-12-20T05:17:10.781Z",
+          "trendAnalysis": {
+            "trendingReason": "국세청, 연말정산 혜택 관련 최근 이슈",
+            "whyNow": "최근 5개 이상의 뉴스에서 다뤄지며 이슈화 진행 중 • \"공개\" 관련 구체적 사건으로 실시간 관심 집중 • \"국세청, 연말정산 혜택 확대…자녀·주택·기부 공제 늘어\" 관련 최신 뉴스로 조기 진입 효과 기대",
+            "newsSource": "자동 분석"
+          },
+          "keywordGuide": {
+            "summary": "검색량 730, 문서수 72,612, 황금비율 0.01 | 🔴 진입 어려움 - 상위 블로거 독점 키워드 | 문서수 50,000개 이상 → 경쟁 치열 | 황금비율 1 미만 → 공급 과잉 | 중길이 키워드",
+            "whyItMovesNow": "국세청, 연말정산 혜택 관련 최근 이슈 / 최근 5개 이상의 뉴스에서 다뤄지며 이슈화 진행 중 • \"공개\" 관련 구체적 사건으로 실시간 관심 집중 • \"국세청, 연말정산 혜택 확대…자녀·주택·기부 공제 늘어\" 관련 최신 뉴스로 조기 진입 효과 기대",
+            "immediateTrafficPlan": [
+              "오늘 안에 바로 효과를 보는 글 구조로 작성하세요 (첫 3문단에 핵심 답 + 결론 요약).",
+              "제목/소제목에 \"연말정산 2025\"를 자연스럽게 반복하고, 서브키워드 2~3개를 소제목으로 배치하세요.",
+              "발행 직후 30분 내 수정 1회(오탈자/이미지 추가)로 체류시간을 늘리세요.",
+              "이미지 5장 이상 + 표/체크리스트 1개를 넣어서 저장/스크랩을 유도하세요."
+            ],
+            "naverHomeExposureTips": [
+              "NOW/TODAY 키워드는 “오늘/방금/최신” 같은 신선도 단어를 제목 또는 첫 문단에 포함하세요.",
+              "첫 이미지(썸네일)는 텍스트 5~8자 + 대비 강하게(홈피드 CTR 상승).",
+              "상단 200자에 \"한 줄 요약\" + \"체크리스트\"를 넣어 저장/공유 시그널을 유도.",
+              "뉴스/이슈 키워드는 근거(출처 1~2개) + 내 경험/정리 50%로 구성(복붙 느낌 금지).",
+              "발행 후 1시간 내 댓글 유도 문장 1개 추가(반응 시그널)."
+            ]
+          },
+          "ultimateAnalysis": {
+            "timing": {
+              "seasonal": {
+                "peakMonths": [
+                  12,
+                  1,
+                  2
+                ],
+                "peakReason": "연말정산 시즌",
+                "currentSeasonScore": 100,
+                "nextPeakDate": "12월",
+                "daysUntilPeak": 711,
+                "recommendation": "🔥 지금이 피크 시즌입니다! 바로 작성하세요!",
+                "seasonalPattern": "seasonal"
+              },
+              "trend": {
+                "trendDirection": "falling",
+                "changeRate": 0,
+                "comparedTo": "전월 대비",
+                "explosiveScore": 0,
+                "relatedNews": [],
+                "recommendation": "📊 안정적인 키워드입니다."
+              },
+              "alert": {
+                "optimalPublishDate": "오늘",
+                "reason": "🔥 지금이 피크 시즌입니다! 바로 작성하세요!",
+                "urgencyLevel": "🔥 지금 당장",
+                "expectedPeakDate": "12월",
+                "competitorActivity": "경쟁자 많음"
+              }
+            },
+            "revenue": {
+              "cpc": {
+                "estimatedCpc": 100,
+                "cpcRange": {
+                  "min": 50,
+                  "max": 200
+                },
+                "cpcTier": "🥉 저수익",
+                "industryAverage": 100,
+                "recommendation": "📝 일반적인 수익 구조입니다. 트래픽 확보에 집중하세요."
+              },
+              "affiliate": {
+                "recommendedPrograms": [
+                  {
+                    "name": "쿠팡파트너스",
+                    "type": "coupang",
+                    "commissionRate": "3~5%",
+                    "estimatedEarningPerClick": 50,
+                    "matchScore": 100
+                  },
+                  {
+                    "name": "네이버 쇼핑",
+                    "type": "naver",
+                    "commissionRate": "1~3%",
+                    "estimatedEarningPerClick": 30,
+                    "matchScore": 85
+                  }
+                ],
+                "bestMatch": "쿠팡파트너스",
+                "potentialProducts": [
+                  "연말정산 2025 추천",
+                  "연말정산 2025 순위",
+                  "연말정산 2025 비교",
+                  "연말정산 2025 후기",
+                  "연말정산 2025 가격",
+                  "연말정산 2025 구매"
+                ]
+              },
+              "projection": {
+                "estimatedDailyVisitors": 1,
+                "estimatedMonthlyVisitors": 30,
+                "adsenseRevenue": {
+                  "daily": 3,
+                  "monthly": 90,
+                  "assumptions": "CPC 100원, CTR 2%, 페이지뷰율 1.5 가정"
+                },
+                "affiliateRevenue": {
+                  "daily": 0,
+                  "monthly": 0,
+                  "conversionRate": 3,
+                  "assumptions": "클릭률 10%, 전환율 3%, 평균 수수료 50원 가정"
+                },
+                "totalMonthlyRevenue": 90,
+                "revenueBreakdown": "애드센스 100% + 제휴 0%",
+                "revenueTier": "📝 월 1만원+"
+              }
+            },
+            "content": {
+              "titles": {
+                "titles": [
+                  {
+                    "title": "연말정산 2025 추천 TOP 10 (2025년 최신)",
+                    "type": "number",
+                    "estimatedCTR": 8.5,
+                    "psychologyUsed": "숫자 + 최신 정보"
+                  },
+                  {
+                    "title": "연말정산 2025 하는 법, 초보자도 쉽게 따라하기",
+                    "type": "how-to",
+                    "estimatedCTR": 7.5,
+                    "psychologyUsed": "실용성 + 접근성"
+                  },
+                  {
+                    "title": "연말정산 2025, 이것만 알면 끝! 완벽 가이드",
+                    "type": "benefit",
+                    "estimatedCTR": 7.2,
+                    "psychologyUsed": "완결성 + 가치 제안"
+                  },
+                  {
+                    "title": "[2025년] 연말정산 2025 총정리 (+ 꿀팁 공개)",
+                    "type": "news",
+                    "estimatedCTR": 7,
+                    "psychologyUsed": "최신성 + 보너스 가치"
+                  },
+                  {
+                    "title": "아직도 연말정산 2025 몰라요? 지금 당장 확인하세요",
+                    "type": "curiosity",
+                    "estimatedCTR": 6.8,
+                    "psychologyUsed": "호기심 + 긴급성"
+                  },
+                  {
+                    "title": "연말정산 2025 실제 후기 (장단점 솔직 비교)",
+                    "type": "comparison",
+                    "estimatedCTR": 6.5,
+                    "psychologyUsed": "신뢰성 + 비교 심리"
+                  }
+                ],
+                "bestTitle": "연말정산 2025 추천 TOP 10 (2025년 최신)",
+                "titleFormula": "숫자 + 키워드 + 최신연도 + 가치제안"
+              },
+              "structure": {
+                "recommendedStructure": {
+                  "intro": {
+                    "purpose": "독자의 관심 끌기 + 키워드 자연스럽게 배치",
+                    "template": "\"연말정산 2025\"에 대해 고민하고 계신가요? 이 글에서 핵심 정보를 모두 정리해드립니다.",
+                    "keywordPlacement": "첫 문장에 키워드 포함"
+                  },
+                  "sections": [
+                    {
+                      "heading": "연말정산 2025란? (기본 개념)",
+                      "purpose": "기초 정보 제공",
+                      "contentGuide": "핵심 정의, 중요성, 왜 알아야 하는지 설명",
+                      "recommendedLength": 300,
+                      "keywordUsage": "소제목과 본문에 1~2회"
+                    },
+                    {
+                      "heading": "연말정산 2025 추천 BEST 5",
+                      "purpose": "실질적인 가치 제공 (핵심 섹션)",
+                      "contentGuide": "순위별 상세 설명, 장단점, 추천 이유",
+                      "recommendedLength": 800,
+                      "keywordUsage": "각 항목 설명에 자연스럽게 포함"
+                    },
+                    {
+                      "heading": "연말정산 2025 선택 시 주의사항",
+                      "purpose": "신뢰도 향상",
+                      "contentGuide": "흔한 실수, 피해야 할 것, 체크리스트",
+                      "recommendedLength": 400,
+                      "keywordUsage": "주의사항 설명에 1~2회"
+                    },
+                    {
+                      "heading": "자주 묻는 질문 (FAQ)",
+                      "purpose": "SEO 강화 + 체류시간 증가",
+                      "contentGuide": "실제 검색되는 질문 5개 + 명확한 답변",
+                      "recommendedLength": 500,
+                      "keywordUsage": "질문에 롱테일 키워드 활용"
+                    }
+                  ],
+                  "conclusion": {
+                    "purpose": "요약 + CTA",
+                    "template": "지금까지 연말정산 2025에 대해 알아봤습니다. 도움이 되셨다면 공유해주세요!",
+                    "ctaRecommendation": "댓글, 공유, 관련 글 링크 유도"
+                  }
+                },
+                "seoChecklist": [
+                  {
+                    "item": "제목에 키워드 포함",
+                    "importance": "critical",
+                    "howTo": "제목 앞부분에 메인 키워드 배치"
+                  },
+                  {
+                    "item": "첫 문단에 키워드",
+                    "importance": "critical",
+                    "howTo": "첫 100자 내 키워드 자연스럽게 삽입"
+                  },
+                  {
+                    "item": "소제목 H2/H3 활용",
+                    "importance": "high",
+                    "howTo": "3~5개 소제목, 키워드 변형 사용"
+                  },
+                  {
+                    "item": "이미지 ALT 태그",
+                    "importance": "high",
+                    "howTo": "모든 이미지에 키워드 포함 설명"
+                  },
+                  {
+                    "item": "내부링크 2개 이상",
+                    "importance": "medium",
+                    "howTo": "관련 글 자연스럽게 연결"
+                  },
+                  {
+                    "item": "3000자 이상 작성",
+                    "importance": "high",
+                    "howTo": "충분한 깊이의 콘텐츠 제공"
+                  }
+                ],
+                "totalRecommendedLength": 3000,
+                "estimatedWriteTime": 90
+              },
+              "images": {
+                "mainImage": {
+                  "searchKeyword": "연말정산 2025 대표이미지",
+                  "style": "깔끔한 인포그래픽 또는 고화질 사진",
+                  "source": [
+                    "Unsplash",
+                    "Pixabay",
+                    "직접 제작"
+                  ],
+                  "altText": "연말정산 2025 완벽 가이드 대표 이미지"
+                },
+                "sectionImages": [
+                  {
+                    "section": "기본 개념",
+                    "searchKeyword": "연말정산 2025 설명",
+                    "purpose": "이해 돕기",
+                    "style": "다이어그램"
+                  },
+                  {
+                    "section": "TOP 5",
+                    "searchKeyword": "연말정산 2025 비교",
+                    "purpose": "시각적 비교",
+                    "style": "비교표"
+                  },
+                  {
+                    "section": "주의사항",
+                    "searchKeyword": "주의 아이콘",
+                    "purpose": "강조",
+                    "style": "아이콘"
+                  }
+                ],
+                "infographicIdeas": [
+                  "연말정산 2025 선택 가이드 플로우차트",
+                  "연말정산 2025 TOP 5 비교표",
+                  "연말정산 2025 체크리스트"
+                ],
+                "totalRecommendedImages": 7,
+                "imageStrategy": "섹션당 1~2개, 총 7~10개 이미지로 가독성과 체류시간 향상"
+              }
+            },
+            "ultimateScore": {
+              "total": 41,
+              "breakdown": {
+                "goldenRatio": 0.10053434693989975,
+                "timing": 100,
+                "revenue": 40,
+                "competition": 40,
+                "potential": 45
+              },
+              "grade": "📝 C",
+              "verdict": "⚠️ 신중히 검토 필요",
+              "topActions": [
+                "지금 바로 글 작성 시작!",
+                "연말정산 2025 추천 TOP 10 (2025년 최신)",
+                "3000자 이상, 7개 이미지 권장"
+              ]
+            }
+          }
+        }
+      ],
+      "attempts": 1,
+      "durationMs": 45462
+    },
+    {
+      "success": false,
+      "category": "health",
+      "mode": "realtime",
+      "explosionMode": true,
+      "count": 20,
+      "error": "timeout",
+      "attempts": 1,
+      "durationMs": 90019
+    }
+  ]
+}

@@ -1,0 +1,576 @@
+{
+  "generatedAt": "2025-12-25T08:57:51.421Z",
+  "mode": "category",
+  "explosionMode": true,
+  "count": 5,
+  "timeoutMs": 240000,
+  "retries": 0,
+  "results": [
+    {
+      "success": true,
+      "category": "book",
+      "runIndex": 1,
+      "mode": "category",
+      "explosionMode": true,
+      "count": 5,
+      "summary": {
+        "totalFound": 1,
+        "sssCount": 0,
+        "ssCount": 0,
+        "sCount": 1,
+        "rookieFriendlyCount": 0,
+        "urgentCount": 0,
+        "blueOceanCount": 0,
+        "explosionFunnel": {
+          "candidates": 57,
+          "verified": 57,
+          "gradeOk": 1,
+          "ratioOk": 1,
+          "docOk": 45,
+          "svOk": 38,
+          "strictOk": 1,
+          "minSv": 30,
+          "internalMetrics": {
+            "seedCount": 139,
+            "allKeywordsCount": 1281,
+            "profitableCount": 73,
+            "uniqueKeywordsCount": 73,
+            "sortedResultsCount": 72,
+            "verifiedResultsCount": 30,
+            "searchAdEnabled": true,
+            "searchAdAdded": 275,
+            "autocompleteAdded": 874
+          },
+          "topByExplosion": [
+            "박정민 추천 책 | grade=S gr=0.5471014492753623 sv=6040 dc=11040 src=추천(0) ex=65",
+            "밀리의서재 요금제 | grade=B gr=0.2223748151278259 sv=4210 dc=18932 src=seed(0) ex=65",
+            "청년정책사용설명서 | grade=B gr=0.09216589861751152 sv=260 dc=2821 src=청년정책(0) ex=72",
+            "리디북스 구독 | grade=B gr=0.08737316798196167 sv=620 dc=7096 src=seed(0) ex=58",
+            "울산청년정책플랫폼 | grade=B gr=0.05325923353016093 sv=460 dc=8637 src=시즌(10) ex=87"
+          ]
+        }
+      },
+      "keywords": [
+        {
+          "keyword": "박정민 추천 책",
+          "grade": "S",
+          "searchVolume": 6040,
+          "documentCount": 11040,
+          "goldenRatio": 0.5471014492753623,
+          "source": "추천"
+        }
+      ],
+      "attempts": 1,
+      "durationMs": 101939
+    },
+    {
+      "success": true,
+      "category": "movie",
+      "runIndex": 1,
+      "mode": "category",
+      "explosionMode": true,
+      "count": 5,
+      "summary": {
+        "totalFound": 3,
+        "sssCount": 0,
+        "ssCount": 0,
+        "sCount": 3,
+        "rookieFriendlyCount": 0,
+        "urgentCount": 0,
+        "blueOceanCount": 0,
+        "explosionFunnel": {
+          "candidates": 131,
+          "verified": 131,
+          "gradeOk": 3,
+          "ratioOk": 4,
+          "docOk": 110,
+          "svOk": 85,
+          "strictOk": 3,
+          "minSv": 30,
+          "internalMetrics": {
+            "seedCount": 139,
+            "allKeywordsCount": 1801,
+            "profitableCount": 151,
+            "uniqueKeywordsCount": 151,
+            "sortedResultsCount": 150,
+            "verifiedResultsCount": 62,
+            "searchAdEnabled": true,
+            "searchAdAdded": 744,
+            "autocompleteAdded": 935
+          },
+          "topByExplosion": [
+            "티빙 요금제 | grade=A gr=2.602922384576921 sv=93700 dc=35998 src=seed(0) ex=65",
+            "웨이브 요금제 | grade=A gr=0.4979299962363568 sv=13230 dc=26570 src=seed(0) ex=65",
+            "롯데시네마 할인권 등록 안됨 | grade=A gr=0.37735849056603776 sv=20 dc=53 src=롯데시네마 할인(0) ex=40",
+            "롯데시네마 할인받는법 | grade=A gr=0.34220532319391633 sv=990 dc=2893 src=롯데시네마 할인(0) ex=58",
+            "티빙 구독 해지 | grade=B gr=0.2449917060099528 sv=1920 dc=7837 src=티빙 구독(0) ex=65"
+          ]
+        }
+      },
+      "keywords": [
+        {
+          "keyword": "티빙 요금제",
+          "grade": "S",
+          "searchVolume": 93700,
+          "documentCount": 35998,
+          "goldenRatio": 2.602922384576921,
+          "source": "seed"
+        },
+        {
+          "keyword": "웨이브 요금제",
+          "grade": "S",
+          "searchVolume": 13230,
+          "documentCount": 26570,
+          "goldenRatio": 0.4979299962363568,
+          "source": "seed"
+        },
+        {
+          "keyword": "롯데시네마 할인받는법",
+          "grade": "S",
+          "searchVolume": 990,
+          "documentCount": 2893,
+          "goldenRatio": 0.34220532319391633,
+          "source": "롯데시네마 할인"
+        }
+      ],
+      "attempts": 1,
+      "durationMs": 166924
+    },
+    {
+      "success": true,
+      "category": "music",
+      "runIndex": 1,
+      "mode": "category",
+      "explosionMode": true,
+      "count": 5,
+      "summary": {
+        "totalFound": 2,
+        "sssCount": 1,
+        "ssCount": 1,
+        "sCount": 0,
+        "rookieFriendlyCount": 0,
+        "urgentCount": 0,
+        "blueOceanCount": 1,
+        "explosionFunnel": {
+          "candidates": 20,
+          "verified": 20,
+          "gradeOk": 2,
+          "ratioOk": 2,
+          "docOk": 17,
+          "svOk": 16,
+          "strictOk": 2,
+          "minSv": 30,
+          "internalMetrics": {
+            "seedCount": 137,
+            "allKeywordsCount": 1396,
+            "profitableCount": 30,
+            "uniqueKeywordsCount": 30,
+            "sortedResultsCount": 30,
+            "verifiedResultsCount": 13,
+            "searchAdEnabled": true,
+            "searchAdAdded": 448,
+            "autocompleteAdded": 823
+          },
+          "topByExplosion": [
+            "스포티파이 요금제 | grade=SSS gr=2.2001511389398685 sv=20380 dc=9263 src=seed(0) ex=65",
+            "멜론 이용권 | grade=SS gr=1.0451509484370824 sv=19560 dc=18715 src=seed(0) ex=65",
+            "지니프레쉬 | grade=B gr=0.23255813953488372 sv=840 dc=3612 src=차이(0) ex=58",
+            "유튜브뮤직 가격 | grade=B gr=0.22787543868006924 sv=14350 dc=62973 src=seed(0) ex=65",
+            "멜론 이용권 할인 | grade=B gr=0.19036462146727193 sv=1300 dc=6829 src=seed(0) ex=65"
+          ]
+        }
+      },
+      "keywords": [
+        {
+          "keyword": "스포티파이 요금제",
+          "grade": "SSS",
+          "searchVolume": 20380,
+          "documentCount": 9263,
+          "goldenRatio": 2.2001511389398685,
+          "source": "seed"
+        },
+        {
+          "keyword": "멜론 이용권",
+          "grade": "SS",
+          "searchVolume": 19560,
+          "documentCount": 18715,
+          "goldenRatio": 1.0451509484370824,
+          "source": "seed"
+        }
+      ],
+      "attempts": 1,
+      "durationMs": 58435
+    },
+    {
+      "success": false,
+      "category": "drama",
+      "runIndex": 1,
+      "mode": "category",
+      "explosionMode": true,
+      "count": 5,
+      "summary": {
+        "totalFound": 0,
+        "sssCount": 0,
+        "ssCount": 0,
+        "sCount": 0,
+        "rookieFriendlyCount": 0,
+        "urgentCount": 0,
+        "blueOceanCount": 0,
+        "explosionFunnel": {
+          "candidates": 6,
+          "verified": 6,
+          "gradeOk": 0,
+          "ratioOk": 0,
+          "docOk": 3,
+          "svOk": 3,
+          "strictOk": 0,
+          "minSv": 30,
+          "internalMetrics": {
+            "seedCount": 138,
+            "allKeywordsCount": 1328,
+            "profitableCount": 11,
+            "uniqueKeywordsCount": 11,
+            "sortedResultsCount": 11,
+            "verifiedResultsCount": 1,
+            "searchAdEnabled": true,
+            "searchAdAdded": 340,
+            "autocompleteAdded": 857
+          },
+          "topByExplosion": [
+            "드라마 방법 결말 | grade=B gr=0.00166685187243027 sv=150 dc=89990 src=방법(0) ex=46",
+            "방법 드라마 시즌2 | grade=B gr=0.0012812299807815502 sv=50 dc=39025 src=방법(0) ex=40",
+            "방법 드라마 결말 | grade=C gr=0.0006667481581082133 sv=60 dc=89989 src=방법(0) ex=40",
+            "다시보기 결제 | grade=C gr=0.0004949759936643072 sv=20 dc=40406 src=seed(0) ex=40",
+            "방법 드라마 시청률 | grade=B gr=0.00041889203057911826 sv=20 dc=47745 src=방법(0) ex=40"
+          ]
+        }
+      },
+      "keywords": [],
+      "attempts": 1,
+      "durationMs": 45215
+    },
+    {
+      "success": true,
+      "category": "anime",
+      "runIndex": 1,
+      "mode": "category",
+      "explosionMode": true,
+      "count": 5,
+      "summary": {
+        "totalFound": 5,
+        "sssCount": 0,
+        "ssCount": 2,
+        "sCount": 3,
+        "rookieFriendlyCount": 4,
+        "urgentCount": 0,
+        "blueOceanCount": 0,
+        "explosionFunnel": {
+          "candidates": 38,
+          "verified": 38,
+          "gradeOk": 6,
+          "ratioOk": 6,
+          "docOk": 32,
+          "svOk": 14,
+          "strictOk": 5,
+          "minSv": 500,
+          "internalMetrics": {
+            "seedCount": 137,
+            "allKeywordsCount": 1224,
+            "profitableCount": 40,
+            "uniqueKeywordsCount": 40,
+            "sortedResultsCount": 40,
+            "verifiedResultsCount": 23,
+            "searchAdEnabled": true,
+            "searchAdAdded": 415,
+            "autocompleteAdded": 684
+          },
+          "topByExplosion": [
+            "꾸금 웹툰 추천 | grade=S gr=0.8522212148685403 sv=940 dc=1103 src=웹툰 추천(0) ex=58",
+            "무협 웹툰 추천 | grade=S gr=0.694338905775076 sv=7310 dc=10528 src=웹툰 추천(0) ex=65",
+            "무협 웹툰 추천 티어 | grade=A gr=0.45454545454545453 sv=40 dc=88 src=웹툰 추천(0) ex=40",
+            "비엘 웹툰 추천 | grade=A gr=0.40221062327295054 sv=1310 dc=3257 src=웹툰 추천(0) ex=65",
+            "완결 무협 웹툰 추천 | grade=A gr=0.34458509142053445 sv=980 dc=2844 src=웹툰 추천(0) ex=58"
+          ]
+        }
+      },
+      "keywords": [
+        {
+          "keyword": "꾸금 웹툰 추천",
+          "grade": "SS",
+          "searchVolume": 940,
+          "documentCount": 1103,
+          "goldenRatio": 0.8522212148685403,
+          "source": "웹툰 추천"
+        },
+        {
+          "keyword": "무협 웹툰 추천",
+          "grade": "SS",
+          "searchVolume": 7310,
+          "documentCount": 10528,
+          "goldenRatio": 0.694338905775076,
+          "source": "웹툰 추천"
+        },
+        {
+          "keyword": "비엘 웹툰 추천",
+          "grade": "S",
+          "searchVolume": 1310,
+          "documentCount": 3257,
+          "goldenRatio": 0.40221062327295054,
+          "source": "웹툰 추천"
+        },
+        {
+          "keyword": "완결 무협 웹툰 추천",
+          "grade": "S",
+          "searchVolume": 980,
+          "documentCount": 2844,
+          "goldenRatio": 0.34458509142053445,
+          "source": "웹툰 추천"
+        },
+        {
+          "keyword": "웹툰 쿠키 충전",
+          "grade": "S",
+          "searchVolume": 1610,
+          "documentCount": 4980,
+          "goldenRatio": 0.3232931726907631,
+          "source": "seed"
+        }
+      ],
+      "attempts": 1,
+      "durationMs": 67930
+    },
+    {
+      "success": true,
+      "category": "broadcast",
+      "runIndex": 1,
+      "mode": "category",
+      "explosionMode": true,
+      "count": 5,
+      "summary": {
+        "totalFound": 2,
+        "sssCount": 1,
+        "ssCount": 1,
+        "sCount": 0,
+        "rookieFriendlyCount": 2,
+        "urgentCount": 0,
+        "blueOceanCount": 0,
+        "explosionFunnel": {
+          "candidates": 5,
+          "verified": 5,
+          "gradeOk": 2,
+          "ratioOk": 2,
+          "docOk": 4,
+          "svOk": 2,
+          "strictOk": 2,
+          "minSv": 30,
+          "internalMetrics": {
+            "seedCount": 135,
+            "allKeywordsCount": 1256,
+            "profitableCount": 6,
+            "uniqueKeywordsCount": 6,
+            "sortedResultsCount": 6,
+            "verifiedResultsCount": 2,
+            "searchAdEnabled": true,
+            "searchAdAdded": 209,
+            "autocompleteAdded": 919
+          },
+          "topByExplosion": [
+            "실시간 TV 보기 | grade=SS gr=11.634336873518828 sv=132550 dc=11393 src=seed(0) ex=65",
+            "힐링인더라디오 | grade=SS gr=1.7317845828933474 sv=1640 dc=947 src=인스타(25) ex=106",
+            "방법cctv 뜻 | grade=B gr=0.0005506607929515419 sv=20 dc=36320 src=방법(0) ex=40",
+            "방법 cctv 보는법 | grade=B gr=0.0005298574683410163 sv=20 dc=37746 src=방법(0) ex=40",
+            "방법cctv확인요청 | grade=C gr=0.00018638286768680223 sv=20 dc=107306 src=방법(0) ex=40"
+          ]
+        }
+      },
+      "keywords": [
+        {
+          "keyword": "실시간 TV 보기",
+          "grade": "SS",
+          "searchVolume": 132550,
+          "documentCount": 11393,
+          "goldenRatio": 11.634336873518828,
+          "source": "seed"
+        },
+        {
+          "keyword": "힐링인더라디오",
+          "grade": "SSS",
+          "searchVolume": 1640,
+          "documentCount": 947,
+          "goldenRatio": 1.7317845828933474,
+          "source": "인스타"
+        }
+      ],
+      "attempts": 1,
+      "durationMs": 43105
+    },
+    {
+      "success": true,
+      "category": "daily",
+      "runIndex": 1,
+      "mode": "category",
+      "explosionMode": true,
+      "count": 5,
+      "summary": {
+        "totalFound": 3,
+        "sssCount": 1,
+        "ssCount": 0,
+        "sCount": 2,
+        "rookieFriendlyCount": 2,
+        "urgentCount": 0,
+        "blueOceanCount": 1,
+        "explosionFunnel": {
+          "candidates": 63,
+          "verified": 63,
+          "gradeOk": 3,
+          "ratioOk": 4,
+          "docOk": 53,
+          "svOk": 34,
+          "strictOk": 3,
+          "minSv": 30,
+          "internalMetrics": {
+            "seedCount": 134,
+            "allKeywordsCount": 1096,
+            "profitableCount": 82,
+            "uniqueKeywordsCount": 82,
+            "sortedResultsCount": 82,
+            "verifiedResultsCount": 30,
+            "searchAdEnabled": true,
+            "searchAdAdded": 249,
+            "autocompleteAdded": 725
+          },
+          "topByExplosion": [
+            "일상미당캐시 | grade=SSS gr=2.681159420289855 sv=740 dc=276 src=인스타(25) ex=99",
+            "브이로그 더빙 넣는법 | grade=A gr=0.4878048780487805 sv=20 dc=41 src=틱톡(25) ex=78",
+            "2026 다이어리 추천 | grade=A gr=0.42055659286920954 sv=4730 dc=11247 src=다이어리 추천(0) ex=98",
+            "26년 다이어리 추천 | grade=A gr=0.3723404255319149 sv=770 dc=2068 src=다이어리 추천(0) ex=91",
+            "일상 기도 종류 | grade=S gr=0.19230769230769232 sv=20 dc=104 src=인스타(25) ex=78"
+          ]
+        }
+      },
+      "keywords": [
+        {
+          "keyword": "일상미당캐시",
+          "grade": "SSS",
+          "searchVolume": 740,
+          "documentCount": 276,
+          "goldenRatio": 2.681159420289855,
+          "source": "인스타"
+        },
+        {
+          "keyword": "2026 다이어리 추천",
+          "grade": "S",
+          "searchVolume": 4730,
+          "documentCount": 11247,
+          "goldenRatio": 0.42055659286920954,
+          "source": "다이어리 추천"
+        },
+        {
+          "keyword": "26년 다이어리 추천",
+          "grade": "S",
+          "searchVolume": 770,
+          "documentCount": 2068,
+          "goldenRatio": 0.3723404255319149,
+          "source": "다이어리 추천"
+        }
+      ],
+      "attempts": 1,
+      "durationMs": 108617
+    },
+    {
+      "success": false,
+      "category": "realestate",
+      "runIndex": 1,
+      "mode": "category",
+      "explosionMode": true,
+      "count": 5,
+      "summary": {
+        "totalFound": 0,
+        "sssCount": 0,
+        "ssCount": 0,
+        "sCount": 0,
+        "rookieFriendlyCount": 0,
+        "urgentCount": 0,
+        "blueOceanCount": 0,
+        "explosionFunnel": {
+          "candidates": 27,
+          "verified": 27,
+          "gradeOk": 0,
+          "ratioOk": 0,
+          "docOk": 10,
+          "svOk": 13,
+          "strictOk": 0,
+          "minSv": 30,
+          "internalMetrics": {
+            "seedCount": 138,
+            "allKeywordsCount": 1305,
+            "profitableCount": 38,
+            "uniqueKeywordsCount": 38,
+            "sortedResultsCount": 37,
+            "verifiedResultsCount": 9,
+            "searchAdEnabled": true,
+            "searchAdAdded": 340,
+            "autocompleteAdded": 834
+          },
+          "topByExplosion": [
+            "전세보증보험 가입 | grade=B gr=0.1207943391919653 sv=13230 dc=109525 src=seed(0) ex=65",
+            "청약점수 계산 | grade=B gr=0.0482872038909689 sv=1380 dc=28579 src=seed(0) ex=85",
+            "버팀목대출 조건 | grade=B gr=0.04566743590492604 sv=4690 dc=102699 src=seed(0) ex=65",
+            "청년버팀목대출 조건 | grade=B gr=0.024774342231611294 sv=1290 dc=52070 src=버팀목대출 조건(0) ex=65",
+            "신혼부부 디딤돌대출 조건 | grade=B gr=0.02027934801896119 sv=1600 dc=78898 src=디딤돌대출 조건(0) ex=65"
+          ]
+        }
+      },
+      "keywords": [],
+      "attempts": 1,
+      "durationMs": 72436
+    },
+    {
+      "success": false,
+      "category": "self_development",
+      "runIndex": 1,
+      "mode": "category",
+      "explosionMode": true,
+      "count": 5,
+      "summary": {
+        "totalFound": 0,
+        "sssCount": 0,
+        "ssCount": 0,
+        "sCount": 0,
+        "rookieFriendlyCount": 0,
+        "urgentCount": 0,
+        "blueOceanCount": 0,
+        "explosionFunnel": {
+          "candidates": 9,
+          "verified": 9,
+          "gradeOk": 0,
+          "ratioOk": 0,
+          "docOk": 8,
+          "svOk": 4,
+          "strictOk": 0,
+          "minSv": 30,
+          "internalMetrics": {
+            "seedCount": 138,
+            "allKeywordsCount": 1145,
+            "profitableCount": 11,
+            "uniqueKeywordsCount": 11,
+            "sortedResultsCount": 11,
+            "verifiedResultsCount": 2,
+            "searchAdEnabled": true,
+            "searchAdAdded": 232,
+            "autocompleteAdded": 783
+          },
+          "topByExplosion": [
+            "자기계발서 추천 내돈내산 | grade=S gr=0.012330456226880395 sv=20 dc=1622 src=자기계발서 추천(0) ex=40",
+            "자기계발 책 추천 20대 | grade=B gr=0.009800997144926918 sv=230 dc=23467 src=자기계발 책 추천(0) ex=52",
+            "자기계발서 추천 10대 | grade=S gr=0.007202016564638099 sv=20 dc=2777 src=자기계발서 추천(0) ex=40",
+            "자기계발 책 추천 30대 | grade=B gr=0.005009183503088996 sv=90 dc=17967 src=자기계발 책 추천(0) ex=46",
+            "자기계발 책 추천 40대 | grade=A gr=0.0036529680365296802 sv=40 dc=10950 src=자기계발 책 추천(0) ex=40"
+          ]
+        }
+      },
+      "keywords": [],
+      "attempts": 1,
+      "durationMs": 65716
+    }
+  ]
+}

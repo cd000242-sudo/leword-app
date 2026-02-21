@@ -1,0 +1,45 @@
+{
+  "generatedAt": "2025-12-24T09:26:37.885Z",
+  "mode": "category",
+  "explosionMode": true,
+  "count": 10,
+  "timeoutMs": 120000,
+  "retries": 0,
+  "results": [
+    {
+      "success": false,
+      "category": "life_tips",
+      "mode": "category",
+      "explosionMode": true,
+      "count": 10,
+      "summary": {
+        "totalFound": 0,
+        "sssCount": 0,
+        "ssCount": 0,
+        "sCount": 0,
+        "rookieFriendlyCount": 0,
+        "urgentCount": 0,
+        "blueOceanCount": 0,
+        "explosionFunnel": {
+          "candidates": 31,
+          "verified": 31,
+          "svOk": 0,
+          "ratioOk": 4,
+          "scoreOk": 0,
+          "signalOk": 7,
+          "strictOk": 0,
+          "topByExplosion": [
+            "유지아우가르텐주방용품접기 | ex=78 sv=20 dc=1 gr=20 src=쇼핑(25) ANYTIME/stable",
+            "가스비 절약 꿀팁 2025 | ex=70 sv=20 dc=715 gr=0.027972027972027972 src=seed(0) TODAY/stable",
+            "2025 가스비 절약 꿀팁 | ex=70 sv=20 dc=715 gr=0.027972027972027972 src=seed(0) TODAY/stable",
+            "냉장고 정리 꿀팁 2025 | ex=70 sv=20 dc=5906 gr=0.0033863867253640365 src=seed(0) TODAY/stable",
+            "2025 냉장고 정리 꿀팁 | ex=70 sv=20 dc=5906 gr=0.0033863867253640365 src=seed(0) TODAY/stable"
+          ]
+        }
+      },
+      "keywords": [],
+      "attempts": 1,
+      "durationMs": 55377
+    }
+  ]
+}

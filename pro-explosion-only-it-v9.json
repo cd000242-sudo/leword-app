@@ -1,0 +1,45 @@
+{
+  "generatedAt": "2025-12-24T03:20:23.113Z",
+  "mode": "category",
+  "explosionMode": true,
+  "count": 10,
+  "timeoutMs": 120000,
+  "retries": 0,
+  "results": [
+    {
+      "success": false,
+      "category": "it",
+      "mode": "category",
+      "explosionMode": true,
+      "count": 10,
+      "summary": {
+        "totalFound": 0,
+        "sssCount": 0,
+        "ssCount": 0,
+        "sCount": 0,
+        "rookieFriendlyCount": 0,
+        "urgentCount": 0,
+        "blueOceanCount": 0,
+        "explosionFunnel": {
+          "candidates": 10,
+          "verified": 10,
+          "svOk": 5,
+          "ratioOk": 6,
+          "scoreOk": 0,
+          "signalOk": 0,
+          "strictOk": 0,
+          "topByExplosion": [
+            "외장 ssd 추천 | ex=52 sv=280 dc=80951 gr=0.003458882533878519 src=외장 SSD 추천(0) ANYTIME/stable",
+            "외장 SSD 추천 | ex=52 sv=280 dc=80951 gr=0.003458882533878519 src=seed(0) ANYTIME/stable",
+            "기계식 키보드 축 | ex=52 sv=430 dc=29137 gr=0.014757868002882932 src=seed(0) ANYTIME/stable",
+            "무선 이어폰 비교 | ex=46 sv=80 dc=101044 gr=0.0007917342939709434 src=seed(0) ANYTIME/stable",
+            "기계식 키보드 축 차이 | ex=46 sv=80 dc=11 gr=7.2727272727272725 src=seed(0) ANYTIME/stable"
+          ]
+        }
+      },
+      "keywords": [],
+      "attempts": 1,
+      "durationMs": 75138
+    }
+  ]
+}

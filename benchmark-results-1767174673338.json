@@ -1,0 +1,191 @@
+{
+  "results": [
+    {
+      "iteration": 1,
+      "timestamp": "2025-12-31T09:50:09.501Z",
+      "keywords": [
+        {
+          "keyword": "주식",
+          "grade": "SS",
+          "searchVolume": 680500,
+          "documentCount": 13019479,
+          "goldenRatio": 0.052267836524026806
+        },
+        {
+          "keyword": "초기창업패키지",
+          "grade": "S",
+          "searchVolume": 3480,
+          "documentCount": 59868,
+          "goldenRatio": 0.05812788133894568
+        },
+        {
+          "keyword": "소상공인",
+          "grade": "A",
+          "searchVolume": 30000,
+          "documentCount": 2106711,
+          "goldenRatio": 0.014240206653878961
+        }
+      ],
+      "stats": {
+        "sssCount": 0,
+        "ssCount": 1,
+        "sCount": 1,
+        "avgGoldenRatio": 0.04,
+        "maxGoldenRatio": 0.06
+      }
+    },
+    {
+      "iteration": 2,
+      "timestamp": "2025-12-31T09:50:22.686Z",
+      "keywords": [
+        {
+          "keyword": "주식",
+          "grade": "SS",
+          "searchVolume": 680500,
+          "documentCount": 13019485,
+          "goldenRatio": 0.052267812436513426
+        },
+        {
+          "keyword": "초기창업패키지",
+          "grade": "S",
+          "searchVolume": 3480,
+          "documentCount": 59868,
+          "goldenRatio": 0.05812788133894568
+        }
+      ],
+      "stats": {
+        "sssCount": 0,
+        "ssCount": 1,
+        "sCount": 1,
+        "avgGoldenRatio": 0.06,
+        "maxGoldenRatio": 0.06
+      }
+    },
+    {
+      "iteration": 3,
+      "timestamp": "2025-12-31T09:50:37.386Z",
+      "keywords": [
+        {
+          "keyword": "주식",
+          "grade": "SS",
+          "searchVolume": 680500,
+          "documentCount": 13019489,
+          "goldenRatio": 0.052267796378183504
+        },
+        {
+          "keyword": "연말정산서류",
+          "grade": "SSS",
+          "searchVolume": 2210,
+          "documentCount": 185602,
+          "goldenRatio": 0.011907199275869872
+        },
+        {
+          "keyword": "창업",
+          "grade": "S",
+          "searchVolume": 19310,
+          "documentCount": 8332092,
+          "goldenRatio": 0.0023175452215362
+        }
+      ],
+      "stats": {
+        "sssCount": 1,
+        "ssCount": 1,
+        "sCount": 1,
+        "avgGoldenRatio": 0.02,
+        "maxGoldenRatio": 0.05
+      }
+    },
+    {
+      "iteration": 4,
+      "timestamp": "2025-12-31T09:50:53.535Z",
+      "keywords": [
+        {
+          "keyword": "매일경제신문구독",
+          "grade": "B",
+          "searchVolume": 6160,
+          "documentCount": 24268,
+          "goldenRatio": 0.2538322070215922
+        },
+        {
+          "keyword": "초기창업패키지",
+          "grade": "B",
+          "searchVolume": 3480,
+          "documentCount": 59868,
+          "goldenRatio": 0.05812788133894568
+        },
+        {
+          "keyword": "매일경제구독",
+          "grade": "B",
+          "searchVolume": 1800,
+          "documentCount": 37967,
+          "goldenRatio": 0.04740959254089078
+        }
+      ],
+      "stats": {
+        "sssCount": 0,
+        "ssCount": 0,
+        "sCount": 0,
+        "avgGoldenRatio": 0.12,
+        "maxGoldenRatio": 0.25
+      }
+    },
+    {
+      "iteration": 5,
+      "timestamp": "2025-12-31T09:51:13.335Z",
+      "keywords": [
+        {
+          "keyword": "연말정산모의계산",
+          "grade": "SSS",
+          "searchVolume": 44700,
+          "documentCount": 7300,
+          "goldenRatio": 6.123287671232877
+        },
+        {
+          "keyword": "연말정산간소화서비스",
+          "grade": "B",
+          "searchVolume": 21910,
+          "documentCount": 79799,
+          "goldenRatio": 0.2745648441709796
+        },
+        {
+          "keyword": "매일경제신문구독",
+          "grade": "B",
+          "searchVolume": 6160,
+          "documentCount": 24268,
+          "goldenRatio": 0.2538322070215922
+        },
+        {
+          "keyword": "연말정산간소화",
+          "grade": "B",
+          "searchVolume": 16480,
+          "documentCount": 100280,
+          "goldenRatio": 0.16433984842441166
+        },
+        {
+          "keyword": "매일경제구독",
+          "grade": "B",
+          "searchVolume": 1800,
+          "documentCount": 37967,
+          "goldenRatio": 0.04740959254089078
+        }
+      ],
+      "stats": {
+        "sssCount": 1,
+        "ssCount": 0,
+        "sCount": 0,
+        "avgGoldenRatio": 1.37,
+        "maxGoldenRatio": 6.12
+      }
+    }
+  ],
+  "summary": {
+    "totalSss": 2,
+    "totalKeywords": 25,
+    "sssRate": 8,
+    "allSssKeywords": [
+      "연말정산서류",
+      "연말정산모의계산"
+    ],
+    "score": 24
+  }
+}

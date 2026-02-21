@@ -1,0 +1,887 @@
+{
+  "keywords": [
+    {
+      "keyword": "팬미팅일정",
+      "searchVolume": 300,
+      "documentCount": 62763,
+      "goldenRatio": 0.004779886238707519,
+      "rookieFriendly": {
+        "score": 60,
+        "grade": "C",
+        "reason": "어느 정도 블로그 지수가 필요하거나 전략적 접근 필수",
+        "canRankWithin": "1주일 이상",
+        "requiredBlogIndex": "Lv.5 (고급)"
+      },
+      "timing": {
+        "score": 50,
+        "urgency": "ANYTIME",
+        "bestPublishTime": "오전 6~8시 또는 저녁 8~10시",
+        "trendDirection": "stable",
+        "peakPrediction": "꾸준한 검색량 유지"
+      },
+      "blueOcean": {
+        "score": 15,
+        "competitorStrength": "strong",
+        "avgCompetitorBlogAge": "5년 이상 (강한 경쟁)",
+        "oldPostRatio": 30,
+        "opportunity": "❌ 레드오션. 다른 키워드 추천"
+      },
+      "trafficEstimate": {
+        "daily": "0~0명",
+        "weekly": "0~0명",
+        "monthly": "0~0명",
+        "confidence": 50,
+        "disclaimer": "📌 트래픽은 순위/CTR/계절성에 따라 달라질 수 있는 추정치입니다."
+      },
+      "revenueEstimate": {
+        "dailyRevenue": "2원 ⚠️추정",
+        "monthlyRevenue": "60원 ⚠️추정",
+        "estimatedCPC": 50,
+        "estimatedRPM": 1250,
+        "adType": "애드센스",
+        "revenueGrade": "D",
+        "revenueReason": "❌ 비추천. 수익성 및 경쟁력 낮음"
+      },
+      "entryAnalysis": {
+        "canEntry": false,
+        "difficulty": "very_hard",
+        "difficultyScore": 100,
+        "message": "🔴 진입 어려움 - 상위 블로거 독점 키워드",
+        "topCompetitorStrength": "매우 강함 (최적 블로그 독점)",
+        "recommendedBlogIndex": "최적 1 이상 권장",
+        "estimatedRankingTime": "1개월 이상 소요 예상"
+      },
+      "totalScore": 5,
+      "grade": "B",
+      "proStrategy": {
+        "title": "2026 팬미팅일정 완벽 정리 | 초보자도 쉽게 이해하는 가이드",
+        "outline": [
+          "1. 팬미팅일정란? (기본 개념)",
+          "2. 팬미팅일정 핵심 포인트 3가지",
+          "3. 팬미팅일정 장단점 비교",
+          "4. 팬미팅일정 실제 후기/경험담",
+          "5. 팬미팅일정 Q&A (자주 묻는 질문)",
+          "6. 결론 및 추천"
+        ],
+        "wordCount": 2500,
+        "mustInclude": [
+          "핵심 키워드 2~3회 자연스럽게 삽입",
+          "실제 이미지/사진 3장 이상",
+          "표 또는 비교 차트 1개 이상",
+          "자주 묻는 질문(FAQ) 섹션",
+          "결론 및 추천 섹션"
+        ],
+        "avoidTopics": [
+          "과장된 표현 (100%, 무조건, 반드시)",
+          "허위 정보나 검증되지 않은 내용",
+          "다른 블로그 복사/붙여넣기",
+          "광고성 링크 과다 삽입"
+        ],
+        "monetization": "애드센스 + 쿠팡파트너스 조합 추천"
+      },
+      "platformTitles": {
+        "naver": {
+          "title": "핵심 정리: 팬미팅일정 2026 최신 가이드 (월 300)",
+          "alternatives": [
+            "팬미팅일정 2026 완벽 정리: 핵심만 5분 요약",
+            "팬미팅일정 초보도 쉽게: 실패 없는 체크리스트"
+          ],
+          "subKeywords": [
+            "팬미팅일정 방법",
+            "팬미팅일정 추천",
+            "팬미팅일정 후기"
+          ],
+          "tags": [
+            "팬미팅일정",
+            "📰 이슈키워드"
+          ],
+          "tip": "서두 100자 내에 키워드를 2회 노출하고, 결론 요약을 맨 위에 한 번 더 넣으세요.",
+          "hookPoint": "핵심 정리 포인트를 제목/썸네일에 강조"
+        },
+        "tistory": {
+          "title": "팬미팅일정 2026 정리: 한 번에 이해하는 핵심 포인트 (월 300)",
+          "alternatives": [
+            "팬미팅일정 제대로 하는 법 (체크리스트 포함)",
+            "팬미팅일정 추천/비교: 선택 기준 3가지"
+          ],
+          "subKeywords": [
+            "팬미팅일정 방법",
+            "팬미팅일정 추천",
+            "팬미팅일정 후기"
+          ],
+          "tags": [
+            "팬미팅일정",
+            "📰 이슈키워드"
+          ],
+          "tip": "표/리스트를 많이 써서 스크롤 체류시간을 늘리세요.",
+          "hookPoint": "“핵심 3가지”처럼 숫자를 넣어 클릭률을 올리기"
+        },
+        "wordpress": {
+          "title": "팬미팅일정: 2026 완벽 가이드 (체크리스트 & 꿀팁) (월 300)",
+          "alternatives": [
+            "팬미팅일정 가이드: 흔한 실수 & 해결 방법",
+            "팬미팅일정 단계별 가이드: 시작할 때 꼭 알아야 할 것"
+          ],
+          "subKeywords": [
+            "팬미팅일정 방법",
+            "팬미팅일정 추천",
+            "팬미팅일정 후기"
+          ],
+          "tags": [
+            "팬미팅일정",
+            "📰 이슈키워드"
+          ],
+          "tip": "H2/H3로 구조를 만들고, FAQ 섹션을 넣어 SEO를 강화하세요.",
+          "hookPoint": "FAQ + 체크리스트 조합으로 체류시간/리치 증가"
+        },
+        "blogspot": {
+          "title": "팬미팅일정 2026: 빠른 시작 + 베스트 프랙티스 (월 300)",
+          "alternatives": [
+            "팬미팅일정 퀵 가이드: 권장되는 행동 & 주의사항",
+            "팬미팅일정 에센셜: 당신이 알아야 할 모든 것"
+          ],
+          "subKeywords": [
+            "팬미팅일정 방법",
+            "팬미팅일정 추천",
+            "팬미팅일정 후기"
+          ],
+          "tags": [
+            "팬미팅일정",
+            "📰 이슈키워드"
+          ],
+          "tip": "이미지 2~3장 + 요약 박스를 넣어 가독성을 올리세요.",
+          "hookPoint": "첫 화면에 요약(결론)을 배치해 이탈률을 낮추기"
+        }
+      },
+      "expandedKeywords": {
+        "relatedGolden": [
+          "팬미팅일정 추천",
+          "팬미팅일정 비교",
+          "팬미팅일정 후기",
+          "팬미팅일정 가격"
+        ],
+        "longtailGolden": [
+          "팬미팅일정 초보",
+          "팬미팅일정 쉽게",
+          "팬미팅일정 단계별",
+          "팬미팅일정 정리"
+        ],
+        "blueOceanGolden": [
+          "팬미팅일정 최신",
+          "팬미팅일정 2025",
+          "팬미팅일정 체크리스트",
+          "팬미팅일정 실패하지 않는 법"
+        ]
+      },
+      "type": "📰 이슈키워드",
+      "category": "celeb",
+      "safetyLevel": "safe",
+      "safetyReason": "✅ 안전한 키워드. 신생 블로거도 작성 가능",
+      "source": "seed",
+      "profitAnalysis": {
+        "keyword": "팬미팅일정",
+        "searchVolume": 300,
+        "documentCount": 62763,
+        "estimatedCPC": 50,
+        "purchaseIntentScore": 30,
+        "competitionLevel": 10,
+        "freshnessOpportunity": 1,
+        "profitGoldenRatio": 0.07,
+        "estimatedDailyRevenue": 2,
+        "estimatedMonthlyRevenue": 60,
+        "grade": "D",
+        "gradeReason": "❌ 비추천. 수익성 및 경쟁력 낮음",
+        "isRealBlueOcean": false,
+        "blueOceanReason": "📕 경쟁 시장. 차별화 전략 필요",
+        "strategy": {
+          "approach": "⏸️ 보류. 더 좋은 키워드 찾기 추천",
+          "monetization": "📝 트래픽 확보 우선. 이후 관련 고수익 키워드로 내부링크",
+          "timing": "🗓️ 여유있게 준비. 롱테일 전략으로 접근",
+          "titleSuggestion": "팬미팅일정 완벽 가이드 | 초보자도 쉽게 따라하기"
+        },
+        "cvi": 0.05,
+        "difficultyScore": 10,
+        "isCommercial": false
+      },
+      "cvi": 0.05,
+      "difficultyScore": 7,
+      "hasSmartBlock": false,
+      "hasInfluencer": true,
+      "isCommercial": false,
+      "winRate": 10,
+      "isEmptyHouse": true,
+      "topPostRecency": {
+        "monthsAgo": [
+          12,
+          11,
+          18
+        ],
+        "oldPostCount": 3
+      },
+      "seasonalBonus": 0,
+      "timestamp": "2025-12-31T23:33:52.531Z",
+      "isGolden": true,
+      "recencyAnalysis": {
+        "avgDaysOld": 365,
+        "isEmptyHouse": true,
+        "opportunityLevel": "high"
+      },
+      "smartBlockAnalysis": {
+        "type": "일반",
+        "canPenetrate": false
+      },
+      "competitorAnalysis": {
+        "topBloggers": [],
+        "avgBlogAge": "12개월",
+        "weakCompetitorRatio": 0,
+        "winProbability": 10,
+        "strategy": "📝 [롱테일전략] 경쟁이 치열하거나 상위권이 탄탄합니다. '팬미팅일정'보다는 조금 더 세부적인 키워드로 우회 공략을 추천합니다."
+      },
+      "trendAnalysis": {
+        "trendingReason": "더보이즈 케빈, 활동 관련 최근 이슈",
+        "whyNow": "최근 5개 이상의 뉴스에서 다뤄지며 이슈화 진행 중 • \"공개\" 관련 구체적 사건으로 실시간 관심 집중 • 최신 이슈로 실시간 관심 집중 중 • \"더보이즈 케빈, 활동 재개…팬미팅도 정상 참석 [공식]\" 관련 최신 뉴스로 조기 진입 효과 기대",
+        "newsSource": "자동 분석"
+      },
+      "keywordGuide": {
+        "summary": "여유 있을 때 공략하면 좋은 키워드입니다. (등급: B, 점수: 5점)",
+        "whyItMovesNow": "더보이즈 케빈, 활동 관련 최근 이슈 최근 5개 이상의 뉴스에서 다뤄지며 이슈화 진행 중 • \"공개\" 관련 구체적 사건으로 실시간 관심 집중 • 최신 이슈로 실시간 관심 집중 중 • \"더보이즈 케빈, 활동 재개…팬미팅도 정상 참석 [공식]\" 관련 최신 뉴스로 조기 진입 효과 기대",
+        "immediateTrafficPlan": [
+          "제목 앞부분에 \"팬미팅일정\"를 배치하고, 2025/최신/정리 같은 보조 키워드를 1개만 추가하세요.",
+          "본문 서두 100자 안에 \"팬미팅일정\"를 자연스럽게 2회 노출하세요.",
+          "최소 1개는 비교/체크리스트/요약 섹션을 넣어 체류시간을 늘리세요."
+        ],
+        "naverHomeExposureTips": [
+          "첫 이미지에 키워드가 들어간 문구를 넣고, alt 텍스트도 키워드 포함",
+          "목차를 만들고 H2/H3에 서브 키워드 배치",
+          "태그는 5~10개로 과도한 반복을 피하고, 유사어를 섞기"
+        ]
+      },
+      "ultimateAnalysis": {
+        "timing": {
+          "seasonal": {
+            "peakMonths": [
+              1,
+              2,
+              3,
+              4,
+              5,
+              6,
+              7,
+              8,
+              9,
+              10,
+              11,
+              12
+            ],
+            "peakReason": "연중 꾸준한 검색량",
+            "currentSeasonScore": 70,
+            "nextPeakDate": "항상",
+            "daysUntilPeak": 0,
+            "recommendation": "📝 에버그린 키워드입니다. 언제든 작성해도 좋습니다.",
+            "seasonalPattern": "evergreen"
+          },
+          "trend": {
+            "trendDirection": "falling",
+            "changeRate": 0,
+            "comparedTo": "전월 대비",
+            "explosiveScore": 0,
+            "relatedNews": [],
+            "recommendation": "📊 안정적인 키워드입니다."
+          },
+          "alert": {
+            "optimalPublishDate": "0일 내",
+            "reason": "📝 에버그린 키워드입니다. 언제든 작성해도 좋습니다.",
+            "urgencyLevel": "⚡ 이번 주",
+            "expectedPeakDate": "항상",
+            "competitorActivity": "경쟁자 많음"
+          }
+        },
+        "revenue": {
+          "cpc": {
+            "estimatedCpc": 100,
+            "cpcRange": {
+              "min": 50,
+              "max": 200
+            },
+            "cpcTier": "🥉 저수익",
+            "industryAverage": 100,
+            "recommendation": "📝 일반적인 수익 구조입니다. 트래픽 확보에 집중하세요."
+          },
+          "affiliate": {
+            "recommendedPrograms": [
+              {
+                "name": "쿠팡파트너스",
+                "type": "coupang",
+                "commissionRate": "3~5%",
+                "estimatedEarningPerClick": 50,
+                "matchScore": 100
+              },
+              {
+                "name": "네이버 쇼핑",
+                "type": "naver",
+                "commissionRate": "1~3%",
+                "estimatedEarningPerClick": 30,
+                "matchScore": 85
+              }
+            ],
+            "bestMatch": "쿠팡파트너스",
+            "potentialProducts": [
+              "팬미팅일정 추천",
+              "팬미팅일정 순위",
+              "팬미팅일정 비교",
+              "팬미팅일정 후기",
+              "팬미팅일정 가격",
+              "팬미팅일정 구매"
+            ]
+          },
+          "projection": {
+            "estimatedDailyVisitors": 0,
+            "estimatedMonthlyVisitors": 0,
+            "adsenseRevenue": {
+              "daily": 0,
+              "monthly": 0,
+              "assumptions": "CPC 100원, CTR 2%, 페이지뷰율 1.5 가정"
+            },
+            "affiliateRevenue": {
+              "daily": 0,
+              "monthly": 0,
+              "conversionRate": 3,
+              "assumptions": "클릭률 10%, 전환율 3%, 평균 수수료 50원 가정"
+            },
+            "totalMonthlyRevenue": 0,
+            "revenueBreakdown": "애드센스 0% + 제휴 0%",
+            "revenueTier": "📝 월 1만원+"
+          }
+        },
+        "content": {
+          "titles": {
+            "titles": [
+              {
+                "title": "팬미팅일정 추천 TOP 10 (2026년 최신)",
+                "type": "number",
+                "estimatedCTR": 8.5,
+                "psychologyUsed": "숫자 + 최신 정보"
+              },
+              {
+                "title": "팬미팅일정 하는 법, 초보자도 쉽게 따라하기",
+                "type": "how-to",
+                "estimatedCTR": 7.5,
+                "psychologyUsed": "실용성 + 접근성"
+              },
+              {
+                "title": "팬미팅일정, 이것만 알면 끝! 완벽 가이드",
+                "type": "benefit",
+                "estimatedCTR": 7.2,
+                "psychologyUsed": "완결성 + 가치 제안"
+              },
+              {
+                "title": "[2026년] 팬미팅일정 총정리 (+ 꿀팁 공개)",
+                "type": "news",
+                "estimatedCTR": 7,
+                "psychologyUsed": "최신성 + 보너스 가치"
+              },
+              {
+                "title": "아직도 팬미팅일정 몰라요? 지금 당장 확인하세요",
+                "type": "curiosity",
+                "estimatedCTR": 6.8,
+                "psychologyUsed": "호기심 + 긴급성"
+              },
+              {
+                "title": "팬미팅일정 실제 후기 (장단점 솔직 비교)",
+                "type": "comparison",
+                "estimatedCTR": 6.5,
+                "psychologyUsed": "신뢰성 + 비교 심리"
+              }
+            ],
+            "bestTitle": "팬미팅일정 추천 TOP 10 (2026년 최신)",
+            "titleFormula": "숫자 + 키워드 + 최신연도 + 가치제안"
+          },
+          "structure": {
+            "recommendedStructure": {
+              "intro": {
+                "purpose": "독자의 관심 끌기 + 키워드 자연스럽게 배치",
+                "template": "\"팬미팅일정\"에 대해 고민하고 계신가요? 이 글에서 핵심 정보를 모두 정리해드립니다.",
+                "keywordPlacement": "첫 문장에 키워드 포함"
+              },
+              "sections": [
+                {
+                  "heading": "팬미팅일정란? (기본 개념)",
+                  "purpose": "기초 정보 제공",
+                  "contentGuide": "핵심 정의, 중요성, 왜 알아야 하는지 설명",
+                  "recommendedLength": 300,
+                  "keywordUsage": "소제목과 본문에 1~2회"
+                },
+                {
+                  "heading": "팬미팅일정 추천 BEST 5",
+                  "purpose": "실질적인 가치 제공 (핵심 섹션)",
+                  "contentGuide": "순위별 상세 설명, 장단점, 추천 이유",
+                  "recommendedLength": 800,
+                  "keywordUsage": "각 항목 설명에 자연스럽게 포함"
+                },
+                {
+                  "heading": "팬미팅일정 선택 시 주의사항",
+                  "purpose": "신뢰도 향상",
+                  "contentGuide": "흔한 실수, 피해야 할 것, 체크리스트",
+                  "recommendedLength": 400,
+                  "keywordUsage": "주의사항 설명에 1~2회"
+                },
+                {
+                  "heading": "자주 묻는 질문 (FAQ)",
+                  "purpose": "SEO 강화 + 체류시간 증가",
+                  "contentGuide": "실제 검색되는 질문 5개 + 명확한 답변",
+                  "recommendedLength": 500,
+                  "keywordUsage": "질문에 롱테일 키워드 활용"
+                }
+              ],
+              "conclusion": {
+                "purpose": "요약 + CTA",
+                "template": "지금까지 팬미팅일정에 대해 알아봤습니다. 도움이 되셨다면 공유해주세요!",
+                "ctaRecommendation": "댓글, 공유, 관련 글 링크 유도"
+              }
+            },
+            "seoChecklist": [
+              {
+                "item": "제목에 키워드 포함",
+                "importance": "critical",
+                "howTo": "제목 앞부분에 메인 키워드 배치"
+              },
+              {
+                "item": "첫 문단에 키워드",
+                "importance": "critical",
+                "howTo": "첫 100자 내 키워드 자연스럽게 삽입"
+              },
+              {
+                "item": "소제목 H2/H3 활용",
+                "importance": "high",
+                "howTo": "3~5개 소제목, 키워드 변형 사용"
+              },
+              {
+                "item": "이미지 ALT 태그",
+                "importance": "high",
+                "howTo": "모든 이미지에 키워드 포함 설명"
+              },
+              {
+                "item": "내부링크 2개 이상",
+                "importance": "medium",
+                "howTo": "관련 글 자연스럽게 연결"
+              },
+              {
+                "item": "3000자 이상 작성",
+                "importance": "high",
+                "howTo": "충분한 깊이의 콘텐츠 제공"
+              }
+            ],
+            "totalRecommendedLength": 3000,
+            "estimatedWriteTime": 90
+          },
+          "images": {
+            "mainImage": {
+              "searchKeyword": "팬미팅일정 대표이미지",
+              "style": "깔끔한 인포그래픽 또는 고화질 사진",
+              "source": [
+                "Unsplash",
+                "Pixabay",
+                "직접 제작"
+              ],
+              "altText": "팬미팅일정 완벽 가이드 대표 이미지"
+            },
+            "sectionImages": [
+              {
+                "section": "기본 개념",
+                "searchKeyword": "팬미팅일정 설명",
+                "purpose": "이해 돕기",
+                "style": "다이어그램"
+              },
+              {
+                "section": "TOP 5",
+                "searchKeyword": "팬미팅일정 비교",
+                "purpose": "시각적 비교",
+                "style": "비교표"
+              },
+              {
+                "section": "주의사항",
+                "searchKeyword": "주의 아이콘",
+                "purpose": "강조",
+                "style": "아이콘"
+              }
+            ],
+            "infographicIdeas": [
+              "팬미팅일정 선택 가이드 플로우차트",
+              "팬미팅일정 TOP 5 비교표",
+              "팬미팅일정 체크리스트"
+            ],
+            "totalRecommendedImages": 7,
+            "imageStrategy": "섹션당 1~2개, 총 7~10개 이미지로 가독성과 체류시간 향상"
+          }
+        },
+        "ultimateScore": {
+          "total": 34,
+          "breakdown": {
+            "goldenRatio": 0.04779886238707519,
+            "timing": 70,
+            "revenue": 40,
+            "competition": 40,
+            "potential": 38
+          },
+          "grade": "📝 C",
+          "verdict": "⚠️ 신중히 검토 필요",
+          "topActions": [
+            "0일 내 작성 권장",
+            "팬미팅일정 추천 TOP 10 (2026년 최신)",
+            "3000자 이상, 7개 이미지 권장"
+          ]
+        }
+      },
+      "topBlogData": {
+        "keyword": "팬미팅일정",
+        "analyzedAt": "2025-12-31T23:35:56.610Z",
+        "topBlogs": [
+          {
+            "rank": 1,
+            "title": "이수혁 팬미팅 혹사 논란 해명, 사람엔터 측 &quot;12시간 일정은... ",
+            "blogName": "스페셜타임스",
+            "blogUrl": "blog.naver.com/jjubika1",
+            "postUrl": "https://blog.naver.com/jjubika1/223996581824",
+            "postDate": null,
+            "postAgeDays": 365,
+            "estimatedBlogIndex": "준최적1",
+            "blogIndexScore": 65,
+            "blogIndexReason": "검색 1위",
+            "quality": {
+              "estimatedWordCount": 1935,
+              "qualityScore": 70,
+              "qualityLevel": "high",
+              "hasImages": true,
+              "hasVideo": false
+            },
+            "beatable": {
+              "canBeat": true,
+              "difficulty": "medium",
+              "reason": "상대 블로그 지수 우위, 1년+ 오래된 글",
+              "requiredBlogIndex": "준최적5",
+              "estimatedDays": 14
+            }
+          },
+          {
+            "rank": 2,
+            "title": "가수 모에나 내한 팬미팅 일정 예매 및 프로그램 정보 공유해요",
+            "blogName": "누룽지ღ’ᴗ’ღ",
+            "blogUrl": "blog.naver.com/creative_bs",
+            "postUrl": "https://blog.naver.com/creative_bs/224072162306",
+            "postDate": null,
+            "postAgeDays": 365,
+            "estimatedBlogIndex": "최적4",
+            "blogIndexScore": 75,
+            "blogIndexReason": "검색 2위, 고품질 콘텐츠",
+            "quality": {
+              "estimatedWordCount": 1965,
+              "qualityScore": 80,
+              "qualityLevel": "high",
+              "hasImages": true,
+              "hasVideo": false
+            },
+            "beatable": {
+              "canBeat": false,
+              "difficulty": "very_hard",
+              "reason": "상대 블로그 지수 높음, 1년+ 오래된 글, 고품질 경쟁 글",
+              "requiredBlogIndex": "최적5",
+              "estimatedDays": 60
+            }
+          },
+          {
+            "rank": 3,
+            "title": "엑디즈 팬미팅 일정 진짜 후기는 이렇습니다!",
+            "blogName": "알라뷰잉",
+            "blogUrl": "blog.naver.com/jmboowpwcd41055",
+            "postUrl": "https://blog.naver.com/jmboowpwcd41055/224101819055",
+            "postDate": null,
+            "postAgeDays": 365,
+            "estimatedBlogIndex": "최적4",
+            "blogIndexScore": 75,
+            "blogIndexReason": "검색 3위, 고품질 콘텐츠",
+            "quality": {
+              "estimatedWordCount": 1755,
+              "qualityScore": 85,
+              "qualityLevel": "high",
+              "hasImages": true,
+              "hasVideo": false
+            },
+            "beatable": {
+              "canBeat": false,
+              "difficulty": "very_hard",
+              "reason": "상대 블로그 지수 높음, 1년+ 오래된 글, 고품질 경쟁 글",
+              "requiredBlogIndex": "최적5",
+              "estimatedDays": 60
+            }
+          },
+          {
+            "rank": 4,
+            "title": "몬스타엑스 팬미팅 일정 이렇게 준비했어요!",
+            "blogName": "부드러운물결",
+            "blogUrl": "blog.naver.com/slunikplj858",
+            "postUrl": "https://blog.naver.com/slunikplj858/224099227917",
+            "postDate": null,
+            "postAgeDays": 365,
+            "estimatedBlogIndex": "최적5",
+            "blogIndexScore": 70,
+            "blogIndexReason": "고품질 콘텐츠",
+            "quality": {
+              "estimatedWordCount": 1785,
+              "qualityScore": 80,
+              "qualityLevel": "high",
+              "hasImages": true,
+              "hasVideo": false
+            },
+            "beatable": {
+              "canBeat": false,
+              "difficulty": "hard",
+              "reason": "상대 블로그 지수 우위, 1년+ 오래된 글, 고품질 경쟁 글",
+              "requiredBlogIndex": "준최적3",
+              "estimatedDays": 30
+            }
+          },
+          {
+            "rank": 5,
+            "title": "세븐틴 콘서트 팬미팅 일정 내 경험과 꿀팁 대방출!",
+            "blogName": "우리의 시간",
+            "blogUrl": "blog.naver.com/tnsouiw424",
+            "postUrl": "https://blog.naver.com/tnsouiw424/224098776646",
+            "postDate": null,
+            "postAgeDays": 365,
+            "estimatedBlogIndex": "최적5",
+            "blogIndexScore": 70,
+            "blogIndexReason": "고품질 콘텐츠",
+            "quality": {
+              "estimatedWordCount": 1950,
+              "qualityScore": 80,
+              "qualityLevel": "high",
+              "hasImages": true,
+              "hasVideo": false
+            },
+            "beatable": {
+              "canBeat": false,
+              "difficulty": "hard",
+              "reason": "상대 블로그 지수 우위, 1년+ 오래된 글, 고품질 경쟁 글",
+              "requiredBlogIndex": "준최적3",
+              "estimatedDays": 30
+            }
+          },
+          {
+            "rank": 6,
+            "title": "몬스타엑스 콘서트 팬미팅 일정 진짜 꿀팁까지 알려드려요!",
+            "blogName": "소중한 이야기 만들기",
+            "blogUrl": "blog.naver.com/bhdwluiavq97431",
+            "postUrl": "https://blog.naver.com/bhdwluiavq97431/224099082425",
+            "postDate": null,
+            "postAgeDays": 365,
+            "estimatedBlogIndex": "준최적1",
+            "blogIndexScore": 65,
+            "blogIndexReason": "고품질 콘텐츠",
+            "quality": {
+              "estimatedWordCount": 1785,
+              "qualityScore": 80,
+              "qualityLevel": "high",
+              "hasImages": true,
+              "hasVideo": false
+            },
+            "beatable": {
+              "canBeat": false,
+              "difficulty": "hard",
+              "reason": "상대 블로그 지수 우위, 1년+ 오래된 글, 고품질 경쟁 글",
+              "requiredBlogIndex": "준최적3",
+              "estimatedDays": 30
+            }
+          },
+          {
+            "rank": 7,
+            "title": "몬스타엑스 팬미팅 일정 참여 후 진짜 후기를 솔직하게 써봄!",
+            "blogName": "달빛의한줄기",
+            "blogUrl": "blog.naver.com/ilslwqj184",
+            "postUrl": "https://blog.naver.com/ilslwqj184/224096587836",
+            "postDate": null,
+            "postAgeDays": 365,
+            "estimatedBlogIndex": "준최적1",
+            "blogIndexScore": 65,
+            "blogIndexReason": "고품질 콘텐츠",
+            "quality": {
+              "estimatedWordCount": 1740,
+              "qualityScore": 85,
+              "qualityLevel": "high",
+              "hasImages": true,
+              "hasVideo": false
+            },
+            "beatable": {
+              "canBeat": false,
+              "difficulty": "hard",
+              "reason": "상대 블로그 지수 우위, 1년+ 오래된 글, 고품질 경쟁 글",
+              "requiredBlogIndex": "준최적3",
+              "estimatedDays": 30
+            }
+          },
+          {
+            "rank": 8,
+            "title": "엑디즈 팬미팅 일정 진짜 다녀온 후기! 가격과 꿀팁까지 모두 공개",
+            "blogName": "편지꿀꿀",
+            "blogUrl": "blog.naver.com/tduaihinmh0132",
+            "postUrl": "https://blog.naver.com/tduaihinmh0132/224098327517",
+            "postDate": null,
+            "postAgeDays": 365,
+            "estimatedBlogIndex": "준최적2",
+            "blogIndexScore": 60,
+            "blogIndexReason": "고품질 콘텐츠",
+            "quality": {
+              "estimatedWordCount": 1785,
+              "qualityScore": 85,
+              "qualityLevel": "high",
+              "hasImages": true,
+              "hasVideo": false
+            },
+            "beatable": {
+              "canBeat": false,
+              "difficulty": "hard",
+              "reason": "상대 블로그 지수 우위, 1년+ 오래된 글, 고품질 경쟁 글",
+              "requiredBlogIndex": "준최적3",
+              "estimatedDays": 30
+            }
+          },
+          {
+            "rank": 9,
+            "title": "2025 트와이스 팬미팅 티켓팅 예매 일정 좌석 가격 입장... ",
+            "blogName": "아름답게",
+            "blogUrl": "blog.naver.com/ymillall",
+            "postUrl": "https://blog.naver.com/ymillall/224021222629",
+            "postDate": null,
+            "postAgeDays": 365,
+            "estimatedBlogIndex": "준최적2",
+            "blogIndexScore": 60,
+            "blogIndexReason": "고품질 콘텐츠",
+            "quality": {
+              "estimatedWordCount": 2130,
+              "qualityScore": 100,
+              "qualityLevel": "high",
+              "hasImages": true,
+              "hasVideo": false
+            },
+            "beatable": {
+              "canBeat": false,
+              "difficulty": "hard",
+              "reason": "상대 블로그 지수 우위, 1년+ 오래된 글, 고품질 경쟁 글",
+              "requiredBlogIndex": "준최적3",
+              "estimatedDays": 30
+            }
+          },
+          {
+            "rank": 10,
+            "title": "몬스타엑스 팬미팅 일정 실제 경험을 바탕으로 꿀팁과 솔직 후기!",
+            "blogName": "빛나는 도심의 밤",
+            "blogUrl": "blog.naver.com/dyzikfgjaf57439",
+            "postUrl": "https://blog.naver.com/dyzikfgjaf57439/224095700843",
+            "postDate": null,
+            "postAgeDays": 365,
+            "estimatedBlogIndex": "준최적2",
+            "blogIndexScore": 60,
+            "blogIndexReason": "고품질 콘텐츠",
+            "quality": {
+              "estimatedWordCount": 1905,
+              "qualityScore": 85,
+              "qualityLevel": "high",
+              "hasImages": true,
+              "hasVideo": false
+            },
+            "beatable": {
+              "canBeat": false,
+              "difficulty": "hard",
+              "reason": "상대 블로그 지수 우위, 1년+ 오래된 글, 고품질 경쟁 글",
+              "requiredBlogIndex": "준최적3",
+              "estimatedDays": 30
+            }
+          }
+        ],
+        "summary": {
+          "avgPostAgeDays": 365,
+          "oldPostRatio": 100,
+          "weakCompetitorCount": 1,
+          "strongCompetitorCount": 9,
+          "avgBlogIndexScore": 67,
+          "avgQualityScore": 83
+        },
+        "verdict": {
+          "canRankTop10": true,
+          "canRankTop5": true,
+          "canRankTop3": false,
+          "difficulty": "easy",
+          "difficultyScore": 35,
+          "requiredBlogIndex": "준최적5",
+          "estimatedRankingDays": 7,
+          "recommendation": "좋은 기회. 2주 내 상위노출 기대",
+          "strategy": "상위 글 분석 후 최신 정보 보강해 발행"
+        },
+        "opportunities": {
+          "hasFreshnessOpportunity": true,
+          "hasQualityOpportunity": false,
+          "hasWeakCompetitorOpportunity": false,
+          "bestOpportunity": "오래된 글 많음. 최신 정보로 승부"
+        }
+      },
+      "highlightReason": "✅ 언제든/안정 | 폭발 2 | 구매의도 30 | 월 60원⚠️ | 경쟁도 10",
+      "monetizationBlueprint": {
+        "type": "BRIDGE_BUILDER",
+        "name": "🌉 워드프레스 브릿지 전략",
+        "revenuePath": [
+          "1. 네이버 블로그: 핵심 정보의 70%만 제공 (궁금증 유발)",
+          "2. 상세 브릿지: \"전체 리스트/상세 가이드 보기\" 링크 제공",
+          "3. 워드프레스: 고단가 애드센스 광고가 배치된 상세 페이지",
+          "4. 장기화: 외부유입 트래픽으로 워드프레스 도메인 점수(DA) 상승"
+        ],
+        "hookSentence": "\"팬미팅일정 핵심만 정리했습니다. 000까지 포함된 전체 리스트는 아래 상세 가이드를 참고하세요.\"",
+        "wpBridgeStrategy": {
+          "strategy": "상세 가이드 연동 (Deep Dive)",
+          "dangerLevel": "low",
+          "safetyTip": "네이버 블로그 지수를 위해 워드프레스 메인 주소보다는 특정 포스트 URL을 사용하세요.",
+          "successProbability": 92
+        },
+        "actionPlan": [
+          "네이버: 가독성 좋은 요약본(카드뉴스 등) 활용",
+          "WP: PDF 다운로드 또는 전문성 높은 텍스트 배치",
+          "SNS(X, 카톡)에도 동일 링크 공유로 트래픽 다각화"
+        ],
+        "estimatedValue": "애드센스 극대화 (체류시간 증대 전략)"
+      },
+      "winningStrategy": "네이버 블로그에서는 '정답'을 다 알려주지 마세요. 핵심적인 호기심을 자극하고, '정말 중요한 디테일'은 WordPress 링크로 유도하는 것이 외부 유입 극대화의 핵심입니다."
+    }
+  ],
+  "smartBlockKeywords": [
+    "팬미팅",
+    "일정이",
+    "팬미팅 일정 확인하는법"
+  ],
+  "smartBlockKeywordsWithMetrics": [
+    {
+      "keyword": "팬미팅",
+      "frequency": 10,
+      "searchVolume": 2220,
+      "documentCount": 785299,
+      "goldenRatio": 0,
+      "isSmartBlockKeyword": true
+    },
+    {
+      "keyword": "일정이",
+      "frequency": 4,
+      "searchVolume": 20,
+      "documentCount": 50108514,
+      "goldenRatio": 0,
+      "isSmartBlockKeyword": true
+    }
+  ],
+  "summary": {
+    "totalFound": 1,
+    "sssCount": 0,
+    "ssCount": 0,
+    "sCount": 0,
+    "rookieFriendlyCount": 0,
+    "urgentCount": 0,
+    "blueOceanCount": 0
+  },
+  "huntingStrategy": "🏆 끝판왕 블루오션 전략: 실제 API 검증 완료된 황금 키워드",
+  "timestamp": "2025-12-31T23:36:00.454Z"
+}

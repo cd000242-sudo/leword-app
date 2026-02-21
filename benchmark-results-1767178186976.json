@@ -1,0 +1,71 @@
+{
+  "results": [
+    {
+      "iteration": 1,
+      "timestamp": "2025-12-31T10:41:08.589Z",
+      "keywords": [],
+      "stats": {
+        "sssCount": 0,
+        "ssCount": 0,
+        "sCount": 0,
+        "avgGoldenRatio": 0,
+        "maxGoldenRatio": 0
+      }
+    },
+    {
+      "iteration": 2,
+      "timestamp": "2025-12-31T10:43:17.501Z",
+      "keywords": [],
+      "stats": {
+        "sssCount": 0,
+        "ssCount": 0,
+        "sCount": 0,
+        "avgGoldenRatio": 0,
+        "maxGoldenRatio": 0
+      }
+    },
+    {
+      "iteration": 3,
+      "timestamp": "2025-12-31T10:45:26.941Z",
+      "keywords": [],
+      "stats": {
+        "sssCount": 0,
+        "ssCount": 0,
+        "sCount": 0,
+        "avgGoldenRatio": 0,
+        "maxGoldenRatio": 0
+      }
+    },
+    {
+      "iteration": 4,
+      "timestamp": "2025-12-31T10:47:37.351Z",
+      "keywords": [],
+      "stats": {
+        "sssCount": 0,
+        "ssCount": 0,
+        "sCount": 0,
+        "avgGoldenRatio": 0,
+        "maxGoldenRatio": 0
+      }
+    },
+    {
+      "iteration": 5,
+      "timestamp": "2025-12-31T10:49:46.974Z",
+      "keywords": [],
+      "stats": {
+        "sssCount": 0,
+        "ssCount": 0,
+        "sCount": 0,
+        "avgGoldenRatio": 0,
+        "maxGoldenRatio": 0
+      }
+    }
+  ],
+  "summary": {
+    "totalSss": 0,
+    "totalKeywords": 25,
+    "sssRate": 0,
+    "allSssKeywords": [],
+    "score": 0
+  }
+}

@@ -1,0 +1,227 @@
+{
+  "generatedAt": "2025-12-27T07:02:37.549Z",
+  "mode": "category",
+  "explosionMode": true,
+  "count": 5,
+  "timeoutMs": 240000,
+  "retries": 0,
+  "results": [
+    {
+      "success": false,
+      "category": "business",
+      "runIndex": 1,
+      "mode": "category",
+      "explosionMode": true,
+      "count": 5,
+      "summary": {
+        "totalFound": 0,
+        "sssCount": 0,
+        "ssCount": 0,
+        "sCount": 0,
+        "rookieFriendlyCount": 0,
+        "urgentCount": 0,
+        "blueOceanCount": 0,
+        "explosionFunnel": {
+          "candidates": 0,
+          "verified": 0,
+          "gradeOk": 0,
+          "ratioOk": 0,
+          "docOk": 0,
+          "svOk": 0,
+          "strictOk": 0,
+          "minSv": 30,
+          "internalMetrics": {
+            "seedCount": 130,
+            "allKeywordsCount": 389,
+            "profitableCount": 17,
+            "uniqueKeywordsCount": 17,
+            "sortedResultsCount": 17,
+            "verifiedResultsCount": 0,
+            "searchAdEnabled": true,
+            "searchAdAdded": 202,
+            "autocompleteAdded": 64
+          },
+          "topByExplosion": []
+        }
+      },
+      "keywords": [],
+      "attempts": 1,
+      "durationMs": 56187
+    },
+    {
+      "success": false,
+      "category": "self_development",
+      "runIndex": 1,
+      "mode": "category",
+      "explosionMode": true,
+      "count": 5,
+      "summary": {
+        "totalFound": 0,
+        "sssCount": 0,
+        "ssCount": 0,
+        "sCount": 0,
+        "rookieFriendlyCount": 0,
+        "urgentCount": 0,
+        "blueOceanCount": 0,
+        "explosionFunnel": {
+          "candidates": 1,
+          "verified": 1,
+          "gradeOk": 0,
+          "ratioOk": 0,
+          "docOk": 1,
+          "svOk": 1,
+          "strictOk": 0,
+          "minSv": 30,
+          "internalMetrics": {
+            "seedCount": 170,
+            "allKeywordsCount": 288,
+            "profitableCount": 155,
+            "uniqueKeywordsCount": 155,
+            "sortedResultsCount": 155,
+            "verifiedResultsCount": 0,
+            "searchAdEnabled": true,
+            "searchAdAdded": 83,
+            "autocompleteAdded": 42
+          },
+          "topByExplosion": [
+            "직무부트캠프 | grade=B gr=0.044220485396955986 sv=860 dc=19448 src=부트캠프(0) ex=58"
+          ]
+        }
+      },
+      "keywords": [],
+      "attempts": 1,
+      "durationMs": 184777
+    },
+    {
+      "success": false,
+      "category": "celeb",
+      "runIndex": 1,
+      "mode": "category",
+      "explosionMode": true,
+      "count": 5,
+      "summary": {
+        "totalFound": 0,
+        "sssCount": 0,
+        "ssCount": 0,
+        "sCount": 0,
+        "rookieFriendlyCount": 0,
+        "urgentCount": 0,
+        "blueOceanCount": 0,
+        "explosionFunnel": {
+          "candidates": 0,
+          "verified": 0,
+          "gradeOk": 0,
+          "ratioOk": 0,
+          "docOk": 0,
+          "svOk": 0,
+          "strictOk": 0,
+          "minSv": 30,
+          "internalMetrics": {
+            "seedCount": 140,
+            "allKeywordsCount": 325,
+            "profitableCount": 62,
+            "uniqueKeywordsCount": 62,
+            "sortedResultsCount": 62,
+            "verifiedResultsCount": 0,
+            "searchAdEnabled": true,
+            "searchAdAdded": 122,
+            "autocompleteAdded": 69
+          },
+          "topByExplosion": []
+        }
+      },
+      "keywords": [],
+      "attempts": 1,
+      "durationMs": 95498
+    },
+    {
+      "success": true,
+      "category": "fashion",
+      "runIndex": 1,
+      "mode": "category",
+      "explosionMode": true,
+      "count": 5,
+      "summary": {
+        "totalFound": 5,
+        "sssCount": 5,
+        "ssCount": 0,
+        "sCount": 0,
+        "rookieFriendlyCount": 2,
+        "urgentCount": 0,
+        "blueOceanCount": 3,
+        "explosionFunnel": {
+          "candidates": 6,
+          "verified": 6,
+          "gradeOk": 5,
+          "ratioOk": 5,
+          "docOk": 5,
+          "svOk": 6,
+          "strictOk": 5,
+          "minSv": 500,
+          "internalMetrics": {
+            "seedCount": 130,
+            "allKeywordsCount": 321,
+            "profitableCount": 78,
+            "uniqueKeywordsCount": 78,
+            "sortedResultsCount": 74,
+            "verifiedResultsCount": 5,
+            "searchAdEnabled": true,
+            "searchAdAdded": 132,
+            "autocompleteAdded": 67
+          },
+          "topByExplosion": [
+            "패션플러스 | grade=SSS gr=53.61875637104995 sv=368200 dc=6867 src=인스타(25) ex=106",
+            "코디너리 | grade=SSS gr=6.113207547169812 sv=4860 dc=795 src=인스타(25) ex=106",
+            "패션풀 | grade=SSS gr=2.6089997668454186 sv=11190 dc=4289 src=인스타(25) ex=106",
+            "남자옷쇼핑몰 | grade=SS gr=1.3848777714610574 sv=12180 dc=8795 src=인스타(25) ex=106",
+            "상견례옷차림 | grade=SS gr=1.3750907393964533 sv=13260 dc=9643 src=인스타(25) ex=106"
+          ]
+        }
+      },
+      "keywords": [
+        {
+          "keyword": "패션플러스",
+          "grade": "SSS",
+          "searchVolume": 368200,
+          "documentCount": 6867,
+          "goldenRatio": 53.61875637104995,
+          "source": "인스타"
+        },
+        {
+          "keyword": "코디너리",
+          "grade": "SSS",
+          "searchVolume": 4860,
+          "documentCount": 795,
+          "goldenRatio": 6.113207547169812,
+          "source": "인스타"
+        },
+        {
+          "keyword": "패션풀",
+          "grade": "SSS",
+          "searchVolume": 11190,
+          "documentCount": 4289,
+          "goldenRatio": 2.6089997668454186,
+          "source": "인스타"
+        },
+        {
+          "keyword": "남자옷쇼핑몰",
+          "grade": "SSS",
+          "searchVolume": 12180,
+          "documentCount": 8795,
+          "goldenRatio": 1.3848777714610574,
+          "source": "인스타"
+        },
+        {
+          "keyword": "상견례옷차림",
+          "grade": "SSS",
+          "searchVolume": 13260,
+          "documentCount": 9643,
+          "goldenRatio": 1.3750907393964533,
+          "source": "인스타"
+        }
+      ],
+      "attempts": 1,
+      "durationMs": 60906
+    }
+  ]
+}

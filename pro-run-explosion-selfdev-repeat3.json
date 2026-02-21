@@ -1,0 +1,163 @@
+{
+  "generatedAt": "2025-12-25T09:11:57.190Z",
+  "mode": "category",
+  "explosionMode": true,
+  "count": 5,
+  "timeoutMs": 240000,
+  "retries": 0,
+  "results": [
+    {
+      "success": false,
+      "category": "self_development",
+      "runIndex": 1,
+      "mode": "category",
+      "explosionMode": true,
+      "count": 5,
+      "summary": {
+        "totalFound": 0,
+        "sssCount": 0,
+        "ssCount": 0,
+        "sCount": 0,
+        "rookieFriendlyCount": 0,
+        "urgentCount": 0,
+        "blueOceanCount": 0,
+        "explosionFunnel": {
+          "candidates": 27,
+          "verified": 27,
+          "gradeOk": 0,
+          "ratioOk": 0,
+          "docOk": 24,
+          "svOk": 17,
+          "strictOk": 0,
+          "minSv": 30,
+          "internalMetrics": {
+            "seedCount": 163,
+            "allKeywordsCount": 1518,
+            "profitableCount": 34,
+            "uniqueKeywordsCount": 34,
+            "sortedResultsCount": 33,
+            "verifiedResultsCount": 11,
+            "searchAdEnabled": true,
+            "searchAdAdded": 661,
+            "autocompleteAdded": 707
+          },
+          "topByExplosion": [
+            "인프런 환불 | grade=B gr=0.2808988764044944 sv=50 dc=178 src=seed(0) ex=40",
+            "클래스101 환불 | grade=B gr=0.1568314726209463 sv=590 dc=3762 src=seed(0) ex=58",
+            "탈잉 쿠폰 | grade=B gr=0.128 sv=160 dc=1250 src=seed(0) ex=46",
+            "노션 템플릿 무료 | grade=B gr=0.12372802960222017 sv=1070 dc=8648 src=seed(0) ex=65",
+            "포모도로 타이머 | grade=B gr=0.1102525442894836 sv=1170 dc=10612 src=seed(0) ex=65"
+          ]
+        }
+      },
+      "keywords": [],
+      "attempts": 1,
+      "durationMs": 64553
+    },
+    {
+      "success": false,
+      "category": "self_development",
+      "runIndex": 2,
+      "mode": "category",
+      "explosionMode": true,
+      "count": 5,
+      "summary": {
+        "totalFound": 0,
+        "sssCount": 0,
+        "ssCount": 0,
+        "sCount": 0,
+        "rookieFriendlyCount": 0,
+        "urgentCount": 0,
+        "blueOceanCount": 0,
+        "explosionFunnel": {
+          "candidates": 30,
+          "verified": 30,
+          "gradeOk": 0,
+          "ratioOk": 0,
+          "docOk": 27,
+          "svOk": 19,
+          "strictOk": 0,
+          "minSv": 30,
+          "internalMetrics": {
+            "seedCount": 159,
+            "allKeywordsCount": 1502,
+            "profitableCount": 41,
+            "uniqueKeywordsCount": 41,
+            "sortedResultsCount": 40,
+            "verifiedResultsCount": 12,
+            "searchAdEnabled": true,
+            "searchAdAdded": 562,
+            "autocompleteAdded": 792
+          },
+          "topByExplosion": [
+            "인프런 환불 | grade=B gr=0.2808988764044944 sv=50 dc=178 src=seed(0) ex=40",
+            "클래스101 환불 | grade=B gr=0.1568314726209463 sv=590 dc=3762 src=seed(0) ex=58",
+            "탈잉 쿠폰 | grade=B gr=0.128 sv=160 dc=1250 src=seed(0) ex=46",
+            "노션 템플릿 무료 | grade=B gr=0.12372802960222017 sv=1070 dc=8648 src=seed(0) ex=65",
+            "포모도로 타이머 | grade=B gr=0.1102525442894836 sv=1170 dc=10612 src=seed(0) ex=65"
+          ]
+        }
+      },
+      "keywords": [],
+      "attempts": 1,
+      "durationMs": 79926
+    },
+    {
+      "success": true,
+      "category": "self_development",
+      "runIndex": 3,
+      "mode": "category",
+      "explosionMode": true,
+      "count": 5,
+      "summary": {
+        "totalFound": 1,
+        "sssCount": 0,
+        "ssCount": 0,
+        "sCount": 1,
+        "rookieFriendlyCount": 1,
+        "urgentCount": 0,
+        "blueOceanCount": 0,
+        "explosionFunnel": {
+          "candidates": 29,
+          "verified": 29,
+          "gradeOk": 1,
+          "ratioOk": 1,
+          "docOk": 26,
+          "svOk": 18,
+          "strictOk": 1,
+          "minSv": 30,
+          "internalMetrics": {
+            "seedCount": 161,
+            "allKeywordsCount": 1142,
+            "profitableCount": 37,
+            "uniqueKeywordsCount": 37,
+            "sortedResultsCount": 36,
+            "verifiedResultsCount": 12,
+            "searchAdEnabled": true,
+            "searchAdAdded": 221,
+            "autocompleteAdded": 767
+          },
+          "topByExplosion": [
+            "우선순위 영단어 | grade=A gr=0.4740638955685331 sv=1380 dc=2911 src=순위(0) ex=65",
+            "인프런 환불 | grade=B gr=0.2808988764044944 sv=50 dc=178 src=seed(0) ex=40",
+            "클래스101 환불 | grade=B gr=0.1568314726209463 sv=590 dc=3762 src=seed(0) ex=58",
+            "탈잉 쿠폰 | grade=B gr=0.128 sv=160 dc=1250 src=seed(0) ex=46",
+            "노션 템플릿 무료 | grade=B gr=0.12372802960222017 sv=1070 dc=8648 src=seed(0) ex=65"
+          ]
+        }
+      },
+      "keywords": [
+        {
+          "keyword": "우선순위 영단어",
+          "grade": "S",
+          "searchVolume": 1380,
+          "documentCount": 2911,
+          "goldenRatio": 0.4740638955685331,
+          "source": "순위"
+        }
+      ],
+      "attempts": 1,
+      "durationMs": 74719
+    }
+  ]
+}

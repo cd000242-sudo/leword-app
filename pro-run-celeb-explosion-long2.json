@@ -1,0 +1,74 @@
+{
+  "generatedAt": "2025-12-25T02:58:51.505Z",
+  "mode": "category",
+  "explosionMode": true,
+  "count": 10,
+  "timeoutMs": 600000,
+  "retries": 0,
+  "results": [
+    {
+      "success": true,
+      "category": "celeb",
+      "mode": "category",
+      "explosionMode": true,
+      "count": 10,
+      "summary": {
+        "totalFound": 2,
+        "sssCount": 0,
+        "ssCount": 0,
+        "sCount": 2,
+        "rookieFriendlyCount": 0,
+        "urgentCount": 0,
+        "blueOceanCount": 0,
+        "explosionFunnel": {
+          "candidates": 74,
+          "verified": 74,
+          "gradeOk": 2,
+          "ratioOk": 5,
+          "docOk": 68,
+          "svOk": 24,
+          "strictOk": 2,
+          "minSv": 30,
+          "internalMetrics": {
+            "seedCount": 81,
+            "allKeywordsCount": 823,
+            "profitableCount": 632,
+            "uniqueKeywordsCount": 632,
+            "sortedResultsCount": 630,
+            "verifiedResultsCount": 23,
+            "searchAdEnabled": true,
+            "searchAdAdded": 280,
+            "autocompleteAdded": 468
+          },
+          "topByExplosion": [
+            "입문자 팬미팅 신청 방법 | grade=A gr=1.5384615384615385 sv=20 dc=13 src=seed(0) ex=60",
+            "입문자 아이돌 컴백 일정 | grade=A gr=1.1764705882352942 sv=20 dc=17 src=seed(0) ex=40",
+            "초보자 아이돌 컴백 일정 | grade=A gr=0.39215686274509803 sv=20 dc=51 src=seed(0) ex=40",
+            "성시경 콘서트 티켓 | grade=A gr=0.3510493733957421 sv=4650 dc=13246 src=콘서트 티켓(0) ex=65",
+            "다비치 콘서트 티켓 | grade=A gr=0.32642812303829255 sv=1040 dc=3186 src=콘서트 티켓(0) ex=65"
+          ]
+        }
+      },
+      "keywords": [
+        {
+          "keyword": "성시경 콘서트 티켓",
+          "grade": "S",
+          "searchVolume": 4650,
+          "documentCount": 13246,
+          "goldenRatio": 0.3510493733957421,
+          "source": "콘서트 티켓"
+        },
+        {
+          "keyword": "다비치 콘서트 티켓",
+          "grade": "S",
+          "searchVolume": 1040,
+          "documentCount": 3186,
+          "goldenRatio": 0.32642812303829255,
+          "source": "콘서트 티켓"
+        }
+      ],
+      "attempts": 1,
+      "durationMs": 130108
+    }
+  ]
+}

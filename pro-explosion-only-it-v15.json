@@ -1,0 +1,45 @@
+{
+  "generatedAt": "2025-12-24T08:26:53.036Z",
+  "mode": "category",
+  "explosionMode": true,
+  "count": 10,
+  "timeoutMs": 120000,
+  "retries": 0,
+  "results": [
+    {
+      "success": false,
+      "category": "it",
+      "mode": "category",
+      "explosionMode": true,
+      "count": 10,
+      "summary": {
+        "totalFound": 0,
+        "sssCount": 0,
+        "ssCount": 0,
+        "sCount": 0,
+        "rookieFriendlyCount": 0,
+        "urgentCount": 0,
+        "blueOceanCount": 0,
+        "explosionFunnel": {
+          "candidates": 12,
+          "verified": 12,
+          "svOk": 1,
+          "ratioOk": 0,
+          "scoreOk": 0,
+          "signalOk": 1,
+          "strictOk": 0,
+          "topByExplosion": [
+            "2025 모니터 추천 용도별 | ex=70 sv=20 dc=267 gr=0.0749063670411985 src=seed(0) TODAY/stable",
+            "기계식 키보드 축 | ex=52 sv=430 dc=29150 gr=0.014751286449399657 src=seed(0) ANYTIME/stable",
+            "초보자 모니터 추천 용도별 | ex=40 sv=20 dc=201 gr=0.09950248756218906 src=seed(0) ANYTIME/stable",
+            "직장인 모니터 추천 용도별 | ex=40 sv=20 dc=226 gr=0.08849557522123894 src=seed(0) ANYTIME/stable",
+            "입문자 사무용 노트북 비교 | ex=40 sv=20 dc=406 gr=0.04926108374384237 src=seed(0) ANYTIME/stable"
+          ]
+        }
+      },
+      "keywords": [],
+      "attempts": 1,
+      "durationMs": 22701
+    }
+  ]
+}

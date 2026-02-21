@@ -1,0 +1,1045 @@
+{
+  "generatedAt": "2025-12-24T10:08:51.322Z",
+  "mode": "category",
+  "explosionMode": true,
+  "count": 10,
+  "timeoutMs": 240000,
+  "retries": 0,
+  "results": [
+    {
+      "success": true,
+      "category": "life_tips",
+      "mode": "category",
+      "explosionMode": true,
+      "count": 10,
+      "summary": {
+        "totalFound": 2,
+        "sssCount": 1,
+        "ssCount": 1,
+        "sCount": 0,
+        "rookieFriendlyCount": 0,
+        "urgentCount": 0,
+        "blueOceanCount": 1,
+        "explosionFunnel": {
+          "candidates": 40,
+          "verified": 40,
+          "gradeOk": 7,
+          "ratioOk": 4,
+          "docOk": 27,
+          "svOk": 25,
+          "strictOk": 2,
+          "minSv": 500,
+          "topByExplosion": [
+            "유지아우가르텐주방용품접기 | grade=A gr=20 sv=20 dc=1 src=쇼핑(25) ex=81",
+            "입문자 가스비 절약 꿀팁 | grade=A gr=4 sv=20 dc=5 src=seed(0) ex=40",
+            "데이코냉장고 | grade=SSS gr=2.0695807314897414 sv=2320 dc=1121 src=냉장고(0) ex=65",
+            "냉장고500리터 | grade=SS gr=1.226962237401727 sv=9520 dc=7759 src=냉장고(0) ex=65",
+            "냉장고200리터 | grade=A gr=0.4897238278741169 sv=3050 dc=6228 src=냉장고(0) ex=65"
+          ]
+        }
+      },
+      "keywords": [
+        {
+          "keyword": "데이코냉장고",
+          "searchVolume": 2320,
+          "documentCount": 1121,
+          "goldenRatio": 2.0695807314897414,
+          "rookieFriendly": {
+            "score": 60,
+            "grade": "B",
+            "reason": "문서수 5,000개 미만 → 경쟁 낮음 | 숏테일 키워드 → 대형 블로그와 경쟁",
+            "canRankWithin": "1~2주 내 가능",
+            "requiredBlogIndex": "준최 5 이상 권장"
+          },
+          "timing": {
+            "score": 50,
+            "urgency": "ANYTIME",
+            "bestPublishTime": "오전 6~8시 또는 저녁 8~10시",
+            "trendDirection": "stable",
+            "peakPrediction": "꾸준한 검색량 유지"
+          },
+          "blueOcean": {
+            "score": 71,
+            "competitorStrength": "weak",
+            "avgCompetitorBlogAge": "1~2년 (약한 경쟁)",
+            "oldPostRatio": 70,
+            "opportunity": "🔥 극상의 블루오션! 지금 선점하세요"
+          },
+          "trafficEstimate": {
+            "daily": "3~7명",
+            "weekly": "21~49명",
+            "monthly": "90~210명",
+            "confidence": 50,
+            "disclaimer": "📌 트래픽은 순위/CTR/계절성에 따라 달라질 수 있는 추정치입니다."
+          },
+          "revenueEstimate": {
+            "dailyRevenue": "81원 ⚠️추정",
+            "monthlyRevenue": "2,430원 ⚠️추정",
+            "estimatedCPC": 180,
+            "estimatedRPM": 4500,
+            "adType": "애드센스",
+            "revenueGrade": "B",
+            "revenueReason": "📌 보통. 롱테일 확장 추천"
+          },
+          "entryAnalysis": {
+            "canEntry": true,
+            "difficulty": "easy",
+            "difficultyScore": 21,
+            "message": "🟢 진입 쉬움 - 신생 블로거도 상위노출 가능!",
+            "topCompetitorStrength": "약함 (저품질 블로그 다수)",
+            "recommendedBlogIndex": "지수 무관 (신생도 OK)",
+            "estimatedRankingTime": "1~3일 내 가능"
+          },
+          "totalScore": 116,
+          "grade": "SSS",
+          "proStrategy": {
+            "title": "2025 데이코냉장고 완벽 정리 | 초보자도 쉽게 이해하는 가이드",
+            "outline": [
+              "1. 데이코냉장고란? (기본 개념)",
+              "2. 데이코냉장고 핵심 포인트 3가지",
+              "3. 데이코냉장고 장단점 비교",
+              "4. 데이코냉장고 실제 후기/경험담",
+              "5. 데이코냉장고 Q&A (자주 묻는 질문)",
+              "6. 결론 및 추천"
+            ],
+            "wordCount": 2500,
+            "mustInclude": [
+              "핵심 키워드 2~3회 자연스럽게 삽입",
+              "실제 이미지/사진 3장 이상",
+              "표 또는 비교 차트 1개 이상",
+              "자주 묻는 질문(FAQ) 섹션",
+              "결론 및 추천 섹션"
+            ],
+            "avoidTopics": [
+              "과장된 표현 (100%, 무조건, 반드시)",
+              "허위 정보나 검증되지 않은 내용",
+              "다른 블로그 복사/붙여넣기",
+              "광고성 링크 과다 삽입"
+            ],
+            "monetization": "애드센스 + 쿠팡파트너스 조합 추천"
+          },
+          "platformTitles": {
+            "naver": {
+              "title": "핵심 정리: 데이코냉장고 2025 최신 가이드 (월 2,320)",
+              "alternatives": [
+                "데이코냉장고 2025 완벽 정리: 핵심만 5분 요약",
+                "데이코냉장고 초보도 쉽게: 실패 없는 체크리스트"
+              ],
+              "subKeywords": [
+                "데이코냉장고 방법",
+                "데이코냉장고 추천",
+                "데이코냉장고 후기"
+              ],
+              "tags": [
+                "데이코냉장고",
+                "💎 블루오션"
+              ],
+              "tip": "서두 100자 내에 키워드를 2회 노출하고, 결론 요약을 맨 위에 한 번 더 넣으세요.",
+              "hookPoint": "핵심 정리 포인트를 제목/썸네일에 강조"
+            },
+            "tistory": {
+              "title": "데이코냉장고 2025 정리: 한 번에 이해하는 핵심 포인트 (월 2,320)",
+              "alternatives": [
+                "데이코냉장고 제대로 하는 법 (체크리스트 포함)",
+                "데이코냉장고 추천/비교: 선택 기준 3가지"
+              ],
+              "subKeywords": [
+                "데이코냉장고 방법",
+                "데이코냉장고 추천",
+                "데이코냉장고 후기"
+              ],
+              "tags": [
+                "데이코냉장고",
+                "💎 블루오션"
+              ],
+              "tip": "표/리스트를 많이 써서 스크롤 체류시간을 늘리세요.",
+              "hookPoint": "“핵심 3가지”처럼 숫자를 넣어 클릭률을 올리기"
+            },
+            "wordpress": {
+              "title": "데이코냉장고: 2025 Complete Guide (Checklist & Tips) (월 2,320)",
+              "alternatives": [
+                "데이코냉장고 Guide: Common Mistakes & Quick Fixes",
+                "데이코냉장고 Step-by-Step: What to Do First"
+              ],
+              "subKeywords": [
+                "데이코냉장고 방법",
+                "데이코냉장고 추천",
+                "데이코냉장고 후기"
+              ],
+              "tags": [
+                "데이코냉장고",
+                "💎 블루오션"
+              ],
+              "tip": "H2/H3로 구조를 만들고, FAQ 섹션을 넣어 SEO를 강화하세요.",
+              "hookPoint": "FAQ + 체크리스트 조합으로 체류시간/리치 증가"
+            },
+            "blogspot": {
+              "title": "데이코냉장고 2025: Quick Start + Best Practices (월 2,320)",
+              "alternatives": [
+                "데이코냉장고 Quick Guide: Do & Don't",
+                "데이코냉장고 Essentials: What You Need to Know"
+              ],
+              "subKeywords": [
+                "데이코냉장고 방법",
+                "데이코냉장고 추천",
+                "데이코냉장고 후기"
+              ],
+              "tags": [
+                "데이코냉장고",
+                "💎 블루오션"
+              ],
+              "tip": "이미지 2~3장 + 요약 박스를 넣어 가독성을 올리세요.",
+              "hookPoint": "첫 화면에 요약(결론)을 배치해 이탈률을 낮추기"
+            }
+          },
+          "expandedKeywords": {
+            "relatedGolden": [
+              "데이코냉장고 추천",
+              "데이코냉장고 비교",
+              "데이코냉장고 후기",
+              "데이코냉장고 가격"
+            ],
+            "longtailGolden": [
+              "데이코냉장고 초보",
+              "데이코냉장고 쉽게",
+              "데이코냉장고 단계별",
+              "데이코냉장고 정리"
+            ],
+            "blueOceanGolden": [
+              "데이코냉장고 최신",
+              "데이코냉장고 2025",
+              "데이코냉장고 체크리스트",
+              "데이코냉장고 실패하지 않는 법"
+            ]
+          },
+          "type": "💎 블루오션",
+          "category": "life_tips",
+          "safetyLevel": "safe",
+          "safetyReason": "✅ 안전한 키워드. 신생 블로거도 작성 가능",
+          "source": "냉장고",
+          "profitAnalysis": {
+            "keyword": "데이코냉장고",
+            "searchVolume": 2320,
+            "documentCount": 1121,
+            "estimatedCPC": 180,
+            "purchaseIntentScore": 30,
+            "competitionLevel": 4,
+            "freshnessOpportunity": 1,
+            "profitGoldenRatio": 4.96,
+            "estimatedDailyRevenue": 81,
+            "estimatedMonthlyRevenue": 2430,
+            "grade": "B",
+            "gradeReason": "📌 보통. 롱테일 확장 추천",
+            "isRealBlueOcean": false,
+            "blueOceanReason": "📗 잠재 블루오션. 상위노출 가능성 있음",
+            "strategy": {
+              "approach": "🔍 롱테일 확장 후 작성. \"초보자\", \"2025\", \"비교\" 등 붙여서 경쟁 낮추기",
+              "monetization": "📝 트래픽 확보 우선. 이후 관련 고수익 키워드로 내부링크",
+              "timing": "🗓️ 여유있게 준비. 롱테일 전략으로 접근",
+              "titleSuggestion": "데이코냉장고 완벽 가이드 | 초보자도 쉽게 따라하기"
+            }
+          },
+          "timestamp": "2025-12-24T10:08:06.184Z",
+          "isGolden": true,
+          "trendAnalysis": {
+            "trendingReason": "데이코, 美컨슈머리포트 빌트인 관련 최근 이슈",
+            "whyNow": "최근 5개 이상의 뉴스에서 다뤄지며 이슈화 진행 중 • 최신 이슈로 실시간 관심 집중 중 • \"데이코, 美컨슈머리포트 빌트인 4도어냉장고 평가 1∼5위\" 관련 최신 뉴스로 조기 진입 효과 기대",
+            "newsSource": "자동 분석"
+          },
+          "keywordGuide": {
+            "summary": "여유 있을 때 공략하면 좋은 키워드입니다. (등급: SSS, 점수: 116점)",
+            "whyItMovesNow": "데이코, 美컨슈머리포트 빌트인 관련 최근 이슈 최근 5개 이상의 뉴스에서 다뤄지며 이슈화 진행 중 • 최신 이슈로 실시간 관심 집중 중 • \"데이코, 美컨슈머리포트 빌트인 4도어냉장고 평가 1∼5위\" 관련 최신 뉴스로 조기 진입 효과 기대",
+            "immediateTrafficPlan": [
+              "제목 앞부분에 \"데이코냉장고\"를 배치하고, 2025/최신/정리 같은 보조 키워드를 1개만 추가하세요.",
+              "본문 서두 100자 안에 \"데이코냉장고\"를 자연스럽게 2회 노출하세요.",
+              "최소 1개는 비교/체크리스트/요약 섹션을 넣어 체류시간을 늘리세요."
+            ],
+            "naverHomeExposureTips": [
+              "첫 이미지에 키워드가 들어간 문구를 넣고, alt 텍스트도 키워드 포함",
+              "목차를 만들고 H2/H3에 서브 키워드 배치",
+              "태그는 5~10개로 과도한 반복을 피하고, 유사어를 섞기"
+            ]
+          },
+          "ultimateAnalysis": {
+            "timing": {
+              "seasonal": {
+                "peakMonths": [
+                  1,
+                  2,
+                  3,
+                  4,
+                  5,
+                  6,
+                  7,
+                  8,
+                  9,
+                  10,
+                  11,
+                  12
+                ],
+                "peakReason": "연중 꾸준한 검색량",
+                "currentSeasonScore": 70,
+                "nextPeakDate": "항상",
+                "daysUntilPeak": 0,
+                "recommendation": "📝 에버그린 키워드입니다. 언제든 작성해도 좋습니다.",
+                "seasonalPattern": "evergreen"
+              },
+              "trend": {
+                "trendDirection": "stable",
+                "changeRate": 21,
+                "comparedTo": "전월 대비",
+                "explosiveScore": 31,
+                "relatedNews": [],
+                "recommendation": "📊 안정적인 키워드입니다."
+              },
+              "alert": {
+                "optimalPublishDate": "0일 내",
+                "reason": "📝 에버그린 키워드입니다. 언제든 작성해도 좋습니다.",
+                "urgencyLevel": "⚡ 이번 주",
+                "expectedPeakDate": "항상",
+                "competitorActivity": "경쟁자 보통"
+              }
+            },
+            "revenue": {
+              "cpc": {
+                "estimatedCpc": 200,
+                "cpcRange": {
+                  "min": 100,
+                  "max": 400
+                },
+                "cpcTier": "🥈 중수익",
+                "industryAverage": 200,
+                "recommendation": "📝 일반적인 수익 구조입니다. 트래픽 확보에 집중하세요."
+              },
+              "affiliate": {
+                "recommendedPrograms": [
+                  {
+                    "name": "쿠팡파트너스",
+                    "type": "coupang",
+                    "commissionRate": "3~5%",
+                    "estimatedEarningPerClick": 50,
+                    "matchScore": 100
+                  },
+                  {
+                    "name": "네이버 쇼핑",
+                    "type": "naver",
+                    "commissionRate": "1~3%",
+                    "estimatedEarningPerClick": 30,
+                    "matchScore": 85
+                  }
+                ],
+                "bestMatch": "쿠팡파트너스",
+                "potentialProducts": [
+                  "데이코냉장고 추천",
+                  "데이코냉장고 순위",
+                  "데이코냉장고 비교",
+                  "데이코냉장고 후기",
+                  "데이코냉장고 가격",
+                  "데이코냉장고 구매"
+                ]
+              },
+              "projection": {
+                "estimatedDailyVisitors": 6,
+                "estimatedMonthlyVisitors": 180,
+                "adsenseRevenue": {
+                  "daily": 36,
+                  "monthly": 1080,
+                  "assumptions": "CPC 200원, CTR 2%, 페이지뷰율 1.5 가정"
+                },
+                "affiliateRevenue": {
+                  "daily": 1,
+                  "monthly": 30,
+                  "conversionRate": 3,
+                  "assumptions": "클릭률 10%, 전환율 3%, 평균 수수료 50원 가정"
+                },
+                "totalMonthlyRevenue": 1110,
+                "revenueBreakdown": "애드센스 97% + 제휴 3%",
+                "revenueTier": "📝 월 1만원+"
+              }
+            },
+            "content": {
+              "titles": {
+                "titles": [
+                  {
+                    "title": "데이코냉장고 추천 TOP 10 (2025년 최신)",
+                    "type": "number",
+                    "estimatedCTR": 8.5,
+                    "psychologyUsed": "숫자 + 최신 정보"
+                  },
+                  {
+                    "title": "데이코냉장고 하는 법, 초보자도 쉽게 따라하기",
+                    "type": "how-to",
+                    "estimatedCTR": 7.5,
+                    "psychologyUsed": "실용성 + 접근성"
+                  },
+                  {
+                    "title": "데이코냉장고, 이것만 알면 끝! 완벽 가이드",
+                    "type": "benefit",
+                    "estimatedCTR": 7.2,
+                    "psychologyUsed": "완결성 + 가치 제안"
+                  },
+                  {
+                    "title": "[2025년] 데이코냉장고 총정리 (+ 꿀팁 공개)",
+                    "type": "news",
+                    "estimatedCTR": 7,
+                    "psychologyUsed": "최신성 + 보너스 가치"
+                  },
+                  {
+                    "title": "아직도 데이코냉장고 몰라요? 지금 당장 확인하세요",
+                    "type": "curiosity",
+                    "estimatedCTR": 6.8,
+                    "psychologyUsed": "호기심 + 긴급성"
+                  },
+                  {
+                    "title": "데이코냉장고 실제 후기 (장단점 솔직 비교)",
+                    "type": "comparison",
+                    "estimatedCTR": 6.5,
+                    "psychologyUsed": "신뢰성 + 비교 심리"
+                  }
+                ],
+                "bestTitle": "데이코냉장고 추천 TOP 10 (2025년 최신)",
+                "titleFormula": "숫자 + 키워드 + 최신연도 + 가치제안"
+              },
+              "structure": {
+                "recommendedStructure": {
+                  "intro": {
+                    "purpose": "독자의 관심 끌기 + 키워드 자연스럽게 배치",
+                    "template": "\"데이코냉장고\"에 대해 고민하고 계신가요? 이 글에서 핵심 정보를 모두 정리해드립니다.",
+                    "keywordPlacement": "첫 문장에 키워드 포함"
+                  },
+                  "sections": [
+                    {
+                      "heading": "데이코냉장고란? (기본 개념)",
+                      "purpose": "기초 정보 제공",
+                      "contentGuide": "핵심 정의, 중요성, 왜 알아야 하는지 설명",
+                      "recommendedLength": 300,
+                      "keywordUsage": "소제목과 본문에 1~2회"
+                    },
+                    {
+                      "heading": "데이코냉장고 추천 BEST 5",
+                      "purpose": "실질적인 가치 제공 (핵심 섹션)",
+                      "contentGuide": "순위별 상세 설명, 장단점, 추천 이유",
+                      "recommendedLength": 800,
+                      "keywordUsage": "각 항목 설명에 자연스럽게 포함"
+                    },
+                    {
+                      "heading": "데이코냉장고 선택 시 주의사항",
+                      "purpose": "신뢰도 향상",
+                      "contentGuide": "흔한 실수, 피해야 할 것, 체크리스트",
+                      "recommendedLength": 400,
+                      "keywordUsage": "주의사항 설명에 1~2회"
+                    },
+                    {
+                      "heading": "자주 묻는 질문 (FAQ)",
+                      "purpose": "SEO 강화 + 체류시간 증가",
+                      "contentGuide": "실제 검색되는 질문 5개 + 명확한 답변",
+                      "recommendedLength": 500,
+                      "keywordUsage": "질문에 롱테일 키워드 활용"
+                    }
+                  ],
+                  "conclusion": {
+                    "purpose": "요약 + CTA",
+                    "template": "지금까지 데이코냉장고에 대해 알아봤습니다. 도움이 되셨다면 공유해주세요!",
+                    "ctaRecommendation": "댓글, 공유, 관련 글 링크 유도"
+                  }
+                },
+                "seoChecklist": [
+                  {
+                    "item": "제목에 키워드 포함",
+                    "importance": "critical",
+                    "howTo": "제목 앞부분에 메인 키워드 배치"
+                  },
+                  {
+                    "item": "첫 문단에 키워드",
+                    "importance": "critical",
+                    "howTo": "첫 100자 내 키워드 자연스럽게 삽입"
+                  },
+                  {
+                    "item": "소제목 H2/H3 활용",
+                    "importance": "high",
+                    "howTo": "3~5개 소제목, 키워드 변형 사용"
+                  },
+                  {
+                    "item": "이미지 ALT 태그",
+                    "importance": "high",
+                    "howTo": "모든 이미지에 키워드 포함 설명"
+                  },
+                  {
+                    "item": "내부링크 2개 이상",
+                    "importance": "medium",
+                    "howTo": "관련 글 자연스럽게 연결"
+                  },
+                  {
+                    "item": "3000자 이상 작성",
+                    "importance": "high",
+                    "howTo": "충분한 깊이의 콘텐츠 제공"
+                  }
+                ],
+                "totalRecommendedLength": 3000,
+                "estimatedWriteTime": 90
+              },
+              "images": {
+                "mainImage": {
+                  "searchKeyword": "데이코냉장고 대표이미지",
+                  "style": "깔끔한 인포그래픽 또는 고화질 사진",
+                  "source": [
+                    "Unsplash",
+                    "Pixabay",
+                    "직접 제작"
+                  ],
+                  "altText": "데이코냉장고 완벽 가이드 대표 이미지"
+                },
+                "sectionImages": [
+                  {
+                    "section": "기본 개념",
+                    "searchKeyword": "데이코냉장고 설명",
+                    "purpose": "이해 돕기",
+                    "style": "다이어그램"
+                  },
+                  {
+                    "section": "TOP 5",
+                    "searchKeyword": "데이코냉장고 비교",
+                    "purpose": "시각적 비교",
+                    "style": "비교표"
+                  },
+                  {
+                    "section": "주의사항",
+                    "searchKeyword": "주의 아이콘",
+                    "purpose": "강조",
+                    "style": "아이콘"
+                  }
+                ],
+                "infographicIdeas": [
+                  "데이코냉장고 선택 가이드 플로우차트",
+                  "데이코냉장고 TOP 5 비교표",
+                  "데이코냉장고 체크리스트"
+                ],
+                "totalRecommendedImages": 7,
+                "imageStrategy": "섹션당 1~2개, 총 7~10개 이미지로 가독성과 체류시간 향상"
+              }
+            },
+            "ultimateScore": {
+              "total": 50,
+              "breakdown": {
+                "goldenRatio": 20.695807314897415,
+                "timing": 70,
+                "revenue": 40,
+                "competition": 80,
+                "potential": 53
+              },
+              "grade": "🥉 B",
+              "verdict": "📝 작성 가치 있음",
+              "topActions": [
+                "0일 내 작성 권장",
+                "데이코냉장고 추천 TOP 10 (2025년 최신)",
+                "3000자 이상, 7개 이미지 권장"
+              ]
+            }
+          },
+          "highlightReason": "✅ ANYTIME/stable | 폭발 65 | 구매의도 30 | 월 2,430원⚠️ | 경쟁도 4"
+        },
+        {
+          "keyword": "냉장고500리터",
+          "searchVolume": 9520,
+          "documentCount": 7759,
+          "goldenRatio": 1.226962237401727,
+          "rookieFriendly": {
+            "score": 50,
+            "grade": "C",
+            "reason": "문서수 10,000개 미만 → 경쟁 보통 | 숏테일 키워드 → 대형 블로그와 경쟁",
+            "canRankWithin": "2~4주 내 가능",
+            "requiredBlogIndex": "최적 1 이상 권장"
+          },
+          "timing": {
+            "score": 50,
+            "urgency": "ANYTIME",
+            "bestPublishTime": "오전 6~8시 또는 저녁 8~10시",
+            "trendDirection": "stable",
+            "peakPrediction": "꾸준한 검색량 유지"
+          },
+          "blueOcean": {
+            "score": 62,
+            "competitorStrength": "medium",
+            "avgCompetitorBlogAge": "2~5년 (보통 경쟁)",
+            "oldPostRatio": 50,
+            "opportunity": "✅ 좋은 기회입니다. 품질 콘텐츠로 승부"
+          },
+          "trafficEstimate": {
+            "daily": "8~18명",
+            "weekly": "56~126명",
+            "monthly": "240~540명",
+            "confidence": 50,
+            "disclaimer": "📌 트래픽은 순위/CTR/계절성에 따라 달라질 수 있는 추정치입니다."
+          },
+          "revenueEstimate": {
+            "dailyRevenue": "298원 ⚠️추정",
+            "monthlyRevenue": "8,940원 ⚠️추정",
+            "estimatedCPC": 207,
+            "estimatedRPM": 5175,
+            "adType": "애드센스",
+            "revenueGrade": "A",
+            "revenueReason": "✅ 양호! 월 9천원 예상"
+          },
+          "entryAnalysis": {
+            "canEntry": true,
+            "difficulty": "possible",
+            "difficultyScore": 35,
+            "message": "🟡 진입 가능 - 품질 콘텐츠로 충분히 경쟁 가능",
+            "topCompetitorStrength": "보통 (일반 블로그 혼재)",
+            "recommendedBlogIndex": "준최 3 이상 권장",
+            "estimatedRankingTime": "3~7일 내 가능"
+          },
+          "totalScore": 83,
+          "grade": "SS",
+          "proStrategy": {
+            "title": "2025 냉장고500리터 완벽 정리 | 초보자도 쉽게 이해하는 가이드",
+            "outline": [
+              "1. 냉장고500리터란? (기본 개념)",
+              "2. 냉장고500리터 핵심 포인트 3가지",
+              "3. 냉장고500리터 장단점 비교",
+              "4. 냉장고500리터 실제 후기/경험담",
+              "5. 냉장고500리터 Q&A (자주 묻는 질문)",
+              "6. 결론 및 추천"
+            ],
+            "wordCount": 2500,
+            "mustInclude": [
+              "핵심 키워드 2~3회 자연스럽게 삽입",
+              "실제 이미지/사진 3장 이상",
+              "표 또는 비교 차트 1개 이상",
+              "자주 묻는 질문(FAQ) 섹션",
+              "결론 및 추천 섹션"
+            ],
+            "avoidTopics": [
+              "과장된 표현 (100%, 무조건, 반드시)",
+              "허위 정보나 검증되지 않은 내용",
+              "다른 블로그 복사/붙여넣기",
+              "광고성 링크 과다 삽입"
+            ],
+            "monetization": "애드센스 + 쿠팡파트너스 조합 추천"
+          },
+          "platformTitles": {
+            "naver": {
+              "title": "핵심 정리: 냉장고500리터 2025 최신 가이드 (월 9,520)",
+              "alternatives": [
+                "냉장고500리터 2025 완벽 정리: 핵심만 5분 요약",
+                "냉장고500리터 초보도 쉽게: 실패 없는 체크리스트"
+              ],
+              "subKeywords": [
+                "냉장고500리터 방법",
+                "냉장고500리터 추천",
+                "냉장고500리터 후기"
+              ],
+              "tags": [
+                "냉장고500리터",
+                "📰 이슈키워드"
+              ],
+              "tip": "서두 100자 내에 키워드를 2회 노출하고, 결론 요약을 맨 위에 한 번 더 넣으세요.",
+              "hookPoint": "핵심 정리 포인트를 제목/썸네일에 강조"
+            },
+            "tistory": {
+              "title": "냉장고500리터 2025 정리: 한 번에 이해하는 핵심 포인트 (월 9,520)",
+              "alternatives": [
+                "냉장고500리터 제대로 하는 법 (체크리스트 포함)",
+                "냉장고500리터 추천/비교: 선택 기준 3가지"
+              ],
+              "subKeywords": [
+                "냉장고500리터 방법",
+                "냉장고500리터 추천",
+                "냉장고500리터 후기"
+              ],
+              "tags": [
+                "냉장고500리터",
+                "📰 이슈키워드"
+              ],
+              "tip": "표/리스트를 많이 써서 스크롤 체류시간을 늘리세요.",
+              "hookPoint": "“핵심 3가지”처럼 숫자를 넣어 클릭률을 올리기"
+            },
+            "wordpress": {
+              "title": "냉장고500리터: 2025 Complete Guide (Checklist & Tips) (월 9,520)",
+              "alternatives": [
+                "냉장고500리터 Guide: Common Mistakes & Quick Fixes",
+                "냉장고500리터 Step-by-Step: What to Do First"
+              ],
+              "subKeywords": [
+                "냉장고500리터 방법",
+                "냉장고500리터 추천",
+                "냉장고500리터 후기"
+              ],
+              "tags": [
+                "냉장고500리터",
+                "📰 이슈키워드"
+              ],
+              "tip": "H2/H3로 구조를 만들고, FAQ 섹션을 넣어 SEO를 강화하세요.",
+              "hookPoint": "FAQ + 체크리스트 조합으로 체류시간/리치 증가"
+            },
+            "blogspot": {
+              "title": "냉장고500리터 2025: Quick Start + Best Practices (월 9,520)",
+              "alternatives": [
+                "냉장고500리터 Quick Guide: Do & Don't",
+                "냉장고500리터 Essentials: What You Need to Know"
+              ],
+              "subKeywords": [
+                "냉장고500리터 방법",
+                "냉장고500리터 추천",
+                "냉장고500리터 후기"
+              ],
+              "tags": [
+                "냉장고500리터",
+                "📰 이슈키워드"
+              ],
+              "tip": "이미지 2~3장 + 요약 박스를 넣어 가독성을 올리세요.",
+              "hookPoint": "첫 화면에 요약(결론)을 배치해 이탈률을 낮추기"
+            }
+          },
+          "expandedKeywords": {
+            "relatedGolden": [
+              "냉장고500리터 추천",
+              "냉장고500리터 비교",
+              "냉장고500리터 후기",
+              "냉장고500리터 가격"
+            ],
+            "longtailGolden": [
+              "냉장고500리터 초보",
+              "냉장고500리터 쉽게",
+              "냉장고500리터 단계별",
+              "냉장고500리터 정리"
+            ],
+            "blueOceanGolden": [
+              "냉장고500리터 최신",
+              "냉장고500리터 2025",
+              "냉장고500리터 체크리스트",
+              "냉장고500리터 실패하지 않는 법"
+            ]
+          },
+          "type": "📰 이슈키워드",
+          "category": "life_tips",
+          "safetyLevel": "safe",
+          "safetyReason": "✅ 안전한 키워드. 신생 블로거도 작성 가능",
+          "source": "냉장고",
+          "profitAnalysis": {
+            "keyword": "냉장고500리터",
+            "searchVolume": 9520,
+            "documentCount": 7759,
+            "estimatedCPC": 207,
+            "purchaseIntentScore": 30,
+            "competitionLevel": 6,
+            "freshnessOpportunity": 1,
+            "profitGoldenRatio": 15.6,
+            "estimatedDailyRevenue": 298,
+            "estimatedMonthlyRevenue": 8940,
+            "grade": "A",
+            "gradeReason": "✅ 양호! 월 9천원 예상",
+            "isRealBlueOcean": false,
+            "blueOceanReason": "📕 경쟁 시장. 차별화 전략 필요",
+            "strategy": {
+              "approach": "✍️ 빠른 작성 권장. 1500자+ 품질 콘텐츠로 상위 노출 노려볼만",
+              "monetization": "📝 트래픽 확보 우선. 이후 관련 고수익 키워드로 내부링크",
+              "timing": "📅 이번 주 내 작성. 2~4주 내 상위노출 기대",
+              "titleSuggestion": "냉장고500리터 완벽 가이드 | 초보자도 쉽게 따라하기"
+            }
+          },
+          "timestamp": "2025-12-24T10:08:06.176Z",
+          "isGolden": true,
+          "trendAnalysis": {
+            "trendingReason": "캐리어냉장, 500리터대 세미빌트인 관련 최근 이슈",
+            "whyNow": "최근 5개 이상의 뉴스에서 다뤄지며 이슈화 진행 중 • \"출시\" 관련 구체적 사건으로 실시간 관심 집중 • 최신 이슈로 실시간 관심 집중 중 • \"캐리어냉장, 500리터대 세미빌트인 냉장고 시장 진출\" 관련 최신 뉴스로 조기 진입 효과 기대",
+            "newsSource": "자동 분석"
+          },
+          "keywordGuide": {
+            "summary": "여유 있을 때 공략하면 좋은 키워드입니다. (등급: SS, 점수: 83점)",
+            "whyItMovesNow": "캐리어냉장, 500리터대 세미빌트인 관련 최근 이슈 최근 5개 이상의 뉴스에서 다뤄지며 이슈화 진행 중 • \"출시\" 관련 구체적 사건으로 실시간 관심 집중 • 최신 이슈로 실시간 관심 집중 중 • \"캐리어냉장, 500리터대 세미빌트인 냉장고 시장 진출\" 관련 최신 뉴스로 조기 진입 효과 기대",
+            "immediateTrafficPlan": [
+              "제목 앞부분에 \"냉장고500리터\"를 배치하고, 2025/최신/정리 같은 보조 키워드를 1개만 추가하세요.",
+              "본문 서두 100자 안에 \"냉장고500리터\"를 자연스럽게 2회 노출하세요.",
+              "최소 1개는 비교/체크리스트/요약 섹션을 넣어 체류시간을 늘리세요."
+            ],
+            "naverHomeExposureTips": [
+              "첫 이미지에 키워드가 들어간 문구를 넣고, alt 텍스트도 키워드 포함",
+              "목차를 만들고 H2/H3에 서브 키워드 배치",
+              "태그는 5~10개로 과도한 반복을 피하고, 유사어를 섞기"
+            ]
+          },
+          "ultimateAnalysis": {
+            "timing": {
+              "seasonal": {
+                "peakMonths": [
+                  1,
+                  2,
+                  3,
+                  4,
+                  5,
+                  6,
+                  7,
+                  8,
+                  9,
+                  10,
+                  11,
+                  12
+                ],
+                "peakReason": "연중 꾸준한 검색량",
+                "currentSeasonScore": 70,
+                "nextPeakDate": "항상",
+                "daysUntilPeak": 0,
+                "recommendation": "📝 에버그린 키워드입니다. 언제든 작성해도 좋습니다.",
+                "seasonalPattern": "evergreen"
+              },
+              "trend": {
+                "trendDirection": "falling",
+                "changeRate": 12,
+                "comparedTo": "전월 대비",
+                "explosiveScore": 18,
+                "relatedNews": [],
+                "recommendation": "📊 안정적인 키워드입니다."
+              },
+              "alert": {
+                "optimalPublishDate": "0일 내",
+                "reason": "📝 에버그린 키워드입니다. 언제든 작성해도 좋습니다.",
+                "urgencyLevel": "⚡ 이번 주",
+                "expectedPeakDate": "항상",
+                "competitorActivity": "경쟁자 보통"
+              }
+            },
+            "revenue": {
+              "cpc": {
+                "estimatedCpc": 200,
+                "cpcRange": {
+                  "min": 100,
+                  "max": 400
+                },
+                "cpcTier": "🥈 중수익",
+                "industryAverage": 200,
+                "recommendation": "📝 일반적인 수익 구조입니다. 트래픽 확보에 집중하세요."
+              },
+              "affiliate": {
+                "recommendedPrograms": [
+                  {
+                    "name": "쿠팡파트너스",
+                    "type": "coupang",
+                    "commissionRate": "3~5%",
+                    "estimatedEarningPerClick": 50,
+                    "matchScore": 100
+                  },
+                  {
+                    "name": "네이버 쇼핑",
+                    "type": "naver",
+                    "commissionRate": "1~3%",
+                    "estimatedEarningPerClick": 30,
+                    "matchScore": 85
+                  }
+                ],
+                "bestMatch": "쿠팡파트너스",
+                "potentialProducts": [
+                  "냉장고500리터 추천",
+                  "냉장고500리터 순위",
+                  "냉장고500리터 비교",
+                  "냉장고500리터 후기",
+                  "냉장고500리터 가격",
+                  "냉장고500리터 구매"
+                ]
+              },
+              "projection": {
+                "estimatedDailyVisitors": 16,
+                "estimatedMonthlyVisitors": 480,
+                "adsenseRevenue": {
+                  "daily": 96,
+                  "monthly": 2880,
+                  "assumptions": "CPC 200원, CTR 2%, 페이지뷰율 1.5 가정"
+                },
+                "affiliateRevenue": {
+                  "daily": 2,
+                  "monthly": 60,
+                  "conversionRate": 3,
+                  "assumptions": "클릭률 10%, 전환율 3%, 평균 수수료 50원 가정"
+                },
+                "totalMonthlyRevenue": 2940,
+                "revenueBreakdown": "애드센스 98% + 제휴 2%",
+                "revenueTier": "📝 월 1만원+"
+              }
+            },
+            "content": {
+              "titles": {
+                "titles": [
+                  {
+                    "title": "냉장고500리터 추천 TOP 10 (2025년 최신)",
+                    "type": "number",
+                    "estimatedCTR": 8.5,
+                    "psychologyUsed": "숫자 + 최신 정보"
+                  },
+                  {
+                    "title": "냉장고500리터 하는 법, 초보자도 쉽게 따라하기",
+                    "type": "how-to",
+                    "estimatedCTR": 7.5,
+                    "psychologyUsed": "실용성 + 접근성"
+                  },
+                  {
+                    "title": "냉장고500리터, 이것만 알면 끝! 완벽 가이드",
+                    "type": "benefit",
+                    "estimatedCTR": 7.2,
+                    "psychologyUsed": "완결성 + 가치 제안"
+                  },
+                  {
+                    "title": "[2025년] 냉장고500리터 총정리 (+ 꿀팁 공개)",
+                    "type": "news",
+                    "estimatedCTR": 7,
+                    "psychologyUsed": "최신성 + 보너스 가치"
+                  },
+                  {
+                    "title": "아직도 냉장고500리터 몰라요? 지금 당장 확인하세요",
+                    "type": "curiosity",
+                    "estimatedCTR": 6.8,
+                    "psychologyUsed": "호기심 + 긴급성"
+                  },
+                  {
+                    "title": "냉장고500리터 실제 후기 (장단점 솔직 비교)",
+                    "type": "comparison",
+                    "estimatedCTR": 6.5,
+                    "psychologyUsed": "신뢰성 + 비교 심리"
+                  }
+                ],
+                "bestTitle": "냉장고500리터 추천 TOP 10 (2025년 최신)",
+                "titleFormula": "숫자 + 키워드 + 최신연도 + 가치제안"
+              },
+              "structure": {
+                "recommendedStructure": {
+                  "intro": {
+                    "purpose": "독자의 관심 끌기 + 키워드 자연스럽게 배치",
+                    "template": "\"냉장고500리터\"에 대해 고민하고 계신가요? 이 글에서 핵심 정보를 모두 정리해드립니다.",
+                    "keywordPlacement": "첫 문장에 키워드 포함"
+                  },
+                  "sections": [
+                    {
+                      "heading": "냉장고500리터란? (기본 개념)",
+                      "purpose": "기초 정보 제공",
+                      "contentGuide": "핵심 정의, 중요성, 왜 알아야 하는지 설명",
+                      "recommendedLength": 300,
+                      "keywordUsage": "소제목과 본문에 1~2회"
+                    },
+                    {
+                      "heading": "냉장고500리터 추천 BEST 5",
+                      "purpose": "실질적인 가치 제공 (핵심 섹션)",
+                      "contentGuide": "순위별 상세 설명, 장단점, 추천 이유",
+                      "recommendedLength": 800,
+                      "keywordUsage": "각 항목 설명에 자연스럽게 포함"
+                    },
+                    {
+                      "heading": "냉장고500리터 선택 시 주의사항",
+                      "purpose": "신뢰도 향상",
+                      "contentGuide": "흔한 실수, 피해야 할 것, 체크리스트",
+                      "recommendedLength": 400,
+                      "keywordUsage": "주의사항 설명에 1~2회"
+                    },
+                    {
+                      "heading": "자주 묻는 질문 (FAQ)",
+                      "purpose": "SEO 강화 + 체류시간 증가",
+                      "contentGuide": "실제 검색되는 질문 5개 + 명확한 답변",
+                      "recommendedLength": 500,
+                      "keywordUsage": "질문에 롱테일 키워드 활용"
+                    }
+                  ],
+                  "conclusion": {
+                    "purpose": "요약 + CTA",
+                    "template": "지금까지 냉장고500리터에 대해 알아봤습니다. 도움이 되셨다면 공유해주세요!",
+                    "ctaRecommendation": "댓글, 공유, 관련 글 링크 유도"
+                  }
+                },
+                "seoChecklist": [
+                  {
+                    "item": "제목에 키워드 포함",
+                    "importance": "critical",
+                    "howTo": "제목 앞부분에 메인 키워드 배치"
+                  },
+                  {
+                    "item": "첫 문단에 키워드",
+                    "importance": "critical",
+                    "howTo": "첫 100자 내 키워드 자연스럽게 삽입"
+                  },
+                  {
+                    "item": "소제목 H2/H3 활용",
+                    "importance": "high",
+                    "howTo": "3~5개 소제목, 키워드 변형 사용"
+                  },
+                  {
+                    "item": "이미지 ALT 태그",
+                    "importance": "high",
+                    "howTo": "모든 이미지에 키워드 포함 설명"
+                  },
+                  {
+                    "item": "내부링크 2개 이상",
+                    "importance": "medium",
+                    "howTo": "관련 글 자연스럽게 연결"
+                  },
+                  {
+                    "item": "3000자 이상 작성",
+                    "importance": "high",
+                    "howTo": "충분한 깊이의 콘텐츠 제공"
+                  }
+                ],
+                "totalRecommendedLength": 3000,
+                "estimatedWriteTime": 90
+              },
+              "images": {
+                "mainImage": {
+                  "searchKeyword": "냉장고500리터 대표이미지",
+                  "style": "깔끔한 인포그래픽 또는 고화질 사진",
+                  "source": [
+                    "Unsplash",
+                    "Pixabay",
+                    "직접 제작"
+                  ],
+                  "altText": "냉장고500리터 완벽 가이드 대표 이미지"
+                },
+                "sectionImages": [
+                  {
+                    "section": "기본 개념",
+                    "searchKeyword": "냉장고500리터 설명",
+                    "purpose": "이해 돕기",
+                    "style": "다이어그램"
+                  },
+                  {
+                    "section": "TOP 5",
+                    "searchKeyword": "냉장고500리터 비교",
+                    "purpose": "시각적 비교",
+                    "style": "비교표"
+                  },
+                  {
+                    "section": "주의사항",
+                    "searchKeyword": "주의 아이콘",
+                    "purpose": "강조",
+                    "style": "아이콘"
+                  }
+                ],
+                "infographicIdeas": [
+                  "냉장고500리터 선택 가이드 플로우차트",
+                  "냉장고500리터 TOP 5 비교표",
+                  "냉장고500리터 체크리스트"
+                ],
+                "totalRecommendedImages": 7,
+                "imageStrategy": "섹션당 1~2개, 총 7~10개 이미지로 가독성과 체류시간 향상"
+              }
+            },
+            "ultimateScore": {
+              "total": 42,
+              "breakdown": {
+                "goldenRatio": 12.26962237401727,
+                "timing": 70,
+                "revenue": 40,
+                "competition": 60,
+                "potential": 46
+              },
+              "grade": "📝 C",
+              "verdict": "⚠️ 신중히 검토 필요",
+              "topActions": [
+                "0일 내 작성 권장",
+                "냉장고500리터 추천 TOP 10 (2025년 최신)",
+                "3000자 이상, 7개 이미지 권장"
+              ]
+            }
+          },
+          "highlightReason": "✅ ANYTIME/stable | 폭발 65 | 구매의도 30 | 월 8,940원⚠️ | 경쟁도 6"
+        }
+      ],
+      "attempts": 1,
+      "durationMs": 110491
+    }
+  ]
+}

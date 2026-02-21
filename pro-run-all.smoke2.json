@@ -1,0 +1,20 @@
+{
+  "generatedAt": "2025-12-21T15:13:30.257Z",
+  "mode": "realtime",
+  "explosionMode": false,
+  "count": 5,
+  "timeoutMs": 90000,
+  "retries": 0,
+  "results": [
+    {
+      "success": false,
+      "category": "all",
+      "mode": "realtime",
+      "explosionMode": false,
+      "count": 5,
+      "error": "timeout",
+      "attempts": 1,
+      "durationMs": 90051
+    }
+  ]
+}

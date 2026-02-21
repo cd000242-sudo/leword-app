@@ -1,0 +1,147 @@
+{
+  "generatedAt": "2025-12-25T09:05:43.929Z",
+  "mode": "category",
+  "explosionMode": true,
+  "count": 5,
+  "timeoutMs": 240000,
+  "retries": 0,
+  "results": [
+    {
+      "success": true,
+      "category": "drama",
+      "runIndex": 1,
+      "mode": "category",
+      "explosionMode": true,
+      "count": 5,
+      "summary": {
+        "totalFound": 5,
+        "sssCount": 3,
+        "ssCount": 1,
+        "sCount": 1,
+        "rookieFriendlyCount": 3,
+        "urgentCount": 0,
+        "blueOceanCount": 2,
+        "explosionFunnel": {
+          "candidates": 28,
+          "verified": 28,
+          "gradeOk": 5,
+          "ratioOk": 5,
+          "docOk": 27,
+          "svOk": 8,
+          "strictOk": 5,
+          "minSv": 500,
+          "internalMetrics": {
+            "seedCount": 141,
+            "allKeywordsCount": 1303,
+            "profitableCount": 43,
+            "uniqueKeywordsCount": 43,
+            "sortedResultsCount": 40,
+            "verifiedResultsCount": 13,
+            "searchAdEnabled": true,
+            "searchAdAdded": 428,
+            "autocompleteAdded": 746
+          },
+          "topByExplosion": [
+            "아바타2 ott | grade=SSS gr=13.877082136703045 sv=24160 dc=1741 src=Signal.bz(35) ex=123",
+            "아바타2 줄거리 | grade=SSS gr=2.8452049343414245 sv=7150 dc=2513 src=Signal.bz(35) ex=123",
+            "아바타2 넷플릭스 | grade=SS gr=1.5539494062983996 sv=3010 dc=1937 src=Signal.bz(35) ex=123",
+            "아바타2 결말 | grade=S gr=0.8775654635527247 sv=1240 dc=1413 src=Signal.bz(35) ex=123",
+            "아바타2 등장인물 | grade=S gr=0.5308392315470172 sv=1050 dc=1978 src=Signal.bz(35) ex=123"
+          ]
+        }
+      },
+      "keywords": [
+        {
+          "keyword": "아바타2 ott",
+          "grade": "SSS",
+          "searchVolume": 24160,
+          "documentCount": 1741,
+          "goldenRatio": 13.877082136703045,
+          "source": "Signal.bz"
+        },
+        {
+          "keyword": "아바타2 줄거리",
+          "grade": "SSS",
+          "searchVolume": 7150,
+          "documentCount": 2513,
+          "goldenRatio": 2.8452049343414245,
+          "source": "Signal.bz"
+        },
+        {
+          "keyword": "아바타2 넷플릭스",
+          "grade": "SSS",
+          "searchVolume": 3010,
+          "documentCount": 1937,
+          "goldenRatio": 1.5539494062983996,
+          "source": "Signal.bz"
+        },
+        {
+          "keyword": "아바타2 결말",
+          "grade": "SS",
+          "searchVolume": 1240,
+          "documentCount": 1413,
+          "goldenRatio": 0.8775654635527247,
+          "source": "Signal.bz"
+        },
+        {
+          "keyword": "아바타2 등장인물",
+          "grade": "S",
+          "searchVolume": 1050,
+          "documentCount": 1978,
+          "goldenRatio": 0.5308392315470172,
+          "source": "Signal.bz"
+        }
+      ],
+      "attempts": 1,
+      "durationMs": 85084
+    },
+    {
+      "success": false,
+      "category": "self_development",
+      "runIndex": 1,
+      "mode": "category",
+      "explosionMode": true,
+      "count": 5,
+      "summary": {
+        "totalFound": 0,
+        "sssCount": 0,
+        "ssCount": 0,
+        "sCount": 0,
+        "rookieFriendlyCount": 0,
+        "urgentCount": 0,
+        "blueOceanCount": 0,
+        "explosionFunnel": {
+          "candidates": 11,
+          "verified": 11,
+          "gradeOk": 0,
+          "ratioOk": 0,
+          "docOk": 9,
+          "svOk": 5,
+          "strictOk": 0,
+          "minSv": 30,
+          "internalMetrics": {
+            "seedCount": 147,
+            "allKeywordsCount": 1510,
+            "profitableCount": 16,
+            "uniqueKeywordsCount": 16,
+            "sortedResultsCount": 16,
+            "verifiedResultsCount": 2,
+            "searchAdEnabled": true,
+            "searchAdAdded": 362,
+            "autocompleteAdded": 1008
+          },
+          "topByExplosion": [
+            "인프런 할인 | grade=B gr=0.04579278763594734 sv=80 dc=1747 src=seed(0) ex=46",
+            "탈잉 할인 | grade=A gr=0.019801980198019802 sv=50 dc=2525 src=seed(0) ex=40",
+            "클래스101 할인 | grade=B gr=0.016851828735488704 sv=270 dc=16022 src=seed(0) ex=52",
+            "코딩 부트캠프 가격 | grade=S gr=0.009930486593843098 sv=20 dc=2014 src=seed(0) ex=40",
+            "패스트캠퍼스 할인 | grade=A gr=0.005762028233938346 sv=20 dc=3471 src=seed(0) ex=40"
+          ]
+        }
+      },
+      "keywords": [],
+      "attempts": 1,
+      "durationMs": 56648
+    }
+  ]
+}

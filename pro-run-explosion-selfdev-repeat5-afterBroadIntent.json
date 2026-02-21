@@ -1,0 +1,277 @@
+{
+  "generatedAt": "2025-12-25T09:40:20.093Z",
+  "mode": "category",
+  "explosionMode": true,
+  "count": 5,
+  "timeoutMs": 240000,
+  "retries": 0,
+  "results": [
+    {
+      "success": false,
+      "category": "self_development",
+      "runIndex": 1,
+      "mode": "category",
+      "explosionMode": true,
+      "count": 5,
+      "summary": {
+        "totalFound": 0,
+        "sssCount": 0,
+        "ssCount": 0,
+        "sCount": 0,
+        "rookieFriendlyCount": 0,
+        "urgentCount": 0,
+        "blueOceanCount": 0,
+        "explosionFunnel": {
+          "candidates": 112,
+          "verified": 112,
+          "gradeOk": 0,
+          "ratioOk": 0,
+          "docOk": 98,
+          "svOk": 70,
+          "strictOk": 0,
+          "minSv": 30,
+          "internalMetrics": {
+            "seedCount": 170,
+            "allKeywordsCount": 1120,
+            "profitableCount": 124,
+            "uniqueKeywordsCount": 124,
+            "sortedResultsCount": 123,
+            "verifiedResultsCount": 46,
+            "searchAdEnabled": true,
+            "searchAdAdded": 220,
+            "autocompleteAdded": 738
+          },
+          "topByExplosion": [
+            "인프런 환불 | grade=B gr=0.2808988764044944 sv=50 dc=178 src=seed(0) ex=40",
+            "토익 인강 학원 비교 | grade=SSS gr=0.18867924528301888 sv=20 dc=106 src=토익 인강(0) ex=40",
+            "클래스101 환불 | grade=B gr=0.1568314726209463 sv=590 dc=3762 src=seed(0) ex=58",
+            "토익 시험 접수 | grade=B gr=0.14869220807456351 sv=15730 dc=105789 src=seed(0) ex=65",
+            "탈잉 쿠폰 | grade=B gr=0.128 sv=160 dc=1250 src=seed(0) ex=46"
+          ]
+        }
+      },
+      "keywords": [],
+      "attempts": 1,
+      "durationMs": 151208
+    },
+    {
+      "success": true,
+      "category": "self_development",
+      "runIndex": 2,
+      "mode": "category",
+      "explosionMode": true,
+      "count": 5,
+      "summary": {
+        "totalFound": 1,
+        "sssCount": 0,
+        "ssCount": 0,
+        "sCount": 1,
+        "rookieFriendlyCount": 0,
+        "urgentCount": 0,
+        "blueOceanCount": 0,
+        "explosionFunnel": {
+          "candidates": 129,
+          "verified": 129,
+          "gradeOk": 1,
+          "ratioOk": 1,
+          "docOk": 105,
+          "svOk": 80,
+          "strictOk": 1,
+          "minSv": 30,
+          "internalMetrics": {
+            "seedCount": 170,
+            "allKeywordsCount": 1115,
+            "profitableCount": 152,
+            "uniqueKeywordsCount": 152,
+            "sortedResultsCount": 152,
+            "verifiedResultsCount": 57,
+            "searchAdEnabled": true,
+            "searchAdAdded": 243,
+            "autocompleteAdded": 713
+          },
+          "topByExplosion": [
+            "노션 템플릿 | grade=A gr=0.30855688686247484 sv=8730 dc=28293 src=seed(0) ex=65",
+            "인프런 환불 | grade=B gr=0.2808988764044944 sv=50 dc=178 src=seed(0) ex=40",
+            "토익 인강 학원 비교 | grade=SSS gr=0.18867924528301888 sv=20 dc=106 src=토익 인강(0) ex=40",
+            "위생사자격증 | grade=B gr=0.1841224294595887 sv=3850 dc=20910 src=인스타(25) ex=103",
+            "클래스101 환불 | grade=B gr=0.1568314726209463 sv=590 dc=3762 src=seed(0) ex=58"
+          ]
+        }
+      },
+      "keywords": [
+        {
+          "keyword": "노션 템플릿",
+          "grade": "S",
+          "searchVolume": 8730,
+          "documentCount": 28293,
+          "goldenRatio": 0.30855688686247484,
+          "source": "seed"
+        }
+      ],
+      "attempts": 1,
+      "durationMs": 157611
+    },
+    {
+      "success": true,
+      "category": "self_development",
+      "runIndex": 3,
+      "mode": "category",
+      "explosionMode": true,
+      "count": 5,
+      "summary": {
+        "totalFound": 1,
+        "sssCount": 0,
+        "ssCount": 0,
+        "sCount": 1,
+        "rookieFriendlyCount": 1,
+        "urgentCount": 0,
+        "blueOceanCount": 0,
+        "explosionFunnel": {
+          "candidates": 101,
+          "verified": 101,
+          "gradeOk": 1,
+          "ratioOk": 1,
+          "docOk": 88,
+          "svOk": 67,
+          "strictOk": 1,
+          "minSv": 30,
+          "internalMetrics": {
+            "seedCount": 170,
+            "allKeywordsCount": 1013,
+            "profitableCount": 115,
+            "uniqueKeywordsCount": 115,
+            "sortedResultsCount": 114,
+            "verifiedResultsCount": 45,
+            "searchAdEnabled": true,
+            "searchAdAdded": 467,
+            "autocompleteAdded": 392
+          },
+          "topByExplosion": [
+            "우선순위 영단어 | grade=A gr=0.4740638955685331 sv=1380 dc=2911 src=순위 2025(0) ex=65",
+            "인프런 환불 | grade=B gr=0.2808988764044944 sv=50 dc=178 src=seed(0) ex=40",
+            "토익 인강 학원 비교 | grade=SSS gr=0.18867924528301888 sv=20 dc=106 src=토익 인강(0) ex=40",
+            "클래스101 환불 | grade=B gr=0.1568314726209463 sv=590 dc=3762 src=seed(0) ex=58",
+            "토익 시험 접수 | grade=B gr=0.14869080253332073 sv=15730 dc=105790 src=seed(0) ex=65"
+          ]
+        }
+      },
+      "keywords": [
+        {
+          "keyword": "우선순위 영단어",
+          "grade": "S",
+          "searchVolume": 1380,
+          "documentCount": 2911,
+          "goldenRatio": 0.4740638955685331,
+          "source": "순위 2025"
+        }
+      ],
+      "attempts": 1,
+      "durationMs": 155243
+    },
+    {
+      "success": true,
+      "category": "self_development",
+      "runIndex": 4,
+      "mode": "category",
+      "explosionMode": true,
+      "count": 5,
+      "summary": {
+        "totalFound": 1,
+        "sssCount": 0,
+        "ssCount": 0,
+        "sCount": 1,
+        "rookieFriendlyCount": 0,
+        "urgentCount": 0,
+        "blueOceanCount": 0,
+        "explosionFunnel": {
+          "candidates": 132,
+          "verified": 132,
+          "gradeOk": 1,
+          "ratioOk": 2,
+          "docOk": 107,
+          "svOk": 80,
+          "strictOk": 1,
+          "minSv": 30,
+          "internalMetrics": {
+            "seedCount": 170,
+            "allKeywordsCount": 1188,
+            "profitableCount": 151,
+            "uniqueKeywordsCount": 151,
+            "sortedResultsCount": 151,
+            "verifiedResultsCount": 56,
+            "searchAdEnabled": true,
+            "searchAdAdded": 328,
+            "autocompleteAdded": 698
+          },
+          "topByExplosion": [
+            "컴활 응시료 지원 전주 | grade=A gr=0.5714285714285714 sv=20 dc=35 src=컴활 응시료(0) ex=40",
+            "노션 템플릿 | grade=A gr=0.3085677930156935 sv=8730 dc=28292 src=seed(0) ex=65",
+            "인프런 환불 | grade=B gr=0.2808988764044944 sv=50 dc=178 src=seed(0) ex=40",
+            "토익 인강 학원 비교 | grade=SSS gr=0.18867924528301888 sv=20 dc=106 src=토익 인강(0) ex=40",
+            "클래스101 환불 | grade=B gr=0.1568314726209463 sv=590 dc=3762 src=seed(0) ex=58"
+          ]
+        }
+      },
+      "keywords": [
+        {
+          "keyword": "노션 템플릿",
+          "grade": "S",
+          "searchVolume": 8730,
+          "documentCount": 28292,
+          "goldenRatio": 0.3085677930156935,
+          "source": "seed"
+        }
+      ],
+      "attempts": 1,
+      "durationMs": 154368
+    },
+    {
+      "success": false,
+      "category": "self_development",
+      "runIndex": 5,
+      "mode": "category",
+      "explosionMode": true,
+      "count": 5,
+      "summary": {
+        "totalFound": 0,
+        "sssCount": 0,
+        "ssCount": 0,
+        "sCount": 0,
+        "rookieFriendlyCount": 0,
+        "urgentCount": 0,
+        "blueOceanCount": 0,
+        "explosionFunnel": {
+          "candidates": 124,
+          "verified": 124,
+          "gradeOk": 0,
+          "ratioOk": 1,
+          "docOk": 109,
+          "svOk": 70,
+          "strictOk": 0,
+          "minSv": 30,
+          "internalMetrics": {
+            "seedCount": 170,
+            "allKeywordsCount": 874,
+            "profitableCount": 138,
+            "uniqueKeywordsCount": 138,
+            "sortedResultsCount": 137,
+            "verifiedResultsCount": 49,
+            "searchAdEnabled": true,
+            "searchAdAdded": 113,
+            "autocompleteAdded": 602
+          },
+          "topByExplosion": [
+            "정보처리기사 기출문제 2025 | grade=A gr=0.3333333333333333 sv=20 dc=60 src=정보처리기사 기출(0) ex=70",
+            "정보처리기사 기출문제 pdf | grade=B gr=0.2898550724637681 sv=20 dc=69 src=정보처리기사 기출(0) ex=40",
+            "인프런 환불 | grade=B gr=0.2808988764044944 sv=50 dc=178 src=seed(0) ex=40",
+            "정보처리기사 기출문제 | grade=B gr=0.25660377358490566 sv=340 dc=1325 src=정보처리기사 기출(0) ex=52",
+            "토익 인강 학원 비교 | grade=SSS gr=0.18867924528301888 sv=20 dc=106 src=토익 인강(0) ex=40"
+          ]
+        }
+      },
+      "keywords": [],
+      "attempts": 1,
+      "durationMs": 153502
+    }
+  ]
+}

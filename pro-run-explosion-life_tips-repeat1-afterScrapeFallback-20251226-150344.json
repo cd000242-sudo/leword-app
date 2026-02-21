@@ -1,0 +1,99 @@
+{
+  "generatedAt": "2025-12-26T06:05:56.874Z",
+  "mode": "category",
+  "explosionMode": true,
+  "count": 5,
+  "timeoutMs": 240000,
+  "retries": 0,
+  "results": [
+    {
+      "success": true,
+      "category": "life_tips",
+      "runIndex": 1,
+      "mode": "category",
+      "explosionMode": true,
+      "count": 5,
+      "summary": {
+        "totalFound": 5,
+        "sssCount": 5,
+        "ssCount": 0,
+        "sCount": 0,
+        "rookieFriendlyCount": 0,
+        "urgentCount": 0,
+        "blueOceanCount": 5,
+        "explosionFunnel": {
+          "candidates": 15,
+          "verified": 15,
+          "gradeOk": 15,
+          "ratioOk": 15,
+          "docOk": 15,
+          "svOk": 15,
+          "strictOk": 15,
+          "minSv": 500,
+          "internalMetrics": {
+            "seedCount": 109,
+            "allKeywordsCount": 718,
+            "profitableCount": 230,
+            "uniqueKeywordsCount": 210,
+            "sortedResultsCount": 210,
+            "verifiedResultsCount": 15,
+            "searchAdEnabled": true,
+            "searchAdAdded": 560,
+            "autocompleteAdded": 65
+          },
+          "topByExplosion": [
+            "드럼세탁기 | grade=SSS gr=41860 sv=41860 dc=1 src=건조기(0) ex=65",
+            "LG냉장고 | grade=SSS gr=37920 sv=37920 dc=1 src=냉장고(0) ex=65",
+            "통돌이세탁기 | grade=SSS gr=23390 sv=46780 dc=2 src=건조기(0) ex=65",
+            "세탁기건조기 | grade=SSS gr=13585 sv=27170 dc=2 src=건조기(0) ex=65",
+            "2도어냉장고 | grade=SSS gr=7700 sv=7700 dc=1 src=냉장고(0) ex=65"
+          ]
+        }
+      },
+      "keywords": [
+        {
+          "keyword": "드럼세탁기",
+          "grade": "SSS",
+          "searchVolume": 41860,
+          "documentCount": 1,
+          "goldenRatio": 41860,
+          "source": "건조기"
+        },
+        {
+          "keyword": "LG냉장고",
+          "grade": "SSS",
+          "searchVolume": 37920,
+          "documentCount": 1,
+          "goldenRatio": 37920,
+          "source": "냉장고"
+        },
+        {
+          "keyword": "통돌이세탁기",
+          "grade": "SSS",
+          "searchVolume": 46780,
+          "documentCount": 2,
+          "goldenRatio": 23390,
+          "source": "건조기"
+        },
+        {
+          "keyword": "세탁기건조기",
+          "grade": "SSS",
+          "searchVolume": 27170,
+          "documentCount": 2,
+          "goldenRatio": 13585,
+          "source": "건조기"
+        },
+        {
+          "keyword": "2도어냉장고",
+          "grade": "SSS",
+          "searchVolume": 7700,
+          "documentCount": 1,
+          "goldenRatio": 7700,
+          "source": "냉장고"
+        }
+      ],
+      "attempts": 1,
+      "durationMs": 127151
+    }
+  ]
+}

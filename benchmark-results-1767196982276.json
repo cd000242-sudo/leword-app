@@ -1,0 +1,63 @@
+{
+  "results": [
+    {
+      "iteration": 1,
+      "timestamp": "2025-12-31T16:02:57.258Z",
+      "keywords": [
+        {
+          "keyword": "RMJDF4CR01",
+          "grade": "SS",
+          "searchVolume": 1360,
+          "documentCount": 2,
+          "goldenRatio": 680
+        },
+        {
+          "keyword": "RM70F64Q1A",
+          "grade": "SSS",
+          "searchVolume": 2620,
+          "documentCount": 147,
+          "goldenRatio": 17.82312925170068
+        },
+        {
+          "keyword": "RM70F90R2ZD",
+          "grade": "SSS",
+          "searchVolume": 2480,
+          "documentCount": 187,
+          "goldenRatio": 13.262032085561497
+        },
+        {
+          "keyword": "RM70F91R1A",
+          "grade": "SSS",
+          "searchVolume": 2290,
+          "documentCount": 369,
+          "goldenRatio": 6.205962059620596
+        },
+        {
+          "keyword": "RM70F63R2XJ",
+          "grade": "SS",
+          "searchVolume": 1670,
+          "documentCount": 379,
+          "goldenRatio": 4.406332453825858
+        }
+      ],
+      "stats": {
+        "sssCount": 3,
+        "ssCount": 2,
+        "sCount": 0,
+        "avgGoldenRatio": 120.32,
+        "maxGoldenRatio": 680
+      }
+    }
+  ],
+  "summary": {
+    "totalSss": 3,
+    "totalKeywords": 10,
+    "sssRate": 30,
+    "allSssKeywords": [
+      "RM70F64Q1A",
+      "RM70F90R2ZD",
+      "RM70F91R1A"
+    ],
+    "score": 30
+  }
+}

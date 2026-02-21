@@ -1,0 +1,137 @@
+{
+  "results": [
+    {
+      "iteration": 1,
+      "timestamp": "2025-12-31T10:52:46.259Z",
+      "keywords": [
+        {
+          "keyword": "팬미팅일정",
+          "grade": "A",
+          "searchVolume": 300,
+          "documentCount": 62721,
+          "goldenRatio": 0.0047830870043526095
+        },
+        {
+          "keyword": "아이돌포토카드",
+          "grade": "B",
+          "searchVolume": 650,
+          "documentCount": 3284,
+          "goldenRatio": 0.19792935444579782
+        },
+        {
+          "keyword": "스트레이키즈앨범",
+          "grade": "B",
+          "searchVolume": 1680,
+          "documentCount": 22302,
+          "goldenRatio": 0.07532956685499058
+        },
+        {
+          "keyword": "아이돌포카",
+          "grade": "B",
+          "searchVolume": 580,
+          "documentCount": 70413,
+          "goldenRatio": 0.008237115305412353
+        }
+      ],
+      "stats": {
+        "sssCount": 0,
+        "ssCount": 0,
+        "sCount": 0,
+        "avgGoldenRatio": 0.07,
+        "maxGoldenRatio": 0.2
+      }
+    },
+    {
+      "iteration": 2,
+      "timestamp": "2025-12-31T10:54:56.482Z",
+      "keywords": [
+        {
+          "keyword": "팬미팅일정",
+          "grade": "A",
+          "searchVolume": 300,
+          "documentCount": 62721,
+          "goldenRatio": 0.0047830870043526095
+        },
+        {
+          "keyword": "아이돌신곡",
+          "grade": "A",
+          "searchVolume": 200,
+          "documentCount": 115463,
+          "goldenRatio": 0.0017321566216017253
+        }
+      ],
+      "stats": {
+        "sssCount": 0,
+        "ssCount": 0,
+        "sCount": 0,
+        "avgGoldenRatio": 0,
+        "maxGoldenRatio": 0
+      }
+    },
+    {
+      "iteration": 3,
+      "timestamp": "2025-12-31T10:57:14.131Z",
+      "keywords": [
+        {
+          "keyword": "연말콘서트일정",
+          "grade": "S",
+          "searchVolume": 6740,
+          "documentCount": 42222,
+          "goldenRatio": 0.15963241911799536
+        },
+        {
+          "keyword": "콘서트예매",
+          "grade": "A",
+          "searchVolume": 8440,
+          "documentCount": 569059,
+          "goldenRatio": 0.014831502533129254
+        },
+        {
+          "keyword": "12월콘서트",
+          "grade": "A",
+          "searchVolume": 7250,
+          "documentCount": 426053,
+          "goldenRatio": 0.01701666224624636
+        }
+      ],
+      "stats": {
+        "sssCount": 0,
+        "ssCount": 0,
+        "sCount": 1,
+        "avgGoldenRatio": 0.06,
+        "maxGoldenRatio": 0.16
+      }
+    },
+    {
+      "iteration": 4,
+      "timestamp": "2025-12-31T10:59:06.617Z",
+      "keywords": [],
+      "stats": {
+        "sssCount": 0,
+        "ssCount": 0,
+        "sCount": 0,
+        "avgGoldenRatio": 0,
+        "maxGoldenRatio": 0
+      }
+    },
+    {
+      "iteration": 5,
+      "timestamp": "2025-12-31T11:01:16.612Z",
+      "keywords": [],
+      "stats": {
+        "sssCount": 0,
+        "ssCount": 0,
+        "sCount": 0,
+        "avgGoldenRatio": 0,
+        "maxGoldenRatio": 0
+      }
+    }
+  ],
+  "summary": {
+    "totalSss": 0,
+    "totalKeywords": 50,
+    "sssRate": 0,
+    "allSssKeywords": [],
+    "score": 0
+  }
+}

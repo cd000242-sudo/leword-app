@@ -1,0 +1,4569 @@
+{
+  "generatedAt": "2025-12-24T11:14:42.627Z",
+  "mode": "category",
+  "explosionMode": true,
+  "count": 10,
+  "timeoutMs": 420000,
+  "retries": 0,
+  "results": [
+    {
+      "success": true,
+      "category": "life_tips",
+      "mode": "category",
+      "explosionMode": true,
+      "count": 10,
+      "summary": {
+        "totalFound": 9,
+        "sssCount": 1,
+        "ssCount": 2,
+        "sCount": 0,
+        "rookieFriendlyCount": 2,
+        "urgentCount": 0,
+        "blueOceanCount": 1,
+        "explosionFunnel": {
+          "candidates": 75,
+          "verified": 75,
+          "gradeOk": 18,
+          "ratioOk": 10,
+          "docOk": 55,
+          "svOk": 55,
+          "strictOk": 9,
+          "minSv": 50,
+          "internalMetrics": {
+            "seedCount": 108,
+            "allKeywordsCount": 1261,
+            "profitableCount": 423,
+            "uniqueKeywordsCount": 423,
+            "sortedResultsCount": 422,
+            "verifiedResultsCount": 55,
+            "searchAdEnabled": true,
+            "searchAdAdded": 252,
+            "autocompleteAdded": 907
+          },
+          "topByExplosion": [
+            "유지아우가르텐주방용품접기 | grade=A gr=20 sv=20 dc=1 src=쇼핑(25) ex=81",
+            "냉장고900리터 | grade=SSS gr=2.519546520719312 sv=12890 dc=5116 src=냉장고(0) ex=65",
+            "정수기렌탈가격비교 | grade=SS gr=1.957145858133184 sv=27950 dc=14281 src=정수기(0) ex=65",
+            "냉장고500리터 | grade=SS gr=1.226962237401727 sv=9520 dc=7759 src=냉장고(0) ex=65",
+            "냉장고200리터 | grade=A gr=0.4897238278741169 sv=3050 dc=6228 src=냉장고(0) ex=65"
+          ]
+        }
+      },
+      "keywords": [
+        {
+          "keyword": "냉장고900리터",
+          "searchVolume": 12890,
+          "documentCount": 5116,
+          "goldenRatio": 2.519546520719312,
+          "rookieFriendly": {
+            "score": 50,
+            "grade": "C",
+            "reason": "문서수 10,000개 미만 → 경쟁 보통 | 숏테일 키워드 → 대형 블로그와 경쟁",
+            "canRankWithin": "2~4주 내 가능",
+            "requiredBlogIndex": "최적 1 이상 권장"
+          },
+          "timing": {
+            "score": 50,
+            "urgency": "ANYTIME",
+            "bestPublishTime": "오전 6~8시 또는 저녁 8~10시",
+            "trendDirection": "stable",
+            "peakPrediction": "꾸준한 검색량 유지"
+          },
+          "blueOcean": {
+            "score": 75,
+            "competitorStrength": "medium",
+            "avgCompetitorBlogAge": "2~5년 (보통 경쟁)",
+            "oldPostRatio": 50,
+            "opportunity": "✅ 좋은 기회입니다. 품질 콘텐츠로 승부"
+          },
+          "trafficEstimate": {
+            "daily": "10~24명",
+            "weekly": "70~168명",
+            "monthly": "300~720명",
+            "confidence": 65,
+            "disclaimer": "📌 트래픽은 순위/CTR/계절성에 따라 달라질 수 있는 추정치입니다."
+          },
+          "revenueEstimate": {
+            "dailyRevenue": "397원 ⚠️추정",
+            "monthlyRevenue": "11,910원 ⚠️추정",
+            "estimatedCPC": 207,
+            "estimatedRPM": 5175,
+            "adType": "애드센스",
+            "revenueGrade": "A",
+            "revenueReason": "✅ 양호! 월 12천원 예상"
+          },
+          "entryAnalysis": {
+            "canEntry": true,
+            "difficulty": "possible",
+            "difficultyScore": 35,
+            "message": "🟡 진입 가능 - 품질 콘텐츠로 충분히 경쟁 가능",
+            "topCompetitorStrength": "보통 (일반 블로그 혼재)",
+            "recommendedBlogIndex": "준최 3 이상 권장",
+            "estimatedRankingTime": "3~7일 내 가능"
+          },
+          "totalScore": 86,
+          "grade": "SSS",
+          "proStrategy": {
+            "title": "2025 냉장고900리터 완벽 정리 | 초보자도 쉽게 이해하는 가이드",
+            "outline": [
+              "1. 냉장고900리터란? (기본 개념)",
+              "2. 냉장고900리터 핵심 포인트 3가지",
+              "3. 냉장고900리터 장단점 비교",
+              "4. 냉장고900리터 실제 후기/경험담",
+              "5. 냉장고900리터 Q&A (자주 묻는 질문)",
+              "6. 결론 및 추천"
+            ],
+            "wordCount": 2500,
+            "mustInclude": [
+              "핵심 키워드 2~3회 자연스럽게 삽입",
+              "실제 이미지/사진 3장 이상",
+              "표 또는 비교 차트 1개 이상",
+              "자주 묻는 질문(FAQ) 섹션",
+              "결론 및 추천 섹션"
+            ],
+            "avoidTopics": [
+              "과장된 표현 (100%, 무조건, 반드시)",
+              "허위 정보나 검증되지 않은 내용",
+              "다른 블로그 복사/붙여넣기",
+              "광고성 링크 과다 삽입"
+            ],
+            "monetization": "애드센스 메인 (트래픽 많으면 효과적)"
+          },
+          "platformTitles": {
+            "naver": {
+              "title": "핵심 정리: 냉장고900리터 2025 최신 가이드 (월 12,890)",
+              "alternatives": [
+                "냉장고900리터 2025 완벽 정리: 핵심만 5분 요약",
+                "냉장고900리터 초보도 쉽게: 실패 없는 체크리스트"
+              ],
+              "subKeywords": [
+                "냉장고900리터 방법",
+                "냉장고900리터 추천",
+                "냉장고900리터 후기"
+              ],
+              "tags": [
+                "냉장고900리터",
+                "📰 이슈키워드"
+              ],
+              "tip": "서두 100자 내에 키워드를 2회 노출하고, 결론 요약을 맨 위에 한 번 더 넣으세요.",
+              "hookPoint": "핵심 정리 포인트를 제목/썸네일에 강조"
+            },
+            "tistory": {
+              "title": "냉장고900리터 2025 정리: 한 번에 이해하는 핵심 포인트 (월 12,890)",
+              "alternatives": [
+                "냉장고900리터 제대로 하는 법 (체크리스트 포함)",
+                "냉장고900리터 추천/비교: 선택 기준 3가지"
+              ],
+              "subKeywords": [
+                "냉장고900리터 방법",
+                "냉장고900리터 추천",
+                "냉장고900리터 후기"
+              ],
+              "tags": [
+                "냉장고900리터",
+                "📰 이슈키워드"
+              ],
+              "tip": "표/리스트를 많이 써서 스크롤 체류시간을 늘리세요.",
+              "hookPoint": "“핵심 3가지”처럼 숫자를 넣어 클릭률을 올리기"
+            },
+            "wordpress": {
+              "title": "냉장고900리터: 2025 Complete Guide (Checklist & Tips) (월 12,890)",
+              "alternatives": [
+                "냉장고900리터 Guide: Common Mistakes & Quick Fixes",
+                "냉장고900리터 Step-by-Step: What to Do First"
+              ],
+              "subKeywords": [
+                "냉장고900리터 방법",
+                "냉장고900리터 추천",
+                "냉장고900리터 후기"
+              ],
+              "tags": [
+                "냉장고900리터",
+                "📰 이슈키워드"
+              ],
+              "tip": "H2/H3로 구조를 만들고, FAQ 섹션을 넣어 SEO를 강화하세요.",
+              "hookPoint": "FAQ + 체크리스트 조합으로 체류시간/리치 증가"
+            },
+            "blogspot": {
+              "title": "냉장고900리터 2025: Quick Start + Best Practices (월 12,890)",
+              "alternatives": [
+                "냉장고900리터 Quick Guide: Do & Don't",
+                "냉장고900리터 Essentials: What You Need to Know"
+              ],
+              "subKeywords": [
+                "냉장고900리터 방법",
+                "냉장고900리터 추천",
+                "냉장고900리터 후기"
+              ],
+              "tags": [
+                "냉장고900리터",
+                "📰 이슈키워드"
+              ],
+              "tip": "이미지 2~3장 + 요약 박스를 넣어 가독성을 올리세요.",
+              "hookPoint": "첫 화면에 요약(결론)을 배치해 이탈률을 낮추기"
+            }
+          },
+          "expandedKeywords": {
+            "relatedGolden": [
+              "냉장고900리터 추천",
+              "냉장고900리터 비교",
+              "냉장고900리터 후기",
+              "냉장고900리터 가격"
+            ],
+            "longtailGolden": [
+              "냉장고900리터 초보",
+              "냉장고900리터 쉽게",
+              "냉장고900리터 단계별",
+              "냉장고900리터 정리"
+            ],
+            "blueOceanGolden": [
+              "냉장고900리터 최신",
+              "냉장고900리터 2025",
+              "냉장고900리터 체크리스트",
+              "냉장고900리터 실패하지 않는 법"
+            ]
+          },
+          "type": "📰 이슈키워드",
+          "category": "life_tips",
+          "safetyLevel": "safe",
+          "safetyReason": "✅ 안전한 키워드. 신생 블로거도 작성 가능",
+          "source": "냉장고",
+          "profitAnalysis": {
+            "keyword": "냉장고900리터",
+            "searchVolume": 12890,
+            "documentCount": 5116,
+            "estimatedCPC": 207,
+            "purchaseIntentScore": 30,
+            "competitionLevel": 6,
+            "freshnessOpportunity": 1,
+            "profitGoldenRatio": 21.12,
+            "estimatedDailyRevenue": 397,
+            "estimatedMonthlyRevenue": 11910,
+            "grade": "A",
+            "gradeReason": "✅ 양호! 월 12천원 예상",
+            "isRealBlueOcean": false,
+            "blueOceanReason": "📕 경쟁 시장. 차별화 전략 필요",
+            "strategy": {
+              "approach": "✍️ 빠른 작성 권장. 1500자+ 품질 콘텐츠로 상위 노출 노려볼만",
+              "monetization": "📝 트래픽 확보 우선. 이후 관련 고수익 키워드로 내부링크",
+              "timing": "📅 이번 주 내 작성. 2~4주 내 상위노출 기대",
+              "titleSuggestion": "냉장고900리터 완벽 가이드 | 초보자도 쉽게 따라하기"
+            }
+          },
+          "timestamp": "2025-12-24T11:13:18.572Z",
+          "isGolden": true,
+          "trendAnalysis": {
+            "trendingReason": "900리터급 프리미엄 냉장고…용량에 관련 최근 이슈",
+            "whyNow": "최근 5개 이상의 뉴스에서 다뤄지며 이슈화 진행 중 • \"출시\" 관련 구체적 사건으로 실시간 관심 집중 • 최신 이슈로 실시간 관심 집중 중 • \"900리터급 프리미엄 냉장고…용량에 숨겨진 비밀\" 관련 최신 뉴스로 조기 진입 효과 기대",
+            "newsSource": "자동 분석"
+          },
+          "keywordGuide": {
+            "summary": "여유 있을 때 공략하면 좋은 키워드입니다. (등급: SSS, 점수: 86점)",
+            "whyItMovesNow": "900리터급 프리미엄 냉장고…용량에 관련 최근 이슈 최근 5개 이상의 뉴스에서 다뤄지며 이슈화 진행 중 • \"출시\" 관련 구체적 사건으로 실시간 관심 집중 • 최신 이슈로 실시간 관심 집중 중 • \"900리터급 프리미엄 냉장고…용량에 숨겨진 비밀\" 관련 최신 뉴스로 조기 진입 효과 기대",
+            "immediateTrafficPlan": [
+              "제목 앞부분에 \"냉장고900리터\"를 배치하고, 2025/최신/정리 같은 보조 키워드를 1개만 추가하세요.",
+              "본문 서두 100자 안에 \"냉장고900리터\"를 자연스럽게 2회 노출하세요.",
+              "최소 1개는 비교/체크리스트/요약 섹션을 넣어 체류시간을 늘리세요."
+            ],
+            "naverHomeExposureTips": [
+              "첫 이미지에 키워드가 들어간 문구를 넣고, alt 텍스트도 키워드 포함",
+              "목차를 만들고 H2/H3에 서브 키워드 배치",
+              "태그는 5~10개로 과도한 반복을 피하고, 유사어를 섞기"
+            ]
+          },
+          "ultimateAnalysis": {
+            "timing": {
+              "seasonal": {
+                "peakMonths": [
+                  1,
+                  2,
+                  3,
+                  4,
+                  5,
+                  6,
+                  7,
+                  8,
+                  9,
+                  10,
+                  11,
+                  12
+                ],
+                "peakReason": "연중 꾸준한 검색량",
+                "currentSeasonScore": 70,
+                "nextPeakDate": "항상",
+                "daysUntilPeak": 0,
+                "recommendation": "📝 에버그린 키워드입니다. 언제든 작성해도 좋습니다.",
+                "seasonalPattern": "evergreen"
+              },
+              "trend": {
+                "trendDirection": "stable",
+                "changeRate": 25,
+                "comparedTo": "전월 대비",
+                "explosiveScore": 38,
+                "relatedNews": [],
+                "recommendation": "📊 안정적인 키워드입니다."
+              },
+              "alert": {
+                "optimalPublishDate": "0일 내",
+                "reason": "📝 에버그린 키워드입니다. 언제든 작성해도 좋습니다.",
+                "urgencyLevel": "⚡ 이번 주",
+                "expectedPeakDate": "항상",
+                "competitorActivity": "경쟁자 보통"
+              }
+            },
+            "revenue": {
+              "cpc": {
+                "estimatedCpc": 200,
+                "cpcRange": {
+                  "min": 100,
+                  "max": 400
+                },
+                "cpcTier": "🥈 중수익",
+                "industryAverage": 200,
+                "recommendation": "📝 일반적인 수익 구조입니다. 트래픽 확보에 집중하세요."
+              },
+              "affiliate": {
+                "recommendedPrograms": [
+                  {
+                    "name": "쿠팡파트너스",
+                    "type": "coupang",
+                    "commissionRate": "3~5%",
+                    "estimatedEarningPerClick": 50,
+                    "matchScore": 100
+                  },
+                  {
+                    "name": "네이버 쇼핑",
+                    "type": "naver",
+                    "commissionRate": "1~3%",
+                    "estimatedEarningPerClick": 30,
+                    "matchScore": 85
+                  }
+                ],
+                "bestMatch": "쿠팡파트너스",
+                "potentialProducts": [
+                  "냉장고900리터 추천",
+                  "냉장고900리터 순위",
+                  "냉장고900리터 비교",
+                  "냉장고900리터 후기",
+                  "냉장고900리터 가격",
+                  "냉장고900리터 구매"
+                ]
+              },
+              "projection": {
+                "estimatedDailyVisitors": 34,
+                "estimatedMonthlyVisitors": 1020,
+                "adsenseRevenue": {
+                  "daily": 204,
+                  "monthly": 6120,
+                  "assumptions": "CPC 200원, CTR 2%, 페이지뷰율 1.5 가정"
+                },
+                "affiliateRevenue": {
+                  "daily": 5,
+                  "monthly": 150,
+                  "conversionRate": 3,
+                  "assumptions": "클릭률 10%, 전환율 3%, 평균 수수료 50원 가정"
+                },
+                "totalMonthlyRevenue": 6270,
+                "revenueBreakdown": "애드센스 98% + 제휴 2%",
+                "revenueTier": "📝 월 1만원+"
+              }
+            },
+            "content": {
+              "titles": {
+                "titles": [
+                  {
+                    "title": "냉장고900리터 추천 TOP 10 (2025년 최신)",
+                    "type": "number",
+                    "estimatedCTR": 8.5,
+                    "psychologyUsed": "숫자 + 최신 정보"
+                  },
+                  {
+                    "title": "냉장고900리터 하는 법, 초보자도 쉽게 따라하기",
+                    "type": "how-to",
+                    "estimatedCTR": 7.5,
+                    "psychologyUsed": "실용성 + 접근성"
+                  },
+                  {
+                    "title": "냉장고900리터, 이것만 알면 끝! 완벽 가이드",
+                    "type": "benefit",
+                    "estimatedCTR": 7.2,
+                    "psychologyUsed": "완결성 + 가치 제안"
+                  },
+                  {
+                    "title": "[2025년] 냉장고900리터 총정리 (+ 꿀팁 공개)",
+                    "type": "news",
+                    "estimatedCTR": 7,
+                    "psychologyUsed": "최신성 + 보너스 가치"
+                  },
+                  {
+                    "title": "아직도 냉장고900리터 몰라요? 지금 당장 확인하세요",
+                    "type": "curiosity",
+                    "estimatedCTR": 6.8,
+                    "psychologyUsed": "호기심 + 긴급성"
+                  },
+                  {
+                    "title": "냉장고900리터 실제 후기 (장단점 솔직 비교)",
+                    "type": "comparison",
+                    "estimatedCTR": 6.5,
+                    "psychologyUsed": "신뢰성 + 비교 심리"
+                  }
+                ],
+                "bestTitle": "냉장고900리터 추천 TOP 10 (2025년 최신)",
+                "titleFormula": "숫자 + 키워드 + 최신연도 + 가치제안"
+              },
+              "structure": {
+                "recommendedStructure": {
+                  "intro": {
+                    "purpose": "독자의 관심 끌기 + 키워드 자연스럽게 배치",
+                    "template": "\"냉장고900리터\"에 대해 고민하고 계신가요? 이 글에서 핵심 정보를 모두 정리해드립니다.",
+                    "keywordPlacement": "첫 문장에 키워드 포함"
+                  },
+                  "sections": [
+                    {
+                      "heading": "냉장고900리터란? (기본 개념)",
+                      "purpose": "기초 정보 제공",
+                      "contentGuide": "핵심 정의, 중요성, 왜 알아야 하는지 설명",
+                      "recommendedLength": 300,
+                      "keywordUsage": "소제목과 본문에 1~2회"
+                    },
+                    {
+                      "heading": "냉장고900리터 추천 BEST 5",
+                      "purpose": "실질적인 가치 제공 (핵심 섹션)",
+                      "contentGuide": "순위별 상세 설명, 장단점, 추천 이유",
+                      "recommendedLength": 800,
+                      "keywordUsage": "각 항목 설명에 자연스럽게 포함"
+                    },
+                    {
+                      "heading": "냉장고900리터 선택 시 주의사항",
+                      "purpose": "신뢰도 향상",
+                      "contentGuide": "흔한 실수, 피해야 할 것, 체크리스트",
+                      "recommendedLength": 400,
+                      "keywordUsage": "주의사항 설명에 1~2회"
+                    },
+                    {
+                      "heading": "자주 묻는 질문 (FAQ)",
+                      "purpose": "SEO 강화 + 체류시간 증가",
+                      "contentGuide": "실제 검색되는 질문 5개 + 명확한 답변",
+                      "recommendedLength": 500,
+                      "keywordUsage": "질문에 롱테일 키워드 활용"
+                    }
+                  ],
+                  "conclusion": {
+                    "purpose": "요약 + CTA",
+                    "template": "지금까지 냉장고900리터에 대해 알아봤습니다. 도움이 되셨다면 공유해주세요!",
+                    "ctaRecommendation": "댓글, 공유, 관련 글 링크 유도"
+                  }
+                },
+                "seoChecklist": [
+                  {
+                    "item": "제목에 키워드 포함",
+                    "importance": "critical",
+                    "howTo": "제목 앞부분에 메인 키워드 배치"
+                  },
+                  {
+                    "item": "첫 문단에 키워드",
+                    "importance": "critical",
+                    "howTo": "첫 100자 내 키워드 자연스럽게 삽입"
+                  },
+                  {
+                    "item": "소제목 H2/H3 활용",
+                    "importance": "high",
+                    "howTo": "3~5개 소제목, 키워드 변형 사용"
+                  },
+                  {
+                    "item": "이미지 ALT 태그",
+                    "importance": "high",
+                    "howTo": "모든 이미지에 키워드 포함 설명"
+                  },
+                  {
+                    "item": "내부링크 2개 이상",
+                    "importance": "medium",
+                    "howTo": "관련 글 자연스럽게 연결"
+                  },
+                  {
+                    "item": "3000자 이상 작성",
+                    "importance": "high",
+                    "howTo": "충분한 깊이의 콘텐츠 제공"
+                  }
+                ],
+                "totalRecommendedLength": 3000,
+                "estimatedWriteTime": 90
+              },
+              "images": {
+                "mainImage": {
+                  "searchKeyword": "냉장고900리터 대표이미지",
+                  "style": "깔끔한 인포그래픽 또는 고화질 사진",
+                  "source": [
+                    "Unsplash",
+                    "Pixabay",
+                    "직접 제작"
+                  ],
+                  "altText": "냉장고900리터 완벽 가이드 대표 이미지"
+                },
+                "sectionImages": [
+                  {
+                    "section": "기본 개념",
+                    "searchKeyword": "냉장고900리터 설명",
+                    "purpose": "이해 돕기",
+                    "style": "다이어그램"
+                  },
+                  {
+                    "section": "TOP 5",
+                    "searchKeyword": "냉장고900리터 비교",
+                    "purpose": "시각적 비교",
+                    "style": "비교표"
+                  },
+                  {
+                    "section": "주의사항",
+                    "searchKeyword": "주의 아이콘",
+                    "purpose": "강조",
+                    "style": "아이콘"
+                  }
+                ],
+                "infographicIdeas": [
+                  "냉장고900리터 선택 가이드 플로우차트",
+                  "냉장고900리터 TOP 5 비교표",
+                  "냉장고900리터 체크리스트"
+                ],
+                "totalRecommendedImages": 7,
+                "imageStrategy": "섹션당 1~2개, 총 7~10개 이미지로 가독성과 체류시간 향상"
+              }
+            },
+            "ultimateScore": {
+              "total": 46,
+              "breakdown": {
+                "goldenRatio": 25.195465207193124,
+                "timing": 70,
+                "revenue": 40,
+                "competition": 60,
+                "potential": 49
+              },
+              "grade": "📝 C",
+              "verdict": "⚠️ 신중히 검토 필요",
+              "topActions": [
+                "0일 내 작성 권장",
+                "냉장고900리터 추천 TOP 10 (2025년 최신)",
+                "3000자 이상, 7개 이미지 권장"
+              ]
+            }
+          },
+          "highlightReason": "✅ ANYTIME/stable | 폭발 65 | 구매의도 30 | 월 11,910원⚠️ | 경쟁도 6"
+        },
+        {
+          "keyword": "정수기렌탈가격비교",
+          "searchVolume": 27950,
+          "documentCount": 14281,
+          "goldenRatio": 1.957145858133184,
+          "rookieFriendly": {
+            "score": 50,
+            "grade": "C",
+            "reason": "문서수 데이터 없음 → 경쟁도 판단 불가 | 검색량/문서수 데이터 부족 → 황금비율 판단 불가 | 숏테일 키워드 → 대형 블로그와 경쟁 | 질문형 키워드 → 경쟁 낮음",
+            "canRankWithin": "2~4주 내 가능",
+            "requiredBlogIndex": "최적 1 이상 권장"
+          },
+          "timing": {
+            "score": 50,
+            "urgency": "ANYTIME",
+            "bestPublishTime": "오전 6~8시 또는 저녁 8~10시",
+            "trendDirection": "stable",
+            "peakPrediction": "꾸준한 검색량 유지"
+          },
+          "blueOcean": {
+            "score": 60,
+            "competitorStrength": "medium",
+            "avgCompetitorBlogAge": "2~5년 (보통 경쟁)",
+            "oldPostRatio": 50,
+            "opportunity": "⚠️ 경쟁 있음. 차별화된 콘텐츠 필요"
+          },
+          "trafficEstimate": {
+            "daily": "측정 불가",
+            "weekly": "측정 불가",
+            "monthly": "측정 불가",
+            "confidence": 0,
+            "disclaimer": "⚠️ 실제 API 데이터 부족으로 트래픽을 계산할 수 없습니다."
+          },
+          "revenueEstimate": {
+            "dailyRevenue": "974원 ⚠️추정",
+            "monthlyRevenue": "29,220원 ⚠️추정",
+            "estimatedCPC": 280,
+            "estimatedRPM": 7000,
+            "adType": "쿠팡파트너스 + 애드센스",
+            "revenueGrade": "S",
+            "revenueReason": "⭐ 추천! 월 29천원 예상"
+          },
+          "entryAnalysis": {
+            "canEntry": false,
+            "difficulty": "very_hard",
+            "difficultyScore": 70,
+            "message": "🔴 진입 어려움 - 상위 블로거 독점 키워드",
+            "topCompetitorStrength": "알 수 없음 (데이터 부족)",
+            "recommendedBlogIndex": "최적 1 이상 권장",
+            "estimatedRankingTime": "1개월 이상 소요 예상"
+          },
+          "totalScore": 91,
+          "grade": "SS",
+          "proStrategy": {
+            "title": "2025 정수기렌탈가격비교 완벽 정리 | 초보자도 쉽게 이해하는 가이드",
+            "outline": [
+              "1. 정수기렌탈가격비교란? (기본 개념)",
+              "2. 정수기렌탈가격비교 핵심 포인트 3가지",
+              "3. 정수기렌탈가격비교 장단점 비교",
+              "4. 정수기렌탈가격비교 실제 후기/경험담",
+              "5. 정수기렌탈가격비교 Q&A (자주 묻는 질문)",
+              "6. 결론 및 추천"
+            ],
+            "wordCount": 2500,
+            "mustInclude": [
+              "핵심 키워드 2~3회 자연스럽게 삽입",
+              "실제 이미지/사진 3장 이상",
+              "표 또는 비교 차트 1개 이상",
+              "자주 묻는 질문(FAQ) 섹션",
+              "결론 및 추천 섹션"
+            ],
+            "avoidTopics": [
+              "과장된 표현 (100%, 무조건, 반드시)",
+              "허위 정보나 검증되지 않은 내용",
+              "다른 블로그 복사/붙여넣기",
+              "광고성 링크 과다 삽입"
+            ],
+            "monetization": "쿠팡파트너스/제휴마케팅 메인 (구매 전환 유도)"
+          },
+          "platformTitles": {
+            "naver": {
+              "title": "핵심 정리: 정수기렌탈가격비교 2025 최신 가이드",
+              "alternatives": [
+                "정수기렌탈가격비교 2025 완벽 정리: 핵심만 5분 요약",
+                "정수기렌탈가격비교 초보도 쉽게: 실패 없는 체크리스트"
+              ],
+              "subKeywords": [
+                "정수기렌탈가격비교 방법",
+                "정수기렌탈가격비교 추천",
+                "정수기렌탈가격비교 후기"
+              ],
+              "tags": [
+                "정수기렌탈가격비교",
+                "❓ 질문형키워드"
+              ],
+              "tip": "서두 100자 내에 키워드를 2회 노출하고, 결론 요약을 맨 위에 한 번 더 넣으세요.",
+              "hookPoint": "핵심 정리 포인트를 제목/썸네일에 강조"
+            },
+            "tistory": {
+              "title": "정수기렌탈가격비교 2025 정리: 한 번에 이해하는 핵심 포인트",
+              "alternatives": [
+                "정수기렌탈가격비교 제대로 하는 법 (체크리스트 포함)",
+                "정수기렌탈가격비교 추천/비교: 선택 기준 3가지"
+              ],
+              "subKeywords": [
+                "정수기렌탈가격비교 방법",
+                "정수기렌탈가격비교 추천",
+                "정수기렌탈가격비교 후기"
+              ],
+              "tags": [
+                "정수기렌탈가격비교",
+                "❓ 질문형키워드"
+              ],
+              "tip": "표/리스트를 많이 써서 스크롤 체류시간을 늘리세요.",
+              "hookPoint": "“핵심 3가지”처럼 숫자를 넣어 클릭률을 올리기"
+            },
+            "wordpress": {
+              "title": "정수기렌탈가격비교: 2025 Complete Guide (Checklist & Tips)",
+              "alternatives": [
+                "정수기렌탈가격비교 Guide: Common Mistakes & Quick Fixes",
+                "정수기렌탈가격비교 Step-by-Step: What to Do First"
+              ],
+              "subKeywords": [
+                "정수기렌탈가격비교 방법",
+                "정수기렌탈가격비교 추천",
+                "정수기렌탈가격비교 후기"
+              ],
+              "tags": [
+                "정수기렌탈가격비교",
+                "❓ 질문형키워드"
+              ],
+              "tip": "H2/H3로 구조를 만들고, FAQ 섹션을 넣어 SEO를 강화하세요.",
+              "hookPoint": "FAQ + 체크리스트 조합으로 체류시간/리치 증가"
+            },
+            "blogspot": {
+              "title": "정수기렌탈가격비교 2025: Quick Start + Best Practices",
+              "alternatives": [
+                "정수기렌탈가격비교 Quick Guide: Do & Don't",
+                "정수기렌탈가격비교 Essentials: What You Need to Know"
+              ],
+              "subKeywords": [
+                "정수기렌탈가격비교 방법",
+                "정수기렌탈가격비교 추천",
+                "정수기렌탈가격비교 후기"
+              ],
+              "tags": [
+                "정수기렌탈가격비교",
+                "❓ 질문형키워드"
+              ],
+              "tip": "이미지 2~3장 + 요약 박스를 넣어 가독성을 올리세요.",
+              "hookPoint": "첫 화면에 요약(결론)을 배치해 이탈률을 낮추기"
+            }
+          },
+          "expandedKeywords": {
+            "relatedGolden": [
+              "정수기렌탈가격비교 추천",
+              "정수기렌탈가격비교 비교",
+              "정수기렌탈가격비교 후기",
+              "정수기렌탈가격비교 가격"
+            ],
+            "longtailGolden": [
+              "정수기렌탈가격비교 초보",
+              "정수기렌탈가격비교 쉽게",
+              "정수기렌탈가격비교 단계별",
+              "정수기렌탈가격비교 정리"
+            ],
+            "blueOceanGolden": [
+              "정수기렌탈가격비교 최신",
+              "정수기렌탈가격비교 2025",
+              "정수기렌탈가격비교 체크리스트",
+              "정수기렌탈가격비교 실패하지 않는 법"
+            ]
+          },
+          "type": "❓ 질문형키워드",
+          "category": "review",
+          "safetyLevel": "safe",
+          "safetyReason": "✅ 안전한 키워드. 신생 블로거도 작성 가능",
+          "source": "정수기",
+          "profitAnalysis": {
+            "keyword": "정수기렌탈가격비교",
+            "searchVolume": 27950,
+            "documentCount": 14281,
+            "estimatedCPC": 280,
+            "purchaseIntentScore": 60,
+            "competitionLevel": 7,
+            "freshnessOpportunity": 1,
+            "profitGoldenRatio": 78.26,
+            "estimatedDailyRevenue": 974,
+            "estimatedMonthlyRevenue": 29220,
+            "grade": "S",
+            "gradeReason": "⭐ 추천! 월 29천원 예상",
+            "isRealBlueOcean": false,
+            "blueOceanReason": "📕 경쟁 시장. 차별화 전략 필요",
+            "strategy": {
+              "approach": "✍️ 빠른 작성 권장. 1500자+ 품질 콘텐츠로 상위 노출 노려볼만",
+              "monetization": "🛒 쿠팡파트너스 집중. 비교/추천 형식으로 전환율 높이기",
+              "timing": "📅 이번 주 내 작성. 2~4주 내 상위노출 기대",
+              "titleSuggestion": "정수기렌탈가격비교 솔직 후기 | 장단점 총정리 (2025)"
+            }
+          },
+          "timestamp": "2025-12-24T11:13:18.602Z",
+          "isGolden": true,
+          "trendAnalysis": {
+            "trendingReason": "LG전자 베스트렌탈샵, 8월 관련 최근 이슈",
+            "whyNow": "최근 5개 이상의 뉴스에서 다뤄지며 이슈화 진행 중 • \"런칭\" 관련 구체적 사건으로 실시간 관심 집중 • 뉴스에서 \"인기\" 키워드로 언급되며 화제성 확보 • 최신 이슈로 실시간 관심 집중 중",
+            "newsSource": "자동 분석"
+          },
+          "keywordGuide": {
+            "summary": "여유 있을 때 공략하면 좋은 키워드입니다. (등급: SS, 점수: 91점)",
+            "whyItMovesNow": "LG전자 베스트렌탈샵, 8월 관련 최근 이슈 최근 5개 이상의 뉴스에서 다뤄지며 이슈화 진행 중 • \"런칭\" 관련 구체적 사건으로 실시간 관심 집중 • 뉴스에서 \"인기\" 키워드로 언급되며 화제성 확보 • 최신 이슈로 실시간 관심 집중 중",
+            "immediateTrafficPlan": [
+              "제목 앞부분에 \"정수기렌탈가격비교\"를 배치하고, 2025/최신/정리 같은 보조 키워드를 1개만 추가하세요.",
+              "본문 서두 100자 안에 \"정수기렌탈가격비교\"를 자연스럽게 2회 노출하세요.",
+              "최소 1개는 비교/체크리스트/요약 섹션을 넣어 체류시간을 늘리세요."
+            ],
+            "naverHomeExposureTips": [
+              "첫 이미지에 키워드가 들어간 문구를 넣고, alt 텍스트도 키워드 포함",
+              "목차를 만들고 H2/H3에 서브 키워드 배치",
+              "태그는 5~10개로 과도한 반복을 피하고, 유사어를 섞기"
+            ]
+          },
+          "ultimateAnalysis": {
+            "timing": {
+              "seasonal": {
+                "peakMonths": [
+                  1,
+                  2,
+                  3,
+                  4,
+                  5,
+                  6,
+                  7,
+                  8,
+                  9,
+                  10,
+                  11,
+                  12
+                ],
+                "peakReason": "연중 꾸준한 검색량",
+                "currentSeasonScore": 70,
+                "nextPeakDate": "항상",
+                "daysUntilPeak": 0,
+                "recommendation": "📝 에버그린 키워드입니다. 언제든 작성해도 좋습니다.",
+                "seasonalPattern": "evergreen"
+              },
+              "trend": {
+                "trendDirection": "falling",
+                "changeRate": 20,
+                "comparedTo": "전월 대비",
+                "explosiveScore": 29,
+                "relatedNews": [],
+                "recommendation": "📊 안정적인 키워드입니다."
+              },
+              "alert": {
+                "optimalPublishDate": "0일 내",
+                "reason": "📝 에버그린 키워드입니다. 언제든 작성해도 좋습니다.",
+                "urgencyLevel": "⚡ 이번 주",
+                "expectedPeakDate": "항상",
+                "competitorActivity": "경쟁자 많음"
+              }
+            },
+            "revenue": {
+              "cpc": {
+                "estimatedCpc": 150,
+                "cpcRange": {
+                  "min": 80,
+                  "max": 300
+                },
+                "cpcTier": "🥈 중수익",
+                "industryAverage": 150,
+                "recommendation": "📝 일반적인 수익 구조입니다. 트래픽 확보에 집중하세요."
+              },
+              "affiliate": {
+                "recommendedPrograms": [
+                  {
+                    "name": "쿠팡파트너스",
+                    "type": "coupang",
+                    "commissionRate": "3~5%",
+                    "estimatedEarningPerClick": 50,
+                    "matchScore": 100
+                  },
+                  {
+                    "name": "네이버 쇼핑",
+                    "type": "naver",
+                    "commissionRate": "1~3%",
+                    "estimatedEarningPerClick": 30,
+                    "matchScore": 85
+                  }
+                ],
+                "bestMatch": "쿠팡파트너스",
+                "potentialProducts": [
+                  "정수기렌탈가격비교 추천",
+                  "정수기렌탈가격비교 순위",
+                  "정수기렌탈가격비교 비교",
+                  "정수기렌탈가격비교 후기",
+                  "정수기렌탈가격비교 가격",
+                  "정수기렌탈가격비교 구매"
+                ]
+              },
+              "projection": {
+                "estimatedDailyVisitors": 47,
+                "estimatedMonthlyVisitors": 1410,
+                "adsenseRevenue": {
+                  "daily": 212,
+                  "monthly": 6360,
+                  "assumptions": "CPC 150원, CTR 2%, 페이지뷰율 1.5 가정"
+                },
+                "affiliateRevenue": {
+                  "daily": 7,
+                  "monthly": 210,
+                  "conversionRate": 3,
+                  "assumptions": "클릭률 10%, 전환율 3%, 평균 수수료 50원 가정"
+                },
+                "totalMonthlyRevenue": 6570,
+                "revenueBreakdown": "애드센스 97% + 제휴 3%",
+                "revenueTier": "📝 월 1만원+"
+              }
+            },
+            "content": {
+              "titles": {
+                "titles": [
+                  {
+                    "title": "정수기렌탈가격비교 추천 TOP 10 (2025년 최신)",
+                    "type": "number",
+                    "estimatedCTR": 8.5,
+                    "psychologyUsed": "숫자 + 최신 정보"
+                  },
+                  {
+                    "title": "정수기렌탈가격비교 하는 법, 초보자도 쉽게 따라하기",
+                    "type": "how-to",
+                    "estimatedCTR": 7.5,
+                    "psychologyUsed": "실용성 + 접근성"
+                  },
+                  {
+                    "title": "정수기렌탈가격비교, 이것만 알면 끝! 완벽 가이드",
+                    "type": "benefit",
+                    "estimatedCTR": 7.2,
+                    "psychologyUsed": "완결성 + 가치 제안"
+                  },
+                  {
+                    "title": "[2025년] 정수기렌탈가격비교 총정리 (+ 꿀팁 공개)",
+                    "type": "news",
+                    "estimatedCTR": 7,
+                    "psychologyUsed": "최신성 + 보너스 가치"
+                  },
+                  {
+                    "title": "아직도 정수기렌탈가격비교 몰라요? 지금 당장 확인하세요",
+                    "type": "curiosity",
+                    "estimatedCTR": 6.8,
+                    "psychologyUsed": "호기심 + 긴급성"
+                  },
+                  {
+                    "title": "정수기렌탈가격비교 실제 후기 (장단점 솔직 비교)",
+                    "type": "comparison",
+                    "estimatedCTR": 6.5,
+                    "psychologyUsed": "신뢰성 + 비교 심리"
+                  }
+                ],
+                "bestTitle": "정수기렌탈가격비교 추천 TOP 10 (2025년 최신)",
+                "titleFormula": "숫자 + 키워드 + 최신연도 + 가치제안"
+              },
+              "structure": {
+                "recommendedStructure": {
+                  "intro": {
+                    "purpose": "독자의 관심 끌기 + 키워드 자연스럽게 배치",
+                    "template": "\"정수기렌탈가격비교\"에 대해 고민하고 계신가요? 이 글에서 핵심 정보를 모두 정리해드립니다.",
+                    "keywordPlacement": "첫 문장에 키워드 포함"
+                  },
+                  "sections": [
+                    {
+                      "heading": "정수기렌탈가격비교란? (기본 개념)",
+                      "purpose": "기초 정보 제공",
+                      "contentGuide": "핵심 정의, 중요성, 왜 알아야 하는지 설명",
+                      "recommendedLength": 300,
+                      "keywordUsage": "소제목과 본문에 1~2회"
+                    },
+                    {
+                      "heading": "정수기렌탈가격비교 추천 BEST 5",
+                      "purpose": "실질적인 가치 제공 (핵심 섹션)",
+                      "contentGuide": "순위별 상세 설명, 장단점, 추천 이유",
+                      "recommendedLength": 800,
+                      "keywordUsage": "각 항목 설명에 자연스럽게 포함"
+                    },
+                    {
+                      "heading": "정수기렌탈가격비교 선택 시 주의사항",
+                      "purpose": "신뢰도 향상",
+                      "contentGuide": "흔한 실수, 피해야 할 것, 체크리스트",
+                      "recommendedLength": 400,
+                      "keywordUsage": "주의사항 설명에 1~2회"
+                    },
+                    {
+                      "heading": "자주 묻는 질문 (FAQ)",
+                      "purpose": "SEO 강화 + 체류시간 증가",
+                      "contentGuide": "실제 검색되는 질문 5개 + 명확한 답변",
+                      "recommendedLength": 500,
+                      "keywordUsage": "질문에 롱테일 키워드 활용"
+                    }
+                  ],
+                  "conclusion": {
+                    "purpose": "요약 + CTA",
+                    "template": "지금까지 정수기렌탈가격비교에 대해 알아봤습니다. 도움이 되셨다면 공유해주세요!",
+                    "ctaRecommendation": "댓글, 공유, 관련 글 링크 유도"
+                  }
+                },
+                "seoChecklist": [
+                  {
+                    "item": "제목에 키워드 포함",
+                    "importance": "critical",
+                    "howTo": "제목 앞부분에 메인 키워드 배치"
+                  },
+                  {
+                    "item": "첫 문단에 키워드",
+                    "importance": "critical",
+                    "howTo": "첫 100자 내 키워드 자연스럽게 삽입"
+                  },
+                  {
+                    "item": "소제목 H2/H3 활용",
+                    "importance": "high",
+                    "howTo": "3~5개 소제목, 키워드 변형 사용"
+                  },
+                  {
+                    "item": "이미지 ALT 태그",
+                    "importance": "high",
+                    "howTo": "모든 이미지에 키워드 포함 설명"
+                  },
+                  {
+                    "item": "내부링크 2개 이상",
+                    "importance": "medium",
+                    "howTo": "관련 글 자연스럽게 연결"
+                  },
+                  {
+                    "item": "3000자 이상 작성",
+                    "importance": "high",
+                    "howTo": "충분한 깊이의 콘텐츠 제공"
+                  }
+                ],
+                "totalRecommendedLength": 3000,
+                "estimatedWriteTime": 90
+              },
+              "images": {
+                "mainImage": {
+                  "searchKeyword": "정수기렌탈가격비교 대표이미지",
+                  "style": "깔끔한 인포그래픽 또는 고화질 사진",
+                  "source": [
+                    "Unsplash",
+                    "Pixabay",
+                    "직접 제작"
+                  ],
+                  "altText": "정수기렌탈가격비교 완벽 가이드 대표 이미지"
+                },
+                "sectionImages": [
+                  {
+                    "section": "기본 개념",
+                    "searchKeyword": "정수기렌탈가격비교 설명",
+                    "purpose": "이해 돕기",
+                    "style": "다이어그램"
+                  },
+                  {
+                    "section": "TOP 5",
+                    "searchKeyword": "정수기렌탈가격비교 비교",
+                    "purpose": "시각적 비교",
+                    "style": "비교표"
+                  },
+                  {
+                    "section": "주의사항",
+                    "searchKeyword": "주의 아이콘",
+                    "purpose": "강조",
+                    "style": "아이콘"
+                  }
+                ],
+                "infographicIdeas": [
+                  "정수기렌탈가격비교 선택 가이드 플로우차트",
+                  "정수기렌탈가격비교 TOP 5 비교표",
+                  "정수기렌탈가격비교 체크리스트"
+                ],
+                "totalRecommendedImages": 7,
+                "imageStrategy": "섹션당 1~2개, 총 7~10개 이미지로 가독성과 체류시간 향상"
+              }
+            },
+            "ultimateScore": {
+              "total": 40,
+              "breakdown": {
+                "goldenRatio": 19.57145858133184,
+                "timing": 70,
+                "revenue": 40,
+                "competition": 40,
+                "potential": 42
+              },
+              "grade": "📝 C",
+              "verdict": "⚠️ 신중히 검토 필요",
+              "topActions": [
+                "0일 내 작성 권장",
+                "정수기렌탈가격비교 추천 TOP 10 (2025년 최신)",
+                "3000자 이상, 7개 이미지 권장"
+              ]
+            }
+          },
+          "highlightReason": "✅ ANYTIME/stable | 폭발 65 | 구매의도 60 | 월 29,220원⚠️ | 경쟁도 7"
+        },
+        {
+          "keyword": "냉장고500리터",
+          "searchVolume": 9520,
+          "documentCount": 7759,
+          "goldenRatio": 1.226962237401727,
+          "rookieFriendly": {
+            "score": 50,
+            "grade": "C",
+            "reason": "문서수 10,000개 미만 → 경쟁 보통 | 숏테일 키워드 → 대형 블로그와 경쟁",
+            "canRankWithin": "2~4주 내 가능",
+            "requiredBlogIndex": "최적 1 이상 권장"
+          },
+          "timing": {
+            "score": 50,
+            "urgency": "ANYTIME",
+            "bestPublishTime": "오전 6~8시 또는 저녁 8~10시",
+            "trendDirection": "stable",
+            "peakPrediction": "꾸준한 검색량 유지"
+          },
+          "blueOcean": {
+            "score": 62,
+            "competitorStrength": "medium",
+            "avgCompetitorBlogAge": "2~5년 (보통 경쟁)",
+            "oldPostRatio": 50,
+            "opportunity": "✅ 좋은 기회입니다. 품질 콘텐츠로 승부"
+          },
+          "trafficEstimate": {
+            "daily": "8~18명",
+            "weekly": "56~126명",
+            "monthly": "240~540명",
+            "confidence": 50,
+            "disclaimer": "📌 트래픽은 순위/CTR/계절성에 따라 달라질 수 있는 추정치입니다."
+          },
+          "revenueEstimate": {
+            "dailyRevenue": "298원 ⚠️추정",
+            "monthlyRevenue": "8,940원 ⚠️추정",
+            "estimatedCPC": 207,
+            "estimatedRPM": 5175,
+            "adType": "애드센스",
+            "revenueGrade": "A",
+            "revenueReason": "✅ 양호! 월 9천원 예상"
+          },
+          "entryAnalysis": {
+            "canEntry": true,
+            "difficulty": "possible",
+            "difficultyScore": 35,
+            "message": "🟡 진입 가능 - 품질 콘텐츠로 충분히 경쟁 가능",
+            "topCompetitorStrength": "보통 (일반 블로그 혼재)",
+            "recommendedBlogIndex": "준최 3 이상 권장",
+            "estimatedRankingTime": "3~7일 내 가능"
+          },
+          "totalScore": 83,
+          "grade": "SS",
+          "proStrategy": {
+            "title": "2025 냉장고500리터 완벽 정리 | 초보자도 쉽게 이해하는 가이드",
+            "outline": [
+              "1. 냉장고500리터란? (기본 개념)",
+              "2. 냉장고500리터 핵심 포인트 3가지",
+              "3. 냉장고500리터 장단점 비교",
+              "4. 냉장고500리터 실제 후기/경험담",
+              "5. 냉장고500리터 Q&A (자주 묻는 질문)",
+              "6. 결론 및 추천"
+            ],
+            "wordCount": 2500,
+            "mustInclude": [
+              "핵심 키워드 2~3회 자연스럽게 삽입",
+              "실제 이미지/사진 3장 이상",
+              "표 또는 비교 차트 1개 이상",
+              "자주 묻는 질문(FAQ) 섹션",
+              "결론 및 추천 섹션"
+            ],
+            "avoidTopics": [
+              "과장된 표현 (100%, 무조건, 반드시)",
+              "허위 정보나 검증되지 않은 내용",
+              "다른 블로그 복사/붙여넣기",
+              "광고성 링크 과다 삽입"
+            ],
+            "monetization": "애드센스 + 쿠팡파트너스 조합 추천"
+          },
+          "platformTitles": {
+            "naver": {
+              "title": "핵심 정리: 냉장고500리터 2025 최신 가이드 (월 9,520)",
+              "alternatives": [
+                "냉장고500리터 2025 완벽 정리: 핵심만 5분 요약",
+                "냉장고500리터 초보도 쉽게: 실패 없는 체크리스트"
+              ],
+              "subKeywords": [
+                "냉장고500리터 방법",
+                "냉장고500리터 추천",
+                "냉장고500리터 후기"
+              ],
+              "tags": [
+                "냉장고500리터",
+                "📰 이슈키워드"
+              ],
+              "tip": "서두 100자 내에 키워드를 2회 노출하고, 결론 요약을 맨 위에 한 번 더 넣으세요.",
+              "hookPoint": "핵심 정리 포인트를 제목/썸네일에 강조"
+            },
+            "tistory": {
+              "title": "냉장고500리터 2025 정리: 한 번에 이해하는 핵심 포인트 (월 9,520)",
+              "alternatives": [
+                "냉장고500리터 제대로 하는 법 (체크리스트 포함)",
+                "냉장고500리터 추천/비교: 선택 기준 3가지"
+              ],
+              "subKeywords": [
+                "냉장고500리터 방법",
+                "냉장고500리터 추천",
+                "냉장고500리터 후기"
+              ],
+              "tags": [
+                "냉장고500리터",
+                "📰 이슈키워드"
+              ],
+              "tip": "표/리스트를 많이 써서 스크롤 체류시간을 늘리세요.",
+              "hookPoint": "“핵심 3가지”처럼 숫자를 넣어 클릭률을 올리기"
+            },
+            "wordpress": {
+              "title": "냉장고500리터: 2025 Complete Guide (Checklist & Tips) (월 9,520)",
+              "alternatives": [
+                "냉장고500리터 Guide: Common Mistakes & Quick Fixes",
+                "냉장고500리터 Step-by-Step: What to Do First"
+              ],
+              "subKeywords": [
+                "냉장고500리터 방법",
+                "냉장고500리터 추천",
+                "냉장고500리터 후기"
+              ],
+              "tags": [
+                "냉장고500리터",
+                "📰 이슈키워드"
+              ],
+              "tip": "H2/H3로 구조를 만들고, FAQ 섹션을 넣어 SEO를 강화하세요.",
+              "hookPoint": "FAQ + 체크리스트 조합으로 체류시간/리치 증가"
+            },
+            "blogspot": {
+              "title": "냉장고500리터 2025: Quick Start + Best Practices (월 9,520)",
+              "alternatives": [
+                "냉장고500리터 Quick Guide: Do & Don't",
+                "냉장고500리터 Essentials: What You Need to Know"
+              ],
+              "subKeywords": [
+                "냉장고500리터 방법",
+                "냉장고500리터 추천",
+                "냉장고500리터 후기"
+              ],
+              "tags": [
+                "냉장고500리터",
+                "📰 이슈키워드"
+              ],
+              "tip": "이미지 2~3장 + 요약 박스를 넣어 가독성을 올리세요.",
+              "hookPoint": "첫 화면에 요약(결론)을 배치해 이탈률을 낮추기"
+            }
+          },
+          "expandedKeywords": {
+            "relatedGolden": [
+              "냉장고500리터 추천",
+              "냉장고500리터 비교",
+              "냉장고500리터 후기",
+              "냉장고500리터 가격"
+            ],
+            "longtailGolden": [
+              "냉장고500리터 초보",
+              "냉장고500리터 쉽게",
+              "냉장고500리터 단계별",
+              "냉장고500리터 정리"
+            ],
+            "blueOceanGolden": [
+              "냉장고500리터 최신",
+              "냉장고500리터 2025",
+              "냉장고500리터 체크리스트",
+              "냉장고500리터 실패하지 않는 법"
+            ]
+          },
+          "type": "📰 이슈키워드",
+          "category": "life_tips",
+          "safetyLevel": "safe",
+          "safetyReason": "✅ 안전한 키워드. 신생 블로거도 작성 가능",
+          "source": "냉장고",
+          "profitAnalysis": {
+            "keyword": "냉장고500리터",
+            "searchVolume": 9520,
+            "documentCount": 7759,
+            "estimatedCPC": 207,
+            "purchaseIntentScore": 30,
+            "competitionLevel": 6,
+            "freshnessOpportunity": 1,
+            "profitGoldenRatio": 15.6,
+            "estimatedDailyRevenue": 298,
+            "estimatedMonthlyRevenue": 8940,
+            "grade": "A",
+            "gradeReason": "✅ 양호! 월 9천원 예상",
+            "isRealBlueOcean": false,
+            "blueOceanReason": "📕 경쟁 시장. 차별화 전략 필요",
+            "strategy": {
+              "approach": "✍️ 빠른 작성 권장. 1500자+ 품질 콘텐츠로 상위 노출 노려볼만",
+              "monetization": "📝 트래픽 확보 우선. 이후 관련 고수익 키워드로 내부링크",
+              "timing": "📅 이번 주 내 작성. 2~4주 내 상위노출 기대",
+              "titleSuggestion": "냉장고500리터 완벽 가이드 | 초보자도 쉽게 따라하기"
+            }
+          },
+          "timestamp": "2025-12-24T11:13:18.572Z",
+          "isGolden": true,
+          "trendAnalysis": {
+            "trendingReason": "캐리어냉장, 500리터대 세미빌트인 관련 최근 이슈",
+            "whyNow": "최근 5개 이상의 뉴스에서 다뤄지며 이슈화 진행 중 • \"출시\" 관련 구체적 사건으로 실시간 관심 집중 • 최신 이슈로 실시간 관심 집중 중 • \"캐리어냉장, 500리터대 세미빌트인 냉장고 시장 진출\" 관련 최신 뉴스로 조기 진입 효과 기대",
+            "newsSource": "자동 분석"
+          },
+          "keywordGuide": {
+            "summary": "여유 있을 때 공략하면 좋은 키워드입니다. (등급: SS, 점수: 83점)",
+            "whyItMovesNow": "캐리어냉장, 500리터대 세미빌트인 관련 최근 이슈 최근 5개 이상의 뉴스에서 다뤄지며 이슈화 진행 중 • \"출시\" 관련 구체적 사건으로 실시간 관심 집중 • 최신 이슈로 실시간 관심 집중 중 • \"캐리어냉장, 500리터대 세미빌트인 냉장고 시장 진출\" 관련 최신 뉴스로 조기 진입 효과 기대",
+            "immediateTrafficPlan": [
+              "제목 앞부분에 \"냉장고500리터\"를 배치하고, 2025/최신/정리 같은 보조 키워드를 1개만 추가하세요.",
+              "본문 서두 100자 안에 \"냉장고500리터\"를 자연스럽게 2회 노출하세요.",
+              "최소 1개는 비교/체크리스트/요약 섹션을 넣어 체류시간을 늘리세요."
+            ],
+            "naverHomeExposureTips": [
+              "첫 이미지에 키워드가 들어간 문구를 넣고, alt 텍스트도 키워드 포함",
+              "목차를 만들고 H2/H3에 서브 키워드 배치",
+              "태그는 5~10개로 과도한 반복을 피하고, 유사어를 섞기"
+            ]
+          },
+          "ultimateAnalysis": {
+            "timing": {
+              "seasonal": {
+                "peakMonths": [
+                  1,
+                  2,
+                  3,
+                  4,
+                  5,
+                  6,
+                  7,
+                  8,
+                  9,
+                  10,
+                  11,
+                  12
+                ],
+                "peakReason": "연중 꾸준한 검색량",
+                "currentSeasonScore": 70,
+                "nextPeakDate": "항상",
+                "daysUntilPeak": 0,
+                "recommendation": "📝 에버그린 키워드입니다. 언제든 작성해도 좋습니다.",
+                "seasonalPattern": "evergreen"
+              },
+              "trend": {
+                "trendDirection": "falling",
+                "changeRate": 12,
+                "comparedTo": "전월 대비",
+                "explosiveScore": 18,
+                "relatedNews": [],
+                "recommendation": "📊 안정적인 키워드입니다."
+              },
+              "alert": {
+                "optimalPublishDate": "0일 내",
+                "reason": "📝 에버그린 키워드입니다. 언제든 작성해도 좋습니다.",
+                "urgencyLevel": "⚡ 이번 주",
+                "expectedPeakDate": "항상",
+                "competitorActivity": "경쟁자 보통"
+              }
+            },
+            "revenue": {
+              "cpc": {
+                "estimatedCpc": 200,
+                "cpcRange": {
+                  "min": 100,
+                  "max": 400
+                },
+                "cpcTier": "🥈 중수익",
+                "industryAverage": 200,
+                "recommendation": "📝 일반적인 수익 구조입니다. 트래픽 확보에 집중하세요."
+              },
+              "affiliate": {
+                "recommendedPrograms": [
+                  {
+                    "name": "쿠팡파트너스",
+                    "type": "coupang",
+                    "commissionRate": "3~5%",
+                    "estimatedEarningPerClick": 50,
+                    "matchScore": 100
+                  },
+                  {
+                    "name": "네이버 쇼핑",
+                    "type": "naver",
+                    "commissionRate": "1~3%",
+                    "estimatedEarningPerClick": 30,
+                    "matchScore": 85
+                  }
+                ],
+                "bestMatch": "쿠팡파트너스",
+                "potentialProducts": [
+                  "냉장고500리터 추천",
+                  "냉장고500리터 순위",
+                  "냉장고500리터 비교",
+                  "냉장고500리터 후기",
+                  "냉장고500리터 가격",
+                  "냉장고500리터 구매"
+                ]
+              },
+              "projection": {
+                "estimatedDailyVisitors": 16,
+                "estimatedMonthlyVisitors": 480,
+                "adsenseRevenue": {
+                  "daily": 96,
+                  "monthly": 2880,
+                  "assumptions": "CPC 200원, CTR 2%, 페이지뷰율 1.5 가정"
+                },
+                "affiliateRevenue": {
+                  "daily": 2,
+                  "monthly": 60,
+                  "conversionRate": 3,
+                  "assumptions": "클릭률 10%, 전환율 3%, 평균 수수료 50원 가정"
+                },
+                "totalMonthlyRevenue": 2940,
+                "revenueBreakdown": "애드센스 98% + 제휴 2%",
+                "revenueTier": "📝 월 1만원+"
+              }
+            },
+            "content": {
+              "titles": {
+                "titles": [
+                  {
+                    "title": "냉장고500리터 추천 TOP 10 (2025년 최신)",
+                    "type": "number",
+                    "estimatedCTR": 8.5,
+                    "psychologyUsed": "숫자 + 최신 정보"
+                  },
+                  {
+                    "title": "냉장고500리터 하는 법, 초보자도 쉽게 따라하기",
+                    "type": "how-to",
+                    "estimatedCTR": 7.5,
+                    "psychologyUsed": "실용성 + 접근성"
+                  },
+                  {
+                    "title": "냉장고500리터, 이것만 알면 끝! 완벽 가이드",
+                    "type": "benefit",
+                    "estimatedCTR": 7.2,
+                    "psychologyUsed": "완결성 + 가치 제안"
+                  },
+                  {
+                    "title": "[2025년] 냉장고500리터 총정리 (+ 꿀팁 공개)",
+                    "type": "news",
+                    "estimatedCTR": 7,
+                    "psychologyUsed": "최신성 + 보너스 가치"
+                  },
+                  {
+                    "title": "아직도 냉장고500리터 몰라요? 지금 당장 확인하세요",
+                    "type": "curiosity",
+                    "estimatedCTR": 6.8,
+                    "psychologyUsed": "호기심 + 긴급성"
+                  },
+                  {
+                    "title": "냉장고500리터 실제 후기 (장단점 솔직 비교)",
+                    "type": "comparison",
+                    "estimatedCTR": 6.5,
+                    "psychologyUsed": "신뢰성 + 비교 심리"
+                  }
+                ],
+                "bestTitle": "냉장고500리터 추천 TOP 10 (2025년 최신)",
+                "titleFormula": "숫자 + 키워드 + 최신연도 + 가치제안"
+              },
+              "structure": {
+                "recommendedStructure": {
+                  "intro": {
+                    "purpose": "독자의 관심 끌기 + 키워드 자연스럽게 배치",
+                    "template": "\"냉장고500리터\"에 대해 고민하고 계신가요? 이 글에서 핵심 정보를 모두 정리해드립니다.",
+                    "keywordPlacement": "첫 문장에 키워드 포함"
+                  },
+                  "sections": [
+                    {
+                      "heading": "냉장고500리터란? (기본 개념)",
+                      "purpose": "기초 정보 제공",
+                      "contentGuide": "핵심 정의, 중요성, 왜 알아야 하는지 설명",
+                      "recommendedLength": 300,
+                      "keywordUsage": "소제목과 본문에 1~2회"
+                    },
+                    {
+                      "heading": "냉장고500리터 추천 BEST 5",
+                      "purpose": "실질적인 가치 제공 (핵심 섹션)",
+                      "contentGuide": "순위별 상세 설명, 장단점, 추천 이유",
+                      "recommendedLength": 800,
+                      "keywordUsage": "각 항목 설명에 자연스럽게 포함"
+                    },
+                    {
+                      "heading": "냉장고500리터 선택 시 주의사항",
+                      "purpose": "신뢰도 향상",
+                      "contentGuide": "흔한 실수, 피해야 할 것, 체크리스트",
+                      "recommendedLength": 400,
+                      "keywordUsage": "주의사항 설명에 1~2회"
+                    },
+                    {
+                      "heading": "자주 묻는 질문 (FAQ)",
+                      "purpose": "SEO 강화 + 체류시간 증가",
+                      "contentGuide": "실제 검색되는 질문 5개 + 명확한 답변",
+                      "recommendedLength": 500,
+                      "keywordUsage": "질문에 롱테일 키워드 활용"
+                    }
+                  ],
+                  "conclusion": {
+                    "purpose": "요약 + CTA",
+                    "template": "지금까지 냉장고500리터에 대해 알아봤습니다. 도움이 되셨다면 공유해주세요!",
+                    "ctaRecommendation": "댓글, 공유, 관련 글 링크 유도"
+                  }
+                },
+                "seoChecklist": [
+                  {
+                    "item": "제목에 키워드 포함",
+                    "importance": "critical",
+                    "howTo": "제목 앞부분에 메인 키워드 배치"
+                  },
+                  {
+                    "item": "첫 문단에 키워드",
+                    "importance": "critical",
+                    "howTo": "첫 100자 내 키워드 자연스럽게 삽입"
+                  },
+                  {
+                    "item": "소제목 H2/H3 활용",
+                    "importance": "high",
+                    "howTo": "3~5개 소제목, 키워드 변형 사용"
+                  },
+                  {
+                    "item": "이미지 ALT 태그",
+                    "importance": "high",
+                    "howTo": "모든 이미지에 키워드 포함 설명"
+                  },
+                  {
+                    "item": "내부링크 2개 이상",
+                    "importance": "medium",
+                    "howTo": "관련 글 자연스럽게 연결"
+                  },
+                  {
+                    "item": "3000자 이상 작성",
+                    "importance": "high",
+                    "howTo": "충분한 깊이의 콘텐츠 제공"
+                  }
+                ],
+                "totalRecommendedLength": 3000,
+                "estimatedWriteTime": 90
+              },
+              "images": {
+                "mainImage": {
+                  "searchKeyword": "냉장고500리터 대표이미지",
+                  "style": "깔끔한 인포그래픽 또는 고화질 사진",
+                  "source": [
+                    "Unsplash",
+                    "Pixabay",
+                    "직접 제작"
+                  ],
+                  "altText": "냉장고500리터 완벽 가이드 대표 이미지"
+                },
+                "sectionImages": [
+                  {
+                    "section": "기본 개념",
+                    "searchKeyword": "냉장고500리터 설명",
+                    "purpose": "이해 돕기",
+                    "style": "다이어그램"
+                  },
+                  {
+                    "section": "TOP 5",
+                    "searchKeyword": "냉장고500리터 비교",
+                    "purpose": "시각적 비교",
+                    "style": "비교표"
+                  },
+                  {
+                    "section": "주의사항",
+                    "searchKeyword": "주의 아이콘",
+                    "purpose": "강조",
+                    "style": "아이콘"
+                  }
+                ],
+                "infographicIdeas": [
+                  "냉장고500리터 선택 가이드 플로우차트",
+                  "냉장고500리터 TOP 5 비교표",
+                  "냉장고500리터 체크리스트"
+                ],
+                "totalRecommendedImages": 7,
+                "imageStrategy": "섹션당 1~2개, 총 7~10개 이미지로 가독성과 체류시간 향상"
+              }
+            },
+            "ultimateScore": {
+              "total": 42,
+              "breakdown": {
+                "goldenRatio": 12.26962237401727,
+                "timing": 70,
+                "revenue": 40,
+                "competition": 60,
+                "potential": 46
+              },
+              "grade": "📝 C",
+              "verdict": "⚠️ 신중히 검토 필요",
+              "topActions": [
+                "0일 내 작성 권장",
+                "냉장고500리터 추천 TOP 10 (2025년 최신)",
+                "3000자 이상, 7개 이미지 권장"
+              ]
+            }
+          },
+          "highlightReason": "✅ ANYTIME/stable | 폭발 65 | 구매의도 30 | 월 8,940원⚠️ | 경쟁도 6"
+        },
+        {
+          "keyword": "냉장고200리터",
+          "searchVolume": 3050,
+          "documentCount": 6228,
+          "goldenRatio": 0.4897238278741169,
+          "rookieFriendly": {
+            "score": 35,
+            "grade": "D",
+            "reason": "문서수 10,000개 미만 → 경쟁 보통 | 황금비율 1 미만 → 공급 과잉 | 숏테일 키워드 → 대형 블로그와 경쟁",
+            "canRankWithin": "1개월 이상 소요 예상",
+            "requiredBlogIndex": "최적 1 이상 권장"
+          },
+          "timing": {
+            "score": 50,
+            "urgency": "ANYTIME",
+            "bestPublishTime": "오전 6~8시 또는 저녁 8~10시",
+            "trendDirection": "stable",
+            "peakPrediction": "꾸준한 검색량 유지"
+          },
+          "blueOcean": {
+            "score": 50,
+            "competitorStrength": "medium",
+            "avgCompetitorBlogAge": "2~5년 (보통 경쟁)",
+            "oldPostRatio": 50,
+            "opportunity": "⚠️ 경쟁 있음. 차별화된 콘텐츠 필요"
+          },
+          "trafficEstimate": {
+            "daily": "2~4명",
+            "weekly": "14~28명",
+            "monthly": "60~120명",
+            "confidence": 50,
+            "disclaimer": "📌 트래픽은 순위/CTR/계절성에 따라 달라질 수 있는 추정치입니다."
+          },
+          "revenueEstimate": {
+            "dailyRevenue": "81원 ⚠️추정",
+            "monthlyRevenue": "2,430원 ⚠️추정",
+            "estimatedCPC": 207,
+            "estimatedRPM": 5175,
+            "adType": "애드센스",
+            "revenueGrade": "B",
+            "revenueReason": "📌 보통. 롱테일 확장 추천"
+          },
+          "entryAnalysis": {
+            "canEntry": true,
+            "difficulty": "hard",
+            "difficultyScore": 60,
+            "message": "🟠 진입 도전적 - 차별화된 콘텐츠 필요",
+            "topCompetitorStrength": "보통 (일반 블로그 혼재)",
+            "recommendedBlogIndex": "준최 5 이상 권장",
+            "estimatedRankingTime": "1~3주 내 가능"
+          },
+          "totalScore": 50,
+          "grade": "A",
+          "proStrategy": {
+            "title": "2025 냉장고200리터 완벽 정리 | 초보자도 쉽게 이해하는 가이드",
+            "outline": [
+              "1. 냉장고200리터란? (기본 개념)",
+              "2. 냉장고200리터 핵심 포인트 3가지",
+              "3. 냉장고200리터 장단점 비교",
+              "4. 냉장고200리터 실제 후기/경험담",
+              "5. 냉장고200리터 Q&A (자주 묻는 질문)",
+              "6. 결론 및 추천"
+            ],
+            "wordCount": 2500,
+            "mustInclude": [
+              "핵심 키워드 2~3회 자연스럽게 삽입",
+              "실제 이미지/사진 3장 이상",
+              "표 또는 비교 차트 1개 이상",
+              "자주 묻는 질문(FAQ) 섹션",
+              "결론 및 추천 섹션"
+            ],
+            "avoidTopics": [
+              "과장된 표현 (100%, 무조건, 반드시)",
+              "허위 정보나 검증되지 않은 내용",
+              "다른 블로그 복사/붙여넣기",
+              "광고성 링크 과다 삽입"
+            ],
+            "monetization": "애드센스 + 쿠팡파트너스 조합 추천"
+          },
+          "platformTitles": {
+            "naver": {
+              "title": "핵심 정리: 냉장고200리터 2025 최신 가이드 (월 3,050)",
+              "alternatives": [
+                "냉장고200리터 2025 완벽 정리: 핵심만 5분 요약",
+                "냉장고200리터 초보도 쉽게: 실패 없는 체크리스트"
+              ],
+              "subKeywords": [
+                "냉장고200리터 방법",
+                "냉장고200리터 추천",
+                "냉장고200리터 후기"
+              ],
+              "tags": [
+                "냉장고200리터",
+                "📰 이슈키워드"
+              ],
+              "tip": "서두 100자 내에 키워드를 2회 노출하고, 결론 요약을 맨 위에 한 번 더 넣으세요.",
+              "hookPoint": "핵심 정리 포인트를 제목/썸네일에 강조"
+            },
+            "tistory": {
+              "title": "냉장고200리터 2025 정리: 한 번에 이해하는 핵심 포인트 (월 3,050)",
+              "alternatives": [
+                "냉장고200리터 제대로 하는 법 (체크리스트 포함)",
+                "냉장고200리터 추천/비교: 선택 기준 3가지"
+              ],
+              "subKeywords": [
+                "냉장고200리터 방법",
+                "냉장고200리터 추천",
+                "냉장고200리터 후기"
+              ],
+              "tags": [
+                "냉장고200리터",
+                "📰 이슈키워드"
+              ],
+              "tip": "표/리스트를 많이 써서 스크롤 체류시간을 늘리세요.",
+              "hookPoint": "“핵심 3가지”처럼 숫자를 넣어 클릭률을 올리기"
+            },
+            "wordpress": {
+              "title": "냉장고200리터: 2025 Complete Guide (Checklist & Tips) (월 3,050)",
+              "alternatives": [
+                "냉장고200리터 Guide: Common Mistakes & Quick Fixes",
+                "냉장고200리터 Step-by-Step: What to Do First"
+              ],
+              "subKeywords": [
+                "냉장고200리터 방법",
+                "냉장고200리터 추천",
+                "냉장고200리터 후기"
+              ],
+              "tags": [
+                "냉장고200리터",
+                "📰 이슈키워드"
+              ],
+              "tip": "H2/H3로 구조를 만들고, FAQ 섹션을 넣어 SEO를 강화하세요.",
+              "hookPoint": "FAQ + 체크리스트 조합으로 체류시간/리치 증가"
+            },
+            "blogspot": {
+              "title": "냉장고200리터 2025: Quick Start + Best Practices (월 3,050)",
+              "alternatives": [
+                "냉장고200리터 Quick Guide: Do & Don't",
+                "냉장고200리터 Essentials: What You Need to Know"
+              ],
+              "subKeywords": [
+                "냉장고200리터 방법",
+                "냉장고200리터 추천",
+                "냉장고200리터 후기"
+              ],
+              "tags": [
+                "냉장고200리터",
+                "📰 이슈키워드"
+              ],
+              "tip": "이미지 2~3장 + 요약 박스를 넣어 가독성을 올리세요.",
+              "hookPoint": "첫 화면에 요약(결론)을 배치해 이탈률을 낮추기"
+            }
+          },
+          "expandedKeywords": {
+            "relatedGolden": [
+              "냉장고200리터 추천",
+              "냉장고200리터 비교",
+              "냉장고200리터 후기",
+              "냉장고200리터 가격"
+            ],
+            "longtailGolden": [
+              "냉장고200리터 초보",
+              "냉장고200리터 쉽게",
+              "냉장고200리터 단계별",
+              "냉장고200리터 정리"
+            ],
+            "blueOceanGolden": [
+              "냉장고200리터 최신",
+              "냉장고200리터 2025",
+              "냉장고200리터 체크리스트",
+              "냉장고200리터 실패하지 않는 법"
+            ]
+          },
+          "type": "📰 이슈키워드",
+          "category": "life_tips",
+          "safetyLevel": "safe",
+          "safetyReason": "✅ 안전한 키워드. 신생 블로거도 작성 가능",
+          "source": "냉장고",
+          "profitAnalysis": {
+            "keyword": "냉장고200리터",
+            "searchVolume": 3050,
+            "documentCount": 6228,
+            "estimatedCPC": 207,
+            "purchaseIntentScore": 30,
+            "competitionLevel": 7,
+            "freshnessOpportunity": 1,
+            "profitGoldenRatio": 4.28,
+            "estimatedDailyRevenue": 81,
+            "estimatedMonthlyRevenue": 2430,
+            "grade": "B",
+            "gradeReason": "📌 보통. 롱테일 확장 추천",
+            "isRealBlueOcean": false,
+            "blueOceanReason": "📕 경쟁 시장. 차별화 전략 필요",
+            "strategy": {
+              "approach": "🔍 롱테일 확장 후 작성. \"초보자\", \"2025\", \"비교\" 등 붙여서 경쟁 낮추기",
+              "monetization": "📝 트래픽 확보 우선. 이후 관련 고수익 키워드로 내부링크",
+              "timing": "🗓️ 여유있게 준비. 롱테일 전략으로 접근",
+              "titleSuggestion": "냉장고200리터 완벽 가이드 | 초보자도 쉽게 따라하기"
+            }
+          },
+          "timestamp": "2025-12-24T11:13:18.576Z",
+          "isGolden": true,
+          "trendAnalysis": {
+            "trendingReason": "김치냉장고, 200리터 이상 관련 최근 이슈",
+            "whyNow": "최근 5개 이상의 뉴스에서 다뤄지며 이슈화 진행 중 • \"출시\" 관련 구체적 사건으로 실시간 관심 집중 • 뉴스에서 \"인기\" 키워드로 언급되며 화제성 확보 • 최신 이슈로 실시간 관심 집중 중 • \"김치냉장고, 200리터 이상 초대형화 바람\" 관련 최신 뉴스로 조기 진입 효과 기대",
+            "newsSource": "자동 분석"
+          },
+          "keywordGuide": {
+            "summary": "여유 있을 때 공략하면 좋은 키워드입니다. (등급: A, 점수: 50점)",
+            "whyItMovesNow": "김치냉장고, 200리터 이상 관련 최근 이슈 최근 5개 이상의 뉴스에서 다뤄지며 이슈화 진행 중 • \"출시\" 관련 구체적 사건으로 실시간 관심 집중 • 뉴스에서 \"인기\" 키워드로 언급되며 화제성 확보 • 최신 이슈로 실시간 관심 집중 중 • \"김치냉장고, 200리터 이상 초대형화 바람\" 관련 최신 뉴스로 조기 진입 효과 기대",
+            "immediateTrafficPlan": [
+              "제목 앞부분에 \"냉장고200리터\"를 배치하고, 2025/최신/정리 같은 보조 키워드를 1개만 추가하세요.",
+              "본문 서두 100자 안에 \"냉장고200리터\"를 자연스럽게 2회 노출하세요.",
+              "최소 1개는 비교/체크리스트/요약 섹션을 넣어 체류시간을 늘리세요."
+            ],
+            "naverHomeExposureTips": [
+              "첫 이미지에 키워드가 들어간 문구를 넣고, alt 텍스트도 키워드 포함",
+              "목차를 만들고 H2/H3에 서브 키워드 배치",
+              "태그는 5~10개로 과도한 반복을 피하고, 유사어를 섞기"
+            ]
+          },
+          "ultimateAnalysis": {
+            "timing": {
+              "seasonal": {
+                "peakMonths": [
+                  1,
+                  2,
+                  3,
+                  4,
+                  5,
+                  6,
+                  7,
+                  8,
+                  9,
+                  10,
+                  11,
+                  12
+                ],
+                "peakReason": "연중 꾸준한 검색량",
+                "currentSeasonScore": 70,
+                "nextPeakDate": "항상",
+                "daysUntilPeak": 0,
+                "recommendation": "📝 에버그린 키워드입니다. 언제든 작성해도 좋습니다.",
+                "seasonalPattern": "evergreen"
+              },
+              "trend": {
+                "trendDirection": "falling",
+                "changeRate": 5,
+                "comparedTo": "전월 대비",
+                "explosiveScore": 7,
+                "relatedNews": [],
+                "recommendation": "📊 안정적인 키워드입니다."
+              },
+              "alert": {
+                "optimalPublishDate": "0일 내",
+                "reason": "📝 에버그린 키워드입니다. 언제든 작성해도 좋습니다.",
+                "urgencyLevel": "⚡ 이번 주",
+                "expectedPeakDate": "항상",
+                "competitorActivity": "경쟁자 보통"
+              }
+            },
+            "revenue": {
+              "cpc": {
+                "estimatedCpc": 200,
+                "cpcRange": {
+                  "min": 100,
+                  "max": 400
+                },
+                "cpcTier": "🥈 중수익",
+                "industryAverage": 200,
+                "recommendation": "📝 일반적인 수익 구조입니다. 트래픽 확보에 집중하세요."
+              },
+              "affiliate": {
+                "recommendedPrograms": [
+                  {
+                    "name": "쿠팡파트너스",
+                    "type": "coupang",
+                    "commissionRate": "3~5%",
+                    "estimatedEarningPerClick": 50,
+                    "matchScore": 100
+                  },
+                  {
+                    "name": "네이버 쇼핑",
+                    "type": "naver",
+                    "commissionRate": "1~3%",
+                    "estimatedEarningPerClick": 30,
+                    "matchScore": 85
+                  }
+                ],
+                "bestMatch": "쿠팡파트너스",
+                "potentialProducts": [
+                  "냉장고200리터 추천",
+                  "냉장고200리터 순위",
+                  "냉장고200리터 비교",
+                  "냉장고200리터 후기",
+                  "냉장고200리터 가격",
+                  "냉장고200리터 구매"
+                ]
+              },
+              "projection": {
+                "estimatedDailyVisitors": 3,
+                "estimatedMonthlyVisitors": 90,
+                "adsenseRevenue": {
+                  "daily": 18,
+                  "monthly": 540,
+                  "assumptions": "CPC 200원, CTR 2%, 페이지뷰율 1.5 가정"
+                },
+                "affiliateRevenue": {
+                  "daily": 0,
+                  "monthly": 0,
+                  "conversionRate": 3,
+                  "assumptions": "클릭률 10%, 전환율 3%, 평균 수수료 50원 가정"
+                },
+                "totalMonthlyRevenue": 540,
+                "revenueBreakdown": "애드센스 100% + 제휴 0%",
+                "revenueTier": "📝 월 1만원+"
+              }
+            },
+            "content": {
+              "titles": {
+                "titles": [
+                  {
+                    "title": "냉장고200리터 추천 TOP 10 (2025년 최신)",
+                    "type": "number",
+                    "estimatedCTR": 8.5,
+                    "psychologyUsed": "숫자 + 최신 정보"
+                  },
+                  {
+                    "title": "냉장고200리터 하는 법, 초보자도 쉽게 따라하기",
+                    "type": "how-to",
+                    "estimatedCTR": 7.5,
+                    "psychologyUsed": "실용성 + 접근성"
+                  },
+                  {
+                    "title": "냉장고200리터, 이것만 알면 끝! 완벽 가이드",
+                    "type": "benefit",
+                    "estimatedCTR": 7.2,
+                    "psychologyUsed": "완결성 + 가치 제안"
+                  },
+                  {
+                    "title": "[2025년] 냉장고200리터 총정리 (+ 꿀팁 공개)",
+                    "type": "news",
+                    "estimatedCTR": 7,
+                    "psychologyUsed": "최신성 + 보너스 가치"
+                  },
+                  {
+                    "title": "아직도 냉장고200리터 몰라요? 지금 당장 확인하세요",
+                    "type": "curiosity",
+                    "estimatedCTR": 6.8,
+                    "psychologyUsed": "호기심 + 긴급성"
+                  },
+                  {
+                    "title": "냉장고200리터 실제 후기 (장단점 솔직 비교)",
+                    "type": "comparison",
+                    "estimatedCTR": 6.5,
+                    "psychologyUsed": "신뢰성 + 비교 심리"
+                  }
+                ],
+                "bestTitle": "냉장고200리터 추천 TOP 10 (2025년 최신)",
+                "titleFormula": "숫자 + 키워드 + 최신연도 + 가치제안"
+              },
+              "structure": {
+                "recommendedStructure": {
+                  "intro": {
+                    "purpose": "독자의 관심 끌기 + 키워드 자연스럽게 배치",
+                    "template": "\"냉장고200리터\"에 대해 고민하고 계신가요? 이 글에서 핵심 정보를 모두 정리해드립니다.",
+                    "keywordPlacement": "첫 문장에 키워드 포함"
+                  },
+                  "sections": [
+                    {
+                      "heading": "냉장고200리터란? (기본 개념)",
+                      "purpose": "기초 정보 제공",
+                      "contentGuide": "핵심 정의, 중요성, 왜 알아야 하는지 설명",
+                      "recommendedLength": 300,
+                      "keywordUsage": "소제목과 본문에 1~2회"
+                    },
+                    {
+                      "heading": "냉장고200리터 추천 BEST 5",
+                      "purpose": "실질적인 가치 제공 (핵심 섹션)",
+                      "contentGuide": "순위별 상세 설명, 장단점, 추천 이유",
+                      "recommendedLength": 800,
+                      "keywordUsage": "각 항목 설명에 자연스럽게 포함"
+                    },
+                    {
+                      "heading": "냉장고200리터 선택 시 주의사항",
+                      "purpose": "신뢰도 향상",
+                      "contentGuide": "흔한 실수, 피해야 할 것, 체크리스트",
+                      "recommendedLength": 400,
+                      "keywordUsage": "주의사항 설명에 1~2회"
+                    },
+                    {
+                      "heading": "자주 묻는 질문 (FAQ)",
+                      "purpose": "SEO 강화 + 체류시간 증가",
+                      "contentGuide": "실제 검색되는 질문 5개 + 명확한 답변",
+                      "recommendedLength": 500,
+                      "keywordUsage": "질문에 롱테일 키워드 활용"
+                    }
+                  ],
+                  "conclusion": {
+                    "purpose": "요약 + CTA",
+                    "template": "지금까지 냉장고200리터에 대해 알아봤습니다. 도움이 되셨다면 공유해주세요!",
+                    "ctaRecommendation": "댓글, 공유, 관련 글 링크 유도"
+                  }
+                },
+                "seoChecklist": [
+                  {
+                    "item": "제목에 키워드 포함",
+                    "importance": "critical",
+                    "howTo": "제목 앞부분에 메인 키워드 배치"
+                  },
+                  {
+                    "item": "첫 문단에 키워드",
+                    "importance": "critical",
+                    "howTo": "첫 100자 내 키워드 자연스럽게 삽입"
+                  },
+                  {
+                    "item": "소제목 H2/H3 활용",
+                    "importance": "high",
+                    "howTo": "3~5개 소제목, 키워드 변형 사용"
+                  },
+                  {
+                    "item": "이미지 ALT 태그",
+                    "importance": "high",
+                    "howTo": "모든 이미지에 키워드 포함 설명"
+                  },
+                  {
+                    "item": "내부링크 2개 이상",
+                    "importance": "medium",
+                    "howTo": "관련 글 자연스럽게 연결"
+                  },
+                  {
+                    "item": "3000자 이상 작성",
+                    "importance": "high",
+                    "howTo": "충분한 깊이의 콘텐츠 제공"
+                  }
+                ],
+                "totalRecommendedLength": 3000,
+                "estimatedWriteTime": 90
+              },
+              "images": {
+                "mainImage": {
+                  "searchKeyword": "냉장고200리터 대표이미지",
+                  "style": "깔끔한 인포그래픽 또는 고화질 사진",
+                  "source": [
+                    "Unsplash",
+                    "Pixabay",
+                    "직접 제작"
+                  ],
+                  "altText": "냉장고200리터 완벽 가이드 대표 이미지"
+                },
+                "sectionImages": [
+                  {
+                    "section": "기본 개념",
+                    "searchKeyword": "냉장고200리터 설명",
+                    "purpose": "이해 돕기",
+                    "style": "다이어그램"
+                  },
+                  {
+                    "section": "TOP 5",
+                    "searchKeyword": "냉장고200리터 비교",
+                    "purpose": "시각적 비교",
+                    "style": "비교표"
+                  },
+                  {
+                    "section": "주의사항",
+                    "searchKeyword": "주의 아이콘",
+                    "purpose": "강조",
+                    "style": "아이콘"
+                  }
+                ],
+                "infographicIdeas": [
+                  "냉장고200리터 선택 가이드 플로우차트",
+                  "냉장고200리터 TOP 5 비교표",
+                  "냉장고200리터 체크리스트"
+                ],
+                "totalRecommendedImages": 7,
+                "imageStrategy": "섹션당 1~2개, 총 7~10개 이미지로 가독성과 체류시간 향상"
+              }
+            },
+            "ultimateScore": {
+              "total": 40,
+              "breakdown": {
+                "goldenRatio": 4.897238278741169,
+                "timing": 70,
+                "revenue": 40,
+                "competition": 60,
+                "potential": 44
+              },
+              "grade": "📝 C",
+              "verdict": "⚠️ 신중히 검토 필요",
+              "topActions": [
+                "0일 내 작성 권장",
+                "냉장고200리터 추천 TOP 10 (2025년 최신)",
+                "3000자 이상, 7개 이미지 권장"
+              ]
+            }
+          },
+          "highlightReason": "✅ ANYTIME/stable | 폭발 65 | 구매의도 30 | 월 2,430원⚠️ | 경쟁도 7"
+        },
+        {
+          "keyword": "제습기 냉매 보충 비용",
+          "searchVolume": 70,
+          "documentCount": 271,
+          "goldenRatio": 0.25830258302583026,
+          "rookieFriendly": {
+            "score": 75,
+            "grade": "A",
+            "reason": "문서수 데이터 없음 → 경쟁도 판단 불가 | 검색량/문서수 데이터 부족 → 황금비율 판단 불가 | 롱테일 키워드 → 신생도 상위노출 가능 | 질문형 키워드 → 경쟁 낮음",
+            "canRankWithin": "3~7일 내 가능",
+            "requiredBlogIndex": "준최 3 이상 권장"
+          },
+          "timing": {
+            "score": 50,
+            "urgency": "ANYTIME",
+            "bestPublishTime": "오전 6~8시 또는 저녁 8~10시",
+            "trendDirection": "stable",
+            "peakPrediction": "꾸준한 검색량 유지"
+          },
+          "blueOcean": {
+            "score": 50,
+            "competitorStrength": "medium",
+            "avgCompetitorBlogAge": "2~5년 (보통 경쟁)",
+            "oldPostRatio": 50,
+            "opportunity": "⚠️ 경쟁 있음. 차별화된 콘텐츠 필요"
+          },
+          "trafficEstimate": {
+            "daily": "측정 불가",
+            "weekly": "측정 불가",
+            "monthly": "측정 불가",
+            "confidence": 0,
+            "disclaimer": "⚠️ 실제 API 데이터 부족으로 트래픽을 계산할 수 없습니다."
+          },
+          "revenueEstimate": {
+            "dailyRevenue": "8원 ⚠️추정",
+            "monthlyRevenue": "240원 ⚠️추정",
+            "estimatedCPC": 252,
+            "estimatedRPM": 6300,
+            "adType": "쿠팡파트너스 + 애드센스",
+            "revenueGrade": "D",
+            "revenueReason": "❌ 비추천. 수익성 낮음"
+          },
+          "entryAnalysis": {
+            "canEntry": false,
+            "difficulty": "very_hard",
+            "difficultyScore": 70,
+            "message": "🔴 진입 어려움 - 상위 블로거 독점 키워드",
+            "topCompetitorStrength": "알 수 없음 (데이터 부족)",
+            "recommendedBlogIndex": "최적 1 이상 권장",
+            "estimatedRankingTime": "1개월 이상 소요 예상"
+          },
+          "totalScore": 97,
+          "grade": "B",
+          "proStrategy": {
+            "title": "2025 제습기 냉매 보충 비용 완벽 정리 | 초보자도 쉽게 이해하는 가이드",
+            "outline": [
+              "1. 제습기 냉매 보충 비용란? (기본 개념)",
+              "2. 제습기 냉매 보충 비용 핵심 포인트 3가지",
+              "3. 제습기 냉매 보충 비용 장단점 비교",
+              "4. 제습기 냉매 보충 비용 실제 후기/경험담",
+              "5. 제습기 냉매 보충 비용 Q&A (자주 묻는 질문)",
+              "6. 결론 및 추천"
+            ],
+            "wordCount": 2500,
+            "mustInclude": [
+              "핵심 키워드 2~3회 자연스럽게 삽입",
+              "실제 이미지/사진 3장 이상",
+              "표 또는 비교 차트 1개 이상",
+              "자주 묻는 질문(FAQ) 섹션",
+              "결론 및 추천 섹션"
+            ],
+            "avoidTopics": [
+              "과장된 표현 (100%, 무조건, 반드시)",
+              "허위 정보나 검증되지 않은 내용",
+              "다른 블로그 복사/붙여넣기",
+              "광고성 링크 과다 삽입"
+            ],
+            "monetization": "애드센스 + 쿠팡파트너스 조합 추천"
+          },
+          "platformTitles": {
+            "naver": {
+              "title": "핵심 정리: 제습기 냉매 보충 비용 2025 최신 가이드",
+              "alternatives": [
+                "제습기 냉매 보충 비용 2025 완벽 정리: 핵심만 5분 요약",
+                "제습기 냉매 보충 비용 초보도 쉽게: 실패 없는 체크리스트"
+              ],
+              "subKeywords": [
+                "제습기 냉매 보충 비용 방법",
+                "제습기 냉매 보충 비용 추천",
+                "제습기 냉매 보충 비용 후기"
+              ],
+              "tags": [
+                "제습기냉매보충비용",
+                "제습기",
+                "❓ 질문형키워드"
+              ],
+              "tip": "서두 100자 내에 키워드를 2회 노출하고, 결론 요약을 맨 위에 한 번 더 넣으세요.",
+              "hookPoint": "핵심 정리 포인트를 제목/썸네일에 강조"
+            },
+            "tistory": {
+              "title": "제습기 냉매 보충 비용 2025 정리: 한 번에 이해하는 핵심 포인트",
+              "alternatives": [
+                "제습기 냉매 보충 비용 제대로 하는 법 (체크리스트 포함)",
+                "제습기 냉매 보충 비용 추천/비교: 선택 기준 3가지"
+              ],
+              "subKeywords": [
+                "제습기 냉매 보충 비용 방법",
+                "제습기 냉매 보충 비용 추천",
+                "제습기 냉매 보충 비용 후기"
+              ],
+              "tags": [
+                "제습기냉매보충비용",
+                "제습기",
+                "❓ 질문형키워드"
+              ],
+              "tip": "표/리스트를 많이 써서 스크롤 체류시간을 늘리세요.",
+              "hookPoint": "“핵심 3가지”처럼 숫자를 넣어 클릭률을 올리기"
+            },
+            "wordpress": {
+              "title": "제습기 냉매 보충 비용: 2025 Complete Guide (Checklist & Tips)",
+              "alternatives": [
+                "제습기 냉매 보충 비용 Guide: Common Mistakes & Quick Fixes",
+                "제습기 냉매 보충 비용 Step-by-Step: What to Do First"
+              ],
+              "subKeywords": [
+                "제습기 냉매 보충 비용 방법",
+                "제습기 냉매 보충 비용 추천",
+                "제습기 냉매 보충 비용 후기"
+              ],
+              "tags": [
+                "제습기냉매보충비용",
+                "제습기",
+                "❓ 질문형키워드"
+              ],
+              "tip": "H2/H3로 구조를 만들고, FAQ 섹션을 넣어 SEO를 강화하세요.",
+              "hookPoint": "FAQ + 체크리스트 조합으로 체류시간/리치 증가"
+            },
+            "blogspot": {
+              "title": "제습기 냉매 보충 비용 2025: Quick Start + Best Practices",
+              "alternatives": [
+                "제습기 냉매 보충 비용 Quick Guide: Do & Don't",
+                "제습기 냉매 보충 비용 Essentials: What You Need to Know"
+              ],
+              "subKeywords": [
+                "제습기 냉매 보충 비용 방법",
+                "제습기 냉매 보충 비용 추천",
+                "제습기 냉매 보충 비용 후기"
+              ],
+              "tags": [
+                "제습기냉매보충비용",
+                "제습기",
+                "❓ 질문형키워드"
+              ],
+              "tip": "이미지 2~3장 + 요약 박스를 넣어 가독성을 올리세요.",
+              "hookPoint": "첫 화면에 요약(결론)을 배치해 이탈률을 낮추기"
+            }
+          },
+          "expandedKeywords": {
+            "relatedGolden": [
+              "제습기 냉매 보충 비용 추천",
+              "제습기 냉매 보충 비용 비교",
+              "제습기 냉매 보충 비용 후기",
+              "제습기 냉매 보충 비용 가격"
+            ],
+            "longtailGolden": [
+              "제습기 냉매 보충 비용 초보",
+              "제습기 냉매 보충 비용 쉽게",
+              "제습기 냉매 보충 비용 단계별",
+              "제습기 냉매 보충 비용 정리"
+            ],
+            "blueOceanGolden": [
+              "제습기 냉매 보충 비용 최신",
+              "제습기 냉매 보충 비용 2025",
+              "제습기 냉매 보충 비용 체크리스트",
+              "제습기 냉매 보충 비용 실패하지 않는 법"
+            ]
+          },
+          "type": "❓ 질문형키워드",
+          "category": "all",
+          "safetyLevel": "safe",
+          "safetyReason": "✅ 안전한 키워드. 신생 블로거도 작성 가능",
+          "source": "제습기",
+          "profitAnalysis": {
+            "keyword": "제습기 냉매 보충 비용",
+            "searchVolume": 70,
+            "documentCount": 271,
+            "estimatedCPC": 252,
+            "purchaseIntentScore": 60,
+            "competitionLevel": 3,
+            "freshnessOpportunity": 1,
+            "profitGoldenRatio": 0.41,
+            "estimatedDailyRevenue": 8,
+            "estimatedMonthlyRevenue": 240,
+            "grade": "D",
+            "gradeReason": "❌ 비추천. 수익성 낮음",
+            "isRealBlueOcean": false,
+            "blueOceanReason": "📘 문서수 적음 (271개). 검색량 확인 필요",
+            "strategy": {
+              "approach": "⏸️ 보류. 더 좋은 키워드 찾기 추천",
+              "monetization": "🛒 쿠팡파트너스 집중. 비교/추천 형식으로 전환율 높이기",
+              "timing": "🗓️ 여유있게 준비. 롱테일 전략으로 접근",
+              "titleSuggestion": "제습기 냉매 보충 비용 솔직 후기 | 장단점 총정리 (2025)"
+            }
+          },
+          "timestamp": "2025-12-24T11:13:18.601Z",
+          "isGolden": true,
+          "trendAnalysis": {
+            "trendingReason": "재테크 기록적 폭염에 관련 최근 이슈",
+            "whyNow": "최근 3개 이상의 뉴스에서 다뤄지며 주목도 상승 중 • \"(재테크)기록적 폭염에 냉방기 주가도 ‘핫뜨거’\" 관련 최신 뉴스로 조기 진입 효과 기대",
+            "newsSource": "자동 분석"
+          },
+          "keywordGuide": {
+            "summary": "여유 있을 때 공략하면 좋은 키워드입니다. (등급: B, 점수: 97점)",
+            "whyItMovesNow": "재테크 기록적 폭염에 관련 최근 이슈 최근 3개 이상의 뉴스에서 다뤄지며 주목도 상승 중 • \"(재테크)기록적 폭염에 냉방기 주가도 ‘핫뜨거’\" 관련 최신 뉴스로 조기 진입 효과 기대",
+            "immediateTrafficPlan": [
+              "제목 앞부분에 \"제습기 냉매 보충 비용\"를 배치하고, 2025/최신/정리 같은 보조 키워드를 1개만 추가하세요.",
+              "본문 서두 100자 안에 \"제습기 냉매 보충 비용\"를 자연스럽게 2회 노출하세요.",
+              "최소 1개는 비교/체크리스트/요약 섹션을 넣어 체류시간을 늘리세요."
+            ],
+            "naverHomeExposureTips": [
+              "첫 이미지에 키워드가 들어간 문구를 넣고, alt 텍스트도 키워드 포함",
+              "목차를 만들고 H2/H3에 서브 키워드 배치",
+              "태그는 5~10개로 과도한 반복을 피하고, 유사어를 섞기"
+            ]
+          },
+          "ultimateAnalysis": {
+            "timing": {
+              "seasonal": {
+                "peakMonths": [
+                  1,
+                  2,
+                  3,
+                  4,
+                  5,
+                  6,
+                  7,
+                  8,
+                  9,
+                  10,
+                  11,
+                  12
+                ],
+                "peakReason": "연중 꾸준한 검색량",
+                "currentSeasonScore": 70,
+                "nextPeakDate": "항상",
+                "daysUntilPeak": 0,
+                "recommendation": "📝 에버그린 키워드입니다. 언제든 작성해도 좋습니다.",
+                "seasonalPattern": "evergreen"
+              },
+              "trend": {
+                "trendDirection": "falling",
+                "changeRate": 3,
+                "comparedTo": "전월 대비",
+                "explosiveScore": 4,
+                "relatedNews": [],
+                "recommendation": "📊 안정적인 키워드입니다."
+              },
+              "alert": {
+                "optimalPublishDate": "0일 내",
+                "reason": "📝 에버그린 키워드입니다. 언제든 작성해도 좋습니다.",
+                "urgencyLevel": "⚡ 이번 주",
+                "expectedPeakDate": "항상",
+                "competitorActivity": "경쟁자 적음"
+              }
+            },
+            "revenue": {
+              "cpc": {
+                "estimatedCpc": 100,
+                "cpcRange": {
+                  "min": 50,
+                  "max": 200
+                },
+                "cpcTier": "🥉 저수익",
+                "industryAverage": 100,
+                "recommendation": "📝 일반적인 수익 구조입니다. 트래픽 확보에 집중하세요."
+              },
+              "affiliate": {
+                "recommendedPrograms": [
+                  {
+                    "name": "쿠팡파트너스",
+                    "type": "coupang",
+                    "commissionRate": "3~5%",
+                    "estimatedEarningPerClick": 50,
+                    "matchScore": 100
+                  },
+                  {
+                    "name": "네이버 쇼핑",
+                    "type": "naver",
+                    "commissionRate": "1~3%",
+                    "estimatedEarningPerClick": 30,
+                    "matchScore": 85
+                  }
+                ],
+                "bestMatch": "쿠팡파트너스",
+                "potentialProducts": [
+                  "제습기 냉매 보충 비용 추천",
+                  "제습기 냉매 보충 비용 순위",
+                  "제습기 냉매 보충 비용 비교",
+                  "제습기 냉매 보충 비용 후기",
+                  "제습기 냉매 보충 비용 가격",
+                  "제습기 냉매 보충 비용 구매"
+                ]
+              },
+              "projection": {
+                "estimatedDailyVisitors": 0,
+                "estimatedMonthlyVisitors": 0,
+                "adsenseRevenue": {
+                  "daily": 0,
+                  "monthly": 0,
+                  "assumptions": "CPC 100원, CTR 2%, 페이지뷰율 1.5 가정"
+                },
+                "affiliateRevenue": {
+                  "daily": 0,
+                  "monthly": 0,
+                  "conversionRate": 3,
+                  "assumptions": "클릭률 10%, 전환율 3%, 평균 수수료 50원 가정"
+                },
+                "totalMonthlyRevenue": 0,
+                "revenueBreakdown": "애드센스 0% + 제휴 0%",
+                "revenueTier": "📝 월 1만원+"
+              }
+            },
+            "content": {
+              "titles": {
+                "titles": [
+                  {
+                    "title": "제습기 냉매 보충 비용 추천 TOP 10 (2025년 최신)",
+                    "type": "number",
+                    "estimatedCTR": 8.5,
+                    "psychologyUsed": "숫자 + 최신 정보"
+                  },
+                  {
+                    "title": "제습기 냉매 보충 비용 하는 법, 초보자도 쉽게 따라하기",
+                    "type": "how-to",
+                    "estimatedCTR": 7.5,
+                    "psychologyUsed": "실용성 + 접근성"
+                  },
+                  {
+                    "title": "제습기 냉매 보충 비용, 이것만 알면 끝! 완벽 가이드",
+                    "type": "benefit",
+                    "estimatedCTR": 7.2,
+                    "psychologyUsed": "완결성 + 가치 제안"
+                  },
+                  {
+                    "title": "[2025년] 제습기 냉매 보충 비용 총정리 (+ 꿀팁 공개)",
+                    "type": "news",
+                    "estimatedCTR": 7,
+                    "psychologyUsed": "최신성 + 보너스 가치"
+                  },
+                  {
+                    "title": "아직도 제습기 냉매 보충 비용 몰라요? 지금 당장 확인하세요",
+                    "type": "curiosity",
+                    "estimatedCTR": 6.8,
+                    "psychologyUsed": "호기심 + 긴급성"
+                  },
+                  {
+                    "title": "제습기 냉매 보충 비용 실제 후기 (장단점 솔직 비교)",
+                    "type": "comparison",
+                    "estimatedCTR": 6.5,
+                    "psychologyUsed": "신뢰성 + 비교 심리"
+                  }
+                ],
+                "bestTitle": "제습기 냉매 보충 비용 추천 TOP 10 (2025년 최신)",
+                "titleFormula": "숫자 + 키워드 + 최신연도 + 가치제안"
+              },
+              "structure": {
+                "recommendedStructure": {
+                  "intro": {
+                    "purpose": "독자의 관심 끌기 + 키워드 자연스럽게 배치",
+                    "template": "\"제습기 냉매 보충 비용\"에 대해 고민하고 계신가요? 이 글에서 핵심 정보를 모두 정리해드립니다.",
+                    "keywordPlacement": "첫 문장에 키워드 포함"
+                  },
+                  "sections": [
+                    {
+                      "heading": "제습기 냉매 보충 비용란? (기본 개념)",
+                      "purpose": "기초 정보 제공",
+                      "contentGuide": "핵심 정의, 중요성, 왜 알아야 하는지 설명",
+                      "recommendedLength": 300,
+                      "keywordUsage": "소제목과 본문에 1~2회"
+                    },
+                    {
+                      "heading": "제습기 냉매 보충 비용 추천 BEST 5",
+                      "purpose": "실질적인 가치 제공 (핵심 섹션)",
+                      "contentGuide": "순위별 상세 설명, 장단점, 추천 이유",
+                      "recommendedLength": 800,
+                      "keywordUsage": "각 항목 설명에 자연스럽게 포함"
+                    },
+                    {
+                      "heading": "제습기 냉매 보충 비용 선택 시 주의사항",
+                      "purpose": "신뢰도 향상",
+                      "contentGuide": "흔한 실수, 피해야 할 것, 체크리스트",
+                      "recommendedLength": 400,
+                      "keywordUsage": "주의사항 설명에 1~2회"
+                    },
+                    {
+                      "heading": "자주 묻는 질문 (FAQ)",
+                      "purpose": "SEO 강화 + 체류시간 증가",
+                      "contentGuide": "실제 검색되는 질문 5개 + 명확한 답변",
+                      "recommendedLength": 500,
+                      "keywordUsage": "질문에 롱테일 키워드 활용"
+                    }
+                  ],
+                  "conclusion": {
+                    "purpose": "요약 + CTA",
+                    "template": "지금까지 제습기 냉매 보충 비용에 대해 알아봤습니다. 도움이 되셨다면 공유해주세요!",
+                    "ctaRecommendation": "댓글, 공유, 관련 글 링크 유도"
+                  }
+                },
+                "seoChecklist": [
+                  {
+                    "item": "제목에 키워드 포함",
+                    "importance": "critical",
+                    "howTo": "제목 앞부분에 메인 키워드 배치"
+                  },
+                  {
+                    "item": "첫 문단에 키워드",
+                    "importance": "critical",
+                    "howTo": "첫 100자 내 키워드 자연스럽게 삽입"
+                  },
+                  {
+                    "item": "소제목 H2/H3 활용",
+                    "importance": "high",
+                    "howTo": "3~5개 소제목, 키워드 변형 사용"
+                  },
+                  {
+                    "item": "이미지 ALT 태그",
+                    "importance": "high",
+                    "howTo": "모든 이미지에 키워드 포함 설명"
+                  },
+                  {
+                    "item": "내부링크 2개 이상",
+                    "importance": "medium",
+                    "howTo": "관련 글 자연스럽게 연결"
+                  },
+                  {
+                    "item": "3000자 이상 작성",
+                    "importance": "high",
+                    "howTo": "충분한 깊이의 콘텐츠 제공"
+                  }
+                ],
+                "totalRecommendedLength": 3000,
+                "estimatedWriteTime": 90
+              },
+              "images": {
+                "mainImage": {
+                  "searchKeyword": "제습기 냉매 보충 비용 대표이미지",
+                  "style": "깔끔한 인포그래픽 또는 고화질 사진",
+                  "source": [
+                    "Unsplash",
+                    "Pixabay",
+                    "직접 제작"
+                  ],
+                  "altText": "제습기 냉매 보충 비용 완벽 가이드 대표 이미지"
+                },
+                "sectionImages": [
+                  {
+                    "section": "기본 개념",
+                    "searchKeyword": "제습기 냉매 보충 비용 설명",
+                    "purpose": "이해 돕기",
+                    "style": "다이어그램"
+                  },
+                  {
+                    "section": "TOP 5",
+                    "searchKeyword": "제습기 냉매 보충 비용 비교",
+                    "purpose": "시각적 비교",
+                    "style": "비교표"
+                  },
+                  {
+                    "section": "주의사항",
+                    "searchKeyword": "주의 아이콘",
+                    "purpose": "강조",
+                    "style": "아이콘"
+                  }
+                ],
+                "infographicIdeas": [
+                  "제습기 냉매 보충 비용 선택 가이드 플로우차트",
+                  "제습기 냉매 보충 비용 TOP 5 비교표",
+                  "제습기 냉매 보충 비용 체크리스트"
+                ],
+                "totalRecommendedImages": 7,
+                "imageStrategy": "섹션당 1~2개, 총 7~10개 이미지로 가독성과 체류시간 향상"
+              }
+            },
+            "ultimateScore": {
+              "total": 48,
+              "breakdown": {
+                "goldenRatio": 2.5830258302583027,
+                "timing": 70,
+                "revenue": 40,
+                "competition": 100,
+                "potential": 53
+              },
+              "grade": "📝 C",
+              "verdict": "⚠️ 신중히 검토 필요",
+              "topActions": [
+                "0일 내 작성 권장",
+                "제습기 냉매 보충 비용 추천 TOP 10 (2025년 최신)",
+                "3000자 이상, 7개 이미지 권장"
+              ]
+            }
+          },
+          "highlightReason": "✅ ANYTIME/stable | 폭발 40 | 구매의도 60 | 월 240원⚠️ | 경쟁도 3"
+        },
+        {
+          "keyword": "건조기 굉음",
+          "searchVolume": 160,
+          "documentCount": 844,
+          "goldenRatio": 0.1895734597156398,
+          "rookieFriendly": {
+            "score": 70,
+            "grade": "A",
+            "reason": "문서수 1,000개 미만 → 경쟁 매우 낮음 | 황금비율 1 미만 → 공급 과잉 | 중길이 키워드",
+            "canRankWithin": "3~7일 내 가능",
+            "requiredBlogIndex": "준최 3 이상 권장"
+          },
+          "timing": {
+            "score": 50,
+            "urgency": "ANYTIME",
+            "bestPublishTime": "오전 6~8시 또는 저녁 8~10시",
+            "trendDirection": "stable",
+            "peakPrediction": "꾸준한 검색량 유지"
+          },
+          "blueOcean": {
+            "score": 65,
+            "competitorStrength": "weak",
+            "avgCompetitorBlogAge": "1~2년 (약한 경쟁)",
+            "oldPostRatio": 70,
+            "opportunity": "✅ 좋은 기회입니다. 품질 콘텐츠로 승부"
+          },
+          "trafficEstimate": {
+            "daily": "0~0명",
+            "weekly": "0~0명",
+            "monthly": "0~0명",
+            "confidence": 60,
+            "disclaimer": "📌 트래픽은 순위/CTR/계절성에 따라 달라질 수 있는 추정치입니다."
+          },
+          "revenueEstimate": {
+            "dailyRevenue": "5원 ⚠️추정",
+            "monthlyRevenue": "150원 ⚠️추정",
+            "estimatedCPC": 180,
+            "estimatedRPM": 4500,
+            "adType": "애드센스",
+            "revenueGrade": "D",
+            "revenueReason": "❌ 비추천. 수익성 낮음"
+          },
+          "entryAnalysis": {
+            "canEntry": true,
+            "difficulty": "possible",
+            "difficultyScore": 35,
+            "message": "🟡 진입 가능 - 품질 콘텐츠로 충분히 경쟁 가능",
+            "topCompetitorStrength": "약함 (저품질 블로그 다수)",
+            "recommendedBlogIndex": "준최 3 이상 권장",
+            "estimatedRankingTime": "3~7일 내 가능"
+          },
+          "totalScore": 65,
+          "grade": "B",
+          "proStrategy": {
+            "title": "2025 건조기 굉음 완벽 정리 | 초보자도 쉽게 이해하는 가이드",
+            "outline": [
+              "1. 건조기 굉음란? (기본 개념)",
+              "2. 건조기 굉음 핵심 포인트 3가지",
+              "3. 건조기 굉음 장단점 비교",
+              "4. 건조기 굉음 실제 후기/경험담",
+              "5. 건조기 굉음 Q&A (자주 묻는 질문)",
+              "6. 결론 및 추천"
+            ],
+            "wordCount": 2500,
+            "mustInclude": [
+              "핵심 키워드 2~3회 자연스럽게 삽입",
+              "실제 이미지/사진 3장 이상",
+              "표 또는 비교 차트 1개 이상",
+              "자주 묻는 질문(FAQ) 섹션",
+              "결론 및 추천 섹션"
+            ],
+            "avoidTopics": [
+              "과장된 표현 (100%, 무조건, 반드시)",
+              "허위 정보나 검증되지 않은 내용",
+              "다른 블로그 복사/붙여넣기",
+              "광고성 링크 과다 삽입"
+            ],
+            "monetization": "애드센스 + 쿠팡파트너스 조합 추천"
+          },
+          "platformTitles": {
+            "naver": {
+              "title": "핵심 정리: 건조기 굉음 2025 최신 가이드 (월 160)",
+              "alternatives": [
+                "건조기 굉음 2025 완벽 정리: 핵심만 5분 요약",
+                "건조기 굉음 초보도 쉽게: 실패 없는 체크리스트"
+              ],
+              "subKeywords": [
+                "건조기 굉음 방법",
+                "건조기 굉음 추천",
+                "건조기 굉음 후기"
+              ],
+              "tags": [
+                "건조기굉음",
+                "건조기",
+                "📰 이슈키워드"
+              ],
+              "tip": "서두 100자 내에 키워드를 2회 노출하고, 결론 요약을 맨 위에 한 번 더 넣으세요.",
+              "hookPoint": "핵심 정리 포인트를 제목/썸네일에 강조"
+            },
+            "tistory": {
+              "title": "건조기 굉음 2025 정리: 한 번에 이해하는 핵심 포인트 (월 160)",
+              "alternatives": [
+                "건조기 굉음 제대로 하는 법 (체크리스트 포함)",
+                "건조기 굉음 추천/비교: 선택 기준 3가지"
+              ],
+              "subKeywords": [
+                "건조기 굉음 방법",
+                "건조기 굉음 추천",
+                "건조기 굉음 후기"
+              ],
+              "tags": [
+                "건조기굉음",
+                "건조기",
+                "📰 이슈키워드"
+              ],
+              "tip": "표/리스트를 많이 써서 스크롤 체류시간을 늘리세요.",
+              "hookPoint": "“핵심 3가지”처럼 숫자를 넣어 클릭률을 올리기"
+            },
+            "wordpress": {
+              "title": "건조기 굉음: 2025 Complete Guide (Checklist & Tips) (월 160)",
+              "alternatives": [
+                "건조기 굉음 Guide: Common Mistakes & Quick Fixes",
+                "건조기 굉음 Step-by-Step: What to Do First"
+              ],
+              "subKeywords": [
+                "건조기 굉음 방법",
+                "건조기 굉음 추천",
+                "건조기 굉음 후기"
+              ],
+              "tags": [
+                "건조기굉음",
+                "건조기",
+                "📰 이슈키워드"
+              ],
+              "tip": "H2/H3로 구조를 만들고, FAQ 섹션을 넣어 SEO를 강화하세요.",
+              "hookPoint": "FAQ + 체크리스트 조합으로 체류시간/리치 증가"
+            },
+            "blogspot": {
+              "title": "건조기 굉음 2025: Quick Start + Best Practices (월 160)",
+              "alternatives": [
+                "건조기 굉음 Quick Guide: Do & Don't",
+                "건조기 굉음 Essentials: What You Need to Know"
+              ],
+              "subKeywords": [
+                "건조기 굉음 방법",
+                "건조기 굉음 추천",
+                "건조기 굉음 후기"
+              ],
+              "tags": [
+                "건조기굉음",
+                "건조기",
+                "📰 이슈키워드"
+              ],
+              "tip": "이미지 2~3장 + 요약 박스를 넣어 가독성을 올리세요.",
+              "hookPoint": "첫 화면에 요약(결론)을 배치해 이탈률을 낮추기"
+            }
+          },
+          "expandedKeywords": {
+            "relatedGolden": [
+              "건조기 굉음 추천",
+              "건조기 굉음 비교",
+              "건조기 굉음 후기",
+              "건조기 굉음 가격"
+            ],
+            "longtailGolden": [
+              "건조기 굉음 초보",
+              "건조기 굉음 쉽게",
+              "건조기 굉음 단계별",
+              "건조기 굉음 정리"
+            ],
+            "blueOceanGolden": [
+              "건조기 굉음 최신",
+              "건조기 굉음 2025",
+              "건조기 굉음 체크리스트",
+              "건조기 굉음 실패하지 않는 법"
+            ]
+          },
+          "type": "📰 이슈키워드",
+          "category": "life_tips",
+          "safetyLevel": "safe",
+          "safetyReason": "✅ 안전한 키워드. 신생 블로거도 작성 가능",
+          "source": "건조기",
+          "profitAnalysis": {
+            "keyword": "건조기 굉음",
+            "searchVolume": 160,
+            "documentCount": 844,
+            "estimatedCPC": 180,
+            "purchaseIntentScore": 30,
+            "competitionLevel": 4,
+            "freshnessOpportunity": 1,
+            "profitGoldenRatio": 0.34,
+            "estimatedDailyRevenue": 5,
+            "estimatedMonthlyRevenue": 150,
+            "grade": "D",
+            "gradeReason": "❌ 비추천. 수익성 낮음",
+            "isRealBlueOcean": false,
+            "blueOceanReason": "📘 문서수 적음 (844개). 검색량 확인 필요",
+            "strategy": {
+              "approach": "⏸️ 보류. 더 좋은 키워드 찾기 추천",
+              "monetization": "📝 트래픽 확보 우선. 이후 관련 고수익 키워드로 내부링크",
+              "timing": "🗓️ 여유있게 준비. 롱테일 전략으로 접근",
+              "titleSuggestion": "건조기 굉음 완벽 가이드 | 초보자도 쉽게 따라하기"
+            }
+          },
+          "timestamp": "2025-12-24T11:13:18.587Z",
+          "isGolden": true,
+          "trendAnalysis": {
+            "trendingReason": "아파트 하자로 고통받는 관련 최근 이슈",
+            "whyNow": "최근 5개 이상의 뉴스에서 다뤄지며 이슈화 진행 중 • \"[아파트 하자로 고통받는 사람들②] 4년째 굉음 울리는 임대아파트\" 관련 최신 뉴스로 조기 진입 효과 기대",
+            "newsSource": "자동 분석"
+          },
+          "keywordGuide": {
+            "summary": "여유 있을 때 공략하면 좋은 키워드입니다. (등급: B, 점수: 65점)",
+            "whyItMovesNow": "아파트 하자로 고통받는 관련 최근 이슈 최근 5개 이상의 뉴스에서 다뤄지며 이슈화 진행 중 • \"[아파트 하자로 고통받는 사람들②] 4년째 굉음 울리는 임대아파트\" 관련 최신 뉴스로 조기 진입 효과 기대",
+            "immediateTrafficPlan": [
+              "제목 앞부분에 \"건조기 굉음\"를 배치하고, 2025/최신/정리 같은 보조 키워드를 1개만 추가하세요.",
+              "본문 서두 100자 안에 \"건조기 굉음\"를 자연스럽게 2회 노출하세요.",
+              "최소 1개는 비교/체크리스트/요약 섹션을 넣어 체류시간을 늘리세요."
+            ],
+            "naverHomeExposureTips": [
+              "첫 이미지에 키워드가 들어간 문구를 넣고, alt 텍스트도 키워드 포함",
+              "목차를 만들고 H2/H3에 서브 키워드 배치",
+              "태그는 5~10개로 과도한 반복을 피하고, 유사어를 섞기"
+            ]
+          },
+          "ultimateAnalysis": {
+            "timing": {
+              "seasonal": {
+                "peakMonths": [
+                  1,
+                  2,
+                  3,
+                  4,
+                  5,
+                  6,
+                  7,
+                  8,
+                  9,
+                  10,
+                  11,
+                  12
+                ],
+                "peakReason": "연중 꾸준한 검색량",
+                "currentSeasonScore": 70,
+                "nextPeakDate": "항상",
+                "daysUntilPeak": 0,
+                "recommendation": "📝 에버그린 키워드입니다. 언제든 작성해도 좋습니다.",
+                "seasonalPattern": "evergreen"
+              },
+              "trend": {
+                "trendDirection": "falling",
+                "changeRate": 2,
+                "comparedTo": "전월 대비",
+                "explosiveScore": 3,
+                "relatedNews": [],
+                "recommendation": "📊 안정적인 키워드입니다."
+              },
+              "alert": {
+                "optimalPublishDate": "0일 내",
+                "reason": "📝 에버그린 키워드입니다. 언제든 작성해도 좋습니다.",
+                "urgencyLevel": "⚡ 이번 주",
+                "expectedPeakDate": "항상",
+                "competitorActivity": "경쟁자 적음"
+              }
+            },
+            "revenue": {
+              "cpc": {
+                "estimatedCpc": 100,
+                "cpcRange": {
+                  "min": 50,
+                  "max": 200
+                },
+                "cpcTier": "🥉 저수익",
+                "industryAverage": 100,
+                "recommendation": "📝 일반적인 수익 구조입니다. 트래픽 확보에 집중하세요."
+              },
+              "affiliate": {
+                "recommendedPrograms": [
+                  {
+                    "name": "쿠팡파트너스",
+                    "type": "coupang",
+                    "commissionRate": "3~5%",
+                    "estimatedEarningPerClick": 50,
+                    "matchScore": 100
+                  },
+                  {
+                    "name": "네이버 쇼핑",
+                    "type": "naver",
+                    "commissionRate": "1~3%",
+                    "estimatedEarningPerClick": 30,
+                    "matchScore": 85
+                  }
+                ],
+                "bestMatch": "쿠팡파트너스",
+                "potentialProducts": [
+                  "건조기 굉음 추천",
+                  "건조기 굉음 순위",
+                  "건조기 굉음 비교",
+                  "건조기 굉음 후기",
+                  "건조기 굉음 가격",
+                  "건조기 굉음 구매"
+                ]
+              },
+              "projection": {
+                "estimatedDailyVisitors": 0,
+                "estimatedMonthlyVisitors": 0,
+                "adsenseRevenue": {
+                  "daily": 0,
+                  "monthly": 0,
+                  "assumptions": "CPC 100원, CTR 2%, 페이지뷰율 1.5 가정"
+                },
+                "affiliateRevenue": {
+                  "daily": 0,
+                  "monthly": 0,
+                  "conversionRate": 3,
+                  "assumptions": "클릭률 10%, 전환율 3%, 평균 수수료 50원 가정"
+                },
+                "totalMonthlyRevenue": 0,
+                "revenueBreakdown": "애드센스 0% + 제휴 0%",
+                "revenueTier": "📝 월 1만원+"
+              }
+            },
+            "content": {
+              "titles": {
+                "titles": [
+                  {
+                    "title": "건조기 굉음 추천 TOP 10 (2025년 최신)",
+                    "type": "number",
+                    "estimatedCTR": 8.5,
+                    "psychologyUsed": "숫자 + 최신 정보"
+                  },
+                  {
+                    "title": "건조기 굉음 하는 법, 초보자도 쉽게 따라하기",
+                    "type": "how-to",
+                    "estimatedCTR": 7.5,
+                    "psychologyUsed": "실용성 + 접근성"
+                  },
+                  {
+                    "title": "건조기 굉음, 이것만 알면 끝! 완벽 가이드",
+                    "type": "benefit",
+                    "estimatedCTR": 7.2,
+                    "psychologyUsed": "완결성 + 가치 제안"
+                  },
+                  {
+                    "title": "[2025년] 건조기 굉음 총정리 (+ 꿀팁 공개)",
+                    "type": "news",
+                    "estimatedCTR": 7,
+                    "psychologyUsed": "최신성 + 보너스 가치"
+                  },
+                  {
+                    "title": "아직도 건조기 굉음 몰라요? 지금 당장 확인하세요",
+                    "type": "curiosity",
+                    "estimatedCTR": 6.8,
+                    "psychologyUsed": "호기심 + 긴급성"
+                  },
+                  {
+                    "title": "건조기 굉음 실제 후기 (장단점 솔직 비교)",
+                    "type": "comparison",
+                    "estimatedCTR": 6.5,
+                    "psychologyUsed": "신뢰성 + 비교 심리"
+                  }
+                ],
+                "bestTitle": "건조기 굉음 추천 TOP 10 (2025년 최신)",
+                "titleFormula": "숫자 + 키워드 + 최신연도 + 가치제안"
+              },
+              "structure": {
+                "recommendedStructure": {
+                  "intro": {
+                    "purpose": "독자의 관심 끌기 + 키워드 자연스럽게 배치",
+                    "template": "\"건조기 굉음\"에 대해 고민하고 계신가요? 이 글에서 핵심 정보를 모두 정리해드립니다.",
+                    "keywordPlacement": "첫 문장에 키워드 포함"
+                  },
+                  "sections": [
+                    {
+                      "heading": "건조기 굉음란? (기본 개념)",
+                      "purpose": "기초 정보 제공",
+                      "contentGuide": "핵심 정의, 중요성, 왜 알아야 하는지 설명",
+                      "recommendedLength": 300,
+                      "keywordUsage": "소제목과 본문에 1~2회"
+                    },
+                    {
+                      "heading": "건조기 굉음 추천 BEST 5",
+                      "purpose": "실질적인 가치 제공 (핵심 섹션)",
+                      "contentGuide": "순위별 상세 설명, 장단점, 추천 이유",
+                      "recommendedLength": 800,
+                      "keywordUsage": "각 항목 설명에 자연스럽게 포함"
+                    },
+                    {
+                      "heading": "건조기 굉음 선택 시 주의사항",
+                      "purpose": "신뢰도 향상",
+                      "contentGuide": "흔한 실수, 피해야 할 것, 체크리스트",
+                      "recommendedLength": 400,
+                      "keywordUsage": "주의사항 설명에 1~2회"
+                    },
+                    {
+                      "heading": "자주 묻는 질문 (FAQ)",
+                      "purpose": "SEO 강화 + 체류시간 증가",
+                      "contentGuide": "실제 검색되는 질문 5개 + 명확한 답변",
+                      "recommendedLength": 500,
+                      "keywordUsage": "질문에 롱테일 키워드 활용"
+                    }
+                  ],
+                  "conclusion": {
+                    "purpose": "요약 + CTA",
+                    "template": "지금까지 건조기 굉음에 대해 알아봤습니다. 도움이 되셨다면 공유해주세요!",
+                    "ctaRecommendation": "댓글, 공유, 관련 글 링크 유도"
+                  }
+                },
+                "seoChecklist": [
+                  {
+                    "item": "제목에 키워드 포함",
+                    "importance": "critical",
+                    "howTo": "제목 앞부분에 메인 키워드 배치"
+                  },
+                  {
+                    "item": "첫 문단에 키워드",
+                    "importance": "critical",
+                    "howTo": "첫 100자 내 키워드 자연스럽게 삽입"
+                  },
+                  {
+                    "item": "소제목 H2/H3 활용",
+                    "importance": "high",
+                    "howTo": "3~5개 소제목, 키워드 변형 사용"
+                  },
+                  {
+                    "item": "이미지 ALT 태그",
+                    "importance": "high",
+                    "howTo": "모든 이미지에 키워드 포함 설명"
+                  },
+                  {
+                    "item": "내부링크 2개 이상",
+                    "importance": "medium",
+                    "howTo": "관련 글 자연스럽게 연결"
+                  },
+                  {
+                    "item": "3000자 이상 작성",
+                    "importance": "high",
+                    "howTo": "충분한 깊이의 콘텐츠 제공"
+                  }
+                ],
+                "totalRecommendedLength": 3000,
+                "estimatedWriteTime": 90
+              },
+              "images": {
+                "mainImage": {
+                  "searchKeyword": "건조기 굉음 대표이미지",
+                  "style": "깔끔한 인포그래픽 또는 고화질 사진",
+                  "source": [
+                    "Unsplash",
+                    "Pixabay",
+                    "직접 제작"
+                  ],
+                  "altText": "건조기 굉음 완벽 가이드 대표 이미지"
+                },
+                "sectionImages": [
+                  {
+                    "section": "기본 개념",
+                    "searchKeyword": "건조기 굉음 설명",
+                    "purpose": "이해 돕기",
+                    "style": "다이어그램"
+                  },
+                  {
+                    "section": "TOP 5",
+                    "searchKeyword": "건조기 굉음 비교",
+                    "purpose": "시각적 비교",
+                    "style": "비교표"
+                  },
+                  {
+                    "section": "주의사항",
+                    "searchKeyword": "주의 아이콘",
+                    "purpose": "강조",
+                    "style": "아이콘"
+                  }
+                ],
+                "infographicIdeas": [
+                  "건조기 굉음 선택 가이드 플로우차트",
+                  "건조기 굉음 TOP 5 비교표",
+                  "건조기 굉음 체크리스트"
+                ],
+                "totalRecommendedImages": 7,
+                "imageStrategy": "섹션당 1~2개, 총 7~10개 이미지로 가독성과 체류시간 향상"
+              }
+            },
+            "ultimateScore": {
+              "total": 48,
+              "breakdown": {
+                "goldenRatio": 1.895734597156398,
+                "timing": 70,
+                "revenue": 40,
+                "competition": 100,
+                "potential": 53
+              },
+              "grade": "📝 C",
+              "verdict": "⚠️ 신중히 검토 필요",
+              "topActions": [
+                "0일 내 작성 권장",
+                "건조기 굉음 추천 TOP 10 (2025년 최신)",
+                "3000자 이상, 7개 이미지 권장"
+              ]
+            }
+          },
+          "highlightReason": "✅ ANYTIME/stable | 폭발 46 | 구매의도 30 | 월 150원⚠️ | 경쟁도 4"
+        },
+        {
+          "keyword": "냉장고 냄새 빼는법",
+          "searchVolume": 980,
+          "documentCount": 5681,
+          "goldenRatio": 0.17250484069706037,
+          "rookieFriendly": {
+            "score": 60,
+            "grade": "B",
+            "reason": "문서수 10,000개 미만 → 경쟁 보통 | 황금비율 1 미만 → 공급 과잉 | 롱테일 키워드 → 신생도 상위노출 가능",
+            "canRankWithin": "1~2주 내 가능",
+            "requiredBlogIndex": "준최 5 이상 권장"
+          },
+          "timing": {
+            "score": 50,
+            "urgency": "ANYTIME",
+            "bestPublishTime": "오전 6~8시 또는 저녁 8~10시",
+            "trendDirection": "stable",
+            "peakPrediction": "꾸준한 검색량 유지"
+          },
+          "blueOcean": {
+            "score": 50,
+            "competitorStrength": "medium",
+            "avgCompetitorBlogAge": "2~5년 (보통 경쟁)",
+            "oldPostRatio": 50,
+            "opportunity": "⚠️ 경쟁 있음. 차별화된 콘텐츠 필요"
+          },
+          "trafficEstimate": {
+            "daily": "1~3명",
+            "weekly": "7~21명",
+            "monthly": "30~90명",
+            "confidence": 50,
+            "disclaimer": "📌 트래픽은 순위/CTR/계절성에 따라 달라질 수 있는 추정치입니다."
+          },
+          "revenueEstimate": {
+            "dailyRevenue": "22원 ⚠️추정",
+            "monthlyRevenue": "660원 ⚠️추정",
+            "estimatedCPC": 180,
+            "estimatedRPM": 4500,
+            "adType": "애드센스",
+            "revenueGrade": "D",
+            "revenueReason": "❌ 비추천. 수익성 낮음"
+          },
+          "entryAnalysis": {
+            "canEntry": true,
+            "difficulty": "hard",
+            "difficultyScore": 60,
+            "message": "🟠 진입 도전적 - 차별화된 콘텐츠 필요",
+            "topCompetitorStrength": "보통 (일반 블로그 혼재)",
+            "recommendedBlogIndex": "준최 5 이상 권장",
+            "estimatedRankingTime": "1~3주 내 가능"
+          },
+          "totalScore": 49,
+          "grade": "B",
+          "proStrategy": {
+            "title": "2025 냉장고 냄새 빼는법 완벽 정리 | 초보자도 쉽게 이해하는 가이드",
+            "outline": [
+              "1. 냉장고 냄새 빼는법란? (기본 개념)",
+              "2. 냉장고 냄새 빼는법 핵심 포인트 3가지",
+              "3. 냉장고 냄새 빼는법 장단점 비교",
+              "4. 냉장고 냄새 빼는법 실제 후기/경험담",
+              "5. 냉장고 냄새 빼는법 Q&A (자주 묻는 질문)",
+              "6. 결론 및 추천"
+            ],
+            "wordCount": 2500,
+            "mustInclude": [
+              "핵심 키워드 2~3회 자연스럽게 삽입",
+              "실제 이미지/사진 3장 이상",
+              "표 또는 비교 차트 1개 이상",
+              "자주 묻는 질문(FAQ) 섹션",
+              "결론 및 추천 섹션"
+            ],
+            "avoidTopics": [
+              "과장된 표현 (100%, 무조건, 반드시)",
+              "허위 정보나 검증되지 않은 내용",
+              "다른 블로그 복사/붙여넣기",
+              "광고성 링크 과다 삽입"
+            ],
+            "monetization": "애드센스 + 쿠팡파트너스 조합 추천"
+          },
+          "platformTitles": {
+            "naver": {
+              "title": "핵심 정리: 냉장고 냄새 빼는법 2025 최신 가이드 (월 980)",
+              "alternatives": [
+                "냉장고 냄새 빼는법 2025 완벽 정리: 핵심만 5분 요약",
+                "냉장고 냄새 빼는법 초보도 쉽게: 실패 없는 체크리스트"
+              ],
+              "subKeywords": [
+                "냉장고 냄새 빼는법 방법",
+                "냉장고 냄새 빼는법 추천",
+                "냉장고 냄새 빼는법 후기"
+              ],
+              "tags": [
+                "냉장고냄새빼는법",
+                "냉장고",
+                "📰 이슈키워드"
+              ],
+              "tip": "서두 100자 내에 키워드를 2회 노출하고, 결론 요약을 맨 위에 한 번 더 넣으세요.",
+              "hookPoint": "핵심 정리 포인트를 제목/썸네일에 강조"
+            },
+            "tistory": {
+              "title": "냉장고 냄새 빼는법 2025 정리: 한 번에 이해하는 핵심 포인트 (월 980)",
+              "alternatives": [
+                "냉장고 냄새 빼는법 제대로 하는 법 (체크리스트 포함)",
+                "냉장고 냄새 빼는법 추천/비교: 선택 기준 3가지"
+              ],
+              "subKeywords": [
+                "냉장고 냄새 빼는법 방법",
+                "냉장고 냄새 빼는법 추천",
+                "냉장고 냄새 빼는법 후기"
+              ],
+              "tags": [
+                "냉장고냄새빼는법",
+                "냉장고",
+                "📰 이슈키워드"
+              ],
+              "tip": "표/리스트를 많이 써서 스크롤 체류시간을 늘리세요.",
+              "hookPoint": "“핵심 3가지”처럼 숫자를 넣어 클릭률을 올리기"
+            },
+            "wordpress": {
+              "title": "냉장고 냄새 빼는법: 2025 Complete Guide (Checklist & Tips) (월 980)",
+              "alternatives": [
+                "냉장고 냄새 빼는법 Guide: Common Mistakes & Quick Fixes",
+                "냉장고 냄새 빼는법 Step-by-Step: What to Do First"
+              ],
+              "subKeywords": [
+                "냉장고 냄새 빼는법 방법",
+                "냉장고 냄새 빼는법 추천",
+                "냉장고 냄새 빼는법 후기"
+              ],
+              "tags": [
+                "냉장고냄새빼는법",
+                "냉장고",
+                "📰 이슈키워드"
+              ],
+              "tip": "H2/H3로 구조를 만들고, FAQ 섹션을 넣어 SEO를 강화하세요.",
+              "hookPoint": "FAQ + 체크리스트 조합으로 체류시간/리치 증가"
+            },
+            "blogspot": {
+              "title": "냉장고 냄새 빼는법 2025: Quick Start + Best Practices (월 980)",
+              "alternatives": [
+                "냉장고 냄새 빼는법 Quick Guide: Do & Don't",
+                "냉장고 냄새 빼는법 Essentials: What You Need to Know"
+              ],
+              "subKeywords": [
+                "냉장고 냄새 빼는법 방법",
+                "냉장고 냄새 빼는법 추천",
+                "냉장고 냄새 빼는법 후기"
+              ],
+              "tags": [
+                "냉장고냄새빼는법",
+                "냉장고",
+                "📰 이슈키워드"
+              ],
+              "tip": "이미지 2~3장 + 요약 박스를 넣어 가독성을 올리세요.",
+              "hookPoint": "첫 화면에 요약(결론)을 배치해 이탈률을 낮추기"
+            }
+          },
+          "expandedKeywords": {
+            "relatedGolden": [
+              "냉장고 냄새 빼는법 추천",
+              "냉장고 냄새 빼는법 비교",
+              "냉장고 냄새 빼는법 후기",
+              "냉장고 냄새 빼는법 가격"
+            ],
+            "longtailGolden": [
+              "냉장고 냄새 빼는법 초보",
+              "냉장고 냄새 빼는법 쉽게",
+              "냉장고 냄새 빼는법 단계별",
+              "냉장고 냄새 빼는법 정리"
+            ],
+            "blueOceanGolden": [
+              "냉장고 냄새 빼는법 최신",
+              "냉장고 냄새 빼는법 2025",
+              "냉장고 냄새 빼는법 체크리스트",
+              "냉장고 냄새 빼는법 실패하지 않는 법"
+            ]
+          },
+          "type": "📰 이슈키워드",
+          "category": "life_tips",
+          "safetyLevel": "safe",
+          "safetyReason": "✅ 안전한 키워드. 신생 블로거도 작성 가능",
+          "source": "냉장고",
+          "profitAnalysis": {
+            "keyword": "냉장고 냄새 빼는법",
+            "searchVolume": 980,
+            "documentCount": 5681,
+            "estimatedCPC": 180,
+            "purchaseIntentScore": 40,
+            "competitionLevel": 7,
+            "freshnessOpportunity": 1,
+            "profitGoldenRatio": 1.39,
+            "estimatedDailyRevenue": 22,
+            "estimatedMonthlyRevenue": 660,
+            "grade": "D",
+            "gradeReason": "❌ 비추천. 수익성 낮음",
+            "isRealBlueOcean": false,
+            "blueOceanReason": "📕 경쟁 시장. 차별화 전략 필요",
+            "strategy": {
+              "approach": "⏸️ 보류. 더 좋은 키워드 찾기 추천",
+              "monetization": "📝 트래픽 확보 우선. 이후 관련 고수익 키워드로 내부링크",
+              "timing": "🗓️ 여유있게 준비. 롱테일 전략으로 접근",
+              "titleSuggestion": "냉장고 냄새 빼는법 완벽 가이드 | 초보자도 쉽게 따라하기"
+            }
+          },
+          "timestamp": "2025-12-24T11:13:18.578Z",
+          "isGolden": true,
+          "trendAnalysis": {
+            "trendingReason": "갈비 핏물 뺐는데, 관련 최근 이슈",
+            "whyNow": "최근 5개 이상의 뉴스에서 다뤄지며 이슈화 진행 중",
+            "newsSource": "자동 분석"
+          },
+          "keywordGuide": {
+            "summary": "여유 있을 때 공략하면 좋은 키워드입니다. (등급: B, 점수: 49점)",
+            "whyItMovesNow": "갈비 핏물 뺐는데, 관련 최근 이슈 최근 5개 이상의 뉴스에서 다뤄지며 이슈화 진행 중",
+            "immediateTrafficPlan": [
+              "제목 앞부분에 \"냉장고 냄새 빼는법\"를 배치하고, 2025/최신/정리 같은 보조 키워드를 1개만 추가하세요.",
+              "본문 서두 100자 안에 \"냉장고 냄새 빼는법\"를 자연스럽게 2회 노출하세요.",
+              "최소 1개는 비교/체크리스트/요약 섹션을 넣어 체류시간을 늘리세요."
+            ],
+            "naverHomeExposureTips": [
+              "첫 이미지에 키워드가 들어간 문구를 넣고, alt 텍스트도 키워드 포함",
+              "목차를 만들고 H2/H3에 서브 키워드 배치",
+              "태그는 5~10개로 과도한 반복을 피하고, 유사어를 섞기"
+            ]
+          },
+          "ultimateAnalysis": {
+            "timing": {
+              "seasonal": {
+                "peakMonths": [
+                  1,
+                  2,
+                  3,
+                  4,
+                  5,
+                  6,
+                  7,
+                  8,
+                  9,
+                  10,
+                  11,
+                  12
+                ],
+                "peakReason": "연중 꾸준한 검색량",
+                "currentSeasonScore": 70,
+                "nextPeakDate": "항상",
+                "daysUntilPeak": 0,
+                "recommendation": "📝 에버그린 키워드입니다. 언제든 작성해도 좋습니다.",
+                "seasonalPattern": "evergreen"
+              },
+              "trend": {
+                "trendDirection": "falling",
+                "changeRate": 2,
+                "comparedTo": "전월 대비",
+                "explosiveScore": 3,
+                "relatedNews": [],
+                "recommendation": "📊 안정적인 키워드입니다."
+              },
+              "alert": {
+                "optimalPublishDate": "0일 내",
+                "reason": "📝 에버그린 키워드입니다. 언제든 작성해도 좋습니다.",
+                "urgencyLevel": "⚡ 이번 주",
+                "expectedPeakDate": "항상",
+                "competitorActivity": "경쟁자 보통"
+              }
+            },
+            "revenue": {
+              "cpc": {
+                "estimatedCpc": 200,
+                "cpcRange": {
+                  "min": 100,
+                  "max": 400
+                },
+                "cpcTier": "🥈 중수익",
+                "industryAverage": 200,
+                "recommendation": "📝 일반적인 수익 구조입니다. 트래픽 확보에 집중하세요."
+              },
+              "affiliate": {
+                "recommendedPrograms": [
+                  {
+                    "name": "쿠팡파트너스",
+                    "type": "coupang",
+                    "commissionRate": "3~5%",
+                    "estimatedEarningPerClick": 50,
+                    "matchScore": 100
+                  },
+                  {
+                    "name": "네이버 쇼핑",
+                    "type": "naver",
+                    "commissionRate": "1~3%",
+                    "estimatedEarningPerClick": 30,
+                    "matchScore": 85
+                  }
+                ],
+                "bestMatch": "쿠팡파트너스",
+                "potentialProducts": [
+                  "냉장고 냄새 빼는법 추천",
+                  "냉장고 냄새 빼는법 순위",
+                  "냉장고 냄새 빼는법 비교",
+                  "냉장고 냄새 빼는법 후기",
+                  "냉장고 냄새 빼는법 가격",
+                  "냉장고 냄새 빼는법 구매"
+                ]
+              },
+              "projection": {
+                "estimatedDailyVisitors": 1,
+                "estimatedMonthlyVisitors": 30,
+                "adsenseRevenue": {
+                  "daily": 6,
+                  "monthly": 180,
+                  "assumptions": "CPC 200원, CTR 2%, 페이지뷰율 1.5 가정"
+                },
+                "affiliateRevenue": {
+                  "daily": 0,
+                  "monthly": 0,
+                  "conversionRate": 3,
+                  "assumptions": "클릭률 10%, 전환율 3%, 평균 수수료 50원 가정"
+                },
+                "totalMonthlyRevenue": 180,
+                "revenueBreakdown": "애드센스 100% + 제휴 0%",
+                "revenueTier": "📝 월 1만원+"
+              }
+            },
+            "content": {
+              "titles": {
+                "titles": [
+                  {
+                    "title": "냉장고 냄새 빼는법 추천 TOP 10 (2025년 최신)",
+                    "type": "number",
+                    "estimatedCTR": 8.5,
+                    "psychologyUsed": "숫자 + 최신 정보"
+                  },
+                  {
+                    "title": "냉장고 냄새 빼는법 하는 법, 초보자도 쉽게 따라하기",
+                    "type": "how-to",
+                    "estimatedCTR": 7.5,
+                    "psychologyUsed": "실용성 + 접근성"
+                  },
+                  {
+                    "title": "냉장고 냄새 빼는법, 이것만 알면 끝! 완벽 가이드",
+                    "type": "benefit",
+                    "estimatedCTR": 7.2,
+                    "psychologyUsed": "완결성 + 가치 제안"
+                  },
+                  {
+                    "title": "[2025년] 냉장고 냄새 빼는법 총정리 (+ 꿀팁 공개)",
+                    "type": "news",
+                    "estimatedCTR": 7,
+                    "psychologyUsed": "최신성 + 보너스 가치"
+                  },
+                  {
+                    "title": "아직도 냉장고 냄새 빼는법 몰라요? 지금 당장 확인하세요",
+                    "type": "curiosity",
+                    "estimatedCTR": 6.8,
+                    "psychologyUsed": "호기심 + 긴급성"
+                  },
+                  {
+                    "title": "냉장고 냄새 빼는법 실제 후기 (장단점 솔직 비교)",
+                    "type": "comparison",
+                    "estimatedCTR": 6.5,
+                    "psychologyUsed": "신뢰성 + 비교 심리"
+                  }
+                ],
+                "bestTitle": "냉장고 냄새 빼는법 추천 TOP 10 (2025년 최신)",
+                "titleFormula": "숫자 + 키워드 + 최신연도 + 가치제안"
+              },
+              "structure": {
+                "recommendedStructure": {
+                  "intro": {
+                    "purpose": "독자의 관심 끌기 + 키워드 자연스럽게 배치",
+                    "template": "\"냉장고 냄새 빼는법\"에 대해 고민하고 계신가요? 이 글에서 핵심 정보를 모두 정리해드립니다.",
+                    "keywordPlacement": "첫 문장에 키워드 포함"
+                  },
+                  "sections": [
+                    {
+                      "heading": "냉장고 냄새 빼는법란? (기본 개념)",
+                      "purpose": "기초 정보 제공",
+                      "contentGuide": "핵심 정의, 중요성, 왜 알아야 하는지 설명",
+                      "recommendedLength": 300,
+                      "keywordUsage": "소제목과 본문에 1~2회"
+                    },
+                    {
+                      "heading": "냉장고 냄새 빼는법 추천 BEST 5",
+                      "purpose": "실질적인 가치 제공 (핵심 섹션)",
+                      "contentGuide": "순위별 상세 설명, 장단점, 추천 이유",
+                      "recommendedLength": 800,
+                      "keywordUsage": "각 항목 설명에 자연스럽게 포함"
+                    },
+                    {
+                      "heading": "냉장고 냄새 빼는법 선택 시 주의사항",
+                      "purpose": "신뢰도 향상",
+                      "contentGuide": "흔한 실수, 피해야 할 것, 체크리스트",
+                      "recommendedLength": 400,
+                      "keywordUsage": "주의사항 설명에 1~2회"
+                    },
+                    {
+                      "heading": "자주 묻는 질문 (FAQ)",
+                      "purpose": "SEO 강화 + 체류시간 증가",
+                      "contentGuide": "실제 검색되는 질문 5개 + 명확한 답변",
+                      "recommendedLength": 500,
+                      "keywordUsage": "질문에 롱테일 키워드 활용"
+                    }
+                  ],
+                  "conclusion": {
+                    "purpose": "요약 + CTA",
+                    "template": "지금까지 냉장고 냄새 빼는법에 대해 알아봤습니다. 도움이 되셨다면 공유해주세요!",
+                    "ctaRecommendation": "댓글, 공유, 관련 글 링크 유도"
+                  }
+                },
+                "seoChecklist": [
+                  {
+                    "item": "제목에 키워드 포함",
+                    "importance": "critical",
+                    "howTo": "제목 앞부분에 메인 키워드 배치"
+                  },
+                  {
+                    "item": "첫 문단에 키워드",
+                    "importance": "critical",
+                    "howTo": "첫 100자 내 키워드 자연스럽게 삽입"
+                  },
+                  {
+                    "item": "소제목 H2/H3 활용",
+                    "importance": "high",
+                    "howTo": "3~5개 소제목, 키워드 변형 사용"
+                  },
+                  {
+                    "item": "이미지 ALT 태그",
+                    "importance": "high",
+                    "howTo": "모든 이미지에 키워드 포함 설명"
+                  },
+                  {
+                    "item": "내부링크 2개 이상",
+                    "importance": "medium",
+                    "howTo": "관련 글 자연스럽게 연결"
+                  },
+                  {
+                    "item": "3000자 이상 작성",
+                    "importance": "high",
+                    "howTo": "충분한 깊이의 콘텐츠 제공"
+                  }
+                ],
+                "totalRecommendedLength": 3000,
+                "estimatedWriteTime": 90
+              },
+              "images": {
+                "mainImage": {
+                  "searchKeyword": "냉장고 냄새 빼는법 대표이미지",
+                  "style": "깔끔한 인포그래픽 또는 고화질 사진",
+                  "source": [
+                    "Unsplash",
+                    "Pixabay",
+                    "직접 제작"
+                  ],
+                  "altText": "냉장고 냄새 빼는법 완벽 가이드 대표 이미지"
+                },
+                "sectionImages": [
+                  {
+                    "section": "기본 개념",
+                    "searchKeyword": "냉장고 냄새 빼는법 설명",
+                    "purpose": "이해 돕기",
+                    "style": "다이어그램"
+                  },
+                  {
+                    "section": "TOP 5",
+                    "searchKeyword": "냉장고 냄새 빼는법 비교",
+                    "purpose": "시각적 비교",
+                    "style": "비교표"
+                  },
+                  {
+                    "section": "주의사항",
+                    "searchKeyword": "주의 아이콘",
+                    "purpose": "강조",
+                    "style": "아이콘"
+                  }
+                ],
+                "infographicIdeas": [
+                  "냉장고 냄새 빼는법 선택 가이드 플로우차트",
+                  "냉장고 냄새 빼는법 TOP 5 비교표",
+                  "냉장고 냄새 빼는법 체크리스트"
+                ],
+                "totalRecommendedImages": 7,
+                "imageStrategy": "섹션당 1~2개, 총 7~10개 이미지로 가독성과 체류시간 향상"
+              }
+            },
+            "ultimateScore": {
+              "total": 39,
+              "breakdown": {
+                "goldenRatio": 1.7250484069706038,
+                "timing": 70,
+                "revenue": 40,
+                "competition": 60,
+                "potential": 43
+              },
+              "grade": "📝 C",
+              "verdict": "⚠️ 신중히 검토 필요",
+              "topActions": [
+                "0일 내 작성 권장",
+                "냉장고 냄새 빼는법 추천 TOP 10 (2025년 최신)",
+                "3000자 이상, 7개 이미지 권장"
+              ]
+            }
+          },
+          "highlightReason": "✅ ANYTIME/stable | 폭발 58 | 구매의도 40 | 월 660원⚠️ | 경쟁도 7"
+        },
+        {
+          "keyword": "냉장고 냄새 없애는 법",
+          "searchVolume": 2050,
+          "documentCount": 12097,
+          "goldenRatio": 0.1694635033479375,
+          "rookieFriendly": {
+            "score": 50,
+            "grade": "C",
+            "reason": "황금비율 1 미만 → 공급 과잉 | 롱테일 키워드 → 신생도 상위노출 가능",
+            "canRankWithin": "2~4주 내 가능",
+            "requiredBlogIndex": "최적 1 이상 권장"
+          },
+          "timing": {
+            "score": 50,
+            "urgency": "ANYTIME",
+            "bestPublishTime": "오전 6~8시 또는 저녁 8~10시",
+            "trendDirection": "stable",
+            "peakPrediction": "꾸준한 검색량 유지"
+          },
+          "blueOcean": {
+            "score": 35,
+            "competitorStrength": "medium",
+            "avgCompetitorBlogAge": "2~5년 (보통 경쟁)",
+            "oldPostRatio": 30,
+            "opportunity": "❌ 레드오션. 다른 키워드 추천"
+          },
+          "trafficEstimate": {
+            "daily": "1~3명",
+            "weekly": "7~21명",
+            "monthly": "30~90명",
+            "confidence": 50,
+            "disclaimer": "📌 트래픽은 순위/CTR/계절성에 따라 달라질 수 있는 추정치입니다."
+          },
+          "revenueEstimate": {
+            "dailyRevenue": "38원 ⚠️추정",
+            "monthlyRevenue": "1,140원 ⚠️추정",
+            "estimatedCPC": 180,
+            "estimatedRPM": 4500,
+            "adType": "애드센스",
+            "revenueGrade": "C",
+            "revenueReason": "⚠️ 경쟁 높음. 틈새 접근 필요"
+          },
+          "entryAnalysis": {
+            "canEntry": false,
+            "difficulty": "very_hard",
+            "difficultyScore": 74,
+            "message": "🔴 진입 어려움 - 상위 블로거 독점 키워드",
+            "topCompetitorStrength": "강함 (전문 블로거 다수)",
+            "recommendedBlogIndex": "최적 1 이상 권장",
+            "estimatedRankingTime": "1개월 이상 소요 예상"
+          },
+          "totalScore": 42,
+          "grade": "B",
+          "proStrategy": {
+            "title": "2025 냉장고 냄새 없애는 법 완벽 정리 | 초보자도 쉽게 이해하는 가이드",
+            "outline": [
+              "1. 냉장고 냄새 없애는 법란? (기본 개념)",
+              "2. 냉장고 냄새 없애는 법 핵심 포인트 3가지",
+              "3. 냉장고 냄새 없애는 법 장단점 비교",
+              "4. 냉장고 냄새 없애는 법 실제 후기/경험담",
+              "5. 냉장고 냄새 없애는 법 Q&A (자주 묻는 질문)",
+              "6. 결론 및 추천"
+            ],
+            "wordCount": 2500,
+            "mustInclude": [
+              "핵심 키워드 2~3회 자연스럽게 삽입",
+              "실제 이미지/사진 3장 이상",
+              "표 또는 비교 차트 1개 이상",
+              "자주 묻는 질문(FAQ) 섹션",
+              "결론 및 추천 섹션"
+            ],
+            "avoidTopics": [
+              "과장된 표현 (100%, 무조건, 반드시)",
+              "허위 정보나 검증되지 않은 내용",
+              "다른 블로그 복사/붙여넣기",
+              "광고성 링크 과다 삽입"
+            ],
+            "monetization": "애드센스 + 쿠팡파트너스 조합 추천"
+          },
+          "platformTitles": {
+            "naver": {
+              "title": "핵심 정리: 냉장고 냄새 없애는 법 2025 최신 가이드 (월 2,050)",
+              "alternatives": [
+                "냉장고 냄새 없애는 법 2025 완벽 정리: 핵심만 5분 요약",
+                "냉장고 냄새 없애는 법 초보도 쉽게: 실패 없는 체크리스트"
+              ],
+              "subKeywords": [
+                "냉장고 냄새 없애는 법 방법",
+                "냉장고 냄새 없애는 법 추천",
+                "냉장고 냄새 없애는 법 후기"
+              ],
+              "tags": [
+                "냉장고냄새없애는법",
+                "냉장고",
+                "📰 이슈키워드"
+              ],
+              "tip": "서두 100자 내에 키워드를 2회 노출하고, 결론 요약을 맨 위에 한 번 더 넣으세요.",
+              "hookPoint": "핵심 정리 포인트를 제목/썸네일에 강조"
+            },
+            "tistory": {
+              "title": "냉장고 냄새 없애는 법 2025 정리: 한 번에 이해하는 핵심 포인트 (월 2,050)",
+              "alternatives": [
+                "냉장고 냄새 없애는 법 제대로 하는 법 (체크리스트 포함)",
+                "냉장고 냄새 없애는 법 추천/비교: 선택 기준 3가지"
+              ],
+              "subKeywords": [
+                "냉장고 냄새 없애는 법 방법",
+                "냉장고 냄새 없애는 법 추천",
+                "냉장고 냄새 없애는 법 후기"
+              ],
+              "tags": [
+                "냉장고냄새없애는법",
+                "냉장고",
+                "📰 이슈키워드"
+              ],
+              "tip": "표/리스트를 많이 써서 스크롤 체류시간을 늘리세요.",
+              "hookPoint": "“핵심 3가지”처럼 숫자를 넣어 클릭률을 올리기"
+            },
+            "wordpress": {
+              "title": "냉장고 냄새 없애는 법: 2025 Complete Guide (Checklist & Tips) (월 2,050)",
+              "alternatives": [
+                "냉장고 냄새 없애는 법 Guide: Common Mistakes & Quick Fixes",
+                "냉장고 냄새 없애는 법 Step-by-Step: What to Do First"
+              ],
+              "subKeywords": [
+                "냉장고 냄새 없애는 법 방법",
+                "냉장고 냄새 없애는 법 추천",
+                "냉장고 냄새 없애는 법 후기"
+              ],
+              "tags": [
+                "냉장고냄새없애는법",
+                "냉장고",
+                "📰 이슈키워드"
+              ],
+              "tip": "H2/H3로 구조를 만들고, FAQ 섹션을 넣어 SEO를 강화하세요.",
+              "hookPoint": "FAQ + 체크리스트 조합으로 체류시간/리치 증가"
+            },
+            "blogspot": {
+              "title": "냉장고 냄새 없애는 법 2025: Quick Start + Best Practices (월 2,050)",
+              "alternatives": [
+                "냉장고 냄새 없애는 법 Quick Guide: Do & Don't",
+                "냉장고 냄새 없애는 법 Essentials: What You Need to Know"
+              ],
+              "subKeywords": [
+                "냉장고 냄새 없애는 법 방법",
+                "냉장고 냄새 없애는 법 추천",
+                "냉장고 냄새 없애는 법 후기"
+              ],
+              "tags": [
+                "냉장고냄새없애는법",
+                "냉장고",
+                "📰 이슈키워드"
+              ],
+              "tip": "이미지 2~3장 + 요약 박스를 넣어 가독성을 올리세요.",
+              "hookPoint": "첫 화면에 요약(결론)을 배치해 이탈률을 낮추기"
+            }
+          },
+          "expandedKeywords": {
+            "relatedGolden": [
+              "냉장고 냄새 없애는 법 추천",
+              "냉장고 냄새 없애는 법 비교",
+              "냉장고 냄새 없애는 법 후기",
+              "냉장고 냄새 없애는 법 가격"
+            ],
+            "longtailGolden": [
+              "냉장고 냄새 없애는 법 초보",
+              "냉장고 냄새 없애는 법 쉽게",
+              "냉장고 냄새 없애는 법 단계별",
+              "냉장고 냄새 없애는 법 정리"
+            ],
+            "blueOceanGolden": [
+              "냉장고 냄새 없애는 법 최신",
+              "냉장고 냄새 없애는 법 2025",
+              "냉장고 냄새 없애는 법 체크리스트",
+              "냉장고 냄새 없애는 법 실패하지 않는 법"
+            ]
+          },
+          "type": "📰 이슈키워드",
+          "category": "life_tips",
+          "safetyLevel": "safe",
+          "safetyReason": "✅ 안전한 키워드. 신생 블로거도 작성 가능",
+          "source": "냉장고",
+          "profitAnalysis": {
+            "keyword": "냉장고 냄새 없애는 법",
+            "searchVolume": 2050,
+            "documentCount": 12097,
+            "estimatedCPC": 180,
+            "purchaseIntentScore": 45,
+            "competitionLevel": 8,
+            "freshnessOpportunity": 1,
+            "profitGoldenRatio": 2.71,
+            "estimatedDailyRevenue": 38,
+            "estimatedMonthlyRevenue": 1140,
+            "grade": "C",
+            "gradeReason": "⚠️ 경쟁 높음. 틈새 접근 필요",
+            "isRealBlueOcean": false,
+            "blueOceanReason": "📕 경쟁 시장. 차별화 전략 필요",
+            "strategy": {
+              "approach": "⏸️ 보류. 더 좋은 키워드 찾기 추천",
+              "monetization": "📝 트래픽 확보 우선. 이후 관련 고수익 키워드로 내부링크",
+              "timing": "🗓️ 여유있게 준비. 롱테일 전략으로 접근",
+              "titleSuggestion": "냉장고 냄새 없애는 법 완벽 가이드 | 초보자도 쉽게 따라하기"
+            }
+          },
+          "timestamp": "2025-12-24T11:13:18.579Z",
+          "isGolden": true,
+          "trendAnalysis": {
+            "trendingReason": "여름철 냉장고 냄새 관련 최근 이슈",
+            "whyNow": "최근 5개 이상의 뉴스에서 다뤄지며 이슈화 진행 중 • 뉴스에서 \"주목\" 키워드로 언급되며 화제성 확보 • \"여름철 , &quot;이것만 있으면 어렵지 않아&quot;\" 관련 최신 뉴스로 조기 진입 효과 기대",
+            "newsSource": "자동 분석"
+          },
+          "keywordGuide": {
+            "summary": "여유 있을 때 공략하면 좋은 키워드입니다. (등급: B, 점수: 42점)",
+            "whyItMovesNow": "여름철 냉장고 냄새 관련 최근 이슈 최근 5개 이상의 뉴스에서 다뤄지며 이슈화 진행 중 • 뉴스에서 \"주목\" 키워드로 언급되며 화제성 확보 • \"여름철 , &quot;이것만 있으면 어렵지 않아&quot;\" 관련 최신 뉴스로 조기 진입 효과 기대",
+            "immediateTrafficPlan": [
+              "제목 앞부분에 \"냉장고 냄새 없애는 법\"를 배치하고, 2025/최신/정리 같은 보조 키워드를 1개만 추가하세요.",
+              "본문 서두 100자 안에 \"냉장고 냄새 없애는 법\"를 자연스럽게 2회 노출하세요.",
+              "최소 1개는 비교/체크리스트/요약 섹션을 넣어 체류시간을 늘리세요."
+            ],
+            "naverHomeExposureTips": [
+              "첫 이미지에 키워드가 들어간 문구를 넣고, alt 텍스트도 키워드 포함",
+              "목차를 만들고 H2/H3에 서브 키워드 배치",
+              "태그는 5~10개로 과도한 반복을 피하고, 유사어를 섞기"
+            ]
+          },
+          "ultimateAnalysis": {
+            "timing": {
+              "seasonal": {
+                "peakMonths": [
+                  1,
+                  2,
+                  3,
+                  4,
+                  5,
+                  6,
+                  7,
+                  8,
+                  9,
+                  10,
+                  11,
+                  12
+                ],
+                "peakReason": "연중 꾸준한 검색량",
+                "currentSeasonScore": 70,
+                "nextPeakDate": "항상",
+                "daysUntilPeak": 0,
+                "recommendation": "📝 에버그린 키워드입니다. 언제든 작성해도 좋습니다.",
+                "seasonalPattern": "evergreen"
+              },
+              "trend": {
+                "trendDirection": "falling",
+                "changeRate": 2,
+                "comparedTo": "전월 대비",
+                "explosiveScore": 3,
+                "relatedNews": [],
+                "recommendation": "📊 안정적인 키워드입니다."
+              },
+              "alert": {
+                "optimalPublishDate": "0일 내",
+                "reason": "📝 에버그린 키워드입니다. 언제든 작성해도 좋습니다.",
+                "urgencyLevel": "⚡ 이번 주",
+                "expectedPeakDate": "항상",
+                "competitorActivity": "경쟁자 많음"
+              }
+            },
+            "revenue": {
+              "cpc": {
+                "estimatedCpc": 200,
+                "cpcRange": {
+                  "min": 100,
+                  "max": 400
+                },
+                "cpcTier": "🥈 중수익",
+                "industryAverage": 200,
+                "recommendation": "📝 일반적인 수익 구조입니다. 트래픽 확보에 집중하세요."
+              },
+              "affiliate": {
+                "recommendedPrograms": [
+                  {
+                    "name": "쿠팡파트너스",
+                    "type": "coupang",
+                    "commissionRate": "3~5%",
+                    "estimatedEarningPerClick": 50,
+                    "matchScore": 100
+                  },
+                  {
+                    "name": "네이버 쇼핑",
+                    "type": "naver",
+                    "commissionRate": "1~3%",
+                    "estimatedEarningPerClick": 30,
+                    "matchScore": 85
+                  }
+                ],
+                "bestMatch": "쿠팡파트너스",
+                "potentialProducts": [
+                  "냉장고 냄새 없애는 법 추천",
+                  "냉장고 냄새 없애는 법 순위",
+                  "냉장고 냄새 없애는 법 비교",
+                  "냉장고 냄새 없애는 법 후기",
+                  "냉장고 냄새 없애는 법 가격",
+                  "냉장고 냄새 없애는 법 구매"
+                ]
+              },
+              "projection": {
+                "estimatedDailyVisitors": 2,
+                "estimatedMonthlyVisitors": 60,
+                "adsenseRevenue": {
+                  "daily": 12,
+                  "monthly": 360,
+                  "assumptions": "CPC 200원, CTR 2%, 페이지뷰율 1.5 가정"
+                },
+                "affiliateRevenue": {
+                  "daily": 0,
+                  "monthly": 0,
+                  "conversionRate": 3,
+                  "assumptions": "클릭률 10%, 전환율 3%, 평균 수수료 50원 가정"
+                },
+                "totalMonthlyRevenue": 360,
+                "revenueBreakdown": "애드센스 100% + 제휴 0%",
+                "revenueTier": "📝 월 1만원+"
+              }
+            },
+            "content": {
+              "titles": {
+                "titles": [
+                  {
+                    "title": "냉장고 냄새 없애는 법 추천 TOP 10 (2025년 최신)",
+                    "type": "number",
+                    "estimatedCTR": 8.5,
+                    "psychologyUsed": "숫자 + 최신 정보"
+                  },
+                  {
+                    "title": "냉장고 냄새 없애는 법 하는 법, 초보자도 쉽게 따라하기",
+                    "type": "how-to",
+                    "estimatedCTR": 7.5,
+                    "psychologyUsed": "실용성 + 접근성"
+                  },
+                  {
+                    "title": "냉장고 냄새 없애는 법, 이것만 알면 끝! 완벽 가이드",
+                    "type": "benefit",
+                    "estimatedCTR": 7.2,
+                    "psychologyUsed": "완결성 + 가치 제안"
+                  },
+                  {
+                    "title": "[2025년] 냉장고 냄새 없애는 법 총정리 (+ 꿀팁 공개)",
+                    "type": "news",
+                    "estimatedCTR": 7,
+                    "psychologyUsed": "최신성 + 보너스 가치"
+                  },
+                  {
+                    "title": "아직도 냉장고 냄새 없애는 법 몰라요? 지금 당장 확인하세요",
+                    "type": "curiosity",
+                    "estimatedCTR": 6.8,
+                    "psychologyUsed": "호기심 + 긴급성"
+                  },
+                  {
+                    "title": "냉장고 냄새 없애는 법 실제 후기 (장단점 솔직 비교)",
+                    "type": "comparison",
+                    "estimatedCTR": 6.5,
+                    "psychologyUsed": "신뢰성 + 비교 심리"
+                  }
+                ],
+                "bestTitle": "냉장고 냄새 없애는 법 추천 TOP 10 (2025년 최신)",
+                "titleFormula": "숫자 + 키워드 + 최신연도 + 가치제안"
+              },
+              "structure": {
+                "recommendedStructure": {
+                  "intro": {
+                    "purpose": "독자의 관심 끌기 + 키워드 자연스럽게 배치",
+                    "template": "\"냉장고 냄새 없애는 법\"에 대해 고민하고 계신가요? 이 글에서 핵심 정보를 모두 정리해드립니다.",
+                    "keywordPlacement": "첫 문장에 키워드 포함"
+                  },
+                  "sections": [
+                    {
+                      "heading": "냉장고 냄새 없애는 법란? (기본 개념)",
+                      "purpose": "기초 정보 제공",
+                      "contentGuide": "핵심 정의, 중요성, 왜 알아야 하는지 설명",
+                      "recommendedLength": 300,
+                      "keywordUsage": "소제목과 본문에 1~2회"
+                    },
+                    {
+                      "heading": "냉장고 냄새 없애는 법 추천 BEST 5",
+                      "purpose": "실질적인 가치 제공 (핵심 섹션)",
+                      "contentGuide": "순위별 상세 설명, 장단점, 추천 이유",
+                      "recommendedLength": 800,
+                      "keywordUsage": "각 항목 설명에 자연스럽게 포함"
+                    },
+                    {
+                      "heading": "냉장고 냄새 없애는 법 선택 시 주의사항",
+                      "purpose": "신뢰도 향상",
+                      "contentGuide": "흔한 실수, 피해야 할 것, 체크리스트",
+                      "recommendedLength": 400,
+                      "keywordUsage": "주의사항 설명에 1~2회"
+                    },
+                    {
+                      "heading": "자주 묻는 질문 (FAQ)",
+                      "purpose": "SEO 강화 + 체류시간 증가",
+                      "contentGuide": "실제 검색되는 질문 5개 + 명확한 답변",
+                      "recommendedLength": 500,
+                      "keywordUsage": "질문에 롱테일 키워드 활용"
+                    }
+                  ],
+                  "conclusion": {
+                    "purpose": "요약 + CTA",
+                    "template": "지금까지 냉장고 냄새 없애는 법에 대해 알아봤습니다. 도움이 되셨다면 공유해주세요!",
+                    "ctaRecommendation": "댓글, 공유, 관련 글 링크 유도"
+                  }
+                },
+                "seoChecklist": [
+                  {
+                    "item": "제목에 키워드 포함",
+                    "importance": "critical",
+                    "howTo": "제목 앞부분에 메인 키워드 배치"
+                  },
+                  {
+                    "item": "첫 문단에 키워드",
+                    "importance": "critical",
+                    "howTo": "첫 100자 내 키워드 자연스럽게 삽입"
+                  },
+                  {
+                    "item": "소제목 H2/H3 활용",
+                    "importance": "high",
+                    "howTo": "3~5개 소제목, 키워드 변형 사용"
+                  },
+                  {
+                    "item": "이미지 ALT 태그",
+                    "importance": "high",
+                    "howTo": "모든 이미지에 키워드 포함 설명"
+                  },
+                  {
+                    "item": "내부링크 2개 이상",
+                    "importance": "medium",
+                    "howTo": "관련 글 자연스럽게 연결"
+                  },
+                  {
+                    "item": "3000자 이상 작성",
+                    "importance": "high",
+                    "howTo": "충분한 깊이의 콘텐츠 제공"
+                  }
+                ],
+                "totalRecommendedLength": 3000,
+                "estimatedWriteTime": 90
+              },
+              "images": {
+                "mainImage": {
+                  "searchKeyword": "냉장고 냄새 없애는 법 대표이미지",
+                  "style": "깔끔한 인포그래픽 또는 고화질 사진",
+                  "source": [
+                    "Unsplash",
+                    "Pixabay",
+                    "직접 제작"
+                  ],
+                  "altText": "냉장고 냄새 없애는 법 완벽 가이드 대표 이미지"
+                },
+                "sectionImages": [
+                  {
+                    "section": "기본 개념",
+                    "searchKeyword": "냉장고 냄새 없애는 법 설명",
+                    "purpose": "이해 돕기",
+                    "style": "다이어그램"
+                  },
+                  {
+                    "section": "TOP 5",
+                    "searchKeyword": "냉장고 냄새 없애는 법 비교",
+                    "purpose": "시각적 비교",
+                    "style": "비교표"
+                  },
+                  {
+                    "section": "주의사항",
+                    "searchKeyword": "주의 아이콘",
+                    "purpose": "강조",
+                    "style": "아이콘"
+                  }
+                ],
+                "infographicIdeas": [
+                  "냉장고 냄새 없애는 법 선택 가이드 플로우차트",
+                  "냉장고 냄새 없애는 법 TOP 5 비교표",
+                  "냉장고 냄새 없애는 법 체크리스트"
+                ],
+                "totalRecommendedImages": 7,
+                "imageStrategy": "섹션당 1~2개, 총 7~10개 이미지로 가독성과 체류시간 향상"
+              }
+            },
+            "ultimateScore": {
+              "total": 34,
+              "breakdown": {
+                "goldenRatio": 1.694635033479375,
+                "timing": 70,
+                "revenue": 40,
+                "competition": 40,
+                "potential": 38
+              },
+              "grade": "📝 C",
+              "verdict": "⚠️ 신중히 검토 필요",
+              "topActions": [
+                "0일 내 작성 권장",
+                "냉장고 냄새 없애는 법 추천 TOP 10 (2025년 최신)",
+                "3000자 이상, 7개 이미지 권장"
+              ]
+            }
+          },
+          "highlightReason": "✅ ANYTIME/stable | 폭발 65 | 구매의도 45 | 월 1,140원⚠️ | 경쟁도 8"
+        },
+        {
+          "keyword": "다이슨 청소기 거치대",
+          "searchVolume": 3220,
+          "documentCount": 19133,
+          "goldenRatio": 0.16829561490618303,
+          "rookieFriendly": {
+            "score": 50,
+            "grade": "C",
+            "reason": "황금비율 1 미만 → 공급 과잉 | 롱테일 키워드 → 신생도 상위노출 가능",
+            "canRankWithin": "2~4주 내 가능",
+            "requiredBlogIndex": "최적 1 이상 권장"
+          },
+          "timing": {
+            "score": 50,
+            "urgency": "ANYTIME",
+            "bestPublishTime": "오전 6~8시 또는 저녁 8~10시",
+            "trendDirection": "stable",
+            "peakPrediction": "꾸준한 검색량 유지"
+          },
+          "blueOcean": {
+            "score": 35,
+            "competitorStrength": "medium",
+            "avgCompetitorBlogAge": "2~5년 (보통 경쟁)",
+            "oldPostRatio": 30,
+            "opportunity": "❌ 레드오션. 다른 키워드 추천"
+          },
+          "trafficEstimate": {
+            "daily": "2~4명",
+            "weekly": "14~28명",
+            "monthly": "60~120명",
+            "confidence": 50,
+            "disclaimer": "📌 트래픽은 순위/CTR/계절성에 따라 달라질 수 있는 추정치입니다."
+          },
+          "revenueEstimate": {
+            "dailyRevenue": "59원 ⚠️추정",
+            "monthlyRevenue": "1,770원 ⚠️추정",
+            "estimatedCPC": 180,
+            "estimatedRPM": 4500,
+            "adType": "애드센스",
+            "revenueGrade": "C",
+            "revenueReason": "⚠️ 경쟁 높음. 틈새 접근 필요"
+          },
+          "entryAnalysis": {
+            "canEntry": false,
+            "difficulty": "very_hard",
+            "difficultyScore": 74,
+            "message": "🔴 진입 어려움 - 상위 블로거 독점 키워드",
+            "topCompetitorStrength": "강함 (전문 블로거 다수)",
+            "recommendedBlogIndex": "최적 1 이상 권장",
+            "estimatedRankingTime": "1개월 이상 소요 예상"
+          },
+          "totalScore": 42,
+          "grade": "B",
+          "proStrategy": {
+            "title": "2025 다이슨 청소기 거치대 완벽 정리 | 초보자도 쉽게 이해하는 가이드",
+            "outline": [
+              "1. 다이슨 청소기 거치대란? (기본 개념)",
+              "2. 다이슨 청소기 거치대 핵심 포인트 3가지",
+              "3. 다이슨 청소기 거치대 장단점 비교",
+              "4. 다이슨 청소기 거치대 실제 후기/경험담",
+              "5. 다이슨 청소기 거치대 Q&A (자주 묻는 질문)",
+              "6. 결론 및 추천"
+            ],
+            "wordCount": 2500,
+            "mustInclude": [
+              "핵심 키워드 2~3회 자연스럽게 삽입",
+              "실제 이미지/사진 3장 이상",
+              "표 또는 비교 차트 1개 이상",
+              "자주 묻는 질문(FAQ) 섹션",
+              "결론 및 추천 섹션"
+            ],
+            "avoidTopics": [
+              "과장된 표현 (100%, 무조건, 반드시)",
+              "허위 정보나 검증되지 않은 내용",
+              "다른 블로그 복사/붙여넣기",
+              "광고성 링크 과다 삽입"
+            ],
+            "monetization": "애드센스 + 쿠팡파트너스 조합 추천"
+          },
+          "platformTitles": {
+            "naver": {
+              "title": "핵심 정리: 다이슨 청소기 거치대 2025 최신 가이드 (월 3,220)",
+              "alternatives": [
+                "다이슨 청소기 거치대 2025 완벽 정리: 핵심만 5분 요약",
+                "다이슨 청소기 거치대 초보도 쉽게: 실패 없는 체크리스트"
+              ],
+              "subKeywords": [
+                "다이슨 청소기 거치대 방법",
+                "다이슨 청소기 거치대 추천",
+                "다이슨 청소기 거치대 후기"
+              ],
+              "tags": [
+                "다이슨청소기거치대",
+                "다이슨",
+                "📰 이슈키워드"
+              ],
+              "tip": "서두 100자 내에 키워드를 2회 노출하고, 결론 요약을 맨 위에 한 번 더 넣으세요.",
+              "hookPoint": "핵심 정리 포인트를 제목/썸네일에 강조"
+            },
+            "tistory": {
+              "title": "다이슨 청소기 거치대 2025 정리: 한 번에 이해하는 핵심 포인트 (월 3,220)",
+              "alternatives": [
+                "다이슨 청소기 거치대 제대로 하는 법 (체크리스트 포함)",
+                "다이슨 청소기 거치대 추천/비교: 선택 기준 3가지"
+              ],
+              "subKeywords": [
+                "다이슨 청소기 거치대 방법",
+                "다이슨 청소기 거치대 추천",
+                "다이슨 청소기 거치대 후기"
+              ],
+              "tags": [
+                "다이슨청소기거치대",
+                "다이슨",
+                "📰 이슈키워드"
+              ],
+              "tip": "표/리스트를 많이 써서 스크롤 체류시간을 늘리세요.",
+              "hookPoint": "“핵심 3가지”처럼 숫자를 넣어 클릭률을 올리기"
+            },
+            "wordpress": {
+              "title": "다이슨 청소기 거치대: 2025 Complete Guide (Checklist & Tips) (월 3,220)",
+              "alternatives": [
+                "다이슨 청소기 거치대 Guide: Common Mistakes & Quick Fixes",
+                "다이슨 청소기 거치대 Step-by-Step: What to Do First"
+              ],
+              "subKeywords": [
+                "다이슨 청소기 거치대 방법",
+                "다이슨 청소기 거치대 추천",
+                "다이슨 청소기 거치대 후기"
+              ],
+              "tags": [
+                "다이슨청소기거치대",
+                "다이슨",
+                "📰 이슈키워드"
+              ],
+              "tip": "H2/H3로 구조를 만들고, FAQ 섹션을 넣어 SEO를 강화하세요.",
+              "hookPoint": "FAQ + 체크리스트 조합으로 체류시간/리치 증가"
+            },
+            "blogspot": {
+              "title": "다이슨 청소기 거치대 2025: Quick Start + Best Practices (월 3,220)",
+              "alternatives": [
+                "다이슨 청소기 거치대 Quick Guide: Do & Don't",
+                "다이슨 청소기 거치대 Essentials: What You Need to Know"
+              ],
+              "subKeywords": [
+                "다이슨 청소기 거치대 방법",
+                "다이슨 청소기 거치대 추천",
+                "다이슨 청소기 거치대 후기"
+              ],
+              "tags": [
+                "다이슨청소기거치대",
+                "다이슨",
+                "📰 이슈키워드"
+              ],
+              "tip": "이미지 2~3장 + 요약 박스를 넣어 가독성을 올리세요.",
+              "hookPoint": "첫 화면에 요약(결론)을 배치해 이탈률을 낮추기"
+            }
+          },
+          "expandedKeywords": {
+            "relatedGolden": [
+              "다이슨 청소기 거치대 추천",
+              "다이슨 청소기 거치대 비교",
+              "다이슨 청소기 거치대 후기",
+              "다이슨 청소기 거치대 가격"
+            ],
+            "longtailGolden": [
+              "다이슨 청소기 거치대 초보",
+              "다이슨 청소기 거치대 쉽게",
+              "다이슨 청소기 거치대 단계별",
+              "다이슨 청소기 거치대 정리"
+            ],
+            "blueOceanGolden": [
+              "다이슨 청소기 거치대 최신",
+              "다이슨 청소기 거치대 2025",
+              "다이슨 청소기 거치대 체크리스트",
+              "다이슨 청소기 거치대 실패하지 않는 법"
+            ]
+          },
+          "type": "📰 이슈키워드",
+          "category": "life_tips",
+          "safetyLevel": "safe",
+          "safetyReason": "✅ 안전한 키워드. 신생 블로거도 작성 가능",
+          "source": "청소기",
+          "profitAnalysis": {
+            "keyword": "다이슨 청소기 거치대",
+            "searchVolume": 3220,
+            "documentCount": 19133,
+            "estimatedCPC": 180,
+            "purchaseIntentScore": 40,
+            "competitionLevel": 8,
+            "freshnessOpportunity": 1,
+            "profitGoldenRatio": 3.98,
+            "estimatedDailyRevenue": 59,
+            "estimatedMonthlyRevenue": 1770,
+            "grade": "C",
+            "gradeReason": "⚠️ 경쟁 높음. 틈새 접근 필요",
+            "isRealBlueOcean": false,
+            "blueOceanReason": "📕 경쟁 시장. 차별화 전략 필요",
+            "strategy": {
+              "approach": "⏸️ 보류. 더 좋은 키워드 찾기 추천",
+              "monetization": "📝 트래픽 확보 우선. 이후 관련 고수익 키워드로 내부링크",
+              "timing": "🗓️ 여유있게 준비. 롱테일 전략으로 접근",
+              "titleSuggestion": "다이슨 청소기 거치대 완벽 가이드 | 초보자도 쉽게 따라하기"
+            }
+          },
+          "timestamp": "2025-12-24T11:13:18.590Z",
+          "isGolden": true,
+          "trendAnalysis": {
+            "trendingReason": "AT가전 다이슨·신일전자·SK인텔릭스 관련 최근 이슈",
+            "whyNow": "최근 5개 이상의 뉴스에서 다뤄지며 이슈화 진행 중 • 최신 이슈로 실시간 관심 집중 중 • \"[AT가전]다이슨·신일전자·SK인텔릭스\" 관련 최신 뉴스로 조기 진입 효과 기대",
+            "newsSource": "자동 분석"
+          },
+          "keywordGuide": {
+            "summary": "여유 있을 때 공략하면 좋은 키워드입니다. (등급: B, 점수: 42점)",
+            "whyItMovesNow": "AT가전 다이슨·신일전자·SK인텔릭스 관련 최근 이슈 최근 5개 이상의 뉴스에서 다뤄지며 이슈화 진행 중 • 최신 이슈로 실시간 관심 집중 중 • \"[AT가전]다이슨·신일전자·SK인텔릭스\" 관련 최신 뉴스로 조기 진입 효과 기대",
+            "immediateTrafficPlan": [
+              "제목 앞부분에 \"다이슨 청소기 거치대\"를 배치하고, 2025/최신/정리 같은 보조 키워드를 1개만 추가하세요.",
+              "본문 서두 100자 안에 \"다이슨 청소기 거치대\"를 자연스럽게 2회 노출하세요.",
+              "최소 1개는 비교/체크리스트/요약 섹션을 넣어 체류시간을 늘리세요."
+            ],
+            "naverHomeExposureTips": [
+              "첫 이미지에 키워드가 들어간 문구를 넣고, alt 텍스트도 키워드 포함",
+              "목차를 만들고 H2/H3에 서브 키워드 배치",
+              "태그는 5~10개로 과도한 반복을 피하고, 유사어를 섞기"
+            ]
+          },
+          "ultimateAnalysis": {
+            "timing": {
+              "seasonal": {
+                "peakMonths": [
+                  1,
+                  2,
+                  3,
+                  4,
+                  5,
+                  6,
+                  7,
+                  8,
+                  9,
+                  10,
+                  11,
+                  12
+                ],
+                "peakReason": "연중 꾸준한 검색량",
+                "currentSeasonScore": 70,
+                "nextPeakDate": "항상",
+                "daysUntilPeak": 0,
+                "recommendation": "📝 에버그린 키워드입니다. 언제든 작성해도 좋습니다.",
+                "seasonalPattern": "evergreen"
+              },
+              "trend": {
+                "trendDirection": "falling",
+                "changeRate": 2,
+                "comparedTo": "전월 대비",
+                "explosiveScore": 3,
+                "relatedNews": [],
+                "recommendation": "📊 안정적인 키워드입니다."
+              },
+              "alert": {
+                "optimalPublishDate": "0일 내",
+                "reason": "📝 에버그린 키워드입니다. 언제든 작성해도 좋습니다.",
+                "urgencyLevel": "⚡ 이번 주",
+                "expectedPeakDate": "항상",
+                "competitorActivity": "경쟁자 많음"
+              }
+            },
+            "revenue": {
+              "cpc": {
+                "estimatedCpc": 200,
+                "cpcRange": {
+                  "min": 100,
+                  "max": 400
+                },
+                "cpcTier": "🥈 중수익",
+                "industryAverage": 200,
+                "recommendation": "📝 일반적인 수익 구조입니다. 트래픽 확보에 집중하세요."
+              },
+              "affiliate": {
+                "recommendedPrograms": [
+                  {
+                    "name": "쿠팡파트너스",
+                    "type": "coupang",
+                    "commissionRate": "3~5%",
+                    "estimatedEarningPerClick": 50,
+                    "matchScore": 100
+                  },
+                  {
+                    "name": "네이버 쇼핑",
+                    "type": "naver",
+                    "commissionRate": "1~3%",
+                    "estimatedEarningPerClick": 30,
+                    "matchScore": 85
+                  }
+                ],
+                "bestMatch": "쿠팡파트너스",
+                "potentialProducts": [
+                  "다이슨 청소기 거치대 추천",
+                  "다이슨 청소기 거치대 순위",
+                  "다이슨 청소기 거치대 비교",
+                  "다이슨 청소기 거치대 후기",
+                  "다이슨 청소기 거치대 가격",
+                  "다이슨 청소기 거치대 구매"
+                ]
+              },
+              "projection": {
+                "estimatedDailyVisitors": 3,
+                "estimatedMonthlyVisitors": 90,
+                "adsenseRevenue": {
+                  "daily": 18,
+                  "monthly": 540,
+                  "assumptions": "CPC 200원, CTR 2%, 페이지뷰율 1.5 가정"
+                },
+                "affiliateRevenue": {
+                  "daily": 0,
+                  "monthly": 0,
+                  "conversionRate": 3,
+                  "assumptions": "클릭률 10%, 전환율 3%, 평균 수수료 50원 가정"
+                },
+                "totalMonthlyRevenue": 540,
+                "revenueBreakdown": "애드센스 100% + 제휴 0%",
+                "revenueTier": "📝 월 1만원+"
+              }
+            },
+            "content": {
+              "titles": {
+                "titles": [
+                  {
+                    "title": "다이슨 청소기 거치대 추천 TOP 10 (2025년 최신)",
+                    "type": "number",
+                    "estimatedCTR": 8.5,
+                    "psychologyUsed": "숫자 + 최신 정보"
+                  },
+                  {
+                    "title": "다이슨 청소기 거치대 하는 법, 초보자도 쉽게 따라하기",
+                    "type": "how-to",
+                    "estimatedCTR": 7.5,
+                    "psychologyUsed": "실용성 + 접근성"
+                  },
+                  {
+                    "title": "다이슨 청소기 거치대, 이것만 알면 끝! 완벽 가이드",
+                    "type": "benefit",
+                    "estimatedCTR": 7.2,
+                    "psychologyUsed": "완결성 + 가치 제안"
+                  },
+                  {
+                    "title": "[2025년] 다이슨 청소기 거치대 총정리 (+ 꿀팁 공개)",
+                    "type": "news",
+                    "estimatedCTR": 7,
+                    "psychologyUsed": "최신성 + 보너스 가치"
+                  },
+                  {
+                    "title": "아직도 다이슨 청소기 거치대 몰라요? 지금 당장 확인하세요",
+                    "type": "curiosity",
+                    "estimatedCTR": 6.8,
+                    "psychologyUsed": "호기심 + 긴급성"
+                  },
+                  {
+                    "title": "다이슨 청소기 거치대 실제 후기 (장단점 솔직 비교)",
+                    "type": "comparison",
+                    "estimatedCTR": 6.5,
+                    "psychologyUsed": "신뢰성 + 비교 심리"
+                  }
+                ],
+                "bestTitle": "다이슨 청소기 거치대 추천 TOP 10 (2025년 최신)",
+                "titleFormula": "숫자 + 키워드 + 최신연도 + 가치제안"
+              },
+              "structure": {
+                "recommendedStructure": {
+                  "intro": {
+                    "purpose": "독자의 관심 끌기 + 키워드 자연스럽게 배치",
+                    "template": "\"다이슨 청소기 거치대\"에 대해 고민하고 계신가요? 이 글에서 핵심 정보를 모두 정리해드립니다.",
+                    "keywordPlacement": "첫 문장에 키워드 포함"
+                  },
+                  "sections": [
+                    {
+                      "heading": "다이슨 청소기 거치대란? (기본 개념)",
+                      "purpose": "기초 정보 제공",
+                      "contentGuide": "핵심 정의, 중요성, 왜 알아야 하는지 설명",
+                      "recommendedLength": 300,
+                      "keywordUsage": "소제목과 본문에 1~2회"
+                    },
+                    {
+                      "heading": "다이슨 청소기 거치대 추천 BEST 5",
+                      "purpose": "실질적인 가치 제공 (핵심 섹션)",
+                      "contentGuide": "순위별 상세 설명, 장단점, 추천 이유",
+                      "recommendedLength": 800,
+                      "keywordUsage": "각 항목 설명에 자연스럽게 포함"
+                    },
+                    {
+                      "heading": "다이슨 청소기 거치대 선택 시 주의사항",
+                      "purpose": "신뢰도 향상",
+                      "contentGuide": "흔한 실수, 피해야 할 것, 체크리스트",
+                      "recommendedLength": 400,
+                      "keywordUsage": "주의사항 설명에 1~2회"
+                    },
+                    {
+                      "heading": "자주 묻는 질문 (FAQ)",
+                      "purpose": "SEO 강화 + 체류시간 증가",
+                      "contentGuide": "실제 검색되는 질문 5개 + 명확한 답변",
+                      "recommendedLength": 500,
+                      "keywordUsage": "질문에 롱테일 키워드 활용"
+                    }
+                  ],
+                  "conclusion": {
+                    "purpose": "요약 + CTA",
+                    "template": "지금까지 다이슨 청소기 거치대에 대해 알아봤습니다. 도움이 되셨다면 공유해주세요!",
+                    "ctaRecommendation": "댓글, 공유, 관련 글 링크 유도"
+                  }
+                },
+                "seoChecklist": [
+                  {
+                    "item": "제목에 키워드 포함",
+                    "importance": "critical",
+                    "howTo": "제목 앞부분에 메인 키워드 배치"
+                  },
+                  {
+                    "item": "첫 문단에 키워드",
+                    "importance": "critical",
+                    "howTo": "첫 100자 내 키워드 자연스럽게 삽입"
+                  },
+                  {
+                    "item": "소제목 H2/H3 활용",
+                    "importance": "high",
+                    "howTo": "3~5개 소제목, 키워드 변형 사용"
+                  },
+                  {
+                    "item": "이미지 ALT 태그",
+                    "importance": "high",
+                    "howTo": "모든 이미지에 키워드 포함 설명"
+                  },
+                  {
+                    "item": "내부링크 2개 이상",
+                    "importance": "medium",
+                    "howTo": "관련 글 자연스럽게 연결"
+                  },
+                  {
+                    "item": "3000자 이상 작성",
+                    "importance": "high",
+                    "howTo": "충분한 깊이의 콘텐츠 제공"
+                  }
+                ],
+                "totalRecommendedLength": 3000,
+                "estimatedWriteTime": 90
+              },
+              "images": {
+                "mainImage": {
+                  "searchKeyword": "다이슨 청소기 거치대 대표이미지",
+                  "style": "깔끔한 인포그래픽 또는 고화질 사진",
+                  "source": [
+                    "Unsplash",
+                    "Pixabay",
+                    "직접 제작"
+                  ],
+                  "altText": "다이슨 청소기 거치대 완벽 가이드 대표 이미지"
+                },
+                "sectionImages": [
+                  {
+                    "section": "기본 개념",
+                    "searchKeyword": "다이슨 청소기 거치대 설명",
+                    "purpose": "이해 돕기",
+                    "style": "다이어그램"
+                  },
+                  {
+                    "section": "TOP 5",
+                    "searchKeyword": "다이슨 청소기 거치대 비교",
+                    "purpose": "시각적 비교",
+                    "style": "비교표"
+                  },
+                  {
+                    "section": "주의사항",
+                    "searchKeyword": "주의 아이콘",
+                    "purpose": "강조",
+                    "style": "아이콘"
+                  }
+                ],
+                "infographicIdeas": [
+                  "다이슨 청소기 거치대 선택 가이드 플로우차트",
+                  "다이슨 청소기 거치대 TOP 5 비교표",
+                  "다이슨 청소기 거치대 체크리스트"
+                ],
+                "totalRecommendedImages": 7,
+                "imageStrategy": "섹션당 1~2개, 총 7~10개 이미지로 가독성과 체류시간 향상"
+              }
+            },
+            "ultimateScore": {
+              "total": 34,
+              "breakdown": {
+                "goldenRatio": 1.6829561490618303,
+                "timing": 70,
+                "revenue": 40,
+                "competition": 40,
+                "potential": 38
+              },
+              "grade": "📝 C",
+              "verdict": "⚠️ 신중히 검토 필요",
+              "topActions": [
+                "0일 내 작성 권장",
+                "다이슨 청소기 거치대 추천 TOP 10 (2025년 최신)",
+                "3000자 이상, 7개 이미지 권장"
+              ]
+            }
+          },
+          "highlightReason": "✅ ANYTIME/stable | 폭발 65 | 구매의도 40 | 월 1,770원⚠️ | 경쟁도 8"
+        }
+      ],
+      "attempts": 1,
+      "durationMs": 170741
+    }
+  ]
+}

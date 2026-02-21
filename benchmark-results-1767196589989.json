@@ -1,0 +1,31 @@
+{
+  "results": [
+    {
+      "iteration": 1,
+      "timestamp": "2025-12-31T15:56:24.977Z",
+      "keywords": [
+        {
+          "keyword": "대학로연극예매순위",
+          "grade": "A",
+          "searchVolume": 8030,
+          "documentCount": 9552,
+          "goldenRatio": 0.8406616415410385
+        }
+      ],
+      "stats": {
+        "sssCount": 0,
+        "ssCount": 0,
+        "sCount": 0,
+        "avgGoldenRatio": 0.84,
+        "maxGoldenRatio": 0.84
+      }
+    }
+  ],
+  "summary": {
+    "totalSss": 0,
+    "totalKeywords": 10,
+    "sssRate": 0,
+    "allSssKeywords": [],
+    "score": 0
+  }
+}

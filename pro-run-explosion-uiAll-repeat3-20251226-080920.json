@@ -1,0 +1,5478 @@
+{
+  "generatedAt": "2025-12-26T02:54:20.317Z",
+  "mode": "category",
+  "explosionMode": true,
+  "count": 5,
+  "timeoutMs": 240000,
+  "retries": 0,
+  "results": [
+    {
+      "success": false,
+      "category": "book",
+      "runIndex": 1,
+      "mode": "category",
+      "explosionMode": true,
+      "count": 5,
+      "summary": {
+        "totalFound": 0,
+        "sssCount": 0,
+        "ssCount": 0,
+        "sCount": 0,
+        "rookieFriendlyCount": 0,
+        "urgentCount": 0,
+        "blueOceanCount": 0,
+        "explosionFunnel": {
+          "candidates": 46,
+          "verified": 46,
+          "gradeOk": 0,
+          "ratioOk": 0,
+          "docOk": 35,
+          "svOk": 28,
+          "strictOk": 0,
+          "minSv": 30,
+          "internalMetrics": {
+            "seedCount": 137,
+            "allKeywordsCount": 1128,
+            "profitableCount": 61,
+            "uniqueKeywordsCount": 61,
+            "sortedResultsCount": 61,
+            "verifiedResultsCount": 19,
+            "searchAdEnabled": true,
+            "searchAdAdded": 424,
+            "autocompleteAdded": 579
+          },
+          "topByExplosion": [
+            "밀리의서재 요금제 | grade=B gr=0.21967576701695093 sv=4160 dc=18937 src=seed(0) ex=65",
+            "굿윌스토어 책 기부 | grade=B gr=0.19614474129184986 sv=580 dc=2957 src=쇼핑(25) ex=96",
+            "예스24할인권 받는 법 | grade=SS gr=0.15267175572519084 sv=20 dc=131 src=예스24 할인(0) ex=40",
+            "리디북스 구독 | grade=B gr=0.09019165727170236 sv=640 dc=7096 src=seed(0) ex=58",
+            "청년정책사용설명서 | grade=B gr=0.0885896527285613 sv=250 dc=2822 src=청년정책(0) ex=72"
+          ]
+        }
+      },
+      "keywords": [],
+      "attempts": 1,
+      "durationMs": 108176
+    },
+    {
+      "success": true,
+      "category": "book",
+      "runIndex": 2,
+      "mode": "category",
+      "explosionMode": true,
+      "count": 5,
+      "summary": {
+        "totalFound": 1,
+        "sssCount": 1,
+        "ssCount": 0,
+        "sCount": 0,
+        "rookieFriendlyCount": 0,
+        "urgentCount": 0,
+        "blueOceanCount": 0,
+        "explosionFunnel": {
+          "candidates": 37,
+          "verified": 37,
+          "gradeOk": 1,
+          "ratioOk": 1,
+          "docOk": 25,
+          "svOk": 27,
+          "strictOk": 1,
+          "minSv": 30,
+          "internalMetrics": {
+            "seedCount": 141,
+            "allKeywordsCount": 1443,
+            "profitableCount": 53,
+            "uniqueKeywordsCount": 53,
+            "sortedResultsCount": 52,
+            "verifiedResultsCount": 20,
+            "searchAdEnabled": true,
+            "searchAdAdded": 455,
+            "autocompleteAdded": 859
+          },
+          "topByExplosion": [
+            "키스는괜히해서 작가 | grade=SS gr=1.8200243210376976 sv=13470 dc=7401 src=Signal.bz(35) ex=123",
+            "밀리의서재 요금제 | grade=B gr=0.21967576701695093 sv=4160 dc=18937 src=seed(0) ex=65",
+            "리디북스 구독 | grade=B gr=0.09019165727170236 sv=640 dc=7096 src=seed(0) ex=58",
+            "청년정책사용설명서 | grade=B gr=0.0885896527285613 sv=250 dc=2822 src=청년정책(0) ex=72",
+            "청년정책플랫폼 | grade=B gr=0.02939948359167952 sv=3450 dc=117349 src=청년정책(0) ex=85"
+          ]
+        }
+      },
+      "keywords": [
+        {
+          "keyword": "키스는괜히해서 작가",
+          "grade": "SSS",
+          "searchVolume": 13470,
+          "documentCount": 7401,
+          "goldenRatio": 1.8200243210376976,
+          "source": "Signal.bz"
+        }
+      ],
+      "attempts": 1,
+      "durationMs": 80355
+    },
+    {
+      "success": true,
+      "category": "book",
+      "runIndex": 3,
+      "mode": "category",
+      "explosionMode": true,
+      "count": 5,
+      "summary": {
+        "totalFound": 1,
+        "sssCount": 0,
+        "ssCount": 0,
+        "sCount": 1,
+        "rookieFriendlyCount": 0,
+        "urgentCount": 0,
+        "blueOceanCount": 0,
+        "explosionFunnel": {
+          "candidates": 69,
+          "verified": 69,
+          "gradeOk": 1,
+          "ratioOk": 1,
+          "docOk": 56,
+          "svOk": 40,
+          "strictOk": 1,
+          "minSv": 30,
+          "internalMetrics": {
+            "seedCount": 137,
+            "allKeywordsCount": 1299,
+            "profitableCount": 87,
+            "uniqueKeywordsCount": 87,
+            "sortedResultsCount": 86,
+            "verifiedResultsCount": 27,
+            "searchAdEnabled": true,
+            "searchAdAdded": 201,
+            "autocompleteAdded": 968
+          },
+          "topByExplosion": [
+            "박정민 추천 책 | grade=S gr=0.5359891353553644 sv=5920 dc=11045 src=추천 2025(0) ex=65",
+            "밀리의서재 요금제 | grade=B gr=0.21967576701695093 sv=4160 dc=18937 src=seed(0) ex=65",
+            "리디북스 구독 | grade=B gr=0.09019165727170236 sv=640 dc=7096 src=seed(0) ex=58",
+            "청년정책사용설명서 | grade=B gr=0.0885896527285613 sv=250 dc=2822 src=청년정책(0) ex=72",
+            "리디북스 구독 취소 | grade=A gr=0.05917159763313609 sv=20 dc=338 src=리디북스 구독(0) ex=40"
+          ]
+        }
+      },
+      "keywords": [
+        {
+          "keyword": "박정민 추천 책",
+          "grade": "S",
+          "searchVolume": 5920,
+          "documentCount": 11045,
+          "goldenRatio": 0.5359891353553644,
+          "source": "추천 2025"
+        }
+      ],
+      "attempts": 1,
+      "durationMs": 102244
+    },
+    {
+      "success": true,
+      "category": "movie",
+      "runIndex": 1,
+      "mode": "category",
+      "explosionMode": true,
+      "count": 5,
+      "summary": {
+        "totalFound": 1,
+        "sssCount": 0,
+        "ssCount": 1,
+        "sCount": 0,
+        "rookieFriendlyCount": 1,
+        "urgentCount": 0,
+        "blueOceanCount": 0,
+        "explosionFunnel": {
+          "candidates": 72,
+          "verified": 72,
+          "gradeOk": 1,
+          "ratioOk": 1,
+          "docOk": 68,
+          "svOk": 49,
+          "strictOk": 1,
+          "minSv": 30,
+          "internalMetrics": {
+            "seedCount": 143,
+            "allKeywordsCount": 1438,
+            "profitableCount": 90,
+            "uniqueKeywordsCount": 90,
+            "sortedResultsCount": 85,
+            "verifiedResultsCount": 32,
+            "searchAdEnabled": true,
+            "searchAdAdded": 376,
+            "autocompleteAdded": 932
+          },
+          "topByExplosion": [
+            "공포영화 추천 넷플 | grade=S gr=0.7299270072992701 sv=300 dc=411 src=추천(0) ex=52",
+            "티빙 구독 해지 | grade=B gr=0.2500956998851601 sv=1960 dc=7837 src=티빙 구독(0) ex=65",
+            "디즈니플러스 요금제 | grade=B gr=0.2242272050490011 sv=10090 dc=44999 src=seed(0) ex=65",
+            "티빙 구독권 | grade=B gr=0.224060668734919 sv=650 dc=2901 src=티빙 구독(0) ex=58",
+            "티빙 구독료 | grade=B gr=0.2090469916556873 sv=2380 dc=11385 src=티빙 구독(0) ex=65"
+          ]
+        }
+      },
+      "keywords": [
+        {
+          "keyword": "공포영화 추천 넷플",
+          "grade": "SS",
+          "searchVolume": 300,
+          "documentCount": 411,
+          "goldenRatio": 0.7299270072992701,
+          "source": "추천"
+        }
+      ],
+      "attempts": 1,
+      "durationMs": 104577
+    },
+    {
+      "success": true,
+      "category": "movie",
+      "runIndex": 2,
+      "mode": "category",
+      "explosionMode": true,
+      "count": 5,
+      "summary": {
+        "totalFound": 3,
+        "sssCount": 0,
+        "ssCount": 1,
+        "sCount": 2,
+        "rookieFriendlyCount": 1,
+        "urgentCount": 0,
+        "blueOceanCount": 0,
+        "explosionFunnel": {
+          "candidates": 81,
+          "verified": 81,
+          "gradeOk": 3,
+          "ratioOk": 3,
+          "docOk": 73,
+          "svOk": 42,
+          "strictOk": 3,
+          "minSv": 30,
+          "internalMetrics": {
+            "seedCount": 144,
+            "allKeywordsCount": 1267,
+            "profitableCount": 125,
+            "uniqueKeywordsCount": 125,
+            "sortedResultsCount": 124,
+            "verifiedResultsCount": 21,
+            "searchAdEnabled": true,
+            "searchAdAdded": 134,
+            "autocompleteAdded": 996
+          },
+          "topByExplosion": [
+            "티빙 요금제 | grade=A gr=2.5883855916905048 sv=93200 dc=36007 src=seed(0) ex=65",
+            "공포영화 추천 넷플 | grade=S gr=0.7299270072992701 sv=300 dc=411 src=추천(0) ex=52",
+            "웨이브 요금제 | grade=S gr=0.5038190916958272 sv=13390 dc=26577 src=seed(0) ex=65",
+            "티빙 구독 해지 | grade=B gr=0.2500956998851601 sv=1960 dc=7837 src=티빙 구독(0) ex=65",
+            "디즈니플러스 요금제 | grade=B gr=0.2242272050490011 sv=10090 dc=44999 src=seed(0) ex=65"
+          ]
+        }
+      },
+      "keywords": [
+        {
+          "keyword": "티빙 요금제",
+          "grade": "S",
+          "searchVolume": 93200,
+          "documentCount": 36007,
+          "goldenRatio": 2.5883855916905048,
+          "source": "seed"
+        },
+        {
+          "keyword": "공포영화 추천 넷플",
+          "grade": "SS",
+          "searchVolume": 300,
+          "documentCount": 411,
+          "goldenRatio": 0.7299270072992701,
+          "source": "추천"
+        },
+        {
+          "keyword": "웨이브 요금제",
+          "grade": "S",
+          "searchVolume": 13390,
+          "documentCount": 26577,
+          "goldenRatio": 0.5038190916958272,
+          "source": "seed"
+        }
+      ],
+      "attempts": 1,
+      "durationMs": 138267
+    },
+    {
+      "success": true,
+      "category": "movie",
+      "runIndex": 3,
+      "mode": "category",
+      "explosionMode": true,
+      "count": 5,
+      "summary": {
+        "totalFound": 3,
+        "sssCount": 0,
+        "ssCount": 1,
+        "sCount": 2,
+        "rookieFriendlyCount": 1,
+        "urgentCount": 0,
+        "blueOceanCount": 0,
+        "explosionFunnel": {
+          "candidates": 92,
+          "verified": 92,
+          "gradeOk": 3,
+          "ratioOk": 3,
+          "docOk": 76,
+          "svOk": 56,
+          "strictOk": 3,
+          "minSv": 30,
+          "internalMetrics": {
+            "seedCount": 140,
+            "allKeywordsCount": 1115,
+            "profitableCount": 146,
+            "uniqueKeywordsCount": 146,
+            "sortedResultsCount": 145,
+            "verifiedResultsCount": 34,
+            "searchAdEnabled": true,
+            "searchAdAdded": 210,
+            "autocompleteAdded": 772
+          },
+          "topByExplosion": [
+            "티빙 요금제 | grade=A gr=2.5883855916905048 sv=93200 dc=36007 src=seed(0) ex=65",
+            "공포영화 추천 넷플 | grade=S gr=0.7299270072992701 sv=300 dc=411 src=추천(0) ex=52",
+            "웨이브 요금제 | grade=S gr=0.5038190916958272 sv=13390 dc=26577 src=seed(0) ex=65",
+            "티빙 구독 해지 | grade=B gr=0.2500956998851601 sv=1960 dc=7837 src=티빙 구독(0) ex=65",
+            "디즈니플러스 요금제 | grade=B gr=0.2242272050490011 sv=10090 dc=44999 src=seed(0) ex=65"
+          ]
+        }
+      },
+      "keywords": [
+        {
+          "keyword": "티빙 요금제",
+          "grade": "S",
+          "searchVolume": 93200,
+          "documentCount": 36007,
+          "goldenRatio": 2.5883855916905048,
+          "source": "seed"
+        },
+        {
+          "keyword": "공포영화 추천 넷플",
+          "grade": "SS",
+          "searchVolume": 300,
+          "documentCount": 411,
+          "goldenRatio": 0.7299270072992701,
+          "source": "추천"
+        },
+        {
+          "keyword": "웨이브 요금제",
+          "grade": "S",
+          "searchVolume": 13390,
+          "documentCount": 26577,
+          "goldenRatio": 0.5038190916958272,
+          "source": "seed"
+        }
+      ],
+      "attempts": 1,
+      "durationMs": 140264
+    },
+    {
+      "success": false,
+      "category": "art",
+      "runIndex": 1,
+      "mode": "category",
+      "explosionMode": true,
+      "count": 5,
+      "summary": {
+        "totalFound": 0,
+        "sssCount": 0,
+        "ssCount": 0,
+        "sCount": 0,
+        "rookieFriendlyCount": 0,
+        "urgentCount": 0,
+        "blueOceanCount": 0,
+        "explosionFunnel": {
+          "candidates": 8,
+          "verified": 8,
+          "gradeOk": 0,
+          "ratioOk": 0,
+          "docOk": 7,
+          "svOk": 8,
+          "strictOk": 0,
+          "minSv": 30,
+          "internalMetrics": {
+            "seedCount": 126,
+            "allKeywordsCount": 1421,
+            "profitableCount": 13,
+            "uniqueKeywordsCount": 13,
+            "sortedResultsCount": 13,
+            "verifiedResultsCount": 8,
+            "searchAdEnabled": true,
+            "searchAdAdded": 446,
+            "autocompleteAdded": 862
+          },
+          "topByExplosion": [
+            "패션디자인산업기사 | grade=B gr=0.07793195210036115 sv=410 dc=5261 src=인스타(25) ex=90",
+            "패션디자인과 | grade=B gr=0.0597626329227575 sv=2130 dc=35641 src=인스타(25) ex=103",
+            "창원미술학원 | grade=B gr=0.025309659853510757 sv=660 dc=26077 src=인스타(25) ex=96",
+            "패션디자인학과 | grade=B gr=0.022677295217152282 sv=990 dc=43656 src=인스타(25) ex=96",
+            "목동미술학원 | grade=B gr=0.016187601172507327 sv=370 dc=22857 src=인스타(25) ex=90"
+          ]
+        }
+      },
+      "keywords": [],
+      "attempts": 1,
+      "durationMs": 49161
+    },
+    {
+      "success": true,
+      "category": "art",
+      "runIndex": 2,
+      "mode": "category",
+      "explosionMode": true,
+      "count": 5,
+      "summary": {
+        "totalFound": 1,
+        "sssCount": 0,
+        "ssCount": 0,
+        "sCount": 1,
+        "rookieFriendlyCount": 0,
+        "urgentCount": 0,
+        "blueOceanCount": 0,
+        "explosionFunnel": {
+          "candidates": 3,
+          "verified": 3,
+          "gradeOk": 1,
+          "ratioOk": 1,
+          "docOk": 2,
+          "svOk": 2,
+          "strictOk": 1,
+          "minSv": 30,
+          "internalMetrics": {
+            "seedCount": 129,
+            "allKeywordsCount": 1326,
+            "profitableCount": 4,
+            "uniqueKeywordsCount": 4,
+            "sortedResultsCount": 4,
+            "verifiedResultsCount": 2,
+            "searchAdEnabled": true,
+            "searchAdAdded": 384,
+            "autocompleteAdded": 823
+          },
+          "topByExplosion": [
+            "제이아트웨딩홀 | grade=S gr=0.5437424058323208 sv=1790 dc=3292 src=인스타(25) ex=106",
+            "착시효과 그림 | grade=B gr=0.0035691341280605325 sv=100 dc=28018 src=효과(0) ex=46",
+            "데일리 네일아트 | grade=C gr=0.0003181521721839556 sv=20 dc=62863 src=인스타(25) ex=78"
+          ]
+        }
+      },
+      "keywords": [
+        {
+          "keyword": "제이아트웨딩홀",
+          "grade": "S",
+          "searchVolume": 1790,
+          "documentCount": 3292,
+          "goldenRatio": 0.5437424058323208,
+          "source": "인스타"
+        }
+      ],
+      "attempts": 1,
+      "durationMs": 30676
+    },
+    {
+      "success": false,
+      "category": "art",
+      "runIndex": 3,
+      "mode": "category",
+      "explosionMode": true,
+      "count": 5,
+      "summary": {
+        "totalFound": 0,
+        "sssCount": 0,
+        "ssCount": 0,
+        "sCount": 0,
+        "rookieFriendlyCount": 0,
+        "urgentCount": 0,
+        "blueOceanCount": 0,
+        "explosionFunnel": {
+          "candidates": 4,
+          "verified": 4,
+          "gradeOk": 0,
+          "ratioOk": 0,
+          "docOk": 4,
+          "svOk": 3,
+          "strictOk": 0,
+          "minSv": 30,
+          "internalMetrics": {
+            "seedCount": 127,
+            "allKeywordsCount": 1572,
+            "profitableCount": 7,
+            "uniqueKeywordsCount": 7,
+            "sortedResultsCount": 7,
+            "verifiedResultsCount": 3,
+            "searchAdEnabled": true,
+            "searchAdAdded": 534,
+            "autocompleteAdded": 924
+          },
+          "topByExplosion": [
+            "상세페이지디자인 | grade=B gr=0.032705941931127615 sv=1550 dc=47392 src=틱톡(25) ex=103",
+            "아이폰 업데이트 갤러리 | grade=B gr=0.013069997095556202 sv=90 dc=6886 src=데이터랩(30) ex=91",
+            "asmr 갤러리 | grade=B gr=0.0036677058499908306 sv=20 dc=5453 src=틱톡(25) ex=78",
+            "착시효과 그림 | grade=B gr=0.0035691341280605325 sv=100 dc=28018 src=효과(0) ex=46"
+          ]
+        }
+      },
+      "keywords": [],
+      "attempts": 1,
+      "durationMs": 38301
+    },
+    {
+      "success": true,
+      "category": "performance",
+      "runIndex": 1,
+      "mode": "category",
+      "explosionMode": true,
+      "count": 5,
+      "summary": {
+        "totalFound": 1,
+        "sssCount": 0,
+        "ssCount": 0,
+        "sCount": 1,
+        "rookieFriendlyCount": 0,
+        "urgentCount": 0,
+        "blueOceanCount": 0,
+        "explosionFunnel": {
+          "candidates": 4,
+          "verified": 4,
+          "gradeOk": 1,
+          "ratioOk": 1,
+          "docOk": 3,
+          "svOk": 3,
+          "strictOk": 1,
+          "minSv": 30,
+          "internalMetrics": {
+            "seedCount": 122,
+            "allKeywordsCount": 1355,
+            "profitableCount": 4,
+            "uniqueKeywordsCount": 4,
+            "sortedResultsCount": 4,
+            "verifiedResultsCount": 2,
+            "searchAdEnabled": true,
+            "searchAdAdded": 422,
+            "autocompleteAdded": 825
+          },
+          "topByExplosion": [
+            "제주도항공권예매 | grade=S gr=2.9042029534267324 sv=84370 dc=29051 src=category_fallback(0) ex=65",
+            "제주도비행기티켓 | grade=B gr=0.1416511006116544 sv=15470 dc=109212 src=인스타(25) ex=103",
+            "레이디가가 시드니 공연 | grade=A gr=0.06389776357827476 sv=20 dc=313 src=블로그(18) ex=67",
+            "레이디가가 콘서트 | grade=B gr=0.04518381597864038 sv=440 dc=9738 src=블로그(18) ex=79"
+          ]
+        }
+      },
+      "keywords": [
+        {
+          "keyword": "제주도항공권예매",
+          "grade": "S",
+          "searchVolume": 84370,
+          "documentCount": 29051,
+          "goldenRatio": 2.9042029534267324,
+          "source": "category_fallback"
+        }
+      ],
+      "attempts": 1,
+      "durationMs": 34276
+    },
+    {
+      "success": false,
+      "category": "performance",
+      "runIndex": 2,
+      "mode": "category",
+      "explosionMode": true,
+      "count": 5,
+      "summary": {
+        "totalFound": 0,
+        "sssCount": 0,
+        "ssCount": 0,
+        "sCount": 0,
+        "rookieFriendlyCount": 0,
+        "urgentCount": 0,
+        "blueOceanCount": 0,
+        "explosionFunnel": {
+          "candidates": 2,
+          "verified": 2,
+          "gradeOk": 0,
+          "ratioOk": 0,
+          "docOk": 1,
+          "svOk": 1,
+          "strictOk": 0,
+          "minSv": 30,
+          "internalMetrics": {
+            "seedCount": 129,
+            "allKeywordsCount": 1635,
+            "profitableCount": 8,
+            "uniqueKeywordsCount": 8,
+            "sortedResultsCount": 8,
+            "verifiedResultsCount": 1,
+            "searchAdEnabled": true,
+            "searchAdAdded": 679,
+            "autocompleteAdded": 842
+          },
+          "topByExplosion": [
+            "취미발레 | grade=B gr=0.04190014639810187 sv=4980 dc=118854 src=인스타(25) ex=103",
+            "연극소품제작 | grade=B gr=0.011862396204033215 sv=20 dc=1686 src=쇼핑(25) ex=78"
+          ]
+        }
+      },
+      "keywords": [],
+      "attempts": 1,
+      "durationMs": 37190
+    },
+    {
+      "success": false,
+      "category": "performance",
+      "runIndex": 3,
+      "mode": "category",
+      "explosionMode": true,
+      "count": 5,
+      "summary": {
+        "totalFound": 0,
+        "sssCount": 0,
+        "ssCount": 0,
+        "sCount": 0,
+        "rookieFriendlyCount": 0,
+        "urgentCount": 0,
+        "blueOceanCount": 0,
+        "explosionFunnel": {
+          "candidates": 0,
+          "verified": 0,
+          "gradeOk": 0,
+          "ratioOk": 0,
+          "docOk": 0,
+          "svOk": 0,
+          "strictOk": 0,
+          "minSv": 30,
+          "internalMetrics": {
+            "seedCount": 125,
+            "allKeywordsCount": 1447,
+            "profitableCount": 0,
+            "uniqueKeywordsCount": 0,
+            "sortedResultsCount": 0,
+            "verifiedResultsCount": 0,
+            "searchAdEnabled": true,
+            "searchAdAdded": 471,
+            "autocompleteAdded": 859
+          },
+          "topByExplosion": []
+        }
+      },
+      "keywords": [],
+      "attempts": 1,
+      "durationMs": 33290
+    },
+    {
+      "success": true,
+      "category": "music",
+      "runIndex": 1,
+      "mode": "category",
+      "explosionMode": true,
+      "count": 5,
+      "summary": {
+        "totalFound": 3,
+        "sssCount": 2,
+        "ssCount": 1,
+        "sCount": 0,
+        "rookieFriendlyCount": 1,
+        "urgentCount": 0,
+        "blueOceanCount": 2,
+        "explosionFunnel": {
+          "candidates": 24,
+          "verified": 24,
+          "gradeOk": 3,
+          "ratioOk": 3,
+          "docOk": 20,
+          "svOk": 20,
+          "strictOk": 3,
+          "minSv": 30,
+          "internalMetrics": {
+            "seedCount": 139,
+            "allKeywordsCount": 1415,
+            "profitableCount": 28,
+            "uniqueKeywordsCount": 28,
+            "sortedResultsCount": 28,
+            "verifiedResultsCount": 17,
+            "searchAdEnabled": true,
+            "searchAdAdded": 538,
+            "autocompleteAdded": 750
+          },
+          "topByExplosion": [
+            "릴스 노래 찾기 | grade=SSS gr=2.3214285714285716 sv=520 dc=224 src=틱톡(25) ex=99",
+            "스포티파이 요금제 | grade=SSS gr=2.234938458216368 sv=20700 dc=9262 src=seed(0) ex=65",
+            "멜론 이용권 | grade=SS gr=1.0299535479737305 sv=19290 dc=18729 src=seed(0) ex=65",
+            "이엘리야의 반전 노래 실력 | grade=B gr=0.24691358024691357 sv=20 dc=81 src=Signal.bz(35) ex=93",
+            "지니프레쉬 | grade=B gr=0.2324937724882369 sv=840 dc=3613 src=차이(0) ex=58"
+          ]
+        }
+      },
+      "keywords": [
+        {
+          "keyword": "릴스 노래 찾기",
+          "grade": "SSS",
+          "searchVolume": 520,
+          "documentCount": 224,
+          "goldenRatio": 2.3214285714285716,
+          "source": "틱톡"
+        },
+        {
+          "keyword": "스포티파이 요금제",
+          "grade": "SSS",
+          "searchVolume": 20700,
+          "documentCount": 9262,
+          "goldenRatio": 2.234938458216368,
+          "source": "seed"
+        },
+        {
+          "keyword": "멜론 이용권",
+          "grade": "SS",
+          "searchVolume": 19290,
+          "documentCount": 18729,
+          "goldenRatio": 1.0299535479737305,
+          "source": "seed"
+        }
+      ],
+      "attempts": 1,
+      "durationMs": 55814
+    },
+    {
+      "success": true,
+      "category": "music",
+      "runIndex": 2,
+      "mode": "category",
+      "explosionMode": true,
+      "count": 5,
+      "summary": {
+        "totalFound": 3,
+        "sssCount": 2,
+        "ssCount": 1,
+        "sCount": 0,
+        "rookieFriendlyCount": 1,
+        "urgentCount": 0,
+        "blueOceanCount": 2,
+        "explosionFunnel": {
+          "candidates": 33,
+          "verified": 33,
+          "gradeOk": 3,
+          "ratioOk": 3,
+          "docOk": 29,
+          "svOk": 21,
+          "strictOk": 3,
+          "minSv": 30,
+          "internalMetrics": {
+            "seedCount": 134,
+            "allKeywordsCount": 1617,
+            "profitableCount": 42,
+            "uniqueKeywordsCount": 42,
+            "sortedResultsCount": 42,
+            "verifiedResultsCount": 16,
+            "searchAdEnabled": true,
+            "searchAdAdded": 593,
+            "autocompleteAdded": 903
+          },
+          "topByExplosion": [
+            "릴스 노래 찾기 | grade=SSS gr=2.3214285714285716 sv=520 dc=224 src=틱톡(25) ex=99",
+            "스포티파이 요금제 | grade=SSS gr=2.234938458216368 sv=20700 dc=9262 src=seed(0) ex=65",
+            "멜론 이용권 | grade=SS gr=1.0299535479737305 sv=19290 dc=18729 src=seed(0) ex=65",
+            "이엘리야의 반전 노래 실력 | grade=B gr=0.24691358024691357 sv=20 dc=81 src=Signal.bz(35) ex=93",
+            "유튜브뮤직 가격 | grade=B gr=0.22735210999269678 sv=14320 dc=62986 src=seed(0) ex=65"
+          ]
+        }
+      },
+      "keywords": [
+        {
+          "keyword": "릴스 노래 찾기",
+          "grade": "SSS",
+          "searchVolume": 520,
+          "documentCount": 224,
+          "goldenRatio": 2.3214285714285716,
+          "source": "틱톡"
+        },
+        {
+          "keyword": "스포티파이 요금제",
+          "grade": "SSS",
+          "searchVolume": 20700,
+          "documentCount": 9262,
+          "goldenRatio": 2.234938458216368,
+          "source": "seed"
+        },
+        {
+          "keyword": "멜론 이용권",
+          "grade": "SS",
+          "searchVolume": 19290,
+          "documentCount": 18729,
+          "goldenRatio": 1.0299535479737305,
+          "source": "seed"
+        }
+      ],
+      "attempts": 1,
+      "durationMs": 62224
+    },
+    {
+      "success": true,
+      "category": "music",
+      "runIndex": 3,
+      "mode": "category",
+      "explosionMode": true,
+      "count": 5,
+      "summary": {
+        "totalFound": 5,
+        "sssCount": 4,
+        "ssCount": 1,
+        "sCount": 0,
+        "rookieFriendlyCount": 3,
+        "urgentCount": 0,
+        "blueOceanCount": 3,
+        "explosionFunnel": {
+          "candidates": 55,
+          "verified": 55,
+          "gradeOk": 10,
+          "ratioOk": 10,
+          "docOk": 50,
+          "svOk": 17,
+          "strictOk": 9,
+          "minSv": 500,
+          "internalMetrics": {
+            "seedCount": 135,
+            "allKeywordsCount": 1327,
+            "profitableCount": 63,
+            "uniqueKeywordsCount": 63,
+            "sortedResultsCount": 63,
+            "verifiedResultsCount": 35,
+            "searchAdEnabled": true,
+            "searchAdAdded": 351,
+            "autocompleteAdded": 849
+          },
+          "topByExplosion": [
+            "멜론이용권끊는법 | grade=SSS gr=14.615384615384615 sv=380 dc=26 src=멜론 이용권(0) ex=52",
+            "아이폰 멜론 이용권 해지 | grade=SSS gr=2.466666666666667 sv=3330 dc=1350 src=멜론 이용권(0) ex=65",
+            "릴스 노래 찾기 | grade=SSS gr=2.3214285714285716 sv=520 dc=224 src=틱톡(25) ex=99",
+            "스포티파이 요금제 | grade=SSS gr=2.234938458216368 sv=20700 dc=9262 src=seed(0) ex=65",
+            "멜론 이용권 환불 | grade=SS gr=1.0857908847184987 sv=1620 dc=1492 src=멜론 이용권(0) ex=65"
+          ]
+        }
+      },
+      "keywords": [
+        {
+          "keyword": "아이폰 멜론 이용권 해지",
+          "grade": "SSS",
+          "searchVolume": 3330,
+          "documentCount": 1350,
+          "goldenRatio": 2.466666666666667,
+          "source": "멜론 이용권"
+        },
+        {
+          "keyword": "릴스 노래 찾기",
+          "grade": "SSS",
+          "searchVolume": 520,
+          "documentCount": 224,
+          "goldenRatio": 2.3214285714285716,
+          "source": "틱톡"
+        },
+        {
+          "keyword": "스포티파이 요금제",
+          "grade": "SSS",
+          "searchVolume": 20700,
+          "documentCount": 9262,
+          "goldenRatio": 2.234938458216368,
+          "source": "seed"
+        },
+        {
+          "keyword": "멜론 이용권 환불",
+          "grade": "SSS",
+          "searchVolume": 1620,
+          "documentCount": 1492,
+          "goldenRatio": 1.0857908847184987,
+          "source": "멜론 이용권"
+        },
+        {
+          "keyword": "멜론 이용권",
+          "grade": "SS",
+          "searchVolume": 19290,
+          "documentCount": 18729,
+          "goldenRatio": 1.0299535479737305,
+          "source": "seed"
+        }
+      ],
+      "attempts": 1,
+      "durationMs": 84100
+    },
+    {
+      "success": true,
+      "category": "drama",
+      "runIndex": 1,
+      "mode": "category",
+      "explosionMode": true,
+      "count": 5,
+      "summary": {
+        "totalFound": 5,
+        "sssCount": 5,
+        "ssCount": 0,
+        "sCount": 0,
+        "rookieFriendlyCount": 5,
+        "urgentCount": 0,
+        "blueOceanCount": 5,
+        "explosionFunnel": {
+          "candidates": 80,
+          "verified": 80,
+          "gradeOk": 10,
+          "ratioOk": 10,
+          "docOk": 71,
+          "svOk": 25,
+          "strictOk": 10,
+          "minSv": 500,
+          "internalMetrics": {
+            "seedCount": 141,
+            "allKeywordsCount": 1239,
+            "profitableCount": 101,
+            "uniqueKeywordsCount": 101,
+            "sortedResultsCount": 98,
+            "verifiedResultsCount": 39,
+            "searchAdEnabled": true,
+            "searchAdAdded": 244,
+            "autocompleteAdded": 861
+          },
+          "topByExplosion": [
+            "고확다시보기 | grade=SSS gr=538.6206896551724 sv=15620 dc=29 src=Signal.bz(35) ex=123",
+            "주토피아1 다시보기 | grade=SSS gr=22.041420118343197 sv=14900 dc=676 src=Signal.bz(35) ex=123",
+            "아바타 다시보기 ott | grade=SSS gr=4.942084942084942 sv=1280 dc=259 src=Signal.bz(35) ex=123",
+            "미스트롯4 다시보기 | grade=SSS gr=2.1951219512195124 sv=3420 dc=1558 src=Signal.bz(35) ex=123",
+            "mma 다시보기 | grade=SSS gr=2.182795698924731 sv=2030 dc=930 src=Signal.bz(35) ex=123"
+          ]
+        }
+      },
+      "keywords": [
+        {
+          "keyword": "고확다시보기",
+          "grade": "SSS",
+          "searchVolume": 15620,
+          "documentCount": 29,
+          "goldenRatio": 538.6206896551724,
+          "source": "Signal.bz"
+        },
+        {
+          "keyword": "주토피아1 다시보기",
+          "grade": "SSS",
+          "searchVolume": 14900,
+          "documentCount": 676,
+          "goldenRatio": 22.041420118343197,
+          "source": "Signal.bz"
+        },
+        {
+          "keyword": "아바타 다시보기 ott",
+          "grade": "SSS",
+          "searchVolume": 1280,
+          "documentCount": 259,
+          "goldenRatio": 4.942084942084942,
+          "source": "Signal.bz"
+        },
+        {
+          "keyword": "미스트롯4 다시보기",
+          "grade": "SSS",
+          "searchVolume": 3420,
+          "documentCount": 1558,
+          "goldenRatio": 2.1951219512195124,
+          "source": "Signal.bz"
+        },
+        {
+          "keyword": "mma 다시보기",
+          "grade": "SSS",
+          "searchVolume": 2030,
+          "documentCount": 930,
+          "goldenRatio": 2.182795698924731,
+          "source": "Signal.bz"
+        }
+      ],
+      "attempts": 1,
+      "durationMs": 114058
+    },
+    {
+      "success": true,
+      "category": "drama",
+      "runIndex": 2,
+      "mode": "category",
+      "explosionMode": true,
+      "count": 5,
+      "summary": {
+        "totalFound": 5,
+        "sssCount": 5,
+        "ssCount": 0,
+        "sCount": 0,
+        "rookieFriendlyCount": 5,
+        "urgentCount": 0,
+        "blueOceanCount": 5,
+        "explosionFunnel": {
+          "candidates": 36,
+          "verified": 36,
+          "gradeOk": 9,
+          "ratioOk": 9,
+          "docOk": 27,
+          "svOk": 17,
+          "strictOk": 9,
+          "minSv": 500,
+          "internalMetrics": {
+            "seedCount": 139,
+            "allKeywordsCount": 1047,
+            "profitableCount": 56,
+            "uniqueKeywordsCount": 56,
+            "sortedResultsCount": 53,
+            "verifiedResultsCount": 22,
+            "searchAdEnabled": true,
+            "searchAdAdded": 124,
+            "autocompleteAdded": 792
+          },
+          "topByExplosion": [
+            "고확다시보기 | grade=SSS gr=538.6206896551724 sv=15620 dc=29 src=Signal.bz(35) ex=123",
+            "주토피아1 다시보기 | grade=SSS gr=22.041420118343197 sv=14900 dc=676 src=Signal.bz(35) ex=123",
+            "아바타 다시보기 ott | grade=SSS gr=4.942084942084942 sv=1280 dc=259 src=Signal.bz(35) ex=123",
+            "미스트롯4 다시보기 | grade=SSS gr=2.1937139191789607 sv=3420 dc=1559 src=Signal.bz(35) ex=123",
+            "mma 다시보기 | grade=SSS gr=2.182795698924731 sv=2030 dc=930 src=Signal.bz(35) ex=123"
+          ]
+        }
+      },
+      "keywords": [
+        {
+          "keyword": "고확다시보기",
+          "grade": "SSS",
+          "searchVolume": 15620,
+          "documentCount": 29,
+          "goldenRatio": 538.6206896551724,
+          "source": "Signal.bz"
+        },
+        {
+          "keyword": "주토피아1 다시보기",
+          "grade": "SSS",
+          "searchVolume": 14900,
+          "documentCount": 676,
+          "goldenRatio": 22.041420118343197,
+          "source": "Signal.bz"
+        },
+        {
+          "keyword": "아바타 다시보기 ott",
+          "grade": "SSS",
+          "searchVolume": 1280,
+          "documentCount": 259,
+          "goldenRatio": 4.942084942084942,
+          "source": "Signal.bz"
+        },
+        {
+          "keyword": "미스트롯4 다시보기",
+          "grade": "SSS",
+          "searchVolume": 3420,
+          "documentCount": 1559,
+          "goldenRatio": 2.1937139191789607,
+          "source": "Signal.bz"
+        },
+        {
+          "keyword": "mma 다시보기",
+          "grade": "SSS",
+          "searchVolume": 2030,
+          "documentCount": 930,
+          "goldenRatio": 2.182795698924731,
+          "source": "Signal.bz"
+        }
+      ],
+      "attempts": 1,
+      "durationMs": 75552
+    },
+    {
+      "success": true,
+      "category": "drama",
+      "runIndex": 3,
+      "mode": "category",
+      "explosionMode": true,
+      "count": 5,
+      "summary": {
+        "totalFound": 5,
+        "sssCount": 5,
+        "ssCount": 0,
+        "sCount": 0,
+        "rookieFriendlyCount": 5,
+        "urgentCount": 0,
+        "blueOceanCount": 5,
+        "explosionFunnel": {
+          "candidates": 40,
+          "verified": 40,
+          "gradeOk": 10,
+          "ratioOk": 10,
+          "docOk": 31,
+          "svOk": 17,
+          "strictOk": 9,
+          "minSv": 500,
+          "internalMetrics": {
+            "seedCount": 139,
+            "allKeywordsCount": 1027,
+            "profitableCount": 59,
+            "uniqueKeywordsCount": 59,
+            "sortedResultsCount": 56,
+            "verifiedResultsCount": 23,
+            "searchAdEnabled": true,
+            "searchAdAdded": 82,
+            "autocompleteAdded": 813
+          },
+          "topByExplosion": [
+            "고확다시보기 | grade=SSS gr=538.6206896551724 sv=15620 dc=29 src=Signal.bz(35) ex=123",
+            "주토피아1 다시보기 | grade=SSS gr=22.041420118343197 sv=14900 dc=676 src=Signal.bz(35) ex=123",
+            "아바타 다시보기 ott | grade=SSS gr=4.942084942084942 sv=1280 dc=259 src=Signal.bz(35) ex=123",
+            "미스트롯4 다시보기 | grade=SSS gr=2.1937139191789607 sv=3420 dc=1559 src=Signal.bz(35) ex=123",
+            "mma 다시보기 | grade=SSS gr=2.182795698924731 sv=2030 dc=930 src=Signal.bz(35) ex=123"
+          ]
+        }
+      },
+      "keywords": [
+        {
+          "keyword": "고확다시보기",
+          "grade": "SSS",
+          "searchVolume": 15620,
+          "documentCount": 29,
+          "goldenRatio": 538.6206896551724,
+          "source": "Signal.bz"
+        },
+        {
+          "keyword": "주토피아1 다시보기",
+          "grade": "SSS",
+          "searchVolume": 14900,
+          "documentCount": 676,
+          "goldenRatio": 22.041420118343197,
+          "source": "Signal.bz"
+        },
+        {
+          "keyword": "아바타 다시보기 ott",
+          "grade": "SSS",
+          "searchVolume": 1280,
+          "documentCount": 259,
+          "goldenRatio": 4.942084942084942,
+          "source": "Signal.bz"
+        },
+        {
+          "keyword": "미스트롯4 다시보기",
+          "grade": "SSS",
+          "searchVolume": 3420,
+          "documentCount": 1559,
+          "goldenRatio": 2.1937139191789607,
+          "source": "Signal.bz"
+        },
+        {
+          "keyword": "mma 다시보기",
+          "grade": "SSS",
+          "searchVolume": 2030,
+          "documentCount": 930,
+          "goldenRatio": 2.182795698924731,
+          "source": "Signal.bz"
+        }
+      ],
+      "attempts": 1,
+      "durationMs": 77291
+    },
+    {
+      "success": true,
+      "category": "celeb",
+      "runIndex": 1,
+      "mode": "category",
+      "explosionMode": true,
+      "count": 5,
+      "summary": {
+        "totalFound": 5,
+        "sssCount": 4,
+        "ssCount": 1,
+        "sCount": 0,
+        "rookieFriendlyCount": 5,
+        "urgentCount": 0,
+        "blueOceanCount": 2,
+        "explosionFunnel": {
+          "candidates": 129,
+          "verified": 129,
+          "gradeOk": 19,
+          "ratioOk": 24,
+          "docOk": 118,
+          "svOk": 30,
+          "strictOk": 12,
+          "minSv": 500,
+          "internalMetrics": {
+            "seedCount": 113,
+            "allKeywordsCount": 1141,
+            "profitableCount": 172,
+            "uniqueKeywordsCount": 172,
+            "sortedResultsCount": 172,
+            "verifiedResultsCount": 56,
+            "searchAdEnabled": true,
+            "searchAdAdded": 253,
+            "autocompleteAdded": 784
+          },
+          "topByExplosion": [
+            "강태오 팬미팅 티켓팅 | grade=SSS gr=32.5 sv=650 dc=20 src=팬미팅 티켓(0) ex=58",
+            "벡스코 콘서트 좌석수 | grade=SSS gr=2.558139534883721 sv=220 dc=86 src=콘서트 좌석(0) ex=52",
+            "김건모 콘서트 예매 | grade=SSS gr=2.265973254086181 sv=3050 dc=1346 src=콘서트 예매(0) ex=65",
+            "하츠투하츠 팬미팅 티켓팅 | grade=SSS gr=2.1875 sv=140 dc=64 src=팬미팅 티켓(0) ex=46",
+            "고척돔 콘서트 좌석수 | grade=SS gr=1.9658119658119657 sv=460 dc=234 src=콘서트 좌석(0) ex=52"
+          ]
+        }
+      },
+      "keywords": [
+        {
+          "keyword": "강태오 팬미팅 티켓팅",
+          "grade": "SSS",
+          "searchVolume": 650,
+          "documentCount": 20,
+          "goldenRatio": 32.5,
+          "source": "팬미팅 티켓"
+        },
+        {
+          "keyword": "김건모 콘서트 예매",
+          "grade": "SSS",
+          "searchVolume": 3050,
+          "documentCount": 1346,
+          "goldenRatio": 2.265973254086181,
+          "source": "콘서트 예매"
+        },
+        {
+          "keyword": "브아솔 콘서트 예매",
+          "grade": "SSS",
+          "searchVolume": 1830,
+          "documentCount": 1060,
+          "goldenRatio": 1.7264150943396226,
+          "source": "콘서트 예매"
+        },
+        {
+          "keyword": "조용필 콘서트 예매",
+          "grade": "SSS",
+          "searchVolume": 5410,
+          "documentCount": 4472,
+          "goldenRatio": 1.2097495527728086,
+          "source": "콘서트 예매"
+        },
+        {
+          "keyword": "브아솔 콘서트 좌석",
+          "grade": "SS",
+          "searchVolume": 530,
+          "documentCount": 602,
+          "goldenRatio": 0.8803986710963455,
+          "source": "콘서트 좌석"
+        }
+      ],
+      "attempts": 1,
+      "durationMs": 152494
+    },
+    {
+      "success": false,
+      "category": "celeb",
+      "runIndex": 2,
+      "mode": "category",
+      "explosionMode": true,
+      "count": 5,
+      "error": "timeout",
+      "attempts": 1,
+      "durationMs": 240031
+    },
+    {
+      "success": false,
+      "category": "celeb",
+      "runIndex": 3,
+      "mode": "category",
+      "explosionMode": true,
+      "count": 5,
+      "error": "timeout",
+      "attempts": 1,
+      "durationMs": 240030
+    },
+    {
+      "success": true,
+      "category": "anime",
+      "runIndex": 1,
+      "mode": "category",
+      "explosionMode": true,
+      "count": 5,
+      "summary": {
+        "totalFound": 1,
+        "sssCount": 0,
+        "ssCount": 0,
+        "sCount": 1,
+        "rookieFriendlyCount": 1,
+        "urgentCount": 0,
+        "blueOceanCount": 0,
+        "explosionFunnel": {
+          "candidates": 5,
+          "verified": 5,
+          "gradeOk": 1,
+          "ratioOk": 1,
+          "docOk": 4,
+          "svOk": 3,
+          "strictOk": 1,
+          "minSv": 30,
+          "internalMetrics": {
+            "seedCount": 138,
+            "allKeywordsCount": 1083,
+            "profitableCount": 6,
+            "uniqueKeywordsCount": 6,
+            "sortedResultsCount": 6,
+            "verifiedResultsCount": 2,
+            "searchAdEnabled": true,
+            "searchAdAdded": 836,
+            "autocompleteAdded": 123
+          },
+          "topByExplosion": [
+            "웹툰 쿠키 충전 | grade=A gr=0.3233581040369552 sv=1610 dc=4979 src=seed(0) ex=65",
+            "라프텔 구독 | grade=B gr=0.054777845404747415 sv=180 dc=3286 src=seed(0) ex=46",
+            "크런치롤 구독 | grade=A gr=0.02506265664160401 sv=20 dc=798 src=seed(0) ex=40",
+            "애니플러스 구독 | grade=B gr=0.016778523489932886 sv=20 dc=1192 src=seed(0) ex=40",
+            "웹툰 결제 | grade=C gr=0.00038857964425533567 sv=40 dc=102939 src=seed(0) ex=40"
+          ]
+        }
+      },
+      "keywords": [
+        {
+          "keyword": "웹툰 쿠키 충전",
+          "grade": "S",
+          "searchVolume": 1610,
+          "documentCount": 4979,
+          "goldenRatio": 0.3233581040369552,
+          "source": "seed"
+        }
+      ],
+      "attempts": 1,
+      "durationMs": 108606
+    },
+    {
+      "success": true,
+      "category": "anime",
+      "runIndex": 2,
+      "mode": "category",
+      "explosionMode": true,
+      "count": 5,
+      "summary": {
+        "totalFound": 1,
+        "sssCount": 0,
+        "ssCount": 0,
+        "sCount": 1,
+        "rookieFriendlyCount": 1,
+        "urgentCount": 0,
+        "blueOceanCount": 0,
+        "explosionFunnel": {
+          "candidates": 5,
+          "verified": 5,
+          "gradeOk": 1,
+          "ratioOk": 1,
+          "docOk": 4,
+          "svOk": 3,
+          "strictOk": 1,
+          "minSv": 30,
+          "internalMetrics": {
+            "seedCount": 137,
+            "allKeywordsCount": 492,
+            "profitableCount": 6,
+            "uniqueKeywordsCount": 6,
+            "sortedResultsCount": 6,
+            "verifiedResultsCount": 2,
+            "searchAdEnabled": true,
+            "searchAdAdded": 297,
+            "autocompleteAdded": 64
+          },
+          "topByExplosion": [
+            "웹툰 쿠키 충전 | grade=A gr=0.3233581040369552 sv=1610 dc=4979 src=seed(0) ex=65",
+            "라프텔 구독 | grade=B gr=0.054777845404747415 sv=180 dc=3286 src=seed(0) ex=46",
+            "크런치롤 구독 | grade=A gr=0.02506265664160401 sv=20 dc=798 src=seed(0) ex=40",
+            "애니플러스 구독 | grade=B gr=0.016778523489932886 sv=20 dc=1192 src=seed(0) ex=40",
+            "웹툰 결제 | grade=C gr=0.00038857964425533567 sv=40 dc=102939 src=seed(0) ex=40"
+          ]
+        }
+      },
+      "keywords": [
+        {
+          "keyword": "웹툰 쿠키 충전",
+          "grade": "S",
+          "searchVolume": 1610,
+          "documentCount": 4979,
+          "goldenRatio": 0.3233581040369552,
+          "source": "seed"
+        }
+      ],
+      "attempts": 1,
+      "durationMs": 117306
+    },
+    {
+      "success": true,
+      "category": "anime",
+      "runIndex": 3,
+      "mode": "category",
+      "explosionMode": true,
+      "count": 5,
+      "summary": {
+        "totalFound": 1,
+        "sssCount": 0,
+        "ssCount": 0,
+        "sCount": 1,
+        "rookieFriendlyCount": 1,
+        "urgentCount": 0,
+        "blueOceanCount": 0,
+        "explosionFunnel": {
+          "candidates": 21,
+          "verified": 21,
+          "gradeOk": 1,
+          "ratioOk": 1,
+          "docOk": 17,
+          "svOk": 19,
+          "strictOk": 1,
+          "minSv": 30,
+          "internalMetrics": {
+            "seedCount": 135,
+            "allKeywordsCount": 867,
+            "profitableCount": 35,
+            "uniqueKeywordsCount": 35,
+            "sortedResultsCount": 35,
+            "verifiedResultsCount": 17,
+            "searchAdEnabled": true,
+            "searchAdAdded": 714,
+            "autocompleteAdded": 33
+          },
+          "topByExplosion": [
+            "웹툰 쿠키 충전 | grade=A gr=0.3233581040369552 sv=1610 dc=4979 src=seed(0) ex=65",
+            "벨벳원피스 | grade=B gr=0.18404367735118 sv=12540 dc=68136 src=틱톡(25) ex=103",
+            "겨울정장원피스 | grade=B gr=0.16610789393477599 sv=1090 dc=6562 src=틱톡(25) ex=103",
+            "겨울뷔스티에원피스 | grade=B gr=0.12515094961027556 sv=1140 dc=9109 src=틱톡(25) ex=103",
+            "연회장원피스 | grade=B gr=0.11351789644387814 sv=980 dc=8633 src=인스타(25) ex=96"
+          ]
+        }
+      },
+      "keywords": [
+        {
+          "keyword": "웹툰 쿠키 충전",
+          "grade": "S",
+          "searchVolume": 1610,
+          "documentCount": 4979,
+          "goldenRatio": 0.3233581040369552,
+          "source": "seed"
+        }
+      ],
+      "attempts": 1,
+      "durationMs": 138403
+    },
+    {
+      "success": true,
+      "category": "broadcast",
+      "runIndex": 1,
+      "mode": "category",
+      "explosionMode": true,
+      "count": 5,
+      "summary": {
+        "totalFound": 1,
+        "sssCount": 0,
+        "ssCount": 1,
+        "sCount": 0,
+        "rookieFriendlyCount": 1,
+        "urgentCount": 0,
+        "blueOceanCount": 0,
+        "explosionFunnel": {
+          "candidates": 1,
+          "verified": 1,
+          "gradeOk": 1,
+          "ratioOk": 1,
+          "docOk": 1,
+          "svOk": 1,
+          "strictOk": 1,
+          "minSv": 30,
+          "internalMetrics": {
+            "seedCount": 138,
+            "allKeywordsCount": 834,
+            "profitableCount": 1,
+            "uniqueKeywordsCount": 1,
+            "sortedResultsCount": 1,
+            "verifiedResultsCount": 1,
+            "searchAdEnabled": true,
+            "searchAdAdded": 673,
+            "autocompleteAdded": 37
+          },
+          "topByExplosion": [
+            "실시간 TV 보기 | grade=SS gr=11.751645458534444 sv=133910 dc=11395 src=seed(0) ex=65"
+          ]
+        }
+      },
+      "keywords": [
+        {
+          "keyword": "실시간 TV 보기",
+          "grade": "SS",
+          "searchVolume": 133910,
+          "documentCount": 11395,
+          "goldenRatio": 11.751645458534444,
+          "source": "seed"
+        }
+      ],
+      "attempts": 1,
+      "durationMs": 122109
+    },
+    {
+      "success": true,
+      "category": "broadcast",
+      "runIndex": 2,
+      "mode": "category",
+      "explosionMode": true,
+      "count": 5,
+      "summary": {
+        "totalFound": 1,
+        "sssCount": 0,
+        "ssCount": 1,
+        "sCount": 0,
+        "rookieFriendlyCount": 1,
+        "urgentCount": 0,
+        "blueOceanCount": 0,
+        "explosionFunnel": {
+          "candidates": 7,
+          "verified": 7,
+          "gradeOk": 1,
+          "ratioOk": 1,
+          "docOk": 6,
+          "svOk": 7,
+          "strictOk": 1,
+          "minSv": 30,
+          "internalMetrics": {
+            "seedCount": 136,
+            "allKeywordsCount": 892,
+            "profitableCount": 23,
+            "uniqueKeywordsCount": 23,
+            "sortedResultsCount": 23,
+            "verifiedResultsCount": 7,
+            "searchAdEnabled": true,
+            "searchAdAdded": 649,
+            "autocompleteAdded": 122
+          },
+          "topByExplosion": [
+            "실시간 TV 보기 | grade=SS gr=11.751645458534444 sv=133910 dc=11395 src=seed(0) ex=65",
+            "유튜브쇼츠광고 | grade=B gr=0.08366845699171413 sv=3100 dc=37051 src=틱톡(25) ex=103",
+            "유튜브스폰서광고 | grade=B gr=0.07310589277802393 sv=660 dc=9028 src=틱톡(25) ex=96",
+            "유튜브숏츠만들기 | grade=B gr=0.06610009442870633 sv=630 dc=9531 src=틱톡(25) ex=96",
+            "유튜브배너만들기 | grade=B gr=0.05212485435702459 sv=850 dc=16307 src=틱톡(25) ex=96"
+          ]
+        }
+      },
+      "keywords": [
+        {
+          "keyword": "실시간 TV 보기",
+          "grade": "SS",
+          "searchVolume": 133910,
+          "documentCount": 11395,
+          "goldenRatio": 11.751645458534444,
+          "source": "seed"
+        }
+      ],
+      "attempts": 1,
+      "durationMs": 124635
+    },
+    {
+      "success": true,
+      "category": "broadcast",
+      "runIndex": 3,
+      "mode": "category",
+      "explosionMode": true,
+      "count": 5,
+      "summary": {
+        "totalFound": 1,
+        "sssCount": 0,
+        "ssCount": 1,
+        "sCount": 0,
+        "rookieFriendlyCount": 1,
+        "urgentCount": 0,
+        "blueOceanCount": 0,
+        "explosionFunnel": {
+          "candidates": 1,
+          "verified": 1,
+          "gradeOk": 1,
+          "ratioOk": 1,
+          "docOk": 1,
+          "svOk": 1,
+          "strictOk": 1,
+          "minSv": 30,
+          "internalMetrics": {
+            "seedCount": 139,
+            "allKeywordsCount": 1043,
+            "profitableCount": 1,
+            "uniqueKeywordsCount": 1,
+            "sortedResultsCount": 1,
+            "verifiedResultsCount": 1,
+            "searchAdEnabled": true,
+            "searchAdAdded": 774,
+            "autocompleteAdded": 143
+          },
+          "topByExplosion": [
+            "실시간 TV 보기 | grade=SS gr=11.751645458534444 sv=133910 dc=11395 src=seed(0) ex=65"
+          ]
+        }
+      },
+      "keywords": [
+        {
+          "keyword": "실시간 TV 보기",
+          "grade": "SS",
+          "searchVolume": 133910,
+          "documentCount": 11395,
+          "goldenRatio": 11.751645458534444,
+          "source": "seed"
+        }
+      ],
+      "attempts": 1,
+      "durationMs": 107358
+    },
+    {
+      "success": false,
+      "category": "daily",
+      "runIndex": 1,
+      "mode": "category",
+      "explosionMode": true,
+      "count": 5,
+      "summary": {
+        "totalFound": 0,
+        "sssCount": 0,
+        "ssCount": 0,
+        "sCount": 0,
+        "rookieFriendlyCount": 0,
+        "urgentCount": 0,
+        "blueOceanCount": 0,
+        "explosionFunnel": {
+          "candidates": 5,
+          "verified": 5,
+          "gradeOk": 0,
+          "ratioOk": 0,
+          "docOk": 2,
+          "svOk": 4,
+          "strictOk": 0,
+          "minSv": 30,
+          "internalMetrics": {
+            "seedCount": 137,
+            "allKeywordsCount": 1051,
+            "profitableCount": 9,
+            "uniqueKeywordsCount": 9,
+            "sortedResultsCount": 9,
+            "verifiedResultsCount": 3,
+            "searchAdEnabled": true,
+            "searchAdAdded": 928,
+            "autocompleteAdded": 0
+          },
+          "topByExplosion": [
+            "브이로그 카메라 추천 | grade=B gr=0.010716007929845868 sv=600 dc=55991 src=seed(0) ex=58",
+            "다이어리 앱 추천 | grade=B gr=0.0068849449204406365 sv=270 dc=39216 src=seed(0) ex=85",
+            "브이로그 편집 앱 | grade=C gr=0.003894080996884735 sv=50 dc=12840 src=seed(0) ex=40",
+            "브이로그편집 | grade=B gr=0.003047108294228777 sv=350 dc=114863 src=틱톡(25) ex=90",
+            "일상틱톡 | grade=C gr=0.00025946731360516857 sv=20 dc=77081 src=틱톡(25) ex=78"
+          ]
+        }
+      },
+      "keywords": [],
+      "attempts": 1,
+      "durationMs": 136323
+    },
+    {
+      "success": false,
+      "category": "daily",
+      "runIndex": 2,
+      "mode": "category",
+      "explosionMode": true,
+      "count": 5,
+      "summary": {
+        "totalFound": 0,
+        "sssCount": 0,
+        "ssCount": 0,
+        "sCount": 0,
+        "rookieFriendlyCount": 0,
+        "urgentCount": 0,
+        "blueOceanCount": 0,
+        "explosionFunnel": {
+          "candidates": 4,
+          "verified": 4,
+          "gradeOk": 0,
+          "ratioOk": 0,
+          "docOk": 2,
+          "svOk": 3,
+          "strictOk": 0,
+          "minSv": 30,
+          "internalMetrics": {
+            "seedCount": 138,
+            "allKeywordsCount": 900,
+            "profitableCount": 9,
+            "uniqueKeywordsCount": 9,
+            "sortedResultsCount": 9,
+            "verifiedResultsCount": 2,
+            "searchAdEnabled": true,
+            "searchAdAdded": 682,
+            "autocompleteAdded": 101
+          },
+          "topByExplosion": [
+            "브이로그 카메라 추천 | grade=B gr=0.010716007929845868 sv=600 dc=55991 src=seed(0) ex=58",
+            "다이어리 앱 추천 | grade=B gr=0.0068849449204406365 sv=270 dc=39216 src=seed(0) ex=85",
+            "브이로그 편집 앱 | grade=C gr=0.003894080996884735 sv=50 dc=12840 src=seed(0) ex=40",
+            "일상틱톡 | grade=C gr=0.00025946731360516857 sv=20 dc=77081 src=틱톡(25) ex=78"
+          ]
+        }
+      },
+      "keywords": [],
+      "attempts": 1,
+      "durationMs": 118920
+    },
+    {
+      "success": true,
+      "category": "daily",
+      "runIndex": 3,
+      "mode": "category",
+      "explosionMode": true,
+      "count": 5,
+      "summary": {
+        "totalFound": 2,
+        "sssCount": 0,
+        "ssCount": 0,
+        "sCount": 2,
+        "rookieFriendlyCount": 1,
+        "urgentCount": 0,
+        "blueOceanCount": 0,
+        "explosionFunnel": {
+          "candidates": 22,
+          "verified": 22,
+          "gradeOk": 2,
+          "ratioOk": 2,
+          "docOk": 17,
+          "svOk": 15,
+          "strictOk": 2,
+          "minSv": 30,
+          "internalMetrics": {
+            "seedCount": 135,
+            "allKeywordsCount": 1087,
+            "profitableCount": 26,
+            "uniqueKeywordsCount": 26,
+            "sortedResultsCount": 26,
+            "verifiedResultsCount": 12,
+            "searchAdEnabled": true,
+            "searchAdAdded": 921,
+            "autocompleteAdded": 50
+          },
+          "topByExplosion": [
+            "2026 다이어리 추천 | grade=A gr=0.41443026836779584 sv=4710 dc=11365 src=다이어리 추천(0) ex=98",
+            "26년 다이어리 추천 | grade=A gr=0.35919540229885055 sv=750 dc=2088 src=다이어리 추천(0) ex=91",
+            "다이어리 추천 2026 | grade=B gr=0.14875283446712018 sv=1640 dc=11025 src=다이어리 추천(0) ex=98",
+            "2026년 다이어리 추천 | grade=B gr=0.13521973206460497 sv=1080 dc=7987 src=다이어리 추천(0) ex=98",
+            "데일리 다이어리 추천 | grade=B gr=0.07034263671431813 sv=310 dc=4407 src=다이어리 추천(0) ex=85"
+          ]
+        }
+      },
+      "keywords": [
+        {
+          "keyword": "2026 다이어리 추천",
+          "grade": "S",
+          "searchVolume": 4710,
+          "documentCount": 11365,
+          "goldenRatio": 0.41443026836779584,
+          "source": "다이어리 추천"
+        },
+        {
+          "keyword": "26년 다이어리 추천",
+          "grade": "S",
+          "searchVolume": 750,
+          "documentCount": 2088,
+          "goldenRatio": 0.35919540229885055,
+          "source": "다이어리 추천"
+        }
+      ],
+      "attempts": 1,
+      "durationMs": 140798
+    },
+    {
+      "success": false,
+      "category": "life_tips",
+      "runIndex": 1,
+      "mode": "category",
+      "explosionMode": true,
+      "count": 5,
+      "error": "timeout",
+      "attempts": 1,
+      "durationMs": 240021
+    },
+    {
+      "success": false,
+      "category": "life_tips",
+      "runIndex": 2,
+      "mode": "category",
+      "explosionMode": true,
+      "count": 5,
+      "error": "timeout",
+      "attempts": 1,
+      "durationMs": 240019
+    },
+    {
+      "success": false,
+      "category": "life_tips",
+      "runIndex": 3,
+      "mode": "category",
+      "explosionMode": true,
+      "count": 5,
+      "error": "timeout",
+      "attempts": 1,
+      "durationMs": 240040
+    },
+    {
+      "success": false,
+      "category": "parenting",
+      "runIndex": 1,
+      "mode": "category",
+      "explosionMode": true,
+      "count": 5,
+      "summary": {
+        "totalFound": 0,
+        "sssCount": 0,
+        "ssCount": 0,
+        "sCount": 0,
+        "rookieFriendlyCount": 0,
+        "urgentCount": 0,
+        "blueOceanCount": 0,
+        "explosionFunnel": {
+          "candidates": 17,
+          "verified": 17,
+          "gradeOk": 0,
+          "ratioOk": 0,
+          "docOk": 11,
+          "svOk": 2,
+          "strictOk": 0,
+          "minSv": 30,
+          "internalMetrics": {
+            "seedCount": 105,
+            "allKeywordsCount": 937,
+            "profitableCount": 20,
+            "uniqueKeywordsCount": 20,
+            "sortedResultsCount": 20,
+            "verifiedResultsCount": 2,
+            "searchAdEnabled": true,
+            "searchAdAdded": 844,
+            "autocompleteAdded": 0
+          },
+          "topByExplosion": [
+            "아기띠 종류 차이 2025 | grade=SSS gr=0.1282051282051282 sv=20 dc=156 src=seed(0) ex=70",
+            "2025 아기띠 종류 차이 | grade=SSS gr=0.1282051282051282 sv=20 dc=156 src=seed(0) ex=70",
+            "결혼식영상제작 | grade=B gr=0.006316106070479723 sv=630 dc=99745 src=틱톡(25) ex=96",
+            "아기띠 종류 차이 시기 | grade=A gr=0.0046500813764240876 sv=20 dc=4301 src=seed(0) ex=40",
+            "아기띠 종류 차이 후기 | grade=SS gr=0.0038580246913580245 sv=20 dc=5184 src=seed(0) ex=40"
+          ]
+        }
+      },
+      "keywords": [],
+      "attempts": 1,
+      "durationMs": 138845
+    },
+    {
+      "success": false,
+      "category": "parenting",
+      "runIndex": 2,
+      "mode": "category",
+      "explosionMode": true,
+      "count": 5,
+      "summary": {
+        "totalFound": 0,
+        "sssCount": 0,
+        "ssCount": 0,
+        "sCount": 0,
+        "rookieFriendlyCount": 0,
+        "urgentCount": 0,
+        "blueOceanCount": 0,
+        "explosionFunnel": {
+          "candidates": 16,
+          "verified": 16,
+          "gradeOk": 0,
+          "ratioOk": 0,
+          "docOk": 11,
+          "svOk": 1,
+          "strictOk": 0,
+          "minSv": 30,
+          "internalMetrics": {
+            "seedCount": 104,
+            "allKeywordsCount": 460,
+            "profitableCount": 19,
+            "uniqueKeywordsCount": 19,
+            "sortedResultsCount": 19,
+            "verifiedResultsCount": 1,
+            "searchAdEnabled": true,
+            "searchAdAdded": 362,
+            "autocompleteAdded": 0
+          },
+          "topByExplosion": [
+            "아기띠 종류 차이 2025 | grade=SSS gr=0.1282051282051282 sv=20 dc=156 src=seed(0) ex=70",
+            "2025 아기띠 종류 차이 | grade=SSS gr=0.1282051282051282 sv=20 dc=156 src=seed(0) ex=70",
+            "아기띠 종류 차이 시기 | grade=A gr=0.0046500813764240876 sv=20 dc=4301 src=seed(0) ex=40",
+            "아기띠 종류 차이 후기 | grade=SS gr=0.0038580246913580245 sv=20 dc=5184 src=seed(0) ex=40",
+            "아기띠 종류 차이 방법 | grade=A gr=0.00330742516950554 sv=20 dc=6047 src=seed(0) ex=40"
+          ]
+        }
+      },
+      "keywords": [],
+      "attempts": 1,
+      "durationMs": 142426
+    },
+    {
+      "success": true,
+      "category": "parenting",
+      "runIndex": 3,
+      "mode": "category",
+      "explosionMode": true,
+      "count": 5,
+      "summary": {
+        "totalFound": 1,
+        "sssCount": 0,
+        "ssCount": 0,
+        "sCount": 1,
+        "rookieFriendlyCount": 0,
+        "urgentCount": 0,
+        "blueOceanCount": 0,
+        "explosionFunnel": {
+          "candidates": 18,
+          "verified": 18,
+          "gradeOk": 1,
+          "ratioOk": 1,
+          "docOk": 13,
+          "svOk": 2,
+          "strictOk": 1,
+          "minSv": 30,
+          "internalMetrics": {
+            "seedCount": 107,
+            "allKeywordsCount": 762,
+            "profitableCount": 22,
+            "uniqueKeywordsCount": 22,
+            "sortedResultsCount": 21,
+            "verifiedResultsCount": 1,
+            "searchAdEnabled": true,
+            "searchAdAdded": 603,
+            "autocompleteAdded": 60
+          },
+          "topByExplosion": [
+            "김종국, 결혼 | grade=S gr=1.2338811630847029 sv=29280 dc=23730 src=category_fallback(0) ex=65",
+            "2025 아기띠 종류 차이 | grade=SSS gr=0.1282051282051282 sv=20 dc=156 src=seed(0) ex=70",
+            "아기띠 종류 차이 2025 | grade=SSS gr=0.1282051282051282 sv=20 dc=156 src=seed(0) ex=70",
+            "김종국, 결혼 후 변화 | grade=A gr=0.041666666666666664 sv=20 dc=480 src=Signal.bz(35) ex=93",
+            "아기띠 종류 차이 시기 | grade=A gr=0.0046500813764240876 sv=20 dc=4301 src=seed(0) ex=40"
+          ]
+        }
+      },
+      "keywords": [
+        {
+          "keyword": "김종국, 결혼",
+          "grade": "S",
+          "searchVolume": 29280,
+          "documentCount": 23730,
+          "goldenRatio": 1.2338811630847029,
+          "source": "category_fallback"
+        }
+      ],
+      "attempts": 1,
+      "durationMs": 153893
+    },
+    {
+      "success": true,
+      "category": "pet",
+      "runIndex": 1,
+      "mode": "category",
+      "explosionMode": true,
+      "count": 5,
+      "summary": {
+        "totalFound": 2,
+        "sssCount": 1,
+        "ssCount": 0,
+        "sCount": 1,
+        "rookieFriendlyCount": 1,
+        "urgentCount": 0,
+        "blueOceanCount": 0,
+        "explosionFunnel": {
+          "candidates": 70,
+          "verified": 70,
+          "gradeOk": 2,
+          "ratioOk": 5,
+          "docOk": 53,
+          "svOk": 15,
+          "strictOk": 2,
+          "minSv": 30,
+          "internalMetrics": {
+            "seedCount": 111,
+            "allKeywordsCount": 1183,
+            "profitableCount": 106,
+            "uniqueKeywordsCount": 106,
+            "sortedResultsCount": 103,
+            "verifiedResultsCount": 19,
+            "searchAdEnabled": true,
+            "searchAdAdded": 1052,
+            "autocompleteAdded": 31
+          },
+          "topByExplosion": [
+            "입문자 펫 보험 비교 | grade=A gr=20 sv=20 dc=1 src=seed(0) ex=40",
+            "펫 보험 비교 | grade=SS gr=1.2367049009384776 sv=5930 dc=4795 src=seed(0) ex=65",
+            "초보자 펫 보험 비교 | grade=A gr=0.625 sv=20 dc=32 src=seed(0) ex=40",
+            "펫 보험 비교 성분 | grade=A gr=0.43478260869565216 sv=20 dc=46 src=seed(0) ex=40",
+            "홍대고양이카페 | grade=A gr=0.3314917127071823 sv=4140 dc=12489 src=인스타(25) ex=106"
+          ]
+        }
+      },
+      "keywords": [
+        {
+          "keyword": "펫 보험 비교",
+          "grade": "SSS",
+          "searchVolume": 5930,
+          "documentCount": 4795,
+          "goldenRatio": 1.2367049009384776,
+          "source": "seed"
+        },
+        {
+          "keyword": "홍대고양이카페",
+          "grade": "S",
+          "searchVolume": 4140,
+          "documentCount": 12489,
+          "goldenRatio": 0.3314917127071823,
+          "source": "인스타"
+        }
+      ],
+      "attempts": 1,
+      "durationMs": 228240
+    },
+    {
+      "success": true,
+      "category": "pet",
+      "runIndex": 2,
+      "mode": "category",
+      "explosionMode": true,
+      "count": 5,
+      "summary": {
+        "totalFound": 3,
+        "sssCount": 2,
+        "ssCount": 0,
+        "sCount": 1,
+        "rookieFriendlyCount": 2,
+        "urgentCount": 0,
+        "blueOceanCount": 1,
+        "explosionFunnel": {
+          "candidates": 65,
+          "verified": 65,
+          "gradeOk": 3,
+          "ratioOk": 6,
+          "docOk": 55,
+          "svOk": 9,
+          "strictOk": 3,
+          "minSv": 30,
+          "internalMetrics": {
+            "seedCount": 112,
+            "allKeywordsCount": 588,
+            "profitableCount": 96,
+            "uniqueKeywordsCount": 96,
+            "sortedResultsCount": 94,
+            "verifiedResultsCount": 13,
+            "searchAdEnabled": true,
+            "searchAdAdded": 481,
+            "autocompleteAdded": 1
+          },
+          "topByExplosion": [
+            "입문자 펫 보험 비교 | grade=A gr=20 sv=20 dc=1 src=seed(0) ex=40",
+            "꽃동강아지 | grade=SSS gr=7.2699849170437405 sv=4820 dc=663 src=인스타(25) ex=106",
+            "펫 보험 비교 | grade=SS gr=1.2367049009384776 sv=5930 dc=4795 src=seed(0) ex=65",
+            "초보자 펫 보험 비교 | grade=A gr=0.625 sv=20 dc=32 src=seed(0) ex=40",
+            "펫 보험 비교 성분 | grade=A gr=0.43478260869565216 sv=20 dc=46 src=seed(0) ex=40"
+          ]
+        }
+      },
+      "keywords": [
+        {
+          "keyword": "꽃동강아지",
+          "grade": "SSS",
+          "searchVolume": 4820,
+          "documentCount": 663,
+          "goldenRatio": 7.2699849170437405,
+          "source": "인스타"
+        },
+        {
+          "keyword": "펫 보험 비교",
+          "grade": "SSS",
+          "searchVolume": 5930,
+          "documentCount": 4795,
+          "goldenRatio": 1.2367049009384776,
+          "source": "seed"
+        },
+        {
+          "keyword": "빠삐용강아지",
+          "grade": "S",
+          "searchVolume": 4850,
+          "documentCount": 13768,
+          "goldenRatio": 0.35226612434631027,
+          "source": "인스타"
+        }
+      ],
+      "attempts": 1,
+      "durationMs": 204247
+    },
+    {
+      "success": true,
+      "category": "pet",
+      "runIndex": 3,
+      "mode": "category",
+      "explosionMode": true,
+      "count": 5,
+      "summary": {
+        "totalFound": 4,
+        "sssCount": 2,
+        "ssCount": 0,
+        "sCount": 2,
+        "rookieFriendlyCount": 2,
+        "urgentCount": 0,
+        "blueOceanCount": 1,
+        "explosionFunnel": {
+          "candidates": 82,
+          "verified": 82,
+          "gradeOk": 4,
+          "ratioOk": 8,
+          "docOk": 63,
+          "svOk": 25,
+          "strictOk": 4,
+          "minSv": 30,
+          "internalMetrics": {
+            "seedCount": 107,
+            "allKeywordsCount": 719,
+            "profitableCount": 135,
+            "uniqueKeywordsCount": 123,
+            "sortedResultsCount": 120,
+            "verifiedResultsCount": 30,
+            "searchAdEnabled": true,
+            "searchAdAdded": 601,
+            "autocompleteAdded": 18
+          },
+          "topByExplosion": [
+            "입문자 펫 보험 비교 | grade=A gr=20 sv=20 dc=1 src=seed(0) ex=40",
+            "꽃동강아지 | grade=SSS gr=7.2699849170437405 sv=4820 dc=663 src=인스타(25) ex=106",
+            "펫 보험 비교 | grade=SS gr=1.2367049009384776 sv=5930 dc=4795 src=seed(0) ex=65",
+            "펫 보험 | grade=S gr=0.8088158852271546 sv=23340 dc=28857 src=seed(0) ex=65",
+            "초보자 펫 보험 비교 | grade=A gr=0.625 sv=20 dc=32 src=seed(0) ex=40"
+          ]
+        }
+      },
+      "keywords": [
+        {
+          "keyword": "꽃동강아지",
+          "grade": "SSS",
+          "searchVolume": 4820,
+          "documentCount": 663,
+          "goldenRatio": 7.2699849170437405,
+          "source": "인스타"
+        },
+        {
+          "keyword": "펫 보험 비교",
+          "grade": "SSS",
+          "searchVolume": 5930,
+          "documentCount": 4795,
+          "goldenRatio": 1.2367049009384776,
+          "source": "seed"
+        },
+        {
+          "keyword": "펫 보험",
+          "grade": "S",
+          "searchVolume": 23340,
+          "documentCount": 28857,
+          "goldenRatio": 0.8088158852271546,
+          "source": "seed"
+        },
+        {
+          "keyword": "홍대고양이카페",
+          "grade": "S",
+          "searchVolume": 4140,
+          "documentCount": 12489,
+          "goldenRatio": 0.3314917127071823,
+          "source": "인스타"
+        }
+      ],
+      "attempts": 1,
+      "durationMs": 216435
+    },
+    {
+      "success": false,
+      "category": "quotes",
+      "runIndex": 1,
+      "mode": "category",
+      "explosionMode": true,
+      "count": 5,
+      "summary": {
+        "totalFound": 0,
+        "sssCount": 0,
+        "ssCount": 0,
+        "sCount": 0,
+        "rookieFriendlyCount": 0,
+        "urgentCount": 0,
+        "blueOceanCount": 0,
+        "explosionFunnel": {
+          "candidates": 0,
+          "verified": 0,
+          "gradeOk": 0,
+          "ratioOk": 0,
+          "docOk": 0,
+          "svOk": 0,
+          "strictOk": 0,
+          "minSv": 30,
+          "internalMetrics": {
+            "seedCount": 124,
+            "allKeywordsCount": 659,
+            "profitableCount": 1,
+            "uniqueKeywordsCount": 1,
+            "sortedResultsCount": 1,
+            "verifiedResultsCount": 0,
+            "searchAdEnabled": true,
+            "searchAdAdded": 372,
+            "autocompleteAdded": 170
+          },
+          "topByExplosion": []
+        }
+      },
+      "keywords": [],
+      "attempts": 1,
+      "durationMs": 121418
+    },
+    {
+      "success": false,
+      "category": "quotes",
+      "runIndex": 2,
+      "mode": "category",
+      "explosionMode": true,
+      "count": 5,
+      "summary": {
+        "totalFound": 0,
+        "sssCount": 0,
+        "ssCount": 0,
+        "sCount": 0,
+        "rookieFriendlyCount": 0,
+        "urgentCount": 0,
+        "blueOceanCount": 0,
+        "explosionFunnel": {
+          "candidates": 0,
+          "verified": 0,
+          "gradeOk": 0,
+          "ratioOk": 0,
+          "docOk": 0,
+          "svOk": 0,
+          "strictOk": 0,
+          "minSv": 30,
+          "internalMetrics": {
+            "seedCount": 127,
+            "allKeywordsCount": 485,
+            "profitableCount": 2,
+            "uniqueKeywordsCount": 2,
+            "sortedResultsCount": 2,
+            "verifiedResultsCount": 0,
+            "searchAdEnabled": true,
+            "searchAdAdded": 369,
+            "autocompleteAdded": 0
+          },
+          "topByExplosion": []
+        }
+      },
+      "keywords": [],
+      "attempts": 1,
+      "durationMs": 131629
+    },
+    {
+      "success": false,
+      "category": "quotes",
+      "runIndex": 3,
+      "mode": "category",
+      "explosionMode": true,
+      "count": 5,
+      "summary": {
+        "totalFound": 0,
+        "sssCount": 0,
+        "ssCount": 0,
+        "sCount": 0,
+        "rookieFriendlyCount": 0,
+        "urgentCount": 0,
+        "blueOceanCount": 0,
+        "explosionFunnel": {
+          "candidates": 0,
+          "verified": 0,
+          "gradeOk": 0,
+          "ratioOk": 0,
+          "docOk": 0,
+          "svOk": 0,
+          "strictOk": 0,
+          "minSv": 30,
+          "internalMetrics": {
+            "seedCount": 129,
+            "allKeywordsCount": 664,
+            "profitableCount": 2,
+            "uniqueKeywordsCount": 2,
+            "sortedResultsCount": 2,
+            "verifiedResultsCount": 0,
+            "searchAdEnabled": true,
+            "searchAdAdded": 542,
+            "autocompleteAdded": 0
+          },
+          "topByExplosion": []
+        }
+      },
+      "keywords": [],
+      "attempts": 1,
+      "durationMs": 123319
+    },
+    {
+      "success": false,
+      "category": "fashion",
+      "runIndex": 1,
+      "mode": "category",
+      "explosionMode": true,
+      "count": 5,
+      "error": "timeout",
+      "attempts": 1,
+      "durationMs": 240046
+    },
+    {
+      "success": true,
+      "category": "fashion",
+      "runIndex": 2,
+      "mode": "category",
+      "explosionMode": true,
+      "count": 5,
+      "summary": {
+        "totalFound": 3,
+        "sssCount": 1,
+        "ssCount": 1,
+        "sCount": 1,
+        "rookieFriendlyCount": 1,
+        "urgentCount": 0,
+        "blueOceanCount": 1,
+        "explosionFunnel": {
+          "candidates": 61,
+          "verified": 61,
+          "gradeOk": 3,
+          "ratioOk": 3,
+          "docOk": 41,
+          "svOk": 53,
+          "strictOk": 3,
+          "minSv": 30,
+          "internalMetrics": {
+            "seedCount": 124,
+            "allKeywordsCount": 1418,
+            "profitableCount": 117,
+            "uniqueKeywordsCount": 117,
+            "sortedResultsCount": 116,
+            "verifiedResultsCount": 44,
+            "searchAdEnabled": true,
+            "searchAdAdded": 926,
+            "autocompleteAdded": 386
+          },
+          "topByExplosion": [
+            "뷰디아니쿠션 | grade=SSS gr=2.0016077170418005 sv=2490 dc=1244 src=인스타(25) ex=106",
+            "메이크업 서바이벌 | grade=S gr=0.6763711218938392 sv=4600 dc=6801 src=인스타(25) ex=106",
+            "메이크업 낯그리고선 | grade=S gr=0.5294117647058824 sv=90 dc=170 src=인스타(25) ex=84",
+            "피부미용실기 | grade=B gr=0.24282560706401765 sv=1540 dc=6342 src=인스타(25) ex=103",
+            "메이크업 돋보기 | grade=B gr=0.20714091032979012 sv=760 dc=3669 src=인스타(25) ex=96"
+          ]
+        }
+      },
+      "keywords": [
+        {
+          "keyword": "뷰디아니쿠션",
+          "grade": "SSS",
+          "searchVolume": 2490,
+          "documentCount": 1244,
+          "goldenRatio": 2.0016077170418005,
+          "source": "인스타"
+        },
+        {
+          "keyword": "메이크업 서바이벌",
+          "grade": "SS",
+          "searchVolume": 4600,
+          "documentCount": 6801,
+          "goldenRatio": 0.6763711218938392,
+          "source": "인스타"
+        },
+        {
+          "keyword": "메이크업 낯그리고선",
+          "grade": "S",
+          "searchVolume": 90,
+          "documentCount": 170,
+          "goldenRatio": 0.5294117647058824,
+          "source": "인스타"
+        }
+      ],
+      "attempts": 1,
+      "durationMs": 197153
+    },
+    {
+      "success": true,
+      "category": "fashion",
+      "runIndex": 3,
+      "mode": "category",
+      "explosionMode": true,
+      "count": 5,
+      "summary": {
+        "totalFound": 5,
+        "sssCount": 5,
+        "ssCount": 0,
+        "sCount": 0,
+        "rookieFriendlyCount": 2,
+        "urgentCount": 0,
+        "blueOceanCount": 3,
+        "explosionFunnel": {
+          "candidates": 117,
+          "verified": 117,
+          "gradeOk": 12,
+          "ratioOk": 13,
+          "docOk": 95,
+          "svOk": 48,
+          "strictOk": 7,
+          "minSv": 500,
+          "internalMetrics": {
+            "seedCount": 129,
+            "allKeywordsCount": 1205,
+            "profitableCount": 241,
+            "uniqueKeywordsCount": 240,
+            "sortedResultsCount": 237,
+            "verifiedResultsCount": 82,
+            "searchAdEnabled": true,
+            "searchAdAdded": 244,
+            "autocompleteAdded": 841
+          },
+          "topByExplosion": [
+            "패션플러스 | grade=SSS gr=54.28321678321678 sv=372600 dc=6864 src=인스타(25) ex=106",
+            "메랜 코디 추천 | grade=SSS gr=5.833333333333333 sv=560 dc=96 src=인스타(25) ex=99",
+            "패션풀 | grade=SSS gr=2.6609141791044775 sv=11410 dc=4288 src=인스타(25) ex=106",
+            "코디드바이닐즈 | grade=SSS gr=2.380952380952381 sv=450 dc=189 src=인스타(25) ex=93",
+            "남자옷쇼핑몰 | grade=SS gr=1.3851927669737292 sv=12180 dc=8793 src=인스타(25) ex=106"
+          ]
+        }
+      },
+      "keywords": [
+        {
+          "keyword": "패션플러스",
+          "grade": "SSS",
+          "searchVolume": 372600,
+          "documentCount": 6864,
+          "goldenRatio": 54.28321678321678,
+          "source": "인스타"
+        },
+        {
+          "keyword": "메랜 코디 추천",
+          "grade": "SSS",
+          "searchVolume": 560,
+          "documentCount": 96,
+          "goldenRatio": 5.833333333333333,
+          "source": "인스타"
+        },
+        {
+          "keyword": "패션풀",
+          "grade": "SSS",
+          "searchVolume": 11410,
+          "documentCount": 4288,
+          "goldenRatio": 2.6609141791044775,
+          "source": "인스타"
+        },
+        {
+          "keyword": "남자옷쇼핑몰",
+          "grade": "SSS",
+          "searchVolume": 12180,
+          "documentCount": 8793,
+          "goldenRatio": 1.3851927669737292,
+          "source": "인스타"
+        },
+        {
+          "keyword": "상견례옷차림",
+          "grade": "SSS",
+          "searchVolume": 13280,
+          "documentCount": 9629,
+          "goldenRatio": 1.3791670993872676,
+          "source": "인스타"
+        }
+      ],
+      "attempts": 1,
+      "durationMs": 192489
+    },
+    {
+      "success": true,
+      "category": "interior",
+      "runIndex": 1,
+      "mode": "category",
+      "explosionMode": true,
+      "count": 5,
+      "summary": {
+        "totalFound": 2,
+        "sssCount": 1,
+        "ssCount": 0,
+        "sCount": 1,
+        "rookieFriendlyCount": 0,
+        "urgentCount": 0,
+        "blueOceanCount": 0,
+        "explosionFunnel": {
+          "candidates": 105,
+          "verified": 105,
+          "gradeOk": 2,
+          "ratioOk": 9,
+          "docOk": 89,
+          "svOk": 44,
+          "strictOk": 2,
+          "minSv": 30,
+          "internalMetrics": {
+            "seedCount": 111,
+            "allKeywordsCount": 842,
+            "profitableCount": 175,
+            "uniqueKeywordsCount": 175,
+            "sortedResultsCount": 173,
+            "verifiedResultsCount": 44,
+            "searchAdEnabled": true,
+            "searchAdAdded": 630,
+            "autocompleteAdded": 113
+          },
+          "topByExplosion": [
+            "입문자 수납장 추천 좁은방 | grade=A gr=2 sv=20 dc=10 src=seed(0) ex=40",
+            "선반렉 | grade=SS gr=1.797505502567865 sv=2450 dc=1363 src=수납(0) ex=65",
+            "입문자 시스템행거 설치 | grade=A gr=0.6896551724137931 sv=20 dc=29 src=seed(0) ex=40",
+            "수납장 추천 좁은방 가성비 | grade=A gr=0.6060606060606061 sv=20 dc=33 src=seed(0) ex=40",
+            "데코라인서랍장 | grade=S gr=0.5538057742782152 sv=2110 dc=3810 src=수납(0) ex=65"
+          ]
+        }
+      },
+      "keywords": [
+        {
+          "keyword": "선반렉",
+          "grade": "SSS",
+          "searchVolume": 2450,
+          "documentCount": 1363,
+          "goldenRatio": 1.797505502567865,
+          "source": "수납"
+        },
+        {
+          "keyword": "데코라인서랍장",
+          "grade": "S",
+          "searchVolume": 2110,
+          "documentCount": 3810,
+          "goldenRatio": 0.5538057742782152,
+          "source": "수납"
+        }
+      ],
+      "attempts": 1,
+      "durationMs": 218680
+    },
+    {
+      "success": false,
+      "category": "interior",
+      "runIndex": 2,
+      "mode": "category",
+      "explosionMode": true,
+      "count": 5,
+      "summary": {
+        "totalFound": 0,
+        "sssCount": 0,
+        "ssCount": 0,
+        "sCount": 0,
+        "rookieFriendlyCount": 0,
+        "urgentCount": 0,
+        "blueOceanCount": 0,
+        "explosionFunnel": {
+          "candidates": 88,
+          "verified": 88,
+          "gradeOk": 0,
+          "ratioOk": 7,
+          "docOk": 81,
+          "svOk": 22,
+          "strictOk": 0,
+          "minSv": 30,
+          "internalMetrics": {
+            "seedCount": 112,
+            "allKeywordsCount": 1325,
+            "profitableCount": 124,
+            "uniqueKeywordsCount": 124,
+            "sortedResultsCount": 124,
+            "verifiedResultsCount": 26,
+            "searchAdEnabled": true,
+            "searchAdAdded": 814,
+            "autocompleteAdded": 409
+          },
+          "topByExplosion": [
+            "입문자 수납장 추천 좁은방 | grade=A gr=2 sv=20 dc=10 src=seed(0) ex=40",
+            "입문자 시스템행거 설치 | grade=A gr=0.6896551724137931 sv=20 dc=29 src=seed(0) ex=40",
+            "수납장 추천 좁은방 가성비 | grade=A gr=0.6060606060606061 sv=20 dc=33 src=seed(0) ex=40",
+            "가구배치 변경 꿈해몽 | grade=A gr=0.4444444444444444 sv=20 dc=45 src=가구 배치(0) ex=40",
+            "입문자 원룸 인테리어 꿀팁 | grade=A gr=0.4 sv=20 dc=50 src=seed(0) ex=40"
+          ]
+        }
+      },
+      "keywords": [],
+      "attempts": 1,
+      "durationMs": 163203
+    },
+    {
+      "success": true,
+      "category": "interior",
+      "runIndex": 3,
+      "mode": "category",
+      "explosionMode": true,
+      "count": 5,
+      "summary": {
+        "totalFound": 2,
+        "sssCount": 1,
+        "ssCount": 0,
+        "sCount": 1,
+        "rookieFriendlyCount": 0,
+        "urgentCount": 0,
+        "blueOceanCount": 0,
+        "explosionFunnel": {
+          "candidates": 113,
+          "verified": 113,
+          "gradeOk": 2,
+          "ratioOk": 10,
+          "docOk": 96,
+          "svOk": 47,
+          "strictOk": 2,
+          "minSv": 30,
+          "internalMetrics": {
+            "seedCount": 111,
+            "allKeywordsCount": 1454,
+            "profitableCount": 189,
+            "uniqueKeywordsCount": 189,
+            "sortedResultsCount": 187,
+            "verifiedResultsCount": 51,
+            "searchAdEnabled": true,
+            "searchAdAdded": 844,
+            "autocompleteAdded": 510
+          },
+          "topByExplosion": [
+            "입문자 수납장 추천 좁은방 | grade=A gr=2 sv=20 dc=10 src=seed(0) ex=40",
+            "선반렉 | grade=SS gr=1.797505502567865 sv=2450 dc=1363 src=수납(0) ex=65",
+            "입문자 시스템행거 설치 | grade=A gr=0.6896551724137931 sv=20 dc=29 src=seed(0) ex=40",
+            "홈튼 매트리스 | grade=A gr=0.6666666666666666 sv=20 dc=30 src=인스타(25) ex=78",
+            "수납장 추천 좁은방 가성비 | grade=A gr=0.6060606060606061 sv=20 dc=33 src=seed(0) ex=40"
+          ]
+        }
+      },
+      "keywords": [
+        {
+          "keyword": "선반렉",
+          "grade": "SSS",
+          "searchVolume": 2450,
+          "documentCount": 1363,
+          "goldenRatio": 1.797505502567865,
+          "source": "수납"
+        },
+        {
+          "keyword": "데코라인서랍장",
+          "grade": "S",
+          "searchVolume": 2110,
+          "documentCount": 3810,
+          "goldenRatio": 0.5538057742782152,
+          "source": "수납"
+        }
+      ],
+      "attempts": 1,
+      "durationMs": 188878
+    },
+    {
+      "success": true,
+      "category": "recipe",
+      "runIndex": 1,
+      "mode": "category",
+      "explosionMode": true,
+      "count": 5,
+      "summary": {
+        "totalFound": 5,
+        "sssCount": 3,
+        "ssCount": 1,
+        "sCount": 1,
+        "rookieFriendlyCount": 2,
+        "urgentCount": 0,
+        "blueOceanCount": 3,
+        "explosionFunnel": {
+          "candidates": 139,
+          "verified": 139,
+          "gradeOk": 6,
+          "ratioOk": 13,
+          "docOk": 112,
+          "svOk": 20,
+          "strictOk": 5,
+          "minSv": 500,
+          "internalMetrics": {
+            "seedCount": 104,
+            "allKeywordsCount": 1266,
+            "profitableCount": 250,
+            "uniqueKeywordsCount": 250,
+            "sortedResultsCount": 248,
+            "verifiedResultsCount": 53,
+            "searchAdEnabled": true,
+            "searchAdAdded": 455,
+            "autocompleteAdded": 722
+          },
+          "topByExplosion": [
+            "디저트코 | grade=SSS gr=71.32530120481928 sv=5920 dc=83 src=인스타(25) ex=106",
+            "자취요리신 제육 | grade=A gr=20 sv=20 dc=1 src=자취 요리(0) ex=40",
+            "디저트릭 | grade=SSS gr=17.061068702290076 sv=4470 dc=262 src=인스타(25) ex=106",
+            "자취요리신 된장찌개 | grade=A gr=10 sv=20 dc=2 src=자취 요리(0) ex=40",
+            "홍윤화 다이어트 레시피 | grade=SSS gr=5.258620689655173 sv=1220 dc=232 src=다이어트 레시피(0) ex=65"
+          ]
+        }
+      },
+      "keywords": [
+        {
+          "keyword": "디저트코",
+          "grade": "SSS",
+          "searchVolume": 5920,
+          "documentCount": 83,
+          "goldenRatio": 71.32530120481928,
+          "source": "인스타"
+        },
+        {
+          "keyword": "디저트릭",
+          "grade": "SSS",
+          "searchVolume": 4470,
+          "documentCount": 262,
+          "goldenRatio": 17.061068702290076,
+          "source": "인스타"
+        },
+        {
+          "keyword": "홍윤화 다이어트 레시피",
+          "grade": "SSS",
+          "searchVolume": 1220,
+          "documentCount": 232,
+          "goldenRatio": 5.258620689655173,
+          "source": "다이어트 레시피"
+        },
+        {
+          "keyword": "엽기떡볶이 밀키트",
+          "grade": "SS",
+          "searchVolume": 6340,
+          "documentCount": 6856,
+          "goldenRatio": 0.9247374562427071,
+          "source": "밀키트"
+        },
+        {
+          "keyword": "다이어트레시피 시너지원팩",
+          "grade": "S",
+          "searchVolume": 2520,
+          "documentCount": 6918,
+          "goldenRatio": 0.3642671292281006,
+          "source": "다이어트 레시피"
+        }
+      ],
+      "attempts": 1,
+      "durationMs": 208320
+    },
+    {
+      "success": true,
+      "category": "recipe",
+      "runIndex": 2,
+      "mode": "category",
+      "explosionMode": true,
+      "count": 5,
+      "summary": {
+        "totalFound": 3,
+        "sssCount": 2,
+        "ssCount": 1,
+        "sCount": 0,
+        "rookieFriendlyCount": 2,
+        "urgentCount": 0,
+        "blueOceanCount": 2,
+        "explosionFunnel": {
+          "candidates": 141,
+          "verified": 141,
+          "gradeOk": 3,
+          "ratioOk": 10,
+          "docOk": 114,
+          "svOk": 55,
+          "strictOk": 3,
+          "minSv": 30,
+          "internalMetrics": {
+            "seedCount": 103,
+            "allKeywordsCount": 1251,
+            "profitableCount": 244,
+            "uniqueKeywordsCount": 244,
+            "sortedResultsCount": 242,
+            "verifiedResultsCount": 46,
+            "searchAdEnabled": true,
+            "searchAdAdded": 481,
+            "autocompleteAdded": 677
+          },
+          "topByExplosion": [
+            "디저트코 | grade=SSS gr=71.32530120481928 sv=5920 dc=83 src=인스타(25) ex=106",
+            "자취요리신 제육 | grade=A gr=20 sv=20 dc=1 src=자취 요리(0) ex=40",
+            "디저트릭 | grade=SSS gr=17.061068702290076 sv=4470 dc=262 src=인스타(25) ex=106",
+            "자취요리신 된장찌개 | grade=A gr=10 sv=20 dc=2 src=자취 요리(0) ex=40",
+            "자취요리신 만두 | grade=A gr=4 sv=20 dc=5 src=자취 요리(0) ex=40"
+          ]
+        }
+      },
+      "keywords": [
+        {
+          "keyword": "디저트코",
+          "grade": "SSS",
+          "searchVolume": 5920,
+          "documentCount": 83,
+          "goldenRatio": 71.32530120481928,
+          "source": "인스타"
+        },
+        {
+          "keyword": "디저트릭",
+          "grade": "SSS",
+          "searchVolume": 4470,
+          "documentCount": 262,
+          "goldenRatio": 17.061068702290076,
+          "source": "인스타"
+        },
+        {
+          "keyword": "엽기떡볶이 밀키트",
+          "grade": "SS",
+          "searchVolume": 6340,
+          "documentCount": 6856,
+          "goldenRatio": 0.9247374562427071,
+          "source": "밀키트"
+        }
+      ],
+      "attempts": 1,
+      "durationMs": 176774
+    },
+    {
+      "success": true,
+      "category": "recipe",
+      "runIndex": 3,
+      "mode": "category",
+      "explosionMode": true,
+      "count": 5,
+      "summary": {
+        "totalFound": 5,
+        "sssCount": 3,
+        "ssCount": 1,
+        "sCount": 1,
+        "rookieFriendlyCount": 2,
+        "urgentCount": 0,
+        "blueOceanCount": 3,
+        "explosionFunnel": {
+          "candidates": 129,
+          "verified": 129,
+          "gradeOk": 6,
+          "ratioOk": 13,
+          "docOk": 103,
+          "svOk": 19,
+          "strictOk": 5,
+          "minSv": 500,
+          "internalMetrics": {
+            "seedCount": 104,
+            "allKeywordsCount": 1125,
+            "profitableCount": 239,
+            "uniqueKeywordsCount": 239,
+            "sortedResultsCount": 237,
+            "verifiedResultsCount": 49,
+            "searchAdEnabled": true,
+            "searchAdAdded": 362,
+            "autocompleteAdded": 669
+          },
+          "topByExplosion": [
+            "디저트코 | grade=SSS gr=71.32530120481928 sv=5920 dc=83 src=인스타(25) ex=106",
+            "자취요리신 제육 | grade=A gr=20 sv=20 dc=1 src=자취 요리(0) ex=40",
+            "디저트릭 | grade=SSS gr=17.061068702290076 sv=4470 dc=262 src=인스타(25) ex=106",
+            "자취요리신 된장찌개 | grade=A gr=10 sv=20 dc=2 src=자취 요리(0) ex=40",
+            "홍윤화 다이어트 레시피 | grade=SSS gr=5.258620689655173 sv=1220 dc=232 src=다이어트 레시피(0) ex=65"
+          ]
+        }
+      },
+      "keywords": [
+        {
+          "keyword": "디저트코",
+          "grade": "SSS",
+          "searchVolume": 5920,
+          "documentCount": 83,
+          "goldenRatio": 71.32530120481928,
+          "source": "인스타"
+        },
+        {
+          "keyword": "디저트릭",
+          "grade": "SSS",
+          "searchVolume": 4470,
+          "documentCount": 262,
+          "goldenRatio": 17.061068702290076,
+          "source": "인스타"
+        },
+        {
+          "keyword": "홍윤화 다이어트 레시피",
+          "grade": "SSS",
+          "searchVolume": 1220,
+          "documentCount": 232,
+          "goldenRatio": 5.258620689655173,
+          "source": "다이어트 레시피"
+        },
+        {
+          "keyword": "엽기떡볶이 밀키트",
+          "grade": "SS",
+          "searchVolume": 6340,
+          "documentCount": 6856,
+          "goldenRatio": 0.9247374562427071,
+          "source": "밀키트"
+        },
+        {
+          "keyword": "다이어트레시피 시너지원팩",
+          "grade": "S",
+          "searchVolume": 2520,
+          "documentCount": 6918,
+          "goldenRatio": 0.3642671292281006,
+          "source": "다이어트 레시피"
+        }
+      ],
+      "attempts": 1,
+      "durationMs": 193078
+    },
+    {
+      "success": true,
+      "category": "review",
+      "runIndex": 1,
+      "mode": "category",
+      "explosionMode": true,
+      "count": 5,
+      "summary": {
+        "totalFound": 4,
+        "sssCount": 0,
+        "ssCount": 1,
+        "sCount": 3,
+        "rookieFriendlyCount": 3,
+        "urgentCount": 0,
+        "blueOceanCount": 3,
+        "explosionFunnel": {
+          "candidates": 96,
+          "verified": 96,
+          "gradeOk": 4,
+          "ratioOk": 7,
+          "docOk": 80,
+          "svOk": 48,
+          "strictOk": 4,
+          "minSv": 30,
+          "internalMetrics": {
+            "seedCount": 113,
+            "allKeywordsCount": 1406,
+            "profitableCount": 155,
+            "uniqueKeywordsCount": 154,
+            "sortedResultsCount": 154,
+            "verifiedResultsCount": 39,
+            "searchAdEnabled": true,
+            "searchAdAdded": 603,
+            "autocompleteAdded": 699
+          },
+          "topByExplosion": [
+            "틱톡 추천자격미충족 | grade=SSS gr=4.230769230769231 sv=110 dc=26 src=틱톡(25) ex=87",
+            "가성비 추천 장단점 | grade=A gr=3.3333333333333335 sv=20 dc=6 src=seed(0) ex=40",
+            "틱톡 추천인 구하는법 | grade=A gr=3.3333333333333335 sv=20 dc=6 src=틱톡(25) ex=78",
+            "언박싱 팩토리 가습기 | grade=SSS gr=2.878787878787879 sv=190 dc=66 src=언박싱(0) ex=46",
+            "한진 언박싱데이 | grade=SSS gr=2.75 sv=440 dc=160 src=언박싱(0) ex=52"
+          ]
+        }
+      },
+      "keywords": [
+        {
+          "keyword": "틱톡 추천자격미충족",
+          "grade": "S",
+          "searchVolume": 110,
+          "documentCount": 26,
+          "goldenRatio": 4.230769230769231,
+          "source": "틱톡"
+        },
+        {
+          "keyword": "언박싱 팩토리 가습기",
+          "grade": "S",
+          "searchVolume": 190,
+          "documentCount": 66,
+          "goldenRatio": 2.878787878787879,
+          "source": "언박싱"
+        },
+        {
+          "keyword": "한진 언박싱데이",
+          "grade": "SS",
+          "searchVolume": 440,
+          "documentCount": 160,
+          "goldenRatio": 2.75,
+          "source": "언박싱"
+        },
+        {
+          "keyword": "챔피언언박싱",
+          "grade": "S",
+          "searchVolume": 700,
+          "documentCount": 1541,
+          "goldenRatio": 0.45425048669695,
+          "source": "언박싱"
+        }
+      ],
+      "attempts": 1,
+      "durationMs": 158563
+    },
+    {
+      "success": true,
+      "category": "review",
+      "runIndex": 2,
+      "mode": "category",
+      "explosionMode": true,
+      "count": 5,
+      "summary": {
+        "totalFound": 4,
+        "sssCount": 0,
+        "ssCount": 1,
+        "sCount": 3,
+        "rookieFriendlyCount": 3,
+        "urgentCount": 0,
+        "blueOceanCount": 3,
+        "explosionFunnel": {
+          "candidates": 83,
+          "verified": 83,
+          "gradeOk": 4,
+          "ratioOk": 7,
+          "docOk": 71,
+          "svOk": 37,
+          "strictOk": 4,
+          "minSv": 30,
+          "internalMetrics": {
+            "seedCount": 114,
+            "allKeywordsCount": 1318,
+            "profitableCount": 126,
+            "uniqueKeywordsCount": 125,
+            "sortedResultsCount": 125,
+            "verifiedResultsCount": 31,
+            "searchAdEnabled": true,
+            "searchAdAdded": 600,
+            "autocompleteAdded": 610
+          },
+          "topByExplosion": [
+            "틱톡 추천자격미충족 | grade=SSS gr=4.230769230769231 sv=110 dc=26 src=틱톡(25) ex=87",
+            "가성비 추천 장단점 | grade=A gr=3.3333333333333335 sv=20 dc=6 src=seed(0) ex=40",
+            "틱톡 추천인 구하는법 | grade=A gr=3.3333333333333335 sv=20 dc=6 src=틱톡(25) ex=78",
+            "언박싱 팩토리 가습기 | grade=SSS gr=2.878787878787879 sv=190 dc=66 src=언박싱(0) ex=46",
+            "한진 언박싱데이 | grade=SSS gr=2.75 sv=440 dc=160 src=언박싱(0) ex=52"
+          ]
+        }
+      },
+      "keywords": [
+        {
+          "keyword": "틱톡 추천자격미충족",
+          "grade": "S",
+          "searchVolume": 110,
+          "documentCount": 26,
+          "goldenRatio": 4.230769230769231,
+          "source": "틱톡"
+        },
+        {
+          "keyword": "언박싱 팩토리 가습기",
+          "grade": "S",
+          "searchVolume": 190,
+          "documentCount": 66,
+          "goldenRatio": 2.878787878787879,
+          "source": "언박싱"
+        },
+        {
+          "keyword": "한진 언박싱데이",
+          "grade": "SS",
+          "searchVolume": 440,
+          "documentCount": 160,
+          "goldenRatio": 2.75,
+          "source": "언박싱"
+        },
+        {
+          "keyword": "챔피언언박싱",
+          "grade": "S",
+          "searchVolume": 700,
+          "documentCount": 1541,
+          "goldenRatio": 0.45425048669695,
+          "source": "언박싱"
+        }
+      ],
+      "attempts": 1,
+      "durationMs": 138874
+    },
+    {
+      "success": true,
+      "category": "review",
+      "runIndex": 3,
+      "mode": "category",
+      "explosionMode": true,
+      "count": 5,
+      "summary": {
+        "totalFound": 4,
+        "sssCount": 0,
+        "ssCount": 1,
+        "sCount": 3,
+        "rookieFriendlyCount": 3,
+        "urgentCount": 0,
+        "blueOceanCount": 3,
+        "explosionFunnel": {
+          "candidates": 87,
+          "verified": 87,
+          "gradeOk": 4,
+          "ratioOk": 7,
+          "docOk": 74,
+          "svOk": 37,
+          "strictOk": 4,
+          "minSv": 30,
+          "internalMetrics": {
+            "seedCount": 110,
+            "allKeywordsCount": 1139,
+            "profitableCount": 134,
+            "uniqueKeywordsCount": 134,
+            "sortedResultsCount": 134,
+            "verifiedResultsCount": 33,
+            "searchAdEnabled": true,
+            "searchAdAdded": 582,
+            "autocompleteAdded": 459
+          },
+          "topByExplosion": [
+            "틱톡 추천자격미충족 | grade=SSS gr=4.230769230769231 sv=110 dc=26 src=틱톡(25) ex=87",
+            "가성비 추천 장단점 | grade=A gr=3.3333333333333335 sv=20 dc=6 src=seed(0) ex=40",
+            "틱톡 추천인 구하는법 | grade=A gr=3.3333333333333335 sv=20 dc=6 src=틱톡(25) ex=78",
+            "언박싱팩토리 가습기 | grade=SSS gr=2.878787878787879 sv=190 dc=66 src=언박싱(0) ex=46",
+            "한진 언박싱데이 | grade=SSS gr=2.75 sv=440 dc=160 src=언박싱(0) ex=52"
+          ]
+        }
+      },
+      "keywords": [
+        {
+          "keyword": "틱톡 추천자격미충족",
+          "grade": "S",
+          "searchVolume": 110,
+          "documentCount": 26,
+          "goldenRatio": 4.230769230769231,
+          "source": "틱톡"
+        },
+        {
+          "keyword": "언박싱팩토리 가습기",
+          "grade": "S",
+          "searchVolume": 190,
+          "documentCount": 66,
+          "goldenRatio": 2.878787878787879,
+          "source": "언박싱"
+        },
+        {
+          "keyword": "한진 언박싱데이",
+          "grade": "SS",
+          "searchVolume": 440,
+          "documentCount": 160,
+          "goldenRatio": 2.75,
+          "source": "언박싱"
+        },
+        {
+          "keyword": "챔피언언박싱",
+          "grade": "S",
+          "searchVolume": 700,
+          "documentCount": 1541,
+          "goldenRatio": 0.45425048669695,
+          "source": "언박싱"
+        }
+      ],
+      "attempts": 1,
+      "durationMs": 155085
+    },
+    {
+      "success": false,
+      "category": "garden",
+      "runIndex": 1,
+      "mode": "category",
+      "explosionMode": true,
+      "count": 5,
+      "summary": {
+        "totalFound": 0,
+        "sssCount": 0,
+        "ssCount": 0,
+        "sCount": 0,
+        "rookieFriendlyCount": 0,
+        "urgentCount": 0,
+        "blueOceanCount": 0,
+        "explosionFunnel": {
+          "candidates": 0,
+          "verified": 0,
+          "gradeOk": 0,
+          "ratioOk": 0,
+          "docOk": 0,
+          "svOk": 0,
+          "strictOk": 0,
+          "minSv": 30,
+          "internalMetrics": {
+            "seedCount": 127,
+            "allKeywordsCount": 1324,
+            "profitableCount": 0,
+            "uniqueKeywordsCount": 0,
+            "sortedResultsCount": 0,
+            "verifiedResultsCount": 0,
+            "searchAdEnabled": true,
+            "searchAdAdded": 425,
+            "autocompleteAdded": 780
+          },
+          "topByExplosion": []
+        }
+      },
+      "keywords": [],
+      "attempts": 1,
+      "durationMs": 34760
+    },
+    {
+      "success": false,
+      "category": "garden",
+      "runIndex": 2,
+      "mode": "category",
+      "explosionMode": true,
+      "count": 5,
+      "summary": {
+        "totalFound": 0,
+        "sssCount": 0,
+        "ssCount": 0,
+        "sCount": 0,
+        "rookieFriendlyCount": 0,
+        "urgentCount": 0,
+        "blueOceanCount": 0,
+        "explosionFunnel": {
+          "candidates": 0,
+          "verified": 0,
+          "gradeOk": 0,
+          "ratioOk": 0,
+          "docOk": 0,
+          "svOk": 0,
+          "strictOk": 0,
+          "minSv": 30,
+          "internalMetrics": {
+            "seedCount": 129,
+            "allKeywordsCount": 931,
+            "profitableCount": 0,
+            "uniqueKeywordsCount": 0,
+            "sortedResultsCount": 0,
+            "verifiedResultsCount": 0,
+            "searchAdEnabled": true,
+            "searchAdAdded": 82,
+            "autocompleteAdded": 727
+          },
+          "topByExplosion": []
+        }
+      },
+      "keywords": [],
+      "attempts": 1,
+      "durationMs": 29682
+    },
+    {
+      "success": false,
+      "category": "garden",
+      "runIndex": 3,
+      "mode": "category",
+      "explosionMode": true,
+      "count": 5,
+      "summary": {
+        "totalFound": 0,
+        "sssCount": 0,
+        "ssCount": 0,
+        "sCount": 0,
+        "rookieFriendlyCount": 0,
+        "urgentCount": 0,
+        "blueOceanCount": 0,
+        "explosionFunnel": {
+          "candidates": 0,
+          "verified": 0,
+          "gradeOk": 0,
+          "ratioOk": 0,
+          "docOk": 0,
+          "svOk": 0,
+          "strictOk": 0,
+          "minSv": 30,
+          "internalMetrics": {
+            "seedCount": 129,
+            "allKeywordsCount": 994,
+            "profitableCount": 1,
+            "uniqueKeywordsCount": 1,
+            "sortedResultsCount": 1,
+            "verifiedResultsCount": 0,
+            "searchAdEnabled": true,
+            "searchAdAdded": 81,
+            "autocompleteAdded": 791
+          },
+          "topByExplosion": []
+        }
+      },
+      "keywords": [],
+      "attempts": 1,
+      "durationMs": 31051
+    },
+    {
+      "success": false,
+      "category": "game",
+      "runIndex": 1,
+      "mode": "category",
+      "explosionMode": true,
+      "count": 5,
+      "summary": {
+        "totalFound": 0,
+        "sssCount": 0,
+        "ssCount": 0,
+        "sCount": 0,
+        "rookieFriendlyCount": 0,
+        "urgentCount": 0,
+        "blueOceanCount": 0,
+        "explosionFunnel": {
+          "candidates": 2,
+          "verified": 2,
+          "gradeOk": 0,
+          "ratioOk": 0,
+          "docOk": 2,
+          "svOk": 2,
+          "strictOk": 0,
+          "minSv": 30,
+          "internalMetrics": {
+            "seedCount": 127,
+            "allKeywordsCount": 757,
+            "profitableCount": 3,
+            "uniqueKeywordsCount": 3,
+            "sortedResultsCount": 2,
+            "verifiedResultsCount": 2,
+            "searchAdEnabled": true,
+            "searchAdAdded": 123,
+            "autocompleteAdded": 519
+          },
+          "topByExplosion": [
+            "애플스토어 여의도 | grade=B gr=0.17788397716713128 sv=1340 dc=7533 src=쇼핑(25) ex=103",
+            "애플스토어 as | grade=B gr=0.0407725321888412 sv=190 dc=4660 src=쇼핑(25) ex=84"
+          ]
+        }
+      },
+      "keywords": [],
+      "attempts": 1,
+      "durationMs": 54412
+    },
+    {
+      "success": false,
+      "category": "game",
+      "runIndex": 2,
+      "mode": "category",
+      "explosionMode": true,
+      "count": 5,
+      "summary": {
+        "totalFound": 0,
+        "sssCount": 0,
+        "ssCount": 0,
+        "sCount": 0,
+        "rookieFriendlyCount": 0,
+        "urgentCount": 0,
+        "blueOceanCount": 0,
+        "explosionFunnel": {
+          "candidates": 0,
+          "verified": 0,
+          "gradeOk": 0,
+          "ratioOk": 0,
+          "docOk": 0,
+          "svOk": 0,
+          "strictOk": 0,
+          "minSv": 30,
+          "internalMetrics": {
+            "seedCount": 128,
+            "allKeywordsCount": 1146,
+            "profitableCount": 0,
+            "uniqueKeywordsCount": 0,
+            "sortedResultsCount": 0,
+            "verifiedResultsCount": 0,
+            "searchAdEnabled": true,
+            "searchAdAdded": 179,
+            "autocompleteAdded": 849
+          },
+          "topByExplosion": []
+        }
+      },
+      "keywords": [],
+      "attempts": 1,
+      "durationMs": 42664
+    },
+    {
+      "success": false,
+      "category": "game",
+      "runIndex": 3,
+      "mode": "category",
+      "explosionMode": true,
+      "count": 5,
+      "summary": {
+        "totalFound": 0,
+        "sssCount": 0,
+        "ssCount": 0,
+        "sCount": 0,
+        "rookieFriendlyCount": 0,
+        "urgentCount": 0,
+        "blueOceanCount": 0,
+        "explosionFunnel": {
+          "candidates": 0,
+          "verified": 0,
+          "gradeOk": 0,
+          "ratioOk": 0,
+          "docOk": 0,
+          "svOk": 0,
+          "strictOk": 0,
+          "minSv": 30,
+          "internalMetrics": {
+            "seedCount": 127,
+            "allKeywordsCount": 1046,
+            "profitableCount": 0,
+            "uniqueKeywordsCount": 0,
+            "sortedResultsCount": 0,
+            "verifiedResultsCount": 0,
+            "searchAdEnabled": true,
+            "searchAdAdded": 177,
+            "autocompleteAdded": 749
+          },
+          "topByExplosion": []
+        }
+      },
+      "keywords": [],
+      "attempts": 1,
+      "durationMs": 38855
+    },
+    {
+      "success": false,
+      "category": "sports",
+      "runIndex": 1,
+      "mode": "category",
+      "explosionMode": true,
+      "count": 5,
+      "summary": {
+        "totalFound": 0,
+        "sssCount": 0,
+        "ssCount": 0,
+        "sCount": 0,
+        "rookieFriendlyCount": 0,
+        "urgentCount": 0,
+        "blueOceanCount": 0,
+        "explosionFunnel": {
+          "candidates": 89,
+          "verified": 89,
+          "gradeOk": 0,
+          "ratioOk": 3,
+          "docOk": 70,
+          "svOk": 53,
+          "strictOk": 0,
+          "minSv": 30,
+          "internalMetrics": {
+            "seedCount": 109,
+            "allKeywordsCount": 1411,
+            "profitableCount": 479,
+            "uniqueKeywordsCount": 465,
+            "sortedResultsCount": 463,
+            "verifiedResultsCount": 51,
+            "searchAdEnabled": true,
+            "searchAdAdded": 600,
+            "autocompleteAdded": 714
+          },
+          "topByExplosion": [
+            "여자 운동화 추천 호카 | grade=A gr=20 sv=20 dc=1 src=운동화 추천(0) ex=40",
+            "운동화 추천 호카 | grade=A gr=10 sv=20 dc=2 src=운동화 추천(0) ex=40",
+            "러닝화 추천 디시 | grade=A gr=5 sv=20 dc=4 src=러닝화 추천(0) ex=40",
+            "요가휠 | grade=B gr=0.27439024390243905 sv=1350 dc=4920 src=인스타(25) ex=103",
+            "런닝머신렌탈 | grade=B gr=0.23229898851362935 sv=2710 dc=11666 src=인스타(25) ex=103"
+          ]
+        }
+      },
+      "keywords": [],
+      "attempts": 1,
+      "durationMs": 194907
+    },
+    {
+      "success": false,
+      "category": "sports",
+      "runIndex": 2,
+      "mode": "category",
+      "explosionMode": true,
+      "count": 5,
+      "summary": {
+        "totalFound": 0,
+        "sssCount": 0,
+        "ssCount": 0,
+        "sCount": 0,
+        "rookieFriendlyCount": 0,
+        "urgentCount": 0,
+        "blueOceanCount": 0,
+        "explosionFunnel": {
+          "candidates": 91,
+          "verified": 91,
+          "gradeOk": 0,
+          "ratioOk": 2,
+          "docOk": 73,
+          "svOk": 51,
+          "strictOk": 0,
+          "minSv": 30,
+          "internalMetrics": {
+            "seedCount": 112,
+            "allKeywordsCount": 1705,
+            "profitableCount": 560,
+            "uniqueKeywordsCount": 499,
+            "sortedResultsCount": 497,
+            "verifiedResultsCount": 48,
+            "searchAdEnabled": true,
+            "searchAdAdded": 958,
+            "autocompleteAdded": 653
+          },
+          "topByExplosion": [
+            "초보 러닝화 추천 호카 | grade=A gr=20 sv=20 dc=1 src=러닝화 추천(0) ex=40",
+            "러닝화 추천 디시 | grade=A gr=5 sv=20 dc=4 src=러닝화 추천(0) ex=40",
+            "요가휠 | grade=B gr=0.27439024390243905 sv=1350 dc=4920 src=인스타(25) ex=103",
+            "런닝머신렌탈 | grade=B gr=0.23229898851362935 sv=2710 dc=11666 src=인스타(25) ex=103",
+            "여자헬스복 | grade=B gr=0.21009098428453268 sv=2540 dc=12090 src=인스타(25) ex=103"
+          ]
+        }
+      },
+      "keywords": [],
+      "attempts": 1,
+      "durationMs": 206136
+    },
+    {
+      "success": true,
+      "category": "sports",
+      "runIndex": 3,
+      "mode": "category",
+      "explosionMode": true,
+      "count": 5,
+      "summary": {
+        "totalFound": 4,
+        "sssCount": 2,
+        "ssCount": 2,
+        "sCount": 0,
+        "rookieFriendlyCount": 0,
+        "urgentCount": 0,
+        "blueOceanCount": 1,
+        "explosionFunnel": {
+          "candidates": 100,
+          "verified": 100,
+          "gradeOk": 4,
+          "ratioOk": 6,
+          "docOk": 76,
+          "svOk": 59,
+          "strictOk": 4,
+          "minSv": 30,
+          "internalMetrics": {
+            "seedCount": 108,
+            "allKeywordsCount": 1627,
+            "profitableCount": 565,
+            "uniqueKeywordsCount": 524,
+            "sortedResultsCount": 520,
+            "verifiedResultsCount": 56,
+            "searchAdEnabled": true,
+            "searchAdAdded": 843,
+            "autocompleteAdded": 693
+          },
+          "topByExplosion": [
+            "초보 러닝화 추천 호카 | grade=A gr=20 sv=20 dc=1 src=러닝화 추천(0) ex=40",
+            "러닝화 추천 디시 | grade=A gr=5 sv=20 dc=4 src=러닝화 추천(0) ex=40",
+            "스케처스운동화 | grade=SSS gr=4.528888888888889 sv=10190 dc=2250 src=운동화(0) ex=65",
+            "아키클래식운동화 | grade=SS gr=1.1997063142437592 sv=8170 dc=6810 src=운동화(0) ex=65",
+            "고어텍스운동화 | grade=S gr=0.8216510903426791 sv=14770 dc=17976 src=운동화(0) ex=65"
+          ]
+        }
+      },
+      "keywords": [
+        {
+          "keyword": "스케처스운동화",
+          "grade": "SSS",
+          "searchVolume": 10190,
+          "documentCount": 2250,
+          "goldenRatio": 4.528888888888889,
+          "source": "운동화"
+        },
+        {
+          "keyword": "아키클래식운동화",
+          "grade": "SSS",
+          "searchVolume": 8170,
+          "documentCount": 6810,
+          "goldenRatio": 1.1997063142437592,
+          "source": "운동화"
+        },
+        {
+          "keyword": "고어텍스운동화",
+          "grade": "SS",
+          "searchVolume": 14770,
+          "documentCount": 17976,
+          "goldenRatio": 0.8216510903426791,
+          "source": "운동화"
+        },
+        {
+          "keyword": "만두카요가매트",
+          "grade": "SS",
+          "searchVolume": 7040,
+          "documentCount": 8662,
+          "goldenRatio": 0.8127453244054491,
+          "source": "요가매트"
+        }
+      ],
+      "attempts": 1,
+      "durationMs": 208212
+    },
+    {
+      "success": false,
+      "category": "photo",
+      "runIndex": 1,
+      "mode": "category",
+      "explosionMode": true,
+      "count": 5,
+      "summary": {
+        "totalFound": 0,
+        "sssCount": 0,
+        "ssCount": 0,
+        "sCount": 0,
+        "rookieFriendlyCount": 0,
+        "urgentCount": 0,
+        "blueOceanCount": 0,
+        "explosionFunnel": {
+          "candidates": 3,
+          "verified": 3,
+          "gradeOk": 0,
+          "ratioOk": 0,
+          "docOk": 2,
+          "svOk": 1,
+          "strictOk": 0,
+          "minSv": 30,
+          "internalMetrics": {
+            "seedCount": 129,
+            "allKeywordsCount": 1390,
+            "profitableCount": 4,
+            "uniqueKeywordsCount": 4,
+            "sortedResultsCount": 4,
+            "verifiedResultsCount": 0,
+            "searchAdEnabled": true,
+            "searchAdAdded": 750,
+            "autocompleteAdded": 524
+          },
+          "topByExplosion": [
+            "전자칠판촬영 | grade=C gr=0.001931807205640877 sv=20 dc=10353 src=틱톡(25) ex=78",
+            "인터넷강의촬영 | grade=C gr=0.0012061271257990593 sv=20 dc=16582 src=틱톡(25) ex=78",
+            "눈바디 사진 | grade=C gr=0.0003607850683086396 sv=30 dc=83152 src=인스타(25) ex=78"
+          ]
+        }
+      },
+      "keywords": [],
+      "attempts": 1,
+      "durationMs": 57329
+    },
+    {
+      "success": false,
+      "category": "photo",
+      "runIndex": 2,
+      "mode": "category",
+      "explosionMode": true,
+      "count": 5,
+      "summary": {
+        "totalFound": 0,
+        "sssCount": 0,
+        "ssCount": 0,
+        "sCount": 0,
+        "rookieFriendlyCount": 0,
+        "urgentCount": 0,
+        "blueOceanCount": 0,
+        "explosionFunnel": {
+          "candidates": 4,
+          "verified": 4,
+          "gradeOk": 0,
+          "ratioOk": 0,
+          "docOk": 4,
+          "svOk": 2,
+          "strictOk": 0,
+          "minSv": 30,
+          "internalMetrics": {
+            "seedCount": 128,
+            "allKeywordsCount": 1567,
+            "profitableCount": 6,
+            "uniqueKeywordsCount": 6,
+            "sortedResultsCount": 6,
+            "verifiedResultsCount": 1,
+            "searchAdEnabled": true,
+            "searchAdAdded": 586,
+            "autocompleteAdded": 867
+          },
+          "topByExplosion": [
+            "촬영용마이크 | grade=B gr=0.032266070985356166 sv=260 dc=8058 src=틱톡(25) ex=90",
+            "ootd 사진관 | grade=B gr=0.012330456226880395 sv=30 dc=2433 src=인스타(25) ex=78",
+            "OOTD사진 뜻 | grade=B gr=0.0017386768669042858 sv=20 dc=11503 src=인스타(25) ex=78",
+            "ootd 사진 찍기 | grade=C gr=0.0013041210224308817 sv=20 dc=15336 src=인스타(25) ex=78"
+          ]
+        }
+      },
+      "keywords": [],
+      "attempts": 1,
+      "durationMs": 36387
+    },
+    {
+      "success": false,
+      "category": "photo",
+      "runIndex": 3,
+      "mode": "category",
+      "explosionMode": true,
+      "count": 5,
+      "summary": {
+        "totalFound": 0,
+        "sssCount": 0,
+        "ssCount": 0,
+        "sCount": 0,
+        "rookieFriendlyCount": 0,
+        "urgentCount": 0,
+        "blueOceanCount": 0,
+        "explosionFunnel": {
+          "candidates": 2,
+          "verified": 2,
+          "gradeOk": 0,
+          "ratioOk": 0,
+          "docOk": 1,
+          "svOk": 2,
+          "strictOk": 0,
+          "minSv": 30,
+          "internalMetrics": {
+            "seedCount": 129,
+            "allKeywordsCount": 563,
+            "profitableCount": 3,
+            "uniqueKeywordsCount": 3,
+            "sortedResultsCount": 3,
+            "verifiedResultsCount": 1,
+            "searchAdEnabled": true,
+            "searchAdAdded": 220,
+            "autocompleteAdded": 219
+          },
+          "topByExplosion": [
+            "사진으로영상만들기 | grade=B gr=0.01955503905420657 sv=1750 dc=89491 src=틱톡(25) ex=103",
+            "ootd 사진관 | grade=B gr=0.012330456226880395 sv=30 dc=2433 src=인스타(25) ex=78"
+          ]
+        }
+      },
+      "keywords": [],
+      "attempts": 1,
+      "durationMs": 73345
+    },
+    {
+      "success": false,
+      "category": "car",
+      "runIndex": 1,
+      "mode": "category",
+      "explosionMode": true,
+      "count": 5,
+      "summary": {
+        "totalFound": 0,
+        "sssCount": 0,
+        "ssCount": 0,
+        "sCount": 0,
+        "rookieFriendlyCount": 0,
+        "urgentCount": 0,
+        "blueOceanCount": 0,
+        "explosionFunnel": {
+          "candidates": 1,
+          "verified": 1,
+          "gradeOk": 0,
+          "ratioOk": 0,
+          "docOk": 1,
+          "svOk": 0,
+          "strictOk": 0,
+          "minSv": 30,
+          "internalMetrics": {
+            "seedCount": 128,
+            "allKeywordsCount": 1165,
+            "profitableCount": 3,
+            "uniqueKeywordsCount": 3,
+            "sortedResultsCount": 3,
+            "verifiedResultsCount": 0,
+            "searchAdEnabled": true,
+            "searchAdAdded": 325,
+            "autocompleteAdded": 724
+          },
+          "topByExplosion": [
+            "제주도 bmw 시승 | grade=B gr=0.007358351729212656 sv=20 dc=2718 src=인스타(25) ex=78"
+          ]
+        }
+      },
+      "keywords": [],
+      "attempts": 1,
+      "durationMs": 49058
+    },
+    {
+      "success": true,
+      "category": "car",
+      "runIndex": 2,
+      "mode": "category",
+      "explosionMode": true,
+      "count": 5,
+      "summary": {
+        "totalFound": 1,
+        "sssCount": 0,
+        "ssCount": 1,
+        "sCount": 0,
+        "rookieFriendlyCount": 0,
+        "urgentCount": 0,
+        "blueOceanCount": 0,
+        "explosionFunnel": {
+          "candidates": 4,
+          "verified": 4,
+          "gradeOk": 1,
+          "ratioOk": 1,
+          "docOk": 2,
+          "svOk": 4,
+          "strictOk": 1,
+          "minSv": 30,
+          "internalMetrics": {
+            "seedCount": 128,
+            "allKeywordsCount": 963,
+            "profitableCount": 5,
+            "uniqueKeywordsCount": 5,
+            "sortedResultsCount": 5,
+            "verifiedResultsCount": 4,
+            "searchAdEnabled": true,
+            "searchAdAdded": 94,
+            "autocompleteAdded": 749
+          },
+          "topByExplosion": [
+            "자동차용품전문쇼핑몰 | grade=S gr=0.6715575620767494 sv=1190 dc=1772 src=가격(0) ex=65",
+            "차량용쓰레기봉투 | grade=B gr=0.1945716154349248 sv=1190 dc=6116 src=가격(0) ex=65",
+            "차량용품사이트 | grade=B gr=0.0044943820224719105 sv=430 dc=95675 src=가격(0) ex=52",
+            "차량삼각대 | grade=B gr=0.003063557884832106 sv=280 dc=91397 src=가격(0) ex=52"
+          ]
+        }
+      },
+      "keywords": [
+        {
+          "keyword": "자동차용품전문쇼핑몰",
+          "grade": "SS",
+          "searchVolume": 1190,
+          "documentCount": 1772,
+          "goldenRatio": 0.6715575620767494,
+          "source": "가격"
+        }
+      ],
+      "attempts": 1,
+      "durationMs": 32832
+    },
+    {
+      "success": false,
+      "category": "car",
+      "runIndex": 3,
+      "mode": "category",
+      "explosionMode": true,
+      "count": 5,
+      "summary": {
+        "totalFound": 0,
+        "sssCount": 0,
+        "ssCount": 0,
+        "sCount": 0,
+        "rookieFriendlyCount": 0,
+        "urgentCount": 0,
+        "blueOceanCount": 0,
+        "explosionFunnel": {
+          "candidates": 0,
+          "verified": 0,
+          "gradeOk": 0,
+          "ratioOk": 0,
+          "docOk": 0,
+          "svOk": 0,
+          "strictOk": 0,
+          "minSv": 30,
+          "internalMetrics": {
+            "seedCount": 131,
+            "allKeywordsCount": 1376,
+            "profitableCount": 3,
+            "uniqueKeywordsCount": 3,
+            "sortedResultsCount": 3,
+            "verifiedResultsCount": 0,
+            "searchAdEnabled": true,
+            "searchAdAdded": 338,
+            "autocompleteAdded": 919
+          },
+          "topByExplosion": []
+        }
+      },
+      "keywords": [],
+      "attempts": 1,
+      "durationMs": 31090
+    },
+    {
+      "success": false,
+      "category": "hobby",
+      "runIndex": 1,
+      "mode": "category",
+      "explosionMode": true,
+      "count": 5,
+      "summary": {
+        "totalFound": 0,
+        "sssCount": 0,
+        "ssCount": 0,
+        "sCount": 0,
+        "rookieFriendlyCount": 0,
+        "urgentCount": 0,
+        "blueOceanCount": 0,
+        "explosionFunnel": {
+          "candidates": 0,
+          "verified": 0,
+          "gradeOk": 0,
+          "ratioOk": 0,
+          "docOk": 0,
+          "svOk": 0,
+          "strictOk": 0,
+          "minSv": 30,
+          "internalMetrics": {
+            "seedCount": 125,
+            "allKeywordsCount": 1137,
+            "profitableCount": 0,
+            "uniqueKeywordsCount": 0,
+            "sortedResultsCount": 0,
+            "verifiedResultsCount": 0,
+            "searchAdEnabled": true,
+            "searchAdAdded": 274,
+            "autocompleteAdded": 747
+          },
+          "topByExplosion": []
+        }
+      },
+      "keywords": [],
+      "attempts": 1,
+      "durationMs": 34447
+    },
+    {
+      "success": false,
+      "category": "hobby",
+      "runIndex": 2,
+      "mode": "category",
+      "explosionMode": true,
+      "count": 5,
+      "summary": {
+        "totalFound": 0,
+        "sssCount": 0,
+        "ssCount": 0,
+        "sCount": 0,
+        "rookieFriendlyCount": 0,
+        "urgentCount": 0,
+        "blueOceanCount": 0,
+        "explosionFunnel": {
+          "candidates": 0,
+          "verified": 0,
+          "gradeOk": 0,
+          "ratioOk": 0,
+          "docOk": 0,
+          "svOk": 0,
+          "strictOk": 0,
+          "minSv": 30,
+          "internalMetrics": {
+            "seedCount": 123,
+            "allKeywordsCount": 1130,
+            "profitableCount": 2,
+            "uniqueKeywordsCount": 2,
+            "sortedResultsCount": 2,
+            "verifiedResultsCount": 0,
+            "searchAdEnabled": true,
+            "searchAdAdded": 201,
+            "autocompleteAdded": 813
+          },
+          "topByExplosion": []
+        }
+      },
+      "keywords": [],
+      "attempts": 1,
+      "durationMs": 45852
+    },
+    {
+      "success": false,
+      "category": "hobby",
+      "runIndex": 3,
+      "mode": "category",
+      "explosionMode": true,
+      "count": 5,
+      "summary": {
+        "totalFound": 0,
+        "sssCount": 0,
+        "ssCount": 0,
+        "sCount": 0,
+        "rookieFriendlyCount": 0,
+        "urgentCount": 0,
+        "blueOceanCount": 0,
+        "explosionFunnel": {
+          "candidates": 0,
+          "verified": 0,
+          "gradeOk": 0,
+          "ratioOk": 0,
+          "docOk": 0,
+          "svOk": 0,
+          "strictOk": 0,
+          "minSv": 30,
+          "internalMetrics": {
+            "seedCount": 125,
+            "allKeywordsCount": 1512,
+            "profitableCount": 0,
+            "uniqueKeywordsCount": 0,
+            "sortedResultsCount": 0,
+            "verifiedResultsCount": 0,
+            "searchAdEnabled": true,
+            "searchAdAdded": 510,
+            "autocompleteAdded": 889
+          },
+          "topByExplosion": []
+        }
+      },
+      "keywords": [],
+      "attempts": 1,
+      "durationMs": 32729
+    },
+    {
+      "success": true,
+      "category": "travel_domestic",
+      "runIndex": 1,
+      "mode": "category",
+      "explosionMode": true,
+      "count": 5,
+      "summary": {
+        "totalFound": 2,
+        "sssCount": 1,
+        "ssCount": 1,
+        "sCount": 0,
+        "rookieFriendlyCount": 1,
+        "urgentCount": 0,
+        "blueOceanCount": 1,
+        "explosionFunnel": {
+          "candidates": 13,
+          "verified": 13,
+          "gradeOk": 2,
+          "ratioOk": 2,
+          "docOk": 8,
+          "svOk": 12,
+          "strictOk": 2,
+          "minSv": 30,
+          "internalMetrics": {
+            "seedCount": 129,
+            "allKeywordsCount": 1238,
+            "profitableCount": 31,
+            "uniqueKeywordsCount": 31,
+            "sortedResultsCount": 28,
+            "verifiedResultsCount": 12,
+            "searchAdEnabled": true,
+            "searchAdAdded": 299,
+            "autocompleteAdded": 820
+          },
+          "topByExplosion": [
+            "제주도 두쫀쿠 | grade=SSS gr=137 sv=1370 dc=10 src=인스타(25) ex=106",
+            "제주도 감귤체험 | grade=S gr=0.6202780296161983 sv=8210 dc=13236 src=인스타(25) ex=106",
+            "제주도 동문시장 | grade=B gr=0.29040837336993824 sv=6770 dc=23312 src=인스타(25) ex=103",
+            "제주도 겨울여행 | grade=B gr=0.24691730230034067 sv=16380 dc=66338 src=인스타(25) ex=150",
+            "제주도 놀거리 | grade=B gr=0.15312863333685656 sv=11590 dc=75688 src=인스타(25) ex=103"
+          ]
+        }
+      },
+      "keywords": [
+        {
+          "keyword": "제주도 두쫀쿠",
+          "grade": "SSS",
+          "searchVolume": 1370,
+          "documentCount": 10,
+          "goldenRatio": 137,
+          "source": "인스타"
+        },
+        {
+          "keyword": "제주도 감귤체험",
+          "grade": "SS",
+          "searchVolume": 8210,
+          "documentCount": 13236,
+          "goldenRatio": 0.6202780296161983,
+          "source": "인스타"
+        }
+      ],
+      "attempts": 1,
+      "durationMs": 60763
+    },
+    {
+      "success": true,
+      "category": "travel_domestic",
+      "runIndex": 2,
+      "mode": "category",
+      "explosionMode": true,
+      "count": 5,
+      "summary": {
+        "totalFound": 2,
+        "sssCount": 1,
+        "ssCount": 1,
+        "sCount": 0,
+        "rookieFriendlyCount": 1,
+        "urgentCount": 0,
+        "blueOceanCount": 1,
+        "explosionFunnel": {
+          "candidates": 12,
+          "verified": 12,
+          "gradeOk": 2,
+          "ratioOk": 2,
+          "docOk": 7,
+          "svOk": 12,
+          "strictOk": 2,
+          "minSv": 30,
+          "internalMetrics": {
+            "seedCount": 126,
+            "allKeywordsCount": 1170,
+            "profitableCount": 30,
+            "uniqueKeywordsCount": 30,
+            "sortedResultsCount": 27,
+            "verifiedResultsCount": 12,
+            "searchAdEnabled": true,
+            "searchAdAdded": 177,
+            "autocompleteAdded": 875
+          },
+          "topByExplosion": [
+            "제주도 두쫀쿠 | grade=SSS gr=137 sv=1370 dc=10 src=인스타(25) ex=106",
+            "제주도 감귤체험 | grade=S gr=0.6202780296161983 sv=8210 dc=13236 src=인스타(25) ex=106",
+            "제주도 동문시장 | grade=B gr=0.29040837336993824 sv=6770 dc=23312 src=인스타(25) ex=103",
+            "제주도 겨울여행 | grade=B gr=0.24691730230034067 sv=16380 dc=66338 src=인스타(25) ex=150",
+            "제주도 놀거리 | grade=B gr=0.15312863333685656 sv=11590 dc=75688 src=인스타(25) ex=103"
+          ]
+        }
+      },
+      "keywords": [
+        {
+          "keyword": "제주도 두쫀쿠",
+          "grade": "SSS",
+          "searchVolume": 1370,
+          "documentCount": 10,
+          "goldenRatio": 137,
+          "source": "인스타"
+        },
+        {
+          "keyword": "제주도 감귤체험",
+          "grade": "SS",
+          "searchVolume": 8210,
+          "documentCount": 13236,
+          "goldenRatio": 0.6202780296161983,
+          "source": "인스타"
+        }
+      ],
+      "attempts": 1,
+      "durationMs": 57227
+    },
+    {
+      "success": true,
+      "category": "travel_domestic",
+      "runIndex": 3,
+      "mode": "category",
+      "explosionMode": true,
+      "count": 5,
+      "summary": {
+        "totalFound": 2,
+        "sssCount": 1,
+        "ssCount": 1,
+        "sCount": 0,
+        "rookieFriendlyCount": 1,
+        "urgentCount": 0,
+        "blueOceanCount": 1,
+        "explosionFunnel": {
+          "candidates": 14,
+          "verified": 14,
+          "gradeOk": 2,
+          "ratioOk": 2,
+          "docOk": 9,
+          "svOk": 13,
+          "strictOk": 2,
+          "minSv": 30,
+          "internalMetrics": {
+            "seedCount": 130,
+            "allKeywordsCount": 1406,
+            "profitableCount": 32,
+            "uniqueKeywordsCount": 32,
+            "sortedResultsCount": 29,
+            "verifiedResultsCount": 13,
+            "searchAdEnabled": true,
+            "searchAdAdded": 276,
+            "autocompleteAdded": 1008
+          },
+          "topByExplosion": [
+            "제주도 두쫀쿠 | grade=SSS gr=137 sv=1370 dc=10 src=인스타(25) ex=106",
+            "제주도 감귤체험 | grade=S gr=0.6202780296161983 sv=8210 dc=13236 src=인스타(25) ex=106",
+            "제주도 동문시장 | grade=B gr=0.29040837336993824 sv=6770 dc=23312 src=인스타(25) ex=103",
+            "제주도 겨울여행 | grade=B gr=0.24691730230034067 sv=16380 dc=66338 src=인스타(25) ex=150",
+            "제주도 놀거리 | grade=B gr=0.15312863333685656 sv=11590 dc=75688 src=인스타(25) ex=103"
+          ]
+        }
+      },
+      "keywords": [
+        {
+          "keyword": "제주도 두쫀쿠",
+          "grade": "SSS",
+          "searchVolume": 1370,
+          "documentCount": 10,
+          "goldenRatio": 137,
+          "source": "인스타"
+        },
+        {
+          "keyword": "제주도 감귤체험",
+          "grade": "SS",
+          "searchVolume": 8210,
+          "documentCount": 13236,
+          "goldenRatio": 0.6202780296161983,
+          "source": "인스타"
+        }
+      ],
+      "attempts": 1,
+      "durationMs": 66994
+    },
+    {
+      "success": false,
+      "category": "travel_overseas",
+      "runIndex": 1,
+      "mode": "category",
+      "explosionMode": true,
+      "count": 5,
+      "summary": {
+        "totalFound": 0,
+        "sssCount": 0,
+        "ssCount": 0,
+        "sCount": 0,
+        "rookieFriendlyCount": 0,
+        "urgentCount": 0,
+        "blueOceanCount": 0,
+        "explosionFunnel": {
+          "candidates": 19,
+          "verified": 19,
+          "gradeOk": 0,
+          "ratioOk": 0,
+          "docOk": 13,
+          "svOk": 18,
+          "strictOk": 0,
+          "minSv": 30,
+          "internalMetrics": {
+            "seedCount": 124,
+            "allKeywordsCount": 1144,
+            "profitableCount": 31,
+            "uniqueKeywordsCount": 31,
+            "sortedResultsCount": 31,
+            "verifiedResultsCount": 15,
+            "searchAdEnabled": true,
+            "searchAdAdded": 296,
+            "autocompleteAdded": 731
+          },
+          "topByExplosion": [
+            "해외여행필수영어 | grade=B gr=0.22020725388601037 sv=340 dc=1544 src=인스타(25) ex=90",
+            "해외여행지순위 | grade=B gr=0.12996694913148282 sv=5230 dc=40241 src=인스타(25) ex=103",
+            "땡처리해외여행 | grade=B gr=0.07437749272394092 sv=2070 dc=27831 src=인스타(25) ex=103",
+            "해외여행 가방 크로스백 | grade=B gr=0.03288031565103025 sv=600 dc=18248 src=인스타(25) ex=96",
+            "해외여행경보 | grade=B gr=0.026507620941020542 sv=480 dc=18108 src=인스타(25) ex=90"
+          ]
+        }
+      },
+      "keywords": [],
+      "attempts": 1,
+      "durationMs": 56570
+    },
+    {
+      "success": false,
+      "category": "travel_overseas",
+      "runIndex": 2,
+      "mode": "category",
+      "explosionMode": true,
+      "count": 5,
+      "summary": {
+        "totalFound": 0,
+        "sssCount": 0,
+        "ssCount": 0,
+        "sCount": 0,
+        "rookieFriendlyCount": 0,
+        "urgentCount": 0,
+        "blueOceanCount": 0,
+        "explosionFunnel": {
+          "candidates": 21,
+          "verified": 21,
+          "gradeOk": 0,
+          "ratioOk": 0,
+          "docOk": 15,
+          "svOk": 19,
+          "strictOk": 0,
+          "minSv": 30,
+          "internalMetrics": {
+            "seedCount": 129,
+            "allKeywordsCount": 1156,
+            "profitableCount": 30,
+            "uniqueKeywordsCount": 30,
+            "sortedResultsCount": 30,
+            "verifiedResultsCount": 16,
+            "searchAdEnabled": true,
+            "searchAdAdded": 256,
+            "autocompleteAdded": 780
+          },
+          "topByExplosion": [
+            "맞팔로우 일본어로 | grade=B gr=0.2631578947368421 sv=20 dc=76 src=인스타(25) ex=78",
+            "해외여행필수영어 | grade=B gr=0.22020725388601037 sv=340 dc=1544 src=인스타(25) ex=90",
+            "해외여행지순위 | grade=B gr=0.12996694913148282 sv=5230 dc=40241 src=인스타(25) ex=103",
+            "땡처리해외여행 | grade=B gr=0.07437749272394092 sv=2070 dc=27831 src=인스타(25) ex=103",
+            "해외여행 가방 크로스백 | grade=B gr=0.03288031565103025 sv=600 dc=18248 src=인스타(25) ex=96"
+          ]
+        }
+      },
+      "keywords": [],
+      "attempts": 1,
+      "durationMs": 63839
+    },
+    {
+      "success": false,
+      "category": "travel_overseas",
+      "runIndex": 3,
+      "mode": "category",
+      "explosionMode": true,
+      "count": 5,
+      "summary": {
+        "totalFound": 0,
+        "sssCount": 0,
+        "ssCount": 0,
+        "sCount": 0,
+        "rookieFriendlyCount": 0,
+        "urgentCount": 0,
+        "blueOceanCount": 0,
+        "explosionFunnel": {
+          "candidates": 19,
+          "verified": 19,
+          "gradeOk": 0,
+          "ratioOk": 0,
+          "docOk": 13,
+          "svOk": 18,
+          "strictOk": 0,
+          "minSv": 30,
+          "internalMetrics": {
+            "seedCount": 127,
+            "allKeywordsCount": 1466,
+            "profitableCount": 28,
+            "uniqueKeywordsCount": 28,
+            "sortedResultsCount": 28,
+            "verifiedResultsCount": 15,
+            "searchAdEnabled": true,
+            "searchAdAdded": 415,
+            "autocompleteAdded": 932
+          },
+          "topByExplosion": [
+            "해외여행필수영어 | grade=B gr=0.22020725388601037 sv=340 dc=1544 src=인스타(25) ex=90",
+            "해외여행지순위 | grade=B gr=0.12996694913148282 sv=5230 dc=40241 src=인스타(25) ex=103",
+            "땡처리해외여행 | grade=B gr=0.07437749272394092 sv=2070 dc=27831 src=인스타(25) ex=103",
+            "해외여행 가방 크로스백 | grade=B gr=0.03288031565103025 sv=600 dc=18248 src=인스타(25) ex=96",
+            "해외여행경보 | grade=B gr=0.026507620941020542 sv=480 dc=18108 src=인스타(25) ex=90"
+          ]
+        }
+      },
+      "keywords": [],
+      "attempts": 1,
+      "durationMs": 62477
+    },
+    {
+      "success": true,
+      "category": "food",
+      "runIndex": 1,
+      "mode": "category",
+      "explosionMode": true,
+      "count": 5,
+      "summary": {
+        "totalFound": 1,
+        "sssCount": 0,
+        "ssCount": 0,
+        "sCount": 1,
+        "rookieFriendlyCount": 0,
+        "urgentCount": 0,
+        "blueOceanCount": 0,
+        "explosionFunnel": {
+          "candidates": 47,
+          "verified": 47,
+          "gradeOk": 1,
+          "ratioOk": 1,
+          "docOk": 28,
+          "svOk": 38,
+          "strictOk": 1,
+          "minSv": 30,
+          "internalMetrics": {
+            "seedCount": 125,
+            "allKeywordsCount": 1212,
+            "profitableCount": 97,
+            "uniqueKeywordsCount": 97,
+            "sortedResultsCount": 93,
+            "verifiedResultsCount": 32,
+            "searchAdEnabled": true,
+            "searchAdAdded": 201,
+            "autocompleteAdded": 894
+          },
+          "topByExplosion": [
+            "홈카페장 | grade=A gr=0.36045376921200295 sv=5910 dc=16396 src=인스타(25) ex=106",
+            "강릉중앙시장맛집 | grade=B gr=0.27144331624866574 sv=30770 dc=113357 src=인스타(25) ex=103",
+            "백석맛집 곰탕 | grade=B gr=0.12307692307692308 sv=160 dc=1300 src=인스타(25) ex=84",
+            "명동 맛집 데이트 | grade=B gr=0.11549083605322621 sv=460 dc=3983 src=인스타(25) ex=90",
+            "선암사 맛집 | grade=B gr=0.07488986784140969 sv=680 dc=9080 src=인스타(25) ex=96"
+          ]
+        }
+      },
+      "keywords": [
+        {
+          "keyword": "홈카페장",
+          "grade": "S",
+          "searchVolume": 5910,
+          "documentCount": 16396,
+          "goldenRatio": 0.36045376921200295,
+          "source": "인스타"
+        }
+      ],
+      "attempts": 1,
+      "durationMs": 115522
+    },
+    {
+      "success": true,
+      "category": "food",
+      "runIndex": 2,
+      "mode": "category",
+      "explosionMode": true,
+      "count": 5,
+      "summary": {
+        "totalFound": 2,
+        "sssCount": 0,
+        "ssCount": 0,
+        "sCount": 2,
+        "rookieFriendlyCount": 0,
+        "urgentCount": 0,
+        "blueOceanCount": 0,
+        "explosionFunnel": {
+          "candidates": 50,
+          "verified": 50,
+          "gradeOk": 2,
+          "ratioOk": 2,
+          "docOk": 30,
+          "svOk": 41,
+          "strictOk": 2,
+          "minSv": 30,
+          "internalMetrics": {
+            "seedCount": 126,
+            "allKeywordsCount": 1321,
+            "profitableCount": 101,
+            "uniqueKeywordsCount": 101,
+            "sortedResultsCount": 97,
+            "verifiedResultsCount": 32,
+            "searchAdEnabled": true,
+            "searchAdAdded": 352,
+            "autocompleteAdded": 850
+          },
+          "topByExplosion": [
+            "콩카페창업비용 | grade=A gr=0.47619047619047616 sv=100 dc=210 src=차이(0) ex=46",
+            "홈카페장 | grade=A gr=0.36045376921200295 sv=5910 dc=16396 src=인스타(25) ex=106",
+            "강릉중앙시장맛집 | grade=B gr=0.27144331624866574 sv=30770 dc=113357 src=인스타(25) ex=103",
+            "백석맛집 곰탕 | grade=B gr=0.12307692307692308 sv=160 dc=1300 src=인스타(25) ex=84",
+            "명동 맛집 데이트 | grade=B gr=0.11549083605322621 sv=460 dc=3983 src=인스타(25) ex=90"
+          ]
+        }
+      },
+      "keywords": [
+        {
+          "keyword": "콩카페창업비용",
+          "grade": "S",
+          "searchVolume": 100,
+          "documentCount": 210,
+          "goldenRatio": 0.47619047619047616,
+          "source": "차이"
+        },
+        {
+          "keyword": "홈카페장",
+          "grade": "S",
+          "searchVolume": 5910,
+          "documentCount": 16396,
+          "goldenRatio": 0.36045376921200295,
+          "source": "인스타"
+        }
+      ],
+      "attempts": 1,
+      "durationMs": 117569
+    },
+    {
+      "success": true,
+      "category": "food",
+      "runIndex": 3,
+      "mode": "category",
+      "explosionMode": true,
+      "count": 5,
+      "summary": {
+        "totalFound": 2,
+        "sssCount": 0,
+        "ssCount": 0,
+        "sCount": 2,
+        "rookieFriendlyCount": 0,
+        "urgentCount": 0,
+        "blueOceanCount": 0,
+        "explosionFunnel": {
+          "candidates": 51,
+          "verified": 51,
+          "gradeOk": 2,
+          "ratioOk": 2,
+          "docOk": 31,
+          "svOk": 42,
+          "strictOk": 2,
+          "minSv": 30,
+          "internalMetrics": {
+            "seedCount": 126,
+            "allKeywordsCount": 1494,
+            "profitableCount": 103,
+            "uniqueKeywordsCount": 103,
+            "sortedResultsCount": 99,
+            "verifiedResultsCount": 34,
+            "searchAdEnabled": true,
+            "searchAdAdded": 463,
+            "autocompleteAdded": 913
+          },
+          "topByExplosion": [
+            "콩카페창업비용 | grade=A gr=0.47619047619047616 sv=100 dc=210 src=차이(0) ex=46",
+            "홈카페장 | grade=A gr=0.3604317863023724 sv=5910 dc=16397 src=인스타(25) ex=106",
+            "강릉중앙시장맛집 | grade=B gr=0.27144331624866574 sv=30770 dc=113357 src=인스타(25) ex=103",
+            "백석맛집 곰탕 | grade=B gr=0.12307692307692308 sv=160 dc=1300 src=인스타(25) ex=84",
+            "명동 맛집 데이트 | grade=B gr=0.11549083605322621 sv=460 dc=3983 src=인스타(25) ex=90"
+          ]
+        }
+      },
+      "keywords": [
+        {
+          "keyword": "콩카페창업비용",
+          "grade": "S",
+          "searchVolume": 100,
+          "documentCount": 210,
+          "goldenRatio": 0.47619047619047616,
+          "source": "차이"
+        },
+        {
+          "keyword": "홈카페장",
+          "grade": "S",
+          "searchVolume": 5910,
+          "documentCount": 16397,
+          "goldenRatio": 0.3604317863023724,
+          "source": "인스타"
+        }
+      ],
+      "attempts": 1,
+      "durationMs": 124858
+    },
+    {
+      "success": true,
+      "category": "it",
+      "runIndex": 1,
+      "mode": "category",
+      "explosionMode": true,
+      "count": 5,
+      "summary": {
+        "totalFound": 5,
+        "sssCount": 3,
+        "ssCount": 2,
+        "sCount": 0,
+        "rookieFriendlyCount": 4,
+        "urgentCount": 0,
+        "blueOceanCount": 4,
+        "explosionFunnel": {
+          "candidates": 153,
+          "verified": 153,
+          "gradeOk": 9,
+          "ratioOk": 15,
+          "docOk": 122,
+          "svOk": 40,
+          "strictOk": 5,
+          "minSv": 200,
+          "internalMetrics": {
+            "seedCount": 114,
+            "allKeywordsCount": 1087,
+            "profitableCount": 223,
+            "uniqueKeywordsCount": 223,
+            "sortedResultsCount": 223,
+            "verifiedResultsCount": 58,
+            "searchAdEnabled": true,
+            "searchAdAdded": 483,
+            "autocompleteAdded": 502
+          },
+          "topByExplosion": [
+            "기계식 키보드 닌자 108 se | grade=SSS gr=260 sv=260 dc=1 src=기계식 키보드(0) ex=52",
+            "기계식키보드 x500 | grade=SSS gr=47.333333333333336 sv=710 dc=15 src=기계식 키보드(0) ex=58",
+            "기계식 키보드 축 차이 | grade=SSS gr=9.090909090909092 sv=100 dc=11 src=기계식 키보드 축(0) ex=46",
+            "기계식키보드 닌자108 | grade=SSS gr=4.299065420560748 sv=920 dc=214 src=기계식 키보드(0) ex=58",
+            "기계식 키보드 닌자108 | grade=SSS gr=4.299065420560748 sv=920 dc=214 src=기계식 키보드(0) ex=58"
+          ]
+        }
+      },
+      "keywords": [
+        {
+          "keyword": "기계식 키보드 닌자 108 se",
+          "grade": "SS",
+          "searchVolume": 260,
+          "documentCount": 1,
+          "goldenRatio": 260,
+          "source": "기계식 키보드"
+        },
+        {
+          "keyword": "기계식키보드 x500",
+          "grade": "SSS",
+          "searchVolume": 710,
+          "documentCount": 15,
+          "goldenRatio": 47.333333333333336,
+          "source": "기계식 키보드"
+        },
+        {
+          "keyword": "기계식 키보드 닌자108",
+          "grade": "SSS",
+          "searchVolume": 920,
+          "documentCount": 214,
+          "goldenRatio": 4.299065420560748,
+          "source": "기계식 키보드"
+        },
+        {
+          "keyword": "기계식키보드 닌자108",
+          "grade": "SSS",
+          "searchVolume": 920,
+          "documentCount": 214,
+          "goldenRatio": 4.299065420560748,
+          "source": "기계식 키보드"
+        },
+        {
+          "keyword": "다이소 무선 이어폰",
+          "grade": "SS",
+          "searchVolume": 4540,
+          "documentCount": 7429,
+          "goldenRatio": 0.611118589312155,
+          "source": "무선 이어폰"
+        }
+      ],
+      "attempts": 1,
+      "durationMs": 189635
+    },
+    {
+      "success": true,
+      "category": "it",
+      "runIndex": 2,
+      "mode": "category",
+      "explosionMode": true,
+      "count": 5,
+      "summary": {
+        "totalFound": 5,
+        "sssCount": 3,
+        "ssCount": 2,
+        "sCount": 0,
+        "rookieFriendlyCount": 0,
+        "urgentCount": 0,
+        "blueOceanCount": 4,
+        "explosionFunnel": {
+          "candidates": 162,
+          "verified": 162,
+          "gradeOk": 9,
+          "ratioOk": 15,
+          "docOk": 140,
+          "svOk": 38,
+          "strictOk": 5,
+          "minSv": 200,
+          "internalMetrics": {
+            "seedCount": 114,
+            "allKeywordsCount": 1091,
+            "profitableCount": 226,
+            "uniqueKeywordsCount": 226,
+            "sortedResultsCount": 226,
+            "verifiedResultsCount": 58,
+            "searchAdEnabled": true,
+            "searchAdAdded": 602,
+            "autocompleteAdded": 393
+          },
+          "topByExplosion": [
+            "기계식 키보드 닌자 108 se | grade=SSS gr=260 sv=260 dc=1 src=기계식 키보드(0) ex=52",
+            "기계식키보드 x500 | grade=SSS gr=47.333333333333336 sv=710 dc=15 src=기계식 키보드(0) ex=58",
+            "기계식 키보드 축 차이 | grade=SSS gr=9.090909090909092 sv=100 dc=11 src=기계식 키보드 축(0) ex=46",
+            "기계식키보드 닌자108 | grade=SSS gr=4.299065420560748 sv=920 dc=214 src=기계식 키보드(0) ex=58",
+            "기계식 키보드 닌자108 | grade=SSS gr=4.299065420560748 sv=920 dc=214 src=기계식 키보드(0) ex=58"
+          ]
+        }
+      },
+      "keywords": [
+        {
+          "keyword": "기계식 키보드 닌자 108 se",
+          "grade": "SS",
+          "searchVolume": 260,
+          "documentCount": 1,
+          "goldenRatio": 260,
+          "source": "기계식 키보드"
+        },
+        {
+          "keyword": "기계식키보드 x500",
+          "grade": "SSS",
+          "searchVolume": 710,
+          "documentCount": 15,
+          "goldenRatio": 47.333333333333336,
+          "source": "기계식 키보드"
+        },
+        {
+          "keyword": "기계식 키보드 닌자108",
+          "grade": "SSS",
+          "searchVolume": 920,
+          "documentCount": 214,
+          "goldenRatio": 4.299065420560748,
+          "source": "기계식 키보드"
+        },
+        {
+          "keyword": "기계식키보드 닌자108",
+          "grade": "SSS",
+          "searchVolume": 920,
+          "documentCount": 214,
+          "goldenRatio": 4.299065420560748,
+          "source": "기계식 키보드"
+        },
+        {
+          "keyword": "다이소 무선 이어폰",
+          "grade": "SS",
+          "searchVolume": 4540,
+          "documentCount": 7429,
+          "goldenRatio": 0.611118589312155,
+          "source": "무선 이어폰"
+        }
+      ],
+      "attempts": 1,
+      "durationMs": 218498
+    },
+    {
+      "success": true,
+      "category": "it",
+      "runIndex": 3,
+      "mode": "category",
+      "explosionMode": true,
+      "count": 5,
+      "summary": {
+        "totalFound": 5,
+        "sssCount": 5,
+        "ssCount": 0,
+        "sCount": 0,
+        "rookieFriendlyCount": 5,
+        "urgentCount": 0,
+        "blueOceanCount": 4,
+        "explosionFunnel": {
+          "candidates": 107,
+          "verified": 107,
+          "gradeOk": 11,
+          "ratioOk": 15,
+          "docOk": 87,
+          "svOk": 25,
+          "strictOk": 6,
+          "minSv": 500,
+          "internalMetrics": {
+            "seedCount": 121,
+            "allKeywordsCount": 1327,
+            "profitableCount": 218,
+            "uniqueKeywordsCount": 216,
+            "sortedResultsCount": 216,
+            "verifiedResultsCount": 41,
+            "searchAdEnabled": true,
+            "searchAdAdded": 624,
+            "autocompleteAdded": 595
+          },
+          "topByExplosion": [
+            "기계식 키보드 닌자 108 se | grade=SSS gr=260 sv=260 dc=1 src=기계식 키보드(0) ex=52",
+            "기계식키보드 x500 | grade=SSS gr=47.333333333333336 sv=710 dc=15 src=기계식 키보드(0) ex=58",
+            "릴스 나레이션 ai | grade=SSS gr=20.8 sv=520 dc=25 src=틱톡(25) ex=99",
+            "기계식 키보드 축 차이 | grade=SSS gr=9.090909090909092 sv=100 dc=11 src=seed(0) ex=46",
+            "기계식 키보드 닌자108 | grade=SSS gr=4.299065420560748 sv=920 dc=214 src=기계식 키보드(0) ex=58"
+          ]
+        }
+      },
+      "keywords": [
+        {
+          "keyword": "기계식키보드 x500",
+          "grade": "SSS",
+          "searchVolume": 710,
+          "documentCount": 15,
+          "goldenRatio": 47.333333333333336,
+          "source": "기계식 키보드"
+        },
+        {
+          "keyword": "릴스 나레이션 ai",
+          "grade": "SSS",
+          "searchVolume": 520,
+          "documentCount": 25,
+          "goldenRatio": 20.8,
+          "source": "틱톡"
+        },
+        {
+          "keyword": "기계식 키보드 닌자108",
+          "grade": "SSS",
+          "searchVolume": 920,
+          "documentCount": 214,
+          "goldenRatio": 4.299065420560748,
+          "source": "기계식 키보드"
+        },
+        {
+          "keyword": "기계식키보드 닌자108",
+          "grade": "SSS",
+          "searchVolume": 920,
+          "documentCount": 214,
+          "goldenRatio": 4.299065420560748,
+          "source": "기계식 키보드"
+        },
+        {
+          "keyword": "AI동영상만들기",
+          "grade": "SSS",
+          "searchVolume": 3580,
+          "documentCount": 3527,
+          "goldenRatio": 1.0150269350722994,
+          "source": "틱톡"
+        }
+      ],
+      "attempts": 1,
+      "durationMs": 239041
+    },
+    {
+      "success": false,
+      "category": "society",
+      "runIndex": 1,
+      "mode": "category",
+      "explosionMode": true,
+      "count": 5,
+      "summary": {
+        "totalFound": 0,
+        "sssCount": 0,
+        "ssCount": 0,
+        "sCount": 0,
+        "rookieFriendlyCount": 0,
+        "urgentCount": 0,
+        "blueOceanCount": 0,
+        "explosionFunnel": {
+          "candidates": 0,
+          "verified": 0,
+          "gradeOk": 0,
+          "ratioOk": 0,
+          "docOk": 0,
+          "svOk": 0,
+          "strictOk": 0,
+          "minSv": 30,
+          "internalMetrics": {
+            "seedCount": 127,
+            "allKeywordsCount": 1037,
+            "profitableCount": 3,
+            "uniqueKeywordsCount": 3,
+            "sortedResultsCount": 3,
+            "verifiedResultsCount": 0,
+            "searchAdEnabled": true,
+            "searchAdAdded": 158,
+            "autocompleteAdded": 760
+          },
+          "topByExplosion": []
+        }
+      },
+      "keywords": [],
+      "attempts": 1,
+      "durationMs": 55626
+    },
+    {
+      "success": false,
+      "category": "society",
+      "runIndex": 2,
+      "mode": "category",
+      "explosionMode": true,
+      "count": 5,
+      "summary": {
+        "totalFound": 0,
+        "sssCount": 0,
+        "ssCount": 0,
+        "sCount": 0,
+        "rookieFriendlyCount": 0,
+        "urgentCount": 0,
+        "blueOceanCount": 0,
+        "explosionFunnel": {
+          "candidates": 0,
+          "verified": 0,
+          "gradeOk": 0,
+          "ratioOk": 0,
+          "docOk": 0,
+          "svOk": 0,
+          "strictOk": 0,
+          "minSv": 30,
+          "internalMetrics": {
+            "seedCount": 129,
+            "allKeywordsCount": 1227,
+            "profitableCount": 1,
+            "uniqueKeywordsCount": 1,
+            "sortedResultsCount": 1,
+            "verifiedResultsCount": 0,
+            "searchAdEnabled": true,
+            "searchAdAdded": 328,
+            "autocompleteAdded": 777
+          },
+          "topByExplosion": []
+        }
+      },
+      "keywords": [],
+      "attempts": 1,
+      "durationMs": 51104
+    },
+    {
+      "success": false,
+      "category": "society",
+      "runIndex": 3,
+      "mode": "category",
+      "explosionMode": true,
+      "count": 5,
+      "summary": {
+        "totalFound": 0,
+        "sssCount": 0,
+        "ssCount": 0,
+        "sCount": 0,
+        "rookieFriendlyCount": 0,
+        "urgentCount": 0,
+        "blueOceanCount": 0,
+        "explosionFunnel": {
+          "candidates": 0,
+          "verified": 0,
+          "gradeOk": 0,
+          "ratioOk": 0,
+          "docOk": 0,
+          "svOk": 0,
+          "strictOk": 0,
+          "minSv": 30,
+          "internalMetrics": {
+            "seedCount": 127,
+            "allKeywordsCount": 1162,
+            "profitableCount": 5,
+            "uniqueKeywordsCount": 5,
+            "sortedResultsCount": 5,
+            "verifiedResultsCount": 0,
+            "searchAdEnabled": true,
+            "searchAdAdded": 423,
+            "autocompleteAdded": 625
+          },
+          "topByExplosion": []
+        }
+      },
+      "keywords": [],
+      "attempts": 1,
+      "durationMs": 62505
+    },
+    {
+      "success": false,
+      "category": "health",
+      "runIndex": 1,
+      "mode": "category",
+      "explosionMode": true,
+      "count": 5,
+      "summary": {
+        "totalFound": 0,
+        "sssCount": 0,
+        "ssCount": 0,
+        "sCount": 0,
+        "rookieFriendlyCount": 0,
+        "urgentCount": 0,
+        "blueOceanCount": 0,
+        "explosionFunnel": {
+          "candidates": 0,
+          "verified": 0,
+          "gradeOk": 0,
+          "ratioOk": 0,
+          "docOk": 0,
+          "svOk": 0,
+          "strictOk": 0,
+          "minSv": 30,
+          "internalMetrics": {
+            "seedCount": 121,
+            "allKeywordsCount": 1204,
+            "profitableCount": 47,
+            "uniqueKeywordsCount": 47,
+            "sortedResultsCount": 47,
+            "verifiedResultsCount": 0,
+            "searchAdEnabled": true,
+            "searchAdAdded": 481,
+            "autocompleteAdded": 607
+          },
+          "topByExplosion": []
+        }
+      },
+      "keywords": [],
+      "attempts": 1,
+      "durationMs": 183009
+    },
+    {
+      "success": false,
+      "category": "health",
+      "runIndex": 2,
+      "mode": "category",
+      "explosionMode": true,
+      "count": 5,
+      "summary": {
+        "totalFound": 0,
+        "sssCount": 0,
+        "ssCount": 0,
+        "sCount": 0,
+        "rookieFriendlyCount": 0,
+        "urgentCount": 0,
+        "blueOceanCount": 0,
+        "explosionFunnel": {
+          "candidates": 0,
+          "verified": 0,
+          "gradeOk": 0,
+          "ratioOk": 0,
+          "docOk": 0,
+          "svOk": 0,
+          "strictOk": 0,
+          "minSv": 30,
+          "internalMetrics": {
+            "seedCount": 120,
+            "allKeywordsCount": 1148,
+            "profitableCount": 47,
+            "uniqueKeywordsCount": 47,
+            "sortedResultsCount": 47,
+            "verifiedResultsCount": 0,
+            "searchAdEnabled": true,
+            "searchAdAdded": 481,
+            "autocompleteAdded": 553
+          },
+          "topByExplosion": []
+        }
+      },
+      "keywords": [],
+      "attempts": 1,
+      "durationMs": 195202
+    },
+    {
+      "success": false,
+      "category": "health",
+      "runIndex": 3,
+      "mode": "category",
+      "explosionMode": true,
+      "count": 5,
+      "summary": {
+        "totalFound": 0,
+        "sssCount": 0,
+        "ssCount": 0,
+        "sCount": 0,
+        "rookieFriendlyCount": 0,
+        "urgentCount": 0,
+        "blueOceanCount": 0,
+        "explosionFunnel": {
+          "candidates": 0,
+          "verified": 0,
+          "gradeOk": 0,
+          "ratioOk": 0,
+          "docOk": 0,
+          "svOk": 0,
+          "strictOk": 0,
+          "minSv": 30,
+          "internalMetrics": {
+            "seedCount": 117,
+            "allKeywordsCount": 1381,
+            "profitableCount": 45,
+            "uniqueKeywordsCount": 45,
+            "sortedResultsCount": 45,
+            "verifiedResultsCount": 0,
+            "searchAdEnabled": true,
+            "searchAdAdded": 600,
+            "autocompleteAdded": 672
+          },
+          "topByExplosion": []
+        }
+      },
+      "keywords": [],
+      "attempts": 1,
+      "durationMs": 192782
+    },
+    {
+      "success": false,
+      "category": "business",
+      "runIndex": 1,
+      "mode": "category",
+      "explosionMode": true,
+      "count": 5,
+      "error": "timeout",
+      "attempts": 1,
+      "durationMs": 240030
+    },
+    {
+      "success": false,
+      "category": "business",
+      "runIndex": 2,
+      "mode": "category",
+      "explosionMode": true,
+      "count": 5,
+      "error": "timeout",
+      "attempts": 1,
+      "durationMs": 240014
+    },
+    {
+      "success": false,
+      "category": "business",
+      "runIndex": 3,
+      "mode": "category",
+      "explosionMode": true,
+      "count": 5,
+      "error": "timeout",
+      "attempts": 1,
+      "durationMs": 240024
+    },
+    {
+      "success": false,
+      "category": "language",
+      "runIndex": 1,
+      "mode": "category",
+      "explosionMode": true,
+      "count": 5,
+      "summary": {
+        "totalFound": 0,
+        "sssCount": 0,
+        "ssCount": 0,
+        "sCount": 0,
+        "rookieFriendlyCount": 0,
+        "urgentCount": 0,
+        "blueOceanCount": 0,
+        "explosionFunnel": {
+          "candidates": 0,
+          "verified": 0,
+          "gradeOk": 0,
+          "ratioOk": 0,
+          "docOk": 0,
+          "svOk": 0,
+          "strictOk": 0,
+          "minSv": 30,
+          "internalMetrics": {
+            "seedCount": 125,
+            "allKeywordsCount": 1595,
+            "profitableCount": 8,
+            "uniqueKeywordsCount": 8,
+            "sortedResultsCount": 8,
+            "verifiedResultsCount": 0,
+            "searchAdEnabled": true,
+            "searchAdAdded": 610,
+            "autocompleteAdded": 872
+          },
+          "topByExplosion": []
+        }
+      },
+      "keywords": [],
+      "attempts": 1,
+      "durationMs": 59678
+    },
+    {
+      "success": false,
+      "category": "language",
+      "runIndex": 2,
+      "mode": "category",
+      "explosionMode": true,
+      "count": 5,
+      "summary": {
+        "totalFound": 0,
+        "sssCount": 0,
+        "ssCount": 0,
+        "sCount": 0,
+        "rookieFriendlyCount": 0,
+        "urgentCount": 0,
+        "blueOceanCount": 0,
+        "explosionFunnel": {
+          "candidates": 0,
+          "verified": 0,
+          "gradeOk": 0,
+          "ratioOk": 0,
+          "docOk": 0,
+          "svOk": 0,
+          "strictOk": 0,
+          "minSv": 30,
+          "internalMetrics": {
+            "seedCount": 130,
+            "allKeywordsCount": 1436,
+            "profitableCount": 9,
+            "uniqueKeywordsCount": 9,
+            "sortedResultsCount": 9,
+            "verifiedResultsCount": 0,
+            "searchAdEnabled": true,
+            "searchAdAdded": 416,
+            "autocompleteAdded": 898
+          },
+          "topByExplosion": []
+        }
+      },
+      "keywords": [],
+      "attempts": 1,
+      "durationMs": 59720
+    },
+    {
+      "success": false,
+      "category": "language",
+      "runIndex": 3,
+      "mode": "category",
+      "explosionMode": true,
+      "count": 5,
+      "summary": {
+        "totalFound": 0,
+        "sssCount": 0,
+        "ssCount": 0,
+        "sCount": 0,
+        "rookieFriendlyCount": 0,
+        "urgentCount": 0,
+        "blueOceanCount": 0,
+        "explosionFunnel": {
+          "candidates": 0,
+          "verified": 0,
+          "gradeOk": 0,
+          "ratioOk": 0,
+          "docOk": 0,
+          "svOk": 0,
+          "strictOk": 0,
+          "minSv": 30,
+          "internalMetrics": {
+            "seedCount": 126,
+            "allKeywordsCount": 1097,
+            "profitableCount": 10,
+            "uniqueKeywordsCount": 10,
+            "sortedResultsCount": 10,
+            "verifiedResultsCount": 0,
+            "searchAdEnabled": true,
+            "searchAdAdded": 201,
+            "autocompleteAdded": 777
+          },
+          "topByExplosion": []
+        }
+      },
+      "keywords": [],
+      "attempts": 1,
+      "durationMs": 55949
+    },
+    {
+      "success": false,
+      "category": "education",
+      "runIndex": 1,
+      "mode": "category",
+      "explosionMode": true,
+      "count": 5,
+      "summary": {
+        "totalFound": 0,
+        "sssCount": 0,
+        "ssCount": 0,
+        "sCount": 0,
+        "rookieFriendlyCount": 0,
+        "urgentCount": 0,
+        "blueOceanCount": 0,
+        "explosionFunnel": {
+          "candidates": 0,
+          "verified": 0,
+          "gradeOk": 0,
+          "ratioOk": 0,
+          "docOk": 0,
+          "svOk": 0,
+          "strictOk": 0,
+          "minSv": 30,
+          "internalMetrics": {
+            "seedCount": 107,
+            "allKeywordsCount": 1127,
+            "profitableCount": 43,
+            "uniqueKeywordsCount": 43,
+            "sortedResultsCount": 43,
+            "verifiedResultsCount": 0,
+            "searchAdEnabled": true,
+            "searchAdAdded": 467,
+            "autocompleteAdded": 563
+          },
+          "topByExplosion": []
+        }
+      },
+      "keywords": [],
+      "attempts": 1,
+      "durationMs": 165074
+    },
+    {
+      "success": false,
+      "category": "education",
+      "runIndex": 2,
+      "mode": "category",
+      "explosionMode": true,
+      "count": 5,
+      "summary": {
+        "totalFound": 0,
+        "sssCount": 0,
+        "ssCount": 0,
+        "sCount": 0,
+        "rookieFriendlyCount": 0,
+        "urgentCount": 0,
+        "blueOceanCount": 0,
+        "explosionFunnel": {
+          "candidates": 0,
+          "verified": 0,
+          "gradeOk": 0,
+          "ratioOk": 0,
+          "docOk": 0,
+          "svOk": 0,
+          "strictOk": 0,
+          "minSv": 30,
+          "internalMetrics": {
+            "seedCount": 108,
+            "allKeywordsCount": 954,
+            "profitableCount": 46,
+            "uniqueKeywordsCount": 46,
+            "sortedResultsCount": 46,
+            "verifiedResultsCount": 0,
+            "searchAdEnabled": true,
+            "searchAdAdded": 362,
+            "autocompleteAdded": 493
+          },
+          "topByExplosion": []
+        }
+      },
+      "keywords": [],
+      "attempts": 1,
+      "durationMs": 171976
+    },
+    {
+      "success": false,
+      "category": "education",
+      "runIndex": 3,
+      "mode": "category",
+      "explosionMode": true,
+      "count": 5,
+      "summary": {
+        "totalFound": 0,
+        "sssCount": 0,
+        "ssCount": 0,
+        "sCount": 0,
+        "rookieFriendlyCount": 0,
+        "urgentCount": 0,
+        "blueOceanCount": 0,
+        "explosionFunnel": {
+          "candidates": 0,
+          "verified": 0,
+          "gradeOk": 0,
+          "ratioOk": 0,
+          "docOk": 0,
+          "svOk": 0,
+          "strictOk": 0,
+          "minSv": 30,
+          "internalMetrics": {
+            "seedCount": 104,
+            "allKeywordsCount": 1272,
+            "profitableCount": 44,
+            "uniqueKeywordsCount": 44,
+            "sortedResultsCount": 44,
+            "verifiedResultsCount": 0,
+            "searchAdEnabled": true,
+            "searchAdAdded": 600,
+            "autocompleteAdded": 577
+          },
+          "topByExplosion": []
+        }
+      },
+      "keywords": [],
+      "attempts": 1,
+      "durationMs": 161362
+    },
+    {
+      "success": false,
+      "category": "realestate",
+      "runIndex": 1,
+      "mode": "category",
+      "explosionMode": true,
+      "count": 5,
+      "summary": {
+        "totalFound": 0,
+        "sssCount": 0,
+        "ssCount": 0,
+        "sCount": 0,
+        "rookieFriendlyCount": 0,
+        "urgentCount": 0,
+        "blueOceanCount": 0,
+        "explosionFunnel": {
+          "candidates": 0,
+          "verified": 0,
+          "gradeOk": 0,
+          "ratioOk": 0,
+          "docOk": 0,
+          "svOk": 0,
+          "strictOk": 0,
+          "minSv": 30,
+          "internalMetrics": {
+            "seedCount": 146,
+            "allKeywordsCount": 1422,
+            "profitableCount": 36,
+            "uniqueKeywordsCount": 36,
+            "sortedResultsCount": 36,
+            "verifiedResultsCount": 0,
+            "searchAdEnabled": true,
+            "searchAdAdded": 417,
+            "autocompleteAdded": 868
+          },
+          "topByExplosion": []
+        }
+      },
+      "keywords": [],
+      "attempts": 1,
+      "durationMs": 152018
+    },
+    {
+      "success": false,
+      "category": "realestate",
+      "runIndex": 2,
+      "mode": "category",
+      "explosionMode": true,
+      "count": 5,
+      "summary": {
+        "totalFound": 0,
+        "sssCount": 0,
+        "ssCount": 0,
+        "sCount": 0,
+        "rookieFriendlyCount": 0,
+        "urgentCount": 0,
+        "blueOceanCount": 0,
+        "explosionFunnel": {
+          "candidates": 0,
+          "verified": 0,
+          "gradeOk": 0,
+          "ratioOk": 0,
+          "docOk": 0,
+          "svOk": 0,
+          "strictOk": 0,
+          "minSv": 30,
+          "internalMetrics": {
+            "seedCount": 149,
+            "allKeywordsCount": 1527,
+            "profitableCount": 49,
+            "uniqueKeywordsCount": 49,
+            "sortedResultsCount": 49,
+            "verifiedResultsCount": 0,
+            "searchAdEnabled": true,
+            "searchAdAdded": 572,
+            "autocompleteAdded": 818
+          },
+          "topByExplosion": []
+        }
+      },
+      "keywords": [],
+      "attempts": 1,
+      "durationMs": 180113
+    },
+    {
+      "success": false,
+      "category": "realestate",
+      "runIndex": 3,
+      "mode": "category",
+      "explosionMode": true,
+      "count": 5,
+      "summary": {
+        "totalFound": 0,
+        "sssCount": 0,
+        "ssCount": 0,
+        "sCount": 0,
+        "rookieFriendlyCount": 0,
+        "urgentCount": 0,
+        "blueOceanCount": 0,
+        "explosionFunnel": {
+          "candidates": 0,
+          "verified": 0,
+          "gradeOk": 0,
+          "ratioOk": 0,
+          "docOk": 0,
+          "svOk": 0,
+          "strictOk": 0,
+          "minSv": 30,
+          "internalMetrics": {
+            "seedCount": 147,
+            "allKeywordsCount": 1244,
+            "profitableCount": 50,
+            "uniqueKeywordsCount": 50,
+            "sortedResultsCount": 50,
+            "verifiedResultsCount": 0,
+            "searchAdEnabled": true,
+            "searchAdAdded": 282,
+            "autocompleteAdded": 827
+          },
+          "topByExplosion": []
+        }
+      },
+      "keywords": [],
+      "attempts": 1,
+      "durationMs": 179674
+    },
+    {
+      "success": false,
+      "category": "self_development",
+      "runIndex": 1,
+      "mode": "category",
+      "explosionMode": true,
+      "count": 5,
+      "error": "timeout",
+      "attempts": 1,
+      "durationMs": 240023
+    },
+    {
+      "success": false,
+      "category": "self_development",
+      "runIndex": 2,
+      "mode": "category",
+      "explosionMode": true,
+      "count": 5,
+      "error": "timeout",
+      "attempts": 1,
+      "durationMs": 240009
+    },
+    {
+      "success": false,
+      "category": "self_development",
+      "runIndex": 3,
+      "mode": "category",
+      "explosionMode": true,
+      "count": 5,
+      "error": "timeout",
+      "attempts": 1,
+      "durationMs": 240012
+    }
+  ]
+}

@@ -1,0 +1,253 @@
+{
+  "results": [
+    {
+      "iteration": 1,
+      "timestamp": "2025-12-31T10:19:59.823Z",
+      "keywords": [
+        {
+          "keyword": "연말정산모의계산",
+          "grade": "SSS",
+          "searchVolume": 44700,
+          "documentCount": 7302,
+          "goldenRatio": 6.121610517666393
+        },
+        {
+          "keyword": "연말정산간소화서비스",
+          "grade": "B",
+          "searchVolume": 21910,
+          "documentCount": 79804,
+          "goldenRatio": 0.27454764172221946
+        },
+        {
+          "keyword": "매일경제신문구독",
+          "grade": "B",
+          "searchVolume": 6160,
+          "documentCount": 24269,
+          "goldenRatio": 0.2538217479088549
+        },
+        {
+          "keyword": "정산서양식",
+          "grade": "B",
+          "searchVolume": 480,
+          "documentCount": 2085,
+          "goldenRatio": 0.2302158273381295
+        },
+        {
+          "keyword": "연말정산간소화",
+          "grade": "B",
+          "searchVolume": 16480,
+          "documentCount": 100285,
+          "goldenRatio": 0.164331654783866
+        }
+      ],
+      "stats": {
+        "sssCount": 1,
+        "ssCount": 0,
+        "sCount": 0,
+        "avgGoldenRatio": 1.41,
+        "maxGoldenRatio": 6.12
+      }
+    },
+    {
+      "iteration": 2,
+      "timestamp": "2025-12-31T10:20:38.647Z",
+      "keywords": [
+        {
+          "keyword": "연말정산모의계산",
+          "grade": "SSS",
+          "searchVolume": 44700,
+          "documentCount": 7302,
+          "goldenRatio": 6.121610517666393
+        },
+        {
+          "keyword": "연말정산간소화서비스",
+          "grade": "B",
+          "searchVolume": 21910,
+          "documentCount": 79804,
+          "goldenRatio": 0.27454764172221946
+        },
+        {
+          "keyword": "매일경제신문구독",
+          "grade": "B",
+          "searchVolume": 6160,
+          "documentCount": 24269,
+          "goldenRatio": 0.2538217479088549
+        },
+        {
+          "keyword": "정산서양식",
+          "grade": "B",
+          "searchVolume": 480,
+          "documentCount": 2085,
+          "goldenRatio": 0.2302158273381295
+        },
+        {
+          "keyword": "연말정산간소화",
+          "grade": "B",
+          "searchVolume": 16480,
+          "documentCount": 100285,
+          "goldenRatio": 0.164331654783866
+        }
+      ],
+      "stats": {
+        "sssCount": 1,
+        "ssCount": 0,
+        "sCount": 0,
+        "avgGoldenRatio": 1.41,
+        "maxGoldenRatio": 6.12
+      }
+    },
+    {
+      "iteration": 3,
+      "timestamp": "2025-12-31T10:21:11.868Z",
+      "keywords": [
+        {
+          "keyword": "연말정산모의계산",
+          "grade": "SSS",
+          "searchVolume": 44700,
+          "documentCount": 7302,
+          "goldenRatio": 6.121610517666393
+        },
+        {
+          "keyword": "연말정산간소화서비스",
+          "grade": "B",
+          "searchVolume": 21910,
+          "documentCount": 79804,
+          "goldenRatio": 0.27454764172221946
+        },
+        {
+          "keyword": "매일경제신문구독",
+          "grade": "B",
+          "searchVolume": 6160,
+          "documentCount": 24269,
+          "goldenRatio": 0.2538217479088549
+        },
+        {
+          "keyword": "정산서양식",
+          "grade": "B",
+          "searchVolume": 480,
+          "documentCount": 2085,
+          "goldenRatio": 0.2302158273381295
+        },
+        {
+          "keyword": "연말정산간소화",
+          "grade": "B",
+          "searchVolume": 16480,
+          "documentCount": 100285,
+          "goldenRatio": 0.164331654783866
+        }
+      ],
+      "stats": {
+        "sssCount": 1,
+        "ssCount": 0,
+        "sCount": 0,
+        "avgGoldenRatio": 1.41,
+        "maxGoldenRatio": 6.12
+      }
+    },
+    {
+      "iteration": 4,
+      "timestamp": "2025-12-31T10:21:45.417Z",
+      "keywords": [
+        {
+          "keyword": "연말정산모의계산",
+          "grade": "SSS",
+          "searchVolume": 44700,
+          "documentCount": 7302,
+          "goldenRatio": 6.121610517666393
+        },
+        {
+          "keyword": "연말정산간소화서비스",
+          "grade": "B",
+          "searchVolume": 21910,
+          "documentCount": 79804,
+          "goldenRatio": 0.27454764172221946
+        },
+        {
+          "keyword": "매일경제신문구독",
+          "grade": "B",
+          "searchVolume": 6160,
+          "documentCount": 24269,
+          "goldenRatio": 0.2538217479088549
+        },
+        {
+          "keyword": "정산서양식",
+          "grade": "B",
+          "searchVolume": 480,
+          "documentCount": 2085,
+          "goldenRatio": 0.2302158273381295
+        },
+        {
+          "keyword": "연말정산간소화",
+          "grade": "B",
+          "searchVolume": 16480,
+          "documentCount": 100285,
+          "goldenRatio": 0.164331654783866
+        }
+      ],
+      "stats": {
+        "sssCount": 1,
+        "ssCount": 0,
+        "sCount": 0,
+        "avgGoldenRatio": 1.41,
+        "maxGoldenRatio": 6.12
+      }
+    },
+    {
+      "iteration": 5,
+      "timestamp": "2025-12-31T10:22:17.912Z",
+      "keywords": [
+        {
+          "keyword": "연말정산모의계산",
+          "grade": "SSS",
+          "searchVolume": 44700,
+          "documentCount": 7302,
+          "goldenRatio": 6.121610517666393
+        },
+        {
+          "keyword": "연말정산간소화서비스",
+          "grade": "B",
+          "searchVolume": 21910,
+          "documentCount": 79804,
+          "goldenRatio": 0.27454764172221946
+        },
+        {
+          "keyword": "매일경제신문구독",
+          "grade": "B",
+          "searchVolume": 6160,
+          "documentCount": 24269,
+          "goldenRatio": 0.2538217479088549
+        },
+        {
+          "keyword": "정산서양식",
+          "grade": "B",
+          "searchVolume": 480,
+          "documentCount": 2085,
+          "goldenRatio": 0.2302158273381295
+        },
+        {
+          "keyword": "연말정산간소화",
+          "grade": "B",
+          "searchVolume": 16480,
+          "documentCount": 100285,
+          "goldenRatio": 0.164331654783866
+        }
+      ],
+      "stats": {
+        "sssCount": 1,
+        "ssCount": 0,
+        "sCount": 0,
+        "avgGoldenRatio": 1.41,
+        "maxGoldenRatio": 6.12
+      }
+    }
+  ],
+  "summary": {
+    "totalSss": 5,
+    "totalKeywords": 25,
+    "sssRate": 20,
+    "allSssKeywords": [
+      "연말정산모의계산"
+    ],
+    "score": 20
+  }
+}

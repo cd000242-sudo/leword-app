@@ -1,0 +1,5048 @@
+{
+  "generatedAt": "2025-12-24T11:03:00.701Z",
+  "mode": "category",
+  "explosionMode": true,
+  "count": 10,
+  "timeoutMs": 420000,
+  "retries": 0,
+  "results": [
+    {
+      "success": true,
+      "category": "life_tips",
+      "mode": "category",
+      "explosionMode": true,
+      "count": 10,
+      "summary": {
+        "totalFound": 10,
+        "sssCount": 0,
+        "ssCount": 1,
+        "sCount": 2,
+        "rookieFriendlyCount": 0,
+        "urgentCount": 0,
+        "blueOceanCount": 0,
+        "explosionFunnel": {
+          "candidates": 77,
+          "verified": 77,
+          "gradeOk": 19,
+          "ratioOk": 19,
+          "docOk": 51,
+          "svOk": 44,
+          "strictOk": 14,
+          "minSv": 500,
+          "internalMetrics": {
+            "seedCount": 109,
+            "allKeywordsCount": 582,
+            "profitableCount": 135,
+            "uniqueKeywordsCount": 135,
+            "sortedResultsCount": 133,
+            "verifiedResultsCount": 48,
+            "searchAdEnabled": true,
+            "searchAdAdded": 482,
+            "autocompleteAdded": 0
+          },
+          "topByExplosion": [
+            "유지아우가르텐주방용품접기 | grade=A gr=20 sv=20 dc=1 src=쇼핑(25) ex=81",
+            "입문자 가스비 절약 꿀팁 | grade=A gr=4 sv=20 dc=5 src=seed(0) ex=40",
+            "미닉스미니건조기 | grade=SS gr=1.4088347573168514 sv=7750 dc=5501 src=세탁기(0) ex=65",
+            "통돌이세탁기20KG | grade=S gr=0.6442892543365623 sv=2860 dc=4439 src=세탁기(0) ex=65",
+            "LG세탁기렌탈 | grade=S gr=0.6133056133056133 sv=1770 dc=2886 src=세탁기(0) ex=65"
+          ]
+        }
+      },
+      "keywords": [
+        {
+          "keyword": "미닉스미니건조기",
+          "searchVolume": 7750,
+          "documentCount": 5501,
+          "goldenRatio": 1.4088347573168514,
+          "rookieFriendly": {
+            "score": 50,
+            "grade": "C",
+            "reason": "문서수 10,000개 미만 → 경쟁 보통 | 숏테일 키워드 → 대형 블로그와 경쟁",
+            "canRankWithin": "2~4주 내 가능",
+            "requiredBlogIndex": "최적 1 이상 권장"
+          },
+          "timing": {
+            "score": 50,
+            "urgency": "ANYTIME",
+            "bestPublishTime": "오전 6~8시 또는 저녁 8~10시",
+            "trendDirection": "stable",
+            "peakPrediction": "꾸준한 검색량 유지"
+          },
+          "blueOcean": {
+            "score": 64,
+            "competitorStrength": "medium",
+            "avgCompetitorBlogAge": "2~5년 (보통 경쟁)",
+            "oldPostRatio": 50,
+            "opportunity": "✅ 좋은 기회입니다. 품질 콘텐츠로 승부"
+          },
+          "trafficEstimate": {
+            "daily": "6~14명",
+            "weekly": "42~98명",
+            "monthly": "180~420명",
+            "confidence": 50,
+            "disclaimer": "📌 트래픽은 순위/CTR/계절성에 따라 달라질 수 있는 추정치입니다."
+          },
+          "revenueEstimate": {
+            "dailyRevenue": "211원 ⚠️추정",
+            "monthlyRevenue": "6,330원 ⚠️추정",
+            "estimatedCPC": 180,
+            "estimatedRPM": 4500,
+            "adType": "애드센스",
+            "revenueGrade": "B",
+            "revenueReason": "📌 보통. 롱테일 확장 추천"
+          },
+          "entryAnalysis": {
+            "canEntry": true,
+            "difficulty": "possible",
+            "difficultyScore": 35,
+            "message": "🟡 진입 가능 - 품질 콘텐츠로 충분히 경쟁 가능",
+            "topCompetitorStrength": "보통 (일반 블로그 혼재)",
+            "recommendedBlogIndex": "준최 3 이상 권장",
+            "estimatedRankingTime": "3~7일 내 가능"
+          },
+          "totalScore": 77,
+          "grade": "SS",
+          "proStrategy": {
+            "title": "2025 미닉스미니건조기 완벽 정리 | 초보자도 쉽게 이해하는 가이드",
+            "outline": [
+              "1. 미닉스미니건조기란? (기본 개념)",
+              "2. 미닉스미니건조기 핵심 포인트 3가지",
+              "3. 미닉스미니건조기 장단점 비교",
+              "4. 미닉스미니건조기 실제 후기/경험담",
+              "5. 미닉스미니건조기 Q&A (자주 묻는 질문)",
+              "6. 결론 및 추천"
+            ],
+            "wordCount": 2500,
+            "mustInclude": [
+              "핵심 키워드 2~3회 자연스럽게 삽입",
+              "실제 이미지/사진 3장 이상",
+              "표 또는 비교 차트 1개 이상",
+              "자주 묻는 질문(FAQ) 섹션",
+              "결론 및 추천 섹션"
+            ],
+            "avoidTopics": [
+              "과장된 표현 (100%, 무조건, 반드시)",
+              "허위 정보나 검증되지 않은 내용",
+              "다른 블로그 복사/붙여넣기",
+              "광고성 링크 과다 삽입"
+            ],
+            "monetization": "애드센스 + 쿠팡파트너스 조합 추천"
+          },
+          "platformTitles": {
+            "naver": {
+              "title": "핵심 정리: 미닉스미니건조기 2025 최신 가이드 (월 7,750)",
+              "alternatives": [
+                "미닉스미니건조기 2025 완벽 정리: 핵심만 5분 요약",
+                "미닉스미니건조기 초보도 쉽게: 실패 없는 체크리스트"
+              ],
+              "subKeywords": [
+                "미닉스미니건조기 방법",
+                "미닉스미니건조기 추천",
+                "미닉스미니건조기 후기"
+              ],
+              "tags": [
+                "미닉스미니건조기",
+                "📰 이슈키워드"
+              ],
+              "tip": "서두 100자 내에 키워드를 2회 노출하고, 결론 요약을 맨 위에 한 번 더 넣으세요.",
+              "hookPoint": "핵심 정리 포인트를 제목/썸네일에 강조"
+            },
+            "tistory": {
+              "title": "미닉스미니건조기 2025 정리: 한 번에 이해하는 핵심 포인트 (월 7,750)",
+              "alternatives": [
+                "미닉스미니건조기 제대로 하는 법 (체크리스트 포함)",
+                "미닉스미니건조기 추천/비교: 선택 기준 3가지"
+              ],
+              "subKeywords": [
+                "미닉스미니건조기 방법",
+                "미닉스미니건조기 추천",
+                "미닉스미니건조기 후기"
+              ],
+              "tags": [
+                "미닉스미니건조기",
+                "📰 이슈키워드"
+              ],
+              "tip": "표/리스트를 많이 써서 스크롤 체류시간을 늘리세요.",
+              "hookPoint": "“핵심 3가지”처럼 숫자를 넣어 클릭률을 올리기"
+            },
+            "wordpress": {
+              "title": "미닉스미니건조기: 2025 Complete Guide (Checklist & Tips) (월 7,750)",
+              "alternatives": [
+                "미닉스미니건조기 Guide: Common Mistakes & Quick Fixes",
+                "미닉스미니건조기 Step-by-Step: What to Do First"
+              ],
+              "subKeywords": [
+                "미닉스미니건조기 방법",
+                "미닉스미니건조기 추천",
+                "미닉스미니건조기 후기"
+              ],
+              "tags": [
+                "미닉스미니건조기",
+                "📰 이슈키워드"
+              ],
+              "tip": "H2/H3로 구조를 만들고, FAQ 섹션을 넣어 SEO를 강화하세요.",
+              "hookPoint": "FAQ + 체크리스트 조합으로 체류시간/리치 증가"
+            },
+            "blogspot": {
+              "title": "미닉스미니건조기 2025: Quick Start + Best Practices (월 7,750)",
+              "alternatives": [
+                "미닉스미니건조기 Quick Guide: Do & Don't",
+                "미닉스미니건조기 Essentials: What You Need to Know"
+              ],
+              "subKeywords": [
+                "미닉스미니건조기 방법",
+                "미닉스미니건조기 추천",
+                "미닉스미니건조기 후기"
+              ],
+              "tags": [
+                "미닉스미니건조기",
+                "📰 이슈키워드"
+              ],
+              "tip": "이미지 2~3장 + 요약 박스를 넣어 가독성을 올리세요.",
+              "hookPoint": "첫 화면에 요약(결론)을 배치해 이탈률을 낮추기"
+            }
+          },
+          "expandedKeywords": {
+            "relatedGolden": [
+              "미닉스미니건조기 추천",
+              "미닉스미니건조기 비교",
+              "미닉스미니건조기 후기",
+              "미닉스미니건조기 가격"
+            ],
+            "longtailGolden": [
+              "미닉스미니건조기 초보",
+              "미닉스미니건조기 쉽게",
+              "미닉스미니건조기 단계별",
+              "미닉스미니건조기 정리"
+            ],
+            "blueOceanGolden": [
+              "미닉스미니건조기 최신",
+              "미닉스미니건조기 2025",
+              "미닉스미니건조기 체크리스트",
+              "미닉스미니건조기 실패하지 않는 법"
+            ]
+          },
+          "type": "📰 이슈키워드",
+          "category": "life_tips",
+          "safetyLevel": "safe",
+          "safetyReason": "✅ 안전한 키워드. 신생 블로거도 작성 가능",
+          "source": "세탁기",
+          "profitAnalysis": {
+            "keyword": "미닉스미니건조기",
+            "searchVolume": 7750,
+            "documentCount": 5501,
+            "estimatedCPC": 180,
+            "purchaseIntentScore": 30,
+            "competitionLevel": 6,
+            "freshnessOpportunity": 1,
+            "profitGoldenRatio": 11.04,
+            "estimatedDailyRevenue": 211,
+            "estimatedMonthlyRevenue": 6330,
+            "grade": "B",
+            "gradeReason": "📌 보통. 롱테일 확장 추천",
+            "isRealBlueOcean": false,
+            "blueOceanReason": "📕 경쟁 시장. 차별화 전략 필요",
+            "strategy": {
+              "approach": "🔍 롱테일 확장 후 작성. \"초보자\", \"2025\", \"비교\" 등 붙여서 경쟁 낮추기",
+              "monetization": "📝 트래픽 확보 우선. 이후 관련 고수익 키워드로 내부링크",
+              "timing": "🗓️ 여유있게 준비. 롱테일 전략으로 접근",
+              "titleSuggestion": "미닉스미니건조기 완벽 가이드 | 초보자도 쉽게 따라하기"
+            }
+          },
+          "timestamp": "2025-12-24T11:01:54.375Z",
+          "isGolden": true,
+          "trendAnalysis": {
+            "trendingReason": "미닉 '스가 ' 관련 최근 이슈",
+            "whyNow": "최근 5개 이상의 뉴스에서 다뤄지며 이슈화 진행 중 • \"출시\" 관련 구체적 사건으로 실시간 관심 집중",
+            "newsSource": "자동 분석"
+          },
+          "keywordGuide": {
+            "summary": "여유 있을 때 공략하면 좋은 키워드입니다. (등급: SS, 점수: 77점)",
+            "whyItMovesNow": "미닉 '스가 ' 관련 최근 이슈 최근 5개 이상의 뉴스에서 다뤄지며 이슈화 진행 중 • \"출시\" 관련 구체적 사건으로 실시간 관심 집중",
+            "immediateTrafficPlan": [
+              "제목 앞부분에 \"미닉스미니건조기\"를 배치하고, 2025/최신/정리 같은 보조 키워드를 1개만 추가하세요.",
+              "본문 서두 100자 안에 \"미닉스미니건조기\"를 자연스럽게 2회 노출하세요.",
+              "최소 1개는 비교/체크리스트/요약 섹션을 넣어 체류시간을 늘리세요."
+            ],
+            "naverHomeExposureTips": [
+              "첫 이미지에 키워드가 들어간 문구를 넣고, alt 텍스트도 키워드 포함",
+              "목차를 만들고 H2/H3에 서브 키워드 배치",
+              "태그는 5~10개로 과도한 반복을 피하고, 유사어를 섞기"
+            ]
+          },
+          "ultimateAnalysis": {
+            "timing": {
+              "seasonal": {
+                "peakMonths": [
+                  1,
+                  2,
+                  3,
+                  4,
+                  5,
+                  6,
+                  7,
+                  8,
+                  9,
+                  10,
+                  11,
+                  12
+                ],
+                "peakReason": "연중 꾸준한 검색량",
+                "currentSeasonScore": 70,
+                "nextPeakDate": "항상",
+                "daysUntilPeak": 0,
+                "recommendation": "📝 에버그린 키워드입니다. 언제든 작성해도 좋습니다.",
+                "seasonalPattern": "evergreen"
+              },
+              "trend": {
+                "trendDirection": "falling",
+                "changeRate": 14,
+                "comparedTo": "전월 대비",
+                "explosiveScore": 21,
+                "relatedNews": [],
+                "recommendation": "📊 안정적인 키워드입니다."
+              },
+              "alert": {
+                "optimalPublishDate": "0일 내",
+                "reason": "📝 에버그린 키워드입니다. 언제든 작성해도 좋습니다.",
+                "urgencyLevel": "⚡ 이번 주",
+                "expectedPeakDate": "항상",
+                "competitorActivity": "경쟁자 보통"
+              }
+            },
+            "revenue": {
+              "cpc": {
+                "estimatedCpc": 100,
+                "cpcRange": {
+                  "min": 50,
+                  "max": 200
+                },
+                "cpcTier": "🥉 저수익",
+                "industryAverage": 100,
+                "recommendation": "📝 일반적인 수익 구조입니다. 트래픽 확보에 집중하세요."
+              },
+              "affiliate": {
+                "recommendedPrograms": [
+                  {
+                    "name": "쿠팡파트너스",
+                    "type": "coupang",
+                    "commissionRate": "3~5%",
+                    "estimatedEarningPerClick": 50,
+                    "matchScore": 100
+                  },
+                  {
+                    "name": "네이버 쇼핑",
+                    "type": "naver",
+                    "commissionRate": "1~3%",
+                    "estimatedEarningPerClick": 30,
+                    "matchScore": 85
+                  }
+                ],
+                "bestMatch": "쿠팡파트너스",
+                "potentialProducts": [
+                  "미닉스미니건조기 추천",
+                  "미닉스미니건조기 순위",
+                  "미닉스미니건조기 비교",
+                  "미닉스미니건조기 후기",
+                  "미닉스미니건조기 가격",
+                  "미닉스미니건조기 구매"
+                ]
+              },
+              "projection": {
+                "estimatedDailyVisitors": 13,
+                "estimatedMonthlyVisitors": 390,
+                "adsenseRevenue": {
+                  "daily": 39,
+                  "monthly": 1170,
+                  "assumptions": "CPC 100원, CTR 2%, 페이지뷰율 1.5 가정"
+                },
+                "affiliateRevenue": {
+                  "daily": 2,
+                  "monthly": 60,
+                  "conversionRate": 3,
+                  "assumptions": "클릭률 10%, 전환율 3%, 평균 수수료 50원 가정"
+                },
+                "totalMonthlyRevenue": 1230,
+                "revenueBreakdown": "애드센스 95% + 제휴 5%",
+                "revenueTier": "📝 월 1만원+"
+              }
+            },
+            "content": {
+              "titles": {
+                "titles": [
+                  {
+                    "title": "미닉스미니건조기 추천 TOP 10 (2025년 최신)",
+                    "type": "number",
+                    "estimatedCTR": 8.5,
+                    "psychologyUsed": "숫자 + 최신 정보"
+                  },
+                  {
+                    "title": "미닉스미니건조기 하는 법, 초보자도 쉽게 따라하기",
+                    "type": "how-to",
+                    "estimatedCTR": 7.5,
+                    "psychologyUsed": "실용성 + 접근성"
+                  },
+                  {
+                    "title": "미닉스미니건조기, 이것만 알면 끝! 완벽 가이드",
+                    "type": "benefit",
+                    "estimatedCTR": 7.2,
+                    "psychologyUsed": "완결성 + 가치 제안"
+                  },
+                  {
+                    "title": "[2025년] 미닉스미니건조기 총정리 (+ 꿀팁 공개)",
+                    "type": "news",
+                    "estimatedCTR": 7,
+                    "psychologyUsed": "최신성 + 보너스 가치"
+                  },
+                  {
+                    "title": "아직도 미닉스미니건조기 몰라요? 지금 당장 확인하세요",
+                    "type": "curiosity",
+                    "estimatedCTR": 6.8,
+                    "psychologyUsed": "호기심 + 긴급성"
+                  },
+                  {
+                    "title": "미닉스미니건조기 실제 후기 (장단점 솔직 비교)",
+                    "type": "comparison",
+                    "estimatedCTR": 6.5,
+                    "psychologyUsed": "신뢰성 + 비교 심리"
+                  }
+                ],
+                "bestTitle": "미닉스미니건조기 추천 TOP 10 (2025년 최신)",
+                "titleFormula": "숫자 + 키워드 + 최신연도 + 가치제안"
+              },
+              "structure": {
+                "recommendedStructure": {
+                  "intro": {
+                    "purpose": "독자의 관심 끌기 + 키워드 자연스럽게 배치",
+                    "template": "\"미닉스미니건조기\"에 대해 고민하고 계신가요? 이 글에서 핵심 정보를 모두 정리해드립니다.",
+                    "keywordPlacement": "첫 문장에 키워드 포함"
+                  },
+                  "sections": [
+                    {
+                      "heading": "미닉스미니건조기란? (기본 개념)",
+                      "purpose": "기초 정보 제공",
+                      "contentGuide": "핵심 정의, 중요성, 왜 알아야 하는지 설명",
+                      "recommendedLength": 300,
+                      "keywordUsage": "소제목과 본문에 1~2회"
+                    },
+                    {
+                      "heading": "미닉스미니건조기 추천 BEST 5",
+                      "purpose": "실질적인 가치 제공 (핵심 섹션)",
+                      "contentGuide": "순위별 상세 설명, 장단점, 추천 이유",
+                      "recommendedLength": 800,
+                      "keywordUsage": "각 항목 설명에 자연스럽게 포함"
+                    },
+                    {
+                      "heading": "미닉스미니건조기 선택 시 주의사항",
+                      "purpose": "신뢰도 향상",
+                      "contentGuide": "흔한 실수, 피해야 할 것, 체크리스트",
+                      "recommendedLength": 400,
+                      "keywordUsage": "주의사항 설명에 1~2회"
+                    },
+                    {
+                      "heading": "자주 묻는 질문 (FAQ)",
+                      "purpose": "SEO 강화 + 체류시간 증가",
+                      "contentGuide": "실제 검색되는 질문 5개 + 명확한 답변",
+                      "recommendedLength": 500,
+                      "keywordUsage": "질문에 롱테일 키워드 활용"
+                    }
+                  ],
+                  "conclusion": {
+                    "purpose": "요약 + CTA",
+                    "template": "지금까지 미닉스미니건조기에 대해 알아봤습니다. 도움이 되셨다면 공유해주세요!",
+                    "ctaRecommendation": "댓글, 공유, 관련 글 링크 유도"
+                  }
+                },
+                "seoChecklist": [
+                  {
+                    "item": "제목에 키워드 포함",
+                    "importance": "critical",
+                    "howTo": "제목 앞부분에 메인 키워드 배치"
+                  },
+                  {
+                    "item": "첫 문단에 키워드",
+                    "importance": "critical",
+                    "howTo": "첫 100자 내 키워드 자연스럽게 삽입"
+                  },
+                  {
+                    "item": "소제목 H2/H3 활용",
+                    "importance": "high",
+                    "howTo": "3~5개 소제목, 키워드 변형 사용"
+                  },
+                  {
+                    "item": "이미지 ALT 태그",
+                    "importance": "high",
+                    "howTo": "모든 이미지에 키워드 포함 설명"
+                  },
+                  {
+                    "item": "내부링크 2개 이상",
+                    "importance": "medium",
+                    "howTo": "관련 글 자연스럽게 연결"
+                  },
+                  {
+                    "item": "3000자 이상 작성",
+                    "importance": "high",
+                    "howTo": "충분한 깊이의 콘텐츠 제공"
+                  }
+                ],
+                "totalRecommendedLength": 3000,
+                "estimatedWriteTime": 90
+              },
+              "images": {
+                "mainImage": {
+                  "searchKeyword": "미닉스미니건조기 대표이미지",
+                  "style": "깔끔한 인포그래픽 또는 고화질 사진",
+                  "source": [
+                    "Unsplash",
+                    "Pixabay",
+                    "직접 제작"
+                  ],
+                  "altText": "미닉스미니건조기 완벽 가이드 대표 이미지"
+                },
+                "sectionImages": [
+                  {
+                    "section": "기본 개념",
+                    "searchKeyword": "미닉스미니건조기 설명",
+                    "purpose": "이해 돕기",
+                    "style": "다이어그램"
+                  },
+                  {
+                    "section": "TOP 5",
+                    "searchKeyword": "미닉스미니건조기 비교",
+                    "purpose": "시각적 비교",
+                    "style": "비교표"
+                  },
+                  {
+                    "section": "주의사항",
+                    "searchKeyword": "주의 아이콘",
+                    "purpose": "강조",
+                    "style": "아이콘"
+                  }
+                ],
+                "infographicIdeas": [
+                  "미닉스미니건조기 선택 가이드 플로우차트",
+                  "미닉스미니건조기 TOP 5 비교표",
+                  "미닉스미니건조기 체크리스트"
+                ],
+                "totalRecommendedImages": 7,
+                "imageStrategy": "섹션당 1~2개, 총 7~10개 이미지로 가독성과 체류시간 향상"
+              }
+            },
+            "ultimateScore": {
+              "total": 43,
+              "breakdown": {
+                "goldenRatio": 14.088347573168514,
+                "timing": 70,
+                "revenue": 40,
+                "competition": 60,
+                "potential": 46
+              },
+              "grade": "📝 C",
+              "verdict": "⚠️ 신중히 검토 필요",
+              "topActions": [
+                "0일 내 작성 권장",
+                "미닉스미니건조기 추천 TOP 10 (2025년 최신)",
+                "3000자 이상, 7개 이미지 권장"
+              ]
+            }
+          },
+          "highlightReason": "✅ ANYTIME/stable | 폭발 65 | 구매의도 30 | 월 6,330원⚠️ | 경쟁도 6"
+        },
+        {
+          "keyword": "통돌이세탁기20KG",
+          "searchVolume": 2860,
+          "documentCount": 4439,
+          "goldenRatio": 0.6442892543365623,
+          "rookieFriendly": {
+            "score": 45,
+            "grade": "C",
+            "reason": "문서수 5,000개 미만 → 경쟁 낮음 | 황금비율 1 미만 → 공급 과잉 | 숏테일 키워드 → 대형 블로그와 경쟁",
+            "canRankWithin": "2~4주 내 가능",
+            "requiredBlogIndex": "최적 1 이상 권장"
+          },
+          "timing": {
+            "score": 50,
+            "urgency": "ANYTIME",
+            "bestPublishTime": "오전 6~8시 또는 저녁 8~10시",
+            "trendDirection": "stable",
+            "peakPrediction": "꾸준한 검색량 유지"
+          },
+          "blueOcean": {
+            "score": 60,
+            "competitorStrength": "medium",
+            "avgCompetitorBlogAge": "2~5년 (보통 경쟁)",
+            "oldPostRatio": 50,
+            "opportunity": "⚠️ 경쟁 있음. 차별화된 콘텐츠 필요"
+          },
+          "trafficEstimate": {
+            "daily": "2~4명",
+            "weekly": "14~28명",
+            "monthly": "60~120명",
+            "confidence": 50,
+            "disclaimer": "📌 트래픽은 순위/CTR/계절성에 따라 달라질 수 있는 추정치입니다."
+          },
+          "revenueEstimate": {
+            "dailyRevenue": "106원 ⚠️추정",
+            "monthlyRevenue": "3,180원 ⚠️추정",
+            "estimatedCPC": 207,
+            "estimatedRPM": 5175,
+            "adType": "애드센스",
+            "revenueGrade": "B",
+            "revenueReason": "📌 보통. 롱테일 확장 추천"
+          },
+          "entryAnalysis": {
+            "canEntry": true,
+            "difficulty": "possible",
+            "difficultyScore": 40,
+            "message": "🟡 진입 가능 - 품질 콘텐츠로 충분히 경쟁 가능",
+            "topCompetitorStrength": "보통 (일반 블로그 혼재)",
+            "recommendedBlogIndex": "준최 3 이상 권장",
+            "estimatedRankingTime": "3~7일 내 가능"
+          },
+          "totalScore": 61,
+          "grade": "S",
+          "proStrategy": {
+            "title": "2025 통돌이세탁기20KG 완벽 정리 | 초보자도 쉽게 이해하는 가이드",
+            "outline": [
+              "1. 통돌이세탁기20KG란? (기본 개념)",
+              "2. 통돌이세탁기20KG 핵심 포인트 3가지",
+              "3. 통돌이세탁기20KG 장단점 비교",
+              "4. 통돌이세탁기20KG 실제 후기/경험담",
+              "5. 통돌이세탁기20KG Q&A (자주 묻는 질문)",
+              "6. 결론 및 추천"
+            ],
+            "wordCount": 2500,
+            "mustInclude": [
+              "핵심 키워드 2~3회 자연스럽게 삽입",
+              "실제 이미지/사진 3장 이상",
+              "표 또는 비교 차트 1개 이상",
+              "자주 묻는 질문(FAQ) 섹션",
+              "결론 및 추천 섹션"
+            ],
+            "avoidTopics": [
+              "과장된 표현 (100%, 무조건, 반드시)",
+              "허위 정보나 검증되지 않은 내용",
+              "다른 블로그 복사/붙여넣기",
+              "광고성 링크 과다 삽입"
+            ],
+            "monetization": "애드센스 + 쿠팡파트너스 조합 추천"
+          },
+          "platformTitles": {
+            "naver": {
+              "title": "핵심 정리: 통돌이세탁기20KG 2025 최신 가이드 (월 2,860)",
+              "alternatives": [
+                "통돌이세탁기20KG 2025 완벽 정리: 핵심만 5분 요약",
+                "통돌이세탁기20KG 초보도 쉽게: 실패 없는 체크리스트"
+              ],
+              "subKeywords": [
+                "통돌이세탁기20KG 방법",
+                "통돌이세탁기20KG 추천",
+                "통돌이세탁기20KG 후기"
+              ],
+              "tags": [
+                "통돌이세탁기20KG",
+                "📰 이슈키워드"
+              ],
+              "tip": "서두 100자 내에 키워드를 2회 노출하고, 결론 요약을 맨 위에 한 번 더 넣으세요.",
+              "hookPoint": "핵심 정리 포인트를 제목/썸네일에 강조"
+            },
+            "tistory": {
+              "title": "통돌이세탁기20KG 2025 정리: 한 번에 이해하는 핵심 포인트 (월 2,860)",
+              "alternatives": [
+                "통돌이세탁기20KG 제대로 하는 법 (체크리스트 포함)",
+                "통돌이세탁기20KG 추천/비교: 선택 기준 3가지"
+              ],
+              "subKeywords": [
+                "통돌이세탁기20KG 방법",
+                "통돌이세탁기20KG 추천",
+                "통돌이세탁기20KG 후기"
+              ],
+              "tags": [
+                "통돌이세탁기20KG",
+                "📰 이슈키워드"
+              ],
+              "tip": "표/리스트를 많이 써서 스크롤 체류시간을 늘리세요.",
+              "hookPoint": "“핵심 3가지”처럼 숫자를 넣어 클릭률을 올리기"
+            },
+            "wordpress": {
+              "title": "통돌이세탁기20KG: 2025 Complete Guide (Checklist & Tips) (월 2,860)",
+              "alternatives": [
+                "통돌이세탁기20KG Guide: Common Mistakes & Quick Fixes",
+                "통돌이세탁기20KG Step-by-Step: What to Do First"
+              ],
+              "subKeywords": [
+                "통돌이세탁기20KG 방법",
+                "통돌이세탁기20KG 추천",
+                "통돌이세탁기20KG 후기"
+              ],
+              "tags": [
+                "통돌이세탁기20KG",
+                "📰 이슈키워드"
+              ],
+              "tip": "H2/H3로 구조를 만들고, FAQ 섹션을 넣어 SEO를 강화하세요.",
+              "hookPoint": "FAQ + 체크리스트 조합으로 체류시간/리치 증가"
+            },
+            "blogspot": {
+              "title": "통돌이세탁기20KG 2025: Quick Start + Best Practices (월 2,860)",
+              "alternatives": [
+                "통돌이세탁기20KG Quick Guide: Do & Don't",
+                "통돌이세탁기20KG Essentials: What You Need to Know"
+              ],
+              "subKeywords": [
+                "통돌이세탁기20KG 방법",
+                "통돌이세탁기20KG 추천",
+                "통돌이세탁기20KG 후기"
+              ],
+              "tags": [
+                "통돌이세탁기20KG",
+                "📰 이슈키워드"
+              ],
+              "tip": "이미지 2~3장 + 요약 박스를 넣어 가독성을 올리세요.",
+              "hookPoint": "첫 화면에 요약(결론)을 배치해 이탈률을 낮추기"
+            }
+          },
+          "expandedKeywords": {
+            "relatedGolden": [
+              "통돌이세탁기20KG 추천",
+              "통돌이세탁기20KG 비교",
+              "통돌이세탁기20KG 후기",
+              "통돌이세탁기20KG 가격"
+            ],
+            "longtailGolden": [
+              "통돌이세탁기20KG 초보",
+              "통돌이세탁기20KG 쉽게",
+              "통돌이세탁기20KG 단계별",
+              "통돌이세탁기20KG 정리"
+            ],
+            "blueOceanGolden": [
+              "통돌이세탁기20KG 최신",
+              "통돌이세탁기20KG 2025",
+              "통돌이세탁기20KG 체크리스트",
+              "통돌이세탁기20KG 실패하지 않는 법"
+            ]
+          },
+          "type": "📰 이슈키워드",
+          "category": "life_tips",
+          "safetyLevel": "safe",
+          "safetyReason": "✅ 안전한 키워드. 신생 블로거도 작성 가능",
+          "source": "세탁기",
+          "profitAnalysis": {
+            "keyword": "통돌이세탁기20KG",
+            "searchVolume": 2860,
+            "documentCount": 4439,
+            "estimatedCPC": 207,
+            "purchaseIntentScore": 30,
+            "competitionLevel": 5,
+            "freshnessOpportunity": 1,
+            "profitGoldenRatio": 5.62,
+            "estimatedDailyRevenue": 106,
+            "estimatedMonthlyRevenue": 3180,
+            "grade": "B",
+            "gradeReason": "📌 보통. 롱테일 확장 추천",
+            "isRealBlueOcean": false,
+            "blueOceanReason": "📗 잠재 블루오션. 상위노출 가능성 있음",
+            "strategy": {
+              "approach": "🔍 롱테일 확장 후 작성. \"초보자\", \"2025\", \"비교\" 등 붙여서 경쟁 낮추기",
+              "monetization": "📝 트래픽 확보 우선. 이후 관련 고수익 키워드로 내부링크",
+              "timing": "🗓️ 여유있게 준비. 롱테일 전략으로 접근",
+              "titleSuggestion": "통돌이세탁기20KG 완벽 가이드 | 초보자도 쉽게 따라하기"
+            }
+          },
+          "timestamp": "2025-12-24T11:01:54.377Z",
+          "isGolden": true,
+          "trendAnalysis": {
+            "trendingReason": "에누리 주간IT 5월 관련 최근 이슈",
+            "whyNow": "최근 5개 이상의 뉴스에서 다뤄지며 이슈화 진행 중 • \"출시\" 관련 구체적 사건으로 실시간 관심 집중",
+            "newsSource": "자동 분석"
+          },
+          "keywordGuide": {
+            "summary": "여유 있을 때 공략하면 좋은 키워드입니다. (등급: S, 점수: 61점)",
+            "whyItMovesNow": "에누리 주간IT 5월 관련 최근 이슈 최근 5개 이상의 뉴스에서 다뤄지며 이슈화 진행 중 • \"출시\" 관련 구체적 사건으로 실시간 관심 집중",
+            "immediateTrafficPlan": [
+              "제목 앞부분에 \"통돌이세탁기20KG\"를 배치하고, 2025/최신/정리 같은 보조 키워드를 1개만 추가하세요.",
+              "본문 서두 100자 안에 \"통돌이세탁기20KG\"를 자연스럽게 2회 노출하세요.",
+              "최소 1개는 비교/체크리스트/요약 섹션을 넣어 체류시간을 늘리세요."
+            ],
+            "naverHomeExposureTips": [
+              "첫 이미지에 키워드가 들어간 문구를 넣고, alt 텍스트도 키워드 포함",
+              "목차를 만들고 H2/H3에 서브 키워드 배치",
+              "태그는 5~10개로 과도한 반복을 피하고, 유사어를 섞기"
+            ]
+          },
+          "ultimateAnalysis": {
+            "timing": {
+              "seasonal": {
+                "peakMonths": [
+                  1,
+                  2,
+                  3,
+                  4,
+                  5,
+                  6,
+                  7,
+                  8,
+                  9,
+                  10,
+                  11,
+                  12
+                ],
+                "peakReason": "연중 꾸준한 검색량",
+                "currentSeasonScore": 70,
+                "nextPeakDate": "항상",
+                "daysUntilPeak": 0,
+                "recommendation": "📝 에버그린 키워드입니다. 언제든 작성해도 좋습니다.",
+                "seasonalPattern": "evergreen"
+              },
+              "trend": {
+                "trendDirection": "falling",
+                "changeRate": 6,
+                "comparedTo": "전월 대비",
+                "explosiveScore": 10,
+                "relatedNews": [],
+                "recommendation": "📊 안정적인 키워드입니다."
+              },
+              "alert": {
+                "optimalPublishDate": "0일 내",
+                "reason": "📝 에버그린 키워드입니다. 언제든 작성해도 좋습니다.",
+                "urgencyLevel": "⚡ 이번 주",
+                "expectedPeakDate": "항상",
+                "competitorActivity": "경쟁자 보통"
+              }
+            },
+            "revenue": {
+              "cpc": {
+                "estimatedCpc": 200,
+                "cpcRange": {
+                  "min": 100,
+                  "max": 400
+                },
+                "cpcTier": "🥈 중수익",
+                "industryAverage": 200,
+                "recommendation": "📝 일반적인 수익 구조입니다. 트래픽 확보에 집중하세요."
+              },
+              "affiliate": {
+                "recommendedPrograms": [
+                  {
+                    "name": "쿠팡파트너스",
+                    "type": "coupang",
+                    "commissionRate": "3~5%",
+                    "estimatedEarningPerClick": 50,
+                    "matchScore": 100
+                  },
+                  {
+                    "name": "네이버 쇼핑",
+                    "type": "naver",
+                    "commissionRate": "1~3%",
+                    "estimatedEarningPerClick": 30,
+                    "matchScore": 85
+                  }
+                ],
+                "bestMatch": "쿠팡파트너스",
+                "potentialProducts": [
+                  "통돌이세탁기20KG 추천",
+                  "통돌이세탁기20KG 순위",
+                  "통돌이세탁기20KG 비교",
+                  "통돌이세탁기20KG 후기",
+                  "통돌이세탁기20KG 가격",
+                  "통돌이세탁기20KG 구매"
+                ]
+              },
+              "projection": {
+                "estimatedDailyVisitors": 3,
+                "estimatedMonthlyVisitors": 90,
+                "adsenseRevenue": {
+                  "daily": 18,
+                  "monthly": 540,
+                  "assumptions": "CPC 200원, CTR 2%, 페이지뷰율 1.5 가정"
+                },
+                "affiliateRevenue": {
+                  "daily": 0,
+                  "monthly": 0,
+                  "conversionRate": 3,
+                  "assumptions": "클릭률 10%, 전환율 3%, 평균 수수료 50원 가정"
+                },
+                "totalMonthlyRevenue": 540,
+                "revenueBreakdown": "애드센스 100% + 제휴 0%",
+                "revenueTier": "📝 월 1만원+"
+              }
+            },
+            "content": {
+              "titles": {
+                "titles": [
+                  {
+                    "title": "통돌이세탁기20KG 추천 TOP 10 (2025년 최신)",
+                    "type": "number",
+                    "estimatedCTR": 8.5,
+                    "psychologyUsed": "숫자 + 최신 정보"
+                  },
+                  {
+                    "title": "통돌이세탁기20KG 하는 법, 초보자도 쉽게 따라하기",
+                    "type": "how-to",
+                    "estimatedCTR": 7.5,
+                    "psychologyUsed": "실용성 + 접근성"
+                  },
+                  {
+                    "title": "통돌이세탁기20KG, 이것만 알면 끝! 완벽 가이드",
+                    "type": "benefit",
+                    "estimatedCTR": 7.2,
+                    "psychologyUsed": "완결성 + 가치 제안"
+                  },
+                  {
+                    "title": "[2025년] 통돌이세탁기20KG 총정리 (+ 꿀팁 공개)",
+                    "type": "news",
+                    "estimatedCTR": 7,
+                    "psychologyUsed": "최신성 + 보너스 가치"
+                  },
+                  {
+                    "title": "아직도 통돌이세탁기20KG 몰라요? 지금 당장 확인하세요",
+                    "type": "curiosity",
+                    "estimatedCTR": 6.8,
+                    "psychologyUsed": "호기심 + 긴급성"
+                  },
+                  {
+                    "title": "통돌이세탁기20KG 실제 후기 (장단점 솔직 비교)",
+                    "type": "comparison",
+                    "estimatedCTR": 6.5,
+                    "psychologyUsed": "신뢰성 + 비교 심리"
+                  }
+                ],
+                "bestTitle": "통돌이세탁기20KG 추천 TOP 10 (2025년 최신)",
+                "titleFormula": "숫자 + 키워드 + 최신연도 + 가치제안"
+              },
+              "structure": {
+                "recommendedStructure": {
+                  "intro": {
+                    "purpose": "독자의 관심 끌기 + 키워드 자연스럽게 배치",
+                    "template": "\"통돌이세탁기20KG\"에 대해 고민하고 계신가요? 이 글에서 핵심 정보를 모두 정리해드립니다.",
+                    "keywordPlacement": "첫 문장에 키워드 포함"
+                  },
+                  "sections": [
+                    {
+                      "heading": "통돌이세탁기20KG란? (기본 개념)",
+                      "purpose": "기초 정보 제공",
+                      "contentGuide": "핵심 정의, 중요성, 왜 알아야 하는지 설명",
+                      "recommendedLength": 300,
+                      "keywordUsage": "소제목과 본문에 1~2회"
+                    },
+                    {
+                      "heading": "통돌이세탁기20KG 추천 BEST 5",
+                      "purpose": "실질적인 가치 제공 (핵심 섹션)",
+                      "contentGuide": "순위별 상세 설명, 장단점, 추천 이유",
+                      "recommendedLength": 800,
+                      "keywordUsage": "각 항목 설명에 자연스럽게 포함"
+                    },
+                    {
+                      "heading": "통돌이세탁기20KG 선택 시 주의사항",
+                      "purpose": "신뢰도 향상",
+                      "contentGuide": "흔한 실수, 피해야 할 것, 체크리스트",
+                      "recommendedLength": 400,
+                      "keywordUsage": "주의사항 설명에 1~2회"
+                    },
+                    {
+                      "heading": "자주 묻는 질문 (FAQ)",
+                      "purpose": "SEO 강화 + 체류시간 증가",
+                      "contentGuide": "실제 검색되는 질문 5개 + 명확한 답변",
+                      "recommendedLength": 500,
+                      "keywordUsage": "질문에 롱테일 키워드 활용"
+                    }
+                  ],
+                  "conclusion": {
+                    "purpose": "요약 + CTA",
+                    "template": "지금까지 통돌이세탁기20KG에 대해 알아봤습니다. 도움이 되셨다면 공유해주세요!",
+                    "ctaRecommendation": "댓글, 공유, 관련 글 링크 유도"
+                  }
+                },
+                "seoChecklist": [
+                  {
+                    "item": "제목에 키워드 포함",
+                    "importance": "critical",
+                    "howTo": "제목 앞부분에 메인 키워드 배치"
+                  },
+                  {
+                    "item": "첫 문단에 키워드",
+                    "importance": "critical",
+                    "howTo": "첫 100자 내 키워드 자연스럽게 삽입"
+                  },
+                  {
+                    "item": "소제목 H2/H3 활용",
+                    "importance": "high",
+                    "howTo": "3~5개 소제목, 키워드 변형 사용"
+                  },
+                  {
+                    "item": "이미지 ALT 태그",
+                    "importance": "high",
+                    "howTo": "모든 이미지에 키워드 포함 설명"
+                  },
+                  {
+                    "item": "내부링크 2개 이상",
+                    "importance": "medium",
+                    "howTo": "관련 글 자연스럽게 연결"
+                  },
+                  {
+                    "item": "3000자 이상 작성",
+                    "importance": "high",
+                    "howTo": "충분한 깊이의 콘텐츠 제공"
+                  }
+                ],
+                "totalRecommendedLength": 3000,
+                "estimatedWriteTime": 90
+              },
+              "images": {
+                "mainImage": {
+                  "searchKeyword": "통돌이세탁기20KG 대표이미지",
+                  "style": "깔끔한 인포그래픽 또는 고화질 사진",
+                  "source": [
+                    "Unsplash",
+                    "Pixabay",
+                    "직접 제작"
+                  ],
+                  "altText": "통돌이세탁기20KG 완벽 가이드 대표 이미지"
+                },
+                "sectionImages": [
+                  {
+                    "section": "기본 개념",
+                    "searchKeyword": "통돌이세탁기20KG 설명",
+                    "purpose": "이해 돕기",
+                    "style": "다이어그램"
+                  },
+                  {
+                    "section": "TOP 5",
+                    "searchKeyword": "통돌이세탁기20KG 비교",
+                    "purpose": "시각적 비교",
+                    "style": "비교표"
+                  },
+                  {
+                    "section": "주의사항",
+                    "searchKeyword": "주의 아이콘",
+                    "purpose": "강조",
+                    "style": "아이콘"
+                  }
+                ],
+                "infographicIdeas": [
+                  "통돌이세탁기20KG 선택 가이드 플로우차트",
+                  "통돌이세탁기20KG TOP 5 비교표",
+                  "통돌이세탁기20KG 체크리스트"
+                ],
+                "totalRecommendedImages": 7,
+                "imageStrategy": "섹션당 1~2개, 총 7~10개 이미지로 가독성과 체류시간 향상"
+              }
+            },
+            "ultimateScore": {
+              "total": 45,
+              "breakdown": {
+                "goldenRatio": 6.442892543365622,
+                "timing": 70,
+                "revenue": 40,
+                "competition": 80,
+                "potential": 49
+              },
+              "grade": "📝 C",
+              "verdict": "⚠️ 신중히 검토 필요",
+              "topActions": [
+                "0일 내 작성 권장",
+                "통돌이세탁기20KG 추천 TOP 10 (2025년 최신)",
+                "3000자 이상, 7개 이미지 권장"
+              ]
+            }
+          },
+          "highlightReason": "✅ ANYTIME/stable | 폭발 65 | 구매의도 30 | 월 3,180원⚠️ | 경쟁도 5"
+        },
+        {
+          "keyword": "LG세탁기렌탈",
+          "searchVolume": 1770,
+          "documentCount": 2886,
+          "goldenRatio": 0.6133056133056133,
+          "rookieFriendly": {
+            "score": 45,
+            "grade": "C",
+            "reason": "문서수 5,000개 미만 → 경쟁 낮음 | 황금비율 1 미만 → 공급 과잉 | 숏테일 키워드 → 대형 블로그와 경쟁",
+            "canRankWithin": "2~4주 내 가능",
+            "requiredBlogIndex": "최적 1 이상 권장"
+          },
+          "timing": {
+            "score": 50,
+            "urgency": "ANYTIME",
+            "bestPublishTime": "오전 6~8시 또는 저녁 8~10시",
+            "trendDirection": "stable",
+            "peakPrediction": "꾸준한 검색량 유지"
+          },
+          "blueOcean": {
+            "score": 60,
+            "competitorStrength": "weak",
+            "avgCompetitorBlogAge": "1~2년 (약한 경쟁)",
+            "oldPostRatio": 70,
+            "opportunity": "✅ 좋은 기회입니다. 품질 콘텐츠로 승부"
+          },
+          "trafficEstimate": {
+            "daily": "1~3명",
+            "weekly": "7~21명",
+            "monthly": "30~90명",
+            "confidence": 50,
+            "disclaimer": "📌 트래픽은 순위/CTR/계절성에 따라 달라질 수 있는 추정치입니다."
+          },
+          "revenueEstimate": {
+            "dailyRevenue": "75원 ⚠️추정",
+            "monthlyRevenue": "2,250원 ⚠️추정",
+            "estimatedCPC": 207,
+            "estimatedRPM": 5175,
+            "adType": "애드센스",
+            "revenueGrade": "B",
+            "revenueReason": "📌 보통. 롱테일 확장 추천"
+          },
+          "entryAnalysis": {
+            "canEntry": true,
+            "difficulty": "easy",
+            "difficultyScore": 25,
+            "message": "🟢 진입 쉬움 - 신생 블로거도 상위노출 가능!",
+            "topCompetitorStrength": "약함 (저품질 블로그 다수)",
+            "recommendedBlogIndex": "지수 무관 (신생도 OK)",
+            "estimatedRankingTime": "1~3일 내 가능"
+          },
+          "totalScore": 74,
+          "grade": "S",
+          "proStrategy": {
+            "title": "2025 LG세탁기렌탈 완벽 정리 | 초보자도 쉽게 이해하는 가이드",
+            "outline": [
+              "1. LG세탁기렌탈란? (기본 개념)",
+              "2. LG세탁기렌탈 핵심 포인트 3가지",
+              "3. LG세탁기렌탈 장단점 비교",
+              "4. LG세탁기렌탈 실제 후기/경험담",
+              "5. LG세탁기렌탈 Q&A (자주 묻는 질문)",
+              "6. 결론 및 추천"
+            ],
+            "wordCount": 2500,
+            "mustInclude": [
+              "핵심 키워드 2~3회 자연스럽게 삽입",
+              "실제 이미지/사진 3장 이상",
+              "표 또는 비교 차트 1개 이상",
+              "자주 묻는 질문(FAQ) 섹션",
+              "결론 및 추천 섹션"
+            ],
+            "avoidTopics": [
+              "과장된 표현 (100%, 무조건, 반드시)",
+              "허위 정보나 검증되지 않은 내용",
+              "다른 블로그 복사/붙여넣기",
+              "광고성 링크 과다 삽입"
+            ],
+            "monetization": "애드센스 + 쿠팡파트너스 조합 추천"
+          },
+          "platformTitles": {
+            "naver": {
+              "title": "핵심 정리: LG세탁기렌탈 2025 최신 가이드 (월 1,770)",
+              "alternatives": [
+                "LG세탁기렌탈 2025 완벽 정리: 핵심만 5분 요약",
+                "LG세탁기렌탈 초보도 쉽게: 실패 없는 체크리스트"
+              ],
+              "subKeywords": [
+                "LG세탁기렌탈 방법",
+                "LG세탁기렌탈 추천",
+                "LG세탁기렌탈 후기"
+              ],
+              "tags": [
+                "LG세탁기렌탈",
+                "📰 이슈키워드"
+              ],
+              "tip": "서두 100자 내에 키워드를 2회 노출하고, 결론 요약을 맨 위에 한 번 더 넣으세요.",
+              "hookPoint": "핵심 정리 포인트를 제목/썸네일에 강조"
+            },
+            "tistory": {
+              "title": "LG세탁기렌탈 2025 정리: 한 번에 이해하는 핵심 포인트 (월 1,770)",
+              "alternatives": [
+                "LG세탁기렌탈 제대로 하는 법 (체크리스트 포함)",
+                "LG세탁기렌탈 추천/비교: 선택 기준 3가지"
+              ],
+              "subKeywords": [
+                "LG세탁기렌탈 방법",
+                "LG세탁기렌탈 추천",
+                "LG세탁기렌탈 후기"
+              ],
+              "tags": [
+                "LG세탁기렌탈",
+                "📰 이슈키워드"
+              ],
+              "tip": "표/리스트를 많이 써서 스크롤 체류시간을 늘리세요.",
+              "hookPoint": "“핵심 3가지”처럼 숫자를 넣어 클릭률을 올리기"
+            },
+            "wordpress": {
+              "title": "LG세탁기렌탈: 2025 Complete Guide (Checklist & Tips) (월 1,770)",
+              "alternatives": [
+                "LG세탁기렌탈 Guide: Common Mistakes & Quick Fixes",
+                "LG세탁기렌탈 Step-by-Step: What to Do First"
+              ],
+              "subKeywords": [
+                "LG세탁기렌탈 방법",
+                "LG세탁기렌탈 추천",
+                "LG세탁기렌탈 후기"
+              ],
+              "tags": [
+                "LG세탁기렌탈",
+                "📰 이슈키워드"
+              ],
+              "tip": "H2/H3로 구조를 만들고, FAQ 섹션을 넣어 SEO를 강화하세요.",
+              "hookPoint": "FAQ + 체크리스트 조합으로 체류시간/리치 증가"
+            },
+            "blogspot": {
+              "title": "LG세탁기렌탈 2025: Quick Start + Best Practices (월 1,770)",
+              "alternatives": [
+                "LG세탁기렌탈 Quick Guide: Do & Don't",
+                "LG세탁기렌탈 Essentials: What You Need to Know"
+              ],
+              "subKeywords": [
+                "LG세탁기렌탈 방법",
+                "LG세탁기렌탈 추천",
+                "LG세탁기렌탈 후기"
+              ],
+              "tags": [
+                "LG세탁기렌탈",
+                "📰 이슈키워드"
+              ],
+              "tip": "이미지 2~3장 + 요약 박스를 넣어 가독성을 올리세요.",
+              "hookPoint": "첫 화면에 요약(결론)을 배치해 이탈률을 낮추기"
+            }
+          },
+          "expandedKeywords": {
+            "relatedGolden": [
+              "LG세탁기렌탈 추천",
+              "LG세탁기렌탈 비교",
+              "LG세탁기렌탈 후기",
+              "LG세탁기렌탈 가격"
+            ],
+            "longtailGolden": [
+              "LG세탁기렌탈 초보",
+              "LG세탁기렌탈 쉽게",
+              "LG세탁기렌탈 단계별",
+              "LG세탁기렌탈 정리"
+            ],
+            "blueOceanGolden": [
+              "LG세탁기렌탈 최신",
+              "LG세탁기렌탈 2025",
+              "LG세탁기렌탈 체크리스트",
+              "LG세탁기렌탈 실패하지 않는 법"
+            ]
+          },
+          "type": "📰 이슈키워드",
+          "category": "life_tips",
+          "safetyLevel": "safe",
+          "safetyReason": "✅ 안전한 키워드. 신생 블로거도 작성 가능",
+          "source": "세탁기",
+          "profitAnalysis": {
+            "keyword": "LG세탁기렌탈",
+            "searchVolume": 1770,
+            "documentCount": 2886,
+            "estimatedCPC": 207,
+            "purchaseIntentScore": 30,
+            "competitionLevel": 4,
+            "freshnessOpportunity": 1,
+            "profitGoldenRatio": 4.35,
+            "estimatedDailyRevenue": 75,
+            "estimatedMonthlyRevenue": 2250,
+            "grade": "B",
+            "gradeReason": "📌 보통. 롱테일 확장 추천",
+            "isRealBlueOcean": false,
+            "blueOceanReason": "📗 잠재 블루오션. 상위노출 가능성 있음",
+            "strategy": {
+              "approach": "🔍 롱테일 확장 후 작성. \"초보자\", \"2025\", \"비교\" 등 붙여서 경쟁 낮추기",
+              "monetization": "📝 트래픽 확보 우선. 이후 관련 고수익 키워드로 내부링크",
+              "timing": "🗓️ 여유있게 준비. 롱테일 전략으로 접근",
+              "titleSuggestion": "LG세탁기렌탈 완벽 가이드 | 초보자도 쉽게 따라하기"
+            }
+          },
+          "timestamp": "2025-12-24T11:01:54.378Z",
+          "isGolden": true,
+          "trendAnalysis": {
+            "trendingReason": "세탁물에 심어 수명까지 관련 최근 이슈",
+            "whyNow": "최근 5개 이상의 뉴스에서 다뤄지며 이슈화 진행 중",
+            "newsSource": "자동 분석"
+          },
+          "keywordGuide": {
+            "summary": "여유 있을 때 공략하면 좋은 키워드입니다. (등급: S, 점수: 74점)",
+            "whyItMovesNow": "세탁물에 심어 수명까지 관련 최근 이슈 최근 5개 이상의 뉴스에서 다뤄지며 이슈화 진행 중",
+            "immediateTrafficPlan": [
+              "제목 앞부분에 \"LG세탁기렌탈\"를 배치하고, 2025/최신/정리 같은 보조 키워드를 1개만 추가하세요.",
+              "본문 서두 100자 안에 \"LG세탁기렌탈\"를 자연스럽게 2회 노출하세요.",
+              "최소 1개는 비교/체크리스트/요약 섹션을 넣어 체류시간을 늘리세요."
+            ],
+            "naverHomeExposureTips": [
+              "첫 이미지에 키워드가 들어간 문구를 넣고, alt 텍스트도 키워드 포함",
+              "목차를 만들고 H2/H3에 서브 키워드 배치",
+              "태그는 5~10개로 과도한 반복을 피하고, 유사어를 섞기"
+            ]
+          },
+          "ultimateAnalysis": {
+            "timing": {
+              "seasonal": {
+                "peakMonths": [
+                  1,
+                  2,
+                  3,
+                  4,
+                  5,
+                  6,
+                  7,
+                  8,
+                  9,
+                  10,
+                  11,
+                  12
+                ],
+                "peakReason": "연중 꾸준한 검색량",
+                "currentSeasonScore": 70,
+                "nextPeakDate": "항상",
+                "daysUntilPeak": 0,
+                "recommendation": "📝 에버그린 키워드입니다. 언제든 작성해도 좋습니다.",
+                "seasonalPattern": "evergreen"
+              },
+              "trend": {
+                "trendDirection": "falling",
+                "changeRate": 6,
+                "comparedTo": "전월 대비",
+                "explosiveScore": 9,
+                "relatedNews": [],
+                "recommendation": "📊 안정적인 키워드입니다."
+              },
+              "alert": {
+                "optimalPublishDate": "0일 내",
+                "reason": "📝 에버그린 키워드입니다. 언제든 작성해도 좋습니다.",
+                "urgencyLevel": "⚡ 이번 주",
+                "expectedPeakDate": "항상",
+                "competitorActivity": "경쟁자 보통"
+              }
+            },
+            "revenue": {
+              "cpc": {
+                "estimatedCpc": 200,
+                "cpcRange": {
+                  "min": 100,
+                  "max": 400
+                },
+                "cpcTier": "🥈 중수익",
+                "industryAverage": 200,
+                "recommendation": "📝 일반적인 수익 구조입니다. 트래픽 확보에 집중하세요."
+              },
+              "affiliate": {
+                "recommendedPrograms": [
+                  {
+                    "name": "쿠팡파트너스",
+                    "type": "coupang",
+                    "commissionRate": "3~5%",
+                    "estimatedEarningPerClick": 50,
+                    "matchScore": 100
+                  },
+                  {
+                    "name": "네이버 쇼핑",
+                    "type": "naver",
+                    "commissionRate": "1~3%",
+                    "estimatedEarningPerClick": 30,
+                    "matchScore": 85
+                  }
+                ],
+                "bestMatch": "쿠팡파트너스",
+                "potentialProducts": [
+                  "LG세탁기렌탈 추천",
+                  "LG세탁기렌탈 순위",
+                  "LG세탁기렌탈 비교",
+                  "LG세탁기렌탈 후기",
+                  "LG세탁기렌탈 가격",
+                  "LG세탁기렌탈 구매"
+                ]
+              },
+              "projection": {
+                "estimatedDailyVisitors": 2,
+                "estimatedMonthlyVisitors": 60,
+                "adsenseRevenue": {
+                  "daily": 12,
+                  "monthly": 360,
+                  "assumptions": "CPC 200원, CTR 2%, 페이지뷰율 1.5 가정"
+                },
+                "affiliateRevenue": {
+                  "daily": 0,
+                  "monthly": 0,
+                  "conversionRate": 3,
+                  "assumptions": "클릭률 10%, 전환율 3%, 평균 수수료 50원 가정"
+                },
+                "totalMonthlyRevenue": 360,
+                "revenueBreakdown": "애드센스 100% + 제휴 0%",
+                "revenueTier": "📝 월 1만원+"
+              }
+            },
+            "content": {
+              "titles": {
+                "titles": [
+                  {
+                    "title": "LG세탁기렌탈 추천 TOP 10 (2025년 최신)",
+                    "type": "number",
+                    "estimatedCTR": 8.5,
+                    "psychologyUsed": "숫자 + 최신 정보"
+                  },
+                  {
+                    "title": "LG세탁기렌탈 하는 법, 초보자도 쉽게 따라하기",
+                    "type": "how-to",
+                    "estimatedCTR": 7.5,
+                    "psychologyUsed": "실용성 + 접근성"
+                  },
+                  {
+                    "title": "LG세탁기렌탈, 이것만 알면 끝! 완벽 가이드",
+                    "type": "benefit",
+                    "estimatedCTR": 7.2,
+                    "psychologyUsed": "완결성 + 가치 제안"
+                  },
+                  {
+                    "title": "[2025년] LG세탁기렌탈 총정리 (+ 꿀팁 공개)",
+                    "type": "news",
+                    "estimatedCTR": 7,
+                    "psychologyUsed": "최신성 + 보너스 가치"
+                  },
+                  {
+                    "title": "아직도 LG세탁기렌탈 몰라요? 지금 당장 확인하세요",
+                    "type": "curiosity",
+                    "estimatedCTR": 6.8,
+                    "psychologyUsed": "호기심 + 긴급성"
+                  },
+                  {
+                    "title": "LG세탁기렌탈 실제 후기 (장단점 솔직 비교)",
+                    "type": "comparison",
+                    "estimatedCTR": 6.5,
+                    "psychologyUsed": "신뢰성 + 비교 심리"
+                  }
+                ],
+                "bestTitle": "LG세탁기렌탈 추천 TOP 10 (2025년 최신)",
+                "titleFormula": "숫자 + 키워드 + 최신연도 + 가치제안"
+              },
+              "structure": {
+                "recommendedStructure": {
+                  "intro": {
+                    "purpose": "독자의 관심 끌기 + 키워드 자연스럽게 배치",
+                    "template": "\"LG세탁기렌탈\"에 대해 고민하고 계신가요? 이 글에서 핵심 정보를 모두 정리해드립니다.",
+                    "keywordPlacement": "첫 문장에 키워드 포함"
+                  },
+                  "sections": [
+                    {
+                      "heading": "LG세탁기렌탈란? (기본 개념)",
+                      "purpose": "기초 정보 제공",
+                      "contentGuide": "핵심 정의, 중요성, 왜 알아야 하는지 설명",
+                      "recommendedLength": 300,
+                      "keywordUsage": "소제목과 본문에 1~2회"
+                    },
+                    {
+                      "heading": "LG세탁기렌탈 추천 BEST 5",
+                      "purpose": "실질적인 가치 제공 (핵심 섹션)",
+                      "contentGuide": "순위별 상세 설명, 장단점, 추천 이유",
+                      "recommendedLength": 800,
+                      "keywordUsage": "각 항목 설명에 자연스럽게 포함"
+                    },
+                    {
+                      "heading": "LG세탁기렌탈 선택 시 주의사항",
+                      "purpose": "신뢰도 향상",
+                      "contentGuide": "흔한 실수, 피해야 할 것, 체크리스트",
+                      "recommendedLength": 400,
+                      "keywordUsage": "주의사항 설명에 1~2회"
+                    },
+                    {
+                      "heading": "자주 묻는 질문 (FAQ)",
+                      "purpose": "SEO 강화 + 체류시간 증가",
+                      "contentGuide": "실제 검색되는 질문 5개 + 명확한 답변",
+                      "recommendedLength": 500,
+                      "keywordUsage": "질문에 롱테일 키워드 활용"
+                    }
+                  ],
+                  "conclusion": {
+                    "purpose": "요약 + CTA",
+                    "template": "지금까지 LG세탁기렌탈에 대해 알아봤습니다. 도움이 되셨다면 공유해주세요!",
+                    "ctaRecommendation": "댓글, 공유, 관련 글 링크 유도"
+                  }
+                },
+                "seoChecklist": [
+                  {
+                    "item": "제목에 키워드 포함",
+                    "importance": "critical",
+                    "howTo": "제목 앞부분에 메인 키워드 배치"
+                  },
+                  {
+                    "item": "첫 문단에 키워드",
+                    "importance": "critical",
+                    "howTo": "첫 100자 내 키워드 자연스럽게 삽입"
+                  },
+                  {
+                    "item": "소제목 H2/H3 활용",
+                    "importance": "high",
+                    "howTo": "3~5개 소제목, 키워드 변형 사용"
+                  },
+                  {
+                    "item": "이미지 ALT 태그",
+                    "importance": "high",
+                    "howTo": "모든 이미지에 키워드 포함 설명"
+                  },
+                  {
+                    "item": "내부링크 2개 이상",
+                    "importance": "medium",
+                    "howTo": "관련 글 자연스럽게 연결"
+                  },
+                  {
+                    "item": "3000자 이상 작성",
+                    "importance": "high",
+                    "howTo": "충분한 깊이의 콘텐츠 제공"
+                  }
+                ],
+                "totalRecommendedLength": 3000,
+                "estimatedWriteTime": 90
+              },
+              "images": {
+                "mainImage": {
+                  "searchKeyword": "LG세탁기렌탈 대표이미지",
+                  "style": "깔끔한 인포그래픽 또는 고화질 사진",
+                  "source": [
+                    "Unsplash",
+                    "Pixabay",
+                    "직접 제작"
+                  ],
+                  "altText": "LG세탁기렌탈 완벽 가이드 대표 이미지"
+                },
+                "sectionImages": [
+                  {
+                    "section": "기본 개념",
+                    "searchKeyword": "LG세탁기렌탈 설명",
+                    "purpose": "이해 돕기",
+                    "style": "다이어그램"
+                  },
+                  {
+                    "section": "TOP 5",
+                    "searchKeyword": "LG세탁기렌탈 비교",
+                    "purpose": "시각적 비교",
+                    "style": "비교표"
+                  },
+                  {
+                    "section": "주의사항",
+                    "searchKeyword": "주의 아이콘",
+                    "purpose": "강조",
+                    "style": "아이콘"
+                  }
+                ],
+                "infographicIdeas": [
+                  "LG세탁기렌탈 선택 가이드 플로우차트",
+                  "LG세탁기렌탈 TOP 5 비교표",
+                  "LG세탁기렌탈 체크리스트"
+                ],
+                "totalRecommendedImages": 7,
+                "imageStrategy": "섹션당 1~2개, 총 7~10개 이미지로 가독성과 체류시간 향상"
+              }
+            },
+            "ultimateScore": {
+              "total": 45,
+              "breakdown": {
+                "goldenRatio": 6.133056133056133,
+                "timing": 70,
+                "revenue": 40,
+                "competition": 80,
+                "potential": 49
+              },
+              "grade": "📝 C",
+              "verdict": "⚠️ 신중히 검토 필요",
+              "topActions": [
+                "0일 내 작성 권장",
+                "LG세탁기렌탈 추천 TOP 10 (2025년 최신)",
+                "3000자 이상, 7개 이미지 권장"
+              ]
+            }
+          },
+          "highlightReason": "✅ ANYTIME/stable | 폭발 65 | 구매의도 30 | 월 2,250원⚠️ | 경쟁도 4"
+        },
+        {
+          "keyword": "미니건조기5KG",
+          "searchVolume": 2700,
+          "documentCount": 5569,
+          "goldenRatio": 0.48482671933919913,
+          "rookieFriendly": {
+            "score": 35,
+            "grade": "D",
+            "reason": "문서수 10,000개 미만 → 경쟁 보통 | 황금비율 1 미만 → 공급 과잉 | 숏테일 키워드 → 대형 블로그와 경쟁",
+            "canRankWithin": "1개월 이상 소요 예상",
+            "requiredBlogIndex": "최적 1 이상 권장"
+          },
+          "timing": {
+            "score": 50,
+            "urgency": "ANYTIME",
+            "bestPublishTime": "오전 6~8시 또는 저녁 8~10시",
+            "trendDirection": "stable",
+            "peakPrediction": "꾸준한 검색량 유지"
+          },
+          "blueOcean": {
+            "score": 50,
+            "competitorStrength": "medium",
+            "avgCompetitorBlogAge": "2~5년 (보통 경쟁)",
+            "oldPostRatio": 50,
+            "opportunity": "⚠️ 경쟁 있음. 차별화된 콘텐츠 필요"
+          },
+          "trafficEstimate": {
+            "daily": "2~4명",
+            "weekly": "14~28명",
+            "monthly": "60~120명",
+            "confidence": 50,
+            "disclaimer": "📌 트래픽은 순위/CTR/계절성에 따라 달라질 수 있는 추정치입니다."
+          },
+          "revenueEstimate": {
+            "dailyRevenue": "68원 ⚠️추정",
+            "monthlyRevenue": "2,040원 ⚠️추정",
+            "estimatedCPC": 207,
+            "estimatedRPM": 5175,
+            "adType": "애드센스",
+            "revenueGrade": "C",
+            "revenueReason": "⚠️ 경쟁 높음. 틈새 접근 필요"
+          },
+          "entryAnalysis": {
+            "canEntry": true,
+            "difficulty": "hard",
+            "difficultyScore": 60,
+            "message": "🟠 진입 도전적 - 차별화된 콘텐츠 필요",
+            "topCompetitorStrength": "보통 (일반 블로그 혼재)",
+            "recommendedBlogIndex": "준최 5 이상 권장",
+            "estimatedRankingTime": "1~3주 내 가능"
+          },
+          "totalScore": 44,
+          "grade": "A",
+          "proStrategy": {
+            "title": "2025 미니건조기5KG 완벽 정리 | 초보자도 쉽게 이해하는 가이드",
+            "outline": [
+              "1. 미니건조기5KG란? (기본 개념)",
+              "2. 미니건조기5KG 핵심 포인트 3가지",
+              "3. 미니건조기5KG 장단점 비교",
+              "4. 미니건조기5KG 실제 후기/경험담",
+              "5. 미니건조기5KG Q&A (자주 묻는 질문)",
+              "6. 결론 및 추천"
+            ],
+            "wordCount": 2500,
+            "mustInclude": [
+              "핵심 키워드 2~3회 자연스럽게 삽입",
+              "실제 이미지/사진 3장 이상",
+              "표 또는 비교 차트 1개 이상",
+              "자주 묻는 질문(FAQ) 섹션",
+              "결론 및 추천 섹션"
+            ],
+            "avoidTopics": [
+              "과장된 표현 (100%, 무조건, 반드시)",
+              "허위 정보나 검증되지 않은 내용",
+              "다른 블로그 복사/붙여넣기",
+              "광고성 링크 과다 삽입"
+            ],
+            "monetization": "애드센스 + 쿠팡파트너스 조합 추천"
+          },
+          "platformTitles": {
+            "naver": {
+              "title": "핵심 정리: 미니건조기5KG 2025 최신 가이드 (월 2,700)",
+              "alternatives": [
+                "미니건조기5KG 2025 완벽 정리: 핵심만 5분 요약",
+                "미니건조기5KG 초보도 쉽게: 실패 없는 체크리스트"
+              ],
+              "subKeywords": [
+                "미니건조기5KG 방법",
+                "미니건조기5KG 추천",
+                "미니건조기5KG 후기"
+              ],
+              "tags": [
+                "미니건조기5KG",
+                "📰 이슈키워드"
+              ],
+              "tip": "서두 100자 내에 키워드를 2회 노출하고, 결론 요약을 맨 위에 한 번 더 넣으세요.",
+              "hookPoint": "핵심 정리 포인트를 제목/썸네일에 강조"
+            },
+            "tistory": {
+              "title": "미니건조기5KG 2025 정리: 한 번에 이해하는 핵심 포인트 (월 2,700)",
+              "alternatives": [
+                "미니건조기5KG 제대로 하는 법 (체크리스트 포함)",
+                "미니건조기5KG 추천/비교: 선택 기준 3가지"
+              ],
+              "subKeywords": [
+                "미니건조기5KG 방법",
+                "미니건조기5KG 추천",
+                "미니건조기5KG 후기"
+              ],
+              "tags": [
+                "미니건조기5KG",
+                "📰 이슈키워드"
+              ],
+              "tip": "표/리스트를 많이 써서 스크롤 체류시간을 늘리세요.",
+              "hookPoint": "“핵심 3가지”처럼 숫자를 넣어 클릭률을 올리기"
+            },
+            "wordpress": {
+              "title": "미니건조기5KG: 2025 Complete Guide (Checklist & Tips) (월 2,700)",
+              "alternatives": [
+                "미니건조기5KG Guide: Common Mistakes & Quick Fixes",
+                "미니건조기5KG Step-by-Step: What to Do First"
+              ],
+              "subKeywords": [
+                "미니건조기5KG 방법",
+                "미니건조기5KG 추천",
+                "미니건조기5KG 후기"
+              ],
+              "tags": [
+                "미니건조기5KG",
+                "📰 이슈키워드"
+              ],
+              "tip": "H2/H3로 구조를 만들고, FAQ 섹션을 넣어 SEO를 강화하세요.",
+              "hookPoint": "FAQ + 체크리스트 조합으로 체류시간/리치 증가"
+            },
+            "blogspot": {
+              "title": "미니건조기5KG 2025: Quick Start + Best Practices (월 2,700)",
+              "alternatives": [
+                "미니건조기5KG Quick Guide: Do & Don't",
+                "미니건조기5KG Essentials: What You Need to Know"
+              ],
+              "subKeywords": [
+                "미니건조기5KG 방법",
+                "미니건조기5KG 추천",
+                "미니건조기5KG 후기"
+              ],
+              "tags": [
+                "미니건조기5KG",
+                "📰 이슈키워드"
+              ],
+              "tip": "이미지 2~3장 + 요약 박스를 넣어 가독성을 올리세요.",
+              "hookPoint": "첫 화면에 요약(결론)을 배치해 이탈률을 낮추기"
+            }
+          },
+          "expandedKeywords": {
+            "relatedGolden": [
+              "미니건조기5KG 추천",
+              "미니건조기5KG 비교",
+              "미니건조기5KG 후기",
+              "미니건조기5KG 가격"
+            ],
+            "longtailGolden": [
+              "미니건조기5KG 초보",
+              "미니건조기5KG 쉽게",
+              "미니건조기5KG 단계별",
+              "미니건조기5KG 정리"
+            ],
+            "blueOceanGolden": [
+              "미니건조기5KG 최신",
+              "미니건조기5KG 2025",
+              "미니건조기5KG 체크리스트",
+              "미니건조기5KG 실패하지 않는 법"
+            ]
+          },
+          "type": "📰 이슈키워드",
+          "category": "life_tips",
+          "safetyLevel": "safe",
+          "safetyReason": "✅ 안전한 키워드. 신생 블로거도 작성 가능",
+          "source": "세탁기",
+          "profitAnalysis": {
+            "keyword": "미니건조기5KG",
+            "searchVolume": 2700,
+            "documentCount": 5569,
+            "estimatedCPC": 207,
+            "purchaseIntentScore": 30,
+            "competitionLevel": 7,
+            "freshnessOpportunity": 1,
+            "profitGoldenRatio": 3.79,
+            "estimatedDailyRevenue": 68,
+            "estimatedMonthlyRevenue": 2040,
+            "grade": "C",
+            "gradeReason": "⚠️ 경쟁 높음. 틈새 접근 필요",
+            "isRealBlueOcean": false,
+            "blueOceanReason": "📕 경쟁 시장. 차별화 전략 필요",
+            "strategy": {
+              "approach": "⏸️ 보류. 더 좋은 키워드 찾기 추천",
+              "monetization": "📝 트래픽 확보 우선. 이후 관련 고수익 키워드로 내부링크",
+              "timing": "🗓️ 여유있게 준비. 롱테일 전략으로 접근",
+              "titleSuggestion": "미니건조기5KG 완벽 가이드 | 초보자도 쉽게 따라하기"
+            }
+          },
+          "timestamp": "2025-12-24T11:01:54.377Z",
+          "isGolden": true,
+          "trendAnalysis": {
+            "trendingReason": "미니파이브, 국가대표 위해 관련 최근 이슈",
+            "whyNow": "최근 5개 이상의 뉴스에서 다뤄지며 이슈화 진행 중 • \"발표\" 관련 구체적 사건으로 실시간 관심 집중 • 뉴스에서 \"인기\" 키워드로 언급되며 화제성 확보 • \"미니파이브, 국가대표 위해 진천 선수촌에 미니건조기 5kg 협찬\" 관련 최신 뉴스로 조기 진입 효과 기대",
+            "newsSource": "자동 분석"
+          },
+          "keywordGuide": {
+            "summary": "여유 있을 때 공략하면 좋은 키워드입니다. (등급: A, 점수: 44점)",
+            "whyItMovesNow": "미니파이브, 국가대표 위해 관련 최근 이슈 최근 5개 이상의 뉴스에서 다뤄지며 이슈화 진행 중 • \"발표\" 관련 구체적 사건으로 실시간 관심 집중 • 뉴스에서 \"인기\" 키워드로 언급되며 화제성 확보 • \"미니파이브, 국가대표 위해 진천 선수촌에 미니건조기 5kg 협찬\" 관련 최신 뉴스로 조기 진입 효과 기대",
+            "immediateTrafficPlan": [
+              "제목 앞부분에 \"미니건조기5KG\"를 배치하고, 2025/최신/정리 같은 보조 키워드를 1개만 추가하세요.",
+              "본문 서두 100자 안에 \"미니건조기5KG\"를 자연스럽게 2회 노출하세요.",
+              "최소 1개는 비교/체크리스트/요약 섹션을 넣어 체류시간을 늘리세요."
+            ],
+            "naverHomeExposureTips": [
+              "첫 이미지에 키워드가 들어간 문구를 넣고, alt 텍스트도 키워드 포함",
+              "목차를 만들고 H2/H3에 서브 키워드 배치",
+              "태그는 5~10개로 과도한 반복을 피하고, 유사어를 섞기"
+            ]
+          },
+          "ultimateAnalysis": {
+            "timing": {
+              "seasonal": {
+                "peakMonths": [
+                  1,
+                  2,
+                  3,
+                  4,
+                  5,
+                  6,
+                  7,
+                  8,
+                  9,
+                  10,
+                  11,
+                  12
+                ],
+                "peakReason": "연중 꾸준한 검색량",
+                "currentSeasonScore": 70,
+                "nextPeakDate": "항상",
+                "daysUntilPeak": 0,
+                "recommendation": "📝 에버그린 키워드입니다. 언제든 작성해도 좋습니다.",
+                "seasonalPattern": "evergreen"
+              },
+              "trend": {
+                "trendDirection": "falling",
+                "changeRate": 5,
+                "comparedTo": "전월 대비",
+                "explosiveScore": 7,
+                "relatedNews": [],
+                "recommendation": "📊 안정적인 키워드입니다."
+              },
+              "alert": {
+                "optimalPublishDate": "0일 내",
+                "reason": "📝 에버그린 키워드입니다. 언제든 작성해도 좋습니다.",
+                "urgencyLevel": "⚡ 이번 주",
+                "expectedPeakDate": "항상",
+                "competitorActivity": "경쟁자 보통"
+              }
+            },
+            "revenue": {
+              "cpc": {
+                "estimatedCpc": 100,
+                "cpcRange": {
+                  "min": 50,
+                  "max": 200
+                },
+                "cpcTier": "🥉 저수익",
+                "industryAverage": 100,
+                "recommendation": "📝 일반적인 수익 구조입니다. 트래픽 확보에 집중하세요."
+              },
+              "affiliate": {
+                "recommendedPrograms": [
+                  {
+                    "name": "쿠팡파트너스",
+                    "type": "coupang",
+                    "commissionRate": "3~5%",
+                    "estimatedEarningPerClick": 50,
+                    "matchScore": 100
+                  },
+                  {
+                    "name": "네이버 쇼핑",
+                    "type": "naver",
+                    "commissionRate": "1~3%",
+                    "estimatedEarningPerClick": 30,
+                    "matchScore": 85
+                  }
+                ],
+                "bestMatch": "쿠팡파트너스",
+                "potentialProducts": [
+                  "미니건조기5KG 추천",
+                  "미니건조기5KG 순위",
+                  "미니건조기5KG 비교",
+                  "미니건조기5KG 후기",
+                  "미니건조기5KG 가격",
+                  "미니건조기5KG 구매"
+                ]
+              },
+              "projection": {
+                "estimatedDailyVisitors": 3,
+                "estimatedMonthlyVisitors": 90,
+                "adsenseRevenue": {
+                  "daily": 9,
+                  "monthly": 270,
+                  "assumptions": "CPC 100원, CTR 2%, 페이지뷰율 1.5 가정"
+                },
+                "affiliateRevenue": {
+                  "daily": 0,
+                  "monthly": 0,
+                  "conversionRate": 3,
+                  "assumptions": "클릭률 10%, 전환율 3%, 평균 수수료 50원 가정"
+                },
+                "totalMonthlyRevenue": 270,
+                "revenueBreakdown": "애드센스 100% + 제휴 0%",
+                "revenueTier": "📝 월 1만원+"
+              }
+            },
+            "content": {
+              "titles": {
+                "titles": [
+                  {
+                    "title": "미니건조기5KG 추천 TOP 10 (2025년 최신)",
+                    "type": "number",
+                    "estimatedCTR": 8.5,
+                    "psychologyUsed": "숫자 + 최신 정보"
+                  },
+                  {
+                    "title": "미니건조기5KG 하는 법, 초보자도 쉽게 따라하기",
+                    "type": "how-to",
+                    "estimatedCTR": 7.5,
+                    "psychologyUsed": "실용성 + 접근성"
+                  },
+                  {
+                    "title": "미니건조기5KG, 이것만 알면 끝! 완벽 가이드",
+                    "type": "benefit",
+                    "estimatedCTR": 7.2,
+                    "psychologyUsed": "완결성 + 가치 제안"
+                  },
+                  {
+                    "title": "[2025년] 미니건조기5KG 총정리 (+ 꿀팁 공개)",
+                    "type": "news",
+                    "estimatedCTR": 7,
+                    "psychologyUsed": "최신성 + 보너스 가치"
+                  },
+                  {
+                    "title": "아직도 미니건조기5KG 몰라요? 지금 당장 확인하세요",
+                    "type": "curiosity",
+                    "estimatedCTR": 6.8,
+                    "psychologyUsed": "호기심 + 긴급성"
+                  },
+                  {
+                    "title": "미니건조기5KG 실제 후기 (장단점 솔직 비교)",
+                    "type": "comparison",
+                    "estimatedCTR": 6.5,
+                    "psychologyUsed": "신뢰성 + 비교 심리"
+                  }
+                ],
+                "bestTitle": "미니건조기5KG 추천 TOP 10 (2025년 최신)",
+                "titleFormula": "숫자 + 키워드 + 최신연도 + 가치제안"
+              },
+              "structure": {
+                "recommendedStructure": {
+                  "intro": {
+                    "purpose": "독자의 관심 끌기 + 키워드 자연스럽게 배치",
+                    "template": "\"미니건조기5KG\"에 대해 고민하고 계신가요? 이 글에서 핵심 정보를 모두 정리해드립니다.",
+                    "keywordPlacement": "첫 문장에 키워드 포함"
+                  },
+                  "sections": [
+                    {
+                      "heading": "미니건조기5KG란? (기본 개념)",
+                      "purpose": "기초 정보 제공",
+                      "contentGuide": "핵심 정의, 중요성, 왜 알아야 하는지 설명",
+                      "recommendedLength": 300,
+                      "keywordUsage": "소제목과 본문에 1~2회"
+                    },
+                    {
+                      "heading": "미니건조기5KG 추천 BEST 5",
+                      "purpose": "실질적인 가치 제공 (핵심 섹션)",
+                      "contentGuide": "순위별 상세 설명, 장단점, 추천 이유",
+                      "recommendedLength": 800,
+                      "keywordUsage": "각 항목 설명에 자연스럽게 포함"
+                    },
+                    {
+                      "heading": "미니건조기5KG 선택 시 주의사항",
+                      "purpose": "신뢰도 향상",
+                      "contentGuide": "흔한 실수, 피해야 할 것, 체크리스트",
+                      "recommendedLength": 400,
+                      "keywordUsage": "주의사항 설명에 1~2회"
+                    },
+                    {
+                      "heading": "자주 묻는 질문 (FAQ)",
+                      "purpose": "SEO 강화 + 체류시간 증가",
+                      "contentGuide": "실제 검색되는 질문 5개 + 명확한 답변",
+                      "recommendedLength": 500,
+                      "keywordUsage": "질문에 롱테일 키워드 활용"
+                    }
+                  ],
+                  "conclusion": {
+                    "purpose": "요약 + CTA",
+                    "template": "지금까지 미니건조기5KG에 대해 알아봤습니다. 도움이 되셨다면 공유해주세요!",
+                    "ctaRecommendation": "댓글, 공유, 관련 글 링크 유도"
+                  }
+                },
+                "seoChecklist": [
+                  {
+                    "item": "제목에 키워드 포함",
+                    "importance": "critical",
+                    "howTo": "제목 앞부분에 메인 키워드 배치"
+                  },
+                  {
+                    "item": "첫 문단에 키워드",
+                    "importance": "critical",
+                    "howTo": "첫 100자 내 키워드 자연스럽게 삽입"
+                  },
+                  {
+                    "item": "소제목 H2/H3 활용",
+                    "importance": "high",
+                    "howTo": "3~5개 소제목, 키워드 변형 사용"
+                  },
+                  {
+                    "item": "이미지 ALT 태그",
+                    "importance": "high",
+                    "howTo": "모든 이미지에 키워드 포함 설명"
+                  },
+                  {
+                    "item": "내부링크 2개 이상",
+                    "importance": "medium",
+                    "howTo": "관련 글 자연스럽게 연결"
+                  },
+                  {
+                    "item": "3000자 이상 작성",
+                    "importance": "high",
+                    "howTo": "충분한 깊이의 콘텐츠 제공"
+                  }
+                ],
+                "totalRecommendedLength": 3000,
+                "estimatedWriteTime": 90
+              },
+              "images": {
+                "mainImage": {
+                  "searchKeyword": "미니건조기5KG 대표이미지",
+                  "style": "깔끔한 인포그래픽 또는 고화질 사진",
+                  "source": [
+                    "Unsplash",
+                    "Pixabay",
+                    "직접 제작"
+                  ],
+                  "altText": "미니건조기5KG 완벽 가이드 대표 이미지"
+                },
+                "sectionImages": [
+                  {
+                    "section": "기본 개념",
+                    "searchKeyword": "미니건조기5KG 설명",
+                    "purpose": "이해 돕기",
+                    "style": "다이어그램"
+                  },
+                  {
+                    "section": "TOP 5",
+                    "searchKeyword": "미니건조기5KG 비교",
+                    "purpose": "시각적 비교",
+                    "style": "비교표"
+                  },
+                  {
+                    "section": "주의사항",
+                    "searchKeyword": "주의 아이콘",
+                    "purpose": "강조",
+                    "style": "아이콘"
+                  }
+                ],
+                "infographicIdeas": [
+                  "미니건조기5KG 선택 가이드 플로우차트",
+                  "미니건조기5KG TOP 5 비교표",
+                  "미니건조기5KG 체크리스트"
+                ],
+                "totalRecommendedImages": 7,
+                "imageStrategy": "섹션당 1~2개, 총 7~10개 이미지로 가독성과 체류시간 향상"
+              }
+            },
+            "ultimateScore": {
+              "total": 40,
+              "breakdown": {
+                "goldenRatio": 4.848267193391991,
+                "timing": 70,
+                "revenue": 40,
+                "competition": 60,
+                "potential": 44
+              },
+              "grade": "📝 C",
+              "verdict": "⚠️ 신중히 검토 필요",
+              "topActions": [
+                "0일 내 작성 권장",
+                "미니건조기5KG 추천 TOP 10 (2025년 최신)",
+                "3000자 이상, 7개 이미지 권장"
+              ]
+            }
+          },
+          "highlightReason": "✅ ANYTIME/stable | 폭발 65 | 구매의도 30 | 월 2,040원⚠️ | 경쟁도 7"
+        },
+        {
+          "keyword": "초소형세탁기",
+          "searchVolume": 2520,
+          "documentCount": 5405,
+          "goldenRatio": 0.4662349676225717,
+          "rookieFriendly": {
+            "score": 35,
+            "grade": "D",
+            "reason": "문서수 10,000개 미만 → 경쟁 보통 | 황금비율 1 미만 → 공급 과잉 | 숏테일 키워드 → 대형 블로그와 경쟁",
+            "canRankWithin": "1개월 이상 소요 예상",
+            "requiredBlogIndex": "최적 1 이상 권장"
+          },
+          "timing": {
+            "score": 50,
+            "urgency": "ANYTIME",
+            "bestPublishTime": "오전 6~8시 또는 저녁 8~10시",
+            "trendDirection": "stable",
+            "peakPrediction": "꾸준한 검색량 유지"
+          },
+          "blueOcean": {
+            "score": 50,
+            "competitorStrength": "medium",
+            "avgCompetitorBlogAge": "2~5년 (보통 경쟁)",
+            "oldPostRatio": 50,
+            "opportunity": "⚠️ 경쟁 있음. 차별화된 콘텐츠 필요"
+          },
+          "trafficEstimate": {
+            "daily": "2~4명",
+            "weekly": "14~28명",
+            "monthly": "60~120명",
+            "confidence": 50,
+            "disclaimer": "📌 트래픽은 순위/CTR/계절성에 따라 달라질 수 있는 추정치입니다."
+          },
+          "revenueEstimate": {
+            "dailyRevenue": "54원 ⚠️추정",
+            "monthlyRevenue": "1,620원 ⚠️추정",
+            "estimatedCPC": 180,
+            "estimatedRPM": 4500,
+            "adType": "애드센스",
+            "revenueGrade": "C",
+            "revenueReason": "⚠️ 경쟁 높음. 틈새 접근 필요"
+          },
+          "entryAnalysis": {
+            "canEntry": true,
+            "difficulty": "hard",
+            "difficultyScore": 60,
+            "message": "🟠 진입 도전적 - 차별화된 콘텐츠 필요",
+            "topCompetitorStrength": "보통 (일반 블로그 혼재)",
+            "recommendedBlogIndex": "준최 5 이상 권장",
+            "estimatedRankingTime": "1~3주 내 가능"
+          },
+          "totalScore": 44,
+          "grade": "A",
+          "proStrategy": {
+            "title": "2025 초소형세탁기 완벽 정리 | 초보자도 쉽게 이해하는 가이드",
+            "outline": [
+              "1. 초소형세탁기란? (기본 개념)",
+              "2. 초소형세탁기 핵심 포인트 3가지",
+              "3. 초소형세탁기 장단점 비교",
+              "4. 초소형세탁기 실제 후기/경험담",
+              "5. 초소형세탁기 Q&A (자주 묻는 질문)",
+              "6. 결론 및 추천"
+            ],
+            "wordCount": 2500,
+            "mustInclude": [
+              "핵심 키워드 2~3회 자연스럽게 삽입",
+              "실제 이미지/사진 3장 이상",
+              "표 또는 비교 차트 1개 이상",
+              "자주 묻는 질문(FAQ) 섹션",
+              "결론 및 추천 섹션"
+            ],
+            "avoidTopics": [
+              "과장된 표현 (100%, 무조건, 반드시)",
+              "허위 정보나 검증되지 않은 내용",
+              "다른 블로그 복사/붙여넣기",
+              "광고성 링크 과다 삽입"
+            ],
+            "monetization": "애드센스 + 쿠팡파트너스 조합 추천"
+          },
+          "platformTitles": {
+            "naver": {
+              "title": "핵심 정리: 초소형세탁기 2025 최신 가이드 (월 2,520)",
+              "alternatives": [
+                "초소형세탁기 2025 완벽 정리: 핵심만 5분 요약",
+                "초소형세탁기 초보도 쉽게: 실패 없는 체크리스트"
+              ],
+              "subKeywords": [
+                "초소형세탁기 방법",
+                "초소형세탁기 추천",
+                "초소형세탁기 후기"
+              ],
+              "tags": [
+                "초소형세탁기",
+                "📰 이슈키워드"
+              ],
+              "tip": "서두 100자 내에 키워드를 2회 노출하고, 결론 요약을 맨 위에 한 번 더 넣으세요.",
+              "hookPoint": "핵심 정리 포인트를 제목/썸네일에 강조"
+            },
+            "tistory": {
+              "title": "초소형세탁기 2025 정리: 한 번에 이해하는 핵심 포인트 (월 2,520)",
+              "alternatives": [
+                "초소형세탁기 제대로 하는 법 (체크리스트 포함)",
+                "초소형세탁기 추천/비교: 선택 기준 3가지"
+              ],
+              "subKeywords": [
+                "초소형세탁기 방법",
+                "초소형세탁기 추천",
+                "초소형세탁기 후기"
+              ],
+              "tags": [
+                "초소형세탁기",
+                "📰 이슈키워드"
+              ],
+              "tip": "표/리스트를 많이 써서 스크롤 체류시간을 늘리세요.",
+              "hookPoint": "“핵심 3가지”처럼 숫자를 넣어 클릭률을 올리기"
+            },
+            "wordpress": {
+              "title": "초소형세탁기: 2025 Complete Guide (Checklist & Tips) (월 2,520)",
+              "alternatives": [
+                "초소형세탁기 Guide: Common Mistakes & Quick Fixes",
+                "초소형세탁기 Step-by-Step: What to Do First"
+              ],
+              "subKeywords": [
+                "초소형세탁기 방법",
+                "초소형세탁기 추천",
+                "초소형세탁기 후기"
+              ],
+              "tags": [
+                "초소형세탁기",
+                "📰 이슈키워드"
+              ],
+              "tip": "H2/H3로 구조를 만들고, FAQ 섹션을 넣어 SEO를 강화하세요.",
+              "hookPoint": "FAQ + 체크리스트 조합으로 체류시간/리치 증가"
+            },
+            "blogspot": {
+              "title": "초소형세탁기 2025: Quick Start + Best Practices (월 2,520)",
+              "alternatives": [
+                "초소형세탁기 Quick Guide: Do & Don't",
+                "초소형세탁기 Essentials: What You Need to Know"
+              ],
+              "subKeywords": [
+                "초소형세탁기 방법",
+                "초소형세탁기 추천",
+                "초소형세탁기 후기"
+              ],
+              "tags": [
+                "초소형세탁기",
+                "📰 이슈키워드"
+              ],
+              "tip": "이미지 2~3장 + 요약 박스를 넣어 가독성을 올리세요.",
+              "hookPoint": "첫 화면에 요약(결론)을 배치해 이탈률을 낮추기"
+            }
+          },
+          "expandedKeywords": {
+            "relatedGolden": [
+              "초소형세탁기 추천",
+              "초소형세탁기 비교",
+              "초소형세탁기 후기",
+              "초소형세탁기 가격"
+            ],
+            "longtailGolden": [
+              "초소형세탁기 초보",
+              "초소형세탁기 쉽게",
+              "초소형세탁기 단계별",
+              "초소형세탁기 정리"
+            ],
+            "blueOceanGolden": [
+              "초소형세탁기 최신",
+              "초소형세탁기 2025",
+              "초소형세탁기 체크리스트",
+              "초소형세탁기 실패하지 않는 법"
+            ]
+          },
+          "type": "📰 이슈키워드",
+          "category": "life_tips",
+          "safetyLevel": "safe",
+          "safetyReason": "✅ 안전한 키워드. 신생 블로거도 작성 가능",
+          "source": "세탁기",
+          "profitAnalysis": {
+            "keyword": "초소형세탁기",
+            "searchVolume": 2520,
+            "documentCount": 5405,
+            "estimatedCPC": 180,
+            "purchaseIntentScore": 30,
+            "competitionLevel": 7,
+            "freshnessOpportunity": 1,
+            "profitGoldenRatio": 3.08,
+            "estimatedDailyRevenue": 54,
+            "estimatedMonthlyRevenue": 1620,
+            "grade": "C",
+            "gradeReason": "⚠️ 경쟁 높음. 틈새 접근 필요",
+            "isRealBlueOcean": false,
+            "blueOceanReason": "📕 경쟁 시장. 차별화 전략 필요",
+            "strategy": {
+              "approach": "⏸️ 보류. 더 좋은 키워드 찾기 추천",
+              "monetization": "📝 트래픽 확보 우선. 이후 관련 고수익 키워드로 내부링크",
+              "timing": "🗓️ 여유있게 준비. 롱테일 전략으로 접근",
+              "titleSuggestion": "초소형세탁기 완벽 가이드 | 초보자도 쉽게 따라하기"
+            }
+          },
+          "timestamp": "2025-12-24T11:01:54.377Z",
+          "isGolden": true,
+          "trendAnalysis": {
+            "trendingReason": "의류 관리부터 공기 관련 최근 이슈",
+            "whyNow": "최근 5개 이상의 뉴스에서 다뤄지며 이슈화 진행 중 • \"공개\" 관련 구체적 사건으로 실시간 관심 집중 • 최신 이슈로 실시간 관심 집중 중",
+            "newsSource": "자동 분석"
+          },
+          "keywordGuide": {
+            "summary": "여유 있을 때 공략하면 좋은 키워드입니다. (등급: A, 점수: 44점)",
+            "whyItMovesNow": "의류 관리부터 공기 관련 최근 이슈 최근 5개 이상의 뉴스에서 다뤄지며 이슈화 진행 중 • \"공개\" 관련 구체적 사건으로 실시간 관심 집중 • 최신 이슈로 실시간 관심 집중 중",
+            "immediateTrafficPlan": [
+              "제목 앞부분에 \"초소형세탁기\"를 배치하고, 2025/최신/정리 같은 보조 키워드를 1개만 추가하세요.",
+              "본문 서두 100자 안에 \"초소형세탁기\"를 자연스럽게 2회 노출하세요.",
+              "최소 1개는 비교/체크리스트/요약 섹션을 넣어 체류시간을 늘리세요."
+            ],
+            "naverHomeExposureTips": [
+              "첫 이미지에 키워드가 들어간 문구를 넣고, alt 텍스트도 키워드 포함",
+              "목차를 만들고 H2/H3에 서브 키워드 배치",
+              "태그는 5~10개로 과도한 반복을 피하고, 유사어를 섞기"
+            ]
+          },
+          "ultimateAnalysis": {
+            "timing": {
+              "seasonal": {
+                "peakMonths": [
+                  1,
+                  2,
+                  3,
+                  4,
+                  5,
+                  6,
+                  7,
+                  8,
+                  9,
+                  10,
+                  11,
+                  12
+                ],
+                "peakReason": "연중 꾸준한 검색량",
+                "currentSeasonScore": 70,
+                "nextPeakDate": "항상",
+                "daysUntilPeak": 0,
+                "recommendation": "📝 에버그린 키워드입니다. 언제든 작성해도 좋습니다.",
+                "seasonalPattern": "evergreen"
+              },
+              "trend": {
+                "trendDirection": "falling",
+                "changeRate": 5,
+                "comparedTo": "전월 대비",
+                "explosiveScore": 7,
+                "relatedNews": [],
+                "recommendation": "📊 안정적인 키워드입니다."
+              },
+              "alert": {
+                "optimalPublishDate": "0일 내",
+                "reason": "📝 에버그린 키워드입니다. 언제든 작성해도 좋습니다.",
+                "urgencyLevel": "⚡ 이번 주",
+                "expectedPeakDate": "항상",
+                "competitorActivity": "경쟁자 보통"
+              }
+            },
+            "revenue": {
+              "cpc": {
+                "estimatedCpc": 200,
+                "cpcRange": {
+                  "min": 100,
+                  "max": 400
+                },
+                "cpcTier": "🥈 중수익",
+                "industryAverage": 200,
+                "recommendation": "📝 일반적인 수익 구조입니다. 트래픽 확보에 집중하세요."
+              },
+              "affiliate": {
+                "recommendedPrograms": [
+                  {
+                    "name": "쿠팡파트너스",
+                    "type": "coupang",
+                    "commissionRate": "3~5%",
+                    "estimatedEarningPerClick": 50,
+                    "matchScore": 100
+                  },
+                  {
+                    "name": "네이버 쇼핑",
+                    "type": "naver",
+                    "commissionRate": "1~3%",
+                    "estimatedEarningPerClick": 30,
+                    "matchScore": 85
+                  }
+                ],
+                "bestMatch": "쿠팡파트너스",
+                "potentialProducts": [
+                  "초소형세탁기 추천",
+                  "초소형세탁기 순위",
+                  "초소형세탁기 비교",
+                  "초소형세탁기 후기",
+                  "초소형세탁기 가격",
+                  "초소형세탁기 구매"
+                ]
+              },
+              "projection": {
+                "estimatedDailyVisitors": 3,
+                "estimatedMonthlyVisitors": 90,
+                "adsenseRevenue": {
+                  "daily": 18,
+                  "monthly": 540,
+                  "assumptions": "CPC 200원, CTR 2%, 페이지뷰율 1.5 가정"
+                },
+                "affiliateRevenue": {
+                  "daily": 0,
+                  "monthly": 0,
+                  "conversionRate": 3,
+                  "assumptions": "클릭률 10%, 전환율 3%, 평균 수수료 50원 가정"
+                },
+                "totalMonthlyRevenue": 540,
+                "revenueBreakdown": "애드센스 100% + 제휴 0%",
+                "revenueTier": "📝 월 1만원+"
+              }
+            },
+            "content": {
+              "titles": {
+                "titles": [
+                  {
+                    "title": "초소형세탁기 추천 TOP 10 (2025년 최신)",
+                    "type": "number",
+                    "estimatedCTR": 8.5,
+                    "psychologyUsed": "숫자 + 최신 정보"
+                  },
+                  {
+                    "title": "초소형세탁기 하는 법, 초보자도 쉽게 따라하기",
+                    "type": "how-to",
+                    "estimatedCTR": 7.5,
+                    "psychologyUsed": "실용성 + 접근성"
+                  },
+                  {
+                    "title": "초소형세탁기, 이것만 알면 끝! 완벽 가이드",
+                    "type": "benefit",
+                    "estimatedCTR": 7.2,
+                    "psychologyUsed": "완결성 + 가치 제안"
+                  },
+                  {
+                    "title": "[2025년] 초소형세탁기 총정리 (+ 꿀팁 공개)",
+                    "type": "news",
+                    "estimatedCTR": 7,
+                    "psychologyUsed": "최신성 + 보너스 가치"
+                  },
+                  {
+                    "title": "아직도 초소형세탁기 몰라요? 지금 당장 확인하세요",
+                    "type": "curiosity",
+                    "estimatedCTR": 6.8,
+                    "psychologyUsed": "호기심 + 긴급성"
+                  },
+                  {
+                    "title": "초소형세탁기 실제 후기 (장단점 솔직 비교)",
+                    "type": "comparison",
+                    "estimatedCTR": 6.5,
+                    "psychologyUsed": "신뢰성 + 비교 심리"
+                  }
+                ],
+                "bestTitle": "초소형세탁기 추천 TOP 10 (2025년 최신)",
+                "titleFormula": "숫자 + 키워드 + 최신연도 + 가치제안"
+              },
+              "structure": {
+                "recommendedStructure": {
+                  "intro": {
+                    "purpose": "독자의 관심 끌기 + 키워드 자연스럽게 배치",
+                    "template": "\"초소형세탁기\"에 대해 고민하고 계신가요? 이 글에서 핵심 정보를 모두 정리해드립니다.",
+                    "keywordPlacement": "첫 문장에 키워드 포함"
+                  },
+                  "sections": [
+                    {
+                      "heading": "초소형세탁기란? (기본 개념)",
+                      "purpose": "기초 정보 제공",
+                      "contentGuide": "핵심 정의, 중요성, 왜 알아야 하는지 설명",
+                      "recommendedLength": 300,
+                      "keywordUsage": "소제목과 본문에 1~2회"
+                    },
+                    {
+                      "heading": "초소형세탁기 추천 BEST 5",
+                      "purpose": "실질적인 가치 제공 (핵심 섹션)",
+                      "contentGuide": "순위별 상세 설명, 장단점, 추천 이유",
+                      "recommendedLength": 800,
+                      "keywordUsage": "각 항목 설명에 자연스럽게 포함"
+                    },
+                    {
+                      "heading": "초소형세탁기 선택 시 주의사항",
+                      "purpose": "신뢰도 향상",
+                      "contentGuide": "흔한 실수, 피해야 할 것, 체크리스트",
+                      "recommendedLength": 400,
+                      "keywordUsage": "주의사항 설명에 1~2회"
+                    },
+                    {
+                      "heading": "자주 묻는 질문 (FAQ)",
+                      "purpose": "SEO 강화 + 체류시간 증가",
+                      "contentGuide": "실제 검색되는 질문 5개 + 명확한 답변",
+                      "recommendedLength": 500,
+                      "keywordUsage": "질문에 롱테일 키워드 활용"
+                    }
+                  ],
+                  "conclusion": {
+                    "purpose": "요약 + CTA",
+                    "template": "지금까지 초소형세탁기에 대해 알아봤습니다. 도움이 되셨다면 공유해주세요!",
+                    "ctaRecommendation": "댓글, 공유, 관련 글 링크 유도"
+                  }
+                },
+                "seoChecklist": [
+                  {
+                    "item": "제목에 키워드 포함",
+                    "importance": "critical",
+                    "howTo": "제목 앞부분에 메인 키워드 배치"
+                  },
+                  {
+                    "item": "첫 문단에 키워드",
+                    "importance": "critical",
+                    "howTo": "첫 100자 내 키워드 자연스럽게 삽입"
+                  },
+                  {
+                    "item": "소제목 H2/H3 활용",
+                    "importance": "high",
+                    "howTo": "3~5개 소제목, 키워드 변형 사용"
+                  },
+                  {
+                    "item": "이미지 ALT 태그",
+                    "importance": "high",
+                    "howTo": "모든 이미지에 키워드 포함 설명"
+                  },
+                  {
+                    "item": "내부링크 2개 이상",
+                    "importance": "medium",
+                    "howTo": "관련 글 자연스럽게 연결"
+                  },
+                  {
+                    "item": "3000자 이상 작성",
+                    "importance": "high",
+                    "howTo": "충분한 깊이의 콘텐츠 제공"
+                  }
+                ],
+                "totalRecommendedLength": 3000,
+                "estimatedWriteTime": 90
+              },
+              "images": {
+                "mainImage": {
+                  "searchKeyword": "초소형세탁기 대표이미지",
+                  "style": "깔끔한 인포그래픽 또는 고화질 사진",
+                  "source": [
+                    "Unsplash",
+                    "Pixabay",
+                    "직접 제작"
+                  ],
+                  "altText": "초소형세탁기 완벽 가이드 대표 이미지"
+                },
+                "sectionImages": [
+                  {
+                    "section": "기본 개념",
+                    "searchKeyword": "초소형세탁기 설명",
+                    "purpose": "이해 돕기",
+                    "style": "다이어그램"
+                  },
+                  {
+                    "section": "TOP 5",
+                    "searchKeyword": "초소형세탁기 비교",
+                    "purpose": "시각적 비교",
+                    "style": "비교표"
+                  },
+                  {
+                    "section": "주의사항",
+                    "searchKeyword": "주의 아이콘",
+                    "purpose": "강조",
+                    "style": "아이콘"
+                  }
+                ],
+                "infographicIdeas": [
+                  "초소형세탁기 선택 가이드 플로우차트",
+                  "초소형세탁기 TOP 5 비교표",
+                  "초소형세탁기 체크리스트"
+                ],
+                "totalRecommendedImages": 7,
+                "imageStrategy": "섹션당 1~2개, 총 7~10개 이미지로 가독성과 체류시간 향상"
+              }
+            },
+            "ultimateScore": {
+              "total": 40,
+              "breakdown": {
+                "goldenRatio": 4.662349676225717,
+                "timing": 70,
+                "revenue": 40,
+                "competition": 60,
+                "potential": 44
+              },
+              "grade": "📝 C",
+              "verdict": "⚠️ 신중히 검토 필요",
+              "topActions": [
+                "0일 내 작성 권장",
+                "초소형세탁기 추천 TOP 10 (2025년 최신)",
+                "3000자 이상, 7개 이미지 권장"
+              ]
+            }
+          },
+          "highlightReason": "✅ ANYTIME/stable | 폭발 65 | 구매의도 30 | 월 1,620원⚠️ | 경쟁도 7"
+        },
+        {
+          "keyword": "세탁건조기일체형",
+          "searchVolume": 8280,
+          "documentCount": 32224,
+          "goldenRatio": 0.2569513406156902,
+          "rookieFriendly": {
+            "score": 25,
+            "grade": "D",
+            "reason": "황금비율 1 미만 → 공급 과잉 | 숏테일 키워드 → 대형 블로그와 경쟁",
+            "canRankWithin": "1개월 이상 소요 예상",
+            "requiredBlogIndex": "최적 1 이상 권장"
+          },
+          "timing": {
+            "score": 50,
+            "urgency": "ANYTIME",
+            "bestPublishTime": "오전 6~8시 또는 저녁 8~10시",
+            "trendDirection": "stable",
+            "peakPrediction": "꾸준한 검색량 유지"
+          },
+          "blueOcean": {
+            "score": 15,
+            "competitorStrength": "strong",
+            "avgCompetitorBlogAge": "5년 이상 (강한 경쟁)",
+            "oldPostRatio": 30,
+            "opportunity": "❌ 레드오션. 다른 키워드 추천"
+          },
+          "trafficEstimate": {
+            "daily": "5~11명",
+            "weekly": "35~77명",
+            "monthly": "150~330명",
+            "confidence": 50,
+            "disclaimer": "📌 트래픽은 순위/CTR/계절성에 따라 달라질 수 있는 추정치입니다."
+          },
+          "revenueEstimate": {
+            "dailyRevenue": "113원 ⚠️추정",
+            "monthlyRevenue": "3,390원 ⚠️추정",
+            "estimatedCPC": 180,
+            "estimatedRPM": 4500,
+            "adType": "애드센스",
+            "revenueGrade": "B",
+            "revenueReason": "📌 보통. 롱테일 확장 추천"
+          },
+          "entryAnalysis": {
+            "canEntry": false,
+            "difficulty": "very_hard",
+            "difficultyScore": 95,
+            "message": "🔴 진입 어려움 - 상위 블로거 독점 키워드",
+            "topCompetitorStrength": "매우 강함 (최적 블로그 독점)",
+            "recommendedBlogIndex": "최적 1 이상 권장",
+            "estimatedRankingTime": "1개월 이상 소요 예상"
+          },
+          "totalScore": 38,
+          "grade": "B",
+          "proStrategy": {
+            "title": "2025 세탁건조기일체형 완벽 정리 | 초보자도 쉽게 이해하는 가이드",
+            "outline": [
+              "1. 세탁건조기일체형란? (기본 개념)",
+              "2. 세탁건조기일체형 핵심 포인트 3가지",
+              "3. 세탁건조기일체형 장단점 비교",
+              "4. 세탁건조기일체형 실제 후기/경험담",
+              "5. 세탁건조기일체형 Q&A (자주 묻는 질문)",
+              "6. 결론 및 추천"
+            ],
+            "wordCount": 2500,
+            "mustInclude": [
+              "핵심 키워드 2~3회 자연스럽게 삽입",
+              "실제 이미지/사진 3장 이상",
+              "표 또는 비교 차트 1개 이상",
+              "자주 묻는 질문(FAQ) 섹션",
+              "결론 및 추천 섹션"
+            ],
+            "avoidTopics": [
+              "과장된 표현 (100%, 무조건, 반드시)",
+              "허위 정보나 검증되지 않은 내용",
+              "다른 블로그 복사/붙여넣기",
+              "광고성 링크 과다 삽입"
+            ],
+            "monetization": "애드센스 + 쿠팡파트너스 조합 추천"
+          },
+          "platformTitles": {
+            "naver": {
+              "title": "핵심 정리: 세탁건조기일체형 2025 최신 가이드 (월 8,280)",
+              "alternatives": [
+                "세탁건조기일체형 2025 완벽 정리: 핵심만 5분 요약",
+                "세탁건조기일체형 초보도 쉽게: 실패 없는 체크리스트"
+              ],
+              "subKeywords": [
+                "세탁건조기일체형 방법",
+                "세탁건조기일체형 추천",
+                "세탁건조기일체형 후기"
+              ],
+              "tags": [
+                "세탁건조기일체형",
+                "📰 이슈키워드"
+              ],
+              "tip": "서두 100자 내에 키워드를 2회 노출하고, 결론 요약을 맨 위에 한 번 더 넣으세요.",
+              "hookPoint": "핵심 정리 포인트를 제목/썸네일에 강조"
+            },
+            "tistory": {
+              "title": "세탁건조기일체형 2025 정리: 한 번에 이해하는 핵심 포인트 (월 8,280)",
+              "alternatives": [
+                "세탁건조기일체형 제대로 하는 법 (체크리스트 포함)",
+                "세탁건조기일체형 추천/비교: 선택 기준 3가지"
+              ],
+              "subKeywords": [
+                "세탁건조기일체형 방법",
+                "세탁건조기일체형 추천",
+                "세탁건조기일체형 후기"
+              ],
+              "tags": [
+                "세탁건조기일체형",
+                "📰 이슈키워드"
+              ],
+              "tip": "표/리스트를 많이 써서 스크롤 체류시간을 늘리세요.",
+              "hookPoint": "“핵심 3가지”처럼 숫자를 넣어 클릭률을 올리기"
+            },
+            "wordpress": {
+              "title": "세탁건조기일체형: 2025 Complete Guide (Checklist & Tips) (월 8,280)",
+              "alternatives": [
+                "세탁건조기일체형 Guide: Common Mistakes & Quick Fixes",
+                "세탁건조기일체형 Step-by-Step: What to Do First"
+              ],
+              "subKeywords": [
+                "세탁건조기일체형 방법",
+                "세탁건조기일체형 추천",
+                "세탁건조기일체형 후기"
+              ],
+              "tags": [
+                "세탁건조기일체형",
+                "📰 이슈키워드"
+              ],
+              "tip": "H2/H3로 구조를 만들고, FAQ 섹션을 넣어 SEO를 강화하세요.",
+              "hookPoint": "FAQ + 체크리스트 조합으로 체류시간/리치 증가"
+            },
+            "blogspot": {
+              "title": "세탁건조기일체형 2025: Quick Start + Best Practices (월 8,280)",
+              "alternatives": [
+                "세탁건조기일체형 Quick Guide: Do & Don't",
+                "세탁건조기일체형 Essentials: What You Need to Know"
+              ],
+              "subKeywords": [
+                "세탁건조기일체형 방법",
+                "세탁건조기일체형 추천",
+                "세탁건조기일체형 후기"
+              ],
+              "tags": [
+                "세탁건조기일체형",
+                "📰 이슈키워드"
+              ],
+              "tip": "이미지 2~3장 + 요약 박스를 넣어 가독성을 올리세요.",
+              "hookPoint": "첫 화면에 요약(결론)을 배치해 이탈률을 낮추기"
+            }
+          },
+          "expandedKeywords": {
+            "relatedGolden": [
+              "세탁건조기일체형 추천",
+              "세탁건조기일체형 비교",
+              "세탁건조기일체형 후기",
+              "세탁건조기일체형 가격"
+            ],
+            "longtailGolden": [
+              "세탁건조기일체형 초보",
+              "세탁건조기일체형 쉽게",
+              "세탁건조기일체형 단계별",
+              "세탁건조기일체형 정리"
+            ],
+            "blueOceanGolden": [
+              "세탁건조기일체형 최신",
+              "세탁건조기일체형 2025",
+              "세탁건조기일체형 체크리스트",
+              "세탁건조기일체형 실패하지 않는 법"
+            ]
+          },
+          "type": "📰 이슈키워드",
+          "category": "life_tips",
+          "safetyLevel": "safe",
+          "safetyReason": "✅ 안전한 키워드. 신생 블로거도 작성 가능",
+          "source": "세탁기",
+          "profitAnalysis": {
+            "keyword": "세탁건조기일체형",
+            "searchVolume": 8280,
+            "documentCount": 32224,
+            "estimatedCPC": 180,
+            "purchaseIntentScore": 30,
+            "competitionLevel": 9,
+            "freshnessOpportunity": 1,
+            "profitGoldenRatio": 7.87,
+            "estimatedDailyRevenue": 113,
+            "estimatedMonthlyRevenue": 3390,
+            "grade": "B",
+            "gradeReason": "📌 보통. 롱테일 확장 추천",
+            "isRealBlueOcean": false,
+            "blueOceanReason": "📕 경쟁 시장. 차별화 전략 필요",
+            "strategy": {
+              "approach": "🔍 롱테일 확장 후 작성. \"초보자\", \"2025\", \"비교\" 등 붙여서 경쟁 낮추기",
+              "monetization": "📝 트래픽 확보 우선. 이후 관련 고수익 키워드로 내부링크",
+              "timing": "🗓️ 여유있게 준비. 롱테일 전략으로 접근",
+              "titleSuggestion": "세탁건조기일체형 완벽 가이드 | 초보자도 쉽게 따라하기"
+            }
+          },
+          "timestamp": "2025-12-24T11:01:54.375Z",
+          "isGolden": true,
+          "trendAnalysis": {
+            "trendingReason": "&quot;세탁기 사면 2년간 관련 최근 이슈",
+            "whyNow": "최근 5개 이상의 뉴스에서 다뤄지며 이슈화 진행 중",
+            "newsSource": "자동 분석"
+          },
+          "keywordGuide": {
+            "summary": "여유 있을 때 공략하면 좋은 키워드입니다. (등급: B, 점수: 38점)",
+            "whyItMovesNow": "&quot;세탁기 사면 2년간 관련 최근 이슈 최근 5개 이상의 뉴스에서 다뤄지며 이슈화 진행 중",
+            "immediateTrafficPlan": [
+              "제목 앞부분에 \"세탁건조기일체형\"를 배치하고, 2025/최신/정리 같은 보조 키워드를 1개만 추가하세요.",
+              "본문 서두 100자 안에 \"세탁건조기일체형\"를 자연스럽게 2회 노출하세요.",
+              "최소 1개는 비교/체크리스트/요약 섹션을 넣어 체류시간을 늘리세요."
+            ],
+            "naverHomeExposureTips": [
+              "첫 이미지에 키워드가 들어간 문구를 넣고, alt 텍스트도 키워드 포함",
+              "목차를 만들고 H2/H3에 서브 키워드 배치",
+              "태그는 5~10개로 과도한 반복을 피하고, 유사어를 섞기"
+            ]
+          },
+          "ultimateAnalysis": {
+            "timing": {
+              "seasonal": {
+                "peakMonths": [
+                  1,
+                  2,
+                  3,
+                  4,
+                  5,
+                  6,
+                  7,
+                  8,
+                  9,
+                  10,
+                  11,
+                  12
+                ],
+                "peakReason": "연중 꾸준한 검색량",
+                "currentSeasonScore": 70,
+                "nextPeakDate": "항상",
+                "daysUntilPeak": 0,
+                "recommendation": "📝 에버그린 키워드입니다. 언제든 작성해도 좋습니다.",
+                "seasonalPattern": "evergreen"
+              },
+              "trend": {
+                "trendDirection": "falling",
+                "changeRate": 3,
+                "comparedTo": "전월 대비",
+                "explosiveScore": 4,
+                "relatedNews": [],
+                "recommendation": "📊 안정적인 키워드입니다."
+              },
+              "alert": {
+                "optimalPublishDate": "0일 내",
+                "reason": "📝 에버그린 키워드입니다. 언제든 작성해도 좋습니다.",
+                "urgencyLevel": "⚡ 이번 주",
+                "expectedPeakDate": "항상",
+                "competitorActivity": "경쟁자 많음"
+              }
+            },
+            "revenue": {
+              "cpc": {
+                "estimatedCpc": 100,
+                "cpcRange": {
+                  "min": 50,
+                  "max": 200
+                },
+                "cpcTier": "🥉 저수익",
+                "industryAverage": 100,
+                "recommendation": "📝 일반적인 수익 구조입니다. 트래픽 확보에 집중하세요."
+              },
+              "affiliate": {
+                "recommendedPrograms": [
+                  {
+                    "name": "쿠팡파트너스",
+                    "type": "coupang",
+                    "commissionRate": "3~5%",
+                    "estimatedEarningPerClick": 50,
+                    "matchScore": 100
+                  },
+                  {
+                    "name": "네이버 쇼핑",
+                    "type": "naver",
+                    "commissionRate": "1~3%",
+                    "estimatedEarningPerClick": 30,
+                    "matchScore": 85
+                  }
+                ],
+                "bestMatch": "쿠팡파트너스",
+                "potentialProducts": [
+                  "세탁건조기일체형 추천",
+                  "세탁건조기일체형 순위",
+                  "세탁건조기일체형 비교",
+                  "세탁건조기일체형 후기",
+                  "세탁건조기일체형 가격",
+                  "세탁건조기일체형 구매"
+                ]
+              },
+              "projection": {
+                "estimatedDailyVisitors": 8,
+                "estimatedMonthlyVisitors": 240,
+                "adsenseRevenue": {
+                  "daily": 24,
+                  "monthly": 720,
+                  "assumptions": "CPC 100원, CTR 2%, 페이지뷰율 1.5 가정"
+                },
+                "affiliateRevenue": {
+                  "daily": 1,
+                  "monthly": 30,
+                  "conversionRate": 3,
+                  "assumptions": "클릭률 10%, 전환율 3%, 평균 수수료 50원 가정"
+                },
+                "totalMonthlyRevenue": 750,
+                "revenueBreakdown": "애드센스 96% + 제휴 4%",
+                "revenueTier": "📝 월 1만원+"
+              }
+            },
+            "content": {
+              "titles": {
+                "titles": [
+                  {
+                    "title": "세탁건조기일체형 추천 TOP 10 (2025년 최신)",
+                    "type": "number",
+                    "estimatedCTR": 8.5,
+                    "psychologyUsed": "숫자 + 최신 정보"
+                  },
+                  {
+                    "title": "세탁건조기일체형 하는 법, 초보자도 쉽게 따라하기",
+                    "type": "how-to",
+                    "estimatedCTR": 7.5,
+                    "psychologyUsed": "실용성 + 접근성"
+                  },
+                  {
+                    "title": "세탁건조기일체형, 이것만 알면 끝! 완벽 가이드",
+                    "type": "benefit",
+                    "estimatedCTR": 7.2,
+                    "psychologyUsed": "완결성 + 가치 제안"
+                  },
+                  {
+                    "title": "[2025년] 세탁건조기일체형 총정리 (+ 꿀팁 공개)",
+                    "type": "news",
+                    "estimatedCTR": 7,
+                    "psychologyUsed": "최신성 + 보너스 가치"
+                  },
+                  {
+                    "title": "아직도 세탁건조기일체형 몰라요? 지금 당장 확인하세요",
+                    "type": "curiosity",
+                    "estimatedCTR": 6.8,
+                    "psychologyUsed": "호기심 + 긴급성"
+                  },
+                  {
+                    "title": "세탁건조기일체형 실제 후기 (장단점 솔직 비교)",
+                    "type": "comparison",
+                    "estimatedCTR": 6.5,
+                    "psychologyUsed": "신뢰성 + 비교 심리"
+                  }
+                ],
+                "bestTitle": "세탁건조기일체형 추천 TOP 10 (2025년 최신)",
+                "titleFormula": "숫자 + 키워드 + 최신연도 + 가치제안"
+              },
+              "structure": {
+                "recommendedStructure": {
+                  "intro": {
+                    "purpose": "독자의 관심 끌기 + 키워드 자연스럽게 배치",
+                    "template": "\"세탁건조기일체형\"에 대해 고민하고 계신가요? 이 글에서 핵심 정보를 모두 정리해드립니다.",
+                    "keywordPlacement": "첫 문장에 키워드 포함"
+                  },
+                  "sections": [
+                    {
+                      "heading": "세탁건조기일체형란? (기본 개념)",
+                      "purpose": "기초 정보 제공",
+                      "contentGuide": "핵심 정의, 중요성, 왜 알아야 하는지 설명",
+                      "recommendedLength": 300,
+                      "keywordUsage": "소제목과 본문에 1~2회"
+                    },
+                    {
+                      "heading": "세탁건조기일체형 추천 BEST 5",
+                      "purpose": "실질적인 가치 제공 (핵심 섹션)",
+                      "contentGuide": "순위별 상세 설명, 장단점, 추천 이유",
+                      "recommendedLength": 800,
+                      "keywordUsage": "각 항목 설명에 자연스럽게 포함"
+                    },
+                    {
+                      "heading": "세탁건조기일체형 선택 시 주의사항",
+                      "purpose": "신뢰도 향상",
+                      "contentGuide": "흔한 실수, 피해야 할 것, 체크리스트",
+                      "recommendedLength": 400,
+                      "keywordUsage": "주의사항 설명에 1~2회"
+                    },
+                    {
+                      "heading": "자주 묻는 질문 (FAQ)",
+                      "purpose": "SEO 강화 + 체류시간 증가",
+                      "contentGuide": "실제 검색되는 질문 5개 + 명확한 답변",
+                      "recommendedLength": 500,
+                      "keywordUsage": "질문에 롱테일 키워드 활용"
+                    }
+                  ],
+                  "conclusion": {
+                    "purpose": "요약 + CTA",
+                    "template": "지금까지 세탁건조기일체형에 대해 알아봤습니다. 도움이 되셨다면 공유해주세요!",
+                    "ctaRecommendation": "댓글, 공유, 관련 글 링크 유도"
+                  }
+                },
+                "seoChecklist": [
+                  {
+                    "item": "제목에 키워드 포함",
+                    "importance": "critical",
+                    "howTo": "제목 앞부분에 메인 키워드 배치"
+                  },
+                  {
+                    "item": "첫 문단에 키워드",
+                    "importance": "critical",
+                    "howTo": "첫 100자 내 키워드 자연스럽게 삽입"
+                  },
+                  {
+                    "item": "소제목 H2/H3 활용",
+                    "importance": "high",
+                    "howTo": "3~5개 소제목, 키워드 변형 사용"
+                  },
+                  {
+                    "item": "이미지 ALT 태그",
+                    "importance": "high",
+                    "howTo": "모든 이미지에 키워드 포함 설명"
+                  },
+                  {
+                    "item": "내부링크 2개 이상",
+                    "importance": "medium",
+                    "howTo": "관련 글 자연스럽게 연결"
+                  },
+                  {
+                    "item": "3000자 이상 작성",
+                    "importance": "high",
+                    "howTo": "충분한 깊이의 콘텐츠 제공"
+                  }
+                ],
+                "totalRecommendedLength": 3000,
+                "estimatedWriteTime": 90
+              },
+              "images": {
+                "mainImage": {
+                  "searchKeyword": "세탁건조기일체형 대표이미지",
+                  "style": "깔끔한 인포그래픽 또는 고화질 사진",
+                  "source": [
+                    "Unsplash",
+                    "Pixabay",
+                    "직접 제작"
+                  ],
+                  "altText": "세탁건조기일체형 완벽 가이드 대표 이미지"
+                },
+                "sectionImages": [
+                  {
+                    "section": "기본 개념",
+                    "searchKeyword": "세탁건조기일체형 설명",
+                    "purpose": "이해 돕기",
+                    "style": "다이어그램"
+                  },
+                  {
+                    "section": "TOP 5",
+                    "searchKeyword": "세탁건조기일체형 비교",
+                    "purpose": "시각적 비교",
+                    "style": "비교표"
+                  },
+                  {
+                    "section": "주의사항",
+                    "searchKeyword": "주의 아이콘",
+                    "purpose": "강조",
+                    "style": "아이콘"
+                  }
+                ],
+                "infographicIdeas": [
+                  "세탁건조기일체형 선택 가이드 플로우차트",
+                  "세탁건조기일체형 TOP 5 비교표",
+                  "세탁건조기일체형 체크리스트"
+                ],
+                "totalRecommendedImages": 7,
+                "imageStrategy": "섹션당 1~2개, 총 7~10개 이미지로 가독성과 체류시간 향상"
+              }
+            },
+            "ultimateScore": {
+              "total": 35,
+              "breakdown": {
+                "goldenRatio": 2.569513406156902,
+                "timing": 70,
+                "revenue": 40,
+                "competition": 40,
+                "potential": 38
+              },
+              "grade": "📝 C",
+              "verdict": "⚠️ 신중히 검토 필요",
+              "topActions": [
+                "0일 내 작성 권장",
+                "세탁건조기일체형 추천 TOP 10 (2025년 최신)",
+                "3000자 이상, 7개 이미지 권장"
+              ]
+            }
+          },
+          "highlightReason": "✅ ANYTIME/stable | 폭발 65 | 구매의도 30 | 월 3,390원⚠️ | 경쟁도 9"
+        },
+        {
+          "keyword": "코인세탁소",
+          "searchVolume": 9660,
+          "documentCount": 38115,
+          "goldenRatio": 0.2534435261707989,
+          "rookieFriendly": {
+            "score": 25,
+            "grade": "D",
+            "reason": "황금비율 1 미만 → 공급 과잉 | 숏테일 키워드 → 대형 블로그와 경쟁",
+            "canRankWithin": "1개월 이상 소요 예상",
+            "requiredBlogIndex": "최적 1 이상 권장"
+          },
+          "timing": {
+            "score": 50,
+            "urgency": "ANYTIME",
+            "bestPublishTime": "오전 6~8시 또는 저녁 8~10시",
+            "trendDirection": "stable",
+            "peakPrediction": "꾸준한 검색량 유지"
+          },
+          "blueOcean": {
+            "score": 15,
+            "competitorStrength": "strong",
+            "avgCompetitorBlogAge": "5년 이상 (강한 경쟁)",
+            "oldPostRatio": 30,
+            "opportunity": "❌ 레드오션. 다른 키워드 추천"
+          },
+          "trafficEstimate": {
+            "daily": "6~14명",
+            "weekly": "42~98명",
+            "monthly": "180~420명",
+            "confidence": 50,
+            "disclaimer": "📌 트래픽은 순위/CTR/계절성에 따라 달라질 수 있는 추정치입니다."
+          },
+          "revenueEstimate": {
+            "dailyRevenue": "130원 ⚠️추정",
+            "monthlyRevenue": "3,900원 ⚠️추정",
+            "estimatedCPC": 180,
+            "estimatedRPM": 4500,
+            "adType": "애드센스",
+            "revenueGrade": "B",
+            "revenueReason": "📌 보통. 롱테일 확장 추천"
+          },
+          "entryAnalysis": {
+            "canEntry": false,
+            "difficulty": "very_hard",
+            "difficultyScore": 95,
+            "message": "🔴 진입 어려움 - 상위 블로거 독점 키워드",
+            "topCompetitorStrength": "매우 강함 (최적 블로그 독점)",
+            "recommendedBlogIndex": "최적 1 이상 권장",
+            "estimatedRankingTime": "1개월 이상 소요 예상"
+          },
+          "totalScore": 28,
+          "grade": "B",
+          "proStrategy": {
+            "title": "2025 코인세탁소 완벽 정리 | 초보자도 쉽게 이해하는 가이드",
+            "outline": [
+              "1. 코인세탁소란? (기본 개념)",
+              "2. 코인세탁소 핵심 포인트 3가지",
+              "3. 코인세탁소 장단점 비교",
+              "4. 코인세탁소 실제 후기/경험담",
+              "5. 코인세탁소 Q&A (자주 묻는 질문)",
+              "6. 결론 및 추천"
+            ],
+            "wordCount": 2500,
+            "mustInclude": [
+              "핵심 키워드 2~3회 자연스럽게 삽입",
+              "실제 이미지/사진 3장 이상",
+              "표 또는 비교 차트 1개 이상",
+              "자주 묻는 질문(FAQ) 섹션",
+              "결론 및 추천 섹션"
+            ],
+            "avoidTopics": [
+              "과장된 표현 (100%, 무조건, 반드시)",
+              "허위 정보나 검증되지 않은 내용",
+              "다른 블로그 복사/붙여넣기",
+              "광고성 링크 과다 삽입"
+            ],
+            "monetization": "애드센스 + 쿠팡파트너스 조합 추천"
+          },
+          "platformTitles": {
+            "naver": {
+              "title": "핵심 정리: 코인세탁소 2025 최신 가이드 (월 9,660)",
+              "alternatives": [
+                "코인세탁소 2025 완벽 정리: 핵심만 5분 요약",
+                "코인세탁소 초보도 쉽게: 실패 없는 체크리스트"
+              ],
+              "subKeywords": [
+                "코인세탁소 방법",
+                "코인세탁소 추천",
+                "코인세탁소 후기"
+              ],
+              "tags": [
+                "코인세탁소",
+                "📰 이슈키워드"
+              ],
+              "tip": "서두 100자 내에 키워드를 2회 노출하고, 결론 요약을 맨 위에 한 번 더 넣으세요.",
+              "hookPoint": "핵심 정리 포인트를 제목/썸네일에 강조"
+            },
+            "tistory": {
+              "title": "코인세탁소 2025 정리: 한 번에 이해하는 핵심 포인트 (월 9,660)",
+              "alternatives": [
+                "코인세탁소 제대로 하는 법 (체크리스트 포함)",
+                "코인세탁소 추천/비교: 선택 기준 3가지"
+              ],
+              "subKeywords": [
+                "코인세탁소 방법",
+                "코인세탁소 추천",
+                "코인세탁소 후기"
+              ],
+              "tags": [
+                "코인세탁소",
+                "📰 이슈키워드"
+              ],
+              "tip": "표/리스트를 많이 써서 스크롤 체류시간을 늘리세요.",
+              "hookPoint": "“핵심 3가지”처럼 숫자를 넣어 클릭률을 올리기"
+            },
+            "wordpress": {
+              "title": "코인세탁소: 2025 Complete Guide (Checklist & Tips) (월 9,660)",
+              "alternatives": [
+                "코인세탁소 Guide: Common Mistakes & Quick Fixes",
+                "코인세탁소 Step-by-Step: What to Do First"
+              ],
+              "subKeywords": [
+                "코인세탁소 방법",
+                "코인세탁소 추천",
+                "코인세탁소 후기"
+              ],
+              "tags": [
+                "코인세탁소",
+                "📰 이슈키워드"
+              ],
+              "tip": "H2/H3로 구조를 만들고, FAQ 섹션을 넣어 SEO를 강화하세요.",
+              "hookPoint": "FAQ + 체크리스트 조합으로 체류시간/리치 증가"
+            },
+            "blogspot": {
+              "title": "코인세탁소 2025: Quick Start + Best Practices (월 9,660)",
+              "alternatives": [
+                "코인세탁소 Quick Guide: Do & Don't",
+                "코인세탁소 Essentials: What You Need to Know"
+              ],
+              "subKeywords": [
+                "코인세탁소 방법",
+                "코인세탁소 추천",
+                "코인세탁소 후기"
+              ],
+              "tags": [
+                "코인세탁소",
+                "📰 이슈키워드"
+              ],
+              "tip": "이미지 2~3장 + 요약 박스를 넣어 가독성을 올리세요.",
+              "hookPoint": "첫 화면에 요약(결론)을 배치해 이탈률을 낮추기"
+            }
+          },
+          "expandedKeywords": {
+            "relatedGolden": [
+              "코인세탁소 추천",
+              "코인세탁소 비교",
+              "코인세탁소 후기",
+              "코인세탁소 가격"
+            ],
+            "longtailGolden": [
+              "코인세탁소 초보",
+              "코인세탁소 쉽게",
+              "코인세탁소 단계별",
+              "코인세탁소 정리"
+            ],
+            "blueOceanGolden": [
+              "코인세탁소 최신",
+              "코인세탁소 2025",
+              "코인세탁소 체크리스트",
+              "코인세탁소 실패하지 않는 법"
+            ]
+          },
+          "type": "📰 이슈키워드",
+          "category": "life_tips",
+          "safetyLevel": "caution",
+          "safetyReason": "⚠️ 경쟁 치열 키워드. 고품질 콘텐츠 필수",
+          "source": "세탁기",
+          "profitAnalysis": {
+            "keyword": "코인세탁소",
+            "searchVolume": 9660,
+            "documentCount": 38115,
+            "estimatedCPC": 180,
+            "purchaseIntentScore": 30,
+            "competitionLevel": 9,
+            "freshnessOpportunity": 1,
+            "profitGoldenRatio": 9.18,
+            "estimatedDailyRevenue": 130,
+            "estimatedMonthlyRevenue": 3900,
+            "grade": "B",
+            "gradeReason": "📌 보통. 롱테일 확장 추천",
+            "isRealBlueOcean": false,
+            "blueOceanReason": "📕 경쟁 시장. 차별화 전략 필요",
+            "strategy": {
+              "approach": "🔍 롱테일 확장 후 작성. \"초보자\", \"2025\", \"비교\" 등 붙여서 경쟁 낮추기",
+              "monetization": "📝 트래픽 확보 우선. 이후 관련 고수익 키워드로 내부링크",
+              "timing": "🗓️ 여유있게 준비. 롱테일 전략으로 접근",
+              "titleSuggestion": "코인세탁소 완벽 가이드 | 초보자도 쉽게 따라하기"
+            }
+          },
+          "timestamp": "2025-12-24T11:01:54.374Z",
+          "isGolden": true,
+          "trendAnalysis": {
+            "trendingReason": "세계 '세탁소' 관련 최근 이슈",
+            "whyNow": "최근 5개 이상의 뉴스에서 다뤄지며 이슈화 진행 중 • \"전 세계 가상자산 해킹 절반이 北소행…中은 '세탁소'\" 관련 최신 뉴스로 조기 진입 효과 기대",
+            "newsSource": "자동 분석"
+          },
+          "keywordGuide": {
+            "summary": "여유 있을 때 공략하면 좋은 키워드입니다. (등급: B, 점수: 28점)",
+            "whyItMovesNow": "세계 '세탁소' 관련 최근 이슈 최근 5개 이상의 뉴스에서 다뤄지며 이슈화 진행 중 • \"전 세계 가상자산 해킹 절반이 北소행…中은 '세탁소'\" 관련 최신 뉴스로 조기 진입 효과 기대",
+            "immediateTrafficPlan": [
+              "제목 앞부분에 \"코인세탁소\"를 배치하고, 2025/최신/정리 같은 보조 키워드를 1개만 추가하세요.",
+              "본문 서두 100자 안에 \"코인세탁소\"를 자연스럽게 2회 노출하세요.",
+              "최소 1개는 비교/체크리스트/요약 섹션을 넣어 체류시간을 늘리세요."
+            ],
+            "naverHomeExposureTips": [
+              "첫 이미지에 키워드가 들어간 문구를 넣고, alt 텍스트도 키워드 포함",
+              "목차를 만들고 H2/H3에 서브 키워드 배치",
+              "태그는 5~10개로 과도한 반복을 피하고, 유사어를 섞기"
+            ]
+          },
+          "ultimateAnalysis": {
+            "timing": {
+              "seasonal": {
+                "peakMonths": [
+                  1,
+                  2,
+                  3,
+                  4,
+                  5,
+                  6,
+                  7,
+                  8,
+                  9,
+                  10,
+                  11,
+                  12
+                ],
+                "peakReason": "연중 꾸준한 검색량",
+                "currentSeasonScore": 70,
+                "nextPeakDate": "항상",
+                "daysUntilPeak": 0,
+                "recommendation": "📝 에버그린 키워드입니다. 언제든 작성해도 좋습니다.",
+                "seasonalPattern": "evergreen"
+              },
+              "trend": {
+                "trendDirection": "falling",
+                "changeRate": 3,
+                "comparedTo": "전월 대비",
+                "explosiveScore": 4,
+                "relatedNews": [],
+                "recommendation": "📊 안정적인 키워드입니다."
+              },
+              "alert": {
+                "optimalPublishDate": "0일 내",
+                "reason": "📝 에버그린 키워드입니다. 언제든 작성해도 좋습니다.",
+                "urgencyLevel": "⚡ 이번 주",
+                "expectedPeakDate": "항상",
+                "competitorActivity": "경쟁자 많음"
+              }
+            },
+            "revenue": {
+              "cpc": {
+                "estimatedCpc": 100,
+                "cpcRange": {
+                  "min": 50,
+                  "max": 200
+                },
+                "cpcTier": "🥉 저수익",
+                "industryAverage": 100,
+                "recommendation": "📝 일반적인 수익 구조입니다. 트래픽 확보에 집중하세요."
+              },
+              "affiliate": {
+                "recommendedPrograms": [
+                  {
+                    "name": "쿠팡파트너스",
+                    "type": "coupang",
+                    "commissionRate": "3~5%",
+                    "estimatedEarningPerClick": 50,
+                    "matchScore": 100
+                  },
+                  {
+                    "name": "네이버 쇼핑",
+                    "type": "naver",
+                    "commissionRate": "1~3%",
+                    "estimatedEarningPerClick": 30,
+                    "matchScore": 85
+                  }
+                ],
+                "bestMatch": "쿠팡파트너스",
+                "potentialProducts": [
+                  "코인세탁소 추천",
+                  "코인세탁소 순위",
+                  "코인세탁소 비교",
+                  "코인세탁소 후기",
+                  "코인세탁소 가격",
+                  "코인세탁소 구매"
+                ]
+              },
+              "projection": {
+                "estimatedDailyVisitors": 10,
+                "estimatedMonthlyVisitors": 300,
+                "adsenseRevenue": {
+                  "daily": 30,
+                  "monthly": 900,
+                  "assumptions": "CPC 100원, CTR 2%, 페이지뷰율 1.5 가정"
+                },
+                "affiliateRevenue": {
+                  "daily": 2,
+                  "monthly": 60,
+                  "conversionRate": 3,
+                  "assumptions": "클릭률 10%, 전환율 3%, 평균 수수료 50원 가정"
+                },
+                "totalMonthlyRevenue": 960,
+                "revenueBreakdown": "애드센스 94% + 제휴 6%",
+                "revenueTier": "📝 월 1만원+"
+              }
+            },
+            "content": {
+              "titles": {
+                "titles": [
+                  {
+                    "title": "코인세탁소 추천 TOP 10 (2025년 최신)",
+                    "type": "number",
+                    "estimatedCTR": 8.5,
+                    "psychologyUsed": "숫자 + 최신 정보"
+                  },
+                  {
+                    "title": "코인세탁소 하는 법, 초보자도 쉽게 따라하기",
+                    "type": "how-to",
+                    "estimatedCTR": 7.5,
+                    "psychologyUsed": "실용성 + 접근성"
+                  },
+                  {
+                    "title": "코인세탁소, 이것만 알면 끝! 완벽 가이드",
+                    "type": "benefit",
+                    "estimatedCTR": 7.2,
+                    "psychologyUsed": "완결성 + 가치 제안"
+                  },
+                  {
+                    "title": "[2025년] 코인세탁소 총정리 (+ 꿀팁 공개)",
+                    "type": "news",
+                    "estimatedCTR": 7,
+                    "psychologyUsed": "최신성 + 보너스 가치"
+                  },
+                  {
+                    "title": "아직도 코인세탁소 몰라요? 지금 당장 확인하세요",
+                    "type": "curiosity",
+                    "estimatedCTR": 6.8,
+                    "psychologyUsed": "호기심 + 긴급성"
+                  },
+                  {
+                    "title": "코인세탁소 실제 후기 (장단점 솔직 비교)",
+                    "type": "comparison",
+                    "estimatedCTR": 6.5,
+                    "psychologyUsed": "신뢰성 + 비교 심리"
+                  }
+                ],
+                "bestTitle": "코인세탁소 추천 TOP 10 (2025년 최신)",
+                "titleFormula": "숫자 + 키워드 + 최신연도 + 가치제안"
+              },
+              "structure": {
+                "recommendedStructure": {
+                  "intro": {
+                    "purpose": "독자의 관심 끌기 + 키워드 자연스럽게 배치",
+                    "template": "\"코인세탁소\"에 대해 고민하고 계신가요? 이 글에서 핵심 정보를 모두 정리해드립니다.",
+                    "keywordPlacement": "첫 문장에 키워드 포함"
+                  },
+                  "sections": [
+                    {
+                      "heading": "코인세탁소란? (기본 개념)",
+                      "purpose": "기초 정보 제공",
+                      "contentGuide": "핵심 정의, 중요성, 왜 알아야 하는지 설명",
+                      "recommendedLength": 300,
+                      "keywordUsage": "소제목과 본문에 1~2회"
+                    },
+                    {
+                      "heading": "코인세탁소 추천 BEST 5",
+                      "purpose": "실질적인 가치 제공 (핵심 섹션)",
+                      "contentGuide": "순위별 상세 설명, 장단점, 추천 이유",
+                      "recommendedLength": 800,
+                      "keywordUsage": "각 항목 설명에 자연스럽게 포함"
+                    },
+                    {
+                      "heading": "코인세탁소 선택 시 주의사항",
+                      "purpose": "신뢰도 향상",
+                      "contentGuide": "흔한 실수, 피해야 할 것, 체크리스트",
+                      "recommendedLength": 400,
+                      "keywordUsage": "주의사항 설명에 1~2회"
+                    },
+                    {
+                      "heading": "자주 묻는 질문 (FAQ)",
+                      "purpose": "SEO 강화 + 체류시간 증가",
+                      "contentGuide": "실제 검색되는 질문 5개 + 명확한 답변",
+                      "recommendedLength": 500,
+                      "keywordUsage": "질문에 롱테일 키워드 활용"
+                    }
+                  ],
+                  "conclusion": {
+                    "purpose": "요약 + CTA",
+                    "template": "지금까지 코인세탁소에 대해 알아봤습니다. 도움이 되셨다면 공유해주세요!",
+                    "ctaRecommendation": "댓글, 공유, 관련 글 링크 유도"
+                  }
+                },
+                "seoChecklist": [
+                  {
+                    "item": "제목에 키워드 포함",
+                    "importance": "critical",
+                    "howTo": "제목 앞부분에 메인 키워드 배치"
+                  },
+                  {
+                    "item": "첫 문단에 키워드",
+                    "importance": "critical",
+                    "howTo": "첫 100자 내 키워드 자연스럽게 삽입"
+                  },
+                  {
+                    "item": "소제목 H2/H3 활용",
+                    "importance": "high",
+                    "howTo": "3~5개 소제목, 키워드 변형 사용"
+                  },
+                  {
+                    "item": "이미지 ALT 태그",
+                    "importance": "high",
+                    "howTo": "모든 이미지에 키워드 포함 설명"
+                  },
+                  {
+                    "item": "내부링크 2개 이상",
+                    "importance": "medium",
+                    "howTo": "관련 글 자연스럽게 연결"
+                  },
+                  {
+                    "item": "3000자 이상 작성",
+                    "importance": "high",
+                    "howTo": "충분한 깊이의 콘텐츠 제공"
+                  }
+                ],
+                "totalRecommendedLength": 3000,
+                "estimatedWriteTime": 90
+              },
+              "images": {
+                "mainImage": {
+                  "searchKeyword": "코인세탁소 대표이미지",
+                  "style": "깔끔한 인포그래픽 또는 고화질 사진",
+                  "source": [
+                    "Unsplash",
+                    "Pixabay",
+                    "직접 제작"
+                  ],
+                  "altText": "코인세탁소 완벽 가이드 대표 이미지"
+                },
+                "sectionImages": [
+                  {
+                    "section": "기본 개념",
+                    "searchKeyword": "코인세탁소 설명",
+                    "purpose": "이해 돕기",
+                    "style": "다이어그램"
+                  },
+                  {
+                    "section": "TOP 5",
+                    "searchKeyword": "코인세탁소 비교",
+                    "purpose": "시각적 비교",
+                    "style": "비교표"
+                  },
+                  {
+                    "section": "주의사항",
+                    "searchKeyword": "주의 아이콘",
+                    "purpose": "강조",
+                    "style": "아이콘"
+                  }
+                ],
+                "infographicIdeas": [
+                  "코인세탁소 선택 가이드 플로우차트",
+                  "코인세탁소 TOP 5 비교표",
+                  "코인세탁소 체크리스트"
+                ],
+                "totalRecommendedImages": 7,
+                "imageStrategy": "섹션당 1~2개, 총 7~10개 이미지로 가독성과 체류시간 향상"
+              }
+            },
+            "ultimateScore": {
+              "total": 35,
+              "breakdown": {
+                "goldenRatio": 2.534435261707989,
+                "timing": 70,
+                "revenue": 40,
+                "competition": 40,
+                "potential": 38
+              },
+              "grade": "📝 C",
+              "verdict": "⚠️ 신중히 검토 필요",
+              "topActions": [
+                "0일 내 작성 권장",
+                "코인세탁소 추천 TOP 10 (2025년 최신)",
+                "3000자 이상, 7개 이미지 권장"
+              ]
+            }
+          },
+          "highlightReason": "✅ ANYTIME/stable | 폭발 65 | 구매의도 30 | 월 3,900원⚠️ | 경쟁도 9"
+        },
+        {
+          "keyword": "대우세탁기",
+          "searchVolume": 1750,
+          "documentCount": 8194,
+          "goldenRatio": 0.21357090554063948,
+          "rookieFriendly": {
+            "score": 35,
+            "grade": "D",
+            "reason": "문서수 10,000개 미만 → 경쟁 보통 | 황금비율 1 미만 → 공급 과잉 | 숏테일 키워드 → 대형 블로그와 경쟁",
+            "canRankWithin": "1개월 이상 소요 예상",
+            "requiredBlogIndex": "최적 1 이상 권장"
+          },
+          "timing": {
+            "score": 50,
+            "urgency": "ANYTIME",
+            "bestPublishTime": "오전 6~8시 또는 저녁 8~10시",
+            "trendDirection": "stable",
+            "peakPrediction": "꾸준한 검색량 유지"
+          },
+          "blueOcean": {
+            "score": 50,
+            "competitorStrength": "medium",
+            "avgCompetitorBlogAge": "2~5년 (보통 경쟁)",
+            "oldPostRatio": 50,
+            "opportunity": "⚠️ 경쟁 있음. 차별화된 콘텐츠 필요"
+          },
+          "trafficEstimate": {
+            "daily": "1~3명",
+            "weekly": "7~21명",
+            "monthly": "30~90명",
+            "confidence": 50,
+            "disclaimer": "📌 트래픽은 순위/CTR/계절성에 따라 달라질 수 있는 추정치입니다."
+          },
+          "revenueEstimate": {
+            "dailyRevenue": "38원 ⚠️추정",
+            "monthlyRevenue": "1,140원 ⚠️추정",
+            "estimatedCPC": 180,
+            "estimatedRPM": 4500,
+            "adType": "애드센스",
+            "revenueGrade": "C",
+            "revenueReason": "⚠️ 경쟁 높음. 틈새 접근 필요"
+          },
+          "entryAnalysis": {
+            "canEntry": true,
+            "difficulty": "hard",
+            "difficultyScore": 60,
+            "message": "🟠 진입 도전적 - 차별화된 콘텐츠 필요",
+            "topCompetitorStrength": "보통 (일반 블로그 혼재)",
+            "recommendedBlogIndex": "준최 5 이상 권장",
+            "estimatedRankingTime": "1~3주 내 가능"
+          },
+          "totalScore": 43,
+          "grade": "B",
+          "proStrategy": {
+            "title": "2025 대우세탁기 완벽 정리 | 초보자도 쉽게 이해하는 가이드",
+            "outline": [
+              "1. 대우세탁기란? (기본 개념)",
+              "2. 대우세탁기 핵심 포인트 3가지",
+              "3. 대우세탁기 장단점 비교",
+              "4. 대우세탁기 실제 후기/경험담",
+              "5. 대우세탁기 Q&A (자주 묻는 질문)",
+              "6. 결론 및 추천"
+            ],
+            "wordCount": 2500,
+            "mustInclude": [
+              "핵심 키워드 2~3회 자연스럽게 삽입",
+              "실제 이미지/사진 3장 이상",
+              "표 또는 비교 차트 1개 이상",
+              "자주 묻는 질문(FAQ) 섹션",
+              "결론 및 추천 섹션"
+            ],
+            "avoidTopics": [
+              "과장된 표현 (100%, 무조건, 반드시)",
+              "허위 정보나 검증되지 않은 내용",
+              "다른 블로그 복사/붙여넣기",
+              "광고성 링크 과다 삽입"
+            ],
+            "monetization": "애드센스 + 쿠팡파트너스 조합 추천"
+          },
+          "platformTitles": {
+            "naver": {
+              "title": "핵심 정리: 대우세탁기 2025 최신 가이드 (월 1,750)",
+              "alternatives": [
+                "대우세탁기 2025 완벽 정리: 핵심만 5분 요약",
+                "대우세탁기 초보도 쉽게: 실패 없는 체크리스트"
+              ],
+              "subKeywords": [
+                "대우세탁기 방법",
+                "대우세탁기 추천",
+                "대우세탁기 후기"
+              ],
+              "tags": [
+                "대우세탁기",
+                "📰 이슈키워드"
+              ],
+              "tip": "서두 100자 내에 키워드를 2회 노출하고, 결론 요약을 맨 위에 한 번 더 넣으세요.",
+              "hookPoint": "핵심 정리 포인트를 제목/썸네일에 강조"
+            },
+            "tistory": {
+              "title": "대우세탁기 2025 정리: 한 번에 이해하는 핵심 포인트 (월 1,750)",
+              "alternatives": [
+                "대우세탁기 제대로 하는 법 (체크리스트 포함)",
+                "대우세탁기 추천/비교: 선택 기준 3가지"
+              ],
+              "subKeywords": [
+                "대우세탁기 방법",
+                "대우세탁기 추천",
+                "대우세탁기 후기"
+              ],
+              "tags": [
+                "대우세탁기",
+                "📰 이슈키워드"
+              ],
+              "tip": "표/리스트를 많이 써서 스크롤 체류시간을 늘리세요.",
+              "hookPoint": "“핵심 3가지”처럼 숫자를 넣어 클릭률을 올리기"
+            },
+            "wordpress": {
+              "title": "대우세탁기: 2025 Complete Guide (Checklist & Tips) (월 1,750)",
+              "alternatives": [
+                "대우세탁기 Guide: Common Mistakes & Quick Fixes",
+                "대우세탁기 Step-by-Step: What to Do First"
+              ],
+              "subKeywords": [
+                "대우세탁기 방법",
+                "대우세탁기 추천",
+                "대우세탁기 후기"
+              ],
+              "tags": [
+                "대우세탁기",
+                "📰 이슈키워드"
+              ],
+              "tip": "H2/H3로 구조를 만들고, FAQ 섹션을 넣어 SEO를 강화하세요.",
+              "hookPoint": "FAQ + 체크리스트 조합으로 체류시간/리치 증가"
+            },
+            "blogspot": {
+              "title": "대우세탁기 2025: Quick Start + Best Practices (월 1,750)",
+              "alternatives": [
+                "대우세탁기 Quick Guide: Do & Don't",
+                "대우세탁기 Essentials: What You Need to Know"
+              ],
+              "subKeywords": [
+                "대우세탁기 방법",
+                "대우세탁기 추천",
+                "대우세탁기 후기"
+              ],
+              "tags": [
+                "대우세탁기",
+                "📰 이슈키워드"
+              ],
+              "tip": "이미지 2~3장 + 요약 박스를 넣어 가독성을 올리세요.",
+              "hookPoint": "첫 화면에 요약(결론)을 배치해 이탈률을 낮추기"
+            }
+          },
+          "expandedKeywords": {
+            "relatedGolden": [
+              "대우세탁기 추천",
+              "대우세탁기 비교",
+              "대우세탁기 후기",
+              "대우세탁기 가격"
+            ],
+            "longtailGolden": [
+              "대우세탁기 초보",
+              "대우세탁기 쉽게",
+              "대우세탁기 단계별",
+              "대우세탁기 정리"
+            ],
+            "blueOceanGolden": [
+              "대우세탁기 최신",
+              "대우세탁기 2025",
+              "대우세탁기 체크리스트",
+              "대우세탁기 실패하지 않는 법"
+            ]
+          },
+          "type": "📰 이슈키워드",
+          "category": "life_tips",
+          "safetyLevel": "safe",
+          "safetyReason": "✅ 안전한 키워드. 신생 블로거도 작성 가능",
+          "source": "세탁기",
+          "profitAnalysis": {
+            "keyword": "대우세탁기",
+            "searchVolume": 1750,
+            "documentCount": 8194,
+            "estimatedCPC": 180,
+            "purchaseIntentScore": 30,
+            "competitionLevel": 7,
+            "freshnessOpportunity": 1,
+            "profitGoldenRatio": 2.14,
+            "estimatedDailyRevenue": 38,
+            "estimatedMonthlyRevenue": 1140,
+            "grade": "C",
+            "gradeReason": "⚠️ 경쟁 높음. 틈새 접근 필요",
+            "isRealBlueOcean": false,
+            "blueOceanReason": "📕 경쟁 시장. 차별화 전략 필요",
+            "strategy": {
+              "approach": "⏸️ 보류. 더 좋은 키워드 찾기 추천",
+              "monetization": "📝 트래픽 확보 우선. 이후 관련 고수익 키워드로 내부링크",
+              "timing": "🗓️ 여유있게 준비. 롱테일 전략으로 접근",
+              "titleSuggestion": "대우세탁기 완벽 가이드 | 초보자도 쉽게 따라하기"
+            }
+          },
+          "timestamp": "2025-12-24T11:01:54.380Z",
+          "isGolden": true,
+          "trendAnalysis": {
+            "trendingReason": "냉장고에 '제주의 허파' 관련 최근 이슈",
+            "whyNow": "최근 5개 이상의 뉴스에서 다뤄지며 이슈화 진행 중 • \"사건\" 관련 구체적 사건으로 실시간 관심 집중 • 최신 이슈로 실시간 관심 집중 중 • \"냉장고에 세탁기까지…'제주의 허파' 곶자왈 쓰레기에 몸살\" 관련 최신 뉴스로 조기 진입 효과 기대",
+            "newsSource": "자동 분석"
+          },
+          "keywordGuide": {
+            "summary": "여유 있을 때 공략하면 좋은 키워드입니다. (등급: B, 점수: 43점)",
+            "whyItMovesNow": "냉장고에 '제주의 허파' 관련 최근 이슈 최근 5개 이상의 뉴스에서 다뤄지며 이슈화 진행 중 • \"사건\" 관련 구체적 사건으로 실시간 관심 집중 • 최신 이슈로 실시간 관심 집중 중 • \"냉장고에 세탁기까지…'제주의 허파' 곶자왈 쓰레기에 몸살\" 관련 최신 뉴스로 조기 진입 효과 기대",
+            "immediateTrafficPlan": [
+              "제목 앞부분에 \"대우세탁기\"를 배치하고, 2025/최신/정리 같은 보조 키워드를 1개만 추가하세요.",
+              "본문 서두 100자 안에 \"대우세탁기\"를 자연스럽게 2회 노출하세요.",
+              "최소 1개는 비교/체크리스트/요약 섹션을 넣어 체류시간을 늘리세요."
+            ],
+            "naverHomeExposureTips": [
+              "첫 이미지에 키워드가 들어간 문구를 넣고, alt 텍스트도 키워드 포함",
+              "목차를 만들고 H2/H3에 서브 키워드 배치",
+              "태그는 5~10개로 과도한 반복을 피하고, 유사어를 섞기"
+            ]
+          },
+          "ultimateAnalysis": {
+            "timing": {
+              "seasonal": {
+                "peakMonths": [
+                  1,
+                  2,
+                  3,
+                  4,
+                  5,
+                  6,
+                  7,
+                  8,
+                  9,
+                  10,
+                  11,
+                  12
+                ],
+                "peakReason": "연중 꾸준한 검색량",
+                "currentSeasonScore": 70,
+                "nextPeakDate": "항상",
+                "daysUntilPeak": 0,
+                "recommendation": "📝 에버그린 키워드입니다. 언제든 작성해도 좋습니다.",
+                "seasonalPattern": "evergreen"
+              },
+              "trend": {
+                "trendDirection": "falling",
+                "changeRate": 2,
+                "comparedTo": "전월 대비",
+                "explosiveScore": 3,
+                "relatedNews": [],
+                "recommendation": "📊 안정적인 키워드입니다."
+              },
+              "alert": {
+                "optimalPublishDate": "0일 내",
+                "reason": "📝 에버그린 키워드입니다. 언제든 작성해도 좋습니다.",
+                "urgencyLevel": "⚡ 이번 주",
+                "expectedPeakDate": "항상",
+                "competitorActivity": "경쟁자 보통"
+              }
+            },
+            "revenue": {
+              "cpc": {
+                "estimatedCpc": 200,
+                "cpcRange": {
+                  "min": 100,
+                  "max": 400
+                },
+                "cpcTier": "🥈 중수익",
+                "industryAverage": 200,
+                "recommendation": "📝 일반적인 수익 구조입니다. 트래픽 확보에 집중하세요."
+              },
+              "affiliate": {
+                "recommendedPrograms": [
+                  {
+                    "name": "쿠팡파트너스",
+                    "type": "coupang",
+                    "commissionRate": "3~5%",
+                    "estimatedEarningPerClick": 50,
+                    "matchScore": 100
+                  },
+                  {
+                    "name": "네이버 쇼핑",
+                    "type": "naver",
+                    "commissionRate": "1~3%",
+                    "estimatedEarningPerClick": 30,
+                    "matchScore": 85
+                  }
+                ],
+                "bestMatch": "쿠팡파트너스",
+                "potentialProducts": [
+                  "대우세탁기 추천",
+                  "대우세탁기 순위",
+                  "대우세탁기 비교",
+                  "대우세탁기 후기",
+                  "대우세탁기 가격",
+                  "대우세탁기 구매"
+                ]
+              },
+              "projection": {
+                "estimatedDailyVisitors": 2,
+                "estimatedMonthlyVisitors": 60,
+                "adsenseRevenue": {
+                  "daily": 12,
+                  "monthly": 360,
+                  "assumptions": "CPC 200원, CTR 2%, 페이지뷰율 1.5 가정"
+                },
+                "affiliateRevenue": {
+                  "daily": 0,
+                  "monthly": 0,
+                  "conversionRate": 3,
+                  "assumptions": "클릭률 10%, 전환율 3%, 평균 수수료 50원 가정"
+                },
+                "totalMonthlyRevenue": 360,
+                "revenueBreakdown": "애드센스 100% + 제휴 0%",
+                "revenueTier": "📝 월 1만원+"
+              }
+            },
+            "content": {
+              "titles": {
+                "titles": [
+                  {
+                    "title": "대우세탁기 추천 TOP 10 (2025년 최신)",
+                    "type": "number",
+                    "estimatedCTR": 8.5,
+                    "psychologyUsed": "숫자 + 최신 정보"
+                  },
+                  {
+                    "title": "대우세탁기 하는 법, 초보자도 쉽게 따라하기",
+                    "type": "how-to",
+                    "estimatedCTR": 7.5,
+                    "psychologyUsed": "실용성 + 접근성"
+                  },
+                  {
+                    "title": "대우세탁기, 이것만 알면 끝! 완벽 가이드",
+                    "type": "benefit",
+                    "estimatedCTR": 7.2,
+                    "psychologyUsed": "완결성 + 가치 제안"
+                  },
+                  {
+                    "title": "[2025년] 대우세탁기 총정리 (+ 꿀팁 공개)",
+                    "type": "news",
+                    "estimatedCTR": 7,
+                    "psychologyUsed": "최신성 + 보너스 가치"
+                  },
+                  {
+                    "title": "아직도 대우세탁기 몰라요? 지금 당장 확인하세요",
+                    "type": "curiosity",
+                    "estimatedCTR": 6.8,
+                    "psychologyUsed": "호기심 + 긴급성"
+                  },
+                  {
+                    "title": "대우세탁기 실제 후기 (장단점 솔직 비교)",
+                    "type": "comparison",
+                    "estimatedCTR": 6.5,
+                    "psychologyUsed": "신뢰성 + 비교 심리"
+                  }
+                ],
+                "bestTitle": "대우세탁기 추천 TOP 10 (2025년 최신)",
+                "titleFormula": "숫자 + 키워드 + 최신연도 + 가치제안"
+              },
+              "structure": {
+                "recommendedStructure": {
+                  "intro": {
+                    "purpose": "독자의 관심 끌기 + 키워드 자연스럽게 배치",
+                    "template": "\"대우세탁기\"에 대해 고민하고 계신가요? 이 글에서 핵심 정보를 모두 정리해드립니다.",
+                    "keywordPlacement": "첫 문장에 키워드 포함"
+                  },
+                  "sections": [
+                    {
+                      "heading": "대우세탁기란? (기본 개념)",
+                      "purpose": "기초 정보 제공",
+                      "contentGuide": "핵심 정의, 중요성, 왜 알아야 하는지 설명",
+                      "recommendedLength": 300,
+                      "keywordUsage": "소제목과 본문에 1~2회"
+                    },
+                    {
+                      "heading": "대우세탁기 추천 BEST 5",
+                      "purpose": "실질적인 가치 제공 (핵심 섹션)",
+                      "contentGuide": "순위별 상세 설명, 장단점, 추천 이유",
+                      "recommendedLength": 800,
+                      "keywordUsage": "각 항목 설명에 자연스럽게 포함"
+                    },
+                    {
+                      "heading": "대우세탁기 선택 시 주의사항",
+                      "purpose": "신뢰도 향상",
+                      "contentGuide": "흔한 실수, 피해야 할 것, 체크리스트",
+                      "recommendedLength": 400,
+                      "keywordUsage": "주의사항 설명에 1~2회"
+                    },
+                    {
+                      "heading": "자주 묻는 질문 (FAQ)",
+                      "purpose": "SEO 강화 + 체류시간 증가",
+                      "contentGuide": "실제 검색되는 질문 5개 + 명확한 답변",
+                      "recommendedLength": 500,
+                      "keywordUsage": "질문에 롱테일 키워드 활용"
+                    }
+                  ],
+                  "conclusion": {
+                    "purpose": "요약 + CTA",
+                    "template": "지금까지 대우세탁기에 대해 알아봤습니다. 도움이 되셨다면 공유해주세요!",
+                    "ctaRecommendation": "댓글, 공유, 관련 글 링크 유도"
+                  }
+                },
+                "seoChecklist": [
+                  {
+                    "item": "제목에 키워드 포함",
+                    "importance": "critical",
+                    "howTo": "제목 앞부분에 메인 키워드 배치"
+                  },
+                  {
+                    "item": "첫 문단에 키워드",
+                    "importance": "critical",
+                    "howTo": "첫 100자 내 키워드 자연스럽게 삽입"
+                  },
+                  {
+                    "item": "소제목 H2/H3 활용",
+                    "importance": "high",
+                    "howTo": "3~5개 소제목, 키워드 변형 사용"
+                  },
+                  {
+                    "item": "이미지 ALT 태그",
+                    "importance": "high",
+                    "howTo": "모든 이미지에 키워드 포함 설명"
+                  },
+                  {
+                    "item": "내부링크 2개 이상",
+                    "importance": "medium",
+                    "howTo": "관련 글 자연스럽게 연결"
+                  },
+                  {
+                    "item": "3000자 이상 작성",
+                    "importance": "high",
+                    "howTo": "충분한 깊이의 콘텐츠 제공"
+                  }
+                ],
+                "totalRecommendedLength": 3000,
+                "estimatedWriteTime": 90
+              },
+              "images": {
+                "mainImage": {
+                  "searchKeyword": "대우세탁기 대표이미지",
+                  "style": "깔끔한 인포그래픽 또는 고화질 사진",
+                  "source": [
+                    "Unsplash",
+                    "Pixabay",
+                    "직접 제작"
+                  ],
+                  "altText": "대우세탁기 완벽 가이드 대표 이미지"
+                },
+                "sectionImages": [
+                  {
+                    "section": "기본 개념",
+                    "searchKeyword": "대우세탁기 설명",
+                    "purpose": "이해 돕기",
+                    "style": "다이어그램"
+                  },
+                  {
+                    "section": "TOP 5",
+                    "searchKeyword": "대우세탁기 비교",
+                    "purpose": "시각적 비교",
+                    "style": "비교표"
+                  },
+                  {
+                    "section": "주의사항",
+                    "searchKeyword": "주의 아이콘",
+                    "purpose": "강조",
+                    "style": "아이콘"
+                  }
+                ],
+                "infographicIdeas": [
+                  "대우세탁기 선택 가이드 플로우차트",
+                  "대우세탁기 TOP 5 비교표",
+                  "대우세탁기 체크리스트"
+                ],
+                "totalRecommendedImages": 7,
+                "imageStrategy": "섹션당 1~2개, 총 7~10개 이미지로 가독성과 체류시간 향상"
+              }
+            },
+            "ultimateScore": {
+              "total": 39,
+              "breakdown": {
+                "goldenRatio": 2.135709055406395,
+                "timing": 70,
+                "revenue": 40,
+                "competition": 60,
+                "potential": 43
+              },
+              "grade": "📝 C",
+              "verdict": "⚠️ 신중히 검토 필요",
+              "topActions": [
+                "0일 내 작성 권장",
+                "대우세탁기 추천 TOP 10 (2025년 최신)",
+                "3000자 이상, 7개 이미지 권장"
+              ]
+            }
+          },
+          "highlightReason": "✅ ANYTIME/stable | 폭발 65 | 구매의도 30 | 월 1,140원⚠️ | 경쟁도 7"
+        },
+        {
+          "keyword": "통돌이세탁기15KG",
+          "searchVolume": 2270,
+          "documentCount": 11124,
+          "goldenRatio": 0.20406328658755843,
+          "rookieFriendly": {
+            "score": 25,
+            "grade": "D",
+            "reason": "황금비율 1 미만 → 공급 과잉 | 숏테일 키워드 → 대형 블로그와 경쟁",
+            "canRankWithin": "1개월 이상 소요 예상",
+            "requiredBlogIndex": "최적 1 이상 권장"
+          },
+          "timing": {
+            "score": 50,
+            "urgency": "ANYTIME",
+            "bestPublishTime": "오전 6~8시 또는 저녁 8~10시",
+            "trendDirection": "stable",
+            "peakPrediction": "꾸준한 검색량 유지"
+          },
+          "blueOcean": {
+            "score": 35,
+            "competitorStrength": "medium",
+            "avgCompetitorBlogAge": "2~5년 (보통 경쟁)",
+            "oldPostRatio": 30,
+            "opportunity": "❌ 레드오션. 다른 키워드 추천"
+          },
+          "trafficEstimate": {
+            "daily": "1~3명",
+            "weekly": "7~21명",
+            "monthly": "30~90명",
+            "confidence": 50,
+            "disclaimer": "📌 트래픽은 순위/CTR/계절성에 따라 달라질 수 있는 추정치입니다."
+          },
+          "revenueEstimate": {
+            "dailyRevenue": "50원 ⚠️추정",
+            "monthlyRevenue": "1,500원 ⚠️추정",
+            "estimatedCPC": 207,
+            "estimatedRPM": 5175,
+            "adType": "애드센스",
+            "revenueGrade": "C",
+            "revenueReason": "⚠️ 경쟁 높음. 틈새 접근 필요"
+          },
+          "entryAnalysis": {
+            "canEntry": false,
+            "difficulty": "very_hard",
+            "difficultyScore": 74,
+            "message": "🔴 진입 어려움 - 상위 블로거 독점 키워드",
+            "topCompetitorStrength": "강함 (전문 블로거 다수)",
+            "recommendedBlogIndex": "최적 1 이상 권장",
+            "estimatedRankingTime": "1개월 이상 소요 예상"
+          },
+          "totalScore": 36,
+          "grade": "B",
+          "proStrategy": {
+            "title": "2025 통돌이세탁기15KG 완벽 정리 | 초보자도 쉽게 이해하는 가이드",
+            "outline": [
+              "1. 통돌이세탁기15KG란? (기본 개념)",
+              "2. 통돌이세탁기15KG 핵심 포인트 3가지",
+              "3. 통돌이세탁기15KG 장단점 비교",
+              "4. 통돌이세탁기15KG 실제 후기/경험담",
+              "5. 통돌이세탁기15KG Q&A (자주 묻는 질문)",
+              "6. 결론 및 추천"
+            ],
+            "wordCount": 2500,
+            "mustInclude": [
+              "핵심 키워드 2~3회 자연스럽게 삽입",
+              "실제 이미지/사진 3장 이상",
+              "표 또는 비교 차트 1개 이상",
+              "자주 묻는 질문(FAQ) 섹션",
+              "결론 및 추천 섹션"
+            ],
+            "avoidTopics": [
+              "과장된 표현 (100%, 무조건, 반드시)",
+              "허위 정보나 검증되지 않은 내용",
+              "다른 블로그 복사/붙여넣기",
+              "광고성 링크 과다 삽입"
+            ],
+            "monetization": "애드센스 + 쿠팡파트너스 조합 추천"
+          },
+          "platformTitles": {
+            "naver": {
+              "title": "핵심 정리: 통돌이세탁기15KG 2025 최신 가이드 (월 2,270)",
+              "alternatives": [
+                "통돌이세탁기15KG 2025 완벽 정리: 핵심만 5분 요약",
+                "통돌이세탁기15KG 초보도 쉽게: 실패 없는 체크리스트"
+              ],
+              "subKeywords": [
+                "통돌이세탁기15KG 방법",
+                "통돌이세탁기15KG 추천",
+                "통돌이세탁기15KG 후기"
+              ],
+              "tags": [
+                "통돌이세탁기15KG",
+                "📰 이슈키워드"
+              ],
+              "tip": "서두 100자 내에 키워드를 2회 노출하고, 결론 요약을 맨 위에 한 번 더 넣으세요.",
+              "hookPoint": "핵심 정리 포인트를 제목/썸네일에 강조"
+            },
+            "tistory": {
+              "title": "통돌이세탁기15KG 2025 정리: 한 번에 이해하는 핵심 포인트 (월 2,270)",
+              "alternatives": [
+                "통돌이세탁기15KG 제대로 하는 법 (체크리스트 포함)",
+                "통돌이세탁기15KG 추천/비교: 선택 기준 3가지"
+              ],
+              "subKeywords": [
+                "통돌이세탁기15KG 방법",
+                "통돌이세탁기15KG 추천",
+                "통돌이세탁기15KG 후기"
+              ],
+              "tags": [
+                "통돌이세탁기15KG",
+                "📰 이슈키워드"
+              ],
+              "tip": "표/리스트를 많이 써서 스크롤 체류시간을 늘리세요.",
+              "hookPoint": "“핵심 3가지”처럼 숫자를 넣어 클릭률을 올리기"
+            },
+            "wordpress": {
+              "title": "통돌이세탁기15KG: 2025 Complete Guide (Checklist & Tips) (월 2,270)",
+              "alternatives": [
+                "통돌이세탁기15KG Guide: Common Mistakes & Quick Fixes",
+                "통돌이세탁기15KG Step-by-Step: What to Do First"
+              ],
+              "subKeywords": [
+                "통돌이세탁기15KG 방법",
+                "통돌이세탁기15KG 추천",
+                "통돌이세탁기15KG 후기"
+              ],
+              "tags": [
+                "통돌이세탁기15KG",
+                "📰 이슈키워드"
+              ],
+              "tip": "H2/H3로 구조를 만들고, FAQ 섹션을 넣어 SEO를 강화하세요.",
+              "hookPoint": "FAQ + 체크리스트 조합으로 체류시간/리치 증가"
+            },
+            "blogspot": {
+              "title": "통돌이세탁기15KG 2025: Quick Start + Best Practices (월 2,270)",
+              "alternatives": [
+                "통돌이세탁기15KG Quick Guide: Do & Don't",
+                "통돌이세탁기15KG Essentials: What You Need to Know"
+              ],
+              "subKeywords": [
+                "통돌이세탁기15KG 방법",
+                "통돌이세탁기15KG 추천",
+                "통돌이세탁기15KG 후기"
+              ],
+              "tags": [
+                "통돌이세탁기15KG",
+                "📰 이슈키워드"
+              ],
+              "tip": "이미지 2~3장 + 요약 박스를 넣어 가독성을 올리세요.",
+              "hookPoint": "첫 화면에 요약(결론)을 배치해 이탈률을 낮추기"
+            }
+          },
+          "expandedKeywords": {
+            "relatedGolden": [
+              "통돌이세탁기15KG 추천",
+              "통돌이세탁기15KG 비교",
+              "통돌이세탁기15KG 후기",
+              "통돌이세탁기15KG 가격"
+            ],
+            "longtailGolden": [
+              "통돌이세탁기15KG 초보",
+              "통돌이세탁기15KG 쉽게",
+              "통돌이세탁기15KG 단계별",
+              "통돌이세탁기15KG 정리"
+            ],
+            "blueOceanGolden": [
+              "통돌이세탁기15KG 최신",
+              "통돌이세탁기15KG 2025",
+              "통돌이세탁기15KG 체크리스트",
+              "통돌이세탁기15KG 실패하지 않는 법"
+            ]
+          },
+          "type": "📰 이슈키워드",
+          "category": "life_tips",
+          "safetyLevel": "safe",
+          "safetyReason": "✅ 안전한 키워드. 신생 블로거도 작성 가능",
+          "source": "세탁기",
+          "profitAnalysis": {
+            "keyword": "통돌이세탁기15KG",
+            "searchVolume": 2270,
+            "documentCount": 11124,
+            "estimatedCPC": 207,
+            "purchaseIntentScore": 30,
+            "competitionLevel": 8,
+            "freshnessOpportunity": 1,
+            "profitGoldenRatio": 2.79,
+            "estimatedDailyRevenue": 50,
+            "estimatedMonthlyRevenue": 1500,
+            "grade": "C",
+            "gradeReason": "⚠️ 경쟁 높음. 틈새 접근 필요",
+            "isRealBlueOcean": false,
+            "blueOceanReason": "📕 경쟁 시장. 차별화 전략 필요",
+            "strategy": {
+              "approach": "⏸️ 보류. 더 좋은 키워드 찾기 추천",
+              "monetization": "📝 트래픽 확보 우선. 이후 관련 고수익 키워드로 내부링크",
+              "timing": "🗓️ 여유있게 준비. 롱테일 전략으로 접근",
+              "titleSuggestion": "통돌이세탁기15KG 완벽 가이드 | 초보자도 쉽게 따라하기"
+            }
+          },
+          "timestamp": "2025-12-24T11:01:54.378Z",
+          "isGolden": true,
+          "trendAnalysis": {
+            "trendingReason": "울산 송학라이온스 김남주 관련 최근 이슈",
+            "whyNow": "최근 5개 이상의 뉴스에서 다뤄지며 이슈화 진행 중 • 뉴스에서 \"인기\" 키워드로 언급되며 화제성 확보 • \"울산 송학라이온스 김남주 전 회장, 세탁기 후원\" 관련 최신 뉴스로 조기 진입 효과 기대",
+            "newsSource": "자동 분석"
+          },
+          "keywordGuide": {
+            "summary": "여유 있을 때 공략하면 좋은 키워드입니다. (등급: B, 점수: 36점)",
+            "whyItMovesNow": "울산 송학라이온스 김남주 관련 최근 이슈 최근 5개 이상의 뉴스에서 다뤄지며 이슈화 진행 중 • 뉴스에서 \"인기\" 키워드로 언급되며 화제성 확보 • \"울산 송학라이온스 김남주 전 회장, 세탁기 후원\" 관련 최신 뉴스로 조기 진입 효과 기대",
+            "immediateTrafficPlan": [
+              "제목 앞부분에 \"통돌이세탁기15KG\"를 배치하고, 2025/최신/정리 같은 보조 키워드를 1개만 추가하세요.",
+              "본문 서두 100자 안에 \"통돌이세탁기15KG\"를 자연스럽게 2회 노출하세요.",
+              "최소 1개는 비교/체크리스트/요약 섹션을 넣어 체류시간을 늘리세요."
+            ],
+            "naverHomeExposureTips": [
+              "첫 이미지에 키워드가 들어간 문구를 넣고, alt 텍스트도 키워드 포함",
+              "목차를 만들고 H2/H3에 서브 키워드 배치",
+              "태그는 5~10개로 과도한 반복을 피하고, 유사어를 섞기"
+            ]
+          },
+          "ultimateAnalysis": {
+            "timing": {
+              "seasonal": {
+                "peakMonths": [
+                  1,
+                  2,
+                  3,
+                  4,
+                  5,
+                  6,
+                  7,
+                  8,
+                  9,
+                  10,
+                  11,
+                  12
+                ],
+                "peakReason": "연중 꾸준한 검색량",
+                "currentSeasonScore": 70,
+                "nextPeakDate": "항상",
+                "daysUntilPeak": 0,
+                "recommendation": "📝 에버그린 키워드입니다. 언제든 작성해도 좋습니다.",
+                "seasonalPattern": "evergreen"
+              },
+              "trend": {
+                "trendDirection": "falling",
+                "changeRate": 2,
+                "comparedTo": "전월 대비",
+                "explosiveScore": 3,
+                "relatedNews": [],
+                "recommendation": "📊 안정적인 키워드입니다."
+              },
+              "alert": {
+                "optimalPublishDate": "0일 내",
+                "reason": "📝 에버그린 키워드입니다. 언제든 작성해도 좋습니다.",
+                "urgencyLevel": "⚡ 이번 주",
+                "expectedPeakDate": "항상",
+                "competitorActivity": "경쟁자 많음"
+              }
+            },
+            "revenue": {
+              "cpc": {
+                "estimatedCpc": 200,
+                "cpcRange": {
+                  "min": 100,
+                  "max": 400
+                },
+                "cpcTier": "🥈 중수익",
+                "industryAverage": 200,
+                "recommendation": "📝 일반적인 수익 구조입니다. 트래픽 확보에 집중하세요."
+              },
+              "affiliate": {
+                "recommendedPrograms": [
+                  {
+                    "name": "쿠팡파트너스",
+                    "type": "coupang",
+                    "commissionRate": "3~5%",
+                    "estimatedEarningPerClick": 50,
+                    "matchScore": 100
+                  },
+                  {
+                    "name": "네이버 쇼핑",
+                    "type": "naver",
+                    "commissionRate": "1~3%",
+                    "estimatedEarningPerClick": 30,
+                    "matchScore": 85
+                  }
+                ],
+                "bestMatch": "쿠팡파트너스",
+                "potentialProducts": [
+                  "통돌이세탁기15KG 추천",
+                  "통돌이세탁기15KG 순위",
+                  "통돌이세탁기15KG 비교",
+                  "통돌이세탁기15KG 후기",
+                  "통돌이세탁기15KG 가격",
+                  "통돌이세탁기15KG 구매"
+                ]
+              },
+              "projection": {
+                "estimatedDailyVisitors": 2,
+                "estimatedMonthlyVisitors": 60,
+                "adsenseRevenue": {
+                  "daily": 12,
+                  "monthly": 360,
+                  "assumptions": "CPC 200원, CTR 2%, 페이지뷰율 1.5 가정"
+                },
+                "affiliateRevenue": {
+                  "daily": 0,
+                  "monthly": 0,
+                  "conversionRate": 3,
+                  "assumptions": "클릭률 10%, 전환율 3%, 평균 수수료 50원 가정"
+                },
+                "totalMonthlyRevenue": 360,
+                "revenueBreakdown": "애드센스 100% + 제휴 0%",
+                "revenueTier": "📝 월 1만원+"
+              }
+            },
+            "content": {
+              "titles": {
+                "titles": [
+                  {
+                    "title": "통돌이세탁기15KG 추천 TOP 10 (2025년 최신)",
+                    "type": "number",
+                    "estimatedCTR": 8.5,
+                    "psychologyUsed": "숫자 + 최신 정보"
+                  },
+                  {
+                    "title": "통돌이세탁기15KG 하는 법, 초보자도 쉽게 따라하기",
+                    "type": "how-to",
+                    "estimatedCTR": 7.5,
+                    "psychologyUsed": "실용성 + 접근성"
+                  },
+                  {
+                    "title": "통돌이세탁기15KG, 이것만 알면 끝! 완벽 가이드",
+                    "type": "benefit",
+                    "estimatedCTR": 7.2,
+                    "psychologyUsed": "완결성 + 가치 제안"
+                  },
+                  {
+                    "title": "[2025년] 통돌이세탁기15KG 총정리 (+ 꿀팁 공개)",
+                    "type": "news",
+                    "estimatedCTR": 7,
+                    "psychologyUsed": "최신성 + 보너스 가치"
+                  },
+                  {
+                    "title": "아직도 통돌이세탁기15KG 몰라요? 지금 당장 확인하세요",
+                    "type": "curiosity",
+                    "estimatedCTR": 6.8,
+                    "psychologyUsed": "호기심 + 긴급성"
+                  },
+                  {
+                    "title": "통돌이세탁기15KG 실제 후기 (장단점 솔직 비교)",
+                    "type": "comparison",
+                    "estimatedCTR": 6.5,
+                    "psychologyUsed": "신뢰성 + 비교 심리"
+                  }
+                ],
+                "bestTitle": "통돌이세탁기15KG 추천 TOP 10 (2025년 최신)",
+                "titleFormula": "숫자 + 키워드 + 최신연도 + 가치제안"
+              },
+              "structure": {
+                "recommendedStructure": {
+                  "intro": {
+                    "purpose": "독자의 관심 끌기 + 키워드 자연스럽게 배치",
+                    "template": "\"통돌이세탁기15KG\"에 대해 고민하고 계신가요? 이 글에서 핵심 정보를 모두 정리해드립니다.",
+                    "keywordPlacement": "첫 문장에 키워드 포함"
+                  },
+                  "sections": [
+                    {
+                      "heading": "통돌이세탁기15KG란? (기본 개념)",
+                      "purpose": "기초 정보 제공",
+                      "contentGuide": "핵심 정의, 중요성, 왜 알아야 하는지 설명",
+                      "recommendedLength": 300,
+                      "keywordUsage": "소제목과 본문에 1~2회"
+                    },
+                    {
+                      "heading": "통돌이세탁기15KG 추천 BEST 5",
+                      "purpose": "실질적인 가치 제공 (핵심 섹션)",
+                      "contentGuide": "순위별 상세 설명, 장단점, 추천 이유",
+                      "recommendedLength": 800,
+                      "keywordUsage": "각 항목 설명에 자연스럽게 포함"
+                    },
+                    {
+                      "heading": "통돌이세탁기15KG 선택 시 주의사항",
+                      "purpose": "신뢰도 향상",
+                      "contentGuide": "흔한 실수, 피해야 할 것, 체크리스트",
+                      "recommendedLength": 400,
+                      "keywordUsage": "주의사항 설명에 1~2회"
+                    },
+                    {
+                      "heading": "자주 묻는 질문 (FAQ)",
+                      "purpose": "SEO 강화 + 체류시간 증가",
+                      "contentGuide": "실제 검색되는 질문 5개 + 명확한 답변",
+                      "recommendedLength": 500,
+                      "keywordUsage": "질문에 롱테일 키워드 활용"
+                    }
+                  ],
+                  "conclusion": {
+                    "purpose": "요약 + CTA",
+                    "template": "지금까지 통돌이세탁기15KG에 대해 알아봤습니다. 도움이 되셨다면 공유해주세요!",
+                    "ctaRecommendation": "댓글, 공유, 관련 글 링크 유도"
+                  }
+                },
+                "seoChecklist": [
+                  {
+                    "item": "제목에 키워드 포함",
+                    "importance": "critical",
+                    "howTo": "제목 앞부분에 메인 키워드 배치"
+                  },
+                  {
+                    "item": "첫 문단에 키워드",
+                    "importance": "critical",
+                    "howTo": "첫 100자 내 키워드 자연스럽게 삽입"
+                  },
+                  {
+                    "item": "소제목 H2/H3 활용",
+                    "importance": "high",
+                    "howTo": "3~5개 소제목, 키워드 변형 사용"
+                  },
+                  {
+                    "item": "이미지 ALT 태그",
+                    "importance": "high",
+                    "howTo": "모든 이미지에 키워드 포함 설명"
+                  },
+                  {
+                    "item": "내부링크 2개 이상",
+                    "importance": "medium",
+                    "howTo": "관련 글 자연스럽게 연결"
+                  },
+                  {
+                    "item": "3000자 이상 작성",
+                    "importance": "high",
+                    "howTo": "충분한 깊이의 콘텐츠 제공"
+                  }
+                ],
+                "totalRecommendedLength": 3000,
+                "estimatedWriteTime": 90
+              },
+              "images": {
+                "mainImage": {
+                  "searchKeyword": "통돌이세탁기15KG 대표이미지",
+                  "style": "깔끔한 인포그래픽 또는 고화질 사진",
+                  "source": [
+                    "Unsplash",
+                    "Pixabay",
+                    "직접 제작"
+                  ],
+                  "altText": "통돌이세탁기15KG 완벽 가이드 대표 이미지"
+                },
+                "sectionImages": [
+                  {
+                    "section": "기본 개념",
+                    "searchKeyword": "통돌이세탁기15KG 설명",
+                    "purpose": "이해 돕기",
+                    "style": "다이어그램"
+                  },
+                  {
+                    "section": "TOP 5",
+                    "searchKeyword": "통돌이세탁기15KG 비교",
+                    "purpose": "시각적 비교",
+                    "style": "비교표"
+                  },
+                  {
+                    "section": "주의사항",
+                    "searchKeyword": "주의 아이콘",
+                    "purpose": "강조",
+                    "style": "아이콘"
+                  }
+                ],
+                "infographicIdeas": [
+                  "통돌이세탁기15KG 선택 가이드 플로우차트",
+                  "통돌이세탁기15KG TOP 5 비교표",
+                  "통돌이세탁기15KG 체크리스트"
+                ],
+                "totalRecommendedImages": 7,
+                "imageStrategy": "섹션당 1~2개, 총 7~10개 이미지로 가독성과 체류시간 향상"
+              }
+            },
+            "ultimateScore": {
+              "total": 34,
+              "breakdown": {
+                "goldenRatio": 2.040632865875584,
+                "timing": 70,
+                "revenue": 40,
+                "competition": 40,
+                "potential": 38
+              },
+              "grade": "📝 C",
+              "verdict": "⚠️ 신중히 검토 필요",
+              "topActions": [
+                "0일 내 작성 권장",
+                "통돌이세탁기15KG 추천 TOP 10 (2025년 최신)",
+                "3000자 이상, 7개 이미지 권장"
+              ]
+            }
+          },
+          "highlightReason": "✅ ANYTIME/stable | 폭발 65 | 구매의도 30 | 월 1,500원⚠️ | 경쟁도 8"
+        },
+        {
+          "keyword": "셀프세탁방",
+          "searchVolume": 2280,
+          "documentCount": 11738,
+          "goldenRatio": 0.19424092690407224,
+          "rookieFriendly": {
+            "score": 25,
+            "grade": "D",
+            "reason": "황금비율 1 미만 → 공급 과잉 | 숏테일 키워드 → 대형 블로그와 경쟁",
+            "canRankWithin": "1개월 이상 소요 예상",
+            "requiredBlogIndex": "최적 1 이상 권장"
+          },
+          "timing": {
+            "score": 50,
+            "urgency": "ANYTIME",
+            "bestPublishTime": "오전 6~8시 또는 저녁 8~10시",
+            "trendDirection": "stable",
+            "peakPrediction": "꾸준한 검색량 유지"
+          },
+          "blueOcean": {
+            "score": 35,
+            "competitorStrength": "medium",
+            "avgCompetitorBlogAge": "2~5년 (보통 경쟁)",
+            "oldPostRatio": 30,
+            "opportunity": "❌ 레드오션. 다른 키워드 추천"
+          },
+          "trafficEstimate": {
+            "daily": "1~3명",
+            "weekly": "7~21명",
+            "monthly": "30~90명",
+            "confidence": 50,
+            "disclaimer": "📌 트래픽은 순위/CTR/계절성에 따라 달라질 수 있는 추정치입니다."
+          },
+          "revenueEstimate": {
+            "dailyRevenue": "43원 ⚠️추정",
+            "monthlyRevenue": "1,290원 ⚠️추정",
+            "estimatedCPC": 180,
+            "estimatedRPM": 4500,
+            "adType": "애드센스",
+            "revenueGrade": "C",
+            "revenueReason": "⚠️ 경쟁 높음. 틈새 접근 필요"
+          },
+          "entryAnalysis": {
+            "canEntry": false,
+            "difficulty": "very_hard",
+            "difficultyScore": 74,
+            "message": "🔴 진입 어려움 - 상위 블로거 독점 키워드",
+            "topCompetitorStrength": "강함 (전문 블로거 다수)",
+            "recommendedBlogIndex": "최적 1 이상 권장",
+            "estimatedRankingTime": "1개월 이상 소요 예상"
+          },
+          "totalScore": 36,
+          "grade": "B",
+          "proStrategy": {
+            "title": "2025 셀프세탁방 완벽 정리 | 초보자도 쉽게 이해하는 가이드",
+            "outline": [
+              "1. 셀프세탁방란? (기본 개념)",
+              "2. 셀프세탁방 핵심 포인트 3가지",
+              "3. 셀프세탁방 장단점 비교",
+              "4. 셀프세탁방 실제 후기/경험담",
+              "5. 셀프세탁방 Q&A (자주 묻는 질문)",
+              "6. 결론 및 추천"
+            ],
+            "wordCount": 2500,
+            "mustInclude": [
+              "핵심 키워드 2~3회 자연스럽게 삽입",
+              "실제 이미지/사진 3장 이상",
+              "표 또는 비교 차트 1개 이상",
+              "자주 묻는 질문(FAQ) 섹션",
+              "결론 및 추천 섹션"
+            ],
+            "avoidTopics": [
+              "과장된 표현 (100%, 무조건, 반드시)",
+              "허위 정보나 검증되지 않은 내용",
+              "다른 블로그 복사/붙여넣기",
+              "광고성 링크 과다 삽입"
+            ],
+            "monetization": "애드센스 + 쿠팡파트너스 조합 추천"
+          },
+          "platformTitles": {
+            "naver": {
+              "title": "핵심 정리: 셀프세탁방 2025 최신 가이드 (월 2,280)",
+              "alternatives": [
+                "셀프세탁방 2025 완벽 정리: 핵심만 5분 요약",
+                "셀프세탁방 초보도 쉽게: 실패 없는 체크리스트"
+              ],
+              "subKeywords": [
+                "셀프세탁방 방법",
+                "셀프세탁방 추천",
+                "셀프세탁방 후기"
+              ],
+              "tags": [
+                "셀프세탁방",
+                "📰 이슈키워드"
+              ],
+              "tip": "서두 100자 내에 키워드를 2회 노출하고, 결론 요약을 맨 위에 한 번 더 넣으세요.",
+              "hookPoint": "핵심 정리 포인트를 제목/썸네일에 강조"
+            },
+            "tistory": {
+              "title": "셀프세탁방 2025 정리: 한 번에 이해하는 핵심 포인트 (월 2,280)",
+              "alternatives": [
+                "셀프세탁방 제대로 하는 법 (체크리스트 포함)",
+                "셀프세탁방 추천/비교: 선택 기준 3가지"
+              ],
+              "subKeywords": [
+                "셀프세탁방 방법",
+                "셀프세탁방 추천",
+                "셀프세탁방 후기"
+              ],
+              "tags": [
+                "셀프세탁방",
+                "📰 이슈키워드"
+              ],
+              "tip": "표/리스트를 많이 써서 스크롤 체류시간을 늘리세요.",
+              "hookPoint": "“핵심 3가지”처럼 숫자를 넣어 클릭률을 올리기"
+            },
+            "wordpress": {
+              "title": "셀프세탁방: 2025 Complete Guide (Checklist & Tips) (월 2,280)",
+              "alternatives": [
+                "셀프세탁방 Guide: Common Mistakes & Quick Fixes",
+                "셀프세탁방 Step-by-Step: What to Do First"
+              ],
+              "subKeywords": [
+                "셀프세탁방 방법",
+                "셀프세탁방 추천",
+                "셀프세탁방 후기"
+              ],
+              "tags": [
+                "셀프세탁방",
+                "📰 이슈키워드"
+              ],
+              "tip": "H2/H3로 구조를 만들고, FAQ 섹션을 넣어 SEO를 강화하세요.",
+              "hookPoint": "FAQ + 체크리스트 조합으로 체류시간/리치 증가"
+            },
+            "blogspot": {
+              "title": "셀프세탁방 2025: Quick Start + Best Practices (월 2,280)",
+              "alternatives": [
+                "셀프세탁방 Quick Guide: Do & Don't",
+                "셀프세탁방 Essentials: What You Need to Know"
+              ],
+              "subKeywords": [
+                "셀프세탁방 방법",
+                "셀프세탁방 추천",
+                "셀프세탁방 후기"
+              ],
+              "tags": [
+                "셀프세탁방",
+                "📰 이슈키워드"
+              ],
+              "tip": "이미지 2~3장 + 요약 박스를 넣어 가독성을 올리세요.",
+              "hookPoint": "첫 화면에 요약(결론)을 배치해 이탈률을 낮추기"
+            }
+          },
+          "expandedKeywords": {
+            "relatedGolden": [
+              "셀프세탁방 추천",
+              "셀프세탁방 비교",
+              "셀프세탁방 후기",
+              "셀프세탁방 가격"
+            ],
+            "longtailGolden": [
+              "셀프세탁방 초보",
+              "셀프세탁방 쉽게",
+              "셀프세탁방 단계별",
+              "셀프세탁방 정리"
+            ],
+            "blueOceanGolden": [
+              "셀프세탁방 최신",
+              "셀프세탁방 2025",
+              "셀프세탁방 체크리스트",
+              "셀프세탁방 실패하지 않는 법"
+            ]
+          },
+          "type": "📰 이슈키워드",
+          "category": "life_tips",
+          "safetyLevel": "safe",
+          "safetyReason": "✅ 안전한 키워드. 신생 블로거도 작성 가능",
+          "source": "세탁기",
+          "profitAnalysis": {
+            "keyword": "셀프세탁방",
+            "searchVolume": 2280,
+            "documentCount": 11738,
+            "estimatedCPC": 180,
+            "purchaseIntentScore": 30,
+            "competitionLevel": 8,
+            "freshnessOpportunity": 1,
+            "profitGoldenRatio": 2.44,
+            "estimatedDailyRevenue": 43,
+            "estimatedMonthlyRevenue": 1290,
+            "grade": "C",
+            "gradeReason": "⚠️ 경쟁 높음. 틈새 접근 필요",
+            "isRealBlueOcean": false,
+            "blueOceanReason": "📕 경쟁 시장. 차별화 전략 필요",
+            "strategy": {
+              "approach": "⏸️ 보류. 더 좋은 키워드 찾기 추천",
+              "monetization": "📝 트래픽 확보 우선. 이후 관련 고수익 키워드로 내부링크",
+              "timing": "🗓️ 여유있게 준비. 롱테일 전략으로 접근",
+              "titleSuggestion": "셀프세탁방 완벽 가이드 | 초보자도 쉽게 따라하기"
+            }
+          },
+          "timestamp": "2025-12-24T11:01:54.377Z",
+          "isGolden": true,
+          "trendAnalysis": {
+            "trendingReason": "최근 검색 트렌드 급상승 중",
+            "whyNow": "검색 트렌드 상승 중으로 조기 진입 효과 기대",
+            "newsSource": "자동 분석"
+          },
+          "keywordGuide": {
+            "summary": "여유 있을 때 공략하면 좋은 키워드입니다. (등급: B, 점수: 36점)",
+            "whyItMovesNow": "최근 검색 트렌드 급상승 중 검색 트렌드 상승 중으로 조기 진입 효과 기대",
+            "immediateTrafficPlan": [
+              "제목 앞부분에 \"셀프세탁방\"를 배치하고, 2025/최신/정리 같은 보조 키워드를 1개만 추가하세요.",
+              "본문 서두 100자 안에 \"셀프세탁방\"를 자연스럽게 2회 노출하세요.",
+              "최소 1개는 비교/체크리스트/요약 섹션을 넣어 체류시간을 늘리세요."
+            ],
+            "naverHomeExposureTips": [
+              "첫 이미지에 키워드가 들어간 문구를 넣고, alt 텍스트도 키워드 포함",
+              "목차를 만들고 H2/H3에 서브 키워드 배치",
+              "태그는 5~10개로 과도한 반복을 피하고, 유사어를 섞기"
+            ]
+          },
+          "ultimateAnalysis": {
+            "timing": {
+              "seasonal": {
+                "peakMonths": [
+                  1,
+                  2,
+                  3,
+                  4,
+                  5,
+                  6,
+                  7,
+                  8,
+                  9,
+                  10,
+                  11,
+                  12
+                ],
+                "peakReason": "연중 꾸준한 검색량",
+                "currentSeasonScore": 70,
+                "nextPeakDate": "항상",
+                "daysUntilPeak": 0,
+                "recommendation": "📝 에버그린 키워드입니다. 언제든 작성해도 좋습니다.",
+                "seasonalPattern": "evergreen"
+              },
+              "trend": {
+                "trendDirection": "falling",
+                "changeRate": 2,
+                "comparedTo": "전월 대비",
+                "explosiveScore": 3,
+                "relatedNews": [],
+                "recommendation": "📊 안정적인 키워드입니다."
+              },
+              "alert": {
+                "optimalPublishDate": "0일 내",
+                "reason": "📝 에버그린 키워드입니다. 언제든 작성해도 좋습니다.",
+                "urgencyLevel": "⚡ 이번 주",
+                "expectedPeakDate": "항상",
+                "competitorActivity": "경쟁자 많음"
+              }
+            },
+            "revenue": {
+              "cpc": {
+                "estimatedCpc": 100,
+                "cpcRange": {
+                  "min": 50,
+                  "max": 200
+                },
+                "cpcTier": "🥉 저수익",
+                "industryAverage": 100,
+                "recommendation": "📝 일반적인 수익 구조입니다. 트래픽 확보에 집중하세요."
+              },
+              "affiliate": {
+                "recommendedPrograms": [
+                  {
+                    "name": "쿠팡파트너스",
+                    "type": "coupang",
+                    "commissionRate": "3~5%",
+                    "estimatedEarningPerClick": 50,
+                    "matchScore": 100
+                  },
+                  {
+                    "name": "네이버 쇼핑",
+                    "type": "naver",
+                    "commissionRate": "1~3%",
+                    "estimatedEarningPerClick": 30,
+                    "matchScore": 85
+                  }
+                ],
+                "bestMatch": "쿠팡파트너스",
+                "potentialProducts": [
+                  "셀프세탁방 추천",
+                  "셀프세탁방 순위",
+                  "셀프세탁방 비교",
+                  "셀프세탁방 후기",
+                  "셀프세탁방 가격",
+                  "셀프세탁방 구매"
+                ]
+              },
+              "projection": {
+                "estimatedDailyVisitors": 2,
+                "estimatedMonthlyVisitors": 60,
+                "adsenseRevenue": {
+                  "daily": 6,
+                  "monthly": 180,
+                  "assumptions": "CPC 100원, CTR 2%, 페이지뷰율 1.5 가정"
+                },
+                "affiliateRevenue": {
+                  "daily": 0,
+                  "monthly": 0,
+                  "conversionRate": 3,
+                  "assumptions": "클릭률 10%, 전환율 3%, 평균 수수료 50원 가정"
+                },
+                "totalMonthlyRevenue": 180,
+                "revenueBreakdown": "애드센스 100% + 제휴 0%",
+                "revenueTier": "📝 월 1만원+"
+              }
+            },
+            "content": {
+              "titles": {
+                "titles": [
+                  {
+                    "title": "셀프세탁방 추천 TOP 10 (2025년 최신)",
+                    "type": "number",
+                    "estimatedCTR": 8.5,
+                    "psychologyUsed": "숫자 + 최신 정보"
+                  },
+                  {
+                    "title": "셀프세탁방 하는 법, 초보자도 쉽게 따라하기",
+                    "type": "how-to",
+                    "estimatedCTR": 7.5,
+                    "psychologyUsed": "실용성 + 접근성"
+                  },
+                  {
+                    "title": "셀프세탁방, 이것만 알면 끝! 완벽 가이드",
+                    "type": "benefit",
+                    "estimatedCTR": 7.2,
+                    "psychologyUsed": "완결성 + 가치 제안"
+                  },
+                  {
+                    "title": "[2025년] 셀프세탁방 총정리 (+ 꿀팁 공개)",
+                    "type": "news",
+                    "estimatedCTR": 7,
+                    "psychologyUsed": "최신성 + 보너스 가치"
+                  },
+                  {
+                    "title": "아직도 셀프세탁방 몰라요? 지금 당장 확인하세요",
+                    "type": "curiosity",
+                    "estimatedCTR": 6.8,
+                    "psychologyUsed": "호기심 + 긴급성"
+                  },
+                  {
+                    "title": "셀프세탁방 실제 후기 (장단점 솔직 비교)",
+                    "type": "comparison",
+                    "estimatedCTR": 6.5,
+                    "psychologyUsed": "신뢰성 + 비교 심리"
+                  }
+                ],
+                "bestTitle": "셀프세탁방 추천 TOP 10 (2025년 최신)",
+                "titleFormula": "숫자 + 키워드 + 최신연도 + 가치제안"
+              },
+              "structure": {
+                "recommendedStructure": {
+                  "intro": {
+                    "purpose": "독자의 관심 끌기 + 키워드 자연스럽게 배치",
+                    "template": "\"셀프세탁방\"에 대해 고민하고 계신가요? 이 글에서 핵심 정보를 모두 정리해드립니다.",
+                    "keywordPlacement": "첫 문장에 키워드 포함"
+                  },
+                  "sections": [
+                    {
+                      "heading": "셀프세탁방란? (기본 개념)",
+                      "purpose": "기초 정보 제공",
+                      "contentGuide": "핵심 정의, 중요성, 왜 알아야 하는지 설명",
+                      "recommendedLength": 300,
+                      "keywordUsage": "소제목과 본문에 1~2회"
+                    },
+                    {
+                      "heading": "셀프세탁방 추천 BEST 5",
+                      "purpose": "실질적인 가치 제공 (핵심 섹션)",
+                      "contentGuide": "순위별 상세 설명, 장단점, 추천 이유",
+                      "recommendedLength": 800,
+                      "keywordUsage": "각 항목 설명에 자연스럽게 포함"
+                    },
+                    {
+                      "heading": "셀프세탁방 선택 시 주의사항",
+                      "purpose": "신뢰도 향상",
+                      "contentGuide": "흔한 실수, 피해야 할 것, 체크리스트",
+                      "recommendedLength": 400,
+                      "keywordUsage": "주의사항 설명에 1~2회"
+                    },
+                    {
+                      "heading": "자주 묻는 질문 (FAQ)",
+                      "purpose": "SEO 강화 + 체류시간 증가",
+                      "contentGuide": "실제 검색되는 질문 5개 + 명확한 답변",
+                      "recommendedLength": 500,
+                      "keywordUsage": "질문에 롱테일 키워드 활용"
+                    }
+                  ],
+                  "conclusion": {
+                    "purpose": "요약 + CTA",
+                    "template": "지금까지 셀프세탁방에 대해 알아봤습니다. 도움이 되셨다면 공유해주세요!",
+                    "ctaRecommendation": "댓글, 공유, 관련 글 링크 유도"
+                  }
+                },
+                "seoChecklist": [
+                  {
+                    "item": "제목에 키워드 포함",
+                    "importance": "critical",
+                    "howTo": "제목 앞부분에 메인 키워드 배치"
+                  },
+                  {
+                    "item": "첫 문단에 키워드",
+                    "importance": "critical",
+                    "howTo": "첫 100자 내 키워드 자연스럽게 삽입"
+                  },
+                  {
+                    "item": "소제목 H2/H3 활용",
+                    "importance": "high",
+                    "howTo": "3~5개 소제목, 키워드 변형 사용"
+                  },
+                  {
+                    "item": "이미지 ALT 태그",
+                    "importance": "high",
+                    "howTo": "모든 이미지에 키워드 포함 설명"
+                  },
+                  {
+                    "item": "내부링크 2개 이상",
+                    "importance": "medium",
+                    "howTo": "관련 글 자연스럽게 연결"
+                  },
+                  {
+                    "item": "3000자 이상 작성",
+                    "importance": "high",
+                    "howTo": "충분한 깊이의 콘텐츠 제공"
+                  }
+                ],
+                "totalRecommendedLength": 3000,
+                "estimatedWriteTime": 90
+              },
+              "images": {
+                "mainImage": {
+                  "searchKeyword": "셀프세탁방 대표이미지",
+                  "style": "깔끔한 인포그래픽 또는 고화질 사진",
+                  "source": [
+                    "Unsplash",
+                    "Pixabay",
+                    "직접 제작"
+                  ],
+                  "altText": "셀프세탁방 완벽 가이드 대표 이미지"
+                },
+                "sectionImages": [
+                  {
+                    "section": "기본 개념",
+                    "searchKeyword": "셀프세탁방 설명",
+                    "purpose": "이해 돕기",
+                    "style": "다이어그램"
+                  },
+                  {
+                    "section": "TOP 5",
+                    "searchKeyword": "셀프세탁방 비교",
+                    "purpose": "시각적 비교",
+                    "style": "비교표"
+                  },
+                  {
+                    "section": "주의사항",
+                    "searchKeyword": "주의 아이콘",
+                    "purpose": "강조",
+                    "style": "아이콘"
+                  }
+                ],
+                "infographicIdeas": [
+                  "셀프세탁방 선택 가이드 플로우차트",
+                  "셀프세탁방 TOP 5 비교표",
+                  "셀프세탁방 체크리스트"
+                ],
+                "totalRecommendedImages": 7,
+                "imageStrategy": "섹션당 1~2개, 총 7~10개 이미지로 가독성과 체류시간 향상"
+              }
+            },
+            "ultimateScore": {
+              "total": 34,
+              "breakdown": {
+                "goldenRatio": 1.9424092690407224,
+                "timing": 70,
+                "revenue": 40,
+                "competition": 40,
+                "potential": 38
+              },
+              "grade": "📝 C",
+              "verdict": "⚠️ 신중히 검토 필요",
+              "topActions": [
+                "0일 내 작성 권장",
+                "셀프세탁방 추천 TOP 10 (2025년 최신)",
+                "3000자 이상, 7개 이미지 권장"
+              ]
+            }
+          },
+          "highlightReason": "✅ ANYTIME/stable | 폭발 65 | 구매의도 30 | 월 1,290원⚠️ | 경쟁도 8"
+        }
+      ],
+      "attempts": 1,
+      "durationMs": 132969
+    }
+  ]
+}

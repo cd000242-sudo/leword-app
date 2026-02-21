@@ -1,0 +1,54 @@
+{
+  "generatedAt": "2025-12-27T00:34:37.154Z",
+  "mode": "category",
+  "explosionMode": true,
+  "count": 5,
+  "timeoutMs": 240000,
+  "retries": 0,
+  "results": [
+    {
+      "success": false,
+      "category": "business",
+      "runIndex": 1,
+      "mode": "category",
+      "explosionMode": true,
+      "count": 5,
+      "error": "timeout",
+      "attempts": 1,
+      "durationMs": 240178
+    },
+    {
+      "success": false,
+      "category": "self_development",
+      "runIndex": 1,
+      "mode": "category",
+      "explosionMode": true,
+      "count": 5,
+      "error": "timeout",
+      "attempts": 1,
+      "durationMs": 240302
+    },
+    {
+      "success": false,
+      "category": "celeb",
+      "runIndex": 1,
+      "mode": "category",
+      "explosionMode": true,
+      "count": 5,
+      "error": "timeout",
+      "attempts": 1,
+      "durationMs": 240614
+    },
+    {
+      "success": false,
+      "category": "fashion",
+      "runIndex": 1,
+      "mode": "category",
+      "explosionMode": true,
+      "count": 5,
+      "error": "timeout",
+      "attempts": 1,
+      "durationMs": 240600
+    }
+  ]
+}

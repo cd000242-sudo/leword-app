@@ -1,0 +1,45 @@
+{
+  "generatedAt": "2025-12-24T03:44:55.692Z",
+  "mode": "category",
+  "explosionMode": true,
+  "count": 10,
+  "timeoutMs": 120000,
+  "retries": 0,
+  "results": [
+    {
+      "success": false,
+      "category": "it",
+      "mode": "category",
+      "explosionMode": true,
+      "count": 10,
+      "summary": {
+        "totalFound": 0,
+        "sssCount": 0,
+        "ssCount": 0,
+        "sCount": 0,
+        "rookieFriendlyCount": 0,
+        "urgentCount": 0,
+        "blueOceanCount": 0,
+        "explosionFunnel": {
+          "candidates": 40,
+          "verified": 40,
+          "svOk": 5,
+          "ratioOk": 5,
+          "scoreOk": 1,
+          "signalOk": 9,
+          "strictOk": 0,
+          "topByExplosion": [
+            "멍스타그램 | ex=90 sv=200 dc=63631 gr=0.0031431220631453222 src=인스타(25) ANYTIME/stable",
+            "모니터 추천 용도별 2025 | ex=70 sv=20 dc=266 gr=0.07518796992481203 src=seed(0) TODAY/stable",
+            "2025 모니터 추천 용도별 | ex=70 sv=20 dc=266 gr=0.07518796992481203 src=seed(0) TODAY/stable",
+            "2025 사무용 노트북 비교 | ex=70 sv=20 dc=2549 gr=0.007846214201647704 src=seed(0) TODAY/stable",
+            "사무용 노트북 비교 2025 | ex=70 sv=20 dc=2549 gr=0.007846214201647704 src=seed(0) TODAY/stable"
+          ]
+        }
+      },
+      "keywords": [],
+      "attempts": 1,
+      "durationMs": 107647
+    }
+  ]
+}

@@ -1,0 +1,53 @@
+{
+  "generatedAt": "2025-12-24T15:58:41.904Z",
+  "mode": "category",
+  "explosionMode": true,
+  "count": 10,
+  "timeoutMs": 420000,
+  "retries": 0,
+  "results": [
+    {
+      "success": false,
+      "category": "celeb",
+      "mode": "category",
+      "explosionMode": true,
+      "count": 10,
+      "summary": {
+        "totalFound": 0,
+        "sssCount": 0,
+        "ssCount": 0,
+        "sCount": 0,
+        "rookieFriendlyCount": 0,
+        "urgentCount": 0,
+        "blueOceanCount": 0,
+        "explosionFunnel": {
+          "candidates": 1,
+          "verified": 1,
+          "gradeOk": 0,
+          "ratioOk": 0,
+          "docOk": 1,
+          "svOk": 1,
+          "strictOk": 0,
+          "minSv": 30,
+          "internalMetrics": {
+            "seedCount": 84,
+            "allKeywordsCount": 1240,
+            "profitableCount": 862,
+            "uniqueKeywordsCount": 861,
+            "sortedResultsCount": 858,
+            "verifiedResultsCount": 120,
+            "searchAdEnabled": true,
+            "searchAdAdded": 638,
+            "autocompleteAdded": 528
+          },
+          "topByExplosion": [
+            "반려견 굿즈 | grade=B gr=0.004221747275653711 sv=160 dc=37899 src=인스타(25) ex=87"
+          ]
+        }
+      },
+      "keywords": [],
+      "attempts": 1,
+      "durationMs": 251688
+    }
+  ]
+}

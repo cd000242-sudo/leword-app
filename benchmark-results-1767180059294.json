@@ -1,0 +1,81 @@
+{
+  "results": [
+    {
+      "iteration": 1,
+      "timestamp": "2025-12-31T11:12:57.327Z",
+      "keywords": [
+        {
+          "keyword": "키작진",
+          "grade": "SSS",
+          "searchVolume": 1020,
+          "documentCount": 210,
+          "goldenRatio": 4.857142857142857
+        }
+      ],
+      "stats": {
+        "sssCount": 1,
+        "ssCount": 0,
+        "sCount": 0,
+        "avgGoldenRatio": 4.86,
+        "maxGoldenRatio": 4.86
+      }
+    },
+    {
+      "iteration": 2,
+      "timestamp": "2025-12-31T11:14:51.010Z",
+      "keywords": [],
+      "stats": {
+        "sssCount": 0,
+        "ssCount": 0,
+        "sCount": 0,
+        "avgGoldenRatio": 0,
+        "maxGoldenRatio": 0
+      }
+    },
+    {
+      "iteration": 3,
+      "timestamp": "2025-12-31T11:16:48.179Z",
+      "keywords": [],
+      "stats": {
+        "sssCount": 0,
+        "ssCount": 0,
+        "sCount": 0,
+        "avgGoldenRatio": 0,
+        "maxGoldenRatio": 0
+      }
+    },
+    {
+      "iteration": 4,
+      "timestamp": "2025-12-31T11:18:46.222Z",
+      "keywords": [],
+      "stats": {
+        "sssCount": 0,
+        "ssCount": 0,
+        "sCount": 0,
+        "avgGoldenRatio": 0,
+        "maxGoldenRatio": 0
+      }
+    },
+    {
+      "iteration": 5,
+      "timestamp": "2025-12-31T11:20:59.291Z",
+      "keywords": [],
+      "stats": {
+        "sssCount": 0,
+        "ssCount": 0,
+        "sCount": 0,
+        "avgGoldenRatio": 0,
+        "maxGoldenRatio": 0
+      }
+    }
+  ],
+  "summary": {
+    "totalSss": 1,
+    "totalKeywords": 50,
+    "sssRate": 2,
+    "allSssKeywords": [
+      "키작진"
+    ],
+    "score": 2
+  }
+}

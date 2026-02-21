@@ -1,0 +1,915 @@
+{
+  "generatedAt": "2025-12-27T09:29:18.322Z",
+  "mode": "category",
+  "explosionMode": true,
+  "count": 5,
+  "timeoutMs": 240000,
+  "retries": 0,
+  "results": [
+    {
+      "success": true,
+      "category": "business",
+      "runIndex": 1,
+      "mode": "category",
+      "explosionMode": true,
+      "count": 5,
+      "summary": {
+        "totalFound": 5,
+        "sssCount": 2,
+        "ssCount": 1,
+        "sCount": 2,
+        "rookieFriendlyCount": 0,
+        "urgentCount": 2,
+        "blueOceanCount": 2,
+        "explosionFunnel": {
+          "candidates": 15,
+          "verified": 15,
+          "gradeOk": 5,
+          "ratioOk": 6,
+          "docOk": 7,
+          "svOk": 15,
+          "strictOk": 5,
+          "minSv": 500,
+          "internalMetrics": {
+            "seedCount": 130,
+            "allKeywordsCount": 506,
+            "profitableCount": 268,
+            "uniqueKeywordsCount": 226,
+            "sortedResultsCount": 216,
+            "verifiedResultsCount": 3,
+            "searchAdEnabled": true,
+            "searchAdAdded": 321,
+            "autocompleteAdded": 68
+          },
+          "topByExplosion": [
+            "4대보험계산기 | grade=SS gr=7.341344348479159 sv=117300 dc=15978 src=category_fallback(0) ex=65",
+            "연말정산 모의계산 | grade=SSS gr=4.765863119977833 sv=34400 dc=7218 src=연말정산(0) ex=134",
+            "연말정산모의계산 | grade=SSS gr=4.765863119977833 sv=34400 dc=7218 src=연말정산(0) ex=134",
+            "걷기지원금 | grade=S gr=0.8826922311945583 sv=22190 dc=25139 src=category_fallback(0) ex=85",
+            "종합소득세중간예납 | grade=S gr=0.5232181425485961 sv=9690 dc=18520 src=세무기장(0) ex=65"
+          ]
+        }
+      },
+      "keywords": [
+        {
+          "keyword": "4대보험계산기",
+          "grade": "SS",
+          "searchVolume": 117300,
+          "documentCount": 15978,
+          "goldenRatio": 7.341344348479159,
+          "source": "category_fallback"
+        },
+        {
+          "keyword": "연말정산 모의계산",
+          "grade": "SSS",
+          "searchVolume": 34400,
+          "documentCount": 7218,
+          "goldenRatio": 4.765863119977833,
+          "source": "연말정산"
+        },
+        {
+          "keyword": "연말정산모의계산",
+          "grade": "SSS",
+          "searchVolume": 34400,
+          "documentCount": 7218,
+          "goldenRatio": 4.765863119977833,
+          "source": "연말정산"
+        },
+        {
+          "keyword": "걷기지원금",
+          "grade": "S",
+          "searchVolume": 22190,
+          "documentCount": 25139,
+          "goldenRatio": 0.8826922311945583,
+          "source": "category_fallback"
+        },
+        {
+          "keyword": "종합소득세중간예납",
+          "grade": "S",
+          "searchVolume": 9690,
+          "documentCount": 18520,
+          "goldenRatio": 0.5232181425485961,
+          "source": "세무기장"
+        }
+      ],
+      "attempts": 1,
+      "durationMs": 198710
+    },
+    {
+      "success": true,
+      "category": "business",
+      "runIndex": 2,
+      "mode": "category",
+      "explosionMode": true,
+      "count": 5,
+      "summary": {
+        "totalFound": 5,
+        "sssCount": 2,
+        "ssCount": 2,
+        "sCount": 1,
+        "rookieFriendlyCount": 0,
+        "urgentCount": 2,
+        "blueOceanCount": 2,
+        "explosionFunnel": {
+          "candidates": 14,
+          "verified": 14,
+          "gradeOk": 5,
+          "ratioOk": 6,
+          "docOk": 6,
+          "svOk": 14,
+          "strictOk": 5,
+          "minSv": 500,
+          "internalMetrics": {
+            "seedCount": 130,
+            "allKeywordsCount": 504,
+            "profitableCount": 226,
+            "uniqueKeywordsCount": 197,
+            "sortedResultsCount": 188,
+            "verifiedResultsCount": 4,
+            "searchAdEnabled": true,
+            "searchAdAdded": 312,
+            "autocompleteAdded": 75
+          },
+          "topByExplosion": [
+            "4대보험계산기 | grade=SS gr=7.341344348479159 sv=117300 dc=15978 src=category_fallback(0) ex=65",
+            "연말정산 모의계산 | grade=SSS gr=4.765863119977833 sv=34400 dc=7218 src=연말정산(0) ex=134",
+            "연말정산모의계산 | grade=SSS gr=4.765863119977833 sv=34400 dc=7218 src=연말정산(0) ex=134",
+            "상표등록조회 | grade=S gr=0.7410784850142866 sv=12190 dc=16449 src=상표등록(0) ex=65",
+            "종합소득세중간예납 | grade=S gr=0.5232181425485961 sv=9690 dc=18520 src=세무기장(0) ex=65"
+          ]
+        }
+      },
+      "keywords": [
+        {
+          "keyword": "4대보험계산기",
+          "grade": "SS",
+          "searchVolume": 117300,
+          "documentCount": 15978,
+          "goldenRatio": 7.341344348479159,
+          "source": "category_fallback"
+        },
+        {
+          "keyword": "연말정산 모의계산",
+          "grade": "SSS",
+          "searchVolume": 34400,
+          "documentCount": 7218,
+          "goldenRatio": 4.765863119977833,
+          "source": "연말정산"
+        },
+        {
+          "keyword": "연말정산모의계산",
+          "grade": "SSS",
+          "searchVolume": 34400,
+          "documentCount": 7218,
+          "goldenRatio": 4.765863119977833,
+          "source": "연말정산"
+        },
+        {
+          "keyword": "상표등록조회",
+          "grade": "SS",
+          "searchVolume": 12190,
+          "documentCount": 16449,
+          "goldenRatio": 0.7410784850142866,
+          "source": "상표등록"
+        },
+        {
+          "keyword": "종합소득세중간예납",
+          "grade": "S",
+          "searchVolume": 9690,
+          "documentCount": 18520,
+          "goldenRatio": 0.5232181425485961,
+          "source": "세무기장"
+        }
+      ],
+      "attempts": 1,
+      "durationMs": 196328
+    },
+    {
+      "success": true,
+      "category": "business",
+      "runIndex": 3,
+      "mode": "category",
+      "explosionMode": true,
+      "count": 5,
+      "summary": {
+        "totalFound": 4,
+        "sssCount": 0,
+        "ssCount": 2,
+        "sCount": 2,
+        "rookieFriendlyCount": 0,
+        "urgentCount": 0,
+        "blueOceanCount": 0,
+        "explosionFunnel": {
+          "candidates": 15,
+          "verified": 15,
+          "gradeOk": 4,
+          "ratioOk": 4,
+          "docOk": 6,
+          "svOk": 15,
+          "strictOk": 4,
+          "minSv": 30,
+          "internalMetrics": {
+            "seedCount": 130,
+            "allKeywordsCount": 473,
+            "profitableCount": 215,
+            "uniqueKeywordsCount": 210,
+            "sortedResultsCount": 204,
+            "verifiedResultsCount": 1,
+            "searchAdEnabled": true,
+            "searchAdAdded": 281,
+            "autocompleteAdded": 76
+          },
+          "topByExplosion": [
+            "4대보험계산기 | grade=SS gr=7.341344348479159 sv=117300 dc=15978 src=category_fallback(0) ex=65",
+            "걷기지원금 | grade=S gr=0.8826922311945583 sv=22190 dc=25139 src=category_fallback(0) ex=85",
+            "상표등록조회 | grade=S gr=0.7410784850142866 sv=12190 dc=16449 src=상표등록(0) ex=65",
+            "세무사시험 | grade=S gr=0.36280527621783987 sv=13890 dc=38285 src=category_fallback(0) ex=65",
+            "청년창업지원금 | grade=B gr=0.2847011560219726 sv=13890 dc=48788 src=지원금(0) ex=85"
+          ]
+        }
+      },
+      "keywords": [
+        {
+          "keyword": "4대보험계산기",
+          "grade": "SS",
+          "searchVolume": 117300,
+          "documentCount": 15978,
+          "goldenRatio": 7.341344348479159,
+          "source": "category_fallback"
+        },
+        {
+          "keyword": "걷기지원금",
+          "grade": "S",
+          "searchVolume": 22190,
+          "documentCount": 25139,
+          "goldenRatio": 0.8826922311945583,
+          "source": "category_fallback"
+        },
+        {
+          "keyword": "상표등록조회",
+          "grade": "SS",
+          "searchVolume": 12190,
+          "documentCount": 16449,
+          "goldenRatio": 0.7410784850142866,
+          "source": "상표등록"
+        },
+        {
+          "keyword": "세무사시험",
+          "grade": "S",
+          "searchVolume": 13890,
+          "documentCount": 38285,
+          "goldenRatio": 0.36280527621783987,
+          "source": "category_fallback"
+        }
+      ],
+      "attempts": 1,
+      "durationMs": 199985
+    },
+    {
+      "success": true,
+      "category": "self_development",
+      "runIndex": 1,
+      "mode": "category",
+      "explosionMode": true,
+      "count": 5,
+      "summary": {
+        "totalFound": 1,
+        "sssCount": 0,
+        "ssCount": 0,
+        "sCount": 1,
+        "rookieFriendlyCount": 0,
+        "urgentCount": 0,
+        "blueOceanCount": 0,
+        "explosionFunnel": {
+          "candidates": 1,
+          "verified": 1,
+          "gradeOk": 1,
+          "ratioOk": 1,
+          "docOk": 1,
+          "svOk": 1,
+          "strictOk": 1,
+          "minSv": 30,
+          "internalMetrics": {
+            "seedCount": 170,
+            "allKeywordsCount": 209,
+            "profitableCount": 118,
+            "uniqueKeywordsCount": 118,
+            "sortedResultsCount": 114,
+            "verifiedResultsCount": 0,
+            "searchAdEnabled": true,
+            "searchAdAdded": 0,
+            "autocompleteAdded": 39
+          },
+          "topByExplosion": [
+            "인프런 | grade=S gr=1.463176719232645 sv=36000 dc=24604 src=category_fallback(0) ex=65"
+          ]
+        }
+      },
+      "keywords": [
+        {
+          "keyword": "인프런",
+          "grade": "S",
+          "searchVolume": 36000,
+          "documentCount": 24604,
+          "goldenRatio": 1.463176719232645,
+          "source": "category_fallback"
+        }
+      ],
+      "attempts": 1,
+      "durationMs": 175443
+    },
+    {
+      "success": true,
+      "category": "self_development",
+      "runIndex": 2,
+      "mode": "category",
+      "explosionMode": true,
+      "count": 5,
+      "summary": {
+        "totalFound": 1,
+        "sssCount": 0,
+        "ssCount": 0,
+        "sCount": 1,
+        "rookieFriendlyCount": 0,
+        "urgentCount": 0,
+        "blueOceanCount": 0,
+        "explosionFunnel": {
+          "candidates": 1,
+          "verified": 1,
+          "gradeOk": 1,
+          "ratioOk": 1,
+          "docOk": 1,
+          "svOk": 1,
+          "strictOk": 1,
+          "minSv": 30,
+          "internalMetrics": {
+            "seedCount": 170,
+            "allKeywordsCount": 293,
+            "profitableCount": 123,
+            "uniqueKeywordsCount": 123,
+            "sortedResultsCount": 118,
+            "verifiedResultsCount": 0,
+            "searchAdEnabled": true,
+            "searchAdAdded": 87,
+            "autocompleteAdded": 39
+          },
+          "topByExplosion": [
+            "인프런 | grade=S gr=1.463176719232645 sv=36000 dc=24604 src=category_fallback(0) ex=65"
+          ]
+        }
+      },
+      "keywords": [
+        {
+          "keyword": "인프런",
+          "grade": "S",
+          "searchVolume": 36000,
+          "documentCount": 24604,
+          "goldenRatio": 1.463176719232645,
+          "source": "category_fallback"
+        }
+      ],
+      "attempts": 1,
+      "durationMs": 183597
+    },
+    {
+      "success": true,
+      "category": "self_development",
+      "runIndex": 3,
+      "mode": "category",
+      "explosionMode": true,
+      "count": 5,
+      "summary": {
+        "totalFound": 1,
+        "sssCount": 0,
+        "ssCount": 0,
+        "sCount": 1,
+        "rookieFriendlyCount": 0,
+        "urgentCount": 0,
+        "blueOceanCount": 0,
+        "explosionFunnel": {
+          "candidates": 1,
+          "verified": 1,
+          "gradeOk": 1,
+          "ratioOk": 1,
+          "docOk": 1,
+          "svOk": 1,
+          "strictOk": 1,
+          "minSv": 30,
+          "internalMetrics": {
+            "seedCount": 170,
+            "allKeywordsCount": 210,
+            "profitableCount": 108,
+            "uniqueKeywordsCount": 108,
+            "sortedResultsCount": 104,
+            "verifiedResultsCount": 0,
+            "searchAdEnabled": true,
+            "searchAdAdded": 5,
+            "autocompleteAdded": 36
+          },
+          "topByExplosion": [
+            "인프런 | grade=S gr=1.463176719232645 sv=36000 dc=24604 src=category_fallback(0) ex=65"
+          ]
+        }
+      },
+      "keywords": [
+        {
+          "keyword": "인프런",
+          "grade": "S",
+          "searchVolume": 36000,
+          "documentCount": 24604,
+          "goldenRatio": 1.463176719232645,
+          "source": "category_fallback"
+        }
+      ],
+      "attempts": 1,
+      "durationMs": 167753
+    },
+    {
+      "success": true,
+      "category": "celeb",
+      "runIndex": 1,
+      "mode": "category",
+      "explosionMode": true,
+      "count": 5,
+      "summary": {
+        "totalFound": 5,
+        "sssCount": 0,
+        "ssCount": 2,
+        "sCount": 3,
+        "rookieFriendlyCount": 0,
+        "urgentCount": 0,
+        "blueOceanCount": 0,
+        "explosionFunnel": {
+          "candidates": 7,
+          "verified": 7,
+          "gradeOk": 5,
+          "ratioOk": 5,
+          "docOk": 7,
+          "svOk": 7,
+          "strictOk": 5,
+          "minSv": 500,
+          "internalMetrics": {
+            "seedCount": 140,
+            "allKeywordsCount": 435,
+            "profitableCount": 97,
+            "uniqueKeywordsCount": 88,
+            "sortedResultsCount": 87,
+            "verifiedResultsCount": 5,
+            "searchAdEnabled": true,
+            "searchAdAdded": 243,
+            "autocompleteAdded": 59
+          },
+          "topByExplosion": [
+            "도경수콘서트 | grade=S gr=0.741207247359752 sv=7650 dc=10321 src=공연 예매(0) ex=65",
+            "악동뮤지션콘서트 | grade=S gr=0.6422413793103449 sv=4470 dc=6960 src=티켓팅(0) ex=65",
+            "에일리콘서트 | grade=A gr=0.46471044467425027 sv=7190 dc=15472 src=공연 예매(0) ex=65",
+            "SG워너비콘서트 | grade=A gr=0.42129327237099934 sv=5160 dc=12248 src=티켓팅(0) ex=65",
+            "성시경콘서트티켓 | grade=A gr=0.37751303052866714 sv=5070 dc=13430 src=티켓팅(0) ex=65"
+          ]
+        }
+      },
+      "keywords": [
+        {
+          "keyword": "도경수콘서트",
+          "grade": "SS",
+          "searchVolume": 7650,
+          "documentCount": 10321,
+          "goldenRatio": 0.741207247359752,
+          "source": "공연 예매"
+        },
+        {
+          "keyword": "악동뮤지션콘서트",
+          "grade": "SS",
+          "searchVolume": 4470,
+          "documentCount": 6960,
+          "goldenRatio": 0.6422413793103449,
+          "source": "티켓팅"
+        },
+        {
+          "keyword": "에일리콘서트",
+          "grade": "S",
+          "searchVolume": 7190,
+          "documentCount": 15472,
+          "goldenRatio": 0.46471044467425027,
+          "source": "공연 예매"
+        },
+        {
+          "keyword": "SG워너비콘서트",
+          "grade": "S",
+          "searchVolume": 5160,
+          "documentCount": 12248,
+          "goldenRatio": 0.42129327237099934,
+          "source": "티켓팅"
+        },
+        {
+          "keyword": "성시경콘서트티켓",
+          "grade": "S",
+          "searchVolume": 5070,
+          "documentCount": 13430,
+          "goldenRatio": 0.37751303052866714,
+          "source": "티켓팅"
+        }
+      ],
+      "attempts": 1,
+      "durationMs": 70256
+    },
+    {
+      "success": false,
+      "category": "celeb",
+      "runIndex": 2,
+      "mode": "category",
+      "explosionMode": true,
+      "count": 5,
+      "summary": {
+        "totalFound": 0,
+        "sssCount": 0,
+        "ssCount": 0,
+        "sCount": 0,
+        "rookieFriendlyCount": 0,
+        "urgentCount": 0,
+        "blueOceanCount": 0,
+        "explosionFunnel": {
+          "candidates": 0,
+          "verified": 0,
+          "gradeOk": 0,
+          "ratioOk": 0,
+          "docOk": 0,
+          "svOk": 0,
+          "strictOk": 0,
+          "minSv": 30,
+          "internalMetrics": {
+            "seedCount": 140,
+            "allKeywordsCount": 376,
+            "profitableCount": 66,
+            "uniqueKeywordsCount": 66,
+            "sortedResultsCount": 66,
+            "verifiedResultsCount": 0,
+            "searchAdEnabled": true,
+            "searchAdAdded": 170,
+            "autocompleteAdded": 72
+          },
+          "topByExplosion": []
+        }
+      },
+      "keywords": [],
+      "attempts": 1,
+      "durationMs": 101361
+    },
+    {
+      "success": true,
+      "category": "celeb",
+      "runIndex": 3,
+      "mode": "category",
+      "explosionMode": true,
+      "count": 5,
+      "summary": {
+        "totalFound": 5,
+        "sssCount": 0,
+        "ssCount": 2,
+        "sCount": 3,
+        "rookieFriendlyCount": 0,
+        "urgentCount": 0,
+        "blueOceanCount": 0,
+        "explosionFunnel": {
+          "candidates": 7,
+          "verified": 7,
+          "gradeOk": 5,
+          "ratioOk": 5,
+          "docOk": 7,
+          "svOk": 7,
+          "strictOk": 5,
+          "minSv": 500,
+          "internalMetrics": {
+            "seedCount": 140,
+            "allKeywordsCount": 485,
+            "profitableCount": 99,
+            "uniqueKeywordsCount": 85,
+            "sortedResultsCount": 84,
+            "verifiedResultsCount": 5,
+            "searchAdEnabled": true,
+            "searchAdAdded": 282,
+            "autocompleteAdded": 69
+          },
+          "topByExplosion": [
+            "도경수콘서트 | grade=S gr=0.7412790697674418 sv=7650 dc=10320 src=티켓팅(0) ex=65",
+            "악동뮤지션콘서트 | grade=S gr=0.6422413793103449 sv=4470 dc=6960 src=공연 티켓(0) ex=65",
+            "에일리콘서트 | grade=A gr=0.46471044467425027 sv=7190 dc=15472 src=티켓팅(0) ex=65",
+            "SG워너비콘서트 | grade=A gr=0.42129327237099934 sv=5160 dc=12248 src=티켓팅(0) ex=65",
+            "성시경콘서트티켓 | grade=A gr=0.37751303052866714 sv=5070 dc=13430 src=티켓팅(0) ex=65"
+          ]
+        }
+      },
+      "keywords": [
+        {
+          "keyword": "도경수콘서트",
+          "grade": "SS",
+          "searchVolume": 7650,
+          "documentCount": 10320,
+          "goldenRatio": 0.7412790697674418,
+          "source": "티켓팅"
+        },
+        {
+          "keyword": "악동뮤지션콘서트",
+          "grade": "SS",
+          "searchVolume": 4470,
+          "documentCount": 6960,
+          "goldenRatio": 0.6422413793103449,
+          "source": "공연 티켓"
+        },
+        {
+          "keyword": "에일리콘서트",
+          "grade": "S",
+          "searchVolume": 7190,
+          "documentCount": 15472,
+          "goldenRatio": 0.46471044467425027,
+          "source": "티켓팅"
+        },
+        {
+          "keyword": "SG워너비콘서트",
+          "grade": "S",
+          "searchVolume": 5160,
+          "documentCount": 12248,
+          "goldenRatio": 0.42129327237099934,
+          "source": "티켓팅"
+        },
+        {
+          "keyword": "성시경콘서트티켓",
+          "grade": "S",
+          "searchVolume": 5070,
+          "documentCount": 13430,
+          "goldenRatio": 0.37751303052866714,
+          "source": "티켓팅"
+        }
+      ],
+      "attempts": 1,
+      "durationMs": 73265
+    },
+    {
+      "success": true,
+      "category": "fashion",
+      "runIndex": 1,
+      "mode": "category",
+      "explosionMode": true,
+      "count": 5,
+      "summary": {
+        "totalFound": 5,
+        "sssCount": 5,
+        "ssCount": 0,
+        "sCount": 0,
+        "rookieFriendlyCount": 2,
+        "urgentCount": 0,
+        "blueOceanCount": 3,
+        "explosionFunnel": {
+          "candidates": 5,
+          "verified": 5,
+          "gradeOk": 5,
+          "ratioOk": 5,
+          "docOk": 5,
+          "svOk": 5,
+          "strictOk": 5,
+          "minSv": 500,
+          "internalMetrics": {
+            "seedCount": 130,
+            "allKeywordsCount": 398,
+            "profitableCount": 76,
+            "uniqueKeywordsCount": 76,
+            "sortedResultsCount": 73,
+            "verifiedResultsCount": 5,
+            "searchAdEnabled": true,
+            "searchAdAdded": 206,
+            "autocompleteAdded": 69
+          },
+          "topByExplosion": [
+            "패션플러스 | grade=SSS gr=53.61875637104995 sv=368200 dc=6867 src=인스타(25) ex=106",
+            "코디너리 | grade=SSS gr=6.113207547169812 sv=4860 dc=795 src=인스타(25) ex=106",
+            "패션풀 | grade=SSS gr=2.6089997668454186 sv=11190 dc=4289 src=인스타(25) ex=106",
+            "남자옷쇼핑몰 | grade=SS gr=1.3848777714610574 sv=12180 dc=8795 src=인스타(25) ex=106",
+            "상견례옷차림 | grade=SS gr=1.3750907393964533 sv=13260 dc=9643 src=인스타(25) ex=106"
+          ]
+        }
+      },
+      "keywords": [
+        {
+          "keyword": "패션플러스",
+          "grade": "SSS",
+          "searchVolume": 368200,
+          "documentCount": 6867,
+          "goldenRatio": 53.61875637104995,
+          "source": "인스타"
+        },
+        {
+          "keyword": "코디너리",
+          "grade": "SSS",
+          "searchVolume": 4860,
+          "documentCount": 795,
+          "goldenRatio": 6.113207547169812,
+          "source": "인스타"
+        },
+        {
+          "keyword": "패션풀",
+          "grade": "SSS",
+          "searchVolume": 11190,
+          "documentCount": 4289,
+          "goldenRatio": 2.6089997668454186,
+          "source": "인스타"
+        },
+        {
+          "keyword": "남자옷쇼핑몰",
+          "grade": "SSS",
+          "searchVolume": 12180,
+          "documentCount": 8795,
+          "goldenRatio": 1.3848777714610574,
+          "source": "인스타"
+        },
+        {
+          "keyword": "상견례옷차림",
+          "grade": "SSS",
+          "searchVolume": 13260,
+          "documentCount": 9643,
+          "goldenRatio": 1.3750907393964533,
+          "source": "인스타"
+        }
+      ],
+      "attempts": 1,
+      "durationMs": 57497
+    },
+    {
+      "success": true,
+      "category": "fashion",
+      "runIndex": 2,
+      "mode": "category",
+      "explosionMode": true,
+      "count": 5,
+      "summary": {
+        "totalFound": 5,
+        "sssCount": 5,
+        "ssCount": 0,
+        "sCount": 0,
+        "rookieFriendlyCount": 2,
+        "urgentCount": 0,
+        "blueOceanCount": 3,
+        "explosionFunnel": {
+          "candidates": 5,
+          "verified": 5,
+          "gradeOk": 5,
+          "ratioOk": 5,
+          "docOk": 5,
+          "svOk": 5,
+          "strictOk": 5,
+          "minSv": 500,
+          "internalMetrics": {
+            "seedCount": 130,
+            "allKeywordsCount": 544,
+            "profitableCount": 95,
+            "uniqueKeywordsCount": 91,
+            "sortedResultsCount": 87,
+            "verifiedResultsCount": 5,
+            "searchAdEnabled": true,
+            "searchAdAdded": 350,
+            "autocompleteAdded": 75
+          },
+          "topByExplosion": [
+            "패션플러스 | grade=SSS gr=53.61875637104995 sv=368200 dc=6867 src=인스타(25) ex=106",
+            "코디너리 | grade=SSS gr=6.113207547169812 sv=4860 dc=795 src=인스타(25) ex=106",
+            "패션풀 | grade=SSS gr=2.6089997668454186 sv=11190 dc=4289 src=인스타(25) ex=106",
+            "남자옷쇼핑몰 | grade=SS gr=1.3848777714610574 sv=12180 dc=8795 src=인스타(25) ex=106",
+            "상견례옷차림 | grade=SS gr=1.3750907393964533 sv=13260 dc=9643 src=인스타(25) ex=106"
+          ]
+        }
+      },
+      "keywords": [
+        {
+          "keyword": "패션플러스",
+          "grade": "SSS",
+          "searchVolume": 368200,
+          "documentCount": 6867,
+          "goldenRatio": 53.61875637104995,
+          "source": "인스타"
+        },
+        {
+          "keyword": "코디너리",
+          "grade": "SSS",
+          "searchVolume": 4860,
+          "documentCount": 795,
+          "goldenRatio": 6.113207547169812,
+          "source": "인스타"
+        },
+        {
+          "keyword": "패션풀",
+          "grade": "SSS",
+          "searchVolume": 11190,
+          "documentCount": 4289,
+          "goldenRatio": 2.6089997668454186,
+          "source": "인스타"
+        },
+        {
+          "keyword": "남자옷쇼핑몰",
+          "grade": "SSS",
+          "searchVolume": 12180,
+          "documentCount": 8795,
+          "goldenRatio": 1.3848777714610574,
+          "source": "인스타"
+        },
+        {
+          "keyword": "상견례옷차림",
+          "grade": "SSS",
+          "searchVolume": 13260,
+          "documentCount": 9643,
+          "goldenRatio": 1.3750907393964533,
+          "source": "인스타"
+        }
+      ],
+      "attempts": 1,
+      "durationMs": 63770
+    },
+    {
+      "success": true,
+      "category": "fashion",
+      "runIndex": 3,
+      "mode": "category",
+      "explosionMode": true,
+      "count": 5,
+      "summary": {
+        "totalFound": 5,
+        "sssCount": 5,
+        "ssCount": 0,
+        "sCount": 0,
+        "rookieFriendlyCount": 2,
+        "urgentCount": 0,
+        "blueOceanCount": 3,
+        "explosionFunnel": {
+          "candidates": 5,
+          "verified": 5,
+          "gradeOk": 5,
+          "ratioOk": 5,
+          "docOk": 5,
+          "svOk": 5,
+          "strictOk": 5,
+          "minSv": 500,
+          "internalMetrics": {
+            "seedCount": 130,
+            "allKeywordsCount": 444,
+            "profitableCount": 88,
+            "uniqueKeywordsCount": 87,
+            "sortedResultsCount": 84,
+            "verifiedResultsCount": 5,
+            "searchAdEnabled": true,
+            "searchAdAdded": 250,
+            "autocompleteAdded": 73
+          },
+          "topByExplosion": [
+            "패션플러스 | grade=SSS gr=53.61875637104995 sv=368200 dc=6867 src=인스타(25) ex=106",
+            "코디너리 | grade=SSS gr=6.113207547169812 sv=4860 dc=795 src=인스타(25) ex=106",
+            "패션풀 | grade=SSS gr=2.6089997668454186 sv=11190 dc=4289 src=인스타(25) ex=106",
+            "남자옷쇼핑몰 | grade=SS gr=1.3848777714610574 sv=12180 dc=8795 src=인스타(25) ex=106",
+            "상견례옷차림 | grade=SS gr=1.3750907393964533 sv=13260 dc=9643 src=인스타(25) ex=106"
+          ]
+        }
+      },
+      "keywords": [
+        {
+          "keyword": "패션플러스",
+          "grade": "SSS",
+          "searchVolume": 368200,
+          "documentCount": 6867,
+          "goldenRatio": 53.61875637104995,
+          "source": "인스타"
+        },
+        {
+          "keyword": "코디너리",
+          "grade": "SSS",
+          "searchVolume": 4860,
+          "documentCount": 795,
+          "goldenRatio": 6.113207547169812,
+          "source": "인스타"
+        },
+        {
+          "keyword": "패션풀",
+          "grade": "SSS",
+          "searchVolume": 11190,
+          "documentCount": 4289,
+          "goldenRatio": 2.6089997668454186,
+          "source": "인스타"
+        },
+        {
+          "keyword": "남자옷쇼핑몰",
+          "grade": "SSS",
+          "searchVolume": 12180,
+          "documentCount": 8795,
+          "goldenRatio": 1.3848777714610574,
+          "source": "인스타"
+        },
+        {
+          "keyword": "상견례옷차림",
+          "grade": "SSS",
+          "searchVolume": 13260,
+          "documentCount": 9643,
+          "goldenRatio": 1.3750907393964533,
+          "source": "인스타"
+        }
+      ],
+      "attempts": 1,
+      "durationMs": 60226
+    }
+  ]
+}

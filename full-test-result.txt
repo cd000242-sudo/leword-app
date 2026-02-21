@@ -1,0 +1,336 @@
+﻿
+========== Instant Niche Finder FINAL 테스트 ==========
+
+[ENV] 일반 환경 경로 사용: C:\Users\박성현\AppData\Roaming
+[ENV] Config 파일 경로: C:\Users\박성현\AppData\Roaming\config.json
+[ENV] 사용자 데이터 디렉토리 .env 파일에서 설정 로드: C:\Users\박성현\AppData\Roaming\blogger-gpt-cli\.env
+[ENV] ✅ config.json 파일 내용 로드 성공: {
+  filePath: 'C:\\Users\\박성현\\AppData\\Roaming\\config.json',
+  fileSize: 1117,
+  hasSearchAdLicense: true,
+  hasSearchAdSecret: true,
+  hasSearchAdCustomerId: true,
+  licenseLength: 74,
+  secretLength: 52,
+  customerIdLength: 7,
+  customerIdValue: '3992868',
+  allKeys: [
+    'openaiApiKey',
+    'geminiApiKey',
+    'pexelsApiKey',
+    'dalleApiKey',
+    'naverClientId',
+    'naverClientSecret',
+    'naverSearchAdAccessLicense',
+    'naverSearchAdSecretKey',
+    'naverSearchAdCustomerId',
+    'googleApiKey',
+    'googleCseId',
+    'youtubeApiKey',
+    'massCrawlingEnabled',
+    'maxConcurrentRequests',
+    'maxResultsPerSource',
+    'enableFullContentCrawling'
+  ]
+}
+[ENV] ✅ config.json에서 설정 로드 완료: C:\Users\박성현\AppData\Roaming\config.json
+[ENV] ✅ 최종 설정 상태: {
+  naverClientId: '✅ (20자)',
+  naverClientSecret: '✅ (10자)',
+  youtubeApiKey: '✅ (39자)',
+  naverSearchAdAccessLicense: '✅ (74자)',
+  naverSearchAdSecretKey: '✅ (52자)',
+  naverSearchAdCustomerId: '✅ (7자) [3992868]',
+  source: 'config.json'
+}
+[INSTANT-FINAL] 1단계: 키워드 수집...
+[INSTANT-FINAL] 수집: 96개
+[INSTANT-FINAL] 2단계: API로 메트릭 조회...
+[NAVER-VOLUME] ✅ 블로그 검색 API "민생지원금 3차": 문서수=6383
+[NAVER-VOLUME] ✅ 검색광고 API "민생지원금3차" (원본: "민생지원금 3차"): PC=10100, 모바일=108600
+[NAVER-VOLUME] ✅ 검색광고 API "민생지원금" (원본: "민생지원금"): PC=0, 모바일=10
+[NAVER-VOLUME] ✅ 블로그 검색 API "민생지원금": 문서수=274037
+[NAVER-VOLUME] ✅ 블로그 검색 API "민생지원금 사용기간": 문서수=55900
+[NAVER-VOLUME] ✅ 블로그 검색 API "청년지원금": 문서수=365654
+[NAVER-VOLUME] ✅ 검색광고 API "청년지원금" (원본: "청년지원금"): PC=7660, 모바일=29900
+[NAVER-VOLUME] ✅ 검색광고 API "청년지원금신청" (원본: "청년지원금 신청"): PC=640, 모바일=4180
+[NAVER-VOLUME] ✅ 블로그 검색 API "청년지원금 신청": 문서수=241971
+[NAVER-VOLUME] ✅ 검색광고 API "청년지원금경기도" (원본: "청년지원금 경기도"): PC=180, 모바일=890
+[NAVER-VOLUME] ✅ 블로그 검색 API "청년지원금 경기도": 문서수=41005
+[NAVER-VOLUME] ✅ 검색광고 API "출산지원금" (원본: "출산지원금"): PC=2830, 모바일=13200
+[NAVER-VOLUME] ✅ 블로그 검색 API "출산지원금": 문서수=190870
+[NAVER-VOLUME] ✅ 검색광고 API "출산지원금폐지" (원본: "출산지원금 폐지"): PC=180, 모바일=2140
+[NAVER-VOLUME] ✅ 블로그 검색 API "출산지원금 폐지": 문서수=12316
+[NAVER-VOLUME] ✅ 블로그 검색 API "출산지원금 1억": 문서수=13919
+[NAVER-VOLUME] ✅ 검색광고 API "출산지원금순위" (원본: "출산지원금 순위"): PC=20, 모바일=30
+[NAVER-VOLUME] ✅ 블로그 검색 API "출산지원금 순위": 문서수=12419
+[NAVER-VOLUME] ✅ 블로그 검색 API "소상공인 지원금": 문서수=396745
+[NAVER-VOLUME] ✅ 검색광고 API "소상공인지원금" (원본: "소상공인 지원금"): PC=11700, 모바일=60300
+[NAVER-VOLUME] ✅ 검색광고 API "2026년소상공인지원금" (원본: "2026년 소상공인 지원금"): PC=430, 모바일=1560
+[NAVER-VOLUME] ✅ 블로그 검색 API "2026년 소상공인 지원금": 문서수=8352
+[NAVER-VOLUME] ✅ 검색광고 API "2026소상공인지원금" (원본: "2026 소상공인 지원금"): PC=400, 모바일=2110
+[NAVER-VOLUME] ✅ 블로그 검색 API "2026 소상공인 지원금": 문서수=8935
+[NAVER-VOLUME] ✅ 검색광고 API "긴급지원금" (원본: "긴급지원금"): PC=100, 모바일=600
+[NAVER-VOLUME] ✅ 블로그 검색 API "긴급지원금": 문서수=277213
+[NAVER-VOLUME] ✅ 검색광고 API "긴급지원금지급일" (원본: "긴급지원금 지급일"): PC=0, 모바일=50
+[NAVER-VOLUME] ✅ 블로그 검색 API "긴급지원금 지급일": 문서수=5133
+[NAVER-VOLUME] ✅ 검색광고 API "긴급지원금2차" (원본: "긴급지원금 2차"): PC=0, 모바일=30
+[NAVER-VOLUME] ✅ 블로그 검색 API "긴급지원금 2차": 문서수=37247
+[NAVER-VOLUME] ✅ 검색광고 API "청년수당" (원본: "청년수당"): PC=2140, 모바일=4980
+[NAVER-VOLUME] ✅ 블로그 검색 API "청년수당": 문서수=190816
+[NAVER-VOLUME] ✅ 검색광고 API "청년수당서울" (원본: "청년수당 서울"): PC=230, 모바일=1000
+[NAVER-VOLUME] ✅ 블로그 검색 API "청년수당 서울": 문서수=47555
+[NAVER-VOLUME] ✅ 검색광고 API "청년수당경기도" (원본: "청년수당 경기도"): PC=100, 모바일=680
+[NAVER-VOLUME] ✅ 블로그 검색 API "청년수당 경기도": 문서수=24036
+[NAVER-VOLUME] ✅ 블로그 검색 API "국민취업지원제도": 문서수=275378
+[NAVER-VOLUME] ✅ 검색광고 API "국민취업지원제도" (원본: "국민취업지원제도"): PC=28500, 모바일=83100
+[NAVER-VOLUME] ✅ 블로그 검색 API "국민취업지원제도 신청": 문서수=1055125
+[NAVER-VOLUME] ✅ 블로그 검색 API "국민취업지원제도 1유형": 문서수=352025
+[NAVER-VOLUME] ✅ 블로그 검색 API "실업급여조건": 문서수=124644
+[NAVER-VOLUME] ✅ 검색광고 API "실업급여조건" (원본: "실업급여조건"): PC=35500, 모바일=143700
+[NAVER-VOLUME] ✅ 검색광고 API "실업급여금액" (원본: "실업급여 금액"): PC=9170, 모바일=45800
+[NAVER-VOLUME] ✅ 블로그 검색 API "실업급여 금액": 문서수=110664
+[NAVER-VOLUME] ✅ 검색광고 API "실업급여계산기" (원본: "실업급여 계산기"): PC=46400, 모바일=136800
+[NAVER-VOLUME] ✅ 블로그 검색 API "실업급여 계산기": 문서수=11015
+[NAVER-VOLUME] ✅ 검색광고 API "주거지원금" (원본: "주거지원금"): PC=120, 모바일=790
+[NAVER-VOLUME] ✅ 블로그 검색 API "주거지원금": 문서수=148991
+[NAVER-VOLUME] ✅ 검색광고 API "주거지원금신청" (원본: "주거지원금 신청"): PC=0, 모바일=50
+[NAVER-VOLUME] ✅ 블로그 검색 API "주거지원금 신청": 문서수=97568
+[NAVER-VOLUME] ✅ 검색광고 API "주거지원금금액" (원본: "주거지원금 금액"): PC=0, 모바일=10
+[NAVER-VOLUME] ✅ 블로그 검색 API "주거지원금 금액": 문서수=72623
+[NAVER-VOLUME] ✅ 검색광고 API "로봇청소기추천순위" (원본: "로봇청소기 추천 순위"): PC=270, 모바일=990
+[NAVER-VOLUME] ✅ 블로그 검색 API "로봇청소기 추천 순위": 문서수=7101
+[NAVER-VOLUME] ✅ 블로그 검색 API "로봇청소기 추천": 문서수=186104
+[NAVER-VOLUME] ✅ 검색광고 API "로봇청소기추천" (원본: "로봇청소기 추천"): PC=3210, 모바일=12200
+[NAVER-VOLUME] ✅ 검색광고 API "로봇청소기추천비교" (원본: "로봇청소기 추천 비교"): PC=30, 모바일=180
+[NAVER-VOLUME] ✅ 블로그 검색 API "로봇청소기 추천 비교": 문서수=48137
+[NAVER-VOLUME] ✅ 검색광고 API "로봇청소기추천가성비" (원본: "로봇청소기 추천 가성비"): PC=0, 모바일=10
+[NAVER-VOLUME] ✅ 블로그 검색 API "로봇청소기 추천 가성비": 문서수=47554
+[NAVER-VOLUME] ✅ 블로그 검색 API "에어프라이어 추천": 문서수=515086
+[NAVER-VOLUME] ✅ 검색광고 API "에어프라이어추천" (원본: "에어프라이어 추천"): PC=2690, 모바일=14400
+[NAVER-VOLUME] ✅ 검색광고 API "에어프라이어추천내돈내산" (원본: "에어프라이어 추천 내돈내산"): PC=90, 모바일=340
+[NAVER-VOLUME] ✅ 블로그 검색 API "에어프라이어 추천 내돈내산": 문서수=46315
+[NAVER-VOLUME] ✅ 검색광고 API "에어프라이어추천요리" (원본: "에어프라이어 추천 요리"): PC=30, 모바일=160
+[NAVER-VOLUME] ✅ 블로그 검색 API "에어프라이어 추천 요리": 문서수=196213
+[NAVER-VOLUME] ✅ 블로그 검색 API "에어프라이어 추천 가성비": 문서수=80662
+[NAVER-VOLUME] ✅ 검색광고 API "에어프라이어추천가성비" (원본: "에어프라이어 추천 가성비"): PC=0, 모바일=40
+[NAVER-VOLUME] ✅ 검색광고 API "에어프라이어추천순위" (원본: "에어프라이어 추천 순위"): PC=0, 모바일=30
+[NAVER-VOLUME] ✅ 블로그 검색 API "에어프라이어 추천 순위": 문서수=9041
+[NAVER-VOLUME] ✅ 블로그 검색 API "무선청소기 추천": 문서수=196097
+[NAVER-VOLUME] ✅ 검색광고 API "무선청소기추천" (원본: "무선청소기 추천"): PC=3680, 모바일=16500
+[NAVER-VOLUME] ✅ 검색광고 API "무선청소기추천가성비" (원본: "무선청소기 추천 가성비"): PC=50, 모바일=180
+[NAVER-VOLUME] ✅ 블로그 검색 API "무선청소기 추천 가성비": 문서수=68673
+[NAVER-VOLUME] ✅ 검색광고 API "무선청소기추천내돈내산" (원본: "무선청소기 추천 내돈내산"): PC=40, 모바일=140
+[NAVER-VOLUME] ✅ 블로그 검색 API "무선청소기 추천 내돈내산": 문서수=11858
+[NAVER-VOLUME] ✅ 검색광고 API "무선청소기추천순위" (원본: "무선 청소기 추천 순위"): PC=30, 모바일=70
+[NAVER-VOLUME] ✅ 블로그 검색 API "무선 청소기 추천 순위": 문서수=7829
+[NAVER-VOLUME] ✅ 검색광고 API "로보락" (원본: "로보락"): PC=26400, 모바일=106600
+[NAVER-VOLUME] ✅ 블로그 검색 API "로보락": 문서수=84103
+[NAVER-VOLUME] ✅ 검색광고 API "로보락로봇청소기" (원본: "로보락 로봇청소기"): PC=5620, 모바일=39800
+[NAVER-VOLUME] ✅ 블로그 검색 API "로보락 로봇청소기": 문서수=62831
+[NAVER-VOLUME] ✅ 검색광고 API "로보락s9maxvultra" (원본: "로보락 s9 maxv ultra"): PC=9570, 모바일=56100
+[NAVER-VOLUME] ✅ 블로그 검색 API "로보락 s9 maxv ultra": 문서수=8688
+[NAVER-VOLUME] ✅ 검색광고 API "로보락추천" (원본: "로보락 추천"): PC=120, 모바일=390
+[NAVER-VOLUME] ✅ 블로그 검색 API "로보락 추천": 문서수=31654
+[NAVER-VOLUME] ✅ 검색광고 API "로보락추천순위" (원본: "로보락 추천 순위"): PC=0, 모바일=40
+[NAVER-VOLUME] ✅ 블로그 검색 API "로보락 추천 순위": 문서수=1463
+[NAVER-VOLUME] ✅ 검색광고 API "로보락가성비모델" (원본: "로보락 가성비 모델"): PC=20, 모바일=80
+[NAVER-VOLUME] ✅ 블로그 검색 API "로보락 가성비 모델": 문서수=6559
+[NAVER-VOLUME] ✅ 검색광고 API "다이슨v15오리진" (원본: "다이슨 v15 오리진"): PC=190, 모바일=1370
+[NAVER-VOLUME] ✅ 블로그 검색 API "다이슨 v15 오리진": 문서수=575
+[NAVER-VOLUME] ✅ 검색광고 API "다이슨v15디텍트" (원본: "다이슨 v15 디텍트"): PC=90, 모바일=410
+[NAVER-VOLUME] ✅ 블로그 검색 API "다이슨 v15 디텍트": 문서수=1181
+[NAVER-VOLUME] ✅ 검색광고 API "다이슨V15" (원본: "다이슨 V15"): PC=760, 모바일=3360
+[NAVER-VOLUME] ✅ 블로그 검색 API "다이슨 V15": 문서수=4050
+[NAVER-VOLUME] ✅ 검색광고 API "LG코드제로A9" (원본: "LG 코드제로 A9"): PC=1000, 모바일=5740
+[NAVER-VOLUME] ✅ 블로그 검색 API "LG 코드제로 A9": 문서수=25813
+[NAVER-VOLUME] ✅ 검색광고 API "LG코드제로A9무선청소기" (원본: "LG 코드제로 A9 무선청소기"): PC=70, 모바일=540
+[NAVER-VOLUME] ✅ 블로그 검색 API "LG 코드제로 A9 무선청소기": 문서수=43546
+[NAVER-VOLUME] ✅ 검색광고 API "lg코드제로a9배터리" (원본: "lg 코드제로 a9 배터리"): PC=130, 모바일=700
+[NAVER-VOLUME] ✅ 블로그 검색 API "lg 코드제로 a9 배터리": 문서수=9231
+[NAVER-VOLUME] ✅ 검색광고 API "삼성비스포크제트" (원본: "삼성 비스포크 제트"): PC=250, 모바일=610
+[NAVER-VOLUME] ✅ 블로그 검색 API "삼성 비스포크 제트": 문서수=27405
+[NAVER-VOLUME] ✅ 검색광고 API "삼성비스포크제트봇" (원본: "삼성 비스포크 제트봇"): PC=30, 모바일=250
+[NAVER-VOLUME] ✅ 블로그 검색 API "삼성 비스포크 제트봇": 문서수=5670
+[NAVER-VOLUME] ✅ 검색광고 API "삼성비스포크제트청소기" (원본: "삼성 비스포크 제트 청소기"): PC=120, 모바일=920
+[NAVER-VOLUME] ✅ 블로그 검색 API "삼성 비스포크 제트 청소기": 문서수=21305
+[NAVER-VOLUME] ✅ 블로그 검색 API "아이폰16프로": 문서수=169354
+[NAVER-VOLUME] ✅ 검색광고 API "아이폰16프로" (원본: "아이폰16프로"): PC=12200, 모바일=78600
+[NAVER-VOLUME] ✅ 검색광고 API "아이폰16e" (원본: "아이폰16e"): PC=6180, 모바일=29700
+[NAVER-VOLUME] ✅ 블로그 검색 API "아이폰16e": 문서수=11536
+[NAVER-VOLUME] ✅ 검색광고 API "아이폰16" (원본: "아이폰16"): PC=13200, 모바일=90100
+[NAVER-VOLUME] ✅ 블로그 검색 API "아이폰16": 문서수=521156
+[NAVER-VOLUME] ✅ 검색광고 API "갤럭시s24" (원본: "갤럭시 s24"): PC=8730, 모바일=35700
+[NAVER-VOLUME] ✅ 블로그 검색 API "갤럭시 s24": 문서수=169472
+[NAVER-VOLUME] ✅ 검색광고 API "갤럭시s24울트라" (원본: "갤럭시 s24 울트라"): PC=3770, 모바일=18700
+[NAVER-VOLUME] ✅ 블로그 검색 API "갤럭시 s24 울트라": 문서수=79608
+[NAVER-VOLUME] ✅ 검색광고 API "갤럭시s24플러스" (원본: "갤럭시 s24 플러스"): PC=1590, 모바일=9210
+[NAVER-VOLUME] ✅ 블로그 검색 API "갤럭시 s24 플러스": 문서수=47725
+[NAVER-VOLUME] ✅ 검색광고 API "맥북m3" (원본: "맥북 m3"): PC=250, 모바일=490
+[NAVER-VOLUME] ✅ 블로그 검색 API "맥북 m3": 문서수=19795
+[NAVER-VOLUME] ✅ 검색광고 API "맥북m3에어" (원본: "맥북 m3 에어"): PC=60, 모바일=180
+[NAVER-VOLUME] ✅ 블로그 검색 API "맥북 m3 에어": 문서수=12596
+[NAVER-VOLUME] ✅ 검색광고 API "맥북m3프로" (원본: "맥북 m3 프로"): PC=60, 모바일=160
+[NAVER-VOLUME] ✅ 블로그 검색 API "맥북 m3 프로": 문서수=14299
+[NAVER-VOLUME] ✅ 검색광고 API "아이패드프로" (원본: "아이패드 프로"): PC=13700, 모바일=36300
+[NAVER-VOLUME] ✅ 블로그 검색 API "아이패드 프로": 문서수=446158
+[NAVER-VOLUME] ✅ 검색광고 API "아이패드프로11" (원본: "아이패드 프로 11"): PC=2570, 모바일=11800
+[NAVER-VOLUME] ✅ 블로그 검색 API "아이패드 프로 11": 문서수=122340
+[NAVER-VOLUME] ✅ 검색광고 API "아이패드프로m5" (원본: "아이패드 프로 m5"): PC=1910, 모바일=7890
+[NAVER-VOLUME] ✅ 블로그 검색 API "아이패드 프로 m5": 문서수=4043
+[NAVER-VOLUME] ✅ 검색광고 API "아이패드프로추천" (원본: "아이패드 프로 추천"): PC=20, 모바일=100
+[NAVER-VOLUME] ✅ 블로그 검색 API "아이패드 프로 추천": 문서수=125331
+[NAVER-VOLUME] ✅ 블로그 검색 API "아이패드 프로 추천 앱": 문서수=27778
+[NAVER-VOLUME] ✅ 검색광고 API "청년도약계좌" (원본: "청년도약계좌"): PC=51800, 모바일=237100
+[NAVER-VOLUME] ✅ 블로그 검색 API "청년도약계좌": 문서수=81443
+[NAVER-VOLUME] ✅ 검색광고 API "청년도약계좌조건" (원본: "청년도약계좌 조건"): PC=5790, 모바일=25800
+[NAVER-VOLUME] ✅ 블로그 검색 API "청년도약계좌 조건": 문서수=46066
+[NAVER-VOLUME] ✅ 검색광고 API "청년도약계좌신청기간" (원본: "청년도약계좌 신청기간"): PC=2490, 모바일=10100
+[NAVER-VOLUME] ✅ 블로그 검색 API "청년도약계좌 신청기간": 문서수=163529
+[NAVER-VOLUME] ✅ 블로그 검색 API "청년도약계좌 추천 은행": 문서수=77919
+[NAVER-VOLUME] ✅ 블로그 검색 API "청년도약계좌 추천 금액": 문서수=80520
+[NAVER-VOLUME] ✅ 검색광고 API "청년희망적금" (원본: "청년희망적금"): PC=5030, 모바일=22400
+[NAVER-VOLUME] ✅ 블로그 검색 API "청년희망적금": 문서수=74576
+[NAVER-VOLUME] ✅ 검색광고 API "청년희망적금2026" (원본: "청년희망적금 2026"): PC=940, 모바일=4630
+[NAVER-VOLUME] ✅ 블로그 검색 API "청년희망적금 2026": 문서수=2375
+[NAVER-VOLUME] ✅ 검색광고 API "청년희망적금신청" (원본: "청년희망적금 신청"): PC=140, 모바일=520
+[NAVER-VOLUME] ✅ 블로그 검색 API "청년희망적금 신청": 문서수=43279
+[NAVER-VOLUME] ✅ 검색광고 API "주택청약1순위" (원본: "주택청약 1순위"): PC=100, 모바일=230
+[NAVER-VOLUME] ✅ 블로그 검색 API "주택청약 1순위": 문서수=461890
+[NAVER-VOLUME] ✅ 검색광고 API "주택청약1순위조건" (원본: "주택청약 1순위 조건"): PC=1750, 모바일=8550
+[NAVER-VOLUME] ✅ 블로그 검색 API "주택청약 1순위 조건": 문서수=1067604
+[NAVER-VOLUME] ✅ 검색광고 API "주택청약1순위조건금액" (원본: "주택청약 1순위 조건 금액"): PC=20, 모바일=100
+[NAVER-VOLUME] ✅ 블로그 검색 API "주택청약 1순위 조건 금액": 문서수=548692
+[NAVER-VOLUME] ✅ 블로그 검색 API "ISA 계좌": 문서수=181057
+[NAVER-VOLUME] ✅ 검색광고 API "ISA계좌" (원본: "ISA 계좌"): PC=67500, 모바일=299600
+[NAVER-VOLUME] ✅ 검색광고 API "ISA계좌개설" (원본: "ISA 계좌 개설"): PC=22000, 모바일=110100
+[NAVER-VOLUME] ✅ 블로그 검색 API "ISA 계좌 개설": 문서수=43005
+[NAVER-VOLUME] ✅ 검색광고 API "ISA계좌단점" (원본: "ISA 계좌 단점"): PC=0, 모바일=1020
+[NAVER-VOLUME] ✅ 블로그 검색 API "ISA 계좌 단점": 문서수=19660
+[NAVER-VOLUME] ✅ 검색광고 API "ISA계좌추천" (원본: "ISA 계좌 추천"): PC=5810, 모바일=16700
+[NAVER-VOLUME] ✅ 블로그 검색 API "ISA 계좌 추천": 문서수=42320
+[NAVER-VOLUME] ✅ 검색광고 API "ISA계좌추천증권사" (원본: "ISA 계좌 추천 증권사"): PC=700, 모바일=1680
+[NAVER-VOLUME] ✅ 블로그 검색 API "ISA 계좌 추천 증권사": 문서수=14386
+[NAVER-VOLUME] ✅ 검색광고 API "연말정산미리보기" (원본: "연말정산미리보기"): PC=140100, 모바일=121000
+[NAVER-VOLUME] ✅ 블로그 검색 API "연말정산미리보기": 문서수=51372
+[NAVER-VOLUME] ✅ 블로그 검색 API "연말정산기간": 문서수=251638
+[NAVER-VOLUME] ✅ 검색광고 API "연말정산기간" (원본: "연말정산기간"): PC=34400, 모바일=106100
+[NAVER-VOLUME] ✅ 블로그 검색 API "연말정산 환급금 조회": 문서수=26873
+[NAVER-VOLUME] ✅ 검색광고 API "연말정산환급금조회" (원본: "연말정산 환급금 조회"): PC=12000, 모바일=27500
+[NAVER-VOLUME] ✅ 검색광고 API "명절선물세트" (원본: "명절선물세트"): PC=1030, 모바일=2010
+[NAVER-VOLUME] ✅ 블로그 검색 API "명절선물세트": 문서수=553342
+[NAVER-VOLUME] ✅ 검색광고 API "명절선물" (원본: "명절선물"): PC=4810, 모바일=2640
+[NAVER-VOLUME] ✅ 블로그 검색 API "명절선물": 문서수=1904850
+[NAVER-VOLUME] ✅ 검색광고 API "명절선물세트순위" (원본: "명절선물세트 순위"): PC=80, 모바일=200
+[NAVER-VOLUME] ✅ 블로그 검색 API "명절선물세트 순위": 문서수=9459
+[NAVER-VOLUME] ✅ 블로그 검색 API "명절선물 추천": 문서수=709889
+[NAVER-VOLUME] ✅ 검색광고 API "명절선물추천" (원본: "명절선물 추천"): PC=80, 모바일=190
+[NAVER-VOLUME] ✅ 검색광고 API "졸업선물추천" (원본: "졸업선물 추천"): PC=430, 모바일=4360
+[NAVER-VOLUME] ✅ 블로그 검색 API "졸업선물 추천": 문서수=50897
+[NAVER-VOLUME] ✅ 검색광고 API "졸업선물추천선생님" (원본: "졸업선물 추천 선생님"): PC=0, 모바일=10
+[NAVER-VOLUME] ✅ 블로그 검색 API "졸업선물 추천 선생님": 문서수=53841
+[NAVER-VOLUME] ✅ 검색광고 API "초등졸업선물추천" (원본: "초등 졸업선물 추천"): PC=80, 모바일=990
+[NAVER-VOLUME] ✅ 블로그 검색 API "초등 졸업선물 추천": 문서수=6547
+[INSTANT-FINAL] 3단계: 틈새 분석...
+[INSTANT-FINAL] ✅ 완료: 20개 틈새 키워드 (61253ms)
+
+🎯 20개 틈새 키워드 발굴!
+
+   총 발견: 96개
+   메트릭 조회: 96개
+   틈새 필터: 38개
+   소요시간: 61253ms
+
+
+💰 진짜 돈 되는 키워드 (월 5천원 이상): 8개
+
+━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━
+1. 💰 "민생지원금 3차"
+   💰 황금 키워드! 빠르게 선점하세요
+
+   📊 검색량: 118,700  |  문서수: 6,383
+   🟠 난이도: medium (5/10)
+   💵 월 예상 수익: 111,281원
+
+   📝 추천 제목:
+   "민생지원금 3차 조건 및 대상자 완벽 가이드"
+
+━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━
+2. 💰 "실업급여 계산기"
+   💰 황금 키워드! 빠르게 선점하세요
+
+   📊 검색량: 183,200  |  문서수: 11,015
+   🟠 난이도: medium (5/10)
+   💵 월 예상 수익: 137,400원
+
+   📝 추천 제목:
+   "실업급여 계산기 알아야 할 모든 것"
+
+━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━
+3. 💰 "로보락 s9 maxv ultra"
+   💰 황금 키워드! 빠르게 선점하세요
+
+   📊 검색량: 65,670  |  문서수: 8,688
+   🟠 난이도: medium (5/10)
+   💵 월 예상 수익: 82,088원
+
+   📝 추천 제목:
+   "2026 로보락 s9 maxv ultra 가성비 BEST 총정리"
+
+━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━
+4. 🏠 "청년희망적금 2026"
+   ✨ 진입 추천! 2주 내 상위노출 가능
+
+   📊 검색량: 5,570  |  문서수: 2,375
+   🟡 난이도: easy (3/10)
+   💵 월 예상 수익: 5,222원
+
+   📝 추천 제목:
+   "청년희망적금 2026 신청방법 총정리 (2026 최신)"
+
+━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━
+5. 💰 "아이폰16e"
+   💰 황금 키워드! 빠르게 선점하세요
+
+   📊 검색량: 35,880  |  문서수: 11,536
+   🟠 난이도: medium (5/10)
+   💵 월 예상 수익: 56,063원
+
+   📝 추천 제목:
+   "아이폰16e vs 경쟁작 비교 (솔직 후기)"
+
+━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━
+6. 💰 "ISA 계좌 개설"
+   💰 황금 키워드! 빠르게 선점하세요
+
+   📊 검색량: 132,100  |  문서수: 43,005
+   🔴 난이도: hard (7/10)
+   💵 월 예상 수익: 99,075원
+
+   📝 추천 제목:
+   "ISA 계좌 개설 완벽 정리 (2026 최신)"
+
+━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━
+7. 💰 "아이패드 프로 m5"
+   💰 황금 키워드! 빠르게 선점하세요
+
+   📊 검색량: 9,800  |  문서수: 4,043
+   🟡 난이도: easy (3/10)
+   💵 월 예상 수익: 15,313원
+
+   📝 추천 제목:
+   "2026 아이패드 프로 m5 이 가격에 이 스펙?"
+
+━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━
+8. 🌊 "연말정산 환급금 조회"
+   🔍 롱테일 키워드 확장 후 작성 추천
+
+   📊 검색량: 39,500  |  문서수: 26,873
+   🔴 난이도: hard (7/10)
+   💵 월 예상 수익: 17,775원
+
+   📝 추천 제목:
+   "연말정산 환급금 조회 조건 및 대상자 완벽 가이드"
+
+========== 테스트 완료 ==========
+

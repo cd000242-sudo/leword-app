@@ -1,0 +1,98 @@
+{
+  "name": "leword",
+  "version": "1.0.2",
+  "description": "LEWORD - 키워드 마스터 독립 앱",
+  "main": "dist/main.js",
+  "scripts": {
+    "build": "tsc && tsc -p tsconfig.electron.json",
+    "start": "set ELECTRON_RUN_AS_NODE=&& electron .",
+    "dev": "ts-node src/main.ts",
+    "test:crawler": "ts-node test-crawler.ts",
+    "test:pro:runner": "node -r ts-node/register scripts/pro-hunter-runner.ts",
+    "prepare-dist": "node scripts/prepare-dist.js",
+    "postinstall": "node scripts/download-chromium.js",
+    "dist": "npm run prepare-dist && npm run build && electron-builder",
+    "dist:win": "npm run prepare-dist && npm run build && electron-builder --win",
+    "dist:mac": "npm run prepare-dist && npm run build && electron-builder --mac"
+  },
+  "keywords": [
+    "keyword",
+    "master",
+    "leword",
+    "electron"
+  ],
+  "author": "",
+  "license": "ISC",
+  "dependencies": {
+    "@anthropic-ai/sdk": "^0.39.0",
+    "@google/generative-ai": "^0.24.1",
+    "axios": "^1.13.0",
+    "cheerio": "^1.1.2",
+    "dayjs": "^1.11.18",
+    "dotenv": "^16.3.1",
+    "electron-store": "^11.0.2",
+    "googleapis": "^164.1.0",
+    "iconv-lite": "^0.7.0",
+    "puppeteer": "^21.5.0",
+    "puppeteer-extra": "^3.3.6",
+    "puppeteer-extra-plugin-stealth": "^2.11.2",
+    "xlsx": "^0.18.5"
+  },
+  "devDependencies": {
+    "@anthropic-ai/sdk": "^0.39.0",
+    "@types/node": "^20.10.0",
+    "electron": "^28.0.0",
+    "electron-builder": "^24.9.1",
+    "ts-node": "^10.9.2",
+    "typescript": "^5.3.3"
+  },
+  "build": {
+    "appId": "com.leword.app",
+    "productName": "LEWORD",
+    "directories": {
+      "output": "release"
+    },
+    "files": [
+      "dist/**/*",
+      "ui/**/*",
+      "package.json"
+    ],
+    "win": {
+      "target": [
+        {
+          "target": "nsis",
+          "arch": [
+            "x64"
+          ]
+        },
+        {
+          "target": "portable",
+          "arch": [
+            "x64"
+          ]
+        },
+        {
+          "target": "zip",
+          "arch": [
+            "x64"
+          ]
+        }
+      ],
+      "icon": "assets/256.ico"
+    },
+    "nsis": {
+      "oneClick": false,
+      "allowToChangeInstallationDirectory": true,
+      "createDesktopShortcut": true,
+      "createStartMenuShortcut": true,
+      "shortcutName": "LEWORD 키워드마스터"
+    },
+    "portable": {
+      "artifactName": "LEWORD-Portable-${version}.exe"
+    },
+    "mac": {
+      "target": "dmg",
+      "icon": "assets/icon.icns"
+    }
+  }
+}

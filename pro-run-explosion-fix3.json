@@ -1,0 +1,159 @@
+{
+  "generatedAt": "2025-12-25T09:01:42.077Z",
+  "mode": "category",
+  "explosionMode": true,
+  "count": 5,
+  "timeoutMs": 240000,
+  "retries": 0,
+  "results": [
+    {
+      "success": false,
+      "category": "drama",
+      "runIndex": 1,
+      "mode": "category",
+      "explosionMode": true,
+      "count": 5,
+      "summary": {
+        "totalFound": 0,
+        "sssCount": 0,
+        "ssCount": 0,
+        "sCount": 0,
+        "rookieFriendlyCount": 0,
+        "urgentCount": 0,
+        "blueOceanCount": 0,
+        "explosionFunnel": {
+          "candidates": 5,
+          "verified": 5,
+          "gradeOk": 0,
+          "ratioOk": 0,
+          "docOk": 2,
+          "svOk": 3,
+          "strictOk": 0,
+          "minSv": 30,
+          "internalMetrics": {
+            "seedCount": 138,
+            "allKeywordsCount": 1709,
+            "profitableCount": 15,
+            "uniqueKeywordsCount": 15,
+            "sortedResultsCount": 15,
+            "verifiedResultsCount": 1,
+            "searchAdEnabled": true,
+            "searchAdAdded": 751,
+            "autocompleteAdded": 831
+          },
+          "topByExplosion": [
+            "드라마 방법 결말 | grade=B gr=0.001666796306379385 sv=150 dc=89993 src=방법(0) ex=46",
+            "방법 드라마 시즌2 | grade=B gr=0.0012812299807815502 sv=50 dc=39025 src=방법(0) ex=40",
+            "방법 드라마 결말 | grade=C gr=0.0006667259311938839 sv=60 dc=89992 src=방법(0) ex=40",
+            "방법 드라마 시청률 | grade=B gr=0.00041889203057911826 sv=20 dc=47745 src=방법(0) ex=40",
+            "방법 드라마 해석 | grade=C gr=0.00017153099993996414 sv=20 dc=116597 src=방법(0) ex=40"
+          ]
+        }
+      },
+      "keywords": [],
+      "attempts": 1,
+      "durationMs": 42117
+    },
+    {
+      "success": true,
+      "category": "realestate",
+      "runIndex": 1,
+      "mode": "category",
+      "explosionMode": true,
+      "count": 5,
+      "summary": {
+        "totalFound": 1,
+        "sssCount": 0,
+        "ssCount": 1,
+        "sCount": 0,
+        "rookieFriendlyCount": 0,
+        "urgentCount": 0,
+        "blueOceanCount": 0,
+        "explosionFunnel": {
+          "candidates": 16,
+          "verified": 16,
+          "gradeOk": 1,
+          "ratioOk": 1,
+          "docOk": 7,
+          "svOk": 9,
+          "strictOk": 1,
+          "minSv": 30,
+          "internalMetrics": {
+            "seedCount": 148,
+            "allKeywordsCount": 1156,
+            "profitableCount": 28,
+            "uniqueKeywordsCount": 28,
+            "sortedResultsCount": 27,
+            "verifiedResultsCount": 8,
+            "searchAdEnabled": true,
+            "searchAdAdded": 156,
+            "autocompleteAdded": 860
+          },
+          "topByExplosion": [
+            "청약점수 계산기 | grade=S gr=0.8278344331133773 sv=4140 dc=5001 src=seed(0) ex=85",
+            "버팀목대출 조건 | grade=B gr=0.04566699123661149 sv=4690 dc=102700 src=seed(0) ex=65",
+            "전세보증보험 가입방법 | grade=B gr=0.04099094617451 sv=2060 dc=50255 src=seed(0) ex=65",
+            "청년버팀목대출 조건 | grade=B gr=0.024774342231611294 sv=1290 dc=52070 src=버팀목대출 조건(0) ex=65",
+            "무순위 청약 조건 | grade=B gr=0.023853947710257197 sv=1010 dc=42341 src=seed(0) ex=85"
+          ]
+        }
+      },
+      "keywords": [
+        {
+          "keyword": "청약점수 계산기",
+          "grade": "SS",
+          "searchVolume": 4140,
+          "documentCount": 5001,
+          "goldenRatio": 0.8278344331133773,
+          "source": "seed"
+        }
+      ],
+      "attempts": 1,
+      "durationMs": 49758
+    },
+    {
+      "success": false,
+      "category": "self_development",
+      "runIndex": 1,
+      "mode": "category",
+      "explosionMode": true,
+      "count": 5,
+      "summary": {
+        "totalFound": 0,
+        "sssCount": 0,
+        "ssCount": 0,
+        "sCount": 0,
+        "rookieFriendlyCount": 0,
+        "urgentCount": 0,
+        "blueOceanCount": 0,
+        "explosionFunnel": {
+          "candidates": 1,
+          "verified": 1,
+          "gradeOk": 0,
+          "ratioOk": 0,
+          "docOk": 0,
+          "svOk": 0,
+          "strictOk": 0,
+          "minSv": 30,
+          "internalMetrics": {
+            "seedCount": 146,
+            "allKeywordsCount": 1231,
+            "profitableCount": 4,
+            "uniqueKeywordsCount": 4,
+            "sortedResultsCount": 4,
+            "verifiedResultsCount": 0,
+            "searchAdEnabled": true,
+            "searchAdAdded": 234,
+            "autocompleteAdded": 860
+          },
+          "topByExplosion": [
+            "생산성 앱 추천 | grade=B gr=0.0002884171665897554 sv=20 dc=69344 src=seed(0) ex=40"
+          ]
+        }
+      },
+      "keywords": [],
+      "attempts": 1,
+      "durationMs": 31869
+    }
+  ]
+}

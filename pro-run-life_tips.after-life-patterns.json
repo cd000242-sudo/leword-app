@@ -1,0 +1,29 @@
+{
+  "generatedAt": "2025-12-21T14:12:50.442Z",
+  "mode": "realtime",
+  "explosionMode": false,
+  "count": 20,
+  "timeoutMs": 90000,
+  "retries": 0,
+  "results": [
+    {
+      "success": false,
+      "category": "life_tips",
+      "mode": "realtime",
+      "explosionMode": false,
+      "count": 20,
+      "summary": {
+        "totalFound": 0,
+        "sssCount": 0,
+        "ssCount": 0,
+        "sCount": 0,
+        "rookieFriendlyCount": 0,
+        "urgentCount": 0,
+        "blueOceanCount": 0
+      },
+      "keywords": [],
+      "attempts": 1,
+      "durationMs": 53957
+    }
+  ]
+}

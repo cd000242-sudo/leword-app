@@ -1,0 +1,23 @@
+{
+  "results": [
+    {
+      "iteration": 1,
+      "timestamp": "2025-12-31T13:56:50.313Z",
+      "keywords": [],
+      "stats": {
+        "sssCount": 0,
+        "ssCount": 0,
+        "sCount": 0,
+        "avgGoldenRatio": 0,
+        "maxGoldenRatio": 0
+      }
+    }
+  ],
+  "summary": {
+    "totalSss": 0,
+    "totalKeywords": 10,
+    "sssRate": 0,
+    "allSssKeywords": [],
+    "score": 0
+  }
+}
