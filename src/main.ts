@@ -606,7 +606,7 @@ async function showLicenseInputDialog(): Promise<{ success: boolean; plan?: stri
                   document.querySelector('.container').innerHTML = 
                     '<div class="content" style="text-align: center;">' +
                       '<div style="font-size: 80px; margin-bottom: 20px; animation: sparkle 1s ease-in-out infinite;">✨</div>' +
-                      '<div style="font-family: \'Playfair Display\', serif; font-size: 36px; font-weight: 700; background: linear-gradient(135deg, #fbbf24 0%, #f59e0b 50%, #fcd34d 100%); -webkit-background-clip: text; -webkit-text-fill-color: transparent; margin-bottom: 16px;">환영합니다!</div>' +
+                      '<div style="font-family: &#39;Playfair Display&#39;, serif; font-size: 36px; font-weight: 700; background: linear-gradient(135deg, #fbbf24 0%, #f59e0b 50%, #fcd34d 100%); -webkit-background-clip: text; -webkit-text-fill-color: transparent; margin-bottom: 16px;">환영합니다!</div>' +
                       '<div style="color: rgba(255, 255, 255, 0.8); font-size: 16px; margin-bottom: 32px; line-height: 1.8;">' +
                         '라이선스 인증이 완료되었습니다' +
                       '</div>' +
