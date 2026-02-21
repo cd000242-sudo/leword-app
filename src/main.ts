@@ -830,8 +830,234 @@ app.on('window-all-closed', () => {
 });
 
 // ========================================
-// 자동 업데이트
+// 자동 업데이트 (프리미엄 커스텀 UI)
 // ========================================
+let updateWindow: BrowserWindow | null = null;
+
+function showUpdateWindow(version: string, mode: 'downloading' | 'ready'): BrowserWindow {
+  if (updateWindow && !updateWindow.isDestroyed()) {
+    updateWindow.webContents.send('update-mode', mode, version);
+    return updateWindow;
+  }
+
+  updateWindow = new BrowserWindow({
+    width: 460,
+    height: 340,
+    resizable: false,
+    frame: false,
+    transparent: true,
+    alwaysOnTop: true,
+    center: true,
+    webPreferences: {
+      nodeIntegration: true,
+      contextIsolation: false,
+    },
+  });
+
+  const html = `<!DOCTYPE html>
+<html><head><meta charset="UTF-8">
+<style>
+  @import url('https://fonts.googleapis.com/css2?family=Playfair+Display:wght@400;600;700&family=Noto+Sans+KR:wght@300;400;500;600;700&display=swap');
+  * { margin:0; padding:0; box-sizing:border-box; }
+  body {
+    font-family: 'Noto Sans KR', sans-serif;
+    background: transparent;
+    display: flex; justify-content: center; align-items: center;
+    min-height: 100vh; padding: 20px;
+    -webkit-app-region: drag;
+  }
+  .container {
+    background: linear-gradient(145deg, #1a1a2e 0%, #16213e 50%, #0f0f23 100%);
+    padding: 40px 44px;
+    border-radius: 24px;
+    min-width: 400px;
+    box-shadow: 0 25px 80px rgba(0,0,0,0.6), 0 0 0 1px rgba(255,255,255,0.1),
+                inset 0 1px 0 rgba(255,255,255,0.1);
+    position: relative; overflow: hidden;
+    -webkit-app-region: no-drag;
+  }
+  .container::before {
+    content: ''; position: absolute; top: -50%; left: -50%;
+    width: 200%; height: 200%;
+    background: conic-gradient(from 0deg, transparent, rgba(251,191,36,0.03), transparent 30%);
+    animation: rotate 20s linear infinite;
+  }
+  @keyframes rotate { 100% { transform: rotate(360deg); } }
+  
+  .content { position: relative; z-index: 1; text-align: center; }
+  
+  .icon { font-size: 48px; margin-bottom: 16px; display: inline-block;
+    animation: pulse 2s ease-in-out infinite;
+    filter: drop-shadow(0 0 20px rgba(251,191,36,0.5));
+  }
+  @keyframes pulse {
+    0%,100% { transform: scale(1); filter: drop-shadow(0 0 20px rgba(251,191,36,0.5)); }
+    50% { transform: scale(1.08); filter: drop-shadow(0 0 30px rgba(251,191,36,0.8)); }
+  }
+  
+  .title {
+    font-family: &#39;Playfair Display&#39;, serif;
+    font-size: 22px; font-weight: 700; color: #ffffff;
+    margin-bottom: 6px;
+    background: linear-gradient(135deg, #fbbf24 0%, #f59e0b 50%, #d97706 100%);
+    -webkit-background-clip: text; -webkit-text-fill-color: transparent;
+  }
+  .version {
+    font-size: 14px; color: rgba(255,255,255,0.5);
+    margin-bottom: 24px; font-weight: 300;
+  }
+  .status-text {
+    font-size: 14px; color: rgba(255,255,255,0.7);
+    margin-bottom: 16px; min-height: 20px;
+    transition: all 0.3s ease;
+  }
+  
+  /* Progress bar */
+  .progress-container {
+    width: 100%; height: 6px;
+    background: rgba(255,255,255,0.08);
+    border-radius: 3px; overflow: hidden;
+    margin-bottom: 28px;
+  }
+  .progress-bar {
+    height: 100%; width: 0%;
+    background: linear-gradient(90deg, #fbbf24, #f59e0b, #d97706);
+    border-radius: 3px;
+    transition: width 0.3s ease;
+    box-shadow: 0 0 12px rgba(251,191,36,0.4);
+  }
+  .progress-bar.indeterminate {
+    width: 30% !important;
+    animation: indeterminate 1.5s ease-in-out infinite;
+  }
+  @keyframes indeterminate {
+    0% { margin-left: 0; }
+    50% { margin-left: 70%; }
+    100% { margin-left: 0; }
+  }
+  
+  /* Buttons */
+  .btn-group { display: flex; gap: 12px; justify-content: center; }
+  .btn {
+    padding: 12px 28px; border: none; border-radius: 12px;
+    font-family: 'Noto Sans KR', sans-serif; font-size: 14px; font-weight: 600;
+    cursor: pointer; transition: all 0.3s ease;
+    letter-spacing: 0.3px;
+  }
+  .btn-primary {
+    background: linear-gradient(135deg, #fbbf24, #f59e0b);
+    color: #1a1a2e;
+    box-shadow: 0 4px 20px rgba(251,191,36,0.3);
+  }
+  .btn-primary:hover {
+    transform: translateY(-2px);
+    box-shadow: 0 6px 28px rgba(251,191,36,0.5);
+  }
+  .btn-secondary {
+    background: rgba(255,255,255,0.06);
+    color: rgba(255,255,255,0.6);
+    border: 1px solid rgba(255,255,255,0.1);
+  }
+  .btn-secondary:hover {
+    background: rgba(255,255,255,0.1);
+    color: rgba(255,255,255,0.9);
+  }
+  .btn:disabled { opacity: 0.5; cursor: not-allowed; transform: none !important; }
+  
+  /* Success state */
+  .ready .icon { animation: none; }
+  .ready .progress-bar {
+    width: 100% !important; animation: none;
+    background: linear-gradient(90deg, #34d399, #10b981);
+    box-shadow: 0 0 12px rgba(52,211,153,0.4);
+  }
+  
+  /* Hidden */
+  .hidden { display: none !important; }
+</style>
+</head>
+<body>
+<div class="container">
+  <div class="content" id="content">
+    <div class="icon" id="icon">✨</div>
+    <div class="title">LEWORD 업데이트</div>
+    <div class="version" id="versionLabel">v${version} 발견</div>
+    <div class="status-text" id="statusText">업데이트를 다운로드하고 있습니다...</div>
+    <div class="progress-container">
+      <div class="progress-bar indeterminate" id="progressBar"></div>
+    </div>
+    <div class="btn-group" id="downloadingButtons">
+      <button class="btn btn-secondary" onclick="closeLater()">나중에</button>
+    </div>
+    <div class="btn-group hidden" id="readyButtons">
+      <button class="btn btn-secondary" onclick="closeLater()">나중에</button>
+      <button class="btn btn-primary" onclick="restart()">🔄 지금 재시작</button>
+    </div>
+  </div>
+</div>
+<script>
+  const { ipcRenderer } = require('electron');
+  const progressBar = document.getElementById('progressBar');
+  const statusText = document.getElementById('statusText');
+  const versionLabel = document.getElementById('versionLabel');
+  const icon = document.getElementById('icon');
+  const content = document.getElementById('content');
+  const downloadingButtons = document.getElementById('downloadingButtons');
+  const readyButtons = document.getElementById('readyButtons');
+
+  function setReady(ver) {
+    content.classList.add('ready');
+    icon.textContent = '🎉';
+    versionLabel.textContent = 'v' + ver + ' 준비 완료';
+    statusText.textContent = '재시작하면 업데이트가 적용됩니다.';
+    downloadingButtons.classList.add('hidden');
+    readyButtons.classList.remove('hidden');
+  }
+
+  ipcRenderer.on('update-progress', (e, percent) => {
+    progressBar.classList.remove('indeterminate');
+    progressBar.style.width = Math.round(percent) + '%';
+    statusText.textContent = '다운로드 중... ' + Math.round(percent) + '%';
+  });
+
+  ipcRenderer.on('update-mode', (e, m, ver) => {
+    if (m === 'ready') setReady(ver);
+  });
+
+  // Initial mode check
+  if ('${mode}' === 'ready') setReady('${version}');
+
+  function closeLater() {
+    ipcRenderer.send('update:close');
+  }
+  function restart() {
+    ipcRenderer.send('update:restart');
+  }
+</script>
+</body></html>`;
+
+  updateWindow.loadURL(`data:text/html;charset=utf-8,${encodeURIComponent(html)}`);
+
+  ipcMain.once('update:close', () => {
+    if (updateWindow && !updateWindow.isDestroyed()) {
+      updateWindow.close();
+      updateWindow = null;
+    }
+  });
+
+  ipcMain.once('update:restart', () => {
+    autoUpdater.quitAndInstall(false, true);
+  });
+
+  updateWindow.on('closed', () => {
+    updateWindow = null;
+    ipcMain.removeAllListeners('update:close');
+    ipcMain.removeAllListeners('update:restart');
+  });
+
+  return updateWindow;
+}
+
 function setupAutoUpdater() {
   autoUpdater.autoDownload = false;
   autoUpdater.autoInstallOnAppQuit = true;
@@ -849,18 +1075,9 @@ function setupAutoUpdater() {
 
   autoUpdater.on('update-available', (info) => {
     console.log('[AUTO-UPDATE] 업데이트 발견:', info.version);
-    const result = dialog.showMessageBoxSync({
-      type: 'info',
-      title: '💎 LEWORD 업데이트',
-      message: `새로운 버전 v${info.version}이 있습니다.\n\n지금 다운로드하시겠습니까?`,
-      buttons: ['다운로드', '나중에'],
-      defaultId: 0,
-      cancelId: 1,
-    });
-
-    if (result === 0) {
-      autoUpdater.downloadUpdate();
-    }
+    // 자동으로 다운로드 시작 & 프리미엄 UI 표시
+    showUpdateWindow(info.version, 'downloading');
+    autoUpdater.downloadUpdate();
   });
 
   autoUpdater.on('update-not-available', () => {
@@ -869,26 +1086,26 @@ function setupAutoUpdater() {
 
   autoUpdater.on('download-progress', (progress) => {
     console.log(`[AUTO-UPDATE] 다운로드: ${Math.round(progress.percent)}%`);
+    if (updateWindow && !updateWindow.isDestroyed()) {
+      updateWindow.webContents.send('update-progress', progress.percent);
+    }
   });
 
   autoUpdater.on('update-downloaded', (info) => {
     console.log('[AUTO-UPDATE] 다운로드 완료:', info.version);
-    const result = dialog.showMessageBoxSync({
-      type: 'info',
-      title: '💎 LEWORD 업데이트 완료',
-      message: `v${info.version} 다운로드가 완료되었습니다.\n\n지금 재시작하여 업데이트를 적용하시겠습니까?`,
-      buttons: ['지금 재시작', '나중에'],
-      defaultId: 0,
-      cancelId: 1,
-    });
-
-    if (result === 0) {
-      autoUpdater.quitAndInstall(false, true);
+    if (updateWindow && !updateWindow.isDestroyed()) {
+      updateWindow.webContents.send('update-mode', 'ready', info.version);
+    } else {
+      showUpdateWindow(info.version, 'ready');
     }
   });
 
   autoUpdater.on('error', (err) => {
     console.error('[AUTO-UPDATE] 오류:', err.message);
+    if (updateWindow && !updateWindow.isDestroyed()) {
+      updateWindow.close();
+      updateWindow = null;
+    }
   });
 
   // 앱 시작 후 5초 뒤 업데이트 확인 (UI가 먼저 뜨도록)
