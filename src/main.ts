@@ -30,6 +30,7 @@ if (typeof globalThis.File === 'undefined') {
 import { app, BrowserWindow, ipcMain, shell, dialog } from 'electron';
 import * as path from 'path';
 import * as fs from 'fs';
+import { autoUpdater } from 'electron-updater';
 import { setupKeywordMasterHandlers } from './main/keywordMasterIpcHandlers';
 import { setupPremiumHandlers } from './main/premiumFeatures';
 import * as licenseManager from './utils/licenseManager';
@@ -802,6 +803,13 @@ app.whenReady().then(async () => {
   // 키워드 마스터 창 열기
   createKeywordWindow();
 
+  // ========================================
+  // 자동 업데이트 설정
+  // ========================================
+  if (app.isPackaged) {
+    setupAutoUpdater();
+  }
+
   app.on('activate', () => {
     if (BrowserWindow.getAllWindows().length === 0) {
       createKeywordWindow();
@@ -820,3 +828,74 @@ app.on('window-all-closed', () => {
     app.quit();
   }
 });
+
+// ========================================
+// 자동 업데이트
+// ========================================
+function setupAutoUpdater() {
+  autoUpdater.autoDownload = false;
+  autoUpdater.autoInstallOnAppQuit = true;
+
+  autoUpdater.logger = {
+    info: (...args: any[]) => console.log('[AUTO-UPDATE]', ...args),
+    warn: (...args: any[]) => console.warn('[AUTO-UPDATE]', ...args),
+    error: (...args: any[]) => console.error('[AUTO-UPDATE]', ...args),
+    debug: (...args: any[]) => console.log('[AUTO-UPDATE:DEBUG]', ...args),
+  } as any;
+
+  autoUpdater.on('checking-for-update', () => {
+    console.log('[AUTO-UPDATE] 업데이트 확인 중...');
+  });
+
+  autoUpdater.on('update-available', (info) => {
+    console.log('[AUTO-UPDATE] 업데이트 발견:', info.version);
+    const result = dialog.showMessageBoxSync({
+      type: 'info',
+      title: '💎 LEWORD 업데이트',
+      message: `새로운 버전 v${info.version}이 있습니다.\n\n지금 다운로드하시겠습니까?`,
+      buttons: ['다운로드', '나중에'],
+      defaultId: 0,
+      cancelId: 1,
+    });
+
+    if (result === 0) {
+      autoUpdater.downloadUpdate();
+    }
+  });
+
+  autoUpdater.on('update-not-available', () => {
+    console.log('[AUTO-UPDATE] 최신 버전입니다.');
+  });
+
+  autoUpdater.on('download-progress', (progress) => {
+    console.log(`[AUTO-UPDATE] 다운로드: ${Math.round(progress.percent)}%`);
+  });
+
+  autoUpdater.on('update-downloaded', (info) => {
+    console.log('[AUTO-UPDATE] 다운로드 완료:', info.version);
+    const result = dialog.showMessageBoxSync({
+      type: 'info',
+      title: '💎 LEWORD 업데이트 완료',
+      message: `v${info.version} 다운로드가 완료되었습니다.\n\n지금 재시작하여 업데이트를 적용하시겠습니까?`,
+      buttons: ['지금 재시작', '나중에'],
+      defaultId: 0,
+      cancelId: 1,
+    });
+
+    if (result === 0) {
+      autoUpdater.quitAndInstall(false, true);
+    }
+  });
+
+  autoUpdater.on('error', (err) => {
+    console.error('[AUTO-UPDATE] 오류:', err.message);
+  });
+
+  // 앱 시작 후 5초 뒤 업데이트 확인 (UI가 먼저 뜨도록)
+  setTimeout(() => {
+    console.log('[AUTO-UPDATE] 업데이트 확인 시작');
+    autoUpdater.checkForUpdates().catch((err) => {
+      console.error('[AUTO-UPDATE] 확인 실패:', err.message);
+    });
+  }, 5000);
+}

@@ -1,6 +1,6 @@
 {
   "name": "leword",
-  "version": "1.0.3",
+  "version": "1.0.4",
   "description": "LEWORD - 키워드 마스터 독립 앱",
   "main": "dist/main.js",
   "scripts": {
@@ -31,6 +31,7 @@
     "dayjs": "^1.11.18",
     "dotenv": "^16.3.1",
     "electron-store": "^11.0.2",
+    "electron-updater": "^6.8.3",
     "googleapis": "^164.1.0",
     "iconv-lite": "^0.7.0",
     "puppeteer": "^21.5.0",
@@ -93,6 +94,13 @@
     "mac": {
       "target": "dmg",
       "icon": "assets/icon.icns"
-    }
+    },
+    "publish": [
+      {
+        "provider": "github",
+        "owner": "cd000242-sudo",
+        "repo": "leword-app"
+      }
+    ]
   }
 }
