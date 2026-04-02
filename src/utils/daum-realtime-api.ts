@@ -81,14 +81,21 @@ export async function getDaumRealtimeKeywordsWithPuppeteer(limit: number = 10): 
           /\+\d+\.\d+%|\-\d+\.\d+%/,
           // 기타 제외
           /^뉴스$/i, /^스포츠$/i, /^연예$/i, /^쇼핑$/i,
+          // 게시글/뉴스 제목 패턴 제외 (검색어가 아닌 것)
+          /\.jpg|\.png|\.gif|\.twt|\.mp4/i,
+          /댓글\s*\d+/,
+          /\[.*\]/,
+          /…|\.{3}/,
+          /\d{2}:\d{2}/,
+          /^".*"$/,
         ];
         
         const addKeyword = (text: string) => {
           if (result.length >= maxLimit) return;
           text = text?.trim() || '';
           
-          // 기본 검증
-          if (text.length < 4 || text.length > 60) return;
+          // 기본 검증 — 검색어는 보통 2~30자
+          if (text.length < 2 || text.length > 30) return;
           if (!/[가-힣]/.test(text)) return;
           if (excludePatterns.some(p => p.test(text))) return;
           if (seenKeywords.has(text.toLowerCase())) return;
@@ -178,16 +185,7 @@ export async function getDaumRealtimeKeywordsWithPuppeteer(limit: number = 10): 
           });
         }
         
-        // 방법 5: 뉴스 헤드라인에서 추출
-        if (result.length < 5) {
-          document.querySelectorAll('.news_item a, .headline a, .tit_news a, .link_txt').forEach(a => {
-            if (result.length >= maxLimit) return;
-            const text = a.textContent?.trim() || '';
-            if (text.length >= 10 && text.length <= 50 && /[가-힣].*[가-힣]/.test(text)) {
-              addKeyword(text);
-            }
-          });
-        }
+        // 방법 5: 제거됨 — 뉴스 헤드라인은 검색어가 아니므로 수집하지 않음
         
         return result;
       }, limit);
@@ -219,20 +217,13 @@ export async function getDaumRealtimeKeywordsWithPuppeteer(limit: number = 10): 
               if (result.length >= maxLimit - currentCount) return;
               
               const text = a.textContent?.trim() || '';
-              
-              // 뉴스 제목에서 핵심 키워드 추출
-              if (text.length >= 8 && text.length <= 50 && /[가-힣]/.test(text)) {
-                // 인물명 + 이벤트 패턴
-                const match = text.match(/([가-힣]{2,4})[,\s]+(.*)/);
-                if (match && !seenKeywords.has(text.toLowerCase())) {
-                  seenKeywords.add(text.toLowerCase());
-                  result.push({
-                    keyword: text.substring(0, 40),
-                    rank: currentCount + result.length + 1
-                  });
-                }
-                // 일반 뉴스 제목
-                else if (!seenKeywords.has(text.toLowerCase()) && text.length <= 35) {
+
+              // 뉴스 제목에서 핵심 키워드만 추출 (짧고 검색어스러운 것만)
+              if (text.length >= 4 && text.length <= 20 && /[가-힣]/.test(text)) {
+                // 게시글 패턴 제외
+                if (/\.jpg|\.png|\.twt|댓글|\.{3}|…|\[|\]/.test(text)) return;
+
+                if (!seenKeywords.has(text.toLowerCase())) {
                   seenKeywords.add(text.toLowerCase());
                   result.push({
                     keyword: text,
