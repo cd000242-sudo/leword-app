@@ -152,26 +152,26 @@ function analyzeNiche(searchVolume: number | null, documentCount: number | null)
     let type: 'empty_house' | 'blue_ocean' | 'gold_mine' | 'none' = 'none';
     let score = 0;
 
-    // 1. 빈집털이 (Empty House): 문서는 거의 없는데 검색량은 꽤 있는 경우
-    // 예: 검색량 1000+, 문서수 < 200 -> 진짜 아무도 안 쓴 글
-    if (sv >= 1000 && dc < 200) {
+    // 1. 빈집털이 (Empty House): 검색량 대비 문서수가 현저히 적은 경우
+    //    기준 완화: 검색량 300+, 문서수 2000 이하, 비율 3 이상
+    if (sv >= 300 && dc <= 2000 && goldenRatio >= 3) {
         type = 'empty_house';
-        score = 90 + (sv / 1000); // 90점 이상
+        score = Math.min(100, 75 + (goldenRatio * 3));
     }
-    // 2. 꿀통 (Gold Mine): 검색량이 압도적으로 많은 경우
-    // 예: 검색량 10000+, 비율 5.0 이상
-    else if (sv >= 10000 && goldenRatio >= 5.0) {
+    // 2. 꿀통 (Gold Mine): 검색량이 높고 비율도 좋은 경우
+    //    기준 완화: 검색량 3000+, 비율 2.0 이상
+    else if (sv >= 3000 && goldenRatio >= 2.0) {
         type = 'gold_mine';
-        score = 80 + (goldenRatio * 2); // 80점 이상
+        score = Math.min(100, 70 + (goldenRatio * 3));
     }
-    // 3. 블루오션 (Blue Ocean): 비율이 좋고 준수한 경우
-    // 예: 비율 2.0 이상
-    else if (goldenRatio >= 2.0) {
+    // 3. 블루오션 (Blue Ocean): 비율이 적당히 좋은 경우
+    //    기준 완화: 검색량 200+, 비율 1.5 이상
+    else if (sv >= 200 && goldenRatio >= 1.5) {
         type = 'blue_ocean';
-        score = 60 + (goldenRatio * 5); // 60점 이상
+        score = Math.min(100, 55 + (goldenRatio * 5));
     }
     else {
-        score = goldenRatio * 10;
+        score = Math.min(50, goldenRatio * 15);
     }
 
     return { score: Math.min(Math.round(score), 100), type, competitionRate };
@@ -416,10 +416,10 @@ export class FreshKeywordsAPI {
             kw.nicheInfo && (targetTypes as string[]).includes(kw.nicheInfo.type)
         );
 
-        // 만약 필터링 결과가 요청 개수보다 적으면, 일반 키워드도 포함 (황금비율 높은 순)
+        // 만약 필터링 결과가 요청 개수보다 적으면, 황금비율 1.5 이상인 키워드만 보충
         if (filtered.length < (options.count || 20)) {
             const others = result.keywords
-                .filter(kw => !filtered.includes(kw))
+                .filter(kw => !filtered.includes(kw) && (kw.goldenRatio || 0) >= 1.5)
                 .sort((a, b) => (b.goldenRatio || 0) - (a.goldenRatio || 0));
             filtered = [...filtered, ...others];
         }
