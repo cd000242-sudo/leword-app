@@ -610,6 +610,12 @@ function selectPremiumGolden(items: ProTrafficKeyword[], targetCount: number): P
   const seenExact = new Set<string>();
 
   const ranked = [...items].sort((a, b) => {
+    // 수익 황금비율 우선
+    const profitRatioA = a.profitAnalysis?.profitGoldenRatio ?? 0;
+    const profitRatioB = b.profitAnalysis?.profitGoldenRatio ?? 0;
+    const profitRatioDiff = profitRatioB - profitRatioA;
+    if (Math.abs(profitRatioDiff) > 0.5) return profitRatioDiff;
+
     const grDiff = (b.goldenRatio ?? 0) - (a.goldenRatio ?? 0);
     if (Math.abs(grDiff) > 0.0001) return grDiff;
 
@@ -754,7 +760,13 @@ function rerankAndSelectFinal(items: ProTrafficKeyword[], targetCount: number, i
 
   const sortForRanking = (list: ProTrafficKeyword[]): ProTrafficKeyword[] => {
     return [...list].sort((a, b) => {
-      // 🔥 1순위: 황금비율 (검색량/경쟁도) - 가장 중요!
+      // 🔥 1순위: 수익 황금비율 (profitGoldenRatio) - 가장 중요!
+      const profitRatioA = a.profitAnalysis?.profitGoldenRatio ?? 0;
+      const profitRatioB = b.profitAnalysis?.profitGoldenRatio ?? 0;
+      const profitRatioDiff = profitRatioB - profitRatioA;
+      if (Math.abs(profitRatioDiff) > 0.5) return profitRatioDiff;
+
+      // 1.5순위: 황금비율 (검색량/경쟁도)
       const ratioDiff = (b.goldenRatio || 0) - (a.goldenRatio || 0);
       if (Math.abs(ratioDiff) > 0.01) return ratioDiff;
 
@@ -4388,6 +4400,36 @@ export async function huntProTrafficKeywords(options: {
       explosionFunnel
     };
 
+    // Safety net: ensure ALL keywords have profitAnalysis
+    for (const result of selectedKeywords) {
+      if (!result.profitAnalysis && typeof result.searchVolume === 'number' && typeof result.documentCount === 'number' && result.searchVolume > 0) {
+        const profitData = calculateProfitGoldenRatio(
+          result.keyword,
+          result.searchVolume,
+          result.documentCount,
+          result.category || 'default',
+          {
+            difficultyScore: result.difficultyScore,
+            hasSmartBlock: result.hasSmartBlock,
+            hasInfluencer: result.hasInfluencer,
+          }
+        );
+        result.profitAnalysis = {
+          grade: profitData.grade,
+          gradeReason: profitData.gradeReason,
+          profitGoldenRatio: profitData.profitGoldenRatio,
+          estimatedCPC: profitData.estimatedCPC,
+          purchaseIntentScore: profitData.purchaseIntentScore,
+          competitionLevel: profitData.competitionLevel,
+          isRealBlueOcean: profitData.isRealBlueOcean,
+          blueOceanReason: profitData.blueOceanReason,
+          estimatedDailyRevenue: profitData.estimatedDailyRevenue,
+          estimatedMonthlyRevenue: profitData.estimatedMonthlyRevenue,
+          strategy: profitData.strategy,
+        };
+      }
+    }
+
     console.log(`[PRO-TRAFFIC] 🏆🏆🏆 ${selectedKeywords.length}개 황금 키워드 발굴 완료 (실제 API 검증 완료!)`);
     console.log(`[PRO-TRAFFIC] 💎 블루오션: ${summary.blueOceanCount}개, 신생적합: ${summary.rookieFriendlyCount}개`);
     console.log(`[PRO-TRAFFIC] 📊 TOP 키워드: ${selectedKeywords.slice(0, 3).map(k => `${k.keyword}(${k.searchVolume}/${k.documentCount})`).join(', ')}`);
@@ -4638,6 +4680,36 @@ export async function huntProTrafficKeywords(options: {
     urgentCount: selectedKeywords.filter(k => k.timing.urgency === 'NOW' || k.timing.urgency === 'TODAY').length,
     blueOceanCount: selectedKeywords.filter(k => k.blueOcean.score >= 70).length
   };
+
+  // Safety net: ensure ALL keywords have profitAnalysis
+  for (const result of selectedKeywords) {
+    if (!result.profitAnalysis && typeof result.searchVolume === 'number' && typeof result.documentCount === 'number' && result.searchVolume > 0) {
+      const profitData = calculateProfitGoldenRatio(
+        result.keyword,
+        result.searchVolume,
+        result.documentCount,
+        result.category || 'default',
+        {
+          difficultyScore: result.difficultyScore,
+          hasSmartBlock: result.hasSmartBlock,
+          hasInfluencer: result.hasInfluencer,
+        }
+      );
+      result.profitAnalysis = {
+        grade: profitData.grade,
+        gradeReason: profitData.gradeReason,
+        profitGoldenRatio: profitData.profitGoldenRatio,
+        estimatedCPC: profitData.estimatedCPC,
+        purchaseIntentScore: profitData.purchaseIntentScore,
+        competitionLevel: profitData.competitionLevel,
+        isRealBlueOcean: profitData.isRealBlueOcean,
+        blueOceanReason: profitData.blueOceanReason,
+        estimatedDailyRevenue: profitData.estimatedDailyRevenue,
+        estimatedMonthlyRevenue: profitData.estimatedMonthlyRevenue,
+        strategy: profitData.strategy,
+      };
+    }
+  }
 
   console.log(`[PRO-TRAFFIC] 🏆🏆🏆 ${selectedKeywords.length}개 황금 키워드 발굴 완료 (실제 API 검증 완료!)`);
   console.log(`[PRO-TRAFFIC] 💎 블루오션: ${summary.blueOceanCount}개, 신생적합: ${summary.rookieFriendlyCount}개`);

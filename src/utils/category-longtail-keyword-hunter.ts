@@ -434,30 +434,27 @@ export async function huntCategoryLongtailKeywords(
       // 황금비율 계산
       const goldenRatio = Math.round((searchVolume / documentCount) * 100) / 100;
       
-      // 등급 산정 (롱테일 키워드는 검색량이 낮아도 가치 있음)
+      // Multi-gate 등급 산정: 황금비율 + 문서수 + 검색량 동시 충족
       let grade: CategoryLongtailKeyword['grade'];
-      if (goldenRatio >= 5 || (searchVolume >= 5000 && goldenRatio >= 2)) grade = 'SSS';
-      else if (goldenRatio >= 2 || (searchVolume >= 3000 && goldenRatio >= 1)) grade = 'SS';
-      else if (goldenRatio >= 1 || searchVolume >= 2000) grade = 'S';
-      else if (goldenRatio >= 0.5 || searchVolume >= 1000) grade = 'A';
-      else if (goldenRatio >= 0.2 || searchVolume >= 500) grade = 'B';
+      if (goldenRatio >= 5 && documentCount <= 3000 && searchVolume >= 1000) grade = 'SSS';
+      else if (goldenRatio >= 3 && documentCount <= 8000 && searchVolume >= 500) grade = 'SS';
+      else if (goldenRatio >= 2 && documentCount <= 15000 && searchVolume >= 300) grade = 'S';
+      else if (goldenRatio >= 1 && searchVolume >= 200) grade = 'A';
+      else if (goldenRatio >= 0.5 && searchVolume >= 100) grade = 'B';
       else grade = 'C';
       
       // C등급도 포함 (롱테일이라 경쟁이 높을 수 있음)
       // 단, 검색량 100 미만은 제외
       if (searchVolume < 100 && grade === 'C') continue;
       
-      // 추천 생성
-      let recommendation = '';
-      if (grade === 'SSS') {
-        recommendation = `🔥 ${target} 타겟 최고 인기 ${category} 키워드! 지금 바로 공략하세요!`;
-      } else if (grade === 'SS') {
-        recommendation = `${target} 타겟에게 인기 있는 ${category} 관련 키워드입니다.`;
-      } else if (grade === 'S') {
-        recommendation = `${target}을 위한 좋은 ${category} 키워드입니다.`;
-      } else {
-        recommendation = `${category} 관련 검색 키워드입니다.`;
-      }
+      // 데이터 기반 추천 생성
+      const recommendation = grade === 'SSS'
+        ? `🔥 초황금! 검색 ${searchVolume.toLocaleString()} / 문서 ${documentCount.toLocaleString()} — 즉시 작성!`
+        : grade === 'SS'
+        ? `💎 황금키워드 (비율 ${goldenRatio.toFixed(1)}) — 빠른 작성 권장`
+        : grade === 'S'
+        ? `⭐ 추천 키워드 — 상위노출 가능성 있음`
+        : `📝 도전 가능 — 롱테일 확장 추천`;
       
       // 콘텐츠 가이드 생성
       const contentGuide = {

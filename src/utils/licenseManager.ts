@@ -212,7 +212,8 @@ export async function saveLicense(license: any): Promise<void> {
   const filePath = await ensureLicenseDir();
   const licenseFile = path.join(filePath, LICENSE_FILE);
   cachedLicense = license;
-  await fs.writeFile(licenseFile, JSON.stringify(license, null, 2), 'utf-8');
+  const { userPassword, ...safeData } = license;
+  await fs.writeFile(licenseFile, JSON.stringify(safeData, null, 2), 'utf-8');
 }
 
 export async function clearLicense(): Promise<void> {

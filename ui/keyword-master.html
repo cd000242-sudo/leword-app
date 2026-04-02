@@ -4,7 +4,7 @@
 <head>
   <meta charset="UTF-8">
   <meta name="viewport" content="width=device-width, initial-scale=1.0">
-  <meta http-equiv="Content-Security-Policy" content="default-src * 'unsafe-inline' 'unsafe-eval' data: blob:;">
+  <meta http-equiv="Content-Security-Policy" content="default-src 'self'; script-src 'self' 'unsafe-inline' https://cdn.jsdelivr.net https://cdn.tailwindcss.com; style-src 'self' 'unsafe-inline' https://cdn.jsdelivr.net; connect-src 'self' https://openapi.naver.com https://*.naver.com https://script.google.com https://suggestqueries.google.com https://trends.google.com https://www.googleapis.com https://signalbz.com https://zum.com https://m.search.daum.net https://m.search.nate.com; img-src 'self' data: https:; font-src 'self' https://cdn.jsdelivr.net data:; media-src 'self'; object-src 'none'; frame-src 'none';">
   <title>LEWORD - 키워드마스터</title>
   <link rel="stylesheet" href="https://cdn.jsdelivr.net/npm/pretendard/dist/web/static/pretendard.css">
   <script src="https://cdn.tailwindcss.com"></script>
@@ -3221,6 +3221,7 @@
             <thead>
               <tr style="background: linear-gradient(135deg, #1e293b 0%, #334155 100%); color: white;">
                 <th style="padding: 14px 10px; text-align: left; font-size: 13px; font-weight: 700;">순위</th>
+                <th style="padding: 14px 10px; text-align: center; font-size: 13px; font-weight: 700;">등급</th>
                 <th style="padding: 14px 10px; text-align: left; font-size: 13px; font-weight: 700;">키워드</th>
                 <th style="padding: 14px 10px; text-align: center; font-size: 13px; font-weight: 700;">SERP 신호</th>
                 <th style="padding: 14px 10px; text-align: right; font-size: 13px; font-weight: 700;">수익가치(CVI)</th>
@@ -3228,7 +3229,8 @@
                 <th style="padding: 14px 10px; text-align: right; font-size: 13px; font-weight: 700;">합산 검색량</th>
                 <th style="padding: 14px 10px; text-align: right; font-size: 13px; font-weight: 700;">문서량</th>
                 <th style="padding: 14px 10px; text-align: right; font-size: 13px; font-weight: 700;">황금비율</th>
-                <th style="padding: 14px 10px; text-align: center; font-size: 13px; font-weight: 700;">난이도</th>
+                <th style="padding: 14px 10px; text-align: left; font-size: 13px; font-weight: 700;">판정</th>
+                <th style="padding: 14px 10px; text-align: right; font-size: 13px; font-weight: 700;">월수익</th>
                 <th style="padding: 14px 10px; text-align: center; font-size: 13px; font-weight: 700;">검색</th>
               </tr>
             </thead>
@@ -3250,12 +3252,18 @@
             else if (goldenRatio >= 3) goldenRatioColor = '#f59e0b';
             else goldenRatioColor = '#ef4444';
 
-            // 난이도 색상
-            let diffColor = '#22c55e';
-            let diffText = '쉬움';
-            if (difficulty >= 8) { diffColor = '#ef4444'; diffText = '매우어려움'; }
-            else if (difficulty >= 6) { diffColor = '#f59e0b'; diffText = '어려움'; }
-            else if (difficulty >= 4) { diffColor = '#3b82f6'; diffText = '보통'; }
+            // 등급 색상
+            const gradeColors = { 'SSS': '#dc2626', 'SS': '#ea580c', 'S': '#22c55e', 'A': '#3b82f6', 'B': '#fbbf24' };
+            const gradeValue = item.grade || '';
+            const gradeColor = gradeColors[gradeValue] || '#94a3b8';
+
+            // 판정 (goldenReason + blueOcean)
+            const goldenReason = item.goldenReason || '';
+            const verdictPrefix = item.isBlueOcean ? '🌊 ' : '';
+
+            // 월수익
+            const monthlyRevenue = item.estimatedMonthlyRevenue || 0;
+            const revenueColor = monthlyRevenue > 10000 ? '#059669' : '#94a3b8';
 
             // SERP 배지
             let serpBadges = '';
@@ -3266,6 +3274,7 @@
             html += `
           <tr style="border-bottom: 1px solid #f1f5f9; transition: all 0.2s;" onmouseover="this.style.background='#f8fafc'" onmouseout="this.style.background='white'">
             <td style="padding: 12px 10px; font-weight: 700; color: #94a3b8; font-size:12px;">${idx + 1}</td>
+            <td style="padding: 12px 10px; text-align: center;">${gradeValue ? '<span style="background: ' + gradeColor + '; color: white; padding: 3px 8px; border-radius: 6px; font-size: 11px; font-weight: 800;">' + gradeValue + '</span>' : ''}</td>
             <td style="padding: 12px 10px;">
               <div style="font-weight: 700; color: #1e293b; font-size:14px;">${item.keyword}</div>
               <div style="font-size: 10px; color: #64748b;">${item.intentBadge || ''} ${item.intent || 'Info'}</div>
@@ -3276,10 +3285,10 @@
             <td style="padding: 12px 10px; text-align: right; font-weight: 700; color: #334155;">${totalVol === 0 ? '< 20' : totalVol.toLocaleString()}</td>
             <td style="padding: 12px 10px; text-align: right; font-weight: 600; color: #64748b;">${docCount.toLocaleString()}</td>
             <td style="padding: 12px 10px; text-align: right; color: ${goldenRatioColor}; font-weight: 800;">${goldenRatioDisplay}</td>
-            <td style="padding: 12px 10px; text-align: center;">
-              <div style="font-size:11px; font-weight:700; color:${diffColor}">${difficulty}점</div>
-              <div style="font-size:9px; color:#94a3b8">${diffText}</div>
+            <td style="padding: 12px 10px; text-align: left; max-width: 200px;">
+              <div style="font-size: 11px; color: #64748b; line-height: 1.4; word-break: keep-all;">${verdictPrefix}${goldenReason}</div>
             </td>
+            <td style="padding: 12px 10px; text-align: right; font-size: 12px; font-weight: 700; color: ${revenueColor};">₩${monthlyRevenue.toLocaleString()}</td>
             <td style="padding: 12px 10px; text-align: center;">
               <button onclick="window.electronAPI.openExternal('https://search.naver.com/search.naver?query=' + encodeURIComponent('${item.keyword}'))" 
                 style="padding: 6px 10px; background: #f1f5f9; color: #475569; border: 1px solid #e2e8f0; border-radius: 6px; cursor: pointer; font-weight: 600; font-size: 11px; transition:all 0.2s;"
@@ -3292,6 +3301,28 @@
           html += `
             </tbody>
           </table>
+        </div>
+      `;
+
+          // 등급별 통계 요약
+          const gradeCounts = { SSS: 0, SS: 0, S: 0, A: 0, B: 0 };
+          let blueOceanCount = 0;
+          let totalRevenue = 0;
+          results.forEach(item => {
+            const g = item.grade || '';
+            if (gradeCounts.hasOwnProperty(g)) gradeCounts[g]++;
+            if (item.isBlueOcean) blueOceanCount++;
+            totalRevenue += (item.estimatedMonthlyRevenue || 0);
+          });
+          const avgRevenue = results.length > 0 ? Math.round(totalRevenue / results.length) : 0;
+
+          html += `
+        <div style="background: #f8fafc; padding: 12px 20px; border-radius: 0 0 12px 12px; font-size: 12px; color: #64748b; display: flex; align-items: center; gap: 16px; flex-wrap: wrap;">
+          <span><span style="background: #dc2626; color: white; padding: 2px 6px; border-radius: 4px; font-size: 10px; font-weight: 800;">SSS</span> ${gradeCounts.SSS}개</span>
+          <span><span style="background: #ea580c; color: white; padding: 2px 6px; border-radius: 4px; font-size: 10px; font-weight: 800;">SS</span> ${gradeCounts.SS}개</span>
+          <span><span style="background: #22c55e; color: white; padding: 2px 6px; border-radius: 4px; font-size: 10px; font-weight: 800;">S</span> ${gradeCounts.S}개</span>
+          <span>🌊 블루오션: ${blueOceanCount}개</span>
+          <span>💰 평균 월수익: ₩${avgRevenue.toLocaleString()}</span>
         </div>
       `;
 
@@ -14986,9 +15017,11 @@
                   ${sourceBadges}
                   <span style="font-size: 11px; color: rgba(255,255,255,0.4);">관련 뉴스 📰</span>
                 </div>
+                ${kw.opportunity ? '<div style="font-size: 11px; color: rgba(255,255,255,0.5); margin-top: 3px; line-height: 1.3;">' + kw.opportunity + '</div>' : ''}
               </div>
-              <div style="text-align: right; flex-shrink: 0; min-width: 70px;">
+              <div style="text-align: right; flex-shrink: 0; min-width: 70px; display: flex; flex-direction: column; align-items: flex-end; gap: 4px;">
                 <div style="font-size: 16px; font-weight: 700; color: ${volumeColor};">${volumeDisplay}</div>
+                ${kw.grade ? '<span style="background: ' + ({ 'SSS': '#dc2626', 'SS': '#ea580c', 'S': '#22c55e', 'A': '#3b82f6', 'B': '#fbbf24' }[kw.grade] || '#94a3b8') + '; color: white; padding: 3px 8px; border-radius: 6px; font-size: 11px; font-weight: 800;">' + kw.grade + '</span>' : ''}
               </div>
             </div >
           `;

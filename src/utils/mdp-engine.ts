@@ -2,11 +2,14 @@ import { splitKeywordSemantically } from './semantic-splitter';
 import { generateQueryPatterns } from './pattern-generator';
 import { classifyKeywordIntent, getNaverKeywordSearchVolumeSeparate, getNaverSerpSignal } from './naver-datalab-api';
 import { getNaverAutocompleteKeywords } from './naver-autocomplete';
+import { estimateCPC, calculatePurchaseIntent, calculateCompetitionLevel, CATEGORY_CPC_DATABASE } from './profit-golden-keyword-engine';
 
 /**
- * Master Discovery Protocol (MDP) Engine v2.0
- * 6단계 키워드 발굴 파이프라인을 총괄합니다.
+ * Master Discovery Protocol (MDP) Engine v3.0
+ * 6단계 키워드 발굴 파이프라인 + 통합 황금 스코어링
  */
+
+export type GoldenGrade = 'SSS' | 'SS' | 'S' | 'A' | 'B' | 'C' | 'D';
 
 export interface MDPResult {
     keyword: string;
@@ -24,6 +27,13 @@ export interface MDPResult {
     // Phase 3: Monetization
     cvi?: number;   // Commercial Value Index
     cpc?: number;   // Estimated CPC
+    // Phase 4: Golden Grade (v3.0)
+    grade?: GoldenGrade;
+    goldenReason?: string;
+    estimatedMonthlyRevenue?: number;
+    purchaseIntentScore?: number;
+    competitionLevel?: number;
+    isBlueOcean?: boolean;
 }
 
 export class MDPEngine {
@@ -107,24 +117,93 @@ export class MDPEngine {
                         // Phase 2 Upgrade: SERP 신호 분석
                         const serpSignal = await getNaverSerpSignal(sig.keyword);
 
-                        // Phase 3 Upgrade: 수익성 모델링
-                        // 1. Intent Weight 설정
+                        // Phase 3 Upgrade: 카테고리 인식 수익성 모델링 (v3.0)
+                        const detectedCategory = this.detectCategory(sig.keyword);
+                        const categoryCPC = estimateCPC(sig.keyword, detectedCategory);
+                        const purchaseIntent = calculatePurchaseIntent(sig.keyword);
+                        const competitionLvl = calculateCompetitionLevel(docCount, totalVolume);
+
+                        // Intent Weight
                         let intentWeight = 0.8;
                         if (intentInfo.intent === 'Commercial') intentWeight = 1.5;
                         else if (intentInfo.intent === 'Transactional') intentWeight = 1.2;
                         else if (intentInfo.intent === 'Navigational') intentWeight = 0.5;
 
-                        // 2. CVI (Commercial Value Index) 계산
+                        // CVI (Commercial Value Index) - profit-engine 연동
                         const compIdx = parseFloat(sig.competition || '10');
-                        const cvi = (totalVolume * (compIdx / 100) * intentWeight) / 10;
+                        const cvi = (0.5 + (purchaseIntent / 100) * 1.5) * (categoryCPC / 500) * (compIdx || 0.5);
 
-                        // 3. CPC 추정 (단순 모델)
-                        const estimatedCPC = Math.round((compIdx / 100) * 1500 * intentWeight);
+                        // ====== v3.0 통합 황금 점수 (0-100 정규화) ======
+                        // 1. 수요공급 점수 (30%) — 검색량÷문서수 비율
+                        const supplyDemandScore = Math.min(100, goldenRatio >= 20 ? 100 :
+                            goldenRatio >= 10 ? 80 + (goldenRatio - 10) * 2 :
+                            goldenRatio >= 5 ? 60 + (goldenRatio - 5) * 4 :
+                            goldenRatio >= 2 ? 35 + (goldenRatio - 2) * 8.3 :
+                            goldenRatio >= 1 ? 15 + (goldenRatio - 1) * 20 :
+                            goldenRatio * 15);
 
-                        // 점수 계산 (개편): 기본 점수(70%) + 수익성 점수(30%)
-                        const basicScore = (Math.log10(totalVolume + 1) * 20) + (Math.min(10, goldenRatio) * 6);
-                        const monetizationScore = Math.min(40, Math.log10(cvi + 1) * 20);
-                        const finalScore = (basicScore * 0.7) + (monetizationScore * 0.3);
+                        // 2. 경쟁도 점수 (25%) — SERP 난이도 + 문서수 기반
+                        const serpDifficulty = serpSignal.difficultyScore ?? 50;
+                        const serpPenalty = serpSignal.hasSmartBlock ? 10 : 0;
+                        const influencerPenalty = serpSignal.hasInfluencer ? 15 : 0;
+                        const rawCompetitionScore = 100 - serpDifficulty - serpPenalty - influencerPenalty;
+                        const docPenalty = docCount > 50000 ? 30 : docCount > 20000 ? 20 : docCount > 10000 ? 10 : docCount > 5000 ? 5 : 0;
+                        const competitionScore = Math.max(0, Math.min(100, rawCompetitionScore - docPenalty));
+
+                        // 3. 수익성 점수 (25%) — CPC × 구매의도
+                        const cpcScore = Math.min(100, categoryCPC >= 2000 ? 100 :
+                            categoryCPC >= 1000 ? 70 + (categoryCPC - 1000) * 0.03 :
+                            categoryCPC >= 500 ? 40 + (categoryCPC - 500) * 0.06 :
+                            categoryCPC >= 200 ? 15 + (categoryCPC - 200) * 0.083 :
+                            categoryCPC * 0.075);
+                        const monetizationScore = (cpcScore * 0.5) + (purchaseIntent * 0.5);
+
+                        // 4. 검색량 점수 (10%) — 절대 검색량
+                        const volumeScore = Math.min(100, totalVolume >= 50000 ? 100 :
+                            totalVolume >= 10000 ? 80 + (totalVolume - 10000) * 0.0005 :
+                            totalVolume >= 5000 ? 65 + (totalVolume - 5000) * 0.003 :
+                            totalVolume >= 1000 ? 40 + (totalVolume - 1000) * 0.00625 :
+                            totalVolume >= 300 ? 15 + (totalVolume - 300) * 0.036 :
+                            totalVolume * 0.05);
+
+                        // 5. 접근성 점수 (10%) — 키워드 길이, 진입장벽
+                        const wordCount = sig.keyword.split(/\s+/).filter(Boolean).length;
+                        const lengthBonus = wordCount >= 4 ? 30 : wordCount >= 3 ? 20 : wordCount >= 2 ? 10 : 0;
+                        const accessibilityScore = Math.min(100, lengthBonus + (100 - competitionLvl * 10));
+
+                        // 통합 점수 (가중 기하평균 기반 — 한 차원 0이면 전체 하락)
+                        const weights = { sd: 0.30, comp: 0.25, money: 0.25, vol: 0.10, acc: 0.10 };
+                        const safeScore = (s: number) => Math.max(1, s); // 0 방지
+                        const finalScore = Math.pow(
+                            Math.pow(safeScore(supplyDemandScore), weights.sd) *
+                            Math.pow(safeScore(competitionScore), weights.comp) *
+                            Math.pow(safeScore(monetizationScore), weights.money) *
+                            Math.pow(safeScore(volumeScore), weights.vol) *
+                            Math.pow(safeScore(accessibilityScore), weights.acc),
+                            1 // 이미 가중 지수이므로 합산 = 1
+                        );
+
+                        const clampedScore = Math.min(100, Math.max(0, Math.round(finalScore)));
+
+                        // ====== 등급 판정 (다중 게이트) ======
+                        const grade = this.calculateGrade(clampedScore, totalVolume, docCount, goldenRatio, serpDifficulty);
+
+                        // B등급 미만 필터링
+                        if (grade === 'C' || grade === 'D') continue;
+
+                        // 황금 사유 생성
+                        const goldenReason = this.generateGoldenReason(
+                            totalVolume, docCount, goldenRatio, categoryCPC, purchaseIntent, competitionScore, grade
+                        );
+
+                        // 월수익 추정
+                        const ctr = Math.max(0.05, 0.3 - (competitionLvl * 0.025));
+                        const dailyVisitors = Math.round((totalVolume / 30) * ctr);
+                        const estimatedMonthlyRevenue = Math.round(dailyVisitors * 0.03 * categoryCPC * 30);
+
+                        // 블루오션 판정
+                        const isBlueOcean = totalVolume >= 300 && totalVolume <= 10000 &&
+                            docCount <= 2000 && goldenRatio >= 5 && categoryCPC >= 150 && competitionLvl <= 4;
 
                         const result: MDPResult = {
                             keyword: sig.keyword,
@@ -133,7 +212,7 @@ export class MDPEngine {
                             searchVolume: totalVolume,
                             documentCount: docCount,
                             goldenRatio: parseFloat(goldenRatio.toFixed(2)),
-                            score: parseFloat(finalScore.toFixed(2)),
+                            score: clampedScore,
                             // Phase 2 Data
                             hasSmartBlock: serpSignal.hasSmartBlock,
                             hasViewSection: serpSignal.hasViewSection,
@@ -141,15 +220,21 @@ export class MDPEngine {
                             difficultyScore: serpSignal.difficultyScore,
                             // Phase 3 Data
                             cvi: parseFloat(cvi.toFixed(2)),
-                            cpc: estimatedCPC
+                            cpc: categoryCPC,
+                            // Phase 4: Golden Grade (v3.0)
+                            grade,
+                            goldenReason,
+                            estimatedMonthlyRevenue,
+                            purchaseIntentScore: purchaseIntent,
+                            competitionLevel: competitionLvl,
+                            isBlueOcean
                         };
 
                         yield result;
                         count++;
 
-                        // Step 6: Recursive Expansion (황금 키워드면 다시 큐에 삽입)
-                        // v2.0: 시드와의 관련성 유지를 위해 단순 점수외에 패턴 일치 여부 등 고려 가능 (향후 고도화)
-                        if (goldenRatio > 2.0 && count < options.limit) {
+                        // Step 6: Recursive Expansion — B등급 이상만 확장
+                        if (goldenRatio > 2.0 && clampedScore >= 50 && count < options.limit) {
                             this.queue.push(sig.keyword);
                         }
 
@@ -163,6 +248,81 @@ export class MDPEngine {
                 console.error(`[MDP-ENGINE] Error discovering "${current}":`, err);
             }
         }
+    }
+
+    /**
+     * v3.0: 카테고리 자동 감지
+     */
+    private detectCategory(keyword: string): string {
+        const kw = keyword.toLowerCase();
+        const categoryMap: Array<[string[], string]> = [
+            [['대출', '금리', '이자', '은행', '적금', '예금', '투자', '주식', '펀드', '연금'], 'finance'],
+            [['보험', '실비', '자동차보험', '생명보험'], 'insurance'],
+            [['아파트', '부동산', '전세', '월세', '매매', '분양'], 'realestate'],
+            [['변호사', '소송', '법률', '이혼', '상속'], 'legal'],
+            [['병원', '치료', '수술', '진료', '의사'], 'medical'],
+            [['임플란트', '치아', '교정', '치과'], 'dental'],
+            [['성형', '시술', '필러', '보톡스'], 'plastic'],
+            [['영양제', '비타민', '프로바이오틱스', '유산균', '건강식품'], 'supplement'],
+            [['다이어트', '체중', '살빼기', '단식'], 'diet'],
+            [['노트북', '스마트폰', '태블릿', '이어폰', '모니터'], 'tech'],
+            [['여행', '호텔', '숙소', '펜션', '항공'], 'travel'],
+            [['맛집', '카페', '레스토랑', '음식점'], 'food'],
+            [['화장품', '스킨케어', '선크림', '파운데이션'], 'beauty'],
+            [['육아', '신생아', '이유식', '어린이집'], 'parenting'],
+            [['자격증', '공부', '학원', '강의', '인강'], 'education'],
+            [['쿠팡', '할인', '세일', '추천', '리뷰', '후기', '비교', '가성비'], 'review'],
+            [['지원금', '보조금', '신청', '급여', '수당', '장려금'], 'finance'],
+            [['부업', '사이드잡', '재택', '블로그수익', '애드센스'], 'business'],
+        ];
+        for (const [keywords, cat] of categoryMap) {
+            if (keywords.some(k => kw.includes(k))) return cat;
+        }
+        return 'default';
+    }
+
+    /**
+     * v3.0: 다중 게이트 등급 판정
+     */
+    private calculateGrade(
+        score: number, volume: number, docCount: number, ratio: number, serpDifficulty: number
+    ): GoldenGrade {
+        // SSS: 점수 85+ AND 검색량 1000+ AND 문서수 5000 이하 AND 비율 5+
+        if (score >= 85 && volume >= 1000 && docCount <= 5000 && ratio >= 5) return 'SSS';
+        // SS: 점수 75+ AND 검색량 500+ AND 문서수 10000 이하 AND 비율 3+
+        if (score >= 75 && volume >= 500 && docCount <= 10000 && ratio >= 3) return 'SS';
+        // S: 점수 65+ AND 검색량 300+ AND 비율 2+
+        if (score >= 65 && volume >= 300 && ratio >= 2) return 'S';
+        // A: 점수 55+ AND 검색량 100+
+        if (score >= 55 && volume >= 100) return 'A';
+        // B: 점수 45+
+        if (score >= 45) return 'B';
+        // C: 점수 30+
+        if (score >= 30) return 'C';
+        return 'D';
+    }
+
+    /**
+     * v3.0: 황금 사유 생성 — "왜 이 키워드가 황금인지" 설명
+     */
+    private generateGoldenReason(
+        volume: number, docCount: number, ratio: number,
+        cpc: number, purchaseIntent: number, competitionScore: number, grade: GoldenGrade
+    ): string {
+        const parts: string[] = [];
+
+        if (ratio >= 10) parts.push(`검색량 ${volume.toLocaleString()} 대비 문서 ${docCount.toLocaleString()}개 — 경쟁 극히 낮음`);
+        else if (ratio >= 5) parts.push(`검색량 ${volume.toLocaleString()} 대비 문서 ${docCount.toLocaleString()}개 — 블루오션`);
+        else if (ratio >= 2) parts.push(`검색량 대비 경쟁 적절 (비율 ${ratio.toFixed(1)})`);
+
+        if (cpc >= 1000) parts.push(`고단가 키워드 (CPC ${cpc.toLocaleString()}원)`);
+        if (purchaseIntent >= 60) parts.push('구매의도 높음');
+        if (competitionScore >= 70) parts.push('SERP 진입 용이');
+        if (docCount <= 500) parts.push('문서수 극소 — 즉시 상위노출 가능');
+
+        if (parts.length === 0) parts.push(`종합 점수 기반 ${grade}등급`);
+
+        return parts.join(' | ');
     }
 
     /**

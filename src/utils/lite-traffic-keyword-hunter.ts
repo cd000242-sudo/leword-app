@@ -13,6 +13,7 @@
 import { EnvironmentManager } from './environment-manager';
 import { analyzeKeywordTrendingReason } from './keyword-trend-analyzer';
 import { getRelatedKeywords } from './related-keyword-cache';
+import { estimateCPC, calculatePurchaseIntent } from './profit-golden-keyword-engine';
 
 // ============================================================
 // 📋 인터페이스 정의
@@ -1241,11 +1242,12 @@ export async function huntLiteTrafficKeywords(options: {
     const contentGuide = generateContentGuide(keyword, keywordType, searchVolume);
     const confidence = calculateConfidence(searchVolume, documentCount, data.success);
 
-    // MDP v2.0: CVI 및 상업성 분석 (Lite 용 단순 버전)
-    const purchaseIntentScore = (keyword.includes('추천') || keyword.includes('가격') || keyword.includes('순위')) ? 70 : 30;
+    // MDP v2.0: CVI 및 상업성 분석 (profit-golden-keyword-engine 연동)
+    const purchaseIntentScore = calculatePurchaseIntent(keyword);
+    const estimatedCpc = estimateCPC(keyword, 'default');
     const intentWeight = 0.5 + (purchaseIntentScore / 100) * 1.5;
     const commercialIdx = data.compIdx ?? 0.5;
-    const cvi = Number((intentWeight * (searchVolume / 5000) * commercialIdx).toFixed(2));
+    const cvi = Number((intentWeight * (searchVolume / 5000) * commercialIdx * (estimatedCpc / 200)).toFixed(2));
 
     // MDP v2.0+ SRAA (Lite)
     let winRate = 65;

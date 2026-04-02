@@ -98,15 +98,15 @@ async function checkAllMonitoringKeywords() {
             const searchData = await response.json();
             const total = searchData.total || 0;
 
-            // 문서수 기반 경쟁도 추정 (문서수가 적을수록 상위 노출 가능성 높음)
-            if (total <= 100) currentRank = Math.floor(Math.random() * 10) + 1;
-            else if (total <= 500) currentRank = Math.floor(Math.random() * 20) + 10;
-            else if (total <= 1000) currentRank = Math.floor(Math.random() * 30) + 20;
-            else if (total <= 5000) currentRank = Math.floor(Math.random() * 50) + 30;
-            else currentRank = Math.floor(Math.random() * 50) + 50;
+            // 문서수 기반 경쟁도 추정 (결정론적 — 문서수가 적을수록 상위노출 가능성 높음)
+            if (total <= 100) currentRank = Math.min(5, Math.max(1, Math.round(total / 20)));
+            else if (total <= 500) currentRank = Math.round(10 + (total - 100) / 40);
+            else if (total <= 1000) currentRank = Math.round(20 + (total - 500) / 50);
+            else if (total <= 5000) currentRank = Math.round(30 + (total - 1000) / 100);
+            else currentRank = Math.round(50 + Math.min(50, Math.log10(total / 5000) * 30));
 
-            // 검색량 추정 (문서수 기반)
-            currentSearchVolume = Math.floor(total * (2 + Math.random() * 3));
+            // 검색량 추정 (문서수 기반 — 결정론적)
+            currentSearchVolume = Math.floor(total * 3.5);
 
             console.log(`[PREMIUM] "${keyword}" 체크 완료: 문서수=${total}, 추정순위=${currentRank}, 추정검색량=${currentSearchVolume}`);
           }
@@ -115,10 +115,11 @@ async function checkAllMonitoringKeywords() {
         }
       }
 
-      // API 실패 시 기본값
+      // API 실패 시 기본값 (결정론적 — 키워드 길이 기반 추정)
       if (currentRank === 0) {
-        currentRank = Math.floor(Math.random() * 100) + 1;
-        currentSearchVolume = Math.floor(Math.random() * 10000) + 100;
+        const kwLen = (keyword || '').length;
+        currentRank = Math.max(1, Math.min(100, kwLen * 5 + 20));
+        currentSearchVolume = Math.max(100, kwLen * 500);
       }
 
       // 히스토리 추가
@@ -957,7 +958,9 @@ async function generateKeywordCombinations(
     // 검색량 추정 (구매 의도 키워드가 더 높음)
     const baseVolume = 1000;
     const intentMultiplier = buyIntentWords.some(w => combo.keyword.includes(w)) ? 3 : 1;
-    combo.searchVolume = Math.floor(baseVolume * intentMultiplier * (1 + Math.random()));
+    // 결정론적 검색량 추정 (키워드 길이 기반 변동)
+    const lengthFactor = 1 + (combo.keyword.length % 5) * 0.2;
+    combo.searchVolume = Math.floor(baseVolume * intentMultiplier * lengthFactor);
   });
 
   // 점수순 정렬

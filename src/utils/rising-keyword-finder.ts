@@ -3,7 +3,7 @@
  * 네이버 데이터랩 API로 검색량 급상승 키워드 자동 발견
  */
 
-import { getNaverTrendKeywords, getNaverRelatedKeywords, NaverDatalabConfig } from './naver-datalab-api';
+import { getNaverTrendKeywords, getNaverRelatedKeywords, getNaverKeywordSearchVolumeSeparate, NaverDatalabConfig } from './naver-datalab-api';
 import { EnvironmentManager } from './environment-manager';
 
 export interface RisingKeyword {
@@ -14,6 +14,10 @@ export interface RisingKeyword {
   growthType: 'explosive' | 'rapid' | 'steady'; // 폭발적 / 급속 / 꾸준함
   rank?: number;
   reason?: string; // 급상승 이유
+  goldenScore?: number;
+  grade?: string;
+  opportunity?: string;
+  documentCount?: number;
 }
 
 /**
@@ -138,11 +142,53 @@ export async function findRisingKeywords(
     kw.rank = idx + 1;
   });
 
-  const result = risingKeywords.slice(0, maxResults);
-  
+  // Post-process: 상위 결과에 대해 문서수 조회로 경쟁도 분석
+  const topKeywords = risingKeywords.slice(0, maxResults);
+  const docCountConfig = {
+    clientId: naverConfig.clientId,
+    clientSecret: naverConfig.clientSecret
+  };
+
+  // 5개씩 배치로 문서수 조회
+  for (let i = 0; i < topKeywords.length; i += 5) {
+    const batch = topKeywords.slice(i, i + 5);
+    try {
+      const volumeData = await getNaverKeywordSearchVolumeSeparate(docCountConfig, batch.map(k => k.keyword));
+      for (let j = 0; j < batch.length; j++) {
+        const data = volumeData[j];
+        if (data && data.documentCount) {
+          const docCount = data.documentCount;
+          batch[j].documentCount = docCount;
+
+          // Recalculate goldenScore with competition data
+          const growthScore = Math.min(100, batch[j].growthRate >= 500 ? 100 : batch[j].growthRate >= 200 ? 80 : batch[j].growthRate >= 100 ? 60 : 40);
+          const volumeScore = Math.min(100, batch[j].currentSearchVolume >= 10000 ? 90 : batch[j].currentSearchVolume >= 5000 ? 70 : batch[j].currentSearchVolume >= 1000 ? 50 : 30);
+          const competitionScore = Math.min(100, docCount <= 500 ? 95 : docCount <= 2000 ? 75 : docCount <= 5000 ? 55 : docCount <= 10000 ? 35 : 15);
+
+          batch[j].goldenScore = Math.min(100, Math.round(growthScore * 0.35 + volumeScore * 0.25 + competitionScore * 0.40));
+          batch[j].grade = batch[j].goldenScore >= 85 ? 'SSS' : batch[j].goldenScore >= 70 ? 'SS' : batch[j].goldenScore >= 55 ? 'S' : batch[j].goldenScore >= 40 ? 'A' : 'B';
+          batch[j].opportunity = competitionScore >= 70
+            ? `🔥 경쟁 극히 낮음 (문서 ${docCount}개) + 성장률 ${batch[j].growthRate}% — 즉시 선점!`
+            : `📈 성장률 ${batch[j].growthRate}% — ${docCount <= 5000 ? '진입 가능' : '차별화 필요'}`;
+        }
+      }
+      await new Promise(resolve => setTimeout(resolve, 100));
+    } catch (err) {
+      console.warn('[RISING-KEYWORDS] 문서수 조회 실패:', err);
+    }
+  }
+
+  // goldenScore 기준 재정렬 (문서수 데이터 있는 항목 우선)
+  topKeywords.sort((a, b) => (b.goldenScore ?? 0) - (a.goldenScore ?? 0));
+  topKeywords.forEach((kw, idx) => {
+    kw.rank = idx + 1;
+  });
+
+  const result = topKeywords;
+
   console.log(`[RISING-KEYWORDS] ✅ 급상승 키워드 ${result.length}개 발견!`);
   result.forEach(kw => {
-    console.log(`  ${kw.rank}. ${kw.keyword} (+${kw.growthRate}%) [${kw.growthType}]`);
+    console.log(`  ${kw.rank}. ${kw.keyword} (+${kw.growthRate}%) [${kw.growthType}]${kw.goldenScore ? ` ⭐${kw.grade}(${kw.goldenScore})` : ''}`);
   });
 
   return result;

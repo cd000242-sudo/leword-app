@@ -220,6 +220,7 @@ async function showLicenseInputDialog(): Promise<{ success: boolean; plan?: stri
   const hasRegistered = !!savedUserId; // 이미 등록된 사용자인지
 
   return new Promise((resolve) => {
+    // TODO: Refactor license window to use a preload script instead of nodeIntegration: true
     const licenseWindow = new BrowserWindow({
       width: 580,
       height: 720,
@@ -851,6 +852,7 @@ function showUpdateWindow(version: string, mode: 'downloading' | 'ready'): Brows
     webPreferences: {
       nodeIntegration: true,
       contextIsolation: false,
+      sandbox: true,
     },
   });
 
