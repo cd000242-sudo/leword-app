@@ -17,6 +17,9 @@ import { KeywordMetricsUpdater, getMetricsUpdater, GradeChange } from './keyword
 import { KeywordCollectorScheduler, getCollectorScheduler, SchedulerStatus } from './keyword-collector-scheduler';
 import { getTitleGenerator } from './keyword-title-generator';
 import { detectSmartBlockType } from '../naver-smart-block-extractor';
+import { fetchNaverBlogSearchResults, calculateDaysAgo, parseNaverDate } from '../top-blog-analyzer';
+import { getNaverSerpSignal } from '../naver-serp-signal-api';
+import { EnvironmentManager } from '../environment-manager';
 
 
 
@@ -54,6 +57,12 @@ export interface FreshKeyword extends StoredKeyword {
         score: number;                 // 틈새 점수 (높을수록 좋음)
         type: 'empty_house' | 'blue_ocean' | 'gold_mine' | 'none'; // 빈집털이, 블루오션, 꿀통
         competitionRate: number;       // 경쟁률 (문서수 / 검색량) - 낮을수록 좋음
+        // v3.0: 진짜 빈집 감지 데이터
+        avgPostAgeDays?: number;       // 상위 포스트 평균 나이 (일)
+        oldPostRatio?: number;         // 6개월+ 오래된 글 비율 (%)
+        hasSmartBlock?: boolean;       // 스마트블록 존재 여부
+        hasInfluencer?: boolean;       // 인플루언서 탭 존재 여부
+        emptyHouseReason?: string;     // 빈집 판정 사유
     };
     suggestedTitles?: string[];      // 킬러 타이틀 제안 (Old)
     intelligentTitles?: string[];    // AI 지능형 제목 (New)
@@ -141,40 +150,145 @@ function calculateFreshness(collectedAt: string): number {
 }
 
 /**
- * 틈새 점수 및 타입 분석
+ * 틈새 점수 및 타입 분석 (기본 — 비율만 사용, 빠름)
  */
-function analyzeNiche(searchVolume: number | null, documentCount: number | null): { score: number; type: 'empty_house' | 'blue_ocean' | 'gold_mine' | 'none'; competitionRate: number } {
+function analyzeNicheBasic(searchVolume: number | null, documentCount: number | null): FreshKeyword['nicheInfo'] {
     const sv = searchVolume ?? 0;
-    const dc = documentCount ?? 1; // 0 방지
+    const dc = documentCount ?? 1;
     const competitionRate = dc / (sv || 1);
     const goldenRatio = sv / (dc || 1);
 
     let type: 'empty_house' | 'blue_ocean' | 'gold_mine' | 'none' = 'none';
     let score = 0;
 
-    // 1. 빈집털이 (Empty House): 검색량 대비 문서수가 현저히 적은 경우
-    //    기준 완화: 검색량 300+, 문서수 2000 이하, 비율 3 이상
     if (sv >= 300 && dc <= 2000 && goldenRatio >= 3) {
         type = 'empty_house';
         score = Math.min(100, 75 + (goldenRatio * 3));
-    }
-    // 2. 꿀통 (Gold Mine): 검색량이 높고 비율도 좋은 경우
-    //    기준 완화: 검색량 3000+, 비율 2.0 이상
-    else if (sv >= 3000 && goldenRatio >= 2.0) {
+    } else if (sv >= 3000 && goldenRatio >= 2.0) {
         type = 'gold_mine';
         score = Math.min(100, 70 + (goldenRatio * 3));
-    }
-    // 3. 블루오션 (Blue Ocean): 비율이 적당히 좋은 경우
-    //    기준 완화: 검색량 200+, 비율 1.5 이상
-    else if (sv >= 200 && goldenRatio >= 1.5) {
+    } else if (sv >= 200 && goldenRatio >= 1.5) {
         type = 'blue_ocean';
         score = Math.min(100, 55 + (goldenRatio * 5));
-    }
-    else {
+    } else {
         score = Math.min(50, goldenRatio * 15);
     }
 
     return { score: Math.min(Math.round(score), 100), type, competitionRate };
+}
+
+/**
+ * 🏚️ 진짜 빈집 감지 — 상위 포스트 나이 + SERP 신호 + 비율 종합 분석
+ * 원클릭 빈집털이에서 호출됨. 키워드당 2-3초 소요.
+ */
+async function analyzeNicheDeep(
+    keyword: string,
+    searchVolume: number | null,
+    documentCount: number | null
+): Promise<FreshKeyword['nicheInfo']> {
+    const sv = searchVolume ?? 0;
+    const dc = documentCount ?? 1;
+    const competitionRate = dc / (sv || 1);
+    const goldenRatio = sv / (dc || 1);
+
+    // 1단계: 비율 기반 기본 분석
+    const basic = analyzeNicheBasic(searchVolume, documentCount);
+
+    // 검색량 200 미만이면 심층 분석 스킵 (투자 가치 없음)
+    if (sv < 200) return basic;
+
+    try {
+        const envManager = EnvironmentManager.getInstance();
+        const config = envManager.getConfig();
+        const clientId = config.naverClientId || '';
+        const clientSecret = config.naverClientSecret || '';
+
+        if (!clientId || !clientSecret) return basic;
+
+        // 2단계: 상위 블로그 포스트 나이 분석 (네이버 블로그 검색 상위 5개)
+        const topPosts = await fetchNaverBlogSearchResults(keyword, clientId, clientSecret, 5);
+        let avgPostAgeDays = 0;
+        let oldPostCount = 0;
+
+        if (topPosts.length > 0) {
+            const ages = topPosts.map(post => {
+                const date = parseNaverDate(post.postDate);
+                return calculateDaysAgo(date);
+            });
+            avgPostAgeDays = Math.round(ages.reduce((a, b) => a + b, 0) / ages.length);
+            oldPostCount = ages.filter(age => age >= 180).length; // 6개월 이상
+        }
+
+        // 3단계: SERP 신호 분석
+        const serpSignal = await getNaverSerpSignal(keyword);
+
+        // 4단계: 종합 빈집 점수 계산
+        // 포스트 나이 점수 (40%) — 오래될수록 빈집
+        const ageScore = avgPostAgeDays >= 365 ? 100
+            : avgPostAgeDays >= 180 ? 85
+            : avgPostAgeDays >= 90 ? 60
+            : avgPostAgeDays >= 30 ? 30 : 10;
+
+        // 경쟁 장벽 점수 (30%) — 스마트블록/인플루언서 없을수록 좋음
+        const barrierScore = 100
+            - (serpSignal.hasSmartBlock ? 25 : 0)
+            - (serpSignal.hasInfluencer ? 30 : 0)
+            - (serpSignal.difficultyScore * 5);
+
+        // 비율 점수 (30%) — 검색량 대비 문서수
+        const ratioScore = goldenRatio >= 10 ? 100
+            : goldenRatio >= 5 ? 80
+            : goldenRatio >= 2 ? 60
+            : goldenRatio >= 1 ? 40 : 15;
+
+        const totalScore = Math.min(100, Math.round(
+            ageScore * 0.40 + Math.max(0, barrierScore) * 0.30 + ratioScore * 0.30
+        ));
+
+        // 5단계: 타입 판정 (진짜 빈집 = 포스트 오래됨 + 장벽 낮음 + 비율 좋음)
+        const oldPostRatio = topPosts.length > 0 ? Math.round((oldPostCount / topPosts.length) * 100) : 0;
+
+        let type: 'empty_house' | 'blue_ocean' | 'gold_mine' | 'none' = 'none';
+        let emptyHouseReason = '';
+
+        // 빈집: 상위 포스트 평균 90일+ AND (인플루언서 없음 OR 비율 3+)
+        if (avgPostAgeDays >= 90 && (!serpSignal.hasInfluencer || goldenRatio >= 3)) {
+            type = 'empty_house';
+            emptyHouseReason = `상위 글 평균 ${avgPostAgeDays}일 전 (${oldPostRatio}% 6개월+)`;
+            if (!serpSignal.hasSmartBlock) emptyHouseReason += ' | 스마트블록 없음';
+            if (!serpSignal.hasInfluencer) emptyHouseReason += ' | 인플루언서 없음';
+        }
+        // 꿀통: 검색량 많고 비율 좋음
+        else if (sv >= 3000 && goldenRatio >= 2.0 && !serpSignal.hasInfluencer) {
+            type = 'gold_mine';
+            emptyHouseReason = `검색량 ${sv.toLocaleString()} + 비율 ${goldenRatio.toFixed(1)} + 인플루언서 없음`;
+        }
+        // 블루오션: 비율 적당 + 장벽 낮음
+        else if (goldenRatio >= 1.5 && barrierScore >= 50) {
+            type = 'blue_ocean';
+            emptyHouseReason = `비율 ${goldenRatio.toFixed(1)} + 진입 장벽 낮음`;
+        }
+
+        return {
+            score: totalScore,
+            type,
+            competitionRate,
+            avgPostAgeDays,
+            oldPostRatio,
+            hasSmartBlock: serpSignal.hasSmartBlock,
+            hasInfluencer: serpSignal.hasInfluencer,
+            emptyHouseReason
+        };
+
+    } catch (error) {
+        console.warn(`[NICHE-DEEP] ${keyword} 심층 분석 실패, 기본 분석 사용:`, error);
+        return basic;
+    }
+}
+
+// 하위 호환: 기존 호출 유지
+function analyzeNiche(searchVolume: number | null, documentCount: number | null): FreshKeyword['nicheInfo'] {
+    return analyzeNicheBasic(searchVolume, documentCount);
 }
 
 // ============================================================================
@@ -426,7 +540,32 @@ export class FreshKeywordsAPI {
 
         result.keywords = filtered;
 
-        // 틈새 점수순 정렬
+        // 🏚️ v3.0: 상위 키워드에 대해 진짜 빈집 감지 (상위 포스트 나이 + SERP 분석)
+        const deepAnalysisCount = Math.min(filtered.length, options.count || 20);
+        const deepTargets = filtered.slice(0, deepAnalysisCount);
+        console.log(`[NICHE] 🏚️ 심층 빈집 분석 시작: ${deepTargets.length}개 키워드`);
+
+        for (let i = 0; i < deepTargets.length; i++) {
+            const kw = deepTargets[i];
+            try {
+                const deepResult = await analyzeNicheDeep(kw.keyword, kw.searchVolume, kw.documentCount);
+                kw.nicheInfo = deepResult;
+                console.log(`[NICHE] ${i + 1}/${deepTargets.length} ${kw.keyword}: ${deepResult.type} (${deepResult.score}점) ${deepResult.emptyHouseReason || ''}`);
+            } catch (err) {
+                console.warn(`[NICHE] ${kw.keyword} 심층 분석 실패:`, err);
+            }
+            // Rate limit (네이버 API 보호)
+            if (i < deepTargets.length - 1) {
+                await new Promise(resolve => setTimeout(resolve, 300));
+            }
+        }
+
+        // 심층 분석 후 빈집이 아닌 것 재필터링 (type이 none으로 바뀐 것 제거)
+        result.keywords = result.keywords.filter(kw =>
+            kw.nicheInfo && kw.nicheInfo.type !== 'none'
+        );
+
+        // 틈새 점수순 재정렬
         result.keywords.sort((a, b) => (b.nicheInfo?.score || 0) - (a.nicheInfo?.score || 0));
 
         // [데이터 부족 시 자동 수집 트리거]
