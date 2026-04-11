@@ -1,5 +1,9 @@
 // LEWORD 독립 앱 - 메인 프로세스
 process.env.ELECTRON_DISABLE_SECURITY_WARNINGS = 'true';
+
+// EPIPE 에러 방지 (stdout/stderr 닫힌 후 write 시도 시)
+process.stdout?.on?.('error', (err: any) => { if (err?.code === 'EPIPE') return; });
+process.stderr?.on?.('error', (err: any) => { if (err?.code === 'EPIPE') return; });
 // File API polyfill for Electron (undici 호환성)
 if (typeof globalThis.File === 'undefined') {
   // Blob polyfill 먼저
@@ -130,12 +134,15 @@ function createKeywordWindow() {
     keywordWindow.loadURL('data:text/html,<h1>LEWORD</h1><p>keyword-master.html을 찾을 수 없습니다.</p>');
   }
 
-  // UI 콘솔 로그를 main 프로세스로 전달 (디버그용 - 모든 메시지)
-  keywordWindow.webContents.on('console-message', (_event, level, message, line, sourceId) => {
-    const levelStr = ['VERBOSE', 'LOG', 'WARN', 'ERROR'][level] || 'INFO';
-    // 모든 콘솔 메시지 출력
-    console.log(`[UI-${levelStr}] ${message}`);
-  });
+  // UI 콘솔 로그를 main 프로세스로 전달 (디버그용 - 배포 시 비활성화)
+  if (!app.isPackaged) {
+    keywordWindow.webContents.on('console-message', (_event, level, message) => {
+      const levelStr = ['VERBOSE', 'LOG', 'WARN', 'ERROR'][level] || 'INFO';
+      if (process.stdout.writable) {
+        process.stdout.write(`[UI-${levelStr}] ${message}\n`);
+      }
+    });
+  }
 
   keywordWindow.once('ready-to-show', () => {
     keywordWindow?.show();

@@ -218,6 +218,14 @@ export type BloggerApi = {
   getGoogleTrendKeywords(): Promise<Array<{ rank: number; keyword: string; changeRate: number; category: string }>>;
   getYouTubeVideos(options?: { maxResults?: number }): Promise<any[]>;
 
+  /** YouTube 심층 분석 */
+  analyzeYouTubeTrends(params: { keyword?: string; maxResults?: number; categoryId?: string }): Promise<any>;
+  getYouTubeTitlePatterns(params: { keyword?: string; maxResults?: number }): Promise<any>;
+  getYouTubeContentOpportunity(params: { keyword: string; maxResults?: number }): Promise<any>;
+  getYouTubeDemandSignals(params: { videoId: string }): Promise<any>;
+  getYouTubeBenchmark(params: { keyword: string; maxResults?: number }): Promise<any>;
+  getYouTubeGoldenKeywords(params: { maxResults?: number }): Promise<any>;
+
   /** 자동완성 키워드 조회 */
   getAutoComplete(keyword: string): Promise<string[]>;
   /** 연관 키워드 조회 */
@@ -488,6 +496,21 @@ const api: BloggerApi = {
   getSNSTrends: (platform: 'youtube') => ipcRenderer.invoke('get-sns-trends', platform),
   huntTimingGold: (options?: { category?: string; limit?: number; offset?: number; refresh?: boolean }) => ipcRenderer.invoke('hunt-timing-gold', options),
   getYouTubeVideos: (options?: { maxResults?: number }) => ipcRenderer.invoke('get-youtube-videos', options),
+
+  // YouTube 심층 분석
+  analyzeYouTubeTrends: (params: { keyword?: string; maxResults?: number; categoryId?: string }) =>
+    ipcRenderer.invoke('youtube-trend-analysis', params),
+  getYouTubeTitlePatterns: (params: { keyword?: string; maxResults?: number }) =>
+    ipcRenderer.invoke('youtube-title-patterns', params),
+  getYouTubeContentOpportunity: (params: { keyword: string; maxResults?: number }) =>
+    ipcRenderer.invoke('youtube-content-opportunity', params),
+  getYouTubeDemandSignals: (params: { videoId: string }) =>
+    ipcRenderer.invoke('youtube-demand-signals', params),
+  getYouTubeBenchmark: (params: { keyword: string; maxResults?: number }) =>
+    ipcRenderer.invoke('youtube-benchmark', params),
+  getYouTubeGoldenKeywords: (params: { maxResults?: number }) =>
+    ipcRenderer.invoke('youtube-golden-keywords', params),
+
   getGoogleTrendKeywords: () => ipcRenderer.invoke('get-google-trend-keywords'),
 
   // 자동완성 및 연관 키워드 조회

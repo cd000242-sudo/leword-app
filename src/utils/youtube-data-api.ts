@@ -203,7 +203,7 @@ export function getDateRange(days: number): { from: string; to: string } {
  * 캐시 키 생성
  */
 function getCacheKey(config: any): string {
-  return JSON.stringify(config);
+  return JSON.stringify(config, Object.keys(config).sort());
 }
 
 /**
@@ -255,14 +255,14 @@ async function withRetry<T>(
  * 쇼츠 여부 판단
  */
 function isShorts(video: { durationSeconds: number; title: string }): boolean {
-  // 60초 이하면 쇼츠 가능성
-  if (video.durationSeconds <= SHORTS_MAX_DURATION) {
-    // 제목에 #shorts 포함 여부
-    if (video.title.toLowerCase().includes('#shorts')) {
-      return true;
-    }
-    // 60초 이하 + 세로 영상 (추정)
-    return video.durationSeconds <= 60;
+  const titleLower = video.title.toLowerCase();
+  // #shorts 태그 있으면 확실한 쇼츠
+  if (titleLower.includes('#shorts') || titleLower.includes('#short')) {
+    return true;
+  }
+  // 60초 이하이고 제목이 짧으면(50자 미만) 쇼츠 가능성 높음
+  if (video.durationSeconds <= SHORTS_MAX_DURATION && video.durationSeconds > 0 && video.title.length < 50) {
+    return true;
   }
   return false;
 }
@@ -284,7 +284,7 @@ async function apiRequest(
     
     if (!response.ok) {
       const errorData = await response.json().catch(() => ({}));
-      throw new Error(`API 실패: ${response.status} - ${JSON.stringify(errorData)}`);
+      throw new Error(`YouTube API 오류: ${response.status}`);
     }
     
     return response.json();
@@ -377,14 +377,15 @@ async function getVideoDetails(
   if (includeChannelInfo && channelIds.size > 0) {
     const channelMap = await getChannelsInfo(apiKey, Array.from(channelIds));
     
-    allVideos.forEach(video => {
+    const enrichedVideos = allVideos.map(video => {
       const channel = channelMap.get(video.channelId);
-      if (channel) {
-        video.subscriberCount = channel.subscriberCount;
-      }
+      return channel
+        ? { ...video, subscriberCount: channel.subscriberCount }
+        : video;
     });
+    return enrichedVideos;
   }
-  
+
   return allVideos;
 }
 
@@ -1177,7 +1178,10 @@ export async function getYouTubeTrendKeywords(config: {
     // 영상 제목에서 키워드 추출
     const keywords: Array<{ keyword: string; viewCount: number; changeRate: number; category: string }> = [];
     const seenKeywords = new Set<string>();
-    
+
+    // 시간당 조회수 기반 급상승률 계산을 위한 최대값 사전 계산
+    const maxViewsPerHour = Math.max(...trendingResult.videos.map(v => v.viewsPerHour), 1);
+
     trendingResult.videos.forEach((video) => {
       // 제목에서 핵심 키워드 추출 (2-10자 단어)
       const title = video.title || '';
@@ -1186,14 +1190,14 @@ export async function getYouTubeTrendKeywords(config: {
         .split(/\s+/)
         .filter(word => word.length >= 2 && word.length <= 10)
         .filter(word => !['영상', '동영상', '비디오', '보기', '시청', '구독', '좋아요'].includes(word));
-      
+
       // 조회수가 높은 영상의 키워드 우선
       words.forEach(word => {
         const keyword = word.trim();
         if (keyword && keyword.length >= 2 && !seenKeywords.has(keyword)) {
           seenKeywords.add(keyword);
-          // 급상승률 계산 (시간당 조회수 기반)
-          const changeRate = video.viewsPerHour > 10000 ? 150 : (video.viewsPerHour > 5000 ? 100 : 50);
+          // 시간당 조회수 기반 실제 급상승률 계산
+          const changeRate = Math.round((video.viewsPerHour / maxViewsPerHour) * 200);
           keywords.push({
             keyword,
             viewCount: video.viewCount || 0,

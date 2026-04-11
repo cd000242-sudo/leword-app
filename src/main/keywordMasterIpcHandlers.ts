@@ -8,6 +8,7 @@ import { setupRpmHandlers } from './handlers/rpm-handlers';
 import { setupScheduleDashboardHandlers } from './handlers/schedule-dashboard';
 import { setupConfigUtilityHandlers } from './handlers/config-utility';
 import { setupLicenseHandlers } from './handlers/license-handlers';
+import { registerYouTubeAnalysisHandlers } from './handlers/youtube-handlers';
 
 // 중복 호출 방지 플래그
 let handlersSetup = false;
@@ -63,6 +64,7 @@ export function setupKeywordMasterHandlers() {
   setupScheduleDashboardHandlers();
   setupConfigUtilityHandlers();
   setupLicenseHandlers();
+  registerYouTubeAnalysisHandlers();
 
   console.log('[KEYWORD-MASTER] IPC 핸들러 등록 완료');
   console.log('[KEYWORD-MASTER] ✅ 모든 핸들러 등록 완료');

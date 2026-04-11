@@ -145,14 +145,14 @@ const SMART_TEMPLATES: Record<SmartBlockType, string[]> = {
         "의사가 말하는 {keyword} 예방법 및 관리 루틴"
     ],
 
-    // 🌐 일반 (기존 템플릿 개선)
+    // 🌐 일반 (검색 의도별 맞춤)
     general: [
-        "{keyword} 뜻/유래 완벽 정리 (쉽게 설명해드림)",
-        "{keyword} 하는 법 & 이용 꿀팁 총정리",
-        "{keyword} 추천 순위 BEST 5 (2025년 버전)",
-        "{keyword} 논란/이슈 요약 (3줄 요약)",
-        "{keyword} 관련 자주 묻는 질문(FAQ) 해결",
-        "{keyword} 팩트체크: 진짜일까? (오해와 진실)"
+        "{keyword} 뜻과 유래 완벽 정리 (쉽게 설명)",
+        "{keyword} 총정리 - 알아두면 쓸모있는 핵심 정보",
+        "{keyword} 관련 꼭 알아야 할 사실 BEST 5",
+        "{keyword} 관련 자주 묻는 질문(FAQ) 정리",
+        "{keyword} 완벽 가이드 (초보자도 이해하기 쉽게)",
+        "{keyword} 최신 정보 총정리 ({year}년)"
     ]
 };
 
@@ -587,18 +587,18 @@ export class TitleGenerator {
             emoji = "🚨";
             analysisReport = `"${kw}" 키워드는 현재 사회적 비보와 관련되어 대중의 관심이 최고조에 달해 있습니다. ${newsSnippets.length > 0 ? `\n(뉴스 요약: ${newsSnippets[0].substring(0, 40)}...)` : ""}`;
             strategy = `
-            ✅ **작성 가이드**:
+            ✅ 작성 가이드:
             1. 자극적인 제목보다는 '영면', '추모', '별세' 등 정중한 표현을 사용하세요.
             2. 연관 키워드(나이, 프로필, 배경)를 소제목으로 구성해 독자의 체류시간을 잡으세요.
             3. 팩트 위주의 정확한 정보(뉴스 인용)를 제공하여 신뢰도를 높이는 것이 핵심입니다.
-            ⚠️ **주의**: 악플을 유발할 수 있는 추측성 내용은 블로그 지수에 치명적일 수 있습니다.`;
+            ⚠️ 주의: 악플을 유발할 수 있는 추측성 내용은 블로그 지수에 치명적일 수 있습니다.`;
         }
         // (B) 결혼/연애/가족 이슈
         else if (inferredType === 'romance') {
             emoji = "💖";
             analysisReport = `"${baseName}"의 사생활/열애 소식이 트래픽의 중심입니다. ${newsSnippets.length > 0 ? `\n(최신 소식: ${newsSnippets[0].substring(0, 40)}...)` : ""}`;
             strategy = `
-            ✅ **작성 가이드**:
+            ✅ 작성 가이드:
             1. '누구와?', '과거의 인연', '공식 입장' 등 궁금증을 해소하는 큐레이션 형태가 유리합니다.
             2. 인스타그램 반응이나 소속사 보도자료를 캡처/요약하여 현장감을 살리세요.
             3. 단순 짜깁기보다는 나만의 '축하' 혹은 '분석' 의견을 덧붙여 독창성을 확보하세요.`;
@@ -608,7 +608,7 @@ export class TitleGenerator {
             emoji = "⚖️";
             analysisReport = `현재 "${baseName}" 관련 사건의 진실 공방이 매우 뜨겁습니다. ${newsSnippets.length > 0 ? `\n(주요 쟁점: ${newsSnippets[0].substring(0, 40)}...)` : ""}`;
             strategy = `
-            ✅ **작성 가이드**:
+            ✅ 작성 가이드:
             1. 양측의 입장을 중립적(A측 주장 vs B측 주장)으로 정리하여 객관성을 유지하세요.
             2. 사건의 발생부터 현재까지의 '타임라인'을 정리해주면 체류시간이 획기적으로 상승합니다.
             3. 관련 법 조항이나 과거 유사 사례를 덧붙여 풍성한 콘텐츠를 만드세요.`;
@@ -618,7 +618,7 @@ export class TitleGenerator {
             emoji = "🎬";
             analysisReport = `새로운 복귀/작품 소식으로 인해 검색 수요가 폭발했습니다. ${newsSnippets.length > 0 ? `\n(화제의 장면: ${newsSnippets[0].substring(0, 40)}...)` : ""}`;
             strategy = `
-            ✅ **작성 가이드**:
+            ✅ 작성 가이드:
             1. 방영 시간, 재방송 채널, OST 등 실전 '꿀정보'를 상단에 배치하세요.
             2. 원작(웹툰/소설)이 있다면 드라마와의 차이점을 분석하는 것이 100점짜리 공략법입니다.
             3. 시청자들의 실시간 반응(커뮤니티 요약)을 포함시켜 공감대를 형성하세요.`;
@@ -628,7 +628,7 @@ export class TitleGenerator {
             emoji = "💰";
             analysisReport = `실제 구매를 고민하는 사용자들이 "${kw}"의 검증된 후기를 원하고 있습니다.`;
             strategy = `
-            ✅ **작성 가이드**:
+            ✅ 작성 가이드:
             1. '내돈내산' 느낌의 솔직한 장/단점 비교표를 삽입하여 신뢰를 얻으세요.
             2. '최저가 구매 좌표'나 '할인 혜택' 정보는 수익화 전환율(CTR)을 직접적으로 높여줍니다.
             3. 성능 수치보다는 '실생활에서 어떤 점이 편한지' 체감형 후기로 접근하세요.`;
@@ -639,7 +639,7 @@ export class TitleGenerator {
                 ? `최근 "${newsSnippets[0].substring(0, 30)}..." 등의 정보를 찾는 검색 수요가 꾸준합니다.`
                 : `현재 "${kw}"와(과) 관련된 실용적인 정보를 찾는 수요층이 두터운 상태입니다.`;
             strategy = `
-            ✅ **작성 가이드**:
+            ✅ 작성 가이드:
             1. 검색 의도(정의, 방법, 후기)를 빠르게 파악하여 두괄식 핵심 요약부터 제시하세요.
             2. 관련 자주 묻는 질문(FAQ)을 포함하면 구글 서치콘솔 검색 노출 수치까지 잡을 수 있습니다.
             3. '2025 최신', '직접 체험한' 같은 후킹 멘트로 클릭률을 극대화하세요.`;
@@ -657,10 +657,10 @@ export class TitleGenerator {
             });
         }
 
-        const keywordList = combinedKeywords.map((k, i) => `   ${i + 1}. **${k}**`).join('\n');
-        const sourceLabel = realKeywords.length > 0 ? "🔥 **네이버 실시간 HOT 연관 검색어**" : "🤖 **AI 문맥 기반 추천 토픽**";
+        const keywordList = combinedKeywords.map((k, i) => `   ${i + 1}. ${k}`).join('\n');
+        const sourceLabel = realKeywords.length > 0 ? "🔥 네이버 실시간 HOT 연관 검색어" : "🤖 AI 문맥 기반 추천 토픽";
 
-        return `### ${emoji} 비평가 분석 리포트\n${analysisReport}\n\n${sourceLabel}:\n${keywordList}\n\n💡 **전문가의 공략 가이드**:\n${strategy}`;
+        return `${emoji} 비평가 분석 리포트\n${analysisReport}\n\n${sourceLabel}:\n${keywordList}\n\n💡 전문가의 공략 가이드:\n${strategy}`;
     }
 
     /**
@@ -679,9 +679,25 @@ export class TitleGenerator {
         const svText = (keyword.searchVolume || 0) > 1000 ? ` (월 ${(keyword.searchVolume! / 1000).toFixed(1)}K)` : "";
         const year = new Date().getFullYear();
 
-        // 템플릿 셔플 및 풍부한 조합 생성
-        const selectedTemplates = [...templates].sort(() => 0.5 - Math.random()).slice(0, count * 2);
+        // 연관 키워드 활용 (있으면 제목에 자연스럽게 삽입)
+        const relatedKws: string[] = (keyword as any).relatedKeywords
+            || (keyword as any).nicheInfo?.relatedKeywords
+            || [];
+        const topRelated = relatedKws
+            .filter(r => r !== kwText && r.length >= 2 && r.length <= 10)
+            .slice(0, 3);
+
+        // 연관 키워드 기반 제목 생성 (최우선)
         const titles: string[] = [];
+        if (topRelated.length >= 1) {
+            titles.push(`${kwText} ${topRelated[0]} - 꼭 알아야 할 핵심 정보 총정리`);
+        }
+        if (topRelated.length >= 2) {
+            titles.push(`${kwText} 완벽 가이드 (${topRelated.slice(0, 2).join(', ')} 포함)`);
+        }
+
+        // 템플릿 기반 제목으로 보충
+        const selectedTemplates = [...templates].sort(() => 0.5 - Math.random()).slice(0, count * 2);
 
         for (const tpl of selectedTemplates) {
             if (titles.length >= count) break;
@@ -691,30 +707,26 @@ export class TitleGenerator {
                 .replace(/{year}/g, year.toString())
                 .replace(/{age}/g, "??");
 
-            // 100점짜리 수식어 전략 (키워드 특성별 맞춤형)
+            // 키워드 특성별 수식어
             if (isTragedy) {
-                title = this.applyHook(title, ['안타까운 비보', '추모', '별세', '긴급속보', '속보']);
+                title = this.applyHook(title, ['추모', '별세', '긴급속보']);
             } else if (keyword.nicheInfo?.type === 'empty_house') {
-                title = this.applyHook(title, ['나만 몰랐던', '숨은 꿀통', '지금이 기회', '의외의 진실']);
+                title = this.applyHook(title, ['나만 몰랐던', '지금이 기회']);
             } else if (keyword.isRising || keyword.isEarlyBird) {
-                title = this.applyHook(title, ['긴급속보', '실시간 화제', '단독 공개', '충격 근황']);
+                title = this.applyHook(title, ['실시간 화제', '최신']);
             } else if (keyword.grade === 'SSS' || (keyword.goldenRatio || 0) > 5) {
-                title = this.applyHook(title, ['역대급', '미쳤다', '대박 소식', '필독']);
-            } else if (keyword.category === 'life_tips') {
-                title = this.applyHook(title, ['삶의 질 상승', '생활 꿀팁', '100% 보장', '내돈내산']);
+                title = this.applyHook(title, ['필독', '핵심']);
             } else {
-                title = this.applyHook(title); // 일반 랜덤 훅
+                title = this.applyHook(title);
             }
 
-            // 검색량 힌트 추가 (선택적)
-            if (!isTragedy && Math.random() > 0.5 && svText) {
-                title += svText;
+            // 중복 제거
+            if (!titles.includes(title)) {
+                titles.push(title);
             }
-
-            titles.push(title);
         }
 
-        return titles;
+        return titles.slice(0, count);
     }
 
     private inferTypeFromCategory(category: string): SmartBlockType | undefined {

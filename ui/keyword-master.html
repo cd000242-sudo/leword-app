@@ -1226,6 +1226,29 @@
             <span style="margin-left: auto; font-size: 28px; color: white;">→</span>
           </button>
 
+          <!-- 🔬 유튜브 트렌드 심층 분석 배너 -->
+          <button onclick="event.stopPropagation(); openModal('youtube-deep-analysis');" style="
+            width: 100%;
+            background: linear-gradient(135deg, #7c3aed 0%, #4f46e5 50%, #2563eb 100%);
+            border: none;
+            border-radius: 16px;
+            padding: 20px 24px;
+            cursor: pointer;
+            display: flex;
+            align-items: center;
+            gap: 16px;
+            margin-top: 12px;
+            transition: all 0.3s ease;
+            box-shadow: 0 4px 15px rgba(124, 58, 237, 0.3);
+          " onmouseover="this.style.transform='translateY(-2px)'; this.style.boxShadow='0 8px 25px rgba(124,58,237,0.4)';"
+             onmouseout="this.style.transform='translateY(0)'; this.style.boxShadow='0 4px 15px rgba(124,58,237,0.3)';">
+            <span style="font-size: 28px;">🔬</span>
+            <div style="text-align: left;">
+              <div style="color: white; font-size: 16px; font-weight: 700;">유튜브 트렌드 심층 분석</div>
+              <div style="color: rgba(255,255,255,0.8); font-size: 12px; margin-top: 2px;">제목패턴 · 콘텐츠기회 · 황금키워드 · AI 분석</div>
+            </div>
+          </button>
+
           <!-- ♾️ 연상키워드 마인드맵 무한확장 - 제거됨 (사용자 요청) -->
 
           <!-- 💰 고수익 RPM 키워드 분석기 배너 -->
@@ -2391,6 +2414,12 @@
             window.blogger.toggleKeywordSchedule = window.blogger.toggleKeywordSchedule || ((id, enabled) => sendIPCRequest('toggle-keyword-schedule', id, enabled));
             window.blogger.getSNSTrends = window.blogger.getSNSTrends || ((platform) => sendIPCRequest('get-sns-trends', platform));
             window.blogger.getYouTubeVideos = window.blogger.getYouTubeVideos || ((options) => sendIPCRequest('get-youtube-videos', options));
+            window.blogger.analyzeYouTubeTrends = window.blogger.analyzeYouTubeTrends || ((params) => sendIPCRequest('youtube-trend-analysis', params));
+            window.blogger.getYouTubeTitlePatterns = window.blogger.getYouTubeTitlePatterns || ((params) => sendIPCRequest('youtube-title-patterns', params));
+            window.blogger.getYouTubeContentOpportunity = window.blogger.getYouTubeContentOpportunity || ((params) => sendIPCRequest('youtube-content-opportunity', params));
+            window.blogger.getYouTubeDemandSignals = window.blogger.getYouTubeDemandSignals || ((params) => sendIPCRequest('youtube-demand-signals', params));
+            window.blogger.getYouTubeBenchmark = window.blogger.getYouTubeBenchmark || ((params) => sendIPCRequest('youtube-benchmark', params));
+            window.blogger.getYouTubeGoldenKeywords = window.blogger.getYouTubeGoldenKeywords || ((params) => sendIPCRequest('youtube-golden-keywords', params));
             window.blogger.getGoogleTrendKeywords = window.blogger.getGoogleTrendKeywords || (() => sendIPCRequest('get-google-trend-keywords'));
             window.blogger.openLink = window.blogger.openLink || ((href) => {
               // window.electronAPI 또는 window.blogger.openExternal 우선 사용
@@ -3261,9 +3290,6 @@
             const goldenReason = item.goldenReason || '';
             const verdictPrefix = item.isBlueOcean ? '🌊 ' : '';
 
-            // 월수익
-            const monthlyRevenue = item.estimatedMonthlyRevenue || 0;
-            const revenueColor = monthlyRevenue > 10000 ? '#059669' : '#94a3b8';
 
             // SERP 배지
             let serpBadges = '';
@@ -3288,7 +3314,6 @@
             <td style="padding: 12px 10px; text-align: left; max-width: 200px;">
               <div style="font-size: 11px; color: #64748b; line-height: 1.4; word-break: keep-all;">${verdictPrefix}${goldenReason}</div>
             </td>
-            <td style="padding: 12px 10px; text-align: right; font-size: 12px; font-weight: 700; color: ${revenueColor};">₩${monthlyRevenue.toLocaleString()}</td>
             <td style="padding: 12px 10px; text-align: center;">
               <button onclick="window.electronAPI.openExternal('https://search.naver.com/search.naver?query=' + encodeURIComponent('${item.keyword}'))" 
                 style="padding: 6px 10px; background: #f1f5f9; color: #475569; border: 1px solid #e2e8f0; border-radius: 6px; cursor: pointer; font-weight: 600; font-size: 11px; transition:all 0.2s;"
@@ -3307,14 +3332,11 @@
           // 등급별 통계 요약
           const gradeCounts = { SSS: 0, SS: 0, S: 0, A: 0, B: 0 };
           let blueOceanCount = 0;
-          let totalRevenue = 0;
           results.forEach(item => {
             const g = item.grade || '';
             if (gradeCounts.hasOwnProperty(g)) gradeCounts[g]++;
             if (item.isBlueOcean) blueOceanCount++;
-            totalRevenue += (item.estimatedMonthlyRevenue || 0);
           });
-          const avgRevenue = results.length > 0 ? Math.round(totalRevenue / results.length) : 0;
 
           html += `
         <div style="background: #f8fafc; padding: 12px 20px; border-radius: 0 0 12px 12px; font-size: 12px; color: #64748b; display: flex; align-items: center; gap: 16px; flex-wrap: wrap;">
@@ -3322,7 +3344,6 @@
           <span><span style="background: #ea580c; color: white; padding: 2px 6px; border-radius: 4px; font-size: 10px; font-weight: 800;">SS</span> ${gradeCounts.SS}개</span>
           <span><span style="background: #22c55e; color: white; padding: 2px 6px; border-radius: 4px; font-size: 10px; font-weight: 800;">S</span> ${gradeCounts.S}개</span>
           <span>🌊 블루오션: ${blueOceanCount}개</span>
-          <span>💰 평균 월수익: ₩${avgRevenue.toLocaleString()}</span>
         </div>
       `;
 
@@ -4899,6 +4920,7 @@
               rank: createRankModal,
               competitor: createCompetitorModal,
               'youtube-videos': createYouTubeVideosModal,
+              'youtube-deep-analysis': createYouTubeDeepAnalysisModal,
               'youtube-golden': createYouTubeGoldenModal,
               'timing-gold': createTrafficHunterModal,
               'blog-index': createBlogIndexModal,
@@ -6460,7 +6482,33 @@
             </div>
           </div>
         </div>
-        <div style="display: grid; grid-template-columns: repeat(auto-fill, minmax(280px, 1fr)); gap: 20px; margin-bottom: 32px;">`;
+        `;
+
+            // 전체 영상에서 키워드 추출
+            const allTitleWords = youtubeVideosData.videos
+              .flatMap(v => (v.title || '').replace(/[^\w\s가-힣]/g, ' ').split(/\s+/))
+              .filter(w => w.length >= 2 && w.length <= 8 && /[가-힣]/.test(w) && !['영상', '동영상', '비디오', '구독', '좋아요', '오늘', '내일', '어제', '이번', '올해', '정말', '진짜', '너무', '시청', '공개', '관련'].includes(w));
+
+            const wordFreq = {};
+            allTitleWords.forEach(w => { wordFreq[w] = (wordFreq[w] || 0) + 1; });
+            const topKeywords = Object.entries(wordFreq)
+              .sort((a, b) => b[1] - a[1])
+              .slice(0, 12);
+
+            if (topKeywords.length > 0) {
+              html += '<div style="margin-bottom:20px; padding:16px 20px; background:linear-gradient(135deg, #fff7ed 0%, #ffedd5 100%); border-radius:12px; border:1px solid #fed7aa;">';
+              html += '<div style="font-size:14px; font-weight:700; color:#c2410c; margin-bottom:10px;">🔑 지금 유튜브에서 뜨는 키워드</div>';
+              html += '<div style="display:flex; flex-wrap:wrap; gap:6px;">';
+              topKeywords.forEach(([word, count]) => {
+                const safeWord = word.replace(/'/g, "\\'");
+                html += '<span onclick="navigator.clipboard.writeText(\'' + safeWord + '\'); this.style.background=\'#dcfce7\'; this.textContent=\'복사됨!\'; setTimeout(()=>{this.style.background=\'#fff\'; this.textContent=\'' + safeWord + ' (' + count + ')\';}, 1000);" style="background:#fff; color:#ea580c; padding:6px 14px; border-radius:20px; font-size:13px; font-weight:600; cursor:pointer; border:1px solid #fdba74; box-shadow:0 1px 3px rgba(0,0,0,0.05);" title="클릭하면 복사">' + word + ' (' + count + ')</span>';
+              });
+              html += '</div>';
+              html += '<div style="font-size:11px; color:#9a3412; margin-top:8px;">💡 키워드를 클릭하면 클립보드에 복사됩니다</div>';
+              html += '</div>';
+            }
+
+            html += `<div style="display: grid; grid-template-columns: repeat(auto-fill, minmax(280px, 1fr)); gap: 20px; margin-bottom: 32px;">`;
 
             youtubeVideosData.videos.forEach((item) => {
               // 안전한 데이터 접근
@@ -6504,6 +6552,21 @@
                   <span>👁️ ${views}회</span>
                   <span>👍 ${likes}</span>
                 </div>
+                ${(() => {
+                  const stopWords = ['영상', '동영상', '비디오', '구독', '좋아요', '오늘', '내일', '어제', '이번', '올해', '정말', '진짜', '너무'];
+                  const titleKeywords = (item.title || '')
+                    .replace(/[^\w\s가-힣]/g, ' ')
+                    .split(/\s+/)
+                    .filter(w => w.length >= 2 && w.length <= 6 && /[가-힣]/.test(w) && !stopWords.includes(w))
+                    .slice(0, 4);
+                  if (titleKeywords.length === 0) return '';
+                  return '<div style="display:flex; flex-wrap:wrap; gap:4px; margin-top:8px;">' +
+                    titleKeywords.map(kw => {
+                      const safeKw = kw.replace(/'/g, "\\'");
+                      return '<span onclick="event.stopPropagation(); navigator.clipboard.writeText(\'' + safeKw + '\'); this.style.background=\'#dcfce7\'; this.textContent=\'복사됨!\'; setTimeout(()=>{this.style.background=\'#f1f5f9\'; this.textContent=\'' + safeKw + '\';}, 1000);" style="background:#f1f5f9; color:#475569; padding:2px 8px; border-radius:10px; font-size:11px; cursor:pointer; border:1px solid #e2e8f0;" title="클릭하면 키워드 복사">' + kw + '</span>';
+                    }).join('') +
+                    '</div>';
+                })()}
               </div>
             </div>
           `;
@@ -6590,6 +6653,677 @@
         }
 
         // ========================================
+        // 🔬 유튜브 트렌드 심층 분석 모달
+        // ========================================
+        function createYouTubeDeepAnalysisModal() {
+          const modalDiv = document.createElement('div');
+          modalDiv.id = 'ytDeepAnalysisModal';
+          modalDiv.style.cssText = 'position:fixed; top:0; left:0; width:100vw; height:100vh; z-index:999999;';
+
+          modalDiv.innerHTML = `
+            <div id="ytDeepOverlay" style="position:fixed; top:0; left:0; width:100vw; height:100vh; background:rgba(0,0,0,0.6); display:flex; justify-content:center; align-items:flex-start; padding-top:30px; z-index:999999; overflow-y:auto; backdrop-filter:blur(4px);">
+              <div onclick="event.stopPropagation()" style="background:white; border-radius:16px; max-width:1400px; width:95%; max-height:calc(100vh - 60px); overflow-y:auto; box-shadow:0 25px 80px rgba(0,0,0,0.35); margin-bottom:40px;">
+
+                <!-- 헤더 -->
+                <div style="background: linear-gradient(135deg, #7c3aed 0%, #4f46e5 50%, #2563eb 100%); color:white; padding:24px 32px; border-radius:16px 16px 0 0; display:flex; justify-content:space-between; align-items:center;">
+                  <div style="display:flex; align-items:center; gap:16px;">
+                    <span style="font-size:32px;">🔬</span>
+                    <div>
+                      <h2 style="margin:0; font-size:22px; font-weight:700;">유튜브 트렌드 심층 분석</h2>
+                      <div style="font-size:12px; opacity:0.8; margin-top:4px;">콘텐츠 크리에이터를 위한 데이터 기반 인사이트</div>
+                    </div>
+                  </div>
+                  <button onclick="closeModal()" style="background:rgba(255,255,255,0.2); color:white; border:none; width:36px; height:36px; border-radius:50%; font-size:20px; cursor:pointer;">✕</button>
+                </div>
+
+                <!-- 검색 영역 -->
+                <div style="padding:24px 32px 0;">
+                  <!-- 원클릭 추천 (초보용) -->
+                  <div style="display:flex; gap:12px; margin-bottom:16px;">
+                    <button onclick="runYtDeepAnalysis()" id="ytDeepAnalyzeBtn"
+                      style="flex:1; padding:18px 32px; border:none; border-radius:12px; background:linear-gradient(135deg, #ef4444 0%, #dc2626 100%); color:white; font-weight:800; cursor:pointer; font-size:18px; box-shadow:0 6px 20px rgba(239,68,68,0.4); transition:all 0.3s;"
+                      onmouseover="this.style.transform='translateY(-2px)'; this.style.boxShadow='0 8px 25px rgba(239,68,68,0.5)';"
+                      onmouseout="this.style.transform='translateY(0)'; this.style.boxShadow='0 6px 20px rgba(239,68,68,0.4)';">
+                      🎯 지금 뜨는 글감 찾기 (원클릭)
+                    </button>
+                  </div>
+                  <!-- 키워드 검색 (선택) -->
+                  <div style="display:flex; gap:12px; margin-bottom:16px;">
+                    <input type="text" id="ytDeepKeyword" placeholder="특정 키워드로 분석하고 싶다면 입력 (선택사항)"
+                      style="flex:1; padding:12px 18px; border:2px solid #e5e7eb; border-radius:10px; font-size:14px; outline:none; color:#64748b;"
+                      onfocus="this.style.borderColor='#7c3aed'; this.style.boxShadow='0 0 0 3px rgba(124,58,237,0.1)';"
+                      onblur="this.style.borderColor='#e5e7eb'; this.style.boxShadow='none';"
+                      onkeypress="if(event.key==='Enter') runYtDeepAnalysis();" />
+                    <button onclick="runYtDeepAnalysis()"
+                      style="padding:12px 24px; border:none; border-radius:10px; background:linear-gradient(135deg, #7c3aed 0%, #4f46e5 100%); color:white; font-weight:600; cursor:pointer; font-size:14px; white-space:nowrap;">
+                      🔍 키워드 분석
+                    </button>
+                  </div>
+
+                  <!-- 탭 네비게이션 (결과 나온 후 보이게) -->
+                  <div id="ytDeepTabBar" style="display:none; gap:4px; border-bottom:2px solid #e5e7eb; margin-bottom:0; flex-wrap:wrap;">
+                    <button class="yt-deep-tab active" onclick="switchYtDeepTab('action')" id="ytTab-action"
+                      style="padding:10px 16px; border:none; background:none; font-size:13px; font-weight:700; cursor:pointer; color:#ef4444; border-bottom:3px solid #ef4444; margin-bottom:-2px;">
+                      🎯 지금 쓸 글감
+                    </button>
+                    <button class="yt-deep-tab" onclick="switchYtDeepTab('overview')" id="ytTab-overview"
+                      style="padding:10px 16px; border:none; background:none; font-size:13px; font-weight:600; cursor:pointer; color:#94a3b8; border-bottom:3px solid transparent; margin-bottom:-2px;">
+                      📊 대시보드
+                    </button>
+                    <button class="yt-deep-tab" onclick="switchYtDeepTab('title')" id="ytTab-title"
+                      style="padding:10px 16px; border:none; background:none; font-size:13px; font-weight:600; cursor:pointer; color:#94a3b8; border-bottom:3px solid transparent; margin-bottom:-2px;">
+                      📝 제목 패턴
+                    </button>
+                    <button class="yt-deep-tab" onclick="switchYtDeepTab('opportunity')" id="ytTab-opportunity"
+                      style="padding:10px 16px; border:none; background:none; font-size:13px; font-weight:600; cursor:pointer; color:#94a3b8; border-bottom:3px solid transparent; margin-bottom:-2px;">
+                      💎 기회 분석
+                    </button>
+                    <button class="yt-deep-tab" onclick="switchYtDeepTab('benchmark')" id="ytTab-benchmark"
+                      style="padding:10px 16px; border:none; background:none; font-size:13px; font-weight:600; cursor:pointer; color:#94a3b8; border-bottom:3px solid transparent; margin-bottom:-2px;">
+                      📈 벤치마크
+                    </button>
+                    <button class="yt-deep-tab" onclick="switchYtDeepTab('golden')" id="ytTab-golden"
+                      style="padding:10px 16px; border:none; background:none; font-size:13px; font-weight:600; cursor:pointer; color:#94a3b8; border-bottom:3px solid transparent; margin-bottom:-2px;">
+                      🏆 황금키워드
+                    </button>
+                    <button class="yt-deep-tab" onclick="switchYtDeepTab('cross')" id="ytTab-cross"
+                      style="padding:10px 16px; border:none; background:none; font-size:13px; font-weight:600; cursor:pointer; color:#94a3b8; border-bottom:3px solid transparent; margin-bottom:-2px;">
+                      💰 수익 기회
+                    </button>
+                  </div>
+                </div>
+
+                <!-- 결과 영역 -->
+                <div id="ytDeepResults" style="padding:32px; min-height:400px;">
+                  <div style="text-align:center; padding:60px 20px;">
+                    <div style="font-size:64px; margin-bottom:20px;">🎯</div>
+                    <div style="font-size:22px; font-weight:800; color:#1e293b; margin-bottom:12px;">버튼 하나로 블로그 글감 찾기</div>
+                    <div style="font-size:15px; color:#64748b; line-height:1.8;">
+                      위의 <span style="color:#ef4444; font-weight:700;">"지금 뜨는 글감 찾기"</span> 버튼을 누르면<br/>
+                      유튜브에서 뜨는 주제 중 <b>네이버 블로그에 글이 적은 빈집</b>을 찾아서<br/>
+                      <b>바로 쓸 수 있는 제목</b>까지 추천해드립니다
+                    </div>
+                    <div style="margin-top:24px; padding:16px; background:#f0fdf4; border-radius:10px; border:1px solid #86efac; display:inline-block;">
+                      <div style="font-size:13px; color:#166534;">
+                        💡 키워드 입력 없이도 작동합니다 — 지금 바로 눌러보세요!
+                      </div>
+                    </div>
+                  </div>
+                </div>
+              </div>
+            </div>
+          `;
+
+          document.body.appendChild(modalDiv);
+          currentModalElement = modalDiv;
+
+          setTimeout(() => {
+            const overlay = document.getElementById('ytDeepOverlay');
+            if (overlay) overlay.onclick = function(e) { if (e.target === this) closeModal(); };
+          }, 100);
+        }
+
+        // ========================================
+        // 🔬 유튜브 심층 분석 로직
+        // ========================================
+        let ytDeepAnalysisData = null;
+        let ytDeepCurrentTab = 'overview';
+
+        function switchYtDeepTab(tabName) {
+          ytDeepCurrentTab = tabName;
+          // 모든 탭 비활성화
+          document.querySelectorAll('.yt-deep-tab, [id^="ytTab-"]').forEach(tab => {
+            tab.style.color = '#94a3b8';
+            tab.style.borderBottom = '3px solid transparent';
+          });
+          // 선택한 탭 활성화
+          const activeTab = document.getElementById('ytTab-' + tabName);
+          if (activeTab) {
+            activeTab.style.color = '#7c3aed';
+            activeTab.style.borderBottom = '3px solid #7c3aed';
+          }
+          // 데이터 있으면 해당 탭 렌더링
+          if (ytDeepAnalysisData) {
+            renderYtDeepTab(tabName, ytDeepAnalysisData);
+          }
+        }
+
+        async function runYtDeepAnalysis() {
+          const keywordInput = document.getElementById('ytDeepKeyword');
+          const keyword = keywordInput ? keywordInput.value.trim() : '';
+          const resultsDiv = document.getElementById('ytDeepResults');
+          const analyzeBtn = document.getElementById('ytDeepAnalyzeBtn');
+
+          if (!resultsDiv) return;
+
+          // 로딩 표시
+          if (analyzeBtn) {
+            analyzeBtn.disabled = true;
+            analyzeBtn.innerHTML = '⏳ 분석 중...';
+          }
+          resultsDiv.innerHTML = '<div style="text-align:center; padding:80px 0;"><div style="font-size:48px; margin-bottom:16px; animation: pulse 1.5s infinite;">🔬</div><div style="font-size:18px; font-weight:600; color:#7c3aed;">심층 분석 진행 중...</div><div style="font-size:14px; color:#94a3b8; margin-top:8px;">유튜브 트렌드 데이터를 수집하고 분석합니다 (약 10-30초)</div></div>';
+
+          try {
+            if (!window.blogger || typeof window.blogger.analyzeYouTubeTrends !== 'function') {
+              throw new Error('YouTube 심층 분석 API를 사용할 수 없습니다.');
+            }
+
+            const data = await window.blogger.analyzeYouTubeTrends({ keyword: keyword || undefined, maxResults: 50 });
+
+            if (data.error) {
+              if (data.requiresUnlimited) {
+                resultsDiv.innerHTML = '<div style="padding:24px; background:#fef3c7; border-radius:12px; color:#92400e; text-align:center;">⚠️ 이 기능은 프리미엄 사용자만 이용할 수 있습니다.</div>';
+                return;
+              }
+              throw new Error(data.message || '분석에 실패했습니다.');
+            }
+
+            ytDeepAnalysisData = data.data || data;
+            // 탭바 표시
+            const tabBar = document.getElementById('ytDeepTabBar');
+            if (tabBar) tabBar.style.display = 'flex';
+            // 초보자용: 항상 "지금 쓸 글감" 탭으로 시작
+            ytDeepCurrentTab = 'action';
+            switchYtDeepTab('action');
+
+          } catch (error) {
+            resultsDiv.innerHTML = '<div style="padding:24px; background:#fee2e2; border-radius:12px; color:#991b1b; text-align:center;">❌ ' + (error.message || '분석에 실패했습니다.') + '</div>';
+          } finally {
+            if (analyzeBtn) {
+              analyzeBtn.disabled = false;
+              analyzeBtn.innerHTML = '🔬 심층 분석 시작';
+            }
+          }
+        }
+
+        function renderYtDeepTab(tabName, data) {
+          const resultsDiv = document.getElementById('ytDeepResults');
+          if (!resultsDiv || !data) return;
+
+          switch(tabName) {
+            case 'action': resultsDiv.innerHTML = renderActionTab(data); break;
+            case 'overview': resultsDiv.innerHTML = renderOverviewTab(data); break;
+            case 'title': resultsDiv.innerHTML = renderTitleTab(data); break;
+            case 'opportunity': resultsDiv.innerHTML = renderOpportunityTab(data); break;
+            case 'benchmark': resultsDiv.innerHTML = renderBenchmarkTab(data); break;
+            case 'golden': resultsDiv.innerHTML = renderGoldenTab(data); break;
+            case 'cross': resultsDiv.innerHTML = renderCrossAnalysisTab(data); break;
+          }
+        }
+
+        function renderActionTab(data) {
+          let html = '';
+
+          // 1순위: 네이버 교차 분석 결과가 있으면 (= 수익 기회)
+          const cross = data.crossAnalysis;
+          const goldenKws = data.goldenKeywords || [];
+          const dashboard = data.trendDashboard || {};
+          const titlePatterns = data.titlePatterns || {};
+          const correlations = titlePatterns.patternCorrelations || [];
+
+          // 상단: 한 줄 요약
+          html += '<div style="background:linear-gradient(135deg, #fef2f2 0%, #ffe4e6 100%); border:2px solid #fca5a5; border-radius:16px; padding:24px; margin-bottom:24px;">';
+          html += '<div style="font-size:22px; font-weight:800; color:#991b1b; margin-bottom:8px;">🎯 지금 바로 쓸 수 있는 글감</div>';
+          html += '<div style="font-size:14px; color:#b91c1c;">유튜브에서 뜨고 있는데 네이버에 글이 부족한 주제를 찾았습니다</div>';
+          html += '</div>';
+
+          // 수익 기회 카드들 (네이버 교차 분석)
+          if (cross && cross.opportunities && cross.opportunities.length > 0) {
+            const top5 = cross.opportunities.slice(0, 5);
+            top5.forEach((opp, i) => {
+              const urgencyColor = opp.urgencyScore >= 80 ? '#dc2626' : opp.urgencyScore >= 60 ? '#d97706' : opp.urgencyScore >= 40 ? '#2563eb' : '#6b7280';
+              const urgencyBg = opp.urgencyScore >= 80 ? '#fef2f2' : opp.urgencyScore >= 60 ? '#fffbeb' : opp.urgencyScore >= 40 ? '#eff6ff' : '#f9fafb';
+              const urgencyLabel = opp.urgencyScore >= 80 ? '지금 당장!' : opp.urgencyScore >= 60 ? '빠르게!' : opp.urgencyScore >= 40 ? '추천' : '참고';
+
+              html += '<div style="background:' + urgencyBg + '; border:2px solid ' + urgencyColor + '40; border-radius:16px; padding:20px; margin-bottom:16px;">';
+
+              // 상단: 순위 + 키워드 + 긴급 배지
+              html += '<div style="display:flex; align-items:center; gap:12px; margin-bottom:16px;">';
+              html += '<div style="background:' + urgencyColor + '; color:white; width:40px; height:40px; border-radius:12px; display:flex; align-items:center; justify-content:center; font-weight:900; font-size:16px;">' + (i+1) + '</div>';
+              html += '<div style="flex:1;"><div style="font-size:20px; font-weight:800; color:#0f172a;">' + opp.keyword + '</div></div>';
+              html += '<div style="background:' + urgencyColor + '; color:white; padding:6px 14px; border-radius:20px; font-size:12px; font-weight:700;">' + urgencyLabel + '</div>';
+              html += '</div>';
+
+              // 핵심 수치 3개 (초보가 봐야 할 것만)
+              html += '<div style="display:grid; grid-template-columns:repeat(3, 1fr); gap:10px; margin-bottom:16px;">';
+              html += '<div style="background:white; border-radius:10px; padding:12px; text-align:center; border:1px solid #e5e7eb;"><div style="font-size:11px; color:#64748b; margin-bottom:4px;">네이버 월 검색량</div><div style="font-size:18px; font-weight:700; color:#2563eb;">' + formatViewCount(opp.totalSearchVolume || 0) + '</div><div style="font-size:9px; color:#10b981;">네이버 API 실측</div></div>';
+              html += '<div style="background:white; border-radius:10px; padding:12px; text-align:center; border:1px solid #e5e7eb;"><div style="font-size:11px; color:#64748b; margin-bottom:4px;">경쟁 블로그 글</div><div style="font-size:18px; font-weight:700; color:' + (opp.documentCount <= 5000 ? '#16a34a' : '#dc2626') + ';">' + formatViewCount(opp.documentCount || 0) + '개</div><div style="font-size:9px; color:#10b981;">네이버 API 실측</div></div>';
+              html += '<div style="background:white; border-radius:10px; padding:12px; text-align:center; border:1px solid #e5e7eb;"><div style="font-size:11px; color:#64748b; margin-bottom:4px;">수요/공급 비율</div><div style="font-size:18px; font-weight:700; color:' + (opp.ratio >= 5 ? '#16a34a' : opp.ratio >= 2 ? '#d97706' : '#dc2626') + ';">' + (opp.ratio || 0).toFixed(1) + '</div><div style="font-size:9px; color:#94a3b8;">높을수록 빈집</div></div>';
+              html += '</div>';
+
+              // 관련 키워드
+              const titles = opp.relatedKeywords || [];
+              if (titles.length > 0) {
+                html += '<div style="background:white; border:2px solid #7c3aed30; border-radius:10px; padding:14px;">';
+                html += '<div style="font-size:12px; font-weight:700; color:#7c3aed; margin-bottom:10px;">🔑 관련 키워드 (클릭하면 복사)</div>';
+                titles.forEach((t, ti) => {
+                  html += '<div style="font-size:14px; color:#1e293b; padding:8px 12px; margin-bottom:4px; background:' + (ti === 0 ? '#f5f3ff' : '#fafafa') + '; border-radius:6px; cursor:pointer; border:1px solid ' + (ti === 0 ? '#c4b5fd' : '#f1f5f9') + ';" onclick="navigator.clipboard.writeText(this.innerText.substring(2)); this.style.background=\'#dcfce7\'; setTimeout(()=>this.style.background=\'' + (ti === 0 ? '#f5f3ff' : '#fafafa') + '\', 1000);" title="클릭하면 복사됩니다">' + (ti === 0 ? '⭐ ' : '· ') + t + '</div>';
+                });
+                html += '<div style="font-size:11px; color:#94a3b8; margin-top:6px; text-align:right;">키워드 클릭 시 복사됩니다</div>';
+                html += '</div>';
+              }
+
+              // 경고 (있으면)
+              const warnings = opp.warnings || [];
+              if (warnings.length > 0) {
+                html += '<div style="margin-top:10px;">';
+                warnings.forEach(w => {
+                  html += '<div style="font-size:11px; color:#92400e; background:#fffbeb; padding:4px 10px; border-radius:6px; margin-bottom:2px;">⚠️ ' + w + '</div>';
+                });
+                html += '</div>';
+              }
+
+              html += '</div>';
+            });
+          } else {
+            // 네이버 교차 분석 없을 때: 황금키워드 기반 추천
+            if (goldenKws.length > 0) {
+              html += '<div style="padding:16px; background:#fffbeb; border:1px solid #fde68a; border-radius:10px; margin-bottom:16px; font-size:13px; color:#92400e;">💡 네이버 API 키를 설정하면 검색량/경쟁도/예상 수익까지 볼 수 있습니다. 지금은 유튜브 트렌드 기반 추천입니다.</div>';
+              goldenKws.slice(0, 5).forEach((kw, i) => {
+                const gradeColors = { SSS: '#dc2626', SS: '#d97706', S: '#7c3aed', A: '#2563eb', B: '#6b7280' };
+                const color = gradeColors[kw.grade] || '#6b7280';
+                html += '<div style="background:#f8fafc; border:2px solid ' + color + '30; border-radius:12px; padding:16px; margin-bottom:12px; display:flex; align-items:center; gap:14px;">';
+                html += '<div style="background:' + color + '; color:white; width:40px; height:40px; border-radius:12px; display:flex; align-items:center; justify-content:center; font-weight:900; font-size:' + (kw.grade.length > 2 ? '13' : '15') + 'px;">' + kw.grade + '</div>';
+                html += '<div style="flex:1;"><div style="font-size:18px; font-weight:700; color:#0f172a;">' + kw.keyword + '</div>';
+                html += '<div style="font-size:12px; color:#64748b; margin-top:2px;">' + (kw.reason || '') + '</div></div></div>';
+              });
+            } else {
+              html += '<div style="text-align:center; padding:40px; color:#94a3b8;">분석 결과가 없습니다. 다시 시도해주세요.</div>';
+            }
+          }
+
+          // 하단: 제목 작성 팁 (패턴 상관관계 기반)
+          const goodPatterns = correlations.filter(c => c.lift >= 1.2);
+          if (goodPatterns.length > 0) {
+            html += '<div style="background:linear-gradient(135deg, #f0fdf4 0%, #dcfce7 100%); border:2px solid #86efac; border-radius:12px; padding:20px; margin-top:8px;">';
+            html += '<div style="font-size:16px; font-weight:700; color:#166534; margin-bottom:10px;">💡 제목 작성 꿀팁 (데이터 검증 완료)</div>';
+            goodPatterns.forEach(p => {
+              html += '<div style="font-size:14px; color:#15803d; padding:4px 0;">✅ ' + p.recommendation + '</div>';
+            });
+            html += '</div>';
+          }
+
+          return html;
+        }
+
+        function renderOverviewTab(data) {
+          const dashboard = data.trendDashboard || {};
+          const hotKeywords = (dashboard.hotKeywords || []).slice(0, 15);
+          const categoryStats = dashboard.categoryStats || [];
+          const risingTop = (dashboard.risingTop10 || []).slice(0, 5);
+
+          // 평균 조회수 계산
+          const avgViewCount = categoryStats.length > 0
+            ? categoryStats.reduce((s, c) => s + (c.averageViewCount || 0), 0) / categoryStats.length
+            : 0;
+
+          let html = '<div style="display:grid; grid-template-columns:repeat(auto-fit, minmax(200px, 1fr)); gap:16px; margin-bottom:24px;">';
+
+          // 통계 카드들
+          const stats = [
+            { label: '분석 영상 수', value: dashboard.totalVideos || 0, icon: '📺', color: '#7c3aed' },
+            { label: '쇼츠 비율', value: ((dashboard.shortsRatio || 0) * 100).toFixed(1) + '%', icon: '📱', color: '#ec4899' },
+            { label: '평균 조회수', value: formatViewCount(avgViewCount), icon: '👁️', color: '#3b82f6' },
+            { label: '급상승 영상', value: risingTop.length + '개', icon: '🚀', color: '#f59e0b' }
+          ];
+
+          stats.forEach(s => {
+            html += '<div style="background:linear-gradient(135deg, ' + s.color + '10 0%, ' + s.color + '05 100%); border:1px solid ' + s.color + '30; border-radius:12px; padding:20px; text-align:center;">';
+            html += '<div style="font-size:28px; margin-bottom:8px;">' + s.icon + '</div>';
+            html += '<div style="font-size:24px; font-weight:700; color:' + s.color + ';">' + s.value + '</div>';
+            html += '<div style="font-size:12px; color:#64748b; margin-top:4px;">' + s.label + '</div>';
+            html += '</div>';
+          });
+          html += '</div>';
+
+          // 핫 키워드
+          if (hotKeywords.length > 0) {
+            html += '<div style="background:#f8fafc; border-radius:12px; padding:20px; margin-bottom:20px;">';
+            html += '<h3 style="margin:0 0 12px; font-size:16px; font-weight:700;">🔥 핫 키워드</h3>';
+            html += '<div style="display:flex; flex-wrap:wrap; gap:8px;">';
+            hotKeywords.forEach((kw, i) => {
+              const opacity = Math.max(0.4, 1 - i * 0.04);
+              html += '<span style="background:linear-gradient(135deg, rgba(124,58,237,' + opacity + '), rgba(79,70,229,' + opacity + ')); color:white; padding:6px 14px; border-radius:20px; font-size:13px; font-weight:600;">' + (kw.word || kw) + (kw.count ? ' (' + kw.count + ')' : '') + '</span>';
+            });
+            html += '</div></div>';
+          }
+
+          // 카테고리별 통계
+          if (categoryStats.length > 0) {
+            html += '<div style="background:#f8fafc; border-radius:12px; padding:20px; margin-bottom:20px;">';
+            html += '<h3 style="margin:0 0 12px; font-size:16px; font-weight:700;">📊 카테고리별 현황</h3>';
+            html += '<div style="display:grid; grid-template-columns:repeat(auto-fill, minmax(180px, 1fr)); gap:12px;">';
+            categoryStats.slice(0, 8).forEach(cat => {
+              html += '<div style="background:white; border:1px solid #e5e7eb; border-radius:8px; padding:12px;">';
+              html += '<div style="font-size:14px; font-weight:600; color:#1e293b;">' + (cat.categoryName || '기타') + '</div>';
+              html += '<div style="font-size:12px; color:#64748b; margin-top:4px;">' + (cat.videoCount || 0) + '개 · 평균 ' + formatViewCount(cat.averageViewCount || 0) + '회</div>';
+              html += '</div>';
+            });
+            html += '</div></div>';
+          }
+
+          // 급상승 TOP 5
+          if (risingTop.length > 0) {
+            html += '<div style="background:#f8fafc; border-radius:12px; padding:20px;">';
+            html += '<h3 style="margin:0 0 12px; font-size:16px; font-weight:700;">🚀 급상승 TOP 5</h3>';
+            risingTop.forEach((v, i) => {
+              html += '<div style="display:flex; align-items:center; gap:12px; padding:10px; background:white; border-radius:8px; margin-bottom:8px; border:1px solid #e5e7eb;">';
+              html += '<div style="width:32px; height:32px; background:linear-gradient(135deg, #f59e0b, #ef4444); border-radius:8px; display:flex; align-items:center; justify-content:center; color:white; font-weight:700; font-size:14px;">' + (i+1) + '</div>';
+              html += '<div style="flex:1; min-width:0;"><div style="font-size:14px; font-weight:600; color:#1e293b; overflow:hidden; text-overflow:ellipsis; white-space:nowrap;">' + (v.title || '') + '</div>';
+              html += '<div style="font-size:12px; color:#64748b;">' + (v.channelTitle || '') + ' · ' + formatViewCount(v.viewsPerHour || 0) + '회/시간</div></div>';
+              html += '</div>';
+            });
+            html += '</div>';
+          }
+
+          return html;
+        }
+
+        function renderTitleTab(data) {
+          const tp = data.titlePatterns || {};
+          let html = '';
+
+          // 핵심 통계
+          html += '<div style="display:grid; grid-template-columns:repeat(auto-fit, minmax(150px, 1fr)); gap:12px; margin-bottom:24px;">';
+          const titleStats = [
+            { label: '평균 제목 길이', value: (tp.averageTitleLength || 0).toFixed(0) + '자', icon: '📏' },
+            { label: '숫자 포함률', value: ((tp.numberInclusionRate || 0) * 100).toFixed(0) + '%', icon: '🔢' },
+            { label: '질문형 비율', value: ((tp.questionRate || 0) * 100).toFixed(0) + '%', icon: '❓' },
+            { label: '감성어 비율', value: ((tp.emotionalTriggerFrequency || []).length > 0 ? ((tp.emotionalTriggerFrequency.reduce((s,w) => s + w.count, 0) / (tp.totalAnalyzed || 1)) * 100).toFixed(0) : '0') + '%', icon: '💥' },
+            { label: '괄호 사용률', value: ((tp.bracketUsageRate || 0) * 100).toFixed(0) + '%', icon: '📌' },
+            { label: '이모지 사용률', value: ((tp.emojiUsageRate || 0) * 100).toFixed(0) + '%', icon: '😀' }
+          ];
+          titleStats.forEach(s => {
+            html += '<div style="background:#f8fafc; border:1px solid #e5e7eb; border-radius:10px; padding:16px; text-align:center;">';
+            html += '<div style="font-size:24px;">' + s.icon + '</div>';
+            html += '<div style="font-size:20px; font-weight:700; color:#1e293b; margin:4px 0;">' + s.value + '</div>';
+            html += '<div style="font-size:11px; color:#64748b;">' + s.label + '</div></div>';
+          });
+          html += '</div>';
+
+          // 제목 유형 분포
+          const typeDistribution = tp.titleTypeDistribution || {};
+          if (Object.keys(typeDistribution).length > 0) {
+            html += '<div style="background:#f8fafc; border-radius:12px; padding:20px; margin-bottom:20px;">';
+            html += '<h3 style="margin:0 0 12px; font-size:16px; font-weight:700;">📊 제목 유형 분포</h3>';
+            const typeLabels = { list: '리스트형', question: '질문형', emotional: '감성형', informational: '정보형', review: '후기형' };
+            const typeColors = { list: '#3b82f6', question: '#f59e0b', emotional: '#ef4444', informational: '#10b981', review: '#8b5cf6' };
+            const typeIcons = { list: '📋', question: '❓', emotional: '💥', informational: 'ℹ️', review: '📝' };
+            const totalTypes = Object.values(typeDistribution).reduce((s, v) => s + (v || 0), 0) || 1;
+            Object.entries(typeDistribution).forEach(([type, count]) => {
+              const pct = ((count || 0) / totalTypes * 100).toFixed(0);
+              const color = typeColors[type] || '#64748b';
+              const label = typeLabels[type] || type;
+              html += '<div style="margin-bottom:10px;">';
+              html += '<div style="display:flex; justify-content:space-between; margin-bottom:4px;"><span style="font-size:13px; font-weight:600;">' + (typeIcons[type] || '') + ' ' + label + '</span><span style="font-size:13px; color:#64748b;">' + pct + '%</span></div>';
+              html += '<div style="background:#e5e7eb; border-radius:4px; height:8px; overflow:hidden;"><div style="background:' + color + '; height:100%; width:' + pct + '%; border-radius:4px;"></div></div>';
+              html += '</div>';
+            });
+            html += '</div>';
+          }
+
+          // 감성 트리거 단어
+          const emotionWords = tp.emotionalTriggerFrequency || [];
+          if (emotionWords.length > 0) {
+            html += '<div style="background:#fff5f5; border:1px solid #fecaca; border-radius:12px; padding:20px; margin-bottom:20px;">';
+            html += '<h3 style="margin:0 0 12px; font-size:16px; font-weight:700;">💥 잘 먹히는 감성 트리거 단어</h3>';
+            html += '<div style="display:flex; flex-wrap:wrap; gap:8px;">';
+            emotionWords.forEach(w => {
+              html += '<span style="background:#ef4444; color:white; padding:6px 14px; border-radius:20px; font-size:13px; font-weight:600;">' + (w.word || w) + (w.count ? ' ×' + w.count : '') + '</span>';
+            });
+            html += '</div></div>';
+          }
+
+          // 자주 사용되는 단어 TOP 20
+          const topWords = tp.topWords || [];
+          if (topWords.length > 0) {
+            html += '<div style="background:#f8fafc; border-radius:12px; padding:20px; margin-bottom:20px;">';
+            html += '<h3 style="margin:0 0 12px; font-size:16px; font-weight:700;">📝 자주 사용되는 단어 TOP 20</h3>';
+            html += '<div style="display:flex; flex-wrap:wrap; gap:8px;">';
+            topWords.slice(0, 20).forEach((w, i) => {
+              const size = Math.max(12, 20 - i * 0.5);
+              html += '<span style="font-size:' + size + 'px; font-weight:' + (i < 5 ? '700' : '500') + '; color:' + (i < 3 ? '#7c3aed' : i < 7 ? '#4f46e5' : '#64748b') + '; padding:4px 10px;">' + (w.word || w) + (w.count ? '(' + w.count + ')' : '') + '</span>';
+            });
+            html += '</div></div>';
+          }
+
+          // 패턴별 조회수 상관관계 — "이 패턴이 진짜 효과 있는가?"
+          const correlations = tp.patternCorrelations || [];
+          if (correlations.length > 0) {
+            html += '<div style="background:linear-gradient(135deg, #f0fdf4 0%, #dcfce7 100%); border:2px solid #86efac; border-radius:12px; padding:20px;">';
+            html += '<h3 style="margin:0 0 4px; font-size:16px; font-weight:700; color:#166534;">🎯 제목 패턴별 실제 효과 (조회수 상관관계)</h3>';
+            html += '<div style="font-size:12px; color:#15803d; margin-bottom:12px;">lift > 1.0 = 효과 있음, 높을수록 좋음</div>';
+            correlations.forEach(c => {
+              const liftColor = c.lift >= 1.5 ? '#16a34a' : c.lift >= 1.1 ? '#ca8a04' : '#dc2626';
+              const barWidth = Math.min(100, c.lift * 50);
+              html += '<div style="margin-bottom:10px; padding:10px; background:white; border-radius:8px; border:1px solid #e5e7eb;">';
+              html += '<div style="display:flex; justify-content:space-between; align-items:center; margin-bottom:6px;">';
+              html += '<span style="font-size:14px; font-weight:600;">' + c.pattern + '</span>';
+              html += '<span style="font-size:16px; font-weight:700; color:' + liftColor + ';">x' + (c.lift || 0).toFixed(2) + '</span>';
+              html += '</div>';
+              html += '<div style="background:#e5e7eb; border-radius:4px; height:6px; overflow:hidden; margin-bottom:6px;"><div style="background:' + liftColor + '; height:100%; width:' + barWidth + '%; border-radius:4px;"></div></div>';
+              html += '<div style="font-size:12px; color:#64748b;">' + (c.recommendation || '') + ' (사용: ' + formatViewCount(c.withPattern) + '회 vs 미사용: ' + formatViewCount(c.withoutPattern) + '회)</div>';
+              html += '</div>';
+            });
+            html += '</div>';
+          }
+
+          return html;
+        }
+
+        function renderOpportunityTab(data) {
+          const opp = data.contentOpportunity;
+          const keyword = data.keyword || '';
+          let html = '';
+
+          if (keyword && opp) {
+            html += '<div style="background:linear-gradient(135deg, #eff6ff 0%, #dbeafe 100%); border:1px solid #93c5fd; border-radius:12px; padding:20px; margin-bottom:20px;">';
+            html += '<div style="font-size:16px; font-weight:700; color:#1e3a8a;">💎 "' + keyword + '" 콘텐츠 기회 분석</div>';
+            const normScore = Math.min(100, Math.log10(opp.opportunityScore + 1) * 20);
+            html += '<div style="display:grid; grid-template-columns:repeat(3, 1fr); gap:12px; margin-top:12px;">';
+            html += '<div style="text-align:center;"><div style="font-size:24px; font-weight:700; color:' + (normScore >= 70 ? '#16a34a' : normScore >= 50 ? '#f59e0b' : '#ef4444') + ';">' + normScore.toFixed(0) + '점</div><div style="font-size:12px; color:#64748b;">기회 점수</div></div>';
+            html += '<div style="text-align:center;"><div style="font-size:24px; font-weight:700; color:#3b82f6;">' + formatViewCount(opp.averageViewCount || 0) + '</div><div style="font-size:12px; color:#64748b;">평균 조회수</div></div>';
+            html += '<div style="text-align:center;"><div style="font-size:24px; font-weight:700; color:#8b5cf6;">' + (opp.competitorCount || 0) + '개</div><div style="font-size:12px; color:#64748b;">경쟁 영상</div></div>';
+            html += '</div>';
+            const verdict = opp.isBlueOcean ? '블루오션! 경쟁이 적고 조회수 잠재력이 높습니다' : '경쟁이 있지만 차별화된 콘텐츠로 승부할 수 있습니다';
+            html += '<div style="margin-top:12px; padding:12px; background:' + (opp.isBlueOcean ? 'linear-gradient(135deg, #dcfce7, #bbf7d0)' : '#f8fafc') + '; border-radius:8px; font-size:14px; font-weight:600; color:' + (opp.isBlueOcean ? '#166534' : '#475569') + '; text-align:center;">' + (opp.isBlueOcean ? '🌊 ' : '') + verdict + '</div>';
+            html += '</div>';
+          }
+
+          // 추천 콘텐츠 방향
+          const suggestions = (opp && opp.recommendedDirection) || [];
+          if (suggestions.length > 0) {
+            html += '<div style="background:#f8fafc; border-radius:12px; padding:20px; margin-bottom:20px;">';
+            html += '<h3 style="margin:0 0 12px; font-size:16px; font-weight:700;">💡 추천 콘텐츠 방향</h3>';
+            suggestions.forEach((s, i) => {
+              html += '<div style="display:flex; gap:12px; padding:12px; background:white; border-radius:8px; margin-bottom:8px; border:1px solid #e5e7eb;">';
+              html += '<div style="width:28px; height:28px; background:#7c3aed; border-radius:50%; display:flex; align-items:center; justify-content:center; color:white; font-weight:700; font-size:12px; flex-shrink:0;">' + (i+1) + '</div>';
+              html += '<div style="font-size:14px; color:#1e293b;">' + s + '</div></div>';
+            });
+            html += '</div>';
+          }
+
+          return html || '<div style="text-align:center; padding:40px; color:#94a3b8;">키워드를 입력하면 콘텐츠 기회를 분석합니다.</div>';
+        }
+
+        function renderBenchmarkTab(data) {
+          const bm = data.benchmark || {};
+          let html = '';
+
+          // 핵심 벤치마크 수치
+          html += '<div style="display:grid; grid-template-columns:repeat(auto-fit, minmax(200px, 1fr)); gap:16px; margin-bottom:24px;">';
+          const viewStats = bm.viewCountStats || {};
+          const likeStats = bm.likeRateStats || {};
+          const commentStats = bm.commentRateStats || {};
+          const optBucket = bm.optimalDurationBucket || {};
+          const bmStats = [
+            { label: '평균 조회수', value: formatViewCount(viewStats.average || 0), sub: '중앙값: ' + formatViewCount(viewStats.median || 0), icon: '👁️', color: '#3b82f6' },
+            { label: '평균 좋아요율', value: ((likeStats.average || 0) * 100).toFixed(2) + '%', sub: '좋아요/조회수', icon: '👍', color: '#10b981' },
+            { label: '평균 댓글율', value: ((commentStats.average || 0) * 100).toFixed(3) + '%', sub: '댓글/조회수', icon: '💬', color: '#f59e0b' },
+            { label: '평균 영상 길이', value: formatDurationMinutes(bm.averageDurationSeconds || 0), sub: '최적: ' + (optBucket.rangeLabel || '-'), icon: '⏱️', color: '#8b5cf6' }
+          ];
+          bmStats.forEach(s => {
+            html += '<div style="background:white; border:2px solid ' + s.color + '30; border-radius:12px; padding:20px; text-align:center;">';
+            html += '<div style="font-size:28px; margin-bottom:8px;">' + s.icon + '</div>';
+            html += '<div style="font-size:22px; font-weight:700; color:' + s.color + ';">' + s.value + '</div>';
+            html += '<div style="font-size:13px; font-weight:600; color:#1e293b; margin-top:4px;">' + s.label + '</div>';
+            html += '<div style="font-size:11px; color:#94a3b8; margin-top:2px;">' + s.sub + '</div></div>';
+          });
+          html += '</div>';
+
+          // 쇼츠 vs 롱폼
+          if (bm.shortsRatio !== undefined) {
+            const shortsP = ((bm.shortsRatio || 0) * 100).toFixed(0);
+            const longP = (100 - parseFloat(shortsP)).toFixed(0);
+            html += '<div style="background:#f8fafc; border-radius:12px; padding:20px; margin-bottom:20px;">';
+            html += '<h3 style="margin:0 0 12px; font-size:16px; font-weight:700;">📱 쇼츠 vs 롱폼</h3>';
+            html += '<div style="display:flex; border-radius:8px; overflow:hidden; height:32px;">';
+            html += '<div style="background:#ec4899; width:' + shortsP + '%; display:flex; align-items:center; justify-content:center; color:white; font-size:12px; font-weight:700;">쇼츠 ' + shortsP + '%</div>';
+            html += '<div style="background:#3b82f6; width:' + longP + '%; display:flex; align-items:center; justify-content:center; color:white; font-size:12px; font-weight:700;">롱폼 ' + longP + '%</div>';
+            html += '</div></div>';
+          }
+
+          // 최적 게시 시간
+          if (bm.optimalPublishHour !== undefined) {
+            html += '<div style="background:#f8fafc; border-radius:12px; padding:20px;">';
+            html += '<h3 style="margin:0 0 12px; font-size:16px; font-weight:700;">🕐 최적 게시 시간대</h3>';
+            html += '<div style="display:flex; flex-wrap:wrap; gap:8px;">';
+            html += '<span style="background:#7c3aed; color:white; padding:8px 16px; border-radius:20px; font-size:13px; font-weight:600;">최적 시간: ' + bm.optimalPublishHour + '시</span>';
+            html += '<span style="background:#4f46e5; color:white; padding:8px 16px; border-radius:20px; font-size:13px; font-weight:600;">최적 길이: ' + (optBucket.rangeLabel || '-') + '</span>';
+            html += '</div></div>';
+          }
+
+          return html;
+        }
+
+        function renderGoldenTab(data) {
+          const goldenKeywords = data.goldenKeywords || [];
+          let html = '';
+
+          if (goldenKeywords.length === 0) {
+            return '<div style="text-align:center; padding:40px; color:#94a3b8;">분석된 황금키워드가 없습니다.</div>';
+          }
+
+          // 등급별 색상
+          const gradeColors = { SSS: '#ef4444', SS: '#f59e0b', S: '#8b5cf6', A: '#3b82f6', B: '#64748b' };
+          const gradeBgs = { SSS: '#fef2f2', SS: '#fffbeb', S: '#faf5ff', A: '#eff6ff', B: '#f8fafc' };
+
+          html += '<div style="margin-bottom:16px; font-size:14px; color:#64748b;">총 <b>' + goldenKeywords.length + '</b>개의 황금키워드가 발견되었습니다.</div>';
+
+          goldenKeywords.forEach((kw, i) => {
+            const grade = kw.grade || 'B';
+            const color = gradeColors[grade] || '#64748b';
+            const bg = gradeBgs[grade] || '#f8fafc';
+
+            html += '<div style="background:' + bg + '; border:2px solid ' + color + '30; border-radius:12px; padding:16px 20px; margin-bottom:12px; display:flex; align-items:center; gap:16px;">';
+            // 등급 배지
+            html += '<div style="background:' + color + '; color:white; width:48px; height:48px; border-radius:12px; display:flex; align-items:center; justify-content:center; font-weight:900; font-size:' + (grade.length > 2 ? '14' : '16') + 'px; flex-shrink:0;">' + grade + '</div>';
+            // 키워드 정보
+            html += '<div style="flex:1; min-width:0;">';
+            html += '<div style="font-size:16px; font-weight:700; color:#1e293b;">' + (kw.keyword || '') + '</div>';
+            html += '<div style="font-size:12px; color:#64748b; margin-top:4px;">';
+            html += '점수: <b>' + (kw.totalScore || 0).toFixed(0) + '</b>';
+            if (kw.trendScore) html += ' · 트렌드: ' + kw.trendScore.toFixed(0);
+            if (kw.competitionScore) html += ' · 경쟁도: ' + kw.competitionScore.toFixed(0);
+            if (kw.profitScore) html += ' · 수익성: ' + kw.profitScore.toFixed(0);
+            html += '</div>';
+            if (kw.reason) {
+              html += '<div style="font-size:12px; color:#7c3aed; margin-top:4px;">💡 ' + kw.reason + '</div>';
+            }
+            html += '</div>';
+            // 순위
+            html += '<div style="font-size:14px; font-weight:600; color:#94a3b8; flex-shrink:0;">#' + (i+1) + '</div>';
+            html += '</div>';
+          });
+
+          return html;
+        }
+
+        function renderCrossAnalysisTab(data) {
+          const cross = data.crossAnalysis;
+          if (!cross || !cross.opportunities || cross.opportunities.length === 0) {
+            return '<div style="text-align:center; padding:60px 0; color:#94a3b8;"><div style="font-size:48px; margin-bottom:16px;">💰</div><div style="font-size:16px; font-weight:600;">네이버 API 키가 설정되면 교차 분석 결과가 표시됩니다</div><div style="font-size:13px; margin-top:8px;">환경 설정에서 네이버 검색광고 API 키를 입력해주세요</div></div>';
+          }
+
+          const opps = cross.opportunities;
+          let html = '';
+
+          // 상단 요약
+          const urgent = opps.filter(o => o.urgencyScore >= 60).length;
+          const avgRatio = opps.length > 0 ? opps.reduce((s, o) => s + (o.ratio || 0), 0) / opps.length : 0;
+
+          html += '<div style="display:grid; grid-template-columns:repeat(auto-fit, minmax(200px, 1fr)); gap:16px; margin-bottom:24px;">';
+          html += '<div style="background:linear-gradient(135deg, #fef3c7 0%, #fde68a 100%); border:2px solid #f59e0b; border-radius:12px; padding:20px; text-align:center;"><div style="font-size:28px;">🔥</div><div style="font-size:24px; font-weight:700; color:#92400e;">' + urgent + '개</div><div style="font-size:12px; color:#92400e;">긴급 선점 기회</div></div>';
+          html += '<div style="background:linear-gradient(135deg, #dcfce7 0%, #bbf7d0 100%); border:2px solid #22c55e; border-radius:12px; padding:20px; text-align:center;"><div style="font-size:28px;">📊</div><div style="font-size:24px; font-weight:700; color:#166534;">' + avgRatio.toFixed(1) + '</div><div style="font-size:12px; color:#166534;">평균 수요/공급 비율</div></div>';
+          html += '<div style="background:linear-gradient(135deg, #eff6ff 0%, #dbeafe 100%); border:2px solid #3b82f6; border-radius:12px; padding:20px; text-align:center;"><div style="font-size:28px;">📊</div><div style="font-size:24px; font-weight:700; color:#1e40af;">' + opps.length + '개</div><div style="font-size:12px; color:#1e40af;">분석 키워드</div></div>';
+          html += '</div>';
+
+          // 키워드별 카드
+          opps.forEach((opp, i) => {
+            const urgencyColor = opp.urgencyScore >= 80 ? '#ef4444' : opp.urgencyScore >= 60 ? '#f59e0b' : opp.urgencyScore >= 40 ? '#3b82f6' : '#94a3b8';
+            const urgencyBg = opp.urgencyScore >= 80 ? '#fef2f2' : opp.urgencyScore >= 60 ? '#fffbeb' : opp.urgencyScore >= 40 ? '#eff6ff' : '#f8fafc';
+
+            html += '<div style="background:' + urgencyBg + '; border:2px solid ' + urgencyColor + '30; border-radius:12px; padding:20px; margin-bottom:16px;">';
+
+            // 헤더: 순위 + 키워드 + 긴급도
+            html += '<div style="display:flex; align-items:center; gap:12px; margin-bottom:12px;">';
+            html += '<div style="background:' + urgencyColor + '; color:white; width:36px; height:36px; border-radius:10px; display:flex; align-items:center; justify-content:center; font-weight:900; font-size:14px; flex-shrink:0;">' + (i+1) + '</div>';
+            html += '<div style="flex:1;"><div style="font-size:18px; font-weight:700; color:#1e293b;">' + opp.keyword + '</div>';
+            html += '<div style="font-size:13px; color:' + urgencyColor + '; font-weight:600;">' + (opp.verdict || '') + '</div></div>';
+            html += '<div style="text-align:right;"><div style="font-size:20px; font-weight:700; color:' + urgencyColor + ';">' + (opp.urgencyScore || 0).toFixed(0) + '점</div><div style="font-size:11px; color:#64748b;">긴급도</div></div>';
+            html += '</div>';
+
+            // 데이터 그리드
+            html += '<div style="display:grid; grid-template-columns:repeat(auto-fit, minmax(130px, 1fr)); gap:10px; margin-bottom:12px;">';
+            html += '<div style="background:white; border-radius:8px; padding:10px; text-align:center; border:1px solid #e5e7eb;"><div style="font-size:16px; font-weight:700; color:#3b82f6;">' + formatViewCount(opp.totalSearchVolume || 0) + '</div><div style="font-size:11px; color:#64748b;">월 검색량</div></div>';
+            html += '<div style="background:white; border-radius:8px; padding:10px; text-align:center; border:1px solid #e5e7eb;"><div style="font-size:16px; font-weight:700; color:#8b5cf6;">' + formatViewCount(opp.documentCount || 0) + '</div><div style="font-size:11px; color:#64748b;">경쟁 문서</div></div>';
+            html += '<div style="background:white; border-radius:8px; padding:10px; text-align:center; border:1px solid #e5e7eb;"><div style="font-size:16px; font-weight:700; color:' + (opp.ratio >= 5 ? '#16a34a' : opp.ratio >= 2 ? '#f59e0b' : '#ef4444') + ';">' + (opp.ratio || 0).toFixed(1) + '</div><div style="font-size:11px; color:#64748b;">수요/공급 비율</div></div>';
+            html += '<div style="background:white; border-radius:8px; padding:10px; text-align:center; border:1px solid #e5e7eb;"><div style="font-size:16px; font-weight:700; color:#2563eb;">' + formatViewCount(opp.youtubeViewsPerHour || 0) + '</div><div style="font-size:11px; color:#64748b;">시간당 조회수(유튜브)</div></div>';
+            html += '</div>';
+
+            // 경고 메시지
+            const warnings = opp.warnings || [];
+            if (warnings.length > 0) {
+              html += '<div style="margin-bottom:8px;">';
+              warnings.forEach(w => {
+                html += '<div style="font-size:11px; color:#92400e; background:#fffbeb; padding:4px 10px; border-radius:6px; margin-bottom:3px;">⚠️ ' + w + '</div>';
+              });
+              html += '</div>';
+            }
+
+            // 관련 키워드
+            const titles = opp.relatedKeywords || [];
+            if (titles.length > 0) {
+              html += '<div style="background:white; border-radius:8px; padding:12px; border:1px solid #e5e7eb;">';
+              html += '<div style="font-size:12px; font-weight:600; color:#7c3aed; margin-bottom:8px;">🔑 관련 키워드</div>';
+              titles.forEach(t => {
+                html += '<div style="font-size:13px; color:#1e293b; padding:4px 0; border-bottom:1px solid #f1f5f9;">· ' + t + '</div>';
+              });
+              html += '</div>';
+            }
+
+            html += '</div>';
+          });
+
+          return html;
+        }
+
+        // 유틸리티: 조회수 포맷
+        function formatViewCount(count) {
+          if (count >= 100000000) return (count / 100000000).toFixed(1) + '억';
+          if (count >= 10000) return (count / 10000).toFixed(1) + '만';
+          if (count >= 1000) return (count / 1000).toFixed(1) + '천';
+          return String(count || 0);
+        }
+
+        // 유틸리티: 분초 포맷
+        function formatDurationMinutes(seconds) {
+          if (!seconds) return '0분';
+          const m = Math.floor(seconds / 60);
+          const s = seconds % 60;
+          return m > 0 ? m + '분 ' + s + '초' : s + '초';
+        }
+
         // 🎬 유튜브 황금키워드 분석기 (프리미엄)
         // ========================================
         function createYouTubeGoldenModal() {
@@ -7260,12 +7994,7 @@
               '<div style="display: flex; flex-wrap: wrap; gap: 10px;">' + kwItems + '</div></div>';
           }
 
-          let revenueHtml = '';
-          if (result.estimatedMonthlyRevenue && result.estimatedMonthlyRevenue !== '데이터 없음') {
-            revenueHtml = '<div style="background: linear-gradient(135deg, #059669 0%, #047857 100%); padding: 20px; border-radius: 12px; margin-bottom: 20px; text-align: center;">' +
-              '<div style="font-size: 13px; color: rgba(255,255,255,0.8); margin-bottom: 4px;">💎 예상 월 수익 (상위 10% 유입 가정)</div>' +
-              '<div style="font-size: 32px; font-weight: 800; color: white;">' + result.estimatedMonthlyRevenue + '</div></div>';
-          }
+          const revenueHtml = '';
 
           let html = '<div style="margin-bottom: 24px;">' +
             '<div style="display: flex; align-items: center; gap: 16px; margin-bottom: 20px;">' +
@@ -9793,8 +10522,6 @@
             const rookieScore = kw.rookieFriendly?.score || 0;
             const rookieGrade = kw.rookieFriendly?.grade || 'C';
 
-            // 월 예상 수익 계산 (검색량 × 3% CTR × 15원 RPM)
-            const estimatedMonthlyRevenue = Math.round(searchVolumeForCalc * 0.03 * 15);
 
             html += `
           <div style="background: white; border-radius: 16px; padding: 24px; margin-bottom: 16px; border: 2px solid ${idx < 3 ? gradeColor : '#e5e7eb'}; box-shadow: 0 4px 16px rgba(0,0,0,0.08); position: relative; transition: all 0.3s ease;"
@@ -9834,11 +10561,6 @@
                 <div style="font-size: 32px; font-weight: 900; color: ${gradeColor};">${kw.totalScore || Math.round(kw.timingGoldScore)}</div>
                 <div style="font-size: 11px; color: #64748b;">종합점수</div>
               </div>
-            </div>
-            
-            <!-- 예상 수익 배지 -->
-            <div style="padding: 10px 16px; background: linear-gradient(135deg, #fef3c7 0%, #fde68a 100%); border-radius: 10px; display: inline-block; margin-bottom: 16px;">
-              <span style="font-size: 14px; font-weight: 700; color: #92400e;">💰 예상 수익: ${estimatedMonthlyRevenue.toLocaleString()}원 (월간)</span>
             </div>
             
             <!-- 🔥 핵심 지표 4개 (PRO 스타일) -->
@@ -9934,14 +10656,6 @@
                 </div>
               </div>
               ` : ''}
-            </div>
-            ` : (kw.suggestedTitle ? `
-            <div style="background: linear-gradient(135deg, #fdf4ff 0%, #fae8ff 100%); border-radius: 12px; padding: 14px; margin-bottom: 12px; border: 1px solid #e879f9;">
-              <div style="font-size: 13px; font-weight: 700; color: #a21caf; margin-bottom: 6px;">📝 추천 제목</div>
-              <div style="font-size: 14px; color: #86198f; line-height: 1.6; font-weight: 600; cursor: pointer;"
-                   onclick="copyToClipboard('${kw.suggestedTitle.replace(/'/g, "\\'")}')">
-                "${kw.suggestedTitle}" <span style="font-size: 11px; color: #c026d3;">📋 클릭하여 복사</span>
-              </div>
             </div>
             ` : '')}
             
@@ -14843,7 +15557,6 @@
                 <div style="font-size: 12px; font-weight: 600; color: #a78bfa; margin-bottom: 8px;">📝 콘텐츠 가이드</div>
                 <div style="font-size: 12px; color: rgba(255,255,255,0.8);">
                   <div style="margin-bottom: 6px;">• 추천 형식: 리뷰/추천 리스트</div>
-                  <div style="margin-bottom: 6px;">• 추천 제목: <span style="color: #22c55e;">${new Date().getFullYear()} ${kw.keyword} 총정리</span></div>
                   <div>• 권장 길이: 2,000~3,000자</div>
                 </div>
               </div>
@@ -15287,7 +16000,7 @@
           }
 
           visibleKeywords.forEach(kw => {
-            const hookTitle = (kw.suggestedTitles && kw.suggestedTitles.length > 0) ? kw.suggestedTitles[0] : kw.keyword + " 추천";
+            // AI 추천 제목 제거 — 키워드와 이유만 표시
             let badgeColor = '#3b82f6';
             let badgeName = '💎 블루오션';
             let cardStyle = '';
@@ -15324,15 +16037,12 @@
                 </div>
                 ` : ''}
                 
-                <div style="background: #f8fafc; padding: 16px; border-radius: 12px; border: 1px dashed #cbd5e1; cursor: pointer; transition: all 0.2s;" 
-                     onclick="navigator.clipboard.writeText(this.querySelector('.copy-target').innerText); alert('제목이 복사되었습니다! ✨');"
+                <div style="background: #f8fafc; padding: 12px 16px; border-radius: 12px; border: 1px solid #e2e8f0; cursor: pointer; transition: all 0.2s;"
+                     onclick="navigator.clipboard.writeText('${kw.keyword.replace(/'/g, "\\'")}'); this.querySelector('.copy-msg').textContent='복사됨! ✅'; setTimeout(()=>this.querySelector('.copy-msg').textContent='📋 키워드 복사', 1500);"
                      onmouseover="this.style.background='#f1f5f9'" onmouseout="this.style.background='#f8fafc'">
-                    <div style="font-size: 12px; color: #64748b; margin-bottom: 6px; display: flex; justify-content: space-between;">
-                        <span>AI 추천 제목</span>
-                        <span style="color: #3b82f6; font-weight: 600;">📋 클릭하여 복사</span>
-                    </div>
-                    <div class="copy-target" style="font-size: 17px; font-weight: 700; color: #334155; line-height: 1.4;">
-                        ${hookTitle}
+                    <div style="display: flex; justify-content: space-between; align-items: center;">
+                        <span style="font-size: 11px; color: #64748b;">키워드</span>
+                        <span class="copy-msg" style="font-size: 11px; color: #3b82f6; font-weight: 600;">📋 키워드 복사</span>
                     </div>
                 </div>
                 

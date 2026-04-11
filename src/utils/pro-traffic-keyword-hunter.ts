@@ -461,8 +461,8 @@ function calculateExplosionScore(r: ProTrafficKeyword): number {
 }
 
 const EXPLOSION_ONLY_MIN_SCORE = 80;
-const EXPLOSION_ONLY_MIN_SEARCH_VOLUME = 80;
-const EXPLOSION_ONLY_MIN_GOLDEN_RATIO = 0.2;
+const EXPLOSION_ONLY_MIN_SEARCH_VOLUME = 100;
+const EXPLOSION_ONLY_MIN_GOLDEN_RATIO = 1.5;
 
 const PREMIUM_GOLDEN_MIN_RATIO = 0.3;
 const PREMIUM_GOLDEN_MAX_DOCUMENT_COUNT = 50000;
@@ -481,10 +481,10 @@ function getProPremiumMinRatioForCategory(category: string): number {
 function getProPremiumMaxDocumentsForCategory(category: string): number {
   const c = String(category || '');
   if (c === 'lite_standard') return PREMIUM_GOLDEN_MAX_DOCUMENT_COUNT;
-  if (c === 'celeb') return 300000;
-  if (c === 'fashion') return 100000;
-  if (c === 'life_tips') return 150000; // 생활팁은 문서수 상한 확대
-  return 70000;
+  if (c === 'celeb') return 100000;
+  if (c === 'fashion') return 50000;
+  if (c === 'life_tips') return 100000; // 생활팁은 문서수 상한
+  return 50000;
 }
 
 function computePremiumGrade(r: ProTrafficKeyword, category?: string): 'SSS' | 'SS' | 'S' | 'A' {
@@ -495,10 +495,10 @@ function computePremiumGrade(r: ProTrafficKeyword, category?: string): 'SSS' | '
   // 🛡️ 저경쟁 보증 필터: 문서수가 너무 많으면 등급 하향 (기득권 블로그 영역)
   let penaltySteps = 0;
   if (category === 'celeb') {
-    // 연예인은 문서수 페널티 대폭 완화
-    if (dc > 10000000) penaltySteps = 3;
-    else if (dc > 3000000) penaltySteps = 2;
-    else if (dc > 1000000) penaltySteps = 1;
+    // 연예인 문서수 페널티 강화
+    if (dc > 300000) penaltySteps = 3;
+    else if (dc > 250000) penaltySteps = 2;
+    else if (dc > 200000) penaltySteps = 1;
   } else {
     if (dc > 300000) penaltySteps = 3; // 매우 강력한 페널티
     else if (dc > 100000) penaltySteps = 2;
@@ -682,7 +682,7 @@ function isExplosiveKeywordStrict(r: ProTrafficKeyword): boolean {
   const veryHighExplosion = score >= 90;
   const svHigh = sv >= 200;
   const doc = typeof r.documentCount === 'number' ? r.documentCount : Number.POSITIVE_INFINITY;
-  const docCeiling = doc <= 150000;
+  const docCeiling = doc <= 100000;
   const relaxedRatioPass = ratio >= 0.05;
   const ratioPass = strictRatioPass || (strongSource && veryHighExplosion && svHigh && docCeiling && relaxedRatioPass);
 
@@ -879,10 +879,10 @@ function generatePlatformTitles(
   // 1. AI 지능형 제목 풀 확보 (없으면 즉석 생성)
   let titles = intelligentTitles || [];
   if (titles.length === 0) {
-    const dummyFreshKw: any = {
+    const templateKw: any = {
       keyword, searchVolume, goldenRatio: 0, isRising: timing.urgency === 'NOW', category: category || 'general'
     };
-    titles = titleGen.generateTitles(dummyFreshKw, 5);
+    titles = titleGen.generateTitles(templateKw, 5);
   }
 
   const subKeywords = [
@@ -969,8 +969,7 @@ function generateExpandedKeywords(keyword: string): NonNullable<ProTrafficKeywor
 }
 import { MonetizationStrategyGenerator, MonetizationBlueprint } from './monetization-strategy-generator';
 
-import { browserPool } from './puppeteer-pool';
-import { setupStealthPage } from './stealth-browser';
+import { analyzeSerpWithPlaywright, closeBrowser as closePlaywrightBrowser } from './serp-crawler';
 
 import { getNaverSearchAdKeywordVolume, getNaverSearchAdKeywordSuggestions, NaverSearchAdConfig } from './naver-searchad-api';
 import { getNaverBlogDocumentCount } from './naver-blog-api';
@@ -3194,7 +3193,7 @@ export async function huntProTrafficKeywords(options: {
       // - goldenRatio 0.3, searchVolume 80 정도는 남겨서 검증 단계로 보낸다.
       if (goldenRatio < 0.3) continue;
       if (searchVolumeForCalc < 80) continue;
-      if (docCountForCalc > 200000) continue;
+      if (docCountForCalc > 100000) continue;
 
       const enrichedSource = realtimeSourceMap.get(cand.keyword) || cand.source;
       const analysis = analyzeKeyword(cand.keyword, enrichedSource, currentMonth, currentHour, targetRookie);
@@ -3500,10 +3499,10 @@ export async function huntProTrafficKeywords(options: {
       // 카테고리 지정 시에는 컷을 조금 완화해 풀을 넓힘
       let goldenRatioCut = 0.3;
       let searchVolumeCut = 500;
-      let maxDocCountCut = isCategorySpecified ? 120000 : 50000;
+      let maxDocCountCut = isCategorySpecified ? 50000 : 50000;
 
       if (category === 'celeb') {
-        maxDocCountCut = 500000; // 12만 -> 50만 (연예인은 문서가 많음)
+        maxDocCountCut = 100000; // 강화된 연예인 문서수 상한
       }
 
       if (isCategorySpecified) {
@@ -3528,19 +3527,18 @@ export async function huntProTrafficKeywords(options: {
       }
 
       // 🏆 등급 재계산 (황금비율 기반!) - 실제 API 데이터로만 계산!
-      // 🔥 SSS 기준 대폭 완화: 5~10개 SSS 키워드 발굴 목표!
       let newGrade: 'SSS' | 'SS' | 'S' | 'A' | 'B' | 'C' = 'C';
 
-      // SSS: 황금비율 2+ & 검색량 30+ & 문서수 10000 이하 (대폭 완화!)
-      if (realGoldenRatio >= 2 && realSearchVolumeForGrade >= 30 && realDocCount <= 10000) newGrade = 'SSS';
-      // SS: 황금비율 1+ & 검색량 30+ & 문서수 20000 이하
-      else if (realGoldenRatio >= 1 && realSearchVolumeForGrade >= 30 && realDocCount <= 20000) newGrade = 'SS';
-      // S: 황금비율 0.5+ & 검색량 30+ & 문서수 30000 이하
-      else if (realGoldenRatio >= 0.5 && realSearchVolumeForGrade >= 30 && realDocCount <= 30000) newGrade = 'S';
-      // A: 황금비율 0.3+ & 문서수 40000 이하
-      else if (realGoldenRatio >= 0.3 && realDocCount <= 40000) newGrade = 'A';
-      // B: 황금비율 0.2+ 또는 검색량이 충분하면(트래픽 기반) B로 완화
-      else if (realGoldenRatio >= 0.2 || realSearchVolumeForGrade >= 80) newGrade = 'B';
+      // SSS: 황금비율 5+ & 문서수 5000 이하
+      if (realGoldenRatio >= 5 && realDocCount <= 5000) newGrade = 'SSS';
+      // SS: 황금비율 3+ & 문서수 10000 이하
+      else if (realGoldenRatio >= 3 && realDocCount <= 10000) newGrade = 'SS';
+      // S: 황금비율 2+ & 문서수 30000 이하
+      else if (realGoldenRatio >= 2 && realDocCount <= 30000) newGrade = 'S';
+      // A: 황금비율 1.5+
+      else if (realGoldenRatio >= 1.5) newGrade = 'A';
+      // B: 황금비율 0.7+
+      else if (realGoldenRatio >= 0.7) newGrade = 'B';
       // C: 그 외
       else newGrade = 'C';
 
@@ -3941,7 +3939,7 @@ export async function huntProTrafficKeywords(options: {
     // - 레드오션 상한은 유지
     if (categoryPool.length < targetPoolSize) {
       const chosen = new Set(categoryPool.map(r => r.keyword));
-      const maxDocCountCut = (category === 'celeb') ? 10000000 : 120000; // 연예인은 문서수가 매우 많음
+      const maxDocCountCut = (category === 'celeb') ? 300000 : 50000; // 강화된 문서수 상한
       const fallbackCategory = fallbackVerifiedResults
         .filter(r => isKeywordInSelectedCategory(r.keyword, category))
         .filter(r => {
@@ -5485,26 +5483,11 @@ export function analyzeKeyword(
   );
 
   // 🕒 SRAA: 최신성 및 승률 분석 (Win Rate Logic)
-  let winRate = 70; // 기본 승률
-  let isEmptyHouse = false;
-  let oldPostCount = 0;
-  const monthsAgoList: number[] = [];
-
-  // 가상의 상위 노출 날짜 데이터 (향후 SERP 파싱 데이터 연동)
-  // 현재는 SERP 신호에서 간접적으로 유추하거나 랜덤 시뮬레이션
-  const mockDates = ['2024.12.31.', '2025.01.15.', '2024.06.01.'];
-  for (const d of mockDates) {
-    const monthsAgo = getMonthsAgo(d);
-    monthsAgoList.push(monthsAgo);
-    if (monthsAgo >= 6) oldPostCount++;
-  }
-
-  if (oldPostCount >= 1) {
-    winRate += 20;
-    isEmptyHouse = true;
-  }
-  if (hasInfluencer) winRate -= 15;
-  if (hasSmartBlock) winRate -= 10;
+  let winRate = 50; // 중립값 기본 승률 (실제 SERP 데이터 없으면 중립)
+  const isEmptyHouse = false; // mockDates 제거 - 실제 SERP 데이터 없으면 보수적으로 판단 (빈집 아님으로 가정)
+  // isEmptyHouse 판정은 analyzeCompetitorsWithRecencyAsync에서만 수행
+  if (hasInfluencer) winRate -= 10;
+  if (hasSmartBlock) winRate -= 5;
 
   winRate = Math.max(0, Math.min(100, winRate));
 
@@ -5627,8 +5610,8 @@ export function analyzeKeyword(
     winRate,
     isEmptyHouse,
     topPostRecency: {
-      monthsAgo: monthsAgoList,
-      oldPostCount
+      monthsAgo: [],
+      oldPostCount: 0
     },
     seasonalBonus,
     timestamp: new Date().toISOString()
@@ -5735,13 +5718,13 @@ function calculateRookieFriendly(
   // 등급 결정
   const grade = score >= 85 ? 'S' : score >= 70 ? 'A' : score >= 55 ? 'B' : score >= 40 ? 'C' : 'D';
 
-  // 상위노출 예상 기간
+  // 경쟁도 레벨
   const canRankWithin =
-    score >= 85 ? '1~3일 내 가능' :
-      score >= 70 ? '3~7일 내 가능' :
-        score >= 55 ? '1~2주 내 가능' :
-          score >= 40 ? '2~4주 내 가능' :
-            '1개월 이상 소요 예상';
+    score >= 85 ? '경쟁 매우 낮음' :
+      score >= 70 ? '경쟁 낮음' :
+        score >= 55 ? '경쟁 보통' :
+          score >= 40 ? '경쟁 높음' :
+            '경쟁 매우 높음';
 
   // 필요 블로그 지수
   const requiredBlogIndex =
@@ -5796,7 +5779,7 @@ function calculateAdvancedRookieFriendly(r: any, topBlogData?: any): any {
     reason: grade === 'S' ? '경쟁이 매우 낮아 신생 블로그도 즉시 상위 노출 가능' :
       grade === 'A' ? '기본기가 충실하다면 신생 블로그도 충분히 승산 있음' :
         '어느 정도 블로그 지수가 필요하거나 전략적 접근 필수',
-    canRankWithin: grade === 'S' ? '1~3일 이내' : grade === 'A' ? '3~7일 이내' : '1주일 이상',
+    canRankWithin: grade === 'S' ? '경쟁 매우 낮음' : grade === 'A' ? '경쟁 낮음' : '경쟁 보통',
     requiredBlogIndex: grade === 'S' ? 'Lv.1 (모든 블로그)' : grade === 'A' ? 'Lv.3 (중급)' : 'Lv.5 (고급)'
   };
 }
@@ -6070,10 +6053,10 @@ function analyzeEntryDifficulty(
           '최적 1 이상 권장';
 
   const estimatedRankingTime =
-    difficulty === 'easy' ? '1~3일 내 가능' :
-      difficulty === 'possible' ? '3~7일 내 가능' :
-        difficulty === 'hard' ? '1~3주 내 가능' :
-          '1개월 이상 소요 예상';
+    difficulty === 'easy' ? '경쟁 매우 낮음' :
+      difficulty === 'possible' ? '경쟁 낮음' :
+        difficulty === 'hard' ? '경쟁 높음' :
+          '경쟁 매우 높음';
 
   return {
     canEntry,
@@ -6364,8 +6347,8 @@ function calculateTotalScore(
     const ratio = searchVolume / Math.max(1, documentCount);
     if (ratio >= 2.0) score += 25;       // 압도적 기회!
     else if (ratio >= 1.0) score += 15;  // 좋은 기회
-    else if (ratio < 0.2) score -= 30;   // 🚨 레드오션 페널티 (강력!)
-    else if (ratio < 0.5) score -= 15;   // 🚨 경쟁 높음 페널티
+    else if (ratio < 0.2) score -= 40;   // 🚨 레드오션 페널티 (강력!)
+    else if (ratio < 0.5) score -= 25;   // 🚨 경쟁 높음 페널티 (강화)
   }
 
   // 🚨 문서수 절대량 페널티
@@ -6400,11 +6383,11 @@ function determineGrade(
   // 이 determineGrade는 totalScore를 받지만, 내부적으로 rawRatio를 다시 체크할 수 없으므로
   // totalScore 계산 시 이미 goldenRatio가 녹아있음.
 
-  if (adjustedScore >= 95) return 'SSS';
-  if (adjustedScore >= 85) return 'SS';
-  if (adjustedScore >= 70) return 'S';
+  if (adjustedScore >= 85) return 'SSS';
+  if (adjustedScore >= 75) return 'SS';
+  if (adjustedScore >= 65) return 'S';
   if (adjustedScore >= 55) return 'A';
-  if (adjustedScore >= 40) return 'B';
+  if (adjustedScore >= 45) return 'B';
   return 'C';
 }
 
@@ -6832,85 +6815,26 @@ export async function analyzeCompetitorsReal(
   let smartBlockAnalysis: ProTrafficKeyword['smartBlockAnalysis'] = { type: '없음', canPenetrate: true };
   let recencyAnalysis: ProTrafficKeyword['recencyAnalysis'] = { avgDaysOld: 0, isEmptyHouse: false, opportunityLevel: 'medium' };
 
-  let browser;
   try {
-    browser = await browserPool.acquire();
-    const page = await browser.newPage();
-    await setupStealthPage(page);
+    const serpResult = await analyzeSerpWithPlaywright(keyword);
 
-    // 네이버 검색 (통합검색 - 스마트블록 확인을 위해)
-    const searchUrl = `https://search.naver.com/search.naver?query=${encodeURIComponent(keyword)}&where=nexearch`;
-    await page.goto(searchUrl, { waitUntil: 'domcontentloaded', timeout: 15000 });
-
-    // 1. 스마트블록 분석
-    const smartBlockData = await page.evaluate(() => {
-      const block = document.querySelector('section.sp_nblock, .api_subject_bx');
-      if (!block) return null;
-
-      const title = block.querySelector('.api_title, .nblock_tit')?.textContent?.trim() || '일반';
-      // 인기글, 지식iN 등은 침투 가능성이 높음 (블로그 포스팅으로 랭킹 가능)
-      const penetrableTypes = ['인기글', '블로그', '카페', '커뮤니티', '실시간', '많이 찾는'];
-      const canPenetrate = penetrableTypes.some(t => title.includes(t));
-
-      return { type: title, canPenetrate };
-    });
-
-    if (smartBlockData) {
-      smartBlockAnalysis = smartBlockData;
-    }
-
-    // 2. 블로그 결과 추출 (통합검색 내 블로그 섹션 또는 블로그 탭 이동 결과)
-    // 여기서는 간단하게 통합검색 내 보이는 블로그들을 먼저 수집
-    const bloggers = await page.evaluate(() => {
-      const results: { blogName: string, dateText: string, title: string }[] = [];
-      const items = document.querySelectorAll('.view_wrap, .total_wrap, .api_ani_send');
-
-      items.forEach(item => {
-        if (results.length >= 5) return;
-        const blogName = item.querySelector('.name, .sub_txt')?.textContent?.trim() || '';
-        const dateText = item.querySelector('.sub_time, .date')?.textContent?.trim() || '';
-        const title = item.querySelector('.api_txt_lines, .total_tit')?.textContent?.trim() || '';
-        if (blogName || dateText) {
-          results.push({ blogName, dateText, title });
-        }
-      });
-      return results;
-    });
-
-    await page.close();
-
-    // 3. 데이터 가공 및 점수화
-    let totalDaysOld = 0;
-    bloggers.forEach((b, i) => {
-      const daysOld = getDaysOld(b.dateText);
-      totalDaysOld += daysOld;
-
-      let postQuality: 'high' | 'medium' | 'low' = 'medium';
-      if (b.title.length > 40 || b.blogName.includes('공식')) postQuality = 'high';
-      else if (b.title.length < 20) postQuality = 'low';
-
-      // 승리 가능성 판단
-      let canBeat = false;
-      if (daysOld > 180) canBeat = true; // 6개월 이상 된 글은 최신글로 밀어내기 가능
-      else if (postQuality === 'low') canBeat = true;
-      else if (goldenRatio > 5) canBeat = true;
-
+    serpResult.posts.forEach((post, i) => {
       topBloggers.push({
         rank: i + 1,
-        blogAge: daysOld > 365 ? '1년 이상' : (daysOld > 180 ? '6개월~1년' : '최근'),
-        postQuality,
-        canBeat
+        blogAge: post.daysOld > 365 ? '1년 이상' : (post.daysOld > 180 ? '6개월~1년' : '최근'),
+        postQuality: post.snippet.length > 200 ? 'high' : (post.snippet.length > 50 ? 'medium' : 'low'),
+        canBeat: post.daysOld > 180 || post.snippet.length < 100
       });
     });
 
-    // 4. 리센시 분석 완료
-    const avgDaysOld = topBloggers.length > 0 ? Math.floor(totalDaysOld / topBloggers.length) : 365;
-    const isEmptyHouse = avgDaysOld > 150; // 평균 5개월 이상이면 빈집으로 간주
-    const opportunityLevel = isEmptyHouse ? 'high' : (avgDaysOld > 60 ? 'medium' : 'low');
-    recencyAnalysis = { avgDaysOld, isEmptyHouse, opportunityLevel };
+    recencyAnalysis = {
+      avgDaysOld: serpResult.avgDaysOld,
+      isEmptyHouse: serpResult.isEmptyHouse,
+      opportunityLevel: serpResult.isEmptyHouse ? 'high' : (serpResult.avgDaysOld > 60 ? 'medium' : 'low')
+    };
 
   } catch (error) {
-    console.error(`[PRO-TRAFFIC] ⚠️ Puppeteer 분석 실패 (${keyword}):`, error);
+    console.error(`[PRO-TRAFFIC] ⚠️ Playwright 분석 실패 (${keyword}):`, error);
     // 폴백: 수동 추정 logic (기존 로직 유지)
     for (let i = 1; i <= 5; i++) {
       const isWeakCompetitor = goldenRatio > 5 || documentCount < 5000;
@@ -6921,8 +6845,6 @@ export async function analyzeCompetitorsReal(
         canBeat: isWeakCompetitor || i >= 3
       });
     }
-  } finally {
-    if (browser) browserPool.release(browser);
   }
 
   // 승리 확률 계산 (SRAA 반영)

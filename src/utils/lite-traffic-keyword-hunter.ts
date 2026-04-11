@@ -165,8 +165,8 @@ const API_CONFIG = {
   CACHE_TTL: 60 * 1000,
 
   // 🔥 v2.1: 필터 조건 완화!
-  MIN_SEARCH_VOLUME: 30,
-  MIN_GOLDEN_RATIO: 0.3,
+  MIN_SEARCH_VOLUME: 100,
+  MIN_GOLDEN_RATIO: 1.5,
 
   // 🔥 v2.1: 더 많은 키워드 처리
   MAX_KEYWORDS_TO_PROCESS: 120,
@@ -226,19 +226,20 @@ function buildBaseCandidates(results: LiteTrafficKeyword[], minSearchVolume: num
     if (k.goldenRatio < minGoldenRatio) return false;
     if (k.searchVolume < minSearchVolume) return false;
     if (isBroadKeyword(k.keyword, k.documentCount)) return false;
-    if (k.documentCount > 250000) return false;
+    if (k.documentCount > 30000) return false;
     return true;
   });
 
   if (strict.length >= desiredCount) return strict;
 
-  // 후보 부족 시: 범용 블랙리스트는 유지하되 문서수 상한 완화
+  // 후보 부족 시: 범용 블랙리스트는 유지하되 문서수 상한 완화 + goldenRatio 1.0으로 완화
+  const relaxedRatio = 1.0;
   const relaxed = results.filter(k => {
-    if (k.goldenRatio < minGoldenRatio) return false;
+    if (k.goldenRatio < relaxedRatio) return false;
     if (k.searchVolume < minSearchVolume) return false;
     if (GENERIC_KEYWORD_BLACKLIST.includes((k.keyword || '').trim())) return false;
     // 과도한 레드오션만 제외
-    if (k.documentCount > 2000000) return false;
+    if (k.documentCount > 100000) return false;
     // 단일 짧은 키워드는 여전히 강하게 제외
     if (!k.keyword.includes(' ') && k.keyword.trim().length <= 3 && k.documentCount >= 30000) return false;
     return true;
@@ -246,12 +247,13 @@ function buildBaseCandidates(results: LiteTrafficKeyword[], minSearchVolume: num
 
   if (relaxed.length >= Math.max(5, Math.floor(desiredCount / 2))) return relaxed;
 
-  // 그래도 부족하면: 문서수만 극단 레드오션 제외하고 확보(더미/범용은 끝까지 제외)
+  // 그래도 부족하면: goldenRatio 0.7까지 완화 + 문서수만 극단 레드오션 제외(더미/범용은 끝까지 제외)
+  const fallbackRatio = 0.7;
   return results.filter(k => {
-    if (k.goldenRatio < minGoldenRatio) return false;
+    if (k.goldenRatio < fallbackRatio) return false;
     if (k.searchVolume < minSearchVolume) return false;
     if (GENERIC_KEYWORD_BLACKLIST.includes((k.keyword || '').trim())) return false;
-    if (k.documentCount > 5000000) return false;
+    if (k.documentCount > 300000) return false;
     return true;
   });
 }
@@ -377,20 +379,23 @@ function calculateRookieScore(
   if (goldenRatio >= 10) score += 35;
   else if (goldenRatio >= 5) score += 25;
   else if (goldenRatio >= 2) score += 15;
-  else if (goldenRatio >= 1) score += 10;
-  else if (goldenRatio >= 0.5) score += 5;
-  else if (goldenRatio < 0.3) score -= 15;
+  else if (goldenRatio >= 1) score += 5;
+  else if (goldenRatio >= 0.5) score += 0;
+  else if (goldenRatio < 0.3) score -= 20;
 
-  if (documentCount < 500) score += 15;
+  if (documentCount < 500) score += 25;
+  else if (documentCount < 1000) score += 15;
   else if (documentCount < 2000) score += 10;
   else if (documentCount < 10000) score += 5;
-  else if (documentCount >= 50000) score -= 10;
+  else if (documentCount > 50000) score -= 30;
+  else if (documentCount > 20000) score -= 20;
+  else if (documentCount > 10000) score -= 10;
 
   score = Math.max(0, Math.min(100, score));
 
   let grade: 'S' | 'A' | 'B' | 'C';
-  if (score >= 65 && goldenRatio >= 1.5) grade = 'S';
-  else if (score >= 50 && goldenRatio >= 0.7) grade = 'A';
+  if (score >= 65 && goldenRatio >= 3) grade = 'S';
+  else if (score >= 50 && goldenRatio >= 1.5) grade = 'A';
   else if (score >= 35) grade = 'B';
   else grade = 'C';
 
@@ -410,11 +415,10 @@ function calculateRookieScore(
   }
 
   let canRankWithin: string;
-  if (goldenRatio >= 5 && documentCount < 1000) canRankWithin = '1~3일 내';
-  else if (goldenRatio >= 2 && documentCount < 5000) canRankWithin = '3~7일 내';
-  else if (goldenRatio >= 1 && documentCount < 20000) canRankWithin = '1~2주 내';
-  else if (goldenRatio >= 0.5) canRankWithin = '2~4주 내';
-  else canRankWithin = '1개월 이상';
+  if (goldenRatio >= 5 && documentCount < 1000) canRankWithin = '경쟁 매우 낮음';
+  else if (goldenRatio >= 2 && documentCount < 5000) canRankWithin = '경쟁 낮음';
+  else if (goldenRatio >= 1.5 && documentCount < 20000) canRankWithin = '경쟁 보통';
+  else canRankWithin = '경쟁 높음';
 
   return { score, grade, reason, canRankWithin };
 }
@@ -1274,7 +1278,7 @@ export async function huntLiteTrafficKeywords(options: {
       difficultyScore: data.difficultyScore ?? rookieFriendly.score / 10,
       isCommercial: purchaseIntentScore >= 50,
       winRate,
-      isEmptyHouse: (data.difficultyScore || 5) <= 3, // 난이도가 낮으면 빈집으로 간주
+      isEmptyHouse: (data.difficultyScore || 5) <= 3 && (data.documentCount || 0) < 10000, // 난이도가 낮고 문서수 1만 미만이어야 빈집
       // v3.0: 키워드 타입
       type: keywordType,
 
