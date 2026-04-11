@@ -6527,6 +6527,14 @@
                 const safeChannel = (item.channelTitle || '').replace(/'/g, "\\'").replace(/"/g, '&quot;');
                 const safeThumbnail = (item.thumbnailUrl || '').replace(/'/g, "\\'");
 
+                // 제목에서 키워드 태그 추출
+                const kwStopWords = ['영상', '동영상', '비디오', '구독', '좋아요', '오늘', '내일', '어제', '이번', '올해', '정말', '진짜', '너무'];
+                const titleKws = (item.title || '').replace(/[^\w\s가-힣]/g, ' ').split(/\s+/)
+                  .filter(w => w.length >= 2 && w.length <= 6 && /[가-힣]/.test(w) && !kwStopWords.includes(w)).slice(0, 4);
+                const kwTagsHtml = titleKws.length > 0
+                  ? '<div style="display:flex; flex-wrap:wrap; gap:4px; margin-top:8px;">' + titleKws.map(kw => '<span style="background:#f1f5f9; color:#475569; padding:2px 8px; border-radius:10px; font-size:11px; border:1px solid #e2e8f0;">' + kw + '</span>').join('') + '</div>'
+                  : '';
+
                 html += `
             <div class="result-item" 
               onclick="window.blogger?.openExternal?.('${safeUrl}') || window.open('${safeUrl}', '_blank')" 
@@ -6552,21 +6560,7 @@
                   <span>👁️ ${views}회</span>
                   <span>👍 ${likes}</span>
                 </div>
-                ${(() => {
-                  const stopWords = ['영상', '동영상', '비디오', '구독', '좋아요', '오늘', '내일', '어제', '이번', '올해', '정말', '진짜', '너무'];
-                  const titleKeywords = (item.title || '')
-                    .replace(/[^\w\s가-힣]/g, ' ')
-                    .split(/\s+/)
-                    .filter(w => w.length >= 2 && w.length <= 6 && /[가-힣]/.test(w) && !stopWords.includes(w))
-                    .slice(0, 4);
-                  if (titleKeywords.length === 0) return '';
-                  return '<div style="display:flex; flex-wrap:wrap; gap:4px; margin-top:8px;">' +
-                    titleKeywords.map(kw => {
-                      const safeKw = kw.replace(/'/g, "\\'");
-                      return '<span onclick="event.stopPropagation(); navigator.clipboard.writeText(\'' + safeKw + '\'); this.style.background=\'#dcfce7\'; this.textContent=\'복사됨!\'; setTimeout(()=>{this.style.background=\'#f1f5f9\'; this.textContent=\'' + safeKw + '\';}, 1000);" style="background:#f1f5f9; color:#475569; padding:2px 8px; border-radius:10px; font-size:11px; cursor:pointer; border:1px solid #e2e8f0;" title="클릭하면 키워드 복사">' + kw + '</span>';
-                    }).join('') +
-                    '</div>';
-                })()}
+                ${kwTagsHtml}
               </div>
             </div>
           `;
