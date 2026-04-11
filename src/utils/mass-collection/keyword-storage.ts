@@ -210,7 +210,15 @@ export class KeywordStorage {
     private saveTimer: NodeJS.Timeout | null = null;
 
     constructor(customStoragePath?: string) {
-        this.storagePath = customStoragePath || path.join(process.cwd(), STORAGE_DIR, STORAGE_FILE);
+        // 배포판에서 Program Files 쓰기 금지 방지 → AppData 사용
+        let defaultDir: string;
+        try {
+            const { app } = require('electron');
+            defaultDir = app.getPath('userData');
+        } catch {
+            defaultDir = process.cwd();
+        }
+        this.storagePath = customStoragePath || path.join(defaultDir, STORAGE_DIR, STORAGE_FILE);
         this.ensureStorageDir();
         this.load();
     }
