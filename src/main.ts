@@ -1117,6 +1117,8 @@ async function checkForUpdateFirst(): Promise<boolean> {
 
     autoUpdater.once('update-available', (info) => {
       console.log('[AUTO-UPDATE] 업데이트 발견:', info.version);
+      // 타임아웃 즉시 취소 — 다운로드가 끝날 때까지 대기
+      clearTimeout(timeout);
       // 업데이트 창 표시 (인증창은 안 띄움)
       showUpdateWindow(info.version, 'downloading');
       autoUpdater.downloadUpdate();
