@@ -1081,6 +1081,14 @@ function showUpdateWindow(version: string, mode: 'downloading' | 'ready'): Brows
  */
 async function checkForUpdateFirst(): Promise<boolean> {
   return new Promise((resolve) => {
+    let resolved = false;
+    const done = (result: boolean) => {
+      if (resolved) return;
+      resolved = true;
+      clearTimeout(timeout);
+      resolve(result);
+    };
+
     autoUpdater.autoDownload = false;
     autoUpdater.autoInstallOnAppQuit = true;
 
@@ -1091,56 +1099,53 @@ async function checkForUpdateFirst(): Promise<boolean> {
       debug: (...args: any[]) => {},
     } as any;
 
-    // 타임아웃: 10초 안에 응답 없으면 업데이트 없는 것으로 간주
+    // 타임아웃: 15초 (네트워크 느린 환경 고려)
     const timeout = setTimeout(() => {
       console.log('[AUTO-UPDATE] 타임아웃 — 업데이트 확인 건너뜀');
-      resolve(false);
-    }, 10000);
+      done(false);
+    }, 15000);
 
-    autoUpdater.on('update-not-available', () => {
-      clearTimeout(timeout);
+    autoUpdater.once('update-not-available', () => {
       console.log('[AUTO-UPDATE] 최신 버전입니다.');
-      resolve(false);
+      done(false);
     });
 
-    autoUpdater.on('error', (err) => {
-      clearTimeout(timeout);
+    autoUpdater.once('error', (err) => {
       console.error('[AUTO-UPDATE] 오류:', err.message);
-      resolve(false);
+      done(false);
     });
 
-    autoUpdater.on('update-available', (info) => {
-      clearTimeout(timeout);
+    autoUpdater.once('update-available', (info) => {
       console.log('[AUTO-UPDATE] 업데이트 발견:', info.version);
       // 업데이트 창 표시 (인증창은 안 띄움)
       showUpdateWindow(info.version, 'downloading');
       autoUpdater.downloadUpdate();
-    });
 
-    autoUpdater.on('download-progress', (progress) => {
-      console.log(`[AUTO-UPDATE] 다운로드: ${Math.round(progress.percent)}%`);
-      if (updateWindow && !updateWindow.isDestroyed()) {
-        updateWindow.webContents.send('update-progress', progress.percent);
-      }
-    });
+      // download-progress는 여러 번 발생하므로 on 사용
+      autoUpdater.on('download-progress', (progress) => {
+        console.log(`[AUTO-UPDATE] 다운로드: ${Math.round(progress.percent)}%`);
+        if (updateWindow && !updateWindow.isDestroyed()) {
+          updateWindow.webContents.send('update-progress', progress.percent);
+        }
+      });
 
-    autoUpdater.on('update-downloaded', (info) => {
-      console.log('[AUTO-UPDATE] 다운로드 완료, 설치 시작:', info.version);
-      if (updateWindow && !updateWindow.isDestroyed()) {
-        updateWindow.webContents.send('update-mode', 'ready', info.version);
-      }
-      // 3초 후 자동 설치 + 재시작
-      setTimeout(() => {
-        autoUpdater.quitAndInstall(false, true);
-      }, 3000);
-      resolve(true);
+      autoUpdater.once('update-downloaded', (dlInfo) => {
+        console.log('[AUTO-UPDATE] 다운로드 완료, 설치 시작:', dlInfo.version);
+        if (updateWindow && !updateWindow.isDestroyed()) {
+          updateWindow.webContents.send('update-mode', 'ready', dlInfo.version);
+        }
+        // 3초 후 자동 설치 + 재시작
+        setTimeout(() => {
+          autoUpdater.quitAndInstall(false, true);
+        }, 3000);
+        done(true);
+      });
     });
 
     console.log('[AUTO-UPDATE] 업데이트 확인 시작');
     autoUpdater.checkForUpdates().catch((err) => {
-      clearTimeout(timeout);
       console.error('[AUTO-UPDATE] 확인 실패:', err.message);
-      resolve(false);
+      done(false);
     });
   });
 }
