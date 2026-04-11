@@ -1,0 +1,20 @@
+{
+  "permissions": {
+    "allow": [
+      "Bash(ls -1 /c/Users/park/leword-app/src/utils/*.ts)",
+      "Bash(npx tsc:*)",
+      "Bash(node -e ':*)",
+      "Bash(node split-handlers.js)",
+      "Bash(python3:*)",
+      "Bash(wc -l src/main/keywordMasterIpcHandlers.ts src/main/handlers/*.ts)",
+      "Bash(echo \"EXIT_CODE=$?\")",
+      "Bash(claude config:*)",
+      "Bash(ls -d C:/Users/park/leword-app/.claude/worktrees/agent-aff*)",
+      "Bash(ls -d /c/Users/park/leword-app/.claude/worktrees/agent-aff*)",
+      "Bash(npm run:*)",
+      "Bash(ls:*)",
+      "Bash(curl -s \"https://api.signal.bz/news/realtime\" -H \"User-Agent: Mozilla/5.0\" -H \"Accept: application/json\" -H \"Referer: https://signal.bz/\")",
+      "Bash(taskkill //F //IM \"LEWORD.exe\")"
+    ]
+  }
+}

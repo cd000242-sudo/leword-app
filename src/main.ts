@@ -776,7 +776,21 @@ app.whenReady().then(async () => {
   }, 60000); // 1분마다 체크
 
   // ========================================
-  // 라이선스 인증 확인
+  // 1단계: 업데이트 먼저 확인 (배포 모드만)
+  // 업데이트가 있으면 → 다운로드 → 설치 → 재시작 (인증창 안 띄움)
+  // 업데이트가 없으면 → 인증창으로 진행
+  // ========================================
+  if (app.isPackaged) {
+    const hasUpdate = await checkForUpdateFirst();
+    if (hasUpdate) {
+      // 업데이트 진행 중 — 인증/메인 UI 진입하지 않음
+      // update-downloaded 이벤트에서 quitAndInstall 호출됨
+      return;
+    }
+  }
+
+  // ========================================
+  // 2단계: 업데이트 없음 → 라이선스 인증
   // ========================================
   if (!(await checkLicense())) {
     console.log('[LEWORD] 라이선스 인증 실패, 앱 종료');
@@ -810,13 +824,6 @@ app.whenReady().then(async () => {
 
   // 키워드 마스터 창 열기
   createKeywordWindow();
-
-  // ========================================
-  // 자동 업데이트 설정
-  // ========================================
-  if (app.isPackaged) {
-    setupAutoUpdater();
-  }
 
   app.on('activate', () => {
     if (BrowserWindow.getAllWindows().length === 0) {
@@ -1065,6 +1072,77 @@ function showUpdateWindow(version: string, mode: 'downloading' | 'ready'): Brows
   });
 
   return updateWindow;
+}
+
+/**
+ * 앱 시작 시 업데이트를 먼저 확인
+ * - 업데이트 있음 → 업데이트 창 표시 → 다운로드 → 설치 → 재시작 (true 반환)
+ * - 업데이트 없음 → false 반환 → 인증창으로 진행
+ */
+async function checkForUpdateFirst(): Promise<boolean> {
+  return new Promise((resolve) => {
+    autoUpdater.autoDownload = false;
+    autoUpdater.autoInstallOnAppQuit = true;
+
+    autoUpdater.logger = {
+      info: (...args: any[]) => console.log('[AUTO-UPDATE]', ...args),
+      warn: (...args: any[]) => console.warn('[AUTO-UPDATE]', ...args),
+      error: (...args: any[]) => console.error('[AUTO-UPDATE]', ...args),
+      debug: (...args: any[]) => {},
+    } as any;
+
+    // 타임아웃: 10초 안에 응답 없으면 업데이트 없는 것으로 간주
+    const timeout = setTimeout(() => {
+      console.log('[AUTO-UPDATE] 타임아웃 — 업데이트 확인 건너뜀');
+      resolve(false);
+    }, 10000);
+
+    autoUpdater.on('update-not-available', () => {
+      clearTimeout(timeout);
+      console.log('[AUTO-UPDATE] 최신 버전입니다.');
+      resolve(false);
+    });
+
+    autoUpdater.on('error', (err) => {
+      clearTimeout(timeout);
+      console.error('[AUTO-UPDATE] 오류:', err.message);
+      resolve(false);
+    });
+
+    autoUpdater.on('update-available', (info) => {
+      clearTimeout(timeout);
+      console.log('[AUTO-UPDATE] 업데이트 발견:', info.version);
+      // 업데이트 창 표시 (인증창은 안 띄움)
+      showUpdateWindow(info.version, 'downloading');
+      autoUpdater.downloadUpdate();
+    });
+
+    autoUpdater.on('download-progress', (progress) => {
+      console.log(`[AUTO-UPDATE] 다운로드: ${Math.round(progress.percent)}%`);
+      if (updateWindow && !updateWindow.isDestroyed()) {
+        updateWindow.webContents.send('update-progress', progress.percent);
+      }
+    });
+
+    autoUpdater.on('update-downloaded', (info) => {
+      console.log('[AUTO-UPDATE] 다운로드 완료, 설치 시작:', info.version);
+      if (updateWindow && !updateWindow.isDestroyed()) {
+        updateWindow.webContents.send('update-mode', 'ready', info.version);
+      }
+      // 3초 후 자동 설치 + 재시작
+      setTimeout(() => {
+        autoUpdater.quitAndInstall(false, true);
+      }, 3000);
+      resolve(true);
+    });
+
+    console.log('[AUTO-UPDATE] 업데이트 확인 시작');
+    autoUpdater.checkForUpdates().catch((err) => {
+      clearTimeout(timeout);
+      console.error('[AUTO-UPDATE] 확인 실패:', err.message);
+      resolve(false);
+    });
+  });
 }
 
 function setupAutoUpdater() {
