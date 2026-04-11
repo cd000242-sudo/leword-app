@@ -16103,7 +16103,7 @@
                 const plan = (l.plan || '').toLowerCase();
                 const type = (l.licenseType || '').toLowerCase();
 
-                if (l.isUnlimited || plan === 'unlimited' || plan === 'permanent' || type === 'unlimited' || type === 'ex' || type === 'permanent') {
+                if (l.isUnlimited || plan === 'unlimited' || plan === 'permanent' || plan === 'life' || type === 'unlimited' || type === 'ex' || type === 'permanent' || type === 'life') {
                   count = 10;
                   userType = '👑 VIP(영구제)';
                   upgradeMsg = '';
