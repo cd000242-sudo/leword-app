@@ -272,6 +272,89 @@ if (scoreHigh - scoreLow >= 30) {
 }
 
 // -----------------------------------------------------------
+console.log('\n[9] Phase 2: enrichment signal 보너스');
+// -----------------------------------------------------------
+
+const baseEnrich: KinSignals = {
+  viewCount: 300, answerCount: 3, hoursAgo: 24, likeCount: 0, isAdopted: false,
+};
+const baseScore = calculateGoldenScore(baseEnrich);
+
+// 고검색량 + 저경쟁 enrichment 보너스
+const withRichSignals: KinSignals = {
+  ...baseEnrich,
+  enrichmentAvailable: true,
+  monthlySearchVolume: 5000,
+  blogDocCount: 500, // ratio = 10 (블루오션)
+  estimatedCpc: 1200,
+};
+const richScore = calculateGoldenScore(withRichSignals);
+if (richScore > baseScore + 15) {
+  passed++;
+  console.log(`  ✅ 확장 signal 보너스: ${baseScore} → ${richScore} (+${(richScore - baseScore).toFixed(1)})`);
+} else {
+  failed++;
+  const msg = `  ❌ 확장 signal 보너스 부족: ${baseScore} → ${richScore}`;
+  failures.push(msg);
+  console.log(msg);
+}
+
+// enrichmentAvailable=false는 base와 동일
+const disabledEnrich: KinSignals = {
+  ...baseEnrich,
+  enrichmentAvailable: false,
+  monthlySearchVolume: 9999, // 무시되어야 함
+};
+assertEq(
+  calculateGoldenScore(disabledEnrich),
+  baseScore,
+  'enrichmentAvailable=false 시 확장 signal 무시'
+);
+
+// -----------------------------------------------------------
+// enrichment 모듈 단위 테스트
+// -----------------------------------------------------------
+console.log('\n[10] enrichment: 키워드 추출 + 쿼터');
+
+const { extractKeywordFromTitle, getEnrichmentQuota, isEnrichmentEnabled } =
+  require('../src/utils/naver-kin-signal-enrichment');
+
+assertEq(
+  typeof extractKeywordFromTitle('아이폰 15 프로 카메라 어때요?'),
+  'string',
+  'extractKeywordFromTitle 리턴 타입'
+);
+
+const kw = extractKeywordFromTitle('아이폰 15 프로 카메라 어때요');
+if (kw.length > 0) {
+  passed++;
+  console.log(`  ✅ 키워드 추출: "아이폰 15 프로..." → "${kw}"`);
+} else {
+  failed++;
+  failures.push('  ❌ 키워드 추출 결과가 빈 문자열');
+}
+
+assertEq(
+  extractKeywordFromTitle(''),
+  '',
+  '빈 제목 → 빈 문자열'
+);
+
+const quota = getEnrichmentQuota();
+if (quota && typeof quota.searchAd.limit === 'number' && quota.searchAd.limit > 0) {
+  passed++;
+} else {
+  failed++;
+  failures.push('  ❌ getEnrichmentQuota 구조 오류');
+}
+
+assertEq(
+  typeof isEnrichmentEnabled(),
+  'boolean',
+  'isEnrichmentEnabled() 리턴 타입'
+);
+
+// -----------------------------------------------------------
 console.log('\n' + '='.repeat(50));
 console.log(`결과: ${passed} 통과 / ${failed} 실패`);
 console.log('='.repeat(50));

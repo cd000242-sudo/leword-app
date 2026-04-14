@@ -15,6 +15,46 @@ import type { Browser, Page } from 'puppeteer';
 import * as fs from 'fs';
 import * as path from 'path';
 import { gradeQuestion, type KinSignals } from './naver-kin-golden-config';
+import { enrichKinSignalsBatch, isEnrichmentEnabled } from './naver-kin-signal-enrichment';
+
+// ============================================================
+// Phase 3: 관측성 — sessionId + 셀렉터 hit/miss 메트릭
+// ============================================================
+
+let sessionCounter = 0;
+function newSessionId(prefix: string): string {
+  sessionCounter += 1;
+  const ts = Date.now().toString(36).slice(-6);
+  return `${prefix}-${ts}-${sessionCounter}`;
+}
+
+export interface KinMetrics {
+  selectorHit: number;
+  selectorMiss: number;
+  detailSuccess: number;
+  detailFail: number;
+  detailRetry: number;
+  emptyViewCount: number;
+}
+
+function newMetrics(): KinMetrics {
+  return {
+    selectorHit: 0,
+    selectorMiss: 0,
+    detailSuccess: 0,
+    detailFail: 0,
+    detailRetry: 0,
+    emptyViewCount: 0,
+  };
+}
+
+function logMetrics(sessionId: string, m: KinMetrics) {
+  const selTotal = m.selectorHit + m.selectorMiss;
+  const hitRate = selTotal > 0 ? ((m.selectorHit / selTotal) * 100).toFixed(1) : 'N/A';
+  console.log(
+    `[${sessionId}] metrics: selectorHit=${m.selectorHit}/${selTotal} (${hitRate}%) | detail ok=${m.detailSuccess} fail=${m.detailFail} retry=${m.detailRetry} | emptyView=${m.emptyViewCount}`
+  );
+}
 
 puppeteer.use(StealthPlugin());
 
@@ -530,9 +570,11 @@ async function extractQuestionsFromPage(page: Page, categoryName: string): Promi
 
 export async function getPopularQnA(): Promise<GoldenHuntResult> {
   const startTime = Date.now();
-  
+  const sessionId = newSessionId('popular');
+  const metrics = newMetrics();
+
   console.log('\n' + '═'.repeat(60));
-  console.log('📊 [v9.0] 일주일 내 황금 질문 헌팅 (조회수+좋아요+답변수+날짜!)');
+  console.log(`📊 [v9.0] 일주일 내 황금 질문 헌팅 [${sessionId}]`);
   console.log('═'.repeat(60) + '\n');
   
   const browser = await getBrowser();
@@ -665,19 +707,27 @@ export async function getPopularQnA(): Promise<GoldenHuntResult> {
     );
 
     // 단일 질문 처리 함수 (페이지 풀 worker 공용)
+    // Phase 4-D: 최대 2회 재시도 + 지수 backoff (500ms → 1500ms)
     const processDetail = async (detailPage: Page, q: any, idx: number) => {
       const startMs = Date.now();
-      try {
-        await detailPage.goto(q.url, { waitUntil: 'domcontentloaded', timeout: 10000 });
+      const MAX_ATTEMPTS = 2;
+      let lastError: any = null;
 
-        // Phase 4: 고정 sleep 대신 실제 셀렉터 노출 대기 (최대 1.5s)
+      for (let attempt = 1; attempt <= MAX_ATTEMPTS; attempt++) {
         try {
-          await detailPage.waitForSelector('#content, .question_header, .endContentsText, body', { timeout: 1500 });
-        } catch {
-          // 셀렉터가 안 나타나도 body는 있음 — evaluate 단계에서 처리
-        }
+          await detailPage.goto(q.url, { waitUntil: 'domcontentloaded', timeout: 10000 });
 
-        const detail = await detailPage.evaluate(() => {
+          // Phase 4: 고정 sleep 대신 실제 셀렉터 노출 대기 (최대 1.5s)
+          let selectorSeen = false;
+          try {
+            await detailPage.waitForSelector('#content, .question_header, .endContentsText', { timeout: 1500 });
+            selectorSeen = true;
+            metrics.selectorHit++;
+          } catch {
+            metrics.selectorMiss++;
+          }
+
+          const detail = await detailPage.evaluate(() => {
           let viewCount = 0;
           let answerCount = 0;
           let likeCount = 0;
@@ -725,17 +775,38 @@ export async function getPopularQnA(): Promise<GoldenHuntResult> {
           return { viewCount, answerCount, likeCount, dateText, hoursAgo };
         });
 
-        q.viewCount = detail.viewCount;
-        q.answerCount = detail.answerCount;
-        q.likeCount = detail.likeCount;
-        q.dateText = detail.dateText;
-        q.hoursAgo = detail.hoursAgo;
+          q.viewCount = detail.viewCount;
+          q.answerCount = detail.answerCount;
+          q.likeCount = detail.likeCount;
+          q.dateText = detail.dateText;
+          q.hoursAgo = detail.hoursAgo;
 
-        const ms = Date.now() - startMs;
-        console.log(`[DETAIL ${idx + 1}/${questionsToDetail.length}] ${ms}ms 조회=${detail.viewCount} 답변=${detail.answerCount} | ${q.title.substring(0, 30)}`);
-      } catch (err: any) {
-        console.warn(`[KIN] 상세 크롤 실패 | url=${q.url} | error=${err?.message ?? err}`);
+          if (!detail.viewCount) metrics.emptyViewCount++;
+          metrics.detailSuccess++;
+
+          const ms = Date.now() - startMs;
+          console.log(
+            `[${sessionId}] DETAIL ${idx + 1}/${questionsToDetail.length} ${ms}ms sel=${selectorSeen ? 'hit' : 'miss'} view=${detail.viewCount} ans=${detail.answerCount} | ${q.title.substring(0, 30)}`
+          );
+          return; // 성공 → retry 루프 탈출
+        } catch (err: any) {
+          lastError = err;
+          if (attempt < MAX_ATTEMPTS) {
+            metrics.detailRetry++;
+            const backoffMs = 500 * attempt; // 500ms → 1000ms
+            console.warn(
+              `[${sessionId}] 상세 크롤 재시도 ${attempt}/${MAX_ATTEMPTS} (${backoffMs}ms 후) | url=${q.url} | error=${err?.message ?? err}`
+            );
+            await new Promise(r => setTimeout(r, backoffMs));
+          }
+        }
       }
+
+      // 모든 재시도 실패
+      metrics.detailFail++;
+      console.warn(
+        `[${sessionId}] 상세 크롤 최종 실패 | url=${q.url} | title=${q.title?.substring(0, 40)} | error=${lastError?.message ?? lastError}`
+      );
     };
 
     // Round-robin 워커: 각 페이지는 자기 index부터 POOL_SIZE 간격으로 처리
@@ -762,14 +833,27 @@ export async function getPopularQnA(): Promise<GoldenHuntResult> {
       weekQuestions = questionsToDetail;
     }
     
+    // Phase 2: 활성화된 경우 확장 signal 배치 조회 (기본 off)
+    let enrichments: Partial<KinSignals>[] = [];
+    if (isEnrichmentEnabled()) {
+      console.log(`[${sessionId}] enrichment 활성 — ${weekQuestions.length}개 제목 조회`);
+      try {
+        enrichments = await enrichKinSignalsBatch(weekQuestions.map(q => q.title));
+      } catch (err: any) {
+        console.warn(`[${sessionId}] enrichment 배치 실패 (degraded mode): ${err?.message}`);
+        enrichments = weekQuestions.map(() => ({ enrichmentAvailable: false }));
+      }
+    }
+
     // Phase 1: 통합 config 함수로 scoring — 가중치 단일 소스
-    const scoredQuestions = weekQuestions.map(q => {
+    const scoredQuestions = weekQuestions.map((q, idx) => {
       const signals: KinSignals = {
         viewCount: Number(q.viewCount) || 0,
         answerCount: Number(q.answerCount) || 0,
         hoursAgo: Number(q.hoursAgo) || 999,
         likeCount: Number(q.likeCount) || 0,
         isAdopted: Boolean(q.isAdopted),
+        ...(enrichments[idx] ?? {}),
       };
       const { score, grade } = gradeQuestion(signals);
       return { ...q, goldScore: score, kinGrade: grade };
@@ -863,7 +947,10 @@ export async function getPopularQnA(): Promise<GoldenHuntResult> {
     });
     
     const crawlTime = Math.round((Date.now() - startTime) / 1000);
-    
+
+    // Phase 3: 세션 메트릭 출력
+    logMetrics(sessionId, metrics);
+
     return {
       goldenQuestions,
       stats: {
@@ -885,8 +972,8 @@ export async function getPopularQnA(): Promise<GoldenHuntResult> {
     };
 
   } catch (error: any) {
-    console.error('[ERROR] ❌ 오류:', error.message);
-    await page.close();
+    console.error(`[${sessionId}] ❌ 치명적 오류:`, error?.message ?? error);
+    try { await page.close(); } catch (closeErr: any) { console.warn(`[${sessionId}] page.close() 실패: ${closeErr?.message}`); }
     
     return {
       goldenQuestions: [],
@@ -950,11 +1037,11 @@ export async function getRisingQuestions(): Promise<GoldenHuntResult> {
         });
         
         console.log(`  → 24시간 이내: ${added}개`);
-        
+
       } catch (err: any) {
-        console.log(`  ❌ 실패`);
+        console.warn(`[KIN] 급상승 카테고리 크롤 실패 | cat=${cat.name} | url=${url} | error=${err?.message ?? err}`);
       }
-      
+
       await new Promise(r => setTimeout(r, 100));
     }
     
@@ -1210,11 +1297,11 @@ export async function fullHunt(): Promise<GoldenHuntResult> {
           });
           
           console.log(`  → 발견 ${questions.length}개, 숨은 꿀 ${added}개 추가`);
-          
+
         } catch (err: any) {
-          console.log(`  ❌ 실패: ${err.message}`);
+          console.warn(`[KIN] fullHunt 카테고리 크롤 실패 | cat=${cat.name} | sort=${sortType} | url=${url} | error=${err?.message ?? err}`);
         }
-        
+
         await new Promise(r => setTimeout(r, 100)); // 초고속
       }
     }
@@ -1633,9 +1720,9 @@ export async function getTrendingHiddenQuestions(): Promise<GoldenHuntResult> {
         
         recentQuestions.push(...recent);
         console.log(`  → ${questions.length}개 중 7일 이내: ${recent.length}개`);
-        
+
       } catch (err: any) {
-        console.log(`  ❌ 실패: ${err.message?.substring(0, 30)}`);
+        console.warn(`[KIN] getTrendingHidden 카테고리 실패 | cat=${cat.name} | error=${err?.message ?? err}`);
       }
       
       await new Promise(r => setTimeout(r, 100));

@@ -4,66 +4,66 @@
     {
       "name": "getPopularQnA",
       "count": 15,
-      "ms": 43199
+      "ms": 12738
     },
     {
       "name": "getRisingQuestions",
       "count": 0,
-      "ms": 3818
+      "ms": 3216
     }
   ],
-  "avgScore": 46.6,
+  "avgScore": 43.2,
   "distribution": {
     "SSS": {
-      "count": 2,
-      "pct": 13.3,
+      "count": 1,
+      "pct": 6.7,
       "avgScore": 64.5,
-      "avgViewCount": 894,
-      "avgAnswerCount": 3,
+      "avgViewCount": 942,
+      "avgAnswerCount": 2,
       "sample": {
-        "title": "4\n\t\t\t\t\t\t\t2026 코첼라 저스틴 비버 빅뱅\n\t\t\t\t\t\t\t2026코",
-        "viewCount": 997,
-        "answerCount": 3,
+        "title": "6\n\t\t\t\t\t\t\t쿠팡 보상 쿠폰 5만원 알차게 사용하는 꿀팁 있을까요?\n",
+        "viewCount": 942,
+        "answerCount": 2,
         "goldenScore": 64.5
       }
     },
     "SS": {
       "count": 2,
       "pct": 13.3,
-      "avgScore": 51,
-      "avgViewCount": 3327,
+      "avgScore": 56,
+      "avgViewCount": 2331,
       "avgAnswerCount": 4,
       "sample": {
-        "title": "3\n\t\t\t\t\t\t\t2026 전국 영어듣기 능력평가\n\t\t\t\t\t\t\t고2 영어듣",
-        "viewCount": 4806,
+        "title": "9\n\t\t\t\t\t\t\t영화 '살목지' 결말, 정말 이해되셨나요?\n\t\t\t\t\t\t\t",
+        "viewCount": 2805,
         "answerCount": 4,
-        "goldenScore": 51
+        "goldenScore": 61
       }
     },
     "S": {
-      "count": 8,
-      "pct": 53.3,
-      "avgScore": 45.7,
-      "avgViewCount": 1206,
-      "avgAnswerCount": 10,
+      "count": 6,
+      "pct": 40,
+      "avgScore": 46.7,
+      "avgViewCount": 1541,
+      "avgAnswerCount": 10.5,
       "sample": {
-        "title": "휴대폰 액정이 나갔는데 수리비가 얼마정도 나오나요?????",
-        "viewCount": 66,
-        "answerCount": 1,
-        "goldenScore": 55.3
+        "title": "놓치기 아쉬운 콘텐츠\n\t\t\t\t\t\t\t토마스쿡 콘서트, 어떤 점이 기대되시나",
+        "viewCount": 40,
+        "answerCount": 2,
+        "goldenScore": 62
       }
     },
     "A": {
-      "count": 3,
-      "pct": 20,
-      "avgScore": 34.3,
-      "avgViewCount": 2043,
-      "avgAnswerCount": 14.3,
+      "count": 6,
+      "pct": 40,
+      "avgScore": 31.9,
+      "avgViewCount": 1703,
+      "avgAnswerCount": 17.5,
       "sample": {
-        "title": "21\n\t\t\t\t\t\t\t해외주식 양도소득세\n\t\t\t\t\t\t\t제가 주식계좌를 2개 ",
-        "viewCount": 302,
-        "answerCount": 11,
-        "goldenScore": 36.3
+        "title": "21\n\t\t\t\t\t\t\t권고사직 후 실업급여 신청하는 법\n\t\t\t\t\t\t\t3월 말",
+        "viewCount": 741,
+        "answerCount": 19,
+        "goldenScore": 36
       }
     },
     "B": {
@@ -82,9 +82,9 @@
     }
   },
   "dodCheck": {
-    "sssPct": 13.3,
+    "sssPct": 6.7,
     "sssTarget": "5~15%",
     "sssStatus": "PASS"
   },
-  "timestamp": "2026-04-14T10:25:16.939Z"
+  "timestamp": "2026-04-14T11:05:07.740Z"
 }

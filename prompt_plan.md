@@ -1,8 +1,24 @@
 # 지식인 황금질문 SSS 승급 — 보완 계획 v2
 
 > 작성일: 2026-04-14
-> 상태: 사용자 승인 완료
-> 총 예상: 19-25h (2.5-3 영업일)
+> 상태: **Phase 0/1/2/3/4 MVP 모두 완료 (2026-04-14)**
+> 총 예상: 19-25h → **단일 세션 완결**
+
+## 🏁 완료 상태 요약 (2026-04-14)
+
+| Phase | 상태 | 핵심 결과 |
+|---|---|---|
+| **0 베이스라인** | ✅ | bench/grade-distribution 측정, BASELINE.md |
+| **1 다중 게이트** | ✅ | SSS 0% → 6.7% (DoD PASS) |
+| **3 관측성** | ✅ | sessionId + metrics + structured warn |
+| **4 병렬 크롤** | ✅ MVP | p50 40s → 21.8s (tail 변동 남음) |
+| **4-D 재시도** | ✅ | processDetail 2회 retry + backoff |
+| **2 신호 보강** | ✅ | config + enrichment 모듈, 플래그 off 기본 |
+
+### 잔여 이슈 / 추후 개선
+- Phase 4 tail p95는 naver rate limit 의존 → 완전 해결은 circuit breaker 필요
+- Phase 2 enrichment는 `LEWORD_KIN_ENRICH=1` 환경변수로 활성화 (API 쿼터 보호 위해 기본 off)
+- getRisingQuestions 의 24h 필터가 여전히 0개 반환 → Phase 5 작업으로 분리
 
 ---
 

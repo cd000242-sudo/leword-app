@@ -21,6 +21,12 @@ export interface KinSignals {
   likeCount: number;       // 좋아요/공감 수
   isAdopted: boolean;      // 채택 답변 존재 여부
   viewsPerHour?: number;   // 시간당 조회수 (급상승 탭에서만)
+
+  // Phase 2: 확장 signal (선택적, enrichKinSignals 로 주입)
+  monthlySearchVolume?: number; // 네이버 검색광고 월 검색량
+  estimatedCpc?: number;        // profit-engine CPC 추정
+  blogDocCount?: number;        // 네이버 블로그 문서수 (경쟁 강도)
+  enrichmentAvailable?: boolean; // 외부 데이터 수집 성공 여부
 }
 
 export type KinGrade = 'SSS' | 'SS' | 'S' | 'A' | 'B';
@@ -114,6 +120,29 @@ export function calculateGoldenScore(signals: KinSignals): number {
     score += 20;
   } else if (signals.viewsPerHour && signals.viewsPerHour >= 20) {
     score += 10;
+  }
+
+  // Phase 2: 확장 signal 보너스 (enrichment 성공 시)
+  if (signals.enrichmentAvailable) {
+    // 월 검색량 보너스: 트래픽 수요가 실제로 있음
+    if (signals.monthlySearchVolume && signals.monthlySearchVolume >= 5000) score += 10;
+    else if (signals.monthlySearchVolume && signals.monthlySearchVolume >= 1000) score += 6;
+    else if (signals.monthlySearchVolume && signals.monthlySearchVolume >= 300) score += 3;
+
+    // 블루오션 보너스: 검색량 대비 문서 적음
+    if (
+      signals.monthlySearchVolume &&
+      signals.blogDocCount !== undefined &&
+      signals.blogDocCount > 0
+    ) {
+      const ratio = signals.monthlySearchVolume / signals.blogDocCount;
+      if (ratio >= 5) score += 8;
+      else if (ratio >= 2) score += 4;
+    }
+
+    // CPC 보너스: 수익성 있는 키워드
+    if (signals.estimatedCpc && signals.estimatedCpc >= 1000) score += 5;
+    else if (signals.estimatedCpc && signals.estimatedCpc >= 500) score += 2;
   }
 
   return Math.max(0, Math.min(100, Math.round(score * 10) / 10));
