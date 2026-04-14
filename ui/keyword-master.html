@@ -13726,43 +13726,27 @@
           </div>
           
           <div class="kin-body">
-            <!-- 안내 카드 -->
-            <div class="kin-info-card">
-              <div class="kin-info-title">
-                <span style="font-size: 16px;">💡</span>
-                황금 질문 자동 판별 기준
-              </div>
-              <div class="kin-info-grid">
-                <div class="kin-info-item">👀 조회수 높음</div>
-                <div class="kin-info-item">💬 답변수 적음</div>
-                <div class="kin-info-item">🔗 링크 없음</div>
-                <div class="kin-info-item">⏰ 최신 질문</div>
-                <div class="kin-info-item">👍 따봉 적음</div>
-                <div class="kin-info-item">🏆 미채택</div>
-              </div>
-            </div>
-            
-            <!-- 탭 버튼 (4개: 1개 무료, 3개 준비중) -->
+            <!-- 탭 버튼 (4개 모두 활성) -->
             <div class="kin-tabs" style="display: grid; grid-template-columns: repeat(4, 1fr); gap: 8px;">
               <button id="kinTabPopular" onclick="switchKinTab('popular')" class="kin-tab kin-tab-active">
                 <span style="font-size: 18px;">📊</span>
                 <span>많이 본 Q&A</span>
-                <span class="kin-tab-label">무료 • 30개</span>
+                <span class="kin-tab-label">무료</span>
               </button>
-              <button id="kinTabLatest" onclick="showComingSoonTab('급상승 질문')" class="kin-tab kin-tab-inactive" style="opacity: 0.5; cursor: not-allowed;">
-                <span style="font-size: 18px;">🔒</span>
+              <button id="kinTabLatest" onclick="switchKinTab('latest')" class="kin-tab kin-tab-inactive">
+                <span style="font-size: 18px;">🔥</span>
                 <span>급상승 질문</span>
-                <span class="kin-tab-label">🚧 준비중</span>
+                <span class="kin-tab-label">무료</span>
               </button>
-              <button id="kinTabTrending" onclick="showComingSoonTab('지금 뜨는 숨은 질문')" class="kin-tab kin-tab-inactive" style="opacity: 0.5; cursor: not-allowed;">
-                <span style="font-size: 18px;">🔒</span>
+              <button id="kinTabTrending" onclick="switchKinTab('trending')" class="kin-tab kin-tab-inactive">
+                <span style="font-size: 18px;">⚡</span>
                 <span>지금 뜨는 숨은 질문</span>
-                <span class="kin-tab-label">🚧 준비중</span>
+                <span class="kin-tab-label">👑 3개월</span>
               </button>
-              <button id="kinTabHidden" onclick="showComingSoonTab('숨은 꿀질문')" class="kin-tab kin-tab-inactive" style="opacity: 0.5; cursor: not-allowed;">
-                <span style="font-size: 18px;">🔒</span>
+              <button id="kinTabHidden" onclick="switchKinTab('hidden')" class="kin-tab kin-tab-inactive">
+                <span style="font-size: 18px;">💎</span>
                 <span>숨은 꿀질문</span>
-                <span class="kin-tab-label">🚧 준비중</span>
+                <span class="kin-tab-label">👑 3개월</span>
               </button>
             </div>
             
@@ -14135,369 +14119,142 @@
         function renderKinResults(result) {
           const resultsDiv = document.getElementById('kinResults');
 
-          // v3.5 호환
+          // v3.5 호환: goldenQuestions 우선, 대체로 popularQuestions/hiddenGoldenQuestions
           const questions = result.goldenQuestions || (kinCurrentTab === 'hidden' ? result.hiddenGoldenQuestions : result.popularQuestions);
 
           if (!questions || questions.length === 0) {
             resultsDiv.innerHTML = `
-          <div style="text-align: center; padding: 60px 40px;">
-            <div style="width: 80px; height: 80px; margin: 0 auto 24px; background: rgba(239, 68, 68, 0.1); border-radius: 50%; display: flex; align-items: center; justify-content: center;">
-              <span style="font-size: 36px;">🔍</span>
-            </div>
-            <div style="font-size: 18px; font-weight: 600; color: white; margin-bottom: 8px;">질문을 찾지 못했습니다</div>
-            <div style="font-size: 14px; color: rgba(255,255,255,0.5); margin-bottom: 24px;">네트워크 상태를 확인하고 다시 시도해주세요</div>
-            <button onclick="autoSearchKinQuestions()" style="
-              padding: 14px 28px; 
-              background: linear-gradient(135deg, #10b981 0%, #059669 100%); 
-              color: white; 
-              border: none; 
-              border-radius: 12px; 
-              font-weight: 600; 
-              font-size: 14px;
-              cursor: pointer;
-              transition: all 0.3s;
-              box-shadow: 0 4px 16px rgba(16, 185, 129, 0.3);
-            " onmouseover="this.style.transform='translateY(-2px)'" onmouseout="this.style.transform='translateY(0)'">
-              🔄 다시 헌팅하기
-            </button>
-          </div>
-        `;
+              <div style="text-align: center; padding: 60px 40px;">
+                <div style="width: 64px; height: 64px; margin: 0 auto 20px; background: rgba(239, 68, 68, 0.1); border-radius: 50%; display: flex; align-items: center; justify-content: center; font-size: 28px;">🔍</div>
+                <div style="font-size: 17px; font-weight: 600; color: white; margin-bottom: 6px;">질문을 찾지 못했습니다</div>
+                <div style="font-size: 13px; color: rgba(255,255,255,0.5); margin-bottom: 20px;">네트워크 상태를 확인하고 다시 시도해주세요</div>
+                <button onclick="autoSearchKinQuestions()" style="padding: 12px 24px; background: linear-gradient(135deg, #10b981, #059669); color: white; border: none; border-radius: 10px; font-weight: 600; font-size: 13px; cursor: pointer; box-shadow: 0 4px 16px rgba(16,185,129,0.3);">🔄 다시 헌팅</button>
+              </div>`;
             return;
           }
 
-          const stats = result.stats || {};
-          const crawlTime = result.crawlTime || 0;
+          // 결과 메모리 저장 (정렬/필터용)
+          window.__kinAllQuestions = questions;
+          window.__kinSortMode = window.__kinSortMode || 'score';
+          window.__kinFilter = window.__kinFilter || 'all';
+          renderKinGrid();
+        }
+
+        function renderKinGrid() {
+          const resultsDiv = document.getElementById('kinResults');
+          const all = window.__kinAllQuestions || [];
+          const sortMode = window.__kinSortMode || 'score';
+          const filter = window.__kinFilter || 'all';
+
+          // 필터 (등급)
+          let list = all.slice();
+          if (filter !== 'all') {
+            list = list.filter(q => (q.goldenGrade || 'B') === filter);
+          }
+
+          // 정렬
+          const sortFns = {
+            'score': (a, b) => (b.goldenScore || 0) - (a.goldenScore || 0),
+            'view': (a, b) => (b.viewCount || 0) - (a.viewCount || 0),
+            'answer': (a, b) => (a.answerCount || 0) - (b.answerCount || 0),
+            'fresh': (a, b) => (a.questionAge?.hoursAgo ?? 999) - (b.questionAge?.hoursAgo ?? 999),
+          };
+          list.sort(sortFns[sortMode] || sortFns.score);
+
+          // 통계
+          const stats = { SSS: 0, SS: 0, S: 0, A: 0, B: 0 };
+          all.forEach(q => { stats[q.goldenGrade || 'B'] = (stats[q.goldenGrade || 'B'] || 0) + 1; });
+          const avgView = all.length ? Math.round(all.reduce((s, q) => s + (q.viewCount || 0), 0) / all.length) : 0;
+          const avgAns = all.length ? (all.reduce((s, q) => s + (q.answerCount || 0), 0) / all.length).toFixed(1) : 0;
+
+          const gradeColors = { 'SSS': '#ff6b6b', 'SS': '#fbbf24', 'S': '#22c55e', 'A': '#3b82f6', 'B': '#94a3b8' };
 
           let html = `
-        <style>
-          .kin-result-header {
-            display: flex;
-            justify-content: space-between;
-            align-items: center;
-            padding: 20px 24px;
-            background: linear-gradient(135deg, rgba(16, 185, 129, 0.1) 0%, rgba(16, 185, 129, 0.02) 100%);
-            border-radius: 16px;
-            margin-bottom: 20px;
-            border: 1px solid rgba(16, 185, 129, 0.15);
-          }
-          
-          .kin-result-stats {
-            display: flex;
-            align-items: center;
-            gap: 16px;
-          }
-          
-          .kin-stat-badge {
-            padding: 6px 12px;
-            border-radius: 8px;
-            font-size: 12px;
-            font-weight: 600;
-            display: flex;
-            align-items: center;
-            gap: 4px;
-          }
-          
-          .kin-card {
-            background: rgba(255,255,255,0.02);
-            border: 1px solid rgba(255,255,255,0.06);
-            border-radius: 20px;
-            padding: 24px;
-            margin-bottom: 16px;
-            transition: all 0.3s cubic-bezier(0.16, 1, 0.3, 1);
-            position: relative;
-            overflow: hidden;
-          }
-          
-          .kin-card::before {
-            content: '';
-            position: absolute;
-            top: 0;
-            left: 0;
-            right: 0;
-            height: 3px;
-            background: var(--grade-color);
-            opacity: 0.8;
-          }
-          
-          .kin-card:hover {
-            background: rgba(255,255,255,0.04);
-            border-color: rgba(255,255,255,0.1);
-            transform: translateY(-4px);
-            box-shadow: 0 20px 40px rgba(0,0,0,0.3);
-          }
-          
-          .kin-card-header {
-            display: flex;
-            justify-content: space-between;
-            align-items: flex-start;
-            margin-bottom: 16px;
-          }
-          
-          .kin-grade-badge {
-            padding: 8px 14px;
-            border-radius: 10px;
-            font-size: 13px;
-            font-weight: 700;
-            letter-spacing: 0.5px;
-          }
-          
-          .kin-tags {
-            display: flex;
-            flex-wrap: wrap;
-            gap: 6px;
-            margin-top: 12px;
-          }
-          
-          .kin-tag {
-            padding: 4px 10px;
-            border-radius: 6px;
-            font-size: 11px;
-            font-weight: 500;
-            background: rgba(255,255,255,0.05);
-            color: rgba(255,255,255,0.7);
-          }
-          
-          .kin-title-link {
-            font-size: 20px;
-            font-weight: 800;
-            color: #ffffff;
-            text-decoration: none;
-            line-height: 1.4;
-            display: block;
-            transition: all 0.3s ease;
-            text-shadow: 0 2px 8px rgba(0,0,0,0.3);
-            background: linear-gradient(135deg, #ffffff 0%, #e0e7ff 100%);
-            -webkit-background-clip: text;
-            -webkit-text-fill-color: transparent;
-            background-clip: text;
-          }
-          
-          .kin-title-link:hover {
-            transform: translateX(8px);
-            background: linear-gradient(135deg, var(--grade-color) 0%, #fbbf24 100%);
-            -webkit-background-clip: text;
-            background-clip: text;
-            text-shadow: 0 4px 12px rgba(251, 191, 36, 0.4);
-          }
-          
-          .kin-metrics {
-            display: grid;
-            grid-template-columns: repeat(4, 1fr);
-            gap: 12px;
-            margin: 20px 0;
-          }
-          
-          .kin-metric {
-            background: rgba(0,0,0,0.2);
-            border-radius: 12px;
-            padding: 14px;
-            text-align: center;
-          }
-          
-          .kin-metric-label {
-            font-size: 10px;
-            color: rgba(255,255,255,0.5);
-            text-transform: uppercase;
-            letter-spacing: 0.5px;
-            margin-bottom: 6px;
-          }
-          
-          .kin-metric-value {
-            font-size: 18px;
-            font-weight: 700;
-          }
-          
-          .kin-score-bar {
-            height: 6px;
-            background: rgba(255,255,255,0.1);
-            border-radius: 3px;
-            overflow: hidden;
-            margin-top: 20px;
-          }
-          
-          .kin-score-fill {
-            height: 100%;
-            border-radius: 3px;
-            transition: width 0.8s cubic-bezier(0.16, 1, 0.3, 1);
-          }
-          
-          .kin-action-btn {
-            width: 100%;
-            padding: 14px 20px;
-            border-radius: 12px;
-            font-size: 14px;
-            font-weight: 600;
-            cursor: pointer;
-            transition: all 0.3s;
-            margin-top: 16px;
-            display: flex;
-            align-items: center;
-            justify-content: center;
-            gap: 8px;
-          }
-          
-          .kin-refresh-btn {
-            padding: 10px 20px;
-            background: rgba(16, 185, 129, 0.1);
-            border: 1px solid rgba(16, 185, 129, 0.2);
-            color: #10b981;
-            border-radius: 10px;
-            font-size: 13px;
-            font-weight: 600;
-            cursor: pointer;
-            transition: all 0.3s;
-          }
-          
-          .kin-refresh-btn:hover {
-            background: rgba(16, 185, 129, 0.2);
-          }
-        </style>
-        
-        <div class="kin-result-header">
-          <div>
-            <div style="font-size: 20px; font-weight: 700; color: white; margin-bottom: 4px;">
-              🎯 황금 질문 ${questions.length}개 발견!
-            </div>
-            <div style="font-size: 13px; color: rgba(255,255,255,0.5);">
-              ${crawlTime ? `⏱️ ${crawlTime}초 소요 • ` : ''}평균 조회수 ${(stats.avgViewCount || 0).toLocaleString()}
-            </div>
-          </div>
-          <div class="kin-result-stats">
-            ${stats.sssCount ? `<span class="kin-stat-badge" style="background: rgba(255,107,107,0.2); color: #ff6b6b;">SSS ${stats.sssCount}</span>` : ''}
-            ${stats.ssCount ? `<span class="kin-stat-badge" style="background: rgba(251,191,36,0.2); color: #fbbf24;">SS ${stats.ssCount}</span>` : ''}
-            ${stats.sCount ? `<span class="kin-stat-badge" style="background: rgba(34,197,94,0.2); color: #22c55e;">S ${stats.sCount}</span>` : ''}
-            <button onclick="autoSearchKinQuestions()" class="kin-refresh-btn">🔄 다시</button>
-          </div>
-        </div>
-      `;
+            <style>
+              .kin-toolbar { display: flex; justify-content: space-between; align-items: center; gap: 12px; padding: 14px 18px; background: rgba(255,255,255,0.03); border: 1px solid rgba(255,255,255,0.06); border-radius: 14px; margin-bottom: 16px; flex-wrap: wrap; }
+              .kin-stats-row { display: flex; gap: 8px; align-items: center; flex-wrap: wrap; }
+              .kin-stat-chip { padding: 5px 11px; border-radius: 7px; font-size: 11px; font-weight: 700; display: inline-flex; align-items: center; gap: 5px; border: 1px solid transparent; cursor: pointer; transition: all 0.2s; }
+              .kin-stat-chip.active { transform: scale(1.05); box-shadow: 0 2px 8px rgba(0,0,0,0.3); }
+              .kin-controls { display: flex; gap: 8px; align-items: center; }
+              .kin-select { background: rgba(0,0,0,0.3); color: white; border: 1px solid rgba(255,255,255,0.1); border-radius: 8px; padding: 7px 10px; font-size: 12px; cursor: pointer; outline: none; font-family: inherit; }
+              .kin-select:hover { border-color: rgba(16,185,129,0.4); }
+              .kin-refresh-btn-sm { padding: 7px 12px; background: rgba(16,185,129,0.1); border: 1px solid rgba(16,185,129,0.3); color: #10b981; border-radius: 8px; font-size: 12px; font-weight: 600; cursor: pointer; }
+              .kin-refresh-btn-sm:hover { background: rgba(16,185,129,0.2); }
+              .kin-grid { display: grid; grid-template-columns: repeat(auto-fill, minmax(380px, 1fr)); gap: 12px; }
+              .kin-item { background: rgba(255,255,255,0.02); border: 1px solid rgba(255,255,255,0.06); border-left: 3px solid var(--gc); border-radius: 12px; padding: 14px 16px; transition: all 0.2s; display: flex; flex-direction: column; gap: 10px; min-height: 150px; }
+              .kin-item:hover { background: rgba(255,255,255,0.04); border-color: var(--gc); transform: translateY(-2px); box-shadow: 0 8px 24px rgba(0,0,0,0.3); }
+              .kin-item-top { display: flex; justify-content: space-between; align-items: center; gap: 10px; }
+              .kin-badge { padding: 3px 8px; border-radius: 6px; font-size: 11px; font-weight: 800; letter-spacing: 0.3px; }
+              .kin-score { font-size: 11px; color: rgba(255,255,255,0.5); font-weight: 600; }
+              .kin-t { font-size: 14px; font-weight: 700; color: white; line-height: 1.45; display: -webkit-box; -webkit-line-clamp: 2; -webkit-box-orient: vertical; overflow: hidden; cursor: pointer; transition: color 0.2s; min-height: 40px; }
+              .kin-t:hover { color: var(--gc); }
+              .kin-m-row { display: flex; gap: 8px; font-size: 11px; color: rgba(255,255,255,0.6); }
+              .kin-m { display: flex; align-items: center; gap: 4px; padding: 4px 8px; background: rgba(0,0,0,0.25); border-radius: 6px; }
+              .kin-btns { display: flex; gap: 6px; margin-top: auto; }
+              .kin-btn { flex: 1; padding: 7px 10px; background: rgba(255,255,255,0.05); border: 1px solid rgba(255,255,255,0.08); color: rgba(255,255,255,0.75); border-radius: 7px; font-size: 11px; font-weight: 600; cursor: pointer; transition: all 0.15s; }
+              .kin-btn:hover { background: rgba(255,255,255,0.1); color: white; }
+              .kin-btn-primary { background: rgba(16,185,129,0.12); color: #10b981; border-color: rgba(16,185,129,0.25); }
+              .kin-btn-primary:hover { background: rgba(16,185,129,0.25); color: #34d399; }
+              .kin-empty-filter { text-align: center; padding: 40px; color: rgba(255,255,255,0.5); font-size: 13px; }
+            </style>
+            <div class="kin-toolbar">
+              <div class="kin-stats-row">
+                <span style="font-size: 12px; color: rgba(255,255,255,0.5); margin-right: 4px;">총 ${all.length}개 · 평균 조회 ${avgView.toLocaleString()} · 답변 ${avgAns}</span>
+                ${['SSS','SS','S','A','B'].map(g => stats[g] > 0 ? `
+                  <span class="kin-stat-chip ${filter === g ? 'active' : ''}" onclick="window.__kinFilter='${filter === g ? 'all' : g}'; renderKinGrid();" style="background: ${gradeColors[g]}20; color: ${gradeColors[g]}; border-color: ${gradeColors[g]}40;">
+                    ${g} ${stats[g]}
+                  </span>` : '').join('')}
+                ${filter !== 'all' ? `<span class="kin-stat-chip" onclick="window.__kinFilter='all'; renderKinGrid();" style="background: rgba(255,255,255,0.06); color: rgba(255,255,255,0.6); border-color: rgba(255,255,255,0.1);">✕ 필터 해제</span>` : ''}
+              </div>
+              <div class="kin-controls">
+                <select class="kin-select" onchange="window.__kinSortMode=this.value; renderKinGrid();">
+                  <option value="score" ${sortMode === 'score' ? 'selected' : ''}>🏆 황금점수순</option>
+                  <option value="view" ${sortMode === 'view' ? 'selected' : ''}>👀 조회수순</option>
+                  <option value="answer" ${sortMode === 'answer' ? 'selected' : ''}>💬 답변 적은순</option>
+                  <option value="fresh" ${sortMode === 'fresh' ? 'selected' : ''}>⏰ 최신순</option>
+                </select>
+                <button onclick="autoSearchKinQuestions()" class="kin-refresh-btn-sm">🔄 다시 헌팅</button>
+              </div>
+            </div>`;
 
-          questions.forEach((q, idx) => {
-            const grade = q.goldenGrade || (q.goldenScore >= 90 ? 'SSS' : q.goldenScore >= 80 ? 'SS' : q.goldenScore >= 70 ? 'S' : q.goldenScore >= 55 ? 'A' : 'B');
-            const gradeColors = { 'SSS': '#ff6b6b', 'SS': '#fbbf24', 'S': '#22c55e', 'A': '#3b82f6', 'B': '#94a3b8' };
-            const gradeColor = gradeColors[grade] || '#94a3b8';
-            const hasLinks = q.hasExternalLinks || q.externalLinkCount > 0;
-            const animDelay = idx * 0.06;
+          if (list.length === 0) {
+            html += `<div class="kin-empty-filter">선택한 등급(${filter})의 질문이 없습니다. 필터를 해제해보세요.</div>`;
+            resultsDiv.innerHTML = html;
+            return;
+          }
 
-            // 신선도 표시
+          html += `<div class="kin-grid">`;
+          list.forEach((q, idx) => {
+            const grade = q.goldenGrade || 'B';
+            const gc = gradeColors[grade] || gradeColors.B;
             const freshness = q.questionAge?.freshness;
-            const freshnessText = freshness === 'just_now' ? '🔥 방금' : freshness === 'today' ? '⚡ 오늘' : (q.daysAgo || 0) + '일전';
+            const hoursAgo = q.questionAge?.hoursAgo ?? 999;
+            const timeText = hoursAgo < 1 ? '방금' : hoursAgo < 24 ? `${Math.round(hoursAgo)}h` : hoursAgo < 168 ? `${Math.floor(hoursAgo/24)}d` : hoursAgo < 720 ? `${Math.floor(hoursAgo/168)}w` : '오래됨';
+            const safeTitle = (q.title || '').replace(/'/g, "\'").replace(/"/g, '&quot;');
+            const safeUrl = (q.url || '').replace(/'/g, "\'");
+            const viewText = (q.viewCount || 0).toLocaleString();
+            const ansText = q.answerCount || 0;
 
             html += `
-          <div class="kin-card" style="--grade-color: ${gradeColor}; opacity: 0; animation: slideUp 0.5s ease-out forwards; animation-delay: ${animDelay}s;">
-            <div class="kin-card-header">
-              <div style="flex: 1;">
-                <div style="display: flex; align-items: center; gap: 10px; margin-bottom: 12px; flex-wrap: wrap;">
-                  <span class="kin-grade-badge" style="background: ${gradeColor}; color: ${grade === 'SSS' || grade === 'SS' ? '#1f2937' : 'white'};">
-                    ${grade} • ${q.goldenScore}점
-                  </span>
-                  ${q.answerCount === 0 ? `<span class="kin-tag" style="background: rgba(239, 68, 68, 0.2); color: #ef4444;">🎯 첫 답변 기회</span>` : ''}
-                  ${!hasLinks ? `<span class="kin-tag" style="background: rgba(139, 92, 246, 0.2); color: #a78bfa;">✨ 링크 없음</span>` : ''}
-                  ${q.isAdopted === false ? '<span style="background: #059669; color: white; padding: 4px 8px; border-radius: 6px; font-size: 10px;">🏆 미채택</span>' : ''}
+              <div class="kin-item" style="--gc: ${gc};">
+                <div class="kin-item-top">
+                  <span class="kin-badge" style="background: ${gc}; color: ${(grade === 'SSS' || grade === 'SS') ? '#1f2937' : 'white'};">${grade} · ${q.goldenScore || 0}</span>
+                  <span class="kin-score">#${idx + 1}${q.category ? ' · ' + q.category : ''}</span>
                 </div>
+                <div class="kin-t" onclick="window.electronAPI?.invoke('open-external-url', '${safeUrl}');">${q.title || ''}</div>
+                <div class="kin-m-row">
+                  <span class="kin-m">👀 ${viewText}</span>
+                  <span class="kin-m" style="color: ${ansText === 0 ? '#22c55e' : ansText <= 2 ? '#fbbf24' : 'rgba(255,255,255,0.6)'};">💬 ${ansText}</span>
+                  <span class="kin-m">⏰ ${timeText}</span>
+                  ${q.isAdopted ? '<span class="kin-m" style="color: #94a3b8;">🏆 채택</span>' : ''}
                 </div>
-                
-                <!-- 🔥 제목 강조 영역 -->
-                <div style="margin-top: 12px; padding: 16px 20px; background: linear-gradient(135deg, rgba(255,255,255,0.08) 0%, rgba(255,255,255,0.02) 100%); border-radius: 12px; border-left: 4px solid ${gradeColor};">
-                  <a href="javascript:void(0)" onclick="window.electronAPI?.invoke('open-external-url', '${q.url.replace(/'/g, "\\'")}'); return false;" class="kin-title-link" style="--grade-color: ${gradeColor};">
-                    ${q.title}
-                  </a>
+                <div class="kin-btns">
+                  <button class="kin-btn kin-btn-primary" onclick="window.electronAPI?.invoke('open-external-url', '${safeUrl}');">📝 답변 작성</button>
+                  <button class="kin-btn" onclick="copyToClipboard('${safeTitle}'); this.innerHTML='✓ 복사'; setTimeout(() => this.innerHTML='📋 복사', 1200);">📋 복사</button>
                 </div>
-                
-                ${q.category ? `<div style="font-size: 11px; color: rgba(255,255,255,0.4); margin-top: 12px;">📁 ${q.category}</div>` : ''}
-              </div>
-              
-              <div style="text-align: right; margin-left: 16px; flex-shrink: 0;">
-                <div style="font-size: 28px; font-weight: 800; color: ${gradeColor}; opacity: 0.6;">#${idx + 1}</div>
-              </div>
-            </div>
-            
-            <!-- 지표 -->
-            <div class="kin-metrics">
-              <div class="kin-metric">
-                <div class="kin-metric-label">조회수</div>
-                <div class="kin-metric-value" style="color: #22c55e;">${(q.viewCount || 0).toLocaleString()}</div>
-              </div>
-              <div class="kin-metric">
-                <div class="kin-metric-label">답변</div>
-                <div class="kin-metric-value" style="color: ${q.answerCount === 0 ? '#22c55e' : q.answerCount <= 2 ? '#fbbf24' : '#ef4444'};">${q.answerCount || 0}</div>
-              </div>
-              <div class="kin-metric">
-                <div class="kin-metric-label">따봉</div>
-                <div class="kin-metric-value" style="color: ${(q.likeCount || 0) === 0 ? '#22c55e' : '#fbbf24'};">${q.likeCount || 0}</div>
-              </div>
-              <div class="kin-metric">
-                <div class="kin-metric-label">신선도</div>
-                <div class="kin-metric-value" style="color: ${(q.daysAgo || 0) <= 1 ? '#3b82f6' : '#22c55e'}; font-size: 14px;">${freshnessText}</div>
-              </div>
-            </div>
-            
-            <!-- 점수 바 -->
-            <div class="kin-score-bar">
-              <div class="kin-score-fill" style="width: ${Math.min(100, (q.goldenScore || 0) / 120 * 100)}%; background: linear-gradient(90deg, ${gradeColor}, ${gradeColor}aa);"></div>
-            </div>
-            
-            <!-- 추천 액션 -->
-            ${q.recommendAction ? `
-              <div style="margin-top: 16px; padding: 14px 18px; background: rgba(16, 185, 129, 0.08); border-radius: 12px; border: 1px solid rgba(16, 185, 129, 0.15);">
-                <div style="font-size: 13px; color: #10b981; line-height: 1.5; display: flex; align-items: flex-start; gap: 10px;">
-                  <span style="font-size: 16px;">💡</span>
-                  <span>${q.recommendAction}</span>
-                </div>
-              </div>
-            ` : ''}
-            
-            <!-- 액션 버튼 (더 작게) -->
-            <div style="display: flex; gap: 8px; margin-top: 16px;">
-              <button onclick="window.electronAPI?.invoke('open-external-url', '${q.url.replace(/'/g, "\\'")}');" style="flex: 1; padding: 10px 16px; background: rgba(255,255,255,0.06); color: rgba(255,255,255,0.8); border: 1px solid rgba(255,255,255,0.1); border-radius: 8px; font-size: 12px; font-weight: 500; cursor: pointer; transition: all 0.2s;" onmouseover="this.style.background='${gradeColor}20'; this.style.borderColor='${gradeColor}40'; this.style.color='${gradeColor}'" onmouseout="this.style.background='rgba(255,255,255,0.06)'; this.style.borderColor='rgba(255,255,255,0.1)'; this.style.color='rgba(255,255,255,0.8)'">
-                📝 답변 작성
-              </button>
-              <button onclick="copyToClipboard('${q.title.replace(/'/g, "\\'")}'); this.innerHTML='✓'; setTimeout(() => this.innerHTML='📋', 1500);" style="padding: 10px 14px; background: rgba(255,255,255,0.04); color: rgba(255,255,255,0.5); border: 1px solid rgba(255,255,255,0.08); border-radius: 8px; font-size: 12px; cursor: pointer; transition: all 0.2s;" onmouseover="this.style.background='rgba(255,255,255,0.1)'; this.style.color='white'" onmouseout="this.style.background='rgba(255,255,255,0.04)'; this.style.color='rgba(255,255,255,0.5)'">
-                📋
-              </button>
-            </div>
-          </div>
-        `;
+              </div>`;
           });
-
-          // 사용 팁
-          html += `
-        <div style="background: linear-gradient(135deg, rgba(59, 130, 246, 0.1) 0%, rgba(59, 130, 246, 0.03) 100%); border: 1px solid rgba(59, 130, 246, 0.2); border-radius: 16px; padding: 24px; margin-top: 28px;">
-          <div style="font-size: 15px; font-weight: 700; color: #60a5fa; margin-bottom: 16px; display: flex; align-items: center; gap: 8px;">
-            <span style="font-size: 18px;">💎</span>
-            황금 질문 활용 가이드
-          </div>
-          <div style="display: grid; grid-template-columns: repeat(2, 1fr); gap: 12px;">
-            <div style="display: flex; align-items: flex-start; gap: 12px; padding: 12px; background: rgba(0,0,0,0.2); border-radius: 10px;">
-              <span style="font-size: 20px;">1️⃣</span>
-              <div>
-                <div style="font-size: 13px; font-weight: 600; color: white; margin-bottom: 4px;">블로그 글 작성</div>
-                <div style="font-size: 12px; color: rgba(255,255,255,0.6);">질문 주제로 상세한 블로그 글을 먼저 작성하세요</div>
-              </div>
-            </div>
-            <div style="display: flex; align-items: flex-start; gap: 12px; padding: 12px; background: rgba(0,0,0,0.2); border-radius: 10px;">
-              <span style="font-size: 20px;">2️⃣</span>
-              <div>
-                <div style="font-size: 13px; font-weight: 600; color: white; margin-bottom: 4px;">상세 답변 작성</div>
-                <div style="font-size: 12px; color: rgba(255,255,255,0.6);">지식인에 블로그 링크 포함한 상세 답변을 남기세요</div>
-              </div>
-            </div>
-            <div style="display: flex; align-items: flex-start; gap: 12px; padding: 12px; background: rgba(0,0,0,0.2); border-radius: 10px;">
-              <span style="font-size: 20px;">3️⃣</span>
-              <div>
-                <div style="font-size: 13px; font-weight: 600; color: white; margin-bottom: 4px;">따봉 받기</div>
-                <div style="font-size: 12px; color: rgba(255,255,255,0.6);">좋은 답변은 따봉을 받아 상단에 노출됩니다</div>
-              </div>
-            </div>
-            <div style="display: flex; align-items: flex-start; gap: 12px; padding: 12px; background: rgba(0,0,0,0.2); border-radius: 10px;">
-              <span style="font-size: 20px;">4️⃣</span>
-              <div>
-                <div style="font-size: 13px; font-weight: 600; color: white; margin-bottom: 4px;">지속적 유입</div>
-                <div style="font-size: 12px; color: rgba(255,255,255,0.6);">조회수 높은 질문 = 장기적인 외부 트래픽</div>
-              </div>
-            </div>
-          </div>
-        </div>
-      `;
+          html += `</div>`;
 
           resultsDiv.innerHTML = html;
         }
