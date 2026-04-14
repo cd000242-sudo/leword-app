@@ -10471,11 +10471,14 @@
               return;
             }
 
-            // 전역 저장 — 복사 버튼에서 재사용
             window.__scLastResult = res;
-            const pa = res.priceAnalysis || {};
-            const titles = res.titleCandidates || [];
-            const longtail = res.longtailKeywords || [];
+            const insight = res.insight || {};
+            const pa = insight.priceAnalysis || {};
+            const longtail = insight.longtailKeywords || [];
+            const comp = insight.competition || {};
+            const cats = insight.categories || {};
+            const brands = insight.brands || [];
+            const tiers = insight.priceTiers || {};
 
             let html = `
               <div class="sc-info">
@@ -10484,34 +10487,90 @@
               </div>
             `;
 
-            // 📝 블로그 글쓰기 패키지 (제목 + 태그 + 초안 복사)
-            if (titles.length > 0) {
-              const titlesHtml = titles.map((t, i) => {
-                const safeT = t.replace(/"/g, '&quot;').replace(/'/g, "\\'");
-                return `
-                  <div style="display:flex;gap:10px;align-items:center;padding:10px 14px;background:rgba(0,0,0,0.25);border-radius:8px;margin-bottom:6px;">
-                    <span style="background:#fbbf24;color:#1f2937;font-weight:800;padding:2px 8px;border-radius:5px;font-size:10px;">#${i+1}</span>
-                    <span style="flex:1;font-size:13px;color:rgba(255,255,255,0.9);">${t.replace(/</g,'&lt;')}</span>
-                    <button onclick="copyToClipboard('${safeT}'); this.innerHTML='✓'; setTimeout(()=>this.innerHTML='📋',1200);" style="padding:5px 10px;background:rgba(251,191,36,0.15);color:#fbbf24;border:1px solid rgba(251,191,36,0.3);border-radius:6px;font-size:11px;cursor:pointer;">📋</button>
-                  </div>
-                `;
-              }).join('');
+            // 🔍 키워드 인사이트 패널 (키워드 도구의 본질)
+            const vColors = { '저경쟁 (블루오션)': '#34d399', '중경쟁': '#fbbf24', '고경쟁': '#fb923c', '과점': '#fb7185' };
+            const vColor = vColors[comp.verdict] || '#94a3b8';
 
-              const tagsHtml = longtail.slice(0, 12).map(k => `<span style="padding:4px 10px;background:rgba(3,199,90,0.1);color:#34d399;border:1px solid rgba(3,199,90,0.25);border-radius:14px;font-size:11px;font-weight:600;">#${k}</span>`).join(' ');
-
-              html += `
-                <div style="background:linear-gradient(135deg, rgba(251,191,36,0.08), rgba(251,191,36,0.02));border:1px solid rgba(251,191,36,0.25);border-radius:14px;padding:18px;margin-bottom:18px;">
-                  <div style="display:flex;justify-content:space-between;align-items:center;margin-bottom:14px;flex-wrap:wrap;gap:10px;">
-                    <div style="font-size:15px;font-weight:800;color:#fbbf24;">📝 블로그 글 작성 패키지</div>
-                    <button onclick="copyShoppingBlogDraft()" style="padding:10px 18px;background:linear-gradient(135deg,#fbbf24,#f59e0b);color:#1f2937;border:none;border-radius:9px;font-size:12px;font-weight:800;cursor:pointer;box-shadow:0 4px 14px rgba(251,191,36,0.3);">📋 전체 초안 마크다운 복사</button>
-                  </div>
-                  <div style="font-size:11px;color:rgba(255,255,255,0.5);margin-bottom:8px;font-weight:600;letter-spacing:0.3px;">✨ 제목 후보 3개</div>
-                  ${titlesHtml}
-                  <div style="font-size:11px;color:rgba(255,255,255,0.5);margin:12px 0 8px;font-weight:600;letter-spacing:0.3px;">🏷️ 롱테일 키워드 태그 (${longtail.length}개)</div>
-                  <div style="display:flex;gap:6px;flex-wrap:wrap;">${tagsHtml}</div>
+            // 섹션: 경쟁도
+            const compHtml = `
+              <div style="display:grid;grid-template-columns:repeat(4,1fr);gap:8px;margin-bottom:14px;">
+                <div style="padding:10px 12px;background:rgba(0,0,0,0.25);border-radius:8px;text-align:center;">
+                  <div style="font-size:10px;color:rgba(255,255,255,0.45);margin-bottom:2px;">전체 상품</div>
+                  <div style="font-size:16px;font-weight:800;color:white;">${(comp.totalHits||0).toLocaleString()}</div>
                 </div>
-              `;
-            }
+                <div style="padding:10px 12px;background:rgba(0,0,0,0.25);border-radius:8px;text-align:center;">
+                  <div style="font-size:10px;color:rgba(255,255,255,0.45);margin-bottom:2px;">브랜드 수</div>
+                  <div style="font-size:16px;font-weight:800;color:white;">${comp.uniqueBrands||0}</div>
+                </div>
+                <div style="padding:10px 12px;background:rgba(0,0,0,0.25);border-radius:8px;text-align:center;">
+                  <div style="font-size:10px;color:rgba(255,255,255,0.45);margin-bottom:2px;">판매처 수</div>
+                  <div style="font-size:16px;font-weight:800;color:white;">${comp.uniqueMalls||0}</div>
+                </div>
+                <div style="padding:10px 12px;background:${vColor}22;border:1px solid ${vColor}55;border-radius:8px;text-align:center;">
+                  <div style="font-size:10px;color:${vColor};margin-bottom:2px;">경쟁도</div>
+                  <div style="font-size:13px;font-weight:800;color:${vColor};">${comp.verdict||'-'}</div>
+                </div>
+              </div>
+            `;
+
+            // 섹션: 롱테일 키워드
+            const longtailHtml = longtail.length > 0
+              ? `<div style="font-size:11px;color:rgba(255,255,255,0.5);margin-bottom:8px;font-weight:600;letter-spacing:0.3px;">🔑 상품명 빈도 키워드 TOP ${longtail.length}</div>
+                 <div style="display:flex;gap:6px;flex-wrap:wrap;margin-bottom:14px;">
+                   ${longtail.map(k => `<span onclick="copyToClipboard('${k.keyword.replace(/'/g,"\\'")}');this.style.background='rgba(52,211,153,0.3)';setTimeout(()=>this.style.background='rgba(3,199,90,0.1)',800);" style="padding:5px 11px;background:rgba(3,199,90,0.1);color:#34d399;border:1px solid rgba(3,199,90,0.25);border-radius:14px;font-size:11px;font-weight:600;cursor:pointer;transition:background 0.2s;">${k.keyword} <span style="color:rgba(255,255,255,0.4);font-size:10px;">×${k.count}</span></span>`).join('')}
+                 </div>`
+              : '';
+
+            // 섹션: 카테고리
+            const catRows = (arr, label) => arr && arr.length > 0
+              ? `<div style="font-size:10px;color:rgba(255,255,255,0.4);margin-bottom:4px;">${label}</div>
+                 <div style="display:flex;gap:5px;flex-wrap:wrap;margin-bottom:8px;">
+                   ${arr.map(c => `<span onclick="copyToClipboard('${c.name.replace(/'/g,"\\'")}');" style="padding:4px 9px;background:rgba(139,92,246,0.12);color:#a78bfa;border:1px solid rgba(139,92,246,0.25);border-radius:10px;font-size:11px;cursor:pointer;">${c.name} <span style="color:rgba(255,255,255,0.35);">${c.pct}%</span></span>`).join('')}
+                 </div>`
+              : '';
+            const categoryHtml = (cats.level1?.length || cats.level2?.length || cats.level3?.length)
+              ? `<div style="font-size:11px;color:rgba(255,255,255,0.5);margin-bottom:8px;font-weight:600;letter-spacing:0.3px;">📂 카테고리 집중도</div>
+                 ${catRows(cats.level1, '대분류')}
+                 ${catRows(cats.level2, '중분류')}
+                 ${catRows(cats.level3, '소분류')}`
+              : '';
+
+            // 섹션: 브랜드
+            const brandHtml = brands.length > 0
+              ? `<div style="font-size:11px;color:rgba(255,255,255,0.5);margin:14px 0 8px;font-weight:600;letter-spacing:0.3px;">🏷️ 상위 브랜드 ${brands.length}개</div>
+                 <div style="display:flex;gap:6px;flex-wrap:wrap;">
+                   ${brands.map(b => `<span onclick="copyToClipboard('${b.brand.replace(/'/g,"\\'")}');" style="padding:5px 11px;background:rgba(245,158,11,0.12);color:#fbbf24;border:1px solid rgba(245,158,11,0.3);border-radius:14px;font-size:11px;font-weight:600;cursor:pointer;">${b.brand} <span style="color:rgba(255,255,255,0.4);font-size:10px;">×${b.count} · ${b.avgPrice.toLocaleString()}원</span></span>`).join('')}
+                 </div>`
+              : '';
+
+            // 섹션: 가격대별 키워드
+            const tierCol = (arr, label, color) => arr && arr.length > 0
+              ? `<div style="padding:12px;background:rgba(0,0,0,0.2);border-left:3px solid ${color};border-radius:8px;">
+                   <div style="font-size:11px;font-weight:700;color:${color};margin-bottom:6px;">${label}</div>
+                   <div style="display:flex;gap:4px;flex-wrap:wrap;">
+                     ${arr.slice(0, 6).map(k => `<span onclick="copyToClipboard('${k.keyword.replace(/'/g,"\\'")}');" style="padding:3px 8px;background:rgba(255,255,255,0.06);color:rgba(255,255,255,0.85);border-radius:8px;font-size:10px;cursor:pointer;">${k.keyword}</span>`).join('')}
+                   </div>
+                 </div>`
+              : '';
+            const tierHtml = (tiers.low?.length || tiers.mid?.length || tiers.high?.length)
+              ? `<div style="font-size:11px;color:rgba(255,255,255,0.5);margin:14px 0 8px;font-weight:600;letter-spacing:0.3px;">💰 가격대별 키워드 (저 ≤${(tiers.boundaries?.lowMax||0).toLocaleString()}원 / 고 ≥${(tiers.boundaries?.highMin||0).toLocaleString()}원)</div>
+                 <div style="display:grid;grid-template-columns:repeat(3,1fr);gap:8px;">
+                   ${tierCol(tiers.low, '🟢 저가', '#34d399')}
+                   ${tierCol(tiers.mid, '🟡 중가', '#fbbf24')}
+                   ${tierCol(tiers.high, '🔵 고가', '#60a5fa')}
+                 </div>`
+              : '';
+
+            html += `
+              <div style="background:linear-gradient(135deg, rgba(3,199,90,0.06), rgba(3,199,90,0.02));border:1px solid rgba(3,199,90,0.22);border-radius:14px;padding:18px;margin-bottom:18px;">
+                <div style="font-size:15px;font-weight:800;color:#34d399;margin-bottom:14px;display:flex;align-items:center;gap:8px;">🔍 키워드 인사이트 <span style="font-size:11px;color:rgba(255,255,255,0.5);font-weight:500;">(칩 클릭 시 복사)</span></div>
+                ${compHtml}
+                ${longtailHtml}
+                ${categoryHtml}
+                ${brandHtml}
+                ${tierHtml}
+              </div>
+            `;
 
             if (reco.length > 0) {
               html += `<div class="sc-reco-banner">💎 <b>블로그 글 작성용 추천 ${reco.length}개</b> — 가격 중앙값 근처 + 메이저 쇼핑몰 우선</div><div class="sc-grid" style="margin-bottom:20px;">${reco.map(renderShoppingCard).join('')}</div><div style="border-top:1px solid rgba(255,255,255,0.05);margin:20px 0;padding-top:16px;"><div style="font-size:13px;color:rgba(255,255,255,0.6);margin-bottom:10px;">📋 전체 검색 결과 ${items.length}개</div></div>`;
@@ -10521,33 +10580,6 @@
             resultsDiv.innerHTML = html;
           } catch (err) {
             resultsDiv.innerHTML = `<div style="text-align:center;padding:60px;color:#fb7185;"><div style="font-size:40px;">❌</div><div style="margin-top:12px;">${err.message}</div></div>`;
-          }
-        };
-
-        window.copyShoppingBlogDraft = function copyShoppingBlogDraft() {
-          const res = window.__scLastResult;
-          if (!res || !res.blogDraftMarkdown) {
-            alert('블로그 초안이 없습니다. 먼저 상품을 검색해주세요.');
-            return;
-          }
-          if (window.electronAPI && window.electronAPI.invoke) {
-            // Electron clipboard 이용
-            window.electronAPI.invoke('clipboard-write-text', res.blogDraftMarkdown).then(() => {
-              alert('✅ 블로그 초안 마크다운이 클립보드에 복사되었습니다!\n티스토리/네이버 블로그에 붙여넣으세요.');
-            }).catch(() => {
-              // Fallback: textarea 방식
-              try {
-                const ta = document.createElement('textarea');
-                ta.value = res.blogDraftMarkdown;
-                document.body.appendChild(ta);
-                ta.select();
-                document.execCommand('copy');
-                document.body.removeChild(ta);
-                alert('✅ 복사 완료!');
-              } catch (e) {
-                alert('복사 실패: ' + e.message);
-              }
-            });
           }
         };
 
