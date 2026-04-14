@@ -35,6 +35,7 @@ export interface KinMetrics {
   detailFail: number;
   detailRetry: number;
   emptyViewCount: number;
+  circuitTripped: number;
 }
 
 function newMetrics(): KinMetrics {
@@ -45,6 +46,7 @@ function newMetrics(): KinMetrics {
     detailFail: 0,
     detailRetry: 0,
     emptyViewCount: 0,
+    circuitTripped: 0,
   };
 }
 
@@ -52,7 +54,7 @@ function logMetrics(sessionId: string, m: KinMetrics) {
   const selTotal = m.selectorHit + m.selectorMiss;
   const hitRate = selTotal > 0 ? ((m.selectorHit / selTotal) * 100).toFixed(1) : 'N/A';
   console.log(
-    `[${sessionId}] metrics: selectorHit=${m.selectorHit}/${selTotal} (${hitRate}%) | detail ok=${m.detailSuccess} fail=${m.detailFail} retry=${m.detailRetry} | emptyView=${m.emptyViewCount}`
+    `[${sessionId}] metrics: selectorHit=${m.selectorHit}/${selTotal} (${hitRate}%) | detail ok=${m.detailSuccess} fail=${m.detailFail} retry=${m.detailRetry} | emptyView=${m.emptyViewCount} | circuitTrip=${m.circuitTripped}`
   );
 }
 
@@ -687,8 +689,13 @@ export async function getPopularQnA(): Promise<GoldenHuntResult> {
 
     // Phase 4: 페이지 풀 4개로 상세 페이지 병렬 처리
     // 풀 5+는 anti-bot 감지로 tail latency 폭증 → 4가 안전한 최대값
+    // Phase 5-B: circuit breaker — 연속 실패 3회 시 cooldown 5s
     const questionsToDetail = allQuestions.slice(0, 20);
     const POOL_SIZE = 4;
+    const CIRCUIT_FAIL_THRESHOLD = 3;
+    const CIRCUIT_COOLDOWN_MS = 5000;
+    let consecutiveFails = 0;
+    let circuitTrippedCount = 0;
 
     // 페이지 풀 생성 (각 페이지는 독립적인 네트워크/렌더 컨텍스트)
     const detailPages = await Promise.all(
@@ -708,7 +715,18 @@ export async function getPopularQnA(): Promise<GoldenHuntResult> {
 
     // 단일 질문 처리 함수 (페이지 풀 worker 공용)
     // Phase 4-D: 최대 2회 재시도 + 지수 backoff (500ms → 1500ms)
+    // Phase 5-B: circuit breaker — 풀 전역 연속 실패 카운터 체크
     const processDetail = async (detailPage: Page, q: any, idx: number) => {
+      // Circuit open: 연속 실패 3회 초과 시 cooldown
+      if (consecutiveFails >= CIRCUIT_FAIL_THRESHOLD) {
+        circuitTrippedCount++;
+        console.warn(
+          `[${sessionId}] circuit tripped (${consecutiveFails} 연속 실패) — ${CIRCUIT_COOLDOWN_MS}ms cooldown`
+        );
+        await new Promise(r => setTimeout(r, CIRCUIT_COOLDOWN_MS));
+        consecutiveFails = 0; // 리셋 후 재시도
+      }
+
       const startMs = Date.now();
       const MAX_ATTEMPTS = 2;
       let lastError: any = null;
@@ -783,6 +801,7 @@ export async function getPopularQnA(): Promise<GoldenHuntResult> {
 
           if (!detail.viewCount) metrics.emptyViewCount++;
           metrics.detailSuccess++;
+          consecutiveFails = 0; // 성공 → circuit 리셋
 
           const ms = Date.now() - startMs;
           console.log(
@@ -802,10 +821,11 @@ export async function getPopularQnA(): Promise<GoldenHuntResult> {
         }
       }
 
-      // 모든 재시도 실패
+      // 모든 재시도 실패 → circuit breaker 카운터 증가
       metrics.detailFail++;
+      consecutiveFails++;
       console.warn(
-        `[${sessionId}] 상세 크롤 최종 실패 | url=${q.url} | title=${q.title?.substring(0, 40)} | error=${lastError?.message ?? lastError}`
+        `[${sessionId}] 상세 크롤 최종 실패 | url=${q.url} | title=${q.title?.substring(0, 40)} | error=${lastError?.message ?? lastError} | consecutiveFails=${consecutiveFails}`
       );
     };
 
@@ -816,6 +836,9 @@ export async function getPopularQnA(): Promise<GoldenHuntResult> {
       }
     })());
     await Promise.all(workers);
+
+    // circuit breaker 카운터를 metrics 에 반영
+    metrics.circuitTripped = circuitTrippedCount;
 
     // 풀 정리
     await Promise.all(detailPages.map(dp => dp.close().catch(() => {})));
@@ -1025,18 +1048,20 @@ export async function getRisingQuestions(): Promise<GoldenHuntResult> {
         await new Promise(r => setTimeout(r, 500));
         
         const questions = await extractQuestionsFromPage(page, cat.name);
-        
-        // 🔥 24시간 이내만 필터
+
+        // Phase 5: 목록 페이지 hoursAgo 가 부정확 → 필터 제거.
+        // 상세 크롤링 단계에서 hoursAgo 를 재측정하고 viewsPerHour 로 랭킹.
+        // "급상승"의 본질은 viewsPerHour 이므로 오래된 질문은 자연 탈락.
         let added = 0;
         questions.forEach(q => {
-          if (!seenUrls.has(q.url) && q.hoursAgo <= 24) {
+          if (!seenUrls.has(q.url)) {
             seenUrls.add(q.url);
             allQuestions.push(q);
             added++;
           }
         });
-        
-        console.log(`  → 24시간 이내: ${added}개`);
+
+        console.log(`  → 수집 ${added}개 (최신순)`);
 
       } catch (err: any) {
         console.warn(`[KIN] 급상승 카테고리 크롤 실패 | cat=${cat.name} | url=${url} | error=${err?.message ?? err}`);
@@ -1058,49 +1083,84 @@ export async function getRisingQuestions(): Promise<GoldenHuntResult> {
       };
     }
     
-    // Step 2: 상세 페이지에서 조회수 확인 (상위 15개)
-    console.log('[STEP 2] 🔍 조회수 확인...\n');
-    
+    // Step 2: 상세 페이지에서 조회수 + 정확한 hoursAgo 확인 (상위 15개)
+    // Phase 5: 목록 페이지의 hoursAgo 는 부정확하므로 상세에서 재측정 후
+    // viewsPerHour 로 랭킹
+    console.log('[STEP 2] 🔍 조회수 + 신선도 재확인...\n');
+
+    const risingSessionId = newSessionId('rising');
+    const risingMetrics = newMetrics();
     const shuffled = [...allQuestions].sort(() => Math.random() - 0.5);
     const topN = shuffled.slice(0, 15);
     const withViewCount: any[] = [];
-    
+
     const detailPage = await browser.newPage();
     await detailPage.setViewport({ width: 1920, height: 1080 });
-    
+    await detailPage.setUserAgent('Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/122.0.0.0 Safari/537.36');
+    await detailPage.setRequestInterception(true);
+    detailPage.on('request', req => {
+      const type = req.resourceType();
+      if (['font', 'media', 'image', 'stylesheet'].includes(type)) req.abort();
+      else req.continue();
+    });
+
     for (let i = 0; i < topN.length; i++) {
       const q = topN[i];
       try {
         await detailPage.goto(q.url, { waitUntil: 'domcontentloaded', timeout: 8000 });
-        await new Promise(r => setTimeout(r, 400));
-        
+        try {
+          await detailPage.waitForSelector('#content, .question_header, .endContentsText', { timeout: 1500 });
+          risingMetrics.selectorHit++;
+        } catch {
+          risingMetrics.selectorMiss++;
+        }
+
         const detail = await detailPage.evaluate(() => {
           const text = document.body.innerText || '';
           let viewCount = 0;
           const m = text.match(/조회[수]?\s*[:\s]*([0-9,]+)/);
           if (m) viewCount = parseInt(m[1].replace(/,/g, ''));
-          return { viewCount };
+
+          // 정확한 hoursAgo 재측정
+          let hoursAgo = 999;
+          if (text.includes('방금')) hoursAgo = 0;
+          else if (text.includes('분 전')) {
+            const mm = text.match(/(\d+)\s*분\s*전/);
+            if (mm) hoursAgo = Math.max(1, Math.ceil(parseInt(mm[1]) / 60));
+          } else if (text.includes('시간 전')) {
+            const mm = text.match(/(\d+)\s*시간\s*전/);
+            if (mm) hoursAgo = parseInt(mm[1]);
+          } else if (text.includes('일 전')) {
+            const mm = text.match(/(\d+)\s*일\s*전/);
+            if (mm) hoursAgo = parseInt(mm[1]) * 24;
+          }
+          return { viewCount, hoursAgoFromDetail: hoursAgo };
         });
-        
-        // 시간당 조회수 계산 (급상승 점수)
-        const hoursAgo = Math.max(q.hoursAgo || 1, 1);
-        const viewsPerHour = detail.viewCount / hoursAgo;
-        
-        withViewCount.push({ 
-          ...q, 
+
+        risingMetrics.detailSuccess++;
+        // 상세에서 hoursAgo 못 찾으면 목록값 사용
+        const finalHoursAgo = Math.max(detail.hoursAgoFromDetail < 999 ? detail.hoursAgoFromDetail : (q.hoursAgo || 24), 1);
+        const viewsPerHour = detail.viewCount / finalHoursAgo;
+
+        withViewCount.push({
+          ...q,
           viewCount: detail.viewCount || 0,
+          hoursAgo: finalHoursAgo,
           viewsPerHour: Math.round(viewsPerHour)
         });
-        
-        if ((i + 1) % 5 === 0) console.log(`  📊 ${i + 1}/${topN.length} 완료...`);
-      } catch (err) {
+
+        if ((i + 1) % 5 === 0) console.log(`[${risingSessionId}] ${i + 1}/${topN.length} 완료`);
+      } catch (err: any) {
+        risingMetrics.detailFail++;
+        console.warn(`[${risingSessionId}] 급상승 상세 실패 | url=${q.url} | error=${err?.message ?? err}`);
         withViewCount.push({ ...q, viewCount: 0, viewsPerHour: 0 });
       }
       await new Promise(r => setTimeout(r, 100));
     }
-    
-    await detailPage.close();
-    await page.close();
+
+    logMetrics(risingSessionId, risingMetrics);
+    await detailPage.close().catch(() => {});
+    await page.close().catch(() => {});
     
     // Step 3: 급상승 정렬 (시간당 조회수 높은 순)
     const risingQuestions = withViewCount

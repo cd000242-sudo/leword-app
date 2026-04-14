@@ -1,51 +1,51 @@
 {
-  "sampleSize": 15,
+  "sampleSize": 30,
   "sources": [
     {
       "name": "getPopularQnA",
       "count": 15,
-      "ms": 12738
+      "ms": 14779
     },
     {
       "name": "getRisingQuestions",
-      "count": 0,
-      "ms": 3216
+      "count": 15,
+      "ms": 14608
     }
   ],
-  "avgScore": 43.2,
+  "avgScore": 50.1,
   "distribution": {
     "SSS": {
       "count": 1,
-      "pct": 6.7,
+      "pct": 3.3,
       "avgScore": 64.5,
-      "avgViewCount": 942,
+      "avgViewCount": 951,
       "avgAnswerCount": 2,
       "sample": {
-        "title": "6\n\t\t\t\t\t\t\t쿠팡 보상 쿠폰 5만원 알차게 사용하는 꿀팁 있을까요?\n",
-        "viewCount": 942,
+        "title": "4\n\t\t\t\t\t\t\t쿠팡 보상 쿠폰 5만원 알차게 사용하는 꿀팁 있을까요?\n",
+        "viewCount": 951,
         "answerCount": 2,
         "goldenScore": 64.5
       }
     },
     "SS": {
-      "count": 2,
-      "pct": 13.3,
-      "avgScore": 56,
-      "avgViewCount": 2331,
-      "avgAnswerCount": 4,
+      "count": 3,
+      "pct": 10,
+      "avgScore": 69.3,
+      "avgViewCount": 2744,
+      "avgAnswerCount": 3.3,
       "sample": {
-        "title": "9\n\t\t\t\t\t\t\t영화 '살목지' 결말, 정말 이해되셨나요?\n\t\t\t\t\t\t\t",
-        "viewCount": 2805,
+        "title": "21\n\t\t\t\t\t\t\t영화 '살목지' 결말, 정말 이해되셨나요?\n\t\t\t\t\t\t",
+        "viewCount": 2810,
         "answerCount": 4,
-        "goldenScore": 61
+        "goldenScore": 57
       }
     },
     "S": {
-      "count": 6,
-      "pct": 40,
-      "avgScore": 46.7,
-      "avgViewCount": 1541,
-      "avgAnswerCount": 10.5,
+      "count": 15,
+      "pct": 50,
+      "avgScore": 54,
+      "avgViewCount": 1411,
+      "avgAnswerCount": 6.2,
       "sample": {
         "title": "놓치기 아쉬운 콘텐츠\n\t\t\t\t\t\t\t토마스쿡 콘서트, 어떤 점이 기대되시나",
         "viewCount": 40,
@@ -54,16 +54,16 @@
       }
     },
     "A": {
-      "count": 6,
-      "pct": 40,
-      "avgScore": 31.9,
-      "avgViewCount": 1703,
-      "avgAnswerCount": 17.5,
+      "count": 11,
+      "pct": 36.7,
+      "avgScore": 38.1,
+      "avgViewCount": 777,
+      "avgAnswerCount": 9.6,
       "sample": {
-        "title": "21\n\t\t\t\t\t\t\t권고사직 후 실업급여 신청하는 법\n\t\t\t\t\t\t\t3월 말",
-        "viewCount": 741,
-        "answerCount": 19,
-        "goldenScore": 36
+        "title": "20\n\t\t\t\t\t\t\t해외주식 양도소득세\n\t\t\t\t\t\t\t제가 주식계좌를 2개 ",
+        "viewCount": 320,
+        "answerCount": 11,
+        "goldenScore": 36.3
       }
     },
     "B": {
@@ -82,9 +82,9 @@
     }
   },
   "dodCheck": {
-    "sssPct": 6.7,
+    "sssPct": 3.3,
     "sssTarget": "5~15%",
-    "sssStatus": "PASS"
+    "sssStatus": "FAIL"
   },
-  "timestamp": "2026-04-14T11:05:07.740Z"
+  "timestamp": "2026-04-14T11:15:52.289Z"
 }
