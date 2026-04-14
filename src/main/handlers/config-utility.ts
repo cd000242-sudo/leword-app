@@ -776,8 +776,10 @@ export function setupConfigUtilityHandlers(): void {
         const display = Math.min(Math.max(Number(params?.display) || 30, 1), 100);
 
         const { searchNaverShopping, pickBlogRecommendedItems } = await import('../../utils/naver-shopping-api');
+        const { enrichShoppingResult } = await import('../../utils/shopping-blog-generator');
         const result = await searchNaverShopping(keyword, { display, sort });
         const recommended = pickBlogRecommendedItems(result.items, 10);
+        const enriched = enrichShoppingResult(keyword, result.items, recommended);
 
         return {
           success: true,
@@ -785,6 +787,10 @@ export function setupConfigUtilityHandlers(): void {
           total: result.total,
           items: result.items,
           recommended,
+          titleCandidates: enriched.titleCandidates,
+          longtailKeywords: enriched.longtailKeywords,
+          priceAnalysis: enriched.priceAnalysis,
+          blogDraftMarkdown: enriched.blogDraftMarkdown,
         };
       } catch (err: any) {
         console.error('[SHOPPING-CONNECT] 오류:', err?.message ?? err);

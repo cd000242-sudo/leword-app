@@ -7403,15 +7403,6 @@
                     ${isZum && index < 3 ? ' 🔥' : ''}
                   </span>
                 </div>
-                <button onclick="event.stopPropagation(); openKeywordFlowModal('${safeKeyword}');" 
-                  style="padding: 4px 8px; background: linear-gradient(135deg, #8b5cf6, #6366f1); 
-                         border: none; border-radius: 6px; color: white; font-size: 11px; font-weight: 600;
-                         cursor: pointer; white-space: nowrap; transition: all 0.2s;"
-                  onmouseover="this.style.transform='scale(1.05)'; this.style.boxShadow='0 2px 8px rgba(139,92,246,0.4)';"
-                  onmouseout="this.style.transform='scale(1)'; this.style.boxShadow='none';"
-                  title="키워드 흐름 분석">
-                  🌊 흐름
-                </button>
               </div>
             `;
               });
@@ -8616,7 +8607,6 @@
             <div style="background: linear-gradient(135deg, #1f2937 0%, #374151 100%); border-radius: 12px; padding: 16px; margin-bottom: 12px; border: 2px dashed #6b7280; opacity: 0.9;">
               <div style="display: flex; justify-content: space-between; align-items: center; margin-bottom: 12px;">
                 <div style="font-size: 14px; font-weight: 700; color: #fbbf24;">🔒 PRO 전용 기능</div>
-                <span style="background: linear-gradient(135deg, #f59e0b 0%, #d97706 100%); color: white; padding: 4px 12px; border-radius: 12px; font-size: 11px; font-weight: 700; cursor: pointer;" onclick="openPremiumModal()">PRO 업그레이드</span>
               </div>
               <div style="display: grid; grid-template-columns: repeat(2, 1fr); gap: 10px;">
                 <div style="background: rgba(255,255,255,0.1); border-radius: 8px; padding: 10px; text-align: center;">
@@ -10481,7 +10471,47 @@
               return;
             }
 
-            let html = `<div class="sc-info"><span style="font-size:18px;">📊</span><div>총 <b style="color:#34d399;">${res.total.toLocaleString()}</b>개 중 <b>${items.length}</b>개 표시 · 추천 <b style="color:#fbbf24;">${reco.length}</b>개 선별</div></div>`;
+            // 전역 저장 — 복사 버튼에서 재사용
+            window.__scLastResult = res;
+            const pa = res.priceAnalysis || {};
+            const titles = res.titleCandidates || [];
+            const longtail = res.longtailKeywords || [];
+
+            let html = `
+              <div class="sc-info">
+                <span style="font-size:18px;">📊</span>
+                <div>총 <b style="color:#34d399;">${(res.total||0).toLocaleString()}</b>개 중 <b>${items.length}</b>개 표시 · 가격 <b>${(pa.min||0).toLocaleString()}~${(pa.max||0).toLocaleString()}원</b> · 중간가 <b style="color:#fbbf24;">${(pa.median||0).toLocaleString()}원</b></div>
+              </div>
+            `;
+
+            // 📝 블로그 글쓰기 패키지 (제목 + 태그 + 초안 복사)
+            if (titles.length > 0) {
+              const titlesHtml = titles.map((t, i) => {
+                const safeT = t.replace(/"/g, '&quot;').replace(/'/g, "\\'");
+                return `
+                  <div style="display:flex;gap:10px;align-items:center;padding:10px 14px;background:rgba(0,0,0,0.25);border-radius:8px;margin-bottom:6px;">
+                    <span style="background:#fbbf24;color:#1f2937;font-weight:800;padding:2px 8px;border-radius:5px;font-size:10px;">#${i+1}</span>
+                    <span style="flex:1;font-size:13px;color:rgba(255,255,255,0.9);">${t.replace(/</g,'&lt;')}</span>
+                    <button onclick="copyToClipboard('${safeT}'); this.innerHTML='✓'; setTimeout(()=>this.innerHTML='📋',1200);" style="padding:5px 10px;background:rgba(251,191,36,0.15);color:#fbbf24;border:1px solid rgba(251,191,36,0.3);border-radius:6px;font-size:11px;cursor:pointer;">📋</button>
+                  </div>
+                `;
+              }).join('');
+
+              const tagsHtml = longtail.slice(0, 12).map(k => `<span style="padding:4px 10px;background:rgba(3,199,90,0.1);color:#34d399;border:1px solid rgba(3,199,90,0.25);border-radius:14px;font-size:11px;font-weight:600;">#${k}</span>`).join(' ');
+
+              html += `
+                <div style="background:linear-gradient(135deg, rgba(251,191,36,0.08), rgba(251,191,36,0.02));border:1px solid rgba(251,191,36,0.25);border-radius:14px;padding:18px;margin-bottom:18px;">
+                  <div style="display:flex;justify-content:space-between;align-items:center;margin-bottom:14px;flex-wrap:wrap;gap:10px;">
+                    <div style="font-size:15px;font-weight:800;color:#fbbf24;">📝 블로그 글 작성 패키지</div>
+                    <button onclick="copyShoppingBlogDraft()" style="padding:10px 18px;background:linear-gradient(135deg,#fbbf24,#f59e0b);color:#1f2937;border:none;border-radius:9px;font-size:12px;font-weight:800;cursor:pointer;box-shadow:0 4px 14px rgba(251,191,36,0.3);">📋 전체 초안 마크다운 복사</button>
+                  </div>
+                  <div style="font-size:11px;color:rgba(255,255,255,0.5);margin-bottom:8px;font-weight:600;letter-spacing:0.3px;">✨ 제목 후보 3개</div>
+                  ${titlesHtml}
+                  <div style="font-size:11px;color:rgba(255,255,255,0.5);margin:12px 0 8px;font-weight:600;letter-spacing:0.3px;">🏷️ 롱테일 키워드 태그 (${longtail.length}개)</div>
+                  <div style="display:flex;gap:6px;flex-wrap:wrap;">${tagsHtml}</div>
+                </div>
+              `;
+            }
 
             if (reco.length > 0) {
               html += `<div class="sc-reco-banner">💎 <b>블로그 글 작성용 추천 ${reco.length}개</b> — 가격 중앙값 근처 + 메이저 쇼핑몰 우선</div><div class="sc-grid" style="margin-bottom:20px;">${reco.map(renderShoppingCard).join('')}</div><div style="border-top:1px solid rgba(255,255,255,0.05);margin:20px 0;padding-top:16px;"><div style="font-size:13px;color:rgba(255,255,255,0.6);margin-bottom:10px;">📋 전체 검색 결과 ${items.length}개</div></div>`;
@@ -10491,6 +10521,33 @@
             resultsDiv.innerHTML = html;
           } catch (err) {
             resultsDiv.innerHTML = `<div style="text-align:center;padding:60px;color:#fb7185;"><div style="font-size:40px;">❌</div><div style="margin-top:12px;">${err.message}</div></div>`;
+          }
+        };
+
+        window.copyShoppingBlogDraft = function copyShoppingBlogDraft() {
+          const res = window.__scLastResult;
+          if (!res || !res.blogDraftMarkdown) {
+            alert('블로그 초안이 없습니다. 먼저 상품을 검색해주세요.');
+            return;
+          }
+          if (window.electronAPI && window.electronAPI.invoke) {
+            // Electron clipboard 이용
+            window.electronAPI.invoke('clipboard-write-text', res.blogDraftMarkdown).then(() => {
+              alert('✅ 블로그 초안 마크다운이 클립보드에 복사되었습니다!\n티스토리/네이버 블로그에 붙여넣으세요.');
+            }).catch(() => {
+              // Fallback: textarea 방식
+              try {
+                const ta = document.createElement('textarea');
+                ta.value = res.blogDraftMarkdown;
+                document.body.appendChild(ta);
+                ta.select();
+                document.execCommand('copy');
+                document.body.removeChild(ta);
+                alert('✅ 복사 완료!');
+              } catch (e) {
+                alert('복사 실패: ' + e.message);
+              }
+            });
           }
         };
 
@@ -12734,130 +12791,6 @@
         };
 
         // ⚡ 실시간 급상승 검색 (블랙키위 스타일!)
-        window.searchRealtimeRising = async function () {
-          const btn = document.getElementById('realtimeSearchBtn');
-          const resultsArea = document.getElementById('risingResultsArea');
-
-          if (!btn || !resultsArea) return;
-
-          btn.disabled = true;
-          btn.innerHTML = '⚡ 분석 중...';
-
-          resultsArea.innerHTML = `
-          < div style = "text-align: center; padding: 60px; color: rgba(255,255,255,0.7);" >
-          <div style="font-size: 48px; margin-bottom: 16px; animation: pulse 1s infinite;">📊</div>
-          <p style="margin: 0; font-size: 16px; font-weight: 600;">급상승 검색어 분석 중...</p>
-          <p style="margin: 8px 0 0; font-size: 13px; color: rgba(255,255,255,0.5);">4개 소스에서 수집 + 검색량 조회 중</p>
-        </div >
-          <style>
-            @keyframes pulse {0 %, 100 % { transform: scale(1); opacity: 1; } 50% {transform: scale(1.2); opacity: 0.8; } }
-          </style>
-        `;
-
-          try {
-            const result = await window.electronAPI.invoke('get-realtime-rising');
-
-            if (!result.success || !result.keywords || result.keywords.length === 0) {
-              resultsArea.innerHTML = `
-          < div style = "text-align: center; padding: 60px; color: rgba(255,255,255,0.5);" >
-              <div style="font-size: 48px; margin-bottom: 16px;">🤔</div>
-              <p style="margin: 0; font-size: 16px; font-weight: 600;">현재 급상승 키워드가 없습니다</p>
-              <p style="margin: 8px 0 0; font-size: 13px; color: rgba(255,255,255,0.4);">잠시 후 다시 시도하세요</p>
-            </div >
-          `;
-              return;
-            }
-
-            // 블랙키위 vs 우리 앱 비교 설명
-            let html = `
-          < div style = "margin-bottom: 20px; padding: 20px; background: linear-gradient(135deg, rgba(59, 130, 246, 0.15) 0%, rgba(139, 92, 246, 0.15) 100%); border-radius: 12px; border: 1px solid rgba(59, 130, 246, 0.3);" >
-            <h3 style="margin: 0 0 12px; color: #60a5fa; font-size: 18px; display: flex; align-items: center; gap: 8px;">
-              <span>📊</span>
-              <span>급상승 검색어 TOP ${result.keywords.length}</span>
-              <span style="padding: 3px 10px; background: rgba(34, 197, 94, 0.2); border-radius: 6px; font-size: 11px; color: #22c55e; font-weight: 600;">실시간</span>
-            </h3>
-            <div style="display: grid; grid-template-columns: 1fr 1fr; gap: 12px; margin-bottom: 12px; font-size: 12px;">
-              <div style="padding: 10px; background: rgba(0,0,0,0.2); border-radius: 8px;">
-                <div style="color: rgba(255,255,255,0.5); margin-bottom: 4px;">🎯 블랙키위</div>
-                <div style="color: rgba(255,255,255,0.9); font-size: 11px; line-height: 1.5;">
-                  • 네이버 데이터랩 (공개 키워드만)<br>
-                  • 검색량 증가량 표시
-                </div>
-              </div>
-              <div style="padding: 10px; background: rgba(34, 197, 94, 0.15); border-radius: 8px;">
-                <div style="color: #22c55e; margin-bottom: 4px;">⚡ 우리 앱 (더 빠름!)</div>
-                <div style="color: rgba(255,255,255,0.9); font-size: 11px; line-height: 1.5;">
-                  • 4개 소스 실시간 크롤링<br>
-                  • 비공개 키워드도 포함 + 월간 검색량
-                </div>
-              </div>
-            </div>
-            <p style="margin: 0; font-size: 12px; color: rgba(255,255,255,0.6);">💡 클릭하면 키워드 복사됩니다</p>
-          </div >
-          `;
-
-            result.keywords.forEach((kw, idx) => {
-              // 순위 아이콘 (1~3위는 메달)
-              let rankIcon = '';
-              let rankColor = '#9ca3af';
-              if (idx === 0) { rankIcon = '🥇'; rankColor = '#fbbf24'; }
-              else if (idx === 1) { rankIcon = '🥈'; rankColor = '#9ca3af'; }
-              else if (idx === 2) { rankIcon = '🥉'; rankColor = '#d97706'; }
-              else { rankIcon = (idx + 1).toString(); }
-
-              // 검색량 색상 (높을수록 진한 파란색)
-              const volume = (typeof kw.searchVolume === 'number' && isFinite(kw.searchVolume)) ? kw.searchVolume : 0;
-              let volumeColor = '#60a5fa';
-              if (volume >= 100000) volumeColor = '#22c55e';
-              else if (volume >= 50000) volumeColor = '#3b82f6';
-              else if (volume >= 10000) volumeColor = '#6366f1';
-
-              const volumeDisplay = kw.searchVolumeFormatted || '-';
-
-              // 소스 표시
-              const sourceBadges = kw.sources.map(s => {
-                const colors = { naver: '#03C75A', zum: '#4A90E2', nate: '#FF6B00', daum: '#3B5998' };
-                return '<span style="display: inline-block; padding: 2px 6px; background: ' + (colors[s] || '#666') + '; border-radius: 4px; font-size: 9px; font-weight: 600; color: white; margin-right: 3px;">' + s.toUpperCase() + '</span>';
-              }).join('');
-
-              html += `
-          < div onclick = "copyToClipboard('${kw.keyword.replace(/'/g, "\\'")}') " style="display: flex; align - items: center; padding: 14px 16px; background: ${idx % 2 === 0 ? 'rgba(255,255,255,0.03)' : 'transparent'}; border - radius: 10px; margin - bottom: 4px; cursor: pointer; transition: all 0.2s; " onmouseover="this.style.background = 'rgba(59,130,246,0.1)'" onmouseout="this.style.background = '${idx % 2 === 0 ? 'rgba(255, 255, 255, 0.03)' : 'transparent'}'">
-            < div style = "width: 36px; height: 36px; display: flex; align-items: center; justify-content: center; font-size: ${idx < 3 ? '22px' : '16px'}; font-weight: 800; color: ${rankColor}; flex-shrink: 0;" >
-              ${rankIcon}
-              </div >
-              <div style="flex: 1; min-width: 0; margin-left: 12px;">
-                <div style="font-size: 15px; font-weight: 600; color: white; margin-bottom: 3px; overflow: hidden; text-overflow: ellipsis; white-space: nowrap;">${kw.keyword}</div>
-                <div style="display: flex; align-items: center; gap: 8px;">
-                  ${sourceBadges}
-                  <span style="font-size: 11px; color: rgba(255,255,255,0.4);">관련 뉴스 📰</span>
-                </div>
-                ${kw.opportunity ? '<div style="font-size: 11px; color: rgba(255,255,255,0.5); margin-top: 3px; line-height: 1.3;">' + kw.opportunity + '</div>' : ''}
-              </div>
-              <div style="text-align: right; flex-shrink: 0; min-width: 70px; display: flex; flex-direction: column; align-items: flex-end; gap: 4px;">
-                <div style="font-size: 16px; font-weight: 700; color: ${volumeColor};">${volumeDisplay}</div>
-                ${kw.grade ? '<span style="background: ' + ({ 'SSS': '#dc2626', 'SS': '#ea580c', 'S': '#22c55e', 'A': '#3b82f6', 'B': '#fbbf24' }[kw.grade] || '#94a3b8') + '; color: white; padding: 3px 8px; border-radius: 6px; font-size: 11px; font-weight: 800;">' + kw.grade + '</span>' : ''}
-              </div>
-            </div >
-          `;
-            });
-
-            resultsArea.innerHTML = html;
-
-          } catch (error) {
-            console.error('[REALTIME-RISING] 오류:', error);
-            resultsArea.innerHTML = `
-          < div style = "text-align: center; padding: 60px; color: rgba(239, 68, 68, 0.8);" >
-            <div style="font-size: 48px; margin-bottom: 16px;">❌</div>
-            <p style="margin: 0; font-size: 16px; font-weight: 600;">오류가 발생했습니다</p>
-            <p style="margin: 8px 0 0; font-size: 13px; color: rgba(255,255,255,0.4);">${error.message || '잠시 후 다시 시도해주세요'}</p>
-          </div >
-          `;
-          } finally {
-            btn.disabled = false;
-            btn.innerHTML = '🔄 새로고침';
-          }
-        };
-
         function renderMagicResults() {
           const { keywords, displayCount, userType, maxCount, upgradeMsg } = window.lastMagicResults;
           const resultArea = document.getElementById('magicResultArea');
