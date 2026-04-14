@@ -4,7 +4,6 @@ import { setupWindowHandler } from './handlers/window-handler';
 import { setupKeywordDiscoveryHandlers } from './handlers/keyword-discovery';
 import { setupKeywordAnalysisHandlers } from './handlers/keyword-analysis';
 import { setupPremiumHuntingHandlers } from './handlers/premium-hunting';
-import { setupRpmHandlers } from './handlers/rpm-handlers';
 import { setupScheduleDashboardHandlers } from './handlers/schedule-dashboard';
 import { setupConfigUtilityHandlers } from './handlers/config-utility';
 import { setupLicenseHandlers } from './handlers/license-handlers';
@@ -22,9 +21,7 @@ export function setupKeywordMasterHandlers() {
     'find-golden-keywords',
     'get-realtime-keywords',
     'get-trending-keywords',
-    'hunt-timing-gold',
     'check-keyword-rank',
-    'get-youtube-videos',
     'get-env',
     'save-env',
     'check-api-keys',
@@ -36,10 +33,7 @@ export function setupKeywordMasterHandlers() {
     'infinite-keyword-search',
     'export-keywords-to-excel',
     'get-keyword-expansions',
-    'get-rising-keywords',
-    'get-realtime-rising',
-    'search-suffix-keywords',
-    'analyze-keyword-competition'
+    'search-suffix-keywords'
   ];
 
   handlerNames.forEach(name => {
@@ -60,7 +54,6 @@ export function setupKeywordMasterHandlers() {
   setupKeywordDiscoveryHandlers();
   setupKeywordAnalysisHandlers();
   setupPremiumHuntingHandlers();
-  setupRpmHandlers();
   setupScheduleDashboardHandlers();
   setupConfigUtilityHandlers();
   setupLicenseHandlers();

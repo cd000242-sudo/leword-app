@@ -764,6 +764,36 @@ export function setupConfigUtilityHandlers(): void {
     console.log('[KEYWORD-MASTER] ✅ search-kin-questions 핸들러 등록 완료');
   }
 
+  // 🛒 쇼핑 커넥트 — 네이버 쇼핑 상품 발굴
+  if (!ipcMain.listenerCount('shopping-connect-search')) {
+    ipcMain.handle('shopping-connect-search', async (_event, params: any) => {
+      try {
+        const keyword = String(params?.keyword ?? '').trim();
+        if (!keyword) {
+          return { success: false, error: '키워드를 입력해주세요.' };
+        }
+        const sort = (params?.sort ?? 'sim') as 'sim' | 'date' | 'asc' | 'dsc';
+        const display = Math.min(Math.max(Number(params?.display) || 30, 1), 100);
+
+        const { searchNaverShopping, pickBlogRecommendedItems } = await import('../../utils/naver-shopping-api');
+        const result = await searchNaverShopping(keyword, { display, sort });
+        const recommended = pickBlogRecommendedItems(result.items, 10);
+
+        return {
+          success: true,
+          keyword,
+          total: result.total,
+          items: result.items,
+          recommended,
+        };
+      } catch (err: any) {
+        console.error('[SHOPPING-CONNECT] 오류:', err?.message ?? err);
+        return { success: false, error: err?.message ?? '쇼핑 검색 실패' };
+      }
+    });
+    console.log('[KEYWORD-MASTER] ✅ shopping-connect-search 핸들러 등록 완료');
+  }
+
   // 🔥 100점짜리 뉴스 스니펫 크롤링 (IPC 핸들러)
   ipcMain.handle('crawl-news-snippets', async (_event, keyword: string) => {
     console.log(`[KEYWORD-MASTER] 뉴스 스니펫 크롤링 요청: "${keyword}" (Puppeteer via Main)`);

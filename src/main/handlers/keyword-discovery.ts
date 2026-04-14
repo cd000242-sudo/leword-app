@@ -11,14 +11,11 @@ import { getYouTubeTrendKeywords } from '../../utils/youtube-data-api';
 import { EnvironmentManager } from '../../utils/environment-manager';
 import { TimingGoldenFinder, KeywordData, TimingScore } from '../../utils/timing-golden-finder';
 import { getAllRealtimeKeywords, getZumRealtimeKeywords, getGoogleRealtimeKeywords, getNateRealtimeKeywords, getDaumRealtimeKeywords, getNaverRealtimeKeywords, RealtimeKeyword } from '../../utils/realtime-search-keywords';
-import { findRisingKeywords } from '../../utils/rising-keyword-finder';
-import { detectRealtimeRising } from '../../utils/realtime-rising-detector';
 import { getDaumRealtimeKeywordsWithPuppeteer } from '../../utils/daum-realtime-api';
 import { getNateRealtimeKeywordsWithPuppeteer } from '../../utils/nate-realtime-api';
 import { analyzeKeywordTrendingReason } from '../../utils/keyword-trend-analyzer';
 import { validateKeyword, validateKeywords } from '../../utils/keyword-validator';
 import * as licenseManager from '../../utils/licenseManager';
-import { huntLiteTrafficKeywords, getLiteTrafficCategories, LiteTrafficKeyword } from '../../utils/lite-traffic-keyword-hunter';
 import { MDPEngine, MDPResult } from '../../utils/mdp-engine';
 import { keywordDiscoveryAbortMap, checkUnlimitedLicense } from './shared';
 
@@ -1936,104 +1933,6 @@ export function setupKeywordDiscoveryHandlers(): void {
   // 🔥 트래픽 폭발 키워드 헌터 라이트
   // - 3개월 이상 사용자: 무제한 사용
   // - 무료 사용자: 하루 5회 제한
-  ipcMain.handle('hunt-timing-gold', async (_event, options?: any) => {
-    // 파라미터 파싱 (객체 또는 문자열)
-    const category = typeof options === 'object' ? (options?.category || 'all') : (options || 'all');
-    const forceRefresh = typeof options === 'object' ? (options?.refresh !== false) : true;
-    const requestedCountRaw = typeof options === 'object'
-      ? (options?.count ?? options?.limit ?? 20)
-      : 20;
-    const requestedCountNum = typeof requestedCountRaw === 'number'
-      ? requestedCountRaw
-      : Number(String(requestedCountRaw || '').replace(/,/g, '').trim());
-    const requestedCount = Number.isFinite(requestedCountNum) ? requestedCountNum : 20;
-    const count = Math.max(5, Math.min(50, Math.floor(requestedCount)));
-
-    console.log('[KEYWORD-MASTER] 🌶️ 트래픽 폭발 키워드 헌터 Lite+ 시작:', category, '| refresh:', forceRefresh);
-
-    // 🔒 라이선스 체크 (무료 사용자 5회/일 허용)
-    const license = await licenseManager.loadLicense();
-    const usageKey = `timing-gold-usage-${new Date().toISOString().split('T')[0]}`;
-    const userDataPath = app.getPath('userData');
-    const usageFilePath = path.join(userDataPath, 'usage-tracking.json');
-
-    let usageData: Record<string, number> = {};
-    try {
-      if (fs.existsSync(usageFilePath)) {
-        usageData = JSON.parse(fs.readFileSync(usageFilePath, 'utf8'));
-      }
-    } catch (e) {
-      usageData = {};
-    }
-
-    const todayUsage = usageData[usageKey] || 0;
-    const FREE_DAILY_LIMIT = 5;
-
-    const isPremium = license && license.isValid && (
-      license.plan === '3months' ||
-      license.plan === '1year' ||
-      license.plan === 'unlimited' ||
-      license.licenseType === '3months' ||
-      license.licenseType === '1year' ||
-      license.licenseType === 'unlimited'
-    );
-
-    // 🔍 디버깅 로그
-    console.log('[TIMING-GOLD] 라이선스 상태:', {
-      hasLicense: !!license,
-      isValid: license?.isValid,
-      plan: license?.plan,
-      licenseType: license?.licenseType,
-      isPremium,
-      todayUsage,
-      remainingFreeUses: FREE_DAILY_LIMIT - todayUsage
-    });
-
-    if (!isPremium && todayUsage >= FREE_DAILY_LIMIT) {
-      console.log('[TIMING-GOLD] ❌ 무료 사용자 일일 제한 초과');
-      return {
-        error: '일일 사용 제한 초과',
-        message: `무료 사용자는 하루 ${FREE_DAILY_LIMIT}회까지 사용 가능합니다.\n오늘 ${todayUsage}회 사용하셨습니다.\n더 많은 기능을 원하시면 프리미엄으로 업그레이드하세요!`,
-        requiresPremium: true,
-        keywords: []
-      };
-    }
-
-    if (!isPremium) {
-      const newUsage = todayUsage + 1;
-      usageData[usageKey] = newUsage;
-      console.log(`[TIMING-GOLD] ✅ 무료 사용자 사용 (${newUsage}/${FREE_DAILY_LIMIT}회)`);
-      try {
-        fs.writeFileSync(usageFilePath, JSON.stringify(usageData, null, 2));
-      } catch (e) {
-        console.warn('[TIMING-GOLD] 사용 횟수 저장 실패:', e);
-      }
-    } else {
-      console.log('[TIMING-GOLD] ✅ 프리미엄 사용자 (무제한)');
-    }
-
-    // 🌶️ Lite+ 유틸 함수 호출 (100% 실제 API 데이터!)
-    try {
-      const result = await huntLiteTrafficKeywords({
-        category: category || 'all',
-        count,
-        forceRefresh: forceRefresh
-      });
-
-      console.log(`[KEYWORD-MASTER] ✅ Lite+ 결과: ${result.keywords.length}개 키워드`);
-
-      // 기존 형식과 호환되도록 반환
-      return result.keywords;
-
-    } catch (error: any) {
-      console.error('[KEYWORD-MASTER] ❌ Lite+ 헌팅 실패:', error);
-      return {
-        error: '키워드 헌팅 실패',
-        message: error.message || '키워드 헌팅 중 오류가 발생했습니다.',
-        keywords: []
-      };
-    }
-  });
 
   // ========== hunt-timing-gold 핸들러 종료 - Lite+ 시스템으로 교체됨 ==========
 
@@ -3002,67 +2901,8 @@ export function setupKeywordDiscoveryHandlers(): void {
   }
   // =============== 구버전 코드 비활성화 블록 종료 ===============
 
-  if (!ipcMain.listenerCount('get-rising-keywords')) {
-    ipcMain.handle('get-rising-keywords', async (_event, options: {
-      seedKeywords?: string[];
-      minGrowthRate?: number;
-      lookbackDays?: number;
-      maxResults?: number;
-    } = {}) => {
-      try {
-        console.log('[RISING-KEYWORDS] 급상승 키워드 검색 시작:', options);
-
-        const risingKeywords = await findRisingKeywords(
-          options.seedKeywords,
-          {
-            minGrowthRate: options.minGrowthRate || 50,
-            lookbackDays: options.lookbackDays || 7,
-            maxResults: options.maxResults || 20
-          }
-        );
-
-        return {
-          success: true,
-          keywords: risingKeywords,
-          count: risingKeywords.length
-        };
-      } catch (error: any) {
-        console.error('[RISING-KEYWORDS] 오류:', error);
-        return {
-          success: false,
-          keywords: [],
-          error: error.message || '급상승 키워드 검색 실패'
-        };
-      }
-    });
-    console.log('[KEYWORD-MASTER] ✅ get-rising-keywords 핸들러 등록 완료');
-  }
 
   // 🔥 진짜 실시간 급상승 키워드 감지
-  if (!ipcMain.listenerCount('get-realtime-rising')) {
-    ipcMain.handle('get-realtime-rising', async () => {
-      try {
-        console.log('[REALTIME-RISING] 실시간 급상승 감지 시작...');
-
-        const risingKeywords = await detectRealtimeRising();
-
-        return {
-          success: true,
-          keywords: risingKeywords,
-          count: risingKeywords.length,
-          timestamp: new Date().toISOString()
-        };
-      } catch (error: any) {
-        console.error('[REALTIME-RISING] 오류:', error);
-        return {
-          success: false,
-          keywords: [],
-          error: error.message || '실시간 급상승 감지 실패'
-        };
-      }
-    });
-    console.log('[KEYWORD-MASTER] ✅ get-realtime-rising 핸들러 등록 완료');
-  }
 
   // 🔥 라이트 백업 황금키워드 생성 (무료 사용자용)
   function generateLiteBackupKeywords(seedKeyword: string) {

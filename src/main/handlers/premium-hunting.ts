@@ -6,14 +6,6 @@ import { getNaverKeywordSearchVolumeSeparate } from '../../utils/naver-datalab-a
 import { getNaverSearchAdKeywordSuggestions } from '../../utils/naver-searchad-api';
 import { EnvironmentManager } from '../../utils/environment-manager';
 import * as licenseManager from '../../utils/licenseManager';
-import {
-  generateCategoryLongtailKeywords,
-  getAvailableCategories,
-  getAvailableTargets,
-  getRecommendedCombinations,
-  CategoryLongtailOptions,
-  setApiConfigs
-} from '../../utils/category-longtail-keyword-hunter';
 import { huntProTrafficKeywords, getProTrafficCategories } from '../../utils/pro-traffic-keyword-hunter';
 import { getRelatedKeywords as getRelatedKeywordsFromCache } from '../../utils/related-keyword-cache';
 
@@ -467,76 +459,6 @@ export function setupPremiumHuntingHandlers(): void {
     }
   });
 
-  if (!ipcMain.listenerCount('hunt-category-longtail-keywords')) {
-    ipcMain.handle('hunt-category-longtail-keywords', async (_event, options: {
-      category: string;
-      target: string;
-      count?: number;
-      includeYear?: boolean;
-      buyIntentOnly?: boolean;
-    }) => {
-      try {
-        console.log('[CATEGORY-LONGTAIL] 🎯 황금 롱테일 키워드 발굴 시작');
-        console.log(`[CATEGORY-LONGTAIL] 카테고리: ${options.category}, 타겟: ${options.target}`);
-
-        // API 설정 로드
-        const envManager = EnvironmentManager.getInstance();
-        const env = (envManager as any).config || {};
-        setApiConfigs(
-          {
-            clientId: env.naverClientId || process.env['NAVER_CLIENT_ID'] || '',
-            clientSecret: env.naverClientSecret || process.env['NAVER_CLIENT_SECRET'] || ''
-          },
-          {
-            accessLicense: env.naverSearchAdAccessLicense || process.env['NAVER_SEARCH_AD_ACCESS_LICENSE'] || '',
-            secretKey: env.naverSearchAdSecretKey || process.env['NAVER_SEARCH_AD_SECRET_KEY'] || '',
-            customerId: env.naverSearchAdCustomerId || process.env['NAVER_SEARCH_AD_CUSTOMER_ID'] || ''
-          }
-        );
-
-        const longtailOptions: CategoryLongtailOptions = {
-          category: options.category || '제품리뷰',
-          target: options.target || '시니어',
-          count: Math.min(Math.max(options.count || 30, 10), 100),
-          includeYear: options.includeYear !== false,
-          buyIntentOnly: options.buyIntentOnly || false
-        };
-
-        let keywords = await generateCategoryLongtailKeywords(longtailOptions);
-
-        // 🔥 결과가 없으면 백업 롱테일 키워드 제공
-        if (!keywords || keywords.length === 0) {
-          console.log('[CATEGORY-LONGTAIL] ⚠️ API 결과 없음, 백업 롱테일 키워드 제공');
-          keywords = getBackupLongtailKeywords(options.category, options.target);
-        }
-
-        console.log(`[CATEGORY-LONGTAIL] ✅ ${keywords.length}개 황금 키워드 발굴 완료`);
-
-        return {
-          success: true,
-          category: longtailOptions.category,
-          target: longtailOptions.target,
-          count: keywords.length,
-          keywords: keywords,
-          message: `${longtailOptions.target} 타겟의 ${longtailOptions.category} 카테고리에서 ${keywords.length}개의 황금 롱테일 키워드를 찾았습니다.`
-        };
-
-      } catch (error: any) {
-        console.error('[CATEGORY-LONGTAIL] ❌ 오류:', error);
-        // 🔥 오류 시에도 백업 키워드 제공
-        const backupKeywords = getBackupLongtailKeywords(options?.category || '제품리뷰', options?.target || '30대');
-        return {
-          success: true,
-          category: options?.category || '제품리뷰',
-          target: options?.target || '30대',
-          count: backupKeywords.length,
-          keywords: backupKeywords,
-          message: `백업 황금 롱테일 키워드 ${backupKeywords.length}개를 제공합니다.`
-        };
-      }
-    });
-    console.log('[KEYWORD-MASTER] ✅ hunt-category-longtail-keywords 핸들러 등록 완료');
-  }
 
   function getBackupLongtailKeywords(category: string, target: string) {
     const currentYear = new Date().getFullYear();
@@ -700,65 +622,8 @@ export function setupPremiumHuntingHandlers(): void {
     }));
   }
 
-  if (!ipcMain.listenerCount('get-available-categories')) {
-    ipcMain.handle('get-available-categories', async () => {
-      try {
-        const categories = getAvailableCategories();
-        return {
-          success: true,
-          categories: categories,
-          count: categories.length
-        };
-      } catch (error: any) {
-        return {
-          success: false,
-          categories: [],
-          message: error.message
-        };
-      }
-    });
-    console.log('[KEYWORD-MASTER] ✅ get-available-categories 핸들러 등록 완료');
-  }
 
-  if (!ipcMain.listenerCount('get-available-targets')) {
-    ipcMain.handle('get-available-targets', async () => {
-      try {
-        const targets = getAvailableTargets();
-        return {
-          success: true,
-          targets: targets,
-          count: targets.length
-        };
-      } catch (error: any) {
-        return {
-          success: false,
-          targets: [],
-          message: error.message
-        };
-      }
-    });
-    console.log('[KEYWORD-MASTER] ✅ get-available-targets 핸들러 등록 완료');
-  }
 
-  if (!ipcMain.listenerCount('get-recommended-combinations')) {
-    ipcMain.handle('get-recommended-combinations', async () => {
-      try {
-        const combinations = getRecommendedCombinations();
-        return {
-          success: true,
-          combinations: combinations,
-          count: combinations.length
-        };
-      } catch (error: any) {
-        return {
-          success: false,
-          combinations: [],
-          message: error.message
-        };
-      }
-    });
-    console.log('[KEYWORD-MASTER] ✅ get-recommended-combinations 핸들러 등록 완료');
-  }
 
   // 🏆 PRO 트래픽 키워드 헌터 (프리미엄 기능 - 1년/영구제 모두 사용 가능)
   if (!ipcMain.listenerCount('hunt-pro-traffic-keywords')) {
