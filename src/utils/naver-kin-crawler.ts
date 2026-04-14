@@ -578,6 +578,11 @@ export async function searchKinQuestions(isPremium: boolean = false): Promise<Ki
 // 유틸리티
 // ============================================================
 
+/**
+ * Phase 1: 통합 config로 델리게이트.
+ * 모든 지식인 scoring은 naver-kin-golden-config.ts 의 단일 소스를 사용.
+ * blogLinks 패널티는 config가 다루지 않으므로 여기서 후처리로 감점.
+ */
 function calculateGoldenScore(
   viewCount: number,
   answerCount: number,
@@ -585,31 +590,16 @@ function calculateGoldenScore(
   hasBlogLinks: boolean,
   blogLinkCount: number
 ): number {
-  let score = 50;
-  
-  // 조회수 점수 (최대 +30)
-  if (viewCount >= 500) score += 30;
-  else if (viewCount >= 300) score += 25;
-  else if (viewCount >= 200) score += 20;
-  else if (viewCount >= 100) score += 15;
-  else if (viewCount >= 50) score += 10;
-  
-  // 답변수 점수 (적을수록 좋음, 최대 +25)
-  if (answerCount === 0) score += 25;
-  else if (answerCount === 1) score += 20;
-  else if (answerCount <= 2) score += 15;
-  else if (answerCount <= 3) score += 10;
-  else if (answerCount <= 5) score += 5;
-  else score -= 10;
-  
-  // 최신성 (최대 +10)
-  if (daysAgo <= 3) score += 10;
-  else if (daysAgo <= 7) score += 5;
-  
-  // 블로그 링크 패널티
-  if (hasBlogLinks) score -= Math.min(blogLinkCount * 5, 20);
-  
-  return Math.max(0, Math.min(100, score));
+  const { calculateGoldenScore: scoreFn } = require('./naver-kin-golden-config');
+  const base = scoreFn({
+    viewCount,
+    answerCount,
+    hoursAgo: Math.max(0, daysAgo) * 24,
+    likeCount: 0,
+    isAdopted: false,
+  });
+  const blogPenalty = hasBlogLinks ? Math.min(blogLinkCount * 5, 20) : 0;
+  return Math.max(0, Math.min(100, base - blogPenalty));
 }
 
 function generateGoldenReason(q: any): string {

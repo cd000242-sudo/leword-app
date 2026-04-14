@@ -1,0 +1,80 @@
+{
+  "summary": {
+    "runs": 5,
+    "successful": 5,
+    "failed": 0,
+    "wallMs": {
+      "min": 39375,
+      "p50": 40153,
+      "p95": 41433,
+      "max": 41433,
+      "avg": 40238
+    },
+    "avgCrawled": 15,
+    "avgGolden": 15,
+    "avgRssDeltaMb": 0.1,
+    "timestamp": "2026-04-14T09:39:12.400Z"
+  },
+  "results": [
+    {
+      "run": 1,
+      "wallMs": 41433,
+      "rssBeforeMb": 165,
+      "rssAfterMb": 161.7,
+      "rssDeltaMb": -3.3,
+      "totalCrawled": 15,
+      "goldenFound": 15,
+      "sssCount": 0,
+      "ssCount": 1,
+      "sCount": 14
+    },
+    {
+      "run": 2,
+      "wallMs": 40153,
+      "rssBeforeMb": 161.7,
+      "rssAfterMb": 165.4,
+      "rssDeltaMb": 3.7,
+      "totalCrawled": 15,
+      "goldenFound": 15,
+      "sssCount": 0,
+      "ssCount": 1,
+      "sCount": 13
+    },
+    {
+      "run": 3,
+      "wallMs": 39375,
+      "rssBeforeMb": 165.4,
+      "rssAfterMb": 164.8,
+      "rssDeltaMb": -0.6,
+      "totalCrawled": 15,
+      "goldenFound": 15,
+      "sssCount": 0,
+      "ssCount": 0,
+      "sCount": 14
+    },
+    {
+      "run": 4,
+      "wallMs": 39847,
+      "rssBeforeMb": 164.8,
+      "rssAfterMb": 165.6,
+      "rssDeltaMb": 0.7,
+      "totalCrawled": 15,
+      "goldenFound": 15,
+      "sssCount": 0,
+      "ssCount": 0,
+      "sCount": 10
+    },
+    {
+      "run": 5,
+      "wallMs": 40382,
+      "rssBeforeMb": 165.6,
+      "rssAfterMb": 165.7,
+      "rssDeltaMb": 0.1,
+      "totalCrawled": 15,
+      "goldenFound": 15,
+      "sssCount": 0,
+      "ssCount": 0,
+      "sCount": 13
+    }
+  ]
+}

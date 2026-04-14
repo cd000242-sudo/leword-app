@@ -14,6 +14,7 @@ import StealthPlugin from 'puppeteer-extra-plugin-stealth';
 import type { Browser, Page } from 'puppeteer';
 import * as fs from 'fs';
 import * as path from 'path';
+import { gradeQuestion, type KinSignals } from './naver-kin-golden-config';
 
 puppeteer.use(StealthPlugin());
 
@@ -611,8 +612,8 @@ export async function getPopularQnA(): Promise<GoldenHuntResult> {
       });
       
       console.log(`  ✅ 메인 페이지: ${mainQuestions.length}개 발견`);
-    } catch (err) {
-      console.log(`  ⚠️ 메인 페이지 실패`);
+    } catch (err: any) {
+      console.warn(`[KIN] 메인 페이지 크롤 실패 | url=${mainUrl} | error=${err?.message ?? err}`);
     }
     
     // 🔥 카테고리별로도 수집 (보충)
@@ -634,11 +635,11 @@ export async function getPopularQnA(): Promise<GoldenHuntResult> {
         });
         
         console.log(`  ✅ ${cat.name}: ${questions.length}개`);
-      } catch (err) {
-        console.log(`  ⚠️ ${cat.name} 실패`);
+      } catch (err: any) {
+        console.warn(`[KIN] 카테고리 크롤 실패 | cat=${cat.name} | url=${url} | error=${err?.message ?? err}`);
       }
     }
-    
+
     console.log(`\n[STEP 2] 📊 상세 페이지에서 조회수/좋아요/답변수/날짜 크롤링...\n`);
     console.log(`  📋 총 ${allQuestions.length}개 수집됨\n`);
     
@@ -715,8 +716,8 @@ export async function getPopularQnA(): Promise<GoldenHuntResult> {
         q.hoursAgo = detail.hoursAgo;
         
         console.log(`  📊 조회 ${detail.viewCount}, 답변 ${detail.answerCount}, 좋아요 ${detail.likeCount}, 날짜: ${detail.dateText}`);
-      } catch (err) {
-        console.log(`  ⚠️ 상세 크롤링 실패`);
+      } catch (err: any) {
+        console.warn(`[KIN] 상세 크롤 실패 | url=${q.url} | title=${q.title?.substring(0, 40)} | error=${err?.message ?? err}`);
       }
     }
     
@@ -733,31 +734,20 @@ export async function getPopularQnA(): Promise<GoldenHuntResult> {
       weekQuestions = questionsToDetail;
     }
     
+    // Phase 1: 통합 config 함수로 scoring — 가중치 단일 소스
     const scoredQuestions = weekQuestions.map(q => {
-      let goldScore = 0;
-      
-      // 조회수 점수 (높을수록 좋음)
-      if (q.viewCount >= 100) goldScore += 40;
-      else if (q.viewCount >= 50) goldScore += 30;
-      else if (q.viewCount >= 20) goldScore += 20;
-      else if (q.viewCount >= 10) goldScore += 10;
-      
-      // 답변 없으면 보너스! (블로그 유입 기회)
-      if (q.answerCount === 0) goldScore += 35;
-      else if (q.answerCount === 1) goldScore += 20;
-      else if (q.answerCount <= 3) goldScore += 10;
-      
-      // 좋아요 없으면 보너스!
-      if (q.likeCount === 0) goldScore += 15;
-      
-      // 최신일수록 보너스
-      if (q.hoursAgo <= 24) goldScore += 10;
-      else if (q.hoursAgo <= 72) goldScore += 5;
-      
-      return { ...q, goldScore };
+      const signals: KinSignals = {
+        viewCount: Number(q.viewCount) || 0,
+        answerCount: Number(q.answerCount) || 0,
+        hoursAgo: Number(q.hoursAgo) || 999,
+        likeCount: Number(q.likeCount) || 0,
+        isAdopted: Boolean(q.isAdopted),
+      };
+      const { score, grade } = gradeQuestion(signals);
+      return { ...q, goldScore: score, kinGrade: grade };
     });
-    
-    // 황금 점수 높은 순 정렬
+
+    // 점수 높은 순 정렬
     scoredQuestions.sort((a, b) => b.goldScore - a.goldScore);
     
     // 🔥 15개!
@@ -771,16 +761,9 @@ export async function getPopularQnA(): Promise<GoldenHuntResult> {
     await page.close();
     
     const goldenQuestions: GoldenQuestion[] = topQuestions.map((q, idx) => {
-      // 🔥 황금 점수 계산 (답변 없고 조회수 높으면 최고!)
-      let score = (q as any).goldScore || 50;
-      
-      // 등급 계산
-      let grade: 'SSS' | 'SS' | 'S' | 'A' | 'B' | 'C' = 'A';
-      if (score >= 80) grade = 'SSS';
-      else if (score >= 65) grade = 'SS';
-      else if (score >= 50) grade = 'S';
-      else if (score >= 35) grade = 'A';
-      else grade = 'B';
+      // Phase 1: 통합 config가 이미 계산한 score/grade 사용
+      const score = (q as any).goldScore ?? 0;
+      const grade: 'SSS' | 'SS' | 'S' | 'A' | 'B' | 'C' = (q as any).kinGrade ?? 'B';
       
       // 🔥 황금 이유 생성
       const timeText = q.hoursAgo <= 1 ? '방금' : 
@@ -858,19 +841,21 @@ export async function getPopularQnA(): Promise<GoldenHuntResult> {
       stats: {
         totalCrawled: topQuestions.length,
         goldenFound: goldenQuestions.length,
-        sssCount: 0,
+        sssCount: goldenQuestions.filter(q => q.goldenGrade === 'SSS').length,
         ssCount: goldenQuestions.filter(q => q.goldenGrade === 'SS').length,
         sCount: goldenQuestions.filter(q => q.goldenGrade === 'S').length,
-        avgViewCount: goldenQuestions.length > 0 
+        avgViewCount: goldenQuestions.length > 0
           ? Math.round(goldenQuestions.reduce((s, q) => s + q.viewCount, 0) / goldenQuestions.length)
           : 0,
-        avgAnswerCount: 0
+        avgAnswerCount: goldenQuestions.length > 0
+          ? Math.round(goldenQuestions.reduce((s, q) => s + q.answerCount, 0) / goldenQuestions.length * 10) / 10
+          : 0
       },
       categories: categories.map(c => c.name),
       timestamp: new Date().toISOString(),
       crawlTime
     };
-    
+
   } catch (error: any) {
     console.error('[ERROR] ❌ 오류:', error.message);
     await page.close();
@@ -1010,16 +995,21 @@ export async function getRisingQuestions(): Promise<GoldenHuntResult> {
     
     console.log(`\n[STEP 3] 🔥 급상승 ${risingQuestions.length}개!`);
     
-    // 결과 포맷팅
+    // 결과 포맷팅 — Phase 1 통합 scoring
     const goldenQuestions: GoldenQuestion[] = risingQuestions.map((q, idx) => {
-      let grade: 'SSS' | 'SS' | 'S' | 'A' | 'B' | 'C' = 'A';
-      if (q.viewsPerHour >= 100) grade = 'SSS';
-      else if (q.viewsPerHour >= 50) grade = 'SS';
-      else if (q.viewsPerHour >= 20) grade = 'S';
-      
+      const signals: KinSignals = {
+        viewCount: Number(q.viewCount) || 0,
+        answerCount: Number(q.answerCount) || 0,
+        hoursAgo: Number(q.hoursAgo) || 999,
+        likeCount: 0, // 급상승 탭은 좋아요 미수집
+        isAdopted: false,
+        viewsPerHour: Number(q.viewsPerHour) || 0,
+      };
+      const { score, grade } = gradeQuestion(signals);
+
       let timeText = '방금';
       if (q.hoursAgo > 0 && q.hoursAgo < 24) timeText = `${q.hoursAgo}시간 전`;
-      
+
       return {
         title: q.title,
         url: q.url,
@@ -1035,7 +1025,7 @@ export async function getRisingQuestions(): Promise<GoldenHuntResult> {
         linkTypes: [],
         isAdopted: false,
         isExpertOnly: false,
-        goldenScore: Math.min(100, q.viewsPerHour),
+        goldenScore: score,
         goldenGrade: grade,
         goldenReason: `🔥 ${timeText} | 조회 ${q.viewCount.toLocaleString()} | ${q.viewsPerHour}회/시간`,
         estimatedDailyTraffic: q.viewsPerHour >= 50 ? '🔥 폭발' : '📈 상승',
@@ -1389,15 +1379,20 @@ export async function fullHunt(): Promise<GoldenHuntResult> {
     await page.close();
     
     const goldenQuestions: GoldenQuestion[] = validQuestions.slice(0, 30).map((q, idx) => {
-      // 🔥 NaN 방지: 기본값 설정
-      const safeScore = isNaN(q.hiddenScore) ? 50 : (q.hiddenScore || 50);
-      const safeViewCount = isNaN(q.viewCount) ? 0 : (q.viewCount || 0);
-      const safeAnswerCount = isNaN(q.answerCount) ? 0 : (q.answerCount || 0);
-      const safeLikeCount = isNaN(q.likeCount) ? 0 : (q.likeCount || 0);
-      const safeHoursAgo = isNaN(q.hoursAgo) ? 999 : (q.hoursAgo || 999);
-      
-      // 🔥 등급 기준: 점수 기반 (답변0+좋아요0+3시간내 = 135점 = SSS)
-      const grade = safeScore >= 120 ? 'SSS' : safeScore >= 100 ? 'SS' : safeScore >= 80 ? 'S' : safeScore >= 60 ? 'A' : 'B';
+      // Phase 1: 입력 단계 정규화 (NaN 방어 상향 이동)
+      const safeViewCount = Number(q.viewCount) || 0;
+      const safeAnswerCount = Number(q.answerCount) || 0;
+      const safeLikeCount = Number(q.likeCount) || 0;
+      const safeHoursAgo = Number(q.hoursAgo) || 999;
+
+      // 통합 config로 scoring/grading
+      const { score: safeScore, grade } = gradeQuestion({
+        viewCount: safeViewCount,
+        answerCount: safeAnswerCount,
+        hoursAgo: safeHoursAgo,
+        likeCount: safeLikeCount,
+        isAdopted: Boolean(q.isAdopted),
+      });
       
       // 🔥 트래픽 표시 (조회수 기반)
       let trafficText = '';
@@ -1457,7 +1452,7 @@ export async function fullHunt(): Promise<GoldenHuntResult> {
         linkTypes: [],
         isAdopted: q.isAdopted || false,
         isExpertOnly: false,
-        goldenScore: Math.min(100, Math.max(0, safeScore)),
+        goldenScore: safeScore,
         goldenGrade: grade as any,
         goldenReason: reason,
         estimatedDailyTraffic: safeViewCount >= 200 ? '높음' : safeViewCount >= 50 ? '보통' : '성장중',

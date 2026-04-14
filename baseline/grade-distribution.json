@@ -1,0 +1,90 @@
+{
+  "sampleSize": 15,
+  "sources": [
+    {
+      "name": "getPopularQnA",
+      "count": 15,
+      "ms": 43199
+    },
+    {
+      "name": "getRisingQuestions",
+      "count": 0,
+      "ms": 3818
+    }
+  ],
+  "avgScore": 46.6,
+  "distribution": {
+    "SSS": {
+      "count": 2,
+      "pct": 13.3,
+      "avgScore": 64.5,
+      "avgViewCount": 894,
+      "avgAnswerCount": 3,
+      "sample": {
+        "title": "4\n\t\t\t\t\t\t\t2026 코첼라 저스틴 비버 빅뱅\n\t\t\t\t\t\t\t2026코",
+        "viewCount": 997,
+        "answerCount": 3,
+        "goldenScore": 64.5
+      }
+    },
+    "SS": {
+      "count": 2,
+      "pct": 13.3,
+      "avgScore": 51,
+      "avgViewCount": 3327,
+      "avgAnswerCount": 4,
+      "sample": {
+        "title": "3\n\t\t\t\t\t\t\t2026 전국 영어듣기 능력평가\n\t\t\t\t\t\t\t고2 영어듣",
+        "viewCount": 4806,
+        "answerCount": 4,
+        "goldenScore": 51
+      }
+    },
+    "S": {
+      "count": 8,
+      "pct": 53.3,
+      "avgScore": 45.7,
+      "avgViewCount": 1206,
+      "avgAnswerCount": 10,
+      "sample": {
+        "title": "휴대폰 액정이 나갔는데 수리비가 얼마정도 나오나요?????",
+        "viewCount": 66,
+        "answerCount": 1,
+        "goldenScore": 55.3
+      }
+    },
+    "A": {
+      "count": 3,
+      "pct": 20,
+      "avgScore": 34.3,
+      "avgViewCount": 2043,
+      "avgAnswerCount": 14.3,
+      "sample": {
+        "title": "21\n\t\t\t\t\t\t\t해외주식 양도소득세\n\t\t\t\t\t\t\t제가 주식계좌를 2개 ",
+        "viewCount": 302,
+        "answerCount": 11,
+        "goldenScore": 36.3
+      }
+    },
+    "B": {
+      "count": 0,
+      "pct": 0,
+      "avgScore": 0,
+      "avgViewCount": 0,
+      "avgAnswerCount": 0
+    },
+    "C": {
+      "count": 0,
+      "pct": 0,
+      "avgScore": 0,
+      "avgViewCount": 0,
+      "avgAnswerCount": 0
+    }
+  },
+  "dodCheck": {
+    "sssPct": 13.3,
+    "sssTarget": "5~15%",
+    "sssStatus": "PASS"
+  },
+  "timestamp": "2026-04-14T10:25:16.939Z"
+}
