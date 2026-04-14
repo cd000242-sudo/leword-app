@@ -640,47 +640,64 @@ export async function getPopularQnA(): Promise<GoldenHuntResult> {
       }
     }
 
-    console.log(`\n[STEP 2] 📊 상세 페이지에서 조회수/좋아요/답변수/날짜 크롤링...\n`);
+    console.log(`\n[STEP 2] 📊 상세 페이지 병렬 크롤링 (pool=4)...\n`);
     console.log(`  📋 총 ${allQuestions.length}개 수집됨\n`);
-    
-    // 🔥 2단계: 상세 페이지에서 조회수/좋아요/답변수/날짜 가져오기 (상위 25개)
-    const questionsToDetail = allQuestions.slice(0, 25);
-    
-    for (let i = 0; i < questionsToDetail.length; i++) {
-      const q = questionsToDetail[i];
-      console.log(`[DETAIL ${i + 1}/${questionsToDetail.length}] ${q.title.substring(0, 30)}...`);
-      
+
+    // Phase 4: 페이지 풀 4개로 상세 페이지 병렬 처리
+    // 풀 5+는 anti-bot 감지로 tail latency 폭증 → 4가 안전한 최대값
+    const questionsToDetail = allQuestions.slice(0, 20);
+    const POOL_SIZE = 4;
+
+    // 페이지 풀 생성 (각 페이지는 독립적인 네트워크/렌더 컨텍스트)
+    const detailPages = await Promise.all(
+      Array.from({ length: POOL_SIZE }, async () => {
+        const dp = await browser.newPage();
+        await dp.setViewport({ width: 1920, height: 1080 });
+        await dp.setUserAgent('Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/122.0.0.0 Safari/537.36');
+        await dp.setRequestInterception(true);
+        dp.on('request', req => {
+          const type = req.resourceType();
+          if (['font', 'media', 'image', 'stylesheet'].includes(type)) req.abort();
+          else req.continue();
+        });
+        return dp;
+      })
+    );
+
+    // 단일 질문 처리 함수 (페이지 풀 worker 공용)
+    const processDetail = async (detailPage: Page, q: any, idx: number) => {
+      const startMs = Date.now();
       try {
-        await page.goto(q.url, { waitUntil: 'domcontentloaded', timeout: 10000 });
-        await new Promise(r => setTimeout(r, 800));
-        
-        const detail = await page.evaluate(() => {
+        await detailPage.goto(q.url, { waitUntil: 'domcontentloaded', timeout: 10000 });
+
+        // Phase 4: 고정 sleep 대신 실제 셀렉터 노출 대기 (최대 1.5s)
+        try {
+          await detailPage.waitForSelector('#content, .question_header, .endContentsText, body', { timeout: 1500 });
+        } catch {
+          // 셀렉터가 안 나타나도 body는 있음 — evaluate 단계에서 처리
+        }
+
+        const detail = await detailPage.evaluate(() => {
           let viewCount = 0;
           let answerCount = 0;
           let likeCount = 0;
           let dateText = '';
           let hoursAgo = 24;
-          
-          // 🔥 질문 헤더 영역에서만 추출 (더 정확!)
+
           const questionHeader = document.querySelector('.question_header, .c-heading__content, .endContentsText, #content') as HTMLElement;
           const headerText = questionHeader?.innerText || '';
           const pageText = document.body.innerText || '';
-          
-          // 조회수
+
           const viewMatch = pageText.match(/조회[수\s:]*([0-9,]+)/);
           if (viewMatch) viewCount = parseInt(viewMatch[1].replace(/,/g, ''));
-          
-          // 답변수
+
           const answerMatch = pageText.match(/답변[수\s:]*(\d+)/);
           if (answerMatch) answerCount = parseInt(answerMatch[1]);
-          
-          // 좋아요 (공감수)
+
           const likeMatch = pageText.match(/공감[수\s:]*(\d+)|좋아요[수\s:]*(\d+)|UP\s*(\d+)/i);
           if (likeMatch) likeCount = parseInt(likeMatch[1] || likeMatch[2] || likeMatch[3] || '0');
-          
-          // 🔥 날짜 추출 - 헤더 영역 우선, 그 다음 전체 페이지
-          // 1. 상대적 시간 먼저 확인 (더 정확!)
-          if (headerText.includes('방금') || pageText.includes('방금')) { 
+
+          if (headerText.includes('방금') || pageText.includes('방금')) {
             dateText = '방금'; hoursAgo = 0;
           } else if (headerText.includes('분 전') || pageText.includes('분 전')) {
             const m = (headerText + pageText).match(/(\d+)\s*분\s*전/);
@@ -692,7 +709,6 @@ export async function getPopularQnA(): Promise<GoldenHuntResult> {
             const m = (headerText + pageText).match(/(\d+)\s*일\s*전/);
             if (m) { dateText = `${m[1]}일 전`; hoursAgo = parseInt(m[1]) * 24; }
           } else {
-            // 2. 작성일 형식 찾기 (헤더에서 우선)
             const dateMatch = headerText.match(/작성일\s*(\d{4})[\.\-](\d{1,2})[\.\-](\d{1,2})/) ||
                               headerText.match(/(\d{4})[\.\-](\d{1,2})[\.\-](\d{1,2})/) ||
                               pageText.match(/작성일\s*(\d{4})[\.\-](\d{1,2})[\.\-](\d{1,2})/);
@@ -705,21 +721,33 @@ export async function getPopularQnA(): Promise<GoldenHuntResult> {
               hoursAgo = Math.floor((Date.now() - posted.getTime()) / (1000 * 60 * 60));
             }
           }
-          
+
           return { viewCount, answerCount, likeCount, dateText, hoursAgo };
         });
-        
+
         q.viewCount = detail.viewCount;
         q.answerCount = detail.answerCount;
         q.likeCount = detail.likeCount;
         q.dateText = detail.dateText;
         q.hoursAgo = detail.hoursAgo;
-        
-        console.log(`  📊 조회 ${detail.viewCount}, 답변 ${detail.answerCount}, 좋아요 ${detail.likeCount}, 날짜: ${detail.dateText}`);
+
+        const ms = Date.now() - startMs;
+        console.log(`[DETAIL ${idx + 1}/${questionsToDetail.length}] ${ms}ms 조회=${detail.viewCount} 답변=${detail.answerCount} | ${q.title.substring(0, 30)}`);
       } catch (err: any) {
-        console.warn(`[KIN] 상세 크롤 실패 | url=${q.url} | title=${q.title?.substring(0, 40)} | error=${err?.message ?? err}`);
+        console.warn(`[KIN] 상세 크롤 실패 | url=${q.url} | error=${err?.message ?? err}`);
       }
-    }
+    };
+
+    // Round-robin 워커: 각 페이지는 자기 index부터 POOL_SIZE 간격으로 처리
+    const workers = detailPages.map((detailPage, workerIdx) => (async () => {
+      for (let i = workerIdx; i < questionsToDetail.length; i += POOL_SIZE) {
+        await processDetail(detailPage, questionsToDetail[i], i);
+      }
+    })());
+    await Promise.all(workers);
+
+    // 풀 정리
+    await Promise.all(detailPages.map(dp => dp.close().catch(() => {})));
     
     console.log(`\n[STEP 3] 🏆 황금 질문 선별...\n`);
     
