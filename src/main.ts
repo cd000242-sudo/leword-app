@@ -193,36 +193,19 @@ async function checkLicense(): Promise<boolean> {
     }
   }
 
-  // 라이선스 인증창 표시 (필수) - 인증될 때까지 반복
-  while (true) {
-    console.log('[LEWORD] 라이선스 인증창 표시');
-    const authResult = await showLicenseInputDialog();
+  // 라이선스 인증창 표시 (필수) — 창을 닫으면 바로 종료
+  console.log('[LEWORD] 라이선스 인증창 표시');
+  const authResult = await showLicenseInputDialog();
 
-    if (!authResult) {
-      console.log('[LEWORD] 라이선스 인증 취소됨');
-      // 사용자에게 선택권 제공
-      const choice = dialog.showMessageBoxSync({
-        type: 'warning',
-        title: '💎 LEWORD',
-        message: '라이선스 인증이 필요합니다.\n인증 후 LEWORD를 사용할 수 있습니다.',
-        buttons: ['다시 인증하기', '앱 종료'],
-        defaultId: 0,
-        cancelId: 1
-      });
-
-      if (choice === 1) {
-        // 앱 종료 선택
-        console.log('[LEWORD] 사용자가 앱 종료 선택');
-        app.quit();
-        return false;
-      }
-      continue; // 다시 인증창 표시
-    }
-
-    // 인증 성공 (showLicenseInputDialog에서 이미 검증 및 환영 화면 표시 완료)
-    console.log('[LEWORD] ✅ 라이선스 인증 성공:', authResult.plan);
-    return true;
+  if (!authResult) {
+    console.log('[LEWORD] 라이선스 인증 취소됨 — 앱 종료');
+    app.quit();
+    return false;
   }
+
+  // 인증 성공 (showLicenseInputDialog에서 이미 검증 및 환영 화면 표시 완료)
+  console.log('[LEWORD] ✅ 라이선스 인증 성공:', authResult.plan);
+  return true;
 }
 
 async function showLicenseInputDialog(): Promise<{ success: boolean; plan?: string; message?: string } | null> {
