@@ -13,7 +13,10 @@
     "postinstall": "node scripts/download-chromium.js",
     "dist": "npm run prepare-dist && npm run build && electron-builder",
     "dist:win": "npm run prepare-dist && npm run build && electron-builder --win",
-    "dist:mac": "npm run prepare-dist && npm run build && electron-builder --mac"
+    "dist:mac": "npm run prepare-dist && npm run build && electron-builder --mac",
+    "release": "npm run prepare-dist && npm run build && electron-builder --win --publish always && node scripts/publish-release.js",
+    "release:mac": "npm run prepare-dist && npm run build && electron-builder --mac --publish always && node scripts/publish-release.js",
+    "release:all": "npm run prepare-dist && npm run build && electron-builder --win --mac --publish always && node scripts/publish-release.js"
   },
   "keywords": [
     "keyword",
@@ -51,6 +54,7 @@
   "build": {
     "appId": "com.leword.app",
     "productName": "LEWORD",
+    "artifactName": "LEWORD-${version}.${ext}",
     "directories": {
       "output": "release"
     },
@@ -59,22 +63,14 @@
       "ui/**/*",
       "package.json"
     ],
+    "asarUnpack": [
+      "node_modules/sharp/**/*",
+      "node_modules/@img/**/*"
+    ],
     "win": {
       "target": [
         {
           "target": "nsis",
-          "arch": [
-            "x64"
-          ]
-        },
-        {
-          "target": "portable",
-          "arch": [
-            "x64"
-          ]
-        },
-        {
-          "target": "zip",
           "arch": [
             "x64"
           ]
@@ -84,13 +80,11 @@
     },
     "nsis": {
       "oneClick": false,
+      "perMachine": false,
       "allowToChangeInstallationDirectory": true,
       "createDesktopShortcut": true,
       "createStartMenuShortcut": true,
       "shortcutName": "LEWORD 키워드마스터"
-    },
-    "portable": {
-      "artifactName": "LEWORD-Portable-${version}.exe"
     },
     "mac": {
       "target": "dmg",
@@ -100,7 +94,8 @@
       {
         "provider": "github",
         "owner": "cd000242-sudo",
-        "repo": "leword-app"
+        "repo": "leword-app",
+        "releaseType": "release"
       }
     ]
   }
