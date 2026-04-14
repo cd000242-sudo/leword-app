@@ -64,13 +64,27 @@ puppeteer.use(StealthPlugin());
 // 🔧 설정
 // ============================================================
 
-const DEBUG_MODE = true; // 디버그 모드 ON
-const DEBUG_DIR = './debug-screenshots';
+// 디버그 모드: 환경변수로 활성화 (기본 off — 패키징 앱의 ./ 는 Program Files 라 쓰기 불가)
+const DEBUG_MODE = process.env.LEWORD_KIN_DEBUG === '1';
 const WAIT_TIME = 3000; // 페이지 로딩 대기 (3초)
 
-// 디버그 디렉토리 생성
-if (DEBUG_MODE && !fs.existsSync(DEBUG_DIR)) {
-  fs.mkdirSync(DEBUG_DIR, { recursive: true });
+// 디버그 디렉토리는 userData 경로로 — Program Files EPERM 회피
+function getDebugDir(): string {
+  try {
+    const { app } = require('electron');
+    return path.join(app.getPath('userData'), 'debug-screenshots');
+  } catch {
+    return path.join(process.cwd(), 'debug-screenshots');
+  }
+}
+
+if (DEBUG_MODE) {
+  try {
+    const dir = getDebugDir();
+    if (!fs.existsSync(dir)) fs.mkdirSync(dir, { recursive: true });
+  } catch (err: any) {
+    console.warn('[KIN] 디버그 디렉토리 생성 실패 (무시):', err?.message);
+  }
 }
 
 // ============================================================
@@ -209,7 +223,7 @@ async function debugSaveScreenshot(page: Page, name: string): Promise<void> {
   
   try {
     const timestamp = new Date().toISOString().replace(/[:.]/g, '-');
-    const filepath = path.join(DEBUG_DIR, `${name}-${timestamp}.png`);
+    const filepath = path.join(getDebugDir(),`${name}-${timestamp}.png`);
     await page.screenshot({ path: filepath, fullPage: false });
     console.log(`[DEBUG] 📸 스크린샷 저장: ${filepath}`);
   } catch (err) {
@@ -222,7 +236,7 @@ async function debugSaveHtml(page: Page, name: string): Promise<void> {
   
   try {
     const timestamp = new Date().toISOString().replace(/[:.]/g, '-');
-    const filepath = path.join(DEBUG_DIR, `${name}-${timestamp}.html`);
+    const filepath = path.join(getDebugDir(),`${name}-${timestamp}.html`);
     const html = await page.content();
     fs.writeFileSync(filepath, html, 'utf-8');
     console.log(`[DEBUG] 📄 HTML 저장: ${filepath}`);
