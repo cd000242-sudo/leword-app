@@ -9,6 +9,8 @@ import { setupConfigUtilityHandlers } from './handlers/config-utility';
 import { setupLicenseHandlers } from './handlers/license-handlers';
 import { registerYouTubeAnalysisHandlers } from './handlers/youtube-handlers';
 import { setupSourceSignalHandlers } from './handlers/source-signals';
+import { setupKeyWizardHandlers } from './handlers/key-wizard';
+import { startRefreshScheduler } from './key-wizard/refresh-scheduler';
 import { bootstrapSources } from '../utils/sources/source-bootstrap';
 import { startAutoHealthCheck } from '../utils/sources/health-checker';
 
@@ -62,6 +64,8 @@ export function setupKeywordMasterHandlers() {
   setupLicenseHandlers();
   registerYouTubeAnalysisHandlers();
   setupSourceSignalHandlers();
+  setupKeyWizardHandlers();
+  startRefreshScheduler();
 
   // v4.0: 17개 소스 부트스트랩 + 백그라운드 헬스체크 시작
   try {

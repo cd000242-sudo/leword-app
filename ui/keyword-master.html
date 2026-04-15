@@ -116,7 +116,7 @@
       border-radius: 24px;
       padding: 32px;
       box-shadow: 0 20px 60px rgba(0, 0, 0, 0.2);
-      backdrop-filter: blur(20px);
+      /* backdrop-filter 제거: position:fixed 자식 모달의 containing block을 깨던 원인 */
     }
 
     .page-header {
@@ -1070,13 +1070,29 @@
       </div>
     </div>
 
+    <!-- 사전 단계 가이드 모달 -->
+    <div id="kwGuideModal" style="display:none; position:fixed; inset:0; background:rgba(2,6,23,0.85); z-index:10010; align-items:center; justify-content:center;">
+      <div style="background:#0f172a; border:2px solid #4f46e5; border-radius:16px; padding:28px; max-width:600px; width:90%; max-height:90vh; overflow-y:auto;">
+        <div style="display:flex; justify-content:space-between; align-items:center; margin-bottom:16px;">
+          <h3 id="kwGuideTitle" style="margin:0; color:#f1f5f9; font-size:20px;"></h3>
+          <button onclick="kwCloseGuide()" style="padding:6px 12px; border:none; background:#475569; color:white; border-radius:6px; cursor:pointer;">✕</button>
+        </div>
+        <p id="kwGuideDescription" style="color:#94a3b8; font-size:13px; margin:0 0 20px;"></p>
+        <div id="kwGuideSteps"></div>
+        <div style="display:flex; gap:10px; margin-top:20px;">
+          <button id="kwGuideStartBtn" onclick="kwStartFromGuide()" style="flex:1; padding:12px; border:none; background:linear-gradient(135deg,#10b981,#059669); color:white; border-radius:10px; font-weight:700; font-size:14px; cursor:pointer;">🪄 자동 인증 시작</button>
+          <button onclick="kwCloseGuide()" style="padding:12px 20px; border:none; background:#475569; color:white; border-radius:10px; font-weight:700; font-size:14px; cursor:pointer;">취소</button>
+        </div>
+      </div>
+    </div>
+
     <!-- ============================================================
          🆕 v4.0 데이터 소스 패널 — 17개 신규 소스 통합 허브
          LITE: YouTube/위키/뽐뿌/Google PAA (무료)
          PRO:  쇼핑인사이트/TikTok/Threads/OpenAlex/Rakuten/빅카인즈/
                더쿠/보배/올리브영/무신사/Meta Ad Library/크림/나무위키
          ============================================================ -->
-    <div id="v4SourcesPanel" style="margin-bottom: 32px; padding: 24px; background: linear-gradient(135deg, #0f172a 0%, #1e293b 100%); border-radius: 20px; border: 2px solid #334155; box-shadow: 0 10px 40px rgba(0,0,0,0.3);">
+    <div id="v4SourcesPanel" style="display:none; margin-bottom: 32px; padding: 24px; background: linear-gradient(135deg, #0f172a 0%, #1e293b 100%); border-radius: 20px; border: 2px solid #334155; box-shadow: 0 10px 40px rgba(0,0,0,0.3);">
       <div style="display:flex; justify-content:space-between; align-items:center; margin-bottom:20px; flex-wrap:wrap; gap:12px;">
         <div>
           <h3 style="margin:0; font-size:22px; font-weight:800; color:#f1f5f9; display:flex; align-items:center; gap:10px;">
@@ -1183,6 +1199,198 @@
     </style>
 
     <script>
+      // ============================================================
+      // 🪄 Key Wizard 컨트롤러 (v2.4.0)
+      // ============================================================
+      const KW_PROVIDERS_CACHE = { list: [], states: {} };
+      let kwSelectedSite = null;
+
+      async function kwRefreshStatus() {
+        try {
+          const r = await window.electronAPI.invoke('keyWizard:status');
+          if (!r) return;
+          KW_PROVIDERS_CACHE.list = r.providers || [];
+          KW_PROVIDERS_CACHE.states = r.states || {};
+          kwRenderGrid();
+        } catch (err) {
+          console.error('[KW] status 조회 실패:', err);
+        }
+      }
+
+      function kwRenderGrid() {
+        const grid = document.getElementById('kwProviderGrid');
+        if (!grid) return;
+        const list = KW_PROVIDERS_CACHE.list;
+        const states = KW_PROVIDERS_CACHE.states;
+        if (!list.length) {
+          grid.innerHTML = '<div style="grid-column:1/-1; color:#a5b4fc; padding:20px; text-align:center;">Provider 정보 없음</div>';
+          return;
+        }
+        grid.innerHTML = list.map(p => {
+          const st = states[p.site] || {};
+          let badge = '<span style="padding:3px 10px; background:#475569; color:#cbd5e1; border-radius:12px; font-size:10px; font-weight:700;">미설정</span>';
+          if (st.configured) {
+            if (st.daysLeft != null && st.daysLeft < 7) {
+              badge = '<span style="padding:3px 10px; background:#f59e0b; color:white; border-radius:12px; font-size:10px; font-weight:700;">만료 D-' + st.daysLeft + '</span>';
+            } else {
+              badge = '<span style="padding:3px 10px; background:#10b981; color:white; border-radius:12px; font-size:10px; font-weight:700;">✓ 완료</span>';
+            }
+          }
+          const btnLabel = st.configured ? '재인증' : '자동 세팅';
+          const resetBtn = st.configured
+            ? '<button onclick="kwResetSite(\'' + p.site + '\')" style="padding:6px 10px; border:none; background:#7f1d1d; color:white; border-radius:6px; cursor:pointer; font-size:10px; font-weight:700;" title="토큰 초기화">🗑️</button>'
+            : '';
+          return '<div style="padding:14px; background:rgba(15,23,42,0.7); border:1px solid #334155; border-radius:12px;">'
+            + '<div style="display:flex; justify-content:space-between; align-items:center; margin-bottom:8px;">'
+            + '<div style="display:flex; align-items:center; gap:8px;"><span style="font-size:20px;">' + p.icon + '</span><strong style="color:#f1f5f9; font-size:13px;">' + p.displayName + '</strong></div>'
+            + badge
+            + '</div>'
+            + '<p style="margin:0 0 10px; color:#94a3b8; font-size:11px; line-height:1.4;">' + p.description + '</p>'
+            + '<div style="display:flex; gap:6px;">'
+            + '<button onclick="kwOpenGuide(\'' + p.site + '\')" style="flex:1; padding:8px; border:none; background:linear-gradient(135deg,#6366f1,#4f46e5); color:white; border-radius:8px; cursor:pointer; font-size:12px; font-weight:700;">🪄 ' + btnLabel + '</button>'
+            + resetBtn
+            + '</div>'
+            + '</div>';
+        }).join('');
+      }
+
+      function kwOpenGuide(site) {
+        const provider = KW_PROVIDERS_CACHE.list.find(p => p.site === site);
+        if (!provider) return;
+        kwSelectedSite = site;
+        document.getElementById('kwGuideTitle').textContent = provider.icon + ' ' + provider.displayName;
+        document.getElementById('kwGuideDescription').textContent = provider.description;
+        const stepsEl = document.getElementById('kwGuideSteps');
+        const steps = provider.preSteps || [];
+        if (!steps.length) {
+          stepsEl.innerHTML = '<div style="color:#94a3b8; padding:10px;">사전 준비 단계가 없습니다. 바로 시작할 수 있습니다.</div>';
+        } else {
+          stepsEl.innerHTML = steps.map((s, i) => {
+            let inputs = '';
+            if (s.inputs && s.inputs.length) {
+              inputs = '<div style="margin-top:8px;">' + s.inputs.map(inp => {
+                return '<div style="margin-bottom:6px;"><label style="display:block; color:#cbd5e1; font-size:11px; margin-bottom:3px;">' + inp.label + '</label>'
+                  + '<input type="' + (inp.secret ? 'password' : 'text') + '" data-kw-input="' + inp.key + '" placeholder="' + (inp.placeholder || '') + '" style="width:100%; padding:8px; background:#020617; border:1px solid #334155; border-radius:6px; color:#f1f5f9; font-size:12px;">'
+                  + '</div>';
+              }).join('') + '</div>';
+            }
+            const btn = s.externalUrl
+              ? '<button onclick="window.electronAPI.invoke(\'open-external-url\', \'' + s.externalUrl + '\')" style="margin-top:6px; padding:6px 12px; border:none; background:#1e40af; color:white; border-radius:6px; cursor:pointer; font-size:11px; font-weight:700;">🔗 페이지 열기</button>'
+              : '';
+            return '<div style="margin-bottom:14px; padding:12px; background:rgba(2,6,23,0.6); border-radius:8px; border-left:3px solid #6366f1;">'
+              + '<div style="color:#f1f5f9; font-size:13px; font-weight:700; margin-bottom:4px;">' + s.title + '</div>'
+              + '<div style="color:#94a3b8; font-size:11px; line-height:1.5;">' + s.description + '</div>'
+              + btn + inputs
+              + '</div>';
+          }).join('');
+        }
+        const modal = document.getElementById('kwGuideModal');
+        // backdrop-filter ancestor 회피: 첫 표시 시 body 직접 자식으로 이동
+        if (modal.parentElement !== document.body) {
+          document.body.appendChild(modal);
+        }
+        modal.style.display = 'flex';
+      }
+
+      function kwCloseGuide() {
+        document.getElementById('kwGuideModal').style.display = 'none';
+        kwSelectedSite = null;
+      }
+
+      async function kwStartFromGuide() {
+        if (!kwSelectedSite) return;
+        const site = kwSelectedSite;
+        // 사전 입력값 수집
+        const inputs = {};
+        document.querySelectorAll('[data-kw-input]').forEach(el => {
+          const k = el.getAttribute('data-kw-input');
+          if (k && el.value) inputs[k] = el.value.trim();
+        });
+
+        // OAuth 사이트는 사전 자격증명 저장 먼저
+        if ((site === 'youtube' || site === 'threads') && Object.keys(inputs).length) {
+          try {
+            await window.electronAPI.invoke('keyWizard:setOAuthCredentials', {
+              site,
+              credentials: inputs
+            });
+          } catch (err) {
+            alert('자격증명 저장 실패: ' + (err && err.message || err));
+            return;
+          }
+        }
+
+        kwCloseGuide();
+        kwShowProgress();
+        kwLog('▶ ' + site + ' 마법사 시작...');
+
+        try {
+          const result = await window.electronAPI.invoke('keyWizard:start', { site, args: inputs });
+          if (result && result.success) {
+            kwLog('✅ 성공: ' + (result.keys ? JSON.stringify(result.keys) : ''));
+            await kwRefreshStatus();
+          } else {
+            kwLog('❌ 실패: ' + (result && result.reason || '알 수 없는 오류'));
+            kwLog('💡 수동 입력 폼으로 전환하시려면 환경설정 하단 v4 패널의 수동 입력란을 사용하세요.');
+          }
+        } catch (err) {
+          kwLog('❌ 오류: ' + (err && err.message || err));
+        }
+      }
+
+      async function kwResetSite(site) {
+        if (!confirm(site + ' 인증을 초기화하시겠습니까? (저장된 토큰이 삭제됩니다)')) return;
+        try {
+          await window.electronAPI.invoke('keyWizard:reset', { site });
+          await kwRefreshStatus();
+          alert('초기화 완료');
+        } catch (err) {
+          alert('초기화 실패: ' + (err && err.message || err));
+        }
+      }
+
+      async function kwCancelWizard() {
+        try {
+          await window.electronAPI.invoke('keyWizard:cancel');
+          kwLog('🛑 사용자 취소 요청 전송');
+        } catch (err) {
+          kwLog('취소 실패: ' + (err && err.message || err));
+        }
+      }
+
+      function kwShowProgress() {
+        document.getElementById('kwProgressArea').style.display = 'block';
+        document.getElementById('kwProgressLog').textContent = '';
+      }
+
+      function kwLog(msg) {
+        const el = document.getElementById('kwProgressLog');
+        if (!el) return;
+        const ts = new Date().toLocaleTimeString();
+        el.textContent += '[' + ts + '] ' + msg + '\n';
+        el.scrollTop = el.scrollHeight;
+      }
+
+      // 진행 이벤트 수신 (try/catch로 등록 실패 시에도 후속 스크립트 차단 방지)
+      try {
+        if (window.electronAPI && typeof window.electronAPI.on === 'function') {
+          window.electronAPI.on('keyWizard:progress', (data) => {
+            if (data && data.message) kwLog('· ' + data.message);
+          });
+          window.electronAPI.on('keyWizard:result', (data) => {
+            if (!data) return;
+            kwLog(data.success ? '🎉 완료' : '⚠ 종료: ' + (data.reason || ''));
+          });
+        }
+      } catch (err) {
+        console.warn('[KW] 이벤트 구독 실패:', err);
+      }
+
+      // 환경설정 패널이 보일 때 자동 새로고침
+      window.addEventListener('DOMContentLoaded', () => {
+        setTimeout(kwRefreshStatus, 500);
+      });
+
       async function v4Call(btn) {
         const channel = btn.getAttribute('data-channel');
         const label = btn.innerText.split('\n')[0];
@@ -1694,6 +1902,36 @@
               </div>
               <p style="font-size: 14px; color: rgba(255, 255, 255, 0.7); margin: 8px 0 0 0;">키워드 조회에 필요한 API 키를 설정하세요
               </p>
+            </div>
+
+            <!-- ============================================================
+                 🪄 원클릭 API 키 세팅 마법사 (v2.4.0)
+                 OAuth + 클립보드 감시 하이브리드. Playwright 미사용.
+                 ============================================================ -->
+            <div id="keyWizardPanel" style="margin-bottom: 24px; padding: 20px; background: linear-gradient(135deg, #1e1b4b 0%, #312e81 100%); border-radius: 16px; border: 2px solid #4f46e5; box-shadow: 0 10px 40px rgba(79,70,229,0.3);">
+              <div style="display:flex; justify-content:space-between; align-items:center; margin-bottom:16px; flex-wrap:wrap; gap:12px;">
+                <div>
+                  <h3 style="margin:0; font-size:18px; font-weight:800; color:#f1f5f9; display:flex; align-items:center; gap:10px;">
+                    <span style="font-size:24px;">🪄</span>
+                    원클릭 API 키 세팅 마법사
+                    <span style="font-size:10px; padding:3px 10px; background:linear-gradient(135deg,#10b981,#059669); color:white; border-radius:20px; font-weight:700;">NEW v2.4</span>
+                  </h3>
+                  <p style="margin:6px 0 0; color:#c7d2fe; font-size:12px;">OAuth + 클립보드 감시로 6개 API 키를 자동 세팅 (Playwright 미사용)</p>
+                </div>
+                <button onclick="kwRefreshStatus()" style="padding:8px 14px; border:none; border-radius:8px; background:#4338ca; color:white; font-weight:700; font-size:11px; cursor:pointer;">🔄 새로고침</button>
+              </div>
+
+              <div id="kwProviderGrid" style="display:grid; grid-template-columns:repeat(auto-fill, minmax(260px, 1fr)); gap:10px;">
+                <div style="grid-column:1/-1; color:#a5b4fc; padding:16px; text-align:center;">로딩 중...</div>
+              </div>
+
+              <div id="kwProgressArea" style="display:none; margin-top:14px; padding:12px; background:#020617; border-radius:10px; max-height:180px; overflow-y:auto;">
+                <div style="display:flex; justify-content:space-between; align-items:center; margin-bottom:8px;">
+                  <span style="font-size:11px; font-weight:700; color:#a5b4fc;">📡 진행 로그</span>
+                  <button onclick="kwCancelWizard()" style="padding:4px 10px; border:none; background:#ef4444; color:white; border-radius:6px; cursor:pointer; font-size:10px; font-weight:700;">취소</button>
+                </div>
+                <pre id="kwProgressLog" style="margin:0; color:#a7f3d0; font-family:'D2Coding','Cascadia Code',monospace; font-size:10px; white-space:pre-wrap; line-height:1.5;"></pre>
+              </div>
             </div>
 
             <!-- API 키 입력 섹션 -->
@@ -9174,6 +9412,11 @@
 
           console.log('[KEYWORD-SETTINGS] 모달 열기 시작...');
           modal.style.display = 'block';
+
+          // 키 마법사 상태 새로고침
+          if (typeof kwRefreshStatus === 'function') {
+            try { kwRefreshStatus(); } catch (e) { console.warn('[KW] refresh 실패:', e); }
+          }
 
           // DOM이 완전히 렌더링된 후 설정 불러오기 (더 긴 지연 시간으로 확실하게)
           setTimeout(() => {

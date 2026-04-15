@@ -548,7 +548,9 @@ const electronApi = {
       'keyword-expansion-progress',
       'keyword-discovery-progress',
       'keyword-discovery-chunk',
-      'ultimate-niche-progress'
+      'ultimate-niche-progress',
+      'keyWizard:progress',
+      'keyWizard:result'
     ]);
     if (!allowed.has(channel)) {
       throw new Error(`IPC channel not allowed: ${channel}`);

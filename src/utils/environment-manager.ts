@@ -29,6 +29,18 @@ export interface EnvConfig {
   googleCseId?: string;
   googleCseCx?: string;
   youtubeApiKey?: string;
+  // ── Key Wizard 신규 필드 (v2.4.0) ──
+  youtubeOAuthClientId?: string;
+  youtubeOAuthClientSecret?: string;
+  youtubeOAuthAccessToken?: string;
+  youtubeOAuthRefreshToken?: string;
+  youtubeTokenExpiresAt?: number;
+  threadsAppId?: string;
+  threadsAppSecret?: string;
+  threadsAccessToken?: string;
+  threadsTokenExpiresAt?: number;
+  rakutenApplicationId?: string;
+  bigkindsAccessKey?: string;
   massCrawlingEnabled: boolean;
   maxConcurrentRequests: number;
   maxResultsPerSource: number;
