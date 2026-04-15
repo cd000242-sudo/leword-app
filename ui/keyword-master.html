@@ -1070,6 +1070,46 @@
       </div>
     </div>
 
+    <!-- 🔗 클러스터 모달 (Phase D) -->
+    <div id="clusterModal" style="display:none; position:fixed; inset:0; background:rgba(2,6,23,0.92); z-index:11050; align-items:flex-start; justify-content:center; overflow-y:auto; padding:20px;">
+      <div style="background:linear-gradient(135deg,#1e1b4b,#312e81); border:2px solid #7c3aed; border-radius:20px; padding:28px; max-width:900px; width:100%; margin:20px auto;">
+        <div style="display:flex; justify-content:space-between; align-items:center; margin-bottom:20px;">
+          <h2 id="clTitle" style="margin:0; color:#f1f5f9; font-size:22px;">🔗 키워드 클러스터</h2>
+          <button onclick="document.getElementById('clusterModal').style.display='none'" style="padding:8px 16px; border:none; background:#475569; color:white; border-radius:8px; cursor:pointer; font-weight:700;">✕ 닫기</button>
+        </div>
+        <div id="clBody"><div style="color:#a5b4fc; padding:60px; text-align:center;">⏳ 자동완성 + 룰 보강 중...</div></div>
+      </div>
+    </div>
+
+    <!-- 📊 추적 대시보드 모달 (Phase E + F) -->
+    <div id="trackingDashboardModal" style="display:none; position:fixed; inset:0; background:rgba(2,6,23,0.92); z-index:11050; align-items:flex-start; justify-content:center; overflow-y:auto; padding:20px;">
+      <div style="background:linear-gradient(135deg,#0f172a,#1e293b); border:2px solid #1e40af; border-radius:20px; padding:28px; max-width:1000px; width:100%; margin:20px auto;">
+        <div style="display:flex; justify-content:space-between; align-items:center; margin-bottom:20px;">
+          <h2 style="margin:0; color:#f1f5f9; font-size:22px;">📊 PRO Hunter v12 추적 대시보드</h2>
+          <div style="display:flex; gap:8px;">
+            <button onclick="dashboardRefresh()" style="padding:8px 14px; border:none; background:#1e40af; color:white; border-radius:8px; cursor:pointer; font-weight:700; font-size:11px;">🔄 새로고침</button>
+            <button onclick="dashboardRunChecks()" style="padding:8px 14px; border:none; background:#059669; color:white; border-radius:8px; cursor:pointer; font-weight:700; font-size:11px;">▶ 즉시 체크</button>
+            <button onclick="document.getElementById('trackingDashboardModal').style.display='none'" style="padding:8px 14px; border:none; background:#475569; color:white; border-radius:8px; cursor:pointer; font-weight:700;">✕ 닫기</button>
+          </div>
+        </div>
+        <div id="dashBody"><div style="color:#94a3b8; padding:40px; text-align:center;">로딩 중...</div></div>
+      </div>
+    </div>
+
+    <!-- 📋 글 청사진 모달 (PRO Hunter v12) -->
+    <div id="blueprintModal" style="display:none; position:fixed; inset:0; background:rgba(2,6,23,0.92); z-index:11000; align-items:flex-start; justify-content:center; overflow-y:auto; padding:20px;">
+      <div style="background:linear-gradient(135deg,#0f172a 0%,#1e1b4b 100%); border:2px solid #7c3aed; border-radius:20px; padding:32px; max-width:900px; width:100%; margin:20px auto; box-shadow:0 25px 80px rgba(124,58,237,0.4);">
+        <div style="display:flex; justify-content:space-between; align-items:center; margin-bottom:20px;">
+          <h2 id="bpTitle" style="margin:0; color:#f1f5f9; font-size:24px; display:flex; align-items:center; gap:10px;">
+            <span style="font-size:32px;">📋</span>
+            글 청사진 (Write-to-Win)
+          </h2>
+          <button onclick="closeBlueprintModal()" style="padding:8px 16px; border:none; background:#475569; color:white; border-radius:8px; cursor:pointer; font-weight:700;">✕ 닫기</button>
+        </div>
+        <div id="bpBody"><div style="color:#a5b4fc; padding:60px; text-align:center;">⏳ SERP top 10 본문 크롤 중... (30~60초)</div></div>
+      </div>
+    </div>
+
     <!-- 사전 단계 가이드 모달 -->
     <div id="kwGuideModal" style="display:none; position:fixed; inset:0; background:rgba(2,6,23,0.85); z-index:10010; align-items:center; justify-content:center;">
       <div style="background:#0f172a; border:2px solid #4f46e5; border-radius:16px; padding:28px; max-width:600px; width:90%; max-height:90vh; overflow-y:auto;">
@@ -1390,6 +1430,397 @@
       window.addEventListener('DOMContentLoaded', () => {
         setTimeout(kwRefreshStatus, 500);
       });
+
+      // ============================================================
+      // 📋 PRO Hunter v12 — 글 청사진 모달
+      // ============================================================
+      window.openBlueprintModal = async function (keyword) {
+        const modal = document.getElementById('blueprintModal');
+        if (!modal) return;
+        if (modal.parentElement !== document.body) document.body.appendChild(modal);
+        const body = document.getElementById('bpBody');
+        document.getElementById('bpTitle').innerHTML = '<span style="font-size:32px;">📋</span> ' + keyword;
+        body.innerHTML = '<div style="color:#a5b4fc; padding:60px; text-align:center;">⏳ SERP top 10 본문 크롤 + LLM 분석 중... (30~90초)</div>';
+        modal.style.display = 'flex';
+
+        try {
+          const r = await window.electronAPI.invoke('generate-keyword-blueprint', { keyword });
+          if (!r || !r.success) {
+            body.innerHTML = '<div style="color:#fca5a5; padding:40px; text-align:center;">❌ ' + (r && r.error || '실패') + '</div>';
+            return;
+          }
+          renderBlueprint(r);
+        } catch (err) {
+          body.innerHTML = '<div style="color:#fca5a5; padding:40px; text-align:center;">❌ ' + (err && err.message || err) + '</div>';
+        }
+      };
+
+      window.closeBlueprintModal = function () {
+        document.getElementById('blueprintModal').style.display = 'none';
+      };
+
+      function renderBlueprint(r) {
+        const bp = r.blueprint;
+        const an = r.analysis;
+        const gaps = r.gaps;
+        const pred = r.prediction || null;  // Phase B: Win prediction
+        const conf = (pred && pred.confidence) || bp.rankingPrediction.confidence;
+        const confColor = conf === 'high' ? '#10b981' : conf === 'medium' ? '#f59e0b' : '#ef4444';
+        const confLabel = conf === 'high' ? '높음' : conf === 'medium' ? '중간' : '낮음';
+        const rangeText = pred ? pred.rankRange : bp.rankingPrediction.estimatedRank;
+
+        const html = [
+          // 예측 카드 (Phase B 통합)
+          '<div style="background:linear-gradient(135deg,#1e1b4b,#312e81); border-radius:14px; padding:20px; margin-bottom:18px; border-left:4px solid ' + confColor + ';">',
+          '<div style="display:flex; justify-content:space-between; align-items:center; flex-wrap:wrap; gap:12px;">',
+          '<div><div style="font-size:11px; color:#a5b4fc; font-weight:700;">🎯 예상 순위 (P10~P90)</div>',
+          '<div style="font-size:28px; font-weight:900; color:white;">' + escapeHtml(rangeText) + '</div>',
+          (pred ? '<div style="font-size:11px; color:#a5b4fc; margin-top:4px;">난이도 ' + pred.difficultyScore + '/100 · 첫 노출 ' + pred.timeToRankDays + '일 예상</div>' : ''),
+          '</div>',
+          '<div style="text-align:right;"><div style="font-size:11px; color:#a5b4fc; font-weight:700;">신뢰도</div>',
+          '<div style="font-size:18px; font-weight:800; color:' + confColor + ';">' + confLabel + '</div></div></div>',
+          (pred && pred.reasoning && pred.reasoning.length
+            ? '<div style="margin-top:10px; padding-top:10px; border-top:1px solid rgba(165,180,252,0.2);">'
+              + pred.reasoning.map(r => '<div style="color:#cbd5e1; font-size:11px; line-height:1.6;">• ' + escapeHtml(r) + '</div>').join('')
+              + '</div>'
+            : '<p style="margin:10px 0 0; color:#cbd5e1; font-size:12px; line-height:1.5;">' + escapeHtml(bp.rankingPrediction.reasoning || '') + '</p>'),
+          (pred && pred.warnings && pred.warnings.length
+            ? '<div style="margin-top:8px; padding:8px; background:rgba(239,68,68,0.15); border-radius:8px;">'
+              + pred.warnings.map(w => '<div style="color:#fca5a5; font-size:11px;">⚠ ' + escapeHtml(w) + '</div>').join('')
+              + '</div>'
+            : ''),
+          (pred && pred.monthlyTrafficP50 > 0
+            ? '<div style="margin-top:8px; padding:8px; background:rgba(16,185,129,0.15); border-radius:8px; color:#a7f3d0; font-size:12px;">💰 예상 월 트래픽: ' + pred.monthlyTrafficP10.toLocaleString() + '~' + pred.monthlyTrafficP90.toLocaleString() + '명 (중간값 ' + pred.monthlyTrafficP50.toLocaleString() + ')</div>'
+            : ''),
+          '</div>',
+
+          // 제목 추천
+          '<div style="background:rgba(124,58,237,0.1); border-radius:14px; padding:18px; margin-bottom:14px; border:1px solid #7c3aed;">',
+          '<div style="font-size:11px; color:#a5b4fc; font-weight:700; margin-bottom:6px;">🏆 추천 제목</div>',
+          '<div style="font-size:18px; font-weight:800; color:white; margin-bottom:8px;">' + escapeHtml(bp.strategicTitle) + '</div>',
+          (bp.alternativeTitles && bp.alternativeTitles.length
+            ? '<div style="font-size:11px; color:#94a3b8;">대안: ' + bp.alternativeTitles.map(escapeHtml).join(' / ') + '</div>'
+            : ''),
+          '</div>',
+
+          // 핵심 지표 4개
+          '<div style="display:grid; grid-template-columns:repeat(4,1fr); gap:10px; margin-bottom:14px;">',
+          metricBox('📝 단어수', bp.recommendedWordCount, 'top10 평균 ' + an.avgWordCount),
+          metricBox('🖼️ 이미지', bp.recommendedImages + '장', 'top10 평균 ' + an.avgImageCount + '장'),
+          metricBox('📋 h2 섹션', bp.recommendedH2Count + '개', 'top10 평균 ' + an.avgH2Count + '개'),
+          metricBox('📊 분석 글', an.postCount + '개', bp.source === 'gemini' ? 'Gemini' : 'fallback'),
+          '</div>',
+
+          // outline
+          '<div style="background:rgba(15,23,42,0.6); border-radius:14px; padding:18px; margin-bottom:14px;">',
+          '<div style="font-size:13px; color:#a5b4fc; font-weight:700; margin-bottom:12px;">📋 글 구조 (h2 단위)</div>',
+          (bp.outline || []).map((s, i) => {
+            const diffBadge = s.isDifferentiator
+              ? '<span style="margin-left:8px; padding:2px 8px; background:#10b981; color:white; border-radius:10px; font-size:9px; font-weight:700;">⭐ 차별화</span>'
+              : '';
+            return '<div style="padding:12px; background:rgba(2,6,23,0.5); border-radius:10px; margin-bottom:8px; border-left:3px solid ' + (s.isDifferentiator ? '#10b981' : '#475569') + ';">'
+              + '<div style="display:flex; justify-content:space-between; align-items:center;">'
+              + '<div style="color:white; font-weight:700; font-size:13px;">' + (i + 1) + '. ' + escapeHtml(s.title) + diffBadge + '</div>'
+              + '<div style="color:#a5b4fc; font-size:11px;">' + s.wordCount + '단어</div></div>'
+              + (s.keyPoints && s.keyPoints.length
+                ? '<div style="margin-top:6px; color:#94a3b8; font-size:11px;">• ' + s.keyPoints.map(escapeHtml).join('<br>• ') + '</div>'
+                : '')
+              + '</div>';
+          }).join(''),
+          '</div>',
+
+          // 필수 키워드
+          (bp.mustIncludeKeywords && bp.mustIncludeKeywords.length ? (
+            '<div style="background:rgba(15,23,42,0.6); border-radius:14px; padding:18px; margin-bottom:14px;">'
+            + '<div style="font-size:13px; color:#a5b4fc; font-weight:700; margin-bottom:10px;">🔑 본문에 반드시 포함할 키워드</div>'
+            + '<div style="display:flex; flex-wrap:wrap; gap:6px;">'
+            + bp.mustIncludeKeywords.map(k => '<span style="padding:5px 12px; background:#1e40af; color:white; border-radius:14px; font-size:11px; font-weight:600;">' + escapeHtml(k) + '</span>').join('')
+            + '</div></div>'
+          ) : ''),
+
+          // 차별화 포인트
+          (gaps.differentiators && gaps.differentiators.length ? (
+            '<div style="background:rgba(16,185,129,0.1); border:1px solid #10b981; border-radius:14px; padding:18px; margin-bottom:14px;">'
+            + '<div style="font-size:13px; color:#10b981; font-weight:700; margin-bottom:10px;">💡 차별화 기회</div>'
+            + gaps.differentiators.map(d => '<div style="color:#a7f3d0; font-size:12px; padding:6px 0; line-height:1.5;">' + escapeHtml(d) + '</div>').join('')
+            + '</div>'
+          ) : ''),
+
+          // 경쟁자 약점
+          (gaps.competitorWeaknesses && gaps.competitorWeaknesses.length ? (
+            '<div style="background:rgba(239,68,68,0.1); border:1px solid #ef4444; border-radius:14px; padding:18px; margin-bottom:14px;">'
+            + '<div style="font-size:13px; color:#fca5a5; font-weight:700; margin-bottom:10px;">🎯 경쟁자 약점</div>'
+            + gaps.competitorWeaknesses.map(w => '<div style="color:#fed7d7; font-size:12px; padding:5px 0;">• ' + (w.rank ? w.rank + '위: ' : '') + escapeHtml(w.weakness || w) + '</div>').join('')
+            + '</div>'
+          ) : ''),
+
+          // contentSecret
+          (bp.contentSecret ? (
+            '<div style="background:linear-gradient(135deg,#fbbf24,#f59e0b); border-radius:14px; padding:18px; margin-bottom:14px;">'
+            + '<div style="font-size:11px; color:rgba(0,0,0,0.7); font-weight:800;">🔥 1위 비결</div>'
+            + '<div style="font-size:14px; color:#1a1a2e; font-weight:700; margin-top:6px; line-height:1.5;">' + escapeHtml(bp.contentSecret) + '</div></div>'
+          ) : ''),
+
+          // warnings
+          (bp.warnings && bp.warnings.length ? (
+            '<div style="background:rgba(239,68,68,0.15); border-radius:14px; padding:14px;">'
+            + '<div style="font-size:11px; color:#fca5a5; font-weight:700;">⚠ 주의</div>'
+            + bp.warnings.map(w => '<div style="color:#fed7d7; font-size:11px; padding:3px 0;">• ' + escapeHtml(w) + '</div>').join('')
+            + '</div>'
+          ) : ''),
+
+          // 액션 버튼
+          '<div style="display:grid; grid-template-columns:1fr 1fr; gap:10px; margin-top:14px;">',
+          '<button onclick="openClusterModal(' + JSON.stringify(bp.keyword).replace(/"/g, '&quot;') + ')" style="padding:14px; border:none; background:linear-gradient(135deg,#7c3aed,#5b21b6); color:white; border-radius:10px; font-weight:700; font-size:13px; cursor:pointer;">🔗 클러스터 생성 (7~15개 시리즈)</button>',
+          '<button onclick="openTrackPostPrompt(' + JSON.stringify(bp.keyword).replace(/"/g, '&quot;') + ',' + ((pred && pred.estimatedRankP50) || 5) + ')" style="padding:14px; border:none; background:linear-gradient(135deg,#1e40af,#1e3a8a); color:white; border-radius:10px; font-weight:700; font-size:13px; cursor:pointer;">📌 작성한 글 추적 등록</button>',
+          '</div>',
+
+          '<div style="margin-top:14px; text-align:center; color:#64748b; font-size:10px;">처리시간: ' + (r.durationMs / 1000).toFixed(1) + '초 · source: ' + bp.source + ' · 라이프사이클 추적 자동 등록됨</div>'
+        ].join('');
+
+        document.getElementById('bpBody').innerHTML = html;
+      }
+
+      function metricBox(label, value, sub) {
+        return '<div style="background:rgba(15,23,42,0.6); border-radius:10px; padding:12px; text-align:center; border:1px solid #334155;">'
+          + '<div style="font-size:18px; font-weight:900; color:white;">' + value + '</div>'
+          + '<div style="font-size:10px; color:#a5b4fc; font-weight:700; margin-top:2px;">' + label + '</div>'
+          + '<div style="font-size:9px; color:#64748b; margin-top:2px;">' + sub + '</div></div>';
+      }
+
+      function escapeHtml(s) {
+        if (s == null) return '';
+        return String(s).replace(/[&<>"']/g, c => ({ '&': '&amp;', '<': '&lt;', '>': '&gt;', '"': '&quot;', "'": '&#39;' }[c]));
+      }
+
+      // ============================================================
+      // 🎯 Phase C — 사용자 프로파일
+      // ============================================================
+      window.profileLoad = async function () {
+        try {
+          const r = await window.electronAPI.invoke('pro12-get-profile');
+          const status = document.getElementById('profileStatus');
+          if (r && r.profile) {
+            const p = r.profile;
+            status.innerHTML =
+              '<div style="padding:12px; background:rgba(2,6,23,0.6); border-radius:8px; margin-top:8px;">'
+              + '<div style="color:#10b981; font-weight:700; font-size:12px;">✅ ' + escapeHtml(p.blogId) + '</div>'
+              + '<div style="display:grid; grid-template-columns:repeat(4,1fr); gap:8px; margin-top:8px;">'
+              + '<div style="text-align:center; padding:8px; background:rgba(15,23,42,0.6); border-radius:6px;"><div style="color:#a7f3d0; font-size:18px; font-weight:900;">' + p.blogIndex + '</div><div style="color:#94a3b8; font-size:9px;">블로그 지수</div></div>'
+              + '<div style="text-align:center; padding:8px; background:rgba(15,23,42,0.6); border-radius:6px;"><div style="color:#a7f3d0; font-size:18px; font-weight:900;">' + p.experienceMonths + '</div><div style="color:#94a3b8; font-size:9px;">운영 개월</div></div>'
+              + '<div style="text-align:center; padding:8px; background:rgba(15,23,42,0.6); border-radius:6px;"><div style="color:#a7f3d0; font-size:18px; font-weight:900;">' + (p.totalPosts || 0) + '</div><div style="color:#94a3b8; font-size:9px;">총 글수</div></div>'
+              + '<div style="text-align:center; padding:8px; background:rgba(15,23,42,0.6); border-radius:6px;"><div style="color:#a7f3d0; font-size:18px; font-weight:900;">' + p.avgPostWordCount + '</div><div style="color:#94a3b8; font-size:9px;">평균 단어수</div></div>'
+              + '</div>'
+              + '<button onclick="profileDelete()" style="margin-top:8px; padding:6px 12px; background:#7f1d1d; color:white; border:none; border-radius:6px; cursor:pointer; font-size:10px;">🗑️ 프로파일 삭제</button>'
+              + '</div>';
+            const input = document.getElementById('profileBlogUrl');
+            if (input) input.value = p.blogUrl;
+          } else {
+            status.innerHTML = '<span style="color:#94a3b8;">아직 등록된 블로그가 없습니다.</span>';
+          }
+        } catch (err) {
+          console.error('[PROFILE]', err);
+        }
+      };
+
+      window.profileMeasure = async function () {
+        const url = document.getElementById('profileBlogUrl').value.trim();
+        if (!url) { alert('블로그 URL을 입력하세요'); return; }
+        const status = document.getElementById('profileStatus');
+        status.innerHTML = '<span style="color:#fbbf24;">⏳ 블로그 측정 중... (10~20초)</span>';
+        try {
+          const r = await window.electronAPI.invoke('pro12-measure-blog', { url });
+          if (r && r.success) {
+            status.innerHTML = '<span style="color:#10b981;">✅ 측정 완료</span>';
+            await profileLoad();
+          } else {
+            status.innerHTML = '<span style="color:#fca5a5;">❌ ' + (r && r.error || '실패') + '</span>';
+          }
+        } catch (err) {
+          status.innerHTML = '<span style="color:#fca5a5;">❌ ' + (err && err.message || err) + '</span>';
+        }
+      };
+
+      window.profileDelete = async function () {
+        if (!confirm('프로파일을 삭제하시겠습니까?')) return;
+        await window.electronAPI.invoke('pro12-delete-profile');
+        await profileLoad();
+      };
+
+      // ============================================================
+      // 🔗 Phase D — 클러스터 모달
+      // ============================================================
+      window.openClusterModal = async function (keyword) {
+        const modal = document.getElementById('clusterModal');
+        if (modal.parentElement !== document.body) document.body.appendChild(modal);
+        document.getElementById('clTitle').textContent = '🔗 클러스터: ' + keyword;
+        document.getElementById('clBody').innerHTML = '<div style="color:#a5b4fc; padding:60px; text-align:center;">⏳ 자동완성 + 룰 보강 중...</div>';
+        modal.style.display = 'flex';
+
+        try {
+          const r = await window.electronAPI.invoke('pro12-expand-cluster', { keyword });
+          if (!r || !r.success) {
+            document.getElementById('clBody').innerHTML = '<div style="color:#fca5a5; padding:40px; text-align:center;">❌ ' + (r && r.error || '실패') + '</div>';
+            return;
+          }
+          renderCluster(r.cluster);
+        } catch (err) {
+          document.getElementById('clBody').innerHTML = '<div style="color:#fca5a5; padding:40px; text-align:center;">❌ ' + (err && err.message || err) + '</div>';
+        }
+      };
+
+      function renderCluster(cl) {
+        const diffColor = (d) => d === 'easy' ? '#10b981' : d === 'medium' ? '#f59e0b' : '#ef4444';
+        const diffLabel = (d) => d === 'easy' ? '쉬움' : d === 'medium' ? '중간' : '어려움';
+        const roleIcon = (r) => r === 'pillar' ? '🏛️' : r === 'support' ? '📝' : '🎯';
+
+        const html = [
+          '<div style="background:rgba(15,23,42,0.6); border-radius:12px; padding:16px; margin-bottom:14px;">',
+          '<div style="font-size:11px; color:#a5b4fc; font-weight:700; margin-bottom:6px;">🎯 시드 키워드</div>',
+          '<div style="font-size:18px; font-weight:800; color:white;">' + escapeHtml(cl.pillarKeyword) + '</div>',
+          '<div style="font-size:11px; color:#94a3b8; margin-top:6px;">총 ' + cl.totalKeywords + '개 키워드 · 예상 ' + cl.estimatedWeeks + '주</div>',
+          '</div>',
+          '<div style="background:rgba(124,58,237,0.1); border:1px solid #7c3aed; border-radius:12px; padding:14px; margin-bottom:14px; color:#cbd5e1; font-size:12px; line-height:1.6;">' + escapeHtml(cl.strategySummary) + '</div>',
+          '<div style="font-size:13px; color:#a5b4fc; font-weight:700; margin-bottom:10px;">📋 발행 순서</div>',
+          cl.keywords.map(k =>
+            '<div style="display:flex; align-items:center; gap:12px; padding:12px; background:rgba(2,6,23,0.5); border-radius:10px; margin-bottom:6px; border-left:3px solid ' + diffColor(k.difficulty) + ';">'
+            + '<div style="font-size:18px; font-weight:900; color:white; min-width:32px; text-align:center;">' + k.publishOrder + '</div>'
+            + '<div style="font-size:20px;">' + roleIcon(k.role) + '</div>'
+            + '<div style="flex:1;"><div style="color:white; font-weight:700; font-size:13px;">' + escapeHtml(k.keyword) + '</div>'
+            + '<div style="color:#94a3b8; font-size:10px; margin-top:2px;">' + k.role + ' · ' + k.estimatedWordCount + '단어</div></div>'
+            + '<div style="padding:4px 10px; background:' + diffColor(k.difficulty) + '; color:white; border-radius:10px; font-size:10px; font-weight:700;">' + diffLabel(k.difficulty) + '</div>'
+            + '<button onclick="openBlueprintModal(' + JSON.stringify(k.keyword).replace(/"/g, '&quot;') + ')" title="청사진 생성" style="padding:6px 10px; border:none; background:#7c3aed; color:white; border-radius:6px; cursor:pointer; font-size:10px;">📋</button>'
+            + '</div>'
+          ).join(''),
+          '<div style="margin-top:14px; padding:12px; background:rgba(15,23,42,0.6); border-radius:10px; font-size:11px; color:#94a3b8; line-height:1.6;">'
+          + '🔗 내부링크: pillar 글이 모든 support 글로 분기, 모든 support 글은 pillar로 회귀 (양방향 ' + cl.internalLinkGraph.length + '개 링크)'
+          + '</div>'
+        ].join('');
+        document.getElementById('clBody').innerHTML = html;
+      }
+
+      // ============================================================
+      // 📌 Phase F — 작성 글 추적 등록
+      // ============================================================
+      window.openTrackPostPrompt = async function (keyword, predictedRank) {
+        const url = prompt('작성하신 글의 네이버 블로그 URL을 입력하세요\n(예: https://blog.naver.com/your_id/123456789)');
+        if (!url || !url.trim()) return;
+        try {
+          const r = await window.electronAPI.invoke('pro12-add-tracked-post', {
+            postUrl: url.trim(),
+            keyword,
+            predictedRank: predictedRank || 5,
+          });
+          if (r && r.success) {
+            alert('✅ 추적 등록 완료\n매일 1회 자동으로 순위를 추적합니다.\n[추적 대시보드]에서 확인 가능');
+          } else {
+            alert('❌ 등록 실패: ' + (r && r.error || '알 수 없음'));
+          }
+        } catch (err) {
+          alert('❌ ' + (err && err.message || err));
+        }
+      };
+
+      // ============================================================
+      // 📊 Phase E + F — 추적 대시보드
+      // ============================================================
+      window.openTrackingDashboard = async function () {
+        const modal = document.getElementById('trackingDashboardModal');
+        if (modal.parentElement !== document.body) document.body.appendChild(modal);
+        modal.style.display = 'flex';
+        await dashboardRefresh();
+      };
+
+      window.dashboardRefresh = async function () {
+        const body = document.getElementById('dashBody');
+        body.innerHTML = '<div style="color:#94a3b8; padding:40px; text-align:center;">로딩 중...</div>';
+        try {
+          const [kr, pr] = await Promise.all([
+            window.electronAPI.invoke('pro12-list-tracked-keywords'),
+            window.electronAPI.invoke('pro12-list-tracked-posts'),
+          ]);
+          renderDashboard(kr.keywords || [], pr.posts || []);
+        } catch (err) {
+          body.innerHTML = '<div style="color:#fca5a5; padding:40px;">❌ ' + (err && err.message || err) + '</div>';
+        }
+      };
+
+      window.dashboardRunChecks = async function () {
+        const body = document.getElementById('dashBody');
+        body.innerHTML = '<div style="color:#fbbf24; padding:40px; text-align:center;">⏳ 즉시 체크 실행 중... (수십 초~몇 분)</div>';
+        try {
+          const [lc, rc] = await Promise.all([
+            window.electronAPI.invoke('pro12-run-lifecycle-check'),
+            window.electronAPI.invoke('pro12-run-rank-check'),
+          ]);
+          alert('✅ 완료\n· 키워드 lifecycle: ' + (lc.checked || 0) + '개 (알림 ' + (lc.alerts || 0) + '건)\n· 글 순위: ' + (rc.checked || 0) + '개');
+          await dashboardRefresh();
+        } catch (err) {
+          alert('❌ ' + (err && err.message || err));
+        }
+      };
+
+      function renderDashboard(keywords, posts) {
+        const html = [
+          '<div style="display:grid; grid-template-columns:1fr 1fr; gap:14px;">',
+
+          // 추적 키워드
+          '<div style="background:rgba(15,23,42,0.6); border-radius:12px; padding:16px;">',
+          '<div style="font-size:13px; color:#a5b4fc; font-weight:700; margin-bottom:10px;">🛰️ 추적 키워드 (' + keywords.length + ')</div>',
+          (keywords.length === 0
+            ? '<div style="color:#64748b; padding:20px; text-align:center; font-size:11px;">청사진 생성 시 자동 등록됨</div>'
+            : keywords.map(k => {
+                const lastDoc = k.history[k.history.length - 1]?.docCount ?? 0;
+                const delta = lastDoc - k.initialDocCount;
+                const recentAlert = k.alerts[k.alerts.length - 1];
+                return '<div style="padding:10px; background:rgba(2,6,23,0.5); border-radius:8px; margin-bottom:6px;">'
+                  + '<div style="display:flex; justify-content:space-between; align-items:center;">'
+                  + '<div style="color:white; font-weight:700; font-size:12px;">' + escapeHtml(k.keyword) + '</div>'
+                  + '<button onclick="dashboardRemoveKeyword(' + JSON.stringify(k.keyword).replace(/"/g, '&quot;') + ')" style="padding:3px 8px; background:#7f1d1d; color:white; border:none; border-radius:5px; font-size:9px; cursor:pointer;">🗑️</button>'
+                  + '</div>'
+                  + '<div style="font-size:10px; color:#94a3b8; margin-top:4px;">문서수 ' + lastDoc.toLocaleString() + ' (Δ' + (delta >= 0 ? '+' : '') + delta.toLocaleString() + ')</div>'
+                  + (recentAlert ? '<div style="margin-top:5px; padding:5px 8px; background:rgba(245,158,11,0.2); color:#fbbf24; border-radius:5px; font-size:10px;">⚠ ' + escapeHtml(recentAlert.message) + '</div>' : '')
+                  + '</div>';
+              }).join('')),
+          '</div>',
+
+          // 추적 글
+          '<div style="background:rgba(15,23,42,0.6); border-radius:12px; padding:16px;">',
+          '<div style="font-size:13px; color:#a5b4fc; font-weight:700; margin-bottom:10px;">📌 추적 글 (' + posts.length + ')</div>',
+          (posts.length === 0
+            ? '<div style="color:#64748b; padding:20px; text-align:center; font-size:11px;">청사진 모달에서 등록하세요</div>'
+            : posts.map(p => {
+                const lastRank = p.history[p.history.length - 1]?.rank;
+                const rankText = lastRank == null ? '미검출' : lastRank + '위';
+                const rankColor = lastRank == null ? '#94a3b8' : lastRank <= 3 ? '#10b981' : lastRank <= 10 ? '#f59e0b' : '#ef4444';
+                return '<div style="padding:10px; background:rgba(2,6,23,0.5); border-radius:8px; margin-bottom:6px;">'
+                  + '<div style="display:flex; justify-content:space-between; align-items:center;">'
+                  + '<div style="color:white; font-weight:700; font-size:12px;">' + escapeHtml(p.keyword) + '</div>'
+                  + '<div style="display:flex; gap:4px; align-items:center;">'
+                  + '<span style="padding:3px 10px; background:' + rankColor + '; color:white; border-radius:10px; font-size:11px; font-weight:700;">' + rankText + '</span>'
+                  + '<button onclick="dashboardRemovePost(' + JSON.stringify(p.postUrl).replace(/"/g, '&quot;') + ')" style="padding:3px 8px; background:#7f1d1d; color:white; border:none; border-radius:5px; font-size:9px; cursor:pointer;">🗑️</button>'
+                  + '</div></div>'
+                  + '<div style="font-size:9px; color:#64748b; margin-top:3px; word-break:break-all;">' + escapeHtml(p.postUrl) + '</div>'
+                  + '<div style="font-size:9px; color:#94a3b8; margin-top:2px;">예측: ' + p.predictedRank + '위 · 체크 ' + p.history.length + '회</div>'
+                  + '</div>';
+              }).join('')),
+          '</div>',
+          '</div>',
+        ].join('');
+        document.getElementById('dashBody').innerHTML = html;
+      }
+
+      window.dashboardRemoveKeyword = async function (keyword) {
+        if (!confirm('"' + keyword + '" 추적 해제?')) return;
+        await window.electronAPI.invoke('pro12-remove-tracked-keyword', { keyword });
+        await dashboardRefresh();
+      };
+
+      window.dashboardRemovePost = async function (postUrl) {
+        if (!confirm('이 글 추적 해제?')) return;
+        await window.electronAPI.invoke('pro12-remove-tracked-post', { postUrl });
+        await dashboardRefresh();
+      };
 
       async function v4Call(btn) {
         const channel = btn.getAttribute('data-channel');
@@ -1931,6 +2362,34 @@
                   <button onclick="kwCancelWizard()" style="padding:4px 10px; border:none; background:#ef4444; color:white; border-radius:6px; cursor:pointer; font-size:10px; font-weight:700;">취소</button>
                 </div>
                 <pre id="kwProgressLog" style="margin:0; color:#a7f3d0; font-family:'D2Coding','Cascadia Code',monospace; font-size:10px; white-space:pre-wrap; line-height:1.5;"></pre>
+              </div>
+            </div>
+
+            <!-- ============================================================
+                 🎯 PRO Hunter v12 — 내 블로그 프로파일
+                 ============================================================ -->
+            <div id="profilePanel" style="margin-bottom: 24px; padding: 20px; background: linear-gradient(135deg, #064e3b 0%, #065f46 100%); border-radius: 16px; border: 2px solid #10b981; box-shadow: 0 10px 40px rgba(16,185,129,0.2);">
+              <div style="display:flex; justify-content:space-between; align-items:center; margin-bottom:14px; flex-wrap:wrap; gap:10px;">
+                <div>
+                  <h3 style="margin:0; font-size:18px; font-weight:800; color:#f1f5f9; display:flex; align-items:center; gap:10px;">
+                    <span style="font-size:24px;">🎯</span>
+                    내 블로그 프로파일
+                    <span style="font-size:10px; padding:3px 10px; background:linear-gradient(135deg,#7c3aed,#5b21b6); color:white; border-radius:20px; font-weight:700;">PRO v12</span>
+                  </h3>
+                  <p style="margin:6px 0 0; color:#a7f3d0; font-size:12px;">블로그 등록 시 PRO 청사진의 순위 예측이 정확해집니다</p>
+                </div>
+                <div style="display:flex; gap:6px;">
+                  <button onclick="openTrackingDashboard()" style="padding:8px 14px; border:none; border-radius:8px; background:#1e40af; color:white; font-weight:700; font-size:11px; cursor:pointer;">📊 추적 대시보드</button>
+                  <button onclick="profileLoad()" style="padding:8px 14px; border:none; border-radius:8px; background:#059669; color:white; font-weight:700; font-size:11px; cursor:pointer;">🔄 새로고침</button>
+                </div>
+              </div>
+
+              <div id="profileBody">
+                <div style="display:flex; gap:8px; align-items:center;">
+                  <input id="profileBlogUrl" type="text" placeholder="https://blog.naver.com/your_id" style="flex:1; padding:10px 12px; background:#020617; border:1px solid #334155; border-radius:8px; color:#f1f5f9; font-size:12px;">
+                  <button onclick="profileMeasure()" style="padding:10px 18px; border:none; background:linear-gradient(135deg,#10b981,#059669); color:white; border-radius:8px; font-weight:700; font-size:12px; cursor:pointer; white-space:nowrap;">🔍 측정 시작</button>
+                </div>
+                <div id="profileStatus" style="margin-top:10px; color:#a7f3d0; font-size:11px;"></div>
               </div>
             </div>
 
@@ -9078,11 +9537,12 @@
                 </div>
                 <div style="display: flex; align-items: center; gap: 10px;">
                   <span style="font-size: 28px; font-weight: 900; color: ${idx < 3 ? '#dc2626' : '#374151'};">#${idx + 1}</span>
-                  <h3 style="margin: 0; font-size: 22px; font-weight: 800; color: #1e293b; cursor: pointer;" 
+                  <h3 style="margin: 0; font-size: 22px; font-weight: 800; color: #1e293b; cursor: pointer;"
                       onclick="copyToClipboard('${kw.keyword.replace(/'/g, "\\'")}')"
                       title="클릭하여 복사">
                     ${kw.keyword} <span style="font-size: 14px; color: #94a3b8;">📋</span>
                   </h3>
+                  <button onclick="openBlueprintModal('${kw.keyword.replace(/'/g, "\\'")}')" style="margin-left:8px; padding:6px 12px; border:none; background:linear-gradient(135deg,#7c3aed,#5b21b6); color:white; border-radius:8px; font-size:11px; font-weight:700; cursor:pointer; box-shadow:0 2px 8px rgba(124,58,237,0.4);" title="LLM이 1위 가능 글의 청사진을 생성">📋 청사진</button>
                 </div>
               </div>
               <div style="text-align: right;">
@@ -9416,6 +9876,10 @@
           // 키 마법사 상태 새로고침
           if (typeof kwRefreshStatus === 'function') {
             try { kwRefreshStatus(); } catch (e) { console.warn('[KW] refresh 실패:', e); }
+          }
+          // PRO Hunter v12 프로파일 로드
+          if (typeof profileLoad === 'function') {
+            try { profileLoad(); } catch (e) { console.warn('[PROFILE] load 실패:', e); }
           }
 
           // DOM이 완전히 렌더링된 후 설정 불러오기 (더 긴 지연 시간으로 확실하게)
@@ -12524,8 +12988,33 @@
           resultsDiv.innerHTML = html;
         }
 
+        // PRO 트래픽 헌터 카테고리 옵션 (pro-traffic-keyword-hunter.ts의 category enum과 동기화)
+        const PRO_TRAFFIC_CATEGORIES = [
+          { value: 'all', label: '🌐 전체 (자동 추천)' },
+          { value: 'celeb', label: '⭐ 연예/이슈' },
+          { value: 'life_tips', label: '💡 생활 꿀팁' },
+          { value: 'health', label: '🏥 건강' },
+          { value: 'business', label: '💼 비즈니스' },
+          { value: 'self_development', label: '📚 자기계발' },
+          { value: 'fashion', label: '👗 패션/뷰티' },
+          { value: 'interior', label: '🏠 인테리어' },
+          { value: 'realestate', label: '🏢 부동산' },
+          { value: 'it', label: '💻 IT/테크' },
+          { value: 'movie', label: '🎬 영화' },
+          { value: 'drama', label: '📺 드라마' },
+          { value: 'music', label: '🎵 음악' },
+          { value: 'book', label: '📖 도서' },
+          { value: 'anime', label: '🎌 애니' },
+          { value: 'broadcast', label: '📡 방송' },
+          { value: 'daily', label: '☀️ 일상' },
+          { value: 'policy', label: '📜 정책' },
+          { value: 'grant', label: '💰 지원금' },
+          { value: 'pro_premium', label: '💎 PRO 프리미엄' },
+          { value: 'lite_standard', label: '⚡ 라이트 표준' }
+        ];
+
         function openProTrafficModal() {
-          lockBodyScroll(); // 배경 스크롤 막기
+          lockBodyScroll();
 
           const existingModal = document.getElementById('proTrafficModal');
           if (existingModal) existingModal.remove();
