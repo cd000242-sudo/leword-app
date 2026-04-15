@@ -5,8 +5,13 @@ import { getNaverAutocompleteKeywords } from './naver-autocomplete';
 import { estimateCPC, calculatePurchaseIntent, calculateCompetitionLevel, CATEGORY_CPC_DATABASE } from './profit-golden-keyword-engine';
 
 /**
- * Master Discovery Protocol (MDP) Engine v3.0
- * 6단계 키워드 발굴 파이프라인 + 통합 황금 스코어링
+ * Master Discovery Protocol (MDP) Engine v4.0
+ * 6단계 키워드 발굴 파이프라인 + 7차원 통합 황금 스코어링
+ *
+ * v4.0 추가 차원:
+ *  - communityBuzzScore: 커뮤니티 언급 빈도 (더쿠/뽐뿌/보배/디시)
+ *  - snsLeadingScore: SNS 선행 신호 (TikTok/Threads/YouTube)
+ * 신규 차원은 데이터 수집 안정화 전까지 가중치 0으로 시작 → 점진 상향
  */
 
 export type GoldenGrade = 'SSS' | 'SS' | 'S' | 'A' | 'B' | 'C' | 'D';
@@ -25,8 +30,8 @@ export interface MDPResult {
     hasInfluencer?: boolean;
     difficultyScore?: number;
     // Phase 3: Monetization
-    cvi?: number;   // Commercial Value Index
-    cpc?: number;   // Estimated CPC
+    cvi?: number;
+    cpc?: number;
     // Phase 4: Golden Grade (v3.0)
     grade?: GoldenGrade;
     goldenReason?: string;
@@ -34,7 +39,34 @@ export interface MDPResult {
     purchaseIntentScore?: number;
     competitionLevel?: number;
     isBlueOcean?: boolean;
+    // v4.0: 외부 신호 차원
+    communityBuzzScore?: number;
+    snsLeadingScore?: number;
+    externalSources?: string[];
 }
+
+/**
+ * v4.0 외부 신호 주입 인터페이스
+ * Signal Aggregator에서 주입받음
+ */
+export interface ExternalSignals {
+    communityBuzzScore: number;  // 0-100
+    snsLeadingScore: number;      // 0-100
+    sources: string[];
+}
+
+/**
+ * v4.0 가중치 — 신규 차원은 0부터 시작 (안전한 점진 도입)
+ */
+export const MDP_V4_WEIGHTS = {
+    sd: 0.30,        // 수요공급
+    comp: 0.25,      // 경쟁도
+    money: 0.25,     // 수익성
+    vol: 0.10,       // 검색량
+    acc: 0.10,       // 접근성
+    community: 0.0,  // 커뮤니티 버즈 (데이터 안정화 후 0.05~0.10)
+    sns: 0.0,        // SNS 선행 (데이터 안정화 후 0.05~0.10)
+};
 
 export class MDPEngine {
     private visited = new Set<string>();
@@ -48,6 +80,63 @@ export class MDPEngine {
 
     public abort() {
         this.abortRequested = true;
+    }
+
+    /**
+     * v4.0: 외부 신호 주입기 — Signal Aggregator에서 호출 시 키워드별 신호를 미리 등록
+     * 해당 키워드가 discover 결과로 yield될 때 점수에 반영됨
+     */
+    private externalSignalsMap = new Map<string, ExternalSignals>();
+    private externalSeedKeys: string[] = [];
+
+    public injectExternalSignals(keyword: string, signals: ExternalSignals): void {
+        this.externalSignalsMap.set(keyword, signals);
+        this.rebuildSeedKeys();
+    }
+
+    public injectBatchSignals(map: Map<string, ExternalSignals>): void {
+        for (const [k, v] of map.entries()) this.externalSignalsMap.set(k, v);
+        this.rebuildSeedKeys();
+    }
+
+    private externalSeedLowerMap = new Map<string, string>(); // lowercase → original
+    private rebuildSeedKeys(): void {
+        // F3: 최소 4자 OR 공백 포함 (compound) — 짧은 generic 시드는 fuzzy 제외
+        this.externalSeedKeys = Array.from(this.externalSignalsMap.keys())
+            .filter(k => k.length >= 4 || k.includes(' '))
+            .sort((a, b) => b.length - a.length);
+        this.externalSeedLowerMap.clear();
+        for (const seed of this.externalSeedKeys) {
+            this.externalSeedLowerMap.set(seed.toLowerCase(), seed);
+        }
+    }
+
+    /**
+     * v4.0: Fuzzy lookup — 정확 일치 우선, lowercase substring 매칭
+     * 안전장치:
+     *  - 시드 길이 >= 4 OR 공백 포함 (짧은 generic 매칭 차단)
+     *  - lowercase 정규화
+     *  - 매칭 시 점수 70%로 감쇠 (직접 매칭 우대)
+     */
+    private lookupExternalSignals(kw: string): ExternalSignals | undefined {
+        const direct = this.externalSignalsMap.get(kw);
+        if (direct) return direct;
+
+        const kwLower = kw.toLowerCase();
+        for (const [seedLower, seedOrig] of this.externalSeedLowerMap.entries()) {
+            if (seedLower === kwLower) continue;
+            if (kwLower.includes(seedLower) || seedLower.includes(kwLower)) {
+                const sig = this.externalSignalsMap.get(seedOrig);
+                if (sig) {
+                    return {
+                        communityBuzzScore: Math.round(sig.communityBuzzScore * 0.7),
+                        snsLeadingScore: Math.round(sig.snsLeadingScore * 0.7),
+                        sources: sig.sources,
+                    };
+                }
+            }
+        }
+        return undefined;
     }
 
     /**
@@ -171,19 +260,27 @@ export class MDPEngine {
                         const lengthBonus = wordCount >= 4 ? 30 : wordCount >= 3 ? 20 : wordCount >= 2 ? 10 : 0;
                         const accessibilityScore = Math.min(100, lengthBonus + (100 - competitionLvl * 10));
 
-                        // 통합 점수 (가중 기하평균 기반 — 한 차원 0이면 전체 하락)
-                        const weights = { sd: 0.30, comp: 0.25, money: 0.25, vol: 0.10, acc: 0.10 };
-                        const safeScore = (s: number) => Math.max(1, s); // 0 방지
-                        const finalScore = Math.pow(
-                            Math.pow(safeScore(supplyDemandScore), weights.sd) *
-                            Math.pow(safeScore(competitionScore), weights.comp) *
-                            Math.pow(safeScore(monetizationScore), weights.money) *
-                            Math.pow(safeScore(volumeScore), weights.vol) *
-                            Math.pow(safeScore(accessibilityScore), weights.acc),
-                            1 // 이미 가중 지수이므로 합산 = 1
-                        );
+                        // v4.0: 외부 신호 주입 (정확 일치 + fuzzy substring 매칭)
+                        const ext = this.lookupExternalSignals(sig.keyword);
+                        const communityScore = ext?.communityBuzzScore ?? 0;
+                        const snsScore = ext?.snsLeadingScore ?? 0;
 
-                        const clampedScore = Math.min(100, Math.max(0, Math.round(finalScore)));
+                        // 통합 점수 (가중 기하평균 기반 — 한 차원 0이면 전체 하락)
+                        const w = MDP_V4_WEIGHTS;
+                        const safeScore = (s: number) => Math.max(1, s);
+                        let finalScore = Math.pow(safeScore(supplyDemandScore), w.sd) *
+                            Math.pow(safeScore(competitionScore), w.comp) *
+                            Math.pow(safeScore(monetizationScore), w.money) *
+                            Math.pow(safeScore(volumeScore), w.vol) *
+                            Math.pow(safeScore(accessibilityScore), w.acc);
+
+                        // v4.0 외부 차원 — 가중치 > 0일 때만 곱
+                        if (w.community > 0) finalScore *= Math.pow(safeScore(communityScore), w.community);
+                        if (w.sns > 0) finalScore *= Math.pow(safeScore(snsScore), w.sns);
+
+                        // v4.0 보너스 — 외부 신호 1개 이상 매칭 시 가산점 (가중치 0이라도 발견 사실은 보상)
+                        const externalBonus = ext ? Math.min(5, (ext.sources.length || 0) * 1.5) : 0;
+                        const clampedScore = Math.min(100, Math.max(0, Math.round(finalScore + externalBonus)));
 
                         // ====== 등급 판정 (다중 게이트) ======
                         const grade = this.calculateGrade(clampedScore, totalVolume, docCount, goldenRatio, serpDifficulty);
@@ -227,7 +324,11 @@ export class MDPEngine {
                             estimatedMonthlyRevenue,
                             purchaseIntentScore: purchaseIntent,
                             competitionLevel: competitionLvl,
-                            isBlueOcean
+                            isBlueOcean,
+                            // v4.0
+                            communityBuzzScore: communityScore,
+                            snsLeadingScore: snsScore,
+                            externalSources: ext?.sources,
                         };
 
                         yield result;

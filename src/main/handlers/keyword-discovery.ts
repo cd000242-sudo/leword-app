@@ -16,8 +16,71 @@ import { getNateRealtimeKeywordsWithPuppeteer } from '../../utils/nate-realtime-
 import { analyzeKeywordTrendingReason } from '../../utils/keyword-trend-analyzer';
 import { validateKeyword, validateKeywords } from '../../utils/keyword-validator';
 import * as licenseManager from '../../utils/licenseManager';
-import { MDPEngine, MDPResult } from '../../utils/mdp-engine';
+import { MDPEngine, MDPResult, ExternalSignals } from '../../utils/mdp-engine';
 import { keywordDiscoveryAbortMap, checkUnlimitedLicense } from './shared';
+import { callAllSources } from '../../utils/sources/source-registry';
+import { getCachedReport } from '../../utils/sources/health-checker';
+
+// v4.0: 외부 신호 캐시 (앱 lifetime, 30분 TTL)
+let _v4SignalCache: { map: Map<string, ExternalSignals>; expiresAt: number } | null = null;
+let _v4PullInFlight: Promise<Map<string, ExternalSignals>> | null = null;
+
+function buildSignalsFromResults(sourceResults: Map<string, { success: boolean; keywords: string[] }>): Map<string, ExternalSignals> {
+    const sigMap = new Map<string, ExternalSignals>();
+    const communityKeys = ['theqoo', 'bobaedream', 'ppomppu', 'namuwiki'];
+    const snsKeys = ['tiktok-cc', 'youtube-kr'];
+
+    for (const [sourceId, result] of sourceResults.entries()) {
+        if (!result.success || result.keywords.length === 0) continue;
+        for (const rawKw of result.keywords) {
+            // F4: 위생 필터 — 노이즈 차단
+            const kw = String(rawKw || '').trim();
+            if (!kw || kw.length < 2 || kw.length > 25) continue;
+            if (/^\d+$/.test(kw)) continue;
+            if (!/[가-힣a-zA-Z]/.test(kw)) continue;
+            if (kw === '대문' || kw.startsWith('특수:') || kw.startsWith('파일:')) continue;
+
+            const existing = sigMap.get(kw);
+            const sources = existing ? Array.from(new Set([...existing.sources, sourceId])) : [sourceId];
+            const cb = sources.filter(s => communityKeys.some(k => s.includes(k))).length;
+            const sl = sources.filter(s => snsKeys.some(k => s.includes(k))).length;
+            sigMap.set(kw, {
+                communityBuzzScore: Math.min(100, cb * 33),
+                snsLeadingScore: Math.min(100, sl * 50),
+                sources,
+            });
+        }
+    }
+    return sigMap;
+}
+
+async function getV4Signals(isPro: boolean): Promise<Map<string, ExternalSignals>> {
+    const now = Date.now();
+    if (_v4SignalCache && _v4SignalCache.expiresAt > now) return _v4SignalCache.map;
+
+    // 백그라운드 풀 in-flight면 그걸 기다림 (3초 budget)
+    if (!_v4PullInFlight) {
+        _v4PullInFlight = (async () => {
+            try {
+                const sourceResults = await callAllSources({
+                    tier: isPro ? undefined : 'lite',
+                    healthy: true,
+                });
+                const map = buildSignalsFromResults(sourceResults);
+                _v4SignalCache = { map, expiresAt: Date.now() + 30 * 60_000 };
+                return map;
+            } finally {
+                _v4PullInFlight = null;
+            }
+        })();
+    }
+
+    // 3초 budget — 못 끝나면 빈 맵 반환, 백그라운드에서 계속 진행
+    return Promise.race([
+        _v4PullInFlight,
+        new Promise<Map<string, ExternalSignals>>(resolve => setTimeout(() => resolve(new Map()), 3000)),
+    ]);
+}
 
 
 export function setupKeywordDiscoveryHandlers(): void {
@@ -128,6 +191,20 @@ export function setupKeywordDiscoveryHandlers(): void {
             clientId: naverClientId,
             clientSecret: naverClientSecret
           });
+
+          // ===== v4.0: 비차단 외부 신호 주입 (3초 budget, 캐시 우선, 실패 무시) =====
+          try {
+            const isPro = checkUnlimitedLicense().allowed;
+            const sigMap = await getV4Signals(isPro);
+            if (sigMap.size > 0) {
+              engine.injectBatchSignals(sigMap);
+              console.log(`[KEYWORD-MASTER] v4.0 외부 신호 ${sigMap.size}개 주입 (PRO=${isPro})`);
+            } else {
+              console.log('[KEYWORD-MASTER] v4.0 신호 없음 — 기본 MDP로 진행');
+            }
+          } catch (aggErr: any) {
+            console.warn('[KEYWORD-MASTER] v4.0 신호 주입 실패 (무시하고 계속):', aggErr?.message);
+          }
 
           // 중지 맵에 엔진 등록 및 모니터링
           const abortCheckInterval = setInterval(() => {

@@ -8,6 +8,9 @@ import { setupScheduleDashboardHandlers } from './handlers/schedule-dashboard';
 import { setupConfigUtilityHandlers } from './handlers/config-utility';
 import { setupLicenseHandlers } from './handlers/license-handlers';
 import { registerYouTubeAnalysisHandlers } from './handlers/youtube-handlers';
+import { setupSourceSignalHandlers } from './handlers/source-signals';
+import { bootstrapSources } from '../utils/sources/source-bootstrap';
+import { startAutoHealthCheck } from '../utils/sources/health-checker';
 
 // 중복 호출 방지 플래그
 let handlersSetup = false;
@@ -58,6 +61,16 @@ export function setupKeywordMasterHandlers() {
   setupConfigUtilityHandlers();
   setupLicenseHandlers();
   registerYouTubeAnalysisHandlers();
+  setupSourceSignalHandlers();
+
+  // v4.0: 17개 소스 부트스트랩 + 백그라운드 헬스체크 시작
+  try {
+    bootstrapSources();
+    startAutoHealthCheck(30 * 60_000);
+    console.log('[KEYWORD-MASTER] v4.0 소스 부트스트랩 + 헬스체크 시작');
+  } catch (e: any) {
+    console.error('[KEYWORD-MASTER] v4.0 부트스트랩 실패:', e?.message);
+  }
 
   console.log('[KEYWORD-MASTER] IPC 핸들러 등록 완료');
   console.log('[KEYWORD-MASTER] ✅ 모든 핸들러 등록 완료');

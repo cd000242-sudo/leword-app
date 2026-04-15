@@ -715,27 +715,235 @@
       </div>
     </div>
 
-    <!-- 🚀 초보자용 원클릭 섹션 (New) -->
-    <div class="golden-keyword-finder"
-      style="margin-bottom: 40px; text-align: center; border: 2px solid rgba(255, 255, 255, 0.3); background: linear-gradient(135deg, rgba(30, 41, 59, 0.9) 0%, rgba(15, 23, 42, 0.95) 100%);">
-      <h2 style="justify-content: center; font-size: 32px; margin-bottom: 16px;">
-        <span style="font-size: 40px;">🚀</span> 원클릭 빈집털이
-      </h2>
-      <p style="color: #cbd5e1; margin-bottom: 30px; font-size: 16px; font-weight: 500;">
-        복잡한 분석은 AI에게 맡기세요.<br>버튼만 누르면 <strong>빈집 키워드</strong>와 <strong>킬러 타이틀</strong>까지 다 만들어드립니다.
-      </p>
+    <!-- ⭐ LEWORD 핵심: 황금키워드 발굴/분석 표 -->
+    <div id="richFeedSection" style="margin-bottom: 40px; padding: 28px; border-radius: 24px; background: linear-gradient(135deg, #0f172a 0%, #1e293b 50%, #0f172a 100%); border: 2px solid #475569; box-shadow: 0 20px 60px rgba(0,0,0,0.5);">
+      <div style="display:flex; justify-content:space-between; align-items:flex-start; margin-bottom:18px; flex-wrap:wrap; gap:12px;">
+        <div>
+          <h2 style="margin:0; font-size:28px; font-weight:800; color:#f1f5f9; display:flex; align-items:center; gap:12px;">
+            <span style="font-size:36px;">⭐</span>
+            오늘의 황금키워드 발굴
+            <span id="rfTierBadge" style="font-size:11px; padding:4px 12px; background:linear-gradient(135deg,#10b981,#059669); color:white; border-radius:20px; font-weight:700;">LITE</span>
+          </h2>
+          <p style="margin:6px 0 0; color:#94a3b8; font-size:13px;">
+            17개 데이터 소스 교차검증 → 검색량·문서수 실측 → 등급·신선도·소스출처를 한눈에
+            <span style="color:#64748b;"> · 다른 도구에서는 며칠 걸리는 발굴을 즉시</span>
+          </p>
+        </div>
+        <div style="display:flex; gap:8px; align-items:center; flex-wrap:wrap;">
+          <span id="rfStatus" style="font-size:11px; color:#64748b;">대기 중...</span>
+          <button onclick="refreshRichFeed(true)" style="padding:10px 18px; border:none; border-radius:10px; background:linear-gradient(135deg,#f59e0b,#ef4444); color:white; font-weight:700; font-size:13px; cursor:pointer;">⚡ 발굴 시작</button>
+          <button onclick="rfExport('csv')" title="CSV 다운로드" style="padding:10px 14px; border:none; border-radius:10px; background:#10b981; color:white; font-weight:700; font-size:12px; cursor:pointer;">📥 CSV</button>
+          <button onclick="rfExport('json')" title="JSON 다운로드" style="padding:10px 14px; border:none; border-radius:10px; background:#6366f1; color:white; font-weight:700; font-size:12px; cursor:pointer;">📥 JSON</button>
+          <button onclick="rfExport('clipboard')" title="클립보드 복사" style="padding:10px 14px; border:none; border-radius:10px; background:#475569; color:white; font-weight:700; font-size:12px; cursor:pointer;">📋 복사</button>
+        </div>
+      </div>
 
-      <button onclick="runOneClickMagic()"
-        style="padding: 18px 40px; font-size: 20px; border-radius: 50px; background: linear-gradient(90deg, #ec4899, #8b5cf6); color: white; border: none; font-weight: 700; cursor: pointer; box-shadow: 0 10px 25px rgba(236, 72, 153, 0.4); transition: transform 0.2s;"
-        onmouseover="this.style.transform='scale(1.05)'" onmouseout="this.style.transform='scale(1)'">
-        ✨ 황금 키워드 & 제목 생성하기
-      </button>
+      <!-- 헬스 상태 미니 -->
+      <div style="display:flex; gap:6px; margin-bottom:14px; flex-wrap:wrap; font-size:11px; color:#94a3b8;">
+        <span>소스:</span>
+        <span id="hbHealthy" style="color:#10b981;">✅ -</span>
+        <span id="hbDegraded" style="color:#f59e0b;">⚠️ -</span>
+        <span id="hbDown" style="color:#ef4444;">❌ -</span>
+        <span style="margin-left:auto; color:#64748b;">총 <span id="rfTotal">0</span>건 발굴</span>
+      </div>
 
-      <div id="magicResultArea" style="margin-top: 32px; display: none;">
-        <!-- 결과 카드들이 여기에 동적으로 추가됨 -->
-        <div class="magic-loading" style="color: white; font-size: 18px;">AI가 전국의 빈집을 털고 있습니다... 🕵️‍♂️</div>
+      <!-- 카테고리 탭 (동적 생성) -->
+      <div id="rfCategoryTabs" style="display:flex; gap:6px; margin-bottom:14px; flex-wrap:wrap;">
+        <button class="rf-tab active" data-cat="*" onclick="rfFilterCategory('*', this)">📊 종합</button>
+      </div>
+
+      <!-- 키워드 표 -->
+      <div style="overflow-x:auto; border-radius:12px; background:#020617; border:1px solid #334155;">
+        <table id="rfTable" style="width:100%; border-collapse:collapse; font-size:12px; color:#e2e8f0;">
+          <thead>
+            <tr style="background:#1e293b; border-bottom:2px solid #475569;">
+              <th style="padding:12px 8px; text-align:center; font-weight:700; color:#94a3b8;">#</th>
+              <th style="padding:12px 8px; text-align:center;">분류</th>
+              <th style="padding:12px 8px; text-align:center;">등급</th>
+              <th style="padding:12px 8px; text-align:left;">키워드</th>
+              <th style="padding:12px 8px; text-align:right;">검색량</th>
+              <th style="padding:12px 8px; text-align:right;">문서수</th>
+              <th style="padding:12px 8px; text-align:right; color:#fbbf24;">기회지수</th>
+              <th style="padding:12px 8px; text-align:right;">CPC</th>
+              <th style="padding:12px 8px; text-align:right; color:#10b981;">월수익</th>
+              <th style="padding:12px 8px; text-align:center;">신선도</th>
+              <th style="padding:12px 8px; text-align:left;">발견 소스</th>
+              <th style="padding:12px 8px; text-align:center;">액션</th>
+            </tr>
+          </thead>
+          <tbody id="rfTbody">
+            <tr><td colspan="12" style="padding:60px; text-align:center; color:#64748b;">⚡ 발굴 시작 버튼을 눌러주세요.<br><span style="font-size:11px;">17개 데이터 소스에서 시드 수집 → 검색량·문서수 실측까지 약 30~60초 소요</span></td></tr>
+          </tbody>
+        </table>
       </div>
     </div>
+
+    <style>
+      .rf-tab { padding:8px 14px; border:1px solid #334155; background:#1e293b; color:#94a3b8; border-radius:20px; font-size:12px; font-weight:600; cursor:pointer; transition:all 0.2s; }
+      .rf-tab:hover { border-color:#fbbf24; color:#fbbf24; }
+      .rf-tab.active { background:linear-gradient(135deg,#f59e0b,#ef4444); color:white; border-color:transparent; }
+      #rfTable tbody tr { border-bottom:1px solid #1e293b; transition:background 0.15s; }
+      #rfTable tbody tr:hover { background:#0f172a; }
+      .rf-grade { padding:2px 8px; border-radius:6px; font-weight:800; font-size:10px; color:white; }
+      .rf-grade.SSS { background:#dc2626; }
+      .rf-grade.SS { background:#ea580c; }
+      .rf-grade.S { background:#22c55e; }
+      .rf-grade.A { background:#3b82f6; }
+      .rf-grade.B { background:#fbbf24; color:#111; }
+      .rf-fresh { padding:2px 6px; border-radius:6px; font-weight:700; font-size:10px; }
+      .rf-fresh.BURNING { background:#dc2626; color:white; }
+      .rf-fresh.RISING { background:#f59e0b; color:white; }
+      .rf-fresh.STABLE { background:#10b981; color:white; }
+      .rf-fresh.EVERGREEN { background:#06b6d4; color:white; }
+      .rf-source-tag { display:inline-block; padding:1px 6px; background:#334155; color:#cbd5e1; border-radius:4px; font-size:9px; margin:0 2px 2px 0; font-weight:600; }
+      .rf-action-btn { padding:4px 8px; background:#1e293b; color:#cbd5e1; border:1px solid #334155; border-radius:5px; cursor:pointer; font-size:10px; margin:0 1px; }
+      .rf-action-btn:hover { background:#475569; color:#fbbf24; }
+    </style>
+
+    <script>
+      let rfAllRows = [];
+      let rfCurrentCategory = '*';
+
+      async function refreshRichFeed(force) {
+        const tbody = document.getElementById('rfTbody');
+        const status = document.getElementById('rfStatus');
+        status.textContent = '⏳ 발굴 중... (30~60초)';
+        tbody.innerHTML = '<tr><td colspan="12" style="padding:60px; text-align:center; color:#fbbf24;">🔍 17개 소스에서 시드 수집 중...<br><span style="font-size:11px; color:#64748b;">검색광고 API로 실측 → 등급 판정 → 정렬</span></td></tr>';
+        try {
+          if (!window.electronAPI) throw new Error('electronAPI 미초기화');
+          const r = await window.electronAPI.invoke('get-rich-golden-feed', { force: !!force });
+          if (!r || !r.success) {
+            tbody.innerHTML = '<tr><td colspan="12" style="padding:40px; text-align:center; color:#fca5a5;">발굴 실패: ' + (r && r.error || '알 수 없음') + '</td></tr>';
+            return;
+          }
+          rfAllRows = r.rows || [];
+          document.getElementById('rfTotal').textContent = rfAllRows.length;
+          document.getElementById('rfTierBadge').textContent = (r.tier === 'pro') ? '💎 PRO' : 'LITE';
+          status.textContent = '✅ ' + new Date(r.timestamp).toLocaleTimeString('ko-KR') + ' 갱신';
+          renderRichFeedTabs(r.byCategory || {});
+          renderRichFeedTable(rfAllRows);
+          updatePublicFeedHealth();
+        } catch (e) {
+          tbody.innerHTML = '<tr><td colspan="12" style="padding:40px; text-align:center; color:#fca5a5;">' + (e && e.message || e) + '</td></tr>';
+        }
+      }
+
+      function renderRichFeedTabs(byCat) {
+        const wrap = document.getElementById('rfCategoryTabs');
+        const cats = Object.entries(byCat).sort((a, b) => b[1] - a[1]);
+        let html = `<button class="rf-tab ${rfCurrentCategory === '*' ? 'active' : ''}" data-cat="*" onclick="rfFilterCategory('*', this)">📊 종합 ${rfAllRows.length}</button>`;
+        for (const [cat, count] of cats) {
+          const safe = String(cat).replace(/'/g, "\\'");
+          const isActive = rfCurrentCategory === safe ? 'active' : '';
+          html += `<button class="rf-tab ${isActive}" data-cat="${safe}" onclick="rfFilterCategory('${safe}', this)">${cat} ${count}</button>`;
+        }
+        wrap.innerHTML = html;
+      }
+
+      function rfFilterCategory(cat, btnEl) {
+        rfCurrentCategory = cat;
+        document.querySelectorAll('.rf-tab').forEach(t => t.classList.remove('active'));
+        if (btnEl) btnEl.classList.add('active');
+        const filtered = (cat === '*') ? rfAllRows : rfAllRows.filter(r => r.category === cat);
+        renderRichFeedTable(filtered);
+      }
+
+      function renderRichFeedTable(rows) {
+        const tbody = document.getElementById('rfTbody');
+        if (!rows || rows.length === 0) {
+          tbody.innerHTML = '<tr><td colspan="12" style="padding:40px; text-align:center; color:#64748b;">결과 없음</td></tr>';
+          return;
+        }
+        tbody.innerHTML = rows.map(r => {
+          const ratioColor = r.goldenRatio >= 100 ? '#dc2626' : r.goldenRatio >= 50 ? '#f59e0b' : r.goldenRatio >= 10 ? '#fbbf24' : '#94a3b8';
+          const sources = (r.sources || []).slice(0, 3).map(s => `<span class="rf-source-tag">${s}</span>`).join('');
+          const moreSources = r.sourceCount > 3 ? `<span class="rf-source-tag">+${r.sourceCount - 3}</span>` : '';
+          const kwSafe = String(r.keyword).replace(/"/g, '&quot;').replace(/'/g, "\\'");
+          const blueOcean = r.isBlueOcean ? '🌊' : '';
+          return `
+            <tr>
+              <td style="padding:10px 8px; text-align:center; color:#64748b; font-weight:700;">${r.rank}</td>
+              <td style="padding:10px 8px; text-align:center;"><span title="${r.category}">${r.categoryIcon}</span></td>
+              <td style="padding:10px 8px; text-align:center;">${r.grade ? `<span class="rf-grade ${r.grade}">${r.grade}</span>` : '-'}</td>
+              <td style="padding:10px 8px; font-weight:700; color:#f1f5f9;">${blueOcean} ${r.keyword}</td>
+              <td style="padding:10px 8px; text-align:right; color:#cbd5e1;">${r.searchVolume.toLocaleString()}</td>
+              <td style="padding:10px 8px; text-align:right; color:#94a3b8;">${r.documentCount.toLocaleString()}</td>
+              <td style="padding:10px 8px; text-align:right; font-weight:800; color:${ratioColor};">${r.goldenRatio.toFixed(2)}</td>
+              <td style="padding:10px 8px; text-align:right; color:#cbd5e1;">₩${r.cpc.toLocaleString()}</td>
+              <td style="padding:10px 8px; text-align:right; color:#10b981; font-weight:700;">₩${(r.estimatedMonthlyRevenue / 10000).toFixed(0)}만</td>
+              <td style="padding:10px 8px; text-align:center;"><span class="rf-fresh ${r.freshness}">${freshIcon(r.freshness)}</span></td>
+              <td style="padding:10px 8px; text-align:left;">${sources}${moreSources}</td>
+              <td style="padding:10px 8px; text-align:center; white-space:nowrap;">
+                <button class="rf-action-btn" title="복사" onclick="rfCopyKw('${kwSafe}')">📋</button>
+                <button class="rf-action-btn" title="네이버 검색" onclick="window.electronAPI.openExternal('https://search.naver.com/search.naver?query=' + encodeURIComponent('${kwSafe}'))">🔍</button>
+                <button class="rf-action-btn" title="LEWORD 분석" onclick="rfAnalyze('${kwSafe}')">⚡</button>
+              </td>
+            </tr>
+          `;
+        }).join('');
+      }
+
+      function freshIcon(f) {
+        return f === 'BURNING' ? '🔴 BURNING' : f === 'RISING' ? '🟡 RISING' : f === 'EVERGREEN' ? '🔵 EVER' : '🟢 STABLE';
+      }
+
+      function rfCopyKw(kw) {
+        navigator.clipboard.writeText(kw).then(() => {
+          const s = document.getElementById('rfStatus');
+          const old = s.textContent;
+          s.textContent = '📋 복사됨: ' + kw;
+          setTimeout(() => s.textContent = old, 2000);
+        });
+      }
+
+      function rfAnalyze(kw) {
+        const input = document.getElementById('keywordInput') || document.querySelector('input[type="text"]');
+        if (input) {
+          input.value = kw;
+          input.scrollIntoView({ behavior: 'smooth', block: 'center' });
+          input.focus();
+        }
+      }
+
+      async function rfExport(format) {
+        try {
+          const r = await window.electronAPI.invoke('rich-feed-export', format);
+          if (!r || !r.success) { alert('내보내기 실패: ' + (r && r.error)); return; }
+          if (format === 'clipboard') {
+            await navigator.clipboard.writeText(r.content);
+            alert('✅ ' + (rfAllRows.length) + '개 키워드를 클립보드에 복사했습니다.');
+          } else {
+            const blob = new Blob([r.content], { type: format === 'csv' ? 'text/csv;charset=utf-8' : 'application/json' });
+            const url = URL.createObjectURL(blob);
+            const a = document.createElement('a');
+            const today = new Date().toISOString().split('T')[0];
+            a.href = url;
+            a.download = `leword-golden-keywords-${today}.${format}`;
+            a.click();
+            URL.revokeObjectURL(url);
+          }
+        } catch (e) {
+          alert('내보내기 오류: ' + (e && e.message || e));
+        }
+      }
+
+      async function updatePublicFeedHealth() {
+        try {
+          const r = await window.electronAPI.invoke('source-health-quick');
+          if (r && r.success) {
+            document.getElementById('hbHealthy').textContent = '✅ ' + (r.healthy || 0);
+            document.getElementById('hbDown').textContent = '❌ ' + (r.down || 0);
+            document.getElementById('hbDegraded').textContent = '⚠️ ' + ((r.total || 0) - (r.healthy || 0) - (r.down || 0));
+          }
+        } catch {}
+      }
+
+      // 페이지 로드 시 헬스만 표시 (자동 발굴 X — 비용/시간 고려)
+      document.addEventListener('DOMContentLoaded', () => {
+        setTimeout(() => updatePublicFeedHealth(), 1500);
+      });
+    </script>
+
 
     <!-- 실시간 검색어 모니터링 섹션 (2x2 그리드) -->
     <div id="realtimeKeywordsSection"
@@ -878,6 +1086,231 @@
         </button>
       </div>
     </div>
+
+    <!-- ============================================================
+         🆕 v4.0 데이터 소스 패널 — 17개 신규 소스 통합 허브
+         LITE: YouTube/위키/뽐뿌/Google PAA (무료)
+         PRO:  쇼핑인사이트/TikTok/Threads/OpenAlex/Rakuten/빅카인즈/
+               더쿠/보배/올리브영/무신사/Meta Ad Library/크림/나무위키
+         ============================================================ -->
+    <div id="v4SourcesPanel" style="margin-bottom: 32px; padding: 24px; background: linear-gradient(135deg, #0f172a 0%, #1e293b 100%); border-radius: 20px; border: 2px solid #334155; box-shadow: 0 10px 40px rgba(0,0,0,0.3);">
+      <div style="display:flex; justify-content:space-between; align-items:center; margin-bottom:20px; flex-wrap:wrap; gap:12px;">
+        <div>
+          <h3 style="margin:0; font-size:22px; font-weight:800; color:#f1f5f9; display:flex; align-items:center; gap:10px;">
+            <span style="font-size:28px;">🛰️</span>
+            v4.0 멀티 소스 신호 허브
+            <span style="font-size:11px; padding:3px 10px; background:linear-gradient(135deg,#f59e0b,#ef4444); color:white; border-radius:20px; font-weight:700;">NEW</span>
+          </h3>
+          <p style="margin:6px 0 0; color:#94a3b8; font-size:13px;">17개 데이터 소스에서 키워드 선행 신호를 가져와 MDP v4.0 엔진에 주입</p>
+        </div>
+        <div style="display:flex; gap:8px;">
+          <button onclick="v4PullAggregator(true)" style="padding:10px 18px; border:none; border-radius:10px; background:linear-gradient(135deg,#10b981,#059669); color:white; font-weight:700; font-size:13px; cursor:pointer;">⚡ LITE 통합 풀링</button>
+          <button onclick="v4PullAggregator(false)" style="padding:10px 18px; border:none; border-radius:10px; background:linear-gradient(135deg,#8b5cf6,#6366f1); color:white; font-weight:700; font-size:13px; cursor:pointer;">💎 PRO 전체 풀링</button>
+          <button onclick="v4ClearCache()" title="캐시 초기화" style="padding:10px 14px; border:none; border-radius:10px; background:#475569; color:white; font-weight:700; font-size:13px; cursor:pointer;">🗑️</button>
+        </div>
+      </div>
+
+      <!-- 소스 그리드: 17개 -->
+      <div style="display:grid; grid-template-columns:repeat(auto-fill,minmax(170px,1fr)); gap:10px;">
+        <!-- LITE 4종 -->
+        <button class="v4-src-btn lite" data-channel="source-youtube-trending" onclick="v4Call(this)">📺 YouTube KR<br><span class="v4-tag">LITE</span></button>
+        <button class="v4-src-btn lite" data-channel="source-wiki-top" onclick="v4Call(this)">📚 위키 Top1000<br><span class="v4-tag">LITE</span></button>
+        <button class="v4-src-btn lite" data-channel="source-wiki-rising" onclick="v4Call(this)">📈 위키 급상승<br><span class="v4-tag">LITE</span></button>
+        <button class="v4-src-btn lite" data-channel="source-ppomppu-hotdeals" onclick="v4Call(this)">🔥 뽐뿌 핫딜<br><span class="v4-tag">LITE</span></button>
+
+        <!-- PRO 13종 -->
+        <button class="v4-src-btn pro" data-channel="source-shopping-all-categories" onclick="v4Call(this)">🛒 쇼핑인사이트<br><span class="v4-tag pro">PRO</span></button>
+        <button class="v4-src-btn pro" data-channel="source-tiktok-hashtags" onclick="v4Call(this)">🎵 TikTok KR<br><span class="v4-tag pro">PRO</span></button>
+        <button class="v4-src-btn pro" data-channel="source-tiktok-rising" onclick="v4Call(this)">🚀 TikTok 급상승<br><span class="v4-tag pro">PRO</span></button>
+        <button class="v4-src-btn pro" data-channel="source-openalex-emerging" onclick="v4Call(this)">🎓 OpenAlex 예측<br><span class="v4-tag pro">PRO</span></button>
+        <button class="v4-src-btn pro" data-channel="source-rakuten-all" onclick="v4Call(this)">🇯🇵 Rakuten<br><span class="v4-tag pro">PRO</span></button>
+        <button class="v4-src-btn pro" data-channel="source-theqoo-hot" onclick="v4Call(this)">💃 더쿠<br><span class="v4-tag pro">PRO</span></button>
+        <button class="v4-src-btn pro" data-channel="source-bobae-best" onclick="v4Call(this)">🚗 보배드림<br><span class="v4-tag pro">PRO</span></button>
+        <button class="v4-src-btn pro" data-channel="source-oliveyoung-best" onclick="v4Call(this)">💄 올리브영<br><span class="v4-tag pro">PRO</span></button>
+        <button class="v4-src-btn pro" data-channel="source-musinsa-ranking" onclick="v4Call(this)">👕 무신사<br><span class="v4-tag pro">PRO</span></button>
+        <button class="v4-src-btn pro" data-channel="source-kream-resell" onclick="v4Call(this)">👟 크림 리셀<br><span class="v4-tag pro">PRO</span></button>
+        <button class="v4-src-btn pro" data-channel="source-namu-recent" onclick="v4Call(this)">📖 나무위키<br><span class="v4-tag pro">PRO</span></button>
+
+        <!-- 입력 필요한 소스 -->
+        <button class="v4-src-btn lite" onclick="v4PromptCall('source-google-paa','Google PAA','키워드')">❓ Google PAA<br><span class="v4-tag">LITE</span></button>
+        <button class="v4-src-btn pro" onclick="v4PromptCall('source-bigkinds-buzz','빅카인즈 버즈','키워드')">📰 빅카인즈<br><span class="v4-tag pro">PRO</span></button>
+        <button class="v4-src-btn pro" onclick="v4PromptCall('source-threads-buzz','Threads 버즈','키워드')">🧵 Threads<br><span class="v4-tag pro">PRO</span></button>
+        <button class="v4-src-btn pro" onclick="v4PromptCall('source-meta-ad-library','Meta Ad Library','키워드')">📣 Meta Ads<br><span class="v4-tag pro">PRO</span></button>
+      </div>
+
+      <!-- 결과 출력 -->
+      <div id="v4ResultArea" style="margin-top:20px; padding:16px; background:#020617; border-radius:12px; max-height:400px; overflow-y:auto; display:none;">
+        <div id="v4ResultHeader" style="display:flex; justify-content:space-between; align-items:center; margin-bottom:12px;">
+          <span id="v4ResultTitle" style="font-size:14px; font-weight:700; color:#f1f5f9;"></span>
+          <button onclick="document.getElementById('v4ResultArea').style.display='none'" style="padding:4px 10px; border:none; background:#334155; color:#cbd5e1; border-radius:6px; cursor:pointer; font-size:11px;">닫기</button>
+        </div>
+        <pre id="v4ResultBody" style="margin:0; color:#a7f3d0; font-family:'D2Coding','Cascadia Code',monospace; font-size:11px; white-space:pre-wrap; line-height:1.5;"></pre>
+      </div>
+
+      <!-- ▼ 헬스 대시보드 -->
+      <div style="margin-top:20px; padding:16px; background:rgba(2,6,23,0.7); border-radius:12px; border:1px solid #334155;">
+        <div style="display:flex; justify-content:space-between; align-items:center; margin-bottom:12px;">
+          <h4 style="margin:0; font-size:14px; color:#f1f5f9; font-weight:700;">🩺 소스 헬스 대시보드</h4>
+          <div style="display:flex; gap:6px;">
+            <button onclick="v4HealthRefresh()" style="padding:6px 12px; border:none; background:#10b981; color:white; border-radius:6px; cursor:pointer; font-size:11px; font-weight:700;">🔄 라이브 체크</button>
+            <button onclick="v4UnblockAll()" style="padding:6px 12px; border:none; background:#475569; color:white; border-radius:6px; cursor:pointer; font-size:11px; font-weight:700;">🔓 차단 해제</button>
+          </div>
+        </div>
+        <div id="v4HealthGrid" style="display:grid; grid-template-columns:repeat(auto-fill, minmax(180px, 1fr)); gap:6px; font-size:11px;">
+          <div style="grid-column:1/-1; color:#64748b; padding:10px;">로딩 중...</div>
+        </div>
+      </div>
+
+      <!-- ▼ 신규 API 키 설정 -->
+      <details style="margin-top:16px; background:rgba(2,6,23,0.7); border-radius:12px; border:1px solid #334155;">
+        <summary style="padding:12px 16px; cursor:pointer; font-size:14px; color:#f1f5f9; font-weight:700;">🔑 신규 API 키 설정 (Threads / Rakuten / 빅카인즈)</summary>
+        <div style="padding:0 16px 16px;">
+          <div style="display:grid; grid-template-columns:1fr 1fr; gap:10px;">
+            <div>
+              <label style="display:block; font-size:11px; color:#94a3b8; margin-bottom:4px;">🧵 Threads Access Token</label>
+              <input id="apiKeyThreads" type="password" placeholder="THREADS_ACCESS_TOKEN" style="width:100%; padding:8px; background:#020617; border:1px solid #334155; border-radius:6px; color:#f1f5f9; font-size:11px;">
+            </div>
+            <div>
+              <label style="display:block; font-size:11px; color:#94a3b8; margin-bottom:4px;">🇯🇵 Rakuten Application ID</label>
+              <input id="apiKeyRakuten" type="password" placeholder="RAKUTEN_APP_ID" style="width:100%; padding:8px; background:#020617; border:1px solid #334155; border-radius:6px; color:#f1f5f9; font-size:11px;">
+            </div>
+          </div>
+          <div style="display:flex; gap:6px; margin-top:10px;">
+            <button onclick="v4SaveApiKeys()" style="padding:8px 16px; border:none; background:linear-gradient(135deg,#6366f1,#8b5cf6); color:white; border-radius:6px; cursor:pointer; font-size:12px; font-weight:700;">💾 저장</button>
+            <span id="apiKeySaveStatus" style="color:#10b981; font-size:11px; align-self:center;"></span>
+          </div>
+          <div style="margin-top:10px; padding:10px; background:rgba(15,23,42,0.6); border-radius:6px; font-size:10px; color:#94a3b8; line-height:1.6;">
+            <strong style="color:#cbd5e1;">발급 가이드:</strong><br>
+            • Threads: developers.facebook.com → My Apps → Threads → Access Token<br>
+            • Rakuten: webservice.rakuten.co.jp → 신규등록 → Application ID<br>
+            • 빅카인즈: bigkinds.or.kr 회원가입 후 마이페이지 → API 신청
+          </div>
+        </div>
+      </details>
+    </div>
+
+    <style>
+      .v4-src-btn { padding:14px 8px; border:1px solid #334155; border-radius:10px; background:linear-gradient(135deg,#1e293b,#0f172a); color:#e2e8f0; font-size:12px; font-weight:600; cursor:pointer; transition:all 0.2s; line-height:1.4; text-align:center; }
+      .v4-src-btn:hover { transform:translateY(-2px); border-color:#6366f1; box-shadow:0 6px 16px rgba(99,102,241,0.3); }
+      .v4-src-btn.lite { border-left:3px solid #10b981; }
+      .v4-src-btn.pro { border-left:3px solid #f59e0b; }
+      .v4-tag { display:inline-block; margin-top:4px; padding:1px 6px; font-size:9px; border-radius:8px; background:#10b981; color:white; font-weight:700; }
+      .v4-tag.pro { background:#f59e0b; }
+      .v4-src-btn.loading { opacity:0.6; pointer-events:none; }
+    </style>
+
+    <script>
+      async function v4Call(btn) {
+        const channel = btn.getAttribute('data-channel');
+        const label = btn.innerText.split('\n')[0];
+        await v4Invoke(channel, [], label);
+      }
+
+      async function v4PromptCall(channel, label, paramName) {
+        const val = prompt(`${label} - ${paramName} 입력:`);
+        if (!val) return;
+        await v4Invoke(channel, [val], `${label} (${val})`);
+      }
+
+      async function v4Invoke(channel, args, label) {
+        const area = document.getElementById('v4ResultArea');
+        const title = document.getElementById('v4ResultTitle');
+        const body = document.getElementById('v4ResultBody');
+        area.style.display = 'block';
+        title.textContent = `⏳ ${label} 호출 중...`;
+        body.textContent = '';
+        try {
+          if (!window.electronAPI || typeof window.electronAPI.invoke !== 'function') {
+            throw new Error('electronAPI 미초기화');
+          }
+          const result = await window.electronAPI.invoke(channel, ...args);
+          title.textContent = `✅ ${label}`;
+          if (result && result.requiresUnlimited) {
+            body.textContent = '🔒 PRO 전용 기능입니다. 무제한 라이선스가 필요합니다.\n\n' + (result.message || '');
+            body.style.color = '#fbbf24';
+          } else {
+            body.style.color = '#a7f3d0';
+            body.textContent = JSON.stringify(result, null, 2).slice(0, 8000);
+          }
+        } catch (err) {
+          title.textContent = `❌ ${label} 실패`;
+          body.style.color = '#fca5a5';
+          body.textContent = String(err && err.message || err);
+        }
+      }
+
+      async function v4PullAggregator(lite) {
+        await v4Invoke('source-aggregator-pull', [{ lite }], lite ? '⚡ LITE 통합 풀링' : '💎 PRO 전체 풀링');
+      }
+
+      async function v4ClearCache() {
+        await v4Invoke('source-aggregator-clear-cache', [], '캐시 초기화');
+      }
+
+      async function v4HealthRefresh() {
+        const grid = document.getElementById('v4HealthGrid');
+        grid.innerHTML = '<div style="grid-column:1/-1; color:#fbbf24; padding:10px;">⏳ 17개 소스 라이브 핑 중... (10~30초 소요)</div>';
+        try {
+          const r = await window.electronAPI.invoke('source-health-refresh');
+          if (!r || !r.success) { grid.innerHTML = '<div style="color:#fca5a5; padding:10px;">실패</div>'; return; }
+          renderHealthGrid(r.report);
+        } catch (e) {
+          grid.innerHTML = '<div style="color:#fca5a5; padding:10px;">' + (e && e.message || e) + '</div>';
+        }
+      }
+
+      function renderHealthGrid(report) {
+        const grid = document.getElementById('v4HealthGrid');
+        if (!report || !report.sources) { grid.innerHTML = '<div>없음</div>'; return; }
+        grid.innerHTML = report.sources.map(s => {
+          const color = s.health === 'HEALTHY' ? '#10b981' : (s.health === 'DOWN' ? '#ef4444' : '#f59e0b');
+          const icon = s.health === 'HEALTHY' ? '✅' : (s.health === 'DOWN' ? '❌' : '⚠️');
+          const tier = s.tier === 'pro' ? '<span style="color:#f59e0b;">PRO</span>' : '<span style="color:#10b981;">LITE</span>';
+          return `<div style="padding:8px; background:#020617; border-left:3px solid ${color}; border-radius:6px;">
+            <div style="display:flex; justify-content:space-between; gap:6px;">
+              <span style="color:#f1f5f9; font-weight:600;">${icon} ${s.label}</span>
+              ${tier}
+            </div>
+            <div style="color:#64748b; margin-top:4px; font-size:10px;">
+              ${s.keywords}건 · ${s.latencyMs}ms${s.error ? ' · <span style="color:#fca5a5;">' + String(s.error).slice(0, 30) + '</span>' : ''}
+            </div>
+          </div>`;
+        }).join('');
+      }
+
+      async function v4UnblockAll() {
+        await window.electronAPI.invoke('source-unblock', '*');
+        await v4HealthRefresh();
+      }
+
+      async function v4SaveApiKeys() {
+        const status = document.getElementById('apiKeySaveStatus');
+        try {
+          const threads = document.getElementById('apiKeyThreads').value.trim();
+          const rakuten = document.getElementById('apiKeyRakuten').value.trim();
+          const env = await window.electronAPI.invoke('get-env');
+          const merged = Object.assign({}, env || {});
+          if (threads) merged.threadsAccessToken = threads;
+          if (rakuten) merged.rakutenAppId = rakuten;
+          await window.electronAPI.invoke('save-env', merged);
+          status.textContent = '✅ 저장됨';
+          setTimeout(() => { status.textContent = ''; }, 3000);
+        } catch (e) {
+          status.style.color = '#fca5a5';
+          status.textContent = '실패: ' + (e && e.message || e);
+        }
+      }
+
+      // 페이지 로드 시 캐시된 헬스 표시
+      document.addEventListener('DOMContentLoaded', () => {
+        setTimeout(async () => {
+          try {
+            const r = await window.electronAPI.invoke('source-health-cached');
+            if (r && r.success && r.report) renderHealthGrid(r.report);
+          } catch {}
+        }, 2500);
+      });
+    </script>
 
     <!-- 메인 기능: 키워드 발굴 -->
     <div class="main-feature">
@@ -3351,6 +3784,15 @@
             let serpBadges = '';
             if (item.hasSmartBlock) serpBadges += '<span title="스마트블록 존재" style="background:#03c75a; color:white; padding:2px 6px; border-radius:4px; font-size:10px; margin:0 2px;">SB</span>';
             if (item.hasInfluencer) serpBadges += '<span title="인플루언서 영역 존재" style="background:#ff5a5f; color:white; padding:2px 6px; border-radius:4px; font-size:10px; margin:0 2px;">INF</span>';
+
+            // v4.0: 외부 신호 배지 (커뮤니티 버즈 / SNS 선행 / 외부 소스 매칭)
+            const cb = Number(item.communityBuzzScore || 0);
+            const sl = Number(item.snsLeadingScore || 0);
+            const extSrcs = Array.isArray(item.externalSources) ? item.externalSources : [];
+            if (cb >= 33) serpBadges += `<span title="커뮤니티 버즈 ${cb}점 (더쿠/뽐뿌/보배/디시)" style="background:#ec4899; color:white; padding:2px 6px; border-radius:4px; font-size:10px; margin:0 2px;">🔥${cb}</span>`;
+            if (sl >= 33) serpBadges += `<span title="SNS 선행 ${sl}점 (TikTok/Threads/YouTube)" style="background:#8b5cf6; color:white; padding:2px 6px; border-radius:4px; font-size:10px; margin:0 2px;">📡${sl}</span>`;
+            if (extSrcs.length > 0) serpBadges += `<span title="외부 소스 매칭: ${extSrcs.join(', ')}" style="background:#0891b2; color:white; padding:2px 6px; border-radius:4px; font-size:10px; margin:0 2px;">v4×${extSrcs.length}</span>`;
+
             if (!serpBadges) serpBadges = '<span style="color:#cbd5e1; font-size:10px;">클린</span>';
 
             html += `
