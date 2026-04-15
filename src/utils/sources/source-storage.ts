@@ -1,15 +1,16 @@
 /**
- * Source Storage — electron-store 기반 시계열 스냅샷 누적
+ * Source Storage — fs 기반 단순 JSON 저장 (electron-store ESM 회피)
  *
- * 목적: "어제 대비 +30%" 같은 진짜 선행 신호를 만들기 위해
- *      소스별 일별 키워드 빈도를 14일 보관.
+ * 목적: 소스별 일별 키워드 빈도 14일 누적 → "어제 대비" 신호 생성
  */
 
-import Store from 'electron-store';
+import { app } from 'electron';
+import * as fs from 'fs';
+import * as path from 'path';
 
 interface DailySnapshot {
-    date: string;                    // YYYY-MM-DD
-    keywords: Record<string, number>; // keyword → frequency
+    date: string;
+    keywords: Record<string, number>;
 }
 
 interface SourceHistory {
@@ -17,26 +18,57 @@ interface SourceHistory {
     snapshots: DailySnapshot[];
 }
 
-const store = new Store<{ sources: Record<string, SourceHistory> }>({
-    name: 'leword-source-history',
-    defaults: { sources: {} },
-});
+interface StorageRoot {
+    sources: Record<string, SourceHistory>;
+}
 
 const MAX_DAYS = 14;
+
+let _storePath: string | null = null;
+function getStorePath(): string {
+    if (_storePath) return _storePath;
+    try {
+        const dir = app.getPath('userData');
+        if (!fs.existsSync(dir)) fs.mkdirSync(dir, { recursive: true });
+        _storePath = path.join(dir, 'leword-source-history.json');
+    } catch {
+        _storePath = path.join(process.cwd(), 'leword-source-history.json');
+    }
+    return _storePath;
+}
+
+function readStore(): StorageRoot {
+    const p = getStorePath();
+    try {
+        if (!fs.existsSync(p)) return { sources: {} };
+        const raw = fs.readFileSync(p, 'utf-8');
+        const data = JSON.parse(raw);
+        if (!data || typeof data !== 'object' || !data.sources) return { sources: {} };
+        return data as StorageRoot;
+    } catch {
+        return { sources: {} };
+    }
+}
+
+function writeStore(data: StorageRoot): void {
+    try {
+        const p = getStorePath();
+        fs.writeFileSync(p, JSON.stringify(data), 'utf-8');
+    } catch (err) {
+        console.warn('[source-storage] 저장 실패:', err);
+    }
+}
 
 function todayStr(): string {
     return new Date().toISOString().split('T')[0];
 }
 
-/**
- * 오늘 스냅샷 저장 (소스ID + 키워드 빈도 맵)
- */
 export function saveSnapshot(sourceId: string, keywords: Map<string, number> | Record<string, number>): void {
-    const all = (store as any).get('sources') as Record<string, SourceHistory>;
-    let history = all[sourceId];
+    const root = readStore();
+    let history = root.sources[sourceId];
     if (!history) {
         history = { sourceId, snapshots: [] };
-        all[sourceId] = history;
+        root.sources[sourceId] = history;
     }
 
     const today = todayStr();
@@ -51,19 +83,16 @@ export function saveSnapshot(sourceId: string, keywords: Map<string, number> | R
         history.snapshots.push({ date: today, keywords: kwObj });
     }
 
-    // Keep last MAX_DAYS only
     history.snapshots = history.snapshots
         .sort((a, b) => a.date.localeCompare(b.date))
         .slice(-MAX_DAYS);
 
-    (store as any).set('sources', all);
+    writeStore(root);
 }
 
-/**
- * 키워드별 7일 평균 대비 오늘 비율 (급상승 측정)
- */
 export function getKeywordTrend(sourceId: string, keyword: string): { today: number; weekAvg: number; ratio: number } {
-    const history = ((store as any).get('sources') as Record<string, SourceHistory>)[sourceId];
+    const root = readStore();
+    const history = root.sources[sourceId];
     if (!history || history.snapshots.length === 0) return { today: 0, weekAvg: 0, ratio: 0 };
 
     const sorted = history.snapshots.slice().sort((a, b) => b.date.localeCompare(a.date));
@@ -78,11 +107,9 @@ export function getKeywordTrend(sourceId: string, keyword: string): { today: num
     return { today, weekAvg: parseFloat(weekAvg.toFixed(2)), ratio: parseFloat(ratio.toFixed(2)) };
 }
 
-/**
- * 특정 소스에서 오늘 신규로 등장한 키워드 (어제는 없었음)
- */
 export function getNewKeywords(sourceId: string): string[] {
-    const history = ((store as any).get('sources') as Record<string, SourceHistory>)[sourceId];
+    const root = readStore();
+    const history = root.sources[sourceId];
     if (!history || history.snapshots.length < 2) return [];
 
     const sorted = history.snapshots.slice().sort((a, b) => b.date.localeCompare(a.date));
@@ -92,11 +119,9 @@ export function getNewKeywords(sourceId: string): string[] {
     return Object.keys(today).filter(kw => !(kw in yesterday));
 }
 
-/**
- * 소스별 급상승 키워드 (ratio >= threshold)
- */
 export function getRisingKeywords(sourceId: string, threshold: number = 2.0): Array<{ keyword: string; ratio: number; today: number }> {
-    const history = ((store as any).get('sources') as Record<string, SourceHistory>)[sourceId];
+    const root = readStore();
+    const history = root.sources[sourceId];
     if (!history || history.snapshots.length < 2) return [];
 
     const sorted = history.snapshots.slice().sort((a, b) => b.date.localeCompare(a.date));
@@ -113,12 +138,9 @@ export function getRisingKeywords(sourceId: string, threshold: number = 2.0): Ar
     return result.sort((a, b) => b.ratio - a.ratio);
 }
 
-/**
- * 전 소스 스냅샷 통계 (대시보드용)
- */
 export function getStorageStats(): Array<{ sourceId: string; days: number; latestDate: string; totalKeywords: number }> {
-    const all = (store as any).get('sources') as Record<string, SourceHistory>;
-    return Object.values(all).map(h => {
+    const root = readStore();
+    return Object.values(root.sources).map(h => {
         const sorted = h.snapshots.slice().sort((a, b) => b.date.localeCompare(a.date));
         const latest = sorted[0];
         return {
@@ -131,5 +153,5 @@ export function getStorageStats(): Array<{ sourceId: string; days: number; lates
 }
 
 export function clearStorage(): void {
-    (store as any).set('sources', {});
+    writeStore({ sources: {} });
 }
