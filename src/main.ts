@@ -177,17 +177,9 @@ async function checkLicense(): Promise<boolean> {
   if (license && license.isValid) {
     // 저장된 라이선스가 있어도 자동 로그인 안 함 - 항상 로그인창 표시
     if (licenseManager.isLicenseExpired(license)) {
-      console.log('[LEWORD] ⚠️ 저장된 라이선스 만료됨');
-      // 만료된 경우 라이선스 삭제
+      console.log('[LEWORD] ⚠️ 저장된 라이선스 만료됨 — 라이선스 삭제 후 로그인창으로 진행');
+      // 만료된 경우 라이선스 삭제 (팝업 다이얼로그 제거 — 바로 로그인창으로)
       await licenseManager.clearLicense();
-
-      // 만료 알림 표시
-      dialog.showMessageBoxSync({
-        type: 'warning',
-        title: '라이선스 만료',
-        message: '라이선스가 만료되었습니다.\n다시 로그인해주세요.',
-        buttons: ['확인']
-      });
     } else {
       console.log('[LEWORD] 저장된 라이선스 있음 (자동 로그인 비활성화 - 매번 로그인 필요)');
     }
