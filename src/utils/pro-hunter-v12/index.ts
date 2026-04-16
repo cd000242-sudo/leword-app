@@ -6,7 +6,7 @@ import { analyzeSerp, detectGaps } from './serp-content-analyzer';
 import { generateBlueprint, type KeywordBlueprint } from './outline-generator';
 import { predictWin, type WinPrediction } from './win-predictor';
 import { loadProfile, profileToCapability } from './user-profile';
-import { addTrackedKeyword } from './tracking-store';
+import { addTrackedKeyword, getTrackingDataForKeyword, listTrackedPosts } from './tracking-store';
 import { analyzeSeasonality, type SeasonalityProfile } from './seasonality-analyzer';
 import { analyzeSmartBlocks, type SmartBlockAnalysis } from './smartblock-parser';
 import { fetchGoogleTop10, type GoogleSerpAnalysis } from './google-serp';
@@ -15,6 +15,16 @@ import { calibrateVolume } from './volume-calibrator';
 import { EnvironmentManager } from '../environment-manager';
 import type { FetchedPost } from './serp-content-fetcher';
 import type { SerpAnalysis, GapAnalysis } from './serp-content-analyzer';
+
+export interface PreviousRecommendationFeedback {
+  keyword: string;
+  postUrl: string;
+  currentRank: number;
+  previousRank: number | null;
+  rankChange: number | null;
+  trackedSince: string;
+  message: string;
+}
 
 export interface BlueprintResult {
   blueprint: KeywordBlueprint;
@@ -26,6 +36,7 @@ export interface BlueprintResult {
   smartBlocks: SmartBlockAnalysis | null;
   googleSerp: GoogleSerpAnalysis | null;
   competitorInsight: CompetitorInsight;
+  previousRecommendationFeedback: PreviousRecommendationFeedback[];
   durationMs: number;
 }
 
@@ -159,8 +170,51 @@ export async function generateKeywordBlueprint(
   // Competitor insight from authority DB
   const competitorInsight = getCompetitorInsight(loadProfile()?.category);
 
+  // 7. 이전 추천 키워드 성과 피드백 수집
+  const previousRecommendationFeedback: PreviousRecommendationFeedback[] = [];
+  try {
+    const allPosts = listTrackedPosts();
+    for (const p of allPosts) {
+      const rankedHistory = p.history.filter((h) => h.rank != null);
+      if (rankedHistory.length === 0) continue;
+      const latest = rankedHistory[rankedHistory.length - 1];
+      const previous = rankedHistory.length > 1 ? rankedHistory[rankedHistory.length - 2] : null;
+      const latestRank = latest.rank as number;
+      const previousRank = previous?.rank ?? null;
+      const rankChange = previousRank != null ? latestRank - previousRank : null;
+
+      // TOP 10 진입한 키워드만 피드백
+      if (latestRank <= 10) {
+        let message: string;
+        if (latestRank <= 3) {
+          message = `"${p.keyword}" ${latestRank}위 달성!`;
+        } else {
+          message = `"${p.keyword}" ${latestRank}위 (TOP 10 진입)`;
+        }
+        if (rankChange != null && rankChange !== 0) {
+          const direction = rankChange < 0 ? '상승' : '하락';
+          message += ` — ${Math.abs(rankChange)}단계 ${direction}`;
+        }
+        previousRecommendationFeedback.push({
+          keyword: p.keyword,
+          postUrl: p.postUrl,
+          currentRank: latestRank,
+          previousRank,
+          rankChange,
+          trackedSince: new Date(p.registeredAt).toISOString().split('T')[0],
+          message,
+        });
+      }
+    }
+    if (previousRecommendationFeedback.length > 0) {
+      console.log(`[V12] 이전 추천 성과: ${previousRecommendationFeedback.map((f) => f.message).join(', ')}`);
+    }
+  } catch (err) {
+    console.warn('[V12] 이전 추천 피드백 수집 실패:', (err as Error).message);
+  }
+
   const result: BlueprintResult = {
-    blueprint, analysis, gaps, posts, prediction, seasonality, smartBlocks, googleSerp, competitorInsight, durationMs
+    blueprint, analysis, gaps, posts, prediction, seasonality, smartBlocks, googleSerp, competitorInsight, previousRecommendationFeedback, durationMs
   };
   cache.set(keyword, { ts: Date.now(), result });
   return result;

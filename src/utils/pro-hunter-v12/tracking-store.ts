@@ -184,3 +184,55 @@ export function removeTrackedPost(postUrl: string): void {
   delete store.posts[postUrl];
   save(store);
 }
+
+// ── Keyword Tracking Data Lookup ──
+
+export interface KeywordTrackingSnapshot {
+  isTracked: boolean;
+  latestRank: number | null;
+  previousRank: number | null;
+  rankChange: number | null;       // +면 하락, -면 상승
+  startDate: string | null;
+  postUrl: string | null;
+  checkCount: number;
+}
+
+/**
+ * 특정 키워드에 대한 추적 이력을 조회한다.
+ * tracked posts 중 해당 keyword를 포함하는 글의 순위 이력을 반환.
+ */
+export function getTrackingDataForKeyword(keyword: string): KeywordTrackingSnapshot | null {
+  const store = load();
+  const posts = Object.values(store.posts);
+
+  // keyword가 일치하는 글 찾기 (다중 키워드도 검색)
+  const matched = posts.filter(
+    (p) => p.keyword === keyword || (p.keywords && p.keywords.includes(keyword))
+  );
+  if (matched.length === 0) return null;
+
+  // 가장 최근에 체크된 글 우선
+  const sorted = [...matched].sort((a, b) => b.lastCheckedAt - a.lastCheckedAt);
+  const best = sorted[0];
+
+  // 순위 이력에서 최신 2개 추출
+  const rankedHistory = best.history.filter((h) => h.rank != null);
+  const latest = rankedHistory.length > 0 ? rankedHistory[rankedHistory.length - 1] : null;
+  const previous = rankedHistory.length > 1 ? rankedHistory[rankedHistory.length - 2] : null;
+
+  const latestRank = latest?.rank ?? null;
+  const previousRank = previous?.rank ?? null;
+  const rankChange = (latestRank != null && previousRank != null)
+    ? latestRank - previousRank   // +면 하락, -면 상승
+    : null;
+
+  return {
+    isTracked: true,
+    latestRank,
+    previousRank,
+    rankChange,
+    startDate: new Date(best.registeredAt).toISOString().split('T')[0],
+    postUrl: best.postUrl,
+    checkCount: rankedHistory.length,
+  };
+}

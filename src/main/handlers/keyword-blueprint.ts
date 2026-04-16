@@ -118,6 +118,7 @@ export function setupKeywordBlueprintHandlers(): void {
         },
         gaps: result.gaps,
         prediction: result.prediction,
+        previousRecommendationFeedback: result.previousRecommendationFeedback,
         durationMs: result.durationMs,
       };
     } catch (err: any) {

@@ -332,6 +332,26 @@ export interface ProTrafficKeyword {
   // 💰 수익화 전략 설계도 (v2.0 PRO 프리미엄)
   monetizationBlueprint?: MonetizationBlueprint;
 
+  // 📋 실행 가이드 (규칙 기반 빠른 생성)
+  quickGuide?: {
+    suggestedTitle: string;      // 추천 제목
+    sections: string[];           // H2 소제목 목록 (3~5개)
+    wordCount: number;            // 추천 글자수
+    monetization: string;         // 수익화 방법
+    keyDifferentiator: string;    // 차별화 포인트
+  };
+
+  // 📊 순위 추적 피드백 (v12 연결)
+  trackingHistory?: {
+    isTracked: boolean;           // 이 키워드를 추적 중인지
+    currentRank?: number;         // 현재 순위 (null이면 미추적)
+    previousRank?: number;        // 이전 순위
+    rankChange?: number;          // 순위 변화 (+면 하락, -면 상승)
+    trackedSince?: string;        // 추적 시작일
+    postUrl?: string;             // 추적 중인 글 URL
+    feedbackMessage?: string;     // 성과 피드백 메시지
+  };
+
   // 메타 정보
   source: string;
   // 🕒 MDP v2.0+ SRAA (Seasonal & Recency Advanced Analysis) 지표
@@ -984,6 +1004,7 @@ import {
   CATEGORY_SEEDS,
   SEASON_KEYWORDS
 } from '../data/hunter-seeds';
+import { scanForSurges, listRecentSurges, type TrendSignal } from './pro-hunter-v12/trend-surge-detector';
 import {
   REALTIME_SOURCE_WEIGHT,
   MONETIZATION_PATTERNS,
@@ -997,6 +1018,7 @@ import { getZumRealtimeKeywordsWithPuppeteer } from './zum-realtime-api';
 import { getDaumRealtimeKeywordsWithPuppeteer } from './daum-realtime-api';
 import { getNateRealtimeKeywordsWithPuppeteer } from './nate-realtime-api';
 import { runUltimateAnalysis, UltimateAnalysis } from './ultimate-keyword-analyzer';
+import { getTrackingDataForKeyword } from './pro-hunter-v12/tracking-store';
 
 import {
   calculateProfitGoldenRatio,
@@ -2265,6 +2287,45 @@ export async function huntProTrafficKeywords(options: {
 
     // 🔥 시드 키워드 셔플 (매번 다른 순서로 탐색 → 다른 결과!)
     allSeedKeywords = shuffleArray(allSeedKeywords);
+
+    // 🔥 트렌드 급상승 키워드 주입 (경쟁 도구 차별화)
+    try {
+      // 1) 캐시된 급상승 키워드 즉시 수집 (네트워크 불필요)
+      const cachedSurges = listRecentSurges(30);
+
+      // 2) 현재 시드 일부로 실시간 급상승 스캔 (5초 타임아웃)
+      const surgeSource = allSeedKeywords.slice(0, 10);
+      const freshResult = await withStepTimeout(
+        'scanForSurges',
+        scanForSurges(surgeSource, { category: category !== 'all' ? category : undefined }),
+        5000,
+        { scanned: 0, detected: [] as TrendSignal[], topSurges: [] as TrendSignal[], computedAt: 0 }
+      );
+
+      // 캐시 + 실시간 결과 병합 (explosive/strong만)
+      const allSurgeSignals = [...freshResult.detected, ...cachedSurges];
+      const surgeKeywords = [...new Set(
+        allSurgeSignals
+          .filter((s) => s.surgeLevel === 'explosive' || s.surgeLevel === 'strong')
+          .map((s) => s.keyword)
+      )];
+
+      if (surgeKeywords.length > 0) {
+        // 카테고리 모드면 카테고리 필터 적용
+        const isCategorySpecified = category !== 'all' && category !== 'pro_premium' && category !== 'lite_standard';
+        const filteredSurge = isCategorySpecified
+          ? surgeKeywords.filter((kw) => isKeywordInSelectedCategory(kw, category))
+          : surgeKeywords;
+
+        if (filteredSurge.length > 0) {
+          allSeedKeywords = [...filteredSurge, ...allSeedKeywords];
+          console.log(`[PRO-TRAFFIC] 🔥 트렌드 급상승 ${filteredSurge.length}개 시드 주입: ${filteredSurge.slice(0, 5).join(', ')}`);
+        }
+      }
+    } catch {
+      // 트렌드 감지 실패해도 메인 플로우 계속
+      console.warn('[PRO-TRAFFIC] 트렌드 급상승 감지 실패, 기본 시드로 진행');
+    }
 
     // 🔥🔥🔥 다중 소스에서 키워드 수집 (끝판왕!) 🔥🔥🔥
     try {
@@ -5746,6 +5807,42 @@ export function analyzeKeyword(
   // 🆕 v12.0 진입 가능 여부 분석
   const entryAnalysis = analyzeEntryDifficulty(documentCount, goldenRatio, blueOcean.score, rookieFriendly.score);
 
+  // 📋 quickGuide 생성 (규칙 기반, API 호출 없음)
+  const quickGuide = generateQuickGuide(keyword, searchVolume, documentCount, profitAnalysis, blueOcean, type);
+
+  // 📊 순위 추적 이력 조회 (v12 연결)
+  let trackingHistory: ProTrafficKeyword['trackingHistory'] | undefined;
+  try {
+    const trackingData = getTrackingDataForKeyword(keyword);
+    if (trackingData && trackingData.isTracked) {
+      let feedbackMessage: string | undefined;
+      if (trackingData.latestRank != null) {
+        if (trackingData.latestRank <= 3) {
+          feedbackMessage = `이전 추천 키워드 성과: ${trackingData.latestRank}위 달성!`;
+        } else if (trackingData.latestRank <= 10) {
+          feedbackMessage = `이전 추천 키워드 성과: ${trackingData.latestRank}위 (TOP 10 진입)`;
+        } else {
+          feedbackMessage = `이전 추천 키워드 성과: 현재 ${trackingData.latestRank}위`;
+        }
+        if (trackingData.rankChange != null && trackingData.rankChange !== 0) {
+          const direction = trackingData.rankChange < 0 ? '상승' : '하락';
+          feedbackMessage += ` (${Math.abs(trackingData.rankChange)}단계 ${direction})`;
+        }
+      }
+      trackingHistory = {
+        isTracked: true,
+        currentRank: trackingData.latestRank ?? undefined,
+        previousRank: trackingData.previousRank ?? undefined,
+        rankChange: trackingData.rankChange ?? undefined,
+        trackedSince: trackingData.startDate ?? undefined,
+        postUrl: trackingData.postUrl ?? undefined,
+        feedbackMessage,
+      };
+    }
+  } catch {
+    // 추적 데이터 없으면 무시
+  }
+
   return {
     keyword,
     searchVolume,
@@ -5757,6 +5854,7 @@ export function analyzeKeyword(
     trafficEstimate,
     revenueEstimate,
     entryAnalysis,
+    quickGuide,
     totalScore: totalScoreWithProfit,
     grade,
     proStrategy,
@@ -5782,6 +5880,7 @@ export function analyzeKeyword(
       oldPostCount: 0
     },
     seasonalBonus,
+    trackingHistory,
     timestamp: new Date().toISOString()
   };
 }
@@ -6624,6 +6723,120 @@ function generateProStrategy(
     mustInclude,
     avoidTopics,
     monetization
+  };
+}
+
+/**
+ * quickGuide 생성 (규칙 기반, API 호출 없음)
+ * profitAnalysis 계산 후 키워드 특성에 따라 실행 가이드를 빠르게 생성
+ */
+function generateQuickGuide(
+  keyword: string,
+  searchVolume: number | null,
+  documentCount: number | null,
+  profitAnalysis: ProfitKeywordData,
+  blueOcean: ProTrafficKeyword['blueOcean'],
+  type: KeywordType
+): NonNullable<ProTrafficKeyword['quickGuide']> {
+  const year = new Date().getFullYear();
+  const vol = searchVolume ?? 0;
+  const doc = documentCount ?? 0;
+  const purchaseIntent = profitAnalysis.purchaseIntentScore ?? 0;
+  const competition = profitAnalysis.competitionLevel ?? 5;
+
+  // --- suggestedTitle: 구매의도 + 키워드 특성에 따른 패턴 ---
+  const kwBase = keyword.includes(String(year)) ? keyword : `${keyword} ${year}`;
+  let suggestedTitle: string;
+
+  if (purchaseIntent >= 70) {
+    suggestedTitle = `${kwBase} TOP 5 비교 | 가성비 추천 순위`;
+  } else if (purchaseIntent >= 40) {
+    suggestedTitle = `${kwBase} 솔직 후기 | 장단점 완벽 정리`;
+  } else if (type === '❓ 질문형키워드') {
+    suggestedTitle = `${kwBase} 완벽 가이드 | 초보자도 쉽게 따라하기`;
+  } else if (type === '🚀 타이밍키워드' || type === '📰 이슈키워드') {
+    suggestedTitle = `${kwBase} 총정리 | 지금 알아야 할 핵심 포인트`;
+  } else if (type === '💎 블루오션' || type === '🎯 롱테일꿀통') {
+    suggestedTitle = `${kwBase} A to Z | 아무도 안 알려주는 꿀팁`;
+  } else {
+    suggestedTitle = `${kwBase} 완벽 정리 | 꼭 알아야 할 핵심 가이드`;
+  }
+
+  // --- sections: 키워드 특성에 따라 3~5개 H2 소제목 ---
+  const sections: string[] = [];
+
+  if (purchaseIntent >= 60) {
+    sections.push(
+      `${keyword} 선택 기준 (이것만 보세요)`,
+      `${keyword} TOP 3~5 추천 비교`,
+      `${keyword} 장단점 한눈에 보기`,
+      `실제 사용 후기 & 만족도`,
+      `결론: 나에게 맞는 ${keyword} 고르기`
+    );
+  } else if (type === '❓ 질문형키워드') {
+    sections.push(
+      `${keyword}이란? (핵심 개념)`,
+      `${keyword} 단계별 방법`,
+      `자주 하는 실수 & 주의사항`,
+      `Q&A: 자주 묻는 질문`
+    );
+  } else if (type === '🚀 타이밍키워드' || type === '📰 이슈키워드') {
+    sections.push(
+      `${keyword} 핵심 요약 (30초 정리)`,
+      `${keyword} 배경과 원인`,
+      `앞으로의 전망 & 영향`
+    );
+  } else {
+    sections.push(
+      `${keyword}이란? (기본 개념)`,
+      `${keyword} 핵심 포인트 3가지`,
+      `${keyword} 장단점 비교`,
+      `실제 후기 & 경험담`,
+      `결론 및 추천`
+    );
+  }
+
+  // --- wordCount: 경쟁도에 따라 1500~3000자 ---
+  let wordCount: number;
+  if (competition <= 2) {
+    wordCount = 1500;
+  } else if (competition <= 4) {
+    wordCount = 2000;
+  } else if (competition <= 6) {
+    wordCount = 2500;
+  } else {
+    wordCount = 3000;
+  }
+  if (vol >= 5000) {
+    wordCount = Math.min(3000, wordCount + 500);
+  }
+
+  // --- monetization: profitAnalysis.strategy.monetization 활용 ---
+  const monetization = profitAnalysis.strategy?.monetization
+    ?? '애드센스 + 쿠팡파트너스 조합 추천';
+
+  // --- keyDifferentiator: 경쟁자 대비 차별화 포인트 ---
+  const competitorCount = doc > 0 ? Math.min(doc, 10) : 0;
+  let keyDifferentiator: string;
+
+  if (blueOcean.competitorStrength === 'weak') {
+    keyDifferentiator = `경쟁자 ${competitorCount > 0 ? competitorCount + '개' : '소수'} 대부분 약함 → 최신 데이터 + 실사용 후기로 압도`;
+  } else if (blueOcean.oldPostRatio >= 50) {
+    keyDifferentiator = `상위 글 ${blueOcean.oldPostRatio}%가 오래된 글 → ${year} 최신 정보 + 비교표로 차별화`;
+  } else if (purchaseIntent >= 60) {
+    keyDifferentiator = `구매 전환 키워드 → 실제 구매 경험 + 가격 비교표 + 할인 정보로 신뢰도 확보`;
+  } else if (profitAnalysis.isRealBlueOcean) {
+    keyDifferentiator = `블루오션 키워드 → 선점 효과 극대화, 체계적 구조 + 이미지 3장 이상으로 품질 우위`;
+  } else {
+    keyDifferentiator = `경쟁자 대비 최신 정보 + 표/비교차트 + FAQ 섹션으로 체류시간 우위 확보`;
+  }
+
+  return {
+    suggestedTitle,
+    sections,
+    wordCount,
+    monetization,
+    keyDifferentiator,
   };
 }
 
