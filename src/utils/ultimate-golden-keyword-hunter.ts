@@ -62,9 +62,10 @@ export async function analyzeUltimateGoldenKeyword(
   naverClientId: string,
   naverClientSecret: string,
   myBlogIndex: BlogIndexLevel = '일반',
-  skipCompetitionAnalysis: boolean = false
+  skipCompetitionAnalysis: boolean = false,
+  realCpc?: number | null
 ): Promise<UltimateGoldenKeyword> {
-  const profitAnalysis = calculateProfitGoldenRatio(keyword, searchVolume, documentCount, category);
+  const profitAnalysis = calculateProfitGoldenRatio(keyword, searchVolume, documentCount, category, { realCpc });
 
   let competitionAnalysis: TopBlogAnalysisResult | null = null;
   if (!skipCompetitionAnalysis) {

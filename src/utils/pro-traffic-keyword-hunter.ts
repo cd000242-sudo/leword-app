@@ -2374,6 +2374,46 @@ export async function huntProTrafficKeywords(options: {
         : (weakExplosionCategories.has(category) ? 170 : 130))
       : 90)
     : (mode === 'category' ? 70 : 50);
+
+  // ─── 시드 차별화 전략: 시의성 + 타겟 세분화 + 질문형 조합 ───
+  {
+    const now = new Date();
+    const year = now.getFullYear();
+    const month = now.getMonth() + 1;
+    const seasonLabel = month <= 2 || month === 12 ? '겨울' : month <= 5 ? '봄' : month <= 8 ? '여름' : '가을';
+
+    // 1) 연도+시즌 동적 시드
+    const timelySeeds: string[] = [];
+    for (const seed of allSeedKeywords.slice(0, 10)) {
+      timelySeeds.push(`${seed} ${year}`);
+      timelySeeds.push(`${seed} ${month}월`);
+      if (!seed.includes(seasonLabel)) {
+        timelySeeds.push(`${seasonLabel} ${seed}`);
+      }
+    }
+
+    // 2) 타겟 세분화 시드
+    const TARGET_SEGMENTS = ['초보자', '직장인', '학생', '주부', '50대', '신혼부부', '자취생', '1인가구'];
+    const targetSeeds: string[] = [];
+    for (const seed of allSeedKeywords.slice(0, 8)) {
+      const segment = TARGET_SEGMENTS[Math.floor(Math.random() * TARGET_SEGMENTS.length)];
+      targetSeeds.push(`${segment} ${seed}`);
+    }
+
+    // 3) 질문형 키워드
+    const QUESTION_PATTERNS = ['하는법', '해야하나', '괜찮을까', '차이', '비교', '어디서', '언제'];
+    const questionSeeds: string[] = [];
+    for (const seed of allSeedKeywords.slice(0, 8)) {
+      const pattern = QUESTION_PATTERNS[Math.floor(Math.random() * QUESTION_PATTERNS.length)];
+      if (!seed.includes(pattern)) {
+        questionSeeds.push(`${seed} ${pattern}`);
+      }
+    }
+
+    allSeedKeywords.push(...timelySeeds, ...targetSeeds, ...questionSeeds);
+    console.log(`[PRO-TRAFFIC] 🎯 차별화 시드 추가: 시의성 ${timelySeeds.length}개, 타겟 ${targetSeeds.length}개, 질문형 ${questionSeeds.length}개`);
+  }
+
   const uniqueAllSeeds = [...new Set(allSeedKeywords)];
   if (explosionMode && multiSourceSeeds.length > 0) {
     const uniqueMultiSeeds = [...new Set(multiSourceSeeds)];
@@ -3439,7 +3479,8 @@ export async function huntProTrafficKeywords(options: {
           result.keyword,
           realSearchVolumeForCalc ?? 0,
           0,
-          result.category
+          result.category,
+          { realCpc: apiResult.realCpc }
         );
         fallbackVerifiedResults.push({
           ...result,
@@ -3493,14 +3534,16 @@ export async function huntProTrafficKeywords(options: {
           result.keyword,
           realSearchVolumeForCalc ?? 0,
           realDocCount,
-          result.category
+          result.category,
+          { realCpc: apiResult.realCpc }
         ),
         revenueEstimate: (() => {
           const pa = calculateProfitGoldenRatio(
             result.keyword,
             realSearchVolumeForCalc ?? 0,
             realDocCount,
-            result.category
+            result.category,
+            { realCpc: apiResult.realCpc }
           );
           return pa
             ? {
@@ -3589,7 +3632,8 @@ export async function huntProTrafficKeywords(options: {
         result.keyword,
         realSearchVolumeForCalc ?? 0,
         realDocCount,
-        result.category
+        result.category,
+        { realCpc: apiResult.realCpc }
       );
 
       const nextRevenueEstimate = nextProfitAnalysis
@@ -3827,9 +3871,9 @@ export async function huntProTrafficKeywords(options: {
             goldenRatio: ratio,
             isGolden: true,
             grade: newGrade,
-            profitAnalysis: calculateProfitGoldenRatio(kw, volForCalc, doc, analysis.category),
+            profitAnalysis: calculateProfitGoldenRatio(kw, volForCalc, doc, analysis.category, { realCpc: api.realCpc }),
             revenueEstimate: (() => {
-              const pa = calculateProfitGoldenRatio(kw, volForCalc, doc, analysis.category);
+              const pa = calculateProfitGoldenRatio(kw, volForCalc, doc, analysis.category, { realCpc: api.realCpc });
               return pa
                 ? {
                   dailyRevenue: `${pa.estimatedDailyRevenue.toLocaleString()}원 ⚠️추정`,
@@ -4519,6 +4563,7 @@ export async function huntProTrafficKeywords(options: {
     // Safety net: ensure ALL keywords have profitAnalysis
     for (const result of selectedKeywords) {
       if (!result.profitAnalysis && typeof result.searchVolume === 'number' && typeof result.documentCount === 'number' && result.searchVolume > 0) {
+        const cachedCpc = apiCache.get(result.keyword)?.realCpc ?? apiCache.get(result.keyword.replace(/\s/g, ''))?.realCpc ?? null;
         const profitData = calculateProfitGoldenRatio(
           result.keyword,
           result.searchVolume,
@@ -4528,6 +4573,7 @@ export async function huntProTrafficKeywords(options: {
             difficultyScore: result.difficultyScore,
             hasSmartBlock: result.hasSmartBlock,
             hasInfluencer: result.hasInfluencer,
+            realCpc: cachedCpc,
           }
         );
         result.profitAnalysis = {
@@ -4800,6 +4846,7 @@ export async function huntProTrafficKeywords(options: {
   // Safety net: ensure ALL keywords have profitAnalysis
   for (const result of selectedKeywords) {
     if (!result.profitAnalysis && typeof result.searchVolume === 'number' && typeof result.documentCount === 'number' && result.searchVolume > 0) {
+      const cachedCpc = apiCache.get(result.keyword)?.realCpc ?? apiCache.get(result.keyword.replace(/\s/g, ''))?.realCpc ?? null;
       const profitData = calculateProfitGoldenRatio(
         result.keyword,
         result.searchVolume,
@@ -4809,6 +4856,7 @@ export async function huntProTrafficKeywords(options: {
           difficultyScore: result.difficultyScore,
           hasSmartBlock: result.hasSmartBlock,
           hasInfluencer: result.hasInfluencer,
+          realCpc: cachedCpc,
         }
       );
       result.profitAnalysis = {
