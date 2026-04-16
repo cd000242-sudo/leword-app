@@ -26,6 +26,8 @@ export interface ProfitKeywordData {
   isCommercial?: boolean;
   safetyLevel?: 'safe' | 'caution' | 'danger';
   safetyReason?: string;
+  trafficValue?: 'high' | 'medium' | 'low';
+  trafficReason?: string;
 }
 
 export const CATEGORY_CPC_DATABASE: Record<string, { min: number; max: number; avg: number }> = {
@@ -282,9 +284,41 @@ const CATEGORY_INTENT_WEIGHT: Record<string, number> = {
   default: 1.0,
 };
 
+// 키워드 내용 기반 CPC 카테고리 추론 (category가 'all'/'default'일 때 사용)
+const CPC_KEYWORD_HINTS: ReadonlyArray<{ tokens: readonly string[]; category: string }> = [
+  { tokens: ['대출', '금리', '연금', '적금', 'ETF', '주식', '채권', '투자', '펀드', '배당', '환전', '증권', '주담대', '신용대출', 'ISA', 'IRP', '연말정산', '종소세', '양도세', '세금', '절세', '청약'], category: 'finance' },
+  { tokens: ['보험', '실손', '실비', '태아보험', '운전자보험', '자동차보험'], category: 'insurance' },
+  { tokens: ['영양제', '유산균', '프로바이오틱스', '비타민', '오메가', '루테인', '콜라겐', '밀크씨슬', '철분', '마그네슘', '글루코사민'], category: 'supplement' },
+  { tokens: ['건강', '스트레칭', '운동', '다이어트', '혈당', '혈압', '콜레스테롤', '수면', '대상포진', '갑상선', '디스크', '통풍'], category: 'health' },
+  { tokens: ['노트북', '컴퓨터', '모니터', 'SSD', 'NAS', '키보드', '마우스', '태블릿'], category: 'laptop' },
+  { tokens: ['스마트폰', '아이폰', '갤럭시', '이어폰', '스마트워치', '로봇청소기'], category: 'smartphone' },
+  { tokens: ['여행', '항공권', '호텔', '리조트', '렌터카', '면세점', '캐리어', '환전', '입국', '비자'], category: 'travel' },
+  { tokens: ['육아', '유모차', '분유', '기저귀', '이유식', '출산', '임신', '카시트', '아기'], category: 'parenting' },
+  { tokens: ['강아지', '고양이', '반려동물', '사료', '펫'], category: 'pet' },
+  { tokens: ['인테리어', '가구', '수납', '벽지', '조명', '리모델링'], category: 'interior' },
+  { tokens: ['부동산', '아파트', '전세', '월세', '매매', '분양', '재건축', '임대'], category: 'realestate' },
+  { tokens: ['자격증', '시험', '토익', '공무원', '취업', '면접'], category: 'education' },
+  { tokens: ['창업', '사업자', '프리랜서', '부업', '재테크'], category: 'business' },
+  { tokens: ['치과', '임플란트', '교정', '스케일링', '충치'], category: 'dental' },
+  { tokens: ['성형', '쌍꺼풀', '코성형', '지방흡입', '보톡스', '필러'], category: 'plastic' },
+  { tokens: ['법률', '변호사', '소송', '이혼', '상속'], category: 'legal' },
+];
+
 export function estimateCPC(keyword: string, category: string): number {
   const kw = String(keyword || '').toLowerCase();
-  let baseCPC = CATEGORY_CPC_DATABASE[category]?.avg ?? CATEGORY_CPC_DATABASE.default.avg;
+
+  // category가 'all' 또는 'default'이면 키워드 내용으로 더 정확한 카테고리 추론
+  let effectiveCategory = category;
+  if (category === 'all' || category === 'default') {
+    for (const hint of CPC_KEYWORD_HINTS) {
+      if (hint.tokens.some(t => kw.includes(t.toLowerCase()))) {
+        effectiveCategory = hint.category;
+        break;
+      }
+    }
+  }
+
+  let baseCPC = CATEGORY_CPC_DATABASE[effectiveCategory]?.avg ?? CATEGORY_CPC_DATABASE.default.avg;
 
   const hasPurchaseIntent = PURCHASE_INTENT_PATTERNS.some(p => kw.includes(p));
   if (hasPurchaseIntent) baseCPC *= 1.4;
@@ -629,8 +663,12 @@ export function calculateProfitGoldenRatio(
     const maxCautionIdx = gradeOrder.indexOf('B');
     const currentIdx = gradeOrder.indexOf(grade);
     if (currentIdx < maxCautionIdx) {
+      const originalGrade = gradeOrder[currentIdx];
       grade = 'B';
-      gradeReason = `${safety.reason} | 원래 ${gradeOrder[currentIdx]}급이나 주의 키워드로 B 제한`;
+      const actionGuide = originalGrade === 'SSS' || originalGrade === 'SS'
+        ? '전문성 갖추면 고수익 가능 — 근거 있는 정보로 작성 권장'
+        : '주의해서 작성하면 괜찮음 — 과장/허위 정보 주의';
+      gradeReason = `${safety.reason} | 원래 ${originalGrade}급 (${actionGuide})`;
     } else {
       gradeReason += ` | ${safety.reason}`;
     }
@@ -653,6 +691,19 @@ export function calculateProfitGoldenRatio(
     blueOceanReason = '📗 잠재 블루오션. 상위노출 가능성 있음';
   } else {
     blueOceanReason = '📕 경쟁 시장. 차별화 전략 필요';
+  }
+
+  // 트래픽 확보 가치: CPC 낮아도 검색량 대비 경쟁이 낮으면 트래픽 유입 가치 있음
+  let trafficValue: 'high' | 'medium' | 'low' = 'low';
+  let trafficReason = '';
+  if (searchVolume >= 3000 && competitionLevel <= 5) {
+    trafficValue = 'high';
+    trafficReason = `📈 트래픽 확보용 추천 — 월 ${Math.round(dailyVisitors * 30)}명 유입 기대`;
+  } else if (searchVolume >= 1000 && competitionLevel <= 7) {
+    trafficValue = 'medium';
+    trafficReason = `📊 트래픽 보통 — 월 ${Math.round(dailyVisitors * 30)}명 유입 기대`;
+  } else {
+    trafficReason = '📉 트래픽 적음';
   }
 
   const strategy = generateStrategy({
@@ -683,5 +734,7 @@ export function calculateProfitGoldenRatio(
     isCommercial: purchaseIntentScore >= 50,
     safetyLevel: safety.level,
     safetyReason: safety.reason,
+    trafficValue,
+    trafficReason,
   };
 }
