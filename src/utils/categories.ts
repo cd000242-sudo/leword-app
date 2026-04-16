@@ -282,7 +282,7 @@ export const CATEGORIES: readonly CategoryDefinition[] = [
     label: '병원/건강검진',
     primaryTokens: ['병원', '건강검진', '종합검진', '내시경', 'MRI', 'CT', '초음파', '혈액검사', '치과', '피부과', '안과', '국가건강검진', '정형외과', '이비인후과', '비뇨기과'],
     secondaryTokens: ['진료', '예약', '비용', '검사', '소견', '수술', '실비', '진단', '통증'],
-    excludeTokens: ['동물병원', '한의원'],
+    excludeTokens: ['동물병원', '한의원', '반려동물', '반려견', '강아지', '고양이', '펫'],
     seeds: [
       '건강검진 항목 추천', '종합검진 비용 비교', '위내시경 준비사항',
       '대장내시경 후기', 'MRI 비용 실비', '건강검진 주기',
@@ -403,9 +403,9 @@ export const CATEGORIES: readonly CategoryDefinition[] = [
   {
     id: 'coding',
     label: '코딩/AI',
-    primaryTokens: ['코딩', '프로그래밍', '파이썬', '자바스크립트', 'ChatGPT', 'AI', '개발자', '웹개발', '앱개발', '국비지원', '부트캠프', '리액트', 'SQL', '데이터분석', '코딩테스트'],
-    secondaryTokens: ['국비', '개발', '알고리즘', '포트폴리오', '프론트엔드', '백엔드', '취업', '입문'],
-    excludeTokens: ['AI도구', '미드저니', '제미나이'],
+    primaryTokens: ['코딩', '프로그래밍', '파이썬', '자바스크립트', '개발자', '웹개발', '앱개발', '국비지원', '부트캠프', '리액트', 'SQL', '데이터분석', '코딩테스트'],
+    secondaryTokens: ['국비', '개발', '알고리즘', '포트폴리오', '프론트엔드', '백엔드', '취업', '입문', 'AI'],
+    excludeTokens: ['AI도구', '미드저니', '제미나이', 'AI이미지', 'AI그림', 'AI생성'],
     seeds: [
       '코딩 독학 순서', '파이썬 기초 강의', '개발자 취업 로드맵',
       'ChatGPT 활용법 정리', '웹개발 부트캠프 비교', '국비지원 코딩 후기',
@@ -744,9 +744,9 @@ export const CATEGORIES: readonly CategoryDefinition[] = [
   {
     id: 'ai_tool',
     label: 'AI도구',
-    primaryTokens: ['AI도구', '미드저니', '클로드', '제미나이', 'AI그림', 'Stable Diffusion', 'Copilot', 'AI번역', '노션AI', 'DALL-E', 'Suno', 'Runway', 'AI요약', 'AI글쓰기'],
-    secondaryTokens: ['자동화', '프롬프트', '생성형', 'AI활용', '구독', '무료', '사용법', '비교', '대안'],
-    excludeTokens: ['코딩', '프로그래밍', '개발자'],
+    primaryTokens: ['AI도구', '미드저니', '클로드', '제미나이', 'AI그림', 'Stable Diffusion', 'Copilot', 'AI번역', '노션AI', 'DALL-E', 'Suno', 'Runway', 'AI요약', 'AI글쓰기', 'AI이미지', 'ChatGPT', 'AI생성'],
+    secondaryTokens: ['자동화', '프롬프트', '생성형', 'AI활용', '구독', '무료', '사용법', '비교', '대안', 'AI'],
+    excludeTokens: ['코딩', '프로그래밍', '개발자', '코딩테스트'],
     seeds: [
       'ChatGPT vs 클로드 비교', '미드저니 사용법', 'AI 그림 생성 방법',
       'AI 도구 추천 2026', '제미나이 활용법', 'AI 번역기 비교',
@@ -830,163 +830,13 @@ export const CATEGORIES: readonly CategoryDefinition[] = [
   },
 ] as const;
 
-export const CATEGORY_MAP: ReadonlyMap<string, CategoryDefinition> = new Map(
-  CATEGORIES.map((cat) => [cat.id, cat])
-);
-
-export function getCategoryById(id: string): CategoryDefinition | undefined {
-  return CATEGORY_MAP.get(id);
-}
-
-// 부모 카테고리 매핑: pet_dog → pet 등
-const PARENT_GROUPS: Record<string, string[]> = {
-  pet: ['pet_dog', 'pet_cat', 'pet_etc'],
-  travel: ['travel_domestic', 'travel_overseas'],
-  car_all: ['car', 'car_maintain'],
-  season: ['season_spring', 'season_summer', 'season_fall', 'season_winter'],
-};
-
-// 자식 → 부모 역매핑
-const CHILD_TO_PARENT: Record<string, string> = {};
-for (const [parent, children] of Object.entries(PARENT_GROUPS)) {
-  for (const child of children) {
-    CHILD_TO_PARENT[child] = parent;
-  }
-}
-
-export interface ClassifyResult {
-  primary: string;
-  secondary?: string;
-  confidence: number;
-}
-
-// 필터링 전용 캐시 (성능)
-const classifyCache = new Map<string, ClassifyResult>();
-
-/**
- * 키워드를 카테고리로 분류 (주/보조 카테고리 반환)
- * - primaryTokens 1개 매칭 → 강매칭 (confidence 0.9)
- * - secondaryTokens 2개+ 매칭 → 약매칭 (confidence 0.6)
- * - excludeTokens 매칭 → 해당 카테고리 스킵
- */
-export function classifyKeyword(keyword: string): ClassifyResult {
-  const cached = classifyCache.get(keyword);
-  if (cached) return cached;
-
-  const kw = keyword.toLowerCase();
-  const META_IDS = new Set(['all', 'pro_premium']);
-
-  let bestPrimary: { id: string; score: number } = { id: 'all', score: 0 };
-  let bestSecondary: { id: string; score: number } = { id: '', score: 0 };
-
-  for (const cat of CATEGORIES) {
-    if (META_IDS.has(cat.id)) continue;
-
-    // excludeTokens 체크: 포함되면 이 카테고리 스킵
-    if (cat.excludeTokens.length > 0 && cat.excludeTokens.some(t => kw.includes(t.toLowerCase()))) {
-      continue;
-    }
-
-    // primaryTokens 매칭 (강매칭)
-    const primaryHits = cat.primaryTokens.filter(t => kw.includes(t.toLowerCase())).length;
-    // secondaryTokens 매칭 (약매칭)
-    const secondaryHits = cat.secondaryTokens.filter(t => kw.includes(t.toLowerCase())).length;
-
-    let score = 0;
-    if (primaryHits > 0) {
-      score = 0.7 + Math.min(0.3, primaryHits * 0.1); // 0.8~1.0
-    } else if (secondaryHits >= 2) {
-      score = 0.3 + Math.min(0.3, secondaryHits * 0.1); // 0.5~0.6
-    } else if (secondaryHits === 1) {
-      score = 0.2;
-    }
-
-    if (score > bestPrimary.score) {
-      // 기존 1위를 2위로 밀기
-      if (bestPrimary.score > 0) {
-        bestSecondary = { ...bestPrimary };
-      }
-      bestPrimary = { id: cat.id, score };
-    } else if (score > bestSecondary.score && cat.id !== bestPrimary.id) {
-      bestSecondary = { id: cat.id, score };
-    }
-  }
-
-  const result: ClassifyResult = {
-    primary: bestPrimary.id,
-    secondary: bestSecondary.id || undefined,
-    confidence: bestPrimary.score,
-  };
-
-  // 캐시 저장 (최대 5000개)
-  if (classifyCache.size > 5000) classifyCache.clear();
-  classifyCache.set(keyword, result);
-
-  return result;
-}
-
-/**
- * 키워드가 선택한 카테고리에 매칭되는지 (OR 조건: 주/보조/부모그룹 매칭)
- */
-export function isKeywordMatchingCategory(keyword: string, selectedCategory: string): boolean {
-  if (!selectedCategory || selectedCategory === 'all' || selectedCategory === 'pro_premium') return true;
-
-  const { primary, secondary } = classifyKeyword(keyword);
-
-  // 직접 매칭
-  if (primary === selectedCategory || secondary === selectedCategory) return true;
-
-  // 부모-자식 그룹 매칭: pet_dog 선택 → primary가 pet_cat이어도 false
-  // pet 선택 → pet_dog도 true (부모 그룹 선택 시)
-  const parentOfSelected = CHILD_TO_PARENT[selectedCategory];
-  const childrenOfSelected = PARENT_GROUPS[selectedCategory];
-
-  // 선택이 부모(pet)면 → primary가 pet_dog/pet_cat/pet_etc 중 하나이면 true
-  if (childrenOfSelected) {
-    if (childrenOfSelected.includes(primary) || (secondary && childrenOfSelected.includes(secondary))) {
-      return true;
-    }
-  }
-
-  // 선택이 자식(pet_dog)이면 → primary가 같은 부모의 다른 자식이어도 false (엄격)
-  // 대신 primary가 부모(pet)면 true (하위호환)
-  if (parentOfSelected && (primary === parentOfSelected || secondary === parentOfSelected)) {
-    return true;
-  }
-
-  return false;
-}
-
-/**
- * categories.ts 기반 시드 키워드 가져오기
- */
-export function getCategorySeeds(categoryId: string): string[] {
-  const cat = CATEGORY_MAP.get(categoryId);
-  if (!cat) return [];
-
-  const combined: string[] = [...cat.seeds];
-  const year = new Date().getFullYear();
-
-  // profitPatterns 조합
-  for (const seed of cat.seeds.slice(0, 5)) {
-    for (const pattern of cat.profitPatterns) {
-      if (!seed.includes(pattern)) {
-        combined.push(`${seed} ${pattern}`);
-      }
-    }
-  }
-
-  // 연도 조합
-  for (const seed of cat.seeds.slice(0, 3)) {
-    combined.push(`${year} ${seed}`);
-  }
-
-  return combined;
-}
-
-/**
- * classifyKeyword 캐시 초기화
- */
-export function clearClassifyCache(): void {
-  classifyCache.clear();
-}
+// 로직은 category-classifier.ts에 분리, 여기서 re-export
+export {
+  CATEGORY_MAP,
+  getCategoryById,
+  classifyKeyword,
+  isKeywordMatchingCategory,
+  getCategorySeeds,
+  clearClassifyCache,
+} from './category-classifier';
+export type { ClassifyResult } from './category-classifier';
