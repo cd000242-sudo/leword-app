@@ -5175,17 +5175,35 @@ async function getNewsIssueKeywords(): Promise<string[]> {
 
 /** 뉴스 제목에서 불용어를 제거하고 의미 있는 명사구를 추출 */
 function extractSeedsFromNewsTitles(titles: string[]): string[] {
-  // 불용어 (기사 어미, 조사, 접속사 등)
+  // 불용어 (기사 어미, 조사, 접속사, 서술어)
   const STOPWORDS = new Set([
     '기자', '뉴스', '속보', '단독', '종합', '포토', '영상', '사진',
     '오늘', '내일', '어제', '올해', '지난해', '한편', '또한', '이에',
     '관련', '대해', '통해', '위해', '따라', '밝혔다', '전했다', '보도',
     '것으로', '알려졌다', '나타났다', '드러났다', '확인됐다', '됐다',
     '했다', '한다', '이다', '있다', '없다', '됐다', '라며', '라고',
+    '확정', '돌파', '유출', '엇갈려', '폭탄', '발매',
   ]);
 
-  // 수익화 조합 접미사
-  const MONETIZE_SUFFIXES = ['추천', '비교', '가격', '후기', '방법', '신청방법', '정리'];
+  // 숫자+단위 패턴 (core에서 제외)
+  const NUM_UNIT_RE = /^\d+(?:년|월|일|억|만원|만|천|조|위|개|번째|차)$/;
+
+  // 카테고리별 수익화 접미사 매핑
+  const CATEGORY_SUFFIXES: Record<string, readonly string[]> = {
+    finance: ['비교', '금리', '조건', '신청방법', '계산기', '절세'],
+    pet_dog: ['추천', '비교', '가격', '후기', '효과'],
+    pet_cat: ['추천', '비교', '가격', '후기', '효과'],
+    recipe: ['레시피', '만드는법', '황금비율'],
+    travel_domestic: ['코스', '맛집', '숙소추천', '가볼만한곳'],
+    travel_overseas: ['경비', '코스', '호텔추천', '맛집'],
+    health: ['효능', '부작용', '복용법', '추천'],
+    beauty: ['추천', '비교', '성분', '후기'],
+    electronics: ['추천', '비교', '가격', '순위'],
+    laptop: ['추천', '비교', '가성비', '순위'],
+    music: ['티켓', '일정', '세트리스트', '후기'],
+    movie: ['출연진', '줄거리', '결말', '리뷰'],
+    default: ['추천', '비교', '정리', '방법'],
+  };
 
   const seeds: string[] = [];
 
@@ -5214,13 +5232,20 @@ function extractSeedsFromNewsTitles(titles: string[]): string[] {
         seeds.push(words.slice(0, 4).join(' '));
       }
 
-      // 핵심 명사(첫 2어절)에 수익화 패턴 조합
-      const core = words.slice(0, 2).join(' ');
-      if (core.length >= 3) {
-        for (const suffix of MONETIZE_SUFFIXES) {
-          if (!core.includes(suffix)) {
-            seeds.push(`${core} ${suffix}`);
-          }
+      // 핵심 명사(첫 2어절) — 숫자+단위 토큰 제외
+      const coreWords = words
+        .filter(w => !NUM_UNIT_RE.test(w))
+        .slice(0, 2);
+      const core = coreWords.join(' ');
+      if (core.length < 3) continue;
+
+      // 카테고리 감지 → 도메인별 접미사 선택
+      const category = classifyKeyword(core).primary;
+      const suffixes = CATEGORY_SUFFIXES[category] ?? CATEGORY_SUFFIXES['default'];
+
+      for (const suffix of suffixes) {
+        if (!core.includes(suffix)) {
+          seeds.push(`${core} ${suffix}`);
         }
       }
     }
@@ -5910,7 +5935,7 @@ export function analyzeKeyword(
   const entryAnalysis = analyzeEntryDifficulty(documentCount, goldenRatio, blueOcean.score, rookieFriendly.score);
 
   // 📋 quickGuide 생성 (규칙 기반, API 호출 없음)
-  const quickGuide = generateQuickGuide(keyword, searchVolume, documentCount, profitAnalysis, blueOcean, type);
+  const quickGuide = generateQuickGuide(keyword, searchVolume, documentCount, profitAnalysis, blueOcean, type, detectedCategory);
 
   // 📊 순위 추적 이력 조회 (v12 연결)
   let trackingHistory: ProTrafficKeyword['trackingHistory'] | undefined;
@@ -6838,7 +6863,8 @@ function generateQuickGuide(
   documentCount: number | null,
   profitAnalysis: ProfitKeywordData,
   blueOcean: ProTrafficKeyword['blueOcean'],
-  type: KeywordType
+  type: KeywordType,
+  category: string
 ): NonNullable<ProTrafficKeyword['quickGuide']> {
   const year = new Date().getFullYear();
   const vol = searchVolume ?? 0;
@@ -6846,61 +6872,300 @@ function generateQuickGuide(
   const purchaseIntent = profitAnalysis.purchaseIntentScore ?? 0;
   const competition = profitAnalysis.competitionLevel ?? 5;
 
-  // --- suggestedTitle: 구매의도 + 키워드 특성에 따른 패턴 ---
-  const kwBase = keyword.includes(String(year)) ? keyword : `${keyword} ${year}`;
+  // --- 에버그린 키워드 연도 생략 판정 ---
+  // 구매의도가 낮은 에버그린 키워드("고양이 구토 원인" 등)에는 연도를 붙이지 않음
+  const EVERGREEN_CATEGORIES = new Set([
+    'recipe', 'health', 'diet', 'pet_dog', 'pet_cat', 'pet_etc',
+  ]);
+  const needsYear = !EVERGREEN_CATEGORIES.has(category) || purchaseIntent >= 40;
+  const kwBase = keyword.includes(String(year))
+    ? keyword
+    : needsYear
+      ? `${keyword} ${year}`
+      : keyword;
+
+  // --- 카테고리별 제목 패턴 (20+ 분기) ---
+  type TitleFn = (kw: string, kwY: string, yr: number) => string;
+  const TITLE_TEMPLATES: Record<string, TitleFn> = {
+    pet_dog:           (_kw, kwY) => `${kwY} 수의사 추천 가이드`,
+    pet_cat:           (_kw, kwY) => `${kwY} 집사 필독 가이드`,
+    pet_etc:           (_kw, kwY) => `${kwY} 반려동물 전문가 추천`,
+    finance:           (_kw, kwY) => `${kwY} 절세 전략 총정리`,
+    sidejob:           (_kw, kwY) => `${kwY} 현실 수익 후기 | 단계별 시작법`,
+    recipe:            (kw) => `${kw} 황금레시피 | 초간단 따라하기`,
+    travel_domestic:   (kw) => `${kw} 코스 총정리 | 현지인 추천`,
+    travel_overseas:   (_kw, kwY) => `${kwY} 자유여행 완벽 가이드`,
+    health:            (kw) => `${kw} 효능 부작용 총정리 | 약사 추천`,
+    diet:              (kw) => `${kw} 현실 후기 | 2주 변화`,
+    beauty:            (_kw, kwY) => `${kwY} 뷰티 에디터 PICK`,
+    laptop:            (_kw, kwY) => `${kwY} 실사용 비교 리뷰`,
+    smartphone:        (_kw, kwY) => `${kwY} 스펙 비교 & 실사용 리뷰`,
+    electronics:       (_kw, kwY) => `${kwY} 가성비 비교 TOP 5`,
+    car:               (_kw, kwY) => `${kwY} 시승 후기 & 비교 분석`,
+    car_maintain:      (kw) => `${kw} 셀프 정비 가이드 | 비용 절약 팁`,
+    interior:          (_kw, kwY) => `${kwY} 인테리어 트렌드 & 시공 후기`,
+    realestate:        (_kw, kwY) => `${kwY} 부동산 핵심 정리 | 전문가 분석`,
+    education:         (_kw, kwY) => `${kwY} 학습법 완벽 가이드`,
+    english:           (kw) => `${kw} 독학 로드맵 | 현실 후기`,
+    coding:            (_kw, kwY) => `${kwY} 입문 가이드 | 현직 개발자 추천`,
+    job:               (_kw, kwY) => `${kwY} 취업 전략 총정리`,
+    ai_tool:           (_kw, kwY) => `${kwY} AI 툴 비교 | 실사용 리뷰`,
+    app:               (_kw, kwY) => `${kwY} 앱 추천 & 비교 리뷰`,
+    parenting:         (kw) => `${kw} 육아 꿀팁 | 경험맘 추천`,
+    wedding:           (_kw, kwY) => `${kwY} 웨딩 준비 체크리스트`,
+    home_life:         (kw) => `${kw} 살림 꿀팁 | 생활 해킹`,
+  };
+
+  // 구매의도/타입 기반 폴백 제목 패턴
+  type FallbackTitleFn = (kwY: string) => string;
+  const FALLBACK_TITLE_PATTERNS: Array<{ test: () => boolean; fn: FallbackTitleFn }> = [
+    { test: () => purchaseIntent >= 70, fn: (kwY) => `${kwY} TOP 5 비교 | 가성비 추천 순위` },
+    { test: () => purchaseIntent >= 40, fn: (kwY) => `${kwY} 솔직 후기 | 장단점 완벽 정리` },
+    { test: () => type === '❓ 질문형키워드', fn: (kwY) => `${kwY} 완벽 가이드 | 초보자도 쉽게 따라하기` },
+    { test: () => type === '🚀 타이밍키워드' || type === '📰 이슈키워드', fn: (kwY) => `${kwY} 총정리 | 지금 알아야 할 핵심 포인트` },
+    { test: () => type === '💎 블루오션' || type === '🎯 롱테일꿀통', fn: (kwY) => `${kwY} A to Z | 아무도 안 알려주는 꿀팁` },
+  ];
+
   let suggestedTitle: string;
-
-  if (purchaseIntent >= 70) {
-    suggestedTitle = `${kwBase} TOP 5 비교 | 가성비 추천 순위`;
-  } else if (purchaseIntent >= 40) {
-    suggestedTitle = `${kwBase} 솔직 후기 | 장단점 완벽 정리`;
-  } else if (type === '❓ 질문형키워드') {
-    suggestedTitle = `${kwBase} 완벽 가이드 | 초보자도 쉽게 따라하기`;
-  } else if (type === '🚀 타이밍키워드' || type === '📰 이슈키워드') {
-    suggestedTitle = `${kwBase} 총정리 | 지금 알아야 할 핵심 포인트`;
-  } else if (type === '💎 블루오션' || type === '🎯 롱테일꿀통') {
-    suggestedTitle = `${kwBase} A to Z | 아무도 안 알려주는 꿀팁`;
+  const titleFn = TITLE_TEMPLATES[category];
+  if (titleFn) {
+    suggestedTitle = titleFn(keyword, kwBase, year);
   } else {
-    suggestedTitle = `${kwBase} 완벽 정리 | 꼭 알아야 할 핵심 가이드`;
+    const matched = FALLBACK_TITLE_PATTERNS.find((p) => p.test());
+    suggestedTitle = matched
+      ? matched.fn(kwBase)
+      : `${kwBase} 완벽 정리 | 꼭 알아야 할 핵심 가이드`;
   }
 
-  // --- sections: 키워드 특성에 따라 3~5개 H2 소제목 ---
-  const sections: string[] = [];
+  // --- 카테고리별 소제목(sections) 템플릿 ---
+  const SECTION_TEMPLATES: Record<string, (kw: string) => string[]> = {
+    recipe: (kw) => [
+      `${kw} 재료 & 계량`,
+      `조리 순서 (사진 포함)`,
+      `꿀팁 & 실패 방지`,
+      `응용 레시피`,
+      `보관 방법`,
+    ],
+    travel_domestic: (kw) => [
+      `${kw} 추천 일정 & 동선`,
+      `맛집 & 카페 추천`,
+      `숙소 추천 (가성비/뷰 맛집)`,
+      `교통편 & 비용`,
+      `꿀팁 & 주의사항`,
+    ],
+    travel_overseas: (kw) => [
+      `${kw} 여행 준비 체크리스트`,
+      `추천 일정 & 코스`,
+      `맛집 & 관광 스팟`,
+      `숙소 & 교통 비교`,
+      `경비 총정리 & 환전 팁`,
+    ],
+    health: (kw) => [
+      `${kw} 효능 & 작용 원리`,
+      `올바른 복용법`,
+      `부작용 & 주의사항`,
+      `제품 비교 TOP 3`,
+      `자주 묻는 질문`,
+    ],
+    diet: (kw) => [
+      `${kw} 원리 & 효과`,
+      `실천 방법 (단계별)`,
+      `식단표 & 레시피`,
+      `현실 후기 & 변화`,
+      `주의사항 & 리바운드 방지`,
+    ],
+    pet_dog: (kw) => [
+      `${kw} 선택 기준 & 체크리스트`,
+      `TOP 3~5 추천 비교`,
+      `실사용 후기`,
+      `주의사항 & 부작용`,
+      `자주 묻는 질문`,
+    ],
+    pet_cat: (kw) => [
+      `${kw} 원인 & 증상 파악`,
+      `수의사 추천 대처법`,
+      `제품 비교 (사료/용품)`,
+      `집사들의 실제 후기`,
+      `자주 묻는 질문`,
+    ],
+    pet_etc: (kw) => [
+      `${kw} 기본 정보`,
+      `사육 환경 & 준비물`,
+      `추천 제품 비교`,
+      `주의사항 & 건강 관리`,
+      `자주 묻는 질문`,
+    ],
+    finance: (kw) => [
+      `${kw} 핵심 개념 정리`,
+      `조건 & 자격 요건`,
+      `신청 방법 (단계별)`,
+      `비교 분석표`,
+      `절세 팁 & 주의사항`,
+    ],
+    sidejob: (kw) => [
+      `${kw} 현실 수익 구조`,
+      `시작 방법 (단계별)`,
+      `성공 사례 & 실패 사례`,
+      `필요한 도구 & 비용`,
+      `주의사항 & 세금 처리`,
+    ],
+    beauty: (kw) => [
+      `${kw} 성분 분석 & 특징`,
+      `피부 타입별 추천`,
+      `사용법 & 꿀팁`,
+      `가성비 비교 TOP 3`,
+      `실사용 후기`,
+    ],
+    laptop: (kw) => [
+      `${kw} 스펙 비교표`,
+      `용도별 추천 (업무/게임/영상편집)`,
+      `실사용 후기 & 벤치마크`,
+      `가격대별 추천`,
+      `구매 시 체크포인트`,
+    ],
+    smartphone: (kw) => [
+      `${kw} 스펙 비교표`,
+      `카메라 & 디스플레이 비교`,
+      `실사용 후기 & 배터리`,
+      `가격 & 혜택 비교`,
+      `결론: 누구에게 추천?`,
+    ],
+    electronics: (kw) => [
+      `${kw} 선택 기준`,
+      `TOP 5 추천 비교`,
+      `스펙 비교표`,
+      `실사용 후기`,
+      `구매처 & 할인 정보`,
+    ],
+    car: (kw) => [
+      `${kw} 기본 스펙 & 가격`,
+      `시승 후기 & 장단점`,
+      `경쟁 차종 비교`,
+      `유지비 & 보험료`,
+      `구매 팁 & 할인 정보`,
+    ],
+    car_maintain: (kw) => [
+      `${kw} 시기 & 주기`,
+      `셀프 정비 방법`,
+      `업체 vs 셀프 비용 비교`,
+      `주의사항 & 실수 방지`,
+      `자주 묻는 질문`,
+    ],
+    interior: (kw) => [
+      `${kw} 트렌드 & 스타일`,
+      `시공 과정 & 비용`,
+      `업체 선정 기준`,
+      `비포&애프터 후기`,
+      `셀프 인테리어 팁`,
+    ],
+    realestate: (kw) => [
+      `${kw} 핵심 개념 정리`,
+      `조건 & 자격 요건`,
+      `신청/계약 절차`,
+      `주의사항 & 사기 방지`,
+      `전문가 Q&A`,
+    ],
+    education: (kw) => [
+      `${kw} 학습 로드맵`,
+      `추천 교재 & 강의`,
+      `효율적인 공부법`,
+      `합격/성공 후기`,
+      `자주 묻는 질문`,
+    ],
+    ai_tool: (kw) => [
+      `${kw} 핵심 기능 소개`,
+      `사용법 (단계별 가이드)`,
+      `경쟁 도구 비교`,
+      `활용 사례 & 팁`,
+      `요금제 & 무료 대안`,
+    ],
+    parenting: (kw) => [
+      `${kw} 시기별 가이드`,
+      `전문가 추천 방법`,
+      `경험맘 실제 후기`,
+      `추천 제품 & 비용`,
+      `자주 묻는 질문`,
+    ],
+  };
 
-  if (purchaseIntent >= 60) {
-    sections.push(
-      `${keyword} 선택 기준 (이것만 보세요)`,
-      `${keyword} TOP 3~5 추천 비교`,
-      `${keyword} 장단점 한눈에 보기`,
-      `실제 사용 후기 & 만족도`,
-      `결론: 나에게 맞는 ${keyword} 고르기`
-    );
-  } else if (type === '❓ 질문형키워드') {
-    sections.push(
-      `${keyword}이란? (핵심 개념)`,
-      `${keyword} 단계별 방법`,
-      `자주 하는 실수 & 주의사항`,
-      `Q&A: 자주 묻는 질문`
-    );
-  } else if (type === '🚀 타이밍키워드' || type === '📰 이슈키워드') {
-    sections.push(
-      `${keyword} 핵심 요약 (30초 정리)`,
-      `${keyword} 배경과 원인`,
-      `앞으로의 전망 & 영향`
-    );
+  // 구매의도/타입 기반 폴백 소제목
+  const FALLBACK_SECTIONS: Array<{ test: () => boolean; fn: (kw: string) => string[] }> = [
+    {
+      test: () => purchaseIntent >= 60,
+      fn: (kw) => [
+        `${kw} 선택 기준 (이것만 보세요)`,
+        `${kw} TOP 3~5 추천 비교`,
+        `${kw} 장단점 한눈에 보기`,
+        `실제 사용 후기 & 만족도`,
+        `결론: 나에게 맞는 ${kw} 고르기`,
+      ],
+    },
+    {
+      test: () => type === '❓ 질문형키워드',
+      fn: (kw) => [
+        `${kw}이란? (핵심 개념)`,
+        `${kw} 단계별 방법`,
+        `자주 하는 실수 & 주의사항`,
+        `Q&A: 자주 묻는 질문`,
+      ],
+    },
+    {
+      test: () => type === '🚀 타이밍키워드' || type === '📰 이슈키워드',
+      fn: (kw) => [
+        `${kw} 핵심 요약 (30초 정리)`,
+        `${kw} 배경과 원인`,
+        `앞으로의 전망 & 영향`,
+      ],
+    },
+  ];
+
+  let sections: string[];
+  const sectionFn = SECTION_TEMPLATES[category];
+  if (sectionFn) {
+    sections = sectionFn(keyword);
   } else {
-    sections.push(
-      `${keyword}이란? (기본 개념)`,
-      `${keyword} 핵심 포인트 3가지`,
-      `${keyword} 장단점 비교`,
-      `실제 후기 & 경험담`,
-      `결론 및 추천`
-    );
+    const matchedSection = FALLBACK_SECTIONS.find((p) => p.test());
+    sections = matchedSection
+      ? matchedSection.fn(keyword)
+      : [
+          `${keyword}이란? (기본 개념)`,
+          `${keyword} 핵심 포인트 3가지`,
+          `${keyword} 장단점 비교`,
+          `실제 후기 & 경험담`,
+          `결론 및 추천`,
+        ];
   }
 
-  // --- wordCount: 경쟁도에 따라 1500~3000자 ---
+  // --- wordCount: 카테고리 기본값 + 경쟁도/검색량 보정 ---
+  const CATEGORY_WORD_COUNT: Record<string, number> = {
+    recipe: 1500,
+    travel_domestic: 2000,
+    travel_overseas: 2500,
+    health: 2000,
+    diet: 2000,
+    finance: 2500,
+    realestate: 2500,
+    sidejob: 2000,
+    pet_dog: 1800,
+    pet_cat: 1800,
+    pet_etc: 1800,
+    beauty: 1800,
+    laptop: 2500,
+    smartphone: 2500,
+    electronics: 2000,
+    car: 2500,
+    car_maintain: 1800,
+    interior: 2500,
+    education: 2000,
+    ai_tool: 2000,
+    parenting: 2000,
+  };
+
   let wordCount: number;
-  if (competition <= 2) {
+  const categoryBase = CATEGORY_WORD_COUNT[category];
+  if (categoryBase !== undefined) {
+    wordCount = categoryBase;
+  } else if (competition <= 2) {
     wordCount = 1500;
   } else if (competition <= 4) {
     wordCount = 2000;
@@ -6908,6 +7173,10 @@ function generateQuickGuide(
     wordCount = 2500;
   } else {
     wordCount = 3000;
+  }
+  // 고경쟁/대량 검색 키워드는 분량 추가
+  if (competition >= 7 && wordCount < 3000) {
+    wordCount = Math.min(3000, wordCount + 500);
   }
   if (vol >= 5000) {
     wordCount = Math.min(3000, wordCount + 500);
