@@ -8,6 +8,7 @@
  */
 
 import { TitleAnalysis, RecommendedTitle, TitleStrategyAnalysis } from './types';
+import { classifyKeyword } from '../categories';
 
 // 한글 초성 순서 (가나다순)
 const KOREAN_CHOSUNG = ['ㄱ', 'ㄴ', 'ㄷ', 'ㄹ', 'ㅁ', 'ㅂ', 'ㅅ', 'ㅇ', 'ㅈ', 'ㅊ', 'ㅋ', 'ㅌ', 'ㅍ', 'ㅎ'];
@@ -240,30 +241,21 @@ export function analyzeTitle(title: string, searchKeyword: string): TitleAnalysi
 }
 
 /**
- * 🔥 카테고리 자동 감지
+ * classifyKeyword.primary → 제목 전략용 콘텐츠 카테고리 매핑
  */
 type ContentCategory = 'entertainment' | 'living' | 'business' | 'product' | 'general';
 
-function detectCategory(text: string): ContentCategory {
-  const lower = text.toLowerCase();
-  
-  // 연예/이슈 키워드
-  const entertainmentKeywords = ['논란', '폭로', '열애', '결혼', '이혼', '스캔들', '폭행', '데이트폭력', '인스타', '유튜버', '아이돌', '배우', '가수', '연예인', '방송', '드라마', '영화', '뉴스', '속보', '충격', '고백', '폭로', '피해', '가해', '사건', '사고'];
-  if (entertainmentKeywords.some(kw => lower.includes(kw))) return 'entertainment';
-  
-  // 리빙/인테리어 키워드
-  const livingKeywords = ['인테리어', '가구', '소파', '침대', '책상', '의자', '조명', '커튼', '러그', '수납', '정리', '청소', '주방', '욕실', '거실', '침실', '홈', '집', '이사', '신혼', '원룸', '아파트', '오피스텔'];
-  if (livingKeywords.some(kw => lower.includes(kw))) return 'living';
-  
-  // 비즈니스/경제 키워드
-  const businessKeywords = ['투자', '주식', '부동산', '경제', '금리', '환율', '코인', '비트코인', '창업', '사업', '마케팅', '매출', '수익', '재테크', '연봉', '취업', '이직', '면접', '자격증', 'mba', '스타트업'];
-  if (businessKeywords.some(kw => lower.includes(kw))) return 'business';
-  
-  // 제품/서비스 키워드
-  const productKeywords = ['후기', '리뷰', '구매', '가격', '할인', '세일', '쿠폰', '배송', '교환', '환불', '품질', '스펙', '성능', '비교', '추천', '순위', '베스트', '인기', '신제품', '출시'];
-  if (productKeywords.some(kw => lower.includes(kw))) return 'product';
-  
-  return 'general';
+const CONTENT_CATEGORY_MAP: Record<string, ContentCategory> = {
+  movie: 'entertainment', music: 'entertainment', sports: 'entertainment',
+  interior: 'living', home_life: 'living', kitchen: 'living', realestate: 'living',
+  finance: 'business', sidejob: 'business', job: 'business', insurance_safe: 'business',
+  electronics: 'product', smartphone: 'product', laptop: 'product', fashion: 'product', beauty: 'product',
+  baby_products: 'product', app: 'product', ai_tool: 'product',
+};
+
+function mapToContentCategory(keyword: string): ContentCategory {
+  const primary = classifyKeyword(keyword).primary;
+  return CONTENT_CATEGORY_MAP[primary] || 'general';
 }
 
 /**
@@ -413,7 +405,7 @@ function generateRecommendedTitles(
   
   // 🔥 카테고리 자동 감지
   const allText = `${searchKeyword} ${topSubs.join(' ')}`.toLowerCase();
-  const category = detectCategory(allText);
+  const category = mapToContentCategory(searchKeyword);
   
   // 🎲 키워드 기반 시드 생성 (같은 키워드는 같은 결과, 다른 키워드는 다른 결과)
   const seed = searchKeyword.split('').reduce((acc, char) => acc + char.charCodeAt(0), 0);

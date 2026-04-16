@@ -5,7 +5,7 @@
  *   1. 17개 소스에서 시드 키워드 풀링 (registry.callAllSources)
  *   2. 위생 필터링 + 중복 제거
  *   3. 네이버 검색광고 API 일괄 호출 → 검색량 + 문서수 + 경쟁도
- *   4. 카테고리 자동 감지 (mdp-engine.detectCategory 재사용)
+ *   4. 카테고리 자동 감지 (categories.classifyKeyword 사용)
  *   5. CPC 추정 (profit-engine 재사용)
  *   6. goldenRatio + 등급 (다중 게이트)
  *   7. 신선도 판정 (시계열 + 신규 등장 + 소스 다양성)
@@ -20,6 +20,7 @@ import { getKeywordTrend } from './source-storage';
 import { getNaverKeywordSearchVolumeSeparate } from '../naver-datalab-api';
 import { estimateCPC, calculatePurchaseIntent, calculateCompetitionLevel } from '../profit-golden-keyword-engine';
 import { EnvironmentManager } from '../environment-manager';
+import { classifyKeyword, getCategoryById } from '../categories';
 
 export type Freshness = 'BURNING' | 'RISING' | 'STABLE' | 'EVERGREEN';
 export type GoldenGrade = 'SSS' | 'SS' | 'S' | 'A' | 'B';
@@ -72,38 +73,29 @@ function isValid(kw: string): boolean {
     return true;
 }
 
-const CATEGORY_MAP: Array<[string[], { id: string; icon: string; label: string }]> = [
-    [['대출', '금리', '이자', '은행', '적금', '예금', '투자', '주식', '펀드', '연금', '카드', '토스'], { id: 'finance', icon: '💰', label: '금융' }],
-    [['보험', '실비'], { id: 'insurance', icon: '🛡️', label: '보험' }],
-    [['아파트', '부동산', '전세', '월세', '매매', '분양', '청약'], { id: 'realestate', icon: '🏢', label: '부동산' }],
-    [['변호사', '소송', '법률', '이혼', '상속'], { id: 'legal', icon: '⚖️', label: '법률' }],
-    [['병원', '치료', '수술', '진료', '의사', '약', '증상'], { id: 'medical', icon: '🏥', label: '의료' }],
-    [['임플란트', '치아', '교정', '치과'], { id: 'dental', icon: '🦷', label: '치과' }],
-    [['성형', '시술', '필러', '보톡스'], { id: 'plastic', icon: '💉', label: '시술' }],
-    [['영양제', '비타민', '프로바이오틱스', '유산균', '건강식품', '단백질'], { id: 'supplement', icon: '💊', label: '건강' }],
-    [['다이어트', '체중', '살빼기', '단식'], { id: 'diet', icon: '🏃', label: '다이어트' }],
-    [['노트북', '스마트폰', '갤럭시', '아이폰', '맥북', '태블릿', '이어폰', '모니터', 'PC'], { id: 'tech', icon: '📱', label: 'IT' }],
-    [['여행', '호텔', '숙소', '펜션', '항공', '리조트', '관광', '여행지'], { id: 'travel', icon: '✈️', label: '여행' }],
-    [['맛집', '카페', '레스토랑', '음식점', '오마카세', '디저트', '브런치'], { id: 'food', icon: '🍽️', label: '맛집' }],
-    [['화장품', '스킨케어', '선크림', '파운데이션', '쿠션', '립스틱', '마스카라', '세럼', '토너'], { id: 'beauty', icon: '💄', label: '뷰티' }],
-    [['육아', '신생아', '이유식', '어린이집', '유모차', '카시트', '기저귀'], { id: 'parenting', icon: '👶', label: '육아' }],
-    [['자격증', '공부', '학원', '강의', '인강', '시험', '문제집'], { id: 'education', icon: '📚', label: '교육' }],
-    [['쿠팡', '할인', '세일', '추천', '리뷰', '후기', '비교', '가성비', '최저가'], { id: 'shopping', icon: '🛒', label: '쇼핑' }],
-    [['지원금', '보조금', '신청', '급여', '수당', '장려금', '환급'], { id: 'gov', icon: '🏛️', label: '정부지원' }],
-    [['옷', '코디', '룩북', '신상', '셔츠', '바지', '재킷', '자켓', '슬랙스', '원피스', '패션'], { id: 'fashion', icon: '👕', label: '패션' }],
-    [['차', '자동차', 'BMW', '벤츠', '현대', '기아', '제네시스', '테슬라', '캐스퍼', '전기차'], { id: 'car', icon: '🚗', label: '자동차' }],
-    [['게임', '롤', '로아', '발로란트', '디아블로', '닌텐도', '플스', 'PS5'], { id: 'game', icon: '🎮', label: '게임' }],
-    [['인테리어', '가구', '소파', '침대', '책상', '의자', '무타공', '집들이'], { id: 'interior', icon: '🏠', label: '인테리어' }],
-];
+const CATEGORY_ICON_MAP: Record<string, string> = {
+    finance: '💰', insurance_safe: '🛡️', realestate: '🏢',
+    hospital: '🏥', health: '💊', diet: '🏃',
+    electronics: '📱', smartphone: '📱', laptop: '📱',
+    travel_domestic: '✈️', travel_overseas: '✈️', food: '🍽️', recipe: '🍽️',
+    beauty: '💄', parenting: '👶', baby_products: '👶',
+    education: '📚', english: '📚', coding: '📚',
+    policy: '🏛️', fashion: '👕', car: '🚗', car_maintain: '🚗',
+    game: '🎮', interior: '🏠', home_life: '🏠',
+    pet_dog: '🐶', pet_cat: '🐱', pet_etc: '🐾',
+    movie: '🎬', music: '🎵', sports: '🏅', hobby: '🎨',
+    book: '📖', app: '📲', ai_tool: '🤖',
+    sidejob: '💼', job: '💼', wedding: '💍', mental: '🧠',
+    season_spring: '🌸', season_summer: '☀️', season_fall: '🍂', season_winter: '❄️',
+    kitchen: '🍳',
+};
 
-function detectCategory(keyword: string): { id: string; icon: string; label: string } {
-    const kw = keyword.toLowerCase();
-    for (const [keys, meta] of CATEGORY_MAP) {
-        if (keys.some(k => kw.includes(k))) return meta;
-    }
-    // 인물명 휴리스틱 (한글 2-3자 + 그 외 공백)
-    if (/^[가-힣]{2,3}\s\S+/.test(keyword)) return { id: 'celeb', icon: '🌟', label: '연예/이슈' };
-    return { id: 'misc', icon: '🔥', label: '이슈' };
+function classifyForFeed(keyword: string): { id: string; icon: string; label: string } {
+    const primary = classifyKeyword(keyword).primary;
+    const cat = getCategoryById(primary);
+    const icon = CATEGORY_ICON_MAP[primary] || '🔥';
+    const label = cat?.label || '이슈';
+    return { id: primary, icon, label };
 }
 
 /**
@@ -212,7 +204,7 @@ export async function buildRichFeed(options: { tier?: SourceTier; limit?: number
     if (!clientId || !clientSecret) {
         // API 키 없으면 검증 없이 반환
         const rows: RichKeywordRow[] = candidates.slice(0, limit).map((c, idx) => {
-            const cat = detectCategory(c.keyword);
+            const cat = classifyForFeed(c.keyword);
             return {
                 rank: idx + 1,
                 keyword: c.keyword,
@@ -256,7 +248,7 @@ export async function buildRichFeed(options: { tier?: SourceTier; limit?: number
                 const docCount = sig.documentCount ?? 0;
                 const goldenRatio = docCount === 0 ? totalVolume : totalVolume / Math.max(1, docCount);
 
-                const cat = detectCategory(sig.keyword);
+                const cat = classifyForFeed(sig.keyword);
                 const cpc = estimateCPC(sig.keyword, cat.id);
                 const intent = calculatePurchaseIntent(sig.keyword);
                 const compLvl = calculateCompetitionLevel(docCount, totalVolume);

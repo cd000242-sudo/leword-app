@@ -13,6 +13,7 @@
 import axios from 'axios';
 import { getNaverKeywordSearchVolumeSeparate, NaverDatalabConfig } from './naver-datalab-api';
 import { EnvironmentManager } from './environment-manager';
+import { classifyKeyword } from './categories';
 
 // ============ 타입 정의 ============
 
@@ -87,15 +88,6 @@ async function fetchNaverAutocomplete(keyword: string): Promise<string[]> {
     }
 }
 
-// 카테고리 감지
-function detectCategory(keyword: string): string {
-    const kw = keyword.toLowerCase();
-    if (/지원금|보조금|청년|복지|정책|신청|정부|혜택|무료|출산|수당|환급|실업급여|도약계좌|희망적금/.test(kw)) return 'policy';
-    if (/추천|가성비|순위|비교|후기|장단점|청소기|냉장고|세탁기|에어프라이어|다이슨|삼성|lg|로보락/.test(kw)) return 'life_tips';
-    if (/아이폰|갤럭시|노트북|태블릿|맥북|아이패드/.test(kw)) return 'it';
-    if (/주식|청약|대출|금리|적금|보험|isa/.test(kw)) return 'finance';
-    return 'general';
-}
 
 // CPC 추정
 function estimateCPC(keyword: string, category: string): number {
@@ -519,7 +511,7 @@ export async function findUltimateNicheKeywords(options: {
 
             if (niche.type === 'none') continue;
 
-            const category = detectCategory(keyword);
+            const category = classifyKeyword(keyword).primary;
             const cpc = estimateCPC(keyword, category);
             const ratio = totalVolume / Math.max(docCount, 1);
             const ranking = calculateRankingDifficulty(docCount, ratio);

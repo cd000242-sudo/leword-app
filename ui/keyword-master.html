@@ -14046,6 +14046,7 @@
                       ${kw.riskAnalysis && kw.riskAnalysis.level === 'caution' ? `<span style="background: rgba(251, 191, 36, 0.2); color: #fbbf24; border: 1px solid #fbbf24; padding: 4px 10px; border-radius: 8px; font-size: 11px; font-weight: 800;">⚠️ CAUTION</span>` : ''}
                       ${(kw.blueOcean && kw.blueOcean.isNiche) ? `<span style="background: rgba(34, 197, 94, 0.2); color: #22c55e; border: 1px solid #22c55e; padding: 4px 10px; border-radius: 8px; font-size: 11px; font-weight: 800;">🎯 NICHE SNIPER</span>` : ''}
                       ${(kw.keyword.includes('패딩') || kw.keyword.includes('귤') || kw.keyword.includes('난방') || kw.keyword.includes('연말') || kw.keyword.includes('새해')) ? `<span style="background: rgba(59, 130, 246, 0.2); color: #60a5fa; border: 1px solid #60a5fa; padding: 4px 10px; border-radius: 8px; font-size: 11px; font-weight: 800;">❄️ SEASONAL</span>` : ''}
+                      ${kw.isCategoryMatch === false ? `<span style="background: rgba(148, 163, 184, 0.2); color: #94a3b8; border: 1px solid #94a3b8; padding: 4px 10px; border-radius: 8px; font-size: 11px; font-weight: 800;">(카테고리 외)</span>` : ''}
                     </div>
                     <div style="font-size: 24px; font-weight: 800; color: white; cursor: pointer; display: flex; align-items: center; gap: 10px;" onclick="copyToClipboard('${String(kw.keyword || '').replace(/'/g, "\\'")}')" title="클릭하여 복사">
                       ${kw.keyword}

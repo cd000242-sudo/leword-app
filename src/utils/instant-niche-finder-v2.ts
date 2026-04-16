@@ -6,6 +6,7 @@
  */
 
 import axios from 'axios';
+import { classifyKeyword } from './categories';
 
 export interface NicheKeyword {
     keyword: string;
@@ -83,15 +84,6 @@ async function getDocumentCount(keyword: string): Promise<number> {
     }
 }
 
-// 카테고리 자동 감지
-function detectCategory(keyword: string): string {
-    const kw = keyword.toLowerCase();
-    if (/지원금|보조금|청년|복지|정책|신청|정부|혜택|무료|출산|수당|환급/.test(kw)) return 'policy';
-    if (/추천|가성비|순위|비교|후기|장단점|청소기|냉장고|세탁기|에어프라이어|다이슨|삼성|lg|로보락/.test(kw)) return 'life_tips';
-    if (/아이폰|갤럭시|노트북|태블릿|맥북|아이패드/.test(kw)) return 'it';
-    if (/주식|청약|대출|금리|적금|보험/.test(kw)) return 'finance';
-    return 'general';
-}
 
 /**
  * 🚀 즉시 틈새 키워드 발굴 v2 (API 키 불필요)
@@ -166,7 +158,7 @@ export async function findNicheKeywordsInstantlyV2(options: {
                 goldenRatio: Math.round(10000 / Math.max(docCount, 1) * 10) / 10,
                 nicheType,
                 nicheScore: Math.min(100, nicheScore),
-                category: detectCategory(keyword),
+                category: classifyKeyword(keyword).primary,
                 reason
             });
         }

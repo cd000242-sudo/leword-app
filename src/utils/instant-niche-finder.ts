@@ -7,6 +7,7 @@
 
 import axios from 'axios';
 import { getNaverSearchAdKeywordVolume, NaverSearchAdConfig } from './naver-searchad-api';
+import { classifyKeyword } from './categories';
 
 export interface NicheKeyword {
     keyword: string;
@@ -78,15 +79,6 @@ async function getDocumentCount(keyword: string): Promise<number> {
     }
 }
 
-// 카테고리 자동 감지
-function detectCategory(keyword: string): string {
-    const kw = keyword.toLowerCase();
-    if (/지원금|보조금|청년|복지|정책|신청|정부|혜택|무료|출산|수당/.test(kw)) return 'policy';
-    if (/추천|가성비|순위|비교|후기|장단점|청소기|냉장고|세탁기|에어프라이어|다이슨|삼성|lg/.test(kw)) return 'life_tips';
-    if (/아이폰|갤럭시|노트북|태블릿|맥북|아이패드/.test(kw)) return 'it';
-    if (/주식|청약|대출|금리|적금|보험/.test(kw)) return 'finance';
-    return 'general';
-}
 
 // 틈새 타입 판정
 function analyzeNicheType(searchVolume: number, documentCount: number): {
@@ -182,7 +174,7 @@ export async function findNicheKeywordsInstantly(
                     nicheType: niche.type,
                     nicheScore: Math.round(niche.score),
                     estimatedMonthlyTraffic: Math.round(searchVolume * 0.1), // 10% CTR 가정
-                    category: detectCategory(vol.keyword)
+                    category: classifyKeyword(vol.keyword).primary
                 });
             }
 

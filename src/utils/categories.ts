@@ -37,8 +37,8 @@ export const CATEGORIES: readonly CategoryDefinition[] = [
   {
     id: 'policy',
     label: '정부지원금/복지',
-    primaryTokens: ['지원금', '보조금', '바우처', '장려금', '복지', '정책', '급여지원', '수당', '기초연금', '양육수당'],
-    secondaryTokens: ['신청', '대상', '자격', '소득', '기준', '혜택', '감면', '면제'],
+    primaryTokens: ['지원금', '보조금', '바우처', '장려금', '복지', '정책', '급여지원', '수당', '기초연금', '양육수당', '실업급여', '국민취업지원', '청년수당', '에너지바우처'],
+    secondaryTokens: ['신청', '대상', '자격', '소득', '기준', '혜택', '감면', '면제', '지급일', '수급'],
     excludeTokens: ['보험료', '적금', '주식'],
     seeds: [
       '2026 청년지원금 총정리', '근로장려금 신청방법', '자녀장려금 지급일',
@@ -72,8 +72,8 @@ export const CATEGORIES: readonly CategoryDefinition[] = [
   {
     id: 'insurance_safe',
     label: '보험비교',
-    primaryTokens: ['보험', '실비', '암보험', '자동차보험', '생명보험', '화재보험', '연금보험', '치아보험'],
-    secondaryTokens: ['보장', '갱신', '비갱신', '보험료', '특약', '담보'],
+    primaryTokens: ['보험', '실비', '암보험', '자동차보험', '생명보험', '화재보험', '연금보험', '치아보험', '태아보험', '펫보험', '여행자보험', '운전자보험', '간병보험', '어린이보험'],
+    secondaryTokens: ['보장', '갱신', '비갱신', '보험료', '특약', '담보', '해약', '환급금', '리모델링', '다이렉트'],
     excludeTokens: ['건강보험공단', '고용보험', '국민연금'],
     seeds: [
       '실비보험 추천 2026', '암보험 비교', '자동차보험 다이렉트 비교',
@@ -89,8 +89,8 @@ export const CATEGORIES: readonly CategoryDefinition[] = [
   {
     id: 'realestate',
     label: '청약/부동산',
-    primaryTokens: ['청약', '분양', '전세', '월세', '부동산', '아파트', '매매', '임대', '오피스텔', '재건축', '재개발'],
-    secondaryTokens: ['대출', '담보', '중개', '등기', '공시지가', '시세'],
+    primaryTokens: ['청약', '분양', '전세', '월세', '부동산', '아파트', '매매', '임대', '오피스텔', '재건축', '재개발', '전세대출', '디딤돌', '버팀목', '주담대'],
+    secondaryTokens: ['대출', '담보', '중개', '등기', '공시지가', '시세', '취득세', '양도세', '전세사기'],
     excludeTokens: ['부동산학과', '부동산자격증'],
     seeds: [
       '무순위 청약 방법', '신혼부부 특별공급 조건', '전세자금대출 조건',
@@ -106,8 +106,8 @@ export const CATEGORIES: readonly CategoryDefinition[] = [
   {
     id: 'sidejob',
     label: '부업/투잡',
-    primaryTokens: ['부업', '투잡', '재택근무', '부수입', 'N잡', '재택부업', '사이드잡', '스마트스토어'],
-    secondaryTokens: ['수익', '월수입', '수익화', '자동화', '온라인'],
+    primaryTokens: ['부업', '투잡', '재택근무', '부수입', 'N잡', '재택부업', '사이드잡', '스마트스토어', '블로그수익', '쿠팡파트너스', '배달', '대리운전', '번역', '프리랜서', '재택알바', '크몽', '클래스101', '전자책출판'],
+    secondaryTokens: ['수익', '월수입', '수익화', '자동화', '온라인', '애드센스', '제휴마케팅', '위탁판매', '무자본'],
     excludeTokens: ['취업', '이직', '정규직'],
     seeds: [
       '직장인 부업 추천 2026', '재택부업 현실 후기', '스마트스토어 시작방법',
@@ -142,8 +142,8 @@ export const CATEGORIES: readonly CategoryDefinition[] = [
   {
     id: 'fashion',
     label: '패션/의류',
-    primaryTokens: ['코디', '룩북', '하객룩', '데일리룩', '명품', '가방', '신발', '운동화', '패딩', '자켓', '원피스'],
-    secondaryTokens: ['브랜드', '사이즈', '할인', '아울렛', '스타일', '트렌드'],
+    primaryTokens: ['코디', '룩북', '하객룩', '데일리룩', '명품', '가방', '신발', '운동화', '패딩', '자켓', '원피스', '무신사', '에이블리', 'W컨셉', '지그재그', '오피스룩'],
+    secondaryTokens: ['브랜드', '사이즈', '할인', '아울렛', '스타일', '트렌드', '가성비', '세일', '시즌오프'],
     excludeTokens: ['화장품', '스킨케어'],
     seeds: [
       '봄 코디 추천 2026', '데일리룩 브랜드 추천', '명품백 입문 추천',
@@ -159,8 +159,8 @@ export const CATEGORIES: readonly CategoryDefinition[] = [
   {
     id: 'beauty',
     label: '뷰티/화장품',
-    primaryTokens: ['화장품', '스킨케어', '선크림', '파운데이션', '립스틱', '향수', '쿠션', '세럼', '토너', '클렌징'],
-    secondaryTokens: ['피부', '성분', '민감성', '건성', '지성', '트러블'],
+    primaryTokens: ['화장품', '스킨케어', '선크림', '파운데이션', '립스틱', '향수', '쿠션', '세럼', '토너', '클렌징', '네일', '헤어', '염색', '펌', '탈모샴푸', '블러셔'],
+    secondaryTokens: ['피부', '성분', '민감성', '건성', '지성', '트러블', '올리브영', '더마', '레티놀', '수분크림'],
     excludeTokens: ['성형', '시술', '피부과'],
     seeds: [
       '선크림 추천 2026', '쿠션 파운데이션 비교', '향수 추천 여자',
@@ -176,8 +176,8 @@ export const CATEGORIES: readonly CategoryDefinition[] = [
   {
     id: 'kitchen',
     label: '주방용품',
-    primaryTokens: ['주방', '프라이팬', '냄비', '식기', '칼', '도마', '그릇', '텀블러', '보온병', '밀폐용기'],
-    secondaryTokens: ['코팅', '스테인리스', '세라믹', '인덕션', '식기건조대'],
+    primaryTokens: ['주방', '프라이팬', '냄비', '식기', '칼', '도마', '그릇', '텀블러', '보온병', '밀폐용기', '전기밥솥', '블렌더', '커피머신', '에어프라이어', '토스터'],
+    secondaryTokens: ['코팅', '스테인리스', '세라믹', '인덕션', '식기건조대', '무코팅', '주방정리', '주방용품'],
     excludeTokens: ['주방인테리어', '싱크대'],
     seeds: [
       '프라이팬 추천 2026', '냄비 세트 추천', '스테인리스 프라이팬 비교',
@@ -193,8 +193,8 @@ export const CATEGORIES: readonly CategoryDefinition[] = [
   {
     id: 'interior',
     label: '인테리어/가구',
-    primaryTokens: ['인테리어', '가구', '수납', '커튼', '벽지', '조명', '소파', '침대', '매트리스', '책상', '의자'],
-    secondaryTokens: ['셀프', '리모델링', '집꾸미기', '원룸', '신혼집'],
+    primaryTokens: ['인테리어', '가구', '수납', '커튼', '벽지', '조명', '소파', '침대', '매트리스', '책상', '의자', '이케아', '셀프인테리어', '원룸인테리어', '행거', '러그'],
+    secondaryTokens: ['셀프', '리모델링', '집꾸미기', '원룸', '신혼집', '시공', '견적', '인테리어업체', '분위기'],
     excludeTokens: ['사무실', '상업용'],
     seeds: [
       '원룸 인테리어 팁', '매트리스 추천 2026', '소파 브랜드 비교',
@@ -210,8 +210,8 @@ export const CATEGORIES: readonly CategoryDefinition[] = [
   {
     id: 'baby_products',
     label: '육아용품',
-    primaryTokens: ['유아', '분유', '기저귀', '유모차', '카시트', '젖병', '이유식', '아기띠', '바운서'],
-    secondaryTokens: ['신생아', '돌', '백일', '아기', '영유아'],
+    primaryTokens: ['유아', '분유', '기저귀', '유모차', '카시트', '젖병', '이유식', '아기띠', '바운서', '장난감', '아기옷', '아기침대', '소독기', '보행기'],
+    secondaryTokens: ['신생아', '돌', '백일', '아기', '영유아', '이유식기', '수유', '아기용품', '돌잔치'],
     excludeTokens: ['임신', '출산', '산후조리'],
     seeds: [
       '신생아 분유 추천 2026', '기저귀 브랜드 비교', '유모차 추천 순위',
@@ -263,8 +263,8 @@ export const CATEGORIES: readonly CategoryDefinition[] = [
   {
     id: 'mental',
     label: '멘탈케어/수면',
-    primaryTokens: ['멘탈', '스트레스', '수면', '불면증', '명상', '번아웃', '우울', '마음챙김', '심리상담'],
-    secondaryTokens: ['힐링', '루틴', '이완', '테라피', '자존감'],
+    primaryTokens: ['멘탈', '스트레스', '수면', '불면증', '명상', '번아웃', '우울', '마음챙김', '심리상담', '우울증', '공황장애', '수면장애', 'ASMR', '스트레스해소', '감정관리', '마인드풀니스'],
+    secondaryTokens: ['힐링', '루틴', '이완', '테라피', '자존감', '심리치료', '상담', '멘탈케어'],
     excludeTokens: ['정신과', '약물'],
     seeds: [
       '불면증 극복 방법', '명상 초보 가이드', '스트레스 해소법',
@@ -280,8 +280,8 @@ export const CATEGORIES: readonly CategoryDefinition[] = [
   {
     id: 'hospital',
     label: '병원/건강검진',
-    primaryTokens: ['병원', '건강검진', '종합검진', '내시경', 'MRI', 'CT', '초음파', '혈액검사'],
-    secondaryTokens: ['진료', '예약', '비용', '검사', '소견'],
+    primaryTokens: ['병원', '건강검진', '종합검진', '내시경', 'MRI', 'CT', '초음파', '혈액검사', '치과', '피부과', '안과', '국가건강검진', '정형외과', '이비인후과', '비뇨기과'],
+    secondaryTokens: ['진료', '예약', '비용', '검사', '소견', '수술', '실비', '진단', '통증'],
     excludeTokens: ['동물병원', '한의원'],
     seeds: [
       '건강검진 항목 추천', '종합검진 비용 비교', '위내시경 준비사항',
@@ -333,8 +333,8 @@ export const CATEGORIES: readonly CategoryDefinition[] = [
   {
     id: 'food',
     label: '맛집/카페',
-    primaryTokens: ['맛집', '카페', '디저트', '빵집', '브런치', '베이커리', '핫플', '파인다이닝'],
-    secondaryTokens: ['메뉴', '웨이팅', '예약', '분위기', '뷰맛집'],
+    primaryTokens: ['맛집', '카페', '디저트', '빵집', '브런치', '베이커리', '핫플', '파인다이닝', '한식', '일식', '중식', '양식', '술집', '포장마차', '혼밥'],
+    secondaryTokens: ['메뉴', '웨이팅', '예약', '분위기', '뷰맛집', '데이트', '혼밥', '맛집추천', '가성비'],
     excludeTokens: ['레시피', '요리', '밀키트', '반찬'],
     seeds: [
       '서울 맛집 추천', '강남 카페 추천', '홍대 디저트 맛집',
@@ -369,8 +369,8 @@ export const CATEGORIES: readonly CategoryDefinition[] = [
   {
     id: 'education',
     label: '자격증/시험',
-    primaryTokens: ['자격증', '시험', '공부법', '수능', '공무원', '기사', '한국사', '컴활'],
-    secondaryTokens: ['합격', '기출', '인강', '독학', '시험일정'],
+    primaryTokens: ['자격증', '시험', '공부법', '수능', '공무원시험', '기사', '한국사', '컴활', '정보처리기사', '전기기사', '공인중개사', '요양보호사', '운전면허', '토익'],
+    secondaryTokens: ['합격', '기출', '인강', '독학', '시험일정', '필기', '실기', '기출문제', '합격률'],
     excludeTokens: ['토익', '토플', '영어회화', '코딩'],
     seeds: [
       '2026 자격증 추천 순위', '공무원 시험 준비방법', '컴활 1급 독학',
@@ -386,8 +386,8 @@ export const CATEGORIES: readonly CategoryDefinition[] = [
   {
     id: 'english',
     label: '영어/외국어',
-    primaryTokens: ['영어', '영어회화', '토익', '토플', '영어학원', '원어민', 'IELTS', '일본어', '중국어'],
-    secondaryTokens: ['회화', '문법', '단어', '리스닝', '스피킹'],
+    primaryTokens: ['영어', '영어회화', '토익', '토플', '영어학원', '원어민', 'IELTS', '일본어', '중국어', '영어앱', '듀오링고', '영어공부법', '화상영어', '전화영어', '쉐도잉'],
+    secondaryTokens: ['회화', '문법', '단어', '리스닝', '스피킹', '독학', '점수', '시험', '교재'],
     excludeTokens: ['자격증', '공무원', '수능'],
     seeds: [
       '영어회화 독학 방법', '토익 900점 공부법', '영어 공부 앱 추천',
@@ -403,8 +403,8 @@ export const CATEGORIES: readonly CategoryDefinition[] = [
   {
     id: 'coding',
     label: '코딩/AI',
-    primaryTokens: ['코딩', '프로그래밍', '파이썬', '자바스크립트', 'ChatGPT', 'AI', '개발자', '웹개발'],
-    secondaryTokens: ['부트캠프', '국비', '개발', '알고리즘', '포트폴리오'],
+    primaryTokens: ['코딩', '프로그래밍', '파이썬', '자바스크립트', 'ChatGPT', 'AI', '개발자', '웹개발', '앱개발', '국비지원', '부트캠프', '리액트', 'SQL', '데이터분석', '코딩테스트'],
+    secondaryTokens: ['국비', '개발', '알고리즘', '포트폴리오', '프론트엔드', '백엔드', '취업', '입문'],
     excludeTokens: ['AI도구', '미드저니', '제미나이'],
     seeds: [
       '코딩 독학 순서', '파이썬 기초 강의', '개발자 취업 로드맵',
@@ -420,8 +420,8 @@ export const CATEGORIES: readonly CategoryDefinition[] = [
   {
     id: 'job',
     label: '취업/이직',
-    primaryTokens: ['취업', '이직', '면접', '이력서', '자소서', '연봉', '퇴사', '경력'],
-    secondaryTokens: ['채용', '공채', '합격', '인사', '직장'],
+    primaryTokens: ['취업', '이직', '면접', '이력서', '자소서', '연봉', '퇴사', '경력', '공무원', '대기업', '중소기업', '공기업', '인적성', '블라인드채용'],
+    secondaryTokens: ['채용', '공채', '합격', '인사', '직장', '정규직', '계약직', '연봉협상', '포트폴리오'],
     excludeTokens: ['부업', '투잡', 'N잡'],
     seeds: [
       '자소서 작성법 예시', '면접 질문 답변 모음', '이력서 양식 추천',
@@ -456,8 +456,8 @@ export const CATEGORIES: readonly CategoryDefinition[] = [
   {
     id: 'wedding',
     label: '결혼/웨딩',
-    primaryTokens: ['결혼', '웨딩', '신혼', '허니문', '스드메', '예식장', '웨딩홀', '혼수'],
-    secondaryTokens: ['청첩장', '부케', '예물', '축의금', '결혼식'],
+    primaryTokens: ['결혼', '웨딩', '신혼', '허니문', '스드메', '예식장', '웨딩홀', '혼수', '신혼여행', '결혼준비', '본식스냅', '웨딩촬영', '드레스', '예단'],
+    secondaryTokens: ['청첩장', '부케', '예물', '축의금', '결혼식', '하객', '신부', '신랑', '스몰웨딩'],
     excludeTokens: ['이혼', '재혼'],
     seeds: [
       '결혼 준비 체크리스트', '스드메 비용 2026', '예식장 추천 서울',
@@ -473,8 +473,8 @@ export const CATEGORIES: readonly CategoryDefinition[] = [
   {
     id: 'home_life',
     label: '살림/청소',
-    primaryTokens: ['살림', '청소', '정리', '세탁', '빨래', '정리정돈', '대청소', '분리수거'],
-    secondaryTokens: ['꿀팁', '수납', '생활', '자취', '신혼'],
+    primaryTokens: ['살림', '청소', '정리', '세탁', '빨래', '정리정돈', '대청소', '분리수거', '곰팡이', '다림질', '수납', '세제', '표백', '살균'],
+    secondaryTokens: ['꿀팁', '생활', '자취', '신혼', '냄새제거', '얼룩', '셀프', '정리법'],
     excludeTokens: ['인테리어', '가구', '매트리스'],
     seeds: [
       '화장실 청소 꿀팁', '옷장 정리법', '세탁기 청소 방법',
@@ -526,8 +526,8 @@ export const CATEGORIES: readonly CategoryDefinition[] = [
   {
     id: 'pet_etc',
     label: '소동물',
-    primaryTokens: ['햄스터', '토끼', '앵무새', '관상어', '파충류', '거북이', '고슴도치', '기니피그', '열대어'],
-    secondaryTokens: ['케이지', '수조', '먹이', '사육장', '소동물'],
+    primaryTokens: ['햄스터', '토끼', '앵무새', '관상어', '파충류', '거북이', '고슴도치', '기니피그', '열대어', '도마뱀', '이구아나', '금붕어', '새우', '달팽이'],
+    secondaryTokens: ['케이지', '수조', '먹이', '사육장', '소동물', '분양', '수명', '온도', '사육환경'],
     excludeTokens: ['강아지', '고양이', '반려견', '반려묘'],
     seeds: [
       '햄스터 키우기 초보', '토끼 분양 가격', '앵무새 종류 추천',
@@ -545,8 +545,8 @@ export const CATEGORIES: readonly CategoryDefinition[] = [
   {
     id: 'car',
     label: '자동차/전기차',
-    primaryTokens: ['자동차', '전기차', '하이브리드', '중고차', '신차', 'SUV', '경차', '테슬라'],
-    secondaryTokens: ['시승', '출고', '할부', '리스', '렌트'],
+    primaryTokens: ['자동차', '전기차', '하이브리드', '중고차', '신차', 'SUV', '경차', '테슬라', '현대', '기아', '벤츠', 'BMW', '세단', '미니밴', '캠핑카'],
+    secondaryTokens: ['시승', '출고', '할부', '리스', '렌트', '보조금', '연비', '옵션', '견적'],
     excludeTokens: ['세차', '타이어', '엔진오일', '정비'],
     seeds: [
       '2026 신차 출시일정', '전기차 보조금 금액', '중고차 구매 체크리스트',
@@ -562,8 +562,8 @@ export const CATEGORIES: readonly CategoryDefinition[] = [
   {
     id: 'car_maintain',
     label: '차량관리/정비',
-    primaryTokens: ['세차', '타이어', '엔진오일', '광택', '정비', '차량관리', '검차', '워셔액'],
-    secondaryTokens: ['교체', '주기', '비용', '셀프', '정비소'],
+    primaryTokens: ['세차', '타이어', '엔진오일', '광택', '정비', '차량관리', '검차', '워셔액', '블랙박스', '하이패스', '보험갱신', '배터리', '브레이크패드', '와이퍼'],
+    secondaryTokens: ['교체', '주기', '비용', '셀프', '정비소', '주차', '코팅', '튜닝', '세차용품'],
     excludeTokens: ['신차', '중고차', '전기차'],
     seeds: [
       '엔진오일 교체주기', '타이어 교체 시기', '셀프 세차 방법',
@@ -581,8 +581,8 @@ export const CATEGORIES: readonly CategoryDefinition[] = [
   {
     id: 'game',
     label: '게임',
-    primaryTokens: ['게임', '모바일게임', 'PC게임', '스팀', '닌텐도', 'PS5', '엑스박스', '롤', '메이플'],
-    secondaryTokens: ['공략', '리뷰', '출시', '업데이트', '이벤트'],
+    primaryTokens: ['게임', '모바일게임', 'PC게임', '스팀', '닌텐도', 'PS5', '엑스박스', '롤', '메이플', '마인크래프트', '배그', '발로란트', '원신', '디아블로', '피파온라인'],
+    secondaryTokens: ['공략', '리뷰', '출시', '업데이트', '이벤트', '세팅', '패치', '시즌', '랭크'],
     excludeTokens: ['올림픽', '월드컵', '야구', '축구'],
     seeds: [
       '2026 기대작 게임', 'PC게임 추천 순위', '모바일게임 인기 순위',
@@ -598,7 +598,10 @@ export const CATEGORIES: readonly CategoryDefinition[] = [
   {
     id: 'movie',
     label: '영화/드라마',
-    primaryTokens: ['영화', '드라마', '넷플릭스', '티빙', '웨이브', '디즈니플러스', '쿠팡플레이', 'OTT'],
+    primaryTokens: [
+      '영화', '드라마', '넷플릭스', '티빙', '웨이브', '디즈니플러스', '쿠팡플레이', 'OTT',
+      '재방송', '회차', '출연진', '줄거리', '시청률',
+    ],
     secondaryTokens: ['출연진', '결말', '시즌', '줄거리', '시청률', '재방송'],
     excludeTokens: ['게임', '음악', '콘서트'],
     seeds: [
@@ -615,9 +618,14 @@ export const CATEGORIES: readonly CategoryDefinition[] = [
   {
     id: 'music',
     label: '음악/아이돌',
-    primaryTokens: ['음악', '아이돌', '콘서트', '팬미팅', '앨범', '공연', 'K-pop', '뮤지컬'],
+    primaryTokens: [
+      '음악', '아이돌', '콘서트', '팬미팅', '앨범', '공연', 'K-pop', '뮤지컬',
+      '연예인', '배우', '가수', '팬사인회', '소속사', '전속계약',
+      '포카', '포토카드', '시즌그리팅', '초동', '응원법', '티켓팅',
+      '컴백', '티저', '뮤직비디오', '시상식', '레드카펫',
+    ],
     secondaryTokens: ['티켓', '예매', '굿즈', '팬클럽', '차트'],
-    excludeTokens: ['음악앱', '음악플레이어'],
+    excludeTokens: ['음악앱', '음악플레이어', '반려', '강아지', '고양이', '냉장고', '세탁기'],
     seeds: [
       '2026 콘서트 일정', '아이돌 팬미팅 예매', 'K-pop 신인 추천',
       '뮤지컬 추천 순위', '공연 티켓 예매 팁', '앨범 수집 방법',
@@ -632,8 +640,8 @@ export const CATEGORIES: readonly CategoryDefinition[] = [
   {
     id: 'sports',
     label: '스포츠',
-    primaryTokens: ['야구', '축구', '농구', '골프', '테니스', 'KBO', 'K리그', 'EPL', 'NBA'],
-    secondaryTokens: ['경기', '중계', '순위', '선수', '티켓'],
+    primaryTokens: ['야구', '축구', '농구', '골프', '테니스', 'KBO', 'K리그', 'EPL', 'NBA', '헬스', '수영', '배드민턴', '격투기', '자전거', '마라톤', '클라이밍'],
+    secondaryTokens: ['경기', '중계', '순위', '선수', '티켓', '직관', '레슨', '장비', '용품'],
     excludeTokens: ['e스포츠', '게임', '롤'],
     seeds: [
       '2026 KBO 일정', 'EPL 순위 실시간', '골프 초보 레슨',
@@ -649,8 +657,8 @@ export const CATEGORIES: readonly CategoryDefinition[] = [
   {
     id: 'hobby',
     label: '취미/DIY',
-    primaryTokens: ['DIY', '핸드메이드', '뜨개질', '캘리그라피', '그림', '원예', '공예', '미니어처', '레진아트'],
-    secondaryTokens: ['취미', '클래스', '키트', '재료', '작품'],
+    primaryTokens: ['DIY', '핸드메이드', '뜨개질', '캘리그라피', '그림', '원예', '공예', '미니어처', '레진아트', '가드닝', '레고', '퍼즐', '수집', '캔들', '비누만들기', '자수', '페인팅'],
+    secondaryTokens: ['취미', '클래스', '키트', '재료', '작품', '도안', '입문', '체험', '원데이클래스'],
     excludeTokens: ['코딩', '게임', '운동'],
     seeds: [
       'DIY 가구 만들기', '뜨개질 초보 도안', '캘리그라피 독학',
@@ -666,8 +674,8 @@ export const CATEGORIES: readonly CategoryDefinition[] = [
   {
     id: 'book',
     label: '책/독서',
-    primaryTokens: ['책', '독서', '베스트셀러', '서평', '도서추천', '전자책', '오디오북'],
-    secondaryTokens: ['작가', '출판', '서점', '북클럽', '독후감'],
+    primaryTokens: ['책', '독서', '베스트셀러', '서평', '도서추천', '전자책', '오디오북', '밀리의서재', '리디', '교보문고', '북리뷰', '독서법'],
+    secondaryTokens: ['작가', '출판', '서점', '북클럽', '독후감', '추천도서', '완독', '다독'],
     excludeTokens: ['교과서', '참고서', '문제집'],
     seeds: [
       '2026 베스트셀러 추천', '자기계발서 추천', '소설 추천 순위',
@@ -719,8 +727,8 @@ export const CATEGORIES: readonly CategoryDefinition[] = [
   {
     id: 'app',
     label: '앱추천',
-    primaryTokens: ['앱', '꿀앱', '어플', '유용한앱'],
-    secondaryTokens: ['무료', '추천', '다운로드', '사용법', '설정'],
+    primaryTokens: ['앱', '꿀앱', '어플', '유용한앱', '무료앱', '생산성앱', '가계부앱', '일정관리앱', '사진편집앱', '건강앱', '습관앱'],
+    secondaryTokens: ['무료', '추천', '다운로드', '사용법', '설정', '구독', '유료', '업데이트'],
     excludeTokens: ['AI도구', 'ChatGPT', '미드저니'],
     seeds: [
       '아이폰 꿀앱 추천 2026', '생산성 앱 추천', '사진 편집 앱 순위',
@@ -736,8 +744,8 @@ export const CATEGORIES: readonly CategoryDefinition[] = [
   {
     id: 'ai_tool',
     label: 'AI도구',
-    primaryTokens: ['AI도구', '미드저니', '클로드', '제미나이', 'AI그림', 'Stable Diffusion', 'Copilot', 'AI번역'],
-    secondaryTokens: ['자동화', '프롬프트', '생성형', 'AI활용'],
+    primaryTokens: ['AI도구', '미드저니', '클로드', '제미나이', 'AI그림', 'Stable Diffusion', 'Copilot', 'AI번역', '노션AI', 'DALL-E', 'Suno', 'Runway', 'AI요약', 'AI글쓰기'],
+    secondaryTokens: ['자동화', '프롬프트', '생성형', 'AI활용', '구독', '무료', '사용법', '비교', '대안'],
     excludeTokens: ['코딩', '프로그래밍', '개발자'],
     seeds: [
       'ChatGPT vs 클로드 비교', '미드저니 사용법', 'AI 그림 생성 방법',

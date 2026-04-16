@@ -5,6 +5,7 @@
 
 import { searchNaverWithApi } from '../naver-crawler';
 import { EnvironmentManager } from './environment-manager';
+import { classifyKeyword } from './categories';
 
 // ==================== 인터페이스 ====================
 
@@ -32,18 +33,6 @@ type SourceType = 'news' | 'blog' | 'cafe' | 'default';
 
 // ==================== 상수 ====================
 
-const CATEGORY_PATTERNS: Record<string, RegExp> = {
-  policy: /지원금|수당|급여|보조금|혜택|정책|제도|법안|계좌|적금|대출|금리|세금|연금|보험|청약|지급|신청|자격|조건|대상|기준|한도/,
-  celebrity: /배우|가수|아이돌|감독|작가|연예인|스타|셀럽|열애|결혼|이혼|출연|컴백|은퇴|논란|학폭|폭로/,
-  incident: /사건|사고|검찰|경찰|재판|기소|구속|수사|피해|범죄|논란|폭로|해명|사과|은폐/,
-  product: /출시|신제품|리뷰|후기|추천|비교|가격|할인|세일|구매|주문|배송/,
-  event: /이벤트|행사|축제|페스티벌|콘서트|공연|전시|박람회|대회/,
-  sports: /경기|승리|패배|득점|골|우승|준우승|선수|감독|코치|리그|플레이오프/,
-  entertainment: /드라마|영화|예능|방송|시청률|OST|주연|조연|시즌|에피소드|촬영/,
-  health: /건강|의료|병원|치료|증상|진단|약|영양제|비타민|운동|다이어트|식단/,
-  finance: /주식|코인|비트코인|투자|수익|배당|환율|금값|부동산|전세|월세|매매/,
-  travel: /여행|관광|호텔|숙소|항공|비행기|맛집|카페|명소|투어|휴가/
-};
 
 const EVENT_ACTIONS: Record<string, Record<string, string>> = {
   celebrity: {
@@ -196,7 +185,7 @@ function generateConcreteReason(
   const title = cleanHtml(bestContent.title || '');
   const description = cleanHtml(bestContent.description || '');
   const fullText = [description, ...allDescriptions].join(' ');
-  const category = detectCategory(keyword, title, description);
+  const category = classifyKeyword(keyword).primary;
   
   // 정책 카테고리는 별도 처리
   if (category === 'policy') {
@@ -391,7 +380,7 @@ function generateDefaultAnalysis(keyword: string, keywordData: KeywordData): Tre
   
   let trendingReason: string;
 
-  const category = detectCategory(keyword, '', '');
+  const category = classifyKeyword(keyword).primary;
   const kw = (keyword || '').trim();
 
   const growthLabel = growthRate > 0 ? ` (검색량 +${Math.round(growthRate)}%)` : '';
@@ -442,13 +431,6 @@ function findBestContent(keyword: string, contents: ContentItem[]): ContentItem 
   );
 }
 
-function detectCategory(keyword: string, title: string, description: string): string {
-  const text = (keyword + ' ' + title + ' ' + description).toLowerCase();
-  for (const [category, pattern] of Object.entries(CATEGORY_PATTERNS)) {
-    if (pattern.test(text)) return category;
-  }
-  return 'general';
-}
 
 function findAction(text: string, actions: Record<string, string>): string | null {
   for (const [key, value] of Object.entries(actions)) {

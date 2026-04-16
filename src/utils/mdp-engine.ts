@@ -3,6 +3,7 @@ import { generateQueryPatterns } from './pattern-generator';
 import { classifyKeywordIntent, getNaverKeywordSearchVolumeSeparate, getNaverSerpSignal } from './naver-datalab-api';
 import { getNaverAutocompleteKeywords } from './naver-autocomplete';
 import { estimateCPC, calculatePurchaseIntent, calculateCompetitionLevel, CATEGORY_CPC_DATABASE } from './profit-golden-keyword-engine';
+import { classifyKeyword } from './categories';
 
 /**
  * Master Discovery Protocol (MDP) Engine v4.0
@@ -207,7 +208,7 @@ export class MDPEngine {
                         const serpSignal = await getNaverSerpSignal(sig.keyword);
 
                         // Phase 3 Upgrade: 카테고리 인식 수익성 모델링 (v3.0)
-                        const detectedCategory = this.detectCategory(sig.keyword);
+                        const detectedCategory = classifyKeyword(sig.keyword).primary;
                         const categoryCPC = estimateCPC(sig.keyword, detectedCategory);
                         const purchaseIntent = calculatePurchaseIntent(sig.keyword);
                         const competitionLvl = calculateCompetitionLevel(docCount, totalVolume);
@@ -349,37 +350,6 @@ export class MDPEngine {
                 console.error(`[MDP-ENGINE] Error discovering "${current}":`, err);
             }
         }
-    }
-
-    /**
-     * v3.0: 카테고리 자동 감지
-     */
-    private detectCategory(keyword: string): string {
-        const kw = keyword.toLowerCase();
-        const categoryMap: Array<[string[], string]> = [
-            [['대출', '금리', '이자', '은행', '적금', '예금', '투자', '주식', '펀드', '연금'], 'finance'],
-            [['보험', '실비', '자동차보험', '생명보험'], 'insurance'],
-            [['아파트', '부동산', '전세', '월세', '매매', '분양'], 'realestate'],
-            [['변호사', '소송', '법률', '이혼', '상속'], 'legal'],
-            [['병원', '치료', '수술', '진료', '의사'], 'medical'],
-            [['임플란트', '치아', '교정', '치과'], 'dental'],
-            [['성형', '시술', '필러', '보톡스'], 'plastic'],
-            [['영양제', '비타민', '프로바이오틱스', '유산균', '건강식품'], 'supplement'],
-            [['다이어트', '체중', '살빼기', '단식'], 'diet'],
-            [['노트북', '스마트폰', '태블릿', '이어폰', '모니터'], 'tech'],
-            [['여행', '호텔', '숙소', '펜션', '항공'], 'travel'],
-            [['맛집', '카페', '레스토랑', '음식점'], 'food'],
-            [['화장품', '스킨케어', '선크림', '파운데이션'], 'beauty'],
-            [['육아', '신생아', '이유식', '어린이집'], 'parenting'],
-            [['자격증', '공부', '학원', '강의', '인강'], 'education'],
-            [['쿠팡', '할인', '세일', '추천', '리뷰', '후기', '비교', '가성비'], 'review'],
-            [['지원금', '보조금', '신청', '급여', '수당', '장려금'], 'finance'],
-            [['부업', '사이드잡', '재택', '블로그수익', '애드센스'], 'business'],
-        ];
-        for (const [keywords, cat] of categoryMap) {
-            if (keywords.some(k => kw.includes(k))) return cat;
-        }
-        return 'default';
     }
 
     /**

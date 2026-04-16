@@ -5,6 +5,7 @@
  * 30분~1시간 간격으로 자동 실행
  */
 
+import { classifyKeyword } from '../categories';
 import {
     KeywordStorage,
     getKeywordStorage,
@@ -93,7 +94,7 @@ async function collectFromZum(limit: number): Promise<{ keyword: string; categor
 
         return keywords.map(k => ({
             keyword: k.keyword,
-            category: detectCategory(k.keyword)
+            category: classifyKeyword(k.keyword).primary
         }));
     } catch (error: any) {
         console.warn('[COLLECTOR] ZUM 수집 실패:', error?.message);
@@ -111,7 +112,7 @@ async function collectFromNate(limit: number): Promise<{ keyword: string; catego
 
         return keywords.map(k => ({
             keyword: k.keyword,
-            category: detectCategory(k.keyword)
+            category: classifyKeyword(k.keyword).primary
         }));
     } catch (error: any) {
         console.warn('[COLLECTOR] 네이트 수집 실패:', error?.message);
@@ -129,7 +130,7 @@ async function collectFromDaum(limit: number): Promise<{ keyword: string; catego
 
         return keywords.map(k => ({
             keyword: k.keyword,
-            category: detectCategory(k.keyword)
+            category: classifyKeyword(k.keyword).primary
         }));
     } catch (error: any) {
         console.warn('[COLLECTOR] 다음 수집 실패:', error?.message);
@@ -147,7 +148,7 @@ async function collectFromSignal(limit: number): Promise<{ keyword: string; cate
 
         return keywords.map(k => ({
             keyword: typeof k === 'string' ? k : k.keyword,
-            category: detectCategory(typeof k === 'string' ? k : k.keyword)
+            category: classifyKeyword(typeof k === 'string' ? k : k.keyword).primary
         }));
     } catch (error: any) {
         console.warn('[COLLECTOR] Signal.bz 수집 실패:', error?.message);
@@ -165,7 +166,7 @@ async function collectFromGoogle(limit: number): Promise<{ keyword: string; cate
 
         return keywords.map(k => ({
             keyword: k.keyword,
-            category: detectCategory(k.keyword)
+            category: classifyKeyword(k.keyword).primary
         }));
     } catch (error: any) {
         console.warn('[COLLECTOR] 구글 수집 실패:', error?.message);
@@ -258,7 +259,7 @@ async function collectFromNaverAutocomplete(limit: number): Promise<{ keyword: s
                     for (const kw of keywords.slice(0, 3)) {
                         if (!discoveredSet.has(kw)) {
                             discoveredSet.add(kw);
-                            results.push({ keyword: kw, category: detectCategory(kw) });
+                            results.push({ keyword: kw, category: classifyKeyword(kw).primary });
                         }
                     }
 
@@ -270,7 +271,7 @@ async function collectFromNaverAutocomplete(limit: number): Promise<{ keyword: s
                             for (const kw of suffixKeywords.slice(0, 2)) {
                                 if (!discoveredSet.has(kw)) {
                                     discoveredSet.add(kw);
-                                    results.push({ keyword: kw, category: detectCategory(kw) });
+                                    results.push({ keyword: kw, category: classifyKeyword(kw).primary });
                                 }
                             }
                         } catch { /* ignore */ }
@@ -307,7 +308,7 @@ async function collectFromNews(limit: number): Promise<{ keyword: string; catego
                 for (const kw of keywords) {
                     results.push({
                         keyword: typeof kw === 'string' ? kw : kw.keyword || kw.title,
-                        category: detectCategory(typeof kw === 'string' ? kw : kw.keyword || kw.title)
+                        category: classifyKeyword(typeof kw === 'string' ? kw : kw.keyword || kw.title).primary
                     });
                 }
             }
@@ -321,80 +322,6 @@ async function collectFromNews(limit: number): Promise<{ keyword: string; catego
         console.warn('[COLLECTOR] 뉴스 수집 실패:', error?.message);
         return [];
     }
-}
-
-/**
- * 카테고리 자동 감지
- */
-function detectCategory(keyword: string): string {
-    const kw = keyword.toLowerCase();
-
-    // 연예/셀럽
-    if (/아이돌|가수|배우|연예인|드라마|영화|콘서트|앨범|컴백|뮤비|예능/.test(kw)) {
-        return 'celeb';
-    }
-
-    // IT/테크
-    if (/아이폰|갤럭시|노트북|컴퓨터|앱|어플|인공지능|ai|gpt|it|테크|코딩|프로그래밍/.test(kw)) {
-        return 'it';
-    }
-
-    // 금융/재테크
-    if (/주식|코인|투자|대출|금리|부동산|청약|적금|계좌|연금|보험/.test(kw)) {
-        return 'finance';
-    }
-
-    // 건강/뷰티
-    if (/다이어트|운동|헬스|피부|화장품|성형|병원|건강|영양제|비타민/.test(kw)) {
-        return 'health';
-    }
-
-    // 여행/맛집
-    if (/여행|맛집|카페|호텔|리조트|관광|숙소|펜션|항공|해외/.test(kw)) {
-        return 'travel';
-    }
-
-    // 자기계발
-    if (/자격증|시험|공부|취업|이직|면접|스펙|자소서|영어|토익/.test(kw)) {
-        return 'self_development';
-    }
-
-    // 생활/리빙 (강화)
-    if (/육아|결혼|집|인테리어|요리|레시피|청소|정리|생활|꿀팁|이케아|무인양품|리빙템|수납|홈카페|가전추천|에어프라이어|세탁기|냉장고|공기청정기|청소기추천|살림팁|알뜨살뜨|다이소/.test(kw)) {
-        return 'life_tips';
-    }
-
-    // 스포츠
-    if (/축구|야구|농구|골프|테니스|올림픽|월드컵|리그|경기|선수/.test(kw)) {
-        return 'sports';
-    }
-
-    // 정책/복지/지원금 (강화)
-    if (/지원금|보조금|청년|복지|정책|신청|정부|혜택|무료|출산|육아지원|국민지원|긴급지원|소상공인|신청방법|지원대상|신청기간|청년정책|복지혜택|무료교육|취업지원|창업지원|주거지원|수당/.test(kw)) {
-        return 'policy';
-    }
-
-    // 게임/취미
-    if (/게임|닌텐도|플스|스팀|RPG|모바일게임|롤|메이플|로스트아크|공략|퀘스트|사전예약|캠핑|낚시|등산|골프/.test(kw)) {
-        return 'game';
-    }
-
-    // 자동차
-    if (/자동차|신차|중고차|시승기|옵션|전기차|하이브리드|현대차|기아|BMW|벤츠|SUV|세단/.test(kw)) {
-        return 'car';
-    }
-
-    // 반려동물
-    if (/강아지|고양이|댕댕이|냥이|반려견|반려묘|사료|간식|동물병원/.test(kw)) {
-        return 'pet';
-    }
-
-    // 패션/뷰티 (세분화)
-    if (/코디|패션|옷|신발|가방|브랜드|룩북|스타일|화장품|틴트|쿠션|앰플|선크림|올리브영/.test(kw)) {
-        return 'fashion';
-    }
-
-    return 'general';
 }
 
 /**

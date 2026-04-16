@@ -146,6 +146,9 @@ export interface ProTrafficKeyword {
   goldenBackground?: string;      // 왜 이 키워드가 황금인지에 대한 AI 분석 근거
   intelligentTitles?: string[];   // 데이터 기반으로 생성된 지능형 제목들
 
+  // 📁 카테고리 매칭 여부 (카테고리 모드 보충 키워드 구분)
+  isCategoryMatch?: boolean;      // true=카테고리 매칭, false=보충(카테고리 외)
+
   // 🔥 [v16.0] 네이버 실시간 연관검색어 (100점 에디션!)
   relatedKeywords?: string[];     // 네이버에서 실제 검색되는 연관 키워드
 
@@ -2171,53 +2174,15 @@ export async function huntProTrafficKeywords(options: {
       const kw = String(keyword || '');
       const normalized = kw.replace(/\s+/g, ' ').trim();
 
-      // 연예와 무관한 반려동물/펫 굿즈 등은 celeb에서 제외
-      const petOnly = /반려|반려견|반려동물|강아지|애견|애완견|고양이|애묘|냥이|펫/.test(kw);
-      if (petOnly) return false;
-
-      const fashionOnly = /하객룩|결혼식하객|웨딩하객|하객패션|코디|패션|룩북|옷차림|스타일링|원피스|정장|드레스|아우터|니트|코트|자켓|청바지|슬랙스|신발|가방/.test(kw);
-      const idolGoods = /((연예인|아이돌|배우|가수|팬미팅|팬사인회|콘서트|투어).{0,8}굿즈|굿즈.{0,8}(연예인|아이돌|배우|가수|팬미팅|팬사인회|콘서트|투어))/.test(kw);
-      const strong = /연예인|아이돌|배우|가수|팬미팅|팬사인회|소속사|전속계약/.test(kw);
-      const event = /컴백|티저|뮤직비디오|뮤비|콘서트|시상식|레드카펫|열애|공개열애|결별|결혼|결혼발표|임신발표|군입대|전역|예능|캐스팅|하차|출연/.test(kw);
-      const niche = /포카|포토카드|시즌그리팅|시그|앨범|초동|응원법|티켓팅|예매|취소표/.test(kw);
-      const beautyOnly = /스킨|피부|화장품|메이크업|헤어|네일|향수|다이어트/.test(kw);
-
-      if (fashionOnly && !(strong || idolGoods || event || niche)) return false;
-
-      if (strong || idolGoods || niche) return true;
-      if (event && !beautyOnly) return true;
-
-      // ⭐ 연예인 이름/프로필형 검색어 허용 (0개 방지용)
-      const celebProfileQuery = /(?:나이|키|몸무게|프로필|인스타|instagram|MBTI|혈액형|이상형|소속사|드라마|영화|작품|출연|근황|결혼|열애|이혼|군대|입대|전역|포카|굿즈|티켓|콘서트|팬미팅)/i.test(normalized);
-      if (celebProfileQuery) return true;
-
       // 🚫 전자제품 모델명 등 인위적 코드 제외 (RM70F64Q1A 등)
       if (/^[A-Z]{2,}\d+[A-Z0-9]{3,}/i.test(normalized)) return false;
       if (/^[A-Z]\d[A-Z0-9]{5,}/i.test(normalized)) return false;
 
-      // 시드 키워드에 포함된 주요 단어가 들어있으면 허용 (더 유연하게)
-      const celebSeeds = CATEGORY_SEEDS['celeb'] || [];
-      const hasSeed = celebSeeds.some(s => {
-        const cleanS = s.trim();
-        if (cleanS.length <= 1) return false; // 외자는 단독 매칭 금지 (혼입 방지)
-        // 시드 단독이거나, 시드를 포함한 확장어인 경우
-        return normalized === cleanS || normalized.includes(cleanS + ' ') || normalized.includes(' ' + cleanS);
-      });
-      if (hasSeed) return true;
-
-      return isKeywordMatchingCategory(kw, cat);
+      return isKeywordMatchingCategory(kw, 'music');
     }
 
     if (cat === 'drama') {
-      const kw = String(keyword || '').toLowerCase();
-      const strong = /드라마|재방송|다시보기|회차|출연진|줄거리|결말|시청률/.test(kw);
-      if (strong) return true;
-
-      const ott = /(티빙|웨이브|넷플릭스|디즈니플러스|쿠팡플레이|왓챠|ott|vod)/.test(kw);
-      const movieOnly = /영화|cgv|메가박스|롯데시네마|상영시간표|영화관/.test(kw);
-      if (ott && !movieOnly) return true;
-
-      return isKeywordMatchingCategory(keyword, cat);
+      return isKeywordMatchingCategory(keyword, 'movie');
     }
 
     if (cat === 'self_development') {
@@ -4216,9 +4181,9 @@ export async function huntProTrafficKeywords(options: {
     const unmatched: ProTrafficKeyword[] = [];
     for (const kw of keywords) {
       if (isKeywordInSelectedCategory(kw.keyword, cat)) {
-        matched.push(kw);
+        matched.push({ ...kw, isCategoryMatch: true });
       } else {
-        unmatched.push(kw);
+        unmatched.push({ ...kw, isCategoryMatch: false });
       }
     }
     console.log(`[PRO-TRAFFIC] 📁 카테고리 후필터: ${cat} 매칭=${matched.length}개, 비매칭=${unmatched.length}개`);
