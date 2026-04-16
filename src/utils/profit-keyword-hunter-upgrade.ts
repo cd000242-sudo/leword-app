@@ -652,8 +652,37 @@ export const ENHANCED_CATEGORY_GOLDEN_KEYWORDS: Record<string, {
   }
 };
 
+// UI 카테고리 → 시드DB 키 매핑 (세분화된 UI 카테고리를 통합 시드로 연결)
+const CATEGORY_SEED_MAP: Record<string, string> = {
+  pet_dog: 'pet', pet_cat: 'pet', pet_etc: 'pet',
+  travel_domestic: 'travel', travel_overseas: 'travel',
+  car_maintain: 'review', // 차량관리는 리뷰/비교 시드 활용
+  baby_products: 'parenting',
+  insurance_safe: 'finance',
+  kitchen: 'recipe',
+  home_life: 'life_tips',
+  sidejob: 'business',
+  diet: 'health',
+  mental: 'health',
+  hospital: 'health',
+  english: 'education',
+  coding: 'it',
+  job: 'education',
+  smartphone: 'it', laptop: 'it',
+  app: 'it', ai_tool: 'it',
+  movie: 'celeb', music: 'celeb',
+  hobby: 'life',
+  season_spring: 'all', season_summer: 'all', season_fall: 'all', season_winter: 'all',
+  electronics: 'review',
+  wedding: 'life',
+  food: 'recipe',
+  realestate: 'finance',
+  policy: 'finance',
+};
+
 export function getEnhancedCategoryGoldenKeywords(category: string): string[] {
-  const config = ENHANCED_CATEGORY_GOLDEN_KEYWORDS[category] || ENHANCED_CATEGORY_GOLDEN_KEYWORDS.all;
+  const mappedCategory = CATEGORY_SEED_MAP[category] || category;
+  const config = ENHANCED_CATEGORY_GOLDEN_KEYWORDS[mappedCategory] || ENHANCED_CATEGORY_GOLDEN_KEYWORDS.all;
 
   const combined: string[] = [];
 

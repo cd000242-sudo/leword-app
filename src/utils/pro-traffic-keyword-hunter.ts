@@ -3139,8 +3139,14 @@ export async function huntProTrafficKeywords(options: {
 
     // 📁 카테고리 지정 시에는 혼입을 방지하기 위해 해당 카테고리로 분류되는 키워드만 후보로 유지
     // (최종 단계에서 어차피 카테고리 내부만 남기므로, 여기서 미리 제거해 0개/낭비를 방지)
-    if (isCategorySpecified && category !== 'celeb' && !hasCategoryIntent && !isDeepMined) {
-      return false;
+    // 카테고리 모드: Deep Mining도 카테고리 매칭 필수 (누수 차단)
+    if (isCategorySpecified && category !== 'celeb' && !hasCategoryIntent) {
+      // Deep Mining이어도 isKeywordMatchingCategory로 한번 더 체크
+      if (isDeepMined && isKeywordMatchingCategory(kw, category)) {
+        // Deep Mining이지만 카테고리 매칭 → 통과
+      } else {
+        return false;
+      }
     }
 
     // 롱테일 키워드 (2단어 이상)
