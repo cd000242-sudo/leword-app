@@ -54,8 +54,8 @@ export const CATEGORIES: readonly CategoryDefinition[] = [
   {
     id: 'finance',
     label: '재테크/연말정산',
-    primaryTokens: ['재테크', '적금', '예금', 'ISA', 'IRP', '연금저축', 'ETF', '배당', '주식', '펀드', '연말정산', 'CMA'],
-    secondaryTokens: ['금리', '이자', '수익률', '투자', '세액공제', '절세', '복리'],
+    primaryTokens: ['재테크', '적금', '예금', 'ISA', 'IRP', '연금저축', 'ETF', '배당', '주식', '펀드', '연말정산', 'CMA', '청년도약계좌', '신용점수', '신용등급', '종합소득세', '증권'],
+    secondaryTokens: ['금리', '이자', '수익률', '투자', '세액공제', '절세', '복리', '계좌', '수수료', '환급'],
     excludeTokens: ['보험', '청약', '부동산'],
     seeds: [
       '고금리 적금 추천 2026', 'ISA 계좌 장단점', 'IRP 세액공제 한도',
@@ -127,7 +127,7 @@ export const CATEGORIES: readonly CategoryDefinition[] = [
     label: '전자기기/가전',
     primaryTokens: ['냉장고', '세탁기', '에어컨', '건조기', '로봇청소기', '공기청정기', '제습기', '정수기', '식기세척기', '전자레인지'],
     secondaryTokens: ['가전', '에너지효율', '설치', '용량', 'LG', '삼성'],
-    excludeTokens: ['스마트폰', '노트북', '태블릿'],
+    excludeTokens: ['스마트폰', '노트북', '태블릿', '냉장고파먹기', '냉장고 파먹기', '레시피', '요리'],
     seeds: [
       '건조기 추천 2026', '로봇청소기 비교', '에어컨 추천 순위',
       '냉장고 용량 선택 가이드', '공기청정기 추천', '세탁기 드럼 vs 통돌이',
@@ -299,8 +299,8 @@ export const CATEGORIES: readonly CategoryDefinition[] = [
   {
     id: 'travel_domestic',
     label: '국내여행',
-    primaryTokens: ['국내여행', '당일치기', '펜션', '글램핑', '캠핑장', '숙소', '리조트', '한옥스테이'],
-    secondaryTokens: ['관광', '드라이브', '코스', '놀거리', '볼거리'],
+    primaryTokens: ['국내여행', '당일치기', '펜션', '글램핑', '캠핑장', '숙소', '리조트', '한옥스테이', '제주도', '제주', '부산', '강원도', '속초', '경주', '여수', '강릉', '전주', '통영'],
+    secondaryTokens: ['관광', '드라이브', '코스', '놀거리', '볼거리', '여행지', '데이트', '가볼만한곳', '3박4일', '2박3일', '1박2일'],
     excludeTokens: ['항공권', '여권', '비자', '환전', '해외'],
     seeds: [
       '서울 근교 당일치기 여행', '제주도 여행코스 3박4일', '강원도 펜션 추천',
@@ -350,9 +350,9 @@ export const CATEGORIES: readonly CategoryDefinition[] = [
   {
     id: 'recipe',
     label: '요리/레시피',
-    primaryTokens: ['레시피', '요리', '밀키트', '에어프라이어', '반찬', '국', '찌개', '볶음', '만들기', '베이킹'],
-    secondaryTokens: ['재료', '양념', '조리법', '간단', '초간단', '자취'],
-    excludeTokens: ['맛집', '카페', '레스토랑'],
+    primaryTokens: ['레시피', '요리', '밀키트', '에어프라이어', '반찬', '국', '찌개', '볶음', '만들기', '베이킹', '파스타', '도시락', '밀프렙', '홈베이킹', '집밥', '야식', '간식만들기', '김치'],
+    secondaryTokens: ['재료', '양념', '조리법', '간단', '초간단', '자취', '끓이기', '굽기', '삶기', '냉장고파먹기'],
+    excludeTokens: ['맛집', '카페', '레스토랑', '냉장고 추천', '냉장고 비교'],
     seeds: [
       '에어프라이어 레시피 모음', '간단 반찬 만들기', '자취 요리 추천',
       '밀키트 추천 순위', '김치찌개 맛있게 끓이는법', '볶음밥 레시피',
@@ -492,9 +492,9 @@ export const CATEGORIES: readonly CategoryDefinition[] = [
   {
     id: 'pet_dog',
     label: '강아지',
-    primaryTokens: ['강아지', '반려견', '애견', '퍼피', '소형견', '대형견', '중형견'],
-    secondaryTokens: ['사료', '간식', '산책', '훈련', '미용', '목줄', '하네스'],
-    excludeTokens: ['강아지풀', '핫도그', '고양이', '햄스터'],
+    primaryTokens: ['강아지', '반려견', '애견', '퍼피', '소형견', '대형견', '중형견', '반려동물', '펫', '댕댕이', '멍멍이'],
+    secondaryTokens: ['사료', '간식', '산책', '훈련', '미용', '목줄', '하네스', '슬개골', '중성화', '접종', '분리불안', '배변', '입양'],
+    excludeTokens: ['강아지풀', '핫도그', '고양이', '햄스터', '펫보틀', '펫네임'],
     seeds: [
       '강아지 사료 추천 2026', '소형견 종류 순위', '강아지 훈련 방법',
       '반려견 간식 수제', '강아지 미용 비용', '강아지 산책 시간',
@@ -509,8 +509,8 @@ export const CATEGORIES: readonly CategoryDefinition[] = [
   {
     id: 'pet_cat',
     label: '고양이',
-    primaryTokens: ['고양이', '반려묘', '냥이', '캣타워', '캣휠', '묘종'],
-    secondaryTokens: ['사료', '간식', '모래', '스크래쳐', '중성화'],
+    primaryTokens: ['고양이', '반려묘', '냥이', '캣타워', '캣휠', '묘종', '고양이카페', '스코티시', '러시안블루', '브리티시'],
+    secondaryTokens: ['사료', '간식', '모래', '스크래쳐', '중성화', '구토', '헤어볼', '습식', '건식', '화장실'],
     excludeTokens: ['강아지', '반려견', '햄스터'],
     seeds: [
       '고양이 사료 추천 2026', '캣타워 추천', '고양이 모래 비교',
@@ -599,7 +599,7 @@ export const CATEGORIES: readonly CategoryDefinition[] = [
     id: 'movie',
     label: '영화/드라마',
     primaryTokens: ['영화', '드라마', '넷플릭스', '티빙', '웨이브', '디즈니플러스', '쿠팡플레이', 'OTT'],
-    secondaryTokens: ['리뷰', '추천', '출연진', '결말', '시즌'],
+    secondaryTokens: ['출연진', '결말', '시즌', '줄거리', '시청률', '재방송'],
     excludeTokens: ['게임', '음악', '콘서트'],
     seeds: [
       '넷플릭스 추천 드라마 2026', '영화 추천 순위', 'OTT 비교 가격',
@@ -702,8 +702,8 @@ export const CATEGORIES: readonly CategoryDefinition[] = [
   {
     id: 'laptop',
     label: '노트북/PC/태블릿',
-    primaryTokens: ['노트북', '데스크탑', '모니터', '키보드', '마우스', 'SSD', '맥북', '태블릿', '아이패드', 'PC조립'],
-    secondaryTokens: ['RAM', 'CPU', 'GPU', '사양', '벤치마크'],
+    primaryTokens: ['노트북', '데스크탑', '모니터', '키보드', '마우스', 'SSD', '맥북', '태블릿', '아이패드', 'PC조립', 'NAS', '블루투스이어폰', '이어폰', '헤드셋', '웹캠', '마우스패드'],
+    secondaryTokens: ['RAM', 'CPU', 'GPU', '사양', '벤치마크', '기계식', '무선', '유선', '축', '인치'],
     excludeTokens: ['스마트폰', '핸드폰', '아이폰'],
     seeds: [
       '노트북 추천 2026 가성비', '맥북 에어 vs 프로', '아이패드 종류 비교',
