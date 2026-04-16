@@ -21,6 +21,7 @@ export interface KeywordSearchVolume {
   competition?: string;
   monthlyPcQcCnt?: number | null;
   monthlyMobileQcCnt?: number | null;
+  monthlyAveCpc?: number | null;
 }
 
 /**
@@ -205,6 +206,7 @@ export async function getNaverSearchAdKeywordVolume(
           const pc = parseVolumeValue(match.monthlyPcQcCnt);
           const mo = parseVolumeValue(match.monthlyMobileQcCnt);
           const total = (pc !== null || mo !== null) ? ((pc || 0) + (mo || 0)) : null;
+          const aveCpc = parseVolumeValue(match.monthlyAveCpc);
 
           results.push({
             keyword: requestedKw,
@@ -213,7 +215,8 @@ export async function getNaverSearchAdKeywordVolume(
             totalSearchVolume: total,
             competition: match.compIdx || match.competition,
             monthlyPcQcCnt: pc,
-            monthlyMobileQcCnt: mo
+            monthlyMobileQcCnt: mo,
+            monthlyAveCpc: aveCpc,
           });
         } else {
           // 결과 목록에 없음 -> 검색량 0 또는 null로 처리?
@@ -241,6 +244,7 @@ export interface KeywordSuggestion {
   competition?: string;
   monthlyPcQcCnt?: number;
   monthlyMobileQcCnt?: number;
+  monthlyAveCpc?: number | null;
 }
 
 /**
@@ -300,6 +304,7 @@ export async function getNaverSearchAdKeywordSuggestions(
     const suggestions: KeywordSuggestion[] = keywordList.map((item: any) => {
       const pc = parseVolumeValue(item.monthlyPcQcCnt) || 0;
       const mo = parseVolumeValue(item.monthlyMobileQcCnt) || 0;
+      const aveCpc = parseVolumeValue(item.monthlyAveCpc);
       return {
         keyword: decodeHtmlEntities(item.relKeyword || ''),
         pcSearchVolume: pc,
@@ -307,7 +312,8 @@ export async function getNaverSearchAdKeywordSuggestions(
         totalSearchVolume: pc + mo,
         competition: item.compIdx,
         monthlyPcQcCnt: pc,
-        monthlyMobileQcCnt: mo
+        monthlyMobileQcCnt: mo,
+        monthlyAveCpc: aveCpc,
       };
     });
 

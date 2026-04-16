@@ -495,6 +495,7 @@ export function calculateProfitGoldenRatio(
     hasSmartBlock?: boolean;
     hasInfluencer?: boolean;
     difficultyScore?: number;
+    realCpc?: number | null;     // 네이버 검색광고 API 실시간 CPC (monthlyAveCpc)
   }
 ): ProfitKeywordData {
   const avgTopPostAge = options?.avgTopPostAge;
@@ -502,8 +503,10 @@ export function calculateProfitGoldenRatio(
   const hasSmartBlock = options?.hasSmartBlock;
   const hasInfluencer = options?.hasInfluencer;
   const difficultyScore = options?.difficultyScore;
+  const realCpc = options?.realCpc;
 
-  const estimatedCPC = estimateCPC(keyword, category);
+  // 실시간 CPC가 있으면 우선 사용, 없으면 정적 DB 추정
+  const estimatedCPC = (realCpc && realCpc > 0) ? realCpc : estimateCPC(keyword, category);
 
   // MDP v2.0: CVI (Commercial Value Index) 계산
   // 공식: CVI = (Intent Weight * CPC Index * CTR Base)

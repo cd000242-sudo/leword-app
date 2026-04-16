@@ -1029,6 +1029,7 @@ import {
 import { getTitleGenerator } from './mass-collection/keyword-title-generator';
 import { getRelatedKeywords } from './related-keyword-cache';
 import { mineUltimateDeepKeywords } from './ultimate-niche-finder';
+import { analyzeSeasonality, SeasonalityProfile } from './pro-hunter-v12/seasonality-analyzer';
 
 export type KeywordType =
   | '🚀 타이밍키워드'    // 지금 바로 써야 하는 키워드
@@ -1044,6 +1045,7 @@ const apiCache = new Map<string, {
   searchVolume: number | null;
   documentCount: number | null;
   compIdx?: number | null;
+  realCpc?: number | null;
   hasSmartBlock?: boolean;
   hasInfluencer?: boolean;
   difficultyScore?: number;
@@ -1127,6 +1129,7 @@ interface ApiResult {
   searchVolume: number | null;  // null = API 실패
   documentCount: number | null; // null = API 실패
   compIdx?: number | null;      // 상업성 지수 (Search Ad)
+  realCpc?: number | null;      // 실시간 CPC (Search Ad monthlyAveCpc)
   hasSmartBlock?: boolean;
   hasViewSection?: boolean;
   hasInfluencer?: boolean;
@@ -1288,7 +1291,7 @@ async function fetchSearchAdVolume(
   accessLicense: string,
   secretKey: string,
   customerId: string
-): Promise<{ volume: number | null; competition: number | null; success: boolean; error?: string }> {
+): Promise<{ volume: number | null; competition: number | null; realCpc: number | null; success: boolean; error?: string }> {
   const normalizedKeyword = String(keyword || '').replace(/\s+/g, ' ').trim();
 
   try {
@@ -1316,15 +1319,16 @@ async function fetchSearchAdVolume(
       return {
         volume: row.totalSearchVolume,
         competition: compValue,
+        realCpc: row.monthlyAveCpc ?? null,
         success: true
       };
     }
 
     apiStats.searchAdApiFail++;
-    return { volume: null, competition: null, success: false, error: '검색량 데이터 없음' };
+    return { volume: null, competition: null, realCpc: null, success: false, error: '검색량 데이터 없음' };
   } catch (error: any) {
     apiStats.searchAdApiFail++;
-    return { volume: null, competition: null, success: false, error: error?.message || '검색광고 API 오류' };
+    return { volume: null, competition: null, realCpc: null, success: false, error: error?.message || '검색광고 API 오류' };
   }
 }
 
@@ -1422,12 +1426,13 @@ export async function fetchKeywordDataParallel(
       let blogSuccess = false;
       let searchAdSuccess = false;
       let compIdx: number | null = null;
+      let realCpc: number | null = null;
       let serpSignal: any = null;
       let intentInfo: any = null;
 
       // 검색광고 데이터는 이미 위에서 배치로 가져왔음
-      let searchAdResult: { volume: number | null; competition: number | null; success: boolean; error?: string } = {
-        volume: null, competition: null, success: false, error: '데이터 없음'
+      let searchAdResult: { volume: number | null; competition: number | null; realCpc: number | null; success: boolean; error?: string } = {
+        volume: null, competition: null, realCpc: null, success: false, error: '데이터 없음'
       };
 
       if (hasSearchAdApi) {
@@ -1441,12 +1446,12 @@ export async function fetchKeywordDataParallel(
           else if (volData.competition === '낮음') compValue = 0.2;
           else if (volData.competition === '매우 낮음') compValue = 0.05;
 
-          searchAdResult = { volume: volData.totalSearchVolume, competition: compValue, success: true };
+          searchAdResult = { volume: volData.totalSearchVolume, competition: compValue, realCpc: volData.monthlyAveCpc ?? null, success: true };
         } else if (!hasSearchAdApi) {
-          searchAdResult = { volume: null, competition: null, success: false, error: 'API 키 없음' };
+          searchAdResult = { volume: null, competition: null, realCpc: null, success: false, error: 'API 키 없음' };
         }
       } else {
-        searchAdResult = { volume: null, competition: null, success: false, error: 'API 키 없음' };
+        searchAdResult = { volume: null, competition: null, realCpc: null, success: false, error: 'API 키 없음' };
       }
 
 
@@ -1475,6 +1480,7 @@ export async function fetchKeywordDataParallel(
       if (searchAdResult.success && searchAdResult.volume !== null) {
         searchVolume = searchAdResult.volume;
         compIdx = searchAdResult.competition;
+        realCpc = searchAdResult.realCpc;
         searchAdSuccess = true;
       }
 
@@ -1489,6 +1495,7 @@ export async function fetchKeywordDataParallel(
         searchVolume,
         documentCount,
         compIdx,
+        realCpc,
         hasSmartBlock: serpSignal?.hasSmartBlock,
         hasViewSection: serpSignal?.hasViewSection,
         hasInfluencer: serpSignal?.hasInfluencer,
@@ -1515,6 +1522,7 @@ export async function fetchKeywordDataParallel(
           searchVolume: result.searchVolume,
           documentCount: result.documentCount,
           compIdx: result.compIdx,
+          realCpc: result.realCpc,
           hasSmartBlock: result.hasSmartBlock,
           hasViewSection: result.hasViewSection,
           hasInfluencer: result.hasInfluencer,
@@ -1676,70 +1684,187 @@ const QUESTION_PATTERNS = [
   '나이', '자격', '신청', '준비물', '주의사항', '꿀팁'
 ];
 
-// 📅 월별 황금키워드 데이터 (매년 돌아오는 검색량 높은 키워드)
+// 📅 월별 황금키워드 데이터 — 3유형 혼합 (이벤트 / 상품·서비스 / 정보·정책)
 const MONTHLY_GOLDEN_KEYWORDS: Record<number, string[]> = {
+  // ── 1월: 새해·설날·겨울 ──
   1: [
-    '새해 다이어리 추천', '연말정산 하는법', '새해 운세', '새해 인사말',
-    '설날 선물세트 추천', '설날 인사말', '신년 목표 세우기',
-    '1월 여행지 추천', '겨울철 건강관리', '난방비 절약법',
-    '연간 가계부 작성법', '새해 독서목록', '1월 제철음식'
+    // 시즌 이벤트 (6)
+    '설 연휴 고속도로 통행료 면제 2026', '정월대보름 오곡밥 만드는법', '새해 해돋이 명소 동해',
+    '설날 차례상 간소화 방법 2026', '1월 빙어축제 일정 인제', '대보름 달맞이 명소 서울',
+    // 시즌 상품/서비스 (10)
+    '연말정산 환급 많이 받는법 2026', '설 선물세트 한우 등급별 가격비교', '전기장판 전자파 없는 제품 추천',
+    '겨울 기모 레깅스 브랜드 순위', '설 귀성길 멀미약 추천', '신년운세 사주카페 후기 2026',
+    '가습기 살균 필터 교체주기', '동계 차량용품 필수 체크리스트', '설 선물 부모님 건강식품 순위',
+    '온수매트 vs 전기매트 전기료 비교',
+    // 시즌 정보/정책 (9)
+    '2026년 최저시급 적용 계산기', '연말정산 월세 세액공제 조건 2026', '국민연금 납부액 인상 2026',
+    '자동차세 연납 신청방법 1월', '건강보험 피부양자 자격 변경 2026', '1월 제철 과일 한라봉 고르는법',
+    '겨울철 수도 동파 보상 신청방법', '난방비 도시가스 절약 꿀팁 10가지', '소상공인 정책자금 신청일정 2026'
   ],
+  // ── 2월: 졸업·입학·발렌타인 ──
   2: [
-    '발렌타인 선물 추천', '입학 준비물 체크리스트', '봄학기 준비',
-    '2월 졸업식 꽃다발', '설날 세뱃돈 투자', '개학 준비물',
-    '2월 여행지 추천', '황사 마스크 추천', '봄옷 코디'
+    // 시즌 이벤트 (6)
+    '졸업식 축하 화환 가격비교 2026', '발렌타인데이 수제초콜릿 만들기', '2월 딸기축제 논산 일정 2026',
+    '졸업여행 제주도 2박3일 코스', '입춘 절기 음식 종류', '2월 눈꽃축제 태백 일정',
+    // 시즌 상품/서비스 (10)
+    '초등학교 입학준비물 전체 리스트 2026', '졸업 선물 10대 여자 인기순위', '봄 신학기 책가방 브랜드 비교',
+    '입학식 엄마 정장 코디 2026', '새학기 학습지 비교 추천', '졸업 케이크 주문 맛집 서울',
+    '봄 트렌치코트 가성비 브랜드 추천', '초등 입학 책상 높이 조절 추천', '중학교 교복 맞춤 vs 기성복 비교',
+    '아이패드 학생 할인 구매방법 2026',
+    // 시즌 정보/정책 (9)
+    '2026년 초등학교 입학 나이 기준', '신학기 자녀 학원비 소득공제 방법', '황사 미세먼지 시즌 대비 공기청정기 필터 교체',
+    '2월 제철 꼬막 삶는법 시간', '봄학기 대학교 장학금 신청 기간 2026', '자녀 교육비 세액공제 한도 2026',
+    '어린이 독감 예방접종 무료 대상 2026', '전세계약 갱신청구권 행사 방법', '소득세 확정신고 기간 프리랜서 2026'
   ],
+  // ── 3월: 봄·개학·꽃 ──
   3: [
-    '화이트데이 선물 추천', '벚꽃 명소', '봄나들이 코스',
-    '3월 입학선물 추천', '새학기 가방 추천', '알레르기 관리법',
-    '미세먼지 공기청정기 추천', '봄철 피부관리', '봄꽃축제 일정'
+    // 시즌 이벤트 (7)
+    '화이트데이 사탕 대신 선물 추천', '3월 매화축제 광양 일정 2026', '삼일절 가볼만한곳 역사체험',
+    '식목일 나무심기 행사 신청 2026', '봄꽃 개화시기 지역별 2026', '진해 군항제 벚꽃 일정 2026',
+    '3월 유채꽃 명소 제주',
+    // 시즌 상품/서비스 (9)
+    '미세먼지 마스크 KF94 대용량 추천', '봄 알레르기 비염약 처방전 없이 구매', '새학기 노트북 대학생 추천 2026',
+    '봄 자외선차단제 톤업 SPF50 추천', '초등 돌봄교실 신청방법 2026', '원룸 이사 업체 가격비교 봄',
+    '새집증후군 공기정화 식물 추천', '봄 러닝화 가성비 브랜드 순위', '자취 필수템 리스트 2026',
+    // 시즌 정보/정책 (9)
+    '2026년 건강검진 대상자 조회 방법', '종합소득세 사전 준비 프리랜서', '국민취업지원제도 신청자격 2026',
+    '미세먼지 등급별 행동요령 환경부', '봄철 차량 에어컨 필터 교체 비용', '아파트 봄 대청소 체크리스트',
+    '전입신고 확정일자 받는법 온라인', '어린이집 입소 대기 신청 꿀팁', '3월 제철 주꾸미 손질법 양념 레시피'
   ],
+  // ── 4월: 벚꽃·봄나들이·세금 ──
   4: [
-    '어린이날 선물 추천', '가정의달 선물', '봄철 인테리어',
-    '4월 여행지 추천', '벚꽃놀이 도시락', '봄철 다이어트',
-    '어버이날 선물 추천', '스승의날 선물', '5월 결혼식 하객룩'
+    // 시즌 이벤트 (6)
+    '벚꽃 개화시기 서울 2026', '4월 축제 일정 전국 정리 2026', '식목일 가족 체험 프로그램',
+    '과학의날 행사 어린이 체험 2026', '봄 소풍 도시락 레시피 간단', '4월 튤립축제 태안 일정',
+    // 시즌 상품/서비스 (10)
+    '미세먼지 공기청정기 원룸용 추천 2026', '봄 자외선차단제 SPF50 민감피부 추천', '알레르기 비염 코세척기 추천',
+    '어린이날 선물 초등학생 인기순위 2026', '봄 캠핑 텐트 가성비 추천', '어버이날 안마기 효도선물 추천',
+    '자전거 출퇴근 용품 추천', '봄 피크닉 돗자리 감성용품 추천', '정수기 렌탈 가격비교 2026',
+    '골프 입문 레슨 가격 초보 장비',
+    // 시즌 정보/정책 (9)
+    '근로장려금 신청기간 자격조건 2026', '종합소득세 신고 방법 홈택스 2026', '건강보험 환급금 조회 신청',
+    '어린이 체험학습 추천 수도권', '봄철 타이어 교체 시기 공기압', '전세사기 예방 체크리스트 2026',
+    '아파트 관리비 절약 꿀팁 봄', '4월 제철음식 두릅 요리 레시피', '교통범칙금 조회 납부방법 온라인'
   ],
+  // ── 5월: 가정의달·어린이날·가족 ──
   5: [
-    '어린이날 선물 인기순위', '어버이날 효도선물', '스승의날 감사선물',
-    '가정의달 여행지', '5월 축제 일정', '성년의날 선물',
-    '봄철 캠핑용품 추천', '가족여행 패키지', '부부의날 이벤트'
+    // 시즌 이벤트 (7)
+    '어린이날 체험 행사 서울 무료 2026', '어버이날 카네이션 접는법 종이', '성년의날 향수 선물 추천 2026',
+    '부부의날 이벤트 레스토랑 추천', '석가탄신일 템플스테이 예약 2026', '5월 장미축제 일정 곡성',
+    '5월 가족여행 국내 추천 코스',
+    // 시즌 상품/서비스 (9)
+    '어린이날 선물 유아 장난감 인기순위 2026', '어버이날 건강기능식품 추천 부모님', '스승의날 선물 1만원대 추천',
+    '5월 결혼식 하객룩 원피스 추천', '가족 캠핑장 예약 수도권 추천', '어린이 자전거 사이즈 선택 가이드',
+    '키즈카페 인기 프랜차이즈 비교', '가정의달 가족사진 스튜디오 가격', '유아 선크림 순한 제품 추천',
+    // 시즌 정보/정책 (9)
+    '근로자의날 휴무 대상 연차 계산', '종합소득세 신고기간 절세 꿀팁 2026', '주거급여 신청자격 소득기준 2026',
+    '어린이 보험 가입 시 주의사항', '초등학생 용돈 관리 앱 추천', '5월 제철 수산물 멍게 손질법',
+    '아동수당 신청방법 지급일 2026', '교육급여 신청 대상 지원금액 2026', '여름 에어컨 사전점검 셀프 방법'
   ],
+  // ── 6월: 장마·여름준비·현충일 ──
   6: [
-    '여름휴가 계획', '장마철 제습기 추천', '에어컨 추천 순위',
-    '여름철 피부관리', '6월 모의고사 일정', '장마철 빨래건조기',
-    '여름철 식중독 예방', '선크림 추천', '여름 가디건 코디'
+    // 시즌 이벤트 (6)
+    '현충일 가볼만한곳 현충원 참배', '6월 보령 머드축제 일정 2026', '단오 전통 체험 프로그램',
+    '6월 수국 명소 제주 서울', '호국보훈의달 체험학습 추천', '6월 라벤더 축제 고창',
+    // 시즌 상품/서비스 (10)
+    '장마철 제습기 추천 원룸 가성비 2026', '에어컨 추천 2026 벽걸이 가성비', '장마철 빨래건조기 추천 소형',
+    '여름 래쉬가드 브랜드 추천', '선풍기 추천 저소음 DC모터', '여름 냉감 이불 추천 소재별 비교',
+    '모기퇴치기 추천 실내 실외', '여름 슬리퍼 브랜드 인기순위', '장마철 우산 튼튼한 브랜드 추천',
+    '아이스커피 텀블러 보냉력 비교',
+    // 시즌 정보/정책 (9)
+    '여름 전기요금 누진세 계산 절약법', '장마철 차량 관리 체크리스트', '여름철 식중독 예방 주방위생 수칙',
+    '수능 6월 모의고사 일정 시간표 2026', '에어컨 셀프 청소 방법 필터세척', '실내 곰팡이 제거 방법 벽지',
+    '여름 휴가 연차 사용 계획 꿀팁', '자동차 에어컨 가스충전 비용 2026', '6월 제철 매실 담그는법 비율'
   ],
+  // ── 7월: 여름휴가·물놀이·초복 ──
   7: [
-    '여름휴가지 추천', '해수욕장 순위', '워터파크 할인',
-    '여름 축제 일정', '피서지 추천', '캠핑장 예약',
-    '물놀이 용품 추천', '여름철 에어컨 전기요금', '빙수 맛집'
+    // 시즌 이벤트 (6)
+    '초복 삼계탕 맛집 서울 2026', '7월 바다축제 부산 일정', '중복 보양식 장어 맛집 추천',
+    '여름 계곡 물놀이 명소 수도권', '7월 불꽃축제 여의도 일정 2026', '해수욕장 개장일 전국 2026',
+    // 시즌 상품/서비스 (10)
+    '여름휴가 국내 여행지 가성비 숙소 추천', '워터파크 시즌권 가격비교 2026', '물놀이 튜브 대형 추천',
+    '캠핑용 휴대 선풍기 배터리 추천', '여름 수영복 체형별 추천 여성', '차박 매트 에어매트 추천',
+    '아이스박스 보냉 성능 비교 추천', '아쿠아슈즈 미끄럼방지 추천', '여름 다이어트 도시락 도구 추천',
+    '어린이 물안경 귀마개 세트 추천',
+    // 시즌 정보/정책 (9)
+    '여름철 에어컨 전기세 계산기 2026', '물놀이 안전수칙 어린이 행동요령', '해외여행 환전 수수료 비교 은행별',
+    '여름 차량 엔진 과열 대처법', '피서지 교통 실시간 정보 확인법', '여름철 두피 탈모 관리법',
+    '자외선 지수 높은날 피부 관리', '해수욕장 안전 이안류 대처법', '7월 제철 복숭아 품종별 고르는법'
   ],
+  // ── 8월: 말복·개학·가을준비 ──
   8: [
-    '개학준비물 체크리스트', '2학기 준비', '방학숙제 아이디어',
-    '가을여행 추천', '추석 선물세트', '8월 축제',
-    '백투스쿨 세일', '가을 신상 코디', '명절 음식 준비'
+    // 시즌 이벤트 (6)
+    '말복 보양식 전복죽 맛집 추천', '8월 15일 광복절 가볼만한곳', '개학 전 아이와 가볼만한곳 무료',
+    '8월 여름축제 강릉 일정 2026', '말복 장어구이 맛집 풍천', '광복절 임시공휴일 여부 2026',
+    // 시즌 상품/서비스 (9)
+    '2학기 개학준비물 전체 체크리스트', '가을 신상 자켓 트렌드 2026', '추석 선물세트 사전예약 가격비교',
+    '가을 등산화 추천 가성비 브랜드', '새학기 학용품 세트 온라인 할인', '선풍기 에어컨 수납 정리 방법',
+    '가을 캠핑 침낭 3계절용 추천', '아이 2학기 학습 교재 추천', '초등 태블릿 학습기 비교 2026',
+    // 시즌 정보/정책 (9)
+    '추석 기차표 예매 일정 꿀팁 2026', '하반기 공무원 시험 일정 2026', '2학기 국가장학금 신청 기간',
+    '가을 알레르기 환절기 비염 관리', '전기요금 환급 신청방법 폭염', '자동차 보험 갱신 다이렉트 비교',
+    '건강검진 하반기 예약 방법', '8월 제철 포도 품종별 당도 비교', '중고등학생 생활기록부 관리 꿀팁'
   ],
+  // ── 9월: 추석·가을·단풍 ──
   9: [
-    '추석 선물세트 추천', '추석 인사말', '추석 차례상 차리는법',
-    '추석 연휴 여행지', '한가위 선물 순위', '송편 만들기',
-    '추석 귀성길 맛집', '가을 단풍 명소', '9월 제철음식'
+    // 시즌 이벤트 (7)
+    '추석 연휴 고속도로 통행료 면제 2026', '추석 차례상 차리는법 간소화', '9월 단풍시기 설악산 2026',
+    '추석 성묘 벌초 대행 가격', '가을 코스모스 축제 일정 전국', '추석 귀성길 휴게소 맛집 추천',
+    '9월 억새축제 민둥산 일정',
+    // 시즌 상품/서비스 (9)
+    '추석 선물세트 직장 상사 추천 2026', '추석 한우 등급별 가격비교 온라인', '가을 트렌치코트 남자 추천',
+    '송편 만들기 색소 없이 천연', '명절 전 귀걸이 모발관리 세트', '가을 등산 백팩 경량 추천',
+    '추석 과일선물 배 사과 가격비교', '가을 감성 캠핑 용품 추천', '추석 제사용품 온라인 구매 세트',
+    // 시즌 정보/정책 (9)
+    '추석 택배 마감일 택배사별 2026', '명절 스트레스 해소법 심리', '추석 연휴 병원 약국 영업 조회',
+    '가을 환절기 면역력 높이는 음식', '추석 용돈 얼마가 적당한지', '9월 제철 대하 고르는법 찌는시간',
+    '근로자 명절 상여금 지급 기준', '귀성길 차량 사전점검 체크리스트', '재산세 납부 기간 조회 2026'
   ],
+  // ── 10월: 단풍·할로윈·김장준비 ──
   10: [
-    '핼러윈 코스튬 추천', '가을 단풍여행', '10월 축제',
-    '수능 D-30 공부법', '김장 준비', '가을 캠핑',
-    '핼러윈 파티 준비', '가을 피크닉', '월동준비 체크리스트'
+    // 시즌 이벤트 (6)
+    '10월 단풍 절정시기 내장산 2026', '핼러윈 파티 코스튬 DIY 만들기', '10월 축제 서울 전국 일정 2026',
+    '단풍 드라이브 코스 추천 경기도', '핼러윈 아이 분장 쉬운 방법', '10월 국화축제 일정 익산',
+    // 시즌 상품/서비스 (10)
+    '김장 배추 예약 20포기 가격 2026', '수능 수험생 선물 간식 세트', '가을 패딩 경량 롱패딩 추천 2026',
+    '김장용 고춧가루 산지 직송 추천', '핼러윈 파티 용품 소품 세트', '월동 준비 보일러 점검 비용',
+    '전기요금 겨울철 난방 절약 제품', '가을 골프웨어 남녀 신상 추천', '독감 예방접종 가격 병원별 비교 2026',
+    '수능 D-30 컨디션 영양제 추천',
+    // 시즌 정보/정책 (9)
+    '독감 무료 예방접종 대상자 2026', '김장 시기 배추 절이는 소금 비율', '수능 시험장 준비물 반입금지 물품',
+    '가을철 등산 안전수칙 준비물', '주택 난방비 지원 에너지바우처 2026', '겨울 타이어 교체시기 스노우체인',
+    '연말정산 미리보기 홈택스 사용법', '자동차 히터 점검 냉각수 교체', '10월 제철 꽃게 암수 구별법 찌는시간'
   ],
+  // ── 11월: 수능·김장·블프·초겨울 ──
   11: [
-    '수능 응원 메시지', '블랙프라이데이 할인', '11월 세일 정보',
-    '김장 담그는 법', '수능 끝난 후 할일', '초겨울 코디',
-    '연말 파티 준비', '크리스마스 선물 미리준비', '빼빼로데이 선물'
+    // 시즌 이벤트 (7)
+    '수능 당일 교통통제 시간 2026', '빼빼로데이 수제 빼빼로 만들기', '블랙프라이데이 할인 품목 정리 2026',
+    '김장 담그는 날 좋은 날짜 2026', '수능 끝나고 가볼만한곳 여행', '11월 단풍 늦은 명소 남해',
+    '수능 이후 대입 일정 정리 2026',
+    // 시즌 상품/서비스 (10)
+    '블랙프라이데이 가전 할인 목록 2026', '김장 재료 한눈에 가격 비교 2026', '겨울 롱패딩 브랜드 순위 가성비',
+    '수능 합격 선물 전자기기 추천', '크리스마스 선물 사전예약 추천', '겨울 부츠 방수 방한 추천 여성',
+    '온풍기 히터 전기료 적은 제품 추천', '김장 비닐 김치통 대용량 추천', '스키장 시즌권 가격비교 2026',
+    '연말 파티 드레스 코디 추천',
+    // 시즌 정보/정책 (9)
+    '수능 성적표 발표일 배치표 2026', '김장 양념 비율 황금레시피 20포기', '연말정산 소득공제 체크리스트 2026',
+    '겨울철 결로 곰팡이 방지 방법', '대학 수시 합격자 발표 일정 2026', '보일러 동파방지 방법 장기외출',
+    '연말 기부금 세액공제 한도 방법', '겨울철 실내 적정 온도 습도 관리', '11월 제철 굴 생굴 익혀먹기 노로바이러스'
   ],
+  // ── 12월: 크리스마스·연말·겨울 ──
   12: [
-    '크리스마스 선물 추천', '연말정산 체크리스트', '송년회 장소 추천',
-    '겨울여행지 추천', '스키장 시즌권', '연말 인사말',
-    '크리스마스 데이트 코스', '연말 와인 추천', '새해 카운트다운 장소',
-    '겨울철 패딩 세탁법', '니트 보관법', '겨울 이불 세탁',
-    '박스로 산 귤 보관법', '겨울철 실내 습도 조절', '수도 계량기 동파방지'
+    // 시즌 이벤트 (6)
+    '크리스마스 데이트 코스 서울 2026', '새해 해돋이 명소 예약 2026', '12월 축제 일정 서울 빛초롱',
+    '송년회 장소 추천 강남 맛집', '크리스마스 마켓 일정 전국 2026', '연말 카운트다운 행사 서울 부산',
+    // 시즌 상품/서비스 (10)
+    '크리스마스 선물 여자친구 추천 2026', '연말정산 간소화 서비스 사용법', '크리스마스 케이크 예약 인기 브랜드',
+    '겨울여행 온천 숙소 추천 국내', '스키장 리프트권 가격비교 렌탈', '크리스마스 트리 장식 인테리어 추천',
+    '새해 다이어리 플래너 추천 2026', '겨울 전기매트 안전한 제품 추천', '연말 와인 선물 가격대별 추천',
+    '크리스마스 홈파티 음식 레시피',
+    // 시즌 정보/정책 (9)
+    '연말정산 환급 많이 받는 꿀팁 2026', '겨울철 수도 동파 예방 조치법', '건강보험 정산 환급금 조회 12월',
+    '자동차세 연납 할인 신청 2026', '겨울철 난방비 절약 보일러 설정', '연말 퇴직금 중간정산 조건 방법',
+    '12월 제철 과메기 먹는법 곁들임', '겨울 빙판길 낙상사고 예방법', '새해 목표 재테크 초보 시작 방법'
   ]
 };
 
@@ -2881,6 +3006,18 @@ export async function huntProTrafficKeywords(options: {
     }
   }
 
+  // 🔥 2.7단계: 카테고리 모드 중간 필터 — 연관키워드 확장 후 카테고리 무관 키워드 제거
+  if (mode === 'category' && category !== 'all' && category !== 'pro_premium' && category !== 'lite_standard') {
+    const beforeFilter = allKeywords.length;
+    const filtered = allKeywords.filter(k => isKeywordInSelectedCategory(k.keyword, category));
+    // 필터 후 너무 적으면 원본 유지 (시드가 적은 카테고리 보호)
+    if (filtered.length >= 10) {
+      allKeywords.length = 0;
+      allKeywords.push(...filtered);
+    }
+    console.log(`[PRO-TRAFFIC] 📁 중간 카테고리 필터: ${beforeFilter}개 → ${allKeywords.length}개 (${category})`);
+  }
+
   // 🚀 3단계: 자동완성 API로 추가 키워드 수집 (검색광고 결과 부족 시)
   if (explosionMode || allKeywords.length < 50) {
     console.log('[PRO-TRAFFIC] 🔍 네이버 자동완성으로 추가 키워드 수집...');
@@ -3836,6 +3973,47 @@ export async function huntProTrafficKeywords(options: {
     }
   }
 
+  // 📅 시즌 모드: seasonality-analyzer로 각 키워드의 시즌 적합성 점수화
+  // 비시즌 키워드를 하위로 밀어 시즌 관련 키워드 우선 노출
+  const seasonalityScoreMap = new Map<string, number>();
+  if (mode === 'season' && verifiedResults.length > 0) {
+    console.log(`[PRO-TRAFFIC] 📅 시즌 적합성 분석 시작 (${verifiedResults.length}개 키워드)...`);
+    // 병렬로 시즌성 분석 (최대 50개까지만 API 호출, 나머지는 fallback 사용)
+    const seasonBatchSize = Math.min(verifiedResults.length, 50);
+    const seasonBatch = verifiedResults.slice(0, seasonBatchSize);
+    const seasonProfiles = await Promise.all(
+      seasonBatch.map(r =>
+        analyzeSeasonality(r.keyword)
+          .catch(() => null)
+      )
+    );
+    for (let i = 0; i < seasonBatch.length; i++) {
+      const profile = seasonProfiles[i];
+      if (profile) {
+        // 시즌 적합성 점수: currentVsPeakPct (현재가 피크의 몇 %인지)
+        // 비시즌(isSeasonal && currentVsPeakPct < 30): 페널티
+        // 피크(currentVsPeakPct >= 70): 보너스
+        // 비시즌 아닌 키워드(isSeasonal === false): 중립 (50)
+        let score: number;
+        if (!profile.isSeasonal) {
+          score = 50; // 연중 안정 키워드 — 중립
+        } else {
+          score = profile.currentVsPeakPct; // 0~100
+        }
+        seasonalityScoreMap.set(seasonBatch[i].keyword, score);
+      }
+    }
+    // API 호출 안 한 나머지 키워드: 중립 점수 부여
+    for (const r of verifiedResults) {
+      if (!seasonalityScoreMap.has(r.keyword)) {
+        seasonalityScoreMap.set(r.keyword, 50);
+      }
+    }
+    const highSeasonCount = [...seasonalityScoreMap.values()].filter(s => s >= 70).length;
+    const lowSeasonCount = [...seasonalityScoreMap.values()].filter(s => s < 30).length;
+    console.log(`[PRO-TRAFFIC] 📅 시즌 분석 완료: 피크시즌=${highSeasonCount}개, 비수기=${lowSeasonCount}개`);
+  }
+
   // 🔥 검증된 결과 재정렬 (랜덤 요소 추가 - 같은 등급 내 다양성!)
   // 🏆 끝판왕: 황금비율 퍼센타일(상위권) 우선 + 실시간 소스 가중치(유동성) 반영
   const getPercentileThreshold = (values: number[], percentile: number): number => {
@@ -4013,8 +4191,50 @@ export async function huntProTrafficKeywords(options: {
     ? Math.min(Math.max(count * 8, 120), 220)
     : Math.min(Math.max(count * 3, 30), 40);
 
-  const sortedAllFinalCandidates = shuffleArray(percentileFiltered)
+  // 📁 카테고리 후필터: API 확장 후에도 카테고리 매칭 키워드를 상위 배치
+  const filterByCategory = (keywords: ProTrafficKeyword[], cat: string): ProTrafficKeyword[] => {
+    if (!cat || cat === 'all' || cat === 'pro_premium' || cat === 'lite_standard') return keywords;
+    const matched: ProTrafficKeyword[] = [];
+    const unmatched: ProTrafficKeyword[] = [];
+    for (const kw of keywords) {
+      if (isKeywordInSelectedCategory(kw.keyword, cat)) {
+        matched.push(kw);
+      } else {
+        unmatched.push(kw);
+      }
+    }
+    console.log(`[PRO-TRAFFIC] 📁 카테고리 후필터: ${cat} 매칭=${matched.length}개, 비매칭=${unmatched.length}개`);
+    // 카테고리 매칭 키워드만 반환. 너무 적으면(5개 미만) 비매칭 중 상위만 보충
+    const MIN_RESULTS = 5;
+    if (matched.length >= MIN_RESULTS) return matched;
+    const fillCount = MIN_RESULTS - matched.length;
+    return [...matched, ...unmatched.slice(0, fillCount)];
+  };
+
+  // 카테고리 모드일 때 percentileFiltered에 후필터 적용
+  const categoryFilteredPool = (mode === 'category')
+    ? filterByCategory(percentileFiltered, category)
+    : percentileFiltered;
+
+  const sortedAllFinalCandidates = shuffleArray(categoryFilteredPool)
     .sort((a, b) => {
+      // -1순위 (카테고리 모드): 카테고리 매칭 키워드 우선
+      if (mode === 'category' && category !== 'all' && category !== 'pro_premium' && category !== 'lite_standard') {
+        const catA = isKeywordInSelectedCategory(a.keyword, category) ? 1 : 0;
+        const catB = isKeywordInSelectedCategory(b.keyword, category) ? 1 : 0;
+        if (catA !== catB) return catB - catA;
+      }
+
+      // -0.5순위 (시즌 모드): 시즌 적합성 점수가 높은 키워드 우선
+      if (mode === 'season' && seasonalityScoreMap.size > 0) {
+        const seaA = seasonalityScoreMap.get(a.keyword) ?? 50;
+        const seaB = seasonalityScoreMap.get(b.keyword) ?? 50;
+        // 피크(>=70) vs 비수기(<30) 구분이 명확할 때만 정렬에 반영
+        const tierA = seaA >= 70 ? 2 : seaA >= 30 ? 1 : 0;
+        const tierB = seaB >= 70 ? 2 : seaB >= 30 ? 1 : 0;
+        if (tierA !== tierB) return tierB - tierA;
+      }
+
       // 0순위: 진짜 황금키워드 우선 노출
       const gA = a.isGolden === true ? 1 : 0;
       const gB = b.isGolden === true ? 1 : 0;
@@ -5429,6 +5649,7 @@ export function analyzeKeyword(
   const searchVolume = cached?.searchVolume ?? null;
   const documentCount = cached?.documentCount ?? null;
   const compIdx = cached?.compIdx ?? null;
+  const realCpc = cached?.realCpc ?? null;
   const hasSmartBlock = cached?.hasSmartBlock ?? false;
   const hasInfluencer = cached?.hasInfluencer ?? false;
   const difficultyScore = cached?.difficultyScore ?? undefined;
@@ -5478,7 +5699,8 @@ export function analyzeKeyword(
       compIdx,
       hasSmartBlock,
       hasInfluencer,
-      difficultyScore
+      difficultyScore,
+      realCpc,
     }
   );
 
