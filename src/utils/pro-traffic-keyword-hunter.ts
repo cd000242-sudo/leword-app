@@ -1017,6 +1017,7 @@ import { getSignalBzKeywords } from './signal-bz-crawler';
 import { getZumRealtimeKeywordsWithPuppeteer } from './zum-realtime-api';
 import { getDaumRealtimeKeywordsWithPuppeteer } from './daum-realtime-api';
 import { getNateRealtimeKeywordsWithPuppeteer } from './nate-realtime-api';
+import { getNaverPopularNews } from './naver-news-crawler';
 import { runUltimateAnalysis, UltimateAnalysis } from './ultimate-keyword-analyzer';
 import { getTrackingDataForKeyword } from './pro-hunter-v12/tracking-store';
 
@@ -2348,6 +2349,24 @@ export async function huntProTrafficKeywords(options: {
       }
     } catch (error) {
       console.warn('[PRO-TRAFFIC] 다중 소스 수집 부분 실패, 기본 시드로 진행');
+    }
+
+    // 📰 뉴스 크롤러 시드 주입 (5초 타임아웃, 실패해도 계속)
+    try {
+      const newsCrawlerSeeds = await withStepTimeout('getNewsCrawlerSeedKeywords', getNewsCrawlerSeedKeywords(), 5000, [] as string[]);
+      if (newsCrawlerSeeds.length > 0) {
+        const isCategorySpecified = category !== 'all' && category !== 'pro_premium' && category !== 'lite_standard';
+        const filteredNewsSeeds = isCategorySpecified
+          ? newsCrawlerSeeds.filter(k => isKeywordInSelectedCategory(k, category))
+          : newsCrawlerSeeds;
+
+        if (filteredNewsSeeds.length > 0) {
+          allSeedKeywords = [...allSeedKeywords, ...shuffleArray(filteredNewsSeeds)];
+          console.log(`[PRO-TRAFFIC] 📰 뉴스 크롤러 시드 ${filteredNewsSeeds.length}개 주입 완료`);
+        }
+      }
+    } catch {
+      console.warn('[PRO-TRAFFIC] 📰 뉴스 크롤러 시드 수집 실패, 기본 시드로 진행');
     }
   }
 
@@ -5150,6 +5169,89 @@ async function getNewsIssueKeywords(): Promise<string[]> {
   }
 
   return [...new Set(keywords)].slice(0, 15);
+}
+
+// ─── 뉴스 제목 → 블로그 시드 키워드 추출 ───
+
+/** 뉴스 제목에서 불용어를 제거하고 의미 있는 명사구를 추출 */
+function extractSeedsFromNewsTitles(titles: string[]): string[] {
+  // 불용어 (기사 어미, 조사, 접속사 등)
+  const STOPWORDS = new Set([
+    '기자', '뉴스', '속보', '단독', '종합', '포토', '영상', '사진',
+    '오늘', '내일', '어제', '올해', '지난해', '한편', '또한', '이에',
+    '관련', '대해', '통해', '위해', '따라', '밝혔다', '전했다', '보도',
+    '것으로', '알려졌다', '나타났다', '드러났다', '확인됐다', '됐다',
+    '했다', '한다', '이다', '있다', '없다', '됐다', '라며', '라고',
+  ]);
+
+  // 수익화 조합 접미사
+  const MONETIZE_SUFFIXES = ['추천', '비교', '가격', '후기', '방법', '신청방법', '정리'];
+
+  const seeds: string[] = [];
+
+  for (const rawTitle of titles) {
+    // 1) 기사 메타 제거: [...], 「...」, 언론사명, 특수문자
+    const cleaned = rawTitle
+      .replace(/\[.*?\]/g, '')
+      .replace(/「.*?」/g, '')
+      .replace(/\(.*?\)/g, '')
+      .replace(/['"""''…·\|]/g, ' ')
+      .replace(/\s+/g, ' ')
+      .trim();
+
+    // 2) 구두점 기준 분리 → 각 절에서 핵심어 추출
+    const clauses = cleaned.split(/[,?!…\.·\-]/).map(c => c.trim()).filter(c => c.length >= 4);
+
+    for (const clause of clauses) {
+      const words = clause.split(/\s+/).filter(w => w.length >= 2 && !STOPWORDS.has(w));
+      if (words.length === 0) continue;
+
+      // 2~5어절 조합을 시드로 사용
+      if (words.length >= 2 && words.length <= 5) {
+        seeds.push(words.join(' '));
+      } else if (words.length > 5) {
+        // 긴 절은 앞 4어절만
+        seeds.push(words.slice(0, 4).join(' '));
+      }
+
+      // 핵심 명사(첫 2어절)에 수익화 패턴 조합
+      const core = words.slice(0, 2).join(' ');
+      if (core.length >= 3) {
+        for (const suffix of MONETIZE_SUFFIXES) {
+          if (!core.includes(suffix)) {
+            seeds.push(`${core} ${suffix}`);
+          }
+        }
+      }
+    }
+  }
+
+  // 중복 제거 + 최대 60개
+  return [...new Set(seeds)].slice(0, 60);
+}
+
+/** 네이버 인기 뉴스에서 시드 키워드를 수집 (5초 타임아웃, 실패 시 빈 배열) */
+async function getNewsCrawlerSeedKeywords(): Promise<string[]> {
+  try {
+    const result = await Promise.race([
+      getNaverPopularNews(),
+      new Promise<null>((_, reject) => setTimeout(() => reject(new Error('news-crawler-timeout')), 5000))
+    ]);
+
+    if (!result || !result.success || result.news.length === 0) return [];
+
+    const titles = result.news.map(n => n.title);
+    const seeds = extractSeedsFromNewsTitles(titles);
+
+    if (seeds.length > 0) {
+      console.log(`[PRO-TRAFFIC] 📰 뉴스 크롤러 시드 ${seeds.length}개 추출: ${seeds.slice(0, 5).join(', ')}...`);
+    }
+
+    return seeds;
+  } catch (error) {
+    console.warn('[PRO-TRAFFIC] 📰 뉴스 크롤러 시드 수집 실패, 계속 진행');
+    return [];
+  }
 }
 
 /**
