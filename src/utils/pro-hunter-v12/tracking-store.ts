@@ -17,11 +17,12 @@ export interface TrackedKeyword {
 
 export interface TrackedPost {
   postUrl: string;
-  keyword: string;
+  keyword: string;            // 주 키워드 (호환성)
+  keywords?: string[];        // 다중 키워드 (v12.1+)
   registeredAt: number;
   lastCheckedAt: number;
   predictedRank: number;
-  history: Array<{ ts: number; rank: number | null; checked: boolean }>;
+  history: Array<{ ts: number; rank: number | null; checked: boolean; perKeyword?: Record<string, number | null> }>;
 }
 
 interface StoreSchema {
@@ -127,19 +128,40 @@ export function removeTrackedKeyword(keyword: string): void {
 
 // ── Tracked Posts ──
 
-export function addTrackedPost(postUrl: string, keyword: string, predictedRank: number): void {
+export function addTrackedPost(postUrl: string, keyword: string, predictedRank: number, additionalKeywords?: string[]): void {
   const store = load();
+  const allKeywords = [keyword, ...(additionalKeywords || [])].filter((k, i, arr) => k && arr.indexOf(k) === i);
   if (!store.posts[postUrl]) {
     store.posts[postUrl] = {
       postUrl,
       keyword,
+      keywords: allKeywords,
       registeredAt: Date.now(),
       lastCheckedAt: 0,
       predictedRank,
       history: [],
     };
-    save(store);
+  } else {
+    // 기존 글에 키워드 추가
+    const existing = store.posts[postUrl];
+    const merged = new Set([...(existing.keywords || [existing.keyword]), ...allKeywords]);
+    existing.keywords = Array.from(merged);
   }
+  save(store);
+}
+
+export function recordPostRankMulti(postUrl: string, perKeyword: Record<string, number | null>): TrackedPost | null {
+  const store = load();
+  const p = store.posts[postUrl];
+  if (!p) return null;
+  p.lastCheckedAt = Date.now();
+  // 가장 좋은 순위를 대표값으로
+  const ranks = Object.values(perKeyword).filter((r): r is number => r != null);
+  const bestRank = ranks.length > 0 ? Math.min(...ranks) : null;
+  p.history.push({ ts: Date.now(), rank: bestRank, checked: true, perKeyword });
+  if (p.history.length > 100) p.history = p.history.slice(-100);
+  save(store);
+  return p;
 }
 
 export function recordPostRank(postUrl: string, rank: number | null): TrackedPost | null {

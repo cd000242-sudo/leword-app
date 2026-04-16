@@ -3,7 +3,9 @@
 // 사용자 등록 글의 순위를 매일 추적 → 예측 vs 실측 비교
 
 import puppeteer from 'puppeteer';
-import { listTrackedPosts, recordPostRank } from './tracking-store';
+import { listTrackedPosts, recordPostRank, recordPostRankMulti } from './tracking-store';
+import { notifyRankChange } from './notifier';
+import { retrainFromTracking } from './model-retrainer';
 
 const CHECK_INTERVAL_MS = 24 * 60 * 60 * 1000; // 24시간
 let timer: NodeJS.Timeout | null = null;
@@ -67,16 +69,50 @@ async function runCheck(): Promise<void> {
   let checked = 0;
   for (const p of posts) {
     try {
-      const rank = await findRankForPost(p.keyword, p.postUrl);
-      recordPostRank(p.postUrl, rank);
+      // 다중 키워드 지원 (없으면 단일 키워드만)
+      const keywords = p.keywords && p.keywords.length > 0 ? p.keywords : [p.keyword];
+      const perKeyword: Record<string, number | null> = {};
+      const prevRank = [...p.history].reverse().find((h) => h.rank != null)?.rank ?? null;
+
+      for (const kw of keywords) {
+        try {
+          const rank = await findRankForPost(kw, p.postUrl);
+          perKeyword[kw] = rank;
+          await new Promise((r) => setTimeout(r, 2000));
+        } catch (err) {
+          perKeyword[kw] = null;
+        }
+      }
+
+      // 다중 결과 저장
+      if (keywords.length > 1) {
+        recordPostRankMulti(p.postUrl, perKeyword);
+      } else {
+        recordPostRank(p.postUrl, perKeyword[keywords[0]] ?? null);
+      }
+
+      // 가장 좋은 순위로 알림 판정
+      const ranks = Object.values(perKeyword).filter((r): r is number => r != null);
+      const bestRank = ranks.length > 0 ? Math.min(...ranks) : null;
+      notifyRankChange(p.keyword, prevRank, bestRank);
+
       checked++;
-      // rate limit 방지 (네이버 차단 회피)
-      await new Promise((r) => setTimeout(r, 3000));
+      await new Promise((r) => setTimeout(r, 1500));
     } catch (err) {
       console.warn(`[RANK-TRACKER] ${p.postUrl} 실패:`, (err as Error).message);
     }
   }
   console.log(`[RANK-TRACKER] ✅ ${checked}/${posts.length} 체크 완료`);
+
+  // 체크 후 모델 자동 보정 (5개 이상 샘플이 있을 때)
+  try {
+    const r = retrainFromTracking();
+    if (r.trained >= 5) {
+      console.log(`[RANK-TRACKER] 🤖 모델 자동 보정: ${r.trained}개 샘플, bias=${r.bias}`);
+    }
+  } catch (err) {
+    console.warn('[RANK-TRACKER] 모델 보정 실패:', (err as Error).message);
+  }
 }
 
 export function startRankTracker(): void {

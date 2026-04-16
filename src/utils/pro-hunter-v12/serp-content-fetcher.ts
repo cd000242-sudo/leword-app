@@ -118,15 +118,54 @@ async function fetchPostBody(
           break;
         }
       }
+
+      // 폴백: 셀렉터가 모두 실패하면 가장 긴 텍스트를 가진 div 자동 탐색
+      if (!bodyEl) {
+        const allDivs = Array.from(document.querySelectorAll('div, article, section'));
+        let bestEl: Element | null = null;
+        let bestLen = 200; // 최소 200자
+        for (const d of allDivs) {
+          const txt = (d as HTMLElement).innerText || '';
+          // 자식 요소가 너무 많으면 (페이지 전체일 가능성) 제외
+          if (d.children.length > 100) continue;
+          if (txt.length > bestLen) {
+            bestLen = txt.length;
+            bestEl = d;
+          }
+        }
+        bodyEl = bestEl;
+      }
+
       const root = bodyEl || document.body;
 
       const text = (root as HTMLElement).innerText || '';
       const html = (root as HTMLElement).innerHTML || '';
 
-      const h2Count = root.querySelectorAll('h2, .se-title, .se_textarea h2, .se-section-text h2').length;
-      const h3Count = root.querySelectorAll('h3').length;
-      const imgCount = root.querySelectorAll('img').length;
-      const vidCount = root.querySelectorAll('iframe[src*="youtube"], iframe[src*="vimeo"], video').length;
+      // 네이버 SmartEditor ONE 구조 인식 (P0 #2 + h2 튜닝)
+      // 일반 <h2>가 거의 없고, .se-section + .se-title / .se-text / .se-sticker 구조 사용
+      // SmartEditor의 논리 섹션 = 헤더 전용 컴포넌트 (section title)
+      // 섹션 타이틀 명시적 클래스만 카운트 → 과대평가 방지
+      const seTitles = root.querySelectorAll(
+        '.se-title-text, .se-section-title, .se-text-paragraph[class*="title"], .se-fs-fs28, .se-fs-fs26'
+      );
+      // h2 폴백: SmartEditor 없는 구버전 블로그
+      const legacyH2 = root.querySelectorAll('h2');
+      // h3도 카운트
+      const seSubTitles = root.querySelectorAll('.se-fs-fs19, .se-fs-fs20, h3');
+
+      // 논리 섹션 수 = title 요소 중 큰 값
+      const h2Count = Math.max(seTitles.length, legacyH2.length);
+
+      const h3Count = seSubTitles.length;
+
+      // 이미지: SmartEditor는 .se-image img 구조
+      const seImages = root.querySelectorAll('.se-image, .se-imageStrip img, img');
+      const imgCount = seImages.length;
+
+      // 영상 (iframe + video + se-video)
+      const vidCount = root.querySelectorAll(
+        'iframe[src*="youtube"], iframe[src*="vimeo"], video, .se-video, .se-oglink[data-link-type="video"]'
+      ).length;
 
       // 외부 링크 (현재 도메인 제외)
       const links = Array.from(root.querySelectorAll('a[href]'));

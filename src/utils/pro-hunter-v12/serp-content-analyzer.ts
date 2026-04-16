@@ -3,6 +3,7 @@
 // top 10 본문에서 통계, TF-IDF, 갭 분석을 수행한다.
 
 import type { FetchedPost } from './serp-content-fetcher';
+import { tokenizeKoreanAdvanced, deduplicateStems } from './korean-tokenizer';
 
 export interface SerpAnalysis {
   postCount: number;
@@ -29,31 +30,9 @@ export interface GapAnalysis {
   competitorWeaknesses: Array<{ rank: number; weakness: string }>;
 }
 
-const STOPWORDS = new Set([
-  '있다', '없다', '하다', '되다', '같다', '이다', '아니다', '이런', '저런', '그런',
-  '그리고', '하지만', '그러나', '그래서', '따라서', '또한', '이렇게', '저렇게',
-  '많이', '조금', '정말', '진짜', '너무', '아주', '매우', '굉장히',
-  '오늘', '어제', '내일', '지금', '나중', '먼저', '바로', '계속',
-  '이것', '저것', '그것', '여기', '저기', '거기', '뭐', '어떤', '어떻게',
-  '저는', '제가', '저희', '우리', '당신', '여러분',
-  '입니다', '습니다', '합니다', '됩니다', '이에요', '예요', '에요',
-  '해서', '하면', '하고', '하는', '하지', '한번', '하나', '두번',
-  '대한', '대해', '위해', '통해', '대로', '만큼', '뿐만', '동안',
-  '경우', '때문', '부분', '시간', '오늘', '이번', '이런',
-]);
-
-function tokenizeKorean(text: string): string[] {
-  if (!text) return [];
-  // 한글 + 알파벳 + 숫자 (2자 이상)
-  const tokens = text
-    .toLowerCase()
-    .replace(/[^\uac00-\ud7a3a-z0-9\s]/g, ' ')
-    .split(/\s+/)
-    .filter((t) => t.length >= 2 && t.length <= 20)
-    .filter((t) => !STOPWORDS.has(t))
-    .filter((t) => !/^\d+$/.test(t));
-  return tokens;
-}
+// P0 #3: 한국어 토크나이저는 korean-tokenizer.ts의 고품질 구현 사용
+// 기존 stopwords/tokenizeKorean는 제거 (300+ stopwords + 조사 분리)
+const tokenizeKorean = tokenizeKoreanAdvanced;
 
 export function analyzeSerp(posts: FetchedPost[]): SerpAnalysis {
   const valid = posts.filter((p) => p.bodyText && p.wordCount > 50);
@@ -111,13 +90,14 @@ export function analyzeSerp(posts: FetchedPost[]): SerpAnalysis {
   tfidf.sort((a, b) => b.tfidf - a.tfidf);
   const topKeywords = tfidf.slice(0, 30);
 
-  // 필수 포함 용어 (80% 이상 포스트가 사용)
+  // 필수 포함 용어 (60% 이상 포스트가 사용) + 어간 중복 제거
   const mustThreshold = Math.max(2, Math.floor(N * 0.6));
-  const mustIncludeTerms = Array.from(dfMap.entries())
+  const rawMust = Array.from(dfMap.entries())
     .filter(([t, df]) => df >= mustThreshold && t.length >= 2)
     .sort((a, b) => b[1] - a[1])
-    .slice(0, 15)
+    .slice(0, 30)
     .map(([t]) => t);
+  const mustIncludeTerms = deduplicateStems(rawMust).slice(0, 15);
 
   return {
     postCount: valid.length,
@@ -159,18 +139,26 @@ export function detectGaps(analysis: SerpAnalysis, posts: FetchedPost[]): GapAna
       `⏰ 상위 글의 ${Math.round(analysis.oldPostRatio * 100)}%가 1년 이상 — 최신 글로 신선도 우위`
     );
   }
-  if (analysis.avgH2Count < 4) {
+  // SmartEditor 구조는 h2를 거의 안 쓰므로 섹션 카운트는 정보성 참고만
+  // 진짜 차별화는 단어수 / 이미지 / 영상 / 외부링크로 측정
+  if (analysis.avgWordCount < 1200) {
     differentiators.push(
-      `📋 평균 h2 ${analysis.avgH2Count}개로 구조가 약함 — 5~7개 섹션 + FAQ로 차별화`
+      `📝 평균 ${analysis.avgWordCount}단어로 경쟁 글 짧음 — 1500+ 단어로 심도있게 쓰면 우위`
     );
   }
-  if (analysis.avgImageCount < 5) {
+  if (analysis.avgImageCount < 6) {
     differentiators.push(
       `🖼️ 평균 이미지 ${analysis.avgImageCount}장 — 8장 이상 + 비교 표 추가 권장`
     );
   }
+  if (analysis.avgExternalLinks < 1) {
+    differentiators.push(
+      `🔗 경쟁 글들이 외부 출처 링크 거의 없음 — 신뢰도 있는 출처 2~3개 인용하면 정보성 점수 상승`
+    );
+  }
 
-  // 경쟁자 약점 분석
+  // 경쟁자 약점 분석 (P0 #2: 네이버 SmartEditor 현실 반영)
+  // h2 카운트는 SmartEditor에서 거의 0이므로 더 이상 약점 판정에 사용 안 함
   for (const p of posts) {
     if (p.wordCount < analysis.avgWordCount * 0.6) {
       competitorWeaknesses.push({ rank: p.rank, weakness: `본문 ${p.wordCount}단어로 짧음 (평균 ${analysis.avgWordCount})` });
@@ -180,9 +168,15 @@ export function detectGaps(analysis: SerpAnalysis, posts: FetchedPost[]): GapAna
     }
     if (p.imageCount === 0) {
       competitorWeaknesses.push({ rank: p.rank, weakness: '이미지 0장 (시각 자료 부족)' });
+    } else if (p.imageCount < 4) {
+      competitorWeaknesses.push({ rank: p.rank, weakness: `이미지 ${p.imageCount}장으로 부족 (권장 8장+)` });
     }
-    if (p.h2Count === 0) {
-      competitorWeaknesses.push({ rank: p.rank, weakness: '본문 구조 없음 (h2 미사용)' });
+    if (p.videoCount === 0 && analysis.videoUsageRatio < 0.3) {
+      // 영상 사용률 낮으면 기회
+      // (개별 약점보단 전체 gap으로 처리 — differentiators에 이미 있음)
+    }
+    if (p.externalLinkCount === 0) {
+      competitorWeaknesses.push({ rank: p.rank, weakness: '외부 출처 링크 0 (정보성 점수 낮음)' });
     }
   }
 

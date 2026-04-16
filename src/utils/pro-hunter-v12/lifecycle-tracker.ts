@@ -4,6 +4,8 @@
 
 import { listTrackedKeywords, recordKeywordCheck } from './tracking-store';
 import { EnvironmentManager } from '../environment-manager';
+import { notifyKeywordSaturation, notifyKeywordDecay } from './notifier';
+import { calibrateVolume } from './volume-calibrator';
 
 const CHECK_INTERVAL_MS = 12 * 60 * 60 * 1000; // 12시간
 let timer: NodeJS.Timeout | null = null;
@@ -48,7 +50,9 @@ async function fetchSearchVolume(keyword: string): Promise<number | null> {
       const item = r[0] as any;
       const pc = Number(item.monthlyPcQcCnt) || 0;
       const mo = Number(item.monthlyMobileQcCnt) || 0;
-      return pc + mo;
+      const raw = pc + mo;
+      // Tier 1: 보정된 검색량 반환
+      return calibrateVolume(raw, keyword);
     }
   } catch {
     /* ignore */
@@ -74,11 +78,21 @@ async function runCheck(): Promise<void> {
       const updated = recordKeywordCheck(t.keyword, docCount, searchVolume);
       if (updated) {
         success++;
-        // 새 알림이 있으면 카운트
-        const lastAlertTs = updated.alerts[updated.alerts.length - 1]?.ts;
-        if (lastAlertTs && Date.now() - lastAlertTs < 60 * 1000) alerts++;
+        // 새 알림이 있으면 OS notification 발송
+        const lastAlert = updated.alerts[updated.alerts.length - 1];
+        if (lastAlert && Date.now() - lastAlert.ts < 60 * 1000) {
+          alerts++;
+          if (lastAlert.type === 'saturation') {
+            const m = lastAlert.message.match(/\+(\d+)/);
+            const dailyGrowth = m ? Number(m[1]) : 50;
+            notifyKeywordSaturation(t.keyword, dailyGrowth);
+          } else if (lastAlert.type === 'decay') {
+            const m = lastAlert.message.match(/(-?\d+)%/);
+            const pct = m ? Number(m[1]) / 100 : -0.15;
+            notifyKeywordDecay(t.keyword, pct);
+          }
+        }
       }
-      // rate limit 방지
       await new Promise((r) => setTimeout(r, 800));
     } catch (err) {
       console.warn(`[LIFECYCLE] ${t.keyword} 체크 실패:`, (err as Error).message);

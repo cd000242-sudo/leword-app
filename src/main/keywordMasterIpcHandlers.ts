@@ -14,6 +14,8 @@ import { setupKeywordBlueprintHandlers } from './handlers/keyword-blueprint';
 import { startRefreshScheduler } from './key-wizard/refresh-scheduler';
 import { startLifecycleTracker } from '../utils/pro-hunter-v12/lifecycle-tracker';
 import { startRankTracker } from '../utils/pro-hunter-v12/rank-tracker';
+import { startPrecrawler } from '../utils/pro-hunter-v12/precrawler';
+import { startSurgeScanner } from '../utils/pro-hunter-v12/trend-surge-detector';
 import { bootstrapSources } from '../utils/sources/source-bootstrap';
 import { startAutoHealthCheck } from '../utils/sources/health-checker';
 
@@ -72,6 +74,8 @@ export function setupKeywordMasterHandlers() {
   startRefreshScheduler();
   startLifecycleTracker();
   startRankTracker();
+  startPrecrawler();
+  startSurgeScanner();
 
   // v4.0: 17개 소스 부트스트랩 + 백그라운드 헬스체크 시작
   try {

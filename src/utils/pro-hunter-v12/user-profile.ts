@@ -109,15 +109,38 @@ export async function measureBlog(url: string): Promise<UserProfile> {
 
     // 운영 개월 추정 (글 수 기반)
     const totalPosts = data.totalPosts || 0;
-    const experienceMonths = totalPosts < 10 ? 1 : totalPosts < 50 ? 3 : totalPosts < 200 ? 6 : totalPosts < 500 ? 12 : totalPosts < 1000 ? 24 : 36;
+    let experienceMonths = totalPosts < 10 ? 1 : totalPosts < 50 ? 3 : totalPosts < 200 ? 6 : totalPosts < 500 ? 12 : totalPosts < 1000 ? 24 : 36;
 
-    // 블로그 지수 추정 (글 수 + 카테고리 다양성)
+    // 블로그 지수: accurate-blog-index-extractor 우선 사용
     let blogIndex = 30;
-    if (totalPosts >= 1000) blogIndex = 75;
-    else if (totalPosts >= 500) blogIndex = 65;
-    else if (totalPosts >= 200) blogIndex = 55;
-    else if (totalPosts >= 50) blogIndex = 45;
-    else if (totalPosts >= 10) blogIndex = 35;
+    try {
+      const { getExtractorInstance } = await import('../accurate-blog-index-extractor');
+      const extractor = getExtractorInstance();
+      const accurateResult = await extractor.extractAccurateBlogIndex(blogId);
+      if (accurateResult && accurateResult.blogIndex > 0) {
+        // 0~200,000 스케일을 0~100으로 정규화 (log scale)
+        const log = Math.log10(accurateResult.blogIndex + 1) / Math.log10(200001);
+        blogIndex = Math.round(log * 100);
+        if (accurateResult.stats.blogAgeYears) {
+          experienceMonths = Math.max(experienceMonths, accurateResult.stats.blogAgeYears * 12);
+        }
+        console.log(`[USER-PROFILE] 정밀 측정: raw=${accurateResult.blogIndex}, normalized=${blogIndex}, conf=${accurateResult.confidence}`);
+      } else {
+        // fallback: 글 수 기반 추정
+        if (totalPosts >= 1000) blogIndex = 75;
+        else if (totalPosts >= 500) blogIndex = 65;
+        else if (totalPosts >= 200) blogIndex = 55;
+        else if (totalPosts >= 50) blogIndex = 45;
+        else if (totalPosts >= 10) blogIndex = 35;
+      }
+    } catch (err) {
+      console.warn('[USER-PROFILE] 정밀 추출 실패, 폴백 사용:', (err as Error).message);
+      if (totalPosts >= 1000) blogIndex = 75;
+      else if (totalPosts >= 500) blogIndex = 65;
+      else if (totalPosts >= 200) blogIndex = 55;
+      else if (totalPosts >= 50) blogIndex = 45;
+      else if (totalPosts >= 10) blogIndex = 35;
+    }
 
     return {
       blogUrl: url,

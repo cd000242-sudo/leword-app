@@ -4,6 +4,7 @@
 
 import { getNaverAutocompleteKeywords } from '../naver-autocomplete';
 import { EnvironmentManager } from '../environment-manager';
+import { GoogleGenerativeAI } from '@google/generative-ai';
 
 export interface ClusterKeyword {
   keyword: string;
@@ -42,8 +43,34 @@ function classifyRole(kw: string, isPillar: boolean): 'pillar' | 'support' | 'lo
   return kw.length > 8 ? 'longtail' : 'support';
 }
 
+async function expandViaLLM(seed: string): Promise<string[] | null> {
+  const env = EnvironmentManager.getInstance().getConfig();
+  if (!env.geminiApiKey) return null;
+  try {
+    const genAI = new GoogleGenerativeAI(env.geminiApiKey);
+    const model = genAI.getGenerativeModel({ model: 'gemini-2.0-flash-exp' });
+    const prompt = `한국 네이버 블로그 SEO를 위해 시드 키워드 "${seed}"의 의미적 클러스터를 만드세요.
+
+진짜 카테고리 분기 (예: "스파게티" → "토마토 스파게티", "크림 스파게티", "매콤 스파게티"... 같이 의미적으로 다른 종류).
+단순한 "${seed} 추천" 같은 substring 확장은 절대 금지.
+
+JSON 배열로 12개 키워드만 응답:
+["키워드1", "키워드2", ...]`;
+    const result = await model.generateContent(prompt);
+    const text = result.response.text();
+    const m = text.match(/\[[\s\S]*\]/);
+    if (!m) return null;
+    const arr = JSON.parse(m[0]);
+    if (Array.isArray(arr)) return arr.map(String).filter(Boolean).slice(0, 15);
+  } catch (err) {
+    console.warn('[CLUSTER] LLM 확장 실패:', (err as Error).message);
+  }
+  return null;
+}
+
 /**
  * 시드 키워드를 7~15개 클러스터로 확장
+ * 우선순위: LLM(의미적) > 자동완성 > 룰 기반
  */
 export async function expandToCluster(seed: string): Promise<KeywordCluster> {
   const env = EnvironmentManager.getInstance().getConfig();
@@ -52,7 +79,10 @@ export async function expandToCluster(seed: string): Promise<KeywordCluster> {
     clientSecret: env.naverClientSecret || '',
   };
 
-  // 1. 자동완성으로 관련어 수집
+  // 1. LLM 의미적 클러스터 (우선)
+  const llmKeywords = await expandViaLLM(seed);
+
+  // 2. 자동완성으로 관련어 수집
   let related: string[] = [];
   try {
     related = await getNaverAutocompleteKeywords(seed, naverConfig);
@@ -60,8 +90,8 @@ export async function expandToCluster(seed: string): Promise<KeywordCluster> {
     console.warn('[CLUSTER] 자동완성 실패:', (err as Error).message);
   }
 
-  // 2. 자동완성 부족하면 룰 기반 보강
-  const augmented = new Set<string>(related);
+  // 3. 합치기 (LLM 우선)
+  const augmented = new Set<string>([...(llmKeywords || []), ...related]);
   if (augmented.size < 8) {
     for (const mod of KOREAN_MODIFIERS) {
       augmented.add(`${seed} ${mod}`);
