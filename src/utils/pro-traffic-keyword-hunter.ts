@@ -972,6 +972,7 @@ import { MonetizationStrategyGenerator, MonetizationBlueprint } from './monetiza
 import { analyzeSerpWithPlaywright, closeBrowser as closePlaywrightBrowser } from './serp-crawler';
 
 import { getNaverSearchAdKeywordVolume, getNaverSearchAdKeywordSuggestions, NaverSearchAdConfig } from './naver-searchad-api';
+import { classifyKeyword, isKeywordMatchingCategory, getCategorySeeds, getCategoryById, CATEGORIES } from './categories';
 import { getNaverBlogDocumentCount } from './naver-blog-api';
 import { classifyKeywordIntent } from './keyword-intent-classifier';
 import { getNaverSerpSignal } from './naver-serp-signal-api';
@@ -2204,7 +2205,7 @@ export async function huntProTrafficKeywords(options: {
       });
       if (hasSeed) return true;
 
-      return detectCategory(kw) === cat;
+      return isKeywordMatchingCategory(kw, cat);
     }
 
     if (cat === 'drama') {
@@ -2216,7 +2217,7 @@ export async function huntProTrafficKeywords(options: {
       const movieOnly = /영화|cgv|메가박스|롯데시네마|상영시간표|영화관/.test(kw);
       if (ott && !movieOnly) return true;
 
-      return detectCategory(keyword) === cat;
+      return isKeywordMatchingCategory(keyword, cat);
     }
 
     if (cat === 'self_development') {
@@ -2244,14 +2245,14 @@ export async function huntProTrafficKeywords(options: {
       if (transactional && (eduPlatform || productivityApp || productivityTools)) return true;
       if (certLearning && (certTransactional || transactional)) return true;
 
-      return detectCategory(keyword) === cat;
+      return isKeywordMatchingCategory(keyword, cat);
     }
 
     if (cat === 'business') {
       const kw = String(keyword || '').toLowerCase();
       const strong = /연말정산|환급금|간소화|세무|세무사|세금|부가세|종합소득세|원천징수|4대보험|사업자등록|법인설립|상표등록|특허|세무기장|기장|전자세금계산서|매출|정산|스마트스토어|쿠팡\s*판매자|쇼핑몰\s*창업|창업\s*지원금|소상공인|정책자금|지원금|청약\s*가점|청약\s*계산/.test(kw);
       if (strong) return true;
-      return detectCategory(keyword) === cat;
+      return isKeywordMatchingCategory(keyword, cat);
     }
 
     if (cat === 'fashion') {
@@ -2260,14 +2261,14 @@ export async function huntProTrafficKeywords(options: {
       if (strong) return true;
       const commerce = /(무신사|지그재그|에이블리|w컨셉|29cm|패션플러스|코디너리|ssf|lf몰|신세계\s*몰|롯데\s*온|쿠팡\s*패션)/.test(kw);
       if (commerce) return true;
-      return detectCategory(keyword) === cat;
+      return isKeywordMatchingCategory(keyword, cat);
     }
 
     if (cat === 'interior') {
       const kw = String(keyword || '').toLowerCase();
       const strong = /인테리어|집꾸미기|방꾸미기|홈스타일링|셀프인테리어|리모델링|홈데코|가구|조명|커튼|블라인드|벽지|장판|마루|페인트|인테리어소품|수납장|정리수납|선반|행거|붙박이장|원룸\s*인테리어|거실\s*인테리어|주방\s*인테리어|욕실\s*인테리어/.test(kw);
       if (strong) return true;
-      return detectCategory(keyword) === cat;
+      return isKeywordMatchingCategory(keyword, cat);
     }
 
     if (cat === 'it') {
@@ -2277,14 +2278,14 @@ export async function huntProTrafficKeywords(options: {
       const strong = /(\bit\b|컴퓨터|\bpc\b|노트북|태블릿|스마트폰|아이폰|갤럭시|모니터|키보드|마우스|이어폰|헤드폰|ssd|외장\s*ssd|외장\s*하드|usb|허브|충전기|케이블|블루투스|와이파이|공유기|그래픽카드|cpu|램|\bram\b|윈도우|\bmac\b|안드로이드|\bios\b|앱|어플|프로그램|소프트웨어|코딩|개발|프로그래밍|\bai\b|인공지능)/.test(kw);
       if (socialOnly && !strong) return false;
       if (strong) return true;
-      return detectCategory(keyword) === cat;
+      return isKeywordMatchingCategory(keyword, cat);
     }
 
     if (cat === 'sports') {
       const kw = String(keyword || '').toLowerCase();
       const strong = /스포츠|야구|축구|농구|골프|테니스|배드민턴|러닝|런닝|마라톤|조깅|헬스|홈트|스트레칭|요가|필라테스|근력|유산소|운동|운동화|러닝화|축구화|야구글러브|라켓|채|클럽|보호대|헬스\s*장갑|덤벨|케틀벨|밴드|마사지\s*건/.test(kw);
       if (strong) return true;
-      return detectCategory(keyword) === cat;
+      return isKeywordMatchingCategory(keyword, cat);
     }
 
     if (cat === 'life_tips') {
@@ -2299,11 +2300,13 @@ export async function huntProTrafficKeywords(options: {
         return false;
       }
 
-      const detected = detectCategory(keyword);
-      return detected === 'life_tips' || (detected === 'daily' && lifeCore);
+      // life_tips 전용: classifyKeyword 결과가 home_life/life_tips/all 중 하나이면 허용
+      const classified = classifyKeyword(keyword);
+      return classified.primary === 'home_life' || isKeywordMatchingCategory(keyword, 'home_life') || lifeCore;
     }
 
-    return detectCategory(keyword) === cat;
+    // 전용 분기가 없는 카테고리 → categories.ts 단일 소스 매칭
+    return isKeywordMatchingCategory(keyword, cat);
   };
 
   const modeLabels: Record<string, string> = {
@@ -2364,9 +2367,13 @@ export async function huntProTrafficKeywords(options: {
   } else if (mode === 'category') {
     // 📁 카테고리별 황금키워드 모드
     console.log('[PRO-TRAFFIC] 📁 카테고리별 황금키워드 모드 활성화');
+    // 기존 시드 DB
     const categoryKeywords = getEnhancedCategoryGoldenKeywords(category);
-    allSeedKeywords = [...allSeedKeywords, ...shuffleArray(categoryKeywords)];
-    console.log(`[PRO-TRAFFIC] 📁 카테고리 키워드 ${categoryKeywords.length}개 로드`);
+    // categories.ts 단일 소스 시드 (보강)
+    const unifiedSeeds = getCategorySeeds(category);
+    const mergedSeeds = [...new Set([...categoryKeywords, ...unifiedSeeds])];
+    allSeedKeywords = [...allSeedKeywords, ...shuffleArray(mergedSeeds)];
+    console.log(`[PRO-TRAFFIC] 📁 카테고리 키워드 ${mergedSeeds.length}개 로드 (기존 ${categoryKeywords.length} + 통합 ${unifiedSeeds.length})`);
 
   } else {
     // 🔥 실시간 이슈 모드 (기본)
@@ -3099,6 +3106,17 @@ export async function huntProTrafficKeywords(options: {
     if (!exists) {
       allKeywords.push({ keyword: seed, source: realtimeSourceMap.get(seed) || 'seed', searchVolume: null, documentCount: null });
     }
+  }
+
+  // 🔥 3.7단계: 자동완성/시드 추가 후 카테고리 필터 (누수 차단)
+  if (mode === 'category' && category !== 'all' && category !== 'pro_premium' && category !== 'lite_standard') {
+    const beforeCatFilter = allKeywords.length;
+    const catFiltered = allKeywords.filter(k => isKeywordMatchingCategory(k.keyword, category));
+    if (catFiltered.length >= 10) {
+      allKeywords.length = 0;
+      allKeywords.push(...catFiltered);
+    }
+    console.log(`[PRO-TRAFFIC] 📁 3.7단계 카테고리 필터: ${beforeCatFilter}개 → ${allKeywords.length}개 (${category})`);
   }
 
   internalMetrics.allKeywordsCount = allKeywords.length;
@@ -5688,7 +5706,7 @@ export function analyzeKeyword(
   const totalScore = calculateTotalScore(rookieFriendly.score, timing.score, blueOcean.score, goldenRatio, safetyAnalysis.level, keyword, searchVolume, documentCount);
 
   // 등급 결정
-  const detectedCategory = detectCategory(keyword);
+  const detectedCategory = classifyKeyword(keyword).primary;
 
   const profitAnalysis: ProfitKeywordData = calculateProfitGoldenRatio(
     keyword,
