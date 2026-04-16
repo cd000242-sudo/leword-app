@@ -17,6 +17,10 @@ const PARENT_GROUPS: Record<string, string[]> = {
   travel: ['travel_domestic', 'travel_overseas'],
   car_all: ['car', 'car_maintain'],
   season: ['season_spring', 'season_summer', 'season_fall', 'season_winter'],
+  self_development: ['education', 'english', 'coding', 'job'],
+  business: ['finance', 'sidejob'],
+  it: ['smartphone', 'laptop', 'app', 'ai_tool', 'electronics'],
+  life_tips: ['home_life'],
 };
 
 // 자식 → 부모 역매핑

@@ -975,7 +975,7 @@ import { MonetizationStrategyGenerator, MonetizationBlueprint } from './monetiza
 import { analyzeSerpWithPlaywright, closeBrowser as closePlaywrightBrowser } from './serp-crawler';
 
 import { getNaverSearchAdKeywordVolume, getNaverSearchAdKeywordSuggestions, NaverSearchAdConfig } from './naver-searchad-api';
-import { classifyKeyword, isKeywordMatchingCategory, getCategorySeeds, getCategoryById, CATEGORIES } from './categories';
+import { classifyKeyword, isKeywordMatchingCategory, getCategorySeeds, getCategoryById, CATEGORIES, CATEGORY_ICONS } from './categories';
 import { getNaverBlogDocumentCount } from './naver-blog-api';
 import { classifyKeywordIntent } from './keyword-intent-classifier';
 import { getNaverSerpSignal } from './naver-serp-signal-api';
@@ -2170,107 +2170,16 @@ export async function huntProTrafficKeywords(options: {
   const isKeywordInSelectedCategory = (keyword: string, cat: string): boolean => {
     if (!cat || cat === 'all' || cat === 'pro_premium' || cat === 'lite_standard') return true;
 
-    if (cat === 'celeb') {
+    // celeb/music: 전자제품 모델명 제외 (특수 케이스)
+    if (cat === 'celeb' || cat === 'music') {
       const kw = String(keyword || '');
-      const normalized = kw.replace(/\s+/g, ' ').trim();
-
-      // 🚫 전자제품 모델명 등 인위적 코드 제외 (RM70F64Q1A 등)
-      if (/^[A-Z]{2,}\d+[A-Z0-9]{3,}/i.test(normalized)) return false;
-      if (/^[A-Z]\d[A-Z0-9]{5,}/i.test(normalized)) return false;
-
-      return isKeywordMatchingCategory(kw, 'music');
+      if (/^[A-Z]{2,}\d+[A-Z0-9]{3,}/i.test(kw) || /^[A-Z]\d[A-Z0-9]{5,}/i.test(kw)) return false;
     }
 
     if (cat === 'drama') {
       return isKeywordMatchingCategory(keyword, 'movie');
     }
 
-    if (cat === 'self_development') {
-      const kw = String(keyword || '').toLowerCase();
-      const strong = /자기계발|자기개발|동기부여|목표설정|습관|루틴|시간관리|우선순위|생산성|집중력|자존감|번아웃|멘탈|공부법|독서법|글쓰기/.test(kw);
-      if (strong) return true;
-
-      const eduPlatform = /(인프런|패스트캠퍼스|클래스101|탈잉|유데미|udemy|부트캠프|온라인\s*강의|인강|강의\s*추천|강의\s*할인)/.test(kw);
-      if (eduPlatform) return true;
-
-      const certLearning = /(자격증|컴활|컴퓨터활용능력|정보처리기사|sql[d]?|adsp|빅데이터분석기사|전기기사|공인중개사|주택관리사|한국사능력검정|토익|토플|jlpt|hsk|ncs|psat)/.test(kw);
-      const certTransactional = /(인강|강의|교재|책|기출|모의고사|응시료|시험접수|접수|합격|후기|가격|비용|할인|쿠폰)/.test(kw);
-      if (certLearning) return true;
-
-      const careerIntent = /(커리어|취업|이직|면접|자기소개서|자소서|포트폴리오|스피치|발표|프레젠테이션|자격요건|채용|경력)/.test(kw);
-      if (careerIntent) return true;
-
-      const productivityApp = /((생산성|습관|공부|플래너|가계부|다이어리).*(앱|어플))|((앱|어플).*(생산성|습관|공부|플래너|가계부|다이어리))/.test(kw);
-      if (productivityApp) return true;
-
-      const productivityTools = /(노션|notion|옵시디언|obsidian|에버노트|evernote|포모도로|pomodoro|타임\s*블로킹|time\s*blocking|to\s*do|todo|task|캘린더|calendar|habit\s*tracker|습관\s*트래커)/.test(kw);
-      if (productivityTools) return true;
-
-      const transactional = /(가격|비용|할인|쿠폰|할인코드|프로모션|환불|해지|결제|구독|이용권)/.test(kw);
-      if (transactional && (eduPlatform || productivityApp || productivityTools)) return true;
-      if (certLearning && (certTransactional || transactional)) return true;
-
-      return isKeywordMatchingCategory(keyword, cat);
-    }
-
-    if (cat === 'business') {
-      const kw = String(keyword || '').toLowerCase();
-      const strong = /연말정산|환급금|간소화|세무|세무사|세금|부가세|종합소득세|원천징수|4대보험|사업자등록|법인설립|상표등록|특허|세무기장|기장|전자세금계산서|매출|정산|스마트스토어|쿠팡\s*판매자|쇼핑몰\s*창업|창업\s*지원금|소상공인|정책자금|지원금|청약\s*가점|청약\s*계산/.test(kw);
-      if (strong) return true;
-      return isKeywordMatchingCategory(keyword, cat);
-    }
-
-    if (cat === 'fashion') {
-      const kw = String(keyword || '').toLowerCase();
-      const strong = /패션|코디|룩북|룩\b|스타일|스타일링|옷|의류|쇼핑몰|브랜드|구두|신발|운동화|스니커즈|가방|지갑|액세서리|악세서리|모자|양말|원피스|셔츠|티셔츠|후드|맨투맨|니트|가디건|자켓|재킷|코트|패딩|아우터|슬랙스|청바지|데님|바지|치마|스커트|수트|정장|드레스|하객룩|상견례\s*옷차림|면접\s*복장|출근\s*룩|데일리\s*룩|오피스\s*룩/.test(kw);
-      if (strong) return true;
-      const commerce = /(무신사|지그재그|에이블리|w컨셉|29cm|패션플러스|코디너리|ssf|lf몰|신세계\s*몰|롯데\s*온|쿠팡\s*패션)/.test(kw);
-      if (commerce) return true;
-      return isKeywordMatchingCategory(keyword, cat);
-    }
-
-    if (cat === 'interior') {
-      const kw = String(keyword || '').toLowerCase();
-      const strong = /인테리어|집꾸미기|방꾸미기|홈스타일링|셀프인테리어|리모델링|홈데코|가구|조명|커튼|블라인드|벽지|장판|마루|페인트|인테리어소품|수납장|정리수납|선반|행거|붙박이장|원룸\s*인테리어|거실\s*인테리어|주방\s*인테리어|욕실\s*인테리어/.test(kw);
-      if (strong) return true;
-      return isKeywordMatchingCategory(keyword, cat);
-    }
-
-    if (cat === 'it') {
-      const kw = String(keyword || '').toLowerCase();
-      if (/(스타그램)/.test(kw)) return false;
-      const socialOnly = /(스타그램|인스타|틱톡|해시태그|팔로워|릴스|리일스|스토리)/.test(kw);
-      const strong = /(\bit\b|컴퓨터|\bpc\b|노트북|태블릿|스마트폰|아이폰|갤럭시|모니터|키보드|마우스|이어폰|헤드폰|ssd|외장\s*ssd|외장\s*하드|usb|허브|충전기|케이블|블루투스|와이파이|공유기|그래픽카드|cpu|램|\bram\b|윈도우|\bmac\b|안드로이드|\bios\b|앱|어플|프로그램|소프트웨어|코딩|개발|프로그래밍|\bai\b|인공지능)/.test(kw);
-      if (socialOnly && !strong) return false;
-      if (strong) return true;
-      return isKeywordMatchingCategory(keyword, cat);
-    }
-
-    if (cat === 'sports') {
-      const kw = String(keyword || '').toLowerCase();
-      const strong = /스포츠|야구|축구|농구|골프|테니스|배드민턴|러닝|런닝|마라톤|조깅|헬스|홈트|스트레칭|요가|필라테스|근력|유산소|운동|운동화|러닝화|축구화|야구글러브|라켓|채|클럽|보호대|헬스\s*장갑|덤벨|케틀벨|밴드|마사지\s*건/.test(kw);
-      if (strong) return true;
-      return isKeywordMatchingCategory(keyword, cat);
-    }
-
-    if (cat === 'life_tips') {
-      const kw = String(keyword || '').toLowerCase();
-      const socialTrend = /(브이로그|vlog|스타그램|인스타|틱톡|해시태그|팔로워|릴스|리일스|스토리)/.test(kw);
-      const lifeCore = /(생활꿀팁|생활팁|꿀팁|노하우|정리정돈|청소|빨래|세탁|얼룩|곰팡이|물때|찌든때|기름때|냄새|수납|정리수납|분리수거|재활용|음식물쓰레기)/.test(kw);
-      if (socialTrend && !lifeCore) return false;
-      if (/일상/.test(kw) && !lifeCore) return false;
-
-      // 🚫 가전제품/브랜드 단독 키워드 방지 (방법/꿀팁 등 노하우 패턴이 있을 때만 허용)
-      if (isLifeTipsProductKeyword(kw) && !hasLifeTipsKnowhowPattern(kw)) {
-        return false;
-      }
-
-      // life_tips 전용: classifyKeyword 결과가 home_life/life_tips/all 중 하나이면 허용
-      const classified = classifyKeyword(keyword);
-      return classified.primary === 'home_life' || isKeywordMatchingCategory(keyword, 'home_life') || lifeCore;
-    }
-
-    // 전용 분기가 없는 카테고리 → categories.ts 단일 소스 매칭
     return isKeywordMatchingCategory(keyword, cat);
   };
 
@@ -6918,81 +6827,13 @@ function estimateDocumentCount(keyword: string): number {
 }
 
 /**
- * 사용 가능한 카테고리 목록 (30개+ 확장!)
+ * 사용 가능한 카테고리 목록 — CATEGORIES 배열에서 자동 생성
  */
 export function getProTrafficCategories(): { value: string; label: string; icon: string }[] {
-  return [
-    // 🔥 메인 카테고리
-    { value: 'all', label: '🌟 전체 (모든 카테고리)', icon: '🌟' },
-    { value: 'pro_premium', label: '🏆 PRO 끝판왕 (모든 분야 황금키워드)', icon: '🏆' },
-
-    // 💰 돈/재테크 관련 (고CPC)
-    { value: 'policy', label: '💰 정부지원금/복지혜택', icon: '💰' },
-    { value: 'finance', label: '💵 재테크/연말정산/절세', icon: '💵' },
-    { value: 'insurance_safe', label: '🛡️ 보험비교 (안전한 것만)', icon: '🛡️' },
-    { value: 'realestate', label: '🏠 청약/부동산/전세', icon: '🏠' },
-    { value: 'sidejob', label: '💼 부업/투잡/재택근무', icon: '💼' },
-
-    // 🛒 쇼핑/리뷰 (구매전환 높음)
-    { value: 'electronics', label: '📱 전자기기/가전제품', icon: '📱' },
-    { value: 'fashion', label: '👗 패션/의류/신발', icon: '👗' },
-    { value: 'beauty', label: '💄 뷰티/화장품/스킨케어', icon: '💄' },
-    { value: 'kitchen', label: '🍳 주방용품/조리도구', icon: '🍳' },
-    { value: 'interior', label: '🛋️ 인테리어/가구/수납', icon: '🛋️' },
-    { value: 'baby_products', label: '🍼 육아용품/유아식품', icon: '🍼' },
-
-    // 🏥 건강/웰빙
-    { value: 'health', label: '💊 건강정보/영양제/운동', icon: '💊' },
-    { value: 'diet', label: '🏃 다이어트/홈트/식단', icon: '🏃' },
-    { value: 'mental', label: '🧘 멘탈케어/스트레스/수면', icon: '🧘' },
-    { value: 'hospital', label: '🏥 병원정보/건강검진', icon: '🏥' },
-
-    // ✈️ 여행/외식
-    { value: 'travel_domestic', label: '🗺️ 국내여행/당일치기', icon: '🗺️' },
-    { value: 'travel_overseas', label: '✈️ 해외여행/항공권', icon: '✈️' },
-    { value: 'food', label: '🍽️ 맛집/카페/디저트', icon: '🍽️' },
-    { value: 'recipe', label: '👨‍🍳 요리/레시피/밀키트', icon: '👨‍🍳' },
-
-    // 📚 교육/자기계발
-    { value: 'education', label: '📚 자격증/시험/공부법', icon: '📚' },
-    { value: 'english', label: '🔤 영어/외국어/어학', icon: '🔤' },
-    { value: 'coding', label: '💻 코딩/프로그래밍/AI', icon: '💻' },
-    { value: 'job', label: '👔 취업/이직/면접', icon: '👔' },
-
-    // 👶 육아/가정
-    { value: 'parenting', label: '👶 육아/출산/임신', icon: '👶' },
-    { value: 'wedding', label: '💒 결혼/웨딩/신혼', icon: '💒' },
-    { value: 'home_life', label: '🏡 살림/청소/정리', icon: '🏡' },
-
-    // 🐕 반려동물
-    { value: 'pet_dog', label: '🐕 강아지/반려견', icon: '🐕' },
-    { value: 'pet_cat', label: '🐈 고양이/반려묘', icon: '🐈' },
-    { value: 'pet_etc', label: '🐹 소동물/물고기/파충류', icon: '🐹' },
-
-    // 🚗 자동차/이동
-    { value: 'car', label: '🚗 자동차/전기차/중고차', icon: '🚗' },
-    { value: 'car_maintain', label: '🔧 차량관리/세차/정비', icon: '🔧' },
-
-    // 🎮 취미/엔터테인먼트
-    { value: 'game', label: '🎮 게임/모바일게임', icon: '🎮' },
-    { value: 'movie', label: '🎬 영화/드라마/넷플릭스', icon: '🎬' },
-    { value: 'music', label: '🎵 음악/아이돌/콘서트', icon: '🎵' },
-    { value: 'sports', label: '⚽ 스포츠/야구/축구', icon: '⚽' },
-    { value: 'hobby', label: '🎨 취미/DIY/핸드메이드', icon: '🎨' },
-    { value: 'book', label: '📖 책/독서/베스트셀러', icon: '📖' },
-
-    // 📱 IT/테크
-    { value: 'smartphone', label: '📱 스마트폰/아이폰/갤럭시', icon: '📱' },
-    { value: 'laptop', label: '💻 노트북/PC/태블릿', icon: '💻' },
-    { value: 'app', label: '📲 앱추천/꿀앱/유용한앱', icon: '📲' },
-    { value: 'ai_tool', label: '🤖 AI도구/ChatGPT/미드저니', icon: '🤖' },
-
-    // 🌸 시즌/이벤트
-    { value: 'season_spring', label: '🌸 봄시즌 (3~5월)', icon: '🌸' },
-    { value: 'season_summer', label: '☀️ 여름시즌 (6~8월)', icon: '☀️' },
-    { value: 'season_fall', label: '🍂 가을시즌 (9~11월)', icon: '🍂' },
-    { value: 'season_winter', label: '❄️ 겨울시즌 (12~2월)', icon: '❄️' }
-  ];
+  return CATEGORIES.map(cat => {
+    const icon = CATEGORY_ICONS[cat.id] ?? '📌';
+    return { value: cat.id, label: `${icon} ${cat.label}`, icon };
+  });
 }
 
 // 🔥 v11.1 경쟁 분석 캐시 (실제 크롤링 결과 저장)
