@@ -108,11 +108,15 @@ function generateSignature(
  */
 export async function getNaverSearchAdKeywordVolume(
   config: NaverSearchAdConfig,
-  keywords: string[]
+  keywords: string[],
+  options: { recursive?: boolean } = {}
 ): Promise<KeywordSearchVolume[]> {
   if (!config.accessLicense || !config.secretKey) {
     throw new Error('네이버 검색광고 API 인증 정보가 필요합니다');
   }
+
+  // 기본값: 최상위 호출에서 recursive=true (1회 한정 개별 재호출 fallback)
+  const isRecursive = options.recursive !== false;
 
   let customerId: string;
   if (config.customerId && typeof config.customerId === 'string' && config.customerId.trim() !== '') {
@@ -274,6 +278,28 @@ export async function getNaverSearchAdKeywordVolume(
     } catch (error: any) {
       console.error(`[NAVER-SEARCHAD] 배치 에러: ${chunk.join(',')} - ${error.message}`);
       chunk.forEach(k => results.push({ keyword: k, pcSearchVolume: null, mobileSearchVolume: null, totalSearchVolume: null }));
+    }
+  }
+
+  // 🔥 Fallback: 배치 호출 시 Naver는 hintKeywords 배열 중 일부만 목록에 포함.
+  // 배치에서 sv=0으로 나온 키워드는 단독 호출 시 실제 데이터 존재 가능.
+  // 재귀 1회 한정으로 개별 재호출. (배치 크기 2+ 일 때만 발동)
+  if (isRecursive && keywords.length > 1) {
+    const zeroVolumeKws = results.filter(r => (r.totalSearchVolume ?? 0) === 0).map(r => r.keyword);
+    if (zeroVolumeKws.length > 0) {
+      console.log(`[NAVER-SEARCHAD] 🔁 배치 매칭 실패 ${zeroVolumeKws.length}/${keywords.length}개 개별 재호출`);
+      let recoveredCount = 0;
+      for (const kw of zeroVolumeKws) {
+        const [single] = await getNaverSearchAdKeywordVolume(config, [kw], { recursive: false });
+        if (single && (single.totalSearchVolume ?? 0) > 0) {
+          const idx = results.findIndex(r => r.keyword === kw);
+          if (idx >= 0) {
+            results[idx] = single;
+            recoveredCount++;
+          }
+        }
+      }
+      console.log(`[NAVER-SEARCHAD] 🔁 개별 재호출 회복: ${recoveredCount}/${zeroVolumeKws.length}개`);
     }
   }
 
