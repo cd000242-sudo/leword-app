@@ -4,7 +4,7 @@ const { _electron: electron } = require('playwright');
 const path = require('path');
 const fs = require('fs');
 
-const HUNT_TIMEOUT_MS = 360000; // 6분
+const HUNT_TIMEOUT_MS = 540000; // 9분
 
 (async () => {
   console.log('▶ Electron 앱 기동 중...');
@@ -24,6 +24,7 @@ const HUNT_TIMEOUT_MS = 360000; // 6분
         for (const l of lines) {
           if (l.includes('PRO-TRAFFIC') || l.includes('LIFE_TIPS') || l.includes('life_tips') ||
               l.includes('METRICS') || l.includes('NAVER-SEARCHAD') || l.includes('SEARCH-VOLUME') ||
+              l.includes('PERSISTENT') || l.includes('영구 캐시') || l.includes('🗄️') ||
               l.includes('재호출') || l.includes('회복')) {
             mainLogs.push(`[stdout] ${l}`);
           }

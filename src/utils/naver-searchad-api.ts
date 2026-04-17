@@ -133,7 +133,9 @@ export async function getNaverSearchAdKeywordVolume(
   const results: KeywordSearchVolume[] = [];
   const cleanKeywords = (keywords || []).map(k => String(k || '').trim()).filter(Boolean);
 
-  // 5개씩 묶어서 처리 (API 제한 최적화)
+  // 🔥 chunkSize=5 유지 — Naver가 5개 묶음에 연관 키워드 대량(수백~1000개) 반환
+  // 휴리스틱 fallback이 연관 키워드 풀에서 공통 토큰 2+ 매칭으로 sv 회복
+  // (chunkSize=1은 정확 매칭 1개만 반환 → sv < 10으로 대부분 무의미)
   const chunkSize = 5;
   for (let i = 0; i < cleanKeywords.length; i += chunkSize) {
     const chunk = cleanKeywords.slice(i, i + chunkSize);
@@ -157,8 +159,8 @@ export async function getNaverSearchAdKeywordVolume(
         'X-Customer': customerId
       };
 
-      // Rate Limit 조절 — 1000ms로 보수적 설정 (Naver 서버측 Rate Limit 방지)
-      const minIntervalMs = 1000;
+      // Rate Limit 조절 — 5개 배치 + 1200ms 간격 (분당 ~50 배치 = 250 키워드)
+      const minIntervalMs = 1200;
       const now = Date.now();
       lastSearchAdRequestAt = Math.max(now, lastSearchAdRequestAt + minIntervalMs);
       const waitMs = lastSearchAdRequestAt - now;

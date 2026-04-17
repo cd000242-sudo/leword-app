@@ -1056,6 +1056,7 @@ import {
 import { getTitleGenerator } from './mass-collection/keyword-title-generator';
 import { getRelatedKeywords } from './related-keyword-cache';
 import { mineUltimateDeepKeywords } from './ultimate-niche-finder';
+import { getPersistent, setPersistent, getAllKeywordsWithCompleteData } from './persistent-keyword-cache';
 import { analyzeSeasonality, SeasonalityProfile } from './pro-hunter-v12/seasonality-analyzer';
 
 export type KeywordType =
@@ -1562,6 +1563,13 @@ export async function fetchKeywordDataParallel(
         apiCache.set(result.keyword, cacheData);
         apiCache.set(normalizedKeyword, cacheData);
         apiCache.set(cleanKeyword, cacheData);
+        // 🗄️ 영구 캐시에도 저장 (cross-run 보존)
+        setPersistent(result.keyword, {
+          searchVolume: result.searchVolume,
+          documentCount: result.documentCount,
+          realCpc: result.realCpc ?? null,
+          compIdx: result.compIdx ?? null,
+        });
       }
     }
 
@@ -1598,11 +1606,38 @@ async function fetchKeywordDataBatch(keywords: string[]): Promise<void> {
   // 중복 제거
   const uniqueKeywords = [...new Set(keywords)];
 
-  // 캐시에 없는 키워드만 필터링
+  // 🗄️ 영구 캐시에서 미리 로드 (cross-run 재활용)
+  let persistentHits = 0;
+  for (const kw of uniqueKeywords) {
+    const cleanKw = kw.replace(/\s/g, '');
+    const memCached = apiCache.get(kw) || apiCache.get(cleanKw);
+    if (memCached && memCached.searchVolume !== null && memCached.documentCount !== null) continue;
+    const persisted = getPersistent(kw);
+    if (persisted && (persisted.searchVolume !== null || persisted.documentCount !== null)) {
+      const entry = {
+        searchVolume: persisted.searchVolume,
+        documentCount: persisted.documentCount,
+        compIdx: persisted.compIdx ?? null,
+        realCpc: persisted.realCpc ?? null,
+        timestamp: Date.now(),
+        isRealData: true,
+      };
+      apiCache.set(kw, entry);
+      apiCache.set(cleanKw, entry);
+      persistentHits++;
+    }
+  }
+  if (persistentHits > 0) {
+    console.log(`[PRO-TRAFFIC] 🗄️ 영구 캐시 히트: ${persistentHits}/${uniqueKeywords.length}개 (API 재호출 우회)`);
+  }
+
+  // 메모리 캐시에 완전한 데이터가 없는 키워드만 필터링
   const uncachedKeywords = uniqueKeywords.filter(kw => {
     const cleanKw = kw.replace(/\s/g, '');
     const cached = apiCache.get(kw) || apiCache.get(cleanKw);
-    return !cached || Date.now() - cached.timestamp >= CACHE_TTL;
+    if (!cached || Date.now() - cached.timestamp >= CACHE_TTL) return true;
+    // sv, dc 중 하나라도 null이면 재호출 필요
+    return cached.searchVolume === null || cached.documentCount === null;
   });
 
   if (uncachedKeywords.length === 0) {
@@ -2836,6 +2871,30 @@ export async function huntProTrafficKeywords(options: {
   // 🎯 2단계: 네이버 검색광고 API로 연관 키워드 수집 + 검색량 조회
   // (실시간 유동성 키워드는 이미 0단계에서 allKeywords에 일부 반영될 수 있음)
   const allKeywords: { keyword: string; source: string; searchVolume?: number | null; documentCount?: number | null }[] = [];
+
+  // 🗄️ 영구 캐시의 완전 데이터 키워드를 시드 풀 최상위에 주입 (안정성 확보)
+  // — 이전 run에서 성공한 키워드는 재사용하면 API 호출 없이 즉시 결과로 연결
+  try {
+    const persistentSeeds = getAllKeywordsWithCompleteData();
+    // 카테고리 모드: 카테고리 매칭되는 것만
+    const isCatSpecified = mode === 'category' && category !== 'all' && category !== 'pro_premium' && category !== 'lite_standard';
+    const filteredPersistent = isCatSpecified
+      ? persistentSeeds.filter(p => isKeywordInSelectedCategory(p.keyword, category))
+      : persistentSeeds;
+    if (filteredPersistent.length > 0) {
+      console.log(`[PRO-TRAFFIC] 🗄️ 영구 캐시에서 ${filteredPersistent.length}개 완전 데이터 키워드 주입 (category=${category})`);
+      for (const p of filteredPersistent) {
+        allKeywords.push({
+          keyword: p.keyword,
+          source: 'persistent_cache',
+          searchVolume: p.searchVolume,
+          documentCount: p.documentCount,
+        });
+      }
+    }
+  } catch (e: any) {
+    console.warn(`[PRO-TRAFFIC] 영구 캐시 주입 실패: ${e?.message || e}`);
+  }
 
   try {
     let accessLicense: string | undefined;
