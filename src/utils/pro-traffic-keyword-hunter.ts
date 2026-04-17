@@ -2456,43 +2456,48 @@ export async function huntProTrafficKeywords(options: {
       : 90)
     : (mode === 'category' ? 70 : 50);
 
-  // ─── 시드 차별화 전략: 시의성 + 타겟 세분화 + 질문형 조합 ───
+  // ─── 시드 차별화 전략: 카테고리 모드에서는 자연 연관 키워드 위주로 최소화 ───
+  // (기계적 조합은 Naver 검색량 0을 자주 반환해 파이프라인이 고갈됨)
   {
     const now = new Date();
     const year = now.getFullYear();
     const month = now.getMonth() + 1;
     const seasonLabel = month <= 2 || month === 12 ? '겨울' : month <= 5 ? '봄' : month <= 8 ? '여름' : '가을';
 
-    // 1) 연도+시즌 동적 시드
+    // 카테고리 모드: 시의성 시드 3개만 (연도 1, 시즌 2). 타겟/질문형 생략.
+    // 실시간 모드: 기존 대로 풍부하게 (트렌드 확산용)
+    const syntheticCap = mode === 'category' ? 3 : 10;
     const timelySeeds: string[] = [];
-    for (const seed of allSeedKeywords.slice(0, 10)) {
+    for (const seed of allSeedKeywords.slice(0, syntheticCap)) {
       timelySeeds.push(`${seed} ${year}`);
-      timelySeeds.push(`${seed} ${month}월`);
+      if (mode !== 'category') {
+        timelySeeds.push(`${seed} ${month}월`);
+      }
       if (!seed.includes(seasonLabel)) {
         timelySeeds.push(`${seasonLabel} ${seed}`);
       }
     }
 
-    // 2) 타겟 세분화 시드
-    const TARGET_SEGMENTS = ['초보자', '직장인', '학생', '주부', '50대', '신혼부부', '자취생', '1인가구'];
-    const targetSeeds: string[] = [];
-    for (const seed of allSeedKeywords.slice(0, 8)) {
-      const segment = TARGET_SEGMENTS[Math.floor(Math.random() * TARGET_SEGMENTS.length)];
-      targetSeeds.push(`${segment} ${seed}`);
-    }
-
-    // 3) 질문형 키워드
-    const QUESTION_PATTERNS = ['하는법', '해야하나', '괜찮을까', '차이', '비교', '어디서', '언제'];
-    const questionSeeds: string[] = [];
-    for (const seed of allSeedKeywords.slice(0, 8)) {
-      const pattern = QUESTION_PATTERNS[Math.floor(Math.random() * QUESTION_PATTERNS.length)];
-      if (!seed.includes(pattern)) {
-        questionSeeds.push(`${seed} ${pattern}`);
+    let targetSeeds: string[] = [];
+    let questionSeeds: string[] = [];
+    if (mode !== 'category') {
+      // 실시간 모드에서만 타겟/질문형 합성 시드 적용
+      const TARGET_SEGMENTS = ['초보자', '직장인', '학생', '주부', '50대', '신혼부부', '자취생', '1인가구'];
+      for (const seed of allSeedKeywords.slice(0, 8)) {
+        const segment = TARGET_SEGMENTS[Math.floor(Math.random() * TARGET_SEGMENTS.length)];
+        targetSeeds.push(`${segment} ${seed}`);
+      }
+      const QUESTION_PATTERNS = ['하는법', '해야하나', '괜찮을까', '차이', '비교', '어디서', '언제'];
+      for (const seed of allSeedKeywords.slice(0, 8)) {
+        const pattern = QUESTION_PATTERNS[Math.floor(Math.random() * QUESTION_PATTERNS.length)];
+        if (!seed.includes(pattern)) {
+          questionSeeds.push(`${seed} ${pattern}`);
+        }
       }
     }
 
     allSeedKeywords.push(...timelySeeds, ...targetSeeds, ...questionSeeds);
-    console.log(`[PRO-TRAFFIC] 🎯 차별화 시드 추가: 시의성 ${timelySeeds.length}개, 타겟 ${targetSeeds.length}개, 질문형 ${questionSeeds.length}개`);
+    console.log(`[PRO-TRAFFIC] 🎯 차별화 시드 추가: 시의성 ${timelySeeds.length}개, 타겟 ${targetSeeds.length}개, 질문형 ${questionSeeds.length}개 (mode=${mode})`);
   }
 
   const uniqueAllSeeds = [...new Set(allSeedKeywords)];
@@ -2905,19 +2910,31 @@ export async function huntProTrafficKeywords(options: {
                 : suggestions;
               const seedSource = realtimeSourceMap.get(seed) || seed;
               for (const s of mergedSuggestions) {
+                const svValue = (typeof s.totalSearchVolume === 'number')
+                  ? s.totalSearchVolume
+                  : (() => {
+                    const pc = (typeof s.monthlyPcQcCnt === 'number') ? s.monthlyPcQcCnt : 0;
+                    const mob = (typeof s.monthlyMobileQcCnt === 'number') ? s.monthlyMobileQcCnt : 0;
+                    const sum = pc + mob;
+                    return sum > 0 ? sum : null;
+                  })();
                 allKeywords.push({
                   keyword: s.keyword,
                   source: seedSource,
-                  searchVolume: (typeof s.totalSearchVolume === 'number')
-                    ? s.totalSearchVolume
-                    : (() => {
-                      const pc = (typeof s.monthlyPcQcCnt === 'number') ? s.monthlyPcQcCnt : 0;
-                      const mob = (typeof s.monthlyMobileQcCnt === 'number') ? s.monthlyMobileQcCnt : 0;
-                      const sum = pc + mob;
-                      return sum > 0 ? sum : null;
-                    })(),
+                  searchVolume: svValue,
                   documentCount: null
                 });
+                // 🔥 SearchAd가 반환한 자연 키워드의 검색량을 캐시에 주입
+                // → fetchKeywordDataBatch 재조회 시 배치 매칭 실패 우회
+                if (svValue !== null && svValue > 0 && s.keyword) {
+                  const existing = apiCache.get(s.keyword);
+                  if (!existing || existing.searchVolume === null) {
+                    const clean = s.keyword.replace(/\s/g, '');
+                    const entry = { searchVolume: svValue, documentCount: existing?.documentCount ?? null, isRealData: true, timestamp: Date.now() };
+                    apiCache.set(s.keyword, entry);
+                    apiCache.set(clean, entry);
+                  }
+                }
               }
             } catch (e) {
               if (category === 'business') {
@@ -2937,19 +2954,32 @@ export async function huntProTrafficKeywords(options: {
               );
 
               const seedSource = realtimeSourceMap.get(seed) || seed;
-              return suggestions.map(s => ({
-                keyword: s.keyword,
-                source: seedSource,
-                searchVolume: (typeof s.totalSearchVolume === 'number')
+              return suggestions.map(s => {
+                const svValue = (typeof s.totalSearchVolume === 'number')
                   ? s.totalSearchVolume
                   : (() => {
                     const pc = (typeof s.monthlyPcQcCnt === 'number') ? s.monthlyPcQcCnt : 0;
                     const mob = (typeof s.monthlyMobileQcCnt === 'number') ? s.monthlyMobileQcCnt : 0;
                     const sum = pc + mob;
                     return sum > 0 ? sum : null;
-                  })(),
-                documentCount: null
-              }));
+                  })();
+                // 🔥 SearchAd 자연 키워드의 검색량을 캐시에 주입 (재조회 우회)
+                if (svValue !== null && svValue > 0 && s.keyword) {
+                  const existing = apiCache.get(s.keyword);
+                  if (!existing || existing.searchVolume === null) {
+                    const clean = s.keyword.replace(/\s/g, '');
+                    const entry = { searchVolume: svValue, documentCount: existing?.documentCount ?? null, isRealData: true, timestamp: Date.now() };
+                    apiCache.set(s.keyword, entry);
+                    apiCache.set(clean, entry);
+                  }
+                }
+                return {
+                  keyword: s.keyword,
+                  source: seedSource,
+                  searchVolume: svValue,
+                  documentCount: null
+                };
+              });
             } catch {
               return [];
             }
@@ -2977,7 +3007,11 @@ export async function huntProTrafficKeywords(options: {
 
   // 🚀 2.5단계: Ultimate Deep Mining (끝판왕 딥 마이닝 통합)
   // Traffic Hunter Pro의 분석력 + Ultimate Niche Finder의 발굴력
-  if (useDeepMining && (category !== 'celeb' || explosionMode)) {
+  // 카테고리 모드에서는 Naver 자연 연관 키워드가 이미 충분 → Deep Mining 축소
+  // (Deep Mining은 sv null 키워드를 대량 생성해 Rate Limit 소진)
+  const deepMiningEnabled = useDeepMining && (category !== 'celeb' || explosionMode)
+    && (mode !== 'category' || explosionMode);
+  if (deepMiningEnabled) {
     try {
       const miningSeeds = allSeedKeywords.slice(0, explosionMode ? 10 : 5);
       console.log(`[PRO-TRAFFIC] ⛏️ Ultimate Deep Mining 가동! 시드 ${miningSeeds.length}개로 숨은 보석 발굴 중...`);
