@@ -534,7 +534,12 @@ async function showLicenseInputDialog(): Promise<{ success: boolean; plan?: stri
           });
           
           licenseInput.addEventListener('input', (e) => {
-            let value = e.target.value.replace(/[^A-Z0-9]/g, '').toUpperCase();
+            let value = e.target.value.toUpperCase().replace(/[^A-Z0-9]/g, '');
+            // 🔥 16자 초과 시 마지막 16자만 사용 (prefix 자동 제거)
+            // 예: "LEWORD1234567890ABCD1234" → "7890ABCD1234" 로 잘려도
+            //    실제로는 "1234567890ABCDEF" 같은 16자 원본 복원이 필요해서
+            //    prefix가 앞에 붙는 경우 뒤쪽 16자를 취함.
+            if (value.length > 16) value = value.slice(-16);
             if (value.length > 4) value = value.slice(0,4) + '-' + value.slice(4);
             if (value.length > 9) value = value.slice(0,9) + '-' + value.slice(9);
             if (value.length > 14) value = value.slice(0,14) + '-' + value.slice(14);
@@ -555,12 +560,15 @@ async function showLicenseInputDialog(): Promise<{ success: boolean; plan?: stri
             
             // 코드 형식 자동 변환 (하이픈 없이 입력해도 됨)
             if (code) {
-              // 하이픈 제거 후 대문자로 변환
-              let cleanCode = code.replace(/-/g, '').toUpperCase();
-              
+              // 하이픈/공백 제거 후 대문자, 영숫자 외 제거
+              let cleanCode = code.toUpperCase().replace(/[^A-Z0-9]/g, '');
+
+              // 🔥 16자 초과 시 뒤쪽 16자만 사용 (prefix 자동 제거)
+              if (cleanCode.length > 16) cleanCode = cleanCode.slice(-16);
+
               // 16자리인지 확인
               if (cleanCode.length !== 16 || !/^[A-Z0-9]{16}$/.test(cleanCode)) {
-                error.textContent = '라이선스 코드는 16자리 영문/숫자입니다.';
+                error.textContent = '라이선스 코드는 16자리 영문/숫자입니다. (prefix 자동 제거됨)';
                 error.style.display = 'block';
                 return;
               }
