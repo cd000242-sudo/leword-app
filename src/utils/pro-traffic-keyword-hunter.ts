@@ -497,7 +497,7 @@ function getProPremiumMaxDocumentsForCategory(category: string): number {
   if (c === 'lite_standard') return PREMIUM_GOLDEN_MAX_DOCUMENT_COUNT;
   if (c === 'celeb') return 100000;
   if (c === 'fashion') return 50000;
-  if (c === 'life_tips') return 100000; // 생활팁은 문서수 상한
+  if (c === 'life_tips') return 300000; // 생활팁: 시즌 키워드는 dc 30만대가 흔함
   return 50000;
 }
 
@@ -513,6 +513,10 @@ function computePremiumGrade(r: ProTrafficKeyword, category?: string): 'SSS' | '
     if (dc > 300000) penaltySteps = 3;
     else if (dc > 250000) penaltySteps = 2;
     else if (dc > 200000) penaltySteps = 1;
+  } else if (category === 'life_tips') {
+    // 생활꿀팁: 시즌 키워드는 구조적으로 dc가 높음. 완화된 페널티.
+    if (dc > 500000) penaltySteps = 2;
+    else if (dc > 300000) penaltySteps = 1;
   } else {
     if (dc > 300000) penaltySteps = 3; // 매우 강력한 페널티
     else if (dc > 100000) penaltySteps = 2;
@@ -520,8 +524,11 @@ function computePremiumGrade(r: ProTrafficKeyword, category?: string): 'SSS' | '
   }
 
   // 레드오션 페널티 (문서수가 검색량보다 월등히 많은 경우)
-  if (dc > sv * 2) penaltySteps += 1;
-  if (dc > sv * 5) penaltySteps += 1;
+  // life_tips는 시즌 키워드 특성상 dc/sv 비가 항상 높으므로 제외
+  if (category !== 'life_tips') {
+    if (dc > sv * 2) penaltySteps += 1;
+    if (dc > sv * 5) penaltySteps += 1;
+  }
 
   let baseGrade: 'SSS' | 'SS' | 'S' | 'A' = 'A';
 
@@ -533,8 +540,8 @@ function computePremiumGrade(r: ProTrafficKeyword, category?: string): 'SSS' | '
   } else if (category === 'life_tips') {
     // life_tips: 생활팁은 문서수가 많은 편이므로 기준 완화
     if (dc <= 10000 && sv >= 2000 && gr >= 1.5) baseGrade = 'SSS';
-    else if (dc <= 30000 && sv >= 1000 && gr >= 0.8) baseGrade = 'SS';
-    else if (dc <= 150000 && sv >= 300 && gr >= 0.3) baseGrade = 'S';
+    else if (dc <= 50000 && sv >= 1000 && gr >= 0.5) baseGrade = 'SS';
+    else if (dc <= 300000 && sv >= 300 && gr >= 0.2) baseGrade = 'S';
   } else {
     // SSS: 🏆 진짜 황금 키워드만! (TOP 1% 품질)
     if (dc <= 5000 && sv >= 2000 && gr >= 4.0) baseGrade = 'SSS';
@@ -560,7 +567,9 @@ function computePremiumGradeStrict(r: ProTrafficKeyword, criteria?: { minRatio?:
 
   const category = criteria?.category;
   const minRatio = typeof criteria?.minRatio === 'number' ? criteria.minRatio : (category === 'celeb' ? 0.05 : 0.5);
-  const maxDocs = typeof criteria?.maxDocuments === 'number' ? criteria.maxDocuments : (category === 'celeb' ? 10000000 : 50000);
+  const maxDocs = typeof criteria?.maxDocuments === 'number'
+    ? criteria.maxDocuments
+    : (category === 'celeb' ? 10000000 : (category === 'life_tips' ? 300000 : 50000));
 
   if (category === 'celeb') {
     if (dc <= 1000000 && sv >= 2000 && gr >= 0.1) return 'SSS';
@@ -569,8 +578,8 @@ function computePremiumGradeStrict(r: ProTrafficKeyword, criteria?: { minRatio?:
   } else if (category === 'life_tips') {
     // life_tips: 생활팁 전용 기준 (문서수/비율 완화)
     if (dc <= 10000 && sv >= 2000 && gr >= 1.5) return 'SSS';
-    if (dc <= 30000 && sv >= 1000 && gr >= 0.8) return 'SS';
-    if (dc <= maxDocs && sv >= 300 && gr >= Math.max(0.3, minRatio)) return 'S';
+    if (dc <= 50000 && sv >= 1000 && gr >= 0.5) return 'SS';
+    if (dc <= maxDocs && sv >= 300 && gr >= Math.max(0.2, minRatio)) return 'S';
   } else {
     // Strict SSS: 진정한 황금 키워드만
     if (dc <= 5000 && sv >= 2000 && gr >= 4.0) return 'SSS';
@@ -2162,7 +2171,8 @@ export async function huntProTrafficKeywords(options: {
     '방법', '하는법', '하는방법', '꿀팁', '팁', '비법', '노하우',
     '제거', '청소', '세탁', '빨래', '정리', '수납', '보관', '절약',
     '예방', '방지', '해결', '관리', '손질', '활용', '응급', '대처',
-    '줄이기', '아끼는', '요령', '비결', '초보', '쉽게', '간단히', '나이프', '가위', '칼'
+    '줄이기', '아끼는', '요령', '비결', '초보', '쉽게', '간단히', '나이프', '가위', '칼',
+    '전기요금', '난방비', '가스비', '수도세', '에너지'
   ];
 
   const isLifeTipsProductKeyword = (kw: string): boolean => {
@@ -2585,7 +2595,7 @@ export async function huntProTrafficKeywords(options: {
         3: ['봄맞이 대청소', '황사 청소', '미세먼지', '겨울옷 세탁', '꽃가루 알레르기',
           '에어컨 청소', '봄철 환기', '정리정돈', '이불 세탁', '옷장 정리'],
         4: ['봄 옷정리', '환절기 건강', '곰팡이 예방', '습도 관리', '봄청소',
-          '에어컨 필터', '방충망 청소', '창문 청소', '이사 청소', '인테리어'],
+          '에어컨 필터 청소', '방충망 청소', '창문 청소', '이사 청소', '벚꽃 알레르기 대처법'],
         5: ['장마 대비', '여름옷 정리', '에어컨 청소', '모기 퇴치', '벌레 퇴치',
           '음식물쓰레기', '냉장고 청소', '신발장 냄새', '옷장 정리', '대청소'],
         // 여름 (6-8월)
@@ -3897,8 +3907,13 @@ export async function huntProTrafficKeywords(options: {
           minGoldenRatio = 0.15;
           minSearchVolume = 35;
           maxDocuments = 100000;
-        } else if (category === 'life_tips' || category === 'interior') {
-          // 생활꿀팁/인테리어: 롱테일 위주라 검색량은 다소 낮아도 허용하되, 문서 수 상한만 살짝 조정
+        } else if (category === 'life_tips') {
+          // 생활꿀팁: 시즌 키워드는 dc 30만대 흔함. 상한 대폭 완화.
+          minGoldenRatio = 0.1;
+          minSearchVolume = 25;
+          maxDocuments = 300000;
+        } else if (category === 'interior') {
+          // 인테리어: 롱테일 위주라 검색량은 다소 낮아도 허용
           minGoldenRatio = 0.12;
           minSearchVolume = 25;
           maxDocuments = 110000;
@@ -4130,7 +4145,7 @@ export async function huntProTrafficKeywords(options: {
     // - 레드오션 상한은 유지
     if (categoryPool.length < targetPoolSize) {
       const chosen = new Set(categoryPool.map(r => r.keyword));
-      const maxDocCountCut = (category === 'celeb') ? 300000 : 50000; // 강화된 문서수 상한
+      const maxDocCountCut = (category === 'celeb' || category === 'life_tips') ? 300000 : 50000; // 강화된 문서수 상한 (life_tips는 시즌 키워드 특성)
       const fallbackCategory = fallbackVerifiedResults
         .filter(r => isKeywordInSelectedCategory(r.keyword, category))
         .filter(r => {

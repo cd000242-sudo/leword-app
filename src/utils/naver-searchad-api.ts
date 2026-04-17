@@ -66,12 +66,15 @@ const parseVolumeValue = (value: number | string | null | undefined): number | n
  * API 요청을 위한 키워드 전처리
  */
 const buildProcessedKeyword = (cleanKeyword: string): string => {
+  // 🔥 중요: Naver SearchAd는 공백을 포함한 키워드를 합성어로 처리.
+  // 공백을 +로 대체하면 "곰팡이+제거" 형태가 되어 검색량 0 반환됨.
+  // 공백을 제거해 단일 토큰으로 전송 → 연관 키워드 목록이 정상 반환됨.
   let processedKeyword = cleanKeyword
     .replace(/['"]/g, '')
     .replace(/[&<>]/g, '')
     .replace(/[^\w\s가-힣]/g, '')
     .trim()
-    .replace(/\s+/g, '+');
+    .replace(/\s+/g, '');
 
   if (!processedKeyword || processedKeyword.length === 0) {
     processedKeyword = cleanKeyword.trim();
@@ -179,19 +182,22 @@ export async function getNaverSearchAdKeywordVolume(
       const keywordList = data.keywordList || data.relKeywordList || (data.result && (data.result.keywordList || data.result.relKeywordList)) || [];
 
       // 결과 매핑: 요청한 키워드를 찾아 결과에 넣기
+      // 정규화: 공백 + `+` 모두 제거 (Naver SearchAd가 "곰팡이 제거" → "곰팡이+제거"로 응답)
+      const normalize = (s: string) => s.toLowerCase().replace(/[\s+]+/g, '');
+
       for (const requestedKw of chunk) {
-        const normalizedRequest = requestedKw.toLowerCase().replace(/\s+/g, '');
+        const normalizedRequest = normalize(requestedKw);
 
         // 1차: 정확히 일치하는 항목 찾기
         let match = keywordList.find((item: any) => {
-          const rel = decodeHtmlEntities(item.relKeyword || '').toLowerCase().replace(/\s+/g, '');
+          const rel = normalize(decodeHtmlEntities(item.relKeyword || ''));
           return rel === normalizedRequest;
         });
 
         // 2차: 정확 일치 실패 시, 포함 관계 매칭 시도 (한미반도체 주가 → 한미반도체주가)
         if (!match) {
           match = keywordList.find((item: any) => {
-            const rel = decodeHtmlEntities(item.relKeyword || '').toLowerCase().replace(/\s+/g, '');
+            const rel = normalize(decodeHtmlEntities(item.relKeyword || ''));
             return rel.includes(normalizedRequest) || normalizedRequest.includes(rel);
           });
         }
@@ -203,17 +209,55 @@ export async function getNaverSearchAdKeywordVolume(
         }
 
         if (match) {
-          const pc = parseVolumeValue(match.monthlyPcQcCnt);
-          const mo = parseVolumeValue(match.monthlyMobileQcCnt);
-          const total = (pc !== null || mo !== null) ? ((pc || 0) + (mo || 0)) : null;
-          const aveCpc = parseVolumeValue(match.monthlyAveCpc);
+          let pc = parseVolumeValue(match.monthlyPcQcCnt);
+          let mo = parseVolumeValue(match.monthlyMobileQcCnt);
+          let total = (pc !== null || mo !== null) ? ((pc || 0) + (mo || 0)) : null;
+          let aveCpc = parseVolumeValue(match.monthlyAveCpc);
+          let competition = match.compIdx || match.competition;
+
+          // 🔥 휴리스틱 fallback: 매칭은 됐지만 검색량 0인 경우
+          // (Naver SearchAd가 다단어 한글 키워드를 합성어로 반환 → 합성어는 실검색 0)
+          // 요청 키워드와 공통 토큰 2개 이상 가진 항목 중 max sv 채택
+          if ((total ?? 0) === 0) {
+            const requestTokens = requestedKw.trim().split(/\s+/).filter(t => t.length >= 2);
+            console.log(`[NAVER-SEARCHAD][DEBUG] "${requestedKw}" sv=0, listSize=${keywordList.length}, tokens=${requestTokens.length} [${requestTokens.join(',')}]`);
+            if (keywordList.length > 0 && keywordList.length <= 10) {
+              console.log(`[NAVER-SEARCHAD][DEBUG] rels:`, keywordList.map((i: any) => `${i.relKeyword}(pc=${i.monthlyPcQcCnt},mo=${i.monthlyMobileQcCnt})`).slice(0, 5).join(' | '));
+            }
+            if (requestTokens.length >= 2) {
+              let bestItem: any = null;
+              let bestTotal = 0;
+              for (const item of keywordList) {
+                if (item === match) continue;
+                const rel = decodeHtmlEntities(item.relKeyword || '').toLowerCase();
+                const relFlexible = rel.replace(/[+]+/g, ' ');
+                const commonCount = requestTokens.filter(t => relFlexible.includes(t.toLowerCase())).length;
+                if (commonCount < 2) continue;
+                const cPc = parseVolumeValue(item.monthlyPcQcCnt) ?? 0;
+                const cMo = parseVolumeValue(item.monthlyMobileQcCnt) ?? 0;
+                const cTotal = cPc + cMo;
+                if (cTotal > bestTotal) {
+                  bestTotal = cTotal;
+                  bestItem = item;
+                }
+              }
+              if (bestItem && bestTotal > 0) {
+                pc = parseVolumeValue(bestItem.monthlyPcQcCnt);
+                mo = parseVolumeValue(bestItem.monthlyMobileQcCnt);
+                total = bestTotal;
+                aveCpc = parseVolumeValue(bestItem.monthlyAveCpc);
+                competition = bestItem.compIdx || bestItem.competition;
+                console.log(`[NAVER-SEARCHAD] 💡 휴리스틱: "${requestedKw}" → "${bestItem.relKeyword}" (sv=${bestTotal})`);
+              }
+            }
+          }
 
           results.push({
             keyword: requestedKw,
             pcSearchVolume: pc,
             mobileSearchVolume: mo,
             totalSearchVolume: total,
-            competition: match.compIdx || match.competition,
+            competition,
             monthlyPcQcCnt: pc,
             monthlyMobileQcCnt: mo,
             monthlyAveCpc: aveCpc,
