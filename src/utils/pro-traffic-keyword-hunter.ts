@@ -2276,14 +2276,43 @@ export async function huntProTrafficKeywords(options: {
     if (r.source.startsWith('deep_mining') && typeof r.searchVolume === 'number' && typeof r.documentCount === 'number') {
       if (r.documentCount < 5000) return true;
     }
+    // 🔥 surge 키워드는 무조건 통과 (황금비율 무관, 급증 자체가 가치)
+    if (surgeInfoMap.has(r.keyword)) return true;
 
-    return typeof r.searchVolume === 'number'
-      && Number.isFinite(r.searchVolume)
-      && r.searchVolume > 0
-      && typeof r.documentCount === 'number'
-      && Number.isFinite(r.documentCount)
-      && r.documentCount > 0;
+    // 🔥 완화: sv 또는 dc 중 하나라도 양수면 통과 (결과 최대화)
+    // 기존 엄격: sv>0 AND dc>0 이 둘 다 필요 → 대다수 탈락 원인
+    const svOk = typeof r.searchVolume === 'number' && Number.isFinite(r.searchVolume) && r.searchVolume > 0;
+    const dcOk = typeof r.documentCount === 'number' && Number.isFinite(r.documentCount) && r.documentCount > 0;
+    return svOk || dcOk;
   };
+
+  // 🔥 급상승 키워드 정보 저장 — 모든 모드에서 감지, 최종 결과에서 자동 SSS/SS 등급 부여
+  const surgeInfoMap = new Map<string, TrendSignal>();
+
+  // 🔥 모드 무관하게 surge 감지 (카테고리/시즌 모드에서도 급증 키워드 포착)
+  try {
+    const cachedSurges = listRecentSurges(30);
+    const surgeSeedSource = [...seedKeywords].slice(0, 10);
+    const freshResult = await withStepTimeout(
+      'scanForSurges:pre',
+      scanForSurges(surgeSeedSource, { category: category !== 'all' ? category : undefined }),
+      5000,
+      { scanned: 0, detected: [] as TrendSignal[], topSurges: [] as TrendSignal[], computedAt: 0 }
+    );
+    const allSurgeSignals = [...freshResult.detected, ...cachedSurges];
+    for (const sig of allSurgeSignals) {
+      if (sig.surgeLevel === 'explosive' || sig.surgeLevel === 'strong') {
+        if (!surgeInfoMap.has(sig.keyword)) {
+          surgeInfoMap.set(sig.keyword, sig);
+        }
+      }
+    }
+    if (surgeInfoMap.size > 0) {
+      console.log(`[PRO-TRAFFIC] 🔥 급증 키워드 ${surgeInfoMap.size}개 감지 (explosive/strong) - 자동 황금 분류`);
+    }
+  } catch {
+    console.warn('[PRO-TRAFFIC] surge 사전 감지 실패, 계속 진행');
+  }
 
   let allSeedKeywords: string[] = [...seedKeywords];
   let multiSourceSeeds: string[] = [];
@@ -2306,6 +2335,14 @@ export async function huntProTrafficKeywords(options: {
     const unifiedSeeds = getCategorySeeds(category);
     const mergedSeeds = [...new Set([...categoryKeywords, ...unifiedSeeds])];
     allSeedKeywords = [...allSeedKeywords, ...shuffleArray(mergedSeeds)];
+    // 🔥 surge 키워드도 카테고리 시드에 최상위 주입
+    const isCatSpec = category !== 'all' && category !== 'pro_premium' && category !== 'lite_standard';
+    const surgeKeywordsForSeed = [...surgeInfoMap.keys()]
+      .filter(k => !isCatSpec || isKeywordInSelectedCategory(k, category));
+    if (surgeKeywordsForSeed.length > 0) {
+      allSeedKeywords = [...surgeKeywordsForSeed, ...allSeedKeywords];
+      console.log(`[PRO-TRAFFIC] 🔥 카테고리 모드에 급증 키워드 ${surgeKeywordsForSeed.length}개 시드 주입`);
+    }
     console.log(`[PRO-TRAFFIC] 📁 카테고리 키워드 ${mergedSeeds.length}개 로드 (기존 ${categoryKeywords.length} + 통합 ${unifiedSeeds.length})`);
 
   } else {
@@ -2325,42 +2362,32 @@ export async function huntProTrafficKeywords(options: {
     // 🔥 시드 키워드 셔플 (매번 다른 순서로 탐색 → 다른 결과!)
     allSeedKeywords = shuffleArray(allSeedKeywords);
 
-    // 🔥 트렌드 급상승 키워드 주입 (경쟁 도구 차별화)
+    // 🔥 트렌드 급상승 키워드 추가 스캔 (realtime 모드 — 현재 시드 기반 실시간 감지)
     try {
-      // 1) 캐시된 급상승 키워드 즉시 수집 (네트워크 불필요)
-      const cachedSurges = listRecentSurges(30);
-
-      // 2) 현재 시드 일부로 실시간 급상승 스캔 (5초 타임아웃)
       const surgeSource = allSeedKeywords.slice(0, 10);
       const freshResult = await withStepTimeout(
-        'scanForSurges',
+        'scanForSurges:realtime',
         scanForSurges(surgeSource, { category: category !== 'all' ? category : undefined }),
         5000,
         { scanned: 0, detected: [] as TrendSignal[], topSurges: [] as TrendSignal[], computedAt: 0 }
       );
-
-      // 캐시 + 실시간 결과 병합 (explosive/strong만)
-      const allSurgeSignals = [...freshResult.detected, ...cachedSurges];
-      const surgeKeywords = [...new Set(
-        allSurgeSignals
-          .filter((s) => s.surgeLevel === 'explosive' || s.surgeLevel === 'strong')
-          .map((s) => s.keyword)
-      )];
-
-      if (surgeKeywords.length > 0) {
-        // 카테고리 모드면 카테고리 필터 적용
-        const isCategorySpecified = category !== 'all' && category !== 'pro_premium' && category !== 'lite_standard';
-        const filteredSurge = isCategorySpecified
-          ? surgeKeywords.filter((kw) => isKeywordInSelectedCategory(kw, category))
-          : surgeKeywords;
-
-        if (filteredSurge.length > 0) {
-          allSeedKeywords = [...filteredSurge, ...allSeedKeywords];
-          console.log(`[PRO-TRAFFIC] 🔥 트렌드 급상승 ${filteredSurge.length}개 시드 주입: ${filteredSurge.slice(0, 5).join(', ')}`);
+      for (const sig of freshResult.detected) {
+        if ((sig.surgeLevel === 'explosive' || sig.surgeLevel === 'strong') && !surgeInfoMap.has(sig.keyword)) {
+          surgeInfoMap.set(sig.keyword, sig);
         }
       }
+
+      // surgeInfoMap → 시드 최상위 주입
+      const isCategorySpecified = category !== 'all' && category !== 'pro_premium' && category !== 'lite_standard';
+      const surgeKeywords = [...surgeInfoMap.keys()];
+      const filteredSurge = isCategorySpecified
+        ? surgeKeywords.filter((kw) => isKeywordInSelectedCategory(kw, category))
+        : surgeKeywords;
+      if (filteredSurge.length > 0) {
+        allSeedKeywords = [...filteredSurge, ...allSeedKeywords];
+        console.log(`[PRO-TRAFFIC] 🔥 트렌드 급상승 ${filteredSurge.length}개 시드 주입: ${filteredSurge.slice(0, 5).join(', ')}`);
+      }
     } catch {
-      // 트렌드 감지 실패해도 메인 플로우 계속
       console.warn('[PRO-TRAFFIC] 트렌드 급상승 감지 실패, 기본 시드로 진행');
     }
 
@@ -4687,6 +4714,62 @@ export async function huntProTrafficKeywords(options: {
         } as ProTrafficKeyword;
       });
 
+    // 🔥 결과 부족 시 전 카테고리 relaxed fallback — 넓은 풀(sortedAllFinalCandidates)에서 끌어옴
+    if (selectedKeywords.length < count) {
+      const needMore = count - selectedKeywords.length;
+      console.log(`[PRO-TRAFFIC] 🔄 결과 부족 (${selectedKeywords.length}/${count}) → 완화 기준으로 ${needMore}개 보충`);
+      // enrichedPremium은 카테고리 매칭된 작은 풀 → 부족. sortedAllFinalCandidates(전체 verified)까지 확대.
+      const widestPool = [
+        ...enrichedPremium,
+        ...sortedAllFinalCandidates.filter(r => {
+          // 전체 verified 중, 카테고리 매칭되거나 혹은 어떤 카테고리도 지정 안 된 경우
+          if (category === 'all' || category === 'pro_premium' || category === 'lite_standard') return true;
+          return isKeywordInSelectedCategory(r.keyword, category);
+        })
+      ];
+      const relaxed = fillToCountPreferCompact(
+        [...widestPool].sort((a, b) => {
+          const exDiff = calculateExplosionScore(b) - calculateExplosionScore(a);
+          if (Math.abs(exDiff) > 0.0001) return exDiff;
+          const grDiff = (b.goldenRatio ?? 0) - (a.goldenRatio ?? 0);
+          if (Math.abs(grDiff) > 0.0001) return grDiff;
+          const dcDiff = (a.documentCount ?? Number.MAX_SAFE_INTEGER) - (b.documentCount ?? Number.MAX_SAFE_INTEGER);
+          if (Math.abs(dcDiff) > 0.1) return dcDiff;
+          return (b.searchVolume ?? 0) - (a.searchVolume ?? 0);
+        }),
+        count * 3 // 여유있게 3배 풀 준비 후 중복 제거로 정확히 count까지 채움
+      );
+      // 기존 selectedKeywords + 부족분만 보충 (중복 제거)
+      const existingKeys = new Set(selectedKeywords.map(k => String(k.keyword || '')));
+      const topUp = relaxed.filter(r => !existingKeys.has(String(r.keyword || ''))).slice(0, needMore);
+      if (topUp.length > 0) {
+        const topUpEnriched = topUp.map(r => {
+          const grade = computePremiumGradeEffective(r, strictPro, { ...premiumCriteria, category });
+          const isCPAKeyword = /렌탈|대출|보험|카드|통신사|인터넷사은품|상담|가입|신청|가격비교|최저가|비교추천/.test(r.keyword);
+          const blueprint = MonetizationStrategyGenerator.generate(
+            r.keyword,
+            r.searchVolume || 0,
+            r.documentCount || 0,
+            isCPAKeyword ? 'price' : (r.type === '💎 블루오션' ? 'niche' : (r.revenueEstimate?.revenueGrade === 'SSS' ? 'price' : 'info'))
+          );
+          const rookieFriendly = calculateAdvancedRookieFriendly(r, undefined);
+          const winningStrategy = generateWinningStrategy(r, rookieFriendly, blueprint);
+          const riskAnalysis = computeRiskAnalysis(r.keyword);
+          return {
+            ...r,
+            grade,
+            monetizationBlueprint: blueprint,
+            rookieFriendly,
+            winningStrategy,
+            riskAnalysis,
+          } as ProTrafficKeyword;
+        });
+        selectedKeywords = [...selectedKeywords, ...topUpEnriched];
+        console.log(`[PRO-TRAFFIC] ✅ 완화 보충 완료: ${topUpEnriched.length}개 추가 → 총 ${selectedKeywords.length}개`);
+      }
+    }
+
+    // 🔥 celeb 전용 legacy 경로 유지 (selectedKeywords가 여전히 0인 엣지 케이스)
     if (selectedKeywords.length === 0 && category === 'celeb') {
       const relaxed = fillToCountPreferCompact(
         [...enrichedPremium].sort((a, b) => {
@@ -4998,6 +5081,99 @@ export async function huntProTrafficKeywords(options: {
             }
           };
         });
+    }
+  }
+
+  // 🔥 surge 키워드 자동 SSS/SS 등급 부여 — 급증 자체가 황금 가치
+  for (const kw of selectedKeywords) {
+    const surgeInfo = surgeInfoMap.get(kw.keyword);
+    if (surgeInfo) {
+      (kw as any).grade = surgeInfo.surgeLevel === 'explosive' ? 'SSS' : 'SS';
+      (kw as any).type = '🔥 급상승 키워드';
+      if (kw.timing) {
+        kw.timing.urgency = 'NOW';
+        kw.timing.trendDirection = 'rising';
+      }
+    }
+  }
+
+  // 🔥 최종 보루: 원천 `results` 배열까지 거슬러 가서 공격적 보충 — 카테고리 혼입 + 검증 완화
+  // results는 파이프라인 초반 풀(카테고리/verified 필터 이전). 가장 큰 원본.
+  if (selectedKeywords.length < count) {
+    const need = count - selectedKeywords.length;
+    // 공백 제거 버전도 중복 취급 (예: "냉장고 정리" == "냉장고정리")
+    const existingKeys = new Set<string>();
+    for (const k of selectedKeywords) {
+      const kw = String(k.keyword || '');
+      existingKeys.add(kw);
+      existingKeys.add(kw.replace(/\s+/g, ''));
+    }
+    // 복수 소스 통합: results (원천) + verifiedResults + allFinalVerified + sortedAllFinalCandidates
+    const allSources = [...verifiedResults, ...allFinalVerified, ...sortedAllFinalCandidates, ...results];
+    const uniqueMap = new Map<string, ProTrafficKeyword>();
+    for (const r of allSources) {
+      const k = String(r.keyword || '');
+      if (!k) continue;
+      const compact = k.replace(/\s+/g, '');
+      if (existingKeys.has(k) || existingKeys.has(compact)) continue;
+      // 공백 버전 우선 (사용자 친화). compact 키로 dedupe.
+      if (uniqueMap.has(compact)) {
+        const prev = uniqueMap.get(compact)!;
+        if (!prev.keyword.includes(' ') && k.includes(' ')) {
+          uniqueMap.set(compact, r); // 공백 있는 쪽으로 교체
+        }
+      } else {
+        uniqueMap.set(compact, r);
+      }
+    }
+    // verified 우선, 없으면 원천에서도 수용 (데이터 null이어도 키워드 자체는 가치)
+    const verifiedUnified = Array.from(uniqueMap.values()).filter(isVerifiedMetrics);
+    const rawUnified = Array.from(uniqueMap.values()).filter(r => !isVerifiedMetrics(r));
+    const unifiedPool = [...verifiedUnified, ...rawUnified];
+    console.log(`[PRO-TRAFFIC] 🛟 통합 풀: verified=${verifiedUnified.length}, raw=${rawUnified.length}, total=${unifiedPool.length}`);
+
+    // 합본: surge → 같은 카테고리 → 황금비율 순
+    const combined = unifiedPool
+      .sort((a, b) => {
+        // surge 키워드 최우선
+        const aSurge = surgeInfoMap.has(a.keyword) ? 1 : 0;
+        const bSurge = surgeInfoMap.has(b.keyword) ? 1 : 0;
+        if (aSurge !== bSurge) return bSurge - aSurge;
+        // 같은 카테고리 우선 (isKeywordInSelectedCategory)
+        const isCatSpec2 = category !== 'all' && category !== 'pro_premium' && category !== 'lite_standard';
+        if (isCatSpec2) {
+          const aInCat = isKeywordInSelectedCategory(a.keyword, category) ? 1 : 0;
+          const bInCat = isKeywordInSelectedCategory(b.keyword, category) ? 1 : 0;
+          if (aInCat !== bInCat) return bInCat - aInCat;
+        }
+        const grA = a.goldenRatio ?? 0;
+        const grB = b.goldenRatio ?? 0;
+        if (Math.abs(grB - grA) > 0.01) return grB - grA;
+        return (b.searchVolume ?? 0) - (a.searchVolume ?? 0);
+      });
+    const broadPool = combined.slice(0, need);
+    if (broadPool.length > 0) {
+      console.log(`[PRO-TRAFFIC] 🛟 최종 보루: 원천 풀에서 ${broadPool.length}개 보충 (${selectedKeywords.length}→${selectedKeywords.length + broadPool.length}/${count}, 풀크기=${unifiedPool.length})`);
+      const enrichedTopUp = broadPool.map(r => {
+        const isCPA = /렌탈|대출|보험|카드|통신사|인터넷사은품|상담|가입|신청|가격비교|최저가|비교추천/.test(r.keyword);
+        const blueprint = MonetizationStrategyGenerator.generate(
+          r.keyword,
+          r.searchVolume || 0,
+          r.documentCount || 0,
+          isCPA ? 'price' : (r.type === '💎 블루오션' ? 'niche' : (r.revenueEstimate?.revenueGrade === 'SSS' ? 'price' : 'info'))
+        );
+        const rookieFriendly = calculateAdvancedRookieFriendly(r, r.topBlogData);
+        const winningStrategy = generateWinningStrategy(r, rookieFriendly, blueprint);
+        const riskAnalysis = computeRiskAnalysis(r.keyword);
+        return {
+          ...r,
+          monetizationBlueprint: blueprint,
+          winningStrategy,
+          rookieFriendly,
+          riskAnalysis,
+        };
+      });
+      selectedKeywords = [...selectedKeywords, ...enrichedTopUp];
     }
   }
 
