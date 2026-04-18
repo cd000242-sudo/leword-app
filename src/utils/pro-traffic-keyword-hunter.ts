@@ -3706,7 +3706,11 @@ export async function huntProTrafficKeywords(options: {
               0,
               result.blueOcean.score
             ),
-          grade: result.grade,
+          grade: computePremiumGradeEffective(
+            { ...result, searchVolume: realSearchVolumeForCalc ?? 0, documentCount: 0, goldenRatio: 0 } as any,
+            strictPro,
+            { ...premiumCriteria, category }
+          ),
           blueOcean: { ...result.blueOcean }
         });
         console.log(`[PRO-TRAFFIC] ⚠️ 문서수 API 실패(폴백 후보 유지): "${result.keyword}" (검색량=${realSearchVolume})`);
@@ -3764,7 +3768,11 @@ export async function huntProTrafficKeywords(options: {
               result.blueOcean.score
             );
         })(),
-        grade: result.grade,
+        grade: computePremiumGradeEffective(
+          { ...result, searchVolume: realSearchVolumeForCalc ?? 0, documentCount: realDocCount, goldenRatio: realGoldenRatio } as any,
+          strictPro,
+          { ...premiumCriteria, category }
+        ),
         blueOcean: { ...result.blueOcean }
       });
 
@@ -5165,8 +5173,10 @@ export async function huntProTrafficKeywords(options: {
         const rookieFriendly = calculateAdvancedRookieFriendly(r, r.topBlogData);
         const winningStrategy = generateWinningStrategy(r, rookieFriendly, blueprint);
         const riskAnalysis = computeRiskAnalysis(r.keyword);
+        const grade = computePremiumGradeEffective(r, strictPro, { ...premiumCriteria, category });
         return {
           ...r,
+          grade,
           monetizationBlueprint: blueprint,
           winningStrategy,
           rookieFriendly,
