@@ -781,6 +781,11 @@ export function setupConfigUtilityHandlers(): void {
         const { buildCoupangSearchUrl, simplifyTitleForCoupangSearch, convertToPartnersLinks, getCoupangPartnersConfig } = await import('../../utils/coupang-partners');
         const { getNaverAutocompleteKeywords } = await import('../../utils/naver-autocomplete');
         const { EnvironmentManager } = await import('../../utils/environment-manager');
+        const { classifySearchIntent, getIntentScoreAdjust } = await import('../../utils/search-intent-classifier');
+
+        // 검색 의도 분류 (스코어링 가산 + UI 뱃지)
+        const intent = classifySearchIntent(keyword);
+        const intentAdjust = getIntentScoreAdjust(intent.primary);
 
         // 쇼핑 검색 + 자동완성 병렬 실행 (첫 페이지 요청에만)
         const envCfg = EnvironmentManager.getInstance().getConfig();
@@ -797,10 +802,14 @@ export function setupConfigUtilityHandlers(): void {
         ]);
 
         // 쿠팡 검색 URL + 전환 스코어 전체 상품에 부착
+        // 의도 가산점: 구매/비교성 키워드는 전체 추천 적극, 정보성은 억제
         for (const item of result.items) {
           const simplified = simplifyTitleForCoupangSearch(item.title) || keyword;
           item.coupangSearchUrl = buildCoupangSearchUrl(simplified);
           computeConversionScore(item);
+          if (item.conversionScore !== undefined) {
+            item.conversionScore = Math.round((item.conversionScore + intentAdjust) * 10) / 10;
+          }
         }
 
         const recommended = pickBlogRecommendedItems(result.items, 10);
@@ -845,6 +854,7 @@ export function setupConfigUtilityHandlers(): void {
           insight,
           partnersEnabled,
           relatedKeywords: relatedKeywordsTrimmed,
+          intent, // 검색 의도 분류 (primary, scores, label, icon)
         };
       } catch (err: any) {
         console.error('[SHOPPING-CONNECT] 오류:', err?.message ?? err);
@@ -852,6 +862,36 @@ export function setupConfigUtilityHandlers(): void {
       }
     });
     console.log('[KEYWORD-MASTER] ✅ shopping-connect-search 핸들러 등록 완료');
+  }
+
+  // 🛒 쇼핑 커넥트 — 추천 키워드 (모달 열자마자 노출)
+  if (!ipcMain.listenerCount('shopping-connect-suggestions')) {
+    ipcMain.handle('shopping-connect-suggestions', async () => {
+      try {
+        const { getShoppingSuggestions } = await import('../../utils/shopping-keyword-suggestions');
+        const s = await getShoppingSuggestions();
+        return { success: true, ...s };
+      } catch (err: any) {
+        console.error('[SHOPPING-CONNECT] 추천 키워드 로드 실패:', err?.message);
+        return { success: false, error: err?.message, dynamic: [], verified: [], static: [] };
+      }
+    });
+    console.log('[KEYWORD-MASTER] ✅ shopping-connect-suggestions 핸들러 등록 완료');
+  }
+
+  // 🛒 쇼핑 커넥트 — 정적 풀 실시간 검증 (첫 로드 시 10~15초 소요, 이후 24h 캐시)
+  if (!ipcMain.listenerCount('shopping-connect-verify')) {
+    ipcMain.handle('shopping-connect-verify', async () => {
+      try {
+        const { getVerifiedShoppingSuggestions } = await import('../../utils/shopping-keyword-suggestions');
+        const items = await getVerifiedShoppingSuggestions(30);
+        return { success: true, items };
+      } catch (err: any) {
+        console.error('[SHOPPING-CONNECT] 검증 실패:', err?.message);
+        return { success: false, error: err?.message, items: [] };
+      }
+    });
+    console.log('[KEYWORD-MASTER] ✅ shopping-connect-verify 핸들러 등록 완료');
   }
 
   // 🔥 100점짜리 뉴스 스니펫 크롤링 (IPC 핸들러)
