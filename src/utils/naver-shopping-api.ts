@@ -11,7 +11,8 @@ import { EnvironmentManager } from './environment-manager';
 
 export interface ShoppingItem {
   title: string;           // HTML 태그 제거된 원본 상품명
-  cleanTitle?: string;     // 정제된 상품명 (비교표·블로그 글용)
+  cleanTitle?: string;     // 정제된 상품명 (비교표·블로그 글용, 대괄호/수량만 제거)
+  simplifiedTitle?: string; // 검색용 간소화 제목 (브랜드+핵심 2~3토큰, 스펙/단위 제거)
   link: string;            // 네이버 쇼핑 상품 URL
   image: string;           // 상품 이미지 URL
   lprice: number;          // 최저가
@@ -93,6 +94,43 @@ export function cleanProductTitle(rawTitle: string, brand?: string): string {
   return t;
 }
 
+/**
+ * 검색용 간소화 제목 — 브랜드커넥트/네이버 검색 매칭에 최적화
+ *
+ *  - [대괄호] ( ) { } 전부 제거
+ *  - 단위 토큰 제거 (3000IU, 500mg, 120ml, 60정, 2개세트, 1+1 등)
+ *  - 모델코드 유지 (HT08, RSM-R540 같은 건 검색 도움)
+ *  - 맨 앞 2~4토큰만 남김
+ *
+ * 예:
+ *   "뉴트리원 퓨어 비타민D3 3000IU 500mg x 60정" → "뉴트리원 퓨어 비타민D3"
+ *   "QCY QCY-HT08" → "QCY HT08"
+ *   "레토지엠에스 레토 경량 접이식 캠핑의자 LCP-CL06" → "레토 경량 접이식 캠핑의자"
+ */
+export function simplifyProductTitleForSearch(rawTitle: string, brand?: string): string {
+  let t = cleanProductTitle(rawTitle, brand);
+  if (!t) return '';
+
+  // 괄호류 전부 제거
+  t = t.replace(/\([^)]*\)/g, ' ').replace(/\{[^}]*\}/g, ' ').replace(/\[[^\]]*\]/g, ' ');
+
+  // 단위/스펙 토큰 제거: 3000IU, 500mg, 120ml, 2kg, 60정, 3개세트, 10매, 1+1 등
+  t = t.replace(/\b\d+(\.\d+)?\s*(IU|mg|g|kg|ml|L|정|캡슐|매|개입|개|팩|세트|봉|호|년|일|회|장|p|pcs|ea|EA)\b/gi, ' ');
+  t = t.replace(/\b\d+\s*[+x×]\s*\d+\b/g, ' '); // "1+1", "2x60" 등
+  t = t.replace(/,\s*\d+\S*/g, ' ');
+
+  // 공백 정리
+  t = t.replace(/\s+/g, ' ').trim();
+
+  // 맨 앞 2~4토큰만 (토큰이 너무 적으면 전체 유지)
+  const tokens = t.split(/\s+/).filter(Boolean);
+  const keep = Math.min(tokens.length, 4);
+  // 4토큰 넘지만 4토큰째가 짧으면 3토큰까지만
+  const finalTokens = tokens.slice(0, keep);
+
+  return finalTokens.join(' ').trim();
+}
+
 // 5분 메모리 캐시 — 네이버 쇼핑 API 일일 25k 쿼터 보호
 const CACHE_TTL = 5 * 60_000;
 const shoppingCache = new Map<string, { result: ShoppingSearchResult; expiresAt: number }>();
@@ -156,6 +194,7 @@ export async function searchNaverShopping(
     return {
       title,
       cleanTitle: cleanProductTitle(title, brand),
+      simplifiedTitle: simplifyProductTitleForSearch(title, brand),
       link: raw.link,
       image: raw.image,
       lprice: Number(raw.lprice) || 0,

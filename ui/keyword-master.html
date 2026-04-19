@@ -12005,6 +12005,24 @@
           }
         };
 
+        window.copyProductName = function(productId, btn) {
+          // 현재 표시된 items에서 해당 productId 찾기
+          const items = (window.__scPaging && window.__scPaging.items) || [];
+          const item = items.find(i => String(i.productId) === String(productId));
+          if (!item) return;
+          // 검색 최적화된 simplifiedTitle 우선, 없으면 cleanTitle, 그것도 없으면 원본
+          const name = item.simplifiedTitle || item.cleanTitle || item.title || '';
+          if (!name) return;
+          try {
+            navigator.clipboard.writeText(name).then(() => {
+              btn.innerHTML = '✓ 복사됨';
+              setTimeout(() => { btn.innerHTML = '📋 제품명'; }, 1200);
+            });
+          } catch (e) {
+            if (typeof copyToClipboard === 'function') copyToClipboard(name);
+          }
+        };
+
         window.closeShoppingConnectModal = function closeShoppingConnectModal() {
           unlockBodyScroll();
           const m = document.getElementById('shoppingConnectModal');
@@ -12298,6 +12316,7 @@
           const items = Array.from(window.__scSelected.values());
           if (items.length < 2) { alert('최소 2개 이상 선택하세요.'); return; }
 
+          // 비교표: cleanTitle(대괄호/수량만 제거, 스펙 유지) 우선. 검색용이 아니라 정보 표현이므로.
           const title = (it) => it.cleanTitle || it.title || '';
           if (format === 'markdown') {
             let md = '| 상품명 | 가격 | 판매처 | 브랜드 | 링크 |\n| --- | ---: | --- | --- | --- |\n';
@@ -12338,8 +12357,9 @@
           const cat = [item.category1, item.category2, item.category3].filter(Boolean).join(' > ');
           const safeLink = (item.link || '').replace(/'/g, "\\'");
           const safeCoupang = (item.coupangSearchUrl || '').replace(/'/g, "\\'");
-          const info = `${item.title}\\n가격: ${price}원\\n판매처: ${mall}\\nURL: ${item.link}`.replace(/'/g, "\\'");
           const isSelected = window.__scSelected && window.__scSelected.has(item.productId);
+          // 제품명만 복사용 (검색 매칭 최적화)
+          const productIdSafe = (item.productId || '').replace(/'/g, "\\'");
 
           const score = item.conversionScore;
           const bd = item.scoreBreakdown || {};
@@ -12397,8 +12417,8 @@
               <div class="sc-btns">
                 <button class="sc-mini-btn sc-mini-btn-primary" onclick="window.electronAPI?.invoke('open-external-url', '${safeLink}');">🔗 네이버</button>
                 ${safeCoupang ? `<button class="sc-mini-btn" style="background:rgba(255,87,34,0.15);color:#ff8a65;border-color:rgba(255,87,34,0.3);" onclick="window.electronAPI?.invoke('open-external-url', '${safeCoupang}');">🛒 쿠팡</button>` : ''}
-                <button class="sc-mini-btn sc-select-btn" style="${selectBtnStyle}" onclick="toggleScSelect('${item.productId}', this);">${isSelected ? '✓ 선택됨' : '＋ 선택'}</button>
-                <button class="sc-mini-btn" onclick="copyToClipboard('${info}'); this.innerHTML='✓'; setTimeout(() => this.innerHTML='📋', 1200);">📋</button>
+                <button class="sc-mini-btn sc-select-btn" style="${selectBtnStyle}" onclick="toggleScSelect('${productIdSafe}', this);">${isSelected ? '✓ 선택됨' : '＋ 선택'}</button>
+                <button class="sc-mini-btn" title="제품명만 복사 (검색용)" onclick="copyProductName('${productIdSafe}', this);">📋 제품명</button>
               </div>
             </div>
           `;
