@@ -581,7 +581,7 @@ export function calculateProfitGoldenRatio(
   const safety = evaluateKeywordSafety(keyword);
 
   const rawRatio = searchVolume / Math.max(1, documentCount);
-  const isCandidateForGolden = documentCount <= 10000 && rawRatio >= 1.5;
+  const isCandidateForGolden = documentCount > 0 && documentCount <= 10000 && rawRatio >= 1.5;
 
   // 계절성 감지: 비시즌 키워드 경고
   const seasonality = detectSeasonality(keyword);
@@ -641,6 +641,17 @@ export function calculateProfitGoldenRatio(
   } else {
     grade = 'D';
     gradeReason = `❌ 검색량 적고 경쟁 많음 — 다른 키워드 추천${serpWarning}`;
+  }
+
+  // 📉 문서수 미확인 시 등급 캡: 경쟁도 판정 불가로 최대 B등급 제한 (PRO 헌터와 차별화)
+  if (documentCount <= 0) {
+    const gradeOrder: ProfitKeywordData['grade'][] = ['SSS', 'SS', 'S', 'A', 'B', 'C', 'D'];
+    const currentIdx = gradeOrder.indexOf(grade);
+    const minIdx = gradeOrder.indexOf('B');
+    if (currentIdx < minIdx) {
+      grade = 'B';
+      gradeReason = `⚠️ 문서수 미확인 — 경쟁도 판정 불가로 B등급 제한, 재조회 후 재평가 필요${serpWarning}`;
+    }
   }
 
   // 계절성 경고: 비시즌 키워드면 등급 관계없이 경고 추가

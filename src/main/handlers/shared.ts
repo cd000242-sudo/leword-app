@@ -60,3 +60,37 @@ export function checkUnlimitedLicense(): { allowed: boolean; error?: any } {
     };
   }
 }
+
+// PRO 티어 자격 체크 (영구제 + 1년권)
+// 1개월/3개월 = LITE, 1년/영구제 = PRO
+export function checkProTierAllowed(): { allowed: boolean; reason?: string } {
+  const isDevelopment = !app.isPackaged || process.env['NODE_ENV'] === 'development';
+  if (isDevelopment) return { allowed: true, reason: 'dev' };
+
+  try {
+    const licensePath = path.join(app.getPath('userData'), 'license', 'license.json');
+    if (!fs.existsSync(licensePath)) return { allowed: false, reason: 'no-license' };
+
+    const licenseData = JSON.parse(fs.readFileSync(licensePath, 'utf8'));
+
+    // 영구제(무제한)
+    const isUnlimited = licenseData.isUnlimited === true
+      || licenseData.plan === 'unlimited'
+      || licenseData.licenseType === 'unlimited'
+      || licenseData.licenseType === 'permanent'
+      || licenseData.maxUses === -1
+      || licenseData.remaining === -1
+      || !licenseData.expiresAt;
+    if (isUnlimited) return { allowed: true, reason: 'unlimited' };
+
+    // 1년권
+    const typeStr = String(licenseData.licenseType || licenseData.plan || '').toUpperCase();
+    if (['1YEAR', '365DAY', 'YEARLY'].includes(typeStr)) {
+      return { allowed: true, reason: '1year' };
+    }
+
+    return { allowed: false, reason: 'short-period' };
+  } catch {
+    return { allowed: false, reason: 'error' };
+  }
+}

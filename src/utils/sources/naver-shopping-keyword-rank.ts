@@ -35,7 +35,27 @@ function formatDate(d: Date): string {
     return `${y}-${m}-${day}`;
 }
 
+// Rate limit 차단 상태 기억: 429 받으면 TTL 동안 모든 호출 즉시 실패 (스팸 방지)
+let rateLimitedUntil = 0;
+let rateLimitWarned = false;
+const RATE_LIMIT_COOLDOWN = 5 * 60_000; // 5분
+
+function isRateLimited(): boolean {
+    return Date.now() < rateLimitedUntil;
+}
+
+function markRateLimited(): void {
+    rateLimitedUntil = Date.now() + RATE_LIMIT_COOLDOWN;
+    if (!rateLimitWarned) {
+        console.warn(`[shopping-keyword-rank] 429 감지 — ${RATE_LIMIT_COOLDOWN / 60000}분간 모든 호출 스킵`);
+        rateLimitWarned = true;
+        setTimeout(() => { rateLimitWarned = false; }, RATE_LIMIT_COOLDOWN);
+    }
+}
+
 export async function fetchShoppingKeywordRank(filter: ShoppingRankFilter): Promise<ShoppingRankItem[]> {
+    if (isRateLimited()) return [];
+
     const today = new Date();
     const yesterday = new Date(today);
     yesterday.setDate(today.getDate() - 1);
@@ -64,9 +84,19 @@ export async function fetchShoppingKeywordRank(filter: ShoppingRankFilter): Prom
                 'User-Agent': 'Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/120.0.0.0 Safari/537.36',
             },
             timeout: 15000,
+            validateStatus: () => true,
         });
 
-        const ranks = response.data?.ranks;
+        // 429: rate limited — 차단 상태 기억하고 즉시 반환
+        if (response.status === 429) {
+            markRateLimited();
+            return [];
+        }
+        if (response.status >= 400) return [];
+
+        // 응답 구조: [{ ranks: [...], returnCode, datetime, ... }]
+        const payload = Array.isArray(response.data) ? response.data[0] : response.data;
+        const ranks = payload?.ranks;
         if (!Array.isArray(ranks)) return [];
 
         return ranks.map((r: any) => ({
@@ -75,7 +105,10 @@ export async function fetchShoppingKeywordRank(filter: ShoppingRankFilter): Prom
             linkId: String(r.linkId || ''),
         })).filter(r => r.keyword.length > 0);
     } catch (err: any) {
-        console.error('[shopping-keyword-rank] 호출 실패:', err.message);
+        // 네트워크 에러는 1회만 로그
+        if (!rateLimitWarned) {
+            console.error('[shopping-keyword-rank] 호출 실패:', err.message);
+        }
         return [];
     }
 }
@@ -105,9 +138,25 @@ export async function fetchAllCategoryRanks(filter: Omit<ShoppingRankFilter, 'ci
     const result: Record<string, ShoppingRankItem[]> = {};
     const cids = Object.keys(NAVER_SHOPPING_CATEGORIES);
 
-    for (const cid of cids) {
-        result[cid] = await fetchShoppingKeywordRank({ ...filter, cid });
-        await new Promise(r => setTimeout(r, 800));
+    // 10초 hard timeout 안에 12개 카테고리 완료해야 함.
+    // 전체 병렬은 429 트리거 → 3개씩 배치 병렬 (12 / 3 = 4 라운드, 각 ~1.5s = 6s)
+    const BATCH = 3;
+    for (let i = 0; i < cids.length; i += BATCH) {
+        const chunk = cids.slice(i, i + BATCH);
+        const entries = await Promise.all(
+            chunk.map(async cid => {
+                try {
+                    const items = await fetchShoppingKeywordRank({ ...filter, cid });
+                    return [cid, items] as const;
+                } catch {
+                    return [cid, [] as ShoppingRankItem[]] as const;
+                }
+            })
+        );
+        for (const [cid, items] of entries) result[cid] = items;
+        if (i + BATCH < cids.length) {
+            await new Promise(r => setTimeout(r, 300));
+        }
     }
 
     return result;

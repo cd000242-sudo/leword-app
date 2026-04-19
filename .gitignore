@@ -6,3 +6,10 @@ release/
 .DS_Store
 *.map
 
+
+# 세션 런타임 파일
+.claude/
+leword-source-history.json
+test-results/
+scripts/test-categories-audit.js
+scripts/test-category-hunt.js

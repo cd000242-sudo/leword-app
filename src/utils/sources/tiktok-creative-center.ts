@@ -20,6 +20,8 @@ export interface TiktokHashtagTrend {
 
 const HASHTAG_API = 'https://ads.tiktok.com/creative_radar_api/v1/popular_trend/hashtag/list';
 
+let tiktokAuthWarned = false;
+
 export async function fetchTiktokTrendingHashtags(options: {
     period?: 7 | 30 | 120;
     countryCode?: string;
@@ -43,6 +45,15 @@ export async function fetchTiktokTrendingHashtags(options: {
             },
         });
 
+        // API가 인증 토큰 필요로 변경됨: code 40101 'no permission'. 감지해서 조용히 skip.
+        const code = res.data?.code;
+        if (code && code !== 0) {
+            if (!tiktokAuthWarned) {
+                console.warn(`[tiktok-cc] API 인증 필요 (code=${code}) — 이 소스는 비활성화됩니다.`);
+                tiktokAuthWarned = true;
+            }
+            return [];
+        }
         const list = res.data?.data?.list;
         if (!Array.isArray(list)) return [];
 

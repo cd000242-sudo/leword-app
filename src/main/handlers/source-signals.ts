@@ -9,7 +9,7 @@
  */
 
 import { ipcMain } from 'electron';
-import { checkUnlimitedLicense } from './shared';
+import { checkUnlimitedLicense, checkProTierAllowed } from './shared';
 
 import { fetchAllCategoryRanks, fetchShoppingKeywordRank, fetchSegmentRanks, NAVER_SHOPPING_CATEGORIES } from '../../utils/sources/naver-shopping-keyword-rank';
 import { getYoutubeTrendingKeywords, fetchYoutubeKRTrending } from '../../utils/sources/youtube-kr-rss';
@@ -276,9 +276,9 @@ export function setupSourceSignalHandlers(): void {
     // ========== Rich Golden Feed (메인 핵심) ==========
     ipcMain.handle('get-rich-golden-feed', async (_e, options?: { force?: boolean; tier?: 'lite' | 'pro'; limit?: number }) => {
         try {
-            // PRO tier 요청 시 라이선스 체크
-            const isPro = checkUnlimitedLicense().allowed;
-            const tier = (options?.tier === 'pro' && isPro) ? 'pro' : 'lite';
+            // PRO 티어 자격: 영구제 + 1년권. 자격 있으면 기본 pro, 명시적으로 lite 요청하면 lite.
+            const isPro = checkProTierAllowed().allowed;
+            const tier: 'lite' | 'pro' = isPro ? (options?.tier === 'lite' ? 'lite' : 'pro') : 'lite';
             const limit = options?.limit || (tier === 'pro' ? 200 : 50);
 
             const result = await getCachedRichFeed(options?.force === true, { tier, limit });

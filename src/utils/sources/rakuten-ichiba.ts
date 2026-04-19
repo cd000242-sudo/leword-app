@@ -21,11 +21,11 @@ export interface RakutenItem {
 
 const RANKING_API = 'https://app.rakuten.co.jp/services/api/IchibaItem/Ranking/20220601';
 
+let missingAppIdWarned = false;
+
 function getAppId(): string {
     const cfg: any = EnvironmentManager.getInstance().getConfig();
-    const appId = cfg.rakutenAppId || process.env['RAKUTEN_APP_ID'] || '';
-    if (!appId) throw new Error('Rakuten Application ID 미설정');
-    return appId;
+    return cfg.rakutenAppId || process.env['RAKUTEN_APP_ID'] || '';
 }
 
 /**
@@ -33,10 +33,20 @@ function getAppId(): string {
  * genreId 0 = 전체, 100371 = 패션, 100939 = 식품 등
  */
 export async function fetchRakutenRanking(genreId: number = 0): Promise<RakutenItem[]> {
+    const appId = getAppId();
+    if (!appId) {
+        // Application ID 미설정 시 1회만 안내하고 조용히 스킵 (로그 스팸 방지)
+        if (!missingAppIdWarned) {
+            console.warn('[rakuten] Application ID 미설정 — 이 소스는 비활성화됩니다. rakuten.co.jp에서 무료 발급 후 설정 가능.');
+            missingAppIdWarned = true;
+        }
+        return [];
+    }
+
     try {
         const res = await axios.get(RANKING_API, {
             params: {
-                applicationId: getAppId(),
+                applicationId: appId,
                 genreId,
                 format: 'json',
                 page: 1,

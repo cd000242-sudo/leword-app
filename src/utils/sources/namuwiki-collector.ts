@@ -18,6 +18,8 @@ export interface NamuRecentChange {
 const RECENT_URL = 'https://namu.wiki/RecentChanges';
 const UA = 'Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 Chrome/120.0.0.0 Safari/537.36';
 
+let spaWarned = false;
+
 export async function fetchNamuRecentChanges(): Promise<NamuRecentChange[]> {
     try {
         const res = await axios.get(RECENT_URL, {
@@ -28,7 +30,16 @@ export async function fetchNamuRecentChanges(): Promise<NamuRecentChange[]> {
             },
         });
 
-        return parseRecentChanges(res.data);
+        const changes = parseRecentChanges(res.data);
+        // 나무위키는 SPA(theseed 엔진) — HTML에 실데이터 없음. 3건 미만이면 JS 미실행 상태로 간주.
+        if (changes.length < 3) {
+            if (!spaWarned) {
+                console.warn('[namuwiki] SPA 엔진으로 변경되어 HTML 파싱 불가 — 이 소스는 비활성화됩니다.');
+                spaWarned = true;
+            }
+            return [];
+        }
+        return changes;
     } catch (err: any) {
         console.error('[namuwiki] 최근변경 수집 실패:', err.message);
         return [];

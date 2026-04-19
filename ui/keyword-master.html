@@ -11853,6 +11853,7 @@
                 <div class="sc-search">
                   <input type="text" id="scKeyword" class="sc-input" placeholder="예: 무선 이어폰, 등산 배낭, 건강식품 등" />
                   <select id="scSort" class="sc-select">
+                    <option value="conv">🏆 전환 점수순 (추천)</option>
                     <option value="sim">🎯 정확도순</option>
                     <option value="date">🆕 최신순</option>
                     <option value="asc">💰 가격 낮은순</option>
@@ -11860,10 +11861,28 @@
                   </select>
                   <button class="sc-btn" onclick="runShoppingConnect()">🔍 상품 검색</button>
                 </div>
+                <div style="display:flex;gap:10px;align-items:center;margin-bottom:16px;font-size:12px;color:rgba(255,255,255,0.7);">
+                  <label style="display:flex;align-items:center;gap:6px;cursor:pointer;user-select:none;">
+                    <input type="checkbox" id="scSweetSpot" style="accent-color:#fbbf24;" />
+                    <span>💎 스위트스팟만 (2~7만원)</span>
+                  </label>
+                  <span style="color:rgba(255,255,255,0.35);">|</span>
+                  <label style="display:flex;align-items:center;gap:6px;cursor:pointer;user-select:none;">
+                    <input type="checkbox" id="scExcludeSmartStore" style="accent-color:#fb7185;" />
+                    <span>🚫 개인 스마트스토어 제외</span>
+                  </label>
+                </div>
+                <div id="scCompareBar" style="display:none;position:sticky;top:0;z-index:10;background:linear-gradient(135deg,#064e3b,#065f46);border:1px solid #10b981;border-radius:12px;padding:12px 16px;margin-bottom:14px;align-items:center;gap:12px;">
+                  <span style="font-size:13px;color:white;font-weight:700;">📋 <span class="sc-cmp-count" style="color:#34d399;">0</span>개 선택됨</span>
+                  <span style="flex:1;font-size:11px;color:rgba(255,255,255,0.7);">블로그 글에 붙여넣을 비교표 생성</span>
+                  <button onclick="generateScCompareTable('markdown')" style="padding:6px 12px;background:rgba(52,211,153,0.2);color:#34d399;border:1px solid rgba(52,211,153,0.4);border-radius:8px;font-size:11px;font-weight:700;cursor:pointer;">📋 Markdown</button>
+                  <button onclick="generateScCompareTable('html')" style="padding:6px 12px;background:rgba(96,165,250,0.2);color:#93c5fd;border:1px solid rgba(96,165,250,0.4);border-radius:8px;font-size:11px;font-weight:700;cursor:pointer;">📋 HTML</button>
+                  <button onclick="clearScSelection()" style="padding:6px 12px;background:rgba(255,255,255,0.08);color:rgba(255,255,255,0.7);border:1px solid rgba(255,255,255,0.15);border-radius:8px;font-size:11px;cursor:pointer;">해제</button>
+                </div>
                 <div id="scResults" class="sc-results">
                   <div class="sc-info">
                     <span style="font-size: 20px;">💡</span>
-                    <div>키워드를 입력하면 네이버 쇼핑에서 관련 상품 30개를 가져와 <b style="color:#34d399;">블로그 글에 활용할 수 있는 정보</b>(상품명·가격·판매처·이미지·URL)를 한눈에 보여드립니다. <b style="color:#fbbf24;">블루오션 가격대 추천 10개</b>는 가격 중앙값 근처 + 메이저 쇼핑몰 우선으로 자동 선별됩니다.</div>
+                    <div>키워드를 입력하면 네이버 쇼핑에서 관련 상품 50개를 가져와 <b style="color:#34d399;">블로그 글에 활용할 수 있는 정보</b>(상품명·가격·판매처·이미지·URL)를 한눈에 보여드립니다. <b style="color:#fbbf24;">블루오션 가격대 추천 10개</b>는 가격 중앙값 근처 + 메이저 쇼핑몰 우선으로 자동 선별됩니다.</div>
                   </div>
                 </div>
               </div>
@@ -11886,14 +11905,29 @@
           unlockBodyScroll();
           const m = document.getElementById('shoppingConnectModal');
           if (m) m.remove();
+          // 선택 상태 초기화
+          if (window.__scSelected) window.__scSelected.clear();
+          window.__scPaging = { keyword: '', apiSort: 'sim', start: 1, items: [] };
         };
 
-        window.runShoppingConnect = async function runShoppingConnect() {
+        // 페이지네이션 상태 (검색 시 초기화, 더보기 시 누적)
+        window.__scPaging = { keyword: '', apiSort: 'sim', start: 1, items: [] };
+
+        window.runShoppingConnect = async function runShoppingConnect(isLoadMore = false) {
           const kw = (document.getElementById('scKeyword')?.value || '').trim();
-          const sort = document.getElementById('scSort')?.value || 'sim';
+          const uiSort = document.getElementById('scSort')?.value || 'conv';
+          // 'conv'는 네이버 API 값 아님 → 서버엔 'sim'으로 보내고 클라이언트에서 전환 점수 정렬
+          const apiSort = (uiSort === 'conv') ? 'sim' : uiSort;
+          const sort = uiSort; // 로컬 정렬용 보관
           const resultsDiv = document.getElementById('scResults');
           if (!resultsDiv) return;
           if (!kw) { alert('키워드를 입력해주세요.'); return; }
+
+          // 새 검색이면 페이지네이션 초기화
+          if (!isLoadMore || window.__scPaging.keyword !== kw || window.__scPaging.apiSort !== apiSort) {
+            window.__scPaging = { keyword: kw, apiSort, start: 1, items: [] };
+          }
+          const startParam = window.__scPaging.start;
 
           resultsDiv.innerHTML = `
             <div style="text-align:center;padding:60px;">
@@ -11905,15 +11939,47 @@
           `;
 
           try {
-            const res = await window.electronAPI.invoke('shopping-connect-search', { keyword: kw, sort, display: 30 });
+            const res = await window.electronAPI.invoke('shopping-connect-search', { keyword: kw, sort: apiSort, display: 50, start: startParam });
             if (!res.success) {
               resultsDiv.innerHTML = `<div style="text-align:center;padding:60px;color:#fb7185;"><div style="font-size:40px;">❌</div><div style="margin-top:12px;">${res.error || '검색 실패'}</div></div>`;
               return;
             }
-            const items = res.items || [];
-            const reco = res.recommended || [];
+            // 클라이언트 필터 적용 (items 변수 선언 전에 수행)
+            const sweetSpot = !!document.getElementById('scSweetSpot')?.checked;
+            const excludeSS = !!document.getElementById('scExcludeSmartStore')?.checked;
+            const majorMalls = new Set(['쿠팡', 'Coupang', 'coupang', '네이버', '11번가', 'G마켓', '옥션', '위메프', '티몬', '인터파크', '롯데ON', 'SSG닷컴']);
+            const filter = (arr) => (arr || []).filter(it => {
+              if (sweetSpot && !(it.lprice >= 20000 && it.lprice <= 70000)) return false;
+              if (excludeSS) {
+                const isIndividual = !majorMalls.has(it.mallName) && /(상점|스토어|몰|샵|shop|store|mart)$/i.test(it.mallName || '');
+                if (isIndividual) return false;
+              }
+              return true;
+            });
+            // 페이지네이션 누적 — 기존 items + 새 items (keyword 동일할 때만)
+            const newItems = res.items || [];
+            window.__scPaging.items = isLoadMore
+              ? [...window.__scPaging.items, ...newItems]
+              : newItems.slice();
+            window.__scPaging.start = startParam + newItems.length;
+            window.__scPaging.hasMore = !!res.hasMore;
+
+            let items = filter(window.__scPaging.items);
+            const reco = filter(res.recommended);
+
+            // 전환 점수순 정렬 (UI 옵션)
+            if (sort === 'conv') {
+              items = items.slice().sort((a, b) => {
+                const diff = (b.conversionScore || 0) - (a.conversionScore || 0);
+                if (diff !== 0) return diff;
+                return (a.lprice || 0) - (b.lprice || 0);
+              });
+            }
             if (items.length === 0) {
-              resultsDiv.innerHTML = `<div style="text-align:center;padding:60px;color:rgba(255,255,255,0.5);"><div style="font-size:40px;">🔍</div><div style="margin-top:12px;">검색 결과가 없습니다.</div></div>`;
+              const msg = (sweetSpot || excludeSS)
+                ? '필터 조건에 맞는 상품이 없습니다. 필터를 해제하고 다시 시도하세요.'
+                : '검색 결과가 없습니다.';
+              resultsDiv.innerHTML = `<div style="text-align:center;padding:60px;color:rgba(255,255,255,0.5);"><div style="font-size:40px;">🔍</div><div style="margin-top:12px;">${msg}</div></div>`;
               return;
             }
 
@@ -11932,6 +11998,31 @@
                 <div>총 <b style="color:#34d399;">${(res.total||0).toLocaleString()}</b>개 중 <b>${items.length}</b>개 표시 · 가격 <b>${(pa.min||0).toLocaleString()}~${(pa.max||0).toLocaleString()}원</b> · 중간가 <b style="color:#fbbf24;">${(pa.median||0).toLocaleString()}원</b></div>
               </div>
             `;
+
+            // 📝 자동 요약 문장 (블로그 도입부 바로 복사)
+            if (insight.summary) {
+              const safeSummary = insight.summary.replace(/'/g, "\\'");
+              html += `
+                <div style="background:linear-gradient(135deg,rgba(251,191,36,0.08),rgba(251,191,36,0.02));border:1px solid rgba(251,191,36,0.25);border-radius:12px;padding:14px 18px;margin-bottom:18px;display:flex;gap:12px;align-items:flex-start;">
+                  <span style="font-size:18px;flex-shrink:0;">📝</span>
+                  <div style="flex:1;font-size:13px;color:rgba(255,255,255,0.88);line-height:1.6;">${insight.summary}</div>
+                  <button onclick="copyToClipboard('${safeSummary}');this.innerHTML='✓ 복사됨';setTimeout(()=>this.innerHTML='📋 도입부',1500);" style="flex-shrink:0;padding:5px 10px;background:rgba(251,191,36,0.15);color:#fbbf24;border:1px solid rgba(251,191,36,0.3);border-radius:6px;font-size:11px;font-weight:600;cursor:pointer;white-space:nowrap;">📋 도입부</button>
+                </div>
+              `;
+            }
+
+            // 🔎 네이버 자동완성 관련 키워드 (첫 페이지에만, 클릭 시 재검색)
+            const relatedKws = res.relatedKeywords || [];
+            if (relatedKws.length > 0) {
+              html += `
+                <div style="background:rgba(96,165,250,0.06);border:1px solid rgba(96,165,250,0.22);border-radius:12px;padding:14px 16px;margin-bottom:18px;">
+                  <div style="font-size:12px;font-weight:700;color:#93c5fd;margin-bottom:8px;">🔎 관련 검색어 ${relatedKws.length}개 <span style="color:rgba(255,255,255,0.4);font-weight:500;font-size:11px;">(클릭 시 재검색)</span></div>
+                  <div style="display:flex;flex-wrap:wrap;gap:6px;">
+                    ${relatedKws.map(k => `<span onclick="document.getElementById('scKeyword').value='${k.replace(/'/g,"\\'")}'; runShoppingConnect(false);" style="padding:5px 11px;background:rgba(96,165,250,0.12);color:#93c5fd;border:1px solid rgba(96,165,250,0.3);border-radius:14px;font-size:12px;cursor:pointer;transition:all 0.2s;" onmouseover="this.style.background='rgba(96,165,250,0.25)';" onmouseout="this.style.background='rgba(96,165,250,0.12)';">${k}</span>`).join('')}
+                  </div>
+                </div>
+              `;
+            }
 
             // 🔍 키워드 인사이트 패널 (키워드 도구의 본질)
             const vColors = { '저경쟁 (블루오션)': '#34d399', '중경쟁': '#fbbf24', '고경쟁': '#fb923c', '과점': '#fb7185' };
@@ -12019,14 +12110,97 @@
             `;
 
             if (reco.length > 0) {
-              html += `<div class="sc-reco-banner">💎 <b>블로그 글 작성용 추천 ${reco.length}개</b> — 가격 중앙값 근처 + 메이저 쇼핑몰 우선</div><div class="sc-grid" style="margin-bottom:20px;">${reco.map(renderShoppingCard).join('')}</div><div style="border-top:1px solid rgba(255,255,255,0.05);margin:20px 0;padding-top:16px;"><div style="font-size:13px;color:rgba(255,255,255,0.6);margin-bottom:10px;">📋 전체 검색 결과 ${items.length}개</div></div>`;
+              const partnersBadge = res.partnersEnabled
+                ? '<span style="margin-left:8px;padding:3px 8px;background:rgba(255,87,34,0.25);color:#ff8a65;border-radius:6px;font-size:10px;font-weight:700;">🛒 쿠팡파트너스 트래킹 링크</span>'
+                : '';
+              const banner = `💎 <b>전환 중심 추천 ${reco.length}개</b> — 쿠팡+2~7만원+리뷰/브랜드 시그널 종합 스코어${partnersBadge}`;
+              html += `<div class="sc-reco-banner">${banner}</div><div class="sc-grid" style="margin-bottom:20px;">${reco.map(renderShoppingCard).join('')}</div><div style="border-top:1px solid rgba(255,255,255,0.05);margin:20px 0;padding-top:16px;"><div style="font-size:13px;color:rgba(255,255,255,0.6);margin-bottom:10px;">📋 전체 검색 결과 ${items.length}개</div></div>`;
             }
 
             html += `<div class="sc-grid">${items.map(renderShoppingCard).join('')}</div>`;
+
+            // 더보기 버튼 (아직 남은 상품 있을 때만)
+            if (window.__scPaging.hasMore) {
+              html += `<div style="text-align:center;margin-top:20px;">
+                <button onclick="runShoppingConnect(true)" style="padding:12px 32px;background:rgba(3,199,90,0.15);color:#34d399;border:1px solid rgba(3,199,90,0.3);border-radius:10px;font-size:13px;font-weight:700;cursor:pointer;">
+                  ⬇️ 다음 50개 더보기 (현재 ${items.length}개)
+                </button>
+              </div>`;
+            }
             resultsDiv.innerHTML = html;
           } catch (err) {
             resultsDiv.innerHTML = `<div style="text-align:center;padding:60px;color:#fb7185;"><div style="font-size:40px;">❌</div><div style="margin-top:12px;">${err.message}</div></div>`;
           }
+        };
+
+        // 선택된 상품 저장 (productId 기준)
+        window.__scSelected = window.__scSelected || new Map();
+
+        window.toggleScSelect = function(productId, btn) {
+          const state = window.__scSelected;
+          const item = (window.__scPaging.items || []).find(i => i.productId === productId);
+          if (!item) return;
+          if (state.has(productId)) {
+            state.delete(productId);
+            btn.style.background = 'rgba(255,255,255,0.05)';
+            btn.style.color = 'rgba(255,255,255,0.75)';
+            btn.innerHTML = '＋ 선택';
+          } else {
+            if (state.size >= 5) { alert('최대 5개까지 선택 가능합니다.'); return; }
+            state.set(productId, item);
+            btn.style.background = 'rgba(52,211,153,0.2)';
+            btn.style.color = '#34d399';
+            btn.innerHTML = '✓ 선택됨';
+          }
+          updateScCompareBar();
+        };
+
+        window.updateScCompareBar = function() {
+          const bar = document.getElementById('scCompareBar');
+          const count = window.__scSelected.size;
+          if (!bar) return;
+          if (count >= 2) {
+            bar.style.display = 'flex';
+            bar.querySelector('.sc-cmp-count').textContent = count;
+          } else {
+            bar.style.display = 'none';
+          }
+        };
+
+        window.generateScCompareTable = function(format) {
+          const items = Array.from(window.__scSelected.values());
+          if (items.length < 2) { alert('최소 2개 이상 선택하세요.'); return; }
+
+          const title = (it) => it.cleanTitle || it.title || '';
+          if (format === 'markdown') {
+            let md = '| 상품명 | 가격 | 판매처 | 브랜드 | 링크 |\n| --- | ---: | --- | --- | --- |\n';
+            for (const it of items) {
+              const t = title(it).replace(/\|/g, '\\|');
+              const p = (it.lprice || 0).toLocaleString();
+              const b = it.brand || it.maker || '-';
+              md += `| ${t} | ${p}원 | ${it.mallName || '-'} | ${b} | [보기](${it.link}) |\n`;
+            }
+            navigator.clipboard.writeText(md).then(() => alert('Markdown 비교표 복사됨! 블로그 에디터에 붙여넣기하세요.'));
+          } else {
+            // HTML
+            let html = '<table border="1" style="border-collapse:collapse;width:100%;"><thead><tr><th>상품명</th><th>가격</th><th>판매처</th><th>브랜드</th><th>링크</th></tr></thead><tbody>';
+            for (const it of items) {
+              const t = title(it).replace(/</g, '&lt;').replace(/>/g, '&gt;');
+              html += `<tr><td>${t}</td><td style="text-align:right;">${(it.lprice||0).toLocaleString()}원</td><td>${it.mallName||'-'}</td><td>${it.brand||it.maker||'-'}</td><td><a href="${it.link}" target="_blank">보기</a></td></tr>`;
+            }
+            html += '</tbody></table>';
+            navigator.clipboard.writeText(html).then(() => alert('HTML 비교표 복사됨! 블로그 에디터 HTML 모드에 붙여넣기하세요.'));
+          }
+        };
+
+        window.clearScSelection = function() {
+          window.__scSelected.clear();
+          document.querySelectorAll('.sc-select-btn').forEach(b => {
+            b.style.background = 'rgba(255,255,255,0.05)';
+            b.style.color = 'rgba(255,255,255,0.75)';
+            b.innerHTML = '＋ 선택';
+          });
+          updateScCompareBar();
         };
 
         function renderShoppingCard(item) {
@@ -12036,20 +12210,68 @@
           const hprice = item.hprice && item.hprice > item.lprice ? `<span class="sc-hprice">${item.hprice.toLocaleString()}원</span>` : '';
           const cat = [item.category1, item.category2, item.category3].filter(Boolean).join(' > ');
           const safeLink = (item.link || '').replace(/'/g, "\\'");
+          const safeCoupang = (item.coupangSearchUrl || '').replace(/'/g, "\\'");
           const info = `${item.title}\\n가격: ${price}원\\n판매처: ${mall}\\nURL: ${item.link}`.replace(/'/g, "\\'");
+          const isSelected = window.__scSelected && window.__scSelected.has(item.productId);
+
+          const score = item.conversionScore;
+          const bd = item.scoreBreakdown || {};
+          const tooltip = typeof score === 'number'
+            ? [
+                bd.coupang > 0 ? `쿠팡 +${bd.coupang}` : null,
+                bd.sweetSpot > 0 ? `스위트스팟 +${bd.sweetSpot}` : null,
+                bd.priceCentral > 0 ? `중앙가 +${bd.priceCentral}` : null,
+                bd.brand > 0 ? `브랜드 +${bd.brand}` : null,
+                bd.specificity > 0 ? `모델명 +${bd.specificity}` : null,
+                bd.review > 0 ? `품질시그널 +${bd.review}` : null,
+                bd.majorMall > 0 ? `메이저몰 +${bd.majorMall}` : null,
+                bd.penalty < 0 ? `감점 ${bd.penalty}` : null,
+              ].filter(Boolean).join(' · ')
+            : '';
+          const scoreBadge = typeof score === 'number' && score > 0
+            ? `<span title="${tooltip.replace(/"/g, '&quot;')}" style="position:absolute;top:8px;right:8px;padding:3px 8px;background:rgba(52,211,153,0.85);color:white;border-radius:6px;font-size:10px;font-weight:700;cursor:help;">🎯 ${score}점</span>`
+            : '';
+
+          // 자연어 추천 사유 (상위 시그널 2~3개 자연어로)
+          const reasonLabels = [];
+          if (bd.coupang > 0) reasonLabels.push('🛒 쿠팡');
+          if (bd.sweetSpot > 0) reasonLabels.push('💎 적정가');
+          if (bd.priceCentral >= 3) reasonLabels.push('🎯 중앙가');
+          if (bd.brand >= 8) reasonLabels.push('🏷️ 브랜드');
+          if (bd.specificity > 0) reasonLabels.push('🔖 모델명');
+          if (bd.review >= 5) reasonLabels.push('⭐ 품질');
+          const reasonBadge = reasonLabels.length > 0
+            ? `<div style="display:flex;gap:3px;flex-wrap:wrap;margin-top:4px;">${reasonLabels.slice(0, 4).map(r => `<span style="padding:1px 6px;background:rgba(52,211,153,0.12);color:#34d399;border-radius:4px;font-size:9px;font-weight:600;">${r}</span>`).join('')}</div>`
+            : '';
+
+          const isCoupang = /쿠팡|coupang/i.test(mall);
+          const coupangBadge = isCoupang ? '<span style="padding:2px 7px;background:#ff5722;color:white;border-radius:5px;font-size:9px;font-weight:700;margin-right:4px;">쿠팡</span>' : '';
+          const brandBadge = item.brand ? `<span style="padding:2px 6px;background:rgba(251,191,36,0.2);color:#fbbf24;border-radius:5px;font-size:9px;">${item.brand}</span>` : '';
+
+          const selectBtnStyle = isSelected
+            ? 'background:rgba(52,211,153,0.2);color:#34d399;'
+            : 'background:rgba(255,255,255,0.05);color:rgba(255,255,255,0.75);';
+
+          // 정제된 제목 우선 표시 (없으면 원본)
+          const displayTitle = item.cleanTitle || item.title || '';
 
           return `
-            <div class="sc-card">
+            <div class="sc-card" style="position:relative;">
+              ${scoreBadge}
               <img class="sc-img" src="${item.image}" alt="${title}" onerror="this.style.opacity=0.2"/>
-              <div class="sc-pt" onclick="window.electronAPI?.invoke('open-external-url', '${safeLink}');">${item.title || ''}</div>
+              <div class="sc-pt" onclick="window.electronAPI?.invoke('open-external-url', '${safeLink}');" title="${title}">${displayTitle}</div>
               <div><span class="sc-price">${price}원</span>${hprice}</div>
               <div class="sc-meta">
-                <span class="sc-mall">${mall}</span>
-                ${cat ? `<span style="font-size:10px;">${cat}</span>` : ''}
+                <span class="sc-mall">${coupangBadge}${mall}</span>
+                ${brandBadge}
               </div>
+              ${reasonBadge}
+              ${cat ? `<div style="font-size:10px;color:rgba(255,255,255,0.4);">${cat}</div>` : ''}
               <div class="sc-btns">
-                <button class="sc-mini-btn sc-mini-btn-primary" onclick="window.electronAPI?.invoke('open-external-url', '${safeLink}');">🔗 상품</button>
-                <button class="sc-mini-btn" onclick="copyToClipboard('${info}'); this.innerHTML='✓'; setTimeout(() => this.innerHTML='📋 정보', 1200);">📋 정보</button>
+                <button class="sc-mini-btn sc-mini-btn-primary" onclick="window.electronAPI?.invoke('open-external-url', '${safeLink}');">🔗 네이버</button>
+                ${safeCoupang ? `<button class="sc-mini-btn" style="background:rgba(255,87,34,0.15);color:#ff8a65;border-color:rgba(255,87,34,0.3);" onclick="window.electronAPI?.invoke('open-external-url', '${safeCoupang}');">🛒 쿠팡</button>` : ''}
+                <button class="sc-mini-btn sc-select-btn" style="${selectBtnStyle}" onclick="toggleScSelect('${item.productId}', this);">${isSelected ? '✓ 선택됨' : '＋ 선택'}</button>
+                <button class="sc-mini-btn" onclick="copyToClipboard('${info}'); this.innerHTML='✓'; setTimeout(() => this.innerHTML='📋', 1200);">📋</button>
               </div>
             </div>
           `;

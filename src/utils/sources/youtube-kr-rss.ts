@@ -15,8 +15,51 @@ export interface YoutubeTrendingVideo {
 }
 
 const TRENDING_FEED = 'https://www.youtube.com/feeds/videos.xml?chart=most_popular&regionCode=KR';
+const DATA_API = 'https://www.googleapis.com/youtube/v3/videos';
+
+function getYoutubeApiKey(): string {
+    // 런타임 환경변수 우선, EnvironmentManager는 지연 로드 (순환참조 방지)
+    const direct = process.env['YOUTUBE_API_KEY'] || '';
+    if (direct) return direct;
+    try {
+        const { EnvironmentManager } = require('../environment-manager');
+        const cfg = EnvironmentManager.getInstance?.()?.getConfig?.() || {};
+        return String(cfg.youtubeApiKey || '');
+    } catch {
+        return '';
+    }
+}
 
 export async function fetchYoutubeKRTrending(): Promise<YoutubeTrendingVideo[]> {
+    // 1차: Data API v3 (공식, 안정)
+    const apiKey = getYoutubeApiKey();
+    if (apiKey) {
+        try {
+            const res = await axios.get(DATA_API, {
+                timeout: 15000,
+                params: {
+                    part: 'snippet',
+                    chart: 'mostPopular',
+                    regionCode: 'KR',
+                    maxResults: 50,
+                    key: apiKey,
+                },
+            });
+            const items = res.data?.items;
+            if (Array.isArray(items) && items.length > 0) {
+                return items.map((it: any): YoutubeTrendingVideo => ({
+                    title: String(it.snippet?.title || ''),
+                    videoId: String(it.id || ''),
+                    channel: String(it.snippet?.channelTitle || ''),
+                    published: String(it.snippet?.publishedAt || ''),
+                })).filter(v => v.title && v.videoId);
+            }
+        } catch (err: any) {
+            console.warn('[youtube-kr-rss] Data API 실패, RSS 폴백:', err?.response?.status || err.message);
+        }
+    }
+
+    // 2차 폴백: 구식 RSS (keyed away인 경우)
     try {
         const res = await axios.get(TRENDING_FEED, {
             timeout: 15000,

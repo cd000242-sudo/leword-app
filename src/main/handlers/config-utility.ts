@@ -773,21 +773,78 @@ export function setupConfigUtilityHandlers(): void {
           return { success: false, error: '키워드를 입력해주세요.' };
         }
         const sort = (params?.sort ?? 'sim') as 'sim' | 'date' | 'asc' | 'dsc';
-        const display = Math.min(Math.max(Number(params?.display) || 30, 1), 100);
+        const display = Math.min(Math.max(Number(params?.display) || 50, 1), 100);
+        const start = Math.min(Math.max(Number(params?.start) || 1, 1), 1000);
 
-        const { searchNaverShopping, pickBlogRecommendedItems } = await import('../../utils/naver-shopping-api');
+        const { searchNaverShopping, pickBlogRecommendedItems, computeConversionScore } = await import('../../utils/naver-shopping-api');
         const { analyzeShoppingKeywords } = await import('../../utils/shopping-keyword-analyzer');
-        const result = await searchNaverShopping(keyword, { display, sort });
+        const { buildCoupangSearchUrl, simplifyTitleForCoupangSearch, convertToPartnersLinks, getCoupangPartnersConfig } = await import('../../utils/coupang-partners');
+        const { getNaverAutocompleteKeywords } = await import('../../utils/naver-autocomplete');
+        const { EnvironmentManager } = await import('../../utils/environment-manager');
+
+        // 쇼핑 검색 + 자동완성 병렬 실행 (첫 페이지 요청에만)
+        const envCfg = EnvironmentManager.getInstance().getConfig();
+        const naverCfg = {
+          clientId: envCfg.naverClientId || process.env['NAVER_CLIENT_ID'] || '',
+          clientSecret: envCfg.naverClientSecret || process.env['NAVER_CLIENT_SECRET'] || '',
+        };
+        const isFirstPage = start === 1;
+        const [result, relatedKeywords] = await Promise.all([
+          searchNaverShopping(keyword, { display, sort, start }),
+          isFirstPage && naverCfg.clientId
+            ? getNaverAutocompleteKeywords(keyword, naverCfg).catch(() => [] as string[])
+            : Promise.resolve([] as string[]),
+        ]);
+
+        // 쿠팡 검색 URL + 전환 스코어 전체 상품에 부착
+        for (const item of result.items) {
+          const simplified = simplifyTitleForCoupangSearch(item.title) || keyword;
+          item.coupangSearchUrl = buildCoupangSearchUrl(simplified);
+          computeConversionScore(item);
+        }
+
         const recommended = pickBlogRecommendedItems(result.items, 10);
-        const insight = analyzeShoppingKeywords(result.items, result.total);
+
+        // 쿠팡파트너스 설정돼있으면 추천 10개를 트래킹 링크로 변환
+        const partnersCfg = getCoupangPartnersConfig();
+        let partnersEnabled = false;
+        if (partnersCfg.accessKey && partnersCfg.secretKey && recommended.length > 0) {
+          try {
+            const urls = recommended.map(r => r.coupangSearchUrl!).filter(Boolean);
+            const converted = await convertToPartnersLinks(urls, partnersCfg);
+            const map = new Map(converted.map(c => [c.originalUrl, c.shortenUrl || c.landingUrl]));
+            for (const item of recommended) {
+              if (item.coupangSearchUrl && map.has(item.coupangSearchUrl)) {
+                item.coupangSearchUrl = map.get(item.coupangSearchUrl)!;
+              }
+            }
+            partnersEnabled = true;
+          } catch (e: any) {
+            console.warn('[SHOPPING-CONNECT] 쿠팡파트너스 링크 변환 실패:', e?.message);
+          }
+        }
+
+        const insight = analyzeShoppingKeywords(result.items, result.total, keyword);
+
+        // 자동완성 키워드에서 원 검색어/너무 짧은 것/중복 제거, 상위 15개만
+        const relatedKeywordsTrimmed = Array.from(new Set(
+          (relatedKeywords || [])
+            .filter(k => typeof k === 'string' && k.trim() && k.trim().toLowerCase() !== keyword.toLowerCase())
+            .filter(k => k.length >= 2 && k.length <= 30)
+        )).slice(0, 15);
 
         return {
           success: true,
           keyword,
           total: result.total,
+          start: result.start,
+          display: result.display,
+          hasMore: (result.start + result.items.length) <= Math.min(result.total, 1000) && result.items.length === display,
           items: result.items,
           recommended,
-          insight, // { longtailKeywords, categories, brands, priceTiers, priceAnalysis, competition }
+          insight,
+          partnersEnabled,
+          relatedKeywords: relatedKeywordsTrimmed,
         };
       } catch (err: any) {
         console.error('[SHOPPING-CONNECT] 오류:', err?.message ?? err);

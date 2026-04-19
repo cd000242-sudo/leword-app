@@ -32,33 +32,42 @@ function getDateParts(daysAgo: number = 1): { y: string; m: string; d: string } 
 
 /**
  * 한국어 위키 일별 Top 1000 페이지뷰
+ * Wikimedia pageviews API는 2~3일 지연. daysAgo=1이 404면 2→3→4 순으로 재시도.
  */
 export async function fetchKoreanWikiTop(daysAgo: number = 1): Promise<WikiPageView[]> {
-    const { y, m, d } = getDateParts(daysAgo);
-    const url = `${BASE}/top/${PROJECT}/all-access/${y}/${m}/${d}`;
+    const skipPatterns = /^(특수|위키백과|파일|틀|분류|도움말|Special):/;
+    const lagCandidates = Array.from(new Set([daysAgo, daysAgo + 1, daysAgo + 2, daysAgo + 3]));
 
-    try {
-        const res = await axios.get(url, {
-            timeout: 15000,
-            headers: { 'User-Agent': 'LEWORD-KeywordTool/1.0 (research; cd000242@gmail.com)' },
-        });
+    for (const lag of lagCandidates) {
+        const { y, m, d } = getDateParts(lag);
+        const url = `${BASE}/top/${PROJECT}/all-access/${y}/${m}/${d}`;
 
-        const articles = res.data?.items?.[0]?.articles;
-        if (!Array.isArray(articles)) return [];
+        try {
+            const res = await axios.get(url, {
+                timeout: 15000,
+                headers: { 'User-Agent': 'LEWORD-KeywordTool/1.0 (research; cd000242@gmail.com)' },
+            });
 
-        const skipPatterns = /^(특수|위키백과|파일|틀|분류|도움말|Special):/;
+            const articles = res.data?.items?.[0]?.articles;
+            if (!Array.isArray(articles)) continue;
 
-        return articles
-            .map((a: any) => ({
-                article: String(a.article || '').replace(/_/g, ' '),
-                rank: Number(a.rank) || 0,
-                views: Number(a.views) || 0,
-            }))
-            .filter((a: WikiPageView) => a.article && !skipPatterns.test(a.article) && a.article !== '대문');
-    } catch (err: any) {
-        console.error('[wikipedia-pageviews] Top 호출 실패:', err.message);
-        return [];
+            return articles
+                .map((a: any) => ({
+                    article: String(a.article || '').replace(/_/g, ' '),
+                    rank: Number(a.rank) || 0,
+                    views: Number(a.views) || 0,
+                }))
+                .filter((a: WikiPageView) => a.article && !skipPatterns.test(a.article) && a.article !== '대문');
+        } catch (err: any) {
+            // 404면 다음 lag 시도, 그 외 에러는 로그 후 다음 시도
+            if (err?.response?.status !== 404) {
+                console.warn(`[wikipedia-pageviews] Top ${y}-${m}-${d} 실패(status=${err?.response?.status}):`, err.message);
+            }
+        }
     }
+
+    console.error('[wikipedia-pageviews] Top 호출 실패: 최근 4일 전부 404');
+    return [];
 }
 
 /**

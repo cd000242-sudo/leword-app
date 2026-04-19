@@ -51,6 +51,33 @@ function countWords(texts: string[]): Map<string, number> {
   return freq;
 }
 
+/**
+ * 2-3단어 구문 추출 (bi-gram / tri-gram)
+ * 블로그 제목으로 쓸 만한 실제 검색 가능 구문 생성
+ *
+ * 예: "오픈형 블루투스 이어폰" → ["오픈형 블루투스", "블루투스 이어폰", "오픈형 블루투스 이어폰"]
+ */
+function countPhrases(texts: string[]): Map<string, number> {
+  const freq = new Map<string, number>();
+  for (const t of texts) {
+    const tokens = tokenizeTitle(t);
+    // bi-gram
+    for (let i = 0; i < tokens.length - 1; i++) {
+      const phrase = `${tokens[i]} ${tokens[i + 1]}`;
+      // 구문 길이 제한 (너무 길지 않게)
+      if (phrase.length > 30) continue;
+      freq.set(phrase, (freq.get(phrase) || 0) + 1);
+    }
+    // tri-gram (빈도 2+ 필터에서 검증력 충분)
+    for (let i = 0; i < tokens.length - 2; i++) {
+      const phrase = `${tokens[i]} ${tokens[i + 1]} ${tokens[i + 2]}`;
+      if (phrase.length > 40) continue;
+      freq.set(phrase, (freq.get(phrase) || 0) + 1);
+    }
+  }
+  return freq;
+}
+
 function topN(freq: Map<string, number>, limit: number): Array<{ keyword: string; count: number }> {
   return Array.from(freq.entries())
     .sort((a, b) => b[1] - a[1] || a[0].localeCompare(b[0]))
@@ -64,9 +91,57 @@ function topN(freq: Map<string, number>, limit: number): Array<{ keyword: string
 
 export function extractLongtailKeywords(
   items: ShoppingItem[],
-  limit: number = 20
+  limit: number = 20,
+  excludeTerms: string[] = []
 ): Array<{ keyword: string; count: number }> {
-  return topN(countWords(items.map(i => i.title || '')), limit);
+  // 원 검색어 토큰은 롱테일에서 제외 (사용자에게 반복 정보 제공 방지)
+  const excludeTokens = new Set<string>();
+  const excludeLowerFull = new Set<string>();
+  for (const term of excludeTerms) {
+    excludeLowerFull.add(term.toLowerCase().trim());
+    for (const tok of tokenizeTitle(term)) {
+      excludeTokens.add(tok.toLowerCase());
+    }
+  }
+
+  const titles = items.map(i => i.title || '');
+
+  // 1) 단일 단어 빈도 (기본 품질 체크용)
+  const wordFreq = countWords(titles);
+  for (const kw of Array.from(wordFreq.keys())) {
+    if (excludeTokens.has(kw.toLowerCase())) wordFreq.delete(kw);
+  }
+
+  // 2) 2-3단어 구문 빈도 (블로그 제목 실사용 가능)
+  const phraseFreq = countPhrases(titles);
+  for (const p of Array.from(phraseFreq.keys())) {
+    // 원 검색어 자체와 동일하면 제외
+    if (excludeLowerFull.has(p.toLowerCase())) phraseFreq.delete(p);
+    // 단일 토큰이 모두 검색어 토큰인 경우도 제외 (ex: 검색어 "무선 이어폰"일 때 "무선 이어폰")
+    else {
+      const pTokens = p.split(' ');
+      if (pTokens.every(t => excludeTokens.has(t.toLowerCase()))) phraseFreq.delete(p);
+    }
+  }
+
+  // 구문은 빈도 2+만 (한 상품에만 나오는 단어는 품질 낮음)
+  const goodPhrases = Array.from(phraseFreq.entries())
+    .filter(([_, c]) => c >= 2)
+    .sort((a, b) => b[1] - a[1] || a[0].localeCompare(b[0]))
+    .slice(0, Math.ceil(limit * 0.7))
+    .map(([keyword, count]) => ({ keyword, count }));
+
+  // 단일 단어는 상위 일부만 보조적으로
+  const goodWords = topN(wordFreq, Math.floor(limit * 0.3));
+
+  // 구문 + 단어 병합 (구문 우선, 단어 중 구문에 포함된 건 제외)
+  const phraseTokenSet = new Set<string>();
+  for (const { keyword } of goodPhrases) {
+    for (const tok of keyword.split(' ')) phraseTokenSet.add(tok.toLowerCase());
+  }
+  const filteredWords = goodWords.filter(({ keyword }) => !phraseTokenSet.has(keyword.toLowerCase()));
+
+  return [...goodPhrases, ...filteredWords].slice(0, limit);
 }
 
 // ============================================================
@@ -242,10 +317,12 @@ export function analyzeCompetition(items: ShoppingItem[], totalHits: number): Co
     : 0;
   const concentration = Math.round(top2Share * 100);
 
+  // 판매처 집중도가 높으면(상위 2곳이 70%+) totalHits 상관없이 '과점' 우선 판정
+  // 그 다음 상품 수 기준
   let verdict: CompetitionSignal['verdict'];
-  if (totalHits < 500) verdict = '저경쟁 (블루오션)';
+  if (concentration >= 70 && items.length >= 5) verdict = '과점';
+  else if (totalHits < 500) verdict = '저경쟁 (블루오션)';
   else if (totalHits < 5000) verdict = '중경쟁';
-  else if (concentration >= 70) verdict = '과점';
   else verdict = '고경쟁';
 
   return {
@@ -268,18 +345,90 @@ export interface ShoppingKeywordInsight {
   priceTiers: PriceTierKeywords;
   priceAnalysis: PriceAnalysis;
   competition: CompetitionSignal;
+  summary: string;  // 자동 생성 요약 문장 (블로그 도입부용)
+}
+
+function formatPrice(p: number): string {
+  if (p >= 10000) return `${Math.round(p / 1000) / 10}만원`;
+  if (p >= 1000) return `${Math.round(p / 100) / 10}천원`;
+  return `${p}원`;
+}
+
+function buildSummary(params: {
+  keyword: string;
+  totalHits: number;
+  verdict: CompetitionSignal['verdict'];
+  uniqueBrands: number;
+  avgPrice: number;
+  median: number;
+  topBrands: Array<{ brand: string; count: number }>;
+  topCategory?: string;
+}): string {
+  const { keyword, totalHits, verdict, uniqueBrands, avgPrice, median, topBrands, topCategory } = params;
+
+  // 시장 규모
+  const sizeStr = totalHits >= 100000 ? `대규모 시장(${Math.round(totalHits / 10000)}만건)`
+                 : totalHits >= 10000 ? `중간 규모 시장(${Math.round(totalHits / 1000) / 10}만건)`
+                 : totalHits >= 1000 ? `소규모 시장(${totalHits.toLocaleString()}건)`
+                 : `틈새 시장(${totalHits}건)`;
+
+  // 경쟁도 가이드
+  const competeGuide: Record<CompetitionSignal['verdict'], string> = {
+    '저경쟁 (블루오션)': '비교적 진입하기 쉽고 초보 블로거에게도 기회가 있습니다',
+    '중경쟁': '경쟁은 있으나 콘텐츠 차별화로 상위 노출 가능합니다',
+    '고경쟁': '경쟁이 치열해 전문성 있는 리뷰나 비교글이 유리합니다',
+    '과점': '소수 판매처가 시장을 지배 중 — 중소 브랜드·신상품 중심 공략이 효과적입니다',
+  };
+
+  // 브랜드 TOP 3 (있을 때만)
+  const brandStr = topBrands.length >= 3
+    ? `주요 브랜드는 ${topBrands.slice(0, 3).map(b => b.brand).join('·')}입니다. `
+    : topBrands.length > 0
+    ? `주요 브랜드는 ${topBrands.map(b => b.brand).join('·')}입니다. `
+    : '';
+
+  // 카테고리
+  const catStr = topCategory ? `주로 "${topCategory}" 카테고리에 분포하며, ` : '';
+
+  // 가격대
+  const priceStr = avgPrice > 0
+    ? `평균가 ${formatPrice(avgPrice)}, 중간값 ${formatPrice(median)}. `
+    : '';
+
+  return `"${keyword}"는 ${sizeStr}이며, ${uniqueBrands}개 브랜드가 경쟁 중입니다. ${catStr}${priceStr}${brandStr}${competeGuide[verdict]}.`;
 }
 
 export function analyzeShoppingKeywords(
   items: ShoppingItem[],
-  totalHits: number
+  totalHits: number,
+  searchKeyword?: string
 ): ShoppingKeywordInsight {
+  const excludeTerms = searchKeyword ? [searchKeyword] : [];
+  const longtailKeywords = extractLongtailKeywords(items, 20, excludeTerms);
+  const categories = extractCategoryKeywords(items);
+  const brands = extractBrandKeywords(items, 10);
+  const priceTiers = extractPriceTierKeywords(items);
+  const priceAnalysis = analyzePrices(items);
+  const competition = analyzeCompetition(items, totalHits);
+
+  const summary = buildSummary({
+    keyword: searchKeyword || '',
+    totalHits,
+    verdict: competition.verdict,
+    uniqueBrands: competition.uniqueBrands,
+    avgPrice: priceAnalysis.avg,
+    median: priceAnalysis.median,
+    topBrands: brands.slice(0, 3).map(b => ({ brand: b.brand, count: b.count })),
+    topCategory: categories.level1[0]?.name,
+  });
+
   return {
-    longtailKeywords: extractLongtailKeywords(items, 20),
-    categories: extractCategoryKeywords(items),
-    brands: extractBrandKeywords(items, 10),
-    priceTiers: extractPriceTierKeywords(items),
-    priceAnalysis: analyzePrices(items),
-    competition: analyzeCompetition(items, totalHits),
+    longtailKeywords,
+    categories,
+    brands,
+    priceTiers,
+    priceAnalysis,
+    competition,
+    summary,
   };
 }

@@ -33,12 +33,11 @@ export async function fetchBobaeBest(): Promise<BobaePost[]> {
         const $ = cheerio.load(res.data);
         const posts: BobaePost[] = [];
 
-        $('table.basictable tbody tr, .post-list .row').each((_, el) => {
-            const $row = $(el);
-            const $titleA = $row.find('a.bsubject, a.title').first();
-            const title = $titleA.text().trim().replace(/\s+/g, ' ').replace(/^\[[^\]]*\]\s*/, '');
-            const href = $titleA.attr('href') || '';
-
+        // 구조 변경: table.basictable → a.bsubject 직접 셀렉트. 기존 셀렉터는 폴백으로 유지.
+        $('a.bsubject').each((_, el) => {
+            const $a = $(el);
+            const title = ($a.attr('title') || $a.text()).trim().replace(/\s+/g, ' ').replace(/^\[[^\]]*\]\s*/, '');
+            const href = $a.attr('href') || '';
             if (title && title.length > 3 && href) {
                 posts.push({
                     title,

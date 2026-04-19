@@ -6,7 +6,6 @@
  */
 
 import axios from 'axios';
-import * as cheerio from 'cheerio';
 
 export interface MusinsaProduct {
     rank: number;
@@ -17,44 +16,61 @@ export interface MusinsaProduct {
     discountRate?: number;
 }
 
-const RANKING_URL = 'https://www.musinsa.com/ranking/best';
+// Next.js 리뉴얼 이후 실제 랭킹 데이터는 백엔드 API에서 JSON으로 제공 (storeCode로 카테고리 구분)
+const RANKING_API = 'https://api.musinsa.com/api2/hm/v5/pans/ranking';
 const UA = 'Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 Chrome/120.0.0.0 Safari/537.36';
+
+const CATEGORY_TO_STORE: Record<string, string> = {
+    all: 'musinsa',
+    top: 'musinsa',
+    outer: 'musinsa',
+    pants: 'musinsa',
+    shoes: 'sneaker',
+    bag: 'musinsa',
+};
 
 export async function fetchMusinsaRanking(category: 'all' | 'top' | 'outer' | 'pants' | 'shoes' | 'bag' = 'all'): Promise<MusinsaProduct[]> {
     try {
-        const url = category === 'all' ? RANKING_URL : `${RANKING_URL}?category=${category}`;
-        const res = await axios.get(url, {
+        const storeCode = CATEGORY_TO_STORE[category] || 'musinsa';
+        const res = await axios.get(RANKING_API, {
             timeout: 20000,
+            params: { storeCode },
             headers: {
                 'User-Agent': UA,
-                'Accept': 'text/html,application/xhtml+xml',
+                'Accept': 'application/json',
                 'Accept-Language': 'ko-KR,ko;q=0.9',
-                'Referer': 'https://www.musinsa.com/',
+                'Referer': 'https://www.musinsa.com/main/musinsa/ranking',
             },
         });
 
-        const $ = cheerio.load(res.data);
+        const modules = res.data?.data?.modules;
+        if (!Array.isArray(modules)) return [];
+
         const products: MusinsaProduct[] = [];
+        let rank = 0;
 
-        $('.list-box, .li_box, [data-product-id]').each((idx, el) => {
-            const $el = $(el);
-            const brand = $el.find('.item_title, .brand, [class*=brand]').first().text().trim();
-            const name = $el.find('.list_info, .item_name, [class*=name]').first().text().trim().replace(/\s+/g, ' ');
-            const productId = $el.attr('data-product-id') || $el.find('a').first().attr('href')?.match(/\/(\d+)/)?.[1] || '';
-            const priceText = $el.find('.price, [class*=price]').first().text().replace(/[^\d]/g, '');
-            const discountText = $el.find('.discount, [class*=discount]').first().text().replace(/[^\d]/g, '');
-
-            if (name && name.length > 1 && idx < 100) {
+        for (const mod of modules) {
+            if (mod?.type !== 'THREECOLUMN') continue;
+            const items = Array.isArray(mod.items) ? mod.items : [];
+            for (const item of items) {
+                if (item?.type !== 'PRODUCT_COLUMN') continue;
+                const info = item.info || {};
+                const brand = String(info.brandName || '').trim();
+                const name = String(info.productName || '').trim().replace(/\s+/g, ' ');
+                const productId = String(item.id || '');
+                if (!name || name.length < 2) continue;
+                rank += 1;
                 products.push({
-                    rank: idx + 1,
+                    rank,
                     brand,
                     productName: name,
                     productId,
-                    price: priceText ? Number(priceText) : undefined,
-                    discountRate: discountText ? Number(discountText) : undefined,
+                    price: typeof info.finalPrice === 'number' ? info.finalPrice : undefined,
+                    discountRate: typeof info.discountRatio === 'number' ? info.discountRatio : undefined,
                 });
+                if (rank >= 100) return products;
             }
-        });
+        }
 
         return products;
     } catch (err: any) {
