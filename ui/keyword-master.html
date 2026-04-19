@@ -11991,6 +11991,20 @@
           runShoppingConnect(false);
         };
 
+        window.copyShoppingSummary = function(btn) {
+          const text = window.__scCurrentSummary || '';
+          if (!text) return;
+          try {
+            navigator.clipboard.writeText(text).then(() => {
+              const original = btn.innerHTML;
+              btn.innerHTML = '✓ 복사됨';
+              setTimeout(() => { btn.innerHTML = '📋 도입부'; }, 1500);
+            });
+          } catch (e) {
+            if (typeof copyToClipboard === 'function') copyToClipboard(text);
+          }
+        };
+
         window.closeShoppingConnectModal = function closeShoppingConnectModal() {
           unlockBodyScroll();
           const m = document.getElementById('shoppingConnectModal');
@@ -12105,14 +12119,21 @@
               </div>
             `;
 
-            // 📝 자동 요약 문장 (블로그 도입부 바로 복사)
+            // 📝 자동 요약 문장 (블로그 도입부 바로 복사) — XSS 안전 방식
             if (insight.summary) {
-              const safeSummary = insight.summary.replace(/'/g, "\\'");
+              // 전역 변수에 저장, 버튼은 단순 함수 호출
+              window.__scCurrentSummary = insight.summary;
+              // HTML 특수문자 이스케이프 (속성/본문 안전)
+              const summaryHtml = String(insight.summary)
+                .replace(/&/g, '&amp;')
+                .replace(/</g, '&lt;')
+                .replace(/>/g, '&gt;')
+                .replace(/"/g, '&quot;');
               html += `
                 <div style="background:linear-gradient(135deg,rgba(251,191,36,0.08),rgba(251,191,36,0.02));border:1px solid rgba(251,191,36,0.25);border-radius:12px;padding:14px 18px;margin-bottom:18px;display:flex;gap:12px;align-items:flex-start;">
                   <span style="font-size:18px;flex-shrink:0;">📝</span>
-                  <div style="flex:1;font-size:13px;color:rgba(255,255,255,0.88);line-height:1.6;">${insight.summary}</div>
-                  <button onclick="copyToClipboard('${safeSummary}');this.innerHTML='✓ 복사됨';setTimeout(()=>this.innerHTML='📋 도입부',1500);" style="flex-shrink:0;padding:5px 10px;background:rgba(251,191,36,0.15);color:#fbbf24;border:1px solid rgba(251,191,36,0.3);border-radius:6px;font-size:11px;font-weight:600;cursor:pointer;white-space:nowrap;">📋 도입부</button>
+                  <div style="flex:1;font-size:13px;color:rgba(255,255,255,0.88);line-height:1.6;">${summaryHtml}</div>
+                  <button id="scCopySummaryBtn" onclick="copyShoppingSummary(this);" style="flex-shrink:0;padding:5px 10px;background:rgba(251,191,36,0.15);color:#fbbf24;border:1px solid rgba(251,191,36,0.3);border-radius:6px;font-size:11px;font-weight:600;cursor:pointer;white-space:nowrap;">📋 도입부</button>
                 </div>
               `;
             }
