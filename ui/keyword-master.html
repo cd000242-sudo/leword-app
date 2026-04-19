@@ -12010,8 +12010,9 @@
           const items = (window.__scPaging && window.__scPaging.items) || [];
           const item = items.find(i => String(i.productId) === String(productId));
           if (!item) return;
-          // 검색 최적화된 simplifiedTitle 우선, 없으면 cleanTitle, 그것도 없으면 원본
-          const name = item.simplifiedTitle || item.cleanTitle || item.title || '';
+          // 원본 제품명 그대로 복사 — 정확한 매칭을 위해 단순화 금지
+          // 네이버 쇼핑 응답에 있던 그대로 (HTML 태그만 제거된 상태) 복사
+          const name = item.title || '';
           if (!name) return;
           try {
             navigator.clipboard.writeText(name).then(() => {
@@ -12316,8 +12317,8 @@
           const items = Array.from(window.__scSelected.values());
           if (items.length < 2) { alert('최소 2개 이상 선택하세요.'); return; }
 
-          // 비교표: cleanTitle(대괄호/수량만 제거, 스펙 유지) 우선. 검색용이 아니라 정보 표현이므로.
-          const title = (it) => it.cleanTitle || it.title || '';
+          // 비교표: 원본 title 그대로 사용 (정확한 제품 식별을 위해 가공 금지)
+          const title = (it) => it.title || '';
           if (format === 'markdown') {
             let md = '| 상품명 | 가격 | 판매처 | 브랜드 | 링크 |\n| --- | ---: | --- | --- | --- |\n';
             for (const it of items) {
@@ -12399,8 +12400,8 @@
             ? 'background:rgba(52,211,153,0.2);color:#34d399;'
             : 'background:rgba(255,255,255,0.05);color:rgba(255,255,255,0.75);';
 
-          // 정제된 제목 우선 표시 (없으면 원본)
-          const displayTitle = item.cleanTitle || item.title || '';
+          // 원본 제품명 그대로 표시 — 복사·검색·시각 정보 일치가 중요
+          const displayTitle = item.title || '';
 
           return `
             <div class="sc-card" style="position:relative;">
