@@ -18,7 +18,7 @@
 import { app, BrowserWindow, ipcMain } from 'electron';
 
 let progressWindow: BrowserWindow | null = null;
-let loginWindowRef: BrowserWindow | null = null;
+let hideableWindows = new Set<BrowserWindow>();
 let isUpdatingFlag = false;
 let restartScheduled = false;
 let lastUpdateInfo: { version?: string } = {};
@@ -27,13 +27,22 @@ export function isUpdating(): boolean {
   return isUpdatingFlag;
 }
 
+/**
+ * 업데이트 시작 시 hide() 해야 할 창들을 등록
+ *  - 로그인창 (showLicenseInputDialog)
+ *  - 메인창 (자동로그인 시에만 해당)
+ */
+export function registerHideableWindow(win: BrowserWindow | null): void {
+  if (!win || win.isDestroyed()) return;
+  hideableWindows.add(win);
+  win.on('closed', () => {
+    hideableWindows.delete(win);
+  });
+}
+
+/** @deprecated use registerHideableWindow */
 export function setUpdaterLoginWindow(win: BrowserWindow | null): void {
-  loginWindowRef = win;
-  if (win) {
-    win.on('closed', () => {
-      if (loginWindowRef === win) loginWindowRef = null;
-    });
-  }
+  registerHideableWindow(win);
 }
 
 function broadcastEvent(event: string, payload: any): void {
@@ -115,10 +124,12 @@ export function showProgressWindow(version: string): BrowserWindow {
   const html = buildProgressHtml(version);
   progressWindow.loadURL(`data:text/html;charset=utf-8,${encodeURIComponent(html)}`);
 
-  // 로그인창 숨김
+  // 🔥 등록된 모든 hideable 창(로그인창/메인창) 숨김
   try {
-    if (loginWindowRef && !loginWindowRef.isDestroyed()) {
-      loginWindowRef.hide();
+    for (const win of hideableWindows) {
+      if (win && !win.isDestroyed()) {
+        try { win.hide(); } catch {}
+      }
     }
   } catch {}
 
@@ -286,10 +297,12 @@ export function initAutoUpdaterEarly(): void {
     showErrorState(err?.message ?? '알 수 없는 오류').then(() => {
       setTimeout(() => {
         closeProgressWindow();
-        // 로그인창 다시 표시
+        // 에러 복구: 숨겼던 창들 다시 표시
         try {
-          if (loginWindowRef && !loginWindowRef.isDestroyed()) {
-            loginWindowRef.show();
+          for (const win of hideableWindows) {
+            if (win && !win.isDestroyed()) {
+              try { win.show(); } catch {}
+            }
           }
         } catch {}
       }, 8000);

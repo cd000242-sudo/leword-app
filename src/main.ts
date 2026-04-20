@@ -38,6 +38,7 @@ import {
   initAutoUpdaterEarly,
   registerUpdaterHandlers,
   setUpdaterLoginWindow,
+  registerHideableWindow,
   isUpdating,
 } from './updater';
 import { setupKeywordMasterHandlers } from './main/keywordMasterIpcHandlers';
@@ -130,6 +131,10 @@ function createKeywordWindow() {
     frame: true,
     autoHideMenuBar: true
   });
+
+  // 🔥 업데이트 발견 시 메인창도 숨겨지도록 등록
+  // (자동로그인 시 로그인창이 뜨지 않아 숨길 대상이 없던 버그 수정)
+  registerHideableWindow(keywordWindow);
 
   // console.log('[LEWORD] preload script:', keywordWindow.webContents.getWebPreferences().preload);
 
