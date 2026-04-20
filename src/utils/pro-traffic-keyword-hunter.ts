@@ -1025,6 +1025,34 @@ import {
   SEASON_KEYWORDS
 } from '../data/hunter-seeds';
 import { scanForSurges, listRecentSurges, type TrendSignal } from './pro-hunter-v12/trend-surge-detector';
+// 🔥 실시간 트렌드 제품명 주입 (뷰티: 올리브영 / 패션: 무신사)
+import { fetchOliveyoungBest, extractOliveyoungKeywords } from './sources/oliveyoung-ranking';
+import { fetchMusinsaRanking, extractMusinsaKeywords } from './sources/musinsa-ranking';
+
+/**
+ * 런타임 동적 시드 캐시 — 카테고리별 실시간 트렌드 제품명 보관
+ * huntProTrafficKeywords 진입 시 hydrate, getProfitableSeedKeywords 에서 읽음
+ */
+const DYNAMIC_TREND_SEEDS: Record<string, string[]> = {};
+
+async function hydrateDynamicSeeds(category: string): Promise<void> {
+  try {
+    if (category === 'beauty' || category === 'all') {
+      const products = await fetchOliveyoungBest();
+      const kws = extractOliveyoungKeywords(products).map(k => k.keyword).slice(0, 50);
+      DYNAMIC_TREND_SEEDS['beauty'] = kws;
+      console.log(`[PRO-HUNTER] 🧴 올리브영 실시간 트렌드 제품명 ${kws.length}개 시드 주입`);
+    }
+    if (category === 'fashion' || category === 'all') {
+      const products = await fetchMusinsaRanking();
+      const kws = extractMusinsaKeywords(products).map(k => k.keyword).slice(0, 40);
+      DYNAMIC_TREND_SEEDS['fashion'] = kws;
+      console.log(`[PRO-HUNTER] 👕 무신사 실시간 트렌드 제품명 ${kws.length}개 시드 주입`);
+    }
+  } catch (err: any) {
+    console.warn('[PRO-HUNTER] 동적 트렌드 시드 hydrate 실패:', err?.message);
+  }
+}
 import {
   REALTIME_SOURCE_WEIGHT,
   MONETIZATION_PATTERNS,
@@ -2044,6 +2072,11 @@ export async function huntProTrafficKeywords(options: {
     explosionMode = false,
     useDeepMining = true // 🔥 기본 활성화: 끝판왕 딥 마이닝 통합
   } = options;
+
+  // 🔥 실시간 트렌드 제품명 주입 (뷰티/패션 카테고리) — 정적 시드 품질 보강
+  if (category === 'beauty' || category === 'fashion' || category === 'all') {
+    await hydrateDynamicSeeds(category);
+  }
 
   const buildSmartBlockKeywords = async (topKeywords: string[], limit: number): Promise<{
     keywords: string[];
@@ -5661,7 +5694,10 @@ function getDaysOld(dateStr: string): number {
  */
 function getProfitableSeedKeywords(category: string, month: number): string[] {
   // CATEGORY_SEEDS (Removed, now imported from hunter-seeds.ts)
-  const baseSeeds = CATEGORY_SEEDS[category] || [];
+  // 🔥 정적 시드 + 실시간 트렌드 제품명 (올리브영/무신사) 합류
+  const staticSeeds = CATEGORY_SEEDS[category] || [];
+  const dynamicSeeds = DYNAMIC_TREND_SEEDS[category] || [];
+  const baseSeeds = Array.from(new Set([...dynamicSeeds, ...staticSeeds]));
 
   const buildCategoryLongtailSeeds = (cat: string, seeds: string[]): string[] => {
     if (!seeds || seeds.length === 0) return [];
