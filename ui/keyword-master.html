@@ -3659,7 +3659,7 @@
             <td style="padding: 12px; text-align: center; color: #64748b;">${mobileVolDisplay}</td>
             <td style="padding: 12px; text-align: center; font-weight: 700; color: #1e293b;">${searchVolDisplay}</td>
             <td style="padding: 12px; text-align: center; color: ${docCountColor}; font-weight: ${docCount === -1 ? '600' : '400'};">${docCountDisplay}</td>
-            <td style="padding: 12px; text-align: center;">
+            <td style="padding: 12px; text-align: center;" title="황금비율 = 총검색량 / 문서수 = ${searchVol ?? 0} / ${docCount ?? 0} = ${typeof goldenRatio === 'number' ? goldenRatio.toFixed(4) : '-'}">
               <span style="font-weight: 700; color: ${gradeColor}; background: ${gradeColor}20; padding: 4px 8px; border-radius: 6px;">
                 ${goldenRatioDisplay}
               </span>

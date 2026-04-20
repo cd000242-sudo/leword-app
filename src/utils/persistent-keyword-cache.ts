@@ -19,6 +19,9 @@ interface PersistentCacheEntry {
 const TTL_MS = 24 * 60 * 60 * 1000; // 24시간
 const WRITE_DEBOUNCE_MS = 5000;
 const CACHE_FILE_NAME = 'keyword-cache.json';
+// 🔥 스키마 버전 — 올리면 이전 버전 캐시는 로드 시 전부 무효화
+//    (v2.11.2 goldenRatio 공식/임계 버그 수정 반영 위해 bump)
+const CACHE_SCHEMA_VERSION = 'v2.11.4';
 
 let cache: Map<string, PersistentCacheEntry> = new Map();
 let cachePath: string | null = null;
@@ -53,20 +56,28 @@ function ensureLoaded(): void {
     if (fs.existsSync(cachePath)) {
       const raw = fs.readFileSync(cachePath, 'utf-8');
       const parsed = JSON.parse(raw);
-      const now = Date.now();
-      let validCount = 0;
-      let expiredCount = 0;
-      for (const [key, value] of Object.entries(parsed)) {
-        const entry = value as PersistentCacheEntry;
-        if (!entry || typeof entry.savedAt !== 'number') continue;
-        if (now - entry.savedAt > TTL_MS) {
-          expiredCount++;
-          continue;
+      // 🔥 스키마 버전 체크 — 불일치면 전체 무효화
+      const savedVersion = parsed.__schemaVersion;
+      if (savedVersion !== CACHE_SCHEMA_VERSION) {
+        console.log(`[PERSISTENT-CACHE] 🔄 스키마 버전 변경 (${savedVersion || 'none'} → ${CACHE_SCHEMA_VERSION}) — 기존 캐시 폐기`);
+        cache = new Map();
+      } else {
+        const now = Date.now();
+        let validCount = 0;
+        let expiredCount = 0;
+        for (const [key, value] of Object.entries(parsed)) {
+          if (key === '__schemaVersion') continue;
+          const entry = value as PersistentCacheEntry;
+          if (!entry || typeof entry.savedAt !== 'number') continue;
+          if (now - entry.savedAt > TTL_MS) {
+            expiredCount++;
+            continue;
+          }
+          cache.set(key, entry);
+          validCount++;
         }
-        cache.set(key, entry);
-        validCount++;
+        console.log(`[PERSISTENT-CACHE] 🗄️ 로드 완료: ${validCount}개 유효, ${expiredCount}개 만료 제거`);
       }
-      console.log(`[PERSISTENT-CACHE] 🗄️ 로드 완료: ${validCount}개 유효, ${expiredCount}개 만료 제거`);
     } else {
       console.log(`[PERSISTENT-CACHE] 🗄️ 캐시 파일 없음, 새로 시작: ${cachePath}`);
     }
@@ -94,7 +105,7 @@ function flushToDisk(): void {
     if (!fs.existsSync(dir)) {
       fs.mkdirSync(dir, { recursive: true });
     }
-    const obj: Record<string, PersistentCacheEntry> = {};
+    const obj: Record<string, any> = { __schemaVersion: CACHE_SCHEMA_VERSION };
     for (const [key, value] of cache.entries()) {
       obj[key] = value;
     }
