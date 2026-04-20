@@ -152,10 +152,13 @@ export async function findNicheKeywordsInstantlyV2(options: {
                 reason = `문서수 ${docCount}개 (진입 가능)`;
             }
 
+            // ⚠️ v2 폴백은 검색량 조회 불가능 (API 키 없음) → 황금비율 실제 계산 불가
+            // 이전 버그: goldenRatio: 10000 / docCount 공식 → 검색량 완전 무시, 오도 소지
+            // 수정: 0 으로 표기 (UI 에서 '-' 처리) + nicheScore 는 docCount 기반 유지
             nicheKeywords.push({
                 keyword,
                 documentCount: docCount,
-                goldenRatio: Math.round(10000 / Math.max(docCount, 1) * 10) / 10,
+                goldenRatio: 0,
                 nicheType,
                 nicheScore: Math.min(100, nicheScore),
                 category: classifyKeyword(keyword).primary,

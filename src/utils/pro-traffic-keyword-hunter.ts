@@ -7141,15 +7141,18 @@ function calculateTotalScore(
     golden: 0.20       // 황금비율 20% (↑)
   };
 
-  // 황금비율 점수 (0-100) - 100점 품질 고도화
-  // 🚨 비평가 관점: 검색량이 문서수보다 적으면(ratio < 1.0) 절대 높은 점수를 주지 않음
+  // 황금비율 점수 (0-100)
+  // goldenRatio = searchVolume / documentCount (높을수록 황금)
+  // 이전 버그: 임계값 500/200/100이 비현실적으로 커서 ratio 10배짜리도 10점만 받음
+  // 수정: 실제 분포(0.1~50) 기준으로 임계값 재조정
   let goldenScore = 0;
-  if (goldenRatio >= 500) goldenScore = 100;         // 검색량이 문서수의 5배 이상
-  else if (goldenRatio >= 200) goldenScore = 90;     // 검색량이 문서수의 2배 이상
-  else if (goldenRatio >= 100) goldenScore = 75;     // 검색량이 문서수보다 많음
-  else if (goldenRatio >= 50) goldenScore = 40;      // 검색량이 문서수의 절반 (레드오션 진입)
-  else if (goldenRatio >= 10) goldenScore = 10;      // 심각한 레드오션
-  else goldenScore = 0;                             // 재앙 수준의 레드오션 (보너스 없음)
+  if (goldenRatio >= 20) goldenScore = 100;        // 극황금 (검색량이 문서수의 20배+)
+  else if (goldenRatio >= 10) goldenScore = 90;    // 황금 (10배+)
+  else if (goldenRatio >= 5) goldenScore = 75;     // 블루오션 (5배+)
+  else if (goldenRatio >= 2) goldenScore = 55;     // 양호 (2배+)
+  else if (goldenRatio >= 1) goldenScore = 35;     // 균형 (검색량 = 문서수 수준)
+  else if (goldenRatio >= 0.5) goldenScore = 15;   // 레드오션 진입 (절반)
+  else goldenScore = 0;                            // 심각한 레드오션 (문서수 >> 검색량)
 
   let score =
     rookieScore * weights.rookie +
