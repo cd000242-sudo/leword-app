@@ -21,9 +21,8 @@ import { getTheqooKeywords } from './theqoo-collector';
 import { getBobaeKeywords } from './bobaedream-collector';
 import { fetchOliveyoungBest, extractOliveyoungKeywords } from './oliveyoung-ranking';
 import { fetchMusinsaRanking, extractMusinsaKeywords } from './musinsa-ranking';
-import { extractAdKeywordsFromCategory } from './meta-ad-library-kr';
-import { getHotResellProducts } from './kream-premium-signal';
-import { getHotNamuTopics } from './namuwiki-collector';
+// meta-ad-library: Facebook 403 차단으로 제거됨
+// kream/namuwiki: 서버 차단·SPA 변경으로 제거됨
 
 interface CacheEntry<T> {
     data: T;
@@ -175,23 +174,7 @@ export async function pullAllSeedKeywords(options: { lite?: boolean } = {}): Pro
         } catch (e) { console.error('[aggregator] musinsa fail', e); }
     })());
 
-    tasks.push((async () => {
-        try {
-            const cached = cache.get<any>('kream') || (await getHotResellProducts());
-            cache.set('kream', cached, TTL.DAILY);
-            raw.kream = cached;
-            for (const k of cached) addSeed(k.name, 'kream');
-        } catch (e) { console.error('[aggregator] kream fail', e); }
-    })());
-
-    tasks.push((async () => {
-        try {
-            const cached = cache.get<any>('namu') || (await getHotNamuTopics());
-            cache.set('namu', cached, TTL.HOURLY);
-            raw.namu = cached;
-            for (const n of cached) addSeed(n.title, 'namuwiki');
-        } catch (e) { console.error('[aggregator] namu fail', e); }
-    })());
+    // kream/namuwiki 풀링 제거됨 (서버 차단·SPA 변경)
 
     tasks.push((async () => {
         try {
@@ -218,21 +201,15 @@ export async function pullAllSeedKeywords(options: { lite?: boolean } = {}): Pro
  * 키워드별 다차원 신호 점수 산출
  */
 export async function computeKeywordSignals(keyword: string, sourcesPresent: string[]): Promise<KeywordSignals> {
-    const communityKeys = ['theqoo', 'bobaedream', 'ppomppu', 'namuwiki'];
+    const communityKeys = ['theqoo', 'bobaedream', 'ppomppu'];
     const snsKeys = ['tiktok', 'youtube', 'threads'];
 
     const communityHits = sourcesPresent.filter(s => communityKeys.includes(s)).length;
     const snsHits = sourcesPresent.filter(s => snsKeys.includes(s)).length;
 
-    let advertiserScore = 0;
+    const advertiserScore = 0;   // meta-ad-library 제거로 영구 0
     let newsBuzzScore = 0;
-    let futureScore = 0;
-
-    try {
-        const ads = await extractAdKeywordsFromCategory(keyword);
-        const matched = ads.find(a => a.keyword === keyword);
-        if (matched) advertiserScore = Math.min(100, matched.advertisers * 10 + matched.frequency);
-    } catch { }
+    const futureScore = 0;
 
     try {
         const buzz: BuzzMeasurement = await measureKeywordBuzz(keyword);

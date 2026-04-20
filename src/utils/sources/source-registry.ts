@@ -37,7 +37,7 @@ interface SourceState {
 const FAIL_THRESHOLD = 3;          // 3회 연속 실패 → DOWN
 const BLOCK_DURATION = 5 * 60_000; // 5분 차단
 const DEGRADED_THRESHOLD = 1;       // 1회 실패 → DEGRADED
-const SOURCE_TIMEOUT_MS = 10_000;   // per-source hard timeout
+const SOURCE_TIMEOUT_MS = 20_000;   // per-source hard timeout (bigkinds 29s 성공 이력 반영)
 
 function withTimeout<T>(promise: Promise<T>, ms: number, label: string): Promise<T> {
     return new Promise((resolve, reject) => {

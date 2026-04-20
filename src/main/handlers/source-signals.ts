@@ -2,9 +2,9 @@
  * 신규 데이터 소스 (v4.0) IPC 핸들러
  *
  * 게이팅 정책:
- *  - LITE (무료): YouTube RSS, 위키 Pageviews, 뽐뿌 RSS, Google PAA
+ *  - LITE (무료): YouTube RSS, 위키 Pageviews, 뽐뿌 RSS
  *  - PRO (무제한 라이선스): 그 외 전부 (쇼핑인사이트 XHR, TikTok, Threads,
- *    OpenAlex, Rakuten, 빅카인즈, 더쿠, 보배, 올리브영, 무신사, Meta Ad Library,
+ *    OpenAlex, Rakuten, 빅카인즈, 더쿠, 보배, 올리브영, 무신사,
  *    크림, 나무위키, Signal Aggregator 통합 풀링)
  */
 
@@ -15,7 +15,7 @@ import { fetchAllCategoryRanks, fetchShoppingKeywordRank, fetchSegmentRanks, NAV
 import { getYoutubeTrendingKeywords, fetchYoutubeKRTrending } from '../../utils/sources/youtube-kr-rss';
 import { fetchKoreanWikiTop, detectWikiRisingArticles, fetchArticleViewsTimeseries } from '../../utils/sources/wikipedia-pageviews';
 import { fetchPpomppuHotdeals, getHotProductFrequency } from '../../utils/sources/ppomppu-rss';
-import { fetchGooglePaa, batchPaa } from '../../utils/sources/google-paa-scraper';
+// google-paa: Google bot 차단으로 제거됨
 import { fetchTiktokTrendingHashtags, fetchTiktokKeywordInsights, getRisingHashtags } from '../../utils/sources/tiktok-creative-center';
 import { searchThreads, getKeywordBuzzScore, batchKeywordBuzz } from '../../utils/sources/threads-graph-api';
 import { fetchKoreanResearchConcepts, predictEmergingTopics, fetchConceptTrend } from '../../utils/sources/openalex-predictor';
@@ -25,9 +25,8 @@ import { fetchTheqooHot, getTheqooKeywords } from '../../utils/sources/theqoo-co
 import { fetchBobaeBest, getBobaeKeywords } from '../../utils/sources/bobaedream-collector';
 import { fetchOliveyoungBest, extractOliveyoungKeywords } from '../../utils/sources/oliveyoung-ranking';
 import { fetchMusinsaRanking, extractMusinsaKeywords } from '../../utils/sources/musinsa-ranking';
-import { searchAdLibraryKR, extractAdKeywordsFromCategory } from '../../utils/sources/meta-ad-library-kr';
-import { searchKream, getHotResellProducts } from '../../utils/sources/kream-premium-signal';
-import { fetchNamuRecentChanges, getHotNamuTopics } from '../../utils/sources/namuwiki-collector';
+// meta-ad-library: Facebook 403 차단으로 제거됨
+// kream/namuwiki: 서버 차단·SPA 변경으로 제거됨
 import { pullAllSeedKeywords, computeKeywordSignals, clearAggregatorCache } from '../../utils/sources/signal-aggregator';
 import { buildPublicGoldenFeed, clearFeedCache } from '../../utils/sources/public-golden-feed';
 import { getCachedRichFeed, clearRichFeedCache, RichKeywordRow } from '../../utils/sources/rich-feed-builder';
@@ -84,21 +83,7 @@ export function setupSourceSignalHandlers(): void {
         } catch (e: any) { return { success: false, error: e.message }; }
     });
 
-    ipcMain.handle('source-google-paa', async (_e, keyword: string) => {
-        try {
-            const r = await fetchGooglePaa(keyword);
-            return { success: true, ...r };
-        } catch (e: any) { return { success: false, error: e.message }; }
-    });
-
-    ipcMain.handle('source-google-paa-batch', async (_e, keywords: string[]) => {
-        try {
-            const map = await batchPaa(keywords);
-            const obj: Record<string, any> = {};
-            for (const [k, v] of map.entries()) obj[k] = v;
-            return { success: true, results: obj };
-        } catch (e: any) { return { success: false, error: e.message }; }
-    });
+    // source-google-paa / source-google-paa-batch: Google bot 차단으로 제거됨
 
     // ========== PRO (무제한 라이선스 전용) ==========
 
@@ -213,27 +198,9 @@ export function setupSourceSignalHandlers(): void {
         return { success: true, products, keywords };
     }));
 
-    ipcMain.handle('source-meta-ad-library', (_e, keyword: string) => pro(async () => {
-        const ads = await searchAdLibraryKR(keyword);
-        const extracted = await extractAdKeywordsFromCategory(keyword);
-        return { success: true, ads, extracted };
-    }));
+    // source-meta-ad-library: Facebook 403 차단으로 제거됨
 
-    ipcMain.handle('source-kream-search', (_e, keyword: string) => pro(async () => {
-        const products = await searchKream(keyword);
-        return { success: true, products };
-    }));
-
-    ipcMain.handle('source-kream-resell', () => pro(async () => {
-        const products = await getHotResellProducts();
-        return { success: true, products };
-    }));
-
-    ipcMain.handle('source-namu-recent', () => pro(async () => {
-        const all = await fetchNamuRecentChanges();
-        const hot = await getHotNamuTopics();
-        return { success: true, all, hot };
-    }));
+    // source-kream-*, source-namu-*: 서버 차단·SPA 변경으로 제거됨
 
     // ========== Signal Aggregator (PRO) ==========
 
@@ -274,14 +241,19 @@ export function setupSourceSignalHandlers(): void {
     });
 
     // ========== Rich Golden Feed (메인 핵심) ==========
-    ipcMain.handle('get-rich-golden-feed', async (_e, options?: { force?: boolean; tier?: 'lite' | 'pro'; limit?: number }) => {
+    ipcMain.handle('get-rich-golden-feed', async (event, options?: { force?: boolean; tier?: 'lite' | 'pro'; limit?: number }) => {
         try {
             // PRO 티어 자격: 영구제 + 1년권. 자격 있으면 기본 pro, 명시적으로 lite 요청하면 lite.
             const isPro = checkProTierAllowed().allowed;
             const tier: 'lite' | 'pro' = isPro ? (options?.tier === 'lite' ? 'lite' : 'pro') : 'lite';
             const limit = options?.limit || (tier === 'pro' ? 200 : 50);
 
-            const result = await getCachedRichFeed(options?.force === true, { tier, limit });
+            // 📡 진행 이벤트를 렌더러로 전송 (rich-feed-progress 채널)
+            const onProgress = (payload: { step: string; percent: number; message: string }) => {
+                try { event.sender.send('rich-feed-progress', payload); } catch {}
+            };
+
+            const result = await getCachedRichFeed(options?.force === true, { tier, limit }, onProgress);
             return { success: true, ...result, isPro };
         } catch (e: any) {
             console.error('[rich-feed] 실패:', e);
@@ -305,7 +277,7 @@ export function setupSourceSignalHandlers(): void {
             }
 
             if (format === 'csv' || format === 'clipboard') {
-                const headers = ['순위', '카테고리', '등급', '키워드', '검색량', '문서수', '기회지수', 'CPC', '예상월수익', '신선도', '발견소스수', '발견소스', '구매의도', '블루오션'];
+                const headers = ['순위', '카테고리', '등급', '키워드', '검색량', '문서수', '기회지수', 'CPC', '신선도', '발견소스수', '발견소스', '구매의도', '블루오션'];
                 const lines = [headers.join(',')];
                 for (const r of rows) {
                     const csvRow = [
@@ -316,8 +288,7 @@ export function setupSourceSignalHandlers(): void {
                         r.searchVolume,
                         r.documentCount,
                         r.goldenRatio,
-                        r.cpc,
-                        r.estimatedMonthlyRevenue,
+                        (typeof r.cpc === 'number' && r.cpc > 0) ? r.cpc : '',
                         r.freshness,
                         r.sourceCount,
                         `"${r.sources.join(' | ')}"`,

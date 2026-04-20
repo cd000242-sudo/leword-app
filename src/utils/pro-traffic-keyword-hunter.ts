@@ -2647,6 +2647,9 @@ export async function huntProTrafficKeywords(options: {
     // 2단계: Naver API 대량 조회 전 간단 필터링 (속도를 위해 수동 점검 줄임)
     const initialPool = baseKeywords.slice(0, 500); // 500개로 제한
 
+    // 🎯 카테고리별 앵커 주입은 'category' 모드에서만 수행
+    // realtime/season 모드는 각자의 시드만 사용하여 모드별 결과가 뚜렷이 달라지도록 함
+    if (mode === 'category') {
     if (category === 'life_tips') {
       const month = new Date().getMonth() + 1;
       const seasonalSeeds = MONTHLY_GOLDEN_KEYWORDS[month] || [];
@@ -2693,17 +2696,30 @@ export async function huntProTrafficKeywords(options: {
       const rest = unique.filter(s => !anchorSeeds.includes(s));
       allSeedKeywords = [...anchorSeeds, ...shuffleArray(rest)].slice(0, seedTarget);
     } else if (category === 'celeb') {
-      const anchorSeeds = [
-        '컴백 라인업', '데뷔 확정', '캐스팅 소식', '열애 보도', '결혼 발표', '임신 소식', '입대 발표', '전역 예정',
-        '컴백 티저', '트랙리스트 공개', '선공개곡', '뮤직비디오 해석', '쇼케이스 생중계',
-        '드라마 라인업', '영화 출연진', '예능 고정 출연', '시상식 참석', '공항 패션',
-        '콘서트 티켓팅', '팬미팅 예매', '팬사인회 당첨', '공연 취소표',
-        '아이유 컴백', '임영웅 콘서트', '세븐틴 월드투어', '뉴진스 데뷔', '에스파 컴백 소식',
-        '방탄소년단 전역', '블랙핑크 재계약', '아이브 팬미팅', '르세라핌 캐스팅'
-      ];
-      const unique = [...new Set([...anchorSeeds, ...allSeedKeywords])];
-      const rest = unique.filter(s => !anchorSeeds.includes(s));
-      allSeedKeywords = [...anchorSeeds, ...shuffleArray(rest)].slice(0, seedTarget);
+      // 🔥 연예 이슈 시드 — 커뮤니티 raw 이슈 문구 직접 사용
+      // 블로거의 목표 = 이슈 "선점". 롱테일 조합은 기자용이지 블로그용 아님.
+      // theqoo 핫게시글에서 이미 언급되는 "인물 + 이슈" 원본 문구를 그대로 시드로.
+
+      // [1] 실시간 이슈 문구 (theqoo 커뮤니티 핫게시글에서 빈도 2+회 bi-gram)
+      let liveIssues: string[] = [];
+      try {
+        const { getLiveCelebIssues } = await import('./sources/theqoo-collector');
+        liveIssues = await withStepTimeout('celeb-live-issues', getLiveCelebIssues(), 5000, [] as string[]);
+        console.log(`[PRO-TRAFFIC] 🌟 실시간 이슈 문구 ${liveIssues.length}개 추출됨`);
+      } catch (e: any) {
+        console.warn('[PRO-TRAFFIC] 실시간 이슈 추출 실패:', e?.message);
+      }
+
+      // [2] 안전망 — 실시간 이슈가 비어있을 때만 최소한의 고정 이벤트 패턴 사용
+      const FALLBACK_EVENTS = ['컴백', '신곡', '콘서트', '열애설', '논란'];
+      const fallback = liveIssues.length >= 5 ? [] : FALLBACK_EVENTS;
+
+      // [3] 최종 시드: theqoo raw 이슈가 우선, 부족하면 최소 fallback + 기존
+      const combined = [...liveIssues, ...fallback];
+      const unique = [...new Set([...combined, ...allSeedKeywords])];
+      const rest = unique.filter(s => !combined.includes(s));
+      allSeedKeywords = [...combined, ...shuffleArray(rest)].slice(0, seedTarget);
+      console.log(`[PRO-TRAFFIC] 🎭 celeb 시드: theqoo 이슈 ${liveIssues.length} + fallback ${fallback.length} = ${combined.length}`);
     } else if (category === 'business') {
       const anchorSeeds = [
         '연말정산', '부가세', '종합소득세', '세무사', '세무기장', '상표등록', '법인설립', '사업자등록', '정책자금', '지원금',
@@ -2773,11 +2789,18 @@ export async function huntProTrafficKeywords(options: {
       allSeedKeywords = [...anchorSeeds, ...shuffleArray(rest)].slice(0, seedTarget);
     } else if (category === 'drama') {
       const anchorSeeds = [
-        '드라마 다시보기', '드라마 재방송', '드라마 회차', '드라마 출연진',
-        '티빙 드라마 다시보기', '티빙 드라마 구독', '티빙 요금제',
-        '웨이브 드라마 다시보기', '웨이브 요금제',
-        '넷플릭스 드라마 추천', '넷플릭스 요금제',
-        '디즈니플러스 드라마 추천', '디즈니플러스 요금제'
+        // 실제 검색량 높은 범용 드라마 키워드
+        '인기 드라마', '드라마 추천', '한국 드라마 추천', '최신 드라마',
+        '드라마 순위', '드라마 시청률', '시청률 순위', '방영 드라마',
+        '주말 드라마', '일일 드라마', '미니시리즈 추천', '사극 추천',
+        '로맨스 드라마 추천', '스릴러 드라마 추천',
+        // 드라마 정보 검색 의도
+        '드라마 다시보기', '드라마 재방송', '드라마 회차 정리', '드라마 출연진 정보',
+        '드라마 결말', '드라마 OST', '드라마 촬영지',
+        // OTT (보조)
+        '넷플릭스 드라마 추천', '티빙 드라마', '디즈니 드라마',
+        // 연도별
+        '2026 드라마 추천', '2026 인기 드라마'
       ];
       const unique = [...new Set([...anchorSeeds, ...allSeedKeywords])];
       const rest = unique.filter(s => !anchorSeeds.includes(s));
@@ -2793,13 +2816,18 @@ export async function huntProTrafficKeywords(options: {
       const unique = [...new Set([...anchorSeeds, ...allSeedKeywords])];
       const rest = unique.filter(s => !anchorSeeds.includes(s));
       allSeedKeywords = [...anchorSeeds, ...shuffleArray(rest)].slice(0, seedTarget);
-    } else if (category === 'drama' || category === 'broadcast') {
+    } else if (category === 'broadcast') {
+      // drama는 위에서 이미 처리됨. broadcast만 전용 앵커
       const anchorSeeds = [
-        '티빙 구독', '티빙 요금제',
-        '웨이브 구독', '웨이브 요금제',
-        '넷플릭스 구독', '넷플릭스 요금제',
-        '디즈니플러스 구독', '디즈니플러스 요금제',
-        '실시간 TV 보기', '다시보기 결제', 'VOD 결제'
+        // 범용 방송/예능 키워드
+        '인기 예능', '예능 추천', '토요일 예능', '일요일 예능',
+        '예능 순위', '방송 시청률', '편성표', '재방송 편성표',
+        '관찰 예능', '리얼리티 예능', '토크쇼 추천', '오디션 프로그램',
+        '런닝맨 다시보기', '나혼자산다 출연진',
+        // OTT 예능
+        '넷플릭스 예능', 'tvN 예능', '티빙 오리지널 예능',
+        // 연도
+        '2026 예능 추천', '2026 인기 예능'
       ];
       const unique = [...new Set([...anchorSeeds, ...allSeedKeywords])];
       const rest = unique.filter(s => !anchorSeeds.includes(s));
@@ -2824,7 +2852,7 @@ export async function huntProTrafficKeywords(options: {
       const unique = [...new Set([...anchorSeeds, ...allSeedKeywords])];
       const rest = unique.filter(s => !anchorSeeds.includes(s));
       allSeedKeywords = [...anchorSeeds, ...shuffleArray(rest)].slice(0, seedTarget);
-    } else if (category === 'grant' || category === 'policy') {
+    } else if (category === 'policy') {
       const anchorSeeds = [
         '소상공인 지원금', '민생회복지원금', '근로장려금', '자녀장려금', '청년지원금', '생활안정지원금',
         '소상공인 정책자금', '희망회복자금', '손실보상금', '긴급고용안정지원금',
@@ -2889,6 +2917,10 @@ export async function huntProTrafficKeywords(options: {
       const rest = unique.filter(s => !anchorSeeds.includes(s));
       allSeedKeywords = [...anchorSeeds, ...shuffleArray(rest)].slice(0, seedTarget);
     } else {
+      allSeedKeywords = shuffleArray(allSeedKeywords).slice(0, seedTarget);
+    }
+    } else {
+      // realtime/season 모드: 카테고리 앵커 미주입. 수집한 seed 그대로 셔플+제한만.
       allSeedKeywords = shuffleArray(allSeedKeywords).slice(0, seedTarget);
     }
   }

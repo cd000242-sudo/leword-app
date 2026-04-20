@@ -1,4 +1,4 @@
-// 유튜브 황금키워드 핸들러 (v2.2.4 — 심층분석 기능 제거, 황금키워드만 유지)
+// 유튜브 핸들러 (v2.9 — 황금키워드 → 숏츠 벤치마킹으로 전환)
 import { ipcMain } from 'electron';
 import { EnvironmentManager } from '../../utils/environment-manager';
 import { checkUnlimitedLicense } from './shared';
@@ -9,6 +9,7 @@ import {
   generateGoldenKeywords,
   crossReferenceWithNaver,
 } from '../../utils/youtube-trend-analyzer';
+import { getTrendingShorts, ShortsQuery } from '../../utils/youtube-shorts-benchmarker';
 
 function getYouTubeApiKey(): string {
   const envManager = EnvironmentManager.getInstance();
@@ -89,4 +90,49 @@ export function registerYouTubeAnalysisHandlers(): void {
   });
 
   console.log('[YOUTUBE] youtube-golden-keywords 핸들러 등록 완료');
+
+  // 🎬 유튜브 숏츠 벤치마킹 — 따라 만들면 성공할 숏츠 발굴
+  if (!ipcMain.listenerCount('youtube-shorts-benchmark')) {
+    ipcMain.handle('youtube-shorts-benchmark', async (_event, params: ShortsQuery = {}) => {
+      console.log('[YOUTUBE] youtube-shorts-benchmark 요청:', params);
+
+      const denied = licenseGate();
+      if (denied) return denied;
+
+      const apiKey = getYouTubeApiKey();
+      if (!apiKey) {
+        return { error: true, message: 'YouTube API 키가 설정되지 않았습니다.' };
+      }
+
+      try {
+        const items = await getTrendingShorts({
+          period: params?.period || '24h',
+          categoryId: params?.categoryId || undefined,
+          maxResults: params?.maxResults || 30,
+          sort: params?.sort || 'score',
+        });
+        const avgScore = items.length > 0
+          ? Math.round(items.reduce((a, b) => a + b.benchmarkScore, 0) / items.length * 10) / 10
+          : 0;
+        // TOP 채널 (빈도)
+        const channelFreq = new Map<string, number>();
+        for (const it of items) channelFreq.set(it.channelTitle, (channelFreq.get(it.channelTitle) || 0) + 1);
+        const topChannel = Array.from(channelFreq.entries()).sort((a, b) => b[1] - a[1])[0]?.[0] || '-';
+        return {
+          success: true,
+          data: {
+            items,
+            total: items.length,
+            avgScore,
+            topChannel,
+            period: params?.period || '24h',
+          },
+        };
+      } catch (err: any) {
+        console.error('[YOUTUBE] youtube-shorts-benchmark 오류:', err.message);
+        return quotaError(err) || { error: true, message: err?.message || '숏츠 수집 중 오류가 발생했습니다.' };
+      }
+    });
+    console.log('[YOUTUBE] youtube-shorts-benchmark 핸들러 등록 완료');
+  }
 }

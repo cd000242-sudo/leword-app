@@ -171,17 +171,22 @@ async function checkLicense(): Promise<boolean> {
     return true;
   }
 
-  // 저장된 라이선스 확인 (만료 체크만, 자동 인증 안 함)
+  // 저장된 라이선스 + 자동로그인 시도
   const license = await licenseManager.loadLicense();
 
   if (license && license.isValid) {
-    // 저장된 라이선스가 있어도 자동 로그인 안 함 - 항상 로그인창 표시
     if (licenseManager.isLicenseExpired(license)) {
-      console.log('[LEWORD] ⚠️ 저장된 라이선스 만료됨 — 라이선스 삭제 후 로그인창으로 진행');
-      // 만료된 경우 라이선스 삭제 (팝업 다이얼로그 제거 — 바로 로그인창으로)
+      console.log('[LEWORD] ⚠️ 저장된 라이선스 만료됨 — 삭제 후 로그인창으로 진행');
       await licenseManager.clearLicense();
     } else {
-      console.log('[LEWORD] 저장된 라이선스 있음 (자동 로그인 비활성화 - 매번 로그인 필요)');
+      // 🔐 저장된 credential(safeStorage 암호화) 있으면 자동로그인 시도
+      console.log('[LEWORD] 저장된 라이선스 있음 — 자동로그인 시도');
+      const auto = await licenseManager.autoLogin();
+      if (auto.success && auto.license) {
+        console.log('[LEWORD] ✅ 자동로그인 성공:', auto.license.licenseType || auto.license.plan);
+        return true;
+      }
+      console.log('[LEWORD] 자동로그인 실패/없음 — 로그인창 진행:', auto.message);
     }
   }
 

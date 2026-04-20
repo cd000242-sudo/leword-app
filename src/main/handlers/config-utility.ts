@@ -682,16 +682,20 @@ export function setupConfigUtilityHandlers(): void {
 
         console.log(`[KIN-HUNTER-V3] 🔥 황금 질문 헌터 시작! (탭: ${tabType}, 프리미엄: ${isPremiumRequest})`);
 
-        // 라이선스 체크 (3개월 이상)
+        // 라이선스 체크 (3개월 이상) — 개발자 모드, 영구제, 대소문자 무관 매칭
+        const { app } = require('electron');
+        const isDev = !app.isPackaged || process.env['NODE_ENV'] === 'development';
         const license = await licenseManager.loadLicense();
-        const isActuallyPremium = license && license.isValid && (
-          license.plan === '3months' ||
-          license.plan === '1year' ||
-          license.plan === 'unlimited' ||
-          license.licenseType === '3months' ||
-          license.licenseType === '1year' ||
-          license.licenseType === 'unlimited'
-        );
+        const typeStr = String(license?.licenseType || license?.plan || '').toUpperCase();
+        const isActuallyPremium = isDev || (license && license.isValid && (
+          license.isUnlimited === true ||
+          license.maxUses === -1 ||
+          license.remaining === -1 ||
+          !license.expiresAt ||  // 만료일 없음 = 영구제
+          ['UNLIMITED', 'PERMANENT', 'LIFE'].includes(typeStr) ||
+          ['1YEAR', '365DAY', 'YEARLY'].includes(typeStr) ||
+          ['3MONTHS', '90DAY', 'THREE-MONTHS-PLUS'].includes(typeStr)
+        ));
 
         // 무료 사용자가 프리미엄 기능 요청 시 차단
         if (isPremiumRequest && !isActuallyPremium) {

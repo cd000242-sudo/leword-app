@@ -208,12 +208,74 @@ export async function refreshLicenseFromServer(): Promise<{ success: boolean; li
   }
 }
 
-export async function saveLicense(license: any): Promise<void> {
+// safeStorage 암호화된 credentials 파일
+const CREDENTIALS_FILE = 'credentials.enc';
+
+/**
+ * 체크박스 "기억하기" 켜진 경우 userId + userPassword를 OS 키체인 수준 암호화로 저장
+ * electron.safeStorage 사용 — Windows DPAPI / macOS Keychain / Linux SecretService
+ */
+async function saveCredentials(userId: string, userPassword: string): Promise<void> {
+  try {
+    const { safeStorage } = require('electron');
+    if (!safeStorage.isEncryptionAvailable()) {
+      console.warn('[LICENSE] safeStorage 암호화 불가 — credential 저장 스킵');
+      return;
+    }
+    const filePath = await ensureLicenseDir();
+    const credFile = path.join(filePath, CREDENTIALS_FILE);
+    const payload = JSON.stringify({ userId, userPassword });
+    const encrypted = safeStorage.encryptString(payload);
+    await fs.writeFile(credFile, encrypted);
+  } catch (e: any) {
+    console.warn('[LICENSE] credential 저장 실패:', e?.message);
+  }
+}
+
+/**
+ * 저장된 credential 로드 (자동로그인용)
+ */
+export async function loadCredentials(): Promise<{ userId: string; userPassword: string } | null> {
+  try {
+    const { safeStorage } = require('electron');
+    if (!safeStorage.isEncryptionAvailable()) return null;
+    const filePath = await ensureLicenseDir();
+    const credFile = path.join(filePath, CREDENTIALS_FILE);
+    const raw = await fs.readFile(credFile);
+    const decrypted = safeStorage.decryptString(raw);
+    return JSON.parse(decrypted);
+  } catch {
+    return null; // 파일 없거나 복호화 실패
+  }
+}
+
+/**
+ * credential 파일만 삭제 (로그아웃 또는 "기억하기" 해제 시)
+ */
+export async function clearCredentials(): Promise<void> {
+  try {
+    const filePath = await ensureLicenseDir();
+    const credFile = path.join(filePath, CREDENTIALS_FILE);
+    await fs.unlink(credFile);
+  } catch {
+    // 파일 없으면 무시
+  }
+}
+
+export async function saveLicense(license: any, options?: { rememberCredentials?: boolean }): Promise<void> {
   const filePath = await ensureLicenseDir();
   const licenseFile = path.join(filePath, LICENSE_FILE);
   cachedLicense = license;
   const { userPassword, ...safeData } = license;
   await fs.writeFile(licenseFile, JSON.stringify(safeData, null, 2), 'utf-8');
+
+  // 🔐 "기억하기" 켜진 경우 별도 암호화 파일에 credential 저장
+  if (options?.rememberCredentials && license.userId && userPassword) {
+    await saveCredentials(license.userId, userPassword);
+  } else if (options?.rememberCredentials === false) {
+    // 명시적으로 끈 경우 기존 credential 삭제
+    await clearCredentials();
+  }
 }
 
 export async function clearLicense(): Promise<void> {
@@ -225,6 +287,42 @@ export async function clearLicense(): Promise<void> {
     // 파일이 없어도 무시
   }
   cachedLicense = null;
+}
+
+/**
+ * 로그아웃 — license.json + credentials.enc 모두 삭제 + 메모리 초기화
+ */
+export async function logout(): Promise<{ success: boolean }> {
+  try {
+    await clearLicense();
+    await clearCredentials();
+    return { success: true };
+  } catch (e: any) {
+    console.error('[LICENSE] 로그아웃 실패:', e?.message);
+    return { success: false };
+  }
+}
+
+/**
+ * 자동로그인 — 저장된 credential 있으면 서버 재인증
+ */
+export async function autoLogin(): Promise<{ success: boolean; license?: any; message?: string }> {
+  const creds = await loadCredentials();
+  if (!creds || !creds.userId || !creds.userPassword) {
+    return { success: false, message: '저장된 credential 없음' };
+  }
+  try {
+    const deviceId = await getDeviceId();
+    const result = await verifyLicense('', deviceId, undefined, creds.userId, creds.userPassword);
+    if (result.valid && result.license) {
+      // 메모리 캐시 업데이트 (password 포함)
+      cachedLicense = { ...result.license, userPassword: creds.userPassword };
+      return { success: true, license: result.license };
+    }
+    return { success: false, message: result.message || '서버 재인증 실패' };
+  } catch (e: any) {
+    return { success: false, message: e?.message || '자동로그인 실패' };
+  }
 }
 
 export function getCachedLicense(): any {

@@ -179,6 +179,7 @@ export function setupLicenseHandlers(): void {
       licenseCode?: string;
       userId?: string;
       userPassword?: string;
+      rememberCredentials?: boolean;
     }) => {
       try {
         const deviceId = await licenseManager.getDeviceId();
@@ -197,8 +198,15 @@ export function setupLicenseHandlers(): void {
         if (result.valid && result.license) {
           console.log('[LICENSE] ✅ 라이선스 등록 성공:', {
             userId: result.license.userId,
-            type: result.license.licenseType || result.license.plan
+            type: result.license.licenseType || result.license.plan,
+            remember: !!data.rememberCredentials
           });
+
+          // 🔐 "기억하기" 체크박스에 따라 credential 저장/삭제
+          await licenseManager.saveLicense(
+            { ...result.license, userPassword: data.userPassword },
+            { rememberCredentials: !!data.rememberCredentials }
+          );
 
           return {
             success: true,
@@ -223,6 +231,47 @@ export function setupLicenseHandlers(): void {
       }
     });
     console.log('[KEYWORD-MASTER] ✅ register-license 핸들러 등록 완료');
+  }
+
+  // 🔐 logout IPC — 라이선스 + credentials 삭제 + 메모리 초기화
+  if (!ipcMain.listenerCount('logout')) {
+    ipcMain.handle('logout', async () => {
+      try {
+        const result = await licenseManager.logout();
+        console.log('[LICENSE] 🔓 로그아웃:', result.success ? '성공' : '실패');
+        return result;
+      } catch (error: any) {
+        return { success: false, message: error.message };
+      }
+    });
+    console.log('[KEYWORD-MASTER] ✅ logout 핸들러 등록 완료');
+  }
+
+  // 🔐 autoLogin IPC — 저장된 credential로 서버 재인증 (앱 시작 시 or 수동 트리거)
+  if (!ipcMain.listenerCount('auto-login')) {
+    ipcMain.handle('auto-login', async () => {
+      try {
+        const result = await licenseManager.autoLogin();
+        return result;
+      } catch (error: any) {
+        return { success: false, message: error.message };
+      }
+    });
+    console.log('[KEYWORD-MASTER] ✅ auto-login 핸들러 등록 완료');
+  }
+
+  // 🔐 get-saved-credentials — 로그인 모달 열릴 때 저장된 userId만 반환 (password는 보안상 미반환)
+  if (!ipcMain.listenerCount('get-saved-credentials')) {
+    ipcMain.handle('get-saved-credentials', async () => {
+      try {
+        const creds = await licenseManager.loadCredentials();
+        if (!creds) return { hasCredentials: false };
+        return { hasCredentials: true, userId: creds.userId };
+      } catch {
+        return { hasCredentials: false };
+      }
+    });
+    console.log('[KEYWORD-MASTER] ✅ get-saved-credentials 핸들러 등록 완료');
   }
 
   if (!ipcMain.listenerCount('check-premium-access')) {

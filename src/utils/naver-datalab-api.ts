@@ -563,7 +563,7 @@ export async function getNaverKeywordSearchVolumeSeparate(
   config: NaverDatalabConfig,
   keywords: string[],
   options: { includeDocumentCount?: boolean } = {}
-): Promise<{ keyword: string; pcSearchVolume: number | null; mobileSearchVolume: number | null; documentCount: number | null; competition: string | null }[]> {
+): Promise<{ keyword: string; pcSearchVolume: number | null; mobileSearchVolume: number | null; documentCount: number | null; competition: string | null; monthlyAveCpc: number | null }[]> {
   if (!config.clientId || !config.clientSecret) {
     throw new Error('네이버 API 인증 정보가 필요합니다');
   }
@@ -572,12 +572,13 @@ export async function getNaverKeywordSearchVolumeSeparate(
   const input = (keywords || []).map(k => String(k || '').trim()).filter(Boolean);
   if (input.length === 0) return [];
 
-  const results: { keyword: string; pcSearchVolume: number | null; mobileSearchVolume: number | null; documentCount: number | null; competition: string | null }[] = input.map(k => ({
+  const results: { keyword: string; pcSearchVolume: number | null; mobileSearchVolume: number | null; documentCount: number | null; competition: string | null; monthlyAveCpc: number | null }[] = input.map(k => ({
     keyword: k,
     pcSearchVolume: null,
     mobileSearchVolume: null,
     documentCount: null,
-    competition: null
+    competition: null,
+    monthlyAveCpc: null
   }));
 
   try {
@@ -628,6 +629,8 @@ export async function getNaverKeywordSearchVolumeSeparate(
             results[idx].pcSearchVolume = pcVol;
             results[idx].mobileSearchVolume = mobileVol;
             results[idx].competition = r && r.competition ? r.competition : null;
+            // 🔥 네이버 검색광고 API 실제 평균 입찰가 (monthlyAveCpc) 포함 — 더미 아닌 실측 추정
+            results[idx].monthlyAveCpc = r && typeof r.monthlyAveCpc === 'number' ? r.monthlyAveCpc : null;
           }
         } catch (e: any) {
           for (let j = 0; j < batch.length; j++) {

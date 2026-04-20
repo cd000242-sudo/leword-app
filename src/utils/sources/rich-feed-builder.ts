@@ -22,6 +22,7 @@ import { estimateCPC, calculatePurchaseIntent, calculateCompetitionLevel } from 
 import { EnvironmentManager } from '../environment-manager';
 import { classifyKeyword, getCategoryById } from '../categories';
 import { getEvergreenSafetyNetSeeds } from './evergreen-safety-net';
+import { buildIDFStats, scoreSeedKeyword, isQualitySeed } from './quality-extractor';
 
 export type Freshness = 'BURNING' | 'RISING' | 'STABLE' | 'EVERGREEN';
 export type GoldenGrade = 'SSS' | 'SS' | 'S' | 'A' | 'B';
@@ -35,8 +36,7 @@ export interface RichKeywordRow {
     searchVolume: number;
     documentCount: number;
     goldenRatio: number;
-    cpc: number;
-    estimatedMonthlyRevenue: number;
+    cpc: number | null;           // 네이버 검색광고 API 실측 평균 입찰가 (null = 미확인)
     freshness: Freshness;
     sources: string[];
     sourceCount: number;
@@ -60,9 +60,21 @@ const STOP = new Set([
 ]);
 
 function normalize(kw: string): string {
-    return String(kw || '').trim()
-        .replace(/^[#\[\(]+|[\]\)]+$/g, '')
-        .replace(/\s+/g, ' ');
+    let s = String(kw || '').trim();
+    // 여는 괄호/대괄호/해시 선두 제거
+    s = s.replace(/^[#\[\(]+/, '');
+    // 닫는 괄호/대괄호 말미 제거
+    s = s.replace(/[\]\)]+$/, '');
+    // 짝 안 맞는 괄호 쌍방 정리: "(" 만 있으면 해당 토큰 이후 전체 잘라냄
+    const openIdx = s.indexOf('(');
+    const closeIdx = s.indexOf(')');
+    if (openIdx >= 0 && closeIdx < 0) s = s.slice(0, openIdx).trim();
+    else if (closeIdx >= 0 && openIdx < 0) s = s.slice(closeIdx + 1).trim();
+    const openBracket = s.indexOf('[');
+    const closeBracket = s.indexOf(']');
+    if (openBracket >= 0 && closeBracket < 0) s = s.slice(0, openBracket).trim();
+    else if (closeBracket >= 0 && openBracket < 0) s = s.slice(closeBracket + 1).trim();
+    return s.replace(/\s+/g, ' ');
 }
 
 function isValid(kw: string): boolean {
@@ -162,18 +174,34 @@ function judgeFreshness(keyword: string, sources: string[]): Freshness {
     return 'STABLE';
 }
 
+export type RichFeedProgress = { step: string; percent: number; message: string };
+export type RichFeedProgressCallback = (payload: RichFeedProgress) => void;
+
 /**
  * 메인 빌더
  */
-export async function buildRichFeed(options: { tier?: SourceTier; limit?: number } = {}): Promise<RichFeedResult> {
+export async function buildRichFeed(
+    options: { tier?: SourceTier; limit?: number } = {},
+    onProgress?: RichFeedProgressCallback
+): Promise<RichFeedResult> {
     const tier: 'lite' | 'pro' = options.tier === 'pro' ? 'pro' : 'lite';
     const limit = options.limit || 100;
+
+    const emit = (step: string, percent: number, message: string) => {
+        try { onProgress?.({ step, percent, message }); } catch {}
+    };
+
+    emit('seed', 5, '28개 외부 소스에서 시드 수집 시작...');
 
     // 1. 시드 풀링
     const sourceResults = await callAllSources({
         tier: tier === 'lite' ? 'lite' : undefined,
         healthy: true,
     });
+
+    const successSources = Array.from(sourceResults.values()).filter(r => r.success).length;
+    const totalSources = sourceResults.size;
+    emit('seed', 15, `시드 풀링 완료 (성공 ${successSources}/${totalSources})`);
 
     // 2. 키워드 → 소스 맵
     const seedMap = new Map<string, Set<string>>();
@@ -209,15 +237,35 @@ export async function buildRichFeed(options: { tier?: SourceTier; limit?: number
         perSource.get(primary)!.push(seed);
     }
 
-    // 3-2. 마이너 소스는 전부 포함, 주요 소스(wiki 등 시드 많은 소스)는 상위 N개만
-    // wiki가 964개 seed를 갖고 있어 다양성 부족을 방지하면서도 잘라내지 않도록
-    const HEAVY_SOURCE_CAP = 200;   // 시드 200개 초과 소스는 상위 200개만
-    const baseSeeds: Array<{ keyword: string; sources: string[] }> = [];
+    // 3-2. 품질 기반 선별 — 다양성 CAP + TF-IDF + 고유명사 + 카테고리 부스팅
+    //
+    // 기존: 소스별 상위 N개 단순 take
+    // 개선: 소스 쿼터는 유지하되, 각 소스 내에서 품질 점수로 정렬 후 상위 N개만.
+    //       stopwords/노이즈 사전 필터 + IDF 기반 과다등장 키워드 디메리트.
+    const HEAVY_SOURCE_CAP = 100;   // 시드 100개 초과 소스는 상위 100개만 (편중 완화)
+
+    // IDF 기반 통계: 소스별 유니크 키워드 집합
+    const sourceBuckets = new Map<string, string[]>();
+    for (const [sourceId, list] of perSource.entries()) {
+        sourceBuckets.set(sourceId, list.map(s => s.keyword));
+    }
+    const idfStats = buildIDFStats(sourceBuckets);
+
+    const baseSeeds: Array<{ keyword: string; sources: string[]; qualityScore: number }> = [];
     const seenKeywords = new Set<string>();
     for (const [, list] of perSource.entries()) {
-        const take = list.length > HEAVY_SOURCE_CAP ? HEAVY_SOURCE_CAP : list.length;
+        // 품질 점수로 소스 내 재정렬
+        const scored = list
+            .filter(s => isQualitySeed(s.keyword))
+            .map(s => ({
+                ...s,
+                qualityScore: scoreSeedKeyword(s.keyword, idfStats, s.sources.length),
+            }))
+            .sort((a, b) => b.qualityScore - a.qualityScore);
+
+        const take = scored.length > HEAVY_SOURCE_CAP ? HEAVY_SOURCE_CAP : scored.length;
         for (let i = 0; i < take; i++) {
-            const seed = list[i];
+            const seed = scored[i];
             if (!seenKeywords.has(seed.keyword)) {
                 baseSeeds.push(seed);
                 seenKeywords.add(seed.keyword);
@@ -239,22 +287,31 @@ export async function buildRichFeed(options: { tier?: SourceTier; limit?: number
             const bkw = base.keyword;
             if (bkw.length < 2 || bkw.length > 20) continue;
             if (LONGTAIL_SUFFIXES.some(s => bkw.endsWith(s))) continue;
+            const baseScore = scoreSeedKeyword(bkw, idfStats, base.sources.length);
             for (const suffix of LONGTAIL_SUFFIXES) {
                 const derived = `${bkw} ${suffix}`;
                 if (seedMap.has(derived) || seenKeywords.has(derived)) continue;
-                extraSeeds.push({ keyword: derived, sources: [...base.sources, 'longtail'] });
+                extraSeeds.push({
+                    keyword: derived,
+                    sources: [...base.sources, 'longtail'],
+                    qualityScore: baseScore * 0.8,
+                });
                 seenKeywords.add(derived);
             }
         }
     }
 
-    // base + longtail 합쳐서 후보 풀 구성
+    // base + longtail 합쳐서 품질 점수 내림차순 정렬 → 상위 후보만 API 검증
     const candidates = [...baseSeeds, ...extraSeeds]
+        .sort((a, b) => b.qualityScore - a.qualityScore)
         .slice(0, Math.min(600, limit * 6));
 
     if (candidates.length === 0) {
+        emit('done', 100, '수집된 키워드 없음');
         return { timestamp: Date.now(), total: 0, tier, rows: [], byCategory: {}, bySource: {} };
     }
+
+    emit('candidates', 20, `후보 ${candidates.length}개 선별 완료. 네이버 API 검증 시작...`);
 
     // 4. 네이버 검색량 + 문서수 일괄 조회 (50개씩 배치)
     const env = EnvironmentManager.getInstance().getConfig();
@@ -262,7 +319,7 @@ export async function buildRichFeed(options: { tier?: SourceTier; limit?: number
     const clientSecret = env.naverClientSecret || process.env['NAVER_CLIENT_SECRET'] || '';
 
     if (!clientId || !clientSecret) {
-        // API 키 없으면 검증 없이 반환
+        // API 키 없으면 검증 없이 반환 (실측 값 없음 → null로 표시)
         const rows: RichKeywordRow[] = candidates.slice(0, limit).map((c, idx) => {
             const cat = classifyForFeed(c.keyword);
             return {
@@ -274,8 +331,7 @@ export async function buildRichFeed(options: { tier?: SourceTier; limit?: number
                 searchVolume: 0,
                 documentCount: 0,
                 goldenRatio: 0,
-                cpc: 0,
-                estimatedMonthlyRevenue: 0,
+                cpc: null,
                 freshness: judgeFreshness(c.keyword, c.sources),
                 sources: c.sources,
                 sourceCount: c.sources.length,
@@ -288,8 +344,12 @@ export async function buildRichFeed(options: { tier?: SourceTier; limit?: number
 
     const enrichedRows: RichKeywordRow[] = [];
     const batchSize = 30;
+    const totalBatches = Math.ceil(candidates.length / batchSize);
 
     for (let i = 0; i < candidates.length; i += batchSize) {
+        const batchIdx = Math.floor(i / batchSize);
+        const batchPercent = 20 + Math.round((batchIdx / totalBatches) * 65); // 20% → 85%
+        emit('api', batchPercent, `네이버 API 검증 ${batchIdx + 1}/${totalBatches} (누적 ${enrichedRows.length}건 수집)`);
         const batch = candidates.slice(i, i + batchSize);
         try {
             const sigs = await getNaverKeywordSearchVolumeSeparate(
@@ -314,19 +374,18 @@ export async function buildRichFeed(options: { tier?: SourceTier; limit?: number
                 const goldenRatio = hasValidDocCount ? totalVolume / Math.max(1, docCount) : 0;
 
                 const cat = classifyForFeed(sig.keyword);
-                const cpc = estimateCPC(sig.keyword, cat.id);
+                // 🔥 네이버 검색광고 API 실측 평균 입찰가 (더미 절대 금지)
+                // 실측값이 0이거나 없으면 null — UI에서 "-"로 표시
+                const realCpc = (typeof sig.monthlyAveCpc === 'number' && sig.monthlyAveCpc > 0) ? sig.monthlyAveCpc : null;
                 const intent = calculatePurchaseIntent(sig.keyword);
-                const compLvl = calculateCompetitionLevel(docCount, totalVolume);
 
-                const score = calculateScore(totalVolume, docCount, goldenRatio, cpc, intent);
+                // 스코어링에는 정적 추정 CPC 사용 (점수 일관성 위해) — UI 노출값은 realCpc만
+                const scoringCpc = estimateCPC(sig.keyword, cat.id);
+                const score = calculateScore(totalVolume, docCount, goldenRatio, scoringCpc, intent);
                 let grade = calculateGrade(totalVolume, docCount, goldenRatio, score);
                 // 문서수 미확인 키워드는 최고 B등급까지만
                 if (!hasValidDocCount && grade && grade !== 'B') grade = 'B';
                 if (!grade) continue;
-
-                const ctr = Math.max(0.05, 0.3 - compLvl * 0.025);
-                const dailyVisitors = Math.round((totalVolume / 30) * ctr);
-                const monthlyRev = Math.round(dailyVisitors * 0.03 * cpc * 30);
 
                 const isBlueOcean = totalVolume >= 300 && totalVolume <= 10000 && docCount <= 2000 && goldenRatio >= 5;
 
@@ -339,8 +398,7 @@ export async function buildRichFeed(options: { tier?: SourceTier; limit?: number
                     searchVolume: totalVolume,
                     documentCount: docCount,
                     goldenRatio: parseFloat(goldenRatio.toFixed(2)),
-                    cpc,
-                    estimatedMonthlyRevenue: monthlyRev,
+                    cpc: realCpc, // 🔥 실측 API 값 only (null 허용, 더미 금지)
                     freshness: judgeFreshness(sig.keyword, seed.sources),
                     sources: seed.sources,
                     sourceCount: seed.sources.length,
@@ -356,6 +414,8 @@ export async function buildRichFeed(options: { tier?: SourceTier; limit?: number
         await new Promise(r => setTimeout(r, 300));
     }
 
+    emit('grading', 90, `등급 판정 및 정렬 (${enrichedRows.length}건)...`);
+
     // 5. 정렬 (등급 → 기회지수 → 소스 수)
     const gradeOrder: Record<string, number> = { SSS: 5, SS: 4, S: 3, A: 2, B: 1 };
     enrichedRows.sort((a, b) => {
@@ -367,6 +427,8 @@ export async function buildRichFeed(options: { tier?: SourceTier; limit?: number
     });
 
     const top = enrichedRows.slice(0, limit).map((r, idx) => ({ ...r, rank: idx + 1 }));
+
+    emit('done', 100, `완료 — ${top.length}건 발굴`);
 
     return {
         timestamp: Date.now(),
@@ -399,7 +461,7 @@ function countSources(rows: RichKeywordRow[]): Record<string, number> {
 
 let cached: { result: RichFeedResult; expiresAt: number } | null = null;
 const CACHE_TTL = 15 * 60_000;        // 메모리 캐시: 15분
-const DISK_CACHE_TTL = 24 * 60 * 60_000; // 디스크 캐시: 24시간
+const DISK_CACHE_TTL = 4 * 60 * 60_000; // 디스크 캐시: 4시간 (신선도 확보)
 const MIN_ACCEPTABLE_TOTAL = 20;       // 이 미만이면 "실패"로 간주, 디스크 캐시 폴백
 
 function getDiskCachePath(): string {
@@ -441,14 +503,21 @@ function writeDiskCache(result: RichFeedResult): void {
     }
 }
 
-export async function getCachedRichFeed(force: boolean = false, options: { tier?: SourceTier; limit?: number } = {}): Promise<RichFeedResult> {
+export async function getCachedRichFeed(
+    force: boolean = false,
+    options: { tier?: SourceTier; limit?: number } = {},
+    onProgress?: RichFeedProgressCallback
+): Promise<RichFeedResult> {
     const now = Date.now();
 
     // 1) 메모리 캐시 (15분, force 아니면 우선)
-    if (!force && cached && cached.expiresAt > now) return cached.result;
+    if (!force && cached && cached.expiresAt > now) {
+        try { onProgress?.({ step: 'cache', percent: 100, message: `캐시 사용 (${cached.result.total}건)` }); } catch {}
+        return cached.result;
+    }
 
     // 2) 라이브 빌드
-    const result = await buildRichFeed(options);
+    const result = await buildRichFeed(options, onProgress);
 
     // 3) 성공적인 빌드 — 캐시 양쪽 저장
     if (result.total >= MIN_ACCEPTABLE_TOTAL) {

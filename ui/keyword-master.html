@@ -660,14 +660,19 @@
         style="font-family: 'Brush Script MT', 'Lucida Handwriting', 'Comic Sans MS', cursive, serif; font-style: italic; font-size: 24px; color: #f59e0b;">
         leadernam gold keywrod</p>
 
-      <!-- 라이선스 상태 배지 -->
+      <!-- 라이선스 상태 배지 + 로그아웃 -->
       <div
-        style="margin-top: 20px; display: flex; justify-content: center; align-items: center; gap: 12px; flex-wrap: wrap;">
+        style="margin-top: 20px; display: flex; justify-content: center; align-items: center; gap: 10px; flex-wrap: wrap;">
         <div id="licenseBadge" onclick="refreshLicenseFromServer()" title="클릭하여 라이선스 서버 동기화"
           style="padding: 8px 16px; border-radius: 20px; background: linear-gradient(135deg, #f1f5f9 0%, #e2e8f0 100%); color: #475569; font-size: 13px; font-weight: 600; display: inline-flex; align-items: center; gap: 6px; cursor: pointer; transition: all 0.3s;">
           <span>👤</span>
           <span>무료 사용자</span>
         </div>
+        <button id="logoutBtn" onclick="confirmLogout()" title="로그아웃"
+          style="display: none; padding: 6px 14px; border-radius: 18px; border: 1px solid rgba(239,68,68,0.3); background: rgba(239,68,68,0.1); color: #ef4444; font-size: 12px; font-weight: 600; cursor: pointer; transition: all 0.2s;"
+          onmouseover="this.style.background='rgba(239,68,68,0.2)'" onmouseout="this.style.background='rgba(239,68,68,0.1)'">
+          ↩ 로그아웃
+        </button>
       </div>
 
       <!-- API 키 연동 상태 배지 -->
@@ -737,6 +742,22 @@
 
       <!-- 키워드 표 -->
       <div style="overflow-x:auto; border-radius:12px; background:#020617; border:1px solid #334155;">
+        <!-- 📡 발굴 진행 상태 (hidden by default, refreshRichFeed 가 show/hide) -->
+        <div id="rfProgressBox" style="display:none; margin-bottom:14px; padding:14px 18px; background:linear-gradient(135deg,rgba(245,158,11,0.1),rgba(239,68,68,0.08)); border:1px solid rgba(245,158,11,0.3); border-radius:12px;">
+          <div style="display:flex; justify-content:space-between; align-items:center; margin-bottom:8px;">
+            <div style="display:flex; gap:10px; align-items:center;">
+              <span style="font-size:18px; animation: rfSpin 2s linear infinite;">⚡</span>
+              <span id="rfProgressMsg" style="color:#fbbf24; font-weight:700; font-size:13px;">준비 중...</span>
+            </div>
+            <span id="rfProgressPct" style="color:#ef4444; font-weight:800; font-size:14px;">0%</span>
+          </div>
+          <div style="height:8px; background:rgba(30,41,59,0.8); border-radius:4px; overflow:hidden;">
+            <div id="rfProgressBar" style="height:100%; width:0%; background:linear-gradient(90deg,#f59e0b,#ef4444); border-radius:4px; transition:width 0.3s ease;"></div>
+          </div>
+          <div id="rfProgressLog" style="margin-top:8px; max-height:80px; overflow-y:auto; font-size:11px; color:#94a3b8; line-height:1.6; font-family:monospace;"></div>
+        </div>
+        <style>@keyframes rfSpin { 0%{transform:rotate(0deg);} 100%{transform:rotate(360deg);} }</style>
+
         <table id="rfTable" style="width:100%; border-collapse:collapse; font-size:12px; color:#e2e8f0;">
           <thead>
             <tr style="background:#1e293b; border-bottom:2px solid #475569;">
@@ -747,15 +768,14 @@
               <th style="padding:12px 8px; text-align:right;">검색량</th>
               <th style="padding:12px 8px; text-align:right;">문서수</th>
               <th style="padding:12px 8px; text-align:right; color:#fbbf24;">기회지수</th>
-              <th style="padding:12px 8px; text-align:right;">CPC</th>
-              <th style="padding:12px 8px; text-align:right; color:#10b981;">월수익</th>
+              <th style="padding:12px 8px; text-align:right;" title="네이버 검색광고 API 실측 평균 입찰가">CPC</th>
               <th style="padding:12px 8px; text-align:center;">신선도</th>
               <th style="padding:12px 8px; text-align:left;">발견 소스</th>
               <th style="padding:12px 8px; text-align:center;">액션</th>
             </tr>
           </thead>
           <tbody id="rfTbody">
-            <tr><td colspan="12" style="padding:60px; text-align:center; color:#64748b;">⚡ 발굴 시작 버튼을 눌러주세요.<br><span style="font-size:11px;">17개 데이터 소스에서 시드 수집 → 검색량·문서수 실측까지 약 30~60초 소요</span></td></tr>
+            <tr><td colspan="11" style="padding:60px; text-align:center; color:#64748b;">⚡ 발굴 시작 버튼을 눌러주세요.<br><span style="font-size:11px;">17개 데이터 소스에서 시드 수집 → 검색량·문서수 실측까지 약 30~60초 소요</span></td></tr>
           </tbody>
         </table>
       </div>
@@ -787,11 +807,46 @@
       let rfAllRows = [];
       let rfCurrentCategory = '*';
 
+      // 📡 진행 이벤트 수신 리스너 (전역 1회 등록)
+      if (window.electronAPI && window.electronAPI.on && !window.__rfProgressHooked) {
+        window.__rfProgressHooked = true;
+        window.electronAPI.on('rich-feed-progress', (_evt, payload) => {
+          const box = document.getElementById('rfProgressBox');
+          const bar = document.getElementById('rfProgressBar');
+          const pct = document.getElementById('rfProgressPct');
+          const msg = document.getElementById('rfProgressMsg');
+          const log = document.getElementById('rfProgressLog');
+          if (!box || !bar || !pct || !msg) return;
+          box.style.display = 'block';
+          const p = Math.max(0, Math.min(100, payload.percent || 0));
+          bar.style.width = p + '%';
+          pct.textContent = p + '%';
+          msg.textContent = payload.message || '처리 중...';
+          if (log) {
+            const time = new Date().toLocaleTimeString('ko-KR', { hour12: false });
+            log.innerHTML += `<div>[${time}] ${payload.message}</div>`;
+            log.scrollTop = log.scrollHeight;
+          }
+        });
+      }
+
       async function refreshRichFeed(force) {
         const tbody = document.getElementById('rfTbody');
         const status = document.getElementById('rfStatus');
+        const progressBox = document.getElementById('rfProgressBox');
+        const progressLog = document.getElementById('rfProgressLog');
         status.textContent = '⏳ 발굴 중... (30~60초)';
-        tbody.innerHTML = '<tr><td colspan="12" style="padding:60px; text-align:center; color:#fbbf24;">🔍 17개 소스에서 시드 수집 중...<br><span style="font-size:11px; color:#64748b;">검색광고 API로 실측 → 등급 판정 → 정렬</span></td></tr>';
+        // 진행바 초기화 + 표시
+        if (progressBox) progressBox.style.display = 'block';
+        if (progressLog) progressLog.innerHTML = '';
+        const pbar = document.getElementById('rfProgressBar');
+        const ppct = document.getElementById('rfProgressPct');
+        const pmsg = document.getElementById('rfProgressMsg');
+        if (pbar) pbar.style.width = '0%';
+        if (ppct) ppct.textContent = '0%';
+        if (pmsg) pmsg.textContent = '시작 중...';
+
+        tbody.innerHTML = '<tr><td colspan="12" style="padding:40px; text-align:center; color:#fbbf24;">🔍 발굴 진행 중 — 상단 진행바 확인</td></tr>';
         try {
           if (!window.electronAPI) throw new Error('electronAPI 미초기화');
           const r = await window.electronAPI.invoke('get-rich-golden-feed', { force: !!force });
@@ -806,8 +861,11 @@
           renderRichFeedTabs(r.byCategory || {});
           renderRichFeedTable(rfAllRows);
           updatePublicFeedHealth();
+          // 완료 후 2초 뒤 진행바 숨기기
+          setTimeout(() => { if (progressBox) progressBox.style.display = 'none'; }, 2000);
         } catch (e) {
           tbody.innerHTML = '<tr><td colspan="12" style="padding:40px; text-align:center; color:#fca5a5;">' + (e && e.message || e) + '</td></tr>';
+          if (progressBox) progressBox.style.display = 'none';
         }
       }
 
@@ -852,8 +910,7 @@
               <td style="padding:10px 8px; text-align:right; color:#cbd5e1;">${r.searchVolume.toLocaleString()}</td>
               <td style="padding:10px 8px; text-align:right; color:#94a3b8;">${r.documentCount.toLocaleString()}</td>
               <td style="padding:10px 8px; text-align:right; font-weight:800; color:${ratioColor};">${r.goldenRatio.toFixed(2)}</td>
-              <td style="padding:10px 8px; text-align:right; color:#cbd5e1;">₩${r.cpc.toLocaleString()}</td>
-              <td style="padding:10px 8px; text-align:right; color:#10b981; font-weight:700;">₩${(r.estimatedMonthlyRevenue / 10000).toFixed(0)}만</td>
+              <td style="padding:10px 8px; text-align:right; color:#cbd5e1;" title="네이버 검색광고 API 실측 평균 입찰가">${(typeof r.cpc === 'number' && r.cpc > 0) ? '₩' + r.cpc.toLocaleString() : '<span style="color:#64748b;">-</span>'}</td>
               <td style="padding:10px 8px; text-align:center;"><span class="rf-fresh ${r.freshness}">${freshIcon(r.freshness)}</span></td>
               <td style="padding:10px 8px; text-align:left;">${sources}${moreSources}</td>
               <td style="padding:10px 8px; text-align:center; white-space:nowrap;">
@@ -1178,14 +1235,10 @@
         <button class="v4-src-btn pro" data-channel="source-bobae-best" onclick="v4Call(this)">🚗 보배드림<br><span class="v4-tag pro">PRO</span></button>
         <button class="v4-src-btn pro" data-channel="source-oliveyoung-best" onclick="v4Call(this)">💄 올리브영<br><span class="v4-tag pro">PRO</span></button>
         <button class="v4-src-btn pro" data-channel="source-musinsa-ranking" onclick="v4Call(this)">👕 무신사<br><span class="v4-tag pro">PRO</span></button>
-        <button class="v4-src-btn pro" data-channel="source-kream-resell" onclick="v4Call(this)">👟 크림 리셀<br><span class="v4-tag pro">PRO</span></button>
-        <button class="v4-src-btn pro" data-channel="source-namu-recent" onclick="v4Call(this)">📖 나무위키<br><span class="v4-tag pro">PRO</span></button>
 
         <!-- 입력 필요한 소스 -->
-        <button class="v4-src-btn lite" onclick="v4PromptCall('source-google-paa','Google PAA','키워드')">❓ Google PAA<br><span class="v4-tag">LITE</span></button>
         <button class="v4-src-btn pro" onclick="v4PromptCall('source-bigkinds-buzz','빅카인즈 버즈','키워드')">📰 빅카인즈<br><span class="v4-tag pro">PRO</span></button>
         <button class="v4-src-btn pro" onclick="v4PromptCall('source-threads-buzz','Threads 버즈','키워드')">🧵 Threads<br><span class="v4-tag pro">PRO</span></button>
-        <button class="v4-src-btn pro" onclick="v4PromptCall('source-meta-ad-library','Meta Ad Library','키워드')">📣 Meta Ads<br><span class="v4-tag pro">PRO</span></button>
       </div>
 
       <!-- 결과 출력 -->
@@ -4936,6 +4989,44 @@
           }
         }
 
+        // 🔐 로그아웃 확인 모달
+        window.confirmLogout = function confirmLogout() {
+          const info = window.currentLicenseInfo || {};
+          const uid = info.userId || '현재 계정';
+          const existing = document.getElementById('logoutConfirmModal');
+          if (existing) existing.remove();
+          const modal = document.createElement('div');
+          modal.id = 'logoutConfirmModal';
+          modal.style.cssText = 'position:fixed; inset:0; background:rgba(0,0,0,0.75); backdrop-filter:blur(6px); z-index:10000; display:flex; justify-content:center; align-items:center;';
+          modal.innerHTML = `
+            <div style="background:#1e293b; border-radius:20px; padding:28px 32px; max-width:420px; width:90%; box-shadow:0 20px 60px rgba(0,0,0,0.5); border:1px solid rgba(239,68,68,0.3);">
+              <div style="display:flex; gap:12px; align-items:center; margin-bottom:16px;">
+                <span style="font-size:28px;">↩</span>
+                <h3 style="margin:0; font-size:18px; font-weight:800; color:white;">로그아웃</h3>
+              </div>
+              <p style="color:rgba(255,255,255,0.85); font-size:14px; line-height:1.6; margin:0 0 20px;">
+                <b style="color:#f87171;">${uid}</b> 계정에서 로그아웃됩니다.<br>
+                <span style="color:rgba(255,255,255,0.6); font-size:12px;">저장된 자동로그인 정보도 함께 삭제됩니다.</span>
+              </p>
+              <div style="display:flex; gap:10px; justify-content:flex-end;">
+                <button onclick="document.getElementById('logoutConfirmModal').remove()" style="padding:10px 20px; background:rgba(255,255,255,0.08); border:1px solid rgba(255,255,255,0.15); border-radius:10px; color:rgba(255,255,255,0.7); font-weight:600; cursor:pointer;">취소</button>
+                <button onclick="executeLogout()" style="padding:10px 22px; background:linear-gradient(135deg,#ef4444,#dc2626); border:none; border-radius:10px; color:white; font-weight:700; cursor:pointer; box-shadow:0 4px 12px rgba(239,68,68,0.3);">로그아웃</button>
+              </div>
+            </div>
+          `;
+          document.body.appendChild(modal);
+        };
+
+        window.executeLogout = async function executeLogout() {
+          try {
+            await window.electronAPI.invoke('logout');
+            // 페이지 리로드로 로그인 모달 재표시
+            window.location.reload();
+          } catch (e) {
+            alert('로그아웃 실패: ' + (e?.message || e));
+          }
+        };
+
         async function checkLicenseStatus(autoLogin = true, forceRefresh = false) {
           try {
             console.log('[LICENSE] 라이선스 상태 확인 시작... (서버 동기화:', forceRefresh, ')');
@@ -4985,6 +5076,11 @@
             window.currentLicenseInfo = result;
 
             const badge = document.getElementById('licenseBadge');
+            // 🔐 라이선스 유효하면 로그아웃 버튼 표시
+            const logoutBtn = document.getElementById('logoutBtn');
+            if (logoutBtn) {
+              logoutBtn.style.display = (result && result.hasLicense) ? 'inline-flex' : 'none';
+            }
 
             if (!badge) {
               console.warn('[LICENSE] licenseBadge 요소를 찾을 수 없습니다.');
@@ -5179,10 +5275,18 @@
                 onfocus="this.style.borderColor='#667eea'" onblur="this.style.borderColor='#e2e8f0'">
             </div>
             <div>
-              <input type="password" id="licenseUserPassword" placeholder="비밀번호" 
-                style="width: 100%; padding: 12px 16px; border: 2px solid #e2e8f0; border-radius: 12px; font-size: 14px; outline: none; transition: all 0.2s;" 
+              <input type="password" id="licenseUserPassword" placeholder="비밀번호"
+                style="width: 100%; padding: 12px 16px; border: 2px solid #e2e8f0; border-radius: 12px; font-size: 14px; outline: none; transition: all 0.2s;"
                 onfocus="this.style.borderColor='#667eea'" onblur="this.style.borderColor='#e2e8f0'">
             </div>
+            <!-- 🔐 기억하기 체크박스 — 다음 실행 시 자동 로그인 -->
+            <label style="display: flex; align-items: center; gap: 8px; margin-top: 12px; cursor: pointer; user-select: none;">
+              <input type="checkbox" id="licenseRememberMe" style="width: 18px; height: 18px; accent-color: #667eea; cursor: pointer;">
+              <span style="font-size: 13px; color: #475569; font-weight: 600;">아이디/비밀번호 기억하기 (자동 로그인)</span>
+            </label>
+            <p style="font-size: 11px; color: #94a3b8; margin-top: 6px; margin-left: 26px;">
+              🔒 OS 키체인 수준 암호화로 저장됩니다 (Windows DPAPI / macOS Keychain)
+            </p>
             <p style="font-size: 12px; color: #64748b; margin-top: 8px;">
               ℹ️ 이미 라이선스 코드를 등록한 경우, 아이디와 비밀번호만 입력하세요.
             </p>
@@ -5210,6 +5314,19 @@
           modal.addEventListener('click', (e) => {
             if (e.target === modal) closeLicenseModal();
           });
+
+          // 🔐 저장된 userId 자동 채우기 (password는 보안상 서버만 보유)
+          (async () => {
+            try {
+              const saved = await window.electronAPI.invoke('get-saved-credentials');
+              if (saved?.hasCredentials && saved.userId) {
+                const uidInput = document.getElementById('licenseUserId');
+                const remember = document.getElementById('licenseRememberMe');
+                if (uidInput) uidInput.value = saved.userId;
+                if (remember) remember.checked = true;
+              }
+            } catch {}
+          })();
         }
 
         function formatLicenseCode(input) {
@@ -5279,11 +5396,15 @@
             messageDiv.style.color = '#1e40af';
             messageDiv.textContent = finalLicenseCode ? '🔄 라이선스 등록 중...' : '🔄 로그인 중...';
 
+            // 🔐 "기억하기" 체크박스 읽기 (기본 false)
+            const rememberCredentials = !!document.getElementById('licenseRememberMe')?.checked;
+
             const result = await window.blogger.registerLicense({
               userId: finalUserId,
               userPassword: finalUserPassword,
               licenseCode: finalLicenseCode || undefined,
-              serverUrl: serverUrl || undefined
+              serverUrl: serverUrl || undefined,
+              rememberCredentials
             });
 
             if (result.success) {
@@ -12429,437 +12550,187 @@
         // 프리미엄 모달
         // ========================================
         function createYouTubeGoldenModal() {
+          // 🎬 교체: 유튜브 황금키워드 → 숏츠 벤치마킹
           const container = document.getElementById('modalContainer');
           container.innerHTML = `
         <div class="modal-overlay">
-          <div class="modal-content" onclick="event.stopPropagation()" style="max-width: 1200px; width: 95%; max-height: calc(100vh - 60px);">
-            <div class="modal-header" style="background: linear-gradient(135deg, #ec4899 0%, #db2777 100%); color: white; padding: 24px 32px; border-radius: 16px 16px 0 0;">
+          <div class="modal-content" onclick="event.stopPropagation()" style="max-width: 1200px; width: 95%; max-height: calc(100vh - 60px); background: linear-gradient(135deg,#1a1a2e 0%,#16213e 100%); color: #e2e8f0;">
+            <div class="modal-header" style="background: linear-gradient(135deg,#ef4444 0%,#b91c1c 100%); color: white; padding: 24px 32px; border-radius: 16px 16px 0 0;">
               <div style="display: flex; align-items: center; gap: 16px;">
-                <span style="font-size: 32px; line-height: 1;">🎬</span>
+                <span style="font-size: 32px; line-height: 1;">▶️</span>
                 <div>
-                  <h2 style="margin: 0; font-size: 24px; font-weight: 700;">유튜브 황금키워드 분석기</h2>
-                  <p style="margin: 4px 0 0; opacity: 0.9; font-size: 14px;">🎯 인기 영상에서 광고 수익 높은 꿀통 키워드 발굴!</p>
+                  <h2 style="margin: 0; font-size: 24px; font-weight: 800;">유튜브 숏츠 벤치마킹</h2>
+                  <p style="margin: 4px 0 0; opacity: 0.9; font-size: 13px;">🎯 "따라 만들면 성공할 숏츠" 발굴 — 바이럴 공식 분석</p>
                 </div>
               </div>
               <button class="close-btn" onclick="closeModal()" style="background: rgba(255,255,255,0.2); color: white;">✕</button>
             </div>
-            <div class="modal-body" style="padding: 32px;">
-              <div style="background: linear-gradient(135deg, #fce7f3 0%, #fbcfe8 100%); border-radius: 12px; padding: 20px; margin-bottom: 24px; border-left: 4px solid #ec4899;">
-                <p style="margin: 0; color: #9d174d; font-size: 14px; line-height: 1.7;">
-                  <strong>💡 유튜브 황금키워드란?</strong><br>
-                  • 높은 CPC/CPM: 광고주들이 높은 단가로 광고를 집행하는 키워드<br>
-                  • 낮은 경쟁도: 아직 많은 크리에이터가 다루지 않은 틈새 키워드<br>
-                  • 높은 검색량: 많은 사람들이 유튜브에서 검색하는 키워드<br>
-                  ⚠️ 수치는 추정치이며 실제와 다를 수 있습니다.
-                </p>
-              </div>
-              
-              <div style="display: flex; gap: 16px; margin-bottom: 24px; flex-wrap: wrap;">
-                <div style="flex: 1; min-width: 250px;">
-                  <label style="display: block; font-size: 14px; font-weight: 600; color: #64748b; margin-bottom: 8px;">분석할 카테고리</label>
-                  <select id="youtubeGoldenCategory" style="width: 100%; padding: 12px 16px; border: 2px solid #f9a8d4; border-radius: 10px; font-size: 15px;">
-                    <option value="trending">🔥 실시간 급상승 영상</option>
-                    <option value="all">전체</option>
-                    <option value="10">🎵 음악</option>
-                    <option value="20">🎮 게임</option>
-                    <option value="24">🎬 엔터테인먼트</option>
-                    <option value="26">💄 하우투 및 스타일</option>
-                    <option value="28">💻 과학 및 기술</option>
-                    <option value="22">📝 인물 및 블로그</option>
+            <div class="modal-body" style="padding: 28px 32px;">
+              <!-- 필터 바 -->
+              <div style="display:flex; flex-wrap:wrap; gap:12px; align-items:center; background:rgba(255,255,255,0.04); border:1px solid rgba(255,255,255,0.08); border-radius:14px; padding:14px; margin-bottom:18px;">
+                <div style="display:flex; gap:6px;">
+                  <span style="color:rgba(255,255,255,0.5); font-size:11px; align-self:center;">📅 기간</span>
+                  <button class="ysn-filter-btn ysn-active" data-group="period" data-val="24h" onclick="ysnSetFilter('period','24h',this)">24시간</button>
+                  <button class="ysn-filter-btn" data-group="period" data-val="7d" onclick="ysnSetFilter('period','7d',this)">7일</button>
+                  <button class="ysn-filter-btn" data-group="period" data-val="30d" onclick="ysnSetFilter('period','30d',this)">30일</button>
+                </div>
+                <div style="width:1px; background:rgba(255,255,255,0.1); align-self:stretch;"></div>
+                <div style="display:flex; gap:6px; flex-wrap:wrap;">
+                  <span style="color:rgba(255,255,255,0.5); font-size:11px; align-self:center;">📁 카테고리</span>
+                  <button class="ysn-filter-btn ysn-active" data-group="cat" data-val="" onclick="ysnSetFilter('cat','',this)">전체</button>
+                  <button class="ysn-filter-btn" data-group="cat" data-val="10" onclick="ysnSetFilter('cat','10',this)">🎵 음악</button>
+                  <button class="ysn-filter-btn" data-group="cat" data-val="20" onclick="ysnSetFilter('cat','20',this)">🎮 게임</button>
+                  <button class="ysn-filter-btn" data-group="cat" data-val="24" onclick="ysnSetFilter('cat','24',this)">🎬 엔터</button>
+                  <button class="ysn-filter-btn" data-group="cat" data-val="26" onclick="ysnSetFilter('cat','26',this)">💄 스타일</button>
+                  <button class="ysn-filter-btn" data-group="cat" data-val="28" onclick="ysnSetFilter('cat','28',this)">💻 기술</button>
+                  <button class="ysn-filter-btn" data-group="cat" data-val="22" onclick="ysnSetFilter('cat','22',this)">📝 인물</button>
+                </div>
+                <div style="margin-left:auto; display:flex; gap:6px; align-items:center;">
+                  <select id="ysnSort" onchange="ysnRefresh()" style="background:rgba(255,255,255,0.08); border:1px solid rgba(255,255,255,0.15); border-radius:8px; color:white; font-size:12px; padding:7px 10px;">
+                    <option value="score">🎯 벤치마킹 점수순</option>
+                    <option value="views">👁 조회수순</option>
+                    <option value="latest">🕐 최신순</option>
                   </select>
-                </div>
-                <div style="display: flex; align-items: flex-end;">
-                  <button id="youtubeGoldenBtn" onclick="analyzeYouTubeGoldenKeywords()" 
-                    style="padding: 14px 32px; border: none; border-radius: 10px; background: linear-gradient(135deg, #ec4899 0%, #db2777 100%); color: white; font-weight: 700; cursor: pointer; font-size: 16px; box-shadow: 0 4px 12px rgba(236,72,153,0.3);">
-                    🔍 황금키워드 분석 시작
-                  </button>
+                  <button onclick="ysnRefresh()" style="padding:8px 20px; border:none; border-radius:10px; background:linear-gradient(135deg,#ef4444,#b91c1c); color:white; font-weight:700; font-size:13px; cursor:pointer; box-shadow:0 4px 12px rgba(239,68,68,0.3);">🔍 분석 시작</button>
                 </div>
               </div>
-              
-              <div id="youtubeGoldenResults" style="min-height: 200px;"></div>
+
+              <!-- 통계 띠 -->
+              <div id="ysnStats" style="display:none; grid-template-columns:repeat(3,1fr); gap:10px; margin-bottom:18px;"></div>
+
+              <!-- 결과 영역 -->
+              <div id="ysnResults" style="min-height: 200px;">
+                <div style="text-align:center; color:rgba(255,255,255,0.5); padding:50px 20px; font-size:14px;">
+                  👉 <b style="color:#f87171;">🔍 분석 시작</b> 버튼을 눌러 최근 숏츠를 수집하세요<br>
+                  <span style="font-size:12px; color:rgba(255,255,255,0.4);">(벤치마킹 점수 = 조회수/구독자 비율 + 바이럴 속도 + 좋아요율)</span>
+                </div>
+              </div>
             </div>
           </div>
         </div>
+        <style>
+          .ysn-filter-btn { padding:5px 12px; border-radius:20px; border:1px solid rgba(255,255,255,0.15); background:rgba(255,255,255,0.06); color:rgba(255,255,255,0.65); font-size:12px; font-weight:600; cursor:pointer; transition:all 0.2s; }
+          .ysn-filter-btn:hover { background:rgba(239,68,68,0.2); color:#f87171; }
+          .ysn-filter-btn.ysn-active { background:rgba(239,68,68,0.25); border-color:rgba(239,68,68,0.6); color:#f87171; }
+          .ysn-card { background:rgba(255,255,255,0.05); border:1px solid rgba(255,255,255,0.1); border-radius:16px; overflow:hidden; transition:transform 0.2s,box-shadow 0.2s; }
+          .ysn-card:hover { transform:translateY(-4px); box-shadow:0 12px 32px rgba(0,0,0,0.4); border-color:rgba(239,68,68,0.4); }
+        </style>
       `;
+          // 모달 오픈 직후 상태 초기화
+          window.__ysnState = { period: '24h', categoryId: '', sort: 'score' };
         }
 
-        async function analyzeYouTubeGoldenKeywords() {
-          // 프리미엄 라이선스 체크 (개발모드는 항상 허용)
-          try {
-            const isDev = await window.electronAPI.invoke('is-developer-mode');
-            if (!isDev) {
-              const licenseResult = await window.electronAPI.invoke('get-license-info');
-              if (!licenseResult || !licenseResult.isValid) {
-                showPremiumRequiredModal();
-                return;
-              }
-              if (!licenseResult.isUnlimited && licenseResult.periodMonths < 3) {
-                showPremiumRequiredModal();
-                return;
-              }
-            }
-          } catch (e) {
-            console.error('라이선스 체크 오류:', e);
-            try {
-              const isDev = await window.electronAPI.invoke('is-developer-mode');
-              if (!isDev) { showPremiumRequiredModal(); return; }
-            } catch { showPremiumRequiredModal(); return; }
-          }
+        // 🎬 숏츠 벤치마킹 — 필터 / 새로고침 / 렌더링
+        window.ysnSetFilter = function(group, val, btn) {
+          const state = window.__ysnState || (window.__ysnState = { period: '24h', categoryId: '', sort: 'score' });
+          if (group === 'period') state.period = val;
+          else if (group === 'cat') state.categoryId = val;
+          // 같은 그룹 다른 버튼 비활성화
+          const buttons = document.querySelectorAll('.ysn-filter-btn[data-group="' + group + '"]');
+          buttons.forEach(b => b.classList.remove('ysn-active'));
+          if (btn) btn.classList.add('ysn-active');
+        };
 
-          const btn = document.getElementById('youtubeGoldenBtn');
-          const resultsDiv = document.getElementById('youtubeGoldenResults');
-          const category = document.getElementById('youtubeGoldenCategory').value;
+        window.ysnRefresh = async function() {
+          const state = window.__ysnState || (window.__ysnState = { period: '24h', categoryId: '', sort: 'score' });
+          const sortSel = document.getElementById('ysnSort');
+          if (sortSel) state.sort = sortSel.value || 'score';
 
-          if (!btn || !resultsDiv) return;
-
-          btn.disabled = true;
-          btn.innerHTML = '⏳ 분석 중...';
-
-          resultsDiv.innerHTML = `
-        <div style="text-align: center; padding: 60px;">
-          <div class="spinner" style="margin: 0 auto 20px;"></div>
-          <div style="font-size: 16px; color: #64748b;">유튜브 인기 영상에서 <strong>실제 수익형 키워드</strong>를 분석 중...</div>
-          <div style="font-size: 14px; color: #94a3b8; margin-top: 8px;">인기 영상 → 블로그 글감 키워드 추출 → 네이버 검색량/경쟁도 분석</div>
-        </div>
-      `;
+          const resultsDiv = document.getElementById('ysnResults');
+          const statsDiv = document.getElementById('ysnStats');
+          if (!resultsDiv) return;
+          resultsDiv.innerHTML = '<div style="text-align:center; padding:60px 20px;"><div style="font-size:40px; animation: ysnSpin 1s linear infinite;">⏳</div><div style="font-size:15px; color:#f87171; margin-top:14px;">숏츠 수집 중...</div><div style="font-size:11px; color:rgba(255,255,255,0.4); margin-top:6px;">YouTube API + 벤치마킹 스코어 계산 (10~20초)</div></div><style>@keyframes ysnSpin { to { transform:rotate(360deg); } }</style>';
+          if (statsDiv) statsDiv.style.display = 'none';
 
           try {
-            // 1단계: 유튜브 인기 영상 가져오기
-            const response = await window.blogger.getYouTubeVideos({
-              categoryId: category === 'trending' ? null : (category === 'all' ? null : category),
-              maxResults: 50
+            const r = await window.electronAPI.invoke('youtube-shorts-benchmark', {
+              period: state.period,
+              categoryId: state.categoryId || undefined,
+              sort: state.sort,
+              maxResults: 30,
             });
-
-            let videos = [];
-            if (response && response.videos && Array.isArray(response.videos)) {
-              videos = response.videos;
-            } else if (Array.isArray(response)) {
-              videos = response;
-            } else {
-              throw new Error('유튜브 영상을 가져올 수 없습니다');
-            }
-
-            if (videos.length === 0) throw new Error('유튜브 영상을 가져올 수 없습니다');
-
-            console.log('[YOUTUBE-GOLDEN] 영상 수집 완료:', videos.length, '개');
-
-            // 🔥 2단계: 블로그 수익형 키워드 패턴으로 추출
-            const blogKeywords = new Map(); // 키워드 -> {count, views, sources}
-
-            // 의미없는 단어 필터
-            const stopWords = new Set(['the', 'a', 'an', 'is', 'are', 'was', 'were', 'be', 'been', 'being',
-              'have', 'has', 'had', 'do', 'does', 'did', 'will', 'would', 'could', 'should',
-              'of', 'at', 'by', 'for', 'with', 'about', 'against', 'between', 'into', 'through',
-              'during', 'before', 'after', 'above', 'below', 'to', 'from', 'up', 'down', 'in', 'out',
-              'on', 'off', 'over', 'under', 'again', 'further', 'then', 'once', 'here', 'there',
-              '이', '그', '저', '것', '수', '등', '더', '때', '중', '후', '전', '내', '외',
-              'official', 'video', 'music', 'mv', 'live', 'full', 'hd', '4k', 'teaser', 'trailer',
-              'ep', 'episode', 'part', 'vol', 'ver', 'version', 'ft', 'feat', 'featuring',
-              '공식', '영상', '뮤직', '라이브', '풀', '티저', '예고편', '1화', '2화', '3화', '편'
-            ]);
-
-            // 🎯 수익형 키워드 패턴 (블로그 글감으로 좋은 패턴)
-            const profitablePatterns = [
-              /(.+)\s*(추천|리뷰|후기|비교|정리|방법|꿀팁|노하우)/,  // OO 추천, OO 리뷰
-              /(.+)\s*(가격|순위|랭킹|TOP|베스트)/i,  // OO 가격, OO 순위
-              /(어떻게|왜|언제|어디서)\s*(.+)/,  // 어떻게 OO
-              /(.+)\s*(만들기|하는법|레시피|요리)/,  // OO 만들기
-              /(.+)\s*(효과|효능|성분|부작용)/,  // OO 효과
-              /(.+)\s*(차이|vs|비교)/i,  // OO vs OO
-              /(\d+년|\d+월)\s*(.+)/,  // 2024년 OO
-              /(.+)\s*(신상|신제품|출시)/,  // OO 신상
-              /(.+)\s*(브이로그|일상|루틴)/  // OO 브이로그
-            ];
-
-            videos.forEach(video => {
-              const title = video.title || '';
-              const viewCount = parseInt(video.viewCount) || 0;
-
-              // 📌 방법 1: 제목 전체를 블로그 키워드로 변환
-              // "○○○ 추천 TOP 10" 같은 제목은 그대로 좋은 키워드
-              let cleanTitle = title
-                .replace(/\[.*?\]/g, '') // 대괄호 제거
-                .replace(/\(.*?\)/g, '') // 소괄호 제거
-                .replace(/【.*?】/g, '') // 꺾쇠 제거
-                .replace(/『.*?』/g, '')
-                .replace(/\|.*$/g, '') // | 뒤 채널명 제거
-                .replace(/^\s*\d+\.\s*/, '') // 앞의 숫자 제거
-                .trim();
-
-              if (cleanTitle.length >= 5 && cleanTitle.length <= 40) {
-                // 수익형 패턴 체크
-                let isProfitable = profitablePatterns.some(p => p.test(cleanTitle));
-
-                if (isProfitable || viewCount > 100000) {
-                  const key = cleanTitle.toLowerCase();
-                  if (!blogKeywords.has(key)) {
-                    blogKeywords.set(key, {
-                      original: cleanTitle,
-                      count: 0,
-                      totalViews: 0,
-                      sources: [],
-                      isProfitable
-                    });
-                  }
-                  const data = blogKeywords.get(key);
-                  data.count++;
-                  data.totalViews += viewCount;
-                  data.sources.push({ title: video.title, views: viewCount });
-                }
-              }
-
-              // 📌 방법 2: 핵심 키워드 구문 추출 (2-4단어 조합)
-              const words = cleanTitle.split(/[\s,\-·]+/).filter(w =>
-                w && w.length >= 2 && !stopWords.has(w.toLowerCase())
-              );
-
-              // 2-3 단어 조합 생성
-              for (let i = 0; i < words.length - 1; i++) {
-                const twoWord = words.slice(i, i + 2).join(' ');
-                const threeWord = i < words.length - 2 ? words.slice(i, i + 3).join(' ') : null;
-
-                [twoWord, threeWord].filter(Boolean).forEach(phrase => {
-                  if (phrase.length >= 4 && phrase.length <= 25 && /[가-힣]/.test(phrase)) {
-                    const key = phrase.toLowerCase();
-                    if (!blogKeywords.has(key)) {
-                      blogKeywords.set(key, {
-                        original: phrase,
-                        count: 0,
-                        totalViews: 0,
-                        sources: [],
-                        isProfitable: false
-                      });
-                    }
-                    const data = blogKeywords.get(key);
-                    data.count++;
-                    data.totalViews += viewCount;
-                  }
-                });
-              }
-
-              // 📌 방법 3: 태그에서 롱테일 키워드 추출
-              if (video.tags && Array.isArray(video.tags)) {
-                video.tags.forEach(tag => {
-                  if (tag && tag.length >= 4 && tag.length <= 30 && /[가-힣]/.test(tag)) {
-                    const key = tag.toLowerCase();
-                    if (!blogKeywords.has(key)) {
-                      blogKeywords.set(key, {
-                        original: tag,
-                        count: 0,
-                        totalViews: 0,
-                        sources: [],
-                        isProfitable: tag.includes('추천') || tag.includes('리뷰') || tag.includes('방법')
-                      });
-                    }
-                    const data = blogKeywords.get(key);
-                    data.count++;
-                    data.totalViews += viewCount;
-                  }
-                });
-              }
-            });
-
-            // 3단계: 점수화 및 정렬
-            const scoredKeywords = Array.from(blogKeywords.entries())
-              .filter(([kw, data]) => data.count >= 1 && kw.length >= 4)
-              .map(([kw, data]) => {
-                // 점수 계산: 조회수 가중치 + 빈도 가중치 + 수익형 패턴 보너스
-                const viewScore = Math.min(Math.log10(data.totalViews + 1) * 10, 50);
-                const freqScore = Math.min(data.count * 5, 20);
-                const profitBonus = data.isProfitable ? 30 : 0;
-                const lengthBonus = kw.length >= 8 ? 10 : 0; // 롱테일 보너스
-
-                return {
-                  keyword: data.original,
-                  count: data.count,
-                  totalViews: data.totalViews,
-                  score: Math.round(viewScore + freqScore + profitBonus + lengthBonus),
-                  isProfitable: data.isProfitable,
-                  sources: data.sources.slice(0, 3)
-                };
-              })
-              .sort((a, b) => b.score - a.score)
-              .slice(0, 30);
-
-            if (scoredKeywords.length === 0) {
-              resultsDiv.innerHTML = `
-            <div style="text-align: center; padding: 40px; background: #fef3c7; border-radius: 12px;">
-              <div style="font-size: 40px; margin-bottom: 12px;">🤔</div>
-              <div style="font-size: 16px; color: #92400e;">블로그 키워드를 찾지 못했습니다</div>
-              <div style="font-size: 14px; color: #a16207; margin-top: 8px;">다른 카테고리를 선택해보세요</div>
-            </div>
-          `;
+            if (r?.error || !r?.success) {
+              const msg = r?.message || '수집 실패';
+              resultsDiv.innerHTML = '<div style="text-align:center; padding:40px 20px; color:#f87171;">❌ ' + msg + '</div>';
               return;
             }
-
-            // 🔥 4단계: 네이버 검색량 실제 조회 (가능한 경우)
-            resultsDiv.innerHTML = `
-          <div style="text-align: center; padding: 40px;">
-            <div class="spinner" style="margin: 0 auto 16px;"></div>
-            <div style="font-size: 14px; color: #64748b;">네이버 검색량/경쟁도 분석 중... (${scoredKeywords.length}개 키워드)</div>
-          </div>
-        `;
-
-            const goldenKeywords = [];
-
-            for (const item of scoredKeywords.slice(0, 20)) {
-              try {
-                // 네이버 검색량 조회 시도
-                const searchData = await window.blogger.analyzeKeyword(item.keyword).catch(() => null);
-
-                const searchVolume = searchData?.searchVolume || searchData?.monthlySearches || 0;
-                const docCount = searchData?.docCount || searchData?.totalDocuments || 0;
-
-                // 황금비율 계산 (검색량 / 문서수)
-                const goldenRatio = docCount > 0 ? (searchVolume / docCount).toFixed(2) : 0;
-                const isGolden = goldenRatio >= 0.5 || (searchVolume > 1000 && docCount < 5000);
-
-                goldenKeywords.push({
-                  keyword: item.keyword,
-                  searchVolume: searchVolume,
-                  docCount: docCount,
-                  goldenRatio: parseFloat(goldenRatio),
-                  isGolden: isGolden,
-                  youtubeViews: item.totalViews,
-                  isProfitable: item.isProfitable,
-                  score: item.score,
-                  sources: item.sources
-                });
-              } catch (e) {
-                // 검색량 조회 실패 시 기본값 사용
-                goldenKeywords.push({
-                  keyword: item.keyword,
-                  searchVolume: 0,
-                  docCount: 0,
-                  goldenRatio: 0,
-                  isGolden: false,
-                  youtubeViews: item.totalViews,
-                  isProfitable: item.isProfitable,
-                  score: item.score,
-                  sources: item.sources
-                });
-              }
-            }
-
-            // 황금비율 + 점수순 정렬
-            goldenKeywords.sort((a, b) => {
-              // 황금키워드 우선
-              if (a.isGolden && !b.isGolden) return -1;
-              if (!a.isGolden && b.isGolden) return 1;
-              // 수익형 패턴 우선
-              if (a.isProfitable && !b.isProfitable) return -1;
-              if (!a.isProfitable && b.isProfitable) return 1;
-              // 황금비율순
-              return b.goldenRatio - a.goldenRatio;
-            });
-
-            // 🔥 결과 표시 (블로그 글감 위주)
-            let html = `
-          <div style="margin-bottom: 20px; display: flex; justify-content: space-between; align-items: center; flex-wrap: wrap; gap: 12px;">
-            <div>
-              <div style="font-size: 18px; font-weight: 700; color: #1e293b;">📝 블로그 글감 키워드 (${goldenKeywords.length}개)</div>
-              <div style="font-size: 13px; color: #64748b; margin-top: 4px;">유튜브 인기 영상 → 블로그 수익형 키워드 변환</div>
-            </div>
-            <div style="display: flex; gap: 8px;">
-              <span style="padding: 4px 10px; background: #fef9c3; border-radius: 6px; font-size: 12px; font-weight: 600; color: #92400e;">💎 황금 = 검색량↑ 경쟁↓</span>
-              <span style="padding: 4px 10px; background: #dcfce7; border-radius: 6px; font-size: 12px; font-weight: 600; color: #166534;">⭐ 수익형 = 추천/리뷰/방법</span>
-            </div>
-          </div>
-          
-          <div style="display: grid; gap: 12px;">
-        `;
-
-            goldenKeywords.forEach((kw, idx) => {
-              const bgColor = kw.isGolden ? '#fef9c3' : kw.isProfitable ? '#dcfce7' : '#f8fafc';
-              const borderColor = kw.isGolden ? '#eab308' : kw.isProfitable ? '#22c55e' : '#94a3b8';
-              const badge = kw.isGolden ? '💎 황금' : kw.isProfitable ? '⭐ 수익형' : '📌 참고';
-
-              const viewsFormatted = kw.youtubeViews >= 1000000
-                ? (kw.youtubeViews / 1000000).toFixed(1) + 'M'
-                : kw.youtubeViews >= 1000
-                  ? (kw.youtubeViews / 1000).toFixed(0) + 'K'
-                  : kw.youtubeViews;
-
-              const searchFormatted = kw.searchVolume >= 10000
-                ? (kw.searchVolume / 10000).toFixed(1) + '만'
-                : kw.searchVolume >= 1000
-                  ? (kw.searchVolume / 1000).toFixed(1) + '천'
-                  : kw.searchVolume || '-';
-
-              const goldenBadge = kw.isGolden ? '<span style="font-size: 11px; padding: 3px 8px; background: #dc2626; color: white; border-radius: 4px; font-weight: 600;">🔥 강추</span>' : '';
-              const ratioColor = kw.goldenRatio >= 0.5 ? '#16a34a' : kw.goldenRatio >= 0.2 ? '#f59e0b' : '#64748b';
-              const sourceHtml = kw.sources && kw.sources.length > 0
-                ? '<div style="font-size: 11px; color: #64748b; background: rgba(255,255,255,0.5); padding: 8px; border-radius: 6px;">📺 <strong>원본 영상:</strong> ' + (kw.sources[0]?.title?.slice(0, 50) || kw.keyword) + '...</div>'
-                : '';
-
-              html += `
-            <div style="background: ${bgColor}; border-radius: 12px; padding: 16px; border-left: 4px solid ${borderColor};">
-              <div style="display: flex; justify-content: space-between; align-items: flex-start; margin-bottom: 10px;">
-                <div style="display: flex; align-items: center; gap: 8px; flex-wrap: wrap;">
-                  <span style="font-size: 11px; padding: 3px 8px; background: ${borderColor}; color: white; border-radius: 4px; font-weight: 600;">${badge}</span>
-                  ${goldenBadge}
-                </div>
-                <span style="font-size: 20px; font-weight: 800; color: #1e293b;">#${idx + 1}</span>
-              </div>
-              
-              <div style="font-size: 18px; font-weight: 700; color: #1e293b; margin-bottom: 10px; cursor: pointer;" 
-                   onclick="copyToClipboard('${kw.keyword.replace(/'/g, "\\'")}')" 
-                   title="클릭하여 복사">${kw.keyword} 📋</div>
-              
-              <div style="display: grid; grid-template-columns: repeat(4, 1fr); gap: 8px; margin-bottom: 10px;">
-                <div style="background: white; padding: 8px; border-radius: 8px; text-align: center;">
-                  <div style="font-size: 10px; color: #64748b;">네이버 검색량</div>
-                  <div style="font-size: 14px; font-weight: 700; color: #2563eb;">${searchFormatted}</div>
-                </div>
-                <div style="background: white; padding: 8px; border-radius: 8px; text-align: center;">
-                  <div style="font-size: 10px; color: #64748b;">발행 문서수</div>
-                  <div style="font-size: 14px; font-weight: 700; color: #64748b;">${kw.docCount ? kw.docCount.toLocaleString() : '-'}</div>
-                </div>
-                <div style="background: white; padding: 8px; border-radius: 8px; text-align: center;">
-                  <div style="font-size: 10px; color: #64748b;">황금비율</div>
-                  <div style="font-size: 14px; font-weight: 700; color: ${ratioColor};">${kw.goldenRatio || '-'}</div>
-                </div>
-                <div style="background: white; padding: 8px; border-radius: 8px; text-align: center;">
-                  <div style="font-size: 10px; color: #64748b;">유튜브 조회수</div>
-                  <div style="font-size: 14px; font-weight: 700; color: #ef4444;">${viewsFormatted}</div>
-                </div>
-              </div>
-              
-              ${sourceHtml}
-            </div>
-          `;
-            });
-
-            html += '</div>';
-            html += `
-          <div style="margin-top: 24px; padding: 16px; background: linear-gradient(135deg, #dbeafe 0%, #bfdbfe 100%); border-radius: 10px; border: 1px solid #60a5fa;">
-            <div style="font-size: 14px; font-weight: 700; color: #1e40af; margin-bottom: 8px;">💡 블로그 글쓰기 팁</div>
-            <div style="font-size: 13px; color: #1e3a8a; line-height: 1.7;">
-              • <strong>황금비율 0.5 이상</strong> = 검색량 대비 문서가 적어 상위노출 쉬움<br>
-              • <strong>수익형 패턴 (추천/리뷰/방법)</strong> = 구매 의도 높은 독자 유입<br>
-              • 키워드 클릭 시 복사됩니다. 네이버 검색 후 상위 글 분석 추천!
-            </div>
-          </div>
-        `;
-
-            resultsDiv.innerHTML = html;
-
-          } catch (error) {
-            console.error('유튜브 황금키워드 분석 오류:', error);
-            resultsDiv.innerHTML = `
-          <div style="text-align: center; padding: 40px; background: #fee2e2; border-radius: 12px;">
-            <div style="font-size: 40px; margin-bottom: 12px;">❌</div>
-            <div style="font-size: 16px; color: #dc2626;">분석 중 오류가 발생했습니다</div>
-            <div style="font-size: 14px; color: #ef4444; margin-top: 8px;">${error.message || '잠시 후 다시 시도해주세요'}</div>
-          </div>
-        `;
-          } finally {
-            btn.disabled = false;
-            btn.innerHTML = '🔍 황금키워드 분석 시작';
+            renderYsnResults(r.data);
+          } catch (e) {
+            resultsDiv.innerHTML = '<div style="text-align:center; padding:40px 20px; color:#f87171;">❌ ' + (e?.message || e) + '</div>';
           }
+        };
+
+        function renderYsnResults(data) {
+          const resultsDiv = document.getElementById('ysnResults');
+          const statsDiv = document.getElementById('ysnStats');
+          const items = data.items || [];
+
+          // 통계 띠
+          if (statsDiv) {
+            statsDiv.style.display = 'grid';
+            statsDiv.innerHTML = `
+              <div style="background:rgba(239,68,68,0.15); border:1px solid rgba(239,68,68,0.3); border-radius:12px; padding:12px 16px; text-align:center;">
+                <div style="font-size:22px; font-weight:800; color:#ef4444;">${data.total}</div>
+                <div style="font-size:11px; color:rgba(255,255,255,0.5);">총 숏츠</div>
+              </div>
+              <div style="background:rgba(251,191,36,0.15); border:1px solid rgba(251,191,36,0.3); border-radius:12px; padding:12px 16px; text-align:center;">
+                <div style="font-size:22px; font-weight:800; color:#fbbf24;">${data.avgScore}</div>
+                <div style="font-size:11px; color:rgba(255,255,255,0.5);">평균 벤치마킹 점수</div>
+              </div>
+              <div style="background:rgba(34,197,94,0.15); border:1px solid rgba(34,197,94,0.3); border-radius:12px; padding:12px 16px; text-align:center;">
+                <div style="font-size:14px; font-weight:700; color:#22c55e; white-space:nowrap; overflow:hidden; text-overflow:ellipsis;">${escapeHtml(data.topChannel || '-')}</div>
+                <div style="font-size:11px; color:rgba(255,255,255,0.5);">TOP 채널</div>
+              </div>
+            `;
+          }
+
+          if (items.length === 0) {
+            resultsDiv.innerHTML = '<div style="text-align:center; padding:40px 20px; color:rgba(255,255,255,0.5);">조건에 맞는 숏츠가 없습니다. 필터를 바꿔 다시 시도하세요.</div>';
+            return;
+          }
+
+          const categoryMap = { '10': '🎵 음악', '20': '🎮 게임', '24': '🎬 엔터', '26': '💄 스타일', '28': '💻 기술', '22': '📝 인물' };
+
+          const cardsHtml = items.map(it => {
+            const titleEscaped = escapeHtml(it.title);
+            const channelEscaped = escapeHtml(it.channelTitle || '');
+            const scoreBg = it.benchmarkScore >= 70 ? 'linear-gradient(135deg,#ef4444,#b91c1c)' : it.benchmarkScore >= 50 ? 'linear-gradient(135deg,#f59e0b,#d97706)' : 'linear-gradient(135deg,#64748b,#475569)';
+            const catTag = categoryMap[it.categoryId] || '';
+            const subText = it.subscriberCount >= 1000000 ? (Math.round(it.subscriberCount/100000)/10) + 'M' : it.subscriberCount >= 1000 ? Math.round(it.subscriberCount/1000) + 'K' : String(it.subscriberCount);
+            const viewText = it.viewCount >= 1000000 ? (Math.round(it.viewCount/100000)/10) + 'M' : it.viewCount >= 1000 ? Math.round(it.viewCount/1000) + 'K' : String(it.viewCount);
+            const likeText = it.likeCount >= 1000 ? Math.round(it.likeCount/1000) + 'K' : String(it.likeCount);
+            const hoursText = it.hoursAgo < 24 ? it.hoursAgo + '시간 전' : Math.round(it.hoursAgo/24) + '일 전';
+
+            return `
+              <div class="ysn-card" style="position:relative;">
+                <div style="position:relative; aspect-ratio:9/16; max-height:200px; overflow:hidden; background:#0f172a;">
+                  <img src="${it.thumbnail}" alt="${titleEscaped.replace(/"/g, '&quot;')}" style="width:100%; height:100%; object-fit:cover;" onerror="this.style.opacity=0.2">
+                  <div style="position:absolute; top:8px; right:8px; background:${scoreBg}; color:white; font-size:11px; font-weight:800; padding:3px 8px; border-radius:8px; box-shadow:0 2px 8px rgba(0,0,0,0.4);" title="viewRatio ${it.signals.viewRatio} · velocity ${it.signals.velocity}/h · like ${it.signals.likeRate}%">🎯 ${it.benchmarkScore}</div>
+                  ${catTag ? '<div style="position:absolute; bottom:8px; left:8px; background:rgba(0,0,0,0.7); color:#fbbf24; font-size:10px; font-weight:700; padding:2px 8px; border-radius:6px;">' + catTag + '</div>' : ''}
+                </div>
+                <div style="padding:12px;">
+                  <div style="font-size:13px; font-weight:700; color:white; line-height:1.4; display:-webkit-box; -webkit-line-clamp:2; -webkit-box-orient:vertical; overflow:hidden; margin-bottom:8px; min-height:36px;" title="${titleEscaped.replace(/"/g, '&quot;')}">${titleEscaped}</div>
+                  <div style="font-size:11px; color:rgba(255,255,255,0.6); margin-bottom:8px; white-space:nowrap; overflow:hidden; text-overflow:ellipsis;">📺 ${channelEscaped} <span style="color:#ef4444;">· 구독 ${subText}</span></div>
+                  <div style="display:flex; flex-wrap:wrap; gap:6px; font-size:10px; color:rgba(255,255,255,0.5); margin-bottom:10px;">
+                    <span>👁 ${viewText}</span>
+                    <span>❤️ ${likeText}</span>
+                    <span>🕐 ${hoursText}</span>
+                  </div>
+                  <div style="display:flex; gap:6px;">
+                    <button onclick="window.electronAPI?.invoke('open-external-url','${it.url}')" style="flex:1; padding:6px; background:rgba(239,68,68,0.2); border:1px solid rgba(239,68,68,0.4); border-radius:8px; color:#f87171; font-size:11px; font-weight:700; cursor:pointer;">▶️ 보기</button>
+                    <button onclick="navigator.clipboard.writeText('${titleEscaped.replace(/'/g, "\\'")}'); this.innerHTML='✓'; setTimeout(()=>this.innerHTML='📋',1200)" style="flex:0 0 auto; padding:6px 10px; background:rgba(255,255,255,0.08); border:1px solid rgba(255,255,255,0.15); border-radius:8px; color:rgba(255,255,255,0.7); font-size:11px; cursor:pointer;">📋</button>
+                  </div>
+                </div>
+              </div>
+            `;
+          }).join('');
+
+          resultsDiv.innerHTML = '<div style="display:grid; grid-template-columns:repeat(auto-fill,minmax(220px,1fr)); gap:14px;">' + cardsHtml + '</div>';
         }
 
-
+        function escapeHtml(s) {
+          return String(s || '').replace(/&/g, '&amp;').replace(/</g, '&lt;').replace(/>/g, '&gt;').replace(/"/g, '&quot;').replace(/'/g, '&#39;');
+        }
 
         window.openKinGoldenModal = function openKinGoldenModal() {
           lockBodyScroll();
@@ -13778,8 +13649,7 @@
           { value: 'anime', label: '🎌 애니' },
           { value: 'broadcast', label: '📡 방송' },
           { value: 'daily', label: '☀️ 일상' },
-          { value: 'policy', label: '📜 정책' },
-          { value: 'grant', label: '💰 지원금' },
+          { value: 'policy', label: '💰 정책·지원금' },
           { value: 'pro_premium', label: '💎 PRO 프리미엄' },
           { value: 'lite_standard', label: '⚡ 라이트 표준' }
         ];
@@ -13888,19 +13758,16 @@
             </div>
           </div>
           
-          <div style="display: grid; grid-template-columns: 1fr 1fr; gap: 16px; margin-bottom: 20px;">
-            <div style="background: rgba(255, 255, 255, 0.05); border-radius: 14px; padding: 16px; border: 1px solid rgba(255, 255, 255, 0.1);">
+          <div id="proTrafficCategoryRow" style="margin-bottom: 20px;">
+            <div id="proTrafficCategoryBox" style="background: rgba(255, 255, 255, 0.05); border-radius: 14px; padding: 16px; border: 1px solid rgba(255, 255, 255, 0.1);">
               <label style="font-size: 13px; font-weight: 700; color: #fbbf24; display: block; margin-bottom: 10px;">📁 카테고리</label>
               <select id="proTrafficCategory" style="width: 100%; padding: 12px 14px; border: 2px solid rgba(234, 179, 8, 0.3); border-radius: 10px; font-size: 14px; background: rgba(30, 41, 59, 0.8); color: white; cursor: pointer; outline: none;">
                 ${PRO_TRAFFIC_CATEGORIES.map(c => `<option value="${c.value}">${c.label}</option>`).join('')}
               </select>
-                </div>
-
-            <div style="background: rgba(255, 255, 255, 0.05); border-radius: 14px; padding: 16px; border: 1px solid rgba(255, 255, 255, 0.1);">
-              <label style="font-size: 13px; font-weight: 700; color: #fbbf24; display: block; margin-bottom: 10px;">🎯 추가 시드 키워드 (선택)</label>
-              <input id="proTrafficSeeds" type="text" placeholder="예: 여행, 맛집 (쉼표로 구분)" style="width: 100%; padding: 12px 14px; border: 2px solid rgba(234, 179, 8, 0.3); border-radius: 10px; font-size: 14px; background: rgba(30, 41, 59, 0.8); color: white; outline: none; box-sizing: border-box;">
-                  </div>
-                  </div>
+            </div>
+            <!-- 추가 시드 키워드 입력은 제거됨 (UX 단순화). proTrafficSeeds id는 hidden input으로 호환성 유지 -->
+            <input type="hidden" id="proTrafficSeeds" value="">
+          </div>
           
           <div style="display: flex; gap: 16px; margin-bottom: 20px; align-items: center; justify-content: center; flex-wrap: wrap;">
             <label style="display: flex; align-items: center; gap: 8px; color: rgba(255,255,255,0.8); font-size: 14px; cursor: pointer;">
@@ -13972,8 +13839,29 @@
                 document.getElementById('modeSeason').style.background = 'rgba(139, 92, 246, 0.2)';
                 document.getElementById('modeSeason').style.borderColor = '#8b5cf6';
               }
+
+              // 🎯 카테고리 박스는 category 모드에서만 노출
+              // realtime / season 모드는 카테고리 선택 불필요 (지금 뜨는 / 시즌 키워드 자체가 답)
+              applyProTrafficModeUi(radio.value);
             });
           });
+          // 최초 로드 시에도 현재 선택 모드에 맞게 UI 반영
+          const initialMode = document.querySelector('input[name="proTrafficMode"]:checked')?.value || 'realtime';
+          applyProTrafficModeUi(initialMode);
+        }
+
+        function applyProTrafficModeUi(mode) {
+          const catRow = document.getElementById('proTrafficCategoryRow');
+          if (!catRow) return;
+          if (mode === 'category') {
+            // 카테고리 모드: 카테고리 선택창 표시
+            catRow.style.display = '';
+          } else {
+            // 실시간/시즌 모드: 카테고리 선택창 완전 숨김
+            catRow.style.display = 'none';
+            const catSel = document.getElementById('proTrafficCategory');
+            if (catSel) catSel.value = 'all';
+          }
         }
 
         // 모달 열릴 때 리스너 설정
