@@ -59,6 +59,42 @@ const STOP = new Set([
     '시작', '종료', '오늘의', '이번', '지난', '최근', '계속', '다음', '먼저', '나중',
 ]);
 
+/**
+ * 블로그 발행 부적합 키워드 블랙리스트
+ * - 광고주 기피 카테고리 (애드센스·네이버 애드포스트 노출 제한)
+ * - 정치 혐오·극단 커뮤니티명 (블로거가 다룰 가치 없음)
+ * - 성인·도박·마약 등 규제 업종
+ * - 이런 키워드가 SSS 등급에 뜨면 "끝판왕" 신뢰도가 무너짐
+ */
+const BLACKLIST_EXACT = new Set([
+    // 극단 커뮤니티 사이트명 (일베·메갈·워마드 등)
+    '일베', '일베저장소', '일간베스트', '일간베스트저장소',
+    '메갈리아', '메갈', '워마드', '일부메갈', '남초', '여초',
+    // 일반 커뮤니티 사이트명 (정보성 가치 낮음)
+    '디시인사이드', '더쿠', '펨코', '에펨코리아', '엠팍', 'MLB파크',
+    '뽐뿌', '루리웹', '클리앙', '이토랜드', '오늘의유머', '오유',
+    '보배드림', '개드립', '네이트판', '웃긴대학', '인스티즈',
+]);
+
+const BLACKLIST_PATTERNS: RegExp[] = [
+    // 정치·혐오 표현
+    /(좌파|우파|빨갱이|틀딱|급식충|한남충|김치녀|된장녀)/,
+    // 극단 선정/성적 표현
+    /(야동|포르노|음란|성매매|유흥업소|ㅅㅅ|섹스)/,
+    // 도박·불법
+    /(사설토토|먹튀|바카라사이트|카지노사이트|불법도박)/,
+    // 마약 직접 언급
+    /(필로폰|히로뽕|코카인|대마초매매)/,
+];
+
+function isBlacklisted(kw: string): boolean {
+    if (BLACKLIST_EXACT.has(kw)) return true;
+    for (const re of BLACKLIST_PATTERNS) {
+        if (re.test(kw)) return true;
+    }
+    return false;
+}
+
 function normalize(kw: string): string {
     let s = String(kw || '').trim();
     // 여는 괄호/대괄호/해시 선두 제거
@@ -80,6 +116,7 @@ function normalize(kw: string): string {
 function isValid(kw: string): boolean {
     if (kw.length < 2 || kw.length > 30) return false;
     if (STOP.has(kw)) return false;
+    if (isBlacklisted(kw)) return false;
     if (/^\d+$/.test(kw)) return false;
     if (!/[가-힣a-zA-Z]/.test(kw)) return false;
     if (kw.startsWith('특수:') || kw.startsWith('파일:') || kw.startsWith('분류:')) return false;
@@ -112,14 +149,40 @@ function classifyForFeed(keyword: string): { id: string; icon: string; label: st
 }
 
 /**
- * 등급 판정 (다중 게이트, mdp-engine과 일관성 유지)
+ * 키워드가 "블로그 집필 가능한 구체성" 을 갖는지 판정
+ *  - 2토큰 이상 (롱테일) OR 검색 의도 어미 포함 OR 저경쟁 희소 고유명사
+ *  - 단일 범용 명사 (챗GPT, 유튜브, 제미나이 등) → false
+ *
+ * 목적: 개인 블로거가 실제로 글 주제를 잡을 수 있는 키워드만 SSS/SS 등급 허용
  */
-function calculateGrade(volume: number, docCount: number, ratio: number, score: number): GoldenGrade | '' {
-    if (score >= 85 && volume >= 1000 && docCount <= 5000 && ratio >= 5) return 'SSS';
-    if (score >= 75 && volume >= 500 && docCount <= 10000 && ratio >= 3) return 'SS';
-    if (score >= 65 && volume >= 300 && ratio >= 2) return 'S';
-    if (score >= 55 && volume >= 100) return 'A';
-    if (score >= 45) return 'B';
+const INTENT_SUFFIX_RE = /(추천|후기|비교|방법|순위|종류|가격|리뷰|만드는법|만들기|하는법|사용법|뜻|차이|장단점|원인|증상|효과|부작용|쓰는법|설치법|가입|해지|환불)$/;
+
+function isWritableKeyword(keyword: string, docCount: number): boolean {
+    const tokens = keyword.trim().split(/\s+/).filter(Boolean).length;
+    if (tokens >= 2) return true;                          // 2단어+ 롱테일
+    if (INTENT_SUFFIX_RE.test(keyword)) return true;       // 검색 의도 어미
+    if (docCount > 0 && docCount <= 2000) return true;     // 저경쟁 희소 고유명사 (예: 프래그마타)
+    return false;                                           // 단일 범용 명사 → 블로그 집필 난감
+}
+
+/**
+ * 등급 판정 (다중 게이트, mdp-engine과 일관성 유지)
+ *
+ * 강화된 규칙:
+ *  - 집필 불가능한 단일 범용 빅워드 (챗GPT/유튜브/제미나이 등) 는 피드 자체에서 제외
+ *    → 개인 블로거 관점에서 경쟁 무지막지해 상위 노출 불가능 = 황금 아님
+ *  - 롱테일 / 검색 의도 / 저경쟁 고유명사만 등급 부여
+ */
+function calculateGrade(volume: number, docCount: number, ratio: number, score: number, keyword: string): GoldenGrade | '' {
+    const writable = isWritableKeyword(keyword, docCount);
+    // 🔥 집필 불가능 + 고경쟁 = 피드 제외 (너무 범용적인 키워드 차단)
+    if (!writable && docCount > 10000) return '';
+
+    if (score >= 85 && volume >= 1000 && docCount <= 5000 && ratio >= 5 && writable) return 'SSS';
+    if (score >= 75 && volume >= 500 && docCount <= 10000 && ratio >= 3 && writable) return 'SS';
+    if (score >= 65 && volume >= 300 && ratio >= 2 && writable) return 'S';
+    if (score >= 55 && volume >= 100 && writable) return 'A';
+    if (score >= 45 && writable) return 'B';
     return '';
 }
 
@@ -382,7 +445,7 @@ export async function buildRichFeed(
                 // 스코어링에는 정적 추정 CPC 사용 (점수 일관성 위해) — UI 노출값은 realCpc만
                 const scoringCpc = estimateCPC(sig.keyword, cat.id);
                 const score = calculateScore(totalVolume, docCount, goldenRatio, scoringCpc, intent);
-                let grade = calculateGrade(totalVolume, docCount, goldenRatio, score);
+                let grade = calculateGrade(totalVolume, docCount, goldenRatio, score, sig.keyword);
                 // 문서수 미확인 키워드는 최고 B등급까지만
                 if (!hasValidDocCount && grade && grade !== 'B') grade = 'B';
                 if (!grade) continue;
@@ -463,6 +526,7 @@ let cached: { result: RichFeedResult; expiresAt: number } | null = null;
 const CACHE_TTL = 15 * 60_000;        // 메모리 캐시: 15분
 const DISK_CACHE_TTL = 4 * 60 * 60_000; // 디스크 캐시: 4시간 (신선도 확보)
 const MIN_ACCEPTABLE_TOTAL = 20;       // 이 미만이면 "실패"로 간주, 디스크 캐시 폴백
+const CACHE_SCHEMA_VERSION = 'v2.9.1-strict-writable';  // 집필 불가능 키워드 완전 제외
 
 function getDiskCachePath(): string {
     // app.getPath 가 있으면 userData, 없으면 temp 사용 (테스트/개발 환경)
@@ -488,6 +552,11 @@ function readDiskCache(): RichFeedResult | null {
         const parsed = JSON.parse(raw);
         if (!parsed || !Array.isArray(parsed.rows) || typeof parsed.timestamp !== 'number') return null;
         if (Date.now() - parsed.timestamp > DISK_CACHE_TTL) return null;
+        // 스키마 버전 체크 — 블랙리스트 추가 등 필터 로직 변경 시 이전 캐시 폐기
+        if (parsed.schemaVersion !== CACHE_SCHEMA_VERSION) {
+            console.log('[rich-feed] 캐시 스키마 불일치 — 폐기 후 재빌드');
+            return null;
+        }
         return parsed;
     } catch {
         return null;
@@ -497,7 +566,8 @@ function readDiskCache(): RichFeedResult | null {
 function writeDiskCache(result: RichFeedResult): void {
     try {
         const fs = require('fs');
-        fs.writeFileSync(getDiskCachePath(), JSON.stringify(result), 'utf8');
+        const payload = { ...result, schemaVersion: CACHE_SCHEMA_VERSION };
+        fs.writeFileSync(getDiskCachePath(), JSON.stringify(payload), 'utf8');
     } catch (e: any) {
         console.warn('[rich-feed] 디스크 캐시 저장 실패:', e?.message);
     }
