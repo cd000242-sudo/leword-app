@@ -760,9 +760,9 @@ function rerankAndSelectFinal(items: ProTrafficKeyword[], targetCount: number, i
     '리뷰', '팁', '정보', '코디', '코디법', '스타일링', '가성비',
   ]);
   const PARTIAL_BLOCK_RE = /^(브랜드별 차이|구두 사이즈|트렌드 컬러 \d{4})$/;
-  items = items.filter(r => {
+  const filtered = items.filter(r => {
     const kw = (r.keyword || '').trim();
-    if (!kw || kw.length < 4) return false;                    // 너무 짧은 토큰
+    if (!kw || kw.length < 3) return false;                    // 2자 이하만 차단 (3자 한국 브랜드명 보호)
     const tokens = kw.split(/\s+/).filter(Boolean);
     if (tokens.length === 1 && STANDALONE_SUFFIX_BLOCK.has(kw)) return false;
     if (PARTIAL_BLOCK_RE.test(kw)) return false;               // 명시적 저품질 패턴
@@ -770,6 +770,13 @@ function rerankAndSelectFinal(items: ProTrafficKeyword[], targetCount: number, i
     if (tokens.length === 2 && tokens.every(t => STANDALONE_SUFFIX_BLOCK.has(t))) return false;
     return true;
   });
+
+  // 🛡️ 안전장치: 필터가 너무 엄격해 결과 0건이 되면 원본 items 그대로 유지 (비어있기보단 낫다)
+  if (filtered.length === 0 && items.length > 0) {
+    console.warn('[PRO-HUNTER] 품질 필터 후 0건 → 원본 items 유지 (너무 엄격한 필터링 방지)');
+  } else {
+    items = filtered;
+  }
   if (items.length === 0) return [];
 
   const explosionCache = new Map<string, number>();
@@ -1036,21 +1043,33 @@ import { fetchMusinsaRanking, extractMusinsaKeywords } from './sources/musinsa-r
 const DYNAMIC_TREND_SEEDS: Record<string, string[]> = {};
 
 async function hydrateDynamicSeeds(category: string): Promise<void> {
-  try {
-    if (category === 'beauty' || category === 'all') {
+  if (category === 'beauty' || category === 'all') {
+    try {
+      const t0 = Date.now();
       const products = await fetchOliveyoungBest();
       const kws = extractOliveyoungKeywords(products).map(k => k.keyword).slice(0, 50);
       DYNAMIC_TREND_SEEDS['beauty'] = kws;
-      console.log(`[PRO-HUNTER] 🧴 올리브영 실시간 트렌드 제품명 ${kws.length}개 시드 주입`);
+      const ms = Date.now() - t0;
+      console.log(`[PRO-HUNTER] 🧴 올리브영 실시간 제품명 ${kws.length}개 주입 (${ms}ms)`);
+      if (kws.length > 0) console.log(`  → 샘플 3개: ${kws.slice(0, 3).join(' / ')}`);
+    } catch (err: any) {
+      console.warn('[PRO-HUNTER] ⚠️ 올리브영 실시간 fetch 실패 (정적 시드만 사용):', err?.message);
+      DYNAMIC_TREND_SEEDS['beauty'] = [];   // 빈 배열로 명시
     }
-    if (category === 'fashion' || category === 'all') {
+  }
+  if (category === 'fashion' || category === 'all') {
+    try {
+      const t0 = Date.now();
       const products = await fetchMusinsaRanking();
       const kws = extractMusinsaKeywords(products).map(k => k.keyword).slice(0, 40);
       DYNAMIC_TREND_SEEDS['fashion'] = kws;
-      console.log(`[PRO-HUNTER] 👕 무신사 실시간 트렌드 제품명 ${kws.length}개 시드 주입`);
+      const ms = Date.now() - t0;
+      console.log(`[PRO-HUNTER] 👕 무신사 실시간 제품명 ${kws.length}개 주입 (${ms}ms)`);
+      if (kws.length > 0) console.log(`  → 샘플 3개: ${kws.slice(0, 3).join(' / ')}`);
+    } catch (err: any) {
+      console.warn('[PRO-HUNTER] ⚠️ 무신사 실시간 fetch 실패 (정적 시드만 사용):', err?.message);
+      DYNAMIC_TREND_SEEDS['fashion'] = [];
     }
-  } catch (err: any) {
-    console.warn('[PRO-HUNTER] 동적 트렌드 시드 hydrate 실패:', err?.message);
   }
 }
 import {
