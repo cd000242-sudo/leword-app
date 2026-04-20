@@ -752,6 +752,26 @@ function rerankAndSelectFinal(items: ProTrafficKeyword[], targetCount: number, i
   const safeTarget = Math.max(1, targetCount);
   if (!items || items.length === 0) return [];
 
+  // 🔥 단독 "후기/가격/정리/추천" 같은 범용 접미사 단독 키워드 차단
+  // 뷰티/패션 카테고리 실행 시 공백 파생 결과로 단독 suffix가 섞여나오던 버그 방지
+  const STANDALONE_SUFFIX_BLOCK = new Set([
+    '후기', '가격', '정리', '추천', '비교', '순위', '방법', '총정리',
+    '꿀팁', '성분', '브랜드', '차이', '사이즈', '하는법', '사용법',
+    '리뷰', '팁', '정보', '코디', '코디법', '스타일링', '가성비',
+  ]);
+  const PARTIAL_BLOCK_RE = /^(브랜드별 차이|구두 사이즈|트렌드 컬러 \d{4})$/;
+  items = items.filter(r => {
+    const kw = (r.keyword || '').trim();
+    if (!kw || kw.length < 4) return false;                    // 너무 짧은 토큰
+    const tokens = kw.split(/\s+/).filter(Boolean);
+    if (tokens.length === 1 && STANDALONE_SUFFIX_BLOCK.has(kw)) return false;
+    if (PARTIAL_BLOCK_RE.test(kw)) return false;               // 명시적 저품질 패턴
+    // 2토큰 중 양쪽 다 STANDALONE 군이면 (예: "브랜드 추천") 컷
+    if (tokens.length === 2 && tokens.every(t => STANDALONE_SUFFIX_BLOCK.has(t))) return false;
+    return true;
+  });
+  if (items.length === 0) return [];
+
   const explosionCache = new Map<string, number>();
   const getExplosion = (r: ProTrafficKeyword): number => {
     const key = r.keyword;
@@ -5672,6 +5692,20 @@ function getProfitableSeedKeywords(category: string, month: number): string[] {
         ' 독학', ' 난이도', ' 기출', ' 합격', ' 합격 후기', ' 일정',
         ' 응시료', ' 접수',
         ' 가격', ' 비용', ' 할인', ' 쿠폰', ' 할인코드', ' 환불', ' 해지'
+      ];
+    } else if (cat === 'beauty') {
+      extraSuffixes = [
+        ' 추천 순위', ' 성분', ' 효과', ' 부작용', ' 피부타입별 추천',
+        ' 건성 추천', ' 지성 추천', ' 복합성 추천', ' 민감성 추천',
+        ' 올리브영 인기', ' 다이소 가성비', ' 리뷰 정리',
+        ' 바르는 순서', ' 사용 주기', ' 유통기한', ' 제형 비교',
+      ];
+    } else if (cat === 'fashion') {
+      extraSuffixes = [
+        ' 브랜드 순위', ' 코디법', ' 스타일링', ' 사이즈 팁',
+        ' 하객룩 코디', ' 출근룩 코디', ' 데일리룩 코디',
+        ' 세일 정보', ' 아울렛 추천', ' 가성비 브랜드',
+        ' 원단 차이', ' 컬러 추천', ' 체형별 추천',
       ];
     }
 
