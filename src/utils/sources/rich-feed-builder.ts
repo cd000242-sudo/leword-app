@@ -161,28 +161,29 @@ function isWritableKeyword(keyword: string, docCount: number): boolean {
     const tokens = keyword.trim().split(/\s+/).filter(Boolean).length;
     if (tokens >= 2) return true;                          // 2단어+ 롱테일
     if (INTENT_SUFFIX_RE.test(keyword)) return true;       // 검색 의도 어미
-    if (docCount > 0 && docCount <= 2000) return true;     // 저경쟁 희소 고유명사 (예: 프래그마타)
+    if (docCount > 0 && docCount <= 5000) return true;     // 저경쟁 희소 고유명사 (예: 프래그마타·늑구)
     return false;                                           // 단일 범용 명사 → 블로그 집필 난감
 }
 
 /**
  * 등급 판정 (다중 게이트, mdp-engine과 일관성 유지)
  *
- * 강화된 규칙:
- *  - 집필 불가능한 단일 범용 빅워드 (챗GPT/유튜브/제미나이 등) 는 피드 자체에서 제외
- *    → 개인 블로거 관점에서 경쟁 무지막지해 상위 노출 불가능 = 황금 아님
- *  - 롱테일 / 검색 의도 / 저경쟁 고유명사만 등급 부여
+ * 규칙 (균형 버전):
+ *  - 극단 범용 빅워드만 제거: 단일 명사 + docCount > 100,000 → 피드 제외
+ *    (제미나이·챗GPT·유튜브·환율·트럼프 등)
+ *  - SSS/SS 는 writable 필수 (엄격한 품질)
+ *  - S/A/B 는 docCount 자연 필터만 적용 (문근영·장동혁 같은 중도 키워드는 유지)
  */
 function calculateGrade(volume: number, docCount: number, ratio: number, score: number, keyword: string): GoldenGrade | '' {
     const writable = isWritableKeyword(keyword, docCount);
-    // 🔥 집필 불가능 + 고경쟁 = 피드 제외 (너무 범용적인 키워드 차단)
-    if (!writable && docCount > 10000) return '';
+    // 🔥 극단 범용 빅워드 제거 — 개인 블로거가 경쟁 불가능한 단일 명사만 차단
+    if (!writable && docCount > 100_000) return '';
 
     if (score >= 85 && volume >= 1000 && docCount <= 5000 && ratio >= 5 && writable) return 'SSS';
     if (score >= 75 && volume >= 500 && docCount <= 10000 && ratio >= 3 && writable) return 'SS';
-    if (score >= 65 && volume >= 300 && ratio >= 2 && writable) return 'S';
-    if (score >= 55 && volume >= 100 && writable) return 'A';
-    if (score >= 45 && writable) return 'B';
+    if (score >= 65 && volume >= 300 && ratio >= 2) return 'S';
+    if (score >= 55 && volume >= 100) return 'A';
+    if (score >= 45) return 'B';
     return '';
 }
 
@@ -339,7 +340,7 @@ export async function buildRichFeed(
     // 3-3. Longtail 확장
     // - Heavy source(seed 100+): 상위 20개만 파생 (전체 파생 폭증 방지)
     // - Minor source(seed 30-): 모든 seed 파생 (최종 feed 기여 확보)
-    const LONGTAIL_SUFFIXES = ['추천', '후기', '가격', '비교', '방법', '순위', '종류'];
+    const LONGTAIL_SUFFIXES = ['추천', '후기', '가격', '비교', '방법', '순위', '종류', '사용법', '뜻', '차이', '장단점'];
     const MINOR_THRESHOLD = 30;
     const HEAVY_LONGTAIL_CAP = 20;
     const extraSeeds: typeof baseSeeds = [];
@@ -526,7 +527,7 @@ let cached: { result: RichFeedResult; expiresAt: number } | null = null;
 const CACHE_TTL = 15 * 60_000;        // 메모리 캐시: 15분
 const DISK_CACHE_TTL = 4 * 60 * 60_000; // 디스크 캐시: 4시간 (신선도 확보)
 const MIN_ACCEPTABLE_TOTAL = 20;       // 이 미만이면 "실패"로 간주, 디스크 캐시 폴백
-const CACHE_SCHEMA_VERSION = 'v2.9.1-strict-writable';  // 집필 불가능 키워드 완전 제외
+const CACHE_SCHEMA_VERSION = 'v2.9.3-balanced';  // 극단 빅워드만 제외, 중도 키워드 유지
 
 function getDiskCachePath(): string {
     // app.getPath 가 있으면 userData, 없으면 temp 사용 (테스트/개발 환경)
