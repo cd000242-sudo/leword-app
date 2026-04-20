@@ -57,6 +57,42 @@ function fetchViaCurl(url: string, timeoutMs = 20000): Promise<string> {
  *   '' = 전체
  *   '10000010001' = 스킨케어, '10000010002' = 마스크팩 등
  */
+const MIN_VALID_HTML_SIZE = 100_000;   // 50KB 수준 응답은 올리브영 봇 차단 fallback 페이지
+const MAX_FETCH_RETRIES = 3;
+
+async function fetchOliveyoungHtml(url: string): Promise<string> {
+    let lastErr = '';
+    for (let attempt = 1; attempt <= MAX_FETCH_RETRIES; attempt++) {
+        try {
+            const html = await fetchViaCurl(url, 20000);
+            if (html.length >= MIN_VALID_HTML_SIZE) return html;
+            lastErr = `attempt ${attempt}: html=${html.length}b (too small, likely bot-block)`;
+        } catch (e: any) {
+            lastErr = `attempt ${attempt}: ${e.message}`;
+        }
+        // backoff
+        if (attempt < MAX_FETCH_RETRIES) await new Promise(r => setTimeout(r, 1000 * attempt));
+    }
+    // curl 전부 실패/차단 → axios 마지막 시도
+    try {
+        const res = await axios.get(url, {
+            timeout: 20000,
+            headers: {
+                'User-Agent': UA,
+                'Accept': 'text/html,application/xhtml+xml,*/*;q=0.8',
+                'Accept-Language': 'ko-KR,ko;q=0.9',
+                'Accept-Encoding': 'gzip, deflate',
+                'Referer': 'https://www.oliveyoung.co.kr/',
+            },
+            maxRedirects: 5,
+            validateStatus: (s) => s >= 200 && s < 400,
+        });
+        const html = String(res.data || '');
+        if (html.length >= MIN_VALID_HTML_SIZE) return html;
+    } catch {}
+    throw new Error(`올리브영 fetch 실패: ${lastErr}`);
+}
+
 export async function fetchOliveyoungBest(dispCatNo: string = ''): Promise<OliveyoungProduct[]> {
     try {
         const params = new URLSearchParams();
@@ -65,28 +101,7 @@ export async function fetchOliveyoungBest(dispCatNo: string = ''): Promise<Olive
         params.append('rowsPerPage', '100');
 
         const url = `${BEST_URL}?${params.toString()}`;
-
-        // 1차: curl 우회 (올리브영 JA3 차단 회피)
-        let html = '';
-        try {
-            html = await fetchViaCurl(url, 20000);
-        } catch (curlErr: any) {
-            // 2차 폴백: axios (curl 미설치 환경 대응 — 대부분 403 예상)
-            console.warn('[oliveyoung] curl 실패, axios 폴백:', curlErr.message);
-            const res = await axios.get(url, {
-                timeout: 20000,
-                headers: {
-                    'User-Agent': UA,
-                    'Accept': 'text/html,application/xhtml+xml,*/*;q=0.8',
-                    'Accept-Language': 'ko-KR,ko;q=0.9',
-                    'Accept-Encoding': 'gzip, deflate',
-                    'Referer': 'https://www.oliveyoung.co.kr/',
-                },
-                maxRedirects: 5,
-                validateStatus: (s) => s >= 200 && s < 400,
-            });
-            html = String(res.data || '');
-        }
+        const html = await fetchOliveyoungHtml(url);
 
         const $ = cheerio.load(html);
         const products: OliveyoungProduct[] = [];
@@ -116,6 +131,48 @@ export async function fetchOliveyoungBest(dispCatNo: string = ''): Promise<Olive
         console.error('[oliveyoung] 베스트 수집 실패:', err.message);
         return [];
     }
+}
+
+/**
+ * 올리브영 여러 카테고리 병렬 fetch — 차단 시 일부만 성공해도 다량 확보
+ *  대분류 dispCatNo (검증된 것만):
+ *   10000010001 스킨케어, 10000010010 마스크팩, 10000010009 클렌징
+ *   10000020003 선케어, 10000020004 바디케어, 10000020005 헤어케어
+ *   10000030001 메이크업(베이스), 10000030002 메이크업(립/아이)
+ */
+const CATEGORY_CODES: Array<{ code: string; label: string }> = [
+    { code: '', label: '전체' },
+    { code: '10000010001', label: '스킨케어' },
+    { code: '10000010010', label: '마스크팩' },
+    { code: '10000010009', label: '클렌징' },
+    { code: '10000020003', label: '선케어' },
+    { code: '10000020004', label: '바디케어' },
+    { code: '10000020005', label: '헤어케어' },
+    { code: '10000030001', label: '메이크업-베이스' },
+    { code: '10000030002', label: '메이크업-색조' },
+];
+
+export async function fetchOliveyoungMultiCategory(): Promise<OliveyoungProduct[]> {
+    const all: OliveyoungProduct[] = [];
+    const seen = new Set<string>();
+    for (const { code, label } of CATEGORY_CODES) {
+        try {
+            const products = await fetchOliveyoungBest(code);
+            if (products.length > 0) {
+                console.log(`[oliveyoung] ${label}(${code || '전체'}): ${products.length}개`);
+                for (const p of products) {
+                    if (p.productName && !seen.has(p.productName)) {
+                        seen.add(p.productName);
+                        all.push(p);
+                    }
+                }
+            }
+            await new Promise(r => setTimeout(r, 800));   // rate limit 보호
+        } catch (err: any) {
+            console.warn(`[oliveyoung] ${label} 실패:`, err?.message);
+        }
+    }
+    return all;
 }
 
 /**

@@ -1032,43 +1032,86 @@ import {
   SEASON_KEYWORDS
 } from '../data/hunter-seeds';
 import { scanForSurges, listRecentSurges, type TrendSignal } from './pro-hunter-v12/trend-surge-detector';
-// 🔥 실시간 트렌드 제품명 주입 (뷰티: 올리브영 / 패션: 무신사)
-import { fetchOliveyoungBest, extractOliveyoungKeywords } from './sources/oliveyoung-ranking';
-import { fetchMusinsaRanking, extractMusinsaKeywords } from './sources/musinsa-ranking';
+// 🔥 실시간 트렌드 제품명 주입 — Cross-source 집계 (Phase 1-3)
+import { aggregateBeautyTrendSeeds, aggregateFashionTrendSeeds, summarizeTrendSeeds } from './sources/trend-seed-aggregator';
 
 /**
  * 런타임 동적 시드 캐시 — 카테고리별 실시간 트렌드 제품명 보관
  * huntProTrafficKeywords 진입 시 hydrate, getProfitableSeedKeywords 에서 읽음
  */
 const DYNAMIC_TREND_SEEDS: Record<string, string[]> = {};
+export interface RealtimeTrendStatus {
+  category: string;
+  total: number;
+  crossValidated: number;
+  sources: string[];
+  success: boolean;
+  message: string;
+}
+const TREND_STATUS: Record<string, RealtimeTrendStatus> = {};
+
+/**
+ * 외부(UI)에서 조회 — "실시간 수집 실패" 배지 표시용
+ */
+export function getRealtimeTrendStatus(category: string): RealtimeTrendStatus | null {
+  return TREND_STATUS[category] || null;
+}
 
 async function hydrateDynamicSeeds(category: string): Promise<void> {
   if (category === 'beauty' || category === 'all') {
     try {
       const t0 = Date.now();
-      const products = await fetchOliveyoungBest();
-      const kws = extractOliveyoungKeywords(products).map(k => k.keyword).slice(0, 50);
-      DYNAMIC_TREND_SEEDS['beauty'] = kws;
+      const seeds = await aggregateBeautyTrendSeeds();
       const ms = Date.now() - t0;
-      console.log(`[PRO-HUNTER] 🧴 올리브영 실시간 제품명 ${kws.length}개 주입 (${ms}ms)`);
-      if (kws.length > 0) console.log(`  → 샘플 3개: ${kws.slice(0, 3).join(' / ')}`);
+      console.log(`[PRO-HUNTER] 🧴 뷰티 Cross-source 시드 집계 완료 (${ms}ms) — ${summarizeTrendSeeds(seeds)}`);
+      DYNAMIC_TREND_SEEDS['beauty'] = seeds.slice(0, 60).map(s => s.seed);
+      const allSources = new Set<string>();
+      seeds.forEach(s => s.sources.forEach(src => allSources.add(src)));
+      TREND_STATUS['beauty'] = {
+        category: 'beauty',
+        total: seeds.length,
+        crossValidated: seeds.filter(s => s.sources.length >= 2).length,
+        sources: Array.from(allSources),
+        success: seeds.length > 0,
+        message: seeds.length > 0
+          ? `실시간 ${seeds.length}개 시드 수집 (교차검증 ${seeds.filter(s => s.sources.length >= 2).length}개)`
+          : '⚠️ 모든 실시간 소스 실패 — 정적 시드만 사용',
+      };
     } catch (err: any) {
-      console.warn('[PRO-HUNTER] ⚠️ 올리브영 실시간 fetch 실패 (정적 시드만 사용):', err?.message);
-      DYNAMIC_TREND_SEEDS['beauty'] = [];   // 빈 배열로 명시
+      console.warn('[PRO-HUNTER] ⚠️ 뷰티 Cross-source 집계 실패:', err?.message);
+      DYNAMIC_TREND_SEEDS['beauty'] = [];
+      TREND_STATUS['beauty'] = {
+        category: 'beauty', total: 0, crossValidated: 0, sources: [], success: false,
+        message: `실시간 수집 실패: ${err?.message || '알 수 없음'}`,
+      };
     }
   }
   if (category === 'fashion' || category === 'all') {
     try {
       const t0 = Date.now();
-      const products = await fetchMusinsaRanking();
-      const kws = extractMusinsaKeywords(products).map(k => k.keyword).slice(0, 40);
-      DYNAMIC_TREND_SEEDS['fashion'] = kws;
+      const seeds = await aggregateFashionTrendSeeds();
       const ms = Date.now() - t0;
-      console.log(`[PRO-HUNTER] 👕 무신사 실시간 제품명 ${kws.length}개 주입 (${ms}ms)`);
-      if (kws.length > 0) console.log(`  → 샘플 3개: ${kws.slice(0, 3).join(' / ')}`);
+      console.log(`[PRO-HUNTER] 👕 패션 Cross-source 시드 집계 완료 (${ms}ms) — ${summarizeTrendSeeds(seeds)}`);
+      DYNAMIC_TREND_SEEDS['fashion'] = seeds.slice(0, 50).map(s => s.seed);
+      const allSources = new Set<string>();
+      seeds.forEach(s => s.sources.forEach(src => allSources.add(src)));
+      TREND_STATUS['fashion'] = {
+        category: 'fashion',
+        total: seeds.length,
+        crossValidated: seeds.filter(s => s.sources.length >= 2).length,
+        sources: Array.from(allSources),
+        success: seeds.length > 0,
+        message: seeds.length > 0
+          ? `실시간 ${seeds.length}개 시드 수집 (교차검증 ${seeds.filter(s => s.sources.length >= 2).length}개)`
+          : '⚠️ 모든 실시간 소스 실패 — 정적 시드만 사용',
+      };
     } catch (err: any) {
-      console.warn('[PRO-HUNTER] ⚠️ 무신사 실시간 fetch 실패 (정적 시드만 사용):', err?.message);
+      console.warn('[PRO-HUNTER] ⚠️ 패션 Cross-source 집계 실패:', err?.message);
       DYNAMIC_TREND_SEEDS['fashion'] = [];
+      TREND_STATUS['fashion'] = {
+        category: 'fashion', total: 0, crossValidated: 0, sources: [], success: false,
+        message: `실시간 수집 실패: ${err?.message || '알 수 없음'}`,
+      };
     }
   }
 }
@@ -2388,6 +2431,24 @@ export async function huntProTrafficKeywords(options: {
 
   let allSeedKeywords: string[] = [...seedKeywords];
   let multiSourceSeeds: string[] = [];
+
+  // 🔥 실시간 상품명 시드를 강제로 prepend — 뷰티/패션 최종 결과에 반영 보장
+  // hydrateDynamicSeeds 에서 이미 집계된 Cross-source 시드 (세포랩, raive x hello kitty 등)
+  if (category === 'beauty' || category === 'fashion') {
+    const realtimeSeeds = DYNAMIC_TREND_SEEDS[category] || [];
+    if (realtimeSeeds.length > 0) {
+      // 각 상품명마다 3변형: 원본, +추천, +후기 → 최종 결과에 브랜드명 키워드 보장
+      const injectedSeeds: string[] = [];
+      for (const name of realtimeSeeds.slice(0, 25)) {
+        injectedSeeds.push(name);
+        injectedSeeds.push(`${name} 추천`);
+        injectedSeeds.push(`${name} 후기`);
+      }
+      // 기존 seedKeywords 앞에 주입 (최우선 처리)
+      allSeedKeywords = Array.from(new Set([...injectedSeeds, ...allSeedKeywords]));
+      console.log(`[PRO-HUNTER] 🔥 실시간 상품명 ${realtimeSeeds.length}개 × 3변형 = ${injectedSeeds.length}개 시드 강제 주입`);
+    }
+  }
 
   // 🎯 모드별 시드 키워드 수집
   if (mode === 'season') {
