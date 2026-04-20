@@ -503,14 +503,16 @@ function getProPremiumMaxDocumentsForCategory(category: string): number {
 
 function computePremiumGrade(r: ProTrafficKeyword, category?: string): 'SSS' | 'SS' | 'S' | 'A' | null {
   const sv = typeof r.searchVolume === 'number' && Number.isFinite(r.searchVolume) ? r.searchVolume : 0;
-  const dc = typeof r.documentCount === 'number' && Number.isFinite(r.documentCount) ? r.documentCount : Number.POSITIVE_INFINITY;
+  // 🔥 v2.12.0 Phase 1-2: Infinity 누수 제거 → dc=null 시 즉시 null 반환 (데이터 부족 = 판정 불가)
+  const dcRaw = typeof r.documentCount === 'number' && Number.isFinite(r.documentCount) ? r.documentCount : null;
+  if (dcRaw === null) return null;
+  const dc = dcRaw;
   const gr = typeof r.goldenRatio === 'number' && Number.isFinite(r.goldenRatio) ? r.goldenRatio : 0;
 
   // 🔥 A 등급조차 부여 불가한 "쓰레기" 컷 — 결과에서 아예 제외
-  //   (이전: sv=100/dc=141K/gr=0.07인데 A GRADE로 표시되던 버그 방지)
   if (sv < 50) return null;             // 검색량 없음/무의미
   if (dc > 1_000_000 && gr < 0.05) return null;  // 극레드오션
-  if (gr < 0.05 && category !== 'celeb') return null; // 황금비율 매우 낮음 (celeb 제외 — 원래 낮은 편)
+  if (gr < 0.05 && category !== 'celeb') return null; // 황금비율 매우 낮음
 
   // 🛡️ 저경쟁 보증 필터: 문서수가 너무 많으면 등급 하향 (기득권 블로그 영역)
   let penaltySteps = 0;
@@ -539,10 +541,11 @@ function computePremiumGrade(r: ProTrafficKeyword, category?: string): 'SSS' | '
   let baseGrade: 'SSS' | 'SS' | 'S' | 'A' = 'A';
 
   if (category === 'celeb') {
-    // SSS: 연예인은 문서수 기준 대폭 완화 (100만 이하 & 검색량 2000 이상 & 황금비율 0.1 이상)
-    if (dc <= 1000000 && sv >= 2000 && gr >= 0.1) baseGrade = 'SSS';
-    else if (dc <= 2000000 && sv >= 1000 && gr >= 0.05) baseGrade = 'SS';
-    else if (dc <= 5000000 && sv >= 500 && gr >= 0.02) baseGrade = 'S';
+    // 🔥 v2.12.0 Phase 2-3: celeb 기준 엄격화 (이전엔 과완화로 SSS 남발)
+    // SSS: 문서수 30만 이하 + 검색량 3000+ + 황금비율 0.5+ (이전: 100만/2000/0.1)
+    if (dc <= 300000 && sv >= 3000 && gr >= 0.5) baseGrade = 'SSS';
+    else if (dc <= 600000 && sv >= 1500 && gr >= 0.25) baseGrade = 'SS';
+    else if (dc <= 1500000 && sv >= 800 && gr >= 0.1) baseGrade = 'S';
   } else if (category === 'life_tips') {
     // life_tips: 생활팁은 문서수가 많은 편이므로 기준 완화
     if (dc <= 10000 && sv >= 2000 && gr >= 1.5) baseGrade = 'SSS';
@@ -568,7 +571,10 @@ function computePremiumGrade(r: ProTrafficKeyword, category?: string): 'SSS' | '
 
 function computePremiumGradeStrict(r: ProTrafficKeyword, criteria?: { minRatio?: number; maxDocuments?: number; category?: string }): 'SSS' | 'SS' | 'S' | 'A' | null {
   const sv = typeof r.searchVolume === 'number' && Number.isFinite(r.searchVolume) ? r.searchVolume : 0;
-  const dc = typeof r.documentCount === 'number' && Number.isFinite(r.documentCount) ? r.documentCount : Number.POSITIVE_INFINITY;
+  // 🔥 v2.12.0 Phase 1-2: Infinity 누수 제거
+  const dcRaw = typeof r.documentCount === 'number' && Number.isFinite(r.documentCount) ? r.documentCount : null;
+  if (dcRaw === null) return null;
+  const dc = dcRaw;
   const gr = typeof r.goldenRatio === 'number' && Number.isFinite(r.goldenRatio) ? r.goldenRatio : 0;
 
   // 🔥 A 등급조차 부여 불가한 "쓰레기" 컷 (strict 버전도 동일 게이트)
@@ -583,9 +589,10 @@ function computePremiumGradeStrict(r: ProTrafficKeyword, criteria?: { minRatio?:
     : (category === 'celeb' ? 10000000 : (category === 'life_tips' ? 300000 : 50000));
 
   if (category === 'celeb') {
-    if (dc <= 1000000 && sv >= 2000 && gr >= 0.1) return 'SSS';
-    if (dc <= 2000000 && sv >= 1000 && gr >= 0.05) return 'SS';
-    if (dc <= maxDocs && sv >= 500 && gr >= Math.max(0.02, minRatio)) return 'S';
+    // 🔥 v2.12.0 Phase 2-3: celeb strict 기준 엄격화
+    if (dc <= 300000 && sv >= 3000 && gr >= 0.5) return 'SSS';
+    if (dc <= 600000 && sv >= 1500 && gr >= 0.25) return 'SS';
+    if (dc <= Math.min(maxDocs, 1500000) && sv >= 800 && gr >= Math.max(0.1, minRatio)) return 'S';
   } else if (category === 'life_tips') {
     // life_tips: 생활팁 전용 기준 (문서수/비율 완화)
     if (dc <= 10000 && sv >= 2000 && gr >= 1.5) return 'SSS';
@@ -1051,6 +1058,29 @@ import { aggregateBeautyTrendSeeds, aggregateFashionTrendSeeds, summarizeTrendSe
  * huntProTrafficKeywords 진입 시 hydrate, getProfitableSeedKeywords 에서 읽음
  */
 const DYNAMIC_TREND_SEEDS: Record<string, string[]> = {};
+
+/**
+ * 🔥 v2.12.0 Phase 3-2: 자동완성 suffix bomb 감지기
+ * "X 추천 비교 꿀팁 2026" 같이 접미사 3개 이상 연속 붙은 노이즈 키워드 차단
+ */
+const SUFFIX_BOMB_TOKENS = new Set([
+  '추천', '비교', '꿀팁', '방법', '정리', '총정리', '가격', '후기',
+  '순위', '종류', '사용법', '하는법', '리뷰', '팁', '정보',
+]);
+function isSuffixBomb(keyword: string): boolean {
+  const tokens = String(keyword || '').trim().split(/\s+/).filter(Boolean);
+  if (tokens.length < 4) return false;                        // 3토큰 이하는 정상
+  // 연도 토큰(2024/2025/2026) + 접미사 중복이 핵심 패턴
+  let suffixCount = 0;
+  let hasYear = false;
+  for (const t of tokens) {
+    if (SUFFIX_BOMB_TOKENS.has(t)) suffixCount++;
+    if (/^202[0-9]$/.test(t)) hasYear = true;
+  }
+  if (suffixCount >= 3) return true;                         // 접미사 3+개 = 폭탄
+  if (suffixCount >= 2 && hasYear) return true;              // 접미사 2+ + 연도 = 폭탄
+  return false;
+}
 export interface RealtimeTrendStatus {
   category: string;
   total: number;
@@ -3350,6 +3380,7 @@ export async function huntProTrafficKeywords(options: {
             const seedSource = realtimeSourceMap.get(seed) || seed;
             const perSeed = 10;
             for (const kw of expanded.slice(0, perSeed)) {
+              if (isSuffixBomb(kw)) continue;   // 🔥 Phase 3-2: suffix bomb 차단
               if (!allKeywords.some(k => k.keyword === kw)) {
                 allKeywords.push({ keyword: kw, source: seedSource, searchVolume: null, documentCount: null });
               }
@@ -3368,7 +3399,10 @@ export async function huntProTrafficKeywords(options: {
           );
           const seedSource = realtimeSourceMap.get(seed) || seed;
           const perSeed = explosionMode ? 30 : 10;
-          return expanded.slice(0, perSeed).map(kw => ({ keyword: kw, source: seedSource }));
+          // 🔥 Phase 3-2: suffix bomb 필터
+          return expanded.slice(0, perSeed)
+            .filter(kw => !isSuffixBomb(kw))
+            .map(kw => ({ keyword: kw, source: seedSource }));
         });
 
         const expandResults = await collectSettledWithinTimeout(
@@ -3400,14 +3434,16 @@ export async function huntProTrafficKeywords(options: {
   }
 
   // 🔥 3.7단계: 자동완성/시드 추가 후 카테고리 필터 (누수 차단)
+  // 🔥 v2.12.0 Phase 3-1: AND 강제 — 기존엔 매칭 10개 미만이면 원본 유지(누수)
+  //    → 3개 이상이면 무조건 필터 적용. "다용도세제가 life_tips에 섞이는" 버그 방지
   if (mode === 'category' && category !== 'all' && category !== 'pro_premium' && category !== 'lite_standard') {
     const beforeCatFilter = allKeywords.length;
     const catFiltered = allKeywords.filter(k => isKeywordMatchingCategory(k.keyword, category));
-    if (catFiltered.length >= 10) {
+    if (catFiltered.length >= 3) {   // 이전 10 → 3 (매칭이 최소한만 있어도 필터 강제)
       allKeywords.length = 0;
       allKeywords.push(...catFiltered);
     }
-    console.log(`[PRO-TRAFFIC] 📁 3.7단계 카테고리 필터: ${beforeCatFilter}개 → ${allKeywords.length}개 (${category})`);
+    console.log(`[PRO-TRAFFIC] 📁 3.7단계 카테고리 필터 (AND 강제): ${beforeCatFilter}개 → ${allKeywords.length}개 (${category})`);
   }
 
   internalMetrics.allKeywordsCount = allKeywords.length;
@@ -4248,7 +4284,7 @@ export async function huntProTrafficKeywords(options: {
           if (ratio < minGoldenRatio) continue;
           if (doc > maxDocuments) continue;
 
-          if (explosionMode && !PREMIUM_GOLDEN_GRADES.has(newGrade)) continue;
+          if (explosionMode && (!newGrade || !PREMIUM_GOLDEN_GRADES.has(newGrade))) continue;
 
           const analysis = analyzeKeyword(kw, 'category_fallback', currentMonth, currentHour, targetRookie);
           // 폴백에서는 점수 컷을 20으로 추가 완화 (최종 정렬에서 다시 엄선)
@@ -4519,9 +4555,11 @@ export async function huntProTrafficKeywords(options: {
     return (/추천|비교|순위|가격|비용|후기|할인|쿠폰|신청|가입|예약|예매|티켓|티켓팅|좌석|시야|좌석배치도|스탠딩|vip|취소표|양도|예매처|렌탈|구매/.test(s)) ? 1 : 0;
   };
 
+  // 🔥 v2.12.0 Phase 3-3: Pool size 확대 — count=20 요청 시 pool 60→100
+  //    기존: count*3 이하 고정 → 필터에서 많이 탈락하면 결과 부족. 확대로 안정성 ↑
   const finalRerankPoolSize = explosionMode
-    ? Math.min(Math.max(count * 8, 120), 220)
-    : Math.min(Math.max(count * 3, 30), 40);
+    ? Math.min(Math.max(count * 15, 200), 300)
+    : Math.min(Math.max(count * 5, 50), 100);
 
   // 📁 카테고리 후필터: API 확장 후에도 카테고리 매칭 키워드를 상위 배치
   const filterByCategory = (keywords: ProTrafficKeyword[], cat: string): ProTrafficKeyword[] => {
@@ -5836,7 +5874,22 @@ function getProfitableSeedKeywords(category: string, month: number): string[] {
       ];
     }
 
-    const seedsForLongtail = baseSeeds.slice(0, 30);
+    // 🔥 v2.12.0 Phase 1-3: 시드 정규화 — 이미 접미사 붙은 시드에서 접미사 제거
+    //   (예: "선크림추천" → "선크림" → "선크림 추천"로 정상 longtail 생성)
+    const EXISTING_SUFFIX_RE = /(추천|후기|리뷰|비교|순위|가격|방법|꿀팁|정리|총정리|종류|사용법|하는법)$/;
+    const normalizeSeedForLongtail = (seed: string): string => {
+      let s = (seed || '').trim();
+      // 최대 2번까지 접미사 연속 제거 ("선크림추천추천" 대비)
+      for (let i = 0; i < 2; i++) {
+        const m = EXISTING_SUFFIX_RE.exec(s);
+        if (!m) break;
+        s = s.slice(0, m.index).trim();
+      }
+      return s;
+    };
+    // 🔥 v2.12.0 Phase 3-3: slice(0, 30) 고정 → explosionMode에 따라 동적
+    const longtailLimit = Math.min(baseSeeds.length, 60);
+    const seedsForLongtail = baseSeeds.slice(0, longtailLimit).map(normalizeSeedForLongtail).filter(s => s.length >= 2);
     const results: string[] = [];
     for (const kw of seedsForLongtail) {
       for (const s of commonSuffixes) {
@@ -7144,6 +7197,14 @@ function calculateTotalScore(
   searchVolume?: number,
   documentCount?: number
 ): number {
+  // 🔥 v2.12.0 Phase 1-1: 검색량 없으면 분석 가치 자체가 없음 → 강제 저점
+  //    이전 버그: sv=0이면 ratio 조건 스킵 → profitBonus/mdpBonus 누적 → 100점 도달
+  const svValid = typeof searchVolume === 'number' && searchVolume >= 50;
+  const dcValid = typeof documentCount === 'number' && documentCount > 0;
+  if (!svValid || !dcValid) {
+    return Math.round(Math.max(0, Math.min(30, rookieScore * 0.1 + blueOceanScore * 0.1)));
+  }
+
   // 🔥 v10.1 가중치 (트렌드/타이밍 강화!)
   const weights = {
     rookie: 0.25,      // 신생 적합도 25% (↓)
@@ -7153,17 +7214,14 @@ function calculateTotalScore(
   };
 
   // 황금비율 점수 (0-100)
-  // goldenRatio = searchVolume / documentCount (높을수록 황금)
-  // 이전 버그: 임계값 500/200/100이 비현실적으로 커서 ratio 10배짜리도 10점만 받음
-  // 수정: 실제 분포(0.1~50) 기준으로 임계값 재조정
   let goldenScore = 0;
-  if (goldenRatio >= 20) goldenScore = 100;        // 극황금 (검색량이 문서수의 20배+)
-  else if (goldenRatio >= 10) goldenScore = 90;    // 황금 (10배+)
-  else if (goldenRatio >= 5) goldenScore = 75;     // 블루오션 (5배+)
-  else if (goldenRatio >= 2) goldenScore = 55;     // 양호 (2배+)
-  else if (goldenRatio >= 1) goldenScore = 35;     // 균형 (검색량 = 문서수 수준)
-  else if (goldenRatio >= 0.5) goldenScore = 15;   // 레드오션 진입 (절반)
-  else goldenScore = 0;                            // 심각한 레드오션 (문서수 >> 검색량)
+  if (goldenRatio >= 20) goldenScore = 100;
+  else if (goldenRatio >= 10) goldenScore = 90;
+  else if (goldenRatio >= 5) goldenScore = 75;
+  else if (goldenRatio >= 2) goldenScore = 55;
+  else if (goldenRatio >= 1) goldenScore = 35;
+  else if (goldenRatio >= 0.5) goldenScore = 15;
+  else goldenScore = 0;
 
   let score =
     rookieScore * weights.rookie +
@@ -7171,18 +7229,24 @@ function calculateTotalScore(
     blueOceanScore * weights.blueOcean +
     goldenScore * weights.golden;
 
+  // 🔥 v2.12.0 Phase 2-1: 황금비율 점수가 매우 낮으면(<20) 보너스 전부 차단
+  //    이전 버그: goldenScore=0 이어도 profitPatterns/seasonPatterns 보너스로 70점+ 도달
+  const allowBonuses = goldenScore >= 20;
+
   // 🔥 v10.1 트래픽 잘 오는 키워드 보너스!
-  if (keyword) {
-    // 1. 수익화 의도 키워드 (+15)
+  if (keyword && allowBonuses) {
+    // 🔥 v2.12.0 Phase 2-2: 중복 가산 방지 — profitAnalysis.grade 보너스와 분리하기 위해
+    //    여기선 "키워드 텍스트 기반 보너스"만 적용. 다른 함수의 profitAnalysis 보너스와 상호 배제.
+    // 1. 수익화 의도 키워드 (+10, 기존 15→10 감소)
     const profitPatterns = ['가격', '비용', '후기', '추천', '비교', '순위', '할인', '무료', '이벤트', '혜택', '신청'];
     if (profitPatterns.some(p => keyword.includes(p))) {
-      score += 15;
+      score += 10;
     }
 
-    // 2. 정보성 롱테일 키워드 (+10)
+    // 2. 정보성 롱테일 키워드 (+8)
     const infoPatterns = ['방법', '하는법', '뜻', '차이', '종류', '기간', '조건', '자격', '서류'];
     if (infoPatterns.some(p => keyword.includes(p))) {
-      score += 10;
+      score += 8;
     }
 
     // 3. 시즌성/급상승 키워드 (+12)

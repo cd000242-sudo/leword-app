@@ -20,8 +20,8 @@ const TTL_MS = 24 * 60 * 60 * 1000; // 24시간
 const WRITE_DEBOUNCE_MS = 5000;
 const CACHE_FILE_NAME = 'keyword-cache.json';
 // 🔥 스키마 버전 — 올리면 이전 버전 캐시는 로드 시 전부 무효화
-//    (v2.11.2 goldenRatio 공식/임계 버그 수정 반영 위해 bump)
-const CACHE_SCHEMA_VERSION = 'v2.11.4';
+//    v2.12.0: TOTAL SCORE 거품 차단, Infinity 누수 제거, 시드 정규화, 가중치 하드게이트, 카테고리 AND 강제
+const CACHE_SCHEMA_VERSION = 'v2.12.0';
 
 let cache: Map<string, PersistentCacheEntry> = new Map();
 let cachePath: string | null = null;

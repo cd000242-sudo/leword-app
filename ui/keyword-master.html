@@ -14332,12 +14332,16 @@
             `;
           }
 
-          // 🔥 최종 컷: grade null 또는 검색량 0/null 인 쓰레기 키워드는 카드 자체 제외
+          // 🔥 v2.12.0 최종 컷: grade null 또는 필수 데이터 부족한 카드 제외
           displayKeywords = (displayKeywords || []).filter(kw => {
             if (!kw) return false;
-            if (!kw.grade) return false;    // grade null → 최소 기준 미달
+            if (!kw.grade) return false;                                          // grade null → 기준 미달
             const sv = typeof kw.searchVolume === 'number' ? kw.searchVolume : 0;
-            if (sv < 50) return false;       // 검색량 50 미만은 블로그 주제로 무의미
+            if (sv < 50) return false;                                            // 검색량 무의미
+            const dc = typeof kw.documentCount === 'number' ? kw.documentCount : 0;
+            if (dc <= 0) return false;                                            // 문서수 미확인
+            if (!kw.goldenRatio || !isFinite(kw.goldenRatio)) return false;       // 비율 계산 실패
+            if (!kw.totalScore || kw.totalScore < 40) return false;               // 종합점수 너무 낮음
             return true;
           });
 
@@ -14356,14 +14360,29 @@
                     <div style="display: flex; align-items: center; gap: 10px; margin-bottom: 10px;">
                       <span style="background: ${gradeColor}; color: white; padding: 4px 10px; border-radius: 8px; font-size: 12px; font-weight: 900; letter-spacing: 0.5px;">${kw.grade} GRADE</span>
                       <span style="color: rgba(255,255,255,0.5); font-size: 12px; font-weight: 500;">${kw.type}</span>
-                      ${(kw.timing && kw.timing.score > 80) ? `<span style="background: #ef4444; color: white; padding: 4px 10px; border-radius: 8px; font-size: 11px; font-weight: 800;">🔥 EXPLOSION</span>` : ''}
-                      ${(kw.blueOcean && kw.blueOcean.isEarlyBird) ? `<span style="background: linear-gradient(135deg, #8b5cf6 0%, #ec4899 100%); color: white; padding: 4px 10px; border-radius: 8px; font-size: 11px; font-weight: 800;">🚀 EARLY BIRD</span>` : ''}
-                      ${kw.riskAnalysis && kw.riskAnalysis.level === 'danger' ? `<span style="background: rgba(239, 68, 68, 0.2); color: #ef4444; border: 1px solid #ef4444; padding: 4px 10px; border-radius: 8px; font-size: 11px; font-weight: 800;">🚨 DANGER</span>` : ''}
-                      ${kw.riskAnalysis && kw.riskAnalysis.level === 'caution' ? `<span style="background: rgba(251, 191, 36, 0.2); color: #fbbf24; border: 1px solid #fbbf24; padding: 4px 10px; border-radius: 8px; font-size: 11px; font-weight: 800;">⚠️ CAUTION</span>` : ''}
-                      ${(kw.blueOcean && kw.blueOcean.isNiche) ? `<span style="background: rgba(34, 197, 94, 0.2); color: #22c55e; border: 1px solid #22c55e; padding: 4px 10px; border-radius: 8px; font-size: 11px; font-weight: 800;">🎯 NICHE SNIPER</span>` : ''}
-                      ${(kw.keyword.includes('패딩') || kw.keyword.includes('귤') || kw.keyword.includes('난방') || kw.keyword.includes('연말') || kw.keyword.includes('새해')) ? `<span style="background: rgba(59, 130, 246, 0.2); color: #60a5fa; border: 1px solid #60a5fa; padding: 4px 10px; border-radius: 8px; font-size: 11px; font-weight: 800;">❄️ SEASONAL</span>` : ''}
-                      ${kw.isCategoryMatch === false ? `<span style="background: rgba(148, 163, 184, 0.2); color: #94a3b8; border: 1px solid #94a3b8; padding: 4px 10px; border-radius: 8px; font-size: 11px; font-weight: 800;">(카테고리 외)</span>` : ''}
-                      ${kw.profitAnalysis?.trafficValue === 'high' ? `<span style="background:#ebf8ff;color:#2b6cb0;padding:4px 10px;border-radius:8px;font-size:11px;font-weight:800;border:1px solid #2b6cb0;">📈 트래픽추천</span>` : ''}
+                      ${(() => {
+                        // 🔥 v2.12.0 Phase 5: 배지 상호배제 규칙
+                        // DANGER ⇎ EARLY BIRD / EXPLOSION / NICHE SNIPER 상호 배제
+                        // CAUTION ⇎ EARLY BIRD 상호 배제 (caution은 표시)
+                        const isDanger = kw.riskAnalysis?.level === 'danger';
+                        const isCaution = kw.riskAnalysis?.level === 'caution';
+                        const canShowPositive = !isDanger;
+                        const showExplosion = canShowPositive && kw.timing && kw.timing.score > 80;
+                        const showEarlyBird = canShowPositive && !isCaution && kw.blueOcean?.isEarlyBird;
+                        const showNiche = canShowPositive && kw.blueOcean?.isNiche;
+                        const showSeasonal = /(패딩|귤|난방|연말|새해)/.test(kw.keyword || '');
+                        const showTraffic = canShowPositive && kw.profitAnalysis?.trafficValue === 'high';
+                        return [
+                          showExplosion ? `<span style="background: #ef4444; color: white; padding: 4px 10px; border-radius: 8px; font-size: 11px; font-weight: 800;">🔥 EXPLOSION</span>` : '',
+                          showEarlyBird ? `<span style="background: linear-gradient(135deg, #8b5cf6 0%, #ec4899 100%); color: white; padding: 4px 10px; border-radius: 8px; font-size: 11px; font-weight: 800;">🚀 EARLY BIRD</span>` : '',
+                          isDanger ? `<span style="background: rgba(239, 68, 68, 0.2); color: #ef4444; border: 1px solid #ef4444; padding: 4px 10px; border-radius: 8px; font-size: 11px; font-weight: 800;">🚨 DANGER</span>` : '',
+                          isCaution ? `<span style="background: rgba(251, 191, 36, 0.2); color: #fbbf24; border: 1px solid #fbbf24; padding: 4px 10px; border-radius: 8px; font-size: 11px; font-weight: 800;">⚠️ CAUTION</span>` : '',
+                          showNiche ? `<span style="background: rgba(34, 197, 94, 0.2); color: #22c55e; border: 1px solid #22c55e; padding: 4px 10px; border-radius: 8px; font-size: 11px; font-weight: 800;">🎯 NICHE SNIPER</span>` : '',
+                          showSeasonal ? `<span style="background: rgba(59, 130, 246, 0.2); color: #60a5fa; border: 1px solid #60a5fa; padding: 4px 10px; border-radius: 8px; font-size: 11px; font-weight: 800;">❄️ SEASONAL</span>` : '',
+                          kw.isCategoryMatch === false ? `<span style="background: rgba(148, 163, 184, 0.2); color: #94a3b8; border: 1px solid #94a3b8; padding: 4px 10px; border-radius: 8px; font-size: 11px; font-weight: 800;">(카테고리 외)</span>` : '',
+                          showTraffic ? `<span style="background:#ebf8ff;color:#2b6cb0;padding:4px 10px;border-radius:8px;font-size:11px;font-weight:800;border:1px solid #2b6cb0;">📈 트래픽추천</span>` : '',
+                        ].join('');
+                      })()}
                     </div>
                     <div style="font-size: 24px; font-weight: 800; color: white; cursor: pointer; display: flex; align-items: center; gap: 10px;" onclick="copyToClipboard('${String(kw.keyword || '').replace(/'/g, "\\'")}')" title="클릭하여 복사">
                       ${kw.keyword}
@@ -14398,7 +14417,9 @@
                 <!-- 💡 AI 한줄 진단 및 🛡️ 안전 가이드 -->
                 <div style="background: rgba(255, 255, 255, 0.02); border-left: 5px solid ${kw.riskAnalysis && kw.riskAnalysis.level === 'danger' ? '#ef4444' : (kw.riskAnalysis && kw.riskAnalysis.level === 'caution' ? '#fbbf24' : '#fbbf24')}; padding: 16px; border-radius: 0 14px 14px 0; margin-bottom: 20px; border: 1px solid rgba(255,255,255,0.05); border-left-width: 5px;">
                   <div style="font-size: 14px; color: white; line-height: 1.6; font-weight: 600; word-break: keep-all; margin-bottom: 8px;">
-                    "이 키워드는 ${kw.rookieFriendly ? kw.rookieFriendly.canRankWithin : '상위권'} 내에 노출이 가능하며, ${kw.monetizationBlueprint ? kw.monetizationBlueprint.name : '맞춤형 수익'} 전략에 최적화되어 있습니다."
+                    ${(kw.rookieFriendly && kw.monetizationBlueprint)
+                      ? `"이 키워드는 ${kw.rookieFriendly.canRankWithin} 내에 노출이 가능하며, ${kw.monetizationBlueprint.name} 전략에 최적화되어 있습니다."`
+                      : `"${kw.grade} 등급 / 황금비율 ${typeof kw.goldenRatio === 'number' ? kw.goldenRatio.toFixed(2) : '-'} / 검색량 ${kw.searchVolume?.toLocaleString() || '-'} / 문서수 ${kw.documentCount?.toLocaleString() || '-'}"`}
                   </div>
                   ${kw.riskAnalysis ? `
                   <div style="font-size: 12px; color: ${kw.riskAnalysis.level === 'danger' ? '#fca5a5' : (kw.riskAnalysis.level === 'caution' ? '#fcd34d' : 'rgba(255,255,255,0.5)')}; display: flex; align-items: center; gap: 6px;">
