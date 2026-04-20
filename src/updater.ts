@@ -23,6 +23,33 @@ let isUpdatingFlag = false;
 let restartScheduled = false;
 let lastUpdateInfo: { version?: string } = {};
 
+// 🔥 업데이트 체크 완료 신호 — 메인창 show() 전에 대기 가능
+// update-available / update-not-available / error 중 하나 발생 시 resolve
+let updateCheckResolver: ((result: { hasUpdate: boolean }) => void) | null = null;
+let updateCheckPromise: Promise<{ hasUpdate: boolean }> = new Promise((resolve) => {
+  updateCheckResolver = resolve;
+});
+
+function signalUpdateCheck(hasUpdate: boolean): void {
+  if (updateCheckResolver) {
+    updateCheckResolver({ hasUpdate });
+    updateCheckResolver = null;
+  }
+}
+
+/**
+ * 업데이트 체크 완료까지 대기 (timeout 내 결과 반환)
+ *  - hasUpdate=true → 메인창 show() 스킵 권장
+ *  - hasUpdate=false → 정상 show()
+ *  - timeout 시 기본 hasUpdate=false 로 진행 (앱 시작 블로킹 방지)
+ */
+export async function waitForUpdateCheck(timeoutMs = 5000): Promise<{ hasUpdate: boolean }> {
+  return Promise.race([
+    updateCheckPromise,
+    new Promise<{ hasUpdate: boolean }>(resolve => setTimeout(() => resolve({ hasUpdate: false }), timeoutMs)),
+  ]);
+}
+
 export function isUpdating(): boolean {
   return isUpdatingFlag;
 }
@@ -241,6 +268,7 @@ export function initAutoUpdaterEarly(): void {
     lastUpdateInfo.version = info?.version;
     showProgressWindow(info?.version ?? '');
     broadcastEvent('available', { version: info?.version });
+    signalUpdateCheck(true);
     try {
       autoUpdater.downloadUpdate();
     } catch (err: any) {
@@ -251,6 +279,7 @@ export function initAutoUpdaterEarly(): void {
   autoUpdater.on('update-not-available', (info: any) => {
     console.log('[UPDATER] 최신 버전입니다. 현재=', info?.version);
     broadcastEvent('not-available', { version: info?.version });
+    signalUpdateCheck(false);
   });
 
   autoUpdater.on('download-progress', (progress: any) => {
@@ -294,6 +323,7 @@ export function initAutoUpdaterEarly(): void {
     console.error('[UPDATER] 에러:', err?.message ?? err);
     isUpdatingFlag = false;
     broadcastEvent('error', { message: err?.message });
+    signalUpdateCheck(false);   // 에러 = 체크 실패 → 메인창은 정상 show()
     showErrorState(err?.message ?? '알 수 없는 오류').then(() => {
       setTimeout(() => {
         closeProgressWindow();

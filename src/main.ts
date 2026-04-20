@@ -39,6 +39,7 @@ import {
   registerUpdaterHandlers,
   setUpdaterLoginWindow,
   registerHideableWindow,
+  waitForUpdateCheck,
   isUpdating,
 } from './updater';
 import { setupKeywordMasterHandlers } from './main/keywordMasterIpcHandlers';
@@ -154,7 +155,17 @@ function createKeywordWindow() {
     });
   }
 
-  keywordWindow.once('ready-to-show', () => {
+  keywordWindow.once('ready-to-show', async () => {
+    // 🔥 업데이트 체크 결과 대기 (최대 5초)
+    // - 업데이트 있으면: 메인창 show() 스킵 → 진행창만 보이다가 재시작
+    // - 없거나 타임아웃: 정상 show()
+    try {
+      const { hasUpdate } = await waitForUpdateCheck(5000);
+      if (hasUpdate || isUpdating()) {
+        console.log('[LEWORD] 업데이트 진행 중 — 메인창 표시 생략 (업데이트 완료 후 자동 재시작)');
+        return;
+      }
+    } catch {}
     keywordWindow?.show();
   });
 
