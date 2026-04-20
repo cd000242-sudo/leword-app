@@ -508,7 +508,7 @@ async function showLicenseInputDialog(): Promise<{ success: boolean; plan?: stri
 
             <div class="input-group">
               <label>라이선스 코드</label>
-              <input type="text" id="license-input" class="license-input" placeholder="라이선스 코드 입력 (최대 50자, prefix 자동 제거)" maxlength="50" />
+              <input type="text" id="license-input" class="license-input" placeholder="라이선스 코드 입력 (prefix 포함 가능, 16-50자)" maxlength="50" />
               <div class="info-text">${hasRegistered ? '✅ 이미 등록된 사용자입니다. 비밀번호만 입력하세요!' : '최초 등록 시에만 코드가 필요합니다'}</div>
             </div>
 
@@ -574,23 +574,19 @@ async function showLicenseInputDialog(): Promise<{ success: boolean; plan?: stri
               return;
             }
             
-            // 코드 형식 자동 변환 (하이픈 없이 입력해도 됨)
+            // 코드 정규화 — 공백 제거 + 대문자화 (prefix 포함 원본 그대로 서버로 전송)
             if (code) {
-              // 하이픈/공백 제거 후 대문자, 영숫자 외 제거
-              let cleanCode = code.toUpperCase().replace(/[^A-Z0-9]/g, '');
-
-              // 🔥 16자 초과 시 뒤쪽 16자만 사용 (prefix 자동 제거)
-              if (cleanCode.length > 16) cleanCode = cleanCode.slice(-16);
-
-              // 16자리인지 확인
-              if (cleanCode.length !== 16 || !/^[A-Z0-9]{16}$/.test(cleanCode)) {
-                error.textContent = '라이선스 코드는 16자리 영문/숫자입니다. (prefix 자동 제거됨)';
+              code = code.toUpperCase().trim();
+              if (code.length < 16 || code.length > 50) {
+                error.textContent = '라이선스 코드는 16~50자 영문/숫자/하이픈입니다.';
                 error.style.display = 'block';
                 return;
               }
-              
-              // 하이픈 추가하여 정규 형식으로 변환
-              code = cleanCode.slice(0,4) + '-' + cleanCode.slice(4,8) + '-' + cleanCode.slice(8,12) + '-' + cleanCode.slice(12,16);
+              if (!/^[A-Z0-9-]+$/.test(code)) {
+                error.textContent = '라이선스 코드에 허용되지 않는 문자가 있습니다.';
+                error.style.display = 'block';
+                return;
+              }
             }
             
             error.style.display = 'none';

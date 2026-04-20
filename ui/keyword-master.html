@@ -5255,7 +5255,7 @@
             <label style="display: block; font-weight: 700; color: #667eea; margin-bottom: 12px; font-size: 15px;">
               📋 라이선스 코드 (신규 등록)
             </label>
-            <input type="text" id="licenseCode" placeholder="라이선스 코드 입력 (최대 50자, prefix 자동 제거)" maxlength="50"
+            <input type="text" id="licenseCode" placeholder="라이선스 코드 입력 (prefix 포함 가능, 16-50자)" maxlength="50"
               style="width: 100%; padding: 14px 18px; border: 2px solid #667eea; border-radius: 12px; font-size: 14px; outline: none; transition: all 0.2s; font-family: monospace; letter-spacing: 1px; text-align: center; font-weight: 700;"
               onfocus="this.style.borderColor='#764ba2'; this.style.boxShadow='0 0 0 3px rgba(102, 126, 234, 0.1)'"
               onblur="this.style.borderColor='#667eea'; this.style.boxShadow='none'"
@@ -5374,18 +5374,23 @@
           let finalUserId, finalUserPassword, finalLicenseCode;
 
           if (licenseCode) {
-            // 라이선스 코드로 신규 등록
-            // 🔥 prefix 자동 제거 + 16자 정규형 변환 (최대 50자 입력 지원)
-            let cleanCode = licenseCode.toUpperCase().replace(/[^A-Z0-9]/g, '');
-            if (cleanCode.length > 16) cleanCode = cleanCode.slice(-16);
-            if (cleanCode.length !== 16 || !/^[A-Z0-9]{16}$/.test(cleanCode)) {
+            // 라이선스 코드로 신규 등록 — prefix 포함 원본 그대로 서버로 전송
+            const cleanCode = licenseCode.toUpperCase().trim();
+            if (cleanCode.length < 16 || cleanCode.length > 50) {
               messageDiv.style.display = 'block';
               messageDiv.style.background = '#fee2e2';
               messageDiv.style.color = '#991b1b';
-              messageDiv.textContent = '⚠️ 라이선스 코드는 16자리 영문/숫자입니다. (최대 50자 입력, prefix 자동 제거)';
+              messageDiv.textContent = '⚠️ 라이선스 코드는 16~50자 영문/숫자/하이픈입니다.';
               return;
             }
-            finalLicenseCode = cleanCode.slice(0, 4) + '-' + cleanCode.slice(4, 8) + '-' + cleanCode.slice(8, 12) + '-' + cleanCode.slice(12, 16);
+            if (!/^[A-Z0-9-]+$/.test(cleanCode)) {
+              messageDiv.style.display = 'block';
+              messageDiv.style.background = '#fee2e2';
+              messageDiv.style.color = '#991b1b';
+              messageDiv.textContent = '⚠️ 허용되지 않는 문자가 있습니다. 영문/숫자/하이픈만 입력해주세요.';
+              return;
+            }
+            finalLicenseCode = cleanCode;
             finalUserId = userId2;
             finalUserPassword = userPassword2;
 
