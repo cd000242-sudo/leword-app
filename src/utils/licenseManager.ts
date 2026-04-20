@@ -350,7 +350,8 @@ export async function verifyLicense(
   deviceId: string,
   serverUrl?: string,
   userId?: string,
-  userPassword?: string
+  userPassword?: string,
+  rememberCredentials?: boolean
 ): Promise<{ valid: boolean; message?: string; license?: any }> {
   const actualServerUrl = serverUrl || DEFAULT_LICENSE_SERVER_URL;
 
@@ -458,7 +459,8 @@ export async function verifyLicense(
         expiresAt: license.expiresAt
       });
 
-      await saveLicense(license);
+      // license 객체에 userPassword 를 포함해 전달 (saveLicense 가 꺼내서 암호화 저장)
+      await saveLicense({ ...license, userPassword }, { rememberCredentials });
       return { valid: true, license };
 
     } catch (error: any) {
@@ -584,7 +586,7 @@ export async function verifyLicense(
           expiresAt: license.expiresAt
         });
 
-        await saveLicense(license);
+        await saveLicense({ ...license, userPassword }, { rememberCredentials });
         return { valid: true, license };
 
       } catch (error: any) {
@@ -668,15 +670,17 @@ export async function verifyAndSaveLicense(authData: {
   userId?: string;
   userPassword?: string;
   serverUrl?: string;
+  rememberCredentials?: boolean;
 }): Promise<{ success: boolean; plan?: string; isUnlimited?: boolean; message?: string }> {
-  const { licenseCode, userId, userPassword, serverUrl } = authData;
+  const { licenseCode, userId, userPassword, serverUrl, rememberCredentials } = authData;
 
   const result = await verifyLicense(
     licenseCode || '',
     await getDeviceId(),
     serverUrl || DEFAULT_LICENSE_SERVER_URL,
     userId,
-    userPassword
+    userPassword,
+    rememberCredentials
   );
 
   if (result.valid && result.license) {

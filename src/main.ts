@@ -211,11 +211,16 @@ async function showLicenseInputDialog(): Promise<{ success: boolean; plan?: stri
   const savedUserId = savedLicense?.userId || '';
   const hasRegistered = !!savedUserId; // 이미 등록된 사용자인지
 
+  // 🔐 기억하기 체크박스 + 자동 채움용 저장된 credential
+  const savedCreds = await licenseManager.loadCredentials();
+  const savedUserPassword = savedCreds?.userPassword || '';
+  const rememberByDefault = !!savedCreds;   // credential 저장돼있으면 기본 체크
+
   return new Promise((resolve) => {
     // TODO: Refactor license window to use a preload script instead of nodeIntegration: true
     const licenseWindow = new BrowserWindow({
       width: 580,
-      height: 720,
+      height: 760,
       resizable: false,
       frame: false,
       transparent: true,
@@ -498,17 +503,25 @@ async function showLicenseInputDialog(): Promise<{ success: boolean; plan?: stri
             
             <div class="input-group">
               <label>비밀번호</label>
-              <input type="password" id="user-password" placeholder="비밀번호를 입력하세요" />
+              <input type="password" id="user-password" placeholder="비밀번호를 입력하세요" value="${savedUserPassword}" />
             </div>
-            
+
             <div class="input-group">
               <label>라이선스 코드</label>
               <input type="text" id="license-input" class="license-input" placeholder="XXXX-XXXX-XXXX-XXXX" maxlength="19" />
               <div class="info-text">${hasRegistered ? '✅ 이미 등록된 사용자입니다. 비밀번호만 입력하세요!' : '최초 등록 시에만 코드가 필요합니다'}</div>
             </div>
-            
+
+            <label class="remember-row" style="display:flex; align-items:center; gap:10px; margin-top:6px; margin-bottom:14px; cursor:pointer; user-select:none; color:rgba(255,255,255,0.85); font-size:13px;">
+              <input type="checkbox" id="remember-me" ${rememberByDefault ? 'checked' : ''} style="width:18px; height:18px; accent-color:#fbbf24; cursor:pointer;" />
+              <span>아이디/비밀번호 기억하기 <span style="color:rgba(255,255,255,0.5); font-size:11px;">(다음 실행 시 자동 로그인)</span></span>
+            </label>
+            <div style="font-size:11px; color:rgba(255,255,255,0.4); margin-top:-8px; margin-bottom:14px; margin-left:28px;">
+              🔒 OS 키체인 암호화로 저장됩니다 (Windows DPAPI / macOS Keychain)
+            </div>
+
             <div id="error" class="error-message"></div>
-            
+
             <button class="submit-btn" id="submit-btn">
               💎 인증하기
             </button>
@@ -552,10 +565,13 @@ async function showLicenseInputDialog(): Promise<{ success: boolean; plan?: stri
             e.target.value = value;
           });
           
+          const rememberCheckbox = document.getElementById('remember-me');
+
           submitBtn.addEventListener('click', () => {
             const userId = userIdInput.value.trim();
             const userPassword = userPasswordInput.value.trim();
             let code = licenseInput.value.trim();
+            const rememberCredentials = !!rememberCheckbox?.checked;
             
             if (!userId && !userPassword && !code) {
               error.textContent = '아이디와 비밀번호를 입력해주세요.';
@@ -639,7 +655,7 @@ async function showLicenseInputDialog(): Promise<{ success: boolean; plan?: stri
                 }
               });
               
-              ipcRenderer.send('license:auth', { userId, userPassword, licenseCode: code });
+              ipcRenderer.send('license:auth', { userId, userPassword, licenseCode: code, rememberCredentials });
               console.log('[LICENSE-HTML] ipcRenderer.send 완료');
             } catch (err) {
               console.error('[LICENSE-HTML] 인증 전송 오류:', err);
