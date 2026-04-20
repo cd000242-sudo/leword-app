@@ -501,10 +501,16 @@ function getProPremiumMaxDocumentsForCategory(category: string): number {
   return 50000;
 }
 
-function computePremiumGrade(r: ProTrafficKeyword, category?: string): 'SSS' | 'SS' | 'S' | 'A' {
+function computePremiumGrade(r: ProTrafficKeyword, category?: string): 'SSS' | 'SS' | 'S' | 'A' | null {
   const sv = typeof r.searchVolume === 'number' && Number.isFinite(r.searchVolume) ? r.searchVolume : 0;
   const dc = typeof r.documentCount === 'number' && Number.isFinite(r.documentCount) ? r.documentCount : Number.POSITIVE_INFINITY;
   const gr = typeof r.goldenRatio === 'number' && Number.isFinite(r.goldenRatio) ? r.goldenRatio : 0;
+
+  // 🔥 A 등급조차 부여 불가한 "쓰레기" 컷 — 결과에서 아예 제외
+  //   (이전: sv=100/dc=141K/gr=0.07인데 A GRADE로 표시되던 버그 방지)
+  if (sv < 50) return null;             // 검색량 없음/무의미
+  if (dc > 1_000_000 && gr < 0.05) return null;  // 극레드오션
+  if (gr < 0.05 && category !== 'celeb') return null; // 황금비율 매우 낮음 (celeb 제외 — 원래 낮은 편)
 
   // 🛡️ 저경쟁 보증 필터: 문서수가 너무 많으면 등급 하향 (기득권 블로그 영역)
   let penaltySteps = 0;
@@ -560,10 +566,15 @@ function computePremiumGrade(r: ProTrafficKeyword, category?: string): 'SSS' | '
   return grades[idx];
 }
 
-function computePremiumGradeStrict(r: ProTrafficKeyword, criteria?: { minRatio?: number; maxDocuments?: number; category?: string }): 'SSS' | 'SS' | 'S' | 'A' {
+function computePremiumGradeStrict(r: ProTrafficKeyword, criteria?: { minRatio?: number; maxDocuments?: number; category?: string }): 'SSS' | 'SS' | 'S' | 'A' | null {
   const sv = typeof r.searchVolume === 'number' && Number.isFinite(r.searchVolume) ? r.searchVolume : 0;
   const dc = typeof r.documentCount === 'number' && Number.isFinite(r.documentCount) ? r.documentCount : Number.POSITIVE_INFINITY;
   const gr = typeof r.goldenRatio === 'number' && Number.isFinite(r.goldenRatio) ? r.goldenRatio : 0;
+
+  // 🔥 A 등급조차 부여 불가한 "쓰레기" 컷 (strict 버전도 동일 게이트)
+  if (sv < 50) return null;
+  if (dc > 1_000_000 && gr < 0.05) return null;
+  if (gr < 0.05 && criteria?.category !== 'celeb') return null;
 
   const category = criteria?.category;
   const minRatio = typeof criteria?.minRatio === 'number' ? criteria.minRatio : (category === 'celeb' ? 0.05 : 0.5);
@@ -593,7 +604,7 @@ function computePremiumGradeEffective(
   r: ProTrafficKeyword,
   strict: boolean,
   criteria?: { minRatio?: number; maxDocuments?: number; category?: string }
-): 'SSS' | 'SS' | 'S' | 'A' {
+): 'SSS' | 'SS' | 'S' | 'A' | null {
   return strict ? computePremiumGradeStrict(r, criteria) : computePremiumGrade(r, criteria?.category);
 }
 

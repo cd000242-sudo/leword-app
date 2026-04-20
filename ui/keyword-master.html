@@ -14332,6 +14332,15 @@
             `;
           }
 
+          // 🔥 최종 컷: grade null 또는 검색량 0/null 인 쓰레기 키워드는 카드 자체 제외
+          displayKeywords = (displayKeywords || []).filter(kw => {
+            if (!kw) return false;
+            if (!kw.grade) return false;    // grade null → 최소 기준 미달
+            const sv = typeof kw.searchVolume === 'number' ? kw.searchVolume : 0;
+            if (sv < 50) return false;       // 검색량 50 미만은 블로그 주제로 무의미
+            return true;
+          });
+
           displayKeywords.forEach((kw, index) => {
             const gradeColor = kw.grade === 'SSS' ? '#ff6b9d' : kw.grade === 'SS' ? '#ff9f43' : kw.grade === 'S' ? '#fbbf24' : '#22c55e';
             const sv = kw.searchVolume ? kw.searchVolume.toLocaleString() : '-';
