@@ -508,7 +508,7 @@ async function showLicenseInputDialog(): Promise<{ success: boolean; plan?: stri
 
             <div class="input-group">
               <label>라이선스 코드</label>
-              <input type="text" id="license-input" class="license-input" placeholder="XXXX-XXXX-XXXX-XXXX" maxlength="19" />
+              <input type="text" id="license-input" class="license-input" placeholder="라이선스 코드 입력 (최대 50자, prefix 자동 제거)" maxlength="50" />
               <div class="info-text">${hasRegistered ? '✅ 이미 등록된 사용자입니다. 비밀번호만 입력하세요!' : '최초 등록 시에만 코드가 필요합니다'}</div>
             </div>
 
@@ -552,16 +552,11 @@ async function showLicenseInputDialog(): Promise<{ success: boolean; plan?: stri
           });
           
           licenseInput.addEventListener('input', (e) => {
-            let value = e.target.value.toUpperCase().replace(/[^A-Z0-9]/g, '');
-            // 🔥 16자 초과 시 마지막 16자만 사용 (prefix 자동 제거)
-            // 예: "LEWORD1234567890ABCD1234" → "7890ABCD1234" 로 잘려도
-            //    실제로는 "1234567890ABCDEF" 같은 16자 원본 복원이 필요해서
-            //    prefix가 앞에 붙는 경우 뒤쪽 16자를 취함.
-            if (value.length > 16) value = value.slice(-16);
-            if (value.length > 4) value = value.slice(0,4) + '-' + value.slice(4);
-            if (value.length > 9) value = value.slice(0,9) + '-' + value.slice(9);
-            if (value.length > 14) value = value.slice(0,14) + '-' + value.slice(14);
-            if (value.length > 19) value = value.slice(0,19);
+            // 대문자/영숫자/하이픈만 허용, 50자 제한
+            // 실시간 하이픈 포맷팅은 제거 (16자 키만 가정하면 긴 prefix 키를 못 붙임)
+            // submit 시 마지막 16자만 취해서 정규 형식으로 변환
+            let value = e.target.value.toUpperCase().replace(/[^A-Z0-9-]/g, '');
+            if (value.length > 50) value = value.slice(0, 50);
             e.target.value = value;
           });
           

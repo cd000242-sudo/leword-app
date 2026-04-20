@@ -5255,10 +5255,10 @@
             <label style="display: block; font-weight: 700; color: #667eea; margin-bottom: 12px; font-size: 15px;">
               📋 라이선스 코드 (신규 등록)
             </label>
-            <input type="text" id="licenseCode" placeholder="XXXX-XXXX-XXXX-XXXX" maxlength="19" 
-              style="width: 100%; padding: 14px 18px; border: 2px solid #667eea; border-radius: 12px; font-size: 16px; outline: none; transition: all 0.2s; font-family: monospace; letter-spacing: 3px; text-align: center; font-weight: 700;" 
-              onfocus="this.style.borderColor='#764ba2'; this.style.boxShadow='0 0 0 3px rgba(102, 126, 234, 0.1)'" 
-              onblur="this.style.borderColor='#667eea'; this.style.boxShadow='none'" 
+            <input type="text" id="licenseCode" placeholder="라이선스 코드 입력 (최대 50자, prefix 자동 제거)" maxlength="50"
+              style="width: 100%; padding: 14px 18px; border: 2px solid #667eea; border-radius: 12px; font-size: 14px; outline: none; transition: all 0.2s; font-family: monospace; letter-spacing: 1px; text-align: center; font-weight: 700;"
+              onfocus="this.style.borderColor='#764ba2'; this.style.boxShadow='0 0 0 3px rgba(102, 126, 234, 0.1)'"
+              onblur="this.style.borderColor='#667eea'; this.style.boxShadow='none'"
               oninput="formatLicenseCode(this)">
             <div style="display: flex; gap: 8px; margin-top: 12px;">
               <input type="text" id="licenseUserId2" placeholder="아이디" 
@@ -5341,13 +5341,11 @@
         }
 
         function formatLicenseCode(input) {
-          let value = input.value.replace(/[^A-Z0-9]/gi, '').toUpperCase();
-          let formatted = '';
-          for (let i = 0; i < value.length && i < 16; i++) {
-            if (i > 0 && i % 4 === 0) formatted += '-';
-            formatted += value[i];
-          }
-          input.value = formatted;
+          // 대문자/영숫자/하이픈만 허용, 50자 제한. prefix 붙은 긴 키도 그대로 입력 가능.
+          // 서버 전송 시 마지막 16자만 추출해서 정규형으로 변환 (registerLicense 에서 처리)
+          let value = input.value.replace(/[^A-Z0-9-]/gi, '').toUpperCase();
+          if (value.length > 50) value = value.slice(0, 50);
+          input.value = value;
         }
 
         function closeLicenseModal() {
@@ -5377,7 +5375,17 @@
 
           if (licenseCode) {
             // 라이선스 코드로 신규 등록
-            finalLicenseCode = licenseCode;
+            // 🔥 prefix 자동 제거 + 16자 정규형 변환 (최대 50자 입력 지원)
+            let cleanCode = licenseCode.toUpperCase().replace(/[^A-Z0-9]/g, '');
+            if (cleanCode.length > 16) cleanCode = cleanCode.slice(-16);
+            if (cleanCode.length !== 16 || !/^[A-Z0-9]{16}$/.test(cleanCode)) {
+              messageDiv.style.display = 'block';
+              messageDiv.style.background = '#fee2e2';
+              messageDiv.style.color = '#991b1b';
+              messageDiv.textContent = '⚠️ 라이선스 코드는 16자리 영문/숫자입니다. (최대 50자 입력, prefix 자동 제거)';
+              return;
+            }
+            finalLicenseCode = cleanCode.slice(0, 4) + '-' + cleanCode.slice(4, 8) + '-' + cleanCode.slice(8, 12) + '-' + cleanCode.slice(12, 16);
             finalUserId = userId2;
             finalUserPassword = userPassword2;
 
