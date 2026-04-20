@@ -12349,6 +12349,29 @@
                  </div>`
               : '';
 
+            // 🔥 섹션: 검색의도 확장 (블로그 제목 바로 사용 가능한 완성형)
+            const intentExp = res.intentExpanded || [];
+            const intentVariants = intentExp.filter(k => k.variant && k.variant !== 'base' && k.variant !== 'intent');
+            const intentExpHtml = intentVariants.length > 0
+              ? `<div style="font-size:11px;color:rgba(255,255,255,0.5);margin-bottom:8px;font-weight:600;letter-spacing:0.3px;">✍️ 블로그 제목 완성형 (추천/후기/비교 변형) ${intentVariants.length}개</div>
+                 <div style="display:flex;gap:6px;flex-wrap:wrap;margin-bottom:14px;">
+                   ${intentVariants.slice(0, 30).map(k => `<span onclick="copyToClipboard('${k.keyword.replace(/'/g,"\\'")}');this.style.background='rgba(251,191,36,0.3)';setTimeout(()=>this.style.background='rgba(251,191,36,0.08)',800);" style="padding:5px 11px;background:rgba(251,191,36,0.08);color:#fbbf24;border:1px solid rgba(251,191,36,0.25);border-radius:14px;font-size:11px;font-weight:600;cursor:pointer;transition:background 0.2s;">${k.keyword} <span style="color:rgba(255,255,255,0.35);font-size:10px;">+${k.variant}</span></span>`).join('')}
+                 </div>`
+              : '';
+
+            // 🔥 섹션: Cross-source 실시간 유행 제품 (카테고리별)
+            const crossSeeds = res.crossSourceSeeds || [];
+            const crossHtml = crossSeeds.length > 0
+              ? `<div style="font-size:11px;color:rgba(255,255,255,0.5);margin-bottom:8px;font-weight:600;letter-spacing:0.3px;">🌟 실시간 유행 제품 ${crossSeeds.length}개 <span style="color:rgba(255,255,255,0.35);font-weight:400;">(이 카테고리에서 지금 핫한 것)</span></div>
+                 <div style="display:flex;gap:6px;flex-wrap:wrap;margin-bottom:14px;">
+                   ${crossSeeds.map(s => {
+                     const hasMulti = (s.sources || []).length >= 2;
+                     const emoji = hasMulti ? '🌟' : '';
+                     return `<span onclick="copyToClipboard('${s.seed.replace(/'/g,"\\'")}');this.style.background='rgba(236,72,153,0.3)';setTimeout(()=>this.style.background='rgba(236,72,153,0.08)',800);" style="padding:5px 11px;background:rgba(236,72,153,0.08);color:#f472b6;border:1px solid rgba(236,72,153,0.25);border-radius:14px;font-size:11px;font-weight:600;cursor:pointer;transition:background 0.2s;" title="${(s.sources||[]).join(', ')}">${emoji}${s.seed}</span>`;
+                   }).join('')}
+                 </div>`
+              : '';
+
             // 섹션: 카테고리
             const catRows = (arr, label) => arr && arr.length > 0
               ? `<div style="font-size:10px;color:rgba(255,255,255,0.4);margin-bottom:4px;">${label}</div>
@@ -12394,6 +12417,8 @@
                 <div style="font-size:15px;font-weight:800;color:#34d399;margin-bottom:14px;display:flex;align-items:center;gap:8px;">🔍 키워드 인사이트 <span style="font-size:11px;color:rgba(255,255,255,0.5);font-weight:500;">(칩 클릭 시 복사)</span></div>
                 ${compHtml}
                 ${longtailHtml}
+                ${intentExpHtml}
+                ${crossHtml}
                 ${categoryHtml}
                 ${brandHtml}
                 ${tierHtml}

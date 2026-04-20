@@ -781,11 +781,13 @@ export function setupConfigUtilityHandlers(): void {
         const start = Math.min(Math.max(Number(params?.start) || 1, 1), 1000);
 
         const { searchNaverShopping, pickBlogRecommendedItems, computeConversionScore } = await import('../../utils/naver-shopping-api');
-        const { analyzeShoppingKeywords } = await import('../../utils/shopping-keyword-analyzer');
+        const { analyzeShoppingKeywords, expandWithIntentSuffixes } = await import('../../utils/shopping-keyword-analyzer');
         const { buildCoupangSearchUrl, simplifyTitleForCoupangSearch, convertToPartnersLinks, getCoupangPartnersConfig } = await import('../../utils/coupang-partners');
         const { getNaverAutocompleteKeywords } = await import('../../utils/naver-autocomplete');
         const { EnvironmentManager } = await import('../../utils/environment-manager');
         const { classifySearchIntent, getIntentScoreAdjust } = await import('../../utils/search-intent-classifier');
+        const { aggregateCommerceTrendSeeds, summarizeTrendSeeds } = await import('../../utils/sources/trend-seed-aggregator');
+        const { NAVER_SHOPPING_CATEGORIES } = await import('../../utils/sources/naver-shopping-keyword-rank');
 
         // 검색 의도 분류 (스코어링 가산 + UI 뱃지)
         const intent = classifySearchIntent(keyword);
@@ -837,7 +839,42 @@ export function setupConfigUtilityHandlers(): void {
           }
         }
 
-        const insight = analyzeShoppingKeywords(result.items, result.total, keyword);
+        // 🔥 Phase 4: 판매중 제품 필터 — 리뷰/관심도 있는 상품만 analyzer 에 주입
+        //   naver-shopping-api 는 reviewCount 필드 제공 안 함 → productType=1 일반상품만
+        //   category1 있는 것만 (카테고리 미지정 = 해외직구/가짜 상품)
+        const saleableItems = result.items.filter(it =>
+          (it.productType === 1 || !it.productType) && !!it.category1
+        );
+        const insight = analyzeShoppingKeywords(
+          saleableItems.length > 0 ? saleableItems : result.items,
+          result.total, keyword
+        );
+
+        // 🔥 Phase 2: 검색 의도 변형 자동 생성 — 블로그 글 제목 바로 사용 가능한 완성형
+        const intentExpanded = expandWithIntentSuffixes(insight.longtailKeywords, [keyword]);
+
+        // 🔥 Phase 3: Cross-source 실시간 시드 — 이 키워드의 주요 카테고리 실시간 유행 제품
+        let crossSourceSeeds: Array<{ seed: string; sources: string[]; crossScore: number }> = [];
+        try {
+          // 상위 2개 category1 을 cid 로 역매핑
+          const topCats = insight.categories.level1.slice(0, 2);
+          const nameToCid: Record<string, string> = {};
+          for (const [cid, name] of Object.entries(NAVER_SHOPPING_CATEGORIES)) {
+            nameToCid[name] = cid;
+          }
+          const cids = topCats.map(c => nameToCid[c.name]).filter(Boolean);
+          if (cids.length > 0) {
+            const seeds = await aggregateCommerceTrendSeeds(cids, {
+              youtubeEnabled: true, youtubeQuery: `${keyword} 추천`,
+            });
+            crossSourceSeeds = seeds.slice(0, 20).map(s => ({
+              seed: s.seed, sources: s.sources, crossScore: s.crossScore,
+            }));
+            console.log(`[SHOPPING-CONNECT] 실시간 Cross-source: ${summarizeTrendSeeds(seeds)}`);
+          }
+        } catch (err: any) {
+          console.warn('[SHOPPING-CONNECT] Cross-source aggregator 실패:', err?.message);
+        }
 
         // 자동완성 키워드에서 원 검색어/너무 짧은 것/중복 제거, 상위 15개만
         const relatedKeywordsTrimmed = Array.from(new Set(
@@ -856,6 +893,8 @@ export function setupConfigUtilityHandlers(): void {
           items: result.items,
           recommended,
           insight,
+          intentExpanded,     // 🔥 검색의도 변형 (추천/후기/비교 자동 생성)
+          crossSourceSeeds,   // 🔥 실시간 카테고리 유행 제품
           partnersEnabled,
           relatedKeywords: relatedKeywordsTrimmed,
           intent, // 검색 의도 분류 (primary, scores, label, icon)

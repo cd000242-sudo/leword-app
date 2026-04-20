@@ -20,10 +20,50 @@ import type { ShoppingItem } from './naver-shopping-api';
 // ============================================================
 
 const STOP_WORDS = new Set([
-  '그리고', '또한', '하지만', '이것', '저것', '무엇', '어디',
+  // 접속사·지시어
+  '그리고', '또한', '하지만', '이것', '저것', '무엇', '어디', '이거', '저거',
+  // 판매 문구 (쇼핑 특유)
   '세트', '패키지', '정품', '새상품', '국내', '정식', '발매', '당일발송',
   '무료배송', '당일배송', '빠른배송', '할인', '특가', '이벤트', '사은품',
-  'the', 'and', 'for', 'with', 'new', 'set', 'pack',
+  '증정', '공식', '공식몰', '정식판매', '한정', '한정판매', '최저가', '단독',
+  '신상품', '신제품', '신규', '출시', '런칭', '오픈', '기획전',
+  // 범용 형용사/부사 (블로그 타이틀 가치 낮음)
+  '가능', '좋은', '예쁜', '깔끔한', '편리한', '실용적', '고급', '프리미엄',
+  '다양한', '선택', '준비', '제공', '활용', '적합', '추천드립니다',
+  // 수량·단위
+  '개입', '매입', '팩', '박스', 'set', 'pack', 'box',
+  // 영문 범용
+  'the', 'and', 'for', 'with', 'new', 'best', 'hot', 'top',
+  'kr', 'ko', 'korea', 'official',
+]);
+
+/**
+ * 검색의도 어미 (PRO 헌터 v2.9.1 writable gate와 동일)
+ */
+const INTENT_SUFFIX_RE = /(추천|후기|리뷰|비교|순위|방법|사용법|뜻|차이|장단점|원인|증상|효과|부작용|가격|쿠폰|할인|신청|가입|예약|렌탈|구매|종류)$/;
+
+const INTENT_SUFFIXES_FOR_EXPANSION = ['추천', '후기', '비교', '순위', '가격', '사용법'];
+
+/**
+ * 블로그 집필 가능 키워드 판정 (PRO 헌터 v2.9.1 호환)
+ *  - 2토큰 이상 롱테일 OR 검색의도 어미 OR 저경쟁 고유명사
+ */
+export function isWritableShoppingKeyword(keyword: string): boolean {
+  if (!keyword || keyword.length < 3) return false;
+  const tokens = keyword.trim().split(/\s+/).filter(Boolean);
+  if (tokens.length >= 2) return true;
+  if (INTENT_SUFFIX_RE.test(keyword)) return true;
+  // 단일 토큰 5자+ (브랜드명·제품명 가능성) 허용
+  if (tokens.length === 1 && keyword.length >= 5) return true;
+  return false;
+}
+
+/**
+ * 단독 범용 토큰 블랙리스트 (결과에 단독으로 튀어나오면 무의미)
+ */
+const STANDALONE_BLOCK = new Set([
+  '추천', '후기', '리뷰', '비교', '순위', '방법', '가격', '정리', '총정리',
+  '꿀팁', '브랜드', '사이즈', '정보', '상품', '제품', '물건',
 ]);
 
 function tokenizeTitle(title: string): string[] {
@@ -106,42 +146,73 @@ export function extractLongtailKeywords(
 
   const titles = items.map(i => i.title || '');
 
-  // 1) 단일 단어 빈도 (기본 품질 체크용)
-  const wordFreq = countWords(titles);
-  for (const kw of Array.from(wordFreq.keys())) {
-    if (excludeTokens.has(kw.toLowerCase())) wordFreq.delete(kw);
-  }
-
-  // 2) 2-3단어 구문 빈도 (블로그 제목 실사용 가능)
+  // 2-3단어 구문 빈도 (블로그 제목 실사용 가능)
   const phraseFreq = countPhrases(titles);
   for (const p of Array.from(phraseFreq.keys())) {
     // 원 검색어 자체와 동일하면 제외
     if (excludeLowerFull.has(p.toLowerCase())) phraseFreq.delete(p);
-    // 단일 토큰이 모두 검색어 토큰인 경우도 제외 (ex: 검색어 "무선 이어폰"일 때 "무선 이어폰")
     else {
       const pTokens = p.split(' ');
       if (pTokens.every(t => excludeTokens.has(t.toLowerCase()))) phraseFreq.delete(p);
     }
   }
 
-  // 구문은 빈도 2+만 (한 상품에만 나오는 단어는 품질 낮음)
+  // 🔥 writable gate + 단독 블랙리스트 필터 (PRO 헌터 v2.9.1 수준)
   const goodPhrases = Array.from(phraseFreq.entries())
-    .filter(([_, c]) => c >= 2)
+    .filter(([kw, c]) => {
+      if (c < 2) return false;                                    // 빈도 2+
+      if (!isWritableShoppingKeyword(kw)) return false;           // 집필 가능성
+      const tokens = kw.split(/\s+/);
+      if (tokens.length === 1 && STANDALONE_BLOCK.has(kw)) return false;
+      return true;
+    })
     .sort((a, b) => b[1] - a[1] || a[0].localeCompare(b[0]))
-    .slice(0, Math.ceil(limit * 0.7))
+    .slice(0, limit)
     .map(([keyword, count]) => ({ keyword, count }));
 
-  // 단일 단어는 상위 일부만 보조적으로
-  const goodWords = topN(wordFreq, Math.floor(limit * 0.3));
+  return goodPhrases;
+}
 
-  // 구문 + 단어 병합 (구문 우선, 단어 중 구문에 포함된 건 제외)
-  const phraseTokenSet = new Set<string>();
-  for (const { keyword } of goodPhrases) {
-    for (const tok of keyword.split(' ')) phraseTokenSet.add(tok.toLowerCase());
+/**
+ * 🔥 검색의도 확장 — 상위 구문에 +추천/+후기/+비교 변형 자동 생성
+ *   (블로그 글 제목에 바로 쓸 수 있는 완성형 키워드 세트 제공)
+ *
+ * 입력: extractLongtailKeywords 결과
+ * 출력: 원본 + 각 키워드의 6가지 의도 변형
+ */
+export function expandWithIntentSuffixes(
+  baseKeywords: Array<{ keyword: string; count: number }>,
+  excludeTerms: string[] = []
+): Array<{ keyword: string; count: number; variant?: string; base?: string }> {
+  const result: Array<{ keyword: string; count: number; variant?: string; base?: string }> = [];
+  const seen = new Set<string>();
+
+  const excludeLowerFull = new Set(excludeTerms.map(t => t.toLowerCase().trim()));
+
+  for (const { keyword, count } of baseKeywords) {
+    if (!seen.has(keyword.toLowerCase())) {
+      seen.add(keyword.toLowerCase());
+      // 원본이 이미 의도 어미 포함이면 variant 라벨만
+      result.push({ keyword, count, variant: INTENT_SUFFIX_RE.test(keyword) ? 'intent' : 'base' });
+    }
+
+    // 원본이 이미 의도 어미로 끝나면 변형 불필요
+    if (INTENT_SUFFIX_RE.test(keyword)) continue;
+
+    // 상위 12개에만 변형 생성 (API 호출 아껴야)
+    if (result.length > 40) break;
+
+    for (const suffix of INTENT_SUFFIXES_FOR_EXPANSION) {
+      const variant = `${keyword} ${suffix}`;
+      const lower = variant.toLowerCase();
+      if (seen.has(lower) || excludeLowerFull.has(lower)) continue;
+      seen.add(lower);
+      // 변형은 원본 count 보존 (의도 확장은 별개)
+      result.push({ keyword: variant, count, variant: suffix, base: keyword });
+    }
   }
-  const filteredWords = goodWords.filter(({ keyword }) => !phraseTokenSet.has(keyword.toLowerCase()));
 
-  return [...goodPhrases, ...filteredWords].slice(0, limit);
+  return result;
 }
 
 // ============================================================

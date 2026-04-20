@@ -202,6 +202,107 @@ export async function aggregateFashionTrendSeeds(): Promise<TrendSeed[]> {
 }
 
 /**
+ * 커머스 카테고리별 통합 시드 (일반 쇼핑커넥트용)
+ *
+ *  네이버 쇼핑 카테고리 ID 매핑:
+ *    50000000 패션의류, 50000001 패션잡화, 50000002 화장품/미용,
+ *    50000003 디지털/가전, 50000004 가구/인테리어, 50000005 출산/육아,
+ *    50000006 식품, 50000007 스포츠/레저, 50000008 생활/건강,
+ *    50000009 여가/생활편의
+ *
+ * 사용: 쇼핑커넥트가 사용자 키워드 분석 시 해당 카테고리의 실시간 유행 제품 시드 확보
+ */
+export async function aggregateCommerceTrendSeeds(
+    cids: string[],
+    options?: { youtubeQuery?: string; youtubeEnabled?: boolean }
+): Promise<TrendSeed[]> {
+    const map = new Map<string, { rawName: string; sources: Set<string>; freq: number }>();
+
+    // 1. 네이버 쇼핑 데이터랩 — 여러 카테고리 병렬
+    const shoppingResults = await Promise.all(
+        cids.map(cid => fetchShoppingKeywordRank({ cid }).catch(() => [] as any[]))
+    );
+
+    let total = 0;
+    for (let i = 0; i < cids.length; i++) {
+        const items = shoppingResults[i];
+        total += items.length;
+        for (const it of items) {
+            const kw = (it.keyword || '').trim();
+            if (kw && kw.length >= 2) {
+                addCandidate(map, kw, kw, `naver-shopping:${cids[i]}`, 2);
+            }
+        }
+    }
+    console.log(`[trend-agg:commerce] 네이버쇼핑 cid=${cids.join(',')}: ${total}개`);
+
+    // 2. YouTube 트렌딩 (옵션) — 카테고리별 쿼리 지정 가능
+    if (options?.youtubeEnabled !== false && options?.youtubeQuery) {
+        try {
+            const { searchYouTubeVideos } = require('../youtube-data-api');
+            const { EnvironmentManager } = require('../environment-manager');
+            const apiKey = EnvironmentManager.getInstance().getConfig().youtubeApiKey;
+            if (apiKey) {
+                const d = new Date();
+                const from = new Date(d);
+                from.setDate(d.getDate() - 14);
+                const res = await searchYouTubeVideos({
+                    apiKey, keyword: options.youtubeQuery,
+                    publishedAfter: from.toISOString(), publishedBefore: d.toISOString(),
+                    maxResults: 30, regionCode: 'KR', order: 'viewCount',
+                });
+                // 영상 제목에서 2-3gram 추출
+                const STOPWORDS = new Set(['추천', '후기', '리뷰', '비교', '순위', '방법', '가격',
+                    '꿀팁', '정리', '총정리', '신상', 'NEW', 'new', '데일리', '브이로그']);
+                const titleFreq = new Map<string, number>();
+                for (const v of (res.videos || [])) {
+                    const cleaned = String(v.title || '')
+                        .replace(/\[[^\]]*\]/g, ' ')
+                        .replace(/\([^)]*\)/g, ' ')
+                        .replace(/[^\w가-힣\s]/g, ' ')
+                        .replace(/\s+/g, ' ').trim();
+                    const tokens = cleaned.split(/\s+/).filter(t =>
+                        t.length >= 2 && !STOPWORDS.has(t) && !/^\d+$/.test(t)
+                    );
+                    for (let i = 0; i < tokens.length - 1; i++) {
+                        if (STOPWORDS.has(tokens[i]) || STOPWORDS.has(tokens[i + 1])) continue;
+                        const bi = `${tokens[i]} ${tokens[i + 1]}`;
+                        if (bi.length >= 5 && bi.length <= 30) {
+                            titleFreq.set(bi, (titleFreq.get(bi) || 0) + 1);
+                        }
+                    }
+                }
+                let ytCount = 0;
+                for (const [name, freq] of titleFreq) {
+                    if (freq >= 2) {
+                        addCandidate(map, name, name, 'youtube-commerce', Math.min(3, freq));
+                        ytCount++;
+                    }
+                }
+                console.log(`[trend-agg:commerce] YouTube "${options.youtubeQuery}": ${ytCount}개`);
+            }
+        } catch (err: any) {
+            console.warn('[trend-agg:commerce] YouTube 수집 실패:', err?.message);
+        }
+    }
+
+    // cross-validation: YouTube 단독 시드는 제외 (노이즈)
+    return Array.from(map.entries())
+        .filter(([_, v]) => {
+            if (v.sources.size >= 2) return true;
+            if (Array.from(v.sources).every(s => s.startsWith('youtube'))) return false;
+            return true;
+        })
+        .map(([seed, v]) => ({
+            seed,
+            rawName: v.rawName,
+            sources: Array.from(v.sources),
+            crossScore: v.freq * v.sources.size,
+        }))
+        .sort((a, b) => b.crossScore - a.crossScore);
+}
+
+/**
  * 진단/로깅용: 수집된 시드 요약
  */
 export function summarizeTrendSeeds(seeds: TrendSeed[]): string {
