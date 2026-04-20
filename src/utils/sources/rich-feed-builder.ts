@@ -255,13 +255,20 @@ export async function buildRichFeed(
         try { onProgress?.({ step, percent, message }); } catch {}
     };
 
-    emit('seed', 5, '28개 외부 소스에서 시드 수집 시작...');
+    emit('seed', 3, '28개 외부 소스에서 시드 수집 시작...');
 
-    // 1. 시드 풀링
+    // 1. 시드 풀링 — 진행률 pseudo-animation (callAllSources는 Promise.all이라 중간 진행 불가)
+    let seedProgress = 3;
+    const seedAnimTimer = setInterval(() => {
+        seedProgress = Math.min(14, seedProgress + 1);
+        emit('seed', seedProgress, `외부 소스 수집 중... (${seedProgress}%)`);
+    }, 900);
+
     const sourceResults = await callAllSources({
         tier: tier === 'lite' ? 'lite' : undefined,
         healthy: true,
     });
+    clearInterval(seedAnimTimer);
 
     const successSources = Array.from(sourceResults.values()).filter(r => r.success).length;
     const totalSources = sourceResults.size;

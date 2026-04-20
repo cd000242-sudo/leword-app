@@ -551,7 +551,8 @@ const electronApi = {
       'ultimate-niche-progress',
       'keyWizard:progress',
       'keyWizard:result',
-      'pro12-notification'
+      'pro12-notification',
+      'rich-feed-progress',   // 🔥 황금키워드 발굴 진행률
     ]);
     if (!allowed.has(channel)) {
       throw new Error(`IPC channel not allowed: ${channel}`);
