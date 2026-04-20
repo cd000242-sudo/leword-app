@@ -5020,9 +5020,19 @@
 
         window.executeLogout = async function executeLogout() {
           try {
+            // 로딩 오버레이 표시
+            const modal = document.getElementById('logoutConfirmModal');
+            if (modal) {
+              modal.innerHTML = `
+                <div style="background:#1e293b; border-radius:20px; padding:32px 40px; max-width:380px; text-align:center; box-shadow:0 20px 60px rgba(0,0,0,0.5);">
+                  <div style="font-size:48px; margin-bottom:16px;">👋</div>
+                  <h3 style="margin:0 0 8px; color:white; font-size:18px; font-weight:800;">로그아웃 중...</h3>
+                  <p style="color:rgba(255,255,255,0.65); font-size:13px; margin:0;">앱을 재시작하여 인증창으로 돌아갑니다.</p>
+                </div>
+              `;
+            }
             await window.electronAPI.invoke('logout');
-            // 페이지 리로드로 로그인 모달 재표시
-            window.location.reload();
+            // 메인 프로세스가 500ms 후 app.relaunch() 실행 → UI는 대기만 하면 됨
           } catch (e) {
             alert('로그아웃 실패: ' + (e?.message || e));
           }

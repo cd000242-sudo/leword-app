@@ -1,5 +1,5 @@
 // 라이선스 관리 핸들러
-import { ipcMain } from 'electron';
+import { ipcMain, app } from 'electron';
 import * as licenseManager from '../../utils/licenseManager';
 
 
@@ -239,6 +239,16 @@ export function setupLicenseHandlers(): void {
       try {
         const result = await licenseManager.logout();
         console.log('[LICENSE] 🔓 로그아웃:', result.success ? '성공' : '실패');
+
+        // 로그아웃 성공 시 앱 재시작 → 인증창부터 다시 띄움
+        if (result.success) {
+          setTimeout(() => {
+            console.log('[LICENSE] 🔄 앱 재시작 — 인증창으로 복귀');
+            app.relaunch();
+            app.exit(0);
+          }, 500);   // UI가 성공 응답 받고 닫힐 시간
+        }
+
         return result;
       } catch (error: any) {
         return { success: false, message: error.message };
