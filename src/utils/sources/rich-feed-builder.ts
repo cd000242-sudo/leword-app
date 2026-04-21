@@ -356,9 +356,8 @@ export async function buildRichFeed(
     const tier: 'lite' | 'pro' = options.tier === 'pro' ? 'pro' : 'lite';
     const limit = options.limit || 100;
 
-    // 🔥 v2.27.5: 전체 하드캡 5분 — 사용자 26분 무한 대기 방지
-    //   초과 시 현재까지 수집된 enrichedRows 만 반환 (부분 결과 보장)
-    const HARD_CAP_MS = 5 * 60 * 1000;
+    // 🔥 v2.27.8: 하드캡 5분 → 8분 (품질 유지 대량 확보, 사용자 "키워드 엄격 유지하되 대량")
+    const HARD_CAP_MS = 8 * 60 * 1000;
     const startedAt = Date.now();
     const isExceeded = () => Date.now() - startedAt > HARD_CAP_MS;
 
@@ -495,9 +494,9 @@ export async function buildRichFeed(
         }
     }
 
-    // 🔥 v2.27.7: pre-filter 로 generic 제거되어 후보 풀 800 까지 확대 가능 (같은 시간에 더 많이)
+    // 🔥 v2.27.8: 후보 풀 800 → 1500 (8분 하드캡 대응, 대량 확보)
     const allScored = [...baseSeeds, ...extraSeeds].sort((a, b) => b.qualityScore - a.qualityScore);
-    const targetSize = Math.min(800, Math.max(limit * 3, 500));
+    const targetSize = Math.min(1500, Math.max(limit * 5, 1000));
 
     const weightedSampleWithoutReplacement = <T extends { qualityScore: number }>(
         items: T[],
@@ -755,7 +754,7 @@ let cached: { result: RichFeedResult; expiresAt: number } | null = null;
 const CACHE_TTL = 3 * 60_000;         // 메모리 캐시: 15분→3분
 const DISK_CACHE_TTL = 30 * 60_000;   // 디스크 캐시: 4시간→30분 (안전망용)
 const MIN_ACCEPTABLE_TOTAL = 20;       // 이 미만이면 "실패"로 간주, 디스크 캐시 폴백
-const CACHE_SCHEMA_VERSION = 'v2.27.7-pre-filter';  // 🔥 v2.27.7: pre-filter + 풀 800 + A 완화
+const CACHE_SCHEMA_VERSION = 'v2.27.8-bulk-quality';  // 🔥 v2.27.8: 8분 하드캡 + 1500 풀 + conc 5
 
 function getDiskCachePath(): string {
     // app.getPath 가 있으면 userData, 없으면 temp 사용 (테스트/개발 환경)

@@ -672,7 +672,8 @@ export async function getNaverKeywordSearchVolumeSeparate(
     }
 
     const apiUrl = 'https://openapi.naver.com/v1/search/blog.json';
-    const CONCURRENCY = 3;
+    // 🔥 v2.27.8: concurrency 3 → 5 (rate limit 안전구간 내 상향, 8분 하드캡 대량 대응)
+    const CONCURRENCY = 5;
     const API_TIMEOUT_MS = 3000;
     const SCRAPE_TIMEOUT_MS = 1800;
 
