@@ -303,6 +303,45 @@ export async function aggregateCommerceTrendSeeds(
 }
 
 /**
+ * 🔥 v2.13.0 H5: life_tips / health / finance / realestate 4개 카테고리 실시간 시드 수집
+ * 기존엔 뷰티/패션만 Cross-source 받고 나머지는 정적 시드만 썼던 공백 메움.
+ */
+const CATEGORY_SHOPPING_CIDS: Record<string, string[]> = {
+    'health': ['50000008'],                            // 생활/건강
+    'life_tips': ['50000004', '50000008'],             // 가구/인테리어 + 생활/건강
+    'realestate': [],                                   // 쇼핑카테고리 없음 (뉴스 기반)
+    'finance': [],                                      // 쇼핑카테고리 없음 (뉴스 기반)
+    'self_development': ['50000009'],                  // 여가/생활편의 (도서/강의)
+    'kitchen': ['50000006', '50000008'],               // 식품 + 생활/건강
+    'parenting': ['50000005'],                          // 출산/육아
+};
+
+const CATEGORY_YT_QUERIES: Record<string, string> = {
+    'health': '영양제 추천',
+    'life_tips': '생활꿀팁',
+    'realestate': '부동산 추천',
+    'finance': '재테크 추천',
+    'self_development': '자기계발',
+    'kitchen': '주방용품 추천',
+    'parenting': '육아용품 추천',
+};
+
+/**
+ * 일반 카테고리 Cross-source 시드 (뷰티/패션 외 나머지)
+ *  - 네이버 쇼핑 cid (있는 경우) + YouTube 트렌딩
+ *  - 단일 소스 YouTube는 노이즈로 제외, 2+ 소스 교차 시만 승격
+ */
+export async function aggregateGenericCategorySeeds(category: string): Promise<TrendSeed[]> {
+    const cids = CATEGORY_SHOPPING_CIDS[category] || [];
+    const ytQuery = CATEGORY_YT_QUERIES[category];
+    if (cids.length === 0 && !ytQuery) return [];
+    return await aggregateCommerceTrendSeeds(cids, {
+        youtubeEnabled: !!ytQuery,
+        youtubeQuery: ytQuery,
+    });
+}
+
+/**
  * 진단/로깅용: 수집된 시드 요약
  */
 export function summarizeTrendSeeds(seeds: TrendSeed[]): string {

@@ -19,9 +19,10 @@ interface PersistentCacheEntry {
 const TTL_MS = 24 * 60 * 60 * 1000; // 24시간
 const WRITE_DEBOUNCE_MS = 5000;
 const CACHE_FILE_NAME = 'keyword-cache.json';
+const MAX_ENTRIES = 50_000;   // 🔥 v2.13.0 M10: 디스크 캐시 상한 (초과 시 오래된 것부터 제거)
 // 🔥 스키마 버전 — 올리면 이전 버전 캐시는 로드 시 전부 무효화
-//    v2.12.0: TOTAL SCORE 거품 차단, Infinity 누수 제거, 시드 정규화, 가중치 하드게이트, 카테고리 AND 강제
-const CACHE_SCHEMA_VERSION = 'v2.12.0';
+//    v2.13.0: 엣지케이스 19건 수정 (profitBonus 중복, Infinity, suffix bomb, sv 타이브레이커 등)
+const CACHE_SCHEMA_VERSION = 'v2.13.0';
 
 let cache: Map<string, PersistentCacheEntry> = new Map();
 let cachePath: string | null = null;
@@ -105,6 +106,14 @@ function flushToDisk(): void {
     if (!fs.existsSync(dir)) {
       fs.mkdirSync(dir, { recursive: true });
     }
+    // 🔥 v2.13.0 M10: 상한 초과 시 오래된 것부터 제거 (디스크 파일 성장 방지)
+    if (cache.size > MAX_ENTRIES) {
+      const entries = Array.from(cache.entries())
+        .sort((a, b) => b[1].savedAt - a[1].savedAt)
+        .slice(0, MAX_ENTRIES);
+      cache = new Map(entries);
+      console.log(`[PERSISTENT-CACHE] 🧹 상한 초과 → ${cache.size}개로 축소 (최신순)`);
+    }
     const obj: Record<string, any> = { __schemaVersion: CACHE_SCHEMA_VERSION };
     for (const [key, value] of cache.entries()) {
       obj[key] = value;
@@ -130,10 +139,10 @@ export function getPersistent(keyword: string): PersistentCacheEntry | null {
 export function setPersistent(keyword: string, entry: Omit<PersistentCacheEntry, 'savedAt'>): void {
   ensureLoaded();
   if (!keyword) return;
-  // searchVolume이나 documentCount 중 하나라도 유효한 숫자면 저장
-  const hasData = (typeof entry.searchVolume === 'number' && entry.searchVolume > 0)
-    || (typeof entry.documentCount === 'number' && entry.documentCount > 0);
-  if (!hasData) return;
+  // 🔥 v2.13.0 H3: sv/dc 둘 다 유효해야 저장 (불완전 데이터로 grade 계산 우회 방지)
+  const svOk = typeof entry.searchVolume === 'number' && entry.searchVolume > 0;
+  const dcOk = typeof entry.documentCount === 'number' && entry.documentCount > 0;
+  if (!svOk || !dcOk) return;
 
   const existing = cache.get(keyword) || cache.get(keyword.replace(/\s+/g, ''));
   // 기존 값과 머지 (더 좋은 데이터 유지)

@@ -471,7 +471,8 @@ function calculateExplosionScore(r: ProTrafficKeyword): number {
     score -= 30; // 문서수가 5배 많으면 대폭 감점
   }
 
-  return Math.max(0, Math.min(150, score));
+  // 🔥 v2.13.0 H7: 100점 정규화 (이전엔 최대 150점 → 가중치 합 깨트림)
+  return Math.max(0, Math.min(100, score));
 }
 
 const EXPLOSION_ONLY_MIN_SCORE = 80;
@@ -786,6 +787,9 @@ function rerankAndSelectFinal(items: ProTrafficKeyword[], targetCount: number, i
     if (PARTIAL_BLOCK_RE.test(kw)) return false;               // 명시적 저품질 패턴
     // 2토큰 중 양쪽 다 STANDALONE 군이면 (예: "브랜드 추천") 컷
     if (tokens.length === 2 && tokens.every(t => STANDALONE_SUFFIX_BLOCK.has(t))) return false;
+    // 🔥 v2.13.0 M4: 2토큰 한쪽이 단순 저품질 단어면 컷 ("사이즈 비교", "브랜드 추천", "코디 팁")
+    const SHALLOW_PAIR_BLOCK = new Set(['사이즈', '가격', '가성비', '브랜드', '리뷰', '코디', '팁', '정보']);
+    if (tokens.length === 2 && (SHALLOW_PAIR_BLOCK.has(tokens[0]) || SHALLOW_PAIR_BLOCK.has(tokens[1]))) return false;
     return true;
   });
 
@@ -858,6 +862,10 @@ function rerankAndSelectFinal(items: ProTrafficKeyword[], targetCount: number, i
       const diffDiff = getDifficultyScore(a) - getDifficultyScore(b);
       if (diffDiff !== 0) return diffDiff;
 
+      // 🔥 v2.13.0 H6: 7순위 검색량 타이브레이커 (sv=1이 sv=10000 뚫고 상위 오는 것 방지)
+      const svDiff = (b.searchVolume ?? 0) - (a.searchVolume ?? 0);
+      if (Math.abs(svDiff) > 10) return svDiff;
+
       // 최종: 종합 점수
       return b.totalScore - a.totalScore;
     });
@@ -899,9 +907,10 @@ function rerankAndSelectFinal(items: ProTrafficKeyword[], targetCount: number, i
   for (const grades of stageGrades) {
     if (chosen.length >= safeTarget) break;
 
+    // 🔥 v2.13.0 C2: ignoreGradeFilter=true 경로에서도 grade=null/undefined 카드는 제외
     const pool = ignoreGradeFilter
-      ? items
-      : items.filter(i => grades.has(String(i.grade || '')));
+      ? items.filter(i => i.grade != null)
+      : items.filter(i => i.grade && grades.has(String(i.grade)));
     const ranked = sortForRanking(pool);
 
     for (const item of ranked) {
@@ -1050,8 +1059,8 @@ import {
   SEASON_KEYWORDS
 } from '../data/hunter-seeds';
 import { scanForSurges, listRecentSurges, type TrendSignal } from './pro-hunter-v12/trend-surge-detector';
-// 🔥 실시간 트렌드 제품명 주입 — Cross-source 집계 (Phase 1-3)
-import { aggregateBeautyTrendSeeds, aggregateFashionTrendSeeds, summarizeTrendSeeds } from './sources/trend-seed-aggregator';
+// 🔥 실시간 트렌드 제품명 주입 — Cross-source 집계 (Phase 1-3 + v2.13.0 H5 확장)
+import { aggregateBeautyTrendSeeds, aggregateFashionTrendSeeds, aggregateGenericCategorySeeds, summarizeTrendSeeds } from './sources/trend-seed-aggregator';
 
 /**
  * 런타임 동적 시드 캐시 — 카테고리별 실시간 트렌드 제품명 보관
@@ -1155,6 +1164,30 @@ async function hydrateDynamicSeeds(category: string): Promise<void> {
       };
     }
   }
+
+  // 🔥 v2.13.0 H5: life_tips/health/finance/realestate/self_dev/kitchen/parenting 동적 시드
+  const GENERIC_CATEGORIES = ['life_tips', 'health', 'finance', 'realestate', 'self_development', 'kitchen', 'parenting'];
+  if (GENERIC_CATEGORIES.includes(category)) {
+    try {
+      const t0 = Date.now();
+      const seeds = await aggregateGenericCategorySeeds(category);
+      const ms = Date.now() - t0;
+      console.log(`[PRO-HUNTER] 🌱 ${category} Cross-source 시드 ${seeds.length}개 (${ms}ms) — ${summarizeTrendSeeds(seeds)}`);
+      DYNAMIC_TREND_SEEDS[category] = seeds.slice(0, 40).map(s => s.seed);
+      const allSources = new Set<string>();
+      seeds.forEach(s => s.sources.forEach(src => allSources.add(src)));
+      TREND_STATUS[category] = {
+        category, total: seeds.length,
+        crossValidated: seeds.filter(s => s.sources.length >= 2).length,
+        sources: Array.from(allSources),
+        success: seeds.length > 0,
+        message: seeds.length > 0 ? `실시간 ${seeds.length}개 시드 수집` : '실시간 소스 응답 없음 — 정적 시드만 사용',
+      };
+    } catch (err: any) {
+      console.warn(`[PRO-HUNTER] ⚠️ ${category} Cross-source 실패:`, err?.message);
+      DYNAMIC_TREND_SEEDS[category] = [];
+    }
+  }
 }
 import {
   REALTIME_SOURCE_WEIGHT,
@@ -1238,6 +1271,26 @@ const keywordCache = new Map<string, any>();
 const realtimeSourceMap = new Map<string, string>();
 
 const CACHE_TTL = 5 * 60 * 1000; // 5분
+
+// 🔥 v2.13.0 H10: apiCache 메모리 누수 방지 (무제한 성장 → 상한 + TTL 기반 eviction)
+const API_CACHE_MAX_ENTRIES = 10_000;
+const API_CACHE_EVICT_INTERVAL = 10 * 60 * 1000;   // 10분
+const API_CACHE_ENTRY_TTL = 60 * 60 * 1000;        // 1시간
+setInterval(() => {
+  const now = Date.now();
+  // TTL 만료 제거
+  for (const [k, v] of apiCache.entries()) {
+    if (now - (v.timestamp || 0) > API_CACHE_ENTRY_TTL) apiCache.delete(k);
+  }
+  // 상한 초과 시 오래된 것부터 제거 (LRU 근사: timestamp 오래된 순)
+  if (apiCache.size > API_CACHE_MAX_ENTRIES) {
+    const entries = Array.from(apiCache.entries())
+      .sort((a, b) => (a[1].timestamp || 0) - (b[1].timestamp || 0));
+    const toDelete = entries.slice(0, apiCache.size - API_CACHE_MAX_ENTRIES);
+    for (const [k] of toDelete) apiCache.delete(k);
+    console.log(`[PRO-HUNTER] 🧹 apiCache eviction: ${toDelete.length}개 제거 → ${apiCache.size}개 유지`);
+  }
+}, API_CACHE_EVICT_INTERVAL).unref?.();
 
 // 🔥🔥🔥 100% 실제 API 모드 설정 (v12.1 Rate Limit 방지!) 🔥🔥🔥
 const API_CONFIG = {
@@ -2176,8 +2229,17 @@ export async function huntProTrafficKeywords(options: {
     useDeepMining = true // 🔥 기본 활성화: 끝판왕 딥 마이닝 통합
   } = options;
 
-  // 🔥 실시간 트렌드 제품명 주입 (뷰티/패션 카테고리) — 정적 시드 품질 보강
-  if (category === 'beauty' || category === 'fashion' || category === 'all') {
+  // 🔥 v2.13.0 M11: explosionMode + useDeepMining 동시 활성 시 Rate Limit 경고
+  if (explosionMode && useDeepMining) {
+    console.warn('[PRO-HUNTER] ⚠️ explosionMode + useDeepMining 동시 활성 — API 호출 3배, Rate Limit 위험 높음');
+  }
+
+  // 🔥 v2.13.0 H5: 실시간 트렌드 제품명 주입 — 모든 주요 카테고리로 확장
+  const DYNAMIC_CATEGORIES = new Set([
+    'beauty', 'fashion', 'all',
+    'life_tips', 'health', 'finance', 'realestate', 'self_development', 'kitchen', 'parenting',
+  ]);
+  if (DYNAMIC_CATEGORIES.has(category)) {
     await hydrateDynamicSeeds(category);
   }
 
@@ -2348,6 +2410,7 @@ export async function huntProTrafficKeywords(options: {
   };
 
   // 🏠 life_tips 전용 100점 솔루션: 순수 생활 노하우만 발굴!
+  // 🔥 v2.13.0 H4: 뷰티·화학제품·세정제 경계 누수 차단 추가
   const LIFE_TIPS_PRODUCT_BLACKLIST = [
     '냉장고', '세탁기', '건조기', '청소기', '에어컨', '공기청정기', '제습기', '가습기',
     '식기세척기', '정수기', '전자레인지', '오븐', 'tv', '텔레비전', '모니터', '노트북',
@@ -2355,7 +2418,11 @@ export async function huntProTrafficKeywords(options: {
     'lg', '엘지', '삼성', '다이슨', '샤오미', '로보락', '에코백스', '발뮤다', '위닉스',
     '쿠쿠', '쿠첸', '코웨이', '청호나이스', '린나이', '템퍼', '시몬스', '한샘',
     '코스트코', '커클랜드', '다이소', '이케아', '무인양품', '오늘의집', '마켓컬리',
-    '쿠팡', '네이버쇼핑', '11번가', 'g마켓', '옥션', 'ssg', '롯데온'
+    '쿠팡', '네이버쇼핑', '11번가', 'g마켓', '옥션', 'ssg', '롯데온',
+    // 🔥 v2.13.0 H4: 뷰티/화학 제품 누수 방지
+    '세제', '세정제', '다용도세제', '만능세정제', '섬유유연제', '표백제',
+    '에센스', '세럼', '앰플', '토너', '크림', '로션', '마스크팩', '선크림',
+    '샴푸', '린스', '컨디셔너', '바디워시', '클렌저',
   ];
 
   const LIFE_TIPS_KNOWHOW_PATTERNS = [
@@ -2473,9 +2540,8 @@ export async function huntProTrafficKeywords(options: {
   let allSeedKeywords: string[] = [...seedKeywords];
   let multiSourceSeeds: string[] = [];
 
-  // 🔥 실시간 상품명 시드를 강제로 prepend — 뷰티/패션 최종 결과에 반영 보장
-  // hydrateDynamicSeeds 에서 이미 집계된 Cross-source 시드 (세포랩, raive x hello kitty 등)
-  if (category === 'beauty' || category === 'fashion') {
+  // 🔥 v2.13.0 M1: 실시간 상품명 강제 prepend — 모든 동적 카테고리로 확장
+  if (DYNAMIC_CATEGORIES.has(category) && category !== 'all') {
     const realtimeSeeds = DYNAMIC_TREND_SEEDS[category] || [];
     if (realtimeSeeds.length > 0) {
       // 각 상품명마다 3변형: 원본, +추천, +후기 → 최종 결과에 브랜드명 키워드 보장
@@ -2648,9 +2714,12 @@ export async function huntProTrafficKeywords(options: {
   const isTimeoutCategory = explosionMode && timeoutExplosionCategories.has(category);
 
   const overallStartedAt = Date.now();
+  // 🔥 v2.13.0 H8: Infinity 제거 — 모든 모드에 전역 예산 상한 (사용자가 5분 이상 기다리지 않도록)
   const overallBudgetMs = (explosionMode && mode === 'category' && timeoutExplosionCategories.has(category))
-    ? 210000
-    : Number.POSITIVE_INFINITY;
+    ? 210000              // 3.5분 (복잡 카테고리)
+    : explosionMode
+      ? 180000             // 3분 (일반 explosion)
+      : 120000;            // 2분 (일반 모드)
   const overallRemainingMs = (min: number = 5000): number => {
     if (!Number.isFinite(overallBudgetMs)) return Number.MAX_SAFE_INTEGER;
     return Math.max(min, overallBudgetMs - (Date.now() - overallStartedAt));
@@ -4285,6 +4354,8 @@ export async function huntProTrafficKeywords(options: {
           if (doc > maxDocuments) continue;
 
           if (explosionMode && (!newGrade || !PREMIUM_GOLDEN_GRADES.has(newGrade))) continue;
+          // 🔥 v2.13.0 C1: grade=null 카드를 extraCandidates에 저장하지 않음
+          if (!newGrade) continue;
 
           const analysis = analyzeKeyword(kw, 'category_fallback', currentMonth, currentHour, targetRookie);
           // 폴백에서는 점수 컷을 20으로 추가 완화 (최종 정렬에서 다시 엄선)
@@ -7234,20 +7305,10 @@ function calculateTotalScore(
   const allowBonuses = goldenScore >= 20;
 
   // 🔥 v10.1 트래픽 잘 오는 키워드 보너스!
+  // 🔥 v2.13.0 H1: profitBonus 중복 가산 완전 제거 — analyzeKeyword의 profitAnalysis 기반 보너스만 사용.
+  //    이곳의 profitPatterns/infoPatterns는 텍스트 추론이라 실데이터 기반과 중복.
+  //    대신 시즌/질문 보너스만 유지 (다른 곳과 겹치지 않음).
   if (keyword && allowBonuses) {
-    // 🔥 v2.12.0 Phase 2-2: 중복 가산 방지 — profitAnalysis.grade 보너스와 분리하기 위해
-    //    여기선 "키워드 텍스트 기반 보너스"만 적용. 다른 함수의 profitAnalysis 보너스와 상호 배제.
-    // 1. 수익화 의도 키워드 (+10, 기존 15→10 감소)
-    const profitPatterns = ['가격', '비용', '후기', '추천', '비교', '순위', '할인', '무료', '이벤트', '혜택', '신청'];
-    if (profitPatterns.some(p => keyword.includes(p))) {
-      score += 10;
-    }
-
-    // 2. 정보성 롱테일 키워드 (+8)
-    const infoPatterns = ['방법', '하는법', '뜻', '차이', '종류', '기간', '조건', '자격', '서류'];
-    if (infoPatterns.some(p => keyword.includes(p))) {
-      score += 8;
-    }
 
     // 3. 시즌성/급상승 키워드 (+12)
     const now = new Date();

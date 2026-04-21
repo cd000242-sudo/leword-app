@@ -13927,6 +13927,53 @@
         let proTrafficSmartBlockKeywords = [];
         const PRO_TRAFFIC_PAGE_SIZE = 10;
 
+        // 🔥 v2.13.0 M8: PRO 헌터 결과 Export (CSV/JSON/클립보드)
+        window.exportProTrafficResults = function exportProTrafficResults(format) {
+          const rows = proTrafficAllKeywords || [];
+          if (rows.length === 0) {
+            alert('내보낼 키워드가 없습니다.');
+            return;
+          }
+          if (format === 'clipboard') {
+            const text = rows.map(k => `${k.keyword}\t${k.grade || '-'}\t${k.searchVolume ?? '-'}\t${k.documentCount ?? '-'}\t${(k.goldenRatio || 0).toFixed(2)}\t${k.totalScore || 0}`).join('\n');
+            const header = '키워드\t등급\t검색량\t문서수\t황금비율\t총점\n';
+            navigator.clipboard.writeText(header + text).then(() => {
+              showNotification(`✅ ${rows.length}개 키워드가 클립보드에 복사되었습니다.`, 'success');
+            }).catch(e => alert('복사 실패: ' + e.message));
+            return;
+          }
+          if (format === 'csv') {
+            const header = '키워드,등급,검색량,문서수,황금비율,총점,타입\n';
+            const body = rows.map(k => [
+              `"${(k.keyword || '').replace(/"/g, '""')}"`,
+              k.grade || '-',
+              k.searchVolume ?? '-',
+              k.documentCount ?? '-',
+              (k.goldenRatio || 0).toFixed(2),
+              k.totalScore || 0,
+              `"${(k.type || '').replace(/"/g, '""')}"`,
+            ].join(',')).join('\n');
+            const blob = new Blob(['\uFEFF' + header + body], { type: 'text/csv;charset=utf-8;' });
+            const url = URL.createObjectURL(blob);
+            const a = document.createElement('a');
+            a.href = url;
+            a.download = `pro-traffic-${new Date().toISOString().slice(0, 10)}.csv`;
+            a.click();
+            URL.revokeObjectURL(url);
+            return;
+          }
+          if (format === 'json') {
+            const blob = new Blob([JSON.stringify(rows, null, 2)], { type: 'application/json' });
+            const url = URL.createObjectURL(blob);
+            const a = document.createElement('a');
+            a.href = url;
+            a.download = `pro-traffic-${new Date().toISOString().slice(0, 10)}.json`;
+            a.click();
+            URL.revokeObjectURL(url);
+            return;
+          }
+        };
+
         async function huntProTrafficKeywords(isRefresh = true) {
           const mode = document.querySelector('input[name="proTrafficMode"]:checked')?.value || 'realtime';
           const category = document.getElementById('proTrafficCategory').value;
@@ -14308,6 +14355,12 @@
                 <div style="font-size: 11px; color: rgba(255,255,255,0.5); margin-top: 4px;">전략 보고서 생성</div>
               </div>
             </div>
+            <!-- 🔥 v2.13.0 M8: Export 버튼 (Rich Feed와 대칭) -->
+            <div style="margin-top: 14px; display: flex; gap: 8px; justify-content: flex-end;">
+              <button onclick="exportProTrafficResults('csv')" style="padding:8px 14px; background:rgba(16,185,129,0.15); color:#10b981; border:1px solid rgba(16,185,129,0.3); border-radius:10px; font-size:12px; font-weight:700; cursor:pointer;">📥 CSV</button>
+              <button onclick="exportProTrafficResults('json')" style="padding:8px 14px; background:rgba(99,102,241,0.15); color:#a5b4fc; border:1px solid rgba(99,102,241,0.3); border-radius:10px; font-size:12px; font-weight:700; cursor:pointer;">📥 JSON</button>
+              <button onclick="exportProTrafficResults('clipboard')" style="padding:8px 14px; background:rgba(251,191,36,0.15); color:#fbbf24; border:1px solid rgba(251,191,36,0.3); border-radius:10px; font-size:12px; font-weight:700; cursor:pointer;">📋 클립보드</button>
+            </div>
           </div>
           `;
 
@@ -14332,16 +14385,16 @@
             `;
           }
 
-          // 🔥 v2.12.0 최종 컷: grade null 또는 필수 데이터 부족한 카드 제외
+          // 🔥 v2.13.0 M5: 최종 컷 — 검색량 50→100 상향 (경계 키워드 신뢰도 강화)
           displayKeywords = (displayKeywords || []).filter(kw => {
             if (!kw) return false;
-            if (!kw.grade) return false;                                          // grade null → 기준 미달
+            if (!kw.grade) return false;
             const sv = typeof kw.searchVolume === 'number' ? kw.searchVolume : 0;
-            if (sv < 50) return false;                                            // 검색량 무의미
+            if (sv < 100) return false;
             const dc = typeof kw.documentCount === 'number' ? kw.documentCount : 0;
-            if (dc <= 0) return false;                                            // 문서수 미확인
-            if (!kw.goldenRatio || !isFinite(kw.goldenRatio)) return false;       // 비율 계산 실패
-            if (!kw.totalScore || kw.totalScore < 40) return false;               // 종합점수 너무 낮음
+            if (dc <= 0) return false;
+            if (!kw.goldenRatio || !isFinite(kw.goldenRatio)) return false;
+            if (!kw.totalScore || kw.totalScore < 40) return false;
             return true;
           });
 
@@ -14360,6 +14413,16 @@
                     <div style="display: flex; align-items: center; gap: 10px; margin-bottom: 10px;">
                       <span style="background: ${gradeColor}; color: white; padding: 4px 10px; border-radius: 8px; font-size: 12px; font-weight: 900; letter-spacing: 0.5px;">${kw.grade} GRADE</span>
                       <span style="color: rgba(255,255,255,0.5); font-size: 12px; font-weight: 500;">${kw.type}</span>
+                      ${(() => {
+                        // 🔥 v2.13.0 M6/M7: 신뢰도 배지 (sv/dc/ratio 실데이터 있을 때만 HIGH, 경계면 LOW)
+                        const svOk = typeof kw.searchVolume === 'number' && kw.searchVolume >= 300;
+                        const ratioOk = typeof kw.goldenRatio === 'number' && kw.goldenRatio >= 0.5;
+                        const hasBlueprint = !!kw.monetizationBlueprint;
+                        const score = (svOk ? 1 : 0) + (ratioOk ? 1 : 0) + (hasBlueprint ? 1 : 0);
+                        const level = score >= 2 ? 'HIGH' : score === 1 ? 'MID' : 'LOW';
+                        const color = level === 'HIGH' ? '#22c55e' : level === 'MID' ? '#fbbf24' : '#94a3b8';
+                        return `<span style="background: ${color}22; color: ${color}; border: 1px solid ${color}55; padding: 3px 8px; border-radius: 6px; font-size: 10px; font-weight: 700;" title="검증 신뢰도: 검색량(sv>=300), 비율(>=0.5), 수익화전략 3축 판정">신뢰도 ${level}</span>`;
+                      })()}
                       ${(() => {
                         // 🔥 v2.12.0 Phase 5: 배지 상호배제 규칙
                         // DANGER ⇎ EARLY BIRD / EXPLOSION / NICHE SNIPER 상호 배제
