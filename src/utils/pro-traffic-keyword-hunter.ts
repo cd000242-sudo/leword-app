@@ -878,8 +878,17 @@ function rerankAndSelectFinal(items: ProTrafficKeyword[], targetCount: number, i
 
   const sortForRanking = (list: ProTrafficKeyword[]): ProTrafficKeyword[] => {
     return [...list].sort((a, b) => {
+      // 🔥 v2.16.0 0순위: 극블루오션 (gr 10+) 그룹 무조건 최상위
+      const isUltraA = (a.goldenRatio || 0) >= 10;
+      const isUltraB = (b.goldenRatio || 0) >= 10;
+      if (isUltraA !== isUltraB) return isUltraA ? -1 : 1;
+
+      // 0.5순위: 블루오션 (gr 5+) 그룹 우선
+      const isBlueA = (a.goldenRatio || 0) >= 5;
+      const isBlueB = (b.goldenRatio || 0) >= 5;
+      if (isBlueA !== isBlueB) return isBlueA ? -1 : 1;
+
       // 🔥 v2.15.0 1순위: 황금비율 (블루오션 최우선!)
-      //   검색량 대비 문서수 극소 = 진짜 블루오션 = 최상위
       const ratioDiff = (b.goldenRatio || 0) - (a.goldenRatio || 0);
       if (Math.abs(ratioDiff) > 0.5) return ratioDiff;
 
@@ -4704,11 +4713,11 @@ export async function huntProTrafficKeywords(options: {
     return (/추천|비교|순위|가격|비용|후기|할인|쿠폰|신청|가입|예약|예매|티켓|티켓팅|좌석|시야|좌석배치도|스탠딩|vip|취소표|양도|예매처|렌탈|구매/.test(s)) ? 1 : 0;
   };
 
-  // 🔥 v2.12.0 Phase 3-3: Pool size 확대 — count=20 요청 시 pool 60→100
-  //    기존: count*3 이하 고정 → 필터에서 많이 탈락하면 결과 부족. 확대로 안정성 ↑
+  // 🔥 v2.16.0: 극블루오션 놓치지 않도록 pool 대폭 확대
+  //    극블루오션은 gr 10+ 희소 키워드 → pool 크게 해서 상위 컷 확보
   const finalRerankPoolSize = explosionMode
-    ? Math.min(Math.max(count * 15, 200), 300)
-    : Math.min(Math.max(count * 5, 50), 100);
+    ? Math.min(Math.max(count * 25, 300), 500)
+    : Math.min(Math.max(count * 10, 100), 200);
 
   // 📁 카테고리 후필터: API 확장 후에도 카테고리 매칭 키워드를 상위 배치
   const filterByCategory = (keywords: ProTrafficKeyword[], cat: string): ProTrafficKeyword[] => {
@@ -5912,8 +5921,8 @@ function extractSeedsFromNewsTitles(titles: string[]): string[] {
     }
   }
 
-  // 중복 제거 + 최대 60개
-  return [...new Set(seeds)].slice(0, 60);
+  // 🔥 v2.16.0: 극블루오션 최대 수집 — seed 풀 60 → 200 확장
+  return [...new Set(seeds)].slice(0, 200);
 }
 
 /** 네이버 인기 뉴스에서 시드 키워드를 수집 (5초 타임아웃, 실패 시 빈 배열) */
@@ -5992,7 +6001,13 @@ function getProfitableSeedKeywords(category: string, month: number): string[] {
 
   const buildCategoryLongtailSeeds = (cat: string, seeds: string[]): string[] => {
     if (!seeds || seeds.length === 0) return [];
-    const commonSuffixes = [' 추천', ' 총정리', ' 정리', ' 방법', ' 하는법', ' 꿀팁'];
+    // 🔥 v2.16.0: 극블루오션 탐색용 공격적 롱테일 suffix (6 → 20)
+    const commonSuffixes = [
+      ' 추천', ' 총정리', ' 정리', ' 방법', ' 하는법', ' 꿀팁',
+      ' 후기', ' 비교', ' 순위', ' 가격', ' 효과', ' 부작용',
+      ' 초보', ' 입문', ' 전', ' 차이', ' 종류', ' 기초',
+      ' 실패', ' 주의사항',
+    ];
     let extraSuffixes: string[] = [];
     if (cat === 'celeb') {
       extraSuffixes = [
@@ -6049,8 +6064,8 @@ function getProfitableSeedKeywords(category: string, month: number): string[] {
       }
       return s;
     };
-    // 🔥 v2.12.0 Phase 3-3: slice(0, 30) 고정 → explosionMode에 따라 동적
-    const longtailLimit = Math.min(baseSeeds.length, 60);
+    // 🔥 v2.16.0 극블루오션 최대 탐색 — longtailLimit 60 → 150
+    const longtailLimit = Math.min(baseSeeds.length, 150);
     const seedsForLongtail = baseSeeds.slice(0, longtailLimit).map(normalizeSeedForLongtail).filter(s => s.length >= 2);
     const results: string[] = [];
     for (const kw of seedsForLongtail) {

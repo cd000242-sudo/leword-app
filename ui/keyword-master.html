@@ -14337,7 +14337,20 @@
               </button>
             </div>
 
+            ${(() => {
+              // 🔥 v2.16.0: 극블루오션 카운터 (gr 10+)
+              const ultraBlue = keywords.filter(k => (k.goldenRatio || 0) >= 10).length;
+              const blue = keywords.filter(k => (k.goldenRatio || 0) >= 5 && (k.goldenRatio || 0) < 10).length;
+              return `
             <div style="display: grid; grid-template-columns: repeat(auto-fit, minmax(140px, 1fr)); gap: 12px;">
+              <div style="background: linear-gradient(135deg, rgba(34,197,94,0.2), rgba(59,130,246,0.15)); padding: 14px; border-radius: 14px; border: 1px solid rgba(34,197,94,0.4); text-align: center;" title="검색량이 문서수의 10배 이상인 키워드">
+                <div style="font-size: 22px; font-weight: 900; color: #22c55e;">💎 ${ultraBlue}</div>
+                <div style="font-size: 11px; color: #86efac; margin-top: 4px; font-weight: 700;">극블루오션 (gr 10+)</div>
+              </div>
+              <div style="background: rgba(52,211,153,0.12); padding: 12px; border-radius: 14px; border: 1px solid rgba(52,211,153,0.3); text-align: center;">
+                <div style="font-size: 20px; font-weight: 800; color: #34d399;">🌊 ${blue}</div>
+                <div style="font-size: 11px; color: rgba(255,255,255,0.7); margin-top: 4px;">블루오션 (gr 5~10)</div>
+              </div>
               <div style="background: rgba(255,255,255,0.03); padding: 12px; border-radius: 14px; border: 1px solid rgba(255,255,255,0.05); text-align: center;">
                 <div style="font-size: 20px; font-weight: 800; color: #ff6b9d;">${(summary.sssCount || 0) + (summary.ssCount || 0)}</div>
                 <div style="font-size: 11px; color: rgba(255,255,255,0.5); margin-top: 4px;">프리미엄 (SS급+)</div>
@@ -14347,14 +14360,11 @@
                 <div style="font-size: 11px; color: rgba(255,255,255,0.5); margin-top: 4px;">신생 블로그 적합</div>
               </div>
               <div style="background: rgba(255,255,255,0.03); padding: 12px; border-radius: 14px; border: 1px solid rgba(255,255,255,0.05); text-align: center;">
-                <div style="font-size: 20px; font-weight: 800; color: #3b82f6;">${summary.blueOceanCount || 0}</div>
-                <div style="font-size: 11px; color: rgba(255,255,255,0.5); margin-top: 4px;">블루오션 (경쟁최하)</div>
-              </div>
-              <div style="background: rgba(255,255,255,0.03); padding: 12px; border-radius: 14px; border: 1px solid rgba(255,255,255,0.05); text-align: center;">
                 <div style="font-size: 20px; font-weight: 800; color: #fbbf24;">${keywords.filter(k => k.monetizationBlueprint).length}</div>
                 <div style="font-size: 11px; color: rgba(255,255,255,0.5); margin-top: 4px;">전략 보고서 생성</div>
               </div>
-            </div>
+            </div>`;
+            })()}
             <!-- 🔥 v2.13.0 M8: Export 버튼 (Rich Feed와 대칭) -->
             <div style="margin-top: 14px; display: flex; gap: 8px; justify-content: flex-end;">
               <button onclick="exportProTrafficResults('csv')" style="padding:8px 14px; background:rgba(16,185,129,0.15); color:#10b981; border:1px solid rgba(16,185,129,0.3); border-radius:10px; font-size:12px; font-weight:700; cursor:pointer;">📥 CSV</button>
@@ -14418,14 +14428,20 @@
                       <span style="background: ${gradeColor}; color: white; padding: 4px 10px; border-radius: 8px; font-size: 12px; font-weight: 900; letter-spacing: 0.5px;">${kw.grade} GRADE</span>
                       <span style="color: rgba(255,255,255,0.5); font-size: 12px; font-weight: 500;">${kw.type}</span>
                       ${(() => {
-                        // 🔥 v2.13.0 M6/M7: 신뢰도 배지 (sv/dc/ratio 실데이터 있을 때만 HIGH, 경계면 LOW)
+                        // 🔥 v2.16.0: 극블루오션 배지 (gr 10+)
+                        const r = kw.goldenRatio || 0;
+                        if (r >= 10) return `<span style="background: linear-gradient(135deg, #22c55e, #3b82f6); color: white; padding: 4px 10px; border-radius: 8px; font-size: 11px; font-weight: 900; box-shadow: 0 2px 8px rgba(34,197,94,0.4);" title="검색량이 문서수의 ${r.toFixed(1)}배 — 상위노출 거의 확정">💎 극블루오션</span>`;
+                        if (r >= 5) return `<span style="background: rgba(52,211,153,0.2); color: #34d399; border: 1px solid #34d399; padding: 3px 9px; border-radius: 7px; font-size: 11px; font-weight: 800;" title="검색량이 문서수의 ${r.toFixed(1)}배">🌊 블루오션</span>`;
+                        return '';
+                      })()}
+                      ${(() => {
                         const svOk = typeof kw.searchVolume === 'number' && kw.searchVolume >= 300;
                         const ratioOk = typeof kw.goldenRatio === 'number' && kw.goldenRatio >= 0.5;
                         const hasBlueprint = !!kw.monetizationBlueprint;
                         const score = (svOk ? 1 : 0) + (ratioOk ? 1 : 0) + (hasBlueprint ? 1 : 0);
                         const level = score >= 2 ? 'HIGH' : score === 1 ? 'MID' : 'LOW';
                         const color = level === 'HIGH' ? '#22c55e' : level === 'MID' ? '#fbbf24' : '#94a3b8';
-                        return `<span style="background: ${color}22; color: ${color}; border: 1px solid ${color}55; padding: 3px 8px; border-radius: 6px; font-size: 10px; font-weight: 700;" title="검증 신뢰도: 검색량(sv>=300), 비율(>=0.5), 수익화전략 3축 판정">신뢰도 ${level}</span>`;
+                        return `<span style="background: ${color}22; color: ${color}; border: 1px solid ${color}55; padding: 3px 8px; border-radius: 6px; font-size: 10px; font-weight: 700;" title="검증 신뢰도">신뢰도 ${level}</span>`;
                       })()}
                       ${(() => {
                         // 🔥 v2.12.0 Phase 5: 배지 상호배제 규칙
