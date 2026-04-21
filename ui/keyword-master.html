@@ -14385,7 +14385,7 @@
             `;
           }
 
-          // 🔥 v2.13.0 M5: 최종 컷 — 검색량 50→100 상향 (경계 키워드 신뢰도 강화)
+          // 🔥 v2.15.0 최종 컷 — "진짜 블루오션" 만 표시
           displayKeywords = (displayKeywords || []).filter(kw => {
             if (!kw) return false;
             if (!kw.grade) return false;
@@ -14395,6 +14395,10 @@
             if (dc <= 0) return false;
             if (!kw.goldenRatio || !isFinite(kw.goldenRatio)) return false;
             if (!kw.totalScore || kw.totalScore < 40) return false;
+            // 🔥 v2.15.0 블루오션 최종 보증: 일반 카테고리는 ratio 1.5+ 필수
+            const cat = (kw.category || '').toString();
+            const isSpecialCat = cat === 'celeb' || cat === 'life_tips';
+            if (!isSpecialCat && kw.goldenRatio < 1.5) return false;
             return true;
           });
 
@@ -14467,9 +14471,21 @@
                     <div style="font-size: 16px; font-weight: 800; color: #94a3b8;">${dc}</div>
                     <div style="font-size: 10px; color: rgba(255,255,255,0.4); margin-top: 4px;">문서수</div>
                   </div>
-                  <div style="background: rgba(255,255,255,0.02); padding: 12px; border-radius: 14px; border: 1px solid rgba(255,255,255,0.05); text-align: center;">
-                    <div style="font-size: 16px; font-weight: 800; color: #60a5fa;">${ratio}</div>
-                    <div style="font-size: 10px; color: rgba(255,255,255,0.4); margin-top: 4px;">황금비율</div>
+                  <div style="background: ${(() => {
+                    const r = kw.goldenRatio || 0;
+                    if (r >= 10) return 'linear-gradient(135deg, rgba(34,197,94,0.2), rgba(59,130,246,0.15))';
+                    if (r >= 5) return 'rgba(34,197,94,0.12)';
+                    if (r >= 2) return 'rgba(96,165,250,0.08)';
+                    return 'rgba(255,255,255,0.02)';
+                  })()}; padding: 12px; border-radius: 14px; border: 1px solid ${(kw.goldenRatio || 0) >= 10 ? 'rgba(34,197,94,0.4)' : 'rgba(255,255,255,0.05)'}; text-align: center;" title="${(() => {
+                    const r = kw.goldenRatio || 0;
+                    if (r >= 10) return `💎 극블루오션 — 검색량이 문서수의 ${r.toFixed(1)}배 (상위노출 거의 확정)`;
+                    if (r >= 5) return `🌊 블루오션 — 검색량이 문서수의 ${r.toFixed(1)}배`;
+                    if (r >= 2) return `✅ 양호 — 검색량이 문서수의 ${r.toFixed(1)}배`;
+                    return `경쟁 수준: 검색량이 문서수의 ${r.toFixed(2)}배`;
+                  })()}">
+                    <div style="font-size: 16px; font-weight: 800; color: ${(kw.goldenRatio || 0) >= 10 ? '#22c55e' : (kw.goldenRatio || 0) >= 5 ? '#34d399' : '#60a5fa'};">${ratio}${(kw.goldenRatio || 0) >= 5 ? ' 💎' : ''}</div>
+                    <div style="font-size: 10px; color: rgba(255,255,255,0.4); margin-top: 4px;">황금비율 (sv÷dc)</div>
                   </div>
                   <div style="background: rgba(255,255,255,0.02); padding: 12px; border-radius: 14px; border: 1px solid rgba(255,255,255,0.05); text-align: center;">
                     <div style="font-size: 16px; font-weight: 800; color: #22c55e;">${kw.rookieFriendly ? kw.rookieFriendly.grade : '-'}</div>

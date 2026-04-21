@@ -532,12 +532,20 @@ function computePremiumGrade(r: ProTrafficKeyword, category?: string): 'SSS' | '
   const dc = dcRaw;
   const gr = typeof r.goldenRatio === 'number' && Number.isFinite(r.goldenRatio) ? r.goldenRatio : 0;
 
-  // 🔥 A 등급조차 부여 불가한 "쓰레기" 컷
-  if (sv < 50) return null;
-  if (dc > 1_000_000 && gr < 0.05) return null;
-  if (gr < 0.05 && category !== 'celeb') return null;
-  // 🔥 v2.14.0: 범용 대명사 키워드 차단 (검색량 많아도 글쓰기 불가능)
-  if (isGenericSingleToken(r.keyword)) return null;
+  // 🔥 v2.15.0 진짜 블루오션 컷 — gr<1.0 (문서수가 검색량보다 많음) 은 블루오션 아님
+  if (sv < 100) return null;                                               // 검색량 100 미만 전부 제외
+  if (isGenericSingleToken(r.keyword)) return null;                        // 범용 대명사 차단
+  if (category === 'celeb') {
+    // celeb는 구조적 docCount 큼 → 완화 (ratio 0.1+)
+    if (gr < 0.1) return null;
+  } else if (category === 'life_tips') {
+    // life_tips 시즌 키워드 특성상 ratio 0.3+ 허용
+    if (gr < 0.3) return null;
+  } else {
+    // 일반 카테고리: 검색량이 문서수보다 2배 이상 (진짜 블루오션 영역)
+    if (gr < 2.0) return null;
+    if (dc > 30000) return null;                                           // 문서수 3만 초과는 레드오션
+  }
 
   // 🛡️ 저경쟁 보증 필터: 문서수가 너무 많으면 등급 하향 (기득권 블로그 영역)
   let penaltySteps = 0;
@@ -577,13 +585,15 @@ function computePremiumGrade(r: ProTrafficKeyword, category?: string): 'SSS' | '
     else if (dc <= 50000 && sv >= 1000 && gr >= 0.5) baseGrade = 'SS';
     else if (dc <= 300000 && sv >= 300 && gr >= 0.2) baseGrade = 'S';
   } else {
-    // 🔥 v2.14.0 PRO 진짜 황금: "검색량 多 + 문서수 極小" 중심으로 강화
-    // SSS: 극소 문서수 + 대량 검색 (블로거가 상위노출 확정)
-    if (dc <= 3000 && sv >= 3000 && gr >= 5.0) baseGrade = 'SSS';
-    // SS: 우수한 황금 비율 (문서수 적고 검색 충분)
-    else if (dc <= 10000 && sv >= 1500 && gr >= 3.0) baseGrade = 'SS';
-    // S: 괜찮은 기회
-    else if (dc <= 30000 && sv >= 700 && gr >= 2.0) baseGrade = 'S';
+    // 🔥 v2.15.0 진짜 블루오션 기준 — "검색량 대비 문서수 극소" 중심
+    // 핵심 철학: 블로거가 10개 글 써도 100% 상위 노출되는 키워드만
+    // SSS: 극블루오션 (gr 10+, dc 극소 2000↓, sv 충분 2000+)
+    //      → 검색량이 문서수의 10배 이상. 공급이 수요의 1/10 미만.
+    if (dc <= 2000 && sv >= 2000 && gr >= 10.0) baseGrade = 'SSS';
+    // SS: 진성 블루오션 (gr 5+, dc 5000↓, sv 1200+)
+    else if (dc <= 5000 && sv >= 1200 && gr >= 5.0) baseGrade = 'SS';
+    // S: 블루오션 (gr 3+, dc 15000↓, sv 700+)
+    else if (dc <= 15000 && sv >= 700 && gr >= 3.0) baseGrade = 'S';
   }
 
   if (penaltySteps === 0) return baseGrade;
@@ -602,14 +612,19 @@ function computePremiumGradeStrict(r: ProTrafficKeyword, criteria?: { minRatio?:
   const dc = dcRaw;
   const gr = typeof r.goldenRatio === 'number' && Number.isFinite(r.goldenRatio) ? r.goldenRatio : 0;
 
-  // 🔥 A 등급조차 부여 불가한 "쓰레기" 컷 (strict 버전도 동일 게이트)
-  if (sv < 50) return null;
-  if (dc > 1_000_000 && gr < 0.05) return null;
-  if (gr < 0.05 && criteria?.category !== 'celeb') return null;
-  // 🔥 v2.14.0: 범용 대명사 키워드 차단 + PRO strict 는 더 엄격
+  // 🔥 v2.15.0 진짜 블루오션 Strict 컷
+  if (sv < 100) return null;
   if (isGenericSingleToken(r.keyword)) return null;
-  // 🔥 PRO strict: "진짜 황금" = 검색량이 문서수보다 압도적으로 많아야 (비율 0.5+ 기본)
-  if (gr < 0.3 && criteria?.category !== 'celeb' && criteria?.category !== 'life_tips') return null;
+  const cat = criteria?.category;
+  if (cat === 'celeb') {
+    if (gr < 0.1) return null;
+  } else if (cat === 'life_tips') {
+    if (gr < 0.3) return null;
+  } else {
+    // PRO strict: 검색량이 문서수의 2배 이상 (진짜 블루오션만)
+    if (gr < 2.0) return null;
+    if (dc > 30000) return null;
+  }
 
   const category = criteria?.category;
   const minRatio = typeof criteria?.minRatio === 'number' ? criteria.minRatio : (category === 'celeb' ? 0.05 : 0.5);
@@ -628,10 +643,10 @@ function computePremiumGradeStrict(r: ProTrafficKeyword, criteria?: { minRatio?:
     if (dc <= 50000 && sv >= 1000 && gr >= 0.5) return 'SS';
     if (dc <= maxDocs && sv >= 300 && gr >= Math.max(0.2, minRatio)) return 'S';
   } else {
-    // 🔥 v2.14.0 Strict SSS: 진정한 황금 "검색량 多 + 문서수 極小"
-    if (dc <= 3000 && sv >= 3000 && gr >= 5.0) return 'SSS';
-    if (dc <= 10000 && sv >= 1500 && gr >= 3.0) return 'SS';
-    if (dc <= maxDocs && sv >= 700 && gr >= Math.max(2.0, minRatio)) return 'S';
+    // 🔥 v2.15.0 Strict: 진짜 블루오션 (검색량 대비 문서수 극소)
+    if (dc <= 2000 && sv >= 2000 && gr >= 10.0) return 'SSS';
+    if (dc <= 5000 && sv >= 1200 && gr >= 5.0) return 'SS';
+    if (dc <= Math.min(maxDocs, 15000) && sv >= 700 && gr >= Math.max(3.0, minRatio)) return 'S';
   }
   return 'A';
 }
@@ -809,15 +824,18 @@ function rerankAndSelectFinal(items: ProTrafficKeyword[], targetCount: number, i
   const PARTIAL_BLOCK_RE = /^(브랜드별 차이|구두 사이즈|트렌드 컬러 \d{4})$/;
   const filtered = items.filter(r => {
     const kw = (r.keyword || '').trim();
-    if (!kw || kw.length < 3) return false;                    // 2자 이하만 차단 (3자 한국 브랜드명 보호)
+    if (!kw || kw.length < 3) return false;
     const tokens = kw.split(/\s+/).filter(Boolean);
     if (tokens.length === 1 && STANDALONE_SUFFIX_BLOCK.has(kw)) return false;
-    if (PARTIAL_BLOCK_RE.test(kw)) return false;               // 명시적 저품질 패턴
-    // 2토큰 중 양쪽 다 STANDALONE 군이면 (예: "브랜드 추천") 컷
+    if (PARTIAL_BLOCK_RE.test(kw)) return false;
     if (tokens.length === 2 && tokens.every(t => STANDALONE_SUFFIX_BLOCK.has(t))) return false;
-    // 🔥 v2.13.0 M4: 2토큰 한쪽이 단순 저품질 단어면 컷 ("사이즈 비교", "브랜드 추천", "코디 팁")
     const SHALLOW_PAIR_BLOCK = new Set(['사이즈', '가격', '가성비', '브랜드', '리뷰', '코디', '팁', '정보']);
     if (tokens.length === 2 && (SHALLOW_PAIR_BLOCK.has(tokens[0]) || SHALLOW_PAIR_BLOCK.has(tokens[1]))) return false;
+    // 🔥 v2.15.0: 최종 단계 블루오션 보증 — gr >= 1.5 미만은 차단
+    //    celeb/life_tips 는 카테고리 특성상 완화 (등급 판정에서 이미 별도 기준 적용됨)
+    const ratio = typeof r.goldenRatio === 'number' ? r.goldenRatio : 0;
+    const isSpecialCat = (r as any).category === 'celeb' || (r as any).category === 'life_tips';
+    if (!isSpecialCat && ratio > 0 && ratio < 1.5) return false;
     return true;
   });
 
@@ -860,17 +878,18 @@ function rerankAndSelectFinal(items: ProTrafficKeyword[], targetCount: number, i
 
   const sortForRanking = (list: ProTrafficKeyword[]): ProTrafficKeyword[] => {
     return [...list].sort((a, b) => {
-      // 🔥 1순위: 수익 황금비율 (profitGoldenRatio) - 가장 중요!
+      // 🔥 v2.15.0 1순위: 황금비율 (블루오션 최우선!)
+      //   검색량 대비 문서수 극소 = 진짜 블루오션 = 최상위
+      const ratioDiff = (b.goldenRatio || 0) - (a.goldenRatio || 0);
+      if (Math.abs(ratioDiff) > 0.5) return ratioDiff;
+
+      // 2순위: 수익 황금비율 (profitGoldenRatio)
       const profitRatioA = a.profitAnalysis?.profitGoldenRatio ?? 0;
       const profitRatioB = b.profitAnalysis?.profitGoldenRatio ?? 0;
       const profitRatioDiff = profitRatioB - profitRatioA;
       if (Math.abs(profitRatioDiff) > 0.5) return profitRatioDiff;
 
-      // 1.5순위: 황금비율 (검색량/경쟁도)
-      const ratioDiff = (b.goldenRatio || 0) - (a.goldenRatio || 0);
-      if (Math.abs(ratioDiff) > 0.01) return ratioDiff;
-
-      // 2순위: 폭발성 (지금 터지는 키워드)
+      // 3순위: 폭발성 (지금 터지는 키워드)
       const exDiff = getExplosion(b) - getExplosion(a);
       if (Math.abs(exDiff) > 0.1) return exDiff;
 
