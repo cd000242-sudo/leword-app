@@ -467,9 +467,10 @@ export async function buildRichFeed(
     }
 
     // base + longtail 합쳐서 품질 기반 선별 → 상위 후보만 API 검증
-    // 🔥 v2.27.0: 대량 수집 — 후보 풀 6000 → 10000 (전체 소스 총 동원, A 등급 확대 고려)
+    // 🔥 v2.27.4: 후보 풀 2000 → 600 (rate limit 엄수 + 영구 캐시 활용 대체)
+    //   첫 run 6분, 이후 run 은 캐시 재사용으로 2~3분 기대
     const allScored = [...baseSeeds, ...extraSeeds].sort((a, b) => b.qualityScore - a.qualityScore);
-    const targetSize = Math.min(10000, Math.max(limit * 20, 6000));
+    const targetSize = Math.min(600, Math.max(limit * 2, 500));
 
     const weightedSampleWithoutReplacement = <T extends { qualityScore: number }>(
         items: T[],
@@ -723,7 +724,7 @@ let cached: { result: RichFeedResult; expiresAt: number } | null = null;
 const CACHE_TTL = 3 * 60_000;         // 메모리 캐시: 15분→3분
 const DISK_CACHE_TTL = 30 * 60_000;   // 디스크 캐시: 4시간→30분 (안전망용)
 const MIN_ACCEPTABLE_TOTAL = 20;       // 이 미만이면 "실패"로 간주, 디스크 캐시 폴백
-const CACHE_SCHEMA_VERSION = 'v2.27.0-sssa-mass';  // 🔥 v2.27.0: SSS/SS/S/A + 전체 소스 대량 수집
+const CACHE_SCHEMA_VERSION = 'v2.27.4-persistent';  // 🔥 v2.27.4: 영구 캐시 연동 + 풀 600 + concurrency 3
 
 function getDiskCachePath(): string {
     // app.getPath 가 있으면 userData, 없으면 temp 사용 (테스트/개발 환경)

@@ -647,26 +647,45 @@ export async function getNaverKeywordSearchVolumeSeparate(
   }
 
   if (includeDocumentCount) {
-    // 🔥 v2.25.3: 블로그 문서수 조회 — API + 스크랩 fallback 2단계
-    //   v2.25.2 문제: 병렬 8 → Naver 블로그 API 429 폭주 → null 폭증
-    //   v2.25.3: 3 병렬 (rate limit 준수) + 429/5xx 시 search.naver.com 스크랩 fallback
+    // 🔥 v2.27.4: 영구 캐시 우선 + rate limit 엄수
+    //   v2.27.3 실측 Run2=0건 — concurrency 8 이 IP 차단 초래
+    //   신규: (1) 영구 캐시 HIT 키워드는 API 건너뛰기
+    //         (2) concurrency 8 → 3 (안전구간)
+    //         (3) 성공 시 setPersistent 로 저장 → 다음 run 에서 재사용
+    let persistentGet: ((k: string) => any) | null = null;
+    let persistentSet: ((k: string, e: any) => void) | null = null;
+    try {
+      const pc = await import('./persistent-keyword-cache');
+      persistentGet = pc.getPersistent;
+      persistentSet = pc.setPersistent;
+    } catch {}
+
+    // 캐시 HIT 키워드 dc 먼저 채움
+    if (persistentGet) {
+      for (let i = 0; i < input.length; i++) {
+        if (results[i].documentCount !== null) continue;
+        const cached = persistentGet(input[i]);
+        if (cached && typeof cached.documentCount === 'number' && cached.documentCount > 0) {
+          results[i].documentCount = cached.documentCount;
+        }
+      }
+    }
+
     const apiUrl = 'https://openapi.naver.com/v1/search/blog.json';
     const CONCURRENCY = 3;
-    const REQUEST_TIMEOUT_MS = 3500;
-    const MAX_RETRIES = 2;
+    const API_TIMEOUT_MS = 3000;
+    const SCRAPE_TIMEOUT_MS = 1800;
 
     const scrapeFallback = async (keyword: string): Promise<number | null> => {
       try {
         const axiosMod = await import('axios');
         const axios = axiosMod.default;
-        const headers = {
-          'User-Agent': 'Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 Chrome/120.0.0.0 Safari/537.36',
-          'Accept-Language': 'ko-KR,ko;q=0.9',
-        };
         const url = `https://search.naver.com/search.naver?where=blog&query=${encodeURIComponent(keyword)}`;
-        const resp = await axios.get(url, { headers, timeout: 4000 });
+        const resp = await axios.get(url, {
+          headers: { 'User-Agent': 'Mozilla/5.0 AppleWebKit/537.36 Chrome/120.0.0.0' },
+          timeout: SCRAPE_TIMEOUT_MS,
+        });
         const html = String(resp.data || '');
-        // "약 1,234건" / "1,234건" 패턴
         const m = html.match(/([0-9,]+)\s*건/);
         if (m && m[1]) {
           const n = parseInt(m[1].replace(/,/g, ''), 10);
@@ -678,10 +697,10 @@ export async function getNaverKeywordSearchVolumeSeparate(
       }
     };
 
-    const fetchApiWithRetry = async (originalKeyword: string, attempt: number = 0): Promise<number | null> => {
+    const fetchApi = async (originalKeyword: string): Promise<number | null> => {
       const params = new URLSearchParams({ query: originalKeyword, display: '1', sort: 'sim' });
       const controller = new AbortController();
-      const timer = setTimeout(() => controller.abort(), REQUEST_TIMEOUT_MS);
+      const timer = setTimeout(() => controller.abort(), API_TIMEOUT_MS);
       try {
         const response = await fetch(`${apiUrl}?${params.toString()}`, {
           headers: {
@@ -694,20 +713,11 @@ export async function getNaverKeywordSearchVolumeSeparate(
         if (response.ok) {
           const data = await response.json();
           const totalRaw = (data as any)?.total;
-          const total = typeof totalRaw === 'number' ? totalRaw : (typeof totalRaw === 'string' ? parseInt(totalRaw, 10) : null);
-          return total;
-        }
-        if ((response.status === 429 || response.status >= 500) && attempt < MAX_RETRIES) {
-          await new Promise(r => setTimeout(r, Math.min(2000, 400 * Math.pow(2, attempt))));
-          return fetchApiWithRetry(originalKeyword, attempt + 1);
+          return typeof totalRaw === 'number' ? totalRaw : (typeof totalRaw === 'string' ? parseInt(totalRaw, 10) : null);
         }
         return null;
       } catch {
         clearTimeout(timer);
-        if (attempt < MAX_RETRIES) {
-          await new Promise(r => setTimeout(r, 400 * Math.pow(2, attempt)));
-          return fetchApiWithRetry(originalKeyword, attempt + 1);
-        }
         return null;
       }
     };
@@ -719,16 +729,25 @@ export async function getNaverKeywordSearchVolumeSeparate(
         while (true) {
           const idx = cursor++;
           if (idx >= input.length) return;
+          // 🔥 v2.27.4: 영구 캐시 HIT 이면 API 건너뛰기
+          if (results[idx].documentCount !== null) continue;
           const originalKeyword = input[idx];
-          // 1차: 공식 API
-          let dc = await fetchApiWithRetry(originalKeyword);
-          // 2차: API 실패 시 search.naver.com 스크랩 fallback
-          if (dc === null) {
-            dc = await scrapeFallback(originalKeyword);
-          }
+          let dc = await fetchApi(originalKeyword);
+          if (dc === null) dc = await scrapeFallback(originalKeyword);
           results[idx].documentCount = dc;
-          // worker 당 200ms — 3 worker × 5/sec = 15/sec (rate limit 안전)
-          await new Promise(r => setTimeout(r, 200));
+          // 성공 시 영구 캐시에 저장 (다음 run 에서 재사용)
+          if (persistentSet && dc !== null && dc > 0) {
+            const sv = (results[idx].pcSearchVolume || 0) + (results[idx].mobileSearchVolume || 0);
+            if (sv > 0) {
+              persistentSet(originalKeyword, {
+                searchVolume: sv,
+                documentCount: dc,
+                realCpc: results[idx].monthlyAveCpc,
+                compIdx: null,
+              });
+            }
+          }
+          await new Promise(r => setTimeout(r, 120));
         }
       })());
     }

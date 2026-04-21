@@ -36,7 +36,7 @@ app.whenReady().then(async () => {
         const t0 = Date.now();
         let lastPct = -1;
         const result = await buildRichFeed(
-            { tier: 'pro', limit: 100 },
+            { tier: 'pro', limit: 200 },
             (p) => {
                 if (p.percent - lastPct >= 10 || p.percent === 100) {
                     console.log(`  ${p.percent}% — ${p.message}`);
@@ -48,7 +48,10 @@ app.whenReady().then(async () => {
         const sss = result.rows.filter(x => x.grade === 'SSS').length;
         const ss = result.rows.filter(x => x.grade === 'SS').length;
         const s = result.rows.filter(x => x.grade === 'S').length;
-        console.log(`  ✅ 완료: ${elapsed}s, 총 ${result.total}건, SSS ${sss} / SS ${ss} / S ${s}`);
+        const a = result.rows.filter(x => x.grade === 'A').length;
+        const b = result.rows.filter(x => x.grade === 'B').length;
+        const pages = Math.ceil(result.total / 20);
+        console.log(`  ✅ 완료: ${elapsed}s, 총 ${result.total}건, SSS ${sss} / SS ${ss} / S ${s} / A ${a} / B ${b} — 페이지 ${pages}장 (20씩)`);
         runs.push(result.rows.map(x => x.keyword));
         topFull.push(result.rows.slice(0, 30));
 
