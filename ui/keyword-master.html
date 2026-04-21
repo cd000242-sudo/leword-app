@@ -14510,7 +14510,9 @@
 
           if (!keywords || keywords.length === 0) return;
 
-          const displayKeywords = keywords.slice(0, proTrafficDisplayIndex + PRO_TRAFFIC_PAGE_SIZE);
+          // 🔥 v2.23.1: const → let — 아래 14591 라인에서 displayKeywords = filter(...) 재할당 존재
+          //   원인: life_tips 카테고리 돌릴 때 "Assignment to constant variable" TypeError 발생
+          let displayKeywords = keywords.slice(0, proTrafficDisplayIndex + PRO_TRAFFIC_PAGE_SIZE);
           const hasMore = keywords.length > displayKeywords.length;
 
           let html = `
