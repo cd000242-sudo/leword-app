@@ -337,6 +337,12 @@ export async function buildRichFeed(
     const tier: 'lite' | 'pro' = options.tier === 'pro' ? 'pro' : 'lite';
     const limit = options.limit || 100;
 
+    // 🔥 v2.27.5: 전체 하드캡 5분 — 사용자 26분 무한 대기 방지
+    //   초과 시 현재까지 수집된 enrichedRows 만 반환 (부분 결과 보장)
+    const HARD_CAP_MS = 5 * 60 * 1000;
+    const startedAt = Date.now();
+    const isExceeded = () => Date.now() - startedAt > HARD_CAP_MS;
+
     const emit = (step: string, percent: number, message: string) => {
         try { onProgress?.({ step, percent, message }); } catch {}
     };
@@ -466,11 +472,9 @@ export async function buildRichFeed(
         }
     }
 
-    // base + longtail 합쳐서 품질 기반 선별 → 상위 후보만 API 검증
-    // 🔥 v2.27.4: 후보 풀 2000 → 600 (rate limit 엄수 + 영구 캐시 활용 대체)
-    //   첫 run 6분, 이후 run 은 캐시 재사용으로 2~3분 기대
+    // 🔥 v2.27.5: 후보 풀 600 → 400 (5분 하드캡 대응, 사용자 26분 무한대기 방지)
     const allScored = [...baseSeeds, ...extraSeeds].sort((a, b) => b.qualityScore - a.qualityScore);
-    const targetSize = Math.min(600, Math.max(limit * 2, 500));
+    const targetSize = Math.min(400, Math.max(limit * 2, 300));
 
     const weightedSampleWithoutReplacement = <T extends { qualityScore: number }>(
         items: T[],
@@ -628,14 +632,18 @@ export async function buildRichFeed(
         }
     };
 
-    // 🔥 v2.22.0: 3개 배치 동시 실행 (Naver rate limit ~10 req/s 안전)
     for (let i = 0; i < batches.length; i += PARALLEL_BATCHES) {
+        // 🔥 v2.27.5: 5분 하드캡 체크 — 초과 시 현재까지 수집된 것만 사용
+        if (isExceeded()) {
+            console.warn(`[rich-feed] ⏱️ 5분 하드캡 도달, ${i}/${batches.length} 배치에서 중단 — ${enrichedRows.length}건 수집`);
+            emit('api', 85, `⏱️ 시간 한도 도달 — 수집된 ${enrichedRows.length}건으로 진행`);
+            break;
+        }
         const slice = batches.slice(i, i + PARALLEL_BATCHES);
         await Promise.all(slice.map(processBatch));
         completedBatches += slice.length;
         const batchPercent = 20 + Math.round((completedBatches / totalBatches) * 65);
         emit('api', batchPercent, `네이버 API 검증 ${completedBatches}/${totalBatches} (누적 ${enrichedRows.length}건)`);
-        // 🔥 v2.27.0: 조기 break 제거 — 전체 후보 풀 완전 탐색 (사용자 "전부 뒤져서 대량으로")
         await new Promise(r => setTimeout(r, 50));
     }
 
@@ -724,7 +732,7 @@ let cached: { result: RichFeedResult; expiresAt: number } | null = null;
 const CACHE_TTL = 3 * 60_000;         // 메모리 캐시: 15분→3분
 const DISK_CACHE_TTL = 30 * 60_000;   // 디스크 캐시: 4시간→30분 (안전망용)
 const MIN_ACCEPTABLE_TOTAL = 20;       // 이 미만이면 "실패"로 간주, 디스크 캐시 폴백
-const CACHE_SCHEMA_VERSION = 'v2.27.4-persistent';  // 🔥 v2.27.4: 영구 캐시 연동 + 풀 600 + concurrency 3
+const CACHE_SCHEMA_VERSION = 'v2.27.5-hardcap';  // 🔥 v2.27.5: 5분 하드캡 + 풀 400
 
 function getDiskCachePath(): string {
     // app.getPath 가 있으면 userData, 없으면 temp 사용 (테스트/개발 환경)

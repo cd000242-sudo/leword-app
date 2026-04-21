@@ -246,8 +246,8 @@ export function setupSourceSignalHandlers(): void {
             // PRO 티어 자격: 영구제 + 1년권. 자격 있으면 기본 pro, 명시적으로 lite 요청하면 lite.
             const isPro = checkProTierAllowed().allowed;
             const tier: 'lite' | 'pro' = isPro ? (options?.tier === 'lite' ? 'lite' : 'pro') : 'lite';
-            // 🔥 v2.27.2: 현실 속도 복원 — limit 800→300 (후보 풀 3000 대응)
-            const limit = options?.limit || (tier === 'pro' ? 300 : 200);
+            // 🔥 v2.27.5: 5분 하드캡 대응 — limit 300→200
+            const limit = options?.limit || (tier === 'pro' ? 200 : 150);
 
             // 📡 진행 이벤트를 렌더러로 전송 (rich-feed-progress 채널)
             const onProgress = (payload: { step: string; percent: number; message: string }) => {
