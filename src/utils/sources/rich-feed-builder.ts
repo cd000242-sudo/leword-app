@@ -201,24 +201,44 @@ function hasCommercialIntent(keyword: string): boolean {
  */
 function calculateGrade(volume: number, docCount: number, ratio: number, score: number, keyword: string): GoldenGrade | '' {
     const writable = isWritableKeyword(keyword, docCount);
-    // 🔥 극단 범용 빅워드 제거 — 개인 블로거가 경쟁 불가능한 단일 명사만 차단
+    // 극단 범용 빅워드 제거 — 개인 블로거가 경쟁 불가능한 단일 명사만 차단
     if (!writable && docCount > 100_000) return '';
 
-    // 🔥 v2.23.0: 인명 단일 토큰은 dc 1000 초과 시 grade 제외
+    // 인명 단일 토큰은 dc 1000 초과 시 grade 제외
     const isCelebLike = isLikelyCelebrityName(keyword);
     if (isCelebLike && docCount > 1000) return '';
 
-    // 🔥 v2.24.1: writable 강제 완화 — 희소 고유명사(dc<=3000)는 writable 무관 통과
-    //   v2.23.0 의 S/A writable 강제가 과도해 결과 11건으로 줄어든 것 완화.
-    //   단, 인명 의심(celeb pattern) 은 여전히 writable 필요 (뉴스성 차단)
     const allowS = writable || (!isCelebLike && docCount > 0 && docCount <= 3000);
     const allowA = writable || (!isCelebLike && docCount > 0 && docCount <= 5000);
+    const commercial = hasCommercialIntent(keyword);
 
-    if (score >= 85 && volume >= 1000 && docCount <= 5000 && ratio >= 5 && writable) return 'SSS';
-    if (score >= 75 && volume >= 500 && docCount <= 10000 && ratio >= 3 && writable) return 'SS';
-    if (score >= 65 && volume >= 300 && ratio >= 2 && allowS) return 'S';
-    if (score >= 55 && volume >= 100 && allowA) return 'A';
-    if (score >= 45) return 'B';
+    // 🔥 v2.25.0: SSS 자동 승격 경로 (극블루오션 / 상업성+초저경쟁 / 저경쟁+상업성)
+    //   - 극블루오션: gr≥10, dc<1000, sv≥500 → 무조건 SSS (score 무관)
+    //   - 상업+극저경쟁: commercial, dc≤1500, sv≥300, gr≥3 → SSS
+    //   - 희소+상업: commercial, dc≤500, sv≥200 → SSS (초 롱테일 황금)
+    if (writable || (!isCelebLike && docCount > 0 && docCount <= 1500)) {
+        if (ratio >= 10 && docCount > 0 && docCount < 1000 && volume >= 500) return 'SSS';
+        if (commercial && docCount > 0 && docCount <= 1500 && volume >= 300 && ratio >= 3) return 'SSS';
+        if (commercial && docCount > 0 && docCount <= 500 && volume >= 200) return 'SSS';
+    }
+
+    // 🔥 v2.25.0: SSS 기본 게이트 완화 (85/1000/5000/5 → 78/600/7000/4)
+    //   + 상업성 키워드는 1 tier 완화 (SSS/SS 쉽게)
+    const sssScore = commercial ? 73 : 78;
+    const sssSv = commercial ? 400 : 600;
+    const sssDc = commercial ? 10000 : 7000;
+    const sssRatio = commercial ? 3 : 4;
+    if (score >= sssScore && volume >= sssSv && docCount > 0 && docCount <= sssDc && ratio >= sssRatio && writable) return 'SSS';
+
+    const ssScore = commercial ? 68 : 72;
+    const ssSv = commercial ? 300 : 400;
+    const ssDc = commercial ? 15000 : 12000;
+    const ssRatio = commercial ? 2 : 2.5;
+    if (score >= ssScore && volume >= ssSv && docCount > 0 && docCount <= ssDc && ratio >= ssRatio && writable) return 'SS';
+
+    if (score >= 62 && volume >= 200 && ratio >= 1.5 && allowS) return 'S';
+    if (score >= 52 && volume >= 80 && allowA) return 'A';
+    if (score >= 42) return 'B';
     return '';
 }
 
@@ -430,9 +450,9 @@ export async function buildRichFeed(
     }
 
     // base + longtail 합쳐서 품질 기반 선별 → 상위 후보만 API 검증
-    // 🔥 v2.24.1: 후보 풀 600 → 1200 (11건 → 수십건 복구, 속도는 병렬 3개 배치로 유지)
+    // 🔥 v2.25.0: 100건 목표 + SSS 극대화 — 후보 풀 1500 (15배) → SSS 후보 풀 확장
     const allScored = [...baseSeeds, ...extraSeeds].sort((a, b) => b.qualityScore - a.qualityScore);
-    const targetSize = Math.min(1200, Math.max(limit * 5, 600));
+    const targetSize = Math.min(1500, Math.max(limit * 15, 1000));
 
     const weightedSampleWithoutReplacement = <T extends { qualityScore: number }>(
         items: T[],
@@ -681,7 +701,7 @@ let cached: { result: RichFeedResult; expiresAt: number } | null = null;
 const CACHE_TTL = 3 * 60_000;         // 메모리 캐시: 15분→3분
 const DISK_CACHE_TTL = 30 * 60_000;   // 디스크 캐시: 4시간→30분 (안전망용)
 const MIN_ACCEPTABLE_TOTAL = 20;       // 이 미만이면 "실패"로 간주, 디스크 캐시 폴백
-const CACHE_SCHEMA_VERSION = 'v2.24.1-balance';  // 🔥 v2.24.1: 필터 밸런싱 (11건 → 수십건)
+const CACHE_SCHEMA_VERSION = 'v2.25.0-sss-max';  // 🔥 v2.25.0: 100건 + SSS 극대화 (자동 승격 경로 추가)
 
 function getDiskCachePath(): string {
     // app.getPath 가 있으면 userData, 없으면 temp 사용 (테스트/개발 환경)

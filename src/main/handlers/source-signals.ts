@@ -246,8 +246,8 @@ export function setupSourceSignalHandlers(): void {
             // PRO 티어 자격: 영구제 + 1년권. 자격 있으면 기본 pro, 명시적으로 lite 요청하면 lite.
             const isPro = checkProTierAllowed().allowed;
             const tier: 'lite' | 'pro' = isPro ? (options?.tier === 'lite' ? 'lite' : 'pro') : 'lite';
-            // 🔥 v2.20.0: 황금키워드 대량 발굴 — pro 200→400, lite 50→150
-            const limit = options?.limit || (tier === 'pro' ? 400 : 150);
+            // 🔥 v2.25.0: 사용자 요청 — 100건 + SSS 비중 극대화
+            const limit = options?.limit || (tier === 'pro' ? 100 : 100);
 
             // 📡 진행 이벤트를 렌더러로 전송 (rich-feed-progress 채널)
             const onProgress = (payload: { step: string; percent: number; message: string }) => {
