@@ -175,10 +175,19 @@ function isLikelyCelebrityName(keyword: string): boolean {
 }
 
 // 🔥 v2.27.6: 집필 가능성 필터 — "글 쓸 수 있는 키워드"만 통과
-//   사용자 피드백: "클로드 할인, 적금 추천, 네이버 리뷰 이런 거 나오는데 글 쓸 수 있나?"
-//   분석: 2-token 이어도 양쪽이 너무 범용이면 주제가 너무 broad → 글감 부족.
 const GENERIC_BROAD_RE = /^(적금|예금|카드|대출|보험|투자|주식|펀드|ETF|연금|세금|건강|영양제|비타민|음식|요리|청소|여행|맛집|공부|운동|헬스|다이어트|뷰티|화장품|샴푸|선크림|의류|패션|가구|인테리어|네이버|구글|카카오|삼성|엘지|쿠팡|클로드|챗GPT|유튜브|인스타|페이스북|브랜드|제품|상품|서비스|리뷰)$/;
 const GENERIC_ACTION_RE = /^(추천|후기|리뷰|비교|순위|가격|방법|꿀팁|정리|할인|세일|이벤트|인기|베스트|신상|최신|tips|모음|목록|소개|설명|정보)$/i;
+
+// 🔥 v2.28.1: 뉴스성 단일 토큰 차단 (분기/폐지/사망/협상 등 — 글감 부족)
+//   사용자 피드백: "분기, 폐지, 주식종류, 세계, 개최, 사망, 협상 이런 건 어떻게 쓰라고"
+//   이유: 단일 뉴스 명사는 주제 추상적 + 시의성 스파이크 후 급락 + 블로그 집필 불가능
+const NEWS_NOISE_RE = /^(분기|폐지|종류|세계|개최|사망|협상|발표|공개|선언|입장|대응|가능성|전망|예정|인터뷰|논란|제기|의혹|해명|공지|답변|반응|이슈|속보|긴급|비상|충격|폭로|고백|루머|소문|공방|격돌|대결|파장|파문|후폭풍|여파|보도|특종|거부|결렬|철회|취소|승인|기각|제출|접수|공시|공표|해제|연장|중단|재개|해임|사임|지명|임명|승진|퇴임|방문|순방|귀국|출국|도착|출발|회담|회의|총회|위원회|처분|결정|검토|합의|체결|조사|수사|기소|판결|선고|결과|최종|잠정|추가|수정|확정|변경|조정|전달|언급|경고|강조|지적|주장|반박|반대|찬성|동의|거절|요구|요청|제안|건의|권고|충고|촉구|호소|지지|비판|우려|기대|환영|축하|위로|애도|분노|공분|여론|민심|표심|속설|미담)$/;
+
+function isNewsNoise(keyword: string): boolean {
+    const clean = keyword.trim();
+    if (clean.includes(' ')) return false; // 2-token 이상은 롱테일이라 예외
+    return NEWS_NOISE_RE.test(clean);
+}
 
 function isTooGeneric2Token(keyword: string): boolean {
     const tokens = keyword.trim().split(/\s+/).filter(Boolean);
@@ -192,10 +201,12 @@ function isTooGeneric2Token(keyword: string): boolean {
 
 function isWritableKeyword(keyword: string, docCount: number): boolean {
     const tokens = keyword.trim().split(/\s+/).filter(Boolean).length;
-    // 🔥 v2.27.6: 범용 2-token 조합 차단 (클로드 할인/적금 추천/네이버 리뷰 등)
+    // 🔥 v2.27.6: 범용 2-token 조합 차단
     if (tokens === 2 && isTooGeneric2Token(keyword)) return false;
-    if (tokens >= 2) return true;                          // 2단어+ 롱테일 (generic 아닌 경우)
-    if (INTENT_SUFFIX_RE.test(keyword)) return true;       // 검색 의도 어미
+    // 🔥 v2.28.1: 뉴스성 단일 토큰 차단 (분기/폐지/사망/협상 등 100+ 노이즈)
+    if (isNewsNoise(keyword)) return false;
+    if (tokens >= 2) return true;
+    if (INTENT_SUFFIX_RE.test(keyword)) return true;
     if (isLikelyCelebrityName(keyword)) {
         return docCount > 0 && docCount <= 500;
     }
@@ -218,10 +229,12 @@ function hasCommercialIntent(keyword: string): boolean {
  */
 function calculateGrade(volume: number, docCount: number, ratio: number, score: number, keyword: string): GoldenGrade | '' {
     const writable = isWritableKeyword(keyword, docCount);
-    // 극단 범용 빅워드 제거 — 개인 블로거가 경쟁 불가능한 단일 명사만 차단
+    // 극단 범용 빅워드 제거
     if (!writable && docCount > 100_000) return '';
-    // 🔥 v2.27.6: 범용 2-token 조합은 dc 무관 탈락 (글감 부족)
+    // 🔥 v2.27.6: 범용 2-token 조합은 dc 무관 탈락
     if (!writable && isTooGeneric2Token(keyword)) return '';
+    // 🔥 v2.28.1: 뉴스성 단일 토큰 dc 무관 즉시 탈락 (분기/폐지/사망 등)
+    if (isNewsNoise(keyword)) return '';
 
     // 인명 단일 토큰은 dc 1000 초과 시 grade 제외
     const isCelebLike = isLikelyCelebrityName(keyword);
@@ -767,7 +780,7 @@ let cached: { result: RichFeedResult; expiresAt: number } | null = null;
 const CACHE_TTL = 3 * 60_000;         // 메모리 캐시: 15분→3분
 const DISK_CACHE_TTL = 30 * 60_000;   // 디스크 캐시: 4시간→30분 (안전망용)
 const MIN_ACCEPTABLE_TOTAL = 20;       // 이 미만이면 "실패"로 간주, 디스크 캐시 폴백
-const CACHE_SCHEMA_VERSION = 'v2.28.0-endgame';  // 🔥 v2.28.0: 10인 팀 + 100회 sim 검증 끝판왕
+const CACHE_SCHEMA_VERSION = 'v2.28.1-news-noise';  // 🔥 v2.28.1: 뉴스성 단일 토큰 차단
 
 function getDiskCachePath(): string {
     // app.getPath 가 있으면 userData, 없으면 temp 사용 (테스트/개발 환경)
