@@ -563,7 +563,7 @@ let cached: { result: RichFeedResult; expiresAt: number } | null = null;
 const CACHE_TTL = 15 * 60_000;        // 메모리 캐시: 15분
 const DISK_CACHE_TTL = 4 * 60 * 60_000; // 디스크 캐시: 4시간 (신선도 확보)
 const MIN_ACCEPTABLE_TOTAL = 20;       // 이 미만이면 "실패"로 간주, 디스크 캐시 폴백
-const CACHE_SCHEMA_VERSION = 'v2.9.3-balanced';  // 극단 빅워드만 제외, 중도 키워드 유지
+const CACHE_SCHEMA_VERSION = 'v2.19.1-with-trend';  // Phase L-2 trendType 필드 포함
 
 function getDiskCachePath(): string {
     // app.getPath 가 있으면 userData, 없으면 temp 사용 (테스트/개발 환경)

@@ -910,6 +910,9 @@
           return sv >= rfSvMin && sv < rfSvMax;
         });
         if (rfCurrentTrend !== '*') filtered = filtered.filter(r => (r.trendType || 'unknown') === rfCurrentTrend);
+        // 🔥 v2.19.1 Fix3: 필터 적용 후 카운트 갱신 + 0건 시 가이드
+        const totalEl = document.getElementById('rfTotal');
+        if (totalEl) totalEl.textContent = `${filtered.length} / ${rfAllRows.length}`;
         renderRichFeedTable(filtered);
       }
 
@@ -937,7 +940,11 @@
       function renderRichFeedTable(rows) {
         const tbody = document.getElementById('rfTbody');
         if (!rows || rows.length === 0) {
-          tbody.innerHTML = '<tr><td colspan="12" style="padding:40px; text-align:center; color:#64748b;">결과 없음</td></tr>';
+          // 🔥 v2.19.1 Fix3: 0건 시 필터 완화 가이드
+          tbody.innerHTML = `<tr><td colspan="12" style="padding:40px; text-align:center; color:#64748b;">
+            <div style="font-size:14px; margin-bottom:8px;">조건에 맞는 결과가 없습니다.</div>
+            <div style="font-size:12px; color:#475569;">💡 필터 조건(카테고리/검색량/트렌드) 중 하나를 "전체"로 바꿔보세요.</div>
+          </td></tr>`;
           return;
         }
         tbody.innerHTML = rows.map((r, idx) => {
@@ -1056,6 +1063,15 @@
         </div>`;
         document.body.appendChild(modal);
         modal.addEventListener('click', (e) => { if (e.target === modal) modal.remove(); });
+        // 🔥 v2.19.1 Fix4: ESC 키로 모달 닫기
+        const escHandler = (e) => {
+          if (e.key === 'Escape') {
+            const m = document.getElementById('rfTrendModal');
+            if (m) m.remove();
+            document.removeEventListener('keydown', escHandler);
+          }
+        };
+        document.addEventListener('keydown', escHandler);
         try {
           const res = await window.electronAPI.invoke('keyword-trend-30day', kw);
           if (!res.success) {
@@ -1070,15 +1086,23 @@
             chart.innerHTML = '<div style="color:#64748b;">시계열 데이터 없음</div>';
             return;
           }
-          const w = 660, h = 220, pad = 20;
+          const w = 660, h = 220, pad = 30;
           const maxV = Math.max(...series, 1);
+          const minV = Math.min(...series);
           const pts = series.map((v, i) => {
             const x = pad + (i / (series.length - 1)) * (w - 2 * pad);
             const y = h - pad - (v / maxV) * (h - 2 * pad);
             return `${x.toFixed(1)},${y.toFixed(1)}`;
           }).join(' ');
           const color = analysis.type === 'skyrocket' ? '#ef4444' : analysis.type === 'evergreen' ? '#22c55e' : analysis.type === 'seasonal' ? '#60a5fa' : analysis.type === 'flash' ? '#94a3b8' : '#fbbf24';
-          chart.innerHTML = `<svg width="100%" viewBox="0 0 ${w} ${h}" preserveAspectRatio="none">
+          // 🔥 v2.19.1 Fix5: Y축 min/max + X축 기간 레이블 추가
+          chart.innerHTML = `<svg width="100%" viewBox="0 0 ${w} ${h}" preserveAspectRatio="none" style="font-family: system-ui; font-size: 10px;">
+            <line x1="${pad}" y1="${pad}" x2="${pad}" y2="${h - pad}" stroke="rgba(255,255,255,0.15)" stroke-width="1" />
+            <line x1="${pad}" y1="${h - pad}" x2="${w - pad}" y2="${h - pad}" stroke="rgba(255,255,255,0.15)" stroke-width="1" />
+            <text x="${pad - 4}" y="${pad + 4}" text-anchor="end" fill="rgba(255,255,255,0.5)">${maxV.toFixed(0)}</text>
+            <text x="${pad - 4}" y="${h - pad + 3}" text-anchor="end" fill="rgba(255,255,255,0.5)">${minV.toFixed(0)}</text>
+            <text x="${pad}" y="${h - 8}" text-anchor="start" fill="rgba(255,255,255,0.5)">30일 전</text>
+            <text x="${w - pad}" y="${h - 8}" text-anchor="end" fill="rgba(255,255,255,0.5)">오늘</text>
             <polyline points="${pts}" fill="none" stroke="${color}" stroke-width="2.5" />
             <polyline points="${pts.split(' ')[0]} ${pts} ${w - pad},${h - pad} ${pad},${h - pad}" fill="${color}" fill-opacity="0.12" stroke="none" />
           </svg>`;

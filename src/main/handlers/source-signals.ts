@@ -296,10 +296,15 @@ export function setupSourceSignalHandlers(): void {
                 clientSecret: env.naverClientSecret || process.env['NAVER_CLIENT_SECRET'] || '',
             };
             if (!config.clientId) return { success: false, error: 'Naver API 키 없음' };
-            const expanded = await expandToLongtailReal(seed);
+            // 🔥 v2.19.1 Fix2: 30초 타임아웃 (UI 프리징 방지)
+            const expanded = await Promise.race([
+                expandToLongtailReal(seed),
+                new Promise<string[]>((_, rej) => setTimeout(() => rej(new Error('롱테일 확장 30초 초과')), 30000)),
+            ]).catch(e => { console.warn('[drilldown] timeout or error:', e?.message); return [] as string[]; });
             const candidates = expanded.slice(0, 25);
             if (candidates.length === 0) return { success: true, items: [] };
             const metrics = await getNaverKeywordSearchVolumeSeparate(config, candidates, { includeDocumentCount: true });
+            // 🔥 v2.19.1 Fix2: 필터 완화 (sv>=50 OR gr>=0.8) — 롱테일은 sv 낮은 편
             const items = metrics
                 .map((m: any) => {
                     const sv = (m.pcSearchVolume || 0) + (m.mobileSearchVolume || 0);
@@ -307,7 +312,7 @@ export function setupSourceSignalHandlers(): void {
                     const gr = dc > 0 ? sv / dc : 0;
                     return { keyword: m.keyword, searchVolume: sv, documentCount: dc, goldenRatio: gr };
                 })
-                .filter(i => i.searchVolume >= 100 && i.documentCount > 0 && i.goldenRatio >= 0.5)
+                .filter(i => i.documentCount > 0 && (i.searchVolume >= 50 || i.goldenRatio >= 0.8))
                 .sort((a, b) => b.goldenRatio - a.goldenRatio)
                 .slice(0, 10);
             return { success: true, items };

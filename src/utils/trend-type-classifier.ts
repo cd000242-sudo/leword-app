@@ -96,10 +96,13 @@ export function classifyTrendType(series: number[]): TrendAnalysis {
 
     const surgeRatio = monthAvg > 0 ? recent3Avg / monthAvg : 0;
 
-    // 📉 단발성: 최근 7일 중 한 날 폭발 (max가 recent3Avg보다 2배+) 이후 급락
-    const peak = Math.max(...series.slice(-14));
-    const peakIdx = series.slice(-14).lastIndexOf(peak);   // 최근 14일 내 peak 위치 (0=가장 과거, 13=오늘)
-    const postPeak = series.slice(-14).slice(peakIdx + 1);
+    // 📉 단발성: 최근 14일 내 peak 이후 급락
+    // 🔥 v2.19.1 Fix5: peakIdx를 indexOf(첫 출현)로 변경 + postPeak 최소 3일 요구
+    //    기존 lastIndexOf는 중복 peak 있을 때 postPeak 구간이 너무 짧아 편향
+    const last14 = series.slice(-14);
+    const peak = Math.max(...last14);
+    const peakIdx = last14.indexOf(peak);   // 첫 출현 위치 (postPeak 구간 최대화)
+    const postPeak = last14.slice(peakIdx + 1);
     const postPeakAvg = postPeak.length > 0 ? postPeak.reduce((a, b) => a + b, 0) / postPeak.length : 0;
     const postPeakDrop = peak > 0 ? postPeakAvg / peak : 1;
 
@@ -113,8 +116,8 @@ export function classifyTrendType(series: number[]): TrendAnalysis {
         };
     }
 
-    // 📉 단발성: 최근 14일 내 peak 후 70% 이상 하락
-    if (peak > 0 && postPeakDrop < 0.3 && peakIdx < 10 && peak >= monthAvg * 2.5) {
+    // 📉 단발성: 최근 14일 내 peak 후 70% 이상 하락 + 하락 구간 최소 3일
+    if (peak > 0 && postPeakDrop < 0.3 && peakIdx < 10 && peak >= monthAvg * 2.5 && postPeak.length >= 3) {
         return {
             type: 'flash',
             label: '📉 단발성',
