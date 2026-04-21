@@ -36,7 +36,7 @@ app.whenReady().then(async () => {
         const t0 = Date.now();
         let lastPct = -1;
         const result = await buildRichFeed(
-            { tier: 'pro', limit: 200 },
+            { tier: 'pro', limit: 300 },
             (p) => {
                 if (p.percent - lastPct >= 10 || p.percent === 100) {
                     console.log(`  ${p.percent}% — ${p.message}`);
