@@ -399,7 +399,7 @@ export async function buildRichFeed(
     // 기존: 소스별 상위 N개 단순 take
     // 개선: 소스 쿼터는 유지하되, 각 소스 내에서 품질 점수로 정렬 후 상위 N개만.
     //       stopwords/노이즈 사전 필터 + IDF 기반 과다등장 키워드 디메리트.
-    const HEAVY_SOURCE_CAP = 400;   // 🔥 v2.25.2: 200→400 (100건 목표)
+    const HEAVY_SOURCE_CAP = 600;   // 🔥 v2.27.0: 400→600 (전체 소스 총 동원)
 
     // IDF 기반 통계: 소스별 유니크 키워드 집합
     const sourceBuckets = new Map<string, string[]>();
@@ -433,15 +433,17 @@ export async function buildRichFeed(
     // 3-3. Longtail 확장
     // - Heavy source(seed 100+): 상위 20개만 파생 (전체 파생 폭증 방지)
     // - Minor source(seed 30-): 모든 seed 파생 (최종 feed 기여 확보)
-    // 🔥 v2.25.2: suffix 24→38, HEAVY_LONGTAIL_CAP 50→100 (100건 목표)
+    // 🔥 v2.27.0: suffix 38→50, HEAVY_LONGTAIL_CAP 100→200 (전체 소스 총 동원)
     const LONGTAIL_SUFFIXES = [
         '추천', '후기', '가격', '비교', '방법', '순위', '종류', '사용법', '뜻', '차이', '장단점',
         '정리', '꿀팁', '초보', '효과', '부작용', '주의사항', '총정리', '리뷰', '브랜드',
         '저렴한', '인기', '최신', '2026', '할인', '세일', '가성비', '조건', '신청', '신청방법',
         '베스트', '이벤트', '무료', '사용후기', '원데이', '입문', '기초', '쉽게',
+        '필수템', '꿀템', '가이드', '정보', '대비', '혜택', '공략', '노하우',
+        '팁', '요약', '체크', '핵심',
     ];
     const MINOR_THRESHOLD = 30;
-    const HEAVY_LONGTAIL_CAP = 100;
+    const HEAVY_LONGTAIL_CAP = 200;
     const extraSeeds: typeof baseSeeds = [];
     for (const [, list] of perSource.entries()) {
         const isMinor = list.length <= MINOR_THRESHOLD;
@@ -465,9 +467,9 @@ export async function buildRichFeed(
     }
 
     // base + longtail 합쳐서 품질 기반 선별 → 상위 후보만 API 검증
-    // 🔥 v2.26.0: SSS/SS 전용 대량 수집 — 후보 풀 6000 (SSS/SS 확률 ~2% → 120건 기대)
+    // 🔥 v2.27.0: 대량 수집 — 후보 풀 6000 → 10000 (전체 소스 총 동원, A 등급 확대 고려)
     const allScored = [...baseSeeds, ...extraSeeds].sort((a, b) => b.qualityScore - a.qualityScore);
-    const targetSize = Math.min(6000, Math.max(limit * 12, 4000));
+    const targetSize = Math.min(10000, Math.max(limit * 20, 6000));
 
     const weightedSampleWithoutReplacement = <T extends { qualityScore: number }>(
         items: T[],
@@ -632,17 +634,18 @@ export async function buildRichFeed(
         completedBatches += slice.length;
         const batchPercent = 20 + Math.round((completedBatches / totalBatches) * 65);
         emit('api', batchPercent, `네이버 API 검증 ${completedBatches}/${totalBatches} (누적 ${enrichedRows.length}건)`);
-        if (enrichedRows.length >= limit) break;
-        // 🔥 딜레이 300ms → 50ms (rate limit 여유)
+        // 🔥 v2.27.0: 조기 break 제거 — 전체 후보 풀 완전 탐색 (사용자 "전부 뒤져서 대량으로")
         await new Promise(r => setTimeout(r, 50));
     }
 
-    // 🔥 v2.26.0: SSS/SS 전용 필터 — A/B 완전 제외 (사용자 요청: "SSS/SS만 보여주고")
-    const ssClassOnly = enrichedRows.filter(r => r.grade === 'SSS' || r.grade === 'SS');
+    // 🔥 v2.27.0: SSS/SS/S/A 포함 필터 — B 만 제외 (사용자 요청 "A 까지만 보여주고")
+    const highGradeOnly = enrichedRows.filter(r =>
+        r.grade === 'SSS' || r.grade === 'SS' || r.grade === 'S' || r.grade === 'A'
+    );
     enrichedRows.length = 0;
-    enrichedRows.push(...ssClassOnly);
+    enrichedRows.push(...highGradeOnly);
 
-    emit('grading', 90, `등급 판정 및 정렬 (SSS/SS ${enrichedRows.length}건)...`);
+    emit('grading', 90, `등급 판정 및 정렬 (SSS/SS/S/A ${enrichedRows.length}건)...`);
 
     // 5. 정렬 (등급 → 기회지수 → 소스 수)
     const gradeOrder: Record<string, number> = { SSS: 5, SS: 4, S: 3, A: 2, B: 1 };
@@ -720,7 +723,7 @@ let cached: { result: RichFeedResult; expiresAt: number } | null = null;
 const CACHE_TTL = 3 * 60_000;         // 메모리 캐시: 15분→3분
 const DISK_CACHE_TTL = 30 * 60_000;   // 디스크 캐시: 4시간→30분 (안전망용)
 const MIN_ACCEPTABLE_TOTAL = 20;       // 이 미만이면 "실패"로 간주, 디스크 캐시 폴백
-const CACHE_SCHEMA_VERSION = 'v2.26.0-sss-ss-only';  // 🔥 v2.26.0: SSS/SS 전용 대량 수집
+const CACHE_SCHEMA_VERSION = 'v2.27.0-sssa-mass';  // 🔥 v2.27.0: SSS/SS/S/A + 전체 소스 대량 수집
 
 function getDiskCachePath(): string {
     // app.getPath 가 있으면 userData, 없으면 temp 사용 (테스트/개발 환경)
