@@ -647,35 +647,92 @@ export async function getNaverKeywordSearchVolumeSeparate(
   }
 
   if (includeDocumentCount) {
+    // 🔥 v2.25.3: 블로그 문서수 조회 — API + 스크랩 fallback 2단계
+    //   v2.25.2 문제: 병렬 8 → Naver 블로그 API 429 폭주 → null 폭증
+    //   v2.25.3: 3 병렬 (rate limit 준수) + 429/5xx 시 search.naver.com 스크랩 fallback
     const apiUrl = 'https://openapi.naver.com/v1/search/blog.json';
-    for (let i = 0; i < input.length; i++) {
-      const originalKeyword = input[i];
-      try {
-        const params = new URLSearchParams({
-          query: originalKeyword,
-          display: '1',
-          sort: 'sim'
-        });
+    const CONCURRENCY = 3;
+    const REQUEST_TIMEOUT_MS = 3500;
+    const MAX_RETRIES = 2;
 
+    const scrapeFallback = async (keyword: string): Promise<number | null> => {
+      try {
+        const axiosMod = await import('axios');
+        const axios = axiosMod.default;
+        const headers = {
+          'User-Agent': 'Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 Chrome/120.0.0.0 Safari/537.36',
+          'Accept-Language': 'ko-KR,ko;q=0.9',
+        };
+        const url = `https://search.naver.com/search.naver?where=blog&query=${encodeURIComponent(keyword)}`;
+        const resp = await axios.get(url, { headers, timeout: 4000 });
+        const html = String(resp.data || '');
+        // "약 1,234건" / "1,234건" 패턴
+        const m = html.match(/([0-9,]+)\s*건/);
+        if (m && m[1]) {
+          const n = parseInt(m[1].replace(/,/g, ''), 10);
+          return Number.isFinite(n) ? n : null;
+        }
+        return null;
+      } catch {
+        return null;
+      }
+    };
+
+    const fetchApiWithRetry = async (originalKeyword: string, attempt: number = 0): Promise<number | null> => {
+      const params = new URLSearchParams({ query: originalKeyword, display: '1', sort: 'sim' });
+      const controller = new AbortController();
+      const timer = setTimeout(() => controller.abort(), REQUEST_TIMEOUT_MS);
+      try {
         const response = await fetch(`${apiUrl}?${params.toString()}`, {
           headers: {
             'X-Naver-Client-Id': config.clientId,
-            'X-Naver-Client-Secret': config.clientSecret
-          }
+            'X-Naver-Client-Secret': config.clientSecret,
+          },
+          signal: controller.signal,
         });
-
+        clearTimeout(timer);
         if (response.ok) {
           const data = await response.json();
           const totalRaw = (data as any)?.total;
           const total = typeof totalRaw === 'number' ? totalRaw : (typeof totalRaw === 'string' ? parseInt(totalRaw, 10) : null);
-          results[i].documentCount = total;
+          return total;
         }
-      } catch (err: any) {
-        console.warn(`[NAVER-VOLUME] ⚠️ "${originalKeyword}" 문서수 조회 실패: ${err?.message || String(err || '')}`);
+        if ((response.status === 429 || response.status >= 500) && attempt < MAX_RETRIES) {
+          await new Promise(r => setTimeout(r, Math.min(2000, 400 * Math.pow(2, attempt))));
+          return fetchApiWithRetry(originalKeyword, attempt + 1);
+        }
+        return null;
+      } catch {
+        clearTimeout(timer);
+        if (attempt < MAX_RETRIES) {
+          await new Promise(r => setTimeout(r, 400 * Math.pow(2, attempt)));
+          return fetchApiWithRetry(originalKeyword, attempt + 1);
+        }
+        return null;
       }
+    };
 
-      await new Promise(resolve => setTimeout(resolve, 60));
+    let cursor = 0;
+    const workers: Promise<void>[] = [];
+    for (let w = 0; w < CONCURRENCY; w++) {
+      workers.push((async () => {
+        while (true) {
+          const idx = cursor++;
+          if (idx >= input.length) return;
+          const originalKeyword = input[idx];
+          // 1차: 공식 API
+          let dc = await fetchApiWithRetry(originalKeyword);
+          // 2차: API 실패 시 search.naver.com 스크랩 fallback
+          if (dc === null) {
+            dc = await scrapeFallback(originalKeyword);
+          }
+          results[idx].documentCount = dc;
+          // worker 당 200ms — 3 worker × 5/sec = 15/sec (rate limit 안전)
+          await new Promise(r => setTimeout(r, 200));
+        }
+      })());
     }
+    await Promise.all(workers);
   }
 
   return results;

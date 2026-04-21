@@ -178,11 +178,11 @@ function isWritableKeyword(keyword: string, docCount: number): boolean {
     const tokens = keyword.trim().split(/\s+/).filter(Boolean).length;
     if (tokens >= 2) return true;                          // 2단어+ 롱테일
     if (INTENT_SUFFIX_RE.test(keyword)) return true;       // 검색 의도 어미
-    // 🔥 v2.23.0: 인명 의심 키워드는 dc 극소(<500)만 writable (초 블루오션 고유명사 한해서만)
     if (isLikelyCelebrityName(keyword)) {
         return docCount > 0 && docCount <= 500;
     }
-    if (docCount > 0 && docCount <= 3000) return true;     // 🔥 v2.23.0: 5000→3000 (타이트)
+    // 🔥 v2.25.1: 단일토큰 writable 완화 3000 → 15000 (단일 고유명사 블루오션 포함)
+    if (docCount > 0 && docCount <= 15000) return true;
     return false;
 }
 
@@ -208,37 +208,51 @@ function calculateGrade(volume: number, docCount: number, ratio: number, score: 
     const isCelebLike = isLikelyCelebrityName(keyword);
     if (isCelebLike && docCount > 1000) return '';
 
-    const allowS = writable || (!isCelebLike && docCount > 0 && docCount <= 3000);
-    const allowA = writable || (!isCelebLike && docCount > 0 && docCount <= 5000);
+    // 🔥 v2.25.1: SS/S/A 모두 "희소 고유명사" 예외 허용 (writable fail 해도 dc 소량이면 통과)
+    const allowSS = writable || (!isCelebLike && docCount > 0 && docCount <= 10000);
+    const allowS = writable || (!isCelebLike && docCount > 0 && docCount <= 30000);
+    const allowA = writable || (!isCelebLike && docCount > 0 && docCount <= 50000);
     const commercial = hasCommercialIntent(keyword);
 
-    // 🔥 v2.25.0: SSS 자동 승격 경로 (극블루오션 / 상업성+초저경쟁 / 저경쟁+상업성)
-    //   - 극블루오션: gr≥10, dc<1000, sv≥500 → 무조건 SSS (score 무관)
-    //   - 상업+극저경쟁: commercial, dc≤1500, sv≥300, gr≥3 → SSS
-    //   - 희소+상업: commercial, dc≤500, sv≥200 → SSS (초 롱테일 황금)
-    if (writable || (!isCelebLike && docCount > 0 && docCount <= 1500)) {
-        if (ratio >= 10 && docCount > 0 && docCount < 1000 && volume >= 500) return 'SSS';
-        if (commercial && docCount > 0 && docCount <= 1500 && volume >= 300 && ratio >= 3) return 'SSS';
-        if (commercial && docCount > 0 && docCount <= 500 && volume >= 200) return 'SSS';
+    // 🔥 v2.25.1: SSS 자동 승격 5경로 (실측에서 SSS 5% 미만 → 20%+ 목표)
+    //   dc 상한 대폭 확대 (실전에서 dc 수천~3만도 고가치)
+    if (!isCelebLike && docCount > 0) {
+        // 초극블루오션: gr 20+, sv 300+ 무조건 SSS
+        if (ratio >= 20 && volume >= 300) return 'SSS';
+        // 극블루오션: gr 10+, dc ≤ 8000, sv ≥ 500
+        if (ratio >= 10 && docCount <= 8000 && volume >= 500) return 'SSS';
+        // 대형 블루오션: gr 7+, dc ≤ 20000, sv ≥ 2000
+        if (ratio >= 7 && docCount <= 20000 && volume >= 2000) return 'SSS';
+        // 상업+저경쟁: commercial, dc ≤ 5000, sv ≥ 300, gr ≥ 3
+        if (commercial && docCount <= 5000 && volume >= 300 && ratio >= 3) return 'SSS';
+        // 희소+상업: commercial, dc ≤ 1000, sv ≥ 200
+        if (commercial && docCount <= 1000 && volume >= 200) return 'SSS';
     }
 
-    // 🔥 v2.25.0: SSS 기본 게이트 완화 (85/1000/5000/5 → 78/600/7000/4)
-    //   + 상업성 키워드는 1 tier 완화 (SSS/SS 쉽게)
-    const sssScore = commercial ? 73 : 78;
+    // 🔥 v2.25.1: SSS 기본 게이트 — allowSS 로 완화 (writable 강제 대신 희소 예외)
+    const sssScore = commercial ? 70 : 75;
     const sssSv = commercial ? 400 : 600;
-    const sssDc = commercial ? 10000 : 7000;
-    const sssRatio = commercial ? 3 : 4;
-    if (score >= sssScore && volume >= sssSv && docCount > 0 && docCount <= sssDc && ratio >= sssRatio && writable) return 'SSS';
+    const sssDc = commercial ? 12000 : 10000;
+    const sssRatio = commercial ? 2.5 : 3.5;
+    if (score >= sssScore && volume >= sssSv && docCount > 0 && docCount <= sssDc && ratio >= sssRatio && allowSS) return 'SSS';
 
-    const ssScore = commercial ? 68 : 72;
-    const ssSv = commercial ? 300 : 400;
-    const ssDc = commercial ? 15000 : 12000;
-    const ssRatio = commercial ? 2 : 2.5;
-    if (score >= ssScore && volume >= ssSv && docCount > 0 && docCount <= ssDc && ratio >= ssRatio && writable) return 'SS';
+    // 🔥 v2.26.0: SS 자동 승격 경로 추가 (SS=0 해결 + 대량 수집)
+    if (!isCelebLike && docCount > 0) {
+        if (ratio >= 5 && docCount <= 15000 && volume >= 500) return 'SS';
+        if (commercial && docCount <= 8000 && volume >= 300 && ratio >= 2) return 'SS';
+        if (ratio >= 3 && docCount <= 5000 && volume >= 200) return 'SS';
+    }
 
-    if (score >= 62 && volume >= 200 && ratio >= 1.5 && allowS) return 'S';
-    if (score >= 52 && volume >= 80 && allowA) return 'A';
-    if (score >= 42) return 'B';
+    const ssScore = commercial ? 58 : 62;
+    const ssSv = commercial ? 150 : 250;
+    const ssDc = commercial ? 35000 : 25000;
+    const ssRatio = commercial ? 1.2 : 1.8;
+    if (score >= ssScore && volume >= ssSv && docCount > 0 && docCount <= ssDc && ratio >= ssRatio && allowSS) return 'SS';
+
+    // 🔥 v2.25.1: S 게이트 완화 (writable → allowS)
+    if (score >= 55 && volume >= 150 && ratio >= 1.0 && allowS) return 'S';
+    if (score >= 45 && volume >= 60 && allowA) return 'A';
+    if (score >= 38 && volume >= 30) return 'B';
     return '';
 }
 
@@ -385,7 +399,7 @@ export async function buildRichFeed(
     // 기존: 소스별 상위 N개 단순 take
     // 개선: 소스 쿼터는 유지하되, 각 소스 내에서 품질 점수로 정렬 후 상위 N개만.
     //       stopwords/노이즈 사전 필터 + IDF 기반 과다등장 키워드 디메리트.
-    const HEAVY_SOURCE_CAP = 200;   // 🔥 v2.20.0: 100→200 (대량 발굴)
+    const HEAVY_SOURCE_CAP = 400;   // 🔥 v2.25.2: 200→400 (100건 목표)
 
     // IDF 기반 통계: 소스별 유니크 키워드 집합
     const sourceBuckets = new Map<string, string[]>();
@@ -419,14 +433,15 @@ export async function buildRichFeed(
     // 3-3. Longtail 확장
     // - Heavy source(seed 100+): 상위 20개만 파생 (전체 파생 폭증 방지)
     // - Minor source(seed 30-): 모든 seed 파생 (최종 feed 기여 확보)
-    // 🔥 v2.20.0: suffix 11→24, HEAVY_LONGTAIL_CAP 20→50 (대량 발굴)
+    // 🔥 v2.25.2: suffix 24→38, HEAVY_LONGTAIL_CAP 50→100 (100건 목표)
     const LONGTAIL_SUFFIXES = [
         '추천', '후기', '가격', '비교', '방법', '순위', '종류', '사용법', '뜻', '차이', '장단점',
         '정리', '꿀팁', '초보', '효과', '부작용', '주의사항', '총정리', '리뷰', '브랜드',
-        '저렴한', '인기', '최신', '2026',
+        '저렴한', '인기', '최신', '2026', '할인', '세일', '가성비', '조건', '신청', '신청방법',
+        '베스트', '이벤트', '무료', '사용후기', '원데이', '입문', '기초', '쉽게',
     ];
     const MINOR_THRESHOLD = 30;
-    const HEAVY_LONGTAIL_CAP = 50;
+    const HEAVY_LONGTAIL_CAP = 100;
     const extraSeeds: typeof baseSeeds = [];
     for (const [, list] of perSource.entries()) {
         const isMinor = list.length <= MINOR_THRESHOLD;
@@ -450,9 +465,9 @@ export async function buildRichFeed(
     }
 
     // base + longtail 합쳐서 품질 기반 선별 → 상위 후보만 API 검증
-    // 🔥 v2.25.0: 100건 목표 + SSS 극대화 — 후보 풀 1500 (15배) → SSS 후보 풀 확장
+    // 🔥 v2.26.0: SSS/SS 전용 대량 수집 — 후보 풀 6000 (SSS/SS 확률 ~2% → 120건 기대)
     const allScored = [...baseSeeds, ...extraSeeds].sort((a, b) => b.qualityScore - a.qualityScore);
-    const targetSize = Math.min(1500, Math.max(limit * 15, 1000));
+    const targetSize = Math.min(6000, Math.max(limit * 12, 4000));
 
     const weightedSampleWithoutReplacement = <T extends { qualityScore: number }>(
         items: T[],
@@ -538,9 +553,9 @@ export async function buildRichFeed(
     }
 
     const enrichedRows: RichKeywordRow[] = [];
-    // 🔥 v2.22.0 초고속: batch 30→50, 순차→3개 동시 (Naver rate limit 안전구간 내)
-    const batchSize = 50;
-    const PARALLEL_BATCHES = 3;
+    // 🔥 v2.25.2: batch 50→80, 병렬 3→5 (총 처리량 2.7× 증가 — 3000 후보 처리 위해)
+    const batchSize = 80;
+    const PARALLEL_BATCHES = 5;
     const batches: typeof candidates[] = [];
     for (let i = 0; i < candidates.length; i += batchSize) {
         batches.push(candidates.slice(i, i + batchSize));
@@ -567,10 +582,12 @@ export async function buildRichFeed(
                 const minVolume = isLongtailDerived ? 1 : 3;
                 if (totalVolume < minVolume) continue;
 
-                // 문서수 미확인(null) / 0 → Naver 블로그 API 실패. 등급 과대평가 방지 위해 B 캡
+                // 🔥 v2.25.1: 문서수 미확인(null)/0 키워드 아예 제외 — 노이즈 제거
+                //   기존: dc=0 B캡 → 결과에 대량 삽입되어 SSS 비중 희석 + 사용자 가치 없음
                 const hasValidDocCount = sig.documentCount !== null && sig.documentCount !== undefined && sig.documentCount > 0;
-                const docCount = hasValidDocCount ? (sig.documentCount as number) : 0;
-                const goldenRatio = hasValidDocCount ? totalVolume / Math.max(1, docCount) : 0;
+                if (!hasValidDocCount) continue;
+                const docCount = sig.documentCount as number;
+                const goldenRatio = totalVolume / Math.max(1, docCount);
 
                 const cat = classifyForFeed(sig.keyword);
                 // 🔥 네이버 검색광고 API 실측 평균 입찰가 (더미 절대 금지)
@@ -581,9 +598,7 @@ export async function buildRichFeed(
                 // 스코어링에는 정적 추정 CPC 사용 (점수 일관성 위해) — UI 노출값은 realCpc만
                 const scoringCpc = estimateCPC(sig.keyword, cat.id);
                 const score = calculateScore(totalVolume, docCount, goldenRatio, scoringCpc, intent, sig.keyword);
-                let grade = calculateGrade(totalVolume, docCount, goldenRatio, score, sig.keyword);
-                // 문서수 미확인 키워드는 최고 B등급까지만
-                if (!hasValidDocCount && grade && grade !== 'B') grade = 'B';
+                const grade = calculateGrade(totalVolume, docCount, goldenRatio, score, sig.keyword);
                 if (!grade) continue;
 
                 const isBlueOcean = totalVolume >= 300 && totalVolume <= 10000 && docCount <= 2000 && goldenRatio >= 5;
@@ -622,10 +637,14 @@ export async function buildRichFeed(
         await new Promise(r => setTimeout(r, 50));
     }
 
-    emit('grading', 90, `등급 판정 및 정렬 (${enrichedRows.length}건)...`);
+    // 🔥 v2.26.0: SSS/SS 전용 필터 — A/B 완전 제외 (사용자 요청: "SSS/SS만 보여주고")
+    const ssClassOnly = enrichedRows.filter(r => r.grade === 'SSS' || r.grade === 'SS');
+    enrichedRows.length = 0;
+    enrichedRows.push(...ssClassOnly);
+
+    emit('grading', 90, `등급 판정 및 정렬 (SSS/SS ${enrichedRows.length}건)...`);
 
     // 5. 정렬 (등급 → 기회지수 → 소스 수)
-    // 🔥 v2.20.1: 같은 등급+GR 내부에서는 약간의 랜덤 타이브레이커 — 매번 다른 배치
     const gradeOrder: Record<string, number> = { SSS: 5, SS: 4, S: 3, A: 2, B: 1 };
     enrichedRows.sort((a, b) => {
         const ga = gradeOrder[a.grade] || 0;
@@ -701,7 +720,7 @@ let cached: { result: RichFeedResult; expiresAt: number } | null = null;
 const CACHE_TTL = 3 * 60_000;         // 메모리 캐시: 15분→3분
 const DISK_CACHE_TTL = 30 * 60_000;   // 디스크 캐시: 4시간→30분 (안전망용)
 const MIN_ACCEPTABLE_TOTAL = 20;       // 이 미만이면 "실패"로 간주, 디스크 캐시 폴백
-const CACHE_SCHEMA_VERSION = 'v2.25.0-sss-max';  // 🔥 v2.25.0: 100건 + SSS 극대화 (자동 승격 경로 추가)
+const CACHE_SCHEMA_VERSION = 'v2.26.0-sss-ss-only';  // 🔥 v2.26.0: SSS/SS 전용 대량 수집
 
 function getDiskCachePath(): string {
     // app.getPath 가 있으면 userData, 없으면 temp 사용 (테스트/개발 환경)
