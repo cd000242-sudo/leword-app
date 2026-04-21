@@ -781,7 +781,7 @@ let cached: { result: RichFeedResult; expiresAt: number } | null = null;
 const CACHE_TTL = 3 * 60_000;         // 메모리 캐시: 15분→3분
 const DISK_CACHE_TTL = 30 * 60_000;   // 디스크 캐시: 4시간→30분 (안전망용)
 const MIN_ACCEPTABLE_TOTAL = 20;       // 이 미만이면 "실패"로 간주, 디스크 캐시 폴백
-const CACHE_SCHEMA_VERSION = 'v2.30.0-activation';  // 🔥 v2.30.0: 활용도 100% (log scale, legend, 💰, 🚫, FAQ 5)
+const CACHE_SCHEMA_VERSION = 'v2.30.1-practical';  // 🔥 v2.30.1: 실용화 — 부정확 수익예측/Gemini 제거, 실측 데이터만
 
 function getDiskCachePath(): string {
     // app.getPath 가 있으면 userData, 없으면 temp 사용 (테스트/개발 환경)
