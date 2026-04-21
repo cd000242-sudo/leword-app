@@ -175,7 +175,7 @@ function isLikelyCelebrityName(keyword: string): boolean {
 }
 
 // 🔥 v2.27.6: 집필 가능성 필터 — "글 쓸 수 있는 키워드"만 통과
-const GENERIC_BROAD_RE = /^(적금|예금|카드|대출|보험|투자|주식|펀드|ETF|연금|세금|건강|영양제|비타민|음식|요리|청소|여행|맛집|공부|운동|헬스|다이어트|뷰티|화장품|샴푸|선크림|의류|패션|가구|인테리어|네이버|구글|카카오|삼성|엘지|쿠팡|클로드|챗GPT|유튜브|인스타|페이스북|브랜드|제품|상품|서비스|리뷰)$/;
+const GENERIC_BROAD_RE = /^(적금|예금|카드|대출|보험|투자|주식|펀드|ETF|연금|세금|건강|영양제|비타민|음식|요리|청소|여행|맛집|공부|운동|헬스|다이어트|뷰티|화장품|샴푸|선크림|의류|패션|가구|인테리어|네이버|구글|카카오|삼성|엘지|쿠팡|클로드|챗GPT|유튜브|인스타|페이스북|브랜드|제품|상품|서비스|리뷰|일본|미국|중국|한국|영국|독일|프랑스|이탈리아|러시아|인도|호주|캐나다|스페인|태국|베트남|유럽|아시아|동남아|북미|남미|중동|서울|부산|대구|인천|제주|강남|홍대|이태원|명동|성수|경기|강원|충청|전라|경상)$/;
 const GENERIC_ACTION_RE = /^(추천|후기|리뷰|비교|순위|가격|방법|꿀팁|정리|할인|세일|이벤트|인기|베스트|신상|최신|tips|모음|목록|소개|설명|정보)$/i;
 
 // 🔥 v2.28.1: 뉴스성 단일 토큰 차단 (분기/폐지/사망/협상 등 — 글감 부족)
@@ -193,9 +193,13 @@ function isTooGeneric2Token(keyword: string): boolean {
     const tokens = keyword.trim().split(/\s+/).filter(Boolean);
     if (tokens.length !== 2) return false;
     const [a, b] = tokens;
-    // 둘 다 일반화 토큰이면 글감 부족 (예: "적금 추천", "네이버 리뷰", "클로드 할인")
+    // BROAD + ACTION 조합 (예: "적금 추천", "일본 가격")
     if (GENERIC_BROAD_RE.test(a) && GENERIC_ACTION_RE.test(b)) return true;
     if (GENERIC_BROAD_RE.test(b) && GENERIC_ACTION_RE.test(a)) return true;
+    // 🔥 v2.28.2: BROAD + BROAD 조합 (예: "일본 미국", "네이버 구글")
+    if (GENERIC_BROAD_RE.test(a) && GENERIC_BROAD_RE.test(b)) return true;
+    // 🔥 v2.28.2: ACTION + ACTION 조합 (예: "가격 후기", "추천 리뷰", "비교 순위")
+    if (GENERIC_ACTION_RE.test(a) && GENERIC_ACTION_RE.test(b)) return true;
     return false;
 }
 
@@ -780,7 +784,7 @@ let cached: { result: RichFeedResult; expiresAt: number } | null = null;
 const CACHE_TTL = 3 * 60_000;         // 메모리 캐시: 15분→3분
 const DISK_CACHE_TTL = 30 * 60_000;   // 디스크 캐시: 4시간→30분 (안전망용)
 const MIN_ACCEPTABLE_TOTAL = 20;       // 이 미만이면 "실패"로 간주, 디스크 캐시 폴백
-const CACHE_SCHEMA_VERSION = 'v2.28.1-news-noise';  // 🔥 v2.28.1: 뉴스성 단일 토큰 차단
+const CACHE_SCHEMA_VERSION = 'v2.28.2-nation-action';  // 🔥 v2.28.2: 국가명 + ACTION×ACTION / BROAD×BROAD 차단
 
 function getDiskCachePath(): string {
     // app.getPath 가 있으면 userData, 없으면 temp 사용 (테스트/개발 환경)
