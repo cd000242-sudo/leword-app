@@ -13832,8 +13832,8 @@
               🌸 시즌 키워드 포함
             </label>
             <select id="proTrafficCount" style="padding: 8px 14px; border: 2px solid rgba(234, 179, 8, 0.3); border-radius: 8px; font-size: 13px; background: rgba(30, 41, 59, 0.8); color: white; cursor: pointer; outline: none;">
-              <option value="5" selected>5개</option>
-              <option value="10">10개</option>
+              <option value="5">5개</option>
+              <option value="10" selected>10개</option>
               <option value="20">20개</option>
             </select>
                 </div>
@@ -14493,7 +14493,7 @@
                   ${(kw.blueOcean && kw.blueOcean.isEarlyBird) ? `
                   <div style="font-size: 12px; color: #f472b6; margin-top: 6px; display: flex; align-items: center; gap: 6px; background: rgba(244, 114, 182, 0.1); padding: 6px 10px; border-radius: 6px;">
                     <span>🚀</span>
-                    <span style="font-weight: 700;">${kw.blueOcean.issueForecast || '이 키워드는 조만간 폭발할 가능성이 매우 높습니다!'}</span>
+                    <span style="font-weight: 700;">${kw.blueOcean.issueForecast || `검색량 ${(kw.searchVolume || 0).toLocaleString()} / 문서수 ${(kw.documentCount || 0).toLocaleString()} — 진입 가능 구간`}</span>
                   </div>
                   ` : ''}
                 </div>

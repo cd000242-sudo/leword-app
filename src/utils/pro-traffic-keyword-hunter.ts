@@ -502,18 +502,42 @@ function getProPremiumMaxDocumentsForCategory(category: string): number {
   return 50000;
 }
 
+/**
+ * 🔥 v2.14.0: 범용 대명사 키워드 차단 (Lite·PRO 공통)
+ *   "다이어트", "비타민", "샴푸" 같은 단일 토큰 범용어는 검색량 아무리 커도 글 쓰기 힘듦
+ *   (상위엔 대형 미디어·브랜드 공식몰이 독점)
+ */
+function isGenericSingleToken(keyword: string): boolean {
+  const tokens = String(keyword || '').trim().split(/\s+/).filter(Boolean);
+  if (tokens.length !== 1) return false;                       // 2토큰 이상은 OK
+  const kw = tokens[0];
+  if (kw.length <= 2) return true;                             // 2자 이하 너무 짧음
+  // 3자 한글 브랜드명(토리든/아누아/설화수)은 허용 — 영문 포함 시 브랜드성
+  if (/^[가-힣]{3}$/.test(kw)) {
+    // 일반 명사 블랙리스트
+    const GENERIC = new Set([
+      '다이어트', '비타민', '샴푸', '토너', '에센스', '세럼', '앰플', '크림', '로션',
+      '영양제', '보험', '대출', '카드', '주식', '코인', '환율', '금리',
+      '유튜브', '인스타', '블로그', '네이버', '카카오',
+    ]);
+    return GENERIC.has(kw);
+  }
+  return false;
+}
+
 function computePremiumGrade(r: ProTrafficKeyword, category?: string): 'SSS' | 'SS' | 'S' | 'A' | null {
   const sv = typeof r.searchVolume === 'number' && Number.isFinite(r.searchVolume) ? r.searchVolume : 0;
-  // 🔥 v2.12.0 Phase 1-2: Infinity 누수 제거 → dc=null 시 즉시 null 반환 (데이터 부족 = 판정 불가)
   const dcRaw = typeof r.documentCount === 'number' && Number.isFinite(r.documentCount) ? r.documentCount : null;
   if (dcRaw === null) return null;
   const dc = dcRaw;
   const gr = typeof r.goldenRatio === 'number' && Number.isFinite(r.goldenRatio) ? r.goldenRatio : 0;
 
-  // 🔥 A 등급조차 부여 불가한 "쓰레기" 컷 — 결과에서 아예 제외
-  if (sv < 50) return null;             // 검색량 없음/무의미
-  if (dc > 1_000_000 && gr < 0.05) return null;  // 극레드오션
-  if (gr < 0.05 && category !== 'celeb') return null; // 황금비율 매우 낮음
+  // 🔥 A 등급조차 부여 불가한 "쓰레기" 컷
+  if (sv < 50) return null;
+  if (dc > 1_000_000 && gr < 0.05) return null;
+  if (gr < 0.05 && category !== 'celeb') return null;
+  // 🔥 v2.14.0: 범용 대명사 키워드 차단 (검색량 많아도 글쓰기 불가능)
+  if (isGenericSingleToken(r.keyword)) return null;
 
   // 🛡️ 저경쟁 보증 필터: 문서수가 너무 많으면 등급 하향 (기득권 블로그 영역)
   let penaltySteps = 0;
@@ -553,12 +577,13 @@ function computePremiumGrade(r: ProTrafficKeyword, category?: string): 'SSS' | '
     else if (dc <= 50000 && sv >= 1000 && gr >= 0.5) baseGrade = 'SS';
     else if (dc <= 300000 && sv >= 300 && gr >= 0.2) baseGrade = 'S';
   } else {
-    // SSS: 🏆 진짜 황금 키워드만! (TOP 1% 품질)
-    if (dc <= 5000 && sv >= 2000 && gr >= 4.0) baseGrade = 'SSS';
-    // SS: 우수한 황금 비율 (TOP 5%)
-    else if (dc <= 15000 && sv >= 1000 && gr >= 2.5) baseGrade = 'SS';
-    // S: 괜찮은 기회 (TOP 15%)
-    else if (dc <= 40000 && sv >= 500 && gr >= 1.5) baseGrade = 'S';
+    // 🔥 v2.14.0 PRO 진짜 황금: "검색량 多 + 문서수 極小" 중심으로 강화
+    // SSS: 극소 문서수 + 대량 검색 (블로거가 상위노출 확정)
+    if (dc <= 3000 && sv >= 3000 && gr >= 5.0) baseGrade = 'SSS';
+    // SS: 우수한 황금 비율 (문서수 적고 검색 충분)
+    else if (dc <= 10000 && sv >= 1500 && gr >= 3.0) baseGrade = 'SS';
+    // S: 괜찮은 기회
+    else if (dc <= 30000 && sv >= 700 && gr >= 2.0) baseGrade = 'S';
   }
 
   if (penaltySteps === 0) return baseGrade;
@@ -572,7 +597,6 @@ function computePremiumGrade(r: ProTrafficKeyword, category?: string): 'SSS' | '
 
 function computePremiumGradeStrict(r: ProTrafficKeyword, criteria?: { minRatio?: number; maxDocuments?: number; category?: string }): 'SSS' | 'SS' | 'S' | 'A' | null {
   const sv = typeof r.searchVolume === 'number' && Number.isFinite(r.searchVolume) ? r.searchVolume : 0;
-  // 🔥 v2.12.0 Phase 1-2: Infinity 누수 제거
   const dcRaw = typeof r.documentCount === 'number' && Number.isFinite(r.documentCount) ? r.documentCount : null;
   if (dcRaw === null) return null;
   const dc = dcRaw;
@@ -582,6 +606,10 @@ function computePremiumGradeStrict(r: ProTrafficKeyword, criteria?: { minRatio?:
   if (sv < 50) return null;
   if (dc > 1_000_000 && gr < 0.05) return null;
   if (gr < 0.05 && criteria?.category !== 'celeb') return null;
+  // 🔥 v2.14.0: 범용 대명사 키워드 차단 + PRO strict 는 더 엄격
+  if (isGenericSingleToken(r.keyword)) return null;
+  // 🔥 PRO strict: "진짜 황금" = 검색량이 문서수보다 압도적으로 많아야 (비율 0.5+ 기본)
+  if (gr < 0.3 && criteria?.category !== 'celeb' && criteria?.category !== 'life_tips') return null;
 
   const category = criteria?.category;
   const minRatio = typeof criteria?.minRatio === 'number' ? criteria.minRatio : (category === 'celeb' ? 0.05 : 0.5);
@@ -600,10 +628,10 @@ function computePremiumGradeStrict(r: ProTrafficKeyword, criteria?: { minRatio?:
     if (dc <= 50000 && sv >= 1000 && gr >= 0.5) return 'SS';
     if (dc <= maxDocs && sv >= 300 && gr >= Math.max(0.2, minRatio)) return 'S';
   } else {
-    // Strict SSS: 진정한 황금 키워드만
-    if (dc <= 5000 && sv >= 2000 && gr >= 4.0) return 'SSS';
-    if (dc <= 12000 && sv >= 1000 && gr >= 2.5) return 'SS';
-    if (dc <= maxDocs && sv >= 500 && gr >= Math.max(1.5, minRatio)) return 'S';
+    // 🔥 v2.14.0 Strict SSS: 진정한 황금 "검색량 多 + 문서수 極小"
+    if (dc <= 3000 && sv >= 3000 && gr >= 5.0) return 'SSS';
+    if (dc <= 10000 && sv >= 1500 && gr >= 3.0) return 'SS';
+    if (dc <= maxDocs && sv >= 700 && gr >= Math.max(2.0, minRatio)) return 'S';
   }
   return 'A';
 }
@@ -1076,6 +1104,18 @@ const SUFFIX_BOMB_TOKENS = new Set([
   '추천', '비교', '꿀팁', '방법', '정리', '총정리', '가격', '후기',
   '순위', '종류', '사용법', '하는법', '리뷰', '팁', '정보',
 ]);
+/**
+ * 🔥 v2.14.0 Phase H: 검색량 부족 시 monetizationBlueprint 생성 차단
+ *   "월 X만원" 같은 공허한 수익 예측이 저품질 키워드에 붙는 것 방지
+ */
+function canGenerateMonetization(searchVolume: number | null | undefined, documentCount: number | null | undefined): boolean {
+  const sv = typeof searchVolume === 'number' ? searchVolume : 0;
+  const dc = typeof documentCount === 'number' ? documentCount : 0;
+  if (sv < 500) return false;      // 검색량 500 미만은 수익 예측 무의미
+  if (dc <= 0) return false;       // 문서수 미확인도 제외
+  return true;
+}
+
 function isSuffixBomb(keyword: string): boolean {
   const tokens = String(keyword || '').trim().split(/\s+/).filter(Boolean);
   if (tokens.length < 4) return false;                        // 3토큰 이하는 정상
@@ -1166,7 +1206,7 @@ async function hydrateDynamicSeeds(category: string): Promise<void> {
   }
 
   // 🔥 v2.13.0 H5: life_tips/health/finance/realestate/self_dev/kitchen/parenting 동적 시드
-  const GENERIC_CATEGORIES = ['life_tips', 'health', 'finance', 'realestate', 'self_development', 'kitchen', 'parenting'];
+  const GENERIC_CATEGORIES = ['life_tips', 'health', 'finance', 'realestate', 'self_development', 'kitchen', 'parenting', 'policy'];
   if (GENERIC_CATEGORIES.includes(category)) {
     try {
       const t0 = Date.now();
@@ -2166,10 +2206,10 @@ function computeRiskAnalysis(keyword: string): ProTrafficKeyword['riskAnalysis']
     };
   }
 
+  // 🔥 v2.14.0 Phase G: safe 레벨은 warningMessage 생략 (공허한 템플릿 제거)
   return {
     level: 'safe',
     reason: '일반적인 정보 및 생활 정보 키워드로 신생 블로거가 접근하기 좋습니다.',
-    warningMessage: '✨ 독창적인 후기나 꿀팁을 포함하면 더 효과적입니다.'
   };
 }
 
@@ -2234,10 +2274,10 @@ export async function huntProTrafficKeywords(options: {
     console.warn('[PRO-HUNTER] ⚠️ explosionMode + useDeepMining 동시 활성 — API 호출 3배, Rate Limit 위험 높음');
   }
 
-  // 🔥 v2.13.0 H5: 실시간 트렌드 제품명 주입 — 모든 주요 카테고리로 확장
+  // 🔥 v2.14.0 Phase F: policy 추가 (정부 지원금 korea.kr RSS)
   const DYNAMIC_CATEGORIES = new Set([
     'beauty', 'fashion', 'all',
-    'life_tips', 'health', 'finance', 'realestate', 'self_development', 'kitchen', 'parenting',
+    'life_tips', 'health', 'finance', 'realestate', 'self_development', 'kitchen', 'parenting', 'policy',
   ]);
   if (DYNAMIC_CATEGORIES.has(category)) {
     await hydrateDynamicSeeds(category);
@@ -3513,6 +3553,25 @@ export async function huntProTrafficKeywords(options: {
       allKeywords.push(...catFiltered);
     }
     console.log(`[PRO-TRAFFIC] 📁 3.7단계 카테고리 필터 (AND 강제): ${beforeCatFilter}개 → ${allKeywords.length}개 (${category})`);
+  }
+
+  // 🔥 v2.14.0 Phase I: 'all' 모드 cross-category 중복 제거 (경계 노이즈 차단)
+  //   - 여러 카테고리 시드가 합쳐져 같은 키워드가 다른 variant로 중복 들어간 경우 dedup
+  if (category === 'all') {
+    const seenNorm = new Set<string>();
+    const deduped: typeof allKeywords = [];
+    for (const k of allKeywords) {
+      const norm = String(k.keyword || '').toLowerCase().replace(/\s+/g, '');
+      if (norm && !seenNorm.has(norm)) {
+        seenNorm.add(norm);
+        deduped.push(k);
+      }
+    }
+    if (deduped.length < allKeywords.length) {
+      console.log(`[PRO-TRAFFIC] 🌐 all 모드 cross-category dedup: ${allKeywords.length}개 → ${deduped.length}개`);
+      allKeywords.length = 0;
+      allKeywords.push(...deduped);
+    }
   }
 
   internalMetrics.allKeywordsCount = allKeywords.length;
@@ -4968,12 +5027,15 @@ export async function huntProTrafficKeywords(options: {
       .map(r => {
         const grade = computePremiumGradeEffective(r, strictPro, { ...premiumCriteria, category });
         const isCPAKeyword = /렌탈|대출|보험|카드|통신사|인터넷사은품|상담|가입|신청|가격비교|최저가|비교추천/.test(r.keyword);
-        const blueprint = MonetizationStrategyGenerator.generate(
-          r.keyword,
-          r.searchVolume || 0,
-          r.documentCount || 0,
-          isCPAKeyword ? 'price' : (r.type === '💎 블루오션' ? 'niche' : (r.revenueEstimate?.revenueGrade === 'SSS' ? 'price' : 'info'))
-        );
+        // 🔥 v2.14.0 Phase H: sv < 500 이면 수익 전략 생성 차단
+        const blueprint = canGenerateMonetization(r.searchVolume, r.documentCount)
+          ? MonetizationStrategyGenerator.generate(
+              r.keyword,
+              r.searchVolume || 0,
+              r.documentCount || 0,
+              isCPAKeyword ? 'price' : (r.type === '💎 블루오션' ? 'niche' : (r.revenueEstimate?.revenueGrade === 'SSS' ? 'price' : 'info'))
+            )
+          : undefined;
         // 고도화: 분석 점수 가중치 재조정
         const rookieFriendly = calculateAdvancedRookieFriendly(r, undefined);
         const winningStrategy = generateWinningStrategy(r, rookieFriendly, blueprint);
@@ -4983,7 +5045,7 @@ export async function huntProTrafficKeywords(options: {
 
         // 🚀 Early Bird 감지: 검색량은 일정 수준 이상인데 문서수가 5,000건 이하인 경우 (스타/연예인 특화)
         const isEarlyBird = (r.searchVolume || 0) > 300 && (r.documentCount || 0) < 5000;
-        const issueForecast = isEarlyBird ? '이 키워드는 3일 내 검색량이 200% 이상 폭발할 가능성이 매우 높습니다.' : undefined;
+        const issueForecast = isEarlyBird ? undefined : undefined;
 
         // 🆕 스마트블록 키워드 식별 및 점수 보너스 (키워드 특성 기반)
         // 블루오션 + 높은 황금비율 키워드는 스마트블록에서 추천될 가능성이 높음
@@ -5039,12 +5101,14 @@ export async function huntProTrafficKeywords(options: {
         const topUpEnriched = topUp.map(r => {
           const grade = computePremiumGradeEffective(r, strictPro, { ...premiumCriteria, category });
           const isCPAKeyword = /렌탈|대출|보험|카드|통신사|인터넷사은품|상담|가입|신청|가격비교|최저가|비교추천/.test(r.keyword);
-          const blueprint = MonetizationStrategyGenerator.generate(
-            r.keyword,
-            r.searchVolume || 0,
-            r.documentCount || 0,
-            isCPAKeyword ? 'price' : (r.type === '💎 블루오션' ? 'niche' : (r.revenueEstimate?.revenueGrade === 'SSS' ? 'price' : 'info'))
-          );
+          const blueprint = canGenerateMonetization(r.searchVolume, r.documentCount)
+            ? MonetizationStrategyGenerator.generate(
+                r.keyword,
+                r.searchVolume || 0,
+                r.documentCount || 0,
+                isCPAKeyword ? 'price' : (r.type === '💎 블루오션' ? 'niche' : (r.revenueEstimate?.revenueGrade === 'SSS' ? 'price' : 'info'))
+              )
+            : undefined;
           const rookieFriendly = calculateAdvancedRookieFriendly(r, undefined);
           const winningStrategy = generateWinningStrategy(r, rookieFriendly, blueprint);
           const riskAnalysis = computeRiskAnalysis(r.keyword);
@@ -5078,12 +5142,14 @@ export async function huntProTrafficKeywords(options: {
       );
       selectedKeywords = relaxed.slice(0, count)
         .map(r => {
-          const blueprint = MonetizationStrategyGenerator.generate(
-            r.keyword,
-            r.searchVolume || 0,
-            r.documentCount || 0,
-            r.type === '💎 블루오션' ? 'niche' : (r.revenueEstimate?.revenueGrade === 'SSS' ? 'price' : 'info')
-          );
+          const blueprint = canGenerateMonetization(r.searchVolume, r.documentCount)
+            ? MonetizationStrategyGenerator.generate(
+                r.keyword,
+                r.searchVolume || 0,
+                r.documentCount || 0,
+                r.type === '💎 블루오션' ? 'niche' : (r.revenueEstimate?.revenueGrade === 'SSS' ? 'price' : 'info')
+              )
+            : undefined;
           const rookieFriendly = calculateAdvancedRookieFriendly(r, undefined);
           const winningStrategy = generateWinningStrategy(r, rookieFriendly, blueprint);
           const grade = computePremiumGradeEffective(r, strictPro, { ...premiumCriteria, category });
@@ -5309,12 +5375,14 @@ export async function huntProTrafficKeywords(options: {
     ? rerankAndSelectFinal(selectionPool, count, true)
     : rerankAndSelectFinal(selectionPool, count))
     .map(r => {
-      const blueprint = MonetizationStrategyGenerator.generate(
-        r.keyword,
-        r.searchVolume || 0,
-        r.documentCount || 0,
-        r.type === '💎 블루오션' ? 'niche' : (r.revenueEstimate?.revenueGrade === 'SSS' ? 'price' : 'info')
-      );
+      const blueprint = canGenerateMonetization(r.searchVolume, r.documentCount)
+        ? MonetizationStrategyGenerator.generate(
+            r.keyword,
+            r.searchVolume || 0,
+            r.documentCount || 0,
+            r.type === '💎 블루오션' ? 'niche' : (r.revenueEstimate?.revenueGrade === 'SSS' ? 'price' : 'info')
+          )
+        : undefined;
       // 수익성 & 신생 적합도 (v2.0 PRO 업그레이드)
       const rookieFriendly = calculateAdvancedRookieFriendly(r, r.topBlogData);
 
@@ -5341,12 +5409,14 @@ export async function huntProTrafficKeywords(options: {
         : rerankAndSelectFinal(selectionPool, count))
         .map(r => {
           const isCPAKeywordExtra = /렌탈|대출|보험|카드|통신사|인터넷사은품|상담|가입|신청|가격비교|최저가|비교추천/.test(r.keyword);
-          const blueprint = MonetizationStrategyGenerator.generate(
-            r.keyword,
-            r.searchVolume || 0,
-            r.documentCount || 0,
-            isCPAKeywordExtra ? 'price' : (r.type === '💎 블루오션' ? 'niche' : (r.revenueEstimate?.revenueGrade === 'SSS' ? 'price' : 'info'))
-          );
+          const blueprint = canGenerateMonetization(r.searchVolume, r.documentCount)
+            ? MonetizationStrategyGenerator.generate(
+                r.keyword,
+                r.searchVolume || 0,
+                r.documentCount || 0,
+                isCPAKeywordExtra ? 'price' : (r.type === '💎 블루오션' ? 'niche' : (r.revenueEstimate?.revenueGrade === 'SSS' ? 'price' : 'info'))
+              )
+            : undefined;
           // 수익성 & 신생 적합도 (v2.0 PRO 업그레이드)
           const rookieFriendly = calculateAdvancedRookieFriendly(r, r.topBlogData);
 
@@ -5358,7 +5428,7 @@ export async function huntProTrafficKeywords(options: {
 
           // 🚀 Early Bird 감지
           const isEarlyBird = (r.searchVolume || 0) > 300 && (r.documentCount || 0) < 5000;
-          const issueForecast = isEarlyBird ? '이 키워드는 3일 내 검색량이 200% 이상 폭발할 가능성이 매우 높습니다.' : undefined;
+          const issueForecast = isEarlyBird ? undefined : undefined;
 
           return {
             ...r,
@@ -5449,12 +5519,14 @@ export async function huntProTrafficKeywords(options: {
       console.log(`[PRO-TRAFFIC] 🛟 최종 보루: 원천 풀에서 ${broadPool.length}개 보충 (${selectedKeywords.length}→${selectedKeywords.length + broadPool.length}/${count}, 풀크기=${unifiedPool.length})`);
       const enrichedTopUp = broadPool.map(r => {
         const isCPA = /렌탈|대출|보험|카드|통신사|인터넷사은품|상담|가입|신청|가격비교|최저가|비교추천/.test(r.keyword);
-        const blueprint = MonetizationStrategyGenerator.generate(
-          r.keyword,
-          r.searchVolume || 0,
-          r.documentCount || 0,
-          isCPA ? 'price' : (r.type === '💎 블루오션' ? 'niche' : (r.revenueEstimate?.revenueGrade === 'SSS' ? 'price' : 'info'))
-        );
+        const blueprint = canGenerateMonetization(r.searchVolume, r.documentCount)
+          ? MonetizationStrategyGenerator.generate(
+              r.keyword,
+              r.searchVolume || 0,
+              r.documentCount || 0,
+              isCPA ? 'price' : (r.type === '💎 블루오션' ? 'niche' : (r.revenueEstimate?.revenueGrade === 'SSS' ? 'price' : 'info'))
+            )
+          : undefined;
         const rookieFriendly = calculateAdvancedRookieFriendly(r, r.topBlogData);
         const winningStrategy = generateWinningStrategy(r, rookieFriendly, blueprint);
         const riskAnalysis = computeRiskAnalysis(r.keyword);

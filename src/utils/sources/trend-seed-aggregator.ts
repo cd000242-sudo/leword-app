@@ -13,6 +13,11 @@ import { fetchOliveyoungBest, extractOliveyoungKeywords, fetchOliveyoungMultiCat
 import { fetchShoppingKeywordRank } from './naver-shopping-keyword-rank';
 import { fetchMusinsaRanking, extractMusinsaKeywords } from './musinsa-ranking';
 import { fetchYoutubeBeautyTrending, fetchYoutubeFashionTrending } from './youtube-beauty-trending';
+// 🔥 v2.14.0 Phase F: 4개 고CPC 카테고리 전용 실시간 collector
+import { getRealestateKeywords } from './realestate-collector';
+import { getFinanceKeywords } from './finance-collector';
+import { getPolicyKeywords } from './korea-kr-policy-rss';
+import { getHealthKeywords } from './health-collector';
 
 export interface TrendSeed {
     seed: string;                 // 쿼리용 정규화 키워드
@@ -330,15 +335,120 @@ const CATEGORY_YT_QUERIES: Record<string, string> = {
  * 일반 카테고리 Cross-source 시드 (뷰티/패션 외 나머지)
  *  - 네이버 쇼핑 cid (있는 경우) + YouTube 트렌딩
  *  - 단일 소스 YouTube는 노이즈로 제외, 2+ 소스 교차 시만 승격
+ *
+ * 🔥 v2.14.0 Phase F: 고CPC 4개 카테고리는 전용 실시간 뉴스·정책 소스 추가
  */
 export async function aggregateGenericCategorySeeds(category: string): Promise<TrendSeed[]> {
     const cids = CATEGORY_SHOPPING_CIDS[category] || [];
     const ytQuery = CATEGORY_YT_QUERIES[category];
+
+    // 🔥 Phase F-1: realestate 전용 — 부동산 뉴스 RSS + 네이버 쇼핑 X
+    if (category === 'realestate') {
+        const map = new Map<string, { rawName: string; sources: Set<string>; freq: number }>();
+        try {
+            const items = await getRealestateKeywords();
+            for (const it of items) {
+                const k = it.keyword?.trim();
+                if (k && k.length >= 2) addCandidate(map, k, k, 'yna-property+mbn', Math.min(3, it.frequency));
+            }
+            console.log(`[trend-agg:realestate] 부동산 뉴스 RSS: ${items.length}개`);
+        } catch (err: any) {
+            console.warn('[trend-agg:realestate] 실패:', err?.message);
+        }
+        if (ytQuery) {
+            const ytSeeds = await aggregateCommerceTrendSeeds([], { youtubeEnabled: true, youtubeQuery: ytQuery });
+            for (const s of ytSeeds) addCandidate(map, s.seed, s.rawName, 'youtube', 1);
+        }
+        return finalizeSeedMap(map);
+    }
+
+    // 🔥 Phase F-2: finance 전용 — 경제·증시 RSS
+    if (category === 'finance') {
+        const map = new Map<string, { rawName: string; sources: Set<string>; freq: number }>();
+        try {
+            const items = await getFinanceKeywords();
+            for (const it of items) {
+                const k = it.keyword?.trim();
+                if (k && k.length >= 2) addCandidate(map, k, k, 'yna-finance', Math.min(3, it.frequency));
+            }
+            console.log(`[trend-agg:finance] 금융 RSS: ${items.length}개`);
+        } catch (err: any) {
+            console.warn('[trend-agg:finance] 실패:', err?.message);
+        }
+        if (ytQuery) {
+            const ytSeeds = await aggregateCommerceTrendSeeds([], { youtubeEnabled: true, youtubeQuery: ytQuery });
+            for (const s of ytSeeds) addCandidate(map, s.seed, s.rawName, 'youtube', 1);
+        }
+        return finalizeSeedMap(map);
+    }
+
+    // 🔥 Phase F-3: policy 전용 — korea.kr 정책 RSS (정부 지원금/정책)
+    if (category === 'policy') {
+        const map = new Map<string, { rawName: string; sources: Set<string>; freq: number }>();
+        try {
+            const items = await getPolicyKeywords();
+            for (const it of items) {
+                const k = it.keyword?.trim();
+                if (k && k.length >= 2) addCandidate(map, k, k, 'korea-kr', Math.min(3, it.frequency));
+            }
+            console.log(`[trend-agg:policy] 정책 RSS: ${items.length}개`);
+        } catch (err: any) {
+            console.warn('[trend-agg:policy] 실패:', err?.message);
+        }
+        return finalizeSeedMap(map);
+    }
+
+    // 🔥 Phase F-4: health 전용 — 의료 뉴스 RSS + 네이버 쇼핑 생활/건강
+    if (category === 'health') {
+        const map = new Map<string, { rawName: string; sources: Set<string>; freq: number }>();
+        try {
+            const items = await getHealthKeywords();
+            for (const it of items) {
+                const k = it.keyword?.trim();
+                if (k && k.length >= 2) addCandidate(map, k, k, 'yna-health+docdocdoc', Math.min(3, it.frequency));
+            }
+            console.log(`[trend-agg:health] 의료 RSS: ${items.length}개`);
+        } catch (err: any) {
+            console.warn('[trend-agg:health] 실패:', err?.message);
+        }
+        // 네이버 쇼핑 생활/건강 cid (영양제/건강식품)
+        const shoppingItems = await fetchShoppingKeywordRank({ cid: '50000008' }).catch(() => [] as any[]);
+        for (const it of shoppingItems) {
+            const kw = (it.keyword || '').trim();
+            if (kw && kw.length >= 2) addCandidate(map, kw, kw, 'naver-shopping:health', 2);
+        }
+        if (ytQuery) {
+            const ytSeeds = await aggregateCommerceTrendSeeds([], { youtubeEnabled: true, youtubeQuery: ytQuery });
+            for (const s of ytSeeds) addCandidate(map, s.seed, s.rawName, 'youtube', 1);
+        }
+        return finalizeSeedMap(map);
+    }
+
+    // 일반 커머스 카테고리 fallback
     if (cids.length === 0 && !ytQuery) return [];
     return await aggregateCommerceTrendSeeds(cids, {
         youtubeEnabled: !!ytQuery,
         youtubeQuery: ytQuery,
     });
+}
+
+/**
+ * 공통 finalize: cross-validation 필터 + 정렬
+ */
+function finalizeSeedMap(map: Map<string, { rawName: string; sources: Set<string>; freq: number }>): TrendSeed[] {
+    return Array.from(map.entries())
+        .filter(([_, v]) => {
+            if (v.sources.size >= 2) return true;
+            if (Array.from(v.sources).every(s => s.startsWith('youtube'))) return false;
+            return true;
+        })
+        .map(([seed, v]) => ({
+            seed,
+            rawName: v.rawName,
+            sources: Array.from(v.sources),
+            crossScore: v.freq * v.sources.size,
+        }))
+        .sort((a, b) => b.crossScore - a.crossScore);
 }
 
 /**
