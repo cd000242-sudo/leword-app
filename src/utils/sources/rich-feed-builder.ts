@@ -160,13 +160,34 @@ function classifyForFeed(keyword: string): { id: string; icon: string; label: st
  * 목적: 개인 블로거가 실제로 글 주제를 잡을 수 있는 키워드만 SSS/SS 등급 허용
  */
 const INTENT_SUFFIX_RE = /(추천|후기|비교|방법|순위|종류|가격|리뷰|만드는법|만들기|하는법|사용법|뜻|차이|장단점|원인|증상|효과|부작용|쓰는법|설치법|가입|해지|환불)$/;
+const COMMERCIAL_RE = /(추천|비교|후기|가격|순위|할인|최저가|리뷰|원데이|무료|가성비|베스트|인기|신상|브랜드|구매)/;
+
+// 🔥 v2.23.0: 한국 인명 패턴 — 단일 토큰 + 한글 2~4자 + 성씨 시작 의심
+// 이(Lee), 김(Kim), 박(Park), 최(Choi), 정(Jung), 강(Kang) 등 40+ 성씨
+const KOREAN_SURNAMES = '김이박최정강조윤장임한오서신권황안송류홍전고문양손배백허유남심노하곽성차주우구민유진지엄채원방공현함변염여추도석선설마길연위표명기반나왕금옥육인맹제모탁국어육';
+const CELEB_PATTERN_RE = new RegExp(`^[${KOREAN_SURNAMES}][가-힣]{1,3}$`);
+
+function isLikelyCelebrityName(keyword: string): boolean {
+    const clean = keyword.trim();
+    if (clean.length < 2 || clean.length > 4) return false;
+    if (clean.includes(' ')) return false;
+    return CELEB_PATTERN_RE.test(clean);
+}
 
 function isWritableKeyword(keyword: string, docCount: number): boolean {
     const tokens = keyword.trim().split(/\s+/).filter(Boolean).length;
     if (tokens >= 2) return true;                          // 2단어+ 롱테일
     if (INTENT_SUFFIX_RE.test(keyword)) return true;       // 검색 의도 어미
-    if (docCount > 0 && docCount <= 5000) return true;     // 저경쟁 희소 고유명사 (예: 프래그마타·늑구)
-    return false;                                           // 단일 범용 명사 → 블로그 집필 난감
+    // 🔥 v2.23.0: 인명 의심 키워드는 dc 극소(<500)만 writable (초 블루오션 고유명사 한해서만)
+    if (isLikelyCelebrityName(keyword)) {
+        return docCount > 0 && docCount <= 500;
+    }
+    if (docCount > 0 && docCount <= 3000) return true;     // 🔥 v2.23.0: 5000→3000 (타이트)
+    return false;
+}
+
+function hasCommercialIntent(keyword: string): boolean {
+    return COMMERCIAL_RE.test(keyword);
 }
 
 /**
@@ -183,15 +204,21 @@ function calculateGrade(volume: number, docCount: number, ratio: number, score: 
     // 🔥 극단 범용 빅워드 제거 — 개인 블로거가 경쟁 불가능한 단일 명사만 차단
     if (!writable && docCount > 100_000) return '';
 
+    // 🔥 v2.23.0: 인명 단일 토큰은 dc 1000 초과 시 grade 제외 (뉴스성 트래픽 배제)
+    const isCelebLike = isLikelyCelebrityName(keyword);
+    if (isCelebLike && docCount > 1000) return '';
+
+    // 🔥 v2.23.0: S 등급에 writable 강제 → 인명/범용 단어 S 승급 차단
+    // (진짜 초블루오션 dc<500 인 희소 인명만 writable=true 되어 승급 가능)
     if (score >= 85 && volume >= 1000 && docCount <= 5000 && ratio >= 5 && writable) return 'SSS';
     if (score >= 75 && volume >= 500 && docCount <= 10000 && ratio >= 3 && writable) return 'SS';
-    if (score >= 65 && volume >= 300 && ratio >= 2) return 'S';
-    if (score >= 55 && volume >= 100) return 'A';
+    if (score >= 65 && volume >= 300 && ratio >= 2 && writable) return 'S';
+    if (score >= 55 && volume >= 100 && writable) return 'A';
     if (score >= 45) return 'B';
     return '';
 }
 
-function calculateScore(volume: number, docCount: number, ratio: number, cpc: number, intent: number): number {
+function calculateScore(volume: number, docCount: number, ratio: number, cpc: number, intent: number, keyword?: string): number {
     // 수요공급 (45%) — 정보성 블루오션 시드(위키/트렌딩)의 기회지수 반영 강화
     const sd = Math.min(100,
         ratio >= 20 ? 100 :
@@ -214,7 +241,24 @@ function calculateScore(volume: number, docCount: number, ratio: number, cpc: nu
     // 경쟁도 (15%)
     const docPenalty = docCount > 50000 ? 30 : docCount > 20000 ? 20 : docCount > 10000 ? 10 : docCount > 5000 ? 5 : 0;
     const comp = Math.max(0, 100 - docPenalty);
-    return Math.round(sd * 0.45 + vol * 0.25 + monetization * 0.15 + comp * 0.15);
+    let base = sd * 0.45 + vol * 0.25 + monetization * 0.15 + comp * 0.15;
+
+    // 🔥 v2.23.0: 끝판왕 품질 보정
+    if (keyword) {
+        // (+) 상업성 키워드 (추천/비교/후기/가격/순위...): +15%
+        if (hasCommercialIntent(keyword)) base *= 1.15;
+        // (+) 진짜 블루오션 (dc<1000 + sv>500 + gr>10): +20%
+        if (docCount > 0 && docCount < 1000 && volume > 500 && ratio >= 10) base *= 1.20;
+        // (+) 고CPC (2000원+): 이미 cpcScore 반영되지만 SSS 승격 위해 추가 +8%
+        if (cpc >= 2000) base *= 1.08;
+        // (-) 인명 의심 단일 토큰: -35% (writable=false라 grade 는 탈락하나 score 자체도 낮게)
+        if (isLikelyCelebrityName(keyword)) base *= 0.65;
+        // (-) 의도 없는 단일 범용 토큰 + 낮은 intent: -15%
+        const tokens = keyword.trim().split(/\s+/).length;
+        if (tokens === 1 && !INTENT_SUFFIX_RE.test(keyword) && intent < 3) base *= 0.85;
+    }
+
+    return Math.round(Math.min(100, Math.max(0, base)));
 }
 
 /**
@@ -512,7 +556,7 @@ export async function buildRichFeed(
 
                 // 스코어링에는 정적 추정 CPC 사용 (점수 일관성 위해) — UI 노출값은 realCpc만
                 const scoringCpc = estimateCPC(sig.keyword, cat.id);
-                const score = calculateScore(totalVolume, docCount, goldenRatio, scoringCpc, intent);
+                const score = calculateScore(totalVolume, docCount, goldenRatio, scoringCpc, intent, sig.keyword);
                 let grade = calculateGrade(totalVolume, docCount, goldenRatio, score, sig.keyword);
                 // 문서수 미확인 키워드는 최고 B등급까지만
                 if (!hasValidDocCount && grade && grade !== 'B') grade = 'B';
@@ -633,7 +677,7 @@ let cached: { result: RichFeedResult; expiresAt: number } | null = null;
 const CACHE_TTL = 3 * 60_000;         // 메모리 캐시: 15분→3분
 const DISK_CACHE_TTL = 30 * 60_000;   // 디스크 캐시: 4시간→30분 (안전망용)
 const MIN_ACCEPTABLE_TOTAL = 20;       // 이 미만이면 "실패"로 간주, 디스크 캐시 폴백
-const CACHE_SCHEMA_VERSION = 'v2.22.0-turbo';  // 🔥 v2.22.0: 초고속 모드 (14분 → 1~2분)
+const CACHE_SCHEMA_VERSION = 'v2.23.0-quality';  // 🔥 v2.23.0: 끝판왕 품질 (인명 차단 + 상업성 부스트)
 
 function getDiskCachePath(): string {
     // app.getPath 가 있으면 userData, 없으면 temp 사용 (테스트/개발 환경)
