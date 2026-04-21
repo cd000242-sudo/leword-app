@@ -266,6 +266,57 @@ export function setupSourceSignalHandlers(): void {
         return { success: true };
     });
 
+    // 🔥 v2.19.0 Phase L-3: 30일 트렌드 시계열 + 4가지 타입 분류
+    ipcMain.handle('keyword-trend-30day', async (_e, keyword: string) => {
+        try {
+            const { EnvironmentManager } = await import('../../utils/environment-manager');
+            const { analyzeKeywordTrend } = await import('../../utils/trend-type-classifier');
+            const env = EnvironmentManager.getInstance().getConfig();
+            const config = {
+                clientId: env.naverClientId || process.env['NAVER_CLIENT_ID'] || '',
+                clientSecret: env.naverClientSecret || process.env['NAVER_CLIENT_SECRET'] || '',
+            };
+            if (!config.clientId) return { success: false, error: 'Naver API 키 없음' };
+            const result = await analyzeKeywordTrend(keyword, config);
+            return { success: true, ...result };
+        } catch (err: any) {
+            return { success: false, error: err?.message };
+        }
+    });
+
+    // 🔥 v2.19.0 Phase L-4: 세부 키워드 드릴다운 (시드 → 롱테일 10개)
+    ipcMain.handle('rich-feed-drilldown', async (_e, seed: string) => {
+        try {
+            const { expandToLongtailReal } = await import('../../utils/pro-traffic-keyword-hunter');
+            const { getNaverKeywordSearchVolumeSeparate } = await import('../../utils/naver-datalab-api');
+            const { EnvironmentManager } = await import('../../utils/environment-manager');
+            const env = EnvironmentManager.getInstance().getConfig();
+            const config = {
+                clientId: env.naverClientId || process.env['NAVER_CLIENT_ID'] || '',
+                clientSecret: env.naverClientSecret || process.env['NAVER_CLIENT_SECRET'] || '',
+            };
+            if (!config.clientId) return { success: false, error: 'Naver API 키 없음' };
+            const expanded = await expandToLongtailReal(seed);
+            const candidates = expanded.slice(0, 25);
+            if (candidates.length === 0) return { success: true, items: [] };
+            const metrics = await getNaverKeywordSearchVolumeSeparate(config, candidates, { includeDocumentCount: true });
+            const items = metrics
+                .map((m: any) => {
+                    const sv = (m.pcSearchVolume || 0) + (m.mobileSearchVolume || 0);
+                    const dc = m.documentCount || 0;
+                    const gr = dc > 0 ? sv / dc : 0;
+                    return { keyword: m.keyword, searchVolume: sv, documentCount: dc, goldenRatio: gr };
+                })
+                .filter(i => i.searchVolume >= 100 && i.documentCount > 0 && i.goldenRatio >= 0.5)
+                .sort((a, b) => b.goldenRatio - a.goldenRatio)
+                .slice(0, 10);
+            return { success: true, items };
+        } catch (err: any) {
+            console.error('[rich-feed-drilldown] 실패:', err);
+            return { success: false, error: err?.message };
+        }
+    });
+
     // ========== 내보내기 (CSV / JSON / 클립보드) ==========
     ipcMain.handle('rich-feed-export', async (_e, format: 'csv' | 'json' | 'clipboard', options?: any) => {
         try {

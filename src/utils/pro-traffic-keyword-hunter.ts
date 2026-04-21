@@ -6282,7 +6282,7 @@ function getProfitableSeasonKeywords(month: number): string[] {
  * 키워드마스터를 완전히 압도하는 다중 레이어 확장!
  * 1차 확장 → 2차 재귀 확장 → 3차 롱테일 → 황금 필터링
  */
-async function expandToLongtailReal(seed: string, depth: number = 1): Promise<string[]> {
+export async function expandToLongtailReal(seed: string, depth: number = 1): Promise<string[]> {
   const results: string[] = [];
 
   if (!seed || seed.length < 2) {

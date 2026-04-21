@@ -736,8 +736,24 @@
       </div>
 
       <!-- 카테고리 탭 (동적 생성) -->
-      <div id="rfCategoryTabs" style="display:flex; gap:6px; margin-bottom:14px; flex-wrap:wrap;">
+      <div id="rfCategoryTabs" style="display:flex; gap:6px; margin-bottom:10px; flex-wrap:wrap;">
         <button class="rf-tab active" data-cat="*" onclick="rfFilterCategory('*', this)">📊 종합</button>
+      </div>
+
+      <!-- 🔥 v2.19.0: 검색량 구간 필터 + 트렌드 타입 필터 -->
+      <div style="display:flex; gap:8px; margin-bottom:14px; flex-wrap:wrap; align-items:center;">
+        <span style="color:#94a3b8; font-size:11px; font-weight:700; margin-right:4px;">📏 검색량:</span>
+        <button class="rf-svtier active" data-svmin="0" data-svmax="999999999" onclick="rfFilterSvTier(this, 0, 999999999)" style="padding:6px 12px; border-radius:8px; border:1px solid rgba(255,255,255,0.15); background:rgba(255,255,255,0.05); color:#e2e8f0; font-size:11px; font-weight:700; cursor:pointer;">전체</button>
+        <button class="rf-svtier" onclick="rfFilterSvTier(this, 100, 500)" style="padding:6px 12px; border-radius:8px; border:1px solid rgba(34,197,94,0.3); background:rgba(34,197,94,0.08); color:#86efac; font-size:11px; font-weight:700; cursor:pointer;">🌱 초보 (100~500)</button>
+        <button class="rf-svtier" onclick="rfFilterSvTier(this, 500, 2000)" style="padding:6px 12px; border-radius:8px; border:1px solid rgba(96,165,250,0.3); background:rgba(96,165,250,0.08); color:#93c5fd; font-size:11px; font-weight:700; cursor:pointer;">🌿 중급 (500~2K)</button>
+        <button class="rf-svtier" onclick="rfFilterSvTier(this, 2000, 10000)" style="padding:6px 12px; border-radius:8px; border:1px solid rgba(251,191,36,0.3); background:rgba(251,191,36,0.08); color:#fcd34d; font-size:11px; font-weight:700; cursor:pointer;">🌳 고수 (2K~10K)</button>
+        <button class="rf-svtier" onclick="rfFilterSvTier(this, 10000, 999999999)" style="padding:6px 12px; border-radius:8px; border:1px solid rgba(239,68,68,0.3); background:rgba(239,68,68,0.08); color:#fca5a5; font-size:11px; font-weight:700; cursor:pointer;">🏆 레전드 (10K+)</button>
+        <span style="color:#94a3b8; font-size:11px; font-weight:700; margin-left:14px; margin-right:4px;">📈 트렌드:</span>
+        <button class="rf-trend active" data-trend="*" onclick="rfFilterTrend(this, '*')" style="padding:6px 12px; border-radius:8px; border:1px solid rgba(255,255,255,0.15); background:rgba(255,255,255,0.05); color:#e2e8f0; font-size:11px; font-weight:700; cursor:pointer;">전체</button>
+        <button class="rf-trend" onclick="rfFilterTrend(this, 'evergreen')" style="padding:6px 12px; border-radius:8px; border:1px solid rgba(34,197,94,0.3); background:rgba(34,197,94,0.08); color:#86efac; font-size:11px; font-weight:700; cursor:pointer;">🐢 연금형</button>
+        <button class="rf-trend" onclick="rfFilterTrend(this, 'skyrocket')" style="padding:6px 12px; border-radius:8px; border:1px solid rgba(239,68,68,0.3); background:rgba(239,68,68,0.08); color:#fca5a5; font-size:11px; font-weight:700; cursor:pointer;">🚀 떡상</button>
+        <button class="rf-trend" onclick="rfFilterTrend(this, 'seasonal')" style="padding:6px 12px; border-radius:8px; border:1px solid rgba(96,165,250,0.3); background:rgba(96,165,250,0.08); color:#93c5fd; font-size:11px; font-weight:700; cursor:pointer;">❄️ 시즌성</button>
+        <button class="rf-trend" onclick="rfFilterTrend(this, 'flash')" style="padding:6px 12px; border-radius:8px; border:1px solid rgba(148,163,184,0.3); background:rgba(148,163,184,0.08); color:#cbd5e1; font-size:11px; font-weight:700; cursor:pointer;">📉 단발성</button>
       </div>
 
       <!-- 키워드 표 -->
@@ -882,13 +898,41 @@
         wrap.innerHTML = html;
       }
 
+      // 🔥 v2.19.0: 필터 state (카테고리 + 검색량 구간 + 트렌드 타입)
+      let rfSvMin = 0, rfSvMax = 999999999;
+      let rfCurrentTrend = '*';
+
+      function rfApplyAllFilters() {
+        let filtered = rfAllRows;
+        if (rfCurrentCategory !== '*') filtered = filtered.filter(r => r.category === rfCurrentCategory);
+        filtered = filtered.filter(r => {
+          const sv = r.searchVolume || 0;
+          return sv >= rfSvMin && sv < rfSvMax;
+        });
+        if (rfCurrentTrend !== '*') filtered = filtered.filter(r => (r.trendType || 'unknown') === rfCurrentTrend);
+        renderRichFeedTable(filtered);
+      }
+
       function rfFilterCategory(cat, btnEl) {
         rfCurrentCategory = cat;
         document.querySelectorAll('.rf-tab').forEach(t => t.classList.remove('active'));
         if (btnEl) btnEl.classList.add('active');
-        const filtered = (cat === '*') ? rfAllRows : rfAllRows.filter(r => r.category === cat);
-        renderRichFeedTable(filtered);
+        rfApplyAllFilters();
       }
+
+      window.rfFilterSvTier = function(btnEl, min, max) {
+        rfSvMin = min; rfSvMax = max;
+        document.querySelectorAll('.rf-svtier').forEach(t => t.classList.remove('active'));
+        if (btnEl) btnEl.classList.add('active');
+        rfApplyAllFilters();
+      };
+
+      window.rfFilterTrend = function(btnEl, trend) {
+        rfCurrentTrend = trend;
+        document.querySelectorAll('.rf-trend').forEach(t => t.classList.remove('active'));
+        if (btnEl) btnEl.classList.add('active');
+        rfApplyAllFilters();
+      };
 
       function renderRichFeedTable(rows) {
         const tbody = document.getElementById('rfTbody');
@@ -896,18 +940,36 @@
           tbody.innerHTML = '<tr><td colspan="12" style="padding:40px; text-align:center; color:#64748b;">결과 없음</td></tr>';
           return;
         }
-        tbody.innerHTML = rows.map(r => {
+        tbody.innerHTML = rows.map((r, idx) => {
           const ratioColor = r.goldenRatio >= 100 ? '#dc2626' : r.goldenRatio >= 50 ? '#f59e0b' : r.goldenRatio >= 10 ? '#fbbf24' : '#94a3b8';
           const sources = (r.sources || []).slice(0, 3).map(s => `<span class="rf-source-tag">${s}</span>`).join('');
           const moreSources = r.sourceCount > 3 ? `<span class="rf-source-tag">+${r.sourceCount - 3}</span>` : '';
           const kwSafe = String(r.keyword).replace(/"/g, '&quot;').replace(/'/g, "\\'");
-          const blueOcean = r.isBlueOcean ? '🌊' : '';
+          // 🔥 v2.19.0 Phase L-5: 블루오션 세분화
+          //   💎 극소 블루오션: gr >= 10 & docCount <= 500
+          //   🐋 대어 블루오션: gr >= 10 & searchVolume >= 10000
+          //   🌊 일반 블루오션: gr >= 5
+          let bluebadge = '';
+          if (r.goldenRatio >= 10 && r.documentCount <= 500) bluebadge = '<span title="극소 블루오션: 문서수 500↓, sv/dc 10배+">💎</span>';
+          else if (r.goldenRatio >= 10 && r.searchVolume >= 10000) bluebadge = '<span title="대어 블루오션: 검색량 10K+, sv/dc 10배+">🐋</span>';
+          else if (r.goldenRatio >= 10) bluebadge = '<span title="극블루오션: sv/dc 10배+">💎</span>';
+          else if (r.goldenRatio >= 5) bluebadge = '<span title="블루오션: sv/dc 5배+">🌊</span>';
+          // 🔥 v2.19.0 Phase L-2: 트렌드 타입 배지
+          const trendBadge = (() => {
+            const t = r.trendType || '';
+            const l = r.trendLabel || '';
+            if (t === 'evergreen') return `<span class="rf-trend-badge" style="background:rgba(34,197,94,0.15); color:#86efac; border:1px solid rgba(34,197,94,0.3); padding:2px 6px; border-radius:5px; font-size:9px; font-weight:700;" title="30일 안정. 꾸준 방문자">${l}</span>`;
+            if (t === 'skyrocket') return `<span class="rf-trend-badge" style="background:rgba(239,68,68,0.15); color:#fca5a5; border:1px solid rgba(239,68,68,0.3); padding:2px 6px; border-radius:5px; font-size:9px; font-weight:700;" title="3일 급증. 지금 당장">${l}</span>`;
+            if (t === 'flash') return `<span class="rf-trend-badge" style="background:rgba(148,163,184,0.15); color:#cbd5e1; border:1px solid rgba(148,163,184,0.3); padding:2px 6px; border-radius:5px; font-size:9px; font-weight:700;" title="급락 중. 회피">${l}</span>`;
+            if (t === 'seasonal') return `<span class="rf-trend-badge" style="background:rgba(96,165,250,0.15); color:#93c5fd; border:1px solid rgba(96,165,250,0.3); padding:2px 6px; border-radius:5px; font-size:9px; font-weight:700;" title="시즌 임박. 2주 내">${l}</span>`;
+            return '';
+          })();
           return `
-            <tr>
+            <tr id="rf-row-${idx}">
               <td style="padding:10px 8px; text-align:center; color:#64748b; font-weight:700;">${r.rank}</td>
               <td style="padding:10px 8px; text-align:center;"><span title="${r.category}">${r.categoryIcon}</span></td>
               <td style="padding:10px 8px; text-align:center;">${r.grade ? `<span class="rf-grade ${r.grade}">${r.grade}</span>` : '-'}</td>
-              <td style="padding:10px 8px; font-weight:700; color:#f1f5f9;">${blueOcean} ${r.keyword}</td>
+              <td style="padding:10px 8px; font-weight:700; color:#f1f5f9;">${bluebadge} ${r.keyword} ${trendBadge}</td>
               <td style="padding:10px 8px; text-align:right; color:#cbd5e1;">${r.searchVolume.toLocaleString()}</td>
               <td style="padding:10px 8px; text-align:right; color:#94a3b8;">${r.documentCount.toLocaleString()}</td>
               <td style="padding:10px 8px; text-align:right; font-weight:800; color:${ratioColor};">${r.goldenRatio.toFixed(2)}</td>
@@ -916,13 +978,119 @@
               <td style="padding:10px 8px; text-align:left;">${sources}${moreSources}</td>
               <td style="padding:10px 8px; text-align:center; white-space:nowrap;">
                 <button class="rf-action-btn" title="복사" onclick="rfCopyKw('${kwSafe}')">📋</button>
-                <button class="rf-action-btn" title="네이버 검색" onclick="window.electronAPI.openExternal('https://search.naver.com/search.naver?query=' + encodeURIComponent('${kwSafe}'))">🔍</button>
-                <button class="rf-action-btn" title="LEWORD 분석" onclick="rfAnalyze('${kwSafe}')">⚡</button>
+                <button class="rf-action-btn" title="세부 키워드 10개" onclick="rfDrilldown('${kwSafe}', ${idx})">🔍</button>
+                <button class="rf-action-btn" title="30일 트렌드 그래프" onclick="rfShowTrendGraph('${kwSafe}')">📈</button>
+                <button class="rf-action-btn" title="네이버 검색" onclick="window.electronAPI.openExternal('https://search.naver.com/search.naver?query=' + encodeURIComponent('${kwSafe}'))">🌐</button>
               </td>
             </tr>
+            <tr id="rf-drill-${idx}" style="display:none;"><td colspan="11" style="padding:0; background:rgba(0,0,0,0.3);"><div id="rf-drill-content-${idx}" style="padding:14px 24px; color:#cbd5e1; font-size:12px;"></div></td></tr>
           `;
         }).join('');
       }
+
+      // 🔥 v2.19.0 Phase L-4: 세부 키워드 드릴다운
+      window.rfDrilldown = async function(kw, idx) {
+        const row = document.getElementById('rf-drill-' + idx);
+        const content = document.getElementById('rf-drill-content-' + idx);
+        if (!row || !content) return;
+        // 토글 (이미 열려있으면 닫기)
+        if (row.style.display !== 'none') {
+          row.style.display = 'none';
+          return;
+        }
+        row.style.display = '';
+        content.innerHTML = '<div style="color:#64748b;">🔍 "' + kw + '" 세부 키워드 10개 찾는 중... (5-15초)</div>';
+        try {
+          const res = await window.electronAPI.invoke('rich-feed-drilldown', kw);
+          if (!res.success) {
+            content.innerHTML = '<div style="color:#fca5a5;">❌ ' + (res.error || '실패') + '</div>';
+            return;
+          }
+          const items = res.items || [];
+          if (items.length === 0) {
+            content.innerHTML = '<div style="color:#64748b;">관련 세부 키워드를 찾지 못했습니다.</div>';
+            return;
+          }
+          content.innerHTML = `
+            <div style="font-size:11px; color:#94a3b8; font-weight:700; margin-bottom:8px;">🔍 "${kw}" 관련 세부 키워드 ${items.length}개 (검색량↑ / 문서수↓ / 황금비율↑순)</div>
+            <table style="width:100%; font-size:11px; color:#cbd5e1;">
+              <thead style="color:#64748b; font-weight:700;">
+                <tr><th style="text-align:left; padding:4px 8px;">키워드</th><th style="text-align:right; padding:4px 8px;">검색량</th><th style="text-align:right; padding:4px 8px;">문서수</th><th style="text-align:right; padding:4px 8px;">황금비율</th><th></th></tr>
+              </thead>
+              <tbody>
+                ${items.map(it => {
+                  const bg = it.goldenRatio >= 10 ? 'rgba(34,197,94,0.08)' : 'transparent';
+                  const safe = String(it.keyword).replace(/'/g, "\\'");
+                  return `<tr style="background:${bg};">
+                    <td style="padding:6px 8px; font-weight:600; color:#e2e8f0;">${it.goldenRatio >= 10 ? '💎' : it.goldenRatio >= 5 ? '🌊' : ''} ${it.keyword}</td>
+                    <td style="padding:6px 8px; text-align:right;">${it.searchVolume.toLocaleString()}</td>
+                    <td style="padding:6px 8px; text-align:right; color:#94a3b8;">${it.documentCount.toLocaleString()}</td>
+                    <td style="padding:6px 8px; text-align:right; font-weight:700; color:${it.goldenRatio >= 10 ? '#22c55e' : it.goldenRatio >= 5 ? '#34d399' : '#60a5fa'};">${it.goldenRatio.toFixed(2)}</td>
+                    <td style="padding:6px 8px;"><button class="rf-action-btn" style="font-size:10px;" onclick="rfCopyKw('${safe}')">📋</button></td>
+                  </tr>`;
+                }).join('')}
+              </tbody>
+            </table>`;
+        } catch (e) {
+          content.innerHTML = '<div style="color:#fca5a5;">❌ ' + e.message + '</div>';
+        }
+      };
+
+      // 🔥 v2.19.0 Phase L-3: 30일 트렌드 그래프 팝업
+      window.rfShowTrendGraph = async function(kw) {
+        const existing = document.getElementById('rfTrendModal');
+        if (existing) existing.remove();
+        const modal = document.createElement('div');
+        modal.id = 'rfTrendModal';
+        modal.style.cssText = 'position:fixed; inset:0; background:rgba(0,0,0,0.75); backdrop-filter:blur(6px); z-index:10000; display:flex; justify-content:center; align-items:center;';
+        modal.innerHTML = `<div style="background:#1e293b; border-radius:16px; padding:24px 28px; max-width:720px; width:92%; box-shadow:0 20px 60px rgba(0,0,0,0.5); color:white;">
+          <div style="display:flex; justify-content:space-between; margin-bottom:12px;">
+            <div>
+              <div style="font-size:16px; font-weight:800;">📈 30일 트렌드 — ${kw}</div>
+              <div id="rfTrendLabel" style="font-size:11px; color:#94a3b8; margin-top:4px;">분석 중...</div>
+            </div>
+            <button onclick="document.getElementById('rfTrendModal').remove()" style="background:rgba(255,255,255,0.1); border:none; border-radius:8px; color:white; padding:6px 12px; cursor:pointer;">✕</button>
+          </div>
+          <div id="rfTrendChart" style="height:260px; background:rgba(0,0,0,0.3); border-radius:10px; padding:16px; display:flex; align-items:center; justify-content:center; color:#64748b;">로딩 중...</div>
+          <div id="rfTrendRec" style="margin-top:12px; padding:10px 14px; background:rgba(251,191,36,0.08); border-left:3px solid #fbbf24; border-radius:6px; font-size:12px; color:#fcd34d; display:none;"></div>
+        </div>`;
+        document.body.appendChild(modal);
+        modal.addEventListener('click', (e) => { if (e.target === modal) modal.remove(); });
+        try {
+          const res = await window.electronAPI.invoke('keyword-trend-30day', kw);
+          if (!res.success) {
+            document.getElementById('rfTrendChart').innerHTML = '<div style="color:#fca5a5;">❌ ' + (res.error || '실패') + '</div>';
+            return;
+          }
+          const { series, analysis } = res;
+          document.getElementById('rfTrendLabel').textContent = analysis.label ? `${analysis.label} · 최근3일 평균 ${analysis.recent3Avg.toFixed(1)} / 30일 평균 ${analysis.monthAvg.toFixed(1)} / 변동성 ${(analysis.volatility * 100).toFixed(0)}%` : '분류 불가';
+          // SVG 라인차트
+          const chart = document.getElementById('rfTrendChart');
+          if (!series || series.length === 0) {
+            chart.innerHTML = '<div style="color:#64748b;">시계열 데이터 없음</div>';
+            return;
+          }
+          const w = 660, h = 220, pad = 20;
+          const maxV = Math.max(...series, 1);
+          const pts = series.map((v, i) => {
+            const x = pad + (i / (series.length - 1)) * (w - 2 * pad);
+            const y = h - pad - (v / maxV) * (h - 2 * pad);
+            return `${x.toFixed(1)},${y.toFixed(1)}`;
+          }).join(' ');
+          const color = analysis.type === 'skyrocket' ? '#ef4444' : analysis.type === 'evergreen' ? '#22c55e' : analysis.type === 'seasonal' ? '#60a5fa' : analysis.type === 'flash' ? '#94a3b8' : '#fbbf24';
+          chart.innerHTML = `<svg width="100%" viewBox="0 0 ${w} ${h}" preserveAspectRatio="none">
+            <polyline points="${pts}" fill="none" stroke="${color}" stroke-width="2.5" />
+            <polyline points="${pts.split(' ')[0]} ${pts} ${w - pad},${h - pad} ${pad},${h - pad}" fill="${color}" fill-opacity="0.12" stroke="none" />
+          </svg>`;
+          if (analysis.recommendation) {
+            const rec = document.getElementById('rfTrendRec');
+            rec.style.display = 'block';
+            rec.textContent = '💡 ' + analysis.recommendation;
+          }
+        } catch (e) {
+          document.getElementById('rfTrendChart').innerHTML = '<div style="color:#fca5a5;">❌ ' + e.message + '</div>';
+        }
+      };
 
       function freshIcon(f) {
         return f === 'BURNING' ? '🔴 BURNING' : f === 'RISING' ? '🟡 RISING' : f === 'EVERGREEN' ? '🔵 EVER' : '🟢 STABLE';

@@ -42,6 +42,10 @@ export interface RichKeywordRow {
     sourceCount: number;
     purchaseIntent: number;
     isBlueOcean: boolean;
+    // 🔥 v2.19.0 Phase L-2: 30일 트렌드 타입 (상위 30개만 분류됨)
+    trendType?: 'evergreen' | 'skyrocket' | 'flash' | 'seasonal' | 'unknown';
+    trendLabel?: string;
+    trendRecommendation?: string;
 }
 
 export interface RichFeedResult {
@@ -498,6 +502,31 @@ export async function buildRichFeed(
     });
 
     const top = enrichedRows.slice(0, limit).map((r, idx) => ({ ...r, rank: idx + 1 }));
+
+    // 🔥 v2.19.0 Phase L-2: 상위 30개에 대해 트렌드 타입 분류 (배치 5개씩)
+    emit('trend', 92, `30일 트렌드 타입 분류 중 (상위 ${Math.min(top.length, 30)}건)...`);
+    try {
+        const { analyzeKeywordTrend } = require('../trend-type-classifier');
+        if (clientId && clientSecret) {
+            const trendTargets = top.slice(0, 30);
+            const BATCH = 5;
+            for (let i = 0; i < trendTargets.length; i += BATCH) {
+                const batch = trendTargets.slice(i, i + BATCH);
+                await Promise.all(batch.map(async (r: any) => {
+                    try {
+                        const { analysis } = await analyzeKeywordTrend(r.keyword, { clientId, clientSecret });
+                        r.trendType = analysis.type;
+                        r.trendLabel = analysis.label;
+                        r.trendRecommendation = analysis.recommendation;
+                    } catch {}
+                }));
+                emit('trend', 92 + Math.round((i / trendTargets.length) * 6),
+                    `트렌드 분류 ${Math.min(i + BATCH, trendTargets.length)}/${trendTargets.length}`);
+            }
+        }
+    } catch (e: any) {
+        console.warn('[rich-feed] 트렌드 분류 실패:', e?.message);
+    }
 
     emit('done', 100, `완료 — ${top.length}건 발굴`);
 
