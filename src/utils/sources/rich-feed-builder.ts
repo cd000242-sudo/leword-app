@@ -174,14 +174,31 @@ function isLikelyCelebrityName(keyword: string): boolean {
     return CELEB_PATTERN_RE.test(clean);
 }
 
+// 🔥 v2.27.6: 집필 가능성 필터 — "글 쓸 수 있는 키워드"만 통과
+//   사용자 피드백: "클로드 할인, 적금 추천, 네이버 리뷰 이런 거 나오는데 글 쓸 수 있나?"
+//   분석: 2-token 이어도 양쪽이 너무 범용이면 주제가 너무 broad → 글감 부족.
+const GENERIC_BROAD_RE = /^(적금|예금|카드|대출|보험|투자|주식|펀드|ETF|연금|세금|건강|영양제|비타민|음식|요리|청소|여행|맛집|공부|운동|헬스|다이어트|뷰티|화장품|샴푸|선크림|의류|패션|가구|인테리어|네이버|구글|카카오|삼성|엘지|쿠팡|클로드|챗GPT|유튜브|인스타|페이스북|브랜드|제품|상품|서비스|리뷰)$/;
+const GENERIC_ACTION_RE = /^(추천|후기|리뷰|비교|순위|가격|방법|꿀팁|정리|할인|세일|이벤트|인기|베스트|신상|최신|tips|모음|목록|소개|설명|정보)$/i;
+
+function isTooGeneric2Token(keyword: string): boolean {
+    const tokens = keyword.trim().split(/\s+/).filter(Boolean);
+    if (tokens.length !== 2) return false;
+    const [a, b] = tokens;
+    // 둘 다 일반화 토큰이면 글감 부족 (예: "적금 추천", "네이버 리뷰", "클로드 할인")
+    if (GENERIC_BROAD_RE.test(a) && GENERIC_ACTION_RE.test(b)) return true;
+    if (GENERIC_BROAD_RE.test(b) && GENERIC_ACTION_RE.test(a)) return true;
+    return false;
+}
+
 function isWritableKeyword(keyword: string, docCount: number): boolean {
     const tokens = keyword.trim().split(/\s+/).filter(Boolean).length;
-    if (tokens >= 2) return true;                          // 2단어+ 롱테일
+    // 🔥 v2.27.6: 범용 2-token 조합 차단 (클로드 할인/적금 추천/네이버 리뷰 등)
+    if (tokens === 2 && isTooGeneric2Token(keyword)) return false;
+    if (tokens >= 2) return true;                          // 2단어+ 롱테일 (generic 아닌 경우)
     if (INTENT_SUFFIX_RE.test(keyword)) return true;       // 검색 의도 어미
     if (isLikelyCelebrityName(keyword)) {
         return docCount > 0 && docCount <= 500;
     }
-    // 🔥 v2.25.1: 단일토큰 writable 완화 3000 → 15000 (단일 고유명사 블루오션 포함)
     if (docCount > 0 && docCount <= 15000) return true;
     return false;
 }
@@ -203,6 +220,8 @@ function calculateGrade(volume: number, docCount: number, ratio: number, score: 
     const writable = isWritableKeyword(keyword, docCount);
     // 극단 범용 빅워드 제거 — 개인 블로거가 경쟁 불가능한 단일 명사만 차단
     if (!writable && docCount > 100_000) return '';
+    // 🔥 v2.27.6: 범용 2-token 조합은 dc 무관 탈락 (글감 부족)
+    if (!writable && isTooGeneric2Token(keyword)) return '';
 
     // 인명 단일 토큰은 dc 1000 초과 시 grade 제외
     const isCelebLike = isLikelyCelebrityName(keyword);
@@ -732,7 +751,7 @@ let cached: { result: RichFeedResult; expiresAt: number } | null = null;
 const CACHE_TTL = 3 * 60_000;         // 메모리 캐시: 15분→3분
 const DISK_CACHE_TTL = 30 * 60_000;   // 디스크 캐시: 4시간→30분 (안전망용)
 const MIN_ACCEPTABLE_TOTAL = 20;       // 이 미만이면 "실패"로 간주, 디스크 캐시 폴백
-const CACHE_SCHEMA_VERSION = 'v2.27.5-hardcap';  // 🔥 v2.27.5: 5분 하드캡 + 풀 400
+const CACHE_SCHEMA_VERSION = 'v2.27.6-writable-strict';  // 🔥 v2.27.6: 범용 2-token 조합 차단
 
 function getDiskCachePath(): string {
     // app.getPath 가 있으면 userData, 없으면 temp 사용 (테스트/개발 환경)
