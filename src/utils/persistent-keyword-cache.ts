@@ -16,7 +16,7 @@ interface PersistentCacheEntry {
   savedAt: number; // epoch ms
 }
 
-const TTL_MS = 24 * 60 * 60 * 1000; // 24시간
+const TTL_MS = 7 * 24 * 60 * 60 * 1000; // 🔥 v2.28.0: 24h → 7일 (키워드 인기도 안정)
 const WRITE_DEBOUNCE_MS = 5000;
 const CACHE_FILE_NAME = 'keyword-cache.json';
 const MAX_ENTRIES = 50_000;   // 🔥 v2.13.0 M10: 디스크 캐시 상한 (초과 시 오래된 것부터 제거)
