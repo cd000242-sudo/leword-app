@@ -794,6 +794,8 @@
             <tr><td colspan="11" style="padding:60px; text-align:center; color:#64748b;">⚡ 발굴 시작 버튼을 눌러주세요.<br><span style="font-size:11px;">17개 데이터 소스에서 시드 수집 → 검색량·문서수 실측까지 약 30~60초 소요</span></td></tr>
           </tbody>
         </table>
+        <!-- 🔥 v2.27.1: 20개씩 페이지네이션 -->
+        <div id="rfPagination" style="display:none; margin-top:14px; padding:10px; background:#0f172a; border:1px solid #334155; border-radius:10px; text-align:center;"></div>
       </div>
     </div>
 
@@ -876,7 +878,10 @@
           document.getElementById('rfTierBadge').textContent = (r.tier === 'pro') ? '💎 PRO' : 'LITE';
           status.textContent = '✅ ' + new Date(r.timestamp).toLocaleTimeString('ko-KR') + ' 갱신';
           renderRichFeedTabs(r.byCategory || {});
-          renderRichFeedTable(rfAllRows);
+          // 🔥 v2.27.1: 페이지네이션 초기화하며 렌더
+          rfFiltered = rfAllRows;
+          rfCurrentPage = 1;
+          rfRenderCurrentPage();
           updatePublicFeedHealth();
           // 완료 후 2초 뒤 진행바 숨기기
           setTimeout(() => { if (progressBox) progressBox.style.display = 'none'; }, 2000);
@@ -901,6 +906,10 @@
       // 🔥 v2.19.0: 필터 state (카테고리 + 검색량 구간 + 트렌드 타입)
       let rfSvMin = 0, rfSvMax = 999999999;
       let rfCurrentTrend = '*';
+      // 🔥 v2.27.1: 페이지네이션 state (20개씩)
+      let rfFiltered = [];
+      let rfCurrentPage = 1;
+      const RF_PAGE_SIZE = 20;
 
       function rfApplyAllFilters() {
         let filtered = rfAllRows;
@@ -910,11 +919,67 @@
           return sv >= rfSvMin && sv < rfSvMax;
         });
         if (rfCurrentTrend !== '*') filtered = filtered.filter(r => (r.trendType || 'unknown') === rfCurrentTrend);
-        // 🔥 v2.19.1 Fix3: 필터 적용 후 카운트 갱신 + 0건 시 가이드
         const totalEl = document.getElementById('rfTotal');
         if (totalEl) totalEl.textContent = `${filtered.length} / ${rfAllRows.length}`;
-        renderRichFeedTable(filtered);
+        // 🔥 v2.27.1: 필터 바뀌면 1페이지로 리셋
+        rfFiltered = filtered;
+        rfCurrentPage = 1;
+        rfRenderCurrentPage();
       }
+
+      // 🔥 v2.27.1: 현재 페이지만 렌더 + 페이지네이션 UI 재구성
+      function rfRenderCurrentPage() {
+        const total = rfFiltered.length;
+        const totalPages = Math.max(1, Math.ceil(total / RF_PAGE_SIZE));
+        if (rfCurrentPage > totalPages) rfCurrentPage = totalPages;
+        if (rfCurrentPage < 1) rfCurrentPage = 1;
+        const start = (rfCurrentPage - 1) * RF_PAGE_SIZE;
+        const pageRows = rfFiltered.slice(start, start + RF_PAGE_SIZE);
+        renderRichFeedTable(pageRows, start);
+        rfRenderPagination(totalPages);
+      }
+
+      function rfRenderPagination(totalPages) {
+        const box = document.getElementById('rfPagination');
+        if (!box) return;
+        if (rfFiltered.length <= RF_PAGE_SIZE) {
+          box.style.display = 'none';
+          return;
+        }
+        box.style.display = 'block';
+        const start = (rfCurrentPage - 1) * RF_PAGE_SIZE + 1;
+        const end = Math.min(rfCurrentPage * RF_PAGE_SIZE, rfFiltered.length);
+        // 페이지 번호 버튼 — 최대 10개씩 윈도우 (... 처리)
+        const window_ = 10;
+        let first = Math.max(1, rfCurrentPage - Math.floor(window_ / 2));
+        let last = Math.min(totalPages, first + window_ - 1);
+        if (last - first + 1 < window_) first = Math.max(1, last - window_ + 1);
+        const btn = (label, page, disabled, active) => {
+          const base = 'padding:6px 11px; margin:2px; border-radius:6px; font-size:12px; font-weight:700; cursor:pointer; border:1px solid #334155;';
+          const style = active ? 'background:#fbbf24; color:#0f172a; border-color:#fbbf24;'
+                       : disabled ? 'background:#1e293b; color:#475569; cursor:not-allowed;'
+                       : 'background:#1e293b; color:#cbd5e1;';
+          const onclick = disabled ? '' : `onclick="rfGoToPage(${page})"`;
+          return `<button style="${base} ${style}" ${onclick} ${disabled ? 'disabled' : ''}>${label}</button>`;
+        };
+        let html = `<div style="color:#94a3b8; font-size:11px; margin-bottom:8px;">${start}~${end} / 총 ${rfFiltered.length}건 · ${rfCurrentPage}/${totalPages} 페이지</div>`;
+        html += btn('« 처음', 1, rfCurrentPage === 1, false);
+        html += btn('‹ 이전', rfCurrentPage - 1, rfCurrentPage === 1, false);
+        if (first > 1) html += `<span style="color:#475569;">…</span>`;
+        for (let p = first; p <= last; p++) html += btn(String(p), p, false, p === rfCurrentPage);
+        if (last < totalPages) html += `<span style="color:#475569;">…</span>`;
+        html += btn('다음 ›', rfCurrentPage + 1, rfCurrentPage === totalPages, false);
+        html += btn('마지막 »', totalPages, rfCurrentPage === totalPages, false);
+        box.innerHTML = html;
+      }
+
+      window.rfGoToPage = function(page) {
+        rfCurrentPage = page;
+        rfRenderCurrentPage();
+        // 스크롤을 결과 상단으로
+        const tbody = document.getElementById('rfTbody');
+        if (tbody) tbody.scrollIntoView({ behavior: 'smooth', block: 'start' });
+      };
 
       function rfFilterCategory(cat, btnEl) {
         rfCurrentCategory = cat;
@@ -937,17 +1002,21 @@
         rfApplyAllFilters();
       };
 
-      function renderRichFeedTable(rows) {
+      function renderRichFeedTable(rows, startIdx) {
         const tbody = document.getElementById('rfTbody');
         if (!rows || rows.length === 0) {
-          // 🔥 v2.19.1 Fix3: 0건 시 필터 완화 가이드
           tbody.innerHTML = `<tr><td colspan="12" style="padding:40px; text-align:center; color:#64748b;">
             <div style="font-size:14px; margin-bottom:8px;">조건에 맞는 결과가 없습니다.</div>
             <div style="font-size:12px; color:#475569;">💡 필터 조건(카테고리/검색량/트렌드) 중 하나를 "전체"로 바꿔보세요.</div>
           </td></tr>`;
+          const pg = document.getElementById('rfPagination');
+          if (pg) pg.style.display = 'none';
           return;
         }
+        // 🔥 v2.27.1: startIdx 로 실제 전역 순위 유지 (페이지네이션 대응)
+        const baseIdx = typeof startIdx === 'number' ? startIdx : 0;
         tbody.innerHTML = rows.map((r, idx) => {
+          idx = baseIdx + idx;
           const ratioColor = r.goldenRatio >= 100 ? '#dc2626' : r.goldenRatio >= 50 ? '#f59e0b' : r.goldenRatio >= 10 ? '#fbbf24' : '#94a3b8';
           const sources = (r.sources || []).slice(0, 3).map(s => `<span class="rf-source-tag">${s}</span>`).join('');
           const moreSources = r.sourceCount > 3 ? `<span class="rf-source-tag">+${r.sourceCount - 3}</span>` : '';
