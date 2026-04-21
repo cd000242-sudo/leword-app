@@ -381,11 +381,23 @@ export async function buildRichFeed(
         }
     }
 
-    // base + longtail 합쳐서 품질 점수 내림차순 정렬 → 상위 후보만 API 검증
+    // base + longtail 합쳐서 품질 기반 선별 → 상위 후보만 API 검증
     // 🔥 v2.20.0: 후보 풀 600→2000, 배수 6→10 (대량 발굴)
-    const candidates = [...baseSeeds, ...extraSeeds]
-        .sort((a, b) => b.qualityScore - a.qualityScore)
-        .slice(0, Math.min(2000, limit * 10));
+    // 🔥 v2.20.1: Tier Bucket Shuffle — 품질구간별로 묶은 뒤 구간 내부 셔플,
+    //   구간 자체는 품질순 유지. 매번 다른 키워드가 섞여 나오되 전체 수준은 유지.
+    //   해결: 28개 소스 있어도 deterministic sort 때문에 매번 같은 top N이 나오던 문제.
+    const scored = [...baseSeeds, ...extraSeeds].sort((a, b) => b.qualityScore - a.qualityScore);
+    const bucketSize = 50; // 50개 단위로 셔플
+    for (let i = 0; i < scored.length; i += bucketSize) {
+        const bucket = scored.slice(i, i + bucketSize);
+        // Fisher-Yates shuffle
+        for (let j = bucket.length - 1; j > 0; j--) {
+            const k = Math.floor(Math.random() * (j + 1));
+            [bucket[j], bucket[k]] = [bucket[k], bucket[j]];
+        }
+        scored.splice(i, bucket.length, ...bucket);
+    }
+    const candidates = scored.slice(0, Math.min(2000, limit * 10));
 
     if (candidates.length === 0) {
         emit('done', 100, '수집된 키워드 없음');
@@ -498,13 +510,17 @@ export async function buildRichFeed(
     emit('grading', 90, `등급 판정 및 정렬 (${enrichedRows.length}건)...`);
 
     // 5. 정렬 (등급 → 기회지수 → 소스 수)
+    // 🔥 v2.20.1: 같은 등급+GR 내부에서는 약간의 랜덤 타이브레이커 — 매번 다른 배치
     const gradeOrder: Record<string, number> = { SSS: 5, SS: 4, S: 3, A: 2, B: 1 };
     enrichedRows.sort((a, b) => {
         const ga = gradeOrder[a.grade] || 0;
         const gb = gradeOrder[b.grade] || 0;
         if (ga !== gb) return gb - ga;
-        if (a.goldenRatio !== b.goldenRatio) return b.goldenRatio - a.goldenRatio;
-        return b.sourceCount - a.sourceCount;
+        const grA = Math.round(a.goldenRatio * 10) / 10;
+        const grB = Math.round(b.goldenRatio * 10) / 10;
+        if (grA !== grB) return grB - grA;
+        if (a.sourceCount !== b.sourceCount) return b.sourceCount - a.sourceCount;
+        return Math.random() - 0.5; // 동률이면 랜덤
     });
 
     const top = enrichedRows.slice(0, limit).map((r, idx) => ({ ...r, rank: idx + 1 }));
@@ -566,10 +582,11 @@ function countSources(rows: RichKeywordRow[]): Record<string, number> {
 }
 
 let cached: { result: RichFeedResult; expiresAt: number } | null = null;
-const CACHE_TTL = 15 * 60_000;        // 메모리 캐시: 15분
-const DISK_CACHE_TTL = 4 * 60 * 60_000; // 디스크 캐시: 4시간 (신선도 확보)
+// 🔥 v2.20.1: 캐시 축소 — 매번 다른 키워드가 나오도록 신선도 우선
+const CACHE_TTL = 3 * 60_000;         // 메모리 캐시: 15분→3분
+const DISK_CACHE_TTL = 30 * 60_000;   // 디스크 캐시: 4시간→30분 (안전망용)
 const MIN_ACCEPTABLE_TOTAL = 20;       // 이 미만이면 "실패"로 간주, 디스크 캐시 폴백
-const CACHE_SCHEMA_VERSION = 'v2.20.0-bulk';  // 🔥 v2.20.0: 대량 발굴 (400/150 + 풀 2000)
+const CACHE_SCHEMA_VERSION = 'v2.20.1-shuffle';  // 🔥 v2.20.1: Tier Bucket Shuffle — 매회 다른 결과
 
 function getDiskCachePath(): string {
     // app.getPath 가 있으면 userData, 없으면 temp 사용 (테스트/개발 환경)
