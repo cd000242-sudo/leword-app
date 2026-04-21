@@ -268,10 +268,10 @@ function calculateGrade(volume: number, docCount: number, ratio: number, score: 
     const ssRatio = commercial ? 1.2 : 1.8;
     if (score >= ssScore && volume >= ssSv && docCount > 0 && docCount <= ssDc && ratio >= ssRatio && allowSS) return 'SS';
 
-    // 🔥 v2.25.1: S 게이트 완화 (writable → allowS)
-    if (score >= 55 && volume >= 150 && ratio >= 1.0 && allowS) return 'S';
-    if (score >= 45 && volume >= 60 && allowA) return 'A';
-    if (score >= 38 && volume >= 30) return 'B';
+    // 🔥 v2.27.7: S/A 기준 추가 완화 (21건 → 40~60건 목표)
+    if (score >= 50 && volume >= 100 && ratio >= 0.8 && allowS) return 'S';
+    if (score >= 40 && volume >= 40 && allowA) return 'A';
+    if (score >= 35 && volume >= 20) return 'B';
     return '';
 }
 
@@ -438,7 +438,8 @@ export async function buildRichFeed(
     for (const [, list] of perSource.entries()) {
         // 품질 점수로 소스 내 재정렬
         const scored = list
-            .filter(s => isQualitySeed(s.keyword))
+            // 🔥 v2.27.7: 시드 단계 pre-filter — 범용 2-token 조합 제거 (API 호출 낭비 방지)
+            .filter(s => isQualitySeed(s.keyword) && !isTooGeneric2Token(s.keyword))
             .map(s => ({
                 ...s,
                 qualityScore: scoreSeedKeyword(s.keyword, idfStats, s.sources.length),
@@ -481,6 +482,9 @@ export async function buildRichFeed(
             for (const suffix of LONGTAIL_SUFFIXES) {
                 const derived = `${bkw} ${suffix}`;
                 if (seedMap.has(derived) || seenKeywords.has(derived)) continue;
+                // 🔥 v2.27.7: longtail 생성 단계에서 generic 조합 pre-filter
+                //   "적금 추천" 같은게 후보 풀 진입 전에 차단 → API 호출 낭비 제거
+                if (isTooGeneric2Token(derived)) continue;
                 extraSeeds.push({
                     keyword: derived,
                     sources: [...base.sources, 'longtail'],
@@ -491,9 +495,9 @@ export async function buildRichFeed(
         }
     }
 
-    // 🔥 v2.27.5: 후보 풀 600 → 400 (5분 하드캡 대응, 사용자 26분 무한대기 방지)
+    // 🔥 v2.27.7: pre-filter 로 generic 제거되어 후보 풀 800 까지 확대 가능 (같은 시간에 더 많이)
     const allScored = [...baseSeeds, ...extraSeeds].sort((a, b) => b.qualityScore - a.qualityScore);
-    const targetSize = Math.min(400, Math.max(limit * 2, 300));
+    const targetSize = Math.min(800, Math.max(limit * 3, 500));
 
     const weightedSampleWithoutReplacement = <T extends { qualityScore: number }>(
         items: T[],
@@ -751,7 +755,7 @@ let cached: { result: RichFeedResult; expiresAt: number } | null = null;
 const CACHE_TTL = 3 * 60_000;         // 메모리 캐시: 15분→3분
 const DISK_CACHE_TTL = 30 * 60_000;   // 디스크 캐시: 4시간→30분 (안전망용)
 const MIN_ACCEPTABLE_TOTAL = 20;       // 이 미만이면 "실패"로 간주, 디스크 캐시 폴백
-const CACHE_SCHEMA_VERSION = 'v2.27.6-writable-strict';  // 🔥 v2.27.6: 범용 2-token 조합 차단
+const CACHE_SCHEMA_VERSION = 'v2.27.7-pre-filter';  // 🔥 v2.27.7: pre-filter + 풀 800 + A 완화
 
 function getDiskCachePath(): string {
     // app.getPath 가 있으면 userData, 없으면 temp 사용 (테스트/개발 환경)
