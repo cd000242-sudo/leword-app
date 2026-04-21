@@ -22,7 +22,7 @@ const CACHE_FILE_NAME = 'keyword-cache.json';
 const MAX_ENTRIES = 50_000;   // 🔥 v2.13.0 M10: 디스크 캐시 상한 (초과 시 오래된 것부터 제거)
 // 🔥 스키마 버전 — 올리면 이전 버전 캐시는 로드 시 전부 무효화
 //    v2.13.0: 엣지케이스 19건 수정 (profitBonus 중복, Infinity, suffix bomb, sv 타이브레이커 등)
-const CACHE_SCHEMA_VERSION = 'v2.20.1';
+const CACHE_SCHEMA_VERSION = 'v2.20.2';
 
 let cache: Map<string, PersistentCacheEntry> = new Map();
 let cachePath: string | null = null;
