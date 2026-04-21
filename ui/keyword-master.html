@@ -732,9 +732,10 @@
         <span id="hbHealthy" style="color:#10b981;">✅ -</span>
         <span id="hbDegraded" style="color:#f59e0b;">⚠️ -</span>
         <span id="hbDown" style="color:#ef4444;">❌ -</span>
-        <!-- 🔥 v2.30.0 TOP 2: 등급 Legend (초보자용 툴팁) -->
+        <!-- 🔥 v2.31.0: 등급 Legend (SSR 추가 — 수익 황금) -->
         <span style="display:inline-flex; gap:6px; margin-left:12px; padding:3px 8px; background:rgba(251,191,36,0.08); border:1px solid rgba(251,191,36,0.2); border-radius:6px;">
-          <span title="SSS: 검색량 1000+ / 문서수 5000↓ / 황금비율 5+ — 상위노출 거의 확정" style="color:#dc2626; font-weight:800; cursor:help;">SSS</span>
+          <span title="SSR: 수익 황금! SSS 등급 + CPC 1000원+ + 상업 키워드 + 수익 카테고리 — 바로 글 쓰면 돈 버는 확실한 키워드" style="color:#a855f7; font-weight:900; cursor:help;">👑 SSR</span>
+          <span title="SSS: 검색량 1000+ / 문서수 5000↓ / 황금비율 5+ — 상위노출 거의 확정 (트래픽 중심)" style="color:#dc2626; font-weight:800; cursor:help;">SSS</span>
           <span title="SS: 검색량 500+ / 문서수 10000↓ / 황금비율 3+ — 개인 블로거 1위 가능" style="color:#ea580c; font-weight:800; cursor:help;">SS</span>
           <span title="S: 검색량 300+ / 황금비율 2+ — 양호한 블루오션" style="color:#ca8a04; font-weight:800; cursor:help;">S</span>
           <span title="A: 검색량 100+ — 경쟁 있으나 가능" style="color:#65a30d; font-weight:800; cursor:help;">A</span>
@@ -802,6 +803,13 @@
             <tr><td colspan="11" style="padding:60px; text-align:center; color:#64748b;">⚡ 발굴 시작 버튼을 눌러주세요.<br><span style="font-size:11px;">17개 데이터 소스에서 시드 수집 → 검색량·문서수 실측까지 약 30~60초 소요</span></td></tr>
           </tbody>
         </table>
+        <!-- 🔥 v2.31.0: 오늘의 TOP 5 큐레이션 -->
+        <div id="rfTopPicks" style="display:none; margin-top:18px; padding:14px; background:linear-gradient(135deg,rgba(168,85,247,0.08),rgba(251,191,36,0.05)); border:1px solid rgba(168,85,247,0.3); border-radius:12px;">
+          <div style="font-size:13px; font-weight:800; color:#a855f7; margin-bottom:10px;">👑 오늘 바로 글 쓸 TOP 5 (수익 황금)</div>
+          <div id="rfTopPicksList" style="display:flex; flex-direction:column; gap:8px;"></div>
+        </div>
+        <table style="display:none;"><tbody></tbody></table>
+        </table>
         <!-- 🔥 v2.27.1: 20개씩 페이지네이션 -->
         <div id="rfPagination" style="display:none; margin-top:14px; padding:10px; background:#0f172a; border:1px solid #334155; border-radius:10px; text-align:center;"></div>
       </div>
@@ -814,6 +822,7 @@
       #rfTable tbody tr { border-bottom:1px solid #1e293b; transition:background 0.15s; }
       #rfTable tbody tr:hover { background:#0f172a; }
       .rf-grade { padding:2px 8px; border-radius:6px; font-weight:800; font-size:10px; color:white; }
+      .rf-grade.SSR { background:linear-gradient(135deg,#a855f7,#ec4899); box-shadow:0 0 8px rgba(168,85,247,0.5); }
       .rf-grade.SSS { background:#dc2626; }
       .rf-grade.SS { background:#ea580c; }
       .rf-grade.S { background:#22c55e; }
@@ -881,7 +890,6 @@
             tbody.innerHTML = '<tr><td colspan="12" style="padding:40px; text-align:center; color:#fca5a5;">발굴 실패: ' + (r && r.error || '알 수 없음') + '</td></tr>';
             return;
           }
-          // 🔥 v2.30.0 TOP 5: 제외 목록 자동 필터링
           const excluded = rfGetExcluded();
           rfAllRows = (r.rows || []).filter(row => !excluded.has(row.keyword));
           const excludedCount = (r.rows || []).length - rfAllRows.length;
@@ -889,6 +897,8 @@
           document.getElementById('rfTierBadge').textContent = (r.tier === 'pro') ? '💎 PRO' : 'LITE';
           status.textContent = '✅ ' + new Date(r.timestamp).toLocaleTimeString('ko-KR') + ' 갱신';
           renderRichFeedTabs(r.byCategory || {});
+          // 🔥 v2.31.0: 오늘의 TOP 5 큐레이션 (SSR 우선, 없으면 SSS 중 commercial+고CPC)
+          rfRenderTopPicks(rfAllRows);
           rfFiltered = rfAllRows;
           rfCurrentPage = 1;
           rfRenderCurrentPage();
@@ -1054,7 +1064,7 @@
             <tr id="rf-row-${idx}">
               <td style="padding:10px 8px; text-align:center; color:#64748b; font-weight:700;">${r.rank}</td>
               <td style="padding:10px 8px; text-align:center;"><span title="${r.category}">${r.categoryIcon}</span></td>
-              <td style="padding:10px 8px; text-align:center;">${r.grade ? `<span class="rf-grade ${r.grade}">${r.grade}</span>` : '-'}</td>
+              <td style="padding:10px 8px; text-align:center;">${r.grade ? `<span class="rf-grade ${r.grade}" title="${r.grade === 'SSR' ? '수익 황금 (고CPC + 상업 키워드 + 수익 카테고리)' : r.grade}">${r.grade === 'SSR' ? '👑SSR' : r.grade}</span>` : '-'}</td>
               <td style="padding:10px 8px; font-weight:700; color:#f1f5f9;">${bluebadge} ${r.keyword} ${trendBadge}</td>
               <td style="padding:10px 8px; text-align:right; color:#cbd5e1;">${r.searchVolume.toLocaleString()}</td>
               <td style="padding:10px 8px; text-align:right; color:#94a3b8;">${r.documentCount.toLocaleString()}</td>
@@ -1213,6 +1223,46 @@
       // 🔥 v2.30.1: 수익 예측 함수 제거 — 추측 기반이라 정확도 낮음
       //   sv × CTR × CPC × ... 곱셈은 수많은 가정값에 의존. 실측 데이터가 아님.
       //   사용자 요구: "실용적인 초특급 황금키워드만"
+
+      // 🔥 v2.31.0: 오늘의 TOP 5 큐레이션 — SSR 우선, 없으면 SSS + commercial + 고CPC
+      window.rfRenderTopPicks = function(rows) {
+        const box = document.getElementById('rfTopPicks');
+        const list = document.getElementById('rfTopPicksList');
+        if (!box || !list) return;
+        const COMMERCIAL_RE = /(추천|비교|후기|가격|순위|할인|리뷰|구매|가성비|최저가)/;
+        const ssrRows = rows.filter(r => r.grade === 'SSR').slice(0, 5);
+        let picks = ssrRows;
+        if (picks.length < 5) {
+          const extra = rows.filter(r =>
+            r.grade === 'SSS' && (r.cpc || 0) >= 500 && COMMERCIAL_RE.test(String(r.keyword)) && (r.documentCount || 0) <= 8000
+          ).slice(0, 5 - picks.length);
+          picks = [...picks, ...extra];
+        }
+        if (picks.length < 5) {
+          const fallback = rows.filter(r =>
+            (r.grade === 'SSS' || r.grade === 'SS') && (r.documentCount || 0) <= 5000 && (r.searchVolume || 0) >= 500
+          ).filter(r => !picks.includes(r)).slice(0, 5 - picks.length);
+          picks = [...picks, ...fallback];
+        }
+        if (picks.length === 0) { box.style.display = 'none'; return; }
+        box.style.display = 'block';
+        list.innerHTML = picks.map((r, i) => {
+          const gradeColor = r.grade === 'SSR' ? '#a855f7' : r.grade === 'SSS' ? '#dc2626' : '#ea580c';
+          const gradeBg = r.grade === 'SSR' ? 'rgba(168,85,247,0.15)' : r.grade === 'SSS' ? 'rgba(220,38,38,0.12)' : 'rgba(234,88,12,0.12)';
+          const cpcTxt = (typeof r.cpc === 'number' && r.cpc > 0) ? `₩${r.cpc.toLocaleString()}` : '-';
+          const svTxt = (r.searchVolume || 0).toLocaleString();
+          const dcTxt = (r.documentCount || 0).toLocaleString();
+          return `<div style="display:flex; align-items:center; gap:12px; padding:10px 14px; background:rgba(255,255,255,0.03); border-radius:8px; border-left:3px solid ${gradeColor};">
+            <span style="font-size:14px; font-weight:900; color:#94a3b8; min-width:24px;">#${i+1}</span>
+            <span style="padding:3px 8px; background:${gradeBg}; color:${gradeColor}; border-radius:5px; font-size:10px; font-weight:900; min-width:42px; text-align:center;">${r.grade === 'SSR' ? '👑 SSR' : r.grade}</span>
+            <span style="flex:1; font-weight:700; color:#f1f5f9; font-size:14px; cursor:pointer;" onclick="rfCopyKw('${String(r.keyword).replace(/'/g,"\\'")}')">${r.keyword}</span>
+            <span style="color:#94a3b8; font-size:11px;">sv ${svTxt}</span>
+            <span style="color:#94a3b8; font-size:11px;">dc ${dcTxt}</span>
+            <span style="color:#22c55e; font-size:11px; font-weight:700;">${cpcTxt}</span>
+            <button class="rf-action-btn" onclick="rfCopyKw('${String(r.keyword).replace(/'/g,"\\'")}')">📋</button>
+          </div>`;
+        }).join('');
+      };
 
       // 🔥 v2.30.0 TOP 5: 키워드 제외 (localStorage 저장, 다음 발굴 자동 필터)
       const RF_EXCLUDE_KEY = 'leword_excluded_keywords';

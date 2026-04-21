@@ -25,7 +25,19 @@ import { getEvergreenSafetyNetSeeds } from './evergreen-safety-net';
 import { buildIDFStats, scoreSeedKeyword, isQualitySeed } from './quality-extractor';
 
 export type Freshness = 'BURNING' | 'RISING' | 'STABLE' | 'EVERGREEN';
-export type GoldenGrade = 'SSS' | 'SS' | 'S' | 'A' | 'B';
+// 🔥 v2.31.0: SSR 등급 신설 — "수익 황금" (SSS + 고CPC + 상업의도 + 수익 카테고리)
+export type GoldenGrade = 'SSR' | 'SSS' | 'SS' | 'S' | 'A' | 'B';
+
+// 🔥 v2.31.0: 수익 카테고리 — 광고주 CPC 높고 구매 전환 강한 카테고리
+const REVENUE_CATEGORIES = new Set([
+    'health', 'finance', 'realestate', 'beauty', 'business',
+    'self_development', 'policy', 'insurance', 'legal', 'medical',
+    'parenting', 'wedding',
+]);
+
+function isRevenueCategory(categoryId: string): boolean {
+    return REVENUE_CATEGORIES.has((categoryId || '').toLowerCase());
+}
 
 export interface RichKeywordRow {
     rank: number;
@@ -651,11 +663,19 @@ export async function buildRichFeed(
                 const realCpc = (typeof sig.monthlyAveCpc === 'number' && sig.monthlyAveCpc > 0) ? sig.monthlyAveCpc : null;
                 const intent = calculatePurchaseIntent(sig.keyword);
 
-                // 스코어링에는 정적 추정 CPC 사용 (점수 일관성 위해) — UI 노출값은 realCpc만
                 const scoringCpc = estimateCPC(sig.keyword, cat.id);
                 const score = calculateScore(totalVolume, docCount, goldenRatio, scoringCpc, intent, sig.keyword);
-                const grade = calculateGrade(totalVolume, docCount, goldenRatio, score, sig.keyword);
+                let grade: GoldenGrade | '' = calculateGrade(totalVolume, docCount, goldenRatio, score, sig.keyword);
                 if (!grade) continue;
+
+                // 🔥 v2.31.0: SSR 등급 — SSS 중 수익 조건 모두 충족 시 승격
+                //   조건: (1) SSS 등급 (2) CPC ≥ 1000원 (3) 상업 의도 (4) 수익 카테고리
+                const isCommercialKw = hasCommercialIntent(sig.keyword);
+                const hasHighCpc = typeof realCpc === 'number' && realCpc >= 1000;
+                const isRevenueCat = isRevenueCategory(cat.id);
+                if (grade === 'SSS' && hasHighCpc && isCommercialKw && isRevenueCat) {
+                    grade = 'SSR';
+                }
 
                 const isBlueOcean = totalVolume >= 300 && totalVolume <= 10000 && docCount <= 2000 && goldenRatio >= 5;
 
@@ -696,9 +716,9 @@ export async function buildRichFeed(
         await new Promise(r => setTimeout(r, 50));
     }
 
-    // 🔥 v2.27.0: SSS/SS/S/A 포함 필터 — B 만 제외 (사용자 요청 "A 까지만 보여주고")
+    // 🔥 v2.31.0: SSR/SSS/SS/S/A 포함 필터 (SSR = 수익 황금)
     const highGradeOnly = enrichedRows.filter(r =>
-        r.grade === 'SSS' || r.grade === 'SS' || r.grade === 'S' || r.grade === 'A'
+        r.grade === 'SSR' || r.grade === 'SSS' || r.grade === 'SS' || r.grade === 'S' || r.grade === 'A'
     );
     enrichedRows.length = 0;
     enrichedRows.push(...highGradeOnly);
@@ -706,7 +726,7 @@ export async function buildRichFeed(
     emit('grading', 90, `등급 판정 및 정렬 (SSS/SS/S/A ${enrichedRows.length}건)...`);
 
     // 5. 정렬 (등급 → 기회지수 → 소스 수)
-    const gradeOrder: Record<string, number> = { SSS: 5, SS: 4, S: 3, A: 2, B: 1 };
+    const gradeOrder: Record<string, number> = { SSR: 6, SSS: 5, SS: 4, S: 3, A: 2, B: 1 };
     enrichedRows.sort((a, b) => {
         const ga = gradeOrder[a.grade] || 0;
         const gb = gradeOrder[b.grade] || 0;
@@ -781,7 +801,7 @@ let cached: { result: RichFeedResult; expiresAt: number } | null = null;
 const CACHE_TTL = 3 * 60_000;         // 메모리 캐시: 15분→3분
 const DISK_CACHE_TTL = 30 * 60_000;   // 디스크 캐시: 4시간→30분 (안전망용)
 const MIN_ACCEPTABLE_TOTAL = 20;       // 이 미만이면 "실패"로 간주, 디스크 캐시 폴백
-const CACHE_SCHEMA_VERSION = 'v2.30.1-practical';  // 🔥 v2.30.1: 실용화 — 부정확 수익예측/Gemini 제거, 실측 데이터만
+const CACHE_SCHEMA_VERSION = 'v2.31.0-ssr';  // 🔥 v2.31.0: SSR 등급 + 수익 카테고리 + TOP 5 큐레이션
 
 function getDiskCachePath(): string {
     // app.getPath 가 있으면 userData, 없으면 temp 사용 (테스트/개발 환경)
