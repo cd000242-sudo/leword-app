@@ -204,16 +204,20 @@ function calculateGrade(volume: number, docCount: number, ratio: number, score: 
     // 🔥 극단 범용 빅워드 제거 — 개인 블로거가 경쟁 불가능한 단일 명사만 차단
     if (!writable && docCount > 100_000) return '';
 
-    // 🔥 v2.23.0: 인명 단일 토큰은 dc 1000 초과 시 grade 제외 (뉴스성 트래픽 배제)
+    // 🔥 v2.23.0: 인명 단일 토큰은 dc 1000 초과 시 grade 제외
     const isCelebLike = isLikelyCelebrityName(keyword);
     if (isCelebLike && docCount > 1000) return '';
 
-    // 🔥 v2.23.0: S 등급에 writable 강제 → 인명/범용 단어 S 승급 차단
-    // (진짜 초블루오션 dc<500 인 희소 인명만 writable=true 되어 승급 가능)
+    // 🔥 v2.24.1: writable 강제 완화 — 희소 고유명사(dc<=3000)는 writable 무관 통과
+    //   v2.23.0 의 S/A writable 강제가 과도해 결과 11건으로 줄어든 것 완화.
+    //   단, 인명 의심(celeb pattern) 은 여전히 writable 필요 (뉴스성 차단)
+    const allowS = writable || (!isCelebLike && docCount > 0 && docCount <= 3000);
+    const allowA = writable || (!isCelebLike && docCount > 0 && docCount <= 5000);
+
     if (score >= 85 && volume >= 1000 && docCount <= 5000 && ratio >= 5 && writable) return 'SSS';
     if (score >= 75 && volume >= 500 && docCount <= 10000 && ratio >= 3 && writable) return 'SS';
-    if (score >= 65 && volume >= 300 && ratio >= 2 && writable) return 'S';
-    if (score >= 55 && volume >= 100 && writable) return 'A';
+    if (score >= 65 && volume >= 300 && ratio >= 2 && allowS) return 'S';
+    if (score >= 55 && volume >= 100 && allowA) return 'A';
     if (score >= 45) return 'B';
     return '';
 }
@@ -426,10 +430,9 @@ export async function buildRichFeed(
     }
 
     // base + longtail 합쳐서 품질 기반 선별 → 상위 후보만 API 검증
-    // 🔥 v2.22.0: 초고속 모드 — 후보 풀 2000 → 600 (API 호출 3배 감소)
-    //   품질은 Stratified 로 유지되므로 풀을 줄여도 top-N 품질 저하 없음.
+    // 🔥 v2.24.1: 후보 풀 600 → 1200 (11건 → 수십건 복구, 속도는 병렬 3개 배치로 유지)
     const allScored = [...baseSeeds, ...extraSeeds].sort((a, b) => b.qualityScore - a.qualityScore);
-    const targetSize = Math.min(600, Math.max(limit * 3, 300));
+    const targetSize = Math.min(1200, Math.max(limit * 5, 600));
 
     const weightedSampleWithoutReplacement = <T extends { qualityScore: number }>(
         items: T[],
@@ -538,9 +541,10 @@ export async function buildRichFeed(
                 if (!seed) continue;
 
                 const totalVolume = (sig.pcSearchVolume || 0) + (sig.mobileSearchVolume || 0);
-                // 🔥 v2.20.0: 대량 발굴 — longtail 3, 원본 5 (완화)
+                // 🔥 v2.24.1: 더 완화 — longtail 1, 원본 3 (결과 건수 복구)
+                //   v2.24.0 에서 "< 10" → median 5 반환되므로 실질 컷은 이미 약간 완화됨
                 const isLongtailDerived = (seed.sources || []).includes('longtail');
-                const minVolume = isLongtailDerived ? 3 : 5;
+                const minVolume = isLongtailDerived ? 1 : 3;
                 if (totalVolume < minVolume) continue;
 
                 // 문서수 미확인(null) / 0 → Naver 블로그 API 실패. 등급 과대평가 방지 위해 B 캡
@@ -677,7 +681,7 @@ let cached: { result: RichFeedResult; expiresAt: number } | null = null;
 const CACHE_TTL = 3 * 60_000;         // 메모리 캐시: 15분→3분
 const DISK_CACHE_TTL = 30 * 60_000;   // 디스크 캐시: 4시간→30분 (안전망용)
 const MIN_ACCEPTABLE_TOTAL = 20;       // 이 미만이면 "실패"로 간주, 디스크 캐시 폴백
-const CACHE_SCHEMA_VERSION = 'v2.23.0-quality';  // 🔥 v2.23.0: 끝판왕 품질 (인명 차단 + 상업성 부스트)
+const CACHE_SCHEMA_VERSION = 'v2.24.1-balance';  // 🔥 v2.24.1: 필터 밸런싱 (11건 → 수십건)
 
 function getDiskCachePath(): string {
     // app.getPath 가 있으면 userData, 없으면 temp 사용 (테스트/개발 환경)
