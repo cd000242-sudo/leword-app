@@ -205,16 +205,17 @@ function isTooGeneric2Token(keyword: string): boolean {
 
 function isWritableKeyword(keyword: string, docCount: number): boolean {
     const tokens = keyword.trim().split(/\s+/).filter(Boolean).length;
-    // 🔥 v2.27.6: 범용 2-token 조합 차단
     if (tokens === 2 && isTooGeneric2Token(keyword)) return false;
-    // 🔥 v2.28.1: 뉴스성 단일 토큰 차단 (분기/폐지/사망/협상 등 100+ 노이즈)
     if (isNewsNoise(keyword)) return false;
     if (tokens >= 2) return true;
     if (INTENT_SUFFIX_RE.test(keyword)) return true;
     if (isLikelyCelebrityName(keyword)) {
         return docCount > 0 && docCount <= 500;
     }
-    if (docCount > 0 && docCount <= 15000) return true;
+    // 🔥 v2.29.0 근본 재설계: 단일 명사 임계 15000 → 500 (사용자 피드백)
+    //   "세대/회복/비전/가처분/삼우제" 같은 일반 명사는 dc 수천~수만 → 전부 차단
+    //   dc ≤ 500 만 통과 = 극희귀 고유 작품명/제품명만 (프래그마타/투신전생기 급)
+    if (docCount > 0 && docCount <= 500) return true;
     return false;
 }
 
@@ -250,23 +251,16 @@ function calculateGrade(volume: number, docCount: number, ratio: number, score: 
     const allowA = writable || (!isCelebLike && docCount > 0 && docCount <= 50000);
     const commercial = hasCommercialIntent(keyword);
 
-    // 🔥 v2.28.0: SSS 자동 승격 7경로 (SSS 20+ 달성)
-    if (!isCelebLike && docCount > 0) {
-        // 초극블루오션: gr 20+, sv 300+
+    // 🔥 v2.29.0: SSS 자동 승격에도 writable 강제 — 단일 일반 명사 차단
+    //   "세대/회복/비전" 같은 단일 명사가 gr≥20 으로 SSS 승격되던 문제 해결
+    if (writable && !isCelebLike && docCount > 0) {
         if (ratio >= 20 && volume >= 300) return 'SSS';
-        // 극블루오션: gr 10+, dc ≤ 8000, sv ≥ 500
         if (ratio >= 10 && docCount <= 8000 && volume >= 500) return 'SSS';
-        // 대형 블루오션: gr 7+, dc ≤ 20000, sv ≥ 2000
         if (ratio >= 7 && docCount <= 20000 && volume >= 2000) return 'SSS';
-        // 🔥 v2.28.0 신규: 중간 블루오션: gr ≥ 8, dc ≤ 12000, sv ≥ 800
         if (ratio >= 8 && docCount <= 12000 && volume >= 800) return 'SSS';
-        // 상업+저경쟁: commercial, dc ≤ 5000, sv ≥ 300, gr ≥ 3
         if (commercial && docCount <= 5000 && volume >= 300 && ratio >= 3) return 'SSS';
-        // 🔥 v2.28.0 신규: 상업+중경쟁: commercial, dc ≤ 8000, sv ≥ 500, gr ≥ 5
         if (commercial && docCount <= 8000 && volume >= 500 && ratio >= 5) return 'SSS';
-        // 희소+상업: commercial, dc ≤ 1000, sv ≥ 200
         if (commercial && docCount <= 1000 && volume >= 200) return 'SSS';
-        // 🔥 v2.28.0 신규: 극희소: dc ≤ 300, sv ≥ 100, gr ≥ 5
         if (docCount <= 300 && volume >= 100 && ratio >= 5) return 'SSS';
     }
 
@@ -277,8 +271,8 @@ function calculateGrade(volume: number, docCount: number, ratio: number, score: 
     const sssRatio = commercial ? 2.0 : 3.0;
     if (score >= sssScore && volume >= sssSv && docCount > 0 && docCount <= sssDc && ratio >= sssRatio && allowSS) return 'SSS';
 
-    // 🔥 v2.26.0: SS 자동 승격 경로 추가 (SS=0 해결 + 대량 수집)
-    if (!isCelebLike && docCount > 0) {
+    // 🔥 v2.29.0: SS 자동 승격에도 writable 강제
+    if (writable && !isCelebLike && docCount > 0) {
         if (ratio >= 5 && docCount <= 15000 && volume >= 500) return 'SS';
         if (commercial && docCount <= 8000 && volume >= 300 && ratio >= 2) return 'SS';
         if (ratio >= 3 && docCount <= 5000 && volume >= 200) return 'SS';
@@ -290,10 +284,11 @@ function calculateGrade(volume: number, docCount: number, ratio: number, score: 
     const ssRatio = commercial ? 1.2 : 1.8;
     if (score >= ssScore && volume >= ssSv && docCount > 0 && docCount <= ssDc && ratio >= ssRatio && allowSS) return 'SS';
 
-    // 🔥 v2.28.0: S/A 추가 완화 (100건+ 달성)
-    if (score >= 48 && volume >= 70 && ratio >= 0.5 && allowS) return 'S';
-    if (score >= 38 && volume >= 30 && allowA) return 'A';
-    if (score >= 35 && volume >= 20) return 'B';
+    // 🔥 v2.29.0: S/A 도 writable 강제 (기존 allowS/allowA 대신)
+    //   "세대/회복/비전" 등 dc 수천 단일 명사가 S/A 통과 → 차단
+    if (score >= 48 && volume >= 70 && ratio >= 0.5 && writable) return 'S';
+    if (score >= 38 && volume >= 30 && writable) return 'A';
+    if (score >= 35 && volume >= 20 && writable) return 'B';
     return '';
 }
 
@@ -784,7 +779,7 @@ let cached: { result: RichFeedResult; expiresAt: number } | null = null;
 const CACHE_TTL = 3 * 60_000;         // 메모리 캐시: 15분→3분
 const DISK_CACHE_TTL = 30 * 60_000;   // 디스크 캐시: 4시간→30분 (안전망용)
 const MIN_ACCEPTABLE_TOTAL = 20;       // 이 미만이면 "실패"로 간주, 디스크 캐시 폴백
-const CACHE_SCHEMA_VERSION = 'v2.28.2-nation-action';  // 🔥 v2.28.2: 국가명 + ACTION×ACTION / BROAD×BROAD 차단
+const CACHE_SCHEMA_VERSION = 'v2.29.0-single-token-block';  // 🔥 v2.29.0: 단일 명사 근본 차단
 
 function getDiskCachePath(): string {
     // app.getPath 가 있으면 userData, 없으면 temp 사용 (테스트/개발 환경)
