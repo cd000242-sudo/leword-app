@@ -532,19 +532,32 @@ function computePremiumGrade(r: ProTrafficKeyword, category?: string): 'SSS' | '
   const dc = dcRaw;
   const gr = typeof r.goldenRatio === 'number' && Number.isFinite(r.goldenRatio) ? r.goldenRatio : 0;
 
-  // 🔥 v2.15.0 진짜 블루오션 컷 — gr<1.0 (문서수가 검색량보다 많음) 은 블루오션 아님
-  if (sv < 100) return null;                                               // 검색량 100 미만 전부 제외
-  if (isGenericSingleToken(r.keyword)) return null;                        // 범용 대명사 차단
+  // 🔥 v2.17.0 카테고리별 블루오션 컷 세분화
+  if (sv < 100) return null;
+  if (isGenericSingleToken(r.keyword)) return null;
   if (category === 'celeb') {
-    // celeb는 구조적 docCount 큼 → 완화 (ratio 0.1+)
     if (gr < 0.1) return null;
   } else if (category === 'life_tips') {
-    // life_tips 시즌 키워드 특성상 ratio 0.3+ 허용
     if (gr < 0.3) return null;
+  } else if (category === 'movie' || category === 'drama' || category === 'music'
+          || category === 'book' || category === 'anime' || category === 'broadcast') {
+    // 엔터/콘텐츠: 정보성 글 많아 gr 0.2+ 허용
+    if (gr < 0.2) return null;
+    if (dc > 300000) return null;
+  } else if (category === 'policy' || category === 'finance' || category === 'realestate'
+          || category === 'health') {
+    // 정책/금융/부동산/건강: gr 0.4+ 허용 (시즌 이슈 고려)
+    if (gr < 0.4) return null;
+    if (dc > 200000) return null;
+  } else if (category === 'it' || category === 'business' || category === 'interior'
+          || category === 'daily' || category === 'self_development') {
+    // 중간 카테고리: gr 0.5+
+    if (gr < 0.5) return null;
+    if (dc > 80000) return null;
   } else {
-    // 일반 카테고리: 검색량이 문서수보다 2배 이상 (진짜 블루오션 영역)
+    // 나머지(all 등): 엄격
     if (gr < 2.0) return null;
-    if (dc > 30000) return null;                                           // 문서수 3만 초과는 레드오션
+    if (dc > 30000) return null;
   }
 
   // 🛡️ 저경쟁 보증 필터: 문서수가 너무 많으면 등급 하향 (기득권 블로그 영역)
@@ -584,6 +597,34 @@ function computePremiumGrade(r: ProTrafficKeyword, category?: string): 'SSS' | '
     if (dc <= 10000 && sv >= 2000 && gr >= 1.5) baseGrade = 'SSS';
     else if (dc <= 50000 && sv >= 1000 && gr >= 0.5) baseGrade = 'SS';
     else if (dc <= 300000 && sv >= 300 && gr >= 0.2) baseGrade = 'S';
+  } else if (category === 'movie' || category === 'drama' || category === 'music'
+          || category === 'book' || category === 'anime' || category === 'broadcast') {
+    // 🔥 v2.17.0: 엔터/콘텐츠 카테고리 — celeb와 일반 사이 중간 기준
+    //    영화/드라마/음악/책은 정보성 글 방대 → 일반 기준이면 SSS 0건
+    if (dc <= 20000 && sv >= 1500 && gr >= 1.0) baseGrade = 'SSS';
+    else if (dc <= 80000 && sv >= 800 && gr >= 0.5) baseGrade = 'SS';
+    else if (dc <= 300000 && sv >= 400 && gr >= 0.2) baseGrade = 'S';
+  } else if (category === 'it' || category === 'business' || category === 'interior'
+          || category === 'daily' || category === 'self_development') {
+    // 🔥 v2.17.0: IT/비즈니스/인테리어/일상/자기계발 — 중간 엄격 기준
+    if (dc <= 8000 && sv >= 1500 && gr >= 2.0) baseGrade = 'SSS';
+    else if (dc <= 25000 && sv >= 800 && gr >= 1.0) baseGrade = 'SS';
+    else if (dc <= 80000 && sv >= 400 && gr >= 0.5) baseGrade = 'S';
+  } else if (category === 'policy') {
+    // 🔥 v2.17.0: 정책·지원금 — 시즌별 검색량 폭등 특성 반영
+    if (dc <= 15000 && sv >= 2000 && gr >= 1.5) baseGrade = 'SSS';
+    else if (dc <= 60000 && sv >= 1000 && gr >= 0.7) baseGrade = 'SS';
+    else if (dc <= 200000 && sv >= 500 && gr >= 0.3) baseGrade = 'S';
+  } else if (category === 'health') {
+    // 🔥 v2.17.0: 건강·의료 — 문서수 많고 CPC 높은 편
+    if (dc <= 8000 && sv >= 2000 && gr >= 2.0) baseGrade = 'SSS';
+    else if (dc <= 30000 && sv >= 1000 && gr >= 1.0) baseGrade = 'SS';
+    else if (dc <= 100000 && sv >= 500 && gr >= 0.5) baseGrade = 'S';
+  } else if (category === 'finance' || category === 'realestate') {
+    // 🔥 v2.17.0: 금융·부동산 — 시즌/이슈 키워드 특성 반영
+    if (dc <= 10000 && sv >= 2000 && gr >= 1.5) baseGrade = 'SSS';
+    else if (dc <= 40000 && sv >= 1000 && gr >= 0.8) baseGrade = 'SS';
+    else if (dc <= 150000 && sv >= 500 && gr >= 0.4) baseGrade = 'S';
   } else {
     // 🔥 v2.15.0 진짜 블루오션 기준 — "검색량 대비 문서수 극소" 중심
     // 핵심 철학: 블로거가 10개 글 써도 100% 상위 노출되는 키워드만
@@ -612,7 +653,7 @@ function computePremiumGradeStrict(r: ProTrafficKeyword, criteria?: { minRatio?:
   const dc = dcRaw;
   const gr = typeof r.goldenRatio === 'number' && Number.isFinite(r.goldenRatio) ? r.goldenRatio : 0;
 
-  // 🔥 v2.15.0 진짜 블루오션 Strict 컷
+  // 🔥 v2.17.0 Strict 컷 — 카테고리별 세분화
   if (sv < 100) return null;
   if (isGenericSingleToken(r.keyword)) return null;
   const cat = criteria?.category;
@@ -620,8 +661,18 @@ function computePremiumGradeStrict(r: ProTrafficKeyword, criteria?: { minRatio?:
     if (gr < 0.1) return null;
   } else if (cat === 'life_tips') {
     if (gr < 0.3) return null;
+  } else if (cat === 'movie' || cat === 'drama' || cat === 'music'
+          || cat === 'book' || cat === 'anime' || cat === 'broadcast') {
+    if (gr < 0.2) return null;
+    if (dc > 300000) return null;
+  } else if (cat === 'policy' || cat === 'finance' || cat === 'realestate' || cat === 'health') {
+    if (gr < 0.4) return null;
+    if (dc > 200000) return null;
+  } else if (cat === 'it' || cat === 'business' || cat === 'interior'
+          || cat === 'daily' || cat === 'self_development') {
+    if (gr < 0.5) return null;
+    if (dc > 80000) return null;
   } else {
-    // PRO strict: 검색량이 문서수의 2배 이상 (진짜 블루오션만)
     if (gr < 2.0) return null;
     if (dc > 30000) return null;
   }
@@ -638,10 +689,33 @@ function computePremiumGradeStrict(r: ProTrafficKeyword, criteria?: { minRatio?:
     if (dc <= 600000 && sv >= 1500 && gr >= 0.25) return 'SS';
     if (dc <= Math.min(maxDocs, 1500000) && sv >= 800 && gr >= Math.max(0.1, minRatio)) return 'S';
   } else if (category === 'life_tips') {
-    // life_tips: 생활팁 전용 기준 (문서수/비율 완화)
+    // life_tips: 생활팁 전용 기준
     if (dc <= 10000 && sv >= 2000 && gr >= 1.5) return 'SSS';
     if (dc <= 50000 && sv >= 1000 && gr >= 0.5) return 'SS';
     if (dc <= maxDocs && sv >= 300 && gr >= Math.max(0.2, minRatio)) return 'S';
+  } else if (category === 'movie' || category === 'drama' || category === 'music'
+          || category === 'book' || category === 'anime' || category === 'broadcast') {
+    // 🔥 v2.17.0 엔터/콘텐츠 strict
+    if (dc <= 20000 && sv >= 1500 && gr >= 1.0) return 'SSS';
+    if (dc <= 80000 && sv >= 800 && gr >= 0.5) return 'SS';
+    if (dc <= Math.min(maxDocs, 300000) && sv >= 400 && gr >= Math.max(0.2, minRatio)) return 'S';
+  } else if (category === 'it' || category === 'business' || category === 'interior'
+          || category === 'daily' || category === 'self_development') {
+    if (dc <= 8000 && sv >= 1500 && gr >= 2.0) return 'SSS';
+    if (dc <= 25000 && sv >= 800 && gr >= 1.0) return 'SS';
+    if (dc <= Math.min(maxDocs, 80000) && sv >= 400 && gr >= Math.max(0.5, minRatio)) return 'S';
+  } else if (category === 'policy') {
+    if (dc <= 15000 && sv >= 2000 && gr >= 1.5) return 'SSS';
+    if (dc <= 60000 && sv >= 1000 && gr >= 0.7) return 'SS';
+    if (dc <= Math.min(maxDocs, 200000) && sv >= 500 && gr >= Math.max(0.3, minRatio)) return 'S';
+  } else if (category === 'health') {
+    if (dc <= 8000 && sv >= 2000 && gr >= 2.0) return 'SSS';
+    if (dc <= 30000 && sv >= 1000 && gr >= 1.0) return 'SS';
+    if (dc <= Math.min(maxDocs, 100000) && sv >= 500 && gr >= Math.max(0.5, minRatio)) return 'S';
+  } else if (category === 'finance' || category === 'realestate') {
+    if (dc <= 10000 && sv >= 2000 && gr >= 1.5) return 'SSS';
+    if (dc <= 40000 && sv >= 1000 && gr >= 0.8) return 'SS';
+    if (dc <= Math.min(maxDocs, 150000) && sv >= 500 && gr >= Math.max(0.4, minRatio)) return 'S';
   } else {
     // 🔥 v2.15.0 Strict: 진짜 블루오션 (검색량 대비 문서수 극소)
     if (dc <= 2000 && sv >= 2000 && gr >= 10.0) return 'SSS';
@@ -6016,18 +6090,81 @@ function getProfitableSeedKeywords(category: string, month: number): string[] {
         ' 숙소', ' 사복', ' 공항패션', ' 인스타', ' 배경화면', ' 보정사진',
         ' 세계관', ' 가사 해석', ' 뮤비 해석'
       ];
-    } else if (cat === 'book' || cat === 'movie' || cat === 'music' || cat === 'drama' || cat === 'anime' || cat === 'broadcast') {
-      extraSuffixes = [' 예매', ' 예약', ' 가격', ' 할인', ' 쿠폰', ' 요금제', ' 구독', ' 이용권', ' 다시보기', ' 재방송'];
-    } else if (cat === 'life_tips' || cat === 'interior') {
-      extraSuffixes = [' 정리법', ' 요약', ' 체크리스트'];
+    } else if (cat === 'movie') {
+      // 🔥 v2.17.0: 영화 — 개봉/평점/명대사/해석 중심
+      extraSuffixes = [' 개봉일', ' 예매', ' 평점', ' 관객수', ' 줄거리', ' 결말해석',
+        ' 쿠키영상', ' ott', ' 다시보기', ' 명대사', ' 촬영지', ' OST', ' 감독',
+        ' 출연진', ' 해석', ' 숨겨진 의미', ' 리뷰'];
+    } else if (cat === 'drama') {
+      // 🔥 v2.17.0: 드라마 — 회차/시청률/OST/결말
+      extraSuffixes = [' 몇부작', ' 방영시간', ' 시청률', ' 회차정보', ' 출연진 성격',
+        ' 촬영지', ' 결말 예상', ' ost', ' 다시보기 무료', ' 재방송',
+        ' 인물관계도', ' 원작', ' 예고편', ' 명대사', ' 줄거리 요약'];
+    } else if (cat === 'music') {
+      // 🔥 v2.17.0: 음악 — 가사/차트/뮤비/티켓팅
+      extraSuffixes = [' 가사', ' 뮤비 해석', ' 차트 순위', ' 음원 수익',
+        ' 앨범 수록곡', ' 콘서트 예매', ' 티켓팅', ' 직캠', ' 안무',
+        ' 팬송', ' 발매일', ' 초동', ' 굿즈', ' 플레이리스트'];
+    } else if (cat === 'book') {
+      // 🔥 v2.17.0: 도서 — 독후감/줄거리/추천/베스트셀러
+      extraSuffixes = [' 줄거리', ' 독후감', ' 서평', ' 명대사',
+        ' 추천도서', ' 베스트셀러', ' 리디북스', ' 밀리의서재',
+        ' 오디오북', ' 완독 후기', ' 교보문고', ' 예스24', ' 작가 다른 책'];
+    } else if (cat === 'anime') {
+      // 🔥 v2.17.0: 애니 — 화수/성우/OST/캐릭터
+      extraSuffixes = [' 화수', ' 성우', ' ost 가사', ' 캐릭터 해석',
+        ' 원작 만화', ' 극장판', ' 피규어', ' 굿즈 정보', ' 방영일',
+        ' 더빙판', ' 자막', ' 스트리밍', ' 라프텔', ' 왓챠'];
+    } else if (cat === 'broadcast') {
+      // 🔥 v2.17.0: 방송·예능 — 출연진/녹화/편성/리뷰
+      extraSuffixes = [' 출연진', ' 녹화장소', ' 편성표', ' 재방송',
+        ' 첫방송', ' 엔딩곡', ' 시청률', ' 하이라이트', ' 클립',
+        ' 티저', ' 게스트', ' 방영 정지', ' 논란', ' 해설'];
+    } else if (cat === 'life_tips') {
+      // 🔥 v2.17.0 확장: 생활 꿀팁 — 제거/절약/응급/응용
+      extraSuffixes = [' 정리법', ' 요약', ' 체크리스트', ' 제거법',
+        ' 아끼는 법', ' 응급처치', ' 활용법', ' 대안', ' 필요한 것',
+        ' 주의사항', ' 실수', ' 초보', ' 쉽게', ' 돈안드는', ' DIY'];
+    } else if (cat === 'interior') {
+      // 🔥 v2.17.0 확장: 인테리어
+      extraSuffixes = [' 배치법', ' 배색', ' 가구 추천', ' 셀프 리모델링',
+        ' 원룸', ' 투룸', ' 아파트', ' 주방', ' 거실', ' 침실',
+        ' DIY', ' 소품', ' 조명', ' 벽지', ' 커튼'];
     } else if (cat === 'it') {
-      extraSuffixes = [' 설정', ' 사용법', ' 가이드'];
+      // 🔥 v2.17.0 확장: IT
+      extraSuffixes = [' 설정', ' 사용법', ' 가이드', ' 튜토리얼',
+        ' 무료 앱', ' 유튜브 강의', ' 단축키', ' 최적화', ' 오류 해결',
+        ' 로그인 안됨', ' 업데이트', ' 호환성', ' 리뷰', ' 비교 분석'];
     } else if (cat === 'business') {
-      extraSuffixes = [' 절세', ' 전략', ' 핵심정리'];
+      // 🔥 v2.17.0 확장: 비즈니스
+      extraSuffixes = [' 절세', ' 전략', ' 핵심정리', ' 사례',
+        ' 창업', ' 세무', ' 4대보험', ' 부가세', ' 종합소득세',
+        ' 프리랜서', ' 1인기업', ' 개인사업자', ' 법인전환', ' 정부지원'];
+    } else if (cat === 'daily') {
+      // 🔥 v2.17.0: 일상 — 관계/취미/감정
+      extraSuffixes = [' 선물 추천', ' 데이트', ' 취미', ' 친구', ' 가족',
+        ' 연애', ' MBTI', ' 스트레스', ' 기분전환', ' 심리테스트',
+        ' 이별', ' 재회', ' 관계', ' 대화법'];
     } else if (cat === 'health') {
-      extraSuffixes = [' 증상', ' 원인', ' 예방법', ' 치료'];
+      // 🔥 v2.17.0 확장: 건강
+      extraSuffixes = [' 증상', ' 원인', ' 예방법', ' 치료',
+        ' 병원', ' 진료과', ' 검사 비용', ' 보험 적용', ' 자가진단',
+        ' 약 복용', ' 부작용', ' 식단', ' 운동', ' 영양제 추천'];
     } else if (cat === 'realestate') {
-      extraSuffixes = [' 조건', ' 한도', ' 금리', ' 계산', ' 신청', ' 서류'];
+      // 🔥 v2.17.0 확장: 부동산
+      extraSuffixes = [' 조건', ' 한도', ' 금리', ' 계산', ' 신청', ' 서류',
+        ' 청약 가점', ' 분양가', ' 입지 분석', ' 학군', ' 교통',
+        ' 재건축', ' 전세 사기 방지', ' 특공', ' 당첨 확률'];
+    } else if (cat === 'finance') {
+      // 🔥 v2.17.0 신규: 금융·재테크
+      extraSuffixes = [' 수익률', ' 연금', ' 적금', ' 이자', ' 금리 비교',
+        ' ETF 추천', ' 배당주', ' 초보', ' 1000만원 투자',
+        ' 세액공제', '  IRP', ' 청약저축', ' 파킹통장', ' 수수료'];
+    } else if (cat === 'policy') {
+      // 🔥 v2.17.0 신규: 정책·지원금
+      extraSuffixes = [' 대상', ' 신청방법', ' 신청기간', ' 지원금액',
+        ' 신청 서류', ' 자격 조건', ' 중복 수령', ' 온라인 신청',
+        ' 지급일', ' 탈락 사유', ' 2026', ' 청년', ' 노인', ' 1인가구'];
     } else if (cat === 'self_development') {
       extraSuffixes = [
         ' 루틴', ' 습관', ' 공부법', ' 계획', ' 추천', ' 정리',
