@@ -908,8 +908,16 @@ function rerankAndSelectFinal(items: ProTrafficKeyword[], targetCount: number, i
     // 🔥 v2.15.0: 최종 단계 블루오션 보증 — gr >= 1.5 미만은 차단
     //    celeb/life_tips 는 카테고리 특성상 완화 (등급 판정에서 이미 별도 기준 적용됨)
     const ratio = typeof r.goldenRatio === 'number' ? r.goldenRatio : 0;
-    const isSpecialCat = (r as any).category === 'celeb' || (r as any).category === 'life_tips';
-    if (!isSpecialCat && ratio > 0 && ratio < 1.5) return false;
+    // 🔥 v2.18.0 Fix1: 카테고리별 threshold 테이블 (celeb/life_tips만 완화되던 버그 수정)
+    const CAT_GR_THRESHOLD: Record<string, number> = {
+      celeb: 0.1, life_tips: 0.3,
+      movie: 0.2, drama: 0.2, music: 0.2, book: 0.2, anime: 0.2, broadcast: 0.2,
+      policy: 0.4, finance: 0.4, realestate: 0.4, health: 0.4,
+      it: 0.5, business: 0.5, interior: 0.5, daily: 0.5, self_development: 0.5,
+    };
+    const cat = (r as any).category;
+    const threshold = (cat && CAT_GR_THRESHOLD[cat] !== undefined) ? CAT_GR_THRESHOLD[cat] : 1.5;
+    if (ratio > 0 && ratio < threshold) return false;
     return true;
   });
 
@@ -1220,16 +1228,17 @@ function canGenerateMonetization(searchVolume: number | null | undefined, docume
 
 function isSuffixBomb(keyword: string): boolean {
   const tokens = String(keyword || '').trim().split(/\s+/).filter(Boolean);
-  if (tokens.length < 4) return false;                        // 3토큰 이하는 정상
-  // 연도 토큰(2024/2025/2026) + 접미사 중복이 핵심 패턴
+  if (tokens.length < 5) return false;                       // 🔥 v2.18.0 Fix3: 4→5 완화
   let suffixCount = 0;
   let hasYear = false;
   for (const t of tokens) {
     if (SUFFIX_BOMB_TOKENS.has(t)) suffixCount++;
     if (/^202[0-9]$/.test(t)) hasYear = true;
   }
-  if (suffixCount >= 3) return true;                         // 접미사 3+개 = 폭탄
-  if (suffixCount >= 2 && hasYear) return true;              // 접미사 2+ + 연도 = 폭탄
+  // 🔥 v2.18.0 Fix3: "비교/추천/순위" 의도 키워드는 정상 롱테일 (과탐 방지)
+  const hasIntent = /비교|추천|순위/.test(keyword);
+  if (suffixCount >= 4) return true;                         // 이전 3→4 상향
+  if (suffixCount >= 3 && hasYear && !hasIntent) return true; // 의도 있으면 면제
   return false;
 }
 export interface RealtimeTrendStatus {
@@ -5406,7 +5415,8 @@ export async function huntProTrafficKeywords(options: {
           isEarlyBird: result.blueOcean?.isEarlyBird,
           nicheInfo: { type: nicheType, score: result.blueOcean?.score || 0 },
           grade: result.grade,
-          category: (result as any).category || 'general',
+          // 🔥 v2.18.0 Fix2: category 'general' 기본값 → classifyKeyword 보장 + 요청 카테고리 우선
+          category: (result as any).category || (category && category !== 'all' ? category : classifyKeyword(result.keyword).primary),
           smartBlockType: result.smartBlockAnalysis?.type,
           trendingReason: resolvedTrend.trendingReason
         };

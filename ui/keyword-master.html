@@ -14405,10 +14405,16 @@
             if (dc <= 0) return false;
             if (!kw.goldenRatio || !isFinite(kw.goldenRatio)) return false;
             if (!kw.totalScore || kw.totalScore < 40) return false;
-            // 🔥 v2.15.0 블루오션 최종 보증: 일반 카테고리는 ratio 1.5+ 필수
+            // 🔥 v2.18.0 Fix1: 카테고리별 threshold 테이블
             const cat = (kw.category || '').toString();
-            const isSpecialCat = cat === 'celeb' || cat === 'life_tips';
-            if (!isSpecialCat && kw.goldenRatio < 1.5) return false;
+            const CAT_GR_THRESHOLD = {
+              celeb: 0.1, life_tips: 0.3,
+              movie: 0.2, drama: 0.2, music: 0.2, book: 0.2, anime: 0.2, broadcast: 0.2,
+              policy: 0.4, finance: 0.4, realestate: 0.4, health: 0.4,
+              it: 0.5, business: 0.5, interior: 0.5, daily: 0.5, self_development: 0.5,
+            };
+            const threshold = CAT_GR_THRESHOLD[cat] !== undefined ? CAT_GR_THRESHOLD[cat] : 1.5;
+            if (kw.goldenRatio < threshold) return false;
             return true;
           });
 
