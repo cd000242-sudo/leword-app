@@ -293,14 +293,16 @@ function calculateGrade(volume: number, docCount: number, ratio: number, score: 
 }
 
 function calculateScore(volume: number, docCount: number, ratio: number, cpc: number, intent: number, keyword?: string): number {
-    // 수요공급 (45%) — 정보성 블루오션 시드(위키/트렌딩)의 기회지수 반영 강화
+    // 🔥 v2.30.0: goldenRatio log scale — 극단값 왜곡 완화 (팀D 제안)
+    //   gr=100(dc=1)과 gr=100(dc=500) 구분 가능하게. sd 는 log scale 기준 재구성.
+    const logRatio = Math.log1p(Math.min(ratio, 1000)); // log(1+ratio), 1000 cap 으로 극단값 방어
     const sd = Math.min(100,
-        ratio >= 20 ? 100 :
-        ratio >= 10 ? 80 + (ratio - 10) * 2 :
-        ratio >= 5 ? 60 + (ratio - 5) * 4 :
-        ratio >= 2 ? 35 + (ratio - 2) * 8.3 :
-        ratio >= 1 ? 15 + (ratio - 1) * 20 :
-        ratio * 15);
+        logRatio >= 5.0 ? 100 :                 // ratio ~150+
+        logRatio >= 3.0 ? 80 + (logRatio - 3.0) * 10 :  // ratio ~20~150
+        logRatio >= 1.8 ? 55 + (logRatio - 1.8) * 20.8 : // ratio ~5~20
+        logRatio >= 1.0 ? 30 + (logRatio - 1.0) * 31 :  // ratio ~1.7~5
+        logRatio >= 0.5 ? 10 + (logRatio - 0.5) * 40 :  // ratio ~0.6~1.7
+        logRatio * 20);
     // 검색량 (25%)
     const vol = Math.min(100,
         volume >= 50000 ? 100 :
@@ -779,7 +781,7 @@ let cached: { result: RichFeedResult; expiresAt: number } | null = null;
 const CACHE_TTL = 3 * 60_000;         // 메모리 캐시: 15분→3분
 const DISK_CACHE_TTL = 30 * 60_000;   // 디스크 캐시: 4시간→30분 (안전망용)
 const MIN_ACCEPTABLE_TOTAL = 20;       // 이 미만이면 "실패"로 간주, 디스크 캐시 폴백
-const CACHE_SCHEMA_VERSION = 'v2.29.0-single-token-block';  // 🔥 v2.29.0: 단일 명사 근본 차단
+const CACHE_SCHEMA_VERSION = 'v2.30.0-activation';  // 🔥 v2.30.0: 활용도 100% (log scale, legend, 💰, 🚫, FAQ 5)
 
 function getDiskCachePath(): string {
     // app.getPath 가 있으면 userData, 없으면 temp 사용 (테스트/개발 환경)
