@@ -269,11 +269,10 @@ export async function getNaverSearchAdKeywordVolume(
             monthlyAveCpc: aveCpc,
           });
         } else {
-          // 결과 목록에 없음 -> 검색량 0 또는 null로 처리?
-          // 보통 hintKeyword에 넣었는데 안 나오면 검색량이 매우 적거나 없는 경우임.
-          // "< 10"도 목록에는 나오므로, 아예 안 나오는 건 데이터 없음.
+          // 🔥 v2.24.0 P0-3: 매칭 실패 시 0 저장 → 캐시 영구 고착 (복구 불가). null 로 변경.
+          //   0 은 "진짜 0건"이고 null 은 "데이터 없음" 의미 구분.
           console.log(`[NAVER-SEARCHAD] ⚠️ "${requestedKw}" 검색량 조회 실패 - API 응답에 결과 없음`);
-          results.push({ keyword: requestedKw, pcSearchVolume: 0, mobileSearchVolume: 0, totalSearchVolume: 0 });
+          results.push({ keyword: requestedKw, pcSearchVolume: null, mobileSearchVolume: null, totalSearchVolume: null });
         }
       }
 

@@ -625,6 +625,17 @@ function computePremiumGrade(r: ProTrafficKeyword, category?: string): 'SSS' | '
     if (dc <= 10000 && sv >= 2000 && gr >= 1.5) baseGrade = 'SSS';
     else if (dc <= 40000 && sv >= 1000 && gr >= 0.8) baseGrade = 'SS';
     else if (dc <= 150000 && sv >= 500 && gr >= 0.4) baseGrade = 'S';
+  } else if (category === 'pro_premium') {
+    // 🔥 v2.24.0 P1: pro_premium 전용 분기 — 기존 else ultra-strict 에서 99% 탈락하던 문제 해결
+    //   고수익 대형 키워드 풀(월 10억+ 지향) — dc 큼 감안, gr 완화
+    if (dc <= 30000 && sv >= 3000 && gr >= 1.0) baseGrade = 'SSS';
+    else if (dc <= 100000 && sv >= 1500 && gr >= 0.5) baseGrade = 'SS';
+    else if (dc <= 500000 && sv >= 800 && gr >= 0.2) baseGrade = 'S';
+  } else if (category === 'lite_standard') {
+    // 🔥 v2.24.0 P1: lite_standard 전용 분기 — 생활상식 키워드 풀 (저경쟁 기대치 낮음)
+    if (dc <= 5000 && sv >= 1000 && gr >= 1.5) baseGrade = 'SSS';
+    else if (dc <= 30000 && sv >= 500 && gr >= 0.6) baseGrade = 'SS';
+    else if (dc <= 150000 && sv >= 200 && gr >= 0.3) baseGrade = 'S';
   } else {
     // 🔥 v2.15.0 진짜 블루오션 기준 — "검색량 대비 문서수 극소" 중심
     // 핵심 철학: 블로거가 10개 글 써도 100% 상위 노출되는 키워드만
@@ -1846,7 +1857,9 @@ export async function fetchKeywordDataParallel(
         Promise.resolve(classifyKeywordIntent(normalizedKeyword))
       ]);
 
-      const blogResult = (!blogResultRaw.success || blogResultRaw.count === null || blogResultRaw.count === 0)
+      // 🔥 v2.24.0 P0-5: count === 0 은 실제 0건(블루오션) — scrape fallback 불필요.
+      //   null 만 (API 실패) fallback 트리거. Rate Limit 낭비 방지.
+      const blogResult = (!blogResultRaw.success || blogResultRaw.count === null)
         ? (allowBlogScrapeFallback && blogScrapeUsed < blogScrapeMaxPerCall
           ? await (async () => {
             blogScrapeUsed++;
@@ -6129,7 +6142,7 @@ function getProfitableSeedKeywords(category: string, month: number): string[] {
       // 🔥 v2.17.0: 방송·예능 — 출연진/녹화/편성/리뷰
       extraSuffixes = [' 출연진', ' 녹화장소', ' 편성표', ' 재방송',
         ' 첫방송', ' 엔딩곡', ' 시청률', ' 하이라이트', ' 클립',
-        ' 티저', ' 게스트', ' 방영 정지', ' 논란', ' 해설'];
+        ' 티저', ' 게스트', ' 방영 정지', ' 해설']; // 🔥 v2.24.0: ' 논란' 제거 (뉴스성 스파이크 오등급 방지)
     } else if (cat === 'life_tips') {
       // 🔥 v2.17.0 확장: 생활 꿀팁 — 제거/절약/응급/응용
       extraSuffixes = [' 정리법', ' 요약', ' 체크리스트', ' 제거법',
@@ -6592,7 +6605,8 @@ function isCautionKeyword(keyword: string): boolean {
  * 키워드 분석 및 점수 계산
  */
 // 📅 현재 시점 고정 (2025-12-31 시뮬레이션 지원)
-const CURRENT_DATE = new Date('2025-12-31T23:59:59');
+// 🔥 v2.24.0 P0-1: 하드코딩 제거 — 2025-12-31 고정이라 2026-04 시점 모든 recency 계산 오염
+const CURRENT_DATE = new Date();
 
 /**
  * 📅 네이버 날짜 텍스트 -> 개월 수(Month) 변환기
