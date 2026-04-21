@@ -317,7 +317,7 @@ export async function buildRichFeed(
     // 기존: 소스별 상위 N개 단순 take
     // 개선: 소스 쿼터는 유지하되, 각 소스 내에서 품질 점수로 정렬 후 상위 N개만.
     //       stopwords/노이즈 사전 필터 + IDF 기반 과다등장 키워드 디메리트.
-    const HEAVY_SOURCE_CAP = 100;   // 시드 100개 초과 소스는 상위 100개만 (편중 완화)
+    const HEAVY_SOURCE_CAP = 200;   // 🔥 v2.20.0: 100→200 (대량 발굴)
 
     // IDF 기반 통계: 소스별 유니크 키워드 집합
     const sourceBuckets = new Map<string, string[]>();
@@ -351,9 +351,14 @@ export async function buildRichFeed(
     // 3-3. Longtail 확장
     // - Heavy source(seed 100+): 상위 20개만 파생 (전체 파생 폭증 방지)
     // - Minor source(seed 30-): 모든 seed 파생 (최종 feed 기여 확보)
-    const LONGTAIL_SUFFIXES = ['추천', '후기', '가격', '비교', '방법', '순위', '종류', '사용법', '뜻', '차이', '장단점'];
+    // 🔥 v2.20.0: suffix 11→24, HEAVY_LONGTAIL_CAP 20→50 (대량 발굴)
+    const LONGTAIL_SUFFIXES = [
+        '추천', '후기', '가격', '비교', '방법', '순위', '종류', '사용법', '뜻', '차이', '장단점',
+        '정리', '꿀팁', '초보', '효과', '부작용', '주의사항', '총정리', '리뷰', '브랜드',
+        '저렴한', '인기', '최신', '2026',
+    ];
     const MINOR_THRESHOLD = 30;
-    const HEAVY_LONGTAIL_CAP = 20;
+    const HEAVY_LONGTAIL_CAP = 50;
     const extraSeeds: typeof baseSeeds = [];
     for (const [, list] of perSource.entries()) {
         const isMinor = list.length <= MINOR_THRESHOLD;
@@ -377,9 +382,10 @@ export async function buildRichFeed(
     }
 
     // base + longtail 합쳐서 품질 점수 내림차순 정렬 → 상위 후보만 API 검증
+    // 🔥 v2.20.0: 후보 풀 600→2000, 배수 6→10 (대량 발굴)
     const candidates = [...baseSeeds, ...extraSeeds]
         .sort((a, b) => b.qualityScore - a.qualityScore)
-        .slice(0, Math.min(600, limit * 6));
+        .slice(0, Math.min(2000, limit * 10));
 
     if (candidates.length === 0) {
         emit('done', 100, '수집된 키워드 없음');
@@ -438,9 +444,9 @@ export async function buildRichFeed(
                 if (!seed) continue;
 
                 const totalVolume = (sig.pcSearchVolume || 0) + (sig.mobileSearchVolume || 0);
-                // longtail 파생 키워드는 월 5회 이상, 원본 seed는 월 10회 이상
+                // 🔥 v2.20.0: 대량 발굴 — longtail 3, 원본 5 (완화)
                 const isLongtailDerived = (seed.sources || []).includes('longtail');
-                const minVolume = isLongtailDerived ? 5 : 10;
+                const minVolume = isLongtailDerived ? 3 : 5;
                 if (totalVolume < minVolume) continue;
 
                 // 문서수 미확인(null) / 0 → Naver 블로그 API 실패. 등급 과대평가 방지 위해 B 캡
@@ -563,7 +569,7 @@ let cached: { result: RichFeedResult; expiresAt: number } | null = null;
 const CACHE_TTL = 15 * 60_000;        // 메모리 캐시: 15분
 const DISK_CACHE_TTL = 4 * 60 * 60_000; // 디스크 캐시: 4시간 (신선도 확보)
 const MIN_ACCEPTABLE_TOTAL = 20;       // 이 미만이면 "실패"로 간주, 디스크 캐시 폴백
-const CACHE_SCHEMA_VERSION = 'v2.19.1-with-trend';  // Phase L-2 trendType 필드 포함
+const CACHE_SCHEMA_VERSION = 'v2.20.0-bulk';  // 🔥 v2.20.0: 대량 발굴 (400/150 + 풀 2000)
 
 function getDiskCachePath(): string {
     // app.getPath 가 있으면 userData, 없으면 temp 사용 (테스트/개발 환경)
