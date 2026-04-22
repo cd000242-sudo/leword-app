@@ -1224,14 +1224,17 @@
       //   sv × CTR × CPC × ... 곱셈은 수많은 가정값에 의존. 실측 데이터가 아님.
       //   사용자 요구: "실용적인 초특급 황금키워드만"
 
-      // 🔥 v2.31.0: 오늘의 TOP 5 큐레이션 — SSR 우선, 없으면 SSS + commercial + 고CPC
+      // 🔥 v2.31.1: TOP 5 → SSR 전체 표시 (확정 수익 키워드 다량화)
       window.rfRenderTopPicks = function(rows) {
         const box = document.getElementById('rfTopPicks');
         const list = document.getElementById('rfTopPicksList');
         if (!box || !list) return;
         const COMMERCIAL_RE = /(추천|비교|후기|가격|순위|할인|리뷰|구매|가성비|최저가)/;
-        const ssrRows = rows.filter(r => r.grade === 'SSR').slice(0, 5);
-        let picks = ssrRows;
+        // SSR 전체 노출 (최대 20개, 나머지는 "더보기")
+        const ssrRows = rows.filter(r => r.grade === 'SSR');
+        const maxDisplay = Math.min(20, ssrRows.length);
+        let picks = ssrRows.slice(0, maxDisplay);
+        // SSR 5건 미만이면 SSS commercial 로 보충 (기존 유지)
         if (picks.length < 5) {
           const extra = rows.filter(r =>
             r.grade === 'SSS' && (r.cpc || 0) >= 500 && COMMERCIAL_RE.test(String(r.keyword)) && (r.documentCount || 0) <= 8000
@@ -1245,6 +1248,9 @@
           picks = [...picks, ...fallback];
         }
         if (picks.length === 0) { box.style.display = 'none'; return; }
+        // 헤더 라벨 갱신
+        const headerEl = box.querySelector('div[style*="font-weight:800"]');
+        if (headerEl) headerEl.textContent = `👑 확정 수익 키워드 ${picks.length}개 (바로 글 쓰면 돈 버는 키워드)`;
         box.style.display = 'block';
         list.innerHTML = picks.map((r, i) => {
           const gradeColor = r.grade === 'SSR' ? '#a855f7' : r.grade === 'SSS' ? '#dc2626' : '#ea580c';

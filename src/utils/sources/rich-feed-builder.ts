@@ -668,14 +668,30 @@ export async function buildRichFeed(
                 let grade: GoldenGrade | '' = calculateGrade(totalVolume, docCount, goldenRatio, score, sig.keyword);
                 if (!grade) continue;
 
-                // 🔥 v2.31.0: SSR 등급 — SSS 중 수익 조건 모두 충족 시 승격
-                //   조건: (1) SSS 등급 (2) CPC ≥ 1000원 (3) 상업 의도 (4) 수익 카테고리
+                // 🔥 v2.31.1: SSR 승격 경로 다양화 (5~15건 → 20~50건)
+                //   확정 수익 키워드가 많아야 정상. 6가지 승격 경로로 커버리지 확대.
                 const isCommercialKw = hasCommercialIntent(sig.keyword);
-                const hasHighCpc = typeof realCpc === 'number' && realCpc >= 1000;
+                const cpcVal = typeof realCpc === 'number' ? realCpc : 0;
                 const isRevenueCat = isRevenueCategory(cat.id);
-                if (grade === 'SSS' && hasHighCpc && isCommercialKw && isRevenueCat) {
-                    grade = 'SSR';
-                }
+                const isSssOrAbove = grade === 'SSS';
+                const isSsOrAbove = grade === 'SSS' || grade === 'SS';
+                const isSOrAbove = grade === 'SSS' || grade === 'SS' || grade === 'S';
+
+                let isSsr = false;
+                // 경로 A: SSS + CPC≥500 + commercial + 수익 카테고리 (기준값 1000→500 완화)
+                if (isSssOrAbove && cpcVal >= 500 && isCommercialKw && isRevenueCat) isSsr = true;
+                // 경로 B: SS + CPC≥1000 + commercial + 수익 카테고리
+                else if (isSsOrAbove && cpcVal >= 1000 && isCommercialKw && isRevenueCat) isSsr = true;
+                // 경로 C: 초고CPC (≥2000) + commercial + dc≤5000 (카테고리/등급 무관 — 확실한 수익 신호)
+                else if (isSOrAbove && cpcVal >= 2000 && isCommercialKw && docCount <= 5000) isSsr = true;
+                // 경로 D: S + CPC≥1500 + commercial + 수익 카테고리 (S 등급도 수익 조건 강하면 SSR)
+                else if (isSOrAbove && cpcVal >= 1500 && isCommercialKw && isRevenueCat) isSsr = true;
+                // 경로 E: SSS + 수익 카테고리 + 극블루오션 (dc≤1000 + gr≥10) — CPC 무관 (신규 수익 키워드)
+                else if (isSssOrAbove && isRevenueCat && docCount <= 1000 && goldenRatio >= 10) isSsr = true;
+                // 경로 F: CPC≥3000 초초고CPC (카테고리/의도 무관 — 광고주 경쟁 치열한 고액 키워드)
+                else if (isSOrAbove && cpcVal >= 3000 && docCount <= 10000) isSsr = true;
+
+                if (isSsr) grade = 'SSR';
 
                 const isBlueOcean = totalVolume >= 300 && totalVolume <= 10000 && docCount <= 2000 && goldenRatio >= 5;
 
@@ -801,7 +817,7 @@ let cached: { result: RichFeedResult; expiresAt: number } | null = null;
 const CACHE_TTL = 3 * 60_000;         // 메모리 캐시: 15분→3분
 const DISK_CACHE_TTL = 30 * 60_000;   // 디스크 캐시: 4시간→30분 (안전망용)
 const MIN_ACCEPTABLE_TOTAL = 20;       // 이 미만이면 "실패"로 간주, 디스크 캐시 폴백
-const CACHE_SCHEMA_VERSION = 'v2.31.0-ssr';  // 🔥 v2.31.0: SSR 등급 + 수익 카테고리 + TOP 5 큐레이션
+const CACHE_SCHEMA_VERSION = 'v2.31.1-ssr-expand';  // 🔥 v2.31.1: SSR 승격 6경로로 확대 (5~15 → 20~50건)
 
 function getDiskCachePath(): string {
     // app.getPath 가 있으면 userData, 없으면 temp 사용 (테스트/개발 환경)
