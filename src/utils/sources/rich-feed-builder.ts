@@ -681,30 +681,18 @@ export async function buildRichFeed(
                 const isSsOrAbove = grade === 'SSS' || grade === 'SS';
                 const isSOrAbove = grade === 'SSS' || grade === 'SS' || grade === 'S';
 
-                // 🔥 v2.31.2: SSR 승격 조건에 "3-token+ 또는 구체성" 강제 추가
-                //   사용자 피드백: 2-token 이어도 broad 하면 초보자 감 못잡음
-                //   예: "국내 브랜드", "반려동물 추천" 같은 건 SSR 안 됨
-                const tokenCount = sig.keyword.trim().split(/\s+/).filter(Boolean).length;
-                const isSpecific = tokenCount >= 3 || (tokenCount === 2 && sig.keyword.length >= 8);
-
+                // 🔥 v2.31.4: SSR 경로 단순화 (실전 적합, 0건 → 10~30건)
+                //   기존 7경로 너무 빡빡 + CPC null 많아 SSS 확보에도 탈락.
+                //   핵심만 4경로: 수익 카테고리 + commercial OR 고CPC.
                 let isSsr = false;
-                if (isSpecific) {
-                    // 경로 A: SSS + CPC≥500 + commercial + 수익 카테고리
-                    if (isSssOrAbove && cpcVal >= 500 && isCommercialKw && isRevenueCat) isSsr = true;
-                    // 경로 B: SS + CPC≥1000 + commercial + 수익 카테고리
-                    else if (isSsOrAbove && cpcVal >= 1000 && isCommercialKw && isRevenueCat) isSsr = true;
-                    // 경로 C: 초고CPC (≥2000) + commercial + dc≤5000
-                    else if (isSOrAbove && cpcVal >= 2000 && isCommercialKw && docCount <= 5000) isSsr = true;
-                    // 경로 D: S + CPC≥1500 + commercial + 수익 카테고리
-                    else if (isSOrAbove && cpcVal >= 1500 && isCommercialKw && isRevenueCat) isSsr = true;
-                    // 경로 E: SSS + 수익 카테고리 + 극블루오션 — CPC 무관 (신규 수익 키워드)
-                    else if (isSssOrAbove && isRevenueCat && docCount <= 1000 && goldenRatio >= 10) isSsr = true;
-                    // 경로 F: CPC≥3000 초초고CPC
-                    else if (isSOrAbove && cpcVal >= 3000 && docCount <= 10000) isSsr = true;
-                    // 🔥 v2.31.2 신규 경로 G: CPC 없이도 commercial + 수익 카테고리 + 3-token + 고블루오션
-                    //   API CPC null 많은 현실 반영 — 수익 카테고리 + 실전 롱테일은 CPC 안 알아도 수익 예상
-                    else if (isSssOrAbove && isCommercialKw && isRevenueCat && tokenCount >= 3 && docCount <= 3000) isSsr = true;
-                }
+                // 경로 1: SSS + commercial + 수익 카테고리 (가장 넓음 — CPC/토큰 무관)
+                if (isSssOrAbove && isCommercialKw && isRevenueCat) isSsr = true;
+                // 경로 2: SSS + 수익 카테고리 + 초저경쟁 dc≤2000 (commercial 없어도 신규 수익)
+                else if (isSssOrAbove && isRevenueCat && docCount <= 2000) isSsr = true;
+                // 경로 3: SS + commercial + 수익 카테고리 + dc≤3000 (SS 도 수익 조건 강하면)
+                else if (isSsOrAbove && isCommercialKw && isRevenueCat && docCount <= 3000) isSsr = true;
+                // 경로 4: 초고CPC ≥2000 + commercial (카테고리 무관 — 광고주 경쟁 치열)
+                else if (isSOrAbove && cpcVal >= 2000 && isCommercialKw) isSsr = true;
 
                 if (isSsr) grade = 'SSR';
 
@@ -832,7 +820,7 @@ let cached: { result: RichFeedResult; expiresAt: number } | null = null;
 const CACHE_TTL = 3 * 60_000;         // 메모리 캐시: 15분→3분
 const DISK_CACHE_TTL = 30 * 60_000;   // 디스크 캐시: 4시간→30분 (안전망용)
 const MIN_ACCEPTABLE_TOTAL = 20;       // 이 미만이면 "실패"로 간주, 디스크 캐시 폴백
-const CACHE_SCHEMA_VERSION = 'v2.31.3-strict';  // 🔥 v2.31.3: writable 강제 + BROAD 확장
+const CACHE_SCHEMA_VERSION = 'v2.31.4-ssr-simple';  // 🔥 v2.31.4: SSR 4경로 단순화
 
 function getDiskCachePath(): string {
     // app.getPath 가 있으면 userData, 없으면 temp 사용 (테스트/개발 환경)
