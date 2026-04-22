@@ -187,7 +187,7 @@ function isLikelyCelebrityName(keyword: string): boolean {
 }
 
 // 🔥 v2.27.6: 집필 가능성 필터 — "글 쓸 수 있는 키워드"만 통과
-const GENERIC_BROAD_RE = /^(적금|예금|카드|대출|보험|투자|주식|펀드|ETF|연금|세금|건강|영양제|비타민|음식|요리|청소|여행|맛집|공부|운동|헬스|다이어트|뷰티|화장품|샴푸|선크림|의류|패션|가구|인테리어|네이버|구글|카카오|삼성|엘지|쿠팡|클로드|챗GPT|유튜브|인스타|페이스북|브랜드|제품|상품|서비스|리뷰|일본|미국|중국|한국|영국|독일|프랑스|이탈리아|러시아|인도|호주|캐나다|스페인|태국|베트남|유럽|아시아|동남아|북미|남미|중동|서울|부산|대구|인천|제주|강남|홍대|이태원|명동|성수|경기|강원|충청|전라|경상|국내|국외|해외|반려동물|돼지고기|소고기|닭고기|생선|아파트|빌라|오피스텔|주식종류|레고)$/;
+const GENERIC_BROAD_RE = /^(적금|예금|카드|대출|보험|투자|주식|펀드|ETF|연금|세금|건강|영양제|비타민|음식|요리|청소|여행|맛집|공부|운동|헬스|다이어트|뷰티|화장품|샴푸|선크림|의류|패션|가구|인테리어|네이버|구글|카카오|삼성|엘지|쿠팡|클로드|챗GPT|유튜브|인스타|페이스북|브랜드|제품|상품|서비스|리뷰|일본|미국|중국|한국|영국|독일|프랑스|이탈리아|러시아|인도|호주|캐나다|스페인|태국|베트남|유럽|아시아|동남아|북미|남미|중동|서울|부산|대구|인천|제주|강남|홍대|이태원|명동|성수|경기|강원|충청|전라|경상|국내|국외|해외|반려동물|돼지고기|소고기|닭고기|생선|아파트|빌라|오피스텔|주식종류|레고|정부|로마|청약|영화|드라마|음악|게임|애니|웹툰|소설|방송|예능|공연|뉴스|사건|사고|이슈|사람|인물|기업|회사|단체|기관|학교|대학|학원|은행|금융|경제|사회|정치|스포츠|선수|팀|경기|시합|대회|올림픽|월드컵|IT|AI|로봇|우주|과학|기술|발명|연구|교육|입시|시험|공무원|자격증|취업|직장|연봉|면접)$/;
 const GENERIC_ACTION_RE = /^(추천|후기|리뷰|비교|순위|가격|방법|꿀팁|정리|할인|세일|이벤트|인기|베스트|신상|최신|tips|모음|목록|소개|설명|정보)$/i;
 
 // 🔥 v2.28.1: 뉴스성 단일 토큰 차단 (분기/폐지/사망/협상 등 — 글감 부족)
@@ -260,10 +260,11 @@ function calculateGrade(volume: number, docCount: number, ratio: number, score: 
     const isCelebLike = isLikelyCelebrityName(keyword);
     if (isCelebLike && docCount > 1000) return '';
 
-    // 🔥 v2.25.1: SS/S/A 모두 "희소 고유명사" 예외 허용 (writable fail 해도 dc 소량이면 통과)
-    const allowSS = writable || (!isCelebLike && docCount > 0 && docCount <= 10000);
-    const allowS = writable || (!isCelebLike && docCount > 0 && docCount <= 30000);
-    const allowA = writable || (!isCelebLike && docCount > 0 && docCount <= 50000);
+    // 🔥 v2.31.3: writable 강제 — 희소 예외 완전 제거 (단일 action "할인" 통과 문제 해결)
+    //   실측에서 SS [할인], SS [가격] 통과 — allowSS 의 dc 예외 때문. 제거.
+    const allowSS = writable;
+    const allowS = writable;
+    const allowA = writable;
     const commercial = hasCommercialIntent(keyword);
 
     // 🔥 v2.29.0: SSS 자동 승격에도 writable 강제 — 단일 일반 명사 차단
@@ -831,7 +832,7 @@ let cached: { result: RichFeedResult; expiresAt: number } | null = null;
 const CACHE_TTL = 3 * 60_000;         // 메모리 캐시: 15분→3분
 const DISK_CACHE_TTL = 30 * 60_000;   // 디스크 캐시: 4시간→30분 (안전망용)
 const MIN_ACCEPTABLE_TOTAL = 20;       // 이 미만이면 "실패"로 간주, 디스크 캐시 폴백
-const CACHE_SCHEMA_VERSION = 'v2.31.2-specificity';  // 🔥 v2.31.2: 구체성 강제 + 단일 ACTION 차단
+const CACHE_SCHEMA_VERSION = 'v2.31.3-strict';  // 🔥 v2.31.3: writable 강제 + BROAD 확장
 
 function getDiskCachePath(): string {
     // app.getPath 가 있으면 userData, 없으면 temp 사용 (테스트/개발 환경)
