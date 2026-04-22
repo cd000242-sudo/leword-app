@@ -187,7 +187,7 @@ function isLikelyCelebrityName(keyword: string): boolean {
 }
 
 // 🔥 v2.27.6: 집필 가능성 필터 — "글 쓸 수 있는 키워드"만 통과
-const GENERIC_BROAD_RE = /^(적금|예금|카드|대출|보험|투자|주식|펀드|ETF|연금|세금|건강|영양제|비타민|음식|요리|청소|여행|맛집|공부|운동|헬스|다이어트|뷰티|화장품|샴푸|선크림|의류|패션|가구|인테리어|네이버|구글|카카오|삼성|엘지|쿠팡|클로드|챗GPT|유튜브|인스타|페이스북|브랜드|제품|상품|서비스|리뷰|일본|미국|중국|한국|영국|독일|프랑스|이탈리아|러시아|인도|호주|캐나다|스페인|태국|베트남|유럽|아시아|동남아|북미|남미|중동|서울|부산|대구|인천|제주|강남|홍대|이태원|명동|성수|경기|강원|충청|전라|경상)$/;
+const GENERIC_BROAD_RE = /^(적금|예금|카드|대출|보험|투자|주식|펀드|ETF|연금|세금|건강|영양제|비타민|음식|요리|청소|여행|맛집|공부|운동|헬스|다이어트|뷰티|화장품|샴푸|선크림|의류|패션|가구|인테리어|네이버|구글|카카오|삼성|엘지|쿠팡|클로드|챗GPT|유튜브|인스타|페이스북|브랜드|제품|상품|서비스|리뷰|일본|미국|중국|한국|영국|독일|프랑스|이탈리아|러시아|인도|호주|캐나다|스페인|태국|베트남|유럽|아시아|동남아|북미|남미|중동|서울|부산|대구|인천|제주|강남|홍대|이태원|명동|성수|경기|강원|충청|전라|경상|국내|국외|해외|반려동물|돼지고기|소고기|닭고기|생선|아파트|빌라|오피스텔|주식종류|레고)$/;
 const GENERIC_ACTION_RE = /^(추천|후기|리뷰|비교|순위|가격|방법|꿀팁|정리|할인|세일|이벤트|인기|베스트|신상|최신|tips|모음|목록|소개|설명|정보)$/i;
 
 // 🔥 v2.28.1: 뉴스성 단일 토큰 차단 (분기/폐지/사망/협상 등 — 글감 부족)
@@ -219,14 +219,17 @@ function isWritableKeyword(keyword: string, docCount: number): boolean {
     const tokens = keyword.trim().split(/\s+/).filter(Boolean).length;
     if (tokens === 2 && isTooGeneric2Token(keyword)) return false;
     if (isNewsNoise(keyword)) return false;
+    // 🔥 v2.31.2: 단일 토큰이 GENERIC_ACTION(할인/후기/추천 등) 이면 무조건 차단
+    //   사용자 피드백: "할인", "후기" 단독이 SS 로 통과됨 — 어떤 상품/서비스인지 불명
+    if (tokens === 1 && GENERIC_ACTION_RE.test(keyword.trim())) return false;
+    // 단일 GENERIC_BROAD (적금/보험/투자/일본/서울 등) 도 차단
+    if (tokens === 1 && GENERIC_BROAD_RE.test(keyword.trim())) return false;
     if (tokens >= 2) return true;
     if (INTENT_SUFFIX_RE.test(keyword)) return true;
     if (isLikelyCelebrityName(keyword)) {
         return docCount > 0 && docCount <= 500;
     }
-    // 🔥 v2.29.0 근본 재설계: 단일 명사 임계 15000 → 500 (사용자 피드백)
-    //   "세대/회복/비전/가처분/삼우제" 같은 일반 명사는 dc 수천~수만 → 전부 차단
-    //   dc ≤ 500 만 통과 = 극희귀 고유 작품명/제품명만 (프래그마타/투신전생기 급)
+    // 단일 명사 dc ≤ 500 만 통과 (극희귀 고유명사만)
     if (docCount > 0 && docCount <= 500) return true;
     return false;
 }
@@ -677,19 +680,30 @@ export async function buildRichFeed(
                 const isSsOrAbove = grade === 'SSS' || grade === 'SS';
                 const isSOrAbove = grade === 'SSS' || grade === 'SS' || grade === 'S';
 
+                // 🔥 v2.31.2: SSR 승격 조건에 "3-token+ 또는 구체성" 강제 추가
+                //   사용자 피드백: 2-token 이어도 broad 하면 초보자 감 못잡음
+                //   예: "국내 브랜드", "반려동물 추천" 같은 건 SSR 안 됨
+                const tokenCount = sig.keyword.trim().split(/\s+/).filter(Boolean).length;
+                const isSpecific = tokenCount >= 3 || (tokenCount === 2 && sig.keyword.length >= 8);
+
                 let isSsr = false;
-                // 경로 A: SSS + CPC≥500 + commercial + 수익 카테고리 (기준값 1000→500 완화)
-                if (isSssOrAbove && cpcVal >= 500 && isCommercialKw && isRevenueCat) isSsr = true;
-                // 경로 B: SS + CPC≥1000 + commercial + 수익 카테고리
-                else if (isSsOrAbove && cpcVal >= 1000 && isCommercialKw && isRevenueCat) isSsr = true;
-                // 경로 C: 초고CPC (≥2000) + commercial + dc≤5000 (카테고리/등급 무관 — 확실한 수익 신호)
-                else if (isSOrAbove && cpcVal >= 2000 && isCommercialKw && docCount <= 5000) isSsr = true;
-                // 경로 D: S + CPC≥1500 + commercial + 수익 카테고리 (S 등급도 수익 조건 강하면 SSR)
-                else if (isSOrAbove && cpcVal >= 1500 && isCommercialKw && isRevenueCat) isSsr = true;
-                // 경로 E: SSS + 수익 카테고리 + 극블루오션 (dc≤1000 + gr≥10) — CPC 무관 (신규 수익 키워드)
-                else if (isSssOrAbove && isRevenueCat && docCount <= 1000 && goldenRatio >= 10) isSsr = true;
-                // 경로 F: CPC≥3000 초초고CPC (카테고리/의도 무관 — 광고주 경쟁 치열한 고액 키워드)
-                else if (isSOrAbove && cpcVal >= 3000 && docCount <= 10000) isSsr = true;
+                if (isSpecific) {
+                    // 경로 A: SSS + CPC≥500 + commercial + 수익 카테고리
+                    if (isSssOrAbove && cpcVal >= 500 && isCommercialKw && isRevenueCat) isSsr = true;
+                    // 경로 B: SS + CPC≥1000 + commercial + 수익 카테고리
+                    else if (isSsOrAbove && cpcVal >= 1000 && isCommercialKw && isRevenueCat) isSsr = true;
+                    // 경로 C: 초고CPC (≥2000) + commercial + dc≤5000
+                    else if (isSOrAbove && cpcVal >= 2000 && isCommercialKw && docCount <= 5000) isSsr = true;
+                    // 경로 D: S + CPC≥1500 + commercial + 수익 카테고리
+                    else if (isSOrAbove && cpcVal >= 1500 && isCommercialKw && isRevenueCat) isSsr = true;
+                    // 경로 E: SSS + 수익 카테고리 + 극블루오션 — CPC 무관 (신규 수익 키워드)
+                    else if (isSssOrAbove && isRevenueCat && docCount <= 1000 && goldenRatio >= 10) isSsr = true;
+                    // 경로 F: CPC≥3000 초초고CPC
+                    else if (isSOrAbove && cpcVal >= 3000 && docCount <= 10000) isSsr = true;
+                    // 🔥 v2.31.2 신규 경로 G: CPC 없이도 commercial + 수익 카테고리 + 3-token + 고블루오션
+                    //   API CPC null 많은 현실 반영 — 수익 카테고리 + 실전 롱테일은 CPC 안 알아도 수익 예상
+                    else if (isSssOrAbove && isCommercialKw && isRevenueCat && tokenCount >= 3 && docCount <= 3000) isSsr = true;
+                }
 
                 if (isSsr) grade = 'SSR';
 
@@ -817,7 +831,7 @@ let cached: { result: RichFeedResult; expiresAt: number } | null = null;
 const CACHE_TTL = 3 * 60_000;         // 메모리 캐시: 15분→3분
 const DISK_CACHE_TTL = 30 * 60_000;   // 디스크 캐시: 4시간→30분 (안전망용)
 const MIN_ACCEPTABLE_TOTAL = 20;       // 이 미만이면 "실패"로 간주, 디스크 캐시 폴백
-const CACHE_SCHEMA_VERSION = 'v2.31.1-ssr-expand';  // 🔥 v2.31.1: SSR 승격 6경로로 확대 (5~15 → 20~50건)
+const CACHE_SCHEMA_VERSION = 'v2.31.2-specificity';  // 🔥 v2.31.2: 구체성 강제 + 단일 ACTION 차단
 
 function getDiskCachePath(): string {
     // app.getPath 가 있으면 userData, 없으면 temp 사용 (테스트/개발 환경)
