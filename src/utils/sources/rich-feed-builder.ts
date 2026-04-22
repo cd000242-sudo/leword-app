@@ -21,7 +21,7 @@ import { getNaverKeywordSearchVolumeSeparate } from '../naver-datalab-api';
 import { estimateCPC, calculatePurchaseIntent, calculateCompetitionLevel } from '../profit-golden-keyword-engine';
 import { EnvironmentManager } from '../environment-manager';
 import { classifyKeyword, getCategoryById } from '../categories';
-import { getEvergreenSafetyNetSeeds } from './evergreen-safety-net';
+import { getEvergreenSafetyNetSeeds, getAllRevenueSeeds } from './evergreen-safety-net';
 import { buildIDFStats, scoreSeedKeyword, isQualitySeed } from './quality-extractor';
 
 export type Freshness = 'BURNING' | 'RISING' | 'STABLE' | 'EVERGREEN';
@@ -433,12 +433,21 @@ export async function buildRichFeed(
     }
 
     // 2-1. 안전망 seed 합류 — 외부 소스 실패 시에도 최소 결과 보장
-    // 중복이면 기존 source 유지, 신규면 'evergreen' 소스로 추가
     for (const seed of getEvergreenSafetyNetSeeds(40)) {
         const kw = normalize(seed);
         if (!isValid(kw)) continue;
         if (!seedMap.has(kw)) seedMap.set(kw, new Set());
         seedMap.get(kw)!.add('evergreen');
+    }
+
+    // 🔥 v2.32.0: 수익 카테고리 시드 전량 주입 (엔터 편중 해소, SSR 수량 증대)
+    //   health/finance/realestate/beauty/business/parenting/policy 200+ 시드
+    //   특별 소스 태그 'revenue' 로 qualityScore 가중치 상승 효과
+    for (const seed of getAllRevenueSeeds()) {
+        const kw = normalize(seed);
+        if (!isValid(kw)) continue;
+        if (!seedMap.has(kw)) seedMap.set(kw, new Set());
+        seedMap.get(kw)!.add('revenue');
     }
 
     // 3. 모든 seed 수집 + 소스별 그룹화 (round-robin용)
@@ -820,7 +829,7 @@ let cached: { result: RichFeedResult; expiresAt: number } | null = null;
 const CACHE_TTL = 3 * 60_000;         // 메모리 캐시: 15분→3분
 const DISK_CACHE_TTL = 30 * 60_000;   // 디스크 캐시: 4시간→30분 (안전망용)
 const MIN_ACCEPTABLE_TOTAL = 20;       // 이 미만이면 "실패"로 간주, 디스크 캐시 폴백
-const CACHE_SCHEMA_VERSION = 'v2.31.4-ssr-simple';  // 🔥 v2.31.4: SSR 4경로 단순화
+const CACHE_SCHEMA_VERSION = 'v2.32.0-revenue-seeds';  // 🔥 v2.32.0: 수익 시드 200+ 주입
 
 function getDiskCachePath(): string {
     // app.getPath 가 있으면 userData, 없으면 temp 사용 (테스트/개발 환경)
