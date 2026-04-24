@@ -843,6 +843,8 @@
       let rfCurrentCategory = '*';
 
       // 📡 진행 이벤트 수신 리스너 (전역 1회 등록)
+      // 🔥 v2.32.1: 진행률 역행 방지 — 낮은 퍼센트는 무시 (IPC 순서 역전/중복 호출 방어)
+      window.__rfLastPercent = 0;
       if (window.electronAPI && window.electronAPI.on && !window.__rfProgressHooked) {
         window.__rfProgressHooked = true;
         window.electronAPI.on('rich-feed-progress', (payload) => {
@@ -855,8 +857,13 @@
           if (!box || !bar || !pct || !msg) return;
           box.style.display = 'block';
           const p = Math.max(0, Math.min(100, payload.percent || 0));
-          bar.style.width = p + '%';
-          pct.textContent = p + '%';
+          // 역행 가드: 이전 값보다 낮으면 무시 (메시지/로그는 업데이트하되 막대는 유지)
+          const lastP = window.__rfLastPercent || 0;
+          if (p >= lastP) {
+            window.__rfLastPercent = p;
+            bar.style.width = p + '%';
+            pct.textContent = p + '%';
+          }
           msg.textContent = payload.message || '처리 중...';
           if (log) {
             const time = new Date().toLocaleTimeString('ko-KR', { hour12: false });
@@ -875,6 +882,8 @@
         // 진행바 초기화 + 표시
         if (progressBox) progressBox.style.display = 'block';
         if (progressLog) progressLog.innerHTML = '';
+        // 🔥 v2.32.1: 새 발굴 시작 시 역행 가드 리셋 (이전 100% 상태에서 내려가지 않도록 0 으로)
+        window.__rfLastPercent = 0;
         const pbar = document.getElementById('rfProgressBar');
         const ppct = document.getElementById('rfProgressPct');
         const pmsg = document.getElementById('rfProgressMsg');

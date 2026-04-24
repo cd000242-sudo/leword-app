@@ -187,8 +187,13 @@ function isLikelyCelebrityName(keyword: string): boolean {
 }
 
 // 🔥 v2.27.6: 집필 가능성 필터 — "글 쓸 수 있는 키워드"만 통과
-const GENERIC_BROAD_RE = /^(적금|예금|카드|대출|보험|투자|주식|펀드|ETF|연금|세금|건강|영양제|비타민|음식|요리|청소|여행|맛집|공부|운동|헬스|다이어트|뷰티|화장품|샴푸|선크림|의류|패션|가구|인테리어|네이버|구글|카카오|삼성|엘지|쿠팡|클로드|챗GPT|유튜브|인스타|페이스북|브랜드|제품|상품|서비스|리뷰|일본|미국|중국|한국|영국|독일|프랑스|이탈리아|러시아|인도|호주|캐나다|스페인|태국|베트남|유럽|아시아|동남아|북미|남미|중동|서울|부산|대구|인천|제주|강남|홍대|이태원|명동|성수|경기|강원|충청|전라|경상|국내|국외|해외|반려동물|돼지고기|소고기|닭고기|생선|아파트|빌라|오피스텔|주식종류|레고|정부|로마|청약|영화|드라마|음악|게임|애니|웹툰|소설|방송|예능|공연|뉴스|사건|사고|이슈|사람|인물|기업|회사|단체|기관|학교|대학|학원|은행|금융|경제|사회|정치|스포츠|선수|팀|경기|시합|대회|올림픽|월드컵|IT|AI|로봇|우주|과학|기술|발명|연구|교육|입시|시험|공무원|자격증|취업|직장|연봉|면접)$/;
-const GENERIC_ACTION_RE = /^(추천|후기|리뷰|비교|순위|가격|방법|꿀팁|정리|할인|세일|이벤트|인기|베스트|신상|최신|tips|모음|목록|소개|설명|정보)$/i;
+// 🔥 v2.32.1: 공공·정책·기관·추상명사 대폭 추가 — 실측 피드에서 글감 약한 키워드 차단
+//   추가된 카테고리:
+//   - 공공정책: 국민연금, 아동수당, 근로장려금, 청년도약계좌, 기초연금, 실업급여, 재난지원금, 건강보험, 고용보험, 산재보험, 4대보험 (2토큰 조합은 개별 게이트)
+//   - 공공기관: 취업지원센터, 건강보험공단, 국민연금공단, 농협금융, 청약홈
+//   - 추상·뉴스 명사: 협력, 대상, 사정, 병용, 산산조각, 리브스, 호르무즈 (단일 토큰 + 뜻/가격 조합 차단)
+const GENERIC_BROAD_RE = /^(적금|예금|카드|대출|보험|투자|주식|펀드|ETF|연금|세금|건강|영양제|비타민|음식|요리|청소|여행|맛집|공부|운동|헬스|다이어트|뷰티|화장품|샴푸|선크림|의류|패션|가구|인테리어|네이버|구글|카카오|삼성|엘지|쿠팡|클로드|챗GPT|유튜브|인스타|페이스북|브랜드|제품|상품|서비스|리뷰|일본|미국|중국|한국|영국|독일|프랑스|이탈리아|러시아|인도|호주|캐나다|스페인|태국|베트남|유럽|아시아|동남아|북미|남미|중동|서울|부산|대구|인천|제주|강남|홍대|이태원|명동|성수|경기|강원|충청|전라|경상|국내|국외|해외|반려동물|돼지고기|소고기|닭고기|생선|아파트|빌라|오피스텔|주식종류|레고|정부|로마|청약|영화|드라마|음악|게임|애니|웹툰|소설|방송|예능|공연|뉴스|사건|사고|이슈|사람|인물|기업|회사|단체|기관|학교|대학|학원|은행|금융|경제|사회|정치|스포츠|선수|팀|경기|시합|대회|올림픽|월드컵|IT|AI|로봇|우주|과학|기술|발명|연구|교육|입시|시험|공무원|자격증|취업|직장|연봉|면접|국민연금|아동수당|근로장려금|자녀장려금|청년도약계좌|청년희망적금|기초연금|실업급여|재난지원금|건강보험|고용보험|산재보험|4대보험|사대보험|청년수당|국민행복카드|취업지원센터|건강보험공단|국민연금공단|농협금융|청약홈|정부24|홈택스|협력|대상|사정|병용|산산조각|리브스|호르무즈|우베|자위행위)$/;
+const GENERIC_ACTION_RE = /^(추천|후기|리뷰|비교|순위|가격|방법|꿀팁|정리|할인|세일|이벤트|인기|베스트|신상|최신|tips|모음|목록|소개|설명|정보|뜻|의미|브랜드|종류|신청|안내|공지)$/i;
 
 // 🔥 v2.28.1: 뉴스성 단일 토큰 차단 (분기/폐지/사망/협상 등 — 글감 부족)
 //   사용자 피드백: "분기, 폐지, 주식종류, 세계, 개최, 사망, 협상 이런 건 어떻게 쓰라고"
@@ -201,6 +206,9 @@ function isNewsNoise(keyword: string): boolean {
     return NEWS_NOISE_RE.test(clean);
 }
 
+// 🔥 v2.32.1: 순수 숫자/연도 토큰 — BROAD + 연도 조합 차단 ("아동수당 2026")
+const YEAR_OR_NUMBER_RE = /^\d{2,4}(년|월|일|%)?$/;
+
 function isTooGeneric2Token(keyword: string): boolean {
     const tokens = keyword.trim().split(/\s+/).filter(Boolean);
     if (tokens.length !== 2) return false;
@@ -212,6 +220,9 @@ function isTooGeneric2Token(keyword: string): boolean {
     if (GENERIC_BROAD_RE.test(a) && GENERIC_BROAD_RE.test(b)) return true;
     // 🔥 v2.28.2: ACTION + ACTION 조합 (예: "가격 후기", "추천 리뷰", "비교 순위")
     if (GENERIC_ACTION_RE.test(a) && GENERIC_ACTION_RE.test(b)) return true;
+    // 🔥 v2.32.1: BROAD + 연도/숫자 조합 차단 (예: "아동수당 2026", "국민연금 2026")
+    if (GENERIC_BROAD_RE.test(a) && YEAR_OR_NUMBER_RE.test(b)) return true;
+    if (GENERIC_BROAD_RE.test(b) && YEAR_OR_NUMBER_RE.test(a)) return true;
     return false;
 }
 
@@ -247,7 +258,7 @@ function hasCommercialIntent(keyword: string): boolean {
  *  - SSS/SS 는 writable 필수 (엄격한 품질)
  *  - S/A/B 는 docCount 자연 필터만 적용 (문근영·장동혁 같은 중도 키워드는 유지)
  */
-function calculateGrade(volume: number, docCount: number, ratio: number, score: number, keyword: string): GoldenGrade | '' {
+function calculateGrade(volume: number, docCount: number, ratio: number, score: number, keyword: string, dcEstimated: boolean = false): GoldenGrade | '' {
     const writable = isWritableKeyword(keyword, docCount);
     // 극단 범용 빅워드 제거
     if (!writable && docCount > 100_000) return '';
@@ -266,6 +277,15 @@ function calculateGrade(volume: number, docCount: number, ratio: number, score: 
     const allowS = writable;
     const allowA = writable;
     const commercial = hasCommercialIntent(keyword);
+
+    // 🔥 v2.32.1: dc 추정값(=sv*0.5)은 실측 아니므로 A 상한 — SSR/SSS/SS 차단
+    //   실측 피드에서 ratio=2.00 이 A 등급 대거 포진 — "확정 수익 #1 현대차 가격" 도 추정값 기반.
+    //   추정값으로 SSR/SSS/SS 승격 시 신뢰도 붕괴. 실측 dc 있을 때만 고등급 허용.
+    if (dcEstimated) {
+        if (score >= 45 && volume >= 200 && writable) return 'A';
+        if (score >= 38 && volume >= 100 && writable) return 'B';
+        return '';
+    }
 
     // 🔥 v2.29.0: SSS 자동 승격에도 writable 강제 — 단일 일반 명사 차단
     //   "세대/회복/비전" 같은 단일 명사가 gr≥20 으로 SSS 승격되던 문제 해결
@@ -302,9 +322,10 @@ function calculateGrade(volume: number, docCount: number, ratio: number, score: 
 
     // 🔥 v2.29.0: S/A 도 writable 강제 (기존 allowS/allowA 대신)
     //   "세대/회복/비전" 등 dc 수천 단일 명사가 S/A 통과 → 차단
-    if (score >= 48 && volume >= 70 && ratio >= 0.5 && writable) return 'S';
-    if (score >= 38 && volume >= 30 && writable) return 'A';
-    if (score >= 35 && volume >= 20 && writable) return 'B';
+    // 🔥 v2.32.1: S/A 최저 볼륨 상향 — sv<100 은 통계적 무의미 (예: "주식 초보 공부 sv 40", "현대건설 순위 sv 30")
+    if (score >= 48 && volume >= 150 && ratio >= 0.5 && writable) return 'S';
+    if (score >= 38 && volume >= 100 && writable) return 'A';
+    if (score >= 35 && volume >= 50 && writable) return 'B';
     return '';
 }
 
@@ -397,8 +418,14 @@ export async function buildRichFeed(
     const startedAt = Date.now();
     const isExceeded = () => Date.now() - startedAt > HARD_CAP_MS;
 
+    // 🔥 v2.32.1: 진행률 단조증가 강제 — pseudo-animation timer + 하드캡 경로가 섞여 역행하던 버그 방지
+    //   예: seed animation 이 14 보낸 후 candidates 20 보내기 전에 늦게 도착한 seed 13 이 렌더러 도달 → 역행
+    let lastEmittedPercent = 0;
     const emit = (step: string, percent: number, message: string) => {
-        try { onProgress?.({ step, percent, message }); } catch {}
+        const p = Math.max(0, Math.min(100, Math.round(percent)));
+        if (p < lastEmittedPercent) return; // 역행 차단 (메시지도 함께 무시 — UI 혼란 방지)
+        lastEmittedPercent = p;
+        try { onProgress?.({ step, percent: p, message }); } catch {}
     };
 
     emit('seed', 3, '28개 외부 소스에서 시드 수집 시작...');
@@ -631,9 +658,11 @@ export async function buildRichFeed(
     }
 
     const enrichedRows: RichKeywordRow[] = [];
-    // 🔥 v2.28.0: batch 80→40, 병렬 5→10 (배치 작아져 병렬 효율 ↑, 오류 복원력 ↑)
+    // 🔥 v2.32.1: 데이터 정확성 최우선 — rate-limit 회피
+    //   기존 batch 40 × 병렬 10 × 내부 concurrency 8 = 최대 80 동시 요청 → rate-limit → scrapeFallback 오염
+    //   신규 batch 40 × 병렬 5 × 내부 concurrency 3 = 최대 15 동시 요청 → API 성공률 최우선
     const batchSize = 40;
-    const PARALLEL_BATCHES = 10;
+    const PARALLEL_BATCHES = 5;
     const batches: typeof candidates[] = [];
     for (let i = 0; i < candidates.length; i += batchSize) {
         batches.push(candidates.slice(i, i + batchSize));
@@ -678,7 +707,8 @@ export async function buildRichFeed(
 
                 const scoringCpc = estimateCPC(sig.keyword, cat.id);
                 const score = calculateScore(totalVolume, docCount, goldenRatio, scoringCpc, intent, sig.keyword);
-                let grade: GoldenGrade | '' = calculateGrade(totalVolume, docCount, goldenRatio, score, sig.keyword);
+                // 🔥 v2.32.1: dc 추정 여부를 grade 판정에 전달 — 추정값은 A 상한
+                let grade: GoldenGrade | '' = calculateGrade(totalVolume, docCount, goldenRatio, score, sig.keyword, !hasValidDocCount);
                 if (!grade) continue;
 
                 // 🔥 v2.31.1: SSR 승격 경로 다양화 (5~15건 → 20~50건)

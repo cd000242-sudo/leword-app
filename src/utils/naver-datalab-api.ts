@@ -672,9 +672,15 @@ export async function getNaverKeywordSearchVolumeSeparate(
     }
 
     const apiUrl = 'https://openapi.naver.com/v1/search/blog.json';
-    // 🔥 v2.27.9: concurrency 5 → 8 (사용자 실환경 정상 → 대량 우선)
-    const CONCURRENCY = 8;
-    const API_TIMEOUT_MS = 3000;
+    // 🔥 v2.32.1: 데이터 정확성 최우선 — rate-limit 회피 + 재시도 + 스크랩 sanity check
+    //   기존: concurrency 8 + 3s 타임아웃 → rate-limit 시 scrapeFallback 의 첫 "N건" 매치 (스마트블록 위젯) 가
+    //         진짜 문서수 대신 저장됨. 예: 아동수당 209,645 → 26 으로 오염 → SSR 승격 오작동.
+    //   신규: (1) concurrency 8 → 3 으로 축소 (rate-limit 자체 회피)
+    //         (2) API 재시도 1회 (400ms backoff)
+    //         (3) scrapeFallback 에 sanity check — sv/dc>100 && dc<1000 면 거부 (바디 단락 N건 오매칭 방어)
+    //         (4) scrapeFallback 값은 캐시 저장 금지 — API 성공 값만 재사용
+    const CONCURRENCY = 3;
+    const API_TIMEOUT_MS = 3500;
     const SCRAPE_TIMEOUT_MS = 1800;
 
     const scrapeFallback = async (keyword: string): Promise<number | null> => {
@@ -723,6 +729,13 @@ export async function getNaverKeywordSearchVolumeSeparate(
       }
     };
 
+    const fetchApiWithRetry = async (originalKeyword: string): Promise<number | null> => {
+      const first = await fetchApi(originalKeyword);
+      if (first !== null) return first;
+      await new Promise(r => setTimeout(r, 400));
+      return await fetchApi(originalKeyword);
+    };
+
     let cursor = 0;
     const workers: Promise<void>[] = [];
     for (let w = 0; w < CONCURRENCY; w++) {
@@ -733,11 +746,23 @@ export async function getNaverKeywordSearchVolumeSeparate(
           // 🔥 v2.27.4: 영구 캐시 HIT 이면 API 건너뛰기
           if (results[idx].documentCount !== null) continue;
           const originalKeyword = input[idx];
-          let dc = await fetchApi(originalKeyword);
-          if (dc === null) dc = await scrapeFallback(originalKeyword);
+          let dc = await fetchApiWithRetry(originalKeyword);
+          const fromApi = dc !== null;
+          if (dc === null) {
+            // API 최종 실패 → 스크랩 폴백 + sanity check
+            const scraped = await scrapeFallback(originalKeyword);
+            if (scraped !== null && scraped > 0) {
+              const sv = (results[idx].pcSearchVolume || 0) + (results[idx].mobileSearchVolume || 0);
+              // 스마트블록 위젯/본문 단락 카운트 오매칭 방어:
+              //   dc < 1000 인데 sv/dc > 100 면 비현실적 "초황금" → 거부
+              const suspiciousRatio = sv > 0 && scraped < 1000 && (sv / scraped) > 100;
+              if (!suspiciousRatio) dc = scraped;
+              else console.warn(`[DOC-COUNT] ⚠️ scrapeFallback 거부 "${originalKeyword}": sv=${sv}, scraped=${scraped} (ratio=${(sv/scraped).toFixed(1)})`);
+            }
+          }
           results[idx].documentCount = dc;
-          // 성공 시 영구 캐시에 저장 (다음 run 에서 재사용)
-          if (persistentSet && dc !== null && dc > 0) {
+          // 🔥 v2.32.1: API 성공 값만 영구 캐시에 저장 (스크랩 값은 신뢰도 낮아 제외)
+          if (fromApi && persistentSet && dc !== null && dc > 0) {
             const sv = (results[idx].pcSearchVolume || 0) + (results[idx].mobileSearchVolume || 0);
             if (sv > 0) {
               persistentSet(originalKeyword, {
@@ -748,7 +773,7 @@ export async function getNaverKeywordSearchVolumeSeparate(
               });
             }
           }
-          await new Promise(r => setTimeout(r, 120));
+          await new Promise(r => setTimeout(r, 180));
         }
       })());
     }
