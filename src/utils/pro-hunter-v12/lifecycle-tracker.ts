@@ -104,10 +104,13 @@ async function runCheck(): Promise<void> {
 
 export function startLifecycleTracker(): void {
   if (timer) return;
-  // 첫 실행은 60초 뒤
+  const { markWorkerStarted, markWorkerTick } = require('./worker-status');
+  markWorkerStarted('lifecycle');
   setTimeout(() => {
-    runCheck();
-    timer = setInterval(runCheck, CHECK_INTERVAL_MS);
+    runCheck().then(() => markWorkerTick('lifecycle')).catch((e: any) => markWorkerTick('lifecycle', e?.message));
+    timer = setInterval(() => {
+      runCheck().then(() => markWorkerTick('lifecycle')).catch((e: any) => markWorkerTick('lifecycle', e?.message));
+    }, CHECK_INTERVAL_MS);
   }, 60 * 1000);
   console.log('[LIFECYCLE] ✅ 라이프사이클 추적 시작 (12h 주기)');
 }

@@ -117,10 +117,13 @@ async function runCheck(): Promise<void> {
 
 export function startRankTracker(): void {
   if (timer) return;
-  // 첫 실행은 5분 뒤 (앱 기동과 충돌 방지)
+  const { markWorkerStarted, markWorkerTick } = require('./worker-status');
+  markWorkerStarted('rank');
   setTimeout(() => {
-    runCheck();
-    timer = setInterval(runCheck, CHECK_INTERVAL_MS);
+    Promise.resolve(runCheck()).then(() => markWorkerTick('rank')).catch((e: any) => markWorkerTick('rank', e?.message));
+    timer = setInterval(() => {
+      Promise.resolve(runCheck()).then(() => markWorkerTick('rank')).catch((e: any) => markWorkerTick('rank', e?.message));
+    }, CHECK_INTERVAL_MS);
   }, 5 * 60 * 1000);
   console.log('[RANK-TRACKER] ✅ 순위 추적 시작 (24h 주기)');
 }

@@ -2,11 +2,10 @@
 // 작성: 2026-04-15
 // SERP 분석 + 키워드 → Gemini로 글 outline + 차별화 전략 생성
 
-import { GoogleGenerativeAI } from '@google/generative-ai';
+import { callAI } from './ai-client';
 import type { SerpAnalysis, GapAnalysis } from './serp-content-analyzer';
 import type { SmartBlockAnalysis } from './smartblock-parser';
 import type { SeasonalityProfile } from './seasonality-analyzer';
-import { EnvironmentManager } from '../environment-manager';
 
 export interface BlueprintH2Section {
   title: string;
@@ -42,10 +41,8 @@ export interface KeywordBlueprint {
   };
   warnings: string[];
   generatedAt: number;
-  source: 'gemini' | 'fallback';
+  source: 'claude' | 'fallback';
 }
-
-const MODEL_NAME = 'gemini-2.0-flash-exp';
 
 function buildPrompt(
   keyword: string,
@@ -267,25 +264,18 @@ export async function generateBlueprint(
   smartBlocks?: SmartBlockAnalysis | null,
   seasonality?: SeasonalityProfile | null
 ): Promise<KeywordBlueprint> {
-  const env = EnvironmentManager.getInstance().getConfig();
-  const apiKey = env.geminiApiKey;
-
-  if (!apiKey || analysis.postCount === 0) {
-    console.warn('[BLUEPRINT] Gemini API 키 없음 또는 SERP 데이터 부족 → fallback');
+  if (analysis.postCount === 0) {
+    console.warn('[BLUEPRINT] SERP 데이터 부족 → fallback');
     return fallbackBlueprint(keyword, analysis, gaps);
   }
 
   try {
-    const genAI = new GoogleGenerativeAI(apiKey);
-    const model = genAI.getGenerativeModel({ model: MODEL_NAME });
     const prompt = buildPrompt(keyword, analysis, gaps, smartBlocks, seasonality);
-
-    const result = await model.generateContent(prompt);
-    const text = result.response.text();
+    const { text } = await callAI(prompt, { maxTokens: 4096, temperature: 0.6 });
     const parsed = safeJsonParse(text);
 
     if (!parsed || !parsed.strategicTitle) {
-      console.warn('[BLUEPRINT] Gemini 응답 파싱 실패 → fallback', text.slice(0, 200));
+      console.warn('[BLUEPRINT] AI 응답 파싱 실패 → fallback', text.slice(0, 200));
       return fallbackBlueprint(keyword, analysis, gaps);
     }
 
@@ -328,10 +318,10 @@ export async function generateBlueprint(
       },
       warnings: Array.isArray(parsed.warnings) ? parsed.warnings.map(String).slice(0, 5) : [],
       generatedAt: Date.now(),
-      source: 'gemini',
+      source: 'claude',
     };
   } catch (err) {
-    console.error('[BLUEPRINT] Gemini 호출 실패:', (err as Error).message);
+    console.error('[BLUEPRINT] AI 호출 실패:', (err as Error).message);
     return fallbackBlueprint(keyword, analysis, gaps);
   }
 }

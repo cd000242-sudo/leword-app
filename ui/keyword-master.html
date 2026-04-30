@@ -3100,6 +3100,56 @@
             <span style="font-size: 24px; color: white; opacity: 0.8;">→</span>
           </button>
 
+          <!-- 💵 AdSense 키워드 헌터 (강조 강화) -->
+          <button onclick="openAdsenseHunterModal()" style="
+            background: linear-gradient(135deg, #4285f4 0%, #1a73e8 100%);
+            border: 2px solid rgba(255,255,255,0.3);
+            border-radius: 16px;
+            padding: 24px;
+            cursor: pointer;
+            transition: all 0.3s ease;
+            display: flex;
+            align-items: center;
+            gap: 18px;
+            box-shadow: 0 4px 20px rgba(66, 133, 244, 0.4);
+            text-align: left;
+            position: relative;
+          " onmouseover="this.style.transform='translateY(-4px)'; this.style.boxShadow='0 8px 30px rgba(66, 133, 244, 0.5)'"
+             onmouseout="this.style.transform='translateY(0)'; this.style.boxShadow='0 4px 20px rgba(66, 133, 244, 0.4)'">
+            <span style="position:absolute; top:-8px; right:8px; background:linear-gradient(135deg,#22c55e,#10b981); color:white; padding:3px 10px; border-radius:10px; font-size:10px; font-weight:900;">100점 끝판왕</span>
+            <div style="width: 56px; height: 56px; background: rgba(255,255,255,0.2); border-radius: 14px; display: flex; align-items: center; justify-content: center; font-size: 32px; flex-shrink: 0;">💵</div>
+            <div style="flex: 1;">
+              <div style="font-size: 18px; font-weight: 800; color: white; margin-bottom: 3px;">AdSense 키워드 헌터</div>
+              <div style="font-size: 12px; color: rgba(255,255,255,0.85);">9게이트 · Publisher×0.40 · 6/12/24m 도달률 · 블루오션 등급 · ⭐⭐⭐ 교차검증</div>
+            </div>
+            <span style="font-size: 24px; color: white; opacity: 0.8;">→</span>
+          </button>
+
+          <!-- 🏠 네이버 홈판 키워드 헌터 (신규) -->
+          <button onclick="openNaverHomeHunterModal()" style="
+            background: linear-gradient(135deg, #03c75a 0%, #00b04f 100%);
+            border: 2px solid rgba(255,255,255,0.3);
+            border-radius: 16px;
+            padding: 24px;
+            cursor: pointer;
+            transition: all 0.3s ease;
+            display: flex;
+            align-items: center;
+            gap: 18px;
+            box-shadow: 0 4px 20px rgba(3, 199, 90, 0.4);
+            text-align: left;
+            position: relative;
+          " onmouseover="this.style.transform='translateY(-4px)'; this.style.boxShadow='0 8px 30px rgba(3, 199, 90, 0.5)'"
+             onmouseout="this.style.transform='translateY(0)'; this.style.boxShadow='0 4px 20px rgba(3, 199, 90, 0.4)'">
+            <span style="position:absolute; top:-8px; right:8px; background:linear-gradient(135deg,#ef4444,#dc2626); color:white; padding:3px 10px; border-radius:10px; font-size:10px; font-weight:900;">NEW</span>
+            <div style="width: 56px; height: 56px; background: rgba(255,255,255,0.2); border-radius: 14px; display: flex; align-items: center; justify-content: center; font-size: 32px; flex-shrink: 0;">🏠</div>
+            <div style="flex: 1;">
+              <div style="font-size: 18px; font-weight: 800; color: white; margin-bottom: 3px;">네이버 홈판 키워드 헌터</div>
+              <div style="font-size: 12px; color: rgba(255,255,255,0.85);">홈판 노출 점수 · CTR 예측 제목 5개 · 인플루언서 차단 · 빈자리 감지</div>
+            </div>
+            <span style="font-size: 24px; color: white; opacity: 0.8;">→</span>
+          </button>
+
           <!-- 💡 지식인 황금질문 -->
           <button onclick="openKinGoldenModal()" style="
             background: linear-gradient(135deg, #10b981 0%, #059669 100%);
@@ -3216,6 +3266,71 @@
 
             <!-- API 키 입력 섹션 -->
             <div style="display: flex; flex-direction: column; gap: 24px;">
+
+              <!-- 🤖 AI 추론 모드 + Anthropic Claude 키 -->
+              <div style="background: linear-gradient(135deg, rgba(217,119,6,0.08), rgba(245,158,11,0.05)); border-radius: 16px; padding: 24px; border: 2px solid rgba(245, 158, 11, 0.4);">
+                <div style="display: flex; align-items: center; justify-content: space-between; margin-bottom: 16px;">
+                  <div style="display: flex; align-items: center; gap: 12px;">
+                    <div style="width: 40px; height: 40px; background: linear-gradient(135deg, #d97706 0%, #f59e0b 100%); border-radius: 12px; display: flex; align-items: center; justify-content: center;">
+                      <span style="font-size: 20px;">🤖</span>
+                    </div>
+                    <div>
+                      <h3 style="font-size: 18px; font-weight: 700; color: white; margin: 0;">AI 추론 모드</h3>
+                      <p style="font-size: 12px; color: rgba(255, 255, 255, 0.6); margin: 4px 0 0 0;">Claude API로 LSI/제목/콘텐츠갭 자동 생성 — 끄면 룰 기반(다른 자동화 도구 호환)</p>
+                    </div>
+                  </div>
+                </div>
+
+                <div style="display: flex; flex-direction: column; gap: 14px;">
+                  <!-- 모드 선택 라디오 -->
+                  <div style="display: flex; flex-direction: column; gap: 10px;">
+                    <label style="display:flex; align-items:flex-start; gap:10px; padding:12px; background:rgba(255,255,255,0.04); border:1px solid rgba(245,158,11,0.25); border-radius:10px; cursor:pointer;">
+                      <input type="radio" name="aiInferenceMode" value="auto" id="aiModeAuto" checked style="margin-top:3px; accent-color:#f59e0b;">
+                      <div>
+                        <div style="font-size:13px; font-weight:700; color:#fbbf24;">🔄 자동 (스마트 · 기본)</div>
+                        <div style="font-size:11px; color:rgba(255,255,255,0.7); margin-top:3px;">Claude 키 있으면 Claude, 없거나 실패 시 룰 기반 자동 전환</div>
+                      </div>
+                    </label>
+                    <label style="display:flex; align-items:flex-start; gap:10px; padding:12px; background:rgba(255,255,255,0.04); border:1px solid rgba(245,158,11,0.25); border-radius:10px; cursor:pointer;">
+                      <input type="radio" name="aiInferenceMode" value="claude" id="aiModeClaude" style="margin-top:3px; accent-color:#f59e0b;">
+                      <div>
+                        <div style="font-size:13px; font-weight:700; color:#fb923c;">🚀 Claude 추론 (최강 · API 키 필요)</div>
+                        <div style="font-size:11px; color:rgba(255,255,255,0.7); margin-top:3px;">claude-sonnet-4-6 — 한국어 추론 최고 품질, 키 없거나 실패 시 에러</div>
+                      </div>
+                    </label>
+                    <label style="display:flex; align-items:flex-start; gap:10px; padding:12px; background:rgba(255,255,255,0.04); border:1px solid rgba(245,158,11,0.25); border-radius:10px; cursor:pointer;">
+                      <input type="radio" name="aiInferenceMode" value="rule" id="aiModeRule" style="margin-top:3px; accent-color:#f59e0b;">
+                      <div>
+                        <div style="font-size:13px; font-weight:700; color:#22c55e;">⚙️ 룰 기반 (무료 · AI 끔)</div>
+                        <div style="font-size:11px; color:rgba(255,255,255,0.7); margin-top:3px;">한국어 동의어 사전 80+ · 12 패턴 × 10 변주 = 120 제목 후보 — 다른 자동화 도구와 호환</div>
+                      </div>
+                    </label>
+                  </div>
+
+                  <!-- Anthropic API Key -->
+                  <div>
+                    <label style="display: block; margin-bottom: 8px; font-weight: 600; font-size: 14px; color: rgba(255,255,255,0.9);">
+                      Anthropic API Key <span style="color:rgba(255,255,255,0.5); font-weight:400; font-size:11px;">(sk-ant-...)</span>
+                    </label>
+                    <div style="display:flex; gap:8px;">
+                      <input type="password" id="keywordAnthropicApiKey" placeholder="sk-ant-api03-..." style="flex:1; padding: 12px 16px; background: rgba(255,255,255,0.1); border: 2px solid rgba(255,255,255,0.2); border-radius: 8px; color: white; font-size: 14px;"
+                        onfocus="this.style.borderColor='#f59e0b'; this.style.background='rgba(255,255,255,0.15)'"
+                        onblur="this.style.borderColor='rgba(255,255,255,0.2)'; this.style.background='rgba(255,255,255,0.1)'">
+                      <button onclick="toggleAnthropicKeyVisibility()" id="anthropicKeyToggleBtn" style="padding:12px 14px; background:rgba(255,255,255,0.08); border:1px solid rgba(255,255,255,0.2); border-radius:8px; color:white; font-size:12px; cursor:pointer;" title="키 표시/숨김">
+                        👁️
+                      </button>
+                      <button onclick="verifyAnthropicKey()" id="verifyAnthropicBtn" style="padding:12px 18px; background:linear-gradient(135deg,#d97706,#f59e0b); border:none; border-radius:8px; color:white; font-weight:700; font-size:13px; cursor:pointer; white-space:nowrap;">
+                        🔍 키 검증
+                      </button>
+                    </div>
+                    <div id="anthropicVerifyResult" style="margin-top:8px; font-size:12px; color:rgba(255,255,255,0.7);"></div>
+                    <div style="margin-top:8px; padding:8px 10px; background:rgba(245,158,11,0.08); border-radius:6px; font-size:11px; color:rgba(255,255,255,0.65); line-height:1.5;">
+                      💡 <strong>예상 비용:</strong> 키워드 20개 헌팅 = 약 $0.05 (Claude Sonnet 4.6 기준) · 룰 모드는 무료
+                    </div>
+                  </div>
+                </div>
+              </div>
+
               <!-- 네이버 API -->
               <div
                 style="background: rgba(255, 255, 255, 0.05); border-radius: 16px; padding: 24px; border: 2px solid rgba(16, 185, 129, 0.3);">
@@ -11094,6 +11209,16 @@
               console.error('[KEYWORD-SETTINGS] ❌ Customer ID 입력 필드를 찾을 수 없습니다!');
             }
 
+            // Anthropic 키 + AI 모드 로드
+            try {
+              const anthropicInput = document.getElementById('keywordAnthropicApiKey');
+              const anthValue = apiKeys.anthropicApiKey || apiKeys.ANTHROPIC_API_KEY || '';
+              if (anthropicInput) anthropicInput.value = anthValue;
+              const aiMode = (apiKeys.aiInferenceMode || 'auto').toLowerCase();
+              const radio = document.querySelector(`input[name="aiInferenceMode"][value="${aiMode}"]`);
+              if (radio) radio.checked = true;
+            } catch (e) { /* AI 필드 없음 (구버전 UI) */ }
+
             console.log('[KEYWORD-SETTINGS] 설정 로드 완료:', {
               naver: { hasId: !!naverIdInput?.value, hasSecret: !!naverSecretInput?.value },
               youtube: { hasKey: !!youtubeKeyInput?.value },
@@ -11111,6 +11236,54 @@
           }
         }
 
+        // 🔒 Anthropic 키 표시/숨김 토글
+        window.toggleAnthropicKeyVisibility = function toggleAnthropicKeyVisibility() {
+          const input = document.getElementById('keywordAnthropicApiKey');
+          const btn = document.getElementById('anthropicKeyToggleBtn');
+          if (!input) return;
+          if (input.type === 'password') {
+            input.type = 'text';
+            if (btn) btn.innerHTML = '🙈';
+          } else {
+            input.type = 'password';
+            if (btn) btn.innerHTML = '👁️';
+          }
+        };
+
+        // 🤖 Anthropic Claude API 키 검증
+        window.verifyAnthropicKey = async function verifyAnthropicKey() {
+          const input = document.getElementById('keywordAnthropicApiKey');
+          const result = document.getElementById('anthropicVerifyResult');
+          const btn = document.getElementById('verifyAnthropicBtn');
+          if (!input || !result || !btn) return;
+          const apiKey = input.value.trim();
+          if (!apiKey) {
+            result.innerHTML = '<span style="color:#fca5a5;">❌ 키를 입력하세요</span>';
+            return;
+          }
+          if (!apiKey.startsWith('sk-ant-')) {
+            result.innerHTML = '<span style="color:#fca5a5;">❌ 키 형식 오류 (sk-ant-... 이어야 함)</span>';
+            return;
+          }
+          btn.disabled = true;
+          const oldText = btn.innerHTML;
+          btn.innerHTML = '⏳ 검증 중...';
+          result.innerHTML = '<span style="color:#fbbf24;">⏳ Claude API 호출 중...</span>';
+          try {
+            const resp = await window.electronAPI.invoke('verify-anthropic-key', { apiKey });
+            if (resp?.ok) {
+              result.innerHTML = '<span style="color:#22c55e;">✅ Claude API 키 검증 성공 — 사용 가능</span>';
+            } else {
+              result.innerHTML = `<span style="color:#fca5a5;">❌ 검증 실패: ${resp?.error || '알 수 없는 오류'}</span>`;
+            }
+          } catch (err) {
+            result.innerHTML = `<span style="color:#fca5a5;">❌ 호출 실패: ${err?.message || err}</span>`;
+          } finally {
+            btn.disabled = false;
+            btn.innerHTML = oldText;
+          }
+        };
+
         // 키워드 설정 저장
         window.saveKeywordSettings = async function saveKeywordSettings() {
           try {
@@ -11121,13 +11294,18 @@
             const searchAdSecretInput = document.getElementById('keywordNaverSearchAdSecretKey');
             const searchAdCustomerIdInput = document.getElementById('keywordNaverSearchAdCustomerId');
 
+            const anthropicKeyInput = document.getElementById('keywordAnthropicApiKey');
+            const aiModeRadio = document.querySelector('input[name="aiInferenceMode"]:checked');
+
             const settings = {
               naverClientId: naverIdInput?.value?.trim() || '',
               naverClientSecret: naverSecretInput?.value?.trim() || '',
               youtubeApiKey: youtubeKeyInput?.value?.trim() || '',
               naverSearchAdAccessLicense: searchAdLicenseInput?.value?.trim() || '',
               naverSearchAdSecretKey: searchAdSecretInput?.value?.trim() || '',
-              naverSearchAdCustomerId: searchAdCustomerIdInput?.value?.trim() || ''
+              naverSearchAdCustomerId: searchAdCustomerIdInput?.value?.trim() || '',
+              anthropicApiKey: anthropicKeyInput?.value?.trim() || '',
+              aiInferenceMode: aiModeRadio?.value || 'auto',
             };
 
             console.log('[KEYWORD-SETTINGS] 저장할 설정:', {
@@ -14069,6 +14247,820 @@
           { value: 'lite_standard', label: '⚡ 라이트 표준' }
         ];
 
+        // ============================================================
+        // 💵 AdSense 키워드 헌터
+        // ============================================================
+        // 카테고리 위험도 매핑 (서버와 동일)
+        const ADSENSE_CATEGORY_RISK = {
+          subsidy: { level: 'safe', reason: '✅ 정부 지원금 정보 공유는 안전 + 고CPC (대출/금융 광고 게재) — 신생 블로거 추천' },
+          season: { level: 'safe', reason: '✅ 매월 시즌 황금키워드 — 선물/여행/이벤트 등 검색 폭증 시즌만 자동 추출' },
+          'naver-home': { level: 'safe', reason: '🏠 네이버 메인 홈판 노출 특화 — CTR + 신선도 + 카테고리 적합도 + 빈자리 종합' },
+          loan: { level: 'danger', reason: '🚨 대출 광고는 등록 금융사만 가능 (광고법 위반 위험) + 신생 블로그 저품질' },
+          legal: { level: 'danger', reason: '🚨 법률 자문은 변호사만 가능 + 잘못된 정보 시 법적 책임' },
+          medical: { level: 'danger', reason: '🚨 의료 정보는 의료법 적용 + 신생 블로그 저품질 + 의료기관 공식 글에 밀림' },
+          dental: { level: 'danger', reason: '🚨 치과 시술 광고는 의료법 위반, 의료기관만 가능' },
+          plastic: { level: 'danger', reason: '🚨 성형/시술 광고는 의료법 위반, 의료기관 전용' },
+          insurance: { level: 'caution', reason: '⚠️ 보험 비교는 보험설계사 영역 + 정확한 약관 인용 필요' },
+          finance: { level: 'caution', reason: '⚠️ 금융 투자 정보는 투자자문업 등록 필요 + 손실 면책 문구' },
+          realestate: { level: 'caution', reason: '⚠️ 부동산 정보는 정확한 시세/법규 인용 필요' },
+          tax: { level: 'caution', reason: '⚠️ 세무 정보는 세법 변경에 민감 + 세무사 자문 권장' },
+          supplement: { level: 'caution', reason: '⚠️ 효능 과장 시 표시광고법/식품위생법 위반' },
+          diet: { level: 'caution', reason: '⚠️ 건강 영향 → 정확한 근거 + 면책 문구 필요' },
+          health: { level: 'caution', reason: '⚠️ 건강 정보는 의학적 근거 필요' },
+          business: { level: 'caution', reason: '⚠️ 창업 정보 — 사업자 등록 절차 정확성 주의' },
+          all: { level: 'caution', reason: '⚠️ 자동 분류 — 카테고리에 따라 위험도 다름' },
+        };
+
+        let ADSENSE_CATEGORIES_CACHE = [
+          { value: 'all', label: '🎯 전체 (자동 분류)' },
+          { value: 'naver-home', label: '🏠 ✨ 네이버 홈판 (CTR+신선도+빈자리·끝판왕)' },
+          { value: 'season', label: '📅 ✅ 이번 달 시즌 황금키워드 (자동 갱신·강추)' },
+          { value: 'subsidy', label: '💎 ✅ 정부 지원금·보조금 (안전+고CPC·강추)' },
+          { value: 'loan', label: '🚨 대출·신용 (최고RPM·고위험)' },
+          { value: 'finance', label: '⚠️ 금융·재테크 (고RPM·주의)' },
+          { value: 'insurance', label: '⚠️ 보험 (고RPM·주의)' },
+          { value: 'realestate', label: '⚠️ 부동산·청약 (고RPM·주의)' },
+          { value: 'legal', label: '🚨 법률·소송 (고RPM·고위험)' },
+          { value: 'tax', label: '⚠️ 세금·연말정산 (고RPM·주의)' },
+          { value: 'medical', label: '🚨 의료·진료 (고위험)' },
+          { value: 'dental', label: '🚨 치과·임플란트 (의료법위험)' },
+          { value: 'health', label: '⚠️ 건강·운동 (주의)' },
+          { value: 'supplement', label: '⚠️ 영양제·건강기능식품 (주의)' },
+          { value: 'diet', label: '⚠️ 다이어트 (주의)' },
+          { value: 'it', label: '💻 IT·소프트웨어' },
+          { value: 'laptop', label: '💻 노트북·PC' },
+          { value: 'smartphone', label: '📱 스마트폰·이어폰' },
+          { value: 'appliance', label: '🔌 가전·생활가전' },
+          { value: 'app', label: '📲 앱·서비스 추천' },
+          { value: 'education', label: '📚 교육·학습' },
+          { value: 'certificate', label: '🎓 자격증·시험 (블루오션)' },
+          { value: 'business', label: '💼 비즈니스·창업·부업' },
+          { value: 'job', label: '💼 취업·이직' },
+          { value: 'living', label: '✅ 🛏️ 리빙·홈 (안전·추천)' },
+          { value: 'life_tips', label: '✅ 💡 생활꿀팁 (안전·추천)' },
+          { value: 'interior', label: '✅ 🛋️ 인테리어·홈데코 (안전)' },
+          { value: 'diy', label: '✅ 🔧 셀프수리·DIY (안전)' },
+          { value: 'gardening', label: '✅ 🌿 가드닝·반려식물 (안전)' },
+          { value: 'parenting', label: '👶 육아·출산' },
+          { value: 'wedding', label: '💍 결혼·웨딩' },
+          { value: 'pet', label: '🐶 반려동물·펫케어' },
+          { value: 'travel', label: '✈️ 여행·항공·호텔' },
+          { value: 'car', label: '🚗 자동차·카라이프' },
+          { value: 'beauty', label: '💄 뷰티·스킨케어' },
+          { value: 'fashion', label: '👗 패션·옷' },
+          { value: 'recipe', label: '🍳 레시피·요리' },
+          { value: 'food', label: '🍱 음식·맛집' },
+          { value: 'game', label: '🎮 게임·콘솔' },
+          { value: 'sports', label: '🏃 운동·피트니스' },
+          { value: 'hobby', label: '📷 취미·카메라·악기' },
+          { value: 'review', label: '⭐ 제품리뷰·후기' },
+          { value: 'shopping', label: '🛒 쇼핑·핫딜' },
+        ];
+
+        // 카테고리 변경 시 위험도 박스 업데이트
+        function updateAdsenseRiskBox() {
+          const sel = document.getElementById('adsenseCategory');
+          const box = document.getElementById('adsenseRiskBox');
+          if (!sel || !box) return;
+          const cat = sel.value;
+          const risk = ADSENSE_CATEGORY_RISK[cat];
+          if (!risk) { box.style.display = 'none'; return; }
+
+          let bg, color, border, icon, title;
+          if (risk.level === 'danger') {
+            bg = 'rgba(239,68,68,0.15)'; color = '#f87171'; border = 'rgba(239,68,68,0.5)';
+            icon = '🚨'; title = '고위험 카테고리 — 신생 블로거 비추천';
+          } else if (risk.level === 'caution') {
+            bg = 'rgba(251,191,36,0.12)'; color = '#fbbf24'; border = 'rgba(251,191,36,0.4)';
+            icon = '⚠️'; title = '주의 카테고리 — 전문성/면책 문구 필요';
+          } else {
+            box.style.display = 'none'; return;
+          }
+
+          box.style.cssText = `margin-top:10px; padding:12px 14px; border-radius:10px; background:${bg}; border:1px solid ${border};`;
+          box.innerHTML = `
+            <div style="display:flex; align-items:center; gap:8px; margin-bottom:6px;">
+              <span style="font-size:18px;">${icon}</span>
+              <span style="font-size:13px; font-weight:800; color:${color};">${title}</span>
+            </div>
+            <div style="font-size:12px; color:rgba(255,255,255,0.85); line-height:1.5;">${risk.reason}</div>
+            ${risk.level === 'danger' ? `
+              <div style="margin-top:8px; padding:8px 10px; background:rgba(0,0,0,0.25); border-radius:6px; font-size:11px; color:rgba(255,255,255,0.75);">
+                💡 <strong>대안 추천:</strong> 이 카테고리 대신
+                <strong style="color:#22c55e;">✅ 리빙·홈 / 생활꿀팁 / 가드닝 / 인테리어 / DIY</strong>
+                같은 안전 카테고리를 시작 권장 (저품질 위험 0)
+              </div>` : ''}
+          `;
+          box.style.display = 'block';
+        }
+
+        async function openAdsenseHunterModal() {
+          lockBodyScroll();
+          const existing = document.getElementById('adsenseHunterModal');
+          if (existing) existing.remove();
+
+          // 카테고리 동적 로드
+          try {
+            const r = await window.electronAPI.invoke('get-adsense-categories');
+            if (r?.success && Array.isArray(r.categories)) ADSENSE_CATEGORIES_CACHE = r.categories;
+          } catch (e) { /* fallback to default */ }
+
+          const modal = document.createElement('div');
+          modal.id = 'adsenseHunterModal';
+          modal.style.cssText = 'display: flex; position: fixed; top: 0; left: 0; width: 100%; height: 100%; background: rgba(0, 0, 0, 0.85); z-index: 10000; backdrop-filter: blur(8px); overflow-y: auto; padding: 20px; box-sizing: border-box; align-items: flex-start; justify-content: center;';
+
+          modal.innerHTML = `
+            <div style="background: linear-gradient(135deg, #0f172a 0%, #1e293b 100%); border-radius: 24px; padding: 32px; max-width: 1000px; width: 100%; margin: 20px auto; box-shadow: 0 25px 80px rgba(0,0,0,0.6); border: 2px solid rgba(66, 133, 244, 0.3); position: relative; max-height: calc(100vh - 40px); overflow-y: auto;">
+              <button onclick="closeAdsenseHunterModal()" style="position: absolute; top: 16px; right: 16px; width: 40px; height: 40px; background: rgba(255,255,255,0.1); border: none; border-radius: 50%; color: white; font-size: 20px; cursor: pointer; display: flex; align-items: center; justify-content: center; z-index: 10;">✕</button>
+
+              <div style="text-align: center; margin-bottom: 24px;">
+                <div style="display:inline-block; background: linear-gradient(135deg, #ef4444, #dc2626); padding: 6px 16px; border-radius: 20px; font-size: 12px; font-weight: 800; color: white; margin-bottom: 12px;">📆 1년/영구제 라이선스 전용</div>
+                <h2 style="font-size: 28px; font-weight: 800; background: linear-gradient(135deg, #4285f4 0%, #1a73e8 100%); -webkit-background-clip: text; -webkit-text-fill-color: transparent; margin: 0 0 8px 0;">💵 AdSense 키워드 헌터</h2>
+                <p style="font-size: 14px; color: rgba(255,255,255,0.7); margin: 0;">예상 RPM · 월 광고수익 · 정보의도 점수 · YMYL 안전도 기반 추천</p>
+              </div>
+
+              <!-- 🚨 네이버 연관검색어 종료 (2026-04-30) 공식 분석 기반 대응 -->
+              <div style="background:linear-gradient(135deg, rgba(239,68,68,0.12), rgba(251,191,36,0.12)); border-radius:12px; padding:12px 14px; margin-bottom:14px; border:1px solid rgba(251,191,36,0.4);">
+                <div style="display:flex; align-items:center; gap:8px; margin-bottom:6px;">
+                  <span style="font-size:16px;">🚨</span>
+                  <span style="font-weight:800; color:#fbbf24; font-size:12px;">네이버 연관검색어 종료 (2026-04-30) — 공식 발표 기반 7중 폴백 자동 활성화</span>
+                </div>
+                <div style="font-size:11px; color:rgba(255,255,255,0.85); line-height:1.6;">
+                  <strong style="color:#22c55e;">유지:</strong> 검색광고 RelKwdStat · 자동완성(PC/모바일/쇼핑) · SmartBlock(20%→40% 확대) <br/>
+                  <strong style="color:#3b82f6;">신규 대체:</strong> AI 브리핑 · 관련 질문 (네이버 공식 신서비스)<br/>
+                  <strong style="color:#a78bfa;">교차 검증:</strong> 다음 자동완성 · 구글 자동완성(KR)
+                </div>
+              </div>
+
+              <div style="background: rgba(66,133,244,0.1); border-radius: 12px; padding: 14px; margin-bottom: 18px; border: 1px solid rgba(66,133,244,0.25);">
+                <div style="display:flex; align-items:center; gap:8px; margin-bottom:8px;">
+                  <span style="font-size:16px;">🎯</span>
+                  <span style="font-weight:700; color:#60a5fa; font-size:13px;">선별 로직 (PRO와 차별화)</span>
+                </div>
+                <div style="display:flex; flex-wrap:wrap; gap:8px; font-size:11px;">
+                  <span style="background:rgba(255,255,255,0.08); padding:4px 10px; border-radius:6px; color:rgba(255,255,255,0.9);">📖 <strong style="color:#4285f4;">정보형 의도</strong> 60점+</span>
+                  <span style="background:rgba(255,255,255,0.08); padding:4px 10px; border-radius:6px; color:rgba(255,255,255,0.9);">💰 <strong style="color:#fbbf24;">월 수익</strong> 3만원+</span>
+                  <span style="background:rgba(255,255,255,0.08); padding:4px 10px; border-radius:6px; color:rgba(255,255,255,0.9);">🛡️ <strong style="color:#22c55e;">YMYL</strong> 안전 가중치</span>
+                </div>
+              </div>
+
+              <div style="margin-bottom:18px;">
+                <label style="font-size:13px; font-weight:700; color:#60a5fa; display:block; margin-bottom:8px;">📁 카테고리 <span style="color:rgba(255,255,255,0.5); font-weight:400;">(✅ 안전 · ⚠️ 주의 · 🚨 고위험)</span></label>
+                <select id="adsenseCategory" onchange="updateAdsenseRiskBox()" style="width:100%; padding:12px 14px; border:2px solid rgba(66,133,244,0.3); border-radius:10px; font-size:14px; background:rgba(15,23,42,0.8); color:white; cursor:pointer; outline:none;">
+                  ${ADSENSE_CATEGORIES_CACHE.map(c => `<option value="${c.value}">${c.label}</option>`).join('')}
+                </select>
+                <div id="adsenseRiskBox" style="margin-top:10px; padding:12px; border-radius:10px; display:none;"></div>
+              </div>
+
+              <div style="display:flex; gap:14px; margin-bottom:18px; align-items:center; flex-wrap:wrap;">
+                <label style="display:flex; align-items:center; gap:8px; color:rgba(255,255,255,0.85); font-size:13px; cursor:pointer;">
+                  <input type="checkbox" id="adsenseExcludeYmyl" style="width:18px; height:18px; accent-color:#4285f4;">
+                  🛡️ YMYL 고위험 제외 (안전 우선)
+                </label>
+                <label style="display:flex; align-items:center; gap:8px; color:rgba(255,255,255,0.85); font-size:13px; cursor:pointer;" title="네이버 검색광고 API 실측 검색량만 결과 표시 (추정값 차단)">
+                  <input type="checkbox" id="adsenseRequireReal" checked style="width:18px; height:18px; accent-color:#22c55e;">
+                  🔍 실측 검색량만 (추정값 차단)
+                </label>
+                <label style="display:flex; align-items:center; gap:8px; color:rgba(255,255,255,0.85); font-size:13px; cursor:pointer;" title="검색량/문서수 비율이 1.0배 이상인 블루오션 키워드만 결과">
+                  <input type="checkbox" id="adsenseBlueOcean" style="width:18px; height:18px; accent-color:#3b82f6;">
+                  💎 블루오션만 (경쟁비 1.0배+)
+                </label>
+                <label style="display:flex; align-items:center; gap:8px; color:rgba(255,255,255,0.85); font-size:13px;">
+                  정렬
+                  <select id="adsenseSortBy" style="padding:6px 10px; border:1px solid rgba(255,255,255,0.2); border-radius:6px; background:rgba(15,23,42,0.8); color:white;">
+                    <option value="value">💎 가치 점수</option>
+                    <option value="blueOcean">🌊 블루오션 우선</option>
+                    <option value="reachable">📈 12개월 도달 수익</option>
+                    <option value="revenue">💰 월수익</option>
+                  </select>
+                </label>
+                <label style="display:flex; align-items:center; gap:8px; color:rgba(255,255,255,0.85); font-size:13px;">
+                  최소 정보의도
+                  <select id="adsenseMinIntent" style="padding:6px 10px; border:1px solid rgba(255,255,255,0.2); border-radius:6px; background:rgba(15,23,42,0.8); color:white;">
+                    <option value="40">40 (느슨)</option>
+                    <option value="50" selected>50 (보통)</option>
+                    <option value="60">60 (엄격)</option>
+                    <option value="70">70 (최강)</option>
+                  </select>
+                </label>
+                <label style="display:flex; align-items:center; gap:8px; color:rgba(255,255,255,0.85); font-size:13px;">
+                  최소 월수익
+                  <select id="adsenseMinRevenue" style="padding:6px 10px; border:1px solid rgba(255,255,255,0.2); border-radius:6px; background:rgba(15,23,42,0.8); color:white;">
+                    <option value="5000">5천원</option>
+                    <option value="10000" selected>1만원</option>
+                    <option value="30000">3만원</option>
+                    <option value="100000">10만원</option>
+                  </select>
+                </label>
+                <select id="adsenseCount" style="padding:6px 14px; border:1px solid rgba(255,255,255,0.2); border-radius:6px; background:rgba(15,23,42,0.8); color:white;">
+                  <option value="10" selected>10개</option>
+                  <option value="20">20개</option>
+                  <option value="30">30개</option>
+                </select>
+              </div>
+
+              <button id="adsenseHuntBtn" onclick="huntAdsenseKeywords()" style="width:100%; padding:16px; background: linear-gradient(135deg, #4285f4 0%, #1a73e8 100%); border:none; border-radius:12px; font-size:17px; font-weight:700; color:white; cursor:pointer; box-shadow: 0 4px 20px rgba(66,133,244,0.4);">
+                💵 AdSense 키워드 헌팅 시작
+              </button>
+
+              <div style="margin-top:14px; padding:10px 14px; background:rgba(239,68,68,0.1); border:1px solid rgba(239,68,68,0.3); border-radius:8px;">
+                <p style="font-size:11px; color:#f87171; margin:0; line-height:1.5;">
+                  ⚠️ <strong>주의:</strong> RPM·월수익은 <strong>모두 추정치</strong>입니다. 실제 수익은 콘텐츠 품질, 트래픽 출처, 광고 게재 여부, 시즌, 지역에 따라 크게 달라집니다.
+                </p>
+              </div>
+
+              <div id="adsenseResults" style="margin-top:24px;"></div>
+            </div>
+          `;
+          document.body.appendChild(modal);
+          modal.addEventListener('click', (e) => { if (e.target === modal) closeAdsenseHunterModal(); });
+          // 모달 열린 직후 위험 박스 즉시 표시
+          setTimeout(updateAdsenseRiskBox, 50);
+        }
+
+        function closeAdsenseHunterModal() {
+          const m = document.getElementById('adsenseHunterModal');
+          if (m) m.remove();
+          unlockBodyScroll();
+        }
+
+        // ============================================================
+        // 🏠 네이버 홈판 키워드 헌터
+        // ============================================================
+        async function openNaverHomeHunterModal() {
+          // AI 모드 사전 점검 — Claude 모드인데 키 없으면 자동 auto 모드 권유
+          try {
+            const aiMode = await window.electronAPI.invoke('get-ai-mode');
+            if (aiMode?.success && aiMode.mode === 'claude' && !aiMode.hasClaudeKey) {
+              const ok = confirm('🚨 AI 모드가 "Claude"로 설정됐지만 Anthropic API 키가 없습니다.\n\n자동 모드로 전환하시겠습니까?\n(자동 = 키 있으면 Claude, 없으면 룰 기반)');
+              if (ok) {
+                await window.electronAPI.invoke('save-keyword-settings', { aiInferenceMode: 'auto' });
+              } else {
+                alert('⚠️ Claude 모드 + 키 없음 상태에서는 헌팅이 즉시 실패합니다. 환경설정에서 키를 입력하거나 모드를 변경하세요.');
+                return;
+              }
+            }
+          } catch (e) { /* IPC 실패 무시 */ }
+
+          lockBodyScroll();
+          const existing = document.getElementById('naverHomeHunterModal');
+          if (existing) existing.remove();
+
+          const modal = document.createElement('div');
+          modal.id = 'naverHomeHunterModal';
+          modal.style.cssText = 'display: flex; position: fixed; top: 0; left: 0; width: 100%; height: 100%; background: rgba(0, 0, 0, 0.85); z-index: 10000; backdrop-filter: blur(8px); overflow-y: auto; padding: 20px; box-sizing: border-box; align-items: flex-start; justify-content: center;';
+
+          modal.innerHTML = `
+            <div style="background: linear-gradient(135deg, #0f172a 0%, #1e293b 100%); border-radius: 24px; padding: 32px; max-width: 1000px; width: 100%; margin: 20px auto; box-shadow: 0 25px 80px rgba(0,0,0,0.6); border: 2px solid rgba(3, 199, 90, 0.4); position: relative; max-height: calc(100vh - 40px); overflow-y: auto;">
+              <button onclick="closeNaverHomeHunterModal()" style="position: absolute; top: 16px; right: 16px; width: 40px; height: 40px; background: rgba(255,255,255,0.1); border: none; border-radius: 50%; color: white; font-size: 20px; cursor: pointer; display: flex; align-items: center; justify-content: center; z-index: 10;">✕</button>
+
+              <div style="text-align: center; margin-bottom: 24px;">
+                <div style="display:inline-block; background: linear-gradient(135deg, #ef4444, #dc2626); padding: 6px 16px; border-radius: 20px; font-size: 12px; font-weight: 800; color: white; margin-bottom: 12px;">🆕 NEW · 네이버 홈판 노출 특화</div>
+                <h2 style="font-size: 28px; font-weight: 800; background: linear-gradient(135deg, #03c75a 0%, #00b04f 100%); -webkit-background-clip: text; -webkit-text-fill-color: transparent; margin: 0 0 8px 0;">🏠 네이버 홈판 키워드 헌터</h2>
+                <p style="font-size: 14px; color: rgba(255,255,255,0.7); margin: 0;">키워드+제목이 홈판 노출의 70~80% — homeScore · CTR 12 패턴 · 빈자리 감지</p>
+              </div>
+
+              <div style="background: rgba(3,199,90,0.08); border-radius: 12px; padding: 14px; margin-bottom: 18px; border: 1px solid rgba(3,199,90,0.25);">
+                <div style="display:flex; align-items:center; gap:8px; margin-bottom:8px;">
+                  <span style="font-size:16px;">🎯</span>
+                  <span style="font-weight:700; color:#22c55e; font-size:13px;">홈판 점수 공식</span>
+                </div>
+                <div style="display:flex; flex-wrap:wrap; gap:8px; font-size:11px;">
+                  <span style="background:rgba(255,255,255,0.08); padding:4px 10px; border-radius:6px; color:rgba(255,255,255,0.9);">📝 <strong style="color:#22c55e;">CTR 잠재</strong> 35%</span>
+                  <span style="background:rgba(255,255,255,0.08); padding:4px 10px; border-radius:6px; color:rgba(255,255,255,0.9);">⚡ <strong style="color:#fbbf24;">신선도</strong> 30%</span>
+                  <span style="background:rgba(255,255,255,0.08); padding:4px 10px; border-radius:6px; color:rgba(255,255,255,0.9);">🎯 <strong style="color:#60a5fa;">카테고리 적합도</strong> 20%</span>
+                  <span style="background:rgba(255,255,255,0.08); padding:4px 10px; border-radius:6px; color:rgba(255,255,255,0.9);">🪑 <strong style="color:#a78bfa;">빈자리</strong> 15%</span>
+                </div>
+              </div>
+
+              <div style="display:grid; grid-template-columns: 1fr 1fr; gap:12px; margin-bottom:16px;">
+                <div>
+                  <label style="font-size:13px; font-weight:700; color:#22c55e; display:block; margin-bottom:8px;">🌱 시드 키워드 (선택)</label>
+                  <input id="homeSeed" placeholder="예: 봄나물, 환절기 면역력 (비우면 자동 시드)" style="width:100%; padding:12px 14px; border:2px solid rgba(3,199,90,0.3); border-radius:10px; font-size:14px; background:rgba(15,23,42,0.8); color:white; outline:none; box-sizing:border-box;">
+                </div>
+                <div>
+                  <label style="font-size:13px; font-weight:700; color:#22c55e; display:block; margin-bottom:8px;">📁 블로그 카테고리 (C-Rank 가산)</label>
+                  <select id="homeBlogCategory" style="width:100%; padding:12px 14px; border:2px solid rgba(3,199,90,0.3); border-radius:10px; font-size:14px; background:rgba(15,23,42,0.8); color:white; cursor:pointer; outline:none;">
+                    <option value="">자동 (미지정)</option>
+                    <option value="beauty">💄 뷰티</option>
+                    <option value="fashion">👗 패션</option>
+                    <option value="food">🍱 음식</option>
+                    <option value="recipe">🍳 레시피</option>
+                    <option value="parenting">👶 육아</option>
+                    <option value="health">💪 건강</option>
+                    <option value="living">🛏️ 리빙</option>
+                    <option value="travel">✈️ 여행</option>
+                    <option value="it">💻 IT</option>
+                    <option value="pet">🐶 반려동물</option>
+                  </select>
+                </div>
+              </div>
+
+              <div style="display:flex; gap:10px; flex-wrap:wrap; margin-bottom:18px;">
+                <label style="display:flex; align-items:center; gap:8px; color:rgba(255,255,255,0.85); font-size:13px;">
+                  결과 수
+                  <select id="homeCount" style="padding:6px 10px; border:1px solid rgba(255,255,255,0.2); border-radius:6px; background:rgba(15,23,42,0.8); color:white;">
+                    <option value="10">10</option>
+                    <option value="20" selected>20</option>
+                    <option value="30">30</option>
+                  </select>
+                </label>
+                <label style="display:flex; align-items:center; gap:8px; color:rgba(255,255,255,0.85); font-size:13px;">
+                  최소 homeScore
+                  <select id="homeMinScore" style="padding:6px 10px; border:1px solid rgba(255,255,255,0.2); border-radius:6px; background:rgba(15,23,42,0.8); color:white;">
+                    <option value="55">55 (POSSIBLE+)</option>
+                    <option value="70" selected>70 (EASY+)</option>
+                    <option value="85">85 (CERTAIN)</option>
+                  </select>
+                </label>
+                <label style="display:flex; align-items:center; gap:8px; color:rgba(255,255,255,0.85); font-size:13px; cursor:pointer;" title="검색 1페이지에 인플루언서가 1명 이하인 키워드만 결과">
+                  <input type="checkbox" id="homeBlockInfluencer" checked style="width:18px; height:18px; accent-color:#22c55e;">
+                  👤 인플루언서 차단 (≤1)
+                </label>
+                <label style="display:flex; align-items:center; gap:8px; color:rgba(255,255,255,0.85); font-size:13px; cursor:pointer;" title="검색 1페이지 빈자리 5개 이상인 키워드만 결과">
+                  <input type="checkbox" id="homeMinVacancy" style="width:18px; height:18px; accent-color:#22c55e;">
+                  🪑 빈자리 5+ 만
+                </label>
+              </div>
+
+              <button id="homeHuntBtn" onclick="huntNaverHomeKeywords()" style="width:100%; padding:14px; background:linear-gradient(135deg, #03c75a 0%, #00b04f 100%); border:none; border-radius:12px; color:white; font-size:15px; font-weight:800; cursor:pointer; margin-bottom:16px; box-shadow:0 4px 20px rgba(3,199,90,0.4);">
+                🏠 홈판 키워드 헌팅 시작
+              </button>
+
+              <div id="homeHunterResults"></div>
+            </div>
+          `;
+          document.body.appendChild(modal);
+        }
+
+        function closeNaverHomeHunterModal() {
+          const m = document.getElementById('naverHomeHunterModal');
+          if (m) m.remove();
+          unlockBodyScroll();
+        }
+
+        async function huntNaverHomeKeywords() {
+          const seed = document.getElementById('homeSeed').value.trim();
+          const blogCategory = document.getElementById('homeBlogCategory').value;
+          const count = parseInt(document.getElementById('homeCount').value, 10);
+          const minScore = parseInt(document.getElementById('homeMinScore').value, 10);
+          const blockInfluencer = document.getElementById('homeBlockInfluencer').checked;
+          const requireVacancy = document.getElementById('homeMinVacancy').checked;
+
+          const btn = document.getElementById('homeHuntBtn');
+          const resultsDiv = document.getElementById('homeHunterResults');
+          btn.disabled = true;
+          btn.innerHTML = '<span style="display:inline-block; animation:spin 1s linear infinite;">🔄</span> 헌팅 중... (1~2분 소요)';
+          resultsDiv.innerHTML = `
+            <div style="background:rgba(15,23,42,0.9); border-radius:16px; padding:24px; border:1px solid rgba(3,199,90,0.3); text-align:center;">
+              <div style="font-size:48px; margin-bottom:12px;">🏠</div>
+              <div style="font-size:16px; font-weight:600; color:#22c55e;">네이버 홈판 키워드 분석 중...</div>
+              <div style="font-size:12px; color:rgba(255,255,255,0.6); margin-top:8px;">AdSense PRO → homeScore + CTR 제목 + 빈자리 감지</div>
+            </div>
+          `;
+
+          try {
+            // Step 1: AdSense Hunter로 naver-home 카테고리 시드
+            const adsenseResp = await window.electronAPI.invoke('hunt-adsense-keywords', {
+              category: 'naver-home',
+              excludeYmylHigh: false,
+              requireRealData: true,
+              blueOceanOnly: false,
+              sortBy: 'value',
+              minInfoIntent: 40,
+              minMonthlyRevenue: 0,
+              count: Math.min(count * 2, 40),
+            });
+
+            if (adsenseResp?.requiresPremium) {
+              resultsDiv.innerHTML = `
+                <div style="text-align:center; padding:40px; background: linear-gradient(135deg, rgba(3,199,90,0.15), rgba(34,197,94,0.15)); border-radius:16px; border:2px solid rgba(3,199,90,0.4);">
+                  <div style="font-size:56px; margin-bottom:16px;">🔒</div>
+                  <div style="font-size:20px; font-weight:700; color:#22c55e; margin-bottom:12px;">프리미엄 전용 기능</div>
+                  <div style="font-size:14px; color:rgba(255,255,255,0.8); line-height:1.6;">
+                    <strong>네이버 홈판 키워드 헌터</strong>는<br/>
+                    1년/영구제 라이선스 사용자에게만 제공됩니다.
+                  </div>
+                </div>
+              `;
+              return;
+            }
+
+            const seedKeywords = (adsenseResp?.keywords || []).slice(0, count);
+            if (seedKeywords.length === 0) {
+              resultsDiv.innerHTML = `<div style="padding:24px; background:rgba(239,68,68,0.1); border-radius:12px; border:1px solid rgba(239,68,68,0.3); color:#fca5a5; text-align:center;">❌ 시드 키워드를 찾지 못했습니다.</div>`;
+              return;
+            }
+
+            // Step 2: 각 키워드에 빈자리 + 제목 + 신선도 + homeScore 평가 (병렬, concurrency 3)
+            const enriched = [];
+            const CONCURRENCY = 3;
+            for (let i = 0; i < seedKeywords.length; i += CONCURRENCY) {
+              const batch = seedKeywords.slice(i, i + CONCURRENCY);
+              const batchResults = await Promise.all(batch.map(async (kw) => {
+                try {
+                  const [vacancyResp, titlesResp, freshResp] = await Promise.all([
+                    window.electronAPI.invoke('analyze-vacancy', { keyword: kw.keyword }).catch(() => null),
+                    window.electronAPI.invoke('generate-optimized-titles', { keyword: kw.keyword, count: 3, category: kw.category || blogCategory || 'general' }).catch(() => null),
+                    window.electronAPI.invoke('measure-freshness', { keyword: kw.keyword }).catch(() => null),
+                  ]);
+                  const vacancy = vacancyResp?.success ? vacancyResp : null;
+                  const titles = titlesResp?.success ? (titlesResp.titles || []) : [];
+                  const bestTitle = titles.length ? titles.reduce((a, b) => (a.ctrScore >= b.ctrScore ? a : b)) : null;
+                  const fresh = freshResp?.success ? freshResp : null;
+
+                  const homeResp = await window.electronAPI.invoke('calculate-home-score', {
+                    keyword: kw.keyword,
+                    searchVolume: kw.searchVolume || 0,
+                    documentCount: kw.documentCount || 0,
+                    titleCtrScore: bestTitle?.ctrScore || 50,
+                    userBlogCategory: blogCategory || undefined,
+                    keywordCategory: kw.category || 'general',
+                    influencerCount: vacancy?.influencerCount,
+                    vacancySlots: vacancy?.vacancySlots,
+                    surgeRatio: fresh?.surgeRatio,
+                    blogPublishCount24h: fresh?.blogPublishCount24h,
+                    daysSinceFirstAppear: fresh?.daysSinceFirstAppear,
+                  }).catch(() => null);
+
+                  return {
+                    ...kw,
+                    vacancy,
+                    titles,
+                    bestTitle,
+                    fresh,
+                    homeScore: homeResp?.success ? homeResp : null,
+                  };
+                } catch (e) {
+                  return { ...kw, vacancy: null, titles: [], bestTitle: null, fresh: null, homeScore: null };
+                }
+              }));
+              enriched.push(...batchResults);
+            }
+
+            // Step 3: 필터 + 정렬
+            let filtered = enriched.filter(x => x.homeScore && x.homeScore.homeScore >= minScore);
+            if (blockInfluencer) filtered = filtered.filter(x => !x.vacancy || x.vacancy.influencerCount <= 1);
+            if (requireVacancy) filtered = filtered.filter(x => x.vacancy && x.vacancy.vacancySlots >= 5);
+            filtered.sort((a, b) => (b.homeScore?.homeScore || 0) - (a.homeScore?.homeScore || 0));
+
+            if (filtered.length === 0) {
+              const totalCandidates = enriched.length;
+              const failedScore = enriched.filter(x => x.homeScore && x.homeScore.homeScore < minScore).length;
+              const failedInf = blockInfluencer ? enriched.filter(x => x.vacancy && x.vacancy.influencerCount > 1).length : 0;
+              const failedVac = requireVacancy ? enriched.filter(x => x.vacancy && x.vacancy.vacancySlots < 5).length : 0;
+
+              resultsDiv.innerHTML = `
+                <div style="padding:24px; background:rgba(251,191,36,0.1); border-radius:12px; border:1px solid rgba(251,191,36,0.3); color:#fbbf24;">
+                  <div style="font-size:16px; font-weight:800; margin-bottom:12px;">⚠️ 조건 만족 키워드 0건</div>
+                  <div style="font-size:12px; color:rgba(255,255,255,0.85); line-height:1.7; margin-bottom:14px;">
+                    분석 ${totalCandidates}건 중 <strong>점수 미달 ${failedScore}건</strong>${blockInfluencer ? `, <strong>인플루언서 차단 ${failedInf}건</strong>` : ''}${requireVacancy ? `, <strong>빈자리 부족 ${failedVac}건</strong>` : ''}
+                  </div>
+                  <div style="display:flex; gap:8px; flex-wrap:wrap;">
+                    <button onclick="document.getElementById('homeMinScore').value='55'; huntNaverHomeKeywords();" style="padding:8px 14px; background:rgba(34,197,94,0.2); border:1px solid #22c55e; border-radius:8px; color:#22c55e; font-size:12px; font-weight:700; cursor:pointer;">🔓 최소 점수 55로 완화</button>
+                    ${blockInfluencer ? `<button onclick="document.getElementById('homeBlockInfluencer').checked=false; huntNaverHomeKeywords();" style="padding:8px 14px; background:rgba(96,165,250,0.2); border:1px solid #60a5fa; border-radius:8px; color:#60a5fa; font-size:12px; font-weight:700; cursor:pointer;">👤 인플루언서 차단 해제</button>` : ''}
+                    ${requireVacancy ? `<button onclick="document.getElementById('homeMinVacancy').checked=false; huntNaverHomeKeywords();" style="padding:8px 14px; background:rgba(167,139,250,0.2); border:1px solid #a78bfa; border-radius:8px; color:#a78bfa; font-size:12px; font-weight:700; cursor:pointer;">🪑 빈자리 필터 해제</button>` : ''}
+                  </div>
+                </div>
+              `;
+              return;
+            }
+
+            // 학습 데이터 + disclaimer 조회
+            let learnedInfo = '';
+            try {
+              const stats = await window.electronAPI.invoke('get-home-exposure-stats');
+              if (stats?.success) {
+                const sample = stats.weights?.sampleSize || 0;
+                const conf = Math.round((stats.weights?.confidence || 0) * 100);
+                learnedInfo = sample >= 20
+                  ? `<span style="background:rgba(34,197,94,0.15); color:#22c55e; padding:3px 10px; border-radius:6px; font-size:10px; font-weight:700;">🧠 ${sample}건 학습됨 (신뢰도 ${conf}%)</span>`
+                  : `<span style="background:rgba(251,191,36,0.15); color:#fbbf24; padding:3px 10px; border-radius:6px; font-size:10px; font-weight:700;">⚠️ 추정치 (학습 ${sample}/20건)</span>`;
+              }
+            } catch (e) { /* skip */ }
+
+            resultsDiv.innerHTML = `
+              <div style="margin-bottom:6px; display:flex; align-items:center; gap:12px; flex-wrap:wrap;">
+                <span style="font-size:18px;">🏠</span>
+                <span style="font-size:18px; font-weight:800; color:#22c55e;">홈판 키워드 ${filtered.length}건</span>
+                ${learnedInfo}
+                <span style="font-size:11px; color:rgba(255,255,255,0.6);">(최소 homeScore ${minScore}+, 인플루언서 차단 ${blockInfluencer ? 'ON' : 'OFF'})</span>
+              </div>
+              <div style="font-size:10px; color:rgba(255,255,255,0.5); margin-bottom:14px;">
+                💡 homeScore는 추정 점수입니다. 발행 후 실제 노출 데이터로 가중치가 자동 학습됩니다.
+              </div>
+              <div style="display:flex; flex-direction:column; gap:12px;">
+                ${filtered.map((x, i) => renderHomeKeywordCard(x, i + 1)).join('')}
+              </div>
+            `;
+          } catch (err) {
+            resultsDiv.innerHTML = `<div style="padding:24px; background:rgba(239,68,68,0.1); border-radius:12px; border:1px solid rgba(239,68,68,0.3); color:#fca5a5;">❌ 헌팅 실패: ${err?.message || err}</div>`;
+          } finally {
+            btn.disabled = false;
+            btn.innerHTML = '🏠 홈판 키워드 헌팅 시작';
+          }
+        }
+
+        function renderHomeKeywordCard(x, rank) {
+          const hs = x.homeScore || {};
+          const score = hs.homeScore || 0;
+          const grade = hs.grade || '-';
+          const summary = hs.summary || '';
+          const breakdown = hs.breakdown || {};
+          const v = x.vacancy || {};
+          const bestTitle = x.bestTitle;
+
+          const gradeColor = score >= 85 ? '#22c55e' : score >= 70 ? '#3b82f6' : score >= 55 ? '#fbbf24' : '#f87171';
+          const gradeBg = score >= 85 ? 'rgba(34,197,94,0.15)' : score >= 70 ? 'rgba(59,130,246,0.15)' : score >= 55 ? 'rgba(251,191,36,0.15)' : 'rgba(239,68,68,0.15)';
+
+          return `
+            <div style="background:rgba(15,23,42,0.85); border-radius:14px; padding:18px; border:1px solid ${gradeBg.replace('0.15','0.4')}; box-shadow:0 4px 16px rgba(0,0,0,0.3);">
+              <div style="display:flex; align-items:flex-start; justify-content:space-between; gap:12px; margin-bottom:12px;">
+                <div style="flex:1; min-width:0;">
+                  <div style="display:flex; align-items:center; gap:8px; margin-bottom:6px;">
+                    <span style="font-size:11px; font-weight:800; color:rgba(255,255,255,0.5);">#${rank}</span>
+                    <span style="font-size:18px; font-weight:800; color:white; word-break:keep-all;">${escapeHtml(x.keyword)}</span>
+                    <span style="background:${gradeBg}; color:${gradeColor}; padding:2px 10px; border-radius:8px; font-size:11px; font-weight:800;">${grade}</span>
+                  </div>
+                  <div style="font-size:11px; color:rgba(255,255,255,0.6);">검색 ${(x.searchVolume || 0).toLocaleString()} · 문서 ${(x.documentCount || 0).toLocaleString()}</div>
+                </div>
+                <div style="text-align:right; flex-shrink:0;">
+                  <div style="font-size:32px; font-weight:900; color:${gradeColor}; line-height:1;">${score}</div>
+                  <div style="font-size:10px; color:rgba(255,255,255,0.5);">homeScore</div>
+                </div>
+              </div>
+
+              <div style="display:flex; gap:6px; flex-wrap:wrap; margin-bottom:12px;">
+                <span style="background:rgba(34,197,94,0.1); color:#22c55e; padding:3px 8px; border-radius:6px; font-size:10px; font-weight:700;">CTR ${breakdown.ctrPotential || 0}/35</span>
+                <span style="background:rgba(251,191,36,0.1); color:#fbbf24; padding:3px 8px; border-radius:6px; font-size:10px; font-weight:700;">신선도 ${breakdown.freshness || 0}/30</span>
+                <span style="background:rgba(96,165,250,0.1); color:#60a5fa; padding:3px 8px; border-radius:6px; font-size:10px; font-weight:700;">카테고리 ${breakdown.categoryFit || 0}/20</span>
+                <span style="background:rgba(167,139,250,0.1); color:#a78bfa; padding:3px 8px; border-radius:6px; font-size:10px; font-weight:700;">빈자리 ${breakdown.vacancy || 0}/15</span>
+              </div>
+
+              ${summary ? `<div style="background:${gradeBg}; color:${gradeColor}; padding:8px 12px; border-radius:8px; font-size:12px; font-weight:600; margin-bottom:10px;">${summary}</div>` : ''}
+
+              ${bestTitle ? `
+                <div style="background:rgba(255,255,255,0.04); border-radius:10px; padding:12px; margin-bottom:10px; border-left:3px solid #22c55e;">
+                  <div style="display:flex; align-items:center; gap:6px; margin-bottom:6px;">
+                    <span style="font-size:11px; color:#22c55e; font-weight:800;">📝 추천 제목</span>
+                    <span style="font-size:10px; color:rgba(255,255,255,0.6);">CTR 점수 ${bestTitle.ctrScore} · 예상 ${bestTitle.expectedCtr}%</span>
+                  </div>
+                  <div style="font-size:14px; font-weight:700; color:white; margin-bottom:4px;">${escapeHtml(bestTitle.title)}</div>
+                  ${(bestTitle.matchedPatterns || []).length ? `<div style="font-size:10px; color:rgba(255,255,255,0.6);">패턴: ${bestTitle.matchedPatterns.join(', ')}</div>` : ''}
+                </div>
+              ` : ''}
+
+              ${v.totalSlotsAnalyzed ? `
+                <div style="display:flex; gap:8px; font-size:11px; color:rgba(255,255,255,0.7);">
+                  <span>👤 인플루언서 ${v.influencerCount}/10</span>
+                  <span>🏛️ 빅도메인 ${v.bigDomainCount}/10</span>
+                  <span style="color:#22c55e; font-weight:700;">🪑 빈자리 ${v.vacancySlots}/10</span>
+                </div>
+                ${v.suggestedAction ? `<div style="font-size:11px; color:rgba(255,255,255,0.6); margin-top:4px;">${v.suggestedAction}</div>` : ''}
+              ` : ''}
+            </div>
+          `;
+        }
+
+        async function huntAdsenseKeywords() {
+          const category = document.getElementById('adsenseCategory').value;
+          const excludeYmylHigh = document.getElementById('adsenseExcludeYmyl').checked;
+          const requireRealData = document.getElementById('adsenseRequireReal').checked;
+          const blueOceanOnly = document.getElementById('adsenseBlueOcean')?.checked || false;
+          const sortBy = document.getElementById('adsenseSortBy')?.value || 'value';
+          const minInfoIntent = parseInt(document.getElementById('adsenseMinIntent').value, 10);
+          const minMonthlyRevenue = parseInt(document.getElementById('adsenseMinRevenue').value, 10);
+          const count = parseInt(document.getElementById('adsenseCount').value, 10);
+          const btn = document.getElementById('adsenseHuntBtn');
+          const resultsDiv = document.getElementById('adsenseResults');
+
+          btn.disabled = true;
+          btn.innerHTML = '<span style="display:inline-block; animation:spin 1s linear infinite;">🔄</span> 헌팅 중... (1~2분 소요)';
+          resultsDiv.innerHTML = `
+            <div style="background:rgba(15,23,42,0.9); border-radius:16px; padding:24px; border:1px solid rgba(66,133,244,0.3); text-align:center;">
+              <div style="font-size:48px; margin-bottom:12px;">💵</div>
+              <div style="font-size:16px; font-weight:600; color:#60a5fa;">AdSense 적합 키워드 분석 중...</div>
+              <div style="font-size:12px; color:rgba(255,255,255,0.6); margin-top:8px;">PRO 데이터 시드 → RPM/정보의도/YMYL 재평가</div>
+            </div>
+          `;
+
+          try {
+            const response = await window.electronAPI.invoke('hunt-adsense-keywords', {
+              category, excludeYmylHigh, requireRealData, blueOceanOnly, sortBy,
+              minInfoIntent, minMonthlyRevenue, count
+            });
+
+            if (response?.requiresPremium) {
+              resultsDiv.innerHTML = `
+                <div style="text-align:center; padding:40px; background: linear-gradient(135deg, rgba(139,92,246,0.15), rgba(236,72,153,0.15)); border-radius:16px; border:2px solid rgba(139,92,246,0.4);">
+                  <div style="font-size:56px; margin-bottom:16px;">🔒</div>
+                  <div style="font-size:20px; font-weight:700; color:#a78bfa; margin-bottom:12px;">프리미엄 전용 기능</div>
+                  <div style="font-size:14px; color:rgba(255,255,255,0.8); line-height:1.6;">
+                    <strong>AdSense 키워드 헌터</strong>는<br/>
+                    <span style="color:#f472b6; font-weight:600;">1년 또는 영구제 라이선스</span> 사용자 전용입니다.
+                  </div>
+                </div>
+              `;
+              return;
+            }
+
+            if (!response?.success || !response.keywords?.length) {
+              resultsDiv.innerHTML = `
+                <div style="text-align:center; padding:30px; background:rgba(239,68,68,0.1); border:1px solid rgba(239,68,68,0.3); border-radius:12px; color:#f87171;">
+                  ${response?.error || '결과 없음. 카테고리/필터를 조정해보세요.'}
+                </div>
+              `;
+              return;
+            }
+
+            const { keywords, summary } = response;
+            renderAdsenseResults(keywords, summary, resultsDiv, response);
+          } catch (err) {
+            console.error('[ADSENSE-UI] 오류:', err);
+            resultsDiv.innerHTML = `
+              <div style="text-align:center; padding:20px; color:#f87171;">오류: ${err?.message || err}</div>
+            `;
+          } finally {
+            btn.disabled = false;
+            btn.innerHTML = '💵 AdSense 키워드 헌팅 시작';
+          }
+        }
+
+        function renderAdsenseResults(keywords, summary, container, response) {
+          const gradeColor = (g) => g === 'SSS' ? '#ff6b9d' : g === 'SS' ? '#ff9f43' : g === 'S' ? '#fbbf24' : g === 'A' ? '#22c55e' : '#94a3b8';
+          const ymylBadge = (r) => r === 'high'
+            ? '<span style="background:rgba(239,68,68,0.2); color:#f87171; padding:2px 8px; border-radius:6px; font-size:10px; font-weight:700; border:1px solid rgba(239,68,68,0.4);">YMYL 고위험</span>'
+            : r === 'medium'
+              ? '<span style="background:rgba(251,191,36,0.2); color:#fbbf24; padding:2px 8px; border-radius:6px; font-size:10px; font-weight:700;">YMYL 주의</span>'
+              : '<span style="background:rgba(34,197,94,0.2); color:#22c55e; padding:2px 8px; border-radius:6px; font-size:10px; font-weight:700;">안전</span>';
+
+          let html = `
+            <div style="margin-bottom:20px; padding:20px; background: linear-gradient(135deg, rgba(15,23,42,0.7), rgba(30,41,59,0.9)); border-radius:18px; border:1px solid rgba(66,133,244,0.3);">
+              <div style="display:flex; align-items:center; gap:12px; margin-bottom:14px;">
+                <div style="width:46px; height:46px; background:#4285f4; border-radius:12px; display:flex; align-items:center; justify-content:center; font-size:24px;">💵</div>
+                <div>
+                  <div style="font-size:18px; font-weight:800; color:#60a5fa;">AdSense 수익 키워드 발굴 결과</div>
+                  <div style="font-size:12px; color:rgba(255,255,255,0.6);">총 ${summary.totalFound}개 · 평균 월수익 ${(summary.avgMonthlyRevenue / 10000).toFixed(1)}만원</div>
+                </div>
+              </div>
+              <div style="display:grid; grid-template-columns:repeat(auto-fit, minmax(120px, 1fr)); gap:10px;">
+                <div style="background:rgba(255,107,157,0.15); padding:12px; border-radius:12px; text-align:center; border:1px solid rgba(255,107,157,0.3);">
+                  <div style="font-size:22px; font-weight:900; color:#ff6b9d;">${summary.sssCount}</div>
+                  <div style="font-size:11px; color:rgba(255,255,255,0.7);">SSS 등급</div>
+                </div>
+                <div style="background:rgba(255,159,67,0.15); padding:12px; border-radius:12px; text-align:center; border:1px solid rgba(255,159,67,0.3);">
+                  <div style="font-size:22px; font-weight:900; color:#ff9f43;">${summary.ssCount}</div>
+                  <div style="font-size:11px; color:rgba(255,255,255,0.7);">SS 등급</div>
+                </div>
+                <div style="background:rgba(251,191,36,0.15); padding:12px; border-radius:12px; text-align:center; border:1px solid rgba(251,191,36,0.3);">
+                  <div style="font-size:22px; font-weight:900; color:#fbbf24;">${summary.sCount}</div>
+                  <div style="font-size:11px; color:rgba(255,255,255,0.7);">S 등급</div>
+                </div>
+                <div style="background:rgba(34,197,94,0.15); padding:12px; border-radius:12px; text-align:center; border:1px solid rgba(34,197,94,0.3);">
+                  <div style="font-size:18px; font-weight:900; color:#22c55e;">${(summary.totalEstimatedMonthlyRevenue / 10000).toFixed(0)}만</div>
+                  <div style="font-size:11px; color:rgba(255,255,255,0.7);">합계 월수익(원)</div>
+                </div>
+              </div>
+              ${response.categoryRisk && response.categoryRisk.level !== 'safe' ? `
+              <!-- 🚨 카테고리 위험도 경고 -->
+              <div style="margin-top:12px; padding:12px 14px; background:${response.categoryRisk.level === 'danger' ? 'rgba(239,68,68,0.15)' : 'rgba(251,191,36,0.12)'}; border-radius:10px; border:1px solid ${response.categoryRisk.level === 'danger' ? 'rgba(239,68,68,0.5)' : 'rgba(251,191,36,0.4)'};">
+                <div style="font-size:13px; font-weight:800; color:${response.categoryRisk.level === 'danger' ? '#f87171' : '#fbbf24'}; margin-bottom:4px;">
+                  ${response.categoryRisk.level === 'danger' ? '🚨 고위험 카테고리' : '⚠️ 주의 카테고리'} — 글 작성 시 반드시 확인
+                </div>
+                <div style="font-size:12px; color:rgba(255,255,255,0.85); line-height:1.5;">
+                  ${response.categoryRisk.reason}
+                </div>
+                ${response.categoryRisk.level === 'danger' ? `
+                <div style="margin-top:8px; font-size:11px; color:rgba(255,255,255,0.7);">
+                  💡 대안: 리빙·생활꿀팁·가드닝·인테리어·DIY 카테고리는 광고법 위험 없음
+                </div>` : ''}
+              </div>` : ''}
+              <!-- 🔍 데이터 신뢰도 배지 -->
+              <div style="margin-top:12px; padding:10px 14px; background:rgba(34,197,94,0.08); border-radius:10px; border:1px solid rgba(34,197,94,0.25); display:flex; align-items:center; justify-content:space-between; flex-wrap:wrap; gap:8px;">
+                <div style="font-size:12px; color:rgba(255,255,255,0.85);">
+                  🔍 <strong>데이터 신뢰도:</strong>
+                  <span style="color:#22c55e; font-weight:700;">실측 ${summary.realDataCount || 0}개</span> ·
+                  <span style="color:#fbbf24;">추정 ${summary.estimatedCount || 0}개</span> ·
+                  <span style="color:#60a5fa; font-weight:700;">고신뢰도 ${summary.highConfidenceCount || 0}개</span>
+                </div>
+                <div style="font-size:11px; color:rgba(255,255,255,0.5);">
+                  ${(summary.estimatedCount || 0) === 0 ? '✅ 모두 네이버 검색광고 API 실측' : '⚠️ 추정값 포함'}
+                </div>
+              </div>
+              <!-- 💎 블루오션 등급 통계 -->
+              <div style="margin-top:8px; padding:10px 14px; background:rgba(59,130,246,0.08); border-radius:10px; border:1px solid rgba(59,130,246,0.25); display:flex; align-items:center; justify-content:space-between; flex-wrap:wrap; gap:8px;">
+                <div style="font-size:12px; color:rgba(255,255,255,0.85);">
+                  💎 <strong>블루오션 등급:</strong>
+                  <span style="color:#22c55e; font-weight:700;">💎💎💎 ${summary.ultraBlueCount || 0}개</span> ·
+                  <span style="color:#3b82f6; font-weight:700;">💎 ${summary.blueCount || 0}개</span> ·
+                  <span style="color:#94a3b8;">🟢 ${summary.greenCount || 0}개</span> ·
+                  <span style="color:#ef4444;">🔴 ${summary.redCount || 0}개</span>
+                </div>
+                <div style="font-size:11px; color:rgba(255,255,255,0.5);">
+                  검색량/문서수 비율 = 경쟁비
+                </div>
+              </div>
+              <!-- ⭐ 다중 소스 교차 검증 통계 -->
+              <div style="margin-top:8px; padding:10px 14px; background:rgba(168,85,247,0.08); border-radius:10px; border:1px solid rgba(168,85,247,0.25); display:flex; align-items:center; justify-content:space-between; flex-wrap:wrap; gap:8px;">
+                <div style="font-size:12px; color:rgba(255,255,255,0.85);">
+                  ⭐ <strong>다중 소스 교차 검증:</strong>
+                  <span style="color:#22c55e; font-weight:700;">⭐⭐⭐ ${summary.verifiedCount || 0}개</span> ·
+                  <span style="color:#fbbf24;">⭐⭐ ${summary.doubleVerifiedCount || 0}개</span> ·
+                  <span style="color:#94a3b8;">⭐ ${summary.singleSourceCount || 0}개</span>
+                </div>
+                <div style="font-size:11px; color:rgba(255,255,255,0.5);">
+                  네이버API + 자동완성 + PRO교차 + 위키 교차 검증
+                </div>
+              </div>
+            </div>
+          `;
+
+          keywords.forEach((kw) => {
+            const sv = kw.searchVolume?.toLocaleString() || '-';
+            const dc = kw.documentCount?.toLocaleString() || '-';
+            html += `
+              <div style="background:rgba(255,255,255,0.03); border-radius:16px; border:1px solid rgba(255,255,255,0.08); margin-bottom:14px; padding:20px;">
+                <div style="display:flex; justify-content:space-between; align-items:flex-start; margin-bottom:14px; flex-wrap:wrap; gap:8px;">
+                  <div>
+                    <div style="display:flex; align-items:center; gap:10px; margin-bottom:8px; flex-wrap:wrap;">
+                      <span style="background:${gradeColor(kw.grade)}; color:white; padding:4px 10px; border-radius:8px; font-size:12px; font-weight:900;">${kw.grade}</span>
+                      ${ymylBadge(kw.ymylRisk)}
+                      <span style="background:rgba(66,133,244,0.2); color:#60a5fa; padding:3px 9px; border-radius:7px; font-size:11px; font-weight:700;">📖 정보의도 ${kw.infoIntentScore}</span>
+                      <span style="background:rgba(34,197,94,0.2); color:#22c55e; padding:3px 9px; border-radius:7px; font-size:11px; font-weight:700;" title="${(kw.writableReason || '').replace(/"/g, "'")}">✍️ 글쓰기 가능</span>
+                      ${kw.dataConfidence === 'high'
+                        ? `<span style="background:rgba(34,197,94,0.25); color:#22c55e; padding:3px 9px; border-radius:7px; font-size:11px; font-weight:800; border:1px solid rgba(34,197,94,0.4);" title="${(kw.dataSourceReason || '').replace(/"/g, "'")}">🔍 실측 HIGH</span>`
+                        : kw.dataConfidence === 'medium'
+                        ? `<span style="background:rgba(251,191,36,0.2); color:#fbbf24; padding:3px 9px; border-radius:7px; font-size:11px; font-weight:700;" title="${(kw.dataSourceReason || '').replace(/"/g, "'")}">🔍 실측 MID</span>`
+                        : `<span style="background:rgba(239,68,68,0.2); color:#f87171; padding:3px 9px; border-radius:7px; font-size:11px; font-weight:700;" title="${(kw.dataSourceReason || '').replace(/"/g, "'")}">⚠️ 추정값</span>`}
+                      ${kw.blueOcean?.level === 'ultra-blue'
+                        ? `<span style="background:linear-gradient(135deg,#22c55e,#3b82f6); color:white; padding:3px 9px; border-radius:7px; font-size:11px; font-weight:900;" title="${(kw.blueOcean.summary || '').replace(/"/g, "'")}">💎💎💎 ${kw.blueOcean.ratio.toFixed(1)}x</span>`
+                        : kw.blueOcean?.level === 'blue'
+                        ? `<span style="background:rgba(59,130,246,0.25); color:#60a5fa; padding:3px 9px; border-radius:7px; font-size:11px; font-weight:800; border:1px solid rgba(59,130,246,0.4);" title="${(kw.blueOcean.summary || '').replace(/"/g, "'")}">💎 블루 ${kw.blueOcean.ratio.toFixed(1)}x</span>`
+                        : kw.blueOcean?.level === 'red'
+                        ? `<span style="background:rgba(239,68,68,0.2); color:#f87171; padding:3px 9px; border-radius:7px; font-size:11px; font-weight:700;" title="${(kw.blueOcean.summary || '').replace(/"/g, "'")}">🔴 레드 ${kw.blueOcean.ratio.toFixed(1)}x</span>`
+                        : kw.blueOcean?.level === 'crimson'
+                        ? `<span style="background:rgba(127,29,29,0.3); color:#fca5a5; padding:3px 9px; border-radius:7px; font-size:11px; font-weight:700;" title="${(kw.blueOcean.summary || '').replace(/"/g, "'")}">💀 크림슨 ${kw.blueOcean.ratio.toFixed(2)}x</span>`
+                        : ''}
+                      ${kw.crossValidation?.level === 'verified'
+                        ? `<span style="background:rgba(168,85,247,0.25); color:#a855f7; padding:3px 9px; border-radius:7px; font-size:11px; font-weight:800; border:1px solid rgba(168,85,247,0.4);" title="${(kw.crossValidation.summary || '').replace(/"/g, "'")}">⭐⭐⭐ ${kw.crossValidation.score}/6</span>`
+                        : kw.crossValidation?.level === 'double'
+                        ? `<span style="background:rgba(168,85,247,0.18); color:#c084fc; padding:3px 9px; border-radius:7px; font-size:11px; font-weight:700;" title="${(kw.crossValidation.summary || '').replace(/"/g, "'")}">⭐⭐ ${kw.crossValidation.score}/6</span>`
+                        : kw.crossValidation?.level === 'single'
+                        ? `<span style="background:rgba(148,163,184,0.2); color:#94a3b8; padding:3px 9px; border-radius:7px; font-size:11px; font-weight:600;" title="${(kw.crossValidation.summary || '').replace(/"/g, "'")}">⭐ ${kw.crossValidation.score}/6</span>`
+                        : ''}
+                    </div>
+                    <div style="font-size:18px; font-weight:800; color:white; cursor:pointer;" onclick="copyToClipboard('${String(kw.keyword || '').replace(/'/g, "\\'")}')" title="클릭 시 복사">${kw.keyword}</div>
+                    <div style="font-size:11px; color:rgba(255,255,255,0.5); margin-top:4px;">${kw.gradeReason}</div>
+                  </div>
+                  <div style="text-align:right;">
+                    <div style="font-size:24px; font-weight:900; color:#22c55e;">₩${kw.estimatedMonthlyRevenue.toLocaleString()}</div>
+                    <div style="font-size:11px; color:rgba(255,255,255,0.6);">예상 월 광고수익</div>
+                  </div>
+                </div>
+                <!-- 💎 가치 점수 게이지 -->
+                <div style="margin-bottom:12px; padding:10px 12px; background:rgba(168,85,247,0.08); border-radius:10px; border:1px solid rgba(168,85,247,0.25);">
+                  <div style="display:flex; justify-content:space-between; align-items:center; margin-bottom:6px;">
+                    <span style="font-size:11px; font-weight:700; color:#a855f7;">💎 종합 가치 점수</span>
+                    <span style="font-size:14px; font-weight:900; color:${(kw.valueScore || 0) >= 75 ? '#22c55e' : (kw.valueScore || 0) >= 60 ? '#fbbf24' : '#a855f7'};">${kw.valueScore || 0}/100</span>
+                  </div>
+                  <div style="background:rgba(0,0,0,0.3); border-radius:6px; height:6px; overflow:hidden;">
+                    <div style="height:100%; width:${kw.valueScore || 0}%; background:linear-gradient(90deg, #a855f7, #ec4899); border-radius:6px; transition:width 0.5s;"></div>
+                  </div>
+                  ${kw.valueBreakdown ? `<div style="font-size:10px; color:rgba(255,255,255,0.6); margin-top:6px;">${kw.valueBreakdown.reason} (검색량 ${kw.valueBreakdown.searchVolume}/25 · 경쟁 ${kw.valueBreakdown.goldenRatio}/25 · CPC ${kw.valueBreakdown.cpc}/15 · 의도 ${kw.valueBreakdown.infoIntent}/15 · 구체성 ${kw.valueBreakdown.specificity}/20)</div>` : ''}
+                </div>
+                <div style="display:grid; grid-template-columns:repeat(auto-fit, minmax(110px,1fr)); gap:8px; padding:12px; background:rgba(0,0,0,0.2); border-radius:10px;">
+                  <div style="text-align:center;">
+                    <div style="font-size:13px; font-weight:700; color:#fbbf24;">₩${kw.estimatedRPM.toLocaleString()}</div>
+                    <div style="font-size:10px; color:rgba(255,255,255,0.5);">예상 RPM</div>
+                  </div>
+                  <div style="text-align:center;">
+                    <div style="font-size:13px; font-weight:700; color:#60a5fa;">₩${kw.estimatedCPC.toLocaleString()}</div>
+                    <div style="font-size:10px; color:rgba(255,255,255,0.5);">CPC 추정</div>
+                  </div>
+                  <div style="text-align:center;">
+                    <div style="font-size:13px; font-weight:700; color:white;">${sv}</div>
+                    <div style="font-size:10px; color:rgba(255,255,255,0.5);">월 검색량</div>
+                  </div>
+                  <div style="text-align:center;">
+                    <div style="font-size:13px; font-weight:700; color:white;">${dc}</div>
+                    <div style="font-size:10px; color:rgba(255,255,255,0.5);">문서수</div>
+                  </div>
+                  <div style="text-align:center;">
+                    <div style="font-size:13px; font-weight:700; color:#a78bfa;">${(kw.googleTrafficShare * 100).toFixed(0)}%</div>
+                    <div style="font-size:10px; color:rgba(255,255,255,0.5);">구글 비중</div>
+                  </div>
+                  <div style="text-align:center;">
+                    <div style="font-size:13px; font-weight:700; color:#34d399;">${kw.competitionRatio.toFixed(1)}x</div>
+                    <div style="font-size:10px; color:rgba(255,255,255,0.5);">검색/문서비</div>
+                  </div>
+                </div>
+              </div>
+            `;
+          });
+
+          container.innerHTML = html;
+        }
+
         function openProTrafficModal() {
           lockBodyScroll();
 
@@ -14791,9 +15783,51 @@
             const sv = kw.searchVolume ? kw.searchVolume.toLocaleString() : '-';
             const dc = kw.documentCount ? kw.documentCount.toLocaleString() : '-';
             const ratio = kw.goldenRatio ? kw.goldenRatio.toFixed(2) : '-';
+            // 🚀 100점 끝판왕: enhancer 필드 (publisherRPM/blueOcean/reachability/신뢰구간/searchIntent/zeroClick/eligibility)
+            const enhBlue = kw.blueOcean?.level;
+            const enhBlueRatio = kw.blueOcean?.ratio;
+            const enhPubRPM = kw.publisherRPM;
+            const enhGrossRPM = kw.grossRPM;
+            const enhPubMonthly = kw.publisherMonthlyRevenue;
+            const enhReach = kw.reachability;
+            const enhRange12m = kw.revenueRangeAt12m;
+            const enhIntent = kw.searchIntent;
+            const enhZeroClick = kw.zeroClickRisk;
+            const enhEligibility = kw.adsenseEligibility;
+            const enhProGrade = kw.proEnhancedGrade;
+            const enhAvailable = !!enhProGrade;
 
             html += `
             <div style="background: rgba(255, 255, 255, 0.03); border-radius: 20px; border: 1px solid rgba(255, 255, 255, 0.08); margin-bottom: 20px; overflow: hidden; transition: all 0.3s; box-shadow: 0 4px 20px rgba(0,0,0,0.15);" onmouseover="this.style.borderColor='rgba(251, 191, 36, 0.3)';" onmouseout="this.style.borderColor='rgba(255, 255, 255, 0.08)';">
+              ${enhAvailable ? `
+              <!-- 🚀 100점 끝판왕: enhancer 메타 -->
+              <div style="background:linear-gradient(135deg, rgba(168,85,247,0.15), rgba(59,130,246,0.15)); padding:12px 20px; border-bottom:1px solid rgba(168,85,247,0.3); display:flex; align-items:center; justify-content:space-between; flex-wrap:wrap; gap:8px;">
+                <div style="display:flex; align-items:center; gap:8px; flex-wrap:wrap;">
+                  <span style="background:linear-gradient(135deg,#a855f7,#ec4899); color:white; padding:3px 10px; border-radius:8px; font-size:11px; font-weight:900;">🚀 ${enhProGrade}</span>
+                  ${enhBlue === 'ultra-blue' ? `<span style="background:linear-gradient(135deg,#22c55e,#3b82f6); color:white; padding:3px 9px; border-radius:7px; font-size:11px; font-weight:900;" title="경쟁비 ${enhBlueRatio}배 — 거의 독점 노출">💎💎💎 ${enhBlueRatio.toFixed(1)}x</span>` :
+                    enhBlue === 'blue' ? `<span style="background:rgba(59,130,246,0.25); color:#60a5fa; padding:3px 9px; border-radius:7px; font-size:11px; font-weight:800;">💎 블루 ${enhBlueRatio.toFixed(1)}x</span>` :
+                    enhBlue === 'green' ? `<span style="background:rgba(34,197,94,0.18); color:#22c55e; padding:3px 9px; border-radius:7px; font-size:11px; font-weight:700;">🟢 ${enhBlueRatio.toFixed(1)}x</span>` :
+                    enhBlue === 'red' ? `<span style="background:rgba(239,68,68,0.2); color:#f87171; padding:3px 9px; border-radius:7px; font-size:11px; font-weight:700;">🔴 ${enhBlueRatio.toFixed(2)}x</span>` :
+                    enhBlue === 'crimson' ? `<span style="background:rgba(127,29,29,0.3); color:#fca5a5; padding:3px 9px; border-radius:7px; font-size:11px; font-weight:700;">💀 ${enhBlueRatio.toFixed(2)}x</span>` : ''}
+                  ${enhIntent ? `<span style="background:rgba(66,133,244,0.18); color:#60a5fa; padding:3px 9px; border-radius:7px; font-size:11px; font-weight:700;" title="${enhIntent.summary}">${enhIntent.primary === 'informational' ? '📖' : enhIntent.primary === 'commercial' ? '⭐' : enhIntent.primary === 'transactional' ? '💰' : '🧭'} ×${enhIntent.ctrMultiplier?.toFixed(1)}</span>` : ''}
+                  ${enhZeroClick && enhZeroClick.level !== 'low' ? `<span style="background:rgba(239,68,68,0.18); color:#f87171; padding:3px 9px; border-radius:7px; font-size:11px; font-weight:700;" title="${enhZeroClick.summary}">🚫 0클릭</span>` : ''}
+                  ${enhEligibility && enhEligibility.status !== 'eligible' ? `<span style="background:rgba(251,191,36,0.18); color:#fbbf24; padding:3px 9px; border-radius:7px; font-size:11px; font-weight:700;" title="${enhEligibility.summary}">${enhEligibility.status === 'blocked' ? '🚫 광고거절' : '⚠️ 광고제한'}</span>` : ''}
+                </div>
+                <div style="font-size:11px; color:rgba(255,255,255,0.7);">
+                  Gross ₩${(enhGrossRPM || 0).toLocaleString()} → Publisher ₩${(enhPubRPM || 0).toLocaleString()} (×0.40)
+                </div>
+              </div>
+              <!-- 📈 신생 블로그 시간별 도달 시나리오 -->
+              ${enhReach ? `<div style="padding:10px 20px; background:rgba(0,0,0,0.15); border-bottom:1px solid rgba(255,255,255,0.05); display:flex; align-items:center; justify-content:space-between; gap:12px; flex-wrap:wrap;">
+                <div style="font-size:11px; color:rgba(255,255,255,0.6);">📈 신생 블로그 시간별 실수익</div>
+                <div style="display:flex; gap:14px; font-size:11px;">
+                  <span><span style="color:rgba(255,255,255,0.5);">6m</span> <strong style="color:#94a3b8;">₩${(enhReach.month6?.monthlyRevenue || 0).toLocaleString()}</strong></span>
+                  <span><span style="color:rgba(255,255,255,0.5);">12m</span> <strong style="color:#fbbf24;">₩${(enhReach.month12?.monthlyRevenue || 0).toLocaleString()}</strong></span>
+                  <span><span style="color:rgba(255,255,255,0.5);">24m</span> <strong style="color:#22c55e;">₩${(enhReach.month24?.monthlyRevenue || 0).toLocaleString()}</strong></span>
+                  ${enhRange12m ? `<span style="color:rgba(255,255,255,0.5);">±${enhRange12m.errorMargin}% (₩${enhRange12m.lower.toLocaleString()}~${enhRange12m.upper.toLocaleString()})</span>` : ''}
+                </div>
+              </div>` : ''}
+              ` : ''}
               <!-- 카드 상단: 핵심 지표 (Clean View) -->
               <div style="padding: 24px;">
                 <div style="display: flex; justify-content: space-between; align-items: flex-start; margin-bottom: 20px;">

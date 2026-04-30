@@ -2,8 +2,7 @@
 // 작성: 2026-04-15
 // 특정 스마트블록 진입에 필요한 CTR/제목/전략을 LLM으로 생성
 
-import { GoogleGenerativeAI } from '@google/generative-ai';
-import { EnvironmentManager } from '../environment-manager';
+import { callAI } from './ai-client';
 import type { SmartBlockAnalysis, SmartBlockType } from './smartblock-parser';
 
 export interface TitleVariant {
@@ -23,7 +22,7 @@ export interface BlockEntryPlan {
   metaDescriptionSuggestion: string;
   thumbnailHint: string;
   insiderTips: string[];
-  source: 'gemini' | 'fallback';
+  source: 'claude' | 'fallback';
 }
 
 // 네이버 스마트블록별 진입 기준 CTR 추정 (커뮤니티 경험치 기반)
@@ -79,16 +78,10 @@ export async function generateBlockEntryPlan(
   blockType: SmartBlockType,
   smartBlocks?: SmartBlockAnalysis | null
 ): Promise<BlockEntryPlan> {
-  const env = EnvironmentManager.getInstance().getConfig();
-  if (!env.geminiApiKey) return fallbackPlan(blockType, keyword);
-
   const targetCtr = ENTRY_CTR_THRESHOLDS[blockType] || 2;
   const difficulty = computeDifficulty(targetCtr, blockType);
 
   try {
-    const genAI = new GoogleGenerativeAI(env.geminiApiKey);
-    const model = genAI.getGenerativeModel({ model: 'gemini-2.0-flash-exp' });
-
     const contextInfo = smartBlocks
       ? `\n현재 네이버 SERP 상태:\n- 총 ${smartBlocks.totalBlocks}개 블록\n- 기회 점수 ${smartBlocks.bloggerOpportunityScore}/100\n- 추천: ${smartBlocks.recommendation}`
       : '';
@@ -138,8 +131,7 @@ JSON만 응답:
 - insiderTips는 해당 블록 특화된 구체적 팁 (일반론 금지)
 - firstParagraph는 ${keyword} 키워드를 자연스럽게 포함`;
 
-    const result = await model.generateContent(prompt);
-    const text = result.response.text();
+    const { text } = await callAI(prompt, { maxTokens: 2048, temperature: 0.7 });
     const m = text.match(/\{[\s\S]*\}/);
     if (!m) return fallbackPlan(blockType, keyword);
 
@@ -161,10 +153,10 @@ JSON만 응답:
       metaDescriptionSuggestion: String(parsed.metaDescriptionSuggestion || ''),
       thumbnailHint: String(parsed.thumbnailHint || ''),
       insiderTips: Array.isArray(parsed.insiderTips) ? parsed.insiderTips.slice(0, 8).map(String) : [],
-      source: 'gemini',
+      source: 'claude',
     };
   } catch (err) {
-    console.error('[SB-ASSIST] Gemini 실패:', (err as Error).message);
+    console.error('[SB-ASSIST] AI 실패:', (err as Error).message);
     return fallbackPlan(blockType, keyword);
   }
 }

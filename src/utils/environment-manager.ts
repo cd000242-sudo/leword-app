@@ -17,6 +17,8 @@ export interface EnvConfig {
   };
   openaiApiKey?: string;
   geminiApiKey?: string;
+  anthropicApiKey?: string;          // Claude API key (sk-ant-...)
+  aiInferenceMode?: 'claude' | 'rule' | 'auto';   // 기본 'auto'
   pexelsApiKey?: string;
   dalleApiKey?: string;
   naverClientId?: string;
@@ -232,6 +234,8 @@ export class EnvironmentManager {
       const envConfig: EnvConfig = {
         openaiApiKey: envFileConfig['OPENAI_API_KEY'] || envFileConfig['DALLE_API_KEY'] || process.env['OPENAI_API_KEY'] || process.env['DALLE_API_KEY'] || '',
         geminiApiKey: envFileConfig['GEMINI_API_KEY'] || envFileConfig['GEMINI_KEY'] || process.env['GEMINI_API_KEY'] || process.env['GEMINI_KEY'] || '',
+        anthropicApiKey: envFileConfig['ANTHROPIC_API_KEY'] || envFileConfig['CLAUDE_API_KEY'] || process.env['ANTHROPIC_API_KEY'] || process.env['CLAUDE_API_KEY'] || '',
+        aiInferenceMode: ((envFileConfig['AI_INFERENCE_MODE'] || process.env['AI_INFERENCE_MODE'] || 'auto').toLowerCase() as 'claude' | 'rule' | 'auto'),
         pexelsApiKey: envFileConfig['PEXELS_API_KEY'] || process.env['PEXELS_API_KEY'] || '',
         dalleApiKey: envFileConfig['DALLE_API_KEY'] || envFileConfig['OPENAI_API_KEY'] || process.env['DALLE_API_KEY'] || process.env['OPENAI_API_KEY'] || '',
         naverClientId: envFileConfig['NAVER_CLIENT_ID'] || process.env['NAVER_CLIENT_ID'] || '',

@@ -119,7 +119,9 @@ export function setupConfigUtilityHandlers(): void {
           youtubeApiKey: env.youtubeApiKey || '',
           naverSearchAdAccessLicense: env.naverSearchAdAccessLicense || '',
           naverSearchAdSecretKey: env.naverSearchAdSecretKey || '',
-          naverSearchAdCustomerId: env.naverSearchAdCustomerId || ''
+          naverSearchAdCustomerId: env.naverSearchAdCustomerId || '',
+          anthropicApiKey: env.anthropicApiKey || '',
+          aiInferenceMode: env.aiInferenceMode || 'auto',
         };
       } catch (error: any) {
         console.error('[KEYWORD-MASTER] check-api-keys 오류:', error);
@@ -129,7 +131,9 @@ export function setupConfigUtilityHandlers(): void {
           youtubeApiKey: '',
           naverSearchAdAccessLicense: '',
           naverSearchAdSecretKey: '',
-          naverSearchAdCustomerId: ''
+          naverSearchAdCustomerId: '',
+          anthropicApiKey: '',
+          aiInferenceMode: 'auto',
         };
       }
     });
@@ -393,6 +397,8 @@ export function setupConfigUtilityHandlers(): void {
         if (settings.naverSearchAdAccessLicense) envConfig.naverSearchAdAccessLicense = settings.naverSearchAdAccessLicense;
         if (settings.naverSearchAdSecretKey) envConfig.naverSearchAdSecretKey = settings.naverSearchAdSecretKey;
         if (settings.naverSearchAdCustomerId) envConfig.naverSearchAdCustomerId = settings.naverSearchAdCustomerId;
+        if (settings.anthropicApiKey !== undefined) envConfig.anthropicApiKey = settings.anthropicApiKey;
+        if (settings.aiInferenceMode !== undefined) envConfig.aiInferenceMode = settings.aiInferenceMode;
 
         // 설정 저장
         await envManager.saveConfig(envConfig);
@@ -1040,4 +1046,30 @@ export function setupConfigUtilityHandlers(): void {
       throw error;
     }
   });
+
+  // 🤖 Anthropic Claude 키 검증
+  if (!ipcMain.listenerCount('verify-anthropic-key')) {
+    ipcMain.handle('verify-anthropic-key', async (_event, args: { apiKey: string }) => {
+      try {
+        const { verifyClaudeKey } = await import('../../utils/pro-hunter-v12/ai-client');
+        return await verifyClaudeKey(args.apiKey);
+      } catch (err: any) {
+        return { ok: false, error: err?.message || 'unknown' };
+      }
+    });
+    console.log('[KEYWORD-MASTER] ✅ verify-anthropic-key 핸들러 등록 완료');
+  }
+
+  // AI 모드 + 키 가용성 조회
+  if (!ipcMain.listenerCount('get-ai-mode')) {
+    ipcMain.handle('get-ai-mode', async () => {
+      try {
+        const { getAIMode } = await import('../../utils/pro-hunter-v12/ai-client');
+        return { success: true, ...(await getAIMode()) };
+      } catch (err: any) {
+        return { success: false, error: err?.message };
+      }
+    });
+    console.log('[KEYWORD-MASTER] ✅ get-ai-mode 핸들러 등록 완료');
+  }
 }

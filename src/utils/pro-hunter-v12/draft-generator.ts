@@ -2,18 +2,15 @@
 // 작성: 2026-04-15
 // 청사진(outline) → Gemini로 실제 본문 초안 자동 생성
 
-import { GoogleGenerativeAI } from '@google/generative-ai';
-import { EnvironmentManager } from '../environment-manager';
+import { callAI } from './ai-client';
 import type { KeywordBlueprint } from './outline-generator';
-
-const MODEL_NAME = 'gemini-2.0-flash-exp';
 
 export interface DraftResult {
   keyword: string;
   title: string;
   markdown: string;
   wordCount: number;
-  source: 'gemini' | 'fallback';
+  source: 'claude' | 'fallback';
   generatedAt: number;
 }
 
@@ -89,27 +86,20 @@ function fallbackDraft(blueprint: KeywordBlueprint): DraftResult {
 }
 
 export async function generateDraft(blueprint: KeywordBlueprint): Promise<DraftResult> {
-  const env = EnvironmentManager.getInstance().getConfig();
-  const apiKey = env.geminiApiKey;
-  if (!apiKey) return fallbackDraft(blueprint);
-
   try {
-    const genAI = new GoogleGenerativeAI(apiKey);
-    const model = genAI.getGenerativeModel({ model: MODEL_NAME });
     const prompt = buildDraftPrompt(blueprint);
-    const result = await model.generateContent(prompt);
-    const text = result.response.text();
+    const { text } = await callAI(prompt, { maxTokens: 8192, temperature: 0.7 });
     if (!text || text.length < 200) return fallbackDraft(blueprint);
     return {
       keyword: blueprint.keyword,
       title: blueprint.strategicTitle,
       markdown: text,
       wordCount: text.split(/\s+/).length,
-      source: 'gemini',
+      source: 'claude',
       generatedAt: Date.now(),
     };
   } catch (err) {
-    console.error('[DRAFT] Gemini 실패:', (err as Error).message);
+    console.error('[DRAFT] AI 실패:', (err as Error).message);
     return fallbackDraft(blueprint);
   }
 }

@@ -4,7 +4,7 @@
 
 import { getNaverAutocompleteKeywords } from '../naver-autocomplete';
 import { EnvironmentManager } from '../environment-manager';
-import { GoogleGenerativeAI } from '@google/generative-ai';
+import { callAI } from './ai-client';
 
 export interface ClusterKeyword {
   keyword: string;
@@ -44,11 +44,7 @@ function classifyRole(kw: string, isPillar: boolean): 'pillar' | 'support' | 'lo
 }
 
 async function expandViaLLM(seed: string): Promise<string[] | null> {
-  const env = EnvironmentManager.getInstance().getConfig();
-  if (!env.geminiApiKey) return null;
   try {
-    const genAI = new GoogleGenerativeAI(env.geminiApiKey);
-    const model = genAI.getGenerativeModel({ model: 'gemini-2.0-flash-exp' });
     const prompt = `한국 네이버 블로그 SEO를 위해 시드 키워드 "${seed}"의 의미적 클러스터를 만드세요.
 
 진짜 카테고리 분기 (예: "스파게티" → "토마토 스파게티", "크림 스파게티", "매콤 스파게티"... 같이 의미적으로 다른 종류).
@@ -56,14 +52,13 @@ async function expandViaLLM(seed: string): Promise<string[] | null> {
 
 JSON 배열로 12개 키워드만 응답:
 ["키워드1", "키워드2", ...]`;
-    const result = await model.generateContent(prompt);
-    const text = result.response.text();
+    const { text } = await callAI(prompt, { maxTokens: 1024, temperature: 0.7 });
     const m = text.match(/\[[\s\S]*\]/);
     if (!m) return null;
     const arr = JSON.parse(m[0]);
     if (Array.isArray(arr)) return arr.map(String).filter(Boolean).slice(0, 15);
   } catch (err) {
-    console.warn('[CLUSTER] LLM 확장 실패:', (err as Error).message);
+    // 룰 fallback (자동완성 + 룰 기반에서 처리)
   }
   return null;
 }

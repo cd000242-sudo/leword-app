@@ -133,10 +133,13 @@ async function runOnce(): Promise<void> {
 
 export function startPrecrawler(): void {
   if (timer) return;
-  // 첫 실행은 10분 뒤
+  const { markWorkerStarted, markWorkerTick } = require('./worker-status');
+  markWorkerStarted('precrawler');
   setTimeout(() => {
-    runOnce();
-    timer = setInterval(runOnce, INTERVAL_MS);
+    Promise.resolve(runOnce()).then(() => markWorkerTick('precrawler')).catch((e: any) => markWorkerTick('precrawler', e?.message));
+    timer = setInterval(() => {
+      Promise.resolve(runOnce()).then(() => markWorkerTick('precrawler')).catch((e: any) => markWorkerTick('precrawler', e?.message));
+    }, INTERVAL_MS);
   }, 10 * 60 * 1000);
   console.log('[PRECRAWL] ✅ 백그라운드 프리크롤 시작 (30분 주기)');
 }

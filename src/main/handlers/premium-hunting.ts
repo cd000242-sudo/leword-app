@@ -7,6 +7,20 @@ import { getNaverSearchAdKeywordSuggestions } from '../../utils/naver-searchad-a
 import { EnvironmentManager } from '../../utils/environment-manager';
 import * as licenseManager from '../../utils/licenseManager';
 import { huntProTrafficKeywords, getProTrafficCategories } from '../../utils/pro-traffic-keyword-hunter';
+import { huntAdsenseKeywords, ADSENSE_CATEGORIES } from '../../utils/adsense-keyword-hunter';
+import { enhanceProResults } from '../../utils/pro-traffic-adsense-enhancer';
+import { getWorkerStatus, getWorkerHealthSummary } from '../../utils/pro-hunter-v12/worker-status';
+import { getDailyHuntHistory, getDashboardSummary, runDailyHuntNow } from '../../utils/pro-hunter-v12/auto-hunting-scheduler';
+import { generateExcelReport, generateAndOpenExcelReport } from '../../utils/pro-hunter-v12/excel-report-generator';
+import { recordFeedback, getAllCalibrations, getFeedbackHistory, getFeedbackStats } from '../../utils/pro-hunter-v12/feedback-learner';
+import { expandWithLSI, expandSeedsWithLSI } from '../../utils/pro-hunter-v12/ai-lsi-engine';
+import { collectGlobalSignals, localizeToKorean } from '../../utils/pro-hunter-v12/global-trend-radar';
+import { analyzeContentGap } from '../../utils/pro-hunter-v12/content-gap-analyzer';
+import { mineQAKeywords } from '../../utils/pro-hunter-v12/qa-comment-miner';
+import { recordRejection, recordAcceptance, calculatePreferenceScore, getPreferenceStats, applyPreferenceLearning } from '../../utils/pro-hunter-v12/preference-learner';
+import { calculateHomeScore } from '../../utils/pro-hunter-v12/naver-home-score-engine';
+import { predictTitleCtr, generateOptimizedTitles, batchGenerateTitlesWithCtr } from '../../utils/pro-hunter-v12/title-ctr-predictor';
+import { analyzeVacancy, batchAnalyzeVacancy } from '../../utils/pro-hunter-v12/vacancy-detector';
 import { getRelatedKeywords as getRelatedKeywordsFromCache } from '../../utils/related-keyword-cache';
 
 
@@ -730,6 +744,29 @@ export function setupPremiumHuntingHandlers(): void {
 
         console.log(`[PRO-TRAFFIC] ✅ ${result.keywords.length}개 황금키워드 발굴 완료!`);
 
+        // 🚀 Phase A: AdSense 9-게이트 후처리 (Publisher×0.40 + Reachability + 신뢰구간 등)
+        const enhanceOpts = (options as any).enhanceWithAdsenseGates !== false ? {
+          excludeNonWritable: (options as any).excludeNonWritable !== false,
+          excludePersonDependent: (options as any).excludePersonDependent !== false,
+          excludeBlocked: (options as any).excludeBlocked !== false,
+          excludeZeroClickHigh: (options as any).excludeZeroClickHigh === true,
+          blueOceanOnly: (options as any).blueOceanOnly === true,
+          minPublisherRevenue: typeof (options as any).minPublisherRevenue === 'number' ? (options as any).minPublisherRevenue : undefined,
+        } : null;
+
+        if (enhanceOpts) {
+          const { enhanced, blockedCount, blockedReasons } = enhanceProResults(result.keywords, enhanceOpts);
+          console.log(`[PRO-TRAFFIC] 🚀 AdSense 9-게이트 후처리: ${enhanced.length}/${result.keywords.length} 통과 (차단 ${blockedCount}개)`, blockedReasons);
+          return {
+            success: true,
+            ...result,
+            keywords: enhanced,
+            blockedCount,
+            blockedReasons,
+            enhancedByAdsense: true,
+          };
+        }
+
         return {
           success: true,
           ...result
@@ -909,6 +946,327 @@ export function setupPremiumHuntingHandlers(): void {
       };
     });
     console.log('[KEYWORD-MASTER] ✅ get-pro-traffic-categories 핸들러 등록 완료');
+  }
+
+  // ===================================
+  // 💵 AdSense 키워드 헌터 (1년/영구제 전용)
+  // ===================================
+  if (!ipcMain.listenerCount('hunt-adsense-keywords')) {
+    ipcMain.handle('hunt-adsense-keywords', async (_event, options: {
+      category?: string;
+      seedKeywords?: string[];
+      count?: number;
+      excludeYmylHigh?: boolean;
+      minInfoIntent?: number;
+      minMonthlyRevenue?: number;
+      requireRealData?: boolean;
+      blueOceanOnly?: boolean;
+      minBlueOceanRatio?: number;
+      sortBy?: 'value' | 'blueOcean' | 'revenue' | 'reachable';
+      newbieMode?: boolean;
+      excludeZeroClickHigh?: boolean;
+    }) => {
+      try {
+        // 라이선스 체크 (PRO와 동일)
+        const license = await licenseManager.loadLicense();
+        const upper = (license?.plan || license?.licenseType || '').toString().toUpperCase();
+        const isPermanent = upper === 'EX' || upper === 'UNLIMITED' || upper === 'PERMANENT';
+        const isYearPlus = upper === '1YEAR' || upper === '1YEARS' || upper === 'CUSTOM' ||
+          (upper.match(/^(\d+)DAY$/) ? parseInt(RegExp.$1, 10) >= 365 : false);
+        const canUse = !!license?.isValid && (isPermanent || isYearPlus || license?.isUnlimited === true || !license?.expiresAt);
+
+        if (!canUse) {
+          return {
+            success: false,
+            requiresPremium: true,
+            error: 'AdSense 키워드 헌터는 1년/영구제 라이선스 전용 기능입니다.',
+            keywords: [],
+            summary: { totalFound: 0 }
+          };
+        }
+
+        console.log('[ADSENSE] 🚀 헌팅 시작:', options);
+
+        const result = await huntAdsenseKeywords({
+          category: options?.category || 'all',
+          seedKeywords: options?.seedKeywords || [],
+          count: Math.min(Math.max(options?.count || 20, 5), 50),
+          excludeYmylHigh: options?.excludeYmylHigh === true,
+          minInfoIntent: typeof options?.minInfoIntent === 'number' ? options.minInfoIntent : 40,
+          minMonthlyRevenue: typeof options?.minMonthlyRevenue === 'number' ? options.minMonthlyRevenue : 5000,
+          requireRealData: options?.requireRealData !== false,
+          blueOceanOnly: options?.blueOceanOnly === true,
+          minBlueOceanRatio: typeof options?.minBlueOceanRatio === 'number' ? options.minBlueOceanRatio : undefined,
+          sortBy: options?.sortBy,
+          newbieMode: options?.newbieMode === true,
+          excludeZeroClickHigh: options?.excludeZeroClickHigh === true,
+        });
+
+        if (!result.keywords || result.keywords.length === 0) {
+          return {
+            success: false,
+            error: 'AdSense 적합 키워드를 찾지 못했습니다. 카테고리를 변경하거나 필터를 완화해보세요.',
+            keywords: [],
+            summary: { totalFound: 0 }
+          };
+        }
+
+        return { success: true, ...result };
+      } catch (error: any) {
+        console.error('[ADSENSE] ❌ 오류:', error);
+        return {
+          success: false,
+          error: `AdSense 헌팅 실패: ${error?.message || '알 수 없는 오류'}`,
+          keywords: [],
+          summary: { totalFound: 0 }
+        };
+      }
+    });
+    console.log('[KEYWORD-MASTER] ✅ hunt-adsense-keywords 핸들러 등록 완료');
+  }
+
+  if (!ipcMain.listenerCount('get-pro-hunt-dashboard')) {
+    ipcMain.handle('get-pro-hunt-dashboard', async () => ({
+      success: true,
+      summary: getDashboardSummary(),
+      history30d: getDailyHuntHistory(undefined, 30),
+    }));
+    console.log('[KEYWORD-MASTER] ✅ get-pro-hunt-dashboard 핸들러 등록 완료');
+  }
+  if (!ipcMain.listenerCount('run-daily-hunt-now')) {
+    ipcMain.handle('run-daily-hunt-now', async () => {
+      try { return { success: true, ...(await runDailyHuntNow()) }; }
+      catch (err: any) { return { success: false, error: err?.message }; }
+    });
+    console.log('[KEYWORD-MASTER] ✅ run-daily-hunt-now 핸들러 등록 완료');
+  }
+
+  // 🏠 홈판 Phase A~E: 5개 신규 IPC
+  if (!ipcMain.listenerCount('calculate-home-score')) {
+    ipcMain.handle('calculate-home-score', async (_e, p: any) => {
+      try { return { success: true, ...calculateHomeScore(p) }; }
+      catch (err: any) { return { success: false, error: err?.message }; }
+    });
+    console.log('[KEYWORD-MASTER] ✅ calculate-home-score IPC 등록');
+  }
+  if (!ipcMain.listenerCount('predict-title-ctr')) {
+    ipcMain.handle('predict-title-ctr', async (_e, p: { title: string; seedKeyword?: string }) => {
+      try { return { success: true, ...predictTitleCtr(p.title, p.seedKeyword) }; }
+      catch (err: any) { return { success: false, error: err?.message }; }
+    });
+    ipcMain.handle('generate-optimized-titles', async (_e, p: { keyword: string; count?: number; category?: string }) => {
+      try { return { success: true, titles: await generateOptimizedTitles(p.keyword, { count: p.count, category: p.category }) }; }
+      catch (err: any) { return { success: false, error: err?.message }; }
+    });
+    ipcMain.handle('batch-generate-titles', async (_e, p: { keywords: any[]; titlesPerKeyword?: number }) => {
+      try { return { success: true, results: await batchGenerateTitlesWithCtr(p.keywords, p.titlesPerKeyword) }; }
+      catch (err: any) { return { success: false, error: err?.message }; }
+    });
+    console.log('[KEYWORD-MASTER] ✅ predict-title-ctr/generate-optimized-titles/batch IPC 등록');
+  }
+  if (!ipcMain.listenerCount('analyze-vacancy')) {
+    ipcMain.handle('analyze-vacancy', async (_e, p: { keyword: string }) => {
+      try { return { success: true, ...(await analyzeVacancy(p.keyword)) }; }
+      catch (err: any) { return { success: false, error: err?.message }; }
+    });
+    ipcMain.handle('batch-analyze-vacancy', async (_e, p: { keywords: string[] }) => {
+      try {
+        const m = await batchAnalyzeVacancy(p.keywords || []);
+        return { success: true, results: Array.from(m.entries()).map(([k, v]) => ({ keyword: k, ...v })) };
+      } catch (err: any) { return { success: false, error: err?.message }; }
+    });
+    console.log('[KEYWORD-MASTER] ✅ analyze-vacancy/batch-analyze-vacancy IPC 등록');
+  }
+
+  // ⚡ 신선도 실측 (Phase B)
+  if (!ipcMain.listenerCount('measure-freshness')) {
+    ipcMain.handle('measure-freshness', async (_e, p: { keyword: string }) => {
+      try {
+        const { measureFreshness } = await import('../../utils/pro-hunter-v12/freshness-measure');
+        const { EnvironmentManager } = await import('../../utils/environment-manager');
+        const env = EnvironmentManager.getInstance().getConfig();
+        return { success: true, ...(await measureFreshness(p.keyword, {
+          naverClientId: env.naverClientId,
+          naverClientSecret: env.naverClientSecret,
+        })) };
+      } catch (err: any) { return { success: false, error: err?.message }; }
+    });
+    ipcMain.handle('batch-measure-freshness', async (_e, p: { keywords: string[] }) => {
+      try {
+        const { batchMeasureFreshness } = await import('../../utils/pro-hunter-v12/freshness-measure');
+        const { EnvironmentManager } = await import('../../utils/environment-manager');
+        const env = EnvironmentManager.getInstance().getConfig();
+        const m = await batchMeasureFreshness(p.keywords || [], {
+          naverClientId: env.naverClientId,
+          naverClientSecret: env.naverClientSecret,
+        });
+        return { success: true, results: Array.from(m.entries()).map(([k, v]) => ({ keyword: k, ...v })) };
+      } catch (err: any) { return { success: false, error: err?.message }; }
+    });
+    console.log('[KEYWORD-MASTER] ✅ measure-freshness/batch IPC 등록');
+  }
+
+  // 📈 홈판 노출 추적 (Phase F)
+  if (!ipcMain.listenerCount('record-home-publish')) {
+    ipcMain.handle('record-home-publish', async (_e, p: any) => {
+      try {
+        const { recordPublish } = await import('../../utils/pro-hunter-v12/home-exposure-tracker');
+        return { success: true, entry: recordPublish(p) };
+      } catch (err: any) { return { success: false, error: err?.message }; }
+    });
+    ipcMain.handle('measure-home-exposure', async (_e, p: { keyword: string; blogUrl?: string }) => {
+      try {
+        const { measureExposure } = await import('../../utils/pro-hunter-v12/home-exposure-tracker');
+        return { success: true, result: await measureExposure(p.keyword, p.blogUrl) };
+      } catch (err: any) { return { success: false, error: err?.message }; }
+    });
+    ipcMain.handle('process-scheduled-measurements', async () => {
+      try {
+        const { processScheduledMeasurements } = await import('../../utils/pro-hunter-v12/home-exposure-tracker');
+        return { success: true, ...(await processScheduledMeasurements()) };
+      } catch (err: any) { return { success: false, error: err?.message }; }
+    });
+    ipcMain.handle('get-home-exposure-stats', async () => {
+      try {
+        const { getExposureStats, getWeightAdjustments, getPublishedHistory } = await import('../../utils/pro-hunter-v12/home-exposure-tracker');
+        return {
+          success: true,
+          stats: getExposureStats(),
+          weights: getWeightAdjustments(),
+          history: getPublishedHistory(20),
+        };
+      } catch (err: any) { return { success: false, error: err?.message }; }
+    });
+    console.log('[KEYWORD-MASTER] ✅ home-exposure IPC 등록 (record/measure/process/stats)');
+  }
+
+  // 🏆 통합 등급 (Phase G)
+  if (!ipcMain.listenerCount('calculate-unified-grade')) {
+    ipcMain.handle('calculate-unified-grade', async (_e, p: any) => {
+      try {
+        const { calculateUnifiedGrade } = await import('../../utils/pro-hunter-v12/unified-grade-engine');
+        return { success: true, ...calculateUnifiedGrade(p) };
+      } catch (err: any) { return { success: false, error: err?.message }; }
+    });
+    ipcMain.handle('batch-unified-grade', async (_e, p: { items: any[] }) => {
+      try {
+        const { batchUnifiedGrade } = await import('../../utils/pro-hunter-v12/unified-grade-engine');
+        return { success: true, results: batchUnifiedGrade(p.items || []) };
+      } catch (err: any) { return { success: false, error: err?.message }; }
+    });
+    console.log('[KEYWORD-MASTER] ✅ unified-grade IPC 등록');
+  }
+
+  // 🚀 독보성 Phase 1~5: 5개 신규 IPC
+  if (!ipcMain.listenerCount('expand-with-lsi')) {
+    ipcMain.handle('expand-with-lsi', async (_e, p: { seed: string; maxPerCategory?: number }) => {
+      try { return { success: true, ...(await expandWithLSI(p.seed, { maxPerCategory: p.maxPerCategory })) }; }
+      catch (err: any) { return { success: false, error: err?.message }; }
+    });
+    ipcMain.handle('expand-seeds-lsi-batch', async (_e, p: { seeds: string[]; maxPerSeed?: number }) => {
+      try { return { success: true, keywords: await expandSeedsWithLSI(p.seeds, p.maxPerSeed) }; }
+      catch (err: any) { return { success: false, error: err?.message }; }
+    });
+    console.log('[KEYWORD-MASTER] ✅ expand-with-lsi/batch IPC 등록');
+  }
+  if (!ipcMain.listenerCount('collect-global-signals')) {
+    ipcMain.handle('collect-global-signals', async () => {
+      try { return { success: true, ...(await collectGlobalSignals()) }; }
+      catch (err: any) { return { success: false, error: err?.message }; }
+    });
+    ipcMain.handle('localize-keywords-to-korean', async (_e, p: { english: string[] }) => {
+      try { return { success: true, mapped: await localizeToKorean(p.english || []) }; }
+      catch (err: any) { return { success: false, error: err?.message }; }
+    });
+    console.log('[KEYWORD-MASTER] ✅ collect-global-signals IPC 등록');
+  }
+  if (!ipcMain.listenerCount('analyze-content-gap')) {
+    ipcMain.handle('analyze-content-gap', async (_e, p: { blogUrl: string; targetCategory?: string }) => {
+      try { return { success: true, ...(await analyzeContentGap(p)) }; }
+      catch (err: any) { return { success: false, error: err?.message }; }
+    });
+    console.log('[KEYWORD-MASTER] ✅ analyze-content-gap IPC 등록');
+  }
+  if (!ipcMain.listenerCount('mine-qa-keywords')) {
+    ipcMain.handle('mine-qa-keywords', async (_e, p: { seed: string; limit?: number }) => {
+      try { return { success: true, ...(await mineQAKeywords(p.seed, { limit: p.limit })) }; }
+      catch (err: any) { return { success: false, error: err?.message }; }
+    });
+    console.log('[KEYWORD-MASTER] ✅ mine-qa-keywords IPC 등록');
+  }
+  if (!ipcMain.listenerCount('record-keyword-rejection')) {
+    ipcMain.handle('record-keyword-rejection', async (_e, p: { keyword: string; category: string; reason: any }) => {
+      try { return { success: true, pref: recordRejection(p.keyword, p.category, p.reason) }; }
+      catch (err: any) { return { success: false, error: err?.message }; }
+    });
+    ipcMain.handle('record-keyword-acceptance', async (_e, p: { keyword: string; category: string; actionType: any }) => {
+      try { return { success: true, pref: recordAcceptance(p.keyword, p.category, p.actionType) }; }
+      catch (err: any) { return { success: false, error: err?.message }; }
+    });
+    ipcMain.handle('get-preference-stats', async () => ({ success: true, ...getPreferenceStats() }));
+    console.log('[KEYWORD-MASTER] ✅ record-keyword-rejection/acceptance/stats IPC 등록');
+  }
+
+  // 🧠 한계4: 사용자 피드백 + 모델 자동 보정
+  if (!ipcMain.listenerCount('record-pro-feedback')) {
+    ipcMain.handle('record-pro-feedback', async (_e, payload: any) => {
+      try {
+        if (!payload?.keyword || !payload?.category) return { success: false, error: '필수 필드 누락' };
+        const result = recordFeedback({
+          keyword: payload.keyword,
+          category: payload.category,
+          predicted: payload.predicted || { publisherMonthlyRevenue: 0, reachabilityMonth12: 0, searchVolume: 0 },
+          actual: payload.actual || {},
+        });
+        return { success: true, ...result };
+      } catch (err: any) { return { success: false, error: err?.message }; }
+    });
+    console.log('[KEYWORD-MASTER] ✅ record-pro-feedback 핸들러 등록 완료');
+  }
+  if (!ipcMain.listenerCount('get-pro-calibrations')) {
+    ipcMain.handle('get-pro-calibrations', async () => ({
+      success: true,
+      calibrations: getAllCalibrations(),
+      stats: getFeedbackStats(),
+      history: getFeedbackHistory(50),
+    }));
+    console.log('[KEYWORD-MASTER] ✅ get-pro-calibrations 핸들러 등록 완료');
+  }
+
+  if (!ipcMain.listenerCount('generate-pro-excel-report')) {
+    ipcMain.handle('generate-pro-excel-report', async (_e, payload: { keywords: any[]; category: string; outputPath?: string; openInExplorer?: boolean }) => {
+      try {
+        const today = new Date().toISOString().slice(0, 10);
+        const startDate = new Date(Date.now() - 30 * 24 * 3600 * 1000).toISOString().slice(0, 10);
+        const fn = payload.openInExplorer ? generateAndOpenExcelReport : generateExcelReport;
+        const file = fn({
+          keywords: payload.keywords || [],
+          period: { startDate, endDate: today },
+          category: payload.category || 'all',
+        }, payload.outputPath);
+        return { success: true, file };
+      } catch (err: any) {
+        return { success: false, error: err?.message };
+      }
+    });
+    console.log('[KEYWORD-MASTER] ✅ generate-pro-excel-report 핸들러 등록 완료');
+  }
+
+  if (!ipcMain.listenerCount('get-pro-worker-status')) {
+    ipcMain.handle('get-pro-worker-status', async () => ({
+      success: true,
+      health: getWorkerHealthSummary(),
+      workers: getWorkerStatus(),
+    }));
+    console.log('[KEYWORD-MASTER] ✅ get-pro-worker-status 핸들러 등록 완료');
+  }
+
+  if (!ipcMain.listenerCount('get-adsense-categories')) {
+    ipcMain.handle('get-adsense-categories', async () => ({
+      success: true,
+      categories: ADSENSE_CATEGORIES,
+    }));
+    console.log('[KEYWORD-MASTER] ✅ get-adsense-categories 핸들러 등록 완료');
   }
 
   // ===================================

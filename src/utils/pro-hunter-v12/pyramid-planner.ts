@@ -3,8 +3,7 @@
 // 클러스터 7~15개 키워드를 단일 피라미드 콘텐츠 플랜으로 변환
 // pillar 글 1개 + support 글 6~14개 + 내부링크 그래프
 
-import { GoogleGenerativeAI } from '@google/generative-ai';
-import { EnvironmentManager } from '../environment-manager';
+import { callAI } from './ai-client';
 import type { KeywordCluster } from './cluster-expander';
 
 export interface PyramidPost {
@@ -28,7 +27,7 @@ export interface PyramidPlan {
   internalLinkCount: number;
   strategy: string;
   publishSchedule: Array<{ week: number; keywords: string[] }>;
-  source: 'gemini' | 'rule';
+  source: 'claude' | 'rule';
 }
 
 function fallbackPyramid(cluster: KeywordCluster): PyramidPlan {
@@ -98,13 +97,7 @@ function fallbackPyramid(cluster: KeywordCluster): PyramidPlan {
 }
 
 export async function generatePyramidPlan(cluster: KeywordCluster): Promise<PyramidPlan> {
-  const env = EnvironmentManager.getInstance().getConfig();
-  if (!env.geminiApiKey) return fallbackPyramid(cluster);
-
   try {
-    const genAI = new GoogleGenerativeAI(env.geminiApiKey);
-    const model = genAI.getGenerativeModel({ model: 'gemini-2.0-flash-exp' });
-
     const keywordList = cluster.keywords
       .map((k, i) => `${i + 1}. ${k.keyword} (${k.role}, ${k.difficulty})`)
       .join('\n');
@@ -146,8 +139,7 @@ JSON으로 피라미드 플랜을 생성하세요:
 - anchorText는 해당 글 제목 대신 짧게
 - 다른 텍스트 없이 JSON만 응답`;
 
-    const result = await model.generateContent(prompt);
-    const text = result.response.text();
+    const { text } = await callAI(prompt, { maxTokens: 2048, temperature: 0.5 });
     const m = text.match(/\{[\s\S]*\}/);
     if (!m) return fallbackPyramid(cluster);
 
@@ -186,10 +178,10 @@ JSON으로 피라미드 플랜을 생성하세요:
       internalLinkCount: linkCount,
       strategy: String(parsed.strategy || ''),
       publishSchedule: schedule,
-      source: 'gemini',
+      source: 'claude',
     };
   } catch (err) {
-    console.error('[PYRAMID] Gemini 실패:', (err as Error).message);
+    console.error('[PYRAMID] AI 실패:', (err as Error).message);
     return fallbackPyramid(cluster);
   }
 }

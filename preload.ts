@@ -215,6 +215,9 @@ export type BloggerApi = {
   toggleKeywordSchedule(id: string, enabled: boolean): Promise<any>;
   getSNSTrends(platform: 'youtube'): Promise<any[]>;
   huntTimingGold(options?: { category?: string; limit?: number; offset?: number; refresh?: boolean }): Promise<any>;
+  /** 💵 AdSense 키워드 헌터 (1년/영구제 전용) */
+  huntAdsenseKeywords(options?: { category?: string; seedKeywords?: string[]; count?: number; excludeYmylHigh?: boolean; minInfoIntent?: number; minMonthlyRevenue?: number; requireRealData?: boolean; blueOceanOnly?: boolean; minBlueOceanRatio?: number; sortBy?: 'value' | 'blueOcean' | 'revenue' | 'reachable'; newbieMode?: boolean; excludeZeroClickHigh?: boolean }): Promise<any>;
+  getAdsenseCategories(): Promise<{ success: boolean; categories: Array<{ value: string; label: string }> }>;
   getGoogleTrendKeywords(): Promise<Array<{ rank: number; keyword: string; changeRate: number; category: string }>>;
   getYouTubeVideos(options?: { maxResults?: number }): Promise<any[]>;
 
@@ -495,6 +498,8 @@ const api: BloggerApi = {
   toggleKeywordSchedule: (id: string, enabled: boolean) => ipcRenderer.invoke('toggle-keyword-schedule', id, enabled),
   getSNSTrends: (platform: 'youtube') => ipcRenderer.invoke('get-sns-trends', platform),
   huntTimingGold: (options?: { category?: string; limit?: number; offset?: number; refresh?: boolean }) => ipcRenderer.invoke('hunt-timing-gold', options),
+  huntAdsenseKeywords: (options?: { category?: string; seedKeywords?: string[]; count?: number; excludeYmylHigh?: boolean; minInfoIntent?: number; minMonthlyRevenue?: number; requireRealData?: boolean; blueOceanOnly?: boolean; minBlueOceanRatio?: number; sortBy?: 'value' | 'blueOcean' | 'revenue' | 'reachable'; newbieMode?: boolean; excludeZeroClickHigh?: boolean }) => ipcRenderer.invoke('hunt-adsense-keywords', options),
+  getAdsenseCategories: () => ipcRenderer.invoke('get-adsense-categories'),
   getYouTubeVideos: (options?: { maxResults?: number }) => ipcRenderer.invoke('get-youtube-videos', options),
 
   // YouTube 심층 분석

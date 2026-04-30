@@ -170,48 +170,26 @@ async function fetchShoppingAutocomplete(query: string): Promise<string[]> {
 }
 
 /**
- * 🔥 연관검색어 크롤링 (검색 결과 페이지에서)
+ * 🔥 연관검색어 — 2026-04-30 네이버 종료 대응 다중 폴백
+ *  - 기존: search.naver.com HTML 크롤링 (data-keyword/lst_related/related_srch)
+ *  - 신규: 5중 폴백 (검색광고 RelKwdStat + 다음 + 구글 + SmartBlock)
+ *  - search.naver.com는 SmartBlock 추출에서 시도되며, lst_related는 4월30일부터 0건 예상
  */
 async function fetchRelatedKeywords(query: string): Promise<string[]> {
-  const results: string[] = [];
-  
   try {
-    const response = await axios.get('https://search.naver.com/search.naver', {
-      params: {
-        where: 'nexearch',
-        query: query
-      },
-      headers: {
-        'User-Agent': getRandomUA(),
-        'Accept': 'text/html'
-      },
-      timeout: CONFIG.TIMEOUT
+    const { fetchRelatedKeywordsMulti } = await import('./related-keyword-fallback');
+    const { EnvironmentManager } = await import('./environment-manager');
+    const env = EnvironmentManager.getInstance().getConfig();
+    const results = await fetchRelatedKeywordsMulti(query, {
+      naverSearchAdAccessLicense: env.naverSearchAdAccessLicense,
+      naverSearchAdSecretKey: env.naverSearchAdSecretKey,
+      naverSearchAdCustomerId: env.naverSearchAdCustomerId,
     });
-    
-    const html = response.data;
-    
-    // 연관검색어 패턴들
-    const patterns = [
-      /data-keyword="([^"]+)"/g,
-      /class="[^"]*keyword[^"]*"[^>]*>([^<]+)</g,
-      /lst_related[^>]*>[\s\S]*?<a[^>]*>([^<]+)</g,
-      /related_srch[^>]*>[\s\S]*?<a[^>]*>([^<]+)</g
-    ];
-    
-    for (const pattern of patterns) {
-      let match;
-      while ((match = pattern.exec(html)) !== null) {
-        const kw = match[1]?.replace(/<[^>]*>/g, '').trim();
-        if (kw && kw.length >= 2 && kw.length <= 30) {
-          results.push(kw);
-        }
-      }
-    }
-  } catch (e) {
-    // 실패 무시
+    return results.slice(0, 30).map(r => r.keyword);
+  } catch (err: any) {
+    console.warn(`[FALLBACK] fetchRelatedKeywords 폴백 실패: ${err?.message}`);
+    return [];
   }
-  
-  return results;
 }
 
 /**

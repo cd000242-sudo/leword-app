@@ -84,6 +84,22 @@ export const CATEGORY_CPC_DATABASE: Record<string, { min: number; max: number; a
   sports: { min: 60, max: 200, avg: 120 },
   review: { min: 120, max: 350, avg: 200 },
 
+  // v3 — 신규 카테고리 (리빙·생활꿀팁·세금·취업·자동차·취미 등)
+  // 💰 정부 지원금/장려금 — 정보 공유는 안전, 대출/금융/컨설팅 광고가 따라옴 (고CPC)
+  subsidy: { min: 800, max: 3500, avg: 1800 },
+  // 🏠 네이버 홈판 — 메인 트래픽 광고주 입찰 ↑
+  'naver-home': { min: 300, max: 1500, avg: 700 },
+  // 📅 시즌 키워드 (선물·여행·이벤트 광고)
+  season: { min: 200, max: 1000, avg: 500 },
+  living: { min: 150, max: 400, avg: 230 },
+  diy: { min: 180, max: 500, avg: 280 },
+  gardening: { min: 120, max: 300, avg: 180 },
+  tax: { min: 1000, max: 4000, avg: 2200 },
+  job: { min: 400, max: 1500, avg: 750 },
+  car: { min: 300, max: 900, avg: 500 },
+  app: { min: 200, max: 600, avg: 350 },
+  hobby: { min: 150, max: 400, avg: 220 },
+
   all: { min: 100, max: 300, avg: 180 },
   default: { min: 80, max: 200, avg: 120 }
 };

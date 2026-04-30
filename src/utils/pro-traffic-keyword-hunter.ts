@@ -2798,7 +2798,7 @@ export async function huntProTrafficKeywords(options: {
     // 🔥🔥🔥 다중 소스에서 키워드 수집 (끝판왕!) 🔥🔥🔥
     try {
       console.log('[PRO-TRAFFIC] 🌐 다중 소스 키워드 수집 시작...');
-      const multiSourceKeywords = await withStepTimeout('getMultiSourceKeywords', getMultiSourceKeywords(false), 8000, [] as string[]);
+      const multiSourceKeywords = await withStepTimeout('getMultiSourceKeywords', getMultiSourceKeywords(true), 12000, [] as string[]);
       if (multiSourceKeywords.length > 0) {
         console.log(`[PRO-TRAFFIC] 🌐 다중 소스 ${multiSourceKeywords.length}개 수집!`);
 
@@ -2839,7 +2839,7 @@ export async function huntProTrafficKeywords(options: {
 
   if (explosionMode) {
     try {
-      const multiSourceKeywords = await withStepTimeout('getMultiSourceKeywords:explosionMode', getMultiSourceKeywords(false), 12000, [] as string[]);
+      const multiSourceKeywords = await withStepTimeout('getMultiSourceKeywords:explosionMode', getMultiSourceKeywords(true), 15000, [] as string[]);
       if (multiSourceKeywords.length > 0) {
         const isCategorySpecified = category !== 'all' && category !== 'pro_premium' && category !== 'lite_standard';
         const categoryMulti = isCategorySpecified
