@@ -2028,7 +2028,7 @@ function test_TitleDiversity(): TestResult {
 }
 
 function test_KeywordValueVerifier(): TestResult {
-    const r = makeResult('키워드 가치 검증 (6 게이트 + Kill-switch) × 1000');
+    const r = makeResult('키워드 가치 검증 (12 게이트 + Kill + 신뢰도) × 1000');
     const ver = require('../src/utils/pro-hunter-v12/keyword-value-verifier');
 
     // 좋은 키워드 → valuable=true
@@ -2060,13 +2060,33 @@ function test_KeywordValueVerifier(): TestResult {
     if (builtinPassCount / seeds.length < 0.95) record(r, false, `builtin pass rate: ${(builtinPassCount/seeds.length*100).toFixed(0)}%`);
     else record(r, true);
 
-    // 무작위 1000회: kill 키워드는 항상 valuable=false
-    for (let i = 0; i < 1000 - 7; i++) {
-        const useKill = i % 3 === 0;
-        const kw = useKill ? '아이유 신곡' : `kw-${i} 추천 방법 가이드`;
+    // 12 게이트 시스템 검증
+    const result12 = ver.verifyKeywordValue({ keyword: '봄 환절기 면역력 음식 추천', searchVolume: 800, documentCount: 12000 });
+    if (result12.totalEvaluated < 10) record(r, false, `totalEvaluated: ${result12.totalEvaluated}`); else record(r, true);
+    if (typeof result12.qualityScore !== 'number') record(r, false, 'qualityScore type'); else record(r, true);
+    if (!result12.confidence || !['high', 'medium', 'low'].includes(result12.confidence.level)) record(r, false, 'confidence missing'); else record(r, true);
+
+    // 신뢰도: 옵션 게이트 모두 제공하면 high
+    const fullData = ver.verifyKeywordValue({
+        keyword: '봄 환절기 면역력 음식 추천',
+        searchVolume: 800, documentCount: 12000,
+        autocompleteHits: ['봄 환절기 면역력', '면역력 음식 추천'],
+        aiMeaningOk: true,
+        serpAvgWordCount: 1200,
+    });
+    if (fullData.confidence.level !== 'high') record(r, false, `full data conf: ${fullData.confidence.level}`); else record(r, true);
+
+    // AI 평가 실패 → kill
+    const aiFailed = ver.verifyKeywordValue({ keyword: '봄 환절기 면역력 음식 추천', searchVolume: 500, documentCount: 5000, aiMeaningOk: false });
+    if (aiFailed.valuable) record(r, false, 'AI fail not killed'); else record(r, true);
+
+    // 무작위 1000회
+    for (let i = 0; i < 1000 - 12; i++) {
+        const useKill = i % 4 === 0;
+        const kw = useKill ? '아이유 신곡 콘서트' : `테스트 kw ${i} 추천 방법 가이드`;
         const result = ver.verifyKeywordValue({ keyword: kw, searchVolume: 500, documentCount: 5000 });
         if (useKill && result.valuable) { record(r, false, `kill leaked: ${kw}`); continue; }
-        if (!useKill && !result.valuable && result.passedCount >= 4) { record(r, false, `valuable but flag false`); continue; }
+        if (!useKill && result.valuable && result.qualityScore < 58) { record(r, false, `quality below cut`); continue; }
         record(r, true);
     }
     return r;

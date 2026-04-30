@@ -63,41 +63,33 @@ console.log(`\n${'═'.repeat(80)}`);
 console.log(`🎯 키워드 가치 검증 분포 — ${allTests.length}건`);
 console.log(`${'═'.repeat(80)}\n`);
 
-// 분포 계산
-const dist = { 'S+(6/6)': 0, 'S(5/6)': 0, 'A(4/6)': 0, 'B(3/6)': 0, 'C(≤2)': 0 };
-const gateFailures = {
-    searchVolume: 0,
-    competitionRatio: 0,
-    writability: 0,
-    notPersonDependent: 0,
-    ymylSafe: 0,
-    intentClarity: 0,
+// 분포 계산 (12 게이트 — qualityScore 기준)
+const dist: Record<string, number> = { 'S+(92+)': 0, 'S(75-91)': 0, 'A(58-74)': 0, 'B(42-57)': 0, 'C(<42)': 0, 'KILL': 0 };
+const gateFailures: Record<string, number> = {
+    notPersonDependent: 0, ymylSafe: 0, writability: 0,
+    searchVolume: 0, competitionRatio: 0, intentClarity: 0,
+    seasonalFit: 0, longtailDepth: 0, contentDepth: 0, beginnerFriendly: 0,
 };
 
-let truePos = 0;  // 좋은 키워드 → 통과
-let falseNeg = 0; // 좋은 키워드 → 차단 (놓침)
-let trueNeg = 0;  // 위험 키워드 → 차단
-let falsePos = 0; // 위험 키워드 → 통과 (사고)
+let truePos = 0, falseNeg = 0, trueNeg = 0, falsePos = 0;
 
 for (const t of allTests) {
     const result = verifyKeywordValue(t);
+    const grade = result.valueGrade;
+    const isKilled = result.isKilled;
 
-    // 분포
-    if (result.passedCount === 6) dist['S+(6/6)']++;
-    else if (result.passedCount === 5) dist['S(5/6)']++;
-    else if (result.passedCount === 4) dist['A(4/6)']++;
-    else if (result.passedCount === 3) dist['B(3/6)']++;
-    else dist['C(≤2)']++;
+    if (isKilled) dist['KILL']++;
+    else if (grade === 'S+') dist['S+(92+)']++;
+    else if (grade === 'S') dist['S(75-91)']++;
+    else if (grade === 'A') dist['A(58-74)']++;
+    else if (grade === 'B') dist['B(42-57)']++;
+    else dist['C(<42)']++;
 
-    // 게이트 실패 카운트
-    if (!result.gates.searchVolume.passed) gateFailures.searchVolume++;
-    if (!result.gates.competitionRatio.passed) gateFailures.competitionRatio++;
-    if (!result.gates.writability.passed) gateFailures.writability++;
-    if (!result.gates.notPersonDependent.passed) gateFailures.notPersonDependent++;
-    if (!result.gates.ymylSafe.passed) gateFailures.ymylSafe++;
-    if (!result.gates.intentClarity.passed) gateFailures.intentClarity++;
+    for (const [k, g] of Object.entries(result.gates)) {
+        if (g === undefined) continue;
+        if (!(g as any).passed && gateFailures[k] !== undefined) gateFailures[k]++;
+    }
 
-    // 정확도
     if (t.expectedGood && result.valuable) truePos++;
     else if (t.expectedGood && !result.valuable) falseNeg++;
     else if (!t.expectedGood && !result.valuable) trueNeg++;
@@ -127,12 +119,15 @@ console.log(`   📈 Precision: ${(precision * 100).toFixed(1)}%`);
 console.log(`   📈 Recall: ${(recall * 100).toFixed(1)}%`);
 console.log(`   📈 F1 Score: ${(f1 * 100).toFixed(1)}%`);
 
-// 특별 검증: 빌트인 시드 통과율
+// 특별 검증: 빌트인 시드 등급 분포
 const builtinResults = builtinSeeds.map(t => verifyKeywordValue(t));
-const builtinPassRate = builtinResults.filter(r => r.passedCount >= 4).length / builtinSeeds.length;
-console.log(`\n🛟 빌트인 시드 통과율 (≥4 게이트): ${(builtinPassRate * 100).toFixed(1)}% (${Math.round(builtinPassRate * builtinSeeds.length)}/${builtinSeeds.length})`);
-const builtinPerfect = builtinResults.filter(r => r.passedCount === 6).length;
-console.log(`   완벽 (6/6): ${builtinPerfect}/${builtinSeeds.length} (${Math.round(builtinPerfect / builtinSeeds.length * 100)}%)`);
+const builtinValuable = builtinResults.filter(r => r.valuable).length;
+const builtinSPlus = builtinResults.filter(r => r.valueGrade === 'S+').length;
+const builtinS = builtinResults.filter(r => r.valueGrade === 'S').length;
+const builtinA = builtinResults.filter(r => r.valueGrade === 'A').length;
+console.log(`\n🛟 빌트인 시드 등급 분포 (12 게이트):`);
+console.log(`   Valuable (A+): ${builtinValuable}/${builtinSeeds.length} (${(builtinValuable / builtinSeeds.length * 100).toFixed(1)}%)`);
+console.log(`   S+ (92+): ${builtinSPlus} / S (75-91): ${builtinS} / A (58-74): ${builtinA}`);
 
 // 위험 키워드 차단율
 const dangerResults = dangerousKws.map(t => verifyKeywordValue(t));
@@ -140,6 +135,6 @@ const blockRate = dangerResults.filter(r => !r.valuable).length / dangerousKws.l
 console.log(`\n🚫 위험 키워드 차단율: ${(blockRate * 100).toFixed(1)}% (${Math.round(blockRate * dangerousKws.length)}/${dangerousKws.length})`);
 
 console.log(`\n${'═'.repeat(80)}`);
-const ok = builtinPassRate >= 0.95 && blockRate >= 0.90 && f1 >= 0.85;
-console.log(ok ? `✅ 가치 검증 시스템 정확도 양호 (F1=${(f1 * 100).toFixed(1)}%)` : `🚨 정확도 부족 — 게이트 임계치 조정 필요`);
+const ok = (builtinValuable / builtinSeeds.length) >= 0.95 && blockRate >= 0.90 && f1 >= 0.85;
+console.log(ok ? `✅ 가치 검증 시스템 정확도 양호 (F1=${(f1 * 100).toFixed(1)}%, 빌트인 valuable ${(builtinValuable / builtinSeeds.length * 100).toFixed(1)}%)` : `🚨 정확도 부족`);
 console.log(`${'═'.repeat(80)}\n`);
