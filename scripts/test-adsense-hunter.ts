@@ -2027,6 +2027,51 @@ function test_TitleDiversity(): TestResult {
     return r;
 }
 
+function test_KeywordValueVerifier(): TestResult {
+    const r = makeResult('키워드 가치 검증 (6 게이트 + Kill-switch) × 1000');
+    const ver = require('../src/utils/pro-hunter-v12/keyword-value-verifier');
+
+    // 좋은 키워드 → valuable=true
+    const good = ver.verifyKeywordValue({ keyword: '봄 환절기 면역력 음식 추천', searchVolume: 800, documentCount: 12000 });
+    if (!good.valuable) record(r, false, `good kw blocked: ${good.summary}`); else record(r, true);
+    if (good.passedCount < 4) record(r, false, `passedCount: ${good.passedCount}`); else record(r, true);
+
+    // 인물 의존 → kill
+    const person = ver.verifyKeywordValue({ keyword: '아이유 콘서트 후기', searchVolume: 5000, documentCount: 50000 });
+    if (person.valuable) record(r, false, `person kw passed`); else record(r, true);
+    if (person.valueScore !== 0) record(r, false, `person score not 0: ${person.valueScore}`); else record(r, true);
+
+    // YMYL → kill
+    const ymyl = ver.verifyKeywordValue({ keyword: '주식 추천 종목 정리', searchVolume: 3000, documentCount: 30000 });
+    if (ymyl.valuable) record(r, false, `ymyl kw passed`); else record(r, true);
+
+    // 단일명사 → kill (writability)
+    const single = ver.verifyKeywordValue({ keyword: '운동', searchVolume: 200000, documentCount: 50000000 });
+    if (single.valuable) record(r, false, `single noun passed`); else record(r, true);
+
+    // 빌트인 시드 50개 모두 통과
+    const seeds: string[] = ver.VERIFIED_BUILTIN_HOME_SEEDS || [];
+    if (seeds.length < 30) record(r, false, `builtin seeds: ${seeds.length}`); else record(r, true);
+    let builtinPassCount = 0;
+    for (const s of seeds) {
+        const v = ver.verifyKeywordValue({ keyword: s, searchVolume: 500, documentCount: 5000 });
+        if (v.valuable) builtinPassCount++;
+    }
+    if (builtinPassCount / seeds.length < 0.95) record(r, false, `builtin pass rate: ${(builtinPassCount/seeds.length*100).toFixed(0)}%`);
+    else record(r, true);
+
+    // 무작위 1000회: kill 키워드는 항상 valuable=false
+    for (let i = 0; i < 1000 - 7; i++) {
+        const useKill = i % 3 === 0;
+        const kw = useKill ? '아이유 신곡' : `kw-${i} 추천 방법 가이드`;
+        const result = ver.verifyKeywordValue({ keyword: kw, searchVolume: 500, documentCount: 5000 });
+        if (useKill && result.valuable) { record(r, false, `kill leaked: ${kw}`); continue; }
+        if (!useKill && !result.valuable && result.passedCount >= 4) { record(r, false, `valuable but flag false`); continue; }
+        record(r, true);
+    }
+    return r;
+}
+
 async function main(): Promise<void> {
     const { bootstrapSources } = require('../src/utils/sources/source-bootstrap');
     bootstrapSources();
@@ -2078,6 +2123,8 @@ async function main(): Promise<void> {
         test_HomeExposure(),
         test_UnifiedGrade(),
         test_TitleDiversity(),
+        // 가치 검증 (6 게이트 + Kill-switch)
+        test_KeywordValueVerifier(),
     ];
 
     // AI LSI 비동기 처리

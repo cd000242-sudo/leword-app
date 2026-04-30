@@ -1140,6 +1140,23 @@ export function setupPremiumHuntingHandlers(): void {
     console.log('[KEYWORD-MASTER] ✅ home-exposure IPC 등록 (record/measure/process/stats)');
   }
 
+  // 🎯 키워드 가치 검증 (6 게이트)
+  if (!ipcMain.listenerCount('verify-keyword-value')) {
+    ipcMain.handle('verify-keyword-value', async (_e, p: any) => {
+      try {
+        const { verifyKeywordValue } = await import('../../utils/pro-hunter-v12/keyword-value-verifier');
+        return { success: true, ...verifyKeywordValue(p) };
+      } catch (err: any) { return { success: false, error: err?.message }; }
+    });
+    ipcMain.handle('batch-verify-keyword-value', async (_e, p: { items: any[] }) => {
+      try {
+        const { verifyKeywordValue } = await import('../../utils/pro-hunter-v12/keyword-value-verifier');
+        return { success: true, results: (p.items || []).map((it: any) => ({ ...it, valueGate: verifyKeywordValue(it) })) };
+      } catch (err: any) { return { success: false, error: err?.message }; }
+    });
+    console.log('[KEYWORD-MASTER] ✅ verify-keyword-value/batch IPC 등록');
+  }
+
   // 🏆 통합 등급 (Phase G)
   if (!ipcMain.listenerCount('calculate-unified-grade')) {
     ipcMain.handle('calculate-unified-grade', async (_e, p: any) => {
