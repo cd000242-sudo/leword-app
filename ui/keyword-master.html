@@ -14565,6 +14565,14 @@
                     <option value="30">30</option>
                   </select>
                 </label>
+                <label style="display:flex; align-items:center; gap:8px; color:rgba(255,255,255,0.85); font-size:13px;" title="컷 미달이라도 변별력(점수순)으로 최소 이만큼은 표시">
+                  🎯 최소 보장
+                  <select id="homeMinResults" style="padding:6px 10px; border:1px solid rgba(255,255,255,0.2); border-radius:6px; background:rgba(15,23,42,0.8); color:white;">
+                    <option value="5">5개</option>
+                    <option value="10" selected>10개</option>
+                    <option value="20">20개</option>
+                  </select>
+                </label>
                 <label style="display:flex; align-items:center; gap:8px; color:rgba(255,255,255,0.85); font-size:13px;">
                   최소 homeScore
                   <select id="homeMinScore" style="padding:6px 10px; border:1px solid rgba(255,255,255,0.2); border-radius:6px; background:rgba(15,23,42,0.8); color:white;">
@@ -14605,6 +14613,7 @@
           const blogCategory = document.getElementById('homeBlogCategory').value;
           const count = parseInt(document.getElementById('homeCount').value, 10);
           const minScore = parseInt(document.getElementById('homeMinScore').value, 10);
+          const minResults = parseInt(document.getElementById('homeMinResults')?.value || '10', 10);
           const blockInfluencer = document.getElementById('homeBlockInfluencer').checked;
           const requireVacancy = document.getElementById('homeMinVacancy').checked;
 
@@ -14647,10 +14656,29 @@
               return;
             }
 
-            const seedKeywords = (adsenseResp?.keywords || []).slice(0, count);
+            let seedKeywords = (adsenseResp?.keywords || []).slice(0, count);
+
+            // 🛟 빌트인 fallback — AdSense 결과 0건이라도 빌트인 50 시드로 강제 진행
             if (seedKeywords.length === 0) {
-              resultsDiv.innerHTML = `<div style="padding:24px; background:rgba(239,68,68,0.1); border-radius:12px; border:1px solid rgba(239,68,68,0.3); color:#fca5a5; text-align:center;">❌ 시드 키워드를 찾지 못했습니다.</div>`;
-              return;
+              const BUILTIN_HOME_SEEDS = [
+                '오늘의 운세', '주식 추천', '점심 메뉴 추천', '저녁 메뉴 추천',
+                '봄 나들이', '가볼만한 곳', '주말 데이트', '맛집 추천',
+                '다이어트 식단', '건강한 음식', '면역력 음식', '환절기 음식',
+                '인테리어 꿀팁', '청소 꿀팁', '생활 꿀팁', '돈 버는 방법',
+                '시간 관리', '재테크 추천', '연말정산 환급', '소상공인 지원',
+                '근로장려금 신청', '자녀장려금 자격', '국민지원금 신청', '에너지바우처',
+                '봄 네일 추천', '봄 메이크업', '벚꽃 명소', '봄 옷 추천',
+                '수면 꿀팁', '스트레스 해소', '운동 루틴', '홈트레이닝',
+                '직장인 점심', '도시락 레시피', '간식 만들기', '제철 음식',
+                '취업 팁', '면접 후기', '자기소개서 쓰는법', '이력서 작성법',
+                '자동차 관리', '겨울 타이어', '자동차 보험 비교', '주유 절약',
+                '아이 교육', '학원 추천', '학습지 비교', '독서 추천',
+                '반려동물 사료', '강아지 훈련', '고양이 모래', '반려동물 보험',
+              ];
+              seedKeywords = BUILTIN_HOME_SEEDS.slice(0, count).map(kw => ({
+                keyword: kw, searchVolume: 0, documentCount: 0, category: 'general', _builtin: true,
+              }));
+              console.log(`[HOME-HUNTER] AdSense 0건 → 빌트인 ${seedKeywords.length}개 시드로 fallback`);
             }
 
             // Step 2: 각 키워드에 빈자리 + 제목 + 신선도 + homeScore 평가 (병렬, concurrency 3)
@@ -14699,29 +14727,35 @@
               enriched.push(...batchResults);
             }
 
-            // Step 3: 필터 + 정렬
-            let filtered = enriched.filter(x => x.homeScore && x.homeScore.homeScore >= minScore);
-            if (blockInfluencer) filtered = filtered.filter(x => !x.vacancy || x.vacancy.influencerCount <= 1);
-            if (requireVacancy) filtered = filtered.filter(x => x.vacancy && x.vacancy.vacancySlots >= 5);
-            filtered.sort((a, b) => (b.homeScore?.homeScore || 0) - (a.homeScore?.homeScore || 0));
+            // Step 3: 필터 + 정렬 + 변별력 보충
+            // 모든 enriched를 점수순 정렬
+            const allSorted = enriched
+              .filter(x => x.homeScore)
+              .sort((a, b) => (b.homeScore?.homeScore || 0) - (a.homeScore?.homeScore || 0));
+
+            // 컷 통과 키워드 (사용자 필터 모두 적용)
+            let passed = allSorted.filter(x => (x.homeScore?.homeScore || 0) >= minScore);
+            if (blockInfluencer) passed = passed.filter(x => !x.vacancy || x.vacancy.influencerCount <= 1);
+            if (requireVacancy) passed = passed.filter(x => x.vacancy && x.vacancy.vacancySlots >= 5);
+
+            // 🎯 변별력 보충 — 통과 < 최소 보장 시 점수순으로 부족분 채움 (필터 무시)
+            let filtered = [...passed];
+            let backfilled = 0;
+            if (filtered.length < minResults) {
+              const need = minResults - filtered.length;
+              const passedSet = new Set(passed.map(p => p.keyword));
+              const candidates = allSorted.filter(x => !passedSet.has(x.keyword));
+              const additions = candidates.slice(0, need).map(c => ({ ...c, _backfilled: true }));
+              filtered = [...filtered, ...additions];
+              backfilled = additions.length;
+            }
 
             if (filtered.length === 0) {
               const totalCandidates = enriched.length;
-              const failedScore = enriched.filter(x => x.homeScore && x.homeScore.homeScore < minScore).length;
-              const failedInf = blockInfluencer ? enriched.filter(x => x.vacancy && x.vacancy.influencerCount > 1).length : 0;
-              const failedVac = requireVacancy ? enriched.filter(x => x.vacancy && x.vacancy.vacancySlots < 5).length : 0;
-
               resultsDiv.innerHTML = `
-                <div style="padding:24px; background:rgba(251,191,36,0.1); border-radius:12px; border:1px solid rgba(251,191,36,0.3); color:#fbbf24;">
-                  <div style="font-size:16px; font-weight:800; margin-bottom:12px;">⚠️ 조건 만족 키워드 0건</div>
-                  <div style="font-size:12px; color:rgba(255,255,255,0.85); line-height:1.7; margin-bottom:14px;">
-                    분석 ${totalCandidates}건 중 <strong>점수 미달 ${failedScore}건</strong>${blockInfluencer ? `, <strong>인플루언서 차단 ${failedInf}건</strong>` : ''}${requireVacancy ? `, <strong>빈자리 부족 ${failedVac}건</strong>` : ''}
-                  </div>
-                  <div style="display:flex; gap:8px; flex-wrap:wrap;">
-                    <button onclick="document.getElementById('homeMinScore').value='55'; huntNaverHomeKeywords();" style="padding:8px 14px; background:rgba(34,197,94,0.2); border:1px solid #22c55e; border-radius:8px; color:#22c55e; font-size:12px; font-weight:700; cursor:pointer;">🔓 최소 점수 55로 완화</button>
-                    ${blockInfluencer ? `<button onclick="document.getElementById('homeBlockInfluencer').checked=false; huntNaverHomeKeywords();" style="padding:8px 14px; background:rgba(96,165,250,0.2); border:1px solid #60a5fa; border-radius:8px; color:#60a5fa; font-size:12px; font-weight:700; cursor:pointer;">👤 인플루언서 차단 해제</button>` : ''}
-                    ${requireVacancy ? `<button onclick="document.getElementById('homeMinVacancy').checked=false; huntNaverHomeKeywords();" style="padding:8px 14px; background:rgba(167,139,250,0.2); border:1px solid #a78bfa; border-radius:8px; color:#a78bfa; font-size:12px; font-weight:700; cursor:pointer;">🪑 빈자리 필터 해제</button>` : ''}
-                  </div>
+                <div style="padding:24px; background:rgba(239,68,68,0.1); border-radius:12px; border:1px solid rgba(239,68,68,0.3); color:#fca5a5; text-align:center;">
+                  <div style="font-size:18px; font-weight:800; margin-bottom:8px;">🚨 분석 가능한 시드 자체가 0건</div>
+                  <div style="font-size:13px; color:rgba(255,255,255,0.85);">AdSense Hunter가 naver-home 카테고리에서 시드를 못 찾았습니다. 시드 키워드를 직접 입력해 보세요.</div>
                 </div>
               `;
               return;
@@ -14740,18 +14774,24 @@
               }
             } catch (e) { /* skip */ }
 
+            const passedCount = filtered.length - backfilled;
+            const backfillBadge = backfilled > 0
+              ? `<span style="background:rgba(251,191,36,0.15); color:#fbbf24; padding:3px 10px; border-radius:6px; font-size:10px; font-weight:700;">⚠️ 컷 통과 ${passedCount} + 변별력 보충 ${backfilled}</span>`
+              : `<span style="background:rgba(34,197,94,0.15); color:#22c55e; padding:3px 10px; border-radius:6px; font-size:10px; font-weight:700;">✅ 컷 통과 ${passedCount}건</span>`;
+
             resultsDiv.innerHTML = `
               <div style="margin-bottom:6px; display:flex; align-items:center; gap:12px; flex-wrap:wrap;">
                 <span style="font-size:18px;">🏠</span>
                 <span style="font-size:18px; font-weight:800; color:#22c55e;">홈판 키워드 ${filtered.length}건</span>
+                ${backfillBadge}
                 ${learnedInfo}
-                <span style="font-size:11px; color:rgba(255,255,255,0.6);">(최소 homeScore ${minScore}+, 인플루언서 차단 ${blockInfluencer ? 'ON' : 'OFF'})</span>
+                <span style="font-size:11px; color:rgba(255,255,255,0.6);">(최소 ${minScore}+, 인플루언서 차단 ${blockInfluencer ? 'ON' : 'OFF'}, 보장 ${minResults}개)</span>
               </div>
               <div style="font-size:10px; color:rgba(255,255,255,0.5); margin-bottom:14px;">
-                💡 homeScore는 추정 점수입니다. 발행 후 실제 노출 데이터로 가중치가 자동 학습됩니다.
+                💡 ${backfilled > 0 ? `<strong style="color:#fbbf24;">컷 미달 ${backfilled}개</strong>는 점수순 보충 (변별력 유지). ` : ''}homeScore는 추정 점수입니다. 발행 후 실제 노출 데이터로 가중치가 자동 학습됩니다.
               </div>
               <div style="display:flex; flex-direction:column; gap:12px;">
-                ${filtered.map((x, i) => renderHomeKeywordCard(x, i + 1)).join('')}
+                ${filtered.map((x, i) => renderHomeKeywordCard(x, i + 1, x._backfilled)).join('')}
               </div>
             `;
           } catch (err) {
@@ -14762,7 +14802,7 @@
           }
         }
 
-        function renderHomeKeywordCard(x, rank) {
+        function renderHomeKeywordCard(x, rank, isBackfilled) {
           const hs = x.homeScore || {};
           const score = hs.homeScore || 0;
           const grade = hs.grade || '-';
@@ -14773,15 +14813,18 @@
 
           const gradeColor = score >= 85 ? '#22c55e' : score >= 70 ? '#3b82f6' : score >= 55 ? '#fbbf24' : '#f87171';
           const gradeBg = score >= 85 ? 'rgba(34,197,94,0.15)' : score >= 70 ? 'rgba(59,130,246,0.15)' : score >= 55 ? 'rgba(251,191,36,0.15)' : 'rgba(239,68,68,0.15)';
+          const cardOpacity = isBackfilled ? '0.7' : '1';
+          const backfillTag = isBackfilled ? `<span style="background:rgba(251,191,36,0.2); color:#fbbf24; padding:2px 8px; border-radius:6px; font-size:9px; font-weight:800; margin-left:6px;">📉 컷 미달</span>` : '';
 
           return `
-            <div style="background:rgba(15,23,42,0.85); border-radius:14px; padding:18px; border:1px solid ${gradeBg.replace('0.15','0.4')}; box-shadow:0 4px 16px rgba(0,0,0,0.3);">
+            <div style="background:rgba(15,23,42,0.85); border-radius:14px; padding:18px; border:1px solid ${gradeBg.replace('0.15','0.4')}; box-shadow:0 4px 16px rgba(0,0,0,0.3); opacity:${cardOpacity};">
               <div style="display:flex; align-items:flex-start; justify-content:space-between; gap:12px; margin-bottom:12px;">
                 <div style="flex:1; min-width:0;">
-                  <div style="display:flex; align-items:center; gap:8px; margin-bottom:6px;">
+                  <div style="display:flex; align-items:center; gap:8px; margin-bottom:6px; flex-wrap:wrap;">
                     <span style="font-size:11px; font-weight:800; color:rgba(255,255,255,0.5);">#${rank}</span>
                     <span style="font-size:18px; font-weight:800; color:white; word-break:keep-all;">${escapeHtml(x.keyword)}</span>
                     <span style="background:${gradeBg}; color:${gradeColor}; padding:2px 10px; border-radius:8px; font-size:11px; font-weight:800;">${grade}</span>
+                    ${backfillTag}
                   </div>
                   <div style="font-size:11px; color:rgba(255,255,255,0.6);">검색 ${(x.searchVolume || 0).toLocaleString()} · 문서 ${(x.documentCount || 0).toLocaleString()}</div>
                 </div>
