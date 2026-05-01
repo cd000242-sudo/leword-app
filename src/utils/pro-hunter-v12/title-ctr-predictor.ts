@@ -246,12 +246,15 @@ function hashSeed(s: string): number {
 
 /**
  * 65 템플릿을 키워드별 결정론적으로 셔플 → 매번 다른 5개 + 패턴 분포 강제
+ *
+ * 핵심: 점수 정렬 대신 "키워드별 시작 회전" + "최저 임계 점수만 보장" 방식
+ * → 같은 점수대 내에서는 키워드별 첫 제목이 달라짐
  */
 function generateFallbackTitles(keyword: string, count: number): TitleCtrResult[] {
     const seed = hashSeed(keyword);
     const indexed = TITLE_TEMPLATES.map((fn, idx) => ({ idx, title: fn(keyword) }));
 
-    // 해시 기반 결정론적 셔플 (Fisher-Yates with seeded prng)
+    // 해시 기반 결정론적 셔플
     const shuffled = [...indexed];
     let s = seed || 1;
     for (let i = shuffled.length - 1; i > 0; i--) {
@@ -260,22 +263,30 @@ function generateFallbackTitles(keyword: string, count: number): TitleCtrResult[
         [shuffled[i], shuffled[j]] = [shuffled[j], shuffled[i]];
     }
 
-    // 점수 평가 + 패턴 분포 다양성 (한 패턴당 최대 2개)
     const scored = shuffled.map(item => predictTitleCtr(item.title, keyword));
-    scored.sort((a, b) => b.ctrScore - a.ctrScore);
 
+    // 1단계: 최소 점수 50+ 통과한 것 중 키워드 시작 회전점에서 시작
+    const MIN_TITLE_SCORE = 50;
+    const passed = scored.filter(t => t.ctrScore >= MIN_TITLE_SCORE);
+    const pool = passed.length >= count ? passed : scored;  // 통과 부족하면 전체
+
+    // 키워드 해시로 시작 인덱스 회전 → 첫 제목이 키워드마다 다름
+    const startIdx = seed % Math.max(1, pool.length);
+    const rotated = [...pool.slice(startIdx), ...pool.slice(0, startIdx)];
+
+    // 패턴 분포 강제 (한 패턴당 최대 1개로 더 강화)
     const picked: TitleCtrResult[] = [];
     const patternCount: Record<string, number> = {};
-    for (const t of scored) {
+    for (const t of rotated) {
         if (picked.length >= count) break;
         const sig = t.matchedPatterns.slice(0, 2).join('+') || '_';
-        if ((patternCount[sig] || 0) >= 2) continue;
+        if ((patternCount[sig] || 0) >= 1) continue;  // 한 패턴당 1개만
         picked.push(t);
-        patternCount[sig] = (patternCount[sig] || 0) + 1;
+        patternCount[sig] = 1;
     }
-    // 부족하면 점수순 보충
+    // 부족하면 패턴 무시하고 회전 순서로 보충
     if (picked.length < count) {
-        for (const t of scored) {
+        for (const t of rotated) {
             if (picked.length >= count) break;
             if (!picked.includes(t)) picked.push(t);
         }

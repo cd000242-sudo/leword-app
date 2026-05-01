@@ -14757,45 +14757,56 @@
                 return (b.homeScore?.homeScore || 0) - (a.homeScore?.homeScore || 0);
               });
 
-            // 컷 통과 키워드 (homeScore + 가치 검증 + 사용자 필터)
-            let passed = allSorted.filter(x => (x.homeScore?.homeScore || 0) >= minScore);
-            // 🛑 가치 검증 — Kill 차단 + minQuality 컷
-            passed = passed.filter(x => {
-              if (!x.valueGate) return true;
+            // 🚫 가치 미달 + 진입 불가 키워드 완전 차단
+            //   1단계: 가치 검증 통과 (Kill X, qualityScore ≥ minQuality)
+            //   2단계: 빈자리 ≥ 3 (vacancy ≤ 2 = 빅도메인 독점 = 진입 불가)
+            //   3단계: homeScore + 사용자 필터
+            const valuableOnly = allSorted.filter(x => {
+              if (!x.valueGate) return false;  // 가치 검증 안 된 건 제외
               if (x.valueGate.isKilled) return false;
-              return (x.valueGate.qualityScore || 0) >= minQuality;
+              if ((x.valueGate.qualityScore || 0) < minQuality) return false;
+              // 🆕 진입 가능성 — 빈자리 정보 있으면 ≥3 강제 (없으면 통과)
+              if (x.vacancy && typeof x.vacancy.vacancySlots === 'number' && x.vacancy.vacancySlots < 3) return false;
+              return true;
             });
+
+            let passed = valuableOnly.filter(x => (x.homeScore?.homeScore || 0) >= minScore);
             if (blockInfluencer) passed = passed.filter(x => !x.vacancy || x.vacancy.influencerCount <= 1);
             if (requireVacancy) passed = passed.filter(x => x.vacancy && x.vacancy.vacancySlots >= 5);
 
-            // 🎯 변별력 보충 (3단계 우선순위):
-            //   1순위: 가치 검증 통과 + 컷 미달 (점수순)
-            //   2순위: 가치 미달이지만 Kill 아님
-            //   3순위: 그래도 부족하면 점수순 (Kill 제외)
+            // 🎯 변별력 보충 — 가치 통과 + 진입 가능 중 점수 미달만
             let filtered = [...passed];
             let backfilled = 0;
             if (filtered.length < minResults) {
               const need = minResults - filtered.length;
               const passedSet = new Set(passed.map(p => p.keyword));
-              const notKilled = allSorted.filter(x => !passedSet.has(x.keyword) && (!x.valueGate || !x.valueGate.isKilled));
-
-              const tier1 = notKilled.filter(x => x.valueGate && (x.valueGate.qualityScore || 0) >= minQuality);
-              const tier2 = notKilled.filter(x => !tier1.includes(x));
-
-              const additions = [
-                ...tier1.slice(0, need),
-                ...tier2.slice(0, Math.max(0, need - tier1.length))
-              ].slice(0, need).map(c => ({ ...c, _backfilled: true }));
+              const candidates = valuableOnly.filter(x => !passedSet.has(x.keyword));
+              const additions = candidates.slice(0, need).map(c => ({ ...c, _backfilled: true }));
               filtered = [...filtered, ...additions];
               backfilled = additions.length;
             }
 
             if (filtered.length === 0) {
               const totalCandidates = enriched.length;
+              const valueAvailable = valuableOnly.length;
+              const killedCount = enriched.filter(x => x.valueGate && x.valueGate.isKilled).length;
+              const lowQuality = enriched.filter(x => x.valueGate && !x.valueGate.isKilled && x.valueGate.qualityScore < minQuality).length;
+
               resultsDiv.innerHTML = `
-                <div style="padding:24px; background:rgba(239,68,68,0.1); border-radius:12px; border:1px solid rgba(239,68,68,0.3); color:#fca5a5; text-align:center;">
-                  <div style="font-size:18px; font-weight:800; margin-bottom:8px;">🚨 분석 가능한 시드 자체가 0건</div>
-                  <div style="font-size:13px; color:rgba(255,255,255,0.85);">AdSense Hunter가 naver-home 카테고리에서 시드를 못 찾았습니다. 시드 키워드를 직접 입력해 보세요.</div>
+                <div style="padding:24px; background:rgba(251,191,36,0.1); border-radius:12px; border:1px solid rgba(251,191,36,0.3); color:#fbbf24;">
+                  <div style="font-size:16px; font-weight:800; margin-bottom:12px;">⚠️ 가치 검증 통과 키워드 0건</div>
+                  <div style="font-size:12px; color:rgba(255,255,255,0.85); line-height:1.7; margin-bottom:14px;">
+                    분석 ${totalCandidates}건 중<br/>
+                    🛑 <strong>차단 (인물/YMYL/글감불가)</strong>: ${killedCount}건<br/>
+                    ⚠️ <strong>가치 등급 미달 (${minQuality}점 이하)</strong>: ${lowQuality}건<br/>
+                    ✅ 가치 통과: ${valueAvailable}건 (homeScore ${minScore}+ 통과 0건)
+                  </div>
+                  <div style="font-size:11px; color:rgba(255,255,255,0.7); margin-bottom:12px;">💡 가치 미달 키워드는 결과에 포함하지 않습니다 (의미 없는 키워드 차단).</div>
+                  <div style="display:flex; gap:8px; flex-wrap:wrap;">
+                    ${minQuality > 0 ? `<button onclick="document.getElementById('homeMinQuality').value='0'; huntNaverHomeKeywords();" style="padding:8px 14px; background:rgba(168,85,247,0.2); border:1px solid #c084fc; border-radius:8px; color:#c084fc; font-size:12px; font-weight:700; cursor:pointer;">💎 가치 등급 "전체"로 완화</button>` : ''}
+                    <button onclick="document.getElementById('homeMinScore').value='50'; huntNaverHomeKeywords();" style="padding:8px 14px; background:rgba(34,197,94,0.2); border:1px solid #22c55e; border-radius:8px; color:#22c55e; font-size:12px; font-weight:700; cursor:pointer;">🔓 점수 컷 50으로 완화</button>
+                    ${blockInfluencer ? `<button onclick="document.getElementById('homeBlockInfluencer').checked=false; huntNaverHomeKeywords();" style="padding:8px 14px; background:rgba(96,165,250,0.2); border:1px solid #60a5fa; border-radius:8px; color:#60a5fa; font-size:12px; font-weight:700; cursor:pointer;">👤 인플루언서 차단 해제</button>` : ''}
+                  </div>
                 </div>
               `;
               return;

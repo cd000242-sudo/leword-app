@@ -83,14 +83,16 @@ export function calculateHomeScore(input: HomeScoreInput): HomeScoreResult {
     }
 
     // 4. 빈자리 (15점) — 검색 1페이지 분석
-    let vacancy = 10;  // 기본 (8→10 인상: SERP 분석 실패 시 중립적 가산)
+    // 🚨 빈자리 ≤2 = 빅도메인 독점 = 진입 거의 불가 → 가혹한 페널티로 전체 점수 차단
+    let vacancy = 10;  // 기본 (SERP 분석 실패 시 중립)
     const slots = input.vacancySlots ?? 5;
-    const inf = input.influencerCount ?? 2;          // default 3→2 (보수적 가정 완화)
+    const inf = input.influencerCount ?? 2;
     if (slots >= 7 && inf <= 1) vacancy = 15;
-    else if (slots >= 5 && inf <= 2) vacancy = 13;   // 12→13
-    else if (slots >= 3 && inf <= 3) vacancy = 10;   // 8→10
-    else if (slots >= 1) vacancy = 6;                // 4→6
-    else vacancy = 2;                                 // 0→2 (최소값 보장)
+    else if (slots >= 5 && inf <= 2) vacancy = 13;
+    else if (slots >= 3 && inf <= 3) vacancy = 9;    // 10→9 (살짝 인하)
+    else if (slots === 2) vacancy = 3;                // 6→3 가혹 페널티
+    else if (slots === 1) vacancy = 1;                // 6→1 거의 0
+    else vacancy = 0;                                  // 빈자리 0 = 진입 불가 = 점수 0
 
     // 학습된 가중치 적용 (Phase F — 발행 후 노출 추적 기반)
     let adjMultipliers = { ctrPotential: 1, freshness: 1, categoryFit: 1, vacancy: 1 };
