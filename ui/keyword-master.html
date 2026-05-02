@@ -14682,27 +14682,28 @@
 
             let seedKeywords = (adsenseResp?.keywords || []).slice(0, count);
 
-            // 🛟 빌트인 fallback — AdSense 결과 0건이라도 빌트인 50 시드로 강제 진행
+            // 🛟 빌트인 fallback — 사전 검증된 시드만 사용 (단일명사/YMYL 위험 키워드 제거)
             if (seedKeywords.length === 0) {
               const BUILTIN_HOME_SEEDS = [
-                '오늘의 운세', '주식 추천', '점심 메뉴 추천', '저녁 메뉴 추천',
-                '봄 나들이', '가볼만한 곳', '주말 데이트', '맛집 추천',
-                '다이어트 식단', '건강한 음식', '면역력 음식', '환절기 음식',
-                '인테리어 꿀팁', '청소 꿀팁', '생활 꿀팁', '돈 버는 방법',
-                '시간 관리', '재테크 추천', '연말정산 환급', '소상공인 지원',
-                '근로장려금 신청', '자녀장려금 자격', '국민지원금 신청', '에너지바우처',
-                '봄 네일 추천', '봄 메이크업', '벚꽃 명소', '봄 옷 추천',
-                '수면 꿀팁', '스트레스 해소', '운동 루틴', '홈트레이닝',
-                '직장인 점심', '도시락 레시피', '간식 만들기', '제철 음식',
-                '취업 팁', '면접 후기', '자기소개서 쓰는법', '이력서 작성법',
-                '자동차 관리', '겨울 타이어', '자동차 보험 비교', '주유 절약',
-                '아이 교육', '학원 추천', '학습지 비교', '독서 추천',
-                '반려동물 사료', '강아지 훈련', '고양이 모래', '반려동물 보험',
+                // 5월 가정의달 (시즌 적합)
+                '어버이날 선물 추천 부모님 1만원대', '스승의날 선물 1만원대 추천',
+                '어린이날 가족 나들이 코스 수도권', '가정의달 외식 메뉴 추천 한식',
+                '5월 결혼식 하객룩 추천 여성', '초등학교 운동회 도시락 메뉴',
+                // 5월 환절기
+                '초여름 자외선 차단제 추천 민감성', '5월 환절기 알레르기 코막힘 해결',
+                '5월 제철 음식 두릅 요리 방법', '5월 캠핑 모기 차단 방법',
+                // 6월 장마 선행
+                '장마철 빨래 빨리 마르는 방법', '장마철 곰팡이 제거 꿀팁 욕실',
+                '6월 제습기 추천 원룸', '6월 모기 퇴치 방법 베란다',
+                // 생활 evergreen
+                '점심 메뉴 추천 직장인 도시락', '집밥 1주일 메뉴 추천 4인 가족',
+                '주방 수납 정리 다이소 활용', '거실 인테리어 셀프 꿀팁 5만원',
+                '욕실 곰팡이 제거 꿀팁 다이소', '커피머신 청소 꿀팁 식초 활용',
               ];
               seedKeywords = BUILTIN_HOME_SEEDS.slice(0, count).map(kw => ({
                 keyword: kw, searchVolume: 0, documentCount: 0, category: 'general', _builtin: true,
               }));
-              console.log(`[HOME-HUNTER] AdSense 0건 → 빌트인 ${seedKeywords.length}개 시드로 fallback`);
+              console.log(`[HOME-HUNTER] AdSense 0건 → 검증된 빌트인 ${seedKeywords.length}개 시드로 fallback`);
             }
 
             // Step 2: 각 키워드에 빈자리 + 제목 + 신선도 + homeScore + 가치검증 평가 (병렬, concurrency 3)
@@ -14771,16 +14772,19 @@
                 return (b.homeScore?.homeScore || 0) - (a.homeScore?.homeScore || 0);
               });
 
-            // 🚫 가치 미달 + 진입 불가 키워드 완전 차단
+            // 🚫 가치 미달 + 진입 불가 키워드 완전 차단 (10인 평가 통합)
             //   1단계: 가치 검증 통과 (Kill X, qualityScore ≥ minQuality)
-            //   2단계: 빈자리 ≥ 3 (vacancy ≤ 2 = 빅도메인 독점 = 진입 불가)
-            //   3단계: homeScore + 사용자 필터
+            //   2단계: 빈자리 ≥ 3 hard kill (vacancy ≤ 2 = 빅도메인 독점 = 진입 불가)
+            //   3단계: homeScore = 0 차단 (vacancy hard kill 발동된 경우)
+            //   4단계: 추가 — homeScore < 25 절대 차단 (백필도 부활 X)
             const valuableOnly = allSorted.filter(x => {
-              if (!x.valueGate) return false;  // 가치 검증 안 된 건 제외
+              if (!x.valueGate) return false;
               if (x.valueGate.isKilled) return false;
               if ((x.valueGate.qualityScore || 0) < minQuality) return false;
-              // 🆕 진입 가능성 — 빈자리 정보 있으면 ≥3 강제 (없으면 통과)
+              // 🆕 빈자리 hard kill — 측정값 있을 때 ≥3 강제
               if (x.vacancy && typeof x.vacancy.vacancySlots === 'number' && x.vacancy.vacancySlots < 3) return false;
+              // 🆕 homeScore 0 (vacancy hard kill 발동) 또는 < 25 = 어떤 백필도 X
+              if (!x.homeScore || (x.homeScore.homeScore || 0) < 25) return false;
               return true;
             });
 

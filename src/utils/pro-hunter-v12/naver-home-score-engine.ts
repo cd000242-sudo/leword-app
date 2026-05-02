@@ -37,25 +37,28 @@ export interface HomeScoreResult {
 }
 
 export function calculateHomeScore(input: HomeScoreInput): HomeScoreResult {
-    // 1. CTR 잠재 (35점)
+    // 1. CTR 잠재 (35점) — 미측정 시 0점 (default 인플레이션 차단, 통계 정직성)
     let ctrPotential = 0;
-    const titleScore = input.titleCtrScore || 60;  // 제목 미입력시 평균 (50→60 인상: 룰 기반 fallback이 60+ 점수 평균)
-    ctrPotential = Math.round((titleScore / 100) * 35);
-    // 정보형 키워드 가산 (방법/이유/효능 등) — +3→+5 강화
-    const infoTokens = ['방법', '이유', '효능', '뜻', '의미', '추천', '비교', '후기', '가이드', '정리'];
-    const lower = input.keyword.toLowerCase();
-    if (infoTokens.some(t => lower.includes(t))) ctrPotential = Math.min(35, ctrPotential + 5);
+    const titleScore = input.titleCtrScore;
+    if (titleScore != null && titleScore > 0) {
+        ctrPotential = Math.round((titleScore / 100) * 35);
+        const infoTokens = ['방법', '이유', '효능', '뜻', '의미', '추천', '비교', '후기', '가이드', '정리'];
+        const lower = input.keyword.toLowerCase();
+        if (infoTokens.some(t => lower.includes(t))) ctrPotential = Math.min(35, ctrPotential + 5);
+    }
 
-    // 2. 신선도 (30점) — 가장 중요. 14일 default를 합리적으로 인상
+    // 2. 신선도 (30점) — 미측정 시 0점
     let freshness = 0;
-    const days = input.daysSinceFirstAppear ?? 14;
-    if (days <= 1) freshness = 30;
-    else if (days <= 3) freshness = 26;
-    else if (days <= 7) freshness = 22;
-    else if (days <= 14) freshness = 16;          // 10 → 16 인상
-    else if (days <= 30) freshness = 10;          // 5 → 10 인상
-    else if (days <= 60) freshness = 5;
-    else freshness = 0;
+    const days = input.daysSinceFirstAppear;
+    if (days != null) {
+        if (days <= 1) freshness = 30;
+        else if (days <= 3) freshness = 26;
+        else if (days <= 7) freshness = 22;
+        else if (days <= 14) freshness = 16;
+        else if (days <= 30) freshness = 10;
+        else if (days <= 60) freshness = 5;
+        else freshness = 0;
+    }
     // surge ratio 보너스
     const surge = input.surgeRatio || 1.0;
     if (surge >= 3.0) freshness = Math.min(30, freshness + 6);
@@ -82,17 +85,21 @@ export function calculateHomeScore(input: HomeScoreInput): HomeScoreResult {
         categoryFit = 14;
     }
 
-    // 4. 빈자리 (15점) — 검색 1페이지 분석
-    // 🚨 빈자리 ≤2 = 빅도메인 독점 = 진입 거의 불가 → 가혹한 페널티로 전체 점수 차단
-    let vacancy = 10;  // 기본 (SERP 분석 실패 시 중립)
-    const slots = input.vacancySlots ?? 5;
-    const inf = input.influencerCount ?? 2;
-    if (slots >= 7 && inf <= 1) vacancy = 15;
-    else if (slots >= 5 && inf <= 2) vacancy = 13;
-    else if (slots >= 3 && inf <= 3) vacancy = 9;    // 10→9 (살짝 인하)
-    else if (slots === 2) vacancy = 3;                // 6→3 가혹 페널티
-    else if (slots === 1) vacancy = 1;                // 6→1 거의 0
-    else vacancy = 0;                                  // 빈자리 0 = 진입 불가 = 점수 0
+    // 4. 빈자리 (15점) — 미측정 시 0점, 측정 시 vacancy ≤ 2 = HARD KILL (homeScore 0)
+    let vacancy = 0;
+    const slots = input.vacancySlots;
+    const inf = input.influencerCount;
+    let vacancyHardKill = false;
+    if (slots == null) {
+        vacancy = 0;  // 미측정은 점수 X
+    } else if (slots >= 7 && (inf ?? 0) <= 1) vacancy = 15;
+    else if (slots >= 5 && (inf ?? 0) <= 2) vacancy = 13;
+    else if (slots >= 3 && (inf ?? 0) <= 3) vacancy = 9;
+    else {
+        // slots ≤ 2 = 빅도메인 독점 = 진입 불가 → HARD KILL
+        vacancy = 0;
+        vacancyHardKill = true;
+    }
 
     // 학습된 가중치 적용 (Phase F — 발행 후 노출 추적 기반)
     let adjMultipliers = { ctrPotential: 1, freshness: 1, categoryFit: 1, vacancy: 1 };
@@ -113,12 +120,14 @@ export function calculateHomeScore(input: HomeScoreInput): HomeScoreResult {
     const freshAdj = freshness * adjMultipliers.freshness;
     const catAdj = categoryFit * adjMultipliers.categoryFit;
     const vacAdj = vacancy * adjMultipliers.vacancy;
-    const homeScore = Math.round(ctrAdj + freshAdj + catAdj + vacAdj);
+    // 🛑 vacancy hard kill = 빈자리 ≤2면 homeScore 무조건 0 (다른 점수 무시)
+    const homeScore = vacancyHardKill ? 0 : Math.round(ctrAdj + freshAdj + catAdj + vacAdj);
 
     // 등급
     let grade: HomeScoreResult['grade'];
     let summary: string;
-    if (homeScore >= 85) { grade = 'CERTAIN'; summary = '🏠 홈판 진입 거의 확실 — 즉시 발행'; }
+    if (vacancyHardKill) { grade = 'IMPOSSIBLE'; summary = '🛑 빅도메인 독점 — 신생 진입 불가 (vacancy ≤ 2)'; }
+    else if (homeScore >= 85) { grade = 'CERTAIN'; summary = '🏠 홈판 진입 거의 확실 — 즉시 발행'; }
     else if (homeScore >= 70) { grade = 'EASY'; summary = '✅ 홈판 진입 쉬움 — 발행 추천'; }
     else if (homeScore >= 55) { grade = 'POSSIBLE'; summary = '⚠️ 홈판 진입 가능 — 제목 최적화 필수'; }
     else if (homeScore >= 35) { grade = 'HARD'; summary = '🔴 홈판 진입 어려움 — 신선도/제목 문제'; }
@@ -135,9 +144,12 @@ export function calculateHomeScore(input: HomeScoreInput): HomeScoreResult {
     if (vacancy < 5) actionable.push(`👤 인플루언서 점유 (${inf}/10) — 진입 매우 어려움`);
     if (actionable.length === 0) actionable.push(`🚀 모든 조건 통과 — 즉시 발행 권장`);
 
+    // vacancy hard kill 시 breakdown도 0으로 (sum == homeScore 보장)
     return {
         homeScore,
-        breakdown: {
+        breakdown: vacancyHardKill ? {
+            ctrPotential: 0, freshness: 0, categoryFit: 0, vacancy: 0,
+        } : {
             ctrPotential,
             freshness,
             categoryFit,
