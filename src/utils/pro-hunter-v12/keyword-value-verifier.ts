@@ -140,6 +140,49 @@ const SHALLOW_TOPICS = [
     '시간표', '날씨', '환율', '주가', '원달러',
 ];
 
+// 🆕 디테일 수식어 5요소 — 신생 진입 가능 골든존 검증
+const DETAIL_MODIFIERS = {
+    // 대상 (페르소나) — 누가 검색하는가
+    target: [
+        '30대', '40대', '50대', '20대', '60대', '여성', '남성', '직장인', '주부', '싱글',
+        '대학생', '초등', '중학', '고등', '신혼', '신생아', '100일', '1세', '3세', '5세', '7세',
+        '4인', '4인 가족', '1인', '1인 가구', '가족', '커플', '솔로',
+        '소형견', '대형견', '중형견', '입문', '초보', '고수',
+        '맞벌이', '외벌이', '학부모', '엄마', '아빠', '예비',
+    ],
+    // 속성 (구체 사양/조건) — 무엇이 다른가
+    spec: [
+        '가성비', '저분자', '저당', '저칼로리', '글루텐프리', 'M1', 'M2', 'M3', 'A14', 'A15', 'A16',
+        '4세대', '3세대', '5세대', '30평대', '20평대', '10평대',
+        'EPA', 'DHA', 'DHEA', '비건', '유기농', '국산', '수입',
+        '갱신형', '비갱신형', '갱신', '단기', '장기', '확정', '변동',
+        '슬개골', '관절', '면역력', '소화', '눈건강', '머리카락',
+    ],
+    // 시기 (when) — 언제
+    timing: [
+        '2026', '2027', '5월', '6월', '7월', '8월', '9월', '10월',
+        '1주일', '2주', '1개월', '3개월', '6개월', '1년', '2년',
+        '100일', '1일', '2박3일', '3박4일', '1박2일', '당일치기',
+        '주말', '평일', '오전', '오후',
+        '환절기', '초여름', '한여름', '장마', '한겨울',
+        '갈아타기', '연말', '월초', '월말',
+    ],
+    // 금액 (how much) — 얼마
+    money: [
+        '5천원', '1만원', '3만원', '5만원', '10만원', '30만원', '50만원', '100만원',
+        '200만원', '500만원', '1000만원', '1500만원', '2000만원', '3000만원',
+        '천원대', '만원대', '5만원대', '10만원대', '50만원대', '100만원대',
+        '50%', '70%', '30%', '20%', '10%', '5%',
+        '월 30만원', '월 100만원', '연 500만원', '연 1000만원',
+    ],
+    // 결과 (outcome) — 어떤 결과
+    outcome: [
+        '후기', '결과', '효과', '성공', '실패', '경험담', '솔직 후기',
+        '환급', '절약', '인상', '감량', '합격', '당첨',
+        '비교', '정리', '추천',
+    ],
+};
+
 export interface ValueGateResult {
     keyword: string;
     gates: {
@@ -155,8 +198,10 @@ export interface ValueGateResult {
         longtailDepth: { passed: boolean; depthScore: number };
         contentDepth: { passed: boolean; reason: string };
         beginnerFriendly: { passed: boolean; reason: string };
-        autocompleteMatch?: { passed: boolean; source: string };  // optional
-        aiMeaningCheck?: { passed: boolean; reason: string };      // optional
+        // 🆕 디테일 깊이 — 5요소 수식어 매칭 (대상/속성/시기/금액/결과)
+        detailDepth: { passed: boolean; matchedDimensions: string[]; matchedTokens: string[]; depthScore: number };
+        autocompleteMatch?: { passed: boolean; source: string };
+        aiMeaningCheck?: { passed: boolean; reason: string };
     };
     passedCount: number;
     totalEvaluated: number;            // 평가된 게이트 수 (옵션 게이트 활성에 따라 10~12)
@@ -248,6 +293,20 @@ export function verifyKeywordValue(input: VerifyInput): ValueGateResult {
         ? `SERP 평균 ${serpWord}자 ${serpWord <= 1500 ? '(진입 가능)' : '(경쟁 글 두꺼움)'}`
         : '추정 (SERP 미분석)';
 
+    // 🆕 13. 디테일 깊이 — 5요소 수식어 매칭 (대상/속성/시기/금액/결과)
+    // ≥ 2개 차원 매칭 = 신생 진입 가능 골든존 (must-pass)
+    const matchedDimensions: string[] = [];
+    const matchedTokens: string[] = [];
+    for (const [dim, tokens] of Object.entries(DETAIL_MODIFIERS)) {
+        const matched = tokens.filter(t => kw.includes(t));
+        if (matched.length > 0) {
+            matchedDimensions.push(dim);
+            matchedTokens.push(...matched);
+        }
+    }
+    const detailDepthScore = Math.min(100, matchedDimensions.length * 20 + matchedTokens.length * 5);
+    const detailDepthPass = matchedDimensions.length >= 2;  // 5요소 중 2개+ 매칭 = 통과
+
     // 11. 🆕 자동완성 매칭 (옵션 — input.autocompleteHits 제공 시만 평가)
     let autocompleteResult: ValueGateResult['gates']['autocompleteMatch'] = undefined;
     if (input.autocompleteHits && input.autocompleteHits.length > 0) {
@@ -273,14 +332,15 @@ export function verifyKeywordValue(input: VerifyInput): ValueGateResult {
         longtailDepth: { passed: longtailPass, depthScore },
         contentDepth: { passed: contentDepthPass, reason: contentDepthReason },
         beginnerFriendly: { passed: beginnerPass, reason: beginnerReason },
+        detailDepth: { passed: detailDepthPass, matchedDimensions, matchedTokens, depthScore: detailDepthScore },
         autocompleteMatch: autocompleteResult,
         aiMeaningCheck: aiMeaningResult,
     };
 
-    // 🛑 Kill-switch (확장): 인물/YMYL/글감불가 + must-pass 핵심 6개 중 하나라도 미달
-    // must-pass: 검색량 + 경쟁비율 + 의도명확 + 글감 + 인물안전 + YMYL안전
-    // — 이 6개 중 하나라도 fail이면 절대 가치 없음 (10인 평가 의견 통합)
-    const mustPassFail = !svPass || !ratioPass || !intentPass;
+    // 🛑 Kill-switch (확장): 인물/YMYL/글감불가 + must-pass 핵심 7개 중 하나라도 미달
+    // must-pass: 검색량 + 경쟁비율 + 의도명확 + 글감 + 인물안전 + YMYL안전 + 디테일 깊이
+    // — 7개 중 하나라도 fail이면 절대 가치 없음
+    const mustPassFail = !svPass || !ratioPass || !intentPass || !detailDepthPass;
     const isKilled = !personPass || !ymylPass || !writabilityPass
         || mustPassFail
         || (aiMeaningResult && !aiMeaningResult.passed && input.aiMeaningOk !== undefined);
@@ -327,6 +387,7 @@ export function verifyKeywordValue(input: VerifyInput): ValueGateResult {
         if (!svPass) reasons.push(`검색량 부족 (${sv}<${SV_THRESHOLD})`);
         if (!ratioPass) reasons.push(`경쟁 과열 (ratio ${ratio.toFixed(2)})`);
         if (!intentPass) reasons.push(`의도 불명확`);
+        if (!detailDepthPass) reasons.push(`디테일 부족 (수식어 ${matchedDimensions.length}/5 차원, 2+ 필요)`);
         if (aiMeaningResult && !aiMeaningResult.passed) reasons.push('AI 평가 실패');
         summary = `🛑 차단 — ${reasons.join(' · ')}`;
     } else if (valueGrade === 'S+') summary = `🏆 끝판왕 (${passedCount}/${totalEvaluated}, ${qualityScore}점) — 즉시 발행`;
