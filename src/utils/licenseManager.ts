@@ -330,8 +330,12 @@ export function getCachedLicense(): any {
 }
 
 export function validateLicenseFormat(licenseCode: string): boolean {
-  const pattern = /^[A-Z0-9]{4}-[A-Z0-9]{4}-[A-Z0-9]{4}-[A-Z0-9]{4}$/;
-  return pattern.test(licenseCode);
+  // prefix 포함 가능: 16~50자, 영문 대문자/숫자/하이픈, 하이픈 1개 이상 포함
+  // 예: XXXX-XXXX-XXXX-XXXX, LP-2UGW-L4HN-K3PA-JNXZ
+  if (licenseCode.length < 16 || licenseCode.length > 50) return false;
+  if (!/^[A-Z0-9-]+$/.test(licenseCode)) return false;
+  if (!licenseCode.includes('-')) return false;
+  return true;
 }
 
 export function isLicenseExpired(license: any): boolean {
@@ -478,7 +482,7 @@ export async function verifyLicense(
     if (!validateLicenseFormat(licenseCode)) {
       return {
         valid: false,
-        message: '라이선스 코드 형식이 올바르지 않습니다. (예: XXXX-XXXX-XXXX-XXXX)',
+        message: '라이선스 코드 형식이 올바르지 않습니다. 영문 대문자/숫자/하이픈으로 16~50자 (예: XXXX-XXXX-XXXX-XXXX, LP-XXXX-XXXX-XXXX-XXXX)',
       };
     }
 

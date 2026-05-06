@@ -91,11 +91,16 @@ function getCachedLicense() {
     return cachedLicense;
 }
 /**
- * 라이선스 코드 형식 검증 (예: XXXX-XXXX-XXXX-XXXX)
+ * 라이선스 코드 형식 검증 (prefix 포함 16~50자, 예: XXXX-XXXX-XXXX-XXXX, LP-XXXX-XXXX-XXXX-XXXX)
  */
 function validateLicenseFormat(licenseCode) {
-    const pattern = /^[A-Z0-9]{4}-[A-Z0-9]{4}-[A-Z0-9]{4}-[A-Z0-9]{4}$/;
-    return pattern.test(licenseCode);
+    if (licenseCode.length < 16 || licenseCode.length > 50)
+        return false;
+    if (!/^[A-Z0-9-]+$/.test(licenseCode))
+        return false;
+    if (!licenseCode.includes('-'))
+        return false;
+    return true;
 }
 /**
  * 라이선스 만료 여부 확인
@@ -144,7 +149,7 @@ async function verifyLicense(licenseCode, deviceId, serverUrl, userId, userPassw
     if (!validateLicenseFormat(licenseCode)) {
         return {
             valid: false,
-            message: '라이선스 코드 형식이 올바르지 않습니다. (예: XXXX-XXXX-XXXX-XXXX)',
+            message: '라이선스 코드 형식이 올바르지 않습니다. 영문 대문자/숫자/하이픈으로 16~50자 (예: XXXX-XXXX-XXXX-XXXX, LP-XXXX-XXXX-XXXX-XXXX)',
         };
     }
     // 서버 검증 (서버 URL이 제공된 경우)
