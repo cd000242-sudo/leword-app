@@ -15411,11 +15411,7 @@
               <input type="checkbox" id="proTrafficSeason" checked style="width: 18px; height: 18px; accent-color: #fbbf24;">
               🌸 시즌 키워드 포함
             </label>
-            <label style="display:flex; align-items:center; gap:8px; font-size: 13px; font-weight: 700; color: rgba(252, 211, 77, 0.95); padding: 8px 12px; border-radius: 10px; border: 1px solid rgba(252, 211, 77, 0.30); background: rgba(252, 211, 77, 0.08); cursor: pointer;" title="체크 시 SSS 등급만 표시 (게이트 통과 절대 수만큼). 끄면 SSS/SS/S/A/B 다층 노출">
-              <input type="checkbox" id="proTrafficSssOnly" style="width: 18px; height: 18px; accent-color: #fbbf24;">
-              🏆 SSS만 보기
-            </label>
-            <select id="proTrafficCount" title="분석 키워드 수 — 선택한 만큼 결과 표시 (SSS/SS/S/A/B 등급 배지 부착)" style="padding: 8px 14px; border: 2px solid rgba(234, 179, 8, 0.3); border-radius: 8px; font-size: 13px; background: rgba(30, 41, 59, 0.8); color: white; cursor: pointer; outline: none;">
+            <select id="proTrafficCount" title="목표 SSS 키워드 수 — 풀 확장으로 SSS 절대 수 보장" style="padding: 8px 14px; border: 2px solid rgba(234, 179, 8, 0.3); border-radius: 8px; font-size: 13px; background: rgba(30, 41, 59, 0.8); color: white; cursor: pointer; outline: none;">
               <option value="10">10개</option>
               <option value="20">20개</option>
               <option value="30">30개</option>
@@ -15431,11 +15427,10 @@
 
           <div style="margin-top: 14px; padding: 12px 14px; background: rgba(251, 191, 36, 0.08); border: 1px solid rgba(251, 191, 36, 0.35); border-radius: 8px;">
             <p style="font-size: 12px; color: #fcd34d; margin: 0 0 6px 0; line-height: 1.55; font-weight: 700;">
-              🏆 등급 다층 노출 모드
+              🏆 SSS 등급 전용 모드 (대량 추출)
             </p>
             <p style="font-size: 11px; color: rgba(255,255,255,0.78); margin: 0; line-height: 1.6;">
-              <strong>기준은 양보하지 않습니다. 결과는 모두 보여드립니다.</strong> 선택한 수량만큼 키워드를 분석하고 SSS/SS/S/A/B 등급 배지를 부착해 노출 — 기본 정렬은 SSS 우선. <br/>
-              SSS = 검색량 1.5k~2k+ · 문서수 8k↓ · 황금비율 2.0+ (카테고리별 정밀 캘리브레이션). 상단 "🏆 SSS만 보기" 토글로 SSS 단독 표시도 가능.
+              SSS 등급 키워드만 표시합니다. 카테고리별 SSS 게이트(검색량 1k~1.5k+ · 문서수 12k~20k↓ · 황금비율 1.0~1.5+ — 한국 분포 P10 캘리브레이션)를 통과한 키워드를 다중 소스(네이버 검색광고 + 자동완성 + Daum + Google + SmartBlock + AI 브리핑)로 대량 발굴합니다.
             </p>
           </div>
 
@@ -15772,10 +15767,8 @@
               progressLog.scrollTop = progressLog.scrollHeight;
             }
 
-            // 🎯 v2.40.0 R3+패턴C — 등급 다층 노출 (SSS/SS/S/A/B 모두 표시, SSS 우선)
-            // SSS-only 토글: 체크 시 ['SSS']만, 끄면 다층
-            const sssOnlyToggle = !!document.getElementById('proTrafficSssOnly')?.checked;
-            const gradePriority = sssOnlyToggle ? ['SSS'] : ['SSS', 'SS', 'S', 'A', 'B'];
+            // 🎯 v2.40.2 — SSS 등급만 표시 (사용자 요구: 그 외 등급은 노이즈)
+            const gradePriority = ['SSS'];
             const selectedKeywords = [];
             const seen = new Set();
             const targetCount = count;
@@ -15801,7 +15794,7 @@
               if (selectedKeywords.length >= targetCount) break;
             }
 
-            // 다층 모드: 목표 개수 미만이면 미검증 지표 후보(allCandidates)까지 포함해 채움
+            // 목표 개수 미만이면 SSS 등급 내 미검증 지표 후보(allCandidates)까지 포함해 채움 (등급 게이트 유지)
             if (selectedKeywords.length < targetCount) {
               for (const grade of gradePriority) {
                 const sameGrade = allCandidates.filter((k) => normalizeGrade(k?.grade) === grade);
@@ -15825,27 +15818,14 @@
               }
             }
 
-            // 다층 모드(SSS-only OFF)에서 그래도 부족하면 등급 비정상 후보까지 포함해 200까지 채움
-            if (!sssOnlyToggle && selectedKeywords.length < targetCount) {
-              for (const kw of allCandidates) {
-                const key = String(kw?.keyword || '').trim();
-                if (!key || seen.has(key)) continue;
-                seen.add(key);
-                selectedKeywords.push(kw);
-                if (selectedKeywords.length >= targetCount) break;
-              }
-            }
+            // SSS 외 등급은 의도적으로 제외 (사용자: "그 외 키워드는 의미 없음")
 
             if (selectedKeywords.length === 0) {
-              const emptyTitle = sssOnlyToggle ? 'SSS 등급 황금 키워드를 찾지 못했습니다' : '조건에 맞는 키워드를 찾지 못했습니다';
-              const emptyDesc = sssOnlyToggle
-                ? 'SSS 등급은 검색량 1.5k+ · 문서수 8k↓ · 황금비율 2.0+ 조건을 모두 만족해야 합니다 (카테고리별 정밀 캘리브레이션). "SSS만 보기" 토글을 끄거나 다른 카테고리/시드 키워드로 다시 시도해보세요.'
-                : '다른 카테고리·시드 키워드·모드 조합으로 다시 시도해보세요.';
               resultsDiv.innerHTML = `
             <div style="text-align: center; padding: 40px; background: rgba(251, 191, 36, 0.1); border-radius: 12px; border: 1px solid rgba(251, 191, 36, 0.3);">
               <div style="font-size: 40px; margin-bottom: 12px;">🏆</div>
-              <div style="font-size: 16px; font-weight: 700; color: #fbbf24; margin-bottom: 8px;">${emptyTitle}</div>
-              <div style="font-size: 13px; color: rgba(255,255,255,0.7); line-height: 1.6;">${emptyDesc}</div>
+              <div style="font-size: 16px; font-weight: 700; color: #fbbf24; margin-bottom: 8px;">SSS 등급 황금 키워드를 찾지 못했습니다</div>
+              <div style="font-size: 13px; color: rgba(255,255,255,0.7); line-height: 1.6;">다른 카테고리/시드 키워드/모드로 다시 시도해보세요.</div>
             </div>
           `;
               return;
@@ -15943,39 +15923,22 @@
             </div>
 
             ${(() => {
-              // 🎯 v2.40.0 패턴C — 등급 다층 분포 표시
-              const normG = (g) => String(g || '').toUpperCase().replace(/[^A-Z]/g, '');
-              const sssN = keywords.filter(k => normG(k.grade) === 'SSS').length;
-              const ssN  = keywords.filter(k => normG(k.grade) === 'SS').length;
-              const sN   = keywords.filter(k => normG(k.grade) === 'S').length;
-              const aN   = keywords.filter(k => normG(k.grade) === 'A').length;
-              const bN   = keywords.filter(k => normG(k.grade) === 'B').length;
+              // 🎯 v2.40.2 — SSS 단독 통계 (다층 분포 카드 제거. 사용자 요구: 그 외 등급은 의미 없음)
               const ultraBlue = keywords.filter(k => (k.goldenRatio || 0) >= 10).length;
+              const blue = keywords.filter(k => (k.goldenRatio || 0) >= 5 && (k.goldenRatio || 0) < 10).length;
               return `
-            <div style="display: grid; grid-template-columns: repeat(auto-fit, minmax(120px, 1fr)); gap: 10px;">
+            <div style="display: grid; grid-template-columns: repeat(auto-fit, minmax(140px, 1fr)); gap: 12px;">
               <div style="background: linear-gradient(135deg, rgba(255,107,157,0.25), rgba(251,191,36,0.18)); padding: 14px; border-radius: 14px; border: 1px solid rgba(255,107,157,0.5); text-align: center;" title="SSS — 검증된 최상위 황금 키워드">
-                <div style="font-size: 24px; font-weight: 900; color: #ff6b9d;">🏆 ${sssN}</div>
-                <div style="font-size: 11px; color: #fda4af; margin-top: 4px; font-weight: 700;">SSS</div>
+                <div style="font-size: 24px; font-weight: 900; color: #ff6b9d;">🏆 ${keywords.length}</div>
+                <div style="font-size: 11px; color: #fda4af; margin-top: 4px; font-weight: 700;">SSS 등급</div>
               </div>
-              <div style="background: rgba(251,191,36,0.15); padding: 12px; border-radius: 14px; border: 1px solid rgba(251,191,36,0.4); text-align: center;">
-                <div style="font-size: 20px; font-weight: 800; color: #fbbf24;">${ssN}</div>
-                <div style="font-size: 11px; color: rgba(255,255,255,0.7); margin-top: 4px; font-weight: 700;">SS</div>
+              <div style="background: linear-gradient(135deg, rgba(34,197,94,0.2), rgba(59,130,246,0.15)); padding: 14px; border-radius: 14px; border: 1px solid rgba(34,197,94,0.4); text-align: center;" title="검색량이 문서수의 10배 이상인 키워드">
+                <div style="font-size: 22px; font-weight: 900; color: #22c55e;">💎 ${ultraBlue}</div>
+                <div style="font-size: 11px; color: #86efac; margin-top: 4px; font-weight: 700;">극블루오션 (gr 10+)</div>
               </div>
               <div style="background: rgba(52,211,153,0.12); padding: 12px; border-radius: 14px; border: 1px solid rgba(52,211,153,0.3); text-align: center;">
-                <div style="font-size: 20px; font-weight: 800; color: #34d399;">${sN}</div>
-                <div style="font-size: 11px; color: rgba(255,255,255,0.7); margin-top: 4px;">S</div>
-              </div>
-              <div style="background: rgba(96,165,250,0.10); padding: 12px; border-radius: 14px; border: 1px solid rgba(96,165,250,0.25); text-align: center;">
-                <div style="font-size: 20px; font-weight: 800; color: #60a5fa;">${aN}</div>
-                <div style="font-size: 11px; color: rgba(255,255,255,0.6); margin-top: 4px;">A</div>
-              </div>
-              <div style="background: rgba(148,163,184,0.08); padding: 12px; border-radius: 14px; border: 1px solid rgba(148,163,184,0.20); text-align: center;">
-                <div style="font-size: 20px; font-weight: 800; color: #94a3b8;">${bN}</div>
-                <div style="font-size: 11px; color: rgba(255,255,255,0.5); margin-top: 4px;">B</div>
-              </div>
-              <div style="background: linear-gradient(135deg, rgba(34,197,94,0.18), rgba(59,130,246,0.12)); padding: 14px; border-radius: 14px; border: 1px solid rgba(34,197,94,0.35); text-align: center;" title="검색량이 문서수의 10배 이상">
-                <div style="font-size: 20px; font-weight: 900; color: #22c55e;">💎 ${ultraBlue}</div>
-                <div style="font-size: 11px; color: #86efac; margin-top: 4px;">극블루오션</div>
+                <div style="font-size: 20px; font-weight: 800; color: #34d399;">🌊 ${blue}</div>
+                <div style="font-size: 11px; color: rgba(255,255,255,0.7); margin-top: 4px;">블루오션 (gr 5~10)</div>
               </div>
               <div style="background: rgba(255,255,255,0.03); padding: 12px; border-radius: 14px; border: 1px solid rgba(255,255,255,0.05); text-align: center;">
                 <div style="font-size: 20px; font-weight: 800; color: #22c55e;">${summary.rookieFriendlyCount || 0}</div>
