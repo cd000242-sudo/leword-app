@@ -613,11 +613,11 @@ function computePremiumGrade(r: ProTrafficKeyword, category?: string): 'SSS' | '
     else if (dc <= 300000 && sv >= 300 && gr >= 0.2) baseGrade = 'S';
   } else if (category === 'it' || category === 'business' || category === 'interior'
           || category === 'daily' || category === 'self_development') {
-    // 🎯 v2.40.0 R9 — IT/비즈/인테리어 캘리브레이션 (it 풀 P10/P30/P40 분위)
-    // 이전 sv≥1500/dc≤8k/gr≥2.0 → it 검증 결과 SSS 5/100 (P3). sv≥1000/dc≤12k/gr≥1.5 로 P10 완화
-    if (dc <= 12000 && sv >= 1000 && gr >= 1.5) baseGrade = 'SSS';
-    else if (dc <= 35000 && sv >= 600 && gr >= 0.8) baseGrade = 'SS';
-    else if (dc <= 100000 && sv >= 300 && gr >= 0.4) baseGrade = 'S';
+    // 🎯 v2.40.3 — IT/비즈 게이트 추가 완화 (P10 → P15 분위, SSS 7→예상 15~25개)
+    // 검증 결과 R9 적용 후 SSS 7/100 → "대량" 미달. sv 1000→700, dc 12k→18k, gr 1.5→1.2
+    if (dc <= 18000 && sv >= 700 && gr >= 1.2) baseGrade = 'SSS';
+    else if (dc <= 50000 && sv >= 400 && gr >= 0.7) baseGrade = 'SS';
+    else if (dc <= 120000 && sv >= 200 && gr >= 0.4) baseGrade = 'S';
   } else if (category === 'policy') {
     // 🎯 v2.40.0 R9 — 정책·지원금 캘리브레이션 (시즌 검색량 폭등 + 진입성 강화)
     if (dc <= 20000 && sv >= 1500 && gr >= 1.0) baseGrade = 'SSS';
@@ -718,10 +718,10 @@ function computePremiumGradeStrict(r: ProTrafficKeyword, criteria?: { minRatio?:
     if (dc <= Math.min(maxDocs, 300000) && sv >= 300 && gr >= Math.max(0.2, minRatio)) return 'S';
   } else if (category === 'it' || category === 'business' || category === 'interior'
           || category === 'daily' || category === 'self_development') {
-    // 🎯 v2.40.0 R9 — IT/비즈 strict 캘리브레이션
-    if (dc <= 12000 && sv >= 1000 && gr >= 1.5) return 'SSS';
-    if (dc <= 35000 && sv >= 600 && gr >= 0.8) return 'SS';
-    if (dc <= Math.min(maxDocs, 100000) && sv >= 300 && gr >= Math.max(0.4, minRatio)) return 'S';
+    // 🎯 v2.40.3 — IT/비즈 strict 추가 완화 (P15 분위)
+    if (dc <= 18000 && sv >= 700 && gr >= 1.2) return 'SSS';
+    if (dc <= 50000 && sv >= 400 && gr >= 0.7) return 'SS';
+    if (dc <= Math.min(maxDocs, 120000) && sv >= 200 && gr >= Math.max(0.4, minRatio)) return 'S';
   } else if (category === 'policy') {
     // 🎯 v2.40.0 R9 — 정책 strict 캘리브레이션
     if (dc <= 20000 && sv >= 1500 && gr >= 1.0) return 'SSS';
@@ -2927,13 +2927,15 @@ export async function huntProTrafficKeywords(options: {
     return Array.from(new Set([...longSeeds, ...shortSeeds])).slice(0, lim);
   };
 
+  // 🎯 v2.40.3 — 시드 풀 확대 (SSS 절대 수 증가의 1차 lever)
+  // 비-explosion 카테고리 70 → 150 (시드 2× → 후보 풀 2× → SSS 후보 ~2×)
   const seedTarget = explosionMode
     ? (mode === 'category'
       ? (category === 'celeb'
         ? 140
         : (weakExplosionCategories.has(category) ? 170 : 130))
       : 90)
-    : (mode === 'category' ? 70 : 50);
+    : (mode === 'category' ? 150 : 100);
 
   // ─── 시드 차별화 전략: 카테고리 모드에서는 자연 연관 키워드 위주로 최소화 ───
   // (기계적 조합은 Naver 검색량 0을 자주 반환해 파이프라인이 고갈됨)
@@ -3636,9 +3638,10 @@ export async function huntProTrafficKeywords(options: {
     const before = allKeywords.length;
 
     // 🚀 자동완성 확장 (explosionMode는 탐색 폭 확대)
+    // 🎯 v2.40.3 — 비-explosion 시드 20→40 (시드당 자동완성 ~144 호출 × 40 시드 = 5760 후보)
     const expandSeedLimit = explosionMode
       ? (isTimeoutCategory ? (mode === 'category' ? 4 : 6) : (mode === 'category' ? 50 : 40))
-      : 20;
+      : 40;
     const uniqueExpandSortedByLen = [...new Set(allSeedKeywords)]
       .sort((a, b) => {
         const la = String(a || '').length;
@@ -4115,9 +4118,9 @@ export async function huntProTrafficKeywords(options: {
     ? (timeoutExplosionCategories.has(category)
       ? 180000
       : 120000)
-    : (category === 'celeb' ? 600000 : 300000); // 🎯 SSS 대량 추출: 60초 → 300초 (검증 풀 5배 확장)
+    : (category === 'celeb' ? 600000 : 600000); // 🎯 v2.40.3 — 시드 2× + 자동완성 PC 채널 추가 처리 시간 (300→600s)
 
-  const verifyTimeBudgetMs = Math.min(baseVerifyTimeBudgetMs, (category === 'celeb' ? 600000 : (explosionMode ? 300000 : 300000))); // 🎯 일반 카테고리도 300초 캡
+  const verifyTimeBudgetMs = Math.min(baseVerifyTimeBudgetMs, (category === 'celeb' ? 600000 : (explosionMode ? 300000 : 600000))); // 🎯 일반 카테고리 600초 캡
   let premiumVerifiedCount = 0;
   let stopVerify = false;
 
