@@ -202,7 +202,11 @@ async function main() {
   // 카테고리/모드 다양화 — argv[3] 로 카테고리 셋 변경 가능
   const preset = (process.argv[3] || 'default').toLowerCase();
   const cases: Array<{ label: string; mode: 'realtime' | 'category' | 'season'; category: string }> =
-    preset === 'extra'
+    preset === 'quick'
+      ? [
+          { label: 'Run #1 / category=it (quick)', mode: 'category', category: 'it' },
+        ]
+      : preset === 'extra'
       ? [
           { label: 'Run #1 / category=it', mode: 'category', category: 'it' },
           { label: 'Run #2 / category=finance', mode: 'category', category: 'finance' },
