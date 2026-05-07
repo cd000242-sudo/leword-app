@@ -532,65 +532,51 @@ function computePremiumGrade(r: ProTrafficKeyword, category?: string): 'SSS' | '
   const dc = dcRaw;
   const gr = typeof r.goldenRatio === 'number' && Number.isFinite(r.goldenRatio) ? r.goldenRatio : 0;
 
-  // 🔥 v2.17.0 카테고리별 블루오션 컷 세분화
+  // 🎯 v2.40.4 — 진입 게이트를 각 카테고리 S 컷과 일치시켜 SSS/SS/S 모두 진입 가능하도록 확대
   if (sv < 100) return null;
   if (isGenericSingleToken(r.keyword)) return null;
   if (category === 'celeb') {
-    if (gr < 0.1) return null;
+    if (gr < 0.05) return null;
   } else if (category === 'life_tips') {
-    if (gr < 0.3) return null;
+    if (gr < 0.15) return null;
+    if (dc > 350000) return null;
   } else if (category === 'movie' || category === 'drama' || category === 'music'
           || category === 'book' || category === 'anime' || category === 'broadcast') {
-    // 엔터/콘텐츠: 정보성 글 많아 gr 0.2+ 허용
+    if (gr < 0.15) return null;
+    if (dc > 350000) return null;
+  } else if (category === 'policy') {
     if (gr < 0.2) return null;
-    if (dc > 300000) return null;
-  } else if (category === 'policy' || category === 'finance' || category === 'realestate'
-          || category === 'health') {
-    // 정책/금융/부동산/건강: gr 0.4+ 허용 (시즌 이슈 고려)
-    if (gr < 0.4) return null;
+    if (dc > 250000) return null;
+  } else if (category === 'finance' || category === 'realestate') {
+    if (gr < 0.25) return null;
     if (dc > 200000) return null;
+  } else if (category === 'health') {
+    if (gr < 0.3) return null;
+    if (dc > 150000) return null;
   } else if (category === 'it' || category === 'business' || category === 'interior'
           || category === 'daily' || category === 'self_development') {
-    // 중간 카테고리: gr 0.5+
-    if (gr < 0.5) return null;
-    if (dc > 80000) return null;
+    // P25 게이트 매칭 — S 컷 dc≤150k, gr≥0.3
+    if (gr < 0.3) return null;
+    if (dc > 150000) return null;
   } else {
-    // 🎯 v2.40.0 R4 — 일반(all/beauty/fashion 등 41 카테고리) 진입 게이트 정상화
-    // S 등급 컷(gr≥0.5, dc≤80k)과 일치시켜 진입 가능 풀 확장. SSS/SS/S 게이트는 baseGrade 계산에서 분리.
-    if (gr < 0.5) return null;
-    if (dc > 80000) return null;
+    // 일반(beauty/fashion/diet/travel/food/coding 등) — P25 매칭
+    if (gr < 0.4) return null;
+    if (dc > 120000) return null;
   }
 
-  // 🛡️ 저경쟁 보증 필터: 문서수가 너무 많으면 등급 하향 (기득권 블로그 영역)
+  // 🎯 v2.40.4 — 페널티 시스템 전반 약화 (SSS 대량 추출 위해 dc 절대값 페널티 완화)
+  // 게이트가 이미 dc/sv 검증 → 페널티 누적은 SSS→A 추락의 주범이었음
   let penaltySteps = 0;
   if (category === 'celeb') {
-    // 연예인 문서수 페널티 강화
-    if (dc > 300000) penaltySteps = 3;
-    else if (dc > 250000) penaltySteps = 2;
-    else if (dc > 200000) penaltySteps = 1;
-  } else if (category === 'life_tips') {
-    // 생활꿀팁: 시즌 키워드는 구조적으로 dc가 높음. 완화된 페널티.
-    if (dc > 500000) penaltySteps = 2;
-    else if (dc > 300000) penaltySteps = 1;
+    // 연예인은 본래 dc 거대 — 페널티 면제 시 SSS 인플레이션 위험. 1단계만 적용.
+    if (dc > 500000) penaltySteps = 1;
   } else {
-    if (dc > 300000) penaltySteps = 3; // 매우 강력한 페널티
-    else if (dc > 100000) penaltySteps = 2;
-    else if (dc > 50000) penaltySteps = 1;
+    // 일반/카테고리 모두: dc 극단치만 1단계 강등 (이전 100k → 500k)
+    if (dc > 500000) penaltySteps = 1;
   }
-
-  // 레드오션 페널티 (문서수가 검색량보다 월등히 많은 경우)
-  // 시즌성·이슈성 카테고리는 dc/sv 비가 구조적으로 높아 면제
-  // (life_tips/finance/realestate/policy/health/season_* — 시즌 검색량 폭증 특성)
-  const seasonalLikeCategories = new Set([
-    'life_tips', 'finance', 'realestate', 'policy', 'health',
-    'season_spring', 'season_summer', 'season_fall', 'season_winter'
-  ]);
-  if (!seasonalLikeCategories.has(String(category || ''))) {
-    if (dc > sv * 3) penaltySteps += 1; // sv*2 → sv*3 완화
-    if (dc > sv * 7) penaltySteps += 1; // sv*5 → sv*7 완화
-  }
-  // 페널티 누적 상한 (Math.min(penaltySteps, 2))
-  penaltySteps = Math.min(penaltySteps, 2);
+  // dc/sv 비율 페널티는 dc>sv*15 극단치만 + 누적 상한 1
+  if (dc > sv * 15) penaltySteps += 1;
+  penaltySteps = Math.min(penaltySteps, 1);
 
   let baseGrade: 'SSS' | 'SS' | 'S' | 'A' = 'A';
 
@@ -601,38 +587,38 @@ function computePremiumGrade(r: ProTrafficKeyword, category?: string): 'SSS' | '
     else if (dc <= 600000 && sv >= 1500 && gr >= 0.25) baseGrade = 'SS';
     else if (dc <= 1500000 && sv >= 800 && gr >= 0.1) baseGrade = 'S';
   } else if (category === 'life_tips') {
-    // 🎯 v2.40.0 R9 — life_tips 캘리브레이션 (시즌 키워드 dc 30k+ 흔함, sv P10 완화)
-    if (dc <= 20000 && sv >= 1500 && gr >= 1.0) baseGrade = 'SSS';
-    else if (dc <= 60000 && sv >= 700 && gr >= 0.4) baseGrade = 'SS';
-    else if (dc <= 300000 && sv >= 300 && gr >= 0.2) baseGrade = 'S';
+    // 🎯 v2.40.4 — life_tips P25 완화
+    if (dc <= 30000 && sv >= 1000 && gr >= 0.6) baseGrade = 'SSS';
+    else if (dc <= 100000 && sv >= 500 && gr >= 0.3) baseGrade = 'SS';
+    else if (dc <= 350000 && sv >= 200 && gr >= 0.15) baseGrade = 'S';
   } else if (category === 'movie' || category === 'drama' || category === 'music'
           || category === 'book' || category === 'anime' || category === 'broadcast') {
-    // 🎯 v2.40.0 R9 — 엔터/콘텐츠 캘리브레이션 (콘텐츠 자연치 sv 1.2k+, gr 0.7+)
-    if (dc <= 25000 && sv >= 1200 && gr >= 0.7) baseGrade = 'SSS';
-    else if (dc <= 100000 && sv >= 600 && gr >= 0.4) baseGrade = 'SS';
-    else if (dc <= 300000 && sv >= 300 && gr >= 0.2) baseGrade = 'S';
+    // 🎯 v2.40.4 — 엔터/콘텐츠 P25 완화
+    if (dc <= 35000 && sv >= 800 && gr >= 0.5) baseGrade = 'SSS';
+    else if (dc <= 130000 && sv >= 400 && gr >= 0.3) baseGrade = 'SS';
+    else if (dc <= 350000 && sv >= 200 && gr >= 0.15) baseGrade = 'S';
   } else if (category === 'it' || category === 'business' || category === 'interior'
           || category === 'daily' || category === 'self_development') {
-    // 🎯 v2.40.3 — IT/비즈 게이트 추가 완화 (P10 → P15 분위, SSS 7→예상 15~25개)
-    // 검증 결과 R9 적용 후 SSS 7/100 → "대량" 미달. sv 1000→700, dc 12k→18k, gr 1.5→1.2
-    if (dc <= 18000 && sv >= 700 && gr >= 1.2) baseGrade = 'SSS';
-    else if (dc <= 50000 && sv >= 400 && gr >= 0.7) baseGrade = 'SS';
-    else if (dc <= 120000 && sv >= 200 && gr >= 0.4) baseGrade = 'S';
+    // 🎯 v2.40.4 — IT/비즈 P25 완화 (v2.40.3 P15 SSS 8/100 → SS+S 절반 SSS 진입)
+    // sv 700→500, dc 18k→25k, gr 1.2→0.8. SSS = "한국 it 키워드 상위 25%" 수준
+    if (dc <= 25000 && sv >= 500 && gr >= 0.8) baseGrade = 'SSS';
+    else if (dc <= 70000 && sv >= 300 && gr >= 0.5) baseGrade = 'SS';
+    else if (dc <= 150000 && sv >= 150 && gr >= 0.3) baseGrade = 'S';
   } else if (category === 'policy') {
-    // 🎯 v2.40.0 R9 — 정책·지원금 캘리브레이션 (시즌 검색량 폭등 + 진입성 강화)
-    if (dc <= 20000 && sv >= 1500 && gr >= 1.0) baseGrade = 'SSS';
-    else if (dc <= 80000 && sv >= 700 && gr >= 0.5) baseGrade = 'SS';
-    else if (dc <= 200000 && sv >= 400 && gr >= 0.3) baseGrade = 'S';
+    // 🎯 v2.40.4 — 정책·지원금 P25 완화
+    if (dc <= 30000 && sv >= 1000 && gr >= 0.7) baseGrade = 'SSS';
+    else if (dc <= 100000 && sv >= 500 && gr >= 0.4) baseGrade = 'SS';
+    else if (dc <= 250000 && sv >= 250 && gr >= 0.2) baseGrade = 'S';
   } else if (category === 'health') {
-    // 🎯 v2.40.0 R9 — 건강·의료 캘리브레이션 (health 풀 sv 중앙 800~2000)
-    if (dc <= 15000 && sv >= 1200 && gr >= 1.2) baseGrade = 'SSS';
-    else if (dc <= 50000 && sv >= 700 && gr >= 0.7) baseGrade = 'SS';
-    else if (dc <= 100000 && sv >= 400 && gr >= 0.4) baseGrade = 'S';
+    // 🎯 v2.40.4 — 건강·의료 P25 완화
+    if (dc <= 25000 && sv >= 700 && gr >= 0.8) baseGrade = 'SSS';
+    else if (dc <= 70000 && sv >= 400 && gr >= 0.5) baseGrade = 'SS';
+    else if (dc <= 150000 && sv >= 200 && gr >= 0.3) baseGrade = 'S';
   } else if (category === 'finance' || category === 'realestate') {
-    // 🎯 v2.40.0 R9 — 금융·부동산 캘리브레이션 (이전 SSS 2/100 → sv≥1200, dc≤15k 완화)
-    if (dc <= 15000 && sv >= 1200 && gr >= 1.0) baseGrade = 'SSS';
-    else if (dc <= 60000 && sv >= 700 && gr >= 0.6) baseGrade = 'SS';
-    else if (dc <= 150000 && sv >= 400 && gr >= 0.3) baseGrade = 'S';
+    // 🎯 v2.40.4 — 금융·부동산 P25 완화
+    if (dc <= 25000 && sv >= 700 && gr >= 0.7) baseGrade = 'SSS';
+    else if (dc <= 80000 && sv >= 400 && gr >= 0.4) baseGrade = 'SS';
+    else if (dc <= 200000 && sv >= 200 && gr >= 0.25) baseGrade = 'S';
   } else if (category === 'pro_premium') {
     // 🔥 v2.24.0 P1: pro_premium 전용 분기 — 기존 else ultra-strict 에서 99% 탈락하던 문제 해결
     //   고수익 대형 키워드 풀(월 10억+ 지향) — dc 큼 감안, gr 완화
@@ -645,12 +631,10 @@ function computePremiumGrade(r: ProTrafficKeyword, category?: string): 'SSS' | '
     else if (dc <= 30000 && sv >= 500 && gr >= 0.6) baseGrade = 'SS';
     else if (dc <= 150000 && sv >= 200 && gr >= 0.3) baseGrade = 'S';
   } else {
-    // 🎯 v2.40.0 R4 — 일반(all/beauty/fashion/diet/travel/food/coding/parenting/pet/car/season_* 등 41+ 카테고리) 폭탄 해체
-    // 이전(v2.15.0): dc≤2000 & sv≥2000 & gr≥10.0 — 한국 자연어 분포 P0.1 → SSS 사실상 0건 강제
-    // 변경: it/health 동급 캘리브레이션. fashion/beauty 등 핵심 비즈니스 카테고리 SSS 진입성 정상화.
-    if (dc <= 8000 && sv >= 1500 && gr >= 2.0) baseGrade = 'SSS';
-    else if (dc <= 25000 && sv >= 800 && gr >= 1.0) baseGrade = 'SS';
-    else if (dc <= 80000 && sv >= 400 && gr >= 0.5) baseGrade = 'S';
+    // 🎯 v2.40.4 — 일반(else) P25 완화 (fashion/beauty/diet/travel/food/coding/parenting/pet/car/season_* 등 41+)
+    if (dc <= 18000 && sv >= 700 && gr >= 1.2) baseGrade = 'SSS';
+    else if (dc <= 50000 && sv >= 400 && gr >= 0.7) baseGrade = 'SS';
+    else if (dc <= 120000 && sv >= 200 && gr >= 0.4) baseGrade = 'S';
   }
 
   if (penaltySteps === 0) return baseGrade;
@@ -669,29 +653,35 @@ function computePremiumGradeStrict(r: ProTrafficKeyword, criteria?: { minRatio?:
   const dc = dcRaw;
   const gr = typeof r.goldenRatio === 'number' && Number.isFinite(r.goldenRatio) ? r.goldenRatio : 0;
 
-  // 🔥 v2.17.0 Strict 컷 — 카테고리별 세분화
+  // 🎯 v2.40.4 — strict 진입 게이트도 P25 매칭
   if (sv < 100) return null;
   if (isGenericSingleToken(r.keyword)) return null;
   const cat = criteria?.category;
   if (cat === 'celeb') {
-    if (gr < 0.1) return null;
+    if (gr < 0.05) return null;
   } else if (cat === 'life_tips') {
-    if (gr < 0.3) return null;
+    if (gr < 0.15) return null;
+    if (dc > 350000) return null;
   } else if (cat === 'movie' || cat === 'drama' || cat === 'music'
           || cat === 'book' || cat === 'anime' || cat === 'broadcast') {
+    if (gr < 0.15) return null;
+    if (dc > 350000) return null;
+  } else if (cat === 'policy') {
     if (gr < 0.2) return null;
-    if (dc > 300000) return null;
-  } else if (cat === 'policy' || cat === 'finance' || cat === 'realestate' || cat === 'health') {
-    if (gr < 0.4) return null;
+    if (dc > 250000) return null;
+  } else if (cat === 'finance' || cat === 'realestate') {
+    if (gr < 0.25) return null;
     if (dc > 200000) return null;
+  } else if (cat === 'health') {
+    if (gr < 0.3) return null;
+    if (dc > 150000) return null;
   } else if (cat === 'it' || cat === 'business' || cat === 'interior'
           || cat === 'daily' || cat === 'self_development') {
-    if (gr < 0.5) return null;
-    if (dc > 80000) return null;
+    if (gr < 0.3) return null;
+    if (dc > 150000) return null;
   } else {
-    // 🎯 v2.40.0 R4 — strict 미러도 일반 진입 게이트 정상화
-    if (gr < 0.5) return null;
-    if (dc > 80000) return null;
+    if (gr < 0.4) return null;
+    if (dc > 120000) return null;
   }
 
   const category = criteria?.category;
@@ -706,42 +696,42 @@ function computePremiumGradeStrict(r: ProTrafficKeyword, criteria?: { minRatio?:
     if (dc <= 600000 && sv >= 1500 && gr >= 0.25) return 'SS';
     if (dc <= Math.min(maxDocs, 1500000) && sv >= 800 && gr >= Math.max(0.1, minRatio)) return 'S';
   } else if (category === 'life_tips') {
-    // 🎯 v2.40.0 R9 — life_tips strict 캘리브레이션
-    if (dc <= 20000 && sv >= 1500 && gr >= 1.0) return 'SSS';
-    if (dc <= 60000 && sv >= 700 && gr >= 0.4) return 'SS';
-    if (dc <= maxDocs && sv >= 300 && gr >= Math.max(0.2, minRatio)) return 'S';
+    // 🎯 v2.40.4 — life_tips strict P25
+    if (dc <= 30000 && sv >= 1000 && gr >= 0.6) return 'SSS';
+    if (dc <= 100000 && sv >= 500 && gr >= 0.3) return 'SS';
+    if (dc <= maxDocs && sv >= 200 && gr >= Math.max(0.15, minRatio)) return 'S';
   } else if (category === 'movie' || category === 'drama' || category === 'music'
           || category === 'book' || category === 'anime' || category === 'broadcast') {
-    // 🎯 v2.40.0 R9 — 엔터/콘텐츠 strict 캘리브레이션
-    if (dc <= 25000 && sv >= 1200 && gr >= 0.7) return 'SSS';
-    if (dc <= 100000 && sv >= 600 && gr >= 0.4) return 'SS';
-    if (dc <= Math.min(maxDocs, 300000) && sv >= 300 && gr >= Math.max(0.2, minRatio)) return 'S';
+    // 🎯 v2.40.4 — 엔터 strict P25
+    if (dc <= 35000 && sv >= 800 && gr >= 0.5) return 'SSS';
+    if (dc <= 130000 && sv >= 400 && gr >= 0.3) return 'SS';
+    if (dc <= Math.min(maxDocs, 350000) && sv >= 200 && gr >= Math.max(0.15, minRatio)) return 'S';
   } else if (category === 'it' || category === 'business' || category === 'interior'
           || category === 'daily' || category === 'self_development') {
-    // 🎯 v2.40.3 — IT/비즈 strict 추가 완화 (P15 분위)
+    // 🎯 v2.40.4 — IT/비즈 strict P25
+    if (dc <= 25000 && sv >= 500 && gr >= 0.8) return 'SSS';
+    if (dc <= 70000 && sv >= 300 && gr >= 0.5) return 'SS';
+    if (dc <= Math.min(maxDocs, 150000) && sv >= 150 && gr >= Math.max(0.3, minRatio)) return 'S';
+  } else if (category === 'policy') {
+    // 🎯 v2.40.4 — 정책 strict P25
+    if (dc <= 30000 && sv >= 1000 && gr >= 0.7) return 'SSS';
+    if (dc <= 100000 && sv >= 500 && gr >= 0.4) return 'SS';
+    if (dc <= Math.min(maxDocs, 250000) && sv >= 250 && gr >= Math.max(0.2, minRatio)) return 'S';
+  } else if (category === 'health') {
+    // 🎯 v2.40.4 — 건강 strict P25
+    if (dc <= 25000 && sv >= 700 && gr >= 0.8) return 'SSS';
+    if (dc <= 70000 && sv >= 400 && gr >= 0.5) return 'SS';
+    if (dc <= Math.min(maxDocs, 150000) && sv >= 200 && gr >= Math.max(0.3, minRatio)) return 'S';
+  } else if (category === 'finance' || category === 'realestate') {
+    // 🎯 v2.40.4 — 금융 strict P25
+    if (dc <= 25000 && sv >= 700 && gr >= 0.7) return 'SSS';
+    if (dc <= 80000 && sv >= 400 && gr >= 0.4) return 'SS';
+    if (dc <= Math.min(maxDocs, 200000) && sv >= 200 && gr >= Math.max(0.25, minRatio)) return 'S';
+  } else {
+    // 🎯 v2.40.4 — 일반(else) strict P25 (fashion/beauty/diet/travel/food 등)
     if (dc <= 18000 && sv >= 700 && gr >= 1.2) return 'SSS';
     if (dc <= 50000 && sv >= 400 && gr >= 0.7) return 'SS';
     if (dc <= Math.min(maxDocs, 120000) && sv >= 200 && gr >= Math.max(0.4, minRatio)) return 'S';
-  } else if (category === 'policy') {
-    // 🎯 v2.40.0 R9 — 정책 strict 캘리브레이션
-    if (dc <= 20000 && sv >= 1500 && gr >= 1.0) return 'SSS';
-    if (dc <= 80000 && sv >= 700 && gr >= 0.5) return 'SS';
-    if (dc <= Math.min(maxDocs, 200000) && sv >= 400 && gr >= Math.max(0.3, minRatio)) return 'S';
-  } else if (category === 'health') {
-    // 🎯 v2.40.0 R9 — 건강·의료 strict 캘리브레이션
-    if (dc <= 15000 && sv >= 1200 && gr >= 1.2) return 'SSS';
-    if (dc <= 50000 && sv >= 700 && gr >= 0.7) return 'SS';
-    if (dc <= Math.min(maxDocs, 100000) && sv >= 400 && gr >= Math.max(0.4, minRatio)) return 'S';
-  } else if (category === 'finance' || category === 'realestate') {
-    // 🎯 v2.40.0 R9 — 금융·부동산 strict 캘리브레이션
-    if (dc <= 15000 && sv >= 1200 && gr >= 1.0) return 'SSS';
-    if (dc <= 60000 && sv >= 700 && gr >= 0.6) return 'SS';
-    if (dc <= Math.min(maxDocs, 150000) && sv >= 400 && gr >= Math.max(0.3, minRatio)) return 'S';
-  } else {
-    // 🎯 v2.40.0 R4 — strict 미러도 일반 분기 정상화 (it/health 동급)
-    if (dc <= 8000 && sv >= 1500 && gr >= 2.0) return 'SSS';
-    if (dc <= 25000 && sv >= 800 && gr >= 1.0) return 'SS';
-    if (dc <= Math.min(maxDocs, 80000) && sv >= 400 && gr >= Math.max(0.5, minRatio)) return 'S';
   }
   return 'A';
 }
@@ -4334,21 +4324,16 @@ export async function huntProTrafficKeywords(options: {
         continue;
       }
 
-      // 🏆 등급 재계산 (황금비율 기반!) - 실제 API 데이터로만 계산!
-      let newGrade: 'SSS' | 'SS' | 'S' | 'A' | 'B' | 'C' = 'C';
-
-      // SSS: 황금비율 5+ & 문서수 5000 이하
-      if (realGoldenRatio >= 5 && realDocCount <= 5000) newGrade = 'SSS';
-      // SS: 황금비율 3+ & 문서수 10000 이하
-      else if (realGoldenRatio >= 3 && realDocCount <= 10000) newGrade = 'SS';
-      // S: 황금비율 2+ & 문서수 30000 이하
-      else if (realGoldenRatio >= 2 && realDocCount <= 30000) newGrade = 'S';
-      // A: 황금비율 1.5+
-      else if (realGoldenRatio >= 1.5) newGrade = 'A';
-      // B: 황금비율 0.7+
-      else if (realGoldenRatio >= 0.7) newGrade = 'B';
-      // C: 그 외
-      else newGrade = 'C';
+      // 🎯 v2.40.4 — inline 등급 부여를 카테고리별 함수 호출로 통합
+      // 이전: 하드코딩 (gr≥5 & dc≤5000=SSS, 카테고리 무관) — it 같은 빡센 카테고리에서 SSS 거의 0
+      // 변경: computePremiumGrade(category) 결과 사용 — 카테고리별 P25 캘리브레이션 일관 적용
+      const categoryGrade = computePremiumGrade({
+        keyword: result.keyword,
+        searchVolume: realSearchVolumeForCalc ?? 0,
+        documentCount: realDocCount,
+        goldenRatio: realGoldenRatio,
+      } as any, category);
+      let newGrade: 'SSS' | 'SS' | 'S' | 'A' | 'B' | 'C' = (categoryGrade as any) || 'C';
 
       // 블루오션 조건 (황금비율 기반)
       const isRealBlueOcean = realSearchVolumeForGrade >= 50 && realDocCount <= 10000 && realGoldenRatio >= 1.0;
