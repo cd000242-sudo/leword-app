@@ -756,12 +756,24 @@ export function setupPremiumHuntingHandlers(): void {
 
         if (enhanceOpts) {
           const { enhanced, blockedCount, blockedReasons } = enhanceProResults(result.keywords, enhanceOpts);
-          console.log(`[PRO-TRAFFIC] 🚀 AdSense 9-게이트 후처리: ${enhanced.length}/${result.keywords.length} 통과 (차단 ${blockedCount}개)`, blockedReasons);
+          // 🎯 v2.40.0 R5 — SSS 등급 키워드는 9-게이트 차단 면제 (검증된 최상위는 강제 보존)
+          const enhancedKeys = new Set(enhanced.map((k: any) => String(k.keyword || '')));
+          const rescuedSss = result.keywords.filter((k: any) =>
+            String(k.grade || '').toUpperCase() === 'SSS' &&
+            !enhancedKeys.has(String(k.keyword || ''))
+          );
+          const finalKeywords = rescuedSss.length > 0
+            ? [...enhanced, ...rescuedSss]
+            : enhanced;
+          if (rescuedSss.length > 0) {
+            console.log(`[PRO-TRAFFIC] 🛟 SSS 등급 ${rescuedSss.length}개 9-게이트 차단 면제 복구`);
+          }
+          console.log(`[PRO-TRAFFIC] 🚀 AdSense 9-게이트 후처리: ${enhanced.length}/${result.keywords.length} 통과 (차단 ${blockedCount}개, SSS 복구 ${rescuedSss.length})`, blockedReasons);
           return {
             success: true,
             ...result,
-            keywords: enhanced,
-            blockedCount,
+            keywords: finalKeywords,
+            blockedCount: Math.max(0, blockedCount - rescuedSss.length),
             blockedReasons,
             enhancedByAdsense: true,
           };

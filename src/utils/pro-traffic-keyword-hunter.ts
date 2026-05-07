@@ -555,9 +555,10 @@ function computePremiumGrade(r: ProTrafficKeyword, category?: string): 'SSS' | '
     if (gr < 0.5) return null;
     if (dc > 80000) return null;
   } else {
-    // 나머지(all 등): 엄격
-    if (gr < 2.0) return null;
-    if (dc > 30000) return null;
+    // 🎯 v2.40.0 R4 — 일반(all/beauty/fashion 등 41 카테고리) 진입 게이트 정상화
+    // S 등급 컷(gr≥0.5, dc≤80k)과 일치시켜 진입 가능 풀 확장. SSS/SS/S 게이트는 baseGrade 계산에서 분리.
+    if (gr < 0.5) return null;
+    if (dc > 80000) return null;
   }
 
   // 🛡️ 저경쟁 보증 필터: 문서수가 너무 많으면 등급 하향 (기득권 블로그 영역)
@@ -578,11 +579,18 @@ function computePremiumGrade(r: ProTrafficKeyword, category?: string): 'SSS' | '
   }
 
   // 레드오션 페널티 (문서수가 검색량보다 월등히 많은 경우)
-  // life_tips는 시즌 키워드 특성상 dc/sv 비가 항상 높으므로 제외
-  if (category !== 'life_tips') {
-    if (dc > sv * 2) penaltySteps += 1;
-    if (dc > sv * 5) penaltySteps += 1;
+  // 시즌성·이슈성 카테고리는 dc/sv 비가 구조적으로 높아 면제
+  // (life_tips/finance/realestate/policy/health/season_* — 시즌 검색량 폭증 특성)
+  const seasonalLikeCategories = new Set([
+    'life_tips', 'finance', 'realestate', 'policy', 'health',
+    'season_spring', 'season_summer', 'season_fall', 'season_winter'
+  ]);
+  if (!seasonalLikeCategories.has(String(category || ''))) {
+    if (dc > sv * 3) penaltySteps += 1; // sv*2 → sv*3 완화
+    if (dc > sv * 7) penaltySteps += 1; // sv*5 → sv*7 완화
   }
+  // 페널티 누적 상한 (Math.min(penaltySteps, 2))
+  penaltySteps = Math.min(penaltySteps, 2);
 
   let baseGrade: 'SSS' | 'SS' | 'S' | 'A' = 'A';
 
@@ -637,15 +645,12 @@ function computePremiumGrade(r: ProTrafficKeyword, category?: string): 'SSS' | '
     else if (dc <= 30000 && sv >= 500 && gr >= 0.6) baseGrade = 'SS';
     else if (dc <= 150000 && sv >= 200 && gr >= 0.3) baseGrade = 'S';
   } else {
-    // 🔥 v2.15.0 진짜 블루오션 기준 — "검색량 대비 문서수 극소" 중심
-    // 핵심 철학: 블로거가 10개 글 써도 100% 상위 노출되는 키워드만
-    // SSS: 극블루오션 (gr 10+, dc 극소 2000↓, sv 충분 2000+)
-    //      → 검색량이 문서수의 10배 이상. 공급이 수요의 1/10 미만.
-    if (dc <= 2000 && sv >= 2000 && gr >= 10.0) baseGrade = 'SSS';
-    // SS: 진성 블루오션 (gr 5+, dc 5000↓, sv 1200+)
-    else if (dc <= 5000 && sv >= 1200 && gr >= 5.0) baseGrade = 'SS';
-    // S: 블루오션 (gr 3+, dc 15000↓, sv 700+)
-    else if (dc <= 15000 && sv >= 700 && gr >= 3.0) baseGrade = 'S';
+    // 🎯 v2.40.0 R4 — 일반(all/beauty/fashion/diet/travel/food/coding/parenting/pet/car/season_* 등 41+ 카테고리) 폭탄 해체
+    // 이전(v2.15.0): dc≤2000 & sv≥2000 & gr≥10.0 — 한국 자연어 분포 P0.1 → SSS 사실상 0건 강제
+    // 변경: it/health 동급 캘리브레이션. fashion/beauty 등 핵심 비즈니스 카테고리 SSS 진입성 정상화.
+    if (dc <= 8000 && sv >= 1500 && gr >= 2.0) baseGrade = 'SSS';
+    else if (dc <= 25000 && sv >= 800 && gr >= 1.0) baseGrade = 'SS';
+    else if (dc <= 80000 && sv >= 400 && gr >= 0.5) baseGrade = 'S';
   }
 
   if (penaltySteps === 0) return baseGrade;
@@ -684,8 +689,9 @@ function computePremiumGradeStrict(r: ProTrafficKeyword, criteria?: { minRatio?:
     if (gr < 0.5) return null;
     if (dc > 80000) return null;
   } else {
-    if (gr < 2.0) return null;
-    if (dc > 30000) return null;
+    // 🎯 v2.40.0 R4 — strict 미러도 일반 진입 게이트 정상화
+    if (gr < 0.5) return null;
+    if (dc > 80000) return null;
   }
 
   const category = criteria?.category;
@@ -728,10 +734,10 @@ function computePremiumGradeStrict(r: ProTrafficKeyword, criteria?: { minRatio?:
     if (dc <= 40000 && sv >= 1000 && gr >= 0.8) return 'SS';
     if (dc <= Math.min(maxDocs, 150000) && sv >= 500 && gr >= Math.max(0.4, minRatio)) return 'S';
   } else {
-    // 🔥 v2.15.0 Strict: 진짜 블루오션 (검색량 대비 문서수 극소)
-    if (dc <= 2000 && sv >= 2000 && gr >= 10.0) return 'SSS';
-    if (dc <= 5000 && sv >= 1200 && gr >= 5.0) return 'SS';
-    if (dc <= Math.min(maxDocs, 15000) && sv >= 700 && gr >= Math.max(3.0, minRatio)) return 'S';
+    // 🎯 v2.40.0 R4 — strict 미러도 일반 분기 정상화 (it/health 동급)
+    if (dc <= 8000 && sv >= 1500 && gr >= 2.0) return 'SSS';
+    if (dc <= 25000 && sv >= 800 && gr >= 1.0) return 'SS';
+    if (dc <= Math.min(maxDocs, 80000) && sv >= 400 && gr >= Math.max(0.5, minRatio)) return 'S';
   }
   return 'A';
 }
@@ -3534,8 +3540,9 @@ export async function huntProTrafficKeywords(options: {
   // Traffic Hunter Pro의 분석력 + Ultimate Niche Finder의 발굴력
   // 카테고리 모드에서는 Naver 자연 연관 키워드가 이미 충분 → Deep Mining 축소
   // (Deep Mining은 sv null 키워드를 대량 생성해 Rate Limit 소진)
-  const deepMiningEnabled = useDeepMining && (category !== 'celeb' || explosionMode)
-    && (mode !== 'category' || explosionMode);
+  // 🎯 v2.40.0 R6 — 카테고리 비-explosion 모드에서도 Deep Mining 활성화 (이전엔 OFF로 풀 다양성 결여)
+  // celeb 만 explosion 외에서 OFF 유지 (celeb 키워드 폭증 위험)
+  const deepMiningEnabled = useDeepMining && (category !== 'celeb' || explosionMode);
   if (deepMiningEnabled) {
     try {
       const miningSeeds = allSeedKeywords.slice(0, explosionMode ? 10 : 5);
@@ -3579,8 +3586,47 @@ export async function huntProTrafficKeywords(options: {
     console.log(`[PRO-TRAFFIC] 📁 중간 카테고리 필터: ${beforeFilter}개 → ${allKeywords.length}개 (${category})`);
   }
 
+  // 🎯 v2.40.0 R7 — 다중 소스 풀 다양화 (사장된 fetchRelatedKeywordsMulti 부활)
+  // Daum + Google + SmartBlock + AI 브리핑 + 관련 질문 → 네이버 동질성 탈피, SSS 게이트 통과율↑
+  if (mode === 'category' && allKeywords.length < 1500) {
+    try {
+      const { EnvironmentManager: EnvMgrMulti } = await import('./environment-manager');
+      const envCfgMulti = EnvMgrMulti.getInstance().getConfig() as any;
+      const { fetchRelatedKeywordsMulti } = await import('./related-keyword-fallback');
+      const multiSeeds = allSeedKeywords.slice(0, 20);
+      const multiResults = await Promise.allSettled(
+        multiSeeds.map(s => fetchRelatedKeywordsMulti(s, {
+          naverSearchAdAccessLicense: envCfgMulti.naverSearchAdAccessLicense,
+          naverSearchAdSecretKey: envCfgMulti.naverSearchAdSecretKey,
+          naverSearchAdCustomerId: envCfgMulti.naverSearchAdCustomerId,
+        }, { skipSearchAd: true }))
+      );
+      let multiAdded = 0;
+      const seenMulti = new Set(allKeywords.map(k => normalizeKeywordCompact(k.keyword)));
+      for (const r of multiResults) {
+        if (r.status !== 'fulfilled') continue;
+        for (const item of r.value.slice(0, 30)) {
+          const norm = normalizeKeywordCompact(item.keyword);
+          if (!norm || seenMulti.has(norm)) continue;
+          seenMulti.add(norm);
+          allKeywords.push({
+            keyword: item.keyword,
+            source: `multi_${item.sources?.[0] || 'fallback'}`,
+            searchVolume: item.monthlyVolume ?? null,
+            documentCount: null,
+          } as any);
+          multiAdded++;
+        }
+      }
+      console.log(`[PRO-TRAFFIC] 🌐 다중 소스 통합 (Daum/Google/SmartBlock/AI브리핑): +${multiAdded}개`);
+    } catch (e: any) {
+      console.warn(`[PRO-TRAFFIC] ⚠️ 다중 소스 통합 실패: ${e?.message || e}`);
+    }
+  }
+
   // 🚀 3단계: 자동완성 API로 추가 키워드 수집 (검색광고 결과 부족 시)
-  if (explosionMode || allKeywords.length < 50) {
+  // 🎯 v2.40.0 R6 — 카테고리 모드에서도 풀이 800 미만이면 활성화 (이전엔 50 미만만 — 사실상 스킵됨)
+  if (explosionMode || allKeywords.length < 50 || (mode === 'category' && allKeywords.length < 800)) {
     console.log('[PRO-TRAFFIC] 🔍 네이버 자동완성으로 추가 키워드 수집...');
 
     const before = allKeywords.length;
@@ -3791,9 +3837,12 @@ export async function huntProTrafficKeywords(options: {
 
   // 🚀 중복 제거 (카테고리별 상한 - 속도 최적화!)
   // premium(explosionMode)에서는 시간이 걸리더라도 S/SS/SSS를 끝까지 찾기 위해 상한을 크게 늘린다.
+  // 🎯 v2.40.0 R1 — 후보 풀 cap 5배 확장 (verifySliceSize=count*10 의 1차 병목 해소)
+  // 이전: non-explosion 200/300 → verify pool 사실상 300 cap → SSS 5~15개
+  // 변경: 1500~2500 → SSS 게이트 통과 절대 수 5×↑ 기대
   const maxCandidates = explosionMode
-    ? ((category === 'it' || category === 'health') ? 900 : 1200)
-    : ((category === 'it' || category === 'health') ? 200 : 300);
+    ? ((category === 'it' || category === 'health') ? 2500 : 3500)
+    : ((category === 'it' || category === 'health') ? 1500 : 2500);
   const uniqueKeywords = [...new Map(profitableKeywords.map(k => [normalizeKeywordCompact(k.keyword), k])).values()].slice(0, maxCandidates);
 
   internalMetrics.uniqueKeywordsCount = uniqueKeywords.length;
@@ -4049,7 +4098,8 @@ export async function huntProTrafficKeywords(options: {
 
   const verifiedTarget = explosionMode
     ? (timeoutExplosionCategories.has(category) ? Math.max(count * 8, 40) : Math.max(count * 10, 120))
-    : Math.max(count * 2, count + 10);
+    // 🎯 v2.40.0 R2 — count*2 → count*5 (SSS 통과 절대 수 추구를 위해 검증 풀 조기 종료 완화)
+    : Math.max(count * 5, 1000);
 
   const verifiedTargetEffective = (explosionMode && timeoutExplosionCategories.has(category))
     ? count
@@ -5149,7 +5199,9 @@ export async function huntProTrafficKeywords(options: {
     const selectionPool = fillToCountPreferCompact(selectionPoolRaw, count);
     let selectedKeywords = selectPremiumGolden(selectionPool, count)
       .map(r => {
-        const grade = computePremiumGradeEffective(r, strictPro, { ...premiumCriteria, category });
+        // 🎯 v2.40.0 R3 — 검증 단계에서 부여된 r.grade 를 strict 게이트로 재계산해
+        //   SSS→A/null 강등시키던 손실 제거. r.grade 가 비어있을 때만 non-strict 보조 계산.
+        const grade = r.grade ?? computePremiumGrade(r, category);
         const isCPAKeyword = /렌탈|대출|보험|카드|통신사|인터넷사은품|상담|가입|신청|가격비교|최저가|비교추천/.test(r.keyword);
         // 🔥 v2.14.0 Phase H: sv < 500 이면 수익 전략 생성 차단
         const blueprint = canGenerateMonetization(r.searchVolume, r.documentCount)
@@ -5223,7 +5275,8 @@ export async function huntProTrafficKeywords(options: {
       const topUp = relaxed.filter(r => !existingKeys.has(String(r.keyword || ''))).slice(0, needMore);
       if (topUp.length > 0) {
         const topUpEnriched = topUp.map(r => {
-          const grade = computePremiumGradeEffective(r, strictPro, { ...premiumCriteria, category });
+          // 🎯 v2.40.0 R3 — strict 재계산 손실 방지, 보존된 r.grade 우선
+          const grade = r.grade ?? computePremiumGrade(r, category);
           const isCPAKeyword = /렌탈|대출|보험|카드|통신사|인터넷사은품|상담|가입|신청|가격비교|최저가|비교추천/.test(r.keyword);
           const blueprint = canGenerateMonetization(r.searchVolume, r.documentCount)
             ? MonetizationStrategyGenerator.generate(
@@ -5276,7 +5329,8 @@ export async function huntProTrafficKeywords(options: {
             : undefined;
           const rookieFriendly = calculateAdvancedRookieFriendly(r, undefined);
           const winningStrategy = generateWinningStrategy(r, rookieFriendly, blueprint);
-          const grade = computePremiumGradeEffective(r, strictPro, { ...premiumCriteria, category });
+          // 🎯 v2.40.0 R3 — celeb legacy 도 strict 재계산 손실 제거
+          const grade = r.grade ?? computePremiumGrade(r, category);
 
           return {
             ...r,
