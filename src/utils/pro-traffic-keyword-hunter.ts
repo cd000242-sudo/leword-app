@@ -4061,9 +4061,9 @@ export async function huntProTrafficKeywords(options: {
     ? (timeoutExplosionCategories.has(category)
       ? 180000
       : 120000)
-    : (category === 'celeb' ? 600000 : 60000);
+    : (category === 'celeb' ? 600000 : 300000); // 🎯 SSS 대량 추출: 60초 → 300초 (검증 풀 5배 확장)
 
-  const verifyTimeBudgetMs = Math.min(baseVerifyTimeBudgetMs, (category === 'celeb' ? 600000 : (explosionMode ? 300000 : 180000)));
+  const verifyTimeBudgetMs = Math.min(baseVerifyTimeBudgetMs, (category === 'celeb' ? 600000 : (explosionMode ? 300000 : 300000))); // 🎯 일반 카테고리도 300초 캡
   let premiumVerifiedCount = 0;
   let stopVerify = false;
 

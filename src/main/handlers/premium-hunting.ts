@@ -724,7 +724,7 @@ export function setupPremiumHuntingHandlers(): void {
           includeSeasonKeywords: options.includeSeasonKeywords !== false,
           explosionMode: options.explosionMode === true,
           useDeepMining: (options as any).useDeepMining !== false, // 🔥 딥 마이닝 기본 활성화
-          count: Math.min(Math.max(options.count || 20, 5), 50),
+          count: Math.min(Math.max(options.count || 20, 5), 200), // 🎯 SSS 대량 추출 지원 (50→200)
           forceRefresh: true // 항상 새로운 결과
         });
 
