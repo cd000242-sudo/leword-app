@@ -5333,6 +5333,32 @@ export async function huntProTrafficKeywords(options: {
         });
     }
 
+    // 🎯 v2.40.5 — 분포 기반 동적 SSS 라벨링 (사용자 결정: SSS = "이 풀에서 검증된 상위 N개")
+    // 절대 컷 게이트(P25)는 자연 분포에서 통과 5%만 잡아 "대량" 미충족.
+    // 분포 기반: 검증된 키워드를 sv/dc/gr 결합 점수 정렬 → 상위 count 개를 SSS 라벨.
+    // SSS 의미를 "절대 임계치 통과" → "이 카테고리 풀의 상위 황금" 으로 재정의.
+    const dynamicSssScore = (k: any): number => {
+      const sv = typeof k?.searchVolume === 'number' && k.searchVolume > 0 ? k.searchVolume : 0;
+      const dc = typeof k?.documentCount === 'number' && k.documentCount > 0 ? k.documentCount : Number.MAX_SAFE_INTEGER;
+      const gr = typeof k?.goldenRatio === 'number' && k.goldenRatio > 0 ? k.goldenRatio : (sv > 0 && dc < Number.MAX_SAFE_INTEGER ? sv / dc : 0);
+      const grScore = Math.min(100, gr * 20);              // gr 5+ → 100
+      const svScore = Math.min(100, Math.log10(sv + 1) * 25); // sv 1k → 75, 10k → 100
+      const dcScore = Math.min(100, 100000 / Math.max(1000, dc)); // dc 1k → 100, 10k → 10
+      return grScore * 0.55 + svScore * 0.30 + dcScore * 0.15;
+    };
+    const verifiedForSss = selectedKeywords
+      .map((k: any, i: number) => ({ k, i, score: dynamicSssScore(k) }))
+      .filter(x =>
+        typeof x.k.searchVolume === 'number' && x.k.searchVolume > 0 &&
+        typeof x.k.documentCount === 'number' && x.k.documentCount > 0
+      )
+      .sort((a, b) => b.score - a.score);
+    const dynamicSssCap = Math.min(count, verifiedForSss.length);
+    for (let i = 0; i < dynamicSssCap; i++) {
+      verifiedForSss[i].k.grade = 'SSS';
+    }
+    console.log(`[PRO-TRAFFIC] 🎯 동적 SSS 라벨링: ${dynamicSssCap}개 (검증된 ${verifiedForSss.length}개 중 상위 점수)`);
+
     console.log(`[PRO-TRAFFIC] ✅ ${enrichedPremium.length}개 키워드 분석 완료 (끝판왕 v2.0 포함)`);
     console.log(`[PRO-TRAFFIC] 🏆 프리미엄 황금키워드 필터 통과: ${selectionPool.length}개 (S/SS/SSS만, 최소검색량=${bestMinSv}, 최소비율=${premiumMinRatioEffective}, 문서수상한=${premiumMaxDocumentsEffective})`);
     console.log(`[PRO-TRAFFIC] 🏁 최종 선정: ${selectedKeywords.length}개`);
@@ -5342,9 +5368,10 @@ export async function huntProTrafficKeywords(options: {
 
     const summary = {
       totalFound: selectedKeywords.length,
-      sssCount: selectedKeywords.filter(k => computePremiumGradeEffective(k, strictPro, { ...premiumCriteria, category }) === 'SSS').length,
-      ssCount: selectedKeywords.filter(k => computePremiumGradeEffective(k, strictPro, { ...premiumCriteria, category }) === 'SS').length,
-      sCount: selectedKeywords.filter(k => computePremiumGradeEffective(k, strictPro, { ...premiumCriteria, category }) === 'S').length,
+      // 🎯 v2.40.5 — 동적 SSS 라벨 반영 (k.grade 직접 사용. computePremiumGradeEffective 재계산 X)
+      sssCount: selectedKeywords.filter(k => String(k.grade || '').toUpperCase() === 'SSS').length,
+      ssCount: selectedKeywords.filter(k => String(k.grade || '').toUpperCase() === 'SS').length,
+      sCount: selectedKeywords.filter(k => String(k.grade || '').toUpperCase() === 'S').length,
       rookieFriendlyCount: selectedKeywords.filter(k => k.rookieFriendly.score >= 70).length,
       urgentCount: selectedKeywords.filter(k => k.timing.urgency === 'NOW' || k.timing.urgency === 'TODAY').length,
       blueOceanCount: selectedKeywords.filter(k => k.blueOcean.score >= 70).length,
@@ -5721,16 +5748,41 @@ export async function huntProTrafficKeywords(options: {
   }
   console.log(`[PRO-TRAFFIC] 🏁 최종 선정: ${selectedKeywords.length}개`);
 
+  // 🎯 v2.40.5 — 분포 기반 동적 SSS 라벨링 (이 흐름에도 적용)
+  {
+    const dynamicSssScore2 = (k: any): number => {
+      const sv = typeof k?.searchVolume === 'number' && k.searchVolume > 0 ? k.searchVolume : 0;
+      const dc = typeof k?.documentCount === 'number' && k.documentCount > 0 ? k.documentCount : Number.MAX_SAFE_INTEGER;
+      const gr = typeof k?.goldenRatio === 'number' && k.goldenRatio > 0 ? k.goldenRatio : (sv > 0 && dc < Number.MAX_SAFE_INTEGER ? sv / dc : 0);
+      const grScore = Math.min(100, gr * 20);
+      const svScore = Math.min(100, Math.log10(sv + 1) * 25);
+      const dcScore = Math.min(100, 100000 / Math.max(1000, dc));
+      return grScore * 0.55 + svScore * 0.30 + dcScore * 0.15;
+    };
+    const verifiedForSss2 = selectedKeywords
+      .map((k: any) => ({ k, score: dynamicSssScore2(k) }))
+      .filter(x =>
+        typeof x.k.searchVolume === 'number' && x.k.searchVolume > 0 &&
+        typeof x.k.documentCount === 'number' && x.k.documentCount > 0
+      )
+      .sort((a, b) => b.score - a.score);
+    const dynamicSssCap2 = Math.min(count, verifiedForSss2.length);
+    for (let i = 0; i < dynamicSssCap2; i++) {
+      verifiedForSss2[i].k.grade = 'SSS';
+    }
+    console.log(`[PRO-TRAFFIC] 🎯 동적 SSS 라벨링(2nd path): ${dynamicSssCap2}개`);
+  }
+
   // 끝판왕 분석 포함된 키워드 수 로깅
   const withUltimate = selectedKeywords.filter(r => r.ultimateAnalysis).length;
   console.log(`[PRO-TRAFFIC] 🏆 끝판왕 분석 포함: ${withUltimate}개`);
 
-  // 🎯 11단계: 요약 통계
+  // 🎯 11단계: 요약 통계 (v2.40.5 — 동적 SSS 라벨 반영)
   const summary = {
     totalFound: selectedKeywords.length,
-    sssCount: selectedKeywords.filter(k => computePremiumGradeEffective(k, strictPro, { ...premiumCriteria, category }) === 'SSS').length,
-    ssCount: selectedKeywords.filter(k => computePremiumGradeEffective(k, strictPro, { ...premiumCriteria, category }) === 'SS').length,
-    sCount: selectedKeywords.filter(k => computePremiumGradeEffective(k, strictPro, { ...premiumCriteria, category }) === 'S').length,
+    sssCount: selectedKeywords.filter(k => String(k.grade || '').toUpperCase() === 'SSS').length,
+    ssCount: selectedKeywords.filter(k => String(k.grade || '').toUpperCase() === 'SS').length,
+    sCount: selectedKeywords.filter(k => String(k.grade || '').toUpperCase() === 'S').length,
     rookieFriendlyCount: selectedKeywords.filter(k => k.rookieFriendly.score >= 70).length,
     urgentCount: selectedKeywords.filter(k => k.timing.urgency === 'NOW' || k.timing.urgency === 'TODAY').length,
     blueOceanCount: selectedKeywords.filter(k => k.blueOcean.score >= 70).length
