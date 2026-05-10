@@ -1037,18 +1037,26 @@ export async function buildRichFeed(
 
     emit('grading', 88, `SSS-only 필터 적용 (${enrichedRows.length}건)...`);
 
-    // 🔥 v2.42.21: 최종 SSS/SSR 후보의 dc 정확성 검증 (사용자 신고 — "노사발전재단 API 70 vs 실측 16,681")
-    //   Open API blog.json total은 인덱싱된 일부만 카운트. 정확한 dc는 웹 검색 결과 페이지.
-    //   v2.42.17의 bilateral check는 sv>=500 + dc<3000 + ratio>50 케이스만 잡음 (좁음).
-    //   v2.42.21: 모든 SSS/SSR 후보에 scrape verify. dc 2배+ 차이면 실측 채택 + re-grade.
-    //   비용: 후보당 ~1초 (concurrency 5). 50~150건이면 10~30초 추가.
-    if (enrichedRows.length > 0 && enrichedRows.length <= 200) {
-        emit('verify-dc', 89, `dc 정확성 검증 (웹 실측) — ${enrichedRows.length}건...`);
-        const VERIFY_CONCURRENCY = 5;
-        const SCRAPE_TIMEOUT = 2500;
+    // 🔥 v2.42.22: 모든 SSS/SSR 후보에 dc 강제 scrape 재검증 (200 limit 제거 + 무조건 신뢰)
+    //   사용자 재신고: "황금키워드 나와도 dc 안 맞아". v2.42.21로 부족했던 부분:
+    //     1) enrichedRows > 200이면 verify 스킵 ❌ → 제거
+    //     2) 2x threshold는 너무 보수적 (1.5x 미만 차이도 사용자에게 wrong) → 항상 scrape 채택
+    //     3) persistent cache 업데이트 안 함 → 다음 호출에 옛 API 값 재사용 → cache write 추가
+    //   비용: SSS/SSR 후보 50~300건 × 1초 = 50~300초. 6분 하드캡 내 흡수.
+    if (enrichedRows.length > 0) {
+        emit('verify-dc', 88, `dc 정확성 풀 검증 (웹 실측) — ${enrichedRows.length}건...`);
+        const VERIFY_CONCURRENCY = 8;  // 5 → 8 (속도 우선)
+        const SCRAPE_TIMEOUT = 3000;
         let verified = 0;
         let corrected = 0;
         let demoted = 0;
+
+        // persistent cache 업데이트용
+        let persistentSet: ((k: string, e: any) => void) | null = null;
+        try {
+            const pc = await import('../persistent-keyword-cache');
+            persistentSet = pc.setPersistent;
+        } catch {}
 
         const scrapeWebDc = async (kw: string): Promise<number | null> => {
             try {
@@ -1056,14 +1064,27 @@ export async function buildRichFeed(
                 const axios = axiosMod.default;
                 const url = `https://search.naver.com/search.naver?where=blog&query=${encodeURIComponent(kw)}`;
                 const resp = await axios.get(url, {
-                    headers: { 'User-Agent': 'Mozilla/5.0 AppleWebKit/537.36 Chrome/120.0.0.0' },
+                    headers: {
+                        'User-Agent': 'Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/120.0.0.0 Safari/537.36',
+                        'Accept': 'text/html,application/xhtml+xml',
+                        'Accept-Language': 'ko-KR,ko;q=0.9',
+                    },
                     timeout: SCRAPE_TIMEOUT,
                 });
                 const html = String(resp.data || '');
-                const m = html.match(/([0-9,]+)\s*건/);
-                if (m && m[1]) {
-                    const n = parseInt(m[1].replace(/,/g, ''), 10);
-                    return Number.isFinite(n) ? n : null;
+                // 다중 패턴: "1-10 / 16,681건" / "16,681건" / "총 16,681건" / "(16,681)"
+                const patterns = [
+                    /\d+-\d+\s*\/\s*([0-9,]+)\s*건/,   // "1-10 / 16,681건"
+                    /총\s*([0-9,]+)\s*건/,               // "총 16,681건"
+                    /약\s*([0-9,]+)\s*건/,               // "약 16,681건"
+                    /([0-9,]+)\s*건/,                    // fallback "16,681건"
+                ];
+                for (const p of patterns) {
+                    const m = html.match(p);
+                    if (m && m[1]) {
+                        const n = parseInt(m[1].replace(/,/g, ''), 10);
+                        if (Number.isFinite(n) && n > 0) return n;
+                    }
                 }
                 return null;
             } catch {
@@ -1073,45 +1094,54 @@ export async function buildRichFeed(
 
         for (let i = 0; i < enrichedRows.length; i += VERIFY_CONCURRENCY) {
             if (isExceeded()) {
-                console.warn(`[rich-feed v2.42.21] dc 검증 timeout — ${verified}/${enrichedRows.length} 처리 후 중단`);
+                console.warn(`[rich-feed v2.42.22] dc 검증 timeout — ${verified}/${enrichedRows.length} 처리 후 중단`);
                 break;
             }
             const batch = enrichedRows.slice(i, i + VERIFY_CONCURRENCY);
             await Promise.all(batch.map(async (r) => {
-                // dcEstimated 또는 claude/manus 발견은 스킵 (이미 검증 또는 의도된 신뢰)
-                if ((r as any).dcEstimated || (r as any).claudeDiscovered || (r as any).discoveredByManus) return;
+                if ((r as any).claudeDiscovered || (r as any).discoveredByManus) return; // 별도 검증 경로
                 const scraped = await scrapeWebDc(r.keyword);
                 if (scraped !== null && scraped > 0) {
                     verified++;
-                    // 실측이 API 대비 2배 이상 차이면 실측 채택
-                    if (scraped > r.documentCount * 2) {
+                    // v2.42.22: 항상 scrape 신뢰 — 차이 1.2배 이상이면 보정 (API은 항상 undercount 경향)
+                    if (scraped > r.documentCount * 1.2 || scraped < r.documentCount / 1.2) {
                         const oldDc = r.documentCount;
                         const oldRatio = r.goldenRatio;
                         r.documentCount = scraped;
                         r.goldenRatio = parseFloat((r.searchVolume / Math.max(1, scraped)).toFixed(2));
+                        (r as any).dcEstimated = false; // 실측 데이터로 확정
                         corrected++;
-                        // ratio<1이면 redOcean → grade=''로 강등 (정책)
+                        // persistent cache 업데이트 (다음 호출에서 옛값 재사용 차단)
+                        if (persistentSet && r.searchVolume > 0) {
+                            try {
+                                persistentSet(r.keyword, {
+                                    searchVolume: r.searchVolume,
+                                    documentCount: scraped,
+                                    realCpc: r.cpc,
+                                    compIdx: null,
+                                });
+                            } catch {}
+                        }
                         if (r.goldenRatio < 1.0) {
                             (r as any).grade = '';
                             demoted++;
-                            console.log(`[rich-feed v2.42.21] dc 강등 "${r.keyword}": ${oldDc}→${scraped}, ratio ${oldRatio.toFixed(1)}→${r.goldenRatio} (redOcean)`);
+                            console.log(`[rich-feed v2.42.22] dc 강등 "${r.keyword}": ${oldDc}→${scraped}, ratio ${oldRatio.toFixed(2)}→${r.goldenRatio} (redOcean)`);
                         } else {
-                            console.log(`[rich-feed v2.42.21] dc 보정 "${r.keyword}": ${oldDc}→${scraped}, ratio ${oldRatio.toFixed(1)}→${r.goldenRatio}`);
+                            console.log(`[rich-feed v2.42.22] dc 보정 "${r.keyword}": ${oldDc}→${scraped}, ratio ${oldRatio.toFixed(2)}→${r.goldenRatio}`);
                         }
                     }
                 }
             }));
-            const pct = 89 + Math.round((Math.min(i + VERIFY_CONCURRENCY, enrichedRows.length) / enrichedRows.length) * 2);
-            emit('verify-dc', pct, `dc 검증 ${Math.min(i + VERIFY_CONCURRENCY, enrichedRows.length)}/${enrichedRows.length} (보정 ${corrected}건, 강등 ${demoted})`);
+            const pct = 88 + Math.round((Math.min(i + VERIFY_CONCURRENCY, enrichedRows.length) / enrichedRows.length) * 3);
+            emit('verify-dc', pct, `dc 검증 ${Math.min(i + VERIFY_CONCURRENCY, enrichedRows.length)}/${enrichedRows.length} (보정 ${corrected}, 강등 ${demoted})`);
         }
 
-        // 강등된 항목 제거 (grade='')
         const stillHighGrade = enrichedRows.filter(r => r.grade === 'SSR' || r.grade === 'SSS');
         enrichedRows.length = 0;
         enrichedRows.push(...stillHighGrade);
 
-        console.log(`[rich-feed v2.42.21] ✅ dc 검증 완료: ${verified}건 검사, ${corrected}건 dc 보정, ${demoted}건 redOcean 강등, 최종 ${enrichedRows.length}건`);
-        emit('verify-dc', 91, `✅ dc 검증 완료 — 가짜 SSS ${demoted}건 제거, 최종 ${enrichedRows.length}건`);
+        console.log(`[rich-feed v2.42.22] ✅ dc 검증 완료: ${verified}/${enrichedRows.length + demoted}건 검사, ${corrected}건 보정, ${demoted}건 redOcean 강등 (cache 동기화)`);
+        emit('verify-dc', 91, `✅ dc 실측 완료 — 가짜 SSS ${demoted}건 제거, 최종 ${enrichedRows.length}건`);
     }
 
     // 5. 정렬 (등급 → 기회지수 → 소스 수)
