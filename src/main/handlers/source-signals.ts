@@ -241,20 +241,20 @@ export function setupSourceSignalHandlers(): void {
     });
 
     // ========== Rich Golden Feed (메인 핵심) ==========
-    ipcMain.handle('get-rich-golden-feed', async (event, options?: { force?: boolean; tier?: 'lite' | 'pro'; limit?: number }) => {
+    ipcMain.handle('get-rich-golden-feed', async (event, options?: { force?: boolean; tier?: 'lite' | 'pro'; limit?: number; aiAugmentation?: 'none' | 'claude' }) => {
         try {
-            // PRO 티어 자격: 영구제 + 1년권. 자격 있으면 기본 pro, 명시적으로 lite 요청하면 lite.
             const isPro = checkProTierAllowed().allowed;
             const tier: 'lite' | 'pro' = isPro ? (options?.tier === 'lite' ? 'lite' : 'pro') : 'lite';
-            // 🔥 v2.27.8: 대량 확보 — limit 200→300 (8분 하드캡 + 1500 후보 풀 대응)
             const limit = options?.limit || (tier === 'pro' ? 300 : 200);
+            const aiAugmentation = options?.aiAugmentation || 'none';
 
-            // 📡 진행 이벤트를 렌더러로 전송 (rich-feed-progress 채널)
             const onProgress = (payload: { step: string; percent: number; message: string }) => {
                 try { event.sender.send('rich-feed-progress', payload); } catch {}
             };
 
-            const result = await getCachedRichFeed(options?.force === true, { tier, limit }, onProgress);
+            // v2.42.14: aiAugmentation='claude' 시 force=true 강제 (캐시 우회 — 매번 새 Claude 호출)
+            const force = aiAugmentation === 'claude' ? true : (options?.force === true);
+            const result = await getCachedRichFeed(force, { tier, limit, aiAugmentation }, onProgress);
             return { success: true, ...result, isPro };
         } catch (e: any) {
             console.error('[rich-feed] 실패:', e);

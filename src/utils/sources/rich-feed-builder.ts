@@ -60,6 +60,9 @@ export interface RichKeywordRow {
     trendType?: 'evergreen' | 'skyrocket' | 'flash' | 'seasonal' | 'unknown';
     trendLabel?: string;
     trendRecommendation?: string;
+    // 🔥 v2.42.14: Claude AI 추천 + 관대 게이트 통과 마커
+    claudeDiscovered?: boolean;
+    claudeReason?: string;
 }
 
 export interface RichFeedDiagnostic {
@@ -468,7 +471,7 @@ export type RichFeedProgressCallback = (payload: RichFeedProgress) => void;
  * 메인 빌더
  */
 export async function buildRichFeed(
-    options: { tier?: SourceTier; limit?: number } = {},
+    options: { tier?: SourceTier; limit?: number; aiAugmentation?: 'none' | 'claude' } = {},
     onProgress?: RichFeedProgressCallback
 ): Promise<RichFeedResult> {
     const tier: 'lite' | 'pro' = options.tier === 'pro' ? 'pro' : 'lite';
@@ -879,6 +882,25 @@ export async function buildRichFeed(
         await new Promise(r => setTimeout(r, 50));
     }
 
+    // 🔥 v2.42.14: Claude AI 추천으로 SSS 풀 보강 (사용자 옵션)
+    //   - 28 소스 시드 풀이 한정적이라 자연 SSS 부족 발생
+    //   - Claude가 카테고리 다양화된 SSS-targeted 키워드 50개 추천
+    //   - 각 추천 → Naver 실측 → 관대 게이트(writable + ratio>=1)만 통과 시 SSS 추가
+    //   - 정책 유지: redOcean 차단 + writable 검사. SSR/SSS only 노출.
+    if ((options as any).aiAugmentation === 'claude' && clientId && clientSecret) {
+        emit('ai-augment', 87, '🧠 Claude AI 추천 키워드 검증 중...');
+        try {
+            const claudeRows = await augmentWithClaude(50, { naverClientId: clientId, naverClientSecret: clientSecret });
+            if (claudeRows.length > 0) {
+                enrichedRows.push(...claudeRows);
+                console.log(`[rich-feed v2.42.14] Claude augmentation: ${claudeRows.length}건 SSS 추가 (관대 게이트 통과)`);
+                emit('ai-augment', 89, `🧠 Claude 추천 ${claudeRows.length}건 SSS 추가됨`);
+            }
+        } catch (e: any) {
+            console.warn('[rich-feed] Claude augmentation 실패 (무시):', e?.message);
+        }
+    }
+
     // 🔥 v2.41.0: 분포 기반 동적 SSS 승격 (필터 전)
     //   사용자 정책: SSS-only 화면 + SSS 절대 수 대량 보장.
     //   안전 풀: writable + 실측 dc + ratio>=1 통과한 SS/S/A 중 dynamicSssScore 상위 N개를 SSS 로 승격.
@@ -1074,9 +1096,100 @@ function writeDiskCache(result: RichFeedResult): void {
     }
 }
 
+// v2.42.14: Claude AI 추천 + Naver 실측 + 관대 게이트 — SSS 풀 보강
+async function augmentWithClaude(
+    targetCount: number,
+    env: { naverClientId: string; naverClientSecret: string }
+): Promise<RichKeywordRow[]> {
+    const { callAI } = await import('../pro-hunter-v12/ai-client');
+    const prompt = `당신은 한국 네이버 블로그 SEO 전문가다.
+한국 블로거가 글을 써서 트래픽을 모을 수 있는 SSS급 황금 키워드 ${targetCount}개를 추천하라.
+
+SSS 기준:
+- 한국어 자연 키워드 (주로 2-3 토큰)
+- 검색량 충분 (월 300~30000) + 문서수 적절 (10000 이하)
+- 검색량/문서수 비율 2 이상 = 상위 노출 가능
+- 다양한 카테고리 분산 (건강·재무·뷰티·생활·기술·여행·교육·정책·라이프스타일)
+- 너무 일반적이지 않은 구체 주제 ("적금" 단독 X, "20대 신용카드 추천" OK)
+
+JSON 배열로만 응답 (코드블록 X, 다른 텍스트 X):
+[
+  {"keyword": "구체적 한국어 키워드", "reason": "왜 SSS급인지 1줄"}
+]`;
+    const result = await callAI(prompt, { maxTokens: 4096, temperature: 0.5 });
+
+    let jsonText = result.text.trim();
+    const codeBlockMatch = jsonText.match(/```(?:json)?\s*([\s\S]*?)\s*```/);
+    if (codeBlockMatch) jsonText = codeBlockMatch[1].trim();
+    const startIdx = jsonText.indexOf('[');
+    const endIdx = jsonText.lastIndexOf(']');
+    if (startIdx < 0 || endIdx <= startIdx) {
+        console.warn('[rich-feed] Claude 응답에 JSON 배열 없음');
+        return [];
+    }
+    jsonText = jsonText.slice(startIdx, endIdx + 1);
+    let suggestions: Array<{ keyword: string; reason?: string }>;
+    try {
+        suggestions = JSON.parse(jsonText);
+    } catch (e: any) {
+        console.warn('[rich-feed] Claude JSON 파싱 실패:', e?.message);
+        return [];
+    }
+    if (!Array.isArray(suggestions) || suggestions.length === 0) return [];
+
+    const reasonByKw = new Map<string, string>();
+    const keywords = suggestions
+        .map((s) => {
+            const kw = String(s?.keyword || '').trim();
+            if (kw && s?.reason) reasonByKw.set(kw, String(s.reason).slice(0, 200));
+            return kw;
+        })
+        .filter(Boolean);
+    if (keywords.length === 0) return [];
+
+    const sigs = await getNaverKeywordSearchVolumeSeparate(
+        { clientId: env.naverClientId, clientSecret: env.naverClientSecret },
+        keywords,
+        { includeDocumentCount: true }
+    );
+
+    const validated: RichKeywordRow[] = [];
+    for (const sig of sigs) {
+        const sv = (sig.pcSearchVolume || 0) + (sig.mobileSearchVolume || 0);
+        const dc = sig.documentCount || 0;
+        if (dc <= 0) continue;
+        const ratio = sv / Math.max(1, dc);
+        if (ratio < 1.0) continue;
+        if (!isWritableKeyword(sig.keyword, dc)) continue;
+
+        const cat = classifyForFeed(sig.keyword);
+        const cpcVal = typeof sig.monthlyAveCpc === 'number' && sig.monthlyAveCpc > 0 ? sig.monthlyAveCpc : null;
+
+        validated.push({
+            rank: 0,
+            keyword: sig.keyword,
+            category: cat.label,
+            categoryIcon: cat.icon,
+            grade: 'SSS',
+            searchVolume: sv,
+            documentCount: dc,
+            goldenRatio: parseFloat(ratio.toFixed(2)),
+            cpc: cpcVal,
+            freshness: 'STABLE',
+            sources: ['claude'],
+            sourceCount: 1,
+            purchaseIntent: calculatePurchaseIntent(sig.keyword),
+            isBlueOcean: ratio >= 5 && dc <= 2000,
+            claudeDiscovered: true,
+            claudeReason: reasonByKw.get(sig.keyword) || '',
+        });
+    }
+    return validated;
+}
+
 export async function getCachedRichFeed(
     force: boolean = false,
-    options: { tier?: SourceTier; limit?: number } = {},
+    options: { tier?: SourceTier; limit?: number; aiAugmentation?: 'none' | 'claude' } = {},
     onProgress?: RichFeedProgressCallback
 ): Promise<RichFeedResult> {
     const now = Date.now();
@@ -1087,7 +1200,7 @@ export async function getCachedRichFeed(
         return cached.result;
     }
 
-    // 2) 라이브 빌드
+    // 2) 라이브 빌드 (aiAugmentation 옵션 함께 전달)
     const result = await buildRichFeed(options, onProgress);
 
     // 3) 성공적인 빌드 — 캐시 양쪽 저장
