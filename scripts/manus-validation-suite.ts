@@ -126,14 +126,14 @@ function extractAgentStatusAndMessages(data: any): { agentStatus: string; assist
     // 1. content 텍스트 수집
     const texts = collectTexts(payload.content ?? payload);
     if (texts.length > 0) assistantTexts.push(texts.join('\n'));
-    // 2. JSON 첨부 파일 수집
+    // 2. 텍스트류 첨부 모두 시도 (Manus가 .txt로 JSON 보내는 케이스 발견)
     const atts = payload?.attachments;
     if (Array.isArray(atts)) {
       for (const a of atts) {
         const ct = String(a?.content_type || '').toLowerCase();
         const fn = String(a?.filename || '');
         const url = String(a?.url || '');
-        if (url && (ct === 'application/json' || /\.json$/i.test(fn))) {
+        if (url && (ct.startsWith('application/json') || ct.startsWith('text/') || /\.(json|txt|md)$/i.test(fn))) {
           jsonAttachments.push({ url, filename: fn, contentType: ct });
         }
       }

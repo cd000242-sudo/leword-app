@@ -233,7 +233,9 @@ function extractAgentStatusAndMessages(data: any): {
         const ct = String(a?.content_type || '').toLowerCase();
         const fn = String(a?.filename || '');
         const url = String(a?.url || '');
-        if (url && (ct === 'application/json' || /\.json$/i.test(fn))) {
+        // 텍스트류 첨부 모두 시도 (.json/.txt/.md + text/* content_type)
+        // 실측 (30-run): Manus가 약속한 JSON을 .txt로 attaching 하는 케이스 있음
+        if (url && (ct.startsWith('application/json') || ct.startsWith('text/') || /\.(json|txt|md)$/i.test(fn))) {
           jsonAttachments.push({ url, filename: fn, contentType: ct });
         }
       }
