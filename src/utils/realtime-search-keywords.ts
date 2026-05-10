@@ -269,10 +269,10 @@ export async function getZumRealtimeKeywords(limit: number = 20): Promise<Realti
               }
               
               // 키워드 정제
-              keyword = keyword.replace(/^\d{1,2}(?:\.\s*|\s+)/, '').replace(/^\d+위\s*/, '').trim();
-              
-              if (keyword && 
-                  keyword.length >= 2 && 
+              keyword = keyword.replace(/^\d{1,2}(?:\.\s*|\s+)/, '').replace(/^\d+위\s*/, '').replace(/^년\s+/, new Date().getFullYear() + '년 ').trim();
+
+              if (keyword &&
+                  keyword.length >= 2 &&
                   keyword.length < 50 &&
                   !keyword.includes('http') &&
                   !keyword.includes('://') &&
@@ -702,6 +702,7 @@ export async function getNateRealtimeKeywords(limit: number = 20): Promise<Realt
       .replace(/\s*(상승|하락|동일)\s*\d*\s*$/i, '')  // 뒤의 "상승 2", "하락 1" 등 제거
       .replace(/\s*(new|NEW|신규)\s*$/i, '')  // 뒤의 NEW 제거
       .replace(/▲|▼|↑|↓/g, '')  // 화살표 제거
+      .replace(/^년\s+/, new Date().getFullYear() + '년 ')  // v2.42.25: orphan year 복원 (Nate/Daum이 "2026년" → "년"으로 단축 표시)
       .replace(/\s+/g, ' ')
       .trim();
     

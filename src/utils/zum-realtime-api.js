@@ -188,6 +188,7 @@ async function getZumRealtimeKeywordsWithPuppeteer(limit = 10) {
                         .replace(/^\d+위\s*/, '')
                         .replace(/^▶\s*/, '')
                         .replace(/^▶/, '')
+                        .replace(/^년\s+/, new Date().getFullYear() + '년 ')  // v2.42.25: orphan year 복원
                         .replace(/\s+/g, ' ')
                         .trim();
                     // 제외 패턴 체크

@@ -246,6 +246,7 @@ async function getDaumRealtimeKeywordsWithPuppeteer(limit = 10) {
                             .replace(/^▼\s*/, '')
                             .replace(/^NEW\s*/i, '')
                             .replace(/^HOT\s*/i, '')
+                            .replace(/^년\s+/, new Date().getFullYear() + '년 ')  // v2.42.25: orphan year 복원
                             .replace(/\s+/g, ' ')
                             .trim();
                     }
@@ -417,6 +418,7 @@ async function getDaumRealtimeKeywordsWithPuppeteer(limit = 10) {
                             .replace(/^▼\s*/, '')
                             .replace(/^NEW\s*/i, '')
                             .replace(/^HOT\s*/i, '')
+                            .replace(/^년\s+/, new Date().getFullYear() + '년 ')  // v2.42.25: orphan year 복원
                             .replace(/\s+/g, ' ')
                             .trim();
                     }
