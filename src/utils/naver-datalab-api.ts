@@ -753,11 +753,24 @@ export async function getNaverKeywordSearchVolumeSeparate(
             const scraped = await scrapeFallback(originalKeyword);
             if (scraped !== null && scraped > 0) {
               const sv = (results[idx].pcSearchVolume || 0) + (results[idx].mobileSearchVolume || 0);
-              // 스마트블록 위젯/본문 단락 카운트 오매칭 방어:
-              //   dc < 1000 인데 sv/dc > 100 면 비현실적 "초황금" → 거부
               const suspiciousRatio = sv > 0 && scraped < 1000 && (sv / scraped) > 100;
               if (!suspiciousRatio) dc = scraped;
               else console.warn(`[DOC-COUNT] ⚠️ scrapeFallback 거부 "${originalKeyword}": sv=${sv}, scraped=${scraped} (ratio=${(sv/scraped).toFixed(1)})`);
+            }
+          } else {
+            // 🔥 v2.42.17: Bilateral Sanity Check — Naver Open API의 blog.json total은
+            //   웹 검색 결과보다 훨씬 적게 반환되는 알려진 한계 ("노사발전재단" API=70 vs 웹=16,681).
+            //   API 성공이지만 sv/dc 비율이 비현실적으로 높으면 (>50 + dc<3000) → scrape 재검증.
+            //   사용자 신고: 가짜 SSS 분류 → 정책 일관성 보장 위해 필수.
+            const sv = (results[idx].pcSearchVolume || 0) + (results[idx].mobileSearchVolume || 0);
+            const apiRatio = dc > 0 ? sv / dc : 0;
+            const suspiciousApiUndercount = sv >= 500 && dc > 0 && dc < 3000 && apiRatio > 50;
+            if (suspiciousApiUndercount) {
+              const scraped = await scrapeFallback(originalKeyword);
+              if (scraped !== null && scraped > dc * 5) {
+                console.warn(`[DOC-COUNT] 🔧 API undercount 감지 "${originalKeyword}": API=${dc} (ratio ${apiRatio.toFixed(1)}) → 웹 scrape=${scraped} 채택`);
+                dc = scraped;
+              }
             }
           }
           results[idx].documentCount = dc;
