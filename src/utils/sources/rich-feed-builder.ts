@@ -666,6 +666,59 @@ export async function buildRichFeed(
         console.warn('[rich-feed v2.42.15] 자동완성 스킵 — Naver API 키 미설정 또는 시드 없음');
     }
 
+    // 🔥 v2.42.16: Modifier 조합 niche 생성 (진짜 황금 니치는 specific context에서 옴)
+    //   - 자동완성은 popular query (head)라 ratio 낮음
+    //   - 연령/상황/예산/효과 modifier × 베이스 시드 = 3+ 토큰 specific niche
+    //   - Naver 실측 통과 시 dc 낮을 확률 높음 → SSS 자연 통과 ↑
+    //   - 사용자 비즈니스 통찰: "진짜 황금 니치여야 한다" 반영
+    const NICHE_MODIFIERS: string[] = [
+        // 연령
+        '20대', '30대', '40대', '50대', '학생', '직장인', '주부', '신혼', '신생아', '영유아', '초등생', '중학생', '고등학생', '대학생',
+        // 상황
+        '초보', '입문', '처음', '주말', '저녁', '평일', '재택', '비대면', '온라인', '오프라인', '재방문', '신규',
+        // 예산
+        '저렴한', '가성비', '합리적인', '프리미엄', '고급', '무료',
+        // 효과·품질
+        '빠른', '쉬운', '안전한', '효과적인', '검증된', '진짜', '확실한',
+        // 시간·기간
+        '1주일', '1개월', '3개월', '한달', '단기간', '장기',
+        // 장소·범위
+        '집에서', '동네', '근처', '서울', '지방',
+    ];
+    const TOP_FOR_MODIFIER = 100;
+    const MOD_PER_SEED = 5;
+
+    const modifierExtraSeeds: typeof baseSeeds = [];
+    for (const base of baseSeeds.slice(0, TOP_FOR_MODIFIER)) {
+        const bkw = base.keyword.trim();
+        if (!bkw || bkw.length > 12) continue;
+        const baseTokens = bkw.split(/\s+/).length;
+        if (baseTokens >= 3) continue;
+        // 베이스 자체가 modifier이면 의미 없음 (중복 modifier 결합)
+        if (NICHE_MODIFIERS.includes(bkw)) continue;
+
+        const shuffled = NICHE_MODIFIERS.slice().sort(() => Math.random() - 0.5);
+        const picks = shuffled.slice(0, MOD_PER_SEED);
+        const baseScore = scoreSeedKeyword(bkw, idfStats, base.sources.length);
+
+        for (const mod of picks) {
+            const orderFront = Math.random() < 0.5;
+            const derived = orderFront ? `${mod} ${bkw}` : `${bkw} ${mod}`;
+            if (seedMap.has(derived) || seenKeywords.has(derived)) continue;
+            if (!isQualitySeed(derived) || isTooGeneric2Token(derived)) continue;
+            if (derived.length < 4 || derived.length > 30) continue;
+            modifierExtraSeeds.push({
+                keyword: derived,
+                sources: [...base.sources, 'modifier-niche'],
+                qualityScore: baseScore * 1.5,
+            });
+            seenKeywords.add(derived);
+        }
+    }
+    extraSeeds.push(...modifierExtraSeeds);
+    console.log(`[rich-feed v2.42.16] Modifier 니치 ${modifierExtraSeeds.length}개 생성`);
+    emit('longtail', 19, `진짜 황금 니치 ${modifierExtraSeeds.length}개 추가 (modifier 조합)`);
+
     diagnostic.longtail.expandedAdded = extraSeeds.length;
 
     // 🔥 v2.27.9: 후보 풀 1500 → 2500 (대량 보장)
