@@ -20,7 +20,7 @@ import {
 } from '../pro-traffic-keyword-hunter';
 import { callAI } from '../pro-hunter-v12/ai-client';
 
-const MANUS_API_BASE = 'https://api.manus.ai/v1';
+const MANUS_API_BASE = 'https://api.manus.ai/v2';
 const MANUS_AGENT_PROFILE = 'manus-1.6';
 const MAX_TOP_N = 30;
 const MAX_DISCOVERED = 20;
@@ -127,22 +127,29 @@ ${keywords.map((k, i) => `${i + 1}. ${k}`).join('\n')}
 // ────────────────────────────────────────────────────────────────────
 
 async function createTask(apiKey: string, prompt: string): Promise<string> {
-  const resp = await fetch(`${MANUS_API_BASE}/tasks`, {
+  // 공식 docs (open.manus.im/docs/v2/agents-overview, /api-reference/create-task) 기반:
+  // POST /v2/task.create, x-manus-api-key 헤더, message.content는 [{type:"text",text:"..."}] 배열
+  const resp = await fetch(`${MANUS_API_BASE}/task.create`, {
     method: 'POST',
     headers: {
       'Content-Type': 'application/json',
-      'API_KEY': apiKey,
+      'x-manus-api-key': apiKey,
     },
-    body: JSON.stringify({ prompt, agentProfile: MANUS_AGENT_PROFILE }),
+    body: JSON.stringify({
+      message: {
+        content: [{ type: 'text', text: prompt }],
+      },
+      agent_profile: MANUS_AGENT_PROFILE,
+    }),
   });
   if (!resp.ok) {
     const txt = await resp.text().catch(() => '');
-    throw new Error(`Manus POST /v1/tasks ${resp.status}: ${txt.slice(0, 300)}`);
+    throw new Error(`Manus POST /v2/task.create ${resp.status}: ${txt.slice(0, 300)}`);
   }
   const data: any = await resp.json();
-  const taskId = data?.task_id || data?.taskId || data?.id || data?.data?.task_id;
+  const taskId = data?.task_id || data?.taskId || data?.id;
   if (!taskId) {
-    throw new Error(`Manus POST /v1/tasks: no task_id: ${JSON.stringify(data).slice(0, 200)}`);
+    throw new Error(`Manus task.create: no task_id in response: ${JSON.stringify(data).slice(0, 200)}`);
   }
   return String(taskId);
 }
@@ -178,14 +185,56 @@ function collectTexts(node: any, depth = 0, out: string[] = []): string[] {
   return out;
 }
 
-function extractAssistantContent(data: any): string {
-  const texts = collectTexts(data);
-  if (texts.length === 0) return '';
-  // 가장 긴 텍스트 = 최종 어시스턴트 응답일 가능성 높음
-  return texts.reduce((a, b) => (b.length > a.length ? b : a), '');
+// v2 task.listMessages 응답에서 agent_status 추출 (status_update 이벤트의 가장 최신값)
+//   응답은 messages 배열 (order=desc → 첫 항목이 최신)
+//   각 메시지의 type 별 처리:
+//     - "status_update" → status_update.agent_status: "running" | "stopped" | "waiting" | "error"
+//     - "assistant_message" → assistant_message.content 추출
+function extractAgentStatusAndContent(data: any): { agentStatus: string; assistantContent: string } {
+  const messages = Array.isArray(data?.messages)
+    ? data.messages
+    : Array.isArray(data?.data?.messages)
+    ? data.data.messages
+    : Array.isArray(data) // 응답 자체가 배열일 가능성
+    ? data
+    : [];
+
+  let agentStatus = '';
+  // 최신 status_update 찾기 (desc order이므로 첫 매치가 최신)
+  for (const m of messages) {
+    if (!m) continue;
+    if (m.type === 'status_update') {
+      agentStatus = String(m.status_update?.agent_status || '').toLowerCase();
+      if (agentStatus) break;
+    }
+    // 일부 응답은 status가 메시지 객체 자체에 있을 수 있음 (방어)
+    if (!agentStatus && m.agent_status) {
+      agentStatus = String(m.agent_status).toLowerCase();
+    }
+  }
+  // top-level fallback
+  if (!agentStatus) {
+    agentStatus = String(data?.agent_status || data?.status || '').toLowerCase();
+  }
+
+  // 모든 assistant_message 이벤트에서 content 추출 (재귀 collectTexts 활용)
+  const assistantTexts: string[] = [];
+  for (const m of messages) {
+    if (!m) continue;
+    if (m.type === 'assistant_message' || m.role === 'assistant') {
+      const payload = m.assistant_message ?? m;
+      const texts = collectTexts(payload.content ?? payload);
+      assistantTexts.push(...texts);
+    }
+  }
+  // desc order이므로 가장 첫(최신) assistant_message가 최종 응답일 가능성 높음
+  // 하지만 안전을 위해 모두 합치기 (중복 적게 발생할 것)
+  const assistantContent = assistantTexts.join('\n');
+
+  return { agentStatus, assistantContent };
 }
 
-// 디버그 정보까지 함께 반환 (0/0 응답 시 원본 분석용)
+// 디버그 정보까지 함께 반환
 async function pollTaskWithDebug(
   apiKey: string,
   taskId: string,
@@ -197,34 +246,35 @@ async function pollTaskWithDebug(
   let lastData: any = null;
 
   while (Date.now() - start < POLL_TIMEOUT_MS) {
-    const url = `${MANUS_API_BASE}/tasks/${encodeURIComponent(taskId)}`;
-    const resp = await fetch(url, { headers: { 'API_KEY': apiKey } });
+    const url = `${MANUS_API_BASE}/task.listMessages?task_id=${encodeURIComponent(taskId)}&order=desc&limit=20`;
+    const resp = await fetch(url, { headers: { 'x-manus-api-key': apiKey } });
     if (!resp.ok) {
       const txt = await resp.text().catch(() => '');
-      throw new Error(`Manus GET /v1/tasks/${taskId} ${resp.status}: ${txt.slice(0, 300)}`);
+      throw new Error(`Manus GET task.listMessages ${resp.status}: ${txt.slice(0, 300)}`);
     }
     const data: any = await resp.json();
     lastData = data;
 
-    const status = String(
-      data?.status || data?.task_status || data?.data?.status || ''
-    ).toLowerCase();
+    const { agentStatus, assistantContent } = extractAgentStatusAndContent(data);
+    if (assistantContent) lastContent = assistantContent;
 
-    const content = extractAssistantContent(data);
-    if (content) lastContent = content;
+    if (onProgress) onProgress(Date.now() - start, agentStatus);
 
-    if (onProgress) onProgress(Date.now() - start, status);
-
-    if (status === 'completed' || status === 'done' || status === 'finished' || status === 'success') {
+    // v2 완료 신호: agent_status === 'stopped'
+    if (agentStatus === 'stopped' || agentStatus === 'completed' || agentStatus === 'done') {
       return {
         content: lastContent,
-        rawSample: JSON.stringify(data).slice(0, 800),
+        rawSample: JSON.stringify(data).slice(0, 1500),
         rawKeys: Object.keys(data || {}),
       };
     }
-    if (status === 'failed' || status === 'error' || status === 'cancelled' || status === 'canceled') {
-      throw new Error(`Manus task ${status}: ${JSON.stringify(data).slice(0, 300)}`);
+    if (agentStatus === 'error' || agentStatus === 'failed') {
+      throw new Error(`Manus agent_status=${agentStatus}: ${JSON.stringify(data).slice(0, 400)}`);
     }
+    if (agentStatus === 'waiting') {
+      throw new Error(`Manus task waiting for user input — interactive_mode 미지원 (현재 통합은 자동 완료 task만 사용)`);
+    }
+    // running / pending / 빈 status → 계속 폴링
 
     await new Promise((r) => setTimeout(r, interval));
     interval = Math.min(Math.round(interval * POLL_INTERVAL_GROWTH), POLL_INTERVAL_MAX_MS);
@@ -232,45 +282,6 @@ async function pollTaskWithDebug(
   throw new Error(`Manus task ${taskId} polling timeout (${POLL_TIMEOUT_MS / 60000}min) — last keys: ${JSON.stringify(Object.keys(lastData || {}))}`);
 }
 
-async function pollTask(
-  apiKey: string,
-  taskId: string,
-  onProgress?: (elapsedMs: number, status: string) => void
-): Promise<string> {
-  const start = Date.now();
-  let interval = POLL_INTERVAL_MIN_MS;
-  let lastContent = '';
-
-  while (Date.now() - start < POLL_TIMEOUT_MS) {
-    const url = `${MANUS_API_BASE}/tasks/${encodeURIComponent(taskId)}`;
-    const resp = await fetch(url, { headers: { 'API_KEY': apiKey } });
-    if (!resp.ok) {
-      const txt = await resp.text().catch(() => '');
-      throw new Error(`Manus GET /v1/tasks/${taskId} ${resp.status}: ${txt.slice(0, 300)}`);
-    }
-    const data: any = await resp.json();
-
-    const status = String(
-      data?.status || data?.task_status || data?.data?.status || ''
-    ).toLowerCase();
-
-    const content = extractAssistantContent(data);
-    if (content) lastContent = content;
-
-    if (onProgress) onProgress(Date.now() - start, status);
-
-    if (status === 'completed' || status === 'done' || status === 'finished' || status === 'success') {
-      return lastContent;
-    }
-    if (status === 'failed' || status === 'error' || status === 'cancelled' || status === 'canceled') {
-      throw new Error(`Manus task ${status}: ${JSON.stringify(data).slice(0, 300)}`);
-    }
-
-    await new Promise((r) => setTimeout(r, interval));
-    interval = Math.min(Math.round(interval * POLL_INTERVAL_GROWTH), POLL_INTERVAL_MAX_MS);
-  }
-  throw new Error(`Manus task ${taskId} polling timeout (${POLL_TIMEOUT_MS / 60000}min)`);
-}
 
 // ────────────────────────────────────────────────────────────────────
 // 응답 파싱
