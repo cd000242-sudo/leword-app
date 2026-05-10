@@ -115,7 +115,7 @@ export async function getPolicyBriefingKeywords(limit: number = 20): Promise<Pol
           
           // 정리
           const cleanText = text
-            .replace(/^\d+\.?\s*/, '')
+            .replace(/^\d{1,2}\.?\s+/, '')
             .replace(/^▶\s*/, '')
             .replace(/^▲\s*/, '')
             .replace(/^▼\s*/, '')

@@ -184,7 +184,7 @@ export async function getBokjiroRealtimeKeywordsWithPuppeteer(limit: number = 10
             // 키워드 정제
             if (keywordText) {
               keywordText = keywordText
-                .replace(/^\d+\.?\s*/, '')
+                .replace(/^\d{1,2}\.?\s+/, '')
                 .replace(/^\d+위\s*/, '')
                 .replace(/^상승\s*/, '')
                 .replace(/^하락\s*/, '')
@@ -270,7 +270,7 @@ export async function getBokjiroRealtimeKeywordsWithPuppeteer(limit: number = 10
             if (!keywordText || keywordText.length < 2) {
               keywordText = el.textContent?.trim() || '';
               keywordText = keywordText
-                .replace(/^\d+\.?\s*/, '')
+                .replace(/^\d{1,2}\.?\s+/, '')
                 .replace(/^\d+위\s*/, '')
                 .replace(/^상승\s*/, '')
                 .replace(/^하락\s*/, '')

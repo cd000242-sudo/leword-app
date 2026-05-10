@@ -269,7 +269,7 @@ export async function getZumRealtimeKeywords(limit: number = 20): Promise<Realti
               }
               
               // 키워드 정제
-              keyword = keyword.replace(/^\d+\.?\s*/, '').replace(/^\d+위\s*/, '').trim();
+              keyword = keyword.replace(/^\d{1,2}\.?\s+/, '').replace(/^\d+위\s*/, '').trim();
               
               if (keyword && 
                   keyword.length >= 2 && 
@@ -698,7 +698,7 @@ export async function getNateRealtimeKeywords(limit: number = 20): Promise<Realt
    */
   const parseNateKeyword = (text: string): { keyword: string; change?: string } | null => {
     let keyword = text.trim()
-      .replace(/^\d+\.?\s*/, '')  // 앞의 순위 숫자 제거
+      .replace(/^\d{1,2}\.?\s+/, '')  // 앞의 순위 숫자 제거
       .replace(/\s*(상승|하락|동일)\s*\d*\s*$/i, '')  // 뒤의 "상승 2", "하락 1" 등 제거
       .replace(/\s*(new|NEW|신규)\s*$/i, '')  // 뒤의 NEW 제거
       .replace(/▲|▼|↑|↓/g, '')  // 화살표 제거
@@ -1145,7 +1145,7 @@ export async function getDaumRealtimeKeywords(limit: number = 20): Promise<Realt
               }
               
               // 키워드 정제
-              keyword = keyword.replace(/^\d+\.?\s*/, '').replace(/^\d+위\s*/, '').trim();
+              keyword = keyword.replace(/^\d{1,2}\.?\s+/, '').replace(/^\d+위\s*/, '').trim();
               
               // 제목처럼 보이는 긴 텍스트 필터링
               const wordCount = keyword.split(/\s+/).length;
