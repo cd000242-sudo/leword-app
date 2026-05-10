@@ -23,6 +23,38 @@ let isUpdatingFlag = false;
 let restartScheduled = false;
 let lastUpdateInfo: { version?: string } = {};
 
+// 모든 BrowserWindow를 강제로 destroy하여 NSIS 설치기가 "LEWORD cannot be closed" 에러 안 나도록.
+// quitAndInstall만 부르면 일부 헬퍼/렌더러 프로세스가 살아남아 파일 교체 실패하는 케이스 대응.
+function destroyAllWindowsForce(): void {
+  try {
+    for (const w of BrowserWindow.getAllWindows()) {
+      if (!w.isDestroyed()) {
+        try { w.removeAllListeners('close'); } catch {}
+        try { w.removeAllListeners('closed'); } catch {}
+        try { w.destroy(); } catch {}
+      }
+    }
+  } catch (e: any) {
+    console.warn('[UPDATER] 창 destroy 중 오류 (무시):', e?.message);
+  }
+}
+
+// quitAndInstall 안전 호출 — silent + force run, 모든 창 destroy 후 호출
+function performQuitAndInstall(autoUpdater: any): void {
+  destroyAllWindowsForce();
+  // 약간의 지연으로 OS가 프로세스 정리할 시간 줌
+  setTimeout(() => {
+    try {
+      // (isSilent=true, isForceRunAfter=true) — 사용자에게 "cannot be closed" 안 묻고 자동 진행
+      autoUpdater.quitAndInstall(true, true);
+    } catch (e: any) {
+      console.error('[UPDATER] quitAndInstall 실패:', e?.message);
+      // fallback: 강제 종료 후 OS가 alurun 안내
+      try { app.exit(0); } catch {}
+    }
+  }, 300);
+}
+
 // 🔥 업데이트 체크 완료 신호 — 메인창 show() 전에 대기 가능
 // update-available / update-not-available / error 중 하나 발생 시 resolve
 let updateCheckResolver: ((result: { hasUpdate: boolean }) => void) | null = null;
@@ -298,23 +330,8 @@ export function initAutoUpdaterEarly(): void {
       setTimeout(() => {
         if (restartScheduled) return;
         restartScheduled = true;
-        try {
-          // closed 이벤트에서 quitAndInstall 호출
-          if (progressWindow && !progressWindow.isDestroyed()) {
-            progressWindow.once('closed', () => {
-              try {
-                autoUpdater.quitAndInstall(false, true);
-              } catch (e: any) {
-                console.error('[UPDATER] quitAndInstall 실패:', e?.message);
-              }
-            });
-            closeProgressWindow();
-          } else {
-            autoUpdater.quitAndInstall(false, true);
-          }
-        } catch (e: any) {
-          console.error('[UPDATER] 재시작 예약 실패:', e?.message);
-        }
+        // silent install + 모든 창 destroy로 NSIS "cannot be closed" 우회
+        performQuitAndInstall(autoUpdater);
       }, countdown * 1000);
     });
   });
@@ -377,9 +394,7 @@ export function registerUpdaterHandlers(): void {
       const autoUpdater = require('electron-updater').autoUpdater;
       if (restartScheduled) return { ok: true, alreadyScheduled: true };
       restartScheduled = true;
-      setTimeout(() => {
-        try { autoUpdater.quitAndInstall(false, true); } catch {}
-      }, 200);
+      setTimeout(() => performQuitAndInstall(autoUpdater), 200);
       return { ok: true };
     } catch (e: any) {
       return { ok: false, reason: e?.message ?? String(e) };
