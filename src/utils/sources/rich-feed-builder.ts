@@ -54,6 +54,8 @@ export interface RichKeywordRow {
     sourceCount: number;
     purchaseIntent: number;
     isBlueOcean: boolean;
+    // 🔥 v2.41.0: dc 추정값 여부 — 분포 기반 동적 SSS 승격 풀에서 제외용 (신뢰도 가드)
+    dcEstimated?: boolean;
     // 🔥 v2.19.0 Phase L-2: 30일 트렌드 타입 (상위 30개만 분류됨)
     trendType?: 'evergreen' | 'skyrocket' | 'flash' | 'seasonal' | 'unknown';
     trendLabel?: string;
@@ -271,6 +273,11 @@ function calculateGrade(volume: number, docCount: number, ratio: number, score: 
     const isCelebLike = isLikelyCelebrityName(keyword);
     if (isCelebLike && docCount > 1000) return '';
 
+    // 🔥 v2.40.6: ratio<1 레드오션 하드 차단 (실측 dc 기준)
+    //   sv<dc 면 문서수가 검색량보다 많은 레드오션 — "황금키워드" 정의에 위배.
+    //   기존엔 A/B 게이트에 ratio 하한이 없어 sv 큰 레드오션(IRP 계좌 추천 ratio=0.04 등)이 A 통과.
+    if (docCount > 0 && ratio < 1.0) return '';
+
     // 🔥 v2.31.3: writable 강제 — 희소 예외 완전 제거 (단일 action "할인" 통과 문제 해결)
     //   실측에서 SS [할인], SS [가격] 통과 — allowSS 의 dc 예외 때문. 제거.
     const allowSS = writable;
@@ -278,34 +285,36 @@ function calculateGrade(volume: number, docCount: number, ratio: number, score: 
     const allowA = writable;
     const commercial = hasCommercialIntent(keyword);
 
-    // 🔥 v2.32.1: dc 추정값(=sv*0.5)은 실측 아니므로 A 상한 — SSR/SSS/SS 차단
-    //   실측 피드에서 ratio=2.00 이 A 등급 대거 포진 — "확정 수익 #1 현대차 가격" 도 추정값 기반.
-    //   추정값으로 SSR/SSS/SS 승격 시 신뢰도 붕괴. 실측 dc 있을 때만 고등급 허용.
+    // 🔥 v2.41.0: dcEstimated 부분 완화 — commercial 또는 빅볼륨 키워드는 SS 까지 허용
+    //   기존: 추정값은 무조건 A 상한 → SSS 풀의 절반 차단 (한국 환경에서 dc=null 비율 40-60%)
+    //   완화: 추정값이라도 commercial+sv 충분 시 SS 허용 → 분포 기반 동적 SSS 승격 풀에는 미포함 (dcEstimated 가드)
+    //   SSS/SSR 직승은 여전히 차단 (신뢰도 보존)
     if (dcEstimated) {
+        if (commercial && volume >= 1500 && score >= 70 && writable) return 'SS';
+        if (volume >= 3000 && score >= 75 && writable) return 'SS';
         if (score >= 45 && volume >= 200 && writable) return 'A';
         if (score >= 38 && volume >= 100 && writable) return 'B';
         return '';
     }
 
-    // 🔥 v2.29.0: SSS 자동 승격에도 writable 강제 — 단일 일반 명사 차단
-    //   "세대/회복/비전" 같은 단일 명사가 gr≥20 으로 SSS 승격되던 문제 해결
-    if (writable && !isCelebLike && docCount > 0) {
-        if (ratio >= 20 && volume >= 300) return 'SSS';
-        if (ratio >= 10 && docCount <= 8000 && volume >= 500) return 'SSS';
-        if (ratio >= 7 && docCount <= 20000 && volume >= 2000) return 'SSS';
-        if (ratio >= 8 && docCount <= 12000 && volume >= 800) return 'SSS';
-        if (commercial && docCount <= 5000 && volume >= 300 && ratio >= 3) return 'SSS';
-        if (commercial && docCount <= 8000 && volume >= 500 && ratio >= 5) return 'SSS';
-        if (commercial && docCount <= 1000 && volume >= 200) return 'SSS';
-        if (docCount <= 300 && volume >= 100 && ratio >= 5) return 'SSS';
+    // 🔥 v2.41.3: CLAUDE.md 정통 SSS 정의 적용 — sv 1K~10K + dc≤5K + ratio≥3 (니치 황금)
+    //   사용자 피드백: "sv 34K 정기예금 비교, sv 11K 첫번째 남자 리뷰는 니치가 아니다"
+    //   대형 키워드 차단: 모든 자동 승격 경로에 sv≤10000 + dc≤5000 hard 적용.
+    //   슈퍼 니치 경로 (sv 200~1000) 도 차단 — 사용자 옵션 1 (sv 1000~10000) 선택.
+    if (writable && !isCelebLike && docCount > 0 && volume >= 1000 && volume <= 10000 && docCount <= 5000) {
+        if (ratio >= 5) return 'SSS';                                  // CLAUDE.md SSS 정통
+        if (commercial && ratio >= 3) return 'SSS';                    // commercial 약간 완화
+        if (ratio >= 10 && docCount <= 3000) return 'SSS';             // 고비율 진입
+        if (commercial && docCount <= 1500 && ratio >= 2) return 'SSS';// 슈퍼 니치 commercial
     }
 
-    // 🔥 v2.28.0: SSS 기본 게이트 추가 완화
+    // 🔥 v2.41.3: SSS 기본 게이트 — sv 상한 + dc 상한 (CLAUDE.md 정통)
     const sssScore = commercial ? 65 : 72;
-    const sssSv = commercial ? 300 : 500;
-    const sssDc = commercial ? 15000 : 12000;
-    const sssRatio = commercial ? 2.0 : 3.0;
-    if (score >= sssScore && volume >= sssSv && docCount > 0 && docCount <= sssDc && ratio >= sssRatio && allowSS) return 'SSS';
+    const sssSvMin = 1000;
+    const sssSvMax = 10000;
+    const sssDc = 5000;
+    const sssRatio = commercial ? 3.0 : 5.0;
+    if (score >= sssScore && volume >= sssSvMin && volume <= sssSvMax && docCount > 0 && docCount <= sssDc && ratio >= sssRatio && allowSS) return 'SSS';
 
     // 🔥 v2.29.0: SS 자동 승격에도 writable 강제
     if (writable && !isCelebLike && docCount > 0) {
@@ -752,6 +761,7 @@ export async function buildRichFeed(
                     sourceCount: seed.sources.length,
                     purchaseIntent: intent,
                     isBlueOcean,
+                    dcEstimated: !hasValidDocCount, // 🔥 v2.41.0: 동적 SSS 승격 풀 신뢰도 가드용
                 });
             }
         } catch (e: any) {
@@ -774,14 +784,57 @@ export async function buildRichFeed(
         await new Promise(r => setTimeout(r, 50));
     }
 
-    // 🔥 v2.31.0: SSR/SSS/SS/S/A 포함 필터 (SSR = 수익 황금)
+    // 🔥 v2.41.0: 분포 기반 동적 SSS 승격 (필터 전)
+    //   사용자 정책: SSS-only 화면 + SSS 절대 수 대량 보장.
+    //   안전 풀: writable + 실측 dc + ratio>=1 통과한 SS/S/A 중 dynamicSssScore 상위 N개를 SSS 로 승격.
+    //   dcEstimated 행은 신뢰도 낮아 풀 제외. SSR 은 SSS superset 이라 그대로 유지.
+    //   pro-traffic-keyword-hunter v2.40.5 의 검증된 점수 식 차용 (grScore×0.55 + svScore×0.30 + dcScore×0.15).
+    const sssCount = enrichedRows.filter(r => r.grade === 'SSS' || r.grade === 'SSR').length;
+    const TARGET_SSS = Math.max(50, Math.floor(limit * 0.4));
+    if (sssCount < TARGET_SSS) {
+        // 🔥 v2.41.2: 진짜 SSS = 저경쟁 + 중수요 + 높은 비율 (CLAUDE.md 정의)
+        //   기존 svScore 가중치 30% 가 sv 폭주 키워드(챗GPT 무료 sv 117K 등)를 우대해 SSS 라벨 오염.
+        //   풀 진입에서 sv/dc 상한 + 점수식 재설계로 진짜 황금만 승격.
+        const promotionPool = enrichedRows
+            .filter(r =>
+                (r.grade === 'SS' || r.grade === 'S' || r.grade === 'A') &&
+                r.documentCount > 0 &&
+                r.documentCount <= 5000 &&        // CLAUDE.md SSS dc 정통
+                r.searchVolume >= 1000 &&         // CLAUDE.md SSS sv 하한
+                r.searchVolume <= 10000 &&        // 대형 차단 (사용자 옵션 1)
+                r.goldenRatio >= 3.0              // CLAUDE.md commercial SSS ratio
+            )
+            .map(r => {
+                // dcScore: 저경쟁 강하게 우대 (계단식)
+                const dcScore = r.documentCount <= 1000 ? 100 :
+                    r.documentCount <= 2000 ? 85 :
+                    r.documentCount <= 3000 ? 70 :
+                    r.documentCount <= 5000 ? 50 : 0;
+                // grScore: ratio 큼 우대
+                const grScore = Math.min(100, r.goldenRatio * 15);
+                // svScore: sv 1000~10000 sweet spot 만점
+                const svScore = r.searchVolume >= 1000 && r.searchVolume <= 10000 ? 100 : 0;
+                let dynamicSssScore = dcScore * 0.40 + grScore * 0.35 + svScore * 0.25;
+                // dcEstimated 행은 신뢰도 페널티 30%
+                if (r.dcEstimated) dynamicSssScore *= 0.7;
+                return { row: r, dynamicSssScore };
+            })
+            .sort((a, b) => b.dynamicSssScore - a.dynamicSssScore);
+        const need = TARGET_SSS - sssCount;
+        for (let i = 0; i < Math.min(need, promotionPool.length); i++) {
+            promotionPool[i].row.grade = 'SSS';
+        }
+        console.log(`[rich-feed v2.41.3] 동적 SSS 승격: 풀 ${promotionPool.length}건 중 ${Math.min(need, promotionPool.length)}건 승격 (TARGET ${TARGET_SSS}, 기존 SSS ${sssCount}건, CLAUDE.md 정통 sv 1K~10K + dc≤5K + ratio≥3)`);
+    }
+
+    // 🔥 v2.41.0: SSR + SSS only 화면 (사용자 정책 — 다층 노출 금지)
     const highGradeOnly = enrichedRows.filter(r =>
-        r.grade === 'SSR' || r.grade === 'SSS' || r.grade === 'SS' || r.grade === 'S' || r.grade === 'A'
+        r.grade === 'SSR' || r.grade === 'SSS'
     );
     enrichedRows.length = 0;
     enrichedRows.push(...highGradeOnly);
 
-    emit('grading', 90, `등급 판정 및 정렬 (SSS/SS/S/A ${enrichedRows.length}건)...`);
+    emit('grading', 90, `SSS-only 필터 적용 (${enrichedRows.length}건)...`);
 
     // 5. 정렬 (등급 → 기회지수 → 소스 수)
     const gradeOrder: Record<string, number> = { SSR: 6, SSS: 5, SS: 4, S: 3, A: 2, B: 1 };
@@ -859,7 +912,7 @@ let cached: { result: RichFeedResult; expiresAt: number } | null = null;
 const CACHE_TTL = 3 * 60_000;         // 메모리 캐시: 15분→3분
 const DISK_CACHE_TTL = 30 * 60_000;   // 디스크 캐시: 4시간→30분 (안전망용)
 const MIN_ACCEPTABLE_TOTAL = 20;       // 이 미만이면 "실패"로 간주, 디스크 캐시 폴백
-const CACHE_SCHEMA_VERSION = 'v2.32.0-revenue-seeds';  // 🔥 v2.32.0: 수익 시드 200+ 주입
+const CACHE_SCHEMA_VERSION = 'v2.41.3-claude-md-sss';  // 🔥 v2.41.3: CLAUDE.md 정통 SSS 게이트 (sv 1K~10K + dc≤5K + ratio≥3)
 
 function getDiskCachePath(): string {
     // app.getPath 가 있으면 userData, 없으면 temp 사용 (테스트/개발 환경)

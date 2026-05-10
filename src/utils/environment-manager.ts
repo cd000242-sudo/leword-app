@@ -19,6 +19,7 @@ export interface EnvConfig {
   geminiApiKey?: string;
   anthropicApiKey?: string;          // Claude API key (sk-ant-...)
   aiInferenceMode?: 'claude' | 'rule' | 'auto';   // 기본 'auto'
+  manusApiKey?: string;              // Manus AI key (PRO 트래픽 헌터 보강용)
   pexelsApiKey?: string;
   dalleApiKey?: string;
   naverClientId?: string;

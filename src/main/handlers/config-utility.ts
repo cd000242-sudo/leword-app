@@ -122,6 +122,7 @@ export function setupConfigUtilityHandlers(): void {
           naverSearchAdCustomerId: env.naverSearchAdCustomerId || '',
           anthropicApiKey: env.anthropicApiKey || '',
           aiInferenceMode: env.aiInferenceMode || 'auto',
+          manusApiKey: env.manusApiKey || '',
         };
       } catch (error: any) {
         console.error('[KEYWORD-MASTER] check-api-keys 오류:', error);
@@ -134,6 +135,7 @@ export function setupConfigUtilityHandlers(): void {
           naverSearchAdCustomerId: '',
           anthropicApiKey: '',
           aiInferenceMode: 'auto',
+          manusApiKey: '',
         };
       }
     });
@@ -399,6 +401,7 @@ export function setupConfigUtilityHandlers(): void {
         if (settings.naverSearchAdCustomerId) envConfig.naverSearchAdCustomerId = settings.naverSearchAdCustomerId;
         if (settings.anthropicApiKey !== undefined) envConfig.anthropicApiKey = settings.anthropicApiKey;
         if (settings.aiInferenceMode !== undefined) envConfig.aiInferenceMode = settings.aiInferenceMode;
+        if (settings.manusApiKey !== undefined) envConfig.manusApiKey = settings.manusApiKey;
 
         // 설정 저장
         await envManager.saveConfig(envConfig);

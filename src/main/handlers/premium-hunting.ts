@@ -9,6 +9,7 @@ import * as licenseManager from '../../utils/licenseManager';
 import { huntProTrafficKeywords, getProTrafficCategories } from '../../utils/pro-traffic-keyword-hunter';
 import { huntAdsenseKeywords, ADSENSE_CATEGORIES } from '../../utils/adsense-keyword-hunter';
 import { enhanceProResults } from '../../utils/pro-traffic-adsense-enhancer';
+import { startEnrichment, getEnrichmentStatus } from '../../utils/sources/manus-enricher';
 import { getWorkerStatus, getWorkerHealthSummary } from '../../utils/pro-hunter-v12/worker-status';
 import { getDailyHuntHistory, getDashboardSummary, runDailyHuntNow } from '../../utils/pro-hunter-v12/auto-hunting-scheduler';
 import { generateExcelReport, generateAndOpenExcelReport } from '../../utils/pro-hunter-v12/excel-report-generator';
@@ -754,6 +755,11 @@ export function setupPremiumHuntingHandlers(): void {
           minPublisherRevenue: typeof (options as any).minPublisherRevenue === 'number' ? (options as any).minPublisherRevenue : undefined,
         } : null;
 
+        let finalKeywords: any[] = result.keywords;
+        let finalBlockedCount = 0;
+        let finalBlockedReasons: any = undefined;
+        let enhancedByAdsense = false;
+
         if (enhanceOpts) {
           const { enhanced, blockedCount, blockedReasons } = enhanceProResults(result.keywords, enhanceOpts);
           // 🎯 v2.40.0 R5 — SSS 등급 키워드는 9-게이트 차단 면제 (검증된 최상위는 강제 보존)
@@ -762,26 +768,24 @@ export function setupPremiumHuntingHandlers(): void {
             String(k.grade || '').toUpperCase() === 'SSS' &&
             !enhancedKeys.has(String(k.keyword || ''))
           );
-          const finalKeywords = rescuedSss.length > 0
-            ? [...enhanced, ...rescuedSss]
-            : enhanced;
+          finalKeywords = rescuedSss.length > 0 ? [...enhanced, ...rescuedSss] : enhanced;
+          finalBlockedCount = Math.max(0, blockedCount - rescuedSss.length);
+          finalBlockedReasons = blockedReasons;
+          enhancedByAdsense = true;
           if (rescuedSss.length > 0) {
             console.log(`[PRO-TRAFFIC] 🛟 SSS 등급 ${rescuedSss.length}개 9-게이트 차단 면제 복구`);
           }
           console.log(`[PRO-TRAFFIC] 🚀 AdSense 9-게이트 후처리: ${enhanced.length}/${result.keywords.length} 통과 (차단 ${blockedCount}개, SSS 복구 ${rescuedSss.length})`, blockedReasons);
-          return {
-            success: true,
-            ...result,
-            keywords: finalKeywords,
-            blockedCount: Math.max(0, blockedCount - rescuedSss.length),
-            blockedReasons,
-            enhancedByAdsense: true,
-          };
         }
+
+        // 🤖 Manus AI 보강은 별도 비동기 IPC(start-manus-enrichment)에서 처리
+        //    PRO 결과는 즉시 반환 → UI가 별도로 startEnrichment 호출 → 폴링
 
         return {
           success: true,
-          ...result
+          ...result,
+          keywords: finalKeywords,
+          ...(enhancedByAdsense ? { blockedCount: finalBlockedCount, blockedReasons: finalBlockedReasons, enhancedByAdsense: true } : {}),
         };
 
       } catch (error: any) {
@@ -800,6 +804,62 @@ export function setupPremiumHuntingHandlers(): void {
       }
     });
     console.log('[KEYWORD-MASTER] ✅ hunt-pro-traffic-keywords 핸들러 등록 완료');
+  }
+
+  // 🤖 Manus AI 비동기 보강 — 시작 (즉시 requestId 반환)
+  if (!ipcMain.listenerCount('start-manus-enrichment')) {
+    ipcMain.handle('start-manus-enrichment', async (_event, payload: {
+      keywords: any[];
+      category?: string;
+      topN?: number;
+      targetRookie?: boolean;
+      provider?: 'manus' | 'claude';
+    }) => {
+      try {
+        const keywords = Array.isArray(payload?.keywords) ? payload.keywords : [];
+        const { requestId, immediate } = startEnrichment(keywords, {
+          category: payload.category,
+          topN: payload.topN,
+          targetRookie: payload.targetRookie,
+          provider: payload.provider || 'manus',
+        });
+        return { success: true, requestId, immediate: immediate || null };
+      } catch (err: any) {
+        console.error('[AI-ENRICH-IPC] start 오류:', err?.message || err);
+        return { success: false, error: err?.message || String(err) };
+      }
+    });
+    console.log('[KEYWORD-MASTER] ✅ start-manus-enrichment 핸들러 등록 완료');
+  }
+
+  // 🤖 Manus AI 비동기 보강 — 상태/결과 조회 (UI 폴링용)
+  if (!ipcMain.listenerCount('get-manus-enrichment-status')) {
+    ipcMain.handle('get-manus-enrichment-status', async (_event, payload: { requestId: string }) => {
+      try {
+        const requestId = String(payload?.requestId || '');
+        if (!requestId) return { success: false, error: 'requestId 누락' };
+        const state = getEnrichmentStatus(requestId);
+        if (!state) return { success: false, error: 'task 없음 (만료 또는 잘못된 ID)' };
+        return {
+          success: true,
+          status: state.status,
+          elapsedMs: state.elapsedMs,
+          manusStatus: state.manusStatus || null,
+          insightCount: state.insightCount,
+          discoveredCount: state.discoveredKeywords.length,
+          discoveredSuggestedTotal: state.discoveredSuggestedTotal,
+          // status === 'completed' 시점에만 전체 결과 반환 (폴링 트래픽 절감)
+          ...(state.status === 'completed'
+            ? { enriched: state.enriched, discoveredKeywords: state.discoveredKeywords }
+            : {}),
+          ...(state.error ? { error: state.error } : {}),
+        };
+      } catch (err: any) {
+        console.error('[MANUS-IPC] status 오류:', err?.message || err);
+        return { success: false, error: err?.message || String(err) };
+      }
+    });
+    console.log('[KEYWORD-MASTER] ✅ get-manus-enrichment-status 핸들러 등록 완료');
   }
 
   // 🔥 백업 황금 키워드 (API 없이도 제공)
