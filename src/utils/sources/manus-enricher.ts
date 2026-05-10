@@ -217,19 +217,21 @@ function extractAgentStatusAndContent(data: any): { agentStatus: string; assista
     agentStatus = String(data?.agent_status || data?.status || '').toLowerCase();
   }
 
-  // 모든 assistant_message 이벤트에서 content 추출 (재귀 collectTexts 활용)
-  const assistantTexts: string[] = [];
+  // 최신 assistant_message 하나만 사용 (order=desc → 첫 매치 = 최신).
+  // 실측: Manus는 진행 보고용 assistant_message + 최종 답변 assistant_message 다중 발송.
+  // 모두 join하면 진행 메시지의 텍스트가 JSON 파싱에 노이즈로 섞임.
+  let assistantContent = '';
   for (const m of messages) {
     if (!m) continue;
     if (m.type === 'assistant_message' || m.role === 'assistant') {
       const payload = m.assistant_message ?? m;
       const texts = collectTexts(payload.content ?? payload);
-      assistantTexts.push(...texts);
+      if (texts.length > 0) {
+        assistantContent = texts.join('\n');
+        break;
+      }
     }
   }
-  // desc order이므로 가장 첫(최신) assistant_message가 최종 응답일 가능성 높음
-  // 하지만 안전을 위해 모두 합치기 (중복 적게 발생할 것)
-  const assistantContent = assistantTexts.join('\n');
 
   return { agentStatus, assistantContent };
 }
