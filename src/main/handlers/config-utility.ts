@@ -1026,27 +1026,54 @@ export function setupConfigUtilityHandlers(): void {
     }
   });
 
-  // 🤖 AI 챗봇 - Gemini 대화 (IPC 핸들러)
+  // 🤖 AI 챗봇 - Claude 우선 + Gemini legacy (IPC 핸들러)
   ipcMain.handle('gemini-chat', async (_event, args: { apiKey: string; message: string; history: any[]; modelName?: string }) => {
-    console.log('[KEYWORD-MASTER] Gemini AI 채팅 요청 수신');
+    console.log('[KEYWORD-MASTER] AI 채팅 요청 수신:', args?.modelName);
     try {
-      // 🔥 v2.42.20: gemini-exp-1206 (deprecated) + 기타 exp 모델 deprecated → 안정 2.5 Flash 기본
-      const { apiKey, message, history, modelName = 'gemini-2.5-flash' } = args;
+      // 🔥 v2.42.21: Claude 기본 (사용자 요청). modelName prefix로 provider 자동 라우팅.
+      const { apiKey, message, history, modelName = 'claude-sonnet-4-6' } = args;
+      if (!apiKey) throw new Error('API 키가 필요합니다');
+
+      // Claude 경로
+      if (modelName.startsWith('claude-')) {
+        const Anthropic = (await import('@anthropic-ai/sdk')).default;
+        const client = new Anthropic({ apiKey });
+        // history (Gemini 형식 {role, parts}) → Claude 형식 {role, content}
+        const messages: Array<{ role: 'user' | 'assistant'; content: string }> = [];
+        for (const h of (history || [])) {
+          const role: 'user' | 'assistant' = (h?.role === 'model' || h?.role === 'assistant') ? 'assistant' : 'user';
+          let content = '';
+          if (typeof h?.parts === 'string') content = h.parts;
+          else if (Array.isArray(h?.parts)) content = h.parts.map((p: any) => typeof p === 'string' ? p : (p?.text || '')).join('\n');
+          else if (typeof h?.content === 'string') content = h.content;
+          else content = String(h?.parts || h?.content || '');
+          if (content.trim()) messages.push({ role, content });
+        }
+        messages.push({ role: 'user', content: message });
+        const resp = await client.messages.create({
+          model: modelName,
+          max_tokens: 4096,
+          messages,
+        });
+        const text = (resp.content as any[])
+          .filter((b: any) => b.type === 'text')
+          .map((b: any) => b.text)
+          .join('\n').trim();
+        return text || '(빈 응답)';
+      }
+
+      // Gemini 경로 (legacy 호환)
       const genAI = new GoogleGenerativeAI(apiKey);
       const model = genAI.getGenerativeModel({ model: modelName });
-
       const chat = model.startChat({
         history: history,
-        generationConfig: {
-          maxOutputTokens: 2048,
-        },
+        generationConfig: { maxOutputTokens: 2048 },
       });
-
       const result = await chat.sendMessage(message);
       const response = await result.response;
       return response.text();
     } catch (error: any) {
-      console.error('[KEYWORD-MASTER] Gemini AI 채팅 실패:', error);
+      console.error('[KEYWORD-MASTER] AI 채팅 실패:', error);
       throw error;
     }
   });

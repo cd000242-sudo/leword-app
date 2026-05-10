@@ -17017,11 +17017,11 @@
                 <label class="block text-xs font-bold text-gray-500 uppercase tracking-wide mb-2">AI 모델 선택</label>
                 <select id="ai-model-select" onchange="toggleAiCustomModel()"
                   class="w-full px-4 py-3 border border-gray-200 rounded-xl focus:ring-2 focus:ring-green-500 focus:border-transparent outline-none transition bg-gray-50 text-sm mb-2">
-                  <option value="gemini-2.5-flash" selected>Gemini 2.5 Flash (빠르고 똑똑함 · 추천)</option>
-                  <option value="gemini-2.5-pro">Gemini 2.5 Pro (최고 성능 ⭐️)</option>
-                  <option value="gemini-2.0-flash">Gemini 2.0 Flash (안정 production)</option>
-                  <option value="gemini-1.5-pro">Gemini 1.5 Pro (legacy 안정)</option>
-                  <option value="gemini-1.5-flash">Gemini 1.5 Flash (legacy 빠름)</option>
+                  <option value="claude-sonnet-4-6" selected>Claude Sonnet 4.6 (균형 · 추천)</option>
+                  <option value="claude-opus-4-7">Claude Opus 4.7 (최고 성능 ⭐️)</option>
+                  <option value="claude-haiku-4-5-20251001">Claude Haiku 4.5 (빠르고 저렴)</option>
+                  <option value="gemini-2.5-flash">Gemini 2.5 Flash (legacy)</option>
+                  <option value="gemini-2.5-pro">Gemini 2.5 Pro (legacy)</option>
                   <option value="custom">직접 입력...</option>
                 </select>
                 <input type="text" id="ai-model-name-custom"
@@ -17193,7 +17193,7 @@
           const customInput = document.getElementById('ai-model-name-custom');
 
           let model = select.value === 'custom' ? customInput.value.trim() : select.value;
-          if (!model) model = 'gemini-1.5-pro';
+          if (!model) model = 'claude-sonnet-4-6';
 
           if (!key) {
             alert('API 키를 입력해주세요!');
@@ -17236,7 +17236,7 @@
             // Assuming nodeIntegration: true based on file context.
             let responseText = '';
 
-            const modelName = localStorage.getItem('chatModelName') || 'gemini-1.5-pro';
+            const modelName = localStorage.getItem('chatModelName') || 'claude-sonnet-4-6';
 
             // IPC를 통해 메인 프로세스에서 Gemini API 호출
             responseText = await window.electronAPI.geminiChat({

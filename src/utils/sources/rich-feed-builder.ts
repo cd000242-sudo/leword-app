@@ -1035,7 +1035,84 @@ export async function buildRichFeed(
     enrichedRows.length = 0;
     enrichedRows.push(...highGradeOnly);
 
-    emit('grading', 90, `SSS-only 필터 적용 (${enrichedRows.length}건)...`);
+    emit('grading', 88, `SSS-only 필터 적용 (${enrichedRows.length}건)...`);
+
+    // 🔥 v2.42.21: 최종 SSS/SSR 후보의 dc 정확성 검증 (사용자 신고 — "노사발전재단 API 70 vs 실측 16,681")
+    //   Open API blog.json total은 인덱싱된 일부만 카운트. 정확한 dc는 웹 검색 결과 페이지.
+    //   v2.42.17의 bilateral check는 sv>=500 + dc<3000 + ratio>50 케이스만 잡음 (좁음).
+    //   v2.42.21: 모든 SSS/SSR 후보에 scrape verify. dc 2배+ 차이면 실측 채택 + re-grade.
+    //   비용: 후보당 ~1초 (concurrency 5). 50~150건이면 10~30초 추가.
+    if (enrichedRows.length > 0 && enrichedRows.length <= 200) {
+        emit('verify-dc', 89, `dc 정확성 검증 (웹 실측) — ${enrichedRows.length}건...`);
+        const VERIFY_CONCURRENCY = 5;
+        const SCRAPE_TIMEOUT = 2500;
+        let verified = 0;
+        let corrected = 0;
+        let demoted = 0;
+
+        const scrapeWebDc = async (kw: string): Promise<number | null> => {
+            try {
+                const axiosMod = await import('axios');
+                const axios = axiosMod.default;
+                const url = `https://search.naver.com/search.naver?where=blog&query=${encodeURIComponent(kw)}`;
+                const resp = await axios.get(url, {
+                    headers: { 'User-Agent': 'Mozilla/5.0 AppleWebKit/537.36 Chrome/120.0.0.0' },
+                    timeout: SCRAPE_TIMEOUT,
+                });
+                const html = String(resp.data || '');
+                const m = html.match(/([0-9,]+)\s*건/);
+                if (m && m[1]) {
+                    const n = parseInt(m[1].replace(/,/g, ''), 10);
+                    return Number.isFinite(n) ? n : null;
+                }
+                return null;
+            } catch {
+                return null;
+            }
+        };
+
+        for (let i = 0; i < enrichedRows.length; i += VERIFY_CONCURRENCY) {
+            if (isExceeded()) {
+                console.warn(`[rich-feed v2.42.21] dc 검증 timeout — ${verified}/${enrichedRows.length} 처리 후 중단`);
+                break;
+            }
+            const batch = enrichedRows.slice(i, i + VERIFY_CONCURRENCY);
+            await Promise.all(batch.map(async (r) => {
+                // dcEstimated 또는 claude/manus 발견은 스킵 (이미 검증 또는 의도된 신뢰)
+                if ((r as any).dcEstimated || (r as any).claudeDiscovered || (r as any).discoveredByManus) return;
+                const scraped = await scrapeWebDc(r.keyword);
+                if (scraped !== null && scraped > 0) {
+                    verified++;
+                    // 실측이 API 대비 2배 이상 차이면 실측 채택
+                    if (scraped > r.documentCount * 2) {
+                        const oldDc = r.documentCount;
+                        const oldRatio = r.goldenRatio;
+                        r.documentCount = scraped;
+                        r.goldenRatio = parseFloat((r.searchVolume / Math.max(1, scraped)).toFixed(2));
+                        corrected++;
+                        // ratio<1이면 redOcean → grade=''로 강등 (정책)
+                        if (r.goldenRatio < 1.0) {
+                            (r as any).grade = '';
+                            demoted++;
+                            console.log(`[rich-feed v2.42.21] dc 강등 "${r.keyword}": ${oldDc}→${scraped}, ratio ${oldRatio.toFixed(1)}→${r.goldenRatio} (redOcean)`);
+                        } else {
+                            console.log(`[rich-feed v2.42.21] dc 보정 "${r.keyword}": ${oldDc}→${scraped}, ratio ${oldRatio.toFixed(1)}→${r.goldenRatio}`);
+                        }
+                    }
+                }
+            }));
+            const pct = 89 + Math.round((Math.min(i + VERIFY_CONCURRENCY, enrichedRows.length) / enrichedRows.length) * 2);
+            emit('verify-dc', pct, `dc 검증 ${Math.min(i + VERIFY_CONCURRENCY, enrichedRows.length)}/${enrichedRows.length} (보정 ${corrected}건, 강등 ${demoted})`);
+        }
+
+        // 강등된 항목 제거 (grade='')
+        const stillHighGrade = enrichedRows.filter(r => r.grade === 'SSR' || r.grade === 'SSS');
+        enrichedRows.length = 0;
+        enrichedRows.push(...stillHighGrade);
+
+        console.log(`[rich-feed v2.42.21] ✅ dc 검증 완료: ${verified}건 검사, ${corrected}건 dc 보정, ${demoted}건 redOcean 강등, 최종 ${enrichedRows.length}건`);
+        emit('verify-dc', 91, `✅ dc 검증 완료 — 가짜 SSS ${demoted}건 제거, 최종 ${enrichedRows.length}건`);
+    }
 
     // 5. 정렬 (등급 → 기회지수 → 소스 수)
     const gradeOrder: Record<string, number> = { SSR: 6, SSS: 5, SS: 4, S: 3, A: 2, B: 1 };
