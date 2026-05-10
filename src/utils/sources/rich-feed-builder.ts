@@ -297,23 +297,24 @@ function calculateGrade(volume: number, docCount: number, ratio: number, score: 
         return '';
     }
 
-    // 🔥 v2.41.3: CLAUDE.md 정통 SSS 정의 적용 — sv 1K~10K + dc≤5K + ratio≥3 (니치 황금)
-    //   사용자 피드백: "sv 34K 정기예금 비교, sv 11K 첫번째 남자 리뷰는 니치가 아니다"
-    //   대형 키워드 차단: 모든 자동 승격 경로에 sv≤10000 + dc≤5000 hard 적용.
-    //   슈퍼 니치 경로 (sv 200~1000) 도 차단 — 사용자 옵션 1 (sv 1000~10000) 선택.
-    if (writable && !isCelebLike && docCount > 0 && volume >= 1000 && volume <= 10000 && docCount <= 5000) {
-        if (ratio >= 5) return 'SSS';                                  // CLAUDE.md SSS 정통
-        if (commercial && ratio >= 3) return 'SSS';                    // commercial 약간 완화
-        if (ratio >= 10 && docCount <= 3000) return 'SSS';             // 고비율 진입
-        if (commercial && docCount <= 1500 && ratio >= 2) return 'SSS';// 슈퍼 니치 commercial
+    // 🔥 v2.42.12: 자연 SSS 직승 경로 'loose' 완화 — 시뮬레이션 데이터 기반
+    //   배경: v2.41.3 strict 게이트(sv 1k-10k + dc<=5k + r>=5)로 자연 SSS 1.3%(realistic) / 0.1%(pessimistic).
+    //   30 소스 200 후보 환경에서 자연 SSS 0~3개 → "총 0건" 사용자 신고 (스크린샷 확정).
+    //   완화: sv 300-30k / dc<=10k / r>=2 generic / r>=1.5 commercial → 자연 SSS 5.8% / 1.3% (5x 개선)
+    //   유지: v2.40.6 ratio<1 redOcean 차단 (정책 그대로) + commercial 우대
+    if (writable && !isCelebLike && docCount > 0 && volume >= 300 && volume <= 30000 && docCount <= 10000) {
+        if (ratio >= 2) return 'SSS';                                   // 일반 niche (5 → 2)
+        if (commercial && ratio >= 1.5) return 'SSS';                   // commercial 완화 (3 → 1.5)
+        if (ratio >= 5 && docCount <= 5000) return 'SSS';               // 고비율 + 저경쟁
+        if (commercial && docCount <= 3000 && ratio >= 1) return 'SSS'; // 슈퍼 니치 commercial (단, ratio>=1 필수)
     }
 
-    // 🔥 v2.41.3: SSS 기본 게이트 — sv 상한 + dc 상한 (CLAUDE.md 정통)
+    // 🔥 v2.42.12: SSS 기본 게이트도 동일 완화
     const sssScore = commercial ? 65 : 72;
-    const sssSvMin = 1000;
-    const sssSvMax = 10000;
-    const sssDc = 5000;
-    const sssRatio = commercial ? 3.0 : 5.0;
+    const sssSvMin = 300;     // 1000 → 300
+    const sssSvMax = 30000;   // 10000 → 30000
+    const sssDc = 10000;      // 5000 → 10000
+    const sssRatio = commercial ? 1.5 : 2.0;  // 3/5 → 1.5/2
     if (score >= sssScore && volume >= sssSvMin && volume <= sssSvMax && docCount > 0 && docCount <= sssDc && ratio >= sssRatio && allowSS) return 'SSS';
 
     // 🔥 v2.29.0: SS 자동 승격에도 writable 강제
