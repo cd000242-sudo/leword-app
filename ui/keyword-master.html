@@ -17046,11 +17046,11 @@
             </div>
             <div class="p-6 space-y-6 flex-1 overflow-y-auto">
               <div>
-                <label class="block text-xs font-bold text-gray-500 uppercase tracking-wide mb-2">Gemini API Key</label>
+                <label class="block text-xs font-bold text-gray-500 uppercase tracking-wide mb-2">API Key</label>
                 <input type="password" id="ai-api-key-input"
                   class="w-full px-4 py-3 border border-gray-200 rounded-xl focus:ring-2 focus:ring-green-500 focus:border-transparent outline-none transition bg-gray-50 text-sm"
-                  placeholder="AI Studio 키 입력">
-                <p class="text-xs text-gray-400 mt-2">키는 로컬에만 저장됩니다.</p>
+                  placeholder="Claude API 키 (sk-ant-...) 또는 Gemini AI Studio 키">
+                <p class="text-xs text-gray-400 mt-2">키는 로컬에만 저장됩니다. Claude 키 발급: <a href="#" onclick="event.preventDefault(); window.electronAPI?.openExternal('https://console.anthropic.com/'); return false;" class="text-indigo-500 underline">console.anthropic.com</a></p>
               </div>
               <div>
                 <label class="block text-xs font-bold text-gray-500 uppercase tracking-wide mb-2">AI 모델 선택</label>
@@ -17065,7 +17065,7 @@
                 </select>
                 <input type="text" id="ai-model-name-custom"
                   class="w-full px-4 py-3 border border-gray-200 rounded-xl focus:ring-2 focus:ring-green-500 focus:border-transparent outline-none transition bg-gray-50 text-sm hidden"
-                  placeholder="모델 ID (예: gemini-pro-vision)">
+                  placeholder="모델 ID (예: claude-sonnet-4-6, gemini-2.5-pro)">
               </div>
             </div>
             <div class="p-4 border-t border-gray-100">
@@ -17208,7 +17208,15 @@
 
         function loadAiSettings() {
           const key = localStorage.getItem('chatApiKey') || '';
-          const model = localStorage.getItem('chatModelName') || 'gemini-1.5-pro';
+          let model = localStorage.getItem('chatModelName') || 'claude-sonnet-4-6';
+
+          // v2.42.26: deprecated Gemini 모델 자동 마이그레이션 (gemini-1.5-pro, gemini-exp-1206 등)
+          const deprecatedModels = ['gemini-1.5-pro', 'gemini-1.5-flash', 'gemini-2.0-flash-exp', 'gemini-2.0-pro-exp', 'gemini-2.0-flash-thinking-exp-1219', 'gemini-exp-1206'];
+          if (deprecatedModels.includes(model)) {
+            console.log('[AI-SETTINGS] deprecated 모델 감지:', model, '→ claude-sonnet-4-6 자동 전환');
+            model = 'claude-sonnet-4-6';
+            localStorage.setItem('chatModelName', model);
+          }
 
           document.getElementById('ai-api-key-input').value = key;
 
