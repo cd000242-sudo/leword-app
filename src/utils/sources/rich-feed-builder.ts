@@ -62,6 +62,57 @@ export interface RichKeywordRow {
     trendRecommendation?: string;
 }
 
+export interface RichFeedDiagnostic {
+    seeds: {
+        sourcesSuccess: number;
+        sourcesTotal: number;
+        seedMapSize: number;        // seedMap.size — unique 시드 수
+        afterQualityFilter: number;  // isQualitySeed + !isTooGeneric2Token 통과
+    };
+    longtail: {
+        expandedAdded: number;       // longtail 확장으로 추가된 키워드 수
+    };
+    candidates: {
+        targetSize: number;          // stratified sampling 목표
+        actualSampled: number;       // 실제 샘플링된 후보
+        sentToNaver: number;         // Naver API 호출 대상
+    };
+    naver: {
+        withValidSv: number;         // sv > 0
+        withValidDc: number;         // dc > 0
+        dcEstimated: number;         // dc 추정값
+    };
+    grading: {
+        SSS: number;
+        SSR: number;
+        SS: number;
+        S: number;
+        A: number;
+        B: number;
+        filtered: number;            // grade '' (가장 큰 컷)
+    };
+    writableAnalysis: {
+        singleTokenBroad: number;    // 단일 토큰 GENERIC_BROAD (writable=false)
+        singleTokenAction: number;   // 단일 토큰 GENERIC_ACTION (writable=false)
+        twoTokenGeneric: number;     // 2-token BROAD+ACTION (writable=false)
+        singleTokenHighDc: number;   // 단일 토큰 dc>500 (writable=false)
+        passedWritable: number;      // 통과
+    };
+    redOcean: {
+        ratioBelow1: number;         // ratio<1 차단됨
+    };
+    promotion: {
+        targetSSS: number;
+        naturalSSS: number;
+        poolSize: number;
+        promoted: number;
+    };
+    final: {
+        afterSSROnlyFilter: number;
+        topNReturned: number;
+    };
+}
+
 export interface RichFeedResult {
     timestamp: number;
     total: number;
@@ -69,6 +120,7 @@ export interface RichFeedResult {
     rows: RichKeywordRow[];
     byCategory: Record<string, number>;
     bySource: Record<string, number>;
+    diagnostic?: RichFeedDiagnostic;  // v2.42.13: 0건 발생 시 진단용
 }
 
 const STOP = new Set([
@@ -438,6 +490,19 @@ export async function buildRichFeed(
         try { onProgress?.({ step, percent: p, message }); } catch {}
     };
 
+    // v2.42.13: 진단 카운터 — 실 데이터 funnel 측정용
+    const diagnostic: RichFeedDiagnostic = {
+        seeds: { sourcesSuccess: 0, sourcesTotal: 0, seedMapSize: 0, afterQualityFilter: 0 },
+        longtail: { expandedAdded: 0 },
+        candidates: { targetSize: 0, actualSampled: 0, sentToNaver: 0 },
+        naver: { withValidSv: 0, withValidDc: 0, dcEstimated: 0 },
+        grading: { SSS: 0, SSR: 0, SS: 0, S: 0, A: 0, B: 0, filtered: 0 },
+        writableAnalysis: { singleTokenBroad: 0, singleTokenAction: 0, twoTokenGeneric: 0, singleTokenHighDc: 0, passedWritable: 0 },
+        redOcean: { ratioBelow1: 0 },
+        promotion: { targetSSS: 0, naturalSSS: 0, poolSize: 0, promoted: 0 },
+        final: { afterSSROnlyFilter: 0, topNReturned: 0 },
+    };
+
     emit('seed', 3, '28개 외부 소스에서 시드 수집 시작...');
 
     // 1. 시드 풀링 — 진행률 pseudo-animation (callAllSources는 Promise.all이라 중간 진행 불가)
@@ -455,6 +520,8 @@ export async function buildRichFeed(
 
     const successSources = Array.from(sourceResults.values()).filter(r => r.success).length;
     const totalSources = sourceResults.size;
+    diagnostic.seeds.sourcesSuccess = successSources;
+    diagnostic.seeds.sourcesTotal = totalSources;
     emit('seed', 15, `시드 풀링 완료 (성공 ${successSources}/${totalSources})`);
 
     // 2. 키워드 → 소스 맵
@@ -491,6 +558,7 @@ export async function buildRichFeed(
     const allSeeds = Array.from(seedMap.entries())
         .map(([kw, srcs]) => ({ keyword: kw, sources: Array.from(srcs) }))
         .sort((a, b) => b.sources.length - a.sources.length);
+    diagnostic.seeds.seedMapSize = allSeeds.length;
 
     // 3-1. 소스별로 그룹화 → 다양성 보장
     const perSource = new Map<string, Array<{ keyword: string; sources: string[] }>>();
@@ -536,6 +604,7 @@ export async function buildRichFeed(
             }
         }
     }
+    diagnostic.seeds.afterQualityFilter = baseSeeds.length;
 
     // 3-3. Longtail 확장
     // - Heavy source(seed 100+): 상위 20개만 파생 (전체 파생 폭증 방지)
@@ -576,9 +645,12 @@ export async function buildRichFeed(
         }
     }
 
+    diagnostic.longtail.expandedAdded = extraSeeds.length;
+
     // 🔥 v2.27.9: 후보 풀 1500 → 2500 (대량 보장)
     const allScored = [...baseSeeds, ...extraSeeds].sort((a, b) => b.qualityScore - a.qualityScore);
     const targetSize = Math.min(2500, Math.max(limit * 8, 1500));
+    diagnostic.candidates.targetSize = targetSize;
 
     const weightedSampleWithoutReplacement = <T extends { qualityScore: number }>(
         items: T[],
@@ -631,9 +703,11 @@ export async function buildRichFeed(
     }
     candidates.sort((a, b) => b.qualityScore - a.qualityScore);
 
+    diagnostic.candidates.actualSampled = candidates.length;
+
     if (candidates.length === 0) {
         emit('done', 100, '수집된 키워드 없음');
-        return { timestamp: Date.now(), total: 0, tier, rows: [], byCategory: {}, bySource: {} };
+        return { timestamp: Date.now(), total: 0, tier, rows: [], byCategory: {}, bySource: {}, diagnostic };
     }
 
     emit('candidates', 20, `후보 ${candidates.length}개 선별 완료. 네이버 API 검증 시작...`);
@@ -719,6 +793,26 @@ export async function buildRichFeed(
                 const score = calculateScore(totalVolume, docCount, goldenRatio, scoringCpc, intent, sig.keyword);
                 // 🔥 v2.32.1: dc 추정 여부를 grade 판정에 전달 — 추정값은 A 상한
                 let grade: GoldenGrade | '' = calculateGrade(totalVolume, docCount, goldenRatio, score, sig.keyword, !hasValidDocCount);
+
+                // v2.42.13 진단 카운터
+                if (totalVolume > 0) diagnostic.naver.withValidSv++;
+                if (hasValidDocCount) diagnostic.naver.withValidDc++; else diagnostic.naver.dcEstimated++;
+                const _tokens = sig.keyword.trim().split(/\s+/).filter(Boolean).length;
+                const _kClean = sig.keyword.trim();
+                if (_tokens === 1 && GENERIC_BROAD_RE.test(_kClean)) diagnostic.writableAnalysis.singleTokenBroad++;
+                else if (_tokens === 1 && GENERIC_ACTION_RE.test(_kClean)) diagnostic.writableAnalysis.singleTokenAction++;
+                else if (_tokens === 2 && isTooGeneric2Token(_kClean)) diagnostic.writableAnalysis.twoTokenGeneric++;
+                else if (_tokens === 1 && docCount > 500) diagnostic.writableAnalysis.singleTokenHighDc++;
+                else diagnostic.writableAnalysis.passedWritable++;
+                if (grade === 'SSS') diagnostic.grading.SSS++;
+                else if (grade === 'SSR') diagnostic.grading.SSR++;
+                else if (grade === 'SS') diagnostic.grading.SS++;
+                else if (grade === 'S') diagnostic.grading.S++;
+                else if (grade === 'A') diagnostic.grading.A++;
+                else if (grade === 'B') diagnostic.grading.B++;
+                else diagnostic.grading.filtered++;
+                if (!grade && docCount > 0 && goldenRatio < 1.0) diagnostic.redOcean.ratioBelow1++;
+
                 if (!grade) continue;
 
                 // 🔥 v2.31.1: SSR 승격 경로 다양화 (5~15건 → 20~50건)
@@ -792,6 +886,7 @@ export async function buildRichFeed(
     //   pro-traffic-keyword-hunter v2.40.5 의 검증된 점수 식 차용 (grScore×0.55 + svScore×0.30 + dcScore×0.15).
     const sssCount = enrichedRows.filter(r => r.grade === 'SSS' || r.grade === 'SSR').length;
     const TARGET_SSS = Math.max(50, Math.floor(limit * 0.4));
+    diagnostic.promotion.poolSize = 0; // updated below if promotion runs
     if (sssCount < TARGET_SSS) {
         // 🔥 v2.41.2: 진짜 SSS = 저경쟁 + 중수요 + 높은 비율 (CLAUDE.md 정의)
         //   기존 svScore 가중치 30% 가 sv 폭주 키워드(챗GPT 무료 sv 117K 등)를 우대해 SSS 라벨 오염.
@@ -831,10 +926,13 @@ export async function buildRichFeed(
             })
             .sort((a, b) => b.dynamicSssScore - a.dynamicSssScore);
         const need = TARGET_SSS - sssCount;
-        for (let i = 0; i < Math.min(need, promotionPool.length); i++) {
+        const promoted = Math.min(need, promotionPool.length);
+        for (let i = 0; i < promoted; i++) {
             promotionPool[i].row.grade = 'SSS';
         }
-        console.log(`[rich-feed v2.41.3] 동적 SSS 승격: 풀 ${promotionPool.length}건 중 ${Math.min(need, promotionPool.length)}건 승격 (TARGET ${TARGET_SSS}, 기존 SSS ${sssCount}건, CLAUDE.md 정통 sv 1K~10K + dc≤5K + ratio≥3)`);
+        diagnostic.promotion.poolSize = promotionPool.length;
+        diagnostic.promotion.promoted = promoted;
+        console.log(`[rich-feed v2.42.13] 동적 SSS 승격: 풀 ${promotionPool.length}건 중 ${promoted}건 승격 (TARGET ${TARGET_SSS}, 기존 SSS ${sssCount}건)`);
     }
 
     // 🔥 v2.41.0: SSR + SSS only 화면 (사용자 정책 — 다층 노출 금지)
@@ -886,6 +984,12 @@ export async function buildRichFeed(
         console.warn('[rich-feed] 트렌드 분류 실패:', e?.message);
     }
 
+    diagnostic.final.afterSSROnlyFilter = enrichedRows.length;
+    diagnostic.final.topNReturned = top.length;
+    diagnostic.candidates.sentToNaver = candidates.length;
+    diagnostic.promotion.naturalSSS = sssCount;
+    diagnostic.promotion.targetSSS = TARGET_SSS;
+
     emit('done', 100, `완료 — ${top.length}건 발굴`);
 
     return {
@@ -895,6 +999,7 @@ export async function buildRichFeed(
         rows: top,
         byCategory: countBy(top, 'category'),
         bySource: countSources(top),
+        diagnostic,
     };
 }
 

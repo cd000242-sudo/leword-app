@@ -836,6 +836,7 @@
 
     <script>
       let rfAllRows = [];
+      let rfDiagnostic = null; // v2.42.13: 0건 발생 시 진단 정보
       let rfCurrentCategory = '*';
 
       // 📡 진행 이벤트 수신 리스너 (전역 1회 등록)
@@ -897,6 +898,7 @@
           }
           const excluded = rfGetExcluded();
           rfAllRows = (r.rows || []).filter(row => !excluded.has(row.keyword));
+          rfDiagnostic = r.diagnostic || null;
           const excludedCount = (r.rows || []).length - rfAllRows.length;
           document.getElementById('rfTotal').textContent = rfAllRows.length + (excludedCount > 0 ? ` (${excludedCount}개 제외됨)` : '');
           document.getElementById('rfTierBadge').textContent = (r.tier === 'pro') ? '💎 PRO' : 'LITE';
@@ -1030,9 +1032,55 @@
       function renderRichFeedTable(rows, startIdx) {
         const tbody = document.getElementById('rfTbody');
         if (!rows || rows.length === 0) {
+          // v2.42.13: 0건 발생 시 진단 정보 표시
+          let diagHtml = '';
+          if (rfDiagnostic) {
+            const d = rfDiagnostic;
+            const totalGrade = d.grading.SSS + d.grading.SSR + d.grading.SS + d.grading.S + d.grading.A + d.grading.B + d.grading.filtered;
+            const filteredPct = totalGrade > 0 ? ((d.grading.filtered / totalGrade) * 100).toFixed(1) : '0';
+            diagHtml = `
+              <div style="margin-top:20px; padding:16px; background:#1e293b; border-radius:10px; text-align:left; max-width:700px; margin-left:auto; margin-right:auto; font-size:11px; color:#cbd5e1; line-height:1.7;">
+                <div style="font-weight:700; color:#fbbf24; margin-bottom:10px; text-align:center;">🔬 진단 정보 (왜 0건인가)</div>
+                <div style="display:grid; grid-template-columns:1fr 1fr; gap:8px;">
+                  <div>📡 <strong>시드 수집:</strong> ${d.seeds.sourcesSuccess}/${d.seeds.sourcesTotal} 소스</div>
+                  <div>🌱 <strong>고유 시드:</strong> ${d.seeds.seedMapSize}개</div>
+                  <div>🎯 <strong>품질 통과:</strong> ${d.seeds.afterQualityFilter}개</div>
+                  <div>🌿 <strong>longtail 추가:</strong> ${d.longtail.expandedAdded}개</div>
+                  <div>📊 <strong>API 호출:</strong> ${d.candidates.sentToNaver}개</div>
+                  <div>📦 <strong>실측 sv:</strong> ${d.naver.withValidSv} (dc 추정 ${d.naver.dcEstimated})</div>
+                </div>
+                <hr style="border:none; border-top:1px solid #334155; margin:10px 0;">
+                <div style="font-weight:700; color:#a78bfa; margin-bottom:6px;">🏆 등급 분포 (총 ${totalGrade}개)</div>
+                <div style="display:grid; grid-template-columns:repeat(4,1fr); gap:6px; font-size:10px;">
+                  <div style="color:#fbbf24;">SSS: <strong>${d.grading.SSS}</strong></div>
+                  <div style="color:#a78bfa;">SSR: <strong>${d.grading.SSR}</strong></div>
+                  <div>SS: ${d.grading.SS}</div>
+                  <div>S: ${d.grading.S}</div>
+                  <div>A: ${d.grading.A}</div>
+                  <div>B: ${d.grading.B}</div>
+                  <div style="color:#f87171;">필터: <strong>${d.grading.filtered}</strong> (${filteredPct}%)</div>
+                  <div style="color:#fb7185;">redOcean: ${d.redOcean.ratioBelow1}</div>
+                </div>
+                <hr style="border:none; border-top:1px solid #334155; margin:10px 0;">
+                <div style="font-weight:700; color:#f87171; margin-bottom:6px;">🚫 writable=false 사유</div>
+                <div style="display:grid; grid-template-columns:1fr 1fr; gap:6px; font-size:10px;">
+                  <div>단일 BROAD ("적금" 등): <strong>${d.writableAnalysis.singleTokenBroad}</strong></div>
+                  <div>단일 ACTION ("추천" 등): <strong>${d.writableAnalysis.singleTokenAction}</strong></div>
+                  <div>2-token BROAD+ACTION: <strong>${d.writableAnalysis.twoTokenGeneric}</strong></div>
+                  <div>단일+dc&gt;500: <strong>${d.writableAnalysis.singleTokenHighDc}</strong></div>
+                  <div style="color:#86efac;">writable 통과: <strong>${d.writableAnalysis.passedWritable}</strong></div>
+                </div>
+                <hr style="border:none; border-top:1px solid #334155; margin:10px 0;">
+                <div style="font-weight:700; color:#60a5fa; margin-bottom:6px;">🚀 동적 SSS 승격</div>
+                <div>자연 SSS: <strong>${d.promotion.naturalSSS}</strong> · 풀: ${d.promotion.poolSize} · 승격: ${d.promotion.promoted} · 목표: ${d.promotion.targetSSS}</div>
+                <hr style="border:none; border-top:1px solid #334155; margin:10px 0;">
+                <div style="color:#fcd34d; font-size:10px;">💡 이 정보를 캡처해서 보내주시면 정확히 어떤 게이트가 0건을 만드는지 식별 가능합니다.</div>
+              </div>`;
+          }
           tbody.innerHTML = `<tr><td colspan="12" style="padding:40px; text-align:center; color:#64748b;">
             <div style="font-size:14px; margin-bottom:8px;">조건에 맞는 결과가 없습니다.</div>
             <div style="font-size:12px; color:#475569;">💡 필터 조건(카테고리/검색량/트렌드) 중 하나를 "전체"로 바꿔보세요.</div>
+            ${diagHtml}
           </td></tr>`;
           const pg = document.getElementById('rfPagination');
           if (pg) pg.style.display = 'none';
