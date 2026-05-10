@@ -16,3 +16,7 @@ scripts/test-category-hunt.js
 
 # 검증 리포트(스크립트가 매번 덮어씀)
 verify-sss-only-report.json
+manus-validation-report-*.json
+manus-validation-run*.log
+manus-stress-*.log
+release-v*.log
