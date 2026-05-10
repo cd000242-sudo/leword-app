@@ -39,17 +39,18 @@ function destroyAllWindowsForce(): void {
   }
 }
 
-// quitAndInstall 안전 호출 — silent + force run, 모든 창 destroy 후 호출
+// quitAndInstall 안전 호출 — 모든 창 destroy 후 호출
+// v2.42.18: isSilent=true 시 isForceRunAfter가 신뢰성 떨어져 앱 미자동실행 → isSilent=false 전환.
+//   NSIS customInit(v2.42.8)이 이미 taskkill /F /T로 LEWORD 종료시키므로
+//   "cannot be closed" 다이얼로그는 안 뜸. 인스톨러 진행바만 잠깐 보이고 자동 실행 신뢰성 복구.
 function performQuitAndInstall(autoUpdater: any): void {
   destroyAllWindowsForce();
-  // 약간의 지연으로 OS가 프로세스 정리할 시간 줌
   setTimeout(() => {
     try {
-      // (isSilent=true, isForceRunAfter=true) — 사용자에게 "cannot be closed" 안 묻고 자동 진행
-      autoUpdater.quitAndInstall(true, true);
+      // (isSilent=false, isForceRunAfter=true) — 진행바 잠깐 + 자동 실행 보장
+      autoUpdater.quitAndInstall(false, true);
     } catch (e: any) {
       console.error('[UPDATER] quitAndInstall 실패:', e?.message);
-      // fallback: 강제 종료 후 OS가 alurun 안내
       try { app.exit(0); } catch {}
     }
   }, 300);
