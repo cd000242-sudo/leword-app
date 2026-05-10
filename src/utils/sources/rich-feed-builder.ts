@@ -795,25 +795,34 @@ export async function buildRichFeed(
         // 🔥 v2.41.2: 진짜 SSS = 저경쟁 + 중수요 + 높은 비율 (CLAUDE.md 정의)
         //   기존 svScore 가중치 30% 가 sv 폭주 키워드(챗GPT 무료 sv 117K 등)를 우대해 SSS 라벨 오염.
         //   풀 진입에서 sv/dc 상한 + 점수식 재설계로 진짜 황금만 승격.
+        // 🔥 v2.42.11: 게이트 완화 — '0개 결과' 사용자 신고 후 풀 약 3배 확장
+        //   유지 정책: SSR/SSS only 노출 + ratio<1 레드오션 차단 + commercial 우선
+        //   완화 사유: dc<=5000 / sv 1000~10000 / ratio>=3 너무 엄격해 promotion pool 자주 0
+        //   참조: feedback_result_count_floor — "SSS 절대 수 풀 확장+게이트 캘리브레이션으로 늘려라"
         const promotionPool = enrichedRows
             .filter(r =>
                 (r.grade === 'SS' || r.grade === 'S' || r.grade === 'A') &&
                 r.documentCount > 0 &&
-                r.documentCount <= 5000 &&        // CLAUDE.md SSS dc 정통
-                r.searchVolume >= 1000 &&         // CLAUDE.md SSS sv 하한
-                r.searchVolume <= 10000 &&        // 대형 차단 (사용자 옵션 1)
-                r.goldenRatio >= 3.0              // CLAUDE.md commercial SSS ratio
+                r.documentCount <= 10000 &&       // 5000 → 10000 (medium-saturated 허용)
+                r.searchVolume >= 500 &&          // 1000 → 500 (소형 longtail 허용)
+                r.searchVolume <= 30000 &&        // 10000 → 30000 (인기 키워드도 허용)
+                r.goldenRatio >= 2.0              // 3.0 → 2.0 (commercial 정의 약간 느슨)
             )
             .map(r => {
-                // dcScore: 저경쟁 강하게 우대 (계단식)
+                // dcScore: 저경쟁 강하게 우대 (계단식, 10000 상한 대응 추가)
                 const dcScore = r.documentCount <= 1000 ? 100 :
                     r.documentCount <= 2000 ? 85 :
                     r.documentCount <= 3000 ? 70 :
-                    r.documentCount <= 5000 ? 50 : 0;
+                    r.documentCount <= 5000 ? 50 :
+                    r.documentCount <= 10000 ? 30 : 0;
                 // grScore: ratio 큼 우대
                 const grScore = Math.min(100, r.goldenRatio * 15);
-                // svScore: sv 1000~10000 sweet spot 만점
-                const svScore = r.searchVolume >= 1000 && r.searchVolume <= 10000 ? 100 : 0;
+                // svScore: sv 1000~10000 만점, 그 외는 점수 차등 (v2.42.11 — 게이트 완화 반영)
+                const sv = r.searchVolume;
+                const svScore = sv >= 1000 && sv <= 10000 ? 100 :
+                    sv >= 500 && sv < 1000 ? 60 :        // 소형 longtail
+                    sv > 10000 && sv <= 30000 ? 70 :     // 인기 키워드
+                    0;
                 let dynamicSssScore = dcScore * 0.40 + grScore * 0.35 + svScore * 0.25;
                 // dcEstimated 행은 신뢰도 페널티 30%
                 if (r.dcEstimated) dynamicSssScore *= 0.7;
