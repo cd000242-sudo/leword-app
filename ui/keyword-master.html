@@ -15968,10 +15968,11 @@
         function renderManusBannerHtml(s) {
           if (!s) return '';
           if (s.error) {
+            const errEsc = String(s.error).replace(/&/g,'&amp;').replace(/</g,'&lt;').replace(/>/g,'&gt;');
             return `<div style="margin-top: 12px; padding: 12px 14px; background: rgba(239,68,68,0.10); border: 1px solid rgba(239,68,68,0.35); border-radius: 10px;">
-              <div style="font-size: 13px; font-weight: 700; color: #fca5a5; margin-bottom: 4px;">🤖 Manus AI 보강 실패 — 기본 PRO 결과만 표시 중</div>
-              <div style="font-size: 11px; color: rgba(255,255,255,0.7); line-height: 1.5;">${String(s.error).replace(/&/g,'&amp;').replace(/</g,'&lt;').replace(/>/g,'&gt;').slice(0, 300)}</div>
-              <div style="font-size: 11px; color: rgba(255,255,255,0.5); margin-top: 6px;">💡 환경설정에서 Manus API 키를 확인하거나, 잠시 후 다시 시도하세요</div>
+              <div style="font-size: 13px; font-weight: 700; color: #fca5a5; margin-bottom: 4px;">🤖 AI 보강 실패 — 기본 PRO 결과만 표시 중</div>
+              <pre style="font-size: 11px; color: rgba(255,255,255,0.75); line-height: 1.5; white-space: pre-wrap; word-break: break-word; max-height: 240px; overflow-y: auto; margin: 0; padding: 8px; background: rgba(0,0,0,0.25); border-radius: 6px; font-family: 'Consolas', monospace;">${errEsc}</pre>
+              <div style="font-size: 11px; color: rgba(255,255,255,0.5); margin-top: 6px;">💡 환경설정 키 확인 · 또는 위 디버그 정보를 개발자에게 전달</div>
             </div>`;
           }
           if (s.inProgress) {
@@ -16116,10 +16117,12 @@
 
             // 🚨 빈 응답 감지 — Manus가 task 완료했지만 파싱 가능한 데이터 0개
             if (insightCount === 0 && discoveredCount === 0) {
+              const rawKeys = Array.isArray(statusResp.rawDataKeys) ? statusResp.rawDataKeys.join(', ') : '없음';
+              const rawSample = statusResp.rawContentSample || '';
               proTrafficManusStatus = {
                 used: false,
                 count: 0,
-                error: 'Manus가 응답했으나 인식 가능한 데이터 0개 — JSON 파싱 실패 가능성. 콘솔의 [MANUS] 로그에서 원본 응답 확인하세요.',
+                error: `Manus 응답 파싱 실패 (insights=0, discovered=0).\n\n응답 최상위 키: [${rawKeys}]\n원본 일부 (800자):\n${rawSample.slice(0, 800)}\n\n→ 이 정보를 캡처해서 개발자에게 보내주세요. 다음 버전에서 응답 스키마에 맞춰 파서를 패치합니다.`,
                 elapsed: statusResp.elapsedMs || 0
               };
               updateManusBannerOnly();

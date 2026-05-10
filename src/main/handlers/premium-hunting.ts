@@ -850,7 +850,12 @@ export function setupPremiumHuntingHandlers(): void {
           discoveredSuggestedTotal: state.discoveredSuggestedTotal,
           // status === 'completed' 시점에만 전체 결과 반환 (폴링 트래픽 절감)
           ...(state.status === 'completed'
-            ? { enriched: state.enriched, discoveredKeywords: state.discoveredKeywords }
+            ? {
+                enriched: state.enriched,
+                discoveredKeywords: state.discoveredKeywords,
+                rawContentSample: state.rawContentSample || null,
+                rawDataKeys: state.rawDataKeys || null,
+              }
             : {}),
           ...(state.error ? { error: state.error } : {}),
         };

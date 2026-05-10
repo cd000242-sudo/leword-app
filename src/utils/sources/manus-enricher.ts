@@ -147,30 +147,89 @@ async function createTask(apiKey: string, prompt: string): Promise<string> {
   return String(taskId);
 }
 
-function extractAssistantContent(data: any): string {
-  const candidates: any[] = [];
-  if (data?.output) candidates.push(data.output);
-  if (data?.result) candidates.push(data.result);
-  if (Array.isArray(data?.messages)) candidates.push(...data.messages);
-  if (Array.isArray(data?.assistant_messages)) candidates.push(...data.assistant_messages);
-  if (Array.isArray(data?.events)) candidates.push(...data.events);
-  if (Array.isArray(data?.outputs)) candidates.push(...data.outputs);
-  if (data?.data) {
-    if (data.data.output) candidates.push(data.data.output);
-    if (Array.isArray(data.data.messages)) candidates.push(...data.data.messages);
+// 재귀적으로 객체 트리에서 의미 있는 텍스트 페이로드를 모두 추출
+//  - string/number → 텍스트로 취급
+//  - array → 모든 요소 재귀
+//  - object → 알려진 텍스트 필드(content/text/message/output/body/answer/value) 우선,
+//             또는 아예 모든 키를 재귀 (Anthropic-style content blocks 등 미지의 스키마 대응)
+function collectTexts(node: any, depth = 0, out: string[] = []): string[] {
+  if (depth > 6 || node == null) return out; // 무한 재귀 방지
+  if (typeof node === 'string') {
+    if (node.trim().length > 0) out.push(node);
+    return out;
   }
-
-  let best = '';
-  for (const c of candidates) {
-    if (!c) continue;
-    if (typeof c === 'string') {
-      if (c.length > best.length) best = c;
-    } else if (typeof c === 'object') {
-      const txt = String(c.content || c.text || c.message || c.output || c.body || '');
-      if (txt && txt.length > best.length) best = txt;
+  if (typeof node === 'number' || typeof node === 'boolean') return out;
+  if (Array.isArray(node)) {
+    for (const item of node) collectTexts(item, depth + 1, out);
+    return out;
+  }
+  if (typeof node === 'object') {
+    // 텍스트일 가능성 높은 필드 우선
+    const textKeys = ['content', 'text', 'message', 'output', 'body', 'answer', 'value', 'response'];
+    for (const k of textKeys) {
+      if (k in node) collectTexts(node[k], depth + 1, out);
+    }
+    // 메시지 리스트류
+    const arrKeys = ['messages', 'outputs', 'events', 'assistant_messages', 'blocks', 'data', 'result'];
+    for (const k of arrKeys) {
+      if (k in node && !textKeys.includes(k)) collectTexts(node[k], depth + 1, out);
     }
   }
-  return best;
+  return out;
+}
+
+function extractAssistantContent(data: any): string {
+  const texts = collectTexts(data);
+  if (texts.length === 0) return '';
+  // 가장 긴 텍스트 = 최종 어시스턴트 응답일 가능성 높음
+  return texts.reduce((a, b) => (b.length > a.length ? b : a), '');
+}
+
+// 디버그 정보까지 함께 반환 (0/0 응답 시 원본 분석용)
+async function pollTaskWithDebug(
+  apiKey: string,
+  taskId: string,
+  onProgress?: (elapsedMs: number, status: string) => void
+): Promise<{ content: string; rawSample: string; rawKeys: string[] }> {
+  const start = Date.now();
+  let interval = POLL_INTERVAL_MIN_MS;
+  let lastContent = '';
+  let lastData: any = null;
+
+  while (Date.now() - start < POLL_TIMEOUT_MS) {
+    const url = `${MANUS_API_BASE}/tasks/${encodeURIComponent(taskId)}`;
+    const resp = await fetch(url, { headers: { 'API_KEY': apiKey } });
+    if (!resp.ok) {
+      const txt = await resp.text().catch(() => '');
+      throw new Error(`Manus GET /v1/tasks/${taskId} ${resp.status}: ${txt.slice(0, 300)}`);
+    }
+    const data: any = await resp.json();
+    lastData = data;
+
+    const status = String(
+      data?.status || data?.task_status || data?.data?.status || ''
+    ).toLowerCase();
+
+    const content = extractAssistantContent(data);
+    if (content) lastContent = content;
+
+    if (onProgress) onProgress(Date.now() - start, status);
+
+    if (status === 'completed' || status === 'done' || status === 'finished' || status === 'success') {
+      return {
+        content: lastContent,
+        rawSample: JSON.stringify(data).slice(0, 800),
+        rawKeys: Object.keys(data || {}),
+      };
+    }
+    if (status === 'failed' || status === 'error' || status === 'cancelled' || status === 'canceled') {
+      throw new Error(`Manus task ${status}: ${JSON.stringify(data).slice(0, 300)}`);
+    }
+
+    await new Promise((r) => setTimeout(r, interval));
+    interval = Math.min(Math.round(interval * POLL_INTERVAL_GROWTH), POLL_INTERVAL_MAX_MS);
+  }
+  throw new Error(`Manus task ${taskId} polling timeout (${POLL_TIMEOUT_MS / 60000}min) — last keys: ${JSON.stringify(Object.keys(lastData || {}))}`);
 }
 
 async function pollTask(
@@ -368,6 +427,9 @@ export interface EnrichmentTaskState<T = any> {
   discoveredKeywords: ProTrafficKeyword[];
   discoveredSuggestedTotal: number; // Manus 추천 총 개수 (SSS 게이트 통과 전)
   error?: string;
+  // 디버그: 0/0일 때 사용자에게 보여줄 원본 응답 일부
+  rawContentSample?: string;
+  rawDataKeys?: string[]; // top-level keys of raw response
 }
 
 const taskRegistry = new Map<string, EnrichmentTaskState>();
@@ -509,13 +571,17 @@ async function runEnrichmentBackground<T extends { keyword: string; manusInsight
       const manusTaskId = await createTask(apiKey, prompt);
       task.manusTaskId = manusTaskId;
       console.log(`[MANUS] [${requestId}] task 생성: ${manusTaskId} — 폴링 시작`);
-      content = await pollTask(apiKey, manusTaskId, (ms, status) => {
+      const pollResult = await pollTaskWithDebug(apiKey, manusTaskId, (ms, status) => {
         const t = taskRegistry.get(requestId);
         if (t) {
           t.elapsedMs = ms;
           t.manusStatus = status || undefined;
         }
       });
+      content = pollResult.content;
+      task.rawContentSample = pollResult.rawSample;
+      task.rawDataKeys = pollResult.rawKeys;
+      console.log(`[MANUS] [${requestId}] 응답 raw keys=${JSON.stringify(pollResult.rawKeys)}, content 길이=${content.length}`);
     } else {
       // Claude 단발 호출 — Manus 대비 50~100배 저렴, 단 실시간 웹 데이터 X (학습 cutoff 기준 추론)
       console.log(`[CLAUDE] [${requestId}] callAI 호출 — 단발 (5~15초 예상)`);
