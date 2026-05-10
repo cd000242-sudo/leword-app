@@ -20,6 +20,15 @@
   ; OS가 핸들 정리할 시간 추가 부여
 !macroend
 
+!macro customInstall
+  ; v2.42.19: 자동 업데이트 후 앱 자동 실행 보장
+  ; - electron-updater의 isForceRunAfter는 silent 모드에서 Windows에서 자주 실패
+  ; - 인스톨러가 직접 LEWORD.exe를 spawn하면 silent/non-silent 무관 동작
+  ; - ExecShell은 비동기 → 인스톨러 즉시 종료, 앱은 detached로 시작
+  ; - $INSTDIR\LEWORD.exe 경로는 electron-builder 표준 (productName 기반)
+  ExecShell "" "$INSTDIR\LEWORD.exe"
+!macroend
+
 !macro customUnInstall
   ; 언인스톨 시에도 동일하게 실행 중 프로세스 종료
   nsExec::Exec 'taskkill /F /IM "LEWORD.exe" /T'
