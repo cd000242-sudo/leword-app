@@ -237,7 +237,7 @@ async function getDaumRealtimeKeywordsWithPuppeteer(limit = 10) {
                     if (!keyword || keyword.length < 2) {
                         keyword = link.textContent?.trim() || '';
                         keyword = keyword
-                            .replace(/^\d{1,2}\.?\s+/, '')
+                            .replace(/^\d{1,2}(?:\.\s*|\s+)/, '')
                             .replace(/^\d+위\s*/, '')
                             .replace(/^위,\s*/, '')
                             .replace(/^▶\s*/, '')
@@ -408,7 +408,7 @@ async function getDaumRealtimeKeywordsWithPuppeteer(limit = 10) {
                     if (!keyword || keyword.length < 2) {
                         keyword = link.textContent?.trim() || '';
                         keyword = keyword
-                            .replace(/^\d{1,2}\.?\s+/, '')
+                            .replace(/^\d{1,2}(?:\.\s*|\s+)/, '')
                             .replace(/^\d+위\s*/, '')
                             .replace(/^위,\s*/, '')
                             .replace(/^▶\s*/, '')
@@ -508,7 +508,7 @@ async function getDaumRealtimeKeywordsWithPuppeteer(limit = 10) {
                         keyword = el.textContent?.trim() || '';
                         // 순위 번호, 아이콘, UI 텍스트 제거
                         keyword = keyword
-                            .replace(/^\d{1,2}\.?\s+/, '')
+                            .replace(/^\d{1,2}(?:\.\s*|\s+)/, '')
                             .replace(/^\d+위\s*/, '')
                             .replace(/^위,\s*/, '')
                             .replace(/^▶\s*/, '')
@@ -584,7 +584,7 @@ async function getDaumRealtimeKeywordsWithPuppeteer(limit = 10) {
                     if (!keyword || keyword.length < 2) {
                         keyword = link.textContent?.trim() || '';
                         keyword = keyword
-                            .replace(/^\d{1,2}\.?\s+/, '')
+                            .replace(/^\d{1,2}(?:\.\s*|\s+)/, '')
                             .replace(/^\d+위\s*/, '')
                             .replace(/^위,\s*/, '')
                             .replace(/^▶\s*/, '')
@@ -655,7 +655,7 @@ async function getDaumRealtimeKeywordsWithPuppeteer(limit = 10) {
                             }
                             if (!keyword || keyword.length < 2) {
                                 keyword = link.textContent?.trim() || '';
-                                keyword = keyword.replace(/^\d{1,2}\.?\s+/, '').replace(/^\d+위\s*/, '').trim();
+                                keyword = keyword.replace(/^\d{1,2}(?:\.\s*|\s+)/, '').replace(/^\d+위\s*/, '').trim();
                             }
                             if (keyword &&
                                 keyword.length >= 2 &&

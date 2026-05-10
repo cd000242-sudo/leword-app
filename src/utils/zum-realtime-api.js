@@ -184,7 +184,7 @@ async function getZumRealtimeKeywordsWithPuppeteer(limit = 10) {
                     }
                     // 키워드 정제 (순위 번호, 공백, 특수문자 제거)
                     keyword = keyword
-                        .replace(/^\d{1,2}\.?\s+/, '')
+                        .replace(/^\d{1,2}(?:\.\s*|\s+)/, '')
                         .replace(/^\d+위\s*/, '')
                         .replace(/^▶\s*/, '')
                         .replace(/^▶/, '')
