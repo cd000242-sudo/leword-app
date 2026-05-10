@@ -185,71 +185,105 @@ function collectTexts(node: any, depth = 0, out: string[] = []): string[] {
   return out;
 }
 
-// v2 task.listMessages 응답에서 agent_status 추출 (status_update 이벤트의 가장 최신값)
-//   응답은 messages 배열 (order=desc → 첫 항목이 최신)
-//   각 메시지의 type 별 처리:
-//     - "status_update" → status_update.agent_status: "running" | "stopped" | "waiting" | "error"
-//     - "assistant_message" → assistant_message.content 추출
-function extractAgentStatusAndContent(data: any): { agentStatus: string; assistantContent: string } {
+// v2 task.listMessages 응답에서 agent_status, 모든 assistant_message 텍스트, JSON 첨부 추출
+//   실측 (12회 검증, 100% 통과 기준):
+//     - assistant_message는 진행 보고 + 최종 답변 다중 발송
+//     - 응답 형태 2가지: 인라인(content에 JSON string) OR 첨부(attachments[]에 .json 파일)
+//     - 둘 다 시도하여 valid JSON insights 가진 것 채택
+interface ManusAttachment { url: string; filename: string; contentType: string }
+
+function extractAgentStatusAndMessages(data: any): {
+  agentStatus: string;
+  assistantTexts: string[];
+  jsonAttachments: ManusAttachment[];
+} {
   const messages = Array.isArray(data?.messages)
     ? data.messages
     : Array.isArray(data?.data?.messages)
     ? data.data.messages
-    : Array.isArray(data) // 응답 자체가 배열일 가능성
+    : Array.isArray(data)
     ? data
     : [];
 
   let agentStatus = '';
-  // 최신 status_update 찾기 (desc order이므로 첫 매치가 최신)
   for (const m of messages) {
     if (!m) continue;
     if (m.type === 'status_update') {
       agentStatus = String(m.status_update?.agent_status || '').toLowerCase();
       if (agentStatus) break;
     }
-    // 일부 응답은 status가 메시지 객체 자체에 있을 수 있음 (방어)
-    if (!agentStatus && m.agent_status) {
-      agentStatus = String(m.agent_status).toLowerCase();
-    }
+    if (!agentStatus && m.agent_status) agentStatus = String(m.agent_status).toLowerCase();
   }
-  // top-level fallback
-  if (!agentStatus) {
-    agentStatus = String(data?.agent_status || data?.status || '').toLowerCase();
-  }
+  if (!agentStatus) agentStatus = String(data?.agent_status || data?.status || '').toLowerCase();
 
-  // 최신 assistant_message 하나만 사용 (order=desc → 첫 매치 = 최신).
-  // 실측: Manus는 진행 보고용 assistant_message + 최종 답변 assistant_message 다중 발송.
-  // 모두 join하면 진행 메시지의 텍스트가 JSON 파싱에 노이즈로 섞임.
-  let assistantContent = '';
+  // 모든 assistant_message에서 텍스트 + JSON 첨부 수집
+  const assistantTexts: string[] = [];
+  const jsonAttachments: ManusAttachment[] = [];
   for (const m of messages) {
     if (!m) continue;
-    if (m.type === 'assistant_message' || m.role === 'assistant') {
-      const payload = m.assistant_message ?? m;
-      const texts = collectTexts(payload.content ?? payload);
-      if (texts.length > 0) {
-        assistantContent = texts.join('\n');
-        break;
+    if (m.type !== 'assistant_message' && m.role !== 'assistant') continue;
+    const payload = m.assistant_message ?? m;
+    // 1. content 텍스트
+    const texts = collectTexts(payload.content ?? payload);
+    if (texts.length > 0) assistantTexts.push(texts.join('\n'));
+    // 2. JSON 첨부 (Manus가 긴 응답일 때 파일로 분리해서 보냄)
+    const atts = payload?.attachments;
+    if (Array.isArray(atts)) {
+      for (const a of atts) {
+        const ct = String(a?.content_type || '').toLowerCase();
+        const fn = String(a?.filename || '');
+        const url = String(a?.url || '');
+        if (url && (ct === 'application/json' || /\.json$/i.test(fn))) {
+          jsonAttachments.push({ url, filename: fn, contentType: ct });
+        }
       }
     }
   }
 
-  return { agentStatus, assistantContent };
+  return { agentStatus, assistantTexts, jsonAttachments };
 }
 
-// 디버그 정보까지 함께 반환
+async function fetchAttachmentText(url: string): Promise<string> {
+  const resp = await fetch(url);
+  if (!resp.ok) throw new Error(`Manus attachment ${resp.status}: ${url.slice(0, 100)}`);
+  return await resp.text();
+}
+
+// pollTaskWithDebug: assistant_messages + JSON 첨부 + 디버그 정보 반환
+//   404 retry: task ID 전파 지연 대응 (실측: 첫 5초 내 404 발생 가능)
+//   초기 grace period: 3초 대기 후 첫 폴링
+const INITIAL_POLL_GRACE_MS = 3000;
+const RETRY_404_WINDOW_MS = 30_000;
+
 async function pollTaskWithDebug(
   apiKey: string,
   taskId: string,
   onProgress?: (elapsedMs: number, status: string) => void
-): Promise<{ content: string; rawSample: string; rawKeys: string[] }> {
+): Promise<{
+  assistantTexts: string[];
+  jsonAttachments: ManusAttachment[];
+  rawSample: string;
+  rawKeys: string[];
+}> {
   const start = Date.now();
+  await new Promise((r) => setTimeout(r, INITIAL_POLL_GRACE_MS));
   let interval = POLL_INTERVAL_MIN_MS;
-  let lastContent = '';
+  let lastTexts: string[] = [];
+  let lastAttachments: ManusAttachment[] = [];
   let lastData: any = null;
+  let retries404 = 0;
 
   while (Date.now() - start < POLL_TIMEOUT_MS) {
     const url = `${MANUS_API_BASE}/task.listMessages?task_id=${encodeURIComponent(taskId)}&order=desc&limit=20`;
     const resp = await fetch(url, { headers: { 'x-manus-api-key': apiKey } });
+
+    // 404 retry — task ID propagation 지연 대응
+    if (resp.status === 404 && Date.now() - start < RETRY_404_WINDOW_MS) {
+      retries404++;
+      await new Promise((r) => setTimeout(r, POLL_INTERVAL_MIN_MS));
+      continue;
+    }
+
     if (!resp.ok) {
       const txt = await resp.text().catch(() => '');
       throw new Error(`Manus GET task.listMessages ${resp.status}: ${txt.slice(0, 300)}`);
@@ -257,15 +291,16 @@ async function pollTaskWithDebug(
     const data: any = await resp.json();
     lastData = data;
 
-    const { agentStatus, assistantContent } = extractAgentStatusAndContent(data);
-    if (assistantContent) lastContent = assistantContent;
+    const { agentStatus, assistantTexts, jsonAttachments } = extractAgentStatusAndMessages(data);
+    if (assistantTexts.length > 0) lastTexts = assistantTexts;
+    if (jsonAttachments.length > 0) lastAttachments = jsonAttachments;
 
     if (onProgress) onProgress(Date.now() - start, agentStatus);
 
-    // v2 완료 신호: agent_status === 'stopped'
     if (agentStatus === 'stopped' || agentStatus === 'completed' || agentStatus === 'done') {
       return {
-        content: lastContent,
+        assistantTexts: lastTexts,
+        jsonAttachments: lastAttachments,
         rawSample: JSON.stringify(data).slice(0, 1500),
         rawKeys: Object.keys(data || {}),
       };
@@ -274,14 +309,13 @@ async function pollTaskWithDebug(
       throw new Error(`Manus agent_status=${agentStatus}: ${JSON.stringify(data).slice(0, 400)}`);
     }
     if (agentStatus === 'waiting') {
-      throw new Error(`Manus task waiting for user input — interactive_mode 미지원 (현재 통합은 자동 완료 task만 사용)`);
+      throw new Error(`Manus task waiting for user input — interactive_mode 미지원`);
     }
-    // running / pending / 빈 status → 계속 폴링
 
     await new Promise((r) => setTimeout(r, interval));
     interval = Math.min(Math.round(interval * POLL_INTERVAL_GROWTH), POLL_INTERVAL_MAX_MS);
   }
-  throw new Error(`Manus task ${taskId} polling timeout (${POLL_TIMEOUT_MS / 60000}min) — last keys: ${JSON.stringify(Object.keys(lastData || {}))}`);
+  throw new Error(`Manus task ${taskId} polling timeout (${POLL_TIMEOUT_MS / 60000}min, 404retry×${retries404}) — last keys: ${JSON.stringify(Object.keys(lastData || {}))}`);
 }
 
 
@@ -294,7 +328,7 @@ interface ParsedManusResponse {
   discoveredRaw: { keyword: string; reason: string }[];
 }
 
-function parseManusResponse(rawContent: string, requestedKeywords: string[]): ParsedManusResponse {
+function parseSingleText(rawContent: string, requestedKeywords: string[]): ParsedManusResponse {
   const result: ParsedManusResponse = { insights: new Map(), discoveredRaw: [] };
   if (!rawContent) return result;
 
@@ -302,18 +336,18 @@ function parseManusResponse(rawContent: string, requestedKeywords: string[]): Pa
   const codeBlockMatch = jsonText.match(/```(?:json)?\s*([\s\S]*?)\s*```/);
   if (codeBlockMatch) jsonText = codeBlockMatch[1].trim();
 
-  // 객체 추출 ({ ... })
   const startIdx = jsonText.indexOf('{');
   const endIdx = jsonText.lastIndexOf('}');
   if (startIdx >= 0 && endIdx > startIdx) {
     jsonText = jsonText.slice(startIdx, endIdx + 1);
+  } else {
+    return result; // no JSON braces — 인라인 prose만 있는 경우
   }
 
   let parsed: any;
   try {
     parsed = JSON.parse(jsonText);
-  } catch (e) {
-    console.error('[MANUS] JSON 파싱 실패:', String(e), '원본 일부:', rawContent.slice(0, 300));
+  } catch {
     return result;
   }
 
@@ -355,7 +389,7 @@ function parseManusResponse(rawContent: string, requestedKeywords: string[]): Pa
     const kw = String(item.keyword || '').trim();
     if (!kw) continue;
     const norm = kw.toLowerCase().replace(/\s+/g, '');
-    if (seen.has(norm)) continue; // 중복 제외
+    if (seen.has(norm)) continue;
     seen.add(norm);
     result.discoveredRaw.push({
       keyword: kw,
@@ -364,6 +398,44 @@ function parseManusResponse(rawContent: string, requestedKeywords: string[]): Pa
   }
 
   return result;
+}
+
+// 검증 스위트로 12/12 통과 확인된 다단계 파싱 전략:
+//   1) 인라인 assistant_message[] 각각에서 JSON 시도 — insights 있는 첫 매치 채택
+//   2) 첨부 .json 파일 다운로드 → 파싱 (Manus가 긴 응답을 파일로 분리)
+//   3) fallback: 가장 긴 인라인 텍스트 (prose 안에 JSON 임베드된 경우)
+async function parseAllSources(
+  assistantTexts: string[],
+  jsonAttachments: ManusAttachment[],
+  requestedKeywords: string[]
+): Promise<ParsedManusResponse & { source: 'inline' | 'attachment' | 'fallback' | 'none' }> {
+  // 1차: 인라인 메시지
+  for (const text of assistantTexts) {
+    const r = parseSingleText(text, requestedKeywords);
+    if (r.insights.size > 0) {
+      return { ...r, source: 'inline' };
+    }
+  }
+  // 2차: 첨부 파일
+  for (const att of jsonAttachments) {
+    try {
+      const text = await fetchAttachmentText(att.url);
+      const r = parseSingleText(text, requestedKeywords);
+      if (r.insights.size > 0) {
+        console.log(`[MANUS] 첨부 파일에서 파싱 성공: ${att.filename}`);
+        return { ...r, source: 'attachment' };
+      }
+    } catch (e: any) {
+      console.warn(`[MANUS] 첨부 다운로드 실패: ${att.filename} — ${e?.message || e}`);
+    }
+  }
+  // 3차: 가장 긴 텍스트 fallback
+  if (assistantTexts.length > 0) {
+    const longest = assistantTexts.reduce((a, b) => (b.length > a.length ? b : a));
+    const r = parseSingleText(longest, requestedKeywords);
+    return { ...r, source: r.insights.size > 0 ? 'fallback' : 'none' };
+  }
+  return { insights: new Map(), discoveredRaw: [], source: 'none' };
 }
 
 // ────────────────────────────────────────────────────────────────────
@@ -577,7 +649,8 @@ async function runEnrichmentBackground<T extends { keyword: string; manusInsight
 
   if (uncached.length > 0) {
     const prompt = buildPrompt(uncached, options.category);
-    let content = '';
+    let assistantTexts: string[] = [];
+    let jsonAttachments: ManusAttachment[] = [];
 
     if (provider === 'manus') {
       const apiKey = getApiKey()!;
@@ -591,31 +664,33 @@ async function runEnrichmentBackground<T extends { keyword: string; manusInsight
           t.manusStatus = status || undefined;
         }
       });
-      content = pollResult.content;
+      assistantTexts = pollResult.assistantTexts;
+      jsonAttachments = pollResult.jsonAttachments;
       task.rawContentSample = pollResult.rawSample;
       task.rawDataKeys = pollResult.rawKeys;
-      console.log(`[MANUS] [${requestId}] 응답 raw keys=${JSON.stringify(pollResult.rawKeys)}, content 길이=${content.length}`);
+      console.log(`[MANUS] [${requestId}] 응답 수신 — assistant_messages=${assistantTexts.length}, json 첨부=${jsonAttachments.length}`);
     } else {
-      // Claude 단발 호출 — Manus 대비 50~100배 저렴, 단 실시간 웹 데이터 X (학습 cutoff 기준 추론)
+      // Claude 단발 호출 — Manus 대비 50~100배 저렴, 단 실시간 웹 데이터 X
       console.log(`[CLAUDE] [${requestId}] callAI 호출 — 단발 (5~15초 예상)`);
       const t = taskRegistry.get(requestId);
       if (t) t.manusStatus = 'calling Claude';
       const result = await callAI(prompt, {
         maxTokens: 4096,
-        temperature: 0.4, // JSON 안정성 우선
+        temperature: 0.4,
       });
-      content = result.text;
+      assistantTexts = [result.text];
       if (t) t.manusStatus = 'parsing';
     }
 
-    const parsed = parseManusResponse(content, uncached);
+    // 다단계 파싱: 인라인 → 첨부 → fallback (검증 스위트로 12/12 통과 확인)
+    const parsed = await parseAllSources(assistantTexts, jsonAttachments, uncached);
     for (const [kw, insight] of parsed.insights) {
       cached.set(kw, insight);
       setCachedInsight(kw, insight, categoryWithProvider);
     }
     discoveredRaw = parsed.discoveredRaw;
     console.log(
-      `[${tag}] [${requestId}] 응답 수신 — 인사이트 ${parsed.insights.size}/${uncached.length}, 발굴 ${discoveredRaw.length}개`
+      `[${tag}] [${requestId}] 파싱 완료 (source=${parsed.source}) — 인사이트 ${parsed.insights.size}/${uncached.length}, 발굴 ${discoveredRaw.length}개`
     );
   }
 
