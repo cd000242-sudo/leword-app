@@ -651,10 +651,35 @@
       }
     }
   </script>
-  <div class="keyword-master-container">
+  <script>
+    // v2.42.23: 버전 뱃지 표시 (자동 업데이트 확인용)
+    document.addEventListener('DOMContentLoaded', async () => {
+      try {
+        const result = await window.electronAPI.invoke('updater:getVersion');
+        const ver = result?.version || '-';
+        const elText = document.getElementById('appVersionText');
+        const elBadge = document.getElementById('appVersionBadge');
+        if (elText) elText.textContent = ver;
+        if (elBadge) {
+          elBadge.onclick = () => {
+            const url = `https://github.com/cd000242-sudo/leword-app/releases/tag/v${ver}`;
+            if (window.electronAPI?.openExternal) window.electronAPI.openExternal(url);
+            else window.open(url, '_blank');
+          };
+        }
+      } catch (e) {
+        console.warn('[VERSION-BADGE] 버전 로드 실패:', e);
+      }
+    });
+  </script>
+  <div class="keyword-master-container" style="position:relative;">
 
     <!-- 헤더 -->
     <div class="page-header">
+      <!-- v2.42.23: 우측 상단 버전 뱃지 (업데이트 후 현재 버전 확인용) -->
+      <div id="appVersionBadge" style="position:absolute; top:14px; right:18px; padding:5px 12px; background:linear-gradient(135deg,rgba(99,102,241,0.15),rgba(168,85,247,0.15)); border:1px solid rgba(168,85,247,0.4); border-radius:14px; font-size:11px; font-weight:700; color:#a78bfa; cursor:pointer;" title="클릭하면 GitHub 릴리즈 페이지 열림">
+        <span>v</span><span id="appVersionText">-</span>
+      </div>
       <h1>💎LEWORD</h1>
       <p
         style="font-family: 'Brush Script MT', 'Lucida Handwriting', 'Comic Sans MS', cursive, serif; font-style: italic; font-size: 24px; color: #f59e0b;">
