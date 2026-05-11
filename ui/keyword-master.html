@@ -5406,6 +5406,13 @@
             const docCount = item.documentCount || 0;
             const goldenRatio = item.goldenRatio || 0;
             const difficulty = item.difficultyScore || 5;
+            // v2.42.29: HTML 인라인 onclick용 안전한 이스케이프 (XSS + 따옴표 깨짐 방지)
+            const kwJsSafe = String(item.keyword || '')
+              .replace(/\\/g, '\\\\')
+              .replace(/'/g, "\\'")
+              .replace(/"/g, '&quot;')
+              .replace(/</g, '&lt;')
+              .replace(/>/g, '&gt;');
 
             // 황금비율 표시
             let goldenRatioDisplay = goldenRatio > 1000 ? '∞ (초황금)' : goldenRatio.toFixed(2);
@@ -5457,19 +5464,18 @@
               <div style="font-size: 11px; color: #64748b; line-height: 1.4; word-break: keep-all;">${verdictPrefix}${goldenReason}</div>
             </td>
             <td style="padding: 12px 10px; text-align: center; white-space:nowrap;">
-              <!-- v2.42.28: 액션 버튼 — Naver 검색 / LEWORD 재검색 / 트렌드 그래프 / 확장 키워드 -->
-              <button onclick="window.electronAPI.openExternal('https://search.naver.com/search.naver?query=' + encodeURIComponent('${(item.keyword||'').replace(/'/g,'\\\'').replace(/&/g,'&amp;')}'))"
+              <!-- v2.42.29: 액션 버튼 (HTML escape + 안전 호출 적용) -->
+              <button onclick="lewordNaverSearch('${kwJsSafe}')"
                 title="네이버 검색" style="padding: 5px 8px; background: #f1f5f9; color: #475569; border: 1px solid #e2e8f0; border-radius: 6px; cursor: pointer; font-size: 11px; margin-right:2px;">🔍</button>
-              <button onclick="searchKeyword('${(item.keyword||'').replace(/'/g,'\\\'')}', true)"
+              <button onclick="searchKeyword('${kwJsSafe}', true)"
                 title="LEWORD에서 재검색 (자동 시작)" style="padding: 5px 8px; background: linear-gradient(135deg,#fef3c7,#fde68a); color: #92400e; border: 1px solid #fbbf24; border-radius: 6px; cursor: pointer; font-size: 11px; margin-right:2px; font-weight:700;">🔄</button>
-              <button onclick="rfShowTrendGraph('${(item.keyword||'').replace(/'/g,'\\\'')}')"
+              <button onclick="lewordShowTrendGraph('${kwJsSafe}')"
                 title="30일 트렌드 그래프 (Naver Datalab)" style="padding: 5px 8px; background: #ecfeff; color: #0e7490; border: 1px solid #67e8f9; border-radius: 6px; cursor: pointer; font-size: 11px; margin-right:2px;">📈</button>
-              <button onclick="goldenDrilldown('${(item.keyword||'').replace(/'/g,'\\\'')}', ${idx})"
+              <button onclick="goldenDrilldown('${kwJsSafe}', ${idx})"
                 title="확장 키워드 (연관 10개)" style="padding: 5px 8px; background: #f3e8ff; color: #6b21a8; border: 1px solid #c4b5fd; border-radius: 6px; cursor: pointer; font-size: 11px;">🔗</button>
             </td>
           </tr>
-          <tr id="golden-drill-${idx}" style="display:none;"><td colspan="12" style="padding:0; background:#fafafa;"><div id="golden-drill-content-${idx}" style="padding:14px 24px; font-size:12px; color:#475569;"></div></td></tr><tr style="display:none;"><td></td></tr><tr id="golden-row-${idx}" style="display:none;"><td></td></tr>
-          </tr>
+          <tr id="golden-drill-${idx}" style="display:none;"><td colspan="12" style="padding:0; background:#fafafa;"><div id="golden-drill-content-${idx}" style="padding:14px 24px; font-size:12px; color:#475569;"></div></td></tr>
         `;
           });
 
@@ -5500,7 +5506,24 @@
           resultsDiv.innerHTML = html;
         }
 
-        // v2.42.28: LEWORD 키워드 분석 결과 — 확장 키워드 드릴다운 (rfDrilldown 재사용 패턴)
+        // v2.42.29: 안전 wrappers (다른 모달/패널에서도 재사용)
+        window.lewordNaverSearch = function(kw) {
+          const url = 'https://search.naver.com/search.naver?query=' + encodeURIComponent(kw);
+          try {
+            if (window.electronAPI?.openExternal) window.electronAPI.openExternal(url);
+            else window.open(url, '_blank');
+          } catch (e) { window.open(url, '_blank'); }
+        };
+
+        // 트렌드 그래프 — Rich Feed의 rfShowTrendGraph 재사용, 없으면 graceful fallback
+        window.lewordShowTrendGraph = function(kw) {
+          if (typeof window.rfShowTrendGraph === 'function') {
+            return window.rfShowTrendGraph(kw);
+          }
+          alert('트렌드 그래프 기능은 황금키워드 발굴(Rich Feed)이 한 번 이상 로딩된 후 사용 가능합니다.');
+        };
+
+        // v2.42.28~29: LEWORD 키워드 분석 결과 — 확장 키워드 드릴다운 (rfDrilldown 패턴 재사용)
         window.goldenDrilldown = async function(kw, idx) {
           const row = document.getElementById('golden-drill-' + idx);
           const content = document.getElementById('golden-drill-content-' + idx);
@@ -9791,20 +9814,31 @@
         // 키워드 검색 함수 (모달용)
         function searchKeyword(keyword, autoTrigger = false) {
           // 키워드 발굴 모달로 이동하거나 검색
-          try { closeModal && closeModal(); } catch {}
+          try { if (typeof closeModal === 'function') closeModal(); } catch {}
           const keywordInput = document.querySelector('.keyword-input-section input');
           if (keywordInput) {
             keywordInput.value = keyword;
             keywordInput.focus();
             keywordInput.scrollIntoView({ behavior: 'smooth', block: 'center' });
-            // v2.42.28: autoTrigger 옵션으로 발굴 자동 시작 — 결과 행에서 키워드 클릭 시 즉시 재검색
+            // v2.42.29: autoTrigger — 발굴 자동 시작
             if (autoTrigger) {
-              // 키워드 입력 섹션의 발굴 시작 버튼을 자동 클릭
               setTimeout(() => {
-                const startBtn = document.querySelector('.keyword-input-section button');
-                if (startBtn && !startBtn.disabled) {
+                // 더 안전한 버튼 찾기: input-section 내 button 중 텍스트 "발굴/검색/시작" 포함된 것 우선
+                const section = keywordInput.closest('.keyword-input-section') || document.querySelector('.keyword-input-section');
+                let startBtn = null;
+                if (section) {
+                  const buttons = section.querySelectorAll('button');
+                  for (const b of buttons) {
+                    const txt = b.textContent || '';
+                    if (/발굴|검색|시작|찾기|hunt/i.test(txt) && !b.disabled) { startBtn = b; break; }
+                  }
+                  if (!startBtn) startBtn = section.querySelector('button:not([disabled])');
+                }
+                if (startBtn) {
                   startBtn.click();
                   console.log('[LEWORD] 🔄 자동 재검색 트리거:', keyword);
+                } else {
+                  console.warn('[LEWORD] 재검색 버튼을 찾지 못함. 수동으로 발굴 시작 필요');
                 }
               }, 300);
             }
@@ -15482,12 +15516,52 @@
                     <div style="font-size:10px; color:rgba(255,255,255,0.5);">검색/문서비</div>
                   </div>
                 </div>
+                <!-- v2.42.29: PRO 헌터 카드 액션 버튼 (LEWORD 재검색·트렌드·확장·네이버 검색) -->
+                <div style="margin-top:12px; padding-top:10px; border-top:1px solid rgba(255,255,255,0.08); display:flex; gap:6px; flex-wrap:wrap; justify-content:flex-end;">
+                  <button onclick="lewordNaverSearch('${String(kw.keyword || '').replace(/'/g, "\\'")}')" title="네이버 검색"
+                    style="padding:5px 10px; background:rgba(255,255,255,0.06); color:#cbd5e1; border:1px solid rgba(255,255,255,0.15); border-radius:6px; font-size:11px; cursor:pointer;">🔍 네이버</button>
+                  <button onclick="searchKeyword('${String(kw.keyword || '').replace(/'/g, "\\'")}', true)" title="LEWORD 메인에서 재검색 (자동 시작)"
+                    style="padding:5px 10px; background:linear-gradient(135deg,rgba(251,191,36,0.20),rgba(245,158,11,0.20)); color:#fbbf24; border:1px solid rgba(251,191,36,0.45); border-radius:6px; font-size:11px; font-weight:700; cursor:pointer;">🔄 LEWORD 재검색</button>
+                  <button onclick="lewordShowTrendGraph('${String(kw.keyword || '').replace(/'/g, "\\'")}')" title="30일 트렌드 그래프"
+                    style="padding:5px 10px; background:rgba(14,165,233,0.15); color:#67e8f9; border:1px solid rgba(14,165,233,0.4); border-radius:6px; font-size:11px; cursor:pointer;">📈 트렌드</button>
+                  <button onclick="proDrilldown('${String(kw.keyword || '').replace(/'/g, "\\'")}', this)" title="확장 키워드 (연관 10개)"
+                    style="padding:5px 10px; background:rgba(168,85,247,0.15); color:#c4b5fd; border:1px solid rgba(168,85,247,0.4); border-radius:6px; font-size:11px; cursor:pointer;">🔗 확장</button>
+                </div>
+                <div class="pro-drilldown-panel" style="display:none; margin-top:8px; padding:10px; background:rgba(0,0,0,0.25); border-radius:8px;"></div>
               </div>
             `;
           });
 
           container.innerHTML = html;
         }
+
+        // v2.42.29: PRO 헌터 확장 키워드 드릴다운 (인라인 패널)
+        window.proDrilldown = async function(kw, btnEl) {
+          const card = btnEl && btnEl.closest ? btnEl.closest('div[style*="margin-top:12px"]')?.parentElement : null;
+          const panel = card?.querySelector('.pro-drilldown-panel');
+          if (!panel) return;
+          if (panel.style.display !== 'none') { panel.style.display = 'none'; return; }
+          panel.style.display = '';
+          panel.innerHTML = '<div style="color:#94a3b8; font-size:11px; text-align:center;">⏳ 확장 키워드 조회 중...</div>';
+          try {
+            const res = await window.electronAPI.invoke('rich-feed-drilldown', kw);
+            if (!res?.success || !Array.isArray(res.keywords) || res.keywords.length === 0) {
+              panel.innerHTML = '<div style="color:#94a3b8; font-size:11px;">확장 키워드를 찾지 못했습니다.</div>';
+              return;
+            }
+            const rows = res.keywords.slice(0, 10).map(k => {
+              const safe = String(k.keyword || '').replace(/'/g, "\\'");
+              return `<div style="padding:5px 8px; margin-bottom:3px; background:rgba(255,255,255,0.04); border-radius:5px; display:flex; align-items:center; gap:8px; cursor:pointer;" onclick="searchKeyword('${safe}', true)" title="클릭 → LEWORD 재검색">
+                <span style="font-weight:600; flex:1; color:#f1f5f9; font-size:12px;">${k.keyword}</span>
+                <span style="font-size:10px; color:rgba(255,255,255,0.5);">sv ${(k.searchVolume||0).toLocaleString()} · dc ${(k.documentCount||0).toLocaleString()} · r${(k.goldenRatio||0).toFixed(1)}</span>
+                <button onclick="event.stopPropagation(); lewordShowTrendGraph('${safe}')" title="트렌드" style="padding:2px 6px; background:rgba(14,165,233,0.20); color:#67e8f9; border:1px solid rgba(14,165,233,0.4); border-radius:4px; font-size:10px; cursor:pointer;">📈</button>
+              </div>`;
+            }).join('');
+            panel.innerHTML = `<div style="font-weight:700; color:#fbbf24; font-size:11px; margin-bottom:6px;">🔗 "${kw}" 확장 키워드 (클릭 → 재검색)</div>${rows}`;
+          } catch (err) {
+            panel.innerHTML = `<div style="color:#fca5a5; font-size:11px;">조회 실패: ${err?.message || err}</div>`;
+          }
+        };
 
         function openProTrafficModal() {
           lockBodyScroll();
