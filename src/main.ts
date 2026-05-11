@@ -31,7 +31,7 @@ if (typeof globalThis.File === 'undefined') {
   };
 }
 
-import { app, BrowserWindow, ipcMain, shell, dialog } from 'electron';
+import { app, BrowserWindow, ipcMain, shell, dialog, Tray, Menu, nativeImage } from 'electron';
 import * as path from 'path';
 import * as fs from 'fs';
 import {
@@ -169,9 +169,89 @@ function createKeywordWindow() {
     keywordWindow?.show();
   });
 
+  // v2.42.27: 창 닫기 → 시스템 트레이로 최소화 (결과 보존)
+  //   사용자 요청: "헌팅하고 결과 나온거 모르고 창을끄면 다날아가서" → 트레이로 최소화
+  //   진짜 종료는 트레이 메뉴 또는 명시적 app.quit() 호출 시만
+  keywordWindow.on('close', (event) => {
+    if (!(app as any).isQuiting) {
+      event.preventDefault();
+      keywordWindow?.hide();
+      // 첫 닫기 때 트레이 알림 (한 세션 1회만)
+      if (!(app as any).__trayBalloonShown && tray) {
+        try {
+          tray.displayBalloon({
+            title: 'LEWORD',
+            content: '앱이 시스템 트레이로 이동했습니다. 트레이 아이콘을 클릭하면 다시 열립니다.\n완전 종료는 트레이 아이콘 우클릭 → 종료.',
+          });
+          (app as any).__trayBalloonShown = true;
+        } catch {}
+      }
+    }
+  });
+
   keywordWindow.on('closed', () => {
     keywordWindow = null;
   });
+}
+
+// v2.42.27: 시스템 트레이 (창 닫기 시 결과 보존)
+let tray: Tray | null = null;
+function createTray(): void {
+  if (tray) return;
+  try {
+    const iconCandidates = [
+      path.join(app.getAppPath(), 'assets', '256.ico'),
+      path.join(__dirname, '..', 'assets', '256.ico'),
+      path.join(process.cwd(), 'assets', '256.ico'),
+    ];
+    let icon: Electron.NativeImage | null = null;
+    for (const p of iconCandidates) {
+      if (fs.existsSync(p)) {
+        icon = nativeImage.createFromPath(p);
+        if (!icon.isEmpty()) break;
+      }
+    }
+    if (!icon || icon.isEmpty()) {
+      console.warn('[TRAY] 아이콘 파일 못 찾음 — 기본 아이콘으로 fallback');
+      icon = nativeImage.createEmpty();
+    }
+    tray = new Tray(icon);
+    tray.setToolTip('LEWORD - 키워드마스터');
+
+    const contextMenu = Menu.buildFromTemplate([
+      {
+        label: '🔍 LEWORD 열기',
+        click: () => {
+          if (keywordWindow && !keywordWindow.isDestroyed()) {
+            if (keywordWindow.isMinimized()) keywordWindow.restore();
+            keywordWindow.show();
+            keywordWindow.focus();
+          }
+        },
+      },
+      { type: 'separator' },
+      {
+        label: '❌ 종료',
+        click: () => {
+          (app as any).isQuiting = true;
+          app.quit();
+        },
+      },
+    ]);
+    tray.setContextMenu(contextMenu);
+
+    // 트레이 아이콘 클릭 → 창 복원
+    tray.on('click', () => {
+      if (keywordWindow && !keywordWindow.isDestroyed()) {
+        if (keywordWindow.isMinimized()) keywordWindow.restore();
+        if (keywordWindow.isVisible()) keywordWindow.focus();
+        else keywordWindow.show();
+      }
+    });
+    console.log('[TRAY] ✅ 시스템 트레이 아이콘 등록');
+  } catch (err: any) {
+    console.error('[TRAY] 생성 실패:', err?.message);
+  }
 }
 
 // 라이선스 인증 함수
@@ -845,6 +925,9 @@ app.whenReady().then(async () => {
   // 키워드 마스터 창 열기
   createKeywordWindow();
 
+  // v2.42.27: 시스템 트레이 (창 닫기 시 결과 보존 — 사용자 요청)
+  createTray();
+
   app.on('activate', () => {
     if (BrowserWindow.getAllWindows().length === 0) {
       createKeywordWindow();
@@ -852,12 +935,20 @@ app.whenReady().then(async () => {
   });
 });
 
+// v2.42.27: 명시적 quit 플래그 — 트레이 메뉴 "종료"에서만 true 설정
+app.on('before-quit', () => {
+  (app as any).isQuiting = true;
+});
+
 app.on('window-all-closed', () => {
-  // 네트워크 모니터링 정리
+  // v2.42.27: 트레이로 hide만 한 상태에서는 'window-all-closed' 발생 안 함 (창은 살아있음)
+  //   진짜 모두 destroy된 경우만 여기 도달
   if (stopNetworkMonitoring) {
     stopNetworkMonitoring();
     stopNetworkMonitoring = null;
   }
+  // 트레이 정리
+  try { tray?.destroy(); tray = null; } catch {}
 
   if (process.platform !== 'darwin') {
     app.quit();
