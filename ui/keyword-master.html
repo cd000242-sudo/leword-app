@@ -5456,11 +5456,19 @@
             <td style="padding: 12px 10px; text-align: left; max-width: 200px;">
               <div style="font-size: 11px; color: #64748b; line-height: 1.4; word-break: keep-all;">${verdictPrefix}${goldenReason}</div>
             </td>
-            <td style="padding: 12px 10px; text-align: center;">
-              <button onclick="window.electronAPI.openExternal('https://search.naver.com/search.naver?query=' + encodeURIComponent('${item.keyword}'))" 
-                style="padding: 6px 10px; background: #f1f5f9; color: #475569; border: 1px solid #e2e8f0; border-radius: 6px; cursor: pointer; font-weight: 600; font-size: 11px; transition:all 0.2s;"
-                onmouseover="this.style.background='#e2e8f0'" onmouseout="this.style.background='#f1f5f9'">🔍</button>
+            <td style="padding: 12px 10px; text-align: center; white-space:nowrap;">
+              <!-- v2.42.28: 액션 버튼 — Naver 검색 / LEWORD 재검색 / 트렌드 그래프 / 확장 키워드 -->
+              <button onclick="window.electronAPI.openExternal('https://search.naver.com/search.naver?query=' + encodeURIComponent('${(item.keyword||'').replace(/'/g,'\\\'').replace(/&/g,'&amp;')}'))"
+                title="네이버 검색" style="padding: 5px 8px; background: #f1f5f9; color: #475569; border: 1px solid #e2e8f0; border-radius: 6px; cursor: pointer; font-size: 11px; margin-right:2px;">🔍</button>
+              <button onclick="searchKeyword('${(item.keyword||'').replace(/'/g,'\\\'')}', true)"
+                title="LEWORD에서 재검색 (자동 시작)" style="padding: 5px 8px; background: linear-gradient(135deg,#fef3c7,#fde68a); color: #92400e; border: 1px solid #fbbf24; border-radius: 6px; cursor: pointer; font-size: 11px; margin-right:2px; font-weight:700;">🔄</button>
+              <button onclick="rfShowTrendGraph('${(item.keyword||'').replace(/'/g,'\\\'')}')"
+                title="30일 트렌드 그래프 (Naver Datalab)" style="padding: 5px 8px; background: #ecfeff; color: #0e7490; border: 1px solid #67e8f9; border-radius: 6px; cursor: pointer; font-size: 11px; margin-right:2px;">📈</button>
+              <button onclick="goldenDrilldown('${(item.keyword||'').replace(/'/g,'\\\'')}', ${idx})"
+                title="확장 키워드 (연관 10개)" style="padding: 5px 8px; background: #f3e8ff; color: #6b21a8; border: 1px solid #c4b5fd; border-radius: 6px; cursor: pointer; font-size: 11px;">🔗</button>
             </td>
+          </tr>
+          <tr id="golden-drill-${idx}" style="display:none;"><td colspan="12" style="padding:0; background:#fafafa;"><div id="golden-drill-content-${idx}" style="padding:14px 24px; font-size:12px; color:#475569;"></div></td></tr><tr style="display:none;"><td></td></tr><tr id="golden-row-${idx}" style="display:none;"><td></td></tr>
           </tr>
         `;
           });
@@ -5491,6 +5499,40 @@
 
           resultsDiv.innerHTML = html;
         }
+
+        // v2.42.28: LEWORD 키워드 분석 결과 — 확장 키워드 드릴다운 (rfDrilldown 재사용 패턴)
+        window.goldenDrilldown = async function(kw, idx) {
+          const row = document.getElementById('golden-drill-' + idx);
+          const content = document.getElementById('golden-drill-content-' + idx);
+          if (!row || !content) return;
+          if (row.style.display !== 'none') {
+            row.style.display = 'none';
+            return;
+          }
+          row.style.display = '';
+          content.innerHTML = '<div style="text-align:center; color:#94a3b8;">⏳ 확장 키워드 조회 중...</div>';
+          try {
+            const res = await window.electronAPI.invoke('rich-feed-drilldown', kw);
+            if (!res || !res.success || !Array.isArray(res.keywords) || res.keywords.length === 0) {
+              content.innerHTML = '<div style="color:#94a3b8;">확장 키워드를 찾지 못했습니다.</div>';
+              return;
+            }
+            const items = res.keywords.slice(0, 10).map(k => {
+              const sv = (k.searchVolume || 0).toLocaleString();
+              const dc = (k.documentCount || 0).toLocaleString();
+              const ratio = (k.goldenRatio || 0).toFixed(2);
+              const safe = String(k.keyword || '').replace(/'/g, "\\'");
+              return `<div style="padding:6px 10px; margin-bottom:4px; background:white; border-radius:6px; border:1px solid #e2e8f0; display:flex; align-items:center; gap:10px; cursor:pointer;" onclick="searchKeyword('${safe}', true)" title="클릭하면 LEWORD에서 재검색">
+                <span style="font-weight:700; flex:1; color:#1e293b;">${k.keyword}</span>
+                <span style="font-size:10px; color:#64748b;">sv ${sv} · dc ${dc} · ratio ${ratio}</span>
+                <button onclick="event.stopPropagation(); rfShowTrendGraph('${safe}')" title="트렌드" style="padding:3px 6px; background:#ecfeff; color:#0e7490; border:1px solid #67e8f9; border-radius:4px; cursor:pointer; font-size:10px;">📈</button>
+              </div>`;
+            }).join('');
+            content.innerHTML = `<div style="font-weight:700; color:#475569; margin-bottom:8px;">🔗 "${kw}" 확장 키워드 (클릭 → LEWORD 재검색)</div>${items}`;
+          } catch (err) {
+            content.innerHTML = `<div style="color:#ef4444;">조회 실패: ${err?.message || err}</div>`;
+          }
+        };
 
         // 엑셀로 내보내기
         async function exportToExcel() {
@@ -9747,16 +9789,25 @@
         }
 
         // 키워드 검색 함수 (모달용)
-        function searchKeyword(keyword) {
+        function searchKeyword(keyword, autoTrigger = false) {
           // 키워드 발굴 모달로 이동하거나 검색
-          closeModal();
-          // 키워드 입력 필드에 자동 입력
+          try { closeModal && closeModal(); } catch {}
           const keywordInput = document.querySelector('.keyword-input-section input');
           if (keywordInput) {
             keywordInput.value = keyword;
             keywordInput.focus();
-            // 자동으로 발굴 시작 (선택사항)
-            // findGoldenKeywords();
+            keywordInput.scrollIntoView({ behavior: 'smooth', block: 'center' });
+            // v2.42.28: autoTrigger 옵션으로 발굴 자동 시작 — 결과 행에서 키워드 클릭 시 즉시 재검색
+            if (autoTrigger) {
+              // 키워드 입력 섹션의 발굴 시작 버튼을 자동 클릭
+              setTimeout(() => {
+                const startBtn = document.querySelector('.keyword-input-section button');
+                if (startBtn && !startBtn.disabled) {
+                  startBtn.click();
+                  console.log('[LEWORD] 🔄 자동 재검색 트리거:', keyword);
+                }
+              }, 300);
+            }
           }
         }
 
