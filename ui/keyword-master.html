@@ -15972,7 +15972,7 @@
                 <span style="font-size:11px; color:rgba(255,255,255,0.6);">(최소 ${minScore}+, 인플루언서 차단 ${blockInfluencer ? 'ON' : 'OFF'}, 보장 ${minResults}개)</span>
               </div>
               <div style="font-size:10px; color:rgba(255,255,255,0.5); margin-bottom:14px;">
-                💡 ${backfilled > 0 ? `<strong style="color:#fbbf24;">컷 미달 ${backfilled}개</strong>는 점수순 보충 (변별력 유지). ` : ''}homeScore는 추정 점수입니다. 발행 후 실제 노출 데이터로 가중치가 자동 학습됩니다.
+                💡 ${backfilled > 0 ? `<strong style="color:#fbbf24;">컷 미달 ${backfilled}개</strong>는 점수순 보충 (변별력 유지). ` : ''}모든 수치는 네이버 API/SERP 실측. homeScore는 4개 실측 신호(CTR가능성·신선도·카테고리·빈자리)의 가중 합산이며, 외부 노출률 % 는 표시하지 않습니다(네이버 블랙박스).
               </div>
               <div style="display:flex; flex-direction:column; gap:12px;">
                 ${filtered.map((x, i) => renderHomeKeywordCard(x, i + 1, x._backfilled)).join('')}
@@ -16006,12 +16006,12 @@
         }
 
         function renderHomeKeywordCard(x, rank, isBackfilled) {
+          // v2.42.70: 실측 데이터만 표시 — CTR%/expectedCtr%/노출확률% 같은 하드코딩 추정값 제거
           const hs = x.homeScore || {};
           const score = hs.homeScore || 0;
           const grade = hs.grade || '-';
-          const summary = hs.summary || '';
-          const breakdown = hs.breakdown || {};
           const v = x.vacancy || {};
+          const fr = x.fresh || {};
           const bestTitle = x.bestTitle;
 
           const gradeColor = score >= 85 ? '#22c55e' : score >= 70 ? '#3b82f6' : score >= 55 ? '#fbbf24' : '#f87171';
@@ -16019,59 +16019,81 @@
           const cardOpacity = isBackfilled ? '0.7' : '1';
           const backfillTag = isBackfilled ? `<span style="background:rgba(251,191,36,0.2); color:#fbbf24; padding:2px 8px; border-radius:6px; font-size:9px; font-weight:800; margin-left:6px;">📉 컷 미달</span>` : '';
 
+          // 실측 신선도 라벨
+          const surgeText = (typeof fr.surgeRatio === 'number' && fr.surgeRatio > 0)
+            ? `${fr.surgeRatio.toFixed(1)}×`
+            : null;
+          const pub24Text = (typeof fr.blogPublishCount24h === 'number')
+            ? `${fr.blogPublishCount24h.toLocaleString()}건` : null;
+
           return `
             <div style="background:rgba(15,23,42,0.85); border-radius:14px; padding:18px; border:1px solid ${gradeBg.replace('0.15','0.4')}; box-shadow:0 4px 16px rgba(0,0,0,0.3); opacity:${cardOpacity};">
               <div style="display:flex; align-items:flex-start; justify-content:space-between; gap:12px; margin-bottom:12px;">
                 <div style="flex:1; min-width:0;">
                   <div style="display:flex; align-items:center; gap:8px; margin-bottom:6px; flex-wrap:wrap;">
                     <span style="font-size:11px; font-weight:800; color:rgba(255,255,255,0.5);">#${rank}</span>
-                    <span style="font-size:18px; font-weight:800; color:white; word-break:keep-all;">${escapeHtml(x.keyword)}</span>
+                    <span style="font-size:20px; font-weight:800; color:white; word-break:keep-all;">${escapeHtml(x.keyword)}</span>
                     <span style="background:${gradeBg}; color:${gradeColor}; padding:2px 10px; border-radius:8px; font-size:11px; font-weight:800;">${grade}</span>
                     ${renderValueGateBadge(x.valueGate)}
                     ${backfillTag}
                   </div>
-                  <div style="font-size:11px; color:rgba(255,255,255,0.6);">검색 ${(x.searchVolume || 0).toLocaleString()} · 문서 ${(x.documentCount || 0).toLocaleString()}</div>
                 </div>
                 <div style="text-align:right; flex-shrink:0;">
-                  <div style="font-size:32px; font-weight:900; color:${gradeColor}; line-height:1;">${score}</div>
-                  <div style="font-size:10px; color:rgba(255,255,255,0.5);">homeScore</div>
-                  ${(typeof hs.estimatedExposureProbability === 'number' && hs.contextualMultiplier !== 1.0) ? `
-                    <div style="margin-top:6px; padding:3px 8px; background:${gradeBg}; border-radius:6px; font-size:11px; font-weight:800; color:${gradeColor};" title="내 블로그 권위 ${hs.contextualMultiplier}× 보정 적용 (입력값 기반)">
-                      🎯 ${hs.estimatedExposureProbability}%
-                    </div>
-                    <div style="font-size:9px; color:rgba(255,255,255,0.45);">내 블로그 노출 확률</div>
+                  <div style="font-size:28px; font-weight:900; color:${gradeColor}; line-height:1;">${score}</div>
+                  <div style="font-size:10px; color:rgba(255,255,255,0.5);" title="신호 4종 가중 합산 — 외부 노출 확률은 추정 불가">homeScore</div>
+                </div>
+              </div>
+
+              ${bestTitle ? `
+                <div style="background:rgba(34,197,94,0.08); border-radius:10px; padding:14px; margin-bottom:12px; border-left:3px solid #22c55e;">
+                  <div style="font-size:11px; color:#22c55e; font-weight:800; margin-bottom:6px;">📝 추천 제목 (이대로 발행)</div>
+                  <div style="font-size:16px; font-weight:700; color:white;">${escapeHtml(bestTitle.title)}</div>
+                  ${(bestTitle.matchedPatterns || []).length ? `<div style="font-size:10px; color:rgba(255,255,255,0.5); margin-top:6px;">포함 패턴: ${bestTitle.matchedPatterns.join(' · ')}</div>` : ''}
+                </div>
+              ` : ''}
+
+              <div style="background:rgba(255,255,255,0.03); border-radius:8px; padding:10px 12px; margin-bottom:8px;">
+                <div style="font-size:10px; color:rgba(255,255,255,0.5); font-weight:800; margin-bottom:6px; letter-spacing:0.5px;">📊 실측 데이터</div>
+                <div style="display:grid; grid-template-columns:repeat(auto-fit, minmax(120px, 1fr)); gap:10px; font-size:12px;">
+                  <div>
+                    <div style="color:rgba(255,255,255,0.5); font-size:10px;">월 검색량</div>
+                    <div style="color:white; font-weight:700;">${(x.searchVolume || 0).toLocaleString()}</div>
+                  </div>
+                  <div>
+                    <div style="color:rgba(255,255,255,0.5); font-size:10px;">총 문서수</div>
+                    <div style="color:white; font-weight:700;">${(x.documentCount || 0).toLocaleString()}</div>
+                  </div>
+                  ${v.totalSlotsAnalyzed ? `
+                  <div>
+                    <div style="color:rgba(255,255,255,0.5); font-size:10px;">SERP 빈자리</div>
+                    <div style="color:#22c55e; font-weight:700;">${v.vacancySlots}/10</div>
+                  </div>
+                  <div>
+                    <div style="color:rgba(255,255,255,0.5); font-size:10px;">인플루언서</div>
+                    <div style="color:white; font-weight:700;">${v.influencerCount}/10</div>
+                  </div>
+                  <div>
+                    <div style="color:rgba(255,255,255,0.5); font-size:10px;">빅도메인</div>
+                    <div style="color:white; font-weight:700;">${v.bigDomainCount}/10</div>
+                  </div>
+                  ` : ''}
+                  ${surgeText ? `
+                  <div>
+                    <div style="color:rgba(255,255,255,0.5); font-size:10px;">최근 급상승</div>
+                    <div style="color:${fr.surgeRatio >= 2 ? '#22c55e' : 'white'}; font-weight:700;">${surgeText}</div>
+                  </div>
+                  ` : ''}
+                  ${pub24Text ? `
+                  <div>
+                    <div style="color:rgba(255,255,255,0.5); font-size:10px;">24h 발행수</div>
+                    <div style="color:white; font-weight:700;">${pub24Text}</div>
+                  </div>
                   ` : ''}
                 </div>
               </div>
 
-              <div style="display:flex; gap:6px; flex-wrap:wrap; margin-bottom:12px;">
-                <span style="background:rgba(34,197,94,0.1); color:#22c55e; padding:3px 8px; border-radius:6px; font-size:10px; font-weight:700;">CTR ${breakdown.ctrPotential || 0}/35</span>
-                <span style="background:rgba(251,191,36,0.1); color:#fbbf24; padding:3px 8px; border-radius:6px; font-size:10px; font-weight:700;">신선도 ${breakdown.freshness || 0}/30</span>
-                <span style="background:rgba(96,165,250,0.1); color:#60a5fa; padding:3px 8px; border-radius:6px; font-size:10px; font-weight:700;">카테고리 ${breakdown.categoryFit || 0}/20</span>
-                <span style="background:rgba(167,139,250,0.1); color:#a78bfa; padding:3px 8px; border-radius:6px; font-size:10px; font-weight:700;">빈자리 ${breakdown.vacancy || 0}/15</span>
-              </div>
-
-              ${summary ? `<div style="background:${gradeBg}; color:${gradeColor}; padding:8px 12px; border-radius:8px; font-size:12px; font-weight:600; margin-bottom:10px;">${summary}</div>` : ''}
-
-              ${bestTitle ? `
-                <div style="background:rgba(255,255,255,0.04); border-radius:10px; padding:12px; margin-bottom:10px; border-left:3px solid #22c55e;">
-                  <div style="display:flex; align-items:center; gap:6px; margin-bottom:6px;">
-                    <span style="font-size:11px; color:#22c55e; font-weight:800;">📝 추천 제목</span>
-                    <span style="font-size:10px; color:rgba(255,255,255,0.6);">CTR 점수 ${bestTitle.ctrScore} · 예상 ${bestTitle.expectedCtr}%</span>
-                  </div>
-                  <div style="font-size:14px; font-weight:700; color:white; margin-bottom:4px;">${escapeHtml(bestTitle.title)}</div>
-                  ${(bestTitle.matchedPatterns || []).length ? `<div style="font-size:10px; color:rgba(255,255,255,0.6);">패턴: ${bestTitle.matchedPatterns.join(', ')}</div>` : ''}
-                </div>
-              ` : ''}
-
-              ${v.totalSlotsAnalyzed ? `
-                <div style="display:flex; gap:8px; font-size:11px; color:rgba(255,255,255,0.7);">
-                  <span>👤 인플루언서 ${v.influencerCount}/10</span>
-                  <span>🏛️ 빅도메인 ${v.bigDomainCount}/10</span>
-                  <span style="color:#22c55e; font-weight:700;">🪑 빈자리 ${v.vacancySlots}/10</span>
-                </div>
-                ${v.suggestedAction ? `<div style="font-size:11px; color:rgba(255,255,255,0.6); margin-top:4px;">${v.suggestedAction}</div>` : ''}
-              ` : ''}
+              ${hs.summary ? `<div style="font-size:11px; color:${gradeColor}; padding:6px 8px; font-weight:600;">${hs.summary}</div>` : ''}
+              ${v.suggestedAction ? `<div style="font-size:11px; color:rgba(255,255,255,0.6); padding:4px 8px;">${v.suggestedAction}</div>` : ''}
             </div>
           `;
         }
