@@ -291,7 +291,7 @@ async function getAutocompleteKeywords(keyword: string): Promise<string[]> {
 
 // v2.42.68: 시맨틱 sibling 확장 — 헤드 명사를 공유하지만 modifier가 다른 키워드 발굴
 // 예: "2026 소상공인 지원금" → "고유가 피해지원금", "3차 민생지원금" (헤드=지원금, modifier 다름)
-async function getSemanticSiblings(keyword: string, clientId?: string, clientSecret?: string): Promise<string[]> {
+export async function getSemanticSiblings(keyword: string, clientId?: string, clientSecret?: string): Promise<string[]> {
   const tokens = keyword.trim().split(/\s+/).filter(Boolean);
   if (tokens.length < 2) return [];
 

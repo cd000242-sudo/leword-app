@@ -559,6 +559,9 @@ const electronApi = {
       'pro12-notification',
       'rich-feed-progress',   // 🔥 황금키워드 발굴 진행률
       'related-expansion-progress',  // 🔥 v2.42.38: 연관 키워드 마인드맵 다층 확장 진행률
+      'golden-discovery-progress',   // v2.42.77: 황금 키워드 자동 발굴 진행률
+      'exposure-progress',           // v2.42.72: 노출 추적 진행률
+      'keyword-mindmap-progress',    // 마인드맵 생성 진행률
     ]);
     if (!allowed.has(channel)) {
       throw new Error(`IPC channel not allowed: ${channel}`);

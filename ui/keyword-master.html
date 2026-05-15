@@ -3094,6 +3094,13 @@
                 ⏹️ 중지
               </button>
 
+              <!-- v2.42.77: 황금 키워드 자동 발굴 (시맨틱 sibling + 황금비율 필터) -->
+              <button id="goldenDiscoverBtn" onclick="startGoldenDiscovery()"
+                style="padding: 12px 22px; background: linear-gradient(135deg, #f59e0b 0%, #ef4444 100%); color: white; border: none; border-radius: 8px; font-weight: 700; cursor: pointer; font-size: 14px; box-shadow: 0 4px 14px rgba(245, 158, 11, 0.35);"
+                title="입력한 키워드의 헤드 명사를 공유하면서 modifier가 다른 후보군에서, 검색량 大·문서수 少·황금비율 ≥5인 키워드만 자동 발굴 (1~2분 소요)">
+                💎 황금 키워드 자동 발굴
+              </button>
+
               <!-- v2.42.42: 마인드맵 발굴 통합 (#keywordInput 재사용) -->
               <div style="display:flex; gap:8px; align-items:center; padding-left:8px; border-left:1px solid rgba(255,255,255,0.15); margin-left:4px;">
                 <select id="mindmapLimitSelect" style="padding: 10px 12px; border: 2px solid rgba(168, 85, 247, 0.35); border-radius: 8px; font-size: 13px; background: rgba(30, 41, 59, 0.8); color: #c4b5fd; font-weight:600;" title="시드 → 꼬리에 꼬리 깊이 자동: 50개 1단계 / 500개 5단계">
@@ -5207,6 +5214,79 @@
             console.error('[SUFFIX-SEARCH] 오류:', error);
             alert('키워드 검색 중 오류가 발생했습니다: ' + error.message);
             statusDiv.style.display = 'none';
+          }
+        };
+
+        // v2.42.77: 황금 키워드 자동 발굴 — 시맨틱 sibling + 검색량/문서수/황금비율 측정
+        window.startGoldenDiscovery = async function () {
+          const keyword = document.getElementById('keywordInput')?.value.trim() || '';
+          if (!keyword) return alert('💡 키워드를 입력하세요 (예: 황금키워드, 부업, 다이어트 등)');
+
+          const btn = document.getElementById('goldenDiscoverBtn');
+          const resultsDiv = document.getElementById('goldenResults');
+          if (!resultsDiv) return alert('결과 영역을 찾을 수 없습니다.');
+
+          btn.disabled = true;
+          const originalLabel = btn.innerHTML;
+          btn.innerHTML = '⏳ 발굴 중... (1~2분)';
+          resultsDiv.innerHTML = `
+            <div style="padding:30px; background:rgba(245,158,11,0.08); border-radius:12px; border:1px solid rgba(245,158,11,0.3);">
+              <div style="font-size:18px; font-weight:800; color:#f59e0b; margin-bottom:12px;">💎 황금 키워드 자동 발굴 진행 중</div>
+              <div id="goldenDiscoveryLog" style="font-size:13px; color:#475569; line-height:1.8;">⏳ 시맨틱 sibling 확장 시작...</div>
+            </div>`;
+
+          // 진행 알림 리스너 — preload 의 on() 은 payload 하나만 전달
+          const logEl = document.getElementById('goldenDiscoveryLog');
+          let unsubscribe = null;
+          try {
+            if (window.electronAPI?.on) {
+              unsubscribe = window.electronAPI.on('golden-discovery-progress', (payload) => {
+                if (logEl && payload?.message) {
+                  logEl.innerHTML += `<br>${payload.message}`;
+                  logEl.scrollTop = logEl.scrollHeight;
+                }
+              });
+            }
+          } catch (e) { console.warn('listener attach failed:', e); }
+
+          try {
+            const r = await window.electronAPI.invoke('discover-golden-keywords', { keyword });
+            if (!r?.success) {
+              resultsDiv.innerHTML = `<div style="padding:20px; background:rgba(239,68,68,0.1); border-radius:12px; color:#dc2626;">❌ ${r?.error || '발굴 실패'}</div>`;
+              return;
+            }
+
+            // window.lewordRawKeywords 와 동일 포맷으로 저장 → 기존 displayKeywordResults 재사용
+            window.lewordRawKeywords = r.keywords || [];
+            window.discoveryResults = r.keywords || [];
+
+            if (!r.keywords || r.keywords.length === 0) {
+              resultsDiv.innerHTML = `
+                <div style="padding:30px; background:rgba(96,165,250,0.08); border-radius:12px; border:1px solid rgba(96,165,250,0.3); text-align:center;">
+                  <div style="font-size:18px; font-weight:800; color:#3b82f6; margin-bottom:8px;">😅 조건에 맞는 황금 키워드를 찾지 못했습니다</div>
+                  <div style="font-size:13px; color:#64748b; line-height:1.6;">
+                    후보 ${r.totalCandidates || 0}개 측정 (검색량≥${r.appliedThresholds?.minSearchVolume || 300} · 문서수≤${r.appliedThresholds?.maxDocCount || 10000} · 비율≥${r.appliedThresholds?.minRatio || 5}).<br/>
+                    더 일반적인 키워드(예: "부업", "다이어트", "재테크")로 시도하거나, 시드를 짧게 입력해보세요.
+                  </div>
+                </div>`;
+              return;
+            }
+
+            // 결과 표시 (기존 displayKeywordResults 재사용)
+            if (typeof displayKeywordResults === 'function') {
+              displayKeywordResults(r.keywords);
+            } else {
+              resultsDiv.innerHTML = `<div style="padding:14px; background:rgba(34,197,94,0.1); border-radius:10px; color:#16a34a; font-weight:700; margin-bottom:14px;">✅ 황금 키워드 ${r.keywords.length}개 발견 (후보 ${r.totalCandidates}개 측정)</div>`;
+            }
+            const exportSection = document.getElementById('exportSection');
+            if (exportSection) exportSection.style.display = 'block';
+
+          } catch (err) {
+            resultsDiv.innerHTML = `<div style="padding:20px; background:rgba(239,68,68,0.1); border-radius:12px; color:#dc2626;">❌ 오류: ${err?.message || err}</div>`;
+          } finally {
+            btn.disabled = false;
+            btn.innerHTML = originalLabel;
+            try { if (typeof unsubscribe === 'function') unsubscribe(); } catch {}
           }
         };
 

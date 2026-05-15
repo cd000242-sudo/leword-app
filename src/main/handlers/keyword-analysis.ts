@@ -1433,6 +1433,142 @@ export function setupKeywordAnalysisHandlers(): void {
     console.log('[KEYWORD-MASTER] ✅ get-keyword-expansions 핸들러 등록 완료');
   }
 
+  // v2.42.77: 황금 키워드 자동 발굴 — 시맨틱 sibling 확장 + 황금비율 필터
+  // "생각지도 못한 가치 키워드" 발굴: 헤드 명사 공유, modifier 다른 후보군에서 검색량/문서수 측정 후 황금비율 기준 정렬
+  if (!ipcMain.listenerCount('discover-golden-keywords')) {
+    ipcMain.handle('discover-golden-keywords', async (event, payload: { keyword: string; minRatio?: number; minSearchVolume?: number; maxDocCount?: number }) => {
+      try {
+        const seed = String(payload?.keyword || '').trim();
+        if (!seed) return { success: false, error: '키워드를 입력하세요', keywords: [] };
+
+        const license = await licenseManager.loadLicense();
+        if (!license || !license.isValid) {
+          return { success: false, error: '라이선스 미등록', requiresLicense: true, keywords: [] };
+        }
+
+        const envManager = EnvironmentManager.getInstance();
+        const env = envManager.getConfig();
+        const clientId = env.naverClientId || process.env['NAVER_CLIENT_ID'] || '';
+        const clientSecret = env.naverClientSecret || process.env['NAVER_CLIENT_SECRET'] || '';
+        if (!clientId || !clientSecret) {
+          return { success: false, error: '네이버 API 키 필요 (환경설정)', keywords: [] };
+        }
+
+        // 진행 알림
+        const send = (type: string, msg: string, data: any = {}) => {
+          try { event.sender.send('golden-discovery-progress', { type, message: msg, ...data }); } catch {}
+        };
+
+        send('start', `🔍 "${seed}" 시맨틱 sibling 확장 중...`);
+
+        // 1) 마인드맵 sibling + 자동완성 통합으로 후보 풀 구성
+        const { getSemanticSiblings } = await import('../../utils/keyword-mindmap');
+        const { getNaverAutocompleteKeywords } = await import('../../utils/naver-autocomplete');
+
+        const candidates = new Set<string>();
+        candidates.add(seed);
+
+        // sibling 확장 (헤드 명사 공유, modifier 다름)
+        try {
+          const siblings = await getSemanticSiblings(seed, clientId, clientSecret);
+          siblings.forEach(s => candidates.add(s));
+          send('progress', `🌱 시맨틱 sibling ${siblings.length}건 확장`);
+        } catch (e: any) {
+          send('progress', `⚠️ sibling 확장 일부 실패: ${e?.message}`);
+        }
+
+        // 자동완성도 함께 (시드 자체 확장)
+        try {
+          const autoExt = await getNaverAutocompleteKeywords(seed, { clientId, clientSecret });
+          autoExt.forEach(a => candidates.add(a));
+          send('progress', `🌱 자동완성 ${autoExt.length}건 확장`);
+        } catch (e: any) {
+          send('progress', `⚠️ 자동완성 실패: ${e?.message}`);
+        }
+
+        // 너무 길거나 짧은 키워드 제거 + 노이즈 제거
+        const cleaned = Array.from(candidates).filter(k => {
+          if (!k || k.length < 2 || k.length > 35) return false;
+          if (/^네이버\s*(프리미엄콘텐츠|광고|광고대행사|파워링크|검색광고|애드포스트)/u.test(k)) return false;
+          if (/^(Keep에 저장|모두가 찜하고 싶은|더보기|검색사이트)$/u.test(k)) return false;
+          if (/^\d+$/.test(k.replace(/\s/g, ''))) return false;
+          return true;
+        });
+
+        send('progress', `✨ 노이즈 필터 후 ${cleaned.length}개 후보`);
+
+        if (cleaned.length === 0) {
+          return { success: true, keywords: [], totalCandidates: 0 };
+        }
+
+        // 2) 후보별 검색량 + 문서수 측정 (배치)
+        send('progress', `📊 ${cleaned.length}개 검색량/문서수 측정 중... (1~2분)`);
+        const measured = await getNaverKeywordSearchVolumeSeparate(
+          { clientId, clientSecret },
+          cleaned,
+          { includeDocumentCount: true }
+        );
+
+        // 3) 황금 비율 계산 + 필터
+        const minRatio = payload?.minRatio ?? 5;
+        const minSearchVolume = payload?.minSearchVolume ?? 300;
+        const maxDocCount = payload?.maxDocCount ?? 10000;
+
+        const enriched = measured.map(m => {
+          const sv = ((m.pcSearchVolume || 0) + (m.mobileSearchVolume || 0));
+          const dc = typeof m.documentCount === 'number' ? m.documentCount : null;
+          let ratio: number | null = null;
+          if (dc !== null && dc > 0 && sv > 0) ratio = sv / dc;
+          else if (dc === 0 && sv > 0) ratio = Infinity;
+          return {
+            keyword: m.keyword,
+            pcSearchVolume: m.pcSearchVolume,
+            mobileSearchVolume: m.mobileSearchVolume,
+            searchVolume: sv > 0 ? sv : null,
+            documentCount: dc,
+            goldenRatio: (ratio !== null && Number.isFinite(ratio)) ? Math.round(ratio * 100) / 100 : (ratio === Infinity ? 9999 : null),
+            isGolden: false,
+          };
+        });
+
+        // 황금 조건: 검색량 ≥ minSearchVolume, 문서수 ≤ maxDocCount, ratio ≥ minRatio
+        const golden = enriched.filter(k => {
+          if (k.keyword === seed) return false; // 시드 자체 제외
+          const sv = k.searchVolume || 0;
+          const dc = k.documentCount;
+          const r = k.goldenRatio;
+          if (sv < minSearchVolume) return false;
+          if (dc !== null && dc > maxDocCount) return false;
+          if (r === null) return false;
+          if (r < minRatio) return false;
+          return true;
+        }).map(k => ({ ...k, isGolden: true }));
+
+        // 정렬: 황금비율 내림차순 → 검색량 내림차순
+        golden.sort((a, b) => {
+          const ra = a.goldenRatio ?? 0;
+          const rb = b.goldenRatio ?? 0;
+          if (rb !== ra) return rb - ra;
+          return (b.searchVolume ?? 0) - (a.searchVolume ?? 0);
+        });
+
+        send('complete', `✅ ${golden.length}개 황금 키워드 발견 (후보 ${cleaned.length}개 중)`, { count: golden.length });
+
+        return {
+          success: true,
+          keywords: golden.slice(0, 100),
+          totalCandidates: cleaned.length,
+          totalMeasured: measured.length,
+          appliedThresholds: { minRatio, minSearchVolume, maxDocCount },
+        };
+      } catch (error: any) {
+        console.error('[GOLDEN-DISCOVERY] 오류:', error);
+        return { success: false, error: error.message || '황금 키워드 발굴 실패', keywords: [] };
+      }
+    });
+    console.log('[KEYWORD-MASTER] ✅ discover-golden-keywords 핸들러 등록 완료');
+  }
+
   if (!ipcMain.listenerCount('search-suffix-keywords')) {
     ipcMain.handle('search-suffix-keywords', async (event, options: { suffix: string; maxResults?: number }) => {
       try {
