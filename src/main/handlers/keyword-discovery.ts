@@ -459,46 +459,22 @@ export function setupKeywordDiscoveryHandlers(): void {
           }
 
           // 각 키워드의 검색량과 문서수 조회 (황금 키워드 계산)
+          // v2.42.37: sv/dc 동시 측정 + Bilateral Sanity Check (v2.42.17) + 영구 캐시(v2.32.1) 자동 적용
+          //   기존: sv 측정 후 dc 별도 fetch → API undercount 보정 미적용 → 발굴/재검색 dc 불일치
+          //   변경: includeDocumentCount: true → getNaverKeywordSearchVolumeSeparate 내부 보정 경로 사용
           const keywordsWithData = await Promise.all(keywordsToProcess.map(async (item) => {
             try {
-              // PC/모바일 검색량 분리 조회
               const volumeData = await getNaverKeywordSearchVolumeSeparate({
                 clientId: naverClientId,
                 clientSecret: naverClientSecret
-              }, [item.keyword]);
+              }, [item.keyword], { includeDocumentCount: true });
 
               const pcVolume = volumeData[0]?.pcSearchVolume ?? null;
               const mobileVolume = volumeData[0]?.mobileSearchVolume ?? null;
               const totalVolume: number | null = (pcVolume !== null || mobileVolume !== null)
                 ? ((pcVolume ?? 0) + (mobileVolume ?? 0))
                 : null;
-
-              // 문서수 조회
-              const apiUrl = 'https://openapi.naver.com/v1/search/blog.json';
-              const params = new URLSearchParams({
-                query: item.keyword,
-                display: '1'
-              });
-
-              let docCount: number | null = null;
-              try {
-                const response = await fetch(`${apiUrl}?${params}`, {
-                  headers: {
-                    'X-Naver-Client-Id': naverClientId,
-                    'X-Naver-Client-Secret': naverClientSecret
-                  }
-                });
-
-                if (response.ok) {
-                  const data = await response.json();
-                  const rawTotal = (data as any)?.total;
-                  docCount = typeof rawTotal === 'number'
-                    ? rawTotal
-                    : (typeof rawTotal === 'string' ? parseInt(rawTotal, 10) : null);
-                }
-              } catch (error) {
-                console.warn(`[KEYWORD-MASTER] 문서수 조회 실패 (${item.keyword}):`, error);
-              }
+              const docCount: number | null = volumeData[0]?.documentCount ?? null;
 
               // 검색량/문서량 비율 계산 (낮을수록 황금 키워드)
               const volumeToDocRatio: number | null = (typeof docCount === 'number' && docCount > 0 && typeof totalVolume === 'number' && totalVolume > 0)
@@ -2183,50 +2159,20 @@ export function setupKeywordDiscoveryHandlers(): void {
                 continue;
               }
 
-              // 🚀 병렬 실행: 블로그 API + 검색광고 API 동시 호출
-              const [blogResult, volumeResult] = await Promise.allSettled([
-                // 1. 블로그 검색 API (문서수)
-                (async () => {
-                  const blogApiUrl = 'https://openapi.naver.com/v1/search/blog.json';
-                  const blogParams = new URLSearchParams({ query: refinedKeyword, display: '1' });
-                  const blogResponse = await fetch(`${blogApiUrl}?${blogParams}`, {
-                    headers: {
-                      'X-Naver-Client-Id': naverClientId,
-                      'X-Naver-Client-Secret': naverClientSecret
-                    }
-                  });
-                  if (blogResponse.ok) {
-                    const blogData = await blogResponse.json();
-                    const rawTotal = (blogData as any)?.total;
-                    const total = typeof rawTotal === 'number'
-                      ? rawTotal
-                      : (typeof rawTotal === 'string' ? parseInt(rawTotal, 10) : null);
-                    return total;
-                  }
-                  return null;
-                })(),
-                // 2. 검색광고 API (검색량) - 5초 타임아웃
-                Promise.race([
-                  getNaverKeywordSearchVolumeSeparate({
-                    clientId: naverClientId,
-                    clientSecret: naverClientSecret
-                  }, [refinedKeyword]),
-                  new Promise((resolve) => setTimeout(() => resolve(null), 5000))
-                ])
+              // v2.42.37: sv/dc 동시 측정 (Bilateral Sanity Check + 영구 캐시 자동 적용)
+              const volumeResult = await Promise.race([
+                getNaverKeywordSearchVolumeSeparate({
+                  clientId: naverClientId,
+                  clientSecret: naverClientSecret
+                }, [refinedKeyword], { includeDocumentCount: true }),
+                new Promise<null>((resolve) => setTimeout(() => resolve(null), 8000))
               ]);
-
-              // 결과 처리
-              if (blogResult.status === 'fulfilled') {
-                const v = blogResult.value as any;
-                docCount = typeof v === 'number' ? v : null;
-              }
-              if (volumeResult.status === 'fulfilled' && volumeResult.value) {
-                const vd = volumeResult.value as any;
-                if (Array.isArray(vd) && vd.length > 0 && vd[0]) {
-                  const pc = typeof vd[0].pcSearchVolume === 'number' ? vd[0].pcSearchVolume : null;
-                  const mobile = typeof vd[0].mobileSearchVolume === 'number' ? vd[0].mobileSearchVolume : null;
-                  volume = (pc !== null || mobile !== null) ? ((pc ?? 0) + (mobile ?? 0)) : null;
-                }
+              if (volumeResult && Array.isArray(volumeResult) && volumeResult.length > 0 && volumeResult[0]) {
+                const vd = volumeResult[0];
+                const pc = typeof vd.pcSearchVolume === 'number' ? vd.pcSearchVolume : null;
+                const mobile = typeof vd.mobileSearchVolume === 'number' ? vd.mobileSearchVolume : null;
+                volume = (pc !== null || mobile !== null) ? ((pc ?? 0) + (mobile ?? 0)) : null;
+                docCount = typeof vd.documentCount === 'number' ? vd.documentCount : null;
               }
 
               // 🔥 실시간 급상승 키워드는 항상 포함 (데이터 없어도 기본값 부여)
@@ -2302,40 +2248,17 @@ export function setupKeywordDiscoveryHandlers(): void {
             const naverClientSecret = env.naverClientSecret || process.env['NAVER_CLIENT_SECRET'] || '';
 
             if (naverClientId && naverClientSecret) {
-              // 🚀 병렬 실행
-              const [blogRes, volRes] = await Promise.allSettled([
-                (async () => {
-                  const blogApiUrl = 'https://openapi.naver.com/v1/search/blog.json';
-                  const blogParams = new URLSearchParams({ query: refinedKeyword, display: '1' });
-                  const resp = await fetch(`${blogApiUrl}?${blogParams}`, {
-                    headers: { 'X-Naver-Client-Id': naverClientId, 'X-Naver-Client-Secret': naverClientSecret }
-                  });
-                  if (resp.ok) {
-                    const data = await resp.json();
-                    const rawTotal = (data as any)?.total;
-                    return typeof rawTotal === 'number'
-                      ? rawTotal
-                      : (typeof rawTotal === 'string' ? parseInt(rawTotal, 10) : null);
-                  }
-                  return null;
-                })(),
-                Promise.race([
-                  getNaverKeywordSearchVolumeSeparate({ clientId: naverClientId, clientSecret: naverClientSecret }, [refinedKeyword]),
-                  new Promise((resolve) => setTimeout(() => resolve(null), 5000))
-                ])
+              // v2.42.37: sv/dc 동시 측정 (Bilateral Sanity Check + 영구 캐시 자동 적용)
+              const volRes = await Promise.race([
+                getNaverKeywordSearchVolumeSeparate({ clientId: naverClientId, clientSecret: naverClientSecret }, [refinedKeyword], { includeDocumentCount: true }),
+                new Promise<null>((resolve) => setTimeout(() => resolve(null), 8000))
               ]);
-
-              if (blogRes.status === 'fulfilled') {
-                const v = blogRes.value as any;
-                googleDocCount = typeof v === 'number' ? v : null;
-              }
-              if (volRes.status === 'fulfilled' && volRes.value) {
-                const vd = volRes.value as any;
-                if (Array.isArray(vd) && vd.length > 0 && vd[0]) {
-                  const pc = typeof vd[0].pcSearchVolume === 'number' ? vd[0].pcSearchVolume : null;
-                  const mobile = typeof vd[0].mobileSearchVolume === 'number' ? vd[0].mobileSearchVolume : null;
-                  googleVolume = (pc !== null || mobile !== null) ? ((pc ?? 0) + (mobile ?? 0)) : null;
-                }
+              if (volRes && Array.isArray(volRes) && volRes.length > 0 && volRes[0]) {
+                const vd = volRes[0];
+                const pc = typeof vd.pcSearchVolume === 'number' ? vd.pcSearchVolume : null;
+                const mobile = typeof vd.mobileSearchVolume === 'number' ? vd.mobileSearchVolume : null;
+                googleVolume = (pc !== null || mobile !== null) ? ((pc ?? 0) + (mobile ?? 0)) : null;
+                googleDocCount = typeof vd.documentCount === 'number' ? vd.documentCount : null;
               }
             }
 
@@ -2406,40 +2329,17 @@ export function setupKeywordDiscoveryHandlers(): void {
               const naverClientSecret2 = env2.naverClientSecret || process.env['NAVER_CLIENT_SECRET'] || '';
 
               if (naverClientId2 && naverClientSecret2) {
-                // 🚀 병렬 실행
-                const [blogRes2, volRes2] = await Promise.allSettled([
-                  (async () => {
-                    const blogApiUrl = 'https://openapi.naver.com/v1/search/blog.json';
-                    const blogParams = new URLSearchParams({ query: refinedKeyword, display: '1' });
-                    const resp = await fetch(`${blogApiUrl}?${blogParams}`, {
-                      headers: { 'X-Naver-Client-Id': naverClientId2, 'X-Naver-Client-Secret': naverClientSecret2 }
-                    });
-                    if (resp.ok) {
-                      const data = await resp.json();
-                      const rawTotal = (data as any)?.total;
-                      return typeof rawTotal === 'number'
-                        ? rawTotal
-                        : (typeof rawTotal === 'string' ? parseInt(rawTotal, 10) : null);
-                    }
-                    return null;
-                  })(),
-                  Promise.race([
-                    getNaverKeywordSearchVolumeSeparate({ clientId: naverClientId2, clientSecret: naverClientSecret2 }, [refinedKeyword]),
-                    new Promise((resolve) => setTimeout(() => resolve(null), 5000))
-                  ])
+                // v2.42.37: sv/dc 동시 측정 (Bilateral Sanity Check + 영구 캐시 자동 적용)
+                const volRes2 = await Promise.race([
+                  getNaverKeywordSearchVolumeSeparate({ clientId: naverClientId2, clientSecret: naverClientSecret2 }, [refinedKeyword], { includeDocumentCount: true }),
+                  new Promise<null>((resolve) => setTimeout(() => resolve(null), 8000))
                 ]);
-
-                if (blogRes2.status === 'fulfilled') {
-                  const v = blogRes2.value as any;
-                  ytDocCount = typeof v === 'number' ? v : null;
-                }
-                if (volRes2.status === 'fulfilled' && volRes2.value) {
-                  const vd = volRes2.value as any;
-                  if (Array.isArray(vd) && vd.length > 0 && vd[0]) {
-                    const pc = typeof vd[0].pcSearchVolume === 'number' ? vd[0].pcSearchVolume : null;
-                    const mobile = typeof vd[0].mobileSearchVolume === 'number' ? vd[0].mobileSearchVolume : null;
-                    ytVolume = (pc !== null || mobile !== null) ? ((pc ?? 0) + (mobile ?? 0)) : null;
-                  }
+                if (volRes2 && Array.isArray(volRes2) && volRes2.length > 0 && volRes2[0]) {
+                  const vd = volRes2[0];
+                  const pc = typeof vd.pcSearchVolume === 'number' ? vd.pcSearchVolume : null;
+                  const mobile = typeof vd.mobileSearchVolume === 'number' ? vd.mobileSearchVolume : null;
+                  ytVolume = (pc !== null || mobile !== null) ? ((pc ?? 0) + (mobile ?? 0)) : null;
+                  ytDocCount = typeof vd.documentCount === 'number' ? vd.documentCount : null;
                 }
               }
 

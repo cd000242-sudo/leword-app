@@ -250,8 +250,16 @@ function isLikelyCelebrityName(keyword: string): boolean {
 //   - 공공정책: 국민연금, 아동수당, 근로장려금, 청년도약계좌, 기초연금, 실업급여, 재난지원금, 건강보험, 고용보험, 산재보험, 4대보험 (2토큰 조합은 개별 게이트)
 //   - 공공기관: 취업지원센터, 건강보험공단, 국민연금공단, 농협금융, 청약홈
 //   - 추상·뉴스 명사: 협력, 대상, 사정, 병용, 산산조각, 리브스, 호르무즈 (단일 토큰 + 뜻/가격 조합 차단)
-const GENERIC_BROAD_RE = /^(적금|예금|카드|대출|보험|투자|주식|펀드|ETF|연금|세금|건강|영양제|비타민|음식|요리|청소|여행|맛집|공부|운동|헬스|다이어트|뷰티|화장품|샴푸|선크림|의류|패션|가구|인테리어|네이버|구글|카카오|삼성|엘지|쿠팡|클로드|챗GPT|유튜브|인스타|페이스북|브랜드|제품|상품|서비스|리뷰|일본|미국|중국|한국|영국|독일|프랑스|이탈리아|러시아|인도|호주|캐나다|스페인|태국|베트남|유럽|아시아|동남아|북미|남미|중동|서울|부산|대구|인천|제주|강남|홍대|이태원|명동|성수|경기|강원|충청|전라|경상|국내|국외|해외|반려동물|돼지고기|소고기|닭고기|생선|아파트|빌라|오피스텔|주식종류|레고|정부|로마|청약|영화|드라마|음악|게임|애니|웹툰|소설|방송|예능|공연|뉴스|사건|사고|이슈|사람|인물|기업|회사|단체|기관|학교|대학|학원|은행|금융|경제|사회|정치|스포츠|선수|팀|경기|시합|대회|올림픽|월드컵|IT|AI|로봇|우주|과학|기술|발명|연구|교육|입시|시험|공무원|자격증|취업|직장|연봉|면접|국민연금|아동수당|근로장려금|자녀장려금|청년도약계좌|청년희망적금|기초연금|실업급여|재난지원금|건강보험|고용보험|산재보험|4대보험|사대보험|청년수당|국민행복카드|취업지원센터|건강보험공단|국민연금공단|농협금융|청약홈|정부24|홈택스|협력|대상|사정|병용|산산조각|리브스|호르무즈|우베|자위행위)$/;
-const GENERIC_ACTION_RE = /^(추천|후기|리뷰|비교|순위|가격|방법|꿀팁|정리|할인|세일|이벤트|인기|베스트|신상|최신|tips|모음|목록|소개|설명|정보|뜻|의미|브랜드|종류|신청|안내|공지)$/i;
+// v2.42.51: BROAD = "추상 명사 / 너무 광범위 명사" 만. 행위어는 GENERIC_ACTION_RE 로 이동.
+//   - BROAD ∩ ACTION 중복으로 "보험 등록"/"카드 발급"/"청약 조회" 정상 2토큰 차단되던 부작용 제거
+const GENERIC_BROAD_RE = /^(적금|예금|카드|대출|보험|투자|주식|펀드|ETF|연금|세금|건강|영양제|비타민|음식|요리|청소|여행|맛집|공부|운동|헬스|다이어트|뷰티|화장품|샴푸|선크림|의류|패션|가구|인테리어|네이버|구글|카카오|삼성|엘지|쿠팡|클로드|챗GPT|유튜브|인스타|페이스북|브랜드|제품|상품|서비스|리뷰|일본|미국|중국|한국|영국|독일|프랑스|이탈리아|러시아|인도|호주|캐나다|스페인|태국|베트남|유럽|아시아|동남아|북미|남미|중동|서울|부산|대구|인천|제주|강남|홍대|이태원|명동|성수|경기|강원|충청|전라|경상|국내|국외|해외|반려동물|돼지고기|소고기|닭고기|생선|아파트|빌라|오피스텔|주식종류|레고|정부|로마|청약|영화|드라마|음악|게임|애니|웹툰|소설|방송|예능|공연|뉴스|사건|사고|이슈|사람|인물|기업|회사|단체|기관|학교|대학|학원|은행|금융|경제|사회|정치|스포츠|선수|팀|경기|시합|대회|올림픽|월드컵|IT|AI|로봇|우주|과학|기술|발명|연구|교육|입시|시험|공무원|자격증|취업|직장|연봉|면접|국민연금|아동수당|근로장려금|자녀장려금|청년도약계좌|청년희망적금|기초연금|실업급여|재난지원금|건강보험|고용보험|산재보험|4대보험|사대보험|청년수당|국민행복카드|취업지원센터|건강보험공단|국민연금공단|농협금융|청약홈|정부24|홈택스|협력|대상|사정|병용|산산조각|리브스|호르무즈|우베|자위행위|절반|일부|전부|종합|일반|보통|평균|비율|수준|결과|가능|불가|필수|차이|이유|장점|단점|특징|특성|기능|효율|효과)$/;
+// v2.42.51: ACTION 을 2분류로 분리
+//   VAGUE: 너무 일반적 (BROAD 와 조합 시 차단) — 추천/리뷰/가격 등 무엇이든 매칭되는 어미
+//   PROCESS: 구체 행위어 (단독은 차단, BROAD 와 조합은 정상 의도) — 등록/발급/해지 등
+const GENERIC_VAGUE_ACTION_RE = /^(추천|후기|리뷰|비교|순위|가격|방법|꿀팁|정리|할인|세일|이벤트|인기|베스트|신상|최신|tips|모음|목록|소개|설명|정보|뜻|의미|브랜드|종류|안내|공지)$/i;
+const GENERIC_PROCESS_ACTION_RE = /^(신청|해지|환불|가입|취소|결제|구매|판매|반품|교환|반납|연장|예약|배송|발급|승인|승급|등록|탈퇴|로그인|로그아웃|회원|업데이트|다운로드|설치|제거|삭제|초기화|변경|수정|이전|이체|입금|출금|적립|충전|충전금|증명|발행|발송|수신|전송|확인서|증명서|영수증|계산|계산법|환산)$/i;
+// 호환성 유지: 단일 토큰 차단은 양쪽 OR
+const GENERIC_ACTION_RE = new RegExp(`${GENERIC_VAGUE_ACTION_RE.source.slice(1,-1)}|${GENERIC_PROCESS_ACTION_RE.source.slice(1,-1)}`, 'i');
 
 // 🔥 v2.28.1: 뉴스성 단일 토큰 차단 (분기/폐지/사망/협상 등 — 글감 부족)
 //   사용자 피드백: "분기, 폐지, 주식종류, 세계, 개최, 사망, 협상 이런 건 어떻게 쓰라고"
@@ -271,35 +279,111 @@ function isTooGeneric2Token(keyword: string): boolean {
     const tokens = keyword.trim().split(/\s+/).filter(Boolean);
     if (tokens.length !== 2) return false;
     const [a, b] = tokens;
-    // BROAD + ACTION 조합 (예: "적금 추천", "일본 가격")
-    if (GENERIC_BROAD_RE.test(a) && GENERIC_ACTION_RE.test(b)) return true;
-    if (GENERIC_BROAD_RE.test(b) && GENERIC_ACTION_RE.test(a)) return true;
-    // 🔥 v2.28.2: BROAD + BROAD 조합 (예: "일본 미국", "네이버 구글")
+    // v2.42.51: BROAD + VAGUE_ACTION 조합 (예: "적금 추천", "일본 가격") — 차단
+    //   BROAD + PROCESS_ACTION (예: "보험 등록", "카드 발급") 은 의도 명확 → 통과
+    if (GENERIC_BROAD_RE.test(a) && GENERIC_VAGUE_ACTION_RE.test(b)) return true;
+    if (GENERIC_BROAD_RE.test(b) && GENERIC_VAGUE_ACTION_RE.test(a)) return true;
+    // BROAD + BROAD 조합 (예: "일본 미국", "네이버 구글")
     if (GENERIC_BROAD_RE.test(a) && GENERIC_BROAD_RE.test(b)) return true;
-    // 🔥 v2.28.2: ACTION + ACTION 조합 (예: "가격 후기", "추천 리뷰", "비교 순위")
-    if (GENERIC_ACTION_RE.test(a) && GENERIC_ACTION_RE.test(b)) return true;
-    // 🔥 v2.32.1: BROAD + 연도/숫자 조합 차단 (예: "아동수당 2026", "국민연금 2026")
+    // VAGUE_ACTION + VAGUE_ACTION (예: "가격 후기", "추천 리뷰")
+    if (GENERIC_VAGUE_ACTION_RE.test(a) && GENERIC_VAGUE_ACTION_RE.test(b)) return true;
+    // BROAD + 연도/숫자 조합 (예: "아동수당 2026")
     if (GENERIC_BROAD_RE.test(a) && YEAR_OR_NUMBER_RE.test(b)) return true;
     if (GENERIC_BROAD_RE.test(b) && YEAR_OR_NUMBER_RE.test(a)) return true;
     return false;
 }
 
-function isWritableKeyword(keyword: string, docCount: number): boolean {
-    const tokens = keyword.trim().split(/\s+/).filter(Boolean).length;
+// v2.42.52: 카테고리별 화이트리스트 (자동 감지 + 컨텍스트 기반 필터)
+//   목적: "뉴발란스 프리들" 같이 fashion/shoes 도메인 시드면 그 카테고리 핵심 2자 단어만 우선 통과
+//        뷰티 블로거가 "전세" 같이 부동산 키워드 안 보이게, 부동산 블로거가 "세럼" 안 보이게
+const CATEGORY_WHITELISTS: Record<string, Set<string>> = {
+    health: new Set(['탈모', '탈피', '도수', '비염', '치질', '치아', '시력', '척추', '관절', '발톱', '근육', '혈압', '간염', '대장', '심장', '갑상', '디스크', '두통', '치통', '복통', '편두', '불면', '코골이', '안구', '구취']),
+    beauty: new Set(['세럼', '에센스', '쿠션', '틴트', '크림', '로션', '토너', '미백', '주름', '팩', '마스크', '에센', '베이스', '메이크', '브로우', '컨실', '하이', '쉐도', '블러', '입술']),
+    finance: new Set(['전세', '월세', '청약', '금리', '연체', '예금', '입금', '출금', '이체', '잔금', '계약', '담보', '신용', '체크', '환전', '환율', '대출', '카드', '적금', '펀드', '증여', '상속', '세금', '환급']),
+    realestate: new Set(['전세', '월세', '청약', '잔금', '계약', '담보', '재건', '재개', '아파', '빌라', '주택', '오피', '땅값', '평당']),
+    it: new Set(['맥북', '에어팟', '갤럭시', '아이폰', '키보드', '마우스', '모니터', '노트북', '서피스', '윈도우', 'iOS', 'M1', 'M2', 'M3', 'M4', 'A14', 'A15', 'A16', 'A17', 'A18']),
+    food: new Set(['한식', '일식', '중식', '양식', '분식', '치킨', '피자', '버거', '커피', '디저트', '면', '국', '국밥', '죽', '회', '초밥', '라멘', '돈가스', '파스타', '리조또']),
+    fashion: new Set(['샤넬', '구찌', '디올', '에르메스', '롤렉스', '나이키', '아디다스', '뉴발', '푸마', '반스', '캠퍼', '클락', '버켄', '코치', '프라', '셀린', '버버', '톰포']),
+    parenting: new Set(['이유식', '기저귀', '분유', '치발기', '카시트', '유모차', '신생', '돌상', '아기', '신생아', '백일']),
+    shopping: new Set(['직구', '공구', '구매', '핫딜', '세일', '쿠폰']),
+    travel: new Set(['렌트', '여권', '비자', '환전', '체크인', '경유', '직항', '왕복', '편도']),
+};
+
+// 전체 합집합 — 카테고리 자동 감지 실패 시 fallback (기존 v2.42.51 동작 유지)
+const ALL_2CHAR_WHITELIST = new Set<string>();
+for (const list of Object.values(CATEGORY_WHITELISTS)) {
+    for (const w of list) ALL_2CHAR_WHITELIST.add(w);
+}
+
+// v2.42.54: 사용자 정의 화이트리스트 (UI 환경설정에서 등록)
+//   isWritableKeyword 최우선 통과 — 도메인 사전에 없는 사용자 전문 키워드 보호
+let USER_WHITELIST: Set<string> = new Set<string>();
+export function setUserWhitelist(words: string[] | null | undefined): void {
+    USER_WHITELIST = new Set(
+        (Array.isArray(words) ? words : [])
+            .map(w => String(w || '').trim())
+            .filter(w => w.length > 0 && w.length <= 30)
+    );
+}
+export function getUserWhitelist(): string[] {
+    return Array.from(USER_WHITELIST);
+}
+
+// 키워드에서 도메인 자동 감지 (카테고리별 시그니처 토큰 매칭)
+const CATEGORY_SIGNATURES: Record<string, RegExp> = {
+    health: /(병원|의료|진료|약|증상|치료|건강|체력|복용|복약|효능|부작용)/,
+    beauty: /(화장품|뷰티|선크림|클렌징|스킨|메이크업|브랜드|올영|올리브영|시카|크림|에센스)/,
+    finance: /(대출|적금|예금|투자|펀드|연금|보험|세금|이자|금리|증여|상속|연말정산)/,
+    realestate: /(부동산|아파트|빌라|오피스텔|청약|월세|전세|시세|매매|호가)/,
+    it: /(노트북|스마트폰|이어폰|키보드|마우스|어플|앱|소프트웨어|어플리케이션|업데이트)/,
+    food: /(레시피|맛집|요리|음식|식당|배달|메뉴|간식)/,
+    fashion: /(코디|패션|운동화|스니커즈|가방|의류|옷|신발|매장)/,
+    parenting: /(육아|아기|신생아|돌|영아|유아|돌잔치|어린이집|어린이날|기저귀|이유식|분유)/,
+    shopping: /(직구|공구|핫딜|쿠팡|마켓컬리|위메프|11번가|네이버쇼핑)/,
+    travel: /(여행|호텔|항공|패키지|투어|렌트카|숙박|에어비앤비)/,
+};
+
+function detectCategory(keyword: string): string | null {
+    const k = keyword.toLowerCase();
+    for (const [cat, sig] of Object.entries(CATEGORY_SIGNATURES)) {
+        if (sig.test(k)) return cat;
+    }
+    return null;
+}
+
+// v2.42.53: 단일 토큰이지만 의도 명확 (sv/dc 비율 폭증) 키워드 통과 룰
+//   "임플란트" sv 100,000 / dc 50,000 = ratio 2 — 의료 의도 명확, 사용자 검색량 충분
+//   단순 빅워드 차단(dc>100k) 외에 의도 명확 단일 명사는 SSS 가치 있음
+function isHighIntentSingleToken(keyword: string, searchVolume: number, docCount: number): boolean {
+    if (!searchVolume || !docCount) return false;
+    const ratio = searchVolume / docCount;
+    // sv 1000+ AND ratio 2+ → 검색 의도 분산도 낮은 명사 (의료/뷰티/IT 단일 명사 패턴)
+    return searchVolume >= 1000 && ratio >= 2 && docCount <= 100000;
+}
+
+function isWritableKeyword(keyword: string, docCount: number, searchVolume: number = 0): boolean {
+    const clean = keyword.trim();
+    // v2.42.54: 사용자 정의 화이트리스트 — 모든 게이트 우선 통과 (개인 전문 키워드 보호)
+    if (USER_WHITELIST.has(clean)) return true;
+    const tokens = clean.split(/\s+/).filter(Boolean).length;
     if (tokens === 2 && isTooGeneric2Token(keyword)) return false;
     if (isNewsNoise(keyword)) return false;
-    // 🔥 v2.31.2: 단일 토큰이 GENERIC_ACTION(할인/후기/추천 등) 이면 무조건 차단
-    //   사용자 피드백: "할인", "후기" 단독이 SS 로 통과됨 — 어떤 상품/서비스인지 불명
-    if (tokens === 1 && GENERIC_ACTION_RE.test(keyword.trim())) return false;
-    // 단일 GENERIC_BROAD (적금/보험/투자/일본/서울 등) 도 차단
-    if (tokens === 1 && GENERIC_BROAD_RE.test(keyword.trim())) return false;
+    if (tokens === 1 && GENERIC_ACTION_RE.test(clean)) return false;
+    if (tokens === 1 && GENERIC_BROAD_RE.test(clean)) return false;
     if (tokens >= 2) return true;
-    if (INTENT_SUFFIX_RE.test(keyword)) return true;
-    if (isLikelyCelebrityName(keyword)) {
+
+    // v2.42.52: 카테고리별 화이트리스트
+    if (ALL_2CHAR_WHITELIST.has(clean)) return true;
+    if (clean.length < 2) return false;
+    if (INTENT_SUFFIX_RE.test(clean)) return false;
+    // v2.42.53: 의도 명확 (sv 1000+ AND ratio 2+) 단일 토큰 우선 통과
+    //   "임플란트"/"도수치료"/"공진단"처럼 한자 성씨로 시작해 인명 false positive 되던 의료 명사 살림
+    if (isHighIntentSingleToken(clean, searchVolume, docCount)) return true;
+    if (isLikelyCelebrityName(clean)) {
         return docCount > 0 && docCount <= 500;
     }
-    // 단일 명사 dc ≤ 500 만 통과 (극희귀 고유명사만)
-    if (docCount > 0 && docCount <= 500) return true;
+    if (clean.length === 2) return docCount > 0 && docCount <= 100;
+    if (docCount > 0 && docCount <= 300) return true;
     return false;
 }
 
@@ -317,7 +401,8 @@ function hasCommercialIntent(keyword: string): boolean {
  *  - S/A/B 는 docCount 자연 필터만 적용 (문근영·장동혁 같은 중도 키워드는 유지)
  */
 function calculateGrade(volume: number, docCount: number, ratio: number, score: number, keyword: string, dcEstimated: boolean = false): GoldenGrade | '' {
-    const writable = isWritableKeyword(keyword, docCount);
+    // v2.42.53: sv 전달 → 단일 토큰 의도 명확 통과 룰 (isHighIntentSingleToken)
+    const writable = isWritableKeyword(keyword, docCount, volume);
     // 극단 범용 빅워드 제거
     if (!writable && docCount > 100_000) return '';
     // 🔥 v2.27.6: 범용 2-token 조합은 dc 무관 탈락
@@ -1338,7 +1423,7 @@ JSON 배열로만 응답 (코드블록 X, 다른 텍스트 X):
         if (dc <= 0) continue;
         const ratio = sv / Math.max(1, dc);
         if (ratio < 1.0) continue;
-        if (!isWritableKeyword(sig.keyword, dc)) continue;
+        if (!isWritableKeyword(sig.keyword, dc, sv)) continue;
 
         const cat = classifyForFeed(sig.keyword);
         const cpcVal = typeof sig.monthlyAveCpc === 'number' && sig.monthlyAveCpc > 0 ? sig.monthlyAveCpc : null;

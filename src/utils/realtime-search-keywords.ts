@@ -268,8 +268,14 @@ export async function getZumRealtimeKeywords(limit: number = 20): Promise<Realti
                 keyword = el.attr('data-keyword') || el.attr('data-query') || el.attr('data-text') || '';
               }
               
-              // 키워드 정제
-              keyword = keyword.replace(/^\d{1,2}(?:\.\s*|\s+)/, '').replace(/^\d+위\s*/, '').replace(/^년\s+/, new Date().getFullYear() + '년 ').trim();
+              // 키워드 정제 — v2.42.43: "31기 옥순 영호" 같이 숫자+한글 키워드 보호
+              //   기존 ^\d{1,2}(?:\.\s*|\s+) 가 "31 기 옥순 영호"의 "31 "을 strip → "31기"의 31 손실
+              //   변경: 명백한 순위 패턴(점/위)만 인정. 공백만 있는 경우는 키워드 일부로 간주
+              keyword = keyword
+                .replace(/^\d{1,2}\.\s*/, '')           // "1. ", "31. " 형태
+                .replace(/^\d+위\s*/, '')                 // "1위 ", "31위 " 형태
+                .replace(/^년\s+/, new Date().getFullYear() + '년 ')  // orphan year 복원
+                .trim();
 
               if (keyword &&
                   keyword.length >= 2 &&
@@ -698,11 +704,13 @@ export async function getNateRealtimeKeywords(limit: number = 20): Promise<Realt
    */
   const parseNateKeyword = (text: string): { keyword: string; change?: string } | null => {
     let keyword = text.trim()
-      .replace(/^\d{1,2}(?:\.\s*|\s+)/, '')  // 앞의 순위 숫자 제거
+      // v2.42.43: "31기 옥순 영호" 같이 숫자+한글 키워드 보호 — 명백한 순위 패턴만 strip
+      .replace(/^\d{1,2}\.\s*/, '')           // "1. " 또는 "31. " (점 + 공백)
+      .replace(/^\d+위\s*/, '')                 // "1위 " 또는 "31위 "
       .replace(/\s*(상승|하락|동일)\s*\d*\s*$/i, '')  // 뒤의 "상승 2", "하락 1" 등 제거
       .replace(/\s*(new|NEW|신규)\s*$/i, '')  // 뒤의 NEW 제거
       .replace(/▲|▼|↑|↓/g, '')  // 화살표 제거
-      .replace(/^년\s+/, new Date().getFullYear() + '년 ')  // v2.42.25: orphan year 복원 (Nate/Daum이 "2026년" → "년"으로 단축 표시)
+      .replace(/^년\s+/, new Date().getFullYear() + '년 ')  // v2.42.25: orphan year 복원
       .replace(/\s+/g, ' ')
       .trim();
     
@@ -1145,8 +1153,12 @@ export async function getDaumRealtimeKeywords(limit: number = 20): Promise<Realt
                 }
               }
               
-              // 키워드 정제
-              keyword = keyword.replace(/^\d{1,2}(?:\.\s*|\s+)/, '').replace(/^\d+위\s*/, '').trim();
+              // 키워드 정제 — v2.42.43: 숫자+한글 키워드 보호 + orphan year 복원
+              keyword = keyword
+                .replace(/^\d{1,2}\.\s*/, '')
+                .replace(/^\d+위\s*/, '')
+                .replace(/^년\s+/, new Date().getFullYear() + '년 ')
+                .trim();
               
               // 제목처럼 보이는 긴 텍스트 필터링
               const wordCount = keyword.split(/\s+/).length;

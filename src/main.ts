@@ -169,29 +169,54 @@ function createKeywordWindow() {
     keywordWindow?.show();
   });
 
-  // v2.42.27: 창 닫기 → 시스템 트레이로 최소화 (결과 보존)
-  //   사용자 요청: "헌팅하고 결과 나온거 모르고 창을끄면 다날아가서" → 트레이로 최소화
-  //   진짜 종료는 트레이 메뉴 또는 명시적 app.quit() 호출 시만
+  // v2.42.41: X 버튼 기본 동작 = 종료 (이전 v2.42.27 기본 트레이 최소화 → 좀비 프로세스 신고)
+  //   사용자가 명시적으로 "창 닫기 시 트레이로 최소화" 메뉴 토글을 켰을 때만 트레이로 hide
   keywordWindow.on('close', (event) => {
-    if (!(app as any).isQuiting) {
+    if ((app as any).isQuiting) return; // 트레이 메뉴 "종료" 또는 명시적 quit
+    const minimizeToTray = getTrayMinimizePref();
+    if (minimizeToTray) {
       event.preventDefault();
       keywordWindow?.hide();
-      // 첫 닫기 때 트레이 알림 (한 세션 1회만)
       if (!(app as any).__trayBalloonShown && tray) {
         try {
           tray.displayBalloon({
             title: 'LEWORD',
-            content: '앱이 시스템 트레이로 이동했습니다. 트레이 아이콘을 클릭하면 다시 열립니다.\n완전 종료는 트레이 아이콘 우클릭 → 종료.',
+            content: '앱이 시스템 트레이로 이동했습니다. 완전 종료는 트레이 아이콘 우클릭 → 종료.',
           });
           (app as any).__trayBalloonShown = true;
         } catch {}
       }
+    } else {
+      // 기본: X = 종료
+      (app as any).isQuiting = true;
     }
   });
 
   keywordWindow.on('closed', () => {
     keywordWindow = null;
   });
+}
+
+// v2.42.41: 트레이 최소화 모드 영구 저장 (기본 false — X 누르면 종료)
+function getTrayPrefFilePath(): string {
+  return path.join(app.getPath('userData'), 'tray-prefs.json');
+}
+function getTrayMinimizePref(): boolean {
+  try {
+    const file = getTrayPrefFilePath();
+    if (!fs.existsSync(file)) return false;
+    const raw = JSON.parse(fs.readFileSync(file, 'utf8'));
+    return raw?.minimizeToTray === true;
+  } catch { return false; }
+}
+function setTrayMinimizePref(value: boolean): void {
+  try {
+    const dir = app.getPath('userData');
+    if (!fs.existsSync(dir)) fs.mkdirSync(dir, { recursive: true });
+    fs.writeFileSync(getTrayPrefFilePath(), JSON.stringify({ minimizeToTray: !!value }), 'utf8');
+  } catch (e: any) {
+    console.warn('[TRAY-PREF] 저장 실패:', e?.message);
+  }
 }
 
 // v2.42.27: 시스템 트레이 (창 닫기 시 결과 보존)
@@ -218,27 +243,42 @@ function createTray(): void {
     tray = new Tray(icon);
     tray.setToolTip('LEWORD - 키워드마스터');
 
-    const contextMenu = Menu.buildFromTemplate([
-      {
-        label: '🔍 LEWORD 열기',
-        click: () => {
-          if (keywordWindow && !keywordWindow.isDestroyed()) {
-            if (keywordWindow.isMinimized()) keywordWindow.restore();
-            keywordWindow.show();
-            keywordWindow.focus();
-          }
+    const rebuildMenu = () => {
+      if (!tray) return;
+      const minimizeToTray = getTrayMinimizePref();
+      const menu = Menu.buildFromTemplate([
+        {
+          label: '🔍 LEWORD 열기',
+          click: () => {
+            if (keywordWindow && !keywordWindow.isDestroyed()) {
+              if (keywordWindow.isMinimized()) keywordWindow.restore();
+              keywordWindow.show();
+              keywordWindow.focus();
+            }
+          },
         },
-      },
-      { type: 'separator' },
-      {
-        label: '❌ 종료',
-        click: () => {
-          (app as any).isQuiting = true;
-          app.quit();
+        { type: 'separator' },
+        {
+          label: '창 닫기 시 트레이로 최소화',
+          type: 'checkbox',
+          checked: minimizeToTray,
+          click: (item) => {
+            setTrayMinimizePref(item.checked);
+            rebuildMenu();
+          },
         },
-      },
-    ]);
-    tray.setContextMenu(contextMenu);
+        { type: 'separator' },
+        {
+          label: '❌ 종료',
+          click: () => {
+            (app as any).isQuiting = true;
+            app.quit();
+          },
+        },
+      ]);
+      tray.setContextMenu(menu);
+    };
+    rebuildMenu();
 
     // 트레이 아이콘 클릭 → 창 복원
     tray.on('click', () => {
@@ -935,9 +975,19 @@ app.whenReady().then(async () => {
   });
 });
 
-// v2.42.27: 명시적 quit 플래그 — 트레이 메뉴 "종료"에서만 true 설정
+// v2.42.41: 명시적 quit 플래그 + 자식 프로세스 cleanup (좀비 방지)
 app.on('before-quit', () => {
   (app as any).isQuiting = true;
+  // puppeteer/chromium 자식 프로세스 강제 종료 (좀비 방지)
+  try {
+    const { exec } = require('child_process');
+    if (process.platform === 'win32') {
+      // 같은 프로세스 트리의 chrome/chromium 만 정리 — 다른 사용자 chrome 영향 X
+      exec(`wmic process where (Name="chrome.exe" and ParentProcessId=${process.pid}) call terminate`, () => {});
+    }
+  } catch {}
+  // 트레이 정리
+  try { tray?.destroy(); tray = null; } catch {}
 });
 
 app.on('window-all-closed', () => {

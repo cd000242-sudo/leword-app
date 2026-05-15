@@ -1234,6 +1234,146 @@ export function setupPremiumHuntingHandlers(): void {
     console.log('[KEYWORD-MASTER] ✅ verify-keyword-value/batch IPC 등록');
   }
 
+  // 🔥 v2.42.62: 카테고리별 동적 시드 수집 — seed root × Naver 자동완성 실시간 확장
+  //   하드코딩 빌트인 시드 풀 (210개 정적) → 동적 (카테고리 root + 자동완성 + 실시간 트렌드)
+  if (!ipcMain.listenerCount('home-hunter-category-seeds')) {
+    ipcMain.handle('home-hunter-category-seeds', async (_e, payload: { category: string; limit?: number }) => {
+      try {
+        const env = EnvironmentManager.getInstance().getConfig();
+        const clientId = env.naverClientId || process.env['NAVER_CLIENT_ID'] || '';
+        const clientSecret = env.naverClientSecret || process.env['NAVER_CLIENT_SECRET'] || '';
+        if (!clientId || !clientSecret) return { success: false, error: 'Naver API 키 필요', seeds: [] };
+
+        const limit = Math.min(50, payload?.limit || 25);
+        const category = String(payload?.category || '').toLowerCase();
+
+        // 카테고리별 seed root (자동완성 확장의 시작점)
+        const CATEGORY_ROOTS: Record<string, string[]> = {
+          beauty: ['쿠션팩트', '아이크림', '선크림', '클렌징', '토너', '시트마스크', '앰플', '립밤', '쉐도우', '메이크업'],
+          fashion: ['뉴발란스', '나이키', '아디다스', '여성 자켓', '남자 셔츠', '청바지', '원피스', '운동화', '백팩', '가방'],
+          food: ['직장인 도시락', '집밥', '저녁 메뉴', '에어프라이어 요리', '레시피', '한식 요리', '간식'],
+          recipe: ['간단한 요리', '에어프라이어', '집밥 레시피', '아이 간식', '브런치'],
+          living: ['거실 인테리어', '욕실 청소', '주방 수납', '제습기', '셀프 인테리어'],
+          interior: ['셀프 인테리어', '거실 가구', '침실 인테리어', '신혼 인테리어'],
+          parenting: ['어버이날 선물', '신생아 분유', '이유식', '카시트', '유모차', '아이 장난감', '어린이날'],
+          pet: ['강아지 사료', '고양이 모래', '강아지 영양제', '캣타워', '자동 급식기', '강아지 산책'],
+          health: ['영양제', '비타민', '오메가3', '단백질 보충제', '다이어트', '운동', '요가'],
+          garden: ['화분', '식물 키우기', '베란다 텃밭', '실내 식물', '플랜테리어'],
+          finance: ['연말정산', '청년도약계좌', '주택청약', 'ETF', '적금', '신용카드', '실비보험'],
+          career: ['이직 준비', '면접', '자격증', '연봉 협상', '직장인 부업'],
+          realestate: ['전세 사기', '월세 계약', '청약 1순위', '아파트 시세'],
+          travel: ['제주도 여행', '강릉 여행', '부산 여행', '일본 여행', '캠핑장', '글램핑'],
+          camping: ['캠핑 의자', '캠핑 텐트', '캠핑 화목난로', '캠핑 요리', '글램핑'],
+          hobby: ['홈트', '필라테스', '요가', '베이킹', '캘리그라피', '필름카메라'],
+          wedding: ['신혼 가전', '예식장', '웨딩 촬영', '신혼 여행', '청첩장'],
+          car: ['소형 SUV', '국산차', '중고차', '하이브리드', '전기차', '제네시스', '카니발'],
+          entertainment: ['넷플릭스 추천', '드라마 추천', 'OTT 추천', '예능 추천', '영화 추천'],
+          music: ['플레이리스트', '음악 추천 30대', 'K-POP 추천'],
+          book: ['책 추천 30대', '자기계발 책', '소설 추천 30대'],
+          game: ['게임 추천 PC', '닌텐도 게임', 'PS5 게임'],
+          sports: ['헬스 추천', '운동 루틴', '러닝 운동화'],
+          it: ['맥북에어', '아이폰15', '갤럭시 S24', '에어팟 프로', '노트북 추천'],
+          education: ['공무원 시험', '자격증 추천', '온라인 강의'],
+          // v2.42.62: 인물명 허용 카테고리 (allowPerson)
+          celebrity: ['아이돌 굿즈', '걸그룹 패션', '연예인 메이크업', 'K-POP 콘서트', '드라마 OST', '아이돌 다이어트'],
+          issue: ['오늘 이슈', '5월 핫이슈', '주말 가볼만한 곳', '5월 축제', '주말 데이트', '한강 데이트', '봄꽃 명소'],
+        };
+
+        const roots = CATEGORY_ROOTS[category] || [];
+        if (roots.length === 0) return { success: true, seeds: [], roots: [] };
+
+        // v2.42.64: 필터 완화 — 핵심 쓰레기(NSFW/완전 모호/숫자만)만 차단, 나머지는 통과
+        const isGoodSeed = (kw: string, allRoots: string[]): boolean => {
+          if (!kw || kw.length < 3 || kw.length > 35) return false;
+          // root 자체만 차단 (변형은 허용 — 검색량/문서량 다를 수 있음)
+          for (const root of allRoots) {
+            if (kw === root) return false;
+          }
+          // 욕설/슬랭/NSFW
+          if (/(씨발|좆|병신|개새|썅|존나|꺼져|f\*ck|s\*x|야동|성인\s*만화|19금|성기|자위)/i.test(kw)) return false;
+          // 완전 모호 (X 뜻/유래/로고 단독)
+          if (/^[가-힣A-Za-z0-9]+\s+(뜻|유래|로고)$/.test(kw)) return false;
+          // 신조어/슬랭 시작 (ㅋㅋ/ㅎㅎ/ㅠㅠ)
+          if (/^(ㅋ+|ㅎ+|ㅠ+|ㅜ+|ㅡ+)/.test(kw)) return false;
+          // 숫자만 (가격/연도 단독)
+          if (/^\d+$/.test(kw.replace(/\s/g, ''))) return false;
+          return true;
+        };
+
+        // Naver 자동완성으로 각 root 확장
+        const { getNaverAutocompleteKeywords } = await import('../../utils/naver-autocomplete');
+        const allExpanded = new Set<string>();
+        const concurrency = 5;
+        for (let i = 0; i < roots.length; i += concurrency) {
+          const batch = roots.slice(i, i + concurrency);
+          const results = await Promise.all(batch.map(r =>
+            Promise.race([
+              getNaverAutocompleteKeywords(r, { clientId, clientSecret }),
+              new Promise<string[]>((_, rej) => setTimeout(() => rej(new Error('timeout')), 5000)),
+            ]).catch(() => [] as string[])
+          ));
+          for (const arr of results) {
+            for (const kw of arr) {
+              const k = String(kw || '').trim();
+              if (isGoodSeed(k, roots)) allExpanded.add(k);
+            }
+          }
+        }
+
+        // v2.42.64: subsumption 제거 — "쿠션팩트 추천"과 "쿠션팩트 추천 베스트"는 검색량/문서량이 달라 둘 다 가치 있음
+        // Set 자체 dedup만으로 충분 (완전 동일 문자열만 제거)
+        const finalSeeds: string[] = Array.from(allExpanded).slice(0, limit);
+
+        const seeds = finalSeeds.map(k => ({
+          keyword: k, searchVolume: 0, documentCount: 0,
+          category, _dynamic: true,
+        }));
+        return {
+          success: true,
+          seeds,
+          roots,
+          rawCount: allExpanded.size,
+          filtered: allExpanded.size - finalSeeds.length,
+          finalCount: finalSeeds.length,
+        };
+      } catch (err: any) {
+        console.error('[home-hunter-category-seeds] 실패:', err?.message);
+        return { success: false, error: err?.message, seeds: [] };
+      }
+    });
+    console.log('[KEYWORD-MASTER] ✅ home-hunter-category-seeds IPC 등록');
+  }
+
+  // 🔧 v2.42.31: 시드 키워드 sv/dc 일괄 보강 (홈판 헌터 빌트인 fallback용)
+  if (!ipcMain.listenerCount('enrich-keywords-volume')) {
+    ipcMain.handle('enrich-keywords-volume', async (_e, p: { keywords: string[] }) => {
+      try {
+        const env = EnvironmentManager.getInstance().getConfig();
+        const clientId = env.naverClientId || process.env['NAVER_CLIENT_ID'] || '';
+        const clientSecret = env.naverClientSecret || process.env['NAVER_CLIENT_SECRET'] || '';
+        if (!clientId || !clientSecret) {
+          return { success: false, error: 'Naver API 키 없음 (환경설정에서 등록 필요)' };
+        }
+        const kws = Array.isArray(p?.keywords) ? p.keywords.filter(Boolean) : [];
+        if (kws.length === 0) return { success: true, results: [] };
+        const data = await getNaverKeywordSearchVolumeSeparate(
+          { clientId, clientSecret },
+          kws,
+          { includeDocumentCount: true }
+        );
+        const results = data.map(d => ({
+          keyword: d.keyword,
+          searchVolume: (d.pcSearchVolume || 0) + (d.mobileSearchVolume || 0),
+          documentCount: d.documentCount || 0,
+        }));
+        return { success: true, results };
+      } catch (err: any) {
+        return { success: false, error: err?.message };
+      }
+    });
+    console.log('[KEYWORD-MASTER] ✅ enrich-keywords-volume IPC 등록');
+  }
+
   // 🏆 통합 등급 (Phase G)
   if (!ipcMain.listenerCount('calculate-unified-grade')) {
     ipcMain.handle('calculate-unified-grade', async (_e, p: any) => {

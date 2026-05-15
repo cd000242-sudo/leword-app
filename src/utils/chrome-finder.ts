@@ -228,9 +228,15 @@ export function getPuppeteerLaunchOptions(options: {
   executablePath?: string;
   timeout: number;
   ignoreHTTPSErrors: boolean;
+  pipe?: boolean;
+  dumpio?: boolean;
 } {
   const chromePath = findChromePath();
-  
+
+  // v2.42.57: Windows 11 작업 표시줄 깜빡임 방지 — 추가 args
+  //   - --no-startup-window: 시작 시 visible 창 띄우지 않음 (작업표시줄 등록 차단)
+  //   - --no-first-run: 첫 실행 가이드 창 차단
+  //   - --no-default-browser-check: 기본 브라우저 체크 창 차단
   const defaultArgs = [
     '--no-sandbox',
     '--disable-setuid-sandbox',
@@ -243,25 +249,44 @@ export function getPuppeteerLaunchOptions(options: {
     '--disable-blink-features=AutomationControlled',
     '--disable-infobars',
     '--lang=ko-KR',
+    // v2.42.57: 작업표시줄 깜빡임 방지
+    '--no-startup-window',
+    '--no-first-run',
+    '--no-default-browser-check',
+    '--disable-background-networking',
+    '--disable-default-apps',
+    '--disable-extensions',
+    '--mute-audio',
+    '--hide-scrollbars',
   ];
-  
+
+  // v2.42.57: 'new' 헤드리스 → 'true' (구 헤드리스, 작업표시줄 등록 X)
+  //   Puppeteer 21에서 deprecated 경고는 무시 가능 (동작 보장됨)
+  //   'new' 모드가 Windows 11 + Electron 28 조합에서 깜빡임 유발하는 알려진 이슈
+  const resolvedHeadless: boolean | 'new' = options.headless === false ? false : true;
+
   const launchOptions: {
     headless: boolean | 'new';
     args: string[];
     executablePath?: string;
     timeout: number;
     ignoreHTTPSErrors: boolean;
+    pipe?: boolean;
+    dumpio?: boolean;
   } = {
-    headless: options.headless ?? 'new',
+    headless: resolvedHeadless,
     args: [...defaultArgs, ...(options.args || [])],
     timeout: options.timeout ?? 60000,
     ignoreHTTPSErrors: true,
+    // v2.42.57: pipe IPC (websocket 대신 stdio 파이프) — 자식 프로세스 stdio 격리
+    pipe: false, // pipe: true 는 일부 환경에서 hang. 우선 비활성, args 변경만으로 시도
+    dumpio: false,
   };
-  
+
   if (chromePath) {
     launchOptions.executablePath = chromePath;
   }
-  
+
   return launchOptions;
 }
 

@@ -1288,7 +1288,30 @@ export function setupKeywordAnalysisHandlers(): void {
               const kw = allKeywords[i];
 
               // 문서수 조회 (재시도 로직 포함)
-              const documentCount = await fetchDocumentCount(kw.keyword);
+              let documentCount = await fetchDocumentCount(kw.keyword);
+
+              // v2.42.37: Bilateral Sanity Check — API undercount 시 scrape 재검증 (rich-feed-builder/getNaverKeywordSearchVolumeSeparate 와 동일 정책)
+              //   "노사발전재단" 같은 API 70 vs 실제 16,681 케이스 → 재검색 결과 일치 보장
+              const _svForCheck = typeof kw.searchVolume === 'number' ? kw.searchVolume : 0;
+              if (documentCount > 0 && _svForCheck >= 500 && documentCount < 3000 && _svForCheck / documentCount > 50) {
+                try {
+                  const axiosMod = await import('axios');
+                  const _url = `https://search.naver.com/search.naver?where=blog&query=${encodeURIComponent(kw.keyword)}`;
+                  const _resp = await axiosMod.default.get(_url, {
+                    headers: { 'User-Agent': 'Mozilla/5.0 AppleWebKit/537.36 Chrome/120.0.0.0' },
+                    timeout: 2000,
+                  });
+                  const _html = String(_resp.data || '');
+                  const _m = _html.match(/([0-9,]+)\s*건/);
+                  if (_m && _m[1]) {
+                    const _scraped = parseInt(_m[1].replace(/,/g, ''), 10);
+                    if (Number.isFinite(_scraped) && _scraped > documentCount * 5) {
+                      console.warn(`[DOC-COUNT] 🔧 API undercount "${kw.keyword}": API=${documentCount} → scrape=${_scraped} 채택`);
+                      documentCount = _scraped;
+                    }
+                  }
+                } catch { /* scrape 실패 시 API 값 유지 */ }
+              }
 
               // 황금비율 계산 (검색량 / 문서수)
               const searchVol = typeof kw.searchVolume === 'number' ? kw.searchVolume : null;

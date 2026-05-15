@@ -402,6 +402,10 @@ export function setupConfigUtilityHandlers(): void {
         if (settings.anthropicApiKey !== undefined) envConfig.anthropicApiKey = settings.anthropicApiKey;
         if (settings.aiInferenceMode !== undefined) envConfig.aiInferenceMode = settings.aiInferenceMode;
         if (settings.manusApiKey !== undefined) envConfig.manusApiKey = settings.manusApiKey;
+        // v2.42.55: 쇼핑 커넥트 재설계 Phase 1 — 쿠팡 파트너스 트래킹
+        if (settings.coupangAccessKey !== undefined) envConfig.coupangAccessKey = settings.coupangAccessKey;
+        if (settings.coupangSecretKey !== undefined) envConfig.coupangSecretKey = settings.coupangSecretKey;
+        if (settings.coupangSubId !== undefined) envConfig.coupangSubId = settings.coupangSubId;
 
         // 설정 저장
         await envManager.saveConfig(envConfig);
@@ -944,6 +948,27 @@ export function setupConfigUtilityHandlers(): void {
       }
     });
     console.log('[KEYWORD-MASTER] ✅ shopping-connect-verify 핸들러 등록 완료');
+  }
+
+  // v2.42.56 Phase 5: 쇼핑 커넥트 피드백 루프 (👍/👎)
+  if (!ipcMain.listenerCount('shopping-connect-feedback')) {
+    ipcMain.handle('shopping-connect-feedback', async (_event, payload: any) => {
+      try {
+        const fs = require('fs');
+        const path = require('path');
+        const { app } = require('electron');
+        const dir = app.getPath('userData');
+        if (!fs.existsSync(dir)) fs.mkdirSync(dir, { recursive: true });
+        const file = path.join(dir, 'shopping-connect-feedback.jsonl');
+        // JSONL: 한 줄 한 레코드 (append-only)
+        fs.appendFileSync(file, JSON.stringify(payload) + '\n', 'utf8');
+        return { success: true };
+      } catch (err: any) {
+        console.error('[SHOPPING-CONNECT-FEEDBACK] 실패:', err?.message);
+        return { success: false, error: err?.message };
+      }
+    });
+    console.log('[KEYWORD-MASTER] ✅ shopping-connect-feedback IPC 등록');
   }
 
   // 🔥 100점짜리 뉴스 스니펫 크롤링 (IPC 핸들러)

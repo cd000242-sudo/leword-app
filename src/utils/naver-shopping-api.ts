@@ -277,9 +277,36 @@ function hasSpecificModelCode(title: string): boolean {
   return /\b[A-Za-z]{1,5}-?[A-Za-z]{0,4}-?\d{1,5}\b/.test(title);
 }
 
+// v2.42.56 Phase 3: 카테고리별 가격 스위트스팟 (네이버 쇼핑 category1 기준)
+//   기존: 모든 상품 2~7만원 일률 적용 → 가전/컴퓨터/명품 SSS 차단, 식품 너무 높음
+//   변경: 카테고리별 동적 → 식품 1~3만 / 가전 10~30만 / 디지털 5~30만 등
+const CATEGORY_SWEETSPOT: Record<string, [number, number]> = {
+  '패션의류': [30000, 100000],
+  '패션잡화': [30000, 150000],
+  '화장품/미용': [20000, 60000],
+  '디지털/가전': [50000, 300000],
+  '컴퓨터': [500000, 1500000],
+  '가구/인테리어': [50000, 300000],
+  '출산/육아': [15000, 80000],
+  '식품': [10000, 30000],
+  '스포츠/레저': [40000, 200000],
+  '생활/건강': [10000, 50000],
+  '여가/생활편의': [10000, 50000],
+  '도서': [10000, 30000],
+  '면세점': [50000, 300000],
+  '명품': [300000, 2000000],
+};
+
+export function resolveCategorySweetSpot(category1?: string): [number, number] {
+  if (!category1) return [20000, 70000];
+  return CATEGORY_SWEETSPOT[category1] || [20000, 70000];
+}
+
 export function computeConversionScore(item: ShoppingItem, opts: ConversionScoreOptions = {}): number {
-  const sweetMin = opts.sweetSpotMin ?? 20000;
-  const sweetMax = opts.sweetSpotMax ?? 70000;
+  // v2.42.56: opts 미지정 시 카테고리 기반 sweetspot 자동 적용
+  const [autoMin, autoMax] = resolveCategorySweetSpot(item.category1);
+  const sweetMin = opts.sweetSpotMin ?? autoMin;
+  const sweetMax = opts.sweetSpotMax ?? autoMax;
   const sweetMid = (sweetMin + sweetMax) / 2; // 중앙값 (기본 45000)
   const lowFloor = opts.lowPriceFloor ?? 5000;
   const highCeil = opts.highPriceCeil ?? 500000;

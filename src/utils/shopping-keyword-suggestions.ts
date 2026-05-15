@@ -228,8 +228,33 @@ export async function getVerifiedShoppingSuggestions(limit: number = 30): Promis
       }
     }
 
-    // goldenRatio 내림차순 정렬
-    verified.sort((a, b) => b.goldenRatio - a.goldenRatio);
+    // v2.42.55 Phase 2: 커머스 의도 점수 × 황금비율 곱셈으로 정렬
+    //   기존: ratio 단독 → "탈모 원인" (정보형, ratio 10) 같은 비-커머스 키워드가 상위
+    //   변경: ratio × commercialIntent → "탈모 샴푸 추천" (구매형, ratio 5×의도0.9=4.5) 가 위로
+    const commercialIntentScore = (kw: string): number => {
+        let s = 0.3; // 중립
+        // 구매 의도 어미 +
+        if (/추천$/.test(kw)) s += 0.35;
+        if (/비교$/.test(kw)) s += 0.30;
+        if (/순위$/.test(kw)) s += 0.30;
+        if (/가격$/.test(kw)) s += 0.25;
+        if (/리뷰$/.test(kw)) s += 0.25;
+        if (/후기$/.test(kw)) s += 0.20;
+        if (/베스트|TOP\s*\d|랭킹/.test(kw)) s += 0.20;
+        if (/할인|세일|쿠폰|특가|최저가/.test(kw)) s += 0.25;
+        if (/(천원|만원|원대|만대)/.test(kw)) s += 0.20;
+        // 구매 명사 (브랜드/제품/구체 사양)
+        if (/(사용법|착용법|입는법|쓰는법|매는법)/.test(kw)) s += 0.15;
+        // 정보형 어미 - (구매 의도 약함)
+        if (/(원인|증상|효능|효과|뜻|의미|이유|차이|방법|꿀팁|팁|정리|소개|설명|정보)$/.test(kw)) s -= 0.25;
+        if (/(작동|원리|구조|역사|유래|기원)$/.test(kw)) s -= 0.30;
+        return Math.max(0.05, Math.min(1.0, s));
+    };
+    for (const v of verified) {
+        (v as any).commercialIntent = parseFloat(commercialIntentScore(v.keyword).toFixed(2));
+        (v as any).commerceScore = parseFloat((v.goldenRatio * (v as any).commercialIntent).toFixed(2));
+    }
+    verified.sort((a: any, b: any) => (b.commerceScore || 0) - (a.commerceScore || 0));
 
     // 캐시 저장
     writeVerifiedCache({ timestamp: Date.now(), items: verified });

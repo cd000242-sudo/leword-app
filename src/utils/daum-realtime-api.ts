@@ -20,10 +20,16 @@ let browserInstance: Browser | null = null;
 async function getBrowser(): Promise<Browser> {
   if (!browserInstance || !browserInstance.isConnected()) {
     const executablePath = findSystemChrome();
+    // v2.42.57: 작업표시줄 깜빡임 방지 args 추가
     browserInstance = await chromium.launch({
       headless: true,
       executablePath,
-      args: ['--no-sandbox', '--disable-setuid-sandbox', '--disable-dev-shm-usage']
+      args: [
+        '--no-sandbox', '--disable-setuid-sandbox', '--disable-dev-shm-usage',
+        '--no-startup-window', '--no-first-run', '--no-default-browser-check',
+        '--disable-background-networking', '--disable-default-apps', '--disable-extensions',
+        '--mute-audio', '--hide-scrollbars',
+      ]
     });
   }
   return browserInstance;

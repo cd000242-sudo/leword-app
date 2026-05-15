@@ -27,13 +27,13 @@ export interface NaverDatalabConfig {
 }
 
 /**
- * 네이버 데이터랩 쇼핑/검색 트렌드 조회 — 최근 30일 시계열
- * 반환: 일별 상대 검색량 (0~100 정규화)
+ * 네이버 데이터랩 검색 트렌드 조회 — 최근 30일 시계열
+ * 반환: 일별 상대 검색량 (0~100, 30일 중 최대 = 100 기준) + 해당 날짜 ISO 문자열
  */
 export async function fetchKeywordTimeseries30Day(
     keyword: string,
     config: NaverDatalabConfig
-): Promise<number[]> {
+): Promise<{ series: number[]; dates: string[] }> {
     const end = new Date();
     const start = new Date();
     start.setDate(end.getDate() - 29);
@@ -58,11 +58,13 @@ export async function fetchKeywordTimeseries30Day(
                 timeout: 8000,
             }
         );
-        const series = res.data?.results?.[0]?.data || [];
-        return series.map((d: any) => Number(d.ratio) || 0);
+        const raw = res.data?.results?.[0]?.data || [];
+        const series = raw.map((d: any) => Number(d.ratio) || 0);
+        const dates = raw.map((d: any) => String(d.period || ''));
+        return { series, dates };
     } catch (err: any) {
         console.warn(`[TREND-TYPE] 시계열 조회 실패 "${keyword}":`, err?.message);
-        return [];
+        return { series: [], dates: [] };
     }
 }
 
@@ -160,8 +162,8 @@ export function classifyTrendType(series: number[]): TrendAnalysis {
 export async function analyzeKeywordTrend(
     keyword: string,
     config: NaverDatalabConfig
-): Promise<{ series: number[]; analysis: TrendAnalysis }> {
-    const series = await fetchKeywordTimeseries30Day(keyword, config);
+): Promise<{ series: number[]; dates: string[]; analysis: TrendAnalysis }> {
+    const { series, dates } = await fetchKeywordTimeseries30Day(keyword, config);
     const analysis = classifyTrendType(series);
-    return { series, analysis };
+    return { series, dates, analysis };
 }

@@ -141,6 +141,9 @@ const SHALLOW_TOPICS = [
 ];
 
 // 🆕 디테일 수식어 5요소 — 신생 진입 가능 골든존 검증
+// v2.42.32: 시즌/도메인 토큰만 보강. INFO_INTENT_TOKENS 와 중복되는 일반 의도 토큰
+//   ('방법', '해결', '꿀팁', '추천' 등)은 outcome 에 포함하지 않음 — detailDepth 변별력 유지.
+//   outcome 은 "구체적 행위/측정 결과" 만: 후기/효과/환급/감량 등.
 const DETAIL_MODIFIERS = {
     // 대상 (페르소나) — 누가 검색하는가
     target: [
@@ -149,6 +152,7 @@ const DETAIL_MODIFIERS = {
         '4인', '4인 가족', '1인', '1인 가구', '가족', '커플', '솔로',
         '소형견', '대형견', '중형견', '입문', '초보', '고수',
         '맞벌이', '외벌이', '학부모', '엄마', '아빠', '예비',
+        '부모님', '자녀', '아이', '어르신', '시니어',
     ],
     // 속성 (구체 사양/조건) — 무엇이 다른가
     spec: [
@@ -157,29 +161,36 @@ const DETAIL_MODIFIERS = {
         'EPA', 'DHA', 'DHEA', '비건', '유기농', '국산', '수입',
         '갱신형', '비갱신형', '갱신', '단기', '장기', '확정', '변동',
         '슬개골', '관절', '면역력', '소화', '눈건강', '머리카락',
+        // 셀프/장소 구체화 (광범위한 일상 키워드의 spec 차원 매칭)
+        '셀프', '원룸', '베란다', '욕실', '주방', '거실', '안방',
+        '한식', '양식', '일식', '중식', '민감성', '건성', '지성', '복합성',
     ],
-    // 시기 (when) — 언제
+    // 시기 (when) — 언제 / 시즌
     timing: [
-        '2026', '2027', '5월', '6월', '7월', '8월', '9월', '10월',
+        '2026', '2027', '5월', '6월', '7월', '8월', '9월', '10월', '11월', '12월',
         '1주일', '2주', '1개월', '3개월', '6개월', '1년', '2년',
         '100일', '1일', '2박3일', '3박4일', '1박2일', '당일치기',
         '주말', '평일', '오전', '오후',
-        '환절기', '초여름', '한여름', '장마', '한겨울',
+        '환절기', '초여름', '한여름', '장마', '장마철', '한겨울',
         '갈아타기', '연말', '월초', '월말',
+        // 가정의달/시즌 행사
+        '어린이날', '어버이날', '스승의날', '가정의달', '운동회', '명절', '추석', '설날',
     ],
     // 금액 (how much) — 얼마
     money: [
         '5천원', '1만원', '3만원', '5만원', '10만원', '30만원', '50만원', '100만원',
         '200만원', '500만원', '1000만원', '1500만원', '2000만원', '3000만원',
         '천원대', '만원대', '5만원대', '10만원대', '50만원대', '100만원대',
+        '1만원대', '3만원대', '30만원대',
         '50%', '70%', '30%', '20%', '10%', '5%',
         '월 30만원', '월 100만원', '연 500만원', '연 1000만원',
     ],
-    // 결과 (outcome) — 어떤 결과
+    // 결과 (outcome) — "구체 행위/측정 결과" 만 (INFO_INTENT 와 중복 금지)
     outcome: [
         '후기', '결과', '효과', '성공', '실패', '경험담', '솔직 후기',
         '환급', '절약', '인상', '감량', '합격', '당첨',
-        '비교', '정리', '추천',
+        // 구체적 행위 결과 (일반 의도 토큰 제외)
+        '제거', '예방', '차단', '퇴치', '청소', '정리',
     ],
 };
 
@@ -221,6 +232,14 @@ export interface VerifyInput {
     autocompleteHits?: string[];        // 자동완성 결과 (옵션 — 실측 통과 검증용)
     aiMeaningOk?: boolean;              // AI 의미 검증 결과 (옵션)
     serpAvgWordCount?: number;          // SERP 평균 단어수 (신생 진입 검증용)
+    // v2.42.32: 컨텍스트별 게이트 강도 분리
+    //   strict (default): AdSense 헌터 — detailDepth 2차원 미달 시 KILL (골든존 보증)
+    //   lenient: 홈판 헌터 — detailDepth는 점수만 영향, KILL 안 함 (외부 트렌드 시드 흡수)
+    mode?: 'strict' | 'lenient';
+    // v2.42.62: 인물 의존 키워드 허용 옵션
+    //   default: false (PERSON 차단 — 사자명예훼손 회피)
+    //   true: 셀럽/연예 카테고리 — 인물명 트래픽 활용 (사용자 본인 책임)
+    allowPerson?: boolean;
 }
 
 export function verifyKeywordValue(input: VerifyInput): ValueGateResult {
@@ -230,8 +249,9 @@ export function verifyKeywordValue(input: VerifyInput): ValueGateResult {
     const lower = kw.toLowerCase();
 
     // === Kill-switch 3 게이트 ===
+    // v2.42.62: allowPerson=true 면 PERSON 매칭 무시 (셀럽/연예 카테고리용)
     const personMatched = PERSON_DEPENDENT_TOKENS.filter(p => kw.includes(p));
-    const personPass = personMatched.length === 0;
+    const personPass = input.allowPerson === true ? true : (personMatched.length === 0);
 
     const ymylMatched = YMYL_HIGH_RISK_TOKENS.filter(y => kw.includes(y));
     const ymylPass = ymylMatched.length === 0;
@@ -337,10 +357,13 @@ export function verifyKeywordValue(input: VerifyInput): ValueGateResult {
         aiMeaningCheck: aiMeaningResult,
     };
 
-    // 🛑 Kill-switch (확장): 인물/YMYL/글감불가 + must-pass 핵심 7개 중 하나라도 미달
-    // must-pass: 검색량 + 경쟁비율 + 의도명확 + 글감 + 인물안전 + YMYL안전 + 디테일 깊이
-    // — 7개 중 하나라도 fail이면 절대 가치 없음
-    const mustPassFail = !svPass || !ratioPass || !intentPass || !detailDepthPass;
+    // 🛑 Kill-switch (확장): 인물/YMYL/글감불가 + must-pass 핵심 게이트
+    // v2.42.32: detailDepth must-pass는 mode='strict' (AdSense 헌터)에서만 유지.
+    //   mode='lenient' (홈판 헌터)는 detailDepth를 점수만 반영 — 외부 트렌드 키워드의 흡수성 보장.
+    //   AdSense 헌터의 골든존 보증(2차원 매칭)은 그대로.
+    const mode = input.mode || 'strict';
+    const detailDepthGate = mode === 'lenient' ? true : detailDepthPass;
+    const mustPassFail = !svPass || !ratioPass || !intentPass || !detailDepthGate;
     const isKilled = !personPass || !ymylPass || !writabilityPass
         || mustPassFail
         || (aiMeaningResult && !aiMeaningResult.passed && input.aiMeaningOk !== undefined);

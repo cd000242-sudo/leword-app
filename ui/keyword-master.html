@@ -750,6 +750,7 @@
             🧠 Claude 보강 <span style="color:rgba(255,255,255,0.55); font-size:10px;">($0.05/회)</span>
           </label>
           <button onclick="refreshRichFeed(true)" style="padding:10px 18px; border:none; border-radius:10px; background:linear-gradient(135deg,#f59e0b,#ef4444); color:white; font-weight:700; font-size:13px; cursor:pointer;">⚡ 발굴 시작</button>
+          <button onclick="openUserWhitelistModal()" title="내 도메인 키워드 관리 — 게이트 우선 통과" style="padding:10px 14px; border:none; border-radius:10px; background:linear-gradient(135deg,#a855f7,#6366f1); color:white; font-weight:700; font-size:12px; cursor:pointer;">🛟 내 키워드</button>
           <button onclick="rfExport('csv')" title="CSV 다운로드" style="padding:10px 14px; border:none; border-radius:10px; background:#10b981; color:white; font-weight:700; font-size:12px; cursor:pointer;">📥 CSV</button>
           <button onclick="rfExport('json')" title="JSON 다운로드" style="padding:10px 14px; border:none; border-radius:10px; background:#6366f1; color:white; font-weight:700; font-size:12px; cursor:pointer;">📥 JSON</button>
           <button onclick="rfExport('clipboard')" title="클립보드 복사" style="padding:10px 14px; border:none; border-radius:10px; background:#475569; color:white; font-weight:700; font-size:12px; cursor:pointer;">📋 복사</button>
@@ -1165,7 +1166,7 @@
                 <!-- 🔥 v2.30.1: 부정확 추측 기능 (수익 예측) 제거 — 실측 데이터 기반만 유지 -->
                 <button class="rf-action-btn" title="복사" onclick="rfCopyKw('${kwSafe}')">📋</button>
                 <button class="rf-action-btn" title="세부 키워드 10개 (실측 Naver API)" onclick="rfDrilldown('${kwSafe}', ${idx})">🔍</button>
-                <button class="rf-action-btn" title="30일 트렌드 그래프 (실측 Datalab)" onclick="rfShowTrendGraph('${kwSafe}')">📈</button>
+                <button class="rf-action-btn" title="30일 트렌드 그래프 (실측 Datalab)" onclick="rfShowTrendGraph('${kwSafe}', ${Number(r.searchVolume) || 0})">📈</button>
                 <button class="rf-action-btn" title="이 키워드 제외 (다음 발굴 안 보임)" onclick="rfExcludeKw('${kwSafe}', ${idx})">🚫</button>
                 <button class="rf-action-btn" title="네이버 검색 (실제 SERP 확인)" onclick="window.electronAPI.openExternal('https://search.naver.com/search.naver?query=' + encodeURIComponent('${kwSafe}'))">🌐</button>
               </td>
@@ -1223,17 +1224,18 @@
         }
       };
 
-      // 🔥 v2.19.0 Phase L-3: 30일 트렌드 그래프 팝업
-      window.rfShowTrendGraph = async function(kw) {
+      // 🔥 v2.42.30: 30일 트렌드 그래프 — 상대값 명시, 실제 날짜 라벨, 그리드, 호버, 절대값 추정
+      window.rfShowTrendGraph = async function(kw, monthSv) {
         const existing = document.getElementById('rfTrendModal');
         if (existing) existing.remove();
         const modal = document.createElement('div');
         modal.id = 'rfTrendModal';
-        modal.style.cssText = 'position:fixed; inset:0; background:rgba(0,0,0,0.75); backdrop-filter:blur(6px); z-index:10000; display:flex; justify-content:center; align-items:center;';
+        modal.style.cssText = 'position:fixed; inset:0; background:rgba(0,0,0,0.75); backdrop-filter:blur(6px); z-index:10100; display:flex; justify-content:center; align-items:center;';
         modal.innerHTML = `<div style="background:#1e293b; border-radius:16px; padding:24px 28px; max-width:720px; width:92%; box-shadow:0 20px 60px rgba(0,0,0,0.5); color:white;">
-          <div style="display:flex; justify-content:space-between; margin-bottom:12px;">
+          <div style="display:flex; justify-content:space-between; margin-bottom:8px;">
             <div>
               <div style="font-size:16px; font-weight:800;">📈 30일 트렌드 — ${kw}</div>
+              <div style="font-size:10px; color:#64748b; margin-top:3px;">단위: <b style="color:#94a3b8;">네이버 데이터랩 상대값</b> (30일 중 최대 검색일 = 100 기준 정규화)</div>
               <div id="rfTrendLabel" style="font-size:11px; color:#94a3b8; margin-top:4px;">분석 중...</div>
             </div>
             <button onclick="document.getElementById('rfTrendModal').remove()" style="background:rgba(255,255,255,0.1); border:none; border-radius:8px; color:white; padding:6px 12px; cursor:pointer;">✕</button>
@@ -1243,7 +1245,6 @@
         </div>`;
         document.body.appendChild(modal);
         modal.addEventListener('click', (e) => { if (e.target === modal) modal.remove(); });
-        // 🔥 v2.19.1 Fix4: ESC 키로 모달 닫기
         const escHandler = (e) => {
           if (e.key === 'Escape') {
             const m = document.getElementById('rfTrendModal');
@@ -1258,33 +1259,67 @@
             document.getElementById('rfTrendChart').innerHTML = '<div style="color:#fca5a5;">❌ ' + (res.error || '실패') + '</div>';
             return;
           }
-          const { series, analysis } = res;
-          document.getElementById('rfTrendLabel').textContent = analysis.label ? `${analysis.label} · 최근3일 평균 ${analysis.recent3Avg.toFixed(1)} / 30일 평균 ${analysis.monthAvg.toFixed(1)} / 변동성 ${(analysis.volatility * 100).toFixed(0)}%` : '분류 불가';
-          // SVG 라인차트
+          const { series, dates, analysis } = res;
+          const safeDates = Array.isArray(dates) ? dates : [];
+          // 단위 명시 라벨: ratio 평균 + (있으면) 절대 검색량 환산
+          const monthAvgRatio = analysis.monthAvg || 0;
+          const recent3Ratio = analysis.recent3Avg || 0;
+          let absHint = '';
+          if (monthSv && monthAvgRatio > 0) {
+            const dailyAbs = (monthSv / 30) * (recent3Ratio / monthAvgRatio);
+            absHint = ` · 최근3일 추정 일검색 ≈ ${Math.round(dailyAbs).toLocaleString()}회`;
+          }
+          document.getElementById('rfTrendLabel').textContent = analysis.label
+            ? `${analysis.label} · 최근3일 평균 ratio ${recent3Ratio.toFixed(1)} / 30일 평균 ${monthAvgRatio.toFixed(1)} / 변동성 ${(analysis.volatility * 100).toFixed(0)}%${absHint}`
+            : '분류 불가 (데이터 14일 미만)';
           const chart = document.getElementById('rfTrendChart');
           if (!series || series.length === 0) {
             chart.innerHTML = '<div style="color:#64748b;">시계열 데이터 없음</div>';
             return;
           }
-          const w = 660, h = 220, pad = 30;
+          const w = 660, h = 220, pad = 36;
           const maxV = Math.max(...series, 1);
-          const minV = Math.min(...series);
+          // Y축은 항상 0~100 고정 (상대값 의미 보존)
+          const yMax = Math.max(100, maxV);
+          const fmtDate = (s) => {
+            if (!s) return '';
+            const parts = s.split('-');
+            return parts.length === 3 ? `${parts[1]}/${parts[2]}` : s;
+          };
+          const lastIdx = series.length - 1;
+          const midIdx = Math.floor(lastIdx / 2);
           const pts = series.map((v, i) => {
-            const x = pad + (i / (series.length - 1)) * (w - 2 * pad);
-            const y = h - pad - (v / maxV) * (h - 2 * pad);
-            return `${x.toFixed(1)},${y.toFixed(1)}`;
-          }).join(' ');
+            const x = pad + (i / Math.max(1, lastIdx)) * (w - 2 * pad);
+            const y = h - pad - (v / yMax) * (h - 2 * pad);
+            return { x, y, v, d: safeDates[i] || '' };
+          });
+          const polyStr = pts.map(p => `${p.x.toFixed(1)},${p.y.toFixed(1)}`).join(' ');
           const color = analysis.type === 'skyrocket' ? '#ef4444' : analysis.type === 'evergreen' ? '#22c55e' : analysis.type === 'seasonal' ? '#60a5fa' : analysis.type === 'flash' ? '#94a3b8' : '#fbbf24';
-          // 🔥 v2.19.1 Fix5: Y축 min/max + X축 기간 레이블 추가
+          // 그리드 라인 0/25/50/75/100
+          const gridLevels = [0, 25, 50, 75, 100];
+          const gridLines = gridLevels.map(lv => {
+            const y = h - pad - (lv / yMax) * (h - 2 * pad);
+            return `<line x1="${pad}" y1="${y.toFixed(1)}" x2="${w - pad}" y2="${y.toFixed(1)}" stroke="rgba(255,255,255,0.06)" stroke-width="1" stroke-dasharray="3,3" />
+                    <text x="${pad - 6}" y="${(y + 3).toFixed(1)}" text-anchor="end" fill="rgba(255,255,255,0.45)">${lv}</text>`;
+          }).join('');
+          // 점 + 툴팁 (SVG <title>)
+          const dots = pts.map(p => {
+            const absStr = (monthSv && monthAvgRatio > 0) ? `\n추정 검색: ${Math.round((monthSv / 30) * (p.v / monthAvgRatio)).toLocaleString()}회` : '';
+            return `<circle cx="${p.x.toFixed(1)}" cy="${p.y.toFixed(1)}" r="2.5" fill="${color}" opacity="0.85"><title>${p.d || ''}\nratio: ${p.v.toFixed(1)}${absStr}</title></circle>`;
+          }).join('');
+          // X축 날짜 3개 (시작/중간/오늘)
+          const xLabels = `
+            <text x="${pad}" y="${h - 8}" text-anchor="start" fill="rgba(255,255,255,0.55)">${fmtDate(safeDates[0]) || '30일 전'}</text>
+            <text x="${(pad + (midIdx / Math.max(1, lastIdx)) * (w - 2 * pad)).toFixed(1)}" y="${h - 8}" text-anchor="middle" fill="rgba(255,255,255,0.55)">${fmtDate(safeDates[midIdx]) || ''}</text>
+            <text x="${w - pad}" y="${h - 8}" text-anchor="end" fill="rgba(255,255,255,0.55)">${fmtDate(safeDates[lastIdx]) || '오늘'}</text>`;
           chart.innerHTML = `<svg width="100%" viewBox="0 0 ${w} ${h}" preserveAspectRatio="none" style="font-family: system-ui; font-size: 10px;">
-            <line x1="${pad}" y1="${pad}" x2="${pad}" y2="${h - pad}" stroke="rgba(255,255,255,0.15)" stroke-width="1" />
-            <line x1="${pad}" y1="${h - pad}" x2="${w - pad}" y2="${h - pad}" stroke="rgba(255,255,255,0.15)" stroke-width="1" />
-            <text x="${pad - 4}" y="${pad + 4}" text-anchor="end" fill="rgba(255,255,255,0.5)">${maxV.toFixed(0)}</text>
-            <text x="${pad - 4}" y="${h - pad + 3}" text-anchor="end" fill="rgba(255,255,255,0.5)">${minV.toFixed(0)}</text>
-            <text x="${pad}" y="${h - 8}" text-anchor="start" fill="rgba(255,255,255,0.5)">30일 전</text>
-            <text x="${w - pad}" y="${h - 8}" text-anchor="end" fill="rgba(255,255,255,0.5)">오늘</text>
-            <polyline points="${pts}" fill="none" stroke="${color}" stroke-width="2.5" />
-            <polyline points="${pts.split(' ')[0]} ${pts} ${w - pad},${h - pad} ${pad},${h - pad}" fill="${color}" fill-opacity="0.12" stroke="none" />
+            ${gridLines}
+            <line x1="${pad}" y1="${pad}" x2="${pad}" y2="${h - pad}" stroke="rgba(255,255,255,0.2)" stroke-width="1" />
+            <line x1="${pad}" y1="${h - pad}" x2="${w - pad}" y2="${h - pad}" stroke="rgba(255,255,255,0.2)" stroke-width="1" />
+            <polyline points="${pts[0].x.toFixed(1)},${(h - pad).toFixed(1)} ${polyStr} ${pts[lastIdx].x.toFixed(1)},${(h - pad).toFixed(1)}" fill="${color}" fill-opacity="0.12" stroke="none" />
+            <polyline points="${polyStr}" fill="none" stroke="${color}" stroke-width="2.5" />
+            ${dots}
+            ${xLabels}
           </svg>`;
           if (analysis.recommendation) {
             const rec = document.getElementById('rfTrendRec');
@@ -3043,6 +3078,22 @@
                 style="padding: 12px 32px; background: #ef4444; color: white; border: none; border-radius: 8px; font-weight: 600; cursor: pointer; font-size: 16px; display: none;">
                 ⏹️ 중지
               </button>
+
+              <!-- v2.42.42: 마인드맵 발굴 통합 (#keywordInput 재사용) -->
+              <div style="display:flex; gap:8px; align-items:center; padding-left:8px; border-left:1px solid rgba(255,255,255,0.15); margin-left:4px;">
+                <select id="mindmapLimitSelect" style="padding: 10px 12px; border: 2px solid rgba(168, 85, 247, 0.35); border-radius: 8px; font-size: 13px; background: rgba(30, 41, 59, 0.8); color: #c4b5fd; font-weight:600;" title="시드 → 꼬리에 꼬리 깊이 자동: 50개 1단계 / 500개 5단계">
+                  <option value="50" selected>🌱 50개</option>
+                  <option value="150">🌿 150개</option>
+                  <option value="300">🌳 300개</option>
+                  <option value="400">🌲 400개</option>
+                  <option value="500">🎄 500개</option>
+                </select>
+                <button onclick="openRelatedKeywordModal()"
+                  style="padding: 12px 22px; background: linear-gradient(135deg, #a855f7 0%, #6366f1 100%); color: #fff; border: none; border-radius: 8px; font-weight: 700; cursor: pointer; font-size: 14px; white-space: nowrap; box-shadow: 0 4px 14px rgba(168,85,247,0.35);"
+                  title="입력 키워드의 연관/유사 메이커/롱테일을 한 번에 발굴 (꼬리에 꼬리 5단계)">
+                  🔗 마인드맵
+                </button>
+              </div>
             </div>
           </div>
 
@@ -3260,7 +3311,7 @@
 
       <!-- 키워드 설정 모달 -->
       <div id="keywordSettingsModal"
-        style="display: none; position: fixed; top: 0; left: 0; width: 100%; height: 100%; background: rgba(0, 0, 0, 0.7); z-index: 10000; backdrop-filter: blur(5px); overflow-y: auto; overflow-x: hidden;">
+        style="display: none; position: fixed; top: 0; left: 0; width: 100%; height: 100%; background: rgba(0, 0, 0, 0.7); z-index: 10100; backdrop-filter: blur(5px); overflow-y: auto; overflow-x: hidden;">
         <div
           style="min-height: 100%; padding: 40px 20px; display: flex; align-items: flex-start; justify-content: center; box-sizing: border-box;">
           <div
@@ -3442,6 +3493,34 @@
                   </div>
                   <div style="margin-top:8px; padding:8px 10px; background:rgba(168,85,247,0.10); border-radius:6px; font-size:11px; color:rgba(255,255,255,0.7); line-height:1.5;">
                     💡 키가 비어있으면 Manus 보강은 자동 스킵됩니다 (기존 PRO 헌터 결과만 표시). 발급: <strong>open.manus.im</strong> 로그인 → 대시보드 → API Keys
+                  </div>
+                </div>
+
+                <!-- v2.42.55: 쿠팡 파트너스 (쇼핑 커넥트 수익화) -->
+                <div style="margin-top:24px; padding-top:24px; border-top:1px solid rgba(255,255,255,0.08);">
+                  <div style="display:flex; align-items:center; gap:8px; margin-bottom:14px;">
+                    <span style="font-size:18px;">🛒</span>
+                    <div>
+                      <div style="font-size:14px; font-weight:700; color:rgba(255,255,255,0.95);">쿠팡 파트너스 API (쇼핑 커넥트 수익화)</div>
+                      <div style="font-size:11px; color:rgba(255,255,255,0.55); margin-top:2px;">키 등록 시 쇼핑 커넥트 추천 상품 링크가 본인 어필리에이트 트래킹 URL로 자동 변환</div>
+                    </div>
+                  </div>
+
+                  <div style="display:grid; grid-template-columns:1fr 1fr; gap:10px; margin-bottom:8px;">
+                    <input type="password" id="keywordCoupangAccessKey" placeholder="Access Key" style="padding:11px 14px; background:rgba(255,255,255,0.1); border:2px solid rgba(255,255,255,0.2); border-radius:8px; color:white; font-size:13px;"
+                      onfocus="this.style.borderColor='#fb923c'" onblur="this.style.borderColor='rgba(255,255,255,0.2)'">
+                    <input type="password" id="keywordCoupangSecretKey" placeholder="Secret Key" style="padding:11px 14px; background:rgba(255,255,255,0.1); border:2px solid rgba(255,255,255,0.2); border-radius:8px; color:white; font-size:13px;"
+                      onfocus="this.style.borderColor='#fb923c'" onblur="this.style.borderColor='rgba(255,255,255,0.2)'">
+                  </div>
+                  <div style="display:flex; gap:8px;">
+                    <input type="text" id="keywordCoupangSubId" placeholder="Sub ID (선택, 클릭 추적용. 예: leword01)" style="flex:1; padding:11px 14px; background:rgba(255,255,255,0.1); border:2px solid rgba(255,255,255,0.2); border-radius:8px; color:white; font-size:13px;"
+                      onfocus="this.style.borderColor='#fb923c'" onblur="this.style.borderColor='rgba(255,255,255,0.2)'">
+                    <button onclick="window.electronAPI.invoke('open-external-url','https://partners.coupang.com/')" style="padding:11px 18px; background:linear-gradient(135deg,#fb923c,#ea580c); border:none; border-radius:8px; color:white; font-weight:700; font-size:13px; cursor:pointer; white-space:nowrap;">
+                      🔑 가입/키 발급
+                    </button>
+                  </div>
+                  <div style="margin-top:8px; padding:8px 10px; background:rgba(251,146,60,0.10); border-radius:6px; font-size:11px; color:rgba(255,255,255,0.7); line-height:1.5;">
+                    💡 키 없으면 쇼핑 커넥트 상품 링크는 네이버 쇼핑 직링크 → 사용자 수익 0원. 파트너스 가입 후 키 등록 필수. 발급: <strong>partners.coupang.com</strong> 회원가입 → 마이페이지 → API 키.
                   </div>
                 </div>
               </div>
@@ -4183,6 +4262,7 @@
                 <th style="padding: 12px; text-align: center; font-weight: 700;">문서수</th>
                 <th style="padding: 12px; text-align: center; font-weight: 700;">황금비율</th>
                 <th style="padding: 12px; text-align: center; font-weight: 700;">타입</th>
+                <th style="padding: 12px; text-align: center; font-weight: 700;">액션</th>
               </tr>
             </thead>
             <tbody>
@@ -4264,6 +4344,19 @@
               <span style="font-size: 11px; font-weight: 600; color: ${typeColor}; background: ${typeColor}20; padding: 4px 8px; border-radius: 6px;">
                 ${typeLabel}
               </span>
+            </td>
+            <td style="padding: 8px 6px; text-align: center; white-space:nowrap;">
+              ${(() => {
+                const safe = String(kw.keyword || '').replace(/'/g, "\\'");
+                const sv = (typeof kw.searchVolume === 'number' && isFinite(kw.searchVolume)) ? kw.searchVolume : 0;
+                return `
+                  <button onclick="copyToClipboard('${safe}')" title="복사" style="padding:4px 7px; background:#f1f5f9; color:#475569; border:1px solid #e2e8f0; border-radius:5px; cursor:pointer; font-size:11px; margin-right:2px;">📋</button>
+                  <button onclick="lewordNaverSearch('${safe}')" title="네이버 검색" style="padding:4px 7px; background:#f1f5f9; color:#475569; border:1px solid #e2e8f0; border-radius:5px; cursor:pointer; font-size:11px; margin-right:2px;">🔍</button>
+                  <button onclick="lewordShowTrendGraph('${safe}', ${sv})" title="30일 트렌드 그래프" style="padding:4px 7px; background:#ecfeff; color:#0e7490; border:1px solid #67e8f9; border-radius:5px; cursor:pointer; font-size:11px; margin-right:2px;">📈</button>
+                  <button onclick="document.getElementById('keywordInput').value='${safe}'; openRelatedKeywordModal();" title="이 키워드로 마인드맵 발굴" style="padding:4px 7px; background:linear-gradient(135deg,rgba(168,85,247,0.15),rgba(99,102,241,0.15)); color:#7c3aed; border:1px solid rgba(168,85,247,0.4); border-radius:5px; cursor:pointer; font-size:11px; margin-right:2px; font-weight:700;">🔗</button>
+                  <button onclick="searchKeyword('${safe}', true)" title="LEWORD에서 재검색 (자동 시작)" style="padding:4px 7px; background:linear-gradient(135deg,#fef3c7,#fde68a); color:#92400e; border:1px solid #fbbf24; border-radius:5px; cursor:pointer; font-size:11px; font-weight:700;">🔄</button>
+                `;
+              })()}
             </td>
           </tr>
         `;
@@ -4379,7 +4472,7 @@
         border-radius: 12px;
         font-size: 14px;
         font-weight: 600;
-        z-index: 10000;
+        z-index: 10100;
         animation: slideUp 0.3s ease;
         box-shadow: 0 4px 20px rgba(0,0,0,0.3);
         ${type === 'success' ? 'background: linear-gradient(135deg, #10b981, #059669); color: white;' :
@@ -5469,7 +5562,7 @@
                 title="네이버 검색" style="padding: 5px 8px; background: #f1f5f9; color: #475569; border: 1px solid #e2e8f0; border-radius: 6px; cursor: pointer; font-size: 11px; margin-right:2px;">🔍</button>
               <button onclick="searchKeyword('${kwJsSafe}', true)"
                 title="LEWORD에서 재검색 (자동 시작)" style="padding: 5px 8px; background: linear-gradient(135deg,#fef3c7,#fde68a); color: #92400e; border: 1px solid #fbbf24; border-radius: 6px; cursor: pointer; font-size: 11px; margin-right:2px; font-weight:700;">🔄</button>
-              <button onclick="lewordShowTrendGraph('${kwJsSafe}')"
+              <button onclick="lewordShowTrendGraph('${kwJsSafe}', ${Number(totalVol) || 0})"
                 title="30일 트렌드 그래프 (Naver Datalab)" style="padding: 5px 8px; background: #ecfeff; color: #0e7490; border: 1px solid #67e8f9; border-radius: 6px; cursor: pointer; font-size: 11px; margin-right:2px;">📈</button>
               <button onclick="goldenDrilldown('${kwJsSafe}', ${idx})"
                 title="확장 키워드 (연관 10개)" style="padding: 5px 8px; background: #f3e8ff; color: #6b21a8; border: 1px solid #c4b5fd; border-radius: 6px; cursor: pointer; font-size: 11px;">🔗</button>
@@ -5516,9 +5609,9 @@
         };
 
         // 트렌드 그래프 — Rich Feed의 rfShowTrendGraph 재사용, 없으면 graceful fallback
-        window.lewordShowTrendGraph = function(kw) {
+        window.lewordShowTrendGraph = function(kw, monthSv) {
           if (typeof window.rfShowTrendGraph === 'function') {
-            return window.rfShowTrendGraph(kw);
+            return window.rfShowTrendGraph(kw, monthSv);
           }
           alert('트렌드 그래프 기능은 황금키워드 발굴(Rich Feed)이 한 번 이상 로딩된 후 사용 가능합니다.');
         };
@@ -5548,7 +5641,7 @@
               return `<div style="padding:6px 10px; margin-bottom:4px; background:white; border-radius:6px; border:1px solid #e2e8f0; display:flex; align-items:center; gap:10px; cursor:pointer;" onclick="searchKeyword('${safe}', true)" title="클릭하면 LEWORD에서 재검색">
                 <span style="font-weight:700; flex:1; color:#1e293b;">${k.keyword}</span>
                 <span style="font-size:10px; color:#64748b;">sv ${sv} · dc ${dc} · ratio ${ratio}</span>
-                <button onclick="event.stopPropagation(); rfShowTrendGraph('${safe}')" title="트렌드" style="padding:3px 6px; background:#ecfeff; color:#0e7490; border:1px solid #67e8f9; border-radius:4px; cursor:pointer; font-size:10px;">📈</button>
+                <button onclick="event.stopPropagation(); rfShowTrendGraph('${safe}', ${Number(k.searchVolume) || 0})" title="트렌드" style="padding:3px 6px; background:#ecfeff; color:#0e7490; border:1px solid #67e8f9; border-radius:4px; cursor:pointer; font-size:10px;">📈</button>
               </div>`;
             }).join('');
             content.innerHTML = `<div style="font-weight:700; color:#475569; margin-bottom:8px;">🔗 "${kw}" 확장 키워드 (클릭 → LEWORD 재검색)</div>${items}`;
@@ -5673,7 +5766,7 @@
           if (existing) existing.remove();
           const modal = document.createElement('div');
           modal.id = 'logoutConfirmModal';
-          modal.style.cssText = 'position:fixed; inset:0; background:rgba(0,0,0,0.75); backdrop-filter:blur(6px); z-index:10000; display:flex; justify-content:center; align-items:center;';
+          modal.style.cssText = 'position:fixed; inset:0; background:rgba(0,0,0,0.75); backdrop-filter:blur(6px); z-index:10100; display:flex; justify-content:center; align-items:center;';
           modal.innerHTML = `
             <div style="background:#1e293b; border-radius:20px; padding:28px 32px; max-width:420px; width:90%; box-shadow:0 20px 60px rgba(0,0,0,0.5); border:1px solid rgba(239,68,68,0.3);">
               <div style="display:flex; gap:12px; align-items:center; margin-bottom:16px;">
@@ -5902,7 +5995,7 @@
           modal.style.cssText = `
         position: fixed; top: 0; left: 0; width: 100%; height: 100%;
         background: rgba(0, 0, 0, 0.8); display: flex; justify-content: center;
-        align-items: center; z-index: 10000; animation: fadeIn 0.3s ease;
+        align-items: center; z-index: 10100; animation: fadeIn 0.3s ease;
       `;
 
           modal.innerHTML = `
@@ -6155,7 +6248,7 @@
         display: flex;
         align-items: center;
         justify-content: center;
-        z-index: 10000;
+        z-index: 10100;
         animation: fadeIn 0.3s ease;
       `;
 
@@ -6272,7 +6365,7 @@
         position: fixed; top: 0; left: 0; width: 100%; height: 100%;
         background: rgba(0, 0, 0, 0.6); backdrop-filter: blur(4px);
         display: flex; align-items: center; justify-content: center;
-        z-index: 10000; animation: fadeIn 0.3s ease;
+        z-index: 10100; animation: fadeIn 0.3s ease;
       `;
 
           modal.innerHTML = `
@@ -6328,7 +6421,7 @@
         position: fixed; top: 0; left: 0; width: 100%; height: 100%;
         background: rgba(0, 0, 0, 0.6); backdrop-filter: blur(4px);
         display: flex; align-items: center; justify-content: center;
-        z-index: 10000; animation: fadeIn 0.3s ease;
+        z-index: 10100; animation: fadeIn 0.3s ease;
       `;
 
           modal.innerHTML = `
@@ -6389,7 +6482,7 @@
         position: fixed; top: 0; left: 0; width: 100%; height: 100%;
         background: rgba(0, 0, 0, 0.6); backdrop-filter: blur(4px);
         display: flex; align-items: center; justify-content: center;
-        z-index: 10000; animation: fadeIn 0.3s ease;
+        z-index: 10100; animation: fadeIn 0.3s ease;
       `;
 
           modal.innerHTML = `
@@ -6631,7 +6724,7 @@
         display: flex;
         align-items: center;
         justify-content: center;
-        z-index: 10000;
+        z-index: 10100;
         animation: fadeIn 0.3s ease;
         overflow-y: auto;
         padding: 20px;
@@ -9812,36 +9905,382 @@
         }
 
         // 키워드 검색 함수 (모달용)
-        function searchKeyword(keyword, autoTrigger = false) {
-          // 키워드 발굴 모달로 이동하거나 검색
-          try { if (typeof closeModal === 'function') closeModal(); } catch {}
-          const keywordInput = document.querySelector('.keyword-input-section input');
-          if (keywordInput) {
-            keywordInput.value = keyword;
-            keywordInput.focus();
-            keywordInput.scrollIntoView({ behavior: 'smooth', block: 'center' });
-            // v2.42.29: autoTrigger — 발굴 자동 시작
-            if (autoTrigger) {
-              setTimeout(() => {
-                // 더 안전한 버튼 찾기: input-section 내 button 중 텍스트 "발굴/검색/시작" 포함된 것 우선
-                const section = keywordInput.closest('.keyword-input-section') || document.querySelector('.keyword-input-section');
-                let startBtn = null;
-                if (section) {
-                  const buttons = section.querySelectorAll('button');
-                  for (const b of buttons) {
-                    const txt = b.textContent || '';
-                    if (/발굴|검색|시작|찾기|hunt/i.test(txt) && !b.disabled) { startBtn = b; break; }
-                  }
-                  if (!startBtn) startBtn = section.querySelector('button:not([disabled])');
-                }
-                if (startBtn) {
-                  startBtn.click();
-                  console.log('[LEWORD] 🔄 자동 재검색 트리거:', keyword);
-                } else {
-                  console.warn('[LEWORD] 재검색 버튼을 찾지 못함. 수동으로 발굴 시작 필요');
-                }
-              }, 300);
+        // v2.42.44: 연관 키워드 마인드맵 모달 — 최소화/복원 기능 추가
+        window.openRelatedKeywordModal = async function() {
+          // 기존 모달이 hide 상태로 있으면 복원만 (재발굴 X)
+          const existingModal = document.getElementById('relatedKwModal');
+          if (existingModal && existingModal.dataset.completed === 'true') {
+            existingModal.style.display = 'flex';
+            document.getElementById('relatedKwMinimizedDock')?.remove();
+            return;
+          }
+
+          const input = document.getElementById('keywordInput');
+          const limitSel = document.getElementById('mindmapLimitSelect');
+          const seed = (input?.value || '').trim();
+          if (!seed) {
+            alert('키워드 검색 필드에 시드 키워드를 입력해주세요 (예: 뉴발란스)');
+            input?.focus();
+            return;
+          }
+          const limit = parseInt(limitSel?.value || '50', 10);
+
+          // 기존 모달 완전 제거 후 새로 발굴 (시드/갯수 다를 수 있음)
+          existingModal?.remove();
+          document.getElementById('relatedKwMinimizedDock')?.remove();
+          const modal = document.createElement('div');
+          modal.id = 'relatedKwModal';
+          modal.style.cssText = 'position:fixed; inset:0; background:rgba(0,0,0,0.85); backdrop-filter:blur(8px); z-index:10001; display:flex; align-items:flex-start; justify-content:center; padding:20px; overflow-y:auto;';
+          modal.innerHTML = `
+            <div style="background:linear-gradient(135deg,#0f172a 0%,#1e1b4b 100%); border-radius:20px; padding:28px; max-width:1100px; width:100%; box-shadow:0 25px 80px rgba(0,0,0,0.6); border:2px solid rgba(168,85,247,0.4); max-height:calc(100vh - 40px); overflow-y:auto;">
+              <div style="display:flex; justify-content:space-between; align-items:flex-start; margin-bottom:20px;">
+                <div>
+                  <h2 style="margin:0 0 6px 0; font-size:22px; font-weight:800; background:linear-gradient(135deg,#c4b5fd,#a78bfa); -webkit-background-clip:text; -webkit-text-fill-color:transparent;">🔗 "${seed}" 연관 키워드 마인드맵</h2>
+                  <div style="font-size:12px; color:rgba(255,255,255,0.6);">Naver 자동완성 + 스마트블록 연관 + 롱테일 확장 + 실측 검색량/문서수</div>
+                </div>
+                <div style="display:flex; gap:8px; align-items:center;">
+                  <button id="relatedKwExcelBtn" onclick="window.exportMindmapToExcel()" title="엑셀로 저장" style="background:linear-gradient(135deg,#10b981,#059669); border:none; border-radius:10px; color:#fff; padding:0 14px; height:36px; cursor:pointer; font-size:13px; font-weight:700; display:none;">📊 엑셀 저장</button>
+                  <button onclick="window.minimizeRelatedKeywordModal()" title="최소화 (결과 보존)" style="background:rgba(168,85,247,0.20); border:1px solid rgba(168,85,247,0.4); border-radius:10px; color:#c4b5fd; width:36px; height:36px; cursor:pointer; font-size:18px; font-weight:bold;">—</button>
+                  <button onclick="document.getElementById('relatedKwModal')?.remove(); document.getElementById('relatedKwMinimizedDock')?.remove();" title="닫기 (결과 삭제)" style="background:rgba(255,255,255,0.1); border:none; border-radius:10px; color:#fff; width:36px; height:36px; cursor:pointer; font-size:18px;">✕</button>
+                </div>
+              </div>
+              <div id="relatedKwBody" style="background:rgba(0,0,0,0.3); border-radius:12px; padding:30px; min-height:240px; display:flex; align-items:center; justify-content:center; color:#a78bfa;">
+                <div style="text-align:center; width:100%;">
+                  <div style="font-size:36px; margin-bottom:12px; animation:spin 1.4s linear infinite; display:inline-block;">🔄</div>
+                  <div id="relatedKwProgressMsg" style="font-size:14px; color:#c4b5fd;">"${seed}" 의 연관 키워드 ${limit}개 수집 중...</div>
+                  <div id="relatedKwProgressBarWrap" style="margin:14px auto 4px; max-width:480px; background:rgba(255,255,255,0.08); height:8px; border-radius:6px; overflow:hidden;">
+                    <div id="relatedKwProgressBar" style="height:100%; width:0%; background:linear-gradient(90deg,#a855f7,#6366f1); transition:width 0.3s;"></div>
+                  </div>
+                  <div id="relatedKwProgressDetail" style="font-size:11px; color:rgba(255,255,255,0.55); margin-top:4px;">자동완성 + 스마트블록 + 롱테일 + sv/dc 측정</div>
+                </div>
+              </div>
+            </div>
+          `;
+          document.body.appendChild(modal);
+          // v2.42.44: 배경 클릭/ESC = 최소화 (결과 보존). 완전 닫기는 X 버튼만.
+          modal.addEventListener('click', e => {
+            if (e.target === modal && modal.dataset.completed === 'true') {
+              window.minimizeRelatedKeywordModal();
             }
+          });
+          const esc = (e) => {
+            if (e.key === 'Escape') {
+              const m = document.getElementById('relatedKwModal');
+              if (m && m.dataset.completed === 'true') {
+                window.minimizeRelatedKeywordModal();
+              } else if (m) {
+                m.remove();
+                document.getElementById('relatedKwMinimizedDock')?.remove();
+              }
+              document.removeEventListener('keydown', esc);
+            }
+          };
+          document.addEventListener('keydown', esc);
+
+          // v2.42.39: 진행률 이벤트 구독 (depth 1~5)
+          const phaseToProgress = {
+            'depth-1-expand': 6, 'depth-1-measure': 12, 'depth-1-done': 18,
+            'depth-2-expand': 24, 'depth-2-measure': 32, 'depth-2-done': 38,
+            'depth-3-expand': 46, 'depth-3-measure': 54, 'depth-3-done': 60,
+            'depth-4-expand': 68, 'depth-4-measure': 76, 'depth-4-done': 82,
+            'depth-5-expand': 88, 'depth-5-measure': 94, 'depth-5-done': 98,
+            'done': 100,
+          };
+          let unsubProgress = null;
+          try {
+            unsubProgress = window.electronAPI.on('related-expansion-progress', (data) => {
+              const msgEl = document.getElementById('relatedKwProgressMsg');
+              const barEl = document.getElementById('relatedKwProgressBar');
+              const detailEl = document.getElementById('relatedKwProgressDetail');
+              if (msgEl && data?.msg) msgEl.textContent = data.msg;
+              if (barEl && data?.phase) {
+                const pct = phaseToProgress[data.phase] || 0;
+                barEl.style.width = pct + '%';
+              }
+              if (detailEl && typeof data?.current === 'number' && typeof data?.total === 'number') {
+                detailEl.textContent = `${data.phase} · ${data.current}/${data.total}`;
+              }
+            });
+          } catch (e) { console.warn('[related-modal] progress 구독 실패:', e?.message); }
+
+          try {
+            const resp = await window.electronAPI.invoke('expand-keyword-related-metrics', { seed, limit });
+            try { if (typeof unsubProgress === 'function') unsubProgress(); } catch {}
+            const body = document.getElementById('relatedKwBody');
+            if (!body) return;
+            if (!resp?.success) {
+              body.innerHTML = `<div style="color:#fca5a5; text-align:center;">❌ ${resp?.error || '연관 키워드 발굴 실패'}</div>`;
+              return;
+            }
+            const items = resp.items || [];
+            if (items.length === 0) {
+              body.innerHTML = `<div style="color:rgba(255,255,255,0.6); text-align:center;">연관 키워드를 찾지 못했습니다. 시드를 더 일반적인 단어로 변경해보세요.</div>`;
+              return;
+            }
+            const gradeColor = { SSS: '#dc2626', SS: '#ea580c', S: '#22c55e', A: '#3b82f6', B: '#fbbf24', C: '#64748b' };
+            const ratioColor = (r) => r >= 5 ? '#22c55e' : r >= 2 ? '#fbbf24' : r >= 1 ? '#f97316' : '#ef4444';
+            const counts = { SSS: 0, SS: 0, S: 0, A: 0, B: 0, C: 0 };
+            items.forEach(i => counts[i.grade] = (counts[i.grade] || 0) + 1);
+
+            const rows = items.map((it, idx) => {
+              const safeKw = String(it.keyword || '').replace(/'/g, "\\'");
+              const isSeed = it.isSeed;
+              const depthMark = it.depth === 5 ? '🎄' : it.depth === 4 ? '🌲' : it.depth === 3 ? '🌳' : it.depth === 2 ? '🌿' : '🌱';
+              return `
+                <tr style="border-bottom:1px solid rgba(255,255,255,0.06); ${isSeed ? 'background:rgba(168,85,247,0.08);' : ''}">
+                  <td style="padding:10px 8px; color:rgba(255,255,255,0.5); font-size:11px;">${idx + 1}</td>
+                  <td style="padding:10px 8px; text-align:center;">
+                    ${isSeed ? '<span style="background:#a855f7; color:#fff; padding:2px 8px; border-radius:5px; font-size:10px; font-weight:800;">🌱 SEED</span>' : `<span title="${it.depth}단계에서 발굴" style="font-size:13px;">${depthMark}</span>`}
+                    <span style="background:${gradeColor[it.grade] || '#64748b'}; color:#fff; padding:3px 8px; border-radius:6px; font-size:11px; font-weight:800; margin-left:4px;">${it.grade}</span>
+                  </td>
+                  <td style="padding:10px 8px; font-weight:700; color:#fff; font-size:14px;">${it.keyword}</td>
+                  <td style="padding:10px 8px; text-align:right; color:#f1f5f9; font-weight:600;">${(it.searchVolume || 0).toLocaleString()}</td>
+                  <td style="padding:10px 8px; text-align:right; color:#cbd5e1;">${(it.documentCount || 0).toLocaleString()}</td>
+                  <td style="padding:10px 8px; text-align:right; font-weight:800; color:${ratioColor(it.goldenRatio)};">${(it.goldenRatio || 0).toFixed(2)}</td>
+                  <td style="padding:10px 8px; text-align:right; color:#22c55e; font-weight:600;">${it.cpc > 0 ? '₩' + it.cpc.toLocaleString() : '<span style="color:#64748b;">-</span>'}</td>
+                  <td style="padding:10px 8px; text-align:center; white-space:nowrap;">
+                    <button onclick="navigator.clipboard.writeText('${safeKw}')" title="복사" style="padding:4px 7px; background:rgba(255,255,255,0.06); color:#cbd5e1; border:1px solid rgba(255,255,255,0.15); border-radius:5px; cursor:pointer; font-size:11px;">📋</button>
+                    <button onclick="lewordNaverSearch('${safeKw}')" title="네이버 검색" style="padding:4px 7px; background:rgba(255,255,255,0.06); color:#cbd5e1; border:1px solid rgba(255,255,255,0.15); border-radius:5px; cursor:pointer; font-size:11px; margin-left:2px;">🔍</button>
+                    <button onclick="lewordMindmapResearch('${safeKw}')" title="이 키워드로 마인드맵 재발굴 (확장 계속)" style="padding:4px 7px; background:linear-gradient(135deg,rgba(168,85,247,0.25),rgba(99,102,241,0.25)); color:#c4b5fd; border:1px solid rgba(168,85,247,0.45); border-radius:5px; cursor:pointer; font-size:11px; margin-left:2px; font-weight:700;">🔄</button>
+                    <button onclick="lewordShowTrendGraph('${safeKw}', ${Number(it.searchVolume) || 0})" title="30일 트렌드" style="padding:4px 7px; background:rgba(14,165,233,0.15); color:#67e8f9; border:1px solid rgba(14,165,233,0.4); border-radius:5px; cursor:pointer; font-size:11px; margin-left:2px;">📈</button>
+                  </td>
+                </tr>
+              `;
+            }).join('');
+
+            body.style.display = 'block';
+            body.style.padding = '0';
+            const depthBadgeMap = {
+              1: { bg: 'rgba(99,102,241,0.25)', color: '#a5b4fc', label: '🌱 1단계' },
+              2: { bg: 'rgba(168,85,247,0.25)', color: '#c4b5fd', label: '🌿 2단계' },
+              3: { bg: 'linear-gradient(135deg,#dc2626,#f59e0b)', color: '#fff', label: '🌳 3단계 (꼬리에 꼬리)' },
+              4: { bg: 'linear-gradient(135deg,#7c3aed,#ec4899)', color: '#fff', label: '🌲 4단계 (초롱테일)' },
+              5: { bg: 'linear-gradient(135deg,#dc2626,#7c3aed)', color: '#fff', label: '🎄 5단계 (끝판왕)' },
+            };
+            const db = depthBadgeMap[resp.depth] || depthBadgeMap[1];
+            const depthBadge = `<span style="background:${db.bg}; color:${db.color}; padding:3px 10px; border-radius:6px; font-size:10px; font-weight:800;">${db.label}</span>`;
+            const depthCountsArr = [];
+            for (let d = 1; d <= 5; d++) {
+              const c = resp.sources?.[`depth${d}`] || 0;
+              if (c > 0) depthCountsArr.push(`D${d}:${c}`);
+            }
+            const depthCounts = `<span style="font-size:10px; color:rgba(255,255,255,0.5);">${depthCountsArr.join(' · ')} · 후보 ${resp.sources?.totalCandidates || 0}</span>`;
+            body.innerHTML = `
+              <div style="padding:14px 18px; display:flex; align-items:center; gap:10px; flex-wrap:wrap; border-bottom:1px solid rgba(255,255,255,0.08);">
+                <span style="font-size:14px; font-weight:800; color:#fff;">${items.length}건 발굴</span>
+                ${depthBadge}
+                ${Object.entries(counts).filter(([_, c]) => c > 0).map(([g, c]) => `<span style="background:${gradeColor[g] || '#64748b'}; color:#fff; padding:2px 8px; border-radius:5px; font-size:10px; font-weight:800;">${g} ${c}</span>`).join('')}
+                <span style="margin-left:auto; ${''}">${depthCounts}</span>
+              </div>
+              <div style="overflow-x:auto;">
+                <table style="width:100%; border-collapse:collapse; font-size:13px;">
+                  <thead>
+                    <tr style="background:rgba(168,85,247,0.10); border-bottom:1px solid rgba(168,85,247,0.25);">
+                      <th style="padding:10px 8px; text-align:left; color:#a78bfa; font-size:11px; font-weight:700;">#</th>
+                      <th style="padding:10px 8px; text-align:center; color:#a78bfa; font-size:11px; font-weight:700;">등급</th>
+                      <th style="padding:10px 8px; text-align:left; color:#a78bfa; font-size:11px; font-weight:700;">키워드</th>
+                      <th style="padding:10px 8px; text-align:right; color:#a78bfa; font-size:11px; font-weight:700;">검색량</th>
+                      <th style="padding:10px 8px; text-align:right; color:#a78bfa; font-size:11px; font-weight:700;">문서수</th>
+                      <th style="padding:10px 8px; text-align:right; color:#a78bfa; font-size:11px; font-weight:700;">황금비율</th>
+                      <th style="padding:10px 8px; text-align:right; color:#a78bfa; font-size:11px; font-weight:700;">CPC</th>
+                      <th style="padding:10px 8px; text-align:center; color:#a78bfa; font-size:11px; font-weight:700;">액션</th>
+                    </tr>
+                  </thead>
+                  <tbody>${rows}</tbody>
+                </table>
+              </div>
+            `;
+            // v2.42.44: 결과 완료 플래그 + 시드 보관 (최소화 dock 표시용)
+            modal.dataset.completed = 'true';
+            modal.dataset.seed = seed;
+            modal.dataset.itemCount = String(items.length);
+            // v2.42.49: 엑셀 저장용 items 전역 보관 + 버튼 활성화
+            window.__lastMindmapItems = items;
+            window.__lastMindmapSeed = seed;
+            const excelBtn = document.getElementById('relatedKwExcelBtn');
+            if (excelBtn) excelBtn.style.display = 'inline-block';
+          } catch (err) {
+            const body = document.getElementById('relatedKwBody');
+            if (body) body.innerHTML = `<div style="color:#fca5a5; text-align:center;">❌ ${err?.message || err}</div>`;
+          }
+        };
+
+        // v2.42.49: 마인드맵 결과 엑셀 내보내기
+        window.exportMindmapToExcel = async function() {
+          const items = window.__lastMindmapItems || [];
+          const seed = window.__lastMindmapSeed || 'mindmap';
+          if (!items.length) {
+            alert('엑셀로 내보낼 마인드맵 결과가 없습니다.');
+            return;
+          }
+          try {
+            const payloadKeywords = items.map(it => ({
+              keyword: String(it.keyword || ''),
+              pcSearchVolume: null,
+              mobileSearchVolume: null,
+              totalSearchVolume: typeof it.searchVolume === 'number' ? it.searchVolume : null,
+              documentCount: typeof it.documentCount === 'number' ? it.documentCount : null,
+              competitionRatio: typeof it.goldenRatio === 'number' ? it.goldenRatio : null,
+            }));
+            const today = new Date().toISOString().slice(0, 10);
+            const safeSeed = String(seed).replace(/[\\/:*?"<>|]/g, '_');
+            const ipcResult = await window.electronAPI.invoke('export-keywords-to-excel', {
+              keywords: payloadKeywords,
+              filename: `마인드맵_${safeSeed}_${today}`,
+            });
+            if (ipcResult?.success) {
+              alert(`✅ 엑셀 저장 완료 (${items.length}개)\n경로: ${ipcResult.filePath || ''}`);
+            } else if (ipcResult?.message?.includes('취소')) {
+              console.log('[MINDMAP-EXCEL] 사용자 취소');
+            } else {
+              throw new Error(ipcResult?.error || '알 수 없는 오류');
+            }
+          } catch (err) {
+            console.error('[MINDMAP-EXCEL] 실패:', err);
+            alert('엑셀 저장 실패: ' + (err?.message || err));
+          }
+        };
+
+        // v2.42.54: 내 도메인 화이트리스트 관리 모달
+        window.openUserWhitelistModal = async function() {
+          document.getElementById('userWhitelistModal')?.remove();
+          const modal = document.createElement('div');
+          modal.id = 'userWhitelistModal';
+          modal.style.cssText = 'position:fixed; inset:0; background:rgba(0,0,0,0.85); backdrop-filter:blur(8px); z-index:10200; display:flex; align-items:center; justify-content:center; padding:20px;';
+          modal.innerHTML = `
+            <div style="background:linear-gradient(135deg,#0f172a 0%,#1e1b4b 100%); border-radius:18px; padding:28px; max-width:600px; width:100%; box-shadow:0 25px 80px rgba(0,0,0,0.6); border:2px solid rgba(168,85,247,0.4);">
+              <div style="display:flex; justify-content:space-between; align-items:flex-start; margin-bottom:16px;">
+                <div>
+                  <h2 style="margin:0 0 4px 0; font-size:20px; font-weight:800; color:#c4b5fd;">🛟 내 도메인 키워드 관리</h2>
+                  <p style="margin:0; font-size:12px; color:rgba(255,255,255,0.6);">여기 등록된 키워드는 차단 게이트를 모두 우회하고 결과에 포함됩니다.<br>본인 블로그 분야의 전문어/브랜드/제품명 등 (한 줄당 1개)</p>
+                </div>
+                <button onclick="document.getElementById('userWhitelistModal').remove()" style="background:rgba(255,255,255,0.1); border:none; border-radius:8px; color:#fff; width:32px; height:32px; cursor:pointer; font-size:16px;">✕</button>
+              </div>
+              <textarea id="userWhitelistText" placeholder="예시:&#10;임플란트&#10;도수치료&#10;뉴발란스 327&#10;디카페인 콜드브루&#10;..." style="width:100%; min-height:240px; max-height:400px; padding:12px; border:2px solid rgba(168,85,247,0.3); border-radius:10px; background:rgba(15,23,42,0.8); color:#fff; font-size:14px; resize:vertical; outline:none; box-sizing:border-box; font-family:monospace;"></textarea>
+              <div style="display:flex; justify-content:space-between; align-items:center; margin-top:14px;">
+                <span id="userWhitelistCount" style="font-size:11px; color:rgba(255,255,255,0.55);">로딩 중...</span>
+                <div style="display:flex; gap:8px;">
+                  <button onclick="document.getElementById('userWhitelistModal').remove()" style="padding:10px 18px; background:rgba(255,255,255,0.08); color:#fff; border:1px solid rgba(255,255,255,0.15); border-radius:8px; cursor:pointer; font-size:13px;">취소</button>
+                  <button onclick="saveUserWhitelist()" style="padding:10px 22px; background:linear-gradient(135deg,#a855f7,#6366f1); color:#fff; border:none; border-radius:8px; cursor:pointer; font-size:13px; font-weight:700;">💾 저장</button>
+                </div>
+              </div>
+            </div>
+          `;
+          document.body.appendChild(modal);
+          // 기존 화이트리스트 로드
+          try {
+            const resp = await window.electronAPI.invoke('get-user-whitelist');
+            const ta = document.getElementById('userWhitelistText');
+            if (resp?.success && Array.isArray(resp.words)) {
+              ta.value = resp.words.join('\n');
+              document.getElementById('userWhitelistCount').textContent = `현재 ${resp.words.length}개 등록`;
+            } else {
+              document.getElementById('userWhitelistCount').textContent = '비어있음';
+            }
+          } catch (e) {
+            document.getElementById('userWhitelistCount').textContent = '로드 실패';
+          }
+        };
+        window.saveUserWhitelist = async function() {
+          const ta = document.getElementById('userWhitelistText');
+          const raw = (ta?.value || '').split(/[\n,]+/).map(s => s.trim()).filter(Boolean);
+          try {
+            const resp = await window.electronAPI.invoke('set-user-whitelist', raw);
+            if (resp?.success) {
+              alert(`✅ ${resp.count}개 저장됨. 다음 발굴부터 자동 적용됩니다.`);
+              document.getElementById('userWhitelistModal')?.remove();
+            } else {
+              alert('저장 실패: ' + (resp?.error || '?'));
+            }
+          } catch (e) {
+            alert('저장 실패: ' + (e?.message || e));
+          }
+        };
+
+        // v2.42.45: 마인드맵 행의 🔄 = 그 키워드로 마인드맵 재발굴 (확장 계속)
+        window.lewordMindmapResearch = function(kw) {
+          const input = document.getElementById('keywordInput');
+          if (input) input.value = kw;
+          // 기존 모달/dock 완전 제거 후 새 발굴
+          document.getElementById('relatedKwModal')?.remove();
+          document.getElementById('relatedKwMinimizedDock')?.remove();
+          // openRelatedKeywordModal 호출
+          if (typeof window.openRelatedKeywordModal === 'function') {
+            window.openRelatedKeywordModal();
+          }
+        };
+
+        // v2.42.44: 마인드맵 모달 최소화 — 결과 보존 + 우하단 dock 표시
+        window.minimizeRelatedKeywordModal = function() {
+          const modal = document.getElementById('relatedKwModal');
+          if (!modal) return;
+          modal.style.display = 'none';
+
+          // 기존 dock 있으면 제거 후 재생성
+          document.getElementById('relatedKwMinimizedDock')?.remove();
+          const seed = modal.dataset.seed || '';
+          const itemCount = modal.dataset.itemCount || '0';
+
+          const dock = document.createElement('div');
+          dock.id = 'relatedKwMinimizedDock';
+          dock.style.cssText = 'position:fixed; bottom:24px; right:24px; z-index:9999; background:linear-gradient(135deg,#a855f7 0%,#6366f1 100%); color:#fff; padding:12px 18px; border-radius:14px; box-shadow:0 8px 28px rgba(168,85,247,0.45); cursor:pointer; display:flex; align-items:center; gap:10px; font-weight:700; font-size:13px; transition:transform 0.2s;';
+          dock.onmouseenter = () => { dock.style.transform = 'translateY(-3px)'; };
+          dock.onmouseleave = () => { dock.style.transform = 'translateY(0)'; };
+          dock.innerHTML = `
+            <span style="font-size:18px;">🔗</span>
+            <div style="display:flex; flex-direction:column; line-height:1.2;">
+              <span style="font-size:11px; opacity:0.85;">마인드맵 결과 (클릭=복원)</span>
+              <span><strong>${seed}</strong> · ${itemCount}건</span>
+            </div>
+            <button onclick="event.stopPropagation(); document.getElementById('relatedKwModal')?.remove(); document.getElementById('relatedKwMinimizedDock')?.remove();" title="결과 삭제" style="background:rgba(255,255,255,0.18); border:none; border-radius:8px; color:#fff; width:24px; height:24px; cursor:pointer; font-size:12px; margin-left:6px;">✕</button>
+          `;
+          dock.addEventListener('click', () => {
+            const m = document.getElementById('relatedKwModal');
+            if (m) m.style.display = 'flex';
+            dock.remove();
+          });
+          document.body.appendChild(dock);
+        };
+
+        // v2.42.36: searchKeyword — 메인 입력 필드(#keywordInput)에 키워드 채우고 메인 발굴 버튼(#discoveryBtn) 클릭
+        //   기존 querySelector('.keyword-input-section input') 은 첫 번째 input 만 찾아 수식어/마인드맵 input 으로 잘못 잡힐 위험.
+        //   ID 직접 지정으로 정확성 보장.
+        function searchKeyword(keyword, autoTrigger = false) {
+          // 열려있는 모달 모두 닫기
+          try { if (typeof closeModal === 'function') closeModal(); } catch {}
+          try { document.getElementById('relatedKwModal')?.remove(); } catch {}
+          try { document.getElementById('rfTrendModal')?.remove(); } catch {}
+          try { document.getElementById('naverHomeHunterModal')?.remove(); } catch {}
+          try { if (typeof unlockBodyScroll === 'function') unlockBodyScroll(); } catch {}
+
+          const keywordInput = document.getElementById('keywordInput');
+          if (!keywordInput) {
+            console.warn('[LEWORD] #keywordInput 요소를 찾지 못함');
+            return;
+          }
+
+          // 값 채우기 + input 이벤트 트리거 (React/Vue 같은 프레임워크 대응 — 현재 vanilla지만 안전)
+          keywordInput.value = keyword;
+          keywordInput.dispatchEvent(new Event('input', { bubbles: true }));
+          keywordInput.dispatchEvent(new Event('change', { bubbles: true }));
+          keywordInput.focus();
+          keywordInput.scrollIntoView({ behavior: 'smooth', block: 'center' });
+
+          // v2.42.36: autoTrigger — 메인 발굴 버튼 정확히 ID로 클릭
+          if (autoTrigger) {
+            setTimeout(() => {
+              const discoveryBtn = document.getElementById('discoveryBtn');
+              if (discoveryBtn && !discoveryBtn.disabled) {
+                discoveryBtn.click();
+                console.log('[LEWORD] 🔄 자동 재검색 트리거:', keyword);
+              } else if (typeof window.startKeywordDiscovery === 'function') {
+                // discoveryBtn 못 찾으면 함수 직접 호출
+                window.startKeywordDiscovery();
+                console.log('[LEWORD] 🔄 startKeywordDiscovery() 직접 호출:', keyword);
+              } else {
+                console.warn('[LEWORD] 재검색 진입점을 찾지 못함');
+              }
+            }, 350);
           }
         }
 
@@ -11440,6 +11879,16 @@
               if (manusInput) manusInput.value = manusValue;
             } catch (e) { /* Manus 필드 없음 (구버전 UI) */ }
 
+            // v2.42.55: 쿠팡 파트너스 키 로드
+            try {
+              const cAccess = document.getElementById('keywordCoupangAccessKey');
+              const cSecret = document.getElementById('keywordCoupangSecretKey');
+              const cSub = document.getElementById('keywordCoupangSubId');
+              if (cAccess) cAccess.value = apiKeys.coupangAccessKey || '';
+              if (cSecret) cSecret.value = apiKeys.coupangSecretKey || '';
+              if (cSub) cSub.value = apiKeys.coupangSubId || '';
+            } catch (e) { /* 쿠팡 필드 없음 */ }
+
             console.log('[KEYWORD-SETTINGS] 설정 로드 완료:', {
               naver: { hasId: !!naverIdInput?.value, hasSecret: !!naverSecretInput?.value },
               youtube: { hasKey: !!youtubeKeyInput?.value },
@@ -11533,6 +11982,11 @@
             const aiModeRadio = document.querySelector('input[name="aiInferenceMode"]:checked');
             const manusKeyInput = document.getElementById('keywordManusApiKey');
 
+            // v2.42.55: 쿠팡 파트너스 (쇼핑 커넥트 재설계 Phase 1)
+            const coupangAccessInput = document.getElementById('keywordCoupangAccessKey');
+            const coupangSecretInput = document.getElementById('keywordCoupangSecretKey');
+            const coupangSubInput = document.getElementById('keywordCoupangSubId');
+
             const settings = {
               naverClientId: naverIdInput?.value?.trim() || '',
               naverClientSecret: naverSecretInput?.value?.trim() || '',
@@ -11543,6 +11997,9 @@
               anthropicApiKey: anthropicKeyInput?.value?.trim() || '',
               aiInferenceMode: aiModeRadio?.value || 'auto',
               manusApiKey: manusKeyInput?.value?.trim() || '',
+              coupangAccessKey: coupangAccessInput?.value?.trim() || '',
+              coupangSecretKey: coupangSecretInput?.value?.trim() || '',
+              coupangSubId: coupangSubInput?.value?.trim() || '',
             };
 
             console.log('[KEYWORD-SETTINGS] 저장할 설정:', {
@@ -12734,7 +13191,7 @@
 
           const modal = document.createElement('div');
           modal.id = 'shoppingConnectModal';
-          modal.style.cssText = 'position:fixed;top:0;left:0;width:100%;height:100%;background:rgba(0,0,0,0.75);backdrop-filter:blur(8px);z-index:10000;display:flex;justify-content:center;align-items:flex-start;padding:20px;overflow-y:auto;';
+          modal.style.cssText = 'position:fixed;top:0;left:0;width:100%;height:100%;background:rgba(0,0,0,0.75);backdrop-filter:blur(8px);z-index:10100;display:flex;justify-content:center;align-items:flex-start;padding:20px;overflow-y:auto;';
 
           modal.innerHTML = `
             <style>
@@ -13193,28 +13650,33 @@
                  </div>`
               : '';
 
-            html += `
-              <div style="background:linear-gradient(135deg, rgba(3,199,90,0.06), rgba(3,199,90,0.02));border:1px solid rgba(3,199,90,0.22);border-radius:14px;padding:18px;margin-bottom:18px;">
-                <div style="font-size:15px;font-weight:800;color:#34d399;margin-bottom:14px;display:flex;align-items:center;gap:8px;">🔍 키워드 인사이트 <span style="font-size:11px;color:rgba(255,255,255,0.5);font-weight:500;">(칩 클릭 시 복사)</span></div>
-                ${compHtml}
-                ${longtailHtml}
-                ${intentExpHtml}
-                ${crossHtml}
-                ${categoryHtml}
-                ${brandHtml}
-                ${tierHtml}
-              </div>
-            `;
-
+            // v2.42.55 Phase 4 UX: 제품 카드 최상단으로 — 인사이트는 collapsible 하단으로
             if (reco.length > 0) {
               const partnersBadge = res.partnersEnabled
                 ? '<span style="margin-left:8px;padding:3px 8px;background:rgba(255,87,34,0.25);color:#ff8a65;border-radius:6px;font-size:10px;font-weight:700;">🛒 쿠팡파트너스 트래킹 링크</span>'
-                : '';
-              const banner = `💎 <b>전환 중심 추천 ${reco.length}개</b> — 쿠팡+2~7만원+리뷰/브랜드 시그널 종합 스코어${partnersBadge}`;
-              html += `<div class="sc-reco-banner">${banner}</div><div class="sc-grid" style="margin-bottom:20px;">${reco.map(renderShoppingCard).join('')}</div><div style="border-top:1px solid rgba(255,255,255,0.05);margin:20px 0;padding-top:16px;"><div style="font-size:13px;color:rgba(255,255,255,0.6);margin-bottom:10px;">📋 전체 검색 결과 ${items.length}개</div></div>`;
+                : '<span style="margin-left:8px;padding:3px 8px;background:rgba(251,146,60,0.18);color:#fb923c;border-radius:6px;font-size:10px;font-weight:700;cursor:pointer;" onclick="closeShoppingConnectModal();openSettings();">⚠️ 쿠팡 파트너스 키 없음 — 클릭해 등록</span>';
+              const banner = `💎 <b>전환 중심 추천 ${reco.length}개</b> — 글 작성에 사용하세요${partnersBadge}`;
+              html += `<div class="sc-reco-banner" style="margin-bottom:14px;">${banner}</div><div class="sc-grid" style="margin-bottom:24px;">${reco.map(renderShoppingCard).join('')}</div>`;
             }
 
+            html += `<div style="font-size:13px;color:rgba(255,255,255,0.6);margin:24px 0 10px;font-weight:700;">📋 전체 검색 결과 ${items.length}개</div>`;
             html += `<div class="sc-grid">${items.map(renderShoppingCard).join('')}</div>`;
+
+            // 인사이트는 결과 하단에 collapsible 로 (제품에 집중)
+            html += `
+              <details style="margin-top:28px; background:linear-gradient(135deg, rgba(3,199,90,0.06), rgba(3,199,90,0.02));border:1px solid rgba(3,199,90,0.22);border-radius:14px; padding:14px 18px;">
+                <summary style="font-size:14px;font-weight:800;color:#34d399;cursor:pointer; user-select:none;">🔍 키워드 인사이트 (펼치기) <span style="font-size:11px;color:rgba(255,255,255,0.5);font-weight:500;">— 경쟁도/롱테일/카테고리/브랜드/가격대</span></summary>
+                <div style="margin-top:14px;">
+                  ${compHtml}
+                  ${longtailHtml}
+                  ${intentExpHtml}
+                  ${crossHtml}
+                  ${categoryHtml}
+                  ${brandHtml}
+                  ${tierHtml}
+                </div>
+              </details>
+            `;
 
             // 더보기 버튼 (아직 남은 상품 있을 때만)
             if (window.__scPaging.hasMore) {
@@ -13288,6 +13750,32 @@
             }
             html += '</tbody></table>';
             navigator.clipboard.writeText(html).then(() => alert('HTML 비교표 복사됨! 블로그 에디터 HTML 모드에 붙여넣기하세요.'));
+          }
+        };
+
+        // v2.42.56 Phase 5: 피드백 루프 — 👍/👎 클릭 시 추천 품질 학습 데이터 저장
+        window.sendScFeedback = async function(productId, type, btn) {
+          try {
+            const item = (window.__scPaging?.items || []).find(i => i.productId === productId);
+            const keyword = window.__scPaging?.keyword || '';
+            await window.electronAPI.invoke('shopping-connect-feedback', {
+              keyword,
+              productId,
+              type, // 'helpful' | 'bad'
+              title: item?.title || '',
+              mallName: item?.mallName || '',
+              lprice: item?.lprice || 0,
+              category1: item?.category1 || '',
+              conversionScore: item?.conversionScore || 0,
+              scoreBreakdown: item?.scoreBreakdown || {},
+              timestamp: Date.now(),
+            });
+            // 즉시 UI 피드백
+            btn.style.opacity = '0.4';
+            btn.innerHTML = type === 'helpful' ? '✓' : '✓';
+            btn.disabled = true;
+          } catch (e) {
+            console.warn('[sc-feedback] 실패:', e?.message);
           }
         };
 
@@ -13371,6 +13859,8 @@
                 ${safeCoupang ? `<button class="sc-mini-btn" style="background:rgba(255,87,34,0.15);color:#ff8a65;border-color:rgba(255,87,34,0.3);" onclick="window.electronAPI?.invoke('open-external-url', '${safeCoupang}');">🛒 쿠팡</button>` : ''}
                 <button class="sc-mini-btn sc-select-btn" style="${selectBtnStyle}" onclick="toggleScSelect('${productIdSafe}', this);">${isSelected ? '✓ 선택됨' : '＋ 선택'}</button>
                 <button class="sc-mini-btn" title="제품명만 복사 (검색용)" onclick="copyProductName('${productIdSafe}', this);">📋 제품명</button>
+                <button class="sc-mini-btn" title="이 추천 도움됐어요" style="background:rgba(34,197,94,0.12);color:#86efac;border-color:rgba(34,197,94,0.3);" onclick="sendScFeedback('${productIdSafe}', 'helpful', this);">👍</button>
+                <button class="sc-mini-btn" title="이 추천 별로였어요" style="background:rgba(239,68,68,0.10);color:#fca5a5;border-color:rgba(239,68,68,0.25);" onclick="sendScFeedback('${productIdSafe}', 'bad', this);">👎</button>
               </div>
             </div>
           `;
@@ -13578,7 +14068,7 @@
         height: 100%;
         background: rgba(0,0,0,0.7);
         backdrop-filter: blur(8px);
-        z-index: 10000;
+        z-index: 10100;
         display: flex;
         justify-content: center;
         align-items: flex-start;
@@ -14604,7 +15094,7 @@
 
           const modal = document.createElement('div');
           modal.id = 'adsenseHunterModal';
-          modal.style.cssText = 'display: flex; position: fixed; top: 0; left: 0; width: 100%; height: 100%; background: rgba(0, 0, 0, 0.85); z-index: 10000; backdrop-filter: blur(8px); overflow-y: auto; padding: 20px; box-sizing: border-box; align-items: flex-start; justify-content: center;';
+          modal.style.cssText = 'display: flex; position: fixed; top: 0; left: 0; width: 100%; height: 100%; background: rgba(0, 0, 0, 0.85); z-index: 10100; backdrop-filter: blur(8px); overflow-y: auto; padding: 20px; box-sizing: border-box; align-items: flex-start; justify-content: center;';
 
           modal.innerHTML = `
             <div style="background: linear-gradient(135deg, #0f172a 0%, #1e293b 100%); border-radius: 24px; padding: 32px; max-width: 1000px; width: 100%; margin: 20px auto; box-shadow: 0 25px 80px rgba(0,0,0,0.6); border: 2px solid rgba(66, 133, 244, 0.3); position: relative; max-height: calc(100vh - 40px); overflow-y: auto;">
@@ -14759,16 +15249,17 @@
 
           const modal = document.createElement('div');
           modal.id = 'naverHomeHunterModal';
-          modal.style.cssText = 'display: flex; position: fixed; top: 0; left: 0; width: 100%; height: 100%; background: rgba(0, 0, 0, 0.85); z-index: 10000; backdrop-filter: blur(8px); overflow-y: auto; padding: 20px; box-sizing: border-box; align-items: flex-start; justify-content: center;';
+          modal.style.cssText = 'display: flex; position: fixed; top: 0; left: 0; width: 100%; height: 100%; background: rgba(0, 0, 0, 0.85); z-index: 10100; backdrop-filter: blur(8px); overflow-y: auto; padding: 20px; box-sizing: border-box; align-items: flex-start; justify-content: center;';
 
           modal.innerHTML = `
             <div style="background: linear-gradient(135deg, #0f172a 0%, #1e293b 100%); border-radius: 24px; padding: 32px; max-width: 1000px; width: 100%; margin: 20px auto; box-shadow: 0 25px 80px rgba(0,0,0,0.6); border: 2px solid rgba(3, 199, 90, 0.4); position: relative; max-height: calc(100vh - 40px); overflow-y: auto;">
               <button onclick="closeNaverHomeHunterModal()" style="position: absolute; top: 16px; right: 16px; width: 40px; height: 40px; background: rgba(255,255,255,0.1); border: none; border-radius: 50%; color: white; font-size: 20px; cursor: pointer; display: flex; align-items: center; justify-content: center; z-index: 10;">✕</button>
 
               <div style="text-align: center; margin-bottom: 24px;">
-                <div style="display:inline-block; background: linear-gradient(135deg, #ef4444, #dc2626); padding: 6px 16px; border-radius: 20px; font-size: 12px; font-weight: 800; color: white; margin-bottom: 12px;">🆕 NEW · 네이버 홈판 노출 특화</div>
-                <h2 style="font-size: 28px; font-weight: 800; background: linear-gradient(135deg, #03c75a 0%, #00b04f 100%); -webkit-background-clip: text; -webkit-text-fill-color: transparent; margin: 0 0 8px 0;">🏠 네이버 홈판 키워드 헌터</h2>
-                <p style="font-size: 14px; color: rgba(255,255,255,0.7); margin: 0;">키워드+제목이 홈판 노출의 70~80% — homeScore · CTR 12 패턴 · 빈자리 감지</p>
+                <div style="display:inline-block; background: linear-gradient(135deg, #ef4444, #dc2626); padding: 6px 16px; border-radius: 20px; font-size: 12px; font-weight: 800; color: white; margin-bottom: 12px;">🆕 검색 1페이지 진입 후보 발굴</div>
+                <h2 style="font-size: 28px; font-weight: 800; background: linear-gradient(135deg, #03c75a 0%, #00b04f 100%); -webkit-background-clip: text; -webkit-text-fill-color: transparent; margin: 0 0 8px 0;">🏠 네이버 검색 진입 키워드 헌터</h2>
+                <p style="font-size: 14px; color: rgba(255,255,255,0.7); margin: 0;">검색 1페이지 진입 가능성 높은 키워드 후보 — CTR 12 패턴 · 신선도 · 빈자리 종합</p>
+                <p style="font-size: 11px; color: rgba(255,255,255,0.45); margin: 8px 0 0; line-height:1.5;">⚠️ 점수는 도구 기준 추정값입니다. 실제 검색 노출은 블로그 도메인 권위 × 콘텐츠 품질 × 검색 의도 매칭에 좌우됩니다.</p>
               </div>
 
               <div style="background: rgba(3,199,90,0.08); border-radius: 12px; padding: 14px; margin-bottom: 18px; border: 1px solid rgba(3,199,90,0.25);">
@@ -14793,16 +15284,45 @@
                   <label style="font-size:13px; font-weight:700; color:#22c55e; display:block; margin-bottom:8px;">📁 블로그 카테고리 (C-Rank 가산)</label>
                   <select id="homeBlogCategory" style="width:100%; padding:12px 14px; border:2px solid rgba(3,199,90,0.3); border-radius:10px; font-size:14px; background:rgba(15,23,42,0.8); color:white; cursor:pointer; outline:none;">
                     <option value="">자동 (미지정)</option>
-                    <option value="beauty">💄 뷰티</option>
-                    <option value="fashion">👗 패션</option>
-                    <option value="food">🍱 음식</option>
-                    <option value="recipe">🍳 레시피</option>
-                    <option value="parenting">👶 육아</option>
-                    <option value="health">💪 건강</option>
-                    <option value="living">🛏️ 리빙</option>
-                    <option value="travel">✈️ 여행</option>
-                    <option value="it">💻 IT</option>
-                    <option value="pet">🐶 반려동물</option>
+                    <optgroup label="일상·리빙">
+                      <option value="beauty">💄 뷰티</option>
+                      <option value="fashion">👗 패션</option>
+                      <option value="food">🍱 음식</option>
+                      <option value="recipe">🍳 레시피</option>
+                      <option value="living">🛏️ 리빙·홈데코</option>
+                      <option value="interior">🛋️ 인테리어</option>
+                      <option value="parenting">👶 육아</option>
+                      <option value="pet">🐶 반려동물</option>
+                      <option value="health">💪 건강·운동</option>
+                      <option value="garden">🌱 원예·식물</option>
+                    </optgroup>
+                    <optgroup label="이슈·연예">
+                      <option value="issue">🔥 이슈·트렌드</option>
+                      <option value="celebrity">🌟 스타·연예</option>
+                    </optgroup>
+                    <optgroup label="비즈니스·재테크">
+                      <option value="finance">💰 재테크·투자</option>
+                      <option value="career">💼 직장·창업</option>
+                      <option value="realestate">🏡 부동산</option>
+                    </optgroup>
+                    <optgroup label="라이프·취미">
+                      <option value="travel">✈️ 여행</option>
+                      <option value="camping">⛺ 캠핑·아웃도어</option>
+                      <option value="hobby">📷 사진·취미</option>
+                      <option value="wedding">💍 결혼·예식</option>
+                      <option value="car">🚗 자동차</option>
+                    </optgroup>
+                    <optgroup label="콘텐츠·엔터">
+                      <option value="entertainment">🎬 영화·드라마</option>
+                      <option value="music">🎵 음악</option>
+                      <option value="book">📖 책·독서</option>
+                      <option value="game">🎮 게임</option>
+                      <option value="sports">⚽ 스포츠</option>
+                    </optgroup>
+                    <optgroup label="기술·교육">
+                      <option value="it">💻 IT·디지털</option>
+                      <option value="education">📚 교육·입시</option>
+                    </optgroup>
                   </select>
                 </div>
               </div>
@@ -14852,15 +15372,58 @@
                 </label>
               </div>
 
+              <!-- v2.42.59: 블로그 권위 입력 (실제 노출 확률 보정) -->
+              <details style="margin-bottom: 16px; padding: 14px; background: rgba(168, 85, 247, 0.06); border: 1px solid rgba(168, 85, 247, 0.25); border-radius: 12px;">
+                <summary style="cursor:pointer; font-size:13px; font-weight:700; color:#c4b5fd; user-select:none;">📊 내 블로그 정보 (입력하면 실제 노출 확률 보정) <span style="color:rgba(255,255,255,0.5); font-weight:500; font-size:11px;">— 같은 점수라도 블로그 권위에 따라 다른 결과</span></summary>
+                <div style="margin-top:12px; display:grid; grid-template-columns: 1fr 1fr 1fr; gap:10px;">
+                  <label style="display:flex; flex-direction:column; gap:4px;">
+                    <span style="font-size:11px; color:rgba(255,255,255,0.75);">일평균 방문자</span>
+                    <input type="number" id="blogVisitors" min="0" placeholder="예: 500" style="padding:8px 10px; background:rgba(15,23,42,0.7); border:1px solid rgba(168,85,247,0.3); border-radius:6px; color:white; font-size:13px;">
+                  </label>
+                  <label style="display:flex; flex-direction:column; gap:4px;">
+                    <span style="font-size:11px; color:rgba(255,255,255,0.75);">운영 일수</span>
+                    <input type="number" id="blogOpDays" min="0" placeholder="예: 365 (1년)" style="padding:8px 10px; background:rgba(15,23,42,0.7); border:1px solid rgba(168,85,247,0.3); border-radius:6px; color:white; font-size:13px;">
+                  </label>
+                  <label style="display:flex; flex-direction:column; gap:4px;">
+                    <span style="font-size:11px; color:rgba(255,255,255,0.75);">주제 일관성 (0~100%)</span>
+                    <input type="number" id="blogConsistency" min="0" max="100" placeholder="예: 70" style="padding:8px 10px; background:rgba(15,23,42,0.7); border:1px solid rgba(168,85,247,0.3); border-radius:6px; color:white; font-size:13px;">
+                  </label>
+                </div>
+                <div style="margin-top:8px; font-size:11px; color:rgba(255,255,255,0.55); line-height:1.5;">
+                  💡 신생 블로그(일 30 미만): 0.3× / 성장기(100+): 0.7× / 안정(500+): 1.0× / 베테랑(1000+): 1.2× / 최상위(5000+): 1.5×. 미입력 시 1.0× (중립).
+                </div>
+              </details>
+
               <button id="homeHuntBtn" onclick="huntNaverHomeKeywords()" style="width:100%; padding:14px; background:linear-gradient(135deg, #03c75a 0%, #00b04f 100%); border:none; border-radius:12px; color:white; font-size:15px; font-weight:800; cursor:pointer; margin-bottom:16px; box-shadow:0 4px 20px rgba(3,199,90,0.4);">
-                🏠 홈판 키워드 헌팅 시작
+                🏠 검색 진입 키워드 발굴 시작
               </button>
 
               <div id="homeHunterResults"></div>
             </div>
           `;
           document.body.appendChild(modal);
+          // v2.42.59: 블로그 권위 localStorage 로드
+          try {
+            const auth = JSON.parse(localStorage.getItem('lewordBlogAuthority') || '{}');
+            if (auth.monthlyVisitors != null) document.getElementById('blogVisitors').value = auth.monthlyVisitors;
+            if (auth.operationDays != null) document.getElementById('blogOpDays').value = auth.operationDays;
+            if (auth.topicConsistency != null) document.getElementById('blogConsistency').value = Math.round(auth.topicConsistency * 100);
+          } catch {}
         }
+
+        // v2.42.59: 블로그 권위 입력값 → 정규화 객체
+        window.getBlogAuthorityInput = function() {
+          const v = parseInt(document.getElementById('blogVisitors')?.value || '0', 10);
+          const d = parseInt(document.getElementById('blogOpDays')?.value || '0', 10);
+          const c = parseInt(document.getElementById('blogConsistency')?.value || '0', 10);
+          const auth = {
+            monthlyVisitors: isNaN(v) ? 0 : v,
+            operationDays: isNaN(d) ? 0 : d,
+            topicConsistency: isNaN(c) ? 0 : Math.max(0, Math.min(100, c)) / 100,
+          };
+          try { localStorage.setItem('lewordBlogAuthority', JSON.stringify(auth)); } catch {}
+          return auth;
+        };
 
         function closeNaverHomeHunterModal() {
           const m = document.getElementById('naverHomeHunterModal');
@@ -14892,13 +15455,16 @@
 
           try {
             // Step 1: AdSense Hunter로 naver-home 카테고리 시드
+            // v2.42.31: requireRealData=true 이면 보조 시드(estimated 데이터)가 전부 차단되어
+            //   거의 항상 0건 반환 → builtin fallback 의존 → 2단계 verify에서 또 전멸.
+            //   false로 두면 1단계가 시드를 풀어주고, 2단계에서 sv/dc 직접 측정 + verify
             const adsenseResp = await window.electronAPI.invoke('hunt-adsense-keywords', {
               category: 'naver-home',
               excludeYmylHigh: false,
-              requireRealData: true,
+              requireRealData: false,
               blueOceanOnly: false,
               sortBy: 'value',
-              minInfoIntent: 40,
+              minInfoIntent: 30,
               minMonthlyRevenue: 0,
               count: Math.min(count * 2, 40),
             });
@@ -14919,28 +15485,288 @@
 
             let seedKeywords = (adsenseResp?.keywords || []).slice(0, count);
 
-            // 🛟 빌트인 fallback — 사전 검증된 시드만 사용 (단일명사/YMYL 위험 키워드 제거)
+            // v2.42.34: 1.5단계 — 동적 트렌딩 시드 (1단계 0건 + 빌트인 fallback 전 중간 단계)
+            //   "지금 폭증 중인 키워드 = 진짜 홈판 노출 후보" — 빌트인 시즌 키워드보다 우선
             if (seedKeywords.length === 0) {
-              const BUILTIN_HOME_SEEDS = [
-                // 5월 가정의달 (시즌 적합)
-                '어버이날 선물 추천 부모님 1만원대', '스승의날 선물 1만원대 추천',
-                '어린이날 가족 나들이 코스 수도권', '가정의달 외식 메뉴 추천 한식',
-                '5월 결혼식 하객룩 추천 여성', '초등학교 운동회 도시락 메뉴',
-                // 5월 환절기
-                '초여름 자외선 차단제 추천 민감성', '5월 환절기 알레르기 코막힘 해결',
-                '5월 제철 음식 두릅 요리 방법', '5월 캠핑 모기 차단 방법',
-                // 6월 장마 선행
-                '장마철 빨래 빨리 마르는 방법', '장마철 곰팡이 제거 꿀팁 욕실',
-                '6월 제습기 추천 원룸', '6월 모기 퇴치 방법 베란다',
-                // 생활 evergreen
-                '점심 메뉴 추천 직장인 도시락', '집밥 1주일 메뉴 추천 4인 가족',
-                '주방 수납 정리 다이소 활용', '거실 인테리어 셀프 꿀팁 5만원',
-                '욕실 곰팡이 제거 꿀팁 다이소', '커피머신 청소 꿀팁 식초 활용',
-              ];
-              seedKeywords = BUILTIN_HOME_SEEDS.slice(0, count).map(kw => ({
-                keyword: kw, searchVolume: 0, documentCount: 0, category: 'general', _builtin: true,
-              }));
-              console.log(`[HOME-HUNTER] AdSense 0건 → 검증된 빌트인 ${seedKeywords.length}개 시드로 fallback`);
+              try {
+                const trendingSeeds = [];
+                // 실시간 검색어 (Naver/Daum/Nate/Zum 통합)
+                const realtimeResp = await window.electronAPI.invoke('get-realtime-keywords', {
+                  platform: 'all', limit: 30,
+                }).catch(() => null);
+                if (realtimeResp?.success && Array.isArray(realtimeResp.keywords)) {
+                  for (const r of realtimeResp.keywords) {
+                    const kw = typeof r === 'string' ? r : (r.keyword || r.text || '');
+                    if (kw && kw.length >= 4 && !/(주식|코인|도박|투자|소송|판결|성폭|살인|자살|화재|폭발)/.test(kw)) {
+                      trendingSeeds.push({
+                        keyword: kw,
+                        searchVolume: 0, documentCount: 0,
+                        category: blogCategory || 'general',
+                        _trending: true, _source: 'realtime',
+                      });
+                    }
+                  }
+                }
+                // 네이버 트렌딩 (Datalab)
+                if (trendingSeeds.length < count) {
+                  const naverTrendResp = await window.electronAPI.invoke('get-trending-keywords', 'naver').catch(() => null);
+                  if (naverTrendResp?.success && Array.isArray(naverTrendResp.keywords)) {
+                    for (const r of naverTrendResp.keywords) {
+                      const kw = typeof r === 'string' ? r : (r.keyword || '');
+                      if (kw && kw.length >= 4 && !trendingSeeds.find(s => s.keyword === kw)) {
+                        trendingSeeds.push({
+                          keyword: kw,
+                          searchVolume: 0, documentCount: 0,
+                          category: blogCategory || 'general',
+                          _trending: true, _source: 'datalab',
+                        });
+                      }
+                    }
+                  }
+                }
+                if (trendingSeeds.length > 0) {
+                  seedKeywords = trendingSeeds.slice(0, count);
+                  console.log(`[HOME-HUNTER] AdSense 0건 → 동적 트렌딩 시드 ${seedKeywords.length}개 (실시간+Datalab)`);
+                }
+              } catch (e) {
+                console.warn('[HOME-HUNTER] 트렌딩 시드 수집 실패:', e?.message);
+              }
+            }
+
+            // v2.42.62: 카테고리 선택 시 동적 시드 시도 (Naver 자동완성 실시간 확장)
+            //   하드코딩 풀보다 우선 — 트렌드 반영
+            if (seedKeywords.length === 0 && blogCategory) {
+              try {
+                const dynResp = await window.electronAPI.invoke('home-hunter-category-seeds', {
+                  category: blogCategory, limit: Math.max(25, count),
+                });
+                if (dynResp?.success && Array.isArray(dynResp.seeds) && dynResp.seeds.length >= 10) {
+                  seedKeywords = dynResp.seeds.slice(0, count);
+                  console.log(`[HOME-HUNTER] 동적 카테고리 시드 ${seedKeywords.length}개 사용 (roots=${dynResp.roots?.length || 0}, expanded=${dynResp.expandedCount || 0})`);
+                }
+              } catch (e) {
+                console.warn('[HOME-HUNTER] 동적 시드 실패, 하드코딩 fallback:', e?.message);
+              }
+            }
+
+            // v2.42.60: 빌트인 fallback — 카테고리별 시드 풀 (사용자가 카테고리 선택하면 그 카테고리만)
+            if (seedKeywords.length === 0) {
+              // 13 카테고리 × 15~20 시드 = 200+ 키워드 풀
+              const CATEGORY_HOME_SEEDS = {
+                beauty: [
+                  '쿠션팩트 추천 민감성 30대 후기', '아이크림 추천 다크서클 30대',
+                  '선크림 추천 트러블 피부 민감성', '클렌징 오일 추천 건성 30대',
+                  '토너 패드 추천 각질 30대', '시트마스크 추천 가성비 1만원대',
+                  '앰플 추천 주름 30대 후기', '립밤 추천 보습 가성비',
+                  '쉐도우 팔레트 추천 가성비 데일리', '브로우 펜슬 추천 자연스러운',
+                  '컨실러 추천 다크서클 커버력', '파운데이션 추천 지성 여름',
+                  '메이크업 베이스 추천 모공 30대', '클렌징 폼 추천 민감성 30대',
+                  '향수 추천 여성 30대 데일리',
+                ],
+                fashion: [
+                  '뉴발란스 327 코디 30대 여자', '나이키 에어포스 코디 데일리',
+                  '아디다스 삼바 화이트 코디', '뉴발란스 530 화이트 코디',
+                  '여성 봄 자켓 추천 30대 가성비', '남자 셔츠 추천 30대 깔끔한',
+                  '여성 원피스 추천 결혼식 하객', '청바지 추천 여성 30대 슬림핏',
+                  '운동화 추천 데일리 가성비', '백팩 추천 직장인 노트북 15인치',
+                  '여성 가방 추천 데일리 가성비', '시계 추천 남자 30대 가성비',
+                  '안경 추천 남자 둥근 얼굴', '신발 추천 봄 가성비 데일리',
+                  '코디 추천 30대 봄 캐주얼',
+                ],
+                food: [
+                  '직장인 도시락 메뉴 1주일 추천', '4인 가족 집밥 1주일 메뉴',
+                  '간단한 저녁 메뉴 추천 평일', '점심 메뉴 추천 직장인 도시락',
+                  '아침 메뉴 추천 간단한 30대', '에어프라이어 요리 추천 간단',
+                  '집밥 레시피 추천 초보 30대', '한식 요리 추천 30대 가성비',
+                  '제철 음식 추천 5월 4인 가족', '간식 추천 다이어트 30대',
+                  '캠핑 요리 추천 간단 가족', '회식 추천 4인 가족 한식',
+                  '배달 추천 30대 가성비', '아이 간식 추천 4세 건강',
+                  '브런치 추천 주말 30대',
+                ],
+                living: [
+                  '거실 인테리어 셀프 5만원', '욕실 곰팡이 제거 다이소 셀프',
+                  '주방 수납 다이소 셀프', '베란다 인테리어 셀프 가성비',
+                  '6월 제습기 원룸 30대', '장마철 빨래 건조 원룸 직장인',
+                  '커피머신 청소 셀프', '주방 정리 4인 가족 1주일',
+                  '소형 가전 추천 원룸 1인 가구', '청소기 추천 30대 가성비',
+                  '에어컨 청소 셀프 다이소', '욕실 청소 셀프 1만원대',
+                  '인테리어 추천 신혼 1500만원', '거실 가구 추천 30대 가성비',
+                  '셀프 인테리어 추천 원룸 1인 가구',
+                ],
+                parenting: [
+                  '어버이날 선물 추천 부모님 1만원대', '스승의날 카네이션 1만원대',
+                  '어린이날 가족 나들이 수도권', '초등학교 운동회 도시락 메뉴',
+                  '신생아 분유 추천 100일', '이유식 추천 6개월 초기',
+                  '아기 카시트 추천 1세 가성비', '유아 도시락 추천 어린이집',
+                  '신혼 부부 가전 가성비', '아이 옷 추천 4세 봄',
+                  '아기 침대 추천 신생아 가성비', '유모차 추천 1세 가성비',
+                  '아이 장난감 추천 3세 발달', '학습지 추천 5세 한글',
+                  '어린이집 가방 추천 3세',
+                ],
+                health: [
+                  '5월 환절기 알레르기 코막힘', '비염 약 추천 30대 만성',
+                  '도수치료 가성비 30대 후기', '관절 영양제 추천 30대 무릎',
+                  '오메가3 추천 가성비 30대', '비타민D 추천 직장인 결핍',
+                  '루테인 추천 30대 눈건강', '프로바이오틱스 추천 가성비',
+                  '단백질 보충제 추천 30대 운동', '다이어트 보조제 추천 30대',
+                  '콜라겐 추천 30대 가성비', '마그네슘 추천 30대 다리저림',
+                  '운동 추천 30대 직장인 홈트', '요가 추천 초보 30대 다이어트',
+                  '실내자전거 추천 30대 가성비',
+                ],
+                finance: [
+                  '연말정산 환급 직장인 30대', '청년도약계좌 추천 30대 가입',
+                  '주택청약 1순위 조건 30대', '디딤돌대출 조건 신혼 1억',
+                  '연금저축 추천 30대 직장인', 'ETF 추천 초보 30대',
+                  '적금 추천 30대 5천만원', '신용카드 추천 30대 직장인',
+                  '실비보험 추천 30대 가성비', '암보험 추천 30대 가성비',
+                  '주식 초보 30대 추천', '재테크 추천 30대 1억',
+                  '소득공제 항목 30대 직장인', '연봉 협상 30대 직장인',
+                  '청년수당 신청 30대 조건',
+                ],
+                travel: [
+                  '제주도 여행 코스 3박4일 30대', '국내 여행지 추천 봄 30대 커플',
+                  '주말 당일치기 추천 수도권 30대', '강릉 여행 코스 2박3일 30대',
+                  '부산 여행 코스 2박3일 가족', '경주 여행 코스 1박2일 가족',
+                  '해외여행 추천 5월 가족 4인', '일본 여행 코스 3박4일 30대',
+                  '대만 여행 코스 3박4일 가성비', '동남아 여행 추천 5월 30대',
+                  '국내 호텔 추천 30대 가성비', '캠핑장 추천 수도권 가족',
+                  '글램핑 추천 30대 커플 가성비', '여행 가방 추천 3박4일 가성비',
+                  '여행 준비물 체크리스트 30대',
+                ],
+                it: [
+                  '맥북에어 M2 추천 30대 직장인', '아이폰15 프로 후기 30대',
+                  '갤럭시 S24 후기 30대 직장인', '에어팟 프로 2세대 후기',
+                  '갤럭시 워치 6 후기 30대', '게이밍 키보드 추천 가성비',
+                  '무선 마우스 추천 30대 직장인', '모니터 추천 27인치 30대',
+                  '노트북 추천 100만원 30대 직장인', '태블릿 추천 학생 가성비',
+                  '블루투스 스피커 추천 30대 가성비', '공기청정기 추천 30대 원룸',
+                  '로봇청소기 추천 30대 가성비', '무선 청소기 추천 30대 가성비',
+                  '인공지능 스피커 추천 30대',
+                ],
+                pet: [
+                  '강아지 사료 추천 소형견 가성비', '고양이 모래 추천 30대 가성비',
+                  '강아지 영양제 추천 관절 노견', '고양이 캣타워 추천 30대 원룸',
+                  '강아지 산책 줄 추천 가성비', '강아지 간식 추천 가성비 30대',
+                  '고양이 사료 추천 가성비 30대', '자동 급식기 추천 30대 가성비',
+                  '강아지 미용 추천 30대 가성비', '강아지 옷 추천 소형견 가을',
+                  '고양이 장난감 추천 30대 가성비', '강아지 하우스 추천 30대 원룸',
+                  '고양이 자동 화장실 추천 30대', '반려견 보험 추천 30대 가성비',
+                  '반려동물 캐리어 추천 가성비',
+                ],
+                camping: [
+                  '5월 캠핑 모기 차단 베란다', '캠핑 의자 추천 30대 가성비',
+                  '캠핑 테이블 추천 가성비 30대', '캠핑 텐트 추천 4인 가족',
+                  '캠핑 침낭 추천 봄 가성비', '랜턴 추천 캠핑 가성비',
+                  '캠핑 화목난로 추천 가성비', '캠핑 의자 추천 4인 가족',
+                  '캠핑 요리 도구 추천 4인 가족', '캠핑카 추천 30대 가성비',
+                  '캠핑장 추천 수도권 4인 가족', '캠핑 초보 준비물 체크리스트',
+                  '글램핑 추천 30대 가성비', '백패킹 가방 추천 30대 가성비',
+                  '낚시 입문 추천 30대',
+                ],
+                entertainment: [
+                  '넷플릭스 추천 드라마 30대', '디즈니플러스 추천 영화 30대',
+                  '왓챠 추천 한국 드라마 30대', '티빙 추천 예능 30대',
+                  '쿠팡플레이 추천 영화 30대', '유튜브 채널 추천 30대',
+                  '음악 추천 봄 감성 30대', '플레이리스트 추천 30대 직장인',
+                  '게임 추천 PC 30대 가성비', '닌텐도 스위치 게임 추천 가성비',
+                  '책 추천 30대 자기계발', '소설 추천 30대 봄 감성',
+                  '웹툰 추천 30대 직장인', '영화 추천 5월 가족 4인',
+                  '드라마 추천 5월 30대 여자',
+                ],
+                car: [
+                  '소형 SUV 추천 30대 가성비', '국산차 추천 30대 4인 가족',
+                  '중고차 시세 30대 1500만원', '하이브리드 차 추천 30대 가성비',
+                  '전기차 추천 30대 가성비', '제네시스 G70 후기 30대',
+                  '카니발 후기 30대 4인 가족', '쏘렌토 후기 30대 가족',
+                  '자동차 보험 추천 30대 가성비', '자동차 용품 추천 가성비',
+                  '블랙박스 추천 30대 가성비', '네비게이션 추천 30대 가성비',
+                  '타이어 추천 30대 가성비', '차박 추천 30대 가성비',
+                  '엔진오일 추천 30대 가성비',
+                ],
+                wedding: [
+                  '신혼 부부 가전 가성비', '5월 결혼식 하객룩 여성 30대',
+                  '신혼 살림 가성비 가전 추천', '예식장 추천 30대 100명',
+                  '웨딩 촬영 추천 30대 가성비', '신혼 여행 추천 5월 30대',
+                  '결혼 준비 체크리스트 30대', '예단 추천 30대 가성비',
+                  '예물 추천 30대 가성비', '청첩장 추천 30대 가성비',
+                  '신부 메이크업 추천 30대 가성비', '신부 드레스 추천 30대',
+                  '결혼 전 다이어트 30대', '신혼 인테리어 1500만원 30대',
+                  '결혼식 답례품 추천 30대',
+                ],
+                // v2.42.61: 이슈·트렌드 (정치/YMYL 회피, 일반 트렌드 토픽)
+                issue: [
+                  '오늘의 이슈 정리 5월 30대', '5월 핫이슈 트렌드 정리',
+                  '주말 즐길거리 추천 수도권 가족', '이번 주 행사 추천 5월',
+                  '5월 가볼만한 곳 수도권 데이트', '주말 카페 추천 수도권 30대',
+                  '5월 축제 추천 가족 4인', '주말 데이트 추천 수도권 봄',
+                  '5월 페스티벌 추천 30대 커플', '한강 데이트 코스 5월 30대',
+                  '드라이브 코스 추천 수도권 30대', '주말 나들이 추천 4인 가족',
+                  '5월 봄꽃 명소 추천 수도권', '주말 액티비티 추천 30대 커플',
+                  '5월 트렌드 키워드 정리 30대',
+                ],
+                // v2.42.61: 스타·연예 (인물명 직접 사용 X, 일반화 키워드)
+                celebrity: [
+                  '아이돌 굿즈 추천 가성비 팬덤', '걸그룹 무대 의상 코디 따라하기',
+                  'K-POP 콘서트 준비물 체크리스트', '아이돌 다이어트 식단 30대',
+                  '연예인 메이크업 따라하기 30대', '스타 데일리 룩 코디 30대 여자',
+                  '연예인 헤어 스타일링 30대', '아이돌 운동 루틴 홈트 30대',
+                  '드라마 OST 추천 30대 감성', '예능 추천 30대 주말 가족',
+                  'K-드라마 추천 30대 여자 감성', '아이돌 팬덤 굿즈 가격대',
+                  '연예인 다이어트 비법 30대', '스타들의 가방 추천 30대',
+                  'K-POP 안무 따라하기 초보 30대',
+                ],
+              };
+
+              const cat = (blogCategory || '').toLowerCase();
+              const poolForCat = CATEGORY_HOME_SEEDS[cat];
+              if (poolForCat && poolForCat.length > 0) {
+                // 카테고리 선택됨 → 그 카테고리 시드 풀만 사용
+                seedKeywords = poolForCat.slice(0, count).map(k => ({
+                  keyword: k, searchVolume: 0, documentCount: 0, category: cat, _builtin: true,
+                }));
+                console.log(`[HOME-HUNTER] 카테고리 "${cat}" 시드 풀 ${seedKeywords.length}개 사용`);
+              } else {
+                // 카테고리 미선택 → 모든 카테고리 골고루 (각 2~3개)
+                const mixed = [];
+                for (const [c, pool] of Object.entries(CATEGORY_HOME_SEEDS)) {
+                  for (const k of pool.slice(0, 2)) {
+                    mixed.push({ keyword: k, searchVolume: 0, documentCount: 0, category: c, _builtin: true });
+                  }
+                }
+                seedKeywords = mixed.slice(0, count);
+                console.log(`[HOME-HUNTER] 카테고리 미선택 → 13개 카테고리 골고루 ${seedKeywords.length}개`);
+              }
+            }
+
+            // v2.42.31: sv=0/dc=0 시드(빌트인 또는 추정값)는 Naver SearchAd API로 일괄 보강
+            //   keyword-value-verifier가 sv<100을 must-pass fail로 처리해서 자동 isKilled되므로
+            //   verify 호출 전에 실측 sv/dc로 갈아끼워줌
+            const needsEnrich = seedKeywords.filter(k => (k.searchVolume || 0) === 0 || (k.documentCount || 0) === 0);
+            if (needsEnrich.length > 0) {
+              try {
+                const enrichResp = await window.electronAPI.invoke('enrich-keywords-volume', {
+                  keywords: needsEnrich.map(k => k.keyword),
+                });
+                if (enrichResp?.success && Array.isArray(enrichResp.results)) {
+                  const map = new Map(enrichResp.results.map(r => [r.keyword, r]));
+                  seedKeywords = seedKeywords.map(k => {
+                    const e = map.get(k.keyword);
+                    if (!e) return k;
+                    return {
+                      ...k,
+                      searchVolume: e.searchVolume || k.searchVolume || 0,
+                      documentCount: e.documentCount || k.documentCount || 0,
+                      _enriched: true,
+                    };
+                  });
+                  const measured = seedKeywords.filter(k => (k.searchVolume || 0) > 0).length;
+                  console.log(`[HOME-HUNTER] sv/dc 보강 완료: ${measured}/${seedKeywords.length}건 실측`);
+                } else {
+                  console.warn('[HOME-HUNTER] sv/dc 보강 실패:', enrichResp?.error);
+                }
+              } catch (e) {
+                console.warn('[HOME-HUNTER] enrich IPC 예외:', e?.message);
+              }
             }
 
             // Step 2: 각 키워드에 빈자리 + 제목 + 신선도 + homeScore + 가치검증 평가 (병렬, concurrency 3)
@@ -14958,6 +15784,9 @@
                       keyword: kw.keyword,
                       searchVolume: kw.searchVolume || 0,
                       documentCount: kw.documentCount || 0,
+                      mode: 'lenient',
+                      // v2.42.62: celebrity/issue 카테고리는 인물명 허용 (트래픽 확보)
+                      allowPerson: blogCategory === 'celebrity' || blogCategory === 'issue' || kw.category === 'celebrity' || kw.category === 'issue',
                     }).catch(() => null),
                   ]);
                   const vacancy = vacancyResp?.success ? vacancyResp : null;
@@ -14978,6 +15807,8 @@
                     surgeRatio: fresh?.surgeRatio,
                     blogPublishCount24h: fresh?.blogPublishCount24h,
                     daysSinceFirstAppear: fresh?.daysSinceFirstAppear,
+                    // v2.42.59: 블로그 권위 컨텍스트 (실제 노출 확률 보정)
+                    blogAuthority: window.getBlogAuthorityInput ? window.getBlogAuthorityInput() : undefined,
                   }).catch(() => null);
 
                   return {
@@ -15041,30 +15872,43 @@
               backfilled = additions.length;
             }
 
+            // v2.42.33: 0건 절대 금지 — 다층 fallback 체인 (사용자 요구: "데이터 많은데 0개 X")
+            //   Tier 1 (soft):    valuableOnly 통째로 점수순 — homeScore 컷 무시
+            //   Tier 2 (salvaged): enriched 중 killed 아닌 것 — qualityScore 컷 무시
+            //   Tier 3 (lastResort): seedKeywords 자체 — 모든 검증 우회 (빌트인 시드 직접 노출)
+            //   각 tier 별 _tier 마커 + UI 배지로 사용자가 품질 차이 인지
+            let fallbackTier = null;
             if (filtered.length === 0) {
-              const totalCandidates = enriched.length;
-              const valueAvailable = valuableOnly.length;
-              const killedCount = enriched.filter(x => x.valueGate && x.valueGate.isKilled).length;
-              const lowQuality = enriched.filter(x => x.valueGate && !x.valueGate.isKilled && x.valueGate.qualityScore < minQuality).length;
+              console.warn('[HOME-HUNTER] passed 0건 — 다층 fallback 활성');
 
-              resultsDiv.innerHTML = `
-                <div style="padding:24px; background:rgba(251,191,36,0.1); border-radius:12px; border:1px solid rgba(251,191,36,0.3); color:#fbbf24;">
-                  <div style="font-size:16px; font-weight:800; margin-bottom:12px;">⚠️ 가치 검증 통과 키워드 0건</div>
-                  <div style="font-size:12px; color:rgba(255,255,255,0.85); line-height:1.7; margin-bottom:14px;">
-                    분석 ${totalCandidates}건 중<br/>
-                    🛑 <strong>차단 (인물/YMYL/글감불가)</strong>: ${killedCount}건<br/>
-                    ⚠️ <strong>가치 등급 미달 (${minQuality}점 이하)</strong>: ${lowQuality}건<br/>
-                    ✅ 가치 통과: ${valueAvailable}건 (homeScore ${minScore}+ 통과 0건)
-                  </div>
-                  <div style="font-size:11px; color:rgba(255,255,255,0.7); margin-bottom:12px;">💡 가치 미달 키워드는 결과에 포함하지 않습니다 (의미 없는 키워드 차단).</div>
-                  <div style="display:flex; gap:8px; flex-wrap:wrap;">
-                    ${minQuality > 0 ? `<button onclick="document.getElementById('homeMinQuality').value='0'; huntNaverHomeKeywords();" style="padding:8px 14px; background:rgba(168,85,247,0.2); border:1px solid #c084fc; border-radius:8px; color:#c084fc; font-size:12px; font-weight:700; cursor:pointer;">💎 가치 등급 "전체"로 완화</button>` : ''}
-                    <button onclick="document.getElementById('homeMinScore').value='50'; huntNaverHomeKeywords();" style="padding:8px 14px; background:rgba(34,197,94,0.2); border:1px solid #22c55e; border-radius:8px; color:#22c55e; font-size:12px; font-weight:700; cursor:pointer;">🔓 점수 컷 50으로 완화</button>
-                    ${blockInfluencer ? `<button onclick="document.getElementById('homeBlockInfluencer').checked=false; huntNaverHomeKeywords();" style="padding:8px 14px; background:rgba(96,165,250,0.2); border:1px solid #60a5fa; border-radius:8px; color:#60a5fa; font-size:12px; font-weight:700; cursor:pointer;">👤 인플루언서 차단 해제</button>` : ''}
-                  </div>
-                </div>
-              `;
-              return;
+              // Tier 1: valuableOnly 점수순
+              if (valuableOnly.length > 0) {
+                filtered = valuableOnly.slice(0, minResults).map(c => ({ ...c, _tier: 'soft' }));
+                fallbackTier = 'soft';
+              }
+            }
+            if (filtered.length === 0) {
+              // Tier 2: enriched 중 killed 아닌 것 (qualityScore 무관)
+              const notKilled = enriched.filter(x => !x.valueGate || !x.valueGate.isKilled);
+              if (notKilled.length > 0) {
+                const sorted = notKilled.sort((a, b) => (b.homeScore?.homeScore || 0) - (a.homeScore?.homeScore || 0));
+                filtered = sorted.slice(0, minResults).map(c => ({ ...c, _tier: 'salvaged' }));
+                fallbackTier = 'salvaged';
+              }
+            }
+            if (filtered.length === 0) {
+              // Tier 3: 최후 — seedKeywords 자체 (모든 IPC 실패 시)
+              filtered = seedKeywords.slice(0, minResults).map(c => ({
+                ...c,
+                _tier: 'lastResort',
+                homeScore: c.homeScore || { homeScore: 0, grade: 'UNKNOWN', summary: '🛟 측정 실패 — 빌트인 시드 fallback', breakdown: {} },
+                bestTitle: c.bestTitle || null,
+                titles: c.titles || [],
+                vacancy: c.vacancy || null,
+                fresh: c.fresh || null,
+                valueGate: c.valueGate || null,
+              }));
+              fallbackTier = 'lastResort';
             }
 
             // 학습 데이터 + disclaimer 조회
@@ -15092,11 +15936,20 @@
               ? `<span style="background:rgba(251,191,36,0.15); color:#fbbf24; padding:3px 10px; border-radius:6px; font-size:10px; font-weight:700;">⚠️ 컷 통과 ${passedCount} + 변별력 보충 ${backfilled}</span>`
               : `<span style="background:rgba(34,197,94,0.15); color:#22c55e; padding:3px 10px; border-radius:6px; font-size:10px; font-weight:700;">✅ 컷 통과 ${passedCount}건</span>`;
             const valueBadge = `<span style="background:rgba(168,85,247,0.15); color:#c084fc; padding:3px 10px; border-radius:6px; font-size:10px; font-weight:700;" title="S+:${sPlusCount} S:${sCount} A:${aCount}">🎯 가치 ${valuablePassed}/${filtered.length} · 평균 ${avgQuality}점</span>`;
+            // v2.42.33: fallback tier 배지 — 사용자가 결과 신뢰도 차이를 명확히 인지
+            const tierBadge = fallbackTier === 'soft'
+              ? `<span style="background:rgba(251,191,36,0.15); color:#fbbf24; padding:3px 10px; border-radius:6px; font-size:10px; font-weight:700;" title="homeScore 컷(${minScore}) 미달이지만 가치 검증은 통과 — 추정 점수 노출">🔶 SOFT (점수컷 완화)</span>`
+              : fallbackTier === 'salvaged'
+                ? `<span style="background:rgba(96,165,250,0.15); color:#60a5fa; padding:3px 10px; border-radius:6px; font-size:10px; font-weight:700;" title="가치 등급 미달이나 KILL은 아닌 시드 — 점수 미보장">🛟 SALVAGED (가치컷 완화)</span>`
+                : fallbackTier === 'lastResort'
+                  ? `<span style="background:rgba(239,68,68,0.15); color:#fca5a5; padding:3px 10px; border-radius:6px; font-size:10px; font-weight:700;" title="모든 측정 IPC 실패 — 빌트인 시드 직접 노출. 사용 시 자체 검증 필요">🚨 LAST RESORT (빌트인 시드)</span>`
+                  : '';
 
             resultsDiv.innerHTML = `
               <div style="margin-bottom:6px; display:flex; align-items:center; gap:12px; flex-wrap:wrap;">
                 <span style="font-size:18px;">🏠</span>
                 <span style="font-size:18px; font-weight:800; color:#22c55e;">홈판 키워드 ${filtered.length}건</span>
+                ${tierBadge}
                 ${backfillBadge}
                 ${valueBadge}
                 ${learnedInfo}
@@ -15166,6 +16019,12 @@
                 <div style="text-align:right; flex-shrink:0;">
                   <div style="font-size:32px; font-weight:900; color:${gradeColor}; line-height:1;">${score}</div>
                   <div style="font-size:10px; color:rgba(255,255,255,0.5);">homeScore</div>
+                  ${(typeof hs.estimatedExposureProbability === 'number' && hs.contextualMultiplier !== 1.0) ? `
+                    <div style="margin-top:6px; padding:3px 8px; background:${gradeBg}; border-radius:6px; font-size:11px; font-weight:800; color:${gradeColor};" title="내 블로그 권위 ${hs.contextualMultiplier}× 보정 적용 (입력값 기반)">
+                      🎯 ${hs.estimatedExposureProbability}%
+                    </div>
+                    <div style="font-size:9px; color:rgba(255,255,255,0.45);">내 블로그 노출 확률</div>
+                  ` : ''}
                 </div>
               </div>
 
@@ -15522,7 +16381,7 @@
                     style="padding:5px 10px; background:rgba(255,255,255,0.06); color:#cbd5e1; border:1px solid rgba(255,255,255,0.15); border-radius:6px; font-size:11px; cursor:pointer;">🔍 네이버</button>
                   <button onclick="searchKeyword('${String(kw.keyword || '').replace(/'/g, "\\'")}', true)" title="LEWORD 메인에서 재검색 (자동 시작)"
                     style="padding:5px 10px; background:linear-gradient(135deg,rgba(251,191,36,0.20),rgba(245,158,11,0.20)); color:#fbbf24; border:1px solid rgba(251,191,36,0.45); border-radius:6px; font-size:11px; font-weight:700; cursor:pointer;">🔄 LEWORD 재검색</button>
-                  <button onclick="lewordShowTrendGraph('${String(kw.keyword || '').replace(/'/g, "\\'")}')" title="30일 트렌드 그래프"
+                  <button onclick="lewordShowTrendGraph('${String(kw.keyword || '').replace(/'/g, "\\'")}', ${Number(kw.searchVolume) || 0})" title="30일 트렌드 그래프"
                     style="padding:5px 10px; background:rgba(14,165,233,0.15); color:#67e8f9; border:1px solid rgba(14,165,233,0.4); border-radius:6px; font-size:11px; cursor:pointer;">📈 트렌드</button>
                   <button onclick="proDrilldown('${String(kw.keyword || '').replace(/'/g, "\\'")}', this)" title="확장 키워드 (연관 10개)"
                     style="padding:5px 10px; background:rgba(168,85,247,0.15); color:#c4b5fd; border:1px solid rgba(168,85,247,0.4); border-radius:6px; font-size:11px; cursor:pointer;">🔗 확장</button>
@@ -15554,7 +16413,7 @@
               return `<div style="padding:5px 8px; margin-bottom:3px; background:rgba(255,255,255,0.04); border-radius:5px; display:flex; align-items:center; gap:8px; cursor:pointer;" onclick="searchKeyword('${safe}', true)" title="클릭 → LEWORD 재검색">
                 <span style="font-weight:600; flex:1; color:#f1f5f9; font-size:12px;">${k.keyword}</span>
                 <span style="font-size:10px; color:rgba(255,255,255,0.5);">sv ${(k.searchVolume||0).toLocaleString()} · dc ${(k.documentCount||0).toLocaleString()} · r${(k.goldenRatio||0).toFixed(1)}</span>
-                <button onclick="event.stopPropagation(); lewordShowTrendGraph('${safe}')" title="트렌드" style="padding:2px 6px; background:rgba(14,165,233,0.20); color:#67e8f9; border:1px solid rgba(14,165,233,0.4); border-radius:4px; font-size:10px; cursor:pointer;">📈</button>
+                <button onclick="event.stopPropagation(); lewordShowTrendGraph('${safe}', ${Number(k.searchVolume) || 0})" title="트렌드" style="padding:2px 6px; background:rgba(14,165,233,0.20); color:#67e8f9; border:1px solid rgba(14,165,233,0.4); border-radius:4px; font-size:10px; cursor:pointer;">📈</button>
               </div>`;
             }).join('');
             panel.innerHTML = `<div style="font-weight:700; color:#fbbf24; font-size:11px; margin-bottom:6px;">🔗 "${kw}" 확장 키워드 (클릭 → 재검색)</div>${rows}`;
@@ -15571,7 +16430,7 @@
 
           const modal = document.createElement('div');
           modal.id = 'proTrafficModal';
-          modal.style.cssText = 'display: flex; position: fixed; top: 0; left: 0; width: 100%; height: 100%; background: rgba(0, 0, 0, 0.85); z-index: 10000; backdrop-filter: blur(8px); overflow-y: auto; padding: 20px; box-sizing: border-box; align-items: flex-start; justify-content: center;';
+          modal.style.cssText = 'display: flex; position: fixed; top: 0; left: 0; width: 100%; height: 100%; background: rgba(0, 0, 0, 0.85); z-index: 10100; backdrop-filter: blur(8px); overflow-y: auto; padding: 20px; box-sizing: border-box; align-items: flex-start; justify-content: center;';
 
           modal.innerHTML = `
         <div style="background: linear-gradient(135deg, #1a1a2e 0%, #16213e 100%); border-radius: 24px; padding: 32px; max-width: 1000px; width: 100%; margin: 20px auto; box-shadow: 0 25px 80px rgba(0, 0, 0, 0.6); border: 2px solid rgba(234, 179, 8, 0.3); position: relative; max-height: calc(100vh - 40px); overflow-y: auto;">

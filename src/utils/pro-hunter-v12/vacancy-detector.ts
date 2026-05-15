@@ -239,17 +239,21 @@ function parseDaysOld(text: string): number | undefined {
 }
 
 function emptyVacancyResult(keyword: string, reason: string): VacancyResult {
+    // v2.42.58 CRITICAL: 측정 실패 시 unreliable + vacancySlots=null
+    //   기존: slots=5 → vacancy hard kill 우회 → 측정 실패 키워드가 13/15점 받고 노출 (false positive)
+    //   변경: slots=null → calculateHomeScore 가 vacancy=0 + 결과 제외 가능
     return {
         keyword,
         totalSlotsAnalyzed: 0,
         influencerCount: 0,
         bigDomainCount: 0,
-        vacancySlots: 5,
+        vacancySlots: null as any,
         freshnessGap: 0,
-        suggestedAction: `⚠️ 검색 분석 실패 (${reason}) — 빈자리 5/10 가정`,
+        suggestedAction: `⚠️ 검색 분석 실패 (${reason}) — 측정 불가`,
         domains: [],
         serpVersion: 'legacy',
-    };
+        unreliable: true,
+    } as any;
 }
 
 /**

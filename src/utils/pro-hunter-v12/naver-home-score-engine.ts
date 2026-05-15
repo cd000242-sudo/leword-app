@@ -13,38 +13,83 @@ export interface HomeScoreInput {
     keyword: string;
     searchVolume: number;
     documentCount: number;
-    blogPublishCount24h?: number;   // 어제 같은 키워드로 발행된 글 수
-    daysSinceFirstAppear?: number;  // 키워드 첫 등장 후 일수
-    surgeRatio?: number;             // 1시간 vs 24시간 검색량 비율
-    titleCtrScore?: number;          // 제목 CTR 점수 (0~100)
-    userBlogCategory?: string;       // 사용자 블로그 카테고리
-    keywordCategory?: string;        // 키워드 카테고리
-    influencerCount?: number;        // 검색 1페이지 인플루언서 수
-    vacancySlots?: number;           // 빈자리 (0~10)
+    blogPublishCount24h?: number;
+    daysSinceFirstAppear?: number;
+    surgeRatio?: number;
+    titleCtrScore?: number;
+    userBlogCategory?: string;
+    keywordCategory?: string;
+    influencerCount?: number;
+    vacancySlots?: number;
+    // v2.42.59: 블로그 도메인 권위 컨텍스트 (네이버 노출 결정 50%+ 변수)
+    blogAuthority?: BlogAuthorityInput;
+}
+
+export interface BlogAuthorityInput {
+    monthlyVisitors?: number;     // 일평균 방문자 (월 평균 / 30)
+    operationDays?: number;       // 블로그 운영 일수
+    topicConsistency?: number;    // 주제 일관성 0~1 (해당 키워드 주제 누적 글 비율)
 }
 
 export interface HomeScoreResult {
-    homeScore: number;                  // 0~100
+    homeScore: number;
     breakdown: {
-        ctrPotential: number;             // 0~35
-        freshness: number;                  // 0~30
-        categoryFit: number;                // 0~20
-        vacancy: number;                    // 0~15
+        ctrPotential: number;
+        freshness: number;
+        categoryFit: number;
+        vacancy: number;
     };
     grade: 'IMPOSSIBLE' | 'HARD' | 'POSSIBLE' | 'EASY' | 'CERTAIN';
     summary: string;
-    actionable: string[];                 // 추천 액션
+    actionable: string[];
+    // v2.42.59: 블로그 권위 컨텍스트 보정값 (사용자에게 같은 점수라도 다른 실현 확률 표시)
+    contextualMultiplier?: number; // 0.3 (신생) ~ 1.5 (베테랑)
+    estimatedExposureProbability?: number; // 0~100% — homeScore × multiplier
+}
+
+// v2.42.59: 블로그 권위 → 실현 확률 보정 multiplier
+//   네이버 노출은 키워드 점수만이 아니라 블로그 권위(C-Rank)에 좌우됨
+//   같은 67점 키워드: 신생 블로그(0.3×) = 20% 실현 / 베테랑(1.5×) = 100% 실현
+export function calculateBlogAuthorityMultiplier(authority?: BlogAuthorityInput): number {
+    if (!authority) return 1.0; // 미지정 시 중립
+    let m = 0.5; // 기본 (정보 부재 = 보수적)
+
+    // 일평균 방문자 (가장 결정적 — C-Rank 누적 신호)
+    const v = authority.monthlyVisitors || 0;
+    if (v >= 5000) m = 1.5;       // 일 5000+ = 최상위 베테랑
+    else if (v >= 1000) m = 1.2;  // 일 1000+ = 베테랑
+    else if (v >= 500) m = 1.0;   // 일 500+ = 안정
+    else if (v >= 100) m = 0.7;   // 일 100+ = 성장기
+    else if (v >= 30) m = 0.5;    // 일 30+ = 초기
+    else if (v > 0) m = 0.3;      // 일 30 미만 = 신생
+
+    // 운영 일수 보정 (긴 운영 = C-Rank 누적)
+    const days = authority.operationDays || 0;
+    if (days >= 1095) m *= 1.15;   // 3년+
+    else if (days >= 365) m *= 1.05; // 1년+
+    else if (days < 90) m *= 0.85;   // 3개월 미만
+
+    // 주제 일관성 (전문 블로그 보너스)
+    const consistency = authority.topicConsistency ?? 0;
+    if (consistency >= 0.7) m *= 1.15; // 같은 주제 70%+
+    else if (consistency >= 0.4) m *= 1.05;
+
+    return Math.max(0.2, Math.min(2.0, m));
 }
 
 export function calculateHomeScore(input: HomeScoreInput): HomeScoreResult {
-    // 1. CTR 잠재 (35점) — 미측정 시 0점 (default 인플레이션 차단, 통계 정직성)
+    // 1. CTR 잠재 (35점) — 미측정 시 0점
     let ctrPotential = 0;
     const titleScore = input.titleCtrScore;
     if (titleScore != null && titleScore > 0) {
         ctrPotential = Math.round((titleScore / 100) * 35);
-        const infoTokens = ['방법', '이유', '효능', '뜻', '의미', '추천', '비교', '후기', '가이드', '정리'];
-        const lower = input.keyword.toLowerCase();
-        if (infoTokens.some(t => lower.includes(t))) ctrPotential = Math.min(35, ctrPotential + 5);
+        // v2.42.58: info 보너스 +5 → +2 (거의 모든 정보 키워드 매칭으로 변별력 0이던 문제)
+        //   추가: titleScore >= 60 일 때만 적용 (저점 키워드 인플레이션 차단)
+        if (titleScore >= 60) {
+            const infoTokens = ['방법', '이유', '효능', '뜻', '의미', '추천', '비교', '후기', '가이드', '정리'];
+            const lower = input.keyword.toLowerCase();
+            if (infoTokens.some(t => lower.includes(t))) ctrPotential = Math.min(35, ctrPotential + 2);
+        }
     }
 
     // 2. 신선도 (30점) — 미측정 시 0점
@@ -71,32 +116,33 @@ export function calculateHomeScore(input: HomeScoreInput): HomeScoreResult {
     else if (publishCount >= 20) freshness = Math.max(0, freshness - 2);
 
     // 3. 카테고리 적합도 (20점) — C-Rank 시뮬레이션
-    // 'naver-home'은 모드 표시이므로 카테고리 매칭에서 제외 (사용자 블로그만 비교)
-    let categoryFit = 14;  // 기본 (카테고리 미입력 시 중립 — 12→14 인상)
+    // v2.42.58: default 14 → 10 (25개 시드 전부 14점 동률로 변별력 0이던 문제)
+    //   'general' 카테고리도 빈 카테고리로 취급 (자동 분류기 fallback 값)
+    let categoryFit = 10;
     const userCat = input.userBlogCategory && input.userBlogCategory !== 'naver-home' ? input.userBlogCategory : '';
-    const kwCat = input.keywordCategory && input.keywordCategory !== 'naver-home' ? input.keywordCategory : '';
+    const skipKwCat = (c?: string) => !c || c === 'naver-home' || c === 'general';
+    const kwCat = skipKwCat(input.keywordCategory) ? '' : (input.keywordCategory as string);
 
     if (userCat && kwCat) {
         if (userCat === kwCat) categoryFit = 20;
         else if (areCategoriesRelated(userCat, kwCat)) categoryFit = 16;
-        else categoryFit = 8;          // 5→8: 카테고리 불일치 페널티 완화
+        else categoryFit = 8;
     } else if (!userCat && kwCat) {
-        // 사용자 카테고리 미지정 — 키워드 카테고리만 알 때는 중립
-        categoryFit = 14;
+        categoryFit = 12; // 사용자 미지정 + 키워드 카테고리만 — 14→12 (차별 확보)
     }
 
-    // 4. 빈자리 (15점) — 미측정 시 0점, 측정 시 vacancy ≤ 2 = HARD KILL (homeScore 0)
+    // 4. 빈자리 (15점) — 미측정/측정실패 시 0점, slots ≤ 2 = HARD KILL
     let vacancy = 0;
     const slots = input.vacancySlots;
     const inf = input.influencerCount;
     let vacancyHardKill = false;
-    if (slots == null) {
-        vacancy = 0;  // 미측정은 점수 X
+    // v2.42.58: null 처리 강화 (emptyVacancyResult 가 vacancySlots=null 반환하도록 수정됨)
+    if (slots == null || typeof slots !== 'number' || !Number.isFinite(slots)) {
+        vacancy = 0; // 측정 실패 = 점수 X (이전 5점 부여 버그 차단)
     } else if (slots >= 7 && (inf ?? 0) <= 1) vacancy = 15;
     else if (slots >= 5 && (inf ?? 0) <= 2) vacancy = 13;
     else if (slots >= 3 && (inf ?? 0) <= 3) vacancy = 9;
     else {
-        // slots ≤ 2 = 빅도메인 독점 = 진입 불가 → HARD KILL
         vacancy = 0;
         vacancyHardKill = true;
     }
@@ -116,12 +162,14 @@ export function calculateHomeScore(input: HomeScoreInput): HomeScoreResult {
         }
     } catch { /* 학습 데이터 없음 */ }
 
-    const ctrAdj = ctrPotential * adjMultipliers.ctrPotential;
-    const freshAdj = freshness * adjMultipliers.freshness;
-    const catAdj = categoryFit * adjMultipliers.categoryFit;
-    const vacAdj = vacancy * adjMultipliers.vacancy;
-    // 🛑 vacancy hard kill = 빈자리 ≤2면 homeScore 무조건 0 (다른 점수 무시)
-    const homeScore = vacancyHardKill ? 0 : Math.round(ctrAdj + freshAdj + catAdj + vacAdj);
+    // v2.42.58: 학습 multiplier overflow 차단 — 항목별 상한선 보존
+    const ctrAdj = Math.min(35, ctrPotential * adjMultipliers.ctrPotential);
+    const freshAdj = Math.min(30, freshness * adjMultipliers.freshness);
+    const catAdj = Math.min(20, categoryFit * adjMultipliers.categoryFit);
+    const vacAdj = Math.min(15, vacancy * adjMultipliers.vacancy);
+    // vacancy hard kill = 빈자리 ≤2면 homeScore 무조건 0
+    // v2.42.58: 최종 점수 100 clamp (multiplier 곱셈 후 overflow 방지)
+    const homeScore = vacancyHardKill ? 0 : Math.min(100, Math.max(0, Math.round(ctrAdj + freshAdj + catAdj + vacAdj)));
 
     // 등급
     let grade: HomeScoreResult['grade'];
@@ -144,7 +192,10 @@ export function calculateHomeScore(input: HomeScoreInput): HomeScoreResult {
     if (vacancy < 5) actionable.push(`👤 인플루언서 점유 (${inf}/10) — 진입 매우 어려움`);
     if (actionable.length === 0) actionable.push(`🚀 모든 조건 통과 — 즉시 발행 권장`);
 
-    // vacancy hard kill 시 breakdown도 0으로 (sum == homeScore 보장)
+    // v2.42.59: 블로그 권위 보정 — homeScore × multiplier = 실제 노출 확률 추정
+    const contextualMultiplier = calculateBlogAuthorityMultiplier(input.blogAuthority);
+    const estimatedExposureProbability = Math.min(100, Math.round(homeScore * contextualMultiplier));
+
     return {
         homeScore,
         breakdown: vacancyHardKill ? {
@@ -158,17 +209,44 @@ export function calculateHomeScore(input: HomeScoreInput): HomeScoreResult {
         grade,
         summary,
         actionable,
+        contextualMultiplier,
+        estimatedExposureProbability,
     };
 }
 
+// v2.42.34: 카테고리 풀 확장 — UI 25 카테고리 매칭 + 관련 분야 보너스
 const RELATED_CATEGORY_PAIRS: Array<[string, string[]]> = [
-    ['beauty', ['fashion', 'living']],
-    ['fashion', ['beauty', 'shopping']],
-    ['food', ['recipe', 'cooking', 'living']],
-    ['recipe', ['food', 'cooking']],
-    ['parenting', ['baby', 'living', 'health']],
-    ['health', ['supplement', 'diet', 'medical']],
-    ['it', ['laptop', 'smartphone', 'app']],
+    // 일상·리빙
+    ['beauty', ['fashion', 'living', 'hobby']],
+    ['fashion', ['beauty', 'shopping', 'wedding']],
+    ['food', ['recipe', 'cooking', 'living', 'camping']],
+    ['recipe', ['food', 'cooking', 'parenting']],
+    ['living', ['interior', 'food', 'parenting', 'pet', 'garden']],
+    ['interior', ['living', 'garden', 'hobby', 'realestate']],
+    ['parenting', ['baby', 'living', 'health', 'education', 'recipe']],
+    ['pet', ['living', 'health', 'hobby']],
+    ['health', ['supplement', 'diet', 'medical', 'sports', 'parenting']],
+    ['garden', ['interior', 'living', 'hobby']],
+    // 비즈니스·재테크
+    ['finance', ['realestate', 'career', 'tax', 'insurance']],
+    ['career', ['finance', 'education', 'it']],
+    ['realestate', ['finance', 'interior', 'living']],
+    // 라이프·취미
+    ['travel', ['camping', 'hobby', 'food']],
+    ['camping', ['travel', 'food', 'hobby', 'pet']],
+    ['hobby', ['camping', 'travel', 'interior', 'pet']],
+    ['wedding', ['fashion', 'beauty', 'parenting']],
+    ['car', ['camping', 'travel', 'sports']],
+    // 콘텐츠·엔터
+    ['entertainment', ['music', 'book', 'hobby']],
+    ['music', ['entertainment', 'hobby']],
+    ['book', ['education', 'entertainment', 'hobby']],
+    ['game', ['it', 'hobby', 'entertainment']],
+    ['sports', ['health', 'car', 'travel']],
+    // 기술·교육
+    ['it', ['laptop', 'smartphone', 'app', 'game', 'career']],
+    ['education', ['parenting', 'book', 'career']],
+    // 메타
     ['naver-home', ['all']],
 ];
 
