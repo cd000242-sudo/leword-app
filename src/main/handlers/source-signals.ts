@@ -55,6 +55,15 @@ export function setupSourceSignalHandlers(): void {
         } catch (e: any) { return { success: false, error: e.message, items: [] }; }
     });
 
+    // v2.42.74: 갓 떴는데 아직 HOT 아닌 선점 가능 기사 (글쓰기 가치 高)
+    ipcMain.handle('source-starnews-fresh', async (_e, p: { maxMinutesAgo?: number; limit?: number } = {}) => {
+        try {
+            const { fetchStarNewsFresh } = await import('../../utils/starnews-trending');
+            const items = await fetchStarNewsFresh({ maxMinutesAgo: p?.maxMinutesAgo, limit: p?.limit });
+            return { success: true, items, count: items.length };
+        } catch (e: any) { return { success: false, error: e.message, items: [] }; }
+    });
+
     ipcMain.handle('source-youtube-trending', async () => {
         try {
             const keywords = await getYoutubeTrendingKeywords();
