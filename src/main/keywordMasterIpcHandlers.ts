@@ -11,6 +11,7 @@ import { registerYouTubeAnalysisHandlers } from './handlers/youtube-handlers';
 import { setupSourceSignalHandlers } from './handlers/source-signals';
 import { setupKeyWizardHandlers } from './handlers/key-wizard';
 import { setupKeywordBlueprintHandlers } from './handlers/keyword-blueprint';
+import { setupExposureTrackingHandlers } from './handlers/exposure-tracking';
 import { startRefreshScheduler } from './key-wizard/refresh-scheduler';
 import { startLifecycleTracker } from '../utils/pro-hunter-v12/lifecycle-tracker';
 import { startRankTracker } from '../utils/pro-hunter-v12/rank-tracker';
@@ -74,6 +75,7 @@ export function setupKeywordMasterHandlers() {
   setupSourceSignalHandlers();
   setupKeyWizardHandlers();
   setupKeywordBlueprintHandlers();
+  setupExposureTrackingHandlers();
   startRefreshScheduler();
   startLifecycleTracker();
   startRankTracker();
