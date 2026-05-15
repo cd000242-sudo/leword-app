@@ -13471,15 +13471,15 @@
                 <div style="font-size:22px; font-weight:800; color:white;">${t.keywordHistorySize || 0}</div>
               </div>
               <div style="background:rgba(34,197,94,0.1); padding:12px; border-radius:10px; border:1px solid rgba(34,197,94,0.3);">
-                <div style="font-size:10px; color:rgba(255,255,255,0.5);">추적 페어</div>
-                <div style="font-size:22px; font-weight:800; color:white;">${t.trackedPairs || 0}</div>
+                <div style="font-size:10px; color:rgba(255,255,255,0.5);">추적 페어 (측정/전체)</div>
+                <div style="font-size:22px; font-weight:800; color:white;">${t.checkedPairs || 0}<span style="font-size:14px; color:rgba(255,255,255,0.5);"> / ${t.trackedPairs || 0}</span></div>
               </div>
               <div style="background:rgba(251,191,36,0.1); padding:12px; border-radius:10px; border:1px solid rgba(251,191,36,0.3);">
                 <div style="font-size:10px; color:rgba(255,255,255,0.5);">현재 TOP 30</div>
                 <div style="font-size:22px; font-weight:800; color:#fbbf24;">${t.currentlyInTop30 || 0}</div>
               </div>
               <div style="background:rgba(168,85,247,0.1); padding:12px; border-radius:10px; border:1px solid rgba(168,85,247,0.3);">
-                <div style="font-size:10px; color:rgba(255,255,255,0.5);">Hit Rate 30</div>
+                <div style="font-size:10px; color:rgba(255,255,255,0.5);">Hit Rate 30 (측정/측정)</div>
                 <div style="font-size:22px; font-weight:800; color:#a78bfa;">${t.hitRate30 || 0}%</div>
               </div>
               <div style="background:rgba(96,165,250,0.1); padding:12px; border-radius:10px; border:1px solid rgba(96,165,250,0.3);">
@@ -13514,22 +13514,34 @@
 
             <div style="background:rgba(255,255,255,0.04); border-radius:10px; padding:14px;">
               <div style="font-size:13px; font-weight:800; color:white; margin-bottom:10px;">📋 추적 중인 페어 (${items.length})</div>
+              ${(() => {
+                const uncheckedCount = items.filter(i => !i.totalChecks).length;
+                if (uncheckedCount > 0 && items.length > 0) {
+                  return `<div style="background:rgba(251,191,36,0.1); border:1px solid rgba(251,191,36,0.4); padding:10px 12px; border-radius:8px; margin-bottom:12px; font-size:12px; color:#fbbf24;">⚠️ <strong>${uncheckedCount}개</strong> 페어가 아직 SERP 체크 안 됨 → 위 <strong>"🎯 SERP 체크 실행"</strong> 버튼을 눌러야 노출 여부가 측정됩니다.</div>`;
+                }
+                return '';
+              })()}
               ${items.length === 0 ? '<div style="color:rgba(255,255,255,0.4); padding:20px; text-align:center;">아직 추적 중인 페어가 없습니다. 위 버튼으로 RSS 등록 → 내 글 가져오기 → 키워드 매칭 순서로 진행하세요.</div>' : `
                 <div style="max-height:340px; overflow-y:auto;">
                   ${items.slice(0, 50).map(i => {
-                    const rankColor = i.currentInTop10 ? '#22c55e' : i.currentInTop30 ? '#fbbf24' : '#94a3b8';
-                    const rankText = i.currentRank ? `#${i.currentRank}` : '미노출';
+                    const checked = (i.totalChecks || 0) > 0;
+                    // v2.42.84: 체크 안 한 페어는 "미측정" 표시 (회색) — "미노출" 과 구분
+                    const rankColor = !checked ? '#64748b' : (i.currentInTop10 ? '#22c55e' : i.currentInTop30 ? '#fbbf24' : '#94a3b8');
+                    const rankText = !checked ? '미측정' : (i.currentRank ? `#${i.currentRank}` : '미노출');
                     const lastCheck = i.lastCheckedAt ? new Date(i.lastCheckedAt).toLocaleDateString('ko') : '미체크';
+                    const bottomLine = checked
+                      ? `TOP30 ${i.top30Count}/${i.totalChecks}`
+                      : `체크 대기 중`;
                     return `
                       <div style="display:flex; align-items:flex-start; justify-content:space-between; gap:12px; padding:10px 8px; border-bottom:1px solid rgba(255,255,255,0.05);">
                         <div style="flex:1; min-width:0;">
                           <div style="font-size:13px; font-weight:700; color:white; margin-bottom:3px;">${(i.keyword || '').slice(0, 80)}</div>
                           <a href="${i.postUrl}" target="_blank" style="font-size:11px; color:#60a5fa; text-decoration:none; display:block; overflow:hidden; text-overflow:ellipsis; white-space:nowrap;">${(i.postTitle || i.postUrl).slice(0, 80)}</a>
-                          <div style="font-size:10px; color:rgba(255,255,255,0.4); margin-top:2px;">${i.category || 'general'} · 최근 체크 ${lastCheck} · 누적 체크 ${i.totalChecks}회</div>
+                          <div style="font-size:10px; color:rgba(255,255,255,0.4); margin-top:2px;">${i.category || 'general'} · 최근 체크 ${lastCheck} · 누적 체크 ${i.totalChecks || 0}회</div>
                         </div>
                         <div style="text-align:right; flex-shrink:0;">
-                          <div style="font-size:20px; font-weight:800; color:${rankColor};">${rankText}</div>
-                          <div style="font-size:10px; color:rgba(255,255,255,0.5);">TOP30 ${i.top30Count}/${i.totalChecks || 1}</div>
+                          <div style="font-size:${checked ? '20px' : '14px'}; font-weight:800; color:${rankColor};">${rankText}</div>
+                          <div style="font-size:10px; color:rgba(255,255,255,0.5);">${bottomLine}</div>
                         </div>
                       </div>
                     `;

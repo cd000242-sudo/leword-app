@@ -476,27 +476,35 @@ export function setupExposureTrackingHandlers(): void {
           };
         });
 
-        // 카테고리별 hit rate
-        const catMap: Record<string, { tracked: number; top10: number; top30: number }> = {};
+        // v2.42.84: hit rate 분모는 "측정된 페어"만 — 미체크 페어로 0% 표시되는 오해 방지
+        const checkedItems = items.filter(i => (i.totalChecks || 0) > 0);
+
+        const catMap: Record<string, { tracked: number; checked: number; top10: number; top30: number }> = {};
         for (const i of items) {
           const c = i.category || 'general';
-          if (!catMap[c]) catMap[c] = { tracked: 0, top10: 0, top30: 0 };
+          if (!catMap[c]) catMap[c] = { tracked: 0, checked: 0, top10: 0, top30: 0 };
           catMap[c].tracked++;
-          if (i.currentInTop10) catMap[c].top10++;
-          if (i.currentInTop30) catMap[c].top30++;
+          if ((i.totalChecks || 0) > 0) {
+            catMap[c].checked++;
+            if (i.currentInTop10) catMap[c].top10++;
+            if (i.currentInTop30) catMap[c].top30++;
+          }
         }
         const byCategory = Object.entries(catMap).map(([cat, s]) => ({
           category: cat,
           tracked: s.tracked,
+          checked: s.checked,
           top10: s.top10,
           top30: s.top30,
-          hitRate10: s.tracked ? Math.round((s.top10 / s.tracked) * 100) : 0,
-          hitRate30: s.tracked ? Math.round((s.top30 / s.tracked) * 100) : 0,
+          hitRate10: s.checked ? Math.round((s.top10 / s.checked) * 100) : 0,
+          hitRate30: s.checked ? Math.round((s.top30 / s.checked) * 100) : 0,
         })).sort((a, b) => b.hitRate30 - a.hitRate30);
 
         const totalChecks = items.reduce((s, i) => s + i.totalChecks, 0);
         const totalExposed30 = items.filter(i => i.currentInTop30).length;
         const totalExposed10 = items.filter(i => i.currentInTop10).length;
+        const checkedPairs = checkedItems.length;
+        const uncheckedPairs = items.length - checkedPairs;
 
         return {
           success: true,
@@ -505,11 +513,14 @@ export function setupExposureTrackingHandlers(): void {
           totals: {
             keywordHistorySize: kwHistory.length,
             trackedPairs: items.length,
+            checkedPairs,
+            uncheckedPairs,
             totalChecks,
             currentlyInTop30: totalExposed30,
             currentlyInTop10: totalExposed10,
-            hitRate30: items.length ? Math.round((totalExposed30 / items.length) * 100) : 0,
-            hitRate10: items.length ? Math.round((totalExposed10 / items.length) * 100) : 0,
+            // v2.42.84: hit rate 분모는 측정된 페어만
+            hitRate30: checkedPairs ? Math.round((totalExposed30 / checkedPairs) * 100) : 0,
+            hitRate10: checkedPairs ? Math.round((totalExposed10 / checkedPairs) * 100) : 0,
           },
           byCategory,
           items: items.sort((a, b) => (b.totalChecks - a.totalChecks)),
