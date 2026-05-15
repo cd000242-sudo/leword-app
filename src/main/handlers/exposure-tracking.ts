@@ -108,6 +108,95 @@ function matchKeywordToTitle(keyword: string, title: string): boolean {
   return hits / tokens.length >= 0.8;
 }
 
+// v2.42.83: 글 제목에서 핵심 키워드 후보 자동 추출 (휴리스틱 — 한국어 형태소 분석 없음)
+function extractCoreKeywords(title: string, maxCandidates = 3): string[] {
+  if (!title) return [];
+  let clean = title
+    .replace(/\[[^\]]*\]/g, ' ')
+    .replace(/\([^)]*\)/g, ' ')
+    .replace(/\{[^}]*\}/g, ' ')
+    .replace(/["""''『』「」<>《》]/g, ' ')
+    .replace(/[…⋯—–]/g, ' ')
+    .replace(/[^ 가-힣a-zA-Z0-9% ]/g, ' ')
+    .replace(/\s+/g, ' ')
+    .trim();
+
+  // 광범위 불용어 (조사/어미/형용사/일반 단어)
+  const STOPS = new Set([
+    // 매체 라벨
+    '단독', '종합', '속보', '경향', '뉴스', '취재', '인터뷰', '화보',
+    // 일반 형용/명사
+    '추천', '리뷰', '후기', '소식', '공개', '발표', '경악', '충격', '폭로', '주목',
+    // 의문/지시
+    '왜', '어떻게', '무엇', '내가', '내', '그', '이', '저', '나의', '우리',
+    '오늘', '어제', '내일', '지금', '드디어', '결국', '바로',
+    '진짜', '정말', '드디어', '갑자기', '함께', '먼저',
+    // 의미 없는 일반어
+    '방법', '이유', '결과', '비밀', '주의', '필독', '필수', '관련', '대상',
+    '분들', '여러분', '직접', '실제', '여전히', '예전',
+    // 조사 단독 (혹시)
+    '에서', '으로', '에게', '한테', '부터', '까지',
+  ]);
+
+  // 끝이 조사/어미로 보이는 토큰은 제외
+  const ENDING_JOSA = /(는|은|이|가|을|를|와|과|에|의|도|만|와|과|로|으로|이라|이라고|에서|에게|부터|까지|일까|할까|것|까)$/;
+  // 끝이 동사·서술형 어미
+  const ENDING_VERB = /(했다|한다|됐다|된다|있다|없다|이다|아니다|줍니다|입니다|했어|놓친|않은|어요|에요|예요)$/;
+
+  const isMeaningfulToken = (t: string): boolean => {
+    if (t.length < 2 || t.length > 12) return false;
+    if (STOPS.has(t)) return false;
+    if (/^\d+%?$/.test(t)) return false;
+    if (/^\d+(분|시간|일|초|월|년|만원|원|배)$/.test(t)) return false;
+    if (ENDING_VERB.test(t)) return false;
+    // 끝 조사 — 길이 3+ 일 때만 조사 의심
+    if (t.length >= 3 && ENDING_JOSA.test(t)) {
+      // 조사 떼면 의미 명사 남는지 확인 — 안 떼고 그냥 차단
+      return false;
+    }
+    return true;
+  };
+
+  const tokens = clean.split(/\s+/).filter(isMeaningfulToken);
+  if (tokens.length === 0) return [];
+
+  // 후보 생성: 2~3 토큰 인접 조합 + 단일 토큰 (4자+)
+  const candidates: string[] = [];
+  for (let len = 3; len >= 2; len--) {
+    for (let i = 0; i + len <= tokens.length; i++) {
+      candidates.push(tokens.slice(i, i + len).join(' '));
+    }
+  }
+  for (const t of tokens) {
+    if (t.length >= 4) candidates.push(t);
+  }
+
+  // 중복 제거 + 너무 짧은 거 (5자 미만) 제외
+  const seen = new Set<string>();
+  const unique = candidates.filter(c => {
+    if (seen.has(c)) return false;
+    seen.add(c);
+    return c.replace(/\s+/g, '').length >= 5;
+  });
+
+  // 정렬: 의미 명사 점수 — "지원금/혜택/신청/방법/조회" 같은 도메인 명사 가산점
+  const DOMAIN_BIAS = /(지원금|혜택|신청|조회|방법|기준|대상|결과|비교|순위|추천|후기|레시피|증상|치료|예방|관리|효과|가격|할인|쿠폰|이벤트|시세|매물|투자|수익|재테크|면접|자격증|연봉|이직|취업)/;
+  const scored = unique.map(c => {
+    let s = 0;
+    if (DOMAIN_BIAS.test(c)) s += 10;
+    // 토큰 수 2개일 때 약간 우대 (짧고 명확)
+    const tk = c.split(/\s+/).length;
+    if (tk === 2) s += 3;
+    if (tk === 3) s += 1;
+    // 글자수 적당 (8~14자) 우대
+    const len = c.replace(/\s+/g, '').length;
+    if (len >= 7 && len <= 14) s += 2;
+    return { c, s };
+  }).sort((a, b) => b.s - a.s);
+
+  return scored.slice(0, maxCandidates).map(x => x.c);
+}
+
 // v2.42.80: 모바일 SERP 에서 사용자 글이 몇 위에 있는지 확인 (top 30)
 // blog.naver.com + m.blog.naver.com + PostView.naver 모든 형태 매칭
 async function checkSerpRank(keyword: string, postUrl: string): Promise<{ rank: number | null }> {
@@ -253,10 +342,16 @@ export function setupExposureTrackingHandlers(): void {
     });
   }
 
-  // 4. RSS 글 ↔ 키워드 history 자동 매칭 (제목 토큰 80%+ 매칭)
+  // 4. RSS 글 ↔ 키워드 매칭 (v2.42.83 강화)
+  //    1차: LEWORD history 매칭 (홈판/마인드맵에서 발굴한 키워드와 글 제목 토큰 80%+ 매칭)
+  //    2차: 제목에서 핵심 키워드 자동 추출 → 글마다 최대 N개 페어 자동 등록
+  //    이로써 LEWORD history 가 비어있어도 작동
   if (!ipcMain.listenerCount('exposure-auto-match')) {
-    ipcMain.handle('exposure-auto-match', async () => {
+    ipcMain.handle('exposure-auto-match', async (_e, payload?: { autoExtract?: boolean; perPost?: number }) => {
       try {
+        const autoExtract = payload?.autoExtract !== false; // 기본 true
+        const perPost = Math.max(1, Math.min(5, payload?.perPost || 3));
+
         const cfg = readJson<{ rssUrl?: string }>(FILE_CONFIG(), {});
         if (!cfg.rssUrl) return { success: false, error: 'RSS URL 미등록' };
         const posts = await fetchBlogPostsFromRss(cfg.rssUrl);
@@ -264,7 +359,10 @@ export function setupExposureTrackingHandlers(): void {
         const tracked = readJson<TrackedKeyword[]>(FILE_TRACKED(), []);
         const existingKey = new Set(tracked.map(t => `${t.keyword}|${t.postUrl}`));
 
-        let newCount = 0;
+        let historyMatches = 0;
+        let autoExtractMatches = 0;
+
+        // 1차: LEWORD history 매칭
         for (const post of posts) {
           for (const kw of kwHistory) {
             if (!matchKeywordToTitle(kw.keyword, post.title)) continue;
@@ -279,11 +377,39 @@ export function setupExposureTrackingHandlers(): void {
               history: [],
             });
             existingKey.add(k);
-            newCount++;
+            historyMatches++;
           }
         }
+
+        // 2차: 글 제목 자체에서 핵심 키워드 자동 추출
+        if (autoExtract) {
+          for (const post of posts) {
+            const candidates = extractCoreKeywords(post.title, perPost);
+            for (const kw of candidates) {
+              const k = `${kw}|${post.url}`;
+              if (existingKey.has(k)) continue;
+              tracked.push({
+                keyword: kw,
+                postUrl: post.url,
+                postTitle: post.title,
+                category: 'auto-extracted',
+                registeredAt: new Date().toISOString(),
+                history: [],
+              });
+              existingKey.add(k);
+              autoExtractMatches++;
+            }
+          }
+        }
+
         writeJson(FILE_TRACKED(), tracked);
-        return { success: true, newMatches: newCount, totalTracked: tracked.length };
+        return {
+          success: true,
+          newMatches: historyMatches + autoExtractMatches,
+          historyMatches,
+          autoExtractMatches,
+          totalTracked: tracked.length,
+        };
       } catch (err: any) { return { success: false, error: err?.message }; }
     });
   }

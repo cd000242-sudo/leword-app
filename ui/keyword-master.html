@@ -13422,9 +13422,18 @@
         }
 
         async function exposureAutoMatch() {
-          const r = await window.electronAPI.invoke('exposure-auto-match');
+          const r = await window.electronAPI.invoke('exposure-auto-match', { autoExtract: true, perPost: 3 });
           if (r?.success) {
-            alert(`✅ 새 매칭 ${r.newMatches}건 / 총 추적 ${r.totalTracked}건\n\n매칭이 안 됐다면 LEWORD 키워드 history가 부족하거나 글 제목이 키워드와 안 맞습니다.`);
+            const lines = [
+              `✅ 새 페어 ${r.newMatches}건 등록`,
+              `   • LEWORD history 매칭: ${r.historyMatches}건`,
+              `   • 글 제목 자동 추출: ${r.autoExtractMatches}건 (각 글마다 핵심 키워드 최대 3개)`,
+              ``,
+              `📋 총 추적 페어: ${r.totalTracked}건`,
+              ``,
+              `다음: "SERP 체크 실행" 으로 실제 노출 여부 측정`,
+            ];
+            alert(lines.join('\n'));
             refreshExposureDashboard();
           } else alert('매칭 실패: ' + (r?.error || 'unknown'));
         }
