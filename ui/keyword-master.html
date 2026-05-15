@@ -15911,6 +15911,40 @@
               fallbackTier = 'lastResort';
             }
 
+            // v2.42.67: 어떤 tier든 minResults 미만이면 enriched/seedKeywords 에서 보충
+            //   격전지(issue/celebrity)에서 KILL률 95%+ 일 때 SALVAGED 1건만 뜨던 문제 해결
+            if (filtered.length < minResults) {
+              const have = new Set(filtered.map(x => x.keyword));
+              const needMore = minResults - filtered.length;
+              // 1차 보충: enriched 전체에서 (homeScore 순)
+              const enrichedPool = enriched
+                .filter(x => !have.has(x.keyword))
+                .sort((a, b) => (b.homeScore?.homeScore || 0) - (a.homeScore?.homeScore || 0));
+              const topUp = enrichedPool.slice(0, needMore).map(c => ({ ...c, _backfilled: true, _topup: 'enriched' }));
+              filtered.push(...topUp);
+              topUp.forEach(t => have.add(t.keyword));
+              backfilled += topUp.length;
+            }
+            if (filtered.length < minResults) {
+              const have = new Set(filtered.map(x => x.keyword));
+              const needMore = minResults - filtered.length;
+              // 2차 보충: seedKeywords 자체에서 (sv 순)
+              const seedPool = seedKeywords
+                .filter(x => !have.has(x.keyword))
+                .sort((a, b) => (b.searchVolume || 0) - (a.searchVolume || 0));
+              const topUp = seedPool.slice(0, needMore).map(c => ({
+                ...c, _backfilled: true, _topup: 'seed',
+                homeScore: c.homeScore || { homeScore: 0, grade: 'UNKNOWN', summary: '🛟 시드 보충 (격전지 KILL률 高)', breakdown: {} },
+                bestTitle: c.bestTitle || null,
+                titles: c.titles || [],
+                vacancy: c.vacancy || null,
+                fresh: c.fresh || null,
+                valueGate: c.valueGate || null,
+              }));
+              filtered.push(...topUp);
+              backfilled += topUp.length;
+            }
+
             // 학습 데이터 + disclaimer 조회
             let learnedInfo = '';
             try {
