@@ -156,15 +156,63 @@ async function checkSerpRank(keyword: string, postUrl: string): Promise<{ rank: 
   }
 }
 
+// v2.42.81: 사용자 입력을 RSS URL 로 자동 정규화
+//   허용 입력: 블로그 ID / 블로그 URL / 글 URL / 모바일 URL / 이미 RSS URL
+function normalizeBlogRssUrl(input: string): string | null {
+  const s = String(input || '').trim();
+  if (!s) return null;
+  // 1) 이미 RSS URL: rss.blog.naver.com/{id}.xml
+  const rssWithXml = s.match(/rss\.blog\.naver\.com\/([^/?#]+)\.xml/i);
+  if (rssWithXml) return `https://rss.blog.naver.com/${rssWithXml[1]}.xml`;
+  // 1b) .xml 없는 RSS 도메인
+  const rssNoXml = s.match(/rss\.blog\.naver\.com\/([^/?#]+)/i);
+  if (rssNoXml) {
+    const id = rssNoXml[1].replace(/\.xml$/i, '');
+    return `https://rss.blog.naver.com/${id}.xml`;
+  }
+  // 2) PostView.naver?blogId=xxx  (urlMatch보다 먼저 — URL에 PostView 포함될 수 있음)
+  const pvMatch = s.match(/PostView\.naver\?blogId=([^&]+)/i);
+  if (pvMatch) return `https://rss.blog.naver.com/${pvMatch[1]}.xml`;
+  // 3) blog.naver.com/{id}/... 또는 m.blog.naver.com/{id}/...
+  const urlMatch = s.match(/(?:m\.)?blog\.naver\.com\/([^/?#]+)/i);
+  if (urlMatch && urlMatch[1].toLowerCase() !== 'postview.naver') {
+    return `https://rss.blog.naver.com/${urlMatch[1]}.xml`;
+  }
+  // 4) 블로그 ID 단독 (영문/숫자/대시/언더스코어/마침표)
+  if (/^[a-zA-Z0-9._-]+$/.test(s)) return `https://rss.blog.naver.com/${s}.xml`;
+  return null;
+}
+
 export function setupExposureTrackingHandlers(): void {
-  // 1. RSS URL 저장/조회
+  // 1. RSS URL 저장/조회 — 어떤 형태로 입력해도 자동 RSS URL 변환
   if (!ipcMain.listenerCount('exposure-set-blog-rss')) {
     ipcMain.handle('exposure-set-blog-rss', async (_e, p: { rssUrl: string }) => {
       try {
+        const raw = String(p?.rssUrl || '').trim();
+        const normalized = normalizeBlogRssUrl(raw);
+        if (!normalized) {
+          return { success: false, error: '인식할 수 없는 형식입니다. 블로그 ID(예: rimi_77-) 또는 블로그 URL을 입력하세요.' };
+        }
+        // 정규화된 URL 이 실제로 RSS 로 접근 가능한지 검증 (200 + <item>+ 1개 이상)
+        try {
+          const probe = await axios.get(normalized, {
+            headers: { 'User-Agent': 'Mozilla/5.0 (compatible; LEWORD-tracker/1.0)' },
+            timeout: 8000, responseType: 'text', validateStatus: () => true,
+          });
+          if (probe.status !== 200 || !String(probe.data || '').includes('<item')) {
+            return {
+              success: false,
+              error: `등록 실패: "${raw}" 의 RSS 를 찾을 수 없습니다. 블로그 ID를 다시 확인하세요. (시도한 URL: ${normalized})`,
+            };
+          }
+        } catch (probeErr: any) {
+          return { success: false, error: `RSS 접속 실패: ${probeErr?.message}` };
+        }
+
         const cfg = readJson<{ rssUrl?: string }>(FILE_CONFIG(), {});
-        cfg.rssUrl = String(p?.rssUrl || '').trim();
+        cfg.rssUrl = normalized;
         writeJson(FILE_CONFIG(), cfg);
-        return { success: true, rssUrl: cfg.rssUrl };
+        return { success: true, rssUrl: normalized, originalInput: raw };
       } catch (err: any) { return { success: false, error: err?.message }; }
     });
   }
