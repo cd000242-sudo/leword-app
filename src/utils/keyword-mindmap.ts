@@ -17,7 +17,7 @@ export interface MindmapNode {
   children: MindmapNode[];
   searchVolume?: number;
   competition?: number;
-  source: 'input' | 'related' | 'autocomplete' | 'searchad' | 'expanded' | 'intent' | 'competitor';
+  source: 'input' | 'related' | 'autocomplete' | 'searchad' | 'expanded' | 'intent' | 'competitor' | 'sibling';
   intentType?: string;
 }
 
@@ -289,6 +289,64 @@ async function getAutocompleteKeywords(keyword: string): Promise<string[]> {
   }
 }
 
+// v2.42.68: 시맨틱 sibling 확장 — 헤드 명사를 공유하지만 modifier가 다른 키워드 발굴
+// 예: "2026 소상공인 지원금" → "고유가 피해지원금", "3차 민생지원금" (헤드=지원금, modifier 다름)
+async function getSemanticSiblings(keyword: string, clientId?: string, clientSecret?: string): Promise<string[]> {
+  const tokens = keyword.trim().split(/\s+/).filter(Boolean);
+  if (tokens.length < 2) return [];
+
+  const headNoun = tokens[tokens.length - 1];
+  if (headNoun.length < 2) return [];
+
+  // 헤드 명사를 공유할 가능성이 있는 쿼리 생성
+  const queries = new Set<string>();
+  queries.add(headNoun); // 핵심: 헤드 명사 단독
+  // 카테고리/시간 modifier swap
+  const SEMANTIC_QUALIFIERS = ['정부', '국가', '특별', '긴급', '한시', '추가', '신규', '확대', '신청', '대상', '종류', '비교'];
+  for (const q of SEMANTIC_QUALIFIERS) {
+    queries.add(`${q} ${headNoun}`);
+    queries.add(`${headNoun} ${q}`);
+  }
+  // 연도 추출 → 연도+헤드 (중간 modifier 제거)
+  const year = tokens.find(t => /^20\d{2}$/.test(t));
+  if (year) queries.add(`${year} ${headNoun}`);
+  // 첫 토큰 + 헤드 (중간 modifier 제거)
+  if (tokens.length >= 3 && tokens[0] !== year) queries.add(`${tokens[0]} ${headNoun}`);
+
+  const allResults = new Set<string>();
+  // 병렬 처리 (concurrency 3) — getNaverAutocompleteKeywords는 4중 API 호출이라 부하 ↑
+  const queryArr = Array.from(queries);
+  const concurrency = 3;
+  const config = { clientId: clientId || '', clientSecret: clientSecret || '' };
+  for (let i = 0; i < queryArr.length; i += concurrency) {
+    const batch = queryArr.slice(i, i + concurrency);
+    const batchResults = await Promise.all(batch.map(q =>
+      getNaverAutocompleteKeywords(q, config).catch(() => [] as string[])
+    ));
+    for (const arr of batchResults) {
+      for (const k of arr) allResults.add(k);
+    }
+  }
+
+  const middleTokens = tokens.slice(0, -1).filter(t => t.length >= 2);
+  const inputLower = keyword.toLowerCase();
+  const headLower = headNoun.toLowerCase();
+
+  const siblings = Array.from(allResults).filter(kw => {
+    if (!kw || kw.length < 3 || kw.length > 40) return false;
+    const kwLower = kw.toLowerCase();
+    if (kwLower === inputLower) return false;
+    // 헤드 명사 포함 필수 (sibling 조건)
+    if (!kwLower.includes(headLower)) return false;
+    // 입력의 중간 토큰을 모두 포함 = prefix 확장 (sibling 아님)
+    if (middleTokens.length > 0 && middleTokens.every(t => kw.includes(t))) return false;
+    return true;
+  });
+
+  // 단순 prefix 확장 추가 차단 (예: 입력 자체로 시작)
+  return siblings.filter(kw => !kw.toLowerCase().startsWith(inputLower));
+}
+
 async function getSearchAdKeywords(keyword: string, accessLicense: string, secretKey: string, customerId: string): Promise<string[]> {
   try {
     const suggestions = await getNaverSearchAdKeywordSuggestions({ accessLicense, secretKey, customerId }, keyword, 100);
@@ -380,15 +438,18 @@ export async function generateKeywordMindmap(keyword: string, options: KeywordEx
     // 키워드 수집
     let relatedKws = await getRelatedKeywords(node.keyword, clientId, clientSecret);
     let autocompleteKws = await getAutocompleteKeywords(node.keyword);
-    let searchAdKws = searchAdLicense && searchAdSecret && searchAdCustomerId 
-      ? await getSearchAdKeywords(node.keyword, searchAdLicense, searchAdSecret, searchAdCustomerId) 
+    let searchAdKws = searchAdLicense && searchAdSecret && searchAdCustomerId
+      ? await getSearchAdKeywords(node.keyword, searchAdLicense, searchAdSecret, searchAdCustomerId)
       : [];
+    // v2.42.68: 시맨틱 sibling — 헤드 명사 공유, modifier 다른 키워드 (Level 0,1만 — API 폭발 방지)
+    let siblingKws: string[] = depth <= 1 ? await getSemanticSiblings(node.keyword, clientId, clientSecret) : [];
 
     // 스마트 확장
     if (smartExpansion) {
       relatedKws = filterBySearchIntent(relatedKws, keyword, intent);
       autocompleteKws = filterBySearchIntent(autocompleteKws, keyword, intent);
       searchAdKws = filterBySearchIntent(searchAdKws, keyword, intent);
+      siblingKws = filterBySearchIntent(siblingKws, keyword, intent);
     }
 
     // 검색의도/경쟁사 키워드 (Level 1에서만)
@@ -399,9 +460,12 @@ export async function generateKeywordMindmap(keyword: string, options: KeywordEx
     relatedKws = applyAllFilters(relatedKws, node.keyword);
     autocompleteKws = applyAllFilters(autocompleteKws, node.keyword);
     searchAdKws = applyAllFilters(searchAdKws, node.keyword);
+    // sibling은 applyAllFilters의 "parent prefix 차단" 로직 제외 (정확히 prefix 아닌 sibling을 원함)
+    siblingKws = filterRepetitiveKeywords(siblingKws);
 
-    // 병합 및 중복 제거
+    // 병합 및 중복 제거 — sibling 먼저 (가장 가치 높은 시맨틱 확장)
     const allKeywords = [
+      ...siblingKws.map(k => ({ keyword: k, source: 'sibling' as const })),
       ...relatedKws.map(k => ({ keyword: k, source: 'related' as const })),
       ...autocompleteKws.map(k => ({ keyword: k, source: 'autocomplete' as const })),
       ...searchAdKws.map(k => ({ keyword: k, source: 'searchad' as const })),
