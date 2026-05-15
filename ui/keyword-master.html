@@ -18976,15 +18976,33 @@
             minimizedRegistry.set(modal, { title, originalDisplay, chip });
           }
 
+          function hasExistingMinimizeButton(modal) {
+            // v2.42.78: 모달 자체가 이미 최소화 버튼을 가지고 있으면 중복 추가 방지
+            // 검사: title/aria-label 에 "최소화"/"minimize" 포함 또는 텍스트가 🗕/—/_/minimize
+            const btns = modal.querySelectorAll('button, [role="button"]');
+            for (const b of btns) {
+              const title = (b.getAttribute('title') || '').toLowerCase();
+              const aria = (b.getAttribute('aria-label') || '').toLowerCase();
+              const txt = (b.textContent || '').trim();
+              if (title.includes('최소화') || title.includes('minimize')) return true;
+              if (aria.includes('최소화') || aria.includes('minimize')) return true;
+              if (txt === '🗕' || txt === '🗖' || txt === '—' || /^minimize/i.test(txt)) return true;
+            }
+            // 모달 자체의 onclick 함수명에 "minimize" 포함 (예: minimizeRelatedKeywordModal)
+            const html = modal.innerHTML || '';
+            if (/onclick="[^"]*[mM]inimize[^"]*"/.test(html)) return true;
+            return false;
+          }
+
           function attachMinimizeButton(modal) {
             if (modal[PROCESSED_KEY]) return;
+            modal[PROCESSED_KEY] = true; // 한 번만 시도
+            // v2.42.78: 이미 최소화 버튼 있는 모달은 우리 버튼 추가 X
+            if (hasExistingMinimizeButton(modal)) return;
             // 모달 내부 카드 컨테이너 찾기 (보통 첫 번째 직계 자식)
             const inner = modal.firstElementChild || modal;
-            // 이미 최소화 버튼 있으면 skip
-            if (inner.querySelector('.' + MIN_BTN_CLASS)) {
-              modal[PROCESSED_KEY] = true;
-              return;
-            }
+            // 이미 우리 버튼 있으면 skip (재진입 안전)
+            if (inner.querySelector('.' + MIN_BTN_CLASS)) return;
             const btn = document.createElement('button');
             btn.className = MIN_BTN_CLASS;
             btn.type = 'button';
@@ -19001,21 +19019,50 @@
               try { (inner).style.position = 'relative'; } catch (e) {}
             }
             inner.appendChild(btn);
-            modal[PROCESSED_KEY] = true;
+          }
+
+          // v2.42.78: AI 챗봇/위젯 류 — 자동 최소화 대상에서 제외
+          const BLACKLIST_IDS = new Set([
+            'ai-widget-root', 'chat-window', 'ai-chat-box',
+            '__minimized-modal-dock__',
+          ]);
+          const BLACKLIST_ID_PREFIXES = ['ai-', 'chat-', 'chatbot-', 'widget-', 'leadernam-'];
+
+          function isBlacklisted(el) {
+            if (!el || !(el instanceof HTMLElement)) return false;
+            const id = el.id || '';
+            if (BLACKLIST_IDS.has(id)) return true;
+            for (const p of BLACKLIST_ID_PREFIXES) {
+              if (id.startsWith(p)) return true;
+            }
+            const cls = (el.className || '').toString().toLowerCase();
+            if (/chat-window|chatbot|widget-root|floating-widget/.test(cls)) return true;
+            // 조상에 BLACKLIST 가 있으면 자식도 제외
+            let p = el.parentElement;
+            while (p) {
+              if (BLACKLIST_IDS.has(p.id || '')) return true;
+              p = p.parentElement;
+            }
+            return false;
           }
 
           function isModalLike(el) {
             if (!(el instanceof HTMLElement)) return false;
             if (el.id === '__minimized-modal-dock__') return false;
+            // v2.42.78: AI 위젯/챗봇 류 제외
+            if (isBlacklisted(el)) return false;
             const cs = getComputedStyle(el);
             if (cs.position !== 'fixed') return false;
             const z = parseInt(cs.zIndex, 10);
             if (!Number.isFinite(z) || z < 10000) return false;
-            // viewport-cover 모달만 (input/top:0 left:0 right:0 bottom:0 또는 inset:0)
-            const isFullCover =
-              (cs.inset && cs.inset !== 'auto' && cs.inset !== '') ||
-              (cs.top === '0px' && cs.left === '0px' && cs.right === '0px' && cs.bottom === '0px');
-            if (!isFullCover) return false;
+            // v2.42.78: 진짜 모달은 viewport 의 80% 이상을 덮어야 함 (작은 위젯 제외)
+            const rect = el.getBoundingClientRect();
+            const vw = window.innerWidth || document.documentElement.clientWidth;
+            const vh = window.innerHeight || document.documentElement.clientHeight;
+            if (rect.width < vw * 0.7) return false;
+            if (rect.height < vh * 0.7) return false;
+            // 추가 신호: 반투명 backdrop (모달 특징) — 있으면 더 확실
+            // 다만 강제는 아님 (없어도 viewport-cover 면 모달로 인정)
             return true;
           }
 
