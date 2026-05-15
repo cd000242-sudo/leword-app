@@ -16094,9 +16094,145 @@
 
               ${hs.summary ? `<div style="font-size:11px; color:${gradeColor}; padding:6px 8px; font-weight:600;">${hs.summary}</div>` : ''}
               ${v.suggestedAction ? `<div style="font-size:11px; color:rgba(255,255,255,0.6); padding:4px 8px;">${v.suggestedAction}</div>` : ''}
+              <div style="margin-top:10px; padding-top:10px; border-top:1px solid rgba(255,255,255,0.08); display:flex; justify-content:flex-end;">
+                ${(function () {
+                  window.__homeSignalData = window.__homeSignalData || {};
+                  const id = 'hs_' + Math.random().toString(36).slice(2, 10);
+                  window.__homeSignalData[id] = { keyword: x.keyword, sv: x.searchVolume || 0, dc: x.documentCount || 0, vac: v, fr: fr, hs: hs, bt: bestTitle };
+                  return `<button onclick="window.openHomeSignalEvidence(window.__homeSignalData['${id}'])" style="background:rgba(99,102,241,0.15); color:#a5b4fc; border:1px solid rgba(99,102,241,0.35); padding:4px 10px; border-radius:6px; font-size:11px; font-weight:700; cursor:pointer;">📎 근거 보기</button>`;
+                })()}
+              </div>
             </div>
           `;
         }
+
+        // v2.42.71: 신호 근거 모달 — 각 측정값의 출처(공식/표준/휴리스틱) + 근거 URL + 핵심 인용
+        // 리서치 출처: C-Rank/D.I.A./D.I.A.+/AiRS는 네이버 공식, 검색량/문서수 황금비율은 업계 표준, vacancy는 도구 휴리스틱
+        window.openHomeSignalEvidence = function (data) {
+          const EVIDENCE = {
+            sv: {
+              tier: '업계 표준', tierColor: '#fbbf24',
+              title: '월 검색량',
+              measured: '네이버 SearchAd API 실측',
+              quote: '"황금키워드는 많은 검색량 대비 경쟁 문서가 적은 키워드. 블랙키위/키워드인사이트/황금키워드마스터 등 업계 도구가 공통으로 채택." 네이버 공식 임계치 없음.',
+              sources: [
+                { name: '블랙키위', url: 'https://blackkiwi.net/' },
+                { name: '키워드 인사이트', url: 'http://www.keyword-insight.com/kwrd/main/useMethodExpl.do' },
+                { name: '탐블 마케팅 가이드 2025', url: 'https://tamblemarketing.com/naver-blog-keyword-strategy-2025/' },
+              ],
+            },
+            dc: {
+              tier: '업계 표준', tierColor: '#fbbf24',
+              title: '총 문서수',
+              measured: '네이버 블로그 검색 API total 실측',
+              quote: '"키워드 중요도는 블로그 문서수와 월간 조회수 비율로 산출. 비율이 높을수록 경쟁이 적음." 네이버 공식 알고리즘이 이 비율을 직접 쓴다는 증거는 없음 — 업계 휴리스틱.',
+              sources: [
+                { name: '키워드인사이트 산출법', url: 'http://www.keyword-insight.com/kwrd/main/useMethodExpl.do' },
+                { name: '황금키워드마스터', url: 'https://keywordmaster.org/' },
+              ],
+            },
+            vac: {
+              tier: '휴리스틱', tierColor: '#f87171',
+              title: 'SERP 빈자리 / 인플루언서 / 빅도메인 수',
+              measured: '네이버 검색 결과 페이지 직접 크롤링',
+              quote: '"빈자리(vacancy)" 라는 표준 신호는 네이버 공식 자료/주류 SEO 커뮤니티에서 발견되지 않음. 스마트블록 빈자리는 의미 있지만 전체 SERP vacancy 는 LEWORD 자체 휴리스틱.',
+              sources: [
+                { name: '스마트블록 SEO 가이드 (어센트코리아)', url: 'https://www.ascentkorea.com/how-to-naver-seo-by-using-smartblock/' },
+              ],
+            },
+            fr: {
+              tier: '공식', tierColor: '#22c55e',
+              title: '신선도 (급상승 배수 / 24h 발행수)',
+              measured: 'Datalab 1h vs 24h 비율 + 블로그 API period=1d 실측',
+              quote: '"D.I.A.는 키워드 적합도·경험정보·정보 충실성·어뷰징 척도·독창성·적시성을 복합 반영." — 네이버 검색 블로그. 적시성(timeliness)이 공식 평가 요소.',
+              sources: [
+                { name: '트윈워드: 네이버 D.I.A. 해설', url: 'https://www.twinword.co.kr/blog/naver-seo-d-i-a/' },
+                { name: 'InterAd: 네이버 검색 경험의 진화', url: 'https://www.interad.com/insights/evolution-of-the-naver-search-experience' },
+                { name: 'SEO NEWS: D.I.A. 모델 현황', url: 'https://seonews.co.kr/naver-dia-model-still-working/' },
+              ],
+            },
+            hs: {
+              tier: '복합', tierColor: '#a78bfa',
+              title: 'homeScore (4개 실측 신호 가중합)',
+              measured: 'CTR가능성(제목 패턴) + 신선도(D.I.A.) + 카테고리(C-Rank) + 빈자리(휴리스틱) 가중합',
+              quote: '"보장"이 아닌 "공식+표준 신호 동시 충족 시 노출 우위"로 해석. 네이버는 가중치를 공개한 적이 없으며, 홈피드(AiRS 계열)는 개인화 추천이라 본질적으로 사용자별 결과가 다름.',
+              sources: [
+                { name: 'C-Rank 공식 (네이버 검색)', url: 'https://itblogseo.com/네이버-검색엔진-알고리즘-c-rank-dia-원리/' },
+                { name: 'AiTEMS / 홈피드 추천 (이코노믹데일리)', url: 'https://www.economidaily.com/view/20240416081436773' },
+                { name: '홈피드 기술 스택 (거북이 미디어)', url: 'https://gobooki.net/네이버-홈피드-추천-최적화와-활용-ai-기술-정리/' },
+              ],
+            },
+            bt: {
+              tier: '업계 표준', tierColor: '#fbbf24',
+              title: '추천 제목 (패턴 매칭)',
+              measured: '숫자형/호기심갭/시간절박감/결과약속/실경험 등 12개 패턴 룰 매칭',
+              quote: '"숫자·연도·감정 유발 단어가 클릭률 상승" — 다수 SEO 블로그 합의. 다만 "X% 클릭률 상승" 같은 정량 데이터는 공식 출처 없음. D.I.A.의 "글 주목도 지수"와 매핑되는 정성적 신호.',
+              sources: [
+                { name: '애드센스팜: 제목 짓기 10가지', url: 'https://adsensefarm.kr/블로그-상위노출-시키려면.../' },
+                { name: '뉴스토리기버: 클릭률 폭발 제목 공식', url: 'https://newstorygiver.com/154' },
+                { name: '태그바이: 네이버 블로그 마케팅', url: 'https://blog.tagby.io/네이버-블로그-마케팅-상위-노출-꿀팁-인기주제/' },
+              ],
+            },
+          };
+
+          const rows = [];
+          const add = (key, valueText) => {
+            const e = EVIDENCE[key];
+            if (!e) return;
+            const sourcesHtml = e.sources.map(s => `<a href="${s.url}" target="_blank" style="color:#60a5fa; text-decoration:none; font-size:11px; display:block; margin-top:3px;">↗ ${s.name}</a>`).join('');
+            rows.push(`
+              <div style="background:rgba(255,255,255,0.03); border-radius:10px; padding:14px; margin-bottom:12px; border-left:3px solid ${e.tierColor};">
+                <div style="display:flex; align-items:center; justify-content:space-between; margin-bottom:8px; flex-wrap:wrap; gap:6px;">
+                  <div style="font-size:14px; font-weight:800; color:white;">${e.title}</div>
+                  <span style="background:${e.tierColor}26; color:${e.tierColor}; padding:3px 10px; border-radius:8px; font-size:11px; font-weight:800;">${e.tier}</span>
+                </div>
+                <div style="font-size:11px; color:rgba(255,255,255,0.55); margin-bottom:8px;">📊 실측값: <strong style="color:white;">${valueText}</strong></div>
+                <div style="font-size:12px; color:rgba(255,255,255,0.75); padding:8px 10px; background:rgba(0,0,0,0.25); border-radius:6px; line-height:1.55; margin-bottom:8px;">${e.quote}</div>
+                <div style="font-size:11px; color:rgba(255,255,255,0.4); margin-bottom:4px;">근거 출처:</div>
+                ${sourcesHtml}
+              </div>
+            `);
+          };
+
+          add('sv', `${(data.sv || 0).toLocaleString()} / 월`);
+          add('dc', `${(data.dc || 0).toLocaleString()} 건`);
+          if (data.vac && data.vac.totalSlotsAnalyzed) {
+            add('vac', `빈자리 ${data.vac.vacancySlots}/10, 인플 ${data.vac.influencerCount}/10, 빅도메인 ${data.vac.bigDomainCount}/10`);
+          }
+          if (data.fr && typeof data.fr.surgeRatio === 'number') {
+            add('fr', `${data.fr.surgeRatio.toFixed(1)}× 급상승, 24h ${(data.fr.blogPublishCount24h || 0).toLocaleString()}건`);
+          }
+          if (data.hs && typeof data.hs.homeScore === 'number') {
+            add('hs', `${data.hs.homeScore}/100 (${data.hs.grade || '-'})`);
+          }
+          if (data.bt && data.bt.title) {
+            add('bt', `"${data.bt.title}" — 패턴: ${(data.bt.matchedPatterns || []).join(', ') || '-'}`);
+          }
+
+          const modal = document.createElement('div');
+          modal.style.cssText = 'position:fixed; inset:0; background:rgba(0,0,0,0.78); backdrop-filter:blur(6px); z-index:11200; display:flex; align-items:flex-start; justify-content:center; padding:30px 20px; overflow-y:auto;';
+          modal.onclick = (e) => { if (e.target === modal) modal.remove(); };
+          modal.innerHTML = `
+            <div style="background:linear-gradient(180deg,#1e293b,#0f172a); max-width:780px; width:100%; border-radius:16px; padding:24px; border:1px solid rgba(99,102,241,0.35); box-shadow:0 24px 64px rgba(0,0,0,0.6); position:relative;">
+              <button onclick="this.closest('[data-evidence-modal]')?.remove() || this.parentElement.parentElement.remove()" style="position:absolute; top:14px; right:14px; background:rgba(255,255,255,0.1); color:white; border:none; width:32px; height:32px; border-radius:8px; font-size:18px; cursor:pointer;">×</button>
+              <h2 style="margin:0 0 4px 0; font-size:22px; font-weight:800; color:white;">📎 신호 근거 — "${(data.keyword || '').replace(/</g, '&lt;')}"</h2>
+              <div style="font-size:12px; color:rgba(255,255,255,0.5); margin-bottom:8px;">각 측정값의 출처와 신뢰도 분류</div>
+              <div style="background:rgba(239,68,68,0.08); border:1px solid rgba(239,68,68,0.3); padding:10px 14px; border-radius:8px; margin-bottom:16px;">
+                <div style="font-size:12px; color:#fca5a5; font-weight:700; margin-bottom:4px;">⚠️ 솔직한 디스클레이머</div>
+                <div style="font-size:11px; color:rgba(255,255,255,0.75); line-height:1.55;">네이버 메인 홈피드 노출은 <strong>개인화 추천(AiRS) + 블로거 누적 점수(C-Rank) + 글 발행 후 인게이지먼트</strong>가 결합된 블랙박스라 어떤 도구도 100% 보장 불가. 다만 아래 신호를 동시 충족하면 평균 대비 노출 확률이 통계적으로 높습니다.</div>
+              </div>
+              <div style="display:flex; gap:8px; margin-bottom:16px; flex-wrap:wrap; font-size:10px;">
+                <span style="padding:3px 8px; background:rgba(34,197,94,0.15); color:#22c55e; border-radius:6px; font-weight:700;">공식 = 네이버 발표</span>
+                <span style="padding:3px 8px; background:rgba(251,191,36,0.15); color:#fbbf24; border-radius:6px; font-weight:700;">업계 표준 = 다중 도구 합의</span>
+                <span style="padding:3px 8px; background:rgba(239,68,68,0.15); color:#f87171; border-radius:6px; font-weight:700;">휴리스틱 = LEWORD 자체</span>
+                <span style="padding:3px 8px; background:rgba(167,139,250,0.15); color:#a78bfa; border-radius:6px; font-weight:700;">복합 = 위 신호 가중합</span>
+              </div>
+              ${rows.join('')}
+            </div>
+          `;
+          modal.setAttribute('data-evidence-modal', '1');
+          document.body.appendChild(modal);
+        };
 
         async function huntAdsenseKeywords() {
           const category = document.getElementById('adsenseCategory').value;
