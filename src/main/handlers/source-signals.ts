@@ -64,6 +64,18 @@ export function setupSourceSignalHandlers(): void {
         } catch (e: any) { return { success: false, error: e.message, items: [] }; }
     });
 
+    // v2.42.75: 4개 연예 매체 통합 (스타뉴스 + 스포츠조선 + 디스패치 + 마이데일리)
+    ipcMain.handle('source-entertainment-aggregate', async (_e, p: { maxMinutesAgo?: number; limitPerSource?: number } = {}) => {
+        try {
+            const { fetchEntertainmentAggregate } = await import('../../utils/entertainment-news-aggregator');
+            const items = await fetchEntertainmentAggregate({
+                maxMinutesAgo: p?.maxMinutesAgo,
+                limitPerSource: p?.limitPerSource,
+            });
+            return { success: true, items, count: items.length };
+        } catch (e: any) { return { success: false, error: e.message, items: [] }; }
+    });
+
     ipcMain.handle('source-youtube-trending', async () => {
         try {
             const keywords = await getYoutubeTrendingKeywords();

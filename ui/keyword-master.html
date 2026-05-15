@@ -1554,19 +1554,17 @@
           </div>
         </div>
 
-        <!-- 🆕 스타뉴스 갓 떴음 (연예/방송 선점 가능 기사) - v2.42.74 -->
+        <!-- 🆕 연예 갓 떴음 (4매체 통합) - v2.42.75 -->
         <div
-          style="background: white; border-radius: 16px; padding: 20px; border: 3px solid #a855f7; box-shadow: 0 4px 12px rgba(168, 85, 247, 0.2);">
+          style="background: white; border-radius: 16px; padding: 20px; border: 3px solid #a855f7; box-shadow: 0 4px 12px rgba(168, 85, 247, 0.2); grid-column: span 2;">
           <div style="display: flex; justify-content: space-between; align-items: center; margin-bottom: 12px;">
             <div>
-              <div style="font-size: 17px; font-weight: 700; color: #7e22ce;">🆕 갓 떴음 (연예/방송)</div>
-              <div style="font-size: 10px; color: #94a3b8; margin-top: 2px;">최근 3시간 · HOT 미등장 = 선점 가능</div>
+              <div style="font-size: 17px; font-weight: 700; color: #7e22ce;">🆕 연예 갓 떴음 (4매체 통합)</div>
+              <div style="font-size: 10px; color: #94a3b8; margin-top: 2px;">스타뉴스 + 스포츠조선 + 디스패치 + 마이데일리</div>
             </div>
-            <a href="#"
-              onclick="event.preventDefault(); if(window.electronAPI && window.electronAPI.openExternal) { window.electronAPI.openExternal('https://www.starnewskorea.com/latest-news/all'); } else { window.open('https://www.starnewskorea.com/latest-news/all', '_blank'); }"
-              style="font-size: 11px; color: #7e22ce; text-decoration: none; cursor: pointer;">최신 →</a>
+            <div style="font-size: 11px; color: #94a3b8;">5분마다 자동 갱신</div>
           </div>
-          <div id="starnewsKeywordsTop" style="max-height: 320px; overflow-y: auto; font-size: 14px;">
+          <div id="starnewsKeywordsTop" style="max-height: 340px; overflow-y: auto; font-size: 13px;">
             <div style="text-align: center; padding: 15px; color: #64748b;">로딩 중...</div>
           </div>
         </div>
@@ -4736,29 +4734,31 @@
             }
           };
 
-          // v2.42.74: 스타뉴스 "갓 떴음" 선점 가능 기사 (HOT 미등장 + 최근 3시간)
+          // v2.42.75: 4매체 통합 연예 갓 떴음 (스타뉴스/스포츠조선/디스패치/마이데일리)
           window.loadStarNewsTrending = async function () {
             const el = document.getElementById('starnewsKeywordsTop');
             if (!el) return;
             try {
-              const r = await window.electronAPI.invoke('source-starnews-fresh', { maxMinutesAgo: 180, limit: 15 });
+              const r = await window.electronAPI.invoke('source-entertainment-aggregate', { maxMinutesAgo: 180, limitPerSource: 8 });
               if (!r?.success || !r.items?.length) {
-                el.innerHTML = '<div style="color:#94a3b8; padding:15px; text-align:center; font-size:12px;">갓 떠오른 기사가 없습니다 (모두 이미 HOT 진입)</div>';
+                el.innerHTML = '<div style="color:#94a3b8; padding:15px; text-align:center; font-size:12px;">갓 떠오른 기사가 없습니다</div>';
                 return;
               }
-              const CAT_COLORS = { '스타': '#ec4899', '연예': '#a855f7', '드라마': '#f43f5e', '예능': '#fb923c', '방송': '#a855f7', '음악': '#8b5cf6', '스포츠': '#3b82f6', '컬처': '#f59e0b', '비즈': '#10b981', '이슈': '#ef4444', '영상': '#06b6d4', '최신': '#6366f1', '기타': '#64748b' };
-              el.innerHTML = r.items.map((it, idx) => {
-                const cColor = CAT_COLORS[it.category] || '#64748b';
-                const compFlag = it.competing
-                  ? '<span title="HOT 섹션에 같은 인물/주제 존재 — 선점 가치 ↓" style="background:#fee2e2; color:#dc2626; padding:1px 5px; border-radius:4px; font-size:9px; font-weight:800; margin-right:4px;">⚠️ 경쟁</span>'
-                  : '<span title="HOT 미등장 — 선점 가능" style="background:#dcfce7; color:#16a34a; padding:1px 5px; border-radius:4px; font-size:9px; font-weight:800; margin-right:4px;">🟢 선점</span>';
+              const CAT_COLORS = { '스타': '#ec4899', '연예': '#a855f7', '드라마': '#f43f5e', '예능': '#fb923c', '방송': '#a855f7', '음악': '#8b5cf6' };
+              const SRC_COLORS = { '스타뉴스': '#7e22ce', '스포츠조선': '#dc2626', '디스패치': '#0ea5e9', '마이데일리': '#059669' };
+              el.innerHTML = r.items.map((it) => {
+                const cColor = CAT_COLORS[it.category] || '#a855f7';
+                const sColor = SRC_COLORS[it.sourceLabel] || '#64748b';
+                const timeText = it.minutesAgo !== null ? it.ago : '최신';
+                const timeColor = it.minutesAgo !== null && it.minutesAgo <= 60 ? '#dc2626' : '#94a3b8';
                 const escaped = it.title.replace(/'/g, '&#39;').replace(/</g, '&lt;').replace(/"/g, '&quot;');
                 return `
                   <div style="padding:7px 4px; border-bottom:1px solid #f1f5f9; line-height:1.45;">
                     <div style="display:flex; gap:6px; align-items:flex-start;">
-                      <span style="font-size:10px; font-weight:700; color:#94a3b8; min-width:46px; text-align:right;">${it.ago}</span>
+                      <span style="font-size:10px; font-weight:700; color:${timeColor}; min-width:48px; text-align:right;">${timeText}</span>
                       <div style="flex:1; min-width:0;">
-                        ${compFlag}<span style="background:${cColor}1a; color:${cColor}; padding:1px 6px; border-radius:4px; font-size:9px; font-weight:700; margin-right:4px;">${it.category}</span>
+                        <span style="background:${sColor}1a; color:${sColor}; padding:1px 6px; border-radius:4px; font-size:9px; font-weight:800; margin-right:4px;">${it.sourceLabel}</span>
+                        <span style="background:${cColor}1a; color:${cColor}; padding:1px 6px; border-radius:4px; font-size:9px; font-weight:700; margin-right:4px;">${it.category}</span>
                         <a href="#" onclick="event.preventDefault(); window.electronAPI?.openExternal?.('${it.url}') || window.open('${it.url}', '_blank');" style="color:#1e293b; text-decoration:none; font-size:12px; line-height:1.45;">${escaped}</a>
                       </div>
                     </div>
