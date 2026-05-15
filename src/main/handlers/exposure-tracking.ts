@@ -55,9 +55,23 @@ function writeJson(file: string, data: unknown): void {
 // 블로그 ID 추출 (https://blog.naver.com/{id}/... or https://m.blog.naver.com/{id}/...)
 function extractBlogId(url: string): string | null {
   try {
-    const m = url.match(/blog\.naver\.com\/([^/?#]+)/i);
-    return m ? m[1] : null;
+    // v2.42.80: m. 서브도메인도 매칭 + PostView 쿼리 형태도 매칭
+    const m1 = url.match(/PostView\.naver\?blogId=([^&]+)/i);
+    if (m1) return m1[1];
+    const m2 = url.match(/(?:m\.)?blog\.naver\.com\/([^/?#]+)/i);
+    return m2 ? m2[1] : null;
   } catch { return null; }
+}
+
+// URL → { blogId, postNo } (m. 서브도메인 + PostView 형식 모두 지원)
+function extractBlogIdPostNo(url: string): { blogId: string; postNo: string } {
+  // PostView.naver?blogId=...&logNo=...
+  const m1 = url.match(/PostView\.naver\?blogId=([^&]+)&logNo=(\d+)/i);
+  if (m1) return { blogId: m1[1], postNo: m1[2] };
+  // blog.naver.com/{id}/{postNo} 또는 m.blog.naver.com/{id}/{postNo}
+  const m2 = url.match(/(?:m\.)?blog\.naver\.com\/([^/?#]+)\/(\d+)/i);
+  if (m2) return { blogId: m2[1], postNo: m2[2] };
+  return { blogId: extractBlogId(url) || '', postNo: '' };
 }
 
 // RSS XML → BlogPost[]
@@ -94,17 +108,10 @@ function matchKeywordToTitle(keyword: string, title: string): boolean {
   return hits / tokens.length >= 0.8;
 }
 
-// 모바일 SERP 에서 특정 blogId+postNo 가 몇 위에 있는지 확인 (top 30)
+// v2.42.80: 모바일 SERP 에서 사용자 글이 몇 위에 있는지 확인 (top 30)
+// blog.naver.com + m.blog.naver.com + PostView.naver 모든 형태 매칭
 async function checkSerpRank(keyword: string, postUrl: string): Promise<{ rank: number | null }> {
-  // post URL → blogId + postNo
-  const m = postUrl.match(/blog\.naver\.com\/(?:PostView\.naver\?blogId=([^&]+)&logNo=(\d+)|([^/?#]+)\/(\d+))/i);
-  let blogId = ''; let postNo = '';
-  if (m) {
-    blogId = m[1] || m[3] || '';
-    postNo = m[2] || m[4] || '';
-  } else {
-    blogId = extractBlogId(postUrl) || '';
-  }
+  const { blogId, postNo } = extractBlogIdPostNo(postUrl);
   if (!blogId) return { rank: null };
 
   try {
@@ -123,7 +130,8 @@ async function checkSerpRank(keyword: string, postUrl: string): Promise<{ rank: 
     const links: { href: string; isAd: boolean }[] = [];
     $('a').each((_i, el) => {
       const href = String($(el).attr('href') || '');
-      if (!href.includes('blog.naver.com')) return;
+      // m.blog.naver.com 또는 blog.naver.com 모두 매칭
+      if (!/(?:m\.)?blog\.naver\.com/.test(href)) return;
       const $parent = $(el).closest('.type_ad,.ad_section,.lst_ad');
       links.push({ href, isAd: $parent.length > 0 });
     });
@@ -132,10 +140,7 @@ async function checkSerpRank(keyword: string, postUrl: string): Promise<{ rank: 
     const seen = new Set<string>();
     for (const { href, isAd } of links) {
       if (isAd) continue;
-      // dedupe by blogId+postNo combo
-      const hrefM = href.match(/blog\.naver\.com\/(?:PostView\.naver\?blogId=([^&]+)&logNo=(\d+)|([^/?#]+)\/(\d+))/i);
-      const hBlogId = hrefM?.[1] || hrefM?.[3] || extractBlogId(href) || '';
-      const hPostNo = hrefM?.[2] || hrefM?.[4] || '';
+      const { blogId: hBlogId, postNo: hPostNo } = extractBlogIdPostNo(href);
       const key = `${hBlogId}/${hPostNo}`;
       if (seen.has(key)) continue;
       seen.add(key);
