@@ -18376,6 +18376,164 @@
         `;
         document.head.appendChild(style);
 
+        // ============================================================
+        // v2.42.66: 전역 모달 최소화 매니저
+        // 모든 모달(fixed+inset:0+z-index≥10000)에 자동으로 최소화 버튼 + 복원 dock 부여
+        // ============================================================
+        (function initModalMinimizer() {
+          const minimizedRegistry = new Map(); // modal element → {title, originalDisplay}
+          let dock = null;
+          const MIN_BTN_CLASS = '__modal-min-btn__';
+          const PROCESSED_KEY = '__modalMinimizable';
+
+          function ensureDock() {
+            if (dock) return dock;
+            dock = document.createElement('div');
+            dock.id = '__minimized-modal-dock__';
+            dock.style.cssText = 'position:fixed; bottom:16px; right:16px; z-index:99999; display:flex; flex-direction:column; gap:8px; align-items:flex-end; pointer-events:none;';
+            document.body.appendChild(dock);
+            return dock;
+          }
+
+          function inferTitle(modal) {
+            // 1) 모달 내부 첫 h1/h2/h3/strong
+            const titleEl = modal.querySelector('h1, h2, h3, [data-modal-title]');
+            if (titleEl) {
+              const t = (titleEl.textContent || '').trim().replace(/\s+/g, ' ');
+              if (t) return t.length > 40 ? t.slice(0, 38) + '…' : t;
+            }
+            // 2) id 기반
+            if (modal.id) return modal.id.replace(/Modal$/, '');
+            return '모달';
+          }
+
+          function restoreModal(modal) {
+            const entry = minimizedRegistry.get(modal);
+            if (!entry) return;
+            modal.style.display = entry.originalDisplay || 'flex';
+            minimizedRegistry.delete(modal);
+            if (entry.chip && entry.chip.parentElement) entry.chip.parentElement.removeChild(entry.chip);
+            if (dock && dock.children.length === 0) dock.style.display = 'none';
+          }
+
+          function minimizeModal(modal) {
+            if (minimizedRegistry.has(modal)) return;
+            const cs = getComputedStyle(modal);
+            const originalDisplay = modal.style.display || cs.display || 'flex';
+            modal.style.display = 'none';
+            const title = inferTitle(modal);
+
+            const d = ensureDock();
+            d.style.display = 'flex';
+            const chip = document.createElement('div');
+            chip.style.cssText = 'pointer-events:auto; background:linear-gradient(135deg,#6366f1,#a78bfa); color:#fff; padding:10px 14px; border-radius:24px; font-size:13px; font-weight:600; box-shadow:0 8px 24px rgba(99,102,241,0.4); cursor:pointer; display:flex; align-items:center; gap:8px; max-width:280px;';
+            chip.innerHTML = '<span style="font-size:14px;">🗖</span><span style="overflow:hidden; text-overflow:ellipsis; white-space:nowrap;">' + title + '</span><span title="닫기" style="opacity:0.7; padding-left:6px; font-size:16px; line-height:1;">×</span>';
+            chip.title = '클릭: 복원';
+            chip.addEventListener('click', (e) => {
+              // × 영역 클릭 → 완전 닫기
+              if (e.target instanceof HTMLElement && e.target.getAttribute('title') === '닫기') {
+                e.stopPropagation();
+                minimizedRegistry.delete(modal);
+                if (chip.parentElement) chip.parentElement.removeChild(chip);
+                if (dock && dock.children.length === 0) dock.style.display = 'none';
+                return;
+              }
+              restoreModal(modal);
+            });
+            d.appendChild(chip);
+            minimizedRegistry.set(modal, { title, originalDisplay, chip });
+          }
+
+          function attachMinimizeButton(modal) {
+            if (modal[PROCESSED_KEY]) return;
+            // 모달 내부 카드 컨테이너 찾기 (보통 첫 번째 직계 자식)
+            const inner = modal.firstElementChild || modal;
+            // 이미 최소화 버튼 있으면 skip
+            if (inner.querySelector('.' + MIN_BTN_CLASS)) {
+              modal[PROCESSED_KEY] = true;
+              return;
+            }
+            const btn = document.createElement('button');
+            btn.className = MIN_BTN_CLASS;
+            btn.type = 'button';
+            btn.title = '최소화';
+            btn.textContent = '🗕';
+            btn.style.cssText = 'position:absolute; top:12px; right:54px; z-index:10; background:rgba(255,255,255,0.1); color:#fff; border:1px solid rgba(255,255,255,0.2); width:34px; height:34px; border-radius:8px; font-size:16px; cursor:pointer; display:flex; align-items:center; justify-content:center; padding:0; line-height:1;';
+            btn.addEventListener('mouseenter', () => { btn.style.background = 'rgba(255,255,255,0.22)'; });
+            btn.addEventListener('mouseleave', () => { btn.style.background = 'rgba(255,255,255,0.1)'; });
+            btn.addEventListener('click', (e) => { e.stopPropagation(); minimizeModal(modal); });
+
+            // inner가 position:static이면 relative로
+            const icsPos = getComputedStyle(inner).position;
+            if (icsPos === 'static') {
+              try { (inner).style.position = 'relative'; } catch (e) {}
+            }
+            inner.appendChild(btn);
+            modal[PROCESSED_KEY] = true;
+          }
+
+          function isModalLike(el) {
+            if (!(el instanceof HTMLElement)) return false;
+            if (el.id === '__minimized-modal-dock__') return false;
+            const cs = getComputedStyle(el);
+            if (cs.position !== 'fixed') return false;
+            const z = parseInt(cs.zIndex, 10);
+            if (!Number.isFinite(z) || z < 10000) return false;
+            // viewport-cover 모달만 (input/top:0 left:0 right:0 bottom:0 또는 inset:0)
+            const isFullCover =
+              (cs.inset && cs.inset !== 'auto' && cs.inset !== '') ||
+              (cs.top === '0px' && cs.left === '0px' && cs.right === '0px' && cs.bottom === '0px');
+            if (!isFullCover) return false;
+            return true;
+          }
+
+          function scan(root) {
+            const candidates = (root || document).querySelectorAll('div, section');
+            candidates.forEach(el => {
+              if (isModalLike(el)) attachMinimizeButton(el);
+            });
+          }
+
+          function initialScan() { scan(document); }
+
+          // 초기 스캔
+          if (document.readyState === 'loading') {
+            document.addEventListener('DOMContentLoaded', initialScan);
+          } else {
+            initialScan();
+          }
+
+          // 새로 추가되는 모달 감지 (동적 생성)
+          const mo = new MutationObserver((mutations) => {
+            for (const m of mutations) {
+              if (m.type === 'childList') {
+                m.addedNodes.forEach(node => {
+                  if (node instanceof HTMLElement) {
+                    if (isModalLike(node)) attachMinimizeButton(node);
+                    // 하위까지 검사
+                    scan(node);
+                  }
+                });
+              } else if (m.type === 'attributes' && m.target instanceof HTMLElement) {
+                if (isModalLike(m.target)) attachMinimizeButton(m.target);
+              }
+            }
+          });
+          mo.observe(document.body, { childList: true, subtree: true, attributes: true, attributeFilter: ['style', 'class'] });
+
+          // 외부에서 호출 가능
+          window.__minimizeActiveModals = function () {
+            document.querySelectorAll('div, section').forEach(el => {
+              if (!isModalLike(el)) return;
+              if (getComputedStyle(el).display === 'none') return;
+              minimizeModal(el);
+            });
+          };
+          window.__restoreAllModals = function () {
+            Array.from(minimizedRegistry.keys()).forEach(restoreModal);
+          };
+        })();
+
       </script>
 </body>
 
