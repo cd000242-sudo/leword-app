@@ -197,29 +197,46 @@ function extractCoreKeywords(title: string, maxCandidates = 3): string[] {
   return scored.slice(0, maxCandidates).map(x => x.c);
 }
 
-// v2.42.80: 모바일 SERP 에서 사용자 글이 몇 위에 있는지 확인 (top 30)
-// blog.naver.com + m.blog.naver.com + PostView.naver 모든 형태 매칭
-async function checkSerpRank(keyword: string, postUrl: string): Promise<{ rank: number | null }> {
+// v2.42.88: SERP 체크 — User-Agent 회전 + 403 차단 명확 구분
+const MOBILE_UAS = [
+  'Mozilla/5.0 (iPhone; CPU iPhone OS 17_0 like Mac OS X) AppleWebKit/605.1.15 (KHTML, like Gecko) Version/17.0 Mobile/15E148 Safari/604.1',
+  'Mozilla/5.0 (Linux; Android 14; SM-S918N) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/121.0.0.0 Mobile Safari/537.36',
+  'Mozilla/5.0 (iPhone; CPU iPhone OS 16_6 like Mac OS X) AppleWebKit/605.1.15 (KHTML, like Gecko) Version/16.6 Mobile/15E148 Safari/604.1',
+  'Mozilla/5.0 (Linux; Android 13; Pixel 7) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/120.0.6099.230 Mobile Safari/537.36',
+];
+
+async function checkSerpRank(keyword: string, postUrl: string): Promise<{ rank: number | null; status: 'found' | 'not-in-top30' | 'blocked' | 'error' | 'invalid-url' }> {
   const { blogId, postNo } = extractBlogIdPostNo(postUrl);
-  if (!blogId) return { rank: null };
+  if (!blogId) return { rank: null, status: 'invalid-url' };
 
   try {
+    const ua = MOBILE_UAS[Math.floor(Math.random() * MOBILE_UAS.length)];
     const url = `https://m.search.naver.com/search.naver?where=view&sm=tab_jum&query=${encodeURIComponent(keyword)}`;
     const resp = await axios.get(url, {
       timeout: 12000,
       headers: {
-        'User-Agent': 'Mozilla/5.0 (iPhone; CPU iPhone OS 17_0 like Mac OS X) AppleWebKit/605.1.15 (KHTML, like Gecko) Version/17.0 Mobile/15E148 Safari/604.1',
+        'User-Agent': ua,
+        'Accept': 'text/html,application/xhtml+xml',
         'Accept-Language': 'ko-KR,ko;q=0.9',
+        'Referer': 'https://m.naver.com/',
       },
       responseType: 'text',
+      validateStatus: () => true,
     });
+    if (resp.status === 429 || resp.status === 403) {
+      console.warn(`[EXPOSURE-TRACKING] 차단 ${resp.status}: "${keyword}"`);
+      return { rank: null, status: 'blocked' };
+    }
+    if (resp.status !== 200) {
+      console.warn(`[EXPOSURE-TRACKING] 비정상 응답 ${resp.status}: "${keyword}"`);
+      return { rank: null, status: 'error' };
+    }
     const html = resp.data as string;
     const $ = cheerio.load(html);
 
     const links: { href: string; isAd: boolean }[] = [];
     $('a').each((_i, el) => {
       const href = String($(el).attr('href') || '');
-      // m.blog.naver.com 또는 blog.naver.com 모두 매칭
       if (!/(?:m\.)?blog\.naver\.com/.test(href)) return;
       const $parent = $(el).closest('.type_ad,.ad_section,.lst_ad');
       links.push({ href, isAd: $parent.length > 0 });
@@ -236,12 +253,12 @@ async function checkSerpRank(keyword: string, postUrl: string): Promise<{ rank: 
       rank++;
       if (rank > 30) break;
       const matches = postNo ? (hBlogId === blogId && hPostNo === postNo) : (hBlogId === blogId);
-      if (matches) return { rank };
+      if (matches) return { rank, status: 'found' };
     }
-    return { rank: null };
+    return { rank: null, status: 'not-in-top30' };
   } catch (err: any) {
-    console.warn('[EXPOSURE-TRACKING] SERP fetch failed:', err?.message);
-    return { rank: null };
+    console.warn('[EXPOSURE-TRACKING] SERP fetch err:', err?.message);
+    return { rank: null, status: 'error' };
   }
 }
 
@@ -436,37 +453,69 @@ export function setupExposureTrackingHandlers(): void {
   }
 
   // 5. SERP 추적 1회 (전체 tracked 순회)
+  //    v2.42.88: 차단 회피 — 직렬 호출 + 요청 간격 1.2s + 차단 감지 시 즉시 중단
   if (!ipcMain.listenerCount('exposure-run-serp-check')) {
-    ipcMain.handle('exposure-run-serp-check', async (event) => {
+    ipcMain.handle('exposure-run-serp-check', async (event, payload?: { maxItems?: number }) => {
       try {
         const tracked = readJson<TrackedKeyword[]>(FILE_TRACKED(), []);
-        if (tracked.length === 0) return { success: true, checked: 0, exposed: 0 };
+        if (tracked.length === 0) return { success: true, checked: 0, exposed: 0, blocked: 0 };
 
-        let checked = 0, exposed = 0;
-        const concurrency = 3;
+        // 미체크 우선, 그 다음 오래된 체크 우선
+        const sorted = [...tracked].sort((a, b) => (a.history.length - b.history.length));
+        const maxItems = Math.min(payload?.maxItems || 50, sorted.length);
+        const targets = sorted.slice(0, maxItems);
+
+        let checked = 0, exposed = 0, blocked = 0, errored = 0;
         const ts = new Date().toISOString();
-        for (let i = 0; i < tracked.length; i += concurrency) {
-          const batch = tracked.slice(i, i + concurrency);
-          await Promise.all(batch.map(async t => {
-            const { rank } = await checkSerpRank(t.keyword, t.postUrl);
-            const check: SerpCheck = {
-              checkedAt: ts,
-              inTop10: rank !== null && rank <= 10,
-              inTop30: rank !== null && rank <= 30,
-              rank,
-            };
+        let blockedStreak = 0;
+
+        for (const t of targets) {
+          const r = await checkSerpRank(t.keyword, t.postUrl);
+          const inTop30 = r.status === 'found' && r.rank !== null && r.rank <= 30;
+          const inTop10 = r.status === 'found' && r.rank !== null && r.rank <= 10;
+          const check: SerpCheck = {
+            checkedAt: ts,
+            inTop10,
+            inTop30,
+            rank: r.rank,
+          };
+          // 차단/에러는 history 기록 X — 다음 사이클에서 재시도 (체크된 척 안 함)
+          if (r.status === 'blocked') {
+            blocked++;
+            blockedStreak++;
+            // 5건 연속 차단이면 중단 (IP 차단 회피)
+            if (blockedStreak >= 5) {
+              console.warn('[EXPOSURE-TRACKING] 차단 5건 연속 → 중단 (잠시 후 재시도 권장)');
+              break;
+            }
+          } else if (r.status === 'error') {
+            errored++;
+            blockedStreak = 0;
+          } else {
             t.history.push(check);
-            // 최대 30개 히스토리 유지
             if (t.history.length > 30) t.history = t.history.slice(-30);
             t.lastCheckedAt = ts;
             checked++;
-            if (check.inTop30) exposed++;
-          }));
-          // 진행 알림
-          try { event.sender.send('exposure-progress', { checked, total: tracked.length, exposed }); } catch {}
+            if (inTop30) exposed++;
+            blockedStreak = 0;
+          }
+
+          try { event.sender.send('exposure-progress', { checked, blocked, errored, total: targets.length, exposed }); } catch {}
+
+          // 요청 간격 1.2~1.8초 (랜덤) — IP 차단 회피
+          await new Promise(res => setTimeout(res, 1200 + Math.random() * 600));
         }
+
         writeJson(FILE_TRACKED(), tracked);
-        return { success: true, checked, exposed, hitRate30: checked > 0 ? Math.round((exposed / checked) * 100) : 0 };
+        return {
+          success: true,
+          checked, exposed, blocked, errored,
+          hitRate30: checked > 0 ? Math.round((exposed / checked) * 100) : 0,
+          blockedHit: blockedStreak >= 5,
+          message: blockedStreak >= 5
+            ? '⚠️ 네이버가 일시 차단 (IP 보호) — 10~30분 후 다시 시도하세요'
+            : (blocked > 0 ? `${blocked}건 차단됨 (재시도 필요)` : null),
+        };
       } catch (err: any) { return { success: false, error: err?.message }; }
     });
   }

@@ -13455,17 +13455,19 @@
             const stats = await window.electronAPI.invoke('exposure-get-stats');
             const unchecked = stats?.totals?.uncheckedPairs || 0;
             if (unchecked > 0) {
-              const limit = Math.min(unchecked, 50); // 한 번에 최대 50건 (시간 절약)
-              setStatus(`🎯 자동 SERP 체크: 미체크 ${unchecked}건 중 ${limit}건 측정 중... (1~3분, 백그라운드)`);
-              const checked = await window.electronAPI.invoke('exposure-run-serp-check');
+              const limit = Math.min(unchecked, 30); // v2.42.88: 차단 회피 위해 한 번에 30건 (1.5초 × 30 = 45초)
+              setStatus(`🎯 자동 SERP 체크: 미체크 ${unchecked}건 중 ${limit}건 측정 중... (약 1분, IP 차단 회피용 직렬)`);
+              const checked = await window.electronAPI.invoke('exposure-run-serp-check', { maxItems: limit });
               if (checked?.success) {
-                setStatus(`✅ 자동 측정 완료: ${checked.checked}건 체크, top30 ${checked.exposed}건 (hit rate ${checked.hitRate30}%) — 결과 아래 대시보드에 반영됨`);
+                const blockedMsg = checked.blockedHit
+                  ? ` <span style="color:#fca5a5;">⚠️ 네이버 일시 차단 — 10~30분 후 재시도</span>`
+                  : (checked.blocked > 0 ? ` <span style="color:#fbbf24;">차단 ${checked.blocked}건 (재시도 예정)</span>` : '');
+                setStatus(`✅ 자동 측정 완료: ${checked.checked}건 체크, top30 ${checked.exposed}건 (hit rate ${checked.hitRate30}%)${blockedMsg}`);
                 await refreshExposureDashboard();
-                // 5초 후 배너 자동 제거
                 setTimeout(() => {
                   const b = document.getElementById('exposureAutoBanner');
                   if (b) b.remove();
-                }, 8000);
+                }, 12000);
               } else {
                 setStatus(`⚠️ SERP 체크 실패: ${checked?.error || ''}`);
               }
@@ -13524,10 +13526,14 @@
 
         async function exposureRunCheck() {
           const dash = document.getElementById('exposureDashboard');
-          if (dash) dash.innerHTML = '<div style="text-align:center; color:#a78bfa; padding:60px 20px;">⏳ SERP 체크 진행 중... (등록된 페어 수에 따라 1~5분)</div>';
-          const r = await window.electronAPI.invoke('exposure-run-serp-check');
+          if (dash) dash.innerHTML = '<div style="text-align:center; color:#a78bfa; padding:60px 20px;">⏳ SERP 체크 진행 중... (1.5초/페어 — IP 차단 회피용 직렬)</div>';
+          const r = await window.electronAPI.invoke('exposure-run-serp-check', { maxItems: 50 });
           if (r?.success) {
-            alert(`✅ ${r.checked}건 체크 완료, top30 노출 ${r.exposed}건 (hit rate ${r.hitRate30}%)`);
+            const lines = [`✅ 체크 ${r.checked}건, top30 노출 ${r.exposed}건 (hit rate ${r.hitRate30}%)`];
+            if (r.blocked > 0) lines.push(`⚠️ 차단 ${r.blocked}건 (다음 사이클에서 재시도)`);
+            if (r.errored > 0) lines.push(`❌ 오류 ${r.errored}건`);
+            if (r.blockedHit) lines.push('\n네이버가 일시 차단 — 10~30분 후 다시 시도하세요.');
+            alert(lines.join('\n'));
             refreshExposureDashboard();
           } else {
             alert('SERP 체크 실패: ' + (r?.error || 'unknown'));
