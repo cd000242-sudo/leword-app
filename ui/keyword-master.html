@@ -13406,11 +13406,14 @@
           }
           await refreshExposureDashboard();
 
-          // v2.42.86: 자동 파이프라인 — 모달 열 때 RSS 등록되어 있으면 fetch + match + 미체크 SERP 자동 체크
-          if (isFirstOpen) {
+          // v2.42.87: 자동 파이프라인 — 모달 열 때마다 (5분 쓰로틀)
+          const lastAuto = window.__exposureLastAuto || 0;
+          const now = Date.now();
+          if (now - lastAuto > 5 * 60 * 1000) {
             try {
               const cfg = await window.electronAPI.invoke('exposure-get-config');
               if (cfg?.success && cfg.rssUrl) {
+                window.__exposureLastAuto = now;
                 await runExposureAutoPipeline();
               }
             } catch (e) { /* skip */ }
@@ -13483,9 +13486,15 @@
           if (!url) return alert('블로그 ID 또는 주소를 입력하세요.');
           const r = await window.electronAPI.invoke('exposure-set-blog-rss', { rssUrl: url });
           if (r?.success) {
-            const conv = (r.rssUrl && r.rssUrl !== r.originalInput) ? `\n\n자동 변환된 RSS URL:\n${r.rssUrl}` : '';
-            alert(`✅ 저장 완료. 자동으로 글 가져오기 → 키워드 매칭 → SERP 체크 진행됩니다.${conv}`);
-            // v2.42.86: RSS 저장 직후 자동 파이프라인 트리거
+            const lines = ['✅ 저장 완료. 자동으로 글 가져오기 → 키워드 매칭 → SERP 체크 진행됩니다.'];
+            if (r.rssUrl && r.rssUrl !== r.originalInput) lines.push(`\n자동 변환된 RSS URL: ${r.rssUrl}`);
+            if (r.previousBlog) {
+              lines.push(`\n🔄 블로그 변경 감지: ${r.previousBlog} → 새 블로그`);
+              lines.push(`이전 데이터 자동 클리어: 추적 페어 ${r.cleared?.tracked || 0}건, 키워드 history ${r.cleared?.keywordHistory || 0}건`);
+            }
+            alert(lines.join('\n'));
+            // v2.42.87: RSS 저장 직후 자동 파이프라인 강제 트리거 (쓰로틀 무시)
+            window.__exposureLastAuto = Date.now();
             runExposureAutoPipeline().catch(() => {});
           } else alert('저장 실패: ' + (r?.error || 'unknown'));
         }

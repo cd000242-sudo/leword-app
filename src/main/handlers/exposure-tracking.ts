@@ -274,6 +274,7 @@ function normalizeBlogRssUrl(input: string): string | null {
 
 export function setupExposureTrackingHandlers(): void {
   // 1. RSS URL 저장/조회 — 어떤 형태로 입력해도 자동 RSS URL 변환
+  //    v2.42.87: RSS 변경 시 이전 블로그의 tracked/history 자동 클리어 (혼란 방지)
   if (!ipcMain.listenerCount('exposure-set-blog-rss')) {
     ipcMain.handle('exposure-set-blog-rss', async (_e, p: { rssUrl: string }) => {
       try {
@@ -299,9 +300,29 @@ export function setupExposureTrackingHandlers(): void {
         }
 
         const cfg = readJson<{ rssUrl?: string }>(FILE_CONFIG(), {});
+        const previousUrl = cfg.rssUrl;
+
+        // v2.42.87: 블로그 변경 감지 → 이전 데이터 자동 클리어
+        let cleared = { tracked: 0, keywordHistory: 0 };
+        if (previousUrl && previousUrl !== normalized) {
+          const prevTracked = readJson<TrackedKeyword[]>(FILE_TRACKED(), []);
+          cleared.tracked = prevTracked.length;
+          writeJson(FILE_TRACKED(), []);
+          const prevKwHistory = readJson<any[]>(FILE_KEYWORD_HISTORY(), []);
+          cleared.keywordHistory = prevKwHistory.length;
+          writeJson(FILE_KEYWORD_HISTORY(), []);
+          console.log(`[EXPOSURE-TRACKING] 블로그 변경: ${previousUrl} → ${normalized}, 이전 데이터 클리어 (tracked=${cleared.tracked}, history=${cleared.keywordHistory})`);
+        }
+
         cfg.rssUrl = normalized;
         writeJson(FILE_CONFIG(), cfg);
-        return { success: true, rssUrl: normalized, originalInput: raw };
+        return {
+          success: true,
+          rssUrl: normalized,
+          originalInput: raw,
+          previousBlog: previousUrl && previousUrl !== normalized ? previousUrl : null,
+          cleared,
+        };
       } catch (err: any) { return { success: false, error: err?.message }; }
     });
   }
