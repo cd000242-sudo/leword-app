@@ -1247,36 +1247,36 @@ export function setupPremiumHuntingHandlers(): void {
         const limit = Math.min(50, payload?.limit || 25);
         const category = String(payload?.category || '').toLowerCase();
 
-        // 카테고리별 seed root (자동완성 확장의 시작점)
+        // v2.42.65: 각 카테고리 root 8~12개로 균형 확대 (얇은 카테고리 보강)
         const CATEGORY_ROOTS: Record<string, string[]> = {
-          beauty: ['쿠션팩트', '아이크림', '선크림', '클렌징', '토너', '시트마스크', '앰플', '립밤', '쉐도우', '메이크업'],
-          fashion: ['뉴발란스', '나이키', '아디다스', '여성 자켓', '남자 셔츠', '청바지', '원피스', '운동화', '백팩', '가방'],
-          food: ['직장인 도시락', '집밥', '저녁 메뉴', '에어프라이어 요리', '레시피', '한식 요리', '간식'],
-          recipe: ['간단한 요리', '에어프라이어', '집밥 레시피', '아이 간식', '브런치'],
-          living: ['거실 인테리어', '욕실 청소', '주방 수납', '제습기', '셀프 인테리어'],
-          interior: ['셀프 인테리어', '거실 가구', '침실 인테리어', '신혼 인테리어'],
-          parenting: ['어버이날 선물', '신생아 분유', '이유식', '카시트', '유모차', '아이 장난감', '어린이날'],
-          pet: ['강아지 사료', '고양이 모래', '강아지 영양제', '캣타워', '자동 급식기', '강아지 산책'],
-          health: ['영양제', '비타민', '오메가3', '단백질 보충제', '다이어트', '운동', '요가'],
-          garden: ['화분', '식물 키우기', '베란다 텃밭', '실내 식물', '플랜테리어'],
-          finance: ['연말정산', '청년도약계좌', '주택청약', 'ETF', '적금', '신용카드', '실비보험'],
-          career: ['이직 준비', '면접', '자격증', '연봉 협상', '직장인 부업'],
-          realestate: ['전세 사기', '월세 계약', '청약 1순위', '아파트 시세'],
-          travel: ['제주도 여행', '강릉 여행', '부산 여행', '일본 여행', '캠핑장', '글램핑'],
-          camping: ['캠핑 의자', '캠핑 텐트', '캠핑 화목난로', '캠핑 요리', '글램핑'],
-          hobby: ['홈트', '필라테스', '요가', '베이킹', '캘리그라피', '필름카메라'],
-          wedding: ['신혼 가전', '예식장', '웨딩 촬영', '신혼 여행', '청첩장'],
-          car: ['소형 SUV', '국산차', '중고차', '하이브리드', '전기차', '제네시스', '카니발'],
-          entertainment: ['넷플릭스 추천', '드라마 추천', 'OTT 추천', '예능 추천', '영화 추천'],
-          music: ['플레이리스트', '음악 추천 30대', 'K-POP 추천'],
-          book: ['책 추천 30대', '자기계발 책', '소설 추천 30대'],
-          game: ['게임 추천 PC', '닌텐도 게임', 'PS5 게임'],
-          sports: ['헬스 추천', '운동 루틴', '러닝 운동화'],
-          it: ['맥북에어', '아이폰15', '갤럭시 S24', '에어팟 프로', '노트북 추천'],
-          education: ['공무원 시험', '자격증 추천', '온라인 강의'],
+          beauty: ['쿠션팩트', '아이크림', '선크림', '클렌징', '토너', '시트마스크', '앰플', '립밤', '쉐도우', '메이크업', '향수', '바디로션'],
+          fashion: ['뉴발란스', '나이키', '아디다스', '여성 자켓', '남자 셔츠', '청바지', '원피스', '운동화', '백팩', '가방', '카디건', '코트'],
+          food: ['직장인 도시락', '집밥', '저녁 메뉴', '에어프라이어 요리', '레시피', '한식 요리', '간식', '디저트', '편의점 음식', '배달 음식'],
+          recipe: ['간단한 요리', '에어프라이어', '집밥 레시피', '아이 간식', '브런치', '한식 레시피', '다이어트 레시피', '술 안주', '캠핑 요리', '도시락 메뉴'],
+          living: ['거실 인테리어', '욕실 청소', '주방 수납', '제습기', '셀프 인테리어', '빨래 건조기', '공기청정기', '청소기 추천', '식기세척기', '커튼'],
+          interior: ['셀프 인테리어', '거실 가구', '침실 인테리어', '신혼 인테리어', '원룸 인테리어', '북유럽 인테리어', '주방 인테리어', '아이방 인테리어', '미니멀 인테리어'],
+          parenting: ['어버이날 선물', '신생아 분유', '이유식', '카시트', '유모차', '아이 장난감', '어린이날', '아기 옷', '기저귀', '아기 침대', '돌잔치'],
+          pet: ['강아지 사료', '고양이 모래', '강아지 영양제', '캣타워', '자동 급식기', '강아지 산책', '강아지 옷', '고양이 사료', '강아지 간식', '반려동물 보험'],
+          health: ['영양제', '비타민', '오메가3', '단백질 보충제', '다이어트', '운동', '요가', '필라테스', '홈트레이닝', '러닝', '식단', '유산균'],
+          garden: ['화분', '식물 키우기', '베란다 텃밭', '실내 식물', '플랜테리어', '몬스테라', '다육이', '공기정화 식물', '식물 분갈이', '식물 영양제'],
+          finance: ['연말정산', '청년도약계좌', '주택청약', 'ETF', '적금', '신용카드', '실비보험', '재테크', '주식', '청년 지원금', '연금저축', '비상금'],
+          career: ['이직 준비', '면접', '자격증', '연봉 협상', '직장인 부업', '이력서', '자기소개서', '퇴사', '재택근무', '직장인 스트레스', '신입 사원'],
+          realestate: ['전세 사기', '월세 계약', '청약 1순위', '아파트 시세', '오피스텔', '전세 대출', '주택담보대출', '부동산 세금', '재건축', '신축 아파트'],
+          travel: ['제주도 여행', '강릉 여행', '부산 여행', '일본 여행', '캠핑장', '글램핑', '베트남 여행', '동남아 여행', '국내 여행지', '가족 여행', '커플 여행'],
+          camping: ['캠핑 의자', '캠핑 텐트', '캠핑 화목난로', '캠핑 요리', '글램핑', '캠핑 장비', '백패킹', '오토캠핑', '캠핑카', '캠핑장 추천', '캠핑 식기'],
+          hobby: ['홈트', '필라테스', '요가', '베이킹', '캘리그라피', '필름카메라', '뜨개질', '독서', '러닝', '등산', '낚시', '드로잉'],
+          wedding: ['신혼 가전', '예식장', '웨딩 촬영', '신혼 여행', '청첩장', '신혼 인테리어', '결혼 준비', '스드메', '예단', '예물', '신혼집'],
+          car: ['소형 SUV', '국산차', '중고차', '하이브리드', '전기차', '제네시스', '카니발', '아반떼', '쏘렌토', '캐스퍼', '차량 용품', '자동차 보험'],
+          entertainment: ['넷플릭스 추천', '드라마 추천', 'OTT 추천', '예능 추천', '영화 추천', '디즈니플러스', '티빙 추천', '왓챠', '쿠팡플레이', '웨이브'],
+          music: ['플레이리스트', '음악 추천 30대', 'K-POP 추천', '카페 음악', '드라이브 음악', '운동 음악', '발라드 추천', '인디 음악', '재즈 추천', '클래식 추천'],
+          book: ['책 추천 30대', '자기계발 책', '소설 추천 30대', '베스트셀러', '에세이 추천', '경제 책', '심리학 책', '재테크 책', '독서 모임', '책 정리'],
+          game: ['게임 추천 PC', '닌텐도 게임', 'PS5 게임', '모바일 게임', '스팀 게임', 'RPG 게임', '인디 게임', '온라인 게임', '오픈월드 게임', '게이밍 키보드'],
+          sports: ['헬스 추천', '운동 루틴', '러닝 운동화', '러닝 코스', '축구 용품', '골프 용품', '농구화', '수영복', '자전거 추천', '등산화', '홈트 기구'],
+          it: ['맥북에어', '아이폰15', '갤럭시 S24', '에어팟 프로', '노트북 추천', '갤럭시 버즈', '아이패드', '게이밍 노트북', '스마트워치', '무선 이어폰', '모니터 추천'],
+          education: ['공무원 시험', '자격증 추천', '온라인 강의', '토익', '오픽', '수능', '학원 추천', '인강 추천', '독서실', '학습지', '취업 준비'],
           // v2.42.62: 인물명 허용 카테고리 (allowPerson)
-          celebrity: ['아이돌 굿즈', '걸그룹 패션', '연예인 메이크업', 'K-POP 콘서트', '드라마 OST', '아이돌 다이어트'],
-          issue: ['오늘 이슈', '5월 핫이슈', '주말 가볼만한 곳', '5월 축제', '주말 데이트', '한강 데이트', '봄꽃 명소'],
+          celebrity: ['아이돌 굿즈', '걸그룹 패션', '연예인 메이크업', 'K-POP 콘서트', '드라마 OST', '아이돌 다이어트', '연예인 패션', '아이돌 응원봉', '연예인 운동', '드라마 명대사', '아이돌 입덕', '연예인 추천템'],
+          issue: ['오늘 이슈', '5월 핫이슈', '주말 가볼만한 곳', '5월 축제', '주말 데이트', '한강 데이트', '봄꽃 명소', '연휴 가볼만한 곳', '5월 행사', '주말 나들이', '벚꽃 명소', '봄 데이트'],
         };
 
         const roots = CATEGORY_ROOTS[category] || [];
@@ -1300,19 +1300,46 @@ export function setupPremiumHuntingHandlers(): void {
           return true;
         };
 
-        // Naver 자동완성으로 각 root 확장
+        // v2.42.65: 다단계 자동완성 확장 (깊이 2) — 시드 풀 5~10배 확대
         const { getNaverAutocompleteKeywords } = await import('../../utils/naver-autocomplete');
         const allExpanded = new Set<string>();
+        const depth1Pool = new Set<string>();
         const concurrency = 5;
-        for (let i = 0; i < roots.length; i += concurrency) {
-          const batch = roots.slice(i, i + concurrency);
-          const results = await Promise.all(batch.map(r =>
-            Promise.race([
-              getNaverAutocompleteKeywords(r, { clientId, clientSecret }),
-              new Promise<string[]>((_, rej) => setTimeout(() => rej(new Error('timeout')), 5000)),
-            ]).catch(() => [] as string[])
-          ));
-          for (const arr of results) {
+
+        const expandBatch = async (terms: string[]): Promise<string[][]> => {
+          const out: string[][] = [];
+          for (let i = 0; i < terms.length; i += concurrency) {
+            const batch = terms.slice(i, i + concurrency);
+            const results = await Promise.all(batch.map(r =>
+              Promise.race([
+                getNaverAutocompleteKeywords(r, { clientId, clientSecret }),
+                new Promise<string[]>((_, rej) => setTimeout(() => rej(new Error('timeout')), 5000)),
+              ]).catch(() => [] as string[])
+            ));
+            out.push(...results);
+          }
+          return out;
+        };
+
+        // Depth 1: roots → autocomplete
+        const d1Results = await expandBatch(roots);
+        for (const arr of d1Results) {
+          for (const kw of arr) {
+            const k = String(kw || '').trim();
+            if (isGoodSeed(k, roots)) {
+              allExpanded.add(k);
+              depth1Pool.add(k);
+            }
+          }
+        }
+
+        // Depth 2: depth1 키워드를 다시 자동완성 (limit*3 미만일 때만)
+        if (allExpanded.size < limit * 3) {
+          const d1Array = Array.from(depth1Pool);
+          // depth1 중 최대 30개를 추가 시드로 사용 (API 호출 30회 * 5/batch = 6 batches)
+          const expandFrom = d1Array.slice(0, Math.min(30, d1Array.length));
+          const d2Results = await expandBatch(expandFrom);
+          for (const arr of d2Results) {
             for (const kw of arr) {
               const k = String(kw || '').trim();
               if (isGoodSeed(k, roots)) allExpanded.add(k);
