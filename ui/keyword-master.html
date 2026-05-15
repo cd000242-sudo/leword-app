@@ -1554,9 +1554,9 @@
           </div>
         </div>
 
-        <!-- 🆕 연예 갓 떴음 (4매체 통합) - v2.42.75 -->
+        <!-- 🆕 연예 갓 떴음 (4매체 통합) - v2.42.75 (v2.42.79: 전체 폭) -->
         <div
-          style="background: white; border-radius: 16px; padding: 20px; border: 3px solid #a855f7; box-shadow: 0 4px 12px rgba(168, 85, 247, 0.2); grid-column: span 2;">
+          style="background: white; border-radius: 16px; padding: 20px; border: 3px solid #a855f7; box-shadow: 0 4px 12px rgba(168, 85, 247, 0.2); grid-column: 1 / -1;">
           <div style="display: flex; justify-content: space-between; align-items: center; margin-bottom: 12px;">
             <div>
               <div style="font-size: 17px; font-weight: 700; color: #7e22ce;">🆕 연예 갓 떴음 (4매체 통합)</div>
@@ -4753,25 +4753,25 @@
               }
               const CAT_COLORS = { '스타': '#ec4899', '연예': '#a855f7', '드라마': '#f43f5e', '예능': '#fb923c', '방송': '#a855f7', '음악': '#8b5cf6' };
               const SRC_COLORS = { '스타뉴스': '#7e22ce', '스포츠조선': '#dc2626', '디스패치': '#0ea5e9', '마이데일리': '#059669' };
-              el.innerHTML = r.items.map((it) => {
+              // v2.42.79: 가로 공간 활용 — 기사 리스트를 auto-fit 그리드로
+              const rowsHtml = r.items.map((it) => {
                 const cColor = CAT_COLORS[it.category] || '#a855f7';
                 const sColor = SRC_COLORS[it.sourceLabel] || '#64748b';
                 const timeText = it.minutesAgo !== null ? it.ago : '최신';
                 const timeColor = it.minutesAgo !== null && it.minutesAgo <= 60 ? '#dc2626' : '#94a3b8';
                 const escaped = it.title.replace(/'/g, '&#39;').replace(/</g, '&lt;').replace(/"/g, '&quot;');
                 return `
-                  <div style="padding:7px 4px; border-bottom:1px solid #f1f5f9; line-height:1.45;">
-                    <div style="display:flex; gap:6px; align-items:flex-start;">
-                      <span style="font-size:10px; font-weight:700; color:${timeColor}; min-width:48px; text-align:right;">${timeText}</span>
-                      <div style="flex:1; min-width:0;">
-                        <span style="background:${sColor}1a; color:${sColor}; padding:1px 6px; border-radius:4px; font-size:9px; font-weight:800; margin-right:4px;">${it.sourceLabel}</span>
-                        <span style="background:${cColor}1a; color:${cColor}; padding:1px 6px; border-radius:4px; font-size:9px; font-weight:700; margin-right:4px;">${it.category}</span>
-                        <a href="#" onclick="event.preventDefault(); window.electronAPI?.openExternal?.('${it.url}') || window.open('${it.url}', '_blank');" style="color:#1e293b; text-decoration:none; font-size:12px; line-height:1.45;">${escaped}</a>
-                      </div>
+                  <div style="padding:7px 6px; border-bottom:1px solid #f1f5f9; line-height:1.45; display:flex; gap:6px; align-items:flex-start;">
+                    <span style="font-size:10px; font-weight:700; color:${timeColor}; min-width:48px; text-align:right; flex-shrink:0;">${timeText}</span>
+                    <div style="flex:1; min-width:0;">
+                      <span style="background:${sColor}1a; color:${sColor}; padding:1px 6px; border-radius:4px; font-size:9px; font-weight:800; margin-right:4px;">${it.sourceLabel}</span>
+                      <span style="background:${cColor}1a; color:${cColor}; padding:1px 6px; border-radius:4px; font-size:9px; font-weight:700; margin-right:4px;">${it.category}</span>
+                      <a href="#" onclick="event.preventDefault(); window.electronAPI?.openExternal?.('${it.url}') || window.open('${it.url}', '_blank');" style="color:#1e293b; text-decoration:none; font-size:12px; line-height:1.45;">${escaped}</a>
                     </div>
                   </div>
                 `;
               }).join('');
+              el.innerHTML = `<div style="display:grid; grid-template-columns:repeat(auto-fit, minmax(440px, 1fr)); gap:0 18px;">${rowsHtml}</div>`;
             } catch (e) {
               el.innerHTML = '<div style="color:#94a3b8; padding:15px; text-align:center; font-size:12px;">로드 실패</div>';
             }
