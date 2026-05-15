@@ -208,11 +208,10 @@ export async function getNaverSearchAdKeywordVolume(
           });
         }
 
-        // 3차: 청크에 키워드가 1개뿐이면 API 첫 번째 결과 사용 (hintKeyword로 요청했으므로 연관성 높음)
-        if (!match && chunk.length === 1 && keywordList.length > 0) {
-          match = keywordList[0];
-          console.log(`[NAVER-SEARCHAD] ⚠️ 정확 매칭 실패, 첫 번째 결과 사용: "${requestedKw}" → "${match?.relKeyword}"`);
-        }
+        // v2.42.82: "단일 청크 fallback" 제거 — 첫 번째 결과를 가져오면 무관한
+        // 키워드의 검색량을 사용자 키워드 값으로 잘못 표시함 (사용자 제보: 같은 키워드가
+        // 마인드맵에서는 0, 키워드 조회에서는 970 — 후자가 fallback으로 가짜값을 가져왔던 것)
+        // 정확/포함 매칭 실패 시 null 반환이 정직.
 
         if (match) {
           let pc = parseVolumeValue(match.monthlyPcQcCnt);
