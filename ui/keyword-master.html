@@ -1488,8 +1488,8 @@
         </div>
       </div>
 
-      <!-- 2x2 그리드 레이아웃 -->
-      <div style="display: grid; grid-template-columns: repeat(2, 1fr); gap: 16px;">
+      <!-- v2.42.73: 5개 패널로 확장 (네이버 + ZUM + 네이트 + 다음 + 스타뉴스) -->
+      <div style="display: grid; grid-template-columns: repeat(auto-fit, minmax(280px, 1fr)); gap: 16px;">
         <!-- 네이버 (Signal.bz) - 메인! -->
         <div
           style="background: white; border-radius: 16px; padding: 20px; border: 3px solid #03c75a; box-shadow: 0 4px 12px rgba(3, 199, 90, 0.3);">
@@ -1550,6 +1550,22 @@
               style="font-size: 11px; color: #065f46; text-decoration: none; cursor: pointer;">바로가기 →</a>
           </div>
           <div id="daumKeywordsTop" style="max-height: 280px; overflow-y: auto; font-size: 15px;">
+            <div style="text-align: center; padding: 15px; color: #64748b;">로딩 중...</div>
+          </div>
+        </div>
+
+        <!-- ⭐ 스타뉴스 (연예/방송 인기 급상승) - v2.42.73 -->
+        <div
+          style="background: white; border-radius: 16px; padding: 20px; border: 3px solid #a855f7; box-shadow: 0 4px 12px rgba(168, 85, 247, 0.2);">
+          <div style="display: flex; justify-content: space-between; align-items: center; margin-bottom: 12px;">
+            <div style="font-size: 18px; font-weight: 700; color: #7e22ce;">
+              ⭐ 스타뉴스
+            </div>
+            <a href="#"
+              onclick="event.preventDefault(); if(window.electronAPI && window.electronAPI.openExternal) { window.electronAPI.openExternal('https://www.starnewskorea.com/'); } else { window.open('https://www.starnewskorea.com/', '_blank'); }"
+              style="font-size: 11px; color: #7e22ce; text-decoration: none; cursor: pointer;">바로가기 →</a>
+          </div>
+          <div id="starnewsKeywordsTop" style="max-height: 280px; overflow-y: auto; font-size: 14px;">
             <div style="text-align: center; padding: 15px; color: #64748b;">로딩 중...</div>
           </div>
         </div>
@@ -4719,9 +4735,42 @@
             }
           };
 
+          // v2.42.73: 스타뉴스 (연예/방송 인기) 로드 — 다른 실시간 검색어와 병렬
+          window.loadStarNewsTrending = async function () {
+            const el = document.getElementById('starnewsKeywordsTop');
+            if (!el) return;
+            try {
+              const r = await window.electronAPI.invoke('source-starnews-trending', { limit: 12 });
+              if (!r?.success || !r.items?.length) {
+                el.innerHTML = '<div style="color:#94a3b8; padding:15px; text-align:center; font-size:12px;">로드 실패</div>';
+                return;
+              }
+              const CAT_COLORS = { '스타': '#ec4899', '연예': '#a855f7', '음악': '#8b5cf6', '스포츠': '#3b82f6', '컬처': '#f59e0b', '비즈': '#10b981', '이슈': '#ef4444', '영상': '#06b6d4', '최신': '#6366f1', '기타': '#64748b' };
+              el.innerHTML = r.items.map((it, idx) => {
+                const cColor = CAT_COLORS[it.category] || '#64748b';
+                const hotTag = it.isHot ? '<span style="background:#fee2e2; color:#dc2626; padding:1px 5px; border-radius:4px; font-size:9px; font-weight:800; margin-right:4px;">🔥 HOT</span>' : '';
+                return `
+                  <div style="padding:6px 4px; border-bottom:1px solid #f1f5f9; line-height:1.4;">
+                    <div style="display:flex; gap:6px; align-items:flex-start;">
+                      <span style="font-size:11px; font-weight:800; color:#7e22ce; min-width:18px;">${idx + 1}</span>
+                      <div style="flex:1; min-width:0;">
+                        ${hotTag}<span style="background:${cColor}1a; color:${cColor}; padding:1px 6px; border-radius:4px; font-size:9px; font-weight:700; margin-right:4px;">${it.category}</span>
+                        <a href="#" onclick="event.preventDefault(); window.electronAPI?.openExternal?.('${it.url}') || window.open('${it.url}', '_blank');" style="color:#1e293b; text-decoration:none; font-size:12px; line-height:1.4;">${it.title.replace(/'/g, '&#39;').replace(/</g, '&lt;')}</a>
+                      </div>
+                    </div>
+                  </div>
+                `;
+              }).join('');
+            } catch (e) {
+              el.innerHTML = '<div style="color:#94a3b8; padding:15px; text-align:center; font-size:12px;">로드 실패</div>';
+            }
+          };
+
           // 실시간 검색어를 빠르게 로드 (즉시 실행, 최소 대기)
           const loadRealtimeOnReady = () => {
             console.log('[KEYWORD-MASTER] loadRealtimeOnReady 실행, loadRealtimeKeywordsTop:', typeof window.loadRealtimeKeywordsTop);
+            // v2.42.73: 스타뉴스 병렬 로드
+            setTimeout(() => { try { window.loadStarNewsTrending?.(); } catch {} }, 600);
             setTimeout(() => {
               if (typeof window.loadRealtimeKeywordsTop === 'function') {
                 console.log('[KEYWORD-MASTER] loadRealtimeKeywordsTop 호출 시작');
@@ -4797,6 +4846,10 @@
                 console.error('[REFRESH-BUTTON] ❌ loadRealtimeKeywordsTop 함수 없음');
                 location.reload();
               }
+              // v2.42.73: 스타뉴스도 같이 갱신
+              if (typeof window.loadStarNewsTrending === 'function') {
+                window.loadStarNewsTrending();
+              }
             });
 
             // 마우스오버 이벤트로 테스트
@@ -4822,6 +4875,10 @@
           setInterval(() => {
             if (typeof window.loadRealtimeKeywordsTop === 'function') {
               window.loadRealtimeKeywordsTop();
+            }
+            // v2.42.73: 스타뉴스도 5분마다 같이 갱신
+            if (typeof window.loadStarNewsTrending === 'function') {
+              window.loadStarNewsTrending();
             }
           }, 5 * 60 * 1000); // 5분
         })();

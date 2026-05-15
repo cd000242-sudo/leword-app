@@ -46,6 +46,15 @@ export function setupSourceSignalHandlers(): void {
 
     // ========== LITE (무료) ==========
 
+    // v2.42.73: 스타뉴스 코리아 실시간 인기 기사 (연예/방송)
+    ipcMain.handle('source-starnews-trending', async (_e, p: { limit?: number } = {}) => {
+        try {
+            const { fetchStarNewsTrending } = await import('../../utils/starnews-trending');
+            const items = await fetchStarNewsTrending(p?.limit || 12);
+            return { success: true, items, count: items.length };
+        } catch (e: any) { return { success: false, error: e.message, items: [] }; }
+    });
+
     ipcMain.handle('source-youtube-trending', async () => {
         try {
             const keywords = await getYoutubeTrendingKeywords();
