@@ -15791,7 +15791,8 @@
                   ]);
                   const vacancy = vacancyResp?.success ? vacancyResp : null;
                   const titles = titlesResp?.success ? (titlesResp.titles || []) : [];
-                  const bestTitle = titles.length ? titles.reduce((a, b) => (a.ctrScore >= b.ctrScore ? a : b)) : null;
+                  // v2.42.69: titles[0]은 백엔드의 seed-rotation으로 키워드별로 다른 1순위 — max ctrScore로 픽하면 같은 템플릿이 모든 키워드에서 당첨됨
+                  const bestTitle = titles.length ? titles[0] : null;
                   const fresh = freshResp?.success ? freshResp : null;
                   const valueGate = valueResp?.success ? valueResp : null;
 
@@ -15888,8 +15889,8 @@
               }
             }
             if (filtered.length === 0) {
-              // Tier 2: enriched 중 killed 아닌 것 (qualityScore 무관)
-              const notKilled = enriched.filter(x => !x.valueGate || !x.valueGate.isKilled);
+              // Tier 2: enriched 중 killed 아닌 것 + homeScore≥25 (v2.42.69: vacancy 하드kill 당한 0점 항목 제외)
+              const notKilled = enriched.filter(x => (!x.valueGate || !x.valueGate.isKilled) && (x.homeScore?.homeScore || 0) >= 25);
               if (notKilled.length > 0) {
                 const sorted = notKilled.sort((a, b) => (b.homeScore?.homeScore || 0) - (a.homeScore?.homeScore || 0));
                 filtered = sorted.slice(0, minResults).map(c => ({ ...c, _tier: 'salvaged' }));
@@ -15911,39 +15912,20 @@
               fallbackTier = 'lastResort';
             }
 
-            // v2.42.67: 어떤 tier든 minResults 미만이면 enriched/seedKeywords 에서 보충
-            //   격전지(issue/celebrity)에서 KILL률 95%+ 일 때 SALVAGED 1건만 뜨던 문제 해결
+            // v2.42.69: topup은 homeScore 25+ 항목만 — homeScore=0 은 vacancy 하드kill 당한 무가치 시드라 결과에서 제외
+            // 격전지에서 결과 부족하면 차라리 적게 — homeScore=0 인 "황금 키워드" 보여주는게 더 나쁨
             if (filtered.length < minResults) {
               const have = new Set(filtered.map(x => x.keyword));
               const needMore = minResults - filtered.length;
-              // 1차 보충: enriched 전체에서 (homeScore 순)
               const enrichedPool = enriched
                 .filter(x => !have.has(x.keyword))
+                .filter(x => (x.homeScore?.homeScore || 0) >= 25) // 핵심: homeScore≥25 미만은 무가치
                 .sort((a, b) => (b.homeScore?.homeScore || 0) - (a.homeScore?.homeScore || 0));
               const topUp = enrichedPool.slice(0, needMore).map(c => ({ ...c, _backfilled: true, _topup: 'enriched' }));
               filtered.push(...topUp);
-              topUp.forEach(t => have.add(t.keyword));
               backfilled += topUp.length;
             }
-            if (filtered.length < minResults) {
-              const have = new Set(filtered.map(x => x.keyword));
-              const needMore = minResults - filtered.length;
-              // 2차 보충: seedKeywords 자체에서 (sv 순)
-              const seedPool = seedKeywords
-                .filter(x => !have.has(x.keyword))
-                .sort((a, b) => (b.searchVolume || 0) - (a.searchVolume || 0));
-              const topUp = seedPool.slice(0, needMore).map(c => ({
-                ...c, _backfilled: true, _topup: 'seed',
-                homeScore: c.homeScore || { homeScore: 0, grade: 'UNKNOWN', summary: '🛟 시드 보충 (격전지 KILL률 高)', breakdown: {} },
-                bestTitle: c.bestTitle || null,
-                titles: c.titles || [],
-                vacancy: c.vacancy || null,
-                fresh: c.fresh || null,
-                valueGate: c.valueGate || null,
-              }));
-              filtered.push(...topUp);
-              backfilled += topUp.length;
-            }
+            // seedKeywords 직접 보충(homeScore=0)은 완전 제거 — UX 훼손 (사용자: "homeScore 전부 0인데 어딜봐서 황금키워드냐")
 
             // 학습 데이터 + disclaimer 조회
             let learnedInfo = '';
