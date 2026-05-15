@@ -5736,7 +5736,11 @@
 
         // 엑셀로 내보내기
         async function exportToExcel() {
-          if (!discoveryResults || discoveryResults.length === 0) {
+          // v2.42.76: LEWORD 키워드 조회 결과는 window.lewordRawKeywords 에 저장됨 (discoveryResults는 다른 흐름용)
+          const source = (Array.isArray(window.lewordRawKeywords) && window.lewordRawKeywords.length > 0)
+            ? window.lewordRawKeywords
+            : (Array.isArray(window.discoveryResults) ? window.discoveryResults : (Array.isArray(discoveryResults) ? discoveryResults : []));
+          if (!source || source.length === 0) {
             alert('내보낼 키워드가 없습니다.');
             return;
           }
@@ -5745,7 +5749,7 @@
             // CSV 형식으로 변환
             const headers = ['순위', '키워드', 'PC 검색량', '모바일 검색량', '검색량 합산', '문서량', '황금비율'];
 
-            const rows = discoveryResults.map((item, idx) => {
+            const rows = source.map((item, idx) => {
               const rawPcVolume = (typeof item.pcSearchVolume === 'number' && isFinite(item.pcSearchVolume))
                 ? item.pcSearchVolume
                 : ((typeof item.searchVolumePC === 'number' && isFinite(item.searchVolumePC)) ? item.searchVolumePC : null);

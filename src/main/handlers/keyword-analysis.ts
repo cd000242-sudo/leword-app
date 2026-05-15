@@ -1388,9 +1388,28 @@ export function setupKeywordAnalysisHandlers(): void {
           return ratio >= 5;
         };
 
+        // v2.42.76: 무관 노이즈 키워드 차단 (네이버 자체 광고/UI 라벨/SEO 도구 용어)
+        const isNoiseKeyword = (kw: string): boolean => {
+          if (!kw) return true;
+          const t = kw.trim();
+          // 네이버 자체 광고/플랫폼명
+          if (/^네이버\s*(프리미엄콘텐츠|광고|광고대행사|파워링크|검색광고|애드포스트|블로그|쇼핑|페이|밴드|카페|메일|뉴스|TV|지도|사전|증권|부동산|날씨|클립|시리즈|웹툰|오디오클립|모바일)/u.test(t)) return true;
+          if (/^네이버\s*\S+\s*(가격|이용방법|등록|신청|로그인|아이디|회원가입)$/.test(t)) return true;
+          // Naver UI 라벨 (검색 결과 페이지에서 잘못 긁힌 텍스트)
+          if (/^(Keep에 저장|모두가 찜하고 싶은|더보기|이전|다음|관련검색|검색사이트|광고|배너|쇼핑|이미지|뉴스|블로그|카페|동영상|어학사전|지도|책)$/u.test(t)) return true;
+          // 의미 없는 일반 명사 단독 (1~2자)
+          if (t.length < 2) return true;
+          // 광고/마케팅 도구명 (대표 SEO 도구)
+          if (/^(블랙키위|키워드인사이트|황금키워드마스터|키워드도구)$/u.test(t)) return true;
+          return false;
+        };
+
+        const filteredKeywords = sortedKeywords.filter(k => !isNoiseKeyword(k.keyword));
+        console.log(`[KEYWORD-EXPANSIONS] 노이즈 필터: ${sortedKeywords.length} → ${filteredKeywords.length}건`);
+
         return {
           success: true,
-          keywords: sortedKeywords.map((k, idx) => ({
+          keywords: filteredKeywords.map((k, idx) => ({
             rank: idx + 1,
             keyword: k.keyword,
             pcSearchVolume: typeof k.pcSearchVolume === 'number' ? k.pcSearchVolume : null,
@@ -1398,7 +1417,7 @@ export function setupKeywordAnalysisHandlers(): void {
             searchVolume: typeof k.searchVolume === 'number' ? k.searchVolume : null,
             documentCount: typeof k.documentCount === 'number' ? k.documentCount : null,
             goldenRatio: typeof k.goldenRatio === 'number' ? k.goldenRatio : null,
-            isGolden: isGoldenKeyword(k), // 🔥 황금키워드 여부
+            isGolden: isGoldenKeyword(k),
             type: k.type
           }))
         };
