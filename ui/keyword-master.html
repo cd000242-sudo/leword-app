@@ -16007,6 +16007,52 @@
 
             let seedKeywords = (adsenseResp?.keywords || []).slice(0, count);
 
+            // v2.42.94: 매일 다른 결과 보장 — 트렌딩 시드 항상 일부 강제 주입 (count의 ~30%)
+            //   사용자 제보: "데이터소스가 어제랑 다를게없어. 매일매일 달라야 한다"
+            //   해결: 실시간/데이터랩/4매체갓떴음 트렌드 → 시시각각 변하므로 결과도 매일 다름
+            try {
+              const trendShare = Math.max(3, Math.floor(count * 0.35));
+              const dailyTrending = [];
+
+              // 실시간 검색어 (5분마다 변경)
+              const rtResp = await window.electronAPI.invoke('get-realtime-keywords', { platform: 'all', limit: trendShare * 2 }).catch(() => null);
+              if (rtResp?.success && Array.isArray(rtResp.keywords)) {
+                for (const r of rtResp.keywords) {
+                  const kw = typeof r === 'string' ? r : (r.keyword || r.text || '');
+                  if (kw && kw.length >= 4 && kw.length <= 30 && !/(주식|코인|도박|투자|소송|판결|성폭|살인|자살|화재|폭발)/.test(kw)) {
+                    if (!dailyTrending.find(s => s.keyword === kw)) {
+                      dailyTrending.push({ keyword: kw, searchVolume: 0, documentCount: 0, category: blogCategory || 'general', _trending: true, _source: 'realtime' });
+                    }
+                  }
+                }
+              }
+              // 연예 갓 떴음 (분 단위 변경) — 연예/방송 카테고리에만
+              if (['celebrity', 'entertainment', 'issue', 'music'].includes(blogCategory)) {
+                const entResp = await window.electronAPI.invoke('source-entertainment-aggregate', { maxMinutesAgo: 180, limitPerSource: 5 }).catch(() => null);
+                if (entResp?.success && Array.isArray(entResp.items)) {
+                  for (const it of entResp.items.slice(0, trendShare)) {
+                    const kw = (it.title || '').replace(/^\[.*?\]\s*/, '').slice(0, 20).trim();
+                    if (kw && kw.length >= 4 && !dailyTrending.find(s => s.keyword === kw)) {
+                      dailyTrending.push({ keyword: kw, searchVolume: 0, documentCount: 0, category: blogCategory, _trending: true, _source: 'ent-fresh' });
+                    }
+                  }
+                }
+              }
+
+              if (dailyTrending.length > 0) {
+                // 기존 seedKeywords 풀에 트렌딩 일부 강제 주입 (총합 count 유지)
+                const trendingToAdd = dailyTrending.slice(0, trendShare);
+                const remaining = Math.max(0, count - trendingToAdd.length);
+                seedKeywords = [
+                  ...trendingToAdd,
+                  ...seedKeywords.slice(0, remaining),
+                ];
+                console.log(`[HOME-HUNTER] v2.42.94 트렌딩 시드 ${trendingToAdd.length}개 강제 주입 (매일 다른 결과 보장)`);
+              }
+            } catch (e) {
+              console.warn('[HOME-HUNTER] 트렌딩 주입 실패:', e?.message);
+            }
+
             // v2.42.34: 1.5단계 — 동적 트렌딩 시드 (1단계 0건 + 빌트인 fallback 전 중간 단계)
             //   "지금 폭증 중인 키워드 = 진짜 홈판 노출 후보" — 빌트인 시즌 키워드보다 우선
             if (seedKeywords.length === 0) {
