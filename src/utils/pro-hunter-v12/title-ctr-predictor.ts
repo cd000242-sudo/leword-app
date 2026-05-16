@@ -235,6 +235,35 @@ const TITLE_TEMPLATES: Array<(kw: string) => string> = [
     kw => `${kw} 1주일 결과, 진짜 놀랐다`,
 ];
 
+// v2.42.93: 작품/방송/인물 키워드 전용 템플릿 — 일반 룰 적용하면 어색한 케이스 대응
+//   예: "취사병 전설이 되다" → "이게 말이 돼? 진짜 놀랐다" (X) → "회차/줄거리/시청률" (O)
+const SHOW_TEMPLATES: Array<(kw: string) => string> = [
+    kw => `${kw} 줄거리 정리 — 1~최신 회차`,
+    kw => `${kw} 등장인물 한눈에 보는 정리`,
+    kw => `${kw} 결말 — 마지막 회 핵심 정리`,
+    kw => `${kw} 시청률 추이 + 명장면 정리`,
+    kw => `${kw} OST 전곡 모음 + 듣는 법`,
+    kw => `${kw} 출연진 프로필 + 이전 작품`,
+    kw => `${kw} 방영 시간 + 다시보기 OTT 정리`,
+    kw => `${kw} 명대사 모음 — 회차별 정리`,
+    kw => `${kw} 시즌2 가능성 + 후속작 전망`,
+    kw => `${kw} 원작 vs 드라마 차이점 정리`,
+    kw => `${kw} 회차 정리 + 최신 회 줄거리`,
+    kw => `${kw} 첫 회 vs 마지막 회 변화`,
+];
+
+// 작품/방송 키워드 자동 감지 휴리스틱
+function looksLikeShowTitle(kw: string): boolean {
+    if (!kw) return false;
+    // 종결어미 (드라마 제목 흔히)
+    if (/(되다|드립니다|하다|있다|없다|아니다|간다|온다|이다|입니다|합니다|예요|에요)$/.test(kw)) return true;
+    // 인용부호 + 명사구 (방송명 패턴)
+    if (/["「『''].*["」』'']/.test(kw)) return true;
+    // 영화/드라마 시리즈명 패턴 (2~5자 한글 + 숫자 또는 시즌)
+    if (/[가-힣]{2,}\s*(시즌|S)\s*\d/i.test(kw)) return true;
+    return false;
+}
+
 /**
  * 결정론적 hash → 0..n 인덱스
  */
@@ -252,7 +281,9 @@ function hashSeed(s: string): number {
  */
 function generateFallbackTitles(keyword: string, count: number): TitleCtrResult[] {
     const seed = hashSeed(keyword);
-    const indexed = TITLE_TEMPLATES.map((fn, idx) => ({ idx, title: fn(keyword) }));
+    // v2.42.93: 작품/방송 키워드면 SHOW_TEMPLATES 우선
+    const templates = looksLikeShowTitle(keyword) ? SHOW_TEMPLATES : TITLE_TEMPLATES;
+    const indexed = templates.map((fn, idx) => ({ idx, title: fn(keyword) }));
 
     // 해시 기반 결정론적 셔플
     const shuffled = [...indexed];

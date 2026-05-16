@@ -16420,11 +16420,16 @@
               }
             }
             if (filtered.length === 0) {
-              // v2.42.85: Tier 3 개선 — enriched 자체에 측정값이 있다면 그것을 사용 (homeScore=0 fallback 회피)
-              // 기존: 빌트인 시드만 표시 → 검색량은 있는데 homeScore=0, 추천 제목 없음
-              // 신규: enriched 가 있으면 homeScore 순 정렬, 진짜 측정값 표시
+              // v2.42.93: Tier 3 정렬 강화 — vacancy 큰 것 우선 (진입 가능성 ↑)
+              // 빅도메인 독점 키워드(vacancy ≤ 2)는 뒤로 밀거나 분리
               if (enriched.length > 0) {
-                const sorted = [...enriched].sort((a, b) => (b.homeScore?.homeScore || 0) - (a.homeScore?.homeScore || 0));
+                const scoreForSort = (c) => {
+                  const vac = c.vacancy?.vacancySlots ?? 0;
+                  const hs = c.homeScore?.homeScore || 0;
+                  // 진입 가능(vac>=3)에 가산점 +1000 → 결과 상단 보장
+                  return (vac >= 3 ? 1000 : 0) + vac * 30 + hs;
+                };
+                const sorted = [...enriched].sort((a, b) => scoreForSort(b) - scoreForSort(a));
                 filtered = sorted.slice(0, minResults).map(c => ({ ...c, _tier: 'lastResort' }));
               } else {
                 // 진짜로 enriched 비어있는 경우만 빌트인 시드 fallback
