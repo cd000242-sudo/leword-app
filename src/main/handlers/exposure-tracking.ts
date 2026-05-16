@@ -197,69 +197,138 @@ function extractCoreKeywords(title: string, maxCandidates = 3): string[] {
   return scored.slice(0, maxCandidates).map(x => x.c);
 }
 
-// v2.42.88: SERP 체크 — User-Agent 회전 + 403 차단 명확 구분
-const MOBILE_UAS = [
-  'Mozilla/5.0 (iPhone; CPU iPhone OS 17_0 like Mac OS X) AppleWebKit/605.1.15 (KHTML, like Gecko) Version/17.0 Mobile/15E148 Safari/604.1',
-  'Mozilla/5.0 (Linux; Android 14; SM-S918N) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/121.0.0.0 Mobile Safari/537.36',
-  'Mozilla/5.0 (iPhone; CPU iPhone OS 16_6 like Mac OS X) AppleWebKit/605.1.15 (KHTML, like Gecko) Version/16.6 Mobile/15E148 Safari/604.1',
-  'Mozilla/5.0 (Linux; Android 13; Pixel 7) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/120.0.6099.230 Mobile Safari/537.36',
+// v2.42.89: 모바일 SERP는 차단 빈번 → 데스크탑 search.naver.com 사용 (200 OK 안정)
+const DESKTOP_UAS = [
+  'Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/120.0.0.0 Safari/537.36',
+  'Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/121.0.0.0 Safari/537.36',
+  'Mozilla/5.0 (Macintosh; Intel Mac OS X 10_15_7) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/120.0.0.0 Safari/537.36',
+  'Mozilla/5.0 (Windows NT 10.0; Win64; x64; rv:121.0) Gecko/20100101 Firefox/121.0',
 ];
 
-async function checkSerpRank(keyword: string, postUrl: string): Promise<{ rank: number | null; status: 'found' | 'not-in-top30' | 'blocked' | 'error' | 'invalid-url' }> {
-  const { blogId, postNo } = extractBlogIdPostNo(postUrl);
-  if (!blogId) return { rank: null, status: 'invalid-url' };
+type SerpStatus = 'found' | 'not-in-top30' | 'blocked' | 'error' | 'invalid-url';
 
+// v2.42.89: Playwright 폴백 — HTTP 403 차단 시 실제 브라우저로 우회
+let playwrightBrowser: any = null;
+async function getPlaywrightBrowser(): Promise<any> {
+  if (playwrightBrowser && playwrightBrowser.isConnected()) return playwrightBrowser;
+  const { chromium } = await import('playwright');
+  const { findSystemChrome } = await import('../../utils/chrome-finder');
+  const executablePath = findSystemChrome();
+  playwrightBrowser = await chromium.launch({
+    headless: true,
+    executablePath,
+    args: ['--no-sandbox', '--disable-setuid-sandbox', '--disable-dev-shm-usage', '--disable-blink-features=AutomationControlled'],
+  });
+  return playwrightBrowser;
+}
+
+export async function closeExposureBrowser(): Promise<void> {
+  if (playwrightBrowser) {
+    try { await playwrightBrowser.close(); } catch {}
+    playwrightBrowser = null;
+  }
+}
+
+function parseHtmlForRank(html: string, blogId: string, postNo: string): { rank: number | null; status: SerpStatus } {
+  const $ = cheerio.load(html);
+  const links: { href: string; isAd: boolean }[] = [];
+  $('a').each((_i, el) => {
+    const href = String($(el).attr('href') || '');
+    if (!/(?:m\.)?blog\.naver\.com/.test(href)) return;
+    const $parent = $(el).closest('.type_ad,.ad_section,.lst_ad');
+    links.push({ href, isAd: $parent.length > 0 });
+  });
+  let rank = 0;
+  const seen = new Set<string>();
+  for (const { href, isAd } of links) {
+    if (isAd) continue;
+    const { blogId: hBlogId, postNo: hPostNo } = extractBlogIdPostNo(href);
+    const key = `${hBlogId}/${hPostNo}`;
+    if (seen.has(key)) continue;
+    seen.add(key);
+    rank++;
+    if (rank > 30) break;
+    const matches = postNo ? (hBlogId === blogId && hPostNo === postNo) : (hBlogId === blogId);
+    if (matches) return { rank, status: 'found' };
+  }
+  return { rank: null, status: 'not-in-top30' };
+}
+
+async function checkSerpRankHttp(keyword: string, blogId: string, postNo: string): Promise<{ rank: number | null; status: SerpStatus }> {
   try {
-    const ua = MOBILE_UAS[Math.floor(Math.random() * MOBILE_UAS.length)];
-    const url = `https://m.search.naver.com/search.naver?where=view&sm=tab_jum&query=${encodeURIComponent(keyword)}`;
+    const ua = DESKTOP_UAS[Math.floor(Math.random() * DESKTOP_UAS.length)];
+    // v2.42.89: 데스크탑 SERP — m.search.naver.com 보다 차단 적음
+    const url = `https://search.naver.com/search.naver?where=blog&query=${encodeURIComponent(keyword)}`;
     const resp = await axios.get(url, {
       timeout: 12000,
       headers: {
         'User-Agent': ua,
         'Accept': 'text/html,application/xhtml+xml',
         'Accept-Language': 'ko-KR,ko;q=0.9',
-        'Referer': 'https://m.naver.com/',
+        'Referer': 'https://www.naver.com/',
       },
       responseType: 'text',
       validateStatus: () => true,
     });
-    if (resp.status === 429 || resp.status === 403) {
-      console.warn(`[EXPOSURE-TRACKING] 차단 ${resp.status}: "${keyword}"`);
-      return { rank: null, status: 'blocked' };
-    }
-    if (resp.status !== 200) {
-      console.warn(`[EXPOSURE-TRACKING] 비정상 응답 ${resp.status}: "${keyword}"`);
-      return { rank: null, status: 'error' };
-    }
-    const html = resp.data as string;
-    const $ = cheerio.load(html);
-
-    const links: { href: string; isAd: boolean }[] = [];
-    $('a').each((_i, el) => {
-      const href = String($(el).attr('href') || '');
-      if (!/(?:m\.)?blog\.naver\.com/.test(href)) return;
-      const $parent = $(el).closest('.type_ad,.ad_section,.lst_ad');
-      links.push({ href, isAd: $parent.length > 0 });
-    });
-
-    let rank = 0;
-    const seen = new Set<string>();
-    for (const { href, isAd } of links) {
-      if (isAd) continue;
-      const { blogId: hBlogId, postNo: hPostNo } = extractBlogIdPostNo(href);
-      const key = `${hBlogId}/${hPostNo}`;
-      if (seen.has(key)) continue;
-      seen.add(key);
-      rank++;
-      if (rank > 30) break;
-      const matches = postNo ? (hBlogId === blogId && hPostNo === postNo) : (hBlogId === blogId);
-      if (matches) return { rank, status: 'found' };
-    }
-    return { rank: null, status: 'not-in-top30' };
+    if (resp.status === 429 || resp.status === 403) return { rank: null, status: 'blocked' };
+    if (resp.status !== 200) return { rank: null, status: 'error' };
+    return parseHtmlForRank(resp.data as string, blogId, postNo);
   } catch (err: any) {
-    console.warn('[EXPOSURE-TRACKING] SERP fetch err:', err?.message);
     return { rank: null, status: 'error' };
   }
+}
+
+async function checkSerpRankPlaywright(keyword: string, blogId: string, postNo: string): Promise<{ rank: number | null; status: SerpStatus }> {
+  let page: any = null;
+  try {
+    const browser = await getPlaywrightBrowser();
+    const ua = DESKTOP_UAS[Math.floor(Math.random() * DESKTOP_UAS.length)];
+    const context = await browser.newContext({
+      userAgent: ua,
+      viewport: { width: 1280, height: 800 },
+      locale: 'ko-KR',
+      extraHTTPHeaders: { 'Accept-Language': 'ko-KR,ko;q=0.9' },
+    });
+    await context.addInitScript(() => {
+      Object.defineProperty(navigator, 'webdriver', { get: () => undefined });
+    });
+    page = await context.newPage();
+    // v2.42.89: 데스크탑 SERP — 차단 회피
+    const url = `https://search.naver.com/search.naver?where=blog&query=${encodeURIComponent(keyword)}`;
+    const resp = await page.goto(url, { waitUntil: 'domcontentloaded', timeout: 20000 });
+    if (!resp || resp.status() === 403 || resp.status() === 429) {
+      await context.close();
+      return { rank: null, status: 'blocked' };
+    }
+    await page.waitForTimeout(800 + Math.random() * 600);
+    const html = await page.content();
+    await context.close();
+    return parseHtmlForRank(html, blogId, postNo);
+  } catch (err: any) {
+    try { if (page) await page.close(); } catch {}
+    console.warn('[EXPOSURE-PLAYWRIGHT] err:', err?.message);
+    return { rank: null, status: 'error' };
+  }
+}
+
+// v2.42.89: 자동 폴백 — HTTP 먼저, 차단되면 Playwright
+let preferPlaywright = false; // 세션 내 차단 1회 발견 시 토글
+async function checkSerpRank(keyword: string, postUrl: string): Promise<{ rank: number | null; status: SerpStatus; method?: 'http' | 'playwright' }> {
+  const { blogId, postNo } = extractBlogIdPostNo(postUrl);
+  if (!blogId) return { rank: null, status: 'invalid-url' };
+
+  if (!preferPlaywright) {
+    const httpResult = await checkSerpRankHttp(keyword, blogId, postNo);
+    if (httpResult.status !== 'blocked') {
+      return { ...httpResult, method: 'http' };
+    }
+    // HTTP 차단 감지 → 이번 세션부터 Playwright 우선
+    console.warn('[EXPOSURE-TRACKING] HTTP 차단 → Playwright 자동 전환');
+    preferPlaywright = true;
+  }
+  // Playwright 시도
+  const pwResult = await checkSerpRankPlaywright(keyword, blogId, postNo);
+  return { ...pwResult, method: 'playwright' };
 }
 
 // v2.42.81: 사용자 입력을 RSS URL 로 자동 정규화
