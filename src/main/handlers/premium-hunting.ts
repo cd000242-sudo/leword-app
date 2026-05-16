@@ -1063,6 +1063,7 @@ export function setupPremiumHuntingHandlers(): void {
         }
 
         console.log('[ADSENSE] 🚀 헌팅 시작:', options);
+        const tStart = Date.now();
 
         const result = await huntAdsenseKeywords({
           category: options?.category || 'all',
@@ -1079,21 +1080,24 @@ export function setupPremiumHuntingHandlers(): void {
           excludeZeroClickHigh: options?.excludeZeroClickHigh === true,
         });
 
+        const elapsed = ((Date.now() - tStart) / 1000).toFixed(1);
+        console.log(`[ADSENSE] ⏱ ${elapsed}s 소요, 결과 ${result?.keywords?.length || 0}건`);
+
         if (!result.keywords || result.keywords.length === 0) {
           return {
             success: false,
-            error: 'AdSense 적합 키워드를 찾지 못했습니다. 카테고리를 변경하거나 필터를 완화해보세요.',
+            error: `AdSense 적합 키워드 0건 (${elapsed}s 측정). 가능한 원인: (1) 카테고리 ${options?.category || 'all'} 시드가 모두 필터 컷, (2) 검색량 임계치 미달, (3) 네이버 SearchAd API 키 미설정. 카테고리 변경/필터 완화 시도.`,
             keywords: [],
-            summary: { totalFound: 0 }
+            summary: { totalFound: 0, elapsed: parseFloat(elapsed) }
           };
         }
 
-        return { success: true, ...result };
+        return { success: true, ...result, elapsed: parseFloat(elapsed) };
       } catch (error: any) {
         console.error('[ADSENSE] ❌ 오류:', error);
         return {
           success: false,
-          error: `AdSense 헌팅 실패: ${error?.message || '알 수 없는 오류'}`,
+          error: `AdSense 헌팅 실패: ${error?.message || '알 수 없는 오류'} (스택: ${error?.stack?.split('\n')[1] || '없음'})`,
           keywords: [],
           summary: { totalFound: 0 }
         };

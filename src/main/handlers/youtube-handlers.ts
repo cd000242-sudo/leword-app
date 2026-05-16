@@ -101,8 +101,10 @@ export function registerYouTubeAnalysisHandlers(): void {
 
       const apiKey = getYouTubeApiKey();
       if (!apiKey) {
-        return { error: true, message: 'YouTube API 키가 설정되지 않았습니다.' };
+        return { error: true, message: 'YouTube API 키가 설정되지 않았습니다. 환경설정 → API 키 → YouTube API Key 입력 후 저장 → 앱 재시작' };
       }
+      // v2.42.95: 진단 — 키 길이 표시
+      console.log(`[YOUTUBE] API 키 ${apiKey.length}자, 앞 8자: ${apiKey.slice(0, 8)}...`);
 
       try {
         const items = await getTrendingShorts({
@@ -118,6 +120,13 @@ export function registerYouTubeAnalysisHandlers(): void {
         const channelFreq = new Map<string, number>();
         for (const it of items) channelFreq.set(it.channelTitle, (channelFreq.get(it.channelTitle) || 0) + 1);
         const topChannel = Array.from(channelFreq.entries()).sort((a, b) => b[1] - a[1])[0]?.[0] || '-';
+        console.log(`[YOUTUBE] ✅ 결과: ${items.length}건, 평균 점수 ${avgScore}`);
+        if (items.length === 0) {
+          return {
+            error: true,
+            message: `YouTube API 응답 0건 — 가능한 원인: (1) API 키가 YouTube Data API v3 권한 없음, (2) 카테고리 ID(${params?.categoryId || '없음'}) 결과 없음, (3) 일일 quota 초과. API 키: ${apiKey.length}자`,
+          };
+        }
         return {
           success: true,
           data: {
@@ -130,9 +139,28 @@ export function registerYouTubeAnalysisHandlers(): void {
         };
       } catch (err: any) {
         console.error('[YOUTUBE] youtube-shorts-benchmark 오류:', err.message);
-        return quotaError(err) || { error: true, message: err?.message || '숏츠 수집 중 오류가 발생했습니다.' };
+        return quotaError(err) || {
+          error: true,
+          message: `숏츠 수집 실패: ${err?.message}\n시도: 기간=${params?.period}, 카테고리=${params?.categoryId || '전체'}, API 키 ${apiKey.length}자`,
+        };
       }
     });
     console.log('[YOUTUBE] youtube-shorts-benchmark 핸들러 등록 완료');
+  }
+
+  // v2.42.95: 진단 — API 키 + 환경 빠른 점검
+  if (!ipcMain.listenerCount('youtube-api-diagnose')) {
+    ipcMain.handle('youtube-api-diagnose', async () => {
+      const apiKey = getYouTubeApiKey();
+      const naverConfig = getNaverConfig();
+      return {
+        success: true,
+        diagnostics: {
+          youtubeApiKey: apiKey ? { present: true, length: apiKey.length, prefix: apiKey.slice(0, 8) + '...' } : { present: false },
+          naverClientId: !!naverConfig.clientId,
+          naverClientSecret: !!naverConfig.clientSecret,
+        },
+      };
+    });
   }
 }
