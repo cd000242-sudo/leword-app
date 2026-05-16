@@ -311,22 +311,68 @@ async function checkSerpRankPlaywright(keyword: string, blogId: string, postNo: 
   }
 }
 
-// v2.42.89: 자동 폴백 — HTTP 먼저, 차단되면 Playwright
-let preferPlaywright = false; // 세션 내 차단 1회 발견 시 토글
-async function checkSerpRank(keyword: string, postUrl: string): Promise<{ rank: number | null; status: SerpStatus; method?: 'http' | 'playwright' }> {
+// v2.42.90: 네이버 블로그 검색 API 우선 사용 — 차단 없음, 100건까지 받음
+async function checkSerpRankNaverApi(keyword: string, blogId: string, postNo: string): Promise<{ rank: number | null; status: SerpStatus }> {
+  try {
+    const { EnvironmentManager } = await import('../../utils/environment-manager');
+    const env = EnvironmentManager.getInstance().getConfig();
+    const clientId = env.naverClientId || process.env['NAVER_CLIENT_ID'] || '';
+    const clientSecret = env.naverClientSecret || process.env['NAVER_CLIENT_SECRET'] || '';
+    if (!clientId || !clientSecret) return { rank: null, status: 'error' }; // 키 없으면 폴백
+
+    const url = `https://openapi.naver.com/v1/search/blog.json?query=${encodeURIComponent(keyword)}&display=30&sort=sim`;
+    const resp = await axios.get(url, {
+      timeout: 10000,
+      headers: {
+        'X-Naver-Client-Id': clientId,
+        'X-Naver-Client-Secret': clientSecret,
+      },
+      validateStatus: () => true,
+    });
+    if (resp.status === 429) return { rank: null, status: 'blocked' };
+    if (resp.status !== 200) return { rank: null, status: 'error' };
+
+    const items = resp.data?.items || [];
+    let rank = 0;
+    const seen = new Set<string>();
+    for (const it of items) {
+      const link = String(it?.link || '');
+      const { blogId: hBlogId, postNo: hPostNo } = extractBlogIdPostNo(link);
+      const key = `${hBlogId}/${hPostNo}`;
+      if (seen.has(key)) continue;
+      seen.add(key);
+      rank++;
+      if (rank > 30) break;
+      const matches = postNo ? (hBlogId === blogId && hPostNo === postNo) : (hBlogId === blogId);
+      if (matches) return { rank, status: 'found' };
+    }
+    return { rank: null, status: 'not-in-top30' };
+  } catch (err: any) {
+    console.warn('[EXPOSURE-API] err:', err?.message);
+    return { rank: null, status: 'error' };
+  }
+}
+
+// v2.42.90: 자동 폴백 체인 — Naver Open API → HTTP SERP → Playwright SERP
+let preferPlaywright = false;
+async function checkSerpRank(keyword: string, postUrl: string): Promise<{ rank: number | null; status: SerpStatus; method?: 'naver-api' | 'http' | 'playwright' }> {
   const { blogId, postNo } = extractBlogIdPostNo(postUrl);
   if (!blogId) return { rank: null, status: 'invalid-url' };
 
+  // 1순위: 네이버 검색 API (차단 없음, 안정)
+  const apiResult = await checkSerpRankNaverApi(keyword, blogId, postNo);
+  if (apiResult.status === 'found' || apiResult.status === 'not-in-top30') {
+    return { ...apiResult, method: 'naver-api' };
+  }
+  // API 키 없거나 실패 → HTTP SERP
   if (!preferPlaywright) {
     const httpResult = await checkSerpRankHttp(keyword, blogId, postNo);
     if (httpResult.status !== 'blocked') {
       return { ...httpResult, method: 'http' };
     }
-    // HTTP 차단 감지 → 이번 세션부터 Playwright 우선
     console.warn('[EXPOSURE-TRACKING] HTTP 차단 → Playwright 자동 전환');
     preferPlaywright = true;
   }
-  // Playwright 시도
   const pwResult = await checkSerpRankPlaywright(keyword, blogId, postNo);
   return { ...pwResult, method: 'playwright' };
 }
@@ -664,6 +710,19 @@ export function setupExposureTrackingHandlers(): void {
           byCategory,
           items: items.sort((a, b) => (b.totalChecks - a.totalChecks)),
         };
+      } catch (err: any) { return { success: false, error: err?.message }; }
+    });
+  }
+
+  // v2.42.90: 수동 초기화 — 모든 추적/키워드 history 삭제 (블로그 바꿔도 데이터 안 지워지는 경우)
+  if (!ipcMain.listenerCount('exposure-clear-all')) {
+    ipcMain.handle('exposure-clear-all', async () => {
+      try {
+        const t = readJson<TrackedKeyword[]>(FILE_TRACKED(), []);
+        const k = readJson<any[]>(FILE_KEYWORD_HISTORY(), []);
+        writeJson(FILE_TRACKED(), []);
+        writeJson(FILE_KEYWORD_HISTORY(), []);
+        return { success: true, cleared: { tracked: t.length, keywordHistory: k.length } };
       } catch (err: any) { return { success: false, error: err?.message }; }
     });
   }
