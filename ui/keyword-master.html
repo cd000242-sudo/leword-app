@@ -1467,6 +1467,32 @@
     </script>
 
 
+    <!-- v2.42.91: 트레이 최소화 플로팅 버튼 (우측 상단 고정) -->
+    <div id="trayMinimizeFloating" style="position:fixed; top:14px; right:14px; z-index:99998; display:flex; gap:6px; align-items:center; background:rgba(15,23,42,0.92); border:1px solid rgba(99,102,241,0.4); border-radius:10px; padding:6px 10px; box-shadow:0 4px 14px rgba(0,0,0,0.25);">
+      <button onclick="hideToSystemTray()" title="트레이로 최소화 (창 숨김, 결과 보존)" style="background:transparent; color:#a5b4fc; border:none; cursor:pointer; font-size:14px; font-weight:700; padding:4px 8px;">⬇️ 트레이로</button>
+      <label style="display:flex; align-items:center; gap:4px; color:rgba(255,255,255,0.7); font-size:10px; cursor:pointer;" title="X 버튼 누를 때 종료 대신 트레이로 보냄">
+        <input id="trayPersistToggle" type="checkbox" onchange="toggleTrayPersist(this.checked)" style="cursor:pointer;"/>
+        X = 트레이
+      </label>
+    </div>
+
+    <script>
+      // v2.42.91: 트레이 함수
+      window.hideToSystemTray = async function () {
+        try { await window.electronAPI.invoke('tray-hide-to-tray'); } catch (e) { console.warn('tray hide err', e); }
+      };
+      window.toggleTrayPersist = async function (val) {
+        try { await window.electronAPI.invoke('tray-set-pref', { minimizeToTray: !!val }); } catch (e) {}
+      };
+      document.addEventListener('DOMContentLoaded', async () => {
+        try {
+          const r = await window.electronAPI.invoke('tray-get-pref');
+          const t = document.getElementById('trayPersistToggle');
+          if (t && r?.success) t.checked = !!r.minimizeToTray;
+        } catch (e) {}
+      });
+    </script>
+
     <!-- 실시간 검색어 모니터링 섹션 (2x2 그리드) -->
     <div id="realtimeKeywordsSection"
       style="margin-bottom: 32px; padding: 20px; background: linear-gradient(135deg, #f8fafc 0%, #e2e8f0 100%); border-radius: 16px; border: 2px solid #cbd5e1;">

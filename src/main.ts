@@ -968,6 +968,29 @@ app.whenReady().then(async () => {
   // v2.42.27: 시스템 트레이 (창 닫기 시 결과 보존 — 사용자 요청)
   createTray();
 
+  // v2.42.91: UI에서 트레이 토글 가능한 IPC 추가
+  ipcMain.handle('tray-hide-to-tray', () => {
+    if (keywordWindow && !keywordWindow.isDestroyed()) {
+      keywordWindow.hide();
+      try {
+        if (!(app as any).__trayBalloonShown && tray) {
+          tray.displayBalloon({
+            title: 'LEWORD',
+            content: '트레이로 이동했습니다. 우측 하단 트레이 아이콘 클릭 → 복원',
+          });
+          (app as any).__trayBalloonShown = true;
+        }
+      } catch {}
+      return { success: true };
+    }
+    return { success: false };
+  });
+  ipcMain.handle('tray-get-pref', () => ({ success: true, minimizeToTray: getTrayMinimizePref() }));
+  ipcMain.handle('tray-set-pref', (_e, p: { minimizeToTray: boolean }) => {
+    setTrayMinimizePref(!!p?.minimizeToTray);
+    return { success: true };
+  });
+
   app.on('activate', () => {
     if (BrowserWindow.getAllWindows().length === 0) {
       createKeywordWindow();
