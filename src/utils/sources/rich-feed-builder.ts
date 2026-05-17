@@ -44,6 +44,7 @@ export interface RichKeywordRow {
     rank: number;
     keyword: string;
     category: string;
+    categoryId?: string;          // v2.43.15: 다양성 가산/필터링용
     categoryIcon: string;
     grade: GoldenGrade | '';
     searchVolume: number;
@@ -1073,6 +1074,7 @@ export async function buildRichFeed(
                     rank: 0,
                     keyword: sig.keyword,
                     category: cat.label,
+                    categoryId: cat.id, // v2.43.15: 카테고리 다양성 가산용
                     categoryIcon: cat.icon,
                     grade,
                     searchVolume: totalVolume,
@@ -1176,36 +1178,83 @@ export async function buildRichFeed(
                 );
             })
             .map(r => {
-                // dcScore: 저경쟁 강하게 우대 (계단식, 10000 상한 대응 추가)
                 const dcScore = r.documentCount <= 1000 ? 100 :
                     r.documentCount <= 2000 ? 85 :
                     r.documentCount <= 3000 ? 70 :
                     r.documentCount <= 5000 ? 50 :
                     r.documentCount <= 10000 ? 30 : 0;
-                // grScore: ratio 큼 우대
                 const grScore = Math.min(100, r.goldenRatio * 15);
-                // svScore: sv 1000~10000 만점, 그 외는 점수 차등 (v2.42.11 — 게이트 완화 반영)
                 const sv = r.searchVolume;
                 const svScore = sv >= 1000 && sv <= 10000 ? 100 :
-                    sv >= 500 && sv < 1000 ? 60 :        // 소형 longtail
-                    sv > 10000 && sv <= 30000 ? 70 :     // 인기 키워드
+                    sv >= 500 && sv < 1000 ? 60 :
+                    sv > 10000 && sv <= 30000 ? 70 :
                     0;
-                // v2.43.14: 블로거 친화도를 정렬 점수에 30% 가산 — 글쓰기 좋은 키워드 우선
                 const writability = typeof r.bloggerWritability === 'number' ? r.bloggerWritability : 50;
-                let dynamicSssScore = dcScore * 0.30 + grScore * 0.25 + svScore * 0.15 + writability * 0.30;
-                // dcEstimated 행은 신뢰도 페널티 30%
-                if (r.dcEstimated) dynamicSssScore *= 0.7;
-                return { row: r, dynamicSssScore };
+                let baseScore = dcScore * 0.30 + grScore * 0.25 + svScore * 0.15 + writability * 0.30;
+                if (r.dcEstimated) baseScore *= 0.7;
+                return { row: r, baseScore };
             })
-            .sort((a, b) => b.dynamicSssScore - a.dynamicSssScore);
+            .sort((a, b) => b.baseScore - a.baseScore);
+
+        // v2.43.15: 카테고리 다양성 라운드로빈 승격
+        //   이전: baseScore 상위 N개만 뽑아서 한 카테고리가 30+ SSS 독식 → 사용자 "카테고리 한쪽 쏠림" 신고
+        //   변경: 라운드 1 — 각 카테고리에서 best 1개씩, 라운드 2 — best 2번째씩, ...
+        //   결과: 30개 카테고리에서 SSS가 골고루 분포. 한 카테고리당 max ≈ TARGET_SSS / 카테고리수 + 잔여
         const need = TARGET_SSS - sssCount;
-        const promoted = Math.min(need, promotionPool.length);
-        for (let i = 0; i < promoted; i++) {
-            promotionPool[i].row.grade = 'SSS';
+        const MAX_PER_CATEGORY_HARD = Math.max(4, Math.ceil(need / 5)); // 카테고리당 hard cap (전체의 1/5)
+
+        // 기존 자연 SSS 의 카테고리 카운트 (라운드로빈 시작 시 가중치)
+        const sssCategoryCount = new Map<string, number>();
+        for (const r of enrichedRows) {
+            if (r.grade === 'SSS' || r.grade === 'SSR') {
+                const cid = r.categoryId || 'all';
+                sssCategoryCount.set(cid, (sssCategoryCount.get(cid) || 0) + 1);
+            }
+        }
+
+        // 카테고리별 후보 큐 구성
+        const byCat = new Map<string, Array<{ row: RichKeywordRow; baseScore: number }>>();
+        for (const e of promotionPool) {
+            const cid = e.row.categoryId || 'all';
+            if (!byCat.has(cid)) byCat.set(cid, []);
+            byCat.get(cid)!.push(e);
+        }
+
+        // 라운드로빈 + score 기반 fairness: 다양한 카테고리에서 골고루 뽑되 점수 너무 낮은 건 제외
+        const promotionTargets: Array<{ row: RichKeywordRow; baseScore: number; cid: string }> = [];
+        // round-robin 라운드 수: max 카테고리 큐 크기 만큼
+        const maxQueueSize = Math.max(0, ...Array.from(byCat.values()).map(q => q.length));
+        for (let round = 0; round < maxQueueSize && promotionTargets.length < need; round++) {
+            // 카테고리 순서: 현재 SSS 적은 카테고리 우선 (다양성 강화)
+            const sortedCats = Array.from(byCat.keys()).sort((a, b) => {
+                const aCnt = (sssCategoryCount.get(a) || 0);
+                const bCnt = (sssCategoryCount.get(b) || 0);
+                return aCnt - bCnt;
+            });
+            for (const cid of sortedCats) {
+                if (promotionTargets.length >= need) break;
+                const queue = byCat.get(cid)!;
+                if (round >= queue.length) continue;
+                // 카테고리당 hard cap 체크
+                if ((sssCategoryCount.get(cid) || 0) >= MAX_PER_CATEGORY_HARD) continue;
+                const entry = queue[round];
+                promotionTargets.push({ ...entry, cid });
+                sssCategoryCount.set(cid, (sssCategoryCount.get(cid) || 0) + 1);
+            }
+        }
+
+        // 실제 승격 적용
+        for (const t of promotionTargets) {
+            t.row.grade = 'SSS';
         }
         diagnostic.promotion.poolSize = promotionPool.length;
-        diagnostic.promotion.promoted = promoted;
-        console.log(`[rich-feed v2.42.13] 동적 SSS 승격: 풀 ${promotionPool.length}건 중 ${promoted}건 승격 (TARGET ${TARGET_SSS}, 기존 SSS ${sssCount}건)`);
+        diagnostic.promotion.promoted = promotionTargets.length;
+        const distribution = Array.from(sssCategoryCount.entries())
+            .sort((a, b) => b[1] - a[1])
+            .slice(0, 10)
+            .map(([k, v]) => `${k}:${v}`)
+            .join(' ');
+        console.log(`[rich-feed v2.43.15] 카테고리 다양성 승격: 풀 ${promotionPool.length}건 → ${promotionTargets.length}건 (TARGET ${TARGET_SSS}, cap/cat ${MAX_PER_CATEGORY_HARD}) 분포 [${distribution}]`);
     }
 
     // 🔥 v2.41.0: SSR + SSS only 화면 (사용자 정책 — 다층 노출 금지)
