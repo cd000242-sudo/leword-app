@@ -57,6 +57,8 @@ export interface RichKeywordRow {
     isBlueOcean: boolean;
     // 🔥 v2.41.0: dc 추정값 여부 — 분포 기반 동적 SSS 승격 풀에서 제외용 (신뢰도 가드)
     dcEstimated?: boolean;
+    // 🔥 v2.43.14: 블로거 친화도 점수 (0~100) — 일반 블로거가 글쓰기 좋은 정도
+    bloggerWritability?: number;
     // 🔥 v2.19.0 Phase L-2: 30일 트렌드 타입 (상위 30개만 분류됨)
     trendType?: 'evergreen' | 'skyrocket' | 'flash' | 'seasonal' | 'unknown';
     trendLabel?: string;
@@ -361,6 +363,72 @@ function isHighIntentSingleToken(keyword: string, searchVolume: number, docCount
     const ratio = searchVolume / docCount;
     // sv 5000+ AND ratio 3+ AND dc 실측 → 진짜 의도 명확 단일 명사 (의료/뷰티 빅워드)
     return searchVolume >= 5000 && ratio >= 3 && docCount <= 100000;
+}
+
+// v2.43.14: 블로거 친화도 점수 (0~100) — "일반 블로거가 이 키워드로 글을 쓸 수 있는가"
+//   캡처 신고: "잘 찾아주긴 하는데 누가 이걸로 글을 쓸까" → 셀럽/지역시설/음식점/의료전문 비중 너무 큼
+//   룰베이스, AI 사용 안 함 (사용자 정책 반영)
+const FACILITY_RE = /(구민체육센터|시민체육센터|문화센터|공원|연등축제|박물관|미술관|도서관|체육관|보건소|주민센터|구청|시청|법원)/;
+const SHOP_BRAND_RE = /(쌍뺨|쌍뱀|식당|곱창|닭갈비|국밥|냉면|레스토랑|카페|베이커리|치킨집|호프|포차|분식|마라탕)/;
+const APARTMENT_RE = /(아파트|푸르지오|자이|래미안|롯데캐슬|더샵|힐스테이트|이편한세상|롯데|위브|센트럴|파크|타워|그란테르|레미안|아이파크|어반|시티|뷰)$/;
+const MEDICAL_PROFESSIONAL_RE = /(처방|진단|투여|복용량|투약|항생제|항암제|마취|수술법|시술법|병기|병태|예후|투석|이식)/;
+const PARENTING_RE = /(신생아|아기|영아|유아|돌|이유식|분유|기저귀|육아|어린이|어린이집|돌잔치|태교|태열|모유|수유|배앓이|황달|예방접종)/;
+const BEAUTY_RE = /(화장품|선크림|클렌징|스킨|메이크업|쿠션|파운데이션|에센스|세럼|마스카라|아이라이너|립스틱|올영|올리브영|시카)/;
+const FOOD_RECIPE_RE = /(레시피|만드는법|만들기|조리법|요리법|냉동|보관법|손질|손질법)/;
+const TRAVEL_RE = /(여행|호텔|항공|패키지|투어|렌트카|숙박|에어비앤비|일정|코스|당일치기|1박2일)/;
+const TECH_GUIDE_RE = /(설정|방법|단축키|튜토리얼|입문|초보|시작하기|사용법|꿀팁|업데이트)/;
+const INTENT_COMMERCIAL_RE = /(추천|비교|후기|순위|가격|할인|구매|리뷰|장단점|차이|차이점)/;
+
+function calculateBloggerWritability(keyword: string, docCount: number, searchVolume: number): number {
+    const clean = keyword.trim();
+    if (!clean) return 0;
+    const tokens = clean.split(/\s+/).filter(Boolean);
+    const tokenCount = tokens.length;
+
+    let score = 50; // base
+
+    // [-] 셀럽 가십 — 일반 블로거 영역 아님
+    if (isLikelyCelebrityName(clean)) score -= 30;
+
+    // [-] 지역 시설/축제 — 도메인 너무 좁음
+    if (FACILITY_RE.test(clean)) score -= 25;
+
+    // [-] 음식점/상호명 — 동네 후기 외 글감 어려움
+    if (SHOP_BRAND_RE.test(clean)) score -= 20;
+
+    // [-] 아파트/단지명 — 부동산 전문 외엔 글감 어려움 (정보성 글로 통과 가능해 -10만)
+    if (APARTMENT_RE.test(clean)) score -= 10;
+
+    // [-] 의료 전문 (의사 블로거 아니면 위험)
+    if (MEDICAL_PROFESSIONAL_RE.test(clean) && tokenCount === 1) score -= 18;
+
+    // [-] 너무 짧은 단일 토큰 — 막연
+    if (tokenCount === 1 && clean.length <= 3) score -= 8;
+
+    // [+] 검색 의도 명확한 commercial 접미사
+    if (INTENT_COMMERCIAL_RE.test(clean)) score += 20;
+
+    // [+] 카테고리 명확 (육아/뷰티/맛집레시피/여행/IT)
+    if (PARENTING_RE.test(clean)) score += 20;
+    if (BEAUTY_RE.test(clean)) score += 18;
+    if (FOOD_RECIPE_RE.test(clean)) score += 18;
+    if (TRAVEL_RE.test(clean)) score += 15;
+    if (TECH_GUIDE_RE.test(clean)) score += 15;
+
+    // [+] 2~3 토큰 longtail — 가장 글쓰기 좋은 형태
+    if (tokenCount === 2) score += 12;
+    else if (tokenCount === 3) score += 15;
+    else if (tokenCount >= 4) score += 8;
+
+    // [+] 적당한 dc (1500~5000) — 경쟁 있지만 신규 진입 가능
+    if (docCount >= 500 && docCount <= 5000) score += 8;
+    else if (docCount > 0 && docCount < 200) score += 3; // 매우 낮은 dc 도 좋음
+    else if (docCount > 20000) score -= 8; // 너무 경쟁 치열
+
+    // [+] sv 충분 (트래픽 보장)
+    if (searchVolume >= 1000 && searchVolume <= 20000) score += 5;
+
+    return Math.max(0, Math.min(100, score));
 }
 
 function isWritableKeyword(keyword: string, docCount: number, searchVolume: number = 0, dcEstimated: boolean = false): boolean {
@@ -1017,6 +1085,7 @@ export async function buildRichFeed(
                     purchaseIntent: intent,
                     isBlueOcean,
                     dcEstimated: !hasValidDocCount, // 🔥 v2.41.0: 동적 SSS 승격 풀 신뢰도 가드용
+                    bloggerWritability: calculateBloggerWritability(sig.keyword, docCount, totalVolume),
                 });
             }
         } catch (e: any) {
@@ -1058,6 +1127,21 @@ export async function buildRichFeed(
         }
     }
 
+    // 🔥 v2.43.14: 자연 SSS 도 블로거 친화도 < 35 면 SS 로 강등 (셀럽 가십/지역 시설/음식점 자동 제거)
+    //   사용자 신고: "잘 찾아주긴 하는데 누가 이걸로 글을 쓸까" — 캡처에서 양천구민체육센터/패리스 잭슨/종로쌍뱀 등이 SSS
+    //   강등 시 SSS 풀이 줄면 promotion 으로 다시 채워짐 → SSS 절대 수 보장 정책 유지
+    let writabilityDowngraded = 0;
+    for (const r of enrichedRows) {
+        const writability = typeof r.bloggerWritability === 'number' ? r.bloggerWritability : 50;
+        if ((r.grade === 'SSS') && writability < 35) {
+            r.grade = 'SS';
+            writabilityDowngraded++;
+        }
+    }
+    if (writabilityDowngraded > 0) {
+        console.log(`[rich-feed v2.43.14] 친화도 < 35 SSS 강등: ${writabilityDowngraded}건`);
+    }
+
     // 🔥 v2.41.0: 분포 기반 동적 SSS 승격 (필터 전)
     //   사용자 정책: SSS-only 화면 + SSS 절대 수 대량 보장.
     //   안전 풀: writable + 실측 dc + ratio>=1 통과한 SS/S/A 중 dynamicSssScore 상위 N개를 SSS 로 승격.
@@ -1076,13 +1160,12 @@ export async function buildRichFeed(
         //   참조: feedback_result_count_floor — "SSS 절대 수 풀 확장+게이트 캘리브레이션으로 늘려라"
         const promotionPool = enrichedRows
             .filter(r => {
-                // v2.43.12: 핵심 수정 — dcEstimated 행은 풀 진입 자체 차단 (주석에 있던 의도 실제 반영)
-                //   이전: 페널티 30%만 줘서 결국 SSS 승격 → 사용자 캡처의 ratio=2.0 13개 문제 발생
                 if (r.dcEstimated) return false;
-                // v2.43.12: 단일 토큰은 promotion 금지 (시각/통화/경북 등 일반 명사 차단)
-                //   단일 토큰 SSS 통과는 자연 SSS 게이트의 isHighIntentSingleToken 만 허용
                 const tokenCount = String(r.keyword || '').trim().split(/\s+/).filter(Boolean).length;
                 if (tokenCount === 1) return false;
+                // v2.43.14: 블로거 친화도 < 45 키워드는 SSS 승격 금지 (셀럽/지역시설/음식점 자동 차단)
+                const writability = typeof r.bloggerWritability === 'number' ? r.bloggerWritability : 50;
+                if (writability < 45) return false;
                 return (
                     (r.grade === 'SS' || r.grade === 'S' || r.grade === 'A') &&
                     r.documentCount > 0 &&
@@ -1107,7 +1190,9 @@ export async function buildRichFeed(
                     sv >= 500 && sv < 1000 ? 60 :        // 소형 longtail
                     sv > 10000 && sv <= 30000 ? 70 :     // 인기 키워드
                     0;
-                let dynamicSssScore = dcScore * 0.40 + grScore * 0.35 + svScore * 0.25;
+                // v2.43.14: 블로거 친화도를 정렬 점수에 30% 가산 — 글쓰기 좋은 키워드 우선
+                const writability = typeof r.bloggerWritability === 'number' ? r.bloggerWritability : 50;
+                let dynamicSssScore = dcScore * 0.30 + grScore * 0.25 + svScore * 0.15 + writability * 0.30;
                 // dcEstimated 행은 신뢰도 페널티 30%
                 if (r.dcEstimated) dynamicSssScore *= 0.7;
                 return { row: r, dynamicSssScore };

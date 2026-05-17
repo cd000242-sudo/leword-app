@@ -1155,7 +1155,14 @@
               <td style="padding:10px 8px; text-align:center; color:#64748b; font-weight:700;">${r.rank}</td>
               <td style="padding:10px 8px; text-align:center;"><span title="${r.category}">${r.categoryIcon}</span></td>
               <td style="padding:10px 8px; text-align:center;">${r.grade ? `<span class="rf-grade ${r.grade}" title="${r.grade === 'SSR' ? '수익 황금 (고CPC + 상업 키워드 + 수익 카테고리)' : r.grade}">${r.grade === 'SSR' ? '👑SSR' : r.grade}</span>` : '-'}</td>
-              <td style="padding:10px 8px; font-weight:700; color:#f1f5f9;">${bluebadge} ${r.keyword} ${trendBadge} ${claudeBadge}</td>
+              <td style="padding:10px 8px; font-weight:700; color:#f1f5f9;">${bluebadge} ${r.keyword} ${trendBadge} ${claudeBadge} ${(() => {
+                // v2.43.14: 블로거 친화도 배지 — 일반 블로거가 글쓰기 좋은 정도
+                const w = typeof r.bloggerWritability === 'number' ? r.bloggerWritability : null;
+                if (w === null) return '';
+                const wc = w >= 75 ? '#22c55e' : w >= 60 ? '#84cc16' : w >= 45 ? '#f59e0b' : '#ef4444';
+                const wl = w >= 75 ? '글쓰기 매우 좋음' : w >= 60 ? '글쓰기 좋음' : w >= 45 ? '글쓰기 보통' : '글쓰기 어려움';
+                return `<span title="${wl} (${w}점) — 셀럽/지역시설/전문어 패널티, longtail/카테고리 명확/commercial intent 가산" style="display:inline-block; margin-left:6px; padding:1px 6px; border-radius:8px; background:rgba(255,255,255,0.05); border:1px solid ${wc}55; color:${wc}; font-size:9.5px; font-weight:700;">✍️ ${w}</span>`;
+              })()}</td>
               <td style="padding:10px 8px; text-align:right; color:#cbd5e1;">${r.searchVolume.toLocaleString()}</td>
               <td style="padding:10px 8px; text-align:right; color:#94a3b8;">${r.documentCount.toLocaleString()}</td>
               <td style="padding:10px 8px; text-align:right; font-weight:800; color:${ratioColor};">${r.goldenRatio.toFixed(2)}</td>
@@ -1354,20 +1361,20 @@
         const list = document.getElementById('rfTopPicksList');
         if (!box || !list) return;
         const COMMERCIAL_RE = /(추천|비교|후기|가격|순위|할인|리뷰|구매|가성비|최저가)/;
-        // SSR 전체 노출 (최대 20개, 나머지는 "더보기")
-        const ssrRows = rows.filter(r => r.grade === 'SSR');
+        // v2.43.14: 확정 수익 키워드는 친화도 60+ 만 선발 (블로거가 실제로 글쓸 수 있는 키워드)
+        const writableEnough = (r) => (typeof r.bloggerWritability !== 'number' || r.bloggerWritability >= 60);
+        const ssrRows = rows.filter(r => r.grade === 'SSR' && writableEnough(r));
         const maxDisplay = Math.min(20, ssrRows.length);
         let picks = ssrRows.slice(0, maxDisplay);
-        // SSR 5건 미만이면 SSS commercial 로 보충 (기존 유지)
         if (picks.length < 5) {
           const extra = rows.filter(r =>
-            r.grade === 'SSS' && (r.cpc || 0) >= 500 && COMMERCIAL_RE.test(String(r.keyword)) && (r.documentCount || 0) <= 8000
+            r.grade === 'SSS' && writableEnough(r) && (r.cpc || 0) >= 500 && COMMERCIAL_RE.test(String(r.keyword)) && (r.documentCount || 0) <= 8000
           ).slice(0, 5 - picks.length);
           picks = [...picks, ...extra];
         }
         if (picks.length < 5) {
           const fallback = rows.filter(r =>
-            (r.grade === 'SSS' || r.grade === 'SS') && (r.documentCount || 0) <= 5000 && (r.searchVolume || 0) >= 500
+            (r.grade === 'SSS' || r.grade === 'SS') && writableEnough(r) && (r.documentCount || 0) <= 5000 && (r.searchVolume || 0) >= 500
           ).filter(r => !picks.includes(r)).slice(0, 5 - picks.length);
           picks = [...picks, ...fallback];
         }
