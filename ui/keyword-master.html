@@ -5313,13 +5313,40 @@
             window.discoveryResults = r.keywords || [];
 
             if (!r.keywords || r.keywords.length === 0) {
+              // v2.43.1: 진단 정보 포함 + 친절한 안내
+              const stats = r.stats || {};
+              const diag = r.diagnosis || '';
+              const isApiKeyIssue = stats.svMeasured === 0 && stats.measured > 0;
               resultsDiv.innerHTML = `
-                <div style="padding:30px; background:rgba(96,165,250,0.08); border-radius:12px; border:1px solid rgba(96,165,250,0.3); text-align:center;">
-                  <div style="font-size:18px; font-weight:800; color:#3b82f6; margin-bottom:8px;">😅 조건에 맞는 황금 키워드를 찾지 못했습니다</div>
-                  <div style="font-size:13px; color:#64748b; line-height:1.6;">
-                    후보 ${r.totalCandidates || 0}개 측정 (검색량≥${r.appliedThresholds?.minSearchVolume || 300} · 문서수≤${r.appliedThresholds?.maxDocCount || 10000} · 비율≥${r.appliedThresholds?.minRatio || 5}).<br/>
-                    더 일반적인 키워드(예: "부업", "다이어트", "재테크")로 시도하거나, 시드를 짧게 입력해보세요.
+                <div style="padding:30px; background:rgba(96,165,250,0.08); border-radius:12px; border:1px solid rgba(96,165,250,0.3);">
+                  <div style="font-size:18px; font-weight:800; color:${isApiKeyIssue ? '#dc2626' : '#3b82f6'}; margin-bottom:12px; text-align:center;">
+                    ${isApiKeyIssue ? '⚠️ 검색광고 API 키 권한 확인 필요' : '😅 조건에 맞는 황금 키워드를 찾지 못했습니다'}
                   </div>
+                  <div style="font-size:13px; color:#475569; line-height:1.8;">
+                    <strong>📊 측정 진단:</strong><br/>
+                    • 후보: ${r.totalCandidates || 0}개 (시맨틱 sibling + 자동완성)<br/>
+                    • 검색량 측정 성공: ${stats.svMeasured || 0}/${stats.measured || 0}건<br/>
+                    • 문서수 측정 성공: ${stats.dcMeasured || 0}/${stats.measured || 0}건<br/>
+                    • 황금비율 산출: ${stats.ratioCalc || 0}/${stats.measured || 0}건<br/>
+                    • 적용 컷: 검색량≥${r.appliedThresholds?.minSearchVolume || 300}, 문서수≤${r.appliedThresholds?.maxDocCount || 10000}, 비율≥${r.appliedThresholds?.minRatio || 5}
+                    ${r.appliedThresholds?.relaxed ? ' (자동 완화 적용됨)' : ''}
+                  </div>
+                  ${diag ? `<div style="margin-top:12px; padding:10px 14px; background:rgba(251,191,36,0.1); border-left:3px solid #fbbf24; color:#92400e; font-size:12px;">💡 ${diag}</div>` : ''}
+                  ${isApiKeyIssue ? `
+                    <div style="margin-top:14px; padding:12px 16px; background:rgba(239,68,68,0.1); border:1px solid rgba(239,68,68,0.3); border-radius:8px;">
+                      <div style="font-weight:800; color:#dc2626; margin-bottom:6px;">조치 방법</div>
+                      <div style="font-size:12px; color:#7f1d1d; line-height:1.7;">
+                        1. searchad.naver.com 접속 → 도구 → API 관리<br/>
+                        2. AccessLicense + SecretKey 발급<br/>
+                        3. LEWORD 환경설정 → 검색광고 API 입력<br/>
+                        4. 앱 재시작 후 다시 시도
+                      </div>
+                    </div>
+                  ` : `
+                    <div style="margin-top:14px; padding:10px 14px; background:rgba(34,197,94,0.08); border-radius:8px; color:#15803d; font-size:12px;">
+                      💡 <strong>다음 시도:</strong> 더 일반적인 키워드 (예: "부업", "다이어트", "재테크") 또는 시드를 짧게 (1~2단어) 입력해보세요.
+                    </div>
+                  `}
                 </div>`;
               return;
             }

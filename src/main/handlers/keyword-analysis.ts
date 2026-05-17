@@ -1451,7 +1451,18 @@ export function setupKeywordAnalysisHandlers(): void {
         const clientId = env.naverClientId || process.env['NAVER_CLIENT_ID'] || '';
         const clientSecret = env.naverClientSecret || process.env['NAVER_CLIENT_SECRET'] || '';
         if (!clientId || !clientSecret) {
-          return { success: false, error: '네이버 API 키 필요 (환경설정)', keywords: [] };
+          return { success: false, error: '⚠️ 네이버 Open API 키 필요 (환경설정 → 네이버 Open API Client ID/Secret 입력)', keywords: [] };
+        }
+        // v2.43.1: SearchAd API 키 별도 검증 — 검색량/문서수 측정에 필수
+        const sa1 = env.naverSearchAdAccessLicense || '';
+        const sa2 = env.naverSearchAdSecretKey || '';
+        if (!sa1 || !sa2) {
+          return {
+            success: false,
+            error: '⚠️ 네이버 SearchAd API 키가 필요합니다. 환경설정 → 검색광고 API → AccessLicense + SecretKey 입력 후 다시 시도하세요.\n\n발급: searchad.naver.com → 도구 → API 관리',
+            keywords: [],
+            missingKey: 'searchad',
+          };
         }
 
         // 진행 알림
@@ -1531,18 +1542,36 @@ export function setupKeywordAnalysisHandlers(): void {
           };
         });
 
+        // v2.43.1: 측정 진단 (사용자가 왜 0건인지 파악 가능)
+        const stats = {
+          measured: measured.length,
+          svMeasured: enriched.filter(k => k.searchVolume !== null).length,
+          dcMeasured: enriched.filter(k => k.documentCount !== null).length,
+          ratioCalc: enriched.filter(k => k.goldenRatio !== null).length,
+        };
+        send('progress', `📈 측정 결과: sv ${stats.svMeasured}/${stats.measured}, dc ${stats.dcMeasured}/${stats.measured}, ratio ${stats.ratioCalc}/${stats.measured}`);
+
         // 황금 조건: 검색량 ≥ minSearchVolume, 문서수 ≤ maxDocCount, ratio ≥ minRatio
-        const golden = enriched.filter(k => {
-          if (k.keyword === seed) return false; // 시드 자체 제외
+        const goldenFilter = (k: typeof enriched[0], sv_min: number, dc_max: number, r_min: number) => {
+          if (k.keyword === seed) return false;
           const sv = k.searchVolume || 0;
           const dc = k.documentCount;
           const r = k.goldenRatio;
-          if (sv < minSearchVolume) return false;
-          if (dc !== null && dc > maxDocCount) return false;
+          if (sv < sv_min) return false;
+          if (dc !== null && dc > dc_max) return false;
           if (r === null) return false;
-          if (r < minRatio) return false;
+          if (r < r_min) return false;
           return true;
-        }).map(k => ({ ...k, isGolden: true }));
+        };
+        let golden = enriched.filter(k => goldenFilter(k, minSearchVolume, maxDocCount, minRatio)).map(k => ({ ...k, isGolden: true }));
+        let relaxedUsed = false;
+
+        // v2.43.1: 0건이면 자동 완화 재시도 (sv 100, dc 30000, ratio 2)
+        if (golden.length === 0 && stats.svMeasured > 0) {
+          send('progress', `🔧 엄격 컷 0건 → 완화 재시도 (sv≥100, dc≤30000, 비율≥2)`);
+          golden = enriched.filter(k => goldenFilter(k, 100, 30000, 2)).map(k => ({ ...k, isGolden: false, _relaxed: true }));
+          relaxedUsed = true;
+        }
 
         // 정렬: 황금비율 내림차순 → 검색량 내림차순
         golden.sort((a, b) => {
@@ -1552,14 +1581,25 @@ export function setupKeywordAnalysisHandlers(): void {
           return (b.searchVolume ?? 0) - (a.searchVolume ?? 0);
         });
 
-        send('complete', `✅ ${golden.length}개 황금 키워드 발견 (후보 ${cleaned.length}개 중)`, { count: golden.length });
+        const msg = relaxedUsed
+          ? `🔶 완화 컷 ${golden.length}개 발견 (엄격 컷 0건 → sv≥100, dc≤30000, 비율≥2)`
+          : `✅ ${golden.length}개 황금 키워드 발견 (후보 ${cleaned.length}개 중)`;
+        send('complete', msg, { count: golden.length });
 
         return {
           success: true,
           keywords: golden.slice(0, 100),
           totalCandidates: cleaned.length,
           totalMeasured: measured.length,
-          appliedThresholds: { minRatio, minSearchVolume, maxDocCount },
+          appliedThresholds: relaxedUsed
+            ? { minRatio: 2, minSearchVolume: 100, maxDocCount: 30000, relaxed: true }
+            : { minRatio, minSearchVolume, maxDocCount, relaxed: false },
+          stats, // sv/dc/ratio 측정 통계
+          diagnosis: stats.svMeasured === 0
+            ? '검색량 측정 0건 — SearchAd API 키 권한 확인 필요'
+            : (golden.length === 0
+              ? `후보 ${cleaned.length}개 측정했으나 황금 조건 통과 0건. 시드 키워드를 더 niche한 것으로 시도하거나 후보 부족.`
+              : null),
         };
       } catch (error: any) {
         console.error('[GOLDEN-DISCOVERY] 오류:', error);
