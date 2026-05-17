@@ -330,6 +330,37 @@ export function setupKeywordAnalysisHandlers(): void {
             if (junkPatterns.some(p => p.test(trimmed))) return false;
           }
 
+          // v2.43.11: 쇼핑몰/광고 카피 차단 — 시드 미포함 시 광고 시그널 단어 1개라도 있으면 제외
+          // (예: "와우회원은 무제한 무료배송", "5월 기간 한정", "신규 가입 8만원 쿠폰", "빅스마일데이 한정특가")
+          const adShoppingPatterns = [
+            /무료배송/, /한정특가/, /신규\s*가입/, /첫\s*구매/, /와우회원/,
+            /사은품/, /적립금/, /\d+만원\s*쿠폰/, /\d+%\s*할인/,
+            /빅스마일/, /빅세일/, /타임세일/, /깜짝세일/,
+            /무이자할부/, /무료체험/, /\d+개월\s*무이자/,
+          ];
+          if (!trimmed.toLowerCase().includes(seedWord)) {
+            if (adShoppingPatterns.some(p => p.test(trimmed))) return false;
+          }
+
+          // v2.43.11: 슬로건/감탄 종결 어미 차단 (검색 키워드가 아닌 마케팅 카피)
+          // (예: "좋아하는 건 누구나 남기고 싶으니까", "네이버가 더 편해지는 순간")
+          const sloganEndings = [
+            /으니까$/, /으니$/, /네요$/, /군요$/, /거든요$/,
+            /순간$/, /때$/, /지는$/, /해보세요$/, /해드려요$/,
+            /싶으니까$/, /싶어요$/, /있어요$/, /있을까$/,
+            /기쁨$/, /행복$/, /설렘$/,
+          ];
+          if (!trimmed.toLowerCase().includes(seedWord) && trimmed.length >= 6) {
+            if (sloganEndings.some(p => p.test(trimmed))) return false;
+          }
+
+          // v2.43.11: 평서문 — 조사 "은/는/이/가" + 동사 종결 패턴 (검색어 아님)
+          // "네이버가 더 편해지는 순간", "와우회원은 무제한 무료배송"
+          const declarativeSentence = /(은|는|이|가)\s+[가-힣]/;
+          if (!trimmed.toLowerCase().includes(seedWord) && declarativeSentence.test(trimmed) && trimmed.length >= 8) {
+            return false;
+          }
+
           // ============================================
           // 6️⃣ 너무 일반적인 단어 필터
           // ============================================
@@ -544,6 +575,62 @@ export function setupKeywordAnalysisHandlers(): void {
               uniqueAutocomplete.add(trimmed);
             }
           });
+
+          // v2.43.11: 시맨틱 sibling 통합 — 시드와 같은 카테고리의 다른 키워드 (예: 나이키 → 아디다스/뉴발란스)
+          // 헤드 명사 sibling (마인드맵에서 검증된 로직)
+          try {
+            const { getSemanticSiblings } = await import('../../utils/keyword-mindmap');
+            const siblings = await getSemanticSiblings(trimmedKeyword, naverClientId, naverClientSecret);
+            let siblingAdded = 0;
+            for (const sib of siblings) {
+              const trimmedSib = sib.trim();
+              if (isValidSearchKeyword(trimmedSib) && !uniqueAutocomplete.has(trimmedSib)) {
+                uniqueAutocomplete.add(trimmedSib);
+                siblingAdded++;
+              }
+            }
+            console.log(`[KEYWORD-EXPANSIONS] 시맨틱 sibling: ${siblings.length}건 발견, ${siblingAdded}건 추가`);
+            sendProgress('autocomplete', 4, 5, `🌱 시맨틱 형제 키워드 ${siblingAdded}개 추가`);
+          } catch (e: any) {
+            console.warn('[KEYWORD-EXPANSIONS] 시맨틱 sibling 실패:', e?.message);
+          }
+
+          // v2.43.11: 첫 토큰 swap sibling — 첫 단어를 바꾼 형제 키워드 (예: "나이키 운동화" → "아디다스 운동화")
+          // 시드 토큰이 2개 이상일 때만 의미 있음
+          const seedTokens = trimmedKeyword.split(/\s+/).filter(Boolean);
+          if (seedTokens.length >= 2 && hasNaverApiKeys) {
+            try {
+              const firstToken = seedTokens[0];
+              const rest = seedTokens.slice(1).join(' ');
+              // 첫 토큰만으로 자동완성 → 다른 첫 토큰 후보 발굴
+              const firstTokenAuto = await getNaverAutocompleteKeywords(firstToken, {
+                clientId: naverClientId,
+                clientSecret: naverClientSecret
+              });
+              // 첫 토큰 단독 키워드 (단어 1개)에서 다른 브랜드/카테고리 추출
+              const altFirstTokens = new Set<string>();
+              for (const kw of firstTokenAuto) {
+                const tk = kw.trim().split(/\s+/).filter(Boolean);
+                if (tk.length === 1 && tk[0].length >= 2 && tk[0].length <= 10 && tk[0] !== firstToken) {
+                  altFirstTokens.add(tk[0]);
+                }
+              }
+              // 다른 첫 토큰 + 시드 나머지 → sibling 조합
+              let swapAdded = 0;
+              for (const alt of Array.from(altFirstTokens).slice(0, 30)) {
+                const swapped = `${alt} ${rest}`.trim();
+                if (isValidSearchKeyword(swapped) && !uniqueAutocomplete.has(swapped)) {
+                  uniqueAutocomplete.add(swapped);
+                  swapAdded++;
+                }
+              }
+              if (swapAdded > 0) {
+                console.log(`[KEYWORD-EXPANSIONS] 첫 토큰 swap sibling: ${swapAdded}건 추가 (${firstToken} → ${altFirstTokens.size}개 후보)`);
+              }
+            } catch (e: any) {
+              console.warn('[KEYWORD-EXPANSIONS] 첫 토큰 swap 실패:', e?.message);
+            }
+          }
 
           // 🔥🔥 무제한/대량 모드: 자모 조합으로 대량 자동완성 수집 🔥🔥
           if (isUnlimited || targetCount > 200) {
