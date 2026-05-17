@@ -143,7 +143,7 @@ async function fetchMostPopularShorts(apiKey: string, categoryId?: string, maxRe
   const data = (await res.json()) as any;
   const items = Array.isArray(data.items) ? data.items : [];
   // duration 60초 이하만
-  return items.filter((it: any) => parseDurationToSec(it.contentDetails?.duration || '') <= 60);
+  return items.filter((it: any) => parseDurationToSec(it.contentDetails?.duration || '') <= 90);
 }
 
 /**
@@ -182,7 +182,7 @@ async function fetchRecentRisingShorts(apiKey: string, period: ShortsPeriod, max
   if (!videosRes.ok) throw new Error(`YouTube videos API 오류 ${videosRes.status}`);
   const videosData = (await videosRes.json()) as any;
   const items = Array.isArray(videosData.items) ? videosData.items : [];
-  return items.filter((it: any) => parseDurationToSec(it.contentDetails?.duration || '') <= 60);
+  return items.filter((it: any) => parseDurationToSec(it.contentDetails?.duration || '') <= 90);
 }
 
 /**
@@ -288,8 +288,14 @@ export async function getTrendingShorts(query: ShortsQuery = {}): Promise<Shorts
     return { ...partial, benchmarkScore: score, signals };
   });
 
-  // 30점 미만 제외
-  const filtered = items.filter(it => it.benchmarkScore >= 30);
+  // v2.43.6: 30점 미만 제외 → 20점 (격전지 / 신생 채널도 표시)
+  let filtered = items.filter(it => it.benchmarkScore >= 20);
+
+  // v2.43.6: 0건이면 점수 필터 무효화 (사용자가 빈 결과보다 차라리 낮은 점수 보고 싶음)
+  if (filtered.length === 0 && items.length > 0) {
+    console.log(`[shorts] 20점+ 0건 → 필터 무효화 (전체 ${items.length}개 반환)`);
+    filtered = items;
+  }
 
   // 정렬
   if (sort === 'views') filtered.sort((a, b) => b.viewCount - a.viewCount);
