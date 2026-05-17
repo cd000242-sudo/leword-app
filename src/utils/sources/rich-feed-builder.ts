@@ -351,17 +351,19 @@ function detectCategory(keyword: string): string | null {
     return null;
 }
 
-// v2.42.53: 단일 토큰이지만 의도 명확 (sv/dc 비율 폭증) 키워드 통과 룰
-//   "임플란트" sv 100,000 / dc 50,000 = ratio 2 — 의료 의도 명확, 사용자 검색량 충분
-//   단순 빅워드 차단(dc>100k) 외에 의도 명확 단일 명사는 SSS 가치 있음
-function isHighIntentSingleToken(keyword: string, searchVolume: number, docCount: number): boolean {
+// v2.43.12: 단일 토큰 게이트 강화 — "시각/통화/경북/입다" 같은 일반 명사 SSS 통과 차단
+//   문제: 이전 sv>=1000 AND ratio>=2 게이트는 dc 추정값(sv*0.5 → ratio=2.0 정확) 단일 명사도 통과시킴
+//   → 사용자 캡처에서 시각/통화/경북/콜라보 등 13개가 정확히 ratio=2.0으로 SSS 승격
+//   수정: sv 5000+ AND ratio 3+ AND dc 실측 필수 (3가지 모두 충족 필요)
+function isHighIntentSingleToken(keyword: string, searchVolume: number, docCount: number, dcEstimated: boolean = false): boolean {
     if (!searchVolume || !docCount) return false;
+    if (dcEstimated) return false; // 추정값으로는 single token SSS 절대 불가
     const ratio = searchVolume / docCount;
-    // sv 1000+ AND ratio 2+ → 검색 의도 분산도 낮은 명사 (의료/뷰티/IT 단일 명사 패턴)
-    return searchVolume >= 1000 && ratio >= 2 && docCount <= 100000;
+    // sv 5000+ AND ratio 3+ AND dc 실측 → 진짜 의도 명확 단일 명사 (의료/뷰티 빅워드)
+    return searchVolume >= 5000 && ratio >= 3 && docCount <= 100000;
 }
 
-function isWritableKeyword(keyword: string, docCount: number, searchVolume: number = 0): boolean {
+function isWritableKeyword(keyword: string, docCount: number, searchVolume: number = 0, dcEstimated: boolean = false): boolean {
     const clean = keyword.trim();
     // v2.42.54: 사용자 정의 화이트리스트 — 모든 게이트 우선 통과 (개인 전문 키워드 보호)
     if (USER_WHITELIST.has(clean)) return true;
@@ -376,9 +378,8 @@ function isWritableKeyword(keyword: string, docCount: number, searchVolume: numb
     if (ALL_2CHAR_WHITELIST.has(clean)) return true;
     if (clean.length < 2) return false;
     if (INTENT_SUFFIX_RE.test(clean)) return false;
-    // v2.42.53: 의도 명확 (sv 1000+ AND ratio 2+) 단일 토큰 우선 통과
-    //   "임플란트"/"도수치료"/"공진단"처럼 한자 성씨로 시작해 인명 false positive 되던 의료 명사 살림
-    if (isHighIntentSingleToken(clean, searchVolume, docCount)) return true;
+    // v2.43.12: 단일 토큰 의도 명확 게이트 — dcEstimated true 면 false 반환 (가짜 ratio 차단)
+    if (isHighIntentSingleToken(clean, searchVolume, docCount, dcEstimated)) return true;
     if (isLikelyCelebrityName(clean)) {
         return docCount > 0 && docCount <= 500;
     }
@@ -401,8 +402,8 @@ function hasCommercialIntent(keyword: string): boolean {
  *  - S/A/B 는 docCount 자연 필터만 적용 (문근영·장동혁 같은 중도 키워드는 유지)
  */
 function calculateGrade(volume: number, docCount: number, ratio: number, score: number, keyword: string, dcEstimated: boolean = false): GoldenGrade | '' {
-    // v2.42.53: sv 전달 → 단일 토큰 의도 명확 통과 룰 (isHighIntentSingleToken)
-    const writable = isWritableKeyword(keyword, docCount, volume);
+    // v2.43.12: dcEstimated 전달 → isHighIntentSingleToken 가 가짜 ratio=2.0 단일 명사 차단
+    const writable = isWritableKeyword(keyword, docCount, volume, dcEstimated);
     // 극단 범용 빅워드 제거
     if (!writable && docCount > 100_000) return '';
     // 🔥 v2.27.6: 범용 2-token 조합은 dc 무관 탈락
@@ -1074,14 +1075,23 @@ export async function buildRichFeed(
         //   완화 사유: dc<=5000 / sv 1000~10000 / ratio>=3 너무 엄격해 promotion pool 자주 0
         //   참조: feedback_result_count_floor — "SSS 절대 수 풀 확장+게이트 캘리브레이션으로 늘려라"
         const promotionPool = enrichedRows
-            .filter(r =>
-                (r.grade === 'SS' || r.grade === 'S' || r.grade === 'A') &&
-                r.documentCount > 0 &&
-                r.documentCount <= 10000 &&       // 5000 → 10000 (medium-saturated 허용)
-                r.searchVolume >= 500 &&          // 1000 → 500 (소형 longtail 허용)
-                r.searchVolume <= 30000 &&        // 10000 → 30000 (인기 키워드도 허용)
-                r.goldenRatio >= 2.0              // 3.0 → 2.0 (commercial 정의 약간 느슨)
-            )
+            .filter(r => {
+                // v2.43.12: 핵심 수정 — dcEstimated 행은 풀 진입 자체 차단 (주석에 있던 의도 실제 반영)
+                //   이전: 페널티 30%만 줘서 결국 SSS 승격 → 사용자 캡처의 ratio=2.0 13개 문제 발생
+                if (r.dcEstimated) return false;
+                // v2.43.12: 단일 토큰은 promotion 금지 (시각/통화/경북 등 일반 명사 차단)
+                //   단일 토큰 SSS 통과는 자연 SSS 게이트의 isHighIntentSingleToken 만 허용
+                const tokenCount = String(r.keyword || '').trim().split(/\s+/).filter(Boolean).length;
+                if (tokenCount === 1) return false;
+                return (
+                    (r.grade === 'SS' || r.grade === 'S' || r.grade === 'A') &&
+                    r.documentCount > 0 &&
+                    r.documentCount <= 10000 &&
+                    r.searchVolume >= 500 &&
+                    r.searchVolume <= 30000 &&
+                    r.goldenRatio >= 2.0
+                );
+            })
             .map(r => {
                 // dcScore: 저경쟁 강하게 우대 (계단식, 10000 상한 대응 추가)
                 const dcScore = r.documentCount <= 1000 ? 100 :
