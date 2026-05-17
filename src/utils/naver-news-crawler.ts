@@ -10,8 +10,125 @@
 import puppeteer from 'puppeteer-extra';
 import StealthPlugin from 'puppeteer-extra-plugin-stealth';
 import type { Browser, Page } from 'puppeteer';
+import axios from 'axios';
+import * as cheerio from 'cheerio';
 
 puppeteer.use(StealthPlugin());
+
+// v2.42.97: HTTP fetch 폴백 — Puppeteer 의존 없이 빠르고 안정적
+//   사용자 PC 환경(Chrome 미설치 등)에서 60s timeout 방지
+const DESKTOP_UA = 'Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/122.0.0.0 Safari/537.36';
+
+// v2.42.97: 인코딩 자동 감지 + 디코딩 (UTF-8 우선, EUC-KR 폴백)
+function decodeResponse(data: any, contentType: string): string {
+  const buf = Buffer.isBuffer(data) ? data : Buffer.from(data || '');
+  // Content-Type 헤더에 charset 명시
+  const charsetMatch = contentType.match(/charset=([^;]+)/i);
+  const charset = charsetMatch ? charsetMatch[1].toLowerCase().trim() : '';
+  if (charset.includes('euc-kr') || charset.includes('ksc5601')) {
+    try {
+      const iconv = require('iconv-lite');
+      return iconv.decode(buf, 'euc-kr');
+    } catch { /* skip */ }
+  }
+  // HTML <meta charset> 검사
+  const utf8Try = buf.toString('utf-8');
+  if (/<meta[^>]+charset=["']?utf-?8/i.test(utf8Try.slice(0, 2000))) return utf8Try;
+  if (/<meta[^>]+charset=["']?euc-kr/i.test(utf8Try.slice(0, 2000))) {
+    try {
+      const iconv = require('iconv-lite');
+      return iconv.decode(buf, 'euc-kr');
+    } catch { /* skip */ }
+  }
+  // 기본 UTF-8 (네이버 뉴스는 대부분 UTF-8)
+  return utf8Try;
+}
+async function crawlViaHttp(): Promise<PopularNews[]> {
+  const allNews: PopularNews[] = [];
+  // 1) 랭킹 메인
+  try {
+    const r = await axios.get('https://news.naver.com/main/ranking/popularDay.naver', {
+      headers: {
+        'User-Agent': DESKTOP_UA,
+        'Accept': 'text/html',
+        'Accept-Language': 'ko-KR,ko;q=0.9',
+        'Referer': 'https://news.naver.com/',
+      },
+      timeout: 10000,
+      validateStatus: () => true,
+      responseType: 'arraybuffer',
+    });
+    // v2.42.97: 응답 인코딩 자동 감지 (UTF-8 → 실패 시 EUC-KR)
+    const r_data = decodeResponse(r.data, r.headers?.['content-type'] || '');
+    (r as any).data = r_data;
+    if (r.status === 200) {
+      const $ = cheerio.load(r.data);
+      $('.rankingnews_box').each((_i, box) => {
+        const press = $(box).find('.rankingnews_name').text().trim();
+        $(box).find('.rankingnews_list li').each((idx, li) => {
+          const $a = $(li).find('a').first();
+          const title = $a.text().replace(/\s+/g, ' ').trim();
+          let url = $a.attr('href') || '';
+          if (url && !url.startsWith('http')) url = 'https://news.naver.com' + url;
+          if (title.length > 5 && url) {
+            allNews.push({
+              rank: allNews.length + 1,
+              title, url, press,
+              category: '종합',
+              viewCount: '',
+              originalRank: idx + 1,
+            });
+          }
+        });
+      });
+    }
+  } catch (e: any) {
+    console.warn('[NAVER-NEWS-HTTP] 랭킹 메인 실패:', e?.message);
+  }
+
+  // 2) 카테고리별 (병렬)
+  const categories = [
+    { sid: '100', name: '정치' }, { sid: '101', name: '경제' }, { sid: '102', name: '사회' },
+    { sid: '103', name: '생활문화' }, { sid: '104', name: '세계' }, { sid: '105', name: 'IT과학' },
+  ];
+  const catResults = await Promise.all(categories.map(async cat => {
+    try {
+      const r = await axios.get(`https://news.naver.com/section/${cat.sid}`, {
+        headers: { 'User-Agent': DESKTOP_UA, 'Accept-Language': 'ko-KR,ko;q=0.9', 'Referer': 'https://news.naver.com/' },
+        timeout: 8000, validateStatus: () => true, responseType: 'arraybuffer',
+      });
+      const r_data = decodeResponse(r.data, r.headers?.['content-type'] || '');
+      (r as any).data = r_data;
+      if (r.status !== 200) return [];
+      const $ = cheerio.load(r.data);
+      const items: PopularNews[] = [];
+      // 섹션 페이지 셀렉터 (sa_item / cluster_item / list_body 등 다양)
+      $('a').each((_i, a) => {
+        const href = String($(a).attr('href') || '');
+        if (!/news\.naver\.com\/(?:mnews\/)?article\//.test(href)) return;
+        const title = $(a).text().replace(/\s+/g, ' ').trim();
+        if (title.length < 5 || title.length > 100) return;
+        if (items.find(x => x.title === title)) return;
+        const url = href.startsWith('http') ? href : 'https://news.naver.com' + href;
+        items.push({
+          rank: items.length + 1,
+          title, url, press: '',
+          category: cat.name,
+          viewCount: '',
+          originalRank: items.length + 1,
+        });
+        if (items.length >= 20) return false;
+      });
+      return items;
+    } catch (e: any) {
+      console.warn(`[NAVER-NEWS-HTTP] ${cat.name} 실패:`, e?.message);
+      return [];
+    }
+  }));
+  for (const arr of catResults) allNews.push(...arr);
+
+  return allNews;
+}
 
 export interface PopularNews {
   rank: number;
@@ -394,10 +511,44 @@ export async function getNaverPopularNews(): Promise<NaverNewsResult> {
   const timestamp = new Date().toLocaleString('ko-KR');
   const startTime = Date.now();
   let browser: Browser | null = null;
-  
+
+  // v2.42.97: 1순위 — HTTP fetch (Puppeteer 의존 없음, 모든 PC 환경 지원)
   try {
-    console.log('[NAVER-NEWS] 🚀 V3 크롤러 시작...');
-    
+    console.log('[NAVER-NEWS] 🚀 HTTP 모드 시도 (1순위)...');
+    const httpNews = await Promise.race([
+      crawlViaHttp(),
+      new Promise<PopularNews[]>((_, rej) => setTimeout(() => rej(new Error('HTTP 25s timeout')), 25000)),
+    ]);
+    if (httpNews && httpNews.length >= 30) {
+      // dedupe + rank
+      const seen = new Set<string>();
+      const deduped: PopularNews[] = [];
+      const stats: Record<string, number> = {};
+      for (const n of httpNews) {
+        const key = n.title;
+        if (seen.has(key)) continue;
+        seen.add(key);
+        deduped.push({ ...n, rank: deduped.length + 1, viewCount: `TOP ${deduped.length + 1}` });
+        stats[n.category] = (stats[n.category] || 0) + 1;
+      }
+      const elapsed = ((Date.now() - startTime) / 1000).toFixed(1);
+      console.log(`[NAVER-NEWS] ✅ HTTP 모드 성공: ${deduped.length}개 / ${elapsed}s`);
+      return {
+        success: true,
+        news: deduped,
+        timestamp,
+        totalCount: deduped.length,
+        categoryStats: stats,
+      };
+    }
+    console.log(`[NAVER-NEWS] HTTP 모드 결과 부족 (${httpNews?.length || 0}개) → Puppeteer 폴백`);
+  } catch (httpErr: any) {
+    console.warn('[NAVER-NEWS] HTTP 모드 실패:', httpErr?.message, '→ Puppeteer 폴백');
+  }
+
+  try {
+    console.log('[NAVER-NEWS] 🚀 V3 크롤러 시작 (Puppeteer 폴백)...');
+
     browser = await initBrowser();
     
     // 여러 페이지 병렬 생성
