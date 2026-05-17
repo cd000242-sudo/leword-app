@@ -538,19 +538,20 @@ function calculateGrade(volume: number, docCount: number, ratio: number, score: 
     //   30 소스 200 후보 환경에서 자연 SSS 0~3개 → "총 0건" 사용자 신고 (스크린샷 확정).
     //   완화: sv 300-30k / dc<=10k / r>=2 generic / r>=1.5 commercial → 자연 SSS 5.8% / 1.3% (5x 개선)
     //   유지: v2.40.6 ratio<1 redOcean 차단 (정책 그대로) + commercial 우대
-    if (writable && !isCelebLike && docCount > 0 && volume >= 300 && volume <= 30000 && docCount <= 10000) {
-        if (ratio >= 2) return 'SSS';                                   // 일반 niche (5 → 2)
-        if (commercial && ratio >= 1.5) return 'SSS';                   // commercial 완화 (3 → 1.5)
-        if (ratio >= 5 && docCount <= 5000) return 'SSS';               // 고비율 + 저경쟁
-        if (commercial && docCount <= 3000 && ratio >= 1) return 'SSS'; // 슈퍼 니치 commercial (단, ratio>=1 필수)
+    // v2.43.18: 자연 SSS 게이트 추가 완화 — 사용자 "대량 발굴" 요청
+    if (writable && !isCelebLike && docCount > 0 && volume >= 200 && volume <= 50000 && docCount <= 15000) {
+        if (ratio >= 1.7) return 'SSS';                                 // 일반 niche (2 → 1.7)
+        if (commercial && ratio >= 1.3) return 'SSS';                   // commercial (1.5 → 1.3)
+        if (ratio >= 4 && docCount <= 8000) return 'SSS';
+        if (commercial && docCount <= 5000 && ratio >= 1) return 'SSS';
     }
 
-    // 🔥 v2.42.12: SSS 기본 게이트도 동일 완화
-    const sssScore = commercial ? 65 : 72;
-    const sssSvMin = 300;     // 1000 → 300
-    const sssSvMax = 30000;   // 10000 → 30000
-    const sssDc = 10000;      // 5000 → 10000
-    const sssRatio = commercial ? 1.5 : 2.0;  // 3/5 → 1.5/2
+    // SSS 기본 게이트도 동기화
+    const sssScore = commercial ? 62 : 68;
+    const sssSvMin = 200;     // 300 → 200
+    const sssSvMax = 50000;   // 30000 → 50000
+    const sssDc = 15000;      // 10000 → 15000
+    const sssRatio = commercial ? 1.3 : 1.7;  // 1.5/2 → 1.3/1.7
     if (score >= sssScore && volume >= sssSvMin && volume <= sssSvMax && docCount > 0 && docCount <= sssDc && ratio >= sssRatio && allowSS) return 'SSS';
 
     // 🔥 v2.29.0: SS 자동 승격에도 writable 강제
@@ -1154,19 +1155,17 @@ export async function buildRichFeed(
         }
     }
 
-    // 🔥 v2.43.14: 자연 SSS 도 블로거 친화도 < 35 면 SS 로 강등 (셀럽 가십/지역 시설/음식점 자동 제거)
-    //   사용자 신고: "잘 찾아주긴 하는데 누가 이걸로 글을 쓸까" — 캡처에서 양천구민체육센터/패리스 잭슨/종로쌍뱀 등이 SSS
-    //   강등 시 SSS 풀이 줄면 promotion 으로 다시 채워짐 → SSS 절대 수 보장 정책 유지
+    // v2.43.18: 친화도 강등 컷 35 → 25 완화 (대량 발굴 우선, 진짜 niche 만 강등)
     let writabilityDowngraded = 0;
     for (const r of enrichedRows) {
         const writability = typeof r.bloggerWritability === 'number' ? r.bloggerWritability : 50;
-        if ((r.grade === 'SSS') && writability < 35) {
+        if ((r.grade === 'SSS') && writability < 25) {
             r.grade = 'SS';
             writabilityDowngraded++;
         }
     }
     if (writabilityDowngraded > 0) {
-        console.log(`[rich-feed v2.43.14] 친화도 < 35 SSS 강등: ${writabilityDowngraded}건`);
+        console.log(`[rich-feed v2.43.18] 친화도 < 25 SSS 강등: ${writabilityDowngraded}건`);
     }
 
     // 🔥 v2.41.0: 분포 기반 동적 SSS 승격 (필터 전)
@@ -1188,20 +1187,25 @@ export async function buildRichFeed(
         //   참조: feedback_result_count_floor — "SSS 절대 수 풀 확장+게이트 캘리브레이션으로 늘려라"
         const promotionPool = enrichedRows
             .filter(r => {
-                if (r.dcEstimated) return false;
+                // v2.43.18: dcEstimated 라도 친화도 70+ longtail 이면 promotion 풀 진입 허용
+                //   완전 차단 → SSS 풀이 너무 작아짐 (한국 환경 dc=null 비율 40-60%)
+                //   품질 가드: 친화도 70+ AND 2+ tokens AND commercial intent 필수
                 const tokenCount = String(r.keyword || '').trim().split(/\s+/).filter(Boolean).length;
                 if (tokenCount === 1) return false;
-                // v2.43.14: 블로거 친화도 < 45 키워드는 SSS 승격 금지
                 const writability = typeof r.bloggerWritability === 'number' ? r.bloggerWritability : 50;
-                if (writability < 45) return false;
-                // v2.43.17: 풀 확보 게이트 약간 완화 — 대량 발굴
+                if (r.dcEstimated) {
+                    // 추정값은 보수적 가드 (친화도 70+ 필수)
+                    if (writability < 70) return false;
+                    if (!hasCommercialIntent(r.keyword)) return false;
+                } else {
+                    // 실측은 친화도 35+
+                    if (writability < 35) return false;
+                }
                 return (
                     (r.grade === 'SS' || r.grade === 'S' || r.grade === 'A') &&
-                    r.documentCount > 0 &&
-                    r.documentCount <= 15000 &&   // 10000 → 15000
-                    r.searchVolume >= 300 &&      // 500 → 300 (소형 longtail 추가)
-                    r.searchVolume <= 50000 &&    // 30000 → 50000 (인기 키워드 추가)
-                    r.goldenRatio >= 1.7          // 2.0 → 1.7 (약간 완화)
+                    r.searchVolume >= 200 &&
+                    r.searchVolume <= 80000 &&
+                    (r.dcEstimated ? r.goldenRatio >= 2.0 : (r.documentCount > 0 && r.documentCount <= 20000 && r.goldenRatio >= 1.3))
                 );
             })
             .map(r => {

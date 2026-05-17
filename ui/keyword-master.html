@@ -1361,8 +1361,8 @@
         const list = document.getElementById('rfTopPicksList');
         if (!box || !list) return;
         const COMMERCIAL_RE = /(추천|비교|후기|가격|순위|할인|리뷰|구매|가성비|최저가)/;
-        // v2.43.14: 확정 수익 키워드는 친화도 60+ 만 선발 (블로거가 실제로 글쓸 수 있는 키워드)
-        const writableEnough = (r) => (typeof r.bloggerWritability !== 'number' || r.bloggerWritability >= 60);
+        // v2.43.18: 친화도 컷 60 → 50 완화 (대량 발굴 우선)
+        const writableEnough = (r) => (typeof r.bloggerWritability !== 'number' || r.bloggerWritability >= 50);
         const ssrRows = rows.filter(r => r.grade === 'SSR' && writableEnough(r));
         const maxDisplay = Math.min(20, ssrRows.length);
         let picks = ssrRows.slice(0, maxDisplay);
