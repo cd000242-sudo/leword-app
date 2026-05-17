@@ -879,8 +879,32 @@ async function showLicenseInputDialog(): Promise<{ success: boolean; plan?: stri
   });
 }
 
+// v2.43.9: 단일 인스턴스 락 — 이미 실행 중이면 두 번째 인스턴스는 종료하고 기존 창을 포커스
+const gotSingleInstanceLock = app.requestSingleInstanceLock();
+if (!gotSingleInstanceLock) {
+  console.log('[LEWORD] 이미 실행 중인 인스턴스 감지 — 두 번째 인스턴스 종료');
+  app.quit();
+} else {
+  app.on('second-instance', (_event, _argv, _workingDir) => {
+    console.log('[LEWORD] second-instance 이벤트 — 기존 창 포커스');
+    if (keywordWindow) {
+      if (keywordWindow.isDestroyed()) return;
+      if (!keywordWindow.isVisible()) keywordWindow.show();
+      if (keywordWindow.isMinimized()) keywordWindow.restore();
+      keywordWindow.focus();
+      // Windows에서 다른 앱 위로 끌어올리기
+      try {
+        keywordWindow.setAlwaysOnTop(true);
+        keywordWindow.setAlwaysOnTop(false);
+      } catch {}
+    }
+  });
+}
+
 // 앱 초기화
 app.whenReady().then(async () => {
+  // 락을 얻지 못한 경우 whenReady가 호출되더라도 추가 작업 안 함 (app.quit()이 이미 진행 중)
+  if (!gotSingleInstanceLock) return;
   initAppPaths();
 
   // ========================================
