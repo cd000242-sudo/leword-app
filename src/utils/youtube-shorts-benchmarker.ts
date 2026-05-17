@@ -125,8 +125,11 @@ export function computeBenchmarkScore(item: Omit<ShortsItem, 'benchmarkScore' | 
   };
 }
 
+// YouTube 공식 Shorts 사양: 최대 3분(180초). 기존 90초 컷은 너무 빡빡해서 결과 부족 → 180초로 완화.
+const SHORTS_MAX_DURATION_SEC = 180;
+
 /**
- * 인기 Shorts 가져오기 (chart=mostPopular) + duration 60초 이하 필터
+ * 인기 Shorts 가져오기 (chart=mostPopular) + duration 180초 이하 필터
  */
 async function fetchMostPopularShorts(apiKey: string, categoryId?: string, maxResults = 50): Promise<any[]> {
   const params = new URLSearchParams({
@@ -142,8 +145,7 @@ async function fetchMostPopularShorts(apiKey: string, categoryId?: string, maxRe
   if (!res.ok) throw new Error(`YouTube API 오류 ${res.status}`);
   const data = (await res.json()) as any;
   const items = Array.isArray(data.items) ? data.items : [];
-  // duration 60초 이하만
-  return items.filter((it: any) => parseDurationToSec(it.contentDetails?.duration || '') <= 90);
+  return items.filter((it: any) => parseDurationToSec(it.contentDetails?.duration || '') <= SHORTS_MAX_DURATION_SEC);
 }
 
 /**
@@ -182,7 +184,46 @@ async function fetchRecentRisingShorts(apiKey: string, period: ShortsPeriod, max
   if (!videosRes.ok) throw new Error(`YouTube videos API 오류 ${videosRes.status}`);
   const videosData = (await videosRes.json()) as any;
   const items = Array.isArray(videosData.items) ? videosData.items : [];
-  return items.filter((it: any) => parseDurationToSec(it.contentDetails?.duration || '') <= 90);
+  return items.filter((it: any) => parseDurationToSec(it.contentDetails?.duration || '') <= SHORTS_MAX_DURATION_SEC);
+}
+
+/**
+ * #shorts 해시태그 검색 — 진짜 Shorts 만 명시적으로 잡기 위한 보강 소스
+ */
+async function fetchHashtagShorts(apiKey: string, period: ShortsPeriod, maxResults = 50): Promise<any[]> {
+  const hours = period === '24h' ? 24 : period === '7d' ? 168 : 720;
+  const publishedAfter = new Date(Date.now() - hours * 3_600_000).toISOString();
+
+  const searchParams = new URLSearchParams({
+    part: 'snippet',
+    type: 'video',
+    q: '#shorts',
+    order: 'viewCount',
+    regionCode: 'KR',
+    relevanceLanguage: 'ko',
+    videoDuration: 'short',
+    publishedAfter,
+    maxResults: String(Math.min(maxResults, 50)),
+    key: apiKey,
+  });
+  const searchRes = await fetch(`${DATA_API_BASE}/search?${searchParams.toString()}`);
+  if (!searchRes.ok) throw new Error(`YouTube hashtag search 오류 ${searchRes.status}`);
+  const searchData = (await searchRes.json()) as any;
+  const videoIds: string[] = (searchData.items || [])
+    .map((it: any) => it.id?.videoId)
+    .filter(Boolean);
+  if (videoIds.length === 0) return [];
+
+  const videosParams = new URLSearchParams({
+    part: 'snippet,statistics,contentDetails',
+    id: videoIds.join(','),
+    key: apiKey,
+  });
+  const videosRes = await fetch(`${DATA_API_BASE}/videos?${videosParams.toString()}`);
+  if (!videosRes.ok) throw new Error(`YouTube videos API 오류 ${videosRes.status}`);
+  const videosData = (await videosRes.json()) as any;
+  const items = Array.isArray(videosData.items) ? videosData.items : [];
+  return items.filter((it: any) => parseDurationToSec(it.contentDetails?.duration || '') <= SHORTS_MAX_DURATION_SEC);
 }
 
 /**
@@ -228,23 +269,42 @@ export async function getTrendingShorts(query: ShortsQuery = {}): Promise<Shorts
   const maxResults = query.maxResults || 30;
   const sort = query.sort || 'score';
 
+  // v2.43.7: rising + mostPopular + #shorts 해시태그 3개 소스를 항상 병렬 합집합 (풀 확보)
   let rawItems: any[] = [];
   try {
-    // 24h면 "급상승" 우선, 그 외엔 "most popular" 우선
-    if (period === '24h') {
-      rawItems = await fetchRecentRisingShorts(apiKey, '24h', 50);
-      // 부족하면 mostPopular로 보충
-      if (rawItems.length < maxResults) {
-        const extra = await fetchMostPopularShorts(apiKey, query.categoryId, 50);
-        const seen = new Set(rawItems.map(r => r.id));
-        for (const e of extra) if (!seen.has(e.id)) rawItems.push(e);
+    const tasks: Promise<any[]>[] = [
+      fetchRecentRisingShorts(apiKey, period, 50).catch(e => {
+        console.warn('[shorts] rising 실패:', e?.message);
+        return [];
+      }),
+      fetchMostPopularShorts(apiKey, query.categoryId, 50).catch(e => {
+        console.warn('[shorts] mostPopular 실패:', e?.message);
+        return [];
+      }),
+      fetchHashtagShorts(apiKey, period, 50).catch(e => {
+        console.warn('[shorts] hashtag 실패:', e?.message);
+        return [];
+      }),
+    ];
+    const [rising, popular, hashtag] = await Promise.all(tasks);
+
+    const seen = new Set<string>();
+    const merged: any[] = [];
+    for (const arr of [rising, hashtag, popular]) {
+      for (const it of arr) {
+        const id = String(it.id || '');
+        if (!id || seen.has(id)) continue;
+        seen.add(id);
+        merged.push(it);
       }
-    } else {
-      rawItems = await fetchMostPopularShorts(apiKey, query.categoryId, 50);
-      // 기간 필터
-      const maxHours = period === '7d' ? 168 : 720;
-      rawItems = rawItems.filter(it => hoursSince(it.snippet?.publishedAt || '') <= maxHours);
     }
+    rawItems = merged;
+
+    // 기간 필터 (popular는 published 무관하게 옴 → 명시적 컷)
+    const maxHours = period === '24h' ? 24 : period === '7d' ? 168 : 720;
+    rawItems = rawItems.filter(it => hoursSince(it.snippet?.publishedAt || '') <= maxHours);
+
+    console.log(`[shorts] 수집 완료 — rising:${rising.length} popular:${popular.length} hashtag:${hashtag.length} merged:${merged.length} after-period:${rawItems.length}`);
   } catch (e: any) {
     console.warn('[shorts] Shorts 수집 실패:', e?.message);
     return [];
@@ -288,14 +348,9 @@ export async function getTrendingShorts(query: ShortsQuery = {}): Promise<Shorts
     return { ...partial, benchmarkScore: score, signals };
   });
 
-  // v2.43.6: 30점 미만 제외 → 20점 (격전지 / 신생 채널도 표시)
-  let filtered = items.filter(it => it.benchmarkScore >= 20);
-
-  // v2.43.6: 0건이면 점수 필터 무효화 (사용자가 빈 결과보다 차라리 낮은 점수 보고 싶음)
-  if (filtered.length === 0 && items.length > 0) {
-    console.log(`[shorts] 20점+ 0건 → 필터 무효화 (전체 ${items.length}개 반환)`);
-    filtered = items;
-  }
+  // v2.43.7: 점수 컷 제거 — 사용자는 항상 정렬된 결과를 보고 싶어함. 점수 자체는 정렬/표시에만 사용.
+  // (이전 20점 컷은 풀이 작을 때 0건을 야기. 합집합 풀이 커진 이후로는 점수 컷 불필요.)
+  let filtered = items;
 
   // 정렬
   if (sort === 'views') filtered.sort((a, b) => b.viewCount - a.viewCount);
