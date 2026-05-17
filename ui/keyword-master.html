@@ -14537,8 +14537,8 @@
               <button class="close-btn" onclick="closeModal()" style="background: rgba(255,255,255,0.2); color: white;">✕</button>
             </div>
             <div class="modal-body" style="padding: 28px 32px;">
-              <!-- 필터 바 -->
-              <div style="display:flex; flex-wrap:wrap; gap:12px; align-items:center; background:rgba(255,255,255,0.04); border:1px solid rgba(255,255,255,0.08); border-radius:14px; padding:14px; margin-bottom:18px;">
+              <!-- 필터 바 (v2.43.8: 한국형 4탭 + 따라하기/한글 토글) -->
+              <div style="display:flex; flex-wrap:wrap; gap:12px; align-items:center; background:rgba(255,255,255,0.04); border:1px solid rgba(255,255,255,0.08); border-radius:14px; padding:14px; margin-bottom:14px;">
                 <div style="display:flex; gap:6px;">
                   <span style="color:rgba(255,255,255,0.5); font-size:11px; align-self:center;">📅 기간</span>
                   <button class="ysn-filter-btn ysn-active" data-group="period" data-val="24h" onclick="ysnSetFilter('period','24h',this)">24시간</button>
@@ -14548,13 +14548,11 @@
                 <div style="width:1px; background:rgba(255,255,255,0.1); align-self:stretch;"></div>
                 <div style="display:flex; gap:6px; flex-wrap:wrap;">
                   <span style="color:rgba(255,255,255,0.5); font-size:11px; align-self:center;">📁 카테고리</span>
-                  <button class="ysn-filter-btn ysn-active" data-group="cat" data-val="" onclick="ysnSetFilter('cat','',this)">전체</button>
-                  <button class="ysn-filter-btn" data-group="cat" data-val="10" onclick="ysnSetFilter('cat','10',this)">🎵 음악</button>
-                  <button class="ysn-filter-btn" data-group="cat" data-val="20" onclick="ysnSetFilter('cat','20',this)">🎮 게임</button>
-                  <button class="ysn-filter-btn" data-group="cat" data-val="24" onclick="ysnSetFilter('cat','24',this)">🎬 엔터</button>
-                  <button class="ysn-filter-btn" data-group="cat" data-val="26" onclick="ysnSetFilter('cat','26',this)">💄 스타일</button>
-                  <button class="ysn-filter-btn" data-group="cat" data-val="28" onclick="ysnSetFilter('cat','28',this)">💻 기술</button>
-                  <button class="ysn-filter-btn" data-group="cat" data-val="22" onclick="ysnSetFilter('cat','22',this)">📝 인물</button>
+                  <button class="ysn-filter-btn ysn-active" data-group="preset" data-val="" onclick="ysnSetFilter('preset','',this)">전체</button>
+                  <button class="ysn-filter-btn" data-group="preset" data-val="kcontent" onclick="ysnSetFilter('preset','kcontent',this)" title="음악(10) + 엔터(24) 머지">🎵 K-콘텐츠</button>
+                  <button class="ysn-filter-btn" data-group="preset" data-val="game" onclick="ysnSetFilter('preset','game',this)">🎮 게임</button>
+                  <button class="ysn-filter-btn" data-group="preset" data-val="life" onclick="ysnSetFilter('preset','life',this)" title="브이로그(22) + 스타일(26) 머지">💄 라이프</button>
+                  <button class="ysn-filter-btn" data-group="preset" data-val="tech" onclick="ysnSetFilter('preset','tech',this)">💻 테크</button>
                 </div>
                 <div style="margin-left:auto; display:flex; gap:6px; align-items:center;">
                   <select id="ysnSort" onchange="ysnRefresh()" style="background:rgba(255,255,255,0.08); border:1px solid rgba(255,255,255,0.15); border-radius:8px; color:white; font-size:12px; padding:7px 10px;">
@@ -14564,6 +14562,24 @@
                   </select>
                   <button onclick="ysnRefresh()" style="padding:8px 20px; border:none; border-radius:10px; background:linear-gradient(135deg,#ef4444,#b91c1c); color:white; font-weight:700; font-size:13px; cursor:pointer; box-shadow:0 4px 12px rgba(239,68,68,0.3);">🔍 분석 시작</button>
                 </div>
+              </div>
+              <!-- v2.43.8: 따라하기/한국어 토글 + 기준 disclosure -->
+              <div style="display:flex; flex-wrap:wrap; gap:10px; align-items:center; padding:0 4px; margin-bottom:16px; font-size:11.5px; color:rgba(255,255,255,0.65);">
+                <label style="display:flex; align-items:center; gap:5px; cursor:pointer;">
+                  <input type="checkbox" id="ysnExcludeOfficial" onchange="ysnRefresh()" style="cursor:pointer;">
+                  <span title="구독자 100만+ 공식채널 제외 — 블로거가 따라 만들 수 있는 수준만">🎯 따라하기 모드</span>
+                </label>
+                <label style="display:flex; align-items:center; gap:5px; cursor:pointer;">
+                  <input type="checkbox" id="ysnKoreanOnly" onchange="ysnRefresh()" style="cursor:pointer;">
+                  <span title="제목/설명의 한글 비율 30% 이상만 표시 — 글로벌 K-pop MV 영문 제목 차단">🇰🇷 한국어 콘텐츠만</span>
+                </label>
+                <span style="margin-left:auto; color:rgba(255,255,255,0.4); cursor:pointer;" onclick="document.getElementById('ysnCriteria').style.display = document.getElementById('ysnCriteria').style.display==='block' ? 'none' : 'block';">📊 수집 기준 보기 ▾</span>
+              </div>
+              <div id="ysnCriteria" style="display:none; background:rgba(255,255,255,0.03); border:1px solid rgba(255,255,255,0.08); border-radius:10px; padding:10px 14px; margin-bottom:14px; font-size:11px; color:rgba(255,255,255,0.6); line-height:1.7;">
+                <b style="color:rgba(255,255,255,0.85);">🔍 데이터 소스</b>: rising(최근 업로드 viewCount순) + #shorts 해시태그 + mostPopular(KR 트렌딩) — 3소스 합집합, 우선순위 dedupe<br>
+                <b style="color:rgba(255,255,255,0.85);">📏 길이 컷</b>: 180초 이하 (YouTube 공식 Shorts 사양)<br>
+                <b style="color:rgba(255,255,255,0.85);">🎯 점수 공식</b>: viewRatio 35% + velocity 25% + absViews 20% + likeRate 20% (각 축 log10 정규화, ratio 50 cap)<br>
+                <b style="color:rgba(255,255,255,0.85);">⚡ 캐시</b>: 동일 조건 15분 메모리 캐시 (쿼터 절감) · <b>일일 쿼터 8000 도달 시</b> 보조 소스 자동 비활성화
               </div>
 
               <!-- 통계 띠 -->
@@ -14587,15 +14603,16 @@
           .ysn-card:hover { transform:translateY(-4px); box-shadow:0 12px 32px rgba(0,0,0,0.4); border-color:rgba(239,68,68,0.4); }
         </style>
       `;
-          // 모달 오픈 직후 상태 초기화
-          window.__ysnState = { period: '24h', categoryId: '', sort: 'score' };
+          // 모달 오픈 직후 상태 초기화 (v2.43.8: preset 추가)
+          window.__ysnState = { period: '24h', preset: '', sort: 'score' };
         }
 
         // 🎬 숏츠 벤치마킹 — 필터 / 새로고침 / 렌더링
         window.ysnSetFilter = function(group, val, btn) {
-          const state = window.__ysnState || (window.__ysnState = { period: '24h', categoryId: '', sort: 'score' });
+          const state = window.__ysnState || (window.__ysnState = { period: '24h', preset: '', sort: 'score' });
           if (group === 'period') state.period = val;
-          else if (group === 'cat') state.categoryId = val;
+          else if (group === 'preset') state.preset = val;
+          else if (group === 'cat') state.categoryId = val; // 구 호환
           // 같은 그룹 다른 버튼 비활성화
           const buttons = document.querySelectorAll('.ysn-filter-btn[data-group="' + group + '"]');
           buttons.forEach(b => b.classList.remove('ysn-active'));
@@ -14603,31 +14620,39 @@
         };
 
         window.ysnRefresh = async function() {
-          const state = window.__ysnState || (window.__ysnState = { period: '24h', categoryId: '', sort: 'score' });
+          const state = window.__ysnState || (window.__ysnState = { period: '24h', preset: '', sort: 'score' });
           const sortSel = document.getElementById('ysnSort');
           if (sortSel) state.sort = sortSel.value || 'score';
+          const excludeOfficialCb = document.getElementById('ysnExcludeOfficial');
+          const koreanOnlyCb = document.getElementById('ysnKoreanOnly');
+          const excludeOfficial = !!(excludeOfficialCb && excludeOfficialCb.checked);
+          const koreanOnly = !!(koreanOnlyCb && koreanOnlyCb.checked);
 
           const resultsDiv = document.getElementById('ysnResults');
           const statsDiv = document.getElementById('ysnStats');
           if (!resultsDiv) return;
-          resultsDiv.innerHTML = '<div style="text-align:center; padding:60px 20px;"><div style="font-size:40px; animation: ysnSpin 1s linear infinite;">⏳</div><div style="font-size:15px; color:#f87171; margin-top:14px;">숏츠 수집 중...</div><div style="font-size:11px; color:rgba(255,255,255,0.4); margin-top:6px;">YouTube API + 벤치마킹 스코어 계산 (10~20초)</div></div><style>@keyframes ysnSpin { to { transform:rotate(360deg); } }</style>';
+          resultsDiv.innerHTML = '<div style="text-align:center; padding:60px 20px;"><div style="font-size:40px; animation: ysnSpin 1s linear infinite;">⏳</div><div style="font-size:15px; color:#f87171; margin-top:14px;">숏츠 수집 중...</div><div style="font-size:11px; color:rgba(255,255,255,0.4); margin-top:6px;">3-소스 병렬 · 캐시 적중 시 즉시 응답</div></div><style>@keyframes ysnSpin { to { transform:rotate(360deg); } }</style>';
           if (statsDiv) statsDiv.style.display = 'none';
 
           try {
             const r = await window.electronAPI.invoke('youtube-shorts-benchmark', {
               period: state.period,
-              categoryId: state.categoryId || undefined,
+              preset: state.preset || undefined,
+              categoryId: state.categoryId || undefined, // 구 호환
               sort: state.sort,
               maxResults: 30,
+              excludeOfficial,
+              koreanOnly,
             });
             if (r?.error || !r?.success) {
               const msg = r?.message || '수집 실패';
-              resultsDiv.innerHTML = '<div style="text-align:center; padding:40px 20px; color:#f87171;">❌ ' + msg + '</div>';
+              const code = r?.code ? ` <span style="font-size:10px; opacity:0.6;">[${escapeHtml(r.code)}]</span>` : '';
+              resultsDiv.innerHTML = '<div style="text-align:center; padding:40px 20px; color:#f87171;">❌ ' + escapeHtml(msg) + code + '</div>';
               return;
             }
             renderYsnResults(r.data);
           } catch (e) {
-            resultsDiv.innerHTML = '<div style="text-align:center; padding:40px 20px; color:#f87171;">❌ ' + (e?.message || e) + '</div>';
+            resultsDiv.innerHTML = '<div style="text-align:center; padding:40px 20px; color:#f87171;">❌ ' + escapeHtml(e?.message || String(e)) + '</div>';
           }
         };
 
@@ -14655,19 +14680,28 @@
             `;
           }
 
-          // v2.43.7: 수집 기준 안내 (사용자가 "왜 N개만?" 묻지 않게)
+          // v2.43.8: diagnostics 배지 (어떤 소스 OK/실패) + 캐시/쿼터 표시
+          const diag = Array.isArray(data.diagnostics) ? data.diagnostics : [];
+          const diagBadges = diag.map(d => {
+            const color = d.ok ? '#22c55e' : (d.errorCode === 'QUOTA_BUDGET' ? '#fbbf24' : '#ef4444');
+            const label = d.source + (d.ok ? ` ${d.count}` : ` ✕`);
+            const tooltip = d.ok ? `${d.source}: ${d.count}건 수집` : `${d.source} 실패: ${d.errorCode || ''} ${d.errorMessage || ''}`;
+            return `<span title="${escapeHtml(tooltip)}" style="display:inline-block; padding:2px 8px; border-radius:10px; background:rgba(255,255,255,0.06); border:1px solid ${color}55; color:${color}; font-size:10px; font-weight:700; margin-right:5px;">${escapeHtml(label)}</span>`;
+          }).join('');
+          const cacheBadge = data.fromCache ? `<span style="font-size:10px; color:rgba(167,243,208,0.85);">⚡ 캐시 ${data.cacheAgeSec}s</span>` : '';
+          const quotaBadge = typeof data.quotaUsedToday === 'number' ? `<span style="font-size:10px; color:rgba(255,255,255,0.4);">쿼터 ${data.quotaUsedToday}/10000</span>` : '';
+
           const criteriaHtml = `
-            <div style="background:rgba(59,130,246,0.08); border:1px solid rgba(59,130,246,0.25); border-radius:10px; padding:10px 14px; margin-bottom:14px; font-size:11.5px; color:rgba(255,255,255,0.75); line-height:1.6;">
-              <b style="color:#60a5fa;">📊 수집 기준</b> &nbsp;·&nbsp;
-              데이터 = <b>#shorts 해시태그 + 인기 급상승 + 트렌딩</b> (3-소스 합집합, 중복 제거)
-              &nbsp;·&nbsp; 길이 = <b>180초 이하</b> (YouTube 공식 Shorts 사양)
-              &nbsp;·&nbsp; 점수 = 조회수/구독자 35% + 바이럴 속도 25% + 절대 조회수 20% + 좋아요율 20%
-              ${items.length < 10 ? '<br><span style="color:#fbbf24;">⚠️ 결과가 적으면 기간을 <b>7일/30일</b>로 늘리거나 카테고리를 <b>전체</b>로 바꿔보세요. (24시간 + KR + Shorts 사양 교집합이라 가용 풀이 작습니다)</span>' : ''}
+            <div style="background:rgba(255,255,255,0.04); border:1px solid rgba(255,255,255,0.08); border-radius:10px; padding:8px 12px; margin-bottom:14px; font-size:11px; color:rgba(255,255,255,0.65); display:flex; flex-wrap:wrap; align-items:center; gap:8px;">
+              <span style="color:rgba(255,255,255,0.85); font-weight:700;">📊 소스</span>
+              <span>${diagBadges}</span>
+              <span style="margin-left:auto; display:flex; gap:10px; align-items:center;">${cacheBadge} ${quotaBadge}</span>
+              ${items.length < 10 ? '<div style="flex-basis:100%; color:#fbbf24; font-size:10.5px; margin-top:4px;">⚠️ 결과가 적습니다 — 기간을 <b>7일/30일</b>로 늘리거나 토글을 해제해보세요.</div>' : ''}
             </div>
           `;
 
           if (items.length === 0) {
-            resultsDiv.innerHTML = criteriaHtml + '<div style="text-align:center; padding:40px 20px; color:rgba(255,255,255,0.5);">조건에 맞는 숏츠가 없습니다. 기간을 7일/30일로 늘리거나 카테고리를 바꿔 다시 시도하세요.</div>';
+            resultsDiv.innerHTML = criteriaHtml + '<div style="text-align:center; padding:40px 20px; color:rgba(255,255,255,0.5);">조건에 맞는 숏츠가 없습니다. 기간을 늘리거나 토글을 해제해 다시 시도하세요.</div>';
             return;
           }
 
