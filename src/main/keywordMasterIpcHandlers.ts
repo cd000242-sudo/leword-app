@@ -76,21 +76,59 @@ export function setupKeywordMasterHandlers() {
   setupKeyWizardHandlers();
   setupKeywordBlueprintHandlers();
   setupExposureTrackingHandlers();
-  startRefreshScheduler();
-  startLifecycleTracker();
-  startRankTracker();
-  startPrecrawler();
-  startSurgeScanner();
-  startAutoHuntingScheduler();
 
-  // v4.0: 17개 소스 부트스트랩 + 백그라운드 헬스체크 시작
-  try {
-    bootstrapSources();
-    startAutoHealthCheck(30 * 60_000);
-    console.log('[KEYWORD-MASTER] v4.0 소스 부트스트랩 + 헬스체크 시작');
-  } catch (e: any) {
-    console.error('[KEYWORD-MASTER] v4.0 부트스트랩 실패:', e?.message);
+  // v2.42.98: 백그라운드 워커 옵트인 — 기본 OFF (CPU/RAM 성능 우선)
+  //   환경설정의 enableBackgroundWorkers=true 일 때만 활성화
+  //   사용자 제보: "앱을 사용하면 컴퓨터가 굉장히 느려진다"
+  const enableBg = (() => {
+    try {
+      const fs = require('fs');
+      const path = require('path');
+      const { app } = require('electron');
+      const prefFile = path.join(app.getPath('userData'), 'performance-prefs.json');
+      if (fs.existsSync(prefFile)) {
+        const raw = JSON.parse(fs.readFileSync(prefFile, 'utf8'));
+        return raw?.enableBackgroundWorkers === true;
+      }
+    } catch {}
+    return false;
+  })();
+
+  if (enableBg) {
+    console.log('[PERF] 백그라운드 워커 활성화 (사용자 명시 ON)');
+    startRefreshScheduler();
+    startLifecycleTracker();
+    startRankTracker();
+    startPrecrawler();
+    startSurgeScanner();
+    startAutoHuntingScheduler();
+    try {
+      bootstrapSources();
+      startAutoHealthCheck(30 * 60_000);
+      console.log('[KEYWORD-MASTER] v4.0 소스 부트스트랩 + 헬스체크 시작');
+    } catch (e: any) {
+      console.error('[KEYWORD-MASTER] v4.0 부트스트랩 실패:', e?.message);
+    }
+  } else {
+    console.log('[PERF] ⚡ 백그라운드 워커 OFF (성능 우선 모드) — 환경설정에서 활성화 가능');
   }
+
+  // 성능 토글 IPC (UI에서 환경설정 변경 가능)
+  ipcMain.handle('perf-get-bg-pref', () => ({ success: true, enableBackgroundWorkers: enableBg }));
+  ipcMain.handle('perf-set-bg-pref', async (_e, p: { enableBackgroundWorkers: boolean }) => {
+    try {
+      const fs = require('fs');
+      const path = require('path');
+      const { app } = require('electron');
+      const dir = app.getPath('userData');
+      if (!fs.existsSync(dir)) fs.mkdirSync(dir, { recursive: true });
+      const prefFile = path.join(dir, 'performance-prefs.json');
+      fs.writeFileSync(prefFile, JSON.stringify({ enableBackgroundWorkers: !!p?.enableBackgroundWorkers }), 'utf8');
+      return { success: true, message: '저장됨. 앱 재시작 후 적용.' };
+    } catch (err: any) {
+      return { success: false, error: err?.message };
+    }
+  });
 
   console.log('[KEYWORD-MASTER] IPC 핸들러 등록 완료');
   console.log('[KEYWORD-MASTER] ✅ 모든 핸들러 등록 완료');
