@@ -275,7 +275,8 @@ export function setupSourceSignalHandlers(): void {
         try {
             const isPro = checkProTierAllowed().allowed;
             const tier: 'lite' | 'pro' = isPro ? (options?.tier === 'lite' ? 'lite' : 'pro') : 'lite';
-            const limit = options?.limit || (tier === 'pro' ? 300 : 200);
+            // v2.43.17: 대량 발굴 — pro 300 → 600, lite 200 → 400 (사용자 요청 "키워드 대량 발굴")
+            const limit = options?.limit || (tier === 'pro' ? 600 : 400);
             const aiAugmentation = options?.aiAugmentation || 'none';
 
             const onProgress = (payload: { step: string; percent: number; message: string }) => {

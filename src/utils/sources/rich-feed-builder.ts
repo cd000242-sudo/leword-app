@@ -1175,7 +1175,8 @@ export async function buildRichFeed(
     //   dcEstimated 행은 신뢰도 낮아 풀 제외. SSR 은 SSS superset 이라 그대로 유지.
     //   pro-traffic-keyword-hunter v2.40.5 의 검증된 점수 식 차용 (grScore×0.55 + svScore×0.30 + dcScore×0.15).
     const sssCount = enrichedRows.filter(r => r.grade === 'SSS' || r.grade === 'SSR').length;
-    const TARGET_SSS = Math.max(50, Math.floor(limit * 0.4));
+    // v2.43.17: 대량 발굴 — 사용자 요청 "키워드 대량 발굴"
+    const TARGET_SSS = Math.max(150, Math.floor(limit * 0.5));
     diagnostic.promotion.poolSize = 0; // updated below if promotion runs
     if (sssCount < TARGET_SSS) {
         // 🔥 v2.41.2: 진짜 SSS = 저경쟁 + 중수요 + 높은 비율 (CLAUDE.md 정의)
@@ -1190,16 +1191,17 @@ export async function buildRichFeed(
                 if (r.dcEstimated) return false;
                 const tokenCount = String(r.keyword || '').trim().split(/\s+/).filter(Boolean).length;
                 if (tokenCount === 1) return false;
-                // v2.43.14: 블로거 친화도 < 45 키워드는 SSS 승격 금지 (셀럽/지역시설/음식점 자동 차단)
+                // v2.43.14: 블로거 친화도 < 45 키워드는 SSS 승격 금지
                 const writability = typeof r.bloggerWritability === 'number' ? r.bloggerWritability : 50;
                 if (writability < 45) return false;
+                // v2.43.17: 풀 확보 게이트 약간 완화 — 대량 발굴
                 return (
                     (r.grade === 'SS' || r.grade === 'S' || r.grade === 'A') &&
                     r.documentCount > 0 &&
-                    r.documentCount <= 10000 &&
-                    r.searchVolume >= 500 &&
-                    r.searchVolume <= 30000 &&
-                    r.goldenRatio >= 2.0
+                    r.documentCount <= 15000 &&   // 10000 → 15000
+                    r.searchVolume >= 300 &&      // 500 → 300 (소형 longtail 추가)
+                    r.searchVolume <= 50000 &&    // 30000 → 50000 (인기 키워드 추가)
+                    r.goldenRatio >= 1.7          // 2.0 → 1.7 (약간 완화)
                 );
             })
             .map(r => {
@@ -1226,7 +1228,8 @@ export async function buildRichFeed(
         //   변경: 라운드 1 — 각 카테고리에서 best 1개씩, 라운드 2 — best 2번째씩, ...
         //   결과: 30개 카테고리에서 SSS가 골고루 분포. 한 카테고리당 max ≈ TARGET_SSS / 카테고리수 + 잔여
         const need = TARGET_SSS - sssCount;
-        const MAX_PER_CATEGORY_HARD = Math.max(4, Math.ceil(need / 5)); // 카테고리당 hard cap (전체의 1/5)
+        // v2.43.17: 카테고리당 cap 완화 — 4→8, 다양성 유지하되 대량 발굴 가능
+        const MAX_PER_CATEGORY_HARD = Math.max(8, Math.ceil(need / 4));
 
         // 기존 자연 SSS 의 카테고리 카운트 (라운드로빈 시작 시 가중치)
         const sssCategoryCount = new Map<string, number>();
