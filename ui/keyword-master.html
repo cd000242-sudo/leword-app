@@ -4923,16 +4923,27 @@
           // 추가 보험: 1초 후에도 실행
           setTimeout(setupRefreshButton, 1000);
 
-          // 주기적 자동 새로고침 (5분마다) - 실시간 키워드 업데이트
-          setInterval(() => {
+          // v2.43.0: 5분 자동 새로고침 — 가드 + visibilitychange pause + 중복 등록 방지
+          if (window.__leword5MinTimer) clearInterval(window.__leword5MinTimer);
+          window.__leword5MinTimer = setInterval(() => {
+            // 백그라운드/최소화 상태면 skip (CPU/네트워크 절약)
+            if (document.hidden) return;
             if (typeof window.loadRealtimeKeywordsTop === 'function') {
               window.loadRealtimeKeywordsTop();
             }
-            // v2.42.73: 스타뉴스도 5분마다 같이 갱신
             if (typeof window.loadStarNewsTrending === 'function') {
               window.loadStarNewsTrending();
             }
-          }, 5 * 60 * 1000); // 5분
+          }, 5 * 60 * 1000);
+          // 백그라운드 → 포그라운드 복귀 시 즉시 1회 갱신
+          if (!window.__lewordVisibilityHandler) {
+            window.__lewordVisibilityHandler = () => {
+              if (!document.hidden && typeof window.loadRealtimeKeywordsTop === 'function') {
+                window.loadRealtimeKeywordsTop();
+              }
+            };
+            document.addEventListener('visibilitychange', window.__lewordVisibilityHandler);
+          }
         })();
 
         // 키워드 발굴 상태 관리
@@ -13999,11 +14010,15 @@
               }
               return true;
             });
-            // 페이지네이션 누적 — 기존 items + 새 items (keyword 동일할 때만)
+            // v2.43.0: 페이지네이션 누적 LRU 상한 500개 (메모리 무한 증가 방지)
             const newItems = res.items || [];
-            window.__scPaging.items = isLoadMore
+            const MAX_PAGED_ITEMS = 500;
+            const merged = isLoadMore
               ? [...window.__scPaging.items, ...newItems]
               : newItems.slice();
+            window.__scPaging.items = merged.length > MAX_PAGED_ITEMS
+              ? merged.slice(-MAX_PAGED_ITEMS)
+              : merged;
             window.__scPaging.start = startParam + newItems.length;
             window.__scPaging.hasMore = !!res.hasMore;
 
@@ -19330,23 +19345,33 @@
             initialScan();
           }
 
-          // 새로 추가되는 모달 감지 (동적 생성)
+          // v2.43.0: MutationObserver 디바운스 + attributeFilter 축소 (성능 ↑)
+          //   기존: 매 mutation 마다 즉시 scan + style 옵저버 (hover/animation 폭격)
+          //   신규: rAF 코얼레스 + class 만 감시
+          let moRaf = 0;
+          const pending = new Set();
+          const flushMo = () => {
+            moRaf = 0;
+            for (const node of pending) {
+              if (node instanceof HTMLElement) {
+                if (isModalLike(node)) attachMinimizeButton(node);
+                scan(node);
+              }
+            }
+            pending.clear();
+          };
           const mo = new MutationObserver((mutations) => {
             for (const m of mutations) {
               if (m.type === 'childList') {
-                m.addedNodes.forEach(node => {
-                  if (node instanceof HTMLElement) {
-                    if (isModalLike(node)) attachMinimizeButton(node);
-                    // 하위까지 검사
-                    scan(node);
-                  }
-                });
+                m.addedNodes.forEach(n => { if (n instanceof HTMLElement) pending.add(n); });
               } else if (m.type === 'attributes' && m.target instanceof HTMLElement) {
-                if (isModalLike(m.target)) attachMinimizeButton(m.target);
+                pending.add(m.target);
               }
             }
+            if (!moRaf) moRaf = requestAnimationFrame(flushMo);
           });
-          mo.observe(document.body, { childList: true, subtree: true, attributes: true, attributeFilter: ['style', 'class'] });
+          // 'style' 제거 — hover/animation 폭격 차단
+          mo.observe(document.body, { childList: true, subtree: true, attributes: true, attributeFilter: ['class'] });
 
           // 외부에서 호출 가능
           window.__minimizeActiveModals = function () {

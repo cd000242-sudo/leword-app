@@ -143,12 +143,13 @@ export class PuppeteerPool {
       clearInterval(this.cleanupInterval);
     }
 
-    // 1분마다 정리
+    // v2.43.0: 1분마다 정리 + unref (idle 시 이벤트 루프 안 깨움)
     this.cleanupInterval = setInterval(() => {
       this.cleanup().catch(err => {
         console.warn('[PUPPETEER-POOL] 정리 중 오류:', err);
       });
     }, 60000);
+    this.cleanupInterval?.unref?.();
   }
 
   /**

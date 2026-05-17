@@ -206,13 +206,14 @@ export function setupKeywordDiscoveryHandlers(): void {
             console.warn('[KEYWORD-MASTER] v4.0 신호 주입 실패 (무시하고 계속):', aggErr?.message);
           }
 
-          // 중지 맵에 엔진 등록 및 모니터링
+          // v2.43.0: 1500ms (CPU 67% 감소) + unref + finally 보장 (모든 경로에서 clear)
           const abortCheckInterval = setInterval(() => {
             if (keywordDiscoveryAbortMap.get(actualKeyword)) {
               engine.abort();
               clearInterval(abortCheckInterval);
             }
-          }, 500);
+          }, 1500);
+          abortCheckInterval.unref?.();
 
           try {
             const discoveryOptions = {
@@ -264,7 +265,6 @@ export function setupKeywordDiscoveryHandlers(): void {
               });
             }
 
-            clearInterval(abortCheckInterval);
             console.log(`[KEYWORD-MASTER] MDP 발굴 완료: 총 ${totalAdded}개`);
 
             return {
@@ -276,8 +276,10 @@ export function setupKeywordDiscoveryHandlers(): void {
 
           } catch (mdpError: any) {
             console.error('[KEYWORD-MASTER] MDP 엔진 실행 오류:', mdpError);
-            clearInterval(abortCheckInterval);
             return { success: false, keywords: [], error: mdpError.message };
+          } finally {
+            // v2.43.0: 모든 경로에서 보장 (early return + throw 모두)
+            clearInterval(abortCheckInterval);
           }
         }
         return { success: false, keywords: [], error: '네이버 API 키가 필요합니다.' };

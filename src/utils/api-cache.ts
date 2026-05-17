@@ -134,10 +134,11 @@ export class ApiCache {
       clearInterval(this.cleanupInterval);
     }
 
-    // 1분마다 정리
+    // v2.43.0: 1분마다 정리 + unref (메인 프로세스 idle 시 이벤트 루프 안 깨움)
     this.cleanupInterval = setInterval(() => {
       this.cleanup();
     }, 60000);
+    this.cleanupInterval?.unref?.();
   }
 
   /**

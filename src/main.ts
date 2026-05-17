@@ -998,18 +998,34 @@ app.whenReady().then(async () => {
   });
 });
 
-// v2.42.41: 명시적 quit 플래그 + 자식 프로세스 cleanup (좀비 방지)
-app.on('before-quit', () => {
+// v2.43.0: 좀비 chrome.exe 방지 강화 + 풀/캐시 graceful destroy
+app.on('before-quit', async () => {
   (app as any).isQuiting = true;
-  // puppeteer/chromium 자식 프로세스 강제 종료 (좀비 방지)
+  // 1) puppeteer 풀 graceful destroy (자기 자식 chrome.exe 정상 종료 시도)
+  try {
+    const { browserPool } = await import('./utils/puppeteer-pool');
+    if (browserPool && typeof browserPool.destroy === 'function') {
+      await Promise.race([
+        browserPool.destroy(),
+        new Promise(r => setTimeout(r, 3000)),
+      ]);
+    }
+  } catch (e: any) { console.warn('[QUIT] browserPool.destroy:', e?.message); }
+  // 2) api-cache cleanup interval 정리
+  try {
+    const { apiCache } = await import('./utils/api-cache');
+    if (apiCache && typeof (apiCache as any).destroy === 'function') (apiCache as any).destroy();
+  } catch {}
+  // 3) Windows: 프로세스 트리 강제 정리 (wmic deprecated → taskkill /F /T)
   try {
     const { exec } = require('child_process');
     if (process.platform === 'win32') {
-      // 같은 프로세스 트리의 chrome/chromium 만 정리 — 다른 사용자 chrome 영향 X
-      exec(`wmic process where (Name="chrome.exe" and ParentProcessId=${process.pid}) call terminate`, () => {});
+      exec(`taskkill /F /T /PID ${process.pid}`, (err: Error | null) => {
+        if (err) console.warn('[QUIT] taskkill:', err.message);
+      });
     }
-  } catch {}
-  // 트레이 정리
+  } catch (e: any) { console.warn('[QUIT] taskkill exec:', e?.message); }
+  // 4) 트레이 정리
   try { tray?.destroy(); tray = null; } catch {}
 });
 
