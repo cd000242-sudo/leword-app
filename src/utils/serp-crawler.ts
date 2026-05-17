@@ -22,6 +22,22 @@ export interface SerpAnalysisResult {
 
 // 브라우저 싱글톤
 let browserInstance: Browser | null = null;
+// v2.43.10: idle timeout — 5분 미사용 시 자동 종료 (RAM 점유 해제)
+let idleTimer: NodeJS.Timeout | null = null;
+const IDLE_CLOSE_MS = 5 * 60 * 1000;
+
+function bumpIdleTimer(): void {
+  if (idleTimer) clearTimeout(idleTimer);
+  idleTimer = setTimeout(() => {
+    if (browserInstance) {
+      console.log('[serp-crawler] 5분 idle — 브라우저 종료 (RAM 해제)');
+      browserInstance.close().catch(() => {});
+      browserInstance = null;
+    }
+    idleTimer = null;
+  }, IDLE_CLOSE_MS);
+  idleTimer.unref?.();
+}
 
 async function getBrowser(): Promise<Browser> {
   if (!browserInstance || !browserInstance.isConnected()) {
@@ -29,13 +45,15 @@ async function getBrowser(): Promise<Browser> {
     browserInstance = await chromium.launch({
       headless: true,
       executablePath, // undefined면 Playwright 기본 Chromium 사용
-      args: ['--no-sandbox', '--disable-setuid-sandbox', '--disable-dev-shm-usage']
+      args: ['--no-sandbox', '--disable-setuid-sandbox', '--disable-dev-shm-usage', '--disable-gpu']
     });
   }
+  bumpIdleTimer();
   return browserInstance;
 }
 
 export async function closeBrowser(): Promise<void> {
+  if (idleTimer) { clearTimeout(idleTimer); idleTimer = null; }
   if (browserInstance) {
     await browserInstance.close();
     browserInstance = null;
@@ -234,7 +252,9 @@ export async function analyzeSerpWithPlaywright(keyword: string): Promise<SerpAn
       analyzedAt: new Date().toISOString()
     };
   } finally {
-    await context.close();
+    // v2.43.10: page.close() 누락 수정 — context.close()만으로는 page 메모리 즉시 해제 안 됨
+    try { await page.close(); } catch {}
+    try { await context.close(); } catch {}
   }
 }
 

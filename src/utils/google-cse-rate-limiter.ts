@@ -220,10 +220,13 @@ export class GoogleCSECache {
   private static instance: GoogleCSECache;
   private cache: Map<string, { data: any; expiry: number }> = new Map();
   private ttl = 60 * 60 * 1000; // 1시간
+  // v2.43.10: LRU 상한 추가 (이전: 무한 증가)
+  private maxSize = 500;
 
   private constructor() {
-    // 주기적으로 만료된 캐시 정리 (10분마다)
-    setInterval(() => this.cleanExpired(), 10 * 60 * 1000);
+    // v2.43.10: .unref()로 백그라운드 시 이벤트 루프 wake 차단 (노트북 팬 원인)
+    const interval = setInterval(() => this.cleanExpired(), 10 * 60 * 1000);
+    interval.unref?.();
   }
 
   static getInstance(): GoogleCSECache {
@@ -252,6 +255,13 @@ export class GoogleCSECache {
    * 캐시에 저장
    */
   set(key: string, data: any): void {
+    // v2.43.10: LRU cap — 500개 초과 시 가장 오래된 항목 제거
+    if (this.cache.has(key)) {
+      this.cache.delete(key);
+    } else if (this.cache.size >= this.maxSize) {
+      const oldest = this.cache.keys().next().value;
+      if (oldest !== undefined) this.cache.delete(oldest);
+    }
     this.cache.set(key, {
       data,
       expiry: Date.now() + this.ttl

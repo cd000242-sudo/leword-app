@@ -80,15 +80,32 @@ function calculateEstimatedBlogIndex(stats: {
  */
 export class AccurateBlogIndexExtractor {
   private browserInstance: Browser | null = null;
-  
+  // v2.43.10: idle timeout — 5분 미사용 시 자동 종료 (RAM 해제)
+  private idleTimer: NodeJS.Timeout | null = null;
+  private static IDLE_CLOSE_MS = 5 * 60 * 1000;
+
+  private bumpIdleTimer(): void {
+    if (this.idleTimer) clearTimeout(this.idleTimer);
+    this.idleTimer = setTimeout(() => {
+      if (this.browserInstance) {
+        console.log('[BLOG-INDEX-EXTRACTOR] 5분 idle — 브라우저 종료 (RAM 해제)');
+        this.browserInstance.close().catch(() => {});
+        this.browserInstance = null;
+      }
+      this.idleTimer = null;
+    }, AccurateBlogIndexExtractor.IDLE_CLOSE_MS);
+    this.idleTimer.unref?.();
+  }
+
   /**
    * 브라우저 인스턴스 가져오기 (재사용)
    */
   private async getBrowser(): Promise<Browser> {
     if (this.browserInstance && this.browserInstance.connected) {
+      this.bumpIdleTimer();
       return this.browserInstance;
     }
-    
+
     this.browserInstance = await puppeteer.launch({
       headless: 'new',
       args: [
@@ -100,14 +117,15 @@ export class AccurateBlogIndexExtractor {
         '--window-size=1920,1080'
       ]
     });
-    
+    this.bumpIdleTimer();
     return this.browserInstance;
   }
-  
+
   /**
    * 브라우저 종료
    */
   async closeBrowser(): Promise<void> {
+    if (this.idleTimer) { clearTimeout(this.idleTimer); this.idleTimer = null; }
     if (this.browserInstance) {
       await this.browserInstance.close();
       this.browserInstance = null;

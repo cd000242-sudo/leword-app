@@ -7669,6 +7669,13 @@
             container.style.cssText = '';
           }
 
+          // v2.43.10: 모달 닫힐 때 마인드맵 / 페이징 / 발굴 결과 전역 상태 정리 → GC 유도
+          try {
+            window.cleanupMindmapState?.();
+            window.__scPaging = null;
+            // (lewordRawKeywords 는 다른 탭에서 재사용되므로 명시적 cleanup 보류)
+          } catch {}
+
           unlockBodyScroll();
           console.log('[MODAL-V3] ✅ 모달 닫기 완료');
         }
@@ -10260,7 +10267,7 @@
                 <div style="display:flex; gap:8px; align-items:center;">
                   <button id="relatedKwExcelBtn" onclick="window.exportMindmapToExcel()" title="엑셀로 저장" style="background:linear-gradient(135deg,#10b981,#059669); border:none; border-radius:10px; color:#fff; padding:0 14px; height:36px; cursor:pointer; font-size:13px; font-weight:700; display:none;">📊 엑셀 저장</button>
                   <button onclick="window.minimizeRelatedKeywordModal()" title="최소화 (결과 보존)" style="background:rgba(168,85,247,0.20); border:1px solid rgba(168,85,247,0.4); border-radius:10px; color:#c4b5fd; width:36px; height:36px; cursor:pointer; font-size:18px; font-weight:bold;">—</button>
-                  <button onclick="document.getElementById('relatedKwModal')?.remove(); document.getElementById('relatedKwMinimizedDock')?.remove();" title="닫기 (결과 삭제)" style="background:rgba(255,255,255,0.1); border:none; border-radius:10px; color:#fff; width:36px; height:36px; cursor:pointer; font-size:18px;">✕</button>
+                  <button onclick="document.getElementById('relatedKwModal')?.remove(); document.getElementById('relatedKwMinimizedDock')?.remove(); window.cleanupMindmapState?.();" title="닫기 (결과 삭제)" style="background:rgba(255,255,255,0.1); border:none; border-radius:10px; color:#fff; width:36px; height:36px; cursor:pointer; font-size:18px;">✕</button>
                 </div>
               </div>
               <div id="relatedKwBody" style="background:rgba(0,0,0,0.3); border-radius:12px; padding:30px; min-height:240px; display:flex; align-items:center; justify-content:center; color:#a78bfa;">
@@ -13147,6 +13154,19 @@
           if (btn) btn.style.display = 'none';
         };
 
+        // v2.43.10: 마인드맵 모달 닫힐 때 메모리 정리 (수천 개 키워드 GC 유도)
+        window.cleanupMindmapState = function () {
+          try {
+            window.mindmapRunning = false;
+            window.mindmapPaused = false;
+            window.mindmapQueue = [];
+            window.mindmapKeywordsSet = new Set();
+            window.mindmapKeywordsList = [];
+            window.mindmapCurrentIdx = 0;
+            delete window.__lastMindmapItems;
+          } catch (e) { /* noop */ }
+        };
+
         // # 붙이기 (왼쪽)
         window.mmAddHash = function () {
           const textarea = document.getElementById('mmLeftKeywords');
@@ -13290,8 +13310,16 @@
           console.log(`[MINDMAP] 🚀 무한 확장 시작: "${keyword}"`);
           showToast(`🚀 "${keyword}" 무한 확장 시작! (중지하려면 ⏸️ 버튼)`, 'success');
 
-          // 무한 확장 루프
-          while (window.mindmapRunning && window.mindmapQueue.length > 0) {
+          // v2.43.10: 마인드맵 자원 상한 — 저사양 환경에서 노트북 팬 방지
+          const MM_MAX_KEYWORDS = 3000;   // 수집 최대 3000개 (이전: 무제한)
+          const MM_MAX_QUEUE = 500;        // 큐 길이 최대 500
+          const MM_DELAY_MS = 150;         // 100→150ms (CPU 부담 완화)
+          // 무한 확장 루프 — 상한 도달 또는 자연 종료 시 정지
+          while (
+            window.mindmapRunning &&
+            window.mindmapQueue.length > 0 &&
+            window.mindmapKeywordsList.length < MM_MAX_KEYWORDS
+          ) {
             // 일시정지 상태면 대기
             if (window.mindmapPaused) {
               await new Promise(r => setTimeout(r, 100));
@@ -13306,51 +13334,46 @@
             // 현재 처리 중인 키워드 표시
             const messageEl = document.getElementById('mindmapProgressMessage');
             if (messageEl) {
-              messageEl.textContent = `🔍 확장 중: ${currentKeyword} (큐: ${window.mindmapQueue.length}개)`;
+              messageEl.textContent = `🔍 확장 중: ${currentKeyword} (큐: ${window.mindmapQueue.length}개 / 누적: ${window.mindmapKeywordsList.length}/${MM_MAX_KEYWORDS})`;
             }
 
             try {
-              // IPC를 통해 자동완성 가져오기 (CORS 우회)
               const result = await window.electronAPI.invoke('get-autocomplete-suggestions', currentKeyword);
 
               if (result.success && result.suggestions && result.suggestions.length > 0) {
                 console.log(`[MINDMAP] "${currentKeyword}" → ${result.suggestions.length}개 자동완성`);
 
-                // 새 키워드 추가 (모든 키워드를 큐에 추가하여 무한 확장)
                 for (const suggestion of result.suggestions) {
+                  if (window.mindmapKeywordsList.length >= MM_MAX_KEYWORDS) break;
                   const lowerSuggestion = suggestion.toLowerCase();
                   if (!window.mindmapKeywordsSet.has(lowerSuggestion)) {
                     window.mindmapKeywordsSet.add(lowerSuggestion);
                     window.mindmapKeywordsList.push({ keyword: suggestion, depth: 1, source: '자동완성' });
-                    // 모든 키워드를 큐에 추가하여 계속 확장
-                    window.mindmapQueue.push(suggestion);
+                    // 큐 상한 보호 — 초과 시 큐에 push 안 함
+                    if (window.mindmapQueue.length < MM_MAX_QUEUE) {
+                      window.mindmapQueue.push(suggestion);
+                    }
                   }
                 }
-
-                // 큐가 비면 기존 키워드들로 재확장
-                if (window.mindmapQueue.length === 0 && window.mindmapKeywordsList.length > 0) {
-                  console.log('[MINDMAP] 큐가 비었습니다. 기존 키워드로 재확장...');
-                  // 최근 수집된 키워드 중 일부를 다시 큐에 추가
-                  const recentKeywords = window.mindmapKeywordsList.slice(-20).map(k => k.keyword);
-                  for (const kw of recentKeywords) {
-                    window.mindmapQueue.push(kw);
-                  }
-                }
+                // v2.43.10: 자기 재주입 루프 제거 — 큐 자연 소진 시 종료 (무한 루프 차단)
               }
             } catch (error) {
               console.warn(`[MINDMAP] ${currentKeyword} 자동완성 실패:`, error);
             }
 
-            // UI 업데이트
             window.updateMmProgress();
 
-            // 매 100개 키워드마다 토스트
             if (window.mindmapKeywordsList.length % 100 === 0 && window.mindmapKeywordsList.length > 0) {
               showToast(`📊 ${window.mindmapKeywordsList.length.toLocaleString()}개 키워드 수집 중...`, 'info');
             }
 
-            // API 제한 방지 딜레이 (100ms)
-            await new Promise(r => setTimeout(r, 100));
+            await new Promise(r => setTimeout(r, MM_DELAY_MS));
+          }
+
+          // 상한 도달 시 안내
+          if (window.mindmapKeywordsList.length >= MM_MAX_KEYWORDS) {
+            console.log('[MINDMAP] 🛑 상한 3000개 도달 — 자동 종료');
+            showToast(`🛑 3000개 도달 — 자동 종료 (저사양 PC 보호)`, 'info');
           }
 
           // 완료
@@ -17731,13 +17754,22 @@
           ];
 
           let stepIndex = 0;
+          // v2.43.10: 로그 슬라이딩 윈도우 — 무한 DOM 누적 방지
+          const LOG_MAX_LINES = 50;
+          const appendLog = (html) => {
+            if (!progressLog) return;
+            const wrap = document.createElement('div');
+            wrap.innerHTML = html;
+            while (wrap.firstChild) progressLog.appendChild(wrap.firstChild);
+            while (progressLog.children.length > LOG_MAX_LINES) progressLog.removeChild(progressLog.firstChild);
+            progressLog.scrollTop = progressLog.scrollHeight;
+          };
           const progressInterval = setInterval(() => {
             if (stepIndex < progressSteps.length) {
               const step = progressSteps[stepIndex];
               progressBar.style.width = step.percent + '%';
               progressText.innerHTML = step.percent + '% 완료';
-              progressLog.innerHTML += '<div style="color: #3b82f6;">' + step.message + '</div>';
-              progressLog.scrollTop = progressLog.scrollHeight;
+              appendLog('<div style="color: #3b82f6;">' + step.message + '</div>');
               stepIndex++;
             }
           }, 800);
@@ -17757,12 +17789,12 @@
               // Manus 보강은 별도 비동기 IPC로 처리 (start-manus-enrichment)
             });
 
-            // 진행률 완료
+            // 진행률 완료 (clearInterval은 finally에서도 안전 보장)
             clearInterval(progressInterval);
             if (progressBar) {
               progressBar.style.width = '100%';
               progressText.innerHTML = '100% 완료!';
-              progressLog.innerHTML += '<div style="color: #22c55e; font-weight: bold;">✅ 완료! ' + (response?.keywords?.length || 0) + '개 황금키워드 발굴!</div>';
+              appendLog('<div style="color: #22c55e; font-weight: bold;">✅ 완료! ' + (response?.keywords?.length || 0) + '개 황금키워드 발굴!</div>');
             }
 
             // 🔒 프리미엄 라이선스 필요 체크
@@ -17948,10 +17980,7 @@
             proTrafficManusStatus = null; // 비동기 — 시작 후 폴링이 채움
 
             // 진행률 로그에 실제 표시 개수 반영
-            if (progressLog) {
-              progressLog.innerHTML += '<div style="color: #22c55e; font-weight: bold;">✅ 표시: ' + selectedKeywords.length + '개</div>';
-              progressLog.scrollTop = progressLog.scrollHeight;
-            }
+            appendLog('<div style="color: #22c55e; font-weight: bold;">✅ 표시: ' + selectedKeywords.length + '개</div>');
 
             // 결과 표시 (Manus 보강 전 — 즉시)
             renderProTrafficKeywords();
@@ -17971,6 +18000,8 @@
                   </div>
         `;
           } finally {
+            // v2.43.10: 에러 시에도 진행률 interval 반드시 정리 (이전: catch 누락 시 영구 실행)
+            try { clearInterval(progressInterval); } catch {}
             btn.disabled = false;
             btn.innerHTML = '🏆 황금 키워드 헌팅 시작';
           }
@@ -19035,47 +19066,44 @@
 
           header.style.cursor = 'move';
 
+          // v2.43.10: 드래그 중에만 mousemove/mouseup 등록 → 매 마우스 이동마다 가드 체크 제거
+          let dragAbort = null;
           header.addEventListener('mousedown', (e) => {
-            // Prevent dragging when clicking buttons inside header
             if (e.target.closest('button')) return;
-
             isDragging = true;
 
-            // Get current position
             const rect = chatWindow.getBoundingClientRect();
-
-            // If it's the first drag (no left/top set, relying on right/bottom css), 
-            // lock it to pixels so we can move it freely.
             if (!chatWindow.style.left) {
               chatWindow.style.right = 'auto';
               chatWindow.style.bottom = 'auto';
               chatWindow.style.left = rect.left + 'px';
               chatWindow.style.top = rect.top + 'px';
-              chatWindow.style.position = 'fixed'; // FORCE FIXED
+              chatWindow.style.position = 'fixed';
             }
 
             startX = e.clientX;
             startY = e.clientY;
             initialLeft = parseFloat(chatWindow.style.left) || rect.left;
             initialTop = parseFloat(chatWindow.style.top) || rect.top;
-
             header.classList.add('active:cursor-grabbing');
-          });
 
-          document.addEventListener('mousemove', (e) => {
-            if (!isDragging) return;
+            // 이전 드래그 잔여 핸들러 정리 후 새로 등록
+            if (dragAbort) dragAbort.abort();
+            dragAbort = new AbortController();
+            const signal = dragAbort.signal;
 
-            e.preventDefault();
-            const dx = e.clientX - startX;
-            const dy = e.clientY - startY;
+            document.addEventListener('mousemove', (ev) => {
+              if (!isDragging) return;
+              ev.preventDefault();
+              chatWindow.style.left = (initialLeft + (ev.clientX - startX)) + 'px';
+              chatWindow.style.top = (initialTop + (ev.clientY - startY)) + 'px';
+            }, { signal });
 
-            chatWindow.style.left = (initialLeft + dx) + 'px';
-            chatWindow.style.top = (initialTop + dy) + 'px';
-          });
-
-          document.addEventListener('mouseup', () => {
-            isDragging = false;
-            header.classList.remove('active:cursor-grabbing');
+            document.addEventListener('mouseup', () => {
+              isDragging = false;
+              header.classList.remove('active:cursor-grabbing');
+              if (dragAbort) { dragAbort.abort(); dragAbort = null; }
+            }, { signal, once: true });
           });
         }
 

@@ -1438,19 +1438,32 @@ const CACHE_TTL = 5 * 60 * 1000; // 5분
 const API_CACHE_MAX_ENTRIES = 10_000;
 const API_CACHE_EVICT_INTERVAL = 10 * 60 * 1000;   // 10분
 const API_CACHE_ENTRY_TTL = 60 * 60 * 1000;        // 1시간
+// v2.43.10: keywordCache / realtimeSourceMap 도 같은 eviction 루프에 포함 (이전: 무한 증가)
+const KW_CACHE_MAX = 5_000;
+const RT_SRC_MAX = 5_000;
 setInterval(() => {
   const now = Date.now();
   // TTL 만료 제거
   for (const [k, v] of apiCache.entries()) {
     if (now - (v.timestamp || 0) > API_CACHE_ENTRY_TTL) apiCache.delete(k);
   }
-  // 상한 초과 시 오래된 것부터 제거 (LRU 근사: timestamp 오래된 순)
+  // apiCache 상한
   if (apiCache.size > API_CACHE_MAX_ENTRIES) {
     const entries = Array.from(apiCache.entries())
       .sort((a, b) => (a[1].timestamp || 0) - (b[1].timestamp || 0));
     const toDelete = entries.slice(0, apiCache.size - API_CACHE_MAX_ENTRIES);
     for (const [k] of toDelete) apiCache.delete(k);
     console.log(`[PRO-HUNTER] 🧹 apiCache eviction: ${toDelete.length}개 제거 → ${apiCache.size}개 유지`);
+  }
+  // keywordCache 상한 (오래된 키부터 제거)
+  if (keywordCache.size > KW_CACHE_MAX) {
+    const keys = Array.from(keywordCache.keys()).slice(0, keywordCache.size - KW_CACHE_MAX);
+    for (const k of keys) keywordCache.delete(k);
+  }
+  // realtimeSourceMap 상한
+  if (realtimeSourceMap.size > RT_SRC_MAX) {
+    const keys = Array.from(realtimeSourceMap.keys()).slice(0, realtimeSourceMap.size - RT_SRC_MAX);
+    for (const k of keys) realtimeSourceMap.delete(k);
   }
 }, API_CACHE_EVICT_INTERVAL).unref?.();
 
