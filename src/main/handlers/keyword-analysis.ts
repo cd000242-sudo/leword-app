@@ -13,7 +13,7 @@ import { getFreshKeywordsAPI } from '../../utils/mass-collection/fresh-keywords-
 
 
 export function setupKeywordAnalysisHandlers(): void {
-  // v2.43.4: API 키 즉시 진단 — 단일 호출로 정확한 응답 코드/메시지 확인
+  // v2.43.4/5: API 키 즉시 진단 — 단일 호출로 정확한 응답 코드/메시지 확인 (네이버 + YouTube)
   if (!ipcMain.listenerCount('test-naver-api-keys')) {
     ipcMain.handle('test-naver-api-keys', async () => {
       const env = EnvironmentManager.getInstance().getConfig();
@@ -22,11 +22,13 @@ export function setupKeywordAnalysisHandlers(): void {
       const saLicense = env.naverSearchAdAccessLicense || '';
       const saSecret = env.naverSearchAdSecretKey || '';
       const saCustomer = env.naverSearchAdCustomerId || '';
+      const ytKey = env.youtubeApiKey || process.env['YOUTUBE_API_KEY'] || '';
 
       const result: any = {
         success: true,
         openApi: { present: !!clientId && !!clientSecret, clientIdLen: clientId.length, clientSecretLen: clientSecret.length },
         searchAd: { present: !!saLicense && !!saSecret, licenseLen: saLicense.length, secretLen: saSecret.length, customerId: saCustomer || '(없음)' },
+        youtube: { present: !!ytKey, keyLen: ytKey.length },
         tests: {} as Record<string, any>,
       };
 
@@ -78,16 +80,52 @@ export function setupKeywordAnalysisHandlers(): void {
         result.tests.searchAd = { ok: false, error: 'SearchAd 키 미등록' };
       }
 
+      // 3) YouTube Data API v3 테스트 (v2.43.5)
+      if (ytKey) {
+        try {
+          const r = await fetch(`https://www.googleapis.com/youtube/v3/videos?part=snippet&chart=mostPopular&regionCode=KR&maxResults=1&key=${ytKey}`);
+          const body = await r.text().catch(() => '');
+          let parsed: any = null;
+          try { parsed = JSON.parse(body); } catch {}
+          result.tests.youtube = {
+            status: r.status,
+            statusText: r.statusText,
+            ok: r.ok,
+            errorReason: parsed?.error?.errors?.[0]?.reason || null,
+            errorMessage: parsed?.error?.message || null,
+            itemsCount: Array.isArray(parsed?.items) ? parsed.items.length : null,
+            sample: body.slice(0, 300),
+          };
+        } catch (e: any) {
+          result.tests.youtube = { status: 0, error: e?.message };
+        }
+      } else {
+        result.tests.youtube = { status: -1, error: 'YouTube API 키 미등록' };
+      }
+
       // 진단 요약
       const blogOk = result.tests.blogSearch?.ok === true && (result.tests.blogSearch?.total ?? -1) >= 0;
       const saOk = result.tests.searchAd?.ok === true;
-      result.diagnosis = blogOk && saOk
+      const ytOk = result.tests.youtube?.ok === true && (result.tests.youtube?.itemsCount ?? 0) > 0;
+      const fails: string[] = [];
+      if (!blogOk) fails.push('Open API: ' + (result.tests.blogSearch?.errorMessage || result.tests.blogSearch?.statusText || result.tests.blogSearch?.error || '실패'));
+      if (!saOk) fails.push('SearchAd: ' + (result.tests.searchAd?.error || '실패'));
+      if (ytKey && !ytOk) {
+        const reason = result.tests.youtube?.errorReason;
+        const ytHint = reason === 'accessNotConfigured'
+          ? 'YouTube Data API v3 미활성 — Google Cloud Console → API 라이브러리에서 활성화 필요'
+          : reason === 'keyInvalid'
+            ? '잘못된 API 키 — Google Cloud Console에서 새 키 발급'
+            : reason === 'quotaExceeded'
+              ? '일일 quota 초과 (10,000 unit) — 내일 자동 리셋'
+              : reason === 'forbidden'
+                ? 'API 키 제한 (HTTP referrer/IP) — Google Cloud Console에서 제한 해제'
+                : (result.tests.youtube?.errorMessage || result.tests.youtube?.error || '실패');
+        fails.push('YouTube: ' + ytHint);
+      }
+      result.diagnosis = fails.length === 0
         ? '✅ 모든 API 정상 작동'
-        : !blogOk && !saOk
-          ? '❌ Open API 와 SearchAd API 모두 실패'
-          : !blogOk
-            ? '❌ Open API (블로그 검색) 실패 — ' + (result.tests.blogSearch?.errorMessage || result.tests.blogSearch?.statusText || result.tests.blogSearch?.error)
-            : '❌ SearchAd API 실패 — ' + result.tests.searchAd?.error;
+        : '❌ ' + fails.length + '개 실패\n  • ' + fails.join('\n  • ');
       return result;
     });
     console.log('[KEYWORD-MASTER] ✅ test-naver-api-keys 핸들러 등록');

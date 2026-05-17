@@ -1493,6 +1493,7 @@
           if (!r?.success) { alert('진단 실패: ' + (r?.error || '')); return; }
           const blog = r.tests?.blogSearch || {};
           const sa = r.tests?.searchAd || {};
+          const yt = r.tests?.youtube || {};
           const lines = [
             r.diagnosis || '진단 결과',
             '',
@@ -1511,6 +1512,16 @@
             sa.ok !== undefined ? `  결과: ${sa.ok ? '✅ 성공' : '❌ 실패'} (${sa.elapsed || 0}ms)` : '',
             sa.results !== undefined ? `  반환 키워드: ${sa.results}건` : '',
             sa.error ? `  에러: ${sa.error}` : '',
+            '',
+            `[YouTube Data API v3]`,
+            `  API Key: ${r.youtube?.keyLen ? r.youtube.keyLen + '자' : '❌ 미등록'}`,
+            yt.status ? `  응답: HTTP ${yt.status} ${yt.statusText || ''}` : '',
+            yt.errorReason ? `  Google 에러 이유: ${yt.errorReason}` : '',
+            yt.errorMessage ? `  Google 에러 메시지: ${yt.errorMessage}` : '',
+            yt.itemsCount !== null && yt.itemsCount !== undefined ? `  반환 items: ${yt.itemsCount}건` : '',
+            yt.errorReason === 'accessNotConfigured'
+              ? '\n💡 조치: console.cloud.google.com → APIs & Services → Library → "YouTube Data API v3" 검색 → 사용 설정(ENABLE) 클릭'
+              : '',
           ].filter(Boolean);
           alert(lines.join('\n'));
         } catch (e) {
