@@ -224,21 +224,41 @@ let tray: Tray | null = null;
 function createTray(): void {
   if (tray) return;
   try {
+    // v2.43.13: 트레이 아이콘 경로 후보 확장 — packaged app(asar / resourcesPath)·dev·dist 모두 커버
     const iconCandidates = [
       path.join(app.getAppPath(), 'assets', '256.ico'),
       path.join(__dirname, '..', 'assets', '256.ico'),
+      path.join(__dirname, '..', '..', 'assets', '256.ico'),
+      path.join(process.resourcesPath || '', 'app.asar', 'assets', '256.ico'),
+      path.join(process.resourcesPath || '', 'app', 'assets', '256.ico'),
+      path.join(process.resourcesPath || '', 'assets', '256.ico'),
       path.join(process.cwd(), 'assets', '256.ico'),
     ];
     let icon: Electron.NativeImage | null = null;
+    let usedPath = '';
     for (const p of iconCandidates) {
-      if (fs.existsSync(p)) {
-        icon = nativeImage.createFromPath(p);
-        if (!icon.isEmpty()) break;
-      }
+      if (!p) continue;
+      try {
+        if (fs.existsSync(p)) {
+          const img = nativeImage.createFromPath(p);
+          if (!img.isEmpty()) {
+            icon = img;
+            usedPath = p;
+            break;
+          }
+        }
+      } catch { /* skip */ }
     }
     if (!icon || icon.isEmpty()) {
-      console.warn('[TRAY] 아이콘 파일 못 찾음 — 기본 아이콘으로 fallback');
+      console.warn('[TRAY] ⚠️ 아이콘 파일 못 찾음 — 시도 경로:', iconCandidates.join(' | '));
       icon = nativeImage.createEmpty();
+    } else {
+      // v2.43.13: Windows 트레이는 16x16 권장 — 256x256 .ico 가 너무 크면 흐릿하거나 안 보이는 경우 있음
+      try {
+        const resized = icon.resize({ width: 16, height: 16, quality: 'best' });
+        if (!resized.isEmpty()) icon = resized;
+      } catch { /* keep original */ }
+      console.log('[TRAY] ✅ 아이콘 로드:', usedPath);
     }
     tray = new Tray(icon);
     tray.setToolTip('LEWORD - 키워드마스터');
