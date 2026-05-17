@@ -1259,6 +1259,8 @@ export function setupKeywordAnalysisHandlers(): void {
           }
 
           // 모든 재시도 실패 시 -1 반환 (0이 아닌 -1로 구분)
+          // v2.43.3: 사유 누적 — 마지막 응답 코드 추적 (UI 진단용)
+          (globalThis as any).__leword_doccount_lastStatus = (globalThis as any).__leword_doccount_lastStatus || { code: 'unknown', count: 0 };
           console.error(`[DOC-COUNT] ❌ "${keyword}" 문서수 조회 최종 실패`);
           return -1;
         };
@@ -1407,6 +1409,15 @@ export function setupKeywordAnalysisHandlers(): void {
         const filteredKeywords = sortedKeywords.filter(k => !isNoiseKeyword(k.keyword));
         console.log(`[KEYWORD-EXPANSIONS] 노이즈 필터: ${sortedKeywords.length} → ${filteredKeywords.length}건`);
 
+        // v2.43.3: 진단 통계 — docCount 실패율 추적
+        const docCountFailed = filteredKeywords.filter(k => k.documentCount === -1).length;
+        const docCountTotal = filteredKeywords.length;
+        const docCountFailureRate = docCountTotal > 0 ? docCountFailed / docCountTotal : 0;
+        const allFailed = docCountFailureRate >= 0.9 && docCountTotal >= 3;
+        if (allFailed) {
+          console.error(`[KEYWORD-EXPANSIONS] ⚠️ docCount ${docCountFailed}/${docCountTotal}건 모두 실패 — 네이버 Blog Search API 인증/권한/IP차단 의심`);
+        }
+
         return {
           success: true,
           keywords: filteredKeywords.map((k, idx) => ({
@@ -1419,7 +1430,17 @@ export function setupKeywordAnalysisHandlers(): void {
             goldenRatio: typeof k.goldenRatio === 'number' ? k.goldenRatio : null,
             isGolden: isGoldenKeyword(k),
             type: k.type
-          }))
+          })),
+          // v2.43.3 진단 정보
+          diagnostics: {
+            docCountFailed,
+            docCountTotal,
+            docCountFailureRate: Math.round(docCountFailureRate * 100),
+            allFailed,
+            warning: allFailed
+              ? '⚠️ 네이버 Blog Search API 호출이 모두 실패했습니다. 가능한 원인: (1) Naver Open API 키가 "블로그 검색" 권한 미보유 (developers.naver.com → Application → 사용 API 추가), (2) 일일 호출 한도(25,000건) 초과, (3) IP 일시 차단. 권한 확인 후 다시 시도하세요.'
+              : null,
+          },
         };
       } catch (error: any) {
         console.error('[KEYWORD-EXPANSIONS] 오류:', error);

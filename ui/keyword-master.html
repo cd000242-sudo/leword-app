@@ -4202,6 +4202,22 @@
             if (result.success && result.keywords && result.keywords.length > 0) {
               window.discoveryResults = result.keywords;
               displayKeywordResults(result.keywords);
+              // v2.43.3: docCount 실패율 90%+면 결과 위에 진단 경고
+              const diag = result.diagnostics || {};
+              if (diag.warning && diag.allFailed) {
+                console.error('[LEWORD] 진단:', diag);
+                resultsDiv.insertAdjacentHTML('afterbegin', `
+                  <div style="padding:18px 22px; background:rgba(239,68,68,0.1); border:1px solid rgba(239,68,68,0.4); border-radius:12px; margin-bottom:14px;">
+                    <div style="font-size:15px; font-weight:800; color:#dc2626; margin-bottom:8px;">⚠️ 네이버 Blog Search API 호출 실패 (${diag.docCountFailed}/${diag.docCountTotal}건, ${diag.docCountFailureRate}%)</div>
+                    <div style="font-size:13px; color:#7f1d1d; line-height:1.7;">
+                      <strong>가능한 원인</strong>:<br/>
+                      1. Naver Open API 키가 <strong>"블로그 검색" 권한 미보유</strong> — <a href="https://developers.naver.com/main/" target="_blank" style="color:#dc2626; text-decoration:underline;">developers.naver.com</a> → Application → "사용 API 추가" → <strong>"검색"</strong> 활성화<br/>
+                      2. 일일 호출 한도(25,000건) 초과<br/>
+                      3. IP 일시 차단 (10~30분 대기 후 재시도)<br/><br/>
+                      <strong>조치</strong>: 권한 추가 또는 새 API 키 발급 → LEWORD 환경설정에서 ClientID/Secret 다시 입력 → 앱 재시작
+                    </div>
+                  </div>`);
+              }
               exportSection.style.display = 'block';
             } else {
               resultsDiv.innerHTML = '<div style="padding: 20px; text-align: center; color: #94a3b8;">검색 결과가 없습니다.</div>';
