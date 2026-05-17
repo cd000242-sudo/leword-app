@@ -13,6 +13,86 @@ import { getFreshKeywordsAPI } from '../../utils/mass-collection/fresh-keywords-
 
 
 export function setupKeywordAnalysisHandlers(): void {
+  // v2.43.4: API 키 즉시 진단 — 단일 호출로 정확한 응답 코드/메시지 확인
+  if (!ipcMain.listenerCount('test-naver-api-keys')) {
+    ipcMain.handle('test-naver-api-keys', async () => {
+      const env = EnvironmentManager.getInstance().getConfig();
+      const clientId = env.naverClientId || process.env['NAVER_CLIENT_ID'] || '';
+      const clientSecret = env.naverClientSecret || process.env['NAVER_CLIENT_SECRET'] || '';
+      const saLicense = env.naverSearchAdAccessLicense || '';
+      const saSecret = env.naverSearchAdSecretKey || '';
+      const saCustomer = env.naverSearchAdCustomerId || '';
+
+      const result: any = {
+        success: true,
+        openApi: { present: !!clientId && !!clientSecret, clientIdLen: clientId.length, clientSecretLen: clientSecret.length },
+        searchAd: { present: !!saLicense && !!saSecret, licenseLen: saLicense.length, secretLen: saSecret.length, customerId: saCustomer || '(없음)' },
+        tests: {} as Record<string, any>,
+      };
+
+      // 1) Naver Open API blog.json 테스트
+      if (clientId && clientSecret) {
+        try {
+          const r = await fetch('https://openapi.naver.com/v1/search/blog.json?query=%ED%85%8C%EC%8A%A4%ED%8A%B8&display=1', {
+            headers: { 'X-Naver-Client-Id': clientId, 'X-Naver-Client-Secret': clientSecret },
+          });
+          const body = await r.text().catch(() => '');
+          let parsed: any = null;
+          try { parsed = JSON.parse(body); } catch {}
+          result.tests.blogSearch = {
+            status: r.status,
+            statusText: r.statusText,
+            ok: r.ok,
+            errorCode: parsed?.errorCode || null,
+            errorMessage: parsed?.errorMessage || null,
+            total: parsed?.total ?? null,
+            sample: body.slice(0, 200),
+          };
+        } catch (e: any) {
+          result.tests.blogSearch = { status: 0, error: e?.message };
+        }
+      } else {
+        result.tests.blogSearch = { status: -1, error: 'Open API 키 미등록' };
+      }
+
+      // 2) Naver SearchAd 테스트
+      if (saLicense && saSecret) {
+        try {
+          const { getNaverSearchAdKeywordVolume } = await import('../../utils/naver-searchad-api');
+          const cid = saCustomer && saCustomer.trim() !== '' ? saCustomer.trim() : (saLicense.split(':')[0] || saLicense.substring(0, 10));
+          const t0 = Date.now();
+          const out = await getNaverSearchAdKeywordVolume(
+            { accessLicense: saLicense, secretKey: saSecret, customerId: cid },
+            ['테스트']
+          );
+          result.tests.searchAd = {
+            ok: out.length > 0,
+            results: out.length,
+            elapsed: Date.now() - t0,
+            sample: out[0] || null,
+          };
+        } catch (e: any) {
+          result.tests.searchAd = { ok: false, error: e?.message };
+        }
+      } else {
+        result.tests.searchAd = { ok: false, error: 'SearchAd 키 미등록' };
+      }
+
+      // 진단 요약
+      const blogOk = result.tests.blogSearch?.ok === true && (result.tests.blogSearch?.total ?? -1) >= 0;
+      const saOk = result.tests.searchAd?.ok === true;
+      result.diagnosis = blogOk && saOk
+        ? '✅ 모든 API 정상 작동'
+        : !blogOk && !saOk
+          ? '❌ Open API 와 SearchAd API 모두 실패'
+          : !blogOk
+            ? '❌ Open API (블로그 검색) 실패 — ' + (result.tests.blogSearch?.errorMessage || result.tests.blogSearch?.statusText || result.tests.blogSearch?.error)
+            : '❌ SearchAd API 실패 — ' + result.tests.searchAd?.error;
+      return result;
+    });
+    console.log('[KEYWORD-MASTER] ✅ test-naver-api-keys 핸들러 등록');
+  }
+
   ipcMain.handle('check-keyword-rank', async (_event, data: { keyword: string; blogUrl: string }) => {
     console.log('[KEYWORD-MASTER] 키워드 순위 확인:', data);
 

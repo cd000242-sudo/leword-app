@@ -1478,7 +1478,49 @@
         <input id="perfBgToggle" type="checkbox" onchange="togglePerfBg(this.checked)" style="cursor:pointer;"/>
         ⚡ 백그라운드 워커
       </label>
+      <button onclick="testNaverApiKeys()" title="네이버 API 키 즉시 테스트 (응답 코드/사유)" style="background:rgba(34,197,94,0.18); color:#86efac; border:1px solid rgba(34,197,94,0.4); cursor:pointer; font-size:11px; font-weight:700; padding:4px 8px; border-radius:6px; margin-left:6px;">🩺 API 진단</button>
     </div>
+
+    <script>
+      // v2.43.4: 네이버 API 키 즉시 진단
+      window.testNaverApiKeys = async function () {
+        const btn = event.target;
+        btn.disabled = true;
+        const origText = btn.textContent;
+        btn.textContent = '⏳ 진단 중...';
+        try {
+          const r = await window.electronAPI.invoke('test-naver-api-keys');
+          if (!r?.success) { alert('진단 실패: ' + (r?.error || '')); return; }
+          const blog = r.tests?.blogSearch || {};
+          const sa = r.tests?.searchAd || {};
+          const lines = [
+            r.diagnosis || '진단 결과',
+            '',
+            `[Open API (블로그 검색)]`,
+            `  ClientID: ${r.openApi?.clientIdLen ? r.openApi.clientIdLen + '자' : '❌ 미등록'}`,
+            `  Secret: ${r.openApi?.clientSecretLen ? r.openApi.clientSecretLen + '자' : '❌ 미등록'}`,
+            `  응답: HTTP ${blog.status} ${blog.statusText || ''}`,
+            blog.errorCode ? `  Naver 에러 코드: ${blog.errorCode}` : '',
+            blog.errorMessage ? `  Naver 에러 메시지: ${blog.errorMessage}` : '',
+            blog.total !== null && blog.total !== undefined ? `  total: ${blog.total}` : '',
+            '',
+            `[SearchAd API (검색량 측정)]`,
+            `  AccessLicense: ${r.searchAd?.licenseLen ? r.searchAd.licenseLen + '자' : '❌ 미등록'}`,
+            `  SecretKey: ${r.searchAd?.secretLen ? r.searchAd.secretLen + '자' : '❌ 미등록'}`,
+            `  CustomerID: ${r.searchAd?.customerId}`,
+            sa.ok !== undefined ? `  결과: ${sa.ok ? '✅ 성공' : '❌ 실패'} (${sa.elapsed || 0}ms)` : '',
+            sa.results !== undefined ? `  반환 키워드: ${sa.results}건` : '',
+            sa.error ? `  에러: ${sa.error}` : '',
+          ].filter(Boolean);
+          alert(lines.join('\n'));
+        } catch (e) {
+          alert('진단 오류: ' + (e?.message || e));
+        } finally {
+          btn.disabled = false;
+          btn.textContent = origText;
+        }
+      };
+    </script>
 
     <script>
       // v2.42.91: 트레이 함수
