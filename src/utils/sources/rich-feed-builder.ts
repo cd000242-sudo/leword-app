@@ -1006,6 +1006,36 @@ export async function buildRichFeed(
     console.log(`[rich-feed v2.42.16] Modifier 니치 ${modifierExtraSeeds.length}개 생성`);
     emit('longtail', 19, `진짜 황금 니치 ${modifierExtraSeeds.length}개 추가 (modifier 조합)`);
 
+    // v2.43.42: 사용자 프로필 카테고리 → evergreen 시드 강제 주입
+    //   1팀 사이클#1 D 옵션: "카테고리 quota 시드 주입" 실현
+    //   사용자가 [육아/뷰티/IT] 선택 시 매 발굴마다 해당 evergreen 시드 자동 추가
+    try {
+        if (_bloggerProfile && _bloggerProfile.selectedCategories.length > 0) {
+            const { getSeedsForUserCategories } = await import('./category-seed-catalog');
+            const userCatSeeds = getSeedsForUserCategories(
+                _bloggerProfile.selectedCategories as any[],
+                30, // 카테고리당 30개
+            );
+            const injected: typeof baseSeeds = [];
+            for (const kw of userCatSeeds) {
+                if (seenKeywords.has(kw)) continue;
+                seenKeywords.add(kw);
+                injected.push({
+                    keyword: kw,
+                    sources: ['user-category'],
+                    qualityScore: 1.6, // 시즌(1.4) 보다 약간 높게 — 사용자 맞춤 우선
+                });
+            }
+            if (injected.length > 0) {
+                extraSeeds.push(...injected);
+                console.log(`[rich-feed v2.43.42] 사용자 카테고리(${_bloggerProfile.selectedCategories.join(',')}) evergreen 시드 ${injected.length}개 주입`);
+                emit('user-category', 19, `👤 내 카테고리 evergreen ${injected.length}개 시드 주입`);
+            }
+        }
+    } catch (e: any) {
+        console.warn('[rich-feed v2.43.42] 사용자 카테고리 시드 주입 실패:', e?.message);
+    }
+
     // v2.43.34-41: 시즌 시드 + 의도 suffix + 의미 검증 (Step 3)
     try {
         const { getCurrentSeasonalSeeds, expandWithSemanticVerify } = await import('./seasonal-calendar');
