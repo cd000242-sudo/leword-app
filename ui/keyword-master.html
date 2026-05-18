@@ -1166,12 +1166,20 @@
               <td style="padding:10px 8px; text-align:center;"><span title="${r.category}">${r.categoryIcon}</span></td>
               <td style="padding:10px 8px; text-align:center;">${r.grade ? `<span class="rf-grade ${r.grade}" title="${r.grade === 'SSR' ? '수익 황금 (고CPC + 상업 키워드 + 수익 카테고리)' : r.grade}">${r.grade === 'SSR' ? '👑SSR' : r.grade}</span>` : '-'}</td>
               <td style="padding:10px 8px; font-weight:700; color:#f1f5f9;">${bluebadge} ${r.keyword} ${trendBadge} ${claudeBadge} ${(() => {
-                // v2.43.14: 블로거 친화도 배지 — 일반 블로거가 글쓰기 좋은 정도
+                // v2.43.14: 친화도 배지 + v2.43.26 사유 인라인 칩
                 const w = typeof r.bloggerWritability === 'number' ? r.bloggerWritability : null;
                 if (w === null) return '';
                 const wc = w >= 75 ? '#22c55e' : w >= 60 ? '#84cc16' : w >= 45 ? '#f59e0b' : '#ef4444';
                 const wl = w >= 75 ? '글쓰기 매우 좋음' : w >= 60 ? '글쓰기 좋음' : w >= 45 ? '글쓰기 보통' : '글쓰기 어려움';
-                return `<span title="${wl} (${w}점) — 셀럽/지역시설/전문어 패널티, longtail/카테고리 명확/commercial intent 가산" style="display:inline-block; margin-left:6px; padding:1px 6px; border-radius:8px; background:rgba(255,255,255,0.05); border:1px solid ${wc}55; color:${wc}; font-size:9.5px; font-weight:700;">✍️ ${w}</span>`;
+                const factors = Array.isArray(r.writabilityFactors) ? r.writabilityFactors : [];
+                // 상위 3개 사유 (절대값 큰 순)
+                const top = factors.slice().sort((a, b) => Math.abs(b.delta) - Math.abs(a.delta)).slice(0, 3);
+                const chipsHtml = top.map(f => {
+                    const sign = f.delta > 0 ? '+' : '';
+                    const color = f.delta > 0 ? '#86efac' : '#fca5a5';
+                    return `<span style="display:inline-block; margin-left:3px; padding:0 5px; border-radius:5px; background:rgba(255,255,255,0.04); border:1px solid ${color}44; color:${color}; font-size:9px;">${sign}${f.delta} ${f.label}</span>`;
+                }).join('');
+                return `<span title="${wl} (${w}점)" style="display:inline-block; margin-left:6px; padding:1px 6px; border-radius:8px; background:rgba(255,255,255,0.05); border:1px solid ${wc}55; color:${wc}; font-size:9.5px; font-weight:700;">✍️ ${w}</span>${chipsHtml}`;
               })()}</td>
               <td style="padding:10px 8px; text-align:right; color:#cbd5e1;">${r.searchVolume.toLocaleString()}${(() => {
                 // v2.43.24 (사이클#1 6팀): 예상 일일 트래픽 (sv/30) 표시 — "트래픽 보장" 약속 수치화

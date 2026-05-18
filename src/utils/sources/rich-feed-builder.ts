@@ -61,6 +61,8 @@ export interface RichKeywordRow {
     dcEstimated?: boolean;
     // 🔥 v2.43.14: 블로거 친화도 점수 (0~100) — 일반 블로거가 글쓰기 좋은 정도
     bloggerWritability?: number;
+    // v2.43.26 (사이클#3 5팀): 친화도 사유 분해 (UI에 인라인 칩으로 가시화)
+    writabilityFactors?: Array<{ delta: number; label: string }>;
     // 🔥 v2.19.0 Phase L-2: 30일 트렌드 타입 (상위 30개만 분류됨)
     trendType?: 'evergreen' | 'skyrocket' | 'flash' | 'seasonal' | 'unknown';
     trendLabel?: string;
@@ -427,77 +429,75 @@ function isEnglishSingleToken(keyword: string): boolean {
     return /^[A-Za-z]{2,15}$/.test(clean);
 }
 
-function calculateBloggerWritability(keyword: string, docCount: number, searchVolume: number): number {
+// v2.43.26 (사이클#3 5팀): 친화도 점수 사유 분해
+export interface WritabilityBreakdown {
+    score: number;
+    factors: Array<{ delta: number; label: string }>;
+}
+
+function calculateBloggerWritabilityBreakdown(keyword: string, docCount: number, searchVolume: number): WritabilityBreakdown {
     const clean = keyword.trim();
-    if (!clean) return 0;
+    if (!clean) return { score: 0, factors: [] };
     const tokens = clean.split(/\s+/).filter(Boolean);
     const tokenCount = tokens.length;
+    const factors: Array<{ delta: number; label: string }> = [];
 
     let score = 50; // base
+    const apply = (delta: number, label: string) => {
+        if (delta === 0) return;
+        score += delta;
+        factors.push({ delta, label });
+    };
 
-    // [-] 셀럽 가십 — 일반 블로거 영역 아님
-    if (isLikelyCelebrityName(clean)) score -= 30;
+    if (isLikelyCelebrityName(clean)) apply(-30, '셀럽');
+    if (FACILITY_RE.test(clean)) apply(-25, '시설/축제');
+    if (SHOP_BRAND_RE.test(clean)) apply(-20, '음식점/상호');
+    if (APARTMENT_RE.test(clean)) apply(-10, '아파트');
+    if (MEDICAL_PROFESSIONAL_RE.test(clean) && tokenCount === 1) apply(-18, '의료전문');
+    if (tokenCount === 1 && clean.length <= 3) apply(-8, '단일짧음');
 
-    // [-] 지역 시설/축제 — 도메인 너무 좁음
-    if (FACILITY_RE.test(clean)) score -= 25;
+    if (GAME_TITLE_RE.test(clean)) apply(-25, '게임');
+    if (NEWBORN_PRODUCT_MODEL_RE.test(clean)) apply(-20, '모델명');
+    if (SLANG_JARGON_RE.test(clean)) apply(-25, '은어');
 
-    // [-] 음식점/상호명 — 동네 후기 외 글감 어려움
-    if (SHOP_BRAND_RE.test(clean)) score -= 20;
+    if (FINANCE_EXPERT_RE.test(clean)) apply(-28, '금융전문');
+    if (REALESTATE_EXPERT_RE.test(clean)) apply(-25, '부동산');
+    if (INSURANCE_EXPERT_RE.test(clean)) apply(-25, '보험');
 
-    // [-] 아파트/단지명 — 부동산 전문 외엔 글감 어려움 (정보성 글로 통과 가능해 -10만)
-    if (APARTMENT_RE.test(clean)) score -= 10;
+    if (FOREIGN_CELEB_RE.test(clean)) apply(-35, '외국셀럽');
+    if (COMPANY_BRAND_NAME_RE.test(clean)) apply(-28, '회사명');
+    if (DRUG_NAME_RE.test(clean)) apply(-30, '약품');
+    if (isEnglishSingleToken(clean)) apply(-28, '영문단일');
+    if (KR_GAME_TITLE_RE.test(clean)) apply(-28, '한국게임');
+    if (AI_PLATFORM_RE.test(clean)) apply(-22, 'AI도구');
+    if (POLITICS_LEGAL_ABSTRACT_RE.test(clean)) apply(-25, '정치법률');
 
-    // [-] 의료 전문 (의사 블로거 아니면 위험)
-    if (MEDICAL_PROFESSIONAL_RE.test(clean) && tokenCount === 1) score -= 18;
+    if (INTENT_COMMERCIAL_RE.test(clean)) apply(20, 'commercial');
 
-    // [-] 너무 짧은 단일 토큰 — 막연
-    if (tokenCount === 1 && clean.length <= 3) score -= 8;
+    if (PARENTING_RE.test(clean)) apply(20, '육아');
+    if (BEAUTY_RE.test(clean)) apply(18, '뷰티');
+    if (FOOD_RECIPE_RE.test(clean)) apply(18, '레시피');
+    if (TRAVEL_RE.test(clean)) apply(15, '여행');
+    if (TECH_GUIDE_RE.test(clean)) apply(15, 'IT가이드');
 
-    // v2.43.16: niche 페널티 — 게임/모델명/은어
-    if (GAME_TITLE_RE.test(clean)) score -= 25;          // 게임 블로거 전용
-    if (NEWBORN_PRODUCT_MODEL_RE.test(clean)) score -= 20; // 신상 모델명 (러닝화 13M 등)
-    if (SLANG_JARGON_RE.test(clean)) score -= 25;         // 은어/신조어 (셔세권 등)
+    if (tokenCount === 2) apply(12, '2-token');
+    else if (tokenCount === 3) apply(15, '3-token');
+    else if (tokenCount >= 4) apply(8, '4+ token');
 
-    // v2.43.19: 금융/부동산/보험 전문 영역 — 일반 블로거는 E-A-T 부족, "정기예금 금리 비교" 같은 키워드 못 씀
-    if (FINANCE_EXPERT_RE.test(clean)) score -= 28;
-    if (REALESTATE_EXPERT_RE.test(clean)) score -= 25;
-    if (INSURANCE_EXPERT_RE.test(clean)) score -= 25;
+    if (docCount >= 500 && docCount <= 5000) apply(8, 'dc적정');
+    else if (docCount > 0 && docCount < 200) apply(3, 'dc초저');
+    else if (docCount > 5000 && docCount <= 10000) apply(-8, 'dc경쟁');
+    else if (docCount > 10000 && docCount <= 20000) apply(-18, 'dc강경쟁');
+    else if (docCount > 20000) apply(-28, 'dc치열');
 
-    // v2.43.20-23: 외국 셀럽/회사명/약품/영문/한국게임/AI플랫폼/정치법률 페널티 강화
-    if (FOREIGN_CELEB_RE.test(clean)) score -= 35;          // 30 → 35 (호소키 카즈코, 잭슨가 풀네임 포함)
-    if (COMPANY_BRAND_NAME_RE.test(clean)) score -= 28;     // 25 → 28 (티슈진/항공 등 추가)
-    if (DRUG_NAME_RE.test(clean)) score -= 30;
-    if (isEnglishSingleToken(clean)) score -= 28;           // 22 → 28 (CORTIS 같은 영문 단일)
-    if (KR_GAME_TITLE_RE.test(clean)) score -= 28;          // 한국 게임명 추가
-    if (AI_PLATFORM_RE.test(clean)) score -= 22;            // AI 도구 단독 (구글 제미나이 등)
-    if (POLITICS_LEGAL_ABSTRACT_RE.test(clean)) score -= 25; // 정치/법률 추상 (긴급조정권 등)
+    if (searchVolume >= 1000 && searchVolume <= 20000) apply(5, 'sv적정');
 
-    // [+] 검색 의도 명확한 commercial 접미사
-    if (INTENT_COMMERCIAL_RE.test(clean)) score += 20;
+    return { score: Math.max(0, Math.min(100, score)), factors };
+}
 
-    // [+] 카테고리 명확 (육아/뷰티/맛집레시피/여행/IT)
-    if (PARENTING_RE.test(clean)) score += 20;
-    if (BEAUTY_RE.test(clean)) score += 18;
-    if (FOOD_RECIPE_RE.test(clean)) score += 18;
-    if (TRAVEL_RE.test(clean)) score += 15;
-    if (TECH_GUIDE_RE.test(clean)) score += 15;
-
-    // [+] 2~3 토큰 longtail — 가장 글쓰기 좋은 형태
-    if (tokenCount === 2) score += 12;
-    else if (tokenCount === 3) score += 15;
-    else if (tokenCount >= 4) score += 8;
-
-    // v2.43.19: dc 경쟁 페널티 강화 — 초보자는 dc>5000부터 SERP 1페이지 진입 어려움
-    if (docCount >= 500 && docCount <= 5000) score += 8;       // 적정대 (신규 진입 가능)
-    else if (docCount > 0 && docCount < 200) score += 3;        // 초저경쟁
-    else if (docCount > 5000 && docCount <= 10000) score -= 8;  // 경쟁 있음
-    else if (docCount > 10000 && docCount <= 20000) score -= 18; // 강한 경쟁
-    else if (docCount > 20000) score -= 28;                     // 매우 치열
-
-    // [+] sv 충분 (트래픽 보장)
-    if (searchVolume >= 1000 && searchVolume <= 20000) score += 5;
-
-    return Math.max(0, Math.min(100, score));
+// 기존 호출 호환: number만 필요한 곳
+function calculateBloggerWritability(keyword: string, docCount: number, searchVolume: number): number {
+    return calculateBloggerWritabilityBreakdown(keyword, docCount, searchVolume).score;
 }
 
 function isWritableKeyword(keyword: string, docCount: number, searchVolume: number = 0, dcEstimated: boolean = false): boolean {
@@ -1167,12 +1167,19 @@ export async function buildRichFeed(
                     purchaseIntent: intent,
                     isBlueOcean,
                     dcEstimated: !hasValidDocCount, // 🔥 v2.41.0: 동적 SSS 승격 풀 신뢰도 가드용
-                    // v2.43.25 (사이클#2): 블로거 프로필 보정 (내 카테고리 +30, 경험 페널티)
-                    bloggerWritability: (() => {
-                        const base = calculateBloggerWritability(sig.keyword, docCount, totalVolume);
+                    // v2.43.25-26: 블로거 프로필 보정 + 사유 분해 (UI 칩용)
+                    ...(() => {
+                        const bd = calculateBloggerWritabilityBreakdown(sig.keyword, docCount, totalVolume);
                         const profileAdj = calculateProfileAffinity(sig.keyword, _bloggerProfile);
                         const expAdj = experienceAdjustment(docCount, _bloggerProfile);
-                        return Math.max(0, Math.min(100, base + profileAdj + expAdj));
+                        const factors = [...bd.factors];
+                        if (profileAdj > 0) factors.push({ delta: profileAdj, label: '내카테고리' });
+                        else if (profileAdj < 0) factors.push({ delta: profileAdj, label: '카테고리외' });
+                        if (expAdj < 0) factors.push({ delta: expAdj, label: '경험페널티' });
+                        return {
+                            bloggerWritability: Math.max(0, Math.min(100, bd.score + profileAdj + expAdj)),
+                            writabilityFactors: factors,
+                        };
                     })(),
                 });
             }
