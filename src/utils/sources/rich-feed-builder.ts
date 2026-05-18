@@ -510,9 +510,10 @@ function calculateBloggerWritabilityBreakdown(keyword: string, docCount: number,
     if (TRAVEL_RE.test(clean)) apply(15, '여행');
     if (TECH_GUIDE_RE.test(clean)) apply(15, 'IT가이드');
 
-    if (tokenCount === 2) apply(12, '2-token');
-    else if (tokenCount === 3) apply(15, '3-token');
-    else if (tokenCount >= 4) apply(8, '4+ token');
+    // v2.43.31: longtail 가산 강화 — 사용자 요구 "세부적인 확장성키워드"
+    if (tokenCount === 2) apply(15, '2-token');         // 12 → 15
+    else if (tokenCount === 3) apply(22, '3-token');    // 15 → 22 (best longtail)
+    else if (tokenCount >= 4) apply(15, '4+ token');    // 8 → 15
 
     if (docCount >= 500 && docCount <= 5000) apply(8, 'dc적정');
     else if (docCount > 0 && docCount < 200) apply(3, 'dc초저');
@@ -613,20 +614,22 @@ function calculateGrade(volume: number, docCount: number, ratio: number, score: 
     //   30 소스 200 후보 환경에서 자연 SSS 0~3개 → "총 0건" 사용자 신고 (스크린샷 확정).
     //   완화: sv 300-30k / dc<=10k / r>=2 generic / r>=1.5 commercial → 자연 SSS 5.8% / 1.3% (5x 개선)
     //   유지: v2.40.6 ratio<1 redOcean 차단 (정책 그대로) + commercial 우대
-    // v2.43.18: 자연 SSS 게이트 추가 완화 — 사용자 "대량 발굴" 요청
-    if (writable && !isCelebLike && docCount > 0 && volume >= 200 && volume <= 50000 && docCount <= 15000) {
-        if (ratio >= 1.7) return 'SSS';                                 // 일반 niche (2 → 1.7)
-        if (commercial && ratio >= 1.3) return 'SSS';                   // commercial (1.5 → 1.3)
+    // v2.43.31: longtail 세부 키워드 우선 — sv 상한 30K (이전 50K), 빅워드 차단
+    //   사용자 요구: "너무 대형키워드보다는 세부적인 확장성키워드"
+    //   sv 30K+ 키워드는 보통 단일 명사/빅워드 → SSS 자격 박탈
+    if (writable && !isCelebLike && docCount > 0 && volume >= 200 && volume <= 30000 && docCount <= 12000) {
+        if (ratio >= 1.7) return 'SSS';
+        if (commercial && ratio >= 1.3) return 'SSS';
         if (ratio >= 4 && docCount <= 8000) return 'SSS';
         if (commercial && docCount <= 5000 && ratio >= 1) return 'SSS';
     }
 
-    // SSS 기본 게이트도 동기화
+    // SSS 기본 게이트도 빅워드 제외
     const sssScore = commercial ? 62 : 68;
-    const sssSvMin = 200;     // 300 → 200
-    const sssSvMax = 50000;   // 30000 → 50000
-    const sssDc = 15000;      // 10000 → 15000
-    const sssRatio = commercial ? 1.3 : 1.7;  // 1.5/2 → 1.3/1.7
+    const sssSvMin = 200;
+    const sssSvMax = 30000;   // 50000 → 30000 (빅워드 차단)
+    const sssDc = 12000;      // 15000 → 12000 (저경쟁 우선)
+    const sssRatio = commercial ? 1.3 : 1.7;
     if (score >= sssScore && volume >= sssSvMin && volume <= sssSvMax && docCount > 0 && docCount <= sssDc && ratio >= sssRatio && allowSS) return 'SSS';
 
     // 🔥 v2.29.0: SS 자동 승격에도 writable 강제
@@ -1252,6 +1255,20 @@ export async function buildRichFeed(
         }
     }
 
+    // v2.43.31: 빅워드 (sv 30K+) + 단일/2-token 조합 SSS 자격 박탈 (longtail 우선)
+    let bigwordDowngraded = 0;
+    for (const r of enrichedRows) {
+        if (r.grade !== 'SSS' && r.grade !== 'SSR') continue;
+        const tokens = String(r.keyword || '').trim().split(/\s+/).filter(Boolean).length;
+        if (r.searchVolume >= 30000 && tokens <= 2) {
+            r.grade = 'SS';
+            bigwordDowngraded++;
+        }
+    }
+    if (bigwordDowngraded > 0) {
+        console.log(`[rich-feed v2.43.31] 빅워드 (sv≥30K + ≤2-token) SSS 강등: ${bigwordDowngraded}건`);
+    }
+
     // v2.43.23: 친화도 강등 컷 25 → 40 상향 (품질 우선 — 사용자 비판 "영양가 없는 키워드만")
     //   캡처에서 친화도 22 (코오롱티슈진), 20 (CORTIS), 34 (구글 제미나이) 가 SSS 통과 → 명백히 부적합
     //   대량 발굴은 데이터 수집 단계로 보장하고, 등급은 진짜 글쓰기 좋은 것만 SSS 유지
@@ -1302,11 +1319,14 @@ export async function buildRichFeed(
                     // 실측은 친화도 35+
                     if (writability < 35) return false;
                 }
+                // v2.43.31: longtail 우선 — sv 200~30K, 빅워드는 promotion 풀 진입 불가
+                const tokens = String(r.keyword || '').trim().split(/\s+/).filter(Boolean).length;
+                if (tokens >= 1 && tokens <= 2 && r.searchVolume >= 30000) return false; // 빅워드 차단
                 return (
                     (r.grade === 'SS' || r.grade === 'S' || r.grade === 'A') &&
                     r.searchVolume >= 200 &&
-                    r.searchVolume <= 80000 &&
-                    (r.dcEstimated ? r.goldenRatio >= 2.0 : (r.documentCount > 0 && r.documentCount <= 20000 && r.goldenRatio >= 1.3))
+                    r.searchVolume <= 30000 &&
+                    (r.dcEstimated ? r.goldenRatio >= 2.0 : (r.documentCount > 0 && r.documentCount <= 12000 && r.goldenRatio >= 1.3))
                 );
             })
             .map(r => {
@@ -1459,9 +1479,9 @@ export async function buildRichFeed(
         //   사용자 비판: "영양가 없는 키워드만 나온다" — Tier 2/3 가 친화도 25/20 까지 풀어줘서 가짜 SSS 양산
         //   품질 우선 정책: 친화도 40+ 만 SSS 자격, 결과 수 부족은 데이터 수집 단계로 별도 보강
         runFallbackTier('FALLBACK', {
-            minWritability: 40, minSv: 100, maxSv: 100000,
+            minWritability: 40, minSv: 100, maxSv: 30000,   // v2.43.31: 100K → 30K (빅워드 차단)
             minRatioMeasured: 1.1, minRatioEstimated: 1.5,
-            maxDc: 30000, minWritabilityEstimated: 65,
+            maxDc: 15000, minWritabilityEstimated: 65,      // 30K → 15K (저경쟁)
             categoryCap: MAX_PER_CATEGORY_HARD, brandCap: BRAND_PREFIX_CAP,
             allowSingleToken: false,
         });
