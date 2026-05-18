@@ -63,6 +63,8 @@ export interface RichKeywordRow {
     bloggerWritability?: number;
     // v2.43.26 (사이클#3 5팀): 친화도 사유 분해 (UI에 인라인 칩으로 가시화)
     writabilityFactors?: Array<{ delta: number; label: string }>;
+    // v2.43.28: 최근 추세 (네이버 데이터랩 30일 실측, dead/declining/stable/rising)
+    recencyStatus?: 'rising' | 'stable' | 'declining' | 'dead' | 'unknown';
     // 🔥 v2.19.0 Phase L-2: 30일 트렌드 타입 (상위 30개만 분류됨)
     trendType?: 'evergreen' | 'skyrocket' | 'flash' | 'seasonal' | 'unknown';
     trendLabel?: string;
@@ -1454,6 +1456,43 @@ export async function buildRichFeed(
     enrichedRows.push(...highGradeOnly);
 
     emit('grading', 88, `SSS-only 필터 적용 (${enrichedRows.length}건)...`);
+
+    // v2.43.28: 네이버 데이터랩 30일 추세 검증 — "아무도 안 찾는 키워드" 자동 차단
+    //   사용자 지적: "최신기준 아무도 안 찾는 검색 키워드면 안되지 않니?"
+    //   최근 7일 평균 / 30일 평균 < 0.25 = dead → SSS 풀에서 제외 (실측)
+    //   declining(<0.55) = 유지하되 UI에 마커 표시
+    try {
+        const envCfg: any = EnvironmentManager.getInstance().getConfig();
+        const datalabConfig = { clientId: envCfg.naverClientId || '', clientSecret: envCfg.naverClientSecret || '' };
+        if (datalabConfig.clientId && datalabConfig.clientSecret && enrichedRows.length > 0) {
+            const { checkKeywordsRecency } = await import('../naver-datalab-api');
+            // 상위 60건만 검증 (API quota 보호)
+            const toCheck = enrichedRows.slice(0, 60);
+            emit('verify-recency', 89, `최근 30일 추세 실측 검증 — ${toCheck.length}건 (dead keyword 자동 차단)...`);
+            const recencyMap = await checkKeywordsRecency(datalabConfig, toCheck.map(r => r.keyword));
+            let deadCount = 0;
+            const survivors: RichKeywordRow[] = [];
+            for (const r of enrichedRows) {
+                const rec = recencyMap.get(r.keyword);
+                if (rec) {
+                    r.recencyStatus = rec.status;
+                    if (rec.status === 'dead') {
+                        deadCount++;
+                        continue; // dead keyword 즉시 제외
+                    }
+                }
+                survivors.push(r);
+            }
+            enrichedRows.length = 0;
+            enrichedRows.push(...survivors);
+            console.log(`[rich-feed v2.43.28] 추세 검증: ${deadCount}건 dead 제외, ${enrichedRows.length}건 잔존`);
+            if (deadCount > 0) emit('verify-recency', 89, `dead 키워드 ${deadCount}건 자동 제외 (최근 7일 검색 거의 0)`);
+        } else {
+            console.warn('[rich-feed v2.43.28] 네이버 API 키 없음 — 추세 검증 스킵');
+        }
+    } catch (e: any) {
+        console.warn('[rich-feed v2.43.28] 추세 검증 실패 (계속 진행):', e?.message);
+    }
 
     // 🔥 v2.42.22: 모든 SSS/SSR 후보에 dc 강제 scrape 재검증 (200 limit 제거 + 무조건 신뢰)
     //   사용자 재신고: "황금키워드 나와도 dc 안 맞아". v2.42.21로 부족했던 부분:

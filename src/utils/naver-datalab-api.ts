@@ -11,6 +11,111 @@ export interface NaverDatalabConfig {
   clientSecret: string;
 }
 
+// v2.43.28: 키워드 최근 추세 검증 (dead keyword 차단)
+//   사용자 지적: "최신기준 아무도 안 찾는 검색 키워드는 안 된다"
+//   네이버 데이터랩 raw API로 30일 일별 추세 → 최근 7일 vs 30일 비율로 dead/declining/stable/rising 판정
+export type RecencyStatus = 'rising' | 'stable' | 'declining' | 'dead' | 'unknown';
+export interface KeywordRecency {
+  keyword: string;
+  recent7Avg: number;   // 최근 7일 평균 ratio (0~100)
+  full30Avg: number;    // 30일 전체 평균 ratio
+  ratio: number;        // recent7Avg / full30Avg (1.0=평행, 1.5+=상승, 0.3-=급락, 0=dead)
+  status: RecencyStatus;
+}
+
+/**
+ * 키워드 5개씩 배치로 최근 30일 추세 검증.
+ * 호출당 quota 1 (5개 키워드 동시 처리).
+ * 최근 7일 평균이 30일 평균의 25% 미만이면 'dead', 50% 미만이면 'declining'.
+ */
+export async function checkKeywordRecencyBatch(
+  config: NaverDatalabConfig,
+  keywords: string[],
+): Promise<KeywordRecency[]> {
+  if (!config.clientId || !config.clientSecret) return [];
+  if (keywords.length === 0) return [];
+
+  const cleaned = keywords.slice(0, 5).map(k => String(k || '').trim()).filter(Boolean);
+  if (cleaned.length === 0) return [];
+
+  const endDate = getDateToday();
+  const startDate = getDateDaysAgo(30);
+  const cacheKey = apiCache.generateKey('naver-recency', { kws: cleaned.sort().join('|'), startDate, endDate });
+
+  return cachedApiCall(
+    cacheKey,
+    async () => {
+      try {
+        const requestBody: any = {
+          startDate, endDate, timeUnit: 'date',
+          keywordGroups: cleaned.map(kw => ({ groupName: kw, keywords: [kw] })),
+        };
+        const res = await ErrorHandler.withTimeout(
+          async () => fetch('https://openapi.naver.com/v1/datalab/search', {
+            method: 'POST',
+            headers: {
+              'X-Naver-Client-Id': config.clientId,
+              'X-Naver-Client-Secret': config.clientSecret,
+              'Content-Type': 'application/json',
+            },
+            body: JSON.stringify(requestBody),
+          }),
+          15000,
+          '네이버 데이터랩 추세 검증 timeout',
+        );
+        if (!res.ok) {
+          console.warn('[RECENCY] datalab HTTP', res.status);
+          return cleaned.map(kw => ({ keyword: kw, recent7Avg: 0, full30Avg: 0, ratio: 0, status: 'unknown' as RecencyStatus }));
+        }
+        const data: any = await res.json().catch(() => ({}));
+        const results: KeywordRecency[] = [];
+        for (const group of (data.results || [])) {
+          const groupName = String(group.title || group.groupName || '');
+          const series: Array<{ period: string; ratio: number }> = Array.isArray(group.data) ? group.data : [];
+          if (series.length === 0) {
+            results.push({ keyword: groupName, recent7Avg: 0, full30Avg: 0, ratio: 0, status: 'unknown' });
+            continue;
+          }
+          // 최근 7일 vs 전체 30일 평균
+          const recent = series.slice(-7);
+          const recent7Avg = recent.reduce((a, b) => a + (Number(b.ratio) || 0), 0) / Math.max(1, recent.length);
+          const full30Avg = series.reduce((a, b) => a + (Number(b.ratio) || 0), 0) / series.length;
+          const ratio = full30Avg > 0 ? recent7Avg / full30Avg : 0;
+          let status: RecencyStatus = 'unknown';
+          if (recent7Avg <= 0.01) status = 'dead';
+          else if (ratio < 0.25) status = 'dead';
+          else if (ratio < 0.55) status = 'declining';
+          else if (ratio >= 1.5) status = 'rising';
+          else status = 'stable';
+          results.push({ keyword: groupName, recent7Avg, full30Avg, ratio, status });
+        }
+        return results;
+      } catch (e: any) {
+        console.warn('[RECENCY] error:', e?.message);
+        return cleaned.map(kw => ({ keyword: kw, recent7Avg: 0, full30Avg: 0, ratio: 0, status: 'unknown' as RecencyStatus }));
+      }
+    },
+    10 * 60 * 1000, // 10분 캐시
+  );
+}
+
+/**
+ * 키워드 다건 추세 검증 (자동 batch 5개씩, 직렬)
+ */
+export async function checkKeywordsRecency(
+  config: NaverDatalabConfig,
+  keywords: string[],
+): Promise<Map<string, KeywordRecency>> {
+  const map = new Map<string, KeywordRecency>();
+  for (let i = 0; i < keywords.length; i += 5) {
+    const batch = keywords.slice(i, i + 5);
+    const results = await checkKeywordRecencyBatch(config, batch);
+    for (const r of results) map.set(r.keyword, r);
+    if (i + 5 < keywords.length) await new Promise(r => setTimeout(r, 200)); // rate-limit
+  }
+  return map;
+}
+
 export interface TrendKeyword {
   rank: number;
   keyword: string;
