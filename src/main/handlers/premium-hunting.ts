@@ -778,6 +778,40 @@ export function setupPremiumHuntingHandlers(): void {
           console.log(`[PRO-TRAFFIC] 🚀 AdSense 9-게이트 후처리: ${enhanced.length}/${result.keywords.length} 통과 (차단 ${blockedCount}개, SSS 복구 ${rescuedSss.length})`, blockedReasons);
         }
 
+        // v2.43.46: PRO Hunter 결과에도 친화도/다의어 게이트 적용 (rich-feed-builder 와 동일 품질)
+        try {
+          const { diagnoseKeyword } = await import('../../utils/sources/rich-feed-builder');
+          let bloggerBlocked = 0;
+          const cleaned: any[] = [];
+          for (const k of finalKeywords) {
+            const kw = String(k.keyword || '').trim();
+            if (!kw) continue;
+            const dc = Number(k.documentCount || k.docCount || 0);
+            const sv = Number(k.searchVolume || k.monthlyPcQcCnt + k.monthlyMobileQcCnt || 0);
+            const diag = diagnoseKeyword(kw, dc, sv);
+            // 다의어/동사/단일토큰 차단
+            if (diag.blockedBy === 'POLYSEMY/VERB' || diag.blockedBy === 'GENERIC_BROAD' || diag.blockedBy === 'NEWS_NOISE') {
+              bloggerBlocked++;
+              continue;
+            }
+            // 친화도 < 30 강등 (PRO Hunter 기존 검증된 SSS는 보호하기 위해 컷 낮춤)
+            if (diag.writabilityScore < 30) {
+              bloggerBlocked++;
+              continue;
+            }
+            // 친화도 분해 사유 동봉 (UI 활용 가능)
+            (k as any).writabilityScore = diag.writabilityScore;
+            (k as any).writabilityFactors = diag.factors;
+            cleaned.push(k);
+          }
+          if (bloggerBlocked > 0) {
+            console.log(`[PRO-TRAFFIC v2.43.46] 친화도/다의어 차단: ${bloggerBlocked}건 (${finalKeywords.length} → ${cleaned.length})`);
+            finalKeywords = cleaned;
+          }
+        } catch (e: any) {
+          console.warn('[PRO-TRAFFIC v2.43.46] 친화도 후처리 실패:', e?.message);
+        }
+
         // 🤖 Manus AI 보강은 별도 비동기 IPC(start-manus-enrichment)에서 처리
         //    PRO 결과는 즉시 반환 → UI가 별도로 startEnrichment 호출 → 폴링
 

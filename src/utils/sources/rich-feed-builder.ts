@@ -1036,13 +1036,35 @@ export async function buildRichFeed(
         console.warn('[rich-feed v2.43.42] 사용자 카테고리 시드 주입 실패:', e?.message);
     }
 
-    // v2.43.34-41: 시즌 시드 + 의도 suffix + 의미 검증 (Step 3)
+    // v2.43.34-46: 시즌 시드 + 카테고리×시즌 매트릭스 + 의도 suffix + 의미 검증
     try {
-        const { getCurrentSeasonalSeeds, expandWithSemanticVerify } = await import('./seasonal-calendar');
-        const baseSeasonalKeywords = getCurrentSeasonalSeeds();
-        const { items: expanded, verified, blocked } = await expandWithSemanticVerify(baseSeasonalKeywords, 8, 0.45);
+        const { getCurrentSeasonalSeeds, expandWithSemanticVerify, getSeasonalForUserCategories } = await import('./seasonal-calendar');
+        // v2.43.46: 사용자 카테고리 매칭 시즌 시드 우선 가산
+        let userPatterns: RegExp[] = [];
+        if (_bloggerProfile && _bloggerProfile.selectedCategories.length > 0) {
+            const { BLOGGER_CATEGORIES } = await import('../blogger-profile');
+            userPatterns = _bloggerProfile.selectedCategories
+                .map(id => BLOGGER_CATEGORIES.find(c => c.id === id))
+                .filter((c): c is any => !!c)
+                .map(c => c.affinityPattern);
+        }
+        const matrix = getSeasonalForUserCategories(userPatterns);
+
+        // matched 시드 우선 의도 suffix 확장 (perSeed 10, 미매칭은 6)
+        const { items: matchedExpanded, verified, blocked } = await expandWithSemanticVerify(matrix.matched, 10, 0.45);
+        const generalExpanded = (await expandWithSemanticVerify(matrix.general, 6, 0.45)).items;
+
         const seasonalSeeds: typeof baseSeeds = [];
-        for (const kw of expanded) {
+        for (const kw of matchedExpanded) {
+            if (seenKeywords.has(kw)) continue;
+            seenKeywords.add(kw);
+            seasonalSeeds.push({
+                keyword: kw,
+                sources: ['seasonal-calendar', 'user-matched'],
+                qualityScore: 1.8, // 매트릭스 매칭 우선
+            });
+        }
+        for (const kw of generalExpanded) {
             if (seenKeywords.has(kw)) continue;
             seenKeywords.add(kw);
             seasonalSeeds.push({
@@ -1053,11 +1075,12 @@ export async function buildRichFeed(
         }
         extraSeeds.push(...seasonalSeeds);
         const monthLabel = new Date().getMonth() + 1;
-        const verifyTag = verified ? ` (🧠 의미 검증 ${blocked}건 차단)` : '';
-        console.log(`[rich-feed v2.43.41] ${monthLabel}월 시즌 시드 ${baseSeasonalKeywords.length}개 → ${seasonalSeeds.length}개 longtail${verifyTag}`);
-        emit('seasonal', 20, `📅 ${monthLabel}월 시즌 longtail ${seasonalSeeds.length}개 주입${verifyTag}`);
+        const verifyTag = verified ? ` (🧠 ${blocked}건 차단)` : '';
+        const matchTag = matrix.matched.length > 0 ? ` (내 카테고리 매칭 ${matrix.matched.length})` : '';
+        console.log(`[rich-feed v2.43.46] ${monthLabel}월 시즌 ${matrix.matched.length}+${matrix.general.length} → ${seasonalSeeds.length} longtail${verifyTag}`);
+        emit('seasonal', 20, `📅 ${monthLabel}월 시즌 longtail ${seasonalSeeds.length}개${matchTag}${verifyTag}`);
     } catch (e: any) {
-        console.warn('[rich-feed v2.43.41] seasonal-calendar 로드 실패:', e?.message);
+        console.warn('[rich-feed v2.43.46] seasonal-calendar 로드 실패:', e?.message);
     }
 
     // v2.43.34 (Phase 1): trend-surge-detector 결과 → 발굴 풀 합류

@@ -344,3 +344,32 @@ export function getSeedDomainBreakdown(seeds: string[]): Record<SeedDomain, stri
   }
   return result;
 }
+
+// v2.43.46: 카테고리 × 시즌 매트릭스
+// 사용자 카테고리에 매칭되는 시즌 시드 우선 — 같은 5월이라도 육아 블로거는 "어린이날 선물", 금융 블로거는 "종합소득세 환급" 우선
+export interface SeasonalMatrixResult {
+  matched: string[];    // 사용자 카테고리 매칭 시즌 시드 (우선)
+  general: string[];    // 미매칭 시즌 시드 (보조)
+  matchedRatio: number; // matched / total
+}
+
+export function getSeasonalForUserCategories(
+  userCategoryAffinityPatterns: RegExp[],
+): SeasonalMatrixResult {
+  const all = getCurrentSeasonalSeeds();
+  if (userCategoryAffinityPatterns.length === 0) {
+    return { matched: [], general: all, matchedRatio: 0 };
+  }
+  const matched: string[] = [];
+  const general: string[] = [];
+  for (const seed of all) {
+    const hit = userCategoryAffinityPatterns.some(pat => pat.test(seed));
+    if (hit) matched.push(seed);
+    else general.push(seed);
+  }
+  return {
+    matched,
+    general,
+    matchedRatio: all.length > 0 ? matched.length / all.length : 0,
+  };
+}
