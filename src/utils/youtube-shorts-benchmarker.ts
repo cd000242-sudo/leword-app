@@ -155,12 +155,33 @@ function sanitizeVideoId(raw: any): string | null {
   return typeof raw === 'string' && /^[A-Za-z0-9_-]{11}$/.test(raw) ? raw : null;
 }
 
-function isMostlyKorean(text: string, minRatio = 0.3): boolean {
+function isMostlyKorean(text: string, minRatio = 0.2): boolean {
   if (!text) return false;
   const stripped = text.replace(/\s+/g, '');
   if (stripped.length === 0) return false;
-  const korean = (stripped.match(/[가-힯]/g) || []).length;
+  const korean = (stripped.match(/[가-힣]/g) || []).length;
   return korean / stripped.length >= minRatio;
+}
+
+// v2.43.22: 채널/콘텐츠 한국 판단 — 다중 신호 결합
+function looksLikeKoreanContent(snippet: any): boolean {
+  const title = String(snippet?.title || '');
+  const desc = String(snippet?.description || '');
+  const channelTitle = String(snippet?.channelTitle || '');
+  const tags: string[] = Array.isArray(snippet?.tags) ? snippet.tags.map(String) : [];
+
+  // 채널명에 한글 있으면 한국 채널 가능성 매우 높음
+  if (/[가-힣]/.test(channelTitle)) return true;
+  // 제목에 한글 20%+
+  if (isMostlyKorean(title, 0.2)) return true;
+  // 설명에 한글 15%+
+  if (isMostlyKorean(desc, 0.15)) return true;
+  // 태그에 한글 키워드 1개 이상
+  if (tags.some(t => /[가-힣]{2,}/.test(t))) return true;
+  // defaultAudioLanguage 또는 defaultLanguage가 ko*
+  const lang = String(snippet?.defaultAudioLanguage || snippet?.defaultLanguage || '').toLowerCase();
+  if (lang === 'ko' || lang.startsWith('ko-')) return true;
+  return false;
 }
 
 // ────────────────────────────────────────────────────────────────────────────
@@ -575,12 +596,9 @@ export async function getTrendingShorts(query: ShortsQuery = {}): Promise<Shorts
     rawItems = rawItems.filter(it => set.has(String(it.snippet?.categoryId || '')));
   }
 
-  // 한글 콘텐츠 필터 (옵션)
+  // v2.43.22: 한국 콘텐츠 필터 — 채널명/제목/설명/태그/언어 다중 신호 결합
   if (koreanOnly) {
-    rawItems = rawItems.filter(it => {
-      const text = String(it.snippet?.title || '') + ' ' + String(it.snippet?.description || '');
-      return isMostlyKorean(text);
-    });
+    rawItems = rawItems.filter(it => looksLikeKoreanContent(it.snippet));
   }
 
   if (rawItems.length === 0) {
