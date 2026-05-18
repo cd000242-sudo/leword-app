@@ -1191,13 +1191,14 @@
               <td style="padding:10px 8px; text-align:right; font-weight:800; color:${ratioColor};">${r.goldenRatio.toFixed(2)}</td>
               <td style="padding:10px 8px; text-align:right; color:#cbd5e1;" title="네이버 검색광고 API 실측 평균 입찰가">${(typeof r.cpc === 'number' && r.cpc > 0) ? '₩' + r.cpc.toLocaleString() : '<span style="color:#64748b;">-</span>'}</td>
               <td style="padding:10px 8px; text-align:center;"><span class="rf-fresh ${r.freshness}">${freshIcon(r.freshness)}</span>${(() => {
-                // v2.43.28: 최근 30일 추세 (네이버 데이터랩 실측)
+                // v2.43.28-29: 최근 30일 추세 (네이버 데이터랩 실측)
                 const rs = r.recencyStatus;
                 if (!rs || rs === 'unknown') return '';
                 const map = {
                     rising:    { color: '#22c55e', label: '↑ 최근 상승', icon: '📈' },
                     stable:    { color: '#84cc16', label: '→ 최근 안정', icon: '➡️' },
                     declining: { color: '#f59e0b', label: '↓ 최근 하락', icon: '📉' },
+                    dead:      { color: '#ef4444', label: '⊘ 최근 거의 안 검색됨', icon: '⊘' },
                 };
                 const m = map[rs];
                 if (!m) return '';

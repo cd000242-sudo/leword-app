@@ -1457,41 +1457,45 @@ export async function buildRichFeed(
 
     emit('grading', 88, `SSS-only 필터 적용 (${enrichedRows.length}건)...`);
 
-    // v2.43.28: 네이버 데이터랩 30일 추세 검증 — "아무도 안 찾는 키워드" 자동 차단
-    //   사용자 지적: "최신기준 아무도 안 찾는 검색 키워드면 안되지 않니?"
-    //   최근 7일 평균 / 30일 평균 < 0.25 = dead → SSS 풀에서 제외 (실측)
-    //   declining(<0.55) = 유지하되 UI에 마커 표시
+    // v2.43.28-29: 네이버 데이터랩 30일 추세 검증
+    //   v2.43.28: dead keyword 즉시 제외 → 사용자 우려 "결과 0건 되면 곤란"
+    //   v2.43.29 안전장치: dead 제외 후 최소 20건 유지. 부족하면 마커만 적용하고 결과 유지
     try {
         const envCfg: any = EnvironmentManager.getInstance().getConfig();
         const datalabConfig = { clientId: envCfg.naverClientId || '', clientSecret: envCfg.naverClientSecret || '' };
         if (datalabConfig.clientId && datalabConfig.clientSecret && enrichedRows.length > 0) {
             const { checkKeywordsRecency } = await import('../naver-datalab-api');
-            // 상위 60건만 검증 (API quota 보호)
             const toCheck = enrichedRows.slice(0, 60);
-            emit('verify-recency', 89, `최근 30일 추세 실측 검증 — ${toCheck.length}건 (dead keyword 자동 차단)...`);
+            emit('verify-recency', 89, `최근 30일 추세 실측 검증 — ${toCheck.length}건...`);
             const recencyMap = await checkKeywordsRecency(datalabConfig, toCheck.map(r => r.keyword));
-            let deadCount = 0;
-            const survivors: RichKeywordRow[] = [];
+
+            // 모든 행에 recencyStatus 마커 적용 (제외 여부와 무관)
             for (const r of enrichedRows) {
                 const rec = recencyMap.get(r.keyword);
-                if (rec) {
-                    r.recencyStatus = rec.status;
-                    if (rec.status === 'dead') {
-                        deadCount++;
-                        continue; // dead keyword 즉시 제외
-                    }
-                }
-                survivors.push(r);
+                if (rec) r.recencyStatus = rec.status;
             }
-            enrichedRows.length = 0;
-            enrichedRows.push(...survivors);
-            console.log(`[rich-feed v2.43.28] 추세 검증: ${deadCount}건 dead 제외, ${enrichedRows.length}건 잔존`);
-            if (deadCount > 0) emit('verify-recency', 89, `dead 키워드 ${deadCount}건 자동 제외 (최근 7일 검색 거의 0)`);
+
+            // dead 제외 시뮬레이션 → 최소 결과 보장 안전장치
+            const MIN_RESULTS_FLOOR = 20;
+            const liveRows = enrichedRows.filter(r => r.recencyStatus !== 'dead');
+            const deadCount = enrichedRows.length - liveRows.length;
+
+            if (liveRows.length >= MIN_RESULTS_FLOOR || deadCount === 0) {
+                // 충분히 남았으면 dead 제외 적용
+                enrichedRows.length = 0;
+                enrichedRows.push(...liveRows);
+                console.log(`[rich-feed v2.43.29] 추세 검증: ${deadCount}건 dead 제외, ${enrichedRows.length}건 잔존`);
+                if (deadCount > 0) emit('verify-recency', 89, `dead 키워드 ${deadCount}건 자동 제외 (최근 7일 검색 거의 0)`);
+            } else {
+                // 결과 부족 시 dead 도 유지 (마커만 표시) — "결과 0건" 방지
+                console.log(`[rich-feed v2.43.29] dead 제외 시 ${liveRows.length}건 < 최소 ${MIN_RESULTS_FLOOR}건 → 전부 유지하되 마커만 표시 (dead ${deadCount}건)`);
+                emit('verify-recency', 89, `결과 부족(${liveRows.length}건) → dead 제외 안 함, 마커만 표시`);
+            }
         } else {
-            console.warn('[rich-feed v2.43.28] 네이버 API 키 없음 — 추세 검증 스킵');
+            console.warn('[rich-feed v2.43.29] 네이버 API 키 없음 — 추세 검증 스킵');
         }
     } catch (e: any) {
-        console.warn('[rich-feed v2.43.28] 추세 검증 실패 (계속 진행):', e?.message);
+        console.warn('[rich-feed v2.43.29] 추세 검증 실패 (계속 진행):', e?.message);
     }
 
     // 🔥 v2.42.22: 모든 SSS/SSR 후보에 dc 강제 scrape 재검증 (200 limit 제거 + 무조건 신뢰)
