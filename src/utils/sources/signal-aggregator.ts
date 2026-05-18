@@ -21,6 +21,15 @@ import { getTheqooKeywords } from './theqoo-collector';
 import { getBobaeKeywords } from './bobaedream-collector';
 import { fetchOliveyoungBest, extractOliveyoungKeywords } from './oliveyoung-ranking';
 import { fetchMusinsaRanking, extractMusinsaKeywords } from './musinsa-ranking';
+// v2.43.37: "30+ 소스" 거짓 fix — 실제 미호출이던 8개 collector 추가
+import { getBigkindsSeedKeywords } from './bigkinds-wrapper';
+import { getInvenKeywords } from './inven-collector';
+import { getNatepannKeywords } from './natepann-collector';
+import { getFmkoreaKeywords } from './fmkorea-collector';
+import { getTodayhumorKeywords } from './todayhumor-collector';
+import { getClienKeywords } from './clien-collector';
+import { getRuliwebKeywords } from './ruliweb-collector';
+import { getMlbparkKeywords } from './mlbpark-collector';
 // meta-ad-library: Facebook 403 차단으로 제거됨
 // kream/namuwiki: 서버 차단·SPA 변경으로 제거됨
 
@@ -184,6 +193,32 @@ export async function pullAllSeedKeywords(options: { lite?: boolean } = {}): Pro
             for (const t of cached) addSeed(t.topic, 'openalex');
         } catch (e) { console.error('[aggregator] openalex fail', e); }
     })());
+
+    // v2.43.37: 미호출이던 8개 커뮤니티/뉴스 source 추가 (실제 30+ 달성)
+    const COMMUNITY_COLLECTORS: Array<{ name: string; ttl: number; fn: () => Promise<Array<{ keyword: string; frequency?: number }>> }> = [
+        { name: 'bigkinds',   ttl: TTL.HOURLY, fn: async () => (await getBigkindsSeedKeywords()).map(k => ({ keyword: k })) },
+        { name: 'inven',      ttl: TTL.HOURLY, fn: getInvenKeywords },
+        { name: 'natepann',   ttl: TTL.HOURLY, fn: getNatepannKeywords },
+        { name: 'fmkorea',    ttl: TTL.HOURLY, fn: getFmkoreaKeywords },
+        { name: 'todayhumor', ttl: TTL.HOURLY, fn: getTodayhumorKeywords },
+        { name: 'clien',      ttl: TTL.HOURLY, fn: getClienKeywords },
+        { name: 'ruliweb',    ttl: TTL.HOURLY, fn: getRuliwebKeywords },
+        { name: 'mlbpark',    ttl: TTL.HOURLY, fn: getMlbparkKeywords },
+    ];
+    for (const collector of COMMUNITY_COLLECTORS) {
+        tasks.push((async () => {
+            try {
+                const cached = cache.get<any>(collector.name) || (await collector.fn());
+                cache.set(collector.name, cached, collector.ttl);
+                raw[collector.name] = cached;
+                for (const item of cached) {
+                    if (item && item.keyword) addSeed(item.keyword, collector.name);
+                }
+            } catch (e: any) {
+                console.warn(`[aggregator] ${collector.name} fail:`, e?.message);
+            }
+        })());
+    }
 
     tasks.push((async () => {
         try {

@@ -58,17 +58,19 @@ export async function runExternalTrendingPump(): Promise<BulkRegisterResult | nu
 
 /**
  * cron 시작 (앱 부팅 시 호출)
- * - 부팅 5분 후 1차 실행 (앱 안정화 대기)
+ * v2.43.37: 5분 → 30초 단축 (1팀 비평: "부팅 직후 발굴은 cold pool")
+ * - 부팅 30초 후 1차 실행 (앱 안정화만 대기, 사용자가 곧장 발굴 누를 때 풀 풍부)
  * - 이후 6시간마다 반복
  */
 export function startExternalTrendingPump(): void {
   if (timer) return;
-  console.log('[TRENDING-PUMP] cron 시작 — 5분 후 1차, 이후 6시간 주기');
-  setTimeout(() => {
+  console.log('[TRENDING-PUMP] cron 시작 — 30초 후 1차, 이후 6시간 주기');
+  const first = setTimeout(() => {
     void runExternalTrendingPump();
     timer = setInterval(() => void runExternalTrendingPump(), PUMP_INTERVAL_MS);
     timer.unref?.();
-  }, 5 * 60 * 1000);
+  }, 30 * 1000);
+  first.unref?.();
 }
 
 export function stopExternalTrendingPump(): void {
