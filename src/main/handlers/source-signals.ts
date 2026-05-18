@@ -367,6 +367,22 @@ export function setupSourceSignalHandlers(): void {
             return { success: false, error: e.message };
         }
     });
+    // v2.43.43: 유사 키워드 추천
+    ipcMain.handle('find-similar-keywords', async (_e, keyword: string, options?: { limit?: number }) => {
+        try {
+            const { findSimilarKeywords } = await import('../../utils/similar-keywords');
+            const envCfg: any = require('../../utils/environment-manager').EnvironmentManager.getInstance().getConfig();
+            const items = await findSimilarKeywords(keyword, {
+                limit: options?.limit || 10,
+                clientId: envCfg.naverClientId || '',
+                clientSecret: envCfg.naverClientSecret || '',
+            });
+            return { success: true, items };
+        } catch (e: any) {
+            return { success: false, error: e.message };
+        }
+    });
+
     ipcMain.handle('semantic-test', async (_e, a: string, b: string) => {
         try {
             const { semanticCompatible, embed, cosine } = await import('../../utils/semantic-embedding');
