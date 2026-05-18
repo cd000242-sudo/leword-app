@@ -748,7 +748,8 @@ export async function buildRichFeed(
 
     // 🔥 v2.27.9: 하드캡 8분 → 6분 (사용자 "실제 그 시간 안 걸리는데 확실하게 대량")
     //   사용자 환경은 네이버 API 정상 → 후보 2500 + concurrency 8 이 6분 내 가능
-    const HARD_CAP_MS = 6 * 60 * 1000;
+    // v2.43.32: 하드캡 6분 → 3.5분 (사용자 "너무 오래걸린다")
+    const HARD_CAP_MS = 3.5 * 60 * 1000;
     const startedAt = Date.now();
     const isExceeded = () => Date.now() - startedAt > HARD_CAP_MS;
 
@@ -1088,7 +1089,8 @@ export async function buildRichFeed(
     //   기존 batch 40 × 병렬 10 × 내부 concurrency 8 = 최대 80 동시 요청 → rate-limit → scrapeFallback 오염
     //   신규 batch 40 × 병렬 5 × 내부 concurrency 3 = 최대 15 동시 요청 → API 성공률 최우선
     const batchSize = 40;
-    const PARALLEL_BATCHES = 5;
+    // v2.43.32: API 측정 동시 batch 5 → 10 (2배 속도)
+    const PARALLEL_BATCHES = 10;
     const batches: typeof candidates[] = [];
     for (let i = 0; i < candidates.length; i += batchSize) {
         batches.push(candidates.slice(i, i + batchSize));
@@ -1553,9 +1555,13 @@ export async function buildRichFeed(
     //     3) persistent cache 업데이트 안 함 → 다음 호출에 옛 API 값 재사용 → cache write 추가
     //   비용: SSS/SSR 후보 50~300건 × 1초 = 50~300초. 6분 하드캡 내 흡수.
     if (enrichedRows.length > 0) {
-        emit('verify-dc', 88, `dc 정확성 풀 검증 (웹 실측) — ${enrichedRows.length}건...`);
-        const VERIFY_CONCURRENCY = 8;  // 5 → 8 (속도 우선)
-        const SCRAPE_TIMEOUT = 3000;
+        // v2.43.32: dc scrape 재검증을 dcEstimated=true 행에만 한정 + 상위 80건만
+        //   사용자 요구: "최대한 빠르고 정확하면서 안정적이게"
+        //   실측 dc 행은 이미 신뢰. 추정값 (sv*0.5 fallback) 행만 재검증 필요
+        const needsVerify = enrichedRows.filter(r => r.dcEstimated).slice(0, 80);
+        emit('verify-dc', 88, `dc 정확성 검증 (추정값 행만, ${needsVerify.length}건)...`);
+        const VERIFY_CONCURRENCY = 16;  // 8 → 16 (2배 속도)
+        const SCRAPE_TIMEOUT = 2500;     // 3000 → 2500
         let verified = 0;
         let corrected = 0;
         let demoted = 0;
@@ -1601,12 +1607,12 @@ export async function buildRichFeed(
             }
         };
 
-        for (let i = 0; i < enrichedRows.length; i += VERIFY_CONCURRENCY) {
+        for (let i = 0; i < needsVerify.length; i += VERIFY_CONCURRENCY) {
             if (isExceeded()) {
-                console.warn(`[rich-feed v2.42.22] dc 검증 timeout — ${verified}/${enrichedRows.length} 처리 후 중단`);
+                console.warn(`[rich-feed v2.43.32] dc 검증 timeout — ${verified}/${needsVerify.length} 처리 후 중단`);
                 break;
             }
-            const batch = enrichedRows.slice(i, i + VERIFY_CONCURRENCY);
+            const batch = needsVerify.slice(i, i + VERIFY_CONCURRENCY);
             await Promise.all(batch.map(async (r) => {
                 if ((r as any).claudeDiscovered || (r as any).discoveredByManus) return; // 별도 검증 경로
                 const scraped = await scrapeWebDc(r.keyword);

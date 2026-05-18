@@ -100,18 +100,26 @@ export async function checkKeywordRecencyBatch(
 }
 
 /**
- * 키워드 다건 추세 검증 (자동 batch 5개씩, 직렬)
+ * 키워드 다건 추세 검증 (자동 batch 5개씩, 병렬 3개 동시)
+ * v2.43.32: 직렬 → 병렬 3 batch 동시 → 속도 3배
  */
 export async function checkKeywordsRecency(
   config: NaverDatalabConfig,
   keywords: string[],
 ): Promise<Map<string, KeywordRecency>> {
   const map = new Map<string, KeywordRecency>();
+  const batches: string[][] = [];
   for (let i = 0; i < keywords.length; i += 5) {
-    const batch = keywords.slice(i, i + 5);
-    const results = await checkKeywordRecencyBatch(config, batch);
-    for (const r of results) map.set(r.keyword, r);
-    if (i + 5 < keywords.length) await new Promise(r => setTimeout(r, 200)); // rate-limit
+    batches.push(keywords.slice(i, i + 5));
+  }
+  const PARALLEL = 3;
+  for (let i = 0; i < batches.length; i += PARALLEL) {
+    const slice = batches.slice(i, i + PARALLEL);
+    const results = await Promise.all(slice.map(b => checkKeywordRecencyBatch(config, b)));
+    for (const arr of results) {
+      for (const r of arr) map.set(r.keyword, r);
+    }
+    if (i + PARALLEL < batches.length) await new Promise(r => setTimeout(r, 100));
   }
   return map;
 }
