@@ -74,6 +74,18 @@ const SAMPLES: Array<{ kw: string; sv: number; dc: number; expected: string }> =
     { kw: '더샵송도그란테르',    sv: 27730,  dc: 953,   expected: '낮은 친화도 (아파트)' },
     { kw: '종로쌍뱀',            sv: 1020,   dc: 8,     expected: '낮은 친화도 (음식점)' },
     { kw: '제네시스 GV90',       sv: 30700,  dc: 14186, expected: '경계 (자동차+모델명)' },
+
+    // v2.43.33 신규: 시즌/하우투/시민참여 황금키워드 (사용자 예시)
+    { kw: '종합소득세 환급',         sv: 22000,  dc: 4200,  expected: '★ 시즌 환급형' },
+    { kw: '환급금 조회 홈택스',       sv: 15600,  dc: 2800,  expected: '★ 조회 경로형' },
+    { kw: '연말정산 환급금 조회',     sv: 18900,  dc: 5100,  expected: '★ 시즌 조회형' },
+    { kw: '토스주식 하는법',          sv: 9800,   dc: 1450,  expected: '★ 초보 실행형' },
+    { kw: '토스증권 계좌개설',        sv: 5400,   dc: 920,   expected: '★ 실행형' },
+    { kw: '병원비 환급금 조회',       sv: 4200,   dc: 1200,  expected: '★ 시즌+조회형' },
+    { kw: '지방선거 투표 방법',       sv: 12500,  dc: 3800,  expected: '★ 시민참여+실행' },
+    { kw: '2026 한일가왕전 투표하기', sv: 8800,   dc: 1900,  expected: '★ 이벤트+실행' },
+    { kw: '청년도약계좌 신청 방법',   sv: 14200,  dc: 3500,  expected: '★ 시즌 실행형' },
+    { kw: '주민등록등본 인터넷발급',  sv: 19500,  dc: 2400,  expected: '★ 실행형' },
 ];
 
 function pad(s: string, n: number): string {
