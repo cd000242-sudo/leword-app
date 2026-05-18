@@ -1328,28 +1328,41 @@ export async function buildRichFeed(
             t.row.grade = 'SSS';
         }
 
-        // v2.43.20: TARGET_SSS 미달 시 FALLBACK 라운드 — 완화된 게이트로 추가 채움
-        //   사용자 신고: 결과 10건만 노출. 1차 게이트가 너무 빡빡해 풀의 95% 차단.
-        //   fallback: 친화도 30+ (이전 35) / sv 100+ / ratio 1.1+ / dcEstimated 도 일부 허용
+        // v2.43.20-21: TARGET_SSS 미달 시 3-tier FALLBACK 라운드
         let totalPromoted = promotionTargets.length;
-        if (totalPromoted < need) {
+
+        const runFallbackTier = (tierName: string, opts: {
+            minWritability: number;
+            minSv: number;
+            maxSv: number;
+            minRatioMeasured: number;
+            minRatioEstimated: number;
+            maxDc: number;
+            minWritabilityEstimated: number;
+            categoryCap: number;
+            brandCap: number;
+            allowSingleToken: boolean;
+        }): number => {
             const remaining = need - totalPromoted;
-            const usedIds = new Set(promotionTargets.map(t => t.row.keyword));
+            if (remaining <= 0) return 0;
+            const usedKeys = new Set<string>();
+            for (const r of enrichedRows) {
+                if (r.grade === 'SSS' || r.grade === 'SSR') usedKeys.add(r.keyword);
+            }
             const fallbackPool = enrichedRows
                 .filter(r => {
                     if (r.grade === 'SSS' || r.grade === 'SSR') return false;
-                    if (usedIds.has(r.keyword)) return false;
+                    if (usedKeys.has(r.keyword)) return false;
                     const tokenCount = String(r.keyword || '').trim().split(/\s+/).filter(Boolean).length;
-                    if (tokenCount === 1) return false;
+                    if (tokenCount === 1 && !opts.allowSingleToken) return false;
                     const writability = typeof r.bloggerWritability === 'number' ? r.bloggerWritability : 50;
-                    if (writability < 30) return false;
-                    // dcEstimated 도 친화도 60+ 면 허용 (1차 라운드 70+ 보다 완화)
-                    if (r.dcEstimated && writability < 60) return false;
+                    if (writability < opts.minWritability) return false;
+                    if (r.dcEstimated && writability < opts.minWritabilityEstimated) return false;
                     return (
                         (r.grade === 'SS' || r.grade === 'S' || r.grade === 'A') &&
-                        r.searchVolume >= 100 &&
-                        r.searchVolume <= 100000 &&
-                        (r.dcEstimated ? r.goldenRatio >= 1.5 : (r.documentCount > 0 && r.documentCount <= 30000 && r.goldenRatio >= 1.1))
+                        r.searchVolume >= opts.minSv &&
+                        r.searchVolume <= opts.maxSv &&
+                        (r.dcEstimated ? r.goldenRatio >= opts.minRatioEstimated : (r.documentCount > 0 && r.documentCount <= opts.maxDc && r.goldenRatio >= opts.minRatioMeasured))
                     );
                 })
                 .map(r => ({
@@ -1358,22 +1371,53 @@ export async function buildRichFeed(
                 }))
                 .sort((a, b) => b.writability - a.writability);
 
-            let fallbackPromoted = 0;
+            let promoted = 0;
             for (const f of fallbackPool) {
-                if (fallbackPromoted >= remaining) break;
+                if (promoted >= remaining) break;
                 const cid = f.row.categoryId || 'all';
-                if ((sssCategoryCount.get(cid) || 0) >= MAX_PER_CATEGORY_HARD) continue;
+                if ((sssCategoryCount.get(cid) || 0) >= opts.categoryCap) continue;
                 const prefix = getBrandPrefix(f.row.keyword);
-                if (prefix && (brandPrefixCount.get(prefix) || 0) >= BRAND_PREFIX_CAP) continue;
+                if (prefix && (brandPrefixCount.get(prefix) || 0) >= opts.brandCap) continue;
                 f.row.grade = 'SSS';
-                fallbackPromoted++;
+                promoted++;
                 totalPromoted++;
                 sssCategoryCount.set(cid, (sssCategoryCount.get(cid) || 0) + 1);
                 if (prefix) brandPrefixCount.set(prefix, (brandPrefixCount.get(prefix) || 0) + 1);
             }
-            if (fallbackPromoted > 0) {
-                console.log(`[rich-feed v2.43.20] FALLBACK 라운드: ${fallbackPromoted}건 추가 (target ${need}, total ${totalPromoted})`);
+            if (promoted > 0) {
+                console.log(`[rich-feed v2.43.21] ${tierName}: ${promoted}건 추가 (누적 ${totalPromoted}/${need})`);
             }
+            return promoted;
+        };
+
+        // Tier 1: 보수적 fallback (친화도 30+, ratio 1.1+)
+        runFallbackTier('FALLBACK-T1', {
+            minWritability: 30, minSv: 100, maxSv: 100000,
+            minRatioMeasured: 1.1, minRatioEstimated: 1.5,
+            maxDc: 30000, minWritabilityEstimated: 60,
+            categoryCap: MAX_PER_CATEGORY_HARD, brandCap: BRAND_PREFIX_CAP,
+            allowSingleToken: false,
+        });
+
+        // Tier 2: 추가 완화 (친화도 25+, ratio 0.9+, cap 확대)
+        runFallbackTier('FALLBACK-T2', {
+            minWritability: 25, minSv: 50, maxSv: 200000,
+            minRatioMeasured: 0.9, minRatioEstimated: 1.3,
+            maxDc: 50000, minWritabilityEstimated: 50,
+            categoryCap: Math.max(15, MAX_PER_CATEGORY_HARD * 2),
+            brandCap: Math.max(6, BRAND_PREFIX_CAP * 2),
+            allowSingleToken: false,
+        });
+
+        // Tier 3: 마지막 보루 (writability 20+, cap 거의 무시) — TARGET 절반 미만일 때만
+        if (totalPromoted < need / 2) {
+            runFallbackTier('FALLBACK-T3', {
+                minWritability: 20, minSv: 30, maxSv: 500000,
+                minRatioMeasured: 0.7, minRatioEstimated: 1.1,
+                maxDc: 100000, minWritabilityEstimated: 40,
+                categoryCap: 30, brandCap: 10,
+                allowSingleToken: true,
+            });
         }
 
         diagnostic.promotion.poolSize = promotionPool.length;
