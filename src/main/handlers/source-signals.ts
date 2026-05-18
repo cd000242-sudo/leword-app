@@ -349,6 +349,36 @@ export function setupSourceSignalHandlers(): void {
 
     // v2.43.34 (Phase 1): 블로그 URL → 자동 카테고리 감지
     //   네이버 블로그 URL 입력 → measureBlog() 가 카테고리 텍스트 추출 → BloggerCategoryInfo 의 affinityPattern 으로 자동 매핑
+    // v2.43.40 (Phase 3-B Step 2): 의미 임베딩 (opt-in, ~110MB 모델)
+    ipcMain.handle('semantic-status', () => {
+        try {
+            const { getSemanticStatus } = require('../../utils/semantic-embedding');
+            return { success: true, status: getSemanticStatus() };
+        } catch (e: any) {
+            return { success: false, error: e.message };
+        }
+    });
+    ipcMain.handle('semantic-enable', async () => {
+        try {
+            const { enableSemantic } = await import('../../utils/semantic-embedding');
+            const r = await enableSemantic();
+            return { success: r.ready, error: r.error };
+        } catch (e: any) {
+            return { success: false, error: e.message };
+        }
+    });
+    ipcMain.handle('semantic-test', async (_e, a: string, b: string) => {
+        try {
+            const { semanticCompatible, embed, cosine } = await import('../../utils/semantic-embedding');
+            const va = await embed(a);
+            const vb = await embed(b);
+            if (!va || !vb) return { success: false, error: '모델 비활성 또는 임베딩 실패' };
+            return { success: true, similarity: cosine(va, vb) };
+        } catch (e: any) {
+            return { success: false, error: e.message };
+        }
+    });
+
     // v2.43.36 (Phase 3-A): external-trending-pump 수동 트리거 + 상태
     ipcMain.handle('trending-pump-run', async () => {
         try {
