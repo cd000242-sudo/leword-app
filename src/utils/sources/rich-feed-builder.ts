@@ -1626,6 +1626,24 @@ export async function buildRichFeed(
     enrichedRows.length = 0;
     enrichedRows.push(...highGradeOnly);
 
+    // v2.43.49: 사용자가 명시적으로 제외한 키워드 차단
+    try {
+        const { getExcludedKeywords } = await import('../user-behavior-learning');
+        const excluded = getExcludedKeywords();
+        if (excluded.size > 0) {
+            const before = enrichedRows.length;
+            const survivors = enrichedRows.filter(r => !excluded.has(r.keyword));
+            const removed = before - survivors.length;
+            if (removed > 0) {
+                enrichedRows.length = 0;
+                enrichedRows.push(...survivors);
+                console.log(`[rich-feed v2.43.49] 사용자 제외 키워드 ${removed}건 차단`);
+            }
+        }
+    } catch (e: any) {
+        console.warn('[rich-feed v2.43.49] excluded 차단 실패:', e?.message);
+    }
+
     emit('grading', 88, `SSS-only 필터 적용 (${enrichedRows.length}건)...`);
 
     // v2.43.28-29: 네이버 데이터랩 30일 추세 검증

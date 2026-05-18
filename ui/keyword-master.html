@@ -1386,6 +1386,8 @@
           s.textContent = '📋 복사됨: ' + kw;
           setTimeout(() => s.textContent = old, 2000);
         });
+        // v2.43.49: 행동 학습 — 복사는 강한 긍정 시그널
+        try { window.electronAPI.invoke('behavior-record', { keyword: kw, type: 'copied', source: 'rich-feed' }); } catch {}
       }
 
       // v2.43.24 (사이클#1 5팀): 글감 미리보기 모달 — 자동완성 기반 제목 후보 5개
@@ -1767,6 +1769,8 @@
         const excl = rfGetExcluded();
         excl.add(kw);
         try { localStorage.setItem(RF_EXCLUDE_KEY, JSON.stringify([...excl])); } catch {}
+        // v2.43.49: 행동 학습 — 제외는 강한 부정 시그널
+        try { window.electronAPI.invoke('behavior-record', { keyword: kw, type: 'excluded', source: 'rich-feed' }); } catch {}
         // 현재 결과에서 제거 + 재렌더
         if (Array.isArray(rfFiltered)) {
           rfFiltered = rfFiltered.filter(r => r.keyword !== kw);

@@ -367,6 +367,34 @@ export function setupSourceSignalHandlers(): void {
             return { success: false, error: e.message };
         }
     });
+    // v2.43.49: 사용자 행동 학습
+    ipcMain.handle('behavior-record', (_e, payload: { keyword: string; type: string; source?: string }) => {
+        try {
+            const { recordBehavior } = require('../../utils/user-behavior-learning');
+            recordBehavior(payload.keyword, payload.type as any, payload.source);
+            return { success: true };
+        } catch (e: any) {
+            return { success: false, error: e.message };
+        }
+    });
+    ipcMain.handle('behavior-top', (_e, limit?: number) => {
+        try {
+            const { getTopInteractedKeywords } = require('../../utils/user-behavior-learning');
+            return { success: true, items: getTopInteractedKeywords(limit || 50) };
+        } catch (e: any) {
+            return { success: false, error: e.message };
+        }
+    });
+    ipcMain.handle('behavior-clear', () => {
+        try {
+            const { clearBehavior } = require('../../utils/user-behavior-learning');
+            clearBehavior();
+            return { success: true };
+        } catch (e: any) {
+            return { success: false, error: e.message };
+        }
+    });
+
     // v2.43.43: 유사 키워드 추천
     ipcMain.handle('find-similar-keywords', async (_e, keyword: string, options?: { limit?: number }) => {
         try {
