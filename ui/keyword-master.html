@@ -17659,6 +17659,25 @@
                       ${kw.discoveredByManus ? `<span style="background:linear-gradient(135deg,#fbbf24,#f59e0b); color:#1a1a2e; padding:3px 9px; border-radius:7px; font-size:11px; font-weight:900; box-shadow:0 0 10px rgba(251,191,36,0.4);" title="Manus AI가 발견 + 기존 SSS 게이트 통과: ${String(kw.manusDiscoveryReason || '').replace(/"/g, "'")}">🌟 Manus 발견</span>` : ''}
                     </div>
                     <div style="font-size:18px; font-weight:800; color:white; cursor:pointer;" onclick="copyToClipboard('${String(kw.keyword || '').replace(/'/g, "\\'")}')" title="클릭 시 복사">${kw.keyword}</div>
+                    ${(() => {
+                      // v2.43.51: 친화도/추세 마커 (PRO Hunter)
+                      const factors = Array.isArray(kw.writabilityFactors) ? kw.writabilityFactors : [];
+                      const positives = factors.filter(f => f.delta > 0).slice(0, 3);
+                      const factorChips = positives.map(f =>
+                        `<span title="${f.label} 패턴 매칭" style="display:inline-block; margin-right:4px; padding:1px 6px; border-radius:6px; background:rgba(34,197,94,0.10); border:1px solid rgba(34,197,94,0.30); color:#86efac; font-size:9.5px; font-weight:700;">${f.label}</span>`
+                      ).join('');
+                      const rs = kw.recencyStatus;
+                      const recMap = {
+                        rising:    { color: '#22c55e', label: '↑ 최근 상승', icon: '📈' },
+                        stable:    { color: '#84cc16', label: '→ 최근 안정', icon: '➡️' },
+                        declining: { color: '#f59e0b', label: '↓ 최근 하락', icon: '📉' },
+                        dead:      { color: '#ef4444', label: '⊘ 최근 안 검색됨', icon: '⊘' },
+                      };
+                      const recChip = (rs && recMap[rs]) ?
+                        `<span title="네이버 데이터랩 최근 7일 vs 30일 평균 실측" style="display:inline-block; margin-right:4px; padding:1px 6px; border-radius:6px; background:rgba(255,255,255,0.04); border:1px solid ${recMap[rs].color}55; color:${recMap[rs].color}; font-size:9.5px; font-weight:700;">${recMap[rs].icon} ${recMap[rs].label}</span>` : '';
+                      if (!factorChips && !recChip) return '';
+                      return `<div style="margin-top:5px; display:flex; align-items:center; flex-wrap:wrap; gap:2px;">${factorChips}${recChip}</div>`;
+                    })()}
                     <div style="font-size:11px; color:rgba(255,255,255,0.5); margin-top:4px;">${kw.gradeReason}</div>
                     ${kw.manusInsight ? `<div style="margin-top:6px; padding:6px 10px; background:rgba(99,102,241,0.08); border-radius:8px; border-left:3px solid #a855f7; font-size:11px; color:rgba(255,255,255,0.85); line-height:1.5;">🎯 <strong style="color:#c4b5fd;">Manus 앵글:</strong> ${String(kw.manusInsight.angle || '').replace(/&/g,'&amp;').replace(/</g,'&lt;').replace(/>/g,'&gt;')}${(Array.isArray(kw.manusInsight.riskFlags) && kw.manusInsight.riskFlags.length > 0) ? ` <span style="color:#fca5a5; font-size:10px; margin-left:6px;">⚠️ ${kw.manusInsight.riskFlags.map(f => String(f).replace(/&/g,'&amp;').replace(/</g,'&lt;').replace(/>/g,'&gt;')).join(', ')}</span>` : ''}</div>` : ''}
                   </div>
