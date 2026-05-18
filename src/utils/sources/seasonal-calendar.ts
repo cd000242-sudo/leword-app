@@ -209,27 +209,53 @@ export function getAllSeasonalSeeds(): string[] {
   return Array.from(new Set(all));
 }
 
-// v2.43.38: 의도/의문사 prefix·suffix 자동 확장 (longtail 폭발)
-//   1팀 비평: "시즌 시드 360개 = JSON 자전거" → 자동완성 prefix 결합으로 longtail 동적 발굴
-//   예: "종합소득세 환급" → ["종합소득세 환급 방법", "종합소득세 환급 조회", "종합소득세 환급 기간", ...]
-const INTENT_SUFFIXES = [
-  // howto/실행
-  '방법', '하는법', '신청 방법', '조회 방법', '받는 법',
-  // 가격/비교
-  '가격', '비용', '수수료', '비교', '차이',
-  // 후기/평가
-  '후기', '추천', '순위', '리뷰', '솔직 후기',
-  // 시기/일정
-  '시기', '일정', '기간', '마감일', '언제',
-  // 자격/대상
-  '대상', '자격', '조건', '필요 서류', '준비물',
-  // 문제/해결
-  '안 됨', '오류', '실패', '해결 방법', '주의사항',
-];
+// v2.43.39 (Phase 3-B Step 1): 도메인별 suffix 풀 분리 — 의미 충돌 차단
+//   1팀 비평: "독립운동가 수수료, 한글날 의미 안 됨 같은 무의미 조합 1/3"
+//   해결: 시드별 도메인 자동 분류 + 도메인 호환 suffix만 선택
+type SeedDomain = 'admin' | 'commerce' | 'food' | 'event' | 'person' | 'howto-life' | 'shopping-event' | 'travel' | 'general';
 
 /**
- * 시드 키워드 × suffix 조합으로 longtail 자동 생성
- * 모든 조합이 아닌 시드별 N개 랜덤 sampling (candidates 풀 폭증 방지)
+ * 시드 키워드의 도메인 자동 분류 (룰 베이스)
+ */
+function classifySeedDomain(seed: string): SeedDomain {
+  const s = seed.toLowerCase();
+  // admin: 행정/세무/공공서비스
+  if (/환급|신청|조회|민원|등본|초본|인감|공증|연말정산|소득세|법인세|국민연금|건강보험|고용보험|취득세|등록세|재산세|공제|면세|장려금|지원금|계좌|적금/.test(s)) return 'admin';
+  // food: 음식/요리 (단어 경계로 false positive 차단)
+  if (/만드는법|만드는|레시피|끓이는|굽는|볶는|튀기는|만들기|음식|반찬|찌개|찜|구이|볶음|샐러드|간식|디저트|음료|커피차|밀키트|보양식|만두|김치|장아찌|국밥|냉면|비빔밥|불고기|삼겹살|치킨|떡볶이|순대|족발|보쌈|아이스크림|빵|쿠키|케이크/.test(s)) return 'food';
+  // person: 인물/역사
+  if (/독립운동가|위인|영웅|애국지사|선조|역사 인물|지도자|위대한 인물/.test(s)) return 'person';
+  // event: 행사/기념일
+  if (/의미|기념일|축제|3\.1절|광복절|한글날|개천절|제헌절|식목일|단오|동지|어버이날|어린이날|스승의날|현충일|단군신화/.test(s)) return 'event';
+  // shopping-event: 쇼핑 이벤트
+  if (/세일|할인|특가|광군절|블랙프라이데이|빅스마일|쇼핑|핫딜|직구|11번가|쿠팡|마켓컬리/.test(s)) return 'shopping-event';
+  // commerce: 일반 쇼핑/추천
+  if (/선물|추천|코디|패션|옷|화장품|뷰티|구두|가방|운동화|향수|화장|아이폰|갤럭시|노트북|에어컨|냉장고|세탁기/.test(s)) return 'commerce';
+  // travel: 여행
+  if (/여행|호텔|항공|패키지|투어|렌트카|숙박|에어비앤비|일정|코스|가볼만한|관광지|명소|벚꽃 명소|단풍 명소/.test(s)) return 'travel';
+  // howto-life: 생활 노하우 (방법/대비)
+  if (/대비|관리|보관|손질|청소|정리|수납|살림|꿀팁|요령|준비물|예방|방지|운동|다이어트|건강검진/.test(s)) return 'howto-life';
+  return 'general';
+}
+
+// 도메인별 호환 suffix 풀 (의미 충돌 차단)
+const DOMAIN_SUFFIXES: Record<SeedDomain, string[]> = {
+  admin: ['방법', '하는법', '신청 방법', '조회 방법', '받는 법', '대상', '자격', '조건', '필요 서류', '기간', '마감일', '안 됨', '오류', '해결 방법'],
+  commerce: ['추천', '순위', '후기', '리뷰', '가격', '비교', '차이', '브랜드', '솔직 후기', '인기'],
+  food: ['만드는법', '레시피', '재료', '보관법', '간단', '쉬운', '맛있는'],
+  event: ['의미', '유래', '역사', '일정', '시기', '행사', '풍습', '음식'],
+  person: ['의미', '역사', '이야기', '생애', '명언', '업적'],
+  'howto-life': ['방법', '하는법', '꿀팁', '요령', '추천', '준비물', '주의사항'],
+  'shopping-event': ['할인', '직구', '쇼핑', '구매', '추천', '인기', '베스트'],
+  travel: ['추천', '코스', '일정', '명소', '맛집', '가는법', '주차', '입장료'],
+  general: ['방법', '추천', '후기', '비교', '의미'],
+};
+
+const INTENT_SUFFIXES_FALLBACK = DOMAIN_SUFFIXES.general;
+
+/**
+ * 시드 키워드 × 도메인 호환 suffix 자동 longtail 생성
+ * v2.43.39: 도메인 매칭 — "독립운동가 수수료" 같은 의미 충돌 차단
  */
 export function expandWithIntentSuffixes(seeds: string[], perSeed = 8): string[] {
   const result: string[] = [];
@@ -238,13 +264,28 @@ export function expandWithIntentSuffixes(seeds: string[], perSeed = 8): string[]
     if (!clean) continue;
     // 시드 자체 포함
     result.push(clean);
-    // suffix 조합 N개 랜덤 sampling (균등 분포)
-    const shuffled = INTENT_SUFFIXES.slice().sort(() => Math.random() - 0.5);
-    const picks = shuffled.slice(0, perSeed);
+    // 도메인 분류 → 해당 suffix 풀에서 N개 sampling
+    const domain = classifySeedDomain(clean);
+    const pool = DOMAIN_SUFFIXES[domain] || INTENT_SUFFIXES_FALLBACK;
+    const shuffled = pool.slice().sort(() => Math.random() - 0.5);
+    const picks = shuffled.slice(0, Math.min(perSeed, pool.length));
     for (const suf of picks) {
       const combo = `${clean} ${suf}`;
       if (combo.length <= 40) result.push(combo);
     }
   }
   return Array.from(new Set(result));
+}
+
+/** 테스트/디버깅용 — 시드 → 도메인 분류 결과 노출 */
+export function getSeedDomainBreakdown(seeds: string[]): Record<SeedDomain, string[]> {
+  const result: Record<SeedDomain, string[]> = {
+    admin: [], commerce: [], food: [], event: [], person: [],
+    'howto-life': [], 'shopping-event': [], travel: [], general: [],
+  };
+  for (const seed of seeds) {
+    const d = classifySeedDomain(seed);
+    result[d].push(seed);
+  }
+  return result;
 }
