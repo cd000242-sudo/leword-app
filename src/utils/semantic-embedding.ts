@@ -98,6 +98,10 @@ export async function enableSemantic(): Promise<{ ready: boolean; error?: string
       return fn;
     })();
     await pipelinePromise;
+    // v2.43.48: 카테고리 라벨 자동 warmup (이후 cosine 즉시)
+    void warmupCategoryLabels().then(n => {
+      if (n > 0) console.log(`[SEMANTIC] 카테고리 라벨 ${n}개 사전 임베딩 완료`);
+    });
     return { ready: true };
   } catch (e: any) {
     modelError = e?.message || '모델 로드 실패';
@@ -222,4 +226,20 @@ export async function precomputeEmbeddings(keywords: string[]): Promise<number> 
     }
   }
   return count;
+}
+
+/**
+ * v2.43.48: 카테고리 라벨 description 사전 임베딩 (모델 활성 직후 1회)
+ * 다음부터 calculateProfileAffinityAsync 호출 시 cosine 즉시 (캐시 hit)
+ */
+export async function warmupCategoryLabels(): Promise<number> {
+  if (!modelReady) return 0;
+  try {
+    const { BLOGGER_CATEGORIES } = await import('./blogger-profile');
+    const labels = BLOGGER_CATEGORIES.map(c => c.description);
+    return precomputeEmbeddings(labels);
+  } catch (e: any) {
+    console.warn('[SEMANTIC] warmupCategoryLabels 실패:', e?.message);
+    return 0;
+  }
 }
