@@ -347,6 +347,40 @@ export function setupSourceSignalHandlers(): void {
         }
     });
 
+    // v2.43.34 (Phase 1): 블로그 URL → 자동 카테고리 감지
+    //   네이버 블로그 URL 입력 → measureBlog() 가 카테고리 텍스트 추출 → BloggerCategoryInfo 의 affinityPattern 으로 자동 매핑
+    ipcMain.handle('blogger-profile-auto-detect', async (_e, blogUrl: string) => {
+        try {
+            if (!blogUrl || typeof blogUrl !== 'string') return { success: false, error: 'URL이 비어있습니다' };
+            const { measureBlog } = await import('../../utils/pro-hunter-v12/user-profile');
+            const profile = await measureBlog(blogUrl);
+            const rawCategoryText = String(profile.category || '');
+            // measureBlog 가 5개까지 추출하지만 단일 필드로 합쳐 저장됨 → 가능한 모든 텍스트
+            // BLOGGER_CATEGORIES 의 affinityPattern 으로 매칭하여 상위 3개 자동 추천
+            const matches: Array<{ id: string; score: number }> = [];
+            for (const cat of BLOGGER_CATEGORIES) {
+                const m = (rawCategoryText.match(cat.affinityPattern) || []).length;
+                if (m > 0) matches.push({ id: cat.id, score: m });
+            }
+            matches.sort((a, b) => b.score - a.score);
+            const suggested = matches.slice(0, 3).map(m => m.id);
+            return {
+                success: true,
+                detected: {
+                    blogId: profile.blogId,
+                    blogIndex: profile.blogIndex,
+                    experienceMonths: profile.experienceMonths,
+                    totalPosts: profile.totalPosts,
+                    rawCategoryText,
+                    suggestedCategories: suggested,
+                },
+            };
+        } catch (e: any) {
+            console.error('[blogger-profile-auto-detect] 실패:', e?.message);
+            return { success: false, error: e?.message || '자동 감지 실패' };
+        }
+    });
+
     // v2.42.54: 사용자 화이트리스트 등록/조회
     ipcMain.handle('set-user-whitelist', (_e, words: string[]) => {
         try {

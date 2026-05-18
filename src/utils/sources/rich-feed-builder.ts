@@ -1006,6 +1006,56 @@ export async function buildRichFeed(
     console.log(`[rich-feed v2.42.16] Modifier 니치 ${modifierExtraSeeds.length}개 생성`);
     emit('longtail', 19, `진짜 황금 니치 ${modifierExtraSeeds.length}개 추가 (modifier 조합)`);
 
+    // v2.43.34 (Phase 1): 시즌 시드 강제 주입 — 매월 시즌/이벤트 키워드 자동 발굴
+    //   사용자 비판: "이런 키워드 훨씬 많을 텐데 못 찾는다"
+    //   해결: regex 추가 없이 월별 시즌 시드 360개를 발굴 풀에 합류
+    try {
+        const { getCurrentSeasonalSeeds } = await import('./seasonal-calendar');
+        const seasonalKeywords = getCurrentSeasonalSeeds();
+        const seasonalSeeds: typeof baseSeeds = [];
+        for (const kw of seasonalKeywords) {
+            if (seenKeywords.has(kw)) continue;
+            seenKeywords.add(kw);
+            seasonalSeeds.push({
+                keyword: kw,
+                sources: ['seasonal-calendar'],
+                qualityScore: 1.4, // base 1.0 보다 약간 높게 (시즌 우선)
+            });
+        }
+        extraSeeds.push(...seasonalSeeds);
+        const monthLabel = new Date().getMonth() + 1;
+        console.log(`[rich-feed v2.43.34] ${monthLabel}월 시즌 시드 ${seasonalSeeds.length}개 주입`);
+        emit('seasonal', 20, `📅 ${monthLabel}월 시즌 키워드 ${seasonalSeeds.length}개 시드 주입`);
+    } catch (e: any) {
+        console.warn('[rich-feed v2.43.34] seasonal-calendar 로드 실패:', e?.message);
+    }
+
+    // v2.43.34 (Phase 1): trend-surge-detector 결과 → 발굴 풀 합류
+    //   기존 이미 만든 surge 감지기 (한일가왕전 같은 신규 이벤트 자동 감지)를 발굴에 연결
+    try {
+        const { listRecentSurges } = await import('../pro-hunter-v12/trend-surge-detector');
+        const surges = listRecentSurges(40); // 최근 40개 급증 신호
+        const surgeSeeds: typeof baseSeeds = [];
+        for (const s of surges) {
+            if (!s.keyword || seenKeywords.has(s.keyword)) continue;
+            // 'explosive' / 'strong' 만 시드로 (moderate 이하는 노이즈 가능)
+            if (s.surgeLevel !== 'explosive' && s.surgeLevel !== 'strong') continue;
+            seenKeywords.add(s.keyword);
+            surgeSeeds.push({
+                keyword: s.keyword,
+                sources: ['surge-detector', ...s.multiSourceEvidence].slice(0, 5),
+                qualityScore: 1.6 + (s.surgeLevel === 'explosive' ? 0.4 : 0.2),
+            });
+        }
+        if (surgeSeeds.length > 0) {
+            extraSeeds.push(...surgeSeeds);
+            console.log(`[rich-feed v2.43.34] 급증 신호 시드 ${surgeSeeds.length}개 합류`);
+            emit('surge', 21, `📈 급증 키워드 ${surgeSeeds.length}개 자동 추가 (신규 이벤트)`);
+        }
+    } catch (e: any) {
+        console.warn('[rich-feed v2.43.34] surge-detector 로드 실패:', e?.message);
+    }
+
     diagnostic.longtail.expandedAdded = extraSeeds.length;
 
     // 🔥 v2.27.9: 후보 풀 1500 → 2500 (대량 보장)
