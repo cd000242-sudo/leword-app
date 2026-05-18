@@ -1006,13 +1006,11 @@ export async function buildRichFeed(
     console.log(`[rich-feed v2.42.16] Modifier 니치 ${modifierExtraSeeds.length}개 생성`);
     emit('longtail', 19, `진짜 황금 니치 ${modifierExtraSeeds.length}개 추가 (modifier 조합)`);
 
-    // v2.43.34-38: 시즌 시드 + 의도 suffix 자동 확장 (longtail 폭발)
-    //   v2.43.34: 월별 시즌 시드 360개
-    //   v2.43.38: 각 시드 × 의도 suffix 8개 자동 결합 → 약 3000개 longtail
+    // v2.43.34-41: 시즌 시드 + 의도 suffix + 의미 검증 (Step 3)
     try {
-        const { getCurrentSeasonalSeeds, expandWithIntentSuffixes } = await import('./seasonal-calendar');
+        const { getCurrentSeasonalSeeds, expandWithSemanticVerify } = await import('./seasonal-calendar');
         const baseSeasonalKeywords = getCurrentSeasonalSeeds();
-        const expanded = expandWithIntentSuffixes(baseSeasonalKeywords, 8); // 시드당 8개 suffix
+        const { items: expanded, verified, blocked } = await expandWithSemanticVerify(baseSeasonalKeywords, 8, 0.45);
         const seasonalSeeds: typeof baseSeeds = [];
         for (const kw of expanded) {
             if (seenKeywords.has(kw)) continue;
@@ -1025,10 +1023,11 @@ export async function buildRichFeed(
         }
         extraSeeds.push(...seasonalSeeds);
         const monthLabel = new Date().getMonth() + 1;
-        console.log(`[rich-feed v2.43.38] ${monthLabel}월 시즌 시드 ${baseSeasonalKeywords.length}개 × 의도 suffix → ${seasonalSeeds.length}개 longtail`);
-        emit('seasonal', 20, `📅 ${monthLabel}월 시즌 longtail ${seasonalSeeds.length}개 주입`);
+        const verifyTag = verified ? ` (🧠 의미 검증 ${blocked}건 차단)` : '';
+        console.log(`[rich-feed v2.43.41] ${monthLabel}월 시즌 시드 ${baseSeasonalKeywords.length}개 → ${seasonalSeeds.length}개 longtail${verifyTag}`);
+        emit('seasonal', 20, `📅 ${monthLabel}월 시즌 longtail ${seasonalSeeds.length}개 주입${verifyTag}`);
     } catch (e: any) {
-        console.warn('[rich-feed v2.43.38] seasonal-calendar 로드 실패:', e?.message);
+        console.warn('[rich-feed v2.43.41] seasonal-calendar 로드 실패:', e?.message);
     }
 
     // v2.43.34 (Phase 1): trend-surge-detector 결과 → 발굴 풀 합류

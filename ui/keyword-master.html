@@ -751,6 +751,7 @@
           </label>
           <button onclick="refreshRichFeed(true)" style="padding:10px 18px; border:none; border-radius:10px; background:linear-gradient(135deg,#f59e0b,#ef4444); color:white; font-weight:700; font-size:13px; cursor:pointer;">⚡ 발굴 시작</button>
           <button onclick="openBloggerProfileModal()" title="내 블로그 프로필 — 카테고리/경험/방문자 입력 (모든 발굴에 자동 적용)" style="padding:10px 14px; border:none; border-radius:10px; background:linear-gradient(135deg,#06b6d4,#3b82f6); color:white; font-weight:700; font-size:12px; cursor:pointer;">👤 내 블로그</button>
+          <button id="rfSemanticBtn" onclick="openSemanticModal()" title="🧠 의미 분류 — KoSBERT 임베딩 모델로 키워드 의미 검증 (최초 ~110MB 다운로드, 이후 캐시)" style="padding:10px 14px; border:none; border-radius:10px; background:linear-gradient(135deg,#8b5cf6,#ec4899); color:white; font-weight:700; font-size:12px; cursor:pointer;">🧠 의미 분류</button>
           <button onclick="openUserWhitelistModal()" title="내 도메인 키워드 관리 — 게이트 우선 통과" style="padding:10px 14px; border:none; border-radius:10px; background:linear-gradient(135deg,#a855f7,#6366f1); color:white; font-weight:700; font-size:12px; cursor:pointer;">🛟 내 키워드</button>
           <button onclick="rfExport('csv')" title="CSV 다운로드" style="padding:10px 14px; border:none; border-radius:10px; background:#10b981; color:white; font-weight:700; font-size:12px; cursor:pointer;">📥 CSV</button>
           <button onclick="rfExport('json')" title="JSON 다운로드" style="padding:10px 14px; border:none; border-radius:10px; background:#6366f1; color:white; font-weight:700; font-size:12px; cursor:pointer;">📥 JSON</button>
@@ -1449,6 +1450,76 @@
       };
 
       // v2.43.25 (사이클#2): 블로거 프로필 모달
+      // v2.43.41 (Phase 3-B Step 3): 의미 분류 활성화 모달
+      window.openSemanticModal = async function() {
+        const existing = document.getElementById('semanticModal');
+        if (existing) existing.remove();
+        const statusR = await window.electronAPI.invoke('semantic-status');
+        const status = statusR?.status || { ready: false, loading: false, progress: 0, cacheSize: 0 };
+
+        const modal = document.createElement('div');
+        modal.id = 'semanticModal';
+        modal.style.cssText = 'position:fixed; inset:0; background:rgba(0,0,0,0.85); backdrop-filter:blur(8px); z-index:11000; display:flex; align-items:center; justify-content:center; padding:20px;';
+        modal.innerHTML = `
+          <div style="background:linear-gradient(135deg,#1e1b4b 0%,#581c87 100%); border-radius:20px; padding:32px; max-width:620px; width:100%; border:2px solid rgba(168,85,247,0.4); box-shadow:0 25px 80px rgba(0,0,0,0.6);">
+            <div style="display:flex; justify-content:space-between; align-items:flex-start; margin-bottom:18px;">
+              <div>
+                <h2 style="margin:0 0 6px; font-size:22px; font-weight:800; color:#f5f3ff;">🧠 의미 분류 (KoSBERT)</h2>
+                <p style="margin:0; font-size:12.5px; color:rgba(255,255,255,0.65); line-height:1.6;">한국어 임베딩 모델로 키워드 의미 검증. 로컬 추론 (외부 API 0). 최초 1회 ~110MB 다운로드, 이후 영구 캐시.</p>
+              </div>
+              <button onclick="document.getElementById('semanticModal')?.remove()" style="background:rgba(255,255,255,0.1); border:none; border-radius:10px; color:#fff; width:36px; height:36px; cursor:pointer; font-size:18px;">✕</button>
+            </div>
+
+            <div id="semModelStatus" style="background:rgba(255,255,255,0.05); border:1px solid rgba(168,85,247,0.25); border-radius:12px; padding:16px; margin-bottom:18px;">
+              <div style="display:flex; align-items:center; gap:10px; margin-bottom:8px;">
+                <span id="semStatusIcon" style="font-size:24px;">${status.ready ? '✅' : status.loading ? '⏳' : '⚪'}</span>
+                <div>
+                  <div id="semStatusLabel" style="font-size:14px; font-weight:700; color:#f5f3ff;">${status.ready ? '활성화됨' : status.loading ? '다운로드 중...' : '비활성'}</div>
+                  <div id="semStatusDetail" style="font-size:11.5px; color:rgba(255,255,255,0.6); margin-top:2px;">${status.ready ? `캐시 ${status.cacheSize}건 보유` : status.loading ? `진행률 ${status.progress}%` : '클릭하여 활성화'}</div>
+                </div>
+              </div>
+              ${!status.ready ? '<div style="background:rgba(168,85,247,0.15); border-radius:8px; padding:10px 12px; font-size:11px; color:rgba(255,255,255,0.7); line-height:1.6;">⚠️ 최초 활성화 시 모델 ~110MB 다운로드 (인터넷 연결 필요)<br>이후 영구 캐시되어 인터넷 없이도 동작</div>' : ''}
+            </div>
+
+            <div style="margin-bottom:24px;">
+              <h3 style="margin:0 0 8px; font-size:13px; color:#c4b5fd; font-weight:700;">활성화 후 효과</h3>
+              <ul style="margin:0; padding-left:20px; font-size:12.5px; color:rgba(255,255,255,0.7); line-height:1.9;">
+                <li>"독립운동가 수수료" 같은 의미 충돌 자동 차단 (cosine < 0.45)</li>
+                <li>도메인 매칭(룰 1차) 통과한 조합도 의미 재검증</li>
+                <li>시즌 시드 longtail의 노이즈 1/3 추가 제거</li>
+                <li>결정론적: 같은 입력 → 같은 결과 (LLM 아님)</li>
+              </ul>
+            </div>
+
+            <div style="display:flex; gap:10px;">
+              ${!status.ready ? `<button onclick="semEnable()" style="flex:1; padding:14px; background:linear-gradient(135deg,#8b5cf6,#ec4899); border:none; border-radius:12px; color:white; font-weight:800; font-size:14px; cursor:pointer; box-shadow:0 6px 20px rgba(139,92,246,0.4);">🚀 활성화 (모델 다운로드 시작)</button>` : `<div style="flex:1; padding:14px; text-align:center; color:#a7f3d0; font-weight:700;">✅ 활성화 완료 — 다음 발굴부터 자동 적용</div>`}
+            </div>
+          </div>
+        `;
+        document.body.appendChild(modal);
+      };
+
+      window.semEnable = async function() {
+        const labelEl = document.getElementById('semStatusLabel');
+        const detailEl = document.getElementById('semStatusDetail');
+        const iconEl = document.getElementById('semStatusIcon');
+        if (labelEl) labelEl.textContent = '다운로드 중...';
+        if (iconEl) iconEl.textContent = '⏳';
+        if (detailEl) detailEl.textContent = '잠시만 기다려주세요 (네트워크 속도에 따라 1~5분)';
+
+        const r = await window.electronAPI.invoke('semantic-enable');
+        if (r?.success) {
+          if (labelEl) labelEl.textContent = '✅ 활성화 완료';
+          if (iconEl) iconEl.textContent = '✅';
+          if (detailEl) detailEl.textContent = '다음 발굴부터 의미 검증 자동 적용';
+          setTimeout(() => { document.getElementById('semanticModal')?.remove(); }, 2000);
+        } else {
+          if (labelEl) labelEl.textContent = '❌ 실패';
+          if (iconEl) iconEl.textContent = '❌';
+          if (detailEl) detailEl.textContent = r?.error || '알 수 없는 오류';
+        }
+      };
+
       window.openBloggerProfileModal = async function() {
         const existing = document.getElementById('bloggerProfileModal');
         if (existing) existing.remove();

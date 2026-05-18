@@ -255,16 +255,15 @@ const INTENT_SUFFIXES_FALLBACK = DOMAIN_SUFFIXES.general;
 
 /**
  * 시드 키워드 × 도메인 호환 suffix 자동 longtail 생성
- * v2.43.39: 도메인 매칭 — "독립운동가 수수료" 같은 의미 충돌 차단
+ * v2.43.39: 도메인 매칭 (정적 룰)
+ * v2.43.41: 옵션으로 의미 임베딩 재검증 (Step 3) — 모델 활성 시
  */
 export function expandWithIntentSuffixes(seeds: string[], perSeed = 8): string[] {
   const result: string[] = [];
   for (const seed of seeds) {
     const clean = seed.trim();
     if (!clean) continue;
-    // 시드 자체 포함
     result.push(clean);
-    // 도메인 분류 → 해당 suffix 풀에서 N개 sampling
     const domain = classifySeedDomain(clean);
     const pool = DOMAIN_SUFFIXES[domain] || INTENT_SUFFIXES_FALLBACK;
     const shuffled = pool.slice().sort(() => Math.random() - 0.5);
@@ -275,6 +274,62 @@ export function expandWithIntentSuffixes(seeds: string[], perSeed = 8): string[]
     }
   }
   return Array.from(new Set(result));
+}
+
+/**
+ * v2.43.41 (Phase 3-B Step 3): 의미 임베딩 재검증 — 모델 활성 시
+ * 도메인 매칭 1차 필터 통과한 조합 중 의미 충돌 (cosine < threshold) 추가 차단
+ */
+export async function expandWithSemanticVerify(
+  seeds: string[],
+  perSeed = 8,
+  threshold = 0.45,
+): Promise<{ items: string[]; verified: boolean; blocked: number }> {
+  const candidates = expandWithIntentSuffixes(seeds, perSeed);
+  // 모델 활성 검사
+  let semantic: any;
+  try {
+    semantic = await import('../semantic-embedding');
+  } catch {
+    return { items: candidates, verified: false, blocked: 0 };
+  }
+  const status = semantic.getSemanticStatus();
+  if (!status.ready) return { items: candidates, verified: false, blocked: 0 };
+
+  // 시드별 임베딩 사전 계산
+  const seedSet = new Set(seeds.map(s => s.trim()));
+  await semantic.precomputeEmbeddings(Array.from(seedSet));
+
+  // 후보 검증
+  const passed: string[] = [];
+  let blocked = 0;
+  for (const cand of candidates) {
+    // 시드 자체는 검증 면제
+    if (seedSet.has(cand)) {
+      passed.push(cand);
+      continue;
+    }
+    // 조합인 경우 — 가장 매칭되는 시드 찾고 cosine 검증
+    let bestSim = 1.0;
+    let usedSeed: string | null = null;
+    for (const seed of seedSet) {
+      if (cand.startsWith(seed + ' ')) {
+        usedSeed = seed;
+        break;
+      }
+    }
+    if (!usedSeed) {
+      passed.push(cand);
+      continue;
+    }
+    const compatible = await semantic.semanticCompatible(usedSeed, cand, threshold);
+    if (compatible) {
+      passed.push(cand);
+    } else {
+      blocked++;
+    }
+  }
+  return { items: passed, verified: true, blocked };
 }
 
 /** 테스트/디버깅용 — 시드 → 도메인 분류 결과 노출 */
