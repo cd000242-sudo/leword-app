@@ -163,6 +163,20 @@ export async function scanForSurges(
   store.lastScanAt = Date.now();
   saveStore(store);
 
+  // v2.43.38: explosive/strong 키워드는 tracking-store에 7일 surge 보호 (eviction 면제)
+  try {
+    const surgeKeywords = detected
+      .filter(s => s.surgeLevel === 'explosive' || s.surgeLevel === 'strong')
+      .map(s => s.keyword);
+    if (surgeKeywords.length > 0) {
+      const { markSurgeProtected } = await import('./tracking-store');
+      const n = markSurgeProtected(surgeKeywords);
+      if (n > 0) console.log(`[SURGE] ${n}건 보호 플래그 설정 (7일 evict 면제)`);
+    }
+  } catch (e: any) {
+    console.warn('[SURGE] 보호 플래그 설정 실패:', e?.message);
+  }
+
   // 상위 급발진
   const topSurges = [...detected].sort((a, b) => b.growthRate - a.growthRate).slice(0, 10);
 

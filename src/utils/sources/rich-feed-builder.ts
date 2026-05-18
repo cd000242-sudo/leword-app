@@ -1006,28 +1006,29 @@ export async function buildRichFeed(
     console.log(`[rich-feed v2.42.16] Modifier 니치 ${modifierExtraSeeds.length}개 생성`);
     emit('longtail', 19, `진짜 황금 니치 ${modifierExtraSeeds.length}개 추가 (modifier 조합)`);
 
-    // v2.43.34 (Phase 1): 시즌 시드 강제 주입 — 매월 시즌/이벤트 키워드 자동 발굴
-    //   사용자 비판: "이런 키워드 훨씬 많을 텐데 못 찾는다"
-    //   해결: regex 추가 없이 월별 시즌 시드 360개를 발굴 풀에 합류
+    // v2.43.34-38: 시즌 시드 + 의도 suffix 자동 확장 (longtail 폭발)
+    //   v2.43.34: 월별 시즌 시드 360개
+    //   v2.43.38: 각 시드 × 의도 suffix 8개 자동 결합 → 약 3000개 longtail
     try {
-        const { getCurrentSeasonalSeeds } = await import('./seasonal-calendar');
-        const seasonalKeywords = getCurrentSeasonalSeeds();
+        const { getCurrentSeasonalSeeds, expandWithIntentSuffixes } = await import('./seasonal-calendar');
+        const baseSeasonalKeywords = getCurrentSeasonalSeeds();
+        const expanded = expandWithIntentSuffixes(baseSeasonalKeywords, 8); // 시드당 8개 suffix
         const seasonalSeeds: typeof baseSeeds = [];
-        for (const kw of seasonalKeywords) {
+        for (const kw of expanded) {
             if (seenKeywords.has(kw)) continue;
             seenKeywords.add(kw);
             seasonalSeeds.push({
                 keyword: kw,
                 sources: ['seasonal-calendar'],
-                qualityScore: 1.4, // base 1.0 보다 약간 높게 (시즌 우선)
+                qualityScore: 1.4,
             });
         }
         extraSeeds.push(...seasonalSeeds);
         const monthLabel = new Date().getMonth() + 1;
-        console.log(`[rich-feed v2.43.34] ${monthLabel}월 시즌 시드 ${seasonalSeeds.length}개 주입`);
-        emit('seasonal', 20, `📅 ${monthLabel}월 시즌 키워드 ${seasonalSeeds.length}개 시드 주입`);
+        console.log(`[rich-feed v2.43.38] ${monthLabel}월 시즌 시드 ${baseSeasonalKeywords.length}개 × 의도 suffix → ${seasonalSeeds.length}개 longtail`);
+        emit('seasonal', 20, `📅 ${monthLabel}월 시즌 longtail ${seasonalSeeds.length}개 주입`);
     } catch (e: any) {
-        console.warn('[rich-feed v2.43.34] seasonal-calendar 로드 실패:', e?.message);
+        console.warn('[rich-feed v2.43.38] seasonal-calendar 로드 실패:', e?.message);
     }
 
     // v2.43.34 (Phase 1): trend-surge-detector 결과 → 발굴 풀 합류

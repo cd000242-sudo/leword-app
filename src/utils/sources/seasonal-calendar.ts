@@ -208,3 +208,43 @@ export function getAllSeasonalSeeds(): string[] {
   for (const m of Object.values(SEASONAL_SEEDS_BY_MONTH)) all.push(...m);
   return Array.from(new Set(all));
 }
+
+// v2.43.38: 의도/의문사 prefix·suffix 자동 확장 (longtail 폭발)
+//   1팀 비평: "시즌 시드 360개 = JSON 자전거" → 자동완성 prefix 결합으로 longtail 동적 발굴
+//   예: "종합소득세 환급" → ["종합소득세 환급 방법", "종합소득세 환급 조회", "종합소득세 환급 기간", ...]
+const INTENT_SUFFIXES = [
+  // howto/실행
+  '방법', '하는법', '신청 방법', '조회 방법', '받는 법',
+  // 가격/비교
+  '가격', '비용', '수수료', '비교', '차이',
+  // 후기/평가
+  '후기', '추천', '순위', '리뷰', '솔직 후기',
+  // 시기/일정
+  '시기', '일정', '기간', '마감일', '언제',
+  // 자격/대상
+  '대상', '자격', '조건', '필요 서류', '준비물',
+  // 문제/해결
+  '안 됨', '오류', '실패', '해결 방법', '주의사항',
+];
+
+/**
+ * 시드 키워드 × suffix 조합으로 longtail 자동 생성
+ * 모든 조합이 아닌 시드별 N개 랜덤 sampling (candidates 풀 폭증 방지)
+ */
+export function expandWithIntentSuffixes(seeds: string[], perSeed = 8): string[] {
+  const result: string[] = [];
+  for (const seed of seeds) {
+    const clean = seed.trim();
+    if (!clean) continue;
+    // 시드 자체 포함
+    result.push(clean);
+    // suffix 조합 N개 랜덤 sampling (균등 분포)
+    const shuffled = INTENT_SUFFIXES.slice().sort(() => Math.random() - 0.5);
+    const picks = shuffled.slice(0, perSeed);
+    for (const suf of picks) {
+      const combo = `${clean} ${suf}`;
+      if (combo.length <= 40) result.push(combo);
+    }
+  }
+  return Array.from(new Set(result));
+}

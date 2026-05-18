@@ -13,6 +13,9 @@ export interface TrackedKeyword {
   initialDocCount: number;
   history: Array<{ ts: number; docCount: number; searchVolume: number | null; topRank?: number | null }>;
   alerts: Array<{ ts: number; type: 'saturation' | 'decay' | 'opportunity'; message: string }>;
+  // v2.43.38: surge 감지된 키워드 보호 (eviction 우선순위 낮춤)
+  surgeProtected?: boolean;
+  surgeProtectedAt?: number;
 }
 
 export interface TrackedPost {
@@ -173,9 +176,18 @@ export function bulkRegisterTrending(
   }
 
   // 3. size cap 초과 시 가장 오래된 lastCheckedAt 순으로 제거
+  //    v2.43.38: surgeProtected 키워드는 7일간 evict 면제 (검증된 키워드 보호)
   const total = Object.keys(store.keywords).length;
   if (total > MAX_TRACKED_KEYWORDS) {
-    const sorted = Object.values(store.keywords).sort((a, b) => a.lastCheckedAt - b.lastCheckedAt);
+    const SURGE_PROTECTION_TTL = 7 * 24 * 60 * 60 * 1000;
+    const sorted = Object.values(store.keywords).sort((a, b) => {
+      // surge 보호 키워드는 뒤로 (evict 우선순위 낮춤)
+      const aProtected = !!a.surgeProtected && (now - (a.surgeProtectedAt || 0)) < SURGE_PROTECTION_TTL;
+      const bProtected = !!b.surgeProtected && (now - (b.surgeProtectedAt || 0)) < SURGE_PROTECTION_TTL;
+      if (aProtected && !bProtected) return 1;
+      if (!aProtected && bProtected) return -1;
+      return a.lastCheckedAt - b.lastCheckedAt;
+    });
     const toRemove = sorted.slice(0, total - MAX_TRACKED_KEYWORDS);
     for (const t of toRemove) {
       delete store.keywords[t.keyword];
@@ -185,6 +197,23 @@ export function bulkRegisterTrending(
 
   save(store);
   return { added, skipped, evicted, totalSize: Object.keys(store.keywords).length };
+}
+
+// v2.43.38: surge 감지된 키워드에 보호 플래그 부여 (eviction 면제 7일)
+export function markSurgeProtected(keywords: string[]): number {
+  const store = load();
+  const now = Date.now();
+  let count = 0;
+  for (const kw of keywords) {
+    const t = store.keywords[kw];
+    if (t) {
+      t.surgeProtected = true;
+      t.surgeProtectedAt = now;
+      count++;
+    }
+  }
+  if (count > 0) save(store);
+  return count;
 }
 
 // ── Tracked Posts ──
