@@ -778,7 +778,7 @@ export function setupPremiumHuntingHandlers(): void {
           console.log(`[PRO-TRAFFIC] 🚀 AdSense 9-게이트 후처리: ${enhanced.length}/${result.keywords.length} 통과 (차단 ${blockedCount}개, SSS 복구 ${rescuedSss.length})`, blockedReasons);
         }
 
-        // v2.43.46: PRO Hunter 결과에도 친화도/다의어 게이트 적용 (rich-feed-builder 와 동일 품질)
+        // v2.43.46-47: PRO Hunter 결과에 친화도/다의어/추세 게이트 적용 (rich-feed-builder 와 동일 품질)
         try {
           const { diagnoseKeyword } = await import('../../utils/sources/rich-feed-builder');
           let bloggerBlocked = 0;
@@ -789,17 +789,14 @@ export function setupPremiumHuntingHandlers(): void {
             const dc = Number(k.documentCount || k.docCount || 0);
             const sv = Number(k.searchVolume || k.monthlyPcQcCnt + k.monthlyMobileQcCnt || 0);
             const diag = diagnoseKeyword(kw, dc, sv);
-            // 다의어/동사/단일토큰 차단
             if (diag.blockedBy === 'POLYSEMY/VERB' || diag.blockedBy === 'GENERIC_BROAD' || diag.blockedBy === 'NEWS_NOISE') {
               bloggerBlocked++;
               continue;
             }
-            // 친화도 < 30 강등 (PRO Hunter 기존 검증된 SSS는 보호하기 위해 컷 낮춤)
             if (diag.writabilityScore < 30) {
               bloggerBlocked++;
               continue;
             }
-            // 친화도 분해 사유 동봉 (UI 활용 가능)
             (k as any).writabilityScore = diag.writabilityScore;
             (k as any).writabilityFactors = diag.factors;
             cleaned.push(k);
@@ -810,6 +807,33 @@ export function setupPremiumHuntingHandlers(): void {
           }
         } catch (e: any) {
           console.warn('[PRO-TRAFFIC v2.43.46] 친화도 후처리 실패:', e?.message);
+        }
+
+        // v2.43.47: PRO Hunter 결과에 네이버 데이터랩 30일 추세 검증 (dead 자동 차단)
+        try {
+          const envManager = (await import('../../utils/environment-manager')).EnvironmentManager.getInstance();
+          const envCfg = envManager.getConfig();
+          const datalabConfig = { clientId: envCfg.naverClientId || '', clientSecret: envCfg.naverClientSecret || '' };
+          if (datalabConfig.clientId && datalabConfig.clientSecret && finalKeywords.length > 0) {
+            const { checkKeywordsRecency } = await import('../../utils/naver-datalab-api');
+            const toCheck = finalKeywords.slice(0, 60); // 상위 60건만
+            const recencyMap = await checkKeywordsRecency(datalabConfig, toCheck.map((k: any) => String(k.keyword)));
+            const MIN_FLOOR = 15;
+            for (const k of finalKeywords) {
+              const rec = recencyMap.get(String(k.keyword));
+              if (rec) (k as any).recencyStatus = rec.status;
+            }
+            const live = finalKeywords.filter((k: any) => k.recencyStatus !== 'dead');
+            const deadCount = finalKeywords.length - live.length;
+            if (live.length >= MIN_FLOOR && deadCount > 0) {
+              finalKeywords = live;
+              console.log(`[PRO-TRAFFIC v2.43.47] 추세 검증 dead ${deadCount}건 제외 (${live.length}건 잔존)`);
+            } else if (deadCount > 0) {
+              console.log(`[PRO-TRAFFIC v2.43.47] 결과 부족 (${live.length}건) → dead 마커만 적용, 결과 유지`);
+            }
+          }
+        } catch (e: any) {
+          console.warn('[PRO-TRAFFIC v2.43.47] 추세 검증 실패:', e?.message);
         }
 
         // 🤖 Manus AI 보강은 별도 비동기 IPC(start-manus-enrichment)에서 처리
