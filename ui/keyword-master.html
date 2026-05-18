@@ -1166,27 +1166,26 @@
               <td style="padding:10px 8px; text-align:center;"><span title="${r.category}">${r.categoryIcon}</span></td>
               <td style="padding:10px 8px; text-align:center;">${r.grade ? `<span class="rf-grade ${r.grade}" title="${r.grade === 'SSR' ? '수익 황금 (고CPC + 상업 키워드 + 수익 카테고리)' : r.grade}">${r.grade === 'SSR' ? '👑SSR' : r.grade}</span>` : '-'}</td>
               <td style="padding:10px 8px; font-weight:700; color:#f1f5f9;">${bluebadge} ${r.keyword} ${trendBadge} ${claudeBadge} ${(() => {
-                // v2.43.14: 친화도 배지 + v2.43.26 사유 인라인 칩
-                const w = typeof r.bloggerWritability === 'number' ? r.bloggerWritability : null;
-                if (w === null) return '';
-                const wc = w >= 75 ? '#22c55e' : w >= 60 ? '#84cc16' : w >= 45 ? '#f59e0b' : '#ef4444';
-                const wl = w >= 75 ? '글쓰기 매우 좋음' : w >= 60 ? '글쓰기 좋음' : w >= 45 ? '글쓰기 보통' : '글쓰기 어려움';
+                // v2.43.27: 친화도 점수(추정치) 노출 제거 — 사유 라벨만 표시 (실측 매칭만)
+                //   사용자 정책: "추정치 절대 넣지마" (메모리 + 명시 지시)
+                //   점수는 내부 필터링/정렬에만 사용. UI는 매칭된 카테고리 라벨만.
                 const factors = Array.isArray(r.writabilityFactors) ? r.writabilityFactors : [];
-                // 상위 3개 사유 (절대값 큰 순)
-                const top = factors.slice().sort((a, b) => Math.abs(b.delta) - Math.abs(a.delta)).slice(0, 3);
-                const chipsHtml = top.map(f => {
-                    const sign = f.delta > 0 ? '+' : '';
-                    const color = f.delta > 0 ? '#86efac' : '#fca5a5';
-                    return `<span style="display:inline-block; margin-left:3px; padding:0 5px; border-radius:5px; background:rgba(255,255,255,0.04); border:1px solid ${color}44; color:${color}; font-size:9px;">${sign}${f.delta} ${f.label}</span>`;
+                if (factors.length === 0) return '';
+                // 양수 가산만 표시 (사용자 카테고리 매칭 / commercial / longtail / 적정 dc 같은 긍정 시그널만)
+                const positives = factors.filter(f => f.delta > 0).slice(0, 3);
+                if (positives.length === 0) return '';
+                const chipsHtml = positives.map(f => {
+                    return `<span title="이 키워드는 ${f.label} 패턴에 실제 매칭됨" style="display:inline-block; margin-left:4px; padding:1px 6px; border-radius:6px; background:rgba(34,197,94,0.10); border:1px solid rgba(34,197,94,0.30); color:#86efac; font-size:9.5px; font-weight:700;">${f.label}</span>`;
                 }).join('');
-                return `<span title="${wl} (${w}점)" style="display:inline-block; margin-left:6px; padding:1px 6px; border-radius:8px; background:rgba(255,255,255,0.05); border:1px solid ${wc}55; color:${wc}; font-size:9.5px; font-weight:700;">✍️ ${w}</span>${chipsHtml}`;
+                return chipsHtml;
               })()}</td>
               <td style="padding:10px 8px; text-align:right; color:#cbd5e1;">${r.searchVolume.toLocaleString()}${(() => {
-                // v2.43.24 (사이클#1 6팀): 예상 일일 트래픽 (sv/30) 표시 — "트래픽 보장" 약속 수치화
+                // v2.43.27: 일평균 검색량 = 월 검색량 ÷ 30 (단순 산술 환산, 추정 아님)
+                //   "트래픽" 워딩 제거 — 검색량과 트래픽은 다름 (검색량 ÷ CTR ÷ 위치 등 추정 필요)
                 const daily = Math.round((r.searchVolume || 0) / 30);
                 if (daily <= 0) return '';
                 const color = daily >= 1000 ? '#22c55e' : daily >= 200 ? '#84cc16' : daily >= 50 ? '#f59e0b' : '#94a3b8';
-                return `<div style="font-size:9.5px; color:${color}; margin-top:2px;" title="월 검색량 ÷ 30 (네이버 실측)">≈${daily.toLocaleString()}/일</div>`;
+                return `<div style="font-size:9.5px; color:${color}; margin-top:2px;" title="월 검색량(실측) ÷ 30 = 일평균 검색량">/일 ${daily.toLocaleString()}</div>`;
               })()}</td>
               <td style="padding:10px 8px; text-align:right; color:#94a3b8;">${r.documentCount.toLocaleString()}</td>
               <td style="padding:10px 8px; text-align:right; font-weight:800; color:${ratioColor};">${r.goldenRatio.toFixed(2)}</td>
@@ -1618,7 +1617,7 @@
         if (picks.length === 0) { box.style.display = 'none'; return; }
         // 헤더 라벨 갱신
         const headerEl = box.querySelector('div[style*="font-weight:800"]');
-        if (headerEl) headerEl.textContent = `👑 황금키워드 TOP ${picks.length} (초보자 친화 + 의도 명확)`;
+        if (headerEl) headerEl.textContent = `👑 황금키워드 TOP ${picks.length}`;
         box.style.display = 'block';
         list.innerHTML = picks.map((r, i) => {
           const gradeColor = r.grade === 'SSR' ? '#a855f7' : r.grade === 'SSS' ? '#dc2626' : '#ea580c';
