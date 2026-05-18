@@ -41,7 +41,8 @@ export class PuppeteerPool {
 
   constructor(config: BrowserPoolConfig = {}) {
     this.maxSize = config.maxSize || 3;
-    this.idleTimeout = config.idleTimeout || 300000; // 5분
+    // v2.43.52: 9팀 — 5분→60초로 단축. idle 브라우저는 ~150MB RAM 점유
+    this.idleTimeout = config.idleTimeout || 60000;
     this.headless = config.headless !== false;
     this.startCleanup();
   }
@@ -188,7 +189,7 @@ export class PuppeteerPool {
 // 전역 브라우저 풀 인스턴스
 export const browserPool = new PuppeteerPool({
   maxSize: 3,
-  idleTimeout: 300000, // 5분
+  idleTimeout: 60000, // v2.43.52: 5분 → 60초 (idle 브라우저 RAM 점유 축소)
   headless: true
 });
 

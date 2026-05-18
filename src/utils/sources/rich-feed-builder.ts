@@ -478,9 +478,37 @@ export interface WritabilityBreakdown {
     factors: Array<{ delta: number; label: string }>;
 }
 
+// v2.43.52: 7팀 — keyword+docBucket+svBucket 메모이제이션
+//   PRO Hunter 1회 발굴에서 동일 키워드를 5~8회 calculateBloggerWritability 호출.
+//   docCount/searchVolume 을 bucket 으로 양자화하면 hit rate 90%+
+const writabilityMemo = new Map<string, WritabilityBreakdown>();
+function dcBucket(dc: number): number {
+    if (dc <= 0) return 0;
+    if (dc < 200) return 100;
+    if (dc < 500) return 300;
+    if (dc < 5000) return Math.floor(dc / 1000) * 1000 + 500;
+    if (dc < 10000) return 7500;
+    if (dc < 20000) return 15000;
+    return 30000;
+}
+function svBucket(sv: number): number {
+    if (sv <= 0) return 0;
+    if (sv < 100) return 50;
+    if (sv < 1000) return Math.floor(sv / 250) * 250 + 125;
+    if (sv < 20000) return 5000;
+    return 50000;
+}
 function calculateBloggerWritabilityBreakdown(keyword: string, docCount: number, searchVolume: number): WritabilityBreakdown {
     const clean = keyword.trim();
     if (!clean) return { score: 0, factors: [] };
+    const memoKey = `${clean}|${dcBucket(docCount)}|${svBucket(searchVolume)}`;
+    const cached = writabilityMemo.get(memoKey);
+    if (cached) return cached;
+    if (writabilityMemo.size > 8000) {
+        // 메모리 보호 — 가장 오래된 1000건 제거
+        const it = writabilityMemo.keys();
+        for (let i = 0; i < 1000; i++) writabilityMemo.delete(it.next().value);
+    }
     const tokens = clean.split(/\s+/).filter(Boolean);
     const tokenCount = tokens.length;
     const factors: Array<{ delta: number; label: string }> = [];
@@ -541,7 +569,9 @@ function calculateBloggerWritabilityBreakdown(keyword: string, docCount: number,
 
     if (searchVolume >= 1000 && searchVolume <= 20000) apply(5, 'sv적정');
 
-    return { score: Math.max(0, Math.min(100, score)), factors };
+    const result: WritabilityBreakdown = { score: Math.max(0, Math.min(100, score)), factors };
+    writabilityMemo.set(memoKey, result);
+    return result;
 }
 
 // 기존 호출 호환: number만 필요한 곳
@@ -1705,22 +1735,42 @@ export async function buildRichFeed(
         // v2.43.32: dc scrape 재검증을 dcEstimated=true 행에만 한정 + 상위 80건만
         //   사용자 요구: "최대한 빠르고 정확하면서 안정적이게"
         //   실측 dc 행은 이미 신뢰. 추정값 (sv*0.5 fallback) 행만 재검증 필요
+        // v2.43.52: persistent cache read-first — 24h 내 측정값 있으면 스크래핑 skip
+        let persistentGet: ((k: string) => any) | null = null;
+        let persistentSet: ((k: string, e: any) => void) | null = null;
+        try {
+            const pc = await import('../persistent-keyword-cache');
+            persistentGet = pc.getPersistent;
+            persistentSet = pc.setPersistent;
+        } catch {}
+
+        const FRESH_DC_MS = 24 * 60 * 60 * 1000;
+        let cacheHits = 0;
+        const initialNeeds = enrichedRows.filter(r => r.dcEstimated);
+        // 캐시 적중 즉시 반영
+        if (persistentGet) {
+            for (const r of initialNeeds) {
+                const cached = persistentGet(r.keyword);
+                if (cached && cached.documentCount > 0 && (Date.now() - (cached.savedAt || 0) < FRESH_DC_MS)) {
+                    r.documentCount = cached.documentCount;
+                    r.goldenRatio = parseFloat((r.searchVolume / Math.max(1, cached.documentCount)).toFixed(2));
+                    (r as any).dcEstimated = false;
+                    cacheHits++;
+                }
+            }
+        }
         const needsVerify = enrichedRows.filter(r => r.dcEstimated).slice(0, 80);
-        emit('verify-dc', 88, `dc 정확성 검증 (추정값 행만, ${needsVerify.length}건)...`);
-        const VERIFY_CONCURRENCY = 16;  // 8 → 16 (2배 속도)
-        const SCRAPE_TIMEOUT = 2500;     // 3000 → 2500
+        emit('verify-dc', 88, `dc 정확성 검증 (캐시 ${cacheHits}건 적중, 스크래핑 ${needsVerify.length}건)...`);
+        // v2.43.52: 4팀 권고 — 동시성 16→20, timeout 2500→2000ms AbortController hard deadline
+        const VERIFY_CONCURRENCY = 20;
+        const SCRAPE_TIMEOUT = 2000;
         let verified = 0;
         let corrected = 0;
         let demoted = 0;
 
-        // persistent cache 업데이트용
-        let persistentSet: ((k: string, e: any) => void) | null = null;
-        try {
-            const pc = await import('../persistent-keyword-cache');
-            persistentSet = pc.setPersistent;
-        } catch {}
-
         const scrapeWebDc = async (kw: string): Promise<number | null> => {
+            const ctrl = new AbortController();
+            const hardKill = setTimeout(() => ctrl.abort(), SCRAPE_TIMEOUT);
             try {
                 const axiosMod = await import('axios');
                 const axios = axiosMod.default;
@@ -1732,6 +1782,7 @@ export async function buildRichFeed(
                         'Accept-Language': 'ko-KR,ko;q=0.9',
                     },
                     timeout: SCRAPE_TIMEOUT,
+                    signal: ctrl.signal as any,
                 });
                 const html = String(resp.data || '');
                 // 다중 패턴: "1-10 / 16,681건" / "16,681건" / "총 16,681건" / "(16,681)"
@@ -1751,6 +1802,8 @@ export async function buildRichFeed(
                 return null;
             } catch {
                 return null;
+            } finally {
+                clearTimeout(hardKill);
             }
         };
 
@@ -1841,12 +1894,12 @@ export async function buildRichFeed(
         console.warn('[rich-feed v2.43.35] tracking 자동 주입 실패:', e?.message);
     }
 
-    // 🔥 v2.22.0 초고속: 트렌드 분류 top 30→15, 배치 5→10 (절반 시간)
-    emit('trend', 92, `30일 트렌드 타입 분류 중 (상위 ${Math.min(top.length, 15)}건)...`);
+    // v2.43.52: 9팀 — 트렌드 분류 top 15→10 (Datalab quota 절감 + 응답 시간 1/3)
+    emit('trend', 92, `30일 트렌드 타입 분류 중 (상위 ${Math.min(top.length, 10)}건)...`);
     try {
         const { analyzeKeywordTrend } = require('../trend-type-classifier');
         if (clientId && clientSecret) {
-            const trendTargets = top.slice(0, 15);
+            const trendTargets = top.slice(0, 10);
             const BATCH = 10;
             for (let i = 0; i < trendTargets.length; i += BATCH) {
                 const batch = trendTargets.slice(i, i + BATCH);

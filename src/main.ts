@@ -34,6 +34,8 @@ if (typeof globalThis.File === 'undefined') {
 import { app, BrowserWindow, ipcMain, shell, dialog, Tray, Menu, nativeImage } from 'electron';
 import * as path from 'path';
 import * as fs from 'fs';
+// v2.43.52: HTTP/HTTPS keep-alive 글로벌 활성 (import side-effect)
+import './utils/http-keepalive';
 import {
   initAutoUpdaterEarly,
   registerUpdaterHandlers,

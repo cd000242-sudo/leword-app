@@ -26,6 +26,22 @@ const MODEL_ID = 'Xenova/multilingual-e5-small';
 type EmbeddingCache = Record<string, number[]>;
 let memoryCache: EmbeddingCache = {};
 let cacheLoaded = false;
+// v2.43.52: 9팀 — LRU 5000 cap (메모리 보호, 임베딩 1건 ≈ 384 floats × 4B = 1.5KB → 5000건 ≈ 7.5MB)
+const CACHE_CAP = 5000;
+const accessOrder = new Map<string, number>();
+let accessCounter = 0;
+function evictIfNeeded(): void {
+  const keys = Object.keys(memoryCache);
+  if (keys.length <= CACHE_CAP) return;
+  // 오래된 1000건 제거 (한 번에 batch evict)
+  const sorted = keys.map(k => [k, accessOrder.get(k) || 0] as [string, number])
+                     .sort((a, b) => a[1] - b[1]);
+  const toEvict = Math.min(1000, sorted.length - CACHE_CAP + 1000);
+  for (let i = 0; i < toEvict; i++) {
+    delete memoryCache[sorted[i][0]];
+    accessOrder.delete(sorted[i][0]);
+  }
+}
 
 function getCachePath(): string {
   const dir = path.join(app.getPath('userData'), 'leword');
@@ -129,11 +145,16 @@ export async function embed(keyword: string): Promise<number[] | null> {
   const clean = keyword.trim();
   if (!clean) return null;
   loadCache();
-  if (memoryCache[clean]) return memoryCache[clean];
+  if (memoryCache[clean]) {
+    accessOrder.set(clean, ++accessCounter);
+    return memoryCache[clean];
+  }
   try {
     const output = await pipelineFn(clean, { pooling: 'mean', normalize: true });
     const arr = Array.from(output.data as Float32Array);
     memoryCache[clean] = arr;
+    accessOrder.set(clean, ++accessCounter);
+    evictIfNeeded();
     scheduleSave();
     return arr;
   } catch (e: any) {

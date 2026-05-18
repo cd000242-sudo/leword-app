@@ -63,6 +63,15 @@ class TTLCache {
 
 const cache = new TTLCache();
 
+// v2.43.52: 소스별 5초 timeout — Promise.allSettled 와 함께 worst-case hang 차단
+const SOURCE_TIMEOUT_MS = 5000;
+function withTimeout<T>(p: Promise<T>, ms: number, label: string): Promise<T> {
+    return new Promise<T>((resolve, reject) => {
+        const t = setTimeout(() => reject(new Error(`[aggregator] ${label} timeout ${ms}ms`)), ms);
+        p.then(v => { clearTimeout(t); resolve(v); }, e => { clearTimeout(t); reject(e); });
+    });
+}
+
 const TTL = {
     REALTIME: 5 * 60 * 1000,        // 5분 — 텔레그램·SNS
     HOURLY: 60 * 60 * 1000,         // 1시간 — 뉴스·커뮤니티
@@ -99,100 +108,91 @@ export async function pullAllSeedKeywords(options: { lite?: boolean } = {}): Pro
 
     const tasks: Array<Promise<void>> = [];
 
+    // v2.43.52: 모든 소스 wrap helper — timeout + 에러 격리
+    const runSource = (name: string, ttl: number, body: () => Promise<void>) => {
+        tasks.push(withTimeout(body(), SOURCE_TIMEOUT_MS, name).catch((e: any) => {
+            console.warn(`[aggregator] ${name} skip: ${e?.message || e}`);
+        }));
+    };
+
     // === 무료 소스 (Lite 가능) ===
-    tasks.push((async () => {
+    runSource('youtube', TTL.HOURLY, async () => {
         const cached = cache.get<any>('youtube-trending') || (await getYoutubeTrendingKeywords());
         cache.set('youtube-trending', cached, TTL.HOURLY);
         raw.youtube = cached;
         for (const k of cached) addSeed(k.keyword, 'youtube');
-    })());
+    });
 
-    tasks.push((async () => {
+    runSource('wiki', TTL.DAILY, async () => {
         const cached = cache.get<WikiPageView[]>('wiki-top') || (await fetchKoreanWikiTop());
         cache.set('wiki-top', cached, TTL.DAILY);
         raw.wiki = cached;
         for (const w of cached.slice(0, 100)) addSeed(w.article, 'wikipedia');
-    })());
+    });
 
-    tasks.push((async () => {
+    runSource('ppomppu', TTL.HOURLY, async () => {
         const cached = cache.get<any>('ppomppu') || (await getHotProductFrequency());
         cache.set('ppomppu', cached, TTL.HOURLY);
         raw.ppomppu = cached;
         for (const p of cached) addSeed(p.product, 'ppomppu');
-    })());
+    });
 
     if (options.lite) {
-        await Promise.all(tasks);
+        await Promise.allSettled(tasks);
         return { seeds, raw };
     }
 
     // === PRO 전용 고급 소스 ===
-    tasks.push((async () => {
-        try {
-            const cached = cache.get<Record<string, ShoppingRankItem[]>>('shopping-ranks') || (await fetchAllCategoryRanks());
-            cache.set('shopping-ranks', cached, TTL.DAILY);
-            raw.shopping = cached;
-            for (const items of Object.values(cached)) {
-                for (const item of items) addSeed(item.keyword, 'naver-shopping');
-            }
-        } catch (e) { console.error('[aggregator] shopping fail', e); }
-    })());
+    runSource('shopping', TTL.DAILY, async () => {
+        const cached = cache.get<Record<string, ShoppingRankItem[]>>('shopping-ranks') || (await fetchAllCategoryRanks());
+        cache.set('shopping-ranks', cached, TTL.DAILY);
+        raw.shopping = cached;
+        for (const items of Object.values(cached)) {
+            for (const item of items) addSeed(item.keyword, 'naver-shopping');
+        }
+    });
 
-    tasks.push((async () => {
-        try {
-            const cached = cache.get<TiktokHashtagTrend[]>('tiktok') || (await fetchTiktokTrendingHashtags({ countryCode: 'KR' }));
-            cache.set('tiktok', cached, TTL.HOURLY);
-            raw.tiktok = cached;
-            for (const t of cached) addSeed(t.hashtag, 'tiktok');
-        } catch (e) { console.error('[aggregator] tiktok fail', e); }
-    })());
+    runSource('tiktok', TTL.HOURLY, async () => {
+        const cached = cache.get<TiktokHashtagTrend[]>('tiktok') || (await fetchTiktokTrendingHashtags({ countryCode: 'KR' }));
+        cache.set('tiktok', cached, TTL.HOURLY);
+        raw.tiktok = cached;
+        for (const t of cached) addSeed(t.hashtag, 'tiktok');
+    });
 
-    tasks.push((async () => {
-        try {
-            const cached = cache.get<any>('theqoo') || (await getTheqooKeywords());
-            cache.set('theqoo', cached, TTL.HOURLY);
-            raw.theqoo = cached;
-            for (const k of cached) addSeed(k.keyword, 'theqoo');
-        } catch (e) { console.error('[aggregator] theqoo fail', e); }
-    })());
+    runSource('theqoo', TTL.HOURLY, async () => {
+        const cached = cache.get<any>('theqoo') || (await getTheqooKeywords());
+        cache.set('theqoo', cached, TTL.HOURLY);
+        raw.theqoo = cached;
+        for (const k of cached) addSeed(k.keyword, 'theqoo');
+    });
 
-    tasks.push((async () => {
-        try {
-            const cached = cache.get<any>('bobae') || (await getBobaeKeywords());
-            cache.set('bobae', cached, TTL.HOURLY);
-            raw.bobae = cached;
-            for (const k of cached) addSeed(k.keyword, 'bobaedream');
-        } catch (e) { console.error('[aggregator] bobae fail', e); }
-    })());
+    runSource('bobae', TTL.HOURLY, async () => {
+        const cached = cache.get<any>('bobae') || (await getBobaeKeywords());
+        cache.set('bobae', cached, TTL.HOURLY);
+        raw.bobae = cached;
+        for (const k of cached) addSeed(k.keyword, 'bobaedream');
+    });
 
-    tasks.push((async () => {
-        try {
-            const cached = cache.get<any>('oliveyoung') || extractOliveyoungKeywords(await fetchOliveyoungBest());
-            cache.set('oliveyoung', cached, TTL.DAILY);
-            raw.oliveyoung = cached;
-            for (const o of cached) addSeed(o.keyword, 'oliveyoung');
-        } catch (e) { console.error('[aggregator] oliveyoung fail', e); }
-    })());
+    runSource('oliveyoung', TTL.DAILY, async () => {
+        const cached = cache.get<any>('oliveyoung') || extractOliveyoungKeywords(await fetchOliveyoungBest());
+        cache.set('oliveyoung', cached, TTL.DAILY);
+        raw.oliveyoung = cached;
+        for (const o of cached) addSeed(o.keyword, 'oliveyoung');
+    });
 
-    tasks.push((async () => {
-        try {
-            const cached = cache.get<any>('musinsa') || extractMusinsaKeywords(await fetchMusinsaRanking());
-            cache.set('musinsa', cached, TTL.DAILY);
-            raw.musinsa = cached;
-            for (const m of cached) addSeed(m.keyword, 'musinsa');
-        } catch (e) { console.error('[aggregator] musinsa fail', e); }
-    })());
+    runSource('musinsa', TTL.DAILY, async () => {
+        const cached = cache.get<any>('musinsa') || extractMusinsaKeywords(await fetchMusinsaRanking());
+        cache.set('musinsa', cached, TTL.DAILY);
+        raw.musinsa = cached;
+        for (const m of cached) addSeed(m.keyword, 'musinsa');
+    });
 
-    // kream/namuwiki 풀링 제거됨 (서버 차단·SPA 변경)
-
-    tasks.push((async () => {
-        try {
-            const cached = cache.get<any>('openalex') || (await predictEmergingTopics());
-            cache.set('openalex', cached, TTL.WEEKLY);
-            raw.openalex = cached;
-            for (const t of cached) addSeed(t.topic, 'openalex');
-        } catch (e) { console.error('[aggregator] openalex fail', e); }
-    })());
+    runSource('openalex', TTL.WEEKLY, async () => {
+        const cached = cache.get<any>('openalex') || (await predictEmergingTopics());
+        cache.set('openalex', cached, TTL.WEEKLY);
+        raw.openalex = cached;
+        for (const t of cached) addSeed(t.topic, 'openalex');
+    });
 
     // v2.43.37: 미호출이던 8개 커뮤니티/뉴스 source 추가 (실제 30+ 달성)
     const COMMUNITY_COLLECTORS: Array<{ name: string; ttl: number; fn: () => Promise<Array<{ keyword: string; frequency?: number }>> }> = [
@@ -206,29 +206,24 @@ export async function pullAllSeedKeywords(options: { lite?: boolean } = {}): Pro
         { name: 'mlbpark',    ttl: TTL.HOURLY, fn: getMlbparkKeywords },
     ];
     for (const collector of COMMUNITY_COLLECTORS) {
-        tasks.push((async () => {
-            try {
-                const cached = cache.get<any>(collector.name) || (await collector.fn());
-                cache.set(collector.name, cached, collector.ttl);
-                raw[collector.name] = cached;
-                for (const item of cached) {
-                    if (item && item.keyword) addSeed(item.keyword, collector.name);
-                }
-            } catch (e: any) {
-                console.warn(`[aggregator] ${collector.name} fail:`, e?.message);
+        runSource(collector.name, collector.ttl, async () => {
+            const cached = cache.get<any>(collector.name) || (await collector.fn());
+            cache.set(collector.name, cached, collector.ttl);
+            raw[collector.name] = cached;
+            for (const item of cached) {
+                if (item && item.keyword) addSeed(item.keyword, collector.name);
             }
-        })());
+        });
     }
 
-    tasks.push((async () => {
-        try {
-            const cached = cache.get<any>('rakuten') || (await fetchAllRakutenCategories());
-            cache.set('rakuten', cached, TTL.DAILY);
-            raw.rakuten = cached;
-        } catch (e) { console.error('[aggregator] rakuten fail', e); }
-    })());
+    runSource('rakuten', TTL.DAILY, async () => {
+        const cached = cache.get<any>('rakuten') || (await fetchAllRakutenCategories());
+        cache.set('rakuten', cached, TTL.DAILY);
+        raw.rakuten = cached;
+    });
 
-    await Promise.all(tasks);
+    // v2.43.52: allSettled — 한 소스 hang/실패가 전체 차단하지 않음
+    await Promise.allSettled(tasks);
     return { seeds, raw };
 }
 

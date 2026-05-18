@@ -1470,8 +1470,9 @@ setInterval(() => {
 // 🔥🔥🔥 100% 실제 API 모드 설정 (v12.1 Rate Limit 방지!) 🔥🔥🔥
 const API_CONFIG = {
   // 병렬 처리 설정 (Rate Limit 방지를 위해 조절)
-  PARALLEL_BATCH_SIZE: 5,         // 동시 API 호출 수 (50 → 5, Rate Limit 방지)
-  PARALLEL_BATCH_DELAY: 500,      // 배치 간 딜레이 (50ms → 500ms)
+  // v2.43.52: 8팀 분석 — 5→10 동시, 500→200ms 딜레이로 전체 벽시계 ~50% 단축
+  PARALLEL_BATCH_SIZE: 10,        // 동시 API 호출 수 (5 → 10, keep-alive로 안전)
+  PARALLEL_BATCH_DELAY: 200,      // 배치 간 딜레이 (500 → 200ms)
 
   // 재시도 설정 (지수 백오프)
   MAX_RETRIES: 2,                 // 최대 재시도 횟수 (3 → 2)

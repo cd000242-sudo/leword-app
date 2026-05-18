@@ -103,23 +103,51 @@ export async function checkKeywordRecencyBatch(
  * 키워드 다건 추세 검증 (자동 batch 5개씩, 병렬 3개 동시)
  * v2.43.32: 직렬 → 병렬 3 batch 동시 → 속도 3배
  */
+// v2.43.52: 5팀 — keyword-key 캐시 layer (배치 key가 달라도 키워드별 재사용)
+const recencyKeywordCache = new Map<string, { data: KeywordRecency; expiresAt: number }>();
+const RECENCY_KW_TTL = 10 * 60 * 1000; // 10분
+function getKwRecency(kw: string): KeywordRecency | null {
+  const e = recencyKeywordCache.get(kw);
+  if (!e) return null;
+  if (Date.now() > e.expiresAt) { recencyKeywordCache.delete(kw); return null; }
+  return e.data;
+}
+function setKwRecency(r: KeywordRecency): void {
+  recencyKeywordCache.set(r.keyword, { data: r, expiresAt: Date.now() + RECENCY_KW_TTL });
+  // 메모리 보호 — 5000건 cap
+  if (recencyKeywordCache.size > 5000) {
+    const overflow = recencyKeywordCache.size - 5000;
+    const it = recencyKeywordCache.keys();
+    for (let i = 0; i < overflow; i++) recencyKeywordCache.delete(it.next().value);
+  }
+}
+
 export async function checkKeywordsRecency(
   config: NaverDatalabConfig,
   keywords: string[],
 ): Promise<Map<string, KeywordRecency>> {
   const map = new Map<string, KeywordRecency>();
-  const batches: string[][] = [];
-  for (let i = 0; i < keywords.length; i += 5) {
-    batches.push(keywords.slice(i, i + 5));
+  // 1) 키워드별 캐시 적중 분리
+  const miss: string[] = [];
+  for (const kw of keywords) {
+    const hit = getKwRecency(kw);
+    if (hit) map.set(kw, hit);
+    else miss.push(kw);
   }
-  const PARALLEL = 3;
+  if (miss.length === 0) return map;
+
+  const batches: string[][] = [];
+  for (let i = 0; i < miss.length; i += 5) {
+    batches.push(miss.slice(i, i + 5));
+  }
+  // 5팀 — PARALLEL 3→5, round-sleep 제거 (60건 6s → 3.6s)
+  const PARALLEL = 5;
   for (let i = 0; i < batches.length; i += PARALLEL) {
     const slice = batches.slice(i, i + PARALLEL);
     const results = await Promise.all(slice.map(b => checkKeywordRecencyBatch(config, b)));
     for (const arr of results) {
-      for (const r of arr) map.set(r.keyword, r);
+      for (const r of arr) { map.set(r.keyword, r); setKwRecency(r); }
     }
-    if (i + PARALLEL < batches.length) await new Promise(r => setTimeout(r, 100));
   }
   return map;
 }
