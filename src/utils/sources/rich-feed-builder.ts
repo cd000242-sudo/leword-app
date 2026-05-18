@@ -1374,7 +1374,15 @@ export async function buildRichFeed(
                 emit('ai-augment', 89, `🧠 Claude 추천 ${claudeRows.length}건 SSS 추가됨`);
             }
         } catch (e: any) {
-            console.warn('[rich-feed] Claude augmentation 실패 (무시):', e?.message);
+            // v2.43.50: 529 overloaded 친화 메시지
+            const msg = String(e?.message || '');
+            const isOverloaded = msg.includes('529') || msg.toLowerCase().includes('overloaded');
+            if (isOverloaded) {
+                console.warn('[rich-feed v2.43.50] Claude 서버 과부하 (529) — Claude 보강 스킵, 다른 시드로 정상 진행');
+                emit('ai-augment', 89, '⚠️ Claude 서버 과부하 — 보강 스킵 (다른 시드는 정상 진행)');
+            } else {
+                console.warn('[rich-feed] Claude augmentation 실패 (무시):', msg);
+            }
         }
     }
 

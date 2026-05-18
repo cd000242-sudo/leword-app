@@ -13,7 +13,8 @@
  */
 
 const CLAUDE_MODEL = 'claude-sonnet-4-6';
-const MAX_RETRIES = 1;
+// v2.43.50: 529 overloaded 대응 — 재시도 3회 + exponential backoff
+const MAX_RETRIES = 3;
 const TIMEOUT_MS = 30000;
 
 export interface AIInvocationOptions {
@@ -114,9 +115,13 @@ export async function callAI(
         } catch (err: any) {
             lastErr = err;
             const status = err?.status || err?.response?.status;
-            const retryable = status === 429 || (status >= 500 && status < 600) || err?.code === 'ETIMEDOUT';
+            const retryable = status === 429 || status === 529 || (status >= 500 && status < 600) || err?.code === 'ETIMEDOUT';
             if (attempt < MAX_RETRIES && retryable) {
-                await new Promise(r => setTimeout(r, 1500 * (attempt + 1)));
+                // v2.43.50: 529 (overloaded) 는 더 긴 backoff — exponential + jitter
+                const base = status === 529 ? 5000 : 1500;
+                const wait = base * Math.pow(2, attempt) + Math.floor(Math.random() * 1000);
+                console.warn(`[ai-client] HTTP ${status} → ${wait}ms 대기 후 재시도 ${attempt + 1}/${MAX_RETRIES}`);
+                await new Promise(r => setTimeout(r, wait));
                 continue;
             }
             break;
