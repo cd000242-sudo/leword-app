@@ -1163,19 +1163,25 @@
                 const wl = w >= 75 ? '글쓰기 매우 좋음' : w >= 60 ? '글쓰기 좋음' : w >= 45 ? '글쓰기 보통' : '글쓰기 어려움';
                 return `<span title="${wl} (${w}점) — 셀럽/지역시설/전문어 패널티, longtail/카테고리 명확/commercial intent 가산" style="display:inline-block; margin-left:6px; padding:1px 6px; border-radius:8px; background:rgba(255,255,255,0.05); border:1px solid ${wc}55; color:${wc}; font-size:9.5px; font-weight:700;">✍️ ${w}</span>`;
               })()}</td>
-              <td style="padding:10px 8px; text-align:right; color:#cbd5e1;">${r.searchVolume.toLocaleString()}</td>
+              <td style="padding:10px 8px; text-align:right; color:#cbd5e1;">${r.searchVolume.toLocaleString()}${(() => {
+                // v2.43.24 (사이클#1 6팀): 예상 일일 트래픽 (sv/30) 표시 — "트래픽 보장" 약속 수치화
+                const daily = Math.round((r.searchVolume || 0) / 30);
+                if (daily <= 0) return '';
+                const color = daily >= 1000 ? '#22c55e' : daily >= 200 ? '#84cc16' : daily >= 50 ? '#f59e0b' : '#94a3b8';
+                return `<div style="font-size:9.5px; color:${color}; margin-top:2px;" title="월 검색량 ÷ 30 (네이버 실측)">≈${daily.toLocaleString()}/일</div>`;
+              })()}</td>
               <td style="padding:10px 8px; text-align:right; color:#94a3b8;">${r.documentCount.toLocaleString()}</td>
               <td style="padding:10px 8px; text-align:right; font-weight:800; color:${ratioColor};">${r.goldenRatio.toFixed(2)}</td>
               <td style="padding:10px 8px; text-align:right; color:#cbd5e1;" title="네이버 검색광고 API 실측 평균 입찰가">${(typeof r.cpc === 'number' && r.cpc > 0) ? '₩' + r.cpc.toLocaleString() : '<span style="color:#64748b;">-</span>'}</td>
               <td style="padding:10px 8px; text-align:center;"><span class="rf-fresh ${r.freshness}">${freshIcon(r.freshness)}</span></td>
               <td style="padding:10px 8px; text-align:left;">${sources}${moreSources}</td>
               <td style="padding:10px 8px; text-align:center; white-space:nowrap;">
-                <!-- 🔥 v2.30.1: 부정확 추측 기능 (수익 예측) 제거 — 실측 데이터 기반만 유지 -->
                 <button class="rf-action-btn" title="복사" onclick="rfCopyKw('${kwSafe}')">📋</button>
+                <button class="rf-action-btn" title="📝 글감 미리보기 — 자동완성 기반 제목 후보 5개 (v2.43.24)" onclick="rfShowTopicIdeas('${kwSafe}')">📝</button>
                 <button class="rf-action-btn" title="세부 키워드 10개 (실측 Naver API)" onclick="rfDrilldown('${kwSafe}', ${idx})">🔍</button>
                 <button class="rf-action-btn" title="30일 트렌드 그래프 (실측 Datalab)" onclick="rfShowTrendGraph('${kwSafe}', ${Number(r.searchVolume) || 0})">📈</button>
-                <button class="rf-action-btn" title="이 키워드 제외 (다음 발굴 안 보임)" onclick="rfExcludeKw('${kwSafe}', ${idx})">🚫</button>
-                <button class="rf-action-btn" title="네이버 검색 (실제 SERP 확인)" onclick="window.electronAPI.openExternal('https://search.naver.com/search.naver?query=' + encodeURIComponent('${kwSafe}'))">🌐</button>
+                <button class="rf-action-btn" title="이 키워드 제외" onclick="rfExcludeKw('${kwSafe}', ${idx})">🚫</button>
+                <button class="rf-action-btn" title="네이버 검색" onclick="window.electronAPI.openExternal('https://search.naver.com/search.naver?query=' + encodeURIComponent('${kwSafe}'))">🌐</button>
               </td>
             </tr>
             <tr id="rf-drill-${idx}" style="display:none;"><td colspan="11" style="padding:0; background:rgba(0,0,0,0.3);"><div id="rf-drill-content-${idx}" style="padding:14px 24px; color:#cbd5e1; font-size:12px;"></div></td></tr>
@@ -1350,6 +1356,67 @@
           setTimeout(() => s.textContent = old, 2000);
         });
       }
+
+      // v2.43.24 (사이클#1 5팀): 글감 미리보기 모달 — 자동완성 기반 제목 후보 5개
+      window.rfShowTopicIdeas = async function(kw) {
+        const existing = document.getElementById('topicIdeasModal');
+        if (existing) existing.remove();
+        const modal = document.createElement('div');
+        modal.id = 'topicIdeasModal';
+        modal.style.cssText = 'position:fixed; inset:0; background:rgba(0,0,0,0.8); backdrop-filter:blur(8px); z-index:10500; display:flex; align-items:center; justify-content:center; padding:20px;';
+        modal.innerHTML = `
+          <div style="background:linear-gradient(135deg,#0f172a 0%,#1e1b4b 100%); border-radius:18px; padding:28px; max-width:680px; width:100%; max-height:80vh; overflow-y:auto; border:2px solid rgba(168,85,247,0.4); box-shadow:0 25px 80px rgba(0,0,0,0.6);">
+            <div style="display:flex; justify-content:space-between; align-items:flex-start; margin-bottom:18px;">
+              <div>
+                <h2 style="margin:0 0 4px; font-size:20px; font-weight:800; color:#f1f5f9;">📝 글감 미리보기: <span style="color:#c4b5fd;">${kw}</span></h2>
+                <p style="margin:0; font-size:12px; color:rgba(255,255,255,0.55);">네이버 자동완성 기반 제목 후보 — 클릭하면 복사됩니다</p>
+              </div>
+              <button onclick="document.getElementById('topicIdeasModal')?.remove()" style="background:rgba(255,255,255,0.1); border:none; border-radius:10px; color:#fff; width:36px; height:36px; cursor:pointer; font-size:18px;">✕</button>
+            </div>
+            <div id="topicIdeasBody" style="display:flex; align-items:center; justify-content:center; min-height:120px; color:#a78bfa;">
+              <div style="text-align:center;">
+                <div style="font-size:32px; animation:spin 1s linear infinite;">⏳</div>
+                <div style="font-size:13px; margin-top:10px;">자동완성 수집 중...</div>
+              </div>
+            </div>
+          </div>
+        `;
+        document.body.appendChild(modal);
+        try {
+          const r = await window.electronAPI.invoke('get-autocomplete-suggestions', kw);
+          const body = document.getElementById('topicIdeasBody');
+          if (!body) return;
+          const sugs = Array.isArray(r?.suggestions) ? r.suggestions.slice(0, 12) : [];
+          if (sugs.length === 0) {
+            body.innerHTML = '<div style="color:rgba(255,255,255,0.55); padding:20px;">자동완성 결과가 없습니다. 다른 키워드를 시도해보세요.</div>';
+            return;
+          }
+          // 글감 템플릿 5가지 + 자동완성 후보
+          const templates = [
+            { prefix: '', suffix: ' 추천', icon: '⭐' },
+            { prefix: '', suffix: ' 후기', icon: '💬' },
+            { prefix: '', suffix: ' 비교', icon: '⚖️' },
+            { prefix: '', suffix: ' 사용법', icon: '🔧' },
+            { prefix: '', suffix: ' 가격', icon: '💰' },
+            { prefix: '', suffix: '이란', icon: '❓' },
+          ];
+          const templateRows = templates.map(t => `${t.icon} ${kw}${t.suffix}`);
+          const allIdeas = [...templateRows, ...sugs];
+          body.innerHTML = `
+            <div style="width:100%;">
+              <div style="font-size:12px; color:rgba(255,255,255,0.6); margin-bottom:10px;">💡 클릭하면 복사 — 그대로 블로그 제목으로 사용 가능</div>
+              <div style="display:flex; flex-direction:column; gap:6px;">
+                ${allIdeas.map(idea => `
+                  <button onclick="navigator.clipboard.writeText('${String(idea).replace(/'/g, "\\'")}'); this.style.background='rgba(34,197,94,0.25)'; this.innerHTML='✅ ' + this.dataset.original; setTimeout(() => { this.style.background='rgba(168,85,247,0.08)'; this.innerHTML=this.dataset.original; }, 1500);" data-original="${String(idea).replace(/"/g, '&quot;')}" style="text-align:left; padding:10px 14px; background:rgba(168,85,247,0.08); border:1px solid rgba(168,85,247,0.25); border-radius:8px; color:#e9d5ff; font-size:13px; cursor:pointer; transition:all 0.2s;">${idea}</button>
+                `).join('')}
+              </div>
+            </div>
+          `;
+        } catch (e) {
+          const body = document.getElementById('topicIdeasBody');
+          if (body) body.innerHTML = '<div style="color:#fca5a5;">❌ ' + (e?.message || e) + '</div>';
+        }
+      };
 
       // 🔥 v2.30.1: 수익 예측 함수 제거 — 추측 기반이라 정확도 낮음
       //   sv × CTR × CPC × ... 곱셈은 수많은 가정값에 의존. 실측 데이터가 아님.

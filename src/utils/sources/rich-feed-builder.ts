@@ -1220,8 +1220,10 @@ export async function buildRichFeed(
     //   dcEstimated 행은 신뢰도 낮아 풀 제외. SSR 은 SSS superset 이라 그대로 유지.
     //   pro-traffic-keyword-hunter v2.40.5 의 검증된 점수 식 차용 (grScore×0.55 + svScore×0.30 + dcScore×0.15).
     const sssCount = enrichedRows.filter(r => r.grade === 'SSS' || r.grade === 'SSR').length;
-    // v2.43.17: 대량 발굴 — 사용자 요청 "키워드 대량 발굴"
-    const TARGET_SSS = Math.max(150, Math.floor(limit * 0.5));
+    // v2.43.24 (사이클#1 1팀): TARGET_SSS floor 제거 — 강제 승격이 가짜 SSS 양산하는 사이클 차단
+    //   이전: max(150, limit*0.5) → 무조건 150개 채우기 → 친화도 25 까지 풀어줌
+    //   변경: floor 없음. 자연 통과 + 1차 promotion 만. 부족하면 "오늘 N개" 정직 표시
+    const TARGET_SSS = Math.min(60, Math.floor(limit * 0.2));
     diagnostic.promotion.poolSize = 0; // updated below if promotion runs
     if (sssCount < TARGET_SSS) {
         // 🔥 v2.41.2: 진짜 SSS = 저경쟁 + 중수요 + 높은 비율 (CLAUDE.md 정의)
