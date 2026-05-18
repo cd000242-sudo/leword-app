@@ -1012,6 +1012,16 @@ app.whenReady().then(async () => {
   // v2.42.27: 시스템 트레이 (창 닫기 시 결과 보존 — 사용자 요청)
   createTray();
 
+  // v2.43.36 (Phase 3-A): 외부 trending → tracking-store cron 시작
+  //   1팀 비평 해결: rich-feed-builder 거치지 않고 외부 30+ 소스에서 raw 키워드 자동 주입
+  //   surge-detector autoScan 입력 풀이 동적으로 풍부해짐 (cold-start 해결)
+  try {
+    const { startExternalTrendingPump } = require('./utils/sources/external-trending-pump');
+    startExternalTrendingPump();
+  } catch (e: any) {
+    console.warn('[LEWORD] external trending pump 시작 실패:', e?.message);
+  }
+
   // v2.42.91: UI에서 트레이 토글 가능한 IPC 추가
   ipcMain.handle('tray-hide-to-tray', () => {
     if (keywordWindow && !keywordWindow.isDestroyed()) {

@@ -349,6 +349,25 @@ export function setupSourceSignalHandlers(): void {
 
     // v2.43.34 (Phase 1): 블로그 URL → 자동 카테고리 감지
     //   네이버 블로그 URL 입력 → measureBlog() 가 카테고리 텍스트 추출 → BloggerCategoryInfo 의 affinityPattern 으로 자동 매핑
+    // v2.43.36 (Phase 3-A): external-trending-pump 수동 트리거 + 상태
+    ipcMain.handle('trending-pump-run', async () => {
+        try {
+            const { runExternalTrendingPump } = await import('../../utils/sources/external-trending-pump');
+            const result = await runExternalTrendingPump();
+            return { success: true, result };
+        } catch (e: any) {
+            return { success: false, error: e.message };
+        }
+    });
+    ipcMain.handle('trending-pump-status', () => {
+        try {
+            const { getPumpStatus } = require('../../utils/sources/external-trending-pump');
+            return { success: true, status: getPumpStatus() };
+        } catch (e: any) {
+            return { success: false, error: e.message };
+        }
+    });
+
     ipcMain.handle('blogger-profile-auto-detect', async (_e, blogUrl: string) => {
         try {
             if (!blogUrl || typeof blogUrl !== 'string') return { success: false, error: 'URL이 비어있습니다' };
