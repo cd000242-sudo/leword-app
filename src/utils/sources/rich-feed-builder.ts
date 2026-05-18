@@ -1742,6 +1742,26 @@ export async function buildRichFeed(
 
     const top = enrichedRows.slice(0, limit).map((r, idx) => ({ ...r, rank: idx + 1 }));
 
+    // v2.43.35 (Phase 2): 발굴된 키워드 + baseSeeds 후보 풀 전체를 tracking-store에 자동 주입
+    //   1팀 비평: "surge-detector autoScan 이 listTrackedKeywords().slice(0, 20) 만 스캔.
+    //   외부 trending 자동 주입 파이프라인 부재" → 발굴 결과를 tracking-store 동적 풀에 합류
+    try {
+        const { bulkRegisterTrending } = await import('../pro-hunter-v12/tracking-store');
+        const trackingItems = [
+            ...top.map(r => ({ keyword: r.keyword, docCount: r.documentCount, searchVolume: r.searchVolume })),
+            // 풀 다양성: enrichedRows 전체에서 SSS 미통과한 후보 + baseSeeds 일부도 등록
+            ...enrichedRows
+                .filter(r => !top.some(t => t.keyword === r.keyword))
+                .slice(0, 100)
+                .map(r => ({ keyword: r.keyword, docCount: r.documentCount, searchVolume: r.searchVolume })),
+        ];
+        const result = bulkRegisterTrending(trackingItems);
+        console.log(`[rich-feed v2.43.35] tracking-store 자동 주입: +${result.added}, evicted ${result.evicted}, 총 ${result.totalSize}건`);
+        emit('tracking-register', 99, `🔄 추적 풀 ${result.totalSize}건 (신규 +${result.added})`);
+    } catch (e: any) {
+        console.warn('[rich-feed v2.43.35] tracking 자동 주입 실패:', e?.message);
+    }
+
     // 🔥 v2.22.0 초고속: 트렌드 분류 top 30→15, 배치 5→10 (절반 시간)
     emit('trend', 92, `30일 트렌드 타입 분류 중 (상위 ${Math.min(top.length, 15)}건)...`);
     try {

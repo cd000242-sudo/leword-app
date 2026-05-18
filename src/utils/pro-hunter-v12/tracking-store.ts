@@ -126,6 +126,67 @@ export function removeTrackedKeyword(keyword: string): void {
   save(store);
 }
 
+// v2.43.35 (Phase 2): 외부 trending 키워드 일괄 자동 등록
+//   1팀 비평: "surge-detector autoScan 이 listTrackedKeywords().slice(0, 20) 만 봄.
+//   사용자가 추적 안 한 신규 이벤트는 영원히 감지 못 함" → tracking-store 자체를 동적 풀로 전환
+const MAX_TRACKED_KEYWORDS = 800;   // 풀 size cap (surge-detector 입력)
+const STALE_TTL_MS = 30 * 24 * 60 * 60 * 1000; // 30일 미체크 → 자동 제거
+
+export interface BulkRegisterResult {
+  added: number;
+  skipped: number;
+  evicted: number;
+  totalSize: number;
+}
+
+export function bulkRegisterTrending(
+  items: Array<{ keyword: string; docCount?: number; searchVolume?: number | null }>,
+): BulkRegisterResult {
+  const store = load();
+  const now = Date.now();
+  let added = 0;
+  let skipped = 0;
+  let evicted = 0;
+
+  // 1. stale 30일+ 미체크 자동 제거
+  for (const [k, v] of Object.entries(store.keywords)) {
+    if (now - v.lastCheckedAt > STALE_TTL_MS) {
+      delete store.keywords[k];
+      evicted++;
+    }
+  }
+
+  // 2. 신규 키워드 등록 (이미 있으면 skip)
+  for (const it of items) {
+    const kw = String(it.keyword || '').trim();
+    if (!kw || kw.length < 2 || kw.length > 40) { skipped++; continue; }
+    if (store.keywords[kw]) { skipped++; continue; }
+    store.keywords[kw] = {
+      keyword: kw,
+      registeredAt: now,
+      lastCheckedAt: now,
+      initialDocCount: it.docCount || 0,
+      history: [{ ts: now, docCount: it.docCount || 0, searchVolume: it.searchVolume ?? null }],
+      alerts: [],
+    };
+    added++;
+  }
+
+  // 3. size cap 초과 시 가장 오래된 lastCheckedAt 순으로 제거
+  const total = Object.keys(store.keywords).length;
+  if (total > MAX_TRACKED_KEYWORDS) {
+    const sorted = Object.values(store.keywords).sort((a, b) => a.lastCheckedAt - b.lastCheckedAt);
+    const toRemove = sorted.slice(0, total - MAX_TRACKED_KEYWORDS);
+    for (const t of toRemove) {
+      delete store.keywords[t.keyword];
+      evicted++;
+    }
+  }
+
+  save(store);
+  return { added, skipped, evicted, totalSize: Object.keys(store.keywords).length };
+}
+
 // ── Tracked Posts ──
 
 export function addTrackedPost(postUrl: string, keyword: string, predictedRank: number, additionalKeywords?: string[]): void {

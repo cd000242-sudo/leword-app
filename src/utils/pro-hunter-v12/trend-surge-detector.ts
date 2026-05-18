@@ -186,13 +186,20 @@ export function clearSurgeHistory(): void {
 let timer: NodeJS.Timeout | null = null;
 
 async function autoScan(): Promise<void> {
-  // 추적 키워드 + 프리크롤 큐에서 자동으로 소스 획득
+  // v2.43.35 (Phase 2): tracking-store 가 외부 trending 으로 풍부해진 후
+  //   추적 키워드 → 가장 최근 미체크된 60개를 우선 스캔 (이전 20개)
   try {
     const { listTrackedKeywords } = await import('./tracking-store');
-    const tracked = listTrackedKeywords().map((t) => t.keyword).slice(0, 20);
-    if (tracked.length === 0) return;
-    const r = await scanForSurges(tracked, { notifyOnFind: true });
-    console.log(`[SURGE] 자동 스캔: ${r.scanned}개 중 ${r.detected.length}개 감지`);
+    const all = listTrackedKeywords();
+    if (all.length === 0) return;
+    // lastCheckedAt 오래된 순으로 60개 (라운드로빈 효과)
+    const targets = all
+      .slice()
+      .sort((a, b) => a.lastCheckedAt - b.lastCheckedAt)
+      .slice(0, 60)
+      .map((t) => t.keyword);
+    const r = await scanForSurges(targets, { notifyOnFind: true });
+    console.log(`[SURGE] 자동 스캔: ${r.scanned}개 중 ${r.detected.length}개 감지 (풀 ${all.length})`);
   } catch (err) {
     console.warn('[SURGE] 자동 스캔 실패:', (err as Error).message);
   }
