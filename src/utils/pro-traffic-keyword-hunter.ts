@@ -2762,6 +2762,20 @@ export async function huntProTrafficKeywords(options: {
     }
     console.log(`[PRO-TRAFFIC] 📁 카테고리 키워드 ${mergedSeeds.length}개 로드 (기존 ${categoryKeywords.length} + 통합 ${unifiedSeeds.length})`);
 
+    // v2.43.45: 카테고리 모드에도 사용자 블로거 프로필 카테고리 / 시즌 시드 통합
+    try {
+      const { loadBloggerProfile } = await import('./blogger-profile');
+      const { getSeedsForUserCategories } = await import('./sources/category-seed-catalog');
+      const profile = loadBloggerProfile();
+      if (profile && profile.selectedCategories.length > 0) {
+        const userCatSeeds = getSeedsForUserCategories(profile.selectedCategories as any, 20);
+        allSeedKeywords = [...allSeedKeywords, ...userCatSeeds];
+        console.log(`[PRO-TRAFFIC v2.43.45] 카테고리 모드: 사용자 evergreen ${userCatSeeds.length}개 추가`);
+      }
+    } catch (e: any) {
+      console.warn('[PRO-TRAFFIC v2.43.45] 카테고리 모드 사용자 시드 주입 실패:', e?.message);
+    }
+
   } else {
     // 🔥 실시간 이슈 모드 (기본)
     console.log('[PRO-TRAFFIC] 🔥 실시간 이슈 모드 활성화');
@@ -2774,6 +2788,31 @@ export async function huntProTrafficKeywords(options: {
     if (includeSeasonKeywords) {
       const seasonKeywords = getProfitableSeasonKeywords(currentMonth);
       allSeedKeywords = [...allSeedKeywords, ...seasonKeywords];
+    }
+
+    // v2.43.45: rich-feed-builder 와 동일한 시즌/카테고리 시드 통합
+    //   사용자 비판: "PRO Hunter가 황금키워드 상위 호환" — 같은 개선 적용
+    try {
+      const { getCurrentSeasonalSeeds, expandWithIntentSuffixes } = await import('./sources/seasonal-calendar');
+      const seasonalLongtail = expandWithIntentSuffixes(getCurrentSeasonalSeeds(), 6);
+      allSeedKeywords = [...allSeedKeywords, ...seasonalLongtail];
+      console.log(`[PRO-TRAFFIC v2.43.45] 시즌 캘린더 longtail ${seasonalLongtail.length}개 주입`);
+    } catch (e: any) {
+      console.warn('[PRO-TRAFFIC v2.43.45] seasonal-calendar 로드 실패:', e?.message);
+    }
+
+    // v2.43.45: 사용자 블로거 프로필 카테고리 → evergreen 시드 강제 주입
+    try {
+      const { loadBloggerProfile } = await import('./blogger-profile');
+      const { getSeedsForUserCategories } = await import('./sources/category-seed-catalog');
+      const profile = loadBloggerProfile();
+      if (profile && profile.selectedCategories.length > 0) {
+        const userCatSeeds = getSeedsForUserCategories(profile.selectedCategories as any, 25);
+        allSeedKeywords = [...allSeedKeywords, ...userCatSeeds];
+        console.log(`[PRO-TRAFFIC v2.43.45] 사용자 카테고리(${profile.selectedCategories.join(',')}) evergreen ${userCatSeeds.length}개 주입`);
+      }
+    } catch (e: any) {
+      console.warn('[PRO-TRAFFIC v2.43.45] 사용자 카테고리 시드 주입 실패:', e?.message);
     }
 
     // 🔥 시드 키워드 셔플 (매번 다른 순서로 탐색 → 다른 결과!)
