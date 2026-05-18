@@ -24,6 +24,7 @@ import { EnvironmentManager } from '../environment-manager';
 import { classifyKeyword, getCategoryById } from '../categories';
 import { getEvergreenSafetyNetSeeds, getAllRevenueSeeds } from './evergreen-safety-net';
 import { buildIDFStats, scoreSeedKeyword, isQualitySeed } from './quality-extractor';
+import { loadBloggerProfile, calculateProfileAffinity, experienceAdjustment, BloggerProfile } from '../blogger-profile';
 
 export type Freshness = 'BURNING' | 'RISING' | 'STABLE' | 'EVERGREEN';
 // 🔥 v2.31.0: SSR 등급 신설 — "수익 황금" (SSS + 고CPC + 상업의도 + 수익 카테고리)
@@ -696,12 +697,21 @@ export type RichFeedProgressCallback = (payload: RichFeedProgress) => void;
 /**
  * 메인 빌더
  */
+// v2.43.25: 모듈 스코프에 프로필 보관 (validated 행 생성 시 참조)
+let _bloggerProfile: BloggerProfile | null = null;
+
 export async function buildRichFeed(
     options: { tier?: SourceTier; limit?: number; aiAugmentation?: 'none' | 'claude' } = {},
     onProgress?: RichFeedProgressCallback
 ): Promise<RichFeedResult> {
     const tier: 'lite' | 'pro' = options.tier === 'pro' ? 'pro' : 'lite';
     const limit = options.limit || 100;
+
+    // v2.43.25 (사이클#2): 블로거 프로필 로드 — 사용자 카테고리에 맞춘 친화도 보정
+    _bloggerProfile = loadBloggerProfile();
+    if (_bloggerProfile) {
+        console.log(`[rich-feed v2.43.25] 블로거 프로필 적용: 카테고리[${_bloggerProfile.selectedCategories.join(',')}] 경험[${_bloggerProfile.experienceLevel}]`);
+    }
 
     // 🔥 v2.27.9: 하드캡 8분 → 6분 (사용자 "실제 그 시간 안 걸리는데 확실하게 대량")
     //   사용자 환경은 네이버 API 정상 → 후보 2500 + concurrency 8 이 6분 내 가능
@@ -1157,7 +1167,13 @@ export async function buildRichFeed(
                     purchaseIntent: intent,
                     isBlueOcean,
                     dcEstimated: !hasValidDocCount, // 🔥 v2.41.0: 동적 SSS 승격 풀 신뢰도 가드용
-                    bloggerWritability: calculateBloggerWritability(sig.keyword, docCount, totalVolume),
+                    // v2.43.25 (사이클#2): 블로거 프로필 보정 (내 카테고리 +30, 경험 페널티)
+                    bloggerWritability: (() => {
+                        const base = calculateBloggerWritability(sig.keyword, docCount, totalVolume);
+                        const profileAdj = calculateProfileAffinity(sig.keyword, _bloggerProfile);
+                        const expAdj = experienceAdjustment(docCount, _bloggerProfile);
+                        return Math.max(0, Math.min(100, base + profileAdj + expAdj));
+                    })(),
                 });
             }
         } catch (e: any) {

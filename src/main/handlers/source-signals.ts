@@ -30,6 +30,7 @@ import { fetchMusinsaRanking, extractMusinsaKeywords } from '../../utils/sources
 import { pullAllSeedKeywords, computeKeywordSignals, clearAggregatorCache } from '../../utils/sources/signal-aggregator';
 import { buildPublicGoldenFeed, clearFeedCache } from '../../utils/sources/public-golden-feed';
 import { getCachedRichFeed, clearRichFeedCache, RichKeywordRow, setUserWhitelist, getUserWhitelist } from '../../utils/sources/rich-feed-builder';
+import { loadBloggerProfile, saveBloggerProfile, deleteBloggerProfile, BLOGGER_CATEGORIES, BloggerProfile } from '../../utils/blogger-profile';
 import { runHealthCheck, refreshHealthReport, getCachedReport, getQuickStatus } from '../../utils/sources/health-checker';
 import { getRegistry, getAllStates, unblockSource, unblockAll, callAllSources } from '../../utils/sources/source-registry';
 import { getStorageStats, getRisingKeywords, getNewKeywords, clearStorage } from '../../utils/sources/source-storage';
@@ -296,6 +297,54 @@ export function setupSourceSignalHandlers(): void {
     ipcMain.handle('rich-feed-clear-cache', () => {
         clearRichFeedCache();
         return { success: true };
+    });
+
+    // v2.43.25 (사이클#2): 블로거 프로필 IPC
+    ipcMain.handle('blogger-profile-get', () => {
+        try {
+            const profile = loadBloggerProfile();
+            return { success: true, profile, categories: BLOGGER_CATEGORIES.map(c => ({ id: c.id, label: c.label, icon: c.icon })) };
+        } catch (e: any) {
+            return { success: false, error: e.message };
+        }
+    });
+
+    ipcMain.handle('blogger-profile-set', (_e, profile: BloggerProfile) => {
+        try {
+            // 검증
+            if (!profile || !Array.isArray(profile.selectedCategories) || profile.selectedCategories.length === 0) {
+                return { success: false, error: '카테고리를 최소 1개 선택해주세요.' };
+            }
+            if (profile.selectedCategories.length > 3) {
+                return { success: false, error: '카테고리는 최대 3개까지 선택 가능합니다.' };
+            }
+            const validIds = new Set(BLOGGER_CATEGORIES.map(c => c.id));
+            for (const id of profile.selectedCategories) {
+                if (!validIds.has(id as any)) return { success: false, error: `잘못된 카테고리: ${id}` };
+            }
+            saveBloggerProfile({
+                selectedCategories: profile.selectedCategories,
+                experienceLevel: profile.experienceLevel || 'beginner',
+                dailyVisitors: typeof profile.dailyVisitors === 'number' ? profile.dailyVisitors : 0,
+                setupAt: Date.now(),
+                blogUrl: profile.blogUrl || undefined,
+            });
+            // 프로필 변경 시 캐시 무효화
+            clearRichFeedCache();
+            return { success: true };
+        } catch (e: any) {
+            return { success: false, error: e.message };
+        }
+    });
+
+    ipcMain.handle('blogger-profile-delete', () => {
+        try {
+            deleteBloggerProfile();
+            clearRichFeedCache();
+            return { success: true };
+        } catch (e: any) {
+            return { success: false, error: e.message };
+        }
     });
 
     // v2.42.54: 사용자 화이트리스트 등록/조회
