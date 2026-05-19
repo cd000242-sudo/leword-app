@@ -154,6 +154,17 @@ export class PuppeteerPool {
   }
 
   /**
+   * v2.43.53: 발굴 종료 즉시 호출 — idle 브라우저 즉시 제거 (펜 진정)
+   * cleanupInterval 은 유지하여 다음 발굴 정상 동작
+   */
+  async closeIdle(): Promise<void> {
+    const toClose = this.pool.filter(b => !b.inUse);
+    if (toClose.length === 0) return;
+    await Promise.all(toClose.map(b => b.close()));
+    this.pool = this.pool.filter(b => b.inUse);
+  }
+
+  /**
    * 모든 브라우저 종료
    */
   async destroy(): Promise<void> {

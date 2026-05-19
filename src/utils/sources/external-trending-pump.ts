@@ -5,7 +5,8 @@
 import { pullAllSeedKeywords } from './signal-aggregator';
 import { bulkRegisterTrending, BulkRegisterResult } from '../pro-hunter-v12/tracking-store';
 
-const PUMP_INTERVAL_MS = 6 * 60 * 60 * 1000; // 6시간
+// v2.43.53: 6시간 → 24시간 (펜 진정. 사용자 트리거 시 manual refresh 가능)
+const PUMP_INTERVAL_MS = 24 * 60 * 60 * 1000;
 const MAX_KEYWORDS_PER_PUMP = 300; // 한 번에 등록할 최대 키워드 수
 let timer: NodeJS.Timeout | null = null;
 let lastRunAt = 0;
@@ -64,12 +65,13 @@ export async function runExternalTrendingPump(): Promise<BulkRegisterResult | nu
  */
 export function startExternalTrendingPump(): void {
   if (timer) return;
-  console.log('[TRENDING-PUMP] cron 시작 — 30초 후 1차, 이후 6시간 주기');
+  // v2.43.53: 부팅 30초 → 5분 (부팅 직후 펜 도는 원인 제거), 24시간 주기
+  console.log('[TRENDING-PUMP] cron 시작 — 5분 후 1차, 이후 24시간 주기');
   const first = setTimeout(() => {
     void runExternalTrendingPump();
     timer = setInterval(() => void runExternalTrendingPump(), PUMP_INTERVAL_MS);
     timer.unref?.();
-  }, 30 * 1000);
+  }, 5 * 60 * 1000);
   first.unref?.();
 }
 

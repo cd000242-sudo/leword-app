@@ -839,6 +839,12 @@ export function setupPremiumHuntingHandlers(): void {
         // 🤖 Manus AI 보강은 별도 비동기 IPC(start-manus-enrichment)에서 처리
         //    PRO 결과는 즉시 반환 → UI가 별도로 startEnrichment 호출 → 폴링
 
+        // v2.43.53: PRO Hunter 종료 직후 Puppeteer idle 강제 종료 (펜 진정)
+        try {
+          const { browserPool } = await import('../../utils/puppeteer-pool');
+          void browserPool.closeIdle();
+        } catch {}
+
         return {
           success: true,
           ...result,

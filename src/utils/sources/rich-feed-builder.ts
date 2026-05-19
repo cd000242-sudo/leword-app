@@ -1927,6 +1927,12 @@ export async function buildRichFeed(
 
     emit('done', 100, `완료 — ${top.length}건 발굴`);
 
+    // v2.43.53: 발굴 종료 즉시 Puppeteer idle 브라우저 강제 종료 (펜 진정)
+    try {
+        const { browserPool } = await import('../puppeteer-pool');
+        void browserPool.closeIdle();
+    } catch {}
+
     return {
         timestamp: Date.now(),
         total: top.length,
