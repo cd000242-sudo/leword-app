@@ -207,8 +207,9 @@ export function expandWithIntentSuffixes(
       const lower = variant.toLowerCase();
       if (seen.has(lower) || excludeLowerFull.has(lower)) continue;
       seen.add(lower);
-      // 변형은 원본 count 보존 (의도 확장은 별개)
-      result.push({ keyword: variant, count, variant: suffix, base: keyword });
+      // v2.43.55: 7팀 — 변형은 미검증 키워드. count 노출 시 사용자가 검증된 수치로 오인
+      //   "추정치 UI 노출 금지" 메모리 룰 준수: count 0 으로 noise 마킹
+      result.push({ keyword: variant, count: 0, variant: suffix, base: keyword });
     }
   }
 
@@ -364,7 +365,8 @@ export interface CompetitionSignal {
   uniqueBrands: number;     // 고유 브랜드 수
   uniqueMalls: number;      // 고유 판매처 수
   concentration: number;    // HHI 유사 지표 (0~100) — 높을수록 과점
-  verdict: '저경쟁 (블루오션)' | '중경쟁' | '고경쟁' | '과점';
+  // v2.43.55: 7팀 — "블루오션" 단정 라벨 완화 (사용자 오판 시 신뢰 붕괴 위험)
+  verdict: '진입 쉬움' | '중간' | '경쟁 치열' | '과점';
 }
 
 export function analyzeCompetition(items: ShoppingItem[], totalHits: number): CompetitionSignal {
@@ -388,13 +390,12 @@ export function analyzeCompetition(items: ShoppingItem[], totalHits: number): Co
     : 0;
   const concentration = Math.round(top2Share * 100);
 
-  // 판매처 집중도가 높으면(상위 2곳이 70%+) totalHits 상관없이 '과점' 우선 판정
-  // 그 다음 상품 수 기준
+  // v2.43.55: 7팀 — 단정 라벨 → 중립 라벨로 (사용자 오판 시 신뢰 붕괴 방지)
   let verdict: CompetitionSignal['verdict'];
   if (concentration >= 70 && items.length >= 5) verdict = '과점';
-  else if (totalHits < 500) verdict = '저경쟁 (블루오션)';
-  else if (totalHits < 5000) verdict = '중경쟁';
-  else verdict = '고경쟁';
+  else if (totalHits < 500) verdict = '진입 쉬움';
+  else if (totalHits < 5000) verdict = '중간';
+  else verdict = '경쟁 치열';
 
   return {
     totalHits,
@@ -445,9 +446,9 @@ function buildSummary(params: {
 
   // 경쟁도 가이드
   const competeGuide: Record<CompetitionSignal['verdict'], string> = {
-    '저경쟁 (블루오션)': '비교적 진입하기 쉽고 초보 블로거에게도 기회가 있습니다',
-    '중경쟁': '경쟁은 있으나 콘텐츠 차별화로 상위 노출 가능합니다',
-    '고경쟁': '경쟁이 치열해 전문성 있는 리뷰나 비교글이 유리합니다',
+    '진입 쉬움': '비교적 진입하기 쉽고 초보 블로거에게도 기회가 있습니다',
+    '중간': '경쟁은 있으나 콘텐츠 차별화로 상위 노출 가능합니다',
+    '경쟁 치열': '경쟁이 치열해 전문성 있는 리뷰나 비교글이 유리합니다',
     '과점': '소수 판매처가 시장을 지배 중 — 중소 브랜드·신상품 중심 공략이 효과적입니다',
   };
 

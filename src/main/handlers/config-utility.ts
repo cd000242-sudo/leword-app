@@ -858,13 +858,23 @@ export function setupConfigUtilityHandlers(): void {
         const saleableItems = result.items.filter(it =>
           (it.productType === 1 || !it.productType) && !!it.category1
         );
-        const insight = analyzeShoppingKeywords(
-          saleableItems.length > 0 ? saleableItems : result.items,
-          result.total, keyword
-        );
-
-        // 🔥 Phase 2: 검색 의도 변형 자동 생성 — 블로그 글 제목 바로 사용 가능한 완성형
-        const intentExpanded = expandWithIntentSuffixes(insight.longtailKeywords, [keyword]);
+        // v2.43.55: 10팀 — analyzer/intentExpanded 도 catch 격리 (한 단계 실패해도 부분 결과 반환)
+        let insight: any;
+        try {
+          insight = analyzeShoppingKeywords(
+            saleableItems.length > 0 ? saleableItems : result.items,
+            result.total, keyword
+          );
+        } catch (e: any) {
+          console.warn('[SHOPPING-CONNECT] analyzer 실패:', e?.message);
+          insight = { priceAnalysis: {}, longtailKeywords: [], competition: {}, categories: {}, brands: [], priceTiers: {} };
+        }
+        let intentExpanded: any[] = [];
+        try {
+          intentExpanded = expandWithIntentSuffixes(insight.longtailKeywords || [], [keyword]);
+        } catch (e: any) {
+          console.warn('[SHOPPING-CONNECT] intentExpanded 실패:', e?.message);
+        }
 
         // 🔥 Phase 3: Cross-source 실시간 시드 — 이 키워드의 주요 카테고리 실시간 유행 제품
         let crossSourceSeeds: Array<{ seed: string; sources: string[]; crossScore: number }> = [];

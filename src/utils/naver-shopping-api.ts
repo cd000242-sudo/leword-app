@@ -173,13 +173,25 @@ export async function searchNaverShopping(
 
   const url = `https://openapi.naver.com/v1/search/shop.json?query=${encodeURIComponent(keyword)}&display=${display}&start=${start}&sort=${sort}`;
 
-  const response = await fetch(url, {
-    method: 'GET',
-    headers: {
-      'X-Naver-Client-Id': clientId,
-      'X-Naver-Client-Secret': clientSecret,
-    },
-  });
+  // v2.43.55: 10팀 — 8초 AbortController hard timeout (IPC 영구 hang 차단)
+  const ctrl = new AbortController();
+  const timeoutId = setTimeout(() => ctrl.abort(), 8000);
+  let response: Response;
+  try {
+    response = await fetch(url, {
+      method: 'GET',
+      headers: {
+        'X-Naver-Client-Id': clientId,
+        'X-Naver-Client-Secret': clientSecret,
+      },
+      signal: ctrl.signal,
+    });
+  } catch (e: any) {
+    if (e?.name === 'AbortError') throw new Error('네이버 쇼핑 API timeout (8s)');
+    throw e;
+  } finally {
+    clearTimeout(timeoutId);
+  }
 
   if (!response.ok) {
     const body = await response.text();

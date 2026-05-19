@@ -96,11 +96,8 @@ export function classifySearchIntent(keyword: string): IntentAnalysis {
     }
   }
 
-  // 모든 점수 0이면 구매도 정보도 아닌 일반 키워드 → 약한 buy로 판정 (쇼핑 검색 맥락)
-  if (maxScore === 0) {
-    primary = 'buy';
-    scores.buy = 1;
-  }
+  // v2.43.55: 5팀 — 0점 buy 강제 폴백 제거 (무차별 구매 가정은 통계 왜곡)
+  //   미매칭 키워드는 info 로 유지 (가산 0 → 가중치 영향 없음)
 
   const signals = [...buy.matched, ...compare.matched, ...info.matched, ...review.matched];
   if (hasBrand) signals.push('brand-signal');
@@ -130,17 +127,18 @@ export function classifySearchIntent(keyword: string): IntentAnalysis {
 
 /**
  * 의도별 쇼핑 커넥트 전환 보정치 (스코어링에 가산)
+ * v2.43.55: 5팀 — info -3 → 0 (정보성 키워드도 광고형 수익 가능, 페널티 부당)
  *   구매성:   +5 (고전환, 추천 적극)
  *   비교성:   +3 (중전환, 비교표 가치)
  *   브랜드:   +4 (해당 브랜드 상품 우대)
- *   정보성:   -3 (저전환, 상품 판매보다 정보 제공)
+ *   정보성:    0 (전환은 낮지만 페널티 제거)
  */
 export function getIntentScoreAdjust(intent: SearchIntent): number {
   switch (intent) {
     case 'buy': return 5;
     case 'compare': return 3;
     case 'brand': return 4;
-    case 'info': return -3;
+    case 'info': return 0;
     default: return 0;
   }
 }
