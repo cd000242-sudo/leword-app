@@ -801,6 +801,8 @@ export function setupConfigUtilityHandlers(): void {
         const { classifySearchIntent, getIntentScoreAdjust } = await import('../../utils/search-intent-classifier');
         const { aggregateCommerceTrendSeeds, summarizeTrendSeeds } = await import('../../utils/sources/trend-seed-aggregator');
         const { NAVER_SHOPPING_CATEGORIES } = await import('../../utils/sources/naver-shopping-keyword-rank');
+        // v2.43.64: Phase 9 — 네이버 검색 추세 검증 (rising/stable/declining/dead)
+        const { checkKeywordsRecency } = await import('../../utils/naver-datalab-api');
 
         // 검색 의도 분류 (스코어링 가산 + UI 뱃지)
         const intent = classifySearchIntent(keyword);
@@ -934,6 +936,26 @@ export function setupConfigUtilityHandlers(): void {
             .filter(k => k.length >= 2 && k.length <= 30)
         )).slice(0, 15);
 
+        // v2.43.64: Phase 9 — 검색 추세 검증 (DataLab 30일 트렌드)
+        //   첫 페이지 요청에만 실행 (페이지네이션 시 매번 호출 X)
+        //   첫 페이지 + naver 키 있을 때만, 5초 timeout으로 hang 방지
+        let recency: any = undefined;
+        if (isFirstPage && naverCfg.clientId && naverCfg.clientSecret) {
+          try {
+            const recencyTimeoutPromise = new Promise<Map<string, any>>((_, rej) =>
+              setTimeout(() => rej(new Error('recency timeout 5s')), 5000)
+            );
+            const recencyMap = await Promise.race([
+              checkKeywordsRecency(naverCfg, [keyword]),
+              recencyTimeoutPromise,
+            ]) as Map<string, any>;
+            const r = recencyMap.get(keyword);
+            if (r) recency = r;
+          } catch (e: any) {
+            console.warn('[SHOPPING-CONNECT] recency 검증 실패:', e?.message);
+          }
+        }
+
         return {
           success: true,
           keyword,
@@ -948,6 +970,7 @@ export function setupConfigUtilityHandlers(): void {
           crossSourceSeeds,   // 🔥 실시간 카테고리 유행 제품
           partnersEnabled,
           productMatchCount,  // v2.43.63: 쿠팡 productId 정확 매칭 건수
+          recency,            // v2.43.64: DataLab 30일 추세 (rising/stable/declining/dead)
           relatedKeywords: relatedKeywordsTrimmed,
           intent, // 검색 의도 분류 (primary, scores, label, icon)
         };

@@ -14568,21 +14568,33 @@
 
             // v2.43.57 Phase 2 — 신호등 헤더 (사용자 의사결정 즉시 가이드)
             //   1팀 비평 핵심: "통계 나열, 결정 부재" → 한 줄로 "글 쓸지 말지" 알려줌
+            // v2.43.64 Phase 9: DataLab recency 통합 (최상위 신호)
             const buildVerdictBanner = () => {
               const recoLen = reco.length;
               const compVerdict = comp.verdict || '';
               const brandsCnt = comp.uniqueBrands || 0;
               const totalHits = comp.totalHits || 0;
               const isInfo = intentInfo.primary === 'info';
+              const rec = res.recency || null;
+              const recStatus = rec?.status || ''; // 'rising' / 'stable' / 'declining' / 'dead'
 
               let level = 'good';   // good | warn | bad
               let title = '';
               let reason = '';
 
-              if (recoLen === 0) {
+              // v2.43.64: dead 추세 = 최우선 차단 (검색 안 되는 키워드)
+              if (recStatus === 'dead') {
+                level = 'bad';
+                title = '🛑 추세 사망 — 비추천';
+                reason = '최근 30일 검색량이 사실상 0 — 글 작성해도 유입 거의 없음';
+              } else if (recoLen === 0) {
                 level = 'bad';
                 title = '🛑 글쓰기 비추천';
                 reason = '추천할 만한 상품이 없습니다 — 다른 키워드를 시도해보세요';
+              } else if (recStatus === 'declining') {
+                level = 'warn';
+                title = '📉 추세 하락 중';
+                reason = `최근 7일 검색이 30일 평균의 ${Math.round((rec?.ratio || 0) * 100)}% — 글 작성 시기 늦었을 수 있음`;
               } else if (compVerdict === '과점') {
                 level = 'warn';
                 title = '⚠️ 주의 — 시장 과점 상태';
@@ -14595,6 +14607,11 @@
                 level = 'warn';
                 title = '⚠️ 경쟁 치열';
                 reason = `전체 ${totalHits.toLocaleString()}건 — 전문성/리뷰 깊이 없으면 상위 노출 어려움`;
+              } else if (recStatus === 'rising' && recoLen >= 3) {
+                // v2.43.64: 추세 상승 + 추천 3개+ = 최고 신호
+                level = 'good';
+                title = '🔥 추세 상승 — 지금 글쓰기 적기';
+                reason = `최근 7일 검색이 30일 평균의 ${Math.round((rec?.ratio || 0) * 100)}% — 트래픽 폭발 가능 + 추천 ${recoLen}개 확보`;
               } else if (compVerdict === '진입 쉬움' && recoLen >= 5) {
                 level = 'good';
                 title = '✅ 글쓰기 추천';
