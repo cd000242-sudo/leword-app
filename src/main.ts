@@ -954,11 +954,24 @@ async function showLicenseInputDialog(): Promise<{ success: boolean; plan?: stri
 //   증상: 사용자가 업데이트 후 LEWORD 클릭해도 안 켜짐
 //   원인: NSIS taskkill 직후 helper/자식 프로세스가 OS handle 정리 안 끝남 → lock 잔존
 //   해결: 3회 × 500ms 재시도 (총 1.5초). 그래도 실패면 사용자 알림 후 quit
-// v2.43.79: 팀3 비평 — busy-wait 제거 (CPU 100% 점유 + main thread block)
-//   첫 시도 성공이 99%. 실패 시 깔끔하게 quit + dialog.
-//   재시도는 OS handle 정리 시간이 보장되지 않아 효과 작음.
-function acquireLockWithRetry(maxAttempts = 1, _intervalMs = 500): boolean {
-  return app.requestSingleInstanceLock();
+// v2.43.83: 사용자 보고 "하나만 켰는데 'LEWORD 이미 실행 중' dialog 뜸"
+//   원인: v2.43.79에서 lock 재시도 logic 제거 → leftover process(NSIS 자식, Puppeteer chrome)가
+//        정리되기 전에 lock 시도 → 실패 → dialog → quit
+//   해결: Windows 의 ping 명령으로 sync sleep (busy-wait 없이) + 3회 재시도 (총 2초)
+function acquireLockWithRetry(maxAttempts = 3, intervalMs = 700): boolean {
+  for (let i = 0; i < maxAttempts; i++) {
+    if (app.requestSingleInstanceLock()) return true;
+    if (i < maxAttempts - 1) {
+      try {
+        // ping 으로 sync sleep — busy-wait 없이 OS event 처리 가능
+        require('child_process').execSync(
+          `ping -n ${Math.ceil(intervalMs / 1000) + 1} 127.0.0.1 > nul`,
+          { stdio: 'ignore', timeout: intervalMs + 500 }
+        );
+      } catch {}
+    }
+  }
+  return false;
 }
 
 // v2.43.79: pendingSecondInstance 큐잉 (팀3 비평)
@@ -984,15 +997,11 @@ setupCrashGuard();
 
 const gotSingleInstanceLock = acquireLockWithRetry();
 if (!gotSingleInstanceLock) {
-  console.log('[LEWORD] 단일 인스턴스 락 획득 실패 (1.5초 재시도 후) — 두 번째 인스턴스 종료');
-  // 사용자가 silent quit 이유를 알 수 있도록 한 번 알림 (whenReady 전이라 dialog 사용)
-  try {
-    const { dialog } = require('electron');
-    dialog.showErrorBox(
-      'LEWORD 이미 실행 중',
-      '이미 실행 중인 인스턴스가 있어 종료합니다.\n\n앱이 시스템 트레이에 있거나, 업데이트 직후 백그라운드 프로세스가 남아있을 수 있습니다.\n작업 관리자에서 LEWORD.exe 종료 후 다시 실행해주세요.'
-    );
-  } catch {}
+  // v2.43.83: dialog 제거 — silent quit
+  //   기존 인스턴스의 second-instance 핸들러가 자동으로 메인창 focus + show
+  //   dialog 띄우면 사용자 혼란 + 작업관리자 안내가 과도
+  //   2초 재시도 후에도 실패면 진짜 다른 인스턴스 실행 중 (정상 케이스)
+  console.log('[LEWORD] 단일 인스턴스 락 획득 실패 (2초 재시도 후) — silent quit, 기존 인스턴스 focus 전달');
   app.quit();
 } else {
   app.on('second-instance', (_event, argv, cwd) => {

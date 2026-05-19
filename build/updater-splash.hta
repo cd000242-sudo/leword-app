@@ -2,6 +2,7 @@
 <html>
 <head>
 <meta charset="UTF-8">
+<meta http-equiv="X-UA-Compatible" content="IE=edge">
 <title>LEWORD 업데이트</title>
 <HTA:APPLICATION
   APPLICATIONNAME="LEWORD Update"
@@ -18,33 +19,40 @@
   WINDOWSTATE="normal"
 />
 <style>
-  html, body { margin:0; padding:0; background:#0f0f23; color:#fff; font-family:'Malgun Gothic',sans-serif; overflow:hidden; }
-  .wrap { width:420px; height:300px; display:flex; flex-direction:column; align-items:center; justify-content:center; }
-  .title { font-size:18px; font-weight:700; color:#fbbf24; margin-bottom:6px; }
-  .version { font-size:12px; color:#8b8ba0; margin-bottom:20px; }
-  .ring { width:80px; height:80px; margin-bottom:18px; position:relative; }
-  .ring .bg { width:100%; height:100%; border:6px solid #1f1f3a; border-radius:50%; box-sizing:border-box; }
-  .ring .fg { position:absolute; top:0; left:0; width:100%; height:100%; border:6px solid transparent; border-top-color:#fbbf24; border-right-color:#fbbf24; border-radius:50%; box-sizing:border-box; animation:spin 1s linear infinite; }
-  @keyframes spin { from { transform:rotate(0deg); } to { transform:rotate(360deg); } }
-  .status { font-size:13px; color:#dadae6; font-weight:600; margin-bottom:4px; text-align:center; }
-  .sub { font-size:11px; color:#7c7c92; text-align:center; }
+  html, body { margin:0; padding:0; background:#0f0f23; color:#fff; font-family:'Malgun Gothic','맑은 고딕',sans-serif; overflow:hidden; height:100%; }
+  .wrap { width:100%; height:100%; display:table; }
+  .inner { display:table-cell; vertical-align:middle; text-align:center; padding:20px; }
+  .title { font-size:18px; font-weight:bold; color:#fbbf24; margin-bottom:8px; }
+  .version { font-size:12px; color:#8b8ba0; margin-bottom:24px; }
+  .dot-wrap { margin: 0 auto 20px; height: 40px; }
+  .dot { display:inline-block; width:12px; height:12px; margin:0 5px; background:#fbbf24; border-radius:50%; animation:bounce 1.4s infinite ease-in-out; }
+  .dot:nth-child(1) { animation-delay: -0.32s; }
+  .dot:nth-child(2) { animation-delay: -0.16s; }
+  @keyframes bounce {
+    0%, 80%, 100% { transform: scale(0.5); opacity: 0.4; }
+    40% { transform: scale(1.2); opacity: 1; }
+  }
+  .status { font-size:14px; color:#dadae6; font-weight:bold; margin-bottom:6px; }
+  .sub { font-size:11px; color:#7c7c92; line-height:1.5; }
 </style>
 <script>
-  window.resizeTo(420, 300);
-  window.moveTo((screen.availWidth - 420) / 2, (screen.availHeight - 300) / 2);
-  // v2.43.77: 팀4 비평 — 60초 자폭 → 무한 대기 (install 60초+ 환경 보호)
-  //   새 LEWORD splash가 taskkill mshta.exe로 강제 종료 → HTA가 자기 종료 안 함
-  //   안전장치: 10분 (600초) 후 자동 닫힘 (install 자체가 영영 실패한 극단 케이스)
+  window.resizeTo(420, 280);
+  window.moveTo((screen.availWidth - 420) / 2, (screen.availHeight - 280) / 2);
+  // 안전장치: 10분 후 자동 닫힘 (새 LEWORD splash가 taskkill 로 강제 종료 담당)
   setTimeout(function() { try { window.close(); } catch(e) {} }, 600000);
 </script>
 </head>
 <body>
   <div class="wrap">
-    <div class="title">LEWORD 업데이트</div>
-    <div class="version">설치 진행 중</div>
-    <div class="ring"><div class="bg"></div><div class="fg"></div></div>
-    <div class="status">⚙️ 새 버전 설치 중...</div>
-    <div class="sub">잠시 후 LEWORD가 자동으로 시작됩니다 (10~20초)</div>
+    <div class="inner">
+      <div class="title">LEWORD 업데이트</div>
+      <div class="version">설치 진행 중</div>
+      <div class="dot-wrap">
+        <span class="dot"></span><span class="dot"></span><span class="dot"></span>
+      </div>
+      <div class="status">새 버전 설치 중...</div>
+      <div class="sub">잠시 후 LEWORD가 자동으로 시작됩니다 (10~20초)</div>
+    </div>
   </div>
 </body>
 </html>
