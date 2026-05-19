@@ -244,6 +244,7 @@ async function updateProgress(percent: number): Promise<void> {
 async function showReadyState(version: string, seconds: number): Promise<void> {
   if (!progressWindow || progressWindow.isDestroyed()) return;
   try {
+    // v2.43.70: splash 디자인과 자연 연결되는 메시지 (사용자가 끊김 인지 X)
     await progressWindow.webContents.executeJavaScript(
       `(() => {
         const fg = document.getElementById('fg');
@@ -253,21 +254,22 @@ async function showReadyState(version: string, seconds: number): Promise<void> {
         if (fg) fg.setAttribute('stroke-dashoffset', '0');
         if (fg) fg.setAttribute('stroke', '#34d399');
         if (pct) pct.textContent = '✓';
-        if (version) version.textContent = 'v${version} 준비 완료';
-        if (status) status.textContent = '✅ 업데이트 준비 완료 — ${seconds}초 후 자동 재시작';
+        if (version) version.textContent = 'v${version} 적용 준비';
+        if (status) status.textContent = '✅ ${seconds}초 후 설치 시작 — 새 창이 자동으로 표시됩니다';
       })();`
     );
   } catch {}
 }
 
 // v2.43.67: 사용자에게 "NSIS 설치 중" 단계 명시 (silent NSIS 동안 빈 화면 방지)
+// v2.43.70: 메시지를 splash 첫 메시지와 자연 연결 형태로
 async function showInstallingState(): Promise<void> {
   if (!progressWindow || progressWindow.isDestroyed()) return;
   try {
     await progressWindow.webContents.executeJavaScript(
       `(() => {
         const status = document.getElementById('status');
-        if (status) status.textContent = '⚙️ 설치 중... 약 10초 후 자동 재시작';
+        if (status) status.textContent = '⚙️ 설치 중... 새 LEWORD 곧 시작됩니다';
       })();`
     );
   } catch {}

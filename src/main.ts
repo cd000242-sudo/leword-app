@@ -960,7 +960,8 @@ app.whenReady().then(async () => {
   // v2.43.67: 시작 splash 즉시 표시 — 사용자가 빈 화면 보는 시간 0
   //   업데이트 후 NSIS 진행창이 사라진 직후 곧바로 동일 디자인 splash 가 떠서
   //   "초반에 뜨고 사라졌다가 한참있다 앱이뜨니까" 빈 시간 차단
-  showSplash('LEWORD 시작 중...');
+  // v2.43.70: 첫 메시지를 progressWindow 마지막 메시지와 자연 연결
+  showSplash('✓ 설치 완료 — LEWORD 시작 중...');
 
   initAppPaths();
 
