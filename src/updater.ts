@@ -323,13 +323,40 @@ async function showVerifyingState(): Promise<void> {
 async function showStuckWarningState(): Promise<void> {
   if (!progressWindow || progressWindow.isDestroyed()) return;
   try {
+    // v2.43.77: 팀6 — 백신 스캔 정상 케이스 안내
     await progressWindow.webContents.executeJavaScript(
       `(() => {
         const status = document.getElementById('status');
-        if (status) status.innerHTML = '⚠️ 검증이 오래 걸립니다 — 30초 내 자동 시도, 그래도 멈추면 LEWORD 재시작';
+        if (status) status.innerHTML = '⚠️ 검증 중 — 백신 스캔으로 2~5분 걸릴 수 있습니다. 3분 더 기다린 후 자동 재시도';
       })();`
     );
   } catch {}
+}
+
+// v2.43.77: 팀7 비평 — 실패 시 사용자 SOS 옵션 (수동 다운로드 + 로그 폴더)
+async function showStuckRecoveryDialog(errorMsg: string): Promise<void> {
+  try {
+    const { dialog, shell } = require('electron');
+    const path = require('path');
+    const logPath = path.join(app.getPath('appData'), 'blogger-admin-panel');
+    const result = await dialog.showMessageBox({
+      type: 'error',
+      title: 'LEWORD 업데이트 실패',
+      message: '업데이트 자동 설치가 실패했습니다',
+      detail: `사유: ${errorMsg}\n\n복구 옵션:\n1. 작업관리자에서 LEWORD.exe 종료 → 재실행 후 재시도\n2. GitHub에서 최신 .exe 직접 다운로드\n3. 로그 파일 확인 → 개발자에게 전달`,
+      buttons: ['최신 버전 다운로드 페이지 열기', '로그 폴더 열기', '닫기'],
+      defaultId: 0,
+      cancelId: 2,
+    });
+    if (result.response === 0) {
+      shell.openExternal('https://github.com/cd000242-sudo/leword-app/releases/latest');
+    } else if (result.response === 1) {
+      shell.openPath(logPath);
+    }
+  } catch (e: any) {
+    console.error('[UPDATER] recovery dialog 실패:', e?.message);
+  }
+  setTimeout(() => closeProgressWindow(), 1000);
 }
 
 async function showErrorState(message: string): Promise<void> {
@@ -381,12 +408,25 @@ export function initAutoUpdaterEarly(): void {
 
   autoUpdater.autoDownload = false;
   autoUpdater.autoInstallOnAppQuit = true;
-  autoUpdater.logger = {
-    info: (...a: any[]) => console.log('[UPDATER]', ...a),
-    warn: (...a: any[]) => console.warn('[UPDATER]', ...a),
-    error: (...a: any[]) => console.error('[UPDATER]', ...a),
-    debug: (..._a: any[]) => {},
-  };
+  // v2.43.77: 팀1+8 비평 — electron-log 파일 저장으로 packaged app 사용자 환경 추적
+  try {
+    const log = require('electron-log');
+    log.transports.file.level = 'info';
+    log.transports.file.resolvePathFn = () => {
+      const p = require('path').join(app.getPath('appData'), 'blogger-admin-panel', 'updater.log');
+      return p;
+    };
+    log.transports.file.maxSize = 5 * 1024 * 1024; // 5MB rotation
+    autoUpdater.logger = log;
+  } catch (e: any) {
+    console.warn('[UPDATER] electron-log 로드 실패, console fallback:', e?.message);
+    autoUpdater.logger = {
+      info: (...a: any[]) => console.log('[UPDATER]', ...a),
+      warn: (...a: any[]) => console.warn('[UPDATER]', ...a),
+      error: (...a: any[]) => console.error('[UPDATER]', ...a),
+      debug: (..._a: any[]) => {},
+    };
+  }
 
   // 이벤트 리스너 6종
   autoUpdater.on('checking-for-update', () => {
@@ -426,26 +466,24 @@ export function initAutoUpdaterEarly(): void {
     updateProgress(pct);
     broadcastEvent('progress', { percent: pct });
 
-    // 100% 도달 시 verifying 메시지 + 30초 timeout 가드
+    // v2.43.77: 팀6 비평 — 30s/60s timeout 너무 보수적 (백신 스캔 2-5분 정상)
+    //   120s 안내 + 300s force install + 매뉴얼 다운로드 옵션
     if (pct >= 100 && !downloadHit100) {
       downloadHit100 = true;
       showVerifyingState();
-      // 30초 안에 update-downloaded 안 오면 stuck 안내, 60초 안에 안 오면 force install
       stuckCheckTimer = setTimeout(() => {
         showStuckWarningState();
         stuckCheckTimer = setTimeout(() => {
-          console.error('[UPDATER] update-downloaded 60초 미발생 → 강제 quitAndInstall 시도');
+          console.error('[UPDATER] update-downloaded 5분 미발생 → 강제 quitAndInstall 시도');
           if (!restartScheduled) {
             restartScheduled = true;
             try { performQuitAndInstall(autoUpdater); } catch (e: any) {
               console.error('[UPDATER] 강제 install 실패:', e?.message);
-              showErrorState('업데이트 검증 실패 — LEWORD 재시작 후 다시 시도하거나 수동 다운로드').then(() => {
-                setTimeout(() => closeProgressWindow(), 12000);
-              });
+              showStuckRecoveryDialog(e?.message || '검증 실패');
             }
           }
-        }, 30000); // +30초 = 총 60초
-      }, 30000);
+        }, 180000); // +3분 = 총 5분
+      }, 120000); // 2분
     }
   });
 

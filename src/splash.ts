@@ -77,10 +77,13 @@ export function showSplash(initialStage = 'LEWORD 시작 중...'): void {
   });
   const html = buildSplashHtml(initialStage, app.getVersion());
   splashWin.loadURL(`data:text/html;charset=utf-8,${encodeURIComponent(html)}`);
-  // v2.43.72: 이전 process의 외부 HTA splash 종료 (자연스러운 전환)
-  //   electron splash 가 alwaysOnTop=true 라 시각적으로는 즉시 가려지고,
-  //   100ms 후 taskkill 로 HTA process 정리
-  setTimeout(killExternalSplashIfAny, 100);
+  // v2.43.77: 팀4 비평 — 100ms 고정 → ready-to-show 이벤트 후 HTA kill (깜빡임 차단)
+  //   새 splash 가 실제로 화면에 paint 된 후 HTA 종료 → 검은 깜빡임 0
+  splashWin.once('ready-to-show', () => {
+    killExternalSplashIfAny();
+  });
+  // 안전장치: ready-to-show 발생 안 하면 2초 후 강제 kill
+  setTimeout(killExternalSplashIfAny, 2000);
 }
 
 export async function updateSplashStage(stage: string, _sub?: string): Promise<void> {

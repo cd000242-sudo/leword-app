@@ -32,8 +32,10 @@
 <script>
   window.resizeTo(420, 300);
   window.moveTo((screen.availWidth - 420) / 2, (screen.availHeight - 300) / 2);
-  // 안전장치: 60초 후 자동 닫힘 (새 LEWORD splash가 그 안에 떠야 함)
-  setTimeout(function() { try { window.close(); } catch(e) {} }, 60000);
+  // v2.43.77: 팀4 비평 — 60초 자폭 → 무한 대기 (install 60초+ 환경 보호)
+  //   새 LEWORD splash가 taskkill mshta.exe로 강제 종료 → HTA가 자기 종료 안 함
+  //   안전장치: 10분 (600초) 후 자동 닫힘 (install 자체가 영영 실패한 극단 케이스)
+  setTimeout(function() { try { window.close(); } catch(e) {} }, 600000);
 </script>
 </head>
 <body>
