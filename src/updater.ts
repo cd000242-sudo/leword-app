@@ -84,13 +84,16 @@ function destroyAllWindowsForce(): void {
 //   사용자 보고 "NSIS UI 표시 안되" — NSIS UI 의존 포기, mshta.exe 별도 process로 splash 표시
 //   HTA는 Windows 내장 mshta.exe로 실행 (별도 binary 불필요, 거의 모든 Windows 호환)
 //   HTA process는 LEWORD.exe 가 아니라 mshta.exe — NSIS taskkill 영향 없음 → install 끝까지 유지
-function launchExternalSplash(): void {
+// v2.43.80: HTA spawn 성공 추적 — 실패 시 추가 fallback 결정
+let externalSplashSpawned = false;
+function launchExternalSplash(): boolean {
+  externalSplashSpawned = false;
   try {
     // resources 폴더의 updater-splash.hta 경로 (extraResources 로 packaging)
     const htaPath = path.join(process.resourcesPath || '', 'updater-splash.hta');
     if (!fs.existsSync(htaPath)) {
       console.warn('[UPDATER] HTA splash 파일 없음:', htaPath);
-      return;
+      return false;
     }
     // mshta.exe 별도 process spawn — detached, stdio ignore
     const child = spawn('mshta.exe', [htaPath], {
@@ -99,9 +102,12 @@ function launchExternalSplash(): void {
       windowsHide: false,
     });
     child.unref(); // 메인 process 종료해도 mshta 살아있음
+    externalSplashSpawned = true;
     console.log('[UPDATER] 외부 HTA splash 시작:', htaPath);
+    return true;
   } catch (e: any) {
-    console.warn('[UPDATER] HTA splash 시작 실패 (무시):', e?.message);
+    console.warn('[UPDATER] HTA splash 시작 실패:', e?.message);
+    return false;
   }
 }
 
@@ -134,6 +140,16 @@ function performQuitAndInstall(autoUpdater: any): void {
     return;
   }
   showInstallingState().then(() => {
+    // v2.43.80: HTA splash 복원 + paint 시간 확보
+    //   사용자 보고: "업데이트 프로세서 창뜨다가 100%되면 그냥 꺼져버린다니까요"
+    //   원인: silent install + HTA 없음 = 사용자 빈 화면
+    //   해결: HTA spawn 후 1.5초 대기 (HTA paint 보장) → quitAndInstall
+    //   HTA spawn 실패 시에도 진행창 추가 메시지로 사용자 안내
+    const htaOk = launchExternalSplash();
+    if (!htaOk) {
+      // HTA 실패 시 진행창에 더 명확한 안내
+      showInstallingFallbackMsg();
+    }
     setTimeout(() => {
       try {
         autoUpdater.quitAndInstall(true, true);
@@ -142,8 +158,20 @@ function performQuitAndInstall(autoUpdater: any): void {
         transitionState('ERROR');
         try { app.exit(0); } catch {}
       }
-    }, 300);
+    }, 1500); // 300 → 1500ms (HTA paint 보장)
   });
+}
+
+async function showInstallingFallbackMsg(): Promise<void> {
+  if (!progressWindow || progressWindow.isDestroyed()) return;
+  try {
+    await progressWindow.webContents.executeJavaScript(
+      `(() => {
+        const status = document.getElementById('status');
+        if (status) status.textContent = '⚙️ 설치 시작 — 10~20초 후 자동으로 다시 열립니다';
+      })();`
+    );
+  } catch {}
 }
 
 // 🔥 업데이트 체크 완료 신호 — 메인창 show() 전에 대기 가능
