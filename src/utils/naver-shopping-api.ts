@@ -203,6 +203,11 @@ export async function searchNaverShopping(
   const items: ShoppingItem[] = (data.items || []).map((raw: any) => {
     const title = stripTags(raw.title);
     const brand = raw.brand || undefined;
+    // v2.43.62: 2팀 — 응답에 reviewCount/rating이 있을 수 있으니 시도 (네이버 일부 카테고리만 제공)
+    const rcRaw = raw.reviewCount ?? raw.review_count ?? raw.reviewCnt;
+    const rtRaw = raw.rating ?? raw.score ?? raw.starRating;
+    const reviewCount = Number(rcRaw);
+    const rating = Number(rtRaw);
     return {
       title,
       cleanTitle: cleanProductTitle(title, brand),
@@ -220,6 +225,8 @@ export async function searchNaverShopping(
       category2: raw.category2 || undefined,
       category3: raw.category3 || undefined,
       category4: raw.category4 || undefined,
+      reviewCount: Number.isFinite(reviewCount) && reviewCount > 0 ? reviewCount : undefined,
+      rating: Number.isFinite(rating) && rating > 0 ? rating : undefined,
     };
   });
 
@@ -326,7 +333,10 @@ export function computeConversionScore(item: ShoppingItem, opts: ConversionScore
   let coupang = 0, sweetSpot = 0, priceCentral = 0, brand = 0, specificity = 0, review = 0, majorMall = 0, penalty = 0;
 
   // 쿠팡 우선 (제휴 수익성)
-  if (COUPANG_MALL_NAMES.has(item.mallName)) coupang = 15;
+  // v2.43.62: 2팀 — mallName 외에 link 도메인 (coupang.com)도 매칭
+  //   쿠팡 마켓플레이스 셀러는 mallName에 셀러 이름이 들어가서 'Coupang' 미매칭 케이스 빈번
+  const isCoupang = COUPANG_MALL_NAMES.has(item.mallName) || /coupang\.com/i.test(item.link || '');
+  if (isCoupang) coupang = 15;
   else if (TIER2_MAJOR_MALLS.has(item.mallName)) majorMall = 5;
 
   // 스위트스팟 가격대 (bucket +10)
@@ -391,12 +401,25 @@ export function pickBlogRecommendedItems(items: ShoppingItem[], limit: number = 
 
   for (const item of normal) computeConversionScore(item, opts);
 
+  // v2.43.62: 2팀 권고 — 동점 폴백 순서 교체
+  //   이전: reviewCount → 가격 오름차순 (reviewCount 비는 경우가 많아 "싼 상품" 폴백 부작용)
+  //   신규: reviewCount → priceCentral → brand → specificity → 가격 오름차순
   const sorted = normal.slice().sort((a, b) => {
     const diff = (b.conversionScore || 0) - (a.conversionScore || 0);
     if (diff !== 0) return diff;
-    // 동점 시: 리뷰 많은 순 → 가격 오름차순
+    // 1순위: 리뷰 (있을 때만 의미)
     const rcDiff = (b.reviewCount || 0) - (a.reviewCount || 0);
     if (rcDiff !== 0) return rcDiff;
+    // 2순위: priceCentral (중앙값 근접) — 0~5점 소수 가능
+    const pcDiff = (b.scoreBreakdown?.priceCentral || 0) - (a.scoreBreakdown?.priceCentral || 0);
+    if (pcDiff !== 0) return pcDiff;
+    // 3순위: brand 신호
+    const brDiff = (b.scoreBreakdown?.brand || 0) - (a.scoreBreakdown?.brand || 0);
+    if (brDiff !== 0) return brDiff;
+    // 4순위: specificity (모델코드)
+    const spDiff = (b.scoreBreakdown?.specificity || 0) - (a.scoreBreakdown?.specificity || 0);
+    if (spDiff !== 0) return spDiff;
+    // 마지막: 가격 오름차순
     return a.lprice - b.lprice;
   });
 
