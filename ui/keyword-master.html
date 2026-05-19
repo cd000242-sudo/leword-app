@@ -14556,7 +14556,67 @@
                 </div>`
               : '';
 
-            let html = intentSection + `
+            // v2.43.57 Phase 2 — 신호등 헤더 (사용자 의사결정 즉시 가이드)
+            //   1팀 비평 핵심: "통계 나열, 결정 부재" → 한 줄로 "글 쓸지 말지" 알려줌
+            const buildVerdictBanner = () => {
+              const recoLen = reco.length;
+              const compVerdict = comp.verdict || '';
+              const brandsCnt = comp.uniqueBrands || 0;
+              const totalHits = comp.totalHits || 0;
+              const isInfo = intentInfo.primary === 'info';
+
+              let level = 'good';   // good | warn | bad
+              let title = '';
+              let reason = '';
+
+              if (recoLen === 0) {
+                level = 'bad';
+                title = '🛑 글쓰기 비추천';
+                reason = '추천할 만한 상품이 없습니다 — 다른 키워드를 시도해보세요';
+              } else if (compVerdict === '과점') {
+                level = 'warn';
+                title = '⚠️ 주의 — 시장 과점 상태';
+                reason = `상위 판매처가 시장의 ${comp.concentration || 0}% 지배 중 — 신상품/비교 글로 차별화 필요`;
+              } else if (brandsCnt > 0 && brandsCnt < 3 && totalHits > 500) {
+                level = 'warn';
+                title = '⚠️ 주의 — 브랜드 독점';
+                reason = `${brandsCnt}개 브랜드만 노출 — 브랜드 의존 글은 SEO 약함`;
+              } else if (compVerdict === '경쟁 치열') {
+                level = 'warn';
+                title = '⚠️ 경쟁 치열';
+                reason = `전체 ${totalHits.toLocaleString()}건 — 전문성/리뷰 깊이 없으면 상위 노출 어려움`;
+              } else if (compVerdict === '진입 쉬움' && recoLen >= 5) {
+                level = 'good';
+                title = '✅ 글쓰기 추천';
+                reason = `진입 장벽 낮고 추천 상품 ${recoLen}개 확보 — 초보 블로거도 가능`;
+              } else if (isInfo && recoLen < 5) {
+                level = 'warn';
+                title = '🟡 정보성 키워드 — 전환 낮음';
+                reason = '광고 수익은 낮을 수 있음, 트래픽 + AdSense 조합 권장';
+              } else if (recoLen >= 5) {
+                level = 'good';
+                title = '✅ 글쓰기 가능';
+                reason = `추천 상품 ${recoLen}개 확보 — 비교/추천 글 작성 가능`;
+              } else {
+                level = 'warn';
+                title = '🟡 보통';
+                reason = `추천 ${recoLen}개 — 가능하지만 더 좋은 키워드도 검토해보세요`;
+              }
+
+              const palette = level === 'good'
+                ? { bg: 'rgba(52,211,153,0.10)', border: 'rgba(52,211,153,0.35)', color: '#34d399' }
+                : level === 'warn'
+                ? { bg: 'rgba(251,191,36,0.10)', border: 'rgba(251,191,36,0.35)', color: '#fbbf24' }
+                : { bg: 'rgba(251,113,133,0.10)', border: 'rgba(251,113,133,0.35)', color: '#fb7185' };
+
+              return `<div style="background:${palette.bg};border:1px solid ${palette.border};border-radius:12px;padding:14px 18px;margin-bottom:14px;">
+                <div style="font-size:15px;font-weight:800;color:${palette.color};margin-bottom:4px;">${title}</div>
+                <div style="font-size:12px;color:rgba(255,255,255,0.78);line-height:1.5;">${reason}</div>
+              </div>`;
+            };
+            const verdictBanner = buildVerdictBanner();
+
+            let html = verdictBanner + intentSection + `
               <div class="sc-info">
                 <span style="font-size:18px;">📊</span>
                 <div>총 <b style="color:#34d399;">${(res.total||0).toLocaleString()}</b>개 중 <b>${items.length}</b>개 표시 · 가격 <b>${(pa.min||0).toLocaleString()}~${(pa.max||0).toLocaleString()}원</b> · 중간가 <b style="color:#fbbf24;">${(pa.median||0).toLocaleString()}원</b></div>
