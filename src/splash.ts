@@ -7,8 +7,19 @@
  */
 
 import { app, BrowserWindow } from 'electron';
+import { spawn } from 'child_process';
 
 let splashWin: BrowserWindow | null = null;
+
+// v2.43.72: 외부 HTA splash 종료 (이전 process가 띄운 mshta)
+//   새 LEWORD splash 뜨는 시점에 HTA 닫아서 두 splash 동시 표시 방지
+function killExternalSplashIfAny(): void {
+  if (process.platform !== 'win32') return;
+  try {
+    const p = spawn('taskkill', ['/F', '/IM', 'mshta.exe'], { stdio: 'ignore', windowsHide: true });
+    p.unref();
+  } catch {}
+}
 
 function buildSplashHtml(initialStage: string, version: string): string {
   // v2.43.70: progressWindow (updater.ts) 와 완전 동일 디자인 — 깜빡임 인지 최소화
@@ -66,6 +77,10 @@ export function showSplash(initialStage = 'LEWORD 시작 중...'): void {
   });
   const html = buildSplashHtml(initialStage, app.getVersion());
   splashWin.loadURL(`data:text/html;charset=utf-8,${encodeURIComponent(html)}`);
+  // v2.43.72: 이전 process의 외부 HTA splash 종료 (자연스러운 전환)
+  //   electron splash 가 alwaysOnTop=true 라 시각적으로는 즉시 가려지고,
+  //   100ms 후 taskkill 로 HTA process 정리
+  setTimeout(killExternalSplashIfAny, 100);
 }
 
 export async function updateSplashStage(stage: string, _sub?: string): Promise<void> {

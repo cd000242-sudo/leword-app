@@ -1,0 +1,48 @@
+<!DOCTYPE html>
+<html>
+<head>
+<meta charset="UTF-8">
+<title>LEWORD 업데이트</title>
+<HTA:APPLICATION
+  APPLICATIONNAME="LEWORD Update"
+  SCROLL="no"
+  SINGLEINSTANCE="yes"
+  BORDER="none"
+  BORDERSTYLE="static"
+  CAPTION="no"
+  SHOWINTASKBAR="no"
+  INNERBORDER="no"
+  MAXIMIZEBUTTON="no"
+  MINIMIZEBUTTON="no"
+  SYSMENU="no"
+  WINDOWSTATE="normal"
+/>
+<style>
+  html, body { margin:0; padding:0; background:#0f0f23; color:#fff; font-family:'Malgun Gothic',sans-serif; overflow:hidden; }
+  .wrap { width:420px; height:300px; display:flex; flex-direction:column; align-items:center; justify-content:center; }
+  .title { font-size:18px; font-weight:700; color:#fbbf24; margin-bottom:6px; }
+  .version { font-size:12px; color:#8b8ba0; margin-bottom:20px; }
+  .ring { width:80px; height:80px; margin-bottom:18px; position:relative; }
+  .ring .bg { width:100%; height:100%; border:6px solid #1f1f3a; border-radius:50%; box-sizing:border-box; }
+  .ring .fg { position:absolute; top:0; left:0; width:100%; height:100%; border:6px solid transparent; border-top-color:#fbbf24; border-right-color:#fbbf24; border-radius:50%; box-sizing:border-box; animation:spin 1s linear infinite; }
+  @keyframes spin { from { transform:rotate(0deg); } to { transform:rotate(360deg); } }
+  .status { font-size:13px; color:#dadae6; font-weight:600; margin-bottom:4px; text-align:center; }
+  .sub { font-size:11px; color:#7c7c92; text-align:center; }
+</style>
+<script>
+  window.resizeTo(420, 300);
+  window.moveTo((screen.availWidth - 420) / 2, (screen.availHeight - 300) / 2);
+  // 안전장치: 60초 후 자동 닫힘 (새 LEWORD splash가 그 안에 떠야 함)
+  setTimeout(function() { try { window.close(); } catch(e) {} }, 60000);
+</script>
+</head>
+<body>
+  <div class="wrap">
+    <div class="title">LEWORD 업데이트</div>
+    <div class="version">설치 진행 중</div>
+    <div class="ring"><div class="bg"></div><div class="fg"></div></div>
+    <div class="status">⚙️ 새 버전 설치 중...</div>
+    <div class="sub">잠시 후 LEWORD가 자동으로 시작됩니다 (10~20초)</div>
+  </div>
+</body>
+</html>

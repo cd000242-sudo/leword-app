@@ -16,6 +16,9 @@
  */
 
 import { app, BrowserWindow, ipcMain } from 'electron';
+import { spawn } from 'child_process';
+import * as path from 'path';
+import * as fs from 'fs';
 
 let progressWindow: BrowserWindow | null = null;
 let hideableWindows = new Set<BrowserWindow>();
@@ -47,6 +50,31 @@ function destroyAllWindowsForce(): void {
 //     - isSilent=true 로 NSIS UI 숨김 (빠른 설치)
 //     - installer.nsh customInstall ExecShell 이 새 LEWORD 자동 spawn (v2.43.66 동일)
 //     - 진행 창에 "설치 중" 단계 메시지 추가 (사용자가 진행 상황 인지 가능)
+// v2.43.72: 별도 process splash (HTA) — process A → B 전환 동안 시각 피드백 유지
+//   사용자 보고 "NSIS UI 표시 안되" — NSIS UI 의존 포기, mshta.exe 별도 process로 splash 표시
+//   HTA는 Windows 내장 mshta.exe로 실행 (별도 binary 불필요, 거의 모든 Windows 호환)
+//   HTA process는 LEWORD.exe 가 아니라 mshta.exe — NSIS taskkill 영향 없음 → install 끝까지 유지
+function launchExternalSplash(): void {
+  try {
+    // resources 폴더의 updater-splash.hta 경로 (extraResources 로 packaging)
+    const htaPath = path.join(process.resourcesPath || '', 'updater-splash.hta');
+    if (!fs.existsSync(htaPath)) {
+      console.warn('[UPDATER] HTA splash 파일 없음:', htaPath);
+      return;
+    }
+    // mshta.exe 별도 process spawn — detached, stdio ignore
+    const child = spawn('mshta.exe', [htaPath], {
+      detached: true,
+      stdio: 'ignore',
+      windowsHide: false,
+    });
+    child.unref(); // 메인 process 종료해도 mshta 살아있음
+    console.log('[UPDATER] 외부 HTA splash 시작:', htaPath);
+  } catch (e: any) {
+    console.warn('[UPDATER] HTA splash 시작 실패 (무시):', e?.message);
+  }
+}
+
 function performQuitAndInstall(autoUpdater: any): void {
   // v2.43.68: 진행창 닫는 시점 늦춤 — NSIS install 동안 사용자에게 계속 표시
   //   사용자 보고 "처음 업데이트 창이뜨고나서 바로떠야되는데 이거마저 좀있다가 뜨네"
@@ -63,13 +91,14 @@ function performQuitAndInstall(autoUpdater: any): void {
 
   // "설치 중" 메시지 표시 후 즉시 quitAndInstall (진행창은 NSIS 끝까지 살아있음)
   showInstallingState().then(() => {
+    // v2.43.72: 외부 HTA splash 시작 — NSIS install 동안 사용자 시각 피드백 유지
+    launchExternalSplash();
     setTimeout(() => {
       try {
-        // v2.43.71: oneClick=true + isSilent=false → NSIS 진행바 자체가 splash 역할
-        //   사용자 보고 "프로세서가 꺼졋다가 다시 생긴다" 빈 시간 해결
-        //   NSIS UI가 5~10초 visible → 사용자가 설치 진행 시각 피드백 받음
+        // v2.43.72: isSilent=true 로 복귀 (NSIS UI 의존 포기)
+        //   HTA splash가 NSIS install 동안 시각 피드백 담당
         //   isForceRunAfter=true: NSIS 종료 직후 자동 새 LEWORD spawn
-        autoUpdater.quitAndInstall(false, true);
+        autoUpdater.quitAndInstall(true, true);
       } catch (e: any) {
         console.error('[UPDATER] quitAndInstall 실패:', e?.message);
         try { app.exit(0); } catch {}

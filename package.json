@@ -1,6 +1,6 @@
 {
   "name": "leword",
-  "version": "2.43.71",
+  "version": "2.43.72",
   "description": "LEWORD - 키워드 마스터 독립 앱",
   "main": "dist/main.js",
   "scripts": {
@@ -64,6 +64,12 @@
       "ui/**/*",
       "assets/**/*",
       "package.json"
+    ],
+    "extraResources": [
+      {
+        "from": "build/updater-splash.hta",
+        "to": "updater-splash.hta"
+      }
     ],
     "asarUnpack": [
       "node_modules/sharp/**/*",
