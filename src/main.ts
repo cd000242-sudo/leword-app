@@ -49,6 +49,8 @@ import { setupPremiumHandlers } from './main/premiumFeatures';
 import * as licenseManager from './utils/licenseManager';
 import { checkInternetConnection, startNetworkMonitoring } from './utils/network-checker';
 import { findChromePath, isChromeAvailable } from './utils/chrome-finder';
+// v2.43.67: 시작 splash — 업데이트 후 빈 화면 시간 차단 (사용자 반발 해소)
+import { showSplash, updateSplashStage, closeSplash, hideSplash, showSplashAgain } from './splash';
 
 // 네트워크 모니터링 정리 함수
 let stopNetworkMonitoring: (() => void) | null = null;
@@ -165,9 +167,13 @@ function createKeywordWindow() {
       const { hasUpdate } = await waitForUpdateCheck(5000);
       if (hasUpdate || isUpdating()) {
         console.log('[LEWORD] 업데이트 진행 중 — 메인창 표시 생략 (업데이트 완료 후 자동 재시작)');
+        // 업데이트 진행창이 splash 자리 차지 — splash 닫음
+        closeSplash();
         return;
       }
     } catch {}
+    // v2.43.67: splash 닫고 메인창 표시 — 빈 화면 0초 보장
+    closeSplash();
     keywordWindow?.show();
   });
 
@@ -950,12 +956,19 @@ if (!gotSingleInstanceLock) {
 app.whenReady().then(async () => {
   // 락을 얻지 못한 경우 whenReady가 호출되더라도 추가 작업 안 함 (app.quit()이 이미 진행 중)
   if (!gotSingleInstanceLock) return;
+
+  // v2.43.67: 시작 splash 즉시 표시 — 사용자가 빈 화면 보는 시간 0
+  //   업데이트 후 NSIS 진행창이 사라진 직후 곧바로 동일 디자인 splash 가 떠서
+  //   "초반에 뜨고 사라졌다가 한참있다 앱이뜨니까" 빈 시간 차단
+  showSplash('LEWORD 시작 중...');
+
   initAppPaths();
 
   // ========================================
   // 🌐 네트워크 및 Chrome 상태 확인
   // ========================================
   console.log('[LEWORD] 시스템 상태 확인 중...');
+  await updateSplashStage('시스템 확인 중...');
 
   // 1. Chrome/Chromium 상태 확인
   const chromePath = findChromePath();
@@ -966,6 +979,7 @@ app.whenReady().then(async () => {
   }
 
   // 2. 네트워크 연결 확인
+  await updateSplashStage('인터넷 연결 확인 중...');
   const isOnline = await checkInternetConnection();
   if (isOnline) {
     console.log('[LEWORD] ✅ 인터넷 연결 확인됨');
@@ -989,6 +1003,7 @@ app.whenReady().then(async () => {
   // - 인증창을 즉시 표시 → UX 대기 시간 0
   // - 업데이트 발견 시 updater 모듈이 로그인창을 hide() 하고 진행 창 표시
   // ========================================
+  await updateSplashStage('업데이트 확인 중...');
   registerUpdaterHandlers();
   try {
     initAutoUpdaterEarly();
@@ -996,6 +1011,7 @@ app.whenReady().then(async () => {
     console.error('[LEWORD] initAutoUpdaterEarly 실패:', err?.message ?? err);
   }
 
+  await updateSplashStage('라이선스 확인 중...');
   if (!(await checkLicense())) {
     // 업데이트 진행 중이면 창 종료 흐름을 건너뜀 — updater 가 재시작 관리
     if (isUpdating()) {
@@ -1028,10 +1044,12 @@ app.whenReady().then(async () => {
   });
 
   // IPC 핸들러 설정
+  await updateSplashStage('환경 로드 중...');
   setupKeywordMasterHandlers();
   setupPremiumHandlers();
 
   // 키워드 마스터 창 열기
+  await updateSplashStage('메인창 준비 중...');
   createKeywordWindow();
 
   // v2.42.27: 시스템 트레이 (창 닫기 시 결과 보존 — 사용자 요청)

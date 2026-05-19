@@ -14493,9 +14493,10 @@
             const excludeSS = !!document.getElementById('scExcludeSmartStore')?.checked;
             // v2.43.58: 동적 스위트스팟 — 결과의 p25~p75 (IQR) 사용
             //   카테고리 무관 하드코딩(2~7만원) 제거: 건강식품·노트북 등 카테고리 차이 해결
-            const pa = res.insight?.priceAnalysis || {};
-            const sweetLo = pa.p25 || 0;
-            const sweetHi = pa.p75 || Number.MAX_SAFE_INTEGER;
+            // v2.43.67: 변수명 pa → paFilter (아래 14546의 pa와 중복 선언 SyntaxError fix)
+            const paFilter = res.insight?.priceAnalysis || {};
+            const sweetLo = paFilter.p25 || 0;
+            const sweetHi = paFilter.p75 || Number.MAX_SAFE_INTEGER;
             // 라벨 동적 업데이트
             const label = document.getElementById('scSweetSpotLabel');
             if (label && sweetLo > 0 && sweetHi < Number.MAX_SAFE_INTEGER) {

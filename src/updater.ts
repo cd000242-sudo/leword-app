@@ -40,28 +40,37 @@ function destroyAllWindowsForce(): void {
 }
 
 // quitAndInstall 안전 호출 — 모든 창 destroy 후 호출
-// v2.43.66: 업데이트 후 안 켜지는 문제 해결
-//   원인: NSIS customInstall ExecShell + electron-updater isForceRunAfter=true 가
-//        동시에 새 인스턴스 launch → 한쪽은 lock 얻고 다른 쪽은 silent quit
-//   해결: isForceRunAfter=false 로 electron-updater 자체 재실행 비활성
-//        → installer.nsh customInstall ExecShell 만 신뢰 (silent/non-silent 무관 동작)
-//   추가: Puppeteer 등 leftover 자식 프로세스 정리 → NSIS taskkill 후 lock 잔존 방지
+// v2.43.67: 사용자 보고 "NSIS창도 안떠서 사용자가 너무 오래 기다리는 것 같다"
+//   기존 isSilent=false는 oneClick=false 위저드 화면이 깜빡 떴다 사라지거나
+//   사용자가 인지 못 하는 시간(5~10초) 동안 검은 화면만 보임
+//   해결:
+//     - isSilent=true 로 NSIS UI 숨김 (빠른 설치)
+//     - installer.nsh customInstall ExecShell 이 새 LEWORD 자동 spawn (v2.43.66 동일)
+//     - 진행 창에 "설치 중" 단계 메시지 추가 (사용자가 진행 상황 인지 가능)
 function performQuitAndInstall(autoUpdater: any): void {
-  destroyAllWindowsForce();
   // Puppeteer browserPool 등 자식 프로세스 강제 종료 (lock 잔존 차단)
   try {
     const { browserPool } = require('./utils/puppeteer-pool');
     void browserPool.destroy?.();
   } catch {}
-  setTimeout(() => {
-    try {
-      // (isSilent=false, isForceRunAfter=false) — installer.nsh ExecShell이 단일 자동실행 담당
-      autoUpdater.quitAndInstall(false, false);
-    } catch (e: any) {
-      console.error('[UPDATER] quitAndInstall 실패:', e?.message);
-      try { app.exit(0); } catch {}
-    }
-  }, 500); // 300 → 500ms (자식 프로세스 종료 시간 추가 부여)
+
+  // 진행 창은 destroy 직전까지 "설치 중" 메시지 표시 (사용자 인지)
+  showInstallingState().then(() => {
+    setTimeout(() => {
+      destroyAllWindowsForce();
+      setTimeout(() => {
+        try {
+          // v2.43.67: (isSilent=true, isForceRunAfter=false)
+          //   - silent: NSIS UI 없이 빠른 설치 (사용자 체감 시간 ↓)
+          //   - isForceRunAfter=false: installer.nsh ExecShell 이 단일 자동실행
+          autoUpdater.quitAndInstall(true, false);
+        } catch (e: any) {
+          console.error('[UPDATER] quitAndInstall 실패:', e?.message);
+          try { app.exit(0); } catch {}
+        }
+      }, 500); // 자식 프로세스 종료 시간 부여
+    }, 800); // "설치 중" 메시지 보여줄 시간
+  });
 }
 
 // 🔥 업데이트 체크 완료 신호 — 메인창 show() 전에 대기 가능
@@ -173,6 +182,11 @@ export function showProgressWindow(version: string): BrowserWindow {
   }
 
   lastUpdateInfo.version = version;
+  // v2.43.67: splash 닫고 progress 창으로 이어받기 (시각 일관성)
+  try {
+    const { closeSplash } = require('./splash');
+    closeSplash();
+  } catch {}
   progressWindow = new BrowserWindow({
     width: 420,
     height: 300,
@@ -236,6 +250,19 @@ async function showReadyState(version: string, seconds: number): Promise<void> {
         if (pct) pct.textContent = '✓';
         if (version) version.textContent = 'v${version} 준비 완료';
         if (status) status.textContent = '✅ 업데이트 준비 완료 — ${seconds}초 후 자동 재시작';
+      })();`
+    );
+  } catch {}
+}
+
+// v2.43.67: 사용자에게 "NSIS 설치 중" 단계 명시 (silent NSIS 동안 빈 화면 방지)
+async function showInstallingState(): Promise<void> {
+  if (!progressWindow || progressWindow.isDestroyed()) return;
+  try {
+    await progressWindow.webContents.executeJavaScript(
+      `(() => {
+        const status = document.getElementById('status');
+        if (status) status.textContent = '⚙️ 설치 중... 약 10초 후 자동 재시작';
       })();`
     );
   } catch {}
