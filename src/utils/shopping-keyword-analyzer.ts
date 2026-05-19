@@ -60,11 +60,36 @@ export function isWritableShoppingKeyword(keyword: string): boolean {
 
 /**
  * 단독 범용 토큰 블랙리스트 (결과에 단독으로 튀어나오면 무의미)
+ * v2.43.61: 7팀 — 사양/마케팅/색상/형태 단독 토큰 확장
+ *   bi-gram 안에서는 통과 ("무선 이어폰" OK, 단독 "무선" 차단)
  */
 const STANDALONE_BLOCK = new Set([
+  // 의도성 어미 (단독 무가치)
   '추천', '후기', '리뷰', '비교', '순위', '방법', '가격', '정리', '총정리',
   '꿀팁', '브랜드', '사이즈', '정보', '상품', '제품', '물건',
+  // v2.43.61: 마케팅/세일 단독
+  '인기', '베스트', '핫딜', '특가', '단독', '신상', '한정', '런칭', '출시',
+  // 사양/형태 단독
+  '무선', '유선', '가정용', '휴대용', '충전식', '대용량', '미니', '대형', '소형',
+  '슬림', '얇은', '두꺼운', '간편', '간단', '컴팩트', '강력',
+  // 색상 단독
+  '블랙', '화이트', '실버', '골드', '핑크', '레드', '블루', '그레이', '베이지',
+  // 용도 형태소
+  '용', '용도', '용품',
 ]);
+
+// v2.43.61: 7팀 — 한국어 조사 제거 (어절 정상화, 형태소 분석 없이도 명사 추출 품질 향상)
+//   "이어폰의", "케이블을" → "이어폰", "케이블"
+const KR_PARTICLE_RE = /(은|는|이|가|을|를|의|에|에서|에게|에게서|와|과|도|만|만큼|까지|부터|로|으로|이며|이고)$/;
+
+function stripParticle(w: string): string {
+  if (w.length < 3) return w; // 너무 짧으면 위험
+  const m = w.match(KR_PARTICLE_RE);
+  if (m && m[1].length < w.length - 1) {
+    return w.slice(0, -m[1].length);
+  }
+  return w;
+}
 
 function tokenizeTitle(title: string): string[] {
   if (!title) return [];
@@ -73,6 +98,7 @@ function tokenizeTitle(title: string): string[] {
     .replace(/\s+/g, ' ')
     .trim()
     .split(' ')
+    .map(w => stripParticle(w))
     .filter(w => {
       if (w.length < 2) return false;
       if (/^\d+$/.test(w)) return false;
