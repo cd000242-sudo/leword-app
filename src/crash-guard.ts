@@ -18,8 +18,12 @@ import * as path from 'path';
 
 const MAX_LOG_ENTRIES = 100;
 
+// v2.43.76: blogger-admin-panel 고정 경로 사용 (initAppPaths 호출 전후 무관)
+//   main.ts initAppPaths 가 userData 를 %APPDATA%/blogger-admin-panel/ 로 변경하지만
+//   setupCrashGuard 는 그 전에 호출되어 default 경로 사용 → 두 경로에 파일 분산
+//   해결: app.getPath('appData') 기준 고정 경로 = %APPDATA%/blogger-admin-panel/
 function getLogDir(): string {
-  const dir = path.join(app.getPath('userData'), 'leword');
+  const dir = path.join(app.getPath('appData'), 'blogger-admin-panel');
   if (!fs.existsSync(dir)) fs.mkdirSync(dir, { recursive: true });
   return dir;
 }
