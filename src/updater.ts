@@ -305,6 +305,33 @@ async function showInstallingState(): Promise<void> {
   } catch {}
 }
 
+// v2.43.73: 100% 도달 후 verifying / stuck 메시지
+async function showVerifyingState(): Promise<void> {
+  if (!progressWindow || progressWindow.isDestroyed()) return;
+  try {
+    await progressWindow.webContents.executeJavaScript(
+      `(() => {
+        const status = document.getElementById('status');
+        const pct = document.getElementById('pct');
+        if (status) status.textContent = '✓ 다운로드 완료 — 설치 준비 중...';
+        if (pct) pct.textContent = '✓';
+      })();`
+    );
+  } catch {}
+}
+
+async function showStuckWarningState(): Promise<void> {
+  if (!progressWindow || progressWindow.isDestroyed()) return;
+  try {
+    await progressWindow.webContents.executeJavaScript(
+      `(() => {
+        const status = document.getElementById('status');
+        if (status) status.innerHTML = '⚠️ 검증이 오래 걸립니다 — 30초 내 자동 시도, 그래도 멈추면 LEWORD 재시작';
+      })();`
+    );
+  } catch {}
+}
+
 async function showErrorState(message: string): Promise<void> {
   if (!progressWindow || progressWindow.isDestroyed()) return;
   try {
@@ -387,16 +414,46 @@ export function initAutoUpdaterEarly(): void {
     signalUpdateCheck(false);
   });
 
+  // v2.43.73: 100% 도달 후 update-downloaded 이벤트 stuck 보호
+  //   사용자 보고: 진행창 "다운로드 중... 100%" 멈춤 → 새 LEWORD 안 뜸
+  //   원인 추정: electron-updater verifying / unpacking 단계 stuck (SHA512 / blockmap 검증 실패)
+  let downloadHit100 = false;
+  let stuckCheckTimer: NodeJS.Timeout | null = null;
+
   autoUpdater.on('download-progress', (progress: any) => {
     const pct = Math.round(progress?.percent ?? 0);
     console.log(`[UPDATER] 다운로드: ${pct}%`);
     updateProgress(pct);
     broadcastEvent('progress', { percent: pct });
+
+    // 100% 도달 시 verifying 메시지 + 30초 timeout 가드
+    if (pct >= 100 && !downloadHit100) {
+      downloadHit100 = true;
+      showVerifyingState();
+      // 30초 안에 update-downloaded 안 오면 stuck 안내, 60초 안에 안 오면 force install
+      stuckCheckTimer = setTimeout(() => {
+        showStuckWarningState();
+        stuckCheckTimer = setTimeout(() => {
+          console.error('[UPDATER] update-downloaded 60초 미발생 → 강제 quitAndInstall 시도');
+          if (!restartScheduled) {
+            restartScheduled = true;
+            try { performQuitAndInstall(autoUpdater); } catch (e: any) {
+              console.error('[UPDATER] 강제 install 실패:', e?.message);
+              showErrorState('업데이트 검증 실패 — LEWORD 재시작 후 다시 시도하거나 수동 다운로드').then(() => {
+                setTimeout(() => closeProgressWindow(), 12000);
+              });
+            }
+          }
+        }, 30000); // +30초 = 총 60초
+      }, 30000);
+    }
   });
 
   autoUpdater.on('update-downloaded', (info: any) => {
     console.log('[UPDATER] 다운로드 완료:', info?.version);
     broadcastEvent('downloaded', { version: info?.version });
+    // stuck 타이머 취소
+    if (stuckCheckTimer) { clearTimeout(stuckCheckTimer); stuckCheckTimer = null; }
 
     const countdown = 5;
     showReadyState(info?.version ?? '', countdown).then(() => {
