@@ -65,13 +65,16 @@ function performQuitAndInstall(autoUpdater: any): void {
   showInstallingState().then(() => {
     setTimeout(() => {
       try {
-        // (isSilent=true, isForceRunAfter=false) — installer.nsh ExecShell 단일 자동실행
-        autoUpdater.quitAndInstall(true, false);
+        // v2.43.69: isForceRunAfter=true 로 변경 (이중 안전망)
+        //   사용자 보고 "계속 안뜬다" — ExecShell 만으로는 일부 Windows 환경에서 spawn 실패
+        //   electron-updater 측에서도 새 LEWORD spawn 시도 → installer.nsh ExecShell 과 이중 안전망
+        //   두 spawn 충돌은 main.ts requestSingleInstanceLock 재시도(v2.43.66)가 처리
+        autoUpdater.quitAndInstall(true, true);
       } catch (e: any) {
         console.error('[UPDATER] quitAndInstall 실패:', e?.message);
         try { app.exit(0); } catch {}
       }
-    }, 300); // 800 → 300ms (메시지 빠르게 확인 후 즉시 설치)
+    }, 300);
   });
 }
 
