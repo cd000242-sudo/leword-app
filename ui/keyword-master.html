@@ -14284,7 +14284,7 @@
                 <div style="display:flex;gap:10px;align-items:center;margin-bottom:16px;font-size:12px;color:rgba(255,255,255,0.7);">
                   <label style="display:flex;align-items:center;gap:6px;cursor:pointer;user-select:none;">
                     <input type="checkbox" id="scSweetSpot" style="accent-color:#fbbf24;" />
-                    <span>💎 스위트스팟만 (2~7만원)</span>
+                    <span id="scSweetSpotLabel">💎 스위트스팟만 (검색 후 자동 조정)</span>
                   </label>
                   <span style="color:rgba(255,255,255,0.35);">|</span>
                   <label style="display:flex;align-items:center;gap:6px;cursor:pointer;user-select:none;">
@@ -14491,9 +14491,19 @@
             // 클라이언트 필터 적용 (items 변수 선언 전에 수행)
             const sweetSpot = !!document.getElementById('scSweetSpot')?.checked;
             const excludeSS = !!document.getElementById('scExcludeSmartStore')?.checked;
+            // v2.43.58: 동적 스위트스팟 — 결과의 p25~p75 (IQR) 사용
+            //   카테고리 무관 하드코딩(2~7만원) 제거: 건강식품·노트북 등 카테고리 차이 해결
+            const pa = res.insight?.priceAnalysis || {};
+            const sweetLo = pa.p25 || 0;
+            const sweetHi = pa.p75 || Number.MAX_SAFE_INTEGER;
+            // 라벨 동적 업데이트
+            const label = document.getElementById('scSweetSpotLabel');
+            if (label && sweetLo > 0 && sweetHi < Number.MAX_SAFE_INTEGER) {
+              label.textContent = `💎 스위트스팟만 (${sweetLo.toLocaleString()}~${sweetHi.toLocaleString()}원)`;
+            }
             const majorMalls = new Set(['쿠팡', 'Coupang', 'coupang', '네이버', '11번가', 'G마켓', '옥션', '위메프', '티몬', '인터파크', '롯데ON', 'SSG닷컴']);
             const filter = (arr) => (arr || []).filter(it => {
-              if (sweetSpot && !(it.lprice >= 20000 && it.lprice <= 70000)) return false;
+              if (sweetSpot && !(it.lprice >= sweetLo && it.lprice <= sweetHi)) return false;
               if (excludeSS) {
                 const isIndividual = !majorMalls.has(it.mallName) && /(상점|스토어|몰|샵|shop|store|mart)$/i.test(it.mallName || '');
                 if (isIndividual) return false;
@@ -14619,7 +14629,7 @@
             let html = verdictBanner + intentSection + `
               <div class="sc-info">
                 <span style="font-size:18px;">📊</span>
-                <div>총 <b style="color:#34d399;">${(res.total||0).toLocaleString()}</b>개 중 <b>${items.length}</b>개 표시 · 가격 <b>${(pa.min||0).toLocaleString()}~${(pa.max||0).toLocaleString()}원</b> · 중간가 <b style="color:#fbbf24;">${(pa.median||0).toLocaleString()}원</b></div>
+                <div>총 <b style="color:#34d399;">${(res.total||0).toLocaleString()}</b>개 중 <b>${items.length}</b>개 표시 · 가격대 <b>${(pa.trimmedMin || pa.min || 0).toLocaleString()}~${(pa.trimmedMax || pa.max || 0).toLocaleString()}원</b> (이상치 제거) · 중간가 <b style="color:#fbbf24;">${(pa.median||0).toLocaleString()}원</b>${pa.discountAvgPct ? ` · 평균 할인율 <b style="color:#f472b6;">${pa.discountAvgPct}%</b> (${pa.discountedCount}건)` : ''}</div>
               </div>
             `;
 

@@ -324,17 +324,49 @@ export interface PriceAnalysis {
   max: number;
   median: number;
   avg: number;
+  // v2.43.58: 6팀 — 카테고리 무인지 하드코딩 보완 (IQR 동적 스위트스팟)
+  p25: number;                    // 1사분위 (스위트스팟 하한)
+  p75: number;                    // 3사분위 (스위트스팟 상한)
+  trimmedMin: number;             // p5 — 이상치 제거된 실질 최저가
+  trimmedMax: number;             // p95 — 이상치 제거된 실질 최고가
+  discountAvgPct?: number;        // hprice>lprice 항목 한정 평균 할인율 (%)
+  discountedCount?: number;       // 할인 상품 개수
   mallDistribution: Array<{ mall: string; count: number; pct: number }>;
+}
+
+function quantile(sorted: number[], q: number): number {
+  if (sorted.length === 0) return 0;
+  const pos = (sorted.length - 1) * q;
+  const base = Math.floor(pos);
+  const rest = pos - base;
+  if (base + 1 < sorted.length) {
+    return Math.round(sorted[base] + rest * (sorted[base + 1] - sorted[base]));
+  }
+  return sorted[base];
 }
 
 export function analyzePrices(items: ShoppingItem[]): PriceAnalysis {
   const prices = items.map(i => i.lprice).filter(p => p > 0).sort((a, b) => a - b);
   if (prices.length === 0) {
-    return { min: 0, max: 0, median: 0, avg: 0, mallDistribution: [] };
+    return { min: 0, max: 0, median: 0, avg: 0, p25: 0, p75: 0, trimmedMin: 0, trimmedMax: 0, mallDistribution: [] };
   }
 
-  const median = prices[Math.floor(prices.length / 2)];
+  const median = quantile(prices, 0.5);
+  const p25 = quantile(prices, 0.25);
+  const p75 = quantile(prices, 0.75);
+  const trimmedMin = quantile(prices, 0.05);
+  const trimmedMax = quantile(prices, 0.95);
   const avg = Math.round(prices.reduce((a, b) => a + b, 0) / prices.length);
+
+  // v2.43.58: 할인율 분석 — hprice (정가) > lprice (실판매가) 인 항목만
+  const discounted = items.filter(i => i.hprice && i.lprice && i.hprice > i.lprice);
+  let discountAvgPct: number | undefined;
+  let discountedCount: number | undefined;
+  if (discounted.length > 0) {
+    const sum = discounted.reduce((acc, i) => acc + (1 - (i.lprice / (i.hprice || i.lprice))), 0);
+    discountAvgPct = Math.round((sum / discounted.length) * 1000) / 10;
+    discountedCount = discounted.length;
+  }
 
   const mallCount = new Map<string, number>();
   for (const item of items) {
@@ -352,6 +384,12 @@ export function analyzePrices(items: ShoppingItem[]): PriceAnalysis {
     max: prices[prices.length - 1],
     median,
     avg,
+    p25,
+    p75,
+    trimmedMin,
+    trimmedMax,
+    discountAvgPct,
+    discountedCount,
     mallDistribution,
   };
 }
