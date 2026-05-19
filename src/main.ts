@@ -55,6 +55,8 @@ import { showSplash, updateSplashStage, closeSplash, hideSplash, showSplashAgain
 import { setupCrashGuard, attachWindowCrashGuard, checkPreviousCrash, runStartupHealthCheck, getCrashLogPath } from './crash-guard';
 // v2.43.79: 팀9 비평 — autosave (작업 데이터 30초 atomic write)
 import { startAutosave } from './autosave';
+// v2.43.81: Self-heal — pending 업데이트 자동 install (사용자 "기존 자동업데이트로 최신파일")
+import { checkAndApplyPendingUpdate, registerRunOncePendingUpdate } from './self-heal';
 
 // 네트워크 모니터링 정리 함수
 let stopNetworkMonitoring: (() => void) | null = null;
@@ -150,6 +152,11 @@ function createKeywordWindow() {
 
   // v2.43.79: autosave 시작 (renderer 30초 tick)
   startAutosave(() => keywordWindow);
+
+  // v2.43.81: 종료 시 pending 업데이트 있으면 RunOnce 등록 (안전망)
+  app.on('before-quit', () => {
+    try { registerRunOncePendingUpdate(); } catch {}
+  });
 
   // console.log('[LEWORD] preload script:', keywordWindow.webContents.getWebPreferences().preload);
 
@@ -1051,6 +1058,19 @@ app.whenReady().then(async () => {
   // - 업데이트 발견 시 updater 모듈이 로그인창을 hide() 하고 진행 창 표시
   // ========================================
   await updateSplashStage('업데이트 확인 중...');
+
+  // v2.43.81: self-heal — pending 업데이트 자동 install (electron-updater 보다 먼저)
+  //   이전 quitAndInstall 실패로 pending/.exe 잔존 케이스 자동 복구
+  try {
+    const handled = await checkAndApplyPendingUpdate(app.getVersion());
+    if (handled) {
+      console.log('[LEWORD] self-heal: pending 업데이트 적용 중 — 현재 process 종료 예정');
+      return; // app.exit(0) 이 self-heal 내부에서 실행됨
+    }
+  } catch (err: any) {
+    console.warn('[LEWORD] self-heal 실패:', err?.message);
+  }
+
   registerUpdaterHandlers();
   try {
     initAutoUpdaterEarly();
