@@ -107,14 +107,40 @@ function tokenizeTitle(title: string): string[] {
     });
 }
 
-function countWords(texts: string[]): Map<string, number> {
+function countWords(texts: string[], extraStop?: Set<string>): Map<string, number> {
   const freq = new Map<string, number>();
   for (const t of texts) {
     for (const w of tokenizeTitle(t)) {
+      if (extraStop && extraStop.has(w.toLowerCase())) continue;
       freq.set(w, (freq.get(w) || 0) + 1);
     }
   }
   return freq;
+}
+
+// v2.43.65: Phase 10 — TF 기반 자동 stopword 학습 (mecab 형태소 분석 대체)
+//   같은 키워드 검색 결과 50개에서 50%+ 등장하는 단어 = 그 카테고리에서 너무 흔함
+//   예: "이어폰" 검색 → 모든 상품에 "이어폰" 들어감 → longtail 키워드로 무가치
+//   카테고리별 학습되므로 사전 없이도 동적 stopword 작동
+function learnAutoStopwords(texts: string[], thresholdRatio = 0.5): Set<string> {
+  const docCount = texts.length;
+  if (docCount < 10) return new Set(); // 표본 부족 시 학습 skip
+  const docFreq = new Map<string, number>();
+  for (const t of texts) {
+    const unique = new Set<string>();
+    for (const w of tokenizeTitle(t)) {
+      unique.add(w.toLowerCase());
+    }
+    for (const w of unique) {
+      docFreq.set(w, (docFreq.get(w) || 0) + 1);
+    }
+  }
+  const threshold = docCount * thresholdRatio;
+  const auto = new Set<string>();
+  for (const [w, c] of docFreq) {
+    if (c >= threshold) auto.add(w);
+  }
+  return auto;
 }
 
 /**
@@ -122,22 +148,29 @@ function countWords(texts: string[]): Map<string, number> {
  * 블로그 제목으로 쓸 만한 실제 검색 가능 구문 생성
  *
  * 예: "오픈형 블루투스 이어폰" → ["오픈형 블루투스", "블루투스 이어폰", "오픈형 블루투스 이어폰"]
+ *
+ * v2.43.65: extraStop 으로 자동 학습 stopword 주입 가능
+ *   bi/tri-gram 의 모든 토큰이 stopword 면 phrase 자체 제외 (양쪽 중 하나만 stopword 면 통과)
  */
-function countPhrases(texts: string[]): Map<string, number> {
+function countPhrases(texts: string[], extraStop?: Set<string>): Map<string, number> {
   const freq = new Map<string, number>();
+  const isStop = (w: string) => !!extraStop && extraStop.has(w.toLowerCase());
   for (const t of texts) {
     const tokens = tokenizeTitle(t);
     // bi-gram
     for (let i = 0; i < tokens.length - 1; i++) {
       const phrase = `${tokens[i]} ${tokens[i + 1]}`;
-      // 구문 길이 제한 (너무 길지 않게)
       if (phrase.length > 30) continue;
+      // 양쪽 다 stopword 면 무의미한 phrase (예: "정품 공식")
+      if (isStop(tokens[i]) && isStop(tokens[i + 1])) continue;
       freq.set(phrase, (freq.get(phrase) || 0) + 1);
     }
-    // tri-gram (빈도 2+ 필터에서 검증력 충분)
+    // tri-gram
     for (let i = 0; i < tokens.length - 2; i++) {
       const phrase = `${tokens[i]} ${tokens[i + 1]} ${tokens[i + 2]}`;
       if (phrase.length > 40) continue;
+      // 3개 다 stopword면 제외
+      if (isStop(tokens[i]) && isStop(tokens[i + 1]) && isStop(tokens[i + 2])) continue;
       freq.set(phrase, (freq.get(phrase) || 0) + 1);
     }
   }
@@ -172,8 +205,11 @@ export function extractLongtailKeywords(
 
   const titles = items.map(i => i.title || '');
 
+  // v2.43.65: 자동 stopword 학습 — 결과 50%+ 등장하는 단어는 무의미
+  const autoStop = learnAutoStopwords(titles, 0.5);
+
   // 2-3단어 구문 빈도 (블로그 제목 실사용 가능)
-  const phraseFreq = countPhrases(titles);
+  const phraseFreq = countPhrases(titles, autoStop);
   for (const p of Array.from(phraseFreq.keys())) {
     // 원 검색어 자체와 동일하면 제외
     if (excludeLowerFull.has(p.toLowerCase())) phraseFreq.delete(p);
@@ -333,10 +369,15 @@ export function extractPriceTierKeywords(items: ShoppingItem[]): PriceTierKeywor
   const midItems = priced.filter(i => i.lprice > lowMax && i.lprice < highMin);
   const highItems = priced.filter(i => i.lprice >= highMin);
 
+  // v2.43.65: 전체 결과 기반 자동 stopword 학습 — tier 간 공통 단어 제거
+  //   효과: "정품"이 저/중/고 tier 모두에서 빠지고 진짜 차별 단어만 남음
+  const allTitles = priced.map(i => i.title || '');
+  const autoStop = learnAutoStopwords(allTitles, 0.5);
+
   return {
-    low: topN(countWords(lowItems.map(i => i.title || '')), 10),
-    mid: topN(countWords(midItems.map(i => i.title || '')), 10),
-    high: topN(countWords(highItems.map(i => i.title || '')), 10),
+    low: topN(countWords(lowItems.map(i => i.title || ''), autoStop), 10),
+    mid: topN(countWords(midItems.map(i => i.title || ''), autoStop), 10),
+    high: topN(countWords(highItems.map(i => i.title || ''), autoStop), 10),
     boundaries: { lowMax, highMin },
   };
 }
