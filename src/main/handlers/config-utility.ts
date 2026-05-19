@@ -960,6 +960,34 @@ export function setupConfigUtilityHandlers(): void {
     console.log('[KEYWORD-MASTER] ✅ shopping-connect-verify 핸들러 등록 완료');
   }
 
+  // v2.43.56 Phase 1 100점화: 블로그 본문 초안 생성 (Manus 1순위 + Claude fallback)
+  if (!ipcMain.listenerCount('shopping-connect-blog-draft-start')) {
+    ipcMain.handle('shopping-connect-blog-draft-start', async (_event, payload: any) => {
+      try {
+        const { startBlogDraft } = await import('../../utils/shopping-blog-draft');
+        const r = startBlogDraft(payload);
+        return { success: true, ...r };
+      } catch (err: any) {
+        console.error('[SHOPPING-CONNECT-DRAFT] start 실패:', err?.message);
+        return { success: false, error: err?.message };
+      }
+    });
+    console.log('[KEYWORD-MASTER] ✅ shopping-connect-blog-draft-start 핸들러 등록 완료');
+  }
+  if (!ipcMain.listenerCount('shopping-connect-blog-draft-status')) {
+    ipcMain.handle('shopping-connect-blog-draft-status', async (_event, requestId: string) => {
+      try {
+        const { getBlogDraftStatus } = await import('../../utils/shopping-blog-draft');
+        const s = getBlogDraftStatus(requestId);
+        if (!s) return { success: false, error: 'requestId 없음 (만료됐을 수 있음)' };
+        return { success: true, ...s };
+      } catch (err: any) {
+        return { success: false, error: err?.message };
+      }
+    });
+    console.log('[KEYWORD-MASTER] ✅ shopping-connect-blog-draft-status 핸들러 등록 완료');
+  }
+
   // v2.42.56 Phase 5: 쇼핑 커넥트 피드백 루프 (👍/👎)
   if (!ipcMain.listenerCount('shopping-connect-feedback')) {
     ipcMain.handle('shopping-connect-feedback', async (_event, payload: any) => {

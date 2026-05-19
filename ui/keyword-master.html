@@ -14297,6 +14297,7 @@
                   <span style="flex:1;font-size:11px;color:rgba(255,255,255,0.7);">블로그 글에 붙여넣을 비교표 생성</span>
                   <button onclick="generateScCompareTable('markdown')" style="padding:6px 12px;background:rgba(52,211,153,0.2);color:#34d399;border:1px solid rgba(52,211,153,0.4);border-radius:8px;font-size:11px;font-weight:700;cursor:pointer;">📋 Markdown</button>
                   <button onclick="generateScCompareTable('html')" style="padding:6px 12px;background:rgba(96,165,250,0.2);color:#93c5fd;border:1px solid rgba(96,165,250,0.4);border-radius:8px;font-size:11px;font-weight:700;cursor:pointer;">📋 HTML</button>
+                  <button onclick="generateBlogDraft()" style="padding:6px 12px;background:rgba(251,191,36,0.2);color:#fbbf24;border:1px solid rgba(251,191,36,0.4);border-radius:8px;font-size:11px;font-weight:700;cursor:pointer;">✍️ 본문 초안</button>
                   <button onclick="clearScSelection()" style="padding:6px 12px;background:rgba(255,255,255,0.08);color:rgba(255,255,255,0.7);border:1px solid rgba(255,255,255,0.15);border-radius:8px;font-size:11px;cursor:pointer;">해제</button>
                 </div>
                 <div id="scResults" class="sc-results">
@@ -14792,6 +14793,106 @@
             }
             html += '</tbody></table>';
             navigator.clipboard.writeText(html).then(() => alert('HTML 비교표 복사됨! 블로그 에디터 HTML 모드에 붙여넣기하세요.'));
+          }
+        };
+
+        // v2.43.56 Phase 1 100점화: 블로그 본문 초안 생성 (Manus 1순위 + Claude fallback)
+        window.generateBlogDraft = async function() {
+          const items = Array.from(window.__scSelected.values());
+          if (items.length < 2) { alert('최소 2개 이상 선택하세요. 비교+추천 본문은 2~5개 상품에서 가장 효과적입니다.'); return; }
+          if (items.length > 5) { alert('상품 5개 이하로 선택해주세요. 너무 많으면 본문이 산만해집니다.'); return; }
+
+          const keyword = (window.__scPaging?.keyword || '').trim();
+          if (!keyword) { alert('키워드 검색 후 사용하세요.'); return; }
+
+          const lastRes = window.__scLastResult || {};
+          const insight = lastRes.insight || {};
+          const intent = lastRes.intent || {};
+
+          const payload = {
+            keyword,
+            products: items.map(it => ({
+              title: it.title || '',
+              price: it.lprice || 0,
+              mallName: it.mallName || '-',
+              brand: it.brand || it.maker || undefined,
+              category: it.category1 || undefined,
+            })),
+            intentLabel: intent.label || undefined,
+            priceMedian: insight.priceAnalysis?.median || undefined,
+            competeVerdict: insight.competition?.verdict || undefined,
+            summary: insight.summary || undefined,
+          };
+
+          // 진행 모달
+          const oldModal = document.getElementById('blogDraftModal');
+          if (oldModal) oldModal.remove();
+          const modal = document.createElement('div');
+          modal.id = 'blogDraftModal';
+          modal.style.cssText = 'position:fixed;top:0;left:0;width:100%;height:100%;background:rgba(0,0,0,0.85);backdrop-filter:blur(8px);z-index:10200;display:flex;justify-content:center;align-items:center;padding:20px;';
+          modal.innerHTML = `
+            <div style="background:linear-gradient(165deg,#1a1410 0%,#241c14 50%,#1a1208 100%);border-radius:20px;width:100%;max-width:760px;padding:28px 32px;box-shadow:0 25px 80px rgba(0,0,0,0.7);">
+              <div style="display:flex;justify-content:space-between;align-items:center;margin-bottom:18px;">
+                <div>
+                  <div style="font-size:20px;font-weight:800;color:#fbbf24;">✍️ 본문 초안 생성</div>
+                  <div style="font-size:12px;color:rgba(255,255,255,0.55);margin-top:3px;">${items.length}개 상품 기반 4문단 블로그 마크다운</div>
+                </div>
+                <button onclick="document.getElementById('blogDraftModal').remove();" style="width:36px;height:36px;background:rgba(255,255,255,0.08);border:1px solid rgba(255,255,255,0.15);border-radius:8px;color:white;cursor:pointer;font-size:16px;">✕</button>
+              </div>
+              <div id="blogDraftStatus" style="padding:30px 20px;text-align:center;">
+                <div style="font-size:34px;margin-bottom:10px;animation:spin 1.5s linear infinite;">⏳</div>
+                <div style="font-size:14px;color:rgba(255,255,255,0.85);margin-bottom:4px;">AI 분석 중...</div>
+                <div style="font-size:11px;color:rgba(255,255,255,0.45);">Manus AI: 3~8분 · Claude: 10~20초 (키 설정에 따라)</div>
+              </div>
+              <style>@keyframes spin { from { transform: rotate(0deg); } to { transform: rotate(360deg); } }</style>
+            </div>
+          `;
+          document.body.appendChild(modal);
+
+          try {
+            const startRes = await window.electronAPI.invoke('shopping-connect-blog-draft-start', payload);
+            if (!startRes?.success || !startRes.requestId) {
+              document.getElementById('blogDraftStatus').innerHTML = `<div style="color:#fb7185;font-size:14px;">❌ ${startRes?.error || '시작 실패'}</div>`;
+              return;
+            }
+            const requestId = startRes.requestId;
+            // 폴링
+            const poll = async () => {
+              try {
+                const s = await window.electronAPI.invoke('shopping-connect-blog-draft-status', requestId);
+                if (!s?.success) {
+                  document.getElementById('blogDraftStatus').innerHTML = `<div style="color:#fb7185;font-size:14px;">❌ ${s?.error || '상태 조회 실패'}</div>`;
+                  return;
+                }
+                if (s.status === 'completed' && s.draft) {
+                  const providerLabel = s.provider === 'manus' ? 'Manus AI' : (s.provider === 'claude' ? 'Claude' : 'AI');
+                  const elapsedSec = Math.round((s.elapsedMs || 0) / 1000);
+                  const draftHtml = String(s.draft).replace(/&/g,'&amp;').replace(/</g,'&lt;').replace(/>/g,'&gt;');
+                  document.getElementById('blogDraftStatus').outerHTML = `
+                    <div>
+                      <div style="display:flex;justify-content:space-between;align-items:center;margin-bottom:12px;font-size:11px;color:rgba(255,255,255,0.5);">
+                        <span>✅ ${providerLabel} · ${elapsedSec}초</span>
+                        <button onclick="(function(){navigator.clipboard.writeText(${JSON.stringify(s.draft)}).then(()=>{const b=event.target;const o=b.innerHTML;b.innerHTML='✓ 복사됨';setTimeout(()=>b.innerHTML=o,1500);});})();" style="padding:7px 14px;background:rgba(251,191,36,0.18);color:#fbbf24;border:1px solid rgba(251,191,36,0.35);border-radius:8px;font-size:12px;font-weight:700;cursor:pointer;">📋 전체 복사</button>
+                      </div>
+                      <textarea readonly style="width:100%;height:380px;padding:16px;background:rgba(0,0,0,0.35);color:rgba(255,255,255,0.92);border:1px solid rgba(255,255,255,0.1);border-radius:10px;font-family:'Pretendard',monospace;font-size:13px;line-height:1.6;resize:vertical;">${draftHtml}</textarea>
+                      <div style="margin-top:12px;font-size:11px;color:rgba(255,255,255,0.45);text-align:center;">광고 표기 문장 포함 — 그대로 복사 후 블로그 에디터에 붙여넣기 가능</div>
+                    </div>
+                  `;
+                  return;
+                }
+                if (s.status === 'error') {
+                  document.getElementById('blogDraftStatus').innerHTML = `<div style="color:#fb7185;font-size:14px;line-height:1.6;">❌ ${s.error || '생성 실패'}<br><span style="font-size:11px;color:rgba(255,255,255,0.5);">환경설정에서 Manus 또는 Anthropic 키 등록 후 재시도</span></div>`;
+                  return;
+                }
+                // pending / running → 계속 폴링
+                setTimeout(poll, 3000);
+              } catch (e) {
+                document.getElementById('blogDraftStatus').innerHTML = `<div style="color:#fb7185;font-size:14px;">❌ ${e?.message || '통신 실패'}</div>`;
+              }
+            };
+            setTimeout(poll, 2000);
+          } catch (e) {
+            document.getElementById('blogDraftStatus').innerHTML = `<div style="color:#fb7185;font-size:14px;">❌ ${e?.message || '요청 실패'}</div>`;
           }
         };
 
