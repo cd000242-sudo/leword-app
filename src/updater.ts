@@ -20,6 +20,14 @@ import { spawn } from 'child_process';
 import * as path from 'path';
 import * as fs from 'fs';
 
+// v2.43.79: 팀10 비평 — installer 호환 protocol 명시
+//   다른 protocol 버전 간 업데이트는 위험 (예: v2.43.73 silent → v2.43.75 manual installer)
+//   currentInstallerProtocol 증가 시 사용자에게 수동 다운로드 안내
+//   v3 = oneClick=true + isSilent=true + ExecShell + isForceRunAfter (v2.43.78~)
+//   v2 = oneClick=false + isSilent=false 수동 모드 (v2.43.74~77)
+//   v1 = 이전 자동 모드 (v2.43.73 이하)
+const CURRENT_INSTALLER_PROTOCOL = 3;
+
 let progressWindow: BrowserWindow | null = null;
 let hideableWindows = new Set<BrowserWindow>();
 let isUpdatingFlag = false;
@@ -439,6 +447,7 @@ export function initAutoUpdaterEarly(): void {
 
   autoUpdater.autoDownload = false;
   autoUpdater.autoInstallOnAppQuit = true;
+  console.log(`[UPDATER] installer protocol v${CURRENT_INSTALLER_PROTOCOL}`);
   // v2.43.77: 팀1+8 비평 — electron-log 파일 저장으로 packaged app 사용자 환경 추적
   try {
     const log = require('electron-log');

@@ -53,6 +53,8 @@ import { findChromePath, isChromeAvailable } from './utils/chrome-finder';
 import { showSplash, updateSplashStage, closeSplash, hideSplash, showSplashAgain } from './splash';
 // v2.43.75: 자체 진단 + crash guard — "맘대로 꺼지자나" 보고 대응
 import { setupCrashGuard, attachWindowCrashGuard, checkPreviousCrash, runStartupHealthCheck, getCrashLogPath } from './crash-guard';
+// v2.43.79: 팀9 비평 — autosave (작업 데이터 30초 atomic write)
+import { startAutosave } from './autosave';
 
 // 네트워크 모니터링 정리 함수
 let stopNetworkMonitoring: (() => void) | null = null;
@@ -146,6 +148,9 @@ function createKeywordWindow() {
   // v2.43.75: 메인창 crash / unresponsive 가드
   attachWindowCrashGuard(keywordWindow);
 
+  // v2.43.79: autosave 시작 (renderer 30초 tick)
+  startAutosave(() => keywordWindow);
+
   // console.log('[LEWORD] preload script:', keywordWindow.webContents.getWebPreferences().preload);
 
   if (fs.existsSync(htmlPath)) {
@@ -180,6 +185,8 @@ function createKeywordWindow() {
     // v2.43.67: splash 닫고 메인창 표시 — 빈 화면 0초 보장
     closeSplash();
     keywordWindow?.show();
+    // v2.43.79: 부팅 중 보류된 second-instance 이벤트 처리
+    flushPendingSecondInstance();
   });
 
   // v2.42.41: X 버튼 기본 동작 = 종료 (이전 v2.42.27 기본 트레이 최소화 → 좀비 프로세스 신고)
@@ -916,16 +923,29 @@ async function showLicenseInputDialog(): Promise<{ success: boolean; plan?: stri
 //   증상: 사용자가 업데이트 후 LEWORD 클릭해도 안 켜짐
 //   원인: NSIS taskkill 직후 helper/자식 프로세스가 OS handle 정리 안 끝남 → lock 잔존
 //   해결: 3회 × 500ms 재시도 (총 1.5초). 그래도 실패면 사용자 알림 후 quit
-function acquireLockWithRetry(maxAttempts = 3, intervalMs = 500): boolean {
-  for (let i = 0; i < maxAttempts; i++) {
-    if (app.requestSingleInstanceLock()) return true;
-    if (i < maxAttempts - 1) {
-      // 동기 sleep — 부팅 단계라 짧은 블로킹 허용
-      const until = Date.now() + intervalMs;
-      while (Date.now() < until) { /* busy wait */ }
-    }
-  }
-  return false;
+// v2.43.79: 팀3 비평 — busy-wait 제거 (CPU 100% 점유 + main thread block)
+//   첫 시도 성공이 99%. 실패 시 깔끔하게 quit + dialog.
+//   재시도는 OS handle 정리 시간이 보장되지 않아 효과 작음.
+function acquireLockWithRetry(maxAttempts = 1, _intervalMs = 500): boolean {
+  return app.requestSingleInstanceLock();
+}
+
+// v2.43.79: pendingSecondInstance 큐잉 (팀3 비평)
+//   부팅 0~3초 구간 second-instance 도착 시 keywordWindow null → 무반응
+//   pending queue에 넣고 keywordWindow ready 후 flush
+const pendingSecondInstance: Array<{ argv: string[]; cwd: string }> = [];
+function flushPendingSecondInstance(): void {
+  if (!keywordWindow || keywordWindow.isDestroyed()) return;
+  if (pendingSecondInstance.length === 0) return;
+  console.log(`[LEWORD] 보류된 second-instance ${pendingSecondInstance.length}건 flush`);
+  pendingSecondInstance.length = 0;
+  try {
+    if (!keywordWindow.isVisible()) keywordWindow.show();
+    if (keywordWindow.isMinimized()) keywordWindow.restore();
+    keywordWindow.focus();
+    keywordWindow.setAlwaysOnTop(true);
+    keywordWindow.setAlwaysOnTop(false);
+  } catch {}
 }
 
 // v2.43.75: crash guard 활성 — uncaughtException / unhandledRejection / child-process-gone 로깅
@@ -944,19 +964,21 @@ if (!gotSingleInstanceLock) {
   } catch {}
   app.quit();
 } else {
-  app.on('second-instance', (_event, _argv, _workingDir) => {
-    console.log('[LEWORD] second-instance 이벤트 — 기존 창 포커스');
-    if (keywordWindow) {
-      if (keywordWindow.isDestroyed()) return;
-      if (!keywordWindow.isVisible()) keywordWindow.show();
-      if (keywordWindow.isMinimized()) keywordWindow.restore();
-      keywordWindow.focus();
-      // Windows에서 다른 앱 위로 끌어올리기
-      try {
-        keywordWindow.setAlwaysOnTop(true);
-        keywordWindow.setAlwaysOnTop(false);
-      } catch {}
+  app.on('second-instance', (_event, argv, cwd) => {
+    console.log('[LEWORD] second-instance 이벤트');
+    // v2.43.79: keywordWindow 없으면 큐잉
+    if (!keywordWindow || keywordWindow.isDestroyed()) {
+      console.log('[LEWORD] keywordWindow 미생성 — pendingSecondInstance 큐잉');
+      pendingSecondInstance.push({ argv, cwd });
+      return;
     }
+    if (!keywordWindow.isVisible()) keywordWindow.show();
+    if (keywordWindow.isMinimized()) keywordWindow.restore();
+    keywordWindow.focus();
+    try {
+      keywordWindow.setAlwaysOnTop(true);
+      keywordWindow.setAlwaysOnTop(false);
+    } catch {}
   });
 }
 

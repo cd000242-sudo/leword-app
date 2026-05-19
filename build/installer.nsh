@@ -17,9 +17,11 @@
 ;        + main.ts lock 재시도(v2.43.66)가 두 인스턴스 충돌 처리
 
 !macro customInit
+  ; v2.43.79: 팀2 비평 — chrome.exe taskkill 제거 (일반 Chrome 보호)
+  ;   /T (tree) 가 LEWORD.exe 자식 chrome 프로세스만 잡으므로 별도 chrome.exe taskkill 불필요
+  ;   이전: chrome.exe WINDOWTITLE eq leword* — Puppeteer 헤드라인 변경 시 사용자 Chrome 사살 위험
   nsExec::Exec 'taskkill /F /IM "LEWORD.exe" /T'
   nsExec::Exec 'taskkill /F /IM "leword.exe" /T'
-  nsExec::Exec 'taskkill /F /IM "chrome.exe" /FI "WINDOWTITLE eq leword*"'
   Sleep 800
 !macroend
 
