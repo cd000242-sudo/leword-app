@@ -24,10 +24,15 @@ const DATA_API_BASE = 'https://www.googleapis.com/youtube/v3';
 // 상수 (이전 매직 넘버 모두 추출)
 // ────────────────────────────────────────────────────────────────────────────
 
-const WEIGHTS = { viewRatio: 0.35, velocity: 0.25, absViews: 0.20, likeRate: 0.20 } as const;
+// v2.43.54: engagement 가중치 재배분 — commentRate 추가, "지금 떡상" 시그널 강화
+//   velocity 0.25→0.30 (단기 폭발 가중), commentRate 0.15 신규, likeRate 0.20→0.15, absViews 0.20→0.10
+const WEIGHTS = { viewRatio: 0.30, velocity: 0.30, commentRate: 0.15, likeRate: 0.15, absViews: 0.10 } as const;
+const COMMENT_RATE_FULL_SCORE = 0.005; // 0.5% — 업계 평균 0.1~0.3%, 0.5%면 화제성 폭발
 const PERIOD_HOURS = { '24h': 24, '7d': 168, '30d': 720 } as const;
 const BATCH_SIZE = 50;
 const SHORTS_MAX_DURATION_SEC = 180; // YouTube 공식 Shorts 사양
+// v2.43.54: 진짜 Shorts 우대 — 60초 이하 + #shorts 마커 있는 것이 정통 Shorts
+const SHORTS_PREFERRED_DURATION_SEC = 60;
 const CACHE_TTL_MS = 15 * 60 * 1000;
 const CACHE_MAX_SIZE = 32;
 const FETCH_TIMEOUT_MS = 8000;
@@ -45,12 +50,32 @@ const COST_SEARCH = 100;
 const COST_VIDEOS = 1;
 const COST_CHANNELS = 1;
 
-// 한국 시장 — 카테고리 프리셋 (UI에서 K-콘텐츠 등 머지 카테고리로 노출)
+// v2.43.54: 한국 블로거 카테고리 매칭 16개로 확장 — 이전 4개에서 4배
+//   YouTube Data API 카테고리 ID 매핑 (KR regionCode 기준)
+//   1=Film, 2=Autos, 10=Music, 15=Pets, 17=Sports, 19=Travel, 20=Gaming,
+//   22=People&Blogs, 23=Comedy, 24=Entertainment, 25=News, 26=Howto&Style,
+//   27=Education, 28=Tech, 29=NonProfit
 export const KR_CATEGORY_PRESETS: Record<string, string[]> = {
-  kcontent: ['10', '24'],     // 음악 + 엔터
+  kcontent: ['10', '24', '23'],   // 음악 + 엔터 + 코미디
   game: ['20'],
-  life: ['22', '26'],          // People & Blogs + 스타일
+  life: ['22', '26'],              // People & Blogs + 스타일
   tech: ['28'],
+  beauty: ['26', '22'],            // Howto&Style 우선 (뷰티 콘텐츠)
+  food: ['26', '22'],              // 레시피/먹방
+  fashion: ['26', '24'],
+  travel: ['19'],
+  parenting: ['22', '26'],
+  pets: ['15'],
+  health: ['26', '27'],            // 건강/운동
+  finance: ['25', '27'],           // 뉴스 + 교육
+  realestate: ['25', '22'],
+  it: ['28', '27'],
+  movie: ['1', '24'],
+  sports: ['17'],
+  edu: ['27'],
+  comedy: ['23'],
+  autos: ['2'],
+  pet: ['15'],
 };
 
 // ────────────────────────────────────────────────────────────────────────────
@@ -81,6 +106,7 @@ export interface ShortsItem {
     viewRatio: number;
     velocity: number;
     likeRate: number;
+    commentRate: number;
   };
 }
 
@@ -161,6 +187,22 @@ function isMostlyKorean(text: string, minRatio = 0.2): boolean {
   if (stripped.length === 0) return false;
   const korean = (stripped.match(/[가-힣]/g) || []).length;
   return korean / stripped.length >= minRatio;
+}
+
+// v2.43.54: 진짜 Shorts 판별 — duration ≤180 + (title/description 에 #shorts 또는 60초 이하)
+//   YouTube Data API는 videoDuration=short (< 4분) 만 지원, "공식 Shorts" 라벨이 없음
+//   따라서 휴리스틱: 60초 이하 OR (180초 이하 + #shorts 마커)
+function isLikelyShorts(it: any): boolean {
+  const durationSec = parseDurationToSec(it.contentDetails?.duration || '');
+  if (durationSec === 0 || durationSec > SHORTS_MAX_DURATION_SEC) return false;
+  if (durationSec <= SHORTS_PREFERRED_DURATION_SEC) return true;
+  // 60~180초 영상은 #shorts 마커 있어야 통과
+  const haystack = [
+    String(it.snippet?.title || ''),
+    String(it.snippet?.description || ''),
+    ...(Array.isArray(it.snippet?.tags) ? it.snippet.tags : []).map(String),
+  ].join(' ').toLowerCase();
+  return /#shorts?|#쇼츠|#short\b/.test(haystack);
 }
 
 // v2.43.22: 채널/콘텐츠 한국 판단 — 다중 신호 결합
@@ -261,32 +303,61 @@ class TTLCache<V> {
 const shortsCache = new TTLCache<ShortsResponse>();
 
 // ────────────────────────────────────────────────────────────────────────────
-// 쿼터 예산 추적 (프로세스 메모리 — 재시작 시 리셋)
+// v2.43.54: 쿼터 예산 추적 — electron-store 영구 저장 (앱 재시작 후에도 유지)
 // ────────────────────────────────────────────────────────────────────────────
 
 let _quotaUsedToday = 0;
 let _quotaResetDate = '';
+let _quotaStore: any = null;
+let _quotaStoreLoaded = false;
 
 function todayStr(): string {
   return new Date().toISOString().slice(0, 10);
 }
 
+function loadQuotaStore(): void {
+  if (_quotaStoreLoaded) return;
+  _quotaStoreLoaded = true;
+  try {
+    const Store = require('electron-store');
+    _quotaStore = new Store({ name: 'youtube-quota' });
+    const saved = _quotaStore.get('quota') as { date: string; used: number } | undefined;
+    if (saved && saved.date === todayStr()) {
+      _quotaResetDate = saved.date;
+      _quotaUsedToday = saved.used;
+    }
+  } catch {
+    // electron-store 불가 시 메모리만 사용 (테스트 환경 등)
+  }
+}
+
+function persistQuota(): void {
+  if (!_quotaStore) return;
+  try {
+    _quotaStore.set('quota', { date: _quotaResetDate, used: _quotaUsedToday });
+  } catch {}
+}
+
 function trackQuota(cost: number): void {
+  loadQuotaStore();
   const today = todayStr();
   if (_quotaResetDate !== today) {
     _quotaResetDate = today;
     _quotaUsedToday = 0;
   }
   _quotaUsedToday += cost;
+  persistQuota();
 }
 
 function canUseHashtag(): boolean {
+  loadQuotaStore();
   const today = todayStr();
   if (_quotaResetDate !== today) return true;
   return _quotaUsedToday < QUOTA_SOFT_CAP;
 }
 
 export function getQuotaUsedToday(): number {
+  loadQuotaStore();
   const today = todayStr();
   return _quotaResetDate === today ? _quotaUsedToday : 0;
 }
@@ -347,6 +418,13 @@ function normLikeRate(likes: number, views: number): number {
   return Math.max(0, Math.min(100, (rate / LIKE_RATE_FULL_SCORE) * 100));
 }
 
+// v2.43.54: commentRate — 진짜 화제성 신호 (좋아요는 봇 가능, 댓글은 진짜 시청자 반응)
+function normCommentRate(comments: number, views: number): number {
+  if (views <= 0) return 0;
+  const rate = comments / views;
+  return Math.max(0, Math.min(100, (rate / COMMENT_RATE_FULL_SCORE) * 100));
+}
+
 export function computeBenchmarkScore(
   item: Omit<ShortsItem, 'benchmarkScore' | 'signals'>,
   periodHours: number = PERIOD_HOURS['24h'],
@@ -356,17 +434,20 @@ export function computeBenchmarkScore(
   const safeHours = Math.max(Math.min(item.hoursAgo, periodHours), 1);
   const velocity = item.viewCount / safeHours;
   const likeRate = item.viewCount > 0 ? item.likeCount / item.viewCount : 0;
+  const commentRate = item.viewCount > 0 ? item.commentCount / item.viewCount : 0;
 
   const vrScore = normViewRatio(item.viewCount, item.subscriberCount);
   const velScore = normVelocity(item.viewCount, item.hoursAgo, periodHours);
   const absScore = normAbsViews(item.viewCount);
   const lrScore = normLikeRate(item.likeCount, item.viewCount);
+  const crScore = normCommentRate(item.commentCount, item.viewCount);
 
   const score = Math.round(
     vrScore * WEIGHTS.viewRatio +
     velScore * WEIGHTS.velocity +
-    absScore * WEIGHTS.absViews +
-    lrScore * WEIGHTS.likeRate,
+    crScore * WEIGHTS.commentRate +
+    lrScore * WEIGHTS.likeRate +
+    absScore * WEIGHTS.absViews,
   );
 
   return {
@@ -375,6 +456,7 @@ export function computeBenchmarkScore(
       viewRatio: Math.round(viewRatio * 100) / 100,
       velocity: Math.round(velocity),
       likeRate: Math.round(likeRate * 10000) / 100,
+      commentRate: Math.round(commentRate * 10000) / 100,
     },
   };
 }
@@ -415,9 +497,8 @@ async function searchAndFetchVideos(
   const videosData = await safeFetch(`${DATA_API_BASE}/videos?${videoParams.toString()}`, `${label}/videos`);
   cost += COST_VIDEOS;
 
-  const items: YtVideoRaw[] = (videosData.items || []).filter(
-    (it: any) => parseDurationToSec(it.contentDetails?.duration || '') <= SHORTS_MAX_DURATION_SEC,
-  );
+  // v2.43.54: 진짜 Shorts 필터 (60초 우대 + 60~180초는 #shorts 마커 필수)
+  const items: YtVideoRaw[] = (videosData.items || []).filter(isLikelyShorts);
   return { items, cost };
 }
 
@@ -438,9 +519,8 @@ async function fetchMostPopular(
   });
   if (categoryId) params.append('videoCategoryId', categoryId);
   const data = await safeFetch(`${DATA_API_BASE}/videos?${params.toString()}`, 'popular');
-  const items: YtVideoRaw[] = (data.items || []).filter(
-    (it: any) => parseDurationToSec(it.contentDetails?.duration || '') <= SHORTS_MAX_DURATION_SEC,
-  );
+  // v2.43.54: 진짜 Shorts 필터 통일
+  const items: YtVideoRaw[] = (data.items || []).filter(isLikelyShorts);
   return { items, cost: COST_VIDEOS };
 }
 
@@ -478,7 +558,28 @@ async function fetchChannelSubscribers(apiKey: string, channelIds: string[]): Pr
 // 메인
 // ────────────────────────────────────────────────────────────────────────────
 
+// v2.43.54: 사용자 진입점 — 0건 시 자동 fallback (기간 확대 → 카테고리 풀기 → koreanOnly 해제)
 export async function getTrendingShorts(query: ShortsQuery = {}): Promise<ShortsResponse> {
+  const initial = await _getTrendingShortsInternal(query);
+  if (initial.items.length > 0 || initial.fromCache) return initial;
+
+  // fallback 단계
+  const fallbackChain: Array<{ label: string; mutate: (q: ShortsQuery) => ShortsQuery }> = [
+    { label: '기간 확대 (24h→7d)', mutate: q => ({ ...q, period: q.period === '24h' ? '7d' : (q.period === '7d' ? '30d' : q.period) }) },
+    { label: 'koreanOnly 해제', mutate: q => ({ ...q, koreanOnly: false }) },
+    { label: '카테고리 해제', mutate: q => ({ ...q, categoryId: undefined, categoryIds: undefined, preset: undefined }) },
+  ];
+  let current = query;
+  for (const step of fallbackChain) {
+    current = step.mutate(current);
+    const next = await _getTrendingShortsInternal(current);
+    next.diagnostics.push({ source: 'config', ok: true, count: next.items.length, errorCode: 'FALLBACK', errorMessage: `자동 완화: ${step.label}` });
+    if (next.items.length > 0) return next;
+  }
+  return initial; // 모든 fallback 실패 → 최초 결과 (빈 배열 + 진단)
+}
+
+async function _getTrendingShortsInternal(query: ShortsQuery = {}): Promise<ShortsResponse> {
   const apiKey = getYoutubeApiKey();
   const diagnostics: SourceDiagnostic[] = [];
 
@@ -505,12 +606,14 @@ export async function getTrendingShorts(query: ShortsQuery = {}): Promise<Shorts
   const publishedAfter = new Date(Date.now() - periodHours * 3_600_000).toISOString();
   const hashtagAllowed = canUseHashtag();
 
-  // 3개 소스 병렬 (hashtag는 쿼터 예산 따라 조건부)
+  // v2.43.54: 3개 소스 병렬 — order=viewCount(누적) → order=date(최신) 교체
+  //   누적 viewCount 정렬은 "오래된 인기 영상"만 가져옴 (지금 떡상 X)
+  //   date 정렬로 받고 클라이언트 측 velocity 컷이 진짜 "지금 떡상"
   type TaskResult = { source: SourceName; items: YtVideoRaw[]; cost: number; err?: any };
   const tasks: Promise<TaskResult>[] = [];
 
   tasks.push(
-    searchAndFetchVideos(apiKey, { order: 'viewCount', publishedAfter }, 'rising')
+    searchAndFetchVideos(apiKey, { order: 'date', q: '#shorts', publishedAfter }, 'rising')
       .then(r => ({ source: 'rising' as SourceName, ...r }))
       .catch((e: any) => ({ source: 'rising' as SourceName, items: [], cost: COST_SEARCH, err: e })),
   );
@@ -524,8 +627,9 @@ export async function getTrendingShorts(query: ShortsQuery = {}): Promise<Shorts
   );
 
   if (hashtagAllowed) {
+    // hashtag 소스도 date 정렬 (rising 과 dedupe 후 카테고리 보완)
     tasks.push(
-      searchAndFetchVideos(apiKey, { q: '#shorts', order: 'viewCount', publishedAfter }, 'hashtag')
+      searchAndFetchVideos(apiKey, { q: '#shorts #한국', order: 'date', publishedAfter }, 'hashtag')
         .then(r => ({ source: 'hashtag' as SourceName, ...r }))
         .catch((e: any) => ({ source: 'hashtag' as SourceName, items: [], cost: COST_SEARCH, err: e })),
     );
