@@ -217,9 +217,29 @@ export async function aggregateFashionTrendSeeds(): Promise<TrendSeed[]> {
  *
  * 사용: 쇼핑커넥트가 사용자 키워드 분석 시 해당 카테고리의 실시간 유행 제품 시드 확보
  */
+// v2.43.60: 8팀 — 입력 토큰 매칭 helper (broad-match 카테고리 오염 차단)
+function extractKeywordTokens(kw: string): string[] {
+    if (!kw) return [];
+    const cleaned = kw.toLowerCase()
+        .replace(/[^\w가-힣\s]/g, ' ')
+        .replace(/\s+/g, ' ')
+        .trim();
+    return cleaned.split(' ').filter(t => t.length >= 2);
+}
+
+function seedMatchesInputTokens(seedKey: string, inputTokens: string[]): boolean {
+    if (inputTokens.length === 0) return true; // 토큰 없으면 모두 통과
+    const seedLower = seedKey.toLowerCase();
+    // 입력 토큰 중 1개 이상이 seed에 포함되면 통과
+    for (const tok of inputTokens) {
+        if (seedLower.includes(tok)) return true;
+    }
+    return false;
+}
+
 export async function aggregateCommerceTrendSeeds(
     cids: string[],
-    options?: { youtubeQuery?: string; youtubeEnabled?: boolean }
+    options?: { youtubeQuery?: string; youtubeEnabled?: boolean; userKeyword?: string }
 ): Promise<TrendSeed[]> {
     const map = new Map<string, { rawName: string; sources: Set<string>; freq: number }>();
 
@@ -291,18 +311,22 @@ export async function aggregateCommerceTrendSeeds(
         }
     }
 
-    // cross-validation: YouTube 단독 시드는 제외 (노이즈)
+    // v2.43.60: 8팀 — 입력 키워드 토큰 매칭 필터 + crossScore 지수화
+    //   filter: seed가 입력 키워드의 토큰 중 1개 이상 공유해야 통과 (broad-match 오염 차단)
+    //   crossScore: freq * 2^(sources.size-1) — 진짜 교차 시드 상위로
+    const inputTokens = extractKeywordTokens(options?.userKeyword || '');
     return Array.from(map.entries())
-        .filter(([_, v]) => {
-            if (v.sources.size >= 2) return true;
-            if (Array.from(v.sources).every(s => s.startsWith('youtube'))) return false;
+        .filter(([seedKey, v]) => {
+            if (Array.from(v.sources).every(s => s.startsWith('youtube')) && v.sources.size === 1) return false;
+            // 입력 키워드 토큰 매칭 (사용자 키워드 제공된 경우만)
+            if (inputTokens.length > 0 && !seedMatchesInputTokens(seedKey, inputTokens)) return false;
             return true;
         })
         .map(([seed, v]) => ({
             seed,
             rawName: v.rawName,
             sources: Array.from(v.sources),
-            crossScore: v.freq * v.sources.size,
+            crossScore: Math.round(v.freq * Math.pow(2, v.sources.size - 1) * 10) / 10,
         }))
         .sort((a, b) => b.crossScore - a.crossScore);
 }
@@ -434,6 +458,7 @@ export async function aggregateGenericCategorySeeds(category: string): Promise<T
 
 /**
  * 공통 finalize: cross-validation 필터 + 정렬
+ * v2.43.60: 8팀 — crossScore 지수화 (freq × 2^(sources-1))
  */
 function finalizeSeedMap(map: Map<string, { rawName: string; sources: Set<string>; freq: number }>): TrendSeed[] {
     return Array.from(map.entries())
@@ -446,7 +471,7 @@ function finalizeSeedMap(map: Map<string, { rawName: string; sources: Set<string
             seed,
             rawName: v.rawName,
             sources: Array.from(v.sources),
-            crossScore: v.freq * v.sources.size,
+            crossScore: Math.round(v.freq * Math.pow(2, v.sources.size - 1) * 10) / 10,
         }))
         .sort((a, b) => b.crossScore - a.crossScore);
 }

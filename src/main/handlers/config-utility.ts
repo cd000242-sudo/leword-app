@@ -887,8 +887,9 @@ export function setupConfigUtilityHandlers(): void {
           }
           const cids = topCats.map(c => nameToCid[c.name]).filter(Boolean);
           if (cids.length > 0) {
+            // v2.43.60: 8팀 — userKeyword 전달해서 broad-match 카테고리 오염 차단
             const seeds = await aggregateCommerceTrendSeeds(cids, {
-              youtubeEnabled: true, youtubeQuery: `${keyword} 추천`,
+              youtubeEnabled: true, youtubeQuery: `${keyword} 추천`, userKeyword: keyword,
             });
             crossSourceSeeds = seeds.slice(0, 20).map(s => ({
               seed: s.seed, sources: s.sources, crossScore: s.crossScore,
