@@ -901,10 +901,33 @@ async function showLicenseInputDialog(): Promise<{ success: boolean; plan?: stri
   });
 }
 
-// v2.43.9: 단일 인스턴스 락 — 이미 실행 중이면 두 번째 인스턴스는 종료하고 기존 창을 포커스
-const gotSingleInstanceLock = app.requestSingleInstanceLock();
+// v2.43.66: 업데이트 직후 leftover 프로세스가 lock 점유한 경우 — 즉시 quit 말고 1.5초 재시도
+//   증상: 사용자가 업데이트 후 LEWORD 클릭해도 안 켜짐
+//   원인: NSIS taskkill 직후 helper/자식 프로세스가 OS handle 정리 안 끝남 → lock 잔존
+//   해결: 3회 × 500ms 재시도 (총 1.5초). 그래도 실패면 사용자 알림 후 quit
+function acquireLockWithRetry(maxAttempts = 3, intervalMs = 500): boolean {
+  for (let i = 0; i < maxAttempts; i++) {
+    if (app.requestSingleInstanceLock()) return true;
+    if (i < maxAttempts - 1) {
+      // 동기 sleep — 부팅 단계라 짧은 블로킹 허용
+      const until = Date.now() + intervalMs;
+      while (Date.now() < until) { /* busy wait */ }
+    }
+  }
+  return false;
+}
+
+const gotSingleInstanceLock = acquireLockWithRetry();
 if (!gotSingleInstanceLock) {
-  console.log('[LEWORD] 이미 실행 중인 인스턴스 감지 — 두 번째 인스턴스 종료');
+  console.log('[LEWORD] 단일 인스턴스 락 획득 실패 (1.5초 재시도 후) — 두 번째 인스턴스 종료');
+  // 사용자가 silent quit 이유를 알 수 있도록 한 번 알림 (whenReady 전이라 dialog 사용)
+  try {
+    const { dialog } = require('electron');
+    dialog.showErrorBox(
+      'LEWORD 이미 실행 중',
+      '이미 실행 중인 인스턴스가 있어 종료합니다.\n\n앱이 시스템 트레이에 있거나, 업데이트 직후 백그라운드 프로세스가 남아있을 수 있습니다.\n작업 관리자에서 LEWORD.exe 종료 후 다시 실행해주세요.'
+    );
+  } catch {}
   app.quit();
 } else {
   app.on('second-instance', (_event, _argv, _workingDir) => {

@@ -40,20 +40,28 @@ function destroyAllWindowsForce(): void {
 }
 
 // quitAndInstall 안전 호출 — 모든 창 destroy 후 호출
-// v2.42.18: isSilent=true 시 isForceRunAfter가 신뢰성 떨어져 앱 미자동실행 → isSilent=false 전환.
-//   NSIS customInit(v2.42.8)이 이미 taskkill /F /T로 LEWORD 종료시키므로
-//   "cannot be closed" 다이얼로그는 안 뜸. 인스톨러 진행바만 잠깐 보이고 자동 실행 신뢰성 복구.
+// v2.43.66: 업데이트 후 안 켜지는 문제 해결
+//   원인: NSIS customInstall ExecShell + electron-updater isForceRunAfter=true 가
+//        동시에 새 인스턴스 launch → 한쪽은 lock 얻고 다른 쪽은 silent quit
+//   해결: isForceRunAfter=false 로 electron-updater 자체 재실행 비활성
+//        → installer.nsh customInstall ExecShell 만 신뢰 (silent/non-silent 무관 동작)
+//   추가: Puppeteer 등 leftover 자식 프로세스 정리 → NSIS taskkill 후 lock 잔존 방지
 function performQuitAndInstall(autoUpdater: any): void {
   destroyAllWindowsForce();
+  // Puppeteer browserPool 등 자식 프로세스 강제 종료 (lock 잔존 차단)
+  try {
+    const { browserPool } = require('./utils/puppeteer-pool');
+    void browserPool.destroy?.();
+  } catch {}
   setTimeout(() => {
     try {
-      // (isSilent=false, isForceRunAfter=true) — 진행바 잠깐 + 자동 실행 보장
-      autoUpdater.quitAndInstall(false, true);
+      // (isSilent=false, isForceRunAfter=false) — installer.nsh ExecShell이 단일 자동실행 담당
+      autoUpdater.quitAndInstall(false, false);
     } catch (e: any) {
       console.error('[UPDATER] quitAndInstall 실패:', e?.message);
       try { app.exit(0); } catch {}
     }
-  }, 300);
+  }, 500); // 300 → 500ms (자식 프로세스 종료 시간 추가 부여)
 }
 
 // 🔥 업데이트 체크 완료 신호 — 메인창 show() 전에 대기 가능

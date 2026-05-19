@@ -12,20 +12,23 @@
 ; ============================================================
 
 !macro customInit
-  ; 설치 시작 전 실행 중인 모든 LEWORD 프로세스 강제 종료
-  ; nsExec::Exec — 콘솔 출력 안 보이게, 동기 실행
+  ; v2.43.66: 업데이트 후 leftover 프로세스로 인한 실행 실패 차단
+  ;   기존 800ms 대기는 일부 Windows 환경에서 부족
+  ;   Puppeteer/Chromium 헬퍼 자식 프로세스까지 완전 정리되도록 1500ms
   nsExec::Exec 'taskkill /F /IM "LEWORD.exe" /T'
   nsExec::Exec 'taskkill /F /IM "leword.exe" /T'
-  Sleep 800
-  ; OS가 핸들 정리할 시간 추가 부여
+  ; Chromium/Puppeteer 헬퍼도 명시적 종료 (LEWORD 자식이지만 분리되어 살아남는 경우 대비)
+  nsExec::Exec 'taskkill /F /IM "chrome.exe" /FI "WINDOWTITLE eq leword*"'
+  Sleep 1500
 !macroend
 
 !macro customInstall
-  ; v2.42.19: 자동 업데이트 후 앱 자동 실행 보장
-  ; - electron-updater의 isForceRunAfter는 silent 모드에서 Windows에서 자주 실패
-  ; - 인스톨러가 직접 LEWORD.exe를 spawn하면 silent/non-silent 무관 동작
-  ; - ExecShell은 비동기 → 인스톨러 즉시 종료, 앱은 detached로 시작
-  ; - $INSTDIR\LEWORD.exe 경로는 electron-builder 표준 (productName 기반)
+  ; v2.43.66: 자동 업데이트 후 단일 자동 실행 메커니즘 (electron-updater 측 isForceRunAfter=false)
+  ;   - electron-updater의 isForceRunAfter는 silent 모드에서 Windows에서 자주 실패
+  ;   - 인스톨러가 직접 LEWORD.exe를 spawn하면 silent/non-silent 무관 동작
+  ;   - ExecShell은 비동기 → 인스톨러 즉시 종료, 앱은 detached로 시작
+  ;   - 1초 대기 후 spawn → installer가 완전히 detach 되도록
+  Sleep 1000
   ExecShell "" "$INSTDIR\LEWORD.exe"
 !macroend
 
