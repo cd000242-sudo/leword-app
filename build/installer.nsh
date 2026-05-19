@@ -24,10 +24,13 @@
 !macroend
 
 !macro customInstall
-  ; v2.43.74: 수동 install 모드 — 사용자가 NSIS Finish 페이지 "LEWORD 실행" 체크박스 클릭으로 실행
-  ;   runAfterFinish=true 옵션이 NSIS Finish 페이지 자동 생성
-  ;   ExecShell 자동 spawn 제거 — 사용자 컨트롤 위주
+  ; v2.43.78: 자동 install 모드 복귀 — 사용자 요청 "전처럼 자동업데이트 빠르고 안정적으로 바로 열려야"
+  ;   이중 안전망 spawn:
+  ;     1) ExecShell (NSIS detached, 검증된 환경에서 신뢰성 높음)
+  ;     2) electron-updater isForceRunAfter=true (대체)
+  ;   두 spawn 동시 충돌은 main.ts requestSingleInstanceLock 재시도(v2.43.66)가 처리
   Sleep 200
+  ExecShell "" "$INSTDIR\LEWORD.exe"
 !macroend
 
 !macro customUnInstall

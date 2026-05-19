@@ -26,6 +26,28 @@ let isUpdatingFlag = false;
 let restartScheduled = false;
 let lastUpdateInfo: { version?: string } = {};
 
+// v2.43.78: 팀1+6 비평 — 단일 state machine (race 제거)
+type UpdaterState = 'IDLE' | 'CHECKING' | 'DOWNLOADING' | 'VERIFYING' | 'INSTALLING' | 'DONE' | 'ERROR';
+let updaterState: UpdaterState = 'IDLE';
+function transitionState(to: UpdaterState): boolean {
+  const allowed: Record<UpdaterState, UpdaterState[]> = {
+    IDLE: ['CHECKING', 'ERROR'],
+    CHECKING: ['DOWNLOADING', 'IDLE', 'ERROR'],
+    DOWNLOADING: ['VERIFYING', 'ERROR'],
+    VERIFYING: ['INSTALLING', 'ERROR'],
+    INSTALLING: ['DONE', 'ERROR'],
+    DONE: [],
+    ERROR: ['IDLE'],
+  };
+  if (!allowed[updaterState].includes(to)) {
+    console.warn(`[UPDATER-FSM] 거부된 전이: ${updaterState} → ${to}`);
+    return false;
+  }
+  console.log(`[UPDATER-FSM] ${updaterState} → ${to}`);
+  updaterState = to;
+  return true;
+}
+
 // 모든 BrowserWindow를 강제로 destroy하여 NSIS 설치기가 "LEWORD cannot be closed" 에러 안 나도록.
 // quitAndInstall만 부르면 일부 헬퍼/렌더러 프로세스가 살아남아 파일 교체 실패하는 케이스 대응.
 function destroyAllWindowsForce(): void {
@@ -95,12 +117,21 @@ function performQuitAndInstall(autoUpdater: any): void {
   //   runAfterFinish=true 라 NSIS Finish 페이지의 "LEWORD 실행" 체크박스로 사용자가 실행
   //   isForceRunAfter=false: 자동 실행 X (사용자 클릭 위주)
   //   HTA splash 제거 (사용자가 NSIS 위저드 보면서 진행 → 별도 splash 불필요)
+  // v2.43.78: 자동 모드 복귀 — 사용자 요청 "전처럼 자동업데이트 빠르고 안정적으로 바로 열려야"
+  //   isSilent=true: NSIS UI 없이 빠른 install
+  //   isForceRunAfter=true: NSIS 종료 직후 새 LEWORD spawn (이중 안전망 with installer.nsh ExecShell)
+  //   FSM: VERIFYING → INSTALLING 전이로 race 차단
+  if (!transitionState('INSTALLING')) {
+    console.warn('[UPDATER] INSTALLING 전이 실패 — 이미 진행 중');
+    return;
+  }
   showInstallingState().then(() => {
     setTimeout(() => {
       try {
-        autoUpdater.quitAndInstall(false, false);
+        autoUpdater.quitAndInstall(true, true);
       } catch (e: any) {
         console.error('[UPDATER] quitAndInstall 실패:', e?.message);
+        transitionState('ERROR');
         try { app.exit(0); } catch {}
       }
     }, 300);
@@ -284,7 +315,7 @@ async function showReadyState(version: string, seconds: number): Promise<void> {
         if (fg) fg.setAttribute('stroke', '#34d399');
         if (pct) pct.textContent = '✓';
         if (version) version.textContent = 'v${version} 다운로드 완료';
-        if (status) status.textContent = '✅ ${seconds}초 후 설치 창 열림 — 다음/설치 버튼을 클릭해주세요';
+        if (status) status.textContent = '✅ ${seconds}초 후 자동 설치 시작 — 잠시 후 LEWORD가 자동으로 다시 열립니다';
       })();`
     );
   } catch {}
@@ -299,7 +330,7 @@ async function showInstallingState(): Promise<void> {
     await progressWindow.webContents.executeJavaScript(
       `(() => {
         const status = document.getElementById('status');
-        if (status) status.textContent = '⚙️ 설치 창이 표시됩니다 — 화면 안내에 따라 진행해주세요';
+        if (status) status.textContent = '⚙️ 설치 중... 잠시 후 LEWORD가 자동으로 다시 열립니다';
       })();`
     );
   } catch {}
@@ -438,6 +469,9 @@ export function initAutoUpdaterEarly(): void {
     console.log('[UPDATER] 업데이트 발견:', info?.version);
     isUpdatingFlag = true;
     lastUpdateInfo.version = info?.version;
+    // FSM: IDLE → CHECKING → DOWNLOADING
+    transitionState('CHECKING');
+    transitionState('DOWNLOADING');
     showProgressWindow(info?.version ?? '');
     broadcastEvent('available', { version: info?.version });
     signalUpdateCheck(true);
@@ -445,6 +479,7 @@ export function initAutoUpdaterEarly(): void {
       autoUpdater.downloadUpdate();
     } catch (err: any) {
       console.error('[UPDATER] downloadUpdate 호출 실패:', err?.message ?? err);
+      transitionState('ERROR');
     }
   });
 
@@ -470,6 +505,8 @@ export function initAutoUpdaterEarly(): void {
     //   120s 안내 + 300s force install + 매뉴얼 다운로드 옵션
     if (pct >= 100 && !downloadHit100) {
       downloadHit100 = true;
+      // FSM: DOWNLOADING → VERIFYING
+      transitionState('VERIFYING');
       showVerifyingState();
       stuckCheckTimer = setTimeout(() => {
         showStuckWarningState();
@@ -507,6 +544,9 @@ export function initAutoUpdaterEarly(): void {
   autoUpdater.on('error', (err: any) => {
     console.error('[UPDATER] 에러:', err?.message ?? err);
     isUpdatingFlag = false;
+    transitionState('ERROR');
+    // v2.43.78: stuck timer 정리 (좀비 timer 차단)
+    if (stuckCheckTimer) { clearTimeout(stuckCheckTimer); stuckCheckTimer = null; }
     broadcastEvent('error', { message: err?.message });
     signalUpdateCheck(false);   // 에러 = 체크 실패 → 메인창은 정상 show()
     showErrorState(err?.message ?? '알 수 없는 오류').then(() => {

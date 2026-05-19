@@ -33,6 +33,9 @@ function getLogPath(): string {
 function getLastSessionPath(): string {
   return path.join(getLogDir(), 'last-session.json');
 }
+function getHeartbeatPath(): string {
+  return path.join(getLogDir(), 'heartbeat');
+}
 
 function nowIso(): string {
   return new Date().toISOString();
@@ -90,7 +93,33 @@ function markSessionClean(): void {
     data.endedAt = nowIso();
     data.clean = true;
     fs.writeFileSync(p, JSON.stringify(data, null, 2), 'utf8');
+    // heartbeat 파일 삭제 (정상 종료 표시)
+    try { fs.unlinkSync(getHeartbeatPath()); } catch {}
   } catch {}
+}
+
+// v2.43.78: 팀5+8 비평 — before-quit 단일 의존 오탐 차단
+//   SIGKILL / Windows 종료 / 업데이터 강제 재시작 시 before-quit 미발생
+//   해결: 30초마다 heartbeat 파일 timestamp 갱신
+//   다음 부팅 시 heartbeat 파일이 30초 이상 오래됐으면 비정상 종료
+let heartbeatTimer: NodeJS.Timeout | null = null;
+function startHeartbeat(): void {
+  const tick = () => {
+    try { fs.writeFileSync(getHeartbeatPath(), nowIso(), 'utf8'); } catch {}
+  };
+  tick();
+  heartbeatTimer = setInterval(tick, 30000);
+  heartbeatTimer.unref?.();
+}
+function readHeartbeat(): { at: string; ageMs: number } | null {
+  try {
+    const p = getHeartbeatPath();
+    if (!fs.existsSync(p)) return null;
+    const content = fs.readFileSync(p, 'utf8').trim();
+    const at = content;
+    const ageMs = Date.now() - new Date(at).getTime();
+    return { at, ageMs };
+  } catch { return null; }
 }
 
 function readLastSession(): { startedAt?: string; endedAt?: string; clean?: boolean; version?: string; pid?: number } | null {
@@ -132,10 +161,13 @@ export function setupCrashGuard(): void {
     });
   });
 
-  // before-quit — 정상 종료 마킹
-  app.on('before-quit', () => {
-    markSessionClean();
-  });
+  // before-quit + will-quit + quit — 3중 마킹 (팀5 비평)
+  app.on('before-quit', () => markSessionClean());
+  app.on('will-quit', () => markSessionClean());
+  app.on('quit', () => markSessionClean());
+
+  // heartbeat 시작 (정상종료 마킹의 안전망)
+  startHeartbeat();
 
   // GPU / renderer crash
   app.on('child-process-gone', (_event, details) => {
@@ -206,18 +238,27 @@ export function checkPreviousCrash(): { hasIssue: boolean; summary?: string } {
   const session = readLastSession();
   const lastCrash = readLastCrash();
 
-  // 직전 세션이 비정상 종료 (clean: false)
-  if (session && session.clean === false && session.startedAt) {
-    // 직전 24h 이내만 유효 (오래된 crash 무시)
+  // v2.43.78: heartbeat 파일 존재 여부 → 비정상 종료 더 정확히 판단
+  //   정상 종료: markSessionClean에서 heartbeat 파일 삭제됨
+  //   비정상 종료: heartbeat 파일 남아있고 timestamp 오래됨
+  //   ⚠️ 업데이트로 인한 종료는 heartbeat 남아있을 수 있으니 lastCrash 함께 검증
+  const hb = readHeartbeat();
+  const hasHeartbeatLeftover = !!hb;
+
+  // 직전 세션이 비정상 종료 (heartbeat 잔존 + clean:false 둘 다)
+  if (hasHeartbeatLeftover && session && session.clean === false && session.startedAt) {
     const ageMs = Date.now() - new Date(session.startedAt).getTime();
     if (ageMs < 24 * 60 * 60 * 1000) {
-      const lastCrashStr = lastCrash
-        ? `\n최근 오류: [${lastCrash.type}] ${(lastCrash.message || '').slice(0, 100)}`
-        : '';
-      return {
-        hasIssue: true,
-        summary: `이전 실행이 비정상 종료되었습니다 (${new Date(session.startedAt).toLocaleString()}).${lastCrashStr}`,
-      };
+      // 추가 검증: lastCrash 있어야 진짜 crash. 없으면 단순 강제 종료 (작업관리자/OS reboot) 가능
+      if (lastCrash) {
+        const lastCrashAgeMs = Date.now() - new Date(lastCrash.at).getTime();
+        if (lastCrashAgeMs < 24 * 60 * 60 * 1000) {
+          return {
+            hasIssue: true,
+            summary: `이전 실행이 비정상 종료되었습니다 (${new Date(session.startedAt).toLocaleString()}).\n최근 오류: [${lastCrash.type}] ${(lastCrash.message || '').slice(0, 100)}`,
+          };
+        }
+      }
     }
   }
 
