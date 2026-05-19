@@ -65,11 +65,11 @@ function performQuitAndInstall(autoUpdater: any): void {
   showInstallingState().then(() => {
     setTimeout(() => {
       try {
-        // v2.43.69: isForceRunAfter=true 로 변경 (이중 안전망)
-        //   사용자 보고 "계속 안뜬다" — ExecShell 만으로는 일부 Windows 환경에서 spawn 실패
-        //   electron-updater 측에서도 새 LEWORD spawn 시도 → installer.nsh ExecShell 과 이중 안전망
-        //   두 spawn 충돌은 main.ts requestSingleInstanceLock 재시도(v2.43.66)가 처리
-        autoUpdater.quitAndInstall(true, true);
+        // v2.43.71: oneClick=true + isSilent=false → NSIS 진행바 자체가 splash 역할
+        //   사용자 보고 "프로세서가 꺼졋다가 다시 생긴다" 빈 시간 해결
+        //   NSIS UI가 5~10초 visible → 사용자가 설치 진행 시각 피드백 받음
+        //   isForceRunAfter=true: NSIS 종료 직후 자동 새 LEWORD spawn
+        autoUpdater.quitAndInstall(false, true);
       } catch (e: any) {
         console.error('[UPDATER] quitAndInstall 실패:', e?.message);
         try { app.exit(0); } catch {}
@@ -266,10 +266,11 @@ async function showReadyState(version: string, seconds: number): Promise<void> {
 async function showInstallingState(): Promise<void> {
   if (!progressWindow || progressWindow.isDestroyed()) return;
   try {
+    // v2.43.71: NSIS UI가 곧 표시될 거라 사용자에게 명시
     await progressWindow.webContents.executeJavaScript(
       `(() => {
         const status = document.getElementById('status');
-        if (status) status.textContent = '⚙️ 설치 중... 새 LEWORD 곧 시작됩니다';
+        if (status) status.textContent = '⚙️ NSIS 설치 창이 곧 표시됩니다...';
       })();`
     );
   } catch {}
