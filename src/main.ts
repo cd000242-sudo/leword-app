@@ -176,24 +176,15 @@ function createKeywordWindow() {
     });
   }
 
-  keywordWindow.once('ready-to-show', async () => {
-    // 🔥 업데이트 체크 결과 대기 (최대 5초)
-    // - 업데이트 있으면: 메인창 show() 스킵 → 진행창만 보이다가 재시작
-    // - 없거나 타임아웃: 정상 show()
-    try {
-      const { hasUpdate } = await waitForUpdateCheck(5000);
-      if (hasUpdate || isUpdating()) {
-        console.log('[LEWORD] 업데이트 진행 중 — 메인창 표시 생략 (업데이트 완료 후 자동 재시작)');
-        // 업데이트 진행창이 splash 자리 차지 — splash 닫음
-        closeSplash();
-        return;
-      }
-    } catch {}
-    // v2.43.67: splash 닫고 메인창 표시 — 빈 화면 0초 보장
+  keywordWindow.once('ready-to-show', () => {
+    // v2.43.84: 사용자 보고 "UI 안 뜨는데" — 메인창 무조건 표시
+    //   이전 logic: update 발견 시 메인창 show() 스킵 → 사용자 빈 화면
+    //   NSIS install 실패 환경에서 LEWORD가 영영 안 켜지는 케이스 차단
+    //   새 logic: 메인창 즉시 show. update flow 는 백그라운드 + 다운로드 완료 시 dialog
     closeSplash();
     keywordWindow?.show();
-    // v2.43.79: 부팅 중 보류된 second-instance 이벤트 처리
     flushPendingSecondInstance();
+    console.log('[LEWORD] 메인창 표시 완료 (update flow 는 백그라운드 진행)');
   });
 
   // v2.42.41: X 버튼 기본 동작 = 종료 (이전 v2.42.27 기본 트레이 최소화 → 좀비 프로세스 신고)

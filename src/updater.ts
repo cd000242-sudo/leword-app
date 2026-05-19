@@ -564,17 +564,39 @@ export function initAutoUpdaterEarly(): void {
   autoUpdater.on('update-downloaded', (info: any) => {
     console.log('[UPDATER] 다운로드 완료:', info?.version);
     broadcastEvent('downloaded', { version: info?.version });
-    // stuck 타이머 취소
     if (stuckCheckTimer) { clearTimeout(stuckCheckTimer); stuckCheckTimer = null; }
 
-    const countdown = 5;
-    showReadyState(info?.version ?? '', countdown).then(() => {
-      setTimeout(() => {
+    // v2.43.84: 사용자 보고 "UI 안 뜨는데" — 자동 카운트다운 quitAndInstall 제거
+    //   사용자가 작업 중에 강제 종료되는 케이스 차단
+    //   다운로드 완료 시 dialog 표시 → 사용자 선택:
+    //     · "지금 설치" → quitAndInstall
+    //     · "나중에" → 다음 LEWORD 시작 시 self-heal dialog 가 다시 안내
+    //   진행창 close — 사용자가 메인창에서 작업 계속 가능
+    closeProgressWindow();
+    try {
+      for (const win of hideableWindows) {
+        if (win && !win.isDestroyed()) {
+          try { win.show(); } catch {}
+        }
+      }
+    } catch {}
+    const { dialog: dlg } = require('electron');
+    dlg.showMessageBox({
+      type: 'info',
+      title: 'LEWORD 업데이트 준비됨',
+      message: `새 버전 v${info?.version} 다운로드 완료`,
+      detail: '지금 설치하면 5~15초 안에 새 버전이 시작됩니다.\n나중에 선택 시 LEWORD 종료할 때까지 작업 계속 가능하며, 다음 시작 시 다시 안내됩니다.',
+      buttons: ['지금 설치 (권장)', '나중에'],
+      defaultId: 0,
+      cancelId: 1,
+    }).then((result) => {
+      if (result.response === 0) {
         if (restartScheduled) return;
         restartScheduled = true;
-        // silent install + 모든 창 destroy로 NSIS "cannot be closed" 우회
         performQuitAndInstall(autoUpdater);
-      }, countdown * 1000);
+      } else {
+        console.log('[UPDATER] 사용자 "나중에" 선택 — 자동 install 미실행');
+      }
     });
   });
 
