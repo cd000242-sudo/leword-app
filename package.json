@@ -1,6 +1,6 @@
 {
   "name": "leword",
-  "version": "2.43.73",
+  "version": "2.43.74",
   "description": "LEWORD - 키워드 마스터 독립 앱",
   "main": "dist/main.js",
   "scripts": {
@@ -87,9 +87,9 @@
       "icon": "assets/256.ico"
     },
     "nsis": {
-      "oneClick": true,
+      "oneClick": false,
       "perMachine": false,
-      "allowToChangeInstallationDirectory": false,
+      "allowToChangeInstallationDirectory": true,
       "createDesktopShortcut": true,
       "createStartMenuShortcut": true,
       "runAfterFinish": true,

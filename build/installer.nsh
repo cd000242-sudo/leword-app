@@ -24,12 +24,10 @@
 !macroend
 
 !macro customInstall
-  ; 이중 안전망 — 둘 중 하나라도 성공하면 새 LEWORD 시작 보장
-  ;   1) ExecShell (NSIS detached spawn) — 일부 silent 환경에서 차단 가능
-  ;   2) electron-updater isForceRunAfter=true — quitAndInstall 측 재실행
-  ; 충돌 시 main.ts requestSingleInstanceLock 재시도(v2.43.66)로 한쪽만 살아남음
+  ; v2.43.74: 수동 install 모드 — 사용자가 NSIS Finish 페이지 "LEWORD 실행" 체크박스 클릭으로 실행
+  ;   runAfterFinish=true 옵션이 NSIS Finish 페이지 자동 생성
+  ;   ExecShell 자동 spawn 제거 — 사용자 컨트롤 위주
   Sleep 200
-  ExecShell "" "$INSTDIR\LEWORD.exe"
 !macroend
 
 !macro customUnInstall

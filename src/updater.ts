@@ -89,16 +89,16 @@ function performQuitAndInstall(autoUpdater: any): void {
     void browserPool.destroy?.();
   } catch {}
 
-  // "설치 중" 메시지 표시 후 즉시 quitAndInstall (진행창은 NSIS 끝까지 살아있음)
+  // v2.43.74: 수동 install 모드 — 사용자 보고 "nsis 창 띄워서 수동으로 하게끔"
+  //   oneClick=false + isSilent=false → NSIS 위저드 표시
+  //   사용자가 Welcome → Install Location → Install → Finish 단계 직접 클릭
+  //   runAfterFinish=true 라 NSIS Finish 페이지의 "LEWORD 실행" 체크박스로 사용자가 실행
+  //   isForceRunAfter=false: 자동 실행 X (사용자 클릭 위주)
+  //   HTA splash 제거 (사용자가 NSIS 위저드 보면서 진행 → 별도 splash 불필요)
   showInstallingState().then(() => {
-    // v2.43.72: 외부 HTA splash 시작 — NSIS install 동안 사용자 시각 피드백 유지
-    launchExternalSplash();
     setTimeout(() => {
       try {
-        // v2.43.72: isSilent=true 로 복귀 (NSIS UI 의존 포기)
-        //   HTA splash가 NSIS install 동안 시각 피드백 담당
-        //   isForceRunAfter=true: NSIS 종료 직후 자동 새 LEWORD spawn
-        autoUpdater.quitAndInstall(true, true);
+        autoUpdater.quitAndInstall(false, false);
       } catch (e: any) {
         console.error('[UPDATER] quitAndInstall 실패:', e?.message);
         try { app.exit(0); } catch {}
@@ -273,7 +273,7 @@ async function updateProgress(percent: number): Promise<void> {
 async function showReadyState(version: string, seconds: number): Promise<void> {
   if (!progressWindow || progressWindow.isDestroyed()) return;
   try {
-    // v2.43.70: splash 디자인과 자연 연결되는 메시지 (사용자가 끊김 인지 X)
+    // v2.43.74: 수동 install — 사용자가 NSIS 위저드 클릭으로 진행
     await progressWindow.webContents.executeJavaScript(
       `(() => {
         const fg = document.getElementById('fg');
@@ -283,8 +283,8 @@ async function showReadyState(version: string, seconds: number): Promise<void> {
         if (fg) fg.setAttribute('stroke-dashoffset', '0');
         if (fg) fg.setAttribute('stroke', '#34d399');
         if (pct) pct.textContent = '✓';
-        if (version) version.textContent = 'v${version} 적용 준비';
-        if (status) status.textContent = '✅ ${seconds}초 후 설치 시작 — 새 창이 자동으로 표시됩니다';
+        if (version) version.textContent = 'v${version} 다운로드 완료';
+        if (status) status.textContent = '✅ ${seconds}초 후 설치 창 열림 — 다음/설치 버튼을 클릭해주세요';
       })();`
     );
   } catch {}
@@ -295,11 +295,11 @@ async function showReadyState(version: string, seconds: number): Promise<void> {
 async function showInstallingState(): Promise<void> {
   if (!progressWindow || progressWindow.isDestroyed()) return;
   try {
-    // v2.43.71: NSIS UI가 곧 표시될 거라 사용자에게 명시
+    // v2.43.74: 수동 install — 사용자가 직접 NSIS 위저드 클릭 진행
     await progressWindow.webContents.executeJavaScript(
       `(() => {
         const status = document.getElementById('status');
-        if (status) status.textContent = '⚙️ NSIS 설치 창이 곧 표시됩니다...';
+        if (status) status.textContent = '⚙️ 설치 창이 표시됩니다 — 화면 안내에 따라 진행해주세요';
       })();`
     );
   } catch {}
