@@ -795,7 +795,7 @@ export function setupConfigUtilityHandlers(): void {
 
         const { searchNaverShopping, pickBlogRecommendedItems, computeConversionScore } = await import('../../utils/naver-shopping-api');
         const { analyzeShoppingKeywords, expandWithIntentSuffixes } = await import('../../utils/shopping-keyword-analyzer');
-        const { buildCoupangSearchUrl, simplifyTitleForCoupangSearch, convertToPartnersLinks, getCoupangPartnersConfig } = await import('../../utils/coupang-partners');
+        const { buildCoupangSearchUrl, simplifyTitleForCoupangSearch, convertToPartnersLinks, getCoupangPartnersConfig, coupangProductSearch, pickBestCoupangMatch } = await import('../../utils/coupang-partners');
         const { getNaverAutocompleteKeywords } = await import('../../utils/naver-autocomplete');
         const { EnvironmentManager } = await import('../../utils/environment-manager');
         const { classifySearchIntent, getIntentScoreAdjust } = await import('../../utils/search-intent-classifier');
@@ -834,19 +834,46 @@ export function setupConfigUtilityHandlers(): void {
         const recommended = pickBlogRecommendedItems(result.items, 10);
 
         // 쿠팡파트너스 설정돼있으면 추천 10개를 트래킹 링크로 변환
+        // v2.43.63: 4팀+2팀 — Product Search API 로 productId 정확 매칭 후 deeplink 변환
+        //   이전: 네이버 상품명 → simplified 검색 URL → deeplink (검색 결과 페이지 어필리에이트 — 회색지대)
+        //   신규: 네이버 상품명 → Product Search → 최적 매칭 1건의 productUrl → deeplink (상품 상세)
+        //   매칭 실패 시: 기존 검색 URL fallback
         const partnersCfg = getCoupangPartnersConfig();
         let partnersEnabled = false;
+        let productMatchCount = 0;
         if (partnersCfg.accessKey && partnersCfg.secretKey && recommended.length > 0) {
           try {
-            const urls = recommended.map(r => r.coupangSearchUrl!).filter(Boolean);
+            // 1. 각 추천 상품에 대해 쿠팡 product search (캐시 적중 시 즉시)
+            const matchedUrls = new Map<string, string>(); // 네이버 productId → 쿠팡 상품URL
+            await Promise.all(recommended.map(async (item) => {
+              try {
+                const simpKw = simplifyTitleForCoupangSearch(item.title) || keyword;
+                const candidates = await coupangProductSearch(simpKw, partnersCfg, { limit: 3 });
+                const best = pickBestCoupangMatch(candidates, item.title, item.lprice);
+                if (best && best.productUrl) {
+                  matchedUrls.set(item.productId, best.productUrl);
+                  // UI 표시용 매칭 정보 부착 (사용자 신뢰도 ↑)
+                  (item as any).coupangMatchedName = best.productName;
+                  (item as any).coupangMatchedPrice = best.productPrice;
+                  productMatchCount++;
+                }
+              } catch (err: any) {
+                // 개별 매칭 실패는 무시 (검색 URL fallback)
+              }
+            }));
+
+            // 2. 매칭된 productUrl + fallback 검색 URL 합쳐서 deeplink 변환
+            const urls = recommended.map(r => matchedUrls.get(r.productId) || r.coupangSearchUrl!).filter(Boolean);
             const converted = await convertToPartnersLinks(urls, partnersCfg);
             const map = new Map(converted.map(c => [c.originalUrl, c.shortenUrl || c.landingUrl]));
             for (const item of recommended) {
-              if (item.coupangSearchUrl && map.has(item.coupangSearchUrl)) {
-                item.coupangSearchUrl = map.get(item.coupangSearchUrl)!;
+              const originalUrl = matchedUrls.get(item.productId) || item.coupangSearchUrl;
+              if (originalUrl && map.has(originalUrl)) {
+                item.coupangSearchUrl = map.get(originalUrl)!;
               }
             }
             partnersEnabled = true;
+            console.log(`[SHOPPING-CONNECT] 쿠팡 정확 매칭: ${productMatchCount}/${recommended.length}건 (productId), 나머지는 검색 URL`);
           } catch (e: any) {
             console.warn('[SHOPPING-CONNECT] 쿠팡파트너스 링크 변환 실패:', e?.message);
           }
@@ -920,6 +947,7 @@ export function setupConfigUtilityHandlers(): void {
           intentExpanded,     // 🔥 검색의도 변형 (추천/후기/비교 자동 생성)
           crossSourceSeeds,   // 🔥 실시간 카테고리 유행 제품
           partnersEnabled,
+          productMatchCount,  // v2.43.63: 쿠팡 productId 정확 매칭 건수
           relatedKeywords: relatedKeywordsTrimmed,
           intent, // 검색 의도 분류 (primary, scores, label, icon)
         };
