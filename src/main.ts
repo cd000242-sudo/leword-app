@@ -51,6 +51,8 @@ import { checkInternetConnection, startNetworkMonitoring } from './utils/network
 import { findChromePath, isChromeAvailable } from './utils/chrome-finder';
 // v2.43.67: 시작 splash — 업데이트 후 빈 화면 시간 차단 (사용자 반발 해소)
 import { showSplash, updateSplashStage, closeSplash, hideSplash, showSplashAgain } from './splash';
+// v2.43.75: 자체 진단 + crash guard — "맘대로 꺼지자나" 보고 대응
+import { setupCrashGuard, attachWindowCrashGuard, checkPreviousCrash, runStartupHealthCheck, getCrashLogPath } from './crash-guard';
 
 // 네트워크 모니터링 정리 함수
 let stopNetworkMonitoring: (() => void) | null = null;
@@ -140,6 +142,9 @@ function createKeywordWindow() {
   // 🔥 업데이트 발견 시 메인창도 숨겨지도록 등록
   // (자동로그인 시 로그인창이 뜨지 않아 숨길 대상이 없던 버그 수정)
   registerHideableWindow(keywordWindow);
+
+  // v2.43.75: 메인창 crash / unresponsive 가드
+  attachWindowCrashGuard(keywordWindow);
 
   // console.log('[LEWORD] preload script:', keywordWindow.webContents.getWebPreferences().preload);
 
@@ -923,6 +928,9 @@ function acquireLockWithRetry(maxAttempts = 3, intervalMs = 500): boolean {
   return false;
 }
 
+// v2.43.75: crash guard 활성 — uncaughtException / unhandledRejection / child-process-gone 로깅
+setupCrashGuard();
+
 const gotSingleInstanceLock = acquireLockWithRetry();
 if (!gotSingleInstanceLock) {
   console.log('[LEWORD] 단일 인스턴스 락 획득 실패 (1.5초 재시도 후) — 두 번째 인스턴스 종료');
@@ -962,6 +970,22 @@ app.whenReady().then(async () => {
   //   "초반에 뜨고 사라졌다가 한참있다 앱이뜨니까" 빈 시간 차단
   // v2.43.70: 첫 메시지를 progressWindow 마지막 메시지와 자연 연결
   showSplash('✓ 설치 완료 — LEWORD 시작 중...');
+
+  // v2.43.75: 이전 세션 비정상 종료 확인 — 사용자에게 안내
+  try {
+    const crashCheck = checkPreviousCrash();
+    if (crashCheck.hasIssue) {
+      console.warn('[CRASH-GUARD] 이전 세션 비정상 종료:', crashCheck.summary);
+      // 사용자 알림은 메인창 뜬 후 (방해 최소화) — IPC 로 UI에 전달 가능
+      (app as any).__previousCrashSummary = crashCheck.summary;
+    }
+    const health = runStartupHealthCheck();
+    if (!health.ok) {
+      console.warn('[CRASH-GUARD] 환경 경고:', health.warnings);
+    }
+  } catch (e: any) {
+    console.warn('[CRASH-GUARD] 진단 실패:', e?.message);
+  }
 
   initAppPaths();
 
@@ -1022,6 +1046,20 @@ app.whenReady().then(async () => {
     console.log('[LEWORD] 라이선스 인증 실패, 앱 종료');
     return;
   }
+
+  // v2.43.75: crash guard IPC — UI 가 진단 정보 조회 가능
+  ipcMain.handle('crash-guard:get-info', async () => {
+    return {
+      previousCrash: (app as any).__previousCrashSummary || null,
+      logPath: getCrashLogPath(),
+      health: runStartupHealthCheck(),
+      version: app.getVersion(),
+    };
+  });
+  ipcMain.handle('crash-guard:open-log', async () => {
+    try { await shell.openPath(getCrashLogPath()); return { ok: true }; }
+    catch (e: any) { return { ok: false, error: e?.message }; }
+  });
 
   // 기본 IPC 핸들러 설정 (open-link, open-external)
   ipcMain.handle('open-link', async (_event, href: string) => {
