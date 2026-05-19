@@ -305,6 +305,30 @@ function createTray(): void {
           },
         },
         { type: 'separator' },
+        // v2.43.82: 수동 업데이트 — NSIS install 실패 환경 대응
+        {
+          label: '🔄 업데이트 확인 및 적용',
+          click: async () => {
+            try {
+              const { triggerManualUpdate } = await import('./self-heal');
+              const result = await triggerManualUpdate(app.getVersion());
+              if (result.installing) {
+                console.log('[TRAY] 수동 업데이트 install 시작');
+              } else if (result.message) {
+                const { dialog: dlg } = require('electron');
+                dlg.showMessageBox({
+                  type: 'info',
+                  title: 'LEWORD 업데이트',
+                  message: result.message,
+                  buttons: ['확인'],
+                });
+              }
+            } catch (e: any) {
+              console.error('[TRAY] 수동 업데이트 실패:', e?.message);
+            }
+          },
+        },
+        { type: 'separator' },
         {
           label: '창 닫기 시 트레이로 최소화',
           type: 'checkbox',

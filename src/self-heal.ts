@@ -128,6 +128,48 @@ export async function checkAndApplyPendingUpdate(currentVersion: string): Promis
 }
 
 /**
+ * v2.43.82: 수동 업데이트 트리거 — 트레이 메뉴에서 호출
+ *   1) pending 폴더 검사 → 새 버전 있으면 즉시 install
+ *   2) 없으면 electron-updater 의 checkForUpdates 호출
+ *   3) 결과를 사용자에게 안내
+ */
+export async function triggerManualUpdate(currentVersion: string): Promise<{ installing: boolean; message?: string }> {
+  // 1. pending 폴더 검사
+  const pending = detectPendingUpdate();
+  if (pending && compareVersions(pending.version, currentVersion) > 0) {
+    console.log(`[SELF-HEAL] 수동 트리거: pending v${pending.version} install 시작`);
+    try {
+      const child = spawn(pending.exePath, [], {
+        detached: true,
+        stdio: 'ignore',
+        windowsHide: false,
+      });
+      child.unref();
+      setTimeout(() => {
+        console.log('[SELF-HEAL] 수동 install — LEWORD 종료');
+        app.exit(0);
+      }, 1500);
+      return { installing: true };
+    } catch (e: any) {
+      return { installing: false, message: `pending exe 실행 실패: ${e?.message}\n\n수동 실행: ${pending.exePath}` };
+    }
+  }
+
+  // 2. pending 없으면 electron-updater 체크
+  try {
+    const autoUpdater = require('electron-updater').autoUpdater;
+    const result = await autoUpdater.checkForUpdates();
+    if (result?.updateInfo?.version && compareVersions(result.updateInfo.version, currentVersion) > 0) {
+      // 새 버전 발견 → downloadUpdate (자동으로 update-available 핸들러 동작)
+      return { installing: false, message: `새 버전 v${result.updateInfo.version} 발견 — 다운로드 진행 중\n잠시 후 진행 창이 표시됩니다` };
+    }
+    return { installing: false, message: `현재 v${currentVersion} 가 최신 버전입니다` };
+  } catch (e: any) {
+    return { installing: false, message: `업데이트 확인 실패: ${e?.message}` };
+  }
+}
+
+/**
  * RunOnce 키 등록 — 다음 부팅 시 1회 pending exe 실행
  * before-quit / 비정상 종료 케이스에서 안전망
  */
