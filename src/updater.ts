@@ -48,28 +48,30 @@ function destroyAllWindowsForce(): void {
 //     - installer.nsh customInstall ExecShell 이 새 LEWORD 자동 spawn (v2.43.66 동일)
 //     - 진행 창에 "설치 중" 단계 메시지 추가 (사용자가 진행 상황 인지 가능)
 function performQuitAndInstall(autoUpdater: any): void {
+  // v2.43.68: 진행창 닫는 시점 늦춤 — NSIS install 동안 사용자에게 계속 표시
+  //   사용자 보고 "처음 업데이트 창이뜨고나서 바로떠야되는데 이거마저 좀있다가 뜨네"
+  //   → 진행창이 NSIS 진행 동안 살아있어야 splash 와 끊김 최소화
+  //   destroyAllWindowsForce 제거 — quitAndInstall 의 app.quit() 가 자동 처리
+  //   ⚠️ installer.nsh customInit taskkill /F /T 가 LEWORD 프로세스 강제 종료하므로
+  //      "cannot be closed" 다이얼로그 안 뜸
+
   // Puppeteer browserPool 등 자식 프로세스 강제 종료 (lock 잔존 차단)
   try {
     const { browserPool } = require('./utils/puppeteer-pool');
     void browserPool.destroy?.();
   } catch {}
 
-  // 진행 창은 destroy 직전까지 "설치 중" 메시지 표시 (사용자 인지)
+  // "설치 중" 메시지 표시 후 즉시 quitAndInstall (진행창은 NSIS 끝까지 살아있음)
   showInstallingState().then(() => {
     setTimeout(() => {
-      destroyAllWindowsForce();
-      setTimeout(() => {
-        try {
-          // v2.43.67: (isSilent=true, isForceRunAfter=false)
-          //   - silent: NSIS UI 없이 빠른 설치 (사용자 체감 시간 ↓)
-          //   - isForceRunAfter=false: installer.nsh ExecShell 이 단일 자동실행
-          autoUpdater.quitAndInstall(true, false);
-        } catch (e: any) {
-          console.error('[UPDATER] quitAndInstall 실패:', e?.message);
-          try { app.exit(0); } catch {}
-        }
-      }, 500); // 자식 프로세스 종료 시간 부여
-    }, 800); // "설치 중" 메시지 보여줄 시간
+      try {
+        // (isSilent=true, isForceRunAfter=false) — installer.nsh ExecShell 단일 자동실행
+        autoUpdater.quitAndInstall(true, false);
+      } catch (e: any) {
+        console.error('[UPDATER] quitAndInstall 실패:', e?.message);
+        try { app.exit(0); } catch {}
+      }
+    }, 300); // 800 → 300ms (메시지 빠르게 확인 후 즉시 설치)
   });
 }
 
