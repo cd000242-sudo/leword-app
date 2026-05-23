@@ -142,55 +142,44 @@ export async function checkAndApplyPendingUpdate(currentVersion: string): Promis
     console.warn('[SELF-HEAL] latest 비교 실패 (무시, 기존 동작 계속):', e?.message);
   }
 
-  // v2.47.1: self-heal dialog 표시 전 시작 splash 닫기 (두 창 동시 표시 방지)
-  //   사용자 보고: "splash 떠있는데 dialog도 같이 떠서 두 개 동시 표시"
-  //   원인: self-heal 경로는 showProgressWindow()를 안 거쳐서 closeSplash 호출 누락
+  // v2.47.4: dialog 제거 → 자동 silent install
+  //   사용자 보고: "dialog X 닫고 그냥 두니까 자동 업데이트가 잘 되더라. dialog 안 뜨게 해줘"
+  //   원인: dialog가 사용자에게 부담만 주고, 어차피 사용자 대부분 X로 닫음 →
+  //         autoUpdater의 autoInstallOnAppQuit가 처리 → 그러면 dialog 자체가 무용
+  //   해결: dialog 제거 + splash 메시지로 "업데이트 적용 중..." 알림 + 자동 install
+  //         시작 시점이라 사용자 작업 없음 → 데이터 손실 위험 없음
   try {
-    const { closeSplash } = require('./splash');
-    closeSplash();
+    const { updateSplashStage } = require('./splash');
+    await updateSplashStage(`✨ 업데이트 v${pending.version} 적용 중... (10~15초)`);
   } catch {}
 
+  // pending exe 자동 실행 (oneClick=true NSIS → 자동 install + 자동 실행)
+  console.log(`[SELF-HEAL] 🚀 자동 install 시작: ${pending.exePath}`);
   try {
-    const result = await dialog.showMessageBox({
-      type: 'info',
-      title: 'LEWORD 업데이트 준비됨',
-      message: `새 버전 v${pending.version} 이 다운로드되어 있습니다`,
-      detail: '지금 설치하면 5~15초 안에 새 버전이 시작됩니다.\n\n나중에를 선택해도 LEWORD는 정상 작동하며, 다음 시작 시 다시 안내됩니다.',
-      buttons: ['지금 설치 (권장)', '나중에'],
-      defaultId: 0,
-      cancelId: 1,
+    const child = spawn(pending.exePath, [], {
+      detached: true,
+      stdio: 'ignore',
+      windowsHide: false,
     });
-
-    if (result.response === 0) {
-      // pending exe 실행 — oneClick=true 라 자동 install + 자동 실행
-      console.log(`[SELF-HEAL] pending exe 실행: ${pending.exePath}`);
-      try {
-        const child = spawn(pending.exePath, [], {
-          detached: true,
-          stdio: 'ignore',
-          windowsHide: false,
-        });
-        child.unref();
-        // 1.5초 대기 (NSIS process 시작 보장) → LEWORD 종료
-        setTimeout(() => {
-          console.log('[SELF-HEAL] 현재 LEWORD 종료 (NSIS install 완료 대기)');
-          app.exit(0);
-        }, 1500);
-        return true;
-      } catch (e: any) {
-        console.error('[SELF-HEAL] pending exe 실행 실패:', e?.message);
-        // 실행 실패 시 사용자에게 수동 안내
-        await dialog.showMessageBox({
-          type: 'error',
-          title: '자동 설치 실패',
-          message: '수동 설치가 필요합니다',
-          detail: `다음 파일을 더블클릭하세요:\n\n${pending.exePath}`,
-          buttons: ['확인'],
-        });
-      }
-    }
+    child.unref();
+    // 1.5초 대기 (NSIS process 시작 보장) → LEWORD 종료
+    setTimeout(() => {
+      console.log('[SELF-HEAL] 현재 LEWORD 종료 (NSIS install 진행 중)');
+      app.exit(0);
+    }, 1500);
+    return true;
   } catch (e: any) {
-    console.warn('[SELF-HEAL] 처리 실패:', e?.message);
+    console.error('[SELF-HEAL] pending exe 실행 실패:', e?.message);
+    // 실행 실패 시에만 dialog (마지막 안전망)
+    try {
+      await dialog.showMessageBox({
+        type: 'error',
+        title: '자동 설치 실패',
+        message: '수동 설치가 필요합니다',
+        detail: `다음 파일을 더블클릭하세요:\n\n${pending.exePath}`,
+        buttons: ['확인'],
+      });
+    } catch {}
   }
   return false;
 }
