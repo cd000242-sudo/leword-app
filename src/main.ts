@@ -377,14 +377,27 @@ async function checkLicense(): Promise<boolean> {
       console.log('[LEWORD] ⚠️ 저장된 라이선스 만료됨 — 삭제 후 로그인창으로 진행');
       await licenseManager.clearLicense();
     } else {
-      // 🔐 저장된 credential(safeStorage 암호화) 있으면 자동로그인 시도
-      console.log('[LEWORD] 저장된 라이선스 있음 — 자동로그인 시도');
-      const auto = await licenseManager.autoLogin();
-      if (auto.success && auto.license) {
-        console.log('[LEWORD] ✅ 자동로그인 성공:', auto.license.licenseType || auto.license.plan);
-        return true;
+      // 🔐 저장된 credential 있으면 자동로그인 진행 인증창 표시 (v2.48.0)
+      //   사용자 요청: "자동로그인 체크해놓으면 인증창 그냥 지나치는데 인증창에서
+      //              자동로그인 되는 걸 보여주고 메인창 진입하게 해주세요"
+      const creds = await licenseManager.loadCredentials();
+      if (creds?.userId) {
+        console.log('[LEWORD] 저장된 credential — 자동로그인 진행창 표시');
+        const auto = await showAutoLoginDialog(creds.userId, license);
+        if (auto.success) {
+          console.log('[LEWORD] ✅ 자동로그인 성공');
+          return true;
+        }
+        console.log('[LEWORD] 자동로그인 실패 — 수동 로그인창으로:', auto.message);
+      } else {
+        // credential 없으면 기존 흐름 (silent autoLogin 시도)
+        const auto = await licenseManager.autoLogin();
+        if (auto.success && auto.license) {
+          console.log('[LEWORD] ✅ 자동로그인 성공:', auto.license.licenseType || auto.license.plan);
+          return true;
+        }
+        console.log('[LEWORD] 자동로그인 실패/없음 — 로그인창 진행:', auto.message);
       }
-      console.log('[LEWORD] 자동로그인 실패/없음 — 로그인창 진행:', auto.message);
     }
   }
 
@@ -401,6 +414,183 @@ async function checkLicense(): Promise<boolean> {
   // 인증 성공 (showLicenseInputDialog에서 이미 검증 및 환영 화면 표시 완료)
   console.log('[LEWORD] ✅ 라이선스 인증 성공:', authResult.plan);
   return true;
+}
+
+/**
+ * v2.48.0: 자동로그인 진행 인증창
+ *   사용자 요청: "자동로그인 체크해놓으면 인증창 그냥 지나치는데
+ *   인증창에서 자동로그인 되는 걸 보여주고 메인창 진입하게 해주세요"
+ *
+ * 흐름:
+ *   1. 인증창 표시 (저장된 계정 ID 미리 채움 + 진행바)
+ *   2. autoLogin() 호출 (백그라운드)
+ *   3. 성공: 라이선스 정보 (등급, 남은 일수) 짧게 표시 → 1.5초 후 자동 close
+ *   4. 실패: 에러 메시지 표시 → 사용자가 닫으면 수동 로그인창으로
+ */
+async function showAutoLoginDialog(savedUserId: string, savedLicense: any): Promise<{ success: boolean; message?: string }> {
+  return new Promise((resolve) => {
+    const autoLoginWin = new BrowserWindow({
+      width: 480,
+      height: 380,
+      resizable: false,
+      frame: false,
+      transparent: true,
+      alwaysOnTop: true,
+      center: true,
+      skipTaskbar: false,
+      webPreferences: {
+        nodeIntegration: true,
+        contextIsolation: false,
+      },
+    });
+
+    setUpdaterLoginWindow(autoLoginWin);
+
+    // 저장된 라이선스에서 기본 정보 추출 (서버 응답 전 표시용)
+    const planRaw = String(savedLicense?.plan || savedLicense?.licenseType || '').toUpperCase();
+    const isUnlimited = ['EX', 'UNLIMITED', 'PERMANENT'].includes(planRaw);
+    let daysLeftPreview = -1;
+    if (savedLicense?.expiresAt) {
+      daysLeftPreview = Math.ceil((new Date(savedLicense.expiresAt).getTime() - Date.now()) / (1000 * 60 * 60 * 24));
+    }
+
+    const html = `<!DOCTYPE html>
+<html><head><meta charset="UTF-8"><title>LEWORD 자동 로그인</title>
+<style>
+  *{margin:0;padding:0;box-sizing:border-box;}
+  body{font-family:'Noto Sans KR',sans-serif;background:transparent;display:flex;justify-content:center;align-items:center;min-height:100vh;padding:20px;-webkit-app-region:drag;}
+  .container{background:linear-gradient(145deg,#1a1a2e 0%,#16213e 50%,#0f0f23 100%);padding:36px 40px;border-radius:24px;min-width:420px;box-shadow:0 25px 80px rgba(0,0,0,0.6),0 0 0 1px rgba(255,255,255,0.1);position:relative;overflow:hidden;-webkit-app-region:no-drag;color:#fff;}
+  .logo{font-size:32px;text-align:center;margin-bottom:8px;color:#fbbf24;font-weight:700;letter-spacing:0.5px;}
+  .subtitle{text-align:center;font-size:13px;color:rgba(255,255,255,0.6);margin-bottom:24px;}
+  .account-box{background:rgba(99,102,241,0.1);border:1px solid rgba(168,85,247,0.3);border-radius:12px;padding:14px 16px;margin-bottom:20px;}
+  .label{font-size:11px;color:rgba(255,255,255,0.5);text-transform:uppercase;letter-spacing:1px;margin-bottom:4px;}
+  .value{font-size:16px;font-weight:600;color:#a78bfa;font-family:'Consolas',monospace;}
+  .status{text-align:center;font-size:14px;color:rgba(255,255,255,0.85);margin:18px 0 8px;min-height:24px;}
+  .status .ok{color:#34d399;font-weight:600;}
+  .status .err{color:#fca5a5;font-weight:600;}
+  .progress{height:4px;background:rgba(255,255,255,0.08);border-radius:2px;overflow:hidden;margin-bottom:8px;}
+  .progress-bar{height:100%;background:linear-gradient(90deg,#fbbf24,#f59e0b);width:0;transition:width 0.3s ease;}
+  .progress-bar.indeterminate{width:30%;animation:slide 1.5s ease-in-out infinite;}
+  @keyframes slide{0%{margin-left:-30%;}100%{margin-left:100%;}}
+  .license-info{background:rgba(34,197,94,0.08);border:1px solid rgba(34,197,94,0.3);border-radius:10px;padding:12px;margin-top:14px;display:none;text-align:center;}
+  .license-info.show{display:block;}
+  .license-info .grade{font-size:18px;font-weight:700;color:#34d399;margin-bottom:4px;}
+  .license-info .days{font-size:13px;color:rgba(255,255,255,0.75);}
+  .retry-btn{display:none;width:100%;margin-top:14px;padding:10px;background:linear-gradient(135deg,#6366f1,#8b5cf6);color:#fff;border:none;border-radius:10px;font-size:13px;font-weight:600;cursor:pointer;}
+  .retry-btn.show{display:block;}
+</style></head>
+<body>
+  <div class="container">
+    <div class="logo">💎 LEWORD</div>
+    <div class="subtitle">자동 로그인 진행 중</div>
+    <div class="account-box">
+      <div class="label">계정 ID</div>
+      <div class="value">${savedUserId}</div>
+    </div>
+    <div class="progress"><div class="progress-bar indeterminate" id="bar"></div></div>
+    <div class="status" id="status">⏳ 서버 인증 중...</div>
+    <div class="license-info" id="licInfo">
+      <div class="grade" id="licGrade"></div>
+      <div class="days" id="licDays"></div>
+    </div>
+    <button class="retry-btn" id="retryBtn">수동 로그인으로 진행</button>
+  </div>
+<script>
+  const { ipcRenderer } = require('electron');
+  const elStatus = document.getElementById('status');
+  const elBar = document.getElementById('bar');
+  const elLicInfo = document.getElementById('licInfo');
+  const elLicGrade = document.getElementById('licGrade');
+  const elLicDays = document.getElementById('licDays');
+  const elRetry = document.getElementById('retryBtn');
+
+  function formatGrade(plan, isUnlimited) {
+    if (isUnlimited) return '✨ 영구제 (LIFE)';
+    const p = (plan || '').toUpperCase();
+    if (p === '1YEAR' || p === '365DAY') return '📅 1년';
+    if (p === '3MONTHS' || p === '90DAY') return '📅 3개월';
+    if (p === '1MONTH' || p === '30DAY') return '📅 1개월';
+    return '📅 ' + (plan || '기간제');
+  }
+
+  // 서버 인증 호출
+  (async () => {
+    try {
+      const result = await ipcRenderer.invoke('auth:auto-login');
+      if (result?.success && result?.license) {
+        const lic = result.license;
+        const planRaw = (lic.plan || lic.licenseType || '').toUpperCase();
+        const isUnlimited = ['EX','UNLIMITED','PERMANENT'].includes(planRaw) || lic.isUnlimited;
+        let daysLeft = -1;
+        if (lic.expiresAt) {
+          daysLeft = Math.ceil((new Date(lic.expiresAt).getTime() - Date.now()) / (1000*60*60*24));
+        }
+        elBar.className = 'progress-bar';
+        elBar.style.width = '100%';
+        elStatus.innerHTML = '<span class="ok">✅ 인증 성공</span>';
+        elLicGrade.textContent = formatGrade(lic.plan || lic.licenseType, isUnlimited);
+        elLicDays.textContent = isUnlimited
+          ? '제한 없이 모든 기능을 이용할 수 있습니다'
+          : (daysLeft > 0 ? '남은 일수: ' + daysLeft + '일' : (daysLeft === 0 ? '오늘 만료됩니다!' : '만료됨'));
+        elLicInfo.className = 'license-info show';
+        setTimeout(() => ipcRenderer.send('auto-login:done', { success: true }), 1800);
+      } else {
+        elBar.className = 'progress-bar';
+        elBar.style.width = '100%';
+        elBar.style.background = 'linear-gradient(90deg,#ef4444,#dc2626)';
+        elStatus.innerHTML = '<span class="err">❌ ' + (result?.message || '인증 실패') + '</span>';
+        elRetry.className = 'retry-btn show';
+        elRetry.onclick = () => ipcRenderer.send('auto-login:done', { success: false, message: result?.message });
+      }
+    } catch (e) {
+      elStatus.innerHTML = '<span class="err">❌ 통신 오류: ' + (e?.message || e) + '</span>';
+      elRetry.className = 'retry-btn show';
+      elRetry.onclick = () => ipcRenderer.send('auto-login:done', { success: false, message: 'IPC 오류' });
+    }
+  })();
+</script>
+</body></html>`;
+
+    // ⚠️ 메인창 IPC 핸들러는 아직 등록 전 — 임시 핸들러 등록
+    const { ipcMain } = require('electron');
+    if (ipcMain.listenerCount('auth:auto-login') === 0) {
+      ipcMain.handle('auth:auto-login', async () => {
+        try {
+          return await licenseManager.autoLogin();
+        } catch (e: any) {
+          return { success: false, message: e?.message || '자동 로그인 오류' };
+        }
+      });
+    }
+
+    autoLoginWin.loadURL(`data:text/html;charset=utf-8,${encodeURIComponent(html)}`);
+
+    // 결과 수신
+    const handler = (_evt: any, payload: { success: boolean; message?: string }) => {
+      ipcMain.removeListener('auto-login:done', handler);
+      ipcMain.removeHandler('auth:auto-login');
+      try { autoLoginWin.close(); } catch {}
+      resolve({ success: payload.success, message: payload.message });
+    };
+    ipcMain.on('auto-login:done', handler);
+
+    // 창 강제 닫기 시 실패로 처리
+    autoLoginWin.on('closed', () => {
+      ipcMain.removeListener('auto-login:done', handler);
+      try { ipcMain.removeHandler('auth:auto-login'); } catch {}
+      resolve({ success: false, message: '사용자가 자동 로그인을 취소함' });
+    });
+
+    // 안전망: 15초 타임아웃
+    setTimeout(() => {
+      if (!autoLoginWin.isDestroyed()) {
+        try { autoLoginWin.close(); } catch {}
+        ipcMain.removeListener('auto-login:done', handler);
+        try { ipcMain.removeHandler('auth:auto-login'); } catch {}
+        resolve({ success: false, message: '인증 시간 초과' });
+      }
+    }, 15000).unref?.();
+  });
 }
 
 async function showLicenseInputDialog(): Promise<{ success: boolean; plan?: string; message?: string } | null> {
