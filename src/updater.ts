@@ -32,6 +32,8 @@ let progressWindow: BrowserWindow | null = null;
 let hideableWindows = new Set<BrowserWindow>();
 let isUpdatingFlag = false;
 let restartScheduled = false;
+// v2.48.1: progressWindow 버튼 통합 IPC 핸들러 등록 플래그
+let ipcMainInstallNowRegistered = false;
 let lastUpdateInfo: { version?: string } = {};
 
 // v2.43.78: 팀1+6 비평 — 단일 state machine (race 제거)
@@ -345,10 +347,12 @@ async function updateProgress(percent: number): Promise<void> {
   } catch {}
 }
 
-async function showReadyState(version: string, seconds: number): Promise<void> {
+async function showReadyState(version: string, _seconds: number): Promise<void> {
   if (!progressWindow || progressWindow.isDestroyed()) return;
   try {
-    // v2.43.74: 수동 install — 사용자가 NSIS 위저드 클릭으로 진행
+    // v2.48.1: progressWindow에 "지금 설치" 버튼 통합 (별도 dialog 제거 → splash 뒤 가림 해결)
+    //   사용자 보고: "LEWORD 업데이트 준비됨 dialog가 splash 뒤에 가려져서 못 누름"
+    //   해결: progressWindow 자체가 alwaysOnTop이라 항상 보임 → 그 안에 버튼
     await progressWindow.webContents.executeJavaScript(
       `(() => {
         const fg = document.getElementById('fg');
@@ -359,7 +363,32 @@ async function showReadyState(version: string, seconds: number): Promise<void> {
         if (fg) fg.setAttribute('stroke', '#34d399');
         if (pct) pct.textContent = '✓';
         if (version) version.textContent = 'v${version} 다운로드 완료';
-        if (status) status.textContent = '✅ ${seconds}초 후 자동 설치 시작 — 잠시 후 LEWORD가 자동으로 다시 열립니다';
+        if (status) status.textContent = '설치 준비됨 — 지금 설치하거나 나중에 LEWORD를 종료하면 자동 적용됩니다';
+        // 버튼 영역 추가 (없으면 생성)
+        let btnRow = document.getElementById('upd-btn-row');
+        if (!btnRow) {
+          btnRow = document.createElement('div');
+          btnRow.id = 'upd-btn-row';
+          btnRow.style.cssText = 'display:flex; gap:8px; margin-top:14px; width:100%; padding:0 20px;';
+          btnRow.innerHTML = \`
+            <button id="upd-install-now" style="flex:2; padding:10px; background:linear-gradient(135deg,#fbbf24,#f59e0b); color:#0f0f23; border:none; border-radius:8px; font-weight:700; font-size:13px; cursor:pointer; box-shadow:0 4px 12px rgba(251,191,36,0.3);">▶ 지금 설치 (권장)</button>
+            <button id="upd-later" style="flex:1; padding:10px; background:rgba(255,255,255,0.08); color:#fff; border:1px solid rgba(255,255,255,0.2); border-radius:8px; font-weight:600; font-size:13px; cursor:pointer;">나중에</button>
+          \`;
+          if (status && status.parentNode) status.parentNode.appendChild(btnRow);
+          const { ipcRenderer } = require('electron');
+          document.getElementById('upd-install-now').onclick = () => {
+            const s = document.getElementById('status');
+            if (s) s.textContent = '⚙️ 설치 시작 — 10~20초 후 자동으로 다시 열립니다';
+            const r = document.getElementById('upd-btn-row');
+            if (r) r.style.display = 'none';
+            ipcRenderer.send('updater:install-now');
+          };
+          document.getElementById('upd-later').onclick = () => {
+            ipcRenderer.send('updater:later');
+          };
+        } else {
+          btnRow.style.display = 'flex';
+        }
       })();`
     );
   } catch {}
@@ -581,31 +610,24 @@ export function initAutoUpdaterEarly(): void {
     broadcastEvent('downloaded', { version: info?.version });
     if (stuckCheckTimer) { clearTimeout(stuckCheckTimer); stuckCheckTimer = null; }
 
-    // v2.45.0 UPD1+UPD3: progressWindow 유지 + 메인창 hide (사용자 보고 "이전 LEWORD 동시에 보임" fix)
-    //   - 다운로드 완료 후에도 진행창 유지 → showReadyState 표시
-    //   - 메인창은 hide 유지 (dialog만 사용자에게 노출)
-    //   - "지금 설치" → 메인창 hide 유지 + performQuitAndInstall
-    //   - "나중에" → 진행창 close + 메인창 show (작업 계속 가능)
+    // v2.48.1: dialog 제거 → progressWindow에 버튼 통합
+    //   사용자 보고: "dialog가 splash 뒤에 가려서 못 누름"
+    //   해결: progressWindow가 alwaysOnTop이라 항상 최상위 → 버튼 추가 시 항상 보임
+    //   사용자는 진행창에서 "▶ 지금 설치" 또는 "나중에" 버튼 직접 클릭
     showReadyState(info?.version, 0).catch(() => {});
 
-    const { dialog: dlg } = require('electron');
-    dlg.showMessageBox({
-      type: 'info',
-      title: 'LEWORD 업데이트 준비됨',
-      message: `새 버전 v${info?.version} 다운로드 완료`,
-      detail: '지금 설치하면 5~15초 안에 새 버전이 시작됩니다.\n나중에 선택 시 LEWORD 종료할 때까지 작업 계속 가능하며, 다음 시작 시 다시 안내됩니다.',
-      buttons: ['지금 설치 (권장)', '나중에'],
-      defaultId: 0,
-      cancelId: 1,
-    }).then((result) => {
-      if (result.response === 0) {
+    // IPC 핸들러 등록 (1회만)
+    if (!ipcMainInstallNowRegistered) {
+      ipcMainInstallNowRegistered = true;
+      const { ipcMain } = require('electron');
+      ipcMain.on('updater:install-now', () => {
         if (restartScheduled) return;
         restartScheduled = true;
-        // 메인창 hide 유지 — performQuitAndInstall이 showInstallingState로 진행창에 "설치 중" 표시
+        console.log('[UPDATER] 사용자 "지금 설치" 클릭 → performQuitAndInstall');
         performQuitAndInstall(autoUpdater);
-      } else {
-        console.log('[UPDATER] 사용자 "나중에" 선택 — 메인창 복원');
-        // 진행창 닫고 메인창 다시 표시
+      });
+      ipcMain.on('updater:later', () => {
+        console.log('[UPDATER] 사용자 "나중에" 선택 — progressWindow 닫고 메인창 복원');
         closeProgressWindow();
         try {
           for (const win of hideableWindows) {
@@ -614,8 +636,8 @@ export function initAutoUpdaterEarly(): void {
             }
           }
         } catch {}
-      }
-    });
+      });
+    }
   });
 
   autoUpdater.on('error', (err: any) => {
