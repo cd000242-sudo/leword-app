@@ -501,27 +501,10 @@ export class BlogIndexViaDatalab {
     for (let attempt = 1; attempt <= maxRetries; attempt++) {
       try {
         console.log(`[BLOG-INDEX-API] Puppeteer로 실제 블로그 지수 추출 시도 ${attempt}/${maxRetries}: ${blogId}`);
-        
-        const puppeteer = await import('puppeteer');
-        
-        // Puppeteer 설정 최적화 (성공률 향상)
-        browser = await puppeteer.launch({
-          headless: 'new',
-          args: [
-            '--no-sandbox',
-            '--disable-setuid-sandbox',
-            '--disable-blink-features=AutomationControlled',
-            '--disable-dev-shm-usage',
-            '--disable-web-security',
-            '--disable-features=IsolateOrigins,site-per-process',
-            '--window-size=1920,1080',
-            '--start-maximized'
-          ],
-          defaultViewport: {
-            width: 1920,
-            height: 1080
-          }
-        });
+
+        // v2.46.0 A: browserPool 사용 (chrome.exe 동시 인스턴스 강제 제한 — 저사양 1, 일반 3)
+        const { browserPool } = await import('./puppeteer-pool');
+        browser = await browserPool.acquire();
         
         const page = await browser.newPage();
         
@@ -720,7 +703,7 @@ export class BlogIndexViaDatalab {
               
               if (foundIndex) {
                 console.log(`[BLOG-INDEX-API] ✅ 네트워크 응답에서 블로그 지수 추출 성공: ${foundIndex.blogIndex.toLocaleString()} (소스: ${foundIndex.source || 'unknown'})`);
-                await browser.close();
+                try { const { browserPool } = await import('./puppeteer-pool'); browserPool.release(browser); } catch {}
                 browser = null;
                 return foundIndex.blogIndex;
               }
@@ -912,7 +895,7 @@ export class BlogIndexViaDatalab {
             
             if (extractedData.blogIndex && extractedData.blogIndex > 0) {
               console.log(`[BLOG-INDEX-API] ✅ Puppeteer 추출 성공 (${url}): ${extractedData.blogIndex.toLocaleString()}`);
-              await browser.close();
+              try { const { browserPool } = await import('./puppeteer-pool'); browserPool.release(browser); } catch {}
               browser = null;
               return extractedData.blogIndex;
             }
@@ -973,7 +956,7 @@ export class BlogIndexViaDatalab {
           
           if (searchExtractedData.blogIndex && searchExtractedData.blogIndex > 0) {
             console.log(`[BLOG-INDEX-API] ✅ Puppeteer 검색 결과에서 추출 성공: ${searchExtractedData.blogIndex.toLocaleString()}`);
-            await browser.close();
+            try { const { browserPool } = await import('./puppeteer-pool'); browserPool.release(browser); } catch {}
             browser = null;
             return searchExtractedData.blogIndex;
           }
@@ -981,9 +964,9 @@ export class BlogIndexViaDatalab {
           console.warn(`[BLOG-INDEX-API] Puppeteer 검색 결과 페이지 접근 실패: ${searchError.message}`);
         }
         
-        // 브라우저 닫기
+        // 브라우저 풀에 반환
         if (browser) {
-          await browser.close();
+          try { const { browserPool } = await import('./puppeteer-pool'); browserPool.release(browser); } catch {}
           browser = null;
         }
         
@@ -992,7 +975,7 @@ export class BlogIndexViaDatalab {
           const foundIndex = networkData.find(d => d.blogIndex && d.blogIndex > 1000);
           if (foundIndex) {
             console.log(`[BLOG-INDEX-API] ✅ 네트워크 응답에서 블로그 지수 최종 추출 성공: ${foundIndex.blogIndex.toLocaleString()}`);
-            await browser.close();
+            try { const { browserPool } = await import('./puppeteer-pool'); browserPool.release(browser); } catch {}
             browser = null;
             return foundIndex.blogIndex;
           }
@@ -1008,7 +991,8 @@ export class BlogIndexViaDatalab {
       } catch (error: any) {
         if (browser) {
           try {
-            await browser.close();
+            const { browserPool } = await import('./puppeteer-pool');
+            browserPool.release(browser);
           } catch (e) {
             // 무시
           }

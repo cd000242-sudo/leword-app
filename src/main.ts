@@ -1025,17 +1025,20 @@ app.whenReady().then(async () => {
   showSplash('✓ 설치 완료 — LEWORD 시작 중...');
 
   // v2.44.2: 이전 세션의 좀비 chrome.exe 정리 (LEWORD 번들 chromium만)
-  //   사용자 보고: "앱 열면 chrome.exe가 12개씩 쌓여있음" → CPU/RAM 폭주
-  //   원인: 강제 종료/NSIS 업데이트 시 자식 chrome 안 닫힘 + 다음 launch 누적
-  try {
-    const { cleanupChromeZombies } = await import('./utils/chrome-zombie-cleaner');
-    const killed = await cleanupChromeZombies(5000);
-    if (killed > 0) {
-      console.log(`[STARTUP] ✅ 이전 세션 좀비 chrome.exe ${killed}개 정리 완료`);
+  // v2.46.0 F: 메인창 표시 차단하지 않도록 비차단(fire-and-forget) + timeout 2s로 단축
+  //   기존: await 5초 → 콜드 스타트 5초 추가
+  //   변경: 백그라운드 진행 → 메인창 표시 즉시
+  (async () => {
+    try {
+      const { cleanupChromeZombies } = await import('./utils/chrome-zombie-cleaner');
+      const killed = await cleanupChromeZombies(2000);
+      if (killed > 0) {
+        console.log(`[STARTUP] ✅ 이전 세션 좀비 chrome.exe ${killed}개 정리 완료`);
+      }
+    } catch (e: any) {
+      console.warn('[STARTUP] 좀비 정리 실패 (무시):', e?.message);
     }
-  } catch (e: any) {
-    console.warn('[STARTUP] 좀비 정리 실패 (무시):', e?.message);
-  }
+  })();
 
   // v2.43.75: 이전 세션 비정상 종료 확인 — 사용자에게 안내
   try {

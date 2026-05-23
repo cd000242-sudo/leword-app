@@ -657,6 +657,9 @@ export function setupPremiumHuntingHandlers(): void {
       explosionMode?: boolean;
       count?: number;
     }) => {
+      // v2.46.0 E: 발굴 중 백그라운드 작업 일시 정지
+      const { markHuntStarted, markHuntEnded } = await import('../../utils/hunt-progress-flag');
+      markHuntStarted();
       try {
         // 🔒 PRO 기능은 1년/영구제만 사용 가능
         const license = await licenseManager.loadLicense();
@@ -793,8 +796,17 @@ export function setupPremiumHuntingHandlers(): void {
             const kw = String(k.keyword || '').trim();
             if (!kw) continue;
             const dc = Number(k.documentCount || k.docCount || 0);
-            // v2.45.0 H3: pc/mobile 일부만 정의되어도 안전 합산 (이전: undefined + N = NaN → 0 손실)
+            // v2.45.0 H3: pc/mobile 일부만 정의되어도 안전 합산
             const sv = Number(k.searchVolume || ((Number(k.monthlyPcQcCnt) || 0) + (Number(k.monthlyMobileQcCnt) || 0)) || 0);
+
+            // v2.46.0 C: sv=0이면 어차피 SSS 불가 → 무거운 diagnoseKeyword 평가 스킵 (CPU 절감)
+            //   diagnoseKeyword 내부 정규식/카테고리 분류가 키워드당 0.5~2ms. 100건이면 200ms 절감.
+            //   SSS 조건: 검색량 1000+, 점수 85+. sv=0이면 자동 차단.
+            if (sv === 0) {
+              bloggerBlocked++;
+              continue;
+            }
+
             const diag = diagnoseKeyword(kw, dc, sv);
             if (diag.blockedBy === 'POLYSEMY/VERB' || diag.blockedBy === 'GENERIC_BROAD' || diag.blockedBy === 'NEWS_NOISE') {
               bloggerBlocked++;
@@ -881,6 +893,9 @@ export function setupPremiumHuntingHandlers(): void {
             mode: 'error'
           }
         };
+      } finally {
+        // v2.46.0 E: 발굴 종료 — 백그라운드 작업 재개
+        markHuntEnded();
       }
     });
     console.log('[KEYWORD-MASTER] ✅ hunt-pro-traffic-keywords 핸들러 등록 완료');

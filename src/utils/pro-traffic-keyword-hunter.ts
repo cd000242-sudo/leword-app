@@ -1942,8 +1942,9 @@ export async function fetchKeywordDataParallel(
           timestamp: Date.now(),
           isRealData: true
         };
-        apiCache.set(result.keyword, cacheData);
-        apiCache.set(normalizedKeyword, cacheData);
+        // v2.46.0 B: 중복 키 저장 제거 — 정규화 키 1개만 사용. 캐시 압박 3배 감소.
+        //   기존: keyword/normalizedKeyword/cleanKeyword 3개 모두 저장 → maxSize=1000 빠른 소진
+        //   변경: cleanKeyword (가장 일반화된 형태) 하나만 저장
         apiCache.set(cleanKeyword, cacheData);
         // 🗄️ 영구 캐시에도 저장 (cross-run 보존)
         setPersistent(result.keyword, {
@@ -2004,7 +2005,7 @@ async function fetchKeywordDataBatch(keywords: string[]): Promise<void> {
         timestamp: Date.now(),
         isRealData: true,
       };
-      apiCache.set(kw, entry);
+      // v2.46.0 B: 정규화 키 1개만 저장 (중복 제거)
       apiCache.set(cleanKw, entry);
       persistentHits++;
     }

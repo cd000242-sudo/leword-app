@@ -4,9 +4,12 @@
  * 저사양 PC에서 RAM/CPU 폭주를 막기 위해 자동으로 한도를 낮춘다.
  * 환경설정의 lowSpecMode가 'auto'일 때만 사용 (사용자가 명시적으로 on/off하면 무시).
  *
- * 기준:
- *   - LOW: RAM < 8GB OR CPU 논리코어 <= 4
+ * 기준 (v2.46.0 — 2026년 한국 PC 평균 16GB/8코어 반영):
+ *   - LOW: RAM < 12GB OR CPU 논리코어 <= 6
  *   - NORMAL: 그 외
+ *
+ * 이전 기준(RAM < 8GB, CPU <= 4)은 2018년 수준. 16GB가 사무용 표준이라
+ * 12GB 미만은 저사양 모드 자동 활성화하여 CPU/RAM 보호.
  */
 
 import * as os from 'os';
@@ -33,7 +36,8 @@ export function getSystemProfile(): SystemProfile {
   const freeMemGB = freeBytes / (1024 * 1024 * 1024);
   const cpuCount = os.cpus().length;
 
-  const isLowSpec = totalMemGB < 8 || cpuCount <= 4;
+  // v2.46.0: 임계값 강화 (2026년 한국 사무용 PC 평균 16GB/8코어 반영)
+  const isLowSpec = totalMemGB < 12 || cpuCount <= 6;
 
   cached = {
     isLowSpec,

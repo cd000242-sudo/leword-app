@@ -96,6 +96,14 @@ async function autoEnqueueFromProfile(): Promise<void> {
 }
 
 async function runOnce(): Promise<void> {
+  // v2.46.0 E: 사용자 발굴 중이면 skip
+  try {
+    const { shouldSkipBackground } = require('../hunt-progress-flag');
+    if (shouldSkipBackground()) {
+      console.log('[PRECRAWL] ⏸ 사용자 발굴 중 — skip');
+      return;
+    }
+  } catch {}
   const store = loadStore();
   if (store.queue.length === 0) {
     // 큐 비어있으면 프로파일 기반 자동 수집

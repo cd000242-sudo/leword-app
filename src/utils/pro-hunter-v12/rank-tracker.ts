@@ -62,6 +62,14 @@ async function findRankForPost(keyword: string, postUrl: string): Promise<number
 }
 
 async function runCheck(): Promise<void> {
+  // v2.46.0 E: 사용자 발굴 중이면 skip
+  try {
+    const { shouldSkipBackground } = require('../hunt-progress-flag');
+    if (shouldSkipBackground()) {
+      console.log('[RANK-TRACKER] ⏸ 사용자 발굴 중 — 순위 체크 skip');
+      return;
+    }
+  } catch {}
   const posts = listTrackedPosts();
   if (posts.length === 0) return;
 

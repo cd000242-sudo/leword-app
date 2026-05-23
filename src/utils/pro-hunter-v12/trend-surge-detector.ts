@@ -200,6 +200,14 @@ export function clearSurgeHistory(): void {
 let timer: NodeJS.Timeout | null = null;
 
 async function autoScan(): Promise<void> {
+  // v2.46.0 E: 사용자 발굴 중이면 skip
+  try {
+    const { shouldSkipBackground } = require('../hunt-progress-flag');
+    if (shouldSkipBackground()) {
+      console.log('[SURGE] ⏸ 사용자 발굴 중 — skip');
+      return;
+    }
+  } catch {}
   // v2.43.53: 60→20개 (펜 진정. 6h 주기 × 20개 = 백그라운드 API 1/3)
   try {
     const { listTrackedKeywords } = await import('./tracking-store');

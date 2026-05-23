@@ -61,6 +61,14 @@ async function fetchSearchVolume(keyword: string): Promise<number | null> {
 }
 
 async function runCheck(): Promise<void> {
+  // v2.46.0 E: 사용자 발굴 중이면 skip
+  try {
+    const { shouldSkipBackground } = require('../hunt-progress-flag');
+    if (shouldSkipBackground()) {
+      console.log('[LIFECYCLE] ⏸ 사용자 발굴 중 — 추적 skip');
+      return;
+    }
+  } catch {}
   const tracked = listTrackedKeywords();
   if (tracked.length === 0) return;
 

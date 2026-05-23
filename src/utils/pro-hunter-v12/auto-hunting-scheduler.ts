@@ -81,6 +81,14 @@ function scheduleNextRun(): number {
 }
 
 async function runDailyHunt(): Promise<void> {
+    // v2.46.0 E: 사용자 발굴 중이면 skip (CPU 보호)
+    try {
+      const { shouldSkipBackground } = require('../hunt-progress-flag');
+      if (shouldSkipBackground()) {
+        console.log('[AUTO-HUNT] ⏸ 사용자 발굴 진행 중 — 자동 헌팅 skip');
+        return;
+      }
+    } catch {}
     console.log('[AUTO-HUNT] 🤖 매일 자동 헌팅 시작:', new Date().toISOString());
     try {
         const { huntAdsenseKeywords } = await import('../adsense-keyword-hunter');
