@@ -1024,6 +1024,19 @@ app.whenReady().then(async () => {
   // v2.43.70: 첫 메시지를 progressWindow 마지막 메시지와 자연 연결
   showSplash('✓ 설치 완료 — LEWORD 시작 중...');
 
+  // v2.44.2: 이전 세션의 좀비 chrome.exe 정리 (LEWORD 번들 chromium만)
+  //   사용자 보고: "앱 열면 chrome.exe가 12개씩 쌓여있음" → CPU/RAM 폭주
+  //   원인: 강제 종료/NSIS 업데이트 시 자식 chrome 안 닫힘 + 다음 launch 누적
+  try {
+    const { cleanupChromeZombies } = await import('./utils/chrome-zombie-cleaner');
+    const killed = await cleanupChromeZombies(5000);
+    if (killed > 0) {
+      console.log(`[STARTUP] ✅ 이전 세션 좀비 chrome.exe ${killed}개 정리 완료`);
+    }
+  } catch (e: any) {
+    console.warn('[STARTUP] 좀비 정리 실패 (무시):', e?.message);
+  }
+
   // v2.43.75: 이전 세션 비정상 종료 확인 — 사용자에게 안내
   try {
     const crashCheck = checkPreviousCrash();
@@ -1200,35 +1213,68 @@ app.whenReady().then(async () => {
   });
 });
 
-// v2.43.0: 좀비 chrome.exe 방지 강화 + 풀/캐시 graceful destroy
-app.on('before-quit', async () => {
+// v2.43.0 → v2.44.2: 좀비 chrome.exe 방지 강화 + before-quit 동기화
+//   v2.44.2 변경:
+//     - 기존: async 핸들러인데 Electron이 동기 처리 기대 → graceful destroy 끝나기 전에
+//       taskkill /F /T /PID self 호출 → 자식 chrome.exe 고아 프로세스화
+//     - 신규: e.preventDefault()로 quit 보류 → graceful 완료 후 app.exit(0)
+//     - taskkill self 제거. 대신 chrome-zombie-cleaner로 LEWORD chromium만 식별 정리
+let gracefulQuitInProgress = false;
+let gracefulQuitDone = false;
+app.on('before-quit', (e) => {
+  if (gracefulQuitDone) return;
+  if (gracefulQuitInProgress) {
+    e.preventDefault();
+    return;
+  }
+  e.preventDefault();
+  gracefulQuitInProgress = true;
   (app as any).isQuiting = true;
-  // 1) puppeteer 풀 graceful destroy (자기 자식 chrome.exe 정상 종료 시도)
-  try {
-    const { browserPool } = await import('./utils/puppeteer-pool');
-    if (browserPool && typeof browserPool.destroy === 'function') {
-      await Promise.race([
-        browserPool.destroy(),
-        new Promise(r => setTimeout(r, 3000)),
-      ]);
+
+  (async () => {
+    // 1) puppeteer 풀 graceful destroy (자기 자식 chrome.exe 정상 종료 시도)
+    try {
+      const { browserPool } = await import('./utils/puppeteer-pool');
+      if (browserPool && typeof browserPool.destroy === 'function') {
+        await Promise.race([
+          browserPool.destroy(),
+          new Promise(r => setTimeout(r, 3000)),
+        ]);
+      }
+    } catch (e: any) { console.warn('[QUIT] browserPool.destroy:', e?.message); }
+
+    // 2) api-cache cleanup interval 정리
+    try {
+      const { apiCache } = await import('./utils/api-cache');
+      if (apiCache && typeof (apiCache as any).destroy === 'function') (apiCache as any).destroy();
+    } catch {}
+
+    // 3) LEWORD 번들 chromium chrome.exe 좀비 정리 (시스템 chrome은 건드리지 않음)
+    try {
+      const { cleanupChromeZombies } = await import('./utils/chrome-zombie-cleaner');
+      await cleanupChromeZombies(3000);
+    } catch (e: any) { console.warn('[QUIT] chrome zombie cleanup:', e?.message); }
+
+    // 4) 트레이 정리
+    try { tray?.destroy(); tray = null; } catch {}
+
+    // 5) 정상 종료
+    gracefulQuitDone = true;
+    app.exit(0);
+  })().catch(err => {
+    console.warn('[QUIT] graceful quit 실패, 강제 종료:', err?.message);
+    gracefulQuitDone = true;
+    app.exit(1);
+  });
+
+  // 안전망: 10초 안에 안 끝나면 강제 종료
+  setTimeout(() => {
+    if (!gracefulQuitDone) {
+      console.warn('[QUIT] graceful quit 타임아웃 — 강제 종료');
+      gracefulQuitDone = true;
+      app.exit(2);
     }
-  } catch (e: any) { console.warn('[QUIT] browserPool.destroy:', e?.message); }
-  // 2) api-cache cleanup interval 정리
-  try {
-    const { apiCache } = await import('./utils/api-cache');
-    if (apiCache && typeof (apiCache as any).destroy === 'function') (apiCache as any).destroy();
-  } catch {}
-  // 3) Windows: 프로세스 트리 강제 정리 (wmic deprecated → taskkill /F /T)
-  try {
-    const { exec } = require('child_process');
-    if (process.platform === 'win32') {
-      exec(`taskkill /F /T /PID ${process.pid}`, (err: Error | null) => {
-        if (err) console.warn('[QUIT] taskkill:', err.message);
-      });
-    }
-  } catch (e: any) { console.warn('[QUIT] taskkill exec:', e?.message); }
-  // 4) 트레이 정리
-  try { tray?.destroy(); tray = null; } catch {}
+  }, 10000).unref?.();
 });
 
 app.on('window-all-closed', () => {
