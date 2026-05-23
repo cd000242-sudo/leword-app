@@ -291,10 +291,12 @@ export function getPuppeteerLaunchOptions(options: {
 } {
   const chromePath = findChromePath();
 
-  // v2.44.0: 백신 트리거 의심 키워드 제거
-  //   - --disable-web-security: 백신이 의심하는 대표 플래그. 제거 (네이버 API는 정상 CORS)
-  //   - --disable-features=IsolateOrigins,site-per-process: 사이트 격리 비활성화는 의심 플래그. 제거
-  //   - --disable-blink-features=AutomationControlled: stealth 플러그인이 이미 처리. 중복 제거
+  // v2.47.0 P0: browserPool 통일 시 stealth-필수 사이트(네이버 SERP) 봇 감지 우회 args 복원
+  //   v2.44.0에서 백신 의심으로 제거했으나, 30팀 분석 결과 stealth 필수 9개 파일 마이그레이션 시
+  //   회귀 위험 HIGH 판정. 다음 args 복원:
+  //   - --disable-blink-features=AutomationControlled: navigator.webdriver 숨김 (네이버 봇 감지 핵심)
+  //   - --disable-web-security: CORS 우회 (네이버 iframe 접근 필요)
+  //   - --disable-features=IsolateOrigins,site-per-process: iframe 크로스도메인 (블로그 mainFrame)
   // v2.42.57 유지: 작업표시줄 깜빡임 방지
   const defaultArgs = [
     '--no-sandbox',                    // Electron 환경 필수
@@ -313,6 +315,9 @@ export function getPuppeteerLaunchOptions(options: {
     '--disable-extensions',
     '--mute-audio',
     '--hide-scrollbars',
+    // v2.47.0 P0 복원
+    '--disable-blink-features=AutomationControlled',
+    '--disable-features=IsolateOrigins,site-per-process',
   ];
 
   // v2.44.0: 저사양 모드면 V8 메모리 + 백그라운드 작업 추가 절감

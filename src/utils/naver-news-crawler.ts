@@ -153,18 +153,14 @@ export interface NaverNewsResult {
 import { getPuppeteerLaunchOptions } from './chrome-finder';
 
 /**
- * 브라우저 초기화 (자동 Chrome/Chromium 탐지)
+ * v2.47.0 P4: browserPool 통일 — chrome.exe 동시 인스턴스 제한 + 메모리 절감
+ *   기존: puppeteer.launch (매번 새 chrome.exe)
+ *   변경: browserPool.acquire (재사용, idle 후 자동 정리)
+ *   호출자는 close 대신 release 사용 (이미 finally 패턴)
  */
 async function initBrowser(): Promise<Browser> {
-  const launchOptions = getPuppeteerLaunchOptions({
-    headless: 'new',
-    args: [
-      '--disable-images',
-      '--blink-settings=imagesEnabled=false'
-    ]
-  });
-  
-  return await puppeteer.launch(launchOptions) as Browser;
+  const { browserPool } = await import('./puppeteer-pool');
+  return await browserPool.acquire() as Browser;
 }
 
 /**
@@ -686,7 +682,7 @@ export async function getNaverPopularNews(): Promise<NaverNewsResult> {
     };
   } finally {
     if (browser) {
-      try { await browser.close(); } catch (e) {}
+      try { const { browserPool } = await import('./puppeteer-pool'); browserPool.release(browser); } catch (e) {}
     }
   }
 }
@@ -746,7 +742,7 @@ export async function getNaverNewsByCategory(categoryName: string): Promise<Nave
     };
   } finally {
     if (browser) {
-      try { await browser.close(); } catch (e) {}
+      try { const { browserPool } = await import('./puppeteer-pool'); browserPool.release(browser); } catch (e) {}
     }
   }
 }

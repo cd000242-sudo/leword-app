@@ -70,24 +70,23 @@ function getChromePath(): string | undefined {
   return undefined;
 }
 
+/**
+ * v2.47.0 P5: browserPool 통일 — singleton 제거
+ *   기존: 자체 browserInstance + puppeteer.launch
+ *   변경: 매 호출마다 browserPool.acquire (release는 호출자 finally에서)
+ *   stealth는 setupStealthPage(page)로 page-level 적용
+ */
 async function getBrowser(): Promise<Browser> {
-  if (browserInstance) {
-    try { await browserInstance.version(); return browserInstance; } catch { browserInstance = null; }
-  }
-  
-  console.log('[KIN-CRAWLER] 🌐 브라우저 시작...');
-  
-  browserInstance = await puppeteer.launch({
-    headless: 'new',
-    executablePath: getChromePath(),
-    args: ['--no-sandbox', '--disable-setuid-sandbox', '--disable-dev-shm-usage', '--disable-gpu', '--window-size=1920,1080']
-  }) as Browser;
-  
-  return browserInstance;
+  const { browserPool } = await import('./puppeteer-pool');
+  return await browserPool.acquire() as Browser;
 }
 
 export async function closeBrowser(): Promise<void> {
-  if (browserInstance) { try { await browserInstance.close(); } catch {} browserInstance = null; }
+  // v2.47.0 P5: 호환성 — 외부에서 closeBrowser() 부르면 idle pool 정리
+  try {
+    const { browserPool } = await import('./puppeteer-pool');
+    await browserPool.closeIdle();
+  } catch {}
 }
 
 // ============================================================
@@ -324,7 +323,8 @@ export async function getPopularQuestions(limit: number = 20): Promise<KinQuesti
     console.error('[KIN-CRAWLER] ❌ 많이 본 Q&A 수집 실패:', error.message);
     return [];
   } finally {
-    await page.close();
+    try { await page.close(); } catch {}
+    try { const { browserPool } = await import('./puppeteer-pool'); browserPool.release(browser); } catch {}
   }
 }
 
@@ -518,7 +518,8 @@ export async function findHiddenGoldenQuestions(options: {
     console.error('[KIN-CRAWLER] ❌ 실패:', error.message);
     return [];
   } finally {
-    await page.close();
+    try { await page.close(); } catch {}
+    try { const { browserPool } = await import('./puppeteer-pool'); browserPool.release(browser); } catch {}
   }
 }
 

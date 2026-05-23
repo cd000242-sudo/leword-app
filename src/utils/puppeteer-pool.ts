@@ -94,7 +94,7 @@ function classifyLaunchError(err: any, executablePath?: string): PuppeteerLaunch
 
 class BrowserInstance {
   browser: any;
-  pages: any[] = [];
+  pages: Set<any> = new Set(); // v2.47.0 P1: page 추적 (release 시 cleanup)
   lastUsed: number;
   inUse: boolean = false;
 
@@ -103,7 +103,31 @@ class BrowserInstance {
     this.lastUsed = Date.now();
   }
 
+  /**
+   * v2.47.0 P1: page 생성 + 자동 추적 헬퍼
+   * 호출자가 browser.newPage() 대신 instance.newTrackedPage() 호출하면 자동 cleanup
+   */
+  async newTrackedPage(): Promise<any> {
+    const page = await this.browser.newPage();
+    this.pages.add(page);
+    page.once('close', () => this.pages.delete(page));
+    return page;
+  }
+
+  /**
+   * v2.47.0 P1: 모든 page 강제 close (release 시 호출 — 누수 방지)
+   */
+  async closeAllPages(): Promise<void> {
+    const pages = Array.from(this.pages);
+    this.pages.clear();
+    await Promise.allSettled(pages.map(p => {
+      try { return p.close(); } catch { return Promise.resolve(); }
+    }));
+  }
+
   async close(): Promise<void> {
+    // v2.47.0 P1: browser.close 전에 page 먼저 정리 (메모리 누수 방지)
+    await this.closeAllPages();
     if (this.browser) {
       await this.browser.close();
     }
@@ -172,10 +196,15 @@ export class PuppeteerPool {
   /**
    * 브라우저 인스턴스 반환
    * v2.44.1: 대기 중인 waiter 있으면 즉시 넘김
+   * v2.47.0 P1: release 시 미정리 page 강제 close (메모리 누수 방지)
    */
   release(browser: any): void {
     const instance = this.pool.find(b => b.browser === browser);
     if (instance) {
+      // v2.47.0 P1: 미정리 page 비동기 cleanup (호출자가 page.close 누락한 경우)
+      if (instance.pages.size > 0) {
+        instance.closeAllPages().catch(() => {});
+      }
       instance.inUse = false;
       instance.lastUsed = Date.now();
     }
@@ -187,6 +216,24 @@ export class PuppeteerPool {
       instance.lastUsed = Date.now();
       waiter.resolve(instance.browser);
     }
+  }
+
+  /**
+   * v2.47.0 P1: stealth 적용된 page를 함께 반환
+   *   네이버 SERP/블로그 등 봇 감지 우회 필수 사이트용
+   *   반환 후 { browser, page } 사용. release(browser) 시 page는 자동 정리됨.
+   */
+  async acquireWithStealth(): Promise<{ browser: any; page: any }> {
+    const browser = await this.acquire();
+    const instance = this.pool.find(b => b.browser === browser)!;
+    const page = await instance.newTrackedPage();
+    try {
+      const { setupStealthPage } = await import('./stealth-browser');
+      await setupStealthPage(page);
+    } catch (e: any) {
+      console.warn('[PUPPETEER-POOL] setupStealthPage 실패 (무시):', e?.message);
+    }
+    return { browser, page };
   }
 
   /**

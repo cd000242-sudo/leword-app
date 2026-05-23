@@ -98,38 +98,23 @@ export class AccurateBlogIndexExtractor {
   }
 
   /**
-   * 브라우저 인스턴스 가져오기 (재사용)
+   * v2.47.0 P7: browserPool 통일 — 자체 싱글톤 제거 + idleTimer 제거
+   *   기존: 자체 browserInstance + 5분 idle 자동 close
+   *   변경: 매 호출마다 browserPool.acquire (60s idle browserPool 관리)
+   *   release는 extractAccurateBlogIndex finally에서 처리
    */
   private async getBrowser(): Promise<Browser> {
-    if (this.browserInstance && this.browserInstance.connected) {
-      this.bumpIdleTimer();
-      return this.browserInstance;
-    }
-
-    this.browserInstance = await puppeteer.launch({
-      headless: 'new',
-      args: [
-        '--no-sandbox',
-        '--disable-setuid-sandbox',
-        '--disable-blink-features=AutomationControlled',
-        '--disable-dev-shm-usage',
-        '--disable-gpu',
-        '--window-size=1920,1080'
-      ]
-    });
-    this.bumpIdleTimer();
-    return this.browserInstance;
+    const { browserPool } = await import('./puppeteer-pool');
+    return await browserPool.acquire() as Browser;
   }
 
   /**
-   * 브라우저 종료
+   * 브라우저 종료 (호환성 유지 — noop)
+   * browserPool이 idle 관리하므로 명시적 close 불필요.
    */
   async closeBrowser(): Promise<void> {
     if (this.idleTimer) { clearTimeout(this.idleTimer); this.idleTimer = null; }
-    if (this.browserInstance) {
-      await this.browserInstance.close();
-      this.browserInstance = null;
-    }
+    // browserPool이 알아서 정리
   }
   
   /**
@@ -219,15 +204,20 @@ export class AccurateBlogIndexExtractor {
       
     } catch (error: any) {
       console.error(`[BLOG-INDEX-EXTRACTOR] 오류:`, error.message);
-      
+
       if (page) {
         try { await page.close(); } catch {}
       }
-      
+
       return null;
+    } finally {
+      // v2.47.0 P7: browserPool에 browser 반환 (page는 위에서 close됨)
+      if (browser) {
+        try { const { browserPool } = await import('./puppeteer-pool'); browserPool.release(browser); } catch {}
+      }
     }
   }
-  
+
   /**
    * 블로그 통계 추출 (프로필 페이지에서)
    */

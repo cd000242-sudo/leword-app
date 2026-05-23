@@ -161,30 +161,15 @@ let browserInstance: Browser | null = null;
 // 중앙화된 Chrome 찾기 사용
 import { getPuppeteerLaunchOptions } from './chrome-finder';
 
+/**
+ * v2.47.0 P3: browserPool 통일 — 자체 singleton 제거
+ *   기존: 자체 browserInstance + 매 호출 재사용 (release 시점 없음 → RAM 누적)
+ *   변경: 매 호출마다 browserPool.acquire → 호출자 finally에서 release
+ *   결과: chrome.exe 동시 인스턴스 강제 제한 + idle 자동 정리
+ */
 async function getBrowser(): Promise<Browser> {
-  if (browserInstance) {
-    try { 
-      await browserInstance.version(); 
-      return browserInstance; 
-    } catch { 
-      browserInstance = null; 
-    }
-  }
-  
-  console.log('[BROWSER] 🌐 브라우저 시작...');
-  
-  const launchOptions = getPuppeteerLaunchOptions({
-    headless: 'new',
-    args: ['--lang=ko-KR']
-  });
-  
-  browserInstance = await puppeteer.launch({
-    ...launchOptions,
-    defaultViewport: { width: 1920, height: 1080 }
-  }) as Browser;
-  
-  console.log('[BROWSER] ✅ 브라우저 시작 완료!');
-  return browserInstance;
+  const { browserPool } = await import('./puppeteer-pool');
+  return await browserPool.acquire() as Browser;
 }
 
 async function createPage(browser: Browser): Promise<Page> {
@@ -208,10 +193,13 @@ async function createPage(browser: Browser): Promise<Page> {
 }
 
 export async function closeBrowser(): Promise<void> {
-  if (browserInstance) {
-    try { await browserInstance.close(); } catch {}
-    browserInstance = null;
-  }
+  // v2.47.0 P3: 호출자(IPC 핸들러)가 closeBrowser() 부르던 패턴 호환 유지
+  //   - browserPool.closeIdle()로 idle browser 정리 (in-use는 안 건드림)
+  //   - 다음 acquire가 막히지 않도록 함
+  try {
+    const { browserPool } = await import('./puppeteer-pool');
+    await browserPool.closeIdle();
+  } catch {}
 }
 
 // ============================================================

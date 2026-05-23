@@ -99,35 +99,77 @@ export async function setupStealthPage(page: puppeteer.Page): Promise<void> {
     deviceScaleFactor: 1
   });
   
-  // 5. WebDriver 감지 방지 스크립트 주입
+  // 5. WebDriver 감지 방지 스크립트 주입 (v2.47.0 P2 강화)
   await page.evaluateOnNewDocument(() => {
     // webdriver 속성 숨기기
     Object.defineProperty(navigator, 'webdriver', {
       get: () => false
     });
-    
-    // Chrome 객체 추가
+
+    // v2.47.0 P2: Chrome runtime 완전 모킹 (네이버 봇 감지 우회)
     (window as any).chrome = {
-      runtime: {}
+      runtime: {
+        OnInstalledReason: { INSTALL: 'install', UPDATE: 'update', CHROME_UPDATE: 'chrome_update' },
+        OnRestartRequiredReason: { APP_UPDATE: 'app_update', OS_UPDATE: 'os_update', PERIODIC: 'periodic' },
+        PlatformArch: { ARM: 'arm', ARM64: 'arm64', MIPS: 'mips', MIPS64: 'mips64', X86_32: 'x86-32', X86_64: 'x86-64' },
+        PlatformNaclArch: { ARM: 'arm', MIPS: 'mips', MIPS64: 'mips64', X86_32: 'x86-32', X86_64: 'x86-64' },
+        PlatformOs: { ANDROID: 'android', CROS: 'cros', LINUX: 'linux', MAC: 'mac', OPENBSD: 'openbsd', WIN: 'win' },
+        RequestUpdateCheckStatus: { NO_UPDATE: 'no_update', THROTTLED: 'throttled', UPDATE_AVAILABLE: 'update_available' }
+      },
+      loadTimes: () => ({ requestTime: Date.now() / 1000, startLoadTime: Date.now() / 1000 }),
+      csi: () => ({ pageT: Date.now(), startE: Date.now(), tran: 15 }),
+      app: { isInstalled: false }
     };
-    
-    // Permissions API 모킹
-    const originalQuery = (window.navigator as any).permissions.query;
-    (window.navigator as any).permissions.query = (parameters: any) => (
-      parameters.name === 'notifications' ?
-        Promise.resolve({ state: Notification.permission } as PermissionStatus) :
-        originalQuery(parameters)
-    );
-    
-    // Plugins 모킹
+
+    // v2.47.0 P2: Permissions API 완전 모킹
+    const originalQuery = (window.navigator as any).permissions?.query;
+    if (originalQuery) {
+      (window.navigator as any).permissions.query = (parameters: any) => {
+        if (parameters.name === 'notifications') {
+          return Promise.resolve({ state: Notification.permission } as PermissionStatus);
+        }
+        // 일반 권한도 정상값 반환 (실제 브라우저 흉내)
+        return originalQuery(parameters).catch(() =>
+          Promise.resolve({ state: 'prompt' } as PermissionStatus)
+        );
+      };
+    }
+
+    // Plugins 모킹 (실제 PluginArray 흉내)
     Object.defineProperty(navigator, 'plugins', {
-      get: () => [1, 2, 3, 4, 5]
+      get: () => {
+        const plugins = [
+          { name: 'PDF Viewer', filename: 'internal-pdf-viewer' },
+          { name: 'Chrome PDF Viewer', filename: 'internal-pdf-viewer' },
+          { name: 'Chromium PDF Viewer', filename: 'internal-pdf-viewer' },
+        ];
+        (plugins as any).item = (i: number) => plugins[i];
+        (plugins as any).namedItem = (name: string) => plugins.find(p => p.name === name);
+        (plugins as any).refresh = () => {};
+        return plugins;
+      }
     });
-    
+
+    // MimeTypes 모킹
+    Object.defineProperty(navigator, 'mimeTypes', {
+      get: () => {
+        const types = [{ type: 'application/pdf', suffixes: 'pdf', description: '' }];
+        (types as any).item = (i: number) => types[i];
+        return types;
+      }
+    });
+
     // Languages 설정
     Object.defineProperty(navigator, 'languages', {
       get: () => ['ko-KR', 'ko', 'en-US', 'en']
     });
+
+    // v2.47.0 P2: connection 정보 (실제 PC처럼)
+    if (!(navigator as any).connection) {
+      Object.defineProperty(navigator, 'connection', {
+        get: () => ({ effectiveType: '4g', rtt: 50, downlink: 10, saveData: false })
+      });
+    }
   });
   
   // 6. 쿠키 설정 (네이버 관련)

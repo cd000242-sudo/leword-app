@@ -277,23 +277,9 @@ export async function crawlBlogIndex(keyword: string): Promise<BlogAnalysisResul
   let browser: Browser | undefined;
   
   try {
-    // Chrome 경로 찾기
-    const { findChromePath } = await import('./chrome-finder');
-    const chromePath = findChromePath();
-    console.log(`[BLOG-INDEX] Chrome 경로: ${chromePath || 'bundled'}`);
-    
-    browser = await puppeteer.launch({
-      headless: 'new',
-      executablePath: chromePath || undefined,
-      args: [
-        '--no-sandbox', 
-        '--disable-setuid-sandbox', 
-        '--disable-dev-shm-usage', 
-        '--disable-gpu',
-        '--disable-web-security',
-        '--disable-features=IsolateOrigins,site-per-process'
-      ],
-    });
+    // v2.47.0 P6: browserPool 통일
+    const { browserPool } = await import('./puppeteer-pool');
+    browser = await browserPool.acquire();
     
     const page = await browser.newPage();
     await page.setUserAgent('Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/131.0.0.0 Safari/537.36');
@@ -510,7 +496,8 @@ export async function crawlBlogIndex(keyword: string): Promise<BlogAnalysisResul
     throw error;
   } finally {
     if (browser) {
-      await browser.close();
+      // v2.47.0 P6: close → browserPool.release
+      try { const { browserPool } = await import('./puppeteer-pool'); browserPool.release(browser); } catch {}
     }
   }
 }
