@@ -581,10 +581,18 @@ export function initAutoUpdaterEarly(): void {
     broadcastEvent('downloaded', { version: info?.version });
     if (stuckCheckTimer) { clearTimeout(stuckCheckTimer); stuckCheckTimer = null; }
 
-    // v2.48.2: dialog 복원 + parent=progressWindow 지정 (사용자 의도 정확 반영)
-    //   사용자 보고: "dialog를 progressWindow보다 앞으로 오게 해주세요"
-    //   v2.48.1에서 잘못 제거 → v2.48.2에서 복원
-    //   해결: dialog의 parent를 progressWindow로 → modal dialog → parent 위에 자동 표시
+    // v2.48.4: 새 버전 다운로드 완료 시 이전 LEWORD 메인창 강제 hide
+    //   사용자 보고: "새 버전이 있으면 이전 버전은 열리면 안 되고 숨겨주세요"
+    //   원인: hideableWindows.hide() 호출 누락
+    try {
+      for (const win of hideableWindows) {
+        if (win && !win.isDestroyed()) {
+          try { win.hide(); } catch {}
+        }
+      }
+    } catch {}
+
+    // v2.48.2: dialog + parent=progressWindow (modal로 최상위)
     showReadyState(info?.version, 0).catch(() => {});
 
     const { dialog: dlg } = require('electron');
