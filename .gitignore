@@ -6,6 +6,9 @@ release/
 .DS_Store
 *.map
 
+# v2.44.0: 빌드 시 자동 생성되는 Chromium 번들 (~200MB)
+resources/chromium/
+
 
 # 세션 런타임 파일
 .claude/

@@ -9,6 +9,76 @@ interface BrowserPoolConfig {
   headless?: boolean;
 }
 
+export type PuppeteerErrorCode =
+  | 'TIMEOUT'
+  | 'SPAWN_FAILED'
+  | 'NOT_FOUND'
+  | 'PERMISSION_DENIED'
+  | 'UNKNOWN';
+
+export class PuppeteerLaunchError extends Error {
+  code: PuppeteerErrorCode;
+  isAntivirusSuspected: boolean;
+  userMessage: string;
+  originalError: Error;
+  executablePath?: string;
+
+  constructor(opts: {
+    code: PuppeteerErrorCode;
+    isAntivirusSuspected: boolean;
+    userMessage: string;
+    originalError: Error;
+    executablePath?: string;
+  }) {
+    super(opts.userMessage);
+    this.name = 'PuppeteerLaunchError';
+    this.code = opts.code;
+    this.isAntivirusSuspected = opts.isAntivirusSuspected;
+    this.userMessage = opts.userMessage;
+    this.originalError = opts.originalError;
+    this.executablePath = opts.executablePath;
+  }
+}
+
+function classifyLaunchError(err: any, executablePath?: string): PuppeteerLaunchError {
+  const msg = String(err?.message || err || '');
+  const lower = msg.toLowerCase();
+
+  let code: PuppeteerErrorCode = 'UNKNOWN';
+  let isAntivirusSuspected = false;
+  let userMessage = '브라우저를 시작하지 못했습니다.';
+
+  if (lower.includes('eacces') || lower.includes('eperm') || lower.includes('access is denied') || lower.includes('access denied')) {
+    code = 'PERMISSION_DENIED';
+    isAntivirusSuspected = true;
+    userMessage = '브라우저 실행이 차단되었습니다. 백신/보안 프로그램이 막고 있을 가능성이 높습니다.';
+  } else if (lower.includes('enoent') || lower.includes('spawn') && lower.includes('not found')) {
+    code = 'SPAWN_FAILED';
+    isAntivirusSuspected = true;
+    userMessage = '브라우저 실행 파일이 사라졌거나 격리됐습니다. 백신이 chrome.exe를 격리했을 수 있습니다.';
+  } else if (lower.includes('timeout') || lower.includes('timed out')) {
+    code = 'TIMEOUT';
+    isAntivirusSuspected = true;
+    userMessage = '브라우저 시작이 시간 초과되었습니다. 백신 검사로 지연됐을 가능성이 있습니다.';
+  } else if (lower.includes('failed to launch') && !executablePath) {
+    code = 'NOT_FOUND';
+    isAntivirusSuspected = false;
+    userMessage = 'Chromium/Chrome을 찾을 수 없습니다. Chrome 설치 또는 앱 재설치가 필요합니다.';
+  } else if (lower.includes('failed to launch')) {
+    code = 'SPAWN_FAILED';
+    isAntivirusSuspected = true;
+    userMessage = '브라우저 시작 실패. 백신/보안 프로그램 차단 가능성이 있습니다.';
+  }
+
+  return new PuppeteerLaunchError({
+    code,
+    isAntivirusSuspected,
+    userMessage,
+    originalError: err instanceof Error ? err : new Error(msg),
+    executablePath,
+  });
+}
+
 class BrowserInstance {
   browser: any;
   pages: any[] = [];
@@ -38,6 +108,9 @@ export class PuppeteerPool {
   private headless: boolean;
   private puppeteer: any = null;
   private cleanupInterval: NodeJS.Timeout | null = null;
+  // v2.44.1: 풀 가득 시 대기 큐 (재귀 대신 release 이벤트로 깨움)
+  private waiters: Array<{ resolve: (b: any) => void; reject: (e: any) => void; timer: NodeJS.Timeout }> = [];
+  private acquireTimeoutMs: number = 60000;
 
   constructor(config: BrowserPoolConfig = {}) {
     this.maxSize = config.maxSize || 3;
@@ -49,37 +122,43 @@ export class PuppeteerPool {
 
   /**
    * 브라우저 인스턴스 가져오기
+   * v2.44.1: 풀 가득 시 재귀 대신 waiters 큐에 등록 → release()가 깨움
+   *   타임아웃 60s 후에도 못 받으면 reject
    */
   async acquire(): Promise<any> {
-    // 유휴 브라우저 찾기
-    let instance = this.pool.find(b => !b.inUse && b.browser && b.browser.isConnected());
-    
-    if (!instance) {
-      // 새 브라우저 생성
-      if (this.pool.length < this.maxSize) {
-        instance = await this.createBrowser();
-        this.pool.push(instance);
-      } else {
-        // 풀이 가득 찬 경우, 가장 오래된 유휴 브라우저 재사용
-        instance = this.pool
-          .filter(b => b.browser && b.browser.isConnected())
-          .sort((a, b) => a.lastUsed - b.lastUsed)[0];
-        
-        if (!instance) {
-          // 모든 브라우저가 사용 중이면 대기
-          await new Promise(resolve => setTimeout(resolve, 100));
-          return this.acquire();
-        }
-      }
+    // 1) 유휴 브라우저 즉시 반환
+    const instance = this.pool.find(b => !b.inUse && b.browser && b.browser.isConnected());
+    if (instance) {
+      instance.inUse = true;
+      instance.lastUsed = Date.now();
+      return instance.browser;
     }
 
-    instance.inUse = true;
-    instance.lastUsed = Date.now();
-    return instance.browser;
+    // 2) 풀에 자리 있으면 새로 생성
+    if (this.pool.length < this.maxSize) {
+      const created = await this.createBrowser();
+      this.pool.push(created);
+      created.inUse = true;
+      created.lastUsed = Date.now();
+      return created.browser;
+    }
+
+    // 3) 풀 가득 → 대기 큐에 등록 (재귀 X, 무한 대기 X)
+    return new Promise<any>((resolve, reject) => {
+      const timer = setTimeout(() => {
+        const idx = this.waiters.findIndex(w => w.timer === timer);
+        if (idx >= 0) this.waiters.splice(idx, 1);
+        reject(new Error('[PUPPETEER-POOL] acquire timeout (' + this.acquireTimeoutMs + 'ms) — 풀 가득 + release 없음'));
+      }, this.acquireTimeoutMs);
+      // unref: 타이머 때문에 이벤트 루프가 떨어지지 않도록
+      (timer as any).unref?.();
+      this.waiters.push({ resolve, reject, timer });
+    });
   }
 
   /**
    * 브라우저 인스턴스 반환
+   * v2.44.1: 대기 중인 waiter 있으면 즉시 넘김
    */
   release(browser: any): void {
     const instance = this.pool.find(b => b.browser === browser);
@@ -87,25 +166,64 @@ export class PuppeteerPool {
       instance.inUse = false;
       instance.lastUsed = Date.now();
     }
+    // 대기 중 waiter 깨우기
+    const waiter = this.waiters.shift();
+    if (waiter && instance) {
+      clearTimeout(waiter.timer);
+      instance.inUse = true;
+      instance.lastUsed = Date.now();
+      waiter.resolve(instance.browser);
+    }
   }
 
   /**
-   * 새 브라우저 생성
+   * 새 브라우저 생성 (실패 시 PuppeteerLaunchError throw)
+   * 1회 재시도 — 백신이 첫 spawn은 차단하고 두 번째는 통과하는 경우 있음
    */
   private async createBrowser(): Promise<BrowserInstance> {
     if (!this.puppeteer) {
-      this.puppeteer = await import('puppeteer');
+      try {
+        this.puppeteer = await import('puppeteer');
+      } catch (err: any) {
+        throw new PuppeteerLaunchError({
+          code: 'NOT_FOUND',
+          isAntivirusSuspected: false,
+          userMessage: 'Puppeteer 모듈을 로드하지 못했습니다. 앱 재설치가 필요합니다.',
+          originalError: err,
+        });
+      }
     }
 
-    // 배포 환경에서 시스템 Chrome 사용
     const { getPuppeteerLaunchOptions } = await import('./chrome-finder');
     const launchOptions = getPuppeteerLaunchOptions({
       headless: this.headless ? 'new' : false
     });
-    
-    const browser = await this.puppeteer.default.launch(launchOptions);
 
-    return new BrowserInstance(browser);
+    let lastErr: any = null;
+    for (let attempt = 1; attempt <= 2; attempt++) {
+      try {
+        const browser = await this.puppeteer.default.launch(launchOptions);
+        if (attempt > 1) {
+          console.log('[PUPPETEER-POOL] ✅ 재시도 성공 (attempt ' + attempt + ')');
+        }
+        return new BrowserInstance(browser);
+      } catch (err: any) {
+        lastErr = err;
+        console.warn('[PUPPETEER-POOL] ⚠️ launch 실패 (attempt ' + attempt + '):', err?.message || err);
+        if (attempt < 2) {
+          await new Promise(r => setTimeout(r, 800));
+        }
+      }
+    }
+
+    const classified = classifyLaunchError(lastErr, launchOptions.executablePath);
+    console.error('[PUPPETEER-POOL] ❌ launch 최종 실패:', {
+      code: classified.code,
+      isAntivirusSuspected: classified.isAntivirusSuspected,
+      executablePath: classified.executablePath,
+      originalMessage: classified.originalError.message,
+    });
+    throw classified;
   }
 
   /**
@@ -166,12 +284,20 @@ export class PuppeteerPool {
 
   /**
    * 모든 브라우저 종료
+   * v2.44.1: 대기 중인 waiter도 reject 처리
    */
   async destroy(): Promise<void> {
     if (this.cleanupInterval) {
       clearInterval(this.cleanupInterval);
       this.cleanupInterval = null;
     }
+
+    // 대기 큐 정리
+    for (const w of this.waiters) {
+      clearTimeout(w.timer);
+      w.reject(new Error('[PUPPETEER-POOL] destroy 호출됨 — 대기 취소'));
+    }
+    this.waiters = [];
 
     await Promise.all(
       this.pool.map(instance => instance.close())
@@ -197,12 +323,29 @@ export class PuppeteerPool {
   }
 }
 
-// 전역 브라우저 풀 인스턴스
-export const browserPool = new PuppeteerPool({
-  maxSize: 3,
-  idleTimeout: 60000, // v2.43.52: 5분 → 60초 (idle 브라우저 RAM 점유 축소)
-  headless: true
-});
+// v2.44.0: 저사양 PC면 maxSize=1, idleTimeout=30s (RAM 절약)
+//   - RAM<8GB or CPU<=4core 자동 감지
+//   - 사용자 환경설정으로 강제 on/off 가능
+function buildPoolConfig(): BrowserPoolConfig {
+  try {
+    // eslint-disable-next-line @typescript-eslint/no-var-requires
+    const { EnvironmentManager } = require('./environment-manager');
+    // eslint-disable-next-line @typescript-eslint/no-var-requires
+    const { getSystemProfile, effectiveLowSpec } = require('./system-profile');
+    const env = EnvironmentManager.getInstance().getConfig();
+    const isLow = effectiveLowSpec(env.lowSpecMode);
+    const profile = getSystemProfile();
+    if (isLow) {
+      console.log('[PUPPETEER-POOL] 저사양 모드 활성 (mode=' + (env.lowSpecMode || 'auto') + ', RAM=' + profile.totalMemGB + 'GB, CPU=' + profile.cpuCount + '코어)');
+      return { maxSize: 1, idleTimeout: 30000, headless: true };
+    }
+  } catch (e) {
+    // Electron 컨텍스트 밖에서 require 실패할 수 있음 → 기본값
+  }
+  return { maxSize: 3, idleTimeout: 60000, headless: true };
+}
+
+export const browserPool = new PuppeteerPool(buildPoolConfig());
 
 
 

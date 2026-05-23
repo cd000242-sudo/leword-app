@@ -16,6 +16,48 @@ let cachedChromePath: string | null = null;
 let chromiumChecked = false;
 
 /**
+ * v2.44.0: 앱 패키지에 번들된 Chromium 경로를 찾습니다 (최우선).
+ *
+ * extraResources로 포함되면:
+ *   - Packaged: process.resourcesPath/chromium/chrome.exe
+ *   - Dev:      <cwd>/resources/chromium/chrome.exe
+ *
+ * 백신이 시스템 chrome을 차단해도 앱 내장 Chromium은 별도 경로라 종종 통과.
+ */
+function findBundledChromium(): string | undefined {
+  const platform = process.platform;
+  const execName = platform === 'win32'
+    ? 'chrome.exe'
+    : platform === 'darwin'
+      ? path.join('Chromium.app', 'Contents', 'MacOS', 'Chromium')
+      : 'chrome';
+
+  const bases: string[] = [];
+  // Electron packaged: resources/chromium/
+  if ((process as any).resourcesPath) {
+    bases.push(path.join((process as any).resourcesPath, 'chromium'));
+  }
+  // Dev: <cwd>/resources/chromium/
+  bases.push(path.join(process.cwd(), 'resources', 'chromium'));
+  // 옆에 chrome-win64 디렉토리로 풀린 경우도 대응
+  for (const base of [...bases]) {
+    bases.push(path.join(base, 'chrome-win64'));
+    bases.push(path.join(base, 'chrome-win'));
+  }
+
+  for (const base of bases) {
+    const candidate = path.join(base, execName);
+    try {
+      if (fs.existsSync(candidate)) {
+        console.log('[CHROME] ✅ 번들 Chromium 발견:', candidate);
+        return candidate;
+      }
+    } catch { /* 무시 */ }
+  }
+  return undefined;
+}
+
+/**
  * Puppeteer가 다운로드한 Chromium 경로를 찾습니다.
  */
 function findPuppeteerChromium(): string | undefined {
@@ -114,27 +156,34 @@ function findChromiumInPlatformDir(platformDir: string): string | undefined {
 
 /**
  * 시스템에 설치된 Chrome 실행 파일 경로를 찾습니다.
+ *
+ * v2.44.0: LEWORD_PREFER_EDGE=1 환경변수로 Edge 우선 가능
+ *   한국 환경에서 Edge는 Windows 내장이라 백신 화이트리스트에 보통 등록됨.
+ *   백신이 chrome.exe spawn을 차단하는 케이스에서 우회 효과.
  */
 export function findSystemChrome(): string | undefined {
   const platform = process.platform;
-  
+  const preferEdge = process.env['LEWORD_PREFER_EDGE'] === '1';
+
   if (platform === 'win32') {
-    const windowsPaths = [
+    const chromePaths = [
       process.env['PROGRAMFILES'] + '\\Google\\Chrome\\Application\\chrome.exe',
       process.env['PROGRAMFILES(X86)'] + '\\Google\\Chrome\\Application\\chrome.exe',
       process.env['LOCALAPPDATA'] + '\\Google\\Chrome\\Application\\chrome.exe',
       'C:\\Program Files\\Google\\Chrome\\Application\\chrome.exe',
       'C:\\Program Files (x86)\\Google\\Chrome\\Application\\chrome.exe',
-      // Edge 폴백 (Windows)
+    ];
+    const edgePaths = [
       process.env['PROGRAMFILES(X86)'] + '\\Microsoft\\Edge\\Application\\msedge.exe',
       process.env['PROGRAMFILES'] + '\\Microsoft\\Edge\\Application\\msedge.exe',
       'C:\\Program Files\\Microsoft\\Edge\\Application\\msedge.exe',
       'C:\\Program Files (x86)\\Microsoft\\Edge\\Application\\msedge.exe',
     ];
-    
+    const windowsPaths = preferEdge ? [...edgePaths, ...chromePaths] : [...chromePaths, ...edgePaths];
+
     for (const chromePath of windowsPaths) {
       if (chromePath && fs.existsSync(chromePath)) {
-        console.log('[CHROME] ✅ 시스템 브라우저 발견:', chromePath);
+        console.log('[CHROME] ✅ 시스템 브라우저 발견' + (preferEdge ? ' (Edge 우선 모드)' : '') + ':', chromePath);
         return chromePath;
       }
     }
@@ -174,11 +223,12 @@ export function findSystemChrome(): string | undefined {
 
 /**
  * Chrome/Chromium 경로를 찾습니다. (캐시됨)
- * 
- * 우선순위:
- * 1. Puppeteer 번들 Chromium
- * 2. 시스템 Chrome
- * 3. undefined (Puppeteer가 자동으로 다운로드 시도)
+ *
+ * v2.44.0 우선순위:
+ * 1. 앱 번들 Chromium (resources/chromium) — 백신 우회 효과
+ * 2. Puppeteer 캐시 Chromium (~/.cache/puppeteer)
+ * 3. 시스템 Chrome / Edge
+ * 4. undefined (Puppeteer 기본 동작)
  */
 export function findChromePath(): string | undefined {
   // 캐시된 경로가 있으면 반환
@@ -186,7 +236,15 @@ export function findChromePath(): string | undefined {
     return cachedChromePath;
   }
 
-  // 1. Puppeteer 번들 Chromium 찾기
+  // 1. 앱 번들 Chromium (최우선) — packaged 앱에서 가장 신뢰 가능
+  const bundled = findBundledChromium();
+  if (bundled) {
+    cachedChromePath = bundled;
+    chromiumChecked = true;
+    return bundled;
+  }
+
+  // 2. Puppeteer 캐시 Chromium
   const puppeteerChrome = findPuppeteerChromium();
   if (puppeteerChrome) {
     cachedChromePath = puppeteerChrome;
@@ -194,7 +252,7 @@ export function findChromePath(): string | undefined {
     return puppeteerChrome;
   }
 
-  // 2. 시스템 Chrome 찾기
+  // 3. 시스템 Chrome 찾기
   const systemChrome = findSystemChrome();
   if (systemChrome) {
     cachedChromePath = systemChrome;
@@ -233,23 +291,20 @@ export function getPuppeteerLaunchOptions(options: {
 } {
   const chromePath = findChromePath();
 
-  // v2.42.57: Windows 11 작업 표시줄 깜빡임 방지 — 추가 args
-  //   - --no-startup-window: 시작 시 visible 창 띄우지 않음 (작업표시줄 등록 차단)
-  //   - --no-first-run: 첫 실행 가이드 창 차단
-  //   - --no-default-browser-check: 기본 브라우저 체크 창 차단
+  // v2.44.0: 백신 트리거 의심 키워드 제거
+  //   - --disable-web-security: 백신이 의심하는 대표 플래그. 제거 (네이버 API는 정상 CORS)
+  //   - --disable-features=IsolateOrigins,site-per-process: 사이트 격리 비활성화는 의심 플래그. 제거
+  //   - --disable-blink-features=AutomationControlled: stealth 플러그인이 이미 처리. 중복 제거
+  // v2.42.57 유지: 작업표시줄 깜빡임 방지
   const defaultArgs = [
-    '--no-sandbox',
-    '--disable-setuid-sandbox',
-    '--disable-dev-shm-usage',
-    '--disable-accelerated-2d-canvas',
-    '--disable-gpu',
+    '--no-sandbox',                    // Electron 환경 필수
+    '--disable-setuid-sandbox',        // Linux/macOS sandbox 비활성
+    '--disable-dev-shm-usage',         // 메모리 부족 환경 안정
+    '--disable-accelerated-2d-canvas', // GPU 의존 줄임
+    '--disable-gpu',                   // headless 환경 GPU 비활성
     '--window-size=1920,1080',
-    '--disable-web-security',
-    '--disable-features=IsolateOrigins,site-per-process',
-    '--disable-blink-features=AutomationControlled',
     '--disable-infobars',
     '--lang=ko-KR',
-    // v2.42.57: 작업표시줄 깜빡임 방지
     '--no-startup-window',
     '--no-first-run',
     '--no-default-browser-check',
@@ -259,6 +314,23 @@ export function getPuppeteerLaunchOptions(options: {
     '--mute-audio',
     '--hide-scrollbars',
   ];
+
+  // v2.44.0: 저사양 모드면 V8 메모리 + 백그라운드 작업 추가 절감
+  try {
+    // eslint-disable-next-line @typescript-eslint/no-var-requires
+    const { EnvironmentManager } = require('./environment-manager');
+    // eslint-disable-next-line @typescript-eslint/no-var-requires
+    const { effectiveLowSpec } = require('./system-profile');
+    const env = EnvironmentManager.getInstance().getConfig();
+    if (effectiveLowSpec(env.lowSpecMode)) {
+      defaultArgs.push(
+        '--js-flags=--max-old-space-size=384',          // V8 heap 384MB (기본 ~1.4GB)
+        '--disable-features=Translate,BackgroundTimerThrottling,CalculateNativeWinOcclusion',
+        '--disable-renderer-backgrounding',
+        '--disable-background-timer-throttling',
+      );
+    }
+  } catch { /* 무시 */ }
 
   // v2.42.57: 'new' 헤드리스 → 'true' (구 헤드리스, 작업표시줄 등록 X)
   //   Puppeteer 21에서 deprecated 경고는 무시 가능 (동작 보장됨)

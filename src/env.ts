@@ -24,6 +24,7 @@ export function loadEnvFromFile(): Record<string, string> {
     if (cfg?.youtubeApiKey) out.youtubeApiKey = String(cfg.youtubeApiKey);
     if (cfg?.geminiApiKey) out.geminiApiKey = String(cfg.geminiApiKey);
     if (cfg?.openaiApiKey) out.openaiApiKey = String(cfg.openaiApiKey);
+    if (cfg?.lowSpecMode) out.lowSpecMode = String(cfg.lowSpecMode);
 
     // uppercase 호환 키 (기존 코드에서 process.env 형태로도 조회함)
     if (cfg?.naverClientId) out.NAVER_CLIENT_ID = String(cfg.naverClientId);

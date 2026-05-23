@@ -289,8 +289,23 @@ export function setupConfigUtilityHandlers(): void {
   if (!ipcMain.listenerCount('open-external-url')) {
     ipcMain.handle('open-external-url', async (_event, url: string) => {
       try {
+        // v2.44.1 보안: file://, javascript:, data: 등 위험 스킴 차단
+        const safe = String(url || '').trim();
+        if (!/^https?:\/\//i.test(safe)) {
+          console.warn('[OPEN-URL] ❌ 비허용 스킴 차단:', safe.slice(0, 60));
+          return { success: false, error: 'http(s):// URL만 허용됩니다.' };
+        }
+        // URL 형식 추가 검증
+        try {
+          const u = new URL(safe);
+          if (u.protocol !== 'http:' && u.protocol !== 'https:') {
+            return { success: false, error: 'http(s):// URL만 허용됩니다.' };
+          }
+        } catch {
+          return { success: false, error: '잘못된 URL 형식입니다.' };
+        }
         const { shell } = require('electron');
-        await shell.openExternal(url);
+        await shell.openExternal(safe);
         return { success: true };
       } catch (error: any) {
         console.error('[OPEN-URL] 오류:', error.message);
@@ -355,6 +370,55 @@ export function setupConfigUtilityHandlers(): void {
       }
     });
     console.log('[KEYWORD-MASTER] ✅ save-env 핸들러 등록 완료');
+  }
+
+  // v2.44.0: 저사양 모드 get/set
+  // v2.44.1 보안: 시스템 프로파일 raw 값(totalMemGB, cpuCount) 노출 X
+  //   → 렌더러 XSS 시 시스템 타겟팅 정보 누출 방지. boolean만 노출.
+  if (!ipcMain.listenerCount('get-low-spec-mode')) {
+    ipcMain.handle('get-low-spec-mode', async () => {
+      try {
+        const envManager = EnvironmentManager.getInstance();
+        const config = envManager.getConfig();
+        const { getSystemProfile, effectiveLowSpec } = await import('../../utils/system-profile');
+        const profile = getSystemProfile();
+        const mode = config.lowSpecMode || 'auto';
+        return {
+          ok: true,
+          mode,
+          effective: effectiveLowSpec(mode),
+          // 보안: raw 시스템 정보 대신 사용자가 알아야 할 boolean만
+          autoDetectedLowSpec: profile.isLowSpec,
+        };
+      } catch (error: any) {
+        console.error('[KEYWORD-MASTER] get-low-spec-mode 오류:', error);
+        return { ok: false, error: error.message };
+      }
+    });
+    console.log('[KEYWORD-MASTER] ✅ get-low-spec-mode 핸들러 등록 완료');
+  }
+  if (!ipcMain.listenerCount('set-low-spec-mode')) {
+    ipcMain.handle('set-low-spec-mode', async (_event, mode: 'auto' | 'on' | 'off') => {
+      try {
+        if (!['auto', 'on', 'off'].includes(mode)) {
+          return { ok: false, error: 'mode는 auto/on/off 중 하나여야 합니다.' };
+        }
+        const envManager = EnvironmentManager.getInstance();
+        await envManager.saveConfig({ lowSpecMode: mode } as any);
+        envManager.reloadConfig();
+        console.log('[KEYWORD-MASTER] ✅ low-spec-mode 변경:', mode);
+        return {
+          ok: true,
+          mode,
+          requiresRestart: true,
+          message: '저사양 모드가 변경되었습니다. 앱을 재시작해야 적용됩니다.',
+        };
+      } catch (error: any) {
+        console.error('[KEYWORD-MASTER] set-low-spec-mode 오류:', error);
+        return { ok: false, error: error.message };
+      }
+    });
+    console.log('[KEYWORD-MASTER] ✅ set-low-spec-mode 핸들러 등록 완료');
   }
 
   // is-developer-mode 핸들러: 개발자 모드 확인

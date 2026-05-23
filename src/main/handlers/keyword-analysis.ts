@@ -1137,7 +1137,13 @@ export function setupKeywordAnalysisHandlers(): void {
           const maxAdditional = isUnlimited ? 10000 : targetCount;
 
           // 🔥🔥 병렬 처리 함수 (5개씩 동시 호출)
-          const batchSize = 5;
+          // v2.44.1: 저사양 모드면 더 적게
+          const batchSize = (() => {
+            try {
+              const { EnvironmentManager } = require('../../utils/environment-manager');
+              return Math.min(EnvironmentManager.getInstance().getEffectiveMaxConcurrent(), 5);
+            } catch { return 5; }
+          })();
           const processInBatches = async (items: string[], processFn: (item: string) => Promise<string[]>) => {
             const results: string[] = [];
             for (let i = 0; i < items.length; i += batchSize) {

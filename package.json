@@ -1,6 +1,6 @@
 {
   "name": "leword",
-  "version": "2.43.84",
+  "version": "2.44.1",
   "description": "LEWORD - 키워드 마스터 독립 앱",
   "main": "dist/main.js",
   "scripts": {
@@ -70,6 +70,10 @@
       {
         "from": "build/updater-splash.hta",
         "to": "updater-splash.hta"
+      },
+      {
+        "from": "resources/chromium",
+        "to": "chromium"
       }
     ],
     "asarUnpack": [

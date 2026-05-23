@@ -1203,7 +1203,13 @@ export async function enrichWithCrossValidation(
     let hits = 0;
 
     // 동시 호출 제한 (네이버 rate limit 보호)
-    const CONCURRENCY = 4;
+    // v2.44.1: 저사양 모드면 EnvironmentManager.getEffectiveMaxConcurrent()로 감소
+    const CONCURRENCY = (() => {
+      try {
+        const { EnvironmentManager } = require('./environment-manager');
+        return Math.min(EnvironmentManager.getInstance().getEffectiveMaxConcurrent(), 4);
+      } catch { return 4; }
+    })();
     for (let i = 0; i < items.length; i += CONCURRENCY) {
         const batch = items.slice(i, i + CONCURRENCY);
         await Promise.all(batch.map(async (item) => {

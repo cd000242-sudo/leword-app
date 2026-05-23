@@ -417,7 +417,13 @@ export function setupPremiumHuntingHandlers(): void {
       };
 
       // 배치 단위로 병렬 처리 (한 번에 5개씩)
-      const batchSize = 5;
+      // v2.44.1: 저사양 모드면 더 적게
+      const batchSize = (() => {
+        try {
+          const { EnvironmentManager } = require('../../utils/environment-manager');
+          return Math.min(EnvironmentManager.getInstance().getEffectiveMaxConcurrent(), 5);
+        } catch { return 5; }
+      })();
       for (let i = 0; i < finalKeywords.length; i += batchSize) {
         const batch = finalKeywords.slice(i, i + batchSize);
         console.log(`[INFINITE-SEARCH] 배치 ${Math.floor(i / batchSize) + 1} 처리 중: ${batch.length}개 키워드`);
@@ -855,10 +861,19 @@ export function setupPremiumHuntingHandlers(): void {
       } catch (error: any) {
         console.error('[PRO-TRAFFIC] ❌ 오류:', error);
 
-        // 🔥 오류 시 에러 반환 (더미 데이터 사용 안 함!)
+        // PuppeteerLaunchError는 errorCode/userMessage로 UI에 명확히 전달
+        const isPuppeteerErr = error?.name === 'PuppeteerLaunchError';
+        const errorCode = isPuppeteerErr ? error.code : 'INTERNAL_ERROR';
+        const isAntivirusSuspected = isPuppeteerErr ? error.isAntivirusSuspected === true : false;
+        const userMessage = isPuppeteerErr
+          ? error.userMessage
+          : `황금 키워드 헌팅 중 오류가 발생했습니다: ${error.message || '알 수 없는 오류'}`;
+
         return {
           success: false,
-          error: `황금 키워드 헌팅 중 오류가 발생했습니다: ${error.message || '알 수 없는 오류'}`,
+          error: userMessage,
+          errorCode,
+          isAntivirusSuspected,
           keywords: [],
           summary: {
             totalFound: 0,
@@ -1159,9 +1174,14 @@ export function setupPremiumHuntingHandlers(): void {
         return { success: true, ...result, elapsed: parseFloat(elapsed) };
       } catch (error: any) {
         console.error('[ADSENSE] ❌ 오류:', error);
+        const isPuppeteerErr = error?.name === 'PuppeteerLaunchError';
         return {
           success: false,
-          error: `AdSense 헌팅 실패: ${error?.message || '알 수 없는 오류'} (스택: ${error?.stack?.split('\n')[1] || '없음'})`,
+          error: isPuppeteerErr
+            ? error.userMessage
+            : `AdSense 헌팅 실패: ${error?.message || '알 수 없는 오류'} (스택: ${error?.stack?.split('\n')[1] || '없음'})`,
+          errorCode: isPuppeteerErr ? error.code : 'INTERNAL_ERROR',
+          isAntivirusSuspected: isPuppeteerErr ? error.isAntivirusSuspected === true : false,
           keywords: [],
           summary: { totalFound: 0 }
         };

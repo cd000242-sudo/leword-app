@@ -49,6 +49,11 @@ export interface EnvConfig {
   maxResultsPerSource: number;
   enableFullContentCrawling: boolean;
   mockDate?: string; // 테스트를 위한 가상 날짜 (예: '2025-12-31')
+  // v2.44.0: 저사양 PC 자동/수동 모드
+  //   'auto'(기본) — RAM<8GB or CPU<=4core 자동 감지
+  //   'on'         — 강제 활성 (puppeteer maxSize 1, concurrency 8)
+  //   'off'        — 강제 비활성 (자동 감지 무시)
+  lowSpecMode?: 'auto' | 'on' | 'off';
 }
 
 export class EnvironmentManager {
@@ -256,7 +261,8 @@ export class EnvironmentManager {
         maxConcurrentRequests: parseInt(process.env['MAX_CONCURRENT_REQUESTS'] || '30'),
         maxResultsPerSource: parseInt(process.env['MAX_RESULTS_PER_SOURCE'] || '1000'),
         enableFullContentCrawling: process.env['ENABLE_FULL_CONTENT_CRAWLING'] !== 'false',
-        mockDate: envFileConfig['MOCK_DATE'] || process.env['MOCK_DATE'] || ''
+        mockDate: envFileConfig['MOCK_DATE'] || process.env['MOCK_DATE'] || '',
+        lowSpecMode: (envFileConfig['LOW_SPEC_MODE'] || process.env['LOW_SPEC_MODE'] || 'auto') as 'auto' | 'on' | 'off'
       };
 
       // 3. config.json 파일에서 설정 로드 시도 (가장 우선순위 높음)
@@ -514,6 +520,27 @@ export class EnvironmentManager {
    */
   getConfig(): EnvConfig {
     return { ...this.config };
+  }
+
+  /**
+   * v2.44.0: 저사양 모드 최종 결정 (사용자 설정 + 자동 감지 결합)
+   */
+  isEffectiveLowSpec(): boolean {
+    try {
+      // eslint-disable-next-line @typescript-eslint/no-var-requires
+      const { effectiveLowSpec } = require('./system-profile');
+      return effectiveLowSpec(this.config.lowSpecMode);
+    } catch {
+      return false;
+    }
+  }
+
+  /**
+   * v2.44.0: 저사양 적용된 동시 요청 한도
+   */
+  getEffectiveMaxConcurrent(): number {
+    if (this.isEffectiveLowSpec()) return 8;
+    return this.config.maxConcurrentRequests || 30;
   }
 
   /**

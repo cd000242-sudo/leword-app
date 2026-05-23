@@ -4,7 +4,7 @@
 <head>
   <meta charset="UTF-8">
   <meta name="viewport" content="width=device-width, initial-scale=1.0">
-  <meta http-equiv="Content-Security-Policy" content="default-src 'self'; script-src 'self' 'unsafe-inline' https://cdn.jsdelivr.net https://cdn.tailwindcss.com; style-src 'self' 'unsafe-inline' https://cdn.jsdelivr.net; connect-src 'self' https://openapi.naver.com https://*.naver.com https://script.google.com https://suggestqueries.google.com https://trends.google.com https://www.googleapis.com https://signalbz.com https://zum.com https://m.search.daum.net https://m.search.nate.com; img-src 'self' data: https:; font-src 'self' https://cdn.jsdelivr.net data:; media-src 'self'; object-src 'none'; frame-src 'none';">
+  <meta http-equiv="Content-Security-Policy" content="default-src 'self'; script-src 'self' 'unsafe-inline' https://cdn.jsdelivr.net https://cdn.tailwindcss.com; style-src 'self' 'unsafe-inline' https://cdn.jsdelivr.net https://fonts.googleapis.com; connect-src 'self' https://openapi.naver.com https://*.naver.com https://script.google.com https://suggestqueries.google.com https://trends.google.com https://www.googleapis.com https://signalbz.com https://zum.com https://m.search.daum.net https://m.search.nate.com; img-src 'self' data: https:; font-src 'self' https://cdn.jsdelivr.net https://fonts.gstatic.com data:; media-src 'self'; object-src 'none'; frame-src 'none';">
   <title>LEWORD - 키워드마스터</title>
   <link rel="stylesheet" href="https://cdn.jsdelivr.net/npm/pretendard/dist/web/static/pretendard.css">
   <script src="https://cdn.tailwindcss.com"></script>
@@ -4233,6 +4233,84 @@
                   • 캐시 설정 개선
                 </p>
               </div>
+
+              <!-- v2.44.0: 저사양 PC 모드 -->
+              <div id="lowSpecModeCard"
+                style="background: rgba(34, 197, 94, 0.08); border-radius: 16px; padding: 24px; margin-top: 24px; border: 2px solid rgba(34, 197, 94, 0.3);">
+                <div style="display: flex; align-items: center; gap: 12px; margin-bottom: 16px;">
+                  <div
+                    style="width: 40px; height: 40px; background: linear-gradient(135deg, #22c55e 0%, #16a34a 100%); border-radius: 12px; display: flex; align-items: center; justify-content: center;">
+                    <span style="font-size: 20px;">💻</span>
+                  </div>
+                  <div>
+                    <h3 style="font-size: 18px; font-weight: 700; color: white; margin: 0;">저사양 PC 모드</h3>
+                    <p style="font-size: 12px; color: rgba(255, 255, 255, 0.6); margin: 4px 0 0 0;">메모리/CPU 점유 줄이기 (느린 PC에서 권장)</p>
+                  </div>
+                </div>
+                <div id="lowSpecProfile" style="background: rgba(0,0,0,0.2); border-radius: 8px; padding: 10px 12px; font-size: 12px; color: rgba(255,255,255,0.75); margin-bottom: 12px; font-family: monospace;">
+                  시스템 정보 로딩 중...
+                </div>
+                <div style="display: flex; gap: 8px; flex-wrap: wrap;">
+                  <label style="flex: 1; min-width: 100px; cursor: pointer;">
+                    <input type="radio" name="lowSpecMode" value="auto" style="margin-right: 6px;" checked>
+                    <span style="color: rgba(255,255,255,0.85); font-size: 13px;">자동 감지</span>
+                  </label>
+                  <label style="flex: 1; min-width: 100px; cursor: pointer;">
+                    <input type="radio" name="lowSpecMode" value="on" style="margin-right: 6px;">
+                    <span style="color: rgba(255,255,255,0.85); font-size: 13px;">강제 켜기</span>
+                  </label>
+                  <label style="flex: 1; min-width: 100px; cursor: pointer;">
+                    <input type="radio" name="lowSpecMode" value="off" style="margin-right: 6px;">
+                    <span style="color: rgba(255,255,255,0.85); font-size: 13px;">강제 끄기</span>
+                  </label>
+                </div>
+                <button onclick="saveLowSpecMode()"
+                  style="width: 100%; margin-top: 12px; padding: 10px 16px; background: linear-gradient(135deg, #22c55e 0%, #16a34a 100%); color: white; border: none; border-radius: 8px; font-size: 13px; font-weight: 600; cursor: pointer;">
+                  저사양 모드 저장 (재시작 필요)
+                </button>
+                <div id="lowSpecSaveStatus" style="font-size: 11px; color: #86efac; margin-top: 8px; min-height: 14px;"></div>
+                <p style="font-size: 11px; color: rgba(255, 255, 255, 0.5); margin-top: 10px; line-height: 1.5;">
+                  • 자동: RAM 8GB 미만 또는 4코어 이하면 자동 활성<br />
+                  • 켜기 시: Puppeteer 동시 인스턴스 3→1, API 동시요청 30→8, idle 60s→30s<br />
+                  • 변경 후 LEWORD를 재시작해야 반영됩니다
+                </p>
+              </div>
+              <script>
+                (async function initLowSpecCard() {
+                  try {
+                    const r = await window.electronAPI.invoke('get-low-spec-mode');
+                    if (!r || !r.ok) return;
+                    // v2.44.1: 보안 — raw 시스템 정보 노출 안 함. boolean만 표시.
+                    const pf = document.getElementById('lowSpecProfile');
+                    if (pf) {
+                      pf.textContent = '자동 감지: ' + (r.autoDetectedLowSpec ? '저사양 PC ✓' : '정상 PC') + ' · 현재 적용: ' + (r.effective ? '저사양 모드 ON' : '일반 모드 OFF');
+                    }
+                    const radios = document.querySelectorAll('input[name="lowSpecMode"]');
+                    radios.forEach(rd => { if (rd.value === r.mode) rd.checked = true; });
+                  } catch (e) {
+                    console.warn('[LOW-SPEC] 초기화 실패:', e);
+                  }
+                })();
+                async function saveLowSpecMode() {
+                  const sel = document.querySelector('input[name="lowSpecMode"]:checked');
+                  if (!sel) return;
+                  const status = document.getElementById('lowSpecSaveStatus');
+                  status.style.color = '#86efac';
+                  status.textContent = '저장 중...';
+                  try {
+                    const r = await window.electronAPI.invoke('set-low-spec-mode', sel.value);
+                    if (r && r.ok) {
+                      status.textContent = '✅ ' + (r.message || '저장됨. 재시작 후 적용됩니다.');
+                    } else {
+                      status.style.color = '#fca5a5';
+                      status.textContent = '❌ ' + (r && r.error || '저장 실패');
+                    }
+                  } catch (e) {
+                    status.style.color = '#fca5a5';
+                    status.textContent = '❌ ' + (e && e.message || e);
+                  }
+                }
+              </script>
 
               <!-- 저장 버튼 -->
               <div
@@ -18414,11 +18492,45 @@
             }
 
             if (!response || !response.success || !response.keywords || response.keywords.length === 0) {
+              // 백신 차단 의심 시 별도 안내 (PuppeteerLaunchError에서 전달됨)
+              if (response && response.isAntivirusSuspected) {
+                resultsDiv.innerHTML = `
+            <div style="text-align: left; padding: 32px; background: rgba(239, 68, 68, 0.08); border-radius: 14px; border: 2px solid rgba(239, 68, 68, 0.35);">
+              <div style="display: flex; align-items: center; gap: 12px; margin-bottom: 16px;">
+                <div style="font-size: 36px;">🛡️</div>
+                <div>
+                  <div style="font-size: 18px; font-weight: 700; color: #fca5a5;">백신/보안 프로그램 차단 의심</div>
+                  <div style="font-size: 12px; color: rgba(255,255,255,0.55); margin-top: 2px;">오류 코드: ${response.errorCode || 'UNKNOWN'}</div>
+                </div>
+              </div>
+              <div style="font-size: 14px; color: rgba(255,255,255,0.85); line-height: 1.7; margin-bottom: 18px;">
+                ${response.error || '브라우저 시작이 차단됐습니다.'}
+              </div>
+              <div style="background: rgba(0,0,0,0.25); border-radius: 10px; padding: 16px; font-size: 13px; color: rgba(255,255,255,0.85); line-height: 1.8;">
+                <div style="font-weight: 700; color: #fbbf24; margin-bottom: 8px;">💡 해결 방법 (순서대로 시도)</div>
+                <div>1. 백신을 일시 중지하고 다시 실행해 보세요. 정상 작동하면 백신 차단입니다.</div>
+                <div>2. 백신 설정 → <b>예외/허용 목록</b>에 아래 항목 추가:</div>
+                <div style="background: rgba(0,0,0,0.35); padding: 8px 12px; border-radius: 6px; margin: 6px 0; font-family: monospace; font-size: 12px; color: #93c5fd;">
+                  C:\\Users\\&lt;사용자명&gt;\\AppData\\Local\\Programs\\LEWORD\\
+                </div>
+                <div>3. 특히 폴더 안의 <b>LEWORD.exe</b>, <b>resources\\chromium\\chrome.exe</b> 두 파일 예외 등록</div>
+                <div>4. PC 재부팅 후 LEWORD 재실행</div>
+              </div>
+              <div style="margin-top: 14px; font-size: 12px; color: rgba(255,255,255,0.45);">
+                ⚠️ 그래도 안 되면 cd00242@gmail.com 으로 백신 종류와 함께 문의해 주세요.
+              </div>
+            </div>
+          `;
+                return;
+              }
+              // 그 외 일반 오류 / 빈 결과
+              const errMsg = (response && response.error) ? response.error : '키워드를 찾지 못했습니다';
               resultsDiv.innerHTML = `
             <div style="text-align: center; padding: 40px; background: rgba(251, 191, 36, 0.1); border-radius: 12px; border: 1px solid rgba(251, 191, 36, 0.3);">
               <div style="font-size: 40px; margin-bottom: 12px;">🔍</div>
-              <div style="font-size: 16px; font-weight: 600; color: #fbbf24;">키워드를 찾지 못했습니다</div>
-              <div style="font-size: 14px; color: rgba(255,255,255,0.6); margin-top: 8px;">다른 카테고리나 시드 키워드로 시도해보세요</div>
+              <div style="font-size: 16px; font-weight: 600; color: #fbbf24;">${errMsg}</div>
+              <div style="font-size: 13px; color: rgba(255,255,255,0.55); margin-top: 10px;">다른 카테고리나 시드 키워드로 시도해보세요</div>
+              ${response && response.errorCode ? `<div style="font-size: 11px; color: rgba(255,255,255,0.35); margin-top: 8px;">오류 코드: ${response.errorCode}</div>` : ''}
                 </div>
           `;
               return;

@@ -41,6 +41,7 @@ async function getBrowser(): Promise<Browser> {
  */
 export async function getDaumRealtimeKeywordsWithPuppeteer(limit: number = 10): Promise<DaumRealtimeKeyword[]> {
   let context: any = null;
+  let page: any = null;
 
   try {
     console.log('[DAUM-REALTIME] 실시간 트렌드 수집 시작');
@@ -49,7 +50,7 @@ export async function getDaumRealtimeKeywordsWithPuppeteer(limit: number = 10): 
     context = await browser.newContext({
       userAgent: 'Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/120.0.0.0 Safari/537.36'
     });
-    const page = await context.newPage();
+    page = await context.newPage();
 
     // 다음 검색 페이지 (아무 검색어로 접속하면 오른쪽에 실시간 트렌드 표시)
     await page.goto('https://search.daum.net/search?w=tot&q=test', {
@@ -100,6 +101,9 @@ export async function getDaumRealtimeKeywordsWithPuppeteer(limit: number = 10): 
     console.error('[DAUM-REALTIME] ❌ 수집 실패:', error.message);
     return [];
   } finally {
+    if (page) {
+      try { await page.close(); } catch { /* 무시 */ }
+    }
     if (context) {
       try { await context.close(); } catch { /* 무시 */ }
     }

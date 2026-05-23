@@ -287,7 +287,14 @@ export function setupKeywordDiscoveryHandlers(): void {
       return { success: false, keywords: [], error: '지원하지 않는 소스입니다.' };
     } catch (error: any) {
       console.error('[KEYWORD-MASTER] 황금 키워드 발굴 프로세스 오류:', error);
-      return { success: false, keywords: [], error: error.message };
+      const isPuppeteerErr = error?.name === 'PuppeteerLaunchError';
+      return {
+        success: false,
+        keywords: [],
+        error: isPuppeteerErr ? error.userMessage : error.message,
+        errorCode: isPuppeteerErr ? error.code : 'INTERNAL_ERROR',
+        isAntivirusSuspected: isPuppeteerErr ? error.isAntivirusSuspected === true : false,
+      };
     }
   });
 

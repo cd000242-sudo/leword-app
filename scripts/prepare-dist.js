@@ -149,7 +149,92 @@ if (fs.existsSync(releasePath)) {
   }
 }
 
-// 9. 라이선스 초기화 확인 메시지
+// 9. Chromium 번들 복사 (v2.44.0)
+//   ~/.cache/puppeteer/chrome/{ver}/chrome-win64/ → resources/chromium/
+//   사용자 PC에 Chrome/Chromium이 없거나 백신이 시스템 chrome.exe spawn을 차단해도
+//   앱 내장 Chromium으로 puppeteer 동작 보장.
+console.log('\n🌐 Chromium 번들 준비...');
+
+const platform = process.platform;
+const chromiumDest = path.join(projectRoot, 'resources', 'chromium');
+const execName = platform === 'win32'
+  ? 'chrome.exe'
+  : platform === 'darwin'
+    ? path.join('Chromium.app', 'Contents', 'MacOS', 'Chromium')
+    : 'chrome';
+
+function findPuppeteerChromiumSrc() {
+  try {
+    const puppeteer = require('puppeteer');
+    if (typeof puppeteer.executablePath === 'function') {
+      const execPath = puppeteer.executablePath();
+      if (execPath && fs.existsSync(execPath)) {
+        // chrome-win64 또는 chrome-mac 폴더(실행파일의 최상위 디렉토리) 반환
+        // win32: dirname(chrome.exe) = chrome-win64
+        // darwin: dirname^4(...MacOS/Chromium) = chrome-mac
+        if (platform === 'win32') return path.dirname(execPath);
+        if (platform === 'darwin') {
+          // .../chrome-mac/Chromium.app/Contents/MacOS/Chromium → .../chrome-mac
+          return path.resolve(execPath, '..', '..', '..', '..');
+        }
+        return path.dirname(execPath);
+      }
+    }
+  } catch (e) {
+    console.warn('   ⚠️ puppeteer require 실패:', e.message);
+  }
+  return null;
+}
+
+let chromiumSrc = findPuppeteerChromiumSrc();
+if (!chromiumSrc) {
+  console.log('   ⏳ Puppeteer Chromium 미발견 → download-chromium.js 실행');
+  const { execSync } = require('child_process');
+  try {
+    execSync('node scripts/download-chromium.js', { cwd: projectRoot, stdio: 'inherit' });
+    chromiumSrc = findPuppeteerChromiumSrc();
+  } catch (err) {
+    console.error('   ❌ Chromium 자동 다운로드 실패:', err.message);
+  }
+}
+
+if (!chromiumSrc) {
+  console.error('\n❌ Chromium을 찾을 수 없습니다. 다음 중 하나를 실행하세요:');
+  console.error('   1. npm install (postinstall이 Chromium 다운로드)');
+  console.error('   2. node scripts/download-chromium.js (수동)');
+  console.error('   3. node node_modules/puppeteer/install.js (직접)\n');
+  process.exit(1);
+}
+
+// 기존 resources/chromium 정리 후 복사
+if (fs.existsSync(chromiumDest)) {
+  console.log('   🧹 기존 resources/chromium 정리');
+  fs.rmSync(chromiumDest, { recursive: true, force: true });
+}
+fs.mkdirSync(chromiumDest, { recursive: true });
+
+console.log(`   📦 복사 시작...`);
+console.log(`      원본: ${chromiumSrc}`);
+console.log(`      대상: ${chromiumDest}`);
+const copyStart = Date.now();
+fs.cpSync(chromiumSrc, chromiumDest, { recursive: true });
+const copyMs = Date.now() - copyStart;
+
+// 검증 — 실행 파일 존재 확인
+const destExe = path.join(chromiumDest, execName);
+if (!fs.existsSync(destExe)) {
+  console.error(`   ❌ 복사 검증 실패: ${destExe} 없음`);
+  console.error('   chromiumSrc 구조 확인 필요');
+  process.exit(1);
+}
+
+// 크기 출력
+const stat = fs.statSync(destExe);
+const sizeMb = (stat.size / 1024 / 1024).toFixed(1);
+console.log(`   ✅ Chromium 번들 완료 — chrome.exe: ${sizeMb} MB, 복사 ${(copyMs / 1000).toFixed(1)}s`);
+console.log('   ℹ️  설치 파일 크기 +200~300MB');
+
+// 10. 라이선스 초기화 확인 메시지
 console.log('\n📋 배포 전 체크리스트:');
 console.log('   ✓ API 키 초기화 완료');
 console.log('   ✓ 라이선스 파일 삭제 완료');

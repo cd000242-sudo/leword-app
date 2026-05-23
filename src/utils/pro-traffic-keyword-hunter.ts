@@ -3459,7 +3459,14 @@ export async function huntProTrafficKeywords(options: {
           return preferLongtailSeeds ? (lb - la) : (la - lb);
         });
       const suggestionSeeds = buildMixedSeedSet(uniqueSeedSortedByLen, suggestionSeedLimit);
-      const batchSize = explosionMode ? (isTimeoutCategory ? 4 : 12) : 25;
+      // v2.44.1: 저사양 모드면 batchSize를 더 줄임 (RAM/CPU 보호)
+      const rawBatchSize = explosionMode ? (isTimeoutCategory ? 4 : 12) : 25;
+      const batchSize = (() => {
+        try {
+          const { EnvironmentManager } = require('./environment-manager');
+          return Math.min(EnvironmentManager.getInstance().getEffectiveMaxConcurrent(), rawBatchSize);
+        } catch { return rawBatchSize; }
+      })();
       for (let i = 0; i < suggestionSeeds.length; i += batchSize) {
         if (Number.isFinite(overallBudgetMs) && overallRemainingMs(0) < 30000) break;
         const batchSeeds = suggestionSeeds.slice(i, i + batchSize);

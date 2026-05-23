@@ -141,7 +141,13 @@ export async function checkKeywordsRecency(
     batches.push(miss.slice(i, i + 5));
   }
   // 5팀 — PARALLEL 3→5, round-sleep 제거 (60건 6s → 3.6s)
-  const PARALLEL = 5;
+  // v2.44.1: 저사양 모드면 더 적게
+  const PARALLEL = (() => {
+    try {
+      const { EnvironmentManager } = require('./environment-manager');
+      return Math.min(EnvironmentManager.getInstance().getEffectiveMaxConcurrent(), 5);
+    } catch { return 5; }
+  })();
   for (let i = 0; i < batches.length; i += PARALLEL) {
     const slice = batches.slice(i, i + PARALLEL);
     const results = await Promise.all(slice.map(b => checkKeywordRecencyBatch(config, b)));
