@@ -96,7 +96,12 @@ export async function enableSemantic(): Promise<{ ready: boolean; error?: string
   try {
     console.log('[SEMANTIC] 모델 로드 시작:', MODEL_ID);
     pipelinePromise = (async () => {
-      const transformers = await import('@xenova/transformers');
+      // v2.48.3: ESM-only 패키지를 commonjs 환경에서 import
+      //   에러: "require() of ES Module @xenova/transformers ... not supported"
+      //   원인: tsconfig module=commonjs → await import('...')가 require로 변환됨
+      //   해결: Function constructor로 dynamic import 강제 (TS가 변환 안 함)
+      const dynamicImport = new Function('p', 'return import(p)') as (p: string) => Promise<any>;
+      const transformers = await dynamicImport('@xenova/transformers');
       const { pipeline, env } = transformers as any;
       env.allowLocalModels = false;
       env.useBrowserCache = false;
