@@ -168,7 +168,9 @@ export function startAutoHuntingScheduler(): void {
     timer = setTimeout(async () => {
         await runDailyHunt();
         timer = setInterval(() => runDailyHunt(), 24 * 60 * 60 * 1000);
+        (timer as any).unref?.(); // v2.45.0: idle CPU 감소
     }, delay);
+    (timer as any).unref?.();
 }
 
 export function getDailyHuntHistory(category?: string, days: number = 30): DailyHuntRecord[] {

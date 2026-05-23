@@ -1361,8 +1361,8 @@ import {
 import { analyzeKeywordTrendingReason } from './keyword-trend-analyzer';
 import { getSignalBzKeywords } from './signal-bz-crawler';
 import { getZumRealtimeKeywordsWithPuppeteer } from './zum-realtime-api';
-import { getDaumRealtimeKeywordsWithPuppeteer } from './daum-realtime-api';
-import { getNateRealtimeKeywordsWithPuppeteer } from './nate-realtime-api';
+// v2.45.0: puppeteer 기반 daum/nate 제거 — axios+cheerio (realtime-search-keywords 사용)
+import { getDaumRealtimeKeywords, getNateRealtimeKeywords } from './realtime-search-keywords';
 import { getNaverPopularNews } from './naver-news-crawler';
 import { runUltimateAnalysis, UltimateAnalysis } from './ultimate-keyword-analyzer';
 import { getTrackingDataForKeyword } from './pro-hunter-v12/tracking-store';
@@ -7050,8 +7050,8 @@ async function getMultiSourceKeywords(includeHeavySources: boolean = true): Prom
     const settled = await Promise.allSettled([
       includeHeavySources ? getSignalBzKeywords(20).then(r => r.map(k => k.keyword)) : Promise.resolve([] as string[]),
       includeHeavySources ? getZumRealtimeKeywordsWithPuppeteer(20).then(r => r.map(k => k.keyword)) : Promise.resolve([] as string[]),
-      includeHeavySources ? getDaumRealtimeKeywordsWithPuppeteer(20).then(r => r.map(k => k.keyword)) : Promise.resolve([] as string[]),
-      includeHeavySources ? getNateRealtimeKeywordsWithPuppeteer(20).then(r => r.map(k => k.keyword)) : Promise.resolve([] as string[]),
+      includeHeavySources ? getDaumRealtimeKeywords(20).then(r => r.map(k => k.keyword)) : Promise.resolve([] as string[]),
+      includeHeavySources ? getNateRealtimeKeywords(20).then(r => r.map(k => k.keyword)) : Promise.resolve([] as string[]),
       getNewsIssueKeywords(),
       getPolicyBriefingKeywords(),
       getSeasonalEventKeywords(),

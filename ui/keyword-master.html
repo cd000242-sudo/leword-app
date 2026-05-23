@@ -4312,6 +4312,76 @@
                 }
               </script>
 
+              <!-- v2.45.0 UX5: 백그라운드 자동 작업 토글 -->
+              <div id="bgWorkersCard"
+                style="background: rgba(168, 85, 247, 0.08); border-radius: 16px; padding: 24px; margin-top: 24px; border: 2px solid rgba(168, 85, 247, 0.3);">
+                <div style="display: flex; align-items: center; gap: 12px; margin-bottom: 16px;">
+                  <div style="width: 40px; height: 40px; background: linear-gradient(135deg, #a855f7 0%, #7c3aed 100%); border-radius: 12px; display: flex; align-items: center; justify-content: center;">
+                    <span style="font-size: 20px;">⏱️</span>
+                  </div>
+                  <div>
+                    <h3 style="font-size: 18px; font-weight: 700; color: white; margin: 0;">백그라운드 자동 작업</h3>
+                    <p style="font-size: 12px; color: rgba(255, 255, 255, 0.6); margin: 4px 0 0 0;">키워드 자동 수집/추적/순위 모니터링 (CPU 사용)</p>
+                  </div>
+                </div>
+                <div id="bgWorkersStatus" style="background: rgba(0,0,0,0.2); border-radius: 8px; padding: 10px 12px; font-size: 12px; color: rgba(255,255,255,0.75); margin-bottom: 12px;">
+                  상태 확인 중...
+                </div>
+                <div style="display: flex; gap: 8px;">
+                  <label style="flex: 1; cursor: pointer;">
+                    <input type="radio" name="bgWorkers" value="off" style="margin-right: 6px;" checked>
+                    <span style="color: rgba(255,255,255,0.85); font-size: 13px;">끄기 (권장 — 성능 우선)</span>
+                  </label>
+                  <label style="flex: 1; cursor: pointer;">
+                    <input type="radio" name="bgWorkers" value="on" style="margin-right: 6px;">
+                    <span style="color: rgba(255,255,255,0.85); font-size: 13px;">켜기 (자동 추적)</span>
+                  </label>
+                </div>
+                <button onclick="saveBgWorkers()"
+                  style="width: 100%; margin-top: 12px; padding: 10px 16px; background: linear-gradient(135deg, #a855f7 0%, #7c3aed 100%); color: white; border: none; border-radius: 8px; font-size: 13px; font-weight: 600; cursor: pointer;">
+                  저장 (재시작 필요)
+                </button>
+                <div id="bgWorkersSaveStatus" style="font-size: 11px; color: #c4b5fd; margin-top: 8px; min-height: 14px;"></div>
+                <p style="font-size: 11px; color: rgba(255, 255, 255, 0.5); margin-top: 10px; line-height: 1.5;">
+                  켜면 5개 워커가 자동 실행 (라이프사이클 추적, 순위 추적, 트렌드 감지, 자동 헌팅, 프리크롤). idle CPU 증가.
+                </p>
+              </div>
+              <script>
+                (async function initBgWorkersCard() {
+                  try {
+                    const r = await window.electronAPI.invoke('perf-get-bg-pref');
+                    if (!r || !r.success) return;
+                    const enabled = r.enableBackgroundWorkers === true;
+                    const stat = document.getElementById('bgWorkersStatus');
+                    if (stat) stat.textContent = '현재 상태: ' + (enabled ? '🟢 ON (백그라운드 워커 실행 중)' : '⚪ OFF (성능 우선 모드)');
+                    document.querySelectorAll('input[name="bgWorkers"]').forEach(rd => {
+                      if (rd.value === (enabled ? 'on' : 'off')) rd.checked = true;
+                    });
+                  } catch (e) {
+                    console.warn('[BG-WORKERS] 초기화 실패:', e);
+                  }
+                })();
+                async function saveBgWorkers() {
+                  const sel = document.querySelector('input[name="bgWorkers"]:checked');
+                  if (!sel) return;
+                  const status = document.getElementById('bgWorkersSaveStatus');
+                  status.style.color = '#c4b5fd';
+                  status.textContent = '저장 중...';
+                  try {
+                    const r = await window.electronAPI.invoke('perf-set-bg-pref', { enableBackgroundWorkers: sel.value === 'on' });
+                    if (r && r.success) {
+                      status.textContent = '✅ ' + (r.message || '저장됨. 재시작 후 적용.');
+                    } else {
+                      status.style.color = '#fca5a5';
+                      status.textContent = '❌ ' + (r && r.error || '저장 실패');
+                    }
+                  } catch (e) {
+                    status.style.color = '#fca5a5';
+                    status.textContent = '❌ ' + (e && e.message || e);
+                  }
+                }
+              </script>
+
               <!-- 저장 버튼 -->
               <div
                 style="display: flex; gap: 12px; margin-top: 32px; padding-top: 24px; border-top: 2px solid rgba(255, 255, 255, 0.1);">
@@ -5712,6 +5782,65 @@
                 console.log('[API-STATUS] ❌ 네이버 검색광고 API 미연동');
               }
             }
+
+            // v2.45.0 H2: 실제 API 호출 검증 (백그라운드, 비차단)
+            //   "API 연동됨" 거짓양성 해결: 키 저장됨 ≠ 실제 인증 성공
+            //   잘못된 키 입력해도 ✅ 표시되던 문제 fix
+            (async function verifyApiKeysInBackground() {
+              if (!hasNaverId && !hasYouTubeKey && !hasSearchAdLicense) return; // 키 자체가 없으면 스킵
+              try {
+                console.log('[API-VERIFY] 백그라운드 실제 API 호출 검증 시작...');
+                const test = await window.electronAPI.invoke('test-api-keys');
+                if (!test || !test.success || !test.results) return;
+                const r = test.results;
+
+                // 네이버 API 결과 반영
+                if (naverBadge && r.naver && r.naver.configured) {
+                  if (r.naver.working) {
+                    naverBadge.style.background = '#d1fae5';
+                    naverBadge.style.color = '#065f46';
+                    naverBadge.innerHTML = '<span>✅</span><span>네이버 API: 인증 OK</span>';
+                  } else {
+                    naverBadge.style.background = '#fee2e2';
+                    naverBadge.style.color = '#991b1b';
+                    naverBadge.title = r.naver.error || '응답 실패';
+                    naverBadge.innerHTML = '<span>❌</span><span>네이버 API: 키 오류</span>';
+                    console.warn('[API-VERIFY] 네이버 API 검증 실패:', r.naver.error);
+                  }
+                }
+                // YouTube API 결과 반영
+                if (youtubeBadge && r.youtube && r.youtube.configured) {
+                  if (r.youtube.working) {
+                    youtubeBadge.style.background = '#d1fae5';
+                    youtubeBadge.style.color = '#065f46';
+                    youtubeBadge.innerHTML = '<span>✅</span><span>유튜브 API: 인증 OK</span>';
+                  } else {
+                    youtubeBadge.style.background = '#fee2e2';
+                    youtubeBadge.style.color = '#991b1b';
+                    youtubeBadge.title = r.youtube.error || '응답 실패';
+                    youtubeBadge.innerHTML = '<span>❌</span><span>유튜브 API: 키 오류</span>';
+                    console.warn('[API-VERIFY] 유튜브 API 검증 실패:', r.youtube.error);
+                  }
+                }
+                // 검색광고 API 결과 반영
+                if (searchAdBadge && r.naverSearchAd && r.naverSearchAd.configured) {
+                  if (r.naverSearchAd.working) {
+                    searchAdBadge.style.background = '#d1fae5';
+                    searchAdBadge.style.color = '#065f46';
+                    searchAdBadge.innerHTML = '<span>✅</span><span>검색광고 API: 인증 OK</span>';
+                  } else {
+                    searchAdBadge.style.background = '#fee2e2';
+                    searchAdBadge.style.color = '#991b1b';
+                    searchAdBadge.title = r.naverSearchAd.error || '응답 실패';
+                    searchAdBadge.innerHTML = '<span>❌</span><span>검색광고 API: 키 오류</span>';
+                    console.warn('[API-VERIFY] 검색광고 API 검증 실패:', r.naverSearchAd.error);
+                  }
+                }
+                console.log('[API-VERIFY] ✅ 백그라운드 검증 완료');
+              } catch (e) {
+                console.warn('[API-VERIFY] 검증 호출 실패 (무시):', e?.message || e);
+              }
+            })();
           } catch (error) {
             console.error('[API-STATUS] API 상태 확인 실패:', error);
           }
@@ -6617,6 +6746,37 @@
             currentLicenseInfo = result;
             // 🔥 [FIX] 전역 접근 가능하도록 window 객체에 저장
             window.currentLicenseInfo = result;
+
+            // v2.45.0 EXTRA3: 라이선스 만료 임박 알림 (30/7/1일 + 만료된 경우)
+            //   세션당 한 번만 표시 (sessionStorage)
+            try {
+              if (result && result.hasLicense && !result.isUnlimited && typeof result.daysLeft === 'number') {
+                const dl = result.daysLeft;
+                const shownKey = 'license-expiry-warn-shown-' + new Date().toDateString();
+                if (!sessionStorage.getItem(shownKey)) {
+                  let warnMsg = '';
+                  if (dl < 0) {
+                    warnMsg = '⚠️ 라이선스가 만료되었습니다. 갱신해 주세요.';
+                  } else if (dl === 0) {
+                    warnMsg = '🚨 라이선스가 오늘 만료됩니다!';
+                  } else if (dl <= 1) {
+                    warnMsg = '🚨 라이선스가 ' + dl + '일 후 만료됩니다.';
+                  } else if (dl <= 7) {
+                    warnMsg = '⚠️ 라이선스가 ' + dl + '일 후 만료됩니다. 갱신 준비해 주세요.';
+                  } else if (dl <= 30) {
+                    warnMsg = 'ℹ️ 라이선스가 ' + dl + '일 후 만료됩니다.';
+                  }
+                  if (warnMsg) {
+                    sessionStorage.setItem(shownKey, '1');
+                    setTimeout(() => {
+                      try { alert(warnMsg + '\n\n라이선스 갱신은 등록 화면에서 진행하실 수 있습니다.'); } catch {}
+                    }, 2500);
+                  }
+                }
+              }
+            } catch (e) {
+              console.warn('[LICENSE-EXPIRY] 알림 표시 실패:', e);
+            }
 
             const badge = document.getElementById('licenseBadge');
             // 🔐 라이선스 유효하면 로그아웃 버튼 표시

@@ -44,10 +44,12 @@ async function checkAndRefresh(): Promise<void> {
 export function startRefreshScheduler(): void {
   if (timer) return;
   // 첫 실행은 30초 지연 (앱 기동과 충돌 방지)
-  setTimeout(() => {
+  const initialTimer = setTimeout(() => {
     checkAndRefresh();
     timer = setInterval(checkAndRefresh, CHECK_INTERVAL);
+    timer.unref?.(); // v2.45.0: idle 이벤트 루프 깨우지 않음
   }, 30 * 1000);
+  initialTimer.unref?.();
   console.log('[KEY-WIZARD][scheduler] ✅ 자동 갱신 스케줄러 시작');
 }
 

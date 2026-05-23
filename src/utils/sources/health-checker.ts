@@ -90,6 +90,7 @@ export function startAutoHealthCheck(intervalMs: number = 30 * 60_000): void {
     autoCheckTimer = setInterval(() => {
         refreshHealthReport().catch(err => console.error('[health] 자동 체크 실패:', err));
     }, intervalMs);
+    (autoCheckTimer as any).unref?.(); // v2.45.0
 }
 
 export function stopAutoHealthCheck(): void {

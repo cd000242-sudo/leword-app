@@ -11,8 +11,7 @@ import { getYouTubeTrendKeywords } from '../../utils/youtube-data-api';
 import { EnvironmentManager } from '../../utils/environment-manager';
 import { TimingGoldenFinder, KeywordData, TimingScore } from '../../utils/timing-golden-finder';
 import { getAllRealtimeKeywords, getZumRealtimeKeywords, getGoogleRealtimeKeywords, getNateRealtimeKeywords, getDaumRealtimeKeywords, getNaverRealtimeKeywords, RealtimeKeyword } from '../../utils/realtime-search-keywords';
-import { getDaumRealtimeKeywordsWithPuppeteer } from '../../utils/daum-realtime-api';
-import { getNateRealtimeKeywordsWithPuppeteer } from '../../utils/nate-realtime-api';
+// v2.45.0: puppeteer 기반 daum/nate 제거 — axios+cheerio 사용 (realtime-search-keywords에서 import)
 import { analyzeKeywordTrendingReason } from '../../utils/keyword-trend-analyzer';
 import { validateKeyword, validateKeywords } from '../../utils/keyword-validator';
 import * as licenseManager from '../../utils/licenseManager';
@@ -858,30 +857,22 @@ export function setupKeywordDiscoveryHandlers(): void {
             }
           })());
 
-          // Nate 크롤링 (HTTP 기반이라 빠름)
+          // Nate 크롤링 (v2.45.0: axios+cheerio, puppeteer 제거 — RAM 250MB 절감)
           promises.push((async () => {
             try {
-              // Puppeteer 기반 크롤러 사용 (동적 콘텐츠 지원)
-              const keywords = await getNateRealtimeKeywordsWithPuppeteer(limit);
-              return { platform: 'nate', keywords: keywords.map((k, idx) => ({ ...k, rank: idx + 1 })) };
+              const keywords = await getNateRealtimeKeywords(limit);
+              return { platform: 'nate', keywords };
             } catch (err: any) {
               console.error(`[GET-REALTIME-KEYWORDS] ❌ Nate 수집 실패:`, err?.message || err);
-              // 폴백: axios 기반 크롤러
-              try {
-                const fallbackKeywords = await getNateRealtimeKeywords(limit);
-                return { platform: 'nate', keywords: fallbackKeywords };
-              } catch {
-                return { platform: 'nate', keywords: [] };
-              }
+              return { platform: 'nate', keywords: [] };
             }
           })());
 
-          // Daum 크롤링
+          // Daum 크롤링 (v2.45.0: axios+cheerio, puppeteer 제거 — RAM 250MB 절감)
           promises.push((async () => {
             try {
-              const { getDaumRealtimeKeywordsWithPuppeteer } = await import('../../utils/daum-realtime-api');
-              const puppeteerKeywords = await getDaumRealtimeKeywordsWithPuppeteer(limit);
-              return { platform: 'daum', keywords: puppeteerKeywords };
+              const keywords = await getDaumRealtimeKeywords(limit);
+              return { platform: 'daum', keywords };
             } catch (err: any) {
               console.error(`[GET-REALTIME-KEYWORDS] ❌ Daum 수집 실패:`, err?.message || err);
               return { platform: 'daum', keywords: [] };
@@ -943,28 +934,16 @@ export function setupKeywordDiscoveryHandlers(): void {
             }
           } else if (platform === 'nate') {
             try {
-              // Puppeteer 기반 크롤러 사용 (동적 콘텐츠 지원)
-              const nateKeywords = await getNateRealtimeKeywordsWithPuppeteer(limit);
-              result.nate = nateKeywords.map((k, idx) => ({ ...k, rank: idx + 1 })) as RealtimeKeyword[];
+              // v2.45.0: axios+cheerio (puppeteer 제거 — RAM 250MB 절감)
+              result.nate = await getNateRealtimeKeywords(limit);
             } catch (err: any) {
               console.error(`[GET-REALTIME-KEYWORDS] ❌ Nate 수집 실패:`, err?.message || err);
-              // 폴백: axios 기반 크롤러
-              try {
-                result.nate = await getNateRealtimeKeywords(limit);
-              } catch {
-                result.nate = [] as RealtimeKeyword[];
-              }
+              result.nate = [] as RealtimeKeyword[];
             }
           } else if (platform === 'daum') {
             try {
-              const { getDaumRealtimeKeywordsWithPuppeteer } = await import('../../utils/daum-realtime-api');
-              const puppeteerKeywords = await getDaumRealtimeKeywordsWithPuppeteer(limit);
-              result.daum = puppeteerKeywords.map((kw: any) => ({
-                keyword: kw.keyword || kw.text || '',
-                rank: kw.rank || 0,
-                source: kw.source || 'daum',
-                timestamp: kw.timestamp || new Date().toISOString()
-              })).filter((kw: any) => kw.keyword && kw.keyword.length > 0) as RealtimeKeyword[];
+              // v2.45.0: axios+cheerio (puppeteer 제거 — RAM 250MB 절감)
+              result.daum = await getDaumRealtimeKeywords(limit);
             } catch (err: any) {
               console.error(`[GET-REALTIME-KEYWORDS] ❌ Daum 수집 실패:`, err?.message || err);
               result.daum = [] as RealtimeKeyword[];

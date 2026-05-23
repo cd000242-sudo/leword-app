@@ -221,12 +221,14 @@ export function startSurgeScanner(): void {
   if (timer) return;
   const { markWorkerStarted, markWorkerTick } = require('./worker-status');
   markWorkerStarted('surge');
-  setTimeout(() => {
+  const initTimer = setTimeout(() => {
     Promise.resolve(autoScan()).then(() => markWorkerTick('surge')).catch((e: any) => markWorkerTick('surge', e?.message));
     timer = setInterval(() => {
       Promise.resolve(autoScan()).then(() => markWorkerTick('surge')).catch((e: any) => markWorkerTick('surge', e?.message));
     }, 6 * 60 * 60 * 1000);
+    (timer as any).unref?.(); // v2.45.0
   }, 15 * 60 * 1000);
+  (initTimer as any).unref?.();
   console.log('[SURGE] ✅ 트렌드 급발진 스캐너 시작 (6h 주기)');
 }
 

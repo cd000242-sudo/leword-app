@@ -793,7 +793,8 @@ export function setupPremiumHuntingHandlers(): void {
             const kw = String(k.keyword || '').trim();
             if (!kw) continue;
             const dc = Number(k.documentCount || k.docCount || 0);
-            const sv = Number(k.searchVolume || k.monthlyPcQcCnt + k.monthlyMobileQcCnt || 0);
+            // v2.45.0 H3: pc/mobile 일부만 정의되어도 안전 합산 (이전: undefined + N = NaN → 0 손실)
+            const sv = Number(k.searchVolume || ((Number(k.monthlyPcQcCnt) || 0) + (Number(k.monthlyMobileQcCnt) || 0)) || 0);
             const diag = diagnoseKeyword(kw, dc, sv);
             if (diag.blockedBy === 'POLYSEMY/VERB' || diag.blockedBy === 'GENERIC_BROAD' || diag.blockedBy === 'NEWS_NOISE') {
               bloggerBlocked++;

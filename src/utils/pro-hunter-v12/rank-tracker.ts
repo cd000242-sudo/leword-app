@@ -119,12 +119,14 @@ export function startRankTracker(): void {
   if (timer) return;
   const { markWorkerStarted, markWorkerTick } = require('./worker-status');
   markWorkerStarted('rank');
-  setTimeout(() => {
+  const initTimer = setTimeout(() => {
     Promise.resolve(runCheck()).then(() => markWorkerTick('rank')).catch((e: any) => markWorkerTick('rank', e?.message));
     timer = setInterval(() => {
       Promise.resolve(runCheck()).then(() => markWorkerTick('rank')).catch((e: any) => markWorkerTick('rank', e?.message));
     }, CHECK_INTERVAL_MS);
+    (timer as any).unref?.(); // v2.45.0
   }, 5 * 60 * 1000);
+  (initTimer as any).unref?.();
   console.log('[RANK-TRACKER] ✅ 순위 추적 시작 (24h 주기)');
 }
 

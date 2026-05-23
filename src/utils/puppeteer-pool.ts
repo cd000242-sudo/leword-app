@@ -48,19 +48,32 @@ function classifyLaunchError(err: any, executablePath?: string): PuppeteerLaunch
   let isAntivirusSuspected = false;
   let userMessage = '브라우저를 시작하지 못했습니다.';
 
+  // v2.45.0 H1: 연산자 우선순위 fix + TIMEOUT 오탐 방지 + 누락 패턴 추가
   if (lower.includes('eacces') || lower.includes('eperm') || lower.includes('access is denied') || lower.includes('access denied')) {
     code = 'PERMISSION_DENIED';
     isAntivirusSuspected = true;
     userMessage = '브라우저 실행이 차단되었습니다. 백신/보안 프로그램이 막고 있을 가능성이 높습니다.';
-  } else if (lower.includes('enoent') || lower.includes('spawn') && lower.includes('not found')) {
+  } else if (lower.includes('enoent') || (lower.includes('spawn') && lower.includes('not found'))) {
+    // 괄호 추가: `spawn && not found`를 한 그룹으로 (이전 우선순위 버그)
     code = 'SPAWN_FAILED';
     isAntivirusSuspected = true;
     userMessage = '브라우저 실행 파일이 사라졌거나 격리됐습니다. 백신이 chrome.exe를 격리했을 수 있습니다.';
+  } else if (lower.includes('eaddrinuse')) {
+    // 포트 충돌 — 백신 아님, 좀비 프로세스
+    code = 'SPAWN_FAILED';
+    isAntivirusSuspected = false;
+    userMessage = '브라우저 디버그 포트 충돌. 이전 chrome.exe가 남아있을 수 있습니다. 재시작 후 다시 시도하세요.';
+  } else if (lower.includes('protocolerror') || lower.includes('protocol error')) {
+    // CDP 통신 실패 — 일반적 일시 오류
+    code = 'SPAWN_FAILED';
+    isAntivirusSuspected = false;
+    userMessage = '브라우저와의 통신 오류. 재시도하면 해결될 수 있습니다.';
   } else if (lower.includes('timeout') || lower.includes('timed out')) {
+    // TIMEOUT은 백신뿐 아니라 네트워크/저사양 PC에서도 발생 — 오탐 방지
     code = 'TIMEOUT';
-    isAntivirusSuspected = true;
-    userMessage = '브라우저 시작이 시간 초과되었습니다. 백신 검사로 지연됐을 가능성이 있습니다.';
-  } else if (lower.includes('failed to launch') && !executablePath) {
+    isAntivirusSuspected = false;
+    userMessage = '브라우저 시작이 시간 초과되었습니다. 시스템 과부하 또는 백신 검사로 지연됐을 수 있습니다.';
+  } else if (lower.includes('executable doesn\'t exist') || (lower.includes('failed to launch') && !executablePath)) {
     code = 'NOT_FOUND';
     isAntivirusSuspected = false;
     userMessage = 'Chromium/Chrome을 찾을 수 없습니다. Chrome 설치 또는 앱 재설치가 필요합니다.';

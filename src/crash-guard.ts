@@ -46,11 +46,14 @@ function appendCrash(entry: { type: string; message: string; stack?: string; ver
     const line = JSON.stringify({ at: nowIso(), ...entry }) + '\n';
     const p = getLogPath();
     // rotation: 100 entry 넘으면 앞에 절반 삭제
+    // v2.45.0 EXTRA4: 파일 사이즈 1MB 넘어도 절반 truncate (큰 stack trace 보호)
+    const MAX_SIZE_BYTES = 1024 * 1024;
     let existing = '';
     if (fs.existsSync(p)) {
+      const stat = fs.statSync(p);
       existing = fs.readFileSync(p, 'utf8');
       const lines = existing.split('\n').filter(Boolean);
-      if (lines.length >= MAX_LOG_ENTRIES) {
+      if (lines.length >= MAX_LOG_ENTRIES || stat.size >= MAX_SIZE_BYTES) {
         existing = lines.slice(-Math.floor(MAX_LOG_ENTRIES / 2)).join('\n') + '\n';
       }
     }
@@ -217,6 +220,9 @@ export function attachWindowCrashGuard(win: BrowserWindow): void {
     }
   });
 
+  // v2.45.0 UX2: unresponsive 안내 + 안전 재시작 옵션
+  //   사용자가 작업관리자 강제 종료 → 좀비 누적 악순환 차단
+  let unresponsiveDialogShown = false;
   win.webContents.on('unresponsive', () => {
     console.warn('[CRASH] webContents unresponsive');
     appendCrash({
@@ -224,10 +230,44 @@ export function attachWindowCrashGuard(win: BrowserWindow): void {
       message: '메인창 응답 없음',
       version,
     });
+    if (unresponsiveDialogShown || win.isDestroyed()) return;
+    unresponsiveDialogShown = true;
+    setTimeout(() => {
+      if (win.isDestroyed()) return;
+      try {
+        dialog.showMessageBox(win, {
+          type: 'warning',
+          title: 'LEWORD 응답 대기 중',
+          message: '화면이 잠시 응답하지 않습니다.',
+          detail:
+            '대형 키워드 발굴이나 SERP 크롤링 중일 수 있습니다.\n\n' +
+            '• 계속 기다리기: 작업 완료 시 자동 복구\n' +
+            '• 안전 재시작: 데이터 저장 후 깨끗하게 재시작 (권장)\n' +
+            '• 닫기: 직접 종료 (작업관리자 사용 비권장 — 좀비 chrome.exe 누적 원인)',
+          buttons: ['계속 기다리기', '안전 재시작', '닫기'],
+          defaultId: 0,
+          cancelId: 0,
+          noLink: true,
+        }).then(({ response }) => {
+          if (response === 1) {
+            // 안전 재시작 — relaunch + exit
+            console.log('[CRASH] 사용자 선택: 안전 재시작');
+            appendCrash({ type: 'user-safe-restart', message: 'unresponsive 후 사용자 재시작', version });
+            try { app.relaunch(); } catch {}
+            try { app.exit(0); } catch {}
+          }
+          // 다이얼로그 닫힌 후 일정 시간 지나면 다시 표시 가능하도록
+          setTimeout(() => { unresponsiveDialogShown = false; }, 30000);
+        }).catch(() => { unresponsiveDialogShown = false; });
+      } catch {
+        unresponsiveDialogShown = false;
+      }
+    }, 1500); // 1.5초 후 표시 (짧은 지연은 무시)
   });
 
   win.webContents.on('responsive', () => {
     console.log('[CRASH] webContents 응답 복구됨');
+    unresponsiveDialogShown = false;
   });
 }
 

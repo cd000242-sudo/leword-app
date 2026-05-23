@@ -1227,6 +1227,20 @@ app.on('before-quit', (e) => {
     e.preventDefault();
     return;
   }
+
+  // v2.45.0 UPD7: quitAndInstall 흐름에서는 graceful cleanup 우회
+  //   NSIS spawn 지연 방지. chrome 좀비만 동기로 빠르게 정리하고 즉시 exit.
+  if ((app as any).__skipGracefulCleanup === true) {
+    console.log('[QUIT] update install 흐름 — graceful cleanup 우회, 즉시 exit');
+    gracefulQuitDone = true;
+    try {
+      const { cleanupChromeZombiesSync } = require('./utils/chrome-zombie-cleaner');
+      cleanupChromeZombiesSync(1500);
+    } catch {}
+    // app.exit 직접 호출하지 않고 Electron의 quitAndInstall이 NSIS spawn 후 정상 quit하게 둠
+    return;
+  }
+
   e.preventDefault();
   gracefulQuitInProgress = true;
   (app as any).isQuiting = true;

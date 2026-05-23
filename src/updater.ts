@@ -141,16 +141,24 @@ function performQuitAndInstall(autoUpdater: any): void {
   }
   showInstallingState().then(() => {
     // v2.43.80: HTA splash 복원 + paint 시간 확보
-    //   사용자 보고: "업데이트 프로세서 창뜨다가 100%되면 그냥 꺼져버린다니까요"
-    //   원인: silent install + HTA 없음 = 사용자 빈 화면
-    //   해결: HTA spawn 후 1.5초 대기 (HTA paint 보장) → quitAndInstall
-    //   HTA spawn 실패 시에도 진행창 추가 메시지로 사용자 안내
+    // v2.45.0 UPD4: HTA paint 동적 대기 (500ms로 단축, 저사양 1500ms 유지)
+    //   사용자 보고 "nsis창이 너무 늦게 떠요" 대응
+    //   HTA 자체에 setInterval(focus) 추가로 NSIS 뒤에 숨지 않음
     const htaOk = launchExternalSplash();
     if (!htaOk) {
-      // HTA 실패 시 진행창에 더 명확한 안내
       showInstallingFallbackMsg();
     }
+    // 저사양 PC에선 HTA paint가 느릴 수 있어 더 긴 대기
+    let waitMs = 500;
+    try {
+      const { EnvironmentManager } = require('./utils/environment-manager');
+      if (EnvironmentManager.getInstance().isEffectiveLowSpec()) waitMs = 1500;
+    } catch {}
     setTimeout(() => {
+      // v2.45.0 UPD7: before-quit graceful cleanup 우회 플래그
+      //   quitAndInstall 호출 직전에 설정 → before-quit 핸들러가 즉시 return
+      //   chrome 좀비 정리는 cleanupChromeZombiesSync로 빠르게 인라인 처리
+      (app as any).__skipGracefulCleanup = true;
       try {
         autoUpdater.quitAndInstall(true, true);
       } catch (e: any) {
@@ -485,6 +493,13 @@ export function initAutoUpdaterEarly(): void {
       return p;
     };
     log.transports.file.maxSize = 5 * 1024 * 1024; // 5MB rotation
+    // v2.45.0 EXTRA4: maxFile 명시 — 무한 증식 방지 (5MB × 5 = 25MB 상한)
+    if (log.transports.file.archiveLog) {
+      // electron-log 6+ 자동 rotation 지원
+    }
+    if (typeof log.transports.file.maxFiles !== 'undefined') {
+      log.transports.file.maxFiles = 5;
+    }
     autoUpdater.logger = log;
   } catch (e: any) {
     console.warn('[UPDATER] electron-log 로드 실패, console fallback:', e?.message);
@@ -566,20 +581,13 @@ export function initAutoUpdaterEarly(): void {
     broadcastEvent('downloaded', { version: info?.version });
     if (stuckCheckTimer) { clearTimeout(stuckCheckTimer); stuckCheckTimer = null; }
 
-    // v2.43.84: 사용자 보고 "UI 안 뜨는데" — 자동 카운트다운 quitAndInstall 제거
-    //   사용자가 작업 중에 강제 종료되는 케이스 차단
-    //   다운로드 완료 시 dialog 표시 → 사용자 선택:
-    //     · "지금 설치" → quitAndInstall
-    //     · "나중에" → 다음 LEWORD 시작 시 self-heal dialog 가 다시 안내
-    //   진행창 close — 사용자가 메인창에서 작업 계속 가능
-    closeProgressWindow();
-    try {
-      for (const win of hideableWindows) {
-        if (win && !win.isDestroyed()) {
-          try { win.show(); } catch {}
-        }
-      }
-    } catch {}
+    // v2.45.0 UPD1+UPD3: progressWindow 유지 + 메인창 hide (사용자 보고 "이전 LEWORD 동시에 보임" fix)
+    //   - 다운로드 완료 후에도 진행창 유지 → showReadyState 표시
+    //   - 메인창은 hide 유지 (dialog만 사용자에게 노출)
+    //   - "지금 설치" → 메인창 hide 유지 + performQuitAndInstall
+    //   - "나중에" → 진행창 close + 메인창 show (작업 계속 가능)
+    showReadyState(info?.version, 0).catch(() => {});
+
     const { dialog: dlg } = require('electron');
     dlg.showMessageBox({
       type: 'info',
@@ -593,9 +601,19 @@ export function initAutoUpdaterEarly(): void {
       if (result.response === 0) {
         if (restartScheduled) return;
         restartScheduled = true;
+        // 메인창 hide 유지 — performQuitAndInstall이 showInstallingState로 진행창에 "설치 중" 표시
         performQuitAndInstall(autoUpdater);
       } else {
-        console.log('[UPDATER] 사용자 "나중에" 선택 — 자동 install 미실행');
+        console.log('[UPDATER] 사용자 "나중에" 선택 — 메인창 복원');
+        // 진행창 닫고 메인창 다시 표시
+        closeProgressWindow();
+        try {
+          for (const win of hideableWindows) {
+            if (win && !win.isDestroyed()) {
+              try { win.show(); } catch {}
+            }
+          }
+        } catch {}
       }
     });
   });

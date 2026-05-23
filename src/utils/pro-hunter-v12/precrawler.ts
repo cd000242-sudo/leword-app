@@ -135,12 +135,14 @@ export function startPrecrawler(): void {
   if (timer) return;
   const { markWorkerStarted, markWorkerTick } = require('./worker-status');
   markWorkerStarted('precrawler');
-  setTimeout(() => {
+  const initTimer = setTimeout(() => {
     Promise.resolve(runOnce()).then(() => markWorkerTick('precrawler')).catch((e: any) => markWorkerTick('precrawler', e?.message));
     timer = setInterval(() => {
       Promise.resolve(runOnce()).then(() => markWorkerTick('precrawler')).catch((e: any) => markWorkerTick('precrawler', e?.message));
     }, INTERVAL_MS);
+    (timer as any).unref?.(); // v2.45.0
   }, 10 * 60 * 1000);
+  (initTimer as any).unref?.();
   console.log('[PRECRAWL] ✅ 백그라운드 프리크롤 시작 (30분 주기)');
 }
 

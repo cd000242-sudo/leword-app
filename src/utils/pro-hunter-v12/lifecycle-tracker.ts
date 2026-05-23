@@ -106,12 +106,14 @@ export function startLifecycleTracker(): void {
   if (timer) return;
   const { markWorkerStarted, markWorkerTick } = require('./worker-status');
   markWorkerStarted('lifecycle');
-  setTimeout(() => {
+  const initTimer = setTimeout(() => {
     runCheck().then(() => markWorkerTick('lifecycle')).catch((e: any) => markWorkerTick('lifecycle', e?.message));
     timer = setInterval(() => {
       runCheck().then(() => markWorkerTick('lifecycle')).catch((e: any) => markWorkerTick('lifecycle', e?.message));
     }, CHECK_INTERVAL_MS);
+    (timer as any).unref?.(); // v2.45.0: idle CPU 감소
   }, 60 * 1000);
+  (initTimer as any).unref?.();
   console.log('[LIFECYCLE] ✅ 라이프사이클 추적 시작 (12h 주기)');
 }
 
