@@ -67,6 +67,50 @@ function detectPendingUpdate(): PendingUpdate | null {
 }
 
 /**
+ * v2.47.3: GitHub latest 버전 조회 (pending 무효화 판정용)
+ *   pending이 latest보다 낮으면 pending 삭제 → autoUpdater가 latest 다운로드
+ *   네트워크 실패 시 null 반환 → 기존 동작 fallback
+ */
+async function fetchLatestVersionFromGitHub(): Promise<string | null> {
+  try {
+    const controller = new AbortController();
+    const timer = setTimeout(() => controller.abort(), 3000);
+    const res = await fetch('https://api.github.com/repos/cd000242-sudo/leword-app/releases/latest', {
+      signal: controller.signal,
+      headers: { 'User-Agent': 'LEWORD-self-heal' },
+    });
+    clearTimeout(timer);
+    if (!res.ok) return null;
+    const data = await res.json() as { tag_name?: string };
+    const tag = String(data.tag_name || '').replace(/^v/, '');
+    return /^\d+\.\d+\.\d+$/.test(tag) ? tag : null;
+  } catch {
+    return null;
+  }
+}
+
+/**
+ * v2.47.3: pending 폴더의 모든 .exe 삭제
+ *   옛 pending으로 묶이는 사용자 자동 복구용
+ */
+function purgePendingFolder(): number {
+  try {
+    if (!fs.existsSync(PENDING_DIR)) return 0;
+    const files = fs.readdirSync(PENDING_DIR).filter(f => /^LEWORD-.*\.exe(\.blockmap)?$/i.test(f));
+    let removed = 0;
+    for (const f of files) {
+      try {
+        fs.unlinkSync(path.join(PENDING_DIR, f));
+        removed++;
+      } catch {}
+    }
+    return removed;
+  } catch {
+    return 0;
+  }
+}
+
+/**
  * LEWORD 시작 시 pending 업데이트 자동 감지 + 사용자 confirm 후 install
  * 호출 시점: app.whenReady 진입 직후, splash 표시 후, 메인창 생성 전
  */
@@ -81,6 +125,22 @@ export async function checkAndApplyPendingUpdate(currentVersion: string): Promis
   }
 
   console.log(`[SELF-HEAL] pending 업데이트 발견: v${pending.version} (현재 v${currentVersion})`);
+
+  // v2.47.3: pending이 GitHub latest보다 낮으면 무효화 (autoUpdater에 위임)
+  //   사용자 보고: "지금 설치 눌러도 안 뜸" — 옛 pending v2.44.1의 NSIS installer가
+  //   chrome 좀비 정리 코드 없어서 file lock 충돌로 hang
+  //   해결: latest와 비교 → outdated면 pending 삭제 → autoUpdater가 latest 다운로드
+  try {
+    const latestVersion = await fetchLatestVersionFromGitHub();
+    if (latestVersion && compareVersions(pending.version, latestVersion) < 0) {
+      console.log(`[SELF-HEAL] ⚠️ pending v${pending.version} < latest v${latestVersion} — 무효화 (autoUpdater에 위임)`);
+      const removed = purgePendingFolder();
+      console.log(`[SELF-HEAL] pending 폴더 ${removed}개 파일 삭제 완료`);
+      return false; // autoUpdater가 latest 다운로드하도록
+    }
+  } catch (e: any) {
+    console.warn('[SELF-HEAL] latest 비교 실패 (무시, 기존 동작 계속):', e?.message);
+  }
 
   // v2.47.1: self-heal dialog 표시 전 시작 splash 닫기 (두 창 동시 표시 방지)
   //   사용자 보고: "splash 떠있는데 dialog도 같이 떠서 두 개 동시 표시"
