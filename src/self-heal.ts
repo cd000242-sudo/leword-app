@@ -82,6 +82,14 @@ export async function checkAndApplyPendingUpdate(currentVersion: string): Promis
 
   console.log(`[SELF-HEAL] pending 업데이트 발견: v${pending.version} (현재 v${currentVersion})`);
 
+  // v2.47.1: self-heal dialog 표시 전 시작 splash 닫기 (두 창 동시 표시 방지)
+  //   사용자 보고: "splash 떠있는데 dialog도 같이 떠서 두 개 동시 표시"
+  //   원인: self-heal 경로는 showProgressWindow()를 안 거쳐서 closeSplash 호출 누락
+  try {
+    const { closeSplash } = require('./splash');
+    closeSplash();
+  } catch {}
+
   try {
     const result = await dialog.showMessageBox({
       type: 'info',
