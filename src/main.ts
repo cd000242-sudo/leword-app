@@ -181,10 +181,17 @@ function createKeywordWindow() {
     //   이전 logic: update 발견 시 메인창 show() 스킵 → 사용자 빈 화면
     //   NSIS install 실패 환경에서 LEWORD가 영영 안 켜지는 케이스 차단
     //   새 logic: 메인창 즉시 show. update flow 는 백그라운드 + 다운로드 완료 시 dialog
+    // v2.48.6: 단, update flow 가 이미 진행 중이면 show 스킵 (race 차단)
+    //   ready-to-show 가 update-available 보다 늦게 오면 hide() 호출이 무력화되던 버그
+    //   사용자 보고: "업데이트할 때 이전 버전 열리게 하지말라니까 그러네"
     closeSplash();
-    keywordWindow?.show();
+    if (isUpdating()) {
+      console.log('[LEWORD] update 진행 중 — 메인창 show 스킵 (이전 버전 가시화 방지)');
+    } else {
+      keywordWindow?.show();
+      console.log('[LEWORD] 메인창 표시 완료 (update flow 는 백그라운드 진행)');
+    }
     flushPendingSecondInstance();
-    console.log('[LEWORD] 메인창 표시 완료 (update flow 는 백그라운드 진행)');
   });
 
   // v2.42.41: X 버튼 기본 동작 = 종료 (이전 v2.42.27 기본 트레이 최소화 → 좀비 프로세스 신고)
