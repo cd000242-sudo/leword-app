@@ -135,11 +135,28 @@ function performQuitAndInstall(autoUpdater: any): void {
   //   isSilent=true: NSIS UI 없이 빠른 install
   //   isForceRunAfter=true: NSIS 종료 직후 새 LEWORD spawn (이중 안전망 with installer.nsh ExecShell)
   //   FSM: VERIFYING → INSTALLING 전이로 race 차단
+  // v2.48.5: FSM 전이 실패해도 install 강행
+  //   이전: DOWNLOADING / IDLE 등에서 호출 시 transitionState('INSTALLING') 거부 → 조용한 사망
+  //         (사용자: "지금 설치 눌렀는데 아무 반응 없음")
+  //   원인: download-progress 가 99% 에서 끝나거나 FSM 이 다른 경로로 비정상 상태에 도달
+  //   해결: 이미 다운로드 완료 + 사용자 명시 동의 상황이므로 install 은 무조건 진행해야 함
+  //         INSTALLING 만 force 세팅 (다음 사이클에서 FSM 정합성 회복)
   if (!transitionState('INSTALLING')) {
-    console.warn('[UPDATER] INSTALLING 전이 실패 — 이미 진행 중');
-    return;
+    if (updaterState === 'INSTALLING' || updaterState === 'DONE') {
+      console.warn('[UPDATER] 이미 install 진행/완료 상태 — 중복 호출 무시');
+      return;
+    }
+    console.warn(`[UPDATER] INSTALLING 전이 거부됨 (${updaterState}→INSTALLING) — 강제 진행`);
+    updaterState = 'INSTALLING';
   }
-  showInstallingState().then(() => {
+  // v2.48.5: showInstallingState hang 방지
+  //   executeJavaScript 가 webContents 응답 없음으로 hang 되면 .then() 영원히 안 옴 →
+  //   사용자: "지금 설치 클릭했는데 아무 반응 없음"
+  //   해결: 800ms timeout race — UI 업데이트는 best-effort, install 흐름은 무조건 진행
+  Promise.race([
+    showInstallingState(),
+    new Promise<void>(resolve => setTimeout(resolve, 800)),
+  ]).then(() => {
     // v2.43.80: HTA splash 복원 + paint 시간 확보
     // v2.45.0 UPD4: HTA paint 동적 대기 (500ms로 단축, 저사양 1500ms 유지)
     //   사용자 보고 "nsis창이 너무 늦게 떠요" 대응
@@ -163,11 +180,67 @@ function performQuitAndInstall(autoUpdater: any): void {
         autoUpdater.quitAndInstall(true, true);
       } catch (e: any) {
         console.error('[UPDATER] quitAndInstall 실패:', e?.message);
-        transitionState('ERROR');
-        try { app.exit(0); } catch {}
+        // ↓ fallback 으로 즉시 진행 (transitionState ERROR 는 fallback 끝나고)
       }
+      // v2.48.5: quitAndInstall silent fail 안전망
+      //   사용자 반복 보고 "지금 설치 눌렀는데 아무 반응 없음"
+      //   원인 가설: quitAndInstall 이 throw 안 하고 silent 로 NSIS spawn 실패
+      //              (signature check / file lock / Windows policy 등)
+      //   해결: 5초 안에 LEWORD 가 살아있으면 self-heal 방식으로 pending exe 직접 spawn
+      setTimeout(() => {
+        try {
+          console.warn('[UPDATER] quitAndInstall 5초 후에도 LEWORD 살아있음 — pending exe 직접 spawn');
+          spawnPendingExeFallback();
+        } catch (err: any) {
+          console.error('[UPDATER] fallback spawn 실패:', err?.message);
+          try { app.exit(0); } catch {}
+        }
+      }, 5000);
     }, 1500); // 300 → 1500ms (HTA paint 보장)
   });
+}
+
+// v2.48.5: quitAndInstall 이 silent fail 한 경우 마지막 안전망
+//   electron-updater 의 pending 폴더에서 다운로드된 .exe 를 self-heal 방식으로 직접 실행
+//   detached + unref + app.exit → NSIS installer 가 LEWORD 종료 후 새 버전 설치
+function spawnPendingExeFallback(): void {
+  try {
+    const localAppData = process.env.LOCALAPPDATA || path.join(process.env.USERPROFILE || '', 'AppData', 'Local');
+    const pendingDir = path.join(localAppData, 'leword-updater', 'pending');
+    if (!fs.existsSync(pendingDir)) {
+      console.warn('[UPDATER] pending 폴더 없음:', pendingDir);
+      try { app.exit(0); } catch {}
+      return;
+    }
+    const files = fs.readdirSync(pendingDir).filter(f => /^LEWORD-.*\.exe$/i.test(f));
+    if (files.length === 0) {
+      console.warn('[UPDATER] pending exe 없음');
+      try { app.exit(0); } catch {}
+      return;
+    }
+    // 가장 최근 수정 .exe 선택 (electron-updater 가 항상 최신 .exe 1개만 유지)
+    const candidates = files.map(f => {
+      const full = path.join(pendingDir, f);
+      const stat = fs.statSync(full);
+      return { full, mtime: stat.mtimeMs };
+    }).sort((a, b) => b.mtime - a.mtime);
+    const exePath = candidates[0].full;
+    console.log('[UPDATER] fallback spawn:', exePath);
+    const child = spawn(exePath, [], {
+      detached: true,
+      stdio: 'ignore',
+      windowsHide: false,
+    });
+    child.unref();
+    // 1.5초 대기 (NSIS process 시작 보장) → LEWORD 강제 종료
+    setTimeout(() => {
+      console.log('[UPDATER] fallback — LEWORD 강제 exit');
+      try { app.exit(0); } catch {}
+    }, 1500);
+  } catch (e: any) {
+    console.error('[UPDATER] spawnPendingExeFallback 예외:', e?.message);
+    try { app.exit(0); } catch {}
+  }
 }
 
 async function showInstallingFallbackMsg(): Promise<void> {
@@ -580,6 +653,13 @@ export function initAutoUpdaterEarly(): void {
     console.log('[UPDATER] 다운로드 완료:', info?.version);
     broadcastEvent('downloaded', { version: info?.version });
     if (stuckCheckTimer) { clearTimeout(stuckCheckTimer); stuckCheckTimer = null; }
+
+    // v2.48.5: download-progress 가 99% 에서 끝나면 (Math.round 누락) FSM 이 DOWNLOADING 에 묶임
+    //   → 사용자가 "지금 설치" 클릭해도 performQuitAndInstall 의 INSTALLING 전이 실패 → 무반응
+    //   여기서 강제로 VERIFYING 으로 끌어올려 클릭 시 INSTALLING 전이가 통과되도록
+    if (updaterState === 'DOWNLOADING') {
+      transitionState('VERIFYING');
+    }
 
     // v2.48.4: 새 버전 다운로드 완료 시 이전 LEWORD 메인창 강제 hide
     //   사용자 보고: "새 버전이 있으면 이전 버전은 열리면 안 되고 숨겨주세요"
