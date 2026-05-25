@@ -80,6 +80,8 @@ export function setupKeywordMasterHandlers() {
   // v2.42.98: 백그라운드 워커 옵트인 — 기본 OFF (CPU/RAM 성능 우선)
   //   환경설정의 enableBackgroundWorkers=true 일 때만 활성화
   //   사용자 제보: "앱을 사용하면 컴퓨터가 굉장히 느려진다"
+  // v2.46.0 F: 한 번의 동기 fs 호출만 (백그라운드 워커 결정 시점에 필수)
+  //   이 부분은 콜드 스타트 핫패스라 동기 유지가 단순함. 100ms 미만 안전.
   const enableBg = (() => {
     try {
       const fs = require('fs');
