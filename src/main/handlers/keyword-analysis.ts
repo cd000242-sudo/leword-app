@@ -980,6 +980,63 @@ export function setupKeywordAnalysisHandlers(): void {
           console.warn(`[KEYWORD-EXPANSIONS] 카테고리 키워드 수집 실패:`, error);
         }
 
+        // ★ v2.49.1: Brand 확장 — "게이밍 노트북 추천" 같은 카테고리 키워드 → 제품(브랜드 prefix) 변형
+        //   1차: BRAND_FAMILIES 사전 매칭. 매칭 시 카테고리 브랜드 prefix 키워드 생성.
+        //   2차(fallback): 사전 매칭 0건 또는 brandExpanded < 5 면 입력 키워드 자동완성에서
+        //                  영문/숫자 토큰 추출 → 동적 brand candidate 활용.
+        sendProgress('related', 5, 5, '🛍️ 브랜드/제품 확장 키워드 수집 중...');
+        try {
+          const { expandWithBrands, detectCategoryFamily } = await import('../../utils/brand-families');
+          const detected = detectCategoryFamily(trimmedKeyword);
+          let brandExpanded: string[] = [];
+
+          if (detected) {
+            console.log(`[KEYWORD-EXPANSIONS] 카테고리 매칭: ${detected.family} (token="${detected.token}")`);
+            brandExpanded = expandWithBrands(trimmedKeyword, 10);
+          }
+
+          // Fallback: 사전 매칭 부족 시 자동완성에서 영문/숫자 토큰 추출
+          if (brandExpanded.length < 5 && hasNaverApiKeys) {
+            try {
+              const autoForBrands = await getNaverAutocompleteKeywords(trimmedKeyword, {
+                clientId: naverClientId,
+                clientSecret: naverClientSecret,
+              });
+              const dynamicBrandTokens = new Set<string>();
+              for (const ac of (autoForBrands || []).slice(0, 30)) {
+                // 토큰 분리 + 영문 또는 영문+숫자 조합 토큰만 (모델명/브랜드 의심)
+                const tokens = ac.split(/\s+/).filter(t => /^[A-Za-z][A-Za-z0-9]+$/.test(t) && t.length >= 2 && t.length <= 12);
+                tokens.forEach(t => dynamicBrandTokens.add(t));
+              }
+              // 동적 토큰을 prefix 로 한 확장
+              for (const brand of Array.from(dynamicBrandTokens).slice(0, 8)) {
+                brandExpanded.push(`${brand} ${trimmedKeyword}`);
+              }
+              if (dynamicBrandTokens.size > 0) {
+                console.log(`[KEYWORD-EXPANSIONS] 자동완성 동적 brand fallback: ${Array.from(dynamicBrandTokens).slice(0, 8).join(', ')}`);
+              }
+            } catch (autoErr: any) {
+              console.warn(`[KEYWORD-EXPANSIONS] 자동완성 brand fallback 실패:`, autoErr?.message);
+            }
+          }
+
+          let brandAddedCount = 0;
+          const existingSet = new Set(allKeywords.map(k => k.keyword));
+          for (const bk of brandExpanded) {
+            const cleaned = bk.trim();
+            if (!cleaned || existingSet.has(cleaned)) continue;
+            if (!isValidSearchKeyword(cleaned)) continue;
+            allKeywords.push({ keyword: cleaned, type: 'expansion' });
+            existingSet.add(cleaned);
+            brandAddedCount++;
+          }
+          if (brandAddedCount > 0) {
+            console.log(`[KEYWORD-EXPANSIONS] ✅ 브랜드 확장 +${brandAddedCount}개`);
+          }
+        } catch (brandErr) {
+          console.warn(`[KEYWORD-EXPANSIONS] 브랜드 확장 실패:`, brandErr);
+        }
+
         // 4. 네이버 검색 결과에서 실제 검색 패턴 추출 (블로그 제목이 아닌 키워드)
         sendProgress('patterns', 5, 5, '🎯 검색 패턴 추출 중...');
         try {
