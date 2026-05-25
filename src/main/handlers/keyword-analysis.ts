@@ -1037,6 +1037,37 @@ export function setupKeywordAnalysisHandlers(): void {
           console.warn(`[KEYWORD-EXPANSIONS] 브랜드 확장 실패:`, brandErr);
         }
 
+        // ★ v2.49.2: Trending Products — 네이버 쇼핑 인기 상품 title 에서 실제 모델명 추출
+        //   "게이밍 노트북 추천" 입력 → 쇼핑 검색 (인기순 40개) → simplifyProductTitleForSearch
+        //   → 빈도 내림차순 → top 12 product 키워드 → 원본 의도 결합 변형
+        //   예: ["LG 그램 17 2024 추천", "LG 그램 17 2024 게이밍 노트북", "갤럭시북 4 프로 추천", ...]
+        if (hasNaverApiKeys) {
+          sendProgress('related', 5, 5, '🛒 네이버 쇼핑 인기 제품 분석 중...');
+          try {
+            const { expandWithTrendingProducts } = await import('../../utils/trending-products');
+            const trendingExpanded = await Promise.race([
+              expandWithTrendingProducts(trimmedKeyword, 12),
+              new Promise<string[]>((_, rej) => setTimeout(() => rej(new Error('trending products 10초 초과')), 10000)),
+            ]).catch(e => { console.warn('[KEYWORD-EXPANSIONS] trending products timeout:', e?.message); return [] as string[]; });
+
+            let trendingAddedCount = 0;
+            const existingSetT = new Set(allKeywords.map(k => k.keyword));
+            for (const tk of trendingExpanded) {
+              const cleaned = tk.trim();
+              if (!cleaned || existingSetT.has(cleaned)) continue;
+              if (!isValidSearchKeyword(cleaned)) continue;
+              allKeywords.push({ keyword: cleaned, type: 'expansion' });
+              existingSetT.add(cleaned);
+              trendingAddedCount++;
+            }
+            if (trendingAddedCount > 0) {
+              console.log(`[KEYWORD-EXPANSIONS] ✅ trending 제품 확장 +${trendingAddedCount}개`);
+            }
+          } catch (trendErr) {
+            console.warn(`[KEYWORD-EXPANSIONS] trending products 확장 실패:`, trendErr);
+          }
+        }
+
         // 4. 네이버 검색 결과에서 실제 검색 패턴 추출 (블로그 제목이 아닌 키워드)
         sendProgress('patterns', 5, 5, '🎯 검색 패턴 추출 중...');
         try {
