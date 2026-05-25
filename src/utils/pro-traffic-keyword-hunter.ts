@@ -1182,7 +1182,7 @@ function generateExpandedKeywords(keyword: string): NonNullable<ProTrafficKeywor
 
   const blueOceanGolden = Array.from(new Set([
     `${base} 최신`,
-    `${base} 2025`,
+    `${base} ${new Date().getFullYear()}`,  // v2.49.4: 동적 연도 (이전: 하드코딩 2025)
     `${base} 체크리스트`,
     `${base} 실패하지 않는 법`
   ]));
@@ -5939,9 +5939,11 @@ async function getPolicyBriefingKeywords(): Promise<string[]> {
   } catch { /* 무시 */ }
 
   // 정책 RSS 실패 시 기본 정책 키워드 추가
+  // v2.49.4: 동적 연도 (이전: '2025 청년도약계좌' 하드코딩)
   if (keywords.length === 0) {
+    const currentYear = new Date().getFullYear();
     const defaultPolicyKeywords = [
-      '2025 청년도약계좌', '청년월세지원', '근로장려금 신청',
+      `${currentYear} 청년도약계좌`, '청년월세지원', '근로장려금 신청',
       '자녀장려금', '육아휴직급여', '국민연금 수령나이',
       '기초연금 수급자격', '주거급여 신청', '에너지바우처'
     ];
@@ -6763,8 +6765,7 @@ function isCautionKeyword(keyword: string): boolean {
 /**
  * 키워드 분석 및 점수 계산
  */
-// 📅 현재 시점 고정 (2025-12-31 시뮬레이션 지원)
-// 🔥 v2.24.0 P0-1: 하드코딩 제거 — 2025-12-31 고정이라 2026-04 시점 모든 recency 계산 오염
+// 📅 현재 시점 — new Date() 동적 (이전 주석의 2025-12-31 시뮬레이션 언급은 outdated)
 const CURRENT_DATE = new Date();
 
 /**
