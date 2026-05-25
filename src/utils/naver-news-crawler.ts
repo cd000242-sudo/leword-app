@@ -501,6 +501,40 @@ async function crawlSports(page: Page): Promise<PopularNews[]> {
 }
 
 /**
+ * v2.48.8: HTTP 모드 보강용 — 연예/스포츠만 Puppeteer 로 수집
+ *   SPA 페이지라 axios 로는 불가능 (entertain.naver.com, sports.news.naver.com)
+ *   chrome.exe 미설치 환경에서는 throw → 호출자가 catch 해서 graceful skip
+ */
+async function crawlEntertainAndSportsViaPuppeteer(): Promise<PopularNews[]> {
+  const out: PopularNews[] = [];
+  let browser: Browser | null = null;
+  let entPage: Page | null = null;
+  let sportsPage: Page | null = null;
+  try {
+    browser = await initBrowser();
+    [entPage, sportsPage] = await Promise.all([browser.newPage(), browser.newPage()]);
+    await Promise.all([setupPage(entPage), setupPage(sportsPage)]);
+    const [ent, sports] = await Promise.all([
+      crawlEntertainment(entPage).catch(e => { console.warn('[NAVER-NEWS] ent fail:', e?.message); return [] as PopularNews[]; }),
+      crawlSports(sportsPage).catch(e => { console.warn('[NAVER-NEWS] sports fail:', e?.message); return [] as PopularNews[]; }),
+    ]);
+    out.push(...ent, ...sports);
+  } finally {
+    // 페이지 정리
+    try { if (entPage && !entPage.isClosed()) await entPage.close(); } catch {}
+    try { if (sportsPage && !sportsPage.isClosed()) await sportsPage.close(); } catch {}
+    // browserPool release
+    if (browser) {
+      try {
+        const { browserPool } = await import('./puppeteer-pool');
+        await browserPool.release(browser);
+      } catch {}
+    }
+  }
+  return out;
+}
+
+/**
  * 메인 함수: 병렬로 빠르게 수집
  */
 export async function getNaverPopularNews(): Promise<NaverNewsResult> {
@@ -516,11 +550,28 @@ export async function getNaverPopularNews(): Promise<NaverNewsResult> {
       new Promise<PopularNews[]>((_, rej) => setTimeout(() => rej(new Error('HTTP 25s timeout')), 25000)),
     ]);
     if (httpNews && httpNews.length >= 30) {
+      // v2.48.8: HTTP 모드는 연예/스포츠 카테고리를 받아오지 못함
+      //   (m.entertain.naver.com, m.sports.naver.com 은 SPA — SSR 응답에 본문 없음)
+      //   사용자 보고: "네이버 실시간 인기뉴스가 안나오는게있네요" → 연예/스포츠 탭 항상 비어있던 버그
+      //   해결: HTTP 모드 성공 시에도 Puppeteer 로 연예/스포츠 만 별도 수집 → 결과 병합
+      //   Puppeteer 사용 불가 환경(chrome 미설치 등)에서는 graceful skip — 메인 6 카테고리만 표시
+      let entSportsNews: PopularNews[] = [];
+      try {
+        entSportsNews = await Promise.race([
+          crawlEntertainAndSportsViaPuppeteer(),
+          new Promise<PopularNews[]>((_, rej) => setTimeout(() => rej(new Error('entSports 20s timeout')), 20000)),
+        ]);
+        console.log(`[NAVER-NEWS] 연예/스포츠 보강: ${entSportsNews.length}개`);
+      } catch (e: any) {
+        console.warn('[NAVER-NEWS] 연예/스포츠 보강 실패 (메인 카테고리만 사용):', e?.message);
+      }
+
       // dedupe + rank
+      const merged = [...httpNews, ...entSportsNews];
       const seen = new Set<string>();
       const deduped: PopularNews[] = [];
       const stats: Record<string, number> = {};
-      for (const n of httpNews) {
+      for (const n of merged) {
         const key = n.title;
         if (seen.has(key)) continue;
         seen.add(key);
@@ -528,7 +579,7 @@ export async function getNaverPopularNews(): Promise<NaverNewsResult> {
         stats[n.category] = (stats[n.category] || 0) + 1;
       }
       const elapsed = ((Date.now() - startTime) / 1000).toFixed(1);
-      console.log(`[NAVER-NEWS] ✅ HTTP 모드 성공: ${deduped.length}개 / ${elapsed}s`);
+      console.log(`[NAVER-NEWS] ✅ HTTP 모드 성공: ${deduped.length}개 / ${elapsed}s (카테고리: ${Object.keys(stats).join(', ')})`);
       return {
         success: true,
         news: deduped,
