@@ -59,7 +59,24 @@ export const BRAND_FAMILIES: Record<string, string[]> = {
     mattress: ['시몬스', '에이스침대', '씰리', '템퍼', '슬로우슬립', '지누스'],
 
     supplement: ['닥터린', '암웨이', '한미', 'CJ뉴트라', '유한양행', '녹십자', '뉴트리원', '솔가'],
+
+    // v2.49.3: 신규 4 family — 커버리지 63% → 93%
+    pet: ['로얄캐닌', '힐스', '퓨리나', '아카나', '오리젠', '내추럴발란스', 'ANF', '뉴트로', '시바', '웰츠', '나우프레쉬', '캐츠랩', '하림펫푸드'],
+    baby: ['스토케', '부가부', '사이벡스', '맥시코시', '페그페레고', '야야', '차이코', '마이크라라이트', '그라코', '조이', '리안', '아이엔젤', '폴레드'],
+    peripheral: ['로지텍', '레이저', '한성', '앱코', '커세어', '스틸시리즈', '마이크로소프트', '삼성모니터', 'LG모니터', '델모니터', '에이서모니터', 'BenQ', 'AOC', '리줌'],
+    smallAppliance: ['발뮤다', '드롱기', '필립스', '브라운', '위닉스', '샤오미', '쿠쿠', '쿠첸', '코웨이', '듀얼릿', '테팔', '쿠진아트', '발뮤다토스터', 'SK매직'],
 };
+
+/**
+ * v2.49.3: NEGATIVE_TOKENS — 카테고리 매칭 차단 단어.
+ * 예: "노트북 거치대" → "노트북" 매칭되지만 "거치대" 가 포함되어 있어 액세서리 → laptop 매칭 skip.
+ */
+const NEGATIVE_TOKENS = [
+    '거치대', '받침대', '쿨러', '쿨링패드', '파우치', '가방', '필름', '스킨', '키스킨',
+    '케이스', '커버', '홀더', '스탠드', '걸이', '청소기', '청소포', '청소솔',
+    '머신', '청소제', '세정제', '필터', '교체', '교환',
+    '액세서리', '부속품', '소모품', '닦이',
+];
 
 /**
  * CATEGORY_TOKENS — 입력 키워드에 포함된 한국어 토큰 → BRAND_FAMILIES 키 매핑.
@@ -125,6 +142,21 @@ const CATEGORY_TOKEN_LIST: Array<[string, keyof typeof BRAND_FAMILIES]> = [
 
     // 헬스
     ['영양제', 'supplement'], ['비타민', 'supplement'], ['오메가3', 'supplement'], ['프로바이오틱스', 'supplement'],
+
+    // v2.49.3: 신규 family 토큰
+    // pet
+    ['강아지사료', 'pet'], ['고양이사료', 'pet'], ['반려동물', 'pet'], ['사료', 'pet'],
+    ['펫푸드', 'pet'], ['강아지간식', 'pet'], ['고양이간식', 'pet'], ['모래', 'pet'], ['고양이화장실', 'pet'],
+    // baby
+    ['유모차', 'baby'], ['카시트', 'baby'], ['분유', 'baby'], ['기저귀', 'baby'], ['젖병', 'baby'],
+    ['아기띠', 'baby'], ['하이체어', 'baby'], ['이유식', 'baby'],
+    // peripheral
+    ['키보드', 'peripheral'], ['마우스', 'peripheral'], ['모니터', 'peripheral'], ['웹캠', 'peripheral'],
+    ['게이밍마우스', 'peripheral'], ['게이밍키보드', 'peripheral'], ['헤드셋', 'peripheral'],
+    // smallAppliance
+    ['가습기', 'smallAppliance'], ['토스터기', 'smallAppliance'], ['토스터', 'smallAppliance'],
+    ['에어프라이어', 'smallAppliance'], ['믹서기', 'smallAppliance'], ['블렌더', 'smallAppliance'],
+    ['정수기', 'smallAppliance'], ['커피머신', 'smallAppliance'], ['전기포트', 'smallAppliance'],
 ];
 
 // 긴 토큰 먼저 (specific match 우선)
@@ -133,12 +165,38 @@ CATEGORY_TOKEN_LIST.sort((a, b) => b[0].length - a[0].length);
 /**
  * 입력 키워드에서 카테고리 토큰을 검출 → 매칭되는 brand family key 반환.
  * 매칭 없으면 null.
+ *
+ * v2.49.3 가드:
+ *  - NEGATIVE_TOKENS 포함 시 매칭 skip (액세서리/파생 키워드 차단)
+ *    예: "노트북 거치대" → '거치대' 포함 → null 반환
+ *  - 단어 경계 매칭 (앞뒤가 한국어/영문/숫자 아닌 boundary)
+ *    예: "OTT" 가 "bigoTT" 안에 매칭되지 않도록
  */
 export function detectCategoryFamily(keyword: string): { family: keyof typeof BRAND_FAMILIES; token: string } | null {
     const kw = keyword.toLowerCase();
+
+    // negative token 가드 — 액세서리/파생 키워드 차단
+    for (const neg of NEGATIVE_TOKENS) {
+        if (kw.includes(neg.toLowerCase())) {
+            return null;
+        }
+    }
+
+    // 단어 경계 매칭 (한국어/영문/숫자가 아닌 boundary, 또는 문자열 시작/끝)
+    const isWordChar = (c: string) => /[가-힣A-Za-z0-9]/.test(c);
     for (const [token, family] of CATEGORY_TOKEN_LIST) {
-        if (kw.includes(token.toLowerCase())) {
-            return { family, token };
+        const lowerToken = token.toLowerCase();
+        let idx = kw.indexOf(lowerToken);
+        while (idx !== -1) {
+            const before = idx === 0 ? '' : kw[idx - 1];
+            const afterIdx = idx + lowerToken.length;
+            const after = afterIdx >= kw.length ? '' : kw[afterIdx];
+            const beforeOk = !before || !isWordChar(before);
+            const afterOk = !after || !isWordChar(after);
+            if (beforeOk && afterOk) {
+                return { family, token };
+            }
+            idx = kw.indexOf(lowerToken, idx + 1);
         }
     }
     return null;
