@@ -1,6 +1,6 @@
 {
   "name": "leword",
-  "version": "2.49.12",
+  "version": "2.49.13",
   "description": "LEWORD - 키워드 마스터 독립 앱",
   "main": "dist/main.js",
   "scripts": {
@@ -11,7 +11,9 @@
     "test:pro:runner": "node -r ts-node/register scripts/pro-hunter-runner.ts",
     "test:sanity": "node scripts/run-sanity-gate-test.js",
     "lint:sss": "bash scripts/lint-no-direct-sss.sh --strict",
-    "verify:all": "npm run build && npm run lint:sss && npm run test:sanity",
+    "health:sanity": "node scripts/health-check-sanity.js",
+    "install:hooks": "node scripts/install-git-hooks.js",
+    "verify:all": "npm run build && npm run lint:sss && npm run test:sanity && npm run health:sanity",
     "prepare-dist": "node scripts/prepare-dist.js",
     "postinstall": "node scripts/download-chromium.js",
     "dist": "npm run prepare-dist && npm run build && electron-builder",
