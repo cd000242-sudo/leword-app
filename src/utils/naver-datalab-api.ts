@@ -719,13 +719,14 @@ export async function getNaverKeywordSearchVolumeSeparate(
   const input = (keywords || []).map(k => String(k || '').trim()).filter(Boolean);
   if (input.length === 0) return [];
 
-  const results: { keyword: string; pcSearchVolume: number | null; mobileSearchVolume: number | null; documentCount: number | null; competition: string | null; monthlyAveCpc: number | null }[] = input.map(k => ({
+  const results: { keyword: string; pcSearchVolume: number | null; mobileSearchVolume: number | null; documentCount: number | null; competition: string | null; monthlyAveCpc: number | null; svEstimated?: boolean }[] = input.map(k => ({
     keyword: k,
     pcSearchVolume: null,
     mobileSearchVolume: null,
     documentCount: null,
     competition: null,
-    monthlyAveCpc: null
+    monthlyAveCpc: null,
+    svEstimated: false,  // v2.49.18: 휴리스틱 fallback 사용 시 true 로 전파
   }));
 
   try {
@@ -778,6 +779,8 @@ export async function getNaverKeywordSearchVolumeSeparate(
             results[idx].competition = r && r.competition ? r.competition : null;
             // 🔥 네이버 검색광고 API 실제 평균 입찰가 (monthlyAveCpc) 포함 — 더미 아닌 실측 추정
             results[idx].monthlyAveCpc = r && typeof r.monthlyAveCpc === 'number' ? r.monthlyAveCpc : null;
+            // v2.49.18: svEstimated 플래그 전파 (휴리스틱 fallback → sanity-gate SSS 차단)
+            results[idx].svEstimated = r && r.svEstimated === true;
           }
         } catch (e: any) {
           for (let j = 0; j < batch.length; j++) {

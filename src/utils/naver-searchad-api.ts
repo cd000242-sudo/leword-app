@@ -22,6 +22,12 @@ export interface KeywordSearchVolume {
   monthlyPcQcCnt?: number | null;
   monthlyMobileQcCnt?: number | null;
   monthlyAveCpc?: number | null;
+  /**
+   * v2.49.18: 휴리스틱 fallback (공통 토큰 매칭) 으로 다른 키워드의 sv 를 빌려온 경우 true.
+   * 다운스트림 sanity-gate 의 SV_ESTIMATED 게이트가 SSS 자동 차단.
+   * memory 규칙: "추정값 fallback 가드 — *Estimated 다운스트림 전파 필수".
+   */
+  svEstimated?: boolean;
 }
 
 /**
@@ -214,23 +220,48 @@ export async function getNaverSearchAdKeywordVolume(
         // 정확/포함 매칭 실패 시 null 반환이 정직.
 
         if (match) {
-          const pc = parseVolumeValue(match.monthlyPcQcCnt);
-          const mo = parseVolumeValue(match.monthlyMobileQcCnt);
-          const total = (pc !== null || mo !== null) ? ((pc || 0) + (mo || 0)) : null;
-          const aveCpc = parseVolumeValue(match.monthlyAveCpc);
-          const competition = match.compIdx || match.competition;
+          let pc = parseVolumeValue(match.monthlyPcQcCnt);
+          let mo = parseVolumeValue(match.monthlyMobileQcCnt);
+          let total = (pc !== null || mo !== null) ? ((pc || 0) + (mo || 0)) : null;
+          let aveCpc = parseVolumeValue(match.monthlyAveCpc);
+          let competition = match.compIdx || match.competition;
+          let svEstimated = false;  // v2.49.18: 휴리스틱 사용 여부 마킹
 
-          // v2.49.18: 휴리스틱 fallback 완전 제거.
-          //   사용자 보고 (스크린샷 2장):
-          //     - 황금키워드: "환급금 조회 삼쩜삼 오류" sv=23,530 (SSR 등급)
-          //     - 키워드 분석기: 같은 키워드 sv=0 (PC<10, 모바일<10)
-          //   원인: 휴리스틱 fallback 이 공통 토큰 2개 이상 가진 best 키워드의 sv 를 빌려옴.
-          //     "환급금 조회 삼쩜삼 오류" → "환급금 조회 삼쩜삼" (실제 sv=23,530) 매칭 → 23,530 부여.
-          //     svEstimated 플래그 미부여 → 다운스트림 sanity-gate 가 실측으로 오인.
-          //   memory 규칙 정면 위반:
-          //     - "추정값 fallback 가드 — svEstimated 전체 다운스트림 전파"
-          //     - "추정치 UI 노출 금지 — 실측·단순산술·매칭사실·사용자입력만"
-          //   API 가 sv=0 또는 null 반환 = 정직한 실측 결과. 빌려오기 금지.
+          // v2.49.18: 휴리스틱 fallback 조건부 복원 + svEstimated 마킹.
+          //   사용자 보고: "환급금 조회 삼쩜삼 오류" 황금=23,530 vs 분석기=0 → 100x mismatch
+          //   원인: 휴리스틱이 best 키워드의 sv 빌려옴 + svEstimated 플래그 미부여
+          //   복원 방식: 휴리스틱 결과에 svEstimated=true 마킹 → sanity-gate [2] 가 SSS 자동 차단
+          //   memory 규칙: "추정값 fallback 가드 — svEstimated 다운스트림 전파"
+          if ((total ?? 0) === 0) {
+            const requestTokens = requestedKw.trim().split(/\s+/).filter(t => t.length >= 2);
+            if (requestTokens.length >= 2) {
+              let bestItem: any = null;
+              let bestTotal = 0;
+              for (const item of keywordList) {
+                if (item === match) continue;
+                const rel = decodeHtmlEntities(item.relKeyword || '').toLowerCase();
+                const relFlexible = rel.replace(/[+]+/g, ' ');
+                const commonCount = requestTokens.filter(t => relFlexible.includes(t.toLowerCase())).length;
+                if (commonCount < 2) continue;
+                const cPc = parseVolumeValue(item.monthlyPcQcCnt) ?? 0;
+                const cMo = parseVolumeValue(item.monthlyMobileQcCnt) ?? 0;
+                const cTotal = cPc + cMo;
+                if (cTotal > bestTotal) {
+                  bestTotal = cTotal;
+                  bestItem = item;
+                }
+              }
+              if (bestItem && bestTotal > 0) {
+                pc = parseVolumeValue(bestItem.monthlyPcQcCnt);
+                mo = parseVolumeValue(bestItem.monthlyMobileQcCnt);
+                total = bestTotal;
+                aveCpc = parseVolumeValue(bestItem.monthlyAveCpc);
+                competition = bestItem.compIdx || bestItem.competition;
+                svEstimated = true;  // ★ 핵심 — 다운스트림 sanity-gate 가 SSS 차단
+                console.log(`[NAVER-SEARCHAD] 💡 휴리스틱 (svEstimated): "${requestedKw}" → "${bestItem.relKeyword}" sv=${bestTotal}`);
+              }
+            }
+          }
 
           results.push({
             keyword: requestedKw,
@@ -241,6 +272,7 @@ export async function getNaverSearchAdKeywordVolume(
             monthlyPcQcCnt: pc,
             monthlyMobileQcCnt: mo,
             monthlyAveCpc: aveCpc,
+            svEstimated,  // v2.49.18: 휴리스틱 사용 시 true → sanity-gate SSS 차단
           });
         } else {
           // 🔥 v2.24.0 P0-3: 매칭 실패 시 0 저장 → 캐시 영구 고착 (복구 불가). null 로 변경.

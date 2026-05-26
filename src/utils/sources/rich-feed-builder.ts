@@ -59,6 +59,8 @@ export interface RichKeywordRow {
     isBlueOcean: boolean;
     // 🔥 v2.41.0: dc 추정값 여부 — 분포 기반 동적 SSS 승격 풀에서 제외용 (신뢰도 가드)
     dcEstimated?: boolean;
+    // v2.49.18: sv 가 휴리스틱 fallback 으로 빌려온 값인지 — sanity-gate [2] SV_ESTIMATED 가 SSS 자동 차단
+    svEstimated?: boolean;
     // v2.49.5+: AI 브리핑 실측 결과 — true: 박스 떴음 (skip 권장), false: 안 떴음 (블로그 클릭 기회)
     aiBriefingDetected?: boolean;
     // 🔥 v2.43.14: 블로거 친화도 점수 (0~100) — 일반 블로거가 글쓰기 좋은 정도
@@ -621,15 +623,17 @@ function hasCommercialIntent(keyword: string): boolean {
  *  - SSS/SS 는 writable 필수 (엄격한 품질)
  *  - S/A/B 는 docCount 자연 필터만 적용 (문근영·장동혁 같은 중도 키워드는 유지)
  */
-function calculateGrade(volume: number, docCount: number, ratio: number, score: number, keyword: string, dcEstimated: boolean = false): GoldenGrade | '' {
+function calculateGrade(volume: number, docCount: number, ratio: number, score: number, keyword: string, dcEstimated: boolean = false, svEstimated: boolean = false): GoldenGrade | '' {
     // ★ v2.49.9: Single Source of Truth — sanity-gate.ts 단일 검증 layer (Phase A 합의안)
     //   기존 inline halfSvRatio ±5% → sanity-gate validateGrade 가 ±5% 정확 + ±40% 광역 인접 매칭 모두 처리.
     //   사용자 메모리 규칙 4종 enforcement (추정값 가드 / UI 노출 금지 / Math.random 금지 / Manus 우선).
     //   다른 8 path 도 같은 함수 호출 → 통일 임계치.
+    // v2.49.18: svEstimated 추가 — 휴리스틱 fallback 으로 빌려온 sv. sanity-gate [2] 가 allowSss=false 설정.
+    //   caller (processBatch) 에서 grade === 'SSS' 일 때 강등 처리.
     const { validateGrade } = require('../sanity-gate');
     const _sanity = validateGrade({
         keyword, searchVolume: volume, documentCount: docCount,
-        goldenRatio: ratio, score, dcEstimated, source: 'rich-feed',
+        goldenRatio: ratio, score, dcEstimated, svEstimated, source: 'rich-feed',
     });
     dcEstimated = _sanity.estimatedFlags.dc;  // caller 동기화 — 다운스트림 isWritableKeyword 등이 동기화된 값 사용
 
@@ -1299,8 +1303,15 @@ export async function buildRichFeed(
 
                 const scoringCpc = estimateCPC(sig.keyword, cat.id);
                 const score = calculateScore(totalVolume, docCount, goldenRatio, scoringCpc, intent, sig.keyword);
+                // v2.49.18: svEstimated 전파 — 휴리스틱 fallback 사용 시 SSS/SSR 강등
+                const svEstimated = (sig as any).svEstimated === true;
                 // 🔥 v2.32.1: dc 추정 여부를 grade 판정에 전달 — 추정값은 A 상한
-                let grade: GoldenGrade | '' = calculateGrade(totalVolume, docCount, goldenRatio, score, sig.keyword, !hasValidDocCount);
+                let grade: GoldenGrade | '' = calculateGrade(totalVolume, docCount, goldenRatio, score, sig.keyword, !hasValidDocCount, svEstimated);
+                // v2.49.18: svEstimated 면 SSS/SSR 강등 (sanity-gate [2] SV_ESTIMATED 자동 enforce)
+                if (svEstimated && (grade === 'SSS' || grade === 'SSR')) {
+                    console.log(`[rich-feed v2.49.18] svEstimated 강등: "${sig.keyword}" ${grade}→SS (휴리스틱 fallback sv)`);
+                    grade = 'SS';
+                }
 
                 // v2.42.13 진단 카운터
                 if (totalVolume > 0) diagnostic.naver.withValidSv++;
@@ -1366,6 +1377,7 @@ export async function buildRichFeed(
                     purchaseIntent: intent,
                     isBlueOcean,
                     dcEstimated: !hasValidDocCount, // 🔥 v2.41.0: 동적 SSS 승격 풀 신뢰도 가드용
+                    svEstimated, // v2.49.18: 휴리스틱 fallback 사용 시 true → promotion/fallback tier 의 sanity-gate 가 SSS 차단
                     // v2.43.25-26: 블로거 프로필 보정 + 사유 분해 (UI 칩용)
                     ...(() => {
                         const bd = calculateBloggerWritabilityBreakdown(sig.keyword, docCount, totalVolume);
@@ -1603,6 +1615,7 @@ export async function buildRichFeed(
                 goldenRatio: t.row.goldenRatio,
                 score: t.baseScore,
                 dcEstimated: t.row.dcEstimated,
+                svEstimated: t.row.svEstimated, // v2.49.18: 휴리스틱 fallback sv → SSS 차단
                 dcConfidence: (t.row as any).dcConfidence,  // v2.49.16: measure-dc SSoT 전파
                 source: 'rich-feed',
             });
@@ -1681,6 +1694,7 @@ export async function buildRichFeed(
                     goldenRatio: f.row.goldenRatio,
                     score: f.writability,
                     dcEstimated: f.row.dcEstimated,
+                    svEstimated: f.row.svEstimated, // v2.49.18: 휴리스틱 fallback sv → SSS 차단
                     dcConfidence: (f.row as any).dcConfidence,  // v2.49.16: measure-dc SSoT 전파
                     source: 'rich-feed',
                 });
