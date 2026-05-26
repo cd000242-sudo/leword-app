@@ -622,16 +622,16 @@ function hasCommercialIntent(keyword: string): boolean {
  *  - S/A/B 는 docCount 자연 필터만 적용 (문근영·장동혁 같은 중도 키워드는 유지)
  */
 function calculateGrade(volume: number, docCount: number, ratio: number, score: number, keyword: string, dcEstimated: boolean = false): GoldenGrade | '' {
-    // ★ Layer 3 sanity gate — sv*0.5 fallback 정확 매칭 강제 estimated 마킹
-    //   배경: persistent cache 가 fallback dc(sv*0.5) 도 source meta 없이 저장 → 다음 호출에 dcEstimated=false 로 잘못 인식 → SSS 가짜 통과
-    //   조치: docCount 가 sv*0.5 와 ±5% 안에 정확히 매칭되면 무조건 estimated 처리 → SSS 차단(line 652 가드 진입)
-    //   예시: "게이밍 노트북 추천" sv=1980, dc=990 (=1980*0.5) → 가짜 ratio 2.0 → 실제는 174,147 (ratio 0.011 redOcean)
-    if (docCount > 0 && volume > 0) {
-        const halfSvRatio = docCount / (volume * 0.5);
-        if (halfSvRatio >= 0.95 && halfSvRatio <= 1.05) {
-            dcEstimated = true;
-        }
-    }
+    // ★ v2.49.9: Single Source of Truth — sanity-gate.ts 단일 검증 layer (Phase A 합의안)
+    //   기존 inline halfSvRatio ±5% → sanity-gate validateGrade 가 ±5% 정확 + ±40% 광역 인접 매칭 모두 처리.
+    //   사용자 메모리 규칙 4종 enforcement (추정값 가드 / UI 노출 금지 / Math.random 금지 / Manus 우선).
+    //   다른 8 path 도 같은 함수 호출 → 통일 임계치.
+    const { validateGrade } = require('../sanity-gate');
+    const _sanity = validateGrade({
+        keyword, searchVolume: volume, documentCount: docCount,
+        goldenRatio: ratio, score, dcEstimated, source: 'rich-feed',
+    });
+    dcEstimated = _sanity.estimatedFlags.dc;  // caller 동기화 — 다운스트림 isWritableKeyword 등이 동기화된 값 사용
 
     // v2.43.12: dcEstimated 전달 → isHighIntentSingleToken 가 가짜 ratio=2.0 단일 명사 차단
     const writable = isWritableKeyword(keyword, docCount, volume, dcEstimated);
