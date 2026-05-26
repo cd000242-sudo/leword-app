@@ -165,11 +165,10 @@ export function validateGrade(input: SanityInput): SanityResult {
         allowSss = false;
         reasons.push('DC_CONFIDENCE_LOW');
     }
-    // medium = scrape 단독 (API 검증 부재). SSS 만 차단, SS/S 는 허용.
-    if (input.dcConfidence === 'medium') {
-        allowSss = false;
-        reasons.push('DC_CONFIDENCE_MEDIUM');
-    }
+    // v2.49.17: 'medium' SSS 차단 해제. 사용자 보고: v2.49.16 에서 SSS 결과 50+→2건 폭락.
+    //   scrape 단독 성공 = 실측 (widget noise 게이트 n>=10 통과). SSS 자격 박탈은 과도.
+    //   memory: "SSS-only 고정 + 대량 보장" — 다층 노출 금지 + 절대 수 보장 정책 부합.
+    //   기존 dcEstimated / RED_OCEAN / BIG_WORD 등 다른 게이트가 진짜 가짜 SSS 는 이미 차단.
 
     return {
         allowSss,

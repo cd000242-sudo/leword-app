@@ -53,22 +53,34 @@ export interface MeasureOpts {
     skipScrape?: boolean;
     /** scrape timeout (ms). 기본 2000. */
     scrapeTimeoutMs?: number;
+    /**
+     * v2.49.17: scrape 만 사용 (API 호출 skip). verify path 가 rate-limit 회피용.
+     * 기존 scrapeWebDc 동작과 동일 — API 다시 호출하지 않고 widget noise 만 차단.
+     */
+    scrapeOnly?: boolean;
 }
 
 const SCRAPE_UA = 'Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/120.0.0.0 Safari/537.36';
 const FRESH_CACHE_MS = 24 * 60 * 60 * 1000;     // 24h
 const CROSS_CHECK_DIVERGENT_RATIO = 10;          // API vs scrape 10x 이상 → API 신뢰
-const SCRAPE_MIN_VALID_N = 100;                  // n < 100 → widget noise 의심
+
+// v2.49.17: n < 100 게이트가 진짜 롱테일 SSS (dc=50, sv=800) 도 차단 → n < 10 으로 완화.
+//   widget noise 의 전형 값: 댓글 26건, 광고 5건, 인플루언서 12건 — 모두 < 30.
+//   진짜 저경쟁 황금: dc 30~3000 — 통과시켜야 SSS 후보 살아남음.
+//   메모리 규칙 "SSS-only 고정 + 대량 보장" 부합.
+const SCRAPE_MIN_VALID_N = 10;
 
 /**
- * 엄격 scrape — pattern 4 (`[0-9,]+\s*건`) 와 pattern 3 (`약 N건`, 네이버 미사용) 모두 제거.
- * 남은 패턴 2개:
- *   1) 페이지네이션 "1-10 / 352,837건" — 가장 안전
- *   2) "총 352,837건" — 결과 헤더, 광고 영역에는 거의 미사용
+ * v2.49.17: scrape pattern 복원. anchor 있는 안전 패턴만 사용.
+ *   pattern 3 `약\s*([0-9,]+)\s*건` 만 제거 (anchor 없음 — 광고 영역 매칭 위험).
+ *   widget noise 차단은 n >= 10 게이트가 담당.
  */
 const STRICT_PATTERNS: ReadonlyArray<RegExp> = [
-    /\d+-\d+\s*\/\s*([0-9,]+)\s*건/,    // 페이지네이션 (가장 안전)
-    /총\s*([0-9,]+)\s*건/,                // "총 N건" 결과 헤더
+    /블로그\s*검색결과\s*약\s*([0-9,]+)\s*건/,    // 가장 안전 — "블로그 검색결과" prefix
+    /검색결과\s*약\s*([0-9,]+)\s*건/,              // 안전 — "검색결과" prefix
+    /\d+-\d+\s*\/\s*([0-9,]+)\s*건/,              // 페이지네이션 "1-10 / N건"
+    /총\s*([0-9,]+)\s*건/,                          // "총 N건" 결과 헤더
+    /([0-9,]+)\s*건\s*중/,                          // "N건 중" suffix
 ];
 
 async function scrapeNaverBlogDc(keyword: string, timeoutMs: number): Promise<number | null> {
@@ -123,6 +135,19 @@ export async function measureDocumentCount(
 ): Promise<DcMeasurement> {
     const sv = opts.searchVolume ?? 0;
     const scrapeTimeoutMs = opts.scrapeTimeoutMs ?? 2000;
+
+    // v2.49.17: scrapeOnly 분기 — verify path 에서 API rate-limit 회피용.
+    //   기존 scrapeWebDc 와 동일 동작 (API 다시 호출 X, scrape 만).
+    //   결과: source='scrape' confidence='high' (scrape 단독이지만 verify path 는 이미 API 가 한번 측정한 행만 호출 → 보강 검증임).
+    if (opts.scrapeOnly) {
+        const scraped = await scrapeNaverBlogDc(keyword, scrapeTimeoutMs);
+        if (scraped != null && scraped > 0) {
+            return { dc: scraped, source: 'scrape', confidence: 'high', isEstimated: false, debug: { scrapeDc: scraped } };
+        }
+        // scrape 실패 — fallback 하지 않고 명시적 fallback 반환 (caller 가 skip 결정)
+        const fallback = sv > 0 ? Math.max(1, Math.round(sv * 0.5)) : 1;
+        return { dc: fallback, source: 'fallback', confidence: 'low', isEstimated: true, debug: { scrapeDc: null } };
+    }
 
     // [0] persistent cache — 24h fresh 검증 (v2.32.1 정책: API 검증 값만 저장됨)
     if (!opts.skipCache) {

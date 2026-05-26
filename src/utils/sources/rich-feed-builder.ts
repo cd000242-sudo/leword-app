@@ -1846,41 +1846,48 @@ export async function buildRichFeed(
             const batch = needsVerify.slice(i, i + VERIFY_CONCURRENCY);
             await Promise.all(batch.map(async (r) => {
                 if ((r as any).claudeDiscovered || (r as any).discoveredByManus) return; // 별도 검증 경로
-                // v2.49.16: measure-dc SSoT 호출. skipCache=true → verify path 는 항상 재측정.
+                // v2.49.17: scrapeOnly=true — API 재호출 안 함 (rate-limit 회피).
+                //   기존 scrapeWebDc 동작과 동일하되 widget noise (n<10) 만 차단 + 안전 패턴 5개.
+                //   v2.49.16 의 skipCache=true 가 API 재호출 폭주 → fallback 폭증 → SSS 결과 2건 만 살아남는 회귀 fix.
                 const m = await measureDocumentCount(r.keyword, {
                     searchVolume: r.searchVolume,
-                    skipCache: true,
+                    scrapeOnly: true,
                     scrapeTimeoutMs: SCRAPE_TIMEOUT,
                 });
                 if (m.source === 'fallback') {
-                    // SSoT 도 추정 — dcEstimated 유지, 보정 생략. sanity-gate 에서 dcConfidence='low' 로 SSS 차단.
-                    (r as any).dcConfidence = 'low';
+                    // scrape 매칭 실패 — 기존 동작과 동일 (보정 skip, 기존 API dc 유지).
                     return;
                 }
                 verified++;
                 const scraped = m.dc;
-                // v2.49.16: API/scrape 결과 채택. dcEstimated → confirmed by source.
-                if (Math.abs(scraped - r.documentCount) > r.documentCount * 0.2) {
+                // v2.42.22 정책 복원 — 차이 1.2배 이상이면 scrape 신뢰 + 보정.
+                if (scraped > r.documentCount * 1.2 || scraped < r.documentCount / 1.2) {
                     const oldDc = r.documentCount;
                     const oldRatio = r.goldenRatio;
                     r.documentCount = scraped;
                     r.goldenRatio = parseFloat((r.searchVolume / Math.max(1, scraped)).toFixed(2));
-                    (r as any).dcEstimated = m.isEstimated;
-                    (r as any).dcConfidence = m.confidence;
-                    (r as any).dcSource = m.source;
+                    (r as any).dcEstimated = false; // 실측 데이터로 확정
+                    (r as any).dcConfidence = 'high'; // verify path 의 scrape 는 API 검증된 행에 대한 보강 → high
+                    (r as any).dcSource = 'scrape';
                     corrected++;
-                    // persistent cache 업데이트는 measure-dc 가 처리 (API/cache 만 저장, scrape 미저장 — v2.32.1 정책)
+                    // persistent cache 업데이트 (다음 호출에서 옛값 재사용 차단)
+                    if (persistentSet && r.searchVolume > 0) {
+                        try {
+                            persistentSet(r.keyword, {
+                                searchVolume: r.searchVolume,
+                                documentCount: scraped,
+                                realCpc: r.cpc,
+                                compIdx: null,
+                            });
+                        } catch {}
+                    }
                     if (r.goldenRatio < 1.0) {
                         (r as any).grade = '';
                         demoted++;
-                        console.log(`[rich-feed v2.49.16] dc 강등 "${r.keyword}": ${oldDc}→${scraped} (${m.source}), ratio ${oldRatio.toFixed(2)}→${r.goldenRatio} (redOcean)`);
+                        console.log(`[rich-feed v2.49.17] dc 강등 "${r.keyword}": ${oldDc}→${scraped}, ratio ${oldRatio.toFixed(2)}→${r.goldenRatio} (redOcean)`);
                     } else {
-                        console.log(`[rich-feed v2.49.16] dc 보정 "${r.keyword}": ${oldDc}→${scraped} (${m.source}/${m.confidence}), ratio ${oldRatio.toFixed(2)}→${r.goldenRatio}`);
+                        console.log(`[rich-feed v2.49.17] dc 보정 "${r.keyword}": ${oldDc}→${scraped}, ratio ${oldRatio.toFixed(2)}→${r.goldenRatio}`);
                     }
-                } else {
-                    // 차이 미미 — confidence 만 전파
-                    (r as any).dcConfidence = m.confidence;
-                    (r as any).dcSource = m.source;
                 }
             }));
             const pct = 88 + Math.round((Math.min(i + VERIFY_CONCURRENCY, enrichedRows.length) / enrichedRows.length) * 3);

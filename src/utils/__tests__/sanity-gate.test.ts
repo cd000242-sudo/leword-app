@@ -237,7 +237,9 @@ function assert(name: string, cond: boolean, detail?: string) {
     assert('dcConfidence=low → dcEst true 강제 마킹', r.estimatedFlags.dc === true);
 }
 
-// 14. v2.49.16: dcConfidence='medium' (scrape 단독) → SSS 차단, SS 는 허용
+// 14. v2.49.17: dcConfidence='medium' (scrape 단독) → 정상 SSS 통과 (v2.49.16 차단 해제)
+//     사용자 보고: v2.49.16 의 medium 차단이 SSS 50+→2건 폭락 원인. 실측 scrape 는 SSS 자격 있음.
+//     widget noise 는 n>=10 게이트가 차단. 다른 게이트 (RED_OCEAN, BIG_WORD 등) 가 진짜 가짜 SSS 차단.
 {
     const r = validateGrade({
         keyword: '강아지 영양제 노령견',
@@ -245,13 +247,11 @@ function assert(name: string, cond: boolean, detail?: string) {
         documentCount: 300,
         goldenRatio: 5.0,
         score: 85,
-        dcConfidence: 'medium',   // scrape 만 성공, API 검증 부재
+        dcConfidence: 'medium',   // scrape 만 성공, n>=10 게이트 통과 = 실측
         source: 'rich-feed',
     });
-    assert('dcConfidence=medium → allowSss false', !r.allowSss);
-    assert('dcConfidence=medium → allowSs true (SS 허용)', r.allowSs === true);
-    assert('dcConfidence=medium → reason DC_CONFIDENCE_MEDIUM', r.reasons.includes('DC_CONFIDENCE_MEDIUM'));
-    assert('dcConfidence=medium + SSS → SS 강등', applySanity('SSS', r) === 'SS');
+    assert('dcConfidence=medium → allowSss true (실측 SSS 허용)', r.allowSss === true);
+    assert('dcConfidence=medium + SSS → SSS 유지', applySanity('SSS', r) === 'SSS');
 }
 
 // 15. v2.49.16: dcConfidence='high' (API/cache) → 정상 SSS 통과

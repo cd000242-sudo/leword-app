@@ -1569,7 +1569,7 @@ async function fetchBlogDocumentCountScrape(
       if (m && m[1]) {
         const n = Number(String(m[1]).replace(/[^0-9]/g, ''));
         if (!Number.isFinite(n) || n <= 0) continue;
-        if (n < 100) continue;  // widget noise — 댓글 26건 / 광고 5건 등 차단
+        if (n < 10) continue;  // v2.49.17: widget noise (n<10) 만 차단. 진짜 dc 30+ SSS 통과.
         return n;
       }
     }
@@ -1590,7 +1590,7 @@ async function fetchBlogDocumentCountScrape(
         if (mm && mm[1]) {
           const n = Number(String(mm[1]).replace(/[^0-9]/g, ''));
           if (!Number.isFinite(n) || n <= 0) continue;
-          if (n < 100) continue;  // v2.49.16: widget noise 게이트
+          if (n < 10) continue;  // v2.49.17: widget noise 게이트 (완화)
           return n;
         }
       }

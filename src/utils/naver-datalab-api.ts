@@ -840,21 +840,23 @@ export async function getNaverKeywordSearchVolumeSeparate(
           timeout: SCRAPE_TIMEOUT_MS,
         });
         const html = String(resp.data || '');
-        // v2.49.16: 단일 regex `[0-9,]+\s*건` → 엄격 패턴 2개로 교체.
-        //   기존 단일 regex 는 "댓글 26건", "광고 5건", "인플루언서 12건" 등 widget noise 매칭.
-        //   사용자 보고: "소상공인 지원금 신청" dc=26 (실제 352,837) — 13,571x 오염.
-        //   v2.32.1 sanity check (line 903) 가 sv/dc>100 만 차단 → sv 5000 + scrape 60 같은 케이스는 통과.
-        //   근본 fix: regex 자체를 엄격화 + n>=100 게이트.
+        // v2.49.17: pattern 복원 + n>=10 게이트 (v2.49.16 의 n>=100 이 진짜 롱테일 차단 → 사용자 보고 SSS 50+→2건 폭락).
+        //   widget 의 전형: 댓글 26건, 광고 5건, 인플루언서 12건 — 모두 < 30.
+        //   진짜 저경쟁 황금: dc 30~3000 — 통과시켜야 SSS 후보 살아남음.
+        //   anchor 있는 안전 패턴만 사용 — pattern 3 `약\s*N건` 만 제거 (광고 영역 매칭 위험).
         const strictPatterns = [
-          /\d+-\d+\s*\/\s*([0-9,]+)\s*건/,    // "1-10 / 352,837건" (페이지네이션 — 가장 안전)
-          /총\s*([0-9,]+)\s*건/,                // "총 352,837건" (결과 헤더)
+          /블로그\s*검색결과\s*약\s*([0-9,]+)\s*건/,    // "블로그 검색결과" prefix — 가장 안전
+          /검색결과\s*약\s*([0-9,]+)\s*건/,              // "검색결과" prefix
+          /\d+-\d+\s*\/\s*([0-9,]+)\s*건/,              // 페이지네이션 "1-10 / N건"
+          /총\s*([0-9,]+)\s*건/,                          // "총 N건" 결과 헤더
+          /([0-9,]+)\s*건\s*중/,                          // "N건 중" suffix
         ];
         for (const p of strictPatterns) {
           const m = html.match(p);
           if (m && m[1]) {
             const n = parseInt(m[1].replace(/,/g, ''), 10);
             if (!Number.isFinite(n) || n <= 0) continue;
-            if (n < 100) continue;  // widget noise 의심 — 거부 (댓글/광고 카운트)
+            if (n < 10) continue;  // widget noise (댓글/광고 카운트) 만 차단. 진짜 SSS dc 통과.
             return n;
           }
         }
