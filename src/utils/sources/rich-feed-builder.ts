@@ -1910,12 +1910,15 @@ export async function buildRichFeed(
             emit('verify-dc', pct, `dc 검증 ${Math.min(i + VERIFY_CONCURRENCY, enrichedRows.length)}/${enrichedRows.length} (보정 ${corrected}, 강등 ${demoted})`);
         }
 
-        const stillHighGrade = enrichedRows.filter(r => r.grade === 'SSR' || r.grade === 'SSS');
+        // v2.49.20: SS 등급도 결과에 포함 (SSS-only → SSS+SS 모드).
+        //   사용자 결정: 휴리스틱 가짜 제거 후 진짜 SSS=2~5건/일. SS 까지 노출하여 결과 수 확보.
+        //   svEstimated/dcEstimated 칩으로 추정 vs 실측 명확 구분.
+        const stillHighGrade = enrichedRows.filter(r => r.grade === 'SSR' || r.grade === 'SSS' || r.grade === 'SS');
         enrichedRows.length = 0;
         enrichedRows.push(...stillHighGrade);
 
-        console.log(`[rich-feed v2.42.22] ✅ dc 검증 완료: ${verified}/${enrichedRows.length + demoted}건 검사, ${corrected}건 보정, ${demoted}건 redOcean 강등 (cache 동기화)`);
-        emit('verify-dc', 91, `✅ dc 실측 완료 — 가짜 SSS ${demoted}건 제거, 최종 ${enrichedRows.length}건`);
+        console.log(`[rich-feed v2.49.20] ✅ dc 검증 완료: ${verified}건 검사, ${corrected}건 보정, ${demoted}건 redOcean 강등, 최종 ${stillHighGrade.length}건 (SSR/SSS/SS)`);
+        emit('verify-dc', 91, `✅ dc 실측 완료 — 최종 ${enrichedRows.length}건 (SSR/SSS/SS)`);
 
         // ★ v2.49.5: AI 브리핑 실측 detection — SSS 후보에 한해서만 추가 호출 (효율)
         //   사용자 요구: 검·경·실·AI 4단계 공식의 마지막 "AI" 단계.

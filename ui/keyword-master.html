@@ -762,7 +762,8 @@
         <span style="display:inline-flex; gap:6px; margin-left:12px; padding:3px 8px; background:rgba(251,191,36,0.08); border:1px solid rgba(251,191,36,0.2); border-radius:6px;">
           <span title="SSR — SSS 등급 + CPC 1000원+ + 상업 키워드 + 수익 카테고리 (네이버 검색광고 실측 CPC + 검색량)" style="color:#a855f7; font-weight:900; cursor:help;">👑 SSR</span>
           <span title="SSS: 검색량 1000+ / 문서수 5000↓ / 황금비율 5+ — 상위노출 거의 확정 (트래픽 중심)" style="color:#dc2626; font-weight:800; cursor:help;">SSS</span>
-          <span style="color:#64748b; font-size:10px;">💡 SSS-only 모드 (다층 등급 표시 폐지)</span>
+          <span title="SS: SSS 다음 등급. 검색량 500+ / 문서수 10000↓ / 황금비율 3+ — 안정적 상위 노출 가능" style="color:#3b82f6; font-weight:800; cursor:help;">SS</span>
+          <span style="color:#64748b; font-size:10px;">💡 SSS+SS 모드 (v2.49.20 — 진짜 실측만, 휴리스틱 가짜 차단)</span>
         </span>
         <span style="margin-left:auto; color:#64748b;">총 <span id="rfTotal">0</span>건 발굴</span>
       </div>
@@ -1173,14 +1174,21 @@
                 //   사용자 정책: "추정치 절대 넣지마" (메모리 + 명시 지시)
                 //   점수는 내부 필터링/정렬에만 사용. UI는 매칭된 카테고리 라벨만.
                 const factors = Array.isArray(r.writabilityFactors) ? r.writabilityFactors : [];
-                if (factors.length === 0) return '';
-                // 양수 가산만 표시 (사용자 카테고리 매칭 / commercial / longtail / 적정 dc 같은 긍정 시그널만)
                 const positives = factors.filter(f => f.delta > 0).slice(0, 3);
-                if (positives.length === 0) return '';
-                const chipsHtml = positives.map(f => {
+                const positiveChips = positives.map(f => {
                     return `<span title="이 키워드는 ${f.label} 패턴에 실제 매칭됨" style="display:inline-block; margin-left:4px; padding:1px 6px; border-radius:6px; background:rgba(34,197,94,0.10); border:1px solid rgba(34,197,94,0.30); color:#86efac; font-size:9.5px; font-weight:700;">${f.label}</span>`;
                 }).join('');
-                return chipsHtml;
+                // v2.49.20: svEstimated / dcEstimated 칩 노출. 사용자가 추정값을 명확히 인지 가능.
+                //   svEstimated: 검색광고 API 휴리스틱 fallback 사용 (다른 키워드 sv 빌려옴) → 키워드 분석기 sv 와 다를 수 있음
+                //   dcEstimated: 문서수가 측정 불가 → sv*0.5 추정값
+                const estimatedChips = [];
+                if (r.svEstimated === true) {
+                    estimatedChips.push(`<span title="검색량 추정값 — 검색광고 API 가 정확한 데이터 없어 휴리스틱(공통 토큰 매칭)으로 추정. 키워드 분석기 sv 와 다를 수 있음" style="display:inline-block; margin-left:4px; padding:1px 6px; border-radius:6px; background:rgba(251,146,60,0.12); border:1px solid rgba(251,146,60,0.35); color:#fdba74; font-size:9.5px; font-weight:700;">⚠️ sv 추정</span>`);
+                }
+                if (r.dcEstimated === true) {
+                    estimatedChips.push(`<span title="문서수 추정값 — 네이버 API 측정 실패 시 sv×0.5 로 추정. 실제 dc 는 다를 수 있음" style="display:inline-block; margin-left:4px; padding:1px 6px; border-radius:6px; background:rgba(251,146,60,0.12); border:1px solid rgba(251,146,60,0.35); color:#fdba74; font-size:9.5px; font-weight:700;">⚠️ dc 추정</span>`);
+                }
+                return positiveChips + estimatedChips.join('');
               })()}</td>
               <td style="padding:10px 8px; text-align:right; color:#cbd5e1;">${r.searchVolume.toLocaleString()}${(() => {
                 // v2.43.27: 일평균 검색량 = 월 검색량 ÷ 30 (단순 산술 환산, 추정 아님)
