@@ -87,27 +87,38 @@ export function recordKeywordCheck(keyword: string, docCount: number, searchVolu
   // history 100개 제한
   if (t.history.length > 100) t.history = t.history.slice(-100);
 
-  // 알림 룰
+  // 알림 룰 — v2.49.7: cooldown 7일 + 임계값 상향 (사용자 보고: "포화 임박 알림 자꾸 뜸")
+  const ALERT_COOLDOWN_MS = 7 * 86400000; // 7일
+  const findLastAlertOfType = (type: 'saturation' | 'decay'): number =>
+    t.alerts.filter(a => a.type === type).reduce((max, a) => Math.max(max, a.ts), 0);
+
   if (t.history.length >= 2) {
     const prev = t.history[t.history.length - 2];
     const docDelta = docCount - prev.docCount;
     const dailyGrowth = docDelta / Math.max(1, (Date.now() - prev.ts) / 86400000);
 
-    if (dailyGrowth >= 50) {
-      t.alerts.push({
-        ts: Date.now(),
-        type: 'saturation',
-        message: `포화 임박 — 일간 +${Math.round(dailyGrowth)}개 문서 증가`,
-      });
+    // v2.49.7: 임계 50 → 100 (50은 일반 키워드도 흔함)
+    if (dailyGrowth >= 100) {
+      const lastSat = findLastAlertOfType('saturation');
+      if (Date.now() - lastSat >= ALERT_COOLDOWN_MS) {
+        t.alerts.push({
+          ts: Date.now(),
+          type: 'saturation',
+          message: `포화 임박 — 일간 +${Math.round(dailyGrowth)}개 문서 증가`,
+        });
+      }
     }
     if (searchVolume != null && prev.searchVolume != null) {
       const svDelta = (searchVolume - prev.searchVolume) / Math.max(1, prev.searchVolume);
       if (svDelta <= -0.15) {
-        t.alerts.push({
-          ts: Date.now(),
-          type: 'decay',
-          message: `검색량 ${Math.round(svDelta * 100)}% 하락`,
-        });
+        const lastDecay = findLastAlertOfType('decay');
+        if (Date.now() - lastDecay >= ALERT_COOLDOWN_MS) {
+          t.alerts.push({
+            ts: Date.now(),
+            type: 'decay',
+            message: `검색량 ${Math.round(svDelta * 100)}% 하락`,
+          });
+        }
       }
     }
   }

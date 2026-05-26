@@ -1484,14 +1484,23 @@ export async function buildRichFeed(
                 //   품질 가드: 친화도 70+ AND 2+ tokens AND commercial intent 필수
                 const tokenCount = String(r.keyword || '').trim().split(/\s+/).filter(Boolean).length;
                 if (tokenCount === 1) return false;
+
+                // ★ v2.49.7: sv*0.5 fallback dc 정확 매칭 차단 (가짜 SSS 진입 금지)
+                //   사용자 보고: TOP 20 SSS 중 18건이 ratio 정확히 2.00 = sv/dc=2 = dc=sv*0.5 추정값
+                //   calculateGrade 의 sanity gate 가 적용됐지만 promotion 이 우회 → 여기서 추가 차단
+                if (r.documentCount > 0 && r.searchVolume > 0) {
+                    const halfSvRatio = r.documentCount / (r.searchVolume * 0.5);
+                    if (halfSvRatio >= 0.95 && halfSvRatio <= 1.05) return false;
+                }
+
                 const writability = typeof r.bloggerWritability === 'number' ? r.bloggerWritability : 50;
                 if (r.dcEstimated) {
                     // 추정값은 보수적 가드 (친화도 70+ 필수)
                     if (writability < 70) return false;
                     if (!hasCommercialIntent(r.keyword)) return false;
                 } else {
-                    // 실측은 친화도 35+
-                    if (writability < 35) return false;
+                    // v2.49.7: 실측 풀 확장 — 친화도 35 → 30 (사용자 메모리 "대량 보장")
+                    if (writability < 30) return false;
                 }
                 // v2.43.31: longtail 우선 — sv 200~30K, 빅워드는 promotion 풀 진입 불가
                 const tokens = String(r.keyword || '').trim().split(/\s+/).filter(Boolean).length;
@@ -1500,7 +1509,8 @@ export async function buildRichFeed(
                     (r.grade === 'SS' || r.grade === 'S' || r.grade === 'A') &&
                     r.searchVolume >= 200 &&
                     r.searchVolume <= 30000 &&
-                    (r.dcEstimated ? r.goldenRatio >= 2.0 : (r.documentCount > 0 && r.documentCount <= 12000 && r.goldenRatio >= 1.3))
+                    // v2.49.7: 실측 dc 게이트 완화 — ratio 1.3 → 1.15, maxDc 12000 → 15000 (풀 확장)
+                    (r.dcEstimated ? r.goldenRatio >= 2.0 : (r.documentCount > 0 && r.documentCount <= 15000 && r.goldenRatio >= 1.15))
                 );
             })
             .map(r => {
@@ -1617,6 +1627,13 @@ export async function buildRichFeed(
                     const writability = typeof r.bloggerWritability === 'number' ? r.bloggerWritability : 50;
                     if (writability < opts.minWritability) return false;
                     if (r.dcEstimated && writability < opts.minWritabilityEstimated) return false;
+
+                    // ★ v2.49.7: sv*0.5 fallback dc 정확 매칭 차단 (가짜 SSS 진입 금지)
+                    if (r.documentCount > 0 && r.searchVolume > 0) {
+                        const halfSvRatio = r.documentCount / (r.searchVolume * 0.5);
+                        if (halfSvRatio >= 0.95 && halfSvRatio <= 1.05) return false;
+                    }
+
                     return (
                         (r.grade === 'SS' || r.grade === 'S' || r.grade === 'A') &&
                         r.searchVolume >= opts.minSv &&
