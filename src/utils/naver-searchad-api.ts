@@ -139,10 +139,14 @@ export async function getNaverSearchAdKeywordVolume(
   const results: KeywordSearchVolume[] = [];
   const cleanKeywords = (keywords || []).map(k => String(k || '').trim()).filter(Boolean);
 
-  // 🔥 chunkSize 10 — API hintKeywords 최대 100 허용, 배치 수 최소화.
-  // v2.49.18: 휴리스틱 fallback 제거됨. 정확 매칭 또는 포함 매칭만 사용 → sv=null/0 그대로 반환.
-  //   기존 휴리스틱이 가짜 sv 부여 (사용자 보고: "환급금 조회 삼쩜삼 오류" 23,530 실제 0).
-  const chunkSize = 10;
+  // v2.49.21: 🚨 chunkSize 10 → 5 (CRITICAL FIX).
+  //   실측 (scripts/verify-v2.49.20-chunksize.ts): chunkSize 7+ 에서 keywordList=0 (API 응답 폭망).
+  //   chunkSize 5: keywordList 22개 + 정확 매칭 100% / chunkSize 10: 0% 매칭 → 모든 sv=null
+  //   이게 사용자 보고 "SSS 결과 50+→2~3건" 의 진짜 원인. v2.27.4~v2.49.20 의 hotfix 들이
+  //   다 이 깊은 버그를 못 보고 표면만 만짐.
+  //   v2.49.18 휴리스틱 fallback 은 그대로 유지 (svEstimated 마킹). 정확 매칭 100% 보장 후
+  //   사용자에게 결과 50~300건 복원 + 추정 칩으로 신뢰도 보장.
+  const chunkSize = 5;
   for (let i = 0; i < cleanKeywords.length; i += chunkSize) {
     const chunk = cleanKeywords.slice(i, i + chunkSize);
     const hintKeywordsValue = chunk.map(k => buildProcessedKeyword(k)).join(',');
