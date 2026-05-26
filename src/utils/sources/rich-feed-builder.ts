@@ -1592,9 +1592,26 @@ export async function buildRichFeed(
             }
         }
 
-        // 실제 승격 적용
+        // 실제 승격 적용 — v2.49.10: sanity-gate.ts SSoT 통과 행만 SSS 부여
+        const { validateGrade, applySanity } = require('../sanity-gate');
+        let promotionBlocked = 0;
         for (const t of promotionTargets) {
-            t.row.grade = 'SSS';
+            const sanity = validateGrade({
+                keyword: t.row.keyword,
+                searchVolume: t.row.searchVolume,
+                documentCount: t.row.documentCount,
+                goldenRatio: t.row.goldenRatio,
+                score: t.baseScore,
+                dcEstimated: t.row.dcEstimated,
+                source: 'rich-feed',
+            });
+            const finalGrade = applySanity('SSS', sanity);
+            t.row.grade = finalGrade;
+            t.row.dcEstimated = sanity.estimatedFlags.dc;  // 동기화
+            if (finalGrade !== 'SSS') promotionBlocked++;
+        }
+        if (promotionBlocked > 0) {
+            console.log(`[rich-feed v2.49.10] promotion sanity 통과: ${promotionTargets.length - promotionBlocked}/${promotionTargets.length} (${promotionBlocked}건 강등)`);
         }
 
         // v2.43.20-21: TARGET_SSS 미달 시 3-tier FALLBACK 라운드
@@ -1647,6 +1664,8 @@ export async function buildRichFeed(
                 }))
                 .sort((a, b) => b.writability - a.writability);
 
+            // v2.49.10: fallback tier 도 sanity-gate.ts SSoT 통과 행만 SSS 부여
+            const { validateGrade: vg, applySanity: as } = require('../sanity-gate');
             let promoted = 0;
             for (const f of fallbackPool) {
                 if (promoted >= remaining) break;
@@ -1654,7 +1673,19 @@ export async function buildRichFeed(
                 if ((sssCategoryCount.get(cid) || 0) >= opts.categoryCap) continue;
                 const prefix = getBrandPrefix(f.row.keyword);
                 if (prefix && (brandPrefixCount.get(prefix) || 0) >= opts.brandCap) continue;
-                f.row.grade = 'SSS';
+                const sanity = vg({
+                    keyword: f.row.keyword,
+                    searchVolume: f.row.searchVolume,
+                    documentCount: f.row.documentCount,
+                    goldenRatio: f.row.goldenRatio,
+                    score: f.writability,
+                    dcEstimated: f.row.dcEstimated,
+                    source: 'rich-feed',
+                });
+                const finalGrade = as('SSS', sanity);
+                f.row.grade = finalGrade;
+                f.row.dcEstimated = sanity.estimatedFlags.dc;
+                if (finalGrade !== 'SSS') continue;  // SSoT 차단 시 다음 fallback 후보로
                 promoted++;
                 totalPromoted++;
                 sssCategoryCount.set(cid, (sssCategoryCount.get(cid) || 0) + 1);
@@ -2154,12 +2185,22 @@ JSON 배열로만 응답 (코드블록 X, 다른 텍스트 X):
         const cat = classifyForFeed(sig.keyword);
         const cpcVal = typeof sig.monthlyAveCpc === 'number' && sig.monthlyAveCpc > 0 ? sig.monthlyAveCpc : null;
 
+        // v2.49.10: Claude augment 도 sanity-gate.ts SSoT 통과 필수 (Manus 우선 정책 enforcement)
+        //   메모리 규칙: "외부 AI 보강 시 Manus(open.manus.im) 1순위. Claude/GPT/Gemini API 대신"
+        //   sanity-gate 가 source='claude' 행은 자동 SSS 차단 → 무조건 SS 이하로 강등.
+        const { validateGrade: vgC, applySanity: asC } = require('../sanity-gate');
+        const sanityC = vgC({
+            keyword: sig.keyword, searchVolume: sv, documentCount: dc,
+            goldenRatio: ratio, score: 80, source: 'claude',
+        });
+        const finalGradeC = asC('SSS', sanityC);
+
         validated.push({
             rank: 0,
             keyword: sig.keyword,
             category: cat.label,
             categoryIcon: cat.icon,
-            grade: 'SSS',
+            grade: finalGradeC,  // claude source → sanity-gate 가 자동 강등 (SS 이하)
             searchVolume: sv,
             documentCount: dc,
             goldenRatio: parseFloat(ratio.toFixed(2)),
