@@ -49,6 +49,8 @@ export interface SanityInput {
     score: number;                // 0~100 점수
     dcEstimated?: boolean;        // dc 가 추정값인지
     svEstimated?: boolean;        // sv 가 추정값인지
+    /** v2.49.16: measure-dc SSoT 출력. 'low' → SSS 차단 (fallback dc 차단). */
+    dcConfidence?: 'high' | 'medium' | 'low';
     source: GradeSource;
 }
 
@@ -154,6 +156,19 @@ export function validateGrade(input: SanityInput): SanityResult {
         allowSs = false;
         allowS = false;
         reasons.push('BACKUP_NO_API');
+    }
+
+    // [9] v2.49.16: measure-dc SSoT dcConfidence='low' → SSS 차단 + dcEst 강제 마킹
+    //     low = source='fallback' (sv*0.5 추정). dc=26 가짜 SSR 같은 widget noise 케이스 차단.
+    if (input.dcConfidence === 'low') {
+        dcEst = true;
+        allowSss = false;
+        reasons.push('DC_CONFIDENCE_LOW');
+    }
+    // medium = scrape 단독 (API 검증 부재). SSS 만 차단, SS/S 는 허용.
+    if (input.dcConfidence === 'medium') {
+        allowSss = false;
+        reasons.push('DC_CONFIDENCE_MEDIUM');
     }
 
     return {

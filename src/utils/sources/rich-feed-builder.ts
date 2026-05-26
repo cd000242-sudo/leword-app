@@ -1603,6 +1603,7 @@ export async function buildRichFeed(
                 goldenRatio: t.row.goldenRatio,
                 score: t.baseScore,
                 dcEstimated: t.row.dcEstimated,
+                dcConfidence: (t.row as any).dcConfidence,  // v2.49.16: measure-dc SSoT 전파
                 source: 'rich-feed',
             });
             const finalGrade = applySanity('SSS', sanity);
@@ -1680,6 +1681,7 @@ export async function buildRichFeed(
                     goldenRatio: f.row.goldenRatio,
                     score: f.writability,
                     dcEstimated: f.row.dcEstimated,
+                    dcConfidence: (f.row as any).dcConfidence,  // v2.49.16: measure-dc SSoT 전파
                     source: 'rich-feed',
                 });
                 const finalGrade = as('SSS', sanity);
@@ -1829,44 +1831,12 @@ export async function buildRichFeed(
         let corrected = 0;
         let demoted = 0;
 
-        const scrapeWebDc = async (kw: string): Promise<number | null> => {
-            const ctrl = new AbortController();
-            const hardKill = setTimeout(() => ctrl.abort(), SCRAPE_TIMEOUT);
-            try {
-                const axiosMod = await import('axios');
-                const axios = axiosMod.default;
-                const url = `https://search.naver.com/search.naver?where=blog&query=${encodeURIComponent(kw)}`;
-                const resp = await axios.get(url, {
-                    headers: {
-                        'User-Agent': 'Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/120.0.0.0 Safari/537.36',
-                        'Accept': 'text/html,application/xhtml+xml',
-                        'Accept-Language': 'ko-KR,ko;q=0.9',
-                    },
-                    timeout: SCRAPE_TIMEOUT,
-                    signal: ctrl.signal as any,
-                });
-                const html = String(resp.data || '');
-                // 다중 패턴: "1-10 / 16,681건" / "16,681건" / "총 16,681건" / "(16,681)"
-                const patterns = [
-                    /\d+-\d+\s*\/\s*([0-9,]+)\s*건/,   // "1-10 / 16,681건"
-                    /총\s*([0-9,]+)\s*건/,               // "총 16,681건"
-                    /약\s*([0-9,]+)\s*건/,               // "약 16,681건"
-                    /([0-9,]+)\s*건/,                    // fallback "16,681건"
-                ];
-                for (const p of patterns) {
-                    const m = html.match(p);
-                    if (m && m[1]) {
-                        const n = parseInt(m[1].replace(/,/g, ''), 10);
-                        if (Number.isFinite(n) && n > 0) return n;
-                    }
-                }
-                return null;
-            } catch {
-                return null;
-            } finally {
-                clearTimeout(hardKill);
-            }
-        };
+        // v2.49.16: inline scrapeWebDc 제거 — measure-dc.ts SSoT 사용.
+        //   Phase A 3 에이전트 토론 결과:
+        //     - dc=26 가짜 SSR 원인: pattern 4 `/([0-9,]+)\s*건/` 가 widget noise 매칭
+        //     - 같은 공격 v2.32.1 에서 발견됨 ("아동수당 209,645 → 26") — sanity check 가 한 함수에만 적용
+        //   SSoT 도입으로 9 path 모두 동일 로직 사용 + scrape 엄격 패턴 2개 + n>=100 게이트.
+        const { measureDocumentCount } = await import('../measure-dc');
 
         for (let i = 0; i < needsVerify.length; i += VERIFY_CONCURRENCY) {
             if (isExceeded()) {
@@ -1876,36 +1846,41 @@ export async function buildRichFeed(
             const batch = needsVerify.slice(i, i + VERIFY_CONCURRENCY);
             await Promise.all(batch.map(async (r) => {
                 if ((r as any).claudeDiscovered || (r as any).discoveredByManus) return; // 별도 검증 경로
-                const scraped = await scrapeWebDc(r.keyword);
-                if (scraped !== null && scraped > 0) {
-                    verified++;
-                    // v2.42.22: 항상 scrape 신뢰 — 차이 1.2배 이상이면 보정 (API은 항상 undercount 경향)
-                    if (scraped > r.documentCount * 1.2 || scraped < r.documentCount / 1.2) {
-                        const oldDc = r.documentCount;
-                        const oldRatio = r.goldenRatio;
-                        r.documentCount = scraped;
-                        r.goldenRatio = parseFloat((r.searchVolume / Math.max(1, scraped)).toFixed(2));
-                        (r as any).dcEstimated = false; // 실측 데이터로 확정
-                        corrected++;
-                        // persistent cache 업데이트 (다음 호출에서 옛값 재사용 차단)
-                        if (persistentSet && r.searchVolume > 0) {
-                            try {
-                                persistentSet(r.keyword, {
-                                    searchVolume: r.searchVolume,
-                                    documentCount: scraped,
-                                    realCpc: r.cpc,
-                                    compIdx: null,
-                                });
-                            } catch {}
-                        }
-                        if (r.goldenRatio < 1.0) {
-                            (r as any).grade = '';
-                            demoted++;
-                            console.log(`[rich-feed v2.42.22] dc 강등 "${r.keyword}": ${oldDc}→${scraped}, ratio ${oldRatio.toFixed(2)}→${r.goldenRatio} (redOcean)`);
-                        } else {
-                            console.log(`[rich-feed v2.42.22] dc 보정 "${r.keyword}": ${oldDc}→${scraped}, ratio ${oldRatio.toFixed(2)}→${r.goldenRatio}`);
-                        }
+                // v2.49.16: measure-dc SSoT 호출. skipCache=true → verify path 는 항상 재측정.
+                const m = await measureDocumentCount(r.keyword, {
+                    searchVolume: r.searchVolume,
+                    skipCache: true,
+                    scrapeTimeoutMs: SCRAPE_TIMEOUT,
+                });
+                if (m.source === 'fallback') {
+                    // SSoT 도 추정 — dcEstimated 유지, 보정 생략. sanity-gate 에서 dcConfidence='low' 로 SSS 차단.
+                    (r as any).dcConfidence = 'low';
+                    return;
+                }
+                verified++;
+                const scraped = m.dc;
+                // v2.49.16: API/scrape 결과 채택. dcEstimated → confirmed by source.
+                if (Math.abs(scraped - r.documentCount) > r.documentCount * 0.2) {
+                    const oldDc = r.documentCount;
+                    const oldRatio = r.goldenRatio;
+                    r.documentCount = scraped;
+                    r.goldenRatio = parseFloat((r.searchVolume / Math.max(1, scraped)).toFixed(2));
+                    (r as any).dcEstimated = m.isEstimated;
+                    (r as any).dcConfidence = m.confidence;
+                    (r as any).dcSource = m.source;
+                    corrected++;
+                    // persistent cache 업데이트는 measure-dc 가 처리 (API/cache 만 저장, scrape 미저장 — v2.32.1 정책)
+                    if (r.goldenRatio < 1.0) {
+                        (r as any).grade = '';
+                        demoted++;
+                        console.log(`[rich-feed v2.49.16] dc 강등 "${r.keyword}": ${oldDc}→${scraped} (${m.source}), ratio ${oldRatio.toFixed(2)}→${r.goldenRatio} (redOcean)`);
+                    } else {
+                        console.log(`[rich-feed v2.49.16] dc 보정 "${r.keyword}": ${oldDc}→${scraped} (${m.source}/${m.confidence}), ratio ${oldRatio.toFixed(2)}→${r.goldenRatio}`);
                     }
+                } else {
+                    // 차이 미미 — confidence 만 전파
+                    (r as any).dcConfidence = m.confidence;
+                    (r as any).dcSource = m.source;
                 }
             }));
             const pct = 88 + Math.round((Math.min(i + VERIFY_CONCURRENCY, enrichedRows.length) / enrichedRows.length) * 3);

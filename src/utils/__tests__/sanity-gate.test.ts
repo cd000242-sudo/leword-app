@@ -221,6 +221,54 @@ function assert(name: string, cond: boolean, detail?: string) {
     assert('sanitySummary 출력 비어있지 않음', summary.length > 0);
 }
 
+// 13. v2.49.16: dcConfidence='low' → SSS 차단 + dcEst 강제 마킹 (fallback dc=26 가짜 SSR 차단)
+{
+    const r = validateGrade({
+        keyword: '소상공인 지원금 신청',
+        searchVolume: 5800,
+        documentCount: 26,        // 가짜 widget noise 매칭 케이스
+        goldenRatio: 223.0,        // 비현실적 황금 (sv/26)
+        score: 95,
+        dcConfidence: 'low',      // measure-dc 가 fallback 으로 측정
+        source: 'rich-feed',
+    });
+    assert('dcConfidence=low → allowSss false', !r.allowSss);
+    assert('dcConfidence=low → reason DC_CONFIDENCE_LOW', r.reasons.includes('DC_CONFIDENCE_LOW'));
+    assert('dcConfidence=low → dcEst true 강제 마킹', r.estimatedFlags.dc === true);
+}
+
+// 14. v2.49.16: dcConfidence='medium' (scrape 단독) → SSS 차단, SS 는 허용
+{
+    const r = validateGrade({
+        keyword: '강아지 영양제 노령견',
+        searchVolume: 1500,
+        documentCount: 300,
+        goldenRatio: 5.0,
+        score: 85,
+        dcConfidence: 'medium',   // scrape 만 성공, API 검증 부재
+        source: 'rich-feed',
+    });
+    assert('dcConfidence=medium → allowSss false', !r.allowSss);
+    assert('dcConfidence=medium → allowSs true (SS 허용)', r.allowSs === true);
+    assert('dcConfidence=medium → reason DC_CONFIDENCE_MEDIUM', r.reasons.includes('DC_CONFIDENCE_MEDIUM'));
+    assert('dcConfidence=medium + SSS → SS 강등', applySanity('SSS', r) === 'SS');
+}
+
+// 15. v2.49.16: dcConfidence='high' (API/cache) → 정상 SSS 통과
+{
+    const r = validateGrade({
+        keyword: 'LG 그램 17 2024 게이밍 추천',
+        searchVolume: 1500,
+        documentCount: 300,
+        goldenRatio: 5.0,
+        score: 85,
+        dcConfidence: 'high',     // API 또는 24h fresh cache
+        source: 'rich-feed',
+    });
+    assert('dcConfidence=high → allowSss true (정상 SSS)', r.allowSss === true);
+    assert('dcConfidence=high → applySanity SSS 유지', applySanity('SSS', r) === 'SSS');
+}
+
 // ==================== 결과 출력 ====================
 console.log(`\n[sanity-gate.test] passed: ${passed} / failed: ${failed}`);
 if (failed > 0) {

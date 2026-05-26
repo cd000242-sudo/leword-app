@@ -840,10 +840,23 @@ export async function getNaverKeywordSearchVolumeSeparate(
           timeout: SCRAPE_TIMEOUT_MS,
         });
         const html = String(resp.data || '');
-        const m = html.match(/([0-9,]+)\s*건/);
-        if (m && m[1]) {
-          const n = parseInt(m[1].replace(/,/g, ''), 10);
-          return Number.isFinite(n) ? n : null;
+        // v2.49.16: 단일 regex `[0-9,]+\s*건` → 엄격 패턴 2개로 교체.
+        //   기존 단일 regex 는 "댓글 26건", "광고 5건", "인플루언서 12건" 등 widget noise 매칭.
+        //   사용자 보고: "소상공인 지원금 신청" dc=26 (실제 352,837) — 13,571x 오염.
+        //   v2.32.1 sanity check (line 903) 가 sv/dc>100 만 차단 → sv 5000 + scrape 60 같은 케이스는 통과.
+        //   근본 fix: regex 자체를 엄격화 + n>=100 게이트.
+        const strictPatterns = [
+          /\d+-\d+\s*\/\s*([0-9,]+)\s*건/,    // "1-10 / 352,837건" (페이지네이션 — 가장 안전)
+          /총\s*([0-9,]+)\s*건/,                // "총 352,837건" (결과 헤더)
+        ];
+        for (const p of strictPatterns) {
+          const m = html.match(p);
+          if (m && m[1]) {
+            const n = parseInt(m[1].replace(/,/g, ''), 10);
+            if (!Number.isFinite(n) || n <= 0) continue;
+            if (n < 100) continue;  // widget noise 의심 — 거부 (댓글/광고 카운트)
+            return n;
+          }
         }
         return null;
       } catch {
