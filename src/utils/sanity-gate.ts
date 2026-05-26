@@ -199,3 +199,23 @@ export function sanitySummary(r: SanityResult): string {
     ].filter(Boolean).join(' ');
     return `[${flags}] ${blocks || 'all-pass'}${r.reasons.length ? ' (' + r.reasons.join(',') + ')' : ''}`;
 }
+
+/**
+ * v2.49.12: CACHE_SCHEMA_VERSION 자동 hash.
+ * validateGrade + applySanity 함수 source 의 sha256 → 변경 시 cache 자동 무효화.
+ * 다른 cache layer (rich-feed-cache, persistent-keyword-cache) 가 import 하여 사용.
+ * 회귀 방지: sanity-gate 변경 → schema 자동 bump → 옛 가짜 SSS 캐시 자동 폐기.
+ */
+function computeCacheSchemaVersion(): string {
+    try {
+        // eslint-disable-next-line @typescript-eslint/no-var-requires
+        const { createHash } = require('crypto');
+        const src = String(validateGrade) + String(applySanity);
+        const h = createHash('sha256').update(src).digest('hex');
+        return `sg-${h.slice(0, 12)}`;
+    } catch {
+        return 'sg-fallback';
+    }
+}
+
+export const CACHE_SCHEMA_VERSION = computeCacheSchemaVersion();

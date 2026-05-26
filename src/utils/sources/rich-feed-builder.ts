@@ -2069,7 +2069,10 @@ let cached: { result: RichFeedResult; expiresAt: number } | null = null;
 const CACHE_TTL = 3 * 60_000;         // 메모리 캐시: 15분→3분
 const DISK_CACHE_TTL = 30 * 60_000;   // 디스크 캐시: 4시간→30분 (안전망용)
 const MIN_ACCEPTABLE_TOTAL = 20;       // 이 미만이면 "실패"로 간주, 디스크 캐시 폴백
-const CACHE_SCHEMA_VERSION = 'v2.49.8-sanity-gate';  // v2.49.8: sv*0.5 sanity gate + sanity-gate.ts 통일 layer 도입. 옛 캐시(v2.41.3) 무효화.
+// v2.49.12: sanity-gate.ts hash 자동 import. 변경 시 cache 자동 무효화 (회귀 방지).
+// eslint-disable-next-line @typescript-eslint/no-var-requires
+const { CACHE_SCHEMA_VERSION: SG_VER } = require('../sanity-gate');
+const CACHE_SCHEMA_VERSION = `rf-${SG_VER}`;
 
 function getDiskCachePath(): string {
     // app.getPath 가 있으면 userData, 없으면 temp 사용 (테스트/개발 환경)
