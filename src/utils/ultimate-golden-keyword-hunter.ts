@@ -100,14 +100,24 @@ function calculateUltimateScore(
 
   const totalScore = Math.round(profitScore * 0.4 + competitionScore * 0.4 + cpcScore * 0.2);
 
-  let grade: UltimateGoldenKeyword['verdict']['grade'];
-  if (totalScore >= 85) grade = 'SSS';
-  else if (totalScore >= 75) grade = 'SS';
-  else if (totalScore >= 65) grade = 'S';
-  else if (totalScore >= 55) grade = 'A';
-  else if (totalScore >= 45) grade = 'B';
-  else if (totalScore >= 35) grade = 'C';
-  else grade = 'D';
+  // v2.49.11: sanity-gate.ts SSoT 통과 후 부여 (ternary 회피)
+  const targetGradeU: UltimateGoldenKeyword['verdict']['grade'] =
+    totalScore >= 85 ? 'SSS' :
+    totalScore >= 75 ? 'SS' :
+    totalScore >= 65 ? 'S' :
+    totalScore >= 55 ? 'A' :
+    totalScore >= 45 ? 'B' :
+    totalScore >= 35 ? 'C' : 'D';
+  let grade: UltimateGoldenKeyword['verdict']['grade'] = targetGradeU;
+  if (targetGradeU === 'SSS' || targetGradeU === 'SS' || targetGradeU === 'S') {
+    const { validateGrade: vgU, applySanity: asU } = require('./sanity-gate');
+    const sanityU = vgU({
+      keyword, searchVolume, documentCount,
+      goldenRatio: searchVolume / Math.max(1, documentCount),
+      score: totalScore, source: 'ultimate',
+    });
+    grade = asU(targetGradeU as any, sanityU);
+  }
 
   let priority: UltimateGoldenKeyword['verdict']['priority'];
   let shouldWrite: boolean;

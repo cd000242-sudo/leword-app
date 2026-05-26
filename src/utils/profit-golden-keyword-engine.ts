@@ -633,8 +633,15 @@ export function calculateProfitGoldenRatio(
     : hasSmartBlock ? ' ⚠️스마트블록' : hasInfluencer ? ' ⚠️인플루언서' : '';
 
   // 등급 수익 임계값: 구글 트래픽 비율 적용 후 현실 기준
+  // v2.49.11: sanity-gate.ts SSoT 통과 후 SSS 부여
   if (profitGoldenRatio >= 50 && estimatedMonthlyRevenue >= 3000 && isCandidateForGolden) {
-    grade = 'SSS';
+    const { validateGrade: vgPG, applySanity: asPG } = require('./sanity-gate');
+    const sanityPG = vgPG({
+      keyword, searchVolume, documentCount,
+      goldenRatio: searchVolume / Math.max(1, documentCount),
+      score: profitAxis, source: 'profit-golden',
+    });
+    grade = asPG('SSS', sanityPG);
     gradeReason = `🏆 경쟁자 ${documentCount}개뿐인데 검색 ${searchVolume}회 — 지금 잡으면 1페이지 가능 (${formatRevenue(estimatedMonthlyRevenue)})${serpWarning}`;
   } else if (profitAxis >= 55 && profitGoldenRatio >= 20 && (estimatedMonthlyRevenue >= 1500 || (profitAxis >= 65 && estimatedMonthlyRevenue >= 600))) {
     // SS: profitAxis 충분히 높으면(65+) MR 기준 완화 — 구글비율 낮은 고CPC 키워드 구제

@@ -5414,11 +5414,26 @@ export async function huntProTrafficKeywords(options: {
         typeof x.k.documentCount === 'number' && x.k.documentCount > 0
       )
       .sort((a, b) => b.score - a.score);
+    // v2.49.11: sanity-gate.ts SSoT 통과 행만 SSS (Phase A 합의)
+    const { validateGrade: vgPT1, applySanity: asPT1 } = require('./sanity-gate');
     const dynamicSssCap = Math.min(count, verifiedForSss.length);
+    let proSss1Blocked = 0;
     for (let i = 0; i < dynamicSssCap; i++) {
-      verifiedForSss[i].k.grade = 'SSS';
+      const k = verifiedForSss[i].k;
+      const sanity = vgPT1({
+        keyword: k.keyword,
+        searchVolume: (k as any).searchVolume ?? 0,
+        documentCount: (k as any).docCount ?? 0,
+        goldenRatio: (k as any).goldenRatio ?? 0,
+        score: (k as any).mdpScore ?? 0,
+        dcEstimated: (k as any).dcEstimated,
+        source: 'pro-traffic',
+      });
+      const finalGrade = asPT1('SSS', sanity);
+      k.grade = finalGrade;
+      if (finalGrade !== 'SSS') proSss1Blocked++;
     }
-    console.log(`[PRO-TRAFFIC] 🎯 동적 SSS 라벨링: ${dynamicSssCap}개 (검증된 ${verifiedForSss.length}개 중 상위 점수)`);
+    console.log(`[PRO-TRAFFIC] 🎯 동적 SSS 라벨링: ${dynamicSssCap - proSss1Blocked}/${dynamicSssCap}개 (sanity 차단 ${proSss1Blocked})`);
 
     console.log(`[PRO-TRAFFIC] ✅ ${enrichedPremium.length}개 키워드 분석 완료 (끝판왕 v2.0 포함)`);
     console.log(`[PRO-TRAFFIC] 🏆 프리미엄 황금키워드 필터 통과: ${selectionPool.length}개 (S/SS/SSS만, 최소검색량=${bestMinSv}, 최소비율=${premiumMinRatioEffective}, 문서수상한=${premiumMaxDocumentsEffective})`);
@@ -5827,11 +5842,26 @@ export async function huntProTrafficKeywords(options: {
         typeof x.k.documentCount === 'number' && x.k.documentCount > 0
       )
       .sort((a, b) => b.score - a.score);
+    // v2.49.11: 2nd path 도 sanity-gate 통과
+    const { validateGrade: vgPT2, applySanity: asPT2 } = require('./sanity-gate');
     const dynamicSssCap2 = Math.min(count, verifiedForSss2.length);
+    let proSss2Blocked = 0;
     for (let i = 0; i < dynamicSssCap2; i++) {
-      verifiedForSss2[i].k.grade = 'SSS';
+      const k = verifiedForSss2[i].k;
+      const sanity = vgPT2({
+        keyword: k.keyword,
+        searchVolume: (k as any).searchVolume ?? 0,
+        documentCount: (k as any).docCount ?? 0,
+        goldenRatio: (k as any).goldenRatio ?? 0,
+        score: (k as any).mdpScore ?? 0,
+        dcEstimated: (k as any).dcEstimated,
+        source: 'pro-traffic',
+      });
+      const finalGrade = asPT2('SSS', sanity);
+      k.grade = finalGrade;
+      if (finalGrade !== 'SSS') proSss2Blocked++;
     }
-    console.log(`[PRO-TRAFFIC] 🎯 동적 SSS 라벨링(2nd path): ${dynamicSssCap2}개`);
+    console.log(`[PRO-TRAFFIC] 🎯 동적 SSS 라벨링(2nd): ${dynamicSssCap2 - proSss2Blocked}/${dynamicSssCap2}개 (sanity 차단 ${proSss2Blocked})`);
   }
 
   // 끝판왕 분석 포함된 키워드 수 로깅
@@ -8879,15 +8909,23 @@ export function analyzeMonetization(
   // 의도 기여도 (20%)
   monetizationScore += Math.min(20, intentScore);
 
-  // 등급 결정
-  let grade: 'SSS' | 'SS' | 'S' | 'A' | 'B' | 'C' | 'D';
-  if (monetizationScore >= 90) grade = 'SSS';
-  else if (monetizationScore >= 80) grade = 'SS';
-  else if (monetizationScore >= 70) grade = 'S';
-  else if (monetizationScore >= 55) grade = 'A';
-  else if (monetizationScore >= 40) grade = 'B';
-  else if (monetizationScore >= 25) grade = 'C';
-  else grade = 'D';
+  // 등급 결정 — v2.49.11: sanity-gate.ts SSoT 통과 후 부여 (ternary 로 직접 'SSS' 할당 회피)
+  const targetGradeM: 'SSS' | 'SS' | 'S' | 'A' | 'B' | 'C' | 'D' =
+    monetizationScore >= 90 ? 'SSS' :
+    monetizationScore >= 80 ? 'SS' :
+    monetizationScore >= 70 ? 'S' :
+    monetizationScore >= 55 ? 'A' :
+    monetizationScore >= 40 ? 'B' :
+    monetizationScore >= 25 ? 'C' : 'D';
+  const { validateGrade: vgM, applySanity: asM } = require('./sanity-gate');
+  const sanityM = vgM({
+    keyword, searchVolume, documentCount,
+    goldenRatio, score: monetizationScore, source: 'pro-traffic',
+  });
+  let grade: 'SSS' | 'SS' | 'S' | 'A' | 'B' | 'C' | 'D' =
+    (targetGradeM === 'SSS' || targetGradeM === 'SS' || targetGradeM === 'S')
+      ? (asM(targetGradeM, sanityM) as typeof targetGradeM)
+      : targetGradeM;
 
   // 4. 수익화 방법별 적합도
   const methods = {
@@ -9233,16 +9271,29 @@ export function calculateGoldenKeywordScore(
     goldenRatioScore * 0.3
   );
 
-  // 등급 결정
-  let grade = '';
-  let emoji = '';
-  if (totalScore >= 90) { grade = 'SSS'; emoji = '🏆'; }
-  else if (totalScore >= 80) { grade = 'SS'; emoji = '💎'; }
-  else if (totalScore >= 70) { grade = 'S'; emoji = '⭐'; }
-  else if (totalScore >= 55) { grade = 'A'; emoji = '🔥'; }
-  else if (totalScore >= 40) { grade = 'B'; emoji = '✅'; }
-  else if (totalScore >= 25) { grade = 'C'; emoji = '📌'; }
-  else { grade = 'D'; emoji = '⚠️'; }
+  // 등급 결정 — v2.49.11: sanity-gate.ts SSoT 통과 후 부여 (ternary 로 직접 'SSS' 할당 회피)
+  const gradeAndEmoji = (() => {
+    const target =
+      totalScore >= 90 ? { g: 'SSS', e: '🏆' } :
+      totalScore >= 80 ? { g: 'SS',  e: '💎' } :
+      totalScore >= 70 ? { g: 'S',   e: '⭐' } :
+      totalScore >= 55 ? { g: 'A',   e: '🔥' } :
+      totalScore >= 40 ? { g: 'B',   e: '✅' } :
+      totalScore >= 25 ? { g: 'C',   e: '📌' } :
+                         { g: 'D',   e: '⚠️' };
+    if (target.g === 'SSS' || target.g === 'SS' || target.g === 'S') {
+      const { validateGrade: vgG, applySanity: asG } = require('./sanity-gate');
+      const sanityG = vgG({
+        keyword, searchVolume, documentCount, goldenRatio,
+        score: totalScore, source: 'pro-traffic',
+      });
+      const g2 = asG(target.g as any, sanityG);
+      return { g: g2, e: g2 === target.g ? target.e : (g2 === 'SSS' ? '🏆' : g2 === 'SS' ? '💎' : '⭐') };
+    }
+    return target;
+  })();
+  const grade = gradeAndEmoji.g;
+  const emoji = gradeAndEmoji.e;
 
   // 요약
   let summary = '';

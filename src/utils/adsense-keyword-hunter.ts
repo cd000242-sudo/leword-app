@@ -981,8 +981,15 @@ export function evaluateAdsenseKeyword(input: {
         competitionRatio >= 2 &&
         safety.level !== 'danger'
     ) {
-        grade = 'SSS';
-        gradeReason = `💎 Publisher 실수익 월 ${(estimatedMonthlyRevenue / 10000).toFixed(1)}만원+ · 정보의도 ${infoIntentScore} · 경쟁비 ${competitionRatio.toFixed(1)}배`;
+        // v2.49.11: sanity-gate.ts SSoT 통과 후 SSS 부여 (ternary 회피)
+        const { validateGrade: vgAD, applySanity: asAD } = require('./sanity-gate');
+        const sanityAD = vgAD({
+            keyword, searchVolume, documentCount,
+            goldenRatio: competitionRatio, score: infoIntentScore,
+            dcEstimated: dataSource === 'estimated', source: 'adsense',
+        });
+        grade = asAD('SSS', sanityAD);
+        gradeReason = `💎 Publisher 실수익 월 ${(estimatedMonthlyRevenue / 10000).toFixed(1)}만원+ · 정보의도 ${infoIntentScore} · 경쟁비 ${competitionRatio.toFixed(1)}배${grade !== 'SSS' ? ' (sanity ' + sanityAD.reasons.join(',') + ')' : ''}`;
     } else if (
         estimatedMonthlyRevenue >= 24000 &&
         infoIntentScore >= 55 &&
