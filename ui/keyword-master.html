@@ -1178,12 +1178,13 @@
                 const positiveChips = positives.map(f => {
                     return `<span title="이 키워드는 ${f.label} 패턴에 실제 매칭됨" style="display:inline-block; margin-left:4px; padding:1px 6px; border-radius:6px; background:rgba(34,197,94,0.10); border:1px solid rgba(34,197,94,0.30); color:#86efac; font-size:9.5px; font-weight:700;">${f.label}</span>`;
                 }).join('');
-                // v2.49.20: svEstimated / dcEstimated 칩 노출. 사용자가 추정값을 명확히 인지 가능.
-                //   svEstimated: 검색광고 API 휴리스틱 fallback 사용 (다른 키워드 sv 빌려옴) → 키워드 분석기 sv 와 다를 수 있음
-                //   dcEstimated: 문서수가 측정 불가 → sv*0.5 추정값
+                // v2.49.22: svEstimated 칩 — 휴리스틱 fallback 완전 제거 후 항상 false.
+                //   3 path (황금키워드/PRO트래픽헌터/키워드분석기) sv 100% 일치 보장. 사용자 요구.
+                //   dcEstimated 칩만 유지 (dc 측정은 별개 메커니즘 — sv*0.5 fallback).
                 const estimatedChips = [];
                 if (r.svEstimated === true) {
-                    estimatedChips.push(`<span title="검색량 추정값 — 검색광고 API 가 정확한 데이터 없어 휴리스틱(공통 토큰 매칭)으로 추정. 키워드 분석기 sv 와 다를 수 있음" style="display:inline-block; margin-left:4px; padding:1px 6px; border-radius:6px; background:rgba(251,146,60,0.12); border:1px solid rgba(251,146,60,0.35); color:#fdba74; font-size:9.5px; font-weight:700;">⚠️ sv 추정</span>`);
+                    // v2.49.22 이후 도달 불가 — 휴리스틱 제거됨. 이전 캐시 데이터 호환용 leave-in-place.
+                    estimatedChips.push(`<span title="레거시 추정 마크 (v2.49.21 이전 캐시). v2.49.22 부터 휴리스틱 제거 — 모든 sv 실측 보장" style="display:inline-block; margin-left:4px; padding:1px 6px; border-radius:6px; background:rgba(148,163,184,0.12); border:1px solid rgba(148,163,184,0.35); color:#94a3b8; font-size:9.5px; font-weight:700;">⚠️ legacy</span>`);
                 }
                 if (r.dcEstimated === true) {
                     estimatedChips.push(`<span title="문서수 추정값 — 네이버 API 측정 실패 시 sv×0.5 로 추정. 실제 dc 는 다를 수 있음" style="display:inline-block; margin-left:4px; padding:1px 6px; border-radius:6px; background:rgba(251,146,60,0.12); border:1px solid rgba(251,146,60,0.35); color:#fdba74; font-size:9.5px; font-weight:700;">⚠️ dc 추정</span>`);

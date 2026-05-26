@@ -224,48 +224,16 @@ export async function getNaverSearchAdKeywordVolume(
         // 정확/포함 매칭 실패 시 null 반환이 정직.
 
         if (match) {
-          let pc = parseVolumeValue(match.monthlyPcQcCnt);
-          let mo = parseVolumeValue(match.monthlyMobileQcCnt);
-          let total = (pc !== null || mo !== null) ? ((pc || 0) + (mo || 0)) : null;
-          let aveCpc = parseVolumeValue(match.monthlyAveCpc);
-          let competition = match.compIdx || match.competition;
-          let svEstimated = false;  // v2.49.18: 휴리스틱 사용 여부 마킹
+          const pc = parseVolumeValue(match.monthlyPcQcCnt);
+          const mo = parseVolumeValue(match.monthlyMobileQcCnt);
+          const total = (pc !== null || mo !== null) ? ((pc || 0) + (mo || 0)) : null;
+          const aveCpc = parseVolumeValue(match.monthlyAveCpc);
+          const competition = match.compIdx || match.competition;
 
-          // v2.49.18: 휴리스틱 fallback 조건부 복원 + svEstimated 마킹.
-          //   사용자 보고: "환급금 조회 삼쩜삼 오류" 황금=23,530 vs 분석기=0 → 100x mismatch
-          //   원인: 휴리스틱이 best 키워드의 sv 빌려옴 + svEstimated 플래그 미부여
-          //   복원 방식: 휴리스틱 결과에 svEstimated=true 마킹 → sanity-gate [2] 가 SSS 자동 차단
-          //   memory 규칙: "추정값 fallback 가드 — svEstimated 다운스트림 전파"
-          if ((total ?? 0) === 0) {
-            const requestTokens = requestedKw.trim().split(/\s+/).filter(t => t.length >= 2);
-            if (requestTokens.length >= 2) {
-              let bestItem: any = null;
-              let bestTotal = 0;
-              for (const item of keywordList) {
-                if (item === match) continue;
-                const rel = decodeHtmlEntities(item.relKeyword || '').toLowerCase();
-                const relFlexible = rel.replace(/[+]+/g, ' ');
-                const commonCount = requestTokens.filter(t => relFlexible.includes(t.toLowerCase())).length;
-                if (commonCount < 2) continue;
-                const cPc = parseVolumeValue(item.monthlyPcQcCnt) ?? 0;
-                const cMo = parseVolumeValue(item.monthlyMobileQcCnt) ?? 0;
-                const cTotal = cPc + cMo;
-                if (cTotal > bestTotal) {
-                  bestTotal = cTotal;
-                  bestItem = item;
-                }
-              }
-              if (bestItem && bestTotal > 0) {
-                pc = parseVolumeValue(bestItem.monthlyPcQcCnt);
-                mo = parseVolumeValue(bestItem.monthlyMobileQcCnt);
-                total = bestTotal;
-                aveCpc = parseVolumeValue(bestItem.monthlyAveCpc);
-                competition = bestItem.compIdx || bestItem.competition;
-                svEstimated = true;  // ★ 핵심 — 다운스트림 sanity-gate 가 SSS 차단
-                console.log(`[NAVER-SEARCHAD] 💡 휴리스틱 (svEstimated): "${requestedKw}" → "${bestItem.relKeyword}" sv=${bestTotal}`);
-              }
-            }
-          }
+          // v2.49.22: 휴리스틱 fallback 완전 제거 (사용자 절대 요구: 모든 path 동일 sv).
+          //   "황금키워드/PRO트래픽헌터/키워드분석기 - 하나라도 다르면 안 됨"
+          //   세 path 모두 본 함수 getNaverSearchAdKeywordVolume 거침 → 휴리스틱 제거하면 100% 일치.
+          //   휴리스틱이 다른 키워드 sv 빌려옴 = 본질적 mismatch 원인. 정확/포함 매칭 결과만 정직 반환.
 
           results.push({
             keyword: requestedKw,
@@ -276,7 +244,7 @@ export async function getNaverSearchAdKeywordVolume(
             monthlyPcQcCnt: pc,
             monthlyMobileQcCnt: mo,
             monthlyAveCpc: aveCpc,
-            svEstimated,  // v2.49.18: 휴리스틱 사용 시 true → sanity-gate SSS 차단
+            svEstimated: false,  // v2.49.22: 휴리스틱 제거 — 항상 실측. 필드는 인터페이스 호환성 위해 유지.
           });
         } else {
           // 🔥 v2.24.0 P0-3: 매칭 실패 시 0 저장 → 캐시 영구 고착 (복구 불가). null 로 변경.
