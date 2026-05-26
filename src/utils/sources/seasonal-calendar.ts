@@ -314,7 +314,7 @@ export function expandWithIntentSuffixes(seeds: string[], perSeed = 8): string[]
  */
 export async function expandWithSemanticVerify(
   seeds: string[],
-  perSeed = 8,
+  perSeed = 12,  // v2.49.19: default 8→12 (다른 caller 의 풀 확장)
   threshold = 0.45,
 ): Promise<{ items: string[]; verified: boolean; blocked: number }> {
   const candidates = expandWithIntentSuffixes(seeds, perSeed);

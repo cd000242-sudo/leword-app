@@ -911,7 +911,7 @@ export async function buildRichFeed(
     // 기존: 소스별 상위 N개 단순 take
     // 개선: 소스 쿼터는 유지하되, 각 소스 내에서 품질 점수로 정렬 후 상위 N개만.
     //       stopwords/노이즈 사전 필터 + IDF 기반 과다등장 키워드 디메리트.
-    const HEAVY_SOURCE_CAP = 600;   // 🔥 v2.27.0: 400→600 (전체 소스 총 동원)
+    const HEAVY_SOURCE_CAP = 1000;  // v2.49.19: 600→1000 (진짜 SSS 풀 확장 — 휴리스틱 가짜 제거 후 실측 SSS 보충)
 
     // IDF 기반 통계: 소스별 유니크 키워드 집합
     const sourceBuckets = new Map<string, string[]>();
@@ -1097,9 +1097,10 @@ export async function buildRichFeed(
         }
         const matrix = getSeasonalForUserCategories(userPatterns);
 
-        // matched 시드 우선 의도 suffix 확장 (perSeed 10, 미매칭은 6)
-        const { items: matchedExpanded, verified, blocked } = await expandWithSemanticVerify(matrix.matched, 10, 0.45);
-        const generalExpanded = (await expandWithSemanticVerify(matrix.general, 6, 0.45)).items;
+        // v2.49.19: perSeed matched 10→16, general 6→10 (진짜 SSS 풀 확장).
+        //   사용자 보고: 휴리스틱 fallback 제거 후 SSS=2건. 실측 SSS 늘리려면 seasonal longtail 60~67% 증대.
+        const { items: matchedExpanded, verified, blocked } = await expandWithSemanticVerify(matrix.matched, 16, 0.45);
+        const generalExpanded = (await expandWithSemanticVerify(matrix.general, 10, 0.45)).items;
 
         const seasonalSeeds: typeof baseSeeds = [];
         for (const kw of matchedExpanded) {
@@ -1158,9 +1159,10 @@ export async function buildRichFeed(
 
     diagnostic.longtail.expandedAdded = extraSeeds.length;
 
-    // 🔥 v2.27.9: 후보 풀 1500 → 2500 (대량 보장)
+    // v2.49.19: 후보 풀 2500 → 3500 cap (진짜 SSS 풀 확장 — 휴리스틱 가짜 제거 후 실측 보충).
+    //   기존 2500 cap 이 검색광고 API 호출 한계. 3500 으로 +40% 확장 → 실측 SSS 자연 증가.
     const allScored = [...baseSeeds, ...extraSeeds].sort((a, b) => b.qualityScore - a.qualityScore);
-    const targetSize = Math.min(2500, Math.max(limit * 8, 1500));
+    const targetSize = Math.min(3500, Math.max(limit * 8, 1500));
     diagnostic.candidates.targetSize = targetSize;
 
     const weightedSampleWithoutReplacement = <T extends { qualityScore: number }>(
