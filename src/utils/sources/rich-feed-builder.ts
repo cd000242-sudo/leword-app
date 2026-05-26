@@ -59,6 +59,8 @@ export interface RichKeywordRow {
     isBlueOcean: boolean;
     // 🔥 v2.41.0: dc 추정값 여부 — 분포 기반 동적 SSS 승격 풀에서 제외용 (신뢰도 가드)
     dcEstimated?: boolean;
+    // v2.49.5+: AI 브리핑 실측 결과 — true: 박스 떴음 (skip 권장), false: 안 떴음 (블로그 클릭 기회)
+    aiBriefingDetected?: boolean;
     // 🔥 v2.43.14: 블로거 친화도 점수 (0~100) — 일반 블로거가 글쓰기 좋은 정도
     bloggerWritability?: number;
     // v2.43.26 (사이클#3 5팀): 친화도 사유 분해 (UI에 인라인 칩으로 가시화)
@@ -1873,38 +1875,49 @@ export async function buildRichFeed(
         //   사용자 요구: 검·경·실·AI 4단계 공식의 마지막 "AI" 단계.
         //   AI 브리핑 떴음 → 사용자가 답을 거기서 읽고 끝, 블로그 클릭 X → SSS 부적합.
         //   메모리 규칙: 추정값 UI 노출 금지. 본 검증은 페이지 HTML 매칭사실 → boolean (실측).
+        // v2.49.6: 범위 SSS top 100 → SSS+SS 전체 (top 300). 사용자 요구: "AI 미점령만으로 SSS 풀 구성"
         try {
             const { detectAiBriefingBatch } = await import('../ai-briefing-detector');
-            const sssCandidates = enrichedRows.filter(r => r.grade === 'SSS' || r.grade === 'SSR').slice(0, 100);
-            if (sssCandidates.length > 0) {
-                emit('verify-ai', 92, `🤖 AI 브리핑 실측 ${sssCandidates.length}건 (검·경·실·AI 4단계 최종)...`);
-                const detectionMap = await detectAiBriefingBatch(sssCandidates.map(r => r.keyword), 8);
+            const aiCandidates = enrichedRows
+                .filter(r => r.grade === 'SSS' || r.grade === 'SSR' || r.grade === 'SS')
+                .slice(0, 300);
+            if (aiCandidates.length > 0) {
+                emit('verify-ai', 92, `🤖 AI 브리핑 실측 ${aiCandidates.length}건 (검·경·실·AI 4단계 최종)...`);
+                const detectionMap = await detectAiBriefingBatch(aiCandidates.map(r => r.keyword), 8);
                 let aiDemoted = 0;
-                for (const r of sssCandidates) {
+                let aiClean = 0;
+                for (const r of aiCandidates) {
                     const detected = detectionMap.get(r.keyword);
-                    (r as any).aiBriefingDetected = detected === true;  // null(미확정) → false 취급
+                    (r as any).aiBriefingDetected = detected === true;
                     if (detected === true) {
-                        // SSS → SS 강등 (완전 제거하지 않음 — 다른 게이트는 통과한 키워드라 차순위로 유지)
                         if (r.grade === 'SSS' || r.grade === 'SSR') {
                             (r as any).grade = 'SS';
                             aiDemoted++;
                         }
+                    } else if (detected === false) {
+                        aiClean++;
                     }
                 }
-                console.log(`[rich-feed v2.49.5] ✅ AI 브리핑 실측 완료: ${aiDemoted}건 SSS → SS 강등 (AI 점령 키워드)`);
-                emit('verify-ai', 93, `✅ AI 브리핑 실측 완료 — ${aiDemoted}건 강등, 진짜 SSS ${enrichedRows.filter(r => r.grade === 'SSS' || r.grade === 'SSR').length}건`);
+                console.log(`[rich-feed v2.49.6] ✅ AI 브리핑 실측 완료: ${aiCandidates.length}건 중 ${aiClean}건 미점령, ${aiDemoted}건 SSS→SS 강등`);
+                emit('verify-ai', 93, `✅ AI 브리핑 실측 완료 — 미점령 ${aiClean}건, 강등 ${aiDemoted}건`);
             }
         } catch (aiErr: any) {
-            console.warn('[rich-feed v2.49.5] AI 브리핑 detection 실패 (무시):', aiErr?.message);
+            console.warn('[rich-feed v2.49.6] AI 브리핑 detection 실패 (무시):', aiErr?.message);
         }
     }
 
-    // 5. 정렬 (등급 → 기회지수 → 소스 수)
+    // 5. 정렬 (등급 → AI 미점령 우선 → 기회지수 → 소스 수)
+    //   v2.49.6: 같은 등급 내에서 AI 미점령(aiBriefingDetected=false)을 위로 올림.
+    //   사용자 의도: 상위 노출 + 실제 트래픽 두 마리 토끼.
     const gradeOrder: Record<string, number> = { SSR: 6, SSS: 5, SS: 4, S: 3, A: 2, B: 1 };
     enrichedRows.sort((a, b) => {
         const ga = gradeOrder[a.grade] || 0;
         const gb = gradeOrder[b.grade] || 0;
         if (ga !== gb) return gb - ga;
+        // AI 미점령 우선 (false < true → false 가 먼저)
+        const aiA = (a as any).aiBriefingDetected === true ? 1 : 0;
+        const aiB = (b as any).aiBriefingDetected === true ? 1 : 0;
+        if (aiA !== aiB) return aiA - aiB;
         const grA = Math.round(a.goldenRatio * 10) / 10;
         const grB = Math.round(b.goldenRatio * 10) / 10;
         if (grA !== grB) return grB - grA;

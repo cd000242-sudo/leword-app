@@ -4494,6 +4494,14 @@
           displayKeywordResults(src);
         };
 
+        // v2.49.6: AI 미점령만 보기 토글
+        window.lewordAiCleanOnly = window.lewordAiCleanOnly || false;
+        window.toggleLewordAiCleanOnly = function (enabled) {
+          window.lewordAiCleanOnly = !!enabled;
+          const src = Array.isArray(window.lewordRawKeywords) ? window.lewordRawKeywords : (Array.isArray(window.discoveryResults) ? window.discoveryResults : []);
+          displayKeywordResults(src);
+        };
+
         window.startLewordHeartbeat = function () {
           if (window.lewordProgressUI.heartbeatTimer) {
             clearInterval(window.lewordProgressUI.heartbeatTimer);
@@ -4863,6 +4871,11 @@
             filtered = filtered.filter(kw => isPresetMatch(kw, thresholds.super));
           }
 
+          // v2.49.6: AI 미점령만 보기 필터 (사용자 토글)
+          if (window.lewordAiCleanOnly) {
+            filtered = filtered.filter(kw => kw && kw.aiBriefingDetected === false);
+          }
+
           // 3. 정렬 로직 개선 (1.검색어일치 -> 2.검색량 -> 3.문서수)
           const lastSearch = window.lewordLastSearchKeyword ? window.lewordLastSearchKeyword.replace(/\s+/g, '') : '';
 
@@ -4914,6 +4927,11 @@
           <label style="display:flex; align-items:center; gap:8px; background: rgba(255,255,255,0.92); border: 1px solid rgba(15,23,42,0.12); border-radius: 10px; padding: 8px 12px; font-weight: 900; font-size: 12px; color: #0f172a; cursor: pointer;" onclick="event.stopPropagation();">
             <input type="checkbox" ${filterEnabled ? 'checked' : ''} onchange="toggleLewordGoldenFilter(this.checked); event.stopPropagation();" />
             황금키워드
+          </label>
+          <!-- v2.49.6: AI 미점령만 보기 토글 -->
+          <label style="display:flex; align-items:center; gap:8px; background: linear-gradient(135deg, rgba(16,185,129,0.10), rgba(16,185,129,0.05)); border: 1px solid rgba(16,185,129,0.35); border-radius: 10px; padding: 8px 12px; font-weight: 900; font-size: 12px; color: #047857; cursor: pointer;" title="AI 브리핑이 안 떴음으로 실측된 키워드만 표시 (블로그 클릭 기회 ↑)" onclick="event.stopPropagation();">
+            <input type="checkbox" ${window.lewordAiCleanOnly ? 'checked' : ''} onchange="toggleLewordAiCleanOnly(this.checked); event.stopPropagation();" />
+            🤖 AI 미점령만
           </label>
           ${filterEnabled ? `
             <button type="button" onclick="setLewordGoldenPreset('all'); event.stopPropagation();" style="${btnStyle(activeAll, 'linear-gradient(135deg, #64748b 0%, #334155 100%)')}">전체</button>
@@ -5009,14 +5027,20 @@
             const sig1_vol = sv2026 >= 30;
             const sig2_comp = dc2026 !== null && dc2026 <= 5000;  // 진단서 "30↓"는 너무 협소, 5000↓도 유효
             const sig3_blockSlot = gr2026 >= 5 || (dc2026 === 0 && sv2026 > 0);
-            // ④ AI 브리핑 미점령 — 정확한 시그널 없으면 "초기 추정": 매우 롱테일(공백 포함 + 검색량 적당)이면 AI 브리핑 안 잡힘
-            const sig4_aiClean = sv2026 > 0 && sv2026 <= 2000 && (kw.keyword || '').includes(' ');
+            // ④ AI 브리핑 — v2.49.6: 실측 결과(aiBriefingDetected) 우선, 없으면 chip 숨김
+            //   true(점령) → 🤖 AI 점령 빨강 / false(미점령) → 🤖 AI 미점령 초록 / undefined → chip 미표시
+            const aiDetected = kw.aiBriefingDetected;
+            const hasAiSignal = typeof aiDetected === 'boolean';
+            const aiClean = aiDetected === false;
             const chipBase = 'font-size:9px; font-weight:800; padding:2px 5px; border-radius:4px; display:inline-block; margin-right:2px;';
+            const aiChip = hasAiSignal
+              ? `<span style="${chipBase} background:${aiClean ? '#10b98122' : '#ef444422'}; color:${aiClean ? '#059669' : '#dc2626'};" title="${aiClean ? 'AI 브리핑 미점령 (실측) — 블로그 클릭 기회' : 'AI 브리핑 점령 (실측) — 사용자가 AI 답에서 멈춤'}">🤖${aiClean ? '✓미점령' : '점령'}</span>`
+              : '';
             const sig2026Chips = `
               <span style="${chipBase} background:${sig1_vol ? '#10b98122' : '#94a3b822'}; color:${sig1_vol ? '#059669' : '#94a3b8'};" title="실측 검색량 ≥ 30 (네이버 검색광고 API)">검${sig1_vol ? '✓' : '×'}</span>
               <span style="${chipBase} background:${sig2_comp ? '#10b98122' : '#94a3b822'}; color:${sig2_comp ? '#059669' : '#94a3b8'};" title="경쟁 문서수 5000 이하">경${sig2_comp ? '✓' : '×'}</span>
               <span style="${chipBase} background:${sig3_blockSlot ? '#a855f722' : '#94a3b822'}; color:${sig3_blockSlot ? '#7c3aed' : '#94a3b8'};" title="스마트블록 빈자리 가능성 (황금비율 ≥ 5)">블${sig3_blockSlot ? '✓' : '×'}</span>
-              <span style="${chipBase} background:${sig4_aiClean ? '#ef444422' : '#94a3b822'}; color:${sig4_aiClean ? '#dc2626' : '#94a3b8'};" title="AI 브리핑 미점령 추정 (롱테일 + 적정 검색량)">AI${sig4_aiClean ? '✓' : '·'}</span>
+              ${aiChip}
             `;
 
             html += `
