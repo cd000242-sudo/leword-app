@@ -1868,6 +1868,35 @@ export async function buildRichFeed(
 
         console.log(`[rich-feed v2.42.22] ✅ dc 검증 완료: ${verified}/${enrichedRows.length + demoted}건 검사, ${corrected}건 보정, ${demoted}건 redOcean 강등 (cache 동기화)`);
         emit('verify-dc', 91, `✅ dc 실측 완료 — 가짜 SSS ${demoted}건 제거, 최종 ${enrichedRows.length}건`);
+
+        // ★ v2.49.5: AI 브리핑 실측 detection — SSS 후보에 한해서만 추가 호출 (효율)
+        //   사용자 요구: 검·경·실·AI 4단계 공식의 마지막 "AI" 단계.
+        //   AI 브리핑 떴음 → 사용자가 답을 거기서 읽고 끝, 블로그 클릭 X → SSS 부적합.
+        //   메모리 규칙: 추정값 UI 노출 금지. 본 검증은 페이지 HTML 매칭사실 → boolean (실측).
+        try {
+            const { detectAiBriefingBatch } = await import('../ai-briefing-detector');
+            const sssCandidates = enrichedRows.filter(r => r.grade === 'SSS' || r.grade === 'SSR').slice(0, 100);
+            if (sssCandidates.length > 0) {
+                emit('verify-ai', 92, `🤖 AI 브리핑 실측 ${sssCandidates.length}건 (검·경·실·AI 4단계 최종)...`);
+                const detectionMap = await detectAiBriefingBatch(sssCandidates.map(r => r.keyword), 8);
+                let aiDemoted = 0;
+                for (const r of sssCandidates) {
+                    const detected = detectionMap.get(r.keyword);
+                    (r as any).aiBriefingDetected = detected === true;  // null(미확정) → false 취급
+                    if (detected === true) {
+                        // SSS → SS 강등 (완전 제거하지 않음 — 다른 게이트는 통과한 키워드라 차순위로 유지)
+                        if (r.grade === 'SSS' || r.grade === 'SSR') {
+                            (r as any).grade = 'SS';
+                            aiDemoted++;
+                        }
+                    }
+                }
+                console.log(`[rich-feed v2.49.5] ✅ AI 브리핑 실측 완료: ${aiDemoted}건 SSS → SS 강등 (AI 점령 키워드)`);
+                emit('verify-ai', 93, `✅ AI 브리핑 실측 완료 — ${aiDemoted}건 강등, 진짜 SSS ${enrichedRows.filter(r => r.grade === 'SSS' || r.grade === 'SSR').length}건`);
+            }
+        } catch (aiErr: any) {
+            console.warn('[rich-feed v2.49.5] AI 브리핑 detection 실패 (무시):', aiErr?.message);
+        }
     }
 
     // 5. 정렬 (등급 → 기회지수 → 소스 수)
