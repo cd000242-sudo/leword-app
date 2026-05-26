@@ -1206,12 +1206,77 @@
                 <button class="rf-action-btn" title="30일 트렌드 그래프 (실측 Datalab)" onclick="rfShowTrendGraph('${kwSafe}', ${Number(r.searchVolume) || 0})">📈</button>
                 <button class="rf-action-btn" title="이 키워드 제외" onclick="rfExcludeKw('${kwSafe}', ${idx})">🚫</button>
                 <button class="rf-action-btn" title="네이버 검색" onclick="window.electronAPI.openExternal('https://search.naver.com/search.naver?query=' + encodeURIComponent('${kwSafe}'))">🌐</button>
+                <button class="rf-action-btn" title="👎 부정확 신고 — 가짜 SSS / 어색 키워드 / 검색량 불일치 보고 (v2.49.13 Phase E)" onclick="rfReportInaccurate('${kwSafe}', ${idx}, '${r.grade}')" style="background:rgba(239,68,68,0.12); border-color:rgba(239,68,68,0.4); color:#ef4444;">👎</button>
               </td>
             </tr>
             <tr id="rf-drill-${idx}" style="display:none;"><td colspan="11" style="padding:0; background:rgba(0,0,0,0.3);"><div id="rf-drill-content-${idx}" style="padding:14px 24px; color:#cbd5e1; font-size:12px;"></div></td></tr>
           `;
         }).join('');
       }
+
+      // v2.49.13 Phase E: 부정확 신고 + 자동 캘리브레이션
+      //   localStorage 에 누적 → 같은 키워드 3회 신고 시 자동 SSS 차단 (다음 발굴부터)
+      //   사용자 피드백 loop — 시간 흐름에 따른 SSS 정확도 자가 개선.
+      window.rfReportInaccurate = function(kw, idx, grade) {
+        const reasons = [
+          '가짜 SSS (실제 ratio 다름)',
+          '어색 키워드 결합',
+          '검색량/문서수 불일치',
+          '의도와 무관한 키워드',
+          '기타 부정확'
+        ];
+        const choice = window.prompt(
+          `👎 "${kw}" (${grade}) 부정확 신고\n\n` +
+          reasons.map((r, i) => `${i+1}. ${r}`).join('\n') +
+          '\n\n번호 입력 (1-5, 취소는 빈값):',
+          '1'
+        );
+        if (!choice || !/^[1-5]$/.test(choice.trim())) return;
+        const reasonIdx = parseInt(choice.trim(), 10) - 1;
+        const reason = reasons[reasonIdx];
+
+        // localStorage 누적
+        let reports = [];
+        try {
+          reports = JSON.parse(localStorage.getItem('lpReports_v1') || '[]');
+        } catch {}
+        reports.push({
+          keyword: kw,
+          grade: grade,
+          reason: reason,
+          ts: Date.now(),
+        });
+        // 최대 500건만 유지
+        if (reports.length > 500) reports = reports.slice(-500);
+        try { localStorage.setItem('lpReports_v1', JSON.stringify(reports)); } catch {}
+
+        // 같은 키워드 3회 누적 시 자동 차단 리스트 추가
+        const sameKeyword = reports.filter(r => r.keyword === kw).length;
+        if (sameKeyword >= 3) {
+          let blocked = [];
+          try { blocked = JSON.parse(localStorage.getItem('lpBlockedKeywords_v1') || '[]'); } catch {}
+          if (!blocked.includes(kw)) {
+            blocked.push(kw);
+            try { localStorage.setItem('lpBlockedKeywords_v1', JSON.stringify(blocked)); } catch {}
+            alert(`👎 "${kw}" 3회 신고 누적 — 다음 발굴부터 자동 차단됩니다.\n해제: 설정 → 신고 키워드 관리`);
+          } else {
+            alert(`👎 "${kw}" 신고 접수 (${sameKeyword}회). 사유: ${reason}\n이미 차단 리스트에 포함.`);
+          }
+        } else {
+          alert(`👎 "${kw}" 신고 접수 (${sameKeyword}/3회). 사유: ${reason}\n3회 누적 시 자동 차단됩니다.`);
+        }
+
+        // 결과 행을 시각적으로 회색 처리
+        try {
+          const rows = document.querySelectorAll('tr');
+          rows.forEach(r => {
+            if (r.textContent && r.textContent.includes(kw)) {
+              r.style.opacity = '0.35';
+              r.style.textDecoration = 'line-through';
+            }
+          });
+        } catch {}
+      };
 
       // 🔥 v2.19.0 Phase L-4: 세부 키워드 드릴다운
       window.rfDrilldown = async function(kw, idx) {
