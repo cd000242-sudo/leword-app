@@ -985,6 +985,15 @@
           return sv >= rfSvMin && sv < rfSvMax;
         });
         if (rfCurrentTrend !== '*') filtered = filtered.filter(r => (r.trendType || 'unknown') === rfCurrentTrend);
+
+        // v2.49.15 Phase E: 사용자 신고 누적 차단 키워드 filter
+        try {
+          const blocked = JSON.parse(localStorage.getItem('lpBlockedKeywords_v1') || '[]');
+          if (blocked.length > 0) {
+            const blockedSet = new Set(blocked);
+            filtered = filtered.filter(r => !blockedSet.has(r.keyword));
+          }
+        } catch {}
         const totalEl = document.getElementById('rfTotal');
         if (totalEl) totalEl.textContent = `${filtered.length} / ${rfAllRows.length}`;
         // 🔥 v2.27.1: 필터 바뀌면 1페이지로 리셋
