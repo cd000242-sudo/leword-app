@@ -2038,7 +2038,7 @@ let cached: { result: RichFeedResult; expiresAt: number } | null = null;
 const CACHE_TTL = 3 * 60_000;         // 메모리 캐시: 15분→3분
 const DISK_CACHE_TTL = 30 * 60_000;   // 디스크 캐시: 4시간→30분 (안전망용)
 const MIN_ACCEPTABLE_TOTAL = 20;       // 이 미만이면 "실패"로 간주, 디스크 캐시 폴백
-const CACHE_SCHEMA_VERSION = 'v2.41.3-claude-md-sss';  // 🔥 v2.41.3: CLAUDE.md 정통 SSS 게이트 (sv 1K~10K + dc≤5K + ratio≥3)
+const CACHE_SCHEMA_VERSION = 'v2.49.8-sanity-gate';  // v2.49.8: sv*0.5 sanity gate + sanity-gate.ts 통일 layer 도입. 옛 캐시(v2.41.3) 무효화.
 
 function getDiskCachePath(): string {
     // app.getPath 가 있으면 userData, 없으면 temp 사용 (테스트/개발 환경)

@@ -1,4 +1,4 @@
-// 키워드 발굴 핸들러
+﻿// 키워드 발굴 핸들러
 import { ipcMain, BrowserWindow, app } from 'electron';
 import * as path from 'path';
 import * as fs from 'fs';
@@ -2870,134 +2870,32 @@ export function setupKeywordDiscoveryHandlers(): void {
   // 🔥 진짜 실시간 급상승 키워드 감지
 
   // 🔥 라이트 백업 황금키워드 생성 (무료 사용자용)
+  // v2.49.8: Math.random 점수/등급 제거 (메모리 규칙 "Math.random 점수/등급 계산 금지").
+  //   기존: Math.random sv/dc → ratio>=5 SSS 부여 → 가짜 SSS 양산.
+  //   변경: API 키 없는 fallback 이라 실측 X. 모든 결과 grade 'B' (정직), sv/dc null,
+  //         사용자에게 "API 키 등록 시 정확한 데이터" 안내. 추정치 UI 노출 금지 규칙 부합.
   function generateLiteBackupKeywords(seedKeyword: string) {
-    const timestamp = new Date().toISOString();
     const suffixes = [
       '추천', '방법', '후기', '비교', '가격', '순위', '꿀팁', '총정리',
-      '장단점', '선택법', '사용법', '효과', '주의사항', '2025'
+      '장단점', '선택법', '사용법', '효과', '주의사항', String(new Date().getFullYear())
     ];
 
-    const keywords = suffixes.map((suffix, index) => {
-      const keyword = `${seedKeyword} ${suffix}`;
-      const searchVolume = 5000 + Math.floor(Math.random() * 15000);
-      const documentCount = 1000 + Math.floor(Math.random() * 4000);
-      const goldenRatio = parseFloat((searchVolume / documentCount).toFixed(2));
-
-      return {
-        keyword,
-        pcSearchVolume: Math.floor(searchVolume * 0.3),
-        mobileSearchVolume: Math.floor(searchVolume * 0.7),
-        searchVolume,
-        documentCount,
-        competitionRatio: goldenRatio,
-        score: 60 + Math.floor(Math.random() * 30),
-        goldenRatio,
-        grade: goldenRatio >= 5 ? 'SSS' : (goldenRatio >= 3 ? 'SS' : (goldenRatio >= 2 ? 'S' : 'A')),
-        isGoldenKeyword: goldenRatio >= 2,
-        recommendation: goldenRatio >= 3 ? '🔥 황금키워드! 바로 글 쓰세요!' : '📝 괜찮은 키워드입니다.',
-        source: 'backup'
-      };
-    });
-
-    // 황금비율 높은 순으로 정렬
-    return keywords.sort((a, b) => b.goldenRatio - a.goldenRatio);
+    return suffixes.map((suffix) => ({
+      keyword: `${seedKeyword} ${suffix}`,
+      pcSearchVolume: null,
+      mobileSearchVolume: null,
+      searchVolume: null,
+      documentCount: null,
+      competitionRatio: null,
+      score: null,
+      goldenRatio: null,
+      grade: 'B' as const,  // 실측 없음 → 안전 최하등급. 추정 grade 부여 금지.
+      isGoldenKeyword: false,
+      recommendation: '⚠️ API 키 등록 시 정확한 검색량/문서수 측정 가능',
+      source: 'backup-no-api' as const,
+      dcEstimated: true,
+      svEstimated: true,
+    }));
   }
 
-  function generateSurgingTrendKeywords(seedKeyword: string) {
-    const now = new Date();
-    const month = now.getMonth() + 1;
-    const year = now.getFullYear();
-
-    // 계절별 + 시기별 급증 키워드 테마
-    const seasonalThemes: { [key: number]: string[] } = {
-      1: ['새해', '신년', '연말정산', '설날', '복주머니', '세배'],
-      2: ['발렌타인', '졸업', '입학', '봄', '꽃가루'],
-      3: ['벚꽃', '봄나들이', '꽃구경', '입학식', '개학'],
-      4: ['봄', '황사', '미세먼지', '어린이날', '가정의달'],
-      5: ['어버이날', '스승의날', '가정의달', '선물', '여행'],
-      6: ['여름휴가', '장마', '에어컨', '수영장', '바캉스'],
-      7: ['여름', '휴가', '여행', '바다', '물놀이', '선크림'],
-      8: ['피서', '여름휴가', '복날', '삼복', '냉면'],
-      9: ['추석', '한가위', '선물', '귀성길', '명절'],
-      10: ['가을', '단풍', '핼러윈', '운동회', '독서'],
-      11: ['김장', '블프', '블랙프라이데이', '수능', '연말'],
-      12: ['크리스마스', '연말', '송년회', '선물', '연하장']
-    };
-
-    // 항상 인기있는 급증 키워드 테마
-    const everGreenThemes = [
-      '신청방법', '지원금', '보조금', '혜택', '무료',
-      '할인', '이벤트', '선착순', '신제품', '출시',
-      '후기', '리뷰', '비교', '추천', '순위'
-    ];
-
-    // 현재 월의 계절 테마 가져오기
-    const currentThemes = seasonalThemes[month] || [];
-    const allThemes = [...currentThemes, ...everGreenThemes];
-
-    // 시드 키워드와 조합
-    const surgingKeywords: Array<any> = [];
-
-    // 1. 시드 키워드 + 급증 테마 조합
-    allThemes.slice(0, 10).forEach((theme, index) => {
-      const keyword = `${seedKeyword} ${theme}`;
-      const searchVolume = 8000 + Math.floor(Math.random() * 20000);
-      const documentCount = 500 + Math.floor(Math.random() * 2000);
-      const goldenRatio = parseFloat((searchVolume / documentCount).toFixed(2));
-      const changeRate = 50 + Math.floor(Math.random() * 200); // 50~250% 급증
-
-      surgingKeywords.push({
-        keyword,
-        pcSearchVolume: Math.floor(searchVolume * 0.3),
-        mobileSearchVolume: Math.floor(searchVolume * 0.7),
-        searchVolume,
-        documentCount,
-        competitionRatio: goldenRatio,
-        score: 70 + Math.floor(Math.random() * 25),
-        goldenRatio,
-        changeRate,
-        grade: goldenRatio >= 5 ? 'SSS' : (goldenRatio >= 3 ? 'SS' : (goldenRatio >= 2 ? 'S' : 'A')),
-        isGoldenKeyword: goldenRatio >= 2,
-        recommendation: `🚀 검색량 ${changeRate}% 급증! 지금 바로 글 쓰세요!`,
-        source: 'trending',
-        isSurging: true
-      });
-    });
-
-    // 2. 핫이슈 키워드 (정부지원금, 혜택 등 수익 직결)
-    const hotIssueKeywords = [
-      `${year}년 ${seedKeyword} 지원금`,
-      `${seedKeyword} 무료 신청`,
-      `${seedKeyword} 할인 이벤트`,
-      `${seedKeyword} 최저가`,
-      `${seedKeyword} 꿀팁 총정리`
-    ];
-
-    hotIssueKeywords.forEach((keyword, index) => {
-      const searchVolume = 10000 + Math.floor(Math.random() * 30000);
-      const documentCount = 300 + Math.floor(Math.random() * 1500);
-      const goldenRatio = parseFloat((searchVolume / documentCount).toFixed(2));
-      const changeRate = 100 + Math.floor(Math.random() * 300); // 100~400% 급증
-
-      surgingKeywords.push({
-        keyword,
-        pcSearchVolume: Math.floor(searchVolume * 0.3),
-        mobileSearchVolume: Math.floor(searchVolume * 0.7),
-        searchVolume,
-        documentCount,
-        competitionRatio: goldenRatio,
-        score: 80 + Math.floor(Math.random() * 18),
-        goldenRatio,
-        changeRate,
-        grade: 'SSS',
-        isGoldenKeyword: true,
-        recommendation: `🔥 핫이슈! ${changeRate}% 급증 중! 수익 직결 키워드!`,
-        source: 'hot_issue',
-        isSurging: true
-      });
-    });
-
-    // 급증률 높은 순으로 정렬
-    return surgingKeywords.sort((a, b) => b.changeRate - a.changeRate);
-  }
 }
