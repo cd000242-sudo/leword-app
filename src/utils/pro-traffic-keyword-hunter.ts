@@ -1555,24 +1555,29 @@ async function fetchBlogDocumentCountScrape(
   if (!q) return { count: null, success: false, error: 'empty keyword' };
 
   const parseCountFromHtml = async (html: string): Promise<number | null> => {
+    // v2.49.16: pattern 3 `/약\s*([0-9,]+)\s*건/` 제거 (anchor 없음 — 광고 영역 매칭 가능).
+    //   widget noise 차단: n < 100 거부 (댓글/광고/인플루언서 카운트 차단).
     const patterns = [
-      /블로그\s*검색결과\s*약\s*([0-9,]+)\s*건/,
-      /검색결과\s*약\s*([0-9,]+)\s*건/,
-      /약\s*([0-9,]+)\s*건/,
-      /총\s*([0-9,]+)\s*건/,
-      /([0-9,]+)\s*건\s*중/,
+      /블로그\s*검색결과\s*약\s*([0-9,]+)\s*건/,    // 안전 — "블로그 검색결과" prefix
+      /검색결과\s*약\s*([0-9,]+)\s*건/,              // 안전 — "검색결과" prefix
+      /총\s*([0-9,]+)\s*건/,                          // 안전 — "총" prefix
+      /([0-9,]+)\s*건\s*중/,                          // 안전 — "건 중" suffix
+      /\d+-\d+\s*\/\s*([0-9,]+)\s*건/,              // 안전 — 페이지네이션 "1-10 / N건"
     ];
     for (const re of patterns) {
       const m = html.match(re);
       if (m && m[1]) {
         const n = Number(String(m[1]).replace(/[^0-9]/g, ''));
-        if (Number.isFinite(n)) return n;
+        if (!Number.isFinite(n) || n <= 0) continue;
+        if (n < 100) continue;  // widget noise — 댓글 26건 / 광고 5건 등 차단
+        return n;
       }
     }
 
     try {
       const cheerio = await import('cheerio');
       const $ = cheerio.load(html);
+      // cheerio selector — span.title_num 등은 결과 헤더 전용 클래스. 안전.
       const candidates = [
         $('span.title_num').first().text(),
         $('span.sub_tit_count').first().text(),
@@ -1584,7 +1589,9 @@ async function fetchBlogDocumentCountScrape(
         const mm = txt.match(/([0-9,]+)\s*건/);
         if (mm && mm[1]) {
           const n = Number(String(mm[1]).replace(/[^0-9]/g, ''));
-          if (Number.isFinite(n)) return n;
+          if (!Number.isFinite(n) || n <= 0) continue;
+          if (n < 100) continue;  // v2.49.16: widget noise 게이트
+          return n;
         }
       }
     } catch {
