@@ -133,10 +133,10 @@ export async function getNaverSearchAdKeywordVolume(
   const results: KeywordSearchVolume[] = [];
   const cleanKeywords = (keywords || []).map(k => String(k || '').trim()).filter(Boolean);
 
-  // 🔥 chunkSize=5 유지 — Naver가 5개 묶음에 연관 키워드 대량(수백~1000개) 반환
-  // 휴리스틱 fallback이 연관 키워드 풀에서 공통 토큰 2+ 매칭으로 sv 회복
-  // (chunkSize=1은 정확 매칭 1개만 반환 → sv < 10으로 대부분 무의미)
-  const chunkSize = 10; // 🔥 v2.28.0: 5 → 10 (API hintKeywords 최대 100 허용, 배치 수 절반)
+  // 🔥 chunkSize 10 — API hintKeywords 최대 100 허용, 배치 수 최소화.
+  // v2.49.18: 휴리스틱 fallback 제거됨. 정확 매칭 또는 포함 매칭만 사용 → sv=null/0 그대로 반환.
+  //   기존 휴리스틱이 가짜 sv 부여 (사용자 보고: "환급금 조회 삼쩜삼 오류" 23,530 실제 0).
+  const chunkSize = 10;
   for (let i = 0; i < cleanKeywords.length; i += chunkSize) {
     const chunk = cleanKeywords.slice(i, i + chunkSize);
     const hintKeywordsValue = chunk.map(k => buildProcessedKeyword(k)).join(',');
@@ -214,48 +214,23 @@ export async function getNaverSearchAdKeywordVolume(
         // 정확/포함 매칭 실패 시 null 반환이 정직.
 
         if (match) {
-          let pc = parseVolumeValue(match.monthlyPcQcCnt);
-          let mo = parseVolumeValue(match.monthlyMobileQcCnt);
-          let total = (pc !== null || mo !== null) ? ((pc || 0) + (mo || 0)) : null;
-          let aveCpc = parseVolumeValue(match.monthlyAveCpc);
-          let competition = match.compIdx || match.competition;
+          const pc = parseVolumeValue(match.monthlyPcQcCnt);
+          const mo = parseVolumeValue(match.monthlyMobileQcCnt);
+          const total = (pc !== null || mo !== null) ? ((pc || 0) + (mo || 0)) : null;
+          const aveCpc = parseVolumeValue(match.monthlyAveCpc);
+          const competition = match.compIdx || match.competition;
 
-          // 🔥 휴리스틱 fallback: 매칭은 됐지만 검색량 0인 경우
-          // (Naver SearchAd가 다단어 한글 키워드를 합성어로 반환 → 합성어는 실검색 0)
-          // 요청 키워드와 공통 토큰 2개 이상 가진 항목 중 max sv 채택
-          if ((total ?? 0) === 0) {
-            const requestTokens = requestedKw.trim().split(/\s+/).filter(t => t.length >= 2);
-            console.log(`[NAVER-SEARCHAD][DEBUG] "${requestedKw}" sv=0, listSize=${keywordList.length}, tokens=${requestTokens.length} [${requestTokens.join(',')}]`);
-            if (keywordList.length > 0 && keywordList.length <= 10) {
-              console.log(`[NAVER-SEARCHAD][DEBUG] rels:`, keywordList.map((i: any) => `${i.relKeyword}(pc=${i.monthlyPcQcCnt},mo=${i.monthlyMobileQcCnt})`).slice(0, 5).join(' | '));
-            }
-            if (requestTokens.length >= 2) {
-              let bestItem: any = null;
-              let bestTotal = 0;
-              for (const item of keywordList) {
-                if (item === match) continue;
-                const rel = decodeHtmlEntities(item.relKeyword || '').toLowerCase();
-                const relFlexible = rel.replace(/[+]+/g, ' ');
-                const commonCount = requestTokens.filter(t => relFlexible.includes(t.toLowerCase())).length;
-                if (commonCount < 2) continue;
-                const cPc = parseVolumeValue(item.monthlyPcQcCnt) ?? 0;
-                const cMo = parseVolumeValue(item.monthlyMobileQcCnt) ?? 0;
-                const cTotal = cPc + cMo;
-                if (cTotal > bestTotal) {
-                  bestTotal = cTotal;
-                  bestItem = item;
-                }
-              }
-              if (bestItem && bestTotal > 0) {
-                pc = parseVolumeValue(bestItem.monthlyPcQcCnt);
-                mo = parseVolumeValue(bestItem.monthlyMobileQcCnt);
-                total = bestTotal;
-                aveCpc = parseVolumeValue(bestItem.monthlyAveCpc);
-                competition = bestItem.compIdx || bestItem.competition;
-                console.log(`[NAVER-SEARCHAD] 💡 휴리스틱: "${requestedKw}" → "${bestItem.relKeyword}" (sv=${bestTotal})`);
-              }
-            }
-          }
+          // v2.49.18: 휴리스틱 fallback 완전 제거.
+          //   사용자 보고 (스크린샷 2장):
+          //     - 황금키워드: "환급금 조회 삼쩜삼 오류" sv=23,530 (SSR 등급)
+          //     - 키워드 분석기: 같은 키워드 sv=0 (PC<10, 모바일<10)
+          //   원인: 휴리스틱 fallback 이 공통 토큰 2개 이상 가진 best 키워드의 sv 를 빌려옴.
+          //     "환급금 조회 삼쩜삼 오류" → "환급금 조회 삼쩜삼" (실제 sv=23,530) 매칭 → 23,530 부여.
+          //     svEstimated 플래그 미부여 → 다운스트림 sanity-gate 가 실측으로 오인.
+          //   memory 규칙 정면 위반:
+          //     - "추정값 fallback 가드 — svEstimated 전체 다운스트림 전파"
+          //     - "추정치 UI 노출 금지 — 실측·단순산술·매칭사실·사용자입력만"
+          //   API 가 sv=0 또는 null 반환 = 정직한 실측 결과. 빌려오기 금지.
 
           results.push({
             keyword: requestedKw,
