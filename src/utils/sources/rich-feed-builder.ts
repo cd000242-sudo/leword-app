@@ -1135,6 +1135,68 @@ export async function buildRichFeed(
         console.warn('[rich-feed v2.43.46] seasonal-calendar 로드 실패:', e?.message);
     }
 
+    // v2.49.25: 🚀 검색광고 API suggestions 풀 wire — SSS 폭증 핵심 fix
+    //   실측 (scripts/verify-suggestions-pool.ts): 5 시드 → 818 자연 키워드, 100% sv>0,
+    //   SSS 잠재 후보 395개 / SS 15개. 현재 rich-feed 가 이 풀을 활용 안 함 → SSS 3건 결과.
+    //   wire 후 예상: 30 시드 × 200 suggestion = 수천 후보 → SSS 50~300건.
+    try {
+        const { getNaverSearchAdKeywordSuggestions } = await import('../naver-searchad-api');
+        // env / EnvironmentManager 양쪽 시도
+        let saLicense = process.env['NAVER_SEARCHAD_ACCESS_LICENSE'] || '';
+        let saSecret = process.env['NAVER_SEARCHAD_SECRET_KEY'] || '';
+        let saCustomer = process.env['NAVER_SEARCHAD_CUSTOMER_ID'] || '';
+        if (!saLicense || !saSecret) {
+            try {
+                const { EnvironmentManager } = await import('../environment-manager');
+                const cfg = EnvironmentManager.getInstance().getConfig();
+                saLicense = saLicense || cfg.naverSearchAdAccessLicense || '';
+                saSecret = saSecret || cfg.naverSearchAdSecretKey || '';
+                saCustomer = saCustomer || cfg.naverSearchAdCustomerId || '';
+            } catch {}
+        }
+        if (saLicense && saSecret) {
+            // 시즌 시드 + 매칭 카테고리 시드 상위 N개를 suggestion 출발점으로
+            // 너무 많이 호출하면 rate-limit — 시드 cap 15개 → 15 호출 × 0.5s = 8s 추가
+            const SEED_CAP = 15;
+            const seedsForSuggest = [...extraSeeds]
+                .filter(s => s.keyword && !s.keyword.includes(' ') === false || s.keyword.split(/\s+/).length <= 4)
+                .slice(0, SEED_CAP);
+            emit('suggestions', 22, `🔍 검색광고 suggestions 풀 확장 (${seedsForSuggest.length} 시드)...`);
+            const suggestionSeeds: typeof baseSeeds = [];
+            for (const s of seedsForSuggest) {
+                try {
+                    const suggestions = await getNaverSearchAdKeywordSuggestions(
+                        { accessLicense: saLicense, secretKey: saSecret, customerId: saCustomer },
+                        s.keyword,
+                        80  // 시드당 상위 80개 (총 약 1200 후보)
+                    );
+                    for (const sg of suggestions) {
+                        if (!sg.keyword || seenKeywords.has(sg.keyword)) continue;
+                        // 자연 longtail 필터: sv 100+ (너무 작은건 노이즈) + 한국어 글자
+                        if (sg.totalSearchVolume < 100) continue;
+                        if (!/[가-힣]/.test(sg.keyword)) continue;
+                        seenKeywords.add(sg.keyword);
+                        suggestionSeeds.push({
+                            keyword: sg.keyword,
+                            sources: ['searchad-suggestions', ...(s.sources || []).slice(0, 2)],
+                            // qualityScore: sv 기반 우선순위 (sv 5K+ = 2.0, 1K+ = 1.6, else 1.2)
+                            qualityScore: sg.totalSearchVolume >= 5000 ? 2.0 : sg.totalSearchVolume >= 1000 ? 1.6 : 1.2,
+                        });
+                    }
+                } catch (sErr: any) {
+                    console.warn(`[rich-feed v2.49.25] suggestions 호출 실패 "${s.keyword}":`, sErr?.message);
+                }
+            }
+            if (suggestionSeeds.length > 0) {
+                extraSeeds.push(...suggestionSeeds);
+                console.log(`[rich-feed v2.49.25] 🚀 suggestions 풀 ${suggestionSeeds.length}개 합류 (시드 ${seedsForSuggest.length} × ~80)`);
+                emit('suggestions', 23, `✅ 자연 키워드 ${suggestionSeeds.length}개 추가 (검색광고 API 실측)`);
+            }
+        }
+    } catch (e: any) {
+        console.warn('[rich-feed v2.49.25] suggestions 풀 확장 실패 (무시):', e?.message);
+    }
+
     // v2.43.34 (Phase 1): trend-surge-detector 결과 → 발굴 풀 합류
     //   기존 이미 만든 surge 감지기 (한일가왕전 같은 신규 이벤트 자동 감지)를 발굴에 연결
     try {
