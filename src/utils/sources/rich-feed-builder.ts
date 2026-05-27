@@ -1171,40 +1171,53 @@ export async function buildRichFeed(
             const seedsForSuggest = [...extraSeeds]
                 .filter(s => s.keyword && !s.keyword.includes(' ') === false || s.keyword.split(/\s+/).length <= 4)
                 .slice(0, SEED_CAP);
+            console.log(`[DEBUG-SUGGESTIONS] 진입: 시드 ${seedsForSuggest.length}개 × ~80 = 최대 ${seedsForSuggest.length * 80} 후보`);
             emit('suggestions', 22, `🔍 검색광고 suggestions 풀 확장 (${seedsForSuggest.length} 시드)...`);
             const suggestionSeeds: typeof baseSeeds = [];
+            let totalRaw = 0;
+            let filterLowSv = 0;
+            let filterNoHangul = 0;
+            let filterDup = 0;
             for (const s of seedsForSuggest) {
                 try {
                     const suggestions = await getNaverSearchAdKeywordSuggestions(
                         { accessLicense: saLicense, secretKey: saSecret, customerId: saCustomer },
                         s.keyword,
-                        80  // 시드당 상위 80개 (총 약 1200 후보)
+                        80
                     );
+                    totalRaw += suggestions.length;
+                    let addedThis = 0;
                     for (const sg of suggestions) {
-                        if (!sg.keyword || seenKeywords.has(sg.keyword)) continue;
-                        // 자연 longtail 필터: sv 100+ (너무 작은건 노이즈) + 한국어 글자
-                        if (sg.totalSearchVolume < 100) continue;
-                        if (!/[가-힣]/.test(sg.keyword)) continue;
+                        if (!sg.keyword) continue;
+                        if (seenKeywords.has(sg.keyword)) { filterDup++; continue; }
+                        if (sg.totalSearchVolume < 100) { filterLowSv++; continue; }
+                        if (!/[가-힣]/.test(sg.keyword)) { filterNoHangul++; continue; }
                         seenKeywords.add(sg.keyword);
                         suggestionSeeds.push({
                             keyword: sg.keyword,
                             sources: ['searchad-suggestions', ...(s.sources || []).slice(0, 2)],
-                            // qualityScore: sv 기반 우선순위 (sv 5K+ = 2.0, 1K+ = 1.6, else 1.2)
                             qualityScore: sg.totalSearchVolume >= 5000 ? 2.0 : sg.totalSearchVolume >= 1000 ? 1.6 : 1.2,
                         });
+                        addedThis++;
                     }
+                    console.log(`[DEBUG-SUGGESTIONS]   "${s.keyword}": ${suggestions.length} raw → ${addedThis}개 추가`);
                 } catch (sErr: any) {
-                    console.warn(`[rich-feed v2.49.25] suggestions 호출 실패 "${s.keyword}":`, sErr?.message);
+                    console.warn(`[DEBUG-SUGGESTIONS] ❌ "${s.keyword}" 실패:`, sErr?.message);
                 }
             }
+            console.log(`[DEBUG-SUGGESTIONS] 완료: ${totalRaw} raw → ${suggestionSeeds.length}개 추가 (filterLowSv ${filterLowSv}, filterNoHangul ${filterNoHangul}, filterDup ${filterDup})`);
             if (suggestionSeeds.length > 0) {
                 extraSeeds.push(...suggestionSeeds);
-                console.log(`[rich-feed v2.49.25] 🚀 suggestions 풀 ${suggestionSeeds.length}개 합류 (시드 ${seedsForSuggest.length} × ~80)`);
-                emit('suggestions', 23, `✅ 자연 키워드 ${suggestionSeeds.length}개 추가 (검색광고 API 실측)`);
+                emit('suggestions', 23, `✅ suggestions ${suggestionSeeds.length}개 (raw ${totalRaw}, filter sv<100 ${filterLowSv}, dup ${filterDup}, 누적 extraSeeds ${extraSeeds.length})`);
+            } else {
+                console.warn('[DEBUG-SUGGESTIONS] ⚠️ suggestions 시드 0개');
+                emit('suggestions', 23, `⚠️ suggestions 0개 — raw ${totalRaw}, filter sv<100 ${filterLowSv}`);
             }
+        } else {
+            console.warn('[DEBUG-SUGGESTIONS] ⚠️ API 키 없음, suggestions 풀 skip');
         }
     } catch (e: any) {
-        console.warn('[rich-feed v2.49.25] suggestions 풀 확장 실패 (무시):', e?.message);
+        console.error('[DEBUG-SUGGESTIONS] ❌ 전체 실패:', e?.message);
     }
 
     // v2.43.34 (Phase 1): trend-surge-detector 결과 → 발굴 풀 합류
@@ -1229,16 +1242,31 @@ export async function buildRichFeed(
             ...SHOPPING_CATEGORIES.filter(c => userCids.has(c.cid)),
             ...SHOPPING_CATEGORIES.filter(c => !userCids.has(c.cid)),
         ];
-        emit('datalab-trend', 24, `📊 데이터랩 카테고리별 인기 키워드 수집 (${orderedCats.length} 카테고리)...`);
+        // v2.49.36: 상세 디버깅 로그 (사용자 진단 요청)
+        const userCidStr = userCids.size > 0 ? [...userCids].join(',') : 'none';
+        const blogCatStr = _bloggerProfile?.selectedCategories?.join(',') || 'none';
+        console.log(`[DEBUG-DATALAB] 진입: blogCat=[${blogCatStr}] → shoppingCid=[${userCidStr}], 카테고리 ${orderedCats.length}개 처리 시작`);
+        emit('datalab-trend', 24, `📊 데이터랩 진입 — blogCat [${blogCatStr}] → 매칭 cid ${userCids.size}개 우선, 총 ${orderedCats.length} 카테고리`);
         const datalabSeeds: typeof baseSeeds = [];
+        let fetchSuccess = 0;
+        let fetchEmpty = 0;
         for (let i = 0; i < orderedCats.length; i++) {
-            if (isExceeded()) break;
+            if (isExceeded()) {
+                console.log(`[DEBUG-DATALAB] timeout — ${i}/${orderedCats.length} 카테고리에서 중단`);
+                break;
+            }
             const cat = orderedCats[i];
+            const t0 = Date.now();
             const items = await fetchTopKeywordsByCategory(cat.cid, 20);
+            const ms = Date.now() - t0;
+            if (items.length === 0) { fetchEmpty++; } else { fetchSuccess++; }
+            console.log(`[DEBUG-DATALAB]   ${cat.name} (cid=${cat.cid}): ${items.length}개 (${ms}ms) — sample: ${items.slice(0, 3).map(k => k.keyword).join(', ')}`);
+            let addedThis = 0;
+            let dupSkipped = 0;
             for (const k of items) {
-                if (!k.keyword || seenKeywords.has(k.keyword)) continue;
+                if (!k.keyword) continue;
+                if (seenKeywords.has(k.keyword)) { dupSkipped++; continue; }
                 seenKeywords.add(k.keyword);
-                // qualityScore: 사용자 카테고리 매칭이면 1.9 (높음), 아니면 1.5
                 const isUserMatch = userCids.has(cat.cid);
                 const qs = isUserMatch ? 1.9 : 1.5;
                 datalabSeeds.push({
@@ -1246,17 +1274,23 @@ export async function buildRichFeed(
                     sources: ['datalab-shopping', cat.name].slice(0, 5),
                     qualityScore: qs,
                 });
+                addedThis++;
             }
-            // rate-limit 보호
+            console.log(`[DEBUG-DATALAB]     → ${addedThis}개 추가, ${dupSkipped}개 중복 skip`);
+            emit('datalab-trend', 24, `📊 ${cat.name}: ${items.length}개 추출 (${addedThis}개 신규)`);
             await new Promise(r => setTimeout(r, 350));
         }
+        console.log(`[DEBUG-DATALAB] 완료: ${fetchSuccess}/${orderedCats.length} 카테고리 성공, ${fetchEmpty} 빈 응답, 총 ${datalabSeeds.length}개 시드 추가`);
         if (datalabSeeds.length > 0) {
             extraSeeds.push(...datalabSeeds);
-            console.log(`[rich-feed v2.49.34] 📊 데이터랩 shopping 인기 ${datalabSeeds.length}개 합류 (${orderedCats.length} 카테고리)`);
-            emit('datalab-trend', 25, `✅ 데이터랩 인기 키워드 ${datalabSeeds.length}개 추가`);
+            emit('datalab-trend', 25, `✅ 데이터랩 ${datalabSeeds.length}개 추가 (${fetchSuccess}/${orderedCats.length} 카테고리 성공, extraSeeds 누적 ${extraSeeds.length})`);
+        } else {
+            console.warn(`[DEBUG-DATALAB] ⚠️ datalab 시드 0개 — 모든 카테고리 fetch 실패. 페이지 구조 변경 가능성.`);
+            emit('datalab-trend', 25, `⚠️ 데이터랩 0개 — 모든 카테고리 fetch 실패 (페이지 변경 가능)`);
         }
     } catch (e: any) {
-        console.warn('[rich-feed v2.49.34] datalab-shopping-trend 실패 (무시):', e?.message);
+        console.error('[DEBUG-DATALAB] ❌ datalab-shopping-trend 전체 실패:', e?.message, e?.stack?.split('\n').slice(0, 3).join(' | '));
+        emit('datalab-trend', 25, `❌ 데이터랩 실패: ${e?.message || 'unknown'}`);
     }
 
     try {
@@ -1286,6 +1320,16 @@ export async function buildRichFeed(
     }
 
     diagnostic.longtail.expandedAdded = extraSeeds.length;
+
+    // v2.49.36: 핵심 디버깅 — 시드 풀 형성 후 분포
+    const sourceBreakdown: Record<string, number> = {};
+    for (const s of extraSeeds) {
+        const src = (s.sources?.[0] || 'unknown');
+        sourceBreakdown[src] = (sourceBreakdown[src] || 0) + 1;
+    }
+    console.log(`[DEBUG-POOL] 시드 풀 형성: baseSeeds=${baseSeeds.length}, extraSeeds=${extraSeeds.length}, 합계=${baseSeeds.length + extraSeeds.length}`);
+    console.log(`[DEBUG-POOL] extraSeeds 분포:`, sourceBreakdown);
+    emit('candidates', 27, `📦 시드 풀: base ${baseSeeds.length} + extra ${extraSeeds.length} = ${baseSeeds.length + extraSeeds.length}개, datalab:${sourceBreakdown['datalab-shopping']||0} suggestions:${sourceBreakdown['searchad-suggestions']||0} seasonal:${sourceBreakdown['seasonal-calendar']||0}`);
 
     // v2.49.19: 후보 풀 2500 → 3500 cap (진짜 SSS 풀 확장 — 휴리스틱 가짜 제거 후 실측 보충).
     //   기존 2500 cap 이 검색광고 API 호출 한계. 3500 으로 +40% 확장 → 실측 SSS 자연 증가.
@@ -2163,7 +2207,18 @@ export async function buildRichFeed(
     diagnostic.promotion.naturalSSS = sssCount;
     diagnostic.promotion.targetSSS = TARGET_SSS;
 
-    emit('done', 100, `완료 — ${top.length}건 발굴`);
+    // v2.49.36: 핵심 진단 — 최종 결과 분포 + 단계별 손실
+    const finalSourceBreakdown: Record<string, number> = {};
+    for (const r of top) {
+        const src = (r.sources?.[0] || 'unknown');
+        finalSourceBreakdown[src] = (finalSourceBreakdown[src] || 0) + 1;
+    }
+    const d = diagnostic.grading;
+    console.log(`[DEBUG-FINAL] 최종 ${top.length}건. grade 분포: SSS=${d.SSS} SSR=${d.SSR} SS=${d.SS} S=${d.S} A=${d.A} B=${d.B} filtered=${d.filtered}`);
+    console.log(`[DEBUG-FINAL] source 분포:`, finalSourceBreakdown);
+    console.log(`[DEBUG-FINAL] writable 분석:`, diagnostic.writableAnalysis);
+    console.log(`[DEBUG-FINAL] naver API:`, diagnostic.naver);
+    emit('done', 100, `완료 — ${top.length}건 (SSS:${d.SSS} SSR:${d.SSR} SS:${d.SS} | filtered:${d.filtered} writablePass:${diagnostic.writableAnalysis.passedWritable})`);
 
     // v2.43.53: 발굴 종료 즉시 Puppeteer idle 브라우저 강제 종료 (펜 진정)
     try {
