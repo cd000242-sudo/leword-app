@@ -873,6 +873,9 @@
         window.__rfProgressHooked = true;
         window.electronAPI.on('rich-feed-progress', (payload) => {
           if (!payload) return;
+          // v2.49.37: 모든 progress 메시지를 console 에 표시 (사용자 디버깅 요청)
+          //   main process 의 [DEBUG-*] 가 emit 으로 전달됨 → 여기서 console.log → F12 console 보임
+          console.log(`[RF-PROGRESS] ${payload.percent}% [${payload.step}] ${payload.message}`);
           const box = document.getElementById('rfProgressBox');
           const bar = document.getElementById('rfProgressBar');
           const pct = document.getElementById('rfProgressPct');
@@ -939,6 +942,11 @@
           const excluded = rfGetExcluded();
           rfAllRows = (r.rows || []).filter(row => !excluded.has(row.keyword));
           rfDiagnostic = r.diagnostic || null;
+          // v2.49.37: 발굴 응답 완료 시 diagnostic 객체 console 에 표시 (사용자 디버깅 요청)
+          console.log('[RF-RESULT] 발굴 완료. total=' + r.total + ' rows=' + (r.rows||[]).length);
+          console.log('[RF-RESULT] byCategory:', r.byCategory);
+          console.log('[RF-RESULT] bySource:', r.bySource);
+          console.log('[RF-RESULT] diagnostic:', rfDiagnostic);
           const excludedCount = (r.rows || []).length - rfAllRows.length;
           document.getElementById('rfTotal').textContent = rfAllRows.length + (excludedCount > 0 ? ` (${excludedCount}개 제외됨)` : '');
           document.getElementById('rfTierBadge').textContent = (r.tier === 'pro') ? '💎 PRO' : 'LITE';
