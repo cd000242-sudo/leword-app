@@ -1229,7 +1229,7 @@ export async function buildRichFeed(
             ...SHOPPING_CATEGORIES.filter(c => userCids.has(c.cid)),
             ...SHOPPING_CATEGORIES.filter(c => !userCids.has(c.cid)),
         ];
-        emit('datalab-trend', 19, `📊 데이터랩 카테고리별 인기 키워드 수집 (${orderedCats.length} 카테고리)...`);
+        emit('datalab-trend', 24, `📊 데이터랩 카테고리별 인기 키워드 수집 (${orderedCats.length} 카테고리)...`);
         const datalabSeeds: typeof baseSeeds = [];
         for (let i = 0; i < orderedCats.length; i++) {
             if (isExceeded()) break;
@@ -1253,7 +1253,7 @@ export async function buildRichFeed(
         if (datalabSeeds.length > 0) {
             extraSeeds.push(...datalabSeeds);
             console.log(`[rich-feed v2.49.34] 📊 데이터랩 shopping 인기 ${datalabSeeds.length}개 합류 (${orderedCats.length} 카테고리)`);
-            emit('datalab-trend', 20, `✅ 데이터랩 인기 키워드 ${datalabSeeds.length}개 추가`);
+            emit('datalab-trend', 25, `✅ 데이터랩 인기 키워드 ${datalabSeeds.length}개 추가`);
         }
     } catch (e: any) {
         console.warn('[rich-feed v2.49.34] datalab-shopping-trend 실패 (무시):', e?.message);
@@ -1279,7 +1279,7 @@ export async function buildRichFeed(
         if (surgeSeeds.length > 0) {
             extraSeeds.push(...surgeSeeds);
             console.log(`[rich-feed v2.49.33] 급증 신호 시드 ${surgeSeeds.length}개 합류 (explosive/strong/moderate)`);
-            emit('surge', 21, `📈 급증 키워드 ${surgeSeeds.length}개 자동 추가 (실시간 트렌드)`);
+            emit('surge', 26, `📈 급증 키워드 ${surgeSeeds.length}개 자동 추가 (실시간 트렌드)`);
         }
     } catch (e: any) {
         console.warn('[rich-feed v2.49.33] surge-detector 로드 실패:', e?.message);
