@@ -51,13 +51,15 @@
   nsExec::Exec 'taskkill /F /IM "leword.exe" /T'
   Sleep 500
 
-  ; v2.49.25: app.asar lock 해제 강화 — Electron utility/GPU process 명시적 종료
-  ;   사용자 진단 (2026-05-27): LEWORD.exe v2.49.24 로 update 됐지만 app.asar 가
-  ;     07:48 (v2.49.22) 그대로 — Electron utility process 잔존으로 app.asar lock.
-  ;   해결: chromium subprocess (--type=utility, --type=gpu-process) 명시적 종료
-  DetailPrint "Electron utility/GPU subprocess 정리 중..."
-  nsExec::Exec 'powershell -NoProfile -NonInteractive -Command "Get-CimInstance Win32_Process | Where-Object { $$_.CommandLine -and ($$_.CommandLine -like ''*leword*'' -or $$_.CommandLine -like ''*LEWORD*'' -or $$_.CommandLine -like ''*--type=utility*'' -or $$_.CommandLine -like ''*--type=gpu-process*'') } | ForEach-Object { try { Stop-Process -Id $$_.ProcessId -Force -ErrorAction SilentlyContinue } catch {} }; Start-Sleep -Seconds 2"'
-  Sleep 1000
+  ; v2.49.38: v2.49.25 의 Get-CimInstance Win32_Process 명령 제거 — NSIS hang 원인
+  ;   사용자 보고 (2026-05-28): v2.49.37 NSIS installer 실행 후 hang, NSIS 안 열림
+  ;   원인: Get-CimInstance Win32_Process 가 Defender 검사 + WMI 호출로 5~60초 hang
+  ;   해결: taskkill /T 가 이미 자식 process tree 정리 → CimInstance 불필요
+  ;         단순 taskkill 만으로 LEWORD + chromium subprocess 모두 정리됨
+  DetailPrint "Electron 자식 process 추가 정리..."
+  nsExec::Exec 'taskkill /F /IM "LEWORD.exe" /T'
+  nsExec::Exec 'taskkill /F /IM "leword.exe" /T'
+  Sleep 500
 
   ; v2.48.6: OS file handle 완전 해제 대기 — 5초 → 10초 (Defender 스캔 종료 보장)
   DetailPrint "파일 락 해제 대기 중... (10초, 백신 스캔 종료 대기)"
