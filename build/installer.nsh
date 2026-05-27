@@ -102,13 +102,10 @@
 !macroend
 
 !macro customInstall
-  ; v2.43.78 복원 (v2.49.29 revert): 자동 install 모드 — 사용자 요청 "전처럼 자동업데이트 빠르고 안정적으로 바로 열려야"
-  ;   이중 안전망 spawn:
-  ;     1) ExecShell (NSIS detached, 검증된 환경에서 신뢰성 높음)
-  ;     2) electron-updater isForceRunAfter=true (대체)
-  ;   두 spawn 동시 충돌은 main.ts requestSingleInstanceLock 재시도(v2.43.66)가 처리
+  ; v2.49.39: 에이전트팀 토론 결론 — "다음 LEWORD 실행 시 install" 모델 전환
+  ;   ExecShell 제거. 사용자가 직접 LEWORD 켤 때만 새 버전 적용.
+  ;   release 직후 install 강제 → 사용자 작업 중단 0.
   Sleep 200
-  ExecShell "" "$INSTDIR\LEWORD.exe"
 !macroend
 
 !macro customUnInstall

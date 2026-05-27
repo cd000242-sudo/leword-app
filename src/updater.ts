@@ -177,7 +177,8 @@ function performQuitAndInstall(autoUpdater: any): void {
       //   chrome 좀비 정리는 cleanupChromeZombiesSync로 빠르게 인라인 처리
       (app as any).__skipGracefulCleanup = true;
       try {
-        autoUpdater.quitAndInstall(true, true);
+        // v2.49.39: isForceRunAfter=false — install 후 자동 실행 안 함. 다음 launch 시 self-heal 적용.
+        autoUpdater.quitAndInstall(true, false);
       } catch (e: any) {
         console.error('[UPDATER] quitAndInstall 실패:', e?.message);
         // ↓ fallback 으로 즉시 진행 (transitionState ERROR 는 fallback 끝나고)
@@ -672,48 +673,20 @@ export function initAutoUpdaterEarly(): void {
       }
     } catch {}
 
-    // v2.48.2: dialog + parent=progressWindow (modal로 최상위)
-    showReadyState(info?.version, 0).catch(() => {});
-
-    const { dialog: dlg } = require('electron');
-    // parent 지정: progressWindow가 alwaysOnTop이라 dialog도 최상위
-    const dialogOpts: any = {
-      type: 'info',
-      title: 'LEWORD 업데이트 준비됨',
-      message: `새 버전 v${info?.version} 다운로드 완료`,
-      detail: '지금 설치하면 5~15초 안에 새 버전이 시작됩니다.\n나중에 선택 시 LEWORD 종료할 때까지 작업 계속 가능하며, 다음 시작 시 다시 안내됩니다.',
-      buttons: ['지금 설치 (권장)', '나중에'],
-      defaultId: 0,
-      cancelId: 1,
-    };
-
-    const showDialogWithParent = () => {
-      // progressWindow가 살아있으면 parent로 지정 → modal → parent 위에 표시
-      const parent = (progressWindow && !progressWindow.isDestroyed()) ? progressWindow : undefined;
-      const dialogPromise = parent
-        ? dlg.showMessageBox(parent, dialogOpts)
-        : dlg.showMessageBox(dialogOpts);
-
-      dialogPromise.then((result: any) => {
-        if (result.response === 0) {
-          if (restartScheduled) return;
-          restartScheduled = true;
-          performQuitAndInstall(autoUpdater);
-        } else {
-          console.log('[UPDATER] 사용자 "나중에" 선택');
-          closeProgressWindow();
-          try {
-            for (const win of hideableWindows) {
-              if (win && !win.isDestroyed()) {
-                try { win.show(); } catch {}
-              }
-            }
-          } catch {}
+    // v2.49.39: 에이전트팀 토론 결론 — "다음 LEWORD 실행 시 install" 모델 전환
+    //   dialog + 강제 install 제거. autoInstallOnAppQuit=true 가 LEWORD 종료 시 자동 install.
+    //   self-heal.ts 가 다음 시작 시 pending exe 적용. 사용자 작업 중단 0.
+    //   1인 개발자 환경에서 매일 LEWORD 재실행 → 지연 사실상 0.
+    console.log(`[UPDATER] 다운로드 완료 v${info?.version} — 다음 실행 시 자동 install`);
+    closeProgressWindow();
+    // 다운로드 진행 중 hide 했던 창 복구 (사용자 작업 화면 유지)
+    try {
+      for (const win of hideableWindows) {
+        if (win && !win.isDestroyed()) {
+          try { win.show(); } catch {}
         }
-      });
-    };
-
-    showDialogWithParent();
+      }
+    } catch {}
   });
 
   autoUpdater.on('error', (err: any) => {
