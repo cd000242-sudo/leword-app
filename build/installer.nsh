@@ -100,13 +100,13 @@
 !macroend
 
 !macro customInstall
-  ; v2.49.27: 자동 실행 제거 — 사용자 호소 "25버전이 왜 맘대로 자꾸 켜지는거야"
-  ;   기존 v2.43.78: ExecShell 로 install 후 자동 LEWORD 실행
-  ;   문제: 사용자가 다른 작업 중 release publish 시 백그라운드 LEWORD process 가
-  ;         자동 update → quitAndInstall → ExecShell → 화면에 강제 노출
-  ;   해결: 자동 실행 제거. 사용자가 LEWORD 를 직접 켤 때만 새 버전 적용.
-  ;         install 후 LEWORD 가 종료된 상태 그대로 유지.
+  ; v2.43.78 복원 (v2.49.29 revert): 자동 install 모드 — 사용자 요청 "전처럼 자동업데이트 빠르고 안정적으로 바로 열려야"
+  ;   이중 안전망 spawn:
+  ;     1) ExecShell (NSIS detached, 검증된 환경에서 신뢰성 높음)
+  ;     2) electron-updater isForceRunAfter=true (대체)
+  ;   두 spawn 동시 충돌은 main.ts requestSingleInstanceLock 재시도(v2.43.66)가 처리
   Sleep 200
+  ExecShell "" "$INSTDIR\LEWORD.exe"
 !macroend
 
 !macro customUnInstall
