@@ -213,10 +213,13 @@ async function autoScan(): Promise<void> {
     const { listTrackedKeywords } = await import('./tracking-store');
     const all = listTrackedKeywords();
     if (all.length === 0) return;
+    // v2.49.33: 스캔 대상 20 → 50 확대 (사용자 요구 "트렌드 통합 강화")
+    //   pro-hunter v4.0 의 datalab 시계열 기반 surge 감지 풀 확대
+    //   백그라운드 6시간 주기 × 50개 = 시간당 8.3 호출 (rate-limit 안전)
     const targets = all
       .slice()
       .sort((a, b) => a.lastCheckedAt - b.lastCheckedAt)
-      .slice(0, 20)
+      .slice(0, 50)
       .map((t) => t.keyword);
     const r = await scanForSurges(targets, { notifyOnFind: true });
     console.log(`[SURGE] 자동 스캔: ${r.scanned}개 중 ${r.detected.length}개 감지 (풀 ${all.length})`);

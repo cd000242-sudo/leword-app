@@ -1211,26 +1211,28 @@ export async function buildRichFeed(
     //   기존 이미 만든 surge 감지기 (한일가왕전 같은 신규 이벤트 자동 감지)를 발굴에 연결
     try {
         const { listRecentSurges } = await import('../pro-hunter-v12/trend-surge-detector');
-        const surges = listRecentSurges(40); // 최근 40개 급증 신호
+        // v2.49.33: 40 → 100 확대 + moderate 도 시드로 (사용자 요구 "트렌드 통합 강화")
+        const surges = listRecentSurges(100);
         const surgeSeeds: typeof baseSeeds = [];
         for (const s of surges) {
             if (!s.keyword || seenKeywords.has(s.keyword)) continue;
-            // 'explosive' / 'strong' 만 시드로 (moderate 이하는 노이즈 가능)
-            if (s.surgeLevel !== 'explosive' && s.surgeLevel !== 'strong') continue;
+            // v2.49.33: moderate 도 시드로 추가 (이전 noise 우려 → moderate qualityScore 1.4 로 낮추되 풀 확대)
+            if (s.surgeLevel !== 'explosive' && s.surgeLevel !== 'strong' && s.surgeLevel !== 'moderate') continue;
             seenKeywords.add(s.keyword);
+            const qs = s.surgeLevel === 'explosive' ? 2.0 : s.surgeLevel === 'strong' ? 1.8 : 1.4;
             surgeSeeds.push({
                 keyword: s.keyword,
                 sources: ['surge-detector', ...s.multiSourceEvidence].slice(0, 5),
-                qualityScore: 1.6 + (s.surgeLevel === 'explosive' ? 0.4 : 0.2),
+                qualityScore: qs,
             });
         }
         if (surgeSeeds.length > 0) {
             extraSeeds.push(...surgeSeeds);
-            console.log(`[rich-feed v2.43.34] 급증 신호 시드 ${surgeSeeds.length}개 합류`);
-            emit('surge', 21, `📈 급증 키워드 ${surgeSeeds.length}개 자동 추가 (신규 이벤트)`);
+            console.log(`[rich-feed v2.49.33] 급증 신호 시드 ${surgeSeeds.length}개 합류 (explosive/strong/moderate)`);
+            emit('surge', 21, `📈 급증 키워드 ${surgeSeeds.length}개 자동 추가 (실시간 트렌드)`);
         }
     } catch (e: any) {
-        console.warn('[rich-feed v2.43.34] surge-detector 로드 실패:', e?.message);
+        console.warn('[rich-feed v2.49.33] surge-detector 로드 실패:', e?.message);
     }
 
     diagnostic.longtail.expandedAdded = extraSeeds.length;
