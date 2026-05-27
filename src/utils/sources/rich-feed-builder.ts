@@ -1209,6 +1209,56 @@ export async function buildRichFeed(
 
     // v2.43.34 (Phase 1): trend-surge-detector 결과 → 발굴 풀 합류
     //   기존 이미 만든 surge 감지기 (한일가왕전 같은 신규 이벤트 자동 감지)를 발굴에 연결
+    // v2.49.34: 🔥 데이터랩 shopping insight 카테고리별 top 인기 키워드 시드 합류 (B)
+    //   Playwright probe (scripts/probe-datalab-shopping.ts) 로 endpoint + payload 캡처:
+    //     POST datalab.naver.com/shoppingInsight/getCategoryKeywordRank.naver
+    //   10 카테고리 × top 20 = 200 자연 인기 키워드 자동 추출 → 시드 풀 합류.
+    //   사용자 카테고리 매칭 카테고리 우선 + 전체 보강.
+    try {
+        const { fetchTopKeywordsByCategory, SHOPPING_CATEGORIES, BLOGGER_TO_SHOPPING_MAP } = await import('./datalab-shopping-trend');
+        // 사용자 카테고리 매칭 shopping cid 추출
+        const userCids = new Set<string>();
+        if (_bloggerProfile && _bloggerProfile.selectedCategories.length > 0) {
+            for (const blogCat of _bloggerProfile.selectedCategories) {
+                const cids = BLOGGER_TO_SHOPPING_MAP[blogCat] || [];
+                for (const c of cids) userCids.add(c);
+            }
+        }
+        // 사용자 매칭 카테고리 우선 + 나머지 전체 (총 10 카테고리)
+        const orderedCats = [
+            ...SHOPPING_CATEGORIES.filter(c => userCids.has(c.cid)),
+            ...SHOPPING_CATEGORIES.filter(c => !userCids.has(c.cid)),
+        ];
+        emit('datalab-trend', 19, `📊 데이터랩 카테고리별 인기 키워드 수집 (${orderedCats.length} 카테고리)...`);
+        const datalabSeeds: typeof baseSeeds = [];
+        for (let i = 0; i < orderedCats.length; i++) {
+            if (isExceeded()) break;
+            const cat = orderedCats[i];
+            const items = await fetchTopKeywordsByCategory(cat.cid, 20);
+            for (const k of items) {
+                if (!k.keyword || seenKeywords.has(k.keyword)) continue;
+                seenKeywords.add(k.keyword);
+                // qualityScore: 사용자 카테고리 매칭이면 1.9 (높음), 아니면 1.5
+                const isUserMatch = userCids.has(cat.cid);
+                const qs = isUserMatch ? 1.9 : 1.5;
+                datalabSeeds.push({
+                    keyword: k.keyword,
+                    sources: ['datalab-shopping', cat.name].slice(0, 5),
+                    qualityScore: qs,
+                });
+            }
+            // rate-limit 보호
+            await new Promise(r => setTimeout(r, 350));
+        }
+        if (datalabSeeds.length > 0) {
+            extraSeeds.push(...datalabSeeds);
+            console.log(`[rich-feed v2.49.34] 📊 데이터랩 shopping 인기 ${datalabSeeds.length}개 합류 (${orderedCats.length} 카테고리)`);
+            emit('datalab-trend', 20, `✅ 데이터랩 인기 키워드 ${datalabSeeds.length}개 추가`);
+        }
+    } catch (e: any) {
+        console.warn('[rich-feed v2.49.34] datalab-shopping-trend 실패 (무시):', e?.message);
+    }
+
     try {
         const { listRecentSurges } = await import('../pro-hunter-v12/trend-surge-detector');
         // v2.49.33: 40 → 100 확대 + moderate 도 시드로 (사용자 요구 "트렌드 통합 강화")
