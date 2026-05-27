@@ -1143,6 +1143,12 @@
           const sources = (r.sources || []).slice(0, 3).map(s => `<span class="rf-source-tag">${s}</span>`).join('');
           const moreSources = r.sourceCount > 3 ? `<span class="rf-source-tag">+${r.sourceCount - 3}</span>` : '';
           const kwSafe = String(r.keyword).replace(/"/g, '&quot;').replace(/'/g, "\\'");
+          // v2.49.32: 시드/longtail 자동 분류 — forEach scope 로 이동 (액션 버튼에서도 접근 가능)
+          //   v2.49.31 에서 IIFE 안에 정의되어 액션 버튼에서 "isSeed is not defined" 발생
+          const kwTokens = String(r.keyword || '').trim().split(/\s+/).filter(Boolean).length;
+          const kwLen = String(r.keyword || '').replace(/\s/g, '').length;
+          const isSeed = kwTokens === 1 && kwLen <= 8;
+          const isLongtail = kwTokens >= 3 || kwLen >= 13;
           // 🔥 v2.19.0 Phase L-5: 블루오션 세분화
           //   💎 극소 블루오션: gr >= 10 & docCount <= 500
           //   🐋 대어 블루오션: gr >= 10 & searchVolume >= 10000
@@ -1189,15 +1195,8 @@
                 if (r.dcEstimated === true) {
                     estimatedChips.push(`<span title="문서수 추정값 — 네이버 API 측정 실패 시 sv×0.5 로 추정. 실제 dc 는 다를 수 있음" style="display:inline-block; margin-left:4px; padding:1px 6px; border-radius:6px; background:rgba(251,146,60,0.12); border:1px solid rgba(251,146,60,0.35); color:#fdba74; font-size:9.5px; font-weight:700;">⚠️ dc 추정</span>`);
                 }
-                // v2.49.31: 시드/longtail 자동 분류 칩 + 마인드맵 확장 시그널
+                // v2.49.31: 시드/longtail 자동 분류 칩 (forEach scope 의 isSeed/isLongtail 사용 — v2.49.32 fix)
                 //   사용자 통찰: "시드 황금키워드 → 마인드맵 확장 → longtail → 글감" 워크플로우
-                //   - 시드: 1-token 합성어 8자 이내 또는 단일 영문 (브랜드/지명/명사) → 🌱 확장 가능
-                //   - longtail: 3+token 또는 합성어 13자+ → 🌳 바로 글쓰기 가능
-                //   - middle: 그 중간 → 시드성 longtail
-                const kwTokens = String(r.keyword || '').trim().split(/\s+/).filter(Boolean).length;
-                const kwLen = String(r.keyword || '').replace(/\s/g, '').length;
-                const isSeed = kwTokens === 1 && kwLen <= 8;
-                const isLongtail = kwTokens >= 3 || kwLen >= 13;
                 if (isSeed) {
                     estimatedChips.push(`<span title="🌱 시드 키워드 — 마인드맵 확장으로 longtail 풀 생성 가능 (1-token 8자 이내)" style="display:inline-block; margin-left:4px; padding:1px 6px; border-radius:6px; background:rgba(168,85,247,0.18); border:1px solid rgba(168,85,247,0.45); color:#c4b5fd; font-size:9.5px; font-weight:800;">🌱 시드</span>`);
                 } else if (isLongtail) {
