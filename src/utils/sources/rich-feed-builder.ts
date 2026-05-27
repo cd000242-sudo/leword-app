@@ -381,17 +381,23 @@ export function getUserWhitelist(): string[] {
 }
 
 // 키워드에서 도메인 자동 감지 (카테고리별 시그니처 토큰 매칭)
+// v2.49.41: datalab 카테고리 top 인기 명사 보강 (에이전트팀 4번째 forensic 진단)
+//   기존 시그니처가 "원피스" "마스카라" "에어팟" 같은 datalab top 명사 미커버 →
+//   classifyForFeed → 'unknown' 분류 → profileAdj=0 → 사용자 카테고리 매칭 가산점 손실
+//   보강: shopping 인기 명사를 각 카테고리 시그니처에 추가
 const CATEGORY_SIGNATURES: Record<string, RegExp> = {
-    health: /(병원|의료|진료|약|증상|치료|건강|체력|복용|복약|효능|부작용)/,
-    beauty: /(화장품|뷰티|선크림|클렌징|스킨|메이크업|브랜드|올영|올리브영|시카|크림|에센스)/,
-    finance: /(대출|적금|예금|투자|펀드|연금|보험|세금|이자|금리|증여|상속|연말정산)/,
+    health: /(병원|의료|진료|약|증상|치료|건강|체력|복용|복약|효능|부작용|영양제|비타민|단백질|콜라겐|유산균)/,
+    beauty: /(화장품|뷰티|선크림|클렌징|스킨|메이크업|브랜드|올영|올리브영|시카|크림|에센스|마스카라|립스틱|쿠션|파운데이션|아이라이너|향수|아이크림|마스크팩|토너|로션)/,
+    finance: /(대출|적금|예금|투자|펀드|연금|보험|세금|이자|금리|증여|상속|연말정산|환급|청약|주식|ETF)/,
     realestate: /(부동산|아파트|빌라|오피스텔|청약|월세|전세|시세|매매|호가)/,
-    it: /(노트북|스마트폰|이어폰|키보드|마우스|어플|앱|소프트웨어|어플리케이션|업데이트)/,
-    food: /(레시피|맛집|요리|음식|식당|배달|메뉴|간식)/,
-    fashion: /(코디|패션|운동화|스니커즈|가방|의류|옷|신발|매장)/,
-    parenting: /(육아|아기|신생아|돌|영아|유아|돌잔치|어린이집|어린이날|기저귀|이유식|분유)/,
+    it: /(노트북|스마트폰|이어폰|키보드|마우스|어플|앱|소프트웨어|어플리케이션|업데이트|아이폰|갤럭시|에어팟|이어버드|충전기|모니터|태블릿|아이패드|맥북|버즈)/,
+    food: /(레시피|맛집|요리|음식|식당|배달|메뉴|간식|디저트|밀키트|반찬|도시락|냉동|즉석|컵라면|커피)/,
+    fashion: /(코디|패션|운동화|스니커즈|가방|의류|옷|신발|매장|원피스|블라우스|티셔츠|반팔티|니트|자켓|코트|청바지|바람막이|패딩|가디건|셔츠|스커트|트레이닝복|하객룩|정장)/,
+    parenting: /(육아|아기|신생아|돌|영아|유아|돌잔치|어린이집|어린이날|기저귀|이유식|분유|모빌|카시트|유모차|장난감)/,
     shopping: /(직구|공구|핫딜|쿠팡|마켓컬리|위메프|11번가|네이버쇼핑)/,
-    travel: /(여행|호텔|항공|패키지|투어|렌트카|숙박|에어비앤비)/,
+    travel: /(여행|호텔|항공|패키지|투어|렌트카|숙박|에어비앤비|풀빌라|펜션|리조트)/,
+    home: /(인테리어|가구|침대|소파|책상|식탁|조명|커튼|벽지|페인트|정리|수납|청소|세탁|살림|주방|욕실|거실|침실|발코니|매트리스|이불|커튼|러그)/,
+    pet: /(강아지|고양이|반려견|반려묘|사료|간식|훈련|미용|예방접종|중성화|입양|분양|동물병원|장난감|배변|털|목줄|하네스)/,
 };
 
 function detectCategory(keyword: string): string | null {
@@ -1721,12 +1727,16 @@ export async function buildRichFeed(
                 // v2.43.31: longtail 우선 — sv 200~30K, 빅워드는 promotion 풀 진입 불가
                 const tokens = String(r.keyword || '').trim().split(/\s+/).filter(Boolean).length;
                 if (tokens >= 1 && tokens <= 2 && r.searchVolume >= 30000) return false; // 빅워드 차단
+                // v2.49.41: datalab-shopping 출처 dc 한도 30K 완화 (forensic 진단)
+                //   진단: datalab top 인기 키워드 (원피스/에어팟) = 본질적 dc 50K+ → 15K cap 99% 탈락
+                //   완화: datalab source 만 dc 30K 까지 허용. ratio>=1.15 게이트 그대로.
+                //   품질 가드: sv 200~30K + ratio>=1.15 + writability/sanity-gate 그대로 → 가짜 SSS X
+                const maxDc = isDatalabSeed ? 30000 : 15000;
                 return (
                     (r.grade === 'SS' || r.grade === 'S' || r.grade === 'A') &&
                     r.searchVolume >= 200 &&
                     r.searchVolume <= 30000 &&
-                    // v2.49.7: 실측 dc 게이트 완화 — ratio 1.3 → 1.15, maxDc 12000 → 15000 (풀 확장)
-                    (r.dcEstimated ? r.goldenRatio >= 2.0 : (r.documentCount > 0 && r.documentCount <= 15000 && r.goldenRatio >= 1.15))
+                    (r.dcEstimated ? r.goldenRatio >= 2.0 : (r.documentCount > 0 && r.documentCount <= maxDc && r.goldenRatio >= 1.15))
                 );
             })
             .map(r => {
