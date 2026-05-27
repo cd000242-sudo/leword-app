@@ -84,7 +84,7 @@ export const BLOGGER_CATEGORIES: BloggerCategoryInfo[] = [
 ];
 
 export interface BloggerProfile {
-  selectedCategories: BloggerCategoryId[]; // 최대 3개
+  selectedCategories: BloggerCategoryId[]; // 최대 6개 (v2.49.30)
   experienceLevel: 'beginner' | 'intermediate' | 'advanced'; // 연차 / 글 수 기반
   dailyVisitors: number;       // 일평균 방문자 (자기 신고)
   setupAt: number;             // 설정 timestamp

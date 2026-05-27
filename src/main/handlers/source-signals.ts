@@ -315,8 +315,9 @@ export function setupSourceSignalHandlers(): void {
             if (!profile || !Array.isArray(profile.selectedCategories) || profile.selectedCategories.length === 0) {
                 return { success: false, error: '카테고리를 최소 1개 선택해주세요.' };
             }
-            if (profile.selectedCategories.length > 3) {
-                return { success: false, error: '카테고리는 최대 3개까지 선택 가능합니다.' };
+            // v2.49.30: UI 와 일치 — 최대 6개 (v2.49.28 UI 완화 + backend validation 동기화 누락 fix)
+            if (profile.selectedCategories.length > 6) {
+                return { success: false, error: '카테고리는 최대 6개까지 선택 가능합니다.' };
             }
             const validIds = new Set(BLOGGER_CATEGORIES.map(c => c.id));
             for (const id of profile.selectedCategories) {
