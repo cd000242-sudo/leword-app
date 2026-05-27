@@ -596,6 +596,16 @@ function isWritableKeyword(keyword: string, docCount: number, searchVolume: numb
     if (tokens === 1 && GENERIC_BROAD_RE.test(clean)) return false;
     if (tokens >= 2) return true;
 
+    // v2.49.26: 검색광고 API suggestions 출처 한국어 합성어 우대 게이트
+    //   진단: suggestions API 반환 키워드 = 모두 띄어쓰기 없는 합성어 → tokens=1 → 위 차단
+    //   예: "종소세환급일", "삼쩜삼병원비환급", "순금카네이션", "5월결혼식하객룩"
+    //   이들은 자연 한국어 longtail 키워드 — SSS 자격 충분
+    //   가드: 5자+ 한국어 + 실측 dc + dc<=10000 (빅워드 차단)
+    //   빅워드는 다른 sanity-gate (sv>=30K + tokens<=2 BIG_WORD) 가 차단
+    if (/^[가-힣]{5,}$/.test(clean) && !dcEstimated && docCount > 0 && docCount <= 10000) {
+        return true;
+    }
+
     // v2.42.52: 카테고리별 화이트리스트
     if (ALL_2CHAR_WHITELIST.has(clean)) return true;
     if (clean.length < 2) return false;
