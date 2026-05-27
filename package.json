@@ -1,6 +1,6 @@
 {
   "name": "leword",
-  "version": "2.49.26",
+  "version": "2.49.27",
   "description": "LEWORD - 키워드 마스터 독립 앱",
   "main": "dist/main.js",
   "scripts": {
@@ -102,7 +102,7 @@
       "allowToChangeInstallationDirectory": false,
       "createDesktopShortcut": true,
       "createStartMenuShortcut": true,
-      "runAfterFinish": true,
+      "runAfterFinish": false,
       "shortcutName": "LEWORD 키워드마스터",
       "include": "build/installer.nsh"
     },

@@ -177,7 +177,11 @@ function performQuitAndInstall(autoUpdater: any): void {
       //   chrome 좀비 정리는 cleanupChromeZombiesSync로 빠르게 인라인 처리
       (app as any).__skipGracefulCleanup = true;
       try {
-        autoUpdater.quitAndInstall(true, true);
+        // v2.49.27: isForceRunAfter false — install 후 자동 실행 안 함.
+        //   사용자 호소 "25버전이 왜 맘대로 자꾸 켜지는거야"
+        //   isSilent=true 유지 (NSIS UI 안 뜸), isForceRunAfter=false (자동 spawn X)
+        //   사용자가 LEWORD 를 직접 켤 때만 새 버전 적용.
+        autoUpdater.quitAndInstall(true, false);
       } catch (e: any) {
         console.error('[UPDATER] quitAndInstall 실패:', e?.message);
         // ↓ fallback 으로 즉시 진행 (transitionState ERROR 는 fallback 끝나고)
