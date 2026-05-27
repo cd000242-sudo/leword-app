@@ -1263,18 +1263,39 @@ export async function buildRichFeed(
             console.log(`[DEBUG-DATALAB]   ${cat.name} (cid=${cat.cid}): ${items.length}개 (${ms}ms) — sample: ${items.slice(0, 3).map(k => k.keyword).join(', ')}`);
             let addedThis = 0;
             let dupSkipped = 0;
+            const isUserMatch = userCids.has(cat.cid);
+            const qs = isUserMatch ? 1.9 : 1.5;
+            // v2.49.40: 단일 명사 + commercial suffix 2-token 자동 확장 (에이전트팀 합의)
+            //   진단: datalab top 20 = 단일 한국어 명사 ("원피스", "에어팟") — 빅워드 + 단일토큰 게이트로 99% 차단
+            //   해결: 단일 명사 + commercial suffix 2-token 자동 생성 → isTooGeneric2Token 회피 가능 (명사+의도)
+            //   품질 가드: 2-token 만으로 BIG_WORD/SINGLE_TOKEN 게이트 우회 + commercial 가산 + ratio>=1.2 게이트
+            const COMMERCIAL_SUFFIXES = ['추천', '후기', '가격', '비교', '순위', '브랜드'];
             for (const k of items) {
                 if (!k.keyword) continue;
                 if (seenKeywords.has(k.keyword)) { dupSkipped++; continue; }
                 seenKeywords.add(k.keyword);
-                const isUserMatch = userCids.has(cat.cid);
-                const qs = isUserMatch ? 1.9 : 1.5;
+                // 원본 단일 시드 (promotion pool 우회 가능)
                 datalabSeeds.push({
                     keyword: k.keyword,
                     sources: ['datalab-shopping', cat.name].slice(0, 5),
                     qualityScore: qs,
                 });
                 addedThis++;
+                // 단일 명사 + suffix 2-token 확장 (각 suffix 별)
+                const tokens = k.keyword.trim().split(/\s+/).filter(Boolean).length;
+                if (tokens === 1) {
+                    for (const suffix of COMMERCIAL_SUFFIXES) {
+                        const combo = `${k.keyword} ${suffix}`;
+                        if (seenKeywords.has(combo)) continue;
+                        seenKeywords.add(combo);
+                        datalabSeeds.push({
+                            keyword: combo,
+                            sources: ['datalab-shopping-expanded', cat.name].slice(0, 5),
+                            qualityScore: qs * 0.9, // 확장 시드는 약간 낮은 우선순위
+                        });
+                        addedThis++;
+                    }
+                }
             }
             console.log(`[DEBUG-DATALAB]     → ${addedThis}개 추가, ${dupSkipped}개 중복 skip`);
             emit('datalab-trend', 24, `📊 ${cat.name}: ${items.length}개 추출 (${addedThis}개 신규)`);
@@ -1669,7 +1690,13 @@ export async function buildRichFeed(
                 //   완전 차단 → SSS 풀이 너무 작아짐 (한국 환경 dc=null 비율 40-60%)
                 //   품질 가드: 친화도 70+ AND 2+ tokens AND commercial intent 필수
                 const tokenCount = String(r.keyword || '').trim().split(/\s+/).filter(Boolean).length;
-                if (tokenCount === 1) return false;
+                // v2.49.40: datalab-shopping 출처 단일 토큰 우회 (에이전트팀 3/3 합의)
+                //   진단: 데이터랩 카테고리 top 20 = 대부분 단일 한국어 명사 ("원피스", "바람막이")
+                //   기존 tokenCount===1 폐기 → datalab 시드 99% 영구 배제
+                //   해결: datalab-shopping source 의 단일 토큰은 promotion 풀 진입 허용
+                //   품질 가드: writability/ratio/dc/sanity-gate 다른 게이트 그대로 → 가짜 SSS 양산 X
+                const isDatalabSeed = (r.sources || []).some(s => s === 'datalab-shopping' || s === 'datalab-shopping-expanded');
+                if (tokenCount === 1 && !isDatalabSeed) return false;
 
                 // ★ v2.49.7: sv*0.5 fallback dc 정확 매칭 차단 (가짜 SSS 진입 금지)
                 //   사용자 보고: TOP 20 SSS 중 18건이 ratio 정확히 2.00 = sv/dc=2 = dc=sv*0.5 추정값

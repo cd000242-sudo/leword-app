@@ -135,17 +135,29 @@ export async function fetchAllShoppingTrendKeywords(
  * 사용자 카테고리 선택 시 매칭되는 shopping 카테고리 우선 추출용.
  */
 export const BLOGGER_TO_SHOPPING_MAP: Record<string, string[]> = {
+    // v2.49.40: 20개 BloggerCategoryId 전수 매핑 (에이전트팀 3/3 합의 누락 8 카테고리 보완)
+    //   진단: finance/education/auto/culture/realestate/sidejob/self/parenting_kids 매핑 없어
+    //   사용자 카테고리 매칭 실패 → datalab qualityScore 가산 효과 약화
+    //   해결: 근사 매핑 (직접 shopping 카테고리 없는 경우 가장 가까운 영역)
     fashion: ['50000000', '50000001'],     // 패션의류, 패션잡화
     beauty: ['50000002'],                   // 화장품/미용
     it: ['50000003'],                       // 디지털/가전
     home: ['50000004'],                     // 가구/인테리어
     parenting: ['50000005'],                // 출산/육아
-    parenting_kids: ['50000005'],
+    parenting_kids: ['50000005', '50000008'], // 학용품/도서 → 생활/건강 + 육아
     pregnancy: ['50000005'],
     food: ['50000006'],                     // 식품
     health: ['50000008'],                   // 생활/건강
     senior: ['50000008'],
     pet: ['50000009'],
-    travel: ['50000009'],
-    wedding: ['50000001'],
+    travel: ['50000009'],                   // 여가/생활편의
+    wedding: ['50000001'],                  // 패션잡화 (예물/액세서리)
+    // v2.49.40: 누락 8 카테고리 추가
+    finance: ['50000008'],                  // 재테크 도서/세무 → 생활/건강 근사
+    education: ['50000008'],                // 학용품/도서 → 생활/건강 근사
+    auto: ['50000003'],                     // 카오디오/내비/액세서리 → 디지털/가전
+    culture: ['50000009'],                  // 영화/도서/공연 → 여가/생활편의
+    realestate: ['50000004'],               // 주거 → 가구/인테리어
+    sidejob: ['50000008'],                  // 부업 도서/생활 → 생활/건강
+    self: ['50000008'],                     // 자기계발 도서 → 생활/건강
 };
