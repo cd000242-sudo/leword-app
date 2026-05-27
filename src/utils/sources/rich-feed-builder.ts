@@ -683,8 +683,12 @@ function calculateGrade(volume: number, docCount: number, ratio: number, score: 
     //   사용자 요구: "너무 대형키워드보다는 세부적인 확장성키워드"
     //   sv 30K+ 키워드는 보통 단일 명사/빅워드 → SSS 자격 박탈
     if (writable && !isCelebLike && docCount > 0 && volume >= 200 && volume <= 30000 && docCount <= 12000) {
+        // v2.49.24: 2+ token longtail 의 commercial+ratio 게이트 미세 완화 (1.3 → 1.2)
+        //   진단: 28 소스 commerce/community 키워드 가 ratio 1.2~1.3 에서 다수 폐기
+        //   단일 토큰 SSS 는 isWritableKeyword 가 별도 차단 → 가짜 SSS 양산 위험 없음
+        const tokens = keyword.trim().split(/\s+/).filter(Boolean).length;
         if (ratio >= 1.7) return 'SSS';
-        if (commercial && ratio >= 1.3) return 'SSS';
+        if (commercial && ratio >= (tokens >= 2 ? 1.2 : 1.3)) return 'SSS';
         if (ratio >= 4 && docCount <= 8000) return 'SSS';
         if (commercial && docCount <= 5000 && ratio >= 1) return 'SSS';
     }
@@ -1513,8 +1517,11 @@ export async function buildRichFeed(
                     if (writability < 70) return false;
                     if (!hasCommercialIntent(r.keyword)) return false;
                 } else {
-                    // v2.49.7: 실측 풀 확장 — 친화도 35 → 30 (사용자 메모리 "대량 보장")
-                    if (writability < 30) return false;
+                    // v2.49.24: 30 → 20 추가 완화 (사용자 메모리 "SSS 절대 수 풀 확장")
+                    //   진단: 28 소스 (theqoo/dcinside/musinsa 등) 의 SS/S/A 가 친화도 30 미달로 다수 폐기
+                    //   → "스니커즈 추천" (28), "쿠팡 할인" (35) 같은 정상 키워드도 통과
+                    //   품질 가드: 실측 dc + 2+ tokens + ratio 1.15+ + sv 200~30K 다른 게이트 유지
+                    if (writability < 20) return false;
                 }
                 // v2.43.31: longtail 우선 — sv 200~30K, 빅워드는 promotion 풀 진입 불가
                 const tokens = String(r.keyword || '').trim().split(/\s+/).filter(Boolean).length;
