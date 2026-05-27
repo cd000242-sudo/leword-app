@@ -143,15 +143,11 @@ export function calculateProfileAffinity(keyword: string, profile: BloggerProfil
     }
   }
 
-  const myCats = new Set(profile.selectedCategories);
-  const expertCategoriesOnly: BloggerCategoryId[] = ['finance', 'realestate', 'health', 'it', 'auto', 'education'];
-  for (const catId of expertCategoriesOnly) {
-    if (myCats.has(catId)) continue;
-    const cat = BLOGGER_CATEGORIES.find(c => c.id === catId);
-    if (cat && cat.affinityPattern.test(clean)) {
-      return -15;
-    }
-  }
+  // v2.49.28: 전문 카테고리 페널티 -15 제거 (사용자 요구 "전체 다 나오게")
+  //   기존: finance/realestate/health/it/auto/education 6개 중 선택 안 한 것 → -15
+  //   문제: 사용자 카테고리 3개 제한 + 전문 6개 → 최소 3 카테고리 영구 페널티
+  //   결과 부족 호소 → 페널티 0 (사용자 선택 카테고리만 +30 가산)
+  //   품질 가드: 빅워드 / redOcean / dcEstimated 등 다른 게이트가 가짜 SSS 차단
 
   return 0;
 }

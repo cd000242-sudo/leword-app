@@ -1665,9 +1665,9 @@
               <button onclick="document.getElementById('bloggerProfileModal')?.remove()" style="background:rgba(255,255,255,0.1); border:none; border-radius:10px; color:#fff; width:36px; height:36px; cursor:pointer; font-size:18px;">✕</button>
             </div>
 
-            <!-- 카테고리 선택 (최대 3개) -->
+            <!-- 카테고리 선택 (최대 6개) -->
             <div style="margin-bottom:24px;">
-              <h3 style="margin:0 0 10px; font-size:14px; color:#93c5fd; font-weight:700;">📂 내 블로그 카테고리 (최대 3개)</h3>
+              <h3 style="margin:0 0 10px; font-size:14px; color:#93c5fd; font-weight:700;">📂 내 블로그 카테고리 (최대 6개)</h3>
               <div id="bpCategoryGrid" style="display:grid; grid-template-columns:repeat(auto-fill,minmax(150px,1fr)); gap:8px;">
                 ${cats.map(c => `
                   <label style="display:flex; align-items:center; gap:8px; padding:10px 12px; background:rgba(255,255,255,0.04); border:1px solid rgba(255,255,255,0.1); border-radius:10px; cursor:pointer; font-size:12.5px; color:#e2e8f0; transition:all 0.15s;" onmouseover="this.style.background='rgba(59,130,246,0.15)'" onmouseout="this.style.background=this.querySelector('input').checked ? 'rgba(59,130,246,0.25)' : 'rgba(255,255,255,0.04)'">
@@ -1676,7 +1676,7 @@
                   </label>
                 `).join('')}
               </div>
-              <div id="bpCatCount" style="margin-top:8px; font-size:11px; color:rgba(255,255,255,0.55);">선택: <span id="bpCatCountNum">${profile.selectedCategories.length}</span>/3</div>
+              <div id="bpCatCount" style="margin-top:8px; font-size:11px; color:rgba(255,255,255,0.55);">선택: <span id="bpCatCountNum">${profile.selectedCategories.length}</span>/6</div>
             </div>
 
             <!-- 경험 수준 -->
@@ -1729,9 +1729,9 @@
 
       window.bpOnCategoryChange = function(input) {
         const checked = document.querySelectorAll('input[name="bpCategory"]:checked');
-        if (checked.length > 3) {
+        if (checked.length > 6) {
           input.checked = false;
-          alert('최대 3개까지만 선택 가능합니다.');
+          alert('최대 6개까지만 선택 가능합니다.');
         }
         const count = document.querySelectorAll('input[name="bpCategory"]:checked').length;
         const numEl = document.getElementById('bpCatCountNum');
