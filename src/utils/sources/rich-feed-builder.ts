@@ -1937,7 +1937,12 @@ export async function buildRichFeed(
                 let aiClean = 0;
                 for (const r of aiCandidates) {
                     const detected = detectionMap.get(r.keyword);
-                    (r as any).aiBriefingDetected = detected === true;
+                    // v2.49.23: detection 결과 정확 마킹 — null (네트워크 실패) 은 undefined 유지.
+                    //   기존 `detected === true` 는 null 도 false 처리 → UI 가 "미점령" 으로 잘못 표시.
+                    //   true/false 만 명시 마킹, null 은 미확정.
+                    if (detected === true || detected === false) {
+                        (r as any).aiBriefingDetected = detected;
+                    }
                     if (detected === true) {
                         if (r.grade === 'SSS' || r.grade === 'SSR') {
                             (r as any).grade = 'SS';

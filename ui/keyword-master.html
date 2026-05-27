@@ -1189,6 +1189,16 @@
                 if (r.dcEstimated === true) {
                     estimatedChips.push(`<span title="문서수 추정값 — 네이버 API 측정 실패 시 sv×0.5 로 추정. 실제 dc 는 다를 수 있음" style="display:inline-block; margin-left:4px; padding:1px 6px; border-radius:6px; background:rgba(251,146,60,0.12); border:1px solid rgba(251,146,60,0.35); color:#fdba74; font-size:9.5px; font-weight:700;">⚠️ dc 추정</span>`);
                 }
+                // v2.49.23: AI 브리핑 점령 칩 — 황금키워드 발굴 행에도 표시
+                //   true: AI 가 답을 선점 → 블로그 클릭 안 됨 (SSS 자격 미달, rich-feed 에서 SS 강등됨)
+                //   false: AI 미점령 (블로그 클릭 기회) — 진짜 황금
+                //   undefined: 미측정 (AI 브리핑 detection 안 거친 키워드)
+                const aiDetected = r.aiBriefingDetected;
+                if (aiDetected === true) {
+                    estimatedChips.push(`<span title="🤖 AI 브리핑 점령 (실측) — 사용자가 AI 답에서 멈춤. 블로그 클릭 부적합" style="display:inline-block; margin-left:4px; padding:1px 6px; border-radius:6px; background:rgba(239,68,68,0.12); border:1px solid rgba(239,68,68,0.35); color:#fca5a5; font-size:9.5px; font-weight:700;">🤖 AI점령</span>`);
+                } else if (aiDetected === false) {
+                    estimatedChips.push(`<span title="🤖 AI 브리핑 미점령 (실측) — 블로그 클릭 기회 있음" style="display:inline-block; margin-left:4px; padding:1px 6px; border-radius:6px; background:rgba(16,185,129,0.12); border:1px solid rgba(16,185,129,0.35); color:#86efac; font-size:9.5px; font-weight:700;">🤖✓미점령</span>`);
+                }
                 return positiveChips + estimatedChips.join('');
               })()}</td>
               <td style="padding:10px 8px; text-align:right; color:#cbd5e1;">${r.searchVolume.toLocaleString()}${(() => {
