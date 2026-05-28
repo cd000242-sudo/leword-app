@@ -834,7 +834,10 @@ export async function buildRichFeed(
     // 🔥 v2.27.9: 하드캡 8분 → 6분 (사용자 "실제 그 시간 안 걸리는데 확실하게 대량")
     //   사용자 환경은 네이버 API 정상 → 후보 2500 + concurrency 8 이 6분 내 가능
     // v2.43.32: 하드캡 6분 → 3.5분 (사용자 "너무 오래걸린다")
-    const HARD_CAP_MS = 3.5 * 60 * 1000;
+    // v2.49.42: 3.5분 → 6분 (사용자 실측: 75 batch 중 30 batch timeout, 결과 1건만)
+    //   진단: 시드 풀 3729 (v2.49.40 expansion 효과) → API 검증 75 batch 필요 → 4분+ 소요
+    //   timeout 시 enrichedRows 부분 처리 → SSS 4/SS 8 발견했어도 promotion/grading 단계까지 도달 못함
+    const HARD_CAP_MS = 6 * 60 * 1000;
     const startedAt = Date.now();
     const isExceeded = () => Date.now() - startedAt > HARD_CAP_MS;
 
@@ -1275,7 +1278,11 @@ export async function buildRichFeed(
             //   진단: datalab top 20 = 단일 한국어 명사 ("원피스", "에어팟") — 빅워드 + 단일토큰 게이트로 99% 차단
             //   해결: 단일 명사 + commercial suffix 2-token 자동 생성 → isTooGeneric2Token 회피 가능 (명사+의도)
             //   품질 가드: 2-token 만으로 BIG_WORD/SINGLE_TOKEN 게이트 우회 + commercial 가산 + ratio>=1.2 게이트
-            const COMMERCIAL_SUFFIXES = ['추천', '후기', '가격', '비교', '순위', '브랜드'];
+            // v2.49.42: 6 → 3 suffix 축소 (timeout 회피)
+            //   진단: v2.49.40 의 6 suffix expansion = datalab 200 시드 × 6 = 1200 추가 시드
+            //   결과: 시드 풀 3729 → API 검증 timeout → 결과 폭락 (4 → 1)
+            //   완화: 가장 효과 큰 3 suffix 만 (추천/후기/가격) → 600 추가
+            const COMMERCIAL_SUFFIXES = ['추천', '후기', '가격'];
             for (const k of items) {
                 if (!k.keyword) continue;
                 if (seenKeywords.has(k.keyword)) { dupSkipped++; continue; }
