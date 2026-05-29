@@ -6,12 +6,8 @@
  * ⚠️ 100% 실제 크롤링 데이터 - 더미 데이터 절대 사용 안함!
  */
 
-import puppeteer from 'puppeteer-extra';
-import StealthPlugin from 'puppeteer-extra-plugin-stealth';
 import type { Browser, Page } from 'puppeteer';
 import * as fs from 'fs';
-
-puppeteer.use(StealthPlugin());
 
 // ============================================================
 // 인터페이스 정의

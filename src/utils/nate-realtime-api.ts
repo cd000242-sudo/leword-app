@@ -5,12 +5,8 @@
  * mail3.nate.com 페이지에서 10개 전체가 표시됩니다.
  */
 
-import puppeteer from 'puppeteer-extra';
-import StealthPlugin from 'puppeteer-extra-plugin-stealth';
 import type { Browser, Page } from 'puppeteer';
 import * as fs from 'fs';
-
-puppeteer.use(StealthPlugin());
 
 export interface NateRealtimeKeyword {
   rank: number;
@@ -20,9 +16,6 @@ export interface NateRealtimeKeyword {
   source: string;
   timestamp: string;
 }
-
-// 중앙화된 Chrome 찾기 사용
-import { getPuppeteerLaunchOptions } from './chrome-finder';
 
 // 브라우저 재사용
 let browserInstance: Browser | null = null;
@@ -41,9 +34,8 @@ async function getBrowser(): Promise<Browser> {
     try { await browserInstance.close(); } catch { /* ignore */ }
   }
   
-  const launchOptions = getPuppeteerLaunchOptions({ headless: 'new' });
-  
-  browserInstance = await puppeteer.launch(launchOptions) as Browser;
+  const { launchCompatibleBrowser } = await import('./puppeteer-pool');
+  browserInstance = await launchCompatibleBrowser({ headless: 'new' }) as Browser;
   
   browserLastUsed = now;
   return browserInstance;

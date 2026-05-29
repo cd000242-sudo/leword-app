@@ -1,0 +1,163 @@
+/**
+ * shopping-opportunity.test.ts
+ *
+ * 쇼핑커넥트가 단순 인기상품 나열이 아니라
+ * "지금 글로 쓰면 구매 전환 가능성이 높은 상품"을 우선 추천하는지 검증한다.
+ */
+
+import {
+  attachShoppingOpportunityScore,
+  buildProductLeWordSeeds,
+  deriveShoppingExpansionQueries,
+  rankShoppingOpportunities,
+  scoreLeWordEntryKeyword,
+  type ShoppingItem,
+} from '../naver-shopping-api';
+
+let passed = 0;
+let failed = 0;
+const failures: string[] = [];
+
+function assert(name: string, cond: boolean, detail?: string) {
+  if (cond) {
+    passed++;
+  } else {
+    failed++;
+    failures.push(`✗ ${name}${detail ? ' — ' + detail : ''}`);
+  }
+}
+
+function makeItem(partial: Partial<ShoppingItem>): ShoppingItem {
+  return {
+    title: '',
+    link: 'https://example.com',
+    image: '',
+    lprice: 0,
+    hprice: 0,
+    mallName: '',
+    productId: '',
+    productType: 1,
+    ...partial,
+  };
+}
+
+const trendingProduct = makeItem({
+  title: 'QCY HT08 무선 이어폰 블루투스 노이즈캔슬링',
+  cleanTitle: 'QCY HT08 무선 이어폰',
+  lprice: 39900,
+  hprice: 59900,
+  mallName: '쿠팡',
+  productId: 'hot-1',
+  brand: 'QCY',
+  maker: 'QCY',
+  category1: '디지털/가전',
+  category2: '음향가전',
+  category3: '이어폰',
+});
+
+const merelyPopularProduct = makeItem({
+  title: '일반 무선 이어폰 초특가 인기상품',
+  cleanTitle: '일반 무선 이어폰',
+  lprice: 9900,
+  hprice: 0,
+  mallName: '테스트스토어',
+  productId: 'plain-1',
+  category1: '디지털/가전',
+});
+
+const context = {
+  keyword: '무선 이어폰 추천',
+  intentPrimary: 'buy',
+  totalHits: 8000,
+  relatedKeywords: ['qcy ht08 추천', '무선 이어폰 노이즈캔슬링'],
+  crossSourceSeeds: [{ seed: 'QCY HT08', sources: ['naver-shopping', 'youtube'], crossScore: 7 }],
+  recency: { status: 'rising', ratio: 1.8 },
+};
+
+const hotScore = attachShoppingOpportunityScore(trendingProduct, context);
+const plainScore = attachShoppingOpportunityScore(merelyPopularProduct, context);
+
+assert('실시간·자동완성 신호 상품이 단순 인기상품보다 높은 점수', hotScore > plainScore, `${hotScore} <= ${plainScore}`);
+assert('상승 수요 상품은 HOT 등급 가능', trendingProduct.opportunityGrade === 'HOT', `grade=${trendingProduct.opportunityGrade}`);
+assert('작성 추천 문장이 생성됨',
+  !!trendingProduct.writeRecommendation && /우선|후보|작성/.test(trendingProduct.writeRecommendation),
+  trendingProduct.writeRecommendation);
+assert('실시간 근거가 카드 데이터에 남음',
+  (trendingProduct.opportunityReasons || []).some(r => r.includes('실시간 유행 시드')),
+  JSON.stringify(trendingProduct.opportunityReasons));
+
+const ranked = rankShoppingOpportunities([merelyPopularProduct, trendingProduct], context, 2);
+assert('랭킹 1위는 수요 근거가 있는 상품', ranked[0]?.productId === 'hot-1', ranked.map(i => i.productId).join(','));
+
+const conversionOnlyProduct = makeItem({
+  title: '무선 이어폰 추천 프리미엄 블루투스 이어폰',
+  cleanTitle: '프리미엄 블루투스 이어폰',
+  lprice: 59900,
+  hprice: 89900,
+  mallName: '쿠팡',
+  productId: 'conversion-only',
+  brand: 'TEST',
+  maker: 'TEST',
+  category1: '디지털/가전',
+  category2: '음향가전',
+  category3: '이어폰',
+});
+const conversionOnlyScore = attachShoppingOpportunityScore(conversionOnlyProduct, {
+  keyword: '가성비 음향기기 추천',
+  intentPrimary: 'buy',
+  totalHits: 8000,
+  relatedKeywords: [],
+  crossSourceSeeds: [],
+});
+assert('전환 조건만 좋고 수요 근거가 없으면 작성 우선으로 승격하지 않음',
+  conversionOnlyProduct.opportunityGrade === 'WATCH' && conversionOnlyScore <= 61,
+  `grade=${conversionOnlyProduct.opportunityGrade}, score=${conversionOnlyScore}`);
+assert('수요 근거 부족 사유가 남음',
+  (conversionOnlyProduct.opportunityReasons || []).some(r => r.includes('수요 근거')),
+  JSON.stringify(conversionOnlyProduct.opportunityReasons));
+assert('상품마다 작성 판단 문장이 달라짐',
+  trendingProduct.writeRecommendation !== conversionOnlyProduct.writeRecommendation,
+  `${trendingProduct.writeRecommendation} / ${conversionOnlyProduct.writeRecommendation}`);
+
+const deadProduct = makeItem({ ...trendingProduct, productId: 'dead-1' });
+const deadScore = attachShoppingOpportunityScore(deadProduct, { ...context, recency: { status: 'dead', ratio: 0 } });
+assert('검색 추세 사망은 강하게 감점', deadScore < hotScore - 20, `${deadScore} vs ${hotScore}`);
+
+const nikeExpansion = deriveShoppingExpansionQueries('나이키', [], [], 8).map(q => q.query);
+assert('브랜드 단독 검색도 같은 계열 대체 브랜드로 확장',
+  nikeExpansion.some(q => /아디다스|푸마/.test(q)),
+  nikeExpansion.join(', '));
+
+const shoeExpansion = deriveShoppingExpansionQueries('운동화 추천', [], [], 8).map(q => q.query);
+assert('카테고리 검색은 브랜드별 쇼핑 쿼리로 확장',
+  shoeExpansion.some(q => /나이키|아디다스|뉴발란스/.test(q)),
+  shoeExpansion.join(', '));
+
+const nikeItem = makeItem({
+  title: '나이키 에어맥스 270 운동화 남성 러닝화',
+  cleanTitle: '나이키 에어맥스 270 운동화',
+  brand: '나이키',
+  category1: '패션잡화',
+  category2: '신발',
+  category3: '운동화',
+});
+const lewordSeeds = buildProductLeWordSeeds(nikeItem, '나이키', 6);
+assert('제품 LEWORD 후보에 대체 브랜드 키워드 포함',
+  lewordSeeds.some(seed => seed.relation === 'peer-brand' && /아디다스|푸마|뉴발란스/.test(seed.keyword)),
+  lewordSeeds.map(seed => seed.keyword).join(', '));
+
+const scoredSeed = scoreLeWordEntryKeyword({
+  keyword: '아디다스 운동화 추천',
+  relation: 'peer-brand',
+  reason: '같은 계열 대체 브랜드 키워드',
+}, 2400, 300);
+assert('LEWORD 진입 후보는 검색량·문서수 기반으로 진입가능 판정',
+  scoredSeed.verdict === '진입가능' && (scoredSeed.entryScore || 0) >= 70,
+  JSON.stringify(scoredSeed));
+
+console.log(`\n[shopping-opportunity.test] passed: ${passed} / failed: ${failed}`);
+if (failed > 0) {
+  failures.forEach(f => console.error('  ' + f));
+  process.exit(1);
+}
+process.exit(0);

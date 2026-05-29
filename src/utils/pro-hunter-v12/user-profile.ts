@@ -69,13 +69,10 @@ export async function measureBlog(url: string): Promise<UserProfile> {
   if (!blogId) throw new Error('네이버 블로그 URL이 아닙니다 (blog.naver.com/{id})');
 
   // 동적 import (puppeteer 무거움)
-  const puppeteer = (await import('puppeteer')).default;
-  const { findChromePath } = await import('../chrome-finder');
-  const chromePath = findChromePath();
+  const { launchCompatibleBrowser } = await import('../puppeteer-pool');
 
-  const browser = await puppeteer.launch({
+  const browser = await launchCompatibleBrowser({
     headless: 'new',
-    executablePath: chromePath || undefined,
     args: ['--no-sandbox', '--disable-setuid-sandbox', '--disable-dev-shm-usage'],
   });
 

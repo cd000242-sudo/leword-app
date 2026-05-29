@@ -3,7 +3,7 @@
  * 실제 브라우저처럼 동작하도록 최적화
  */
 
-import * as puppeteer from 'puppeteer';
+import type * as puppeteer from 'puppeteer';
 import * as fs from 'fs';
 
 /**
@@ -265,8 +265,6 @@ export async function createStealthBrowser(options: {
     args = []
   } = options;
   
-  const chromePath = getSystemChromePath();
-  
   const defaultArgs = [
     '--no-sandbox',
     '--disable-setuid-sandbox',
@@ -277,13 +275,12 @@ export async function createStealthBrowser(options: {
     '--start-maximized'
   ];
   
-  const browser = await puppeteer.launch({
+  const { launchCompatibleBrowser } = await import('./puppeteer-pool');
+  const browser = await launchCompatibleBrowser({
     headless,
-    executablePath: chromePath,
     args: [...defaultArgs, ...args],
     ignoreHTTPSErrors: true
   });
   
   return browser;
 }
-

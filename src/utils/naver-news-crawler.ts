@@ -7,13 +7,9 @@
  * - 정확한 셀렉터로 100% 수집률
  */
 
-import puppeteer from 'puppeteer-extra';
-import StealthPlugin from 'puppeteer-extra-plugin-stealth';
 import type { Browser, Page } from 'puppeteer';
 import axios from 'axios';
 import * as cheerio from 'cheerio';
-
-puppeteer.use(StealthPlugin());
 
 // v2.42.97: HTTP fetch 폴백 — Puppeteer 의존 없이 빠르고 안정적
 //   사용자 PC 환경(Chrome 미설치 등)에서 60s timeout 방지

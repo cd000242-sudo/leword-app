@@ -8,10 +8,6 @@
  * 4. 제목 패턴 및 키워드 전략 분석
  */
 
-import puppeteer from 'puppeteer-extra';
-import StealthPlugin from 'puppeteer-extra-plugin-stealth';
-puppeteer.use(StealthPlugin());
-
 export interface BloggerProfile {
     blogId: string;
     name: string;
@@ -65,7 +61,8 @@ export async function benchmarkSniperPro(
     console.log(`\n🕵️‍♂️ [SNIPER] 황금 키워드 ${goldenKeywords.length}개를 장악한 '1티어 블로그' 추적 중...`);
 
     const shouldCloseBrowser = !existingBrowser;
-    const browser = existingBrowser || await puppeteer.launch({ headless: "new" });
+    const { launchCompatibleBrowser } = await import('./puppeteer-pool');
+    const browser = existingBrowser || await launchCompatibleBrowser({ headless: "new" });
     const blogMap = new Map<string, BloggerProfile>();
 
     try {

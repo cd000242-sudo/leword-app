@@ -43,13 +43,10 @@ export class PuppeteerBlogIndexExtractor {
     try {
       console.log(`[PUPPETEER-EXTRACTOR] 블로그 지수 추출 시작: ${blogId}`);
       
-      const puppeteer = await import('puppeteer');
-      const { findChromePath } = await import('./chrome-finder');
-      const chromePath = findChromePath();
-      
-      browser = await puppeteer.launch({
+      const { launchCompatibleBrowser } = await import('./puppeteer-pool');
+
+      browser = await launchCompatibleBrowser({
         headless: 'new',
-        executablePath: chromePath,
         args: [
           '--no-sandbox',
           '--disable-setuid-sandbox',
@@ -718,5 +715,4 @@ export class AdvancedBlogIndexExtractor {
     return result;
   }
 }
-
 

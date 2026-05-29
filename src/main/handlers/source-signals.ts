@@ -77,6 +77,14 @@ export function setupSourceSignalHandlers(): void {
         } catch (e: any) { return { success: false, error: e.message, items: [] }; }
     });
 
+    ipcMain.handle('source-policy-briefing-aggregate', async (_e, p: { limit?: number } = {}) => {
+        try {
+            const { getPolicyBriefingKeywords } = await import('../../utils/policy-briefing-api');
+            const items = await getPolicyBriefingKeywords(p?.limit || 30);
+            return { success: true, items, count: items.length };
+        } catch (e: any) { return { success: false, error: e.message, items: [] }; }
+    });
+
     ipcMain.handle('source-youtube-trending', async () => {
         try {
             const keywords = await getYoutubeTrendingKeywords();
@@ -272,12 +280,13 @@ export function setupSourceSignalHandlers(): void {
     });
 
     // ========== Rich Golden Feed (메인 핵심) ==========
-    ipcMain.handle('get-rich-golden-feed', async (event, options?: { force?: boolean; tier?: 'lite' | 'pro'; limit?: number; aiAugmentation?: 'none' | 'claude' }) => {
+    ipcMain.handle('get-rich-golden-feed', async (event, options?: { force?: boolean; tier?: 'lite' | 'pro'; limit?: number; aiAugmentation?: 'none' | 'claude'; discoveryMode?: 'balanced' | 'bulk' }) => {
         try {
             const isPro = checkProTierAllowed().allowed;
             const tier: 'lite' | 'pro' = isPro ? (options?.tier === 'lite' ? 'lite' : 'pro') : 'lite';
+            const discoveryMode = options?.discoveryMode === 'bulk' ? 'bulk' : 'balanced';
             // v2.43.17: 대량 발굴 — pro 300 → 600, lite 200 → 400 (사용자 요청 "키워드 대량 발굴")
-            const limit = options?.limit || (tier === 'pro' ? 600 : 400);
+            const limit = options?.limit || (discoveryMode === 'bulk' ? (tier === 'pro' ? 1200 : 700) : (tier === 'pro' ? 600 : 400));
             const aiAugmentation = options?.aiAugmentation || 'none';
 
             const onProgress = (payload: { step: string; percent: number; message: string }) => {
@@ -285,8 +294,8 @@ export function setupSourceSignalHandlers(): void {
             };
 
             // v2.42.14: aiAugmentation='claude' 시 force=true 강제 (캐시 우회 — 매번 새 Claude 호출)
-            const force = aiAugmentation === 'claude' ? true : (options?.force === true);
-            const result = await getCachedRichFeed(force, { tier, limit, aiAugmentation }, onProgress);
+            const force = aiAugmentation === 'claude' || discoveryMode === 'bulk' ? true : (options?.force === true);
+            const result = await getCachedRichFeed(force, { tier, limit, aiAugmentation, discoveryMode }, onProgress);
             return { success: true, ...result, isPro };
         } catch (e: any) {
             console.error('[rich-feed] 실패:', e);

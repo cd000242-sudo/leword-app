@@ -264,7 +264,15 @@ export async function aggregateCommerceTrendSeeds(
     // 2. YouTube 트렌딩 (옵션) — 카테고리별 쿼리 지정 가능
     if (options?.youtubeEnabled !== false && options?.youtubeQuery) {
         try {
-            const { searchYouTubeVideos } = require('../youtube-data-api');
+            const { searchYouTubeVideos } = (() => {
+                try {
+                    const tsModule = require('../youtube-data-api.ts');
+                    if (tsModule?.searchYouTubeVideos) return tsModule;
+                } catch {
+                    // Packaged builds use compiled JS.
+                }
+                return require('../youtube-data-api');
+            })();
             const { EnvironmentManager } = require('../environment-manager');
             const apiKey = EnvironmentManager.getInstance().getConfig().youtubeApiKey;
             if (apiKey) {

@@ -9,8 +9,6 @@
  * 5. 폴백 메커니즘 - 하나 실패해도 다른 방법으로 시도
  */
 
-import puppeteer from 'puppeteer-extra';
-import StealthPlugin from 'puppeteer-extra-plugin-stealth';
 import type { Browser, Page } from 'puppeteer';
 import * as fs from 'fs';
 import * as path from 'path';
@@ -58,7 +56,6 @@ function logMetrics(sessionId: string, m: KinMetrics) {
   );
 }
 
-puppeteer.use(StealthPlugin());
 
 // ============================================================
 // 🔧 설정

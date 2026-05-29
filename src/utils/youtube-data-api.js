@@ -276,3 +276,15 @@ async function extractYouTubeTrendingKeywords(config) {
         return [];
     }
 }
+
+try {
+    if (require.extensions && require.extensions['.ts']) {
+        const tsModule = require('./youtube-data-api.ts');
+        if (tsModule && typeof tsModule.searchYouTubeVideos === 'function') {
+            module.exports = tsModule;
+        }
+    }
+}
+catch {
+    // Keep the legacy JS fallback for packaged or plain-Node contexts.
+}

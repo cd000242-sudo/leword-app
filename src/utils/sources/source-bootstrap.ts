@@ -61,7 +61,6 @@ const DISABLED_SOURCES = new Set([
     'openalex',             // timeout
     'rakuten',              // App ID 미설정
     'fmkorea',              // 0건
-    'korea-kr',             // ECONNRESET
     'bigkinds',             // timeout
     'digital-times',        // 0건
     'mt-industry',          // 0건

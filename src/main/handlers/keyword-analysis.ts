@@ -1756,7 +1756,7 @@ export function setupKeywordAnalysisHandlers(): void {
   // v2.42.77: 황금 키워드 자동 발굴 — 시맨틱 sibling 확장 + 황금비율 필터
   // "생각지도 못한 가치 키워드" 발굴: 헤드 명사 공유, modifier 다른 후보군에서 검색량/문서수 측정 후 황금비율 기준 정렬
   if (!ipcMain.listenerCount('discover-golden-keywords')) {
-    ipcMain.handle('discover-golden-keywords', async (event, payload: { keyword: string; minRatio?: number; minSearchVolume?: number; maxDocCount?: number }) => {
+    ipcMain.handle('discover-golden-keywords', async (event, payload: { keyword: string; minRatio?: number; minSearchVolume?: number; maxDocCount?: number; limit?: number }) => {
       try {
         const seed = String(payload?.keyword || '').trim();
         if (!seed) return { success: false, error: '키워드를 입력하세요', keywords: [] };
@@ -1798,11 +1798,30 @@ export function setupKeywordAnalysisHandlers(): void {
 
         const candidates = new Set<string>();
         candidates.add(seed);
+        const targetReturnCount = Math.max(30, Math.min(100, Number(payload?.limit || 30)));
+        const candidateCap = Math.max(160, targetReturnCount * 6);
+        const addCandidate = (value: string) => {
+          const kw = String(value || '').replace(/\s+/g, ' ').trim();
+          if (!kw || kw.length < 2 || kw.length > 35) return;
+          if (candidates.size >= candidateCap) return;
+          candidates.add(kw);
+        };
+        const currentYear = new Date().getFullYear();
+        const evergreenModifiers = [
+          '추천', '후기', '가격', '비교', '방법', '신청', '조회', '조건',
+          '자격', '기간', '정리', '순위', '혜택', '할인', '주의사항', '체크리스트',
+          '초보', '가이드', '장단점', '리뷰', '사용법', '문제 해결',
+          `${currentYear}`, `${currentYear} 추천`, `${currentYear} 신청`, `${currentYear} 조건`
+        ];
+        for (const mod of evergreenModifiers) {
+          addCandidate(`${seed} ${mod}`);
+          if (mod.length <= 4) addCandidate(`${mod} ${seed}`);
+        }
 
         // sibling 확장 (헤드 명사 공유, modifier 다름)
         try {
           const siblings = await getSemanticSiblings(seed, clientId, clientSecret);
-          siblings.forEach(s => candidates.add(s));
+          siblings.forEach(addCandidate);
           send('progress', `🌱 시맨틱 sibling ${siblings.length}건 확장`);
         } catch (e: any) {
           send('progress', `⚠️ sibling 확장 일부 실패: ${e?.message}`);
@@ -1811,13 +1830,33 @@ export function setupKeywordAnalysisHandlers(): void {
         // 자동완성도 함께 (시드 자체 확장)
         try {
           const autoExt = await getNaverAutocompleteKeywords(seed, { clientId, clientSecret });
-          autoExt.forEach(a => candidates.add(a));
+          autoExt.forEach(addCandidate);
           send('progress', `🌱 자동완성 ${autoExt.length}건 확장`);
         } catch (e: any) {
           send('progress', `⚠️ 자동완성 실패: ${e?.message}`);
         }
 
         // 너무 길거나 짧은 키워드 제거 + 노이즈 제거
+        if (candidates.size < targetReturnCount * 3) {
+          const bases = Array.from(candidates).slice(0, 16);
+          let secondHopCount = 0;
+          for (const base of bases) {
+            if (candidates.size >= candidateCap) break;
+            try {
+              const extra = await getNaverAutocompleteKeywords(base, { clientId, clientSecret });
+              for (const kw of extra) {
+                const before = candidates.size;
+                addCandidate(kw);
+                if (candidates.size > before) secondHopCount++;
+                if (candidates.size >= candidateCap) break;
+              }
+            } catch { /* ignore per seed */ }
+          }
+          if (secondHopCount > 0) {
+            send('progress', `?뙮 2李??먮룞?꾩꽦 ${secondHopCount}嫄??뺤옣`);
+          }
+        }
+
         const cleaned = Array.from(candidates).filter(k => {
           if (!k || k.length < 2 || k.length > 35) return false;
           if (/^네이버\s*(프리미엄콘텐츠|광고|광고대행사|파워링크|검색광고|애드포스트)/u.test(k)) return false;
@@ -1885,15 +1924,38 @@ export function setupKeywordAnalysisHandlers(): void {
         };
         let golden = enriched.filter(k => goldenFilter(k, minSearchVolume, maxDocCount, minRatio)).map(k => ({ ...k, isGolden: true }));
         let relaxedUsed = false;
+        let relaxedThresholds = { minRatio, minSearchVolume, maxDocCount, relaxed: false };
 
         // v2.43.1: 0건이면 자동 완화 재시도 (sv 100, dc 30000, ratio 2)
         if (golden.length === 0 && stats.svMeasured > 0) {
           send('progress', `🔧 엄격 컷 0건 → 완화 재시도 (sv≥100, dc≤30000, 비율≥2)`);
           golden = enriched.filter(k => goldenFilter(k, 100, 30000, 2)).map(k => ({ ...k, isGolden: false, _relaxed: true }));
           relaxedUsed = true;
+          relaxedThresholds = { minRatio: 2, minSearchVolume: 100, maxDocCount: 30000, relaxed: true };
         }
 
         // 정렬: 황금비율 내림차순 → 검색량 내림차순
+        if (golden.length < targetReturnCount && stats.svMeasured > 0) {
+          send('progress', `?뵩 ?⑷툑 ?ㅼ썙??30媛?誘몃떖(${golden.length}/${targetReturnCount}) ??候補 而?蹂댁텛`);
+          const tiers = [
+            { sv: 100, dc: 30000, ratio: 2 },
+            { sv: 50, dc: 50000, ratio: 1.2 },
+            { sv: 30, dc: 80000, ratio: 0.8 },
+          ];
+          for (const tier of tiers) {
+            if (golden.length >= targetReturnCount) break;
+            const used = new Set(golden.map(k => k.keyword));
+            const additions = enriched
+              .filter(k => !used.has(k.keyword) && goldenFilter(k, tier.sv, tier.dc, tier.ratio))
+              .map(k => ({ ...k, isGolden: false, _relaxed: true }));
+            if (additions.length > 0) {
+              golden.push(...additions);
+              relaxedUsed = true;
+              relaxedThresholds = { minRatio: tier.ratio, minSearchVolume: tier.sv, maxDocCount: tier.dc, relaxed: true };
+            }
+          }
+        }
+
         golden.sort((a, b) => {
           const ra = a.goldenRatio ?? 0;
           const rb = b.goldenRatio ?? 0;
@@ -1908,11 +1970,11 @@ export function setupKeywordAnalysisHandlers(): void {
 
         return {
           success: true,
-          keywords: golden.slice(0, 100),
+          keywords: golden.slice(0, Math.max(100, targetReturnCount)),
           totalCandidates: cleaned.length,
           totalMeasured: measured.length,
           appliedThresholds: relaxedUsed
-            ? { minRatio: 2, minSearchVolume: 100, maxDocCount: 30000, relaxed: true }
+            ? relaxedThresholds
             : { minRatio, minSearchVolume, maxDocCount, relaxed: false },
           stats, // sv/dc/ratio 측정 통계
           diagnosis: stats.svMeasured === 0

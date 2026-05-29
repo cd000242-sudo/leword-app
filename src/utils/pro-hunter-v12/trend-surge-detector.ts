@@ -37,8 +37,22 @@ interface SurgeStore {
 
 const FILE_NAME = 'trend-surges.json';
 
+function resolveUserDataPath(): string {
+  try {
+    if (app && typeof app.getPath === 'function') {
+      return app.getPath('userData');
+    }
+  } catch {
+    // Direct Node verification does not initialize Electron's app module.
+  }
+
+  const appData = process.env['APPDATA'];
+  if (appData) return path.join(appData, 'blogger-admin-panel');
+  return path.join(process.cwd(), '.leword-user-data');
+}
+
 function getStorePath(): string {
-  const dir = path.join(app.getPath('userData'), 'pro-hunter-v12');
+  const dir = path.join(resolveUserDataPath(), 'pro-hunter-v12');
   if (!fs.existsSync(dir)) fs.mkdirSync(dir, { recursive: true });
   return path.join(dir, FILE_NAME);
 }

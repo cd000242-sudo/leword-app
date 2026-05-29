@@ -857,7 +857,15 @@ export function setupConfigUtilityHandlers(): void {
         const display = Math.min(Math.max(Number(params?.display) || 50, 1), 100);
         const start = Math.min(Math.max(Number(params?.start) || 1, 1), 1000);
 
-        const { searchNaverShopping, pickBlogRecommendedItems, computeConversionScore } = await import('../../utils/naver-shopping-api');
+        const {
+          searchNaverShopping,
+          pickBlogRecommendedItems,
+          computeConversionScore,
+          rankShoppingOpportunities,
+          deriveShoppingExpansionQueries,
+          buildProductLeWordSeeds,
+          scoreLeWordEntryKeyword,
+        } = await import('../../utils/naver-shopping-api');
         const { analyzeShoppingKeywords, expandWithIntentSuffixes } = await import('../../utils/shopping-keyword-analyzer');
         const { buildCoupangSearchUrl, simplifyTitleForCoupangSearch, convertToPartnersLinks, getCoupangPartnersConfig, coupangProductSearch, pickBestCoupangMatch } = await import('../../utils/coupang-partners');
         const { getNaverAutocompleteKeywords } = await import('../../utils/naver-autocomplete');
@@ -866,7 +874,7 @@ export function setupConfigUtilityHandlers(): void {
         const { aggregateCommerceTrendSeeds, summarizeTrendSeeds } = await import('../../utils/sources/trend-seed-aggregator');
         const { NAVER_SHOPPING_CATEGORIES } = await import('../../utils/sources/naver-shopping-keyword-rank');
         // v2.43.64: Phase 9 — 네이버 검색 추세 검증 (rising/stable/declining/dead)
-        const { checkKeywordsRecency } = await import('../../utils/naver-datalab-api');
+        const { checkKeywordsRecency, getNaverKeywordSearchVolumeSeparate } = await import('../../utils/naver-datalab-api');
 
         // 검색 의도 분류 (스코어링 가산 + UI 뱃지)
         const intent = classifySearchIntent(keyword);
@@ -889,6 +897,9 @@ export function setupConfigUtilityHandlers(): void {
         // 쿠팡 검색 URL + 전환 스코어 전체 상품에 부착
         // 의도 가산점: 구매/비교성 키워드는 전체 추천 적극, 정보성은 억제
         for (const item of result.items) {
+          item.discoveryQuery = keyword;
+          item.discoverySource = 'direct';
+          item.discoveryReason = '원 입력어 직접 검색';
           const simplified = simplifyTitleForCoupangSearch(item.title) || keyword;
           item.coupangSearchUrl = buildCoupangSearchUrl(simplified);
           computeConversionScore(item);
@@ -897,7 +908,7 @@ export function setupConfigUtilityHandlers(): void {
           }
         }
 
-        const recommended = pickBlogRecommendedItems(result.items, 10);
+        let recommended = pickBlogRecommendedItems(result.items, 10);
 
         // 쿠팡파트너스 설정돼있으면 추천 10개를 트래킹 링크로 변환
         // v2.43.63: 4팀+2팀 — Product Search API 로 productId 정확 매칭 후 deeplink 변환
@@ -907,11 +918,17 @@ export function setupConfigUtilityHandlers(): void {
         const partnersCfg = getCoupangPartnersConfig();
         let partnersEnabled = false;
         let productMatchCount = 0;
-        if (partnersCfg.accessKey && partnersCfg.secretKey && recommended.length > 0) {
+        const partnerConvertedIds = new Set<string>();
+        const hydrateCoupangPartnerLinks = async (targetItems: any[]) => {
+          const targets = (targetItems || []).filter((item: any) =>
+            item?.productId && !partnerConvertedIds.has(item.productId)
+          );
+          if (!partnersCfg.accessKey || !partnersCfg.secretKey || targets.length === 0) return;
           try {
             // 1. 각 추천 상품에 대해 쿠팡 product search (캐시 적중 시 즉시)
             const matchedUrls = new Map<string, string>(); // 네이버 productId → 쿠팡 상품URL
-            await Promise.all(recommended.map(async (item) => {
+            let localMatchCount = 0;
+            await Promise.all(targets.map(async (item: any) => {
               try {
                 const simpKw = simplifyTitleForCoupangSearch(item.title) || keyword;
                 const candidates = await coupangProductSearch(simpKw, partnersCfg, { limit: 3 });
@@ -921,7 +938,7 @@ export function setupConfigUtilityHandlers(): void {
                   // UI 표시용 매칭 정보 부착 (사용자 신뢰도 ↑)
                   (item as any).coupangMatchedName = best.productName;
                   (item as any).coupangMatchedPrice = best.productPrice;
-                  productMatchCount++;
+                  localMatchCount++;
                 }
               } catch (err: any) {
                 // 개별 매칭 실패는 무시 (검색 URL fallback)
@@ -929,21 +946,24 @@ export function setupConfigUtilityHandlers(): void {
             }));
 
             // 2. 매칭된 productUrl + fallback 검색 URL 합쳐서 deeplink 변환
-            const urls = recommended.map(r => matchedUrls.get(r.productId) || r.coupangSearchUrl!).filter(Boolean);
+            const urls = targets.map((r: any) => matchedUrls.get(r.productId) || r.coupangSearchUrl!).filter(Boolean);
             const converted = await convertToPartnersLinks(urls, partnersCfg);
             const map = new Map(converted.map(c => [c.originalUrl, c.shortenUrl || c.landingUrl]));
-            for (const item of recommended) {
+            for (const item of targets) {
               const originalUrl = matchedUrls.get(item.productId) || item.coupangSearchUrl;
               if (originalUrl && map.has(originalUrl)) {
                 item.coupangSearchUrl = map.get(originalUrl)!;
               }
+              partnerConvertedIds.add(item.productId);
             }
             partnersEnabled = true;
-            console.log(`[SHOPPING-CONNECT] 쿠팡 정확 매칭: ${productMatchCount}/${recommended.length}건 (productId), 나머지는 검색 URL`);
+            productMatchCount += localMatchCount;
+            console.log(`[SHOPPING-CONNECT] 쿠팡 정확 매칭: +${localMatchCount}/${targets.length}건 (productId), 나머지는 검색 URL`);
           } catch (e: any) {
             console.warn('[SHOPPING-CONNECT] 쿠팡파트너스 링크 변환 실패:', e?.message);
           }
-        }
+        };
+        await hydrateCoupangPartnerLinks(recommended);
 
         // 🔥 Phase 4: 판매중 제품 필터 — 리뷰/관심도 있는 상품만 analyzer 에 주입
         //   naver-shopping-api 는 reviewCount 필드 제공 안 함 → productType=1 일반상품만
@@ -1020,6 +1040,152 @@ export function setupConfigUtilityHandlers(): void {
           }
         }
 
+        // v2.49.44: 원 검색어 하나만 긁으면 결국 "인기상품 확인"에 머문다.
+        // 같은 카테고리/대체 브랜드/자동완성 구매 의도/실시간 시드로 추가 쇼핑 검색을 병렬 수행해
+        // 사용자가 생각 못 한 제품군까지 후보 풀에 넣는다. 첫 페이지에서만 실행해 더보기 성능은 보호.
+        let expansionQueries: Array<{ query: string; source: any; reason: string }> = [];
+        if (isFirstPage) {
+          expansionQueries = deriveShoppingExpansionQueries(keyword, relatedKeywordsTrimmed, crossSourceSeeds, 8);
+          if (expansionQueries.length > 0) {
+            try {
+              const expandedResults = await Promise.allSettled(
+                expansionQueries.slice(0, 6).map(q =>
+                  searchNaverShopping(q.query, { display: 20, sort: 'sim', start: 1 })
+                    .then(r => ({ query: q, result: r }))
+                )
+              );
+              const seenProducts = new Set(result.items.map((item: any) =>
+                item.productId || `${item.title}|${item.lprice}|${item.mallName}`
+              ));
+              let expandedAdded = 0;
+              for (const settled of expandedResults) {
+                if (settled.status !== 'fulfilled') continue;
+                const { query: q, result: extra } = settled.value;
+                for (const item of extra.items || []) {
+                  const key = item.productId || `${item.title}|${item.lprice}|${item.mallName}`;
+                  if (!key || seenProducts.has(key)) continue;
+                  seenProducts.add(key);
+                  item.discoveryQuery = q.query;
+                  item.discoverySource = q.source;
+                  item.discoveryReason = q.reason;
+                  item.coupangSearchUrl = buildCoupangSearchUrl(simplifyTitleForCoupangSearch(item.title) || q.query);
+                  computeConversionScore(item);
+                  if (item.conversionScore !== undefined) {
+                    item.conversionScore = Math.round((item.conversionScore + intentAdjust) * 10) / 10;
+                  }
+                  result.items.push(item);
+                  expandedAdded++;
+                }
+              }
+              console.log(`[SHOPPING-CONNECT] 카테고리/대체 브랜드 확장 검색: query=${expansionQueries.length}, added=${expandedAdded}`);
+            } catch (e: any) {
+              console.warn('[SHOPPING-CONNECT] 확장 쇼핑 검색 실패:', e?.message);
+            }
+
+            // 확장 상품까지 반영한 최종 인사이트 재계산
+            try {
+              const finalSaleableItems = result.items.filter(it =>
+                (it.productType === 1 || !it.productType) && !!it.category1
+              );
+              insight = analyzeShoppingKeywords(
+                finalSaleableItems.length > 0 ? finalSaleableItems : result.items,
+                Math.max(result.total, result.items.length),
+                keyword
+              );
+              intentExpanded = expandWithIntentSuffixes(insight.longtailKeywords || [], [keyword]);
+            } catch (e: any) {
+              console.warn('[SHOPPING-CONNECT] 확장 후 analyzer 재계산 실패:', e?.message);
+            }
+          }
+        }
+
+        // v2.49.43: 쇼핑커넥트의 본질을 "인기상품 목록"에서 "지금 글 쓸 상품 판단"으로 전환.
+        // 수요(자동완성/실시간 시드/최근추세) + 구매의도 + 전환성 + 글감 적합도를 상품별로 재랭킹한다.
+        const opportunityContext = {
+          keyword,
+          intentPrimary: intent.primary,
+          totalHits: result.total,
+          relatedKeywords: relatedKeywordsTrimmed,
+          crossSourceSeeds,
+          recency,
+        };
+        const opportunityRanked = rankShoppingOpportunities(result.items, opportunityContext, 20);
+        if (opportunityRanked.length > 0) {
+          recommended = opportunityRanked.slice(0, 10);
+          await hydrateCoupangPartnerLinks(recommended);
+        }
+
+        // v2.49.44: 각 추천 상품을 LEWORD 진입판단 후보로 변환.
+        // 제품명 그대로만 보지 않고 같은 계열 대체 브랜드/카테고리 구매 키워드까지 제시한다.
+        const lewordSeedRows: Array<{ item: any; seed: any }> = [];
+        for (const item of recommended) {
+          const seeds = buildProductLeWordSeeds(item, keyword, 6);
+          item.lewordEntryKeywords = seeds;
+          for (const seed of seeds) lewordSeedRows.push({ item, seed });
+        }
+        if (lewordSeedRows.length > 0 && naverCfg.clientId && naverCfg.clientSecret) {
+          try {
+            const uniqueSeeds = Array.from(new Set(lewordSeedRows.map(row => row.seed.keyword))).slice(0, 40);
+            const metricMap = new Map<string, { searchVolume: number; documentCount: number }>();
+            for (let i = 0; i < uniqueSeeds.length; i += 20) {
+              const batch = uniqueSeeds.slice(i, i + 20);
+              try {
+                const sigs = await getNaverKeywordSearchVolumeSeparate(naverCfg, batch, { includeDocumentCount: true });
+                for (let j = 0; j < batch.length; j++) {
+                  const sig = sigs?.[j];
+                  if (!sig) continue;
+                  metricMap.set(batch[j], {
+                    searchVolume: (sig.pcSearchVolume || 0) + (sig.mobileSearchVolume || 0),
+                    documentCount: sig.documentCount || 0,
+                  });
+                }
+              } catch (e: any) {
+                console.warn('[SHOPPING-CONNECT] LEWORD 후보 metric batch 실패:', e?.message);
+              }
+            }
+            for (const item of recommended as any[]) {
+              item.lewordEntryKeywords = (item.lewordEntryKeywords || [])
+                .map((seed: any) => {
+                  const m = metricMap.get(seed.keyword);
+                  return m ? scoreLeWordEntryKeyword(seed, m.searchVolume, m.documentCount) : seed;
+                })
+                .sort((a: any, b: any) => (b.entryScore || 0) - (a.entryScore || 0));
+            }
+          } catch (e: any) {
+            console.warn('[SHOPPING-CONNECT] LEWORD 후보 진입판단 실패:', e?.message);
+          }
+        }
+
+        const topOpportunity = recommended[0] as any;
+        const hotCount = recommended.filter((item: any) => (item.opportunityScore || 0) >= 75).length;
+        const opportunitySummary = topOpportunity ? {
+          topScore: topOpportunity.opportunityScore || 0,
+          hotCount,
+          verdict: topOpportunity.opportunityScore >= 75
+            ? 'write-now'
+            : topOpportunity.opportunityScore >= 62
+              ? 'candidate'
+              : topOpportunity.opportunityScore >= 48
+                ? 'watch'
+                : 'weak',
+          title: topOpportunity.opportunityScore >= 75
+            ? '🔥 지금 작성 우선'
+            : topOpportunity.opportunityScore >= 62
+              ? '✅ 작성 후보'
+              : topOpportunity.opportunityScore >= 48
+                ? '🟡 검토 필요'
+                : '⚪ 전환 근거 약함',
+          reason: topOpportunity.writeRecommendation || '',
+          topProduct: topOpportunity.title || '',
+          topReasons: topOpportunity.opportunityReasons || [],
+          demandSignals: {
+            recencyStatus: recency?.status || '',
+            recencyRatio: recency?.ratio || 0,
+            relatedCount: relatedKeywordsTrimmed.length,
+            crossSourceCount: crossSourceSeeds.length,
+          },
+        } : null;
+
         return {
           success: true,
           keyword,
@@ -1037,6 +1203,7 @@ export function setupConfigUtilityHandlers(): void {
           recency,            // v2.43.64: DataLab 30일 추세 (rising/stable/declining/dead)
           relatedKeywords: relatedKeywordsTrimmed,
           intent, // 검색 의도 분류 (primary, scores, label, icon)
+          opportunitySummary, // v2.49.43: 지금 글 쓸 상품/근거 요약
         };
       } catch (err: any) {
         console.error('[SHOPPING-CONNECT] 오류:', err?.message ?? err);

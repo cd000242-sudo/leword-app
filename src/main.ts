@@ -1183,7 +1183,8 @@ function flushPendingSecondInstance(): void {
 // v2.43.75: crash guard 활성 — uncaughtException / unhandledRejection / child-process-gone 로깅
 setupCrashGuard();
 
-const gotSingleInstanceLock = acquireLockWithRetry();
+const isE2eSingleInstanceBypass = process.env.LEWORD_E2E_SKIP_SINGLE_INSTANCE === '1';
+const gotSingleInstanceLock = isE2eSingleInstanceBypass ? true : acquireLockWithRetry();
 if (!gotSingleInstanceLock) {
   // v2.43.83: dialog 제거 — silent quit
   //   기존 인스턴스의 second-instance 핸들러가 자동으로 메인창 focus + show
@@ -1505,4 +1506,3 @@ app.on('window-all-closed', () => {
     app.quit();
   }
 });
-

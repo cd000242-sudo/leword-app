@@ -1,327 +1,360 @@
-﻿/**
- * 대한민국 정책브리핑 인기검색어 API 유틸리티
- * 정책브리핑 사이트에서 인기 검색어 크롤링
- */
-
 import axios from 'axios';
 import * as cheerio from 'cheerio';
 
 export interface PolicyBriefingKeyword {
   rank: number;
   keyword: string;
+  title?: string;
   source: string;
   timestamp: string;
   category?: string;
+  publishedAt?: string;
+  url?: string;
 }
 
-// 제외할 텍스트 패턴
-const EXCLUDE_PATTERNS = [
-  /^더보기$/i,
-  /^전체보기$/i,
-  /^검색$/i,
-  /^로그인$/i,
-  /^회원가입$/i,
-  /^메뉴$/i,
-  /^홈$/i,
-  /^정책브리핑$/i,
-  /^korea\.kr$/i,
-  /^대한민국$/i,
-  /^정부$/i,
-  /^뉴스$/i,
-  /^공지$/i,
-  /^바로가기$/i,
-  /^\d+$/,
-  /^prev$/i,
-  /^next$/i,
-  /^이전$/i,
-  /^다음$/i,
+const UA = 'Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/131.0.0.0 Safari/537.36';
+
+const RSS_URLS = [
+  'https://www.korea.kr/rss/policy.xml',
+  'https://www.korea.kr/rss/pressrelease.xml',
+  'https://www.korea.kr/rss/ebriefing.xml',
+  'https://www.korea.kr/rss/expdoc.xml',
+  'https://www.korea.kr/rss/dept_mw.xml',
+  'https://www.korea.kr/rss/dept_moel.xml',
+  'https://www.korea.kr/rss/dept_molit.xml',
+  'https://www.korea.kr/rss/dept_mss.xml',
+  'https://www.korea.kr/rss/dept_moef.xml',
+  'https://www.korea.kr/rss/dept_mogef.xml',
+  'https://www.korea.kr/rss/dept_mois.xml',
 ];
 
-/**
- * 대한민국 정책브리핑 인기검색어 크롤링 (axios + cheerio)
- */
-export async function getPolicyBriefingKeywords(limit: number = 20): Promise<PolicyBriefingKeyword[]> {
-  const keywords: PolicyBriefingKeyword[] = [];
-  const seenKeywords = new Set<string>();
-  
-  console.log('[POLICY-BRIEFING] ========== 정책브리핑 인기검색어 수집 시작 ==========');
-  
-  try {
-    // 1. 정책브리핑 메인 페이지에서 키워드 추출
-    const mainUrl = 'https://www.korea.kr/main.do';
-    console.log('[POLICY-BRIEFING] 메인 페이지 요청:', mainUrl);
-    
-    const mainResponse = await axios.get(mainUrl, {
-      headers: {
-        'User-Agent': 'Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/120.0.0.0 Safari/537.36',
-        'Accept': 'text/html,application/xhtml+xml,application/xml;q=0.9,image/webp,*/*;q=0.8',
-        'Accept-Language': 'ko-KR,ko;q=0.9',
-        'Accept-Encoding': 'gzip, deflate, br',
-        'Connection': 'keep-alive'
-      },
-      timeout: 15000
-    });
-    
-    if (mainResponse.data) {
-      const $ = cheerio.load(mainResponse.data);
-      console.log('[POLICY-BRIEFING] HTML 길이:', mainResponse.data.length);
-      
-      // 인기검색어, 주요 키워드 선택자들
-      const selectors = [
-        // 인기검색어 영역
-        '.popular_keyword li a',
-        '.hot_keyword li a',
-        '.search_keyword li a',
-        '.rank_keyword li a',
-        '[class*="popular"] li a',
-        '[class*="keyword"] li a',
-        '[class*="rank"] li a',
-        // 주요 정책 뉴스 제목
-        '.news_title a',
-        '.policy_title a',
-        '.main_news_title a',
-        '.headline_title a',
-        'h2.title a',
-        'h3.title a',
-        '.tit a',
-        // 배너/슬라이드
-        '.banner_title a',
-        '.slide_title a',
-        '.visual_tit a',
-        '.main_visual a',
-        // 정책뉴스 목록
-        '.news_list li a',
-        '.policy_list li a',
-        '.bbs_list li a',
-        '.list_type li a',
-        // 일반 링크
-        'article h2 a',
-        'article h3 a',
-        '.cont_area a',
-        '.news_cont a'
-      ];
-      
-      for (const selector of selectors) {
-        if (keywords.length >= limit) break;
-        
-        $(selector).each((_idx, el) => {
-          if (keywords.length >= limit) return;
-          
-          let text = $(el).text().trim();
-          // 제목 속성도 확인
-          if (!text || text.length < 2) {
-            text = $(el).attr('title')?.trim() || '';
-          }
-          
-          // 정리
-          const cleanText = text
-            .replace(/^\d{1,2}(?:\.\s*|\s+)/, '')
-            .replace(/^▶\s*/, '')
-            .replace(/^▲\s*/, '')
-            .replace(/^▼\s*/, '')
-            .replace(/^NEW\s*/i, '')
-            .replace(/\s+/g, ' ')
-            .trim();
-          
-          if (cleanText && 
-              cleanText.length >= 2 && 
-              cleanText.length <= 40 &&
-              !EXCLUDE_PATTERNS.some(p => p.test(cleanText)) &&
-              !seenKeywords.has(cleanText.toLowerCase())) {
-            
-            seenKeywords.add(cleanText.toLowerCase());
-            keywords.push({
-              rank: keywords.length + 1,
-              keyword: cleanText,
-              source: 'bokjiro',
-              timestamp: new Date().toISOString(),
-              category: '정책브리핑'
-            });
-            console.log(`[POLICY-BRIEFING] 키워드 발견: ${cleanText}`);
-          }
-        });
-      }
-      
-      // 텍스트 노드에서도 추출 시도
-      if (keywords.length < limit) {
-        // 정책 관련 주요 단어 추출
-        const policyPatterns = [
-          /([가-힣]+)\s*(정책|지원|혜택|신청|안내)/g,
-          /(청년|노인|장애인|저소득층|취업|창업|주거|의료|교육|복지)\s*[가-힣]+/g,
-          /([가-힣]{2,10})\s*(개정|시행|발표|공고)/g
-        ];
-        
-        const bodyText = $('body').text();
-        
-        for (const pattern of policyPatterns) {
-          if (keywords.length >= limit) break;
-          
-          let match;
-          while ((match = pattern.exec(bodyText)) !== null && keywords.length < limit) {
-            const keyword = match[0].trim();
-            if (keyword.length >= 3 && 
-                keyword.length <= 20 &&
-                !seenKeywords.has(keyword.toLowerCase())) {
-              seenKeywords.add(keyword.toLowerCase());
-              keywords.push({
-                rank: keywords.length + 1,
-                keyword: keyword,
-                source: 'bokjiro',
-                timestamp: new Date().toISOString(),
-                category: '정책키워드'
-              });
-              console.log(`[POLICY-BRIEFING] 패턴 매칭 키워드: ${keyword}`);
-            }
-          }
-        }
-      }
-    }
-    
-    // 2. 키워드가 부족하면 정책뉴스 페이지에서 추가 수집
-    if (keywords.length < limit) {
-      console.log('[POLICY-BRIEFING] 정책뉴스 페이지에서 추가 수집...');
-      
-      const newsUrl = 'https://www.korea.kr/news/policyBriefingList.do';
-      
-      try {
-        const newsResponse = await axios.get(newsUrl, {
-          headers: {
-            'User-Agent': 'Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/120.0.0.0 Safari/537.36',
-            'Accept': 'text/html',
-            'Accept-Language': 'ko-KR,ko;q=0.9'
-          },
-          timeout: 15000
-        });
-        
-        if (newsResponse.data) {
-          const $news = cheerio.load(newsResponse.data);
-          
-          // 뉴스 제목에서 키워드 추출
-          $news('.news_list li a, .bbs_list li a, .list_type li a, h3 a, h4 a').each((_idx, el) => {
-            if (keywords.length >= limit) return;
-            
-            const title = $news(el).text().trim();
-            
-            // 따옴표 안의 키워드 추출
-            const quotedMatch = title.match(/['"「」『』""]([^'"「」『』""]+)['"「」『』""]/);
-            if (quotedMatch && quotedMatch[1]) {
-              const keyword = quotedMatch[1].trim();
-              if (keyword.length >= 2 && 
-                  keyword.length <= 20 &&
-                  !seenKeywords.has(keyword.toLowerCase())) {
-                seenKeywords.add(keyword.toLowerCase());
-                keywords.push({
-                  rank: keywords.length + 1,
-                  keyword: keyword,
-                  source: 'bokjiro',
-                  timestamp: new Date().toISOString(),
-                  category: '정책뉴스'
-                });
-                console.log(`[POLICY-BRIEFING] 뉴스 키워드: ${keyword}`);
-              }
-            }
-            
-            // 짧은 제목은 전체를 키워드로
-            if (title.length >= 4 && title.length <= 25 &&
-                !EXCLUDE_PATTERNS.some(p => p.test(title)) &&
-                !seenKeywords.has(title.toLowerCase())) {
-              seenKeywords.add(title.toLowerCase());
-              keywords.push({
-                rank: keywords.length + 1,
-                keyword: title,
-                source: 'bokjiro',
-                timestamp: new Date().toISOString(),
-                category: '정책뉴스'
-              });
-              console.log(`[POLICY-BRIEFING] 뉴스 제목: ${title}`);
-            }
-          });
-        }
-      } catch (newsErr: any) {
-        console.warn('[POLICY-BRIEFING] 정책뉴스 페이지 크롤링 실패:', newsErr.message);
-      }
-    }
-    
-    // 3. 여전히 키워드가 부족하면 기본 정책 키워드 추가
-    if (keywords.length < 5) {
-      console.log('[POLICY-BRIEFING] 기본 정책 키워드 추가...');
-      
-      const defaultKeywords = [
-        '청년 지원금',
-        '주거 지원',
-        '취업 지원',
-        '창업 지원',
-        '육아 휴직',
-        '연말정산',
-        '국민연금',
-        '건강보험',
-        '실업급여',
-        '기초생활수급'
-      ];
-      
-      for (const kw of defaultKeywords) {
-        if (keywords.length >= limit) break;
-        if (!seenKeywords.has(kw.toLowerCase())) {
-          seenKeywords.add(kw.toLowerCase());
-          keywords.push({
-            rank: keywords.length + 1,
-            keyword: kw,
-            source: 'bokjiro',
-            timestamp: new Date().toISOString(),
-            category: '추천정책'
-          });
-        }
-      }
-    }
-    
-    console.log(`[POLICY-BRIEFING] ✅ 총 ${keywords.length}개 키워드 수집 완료`);
-    keywords.forEach((kw, i) => console.log(`  ${i + 1}. ${kw.keyword} (${kw.category})`));
-    
-    return keywords.slice(0, limit);
-    
-  } catch (error: any) {
-    console.error('[POLICY-BRIEFING] 크롤링 실패:', error.message);
-    
-    // 실패 시 기본 키워드 반환
-    console.log('[POLICY-BRIEFING] 기본 정책 키워드 반환...');
-    const defaultKeywords = [
-      '청년 지원금',
-      '주거 지원',
-      '취업 지원',
-      '창업 지원',
-      '육아 휴직',
-      '연말정산',
-      '국민연금',
-      '건강보험',
-      '실업급여',
-      '기초생활수급'
-    ];
-    
-    return defaultKeywords.slice(0, limit).map((kw, idx) => ({
-      rank: idx + 1,
-      keyword: kw,
-      source: 'bokjiro',
-      timestamp: new Date().toISOString(),
-      category: '추천정책'
-    }));
-  }
+const HTML_URLS = [
+  'https://www.korea.kr/',
+  'https://m.korea.kr/index.do',
+  'https://www.korea.kr/news/policyNewsList.do',
+  'https://www.korea.kr/briefing/pressReleaseList.do',
+];
+
+const SUPPORT_RE = /(지원금|보조금|수당|급여|바우처|쿠폰|할인권|환급|장려금|소비쿠폰|펀드|대출|융자|감면|공제|신청|지급|대상|자격|모집|채용|공고|청년|소상공인|자영업|저소득|취약계층|고용|일자리|복지|주거|육아|출산|의료|교육|창업|민생)/;
+const EXCLUDE_RE = /^(더보기|전체보기|검색|로그인|회원가입|메뉴|홈|정책브리핑|대한민국|정부|뉴스|공지|바로가기|prev|next|이전|다음|\d+)$/i;
+const INTENT_RE = /(지원금|보조금|수당|급여|바우처|쿠폰|할인권|환급|장려금|소비쿠폰|펀드|대출|융자|감면|공제|신청|지급|대상|자격|모집|채용|공고|혜택|접수|시행|확대|신설|개편)/;
+const AUDIENCE_RE = /(청년|소상공인|자영업|저소득층|취약계층|신혼부부|노인|장애인|아동|농어민|구직자|근로자|중소기업|임산부|부모|학생|어르신)/;
+const DISPLAY_TITLE_MAX = 96;
+
+function decodeHtmlEntities(text: string): string {
+  return String(text || '')
+    .replace(/&quot;/g, '"')
+    .replace(/&#034;/g, '"')
+    .replace(/&#39;|&apos;/g, "'")
+    .replace(/&middot;/g, '·')
+    .replace(/&amp;/g, '&')
+    .replace(/&lt;/g, '<')
+    .replace(/&gt;/g, '>');
 }
 
-/**
- * 정책브리핑 + 네이버 실시간 검색어 통합 수집
- */
-export async function getGovernmentTrendKeywords(limit: number = 30): Promise<PolicyBriefingKeyword[]> {
-  const results: PolicyBriefingKeyword[] = [];
-  
-  try {
-    // 정책브리핑 키워드
-    const policyKeywords = await getPolicyBriefingKeywords(limit);
-    results.push(...policyKeywords);
-    
-    return results.slice(0, limit);
-    
-  } catch (error: any) {
-    console.error('[POLICY-BRIEFING] 통합 키워드 수집 실패:', error);
-    return results;
+function cleanText(text: string): string {
+  return decodeHtmlEntities(text)
+    .replace(/<!\[CDATA\[|\]\]>/g, '')
+    .replace(/\[[^\]]{1,16}\]/g, ' ')
+    .replace(/「|」|『|』|“|”/g, '"')
+    .replace(/^\d{1,2}(?:\.\s*|\s+)/, '')
+    .replace(/^(NEW|▶|▲|▼)\s*/i, '')
+    .replace(/\s+/g, ' ')
+    .trim();
+}
+
+function truncateText(text: string, max: number = DISPLAY_TITLE_MAX): string {
+  const clean = cleanText(text);
+  if (clean.length <= max) return clean;
+  const head = clean.slice(0, max + 1);
+  const lastSpace = head.lastIndexOf(' ');
+  const cut = lastSpace >= Math.floor(max * 0.55) ? head.slice(0, lastSpace) : head.slice(0, max);
+  return `${cut.trim()}...`;
+}
+
+export function compactPolicyDisplayTitle(title: string, fallbackKeyword: string = ''): string {
+  let clean = cleanText(title || fallbackKeyword)
+    .replace(/\s*(바로가기|본문 바로가기|전체보기|더보기)\s*/g, ' ')
+    .replace(/\s+/g, ' ')
+    .trim();
+  const fallback = cleanText(fallbackKeyword);
+  if (!clean) return fallback;
+
+  const dashHead = clean.split(/\s[-–—]\s/)[0]?.trim();
+  if (dashHead && dashHead.length >= 8 && dashHead.length <= 120) {
+    clean = dashHead;
+  } else {
+    const sentence =
+      clean.match(/^(.{10,120}?(?:습니다|합니다|됩니다|했습니다|밝혔습니다|한다|된다|했다|이다)\.)\s/) ||
+      clean.match(/^(.{20,120}?[.!?])\s/);
+    if (sentence?.[1]) clean = sentence[1].trim();
   }
+
+  if (clean.length > 140 && fallback) {
+    return fallback;
+  }
+  return truncateText(clean, DISPLAY_TITLE_MAX);
+}
+
+function normalizeKeywordPhrase(text: string): string {
+  return cleanText(text)
+    .replace(/^(차관동정|장관동정|보도자료|설명자료|참고자료)\s*/g, '')
+    .replace(/\b\d{1,2}일부터\s*/g, '')
+    .replace(/\b\d{1,2}월\s*\d{1,2}일부터\s*/g, '')
+    .replace(/\b\d{4}년\s*/g, '')
+    .replace(/\s*(하세요|한다|합니다|된다|됩니다|나선다|밝혔다|개최|마련한다|선보이다)\.?$/g, '')
+    .replace(/[.,!?;:]+$/g, '')
+    .replace(/\s+/g, ' ')
+    .trim();
+}
+
+function compactKeywordPhrase(text: string): string {
+  let clean = normalizeKeywordPhrase(text)
+    .replace(/^(과|와|및|또는)\s+/, '')
+    .replace(/([가-힣])을\s+(신청|접수|모집|대상|자격|지급)/g, '$1 $2')
+    .replace(/([가-힣])를\s+(신청|접수|모집|대상|자격|지급)/g, '$1 $2')
+    .replace(/\s+/g, ' ')
+    .trim();
+  const badSentence = /(이유로|포괄임금|미지급|포함된|까지|넘어|방문해|참여할|부담을|덜어|머리를 맞대고|시각으로|선보이다|정액수당|휴일근로수당|연차유급휴가|고액 급여|채용비리|산재간호대상|국가기술자격)/;
+  if (badSentence.test(clean)) return '';
+
+  if (/농산물 구매권/.test(clean)) return '농식품 바우처 지급';
+
+  const namedPrograms = [
+    '고유가 피해지원금',
+    '민생회복 소비쿠폰',
+    'AX원스톱 바우처',
+    '농식품 바우처',
+    '여성 청소년 생리용품 바우처',
+    '업무분담지원금',
+    '유가연동보조금',
+    '생계급여',
+    '기초연금',
+  ];
+  for (const program of namedPrograms) {
+    if (clean.includes(program)) {
+      const intent = clean.match(/이의신청|신청|지급|대상|자격|접수|사용|방법/);
+      if (intent?.[0] && !program.includes(intent[0])) return `${program} ${intent[0]}`;
+      return program;
+    }
+  }
+
+  const supportMatch = clean.match(/(?:[가-힣A-Za-z0-9·-]+\s*){1,4}(지원금|보조금|수당|급여|바우처|소비쿠폰|할인권|환급|장려금|펀드|대출|융자|감면|공제)/);
+  if (supportMatch?.[0]) {
+    const base = supportMatch[0].trim();
+    const intent = clean.match(/이의신청|신청|지급|대상|자격|접수|사용|방법/);
+    if (intent?.[0] && !base.includes(intent[0])) return `${base} ${intent[0]}`;
+    return base;
+  }
+
+  const audienceMatch = clean.match(/(?:청년|소상공인|자영업|저소득층|취약계층|신혼부부|노인|장애인|아동|농어민|구직자|근로자|중소기업|임산부|부모|학생|어르신)(?:\s*[가-힣A-Za-z0-9·-]+){0,3}\s*(신청|모집|대상|자격|혜택|지원)/);
+  if (audienceMatch?.[0]) {
+    const audience = audienceMatch[0].trim();
+    if (/^(근로자|중소기업|학생)\s*대상$/.test(audience)) return '';
+    return audience;
+  }
+
+  const actionMatch = clean.match(/(?:[가-힣A-Za-z0-9·-]+\s*){1,4}(신청|접수|모집|채용|공고|시행|확대|신설|개편)/);
+  if (actionMatch?.[0]) return actionMatch[0].trim();
+
+  return clean;
+}
+
+function isSeedLike(keyword: string): boolean {
+  const clean = normalizeKeywordPhrase(keyword);
+  if (!clean || clean.length < 3 || clean.length > 28) return false;
+  if (EXCLUDE_RE.test(clean)) return false;
+  if (/^\d+(월|일|년|차|명|개)?$/.test(clean)) return false;
+  if (/\d+만\s*명|\d+년 이상/.test(clean)) return false;
+  if (/^(신청 접수|입주기업 모집|주민 제안서 접수)$/.test(clean)) return false;
+  if (/^(관련|대한|우리|이번|오늘|내일|위한|통해|부터|까지)/.test(clean)) return false;
+  if (/(이유로|포괄임금|미지급|포함된|까지|넘어|방문해|참여할|부담을|덜어|머리를 맞대고|시각으로|선보이다)/.test(clean)) return false;
+  return INTENT_RE.test(clean) || AUDIENCE_RE.test(clean);
+}
+
+function addCandidate(
+  out: PolicyBriefingKeyword[],
+  seen: Set<string>,
+  keyword: string,
+  category: string,
+  url?: string,
+  publishedAt?: string,
+  title?: string,
+): void {
+  const clean = compactKeywordPhrase(keyword);
+  if (!isSeedLike(clean)) return;
+  if (EXCLUDE_RE.test(clean)) return;
+
+  const key = clean.toLowerCase();
+  if (seen.has(key)) return;
+  seen.add(key);
+  out.push({
+    rank: out.length + 1,
+    keyword: clean,
+    title: compactPolicyDisplayTitle(title || keyword, clean),
+    source: 'policy-briefing',
+    timestamp: new Date().toISOString(),
+    category,
+    url,
+    publishedAt,
+  });
+}
+
+function extractPolicyPhrases(title: string): string[] {
+  const clean = cleanText(title);
+  const phrases = new Set<string>();
+  if (!clean) return [];
+
+  if (SUPPORT_RE.test(clean) && isSeedLike(clean)) phrases.add(normalizeKeywordPhrase(clean));
+
+  const quoted = clean.matchAll(/[“"「『']([^“"」』']{2,35})[”"」』']/g);
+  for (const m of quoted) {
+    if (m[1] && SUPPORT_RE.test(m[1])) phrases.add(normalizeKeywordPhrase(m[1]));
+  }
+
+  const patterns = [
+    /[가-힣A-Za-z0-9·\-\s]{2,24}(지원금|보조금|수당|급여|바우처|소비쿠폰|할인권|환급|장려금|펀드|대출|융자|감면|공제)/g,
+    /(청년|소상공인|자영업|저소득층|취약계층|신혼부부|노인|장애인|아동|농어민|구직자|근로자|중소기업|임산부|부모|학생|어르신)[가-힣A-Za-z0-9·\-\s]{0,18}(지원|신청|모집|혜택|대상|자격|수당|급여|바우처|융자|대출)/g,
+    /[가-힣A-Za-z0-9·\-\s]{2,28}(신청|접수|지급|모집|채용|공고|시행|확대|신설|개편)/g,
+  ];
+  for (const pattern of patterns) {
+    for (const m of clean.matchAll(pattern)) {
+      if (m[0]) phrases.add(normalizeKeywordPhrase(m[0]));
+    }
+  }
+
+  for (const clause of clean.split(/[,.!?;:()]/g)) {
+    const phrase = normalizeKeywordPhrase(clause);
+    if (isSeedLike(phrase)) phrases.add(phrase);
+  }
+
+  return Array.from(phrases).filter(isSeedLike);
+}
+
+function scorePolicyKeyword(keyword: string): number {
+  let score = 0;
+  if (/(지원금|보조금|수당|급여|바우처|환급|장려금|소비쿠폰)/.test(keyword)) score += 40;
+  if (/(신청|대상|자격|지급|접수|모집)/.test(keyword)) score += 25;
+  if (AUDIENCE_RE.test(keyword)) score += 18;
+  if (keyword.length >= 5 && keyword.length <= 22) score += 12;
+  if (keyword.length > 30) score -= 20;
+  return score;
+}
+
+async function fetchRssItems(): Promise<PolicyBriefingKeyword[]> {
+  const out: PolicyBriefingKeyword[] = [];
+  const seen = new Set<string>();
+
+  await Promise.allSettled(RSS_URLS.map(async url => {
+    const res = await axios.get(url, {
+      timeout: 9000,
+      responseType: 'text',
+      headers: {
+        'User-Agent': UA,
+        'Accept': 'application/rss+xml, application/xml, text/xml, */*',
+        'Accept-Language': 'ko-KR,ko;q=0.9',
+        'Referer': 'https://www.korea.kr/etc/rss.do',
+      },
+      validateStatus: s => s < 500,
+    });
+    const $ = cheerio.load(String(res.data || ''), { xmlMode: true });
+    $('item').each((_idx, el) => {
+      const title = cleanText($(el).find('title').first().text());
+      const link = cleanText($(el).find('link').first().text());
+      const pubDate = cleanText($(el).find('pubDate').first().text());
+      for (const phrase of extractPolicyPhrases(title)) {
+        addCandidate(out, seen, phrase, '정책브리핑 RSS', link, pubDate, title);
+      }
+    });
+  }));
+
+  return out;
+}
+
+async function fetchHtmlItems(): Promise<PolicyBriefingKeyword[]> {
+  const out: PolicyBriefingKeyword[] = [];
+  const seen = new Set<string>();
+
+  await Promise.allSettled(HTML_URLS.map(async url => {
+    const res = await axios.get(url, {
+      timeout: 9000,
+      headers: {
+        'User-Agent': UA,
+        'Accept': 'text/html,application/xhtml+xml',
+        'Accept-Language': 'ko-KR,ko;q=0.9',
+      },
+      validateStatus: s => s < 500,
+    });
+    const $ = cheerio.load(String(res.data || ''));
+
+    const hashText = $('body').text();
+    for (const m of hashText.matchAll(/#[가-힣A-Za-z0-9·\-\s]{2,24}/g)) {
+      const keyword = m[0].replace(/^#/, '');
+      addCandidate(out, seen, keyword, '정책브리핑 인기검색어', url, undefined, keyword);
+    }
+
+    const selectors = [
+      'a[href*="/news/"]',
+      'a[href*="/briefing/"]',
+      '.rank_news a',
+      '.popular a',
+      '.latest a',
+      '.list_type1 a',
+      '.news_list a',
+      'h2 a',
+      'h3 a',
+      'h4 a',
+    ];
+    for (const selector of selectors) {
+      $(selector).each((_idx, el) => {
+        const title = cleanText($(el).text() || $(el).attr('title') || '');
+        const href = $(el).attr('href') || '';
+        const fullUrl = href.startsWith('http') ? href : href ? new URL(href, url).toString() : url;
+        for (const phrase of extractPolicyPhrases(title)) {
+          addCandidate(out, seen, phrase, '정책브리핑 최신/인기', fullUrl, undefined, title);
+        }
+      });
+    }
+  }));
+
+  return out;
+}
+
+export async function getPolicyBriefingKeywords(limit: number = 30): Promise<PolicyBriefingKeyword[]> {
+  console.log('[POLICY-BRIEFING] collecting korea.kr policy/support signals');
+  const merged: PolicyBriefingKeyword[] = [];
+  const seen = new Set<string>();
+
+  const [rss, html] = await Promise.allSettled([fetchRssItems(), fetchHtmlItems()]);
+  for (const list of [rss, html]) {
+    if (list.status !== 'fulfilled') continue;
+    for (const item of list.value) {
+      addCandidate(merged, seen, item.keyword, item.category || '정책브리핑', item.url, item.publishedAt, item.title || item.keyword);
+    }
+  }
+
+  const supportFirst = merged.sort((a, b) => {
+    const aw = scorePolicyKeyword(a.keyword);
+    const bw = scorePolicyKeyword(b.keyword);
+    if (aw !== bw) return bw - aw;
+    return a.rank - b.rank;
+  });
+
+  if (supportFirst.length > 0) {
+    return supportFirst.slice(0, limit).map((item, idx) => ({ ...item, rank: idx + 1 }));
+  }
+
+  const defaults = ['고유가 피해지원금', '민생회복 소비쿠폰', '청년 지원금', '소상공인 지원금', '주거 지원금', '육아휴직 급여', '실업급여 신청'];
+  return defaults.slice(0, limit).map((keyword, idx) => ({
+    rank: idx + 1,
+    keyword,
+    source: 'policy-briefing',
+    timestamp: new Date().toISOString(),
+    category: '정책브리핑 기본',
+    title: keyword,
+  }));
+}
+
+export async function getGovernmentTrendKeywords(limit: number = 30): Promise<PolicyBriefingKeyword[]> {
+  return getPolicyBriefingKeywords(limit);
 }

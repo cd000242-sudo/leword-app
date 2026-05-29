@@ -5,8 +5,17 @@
  * 차별점: 유튜버가 리뷰하는 "지금 핫한 제품"이 영상 제목에 그대로 노출 → 실시간 유행 반영.
  */
 
-import { searchYouTubeVideos } from '../youtube-data-api';
 import { EnvironmentManager } from '../environment-manager';
+
+const { searchYouTubeVideos } = (() => {
+    try {
+        const tsModule = require('../youtube-data-api.ts');
+        if (tsModule?.searchYouTubeVideos) return tsModule;
+    } catch {
+        // Packaged builds use compiled JS.
+    }
+    return require('../youtube-data-api');
+})() as typeof import('../youtube-data-api');
 
 /**
  * 뷰티 관련 키워드로 최근 7일간 업로드된 인기 영상 제목 수집

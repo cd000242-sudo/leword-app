@@ -6,7 +6,7 @@
  * homeScore 공식:
  *   = (CTR잠재 × 0.35) + (신선도 × 0.30) + (카테고리적합도 × 0.20) + (빈자리 × 0.15)
  *
- * 70점+ = 홈판 진입 가능, 85점+ = 진입 거의 확실
+ * 70점+ = 홈판 상위 후보, 85점+ = 고가능성 후보
  */
 
 export interface HomeScoreInput {
@@ -42,14 +42,14 @@ export interface HomeScoreResult {
     grade: 'IMPOSSIBLE' | 'HARD' | 'POSSIBLE' | 'EASY' | 'CERTAIN';
     summary: string;
     actionable: string[];
-    // v2.42.59: 블로그 권위 컨텍스트 보정값 (사용자에게 같은 점수라도 다른 실현 확률 표시)
+    // v2.42.59: 블로그 권위 컨텍스트 보정값 (같은 점수라도 체감 난이도 다름)
     contextualMultiplier?: number; // 0.3 (신생) ~ 1.5 (베테랑)
-    estimatedExposureProbability?: number; // 0~100% — homeScore × multiplier
+    estimatedExposureProbability?: number; // legacy field: 0~100 상대 가능성 지수
 }
 
-// v2.42.59: 블로그 권위 → 실현 확률 보정 multiplier
+// v2.42.59: 블로그 권위 → 상대 가능성 보정 multiplier
 //   네이버 노출은 키워드 점수만이 아니라 블로그 권위(C-Rank)에 좌우됨
-//   같은 67점 키워드: 신생 블로그(0.3×) = 20% 실현 / 베테랑(1.5×) = 100% 실현
+//   같은 67점 키워드도 신생 블로그와 베테랑 블로그의 체감 난이도가 다르다.
 export function calculateBlogAuthorityMultiplier(authority?: BlogAuthorityInput): number {
     if (!authority) return 1.0; // 미지정 시 중립
     let m = 0.5; // 기본 (정보 부재 = 보수적)
@@ -175,9 +175,9 @@ export function calculateHomeScore(input: HomeScoreInput): HomeScoreResult {
     let grade: HomeScoreResult['grade'];
     let summary: string;
     if (vacancyHardKill) { grade = 'IMPOSSIBLE'; summary = '🛑 빅도메인 독점 — 신생 진입 불가 (vacancy ≤ 2)'; }
-    else if (homeScore >= 85) { grade = 'CERTAIN'; summary = '🏠 홈판 진입 거의 확실 — 즉시 발행'; }
-    else if (homeScore >= 70) { grade = 'EASY'; summary = '✅ 홈판 진입 쉬움 — 발행 추천'; }
-    else if (homeScore >= 55) { grade = 'POSSIBLE'; summary = '⚠️ 홈판 진입 가능 — 제목 최적화 필수'; }
+    else if (homeScore >= 85) { grade = 'CERTAIN'; summary = '🏠 홈판 고가능성 후보 — 발행 우선'; }
+    else if (homeScore >= 70) { grade = 'EASY'; summary = '✅ 홈판 상위 후보 — 발행 추천'; }
+    else if (homeScore >= 55) { grade = 'POSSIBLE'; summary = '⚠️ 홈판 후보 — 제목 최적화 필수'; }
     else if (homeScore >= 35) { grade = 'HARD'; summary = '🔴 홈판 진입 어려움 — 신선도/제목 문제'; }
     else { grade = 'IMPOSSIBLE'; summary = '💀 홈판 진입 불가 — 다른 키워드 권장'; }
 
@@ -192,7 +192,7 @@ export function calculateHomeScore(input: HomeScoreInput): HomeScoreResult {
     if (vacancy < 5) actionable.push(`👤 인플루언서 점유 (${inf}/10) — 진입 매우 어려움`);
     if (actionable.length === 0) actionable.push(`🚀 모든 조건 통과 — 즉시 발행 권장`);
 
-    // v2.42.59: 블로그 권위 보정 — homeScore × multiplier = 실제 노출 확률 추정
+    // v2.42.59: 블로그 권위 보정 — homeScore × multiplier = 상대 가능성 지수
     const contextualMultiplier = calculateBlogAuthorityMultiplier(input.blogAuthority);
     const estimatedExposureProbability = Math.min(100, Math.round(homeScore * contextualMultiplier));
 

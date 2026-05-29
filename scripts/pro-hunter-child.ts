@@ -43,7 +43,9 @@ async function main() {
     count,
     forceRefresh,
     includeSeasonKeywords: true,
-    targetRookie: true
+    targetRookie: true,
+    discoveryFirst: false,
+    fastDiscovery: count >= 50
   });
 
   console.error(`[CHILD] done category=${category} keywords=${result?.keywords?.length || 0}`);

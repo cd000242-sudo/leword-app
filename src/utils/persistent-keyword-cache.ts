@@ -185,9 +185,10 @@ export function getAllKeywordsWithCompleteData(): Array<{
   keyword: string;
   searchVolume: number;
   documentCount: number;
+  savedAt: number;
 }> {
   ensureLoaded();
-  const result: Array<{ keyword: string; searchVolume: number; documentCount: number }> = [];
+  const result: Array<{ keyword: string; searchVolume: number; documentCount: number; savedAt: number }> = [];
   const seen = new Set<string>();
   for (const [key, entry] of cache.entries()) {
     if (!entry || typeof entry.searchVolume !== 'number' || typeof entry.documentCount !== 'number') continue;
@@ -201,6 +202,7 @@ export function getAllKeywordsWithCompleteData(): Array<{
       keyword: canonKey,
       searchVolume: entry.searchVolume,
       documentCount: entry.documentCount,
+      savedAt: entry.savedAt,
     });
   }
   return result;

@@ -3,7 +3,7 @@
  * 키워드의 상위노출 블로그 5개를 추출하고, 각 블로그의 전체 지수를 파악
  */
 
-import puppeteer, { Browser, Page } from 'puppeteer';
+import type { Browser, Page } from 'puppeteer';
 
 export interface TopBlogPost {
   rank: number; // 순위 (1~5)

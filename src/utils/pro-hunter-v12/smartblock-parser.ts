@@ -2,7 +2,7 @@
 // 작성: 2026-04-15
 // 네이버 검색 결과에서 인기글/VIEW/지식iN/쇼핑/카페/인플루언서 등 블록별 분석
 
-import puppeteer, { Browser } from 'puppeteer';
+import type { Browser } from 'puppeteer';
 
 export type SmartBlockType =
   | 'popular_post'      // 인기글
@@ -144,11 +144,9 @@ function strategyForBlock(type: SmartBlockType): { canPenetrate: boolean; strate
 }
 
 export async function analyzeSmartBlocks(keyword: string): Promise<SmartBlockAnalysis> {
-  const { findChromePath } = await import('../chrome-finder');
-  const chromePath = findChromePath();
-  const browser: Browser = await puppeteer.launch({
+  const { launchCompatibleBrowser } = await import('../puppeteer-pool');
+  const browser: Browser = await launchCompatibleBrowser({
     headless: 'new',
-    executablePath: chromePath || undefined,
     args: ['--no-sandbox', '--disable-setuid-sandbox', '--disable-dev-shm-usage', '--disable-gpu'],
   });
 

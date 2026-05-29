@@ -3,7 +3,6 @@
 // Google Custom Search API로 상위 10개 URL 수집 + Puppeteer로 본문 크롤
 // 네이버 + 구글 이중 타겟 전략 지원
 
-import puppeteer from 'puppeteer';
 import { EnvironmentManager } from '../environment-manager';
 
 export interface GoogleSerpItem {
@@ -165,11 +164,9 @@ export async function fetchGoogleTop10(keyword: string): Promise<GoogleSerpAnaly
 }
 
 async function scrapeGoogle(keyword: string): Promise<GoogleSerpItem[]> {
-  const { findChromePath } = await import('../chrome-finder');
-  const chromePath = findChromePath();
-  const browser = await puppeteer.launch({
+  const { launchCompatibleBrowser } = await import('../puppeteer-pool');
+  const browser = await launchCompatibleBrowser({
     headless: 'new',
-    executablePath: chromePath || undefined,
     args: ['--no-sandbox', '--disable-setuid-sandbox', '--disable-dev-shm-usage'],
   });
   try {

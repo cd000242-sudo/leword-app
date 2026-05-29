@@ -5,12 +5,241 @@ import * as cheerio from 'cheerio';
 export interface RealtimeKeyword {
   keyword: string;
   rank: number;
-  source: 'zum' | 'google' | 'nate' | 'daum' | 'naver' | 'bokjiro' | 'youtube';
+  source: 'zum' | 'google' | 'nate' | 'daum' | 'naver' | 'bokjiro' | 'policy' | 'youtube';
   timestamp: string;
   change?: 'up' | 'down' | 'new' | 'stable';
   previousRank?: number;
   searchVolume?: number;
   changeRate?: number;
+  strengthScore?: number;
+  strengthGrade?: 'STRONG' | 'SOLID' | 'WATCH' | 'WEAK';
+  strengthReasons?: string[];
+  sourceCount?: number;
+  matchedSources?: RealtimeKeyword['source'][];
+  blogIntentScore?: number;
+  noisePenalty?: number;
+}
+
+type RealtimePlatformKey = 'zum' | 'google' | 'nate' | 'daum' | 'naver' | 'bokjiro';
+type RealtimeKeywordGroups = Partial<Record<RealtimePlatformKey, RealtimeKeyword[]>> & {
+  timestamp?: string;
+};
+
+interface RealtimeStrengthContext {
+  rank?: number;
+  change?: RealtimeKeyword['change'];
+  primarySource?: RealtimeKeyword['source'];
+  matchedSources?: RealtimeKeyword['source'][];
+}
+
+const REALTIME_PLATFORM_KEYS: RealtimePlatformKey[] = ['naver', 'zum', 'nate', 'daum', 'google', 'bokjiro'];
+const SOURCE_TRUST_WEIGHT: Record<RealtimeKeyword['source'], number> = {
+  naver: 16,
+  google: 14,
+  policy: 16,
+  bokjiro: 16,
+  youtube: 12,
+  daum: 11,
+  nate: 10,
+  zum: 9
+};
+
+const SOURCE_LABEL: Record<RealtimeKeyword['source'], string> = {
+  naver: '네이버',
+  google: 'Google',
+  policy: '정책',
+  bokjiro: '정책',
+  youtube: 'YouTube',
+  daum: '다음',
+  nate: '네이트',
+  zum: 'ZUM'
+};
+
+const BLOG_INTENT_RE = /(추천|후기|리뷰|정리|방법|신청|대상|자격|일정|가격|비교|순위|혜택|지원|지원금|보조금|장려금|환급|조회|발급|예매|라인업|출연|결과|코스|맛집|축제|할인|증상|원인|준비물|기간|조건)/;
+const FRESH_EVENT_RE = /(오늘|내일|이번|주말|방금|속보|발표|공개|출시|오픈|마감|접수|컴백|결혼|사망|확정|변경|개편|202[0-9]|시즌|상반기|하반기)/;
+const POLICY_VALUE_RE = /(지원금|보조금|장려금|바우처|급여|수당|환급|감면|면제|정책|복지|대출|청년|소상공인|육아|출산|노인|장애인|근로|고용|국민연금|건강보험)/;
+const AD_NOISE_RE = /(보험|대출|변호사|법무법인|성형|라식|임플란트|도박|카지노|토토|성인|사주|점집|흥신소)/;
+const GENERIC_BROAD_RE = /^(뉴스|날씨|환율|주식|코인|비트코인|로또|운세|사주|부동산|보험|대출|병원|학원|맛집|여행|연예|스포츠|쇼핑|쿠팡|유튜브|넷플릭스)$/;
+const GENERIC_BROAD_WORD_RE = /(뉴스|날씨|환율|주식|코인|로또|운세|사주|부동산)$/;
+
+function clamp(num: number, min: number, max: number): number {
+  return Math.max(min, Math.min(max, num));
+}
+
+function uniqueSources(sources: Array<RealtimeKeyword['source'] | undefined>): RealtimeKeyword['source'][] {
+  return Array.from(new Set(sources.filter(Boolean) as RealtimeKeyword['source'][]));
+}
+
+export function normalizeRealtimeKeywordKey(input: string): string {
+  return String(input || '')
+    .replace(/<[^>]+>/g, ' ')
+    .replace(/[“”‘’"'`]/g, '')
+    .replace(/[()\[\]{}<>|·ㆍ:：,./\\!?！？_-]/g, ' ')
+    .replace(/\s+/g, ' ')
+    .trim()
+    .toLowerCase()
+    .replace(/\s+/g, '');
+}
+
+export function scoreRealtimeKeywordStrength(keyword: string, context: RealtimeStrengthContext = {}) {
+  const clean = String(keyword || '').replace(/\s+/g, ' ').trim();
+  const compact = clean.replace(/\s+/g, '');
+  const tokenCount = clean ? clean.split(/\s+/).length : 0;
+  const primarySource = context.primarySource || context.matchedSources?.[0] || 'naver';
+  const matchedSources = uniqueSources([
+    ...(context.matchedSources || []),
+    primarySource
+  ]);
+  const rank = Number.isFinite(context.rank || 0) && (context.rank || 0) > 0 ? context.rank as number : 10;
+  const reasons: string[] = [];
+  let score = 0;
+  let blogIntentScore = 0;
+  let noisePenalty = 0;
+
+  const rankScore = clamp(30 - ((rank - 1) * 2.2), 8, 30);
+  score += rankScore;
+  if (rank <= 3) reasons.push('상위권 노출');
+
+  const sourceWeight = Math.max(...matchedSources.map(src => SOURCE_TRUST_WEIGHT[src] || 8), SOURCE_TRUST_WEIGHT[primarySource] || 8);
+  score += sourceWeight;
+
+  if (matchedSources.length >= 3) {
+    score += 30;
+    reasons.push(`${matchedSources.length}개 소스 교차`);
+  } else if (matchedSources.length === 2) {
+    score += 18;
+    reasons.push('2개 소스 교차');
+  } else {
+    reasons.push(`${SOURCE_LABEL[primarySource] || primarySource} 포착`);
+  }
+
+  if (context.change === 'new') {
+    score += 9;
+    reasons.push('신규 진입');
+  } else if (context.change === 'up') {
+    score += 7;
+    reasons.push('상승 흐름');
+  } else if (context.change === 'stable') {
+    score += 3;
+  } else if (context.change === 'down') {
+    score -= 4;
+    noisePenalty += 4;
+  }
+
+  if (BLOG_INTENT_RE.test(clean)) {
+    score += 14;
+    blogIntentScore += 42;
+    reasons.push('글감 의도');
+  }
+
+  if (FRESH_EVENT_RE.test(clean)) {
+    score += 10;
+    blogIntentScore += 24;
+    reasons.push('시의성');
+  }
+
+  if (POLICY_VALUE_RE.test(clean)) {
+    score += 12;
+    blogIntentScore += 28;
+    reasons.push('혜택/정책성');
+  }
+
+  const hasConcreteShape = (tokenCount >= 2 || compact.length >= 5) && compact.length <= 24;
+  if (hasConcreteShape) {
+    score += 8;
+    blogIntentScore += 12;
+    reasons.push('확장 쉬움');
+  }
+
+  if (/\d/.test(clean) || /(월|일|년|차|회|급|세|만원|%)/.test(clean)) {
+    score += 4;
+  }
+
+  if (AD_NOISE_RE.test(clean)) {
+    score -= 18;
+    noisePenalty += 18;
+    reasons.push('광고성 감점');
+  }
+
+  const hasIntent = BLOG_INTENT_RE.test(clean) || FRESH_EVENT_RE.test(clean) || POLICY_VALUE_RE.test(clean);
+  if (GENERIC_BROAD_RE.test(compact) || (GENERIC_BROAD_WORD_RE.test(clean) && !hasIntent && tokenCount <= 2)) {
+    score -= 22;
+    noisePenalty += 22;
+    reasons.push('빅키워드 감점');
+  }
+
+  if (compact.length <= 2) {
+    score -= 12;
+    noisePenalty += 12;
+    reasons.push('너무 짧음');
+  } else if (compact.length > 32) {
+    score -= 10;
+    noisePenalty += 10;
+    reasons.push('너무 김');
+  }
+
+  const strengthScore = Math.round(clamp(score, 0, 100));
+  const strengthGrade: RealtimeKeyword['strengthGrade'] =
+    strengthScore >= 72 ? 'STRONG' :
+      strengthScore >= 58 ? 'SOLID' :
+        strengthScore >= 42 ? 'WATCH' : 'WEAK';
+
+  return {
+    strengthScore,
+    strengthGrade,
+    strengthReasons: reasons.slice(0, 4),
+    sourceCount: matchedSources.length,
+    matchedSources,
+    blogIntentScore: Math.round(clamp(blogIntentScore, 0, 100)),
+    noisePenalty
+  };
+}
+
+export function strengthenRealtimeKeywordGroups<T extends RealtimeKeywordGroups>(groups: T, limitPerPlatform?: number): T {
+  const sourceMap = new Map<string, Set<RealtimeKeyword['source']>>();
+
+  for (const platform of REALTIME_PLATFORM_KEYS) {
+    const keywords = groups[platform] || [];
+    for (const item of keywords) {
+      const key = normalizeRealtimeKeywordKey(item.keyword);
+      if (!key) continue;
+      const source = item.source || (platform === 'bokjiro' ? 'policy' : platform);
+      if (!sourceMap.has(key)) sourceMap.set(key, new Set());
+      sourceMap.get(key)?.add(source);
+    }
+  }
+
+  const strengthened = { ...groups } as T;
+
+  for (const platform of REALTIME_PLATFORM_KEYS) {
+    const keywords = groups[platform];
+    if (!Array.isArray(keywords)) continue;
+
+    const enriched = keywords
+      .map((item) => {
+        const key = normalizeRealtimeKeywordKey(item.keyword);
+        const matchedSources = key ? Array.from(sourceMap.get(key) || []) : [];
+        const strength = scoreRealtimeKeywordStrength(item.keyword, {
+          rank: item.rank,
+          change: item.change,
+          primarySource: item.source || (platform === 'bokjiro' ? 'policy' : platform),
+          matchedSources
+        });
+
+        return { ...item, ...strength };
+      })
+      .sort((a, b) => {
+        const scoreDiff = (b.strengthScore || 0) - (a.strengthScore || 0);
+        if (scoreDiff !== 0) return scoreDiff;
+        return (a.rank || 999) - (b.rank || 999);
+      });
+
+    (strengthened as RealtimeKeywordGroups)[platform] = typeof limitPerPlatform === 'number'
+      ? enriched.slice(0, limitPerPlatform)
+      : enriched;
+  }
+
+  return strengthened;
 }
 
 let cachedAllRealtime: {
@@ -1364,7 +1593,7 @@ export async function getBokjiroRealtimeKeywords(limit: number = 20): Promise<Re
       const keywords: RealtimeKeyword[] = policyKeywords.map((kw, idx) => ({
         rank: idx + 1,
         keyword: kw.keyword,
-        source: 'bokjiro' as const, // 호환성 유지
+        source: 'policy' as const,
               timestamp: new Date().toISOString()
       }));
       
@@ -1383,7 +1612,7 @@ export async function getBokjiroRealtimeKeywords(limit: number = 20): Promise<Re
     if (zumKeywords && zumKeywords.length > 0) {
       return zumKeywords.map((kw, idx) => ({
         ...kw,
-        source: 'bokjiro' as const,
+        source: 'policy' as const,
         rank: idx + 1
       }));
     }
@@ -1421,7 +1650,7 @@ export async function getAllRealtimeKeywords(limitPerPlatform: number = 10): Pro
       getBokjiroRealtimeKeywords(limitPerPlatform).catch(() => [] as RealtimeKeyword[])
     ]);
 
-    const result = {
+    const result = strengthenRealtimeKeywordGroups({
       zum: (zum.status === 'fulfilled' ? zum.value : []) as RealtimeKeyword[],
       google: (google.status === 'fulfilled' ? google.value : []) as RealtimeKeyword[],
       nate: (nate.status === 'fulfilled' ? nate.value : []) as RealtimeKeyword[],
@@ -1429,7 +1658,7 @@ export async function getAllRealtimeKeywords(limitPerPlatform: number = 10): Pro
       naver: (naver.status === 'fulfilled' ? naver.value : []) as RealtimeKeyword[],
       bokjiro: (bokjiro.status === 'fulfilled' ? bokjiro.value : []) as RealtimeKeyword[],
       timestamp: new Date().toISOString()
-    };
+    }, limitPerPlatform);
 
     cachedAllRealtime = result;
     cachedAllRealtimeAt = Date.now();

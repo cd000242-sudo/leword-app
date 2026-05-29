@@ -745,6 +745,10 @@
             <input type="checkbox" id="rfUseClaude" style="accent-color:#fbbf24;">
             🧠 Claude 보강 <span style="color:rgba(255,255,255,0.55); font-size:10px;">($0.05/회)</span>
           </label>
+          <select id="rfDiscoveryMode" title="정밀: 빠른 검증 중심 / 대량: 시즌성+에버그린+황금 후보를 넓게 발굴" style="padding:10px 12px; border:none; border-radius:10px; background:#111827; color:#e5e7eb; font-weight:800; font-size:12px; cursor:pointer; outline:none;">
+            <option value="balanced">정밀</option>
+            <option value="bulk">대량</option>
+          </select>
           <button onclick="refreshRichFeed(true)" style="padding:10px 18px; border:none; border-radius:10px; background:linear-gradient(135deg,#f59e0b,#ef4444); color:white; font-weight:700; font-size:13px; cursor:pointer;">⚡ 발굴 시작</button>
           <button onclick="openBloggerProfileModal()" title="내 블로그 프로필 — 카테고리/경험/방문자 입력 (모든 발굴에 자동 적용)" style="padding:10px 14px; border:none; border-radius:10px; background:linear-gradient(135deg,#06b6d4,#3b82f6); color:white; font-weight:700; font-size:12px; cursor:pointer;">👤 내 블로그</button>
           <button id="rfSemanticBtn" onclick="openSemanticModal()" title="🧠 의미 분류 — KoSBERT 임베딩 모델로 키워드 의미 검증 (최초 ~110MB 다운로드, 이후 캐시)" style="padding:10px 14px; border:none; border-radius:10px; background:linear-gradient(135deg,#8b5cf6,#ec4899); color:white; font-weight:700; font-size:12px; cursor:pointer;">🧠 의미 분류</button>
@@ -931,9 +935,11 @@
         try {
           if (!window.electronAPI) throw new Error('electronAPI 미초기화');
           const useClaude = !!document.getElementById('rfUseClaude')?.checked;
+          const discoveryMode = document.getElementById('rfDiscoveryMode')?.value === 'bulk' ? 'bulk' : 'balanced';
           const r = await window.electronAPI.invoke('get-rich-golden-feed', {
             force: !!force,
-            aiAugmentation: useClaude ? 'claude' : 'none'
+            aiAugmentation: useClaude ? 'claude' : 'none',
+            discoveryMode
           });
           if (!r || !r.success) {
             tbody.innerHTML = '<tr><td colspan="12" style="padding:40px; text-align:center; color:#fca5a5;">발굴 실패: ' + (r && r.error || '알 수 없음') + '</td></tr>';
@@ -984,7 +990,7 @@
       // 🔥 v2.27.1: 페이지네이션 state (20개씩)
       let rfFiltered = [];
       let rfCurrentPage = 1;
-      const RF_PAGE_SIZE = 20;
+      const RF_PAGE_SIZE = 30;
 
       function rfApplyAllFilters() {
         let filtered = rfAllRows;
@@ -2125,6 +2131,19 @@
         </div>
 
         <!-- 🆕 연예 갓 떴음 (4매체 통합) - v2.42.75 (v2.42.79: 전체 폭) -->
+        <div
+          style="background: white; border-radius: 16px; padding: 20px; border: 3px solid #2563eb; box-shadow: 0 4px 12px rgba(37, 99, 235, 0.2); grid-column: 1 / -1;">
+          <div style="display: flex; justify-content: space-between; align-items: center; margin-bottom: 12px;">
+            <div style="font-size: 18px; font-weight: 700; color: #1d4ed8;">정책브리핑</div>
+            <a href="#"
+              onclick="event.preventDefault(); if(window.electronAPI && window.electronAPI.openExternal) { window.electronAPI.openExternal('https://www.korea.kr/'); } else if(window.blogger && window.blogger.openLink) { window.blogger.openLink('https://www.korea.kr/'); } else { window.open('https://www.korea.kr/', '_blank'); }"
+              style="font-size: 11px; color: #1d4ed8; text-decoration: none; cursor: pointer;">바로가기</a>
+          </div>
+          <div id="bokjiroKeywordsTop" style="max-height: 340px; overflow-y: auto; font-size: 13px;">
+            <div style="text-align: center; padding: 15px; color: #64748b;">로딩 중...</div>
+          </div>
+        </div>
+
         <div
           style="background: white; border-radius: 16px; padding: 20px; border: 3px solid #a855f7; box-shadow: 0 4px 12px rgba(168, 85, 247, 0.2); grid-column: 1 / -1;">
           <div style="display: flex; justify-content: space-between; align-items: center; margin-bottom: 12px;">
@@ -3627,8 +3646,8 @@
             <div style="display: flex; gap: 12px; align-items: center; flex-wrap: wrap;">
               <label
                 style="display: flex; align-items: center; gap: 8px; padding: 8px 16px; background: #f8fafc; border-radius: 8px; cursor: pointer;">
-                <input type="radio" name="keywordLimit" value="10" checked>
-                <span style="font-size: 14px; font-weight: 600;">10개</span>
+                <input type="radio" name="keywordLimit" value="30" checked>
+                <span style="font-size: 14px; font-weight: 600;">30개</span>
               </label>
               <label
                 style="display: flex; align-items: center; gap: 8px; padding: 8px 16px; background: #f8fafc; border-radius: 8px; cursor: pointer;">
@@ -3818,7 +3837,7 @@
             <div style="width: 56px; height: 56px; background: rgba(255,255,255,0.2); border-radius: 14px; display: flex; align-items: center; justify-content: center; font-size: 32px; flex-shrink: 0;">🛒</div>
             <div style="flex: 1;">
               <div style="font-size: 18px; font-weight: 800; color: white; margin-bottom: 3px;">쇼핑 커넥트</div>
-              <div style="font-size: 12px; color: rgba(255,255,255,0.85);">네이버 쇼핑 상품 발굴 → 블로그 판매 글 작성용 정보</div>
+              <div style="font-size: 12px; color: rgba(255,255,255,0.85);">지금 뜨는 상품 → 구매 전환형 글감 추천</div>
             </div>
             <span style="font-size: 24px; color: white; opacity: 0.8;">→</span>
           </button>
@@ -5188,7 +5207,7 @@
                   <button onclick="copyToClipboard('${safe}')" title="복사" style="padding:4px 7px; background:#f1f5f9; color:#475569; border:1px solid #e2e8f0; border-radius:5px; cursor:pointer; font-size:11px; margin-right:2px;">📋</button>
                   <button onclick="lewordNaverSearch('${safe}')" title="네이버 검색" style="padding:4px 7px; background:#f1f5f9; color:#475569; border:1px solid #e2e8f0; border-radius:5px; cursor:pointer; font-size:11px; margin-right:2px;">🔍</button>
                   <button onclick="lewordShowTrendGraph('${safe}', ${sv})" title="30일 트렌드 그래프" style="padding:4px 7px; background:#ecfeff; color:#0e7490; border:1px solid #67e8f9; border-radius:5px; cursor:pointer; font-size:11px; margin-right:2px;">📈</button>
-                  <button onclick="document.getElementById('keywordInput').value='${safe}'; openRelatedKeywordModal();" title="이 키워드로 마인드맵 발굴" style="padding:4px 7px; background:linear-gradient(135deg,rgba(168,85,247,0.15),rgba(99,102,241,0.15)); color:#7c3aed; border:1px solid rgba(168,85,247,0.4); border-radius:5px; cursor:pointer; font-size:11px; margin-right:2px; font-weight:700;">🔗</button>
+                  <button onclick="lewordOpenMindmapForSeed('${safe}')" title="이 키워드로 마인드맵 발굴" style="padding:4px 7px; background:linear-gradient(135deg,rgba(168,85,247,0.15),rgba(99,102,241,0.15)); color:#7c3aed; border:1px solid rgba(168,85,247,0.4); border-radius:5px; cursor:pointer; font-size:11px; margin-right:2px; font-weight:700;">🔗</button>
                   <button onclick="searchKeyword('${safe}', true)" title="LEWORD에서 재검색 (자동 시작)" style="padding:4px 7px; background:linear-gradient(135deg,#fef3c7,#fde68a); color:#92400e; border:1px solid #fbbf24; border-radius:5px; cursor:pointer; font-size:11px; font-weight:700;">🔄</button>
                 `;
               })()}
@@ -5568,10 +5587,66 @@
           };
 
           // 실시간 검색어를 빠르게 로드 (즉시 실행, 최소 대기)
+          window.loadPolicyBriefingFresh = async function () {
+            const el = document.getElementById('bokjiroKeywordsTop');
+            if (!el) return;
+            try {
+              const r = await window.electronAPI.invoke('source-policy-briefing-aggregate', { limit: 36 });
+              if (!r?.success || !r.items?.length) {
+                el.innerHTML = '<div style="color:#94a3b8; padding:15px; text-align:center; font-size:12px;">새 정책/지원금 신호가 없습니다</div>';
+                return;
+              }
+              const rowsHtml = r.items.map((it) => {
+                const kwRaw = String(it.keyword || '');
+                const titleRaw = String(it.title || it.keyword || '');
+                const esc = (v) => String(v || '').replace(/&/g, '&amp;').replace(/'/g, '&#39;').replace(/</g, '&lt;').replace(/>/g, '&gt;').replace(/"/g, '&quot;');
+                const compactTitle = (v) => {
+                  const s = String(v || '').replace(/\s+/g, ' ').trim();
+                  if (s.length <= 110) return s;
+                  const dashHead = s.split(/\s[-–—]\s/)[0];
+                  const base = dashHead && dashHead.length >= 8 && dashHead.length <= 120 ? dashHead : s;
+                  const head = base.slice(0, 110);
+                  const lastSpace = head.lastIndexOf(' ');
+                  return (lastSpace >= 58 ? head.slice(0, lastSpace) : head).trim() + '...';
+                };
+                const keyword = esc(kwRaw);
+                const fullTitle = esc(compactTitle(titleRaw || kwRaw));
+                const url = it.url || `https://www.korea.kr/search/search.jsp?srchFlag=Y&keyword=${encodeURIComponent(kwRaw)}`;
+                const safeUrl = String(url).replace(/'/g, '&#39;');
+                const published = it.publishedAt ? new Date(it.publishedAt) : null;
+                const diffMin = published && !Number.isNaN(published.getTime()) ? Math.max(0, Math.round((Date.now() - published.getTime()) / 60000)) : null;
+                const timeText = diffMin === null ? '최신'
+                  : diffMin < 60 ? `${diffMin}분 전`
+                  : diffMin < 1440 ? `${Math.round(diffMin / 60)}시간 전`
+                  : `${Math.round(diffMin / 1440)}일 전`;
+                const timeColor = diffMin !== null && diffMin <= 1440 ? '#dc2626' : '#64748b';
+                const category = String(it.category || '정책브리핑').replace(/</g, '&lt;').replace(/"/g, '&quot;');
+                const keywordChip = kwRaw && titleRaw && kwRaw !== titleRaw
+                  ? `<div style="margin-top:4px;display:inline-flex;align-items:center;gap:4px;padding:2px 7px;background:#eff6ff;color:#1d4ed8;border:1px solid #bfdbfe;border-radius:999px;font-size:10px;font-weight:800;">추출키워드 ${keyword}</div>`
+                  : '';
+                return `
+                  <div style="padding:9px 8px; border-bottom:1px solid #eff6ff; line-height:1.5; display:flex; gap:8px; align-items:flex-start;">
+                    <span style="font-size:10px; font-weight:800; color:${timeColor}; min-width:54px; text-align:right; flex-shrink:0;">${timeText}</span>
+                    <div style="flex:1; min-width:0;">
+                      <span style="background:#1d4ed81a; color:#1d4ed8; padding:1px 6px; border-radius:4px; font-size:9px; font-weight:800; margin-right:4px;">korea.kr</span>
+                      <span style="background:#0596691a; color:#059669; padding:1px 6px; border-radius:4px; font-size:9px; font-weight:700; margin-right:4px;">${category}</span>
+                      <a href="#" onclick="event.preventDefault(); window.electronAPI?.openExternal?.('${safeUrl}') || window.open('${safeUrl}', '_blank');" title="${esc(titleRaw)}" style="display:-webkit-box;color:#1e293b;text-decoration:none;font-size:13px;line-height:1.5;font-weight:800;white-space:normal;word-break:keep-all;overflow-wrap:anywhere;margin-top:4px;-webkit-line-clamp:2;-webkit-box-orient:vertical;overflow:hidden;max-height:39px;">${fullTitle}</a>
+                      ${keywordChip}
+                    </div>
+                  </div>
+                `;
+              }).join('');
+              el.innerHTML = `<div style="display:grid; grid-template-columns:repeat(auto-fit, minmax(min(100%, 620px), 1fr)); gap:0 18px;">${rowsHtml}</div>`;
+            } catch (e) {
+              el.innerHTML = '<div style="color:#94a3b8; padding:15px; text-align:center; font-size:12px;">로드 실패</div>';
+            }
+          };
+
           const loadRealtimeOnReady = () => {
             console.log('[KEYWORD-MASTER] loadRealtimeOnReady 실행, loadRealtimeKeywordsTop:', typeof window.loadRealtimeKeywordsTop);
             // v2.42.73: 스타뉴스 병렬 로드
             setTimeout(() => { try { window.loadStarNewsTrending?.(); } catch {} }, 600);
+            setTimeout(() => { try { window.loadPolicyBriefingFresh?.(); } catch {} }, 700);
             setTimeout(() => {
               if (typeof window.loadRealtimeKeywordsTop === 'function') {
                 console.log('[KEYWORD-MASTER] loadRealtimeKeywordsTop 호출 시작');
@@ -5651,6 +5726,9 @@
               if (typeof window.loadStarNewsTrending === 'function') {
                 window.loadStarNewsTrending();
               }
+              if (typeof window.loadPolicyBriefingFresh === 'function') {
+                window.loadPolicyBriefingFresh();
+              }
             });
 
             // 마우스오버 이벤트로 테스트
@@ -5683,12 +5761,18 @@
             if (typeof window.loadStarNewsTrending === 'function') {
               window.loadStarNewsTrending();
             }
+            if (typeof window.loadPolicyBriefingFresh === 'function') {
+              window.loadPolicyBriefingFresh();
+            }
           }, 5 * 60 * 1000);
           // 백그라운드 → 포그라운드 복귀 시 즉시 1회 갱신
           if (!window.__lewordVisibilityHandler) {
             window.__lewordVisibilityHandler = () => {
               if (!document.hidden && typeof window.loadRealtimeKeywordsTop === 'function') {
                 window.loadRealtimeKeywordsTop();
+              }
+              if (!document.hidden && typeof window.loadPolicyBriefingFresh === 'function') {
+                window.loadPolicyBriefingFresh();
               }
             };
             document.addEventListener('visibilitychange', window.__lewordVisibilityHandler);
@@ -6196,7 +6280,7 @@
 
           const source = document.getElementById('keywordSource')?.value || 'naver';
           const limitRadio = document.querySelector('input[name="keywordLimit"]:checked');
-          const limitValue = limitRadio?.value || '10';
+          const limitValue = limitRadio?.value || '30';
           const customLimit = document.getElementById('customKeywordLimit')?.value;
 
           // 개수 제한 계산 (먼저 계산)
@@ -6390,8 +6474,12 @@
             }
 
             // 최종 결과 병합 (혹시 청크로 안 온 게 있다면)
-            if (Array.isArray(finalResults)) {
-              const remainingKeywords = finalResults.filter(item =>
+            const finalKeywordList = Array.isArray(finalResults)
+              ? finalResults
+              : (Array.isArray(finalResults?.keywords) ? finalResults.keywords : []);
+
+            if (finalKeywordList.length > 0) {
+              const remainingKeywords = finalKeywordList.filter(item =>
                 !discoveryResults.some(existing => existing.keyword === item.keyword)
               );
               if (remainingKeywords.length > 0) {
@@ -6616,7 +6704,9 @@
               <button onclick="lewordShowTrendGraph('${kwJsSafe}', ${Number(totalVol) || 0})"
                 title="30일 트렌드 그래프 (Naver Datalab)" style="padding: 5px 8px; background: #ecfeff; color: #0e7490; border: 1px solid #67e8f9; border-radius: 6px; cursor: pointer; font-size: 11px; margin-right:2px;">📈</button>
               <button onclick="goldenDrilldown('${kwJsSafe}', ${idx})"
-                title="확장 키워드 (연관 10개)" style="padding: 5px 8px; background: #f3e8ff; color: #6b21a8; border: 1px solid #c4b5fd; border-radius: 6px; cursor: pointer; font-size: 11px;">🔗</button>
+                title="확장 키워드 (연관 10개)" style="padding: 5px 8px; background: #f3e8ff; color: #6b21a8; border: 1px solid #c4b5fd; border-radius: 6px; cursor: pointer; font-size: 11px; margin-right:2px;">🔗</button>
+              <button onclick="lewordOpenMindmapForSeed('${kwJsSafe}')"
+                title="이 황금키워드를 시드로 LEWORD 마인드맵 확장" style="padding: 5px 8px; background: linear-gradient(135deg, rgba(168,85,247,0.18), rgba(99,102,241,0.18)); color: #6b21a8; border: 1px solid rgba(168,85,247,0.45); border-radius: 6px; cursor: pointer; font-size: 11px; font-weight:700;">Seed</button>
             </td>
           </tr>
           <tr id="golden-drill-${idx}" style="display:none;"><td colspan="12" style="padding:0; background:#fafafa;"><div id="golden-drill-content-${idx}" style="padding:14px 24px; font-size:12px; color:#475569;"></div></td></tr>
@@ -10627,8 +10717,8 @@
             naver: !!containers.naver,
             zum: !!containers.zum,
             nate: !!containers.nate,
-            daum: !!containers.daum
-          });
+              daum: !!containers.daum
+            });
 
           if (!containers.naver || !containers.zum || !containers.nate || !containers.daum) {
             console.error('[REALTIME-TOP] 컨테이너를 찾을 수 없습니다.', containers);
@@ -10741,7 +10831,8 @@
               zum: data.zum?.length || 0,
               google: data.google?.length || 0,
               nate: data.nate?.length || 0,
-              daum: data.daum?.length || 0
+              daum: data.daum?.length || 0,
+              bokjiro: data.bokjiro?.length || 0
             });
 
             // Daum 데이터 구조 상세 확인
@@ -10771,7 +10862,8 @@
                 const platformNames = {
                   'zum': 'ZUM',
                   'nate': '네이트',
-                  'daum': '다음'
+                  'daum': '다음',
+                  'bokjiro': '정책브리핑'
                 };
                 const platformName = platformNames[platform] || platform;
                 console.warn(`[REALTIME-TOP] ⚠️ ${platformName} 키워드가 비어있습니다. data[${platform}]:`, {
@@ -10805,45 +10897,57 @@
                   'naver': `https://search.naver.com/search.naver?query=${encodeURIComponent(keywordText)}`,
                   'zum': `https://search.zum.com/search.zum?query=${encodeURIComponent(keywordText)}`,
                   'nate': `https://search.nate.com/search/all.html?q=${encodeURIComponent(keywordText)}`,
-                  'daum': `https://search.daum.net/search?q=${encodeURIComponent(keywordText)}`
+                  'daum': `https://search.daum.net/search?q=${encodeURIComponent(keywordText)}`,
+                  'bokjiro': `https://www.korea.kr/search/search.jsp?srchFlag=Y&keyword=${encodeURIComponent(keywordText)}`
                 };
                 const searchUrl = searchUrls[platform] || `https://search.naver.com/search.naver?query=${encodeURIComponent(keywordText)}`;
                 const finalUrl = searchUrl;
                 const safeSearchUrl = finalUrl.replace(/'/g, "\\'").replace(/"/g, '&quot;');
-                const safeKeyword = keywordText.replace(/'/g, "\\'").replace(/"/g, '&quot;');
-
-                // ZUM은 더 눈에 띄게 표시
-                const isZum = platform === 'zum';
-                const isTopStyle = index < 3;
-                const bgColor = isTopStyle
-                  ? (isZum ? '#fff7ed' : '#fef2f2')
-                  : (isZum ? '#fffbeb' : '#f9fafb');
-                const borderColor = isTopStyle
-                  ? (isZum ? '#f59e0b' : '#ef4444')
-                  : (isZum ? '#fbbf24' : '#e5e7eb');
-                const rankBg = isTopStyle
-                  ? (isZum ? '#f59e0b' : '#ef4444')
-                  : (isZum ? '#fbbf24' : '#6366f1');
-                const textColor = isZum ? '#92400e' : '#1e293b';
-                const fontWeight = isZum ? '700' : '600';
+                const safeKeyword = escapeHtml(keywordText);
+                const displayKeyword = safeKeyword;
+                const strengthScore = Number.isFinite(Number(kw.strengthScore)) ? Number(kw.strengthScore) : 0;
+                const strengthGrade = kw.strengthGrade || (strengthScore >= 72 ? 'STRONG' : strengthScore >= 58 ? 'SOLID' : strengthScore >= 42 ? 'WATCH' : 'WEAK');
+                const strengthStyles = {
+                  STRONG: { label: '강함', bg: '#ecfdf5', border: '#10b981', rank: '#047857', text: '#064e3b', badgeBg: '#d1fae5', badgeText: '#065f46' },
+                  SOLID: { label: '견고', bg: '#eff6ff', border: '#3b82f6', rank: '#1d4ed8', text: '#172554', badgeBg: '#dbeafe', badgeText: '#1e40af' },
+                  WATCH: { label: '관찰', bg: '#fffbeb', border: '#f59e0b', rank: '#b45309', text: '#78350f', badgeBg: '#fef3c7', badgeText: '#92400e' },
+                  WEAK: { label: '약함', bg: '#f8fafc', border: '#cbd5e1', rank: '#64748b', text: '#334155', badgeBg: '#e2e8f0', badgeText: '#475569' }
+                };
+                const style = strengthStyles[strengthGrade] || strengthStyles.WATCH;
+                const sourceCount = Number(kw.sourceCount || 1);
+                const reasons = Array.isArray(kw.strengthReasons) ? kw.strengthReasons.slice(0, 2).map(escapeHtml) : [];
+                const reasonText = reasons.length > 0 ? reasons.join(' · ') : '단일 소스 검토';
+                const sourceBadge = sourceCount >= 2
+                  ? `<span style="font-size:10px; font-weight:800; color:#065f46; background:#d1fae5; border:1px solid #a7f3d0; border-radius:999px; padding:2px 6px;">${sourceCount}소스</span>`
+                  : '';
 
                 html += `
-              <div style="padding: 10px 12px; margin-bottom: 6px; background: ${bgColor}; 
-                       border-left: 4px solid ${borderColor}; 
+              <div style="padding: 10px 12px; margin-bottom: 6px; background: ${style.bg}; 
+                       border-left: 4px solid ${style.border}; 
                        border-radius: 6px; display: flex; align-items: center; gap: 8px;">
                 <div onclick="(function(){ const url = '${safeSearchUrl}'; if (window.electronAPI && window.electronAPI.openExternal) { window.electronAPI.openExternal(url).catch(() => window.open(url, '_blank')); } else if (window.blogger && window.blogger.openExternal) { window.blogger.openExternal(url).catch(() => window.open(url, '_blank')); } else if (window.blogger && window.blogger.openLink) { window.blogger.openLink(url).catch(() => window.open(url, '_blank')); } else { window.open(url, '_blank'); } })()" 
-                  style="flex: 1; cursor: pointer; display: flex; align-items: center; transition: all 0.2s;"
+                  style="flex: 1; min-width:0; cursor: pointer; display: flex; align-items: center; transition: all 0.2s;"
                   onmouseover="this.style.transform='translateX(2px)';"
                   onmouseout="this.style.transform='translateX(0)';"
-                  title="클릭하면 검색 결과 보기">
-                  <span style="display: inline-block; width: 24px; height: 24px; background: ${rankBg}; 
+                  title="${safeKeyword} · ${strengthScore}점 · ${reasonText}">
+                  <span style="flex:0 0 auto; display: inline-block; width: 24px; height: 24px; background: ${style.rank}; 
                               color: white; border-radius: 50%; text-align: center; line-height: 24px; font-weight: 700; font-size: 12px; margin-right: 8px;">
                     ${kw.rank || index + 1}
                   </span>
-                  <span style="font-size: 14px; font-weight: ${fontWeight}; color: ${textColor};">
-                    ${keywordText}
-                    ${isZum && index < 3 ? ' 🔥' : ''}
-                  </span>
+                  <div style="min-width:0; flex:1;">
+                    <div style="display:flex; align-items:center; gap:6px; flex-wrap:wrap;">
+                      <span style="font-size: 14px; font-weight: 800; color: ${style.text}; overflow:hidden; text-overflow:ellipsis; white-space:nowrap; max-width:150px;">
+                        ${displayKeyword}
+                      </span>
+                      <span style="font-size:10px; font-weight:800; color:${style.badgeText}; background:${style.badgeBg}; border-radius:999px; padding:2px 6px;">
+                        ${style.label} ${strengthScore}
+                      </span>
+                      ${sourceBadge}
+                    </div>
+                    <div style="margin-top:3px; font-size:11px; line-height:1.25; color:#64748b; overflow:hidden; text-overflow:ellipsis; white-space:nowrap;">
+                      ${reasonText}
+                    </div>
+                  </div>
                 </div>
               </div>
             `;
@@ -11300,16 +11404,28 @@
         };
 
         // v2.42.45: 마인드맵 행의 🔄 = 그 키워드로 마인드맵 재발굴 (확장 계속)
-        window.lewordMindmapResearch = function(kw) {
+        window.lewordOpenMindmapForSeed = function(kw, limit) {
+          const seed = String(kw || '').trim();
+          if (!seed) return;
           const input = document.getElementById('keywordInput');
-          if (input) input.value = kw;
-          // 기존 모달/dock 완전 제거 후 새 발굴
+          if (input) {
+            input.value = seed;
+            input.dispatchEvent(new Event('input', { bubbles: true }));
+            input.dispatchEvent(new Event('change', { bubbles: true }));
+          }
+          if (limit) {
+            const limitSel = document.getElementById('mindmapLimitSelect');
+            if (limitSel) limitSel.value = String(limit);
+          }
           document.getElementById('relatedKwModal')?.remove();
           document.getElementById('relatedKwMinimizedDock')?.remove();
-          // openRelatedKeywordModal 호출
           if (typeof window.openRelatedKeywordModal === 'function') {
             window.openRelatedKeywordModal();
           }
+        };
+
+        window.lewordMindmapResearch = function(kw) {
+          return window.lewordOpenMindmapForSeed(kw);
         };
 
         // v2.42.44: 마인드맵 모달 최소화 — 결과 보존 + 우하단 dock 표시
@@ -14665,7 +14781,7 @@
               <div class="sc-header">
                 <div>
                   <div class="sc-title">🛒 쇼핑 커넥트</div>
-                  <div class="sc-sub">네이버 쇼핑 상품 발굴 → 블로그 판매 글 작성용 정보</div>
+                  <div class="sc-sub">지금 찾는 상품 신호 → 구매 가능성 높은 블로그 글감 추천</div>
                 </div>
                 <button class="sc-close" onclick="closeShoppingConnectModal()">✕</button>
               </div>
@@ -14673,7 +14789,7 @@
                 <div class="sc-search">
                   <input type="text" id="scKeyword" class="sc-input" placeholder="예: 무선 이어폰, 등산 배낭, 건강식품 등" />
                   <select id="scSort" class="sc-select">
-                    <option value="conv">🏆 전환 점수순 (추천)</option>
+                    <option value="conv">🔥 작성 우선순 (추천)</option>
                     <option value="sim">🎯 정확도순</option>
                     <option value="date">🆕 최신순</option>
                     <option value="asc">💰 가격 낮은순</option>
@@ -14703,7 +14819,7 @@
                 <div id="scResults" class="sc-results">
                   <div class="sc-info">
                     <span style="font-size: 20px;">💡</span>
-                    <div>아래 <b style="color:#34d399;">추천 키워드 칩</b>을 클릭하거나 직접 입력하세요. 네이버 쇼핑에서 관련 상품 50개 + <b style="color:#fbbf24;">전환 스코어 추천 10개</b> + <b>자동 요약 문장</b> + <b>비교표 생성</b>까지 한 번에 제공됩니다.</div>
+                    <div>아래 <b style="color:#34d399;">추천 키워드 칩</b>을 클릭하거나 직접 입력하세요. 네이버 쇼핑 상품을 단순 인기순으로 나열하지 않고 <b style="color:#fbbf24;">수요·상승성·구매의도·전환성</b>을 함께 계산해 “지금 글 쓸 상품”을 먼저 보여줍니다.</div>
                   </div>
                   <div id="scSuggestions" style="margin-top:14px;">
                     <div style="text-align:center;color:rgba(255,255,255,0.4);font-size:12px;padding:20px;">⏳ 추천 키워드 로딩 중...</div>
@@ -14929,8 +15045,10 @@
             // 전환 점수순 정렬 (UI 옵션)
             if (sort === 'conv') {
               items = items.slice().sort((a, b) => {
-                const diff = (b.conversionScore || 0) - (a.conversionScore || 0);
+                const diff = (b.opportunityScore || 0) - (a.opportunityScore || 0);
                 if (diff !== 0) return diff;
+                const convDiff = (b.conversionScore || 0) - (a.conversionScore || 0);
+                if (convDiff !== 0) return convDiff;
                 return (a.lprice || 0) - (b.lprice || 0);
               });
             }
@@ -14978,6 +15096,7 @@
               const isInfo = intentInfo.primary === 'info';
               const rec = res.recency || null;
               const recStatus = rec?.status || ''; // 'rising' / 'stable' / 'declining' / 'dead'
+              const opp = res.opportunitySummary || null;
 
               let level = 'good';   // good | warn | bad
               let title = '';
@@ -14988,6 +15107,18 @@
                 level = 'bad';
                 title = '🛑 추세 사망 — 비추천';
                 reason = '최근 30일 검색량이 사실상 0 — 글 작성해도 유입 거의 없음';
+              } else if (opp && opp.verdict === 'write-now') {
+                level = 'good';
+                title = opp.title || '🔥 지금 작성 우선';
+                reason = `${opp.reason || '수요 신호와 구매 전환 조건이 함께 잡혔습니다.'}${opp.topReasons?.length ? ` · 근거: ${opp.topReasons.slice(0, 2).join(' / ')}` : ''}`;
+              } else if (opp && opp.verdict === 'candidate') {
+                level = 'good';
+                title = opp.title || '✅ 작성 후보';
+                reason = `${opp.reason || '추천 상품과 구매 의도 신호가 확인됩니다.'}${opp.topReasons?.length ? ` · 근거: ${opp.topReasons.slice(0, 2).join(' / ')}` : ''}`;
+              } else if (opp && opp.verdict === 'watch') {
+                level = 'warn';
+                title = opp.title || '🟡 검토 필요';
+                reason = `${opp.reason || '상품성은 있으나 상승/수요 근거가 더 필요합니다.'}${opp.topReasons?.length ? ` · 근거: ${opp.topReasons.slice(0, 2).join(' / ')}` : ''}`;
               } else if (recoLen === 0) {
                 level = 'bad';
                 title = '🛑 글쓰기 비추천';
@@ -15189,7 +15320,7 @@
               const partnersBadge = res.partnersEnabled
                 ? `<span style="margin-left:8px;padding:3px 8px;background:rgba(255,87,34,0.25);color:#ff8a65;border-radius:6px;font-size:10px;font-weight:700;">🛒 쿠팡파트너스${matchCount > 0 ? ` · 정확 매칭 ${matchCount}건` : ''}</span>`
                 : '<span style="margin-left:8px;padding:3px 8px;background:rgba(251,146,60,0.18);color:#fb923c;border-radius:6px;font-size:10px;font-weight:700;cursor:pointer;" onclick="closeShoppingConnectModal();openSettings();">⚠️ 쿠팡 파트너스 키 없음 — 클릭해 등록</span>';
-              const banner = `💎 <b>전환 중심 추천 ${reco.length}개</b> — 글 작성에 사용하세요${partnersBadge}`;
+              const banner = `🔥 <b>작성 우선 상품 ${reco.length}개</b> — 수요·상승성·구매의도·전환성을 함께 본 추천입니다${partnersBadge}`;
               html += `<div class="sc-reco-banner" style="margin-bottom:14px;">${banner}</div><div class="sc-grid" style="margin-bottom:24px;">${reco.map(renderShoppingCard).join('')}</div>`;
             }
 
@@ -15424,18 +15555,22 @@
         };
 
         function renderShoppingCard(item) {
-          const title = (item.title || '').replace(/"/g, '&quot;');
+          const esc = (v) => String(v || '').replace(/&/g, '&amp;').replace(/</g, '&lt;').replace(/>/g, '&gt;').replace(/"/g, '&quot;');
+          const js = (v) => String(v || '').replace(/\\/g, '\\\\').replace(/'/g, "\\'").replace(/\r?\n/g, ' ');
+          const title = esc(item.title || '');
           const mall = item.mallName || '기타';
           const price = (item.lprice || 0).toLocaleString();
           const hprice = item.hprice && item.hprice > item.lprice ? `<span class="sc-hprice">${item.hprice.toLocaleString()}원</span>` : '';
           const cat = [item.category1, item.category2, item.category3].filter(Boolean).join(' > ');
-          const safeLink = (item.link || '').replace(/'/g, "\\'");
-          const safeCoupang = (item.coupangSearchUrl || '').replace(/'/g, "\\'");
+          const safeLink = js(item.link || '');
+          const safeCoupang = js(item.coupangSearchUrl || '');
           const isSelected = window.__scSelected && window.__scSelected.has(item.productId);
           // 제품명만 복사용 (검색 매칭 최적화)
-          const productIdSafe = (item.productId || '').replace(/'/g, "\\'");
+          const productIdSafe = js(item.productId || '');
 
           const score = item.conversionScore;
+          const oppScore = item.opportunityScore;
+          const oppBd = item.opportunityBreakdown || {};
           const bd = item.scoreBreakdown || {};
           const tooltip = typeof score === 'number'
             ? [
@@ -15449,7 +15584,18 @@
                 bd.penalty < 0 ? `감점 ${bd.penalty}` : null,
               ].filter(Boolean).join(' · ')
             : '';
-          const scoreBadge = typeof score === 'number' && score > 0
+          const oppTooltip = typeof oppScore === 'number'
+            ? [
+                `수요 ${oppBd.demand || 0}`,
+                `구매의도 ${oppBd.buyerIntent || 0}`,
+                `글감 ${oppBd.contentFit || 0}`,
+                `전환 ${oppBd.conversion || 0}`,
+                oppBd.penalty < 0 ? `감점 ${oppBd.penalty}` : null,
+              ].filter(Boolean).join(' · ')
+            : tooltip;
+          const scoreBadge = typeof oppScore === 'number' && oppScore > 0
+            ? `<span title="${esc(oppTooltip)}" style="position:absolute;top:8px;right:8px;padding:3px 8px;background:${oppScore >= 75 ? 'rgba(239,68,68,0.9)' : oppScore >= 62 ? 'rgba(52,211,153,0.88)' : 'rgba(251,191,36,0.88)'};color:white;border-radius:6px;font-size:10px;font-weight:800;cursor:help;">🔥 작성 ${oppScore}점</span>`
+            : typeof score === 'number' && score > 0
             ? `<span title="${tooltip.replace(/"/g, '&quot;')}" style="position:absolute;top:8px;right:8px;padding:3px 8px;background:rgba(52,211,153,0.85);color:white;border-radius:6px;font-size:10px;font-weight:700;cursor:help;">🎯 ${score}점</span>`
             : '';
 
@@ -15464,6 +15610,72 @@
           const reasonBadge = reasonLabels.length > 0
             ? `<div style="display:flex;gap:3px;flex-wrap:wrap;margin-top:4px;">${reasonLabels.slice(0, 4).map(r => `<span style="padding:1px 6px;background:rgba(52,211,153,0.12);color:#34d399;border-radius:4px;font-size:9px;font-weight:600;">${r}</span>`).join('')}</div>`
             : '';
+          const oppBadges = Array.isArray(item.opportunityBadges) ? item.opportunityBadges : [];
+          const oppReasons = Array.isArray(item.opportunityReasons) ? item.opportunityReasons : [];
+          const oppBadgeHtml = oppBadges.length > 0
+            ? `<div style="display:flex;gap:3px;flex-wrap:wrap;margin-top:4px;">${oppBadges.slice(0, 4).map(r => `<span style="padding:1px 6px;background:rgba(239,68,68,0.12);color:#fca5a5;border-radius:4px;font-size:9px;font-weight:700;">${esc(r)}</span>`).join('')}</div>`
+            : '';
+          const writeReasonHtml = item.writeRecommendation
+            ? `<div style="margin-top:6px;padding:8px 9px;background:rgba(251,191,36,0.07);border:1px solid rgba(251,191,36,0.18);border-radius:8px;color:rgba(255,255,255,0.82);font-size:10.5px;line-height:1.45;">
+                <b style="color:#fbbf24;">작성 판단</b> ${esc(item.writeRecommendation)}
+                ${oppReasons.length ? `<div style="margin-top:4px;color:rgba(255,255,255,0.55);">근거: ${oppReasons.slice(0, 2).map(esc).join(' · ')}</div>` : ''}
+              </div>`
+            : '';
+          const angleHtml = Array.isArray(item.contentAngles) && item.contentAngles.length > 0
+            ? `<div style="margin-top:4px;font-size:10px;color:#93c5fd;line-height:1.35;">✍️ ${esc(item.contentAngles[0])}</div>`
+            : '';
+          const sourceLabelMap = {
+            direct: '직접검색',
+            'category-peer': '동급카테고리',
+            'autocomplete-demand': '자동완성수요',
+            'trend-seed': '실시간시드'
+          };
+          const sourceLabel = sourceLabelMap[item.discoverySource] || '발견경로';
+          const discoveryHtml = item.discoveryQuery
+            ? `<div style="margin-top:4px;display:flex;gap:5px;flex-wrap:wrap;align-items:center;font-size:10px;color:rgba(255,255,255,0.56);">
+                <span style="padding:2px 7px;background:rgba(59,130,246,0.13);color:#93c5fd;border:1px solid rgba(59,130,246,0.25);border-radius:999px;font-weight:800;">${sourceLabel}</span>
+                <span>${esc(item.discoveryQuery)}</span>
+                ${item.discoveryReason ? `<span style="color:rgba(255,255,255,0.38);">· ${esc(item.discoveryReason)}</span>` : ''}
+              </div>`
+            : '';
+          const relationLabel = {
+            'same-product': '제품',
+            'peer-brand': '대체브랜드',
+            category: '카테고리',
+            intent: '의도'
+          };
+          const verdictColor = {
+            '진입가능': '#34d399',
+            '검토': '#fbbf24',
+            '빅키워드주의': '#f87171',
+            '데이터필요': '#94a3b8'
+          };
+          const lewordSeeds = Array.isArray(item.lewordEntryKeywords) ? item.lewordEntryKeywords.slice(0, 4) : [];
+          const lewordHtml = lewordSeeds.length
+            ? `<div style="margin-top:6px;padding:8px 9px;background:rgba(59,130,246,0.07);border:1px solid rgba(59,130,246,0.18);border-radius:8px;">
+                <div style="display:flex;justify-content:space-between;align-items:center;gap:8px;margin-bottom:6px;">
+                  <b style="color:#93c5fd;font-size:10.5px;">LEWORD 진입 후보</b>
+                  <span style="color:rgba(255,255,255,0.42);font-size:9.5px;">검색량·문서수로 재판단</span>
+                </div>
+                ${lewordSeeds.map(seed => {
+                  const safeKw = js(seed.keyword);
+                  const color = verdictColor[seed.verdict] || '#94a3b8';
+                  const metric = seed.searchVolume || seed.documentCount
+                    ? `sv ${Number(seed.searchVolume || 0).toLocaleString()} · dc ${Number(seed.documentCount || 0).toLocaleString()}${seed.goldenRatio ? ` · ×${seed.goldenRatio}` : ''}`
+                    : '실측 대기';
+                  return `<div style="display:grid;grid-template-columns:minmax(0,1fr) auto;gap:6px;align-items:center;padding:5px 0;border-top:1px solid rgba(255,255,255,0.06);">
+                    <div style="min-width:0;">
+                      <div style="display:flex;gap:5px;align-items:center;min-width:0;">
+                        <span style="padding:1px 5px;border-radius:5px;background:${color}22;color:${color};font-size:9px;font-weight:800;flex-shrink:0;">${esc(seed.verdict || '데이터필요')}</span>
+                        <button onclick="event.stopPropagation(); searchKeyword('${safeKw}', true);" title="LEWORD 분석" style="min-width:0;background:transparent;border:none;color:white;font-size:11px;font-weight:800;text-align:left;cursor:pointer;overflow:hidden;text-overflow:ellipsis;white-space:nowrap;padding:0;">${esc(seed.keyword)}</button>
+                      </div>
+                      <div style="margin-top:2px;color:rgba(255,255,255,0.42);font-size:9.5px;line-height:1.35;">${esc(relationLabel[seed.relation] || seed.relation)} · ${esc(seed.reason)} · ${metric}</div>
+                    </div>
+                    <button onclick="event.stopPropagation(); lewordOpenMindmapForSeed('${safeKw}');" title="마인드맵 확장" style="width:28px;height:28px;border-radius:7px;border:1px solid rgba(168,85,247,0.35);background:rgba(168,85,247,0.14);color:#c4b5fd;cursor:pointer;font-size:12px;">🔗</button>
+                  </div>`;
+                }).join('')}
+              </div>`
+            : '';
 
           const isCoupang = /쿠팡|coupang/i.test(mall);
           const coupangBadge = isCoupang ? '<span style="padding:2px 7px;background:#ff5722;color:white;border-radius:5px;font-size:9px;font-weight:700;margin-right:4px;">쿠팡</span>' : '';
@@ -15474,19 +15686,24 @@
             : 'background:rgba(255,255,255,0.05);color:rgba(255,255,255,0.75);';
 
           // 원본 제품명 그대로 표시 — 복사·검색·시각 정보 일치가 중요
-          const displayTitle = item.title || '';
+          const displayTitle = esc(item.title || '');
 
           return `
             <div class="sc-card" style="position:relative;">
               ${scoreBadge}
               <img class="sc-img" src="${item.image}" alt="${title}" onerror="this.style.opacity=0.2"/>
               <div class="sc-pt" onclick="window.electronAPI?.invoke('open-external-url', '${safeLink}');" title="${title}">${displayTitle}</div>
+              ${discoveryHtml}
               <div><span class="sc-price">${price}원</span>${hprice}</div>
               <div class="sc-meta">
                 <span class="sc-mall">${coupangBadge}${mall}</span>
                 ${brandBadge}
               </div>
               ${reasonBadge}
+              ${oppBadgeHtml}
+              ${writeReasonHtml}
+              ${lewordHtml}
+              ${angleHtml}
               ${cat ? `<div style="font-size:10px;color:rgba(255,255,255,0.4);">${cat}</div>` : ''}
               <div class="sc-btns">
                 <button class="sc-mini-btn sc-mini-btn-primary" onclick="window.electronAPI?.invoke('open-external-url', '${safeLink}');">🔗 네이버</button>
@@ -16938,7 +17155,7 @@
                 <div style="display:inline-block; background: linear-gradient(135deg, #ef4444, #dc2626); padding: 6px 16px; border-radius: 20px; font-size: 12px; font-weight: 800; color: white; margin-bottom: 12px;">🆕 메인 홈판 노출 후보 발굴</div>
                 <h2 style="font-size: 28px; font-weight: 800; background: linear-gradient(135deg, #03c75a 0%, #00b04f 100%); -webkit-background-clip: text; -webkit-text-fill-color: transparent; margin: 0 0 8px 0;">🏠 메인 홈판 키워드 헌터</h2>
                 <p style="font-size: 14px; color: rgba(255,255,255,0.7); margin: 0;">네이버 메인 홈피드 노출 가능성 높은 키워드 후보 — CTR 12 패턴 · 신선도 · 카테고리 · 빈자리 종합</p>
-                <p style="font-size: 11px; color: rgba(255,255,255,0.45); margin: 8px 0 0; line-height:1.5;">⚠️ 메인 홈피드는 AiRS 개인화 추천이라 100% 보장 불가. 점수는 검증된 신호 4종 가중합으로, 동시 충족 시 통계적 노출 우위 약속.</p>
+                <p style="font-size: 11px; color: rgba(255,255,255,0.45); margin: 8px 0 0; line-height:1.5;">⚠️ 메인 홈피드는 AiRS 개인화 추천이라 100% 보장 불가. 점수는 검증된 신호 4종 가중합으로, 동시 충족 시 노출 우위 후보로 분류합니다.</p>
               </div>
 
               <div style="background: rgba(3,199,90,0.08); border-radius: 12px; padding: 14px; margin-bottom: 18px; border: 1px solid rgba(3,199,90,0.25);">
@@ -17051,9 +17268,9 @@
                 </label>
               </div>
 
-              <!-- v2.42.59: 블로그 권위 입력 (실제 노출 확률 보정) -->
+              <!-- v2.42.59: 블로그 권위 입력 (내 블로그 적합도 보정) -->
               <details style="margin-bottom: 16px; padding: 14px; background: rgba(168, 85, 247, 0.06); border: 1px solid rgba(168, 85, 247, 0.25); border-radius: 12px;">
-                <summary style="cursor:pointer; font-size:13px; font-weight:700; color:#c4b5fd; user-select:none;">📊 내 블로그 정보 (입력하면 실제 노출 확률 보정) <span style="color:rgba(255,255,255,0.5); font-weight:500; font-size:11px;">— 같은 점수라도 블로그 권위에 따라 다른 결과</span></summary>
+                <summary style="cursor:pointer; font-size:13px; font-weight:700; color:#c4b5fd; user-select:none;">📊 내 블로그 정보 (입력하면 내 블로그 적합도 보정) <span style="color:rgba(255,255,255,0.5); font-weight:500; font-size:11px;">— 같은 점수라도 블로그 권위에 따라 체감 난이도 다름</span></summary>
                 <div style="margin-top:12px; display:grid; grid-template-columns: 1fr 1fr 1fr; gap:10px;">
                   <label style="display:flex; flex-direction:column; gap:4px;">
                     <span style="font-size:11px; color:rgba(255,255,255,0.75);">일평균 방문자</span>
@@ -17494,17 +17711,43 @@
               }
             }
 
-            // Step 2: 각 키워드에 빈자리 + 제목 + 신선도 + homeScore + 가치검증 평가 (병렬, concurrency 3)
+            // Step 2: 각 키워드에 빈자리 + 제목 + 신선도 + homeScore + 가치검증 평가
+            // v2.49.45: vacancy/freshness는 배치 IPC로 선측정하고 실패분만 개별 fallback.
+            // 기존 N개×2회 IPC를 2회 배치 호출로 줄여 홈판모드 체감 대기와 IPC 부하를 낮춘다.
+            const seedKeywordTexts = seedKeywords.map(k => k.keyword).filter(Boolean);
+            const vacancyBatchMap = new Map();
+            const freshBatchMap = new Map();
+            try {
+              const [vacancyBatchResp, freshBatchResp] = await Promise.all([
+                window.electronAPI.invoke('batch-analyze-vacancy', { keywords: seedKeywordTexts }).catch(() => null),
+                window.electronAPI.invoke('batch-measure-freshness', { keywords: seedKeywordTexts }).catch(() => null),
+              ]);
+              if (vacancyBatchResp?.success && Array.isArray(vacancyBatchResp.results)) {
+                vacancyBatchResp.results.forEach(r => { if (r?.keyword) vacancyBatchMap.set(r.keyword, r); });
+              }
+              if (freshBatchResp?.success && Array.isArray(freshBatchResp.results)) {
+                freshBatchResp.results.forEach(r => { if (r?.keyword) freshBatchMap.set(r.keyword, r); });
+              }
+              console.log(`[HOME-HUNTER] 배치 측정 완료: vacancy=${vacancyBatchMap.size}/${seedKeywordTexts.length}, freshness=${freshBatchMap.size}/${seedKeywordTexts.length}`);
+            } catch (e) {
+              console.warn('[HOME-HUNTER] 배치 측정 실패, 개별 fallback 사용:', e?.message);
+            }
             const enriched = [];
             const CONCURRENCY = 3;
             for (let i = 0; i < seedKeywords.length; i += CONCURRENCY) {
               const batch = seedKeywords.slice(i, i + CONCURRENCY);
               const batchResults = await Promise.all(batch.map(async (kw) => {
                 try {
+                  const vacancyPromise = vacancyBatchMap.has(kw.keyword)
+                    ? Promise.resolve({ success: true, ...vacancyBatchMap.get(kw.keyword) })
+                    : window.electronAPI.invoke('analyze-vacancy', { keyword: kw.keyword }).catch(() => null);
+                  const freshPromise = freshBatchMap.has(kw.keyword)
+                    ? Promise.resolve({ success: true, ...freshBatchMap.get(kw.keyword) })
+                    : window.electronAPI.invoke('measure-freshness', { keyword: kw.keyword }).catch(() => null);
                   const [vacancyResp, titlesResp, freshResp, valueResp] = await Promise.all([
-                    window.electronAPI.invoke('analyze-vacancy', { keyword: kw.keyword }).catch(() => null),
+                    vacancyPromise,
                     window.electronAPI.invoke('generate-optimized-titles', { keyword: kw.keyword, count: 3, category: kw.category || blogCategory || 'general' }).catch(() => null),
-                    window.electronAPI.invoke('measure-freshness', { keyword: kw.keyword }).catch(() => null),
+                    freshPromise,
                     window.electronAPI.invoke('verify-keyword-value', {
                       keyword: kw.keyword,
                       searchVolume: kw.searchVolume || 0,
@@ -17533,7 +17776,7 @@
                     surgeRatio: fresh?.surgeRatio,
                     blogPublishCount24h: fresh?.blogPublishCount24h,
                     daysSinceFirstAppear: fresh?.daysSinceFirstAppear,
-                    // v2.42.59: 블로그 권위 컨텍스트 (실제 노출 확률 보정)
+                    // v2.42.59: 블로그 권위 컨텍스트 (내 블로그 적합도 보정)
                     blogAuthority: window.getBlogAuthorityInput ? window.getBlogAuthorityInput() : undefined,
                   }).catch(() => null);
 
@@ -17665,6 +17908,36 @@
             }
             // seedKeywords 직접 보충(homeScore=0)은 완전 제거 — UX 훼손 (사용자: "homeScore 전부 0인데 어딜봐서 황금키워드냐")
 
+            // Step 4: 홈판 발행 플랜 — 키워드가 아니라 "오늘 쓸 제목/각도/판단"까지 붙인다.
+            try {
+              const planResp = await window.electronAPI.invoke('batch-build-home-publish-plans', {
+                items: filtered.map(x => ({
+                  keyword: x.keyword,
+                  category: x.category || blogCategory || 'general',
+                  searchVolume: x.searchVolume || 0,
+                  documentCount: x.documentCount || 0,
+                  homeScore: x.homeScore?.homeScore || 0,
+                  homeGrade: x.homeScore?.grade,
+                  titleCandidates: x.titles || [],
+                  valueScore: x.valueGate?.valueScore,
+                  qualityScore: x.valueGate?.qualityScore,
+                  valueGrade: x.valueGate?.valueGrade,
+                  vacancySlots: x.vacancy?.vacancySlots,
+                  influencerCount: x.vacancy?.influencerCount,
+                  bigDomainCount: x.vacancy?.bigDomainCount,
+                  surgeRatio: x.fresh?.surgeRatio,
+                  blogPublishCount24h: x.fresh?.blogPublishCount24h,
+                  daysSinceFirstAppear: x.fresh?.daysSinceFirstAppear,
+                }))
+              }).catch(() => null);
+              if (planResp?.success && Array.isArray(planResp.plans)) {
+                const planMap = new Map(planResp.plans.map(p => [p.keyword, p]));
+                filtered = filtered.map(x => ({ ...x, publishPlan: planMap.get(x.keyword) || null }));
+              }
+            } catch (e) {
+              console.warn('[HOME-HUNTER] publish plan 생성 실패:', e?.message);
+            }
+
             // 학습 데이터 + disclaimer 조회
             let learnedInfo = '';
             try {
@@ -17761,6 +18034,15 @@
           const v = x.vacancy || {};
           const fr = x.fresh || {};
           const bestTitle = x.bestTitle;
+          const plan = x.publishPlan || null;
+          const planStatusColors = {
+            PUBLISH_NOW: { bg: 'rgba(34,197,94,0.18)', color: '#22c55e', border: 'rgba(34,197,94,0.45)' },
+            WRITE_TODAY: { bg: 'rgba(59,130,246,0.16)', color: '#60a5fa', border: 'rgba(59,130,246,0.4)' },
+            WATCH: { bg: 'rgba(251,191,36,0.16)', color: '#fbbf24', border: 'rgba(251,191,36,0.4)' },
+            SKIP: { bg: 'rgba(239,68,68,0.16)', color: '#fca5a5', border: 'rgba(239,68,68,0.4)' }
+          };
+          const planStyle = planStatusColors[plan?.status] || planStatusColors.WATCH;
+          const displayTitle = plan?.primaryTitle || bestTitle?.title || '';
 
           const gradeColor = score >= 85 ? '#22c55e' : score >= 70 ? '#3b82f6' : score >= 55 ? '#fbbf24' : '#f87171';
           const gradeBg = score >= 85 ? 'rgba(34,197,94,0.15)' : score >= 70 ? 'rgba(59,130,246,0.15)' : score >= 55 ? 'rgba(251,191,36,0.15)' : 'rgba(239,68,68,0.15)';
@@ -17792,11 +18074,41 @@
                 </div>
               </div>
 
-              ${bestTitle ? `
+              ${displayTitle ? `
                 <div style="background:rgba(34,197,94,0.08); border-radius:10px; padding:14px; margin-bottom:12px; border-left:3px solid #22c55e;">
-                  <div style="font-size:11px; color:#22c55e; font-weight:800; margin-bottom:6px;">📝 추천 제목 (이대로 발행)</div>
-                  <div style="font-size:16px; font-weight:700; color:white;">${escapeHtml(bestTitle.title)}</div>
-                  ${(bestTitle.matchedPatterns || []).length ? `<div style="font-size:10px; color:rgba(255,255,255,0.5); margin-top:6px;">포함 패턴: ${bestTitle.matchedPatterns.join(' · ')}</div>` : ''}
+                  <div style="display:flex; align-items:center; gap:8px; flex-wrap:wrap; margin-bottom:7px;">
+                    <div style="font-size:11px; color:#22c55e; font-weight:800;">📝 오늘 쓸 제목</div>
+                    ${plan ? `<span style="background:${planStyle.bg}; color:${planStyle.color}; border:1px solid ${planStyle.border}; padding:2px 8px; border-radius:6px; font-size:10px; font-weight:900;">${escapeHtml(plan.statusLabel)} · ${plan.priorityScore}점</span>` : ''}
+                    ${plan?.publishWindow ? `<span style="background:rgba(255,255,255,0.06); color:rgba(255,255,255,0.75); padding:2px 8px; border-radius:6px; font-size:10px; font-weight:700;">${escapeHtml(plan.publishWindow)}</span>` : ''}
+                  </div>
+                  <div style="font-size:16px; font-weight:800; color:white; line-height:1.45; word-break:keep-all;">${escapeHtml(displayTitle)}</div>
+                  ${(plan?.titleOptions || []).length > 1 ? `
+                    <div style="margin-top:8px; display:flex; flex-direction:column; gap:4px;">
+                      ${plan.titleOptions.slice(1, 3).map(t => `
+                        <div style="font-size:11px; color:rgba(255,255,255,0.68); display:flex; gap:6px; align-items:flex-start;">
+                          <span style="color:#a7f3d0; font-weight:800;">후보</span>
+                          <span style="line-height:1.35;">${escapeHtml(t.title)}</span>
+                        </div>
+                      `).join('')}
+                    </div>
+                  ` : ((bestTitle?.matchedPatterns || []).length ? `<div style="font-size:10px; color:rgba(255,255,255,0.5); margin-top:6px;">포함 패턴: ${bestTitle.matchedPatterns.join(' · ')}</div>` : '')}
+                </div>
+              ` : ''}
+
+              ${plan ? `
+                <div style="display:grid; grid-template-columns: repeat(auto-fit, minmax(220px, 1fr)); gap:8px; margin-bottom:12px;">
+                  <div style="background:rgba(255,255,255,0.03); border-radius:8px; padding:10px 12px; border:1px solid rgba(255,255,255,0.06);">
+                    <div style="font-size:10px; color:#a7f3d0; font-weight:800; margin-bottom:5px;">작성 각도</div>
+                    <div style="font-size:12px; color:rgba(255,255,255,0.82); line-height:1.45;">${escapeHtml(plan.hookAngle)}</div>
+                  </div>
+                  <div style="background:rgba(255,255,255,0.03); border-radius:8px; padding:10px 12px; border:1px solid rgba(255,255,255,0.06);">
+                    <div style="font-size:10px; color:#bfdbfe; font-weight:800; margin-bottom:5px;">첫 문단 방향</div>
+                    <div style="font-size:12px; color:rgba(255,255,255,0.82); line-height:1.45;">${escapeHtml(plan.firstParagraph)}</div>
+                  </div>
+                </div>
+                <div style="display:flex; flex-wrap:wrap; gap:6px; margin-bottom:12px;">
+                  ${(plan.mustInclude || []).slice(0, 5).map(t => `<span style="background:rgba(34,197,94,0.1); color:#86efac; border:1px solid rgba(34,197,94,0.25); padding:3px 8px; border-radius:6px; font-size:10px; font-weight:700;">${escapeHtml(t)}</span>`).join('')}
+                  ${(plan.avoid || []).slice(0, 3).map(t => `<span style="background:rgba(239,68,68,0.08); color:#fca5a5; border:1px solid rgba(239,68,68,0.22); padding:3px 8px; border-radius:6px; font-size:10px; font-weight:700;">피하기: ${escapeHtml(t)}</span>`).join('')}
                 </div>
               ` : ''}
 
@@ -17967,7 +18279,7 @@
               <div style="font-size:12px; color:rgba(255,255,255,0.5); margin-bottom:8px;">각 측정값의 출처와 신뢰도 분류</div>
               <div style="background:rgba(239,68,68,0.08); border:1px solid rgba(239,68,68,0.3); padding:10px 14px; border-radius:8px; margin-bottom:16px;">
                 <div style="font-size:12px; color:#fca5a5; font-weight:700; margin-bottom:4px;">⚠️ 솔직한 디스클레이머</div>
-                <div style="font-size:11px; color:rgba(255,255,255,0.75); line-height:1.55;">네이버 메인 홈피드 노출은 <strong>개인화 추천(AiRS) + 블로거 누적 점수(C-Rank) + 글 발행 후 인게이지먼트</strong>가 결합된 블랙박스라 어떤 도구도 100% 보장 불가. 다만 아래 신호를 동시 충족하면 평균 대비 노출 확률이 통계적으로 높습니다.</div>
+                <div style="font-size:11px; color:rgba(255,255,255,0.75); line-height:1.55;">네이버 메인 홈피드 노출은 <strong>개인화 추천(AiRS) + 블로거 누적 점수(C-Rank) + 글 발행 후 인게이지먼트</strong>가 결합된 블랙박스라 어떤 도구도 100% 보장 불가. 다만 아래 신호를 동시 충족하면 평균 대비 노출 가능성이 높다고 해석합니다.</div>
               </div>
               <div style="display:flex; gap:8px; margin-bottom:16px; flex-wrap:wrap; font-size:10px;">
                 <span style="padding:3px 8px; background:rgba(34,197,94,0.15); color:#22c55e; border-radius:6px; font-weight:700;">공식 = 네이버 발표</span>
@@ -18508,7 +18820,7 @@
                 </label>
               </div>
             </div>
-            <select id="proTrafficCount" title="목표 SSS 키워드 수 — 풀 확장으로 SSS 절대 수 보장" style="padding: 8px 14px; border: 2px solid rgba(234, 179, 8, 0.3); border-radius: 8px; font-size: 13px; background: rgba(30, 41, 59, 0.8); color: white; cursor: pointer; outline: none;">
+            <select id="proTrafficCount" title="목표 SSS급 발굴 수 — B/C 후보 제외" style="padding: 8px 14px; border: 2px solid rgba(234, 179, 8, 0.3); border-radius: 8px; font-size: 13px; background: rgba(30, 41, 59, 0.8); color: white; cursor: pointer; outline: none;">
               <option value="10">10개</option>
               <option value="20">20개</option>
               <option value="30">30개</option>
@@ -18524,10 +18836,10 @@
 
           <div style="margin-top: 14px; padding: 12px 14px; background: rgba(251, 191, 36, 0.08); border: 1px solid rgba(251, 191, 36, 0.35); border-radius: 8px;">
             <p style="font-size: 12px; color: #fcd34d; margin: 0 0 6px 0; line-height: 1.55; font-weight: 700;">
-              🏆 SSS 등급 전용 모드 — 분포 기반 상위 추출
+              🎯 SSS 우선 모드 — SSS/SS/S 검증 결과만 표시
             </p>
             <p style="font-size: 11px; color: rgba(255,255,255,0.78); margin: 0; line-height: 1.6;">
-              선택한 수량만큼 SSS 등급 키워드를 보장합니다. 다중 소스(네이버 검색광고 + 자동완성 + Daum + Google + SmartBlock + AI 브리핑)로 카테고리 키워드를 대량 발굴 후, <strong>황금비율(55%) + 검색량(30%) + 문서수 역수(15%) 결합 점수</strong>로 정렬해 상위 N개를 SSS로 추출 — 카테고리·시점에 무관하게 항상 선택 수량만큼 결과 보장.
+              황금키워드 분석기가 놓치는 키워드를 찾기 위해 하드 차단 대신 주의 마커를 붙여 넓게 보여줍니다. 다중 소스(네이버 검색광고 + 자동완성 + Daum + Google + SmartBlock + AI 브리핑)로 대량 발굴 후, <strong>등급 + 황금비율 + 검색량 + 문서수 역수</strong>로 정렬합니다.
             </p>
           </div>
 
@@ -18624,8 +18936,12 @@
             alert('내보낼 키워드가 없습니다.');
             return;
           }
+          const ratioText = (v) => {
+            const n = typeof v === 'number' ? v : Number(String(v ?? '').replace(/,/g, '').trim());
+            return isFinite(n) ? n.toFixed(2) : '-';
+          };
           if (format === 'clipboard') {
-            const text = rows.map(k => `${k.keyword}\t${k.grade || '-'}\t${k.searchVolume ?? '-'}\t${k.documentCount ?? '-'}\t${(k.goldenRatio || 0).toFixed(2)}\t${k.totalScore || 0}`).join('\n');
+            const text = rows.map(k => `${k.keyword}\t${k.grade || '-'}\t${k.searchVolume ?? '-'}\t${k.documentCount ?? '-'}\t${ratioText(k.goldenRatio)}\t${k.totalScore || 0}`).join('\n');
             const header = '키워드\t등급\t검색량\t문서수\t황금비율\t총점\n';
             navigator.clipboard.writeText(header + text).then(() => {
               showNotification(`✅ ${rows.length}개 키워드가 클립보드에 복사되었습니다.`, 'success');
@@ -18639,7 +18955,7 @@
               k.grade || '-',
               k.searchVolume ?? '-',
               k.documentCount ?? '-',
-              (k.goldenRatio || 0).toFixed(2),
+              ratioText(k.goldenRatio),
               k.totalScore || 0,
               `"${(k.type || '').replace(/"/g, '""')}"`,
             ].join(',')).join('\n');
@@ -18764,7 +19080,11 @@
               targetRookie,
               includeSeasonKeywords: includeSeason,
               explosionMode,
-              count
+              count,
+              discoveryFirst: false,
+              fastDiscovery: count >= 50,
+              strictGates: false,
+              enhanceWithAdsenseGates: false
               // Manus 보강은 별도 비동기 IPC로 처리 (start-manus-enrichment)
             });
 
@@ -18899,7 +19219,7 @@
                 gradeCounts[g] = (gradeCounts[g] || 0) + 1;
               });
 
-              const ordered = ['SSS', 'SS', 'S', 'A', 'B', 'C', '-'];
+              const ordered = ['SSS', 'SS', 'S', '-'];
               const gradeSummaryText = ordered
                 .filter((g) => gradeCounts[g])
                 .map((g) => `${g}:${gradeCounts[g]}`)
@@ -18912,65 +19232,49 @@
               progressLog.scrollTop = progressLog.scrollHeight;
             }
 
-            // 🎯 v2.40.2 — SSS 등급만 표시 (사용자 요구: 그 외 등급은 노이즈)
-            const gradePriority = ['SSS'];
+            // PRO 헌터는 황금키워드 분석기가 놓친 후보를 찾는 상위 발굴 모드다.
+            // SSS만 보여주면 좋은 후보를 UI에서 다시 버리게 되므로 등급/지표 기반으로 넓게 채운다.
+            const premiumGradeSet = new Set(['SSS', 'SS', 'S']);
+            const gradeRank = { SSS: 700, SS: 600, S: 500, '': 0 };
+            const candidateScore = (kw) => {
+              const grade = normalizeGrade(kw?.grade);
+              if (!premiumGradeSet.has(grade)) return -999999;
+              const sv = toFiniteNumberOrNull(kw?.searchVolume) || 0;
+              const dc = toFiniteNumberOrNull(kw?.documentCount) || 0;
+              const ratio = toFiniteNumberOrNull(kw?.goldenRatio) || 0;
+              const total = toFiniteNumberOrNull(kw?.totalScore) || 0;
+              const warningPenalty = Array.isArray(kw?.hunterWarnings) ? kw.hunterWarnings.length * 20 : 0;
+              return (gradeRank[grade] || 0)
+                + (kw?.isGolden ? 80 : 0)
+                + Math.min(total, 100)
+                + Math.min(ratio, 20) * 4
+                + Math.log10(Math.max(1, sv + 1)) * 10
+                - Math.log10(Math.max(1, dc + 1)) * 2
+                - warningPenalty;
+            };
+            const sortByOpportunity = (pool) => pool.slice().sort((a, b) => candidateScore(b) - candidateScore(a));
+            const goldenCandidates = metricCandidates.filter((kw) => premiumGradeSet.has(normalizeGrade(kw?.grade)));
             const selectedKeywords = [];
             const seen = new Set();
             const targetCount = count;
+            const addCandidate = (kw) => {
+              const key = String(kw?.keyword || '').trim();
+              if (!key || seen.has(key)) return;
+              seen.add(key);
+              selectedKeywords.push(kw);
+            };
 
-            for (const grade of gradePriority) {
-              const sameGrade = metricCandidates.filter((k) => normalizeGrade(k?.grade) === grade);
-              const goldenFirst = [];
-              const others = [];
-              sameGrade.forEach((k) => {
-                if (k?.isGolden) goldenFirst.push(k);
-                else others.push(k);
-              });
-
-              for (const kw of [...goldenFirst, ...others]) {
-                const key = String(kw?.keyword || '').trim();
-                if (!key) continue;
-                if (seen.has(key)) continue;
-                seen.add(key);
-                selectedKeywords.push(kw);
-                if (selectedKeywords.length >= targetCount) break;
-              }
-
+            for (const kw of sortByOpportunity(goldenCandidates)) {
+              addCandidate(kw);
               if (selectedKeywords.length >= targetCount) break;
             }
-
-            // 목표 개수 미만이면 SSS 등급 내 미검증 지표 후보(allCandidates)까지 포함해 채움 (등급 게이트 유지)
-            if (selectedKeywords.length < targetCount) {
-              for (const grade of gradePriority) {
-                const sameGrade = allCandidates.filter((k) => normalizeGrade(k?.grade) === grade);
-                const goldenFirst = [];
-                const others = [];
-                sameGrade.forEach((k) => {
-                  if (k?.isGolden) goldenFirst.push(k);
-                  else others.push(k);
-                });
-
-                for (const kw of [...goldenFirst, ...others]) {
-                  const key = String(kw?.keyword || '').trim();
-                  if (!key) continue;
-                  if (seen.has(key)) continue;
-                  seen.add(key);
-                  selectedKeywords.push(kw);
-                  if (selectedKeywords.length >= targetCount) break;
-                }
-
-                if (selectedKeywords.length >= targetCount) break;
-              }
-            }
-
-            // SSS 외 등급은 의도적으로 제외 (사용자: "그 외 키워드는 의미 없음")
 
             if (selectedKeywords.length === 0) {
               resultsDiv.innerHTML = `
             <div style="text-align: center; padding: 40px; background: rgba(251, 191, 36, 0.1); border-radius: 12px; border: 1px solid rgba(251, 191, 36, 0.3);">
-              <div style="font-size: 40px; margin-bottom: 12px;">🏆</div>
-              <div style="font-size: 16px; font-weight: 700; color: #fbbf24; margin-bottom: 8px;">SSS 등급 황금 키워드를 찾지 못했습니다</div>
-              <div style="font-size: 13px; color: rgba(255,255,255,0.7); line-height: 1.6;">다른 카테고리/시드 키워드/모드로 다시 시도해보세요.</div>
+              <div style="font-size: 40px; margin-bottom: 12px;">🔍</div>
+              <div style="font-size: 16px; font-weight: 700; color: #fbbf24; margin-bottom: 8px;">SSS/SS/S 통과 결과를 찾지 못했습니다</div>
+              <div style="font-size: 13px; color: rgba(255,255,255,0.7); line-height: 1.6;">B/C 후보는 표시하지 않도록 막았습니다. 다른 카테고리/시드 키워드/모드로 다시 시도해보세요.</div>
             </div>
           `;
               return;
@@ -18988,7 +19292,7 @@
             // 전역 변수에 저장 (선택 개수)
             proTrafficAllKeywords = selectedKeywords;
             proTrafficSummary = recomputedSummary;
-            proTrafficDisplayIndex = Math.max(0, selectedKeywords.length - PRO_TRAFFIC_PAGE_SIZE);
+            proTrafficDisplayIndex = 0;
             proTrafficSmartBlockKeywords = Array.isArray(response.smartBlockKeywords) ? response.smartBlockKeywords : [];
             proTrafficManusStatus = null; // 비동기 — 시작 후 폴링이 채움
 
@@ -19022,7 +19326,7 @@
 
         function loadMoreProTrafficKeywords() {
           proTrafficDisplayIndex += PRO_TRAFFIC_PAGE_SIZE;
-          renderProTrafficKeywords(false);
+          renderProTrafficKeywords(true);
         }
 
         // 🤖 Manus 비동기 보강 — IPC 시작 + 5초 폴링 + 라이브 업데이트
@@ -19262,30 +19566,33 @@
             </div>
 
             ${(() => {
-              // 🎯 v2.40.2 — SSS 단독 통계 (다층 분포 카드 제거. 사용자 요구: 그 외 등급은 의미 없음)
+              const gradeOf = (k) => String(k?.grade || '').toUpperCase().replace(/[^A-Z]/g, '');
+              const sss = keywords.filter(k => gradeOf(k) === 'SSS').length;
               const ultraBlue = keywords.filter(k => (k.goldenRatio || 0) >= 10).length;
               const blue = keywords.filter(k => (k.goldenRatio || 0) >= 5 && (k.goldenRatio || 0) < 10).length;
+              const ss = keywords.filter(k => gradeOf(k) === 'SS').length;
+              const s = keywords.filter(k => gradeOf(k) === 'S').length;
               return `
             <div style="display: grid; grid-template-columns: repeat(auto-fit, minmax(140px, 1fr)); gap: 12px;">
+              <div style="background: linear-gradient(135deg, rgba(251,191,36,0.22), rgba(59,130,246,0.14)); padding: 14px; border-radius: 14px; border: 1px solid rgba(251,191,36,0.45); text-align: center;" title="이번 실행에서 확보한 SSS/SS/S 통과 결과">
+                <div style="font-size: 24px; font-weight: 900; color: #fbbf24;">🎯 ${keywords.length}</div>
+                <div style="font-size: 11px; color: #fde68a; margin-top: 4px; font-weight: 700;">통과 결과</div>
+              </div>
               <div style="background: linear-gradient(135deg, rgba(255,107,157,0.25), rgba(251,191,36,0.18)); padding: 14px; border-radius: 14px; border: 1px solid rgba(255,107,157,0.5); text-align: center;" title="SSS — 검증된 최상위 황금 키워드">
-                <div style="font-size: 24px; font-weight: 900; color: #ff6b9d;">🏆 ${keywords.length}</div>
-                <div style="font-size: 11px; color: #fda4af; margin-top: 4px; font-weight: 700;">SSS 등급</div>
+                <div style="font-size: 22px; font-weight: 900; color: #ff6b9d;">🏆 ${sss}</div>
+                <div style="font-size: 11px; color: #fda4af; margin-top: 4px; font-weight: 700;">SSS 검증</div>
               </div>
               <div style="background: linear-gradient(135deg, rgba(34,197,94,0.2), rgba(59,130,246,0.15)); padding: 14px; border-radius: 14px; border: 1px solid rgba(34,197,94,0.4); text-align: center;" title="검색량이 문서수의 10배 이상인 키워드">
                 <div style="font-size: 22px; font-weight: 900; color: #22c55e;">💎 ${ultraBlue}</div>
-                <div style="font-size: 11px; color: #86efac; margin-top: 4px; font-weight: 700;">극블루오션 (gr 10+)</div>
+                <div style="font-size: 11px; color: #86efac; margin-top: 4px; font-weight: 700;">극블루오션</div>
               </div>
-              <div style="background: rgba(52,211,153,0.12); padding: 12px; border-radius: 14px; border: 1px solid rgba(52,211,153,0.3); text-align: center;">
+              <div style="background: rgba(255,255,255,0.03); padding: 12px; border-radius: 14px; border: 1px solid rgba(255,255,255,0.05); text-align: center;">
                 <div style="font-size: 20px; font-weight: 800; color: #34d399;">🌊 ${blue}</div>
-                <div style="font-size: 11px; color: rgba(255,255,255,0.7); margin-top: 4px;">블루오션 (gr 5~10)</div>
+                <div style="font-size: 11px; color: rgba(255,255,255,0.6); margin-top: 4px;">블루오션</div>
               </div>
               <div style="background: rgba(255,255,255,0.03); padding: 12px; border-radius: 14px; border: 1px solid rgba(255,255,255,0.05); text-align: center;">
-                <div style="font-size: 20px; font-weight: 800; color: #22c55e;">${summary.rookieFriendlyCount || 0}</div>
-                <div style="font-size: 11px; color: rgba(255,255,255,0.5); margin-top: 4px;">신생 블로그 적합</div>
-              </div>
-              <div style="background: rgba(255,255,255,0.03); padding: 12px; border-radius: 14px; border: 1px solid rgba(255,255,255,0.05); text-align: center;">
-                <div style="font-size: 20px; font-weight: 800; color: #fbbf24;">${keywords.filter(k => k.monetizationBlueprint).length}</div>
-                <div style="font-size: 11px; color: rgba(255,255,255,0.5); margin-top: 4px;">전략 보고서 생성</div>
+                <div style="font-size: 20px; font-weight: 800; color: #fbbf24;">SS ${ss} · S ${s}</div>
+                <div style="font-size: 11px; color: rgba(255,255,255,0.5); margin-top: 4px;">보조 등급</div>
               </div>
             </div>`;
             })()}
@@ -19320,34 +19627,53 @@
             `;
           }
 
-          // 🔥 v2.15.0 최종 컷 — "진짜 블루오션" 만 표시
-          displayKeywords = (displayKeywords || []).filter(kw => {
-            if (!kw) return false;
-            if (!kw.grade) return false;
-            const sv = typeof kw.searchVolume === 'number' ? kw.searchVolume : 0;
-            if (sv < 100) return false;
-            const dc = typeof kw.documentCount === 'number' ? kw.documentCount : 0;
-            if (dc <= 0) return false;
-            if (!kw.goldenRatio || !isFinite(kw.goldenRatio)) return false;
-            if (!kw.totalScore || kw.totalScore < 40) return false;
-            // 🔥 v2.18.0 Fix1: 카테고리별 threshold 테이블
-            const cat = (kw.category || '').toString();
-            const CAT_GR_THRESHOLD = {
-              celeb: 0.1, life_tips: 0.3,
-              movie: 0.2, drama: 0.2, music: 0.2, book: 0.2, anime: 0.2, broadcast: 0.2,
-              policy: 0.4, finance: 0.4, realestate: 0.4, health: 0.4,
-              it: 0.5, business: 0.5, interior: 0.5, daily: 0.5, self_development: 0.5,
-            };
-            const threshold = CAT_GR_THRESHOLD[cat] !== undefined ? CAT_GR_THRESHOLD[cat] : 1.5;
-            if (kw.goldenRatio < threshold) return false;
-            return true;
-          });
+          // PRO 헌터 최종 화면은 SSS/SS/S 검증 결과만 보여준다.
+          const premiumDisplayGradeSet = new Set(['SSS', 'SS', 'S']);
+          const normalizeDisplayGrade = (g) => String(g || '').toUpperCase().replace(/[^A-Z]/g, '');
+          const toDisplayNumber = (v) => {
+            if (typeof v === 'number') return isFinite(v) ? v : null;
+            if (typeof v === 'string') {
+              const n = Number(v.replace(/,/g, '').trim());
+              return isFinite(n) ? n : null;
+            }
+            return null;
+          };
+          const escapeHtml = (v) => String(v ?? '').replace(/[&<>"']/g, (ch) => ({
+            '&': '&amp;',
+            '<': '&lt;',
+            '>': '&gt;',
+            '"': '&quot;',
+            "'": '&#39;'
+          }[ch]));
+          displayKeywords = (displayKeywords || [])
+            .filter(kw => kw && String(kw.keyword || '').trim())
+            .filter(kw => premiumDisplayGradeSet.has(normalizeDisplayGrade(kw.grade)))
+            .map(kw => {
+              const copy = { ...kw };
+              const warnings = Array.isArray(copy.hunterWarnings) ? [...copy.hunterWarnings] : [];
+              const sv = toDisplayNumber(copy.searchVolume);
+              const dc = toDisplayNumber(copy.documentCount);
+              const gr = toDisplayNumber(copy.goldenRatio);
+              const score = toDisplayNumber(copy.totalScore);
+              if (sv === null || sv === 0) warnings.push('검색량 미검증');
+              else if (sv < 100) warnings.push('검색량 낮음');
+              if (dc === null || dc <= 0) warnings.push('문서수 미검증');
+              if (gr === null || !isFinite(gr)) warnings.push('황금비율 미검증');
+              if (score !== null && score < 40) warnings.push('점수 낮음');
+              copy.hunterWarnings = Array.from(new Set(warnings)).slice(0, 4);
+              copy.hunterCandidateTier = copy.hunterCandidateTier || (copy.hunterWarnings.length ? 'watchlist' : 'verified');
+              return copy;
+            });
 
           displayKeywords.forEach((kw, index) => {
-            const gradeColor = kw.grade === 'SSS' ? '#ff6b9d' : kw.grade === 'SS' ? '#ff9f43' : kw.grade === 'S' ? '#fbbf24' : '#22c55e';
-            const sv = kw.searchVolume ? kw.searchVolume.toLocaleString() : '-';
-            const dc = kw.documentCount ? kw.documentCount.toLocaleString() : '-';
-            const ratio = kw.goldenRatio ? kw.goldenRatio.toFixed(2) : '-';
+            const gradeLabel = kw.grade || '후보';
+            const gradeColor = gradeLabel === 'SSS' ? '#ff6b9d' : gradeLabel === 'SS' ? '#ff9f43' : gradeLabel === 'S' ? '#fbbf24' : gradeLabel === '후보' ? '#94a3b8' : '#22c55e';
+            const svNum = toDisplayNumber(kw.searchVolume);
+            const dcNum = toDisplayNumber(kw.documentCount);
+            const ratioNum = toDisplayNumber(kw.goldenRatio);
+            const sv = svNum !== null ? svNum.toLocaleString() : '-';
+            const dc = dcNum !== null ? dcNum.toLocaleString() : '-';
+            const ratio = ratioNum !== null ? ratioNum.toFixed(2) : '-';
             // 🚀 100점 끝판왕: enhancer 필드 (publisherRPM/blueOcean/reachability/신뢰구간/searchIntent/zeroClick/eligibility)
             const enhBlue = kw.blueOcean?.level;
             const enhBlueRatio = kw.blueOcean?.ratio;
@@ -19398,18 +19724,19 @@
                 <div style="display: flex; justify-content: space-between; align-items: flex-start; margin-bottom: 20px;">
                   <div>
                     <div style="display: flex; align-items: center; gap: 10px; margin-bottom: 10px;">
-                      <span style="background: ${gradeColor}; color: white; padding: 4px 10px; border-radius: 8px; font-size: 12px; font-weight: 900; letter-spacing: 0.5px;">${kw.grade} GRADE</span>
+                      <span style="background: ${gradeColor}; color: white; padding: 4px 10px; border-radius: 8px; font-size: 12px; font-weight: 900; letter-spacing: 0.5px;">${gradeLabel}${gradeLabel === '후보' ? '' : ' GRADE'}</span>
                       <span style="color: rgba(255,255,255,0.5); font-size: 12px; font-weight: 500;">${kw.type}</span>
+                      ${Array.isArray(kw.hunterWarnings) && kw.hunterWarnings.length ? kw.hunterWarnings.map(w => `<span style="background:rgba(251,191,36,0.14); color:#fbbf24; border:1px solid rgba(251,191,36,0.35); padding:3px 8px; border-radius:7px; font-size:10px; font-weight:700;" title="${escapeHtml(w)}">${escapeHtml(w)}</span>`).join('') : ''}
                       ${(() => {
                         // 🔥 v2.16.0: 극블루오션 배지 (gr 10+)
-                        const r = kw.goldenRatio || 0;
+                        const r = ratioNum || 0;
                         if (r >= 10) return `<span style="background: linear-gradient(135deg, #22c55e, #3b82f6); color: white; padding: 4px 10px; border-radius: 8px; font-size: 11px; font-weight: 900; box-shadow: 0 2px 8px rgba(34,197,94,0.4);" title="검색량이 문서수의 ${r.toFixed(1)}배 — 상위노출 거의 확정">💎 극블루오션</span>`;
                         if (r >= 5) return `<span style="background: rgba(52,211,153,0.2); color: #34d399; border: 1px solid #34d399; padding: 3px 9px; border-radius: 7px; font-size: 11px; font-weight: 800;" title="검색량이 문서수의 ${r.toFixed(1)}배">🌊 블루오션</span>`;
                         return '';
                       })()}
                       ${(() => {
-                        const svOk = typeof kw.searchVolume === 'number' && kw.searchVolume >= 300;
-                        const ratioOk = typeof kw.goldenRatio === 'number' && kw.goldenRatio >= 0.5;
+                        const svOk = svNum !== null && svNum >= 300;
+                        const ratioOk = ratioNum !== null && ratioNum >= 0.5;
                         const hasBlueprint = !!kw.monetizationBlueprint;
                         const score = (svOk ? 1 : 0) + (ratioOk ? 1 : 0) + (hasBlueprint ? 1 : 0);
                         const level = score >= 2 ? 'HIGH' : score === 1 ? 'MID' : 'LOW';
@@ -19461,19 +19788,19 @@
                     <div style="font-size: 10px; color: rgba(255,255,255,0.4); margin-top: 4px;">문서수</div>
                   </div>
                   <div style="background: ${(() => {
-                    const r = kw.goldenRatio || 0;
+                    const r = ratioNum || 0;
                     if (r >= 10) return 'linear-gradient(135deg, rgba(34,197,94,0.2), rgba(59,130,246,0.15))';
                     if (r >= 5) return 'rgba(34,197,94,0.12)';
                     if (r >= 2) return 'rgba(96,165,250,0.08)';
                     return 'rgba(255,255,255,0.02)';
-                  })()}; padding: 12px; border-radius: 14px; border: 1px solid ${(kw.goldenRatio || 0) >= 10 ? 'rgba(34,197,94,0.4)' : 'rgba(255,255,255,0.05)'}; text-align: center;" title="${(() => {
-                    const r = kw.goldenRatio || 0;
+                  })()}; padding: 12px; border-radius: 14px; border: 1px solid ${(ratioNum || 0) >= 10 ? 'rgba(34,197,94,0.4)' : 'rgba(255,255,255,0.05)'}; text-align: center;" title="${(() => {
+                    const r = ratioNum || 0;
                     if (r >= 10) return `💎 극블루오션 — 검색량이 문서수의 ${r.toFixed(1)}배 (상위노출 거의 확정)`;
                     if (r >= 5) return `🌊 블루오션 — 검색량이 문서수의 ${r.toFixed(1)}배`;
                     if (r >= 2) return `✅ 양호 — 검색량이 문서수의 ${r.toFixed(1)}배`;
                     return `경쟁 수준: 검색량이 문서수의 ${r.toFixed(2)}배`;
                   })()}">
-                    <div style="font-size: 16px; font-weight: 800; color: ${(kw.goldenRatio || 0) >= 10 ? '#22c55e' : (kw.goldenRatio || 0) >= 5 ? '#34d399' : '#60a5fa'};">${ratio}${(kw.goldenRatio || 0) >= 5 ? ' 💎' : ''}</div>
+                    <div style="font-size: 16px; font-weight: 800; color: ${(ratioNum || 0) >= 10 ? '#22c55e' : (ratioNum || 0) >= 5 ? '#34d399' : '#60a5fa'};">${ratio}${(ratioNum || 0) >= 5 ? ' 💎' : ''}</div>
                     <div style="font-size: 10px; color: rgba(255,255,255,0.4); margin-top: 4px;">황금비율 (sv÷dc)</div>
                   </div>
                   <div style="background: rgba(255,255,255,0.02); padding: 12px; border-radius: 14px; border: 1px solid rgba(255,255,255,0.05); text-align: center;">
@@ -19487,7 +19814,7 @@
                   <div style="font-size: 14px; color: white; line-height: 1.6; font-weight: 600; word-break: keep-all; margin-bottom: 8px;">
                     ${(kw.rookieFriendly && kw.monetizationBlueprint)
                       ? `"이 키워드는 ${kw.rookieFriendly.canRankWithin} 내에 노출이 가능하며, ${kw.monetizationBlueprint.name} 전략에 최적화되어 있습니다."`
-                      : `"${kw.grade} 등급 / 황금비율 ${typeof kw.goldenRatio === 'number' ? kw.goldenRatio.toFixed(2) : '-'} / 검색량 ${kw.searchVolume?.toLocaleString() || '-'} / 문서수 ${kw.documentCount?.toLocaleString() || '-'}"`}
+                      : `"${gradeLabel} / 황금비율 ${ratio} / 검색량 ${sv} / 문서수 ${dc}"`}
                   </div>
                   ${kw.riskAnalysis ? `
                   <div style="font-size: 12px; color: ${kw.riskAnalysis.level === 'danger' ? '#fca5a5' : (kw.riskAnalysis.level === 'caution' ? '#fcd34d' : 'rgba(255,255,255,0.5)')}; display: flex; align-items: center; gap: 6px;">
@@ -20576,3 +20903,4 @@
 
 
 </html>
+

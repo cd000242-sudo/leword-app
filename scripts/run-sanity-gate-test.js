@@ -11,17 +11,25 @@
 const { spawnSync } = require('child_process');
 const path = require('path');
 
-const testFile = path.join(__dirname, '..', 'src', 'utils', '__tests__', 'sanity-gate.test.ts');
+const testFiles = [
+    path.join(__dirname, '..', 'src', 'utils', '__tests__', 'sanity-gate.test.ts'),
+    path.join(__dirname, '..', 'src', 'utils', '__tests__', 'shopping-opportunity.test.ts'),
+    path.join(__dirname, '..', 'src', 'utils', '__tests__', 'policy-briefing.test.ts'),
+    path.join(__dirname, '..', 'src', 'utils', '__tests__', 'realtime-strength.test.ts'),
+    path.join(__dirname, '..', 'src', 'utils', '__tests__', 'home-publish-planner.test.ts'),
+];
 
-console.log('[sanity-gate.test] running...');
-const result = spawnSync('npx', ['ts-node', '--transpile-only', testFile], {
-    stdio: 'inherit',
-    shell: true,
-});
+for (const testFile of testFiles) {
+    console.log(`[${path.basename(testFile)}] running...`);
+    const result = spawnSync('npx', ['ts-node', '--transpile-only', testFile], {
+        stdio: 'inherit',
+        shell: true,
+    });
 
-if (result.status !== 0) {
-    console.error('[sanity-gate.test] ❌ FAILED — release 차단');
-    process.exit(1);
+    if (result.status !== 0) {
+        console.error(`[${path.basename(testFile)}] ❌ FAILED — release 차단`);
+        process.exit(1);
+    }
 }
 
 console.log('[sanity-gate.test] ✅ PASSED');

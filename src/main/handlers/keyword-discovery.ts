@@ -10,7 +10,7 @@ import { getGoogleTrendKeywords } from '../../utils/google-trends-api';
 import { getYouTubeTrendKeywords } from '../../utils/youtube-data-api';
 import { EnvironmentManager } from '../../utils/environment-manager';
 import { TimingGoldenFinder, KeywordData, TimingScore } from '../../utils/timing-golden-finder';
-import { getAllRealtimeKeywords, getZumRealtimeKeywords, getGoogleRealtimeKeywords, getNateRealtimeKeywords, getDaumRealtimeKeywords, getNaverRealtimeKeywords, RealtimeKeyword } from '../../utils/realtime-search-keywords';
+import { getAllRealtimeKeywords, getZumRealtimeKeywords, getGoogleRealtimeKeywords, getNateRealtimeKeywords, getDaumRealtimeKeywords, getNaverRealtimeKeywords, strengthenRealtimeKeywordGroups, RealtimeKeyword } from '../../utils/realtime-search-keywords';
 // v2.45.0: puppeteer 기반 daum/nate 제거 — axios+cheerio 사용 (realtime-search-keywords에서 import)
 import { analyzeKeywordTrendingReason } from '../../utils/keyword-trend-analyzer';
 import { validateKeyword, validateKeywords } from '../../utils/keyword-validator';
@@ -124,10 +124,16 @@ export function setupKeywordDiscoveryHandlers(): void {
     const source = 'naver';
     const category = actualOptions.category || '';
     const page = actualOptions.page || 0;
-    const limit = actualOptions.limit || 0; // 기본값 0 (무제한)
+    const rawLimitValue = actualOptions.limit;
+    const rawLimit = Number(rawLimitValue);
+    const hasExplicitLimit = rawLimitValue !== undefined
+      && rawLimitValue !== null
+      && String(rawLimitValue).trim() !== ''
+      && Number.isFinite(rawLimit);
+    const limit = hasExplicitLimit ? rawLimit : 30;
 
-    // limit이 0이거나 없으면 무제한으로 설정 (사용자가 중지할 때까지 계속 수집)
-    const isUnlimited = limit === 0 || !limit;
+    // 명시적으로 0을 보낸 경우만 무제한으로 설정하고, 정밀 기본값은 30개로 고정한다.
+    const isUnlimited = hasExplicitLimit && limit === 0;
     const effectiveLimit = isUnlimited ? 10000 : limit; // 무제한일 때 10000개까지 (실질적 무제한)
 
     console.log('[KEYWORD-MASTER] 황금 키워드 발굴:', actualKeyword, { source, category, page, limit, effectiveLimit, isUnlimited: isUnlimited ? '무제한' : limit });
@@ -796,7 +802,7 @@ export function setupKeywordDiscoveryHandlers(): void {
 
   // 실시간 검색어 통합 조회 - 중복 등록 방지
   if (!ipcMain.listenerCount('get-realtime-keywords')) {
-    ipcMain.handle('get-realtime-keywords', async (_event, options?: { platform?: 'naver' | 'zum' | 'nate' | 'daum' | 'all', limit?: number }) => {
+    ipcMain.handle('get-realtime-keywords', async (_event, options?: { platform?: 'naver' | 'zum' | 'nate' | 'daum' | 'bokjiro' | 'policy' | 'all', limit?: number }) => {
       try {
         // 라이선스 체크
         const license = await licenseManager.loadLicense();
@@ -824,6 +830,7 @@ export function setupKeywordDiscoveryHandlers(): void {
         result.zum = [] as RealtimeKeyword[];
         result.nate = [] as RealtimeKeyword[];
         result.daum = [] as RealtimeKeyword[];
+        result.bokjiro = [] as RealtimeKeyword[];
 
         // Google은 실시간 검색어 모니터링에서 제거됨 (별도 Google Trends 버튼으로 분리)
         // 유튜브 실시간 검색어는 제거됨 (다른 유튜브 기능은 유지)
@@ -890,19 +897,24 @@ export function setupKeywordDiscoveryHandlers(): void {
                 keyword: kw.keyword || kw.text || '',
                 rank: kw.rank || 0,
                 source: kw.source || p,
-                timestamp: kw.timestamp || new Date().toISOString()
+                timestamp: kw.timestamp || new Date().toISOString(),
+                change: kw.change,
+                previousRank: kw.previousRank,
+                searchVolume: kw.searchVolume,
+                changeRate: kw.changeRate
               })).filter((kw: any) => kw.keyword && kw.keyword.length > 0) as RealtimeKeyword[];
 
               if (p === 'naver') result.naver = converted;
               else if (p === 'zum') result.zum = converted;
               else if (p === 'nate') result.nate = converted;
               else if (p === 'daum') result.daum = converted;
+              else if (p === 'bokjiro') result.bokjiro = converted;
 
               console.log(`[GET-REALTIME-KEYWORDS] ✅ ${p}: ${converted.length}개`);
             }
           });
 
-          console.log(`[GET-REALTIME-KEYWORDS] 병렬 수집 완료: 네이버=${result.naver.length}, ZUM=${result.zum.length}, Nate=${result.nate.length}, Daum=${result.daum.length}`);
+          console.log(`[GET-REALTIME-KEYWORDS] 병렬 수집 완료: 네이버=${result.naver.length}, ZUM=${result.zum.length}, Nate=${result.nate.length}, Daum=${result.daum.length}, 정책=${result.bokjiro.length}`);
         } else {
           // 개별 플랫폼 요청
           if (platform === 'naver') {
@@ -912,7 +924,11 @@ export function setupKeywordDiscoveryHandlers(): void {
                 keyword: kw.keyword || kw.text || '',
                 rank: kw.rank || 0,
                 source: kw.source || 'naver',
-                timestamp: kw.timestamp || new Date().toISOString()
+                timestamp: kw.timestamp || new Date().toISOString(),
+                change: kw.change,
+                previousRank: kw.previousRank,
+                searchVolume: kw.searchVolume,
+                changeRate: kw.changeRate
               })).filter((kw: any) => kw.keyword && kw.keyword.length > 0) as RealtimeKeyword[];
             } catch (err: any) {
               console.error(`[GET-REALTIME-KEYWORDS] ❌ 네이버 수집 실패:`, err?.message || err);
@@ -926,7 +942,11 @@ export function setupKeywordDiscoveryHandlers(): void {
                 keyword: kw.keyword || kw.text || '',
                 rank: kw.rank || 0,
                 source: kw.source || 'zum',
-                timestamp: kw.timestamp || new Date().toISOString()
+                timestamp: kw.timestamp || new Date().toISOString(),
+                change: kw.change,
+                previousRank: kw.previousRank,
+                searchVolume: kw.searchVolume,
+                changeRate: kw.changeRate
               })).filter((kw: any) => kw.keyword && kw.keyword.length > 0) as RealtimeKeyword[];
             } catch (err: any) {
               console.error(`[GET-REALTIME-KEYWORDS] ❌ ZUM 수집 실패:`, err?.message || err);
@@ -948,17 +968,27 @@ export function setupKeywordDiscoveryHandlers(): void {
               console.error(`[GET-REALTIME-KEYWORDS] ❌ Daum 수집 실패:`, err?.message || err);
               result.daum = [] as RealtimeKeyword[];
             }
+          } else if (platform === 'bokjiro' || platform === 'policy') {
+            try {
+              const { getBokjiroRealtimeKeywords } = await import('../../utils/realtime-search-keywords');
+              result.bokjiro = await getBokjiroRealtimeKeywords(limit);
+            } catch (err: any) {
+              console.error(`[GET-REALTIME-KEYWORDS] ❌ 정책브리핑 수집 실패:`, err?.message || err);
+              result.bokjiro = [] as RealtimeKeyword[];
+            }
           }
         }
 
         result.timestamp = new Date().toISOString();
+        Object.assign(result, strengthenRealtimeKeywordGroups(result, limit));
 
         const totalCount = (result.naver?.length || 0) +
           (result.zum?.length || 0) +
           (result.nate?.length || 0) +
-          (result.daum?.length || 0);
+          (result.daum?.length || 0) +
+          (result.bokjiro?.length || 0);
 
-        console.log(`[GET-REALTIME-KEYWORDS] 완료: 총 ${totalCount}개 키워드 (네이버=${result.naver?.length || 0}, ZUM=${result.zum?.length || 0}, Nate=${result.nate?.length || 0}, Daum=${result.daum?.length || 0})`);
+        console.log(`[GET-REALTIME-KEYWORDS] 완료: 총 ${totalCount}개 키워드 (네이버=${result.naver?.length || 0}, ZUM=${result.zum?.length || 0}, Nate=${result.nate?.length || 0}, Daum=${result.daum?.length || 0}, 정책=${result.bokjiro?.length || 0})`);
 
         if (totalCount === 0) {
           console.warn('[GET-REALTIME-KEYWORDS] ⚠️ 모든 플랫폼에서 키워드를 수집하지 못했습니다. 네트워크 연결이나 크롤링 사이트 구조 변경을 확인해주세요.');

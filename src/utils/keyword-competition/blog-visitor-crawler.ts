@@ -5,12 +5,8 @@
  * 병렬 처리로 빠르게 방문자 수 수집
  */
 
-import puppeteer from 'puppeteer-extra';
-import StealthPlugin from 'puppeteer-extra-plugin-stealth';
 import type { Browser, Page } from 'puppeteer';
 import * as fs from 'fs';
-
-puppeteer.use(StealthPlugin());
 
 function getChromePath(): string | undefined {
   const paths = [
@@ -44,7 +40,8 @@ async function getBrowser(): Promise<Browser> {
     try { await browserInstance.close(); } catch { /* ignore */ }
   }
   
-  browserInstance = await puppeteer.launch({
+  const { launchCompatibleBrowser } = await import('../puppeteer-pool');
+  browserInstance = await launchCompatibleBrowser({
     headless: 'new',
     executablePath: getChromePath(),
     args: [

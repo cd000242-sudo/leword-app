@@ -2,12 +2,8 @@
  * 키워드 추천기 (끝판왕 버전)
  */
 
-import puppeteer from 'puppeteer-extra';
-import StealthPlugin from 'puppeteer-extra-plugin-stealth';
 import type { Browser, Page } from 'puppeteer';
 import { KeywordRecommendation } from './types';
-
-puppeteer.use(StealthPlugin());
 
 // 브라우저 재사용
 let browserInstance: Browser | null = null;
@@ -26,7 +22,8 @@ async function getBrowser(): Promise<Browser> {
     try { await browserInstance.close(); } catch { /* ignore */ }
   }
   
-  browserInstance = await puppeteer.launch({
+  const { launchCompatibleBrowser } = await import('../puppeteer-pool');
+  browserInstance = await launchCompatibleBrowser({
     headless: 'new',
     args: ['--no-sandbox', '--disable-setuid-sandbox', '--disable-dev-shm-usage']
   }) as Browser;

@@ -7,13 +7,9 @@
  * - 더미 데이터 완전 차단!
  */
 
-import puppeteer from 'puppeteer-extra';
-import StealthPlugin from 'puppeteer-extra-plugin-stealth';
 import type { Browser, Page } from 'puppeteer';
 import { BlogIndex, AuthorityLevel } from './types';
 import * as fs from 'fs';
-
-puppeteer.use(StealthPlugin());
 
 function getChromePath(): string | undefined {
   const paths = [
@@ -50,7 +46,8 @@ async function getBrowser(): Promise<Browser> {
     try { await browserInstance.close(); } catch { /* ignore */ }
   }
   
-  browserInstance = await puppeteer.launch({
+  const { launchCompatibleBrowser } = await import('../puppeteer-pool');
+  browserInstance = await launchCompatibleBrowser({
     headless: 'new',
     executablePath: getChromePath(),
     args: [
@@ -492,4 +489,3 @@ export async function closeBrowser(): Promise<void> {
     browserInstance = null;
   }
 }
-

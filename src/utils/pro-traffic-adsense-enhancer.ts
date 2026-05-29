@@ -46,6 +46,7 @@ import {
 import { evaluateKeywordSafety, estimateCPC } from './profit-golden-keyword-engine';
 import { getCalibrationMultiplier } from './pro-hunter-v12/feedback-learner';
 import { calculatePreferenceScore } from './pro-hunter-v12/preference-learner';
+import { validateGrade, applySanity } from './sanity-gate';
 
 export interface ProEnhancedKeyword {
     // 원본 PRO 데이터 보존
@@ -202,7 +203,14 @@ export function enhanceProKeyword(input: {
         sv >= 800 && blueOcean.ratio >= 2 &&
         writableCheck.writable && !personCheck.dependent
     ) {
-        proEnhancedGrade = 'SSS';
+        proEnhancedGrade = applySanity('SSS', validateGrade({
+            keyword: input.keyword,
+            searchVolume: sv,
+            documentCount: dc,
+            goldenRatio: blueOcean.ratio,
+            score: infoIntentScore,
+            source: 'adsense',
+        })) as ProEnhancedKeyword['proEnhancedGrade'];
     } else if (
         publisherMonthlyRevenue >= 24000 && infoIntentScore >= 55 &&
         sv >= 400 && writableCheck.writable && !personCheck.dependent

@@ -4,13 +4,9 @@
  * 네이버 VIEW 탭에서 블로그 검색 결과를 정확하게 크롤링합니다.
  */
 
-import puppeteer from 'puppeteer-extra';
-import StealthPlugin from 'puppeteer-extra-plugin-stealth';
 import type { Browser, Page } from 'puppeteer';
 import { NaverSearchResult, SmartBlockData, PopularItemData, SerpLayout } from './types';
 import * as fs from 'fs';
-
-puppeteer.use(StealthPlugin());
 
 function getChromePath(): string | undefined {
   const paths = [
@@ -41,7 +37,8 @@ async function getBrowser(): Promise<Browser> {
     try { await browserInstance.close(); } catch { /* ignore */ }
   }
 
-  browserInstance = await puppeteer.launch({
+  const { launchCompatibleBrowser } = await import('../puppeteer-pool');
+  browserInstance = await launchCompatibleBrowser({
     headless: 'new', // 최신 Puppeteer headless 모드
     executablePath: getChromePath(),
     defaultViewport: null,

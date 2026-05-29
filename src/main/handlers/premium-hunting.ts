@@ -21,6 +21,7 @@ import { mineQAKeywords } from '../../utils/pro-hunter-v12/qa-comment-miner';
 import { recordRejection, recordAcceptance, calculatePreferenceScore, getPreferenceStats, applyPreferenceLearning } from '../../utils/pro-hunter-v12/preference-learner';
 import { calculateHomeScore } from '../../utils/pro-hunter-v12/naver-home-score-engine';
 import { predictTitleCtr, generateOptimizedTitles, batchGenerateTitlesWithCtr } from '../../utils/pro-hunter-v12/title-ctr-predictor';
+import { buildHomePublishPlan, batchBuildHomePublishPlans } from '../../utils/pro-hunter-v12/home-publish-planner';
 import { analyzeVacancy, batchAnalyzeVacancy } from '../../utils/pro-hunter-v12/vacancy-detector';
 import { getRelatedKeywords as getRelatedKeywordsFromCache } from '../../utils/related-keyword-cache';
 
@@ -656,6 +657,10 @@ export function setupPremiumHuntingHandlers(): void {
       includeSeasonKeywords?: boolean;
       explosionMode?: boolean;
       count?: number;
+      discoveryFirst?: boolean;
+      strictGates?: boolean;
+      fastDiscovery?: boolean;
+      enhanceWithAdsenseGates?: boolean;
     }) => {
       // v2.46.0 E: 발굴 중 백그라운드 작업 일시 정지
       const { markHuntStarted, markHuntEnded } = await import('../../utils/hunt-progress-flag');
@@ -726,6 +731,9 @@ export function setupPremiumHuntingHandlers(): void {
         console.log(`[PRO-TRAFFIC] 옵션: 카테고리=${options.category}, 신생타겟=${options.targetRookie}, 개수=${options.count}`);
 
         // 🔥 PRO 황금 키워드 헌팅 실행
+        const requestedCount = Math.min(Math.max(options.count || 20, 5), 200);
+        const discoveryFirstRequested = (options as any).discoveryFirst === true;
+
         const result = await huntProTrafficKeywords({
           mode: options.mode || 'realtime',
           seedKeywords: options.seedKeywords || [],
@@ -734,7 +742,9 @@ export function setupPremiumHuntingHandlers(): void {
           includeSeasonKeywords: options.includeSeasonKeywords !== false,
           explosionMode: options.explosionMode === true,
           useDeepMining: (options as any).useDeepMining !== false, // 🔥 딥 마이닝 기본 활성화
-          count: Math.min(Math.max(options.count || 20, 5), 200), // 🎯 SSS 대량 추출 지원 (50→200)
+          discoveryFirst: discoveryFirstRequested,
+          fastDiscovery: (options as any).fastDiscovery === true || requestedCount >= 50,
+          count: requestedCount, // 🎯 SSS 대량 추출 지원 (50→200)
           forceRefresh: true // 항상 새로운 결과
         });
 
@@ -754,8 +764,13 @@ export function setupPremiumHuntingHandlers(): void {
 
         console.log(`[PRO-TRAFFIC] ✅ ${result.keywords.length}개 황금키워드 발굴 완료!`);
 
-        // 🚀 Phase A: AdSense 9-게이트 후처리 (Publisher×0.40 + Reachability + 신뢰구간 등)
-        const enhanceOpts = (options as any).enhanceWithAdsenseGates !== false ? {
+        const discoveryFirst = discoveryFirstRequested;
+        const strictGates = (options as any).strictGates === true || (options as any).enhanceWithAdsenseGates === true;
+
+        // 🚀 Phase A: AdSense 9-게이트 후처리
+        // PRO 헌터 기본값은 strict-golden이다. 너무 강한 수익/작성 게이트는 결과를 없애므로
+        // 사용자가 명시적으로 strictGates/enhanceWithAdsenseGates를 켤 때만 차단 필터로 사용한다.
+        const enhanceOpts = strictGates ? {
           excludeNonWritable: (options as any).excludeNonWritable !== false,
           excludePersonDependent: (options as any).excludePersonDependent !== false,
           excludeBlocked: (options as any).excludeBlocked !== false,
@@ -798,30 +813,45 @@ export function setupPremiumHuntingHandlers(): void {
             const dc = Number(k.documentCount || k.docCount || 0);
             // v2.45.0 H3: pc/mobile 일부만 정의되어도 안전 합산
             const sv = Number(k.searchVolume || ((Number(k.monthlyPcQcCnt) || 0) + (Number(k.monthlyMobileQcCnt) || 0)) || 0);
+            const warnings = Array.isArray((k as any).hunterWarnings) ? [...(k as any).hunterWarnings] : [];
 
             // v2.46.0 C: sv=0이면 어차피 SSS 불가 → 무거운 diagnoseKeyword 평가 스킵 (CPU 절감)
             //   diagnoseKeyword 내부 정규식/카테고리 분류가 키워드당 0.5~2ms. 100건이면 200ms 절감.
             //   SSS 조건: 검색량 1000+, 점수 85+. sv=0이면 자동 차단.
             if (sv === 0) {
               bloggerBlocked++;
+              warnings.push('검색량 미검증');
+              (k as any).hunterWarnings = Array.from(new Set(warnings));
+              (k as any).hunterCandidateTier = 'needs-metrics';
+              (k as any).writabilityScore = 0;
+              if (!discoveryFirst) continue;
+              cleaned.push(k);
               continue;
             }
 
             const diag = diagnoseKeyword(kw, dc, sv);
             if (diag.blockedBy === 'POLYSEMY/VERB' || diag.blockedBy === 'GENERIC_BROAD' || diag.blockedBy === 'NEWS_NOISE') {
               bloggerBlocked++;
-              continue;
+              warnings.push(`주의:${diag.blockedBy}`);
             }
             if (diag.writabilityScore < 30) {
               bloggerBlocked++;
-              continue;
+              warnings.push(`작성친화도 낮음:${diag.writabilityScore}`);
             }
             (k as any).writabilityScore = diag.writabilityScore;
             (k as any).writabilityFactors = diag.factors;
+            if (warnings.length > 0) {
+              (k as any).hunterWarnings = Array.from(new Set(warnings));
+              (k as any).hunterCandidateTier = 'watchlist';
+              if (!discoveryFirst) continue;
+            } else {
+              (k as any).hunterCandidateTier = 'verified';
+            }
             cleaned.push(k);
           }
           if (bloggerBlocked > 0) {
-            console.log(`[PRO-TRAFFIC v2.43.46] 친화도/다의어 차단: ${bloggerBlocked}건 (${finalKeywords.length} → ${cleaned.length})`);
+            const action = discoveryFirst ? '주의 마커 적용 후 유지' : '차단';
+            console.log(`[PRO-TRAFFIC v2.43.46] 친화도/다의어 ${action}: ${bloggerBlocked}건 (${finalKeywords.length} → ${cleaned.length})`);
             finalKeywords = cleaned;
           }
         } catch (e: any) {
@@ -844,7 +874,7 @@ export function setupPremiumHuntingHandlers(): void {
             }
             const live = finalKeywords.filter((k: any) => k.recencyStatus !== 'dead');
             const deadCount = finalKeywords.length - live.length;
-            if (live.length >= MIN_FLOOR && deadCount > 0) {
+            if (!discoveryFirst && live.length >= MIN_FLOOR && deadCount > 0) {
               finalKeywords = live;
               console.log(`[PRO-TRAFFIC v2.43.47] 추세 검증 dead ${deadCount}건 제외 (${live.length}건 잔존)`);
             } else if (deadCount > 0) {
@@ -868,6 +898,8 @@ export function setupPremiumHuntingHandlers(): void {
           success: true,
           ...result,
           keywords: finalKeywords,
+          discoveryFirst,
+          candidateMode: discoveryFirst ? 'broad-discovery' : 'strict-golden',
           ...(enhancedByAdsense ? { blockedCount: finalBlockedCount, blockedReasons: finalBlockedReasons, enhancedByAdsense: true } : {}),
         };
 
@@ -1244,6 +1276,17 @@ export function setupPremiumHuntingHandlers(): void {
       catch (err: any) { return { success: false, error: err?.message }; }
     });
     console.log('[KEYWORD-MASTER] ✅ predict-title-ctr/generate-optimized-titles/batch IPC 등록');
+  }
+  if (!ipcMain.listenerCount('build-home-publish-plan')) {
+    ipcMain.handle('build-home-publish-plan', async (_e, p: any) => {
+      try { return { success: true, plan: buildHomePublishPlan(p) }; }
+      catch (err: any) { return { success: false, error: err?.message }; }
+    });
+    ipcMain.handle('batch-build-home-publish-plans', async (_e, p: { items: any[] }) => {
+      try { return { success: true, plans: batchBuildHomePublishPlans(p?.items || []) }; }
+      catch (err: any) { return { success: false, error: err?.message }; }
+    });
+    console.log('[KEYWORD-MASTER] ✅ home-publish-plan IPC 등록');
   }
   if (!ipcMain.listenerCount('analyze-vacancy')) {
     ipcMain.handle('analyze-vacancy', async (_e, p: { keyword: string }) => {

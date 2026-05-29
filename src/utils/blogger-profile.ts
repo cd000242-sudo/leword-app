@@ -93,8 +93,22 @@ export interface BloggerProfile {
 
 const FILE_NAME = 'blogger-profile.json';
 
+function resolveUserDataPath(): string {
+  try {
+    if (app && typeof app.getPath === 'function') {
+      return app.getPath('userData');
+    }
+  } catch {
+    // Non-Electron verification runs fall through to APPDATA.
+  }
+
+  const appData = process.env['APPDATA'];
+  if (appData) return path.join(appData, 'blogger-admin-panel');
+  return path.join(process.cwd(), '.leword-user-data');
+}
+
 function getProfilePath(): string {
-  const dir = path.join(app.getPath('userData'), 'leword');
+  const dir = path.join(resolveUserDataPath(), 'leword');
   if (!fs.existsSync(dir)) fs.mkdirSync(dir, { recursive: true });
   return path.join(dir, FILE_NAME);
 }

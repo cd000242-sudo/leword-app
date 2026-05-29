@@ -11,7 +11,7 @@
  * 4. 이를 기반으로 블로그 지수 추정
  */
 
-import puppeteer, { Browser, Page } from 'puppeteer';
+import type { Browser, Page } from 'puppeteer';
 
 export interface AccurateBlogIndexResult {
   blogIndex: number;           // 추정 블로그 지수

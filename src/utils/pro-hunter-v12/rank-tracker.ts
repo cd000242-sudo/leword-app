@@ -2,7 +2,6 @@
 // 작성: 2026-04-15
 // 사용자 등록 글의 순위를 매일 추적 → 예측 vs 실측 비교
 
-import puppeteer from 'puppeteer';
 import { listTrackedPosts, recordPostRank, recordPostRankMulti } from './tracking-store';
 import { notifyRankChange } from './notifier';
 import { retrainFromTracking } from './model-retrainer';
@@ -14,11 +13,9 @@ const SEARCH_URL = (kw: string) =>
   `https://search.naver.com/search.naver?where=blog&query=${encodeURIComponent(kw)}&sm=tab_opt&nso=so%3Ar%2Cp%3Aall`;
 
 async function findRankForPost(keyword: string, postUrl: string): Promise<number | null> {
-  const { findChromePath } = await import('../chrome-finder');
-  const chromePath = findChromePath();
-  const browser = await puppeteer.launch({
+  const { launchCompatibleBrowser } = await import('../puppeteer-pool');
+  const browser = await launchCompatibleBrowser({
     headless: 'new',
-    executablePath: chromePath || undefined,
     args: ['--no-sandbox', '--disable-setuid-sandbox', '--disable-dev-shm-usage'],
   });
   try {

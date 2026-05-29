@@ -18,6 +18,8 @@
  * 🎯 목표: 신생 블로거도 작성만 하면 상위노출 + 트래픽!
  */
 
+import { validateGrade, applySanity } from './sanity-gate';
+
 export interface ProTrafficKeyword {
   keyword: string;
 
@@ -525,6 +527,24 @@ function isGenericSingleToken(keyword: string): boolean {
   return false;
 }
 
+type PremiumGrade = 'SSS' | 'SS' | 'S' | 'A';
+
+function applyProTrafficSanityGrade(target: PremiumGrade, r: ProTrafficKeyword): PremiumGrade {
+  if (target !== 'SSS') return target;
+  const sv = typeof r.searchVolume === 'number' && Number.isFinite(r.searchVolume) ? r.searchVolume : 0;
+  const dc = typeof r.documentCount === 'number' && Number.isFinite(r.documentCount) ? r.documentCount : 0;
+  const gr = typeof r.goldenRatio === 'number' && Number.isFinite(r.goldenRatio) ? r.goldenRatio : 0;
+  const sanity = validateGrade({
+    keyword: r.keyword || '',
+    searchVolume: sv,
+    documentCount: dc,
+    goldenRatio: gr,
+    score: 85,
+    source: 'pro-traffic',
+  });
+  return applySanity(target, sanity) as PremiumGrade;
+}
+
 function computePremiumGrade(r: ProTrafficKeyword, category?: string): 'SSS' | 'SS' | 'S' | 'A' | null {
   const sv = typeof r.searchVolume === 'number' && Number.isFinite(r.searchVolume) ? r.searchVolume : 0;
   const dcRaw = typeof r.documentCount === 'number' && Number.isFinite(r.documentCount) ? r.documentCount : null;
@@ -578,61 +598,61 @@ function computePremiumGrade(r: ProTrafficKeyword, category?: string): 'SSS' | '
   if (dc > sv * 15) penaltySteps += 1;
   penaltySteps = Math.min(penaltySteps, 1);
 
-  let baseGrade: 'SSS' | 'SS' | 'S' | 'A' = 'A';
+  let baseGrade: PremiumGrade = 'A';
 
   if (category === 'celeb') {
     // 🔥 v2.12.0 Phase 2-3: celeb 기준 엄격화 (이전엔 과완화로 SSS 남발)
     // SSS: 문서수 30만 이하 + 검색량 3000+ + 황금비율 0.5+ (이전: 100만/2000/0.1)
-    if (dc <= 300000 && sv >= 3000 && gr >= 0.5) baseGrade = 'SSS';
+    if (dc <= 300000 && sv >= 3000 && gr >= 0.5) baseGrade = applyProTrafficSanityGrade('SSS', r);
     else if (dc <= 600000 && sv >= 1500 && gr >= 0.25) baseGrade = 'SS';
     else if (dc <= 1500000 && sv >= 800 && gr >= 0.1) baseGrade = 'S';
   } else if (category === 'life_tips') {
     // 🎯 v2.40.4 — life_tips P25 완화
-    if (dc <= 30000 && sv >= 1000 && gr >= 0.6) baseGrade = 'SSS';
+    if (dc <= 30000 && sv >= 1000 && gr >= 0.6) baseGrade = applyProTrafficSanityGrade('SSS', r);
     else if (dc <= 100000 && sv >= 500 && gr >= 0.3) baseGrade = 'SS';
     else if (dc <= 350000 && sv >= 200 && gr >= 0.15) baseGrade = 'S';
   } else if (category === 'movie' || category === 'drama' || category === 'music'
           || category === 'book' || category === 'anime' || category === 'broadcast') {
     // 🎯 v2.40.4 — 엔터/콘텐츠 P25 완화
-    if (dc <= 35000 && sv >= 800 && gr >= 0.5) baseGrade = 'SSS';
+    if (dc <= 35000 && sv >= 800 && gr >= 0.5) baseGrade = applyProTrafficSanityGrade('SSS', r);
     else if (dc <= 130000 && sv >= 400 && gr >= 0.3) baseGrade = 'SS';
     else if (dc <= 350000 && sv >= 200 && gr >= 0.15) baseGrade = 'S';
   } else if (category === 'it' || category === 'business' || category === 'interior'
           || category === 'daily' || category === 'self_development') {
     // 🎯 v2.40.4 — IT/비즈 P25 완화 (v2.40.3 P15 SSS 8/100 → SS+S 절반 SSS 진입)
     // sv 700→500, dc 18k→25k, gr 1.2→0.8. SSS = "한국 it 키워드 상위 25%" 수준
-    if (dc <= 25000 && sv >= 500 && gr >= 0.8) baseGrade = 'SSS';
+    if (dc <= 25000 && sv >= 500 && gr >= 0.8) baseGrade = applyProTrafficSanityGrade('SSS', r);
     else if (dc <= 70000 && sv >= 300 && gr >= 0.5) baseGrade = 'SS';
     else if (dc <= 150000 && sv >= 150 && gr >= 0.3) baseGrade = 'S';
   } else if (category === 'policy') {
     // 🎯 v2.40.4 — 정책·지원금 P25 완화
-    if (dc <= 30000 && sv >= 1000 && gr >= 0.7) baseGrade = 'SSS';
+    if (dc <= 30000 && sv >= 1000 && gr >= 0.7) baseGrade = applyProTrafficSanityGrade('SSS', r);
     else if (dc <= 100000 && sv >= 500 && gr >= 0.4) baseGrade = 'SS';
     else if (dc <= 250000 && sv >= 250 && gr >= 0.2) baseGrade = 'S';
   } else if (category === 'health') {
     // 🎯 v2.40.4 — 건강·의료 P25 완화
-    if (dc <= 25000 && sv >= 700 && gr >= 0.8) baseGrade = 'SSS';
+    if (dc <= 25000 && sv >= 700 && gr >= 0.8) baseGrade = applyProTrafficSanityGrade('SSS', r);
     else if (dc <= 70000 && sv >= 400 && gr >= 0.5) baseGrade = 'SS';
     else if (dc <= 150000 && sv >= 200 && gr >= 0.3) baseGrade = 'S';
   } else if (category === 'finance' || category === 'realestate') {
     // 🎯 v2.40.4 — 금융·부동산 P25 완화
-    if (dc <= 25000 && sv >= 700 && gr >= 0.7) baseGrade = 'SSS';
+    if (dc <= 25000 && sv >= 700 && gr >= 0.7) baseGrade = applyProTrafficSanityGrade('SSS', r);
     else if (dc <= 80000 && sv >= 400 && gr >= 0.4) baseGrade = 'SS';
     else if (dc <= 200000 && sv >= 200 && gr >= 0.25) baseGrade = 'S';
   } else if (category === 'pro_premium') {
     // 🔥 v2.24.0 P1: pro_premium 전용 분기 — 기존 else ultra-strict 에서 99% 탈락하던 문제 해결
     //   고수익 대형 키워드 풀(월 10억+ 지향) — dc 큼 감안, gr 완화
-    if (dc <= 30000 && sv >= 3000 && gr >= 1.0) baseGrade = 'SSS';
+    if (dc <= 30000 && sv >= 3000 && gr >= 1.0) baseGrade = applyProTrafficSanityGrade('SSS', r);
     else if (dc <= 100000 && sv >= 1500 && gr >= 0.5) baseGrade = 'SS';
     else if (dc <= 500000 && sv >= 800 && gr >= 0.2) baseGrade = 'S';
   } else if (category === 'lite_standard') {
     // 🔥 v2.24.0 P1: lite_standard 전용 분기 — 생활상식 키워드 풀 (저경쟁 기대치 낮음)
-    if (dc <= 5000 && sv >= 1000 && gr >= 1.5) baseGrade = 'SSS';
+    if (dc <= 5000 && sv >= 1000 && gr >= 1.5) baseGrade = applyProTrafficSanityGrade('SSS', r);
     else if (dc <= 30000 && sv >= 500 && gr >= 0.6) baseGrade = 'SS';
     else if (dc <= 150000 && sv >= 200 && gr >= 0.3) baseGrade = 'S';
   } else {
     // 🎯 v2.40.4 — 일반(else) P25 완화 (fashion/beauty/diet/travel/food/coding/parenting/pet/car/season_* 등 41+)
-    if (dc <= 18000 && sv >= 700 && gr >= 1.2) baseGrade = 'SSS';
+    if (dc <= 18000 && sv >= 700 && gr >= 1.2) baseGrade = applyProTrafficSanityGrade('SSS', r);
     else if (dc <= 50000 && sv >= 400 && gr >= 0.7) baseGrade = 'SS';
     else if (dc <= 120000 && sv >= 200 && gr >= 0.4) baseGrade = 'S';
   }
@@ -826,6 +846,65 @@ function selectPremiumGolden(items: ProTrafficKeyword[], targetCount: number): P
   }
 
   return picked.slice(0, safeTarget);
+}
+
+function normalizeGradeValue(grade: unknown): string {
+  return String(grade || '').toUpperCase().replace(/[^A-Z]/g, '');
+}
+
+function enforcePremiumGoldenOnly(
+  items: ProTrafficKeyword[],
+  targetCount: number,
+  category: string,
+  strict: boolean,
+  criteria: { minRatio?: number; maxDocuments?: number; strictGrade?: boolean; category?: string } = {}
+): ProTrafficKeyword[] {
+  const safeTarget = Math.max(1, targetCount);
+  if (!items || items.length === 0) return [];
+
+  const seen = new Set<string>();
+  const ranked: ProTrafficKeyword[] = [];
+
+  for (const item of items) {
+    if (!item || !item.keyword) continue;
+    const norm = normalizeKeywordForDup(item.keyword);
+    if (!norm || seen.has(norm)) continue;
+
+    const computedGrade = normalizeGradeValue(
+      computePremiumGradeEffective(item, strict, { ...criteria, category })
+    );
+    const finalGrade = PREMIUM_GOLDEN_GRADES.has(computedGrade) ? computedGrade : '';
+
+    if (!finalGrade) continue;
+
+    seen.add(norm);
+    ranked.push({
+      ...item,
+      grade: finalGrade as ProTrafficKeyword['grade'],
+    });
+  }
+
+  const gradeScore: Record<string, number> = { SSS: 3, SS: 2, S: 1 };
+  return ranked
+    .sort((a, b) => {
+      const gradeDiff = (gradeScore[normalizeGradeValue((b as any).grade)] || 0)
+        - (gradeScore[normalizeGradeValue((a as any).grade)] || 0);
+      if (gradeDiff !== 0) return gradeDiff;
+
+      const ratioDiff = (b.goldenRatio || 0) - (a.goldenRatio || 0);
+      if (Math.abs(ratioDiff) > 0.0001) return ratioDiff;
+
+      const docA = typeof a.documentCount === 'number' ? a.documentCount : Number.MAX_SAFE_INTEGER;
+      const docB = typeof b.documentCount === 'number' ? b.documentCount : Number.MAX_SAFE_INTEGER;
+      const docDiff = docA - docB;
+      if (docDiff !== 0) return docDiff;
+
+      const svDiff = (b.searchVolume || 0) - (a.searchVolume || 0);
+      if (svDiff !== 0) return svDiff;
+
+      return (b.totalScore || 0) - (a.totalScore || 0);
+    })
+    .slice(0, safeTarget);
 }
 
 function isExplosiveKeywordStrict(r: ProTrafficKeyword): boolean {
@@ -1022,11 +1101,7 @@ function rerankAndSelectFinal(items: ProTrafficKeyword[], targetCount: number, i
 
   const stageGrades: Array<Set<string>> = ignoreGradeFilter
     ? [new Set(['SSS', 'SS', 'S', 'A', 'B', 'C', 'D'])]
-    : [
-      new Set(['SSS', 'SS', 'S']),
-      new Set(['SSS', 'SS', 'S', 'A']),
-      new Set(['SSS', 'SS', 'S', 'A', 'B']),
-    ];
+    : [new Set(['SSS', 'SS', 'S'])];
 
   const maxPerBucket = Math.max(2, Math.ceil(safeTarget * 0.4));
   const chosen: ProTrafficKeyword[] = [];
@@ -1421,6 +1496,7 @@ const apiCache = new Map<string, {
   compIdx?: number | null;
   realCpc?: number | null;
   hasSmartBlock?: boolean;
+  hasViewSection?: boolean;
   hasInfluencer?: boolean;
   difficultyScore?: number;
   intent?: string;
@@ -1762,6 +1838,9 @@ export async function fetchKeywordDataParallel(
   options?: {
     allowBlogScrapeFallback?: boolean;
     blogScrapeMaxPerCall?: number;
+    skipSerpSignal?: boolean;
+    batchSize?: number;
+    batchDelayMs?: number;
   }
 ): Promise<Map<string, ApiResult>> {
   const results = new Map<string, ApiResult>();
@@ -1792,15 +1871,79 @@ export async function fetchKeywordDataParallel(
   const blogScrapeMaxPerCall = Number.isFinite(options?.blogScrapeMaxPerCall as any)
     ? Math.max(0, Number(options!.blogScrapeMaxPerCall))
     : 0;
+  const skipSerpSignal = !!options?.skipSerpSignal;
+  const effectiveBatchSize = Number.isFinite(options?.batchSize as any)
+    ? Math.max(1, Number(options!.batchSize))
+    : API_CONFIG.PARALLEL_BATCH_SIZE;
+  const effectiveBatchDelayMs = Number.isFinite(options?.batchDelayMs as any)
+    ? Math.max(0, Number(options!.batchDelayMs))
+    : API_CONFIG.PARALLEL_BATCH_DELAY;
   let blogScrapeUsed = 0;
 
   // 중복 제거
-  const uniqueKeywords = [...new Set(keywords)];
+  const uniqueKeywords = [...new Set(
+    keywords
+      .map(k => String(k || '').replace(/\s+/g, ' ').trim())
+      .filter(Boolean)
+  )];
+
+  const nowTs = Date.now();
+  const keywordsToFetch: string[] = [];
+  let cacheHits = 0;
+  let persistentHits = 0;
+  for (const kw of uniqueKeywords) {
+    const cleanKw = kw.replace(/\s/g, '');
+    let cached = apiCache.get(kw) || apiCache.get(cleanKw);
+
+    if (!cached || nowTs - (cached.timestamp || 0) >= CACHE_TTL) {
+      const persisted = getPersistent(kw);
+      if (persisted && persisted.searchVolume !== null && persisted.documentCount !== null) {
+        cached = {
+          searchVolume: persisted.searchVolume,
+          documentCount: persisted.documentCount,
+          compIdx: persisted.compIdx ?? null,
+          realCpc: persisted.realCpc ?? null,
+          timestamp: nowTs,
+          isRealData: true
+        };
+        apiCache.set(cleanKw, cached);
+        persistentHits++;
+      }
+    }
+
+    if (cached && nowTs - (cached.timestamp || 0) < CACHE_TTL && cached.searchVolume !== null && cached.documentCount !== null) {
+      results.set(kw, {
+        keyword: kw,
+        searchVolume: cached.searchVolume,
+        documentCount: cached.documentCount,
+        compIdx: cached.compIdx ?? null,
+        realCpc: cached.realCpc ?? null,
+        hasSmartBlock: cached.hasSmartBlock,
+        hasViewSection: cached.hasViewSection,
+        hasInfluencer: cached.hasInfluencer,
+        difficultyScore: cached.difficultyScore,
+        intent: cached.intent,
+        intentBadge: cached.intentBadge,
+        success: true
+      });
+      cacheHits++;
+    } else {
+      keywordsToFetch.push(kw);
+    }
+  }
+
+  if (cacheHits > 0) {
+    console.log(`[API-PARALLEL] cache hit ${cacheHits}/${uniqueKeywords.length} (persistent ${persistentHits})`);
+  }
+  if (keywordsToFetch.length === 0) {
+    console.log('[API-PARALLEL] all keywords served from cache');
+    return results;
+  }
 
   // 배치 분할
   const batches: string[][] = [];
-  for (let i = 0; i < uniqueKeywords.length; i += API_CONFIG.PARALLEL_BATCH_SIZE) {
-    batches.push(uniqueKeywords.slice(i, i + API_CONFIG.PARALLEL_BATCH_SIZE));
+  for (let i = 0; i < keywordsToFetch.length; i += effectiveBatchSize) {
+    batches.push(keywordsToFetch.slice(i, i + effectiveBatchSize));
   }
 
   console.log(`[API-PARALLEL] 📦 총 ${batches.length}개 배치로 분할`);
@@ -1874,7 +2017,7 @@ export async function fetchKeywordDataParallel(
         hasBlogApi
           ? fetchBlogDocumentCount(normalizedKeyword, env.naverClientId!, env.naverClientSecret!)
           : Promise.resolve({ count: null, success: false, error: 'API 키 없음' }),
-        getNaverSerpSignal(normalizedKeyword),
+        skipSerpSignal ? Promise.resolve(null) : getNaverSerpSignal(normalizedKeyword),
         Promise.resolve(classifyKeywordIntent(normalizedKeyword))
       ]);
 
@@ -1965,7 +2108,7 @@ export async function fetchKeywordDataParallel(
 
     // 배치 간 딜레이 (Rate Limit 방지)
     if (batchIndex < batches.length - 1) {
-      await new Promise(r => setTimeout(r, API_CONFIG.PARALLEL_BATCH_DELAY));
+      await new Promise(r => setTimeout(r, effectiveBatchDelayMs));
     }
   }
 
@@ -1992,7 +2135,7 @@ export async function fetchKeywordDataParallel(
  * - 지수 백오프 재시도
  * - 실패한 키워드는 결과에서 제외
  */
-async function fetchKeywordDataBatch(keywords: string[]): Promise<void> {
+async function fetchKeywordDataBatch(keywords: string[], options?: Parameters<typeof fetchKeywordDataParallel>[2]): Promise<void> {
   // 중복 제거
   const uniqueKeywords = [...new Set(keywords)];
 
@@ -2042,7 +2185,7 @@ async function fetchKeywordDataBatch(keywords: string[]): Promise<void> {
   const env = EnvironmentManager.getInstance().getConfig();
 
   // 🔥 병렬 API 호출!
-  await fetchKeywordDataParallel(uncachedKeywords, env);
+  await fetchKeywordDataParallel(uncachedKeywords, env, options);
 }
 
 export interface ProTrafficHuntResult {
@@ -2402,6 +2545,8 @@ export async function huntProTrafficKeywords(options: {
   forceRefresh?: boolean; // 🔥 강제 새로고침 옵션 추가
   explosionMode?: boolean; // 🔥 지금 쓰면 터지는 키워드 우선
   useDeepMining?: boolean; // 🔥 끝판왕 Deep Mining 사용 여부
+  discoveryFirst?: boolean; // 후보 발굴 우선: 대량 결과를 빠르게 반환하고 정밀 검증은 얕게 수행
+  fastDiscovery?: boolean; // discoveryFirst보다 더 명시적인 빠른 대량 모드
 }): Promise<ProTrafficHuntResult> {
   const {
     mode = 'realtime', // 🎯 기본: 실시간 이슈
@@ -2412,7 +2557,9 @@ export async function huntProTrafficKeywords(options: {
     count = 20,
     forceRefresh = true, // 기본적으로 새로고침 시 캐시 초기화
     explosionMode = false,
-    useDeepMining = true // 🔥 기본 활성화: 끝판왕 딥 마이닝 통합
+    useDeepMining = true, // 🔥 기본 활성화: 끝판왕 딥 마이닝 통합
+    discoveryFirst = false,
+    fastDiscovery = discoveryFirst && count >= 50
   } = options;
 
   // 🔥 v2.13.0 M11: explosionMode + useDeepMining 동시 활성 시 Rate Limit 경고
@@ -2609,6 +2756,7 @@ export async function huntProTrafficKeywords(options: {
     '세제', '세정제', '다용도세제', '만능세정제', '섬유유연제', '표백제',
     '에센스', '세럼', '앰플', '토너', '크림', '로션', '마스크팩', '선크림',
     '샴푸', '린스', '컨디셔너', '바디워시', '클렌저',
+    '알레르망', '닥스', '이브자리', '한샘', '리바트',
   ];
 
   const LIFE_TIPS_KNOWHOW_PATTERNS = [
@@ -2617,6 +2765,46 @@ export async function huntProTrafficKeywords(options: {
     '예방', '방지', '해결', '관리', '손질', '활용', '응급', '대처',
     '줄이기', '아끼는', '요령', '비결', '초보', '쉽게', '간단히', '나이프', '가위', '칼',
     '전기요금', '난방비', '가스비', '수도세', '에너지'
+  ];
+
+  const LIFE_TIPS_STRONG_ACTION_PATTERNS = [
+    '방법', '하는법', '하는방법', '꿀팁', '팁', '비법', '노하우',
+    '제거', '세탁', '빨래', '정리', '수납', '보관', '절약',
+    '예방', '방지', '해결', '관리', '손질', '활용', '응급', '대처',
+    '줄이기', '아끼는', '요령', '비결', '전기요금', '난방비', '가스비', '수도세'
+  ];
+
+  const LIFE_TIPS_CORE_TOKENS = [
+    '생활꿀팁', '생활팁', '살림', '자취', '집안', '청소', '빨래', '세탁', '얼룩',
+    '곰팡이', '물때', '찌든때', '기름때', '냄새', '수납', '정리수납', '분리수거',
+    '재활용', '음식물쓰레기', '동파', '결로', '단열', '월동', '습도', '제습',
+    '대청소', '배수구', '하수구', '김장', '난방비', '전기장판', '이불', '침구',
+    '패딩', '니트', '옷장', '신발장', '수건', '욕실', '화장실', '주방', '냉장고',
+    '보관', '환기', '벌레', '모기', '습기'
+  ];
+
+  const LIFE_TIPS_DOMAIN_EXCLUDES = [
+    '엑셀', 'pdf', 'erp', '정보관리', '정보관리사', '정보관리기술사', '기술사', '관리사', '자격증', '시험', '일정', '합격', '취업',
+    '고혈압', '혈압', '당뇨', '병원', '의원', '약', '영양제', '검진', '건강보험',
+    '퇴직금', '연말정산', '종합소득세', '부가세', '세금', '대출', '청약', '부동산',
+    '주식', '적금', '보험', '지원금', '바우처', '수당', '대학교', '학원', '영어',
+    '코딩', '개발', '프로그램', '노션', 'notion'
+  ];
+
+  const LIFE_TIPS_PRODUCT_INTENT_EXCLUDES = [
+    '추천', '가격', '비교', '순위', '후기', '대여', '렌탈', '구매', '세트',
+    '브랜드', '로봇청소기', '청소기', '제습기', '공기청정기', '스팀청소기'
+  ];
+
+  const LIFE_TIPS_PRODUCT_MAINTENANCE_ACTIONS = [
+    '방법', '하는법', '청소법', '세탁법', '관리', '필터', '분해', '냄새', '곰팡이',
+    '고장', '에러', '물때', '찌든때', '제거'
+  ];
+
+  const LIFE_TIPS_PROBLEM_TOKENS = [
+    '얼룩', '곰팡이', '물때', '찌든때', '기름때', '냄새', '동파', '결로',
+    '습도', '습기', '난방비', '전기요금', '가스비', '수도세', '분리수거',
+    '음식물쓰레기', '배수구', '하수구', '벌레', '모기', '환기'
   ];
 
   const isLifeTipsProductKeyword = (kw: string): boolean => {
@@ -2628,10 +2816,64 @@ export async function huntProTrafficKeywords(options: {
     return LIFE_TIPS_KNOWHOW_PATTERNS.some(pattern => kw.includes(pattern));
   };
 
+  const hasLifeTipsStrongAction = (kw: string): boolean => {
+    return LIFE_TIPS_STRONG_ACTION_PATTERNS.some(pattern => kw.includes(pattern));
+  };
+
   const isPureLifeTipsKnowhow = (kw: string): boolean => {
     if (isLifeTipsProductKeyword(kw) && !hasLifeTipsKnowhowPattern(kw)) {
       return false;
     }
+    return true;
+  };
+
+  const isStrictLifeTipsKeyword = (kw: string): boolean => {
+    const text = String(kw || '').toLowerCase();
+    if (!text) return false;
+    if (LIFE_TIPS_DOMAIN_EXCLUDES.some(token => text.includes(token.toLowerCase()))) return false;
+    if (!isPureLifeTipsKnowhow(kw)) return false;
+
+    const hasCoreToken = LIFE_TIPS_CORE_TOKENS.some(token => text.includes(token.toLowerCase()));
+    if (!hasCoreToken) return false;
+
+    const looksLikeStandaloneProduct = LIFE_TIPS_PRODUCT_BLACKLIST.some(token => text.includes(token.toLowerCase()));
+    if (looksLikeStandaloneProduct && !hasLifeTipsStrongAction(kw)) return false;
+
+    const hasProductIntent = LIFE_TIPS_PRODUCT_INTENT_EXCLUDES.some(token => text.includes(token.toLowerCase()));
+    const hardProductNoun = /(세탁기|청소기|로봇청소기|스팀청소기|제습기|공기청정기|수납장)/i.test(text);
+    const shoppingIntent = /(추천|가격|비교|순위|후기|대여|렌탈|구매)/i.test(text);
+    if (hardProductNoun && shoppingIntent) return false;
+    if (hardProductNoun && !LIFE_TIPS_PRODUCT_MAINTENANCE_ACTIONS.some(token => text.includes(token.toLowerCase()))) return false;
+    if (hasProductIntent && !hasLifeTipsStrongAction(kw)) return false;
+
+    const hasProblemToken = LIFE_TIPS_PROBLEM_TOKENS.some(token => text.includes(token.toLowerCase()));
+    if (!hasProblemToken && !hasLifeTipsStrongAction(kw)) return false;
+
+    return true;
+  };
+
+  const isStrictPolicyKeyword = (kw: string): boolean => {
+    const text = String(kw || '').toLowerCase();
+    if (!text) return false;
+
+    const supportTokens = [
+      '지원금', '지원사업', '지원대상', '지원자격', '보조금', '바우처', '장려금',
+      '복지', '급여', '수당', '기초연금', '양육수당', '실업급여', '국민취업지원',
+      '청년수당', '에너지바우처', '문화누리카드', '주거급여', '교육급여',
+      '소상공인', '출산지원', '육아휴직급여', '근로장려금', '자녀장려금',
+      '긴급복지', '의료급여', '감면', '면제', '혜택', '신청', '대상', '자격',
+      '지급일', '수급', '정책자금', '전기요금 지원', '난방비 지원'
+    ];
+    const taxOnlyTokens = [
+      '양도소득세', '소득세율', '소득세', '소득공제', '연금저축', '퇴직소득세',
+      '부동산양도', '연차수당', '주휴수당', '야간수당', '계산기', '계산법',
+      '세율표', '원천징수', '종합소득세', '부가세'
+    ];
+    const hasSupport = supportTokens.some(token => text.includes(token.toLowerCase()));
+    if (!hasSupport) return false;
+    const taxOnly = taxOnlyTokens.some(token => text.includes(token.toLowerCase()));
+    const explicitSupport = /(지원|지원금|보조금|바우처|장려금|복지|급여|수급|신청|대상|자격|혜택|감면|면제|정책자금)/i.test(text);
+    if (taxOnly && !explicitSupport) return false;
     return true;
   };
 
@@ -2646,6 +2888,14 @@ export async function huntProTrafficKeywords(options: {
 
     if (cat === 'drama') {
       return isKeywordMatchingCategory(keyword, 'movie');
+    }
+
+    if (cat === 'life_tips') {
+      return isStrictLifeTipsKeyword(keyword);
+    }
+
+    if (cat === 'policy') {
+      return isStrictPolicyKeyword(keyword);
     }
 
     return isKeywordMatchingCategory(keyword, cat);
@@ -2734,8 +2984,13 @@ export async function huntProTrafficKeywords(options: {
       const injectedSeeds: string[] = [];
       for (const name of realtimeSeeds.slice(0, 25)) {
         injectedSeeds.push(name);
-        injectedSeeds.push(`${name} 추천`);
-        injectedSeeds.push(`${name} 후기`);
+        if (category === 'policy') {
+          injectedSeeds.push(`${name} 신청`);
+          injectedSeeds.push(`${name} 대상`);
+        } else {
+          injectedSeeds.push(`${name} 추천`);
+          injectedSeeds.push(`${name} 후기`);
+        }
       }
       // 기존 seedKeywords 앞에 주입 (최우선 처리)
       allSeedKeywords = Array.from(new Set([...injectedSeeds, ...allSeedKeywords]));
@@ -2940,7 +3195,9 @@ export async function huntProTrafficKeywords(options: {
 
   const overallStartedAt = Date.now();
   // 🔥 v2.13.0 H8: Infinity 제거 — 모든 모드에 전역 예산 상한 (사용자가 5분 이상 기다리지 않도록)
-  const overallBudgetMs = (explosionMode && mode === 'category' && timeoutExplosionCategories.has(category))
+  const overallBudgetMs = fastDiscovery
+    ? 70000               // fast bulk returns first; deeper validation can run in strict modes
+    : (explosionMode && mode === 'category' && timeoutExplosionCategories.has(category))
     ? 210000              // 3.5분 (복잡 카테고리)
     : explosionMode
       ? 180000             // 3분 (일반 explosion)
@@ -2980,13 +3237,17 @@ export async function huntProTrafficKeywords(options: {
 
   // 🎯 v2.40.3 — 시드 풀 확대 (SSS 절대 수 증가의 1차 lever)
   // 비-explosion 카테고리 70 → 150 (시드 2× → 후보 풀 2× → SSS 후보 ~2×)
-  const seedTarget = explosionMode
+  const seedTarget = fastDiscovery
+    ? (mode === 'category'
+      ? Math.min(220, Math.max(120, Math.ceil(count * 1.2)))
+      : Math.min(180, Math.max(100, Math.ceil(count * 1.1))))
+    : explosionMode
     ? (mode === 'category'
       ? (category === 'celeb'
         ? 140
         : (weakExplosionCategories.has(category) ? 170 : 130))
       : 90)
-    : (mode === 'category' ? 150 : 100);
+      : (mode === 'category' ? 150 : 100);
 
   // ─── 시드 차별화 전략: 카테고리 모드에서는 자연 연관 키워드 위주로 최소화 ───
   // (기계적 조합은 Naver 검색량 0을 자주 반환해 파이프라인이 고갈됨)
@@ -3158,10 +3419,18 @@ export async function huntProTrafficKeywords(options: {
       };
 
       const currentMonthTips = SEASONAL_LIFE_TIPS[month] || SEASONAL_LIFE_TIPS[1];
-      const anchorSeeds = [
+      const anchorSeedsBase = [
         ...currentMonthTips,  // 현재 월의 시즌 노하우 우선!
         ...seasonalSeeds.slice(0, 5)
       ];
+      const lifeTipActions = ['방법', '보관', '청소', '세탁', '관리', '절약', '제거'];
+      const actionExpanded = anchorSeedsBase.flatMap(seed => {
+        const s = String(seed || '').trim();
+        if (!s) return [];
+        if (LIFE_TIPS_STRONG_ACTION_PATTERNS.some(p => s.includes(p))) return [s];
+        return [s, ...lifeTipActions.slice(0, 3).map(action => `${s} ${action}`)];
+      });
+      const anchorSeeds = Array.from(new Set(actionExpanded)).slice(0, 60);
       const unique = [...new Set([...anchorSeeds, ...allSeedKeywords])];
       const rest = unique.filter(s => !anchorSeeds.includes(s));
       allSeedKeywords = [...anchorSeeds, ...shuffleArray(rest)].slice(0, seedTarget);
@@ -3399,7 +3668,7 @@ export async function huntProTrafficKeywords(options: {
 
   // 🎯 2단계: 네이버 검색광고 API로 연관 키워드 수집 + 검색량 조회
   // (실시간 유동성 키워드는 이미 0단계에서 allKeywords에 일부 반영될 수 있음)
-  const allKeywords: { keyword: string; source: string; searchVolume?: number | null; documentCount?: number | null }[] = [];
+  const allKeywords: { keyword: string; source: string; searchVolume?: number | null; documentCount?: number | null; persistedAt?: number | null }[] = [];
 
   // 🗄️ 영구 캐시의 완전 데이터 키워드를 시드 풀 최상위에 주입 (안정성 확보)
   // — 이전 run에서 성공한 키워드는 재사용하면 API 호출 없이 즉시 결과로 연결
@@ -3410,14 +3679,43 @@ export async function huntProTrafficKeywords(options: {
     const filteredPersistent = isCatSpecified
       ? persistentSeeds.filter(p => isKeywordInSelectedCategory(p.keyword, category))
       : persistentSeeds;
+    const nowForPersistent = Date.now();
+    const dayKey = new Date(nowForPersistent).toISOString().slice(0, 10);
+    const dayHash = (keyword: string): number => {
+      let h = 2166136261;
+      const s = `${dayKey}:${keyword}`;
+      for (let i = 0; i < s.length; i++) {
+        h ^= s.charCodeAt(i);
+        h = Math.imul(h, 16777619);
+      }
+      return (h >>> 0) / 0xffffffff;
+    };
+    const sortedPersistent = [...filteredPersistent].sort((a, b) => {
+      const ratioA = a.documentCount > 0 ? a.searchVolume / a.documentCount : 0;
+      const ratioB = b.documentCount > 0 ? b.searchVolume / b.documentCount : 0;
+      const goldenA = (a.searchVolume >= 100 && a.searchVolume <= 150000 && a.documentCount <= 50000 && ratioA >= 1) ? 1 : 0;
+      const goldenB = (b.searchVolume >= 100 && b.searchVolume <= 150000 && b.documentCount <= 50000 && ratioB >= 1) ? 1 : 0;
+      if (goldenB !== goldenA) return goldenB - goldenA;
+      if (mode === 'realtime') {
+        const freshA = a.savedAt && nowForPersistent - a.savedAt <= 24 * 60 * 60 * 1000 ? 1 : 0;
+        const freshB = b.savedAt && nowForPersistent - b.savedAt <= 24 * 60 * 60 * 1000 ? 1 : 0;
+        if (freshB !== freshA) return freshB - freshA;
+      }
+      if (Math.abs(ratioB - ratioA) > 0.01) return ratioB - ratioA;
+      if (a.documentCount !== b.documentCount) return a.documentCount - b.documentCount;
+      const volumeDiff = b.searchVolume - a.searchVolume;
+      if (volumeDiff !== 0) return volumeDiff;
+      return dayHash(b.keyword) - dayHash(a.keyword);
+    });
     if (filteredPersistent.length > 0) {
       console.log(`[PRO-TRAFFIC] 🗄️ 영구 캐시에서 ${filteredPersistent.length}개 완전 데이터 키워드 주입 (category=${category})`);
-      for (const p of filteredPersistent) {
+      for (const p of sortedPersistent) {
         allKeywords.push({
           keyword: p.keyword,
           source: 'persistent_cache',
           searchVolume: p.searchVolume,
           documentCount: p.documentCount,
+          persistedAt: p.savedAt,
         });
       }
     }
@@ -3457,7 +3755,11 @@ export async function huntProTrafficKeywords(options: {
       const config: NaverSearchAdConfig = { accessLicense, secretKey, customerId };
 
       // 🚀 병렬로 연관 키워드 수집
-      const suggestionSeedLimit = explosionMode
+      const suggestionSeedLimit = fastDiscovery
+        ? (mode === 'category'
+          ? Math.min(60, Math.max(28, Math.ceil(count * 0.28)))
+          : Math.min(70, Math.max(30, Math.ceil(count * 0.3))))
+        : explosionMode
         ? (isTimeoutCategory ? (mode === 'category' ? 10 : 14) : (mode === 'category' ? 120 : 90))
         : (mode === 'category' ? 25 : 30);
       const uniqueSeedSortedByLen = [...new Set(allSeedKeywords)]
@@ -3468,7 +3770,7 @@ export async function huntProTrafficKeywords(options: {
         });
       const suggestionSeeds = buildMixedSeedSet(uniqueSeedSortedByLen, suggestionSeedLimit);
       // v2.44.1: 저사양 모드면 batchSize를 더 줄임 (RAM/CPU 보호)
-      const rawBatchSize = explosionMode ? (isTimeoutCategory ? 4 : 12) : 25;
+      const rawBatchSize = fastDiscovery ? 12 : (explosionMode ? (isTimeoutCategory ? 4 : 12) : 25);
       const batchSize = (() => {
         try {
           const { EnvironmentManager } = require('./environment-manager');
@@ -3540,7 +3842,7 @@ export async function huntProTrafficKeywords(options: {
         } else {
           const suggestionPromises = batchSeeds.map(async (seed) => {
             try {
-              const limit = explosionMode ? 120 : 50;
+              const limit = fastDiscovery ? 40 : (explosionMode ? 120 : 50);
               const suggestions = await withStepTimeout(
                 `getNaverSearchAdKeywordSuggestions:${seed}`,
                 getNaverSearchAdKeywordSuggestions(config, seed, limit),
@@ -3583,7 +3885,7 @@ export async function huntProTrafficKeywords(options: {
           const suggestionResults = await collectSettledWithinTimeout(
             `SearchAdSuggestions:PromiseAll:${i}`,
             suggestionPromises,
-            capOverallTimeout(explosionMode ? 45000 : 20000)
+            capOverallTimeout(fastDiscovery ? 8000 : (explosionMode ? 45000 : 20000))
           );
 
           for (const result of suggestionResults) {
@@ -3606,7 +3908,7 @@ export async function huntProTrafficKeywords(options: {
   // (Deep Mining은 sv null 키워드를 대량 생성해 Rate Limit 소진)
   // 🎯 v2.40.0 R6 — 카테고리 비-explosion 모드에서도 Deep Mining 활성화 (이전엔 OFF로 풀 다양성 결여)
   // celeb 만 explosion 외에서 OFF 유지 (celeb 키워드 폭증 위험)
-  const deepMiningEnabled = useDeepMining && (category !== 'celeb' || explosionMode);
+  const deepMiningEnabled = !fastDiscovery && useDeepMining && (category !== 'celeb' || explosionMode);
   if (deepMiningEnabled) {
     try {
       const miningSeeds = allSeedKeywords.slice(0, explosionMode ? 10 : 5);
@@ -3652,7 +3954,7 @@ export async function huntProTrafficKeywords(options: {
 
   // 🎯 v2.40.0 R7 — 다중 소스 풀 다양화 (사장된 fetchRelatedKeywordsMulti 부활)
   // Daum + Google + SmartBlock + AI 브리핑 + 관련 질문 → 네이버 동질성 탈피, SSS 게이트 통과율↑
-  if (mode === 'category' && allKeywords.length < 1500) {
+  if (!fastDiscovery && mode === 'category' && allKeywords.length < 1500) {
     try {
       const { EnvironmentManager: EnvMgrMulti } = await import('./environment-manager');
       const envCfgMulti = EnvMgrMulti.getInstance().getConfig() as any;
@@ -3690,14 +3992,16 @@ export async function huntProTrafficKeywords(options: {
 
   // 🚀 3단계: 자동완성 API로 추가 키워드 수집 (검색광고 결과 부족 시)
   // 🎯 v2.40.0 R6 — 카테고리 모드에서도 풀이 800 미만이면 활성화 (이전엔 50 미만만 — 사실상 스킵됨)
-  if (explosionMode || allKeywords.length < 50 || (mode === 'category' && allKeywords.length < 800)) {
+  if (explosionMode || allKeywords.length < 50 || (mode === 'category' && allKeywords.length < (fastDiscovery ? 360 : 800))) {
     console.log('[PRO-TRAFFIC] 🔍 네이버 자동완성으로 추가 키워드 수집...');
 
     const before = allKeywords.length;
 
     // 🚀 자동완성 확장 (explosionMode는 탐색 폭 확대)
     // 🎯 v2.40.3 — 비-explosion 시드 20→40 (시드당 자동완성 ~144 호출 × 40 시드 = 5760 후보)
-    const expandSeedLimit = explosionMode
+    const expandSeedLimit = fastDiscovery
+      ? Math.min(60, Math.max(28, Math.ceil(count * 0.28)))
+      : explosionMode
       ? (isTimeoutCategory ? (mode === 'category' ? 4 : 6) : (mode === 'category' ? 50 : 40))
       : 40;
     const uniqueExpandSortedByLen = [...new Set(allSeedKeywords)]
@@ -3707,7 +4011,7 @@ export async function huntProTrafficKeywords(options: {
         return preferLongtailSeeds ? (lb - la) : (la - lb);
       });
     const expandSeeds = buildMixedSeedSet(uniqueExpandSortedByLen, expandSeedLimit);
-    const expandBatchSize = explosionMode ? (isTimeoutCategory ? 2 : 10) : 20;
+    const expandBatchSize = fastDiscovery ? 12 : (explosionMode ? (isTimeoutCategory ? 2 : 10) : 20);
     for (let i = 0; i < expandSeeds.length; i += expandBatchSize) {
       if (Number.isFinite(overallBudgetMs) && overallRemainingMs(0) < 25000) break;
       const batchSeeds = expandSeeds.slice(i, i + expandBatchSize);
@@ -3742,7 +4046,7 @@ export async function huntProTrafficKeywords(options: {
             [] as string[]
           );
           const seedSource = realtimeSourceMap.get(seed) || seed;
-          const perSeed = explosionMode ? 30 : 10;
+          const perSeed = fastDiscovery ? 8 : (explosionMode ? 30 : 10);
           // 🔥 Phase 3-2: suffix bomb 필터
           return expanded.slice(0, perSeed)
             .filter(kw => !isSuffixBomb(kw))
@@ -3752,7 +4056,7 @@ export async function huntProTrafficKeywords(options: {
         const expandResults = await collectSettledWithinTimeout(
           `expandToLongtailReal:PromiseAll:${i}`,
           expandPromises,
-          capOverallTimeout(explosionMode ? 45000 : 25000)
+          capOverallTimeout(fastDiscovery ? 8000 : (explosionMode ? 45000 : 25000))
         );
         for (const result of expandResults) {
           for (const item of result) {
@@ -3853,6 +4157,22 @@ export async function huntProTrafficKeywords(options: {
     const hasCelebIntent = isCeleb && (isKeywordInSelectedCategory(kw, 'celeb') || celebEventIntent(kw));
     // 🔥 Deep Mining 키워드는 무조건 통과 (이미 선별됨)
     const isDeepMined = k.source && k.source.startsWith('deep_mining');
+    const measuredSearchVolume = (typeof k.searchVolume === 'number' && Number.isFinite(k.searchVolume)) ? k.searchVolume : null;
+    const measuredDocumentCount = (typeof k.documentCount === 'number' && Number.isFinite(k.documentCount)) ? k.documentCount : null;
+    const measuredGoldenRatio = (measuredSearchVolume !== null && measuredDocumentCount !== null && measuredDocumentCount > 0)
+      ? measuredSearchVolume / measuredDocumentCount
+      : 0;
+    const tokenCount = kw.split(/\s+/).filter(Boolean).length;
+    const compactLength = kw.replace(/\s+/g, '').length;
+    const cachedGolden = measuredSearchVolume !== null
+      && measuredDocumentCount !== null
+      && measuredSearchVolume >= 100
+      && measuredSearchVolume <= (mode === 'realtime' ? 150000 : 100000)
+      && measuredDocumentCount > 0
+      && measuredDocumentCount <= 50000
+      && measuredGoldenRatio >= 1
+      && compactLength >= 4
+      && (tokenCount >= 2 || measuredSearchVolume <= 70000);
 
     if (isCeleb && explosionMode && !hasCelebIntent && !isDeepMined) {
       return false;
@@ -3869,6 +4189,8 @@ export async function huntProTrafficKeywords(options: {
       // Deep Mining이어도 isKeywordMatchingCategory로 한번 더 체크
       if (isDeepMined && isKeywordMatchingCategory(kw, category)) {
         // Deep Mining이지만 카테고리 매칭 → 통과
+      } else if (cachedGolden && isKeywordMatchingCategory(kw, category)) {
+        // 측정값 기준 황금 후보는 카테고리만 맞으면 초반 패턴 필터에서 보존
       } else {
         return false;
       }
@@ -3882,17 +4204,17 @@ export async function huntProTrafficKeywords(options: {
       const minVol = isCategorySpecified ? 10 : (isCeleb ? 10 : 100);
 
       if (isCategorySpecified) {
-        return (k.searchVolume >= minVol && k.searchVolume <= 50000 && (hasCategoryIntent || hasCelebIntent || hasProfitIntent || isLongtail)) || isDeepMined;
+        return cachedGolden || (k.searchVolume >= minVol && k.searchVolume <= 50000 && (hasCategoryIntent || hasCelebIntent || hasProfitIntent || isLongtail)) || isDeepMined;
       }
 
-      return (k.searchVolume >= minVol && k.searchVolume <= 50000 && (hasProfitIntent || isLongtail || hasCelebIntent)) || isDeepMined;
+      return cachedGolden || (k.searchVolume >= minVol && k.searchVolume <= 50000 && (hasProfitIntent || isLongtail || hasCelebIntent)) || isDeepMined;
     }
 
     if (isCategorySpecified) {
-      return hasCategoryIntent || hasCelebIntent || hasProfitIntent || isLongtail || isDeepMined;
+      return cachedGolden || hasCategoryIntent || hasCelebIntent || hasProfitIntent || isLongtail || isDeepMined;
     }
 
-    return hasProfitIntent || isLongtail || hasCelebIntent || isDeepMined;
+    return cachedGolden || hasProfitIntent || isLongtail || hasCelebIntent || isDeepMined;
   });
 
   internalMetrics.profitableCount = profitableKeywords.length;
@@ -3913,13 +4235,19 @@ export async function huntProTrafficKeywords(options: {
   internalMetrics.uniqueKeywordsCount = uniqueKeywords.length;
 
   // 🎯 5단계: API 데이터 보강 (검색량/문서수)
-  const batchKeywordList = (explosionMode && mode === 'category' && timeoutExplosionCategories.has(category))
+  const batchKeywordList = fastDiscovery
+    ? uniqueKeywords.slice(0, Math.min(uniqueKeywords.length, Math.max(count * 7, 600))).map(k => k.keyword)
+    : (explosionMode && mode === 'category' && timeoutExplosionCategories.has(category))
     ? uniqueKeywords.slice(0, Math.min(uniqueKeywords.length, 120)).map(k => k.keyword)
     : uniqueKeywords.map(k => k.keyword);
   await withStepTimeout(
     'fetchKeywordDataBatch',
-    fetchKeywordDataBatch(batchKeywordList),
-    capOverallTimeout(45000),
+    fetchKeywordDataBatch(batchKeywordList, fastDiscovery ? {
+      skipSerpSignal: true,
+      batchSize: 40,
+      batchDelayMs: 20,
+    } : undefined),
+    capOverallTimeout(fastDiscovery ? 22000 : 45000),
     undefined
   );
   console.log(`[PRO-TRAFFIC][METRICS] stage=api_ready category=${category} uniqueKeywords=${uniqueKeywords.length} maxCandidates=${maxCandidates}`);
@@ -3958,6 +4286,11 @@ export async function huntProTrafficKeywords(options: {
     if (!isCacheMiss && goldenRatio < 0.3 && docCountForCalc > 0) {
       // 후보는 유지(분석 풀에 넣고, 후속 검증 단계에서 엄선)
       const analysis = analyzeKeyword(keyword, enrichedSource, currentMonth, currentHour, targetRookie);
+      if (finalSearchVolume !== null && finalDocCount !== null) {
+        analysis.searchVolume = finalSearchVolume;
+        analysis.documentCount = finalDocCount;
+        analysis.goldenRatio = goldenRatio;
+      }
       analyzedPool.push(analysis);
       // 카테고리 모드에서는 검증 단계로 넘길 후보 풀을 비우지 않기 위해 results에도 유지
       if (isCategorySpecified) {
@@ -3987,6 +4320,11 @@ export async function huntProTrafficKeywords(options: {
     // 1차(엄격) 컷: 검색량 300 미만은 제외하되, 완화 후보로 적재한다.
     if (!isCacheMiss && searchVolumeForCalc < 100) {
       const analysis = analyzeKeyword(keyword, enrichedSource, currentMonth, currentHour, targetRookie);
+      if (finalSearchVolume !== null && finalDocCount !== null) {
+        analysis.searchVolume = finalSearchVolume;
+        analysis.documentCount = finalDocCount;
+        analysis.goldenRatio = goldenRatio;
+      }
       analyzedPool.push(analysis);
       if (isCategorySpecified) {
         results.push(analysis);
@@ -3996,6 +4334,11 @@ export async function huntProTrafficKeywords(options: {
     }
 
     const analysis = analyzeKeyword(keyword, enrichedSource, currentMonth, currentHour, targetRookie);
+    if (finalSearchVolume !== null && finalDocCount !== null) {
+      analysis.searchVolume = finalSearchVolume;
+      analysis.documentCount = finalDocCount;
+      analysis.goldenRatio = goldenRatio;
+    }
     analyzedPool.push(analysis);
 
     // 🔥 최신 유동성 보너스: 실시간/뉴스 소스일수록 점수 가중치
@@ -4079,6 +4422,15 @@ export async function huntProTrafficKeywords(options: {
 
   const sortedResults = results
     .sort((a, b) => {
+      const measuredRatioA = (typeof a.searchVolume === 'number' && typeof a.documentCount === 'number' && a.documentCount > 0)
+        ? (a.goldenRatio ?? (a.searchVolume / a.documentCount))
+        : 0;
+      const measuredRatioB = (typeof b.searchVolume === 'number' && typeof b.documentCount === 'number' && b.documentCount > 0)
+        ? (b.goldenRatio ?? (b.searchVolume / b.documentCount))
+        : 0;
+      const measuredRatioDiff = measuredRatioB - measuredRatioA;
+      if (Math.abs(measuredRatioDiff) > 0.01) return measuredRatioDiff;
+
       const blueA = a.profitAnalysis?.isRealBlueOcean ? 1 : 0;
       const blueB = b.profitAnalysis?.isRealBlueOcean ? 1 : 0;
       if (blueB !== blueA) return blueB - blueA;
@@ -4128,7 +4480,9 @@ export async function huntProTrafficKeywords(options: {
 
   // 🔥 병렬로 모든 키워드 검증! (더 많은 키워드 검증 - count * 5)
   // - category=all (realtime/season) 은 러너 타임아웃을 피하기 위해 검증 후보 수를 줄임
-  const verifySliceSize = mode === 'category'
+  const verifySliceSize = fastDiscovery
+    ? Math.max(count * 6, 600)
+    : mode === 'category'
     ? (explosionMode
       ? (timeoutExplosionCategories.has(category)
         ? ((category === 'business' || category === 'self_development')
@@ -4155,13 +4509,17 @@ export async function huntProTrafficKeywords(options: {
   }
 
   const verifyCandidates = sortedResultsForVerify.slice(0, verifySliceSize);
-  const verifyChunkSize = explosionMode
+  const verifyChunkSize = fastDiscovery
+    ? 50
+    : explosionMode
     ? (isTimeoutCategory
       ? ((category === 'business' || category === 'self_development') ? 5 : 10)
       : 50)
     : 80;
 
-  const verifiedTarget = explosionMode
+  const verifiedTarget = fastDiscovery
+    ? Math.min(verifySliceSize, Math.max(count * 4, count + 180))
+    : explosionMode
     ? (timeoutExplosionCategories.has(category) ? Math.max(count * 8, 40) : Math.max(count * 10, 120))
     // 🎯 v2.40.0 R2 — count*2 → count*5 (SSS 통과 절대 수 추구를 위해 검증 풀 조기 종료 완화)
     : Math.max(count * 5, 1000);
@@ -4169,16 +4527,23 @@ export async function huntProTrafficKeywords(options: {
   const verifiedTargetEffective = (explosionMode && timeoutExplosionCategories.has(category))
     ? count
     : verifiedTarget;
+  const premiumVerifiedTarget = fastDiscovery
+    ? Math.min(verifySliceSize, Math.max(count * 2, count + 80))
+    : verifiedTargetEffective;
 
   const verifyStartedAt = Date.now();
   const verifyReserveMs = (explosionMode && timeoutExplosionCategories.has(category)) ? 35000 : 25000;
-  const baseVerifyTimeBudgetMs = explosionMode
+  const baseVerifyTimeBudgetMs = fastDiscovery
+    ? Math.min(60000, Math.max(35000, count * 300))
+    : explosionMode
     ? (timeoutExplosionCategories.has(category)
       ? 180000
       : 120000)
     : (category === 'celeb' ? 600000 : 600000); // 🎯 v2.40.3 — 시드 2× + 자동완성 PC 채널 추가 처리 시간 (300→600s)
 
-  const verifyTimeBudgetMs = Math.min(baseVerifyTimeBudgetMs, (category === 'celeb' ? 600000 : (explosionMode ? 300000 : 600000))); // 🎯 일반 카테고리 600초 캡
+  const verifyTimeBudgetMs = fastDiscovery
+    ? baseVerifyTimeBudgetMs
+    : Math.min(baseVerifyTimeBudgetMs, (category === 'celeb' ? 600000 : (explosionMode ? 300000 : 600000))); // 🎯 일반 카테고리 600초 캡
   let premiumVerifiedCount = 0;
   let stopVerify = false;
 
@@ -4201,7 +4566,9 @@ export async function huntProTrafficKeywords(options: {
       || category === 'celeb'
       || category === 'fashion';
 
-    const verifyStepTimeoutMs = explosionMode
+    const verifyStepTimeoutMs = fastDiscovery
+      ? 8000
+      : explosionMode
       ? (timeoutExplosionCategories.has(category)
         ? ((category === 'business' || category === 'self_development') ? 40000 : 30000)
         : 65000)
@@ -4209,18 +4576,24 @@ export async function huntProTrafficKeywords(options: {
 
     const apiResults = await withStepTimeout(
       `fetchKeywordDataParallel:verify:${category}:${Math.floor(chunkStart / verifyChunkSize) + 1}`,
-      isTimeoutCategory
+      fastDiscovery
         ? fetchKeywordDataParallel(chunkKeywords, env, {
-          allowBlogScrapeFallback: allowVerifyScrapeFallback,
-          blogScrapeMaxPerCall: (category === 'business' || category === 'self_development')
-            ? Math.min(chunkKeywords.length, 5)
-            : (category === 'celeb'
-              ? (allowVerifyScrapeFallback ? Math.min(chunkKeywords.length, 3) : 0)
-              : (category === 'fashion'
-                ? (allowVerifyScrapeFallback ? Math.min(chunkKeywords.length, 4) : 0)
-                : Math.min(chunkKeywords.length, 10)))
+          skipSerpSignal: true,
+          batchSize: 50,
+          batchDelayMs: 10,
         })
-        : fetchKeywordDataParallel(chunkKeywords, env),
+        : (isTimeoutCategory
+          ? fetchKeywordDataParallel(chunkKeywords, env, {
+            allowBlogScrapeFallback: allowVerifyScrapeFallback,
+            blogScrapeMaxPerCall: (category === 'business' || category === 'self_development')
+              ? Math.min(chunkKeywords.length, 5)
+              : (category === 'celeb'
+                ? (allowVerifyScrapeFallback ? Math.min(chunkKeywords.length, 3) : 0)
+                : (category === 'fashion'
+                  ? (allowVerifyScrapeFallback ? Math.min(chunkKeywords.length, 4) : 0)
+                  : Math.min(chunkKeywords.length, 10)))
+          })
+          : fetchKeywordDataParallel(chunkKeywords, env)),
       Math.min(verifyStepTimeoutMs, Math.max(5000, remainingBudgetMs)),
       new Map<string, ApiResult>()
     );
@@ -4440,11 +4813,13 @@ export async function huntProTrafficKeywords(options: {
       console.log(`[PRO-TRAFFIC] ✅ "${result.keyword}": 검색량=${realSearchVolumeForCalc ?? 'null'}, 문서수=${realDocCount}, 비율=${realGoldenRatio.toFixed(2)}, 등급=${newGrade}`);
 
       // 🆕 SRAA (Seasonal & Recency Advanced Analysis) - 정밀 경쟁 분석
-      const competitorDeep = await analyzeCompetitorsReal(
-        result.keyword,
-        realDocCount,
-        realGoldenRatio
-      ).catch(() => null);
+      const competitorDeep = fastDiscovery
+        ? null
+        : await analyzeCompetitorsReal(
+          result.keyword,
+          realDocCount,
+          realGoldenRatio
+        ).catch(() => null);
 
       const enriched: ProTrafficKeyword = {
         ...result,
@@ -4472,11 +4847,21 @@ export async function huntProTrafficKeywords(options: {
       };
 
       verifiedResults.push(enriched);
-      if (explosionMode && isPremiumGoldenKeyword(enriched, 30, premiumCriteria)) {
+      const effectiveVerifiedGrade = normalizeGradeValue(
+        computePremiumGradeEffective(enriched, strictPro, { ...premiumCriteria, category })
+      );
+      if (
+        (explosionMode && isPremiumGoldenKeyword(enriched, 30, premiumCriteria))
+        || (!explosionMode && PREMIUM_GOLDEN_GRADES.has(effectiveVerifiedGrade))
+      ) {
         premiumVerifiedCount++;
       }
 
       if (explosionMode && premiumVerifiedCount >= verifiedTargetEffective) {
+        stopVerify = true;
+        break;
+      }
+      if (!explosionMode && fastDiscovery && premiumVerifiedCount >= premiumVerifiedTarget) {
         stopVerify = true;
         break;
       }
@@ -4520,7 +4905,7 @@ export async function huntProTrafficKeywords(options: {
         const volB = b.searchVolume ?? -1;
         return volB - volA;
       })
-      .slice(0, Math.max(1, Math.min(count, 5)));
+      .slice(0, Math.max(1, Math.min(count, fastDiscovery ? count : 5)));
 
     // 폴백 결과가 있으면 부족분만큼 보충
     if (fallbackResults.length > 0) {
@@ -4572,10 +4957,12 @@ export async function huntProTrafficKeywords(options: {
                 ? Math.min(limitedFallback.length, 18)
                 : Math.min(limitedFallback.length, 12))
           })
-          : await withStepTimeout(
+            : await withStepTimeout(
             `fetchKeywordDataParallel:fallback:${category}`,
             fetchKeywordDataParallel(limitedFallback, env),
-            explosionMode
+            fastDiscovery
+              ? 30000
+              : explosionMode
               ? (timeoutExplosionCategories.has(category) ? 35000 : 60000)
               : (category === 'celeb' ? 600000 : 300000), // 연예인은 데이터가 많으므로 10분, 그 외 5분
             new Map<string, any>()
@@ -5234,6 +5621,8 @@ export async function huntProTrafficKeywords(options: {
         };
       });
 
+      if (fastDiscovery) return fallback;
+
       const enriched = await collectSettledWithinTimeout<ProTrafficKeyword>(
         'finalEnrichment:PromiseAll:explosionMode',
         analysisPromises as Promise<ProTrafficKeyword>[],
@@ -5257,7 +5646,7 @@ export async function huntProTrafficKeywords(options: {
 
     const selectionPoolRaw = enrichedPremium.filter(r => isPremiumGoldenKeyword(r, bestMinSv, premiumCriteria));
     const selectionPool = fillToCountPreferCompact(selectionPoolRaw, count);
-    let selectedKeywords = selectPremiumGolden(selectionPool, count)
+    let selectedKeywords: ProTrafficKeyword[] = selectPremiumGolden(selectionPool, count)
       .map(r => {
         // 🎯 v2.40.0 R3 — 검증 단계에서 부여된 r.grade 를 strict 게이트로 재계산해
         //   SSS→A/null 강등시키던 손실 제거. r.grade 가 비어있을 때만 non-strict 보조 계산.
@@ -5430,7 +5819,7 @@ export async function huntProTrafficKeywords(options: {
       const sanity = vgPT1({
         keyword: k.keyword,
         searchVolume: (k as any).searchVolume ?? 0,
-        documentCount: (k as any).docCount ?? 0,
+        documentCount: (k as any).documentCount ?? (k as any).docCount ?? 0,
         goldenRatio: (k as any).goldenRatio ?? 0,
         score: (k as any).mdpScore ?? 0,
         dcEstimated: (k as any).dcEstimated,
@@ -5446,8 +5835,19 @@ export async function huntProTrafficKeywords(options: {
     console.log(`[PRO-TRAFFIC] 🏆 프리미엄 황금키워드 필터 통과: ${selectionPool.length}개 (S/SS/SSS만, 최소검색량=${bestMinSv}, 최소비율=${premiumMinRatioEffective}, 문서수상한=${premiumMaxDocumentsEffective})`);
     console.log(`[PRO-TRAFFIC] 🏁 최종 선정: ${selectedKeywords.length}개`);
 
+    selectedKeywords = enforcePremiumGoldenOnly(selectedKeywords, count, category, strictPro, premiumCriteria);
+
     const withUltimate = selectedKeywords.filter(r => r.ultimateAnalysis).length;
     console.log(`[PRO-TRAFFIC] 🏆 끝판왕 분석 포함: ${withUltimate}개`);
+
+    for (const kw of selectedKeywords) {
+      if (!(kw as any).grade) {
+        const computed = computePremiumGrade(kw, category);
+        (kw as any).grade = ['SSS', 'SS', 'S'].includes(String(computed).toUpperCase())
+          ? computed
+          : undefined;
+      }
+    }
 
     const summary = {
       totalFound: selectedKeywords.length,
@@ -5497,7 +5897,9 @@ export async function huntProTrafficKeywords(options: {
     console.log(`[PRO-TRAFFIC] 💎 블루오션: ${summary.blueOceanCount}개, 신생적합: ${summary.rookieFriendlyCount}개`);
     console.log(`[PRO-TRAFFIC] 📊 TOP 키워드: ${selectedKeywords.slice(0, 3).map(k => `${k.keyword}(${k.searchVolume}/${k.documentCount})`).join(', ')}`);
 
-    const smartBlockResult = await buildSmartBlockKeywords(selectedKeywords.map(k => k.keyword), 5);
+    const smartBlockResult = fastDiscovery
+      ? { keywords: [], keywordsWithMetrics: [] }
+      : await buildSmartBlockKeywords(selectedKeywords.map(k => k.keyword), 5);
 
     return {
       keywords: selectedKeywords,
@@ -5641,6 +6043,8 @@ export async function huntProTrafficKeywords(options: {
       };
     });
 
+    if (fastDiscovery) return finalEnrichmentFallback;
+
     const enriched = await collectSettledWithinTimeout<ProTrafficKeyword>(
       `finalEnrichment:PromiseAll:${label}`,
       analysisPromises as Promise<ProTrafficKeyword>[],
@@ -5652,7 +6056,7 @@ export async function huntProTrafficKeywords(options: {
 
   let enrichedResults = await enrichBatch(sortedFinalVerified, 'primary');
   let selectionPool = explosionMode ? enrichedResults.filter(isExplosiveKeywordStrict) : enrichedResults;
-  let selectedKeywords = (explosionMode
+  let selectedKeywords: ProTrafficKeyword[] = (explosionMode
     ? rerankAndSelectFinal(selectionPool, count, true)
     : rerankAndSelectFinal(selectionPool, count))
     .map(r => {
@@ -5858,7 +6262,7 @@ export async function huntProTrafficKeywords(options: {
       const sanity = vgPT2({
         keyword: k.keyword,
         searchVolume: (k as any).searchVolume ?? 0,
-        documentCount: (k as any).docCount ?? 0,
+        documentCount: (k as any).documentCount ?? (k as any).docCount ?? 0,
         goldenRatio: (k as any).goldenRatio ?? 0,
         score: (k as any).mdpScore ?? 0,
         dcEstimated: (k as any).dcEstimated,
@@ -5872,8 +6276,28 @@ export async function huntProTrafficKeywords(options: {
   }
 
   // 끝판왕 분석 포함된 키워드 수 로깅
+  selectedKeywords = enforcePremiumGoldenOnly(selectedKeywords, count, category, strictPro, premiumCriteria);
+  if (selectedKeywords.length < count) {
+    selectedKeywords = enforcePremiumGoldenOnly(
+      [...selectedKeywords, ...allFinalVerified, ...verifiedResults, ...sortedAllFinalCandidates, ...results],
+      count,
+      category,
+      strictPro,
+      premiumCriteria
+    );
+  }
+
   const withUltimate = selectedKeywords.filter(r => r.ultimateAnalysis).length;
   console.log(`[PRO-TRAFFIC] 🏆 끝판왕 분석 포함: ${withUltimate}개`);
+
+  for (const kw of selectedKeywords) {
+    if (!(kw as any).grade) {
+      const computed = computePremiumGrade(kw, category);
+      (kw as any).grade = ['SSS', 'SS', 'S'].includes(String(computed).toUpperCase())
+        ? computed
+        : undefined;
+    }
+  }
 
   // 🎯 11단계: 요약 통계 (v2.40.5 — 동적 SSS 라벨 반영)
   const summary = {
@@ -5922,7 +6346,9 @@ export async function huntProTrafficKeywords(options: {
   console.log(`[PRO-TRAFFIC] 💎 블루오션: ${summary.blueOceanCount}개, 신생적합: ${summary.rookieFriendlyCount}개`);
   console.log(`[PRO-TRAFFIC] 📊 TOP 키워드: ${selectedKeywords.slice(0, 3).map(k => `${k.keyword}(${k.searchVolume}/${k.documentCount})`).join(', ')}`);
 
-  const smartBlockResult = await buildSmartBlockKeywords(selectedKeywords.map(k => k.keyword), 5);
+  const smartBlockResult = fastDiscovery
+    ? { keywords: [], keywordsWithMetrics: [] }
+    : await buildSmartBlockKeywords(selectedKeywords.map(k => k.keyword), 5);
 
   return {
     keywords: selectedKeywords,
@@ -7647,7 +8073,16 @@ function calculateRevenueEstimate(
 
   // 🔥 수익성 등급
   let revenueGrade: 'SSS' | 'SS' | 'S' | 'A' | 'B' | 'C' = 'C';
-  if (monthlyRevenueMax >= 100000) revenueGrade = 'SSS';
+  if (monthlyRevenueMax >= 100000) {
+    revenueGrade = applySanity('SSS', validateGrade({
+      keyword,
+      searchVolume,
+      documentCount,
+      goldenRatio: searchVolume / Math.max(1, documentCount),
+      score: blueOceanScore,
+      source: 'pro-traffic',
+    })) as 'SSS' | 'SS' | 'S' | 'A' | 'B' | 'C';
+  }
   else if (monthlyRevenueMax >= 50000) revenueGrade = 'SS';
   else if (monthlyRevenueMax >= 30000) revenueGrade = 'S';
   else if (monthlyRevenueMax >= 15000) revenueGrade = 'A';

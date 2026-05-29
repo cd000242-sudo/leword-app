@@ -556,7 +556,7 @@ export function initAutoUpdaterEarly(): void {
   }
 
   autoUpdater.autoDownload = false;
-  autoUpdater.autoInstallOnAppQuit = true;
+  autoUpdater.autoInstallOnAppQuit = false;
   console.log(`[UPDATER] installer protocol v${CURRENT_INSTALLER_PROTOCOL}`);
   // v2.43.77: 팀1+8 비평 — electron-log 파일 저장으로 packaged app 사용자 환경 추적
   try {
@@ -674,7 +674,7 @@ export function initAutoUpdaterEarly(): void {
     } catch {}
 
     // v2.49.39: 에이전트팀 토론 결론 — "다음 LEWORD 실행 시 install" 모델 전환
-    //   dialog + 강제 install 제거. autoInstallOnAppQuit=true 가 LEWORD 종료 시 자동 install.
+    //   dialog + 강제 install 제거. 자동 설치는 사용자가 명시적으로 실행할 때만 진행.
     //   self-heal.ts 가 다음 시작 시 pending exe 적용. 사용자 작업 중단 0.
     //   1인 개발자 환경에서 매일 LEWORD 재실행 → 지연 사실상 0.
     console.log(`[UPDATER] 다운로드 완료 v${info?.version} — 다음 실행 시 자동 install`);

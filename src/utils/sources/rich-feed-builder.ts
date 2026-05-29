@@ -29,6 +29,7 @@ import { loadBloggerProfile, calculateProfileAffinity, experienceAdjustment, Blo
 export type Freshness = 'BURNING' | 'RISING' | 'STABLE' | 'EVERGREEN';
 // 🔥 v2.31.0: SSR 등급 신설 — "수익 황금" (SSS + 고CPC + 상업의도 + 수익 카테고리)
 export type GoldenGrade = 'SSR' | 'SSS' | 'SS' | 'S' | 'A' | 'B';
+export type RichFeedDiscoveryMode = 'balanced' | 'bulk';
 
 // 🔥 v2.31.0: 수익 카테고리 — 광고주 CPC 높고 구매 전환 강한 카테고리
 const REVENUE_CATEGORIES = new Set([
@@ -630,6 +631,60 @@ function hasCommercialIntent(keyword: string): boolean {
     return COMMERCIAL_RE.test(keyword);
 }
 
+function isOverbroadGoldenCandidate(keyword: string, searchVolume: number, docCount: number): boolean {
+    const clean = String(keyword || '').trim();
+    const tokens = clean.split(/\s+/).filter(Boolean);
+    const tokenCount = tokens.length;
+    if (tokenCount === 0) return true;
+
+    const lastToken = tokens[tokenCount - 1] || '';
+    const hasSpecificIntent =
+        tokenCount >= 3 ||
+        INTENT_SUFFIX_RE.test(clean) ||
+        COMMERCIAL_RE.test(clean) ||
+        GENERIC_PROCESS_ACTION_RE.test(lastToken);
+
+    if (tokenCount === 1) {
+        if (searchVolume >= 15000) return true;
+        if (searchVolume >= 8000 && docCount > 500) return true;
+    }
+
+    if (tokenCount === 2) {
+        if (searchVolume >= 50000) return true;
+        if (searchVolume >= 25000 && !hasSpecificIntent) return true;
+    }
+
+    return false;
+}
+
+function isBulkPracticalCandidate(row: RichKeywordRow): boolean {
+    if (isOverbroadGoldenCandidate(row.keyword, row.searchVolume, row.documentCount)) return false;
+    const grade = row.grade;
+    if (grade === 'S' || grade === 'A') return true;
+    if (grade !== 'B') return false;
+
+    const tokenCount = String(row.keyword || '').trim().split(/\s+/).filter(Boolean).length;
+    const writability = typeof row.bloggerWritability === 'number' ? row.bloggerWritability : 50;
+    if (tokenCount <= 1 && !hasCommercialIntent(row.keyword)) return false;
+    if (row.searchVolume < 30) return false;
+    if (row.goldenRatio < 0.5 && !hasCommercialIntent(row.keyword)) return false;
+    if (writability < 35) return false;
+    return true;
+}
+
+function isBalancedFloorCandidate(row: RichKeywordRow): boolean {
+    if (isOverbroadGoldenCandidate(row.keyword, row.searchVolume, row.documentCount)) return false;
+    if (row.grade !== 'S' && row.grade !== 'A') return false;
+    const tokenCount = String(row.keyword || '').trim().split(/\s+/).filter(Boolean).length;
+    const writability = typeof row.bloggerWritability === 'number' ? row.bloggerWritability : 50;
+    if (tokenCount <= 1 && !hasCommercialIntent(row.keyword)) return false;
+    if (row.searchVolume < 50 || row.searchVolume > 50000) return false;
+    if (row.documentCount <= 0 || row.documentCount > 30000) return false;
+    if (row.goldenRatio < 1.0) return false;
+    if (writability < 35) return false;
+    return true;
+}
+
 /**
  * 등급 판정 (다중 게이트, mdp-engine과 일관성 유지)
  *
@@ -655,6 +710,7 @@ function calculateGrade(volume: number, docCount: number, ratio: number, score: 
 
     // v2.43.12: dcEstimated 전달 → isHighIntentSingleToken 가 가짜 ratio=2.0 단일 명사 차단
     const writable = isWritableKeyword(keyword, docCount, volume, dcEstimated);
+    const overbroadGolden = isOverbroadGoldenCandidate(keyword, volume, docCount);
     // 극단 범용 빅워드 제거
     if (!writable && docCount > 100_000) return '';
     // 🔥 v2.27.6: 범용 2-token 조합은 dc 무관 탈락
@@ -698,7 +754,7 @@ function calculateGrade(volume: number, docCount: number, ratio: number, score: 
     // v2.43.31: longtail 세부 키워드 우선 — sv 상한 30K (이전 50K), 빅워드 차단
     //   사용자 요구: "너무 대형키워드보다는 세부적인 확장성키워드"
     //   sv 30K+ 키워드는 보통 단일 명사/빅워드 → SSS 자격 박탈
-    if (writable && !isCelebLike && docCount > 0 && volume >= 200 && volume <= 30000 && docCount <= 12000) {
+    if (!overbroadGolden && writable && !isCelebLike && docCount > 0 && volume >= 200 && volume <= 30000 && docCount <= 12000) {
         // v2.49.24: 2+ token longtail 의 commercial+ratio 게이트 미세 완화 (1.3 → 1.2)
         //   진단: 28 소스 commerce/community 키워드 가 ratio 1.2~1.3 에서 다수 폐기
         //   단일 토큰 SSS 는 isWritableKeyword 가 별도 차단 → 가짜 SSS 양산 위험 없음
@@ -715,7 +771,7 @@ function calculateGrade(volume: number, docCount: number, ratio: number, score: 
     const sssSvMax = 30000;   // 50000 → 30000 (빅워드 차단)
     const sssDc = 12000;      // 15000 → 12000 (저경쟁 우선)
     const sssRatio = commercial ? 1.3 : 1.7;
-    if (score >= sssScore && volume >= sssSvMin && volume <= sssSvMax && docCount > 0 && docCount <= sssDc && ratio >= sssRatio && allowSS) return 'SSS';
+    if (!overbroadGolden && score >= sssScore && volume >= sssSvMin && volume <= sssSvMax && docCount > 0 && docCount <= sssDc && ratio >= sssRatio && allowSS) return 'SSS';
 
     // 🔥 v2.29.0: SS 자동 승격에도 writable 강제
     if (writable && !isCelebLike && docCount > 0) {
@@ -819,14 +875,27 @@ export type RichFeedProgressCallback = (payload: RichFeedProgress) => void;
 let _bloggerProfile: BloggerProfile | null = null;
 
 export async function buildRichFeed(
-    options: { tier?: SourceTier; limit?: number; aiAugmentation?: 'none' | 'claude' } = {},
+    options: { tier?: SourceTier; limit?: number; aiAugmentation?: 'none' | 'claude'; discoveryMode?: RichFeedDiscoveryMode } = {},
     onProgress?: RichFeedProgressCallback
 ): Promise<RichFeedResult> {
     const tier: 'lite' | 'pro' = options.tier === 'pro' ? 'pro' : 'lite';
     const limit = options.limit || 100;
+    const discoveryMode: RichFeedDiscoveryMode = options.discoveryMode === 'bulk' ? 'bulk' : 'balanced';
+    const isBulkMode = discoveryMode === 'bulk';
+    const minReturnCount = isBulkMode ? Math.min(limit, 100) : Math.min(limit, 30);
 
     // v2.43.25 (사이클#2): 블로거 프로필 로드 — 사용자 카테고리에 맞춘 친화도 보정
     _bloggerProfile = loadBloggerProfile();
+    const selectedCategoryIds = Array.from(new Set(
+        (_bloggerProfile?.selectedCategories || [])
+            .map(c => String(c || '').trim())
+            .filter(Boolean)
+    ));
+    const selectedCategoryCount = selectedCategoryIds.length;
+    const MIN_RESULTS_PER_SELECTED_CATEGORY = isBulkMode ? 20 : 5;
+    if (isBulkMode) {
+        console.log(`[rich-feed] bulk discovery mode enabled: limit=${limit}, selectedCategories=${selectedCategoryCount}`);
+    }
     if (_bloggerProfile) {
         console.log(`[rich-feed v2.43.25] 블로거 프로필 적용: 카테고리[${_bloggerProfile.selectedCategories.join(',')}] 경험[${_bloggerProfile.experienceLevel}]`);
     }
@@ -837,7 +906,7 @@ export async function buildRichFeed(
     // v2.49.42: 3.5분 → 6분 (사용자 실측: 75 batch 중 30 batch timeout, 결과 1건만)
     //   진단: 시드 풀 3729 (v2.49.40 expansion 효과) → API 검증 75 batch 필요 → 4분+ 소요
     //   timeout 시 enrichedRows 부분 처리 → SSS 4/SS 8 발견했어도 promotion/grading 단계까지 도달 못함
-    const HARD_CAP_MS = 6 * 60 * 1000;
+    const HARD_CAP_MS = (isBulkMode ? 6 : 3.5) * 60 * 1000;
     const startedAt = Date.now();
     const isExceeded = () => Date.now() - startedAt > HARD_CAP_MS;
 
@@ -872,12 +941,17 @@ export async function buildRichFeed(
         seedProgress = Math.min(14, seedProgress + 1);
         emit('seed', seedProgress, `외부 소스 수집 중... (${seedProgress}%)`);
     }, 900);
+    seedAnimTimer.unref?.();
 
-    const sourceResults = await callAllSources({
-        tier: tier === 'lite' ? 'lite' : undefined,
-        healthy: true,
-    });
-    clearInterval(seedAnimTimer);
+    let sourceResults: Awaited<ReturnType<typeof callAllSources>>;
+    try {
+        sourceResults = await callAllSources({
+            tier: tier === 'lite' ? 'lite' : undefined,
+            healthy: true,
+        });
+    } finally {
+        clearInterval(seedAnimTimer);
+    }
 
     const successSources = Array.from(sourceResults.values()).filter(r => r.success).length;
     const totalSources = sourceResults.size;
@@ -1108,7 +1182,7 @@ export async function buildRichFeed(
 
     // v2.43.34-46: 시즌 시드 + 카테고리×시즌 매트릭스 + 의도 suffix + 의미 검증
     try {
-        const { getCurrentSeasonalSeeds, expandWithSemanticVerify, getSeasonalForUserCategories } = await import('./seasonal-calendar');
+        const { getAllSeasonalSeeds, expandWithSemanticVerify, getSeasonalForUserCategories } = await import('./seasonal-calendar');
         // v2.43.46: 사용자 카테고리 매칭 시즌 시드 우선 가산
         let userPatterns: RegExp[] = [];
         if (_bloggerProfile && _bloggerProfile.selectedCategories.length > 0) {
@@ -1122,8 +1196,9 @@ export async function buildRichFeed(
 
         // v2.49.19: perSeed matched 10→16, general 6→10 (진짜 SSS 풀 확장).
         //   사용자 보고: 휴리스틱 fallback 제거 후 SSS=2건. 실측 SSS 늘리려면 seasonal longtail 60~67% 증대.
-        const { items: matchedExpanded, verified, blocked } = await expandWithSemanticVerify(matrix.matched, 16, 0.45);
-        const generalExpanded = (await expandWithSemanticVerify(matrix.general, 10, 0.45)).items;
+        const { items: matchedExpanded, verified, blocked } = await expandWithSemanticVerify(matrix.matched, isBulkMode ? 28 : 10, 0.45);
+        const generalExpanded = (await expandWithSemanticVerify(matrix.general, isBulkMode ? 18 : 6, 0.45)).items;
+        const allYearSeasonal = isBulkMode ? getAllSeasonalSeeds() : [];
 
         const seasonalSeeds: typeof baseSeeds = [];
         for (const kw of matchedExpanded) {
@@ -1142,6 +1217,15 @@ export async function buildRichFeed(
                 keyword: kw,
                 sources: ['seasonal-calendar'],
                 qualityScore: 1.4,
+            });
+        }
+        for (const kw of allYearSeasonal) {
+            if (seenKeywords.has(kw)) continue;
+            seenKeywords.add(kw);
+            seasonalSeeds.push({
+                keyword: kw,
+                sources: ['seasonal-calendar', 'all-year'],
+                qualityScore: 1.25,
             });
         }
         extraSeeds.push(...seasonalSeeds);
@@ -1176,7 +1260,7 @@ export async function buildRichFeed(
         if (saLicense && saSecret) {
             // 시즌 시드 + 매칭 카테고리 시드 상위 N개를 suggestion 출발점으로
             // 너무 많이 호출하면 rate-limit — 시드 cap 15개 → 15 호출 × 0.5s = 8s 추가
-            const SEED_CAP = 15;
+            const SEED_CAP = isBulkMode ? 30 : 10;
             const seedsForSuggest = [...extraSeeds]
                 .filter(s => s.keyword && !s.keyword.includes(' ') === false || s.keyword.split(/\s+/).length <= 4)
                 .slice(0, SEED_CAP);
@@ -1368,7 +1452,12 @@ export async function buildRichFeed(
     // v2.49.19: 후보 풀 2500 → 3500 cap (진짜 SSS 풀 확장 — 휴리스틱 가짜 제거 후 실측 보충).
     //   기존 2500 cap 이 검색광고 API 호출 한계. 3500 으로 +40% 확장 → 실측 SSS 자연 증가.
     const allScored = [...baseSeeds, ...extraSeeds].sort((a, b) => b.qualityScore - a.qualityScore);
-    const targetSize = Math.min(3500, Math.max(limit * 8, 1500));
+    const categorySampleFloor = selectedCategoryCount > 0
+        ? selectedCategoryCount * (isBulkMode ? 700 : 300)
+        : 0;
+    const targetSize = isBulkMode
+        ? Math.min(5000, Math.max(limit * 4, 2500, categorySampleFloor))
+        : Math.min(2400, Math.max(limit * 4, 1200, categorySampleFloor));
     diagnostic.candidates.targetSize = targetSize;
 
     const weightedSampleWithoutReplacement = <T extends { qualityScore: number }>(
@@ -1465,8 +1554,8 @@ export async function buildRichFeed(
     //   기존 batch 40 × 병렬 10 × 내부 concurrency 8 = 최대 80 동시 요청 → rate-limit → scrapeFallback 오염
     //   신규 batch 40 × 병렬 5 × 내부 concurrency 3 = 최대 15 동시 요청 → API 성공률 최우선
     const batchSize = 40;
-    // v2.43.32: API 측정 동시 batch 5 → 10 (2배 속도)
-    const PARALLEL_BATCHES = 10;
+    const effectiveConcurrent = EnvironmentManager.getInstance().getEffectiveMaxConcurrent();
+    const PARALLEL_BATCHES = Math.max(3, Math.min(6, Math.ceil(effectiveConcurrent / 5)));
     const batches: typeof candidates[] = [];
     for (let i = 0; i < candidates.length; i += batchSize) {
         batches.push(candidates.slice(i, i + batchSize));
@@ -1520,6 +1609,10 @@ export async function buildRichFeed(
                     console.log(`[rich-feed v2.49.18] svEstimated 강등: "${sig.keyword}" ${grade}→SS (휴리스틱 fallback sv)`);
                     grade = 'SS';
                 }
+                if (isOverbroadGoldenCandidate(sig.keyword, totalVolume, docCount) && (grade === 'SSS' || grade === 'SSR')) {
+                    console.log(`[rich-feed] overbroad golden downgrade: "${sig.keyword}" ${grade}->SS (sv=${totalVolume}, dc=${docCount})`);
+                    grade = 'SS';
+                }
 
                 // v2.42.13 진단 카운터
                 if (totalVolume > 0) diagnostic.naver.withValidSv++;
@@ -1564,7 +1657,7 @@ export async function buildRichFeed(
                 // 경로 4: 초고CPC ≥2000 + commercial (카테고리 무관 — 광고주 경쟁 치열)
                 else if (isSOrAbove && cpcVal >= 2000 && isCommercialKw) isSsr = true;
 
-                if (isSsr) grade = 'SSR';
+                if (isSsr && !isOverbroadGoldenCandidate(sig.keyword, totalVolume, docCount)) grade = 'SSR';
 
                 const isBlueOcean = totalVolume >= 300 && totalVolume <= 10000 && docCount <= 2000 && goldenRatio >= 5;
 
@@ -1653,8 +1746,7 @@ export async function buildRichFeed(
     let bigwordDowngraded = 0;
     for (const r of enrichedRows) {
         if (r.grade !== 'SSS' && r.grade !== 'SSR') continue;
-        const tokens = String(r.keyword || '').trim().split(/\s+/).filter(Boolean).length;
-        if (r.searchVolume >= 30000 && tokens <= 2) {
+        if (isOverbroadGoldenCandidate(r.keyword, r.searchVolume, r.documentCount)) {
             r.grade = 'SS';
             bigwordDowngraded++;
         }
@@ -1687,7 +1779,15 @@ export async function buildRichFeed(
     // v2.43.24 (사이클#1 1팀): TARGET_SSS floor 제거 — 강제 승격이 가짜 SSS 양산하는 사이클 차단
     //   이전: max(150, limit*0.5) → 무조건 150개 채우기 → 친화도 25 까지 풀어줌
     //   변경: floor 없음. 자연 통과 + 1차 promotion 만. 부족하면 "오늘 N개" 정직 표시
-    const TARGET_SSS = Math.min(60, Math.floor(limit * 0.2));
+    const categoryDrivenTarget = selectedCategoryCount > 0 ? selectedCategoryCount * (isBulkMode ? 14 : 8) : 0;
+    const TARGET_SSS = Math.min(
+        limit,
+        Math.max(
+            24,
+            Math.floor(limit * 0.2),
+            categoryDrivenTarget
+        )
+    );
     diagnostic.promotion.poolSize = 0; // updated below if promotion runs
     if (sssCount < TARGET_SSS) {
         // 🔥 v2.41.2: 진짜 SSS = 저경쟁 + 중수요 + 높은 비율 (CLAUDE.md 정의)
@@ -1703,6 +1803,7 @@ export async function buildRichFeed(
                 //   완전 차단 → SSS 풀이 너무 작아짐 (한국 환경 dc=null 비율 40-60%)
                 //   품질 가드: 친화도 70+ AND 2+ tokens AND commercial intent 필수
                 const tokenCount = String(r.keyword || '').trim().split(/\s+/).filter(Boolean).length;
+                if (isOverbroadGoldenCandidate(r.keyword, r.searchVolume, r.documentCount)) return false;
                 // v2.49.40: datalab-shopping 출처 단일 토큰 우회 (에이전트팀 3/3 합의)
                 //   진단: 데이터랩 카테고리 top 20 = 대부분 단일 한국어 명사 ("원피스", "바람막이")
                 //   기존 tokenCount===1 폐기 → datalab 시드 99% 영구 배제
@@ -1771,7 +1872,11 @@ export async function buildRichFeed(
         //   결과: 30개 카테고리에서 SSS가 골고루 분포. 한 카테고리당 max ≈ TARGET_SSS / 카테고리수 + 잔여
         const need = TARGET_SSS - sssCount;
         // v2.43.17: 카테고리당 cap 완화 — 4→8, 다양성 유지하되 대량 발굴 가능
-        const MAX_PER_CATEGORY_HARD = Math.max(8, Math.ceil(need / 4));
+        const categoryCapBase = Math.max(1, selectedCategoryCount || 4);
+        const MAX_PER_CATEGORY_HARD = Math.max(
+            MIN_RESULTS_PER_SELECTED_CATEGORY,
+            Math.ceil(TARGET_SSS / categoryCapBase) + 2
+        );
 
         // 기존 자연 SSS 의 카테고리 카운트 (라운드로빈 시작 시 가중치)
         const sssCategoryCount = new Map<string, number>();
@@ -1875,6 +1980,7 @@ export async function buildRichFeed(
                     if (r.grade === 'SSS' || r.grade === 'SSR') return false;
                     if (usedKeys.has(r.keyword)) return false;
                     const tokenCount = String(r.keyword || '').trim().split(/\s+/).filter(Boolean).length;
+                    if (isOverbroadGoldenCandidate(r.keyword, r.searchVolume, r.documentCount)) return false;
                     if (tokenCount === 1 && !opts.allowSingleToken) return false;
                     const writability = typeof r.bloggerWritability === 'number' ? r.bloggerWritability : 50;
                     if (writability < opts.minWritability) return false;
@@ -1955,12 +2061,33 @@ export async function buildRichFeed(
         console.log(`[rich-feed v2.43.20] 카테고리 다양성 승격 완료: 풀 ${promotionPool.length} → ${totalPromoted}건 (TARGET ${TARGET_SSS}, cap/cat ${MAX_PER_CATEGORY_HARD}) 분포 [${distribution}]`);
     }
 
+    const floorBackupRows = enrichedRows.slice();
+
     // 🔥 v2.41.0: SSR + SSS only 화면 (사용자 정책 — 다층 노출 금지)
     const highGradeOnly = enrichedRows.filter(r =>
-        r.grade === 'SSR' || r.grade === 'SSS'
+        r.grade === 'SSR' || r.grade === 'SSS' || r.grade === 'SS' ||
+        (isBulkMode && isBulkPracticalCandidate(r))
     );
     enrichedRows.length = 0;
     enrichedRows.push(...highGradeOnly);
+    if (!isBulkMode && enrichedRows.length < minReturnCount) {
+        const used = new Set(enrichedRows.map(r => r.keyword));
+        const floorTopUp = floorBackupRows
+            .filter(r => !used.has(r.keyword) && isBalancedFloorCandidate(r))
+            .sort((a, b) => {
+                const gradeOrder: Record<string, number> = { S: 2, A: 1 };
+                const gd = (gradeOrder[b.grade] || 0) - (gradeOrder[a.grade] || 0);
+                if (gd !== 0) return gd;
+                const gr = b.goldenRatio - a.goldenRatio;
+                if (Math.abs(gr) > 0.01) return gr;
+                return b.searchVolume - a.searchVolume;
+            })
+            .slice(0, minReturnCount - enrichedRows.length);
+        if (floorTopUp.length > 0) {
+            enrichedRows.push(...floorTopUp);
+            console.log(`[rich-feed] balanced floor top-up: +${floorTopUp.length}, total=${enrichedRows.length}/${minReturnCount}`);
+        }
+    }
 
     // v2.43.49: 사용자가 명시적으로 제외한 키워드 차단
     try {
@@ -1980,7 +2107,7 @@ export async function buildRichFeed(
         console.warn('[rich-feed v2.43.49] excluded 차단 실패:', e?.message);
     }
 
-    emit('grading', 88, `SSS-only 필터 적용 (${enrichedRows.length}건)...`);
+    emit('grading', 88, `SSS/SS 필터 적용 (${enrichedRows.length}건)...`);
 
     // v2.43.28-29: 네이버 데이터랩 30일 추세 검증
     //   v2.43.28: dead keyword 즉시 제외 → 사용자 우려 "결과 0건 되면 곤란"
@@ -2057,10 +2184,11 @@ export async function buildRichFeed(
                 }
             }
         }
-        const needsVerify = enrichedRows.filter(r => r.dcEstimated).slice(0, 80);
+        const needsVerifyLimit = isBulkMode ? 120 : 50;
+        const needsVerify = enrichedRows.filter(r => r.dcEstimated).slice(0, needsVerifyLimit);
         emit('verify-dc', 88, `dc 정확성 검증 (캐시 ${cacheHits}건 적중, 스크래핑 ${needsVerify.length}건)...`);
         // v2.43.52: 4팀 권고 — 동시성 16→20, timeout 2500→2000ms AbortController hard deadline
-        const VERIFY_CONCURRENCY = 20;
+        const VERIFY_CONCURRENCY = Math.max(4, Math.min(10, Math.ceil(effectiveConcurrent / 3)));
         const SCRAPE_TIMEOUT = 2000;
         let verified = 0;
         let corrected = 0;
@@ -2132,12 +2260,34 @@ export async function buildRichFeed(
         // v2.49.20: SS 등급도 결과에 포함 (SSS-only → SSS+SS 모드).
         //   사용자 결정: 휴리스틱 가짜 제거 후 진짜 SSS=2~5건/일. SS 까지 노출하여 결과 수 확보.
         //   svEstimated/dcEstimated 칩으로 추정 vs 실측 명확 구분.
-        const stillHighGrade = enrichedRows.filter(r => r.grade === 'SSR' || r.grade === 'SSS' || r.grade === 'SS');
+        const postVerifyFloorBackupRows = enrichedRows.slice();
+        const stillHighGrade = enrichedRows.filter(r =>
+            r.grade === 'SSR' || r.grade === 'SSS' || r.grade === 'SS' ||
+            (isBulkMode && isBulkPracticalCandidate(r))
+        );
         enrichedRows.length = 0;
         enrichedRows.push(...stillHighGrade);
+        if (!isBulkMode && enrichedRows.length < minReturnCount) {
+            const used = new Set(enrichedRows.map(r => r.keyword));
+            const floorTopUp = postVerifyFloorBackupRows
+                .filter(r => !used.has(r.keyword) && isBalancedFloorCandidate(r))
+                .sort((a, b) => {
+                    const gradeOrder: Record<string, number> = { S: 2, A: 1 };
+                    const gd = (gradeOrder[b.grade] || 0) - (gradeOrder[a.grade] || 0);
+                    if (gd !== 0) return gd;
+                    const gr = b.goldenRatio - a.goldenRatio;
+                    if (Math.abs(gr) > 0.01) return gr;
+                    return b.searchVolume - a.searchVolume;
+                })
+                .slice(0, minReturnCount - enrichedRows.length);
+            if (floorTopUp.length > 0) {
+                enrichedRows.push(...floorTopUp);
+                console.log(`[rich-feed] post-verify balanced floor top-up: +${floorTopUp.length}, total=${enrichedRows.length}/${minReturnCount}`);
+            }
+        }
 
-        console.log(`[rich-feed v2.49.20] ✅ dc 검증 완료: ${verified}건 검사, ${corrected}건 보정, ${demoted}건 redOcean 강등, 최종 ${stillHighGrade.length}건 (SSR/SSS/SS)`);
-        emit('verify-dc', 91, `✅ dc 실측 완료 — 최종 ${enrichedRows.length}건 (SSR/SSS/SS)`);
+        console.log(`[rich-feed v2.49.20] ✅ dc 검증 완료: ${verified}건 검사, ${corrected}건 보정, ${demoted}건 redOcean 강등, 최종 ${stillHighGrade.length}건 (${isBulkMode ? 'bulk 후보 포함' : 'SSR/SSS/SS'})`);
+        emit('verify-dc', 91, `✅ dc 실측 완료 — 최종 ${enrichedRows.length}건 (${isBulkMode ? '대량 후보 포함' : 'SSR/SSS/SS'})`);
 
         // ★ v2.49.5: AI 브리핑 실측 detection — SSS 후보에 한해서만 추가 호출 (효율)
         //   사용자 요구: 검·경·실·AI 4단계 공식의 마지막 "AI" 단계.
@@ -2146,12 +2296,16 @@ export async function buildRichFeed(
         // v2.49.6: 범위 SSS top 100 → SSS+SS 전체 (top 300). 사용자 요구: "AI 미점령만으로 SSS 풀 구성"
         try {
             const { detectAiBriefingBatch } = await import('../ai-briefing-detector');
+            const aiCandidateLimit = EnvironmentManager.getInstance().isEffectiveLowSpec()
+                ? (isBulkMode ? 80 : 40)
+                : (isBulkMode ? 160 : 70);
+            const aiDetectionConcurrency = EnvironmentManager.getInstance().isEffectiveLowSpec() ? 3 : (isBulkMode ? 5 : 4);
             const aiCandidates = enrichedRows
                 .filter(r => r.grade === 'SSS' || r.grade === 'SSR' || r.grade === 'SS')
-                .slice(0, 300);
+                .slice(0, aiCandidateLimit);
             if (aiCandidates.length > 0) {
                 emit('verify-ai', 92, `🤖 AI 브리핑 실측 ${aiCandidates.length}건 (검·경·실·AI 4단계 최종)...`);
-                const detectionMap = await detectAiBriefingBatch(aiCandidates.map(r => r.keyword), 8);
+                const detectionMap = await detectAiBriefingBatch(aiCandidates.map(r => r.keyword), aiDetectionConcurrency);
                 let aiDemoted = 0;
                 let aiClean = 0;
                 for (const r of aiCandidates) {
@@ -2195,10 +2349,23 @@ export async function buildRichFeed(
         const grB = Math.round(b.goldenRatio * 10) / 10;
         if (grA !== grB) return grB - grA;
         if (a.sourceCount !== b.sourceCount) return b.sourceCount - a.sourceCount;
-        return Math.random() - 0.5; // 동률이면 랜덤
+        return stableKeywordHash(a.keyword) - stableKeywordHash(b.keyword);
     });
 
-    const top = enrichedRows.slice(0, limit).map((r, idx) => ({ ...r, rank: idx + 1 }));
+    const balancedRows = selectBalancedTopRows(
+        enrichedRows,
+        limit,
+        selectedCategoryIds,
+        MIN_RESULTS_PER_SELECTED_CATEGORY
+    );
+    if (selectedCategoryCount > 0) {
+        const coverage = selectedCategoryIds
+            .map(cid => `${cid}:${balancedRows.filter(r => r.categoryId === cid).length}`)
+            .join(' ');
+        console.log(`[rich-feed] selected category coverage target=${MIN_RESULTS_PER_SELECTED_CATEGORY}/cat ${coverage}`);
+    }
+
+    const top = balancedRows.map((r, idx) => ({ ...r, rank: idx + 1 }));
 
     // v2.43.35 (Phase 2): 발굴된 키워드 + baseSeeds 후보 풀 전체를 tracking-store에 자동 주입
     //   1팀 비평: "surge-detector autoScan 이 listTrackedKeywords().slice(0, 20) 만 스캔.
@@ -2225,7 +2392,7 @@ export async function buildRichFeed(
     try {
         const { analyzeKeywordTrend } = require('../trend-type-classifier');
         if (clientId && clientSecret) {
-            const trendTargets = top.slice(0, 10);
+            const trendTargets = top.slice(0, isBulkMode ? 80 : 8);
             const BATCH = 10;
             for (let i = 0; i < trendTargets.length; i += BATCH) {
                 const batch = trendTargets.slice(i, i + BATCH);
@@ -2281,6 +2448,52 @@ export async function buildRichFeed(
     };
 }
 
+function stableKeywordHash(keyword: string): number {
+    let hash = 2166136261;
+    for (let i = 0; i < keyword.length; i++) {
+        hash ^= keyword.charCodeAt(i);
+        hash = Math.imul(hash, 16777619);
+    }
+    return hash >>> 0;
+}
+
+function selectBalancedTopRows(
+    rows: RichKeywordRow[],
+    limit: number,
+    selectedCategoryIds: string[],
+    minPerCategory: number
+): RichKeywordRow[] {
+    if (limit <= 0) return [];
+    const selected = selectedCategoryIds.filter(Boolean);
+    if (selected.length === 0 || minPerCategory <= 0) return rows.slice(0, limit);
+
+    const perCategoryTarget = Math.max(1, Math.min(minPerCategory, Math.floor(limit / selected.length) || 1));
+    const out: RichKeywordRow[] = [];
+    const used = new Set<string>();
+    const addRow = (row: RichKeywordRow): boolean => {
+        if (out.length >= limit || used.has(row.keyword)) return false;
+        used.add(row.keyword);
+        out.push(row);
+        return true;
+    };
+
+    for (const categoryId of selected) {
+        let picked = 0;
+        for (const row of rows) {
+            if (row.categoryId !== categoryId) continue;
+            if (addRow(row)) picked++;
+            if (picked >= perCategoryTarget) break;
+        }
+    }
+
+    for (const row of rows) {
+        if (out.length >= limit) break;
+        addRow(row);
+    }
+
+    return out;
+}
+
 function countBy<T>(arr: T[], key: keyof T): Record<string, number> {
     const out: Record<string, number> = {};
     for (const item of arr) {
@@ -2300,11 +2513,11 @@ function countSources(rows: RichKeywordRow[]): Record<string, number> {
     return out;
 }
 
-let cached: { result: RichFeedResult; expiresAt: number } | null = null;
+let cached: { result: RichFeedResult; expiresAt: number; cacheKey: string } | null = null;
 // 🔥 v2.20.1: 캐시 축소 — 매번 다른 키워드가 나오도록 신선도 우선
 const CACHE_TTL = 3 * 60_000;         // 메모리 캐시: 15분→3분
 const DISK_CACHE_TTL = 30 * 60_000;   // 디스크 캐시: 4시간→30분 (안전망용)
-const MIN_ACCEPTABLE_TOTAL = 20;       // 이 미만이면 "실패"로 간주, 디스크 캐시 폴백
+const MIN_ACCEPTABLE_TOTAL = 30;       // 이 미만이면 "실패"로 간주, 디스크 캐시 폴백
 // v2.49.12: sanity-gate.ts hash 자동 import. 변경 시 cache 자동 무효화 (회귀 방지).
 // eslint-disable-next-line @typescript-eslint/no-var-requires
 const { CACHE_SCHEMA_VERSION: SG_VER } = require('../sanity-gate');
@@ -2325,7 +2538,7 @@ function getDiskCachePath(): string {
     return path.join(os.tmpdir(), 'leword-rich-feed-cache.json');
 }
 
-function readDiskCache(): RichFeedResult | null {
+function readDiskCache(expectedCacheKey?: string): RichFeedResult | null {
     try {
         const fs = require('fs');
         const file = getDiskCachePath();
@@ -2339,16 +2552,17 @@ function readDiskCache(): RichFeedResult | null {
             console.log('[rich-feed] 캐시 스키마 불일치 — 폐기 후 재빌드');
             return null;
         }
+        if (expectedCacheKey && parsed.cacheKey !== expectedCacheKey) return null;
         return parsed;
     } catch {
         return null;
     }
 }
 
-function writeDiskCache(result: RichFeedResult): void {
+function writeDiskCache(result: RichFeedResult, cacheKey: string): void {
     try {
         const fs = require('fs');
-        const payload = { ...result, schemaVersion: CACHE_SCHEMA_VERSION };
+        const payload = { ...result, schemaVersion: CACHE_SCHEMA_VERSION, cacheKey };
         fs.writeFileSync(getDiskCachePath(), JSON.stringify(payload), 'utf8');
     } catch (e: any) {
         console.warn('[rich-feed] 디스크 캐시 저장 실패:', e?.message);
@@ -2458,13 +2672,28 @@ JSON 배열로만 응답 (코드블록 X, 다른 텍스트 X):
 
 export async function getCachedRichFeed(
     force: boolean = false,
-    options: { tier?: SourceTier; limit?: number; aiAugmentation?: 'none' | 'claude' } = {},
+    options: { tier?: SourceTier; limit?: number; aiAugmentation?: 'none' | 'claude'; discoveryMode?: RichFeedDiscoveryMode } = {},
     onProgress?: RichFeedProgressCallback
 ): Promise<RichFeedResult> {
     const now = Date.now();
+    const profileKey = (() => {
+        try {
+            const p = loadBloggerProfile();
+            return (p?.selectedCategories || []).join(',');
+        } catch {
+            return '';
+        }
+    })();
+    const cacheKey = JSON.stringify({
+        tier: options.tier || 'lite',
+        limit: options.limit || 100,
+        aiAugmentation: options.aiAugmentation || 'none',
+        discoveryMode: options.discoveryMode || 'balanced',
+        profileKey,
+    });
 
     // 1) 메모리 캐시 (15분, force 아니면 우선)
-    if (!force && cached && cached.expiresAt > now) {
+    if (!force && cached && cached.expiresAt > now && cached.cacheKey === cacheKey) {
         try { onProgress?.({ step: 'cache', percent: 100, message: `캐시 사용 (${cached.result.total}건)` }); } catch {}
         return cached.result;
     }
@@ -2474,22 +2703,22 @@ export async function getCachedRichFeed(
 
     // 3) 성공적인 빌드 — 캐시 양쪽 저장
     if (result.total >= MIN_ACCEPTABLE_TOTAL) {
-        cached = { result, expiresAt: now + CACHE_TTL };
-        writeDiskCache(result);
+        cached = { result, expiresAt: now + CACHE_TTL, cacheKey };
+        writeDiskCache(result, cacheKey);
         return result;
     }
 
     // 4) 빌드 실패/부족 — 디스크 캐시 폴백 (24h 내 성공 결과 재사용)
-    const disk = readDiskCache();
+    const disk = readDiskCache(cacheKey);
     if (disk && disk.total >= MIN_ACCEPTABLE_TOTAL) {
         console.warn(`[rich-feed] 빌드 부족(total=${result.total}) → 디스크 캐시 폴백 (${Math.round((now - disk.timestamp) / 60000)}분 전 저장, ${disk.total}건)`);
         // 메모리에도 캐시 (다음 호출용)
-        cached = { result: disk, expiresAt: now + CACHE_TTL };
+        cached = { result: disk, expiresAt: now + CACHE_TTL, cacheKey };
         return disk;
     }
 
     // 5) 폴백도 없음 — 빌드 결과 그대로 반환 (적을 수 있음)
-    cached = { result, expiresAt: now + CACHE_TTL };
+    cached = { result, expiresAt: now + CACHE_TTL, cacheKey };
     return result;
 }
 

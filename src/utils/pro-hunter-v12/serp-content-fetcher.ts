@@ -2,7 +2,7 @@
 // 작성: 2026-04-15
 // 네이버 블로그 검색 상위 10개의 실제 본문을 수집해 콘텐츠 차원 분석에 사용한다.
 
-import puppeteer, { Browser } from 'puppeteer';
+import type { Browser } from 'puppeteer';
 
 export interface FetchedPost {
   rank: number;
@@ -25,11 +25,9 @@ const NAVER_SEARCH_URL = (kw: string) =>
   `https://search.naver.com/search.naver?where=blog&query=${encodeURIComponent(kw)}&sm=tab_opt&nso=so%3Ar%2Cp%3Aall`;
 
 async function launchBrowser(): Promise<Browser> {
-  const { findChromePath } = await import('../chrome-finder');
-  const chromePath = findChromePath();
-  return puppeteer.launch({
+  const { launchCompatibleBrowser } = await import('../puppeteer-pool');
+  return launchCompatibleBrowser({
     headless: 'new',
-    executablePath: chromePath || undefined,
     args: [
       '--no-sandbox',
       '--disable-setuid-sandbox',

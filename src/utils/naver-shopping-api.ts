@@ -8,6 +8,7 @@
  */
 
 import { EnvironmentManager } from './environment-manager';
+import { BRAND_FAMILIES, detectCategoryFamily } from './brand-families';
 
 export interface ShoppingItem {
   title: string;           // HTML 태그 제거된 원본 상품명
@@ -33,6 +34,23 @@ export interface ShoppingItem {
   coupangSearchUrl?: string;  // 쿠팡 검색 URL (파트너스 ID 있으면 트래킹)
   // 계산된 점수 (정렬용)
   conversionScore?: number;
+  opportunityScore?: number;       // 지금 글로 연결할 가치: 수요/상승/구매의도/전환성 통합 점수
+  opportunityGrade?: 'HOT' | 'BUY' | 'WATCH' | 'LOW';
+  opportunityReasons?: string[];
+  opportunityBadges?: string[];
+  writeRecommendation?: string;
+  contentAngles?: string[];
+  discoveryQuery?: string;
+  discoverySource?: 'direct' | 'category-peer' | 'autocomplete-demand' | 'trend-seed';
+  discoveryReason?: string;
+  lewordEntryKeywords?: ShoppingLeWordKeyword[];
+  opportunityBreakdown?: {
+    demand: number;
+    buyerIntent: number;
+    contentFit: number;
+    conversion: number;
+    penalty: number;
+  };
   scoreBreakdown?: {
     coupang: number;
     sweetSpot: number;
@@ -43,6 +61,17 @@ export interface ShoppingItem {
     majorMall: number;
     penalty: number;
   };
+}
+
+export interface ShoppingLeWordKeyword {
+  keyword: string;
+  relation: 'same-product' | 'peer-brand' | 'category' | 'intent';
+  reason: string;
+  searchVolume?: number;
+  documentCount?: number;
+  goldenRatio?: number;
+  entryScore?: number;
+  verdict?: '진입가능' | '검토' | '빅키워드주의' | '데이터필요';
 }
 
 export interface ShoppingSearchResult {
@@ -319,6 +348,514 @@ const CATEGORY_SWEETSPOT: Record<string, [number, number]> = {
 export function resolveCategorySweetSpot(category1?: string): [number, number] {
   if (!category1) return [20000, 70000];
   return CATEGORY_SWEETSPOT[category1] || [20000, 70000];
+}
+
+export interface ShoppingOpportunityContext {
+  keyword: string;
+  intentPrimary?: 'buy' | 'compare' | 'info' | 'brand' | string;
+  totalHits?: number;
+  relatedKeywords?: string[];
+  crossSourceSeeds?: Array<{ seed: string; sources?: string[]; crossScore?: number }>;
+  recency?: { status?: string; ratio?: number };
+}
+
+const FAMILY_DEFAULT_PRODUCT: Partial<Record<keyof typeof BRAND_FAMILIES, string>> = {
+  shoes: '운동화',
+  sportswear: '운동복',
+  golf: '골프용품',
+  outdoor: '아웃도어',
+  camping: '캠핑용품',
+  bicycle: '자전거',
+  phone: '스마트폰',
+  laptop: '노트북',
+  tablet: '태블릿',
+  tv: 'TV',
+  appliance: '가전',
+  camera: '카메라',
+  headphone: '무선 이어폰',
+  car: '자동차',
+  ev: '전기차',
+  cosmetic: '화장품',
+  kcosmetic: '스킨케어',
+  perfume: '향수',
+  haircare: '헤어케어',
+  fashionSPA: '패션',
+  luxury: '명품',
+  bag: '가방',
+  watch: '시계',
+  glasses: '안경',
+  coffee: '커피',
+  chicken: '치킨',
+  pizza: '피자',
+  burger: '햄버거',
+  ecommerce: '쇼핑몰',
+  fashionPlatform: '패션 플랫폼',
+  game: '게임기',
+  furniture: '가구',
+  mattress: '매트리스',
+  supplement: '영양제',
+  pet: '반려동물 용품',
+  baby: '육아용품',
+  peripheral: 'PC 주변기기',
+  smallAppliance: '소형가전',
+};
+
+function findBrandFamilies(text: string): Array<{ family: keyof typeof BRAND_FAMILIES; matchedBrand: string; brands: string[] }> {
+  const normalized = normalizeMatchText(text).replace(/\s+/g, '');
+  if (!normalized) return [];
+  const out: Array<{ family: keyof typeof BRAND_FAMILIES; matchedBrand: string; brands: string[] }> = [];
+  for (const [family, brands] of Object.entries(BRAND_FAMILIES) as Array<[keyof typeof BRAND_FAMILIES, string[]]>) {
+    const matched = brands.find(brand => {
+      const b = normalizeMatchText(brand).replace(/\s+/g, '');
+      return b.length >= 2 && normalized.includes(b);
+    });
+    if (matched) out.push({ family, matchedBrand: matched, brands });
+  }
+  return out;
+}
+
+function getFamilyPeers(text: string, maxPeers = 6): Array<{ family: keyof typeof BRAND_FAMILIES; matchedBrand?: string; peerBrands: string[]; productNoun: string }> {
+  const category = detectCategoryFamily(text);
+  const fromBrand = findBrandFamilies(text);
+  const seenFamily = new Set<string>();
+  const out: Array<{ family: keyof typeof BRAND_FAMILIES; matchedBrand?: string; peerBrands: string[]; productNoun: string }> = [];
+
+  if (category) {
+    const brands = BRAND_FAMILIES[category.family] || [];
+    out.push({
+      family: category.family,
+      peerBrands: brands.slice(0, maxPeers),
+      productNoun: category.token || FAMILY_DEFAULT_PRODUCT[category.family] || '제품',
+    });
+    seenFamily.add(category.family);
+  }
+
+  for (const item of fromBrand) {
+    if (seenFamily.has(item.family)) continue;
+    const productNoun = FAMILY_DEFAULT_PRODUCT[item.family] || '제품';
+    const peers = item.brands.filter(b => b !== item.matchedBrand).slice(0, maxPeers);
+    out.push({ family: item.family, matchedBrand: item.matchedBrand, peerBrands: peers, productNoun });
+    seenFamily.add(item.family);
+    if (out.length >= 2) break;
+  }
+
+  return out;
+}
+
+export function deriveShoppingExpansionQueries(
+  keyword: string,
+  relatedKeywords: string[] = [],
+  crossSourceSeeds: Array<{ seed: string; sources?: string[]; crossScore?: number }> = [],
+  maxQueries: number = 8
+): Array<{ query: string; source: ShoppingItem['discoverySource']; reason: string }> {
+  const out: Array<{ query: string; source: ShoppingItem['discoverySource']; reason: string }> = [];
+  const seen = new Set<string>();
+  const add = (query: string, source: ShoppingItem['discoverySource'], reason: string) => {
+    const q = String(query || '').replace(/\s+/g, ' ').trim();
+    if (q.length < 2 || q.length > 35) return;
+    const key = q.toLowerCase();
+    if (seen.has(key) || key === keyword.toLowerCase()) return;
+    seen.add(key);
+    out.push({ query: q, source, reason });
+  };
+
+  for (const group of getFamilyPeers(keyword, 7)) {
+    for (const brand of group.peerBrands) {
+      add(`${brand} ${group.productNoun} 추천`, 'category-peer', `${group.productNoun} 카테고리의 동급 브랜드`);
+      if (out.length >= maxQueries) break;
+    }
+    if (out.length >= maxQueries) break;
+  }
+
+  const commercialRelated = relatedKeywords
+    .filter(k => /(추천|후기|리뷰|비교|가격|최저가|할인|순위|구매)/.test(k))
+    .slice(0, 4);
+  for (const related of commercialRelated) {
+    add(related, 'autocomplete-demand', '자동완성 구매 의도');
+  }
+
+  for (const seed of crossSourceSeeds.slice(0, 4)) {
+    if (seed?.seed) add(seed.seed, 'trend-seed', '실시간 유행 시드');
+  }
+
+  return out.slice(0, maxQueries);
+}
+
+function clampScore(n: number, min = 0, max = 100): number {
+  return Math.max(min, Math.min(max, n));
+}
+
+function normalizeMatchText(s: string): string {
+  return stripTags(String(s || ''))
+    .toLowerCase()
+    .replace(/[^가-힣a-z0-9\s]/gi, ' ')
+    .replace(/\s+/g, ' ')
+    .trim();
+}
+
+const MATCH_STOP_WORDS = new Set([
+  '추천', '후기', '리뷰', '비교', '가격', '최저가', '할인', '쿠폰', '구매', '순위', '인기',
+  '정품', '공식', '무료배송', '국내', '해외', '제품', '상품', '세트', '특가', '베스트',
+]);
+
+function matchTokens(s: string): string[] {
+  return normalizeMatchText(s)
+    .split(/\s+/)
+    .filter(t => t.length >= 2 && !MATCH_STOP_WORDS.has(t));
+}
+
+function titleMatchesSignal(title: string, signal: string): boolean {
+  const nt = normalizeMatchText(title);
+  const ns = normalizeMatchText(signal);
+  if (!nt || !ns || ns.length < 2) return false;
+  if (ns.length >= 4 && nt.includes(ns)) return true;
+
+  const tokens = matchTokens(signal);
+  if (tokens.length === 0) return false;
+  const matched = tokens.filter(t => nt.includes(t)).length;
+  return tokens.length === 1 ? matched === 1 && tokens[0].length >= 3 : matched >= Math.min(2, tokens.length);
+}
+
+function formatRecencyReason(recency?: ShoppingOpportunityContext['recency']): string | null {
+  if (!recency?.status) return null;
+  const pct = Number.isFinite(Number(recency.ratio)) ? `${Math.round(Number(recency.ratio) * 100)}%` : '';
+  if (recency.status === 'rising') return pct ? `최근 7일 검색이 30일 평균의 ${pct}로 상승` : '최근 검색 추세 상승';
+  if (recency.status === 'stable') return '최근 검색 추세가 안정적으로 유지';
+  if (recency.status === 'declining') return pct ? `최근 7일 검색이 30일 평균의 ${pct}로 하락` : '최근 검색 추세 하락';
+  if (recency.status === 'dead') return '최근 검색 수요 약함';
+  return null;
+}
+
+function buildContentAngles(item: ShoppingItem, keyword: string, matchedSignals: string[]): string[] {
+  const product = item.cleanTitle || item.simplifiedTitle || item.title || keyword;
+  const base = keyword || product;
+  const angles = [
+    `${base} 추천 제품 비교: ${product} 가격·장단점`,
+    `${product} 후기와 구매 전 확인할 점`,
+  ];
+  if (matchedSignals.length > 0) {
+    angles.push(`${matchedSignals[0]} 찾는 사람에게 ${product}를 추천할 만한 이유`);
+  } else if (item.brand) {
+    angles.push(`${item.brand} 제품 중 ${product}를 고를 만한 사람`);
+  }
+  return Array.from(new Set(angles)).slice(0, 3);
+}
+
+function productSpecificReasons(item: ShoppingItem, bd: NonNullable<ShoppingItem['scoreBreakdown']>): string[] {
+  const reasons: string[] = [];
+  if (item.brand) reasons.push(`${item.brand} 브랜드 검색/비교 글감`);
+  else if (item.maker) reasons.push(`${item.maker} 제조사 신호`);
+  if ((bd.specificity || 0) > 0) reasons.push('모델명/시리즈가 구체적이라 제품 비교 글로 전환 가능');
+  if ((bd.sweetSpot || 0) > 0) reasons.push(`${(item.lprice || 0).toLocaleString()}원 가격대가 카테고리 구매 장벽이 낮은 구간`);
+  if ((bd.coupang || 0) > 0) reasons.push('쿠팡 구매 이동 가능');
+  else if ((bd.majorMall || 0) > 0 && item.mallName) reasons.push(`${item.mallName} 신뢰 판매처 신호`);
+  if ((bd.review || 0) >= 5) reasons.push('리뷰/분류/가격범위 기반 품질 신호 확보');
+  if (item.category2 || item.category3) reasons.push(`${[item.category2, item.category3].filter(Boolean).join(' > ')} 세부 카테고리로 글 주제화 가능`);
+  return reasons;
+}
+
+function buildPersonalizedRecommendation(
+  item: ShoppingItem,
+  keyword: string,
+  grade: NonNullable<ShoppingItem['opportunityGrade']>,
+  demandEvidence: string[],
+  productReasons: string[],
+): string {
+  const product = item.cleanTitle || item.simplifiedTitle || item.title || keyword;
+  const route = item.discoverySource && item.discoverySource !== 'direct' && item.discoveryQuery
+    ? `원 검색어 "${keyword}"에서 "${item.discoveryQuery}"로 확장해 잡힌 후보입니다. `
+    : '';
+  const price = item.lprice ? `${item.lprice.toLocaleString()}원` : '가격 확인 가능';
+  const demand = demandEvidence[0] || '수요 근거가 아직 약함';
+  const productReason = productReasons[0] || '상품 정보가 비교 글로 전환 가능';
+  if (grade === 'HOT') {
+    return `${route}${product}는 ${demand} 신호가 있고 ${price} 가격대입니다. ${productReason} 때문에 "${keyword}" 글에서 우선 비교·추천 상품으로 쓰기 좋습니다.`;
+  }
+  if (grade === 'BUY') {
+    return `${route}${product}는 ${demand} 근거와 ${productReason}가 있어 작성 후보입니다. 가격/후기/대체 상품 비교를 같이 넣으면 구매 이동을 만들 수 있습니다.`;
+  }
+  if (grade === 'WATCH') {
+    return `${route}${product}는 ${productReason}는 있지만 ${demand}. 바로 단독 추천보다 LEWORD 후보 키워드로 진입 가능성을 먼저 확인하세요.`;
+  }
+  return `${route}${product}는 현재 수요 근거가 부족합니다. 단순 인기상품으로 보일 수 있으니 같은 카테고리의 대체 브랜드 키워드를 먼저 확인하세요.`;
+}
+
+export function buildProductLeWordSeeds(item: ShoppingItem, baseKeyword: string, maxSeeds: number = 8): ShoppingLeWordKeyword[] {
+  const out: ShoppingLeWordKeyword[] = [];
+  const seen = new Set<string>();
+  const add = (keyword: string, relation: ShoppingLeWordKeyword['relation'], reason: string) => {
+    const kw = String(keyword || '').replace(/\s+/g, ' ').trim();
+    if (kw.length < 3 || kw.length > 38) return;
+    const key = kw.toLowerCase();
+    if (seen.has(key)) return;
+    seen.add(key);
+    out.push({ keyword: kw, relation, reason, verdict: '데이터필요' });
+  };
+
+  const familyGroups = getFamilyPeers(`${baseKeyword} ${item.brand || ''} ${item.maker || ''} ${item.category2 || ''} ${item.category3 || ''}`, 6);
+  const fallbackFamily = familyGroups[0]?.family;
+  const category = item.category3 || item.category2 || (fallbackFamily ? FAMILY_DEFAULT_PRODUCT[fallbackFamily] : '') || '';
+  const brand = item.brand || item.maker || '';
+  const product = item.simplifiedTitle || item.cleanTitle || item.title || '';
+
+  if (brand && category) {
+    add(`${brand} ${category} 추천`, 'same-product', '브랜드+세부 카테고리 추천 키워드');
+    add(`${brand} ${category} 후기`, 'same-product', '브랜드+세부 카테고리 후기 키워드');
+  }
+
+  for (const group of familyGroups) {
+    for (const peer of group.peerBrands) {
+      if (brand && peer === brand) continue;
+      add(`${peer} ${group.productNoun || category || '제품'} 추천`, 'peer-brand', '같은 계열 대체 브랜드 키워드');
+      if (out.length >= maxSeeds) break;
+    }
+    if (out.length >= maxSeeds) break;
+  }
+
+  if (category) {
+    add(`${category} 추천`, 'category', '카테고리 대표 구매 키워드');
+    add(`${category} 비교`, 'category', '대체 상품 비교 키워드');
+  }
+  if (product) {
+    add(`${product} 후기`, 'same-product', '제품명 직접 후기 키워드');
+    add(`${product} 가격`, 'same-product', '구매 직전 가격 키워드');
+  }
+
+  return out.slice(0, maxSeeds);
+}
+
+export function scoreLeWordEntryKeyword(seed: ShoppingLeWordKeyword, searchVolume?: number, documentCount?: number): ShoppingLeWordKeyword {
+  const sv = Number(searchVolume || 0);
+  const dc = Number(documentCount || 0);
+  const ratio = dc > 0 ? sv / Math.max(1, dc) : 0;
+  let score = 0;
+  if (sv >= 50 && sv <= 30000) score += 28;
+  else if (sv > 30000) score += 8;
+  if (dc > 0 && dc <= 5000) score += 32;
+  else if (dc <= 30000) score += 20;
+  else if (dc <= 100000) score += 8;
+  if (ratio >= 5) score += 30;
+  else if (ratio >= 2) score += 20;
+  else if (ratio >= 1) score += 10;
+  if (seed.relation === 'peer-brand') score += 6;
+  if (/(추천|후기|비교|가격)/.test(seed.keyword)) score += 4;
+  score = Math.max(0, Math.min(100, Math.round(score)));
+  const verdict: ShoppingLeWordKeyword['verdict'] =
+    sv <= 0 || dc <= 0 ? '데이터필요'
+      : sv > 50000 || dc > 100000 ? '빅키워드주의'
+      : score >= 70 ? '진입가능'
+      : score >= 45 ? '검토'
+      : '빅키워드주의';
+  return {
+    ...seed,
+    searchVolume: sv || undefined,
+    documentCount: dc || undefined,
+    goldenRatio: dc > 0 ? Math.round(ratio * 100) / 100 : undefined,
+    entryScore: score,
+    verdict,
+  };
+}
+
+export function attachShoppingOpportunityScore(
+  item: ShoppingItem,
+  context: ShoppingOpportunityContext,
+  opts: ConversionScoreOptions = {}
+): number {
+  const conversion = item.conversionScore ?? computeConversionScore(item, opts);
+  const title = `${item.title || ''} ${item.brand || ''} ${item.maker || ''}`;
+  const keyword = context.keyword || '';
+  const reasons: string[] = [];
+  const demandEvidence: string[] = [];
+  const badges: string[] = [];
+  let demand = 0;
+  let buyerIntent = 0;
+  let contentFit = 0;
+  let penalty = 0;
+
+  const directKeywordMatch = titleMatchesSignal(title, keyword);
+  if (directKeywordMatch) {
+    demand += 8;
+    const msg = '검색 키워드와 상품명이 직접 맞물림';
+    reasons.push(msg);
+    demandEvidence.push(msg);
+    badges.push('키워드일치');
+  }
+
+  const relatedMatches = (context.relatedKeywords || [])
+    .filter(k => titleMatchesSignal(title, k))
+    .slice(0, 3);
+  if (relatedMatches.length > 0) {
+    demand += Math.min(12, relatedMatches.length * 4);
+    const msg = `자동완성 수요와 겹침: ${relatedMatches.join(', ')}`;
+    reasons.push(msg);
+    demandEvidence.push(msg);
+    badges.push('자동완성');
+  }
+
+  const crossMatches = (context.crossSourceSeeds || [])
+    .filter(s => s?.seed && titleMatchesSignal(title, s.seed))
+    .sort((a, b) => (Number(b.crossScore) || 0) - (Number(a.crossScore) || 0))
+    .slice(0, 2);
+  if (crossMatches.length > 0) {
+    const sourceCount = crossMatches.reduce((sum, s) => sum + Math.max(1, s.sources?.length || 0), 0);
+    demand += Math.min(18, 8 + sourceCount * 3);
+    const msg = `실시간 유행 시드와 일치: ${crossMatches.map(s => s.seed).join(', ')}`;
+    reasons.push(msg);
+    demandEvidence.push(msg);
+    badges.push('실시간');
+  }
+
+  const recencyReason = formatRecencyReason(context.recency);
+  if (context.recency?.status === 'rising') {
+    demand += 14;
+    if (recencyReason) {
+      reasons.push(recencyReason);
+      demandEvidence.push(recencyReason);
+    }
+    badges.push('상승');
+  } else if (context.recency?.status === 'stable') {
+    demand += 5;
+    if (recencyReason) {
+      reasons.push(recencyReason);
+      demandEvidence.push(recencyReason);
+    }
+    badges.push('안정');
+  } else if (context.recency?.status === 'declining') {
+    penalty -= 8;
+    if (recencyReason) reasons.push(recencyReason);
+    badges.push('하락주의');
+  } else if (context.recency?.status === 'dead') {
+    penalty -= 35;
+    if (recencyReason) reasons.push(recencyReason);
+    badges.push('수요약함');
+  }
+
+  const totalHits = Number(context.totalHits || 0);
+  if (totalHits >= 50 && totalHits <= 30000) {
+    demand += 4;
+    reasons.push('검색 결과가 너무 작지도 과포화도 아닌 작성 가능 구간');
+  } else if (totalHits > 120000) {
+    penalty -= 5;
+    reasons.push('검색 결과가 많아 단순 인기상품 글은 묻힐 위험');
+  }
+
+  switch (context.intentPrimary) {
+    case 'buy':
+      buyerIntent += 12;
+      reasons.push('검색어 자체가 구매 직전 의도');
+      badges.push('구매의도');
+      break;
+    case 'compare':
+      buyerIntent += 10;
+      reasons.push('비교·선택형 검색이라 비교표 콘텐츠와 잘 맞음');
+      badges.push('비교의도');
+      break;
+    case 'brand':
+      buyerIntent += 8;
+      reasons.push('브랜드/모델 탐색 의도라 제품 선택 글과 잘 맞음');
+      badges.push('브랜드의도');
+      break;
+    default:
+      if (/(추천|후기|리뷰|비교|가격|최저가|할인|쿠폰|구매|순위)/.test(keyword)) {
+        buyerIntent += 8;
+        reasons.push('구매형 수식어가 포함된 검색어');
+        badges.push('구매수식어');
+      }
+      break;
+  }
+
+  const bd = item.scoreBreakdown || {
+    coupang: 0,
+    sweetSpot: 0,
+    priceCentral: 0,
+    brand: 0,
+    specificity: 0,
+    review: 0,
+    majorMall: 0,
+    penalty: 0,
+  };
+  if ((bd.sweetSpot || 0) > 0) {
+    buyerIntent += 5;
+    reasons.push('카테고리 가격 스위트스팟에 들어 전환 장벽 낮음');
+  }
+  if ((bd.coupang || 0) > 0 || (bd.majorMall || 0) > 0) {
+    buyerIntent += 4;
+    reasons.push('구매 이동 가능한 신뢰 판매처 신호');
+  }
+
+  if (item.brand || item.maker) contentFit += 5;
+  if ((bd.specificity || 0) > 0) contentFit += 5;
+  if (item.category3 || item.category4) contentFit += 3;
+  if ((bd.review || 0) >= 5) contentFit += 4;
+  if (item.hprice && item.hprice > item.lprice) contentFit += 2;
+  if (contentFit >= 8) reasons.push('브랜드/모델/카테고리 정보가 있어 비교 글 소재가 충분함');
+
+  if ((bd.penalty || 0) < 0) penalty += bd.penalty;
+  const itemReasons = productSpecificReasons(item, bd);
+  const conversionComponent = clampScore(conversion * 1.1, 0, 55);
+  const rawScore = conversionComponent + demand + buyerIntent + contentFit + penalty;
+  let opportunityScore = Math.round(clampScore(rawScore) * 10) / 10;
+
+  // "전환 조건은 좋아 보임"만으로 HOT/BYU를 주면 결국 인기상품 나열이 된다.
+  // 상품명과 맞물린 자동완성/실시간 시드, 또는 상승 중인 검색어와 직접 일치하는 경우만
+  // 작성 우선급까지 허용한다.
+  const hasProductDemandEvidence = relatedMatches.length > 0 || crossMatches.length > 0;
+  const hasRisingKeywordEvidence = directKeywordMatch && context.recency?.status === 'rising';
+  const hasStableKeywordEvidence = directKeywordMatch && context.recency?.status === 'stable';
+  if (!hasProductDemandEvidence && !hasRisingKeywordEvidence) {
+    const cap = hasStableKeywordEvidence ? 68 : 61;
+    if (opportunityScore > cap) {
+      opportunityScore = cap;
+      reasons.unshift(hasStableKeywordEvidence
+        ? '상품 단위 수요 신호는 약하지만 검색 추세가 안정적이라 작성 후보로 제한'
+        : '상품 단위 수요 근거가 부족해 작성 우선 대신 검토 후보로 제한');
+      badges.push('수요검증필요');
+    }
+  }
+
+  let grade: ShoppingItem['opportunityGrade'] = 'LOW';
+  if (opportunityScore >= 75) grade = 'HOT';
+  else if (opportunityScore >= 62) grade = 'BUY';
+  else if (opportunityScore >= 48) grade = 'WATCH';
+
+  const matchedSignals = [...crossMatches.map(s => s.seed), ...relatedMatches];
+  const prioritizedReasons = Array.from(new Set([...demandEvidence, ...itemReasons, ...reasons])).slice(0, 6);
+
+  item.opportunityScore = opportunityScore;
+  item.opportunityGrade = grade;
+  item.opportunityReasons = prioritizedReasons;
+  item.opportunityBadges = Array.from(new Set(badges)).slice(0, 5);
+  item.writeRecommendation = buildPersonalizedRecommendation(item, keyword, grade, demandEvidence, itemReasons);
+  item.contentAngles = buildContentAngles(item, keyword, matchedSignals);
+  item.opportunityBreakdown = {
+    demand: Math.round(demand * 10) / 10,
+    buyerIntent: Math.round(buyerIntent * 10) / 10,
+    contentFit: Math.round(contentFit * 10) / 10,
+    conversion: Math.round(conversionComponent * 10) / 10,
+    penalty: Math.round(penalty * 10) / 10,
+  };
+
+  return opportunityScore;
+}
+
+export function rankShoppingOpportunities(
+  items: ShoppingItem[],
+  context: ShoppingOpportunityContext,
+  limit: number = 10,
+  opts?: ConversionScoreOptions
+): ShoppingItem[] {
+  const normal = items.filter(i => i.productType === 1 && i.lprice > 0);
+  for (const item of normal) attachShoppingOpportunityScore(item, context, opts);
+
+  return normal.slice().sort((a, b) => {
+    const opp = (b.opportunityScore || 0) - (a.opportunityScore || 0);
+    if (opp !== 0) return opp;
+    const conv = (b.conversionScore || 0) - (a.conversionScore || 0);
+    if (conv !== 0) return conv;
+    const demand = (b.opportunityBreakdown?.demand || 0) - (a.opportunityBreakdown?.demand || 0);
+    if (demand !== 0) return demand;
+    return (a.lprice || 0) - (b.lprice || 0);
+  }).slice(0, limit);
 }
 
 export function computeConversionScore(item: ShoppingItem, opts: ConversionScoreOptions = {}): number {

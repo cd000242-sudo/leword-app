@@ -459,11 +459,11 @@ export interface CompetitorBlogAnalysis {
 async function analyzeCompetitorBlog(blogUrl: string): Promise<CompetitorBlogAnalysis> {
   console.log(`[PREMIUM] 경쟁자 블로그 분석 시작: ${blogUrl}`);
 
-  const puppeteer = await import('puppeteer');
   let browser: any = null;
 
   try {
-    browser = await puppeteer.default.launch({
+    const { launchCompatibleBrowser } = await import('../utils/puppeteer-pool');
+    browser = await launchCompatibleBrowser({
       headless: 'new',
       args: [
         '--no-sandbox',
@@ -1650,11 +1650,11 @@ export interface ReverseKeywordAnalysis {
 async function reverseAnalyzeKeywords(blogUrl: string): Promise<ReverseKeywordAnalysis> {
   console.log(`[PREMIUM] 경쟁자 키워드 역분석 시작: ${blogUrl}`);
 
-  const puppeteer = await import('puppeteer');
   let browser: any = null;
 
   try {
-    browser = await puppeteer.default.launch({
+    const { launchCompatibleBrowser } = await import('../utils/puppeteer-pool');
+    browser = await launchCompatibleBrowser({
       headless: 'new',
       args: ['--no-sandbox', '--disable-setuid-sandbox', '--disable-dev-shm-usage', '--window-size=1920,1080'],
     });

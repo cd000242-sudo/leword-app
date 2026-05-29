@@ -3,13 +3,23 @@
  * 트렌딩 영상 데이터를 분석하여 콘텐츠 크리에이터에게 유용한 인사이트를 제공
  */
 
-import {
+import type {
   YouTubeVideo,
   YouTubeSearchConfig,
-  searchYouTubeVideos,
-  getYouTubeTrending,
 } from './youtube-data-api';
 import { getNaverKeywordSearchVolumeSeparate, NaverDatalabConfig } from './naver-datalab-api';
+
+const youtubeApi = (() => {
+  try {
+    const tsModule = require('./youtube-data-api.ts');
+    if (tsModule?.searchYouTubeVideos) return tsModule;
+  } catch {
+    // Packaged builds use compiled JS.
+  }
+  return require('./youtube-data-api');
+})() as typeof import('./youtube-data-api');
+
+const { searchYouTubeVideos, getYouTubeTrending } = youtubeApi;
 
 // ============================================
 // 타입 정의

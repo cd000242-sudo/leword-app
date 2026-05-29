@@ -144,13 +144,11 @@ export async function getGoogleTrendKeywords(): Promise<GoogleTrendKeyword[]> {
   let browser: any = null;
   
   try {
-    console.log('[GOOGLE-TRENDS] Puppeteer로 Google Trends 크롤링 시작');
-    
-    // Puppeteer 동적 import (일반 puppeteer 사용)
-    const puppeteer = await import('puppeteer');
+    console.log('[GOOGLE-TRENDS] Patchright로 Google Trends 크롤링 시작');
     
     console.log('[GOOGLE-TRENDS] 브라우저 실행 중...');
-    browser = await puppeteer.default.launch({
+    const { launchCompatibleBrowser } = await import('./puppeteer-pool');
+    browser = await launchCompatibleBrowser({
       headless: 'new',
       args: [
         '--no-sandbox',
@@ -565,4 +563,3 @@ export async function getGoogleTrendKeywords(): Promise<GoogleTrendKeyword[]> {
     }
   }
 }
-
