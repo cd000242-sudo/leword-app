@@ -1,12 +1,11 @@
 /**
  * AdSense 키워드 헌터
  *
- * PRO 트래픽 헌터(조회수)·황금키워드(구매전환)와 차별화된 광고수익 특화 모듈.
+ * PRO 트래픽 헌터(조회수)·황금키워드(구매전환)와 차별화된 AdSense 승인용 발굴 모듈.
  * 핵심 차이:
- *  - 검색량보다 "정보형 의도(how/what/이유/방법)" 가중치가 높음 (구매 직전 의도는 광고 클릭률 낮음)
- *  - 카테고리 CPC × Google 트래픽 비율 × 추정 CTR × 광고밀도 보정으로 RPM 산출
- *  - YMYL(의료/금융/법률) 카테고리는 위험도 가중치로 페널티
- *  - 결과는 {예상 RPM, 월 예상 수익, 정보의도 점수, YMYL 위험도, 등급}
+ *  - RPM/월수익 추정이 아니라 "실측 검색량+문서수"와 승인용 글감 적합도를 1차 판단축으로 둔다.
+ *  - 정보형 의도, YMYL 안전성, 글감 깊이, 시리즈 확장성, 경쟁 적정성을 종합해 approvalScore를 산출한다.
+ *  - CPC/RPM은 참고 신호로만 유지하고, 결과 UI의 주 판단값은 승인점수/제목 후보/콘텐츠 각도다.
  */
 
 import {
@@ -202,6 +201,27 @@ export interface BlueOceanResult {
     score: number;             // 0~100 블루오션 점수
     summary: string;
     isBlueOcean: boolean;      // ultra-blue 또는 blue
+}
+
+export type AdsenseApprovalGrade = 'S+' | 'S' | 'A' | 'B';
+
+export interface AdsenseApprovalProfile {
+    score: number;                       // 0~100, 승인용 종합 점수
+    grade: AdsenseApprovalGrade;
+    measured: boolean;                   // 검색량+문서수 실측 확보 여부
+    measuredReason: string;
+    searchDemandScore: number;
+    competitionFitScore: number;
+    intentFitScore: number;
+    safetyFitScore: number;
+    contentDepthScore: number;
+    seriesPotentialScore: number;
+    titleCandidates: string[];
+    contentAngles: string[];
+    outline: string[];
+    reasons: string[];
+    risks: string[];
+    summary: string;
 }
 
 export function calculateBlueOceanLevel(searchVolume: number, documentCount: number): BlueOceanResult {
@@ -530,6 +550,10 @@ export interface AdsenseKeywordData {
     dataSourceReason: string;
     // ⭐ 다중 소스 교차 검증 (네이버 외 추가 신호)
     crossValidation: CrossValidationResult;
+    // ✅ AdSense 승인용 리뉴얼 신호
+    approvalScore: number;
+    approvalGrade: AdsenseApprovalGrade;
+    approvalProfile: AdsenseApprovalProfile;
     // 📅 시즌 카테고리에서 자동 분류된 sub-카테고리 (beauty/fashion/travel/food/...)
     subCategory?: string;
 }
@@ -1041,6 +1065,21 @@ export function evaluateAdsenseKeyword(input: {
         dataConfidence: ciDataConfidence,
         intentConfidence: searchIntent.confidence,
     });
+    const crossValidation = buildInitialCrossValidation(dataSource, input.proSourcesCount || 0, input.wikiHit === true);
+    const approvalProfile = calculateAdsenseApprovalProfile({
+        keyword,
+        category,
+        searchVolume,
+        documentCount,
+        dataSource,
+        infoIntentScore,
+        safety: safety.level,
+        ymylRisk: ymyl.level,
+        writable: writability.writable,
+        adsenseEligibility,
+        zeroClickRisk,
+        crossValidation,
+    });
 
     return {
         keyword,
@@ -1078,7 +1117,10 @@ export function evaluateAdsenseKeyword(input: {
         dataSource,
         dataConfidence,
         dataSourceReason,
-        crossValidation: buildInitialCrossValidation(dataSource, input.proSourcesCount || 0, input.wikiHit === true),
+        crossValidation,
+        approvalScore: approvalProfile.score,
+        approvalGrade: approvalProfile.grade,
+        approvalProfile,
     };
 }
 
@@ -1653,6 +1695,247 @@ export function isWritableKeyword(keyword: string, options: { newbie?: boolean }
             ? `✍️ 액션 패턴 포함 (${ACTIONABLE_PATTERNS.find(p => lower.includes(p.toLowerCase()))})`
             : `✍️ 구체 롱테일 (${tokens.length}토큰)`,
     };
+}
+
+// ============================================================
+// 4.6) AdSense 승인용 점수 — 수익 추정이 아닌 실측/글감 중심
+// ============================================================
+
+const APPROVAL_SERIES_PATTERNS = [
+    '방법', '신청', '조건', '자격', '대상', '서류', '준비물', '기간', '마감',
+    '비교', '차이', '추천', '순위', '후기', '리뷰', '정리', '총정리',
+    '주의사항', '체크리스트', '계산', '조회', '확인', '해결',
+];
+
+const APPROVAL_SHALLOW_PATTERNS = [
+    '뜻', '의미', '정의', '나이', '키', '프로필', '사주', '근황',
+];
+
+function clampScore(n: number): number {
+    return Math.max(0, Math.min(100, Math.round(n)));
+}
+
+function scoreApprovalSearchDemand(searchVolume: number): number {
+    if (searchVolume <= 0) return 0;
+    if (searchVolume < 100) return 30;
+    if (searchVolume < 300) return 55;
+    if (searchVolume < 1000) return 75;
+    if (searchVolume <= 8000) return 100;
+    if (searchVolume <= 30000) return 84;
+    return 58; // 너무 빅키워드는 승인용 롱테일로는 애매함
+}
+
+function scoreApprovalCompetition(searchVolume: number, documentCount: number): number {
+    if (documentCount <= 0 || searchVolume <= 0) return 0;
+    const ratio = searchVolume / documentCount;
+    let score = 30;
+    if (ratio >= 5) score = 96;
+    else if (ratio >= 2) score = 86;
+    else if (ratio >= 1) score = 74;
+    else if (ratio >= 0.5) score = 60;
+    else if (ratio >= 0.2) score = 42;
+
+    if (documentCount > 200000) score = Math.min(score, 42);
+    else if (documentCount > 80000) score = Math.min(score, 55);
+    else if (documentCount > 30000) score = Math.min(score, 68);
+    return clampScore(score);
+}
+
+function scoreApprovalSafety(input: {
+    safety: 'safe' | 'caution' | 'danger';
+    ymylRisk: 'low' | 'medium' | 'high';
+    adsenseEligibility: AdsenseEligibilityResult;
+}): number {
+    if (input.safety === 'danger') return 0;
+    if (input.ymylRisk === 'high') return 20;
+    if (input.adsenseEligibility?.status === 'blocked') return 15;
+    if (input.ymylRisk === 'medium') return input.safety === 'safe' ? 70 : 58;
+    if (input.safety === 'caution') return 76;
+    return 96;
+}
+
+function scoreApprovalContentDepth(keyword: string, writable: boolean, zeroClickRisk: ZeroClickRiskResult): number {
+    if (!writable) return 0;
+    const lower = keyword.toLowerCase();
+    const tokens = keyword.split(/[\s·,/]+/).filter(t => t.length >= 1);
+    const actionMatches = ACTIONABLE_PATTERNS.filter(p => lower.includes(p.toLowerCase())).length;
+    const seriesMatches = APPROVAL_SERIES_PATTERNS.filter(p => lower.includes(p.toLowerCase())).length;
+    let score = 42 + Math.min(28, tokens.length * 7) + Math.min(20, actionMatches * 7) + Math.min(10, seriesMatches * 4);
+    if (APPROVAL_SHALLOW_PATTERNS.some(p => lower.includes(p.toLowerCase()))) score -= 18;
+    if (zeroClickRisk.level === 'high') score -= 18;
+    else if (zeroClickRisk.level === 'medium') score -= 8;
+    return clampScore(score);
+}
+
+function scoreApprovalSeriesPotential(keyword: string, category: string): number {
+    const lower = keyword.toLowerCase();
+    const matches = APPROVAL_SERIES_PATTERNS.filter(p => lower.includes(p.toLowerCase())).length;
+    let score = 38 + Math.min(42, matches * 10);
+    if (['subsidy', 'season', 'education', 'certificate', 'living', 'life_tips', 'diy', 'gardening', 'recipe', 'it', 'app'].includes(category)) {
+        score += 12;
+    }
+    if (/신청|조건|자격|서류|기간|후기|주의사항|비교|추천|정리/.test(lower)) score += 10;
+    return clampScore(score);
+}
+
+function buildApprovalTitles(keyword: string, category: string): string[] {
+    if (category === 'subsidy' || /지원금|보조금|장려금|환급|바우처/.test(keyword)) {
+        return [
+            `${keyword} 자격조건과 신청방법 한 번에 정리`,
+            `${keyword} 대상자 확인부터 필요서류까지 체크리스트`,
+            `${keyword} 신청 전 놓치기 쉬운 주의사항`,
+        ];
+    }
+    if (category === 'recipe' || /레시피|요리|만드는법/.test(keyword)) {
+        return [
+            `${keyword} 실패 줄이는 준비물과 순서 정리`,
+            `${keyword} 처음 해보는 사람을 위한 체크리스트`,
+            `${keyword} 보관법과 자주 묻는 질문까지 정리`,
+        ];
+    }
+    if (category === 'review' || category === 'shopping' || /후기|리뷰|추천|비교/.test(keyword)) {
+        return [
+            `${keyword} 고르기 전 확인할 비교 기준`,
+            `${keyword} 실제 선택할 때 보는 장단점 정리`,
+            `${keyword} 가격보다 먼저 봐야 할 체크포인트`,
+        ];
+    }
+    return [
+        `${keyword} 처음 찾는 분을 위한 핵심 정리`,
+        `${keyword} 기준과 절차를 한 번에 이해하기`,
+        `${keyword} 놓치기 쉬운 주의사항과 체크리스트`,
+    ];
+}
+
+function buildApprovalAngles(keyword: string, category: string): string[] {
+    const base = [
+        '검색자가 바로 확인하려는 결론을 첫 문단에 배치',
+        '공식/실측 데이터와 개인 의견을 분리해서 신뢰도 확보',
+        '표, 체크리스트, FAQ로 체류 시간을 늘릴 수 있는 구조',
+    ];
+    if (category === 'subsidy') {
+        return ['대상자/제외대상을 먼저 분리', '신청 기간과 서류를 표로 정리', '정부/지자체 공식 출처 확인 문단 추가'];
+    }
+    if (['health', 'supplement', 'diet', 'finance', 'tax', 'insurance', 'realestate'].includes(category)) {
+        return ['전문 자문이 아닌 정보 정리임을 명확히 표시', '공식 기관/약관/법령 기준으로 근거 제시', '개인별 차이와 예외 조건을 별도 섹션으로 분리'];
+    }
+    if (/비교|추천|후기|리뷰/.test(keyword)) {
+        return ['비교 기준을 먼저 선언', '추천 대상을 상황별로 분리', '장점보다 단점/주의점을 먼저 보여 신뢰도 확보'];
+    }
+    return base;
+}
+
+function buildApprovalOutline(keyword: string): string[] {
+    return [
+        `${keyword} 핵심 요약`,
+        '누가/언제/왜 찾아야 하는지',
+        '조건과 준비물',
+        '실수하기 쉬운 부분',
+        '자주 묻는 질문',
+    ];
+}
+
+export function calculateAdsenseApprovalProfile(input: {
+    keyword: string;
+    category: string;
+    searchVolume: number;
+    documentCount: number;
+    dataSource: 'naver-api' | 'pro-validated' | 'estimated';
+    infoIntentScore: number;
+    safety: 'safe' | 'caution' | 'danger';
+    ymylRisk: 'low' | 'medium' | 'high';
+    writable: boolean;
+    adsenseEligibility: AdsenseEligibilityResult;
+    zeroClickRisk: ZeroClickRiskResult;
+    crossValidation: CrossValidationResult;
+}): AdsenseApprovalProfile {
+    const measured = input.dataSource !== 'estimated' && input.searchVolume > 0 && input.documentCount > 0;
+    const searchDemandScore = scoreApprovalSearchDemand(input.searchVolume);
+    const competitionFitScore = scoreApprovalCompetition(input.searchVolume, input.documentCount);
+    const intentFitScore = clampScore(input.infoIntentScore);
+    const safetyFitScore = scoreApprovalSafety(input);
+    const contentDepthScore = scoreApprovalContentDepth(input.keyword, input.writable, input.zeroClickRisk);
+    const seriesPotentialScore = scoreApprovalSeriesPotential(input.keyword, input.category);
+    const crossValidationBonus = Math.min(5, input.crossValidation?.score || 0);
+
+    let score = Math.round(
+        searchDemandScore * 0.16 +
+        competitionFitScore * 0.18 +
+        intentFitScore * 0.20 +
+        safetyFitScore * 0.20 +
+        contentDepthScore * 0.16 +
+        seriesPotentialScore * 0.10 +
+        crossValidationBonus
+    );
+
+    const risks: string[] = [];
+    if (!measured) risks.push('실측 검색량+문서수 미확보');
+    if (input.searchVolume > 30000) risks.push('너무 큰 키워드라 신생 블로그 승인용으로 애매');
+    if (input.documentCount > 80000) risks.push('문서수가 많아 차별화 난이도 높음');
+    if (input.ymylRisk !== 'low') risks.push(`YMYL ${input.ymylRisk === 'high' ? '고위험' : '주의'}`);
+    if (input.zeroClickRisk.level === 'high') risks.push('AI 요약형 0클릭 위험 높음');
+
+    if (!measured) score = Math.min(score, 55);
+    if (input.safety === 'danger' || input.ymylRisk === 'high') score = Math.min(score, 52);
+    else if (input.ymylRisk === 'medium') score = Math.min(score, 82);
+    if (input.searchVolume > 30000) score = Math.min(score, 82);
+    if (input.documentCount > 200000) score = Math.min(score, 62);
+    if (!input.writable) score = Math.min(score, 35);
+    score = clampScore(score);
+
+    let grade: AdsenseApprovalGrade = 'B';
+    if (score >= 85 && measured && input.ymylRisk === 'low' && input.safety !== 'danger') grade = 'S+';
+    else if (score >= 75 && measured && input.safety !== 'danger') grade = 'S';
+    else if (score >= 65) grade = 'A';
+
+    const reasons: string[] = [];
+    if (measured) reasons.push('실측 검색량+문서수 확보');
+    if (intentFitScore >= 65) reasons.push(`정보형 의도 ${intentFitScore}`);
+    if (competitionFitScore >= 74) reasons.push('경쟁 적정');
+    if (safetyFitScore >= 76) reasons.push('승인 안전성 양호');
+    if (contentDepthScore >= 75) reasons.push('글감 깊이 충분');
+    if (seriesPotentialScore >= 70) reasons.push('시리즈 확장 가능');
+
+    return {
+        score,
+        grade,
+        measured,
+        measuredReason: measured
+            ? '네이버 검색광고/PRO 실측 기반 검색량+문서수 확보'
+            : '추정 또는 문서수 미확보 후보라 승인용 핵심 후보에서는 후순위',
+        searchDemandScore,
+        competitionFitScore,
+        intentFitScore,
+        safetyFitScore,
+        contentDepthScore,
+        seriesPotentialScore,
+        titleCandidates: buildApprovalTitles(input.keyword, input.category),
+        contentAngles: buildApprovalAngles(input.keyword, input.category),
+        outline: buildApprovalOutline(input.keyword),
+        reasons,
+        risks,
+        summary: `${grade} · 승인점수 ${score}/100 · ${reasons.slice(0, 3).join(' · ') || '보수 검토 필요'}`,
+    };
+}
+
+function refreshApprovalProfile(item: AdsenseKeywordData): void {
+    const profile = calculateAdsenseApprovalProfile({
+        keyword: item.keyword,
+        category: item.category,
+        searchVolume: item.searchVolume,
+        documentCount: item.documentCount,
+        dataSource: item.dataSource,
+        infoIntentScore: item.infoIntentScore,
+        safety: item.safety,
+        ymylRisk: item.ymylRisk,
+        writable: item.writable,
+        adsenseEligibility: item.adsenseEligibility,
+        zeroClickRisk: item.zeroClickRisk,
+        crossValidation: item.crossValidation,
+    });
+    item.approvalProfile = profile;
+    item.approvalScore = profile.score;
+    item.approvalGrade = profile.grade;
 }
 
 // ============================================================
@@ -2934,6 +3217,7 @@ export interface AdsenseHunterOptions {
     excludeYmylHigh?: boolean;
     minInfoIntent?: number;
     minMonthlyRevenue?: number;
+    minApprovalScore?: number;
     requireRealData?: boolean;
     newbieMode?: boolean;
     excludeZeroClickHigh?: boolean;
@@ -2941,7 +3225,7 @@ export interface AdsenseHunterOptions {
     forceRefresh?: boolean;            // 💾 캐시 무시하고 새로 계산 (Phase 5.2)
     blueOceanOnly?: boolean;            // 💎 블루오션(blue/ultra-blue)만 결과
     minBlueOceanRatio?: number;         // 💎 최소 경쟁비 (기본 1.0)
-    sortBy?: 'value' | 'blueOcean' | 'revenue' | 'reachable';  // 정렬 기준
+    sortBy?: 'approval' | 'value' | 'blueOcean' | 'revenue' | 'reachable' | 'intent' | 'volume';  // 정렬 기준
 }
 
 // ============================================================
@@ -2954,8 +3238,9 @@ const huntCache = new Map<string, { result: AdsenseHunterResult; expiresAt: numb
 function buildCacheKey(opts: AdsenseHunterOptions): string {
     return JSON.stringify({
         c: opts.category, ct: opts.count, eyh: opts.excludeYmylHigh,
-        mi: opts.minInfoIntent, mr: opts.minMonthlyRevenue, rr: opts.requireRealData,
+        mi: opts.minInfoIntent, mr: opts.minMonthlyRevenue, ma: opts.minApprovalScore, rr: opts.requireRealData,
         nb: opts.newbieMode, ez: opts.excludeZeroClickHigh, en: opts.excludeNonInformational,
+        bo: opts.blueOceanOnly, br: opts.minBlueOceanRatio, sb: opts.sortBy,
         sk: (opts.seedKeywords || []).slice(0, 5).join(','),
     });
 }
@@ -3013,6 +3298,10 @@ export interface AdsenseHunterResult {
         sssCount: number;
         ssCount: number;
         sCount: number;
+        approvalSPlusCount: number;
+        approvalSCount: number;
+        approvalACount: number;
+        avgApprovalScore: number;
         avgMonthlyRevenue: number;
         totalEstimatedMonthlyRevenue: number;
         // 🔍 데이터 신뢰도 카운트
@@ -3051,7 +3340,8 @@ export async function huntAdsenseKeywords(
         count = 20,
         excludeYmylHigh = false,
         minInfoIntent = 40,
-        minMonthlyRevenue = 5000,
+        minMonthlyRevenue = 0,
+        minApprovalScore = 65,
         requireRealData = true,
         newbieMode = false,
         excludeZeroClickHigh = false,
@@ -3298,7 +3588,7 @@ export async function huntAdsenseKeywords(
     }
 
     const result = finalizeAdsenseResults(evaluated, {
-        count, excludeYmylHigh, minInfoIntent, minMonthlyRevenue, requireRealData,
+        count, excludeYmylHigh, minInfoIntent, minMonthlyRevenue, minApprovalScore, requireRealData,
         category, newbieMode, excludeZeroClickHigh, excludeNonInformational,
         blueOceanOnly, minBlueOceanRatio, sortBy,
     });
@@ -3358,6 +3648,7 @@ function emptyResult(): AdsenseHunterResult {
         keywords: [],
         summary: {
             totalFound: 0, sssCount: 0, ssCount: 0, sCount: 0,
+            approvalSPlusCount: 0, approvalSCount: 0, approvalACount: 0, avgApprovalScore: 0,
             avgMonthlyRevenue: 0, totalEstimatedMonthlyRevenue: 0,
             realDataCount: 0, estimatedCount: 0, highConfidenceCount: 0,
             verifiedCount: 0, doubleVerifiedCount: 0, singleSourceCount: 0,
@@ -3373,6 +3664,7 @@ function finalizeAdsenseResults(
         excludeYmylHigh: boolean;
         minInfoIntent: number;
         minMonthlyRevenue: number;
+        minApprovalScore: number;
         requireRealData?: boolean;
         category?: string;
         newbieMode?: boolean;
@@ -3380,7 +3672,7 @@ function finalizeAdsenseResults(
         excludeNonInformational?: boolean;
         blueOceanOnly?: boolean;
         minBlueOceanRatio?: number;
-        sortBy?: 'value' | 'blueOcean' | 'revenue' | 'reachable';
+        sortBy?: 'approval' | 'value' | 'blueOcean' | 'revenue' | 'reachable' | 'intent' | 'volume';
     }
 ): AdsenseHunterResult {
     // 사용자 선택 카테고리 기반 통일 게이트 (PRO가 다른 카테고리 채워도 무시)
@@ -3388,10 +3680,10 @@ function finalizeAdsenseResults(
     // 🔍 v3.3: 실측 데이터 게이트 (사용자 핵심 요구 — "실제 사람들이 찾는 키워드?")
     if (opts.requireRealData !== false) {
         const beforeReal = evaluated.length;
-        evaluated = evaluated.filter(k => k.dataSource !== 'estimated');
+        evaluated = evaluated.filter(k => k.dataSource !== 'estimated' && k.searchVolume > 0 && k.documentCount > 0);
         const blockedByReal = beforeReal - evaluated.length;
         if (blockedByReal > 0) {
-            console.log(`[ADSENSE-HUNTER] 🔍 추정 검색량 ${blockedByReal}개 차단 (실측 데이터만 허용)`);
+            console.log(`[ADSENSE-HUNTER] 🔍 추정/문서수 미확보 ${blockedByReal}개 차단 (실측 검색량+문서수만 허용)`);
         }
     }
 
@@ -3427,6 +3719,9 @@ function finalizeAdsenseResults(
         if (blocked > 0) console.log(`[ADSENSE-HUNTER] 🎯 비정보형 ${blocked}개 차단`);
     }
 
+    // 교차검증 enrichment 이후 승인점수를 재산출한다.
+    for (const item of evaluated) refreshApprovalProfile(item);
+
     // 💎 블루오션 게이트
     if (opts.blueOceanOnly) {
         const before = evaluated.length;
@@ -3441,52 +3736,56 @@ function finalizeAdsenseResults(
         if (blocked > 0) console.log(`[ADSENSE-HUNTER] 💎 경쟁비 < ${opts.minBlueOceanRatio} ${blocked}개 차단`);
     }
 
-    // 💎 v3.5: 적응형 가치 게이트 (사용자 선택 카테고리 위험도 기준 통일 적용)
+    // ✅ 승인용 적응형 게이트 (사용자 선택 카테고리 위험도 기준 통일 적용)
     const thresholds = {
-        safe:    { sv: 100, ratio: 0.2, cpc: 50,  intent: 35, value: 30 },
-        caution: { sv: 200, ratio: 0.3, cpc: 100, intent: 40, value: 45 },
-        danger:  { sv: 200, ratio: 0.3, cpc: 100, intent: 40, value: 50 },
+        safe:    { sv: 100, ratio: 0.15, intent: 35, approval: 55 },
+        caution: { sv: 200, ratio: 0.25, intent: 45, approval: 62 },
+        danger:  { sv: 200, ratio: 0.30, intent: 50, approval: 70 },
     }[userRiskLevel];
 
     const beforeValue = evaluated.length;
     evaluated = evaluated.filter(k => {
         if (k.searchVolume < thresholds.sv) return false;
         if (k.competitionRatio < thresholds.ratio) return false;
-        if (k.estimatedCPC < thresholds.cpc) return false;
         if (k.infoIntentScore < thresholds.intent) return false;
-        if (k.valueScore < thresholds.value) return false;
+        if (k.approvalScore < thresholds.approval) return false;
         return true;
     });
     const blockedByValue = beforeValue - evaluated.length;
     if (blockedByValue > 0) {
-        console.log(`[ADSENSE-HUNTER] 💎 가치 부족 ${blockedByValue}개 차단 (${userRiskLevel} 게이트: sv≥${thresholds.sv} ratio≥${thresholds.ratio} cpc≥${thresholds.cpc} value≥${thresholds.value})`);
+        console.log(`[ADSENSE-HUNTER] ✅ 승인 적합도 부족 ${blockedByValue}개 차단 (${userRiskLevel} 게이트: sv≥${thresholds.sv} ratio≥${thresholds.ratio} approval≥${thresholds.approval})`);
     }
     if (evaluated.length > 0) {
-        console.log(`[ADSENSE-HUNTER] 📊 통과 샘플:`, evaluated.slice(0, 3).map(k => `${k.keyword}(sv=${k.searchVolume},cpc=${k.estimatedCPC},val=${k.valueScore},grade=${k.grade})`).join(' | '));
+        console.log(`[ADSENSE-HUNTER] 📊 통과 샘플:`, evaluated.slice(0, 3).map(k => `${k.keyword}(sv=${k.searchVolume},dc=${k.documentCount},approval=${k.approvalScore},grade=${k.approvalGrade})`).join(' | '));
     }
 
-    // safe 카테고리는 등급 게이트 + minMonthlyRevenue 자동 완화 (저RPM 특성 반영)
+    // minMonthlyRevenue는 하위호환용 보조 필터다. 승인 리뉴얼 UI에서는 0으로 전달한다.
     const adjustedMinRevenue = userRiskLevel === 'safe' ? Math.min(opts.minMonthlyRevenue, 100) : opts.minMonthlyRevenue;
-    const allowBGrade = userRiskLevel === 'safe';  // safe는 B 등급도 통과 허용
 
     const filtered = evaluated.filter(k => {
         if (k.safety === 'danger') return false;
         if (opts.excludeYmylHigh && k.ymylRisk === 'high') return false;
         if (k.infoIntentScore < opts.minInfoIntent) return false;
-        if (k.estimatedMonthlyRevenue < adjustedMinRevenue) return false;
-        if (!allowBGrade && k.grade === 'B') return false;
+        if (k.approvalScore < opts.minApprovalScore) return false;
+        if (adjustedMinRevenue > 0 && k.estimatedMonthlyRevenue < adjustedMinRevenue) return false;
         return true;
     });
 
-    // 정렬 — sortBy 옵션 (기본: value)
-    const sortBy = opts.sortBy || 'value';
+    // 정렬 — sortBy 옵션 (기본: approval)
+    const sortBy = opts.sortBy || 'approval';
     filtered.sort((a, b) => {
-        if (sortBy === 'blueOcean') {
+        if (sortBy === 'approval') {
+            if (b.approvalScore !== a.approvalScore) return b.approvalScore - a.approvalScore;
+            if ((b.crossValidation?.score || 0) !== (a.crossValidation?.score || 0)) {
+                return (b.crossValidation?.score || 0) - (a.crossValidation?.score || 0);
+            }
+            return b.infoIntentScore - a.infoIntentScore;
+        } else if (sortBy === 'blueOcean') {
             // 💎 블루오션 우선 (ratio ↓ 큰 것)
             const ra = a.blueOcean?.ratio || 0;
             const rb = b.blueOcean?.ratio || 0;
             if (rb !== ra) return rb - ra;
-            return (b.reachability?.month12.monthlyRevenue || 0) - (a.reachability?.month12.monthlyRevenue || 0);
+            return b.approvalScore - a.approvalScore;
         } else if (sortBy === 'reachable') {
             // 🎯 12개월 도달 후 실수익 우선 (가장 현실적)
             const ra = a.reachability?.month12.monthlyRevenue || 0;
@@ -3495,14 +3794,19 @@ function finalizeAdsenseResults(
             return (b.blueOcean?.ratio || 0) - (a.blueOcean?.ratio || 0);
         } else if (sortBy === 'revenue') {
             return b.estimatedMonthlyRevenue - a.estimatedMonthlyRevenue;
+        } else if (sortBy === 'intent') {
+            if (b.infoIntentScore !== a.infoIntentScore) return b.infoIntentScore - a.infoIntentScore;
+            return b.approvalScore - a.approvalScore;
+        } else if (sortBy === 'volume') {
+            if (b.searchVolume !== a.searchVolume) return b.searchVolume - a.searchVolume;
+            return b.approvalScore - a.approvalScore;
         }
-        // 기본 value: 교차검증 → 가치점수 → 월수익
+        // value: 교차검증 → 가치점수 → 승인점수
         const cvA = a.crossValidation?.score || 0;
         const cvB = b.crossValidation?.score || 0;
         if (cvB !== cvA) return cvB - cvA;
         if (b.valueScore !== a.valueScore) return b.valueScore - a.valueScore;
-        if (b.estimatedMonthlyRevenue !== a.estimatedMonthlyRevenue) return b.estimatedMonthlyRevenue - a.estimatedMonthlyRevenue;
-        return b.infoIntentScore - a.infoIntentScore;
+        return b.approvalScore - a.approvalScore;
     });
 
     const top = filtered.slice(0, opts.count);
@@ -3512,6 +3816,12 @@ function finalizeAdsenseResults(
         sssCount: top.filter(k => k.grade === 'SSS').length,
         ssCount: top.filter(k => k.grade === 'SS').length,
         sCount: top.filter(k => k.grade === 'S').length,
+        approvalSPlusCount: top.filter(k => k.approvalGrade === 'S+').length,
+        approvalSCount: top.filter(k => k.approvalGrade === 'S').length,
+        approvalACount: top.filter(k => k.approvalGrade === 'A').length,
+        avgApprovalScore: top.length > 0
+            ? Math.round(top.reduce((s, k) => s + k.approvalScore, 0) / top.length)
+            : 0,
         avgMonthlyRevenue: top.length > 0
             ? Math.round(top.reduce((s, k) => s + k.estimatedMonthlyRevenue, 0) / top.length)
             : 0,
@@ -3528,7 +3838,7 @@ function finalizeAdsenseResults(
         redCount: top.filter(k => k.blueOcean?.level === 'red').length,
     };
 
-    console.log(`[ADSENSE-HUNTER] ✅ ${top.length}개 추출 (SSS=${summary.sssCount}, SS=${summary.ssCount}, S=${summary.sCount})`);
+    console.log(`[ADSENSE-HUNTER] ✅ ${top.length}개 추출 (승인 S+=${summary.approvalSPlusCount}, S=${summary.approvalSCount}, A=${summary.approvalACount})`);
     return { keywords: top, summary };
 }
 
@@ -3560,7 +3870,7 @@ export const CATEGORY_RISK: Record<string, { level: 'safe' | 'caution' | 'danger
     health: { level: 'caution', reason: '⚠️ 건강 정보는 의학적 근거 필요 (전문가 인용 권장)' },
 
     // ✅ SAFE — 일반 블로거 안전
-    subsidy: { level: 'safe', reason: '✅ 정부 지원금 정보 공유는 안전 + 고CPC (대출/금융 광고 게재) — 신생 블로거 추천' },
+    subsidy: { level: 'safe', reason: '✅ 정부 지원금 정보 공유는 공식 출처 기반으로 쓰기 좋아 승인용 정보형 주제로 추천' },
     season: { level: 'safe', reason: '✅ 매월 시즌 황금키워드 — 선물/여행/이벤트 등 검색 폭증 시즌만 자동 추출' },
     'naver-home': { level: 'safe', reason: '🏠 네이버 메인 홈판 노출 특화 — CTR + 신선도 + 카테고리 적합도 + 빈자리 종합' },
     laptop: { level: 'safe', reason: '✅ 제품 리뷰 — 안전' },
@@ -3602,18 +3912,18 @@ export const ADSENSE_CATEGORIES = [
     { value: 'naver-home', label: '🏠 ✨ 네이버 홈판 (CTR+신선도+빈자리·끝판왕)' },
 
     // 📅 매월 시즌 황금키워드 (자동 갱신)
-    { value: 'season', label: '📅 ✅ 이번 달 시즌 황금키워드 (자동 갱신·강추)' },
+    { value: 'season', label: '📅 ✅ 이번 달 시즌 승인 주제 (자동 갱신)' },
 
-    // 💎 SAFE + 고RPM (정부 지원금 — 가장 추천)
-    { value: 'subsidy', label: '💎 ✅ 정부 지원금·보조금 (안전+고CPC·강추)' },
+    // 💎 SAFE + 정보형 (정부 지원금 — 가장 추천)
+    { value: 'subsidy', label: '💎 ✅ 정부 지원금·보조금 (공식정보형·추천)' },
 
-    // 💰 고RPM (금융·법률 계열) — 🚨 광고법/YMYL 위험
-    { value: 'loan', label: '🚨 대출·신용 (최고RPM·고위험)' },
-    { value: 'finance', label: '⚠️ 금융·재테크 (고RPM·주의)' },
-    { value: 'insurance', label: '⚠️ 보험 (고RPM·주의)' },
-    { value: 'realestate', label: '⚠️ 부동산·청약 (고RPM·주의)' },
-    { value: 'legal', label: '🚨 법률·소송 (고RPM·고위험)' },
-    { value: 'tax', label: '⚠️ 세금·연말정산 (고RPM·주의)' },
+    // 금융·법률 계열 — 🚨 광고법/YMYL 위험
+    { value: 'loan', label: '🚨 대출·신용 (승인 고위험)' },
+    { value: 'finance', label: '⚠️ 금융·재테크 (YMYL 주의)' },
+    { value: 'insurance', label: '⚠️ 보험 (YMYL 주의)' },
+    { value: 'realestate', label: '⚠️ 부동산·청약 (정확성 주의)' },
+    { value: 'legal', label: '🚨 법률·소송 (승인 고위험)' },
+    { value: 'tax', label: '⚠️ 세금·연말정산 (정확성 주의)' },
 
     // 🏥 의료·건강
     { value: 'medical', label: '🚨 의료·진료 (고위험)' },

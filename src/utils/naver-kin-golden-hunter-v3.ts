@@ -12,7 +12,7 @@
 import type { Browser, Page } from 'puppeteer';
 import * as fs from 'fs';
 import * as path from 'path';
-import { gradeQuestion, type KinSignals } from './naver-kin-golden-config';
+import { calculateKinHoneyPotProfile, type KinSignals } from './naver-kin-golden-config';
 import { enrichKinSignalsBatch, isEnrichmentEnabled } from './naver-kin-signal-enrichment';
 
 // ============================================================
@@ -106,6 +106,13 @@ export interface GoldenQuestion {
   goldenScore: number;
   goldenGrade: 'SSS' | 'SS' | 'S' | 'A' | 'B' | 'C';
   goldenReason: string;
+  honeyPotScore: number;
+  honeyPotGrade: 'SSS' | 'SS' | 'S' | 'A' | 'B' | 'C';
+  honeyPotReason: string;
+  externalTrafficPotential: 'very_high' | 'high' | 'medium' | 'low';
+  answerAngle: string;
+  blogBridgeTitle: string;
+  trafficRoute: string[];
   estimatedDailyTraffic: string;
   trafficPotential: 'very_high' | 'high' | 'medium' | 'low';
   recommendAction: string;
@@ -149,6 +156,163 @@ export interface GoldenHuntResult {
   crawlTime: number;
 }
 
+function clampIntentScore(score: number): number {
+  return Math.max(0, Math.min(100, Math.round(score)));
+}
+
+function scoreQuestionIntent(title: string): number {
+  const text = String(title || '').trim();
+  const normalized = text.replace(/\s+/g, '');
+  let score = 42;
+
+  const highIntentPatterns = [
+    /추천|비교|순위|후기|리뷰|가격|비용|얼마|방법|하는법|해결|원인|증상|신청|조건|자격|기간|다운로드|설치|오류|안됨|고장|문제|가능|어떻게|뭐가|뭘|어떤|좋나요|괜찮나요/i,
+    /best|review|price|how|fix|error|install|download/i,
+  ];
+  const bridgePatterns = [
+    /제품|구매|보험|지원금|환급|자격증|시험|병원|영양제|다이어트|앱|사이트|프로그램|노트북|컴퓨터|휴대폰|자동차|여행|웨딩|이사|청소|수리|대출|청약|부동산/,
+  ];
+  const weakIntentPatterns = [/내공|급해요|제발|숙제|풀이|번역|꿈해몽|사주|이름|연애|친구|학교|욕|싸움/];
+
+  if (highIntentPatterns.some(p => p.test(text))) score += 26;
+  if (bridgePatterns.some(p => p.test(text))) score += 18;
+  if (/[?？]$/.test(text) || /나요|까요|인가요|일까요|있나요|없나요/.test(text)) score += 8;
+  if (normalized.length >= 14 && normalized.length <= 70) score += 6;
+  if (weakIntentPatterns.some(p => p.test(text))) score -= 18;
+  if (normalized.length > 90) score -= 8;
+
+  return clampIntentScore(score);
+}
+
+function buildKinSignals(q: any, overrides: Partial<KinSignals> = {}): KinSignals {
+  const answerCount = Number(q.answerCount) || 0;
+  const rawHoursAgo = Number(q.hoursAgo);
+  const hoursAgo = Number.isFinite(rawHoursAgo) ? rawHoursAgo : 999;
+  const defaultAnswerQuality = answerCount === 0 ? 0 : answerCount <= 2 ? 42 : answerCount <= 5 ? 58 : 72;
+  return {
+    viewCount: Number(q.viewCount) || 0,
+    answerCount,
+    hoursAgo,
+    likeCount: Number(q.likeCount) || 0,
+    isAdopted: Boolean(q.isAdopted),
+    viewsPerHour: Number(q.viewsPerHour) || undefined,
+    isMainExposed: Boolean(q.isMainExposed),
+    hasExternalLinks: Boolean(q.hasExternalLinks),
+    externalLinkCount: Number(q.externalLinkCount) || 0,
+    answerQualityScore: Number(q.answerQualityScore ?? defaultAnswerQuality),
+    questionIntentScore: scoreQuestionIntent(q.title || ''),
+    isExpertOnly: Boolean(q.isExpertOnly),
+    ...overrides,
+  };
+}
+
+function buildBlogBridgeTitle(title: string): string {
+  const clean = String(title || '').replace(/\s+/g, ' ').replace(/[?？]+$/g, '').trim();
+  if (!clean) return '지식인 질문 기반 상세 정리';
+  if (/추천|비교|순위|후기|리뷰/.test(clean)) return `${clean} 비교 기준과 실패 없는 선택법`;
+  if (/가격|비용|얼마|견적/.test(clean)) return `${clean} 비용 범위와 추가로 확인할 것`;
+  if (/방법|하는법|신청|조건|자격|기간/.test(clean)) return `${clean} 절차와 체크리스트`;
+  if (/오류|안됨|고장|문제|해결/.test(clean)) return `${clean} 원인별 해결 방법`;
+  return `${clean} 핵심 답변과 자세한 정리`;
+}
+
+function buildAnswerAngle(title: string, signals: KinSignals): string {
+  if (signals.answerCount === 0) {
+    return '첫 답변 선점: 결론 2줄, 단계별 해결, 블로그 상세글 연결';
+  }
+  if (signals.answerCount <= 2 && (signals.answerQualityScore || 0) < 55) {
+    return '기존 답변 보강: 표/체크리스트로 더 완성도 높은 답변 작성';
+  }
+  if ((signals.questionIntentScore || 0) >= 72) {
+    return '검색형 질문: 비교 기준, 비용, 주의사항을 한 번에 정리';
+  }
+  return '신뢰형 답변: 근거와 실제 적용 팁을 짧고 단단하게 제시';
+}
+
+function buildHoneyFields(q: any, signals: KinSignals) {
+  const profile = calculateKinHoneyPotProfile(signals);
+  return {
+    honeyPotScore: profile.score,
+    honeyPotGrade: profile.grade as GoldenQuestion['honeyPotGrade'],
+    honeyPotReason: profile.reason,
+    externalTrafficPotential: profile.externalTrafficPotential,
+    answerAngle: buildAnswerAngle(q.title || '', signals),
+    blogBridgeTitle: buildBlogBridgeTitle(q.title || ''),
+    trafficRoute: profile.route,
+  };
+}
+
+const LATEST_HONEY_MAX_HOURS = 168;
+const LATEST_HONEY_DETAIL_LIMIT = 110;
+const LATEST_HONEY_PAGES = 5;
+const KIN_HONEY_CATEGORIES = [
+  { name: '전체', dirId: '0' },
+  { name: 'IT/컴퓨터', dirId: '1' },
+  { name: '게임', dirId: '2' },
+  { name: '쇼핑', dirId: '4' },
+  { name: '건강', dirId: '7' },
+  { name: '생활', dirId: '8' },
+];
+const KIN_FAST_HONEY_CATEGORIES = KIN_HONEY_CATEGORIES.slice(0, 1);
+
+function extractDocIdFromUrl(url: string): string {
+  const match = String(url || '').match(/docId=(\d+)/);
+  return match ? match[1] : '';
+}
+
+function getQuestionHoursAgo(q: any): number {
+  const raw = Number(q?.hoursAgo ?? q?.questionAge?.hoursAgo);
+  return Number.isFinite(raw) ? raw : 999;
+}
+
+function getViewsPerHour(q: any): number {
+  const views = Number(q.viewCount) || 0;
+  const hours = Math.max(1, getQuestionHoursAgo(q));
+  return Math.round((views / hours) * 10) / 10;
+}
+
+function getLatestViewFloor(hoursAgo: number): number {
+  // 미노출 꿀통의 가치 = 신선 + 무답변(첫 답변 기회). 갓 올라온 질문은 조회수가 낮은 게 정상.
+  // floor 를 현실에 맞게 캘리브레이션 (라이브 측정: 신선 질문 대부분 조회 1~10).
+  if (hoursAgo <= 6) return 1;
+  if (hoursAgo <= 24) return 3;
+  if (hoursAgo <= 72) return 8;
+  return 15;
+}
+
+function isLatestHiddenHoneyCandidate(q: any): boolean {
+  const url = String(q.url || '');
+  const viewCount = Number(q.viewCount) || 0;
+  const answerCount = Number(q.answerCount) || 0;
+  const hoursAgo = getQuestionHoursAgo(q);
+  const externalLinkCount = Number(q.externalLinkCount) || 0;
+  const viewsPerHour = Number(q.viewsPerHour) || getViewsPerHour(q);
+
+  if (!url.includes('docId=')) return false;
+  if (Boolean(q.isAdopted) || Boolean(q.isExpertOnly)) return false;
+  if (hoursAgo > LATEST_HONEY_MAX_HOURS) return false;
+  if (answerCount > 3) return false;
+  if (externalLinkCount >= 2) return false;
+  if (viewCount < getLatestViewFloor(hoursAgo) && viewsPerHour < 0.3) return false;
+
+  return true;
+}
+
+function getLatestHiddenSortScore(q: any): number {
+  const withVelocity = { ...q, viewsPerHour: Number(q.viewsPerHour) || getViewsPerHour(q) };
+  const honey = buildHoneyFields(withVelocity, buildKinSignals(withVelocity, { isMainExposed: false })).honeyPotScore;
+  const answerBonus = Number(q.answerCount) === 0 ? 12 : Number(q.answerCount) === 1 ? 7 : 0;
+  const velocityBonus = Math.min(18, getViewsPerHour(withVelocity) * 3);
+  const hoursAgo = getQuestionHoursAgo(q);
+  const freshBonus = hoursAgo <= 24 ? 10 : hoursAgo <= 72 ? 5 : 0;
+  return honey + answerBonus + velocityBonus + freshBonus;
+}
+
+function isActionableHoneyResult(q: any): boolean {
+  const grade = q.honeyPotGrade || q.goldenGrade || 'B';
+  return ['SSS', 'SS', 'S'].includes(grade) && isLatestHiddenHoneyCandidate(q);
+}
+
 // ============================================================
 // 🌐 브라우저 관리
 // ============================================================
@@ -167,6 +331,16 @@ import { getPuppeteerLaunchOptions } from './chrome-finder';
 async function getBrowser(): Promise<Browser> {
   const { browserPool } = await import('./puppeteer-pool');
   return await browserPool.acquire() as Browser;
+}
+
+async function releaseBrowser(browser: Browser | null | undefined): Promise<void> {
+  if (!browser) return;
+  try {
+    const { browserPool } = await import('./puppeteer-pool');
+    browserPool.release(browser as any);
+  } catch {
+    try { await (browser as any).close?.(); } catch {}
+  }
 }
 
 async function createPage(browser: Browser): Promise<Page> {
@@ -240,9 +414,17 @@ interface RawQuestion {
   questionId: string;
   viewCount: number;
   answerCount: number;
+  likeCount?: number;
   category: string;
   hoursAgo: number;
   timeGroup: string;
+  publishedDate?: string;
+  isAdopted?: boolean;
+  hasExternalLinks?: boolean;
+  externalLinkCount?: number;
+  answerQualityScore?: number;
+  isExpertOnly?: boolean;
+  viewsPerHour?: number;
 }
 
 /**
@@ -689,7 +871,7 @@ export async function getPopularQnA(): Promise<GoldenHuntResult> {
     // Phase 4: 페이지 풀 4개로 상세 페이지 병렬 처리
     // 풀 5+는 anti-bot 감지로 tail latency 폭증 → 4가 안전한 최대값
     // Phase 5-B: circuit breaker — 연속 실패 3회 시 cooldown 5s
-    const questionsToDetail = allQuestions.slice(0, 20);
+    const questionsToDetail = allQuestions.slice(0, 30);
     const POOL_SIZE = 4;
     const CIRCUIT_FAIL_THRESHOLD = 3;
     const CIRCUIT_COOLDOWN_MS = 5000;
@@ -764,6 +946,23 @@ export async function getPopularQnA(): Promise<GoldenHuntResult> {
           const likeMatch = pageText.match(/공감[수\s:]*(\d+)|좋아요[수\s:]*(\d+)|UP\s*(\d+)/i);
           if (likeMatch) likeCount = parseInt(likeMatch[1] || likeMatch[2] || likeMatch[3] || '0');
 
+          const isAdopted =
+            pageText.includes('채택됨') ||
+            pageText.includes('채택 답변') ||
+            document.querySelector('.badge_adopted, .adopted, [class*="adopt"]') !== null;
+
+          const externalLinks = Array.from(document.querySelectorAll('a[href]'))
+            .map(a => (a as HTMLAnchorElement).href || '')
+            .filter(href => /^https?:\/\//i.test(href) && !/naver\.com|naver\.me|nid\.naver/i.test(href));
+          const answerTexts = Array.from(document.querySelectorAll('.answer-content__item, .se-main-container, .endContentsText, [class*="answer"]'))
+            .map(el => (el as HTMLElement).innerText || '')
+            .filter(t => t.trim().length > 30);
+          const avgAnswerLength = answerTexts.length
+            ? Math.round(answerTexts.reduce((sum, t) => sum + t.trim().length, 0) / answerTexts.length)
+            : 0;
+          const answerQualityScore = answerCount === 0 ? 0 : Math.min(100, Math.max(25, Math.round(avgAnswerLength / 8)));
+          const isExpertOnly = /전문가 답변|엑스퍼트|expert|의사|변호사|세무사|노무사/i.test(pageText);
+
           if (headerText.includes('방금') || pageText.includes('방금')) {
             dateText = '방금'; hoursAgo = 0;
           } else if (headerText.includes('분 전') || pageText.includes('분 전')) {
@@ -789,7 +988,18 @@ export async function getPopularQnA(): Promise<GoldenHuntResult> {
             }
           }
 
-          return { viewCount, answerCount, likeCount, dateText, hoursAgo };
+          return {
+            viewCount,
+            answerCount,
+            likeCount,
+            dateText,
+            hoursAgo,
+            isAdopted,
+            hasExternalLinks: externalLinks.length > 0,
+            externalLinkCount: externalLinks.length,
+            answerQualityScore,
+            isExpertOnly
+          };
         });
 
           q.viewCount = detail.viewCount;
@@ -797,6 +1007,11 @@ export async function getPopularQnA(): Promise<GoldenHuntResult> {
           q.likeCount = detail.likeCount;
           q.dateText = detail.dateText;
           q.hoursAgo = detail.hoursAgo;
+          q.isAdopted = detail.isAdopted;
+          q.hasExternalLinks = detail.hasExternalLinks;
+          q.externalLinkCount = detail.externalLinkCount;
+          q.answerQualityScore = detail.answerQualityScore;
+          q.isExpertOnly = detail.isExpertOnly;
 
           if (!detail.viewCount) metrics.emptyViewCount++;
           metrics.detailSuccess++;
@@ -804,7 +1019,7 @@ export async function getPopularQnA(): Promise<GoldenHuntResult> {
 
           const ms = Date.now() - startMs;
           console.log(
-            `[${sessionId}] DETAIL ${idx + 1}/${questionsToDetail.length} ${ms}ms sel=${selectorSeen ? 'hit' : 'miss'} view=${detail.viewCount} ans=${detail.answerCount} | ${q.title.substring(0, 30)}`
+            `[${sessionId}] DETAIL ${idx + 1}/${questionsToDetail.length} ${ms}ms sel=${selectorSeen ? 'hit' : 'miss'} view=${detail.viewCount} ans=${detail.answerCount} | ${String(q.title || '').substring(0, 30)}`
           );
           return; // 성공 → retry 루프 탈출
         } catch (err: any) {
@@ -869,23 +1084,18 @@ export async function getPopularQnA(): Promise<GoldenHuntResult> {
 
     // Phase 1: 통합 config 함수로 scoring — 가중치 단일 소스
     const scoredQuestions = weekQuestions.map((q, idx) => {
-      const signals: KinSignals = {
-        viewCount: Number(q.viewCount) || 0,
-        answerCount: Number(q.answerCount) || 0,
-        hoursAgo: Number(q.hoursAgo) || 999,
-        likeCount: Number(q.likeCount) || 0,
-        isAdopted: Boolean(q.isAdopted),
+      const signals = buildKinSignals(q, {
+        isMainExposed: true,
         ...(enrichments[idx] ?? {}),
-      };
-      const { score, grade } = gradeQuestion(signals);
-      return { ...q, goldScore: score, kinGrade: grade };
+      });
+      const honey = buildHoneyFields(q, signals);
+      return { ...q, goldScore: honey.honeyPotScore, kinGrade: honey.honeyPotGrade, honey };
     });
 
     // 점수 높은 순 정렬
     scoredQuestions.sort((a, b) => b.goldScore - a.goldScore);
     
-    // 🔥 15개!
-    const topQuestions = scoredQuestions.slice(0, 15);
+    const topQuestions = scoredQuestions.slice(0, 30);
     
     console.log(`[RESULT] ✅ 일주일 내 황금 질문 ${topQuestions.length}개!`);
     topQuestions.forEach((q, i) => {
@@ -895,9 +1105,10 @@ export async function getPopularQnA(): Promise<GoldenHuntResult> {
     await page.close();
     
     const goldenQuestions: GoldenQuestion[] = topQuestions.map((q, idx) => {
-      // Phase 1: 통합 config가 이미 계산한 score/grade 사용
-      const score = (q as any).goldScore ?? 0;
-      const grade: 'SSS' | 'SS' | 'S' | 'A' | 'B' | 'C' = (q as any).kinGrade ?? 'B';
+      const signals = buildKinSignals(q, { isMainExposed: true });
+      const honey = (q as any).honey ?? buildHoneyFields(q, signals);
+      const score = honey.honeyPotScore;
+      const grade: 'SSS' | 'SS' | 'S' | 'A' | 'B' | 'C' = honey.honeyPotGrade ?? 'B';
       
       // 🔥 황금 이유 생성
       const timeText = q.hoursAgo <= 1 ? '방금' : 
@@ -908,7 +1119,7 @@ export async function getPopularQnA(): Promise<GoldenHuntResult> {
       const answerText = q.answerCount === 0 ? '🔥 답변 없음!' : 
                          q.answerCount === 1 ? '답변 1개' : `답변 ${q.answerCount}개`;
       
-      const goldenReason = `👀 조회 ${q.viewCount}회 | ${answerText} | ${timeText}`;
+      const goldenReason = honey.honeyPotReason || `👀 조회 ${q.viewCount}회 | ${answerText} | ${timeText}`;
       
       // 🔥 추천 액션
       let recommendAction = '';
@@ -936,17 +1147,18 @@ export async function getPopularQnA(): Promise<GoldenHuntResult> {
         likeCount: q.likeCount || 0,
         publishedDate: q.dateText || timeText,
         daysAgo: Math.floor(q.hoursAgo / 24),
-        hasExternalLinks: false,
-        externalLinkCount: 0,
+        hasExternalLinks: Boolean(q.hasExternalLinks),
+        externalLinkCount: Number(q.externalLinkCount) || 0,
         linkTypes: [],
-        isAdopted: false,
-        isExpertOnly: false,
+        isAdopted: Boolean(q.isAdopted),
+        isExpertOnly: Boolean(q.isExpertOnly),
         goldenScore: score,
         goldenGrade: grade,
         goldenReason,
+        ...honey,
         estimatedDailyTraffic: q.viewCount >= 50 ? '높음' : q.viewCount >= 20 ? '보통' : '낮음',
-        trafficPotential: q.viewCount >= 50 ? 'high' : q.viewCount >= 20 ? 'medium' : 'low',
-        recommendAction,
+        trafficPotential: honey.externalTrafficPotential,
+        recommendAction: `${recommendAction} · ${honey.answerAngle}`,
         urgency: urgency as any,
         priority: 100 - idx,
         questionAge: { 
@@ -1004,6 +1216,8 @@ export async function getPopularQnA(): Promise<GoldenHuntResult> {
       timestamp: new Date().toISOString(),
       crawlTime: Math.round((Date.now() - startTime) / 1000)
     };
+  } finally {
+    await releaseBrowser(browser);
   }
 }
 
@@ -1026,10 +1240,12 @@ export async function getRisingQuestions(): Promise<GoldenHuntResult> {
   const allQuestions: RawQuestion[] = [];
   const seenUrls = new Set<string>();
   
-  // 4개 카테고리만 (빠른 속도)
+  // 6개 카테고리 (전체+쇼핑 추가 → 빈자리 후보 풀 확장)
   const categories = [
+    { name: '전체', dirId: '0' },
     { name: 'IT/컴퓨터', dirId: '1' },
     { name: '게임', dirId: '2' },
+    { name: '쇼핑', dirId: '4' },
     { name: '건강', dirId: '7' },
     { name: '생활', dirId: '8' },
   ];
@@ -1039,34 +1255,37 @@ export async function getRisingQuestions(): Promise<GoldenHuntResult> {
     console.log('[STEP 1] 📋 오늘의 질문 수집...\n');
     
     for (const cat of categories) {
-      const url = `https://kin.naver.com/qna/list.naver?dirId=${cat.dirId}&sort=date`;
-      console.log(`[CRAWL] 🔗 ${cat.name}`);
-      
-      try {
-        await page.goto(url, { waitUntil: 'domcontentloaded', timeout: 10000 });
-        await new Promise(r => setTimeout(r, 500));
-        
-        const questions = await extractQuestionsFromPage(page, cat.name);
+      // 빈자리 풀 확장: 카테고리당 3페이지 (1p=초신선 0뷰 위주, 2~3p=조회 쌓인 빈자리)
+      for (let pageNo = 1; pageNo <= LATEST_HONEY_PAGES; pageNo++) {
+        const url = `https://kin.naver.com/qna/list.naver?dirId=${cat.dirId}&sort=date&page=${pageNo}`;
+        console.log(`[CRAWL] 🔗 ${cat.name} p${pageNo}`);
 
-        // Phase 5: 목록 페이지 hoursAgo 가 부정확 → 필터 제거.
-        // 상세 크롤링 단계에서 hoursAgo 를 재측정하고 viewsPerHour 로 랭킹.
-        // "급상승"의 본질은 viewsPerHour 이므로 오래된 질문은 자연 탈락.
-        let added = 0;
-        questions.forEach(q => {
-          if (!seenUrls.has(q.url)) {
-            seenUrls.add(q.url);
-            allQuestions.push(q);
-            added++;
-          }
-        });
+        try {
+          await page.goto(url, { waitUntil: 'domcontentloaded', timeout: 10000 });
+          await new Promise(r => setTimeout(r, 500));
 
-        console.log(`  → 수집 ${added}개 (최신순)`);
+          const questions = await extractQuestionsFromPage(page, cat.name);
 
-      } catch (err: any) {
-        console.warn(`[KIN] 급상승 카테고리 크롤 실패 | cat=${cat.name} | url=${url} | error=${err?.message ?? err}`);
+          // Phase 5: 목록 페이지 hoursAgo 가 부정확 → 필터 제거.
+          // 상세 크롤링 단계에서 hoursAgo 를 재측정하고 viewsPerHour 로 랭킹.
+          // "급상승"의 본질은 viewsPerHour 이므로 오래된 질문은 자연 탈락.
+          let added = 0;
+          questions.forEach(q => {
+            if (!seenUrls.has(q.url)) {
+              seenUrls.add(q.url);
+              allQuestions.push(q);
+              added++;
+            }
+          });
+
+          console.log(`  → 수집 ${added}개 (최신순)`);
+
+        } catch (err: any) {
+          console.warn(`[KIN] 급상승 카테고리 크롤 실패 | cat=${cat.name} | page=${pageNo} | url=${url} | error=${err?.message ?? err}`);
+        }
+
+        await new Promise(r => setTimeout(r, 100));
       }
-
-      await new Promise(r => setTimeout(r, 100));
     }
     
     console.log(`\n[STEP 1] ✅ 오늘의 질문 ${allQuestions.length}개!\n`);
@@ -1089,8 +1308,13 @@ export async function getRisingQuestions(): Promise<GoldenHuntResult> {
 
     const risingSessionId = newSessionId('rising');
     const risingMetrics = newMetrics();
-    const shuffled = [...allQuestions].sort(() => Math.random() - 0.5);
-    const topN = shuffled.slice(0, 15);
+    const topN = [...allQuestions]
+      .sort((a, b) =>
+        (Number(a.answerCount) || 0) - (Number(b.answerCount) || 0) ||
+        (Number(a.hoursAgo) || 999) - (Number(b.hoursAgo) || 999) ||
+        String(a.title || '').localeCompare(String(b.title || ''), 'ko')
+      )
+      .slice(0, 90);
     const withViewCount: any[] = [];
 
     const detailPage = await browser.newPage();
@@ -1116,9 +1340,39 @@ export async function getRisingQuestions(): Promise<GoldenHuntResult> {
 
         const detail = await detailPage.evaluate(() => {
           const text = document.body.innerText || '';
+          const html = document.body.innerHTML || '';
           let viewCount = 0;
           const m = text.match(/조회[수]?\s*[:\s]*([0-9,]+)/);
           if (m) viewCount = parseInt(m[1].replace(/,/g, ''));
+
+          let answerCount = 0;
+          const answerPatterns = [/(\d+)개\s*답변/, /답변\s*(\d+)/, /(\d+)\s*답변/];
+          for (const p of answerPatterns) {
+            const am = text.match(p);
+            if (am) { answerCount = parseInt(am[1]); break; }
+          }
+
+          let likeCount = 0;
+          const likeMatch = text.match(/좋아요[:\s]*(\d+)|공감[:\s]*(\d+)|UP\s*(\d+)/i);
+          if (likeMatch) likeCount = parseInt(likeMatch[1] || likeMatch[2] || likeMatch[3] || '0');
+
+          // 채택 판정: 답변 0개면 채택 물리적 불가. 정확 마커(채택됨 텍스트/배지)만 신뢰.
+          // ([class*="adopt"]·.adopted·'채택 답변' 버튼은 모든 페이지에 존재 → 오탐, 디버그로 확인)
+          const isAdopted =
+            answerCount > 0 &&
+            (text.includes('채택됨') || document.querySelector('.badge_adopted') !== null);
+
+          const externalLinks = Array.from(document.querySelectorAll('a[href]'))
+            .map(a => (a as HTMLAnchorElement).href || '')
+            .filter(href => /^https?:\/\//i.test(href) && !/naver\.com|naver\.me|nid\.naver/i.test(href));
+          const answerTexts = Array.from(document.querySelectorAll('.answer-content__item, .se-main-container, .endContentsText, [class*="answer"]'))
+            .map(el => (el as HTMLElement).innerText || '')
+            .filter(t => t.trim().length > 30);
+          const avgAnswerLength = answerTexts.length
+            ? Math.round(answerTexts.reduce((sum, t) => sum + t.trim().length, 0) / answerTexts.length)
+            : 0;
+          const answerQualityScore = answerCount === 0 ? 0 : Math.min(100, Math.max(25, Math.round(avgAnswerLength / 8)));
+          const isExpertOnly = /전문가 답변|엑스퍼트|expert|의사|변호사|세무사|노무사/i.test(text);
 
           // 정확한 hoursAgo 재측정
           let hoursAgo = 999;
@@ -1133,7 +1387,17 @@ export async function getRisingQuestions(): Promise<GoldenHuntResult> {
             const mm = text.match(/(\d+)\s*일\s*전/);
             if (mm) hoursAgo = parseInt(mm[1]) * 24;
           }
-          return { viewCount, hoursAgoFromDetail: hoursAgo };
+          return {
+            viewCount,
+            answerCount,
+            likeCount,
+            hoursAgoFromDetail: hoursAgo,
+            isAdopted,
+            hasExternalLinks: externalLinks.length > 0,
+            externalLinkCount: externalLinks.length,
+            answerQualityScore,
+            isExpertOnly
+          };
         });
 
         risingMetrics.detailSuccess++;
@@ -1144,8 +1408,15 @@ export async function getRisingQuestions(): Promise<GoldenHuntResult> {
         withViewCount.push({
           ...q,
           viewCount: detail.viewCount || 0,
+          answerCount: detail.answerCount || q.answerCount || 0,
+          likeCount: detail.likeCount || q.likeCount || 0,
           hoursAgo: finalHoursAgo,
-          viewsPerHour: Math.round(viewsPerHour)
+          viewsPerHour: Math.round(viewsPerHour),
+          isAdopted: detail.isAdopted || false,
+          hasExternalLinks: detail.hasExternalLinks || false,
+          externalLinkCount: detail.externalLinkCount || 0,
+          answerQualityScore: detail.answerQualityScore || 0,
+          isExpertOnly: detail.isExpertOnly || false,
         });
 
         if ((i + 1) % 5 === 0) console.log(`[${risingSessionId}] ${i + 1}/${topN.length} 완료`);
@@ -1163,23 +1434,23 @@ export async function getRisingQuestions(): Promise<GoldenHuntResult> {
     
     // Step 3: 급상승 정렬 (시간당 조회수 높은 순)
     const risingQuestions = withViewCount
-      .filter(q => q.viewCount >= 10) // 최소 10 조회
-      .sort((a, b) => b.viewsPerHour - a.viewsPerHour)
-      .slice(0, 20);
+      .filter(q => q.viewCount >= 1 && !q.isAdopted)
+      .sort((a, b) => {
+        const ah = buildHoneyFields(a, buildKinSignals(a, { isMainExposed: false })).honeyPotScore;
+        const bh = buildHoneyFields(b, buildKinSignals(b, { isMainExposed: false })).honeyPotScore;
+        return bh - ah;
+      })
+      .slice(0, 45);
     
     console.log(`\n[STEP 3] 🔥 급상승 ${risingQuestions.length}개!`);
     
     // 결과 포맷팅 — Phase 1 통합 scoring
     const goldenQuestions: GoldenQuestion[] = risingQuestions.map((q, idx) => {
-      const signals: KinSignals = {
-        viewCount: Number(q.viewCount) || 0,
-        answerCount: Number(q.answerCount) || 0,
-        hoursAgo: Number(q.hoursAgo) || 999,
-        likeCount: 0, // 급상승 탭은 좋아요 미수집
-        isAdopted: false,
+      const signals = buildKinSignals(q, {
+        isMainExposed: false,
         viewsPerHour: Number(q.viewsPerHour) || 0,
-      };
-      const { score, grade } = gradeQuestion(signals);
+      });
+      const honey = buildHoneyFields(q, signals);
 
       let timeText = '방금';
       if (q.hoursAgo > 0 && q.hoursAgo < 24) timeText = `${q.hoursAgo}시간 전`;
@@ -1191,20 +1462,21 @@ export async function getRisingQuestions(): Promise<GoldenHuntResult> {
         category: q.category,
         viewCount: q.viewCount,
         answerCount: q.answerCount || 0,
-        likeCount: 0,
+        likeCount: Number(q.likeCount) || 0,
         publishedDate: timeText,
         daysAgo: 0,
-        hasExternalLinks: false,
-        externalLinkCount: 0,
+        hasExternalLinks: Boolean(q.hasExternalLinks),
+        externalLinkCount: Number(q.externalLinkCount) || 0,
         linkTypes: [],
-        isAdopted: false,
-        isExpertOnly: false,
-        goldenScore: score,
-        goldenGrade: grade,
-        goldenReason: `🔥 ${timeText} | 조회 ${q.viewCount.toLocaleString()} | ${q.viewsPerHour}회/시간`,
+        isAdopted: Boolean(q.isAdopted),
+        isExpertOnly: Boolean(q.isExpertOnly),
+        goldenScore: honey.honeyPotScore,
+        goldenGrade: honey.honeyPotGrade,
+        goldenReason: honey.honeyPotReason || `🔥 ${timeText} | 조회 ${q.viewCount.toLocaleString()} | ${q.viewsPerHour}회/시간`,
+        ...honey,
         estimatedDailyTraffic: q.viewsPerHour >= 50 ? '🔥 폭발' : '📈 상승',
-        trafficPotential: q.viewsPerHour >= 50 ? 'very_high' : 'high',
-        recommendAction: `🚀 시간당 ${q.viewsPerHour}회 급상승! 지금 답변!`,
+        trafficPotential: honey.externalTrafficPotential,
+        recommendAction: `🚀 시간당 ${q.viewsPerHour}회 급상승! ${honey.answerAngle}`,
         urgency: '🔥 지금 바로!',
         priority: 100 - idx,
         questionAge: { 
@@ -1244,7 +1516,9 @@ export async function getRisingQuestions(): Promise<GoldenHuntResult> {
         avgViewCount: goldenQuestions.length > 0 
           ? Math.round(goldenQuestions.reduce((s, q) => s + q.viewCount, 0) / goldenQuestions.length)
           : 0,
-        avgAnswerCount: 0
+        avgAnswerCount: goldenQuestions.length > 0
+          ? Math.round(goldenQuestions.reduce((s, q) => s + q.answerCount, 0) / goldenQuestions.length * 10) / 10
+          : 0
       },
       categories: [...new Set(goldenQuestions.map(q => q.category))],
       timestamp: new Date().toISOString(),
@@ -1253,7 +1527,7 @@ export async function getRisingQuestions(): Promise<GoldenHuntResult> {
     
   } catch (error: any) {
     console.error('[ERROR] ❌ 치명적 오류:', error.message);
-    await page.close();
+    await page.close().catch(() => {});
     
     return {
       goldenQuestions: [],
@@ -1262,6 +1536,8 @@ export async function getRisingQuestions(): Promise<GoldenHuntResult> {
       timestamp: new Date().toISOString(),
       crawlTime: Math.round((Date.now() - startTime) / 1000)
     };
+  } finally {
+    await releaseBrowser(browser);
   }
 }
 
@@ -1273,9 +1549,9 @@ export async function fullHunt(): Promise<GoldenHuntResult> {
   const startTime = Date.now();
   
   console.log('\n' + '═'.repeat(60));
-  console.log('💎 [v6.0] 숨은 꿀질문 탐지 (고속)');
+  console.log('💎 [v7.0] 최신 미노출 꿀질문 탐지');
   console.log('═'.repeat(60));
-  console.log('📊 최신 질문 중 메인 30위권 밖 숨은 인기글 발굴!');
+  console.log('📊 최근 7일 + 메인 미노출 + 조회 반응 + 답변 3개 이하만 발굴');
   console.log('═'.repeat(60) + '\n');
   
   const browser = await getBrowser();
@@ -1286,6 +1562,7 @@ export async function fullHunt(): Promise<GoldenHuntResult> {
     console.log('[STEP 1] 📋 메인 "많이 본 Q&A" 수집 (제외 목록)...\n');
     
     const mainPopularUrls = new Set<string>();
+    const mainPopularIds = new Set<string>();
     
     console.log('[CRAWL] 🔗 https://kin.naver.com/');
     await page.goto('https://kin.naver.com/', { 
@@ -1317,76 +1594,93 @@ export async function fullHunt(): Promise<GoldenHuntResult> {
       return [...new Set(urls)];
     });
     
-    mainUrls.forEach(url => mainPopularUrls.add(url));
-    console.log(`[STEP 1] 🚫 제외 목록: ${mainPopularUrls.size}개`);
+    mainUrls.forEach(url => {
+      mainPopularUrls.add(url);
+      const docId = extractDocIdFromUrl(url);
+      if (docId) mainPopularIds.add(docId);
+    });
+    console.log(`[STEP 1] 🚫 제외 목록: ${mainPopularUrls.size}개 / docId ${mainPopularIds.size}개`);
     
     // Step 2: 카테고리별 인기글 수집
     console.log('\n[STEP 2] 📋 카테고리별 숨은 인기글 수집...\n');
     
-    // 🔥 카테고리 5개 (빠르게!)
-    const categories = [
-      { name: 'IT/컴퓨터', dirId: '1' },
-      { name: '게임', dirId: '2' },
-      { name: '건강', dirId: '7' },
-      { name: '생활', dirId: '8' },
-      { name: '쇼핑', dirId: '4' },
-    ];
+    const categories = KIN_HONEY_CATEGORIES;
     
     const hiddenQuestions: any[] = [];
     
-    // 🔥 최신순 + 인기순 (빠르게!)
+    // 최신순을 중심으로 보되, 조회순은 최근 질문만 살아남도록 후단에서 강하게 필터링.
     for (const cat of categories) {
       for (const sortType of ['date', 'vcount']) {
-        const url = `https://kin.naver.com/qna/list.naver?dirId=${cat.dirId}&sort=${sortType}`;
-        
-        console.log(`[CRAWL] 🔗 ${cat.name} (${sortType === 'date' ? '최신' : '인기'})`);
-        
-        try {
-          await page.goto(url, { waitUntil: 'domcontentloaded', timeout: 10000 });
-          await new Promise(r => setTimeout(r, 500)); // 빠른 로딩
+        for (let pageNo = 1; pageNo <= LATEST_HONEY_PAGES; pageNo++) {
+          const url = `https://kin.naver.com/qna/list.naver?dirId=${cat.dirId}&sort=${sortType}&page=${pageNo}`;
           
-          const questions = await extractQuestionsFromPage(page, cat.name);
+          console.log(`[CRAWL] 🔗 ${cat.name} (${sortType === 'date' ? '최신' : '인기'}) p${pageNo}`);
           
-          let added = 0;
-          questions.forEach(q => {
-            if (!mainPopularUrls.has(q.url) && !hiddenQuestions.some(h => h.url === q.url)) {
-              hiddenQuestions.push(q);
-              added++;
-            }
-          });
-          
-          console.log(`  → 발견 ${questions.length}개, 숨은 꿀 ${added}개 추가`);
+          try {
+            await page.goto(url, { waitUntil: 'domcontentloaded', timeout: 6000 });
+            await new Promise(r => setTimeout(r, 300));
+            
+            const questions = await extractQuestionsFromPage(page, cat.name);
+            
+            let added = 0;
+            questions.forEach(q => {
+              const docId = q.questionId || extractDocIdFromUrl(q.url);
+              const isMainPopular = mainPopularUrls.has(q.url) || (docId && mainPopularIds.has(docId));
+              // 목록 hoursAgo 부정확(기본 999) → 상세 단계(line 1815)에서 재측정 후 7일 필터
+              if (
+                !isMainPopular &&
+                Number(q.answerCount || 0) <= 3 &&
+                !hiddenQuestions.some(h => h.url === q.url)
+              ) {
+                hiddenQuestions.push(q);
+                added++;
+              }
+            });
+            
+            console.log(`  → 발견 ${questions.length}개, 최신 미노출 ${added}개 추가`);
 
-        } catch (err: any) {
-          console.warn(`[KIN] fullHunt 카테고리 크롤 실패 | cat=${cat.name} | sort=${sortType} | url=${url} | error=${err?.message ?? err}`);
+          } catch (err: any) {
+            console.warn(`[KIN] fullHunt 카테고리 크롤 실패 | cat=${cat.name} | sort=${sortType} | page=${pageNo} | url=${url} | error=${err?.message ?? err}`);
+          }
+
+          await new Promise(r => setTimeout(r, 80));
         }
-
-        await new Promise(r => setTimeout(r, 100)); // 초고속
       }
     }
     
     console.log(`\n[STEP 2] ✅ 총 ${hiddenQuestions.length}개 수집!`);
     
-    // Step 3: 🔥 조회순 정렬 우선! (점수는 조회수 확인 후 계산)
+    // Step 3: 최신/답변공백/검색의도 우선 선별
     console.log('\n[STEP 3] 📊 질문 선별...\n');
     
-    // 🔥 랜덤하게 섞어서 다양한 카테고리 질문 선택 (조회수는 상세에서 확인)
-    const shuffled = [...hiddenQuestions].sort(() => Math.random() - 0.5);
-    const scoredQuestions = shuffled.slice(0, 50);
+    const scoredQuestions = [...hiddenQuestions]
+      .map((q, idx) => ({
+        ...q,
+        seedOpportunity:
+          scoreQuestionIntent(q.title || '') +
+          (Number(q.answerCount) === 0 ? 35 : Number(q.answerCount) <= 2 ? 22 : 0) +
+          (Number(q.hoursAgo) <= 24 ? 18 : Number(q.hoursAgo) <= 168 ? 10 : 0) -
+          idx * 0.01,
+      }))
+      .sort((a, b) =>
+        b.seedOpportunity - a.seedOpportunity ||
+        (Number(a.answerCount) || 0) - (Number(b.answerCount) || 0) ||
+        String(a.title || '').localeCompare(String(b.title || ''), 'ko')
+      )
+      .slice(0, LATEST_HONEY_DETAIL_LIMIT);
     
     console.log(`  📊 총 ${hiddenQuestions.length}개 중 ${scoredQuestions.length}개 선별`);
     
-    // Step 4: 상위 30개에 대해 상세 페이지에서 실제 조회수 가져오기
+    // Step 4: 상세 페이지에서 실제 조회수/답변/채택/링크/날짜 확인
     console.log('\n[STEP 4] 🔍 상세 페이지에서 조회수 수집...\n');
     
     const questionsWithViewCount: any[] = [];
-    const topN = scoredQuestions.slice(0, 15); // 빠르게 15개
+    let __probeGoto = 0, __probeReach = 0;
+    const topN = scoredQuestions.slice(0, LATEST_HONEY_DETAIL_LIMIT);
     
-    // 🔥 병렬 처리를 위한 새 페이지 생성 (createPage 설정 사용)
-    const detailPage = await browser.newPage();
-    await detailPage.setViewport({ width: 1920, height: 1080 });
-    await detailPage.setUserAgent('Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/122.0.0.0 Safari/537.36');
-    
+    // 🔥 상세 페이지: 검증된 createPage 헬퍼 사용 (patchright 환경에서 수동 setRequestInterception 은
+    //   "should be called before navigation start" 로 goto 전량 실패 → createPage 가 goto-safe 경로)
+    const detailPage = await createPage(browser);
     for (let i = 0; i < topN.length; i++) {
       const q = topN[i];
       
@@ -1395,14 +1689,15 @@ export async function fullHunt(): Promise<GoldenHuntResult> {
         // 🔥 빠른 로딩 (domcontentloaded + 짧은 대기)
         await detailPage.goto(q.url, { 
           waitUntil: 'domcontentloaded', 
-          timeout: 10000 
+          timeout: 6500 
         });
-        await new Promise(r => setTimeout(r, 500)); // 빠른 대기
-        
+        await new Promise(r => setTimeout(r, 300)); // 빠른 대기
+        __probeGoto++;
+
         const detail = await detailPage.evaluate(() => {
           const text = document.body.innerText || '';
           const html = document.body.innerHTML || '';
-          
+
           // 🔥 조회수 추출 - 더 넓은 패턴
           let viewCount = 0;
           const viewPatterns = [
@@ -1439,14 +1734,41 @@ export async function fullHunt(): Promise<GoldenHuntResult> {
             }
           }
           
-          // 🔥 채택 여부 확인 - 채택 배지 또는 텍스트
-          const isAdopted = 
-            html.includes('채택') && (html.includes('채택됨') || html.includes('채택 답변') || html.includes('class="badge_adopted"')) ||
-            text.includes('채택됨') || 
-            text.includes('지식인의 채택') ||
-            document.querySelector('.badge_adopted, .adopted, [class*="adopt"]') !== null;
+          // 🔥 채택 여부 확인: 답변 0개면 채택 물리적 불가. 정확 마커만 신뢰 (오탐 방지)
+          const isAdopted =
+            answerCount > 0 &&
+            (text.includes('채택됨') || document.querySelector('.badge_adopted') !== null);
+
+          const externalLinks = Array.from(document.querySelectorAll('a[href]'))
+            .map(a => (a as HTMLAnchorElement).href || '')
+            .filter(href => /^https?:\/\//i.test(href) && !/naver\.com|naver\.me|nid\.naver/i.test(href));
+          const answerTexts = Array.from(document.querySelectorAll('.answer-content__item, .se-main-container, .endContentsText, [class*="answer"]'))
+            .map(el => (el as HTMLElement).innerText || '')
+            .filter(t => t.trim().length > 30);
+          const avgAnswerLength = answerTexts.length
+            ? Math.round(answerTexts.reduce((sum, t) => sum + t.trim().length, 0) / answerTexts.length)
+            : 0;
+          const answerQualityScore = answerCount === 0 ? 0 : Math.min(100, Math.max(25, Math.round(avgAnswerLength / 8)));
+          const isExpertOnly = /전문가 답변|엑스퍼트|expert|의사|변호사|세무사|노무사/i.test(text);
+
+          let hoursAgoFromDetail = 999;
+          if (text.includes('방금')) hoursAgoFromDetail = 0;
+          else if (text.includes('분 전')) {
+            const mm = text.match(/(\d+)\s*분\s*전/);
+            if (mm) hoursAgoFromDetail = Math.max(1, Math.ceil(parseInt(mm[1]) / 60));
+          } else if (text.includes('시간 전')) {
+            const mm = text.match(/(\d+)\s*시간\s*전/);
+            if (mm) hoursAgoFromDetail = parseInt(mm[1]);
+          } else if (text.includes('일 전')) {
+            const mm = text.match(/(\d+)\s*일\s*전/);
+            if (mm) hoursAgoFromDetail = parseInt(mm[1]) * 24;
+          }
           
           // 🔥 등록 날짜 추출 (YYYY.MM.DD 형식)
+          // ⚠️ 버그픽스: 상대시간(분/시간/일 전)이 있으면 그게 authoritative.
+          //   절대날짜 정규식은 페이지 공통요소(무관한 날짜)를 오탐 → 신선 질문을 "오래됨" 처리하던 원인.
+          //   상대시간을 못 찾은 경우(hoursAgoFromDetail===999)에만 절대날짜로 보강.
+          const relativeTimeFound = hoursAgoFromDetail < 999;
           let publishedDate = '';
           let yearOld = false;
           const datePatterns = [
@@ -1460,37 +1782,76 @@ export async function fullHunt(): Promise<GoldenHuntResult> {
               const month = parseInt(m[2]);
               const day = parseInt(m[3]);
               publishedDate = `${year}.${String(month).padStart(2,'0')}.${String(day).padStart(2,'0')}`;
-              
-              // 🔥 1년 이상 지난 질문인지 확인
+
+              // 1년 이상 지난 질문인지 확인 (절대날짜 기준)
               const questionDate = new Date(year, month - 1, day);
               const now = new Date();
               const diffDays = Math.floor((now.getTime() - questionDate.getTime()) / (1000 * 60 * 60 * 24));
-              yearOld = diffDays > 365;
+              // 상대시간이 있으면 hoursAgo 는 덮어쓰지 않음 (절대날짜 오탐 방지)
+              if (!relativeTimeFound) {
+                yearOld = diffDays > 365;
+                hoursAgoFromDetail = diffDays * 24;
+              }
               break;
             }
           }
           
-          return { viewCount, likeCount, answerCount, isAdopted, publishedDate, yearOld };
+          return {
+            viewCount,
+            likeCount,
+            answerCount,
+            isAdopted,
+            publishedDate,
+            yearOld,
+            hasExternalLinks: externalLinks.length > 0,
+            externalLinkCount: externalLinks.length,
+            answerQualityScore,
+            isExpertOnly,
+            hoursAgoFromDetail
+          };
         });
         
-        // 🔥 채택된 질문이나 1년 이상 된 질문은 제외!
+        // 채택/오래됨/고답변은 꿀통 후보가 아니므로 상세 확인 직후 탈락.
         if (detail.isAdopted) {
-          console.log(`  ⚠️ 채택됨: ${q.title.substring(0, 30)}...`);
+          console.log(`  ⚠️ 채택됨: ${String(q.title || '').substring(0, 30)}...`);
           continue;
         }
-        if (detail.yearOld) {
-          console.log(`  ⚠️ 오래됨 (${detail.publishedDate}): ${q.title.substring(0, 30)}...`);
+        // 날짜 게이트: 절대날짜로 1년+ 확정(yearOld)된 것, 또는 상대시간이 명확히 파싱(<999)되고 7일 초과한 것만 탈락.
+        // 파싱 실패(999)는 신선으로 간주 (상세 페이지에 상대시간 텍스트가 없는 경우 다수 → rising 과 동일 정책)
+        if (detail.yearOld || (detail.hoursAgoFromDetail < 999 && detail.hoursAgoFromDetail > LATEST_HONEY_MAX_HOURS)) {
+          console.log(`  ⚠️ 오래됨 (${detail.publishedDate}): ${String(q.title || '').substring(0, 30)}...`);
+          continue;
+        }
+        if ((detail.answerCount || q.answerCount || 0) > 3) {
+          console.log(`  ⚠️ 답변 과다 (${detail.answerCount}): ${String(q.title || '').substring(0, 30)}...`);
+          continue;
+        }
+        if ((detail.externalLinkCount || 0) >= 2) {
+          console.log(`  ⚠️ 외부링크 선점 (${detail.externalLinkCount}): ${String(q.title || '').substring(0, 30)}...`);
           continue;
         }
         
+        const baseHiddenScore = Number(q.hiddenScore) || Number(q.seedOpportunity) || 0;
+        const rawListHoursAgo = Number(q.hoursAgo);
+        const finalHoursAgo = detail.hoursAgoFromDetail < 999
+          ? detail.hoursAgoFromDetail
+          : (Number.isFinite(rawListHoursAgo) ? rawListHoursAgo : 24); // 파싱 실패 시 신선(24h) 가정
+        const finalViewCount = detail.viewCount || 0;
+        const finalViewsPerHour = Math.round((finalViewCount / Math.max(1, finalHoursAgo)) * 10) / 10;
         questionsWithViewCount.push({
           ...q,
-          viewCount: detail.viewCount || 0,
+          viewCount: finalViewCount,
           likeCount: detail.likeCount || q.likeCount || 0,
           answerCount: detail.answerCount || q.answerCount || 0,
+          hoursAgo: finalHoursAgo,
+          viewsPerHour: finalViewsPerHour,
           isAdopted: detail.isAdopted || false,
           publishedDate: detail.publishedDate || q.publishedDate || '',
-          hiddenScore: q.hiddenScore + (detail.viewCount >= 10000 ? 50 : detail.viewCount >= 1000 ? 30 : detail.viewCount >= 100 ? 10 : 0)
+          hasExternalLinks: detail.hasExternalLinks || false,
+          externalLinkCount: detail.externalLinkCount || 0,
+          answerQualityScore: detail.answerQualityScore || 0,
+          isExpertOnly: detail.isExpertOnly || false,
+          hiddenScore: baseHiddenScore + (detail.viewCount >= 10000 ? 50 : detail.viewCount >= 1000 ? 30 : detail.viewCount >= 100 ? 10 : 0)
         });
         
         
@@ -1499,16 +1860,16 @@ export async function fullHunt(): Promise<GoldenHuntResult> {
         }
         
       } catch (err: any) {
-        questionsWithViewCount.push(q);
+        console.warn(`[KIN] 최신 꿀질문 상세 실패 | url=${q.url} | error=${err?.message ?? err}`);
       }
-      
+
       await new Promise(r => setTimeout(r, 100)); // 빠른 전환
     }
-    
+
     await detailPage.close();
-    
+
     // 🔥 최종 필터링: 조회수 기반 + 실제 질문만
-    const navKeywords = ['로그인', 'Q&A', '교육', '학문', 'IT', '테크', '엔터테인먼트', 
+    const navKeywords = ['로그인', 'Q&A', '교육', '학문', 'IT', '테크', '엔터테인먼트',
       '예술', '사회', '정치', '스포츠', '레저', '생활', '문화', '경제', '금융', 
       '건강', '의료', '게임', '쇼핑', '여행', '지식iN', '네이버', '더보기', '질문하기'];
     
@@ -1517,8 +1878,7 @@ export async function fullHunt(): Promise<GoldenHuntResult> {
       const url = q.url || '';
       if (!url.includes('docId=')) return false;
       
-      // 🔥 숨은 꿀 = 조회수 20 이상 (최신 질문도 포함)
-      if (q.viewCount < 20) return false;
+      if (!isLatestHiddenHoneyCandidate(q)) return false;
       
       // 제목 필터
       const title = q.title || '';
@@ -1545,28 +1905,26 @@ export async function fullHunt(): Promise<GoldenHuntResult> {
     // 유효한 질문만 필터링
     const validQuestions = questionsWithViewCount.filter(isValidQuestion);
     
-    // 🔥 조회수 높은 순 정렬 (숨은 인기 질문 우선!)
-    validQuestions.sort((a, b) => b.viewCount - a.viewCount);
+    validQuestions.sort((a, b) =>
+      getLatestHiddenSortScore(b) - getLatestHiddenSortScore(a) ||
+      getViewsPerHour(b) - getViewsPerHour(a) ||
+      (Number(b.viewCount) || 0) - (Number(a.viewCount) || 0)
+    );
     
     console.log(`  ✅ 유효 질문: ${validQuestions.length}개`);
     
     await page.close();
     
-    const goldenQuestions: GoldenQuestion[] = validQuestions.slice(0, 30).map((q, idx) => {
+    const mappedQuestions: GoldenQuestion[] = validQuestions.map((q, idx) => {
       // Phase 1: 입력 단계 정규화 (NaN 방어 상향 이동)
       const safeViewCount = Number(q.viewCount) || 0;
       const safeAnswerCount = Number(q.answerCount) || 0;
       const safeLikeCount = Number(q.likeCount) || 0;
-      const safeHoursAgo = Number(q.hoursAgo) || 999;
+      const rawSafeHoursAgo = Number(q.hoursAgo);
+      const safeHoursAgo = Number.isFinite(rawSafeHoursAgo) ? rawSafeHoursAgo : 999;
 
-      // 통합 config로 scoring/grading
-      const { score: safeScore, grade } = gradeQuestion({
-        viewCount: safeViewCount,
-        answerCount: safeAnswerCount,
-        hoursAgo: safeHoursAgo,
-        likeCount: safeLikeCount,
-        isAdopted: Boolean(q.isAdopted),
-      });
+      const signals = buildKinSignals(q, { isMainExposed: false });
+      const honey = buildHoneyFields(q, signals);
       
       // 🔥 트래픽 표시 (조회수 기반)
       let trafficText = '';
@@ -1621,17 +1979,18 @@ export async function fullHunt(): Promise<GoldenHuntResult> {
         likeCount: safeLikeCount,
         publishedDate: displayDate,
         daysAgo: Math.floor(safeHoursAgo / 24),
-        hasExternalLinks: false,
-        externalLinkCount: 0,
+        hasExternalLinks: Boolean(q.hasExternalLinks),
+        externalLinkCount: Number(q.externalLinkCount) || 0,
         linkTypes: [],
         isAdopted: q.isAdopted || false,
-        isExpertOnly: false,
-        goldenScore: safeScore,
-        goldenGrade: grade as any,
-        goldenReason: reason,
+        isExpertOnly: Boolean(q.isExpertOnly),
+        goldenScore: honey.honeyPotScore,
+        goldenGrade: honey.honeyPotGrade,
+        goldenReason: honey.honeyPotReason || reason,
+        ...honey,
         estimatedDailyTraffic: safeViewCount >= 200 ? '높음' : safeViewCount >= 50 ? '보통' : '성장중',
-        trafficPotential: safeViewCount >= 200 ? 'high' : safeViewCount >= 50 ? 'medium' : 'low',
-        recommendAction: action,
+        trafficPotential: honey.externalTrafficPotential,
+        recommendAction: `${action} · ${honey.answerAngle}`,
         urgency: safeHoursAgo <= 24 ? '🔥 지금 바로!' : safeHoursAgo <= 72 ? '⏰ 오늘 중' : '📅 이번 주',
         priority: 100 - idx,
         questionAge: { 
@@ -1652,12 +2011,17 @@ export async function fullHunt(): Promise<GoldenHuntResult> {
         isRealData: true
       };
     });
+    // 후보 게이트(신선+무답변+조회반응)로 통과시키고 honeyPotScore 정렬로 품질 랭킹.
+    // 등급 S+ 게이트(score>=62)는 실측 점수 분포(최대~75)에 비해 과도 → 후보 게이트로 대체.
+    const goldenQuestions = mappedQuestions
+      .filter(q => isLatestHiddenHoneyCandidate(q))
+      .slice(0, 40);
     
     const crawlTime = Math.round((Date.now() - startTime) / 1000);
     
     console.log('\n' + '═'.repeat(60));
-    console.log('✅ 숨은 꿀질문 탐지 완료!');
-    console.log(`  메인 제외: ${mainPopularUrls.size}개 | 숨은 꿀: ${goldenQuestions.length}개 | ${crawlTime}초`);
+    console.log('✅ 최신 미노출 꿀질문 탐지 완료!');
+    console.log(`  메인 제외: ${mainPopularUrls.size}개 | 최신 꿀통: ${goldenQuestions.length}개 | ${crawlTime}초`);
     console.log('═'.repeat(60) + '\n');
     
     if (goldenQuestions.length > 0) {
@@ -1696,7 +2060,7 @@ export async function fullHunt(): Promise<GoldenHuntResult> {
     
   } catch (error: any) {
     console.error('[ERROR] ❌ 치명적 오류:', error.message);
-    await page.close();
+    await page.close().catch(() => {});
     
     return {
       goldenQuestions: [],
@@ -1705,6 +2069,8 @@ export async function fullHunt(): Promise<GoldenHuntResult> {
       timestamp: new Date().toISOString(),
       crawlTime: Math.round((Date.now() - startTime) / 1000)
     };
+  } finally {
+    await releaseBrowser(browser);
   }
 }
 
@@ -1725,15 +2091,9 @@ export async function getTrendingHiddenQuestions(): Promise<GoldenHuntResult> {
   const page = await createPage(browser);
   
   const mainPopularUrls = new Set<string>();
-  
-  // 카테고리 5개
-  const categories = [
-    { name: 'IT/컴퓨터', dirId: '1' },
-    { name: '게임', dirId: '2' },
-    { name: '건강', dirId: '7' },
-    { name: '생활', dirId: '8' },
-    { name: '쇼핑', dirId: '4' },
-  ];
+  const mainPopularIds = new Set<string>();
+
+  const categories = KIN_HONEY_CATEGORIES; // 풀 확장: 1개(전체)→6개 카테고리
   
   try {
     // Step 1: 메인 페이지 제외 목록
@@ -1753,8 +2113,12 @@ export async function getTrendingHiddenQuestions(): Promise<GoldenHuntResult> {
       return [...new Set(urls)];
     });
     
-    mainUrls.forEach(url => mainPopularUrls.add(url));
-    console.log(`[STEP 1] 🚫 제외 목록: ${mainPopularUrls.size}개\n`);
+    mainUrls.forEach(url => {
+      mainPopularUrls.add(url);
+      const docId = extractDocIdFromUrl(url);
+      if (docId) mainPopularIds.add(docId);
+    });
+    console.log(`[STEP 1] 🚫 제외 목록: ${mainPopularUrls.size}개 / docId ${mainPopularIds.size}개\n`);
     
     // Step 2: 최신순으로 카테고리 수집 (최신 질문 위주)
     console.log('[STEP 2] 📋 최신 질문 수집...\n');
@@ -1762,29 +2126,38 @@ export async function getTrendingHiddenQuestions(): Promise<GoldenHuntResult> {
     const recentQuestions: any[] = [];
     
     for (const cat of categories) {
-      const url = `https://kin.naver.com/qna/list.naver?dirId=${cat.dirId}&sort=date`;
-      console.log(`[CRAWL] 🔗 ${cat.name} (최신순)`);
-      
-      try {
-        await page.goto(url, { waitUntil: 'domcontentloaded', timeout: 10000 });
-        await new Promise(r => setTimeout(r, 500));
+      for (let pageNo = 1; pageNo <= LATEST_HONEY_PAGES; pageNo++) {
+        const url = `https://kin.naver.com/qna/list.naver?dirId=${cat.dirId}&sort=date&page=${pageNo}`;
+        console.log(`[CRAWL] 🔗 ${cat.name} (최신순) p${pageNo}`);
         
-        const questions = await extractQuestionsFromPage(page, cat.name);
-        
-        // 🔥 7일 이내 질문만 필터
-        const recent = questions.filter(q => {
-          if (mainPopularUrls.has(q.url)) return false;
-          return q.hoursAgo <= 168; // 7일 = 168시간
-        });
-        
-        recentQuestions.push(...recent);
-        console.log(`  → ${questions.length}개 중 7일 이내: ${recent.length}개`);
+        try {
+          await page.goto(url, { waitUntil: 'domcontentloaded', timeout: 6000 });
+          await new Promise(r => setTimeout(r, 300));
+          
+          const questions = await extractQuestionsFromPage(page, cat.name);
+          
+          // 최근 7일, 메인 미노출, 답변 3개 이하만 상세 검증으로 보냄.
+          const recent = questions.filter(q => {
+            const docId = q.questionId || extractDocIdFromUrl(q.url);
+            if (mainPopularUrls.has(q.url) || (docId && mainPopularIds.has(docId))) return false;
+            if ((Number(q.answerCount) || 0) > 3) return false;
+            // 목록 hoursAgo 부정확 → 상세 단계(finalHoursAgo, line 2259)에서 7일 필터
+            return true;
+          });
+          
+          recent.forEach(q => {
+            if (!recentQuestions.some(existing => existing.url === q.url)) {
+              recentQuestions.push(q);
+            }
+          });
+          console.log(`  → ${questions.length}개 중 최신 미노출: ${recent.length}개`);
 
-      } catch (err: any) {
-        console.warn(`[KIN] getTrendingHidden 카테고리 실패 | cat=${cat.name} | error=${err?.message ?? err}`);
+        } catch (err: any) {
+          console.warn(`[KIN] getTrendingHidden 카테고리 실패 | cat=${cat.name} | page=${pageNo} | error=${err?.message ?? err}`);
+        }
+        
+        await new Promise(r => setTimeout(r, 80));
       }
-      
-      await new Promise(r => setTimeout(r, 100));
     }
     
     console.log(`\n[STEP 2] ✅ 총 ${recentQuestions.length}개 최신 질문!\n`);
@@ -1800,37 +2173,114 @@ export async function getTrendingHiddenQuestions(): Promise<GoldenHuntResult> {
       };
     }
     
-    // Step 3: 상세 페이지에서 조회수 확인 (상위 15개)
+    // Step 3: 상세 페이지에서 조회수/답변/채택/링크 확인
     console.log('[STEP 3] 🔍 조회수 확인...\n');
     
-    const shuffled = [...recentQuestions].sort(() => Math.random() - 0.5);
-    const topN = shuffled.slice(0, 15);
+    const topN = [...recentQuestions]
+      .sort((a, b) =>
+        (Number(a.answerCount) || 0) - (Number(b.answerCount) || 0) ||
+        (Number(a.hoursAgo) || 999) - (Number(b.hoursAgo) || 999) ||
+        scoreQuestionIntent(String(b.title || '')) - scoreQuestionIntent(String(a.title || ''))
+      )
+      .slice(0, LATEST_HONEY_DETAIL_LIMIT);
     const withViewCount: any[] = [];
-    
-    const detailPage = await browser.newPage();
-    await detailPage.setViewport({ width: 1920, height: 1080 });
+
+    // 상세 페이지: 검증된 createPage 헬퍼 사용 (patchright goto-safe)
+    const detailPage = await createPage(browser);
     
     for (let i = 0; i < topN.length; i++) {
       const q = topN[i];
       
       try {
-        await detailPage.goto(q.url, { waitUntil: 'domcontentloaded', timeout: 8000 });
-        await new Promise(r => setTimeout(r, 400));
+        await detailPage.goto(q.url, { waitUntil: 'domcontentloaded', timeout: 5500 });
+        await new Promise(r => setTimeout(r, 250));
         
         const detail = await detailPage.evaluate(() => {
           const text = document.body.innerText || '';
+          const html = document.body.innerHTML || '';
           let viewCount = 0;
           const m = text.match(/조회[수]?\s*[:\s]*([0-9,]+)/);
           if (m) viewCount = parseInt(m[1].replace(/,/g, ''));
-          return { viewCount };
+          let answerCount = 0;
+          const answerPatterns = [/(\d+)개\s*답변/, /답변\s*(\d+)/, /(\d+)\s*답변/];
+          for (const p of answerPatterns) {
+            const am = text.match(p);
+            if (am) { answerCount = parseInt(am[1]); break; }
+          }
+          let likeCount = 0;
+          const likeMatch = text.match(/좋아요[:\s]*(\d+)|공감[:\s]*(\d+)|UP\s*(\d+)/i);
+          if (likeMatch) likeCount = parseInt(likeMatch[1] || likeMatch[2] || likeMatch[3] || '0');
+          // 채택 판정: 답변 0개면 채택 물리적 불가. 정확 마커(채택됨 텍스트/배지)만 신뢰.
+          // ([class*="adopt"]·.adopted·'채택 답변' 버튼은 모든 페이지에 존재 → 오탐, 디버그로 확인)
+          const isAdopted =
+            answerCount > 0 &&
+            (text.includes('채택됨') || document.querySelector('.badge_adopted') !== null);
+          const externalLinks = Array.from(document.querySelectorAll('a[href]'))
+            .map(a => (a as HTMLAnchorElement).href || '')
+            .filter(href => /^https?:\/\//i.test(href) && !/naver\.com|naver\.me|nid\.naver/i.test(href));
+          const answerTexts = Array.from(document.querySelectorAll('.answer-content__item, .se-main-container, .endContentsText, [class*="answer"]'))
+            .map(el => (el as HTMLElement).innerText || '')
+            .filter(t => t.trim().length > 30);
+          const avgAnswerLength = answerTexts.length
+            ? Math.round(answerTexts.reduce((sum, t) => sum + t.trim().length, 0) / answerTexts.length)
+            : 0;
+          const answerQualityScore = answerCount === 0 ? 0 : Math.min(100, Math.max(25, Math.round(avgAnswerLength / 8)));
+          const isExpertOnly = /전문가 답변|엑스퍼트|expert|의사|변호사|세무사|노무사/i.test(text);
+          let hoursAgoFromDetail = 999;
+          if (text.includes('방금')) hoursAgoFromDetail = 0;
+          else if (text.includes('분 전')) {
+            const mm = text.match(/(\d+)\s*분\s*전/);
+            if (mm) hoursAgoFromDetail = Math.max(1, Math.ceil(parseInt(mm[1]) / 60));
+          } else if (text.includes('시간 전')) {
+            const mm = text.match(/(\d+)\s*시간\s*전/);
+            if (mm) hoursAgoFromDetail = parseInt(mm[1]);
+          } else if (text.includes('일 전')) {
+            const mm = text.match(/(\d+)\s*일\s*전/);
+            if (mm) hoursAgoFromDetail = parseInt(mm[1]) * 24;
+          }
+          return {
+            viewCount,
+            answerCount,
+            likeCount,
+            isAdopted,
+            hasExternalLinks: externalLinks.length > 0,
+            externalLinkCount: externalLinks.length,
+            answerQualityScore,
+            isExpertOnly,
+            hoursAgoFromDetail
+          };
         });
+
+        if (detail.isAdopted || detail.isExpertOnly) continue;
+        if ((detail.answerCount || q.answerCount || 0) > 3) continue;
+        if ((detail.externalLinkCount || 0) >= 2) continue;
+        const rawListHoursAgo = Number(q.hoursAgo);
+        const finalHoursAgo = detail.hoursAgoFromDetail < 999
+          ? detail.hoursAgoFromDetail
+          : (Number.isFinite(rawListHoursAgo) ? rawListHoursAgo : 24); // 파싱 실패 시 신선(24h) 가정
+        // 파싱 실패(24 fallback)는 통과, 명확히 7일 초과한 것만 탈락
+        if (detail.hoursAgoFromDetail < 999 && finalHoursAgo > LATEST_HONEY_MAX_HOURS) continue;
+        const finalViewCount = detail.viewCount || 0;
+        const finalViewsPerHour = Math.round((finalViewCount / Math.max(1, finalHoursAgo)) * 10) / 10;
         
-        withViewCount.push({ ...q, viewCount: detail.viewCount || 0 });
+        withViewCount.push({
+          ...q,
+          viewCount: finalViewCount,
+          answerCount: detail.answerCount || q.answerCount || 0,
+          likeCount: detail.likeCount || q.likeCount || 0,
+          hoursAgo: finalHoursAgo,
+          viewsPerHour: finalViewsPerHour,
+          isAdopted: detail.isAdopted || false,
+          hasExternalLinks: detail.hasExternalLinks || false,
+          externalLinkCount: detail.externalLinkCount || 0,
+          answerQualityScore: detail.answerQualityScore || 0,
+          isExpertOnly: detail.isExpertOnly || false,
+        });
         
         if ((i + 1) % 5 === 0) console.log(`  📊 ${i + 1}/${topN.length} 완료...`);
         
       } catch (err) {
-        withViewCount.push(q);
+        console.warn(`[KIN] 지금 뜨는 빈자리 상세 실패 | url=${q.url} | error=${(err as any)?.message ?? err}`);
       }
       
       await new Promise(r => setTimeout(r, 100));
@@ -1838,21 +2288,22 @@ export async function getTrendingHiddenQuestions(): Promise<GoldenHuntResult> {
     
     await detailPage.close();
     await page.close();
-    
-    // Step 4: 결과 필터링 (조회수 50 이상 + 최근 7일)
+
+    // Step 4: 최신/미노출/저답변/조회반응 후보만 최종 통과
     const validQuestions = withViewCount
-      .filter(q => q.viewCount >= 50 && q.url.includes('docId='))
-      .sort((a, b) => b.viewCount - a.viewCount);
+      .filter(q => isLatestHiddenHoneyCandidate(q))
+      .sort((a, b) =>
+        getLatestHiddenSortScore(b) - getLatestHiddenSortScore(a) ||
+        getViewsPerHour(b) - getViewsPerHour(a) ||
+        (Number(b.viewCount) || 0) - (Number(a.viewCount) || 0)
+      );
     
     console.log(`\n  ✅ 지금 뜨는 숨은 질문: ${validQuestions.length}개\n`);
     
     // 결과 생성
-    const goldenQuestions: GoldenQuestion[] = validQuestions.slice(0, 10).map((q, idx) => {
-      let grade: 'SSS' | 'SS' | 'S' | 'A' | 'B' | 'C' = 'B';
-      if (q.viewCount >= 1000 && q.answerCount === 0) grade = 'SS';
-      else if (q.viewCount >= 500 && q.answerCount <= 1) grade = 'S';
-      else if (q.viewCount >= 200) grade = 'A';
-      
+    const mappedQuestions: GoldenQuestion[] = validQuestions.map((q, idx) => {
+      const signals = buildKinSignals(q, { isMainExposed: false });
+      const honey = buildHoneyFields(q, signals);
       const daysAgo = Math.floor(q.hoursAgo / 24);
       const timeText = daysAgo === 0 ? '오늘' : `${daysAgo}일 전`;
       
@@ -1866,17 +2317,18 @@ export async function getTrendingHiddenQuestions(): Promise<GoldenHuntResult> {
         likeCount: q.likeCount || 0,
         publishedDate: timeText,
         daysAgo,
-        hasExternalLinks: false,
-        externalLinkCount: 0,
+        hasExternalLinks: Boolean(q.hasExternalLinks),
+        externalLinkCount: Number(q.externalLinkCount) || 0,
         linkTypes: [],
-        isAdopted: false,
-        isExpertOnly: false,
-        goldenScore: q.viewCount,
-        goldenGrade: grade,
-        goldenReason: `🔥 ${timeText} | 조회 ${q.viewCount.toLocaleString()} | 답변 ${q.answerCount}`,
+        isAdopted: Boolean(q.isAdopted),
+        isExpertOnly: Boolean(q.isExpertOnly),
+        goldenScore: honey.honeyPotScore,
+        goldenGrade: honey.honeyPotGrade,
+        goldenReason: honey.honeyPotReason || `🔥 ${timeText} | 조회 ${q.viewCount.toLocaleString()} | 답변 ${q.answerCount}`,
+        ...honey,
         estimatedDailyTraffic: q.viewCount >= 500 ? '높음' : q.viewCount >= 100 ? '중간' : '보통',
-        trafficPotential: q.viewCount >= 500 ? 'high' : 'medium',
-        recommendAction: q.answerCount === 0 ? '🎯 첫 답변 기회!' : '📝 더 좋은 답변으로 경쟁!',
+        trafficPotential: honey.externalTrafficPotential,
+        recommendAction: q.answerCount === 0 ? `🎯 첫 답변 기회! ${honey.answerAngle}` : `📝 더 좋은 답변으로 경쟁! ${honey.answerAngle}`,
         urgency: daysAgo <= 1 ? '🔥 지금 바로!' : '⏰ 오늘 중',
         priority: 100 - idx,
         questionAge: {
@@ -1897,6 +2349,11 @@ export async function getTrendingHiddenQuestions(): Promise<GoldenHuntResult> {
         isRealData: true
       };
     });
+    // 후보 게이트(신선+무답변+조회반응)로 통과시키고 honeyPotScore 정렬로 품질 랭킹.
+    // 등급 S+ 게이트(score>=62)는 실측 점수 분포(최대~75)에 비해 과도 → 후보 게이트로 대체.
+    const goldenQuestions = mappedQuestions
+      .filter(q => isLatestHiddenHoneyCandidate(q))
+      .slice(0, 40);
     
     const crawlTime = Math.round((Date.now() - startTime) / 1000);
     
@@ -1909,13 +2366,15 @@ export async function getTrendingHiddenQuestions(): Promise<GoldenHuntResult> {
       stats: {
         totalCrawled: recentQuestions.length,
         goldenFound: goldenQuestions.length,
-        sssCount: 0,
+        sssCount: goldenQuestions.filter(q => q.goldenGrade === 'SSS').length,
         ssCount: goldenQuestions.filter(q => q.goldenGrade === 'SS').length,
         sCount: goldenQuestions.filter(q => q.goldenGrade === 'S').length,
         avgViewCount: goldenQuestions.length > 0
           ? Math.round(goldenQuestions.reduce((s, q) => s + q.viewCount, 0) / goldenQuestions.length)
           : 0,
-        avgAnswerCount: 0
+        avgAnswerCount: goldenQuestions.length > 0
+          ? Math.round(goldenQuestions.reduce((s, q) => s + q.answerCount, 0) / goldenQuestions.length * 10) / 10
+          : 0
       },
       categories: categories.map(c => c.name),
       timestamp: new Date().toISOString(),
@@ -1924,7 +2383,7 @@ export async function getTrendingHiddenQuestions(): Promise<GoldenHuntResult> {
     
   } catch (error: any) {
     console.error('[ERROR] ❌', error.message);
-    await page.close();
+    await page.close().catch(() => {});
     
     return {
       goldenQuestions: [],
@@ -1933,6 +2392,8 @@ export async function getTrendingHiddenQuestions(): Promise<GoldenHuntResult> {
       timestamp: new Date().toISOString(),
       crawlTime: Math.round((Date.now() - startTime) / 1000)
     };
+  } finally {
+    await releaseBrowser(browser);
   }
 }
 

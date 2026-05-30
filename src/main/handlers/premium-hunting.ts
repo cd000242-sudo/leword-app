@@ -1163,12 +1163,14 @@ export function setupPremiumHuntingHandlers(): void {
       excludeYmylHigh?: boolean;
       minInfoIntent?: number;
       minMonthlyRevenue?: number;
+      minApprovalScore?: number;
       requireRealData?: boolean;
       blueOceanOnly?: boolean;
       minBlueOceanRatio?: number;
-      sortBy?: 'value' | 'blueOcean' | 'revenue' | 'reachable';
+      sortBy?: 'approval' | 'value' | 'blueOcean' | 'revenue' | 'reachable' | 'intent' | 'volume';
       newbieMode?: boolean;
       excludeZeroClickHigh?: boolean;
+      excludeNonInformational?: boolean;
     }) => {
       try {
         // 라이선스 체크 (PRO와 동일)
@@ -1195,16 +1197,18 @@ export function setupPremiumHuntingHandlers(): void {
         const result = await huntAdsenseKeywords({
           category: options?.category || 'all',
           seedKeywords: options?.seedKeywords || [],
-          count: Math.min(Math.max(options?.count || 20, 5), 50),
+          count: Math.min(Math.max(options?.count || 30, 5), 80),
           excludeYmylHigh: options?.excludeYmylHigh === true,
-          minInfoIntent: typeof options?.minInfoIntent === 'number' ? options.minInfoIntent : 40,
-          minMonthlyRevenue: typeof options?.minMonthlyRevenue === 'number' ? options.minMonthlyRevenue : 5000,
+          minInfoIntent: typeof options?.minInfoIntent === 'number' ? options.minInfoIntent : 60,
+          minMonthlyRevenue: typeof options?.minMonthlyRevenue === 'number' ? options.minMonthlyRevenue : 0,
+          minApprovalScore: typeof options?.minApprovalScore === 'number' ? options.minApprovalScore : 70,
           requireRealData: options?.requireRealData !== false,
           blueOceanOnly: options?.blueOceanOnly === true,
           minBlueOceanRatio: typeof options?.minBlueOceanRatio === 'number' ? options.minBlueOceanRatio : undefined,
           sortBy: options?.sortBy,
           newbieMode: options?.newbieMode === true,
           excludeZeroClickHigh: options?.excludeZeroClickHigh === true,
+          excludeNonInformational: options?.excludeNonInformational === true,
         });
 
         const elapsed = ((Date.now() - tStart) / 1000).toFixed(1);
@@ -1391,7 +1395,7 @@ export function setupPremiumHuntingHandlers(): void {
         const clientSecret = env.naverClientSecret || process.env['NAVER_CLIENT_SECRET'] || '';
         if (!clientId || !clientSecret) return { success: false, error: 'Naver API 키 필요', seeds: [] };
 
-        const limit = Math.min(50, payload?.limit || 25);
+        const limit = Math.min(360, Math.max(1, payload?.limit || 25));
         const category = String(payload?.category || '').toLowerCase();
 
         // v2.42.65: 각 카테고리 root 8~12개로 균형 확대 (얇은 카테고리 보강)
@@ -1483,8 +1487,8 @@ export function setupPremiumHuntingHandlers(): void {
         // Depth 2: depth1 키워드를 다시 자동완성 (limit*3 미만일 때만)
         if (allExpanded.size < limit * 3) {
           const d1Array = Array.from(depth1Pool);
-          // depth1 중 최대 30개를 추가 시드로 사용 (API 호출 30회 * 5/batch = 6 batches)
-          const expandFrom = d1Array.slice(0, Math.min(30, d1Array.length));
+          // depth1 중 최대 60개를 추가 시드로 사용해 S+ 30개 후보 풀을 안정적으로 확보
+          const expandFrom = d1Array.slice(0, Math.min(60, d1Array.length));
           const d2Results = await expandBatch(expandFrom);
           for (const arr of d2Results) {
             for (const kw of arr) {
@@ -1753,10 +1757,31 @@ export function setupPremiumHuntingHandlers(): void {
                 }
               });
 
-              relatedKeywords = Array.from(keywordSet).slice(0, 50);
+              relatedKeywords = Array.from(keywordSet).slice(0, 120);
             }
           } catch (apiError) {
             console.warn('[GOLDEN-FROM-RELATED] API 호출 실패:', apiError);
+          }
+
+          // 🔑 검색광고 연관어(검색량 보장) 보강 — 블로그 제목 추출 시드는 sv<100 노이즈가 ~88%라
+          //   황금 후보(sv≥100)가 부족. 검색량 실측된 연관어를 앞세워 풀 품질을 끌어올린다.
+          try {
+            const searchAdConfig = {
+              accessLicense: env.naverSearchAdAccessLicense || '',
+              secretKey: env.naverSearchAdSecretKey || '',
+              customerId: env.naverSearchAdCustomerId || ''
+            };
+            if (searchAdConfig.accessLicense && searchAdConfig.secretKey) {
+              const adSuggestions = await getNaverSearchAdKeywordSuggestions(searchAdConfig, trimmedKeyword, 250);
+              const adKeywords = (adSuggestions || [])
+                .map((s: any) => String(s?.keyword || '').trim())
+                .filter((k: string) => k.length >= 2 && k.length <= 30);
+              // 검색량 보장 연관어를 우선 배치 후 블로그 추출분으로 보강 (dedupe)
+              relatedKeywords = Array.from(new Set([...adKeywords, ...relatedKeywords])).slice(0, 300);
+              console.log(`[GOLDEN-FROM-RELATED] 검색광고 연관어 ${adKeywords.length}개 보강 → 총 ${relatedKeywords.length}개`);
+            }
+          } catch (adError) {
+            console.warn('[GOLDEN-FROM-RELATED] 검색광고 연관어 보강 실패:', adError);
           }
         }
 
@@ -1803,7 +1828,8 @@ export function setupPremiumHuntingHandlers(): void {
                 'X-Naver-Client-Id': naverClientId,
                 'X-Naver-Client-Secret': naverClientSecret
               };
-              const docParams = new URLSearchParams({ query: kw, display: '1' });
+              // 정확매칭("키워드") 으로 실제 경쟁 문서수 측정 (부분매칭 total 은 수만건 과대계상 → 황금비율 왜곡)
+              const docParams = new URLSearchParams({ query: `"${kw}"`, display: '1' });
               const docResponse = await fetch(`${blogApiUrl}?${docParams}`, {
                 method: 'GET',
                 headers

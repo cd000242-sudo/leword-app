@@ -2063,36 +2063,22 @@ export async function buildRichFeed(
 
     const floorBackupRows = enrichedRows.slice();
 
-    // 🔥 v2.41.0: SSR + SSS only 화면 (사용자 정책 — 다층 노출 금지)
+    // 🔥 v2.49.44: 정밀 모드는 "진짜 SSS급 30개"가 기준.
+    // SS/S/A는 정밀 결과 수를 채우는 용도로 섞지 않고, 대량 모드에서만 후보로 노출한다.
     const highGradeOnly = enrichedRows.filter(r =>
-        r.grade === 'SSR' || r.grade === 'SSS' || r.grade === 'SS' ||
+        r.grade === 'SSR' || r.grade === 'SSS' ||
+        (isBulkMode && r.grade === 'SS') ||
         (isBulkMode && isBulkPracticalCandidate(r))
     );
     enrichedRows.length = 0;
     enrichedRows.push(...highGradeOnly);
-    if (!isBulkMode && enrichedRows.length < minReturnCount) {
-        const used = new Set(enrichedRows.map(r => r.keyword));
-        const floorTopUp = floorBackupRows
-            .filter(r => !used.has(r.keyword) && isBalancedFloorCandidate(r))
-            .sort((a, b) => {
-                const gradeOrder: Record<string, number> = { S: 2, A: 1 };
-                const gd = (gradeOrder[b.grade] || 0) - (gradeOrder[a.grade] || 0);
-                if (gd !== 0) return gd;
-                const gr = b.goldenRatio - a.goldenRatio;
-                if (Math.abs(gr) > 0.01) return gr;
-                return b.searchVolume - a.searchVolume;
-            })
-            .slice(0, minReturnCount - enrichedRows.length);
-        if (floorTopUp.length > 0) {
-            enrichedRows.push(...floorTopUp);
-            console.log(`[rich-feed] balanced floor top-up: +${floorTopUp.length}, total=${enrichedRows.length}/${minReturnCount}`);
-        }
-    }
 
     // v2.43.49: 사용자가 명시적으로 제외한 키워드 차단
+    let userExcludedKeywords = new Set<string>();
     try {
         const { getExcludedKeywords } = await import('../user-behavior-learning');
         const excluded = getExcludedKeywords();
+        userExcludedKeywords = excluded;
         if (excluded.size > 0) {
             const before = enrichedRows.length;
             const survivors = enrichedRows.filter(r => !excluded.has(r.keyword));
@@ -2128,7 +2114,7 @@ export async function buildRichFeed(
             }
 
             // dead 제외 시뮬레이션 → 최소 결과 보장 안전장치
-            const MIN_RESULTS_FLOOR = 20;
+            const MIN_RESULTS_FLOOR = minReturnCount;
             const liveRows = enrichedRows.filter(r => r.recencyStatus !== 'dead');
             const deadCount = enrichedRows.length - liveRows.length;
 
@@ -2257,37 +2243,18 @@ export async function buildRichFeed(
             emit('verify-dc', pct, `dc 검증 ${Math.min(i + VERIFY_CONCURRENCY, enrichedRows.length)}/${enrichedRows.length} (보정 ${corrected}, 강등 ${demoted})`);
         }
 
-        // v2.49.20: SS 등급도 결과에 포함 (SSS-only → SSS+SS 모드).
-        //   사용자 결정: 휴리스틱 가짜 제거 후 진짜 SSS=2~5건/일. SS 까지 노출하여 결과 수 확보.
-        //   svEstimated/dcEstimated 칩으로 추정 vs 실측 명확 구분.
+        // v2.49.44: 정밀은 SSR/SSS만 유지. SS 후보 노출은 대량 모드 전용.
         const postVerifyFloorBackupRows = enrichedRows.slice();
         const stillHighGrade = enrichedRows.filter(r =>
-            r.grade === 'SSR' || r.grade === 'SSS' || r.grade === 'SS' ||
+            r.grade === 'SSR' || r.grade === 'SSS' ||
+            (isBulkMode && r.grade === 'SS') ||
             (isBulkMode && isBulkPracticalCandidate(r))
         );
         enrichedRows.length = 0;
         enrichedRows.push(...stillHighGrade);
-        if (!isBulkMode && enrichedRows.length < minReturnCount) {
-            const used = new Set(enrichedRows.map(r => r.keyword));
-            const floorTopUp = postVerifyFloorBackupRows
-                .filter(r => !used.has(r.keyword) && isBalancedFloorCandidate(r))
-                .sort((a, b) => {
-                    const gradeOrder: Record<string, number> = { S: 2, A: 1 };
-                    const gd = (gradeOrder[b.grade] || 0) - (gradeOrder[a.grade] || 0);
-                    if (gd !== 0) return gd;
-                    const gr = b.goldenRatio - a.goldenRatio;
-                    if (Math.abs(gr) > 0.01) return gr;
-                    return b.searchVolume - a.searchVolume;
-                })
-                .slice(0, minReturnCount - enrichedRows.length);
-            if (floorTopUp.length > 0) {
-                enrichedRows.push(...floorTopUp);
-                console.log(`[rich-feed] post-verify balanced floor top-up: +${floorTopUp.length}, total=${enrichedRows.length}/${minReturnCount}`);
-            }
-        }
 
-        console.log(`[rich-feed v2.49.20] ✅ dc 검증 완료: ${verified}건 검사, ${corrected}건 보정, ${demoted}건 redOcean 강등, 최종 ${stillHighGrade.length}건 (${isBulkMode ? 'bulk 후보 포함' : 'SSR/SSS/SS'})`);
-        emit('verify-dc', 91, `✅ dc 실측 완료 — 최종 ${enrichedRows.length}건 (${isBulkMode ? '대량 후보 포함' : 'SSR/SSS/SS'})`);
+        console.log(`[rich-feed v2.49.44] ✅ dc 검증 완료: ${verified}건 검사, ${corrected}건 보정, ${demoted}건 redOcean 강등, 최종 ${stillHighGrade.length}건 (${isBulkMode ? 'bulk 후보 포함' : 'SSR/SSS'})`);
+        emit('verify-dc', 91, `✅ dc 실측 완료 — 최종 ${enrichedRows.length}건 (${isBulkMode ? '대량 후보 포함' : 'SSR/SSS'})`);
 
         // ★ v2.49.5: AI 브리핑 실측 detection — SSS 후보에 한해서만 추가 호출 (효율)
         //   사용자 요구: 검·경·실·AI 4단계 공식의 마지막 "AI" 단계.
@@ -2331,6 +2298,76 @@ export async function buildRichFeed(
         } catch (aiErr: any) {
             console.warn('[rich-feed v2.49.6] AI 브리핑 detection 실패 (무시):', aiErr?.message);
         }
+    }
+
+    // v2.49.44: 정밀 최종 보장 — SS/S/A를 그대로 보여주지 않고 sanity-gate 재검증을 통과한 후보만 SSS로 승격.
+    // 사용자가 보는 상단 30개는 모두 SSR/SSS 라벨이어야 하며, 추정/빅워드/레드오션은 SSoT가 차단한다.
+    if (!isBulkMode) {
+        const sssFloor = Math.min(30, limit);
+        const currentSss = () => enrichedRows.filter(r => r.grade === 'SSR' || r.grade === 'SSS').length;
+        let need = sssFloor - currentSss();
+        if (need > 0) {
+            const { validateGrade, applySanity } = require('../sanity-gate');
+            const present = new Set(enrichedRows.map(r => r.keyword));
+            const used = new Set(enrichedRows.filter(r => r.grade === 'SSR' || r.grade === 'SSS').map(r => r.keyword));
+            const rankScore = (r: RichKeywordRow): number => {
+                const writability = typeof r.bloggerWritability === 'number' ? r.bloggerWritability : 50;
+                const dcScore = r.documentCount <= 1000 ? 100 :
+                    r.documentCount <= 2000 ? 85 :
+                    r.documentCount <= 5000 ? 65 :
+                    r.documentCount <= 10000 ? 45 : 20;
+                const grScore = Math.min(100, r.goldenRatio * 18);
+                const svScore = r.searchVolume >= 500 && r.searchVolume <= 10000 ? 100 :
+                    r.searchVolume >= 100 && r.searchVolume < 500 ? 65 :
+                    r.searchVolume > 10000 && r.searchVolume <= 30000 ? 70 : 20;
+                return dcScore * 0.30 + grScore * 0.30 + svScore * 0.15 + writability * 0.25;
+            };
+            const candidates = floorBackupRows
+                .filter(r => {
+                    if (!r?.keyword || used.has(r.keyword) || userExcludedKeywords.has(r.keyword)) return false;
+                    if (isOverbroadGoldenCandidate(r.keyword, r.searchVolume, r.documentCount)) return false;
+                    if (!isBalancedFloorCandidate(r) && r.grade !== 'SS') return false;
+                    if (r.searchVolume < 100 || r.searchVolume > 30000) return false;
+                    if (r.documentCount <= 0 || r.documentCount > 30000) return false;
+                    if (r.goldenRatio < 1.0) return false;
+                    return r.grade === 'SS' || r.grade === 'S' || r.grade === 'A';
+                })
+                .sort((a, b) => rankScore(b) - rankScore(a));
+
+            let promoted = 0;
+            for (const row of candidates) {
+                if (need <= 0) break;
+                const sanity = validateGrade({
+                    keyword: row.keyword,
+                    searchVolume: row.searchVolume,
+                    documentCount: row.documentCount,
+                    goldenRatio: row.goldenRatio,
+                    score: rankScore(row),
+                    dcEstimated: row.dcEstimated,
+                    svEstimated: row.svEstimated,
+                    dcConfidence: (row as any).dcConfidence,
+                    source: 'rich-feed',
+                });
+                const finalGrade = applySanity('SSS', sanity);
+                if (finalGrade !== 'SSS') continue;
+                row.grade = finalGrade as GoldenGrade;
+                row.dcEstimated = sanity.estimatedFlags.dc;
+                if (!present.has(row.keyword)) {
+                    enrichedRows.push(row);
+                    present.add(row.keyword);
+                }
+                used.add(row.keyword);
+                promoted++;
+                need--;
+            }
+            if (promoted > 0) {
+                console.log(`[rich-feed v2.49.44] 정밀 SSS floor 보강: +${promoted}, SSS=${currentSss()}/${sssFloor}`);
+                emit('grading', 94, `정밀 SSS 보강 +${promoted}건 — SSS ${currentSss()}/${sssFloor}`);
+            }
+        }
+        const preciseOnly = enrichedRows.filter(r => r.grade === 'SSR' || r.grade === 'SSS');
+        enrichedRows.length = 0;
+        enrichedRows.push(...preciseOnly);
     }
 
     // 5. 정렬 (등급 → AI 미점령 우선 → 기회지수 → 소스 수)

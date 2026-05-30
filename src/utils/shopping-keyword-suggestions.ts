@@ -118,12 +118,25 @@ export function getDynamicSuggestionsFromRichFeed(): string[] {
 // 정적 풀 실시간 황금순 검증
 // ============================================================
 
-interface VerifiedKeyword {
+export interface VerifiedKeyword {
   keyword: string;
   category: string;
   searchVolume: number;
   documentCount: number;
   goldenRatio: number;
+}
+
+export type ShoppingDiscoverySeedSource = 'verified' | 'dynamic' | 'static';
+
+export interface ShoppingDiscoverySeed {
+  keyword: string;
+  source: ShoppingDiscoverySeedSource;
+  reason: string;
+  category?: string;
+  searchVolume?: number;
+  documentCount?: number;
+  goldenRatio?: number;
+  priorityScore: number;
 }
 
 interface VerifiedCache {
@@ -166,6 +179,96 @@ function writeVerifiedCache(cache: VerifiedCache): void {
     const fs = require('fs');
     fs.writeFileSync(getVerifiedCachePath(), JSON.stringify(cache), 'utf8');
   } catch {}
+}
+
+function normalizeSeedKey(keyword: string): string {
+  return String(keyword || '').replace(/\s+/g, ' ').trim().toLowerCase();
+}
+
+function clampPriority(score: number): number {
+  return Math.max(0, Math.min(100, Math.round(score * 10) / 10));
+}
+
+export function buildShoppingDiscoverySeeds(input: {
+  verified?: VerifiedKeyword[];
+  dynamic?: string[];
+  staticGroups?: SuggestionGroup[];
+  limit?: number;
+}): ShoppingDiscoverySeed[] {
+  const limit = Math.min(Math.max(Number(input.limit) || 12, 1), 40);
+  const out: ShoppingDiscoverySeed[] = [];
+  const seen = new Set<string>();
+
+  const add = (seed: ShoppingDiscoverySeed) => {
+    const keyword = String(seed.keyword || '').replace(/\s+/g, ' ').trim();
+    if (keyword.length < 2 || keyword.length > 35) return;
+    const key = normalizeSeedKey(keyword);
+    if (!key || seen.has(key)) return;
+    seen.add(key);
+    out.push({ ...seed, keyword, priorityScore: clampPriority(seed.priorityScore) });
+  };
+
+  for (const v of input.verified || []) {
+    const svBoost = Math.min(8, Math.log10(Math.max(10, v.searchVolume || 0)) * 1.7);
+    const ratioBoost = Math.min(14, Math.max(0, v.goldenRatio || 0) * 1.6);
+    add({
+      keyword: v.keyword,
+      source: 'verified',
+      category: v.category,
+      searchVolume: v.searchVolume,
+      documentCount: v.documentCount,
+      goldenRatio: v.goldenRatio,
+      reason: `검증 황금비율 ${v.goldenRatio} · 검색량 ${v.searchVolume.toLocaleString()} / 문서수 ${v.documentCount.toLocaleString()}`,
+      priorityScore: 78 + ratioBoost + svBoost,
+    });
+  }
+
+  (input.dynamic || []).forEach((keyword, index) => {
+    add({
+      keyword,
+      source: 'dynamic',
+      reason: '오늘의 황금키워드 캐시에서 잡힌 커머스 후보',
+      priorityScore: 68 - index * 0.8,
+    });
+  });
+
+  for (const group of input.staticGroups || []) {
+    group.keywords.forEach((keyword, index) => {
+      add({
+        keyword,
+        source: 'static',
+        category: group.category,
+        reason: `${group.category.replace(/^[^\s]+\s*/, '')} 카테고리 탐색 시드`,
+        priorityScore: 48 - index * 0.6,
+      });
+    });
+  }
+
+  return out
+    .sort((a, b) =>
+      b.priorityScore - a.priorityScore ||
+      (b.searchVolume || 0) - (a.searchVolume || 0) ||
+      a.keyword.localeCompare(b.keyword, 'ko')
+    )
+    .slice(0, limit);
+}
+
+/**
+ * 키워드 무입력 상태에서 쇼핑커넥트가 바로 발굴을 시작할 때 쓰는 시드.
+ * 속도를 위해 네이버 검증을 여기서 기다리지 않고, 캐시/동적 피드/정적 풀을 즉시 합친다.
+ */
+export async function getShoppingDiscoverySeeds(limit: number = 12): Promise<ShoppingDiscoverySeed[]> {
+  const cached = readVerifiedCache();
+  if (!cached) {
+    getVerifiedShoppingSuggestions(30).catch(() => {});
+  }
+
+  return buildShoppingDiscoverySeeds({
+    verified: cached?.items || [],
+    dynamic: getDynamicSuggestionsFromRichFeed(),
+    staticGroups: getStaticShoppingSuggestions(3),
+    limit,
+  });
 }
 
 /**

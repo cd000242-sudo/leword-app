@@ -22,6 +22,8 @@ export interface KeywordSearchVolume {
   monthlyPcQcCnt?: number | null;
   monthlyMobileQcCnt?: number | null;
   monthlyAveCpc?: number | null;
+  pcSearchVolumeLt10?: boolean;
+  mobileSearchVolumeLt10?: boolean;
   /**
    * v2.49.18: 휴리스틱 fallback (공통 토큰 매칭) 으로 다른 키워드의 sv 를 빌려온 경우 true.
    * 다운스트림 sanity-gate 의 SV_ESTIMATED 게이트가 SSS 자동 차단.
@@ -66,6 +68,12 @@ const parseVolumeValue = (value: number | string | null | undefined): number | n
 
   const parsed = parseInt(cleaned, 10);
   return Number.isFinite(parsed) ? parsed : 0;
+};
+
+const isLessThanTenVolume = (value: number | string | null | undefined): boolean => {
+  if (value === null || value === undefined || typeof value === 'number') return false;
+  const strValue = String(value).toLowerCase();
+  return strValue.includes('<') || strValue.includes('less');
 };
 
 /**
@@ -224,8 +232,10 @@ export async function getNaverSearchAdKeywordVolume(
         // 정확/포함 매칭 실패 시 null 반환이 정직.
 
         if (match) {
-          const pc = parseVolumeValue(match.monthlyPcQcCnt);
-          const mo = parseVolumeValue(match.monthlyMobileQcCnt);
+          const pcRaw = match.monthlyPcQcCnt;
+          const moRaw = match.monthlyMobileQcCnt;
+          const pc = parseVolumeValue(pcRaw);
+          const mo = parseVolumeValue(moRaw);
           const total = (pc !== null || mo !== null) ? ((pc || 0) + (mo || 0)) : null;
           const aveCpc = parseVolumeValue(match.monthlyAveCpc);
           const competition = match.compIdx || match.competition;
@@ -244,6 +254,8 @@ export async function getNaverSearchAdKeywordVolume(
             monthlyPcQcCnt: pc,
             monthlyMobileQcCnt: mo,
             monthlyAveCpc: aveCpc,
+            pcSearchVolumeLt10: isLessThanTenVolume(pcRaw),
+            mobileSearchVolumeLt10: isLessThanTenVolume(moRaw),
             svEstimated: false,  // v2.49.22: 휴리스틱 제거 — 항상 실측. 필드는 인터페이스 호환성 위해 유지.
           });
         } else {

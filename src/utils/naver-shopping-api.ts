@@ -41,7 +41,7 @@ export interface ShoppingItem {
   writeRecommendation?: string;
   contentAngles?: string[];
   discoveryQuery?: string;
-  discoverySource?: 'direct' | 'category-peer' | 'autocomplete-demand' | 'trend-seed';
+  discoverySource?: 'direct' | 'category-peer' | 'autocomplete-demand' | 'trend-seed' | 'auto-discovery';
   discoveryReason?: string;
   lewordEntryKeywords?: ShoppingLeWordKeyword[];
   opportunityBreakdown?: {

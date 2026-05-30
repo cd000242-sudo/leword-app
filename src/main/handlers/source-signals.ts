@@ -617,6 +617,52 @@ export function setupSourceSignalHandlers(): void {
                 return 'C';
             };
             const gradeOrder: Record<string, number> = { SSS: 6, SS: 5, S: 4, A: 3, B: 2, C: 1 };
+            const buildMeasuredKeywordItem = (m: any, isSeed: boolean, depth: number) => {
+                const pcKnown = m?.pcSearchVolume !== null && m?.pcSearchVolume !== undefined;
+                const mobileKnown = m?.mobileSearchVolume !== null && m?.mobileSearchVolume !== undefined;
+                const pc = pcKnown ? Number(m.pcSearchVolume) || 0 : null;
+                const mobile = mobileKnown ? Number(m.mobileSearchVolume) || 0 : null;
+                const volumeKnown = pcKnown || mobileKnown;
+                const sv = volumeKnown ? ((pc || 0) + (mobile || 0)) : null;
+                const dc = m?.documentCount || 0;
+                const ratio = dc > 0 && sv !== null ? parseFloat((sv / dc).toFixed(2)) : 0;
+                const pcLt10 = pcKnown && (m.pcSearchVolumeLt10 === true || pc === 0);
+                const mobileLt10 = mobileKnown && (m.mobileSearchVolumeLt10 === true || mobile === 0);
+                const hiddenCap = (pcLt10 ? 10 : 0) + (mobileLt10 ? 10 : 0);
+                const lowerBound = sv || 0;
+                let searchVolumeDisplay = '-';
+                if (volumeKnown) {
+                    if (hiddenCap > 0 && lowerBound === 0) searchVolumeDisplay = `< ${hiddenCap}`;
+                    else if (hiddenCap > 0) searchVolumeDisplay = `${lowerBound.toLocaleString()}+`;
+                    else searchVolumeDisplay = lowerBound.toLocaleString();
+                }
+                let goldenRatioDisplay = '-';
+                if (dc > 0 && sv !== null) {
+                    if (hiddenCap > 0 && lowerBound === 0) {
+                        goldenRatioDisplay = `< ${(hiddenCap / dc).toFixed(2)}`;
+                    } else {
+                        goldenRatioDisplay = ratio.toFixed(2);
+                    }
+                }
+                return {
+                    keyword: m.keyword,
+                    searchVolume: sv,
+                    searchVolumeDisplay,
+                    searchVolumeKnown: volumeKnown,
+                    pcSearchVolume: pc,
+                    mobileSearchVolume: mobile,
+                    pcSearchVolumeLt10: pcLt10,
+                    mobileSearchVolumeLt10: mobileLt10,
+                    documentCount: dc,
+                    goldenRatio: ratio,
+                    goldenRatioDisplay,
+                    grade: calculateGrade(sv || 0, dc, ratio),
+                    cpc: m.monthlyAveCpc || 0,
+                    competition: m.competition || null,
+                    isSeed,
+                    depth,
+                };
+            };
 
             // v2.42.46: 브랜드 동의어 사전 — 30+ 카테고리 × 평균 8 브랜드 = 250+ 풀
             const BRAND_FAMILIES: Record<string, string[]> = {
@@ -777,16 +823,9 @@ export function setupSourceSignalHandlers(): void {
             // v2.42.48: d1Pool 중복 제거 (시드가 expandOneSeed 결과에 포함될 수 있어서)
             const d1Pool = Array.from(new Set([seed, ...d1Candidates])).slice(0, Math.min(200, expandPerSeed + siblingSeeds.length * 12 + 5));
             const d1Metrics = await getNaverKeywordSearchVolumeSeparate(config, d1Pool, { includeDocumentCount: true });
-            const d1Items = d1Metrics.map((m: any) => {
-                const sv = (m.pcSearchVolume || 0) + (m.mobileSearchVolume || 0);
-                const dc = m.documentCount || 0;
-                const ratio = dc > 0 ? parseFloat((sv / dc).toFixed(2)) : 0;
-                return {
-                    keyword: m.keyword, searchVolume: sv, documentCount: dc, goldenRatio: ratio,
-                    grade: calculateGrade(sv, dc, ratio), cpc: m.monthlyAveCpc || 0,
-                    competition: m.competition || null, isSeed: m.keyword === seed, depth: 1,
-                };
-            }).filter(i => i.documentCount > 0 || i.searchVolume > 0);
+            const d1Items = d1Metrics
+                .map((m: any) => buildMeasuredKeywordItem(m, m.keyword === seed, 1))
+                .filter(i => i.documentCount > 0 || i.searchVolume !== null);
             measuredByDepth.set(1, d1Items);
             sendProgress(`1단계 완료: ${d1Items.length}건`, 'depth-1-done', d1Items.length, d1Items.length);
 
@@ -835,16 +874,9 @@ export function setupSourceSignalHandlers(): void {
                 if (dPool.length === 0) break;
 
                 const dMetrics = await getNaverKeywordSearchVolumeSeparate(config, dPool, { includeDocumentCount: true });
-                const dItems = dMetrics.map((m: any) => {
-                    const sv = (m.pcSearchVolume || 0) + (m.mobileSearchVolume || 0);
-                    const dc = m.documentCount || 0;
-                    const ratio = dc > 0 ? parseFloat((sv / dc).toFixed(2)) : 0;
-                    return {
-                        keyword: m.keyword, searchVolume: sv, documentCount: dc, goldenRatio: ratio,
-                        grade: calculateGrade(sv, dc, ratio), cpc: m.monthlyAveCpc || 0,
-                        competition: m.competition || null, isSeed: false, depth: d,
-                    };
-                }).filter(i => i.documentCount > 0 || i.searchVolume > 0);
+                const dItems = dMetrics
+                    .map((m: any) => buildMeasuredKeywordItem(m, false, d))
+                    .filter(i => i.documentCount > 0 || i.searchVolume !== null);
                 measuredByDepth.set(d, dItems);
                 sendProgress(`${d}단계 완료: ${dItems.length}건`, `depth-${d}-done`, dItems.length, dItems.length);
             }

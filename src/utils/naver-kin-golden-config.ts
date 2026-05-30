@@ -21,6 +21,12 @@ export interface KinSignals {
   likeCount: number;       // 좋아요/공감 수
   isAdopted: boolean;      // 채택 답변 존재 여부
   viewsPerHour?: number;   // 시간당 조회수 (급상승 탭에서만)
+  isMainExposed?: boolean;  // 지식인 메인 노출 여부
+  hasExternalLinks?: boolean; // 기존 답변에 외부 링크가 있는지
+  externalLinkCount?: number; // 기존 답변 외부 링크 수
+  answerQualityScore?: number; // 기존 답변 품질 점수 (0~100)
+  questionIntentScore?: number; // 블로그/검색 전환 의도 점수 (0~100)
+  isExpertOnly?: boolean;   // 전문가 전용/공식 답변 성격
 
   // Phase 2: 확장 signal (선택적, enrichKinSignals 로 주입)
   monthlySearchVolume?: number; // 네이버 검색광고 월 검색량
@@ -30,6 +36,15 @@ export interface KinSignals {
 }
 
 export type KinGrade = 'SSS' | 'SS' | 'S' | 'A' | 'B';
+export type KinTrafficPotential = 'very_high' | 'high' | 'medium' | 'low';
+
+export interface KinHoneyPotProfile {
+  score: number;
+  grade: KinGrade;
+  reason: string;
+  externalTrafficPotential: KinTrafficPotential;
+  route: string[];
+}
 
 // ============================================================
 // 가중치 (합=1.0) — Phase 1 기준
@@ -92,6 +107,152 @@ export function normalizeCompetitionScore(likeCount: number): number {
   return 0;
 }
 
+function clampScore(score: number): number {
+  return Math.max(0, Math.min(100, Math.round(score * 10) / 10));
+}
+
+function normalizeTrafficDemand(signals: KinSignals): number {
+  const viewScore = normalizeViewScore(signals.viewCount);
+  const vph = Math.max(0, signals.viewsPerHour || 0);
+  const velocityScore = vph >= 50 ? 100 : vph >= 20 ? 82 : vph >= 10 ? 68 : vph >= 5 ? 54 : vph > 0 ? 38 : 0;
+  return Math.max(viewScore, velocityScore);
+}
+
+function normalizeAnswerGap(signals: KinSignals): number {
+  if (signals.isAdopted) return 0;
+  const answerGap = normalizeAnswerScore(signals.answerCount);
+  const quality = Math.max(0, Math.min(100, signals.answerQualityScore ?? (signals.answerCount === 0 ? 0 : 55)));
+  const weakAnswerBonus = signals.answerCount === 0 ? 100 : 100 - quality;
+  return clampScore(answerGap * 0.65 + weakAnswerBonus * 0.35);
+}
+
+function normalizeExternalGap(signals: KinSignals): number {
+  const linkCount = Math.max(0, signals.externalLinkCount || 0);
+  if (signals.hasExternalLinks && linkCount >= 3) return 10;
+  if (signals.hasExternalLinks) return 35;
+  return 100;
+}
+
+function normalizeSearchGap(signals: KinSignals): number {
+  if (!signals.enrichmentAvailable) return 55;
+
+  const volume = Math.max(0, signals.monthlySearchVolume || 0);
+  const docs = Math.max(0, signals.blogDocCount || 0);
+  const cpc = Math.max(0, signals.estimatedCpc || 0);
+  let score = 35;
+
+  if (volume >= 5000) score += 25;
+  else if (volume >= 1000) score += 18;
+  else if (volume >= 300) score += 10;
+  else if (volume >= 100) score += 5;
+
+  if (docs > 0 && volume > 0) {
+    const ratio = volume / docs;
+    if (ratio >= 5) score += 25;
+    else if (ratio >= 2) score += 16;
+    else if (ratio >= 1) score += 8;
+  } else if (volume >= 300 && docs === 0) {
+    score += 18;
+  }
+
+  if (cpc >= 1000) score += 8;
+  else if (cpc >= 500) score += 4;
+
+  return clampScore(score);
+}
+
+function calculateHoneyPotGrade(signals: KinSignals, score: number): KinGrade {
+  if (signals.isAdopted || signals.isExpertOnly) return 'B';
+
+  const { viewCount = 0, answerCount = 0, hoursAgo = 999 } = signals;
+  const vph = signals.viewsPerHour || 0;
+  const externalLinks = signals.externalLinkCount || 0;
+  const hasDemand = viewCount >= 50 || vph >= 3;
+
+  if (
+    score >= 82 &&
+    hasDemand &&
+    answerCount <= 1 &&
+    hoursAgo <= 72 &&
+    !signals.isMainExposed &&
+    !signals.hasExternalLinks
+  ) {
+    return 'SSS';
+  }
+  if (score >= 72 && (viewCount >= 35 || vph >= 2) && answerCount <= 2 && hoursAgo <= 168 && externalLinks <= 1) {
+    return 'SS';
+  }
+  if (score >= 62 && (viewCount >= 20 || vph >= 1.5) && answerCount <= 3 && hoursAgo <= 336 && externalLinks <= 1) {
+    return 'S';
+  }
+  if (score >= 45 && answerCount <= 5 && hoursAgo <= 720) return 'A';
+  return 'B';
+}
+
+export function calculateKinHoneyPotProfile(signals: KinSignals): KinHoneyPotProfile {
+  const demandScore = normalizeTrafficDemand(signals);
+  const answerGapScore = normalizeAnswerGap(signals);
+  const freshnessScore = normalizeFreshnessScore(signals.hoursAgo);
+  const externalGapScore = normalizeExternalGap(signals);
+  const intentScore = Math.max(35, Math.min(100, signals.questionIntentScore ?? 50));
+  const searchGapScore = normalizeSearchGap(signals);
+  const hiddenScore = signals.isMainExposed ? 42 : 100;
+
+  let score =
+    demandScore * 0.24 +
+    answerGapScore * 0.26 +
+    intentScore * 0.18 +
+    externalGapScore * 0.12 +
+    searchGapScore * 0.10 +
+    freshnessScore * 0.06 +
+    hiddenScore * 0.04;
+
+  if (signals.isAdopted) score -= 35;
+  if (signals.answerCount >= 6) score -= 45;
+  else if (signals.answerCount >= 4) score -= 28;
+  if (signals.isExpertOnly) score -= 25;
+  if ((signals.externalLinkCount || 0) >= 3) score -= 30;
+  else if ((signals.externalLinkCount || 0) >= 2) score -= 18;
+  if (signals.hoursAgo > 720) score -= 35;
+  else if (signals.hoursAgo > 336) score -= 22;
+  else if (signals.hoursAgo > 168) score -= 12;
+  if (signals.hoursAgo > 2160 && (signals.viewsPerHour || 0) < 1) score -= 10;
+
+  const finalScore = clampScore(score);
+  const grade = calculateHoneyPotGrade(signals, finalScore);
+  const reasonParts: string[] = [];
+
+  if ((signals.viewsPerHour || 0) >= 5) reasonParts.push(`${Math.round(signals.viewsPerHour || 0)}회/시간`);
+  else if (signals.viewCount >= 80) reasonParts.push(`조회 ${signals.viewCount.toLocaleString()}`);
+
+  if (signals.answerCount === 0) reasonParts.push('무답변');
+  else if (signals.answerCount <= 2) reasonParts.push(`답변 ${signals.answerCount}개`);
+  else if (signals.answerCount <= 5) reasonParts.push('낮은 답변 경쟁');
+
+  if (!signals.isAdopted) reasonParts.push('미채택');
+  if (!signals.hasExternalLinks) reasonParts.push('외부링크 빈자리');
+  if (!signals.isMainExposed) reasonParts.push('메인 미노출');
+  if (intentScore >= 70) reasonParts.push('검색의도 강함');
+
+  const potential: KinTrafficPotential =
+    finalScore >= 84 ? 'very_high' :
+    finalScore >= 72 ? 'high' :
+    finalScore >= 56 ? 'medium' : 'low';
+
+  const route = ['지식인 답변'];
+  if (!signals.hasExternalLinks) route.push('블로그 상세글 연결');
+  if (intentScore >= 70) route.push('네이버 검색 유입');
+  if ((signals.monthlySearchVolume || 0) >= 300) route.push('월검색 수요');
+
+  return {
+    score: finalScore,
+    grade,
+    reason: reasonParts.length ? reasonParts.slice(0, 5).join(' · ') : '기본 수요 확인 필요',
+    externalTrafficPotential: potential,
+    route,
+  };
+}
+
 // ============================================================
 // 통합 점수 계산 (0~100)
 // ============================================================
@@ -145,7 +306,7 @@ export function calculateGoldenScore(signals: KinSignals): number {
     else if (signals.estimatedCpc && signals.estimatedCpc >= 500) score += 2;
   }
 
-  return Math.max(0, Math.min(100, Math.round(score * 10) / 10));
+  return clampScore(score);
 }
 
 // ============================================================

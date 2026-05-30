@@ -13,6 +13,7 @@ import {
   scoreLeWordEntryKeyword,
   type ShoppingItem,
 } from '../naver-shopping-api';
+import { buildShoppingDiscoverySeeds } from '../shopping-keyword-suggestions';
 
 let passed = 0;
 let failed = 0;
@@ -154,6 +155,29 @@ const scoredSeed = scoreLeWordEntryKeyword({
 assert('LEWORD 진입 후보는 검색량·문서수 기반으로 진입가능 판정',
   scoredSeed.verdict === '진입가능' && (scoredSeed.entryScore || 0) >= 70,
   JSON.stringify(scoredSeed));
+
+const autoDiscoverySeeds = buildShoppingDiscoverySeeds({
+  verified: [
+    { keyword: '무선 이어폰 추천', category: '디지털', searchVolume: 2400, documentCount: 300, goldenRatio: 8 },
+    { keyword: '캠핑 의자 추천', category: '캠핑', searchVolume: 1200, documentCount: 400, goldenRatio: 3 },
+  ],
+  dynamic: ['무선 이어폰 추천', '가정용 제습기'],
+  staticGroups: [{ category: '🏠 생활', keywords: ['가정용 제습기', '커피머신'] }],
+  limit: 5,
+});
+assert('무입력 쇼핑 발굴은 검증/동적/정적 시드를 합쳐 반환',
+  autoDiscoverySeeds.length >= 3 &&
+    autoDiscoverySeeds.some(s => s.source === 'verified') &&
+    autoDiscoverySeeds.some(s => s.source === 'dynamic') &&
+    autoDiscoverySeeds.some(s => s.source === 'static'),
+  autoDiscoverySeeds.map(s => `${s.keyword}:${s.source}`).join(', '));
+assert('무입력 쇼핑 발굴은 중복 키워드를 제거',
+  autoDiscoverySeeds.filter(s => s.keyword === '무선 이어폰 추천').length === 1 &&
+    autoDiscoverySeeds.filter(s => s.keyword === '가정용 제습기').length === 1,
+  autoDiscoverySeeds.map(s => s.keyword).join(', '));
+assert('검증 황금 시드가 자동 발굴 우선순위 상단',
+  autoDiscoverySeeds[0]?.keyword === '무선 이어폰 추천',
+  autoDiscoverySeeds.map(s => `${s.keyword}:${s.priorityScore}`).join(', '));
 
 console.log(`\n[shopping-opportunity.test] passed: ${passed} / failed: ${failed}`);
 if (failed > 0) {

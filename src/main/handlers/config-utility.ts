@@ -849,10 +849,9 @@ export function setupConfigUtilityHandlers(): void {
   if (!ipcMain.listenerCount('shopping-connect-search')) {
     ipcMain.handle('shopping-connect-search', async (_event, params: any) => {
       try {
-        const keyword = String(params?.keyword ?? '').trim();
-        if (!keyword) {
-          return { success: false, error: '키워드를 입력해주세요.' };
-        }
+        const originalKeyword = String(params?.keyword ?? '').trim();
+        const autoDiscovery = !originalKeyword;
+        const autoDiscoveryLimit = Math.min(Math.max(Number(params?.autoDiscoveryLimit) || 10, 3), 12);
         const sort = (params?.sort ?? 'sim') as 'sim' | 'date' | 'asc' | 'dsc';
         const display = Math.min(Math.max(Number(params?.display) || 50, 1), 100);
         const start = Math.min(Math.max(Number(params?.start) || 1, 1), 1000);
@@ -873,8 +872,22 @@ export function setupConfigUtilityHandlers(): void {
         const { classifySearchIntent, getIntentScoreAdjust } = await import('../../utils/search-intent-classifier');
         const { aggregateCommerceTrendSeeds, summarizeTrendSeeds } = await import('../../utils/sources/trend-seed-aggregator');
         const { NAVER_SHOPPING_CATEGORIES } = await import('../../utils/sources/naver-shopping-keyword-rank');
+        const { getShoppingDiscoverySeeds } = await import('../../utils/shopping-keyword-suggestions');
         // v2.43.64: Phase 9 — 네이버 검색 추세 검증 (rising/stable/declining/dead)
         const { checkKeywordsRecency, getNaverKeywordSearchVolumeSeparate } = await import('../../utils/naver-datalab-api');
+
+        let keyword = originalKeyword;
+        let discoverySeeds: Awaited<ReturnType<typeof getShoppingDiscoverySeeds>> = [];
+        if (autoDiscovery) {
+          discoverySeeds = await getShoppingDiscoverySeeds(autoDiscoveryLimit);
+          if (discoverySeeds.length === 0) {
+            return {
+              success: false,
+              error: '자동 발굴에 사용할 쇼핑 시드가 없습니다. 추천 키워드 검증을 먼저 실행하거나 네이버 API 키를 확인해주세요.',
+            };
+          }
+          keyword = discoverySeeds[0].keyword;
+        }
 
         // 검색 의도 분류 (스코어링 가산 + UI 뱃지)
         const intent = classifySearchIntent(keyword);
@@ -898,8 +911,10 @@ export function setupConfigUtilityHandlers(): void {
         // 의도 가산점: 구매/비교성 키워드는 전체 추천 적극, 정보성은 억제
         for (const item of result.items) {
           item.discoveryQuery = keyword;
-          item.discoverySource = 'direct';
-          item.discoveryReason = '원 입력어 직접 검색';
+          item.discoverySource = autoDiscovery ? 'auto-discovery' : 'direct';
+          item.discoveryReason = autoDiscovery
+            ? `무입력 자동 발굴 1순위 시드: ${discoverySeeds[0]?.reason || '쇼핑 발굴 시드'}`
+            : '원 입력어 직접 검색';
           const simplified = simplifyTitleForCoupangSearch(item.title) || keyword;
           item.coupangSearchUrl = buildCoupangSearchUrl(simplified);
           computeConversionScore(item);
@@ -1019,6 +1034,17 @@ export function setupConfigUtilityHandlers(): void {
             .filter(k => typeof k === 'string' && k.trim() && k.trim().toLowerCase() !== keyword.toLowerCase())
             .filter(k => k.length >= 2 && k.length <= 30)
         )).slice(0, 15);
+        const autoDiscoveryQueries = autoDiscovery
+          ? discoverySeeds.slice(1).map(seed => ({
+              query: seed.keyword,
+              source: 'auto-discovery' as const,
+              reason: seed.reason || '무입력 자동 쇼핑 발굴 시드',
+            }))
+          : [];
+        const demandKeywords = Array.from(new Set([
+          ...relatedKeywordsTrimmed,
+          ...(autoDiscovery ? discoverySeeds.map(seed => seed.keyword) : []),
+        ])).slice(0, 24);
 
         // v2.43.64: Phase 9 — 검색 추세 검증 (DataLab 30일 트렌드)
         //   첫 페이지 요청에만 실행 (페이지네이션 시 매번 호출 X)
@@ -1045,11 +1071,25 @@ export function setupConfigUtilityHandlers(): void {
         // 사용자가 생각 못 한 제품군까지 후보 풀에 넣는다. 첫 페이지에서만 실행해 더보기 성능은 보호.
         let expansionQueries: Array<{ query: string; source: any; reason: string }> = [];
         if (isFirstPage) {
-          expansionQueries = deriveShoppingExpansionQueries(keyword, relatedKeywordsTrimmed, crossSourceSeeds, 8);
+          const baseExpansionQueries = deriveShoppingExpansionQueries(
+            keyword,
+            relatedKeywordsTrimmed,
+            crossSourceSeeds,
+            autoDiscovery ? 12 : 8
+          );
+          const seenExpansion = new Set<string>([keyword.toLowerCase()]);
+          expansionQueries = [...autoDiscoveryQueries, ...baseExpansionQueries]
+            .filter(q => {
+              const key = String(q.query || '').replace(/\s+/g, ' ').trim().toLowerCase();
+              if (!key || seenExpansion.has(key)) return false;
+              seenExpansion.add(key);
+              return true;
+            })
+            .slice(0, autoDiscovery ? 12 : 8);
           if (expansionQueries.length > 0) {
             try {
               const expandedResults = await Promise.allSettled(
-                expansionQueries.slice(0, 6).map(q =>
+                expansionQueries.slice(0, autoDiscovery ? 10 : 6).map(q =>
                   searchNaverShopping(q.query, { display: 20, sort: 'sim', start: 1 })
                     .then(r => ({ query: q, result: r }))
                 )
@@ -1105,7 +1145,7 @@ export function setupConfigUtilityHandlers(): void {
           keyword,
           intentPrimary: intent.primary,
           totalHits: result.total,
-          relatedKeywords: relatedKeywordsTrimmed,
+          relatedKeywords: demandKeywords,
           crossSourceSeeds,
           recency,
         };
@@ -1183,12 +1223,17 @@ export function setupConfigUtilityHandlers(): void {
             recencyRatio: recency?.ratio || 0,
             relatedCount: relatedKeywordsTrimmed.length,
             crossSourceCount: crossSourceSeeds.length,
+            autoDiscoverySeedCount: discoverySeeds.length,
           },
         } : null;
 
         return {
           success: true,
           keyword,
+          originalKeyword,
+          autoDiscovery,
+          discoverySeeds,
+          discoverySeedCount: discoverySeeds.length,
           total: result.total,
           start: result.start,
           display: result.display,
