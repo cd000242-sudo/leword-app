@@ -1675,7 +1675,6 @@ export async function fullHunt(): Promise<GoldenHuntResult> {
     console.log('\n[STEP 4] 🔍 상세 페이지에서 조회수 수집...\n');
     
     const questionsWithViewCount: any[] = [];
-    let __probeGoto = 0, __probeReach = 0;
     const topN = scoredQuestions.slice(0, LATEST_HONEY_DETAIL_LIMIT);
     
     // 🔥 상세 페이지: 검증된 createPage 헬퍼 사용 (patchright 환경에서 수동 setRequestInterception 은
