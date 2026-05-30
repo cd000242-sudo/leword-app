@@ -861,6 +861,11 @@
       .rf-fresh.STABLE { background:#10b981; color:white; }
       .rf-fresh.EVERGREEN { background:#06b6d4; color:white; }
       .rf-source-tag { display:inline-block; padding:1px 6px; background:#334155; color:#cbd5e1; border-radius:4px; font-size:9px; margin:0 2px 2px 0; font-weight:600; }
+      .pf-badge { display:inline-block; padding:1px 7px; border-radius:4px; font-size:9px; margin:0 2px 2px 0; font-weight:800; cursor:help; }
+      .pf-badge.pf-naver { background:#03c75a; color:white; }
+      .pf-badge.pf-google { background:#4285f4; color:white; }
+      .pf-badge.pf-youtube { background:#ff0000; color:white; }
+      .pf-badge.pf-sns { background:#a855f7; color:white; }
       .rf-action-btn { padding:4px 8px; background:#1e293b; color:#cbd5e1; border:1px solid #334155; border-radius:5px; cursor:pointer; font-size:10px; margin:0 1px; }
       .rf-action-btn:hover { background:#475569; color:#fbbf24; }
     </style>
@@ -1156,6 +1161,12 @@
           const ratioColor = r.goldenRatio >= 100 ? '#dc2626' : r.goldenRatio >= 50 ? '#f59e0b' : r.goldenRatio >= 10 ? '#fbbf24' : '#94a3b8';
           const sources = (r.sources || []).slice(0, 3).map(s => `<span class="rf-source-tag">${s}</span>`).join('');
           const moreSources = r.sourceCount > 3 ? `<span class="rf-source-tag">+${r.sourceCount - 3}</span>` : '';
+          // Phase 1: 플랫폼 적합도 배지 (실측 신호 기반). 추정 트래픽 숫자 노출 없음 — 강세 플랫폼 + 근거 툴팁.
+          const _pf = r.platformFit;
+          const _PFCLS = { naver: 'pf-naver', google: 'pf-google', youtube: 'pf-youtube', sns: 'pf-sns' };
+          const platformBadges = (_pf && Array.isArray(_pf.badges) && _pf.badges.length > 0)
+            ? _pf.badges.map(b => `<span class="pf-badge ${_PFCLS[b.key] || ''}" title="${String(_pf.reason || '').replace(/"/g, '&quot;')}">${b.label}</span>`).join('')
+            : '';
           const kwSafe = String(r.keyword).replace(/"/g, '&quot;').replace(/'/g, "\\'");
           // v2.49.32: 시드/longtail 자동 분류 — forEach scope 로 이동 (액션 버튼에서도 접근 가능)
           //   v2.49.31 에서 IIFE 안에 정의되어 액션 버튼에서 "isSeed is not defined" 발생
@@ -1254,7 +1265,7 @@
                 if (!m) return '';
                 return `<div style="font-size:9.5px; color:${m.color}; margin-top:3px;" title="네이버 데이터랩 최근 7일 vs 30일 평균 실측">${m.icon} ${m.label}</div>`;
               })()}</td>
-              <td style="padding:10px 8px; text-align:left;">${sources}${moreSources}</td>
+              <td style="padding:10px 8px; text-align:left;">${platformBadges ? platformBadges + '<br>' : ''}${sources}${moreSources}</td>
               <td style="padding:10px 8px; text-align:center; white-space:nowrap;">
                 <button class="rf-action-btn" title="복사" onclick="rfCopyKw('${kwSafe}')">📋</button>
                 <button class="rf-action-btn" title="📝 글감 미리보기 — 자동완성 기반 제목 후보 5개 (v2.43.24)" onclick="rfShowTopicIdeas('${kwSafe}')">📝</button>
