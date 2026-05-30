@@ -1838,12 +1838,10 @@ export async function fullHunt(): Promise<GoldenHuntResult> {
         // 채택만 하드 탈락. (날짜/외부링크 게이트는 상세 파싱 오탐으로 전량 탈락 → trending 과 동일하게 제거)
         if (detail.isAdopted) continue;
         // 답변수: 상세 정규식이 사이드바 "답변 N"(예: 9)을 오탐 → 목록값(수집 시 ≤3 검증) 신뢰, 상세는 더 작을 때만
-        {
-          const listAns = Number(q.answerCount) || 0;
-          const detAns = Number(detail.answerCount) || 0;
-          const effAns = (detAns > 0 && detAns <= listAns) ? detAns : listAns;
-          if (effAns > 3) continue;
-        }
+        const listAns = Number(q.answerCount) || 0;
+        const detAns = Number(detail.answerCount) || 0;
+        const effAns = (detAns > 0 && detAns <= listAns) ? detAns : listAns;
+        if (effAns > 3) continue;
         const baseHiddenScore = Number(q.hiddenScore) || Number(q.seedOpportunity) || 0;
         // 신선도: STEP2 가 sort=date(최신순)로 수집해 신선 보장. 상세 날짜는 사이드바 오탐이라 신뢰 금지
         //   → 24h(신선) 가정 (trending 과 동일 정책).
@@ -1854,13 +1852,13 @@ export async function fullHunt(): Promise<GoldenHuntResult> {
           ...q,
           viewCount: finalViewCount,
           likeCount: detail.likeCount || q.likeCount || 0,
-          answerCount: detail.answerCount || q.answerCount || 0,
+          answerCount: effAns, // 오탐된 detail.answerCount 대신 검증된 effAns 저장 (isValidQuestion 재탈락 방지)
           hoursAgo: finalHoursAgo,
           viewsPerHour: finalViewsPerHour,
           isAdopted: detail.isAdopted || false,
           publishedDate: detail.publishedDate || q.publishedDate || '',
           hasExternalLinks: detail.hasExternalLinks || false,
-          externalLinkCount: detail.externalLinkCount || 0,
+          externalLinkCount: 0, // 외부링크 게이트 제거(상존 링크 오탐) → 후속 게이트 재탈락 방지
           answerQualityScore: detail.answerQualityScore || 0,
           isExpertOnly: detail.isExpertOnly || false,
           hiddenScore: baseHiddenScore + (detail.viewCount >= 10000 ? 50 : detail.viewCount >= 1000 ? 30 : detail.viewCount >= 100 ? 10 : 0)
