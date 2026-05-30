@@ -243,8 +243,8 @@ function buildHoneyFields(q: any, signals: KinSignals) {
 }
 
 const LATEST_HONEY_MAX_HOURS = 168;
-const LATEST_HONEY_DETAIL_LIMIT = 110;
-const LATEST_HONEY_PAGES = 5;
+const LATEST_HONEY_DETAIL_LIMIT = 60;
+const LATEST_HONEY_PAGES = 2;
 const KIN_HONEY_CATEGORIES = [
   { name: '전체', dirId: '0' },
   { name: 'IT/컴퓨터', dirId: '1' },
@@ -1680,8 +1680,16 @@ export async function fullHunt(): Promise<GoldenHuntResult> {
     const topN = scoredQuestions.slice(0, LATEST_HONEY_DETAIL_LIMIT);
     
     // 🔥 상세 페이지: getRisingQuestions(라이브 검증됨)와 동일 패턴.
-    //   전체 리소스(font/media/image/stylesheet) 차단으로 6.5s→안정 로딩, 9s 타임아웃 + 1회 재시도.
-    const detailPage = await browser.newPage();
+    //   ⚠️ STEP2 의 장시간 목록 크롤 중 browser 세션이 닫힐 수 있어(newPage→"browser has been closed"),
+    //   세션 생존 확인 후 죽었으면 재획득. (이게 미노출꿀통/지금뜨는 0개의 진짜 원인이었음)
+    let detailBrowser = browser;
+    let detailPage;
+    try {
+      detailPage = await detailBrowser.newPage();
+    } catch {
+      detailBrowser = await getBrowser();
+      detailPage = await detailBrowser.newPage();
+    }
     await detailPage.setViewport({ width: 1920, height: 1080 });
     await detailPage.setUserAgent('Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/122.0.0.0 Safari/537.36');
     await detailPage.setRequestInterception(true);
@@ -2194,8 +2202,15 @@ export async function getTrendingHiddenQuestions(): Promise<GoldenHuntResult> {
       .slice(0, LATEST_HONEY_DETAIL_LIMIT);
     const withViewCount: any[] = [];
 
-    // 상세 페이지: getRisingQuestions(라이브 검증됨)와 동일 패턴.
-    const detailPage = await browser.newPage();
+    // 상세 페이지: STEP2 장시간 크롤로 세션이 닫혔을 수 있어 재획득 가드 (fullHunt 와 동일)
+    let detailBrowser = browser;
+    let detailPage;
+    try {
+      detailPage = await detailBrowser.newPage();
+    } catch {
+      detailBrowser = await getBrowser();
+      detailPage = await detailBrowser.newPage();
+    }
     await detailPage.setViewport({ width: 1920, height: 1080 });
     await detailPage.setUserAgent('Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/122.0.0.0 Safari/537.36');
     await detailPage.setRequestInterception(true);
@@ -2236,7 +2251,11 @@ export async function getTrendingHiddenQuestions(): Promise<GoldenHuntResult> {
           const isAdopted =
             answerCount > 0 &&
             (text.includes('채택됨') || document.querySelector('.badge_adopted') !== null);
-          const externalLinks = Array.from(document.querySelectorAll('a[href]'))
+          // 외부링크: 답변 영역 내부만 카운트 (페이지 전체 a[href] 는 제휴/푸터/광고 외부링크가 상존 →
+          //   평범한 질문도 4~7개로 오탐하여 미노출꿀통/지금뜨는 전량 탈락의 원인이었음).
+          const answerContainers = Array.from(document.querySelectorAll('.answer-content__item, .se-main-container, .endContentsText, [class*="answerArea"], [class*="answer_area"]'));
+          const externalLinks = answerContainers
+            .flatMap(c => Array.from(c.querySelectorAll('a[href]')))
             .map(a => (a as HTMLAnchorElement).href || '')
             .filter(href => /^https?:\/\//i.test(href) && !/naver\.com|naver\.me|nid\.naver/i.test(href));
           const answerTexts = Array.from(document.querySelectorAll('.answer-content__item, .se-main-container, .endContentsText, [class*="answer"]'))
@@ -2273,7 +2292,13 @@ export async function getTrendingHiddenQuestions(): Promise<GoldenHuntResult> {
         });
 
         if (detail.isAdopted) continue; // isExpertOnly 제외 (페이지 상존 카테고리어로 전량 오탐)
-        if ((detail.answerCount || q.answerCount || 0) > 3) continue;
+        // 답변수: 상세 정규식 오추출(전량 4+) 방어 — 목록값(수집 시 ≤3 검증) 신뢰, 상세는 더 작을 때만 채택
+        {
+          const listAns = Number(q.answerCount) || 0;
+          const detAns = Number(detail.answerCount) || 0;
+          const effAns = (detAns > 0 && detAns <= listAns) ? detAns : listAns;
+          if (effAns > 3) continue;
+        }
         if ((detail.externalLinkCount || 0) >= 2) continue;
         const rawListHoursAgo = Number(q.hoursAgo);
         const finalHoursAgo = detail.hoursAgoFromDetail < 999
