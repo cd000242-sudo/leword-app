@@ -1835,27 +1835,19 @@ export async function fullHunt(): Promise<GoldenHuntResult> {
           };
         });
         
-        // 채택/오래됨/고답변은 꿀통 후보가 아니므로 상세 확인 직후 탈락.
-        if (detail.isAdopted) {
-          console.log(`  ⚠️ 채택됨: ${String(q.title || '').substring(0, 30)}...`);
-          continue;
+        // 채택만 하드 탈락. (날짜/외부링크 게이트는 상세 파싱 오탐으로 전량 탈락 → trending 과 동일하게 제거)
+        if (detail.isAdopted) continue;
+        // 답변수: 상세 정규식이 사이드바 "답변 N"(예: 9)을 오탐 → 목록값(수집 시 ≤3 검증) 신뢰, 상세는 더 작을 때만
+        {
+          const listAns = Number(q.answerCount) || 0;
+          const detAns = Number(detail.answerCount) || 0;
+          const effAns = (detAns > 0 && detAns <= listAns) ? detAns : listAns;
+          if (effAns > 3) continue;
         }
-        // 날짜 게이트: 절대날짜로 1년+ 확정(yearOld)된 것, 또는 상대시간이 명확히 파싱(<999)되고 7일 초과한 것만 탈락.
-        // 파싱 실패(999)는 신선으로 간주 (상세 페이지에 상대시간 텍스트가 없는 경우 다수 → rising 과 동일 정책)
-        if (detail.yearOld || (detail.hoursAgoFromDetail < 999 && detail.hoursAgoFromDetail > LATEST_HONEY_MAX_HOURS)) {
-          console.log(`  ⚠️ 오래됨 (${detail.publishedDate}): ${String(q.title || '').substring(0, 30)}...`);
-          continue;
-        }
-        if ((detail.answerCount || q.answerCount || 0) > 3) {
-          console.log(`  ⚠️ 답변 과다 (${detail.answerCount}): ${String(q.title || '').substring(0, 30)}...`);
-          continue;
-        }
-        // 외부링크 하드 차단 제거 (과다 카운트로 전량 탈락 → rising 정책에 맞춰 정렬 신호로만)
         const baseHiddenScore = Number(q.hiddenScore) || Number(q.seedOpportunity) || 0;
-        const rawListHoursAgo = Number(q.hoursAgo);
-        const finalHoursAgo = detail.hoursAgoFromDetail < 999
-          ? detail.hoursAgoFromDetail
-          : (Number.isFinite(rawListHoursAgo) ? rawListHoursAgo : 24); // 파싱 실패 시 신선(24h) 가정
+        // 신선도: STEP2 가 sort=date(최신순)로 수집해 신선 보장. 상세 날짜는 사이드바 오탐이라 신뢰 금지
+        //   → 24h(신선) 가정 (trending 과 동일 정책).
+        const finalHoursAgo = 24;
         const finalViewCount = detail.viewCount || 0;
         const finalViewsPerHour = Math.round((finalViewCount / Math.max(1, finalHoursAgo)) * 10) / 10;
         questionsWithViewCount.push({
