@@ -1709,6 +1709,10 @@ export async function fullHunt(): Promise<GoldenHuntResult> {
           try { await detailPage.goto(q.url, { waitUntil: 'domcontentloaded', timeout: 9000 }); __ok = true; }
           catch (ge) { if (__t === 2) throw ge; await new Promise(r => setTimeout(r, 600)); }
         }
+        // navigation 안정화: rising(검증됨)처럼 셀렉터 대기 → "Execution context destroyed" 방지
+        try { await detailPage.waitForSelector('#content, .question_header, .endContentsText, .c-heading', { timeout: 2000 }); } catch {}
+        // navigation 안정화: rising(검증됨)처럼 셀렉터 대기 → "Execution context destroyed" 방지
+        try { await detailPage.waitForSelector('#content, .question_header, .endContentsText, .c-heading', { timeout: 2000 }); } catch {}
         await new Promise(r => setTimeout(r, 300)); // 빠른 대기
 
         const detail = await detailPage.evaluate(() => {
@@ -2220,13 +2224,10 @@ export async function getTrendingHiddenQuestions(): Promise<GoldenHuntResult> {
       const q = topN[i];
 
       try {
-        let __ok = false;
-        for (let __t = 1; __t <= 2 && !__ok; __t++) {
-          try { await detailPage.goto(q.url, { waitUntil: 'domcontentloaded', timeout: 9000 }); __ok = true; }
-          catch (ge) { if (__t === 2) throw ge; await new Promise(r => setTimeout(r, 600)); }
-        }
-        await new Promise(r => setTimeout(r, 250));
-        
+        // rising(검증됨)과 동일: goto → waitForSelector → 즉시 evaluate (sleep 제거로 redirect 충돌 방지)
+        await detailPage.goto(q.url, { waitUntil: 'domcontentloaded', timeout: 8000 });
+        try { await detailPage.waitForSelector('#content, .question_header, .endContentsText', { timeout: 1500 }); } catch {}
+
         const detail = await detailPage.evaluate(() => {
           const text = document.body.innerText || '';
           const html = document.body.innerHTML || '';
