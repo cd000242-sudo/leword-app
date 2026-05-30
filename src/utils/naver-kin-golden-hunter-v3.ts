@@ -1789,7 +1789,10 @@ export async function fullHunt(): Promise<GoldenHuntResult> {
           // ⚠️ 버그픽스: 상대시간(분/시간/일 전)이 있으면 그게 authoritative.
           //   절대날짜 정규식은 페이지 공통요소(무관한 날짜)를 오탐 → 신선 질문을 "오래됨" 처리하던 원인.
           //   상대시간을 못 찾은 경우(hoursAgoFromDetail===999)에만 절대날짜로 보강.
-          const relativeTimeFound = hoursAgoFromDetail < 999;
+          // 절대날짜는 표시용으로만 추출, hoursAgo/yearOld 덮어쓰기 금지.
+          //   (라이브 PUSHDUMP: 페이지 고정 날짜가 모든 질문을 ~61일전(1463h)으로 오판 → 신선질문 전량 탈락)
+          //   relativeTimeFound 를 항상 true 로 둬 아래 덮어쓰기 분기를 무력화. rising 과 동일 정책.
+          const relativeTimeFound = true;
           let publishedDate = '';
           let yearOld = false;
           const datePatterns = [
@@ -2288,7 +2291,7 @@ export async function getTrendingHiddenQuestions(): Promise<GoldenHuntResult> {
           };
         });
 
-        if (detail.isAdopted) continue; // isExpertOnly 제외 (페이지 상존 카테고리어로 전량 오탐)
+        if (detail.isAdopted) continue;
         // 답변수: 상세 정규식 오추출(전량 4+) 방어 — 목록값(수집 시 ≤3 검증) 신뢰, 상세는 더 작을 때만 채택
         {
           const listAns = Number(q.answerCount) || 0;
@@ -2297,12 +2300,10 @@ export async function getTrendingHiddenQuestions(): Promise<GoldenHuntResult> {
           if (effAns > 3) continue;
         }
         // 외부링크 하드 차단 제거 (과다 카운트로 전량 탈락 → rising 정책 일치)
-        const rawListHoursAgo = Number(q.hoursAgo);
-        const finalHoursAgo = detail.hoursAgoFromDetail < 999
-          ? detail.hoursAgoFromDetail
-          : (Number.isFinite(rawListHoursAgo) ? rawListHoursAgo : 24); // 파싱 실패 시 신선(24h) 가정
-        // 파싱 실패(24 fallback)는 통과, 명확히 7일 초과한 것만 탈락
-        if (detail.hoursAgoFromDetail < 999 && finalHoursAgo > LATEST_HONEY_MAX_HOURS) continue;
+        // 신선도: STEP2 가 sort=date(최신순)로 수집하므로 수집 자체가 신선함을 보장.
+        //   상세 상대시간(N일 전)은 사이드바/연관질문 텍스트를 오탐(라이브: 59/60 가 7일초과 오판) →
+        //   하드 탈락에 쓰지 않고 24h(신선) 가정. (절대날짜 오탐과 동일 계열, rising 도 동일 정책)
+        const finalHoursAgo = 24;
         const finalViewCount = detail.viewCount || 0;
         const finalViewsPerHour = Math.round((finalViewCount / Math.max(1, finalHoursAgo)) * 10) / 10;
         
