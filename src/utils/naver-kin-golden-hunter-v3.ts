@@ -1843,11 +1843,7 @@ export async function fullHunt(): Promise<GoldenHuntResult> {
           console.log(`  ⚠️ 답변 과다 (${detail.answerCount}): ${String(q.title || '').substring(0, 30)}...`);
           continue;
         }
-        if ((detail.externalLinkCount || 0) >= 2) {
-          console.log(`  ⚠️ 외부링크 선점 (${detail.externalLinkCount}): ${String(q.title || '').substring(0, 30)}...`);
-          continue;
-        }
-        
+        // 외부링크 하드 차단 제거 (과다 카운트로 전량 탈락 → rising 정책에 맞춰 정렬 신호로만)
         const baseHiddenScore = Number(q.hiddenScore) || Number(q.seedOpportunity) || 0;
         const rawListHoursAgo = Number(q.hoursAgo);
         const finalHoursAgo = detail.hoursAgoFromDetail < 999
@@ -2299,7 +2295,7 @@ export async function getTrendingHiddenQuestions(): Promise<GoldenHuntResult> {
           const effAns = (detAns > 0 && detAns <= listAns) ? detAns : listAns;
           if (effAns > 3) continue;
         }
-        if ((detail.externalLinkCount || 0) >= 2) continue;
+        // 외부링크 하드 차단 제거 (과다 카운트로 전량 탈락 → rising 정책 일치)
         const rawListHoursAgo = Number(q.hoursAgo);
         const finalHoursAgo = detail.hoursAgoFromDetail < 999
           ? detail.hoursAgoFromDetail
