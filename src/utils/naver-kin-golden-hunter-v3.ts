@@ -1677,21 +1677,29 @@ export async function fullHunt(): Promise<GoldenHuntResult> {
     const questionsWithViewCount: any[] = [];
     const topN = scoredQuestions.slice(0, LATEST_HONEY_DETAIL_LIMIT);
     
-    // 🔥 상세 페이지: 검증된 createPage 헬퍼 사용 (patchright 환경에서 수동 setRequestInterception 은
-    //   "should be called before navigation start" 로 goto 전량 실패 → createPage 가 goto-safe 경로)
-    const detailPage = await createPage(browser);
+    // 🔥 상세 페이지: getRisingQuestions(라이브 검증됨)와 동일 패턴.
+    //   전체 리소스(font/media/image/stylesheet) 차단으로 6.5s→안정 로딩, 9s 타임아웃 + 1회 재시도.
+    const detailPage = await browser.newPage();
+    await detailPage.setViewport({ width: 1920, height: 1080 });
+    await detailPage.setUserAgent('Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/122.0.0.0 Safari/537.36');
+    await detailPage.setRequestInterception(true);
+    detailPage.on('request', req => {
+      const type = req.resourceType();
+      if (['font', 'media', 'image', 'stylesheet'].includes(type)) req.abort();
+      else req.continue();
+    });
     for (let i = 0; i < topN.length; i++) {
       const q = topN[i];
-      
-      
+
+
       try {
-        // 🔥 빠른 로딩 (domcontentloaded + 짧은 대기)
-        await detailPage.goto(q.url, { 
-          waitUntil: 'domcontentloaded', 
-          timeout: 6500 
-        });
+        // 🔥 안정 로딩 (domcontentloaded + 1회 재시도)
+        let __ok = false;
+        for (let __t = 1; __t <= 2 && !__ok; __t++) {
+          try { await detailPage.goto(q.url, { waitUntil: 'domcontentloaded', timeout: 9000 }); __ok = true; }
+          catch (ge) { if (__t === 2) throw ge; await new Promise(r => setTimeout(r, 600)); }
+        }
         await new Promise(r => setTimeout(r, 300)); // 빠른 대기
-        __probeGoto++;
 
         const detail = await detailPage.evaluate(() => {
           const text = document.body.innerText || '';
@@ -2184,14 +2192,26 @@ export async function getTrendingHiddenQuestions(): Promise<GoldenHuntResult> {
       .slice(0, LATEST_HONEY_DETAIL_LIMIT);
     const withViewCount: any[] = [];
 
-    // 상세 페이지: 검증된 createPage 헬퍼 사용 (patchright goto-safe)
-    const detailPage = await createPage(browser);
-    
+    // 상세 페이지: getRisingQuestions(라이브 검증됨)와 동일 패턴.
+    const detailPage = await browser.newPage();
+    await detailPage.setViewport({ width: 1920, height: 1080 });
+    await detailPage.setUserAgent('Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/122.0.0.0 Safari/537.36');
+    await detailPage.setRequestInterception(true);
+    detailPage.on('request', req => {
+      const type = req.resourceType();
+      if (['font', 'media', 'image', 'stylesheet'].includes(type)) req.abort();
+      else req.continue();
+    });
+
     for (let i = 0; i < topN.length; i++) {
       const q = topN[i];
-      
+
       try {
-        await detailPage.goto(q.url, { waitUntil: 'domcontentloaded', timeout: 5500 });
+        let __ok = false;
+        for (let __t = 1; __t <= 2 && !__ok; __t++) {
+          try { await detailPage.goto(q.url, { waitUntil: 'domcontentloaded', timeout: 9000 }); __ok = true; }
+          catch (ge) { if (__t === 2) throw ge; await new Promise(r => setTimeout(r, 600)); }
+        }
         await new Promise(r => setTimeout(r, 250));
         
         const detail = await detailPage.evaluate(() => {
