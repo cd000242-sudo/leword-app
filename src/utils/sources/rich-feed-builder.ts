@@ -25,6 +25,7 @@ import { classifyKeyword, getCategoryById } from '../categories';
 import { getEvergreenSafetyNetSeeds, getAllRevenueSeeds } from './evergreen-safety-net';
 import { buildIDFStats, scoreSeedKeyword, isQualitySeed } from './quality-extractor';
 import { loadBloggerProfile, calculateProfileAffinity, experienceAdjustment, BloggerProfile } from '../blogger-profile';
+import { computePlatformFit, PlatformFitResult } from '../platform-fitness';
 
 export type Freshness = 'BURNING' | 'RISING' | 'STABLE' | 'EVERGREEN';
 // 🔥 v2.31.0: SSR 등급 신설 — "수익 황금" (SSS + 고CPC + 상업의도 + 수익 카테고리)
@@ -77,6 +78,8 @@ export interface RichKeywordRow {
     // 🔥 v2.42.14: Claude AI 추천 + 관대 게이트 통과 마커
     claudeDiscovered?: boolean;
     claudeReason?: string;
+    // Phase 1: 플랫폼 적합도 (실측 신호 기반 결정론적). 추정 트래픽 숫자 아님 — 배지/근거용.
+    platformFit?: PlatformFitResult;
 }
 
 export interface RichFeedDiagnostic {
@@ -1677,6 +1680,16 @@ export async function buildRichFeed(
                     sourceCount: seed.sources.length,
                     purchaseIntent: intent,
                     isBlueOcean,
+                    // Phase 1: 플랫폼 적합도 (실측 신호 기반). 추정 트래픽 숫자 아님 — 강세 플랫폼 배지/근거용.
+                    platformFit: computePlatformFit({
+                        keyword: sig.keyword,
+                        searchVolume: totalVolume,
+                        documentCount: docCount,
+                        goldenRatio,
+                        cpc: realCpc,
+                        sources: seed.sources,
+                        classifyForFeed: cat.id,
+                    }),
                     dcEstimated: !hasValidDocCount, // 🔥 v2.41.0: 동적 SSS 승격 풀 신뢰도 가드용
                     svEstimated, // v2.49.18: 휴리스틱 fallback 사용 시 true → promotion/fallback tier 의 sanity-gate 가 SSS 차단
                     // v2.43.25-26: 블로거 프로필 보정 + 사유 분해 (UI 칩용)
