@@ -866,6 +866,9 @@
       .pf-badge.pf-google { background:#4285f4; color:white; }
       .pf-badge.pf-youtube { background:#ff0000; color:white; }
       .pf-badge.pf-sns { background:#a855f7; color:white; }
+      .age-bar { display:inline-block; height:10px; border-radius:2px; vertical-align:middle; }
+      .age-seg { display:inline-block; font-size:9px; font-weight:700; margin-right:5px; }
+      .age-seg.top { color:#fbbf24; }
       .rf-action-btn { padding:4px 8px; background:#1e293b; color:#cbd5e1; border:1px solid #334155; border-radius:5px; cursor:pointer; font-size:10px; margin:0 1px; }
       .rf-action-btn:hover { background:#475569; color:#fbbf24; }
     </style>
@@ -1097,6 +1100,32 @@
         rfApplyAllFilters();
       };
 
+      // Phase 2: 키워드 연령대 분포 (데이터랩 ages 버킷, 상대 추정). 온디맨드 — 추정 절대수치 노출 없음.
+      window.loadAgeDist = async function(keyword, btn) {
+        const resultEl = btn.nextElementSibling;
+        if (btn.dataset.loading === '1') return;
+        btn.dataset.loading = '1';
+        const orig = btn.textContent;
+        btn.textContent = '⏳';
+        try {
+          const r = await window.electronAPI.invoke('get-keyword-age-distribution', keyword);
+          if (!r || !r.success || !r.available) {
+            resultEl.textContent = (r && r.error) ? ('⚠️ ' + r.error) : '데이터 없음';
+            btn.textContent = orig; btn.dataset.loading = '0';
+            return;
+          }
+          const segs = (r.buckets || []).map(b => {
+            const isTop = b.key === r.top;
+            return `<span class="age-seg ${isTop ? 'top' : ''}">${b.label} ${b.share}%</span>`;
+          }).join('');
+          resultEl.innerHTML = segs + `<span style="color:#64748b;">(상대 추정)</span>`;
+          btn.style.display = 'none';
+        } catch (e) {
+          resultEl.textContent = '⚠️ 조회 실패';
+          btn.textContent = orig; btn.dataset.loading = '0';
+        }
+      };
+
       function renderRichFeedTable(rows, startIdx) {
         const tbody = document.getElementById('rfTbody');
         if (!rows || rows.length === 0) {
@@ -1265,7 +1294,7 @@
                 if (!m) return '';
                 return `<div style="font-size:9.5px; color:${m.color}; margin-top:3px;" title="네이버 데이터랩 최근 7일 vs 30일 평균 실측">${m.icon} ${m.label}</div>`;
               })()}</td>
-              <td style="padding:10px 8px; text-align:left;">${platformBadges ? platformBadges + '<br>' : ''}${sources}${moreSources}</td>
+              <td style="padding:10px 8px; text-align:left;">${platformBadges ? platformBadges + '<br>' : ''}${sources}${moreSources}<br><button class="rf-action-btn age-btn" onclick="loadAgeDist('${kwSafe}', this)" title="네이버 데이터랩 연령대 검색 비중 (상대 추정)">🎂 연령</button><span class="age-result" style="font-size:9px; color:#94a3b8; margin-left:4px;"></span></td>
               <td style="padding:10px 8px; text-align:center; white-space:nowrap;">
                 <button class="rf-action-btn" title="복사" onclick="rfCopyKw('${kwSafe}')">📋</button>
                 <button class="rf-action-btn" title="📝 글감 미리보기 — 자동완성 기반 제목 후보 5개 (v2.43.24)" onclick="rfShowTopicIdeas('${kwSafe}')">📝</button>

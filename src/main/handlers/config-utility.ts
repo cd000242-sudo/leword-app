@@ -845,6 +845,26 @@ export function setupConfigUtilityHandlers(): void {
     console.log('[KEYWORD-MASTER] ✅ search-kin-questions 핸들러 등록 완료');
   }
 
+  // 🎂 키워드 연령대 분포 (Phase 2) — 네이버 데이터랩 ages 버킷 (상대 추정, 절대 검색량 아님)
+  if (!ipcMain.listenerCount('get-keyword-age-distribution')) {
+    ipcMain.handle('get-keyword-age-distribution', async (_e, keyword: string) => {
+      try {
+        const env = EnvironmentManager.getInstance().getConfig();
+        const cfg = { clientId: env.naverClientId || '', clientSecret: env.naverClientSecret || '' };
+        if (!cfg.clientId || !cfg.clientSecret) {
+          return { success: false, error: '네이버 API 키(클라이언트 ID/시크릿)가 필요합니다.' };
+        }
+        const { getKeywordAgeDistribution } = await import('../../utils/keyword-age-distribution');
+        const dist = await getKeywordAgeDistribution(cfg, String(keyword || ''));
+        return { success: true, ...dist };
+      } catch (e: any) {
+        console.error('[AGE-DIST] ❌ 오류:', e?.message);
+        return { success: false, error: e?.message || '연령 분포 조회 실패' };
+      }
+    });
+    console.log('[KEYWORD-MASTER] ✅ get-keyword-age-distribution 핸들러 등록 완료');
+  }
+
   // 🛒 쇼핑 커넥트 — 네이버 쇼핑 상품 발굴
   if (!ipcMain.listenerCount('shopping-connect-search')) {
     ipcMain.handle('shopping-connect-search', async (_event, params: any) => {
