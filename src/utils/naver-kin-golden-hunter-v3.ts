@@ -289,7 +289,9 @@ function isLatestHiddenHoneyCandidate(q: any): boolean {
   const viewsPerHour = Number(q.viewsPerHour) || getViewsPerHour(q);
 
   if (!url.includes('docId=')) return false;
-  if (Boolean(q.isAdopted) || Boolean(q.isExpertOnly)) return false;
+  // isExpertOnly 제외: 네이버 지식인 모든 페이지 텍스트에 전문가 카테고리(의사/변호사/세무사) 링크가
+  //   상존 → 정규식이 전량 오탐. rising(라이브 검증)도 isExpertOnly 로 거르지 않음. isAdopted 만 신뢰.
+  if (Boolean(q.isAdopted)) return false;
   if (hoursAgo > LATEST_HONEY_MAX_HOURS) return false;
   if (answerCount > 3) return false;
   if (externalLinkCount >= 2) return false;
@@ -2270,7 +2272,7 @@ export async function getTrendingHiddenQuestions(): Promise<GoldenHuntResult> {
           };
         });
 
-        if (detail.isAdopted || detail.isExpertOnly) continue;
+        if (detail.isAdopted) continue; // isExpertOnly 제외 (페이지 상존 카테고리어로 전량 오탐)
         if ((detail.answerCount || q.answerCount || 0) > 3) continue;
         if ((detail.externalLinkCount || 0) >= 2) continue;
         const rawListHoursAgo = Number(q.hoursAgo);
