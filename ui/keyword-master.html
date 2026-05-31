@@ -17352,7 +17352,7 @@
                     <option value="45">B+ (홈판 후보 풀 확보)</option>
                     <option value="58">A+ (가치 검증 통과)</option>
                     <option value="75">S (강력 추천)</option>
-                    <option value="92" selected>S+ (끝판왕 기본)</option>
+                    <option value="90" selected>S+ (끝판왕 기본)</option>
                   </select>
                 </label>
                 <label style="display:flex; align-items:center; gap:8px; color:rgba(255,255,255,0.85); font-size:13px;">
@@ -17442,7 +17442,7 @@
           const requestedMinResults = parseInt(document.getElementById('homeMinResults')?.value || '30', 10);
           const minResults = Math.max(30, Number.isFinite(requestedMinResults) ? requestedMinResults : 30);
           const minQuality = parseInt(document.getElementById('homeMinQuality')?.value || '92', 10);
-          const strictSPlusMode = minQuality >= 92;
+          const strictSPlusMode = minQuality >= 90;
           const outputLimit = Math.max(count, minResults);
           const candidateTarget = Math.min(strictSPlusMode ? 360 : 180, Math.max(strictSPlusMode ? 300 : 120, outputLimit * (strictSPlusMode ? 12 : 4)));
           const blockInfluencer = document.getElementById('homeBlockInfluencer').checked;
@@ -18048,7 +18048,7 @@
               const needMore = minResults - filtered.length;
               const enrichedPool = enriched
                 .filter(x => !have.has(x.keyword))
-                .filter(x => !strictSPlusMode || (x.valueGate && !x.valueGate.isKilled && (x.valueGate.qualityScore || 0) >= 92))
+                .filter(x => !strictSPlusMode || (x.valueGate && !x.valueGate.isKilled && (x.valueGate.qualityScore || 0) >= minQuality))
                 .filter(x => (x.homeScore?.homeScore || 0) >= 25) // 핵심: homeScore≥25 미만은 무가치
                 .sort((a, b) => (b.homeScore?.homeScore || 0) - (a.homeScore?.homeScore || 0));
               const topUp = enrichedPool.slice(0, needMore).map(c => ({ ...c, _backfilled: true, _topup: 'enriched' }));
@@ -18072,7 +18072,7 @@
               const needMore = minResults - filtered.length;
               const sPlusPool = enriched
                 .filter(x => x?.keyword && !have.has(x.keyword))
-                .filter(x => x.valueGate && !x.valueGate.isKilled && (x.valueGate.qualityScore || 0) >= 92)
+                .filter(x => x.valueGate && !x.valueGate.isKilled && (x.valueGate.qualityScore || 0) >= minQuality)
                 .sort((a, b) => candidateRankScore(b) - candidateRankScore(a));
               const sPlusTopUp = sPlusPool.slice(0, needMore).map(c => ({
                 ...c,

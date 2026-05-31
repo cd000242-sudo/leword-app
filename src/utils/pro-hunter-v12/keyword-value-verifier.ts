@@ -20,8 +20,9 @@
  *  12. 🆕 AI 의미 검증 (Claude 모드 시, 옵션)
  *
  * 종합 품질 점수: (passedCount / totalEvaluated) × 100
- * 등급: S+(11+) / S(9-10) / A(7-8) / B(5-6) / C(<5) / KILL
- * valuable = !isKilled && passedCount >= 7
+ * 등급(11 게이트 기준): S+(≥90 = 10+/11) / S(≥75 = 9/11) / A(≥58 = 7/11) / B(≥42 = 5/11) / C / KILL
+ *   ※ S+는 게이트 1개 슬랙 허용 — 92(11/11 완벽)는 사실상 도달 불가라 90으로 캘리브레이션
+ * valuable = !isKilled && qualityScore >= 58
  */
 
 const PERSON_DEPENDENT_TOKENS = [
@@ -381,7 +382,7 @@ export function verifyKeywordValue(input: VerifyInput): ValueGateResult {
 
     let valueGrade: ValueGateResult['valueGrade'];
     if (isKilled) valueGrade = 'C';
-    else if (qualityScore >= 92) valueGrade = 'S+';   // 11+/12 또는 9.2/10
+    else if (qualityScore >= 90) valueGrade = 'S+';   // 10/11+ — 11 게이트 중 1개 슬랙 허용 (끝판왕). 92는 11/11 완벽만 허용 → 사실상 도달 불가라 90으로 캘리브레이션
     else if (qualityScore >= 75) valueGrade = 'S';     // 9/12 또는 7-8/10
     else if (qualityScore >= 58) valueGrade = 'A';     // 7/12 또는 6/10
     else if (qualityScore >= 42) valueGrade = 'B';     // 5/12 또는 5/10
