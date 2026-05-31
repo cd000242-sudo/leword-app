@@ -177,8 +177,9 @@ function performQuitAndInstall(autoUpdater: any): void {
       //   chrome 좀비 정리는 cleanupChromeZombiesSync로 빠르게 인라인 처리
       (app as any).__skipGracefulCleanup = true;
       try {
-        // v2.49.39: isForceRunAfter=false — install 후 자동 실행 안 함. 다음 launch 시 self-heal 적용.
-        autoUpdater.quitAndInstall(true, false);
+        // v2.49.60: isSilent=false (GUI 설치=진행창+UAC 정상), isForceRunAfter=true (설치 후 자동 실행).
+        //   무서명 NSIS 에서 isSilent=true 는 파일락/UAC 로 조용히 실패 → 영원히 옛 버전이던 버그 수정.
+        autoUpdater.quitAndInstall(false, true);
       } catch (e: any) {
         console.error('[UPDATER] quitAndInstall 실패:', e?.message);
         // ↓ fallback 으로 즉시 진행 (transitionState ERROR 는 fallback 끝나고)
@@ -675,20 +676,28 @@ export function initAutoUpdaterEarly(): void {
       }
     } catch {}
 
-    // v2.49.39: 에이전트팀 토론 결론 — "다음 LEWORD 실행 시 install" 모델 전환
-    //   dialog + 강제 install 제거. 자동 설치는 사용자가 명시적으로 실행할 때만 진행.
-    //   self-heal.ts 가 다음 시작 시 pending exe 적용. 사용자 작업 중단 0.
-    //   1인 개발자 환경에서 매일 LEWORD 재실행 → 지연 사실상 0.
-    console.log(`[UPDATER] 다운로드 완료 v${info?.version} — 다음 실행 시 자동 install`);
+    // v2.49.60: 다운로드 완료 → 사용자에게 명확히 설치 안내 (네이티브 dialog).
+    //   "지금 재시작" → GUI 설치(performQuitAndInstall, isSilent=false). "나중에" → 창 복구 후
+    //   autoInstallOnAppQuit=true 로 앱 종료 시 자동 설치(이중 보장).
+    console.log(`[UPDATER] 다운로드 완료 v${info?.version}`);
     closeProgressWindow();
-    // 다운로드 진행 중 hide 했던 창 복구 (사용자 작업 화면 유지)
     try {
       for (const win of hideableWindows) {
-        if (win && !win.isDestroyed()) {
-          try { win.show(); } catch {}
-        }
+        if (win && !win.isDestroyed()) { try { win.show(); } catch {} }
       }
     } catch {}
+    const __parent = hideableWindows.find((w: any) => w && !w.isDestroyed());
+    dialog.showMessageBox(__parent as any, {
+      type: 'info',
+      title: '업데이트 준비 완료',
+      message: `새 버전 v${info?.version} 다운로드가 완료되었습니다.`,
+      detail: '지금 재시작하면 업데이트가 적용됩니다.\n("나중에"를 눌러도 앱을 닫을 때 자동으로 설치됩니다.)',
+      buttons: ['지금 재시작', '나중에'],
+      defaultId: 0,
+      cancelId: 1,
+    }).then((res: any) => {
+      if (res.response === 0) performQuitAndInstall(autoUpdater);
+    }).catch((e: any) => console.error('[UPDATER] downloaded dialog 실패:', e?.message));
   });
 
   autoUpdater.on('error', (err: any) => {
