@@ -15,7 +15,7 @@
  *  - auto-update-event 브로드캐스트 (렌더러에서 감지 가능)
  */
 
-import { app, BrowserWindow, ipcMain } from 'electron';
+import { app, BrowserWindow, ipcMain, dialog } from 'electron';
 import { spawn } from 'child_process';
 import * as path from 'path';
 import * as fs from 'fs';
@@ -686,7 +686,7 @@ export function initAutoUpdaterEarly(): void {
         if (win && !win.isDestroyed()) { try { win.show(); } catch {} }
       }
     } catch {}
-    const __parent = hideableWindows.find((w: any) => w && !w.isDestroyed());
+    const __parent = Array.from(hideableWindows).find((w: any) => w && !w.isDestroyed());
     dialog.showMessageBox(__parent as any, {
       type: 'info',
       title: '업데이트 준비 완료',
