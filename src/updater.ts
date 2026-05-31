@@ -556,7 +556,9 @@ export function initAutoUpdaterEarly(): void {
   }
 
   autoUpdater.autoDownload = false;
-  autoUpdater.autoInstallOnAppQuit = false;
+  // v2.49.60: true 로 복원 — 앱 정상 종료 시 electron-updater 가 표준 방식으로 자동 설치.
+  //   (이전 false + self-heal /S silent install 은 무서명 NSIS 에서 조용히 실패 → 영원히 옛 버전)
+  autoUpdater.autoInstallOnAppQuit = true;
   console.log(`[UPDATER] installer protocol v${CURRENT_INSTALLER_PROTOCOL}`);
   // v2.43.77: 팀1+8 비평 — electron-log 파일 저장으로 packaged app 사용자 환경 추적
   try {
