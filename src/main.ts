@@ -43,6 +43,8 @@ import {
   registerHideableWindow,
   waitForUpdateCheck,
   isUpdating,
+  isUpdateDownloaded,
+  installDownloadedUpdate,
 } from './updater';
 import { setupKeywordMasterHandlers } from './main/keywordMasterIpcHandlers';
 import { setupPremiumHandlers } from './main/premiumFeatures';
@@ -1440,6 +1442,23 @@ app.on('before-quit', (e) => {
     } catch {}
     // app.exit 직접 호출하지 않고 Electron의 quitAndInstall이 NSIS spawn 후 정상 quit하게 둠
     return;
+  }
+
+  // v2.49.62: pending 업데이트가 있으면 "정상 종료" 대신 GUI 설치로 라우팅.
+  //   근본 버그 수정: 기존엔 autoInstallOnAppQuit 에 의존했으나 아래 graceful 경로가
+  //   app.exit(0) 으로 끝나 electron-updater 의 'quit' 이벤트가 발화하지 않아 설치가
+  //   영영 실행되지 않았다(updater.log 실측: 5세션 다운로드 중 install 시도 1회).
+  //   이제 다운로드된 업데이트가 있으면 종료 시 installDownloadedUpdate() 로 명시 설치한다.
+  //   ("나중에" 를 눌러도 앱을 닫을 때 자동 설치되는 동작을 신뢰성 있게 보장)
+  try {
+    if (isUpdateDownloaded()) {
+      console.log('[QUIT] pending 업데이트 감지 — GUI 설치로 라우팅');
+      e.preventDefault();
+      installDownloadedUpdate(); // 내부 restartScheduled 가드로 중복 무해
+      return;
+    }
+  } catch (err: any) {
+    console.warn('[QUIT] 업데이트 설치 라우팅 실패, 정상 종료로 진행:', err?.message);
   }
 
   e.preventDefault();

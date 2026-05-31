@@ -32,7 +32,13 @@ let progressWindow: BrowserWindow | null = null;
 let hideableWindows = new Set<BrowserWindow>();
 let isUpdatingFlag = false;
 let restartScheduled = false;
+let updateDownloadedFlag = false; // v2.49.62: pending 업데이트 다운로드 완료 여부 (before-quit 라우팅용)
 let lastUpdateInfo: { version?: string } = {};
+
+/** v2.49.62: 다운로드된 pending 업데이트가 설치 대기 중인지 */
+export function isUpdateDownloaded(): boolean {
+  return updateDownloadedFlag;
+}
 
 // v2.43.78: 팀1+6 비평 — 단일 state machine (race 제거)
 type UpdaterState = 'IDLE' | 'CHECKING' | 'DOWNLOADING' | 'VERIFYING' | 'INSTALLING' | 'DONE' | 'ERROR';
@@ -181,25 +187,44 @@ function performQuitAndInstall(autoUpdater: any): void {
         //   무서명 NSIS 에서 isSilent=true 는 파일락/UAC 로 조용히 실패 → 영원히 옛 버전이던 버그 수정.
         autoUpdater.quitAndInstall(false, true);
       } catch (e: any) {
-        console.error('[UPDATER] quitAndInstall 실패:', e?.message);
-        // ↓ fallback 으로 즉시 진행 (transitionState ERROR 는 fallback 끝나고)
-      }
-      // v2.48.5: quitAndInstall silent fail 안전망
-      //   사용자 반복 보고 "지금 설치 눌렀는데 아무 반응 없음"
-      //   원인 가설: quitAndInstall 이 throw 안 하고 silent 로 NSIS spawn 실패
-      //              (signature check / file lock / Windows policy 등)
-      //   해결: 5초 안에 LEWORD 가 살아있으면 self-heal 방식으로 pending exe 직접 spawn
-      setTimeout(() => {
+        // v2.49.62: 더블 설치 충돌 제거 — "무조건 5초 후 spawn" fallback 삭제.
+        //   기존엔 quitAndInstall 이 정상 진행 중(GUI installer customInit 의 10초 대기 등)에도
+        //   5초 타이머가 두 번째 installer 를 띄워 같은 $INSTDIR 에서 "Failed to uninstall: 2"
+        //   충돌을 유발 → 양쪽 다 실패하던 근본 원인.
+        //   이제 quitAndInstall 이 *동기 throw* 한 경우에만 pending exe 직접 실행으로 폴백한다.
+        console.error('[UPDATER] quitAndInstall 동기 실패 — pending exe 직접 폴백:', e?.message);
         try {
-          console.warn('[UPDATER] quitAndInstall 5초 후에도 LEWORD 살아있음 — pending exe 직접 spawn');
           spawnPendingExeFallback();
         } catch (err: any) {
           console.error('[UPDATER] fallback spawn 실패:', err?.message);
           try { app.exit(0); } catch {}
         }
-      }, 5000);
+      }
     }, 1500); // 300 → 1500ms (HTA paint 보장)
   });
+}
+
+/**
+ * v2.49.62: 다운로드된 pending 업데이트를 GUI 설치로 실행 (단일 진입점).
+ *   main.ts before-quit 가 "나중에" 후 정상 종료 시, 그리고 IPC/다이얼로그 "지금 재시작" 이
+ *   모두 이 한 경로(performQuitAndInstall = GUI quitAndInstall)로 수렴한다.
+ *   restartScheduled 가드로 중복 호출 무해(두 번째 이후 no-op).
+ */
+export function installDownloadedUpdate(): void {
+  if (restartScheduled) {
+    console.log('[UPDATER] installDownloadedUpdate — 이미 예약됨, 무시');
+    return;
+  }
+  restartScheduled = true;
+  let autoUpdater: any;
+  try {
+    autoUpdater = require('electron-updater').autoUpdater;
+  } catch (e: any) {
+    console.error('[UPDATER] installDownloadedUpdate — electron-updater 로드 실패:', e?.message);
+    restartScheduled = false;
+    return;
+  }
+  performQuitAndInstall(autoUpdater);
 }
 
 // v2.48.5: quitAndInstall 이 silent fail 한 경우 마지막 안전망
@@ -557,9 +582,12 @@ export function initAutoUpdaterEarly(): void {
   }
 
   autoUpdater.autoDownload = false;
-  // v2.49.60: true 로 복원 — 앱 정상 종료 시 electron-updater 가 표준 방식으로 자동 설치.
-  //   (이전 false + self-heal /S silent install 은 무서명 NSIS 에서 조용히 실패 → 영원히 옛 버전)
-  autoUpdater.autoInstallOnAppQuit = true;
+  // v2.49.62: false 로 전환 — autoInstallOnAppQuit 은 electron-updater 의 'quit' 이벤트에 의존하는데
+  //   main.ts before-quit 가 graceful cleanup 후 app.exit(0) 으로 종료해 'quit' 이벤트가 발화하지 않아
+  //   silent 설치가 영영 실행되지 않던 근본 버그(updater.log 5세션 중 1회만 install 시도 확인).
+  //   이제 main.ts before-quit 가 isUpdateDownloaded() 감지 → installDownloadedUpdate() 로 GUI 설치를
+  //   명시적·단일 경로로 실행한다. electron-updater 자동 경로(깨진 silent)는 끈다.
+  autoUpdater.autoInstallOnAppQuit = false;
   console.log(`[UPDATER] installer protocol v${CURRENT_INSTALLER_PROTOCOL}`);
   // v2.43.77: 팀1+8 비평 — electron-log 파일 저장으로 packaged app 사용자 환경 추적
   try {
@@ -655,6 +683,7 @@ export function initAutoUpdaterEarly(): void {
 
   autoUpdater.on('update-downloaded', (info: any) => {
     console.log('[UPDATER] 다운로드 완료:', info?.version);
+    updateDownloadedFlag = true; // v2.49.62: before-quit 가 종료 시 GUI 설치로 라우팅하도록
     broadcastEvent('downloaded', { version: info?.version });
     if (stuckCheckTimer) { clearTimeout(stuckCheckTimer); stuckCheckTimer = null; }
 
@@ -677,8 +706,8 @@ export function initAutoUpdaterEarly(): void {
     } catch {}
 
     // v2.49.60: 다운로드 완료 → 사용자에게 명확히 설치 안내 (네이티브 dialog).
-    //   "지금 재시작" → GUI 설치(performQuitAndInstall, isSilent=false). "나중에" → 창 복구 후
-    //   autoInstallOnAppQuit=true 로 앱 종료 시 자동 설치(이중 보장).
+    //   "지금 재시작" → GUI 설치(installDownloadedUpdate, isSilent=false). "나중에" → 창 복구 후
+    //   v2.49.62: before-quit 의 isUpdateDownloaded() 라우팅으로 앱 종료 시 GUI 설치(단일 경로).
     console.log(`[UPDATER] 다운로드 완료 v${info?.version}`);
     closeProgressWindow();
     try {
@@ -696,7 +725,7 @@ export function initAutoUpdaterEarly(): void {
       defaultId: 0,
       cancelId: 1,
     }).then((res: any) => {
-      if (res.response === 0) performQuitAndInstall(autoUpdater);
+      if (res.response === 0) installDownloadedUpdate(); // v2.49.62: 단일 경로 수렴
     }).catch((e: any) => console.error('[UPDATER] downloaded dialog 실패:', e?.message));
   });
 
@@ -758,10 +787,9 @@ export function registerUpdaterHandlers(): void {
 
   const installHandler = async () => {
     try {
-      const autoUpdater = require('electron-updater').autoUpdater;
       if (restartScheduled) return { ok: true, alreadyScheduled: true };
-      restartScheduled = true;
-      setTimeout(() => performQuitAndInstall(autoUpdater), 200);
+      // v2.49.62: 단일 진입점 installDownloadedUpdate 로 수렴 (200ms 지연으로 IPC 응답 flush)
+      setTimeout(() => installDownloadedUpdate(), 200);
       return { ok: true };
     } catch (e: any) {
       return { ok: false, reason: e?.message ?? String(e) };
