@@ -362,9 +362,16 @@ export function verifyKeywordValue(input: VerifyInput): ValueGateResult {
     // v2.42.32: detailDepth must-pass는 mode='strict' (AdSense 헌터)에서만 유지.
     //   mode='lenient' (홈판 헌터)는 detailDepth를 점수만 반영 — 외부 트렌드 키워드의 흡수성 보장.
     //   AdSense 헌터의 골든존 보증(2차원 매칭)은 그대로.
+    // v2.49.65: lenient(홈판)는 competitionRatio도 kill 기준에서 제외 — 점수 게이트로만 유지.
+    //   근거: 홈피드 노출은 신선도·CTR·카테고리·빈자리 기반이지 "저경쟁(낮은 sv/blogDoc 비율)"이 아님.
+    //   홈판 키워드는 인기·대중 키워드라 dc(블로그 문서수)가 커서 ratio(sv/dc≥0.05)가 거의 항상 미달 →
+    //   strict ratio must-pass를 그대로 쓰면 인기 후보가 전량 isKilled(실측 239개 중 174개 ratio-kill 확인).
+    //   경쟁도는 homeScore의 vacancy/influencer 레이어 + 홈판 헌터의 vacancy<3 hard-kill이 별도 담당.
+    //   AdSense 헌터(strict)는 저경쟁 골든존 보증을 위해 ratio must-pass 그대로 유지.
     const mode = input.mode || 'strict';
     const detailDepthGate = mode === 'lenient' ? true : detailDepthPass;
-    const mustPassFail = !svPass || !ratioPass || !intentPass || !detailDepthGate;
+    const ratioGate = mode === 'lenient' ? true : ratioPass;
+    const mustPassFail = !svPass || !ratioGate || !intentPass || !detailDepthGate;
     const isKilled = !personPass || !ymylPass || !writabilityPass
         || mustPassFail
         || (aiMeaningResult && !aiMeaningResult.passed && input.aiMeaningOk !== undefined);

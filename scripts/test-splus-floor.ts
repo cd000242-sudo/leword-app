@@ -29,12 +29,11 @@ function simMeasured(kw: string, adversarial: boolean): { sv: number; dc: number
     const h = hash(kw);
     // 노이즈/짧은 키워드는 sv 낮거나 dc 폭증(ratio fail) 경향
     const isShort = kw.split(/\s+/).length <= 2;
-    let sv = 120 + (h % 2600);                    // 120~2719
-    if (adversarial && (h % 3 === 0)) sv = 30 + (h % 90); // ~33% sv<100 → kill
-    let ratioPick = 0.06 + ((h >> 8) % 40) / 100; // 0.06~0.45
-    if (adversarial && (h % 3 === 1)) ratioPick = 0.005 + ((h >> 8) % 4) / 100; // ~33% ratio 위험
-    if (isShort) ratioPick = Math.min(ratioPick, 0.02); // 짧은 키워드는 경쟁 과열
-    const dc = Math.max(300, Math.round(sv / ratioPick));
+    // 현실적 홈판(인기 대중) 키워드: sv 측정됨, dc는 매우 큼(5k~200k) → ratio 대부분 미달
+    let sv = 150 + (h % 2350);                    // 150~2499
+    if (adversarial && (h % 3 === 0)) sv = 30 + (h % 90); // ~33% sv<100 → kill (실측 실패/롱테일)
+    let dc = 5000 + (h % 195000);                 // 5k~200k (인기 키워드 = 고경쟁 = ratio 미달)
+    if (isShort) dc = 100000 + (h % 100000);       // 짧은 키워드는 더 과열
     // 빅도메인 독점: adversarial 시 ~30% vacancy<3 (valuableOnly에서 컷, 단 strict topup은 우회)
     let vacancy = 3 + (h % 6);                    // 3~8
     if (adversarial && (h % 10 < 3)) vacancy = h % 3; // 0~2
