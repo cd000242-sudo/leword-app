@@ -117,7 +117,8 @@ function launchExternalSplash(): boolean {
   }
 }
 
-function performQuitAndInstall(autoUpdater: any): void {
+function performQuitAndInstall(autoUpdater: any, options: { runAfterInstall?: boolean } = {}): void {
+  const runAfterInstall = options.runAfterInstall === true;
   // v2.43.68: 진행창 닫는 시점 늦춤 — NSIS install 동안 사용자에게 계속 표시
   //   사용자 보고 "처음 업데이트 창이뜨고나서 바로떠야되는데 이거마저 좀있다가 뜨네"
   //   → 진행창이 NSIS 진행 동안 살아있어야 splash 와 끊김 최소화
@@ -183,9 +184,11 @@ function performQuitAndInstall(autoUpdater: any): void {
       //   chrome 좀비 정리는 cleanupChromeZombiesSync로 빠르게 인라인 처리
       (app as any).__skipGracefulCleanup = true;
       try {
-        // v2.49.60: isSilent=false (GUI 설치=진행창+UAC 정상), isForceRunAfter=true (설치 후 자동 실행).
-        //   무서명 NSIS 에서 isSilent=true 는 파일락/UAC 로 조용히 실패 → 영원히 옛 버전이던 버그 수정.
-        autoUpdater.quitAndInstall(false, true);
+        // v2.49.69: isForceRunAfter는 사용자 의도별로 분기.
+        //   - "지금 재시작": true, 설치 후 새 LEWORD 실행
+        //   - "나중에" 후 앱 종료: false, 설치만 하고 사용자가 다음에 직접 실행
+        //   무조건 true 였던 이전 동작은 "앱이 마음대로 실행됨" 체감의 원인이었다.
+        autoUpdater.quitAndInstall(false, runAfterInstall);
       } catch (e: any) {
         // v2.49.62: 더블 설치 충돌 제거 — "무조건 5초 후 spawn" fallback 삭제.
         //   기존엔 quitAndInstall 이 정상 진행 중(GUI installer customInit 의 10초 대기 등)에도
@@ -210,7 +213,7 @@ function performQuitAndInstall(autoUpdater: any): void {
  *   모두 이 한 경로(performQuitAndInstall = GUI quitAndInstall)로 수렴한다.
  *   restartScheduled 가드로 중복 호출 무해(두 번째 이후 no-op).
  */
-export function installDownloadedUpdate(): void {
+export function installDownloadedUpdate(options: { runAfterInstall?: boolean } = {}): void {
   if (restartScheduled) {
     console.log('[UPDATER] installDownloadedUpdate — 이미 예약됨, 무시');
     return;
@@ -224,7 +227,7 @@ export function installDownloadedUpdate(): void {
     restartScheduled = false;
     return;
   }
-  performQuitAndInstall(autoUpdater);
+  performQuitAndInstall(autoUpdater, options);
 }
 
 // v2.48.5: quitAndInstall 이 silent fail 한 경우 마지막 안전망
@@ -671,7 +674,7 @@ export function initAutoUpdaterEarly(): void {
           console.error('[UPDATER] update-downloaded 5분 미발생 → 강제 quitAndInstall 시도');
           if (!restartScheduled) {
             restartScheduled = true;
-            try { performQuitAndInstall(autoUpdater); } catch (e: any) {
+            try { performQuitAndInstall(autoUpdater, { runAfterInstall: false }); } catch (e: any) {
               console.error('[UPDATER] 강제 install 실패:', e?.message);
               showStuckRecoveryDialog(e?.message || '검증 실패');
             }
@@ -706,7 +709,7 @@ export function initAutoUpdaterEarly(): void {
     } catch {}
 
     // v2.49.60: 다운로드 완료 → 사용자에게 명확히 설치 안내 (네이티브 dialog).
-    //   "지금 재시작" → GUI 설치(installDownloadedUpdate, isSilent=false). "나중에" → 창 복구 후
+    //   "지금 재시작" → GUI 설치 + 설치 후 재실행. "나중에" → 창 복구 후
     //   v2.49.62: before-quit 의 isUpdateDownloaded() 라우팅으로 앱 종료 시 GUI 설치(단일 경로).
     console.log(`[UPDATER] 다운로드 완료 v${info?.version}`);
     closeProgressWindow();
@@ -720,12 +723,12 @@ export function initAutoUpdaterEarly(): void {
       type: 'info',
       title: '업데이트 준비 완료',
       message: `새 버전 v${info?.version} 다운로드가 완료되었습니다.`,
-      detail: '지금 재시작하면 업데이트가 적용됩니다.\n("나중에"를 눌러도 앱을 닫을 때 자동으로 설치됩니다.)',
+      detail: '지금 재시작하면 업데이트를 설치한 뒤 LEWORD를 다시 엽니다.\n"나중에"를 누르면 앱을 닫을 때 설치만 진행하고, 설치 후 앱은 자동 실행하지 않습니다.',
       buttons: ['지금 재시작', '나중에'],
       defaultId: 0,
       cancelId: 1,
     }).then((res: any) => {
-      if (res.response === 0) installDownloadedUpdate(); // v2.49.62: 단일 경로 수렴
+      if (res.response === 0) installDownloadedUpdate({ runAfterInstall: true }); // 명시적 재시작만 자동 실행
     }).catch((e: any) => console.error('[UPDATER] downloaded dialog 실패:', e?.message));
   });
 
@@ -789,7 +792,7 @@ export function registerUpdaterHandlers(): void {
     try {
       if (restartScheduled) return { ok: true, alreadyScheduled: true };
       // v2.49.62: 단일 진입점 installDownloadedUpdate 로 수렴 (200ms 지연으로 IPC 응답 flush)
-      setTimeout(() => installDownloadedUpdate(), 200);
+      setTimeout(() => installDownloadedUpdate({ runAfterInstall: true }), 200);
       return { ok: true };
     } catch (e: any) {
       return { ok: false, reason: e?.message ?? String(e) };

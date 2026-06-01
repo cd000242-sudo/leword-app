@@ -871,7 +871,7 @@ export function setupConfigUtilityHandlers(): void {
       try {
         const originalKeyword = String(params?.keyword ?? '').trim();
         const autoDiscovery = !originalKeyword;
-        const autoDiscoveryLimit = Math.min(Math.max(Number(params?.autoDiscoveryLimit) || 10, 3), 12);
+        const autoDiscoveryLimit = Math.min(Math.max(Number(params?.autoDiscoveryLimit) || 30, 10), 30);
         const sort = (params?.sort ?? 'sim') as 'sim' | 'date' | 'asc' | 'dsc';
         const display = Math.min(Math.max(Number(params?.display) || 50, 1), 100);
         const start = Math.min(Math.max(Number(params?.start) || 1, 1), 1000);
@@ -1095,7 +1095,7 @@ export function setupConfigUtilityHandlers(): void {
             keyword,
             relatedKeywordsTrimmed,
             crossSourceSeeds,
-            autoDiscovery ? 12 : 8
+            autoDiscovery ? 24 : 8
           );
           const seenExpansion = new Set<string>([keyword.toLowerCase()]);
           expansionQueries = [...autoDiscoveryQueries, ...baseExpansionQueries]
@@ -1105,11 +1105,11 @@ export function setupConfigUtilityHandlers(): void {
               seenExpansion.add(key);
               return true;
             })
-            .slice(0, autoDiscovery ? 12 : 8);
+            .slice(0, autoDiscovery ? 24 : 8);
           if (expansionQueries.length > 0) {
             try {
               const expandedResults = await Promise.allSettled(
-                expansionQueries.slice(0, autoDiscovery ? 10 : 6).map(q =>
+                expansionQueries.slice(0, autoDiscovery ? 16 : 6).map(q =>
                   searchNaverShopping(q.query, { display: 20, sort: 'sim', start: 1 })
                     .then(r => ({ query: q, result: r }))
                 )
@@ -1179,7 +1179,7 @@ export function setupConfigUtilityHandlers(): void {
         // 제품명 그대로만 보지 않고 같은 계열 대체 브랜드/카테고리 구매 키워드까지 제시한다.
         const lewordSeedRows: Array<{ item: any; seed: any }> = [];
         for (const item of recommended) {
-          const seeds = buildProductLeWordSeeds(item, keyword, 6);
+          const seeds = buildProductLeWordSeeds(item, item.discoveryQuery || keyword, 6);
           item.lewordEntryKeywords = seeds;
           for (const seed of seeds) lewordSeedRows.push({ item, seed });
         }

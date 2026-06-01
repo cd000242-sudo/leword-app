@@ -4,6 +4,7 @@ import {
   PRO_TRAFFIC_CATEGORY_SSS_FLOOR,
   PRO_TRAFFIC_MAX_RESULT_COUNT,
 } from '../pro-traffic-floor';
+import { GOLDEN_DISCOVERY_SSS_FLOOR } from '../golden-discovery-floor';
 
 let passed = 0;
 let failed = 0;
@@ -20,6 +21,12 @@ function assert(name: string, cond: boolean, detail?: string) {
 
 assert('category mode floors count to 30',
   normalizeProTrafficResultCount('category', 17) === PRO_TRAFFIC_CATEGORY_SSS_FLOOR);
+assert('PRO category floor starts at the golden discovery SSS floor',
+  PRO_TRAFFIC_CATEGORY_SSS_FLOOR === GOLDEN_DISCOVERY_SSS_FLOOR,
+  `${PRO_TRAFFIC_CATEGORY_SSS_FLOOR} !== ${GOLDEN_DISCOVERY_SSS_FLOOR}`);
+assert('PRO traffic hunter is the higher-capacity golden discovery successor',
+  PRO_TRAFFIC_MAX_RESULT_COUNT >= GOLDEN_DISCOVERY_SSS_FLOOR * 8,
+  `${PRO_TRAFFIC_MAX_RESULT_COUNT} < ${GOLDEN_DISCOVERY_SSS_FLOOR * 8}`);
 assert('category mode keeps larger requested count',
   normalizeProTrafficResultCount('category', 80) === 80);
 assert('category mode caps runaway count',

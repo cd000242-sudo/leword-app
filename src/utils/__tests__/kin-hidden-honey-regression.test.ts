@@ -20,5 +20,7 @@ assert('effective answer count is calculated', /const effAns\s*=/.test(block));
 assert('over-answered questions are filtered before scoring', /if\s*\(effAns\s*>\s*3\)\s*continue/.test(block));
 assert('stored answer count uses effAns', /answerCount:\s*effAns/.test(block));
 assert('detail answer count is not stored directly in trending hidden mode', !/answerCount:\s*detail\.answerCount/.test(block));
+assert('freshness resolver preserves real latest time', /resolveKinFreshHoursAgo\(q\.hoursAgo,\s*detail\.hoursAgoFromDetail,\s*24\)/.test(block));
+assert('hidden mode does not hardcode every candidate to 24h', !/const\s+finalHoursAgo\s*=\s*24\s*;/.test(block));
 
 console.log('[kin-hidden-honey-regression] passed');

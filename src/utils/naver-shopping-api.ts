@@ -562,14 +562,15 @@ function buildPersonalizedRecommendation(
   productReasons: string[],
 ): string {
   const product = item.cleanTitle || item.simplifiedTitle || item.title || keyword;
-  const route = item.discoverySource && item.discoverySource !== 'direct' && item.discoveryQuery
+  const targetKeyword = item.discoveryQuery || keyword;
+  const route = item.discoverySource && item.discoverySource !== 'direct' && item.discoveryQuery && item.discoveryQuery !== keyword
     ? `원 검색어 "${keyword}"에서 "${item.discoveryQuery}"로 확장해 잡힌 후보입니다. `
     : '';
   const price = item.lprice ? `${item.lprice.toLocaleString()}원` : '가격 확인 가능';
   const demand = demandEvidence[0] || '수요 근거가 아직 약함';
   const productReason = productReasons[0] || '상품 정보가 비교 글로 전환 가능';
   if (grade === 'HOT') {
-    return `${route}${product}는 ${demand} 신호가 있고 ${price} 가격대입니다. ${productReason} 때문에 "${keyword}" 글에서 우선 비교·추천 상품으로 쓰기 좋습니다.`;
+    return `${route}${product}는 ${demand} 신호가 있고 ${price} 가격대입니다. ${productReason} 때문에 "${targetKeyword}" 글에서 우선 비교·추천 상품으로 쓰기 좋습니다.`;
   }
   if (grade === 'BUY') {
     return `${route}${product}는 ${demand} 근거와 ${productReason}가 있어 작성 후보입니다. 가격/후기/대체 상품 비교를 같이 넣으면 구매 이동을 만들 수 있습니다.`;
@@ -663,7 +664,8 @@ export function attachShoppingOpportunityScore(
 ): number {
   const conversion = item.conversionScore ?? computeConversionScore(item, opts);
   const title = `${item.title || ''} ${item.brand || ''} ${item.maker || ''}`;
-  const keyword = context.keyword || '';
+  const rootKeyword = context.keyword || '';
+  const keyword = item.discoveryQuery || rootKeyword;
   const reasons: string[] = [];
   const demandEvidence: string[] = [];
   const badges: string[] = [];
@@ -825,7 +827,7 @@ export function attachShoppingOpportunityScore(
   item.opportunityGrade = grade;
   item.opportunityReasons = prioritizedReasons;
   item.opportunityBadges = Array.from(new Set(badges)).slice(0, 5);
-  item.writeRecommendation = buildPersonalizedRecommendation(item, keyword, grade, demandEvidence, itemReasons);
+  item.writeRecommendation = buildPersonalizedRecommendation(item, rootKeyword || keyword, grade, demandEvidence, itemReasons);
   item.contentAngles = buildContentAngles(item, keyword, matchedSignals);
   item.opportunityBreakdown = {
     demand: Math.round(demand * 10) / 10,

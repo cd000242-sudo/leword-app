@@ -35,6 +35,7 @@ import { runHealthCheck, refreshHealthReport, getCachedReport, getQuickStatus } 
 import { getRegistry, getAllStates, unblockSource, unblockAll, callAllSources } from '../../utils/sources/source-registry';
 import { getStorageStats, getRisingKeywords, getNewKeywords, clearStorage } from '../../utils/sources/source-storage';
 import { getCallStats, resetCallStats } from '../../utils/sources/rate-limiter';
+import { rankMindmapExpansionCandidates, MindmapExpansionCandidate } from '../../utils/mindmap-expansion-quality';
 
 function pro<T>(handler: () => Promise<T>): Promise<T | { error: string; requiresUnlimited: true }> {
     const lic = checkUnlimitedLicense();
@@ -324,9 +325,9 @@ export function setupSourceSignalHandlers(): void {
             if (!profile || !Array.isArray(profile.selectedCategories) || profile.selectedCategories.length === 0) {
                 return { success: false, error: '카테고리를 최소 1개 선택해주세요.' };
             }
-            // v2.49.30: UI 와 일치 — 최대 6개 (v2.49.28 UI 완화 + backend validation 동기화 누락 fix)
-            if (profile.selectedCategories.length > 6) {
-                return { success: false, error: '카테고리는 최대 6개까지 선택 가능합니다.' };
+            // 황금키워드는 하나의 운영 카테고리를 깊게 파야 하므로 대표 카테고리 1개만 허용.
+            if (profile.selectedCategories.length !== 1) {
+                return { success: false, error: '대표 카테고리는 1개만 선택 가능합니다.' };
             }
             const validIds = new Set(BLOGGER_CATEGORIES.map(c => c.id));
             for (const id of profile.selectedCategories) {
@@ -775,16 +776,26 @@ export function setupSourceSignalHandlers(): void {
                         new Promise<string[]>((_, rej) => setTimeout(() => rej(new Error('longtail timeout')), 18000)),
                     ]).catch(() => [] as string[]),
                 ]);
-                const out: string[] = [];
+                const candidates: MindmapExpansionCandidate[] = [];
                 for (const r of related) {
                     const k = String(r.keyword || r || '').trim();
-                    if (k && k.length >= 2 && k.length <= 30) out.push(k);
+                    if (k && k.length >= 2 && k.length <= 30) {
+                        candidates.push({
+                            keyword: k,
+                            sources: ['naver-relkwd'],
+                            monthlyVolume: typeof (r as any).searchVolume === 'number'
+                                ? (r as any).searchVolume
+                                : (typeof (r as any).monthlyVolume === 'number' ? (r as any).monthlyVolume : undefined),
+                        });
+                    }
                 }
                 for (const k of longtail) {
                     const kk = String(k || '').trim();
-                    if (kk && kk.length >= 2 && kk.length <= 30) out.push(kk);
+                    if (kk && kk.length >= 2 && kk.length <= 30) {
+                        candidates.push({ keyword: kk, sources: ['autocomplete', 'mindmap'] });
+                    }
                 }
-                return out;
+                return rankMindmapExpansionCandidates(s, candidates, count).map(item => item.keyword);
             };
 
             // 누적

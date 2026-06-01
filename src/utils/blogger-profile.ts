@@ -90,7 +90,7 @@ export const BLOGGER_CATEGORIES: BloggerCategoryInfo[] = [
 ];
 
 export interface BloggerProfile {
-  selectedCategories: BloggerCategoryId[]; // 최대 6개 (v2.49.30)
+  selectedCategories: BloggerCategoryId[]; // 대표 카테고리 1개
   experienceLevel: 'beginner' | 'intermediate' | 'advanced'; // 연차 / 글 수 기반
   dailyVisitors: number;       // 일평균 방문자 (자기 신고)
   setupAt: number;             // 설정 timestamp
@@ -119,12 +119,19 @@ function getProfilePath(): string {
   return path.join(dir, FILE_NAME);
 }
 
+function normalizeSingleCategoryProfile(profile: BloggerProfile): BloggerProfile {
+  const selectedCategories = Array.isArray(profile.selectedCategories)
+    ? profile.selectedCategories.filter(Boolean).slice(0, 1)
+    : [];
+  return { ...profile, selectedCategories };
+}
+
 export function loadBloggerProfile(): BloggerProfile | null {
   try {
     const p = getProfilePath();
     if (!fs.existsSync(p)) return null;
     const raw = fs.readFileSync(p, 'utf8');
-    return JSON.parse(raw) as BloggerProfile;
+    return normalizeSingleCategoryProfile(JSON.parse(raw) as BloggerProfile);
   } catch (err) {
     console.error('[BLOGGER-PROFILE] 로드 실패:', err);
     return null;
@@ -133,8 +140,9 @@ export function loadBloggerProfile(): BloggerProfile | null {
 
 export function saveBloggerProfile(profile: BloggerProfile): void {
   try {
-    fs.writeFileSync(getProfilePath(), JSON.stringify(profile, null, 2), 'utf8');
-    console.log('[BLOGGER-PROFILE] ✅ 저장:', profile.selectedCategories.join(','));
+    const normalized = normalizeSingleCategoryProfile(profile);
+    fs.writeFileSync(getProfilePath(), JSON.stringify(normalized, null, 2), 'utf8');
+    console.log('[BLOGGER-PROFILE] ✅ 저장:', normalized.selectedCategories.join(','));
   } catch (err) {
     console.error('[BLOGGER-PROFILE] 저장 실패:', err);
     throw err;

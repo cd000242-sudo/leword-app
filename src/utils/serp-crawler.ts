@@ -1,6 +1,3 @@
-import { chromium, Browser, Page } from 'playwright';
-import { findSystemChrome } from './chrome-finder';
-
 export interface SerpPost {
   rank: number;
   title: string;
@@ -20,44 +17,9 @@ export interface SerpAnalysisResult {
   analyzedAt: string;
 }
 
-// 브라우저 싱글톤
-let browserInstance: Browser | null = null;
-// v2.43.10: idle timeout — 5분 미사용 시 자동 종료 (RAM 점유 해제)
-let idleTimer: NodeJS.Timeout | null = null;
-const IDLE_CLOSE_MS = 5 * 60 * 1000;
-
-function bumpIdleTimer(): void {
-  if (idleTimer) clearTimeout(idleTimer);
-  idleTimer = setTimeout(() => {
-    if (browserInstance) {
-      console.log('[serp-crawler] 5분 idle — 브라우저 종료 (RAM 해제)');
-      browserInstance.close().catch(() => {});
-      browserInstance = null;
-    }
-    idleTimer = null;
-  }, IDLE_CLOSE_MS);
-  idleTimer.unref?.();
-}
-
-async function getBrowser(): Promise<Browser> {
-  if (!browserInstance || !browserInstance.isConnected()) {
-    const executablePath = findSystemChrome();
-    browserInstance = await chromium.launch({
-      headless: true,
-      executablePath, // undefined면 Playwright 기본 Chromium 사용
-      args: ['--no-sandbox', '--disable-setuid-sandbox', '--disable-dev-shm-usage', '--disable-gpu']
-    });
-  }
-  bumpIdleTimer();
-  return browserInstance;
-}
-
 export async function closeBrowser(): Promise<void> {
-  if (idleTimer) { clearTimeout(idleTimer); idleTimer = null; }
-  if (browserInstance) {
-    await browserInstance.close();
-    browserInstance = null;
-  }
+  const { browserPool } = await import('./puppeteer-pool');
+  await browserPool.closeIdle();
 }
 
 /**
@@ -65,11 +27,11 @@ export async function closeBrowser(): Promise<void> {
  * Playwright로 실제 검색 결과를 크롤링
  */
 export async function analyzeSerpWithPlaywright(keyword: string): Promise<SerpAnalysisResult> {
-  const browser = await getBrowser();
-  const context = await browser.newContext({
-    userAgent: 'Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/120.0.0.0 Safari/537.36'
+  const { browserPool } = await import('./puppeteer-pool');
+  const browser = await browserPool.acquire();
+  const page = await browser.newPage({
+    userAgent: 'Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/120.0.0.0 Safari/537.36',
   });
-  const page = await context.newPage();
 
   try {
     // 네이버 블로그 검색
@@ -252,9 +214,9 @@ export async function analyzeSerpWithPlaywright(keyword: string): Promise<SerpAn
       analyzedAt: new Date().toISOString()
     };
   } finally {
-    // v2.43.10: page.close() 누락 수정 — context.close()만으로는 page 메모리 즉시 해제 안 됨
+    // browserPool의 Patchright/Playwright 어댑터는 page.close() 때 context까지 닫는다.
     try { await page.close(); } catch {}
-    try { await context.close(); } catch {}
+    try { browserPool.release(browser); } catch {}
   }
 }
 

@@ -35,11 +35,29 @@ const HTML_URLS = [
   'https://www.korea.kr/briefing/pressReleaseList.do',
 ];
 
-const SUPPORT_RE = /(지원금|보조금|수당|급여|바우처|쿠폰|할인권|환급|장려금|소비쿠폰|펀드|대출|융자|감면|공제|신청|지급|대상|자격|모집|채용|공고|청년|소상공인|자영업|저소득|취약계층|고용|일자리|복지|주거|육아|출산|의료|교육|창업|민생)/;
+const SUPPORT_RE = /(지원금|보조금|수당|급여|바우처|쿠폰|할인권|환급|장려금|소비쿠폰|펀드|대출|융자|감면|공제|신청|지급|대상|자격|조건|조회|접수|기간|마감|서류|모집|채용|공고|청년|소상공인|자영업|저소득|취약계층|고용|일자리|복지|주거|육아|출산|의료|교육|창업|민생)/;
 const EXCLUDE_RE = /^(더보기|전체보기|검색|로그인|회원가입|메뉴|홈|정책브리핑|대한민국|정부|뉴스|공지|바로가기|prev|next|이전|다음|\d+)$/i;
-const INTENT_RE = /(지원금|보조금|수당|급여|바우처|쿠폰|할인권|환급|장려금|소비쿠폰|펀드|대출|융자|감면|공제|신청|지급|대상|자격|모집|채용|공고|혜택|접수|시행|확대|신설|개편)/;
+const INTENT_RE = /(지원금|보조금|수당|급여|바우처|쿠폰|할인권|환급|장려금|소비쿠폰|펀드|대출|융자|감면|공제|신청|지급|대상|자격|조건|조회|기간|마감|서류|모집|채용|공고|혜택|접수|시행|확대|신설|개편)/;
 const AUDIENCE_RE = /(청년|소상공인|자영업|저소득층|취약계층|신혼부부|노인|장애인|아동|농어민|구직자|근로자|중소기업|임산부|부모|학생|어르신)/;
 const DISPLAY_TITLE_MAX = 96;
+const POLICY_FRESHNESS_MS = {
+  sixHours: 6 * 60 * 60_000,
+  oneDay: 24 * 60 * 60_000,
+  threeDays: 3 * 24 * 60 * 60_000,
+};
+
+const POLICY_FALLBACK_KEYWORDS = [
+  '청년 월세 지원금 신청', '소상공인 정책자금 신청', '근로장려금 신청 대상', '자녀장려금 지급일',
+  '에너지바우처 신청', '긴급복지 생계지원 신청', '전기차 보조금 신청', '출산지원금 신청',
+  '부모급여 신청', '아동수당 지급일', '주거급여 신청 자격', '교육급여 바우처 신청',
+  '국민취업지원제도 신청', '청년내일저축계좌 조건', '청년도약계좌 신청 기간', '평생교육바우처 신청',
+  '농식품바우처 지급', '문화누리카드 신청', '기초연금 수급자격', '실업급여 신청 방법',
+  '청년 창업지원금 신청', '소상공인 전기요금 지원', '폐업지원금 신청', '자영업자 고용보험 지원',
+  '한부모가정 지원금', '다자녀 혜택 신청', '임산부 교통비 지원', '육아휴직 급여 신청',
+  '국가장학금 신청 기간', '장애인 활동지원 신청', '노인 일자리 신청', '청년 주거급여 분리지급',
+  '전세보증금 반환보증 지원', '저소득층 냉방비 지원', '민생회복 소비쿠폰 사용', '정부24 보조금 조회',
+  '보조금24 숨은 지원금', '청년 구직활동지원금', '취업성공수당 신청', '중소기업 청년 지원금',
+];
 
 function decodeHtmlEntities(text: string): string {
   return String(text || '')
@@ -108,7 +126,7 @@ function normalizeKeywordPhrase(text: string): string {
     .trim();
 }
 
-function compactKeywordPhrase(text: string): string {
+export function compactPolicyKeywordPhrase(text: string): string {
   let clean = normalizeKeywordPhrase(text)
     .replace(/^(과|와|및|또는)\s+/, '')
     .replace(/([가-힣])을\s+(신청|접수|모집|대상|자격|지급)/g, '$1 $2')
@@ -125,15 +143,38 @@ function compactKeywordPhrase(text: string): string {
     '민생회복 소비쿠폰',
     'AX원스톱 바우처',
     '농식품 바우처',
+    '농식품바우처',
     '여성 청소년 생리용품 바우처',
     '업무분담지원금',
     '유가연동보조금',
+    '청년 월세 지원금',
+    '청년월세지원금',
+    '청년월세 특별지원',
+    '소상공인 정책자금',
+    '소상공인 전기요금 지원',
+    '소상공인 지원금',
+    '전기차 보조금',
+    '근로장려금',
+    '자녀장려금',
+    '에너지바우처',
+    '문화누리카드',
+    '평생교육바우처',
+    '국민취업지원제도',
+    '청년내일저축계좌',
+    '청년도약계좌',
+    '긴급복지 생계지원',
+    '출산지원금',
+    '부모급여',
+    '아동수당',
+    '주거급여',
+    '교육급여',
+    '기초생활보장',
     '생계급여',
     '기초연금',
   ];
   for (const program of namedPrograms) {
     if (clean.includes(program)) {
-      const intent = clean.match(/이의신청|신청|지급|대상|자격|접수|사용|방법/);
+      const intent = clean.match(/이의신청|신청|지급|대상|자격|조건|조회|접수|사용|방법|기간|마감|서류/);
       if (intent?.[0] && !program.includes(intent[0])) return `${program} ${intent[0]}`;
       return program;
     }
@@ -142,19 +183,19 @@ function compactKeywordPhrase(text: string): string {
   const supportMatch = clean.match(/(?:[가-힣A-Za-z0-9·-]+\s*){1,4}(지원금|보조금|수당|급여|바우처|소비쿠폰|할인권|환급|장려금|펀드|대출|융자|감면|공제)/);
   if (supportMatch?.[0]) {
     const base = supportMatch[0].trim();
-    const intent = clean.match(/이의신청|신청|지급|대상|자격|접수|사용|방법/);
+    const intent = clean.match(/이의신청|신청|지급|대상|자격|조건|조회|접수|사용|방법|기간|마감|서류/);
     if (intent?.[0] && !base.includes(intent[0])) return `${base} ${intent[0]}`;
     return base;
   }
 
-  const audienceMatch = clean.match(/(?:청년|소상공인|자영업|저소득층|취약계층|신혼부부|노인|장애인|아동|농어민|구직자|근로자|중소기업|임산부|부모|학생|어르신)(?:\s*[가-힣A-Za-z0-9·-]+){0,3}\s*(신청|모집|대상|자격|혜택|지원)/);
+  const audienceMatch = clean.match(/(?:청년|소상공인|자영업|저소득층|취약계층|신혼부부|노인|장애인|아동|농어민|구직자|근로자|중소기업|임산부|부모|학생|어르신)(?:\s*[가-힣A-Za-z0-9·-]+){0,3}\s*(신청|모집|대상|자격|조건|혜택|지원|조회|서류|기간)/);
   if (audienceMatch?.[0]) {
     const audience = audienceMatch[0].trim();
     if (/^(근로자|중소기업|학생)\s*대상$/.test(audience)) return '';
     return audience;
   }
 
-  const actionMatch = clean.match(/(?:[가-힣A-Za-z0-9·-]+\s*){1,4}(신청|접수|모집|채용|공고|시행|확대|신설|개편)/);
+  const actionMatch = clean.match(/(?:[가-힣A-Za-z0-9·-]+\s*){1,4}(신청|접수|모집|채용|공고|시행|확대|신설|개편|조회|마감)/);
   if (actionMatch?.[0]) return actionMatch[0].trim();
 
   return clean;
@@ -181,7 +222,7 @@ function addCandidate(
   publishedAt?: string,
   title?: string,
 ): void {
-  const clean = compactKeywordPhrase(keyword);
+  const clean = compactPolicyKeywordPhrase(keyword);
   if (!isSeedLike(clean)) return;
   if (EXCLUDE_RE.test(clean)) return;
 
@@ -214,8 +255,8 @@ function extractPolicyPhrases(title: string): string[] {
 
   const patterns = [
     /[가-힣A-Za-z0-9·\-\s]{2,24}(지원금|보조금|수당|급여|바우처|소비쿠폰|할인권|환급|장려금|펀드|대출|융자|감면|공제)/g,
-    /(청년|소상공인|자영업|저소득층|취약계층|신혼부부|노인|장애인|아동|농어민|구직자|근로자|중소기업|임산부|부모|학생|어르신)[가-힣A-Za-z0-9·\-\s]{0,18}(지원|신청|모집|혜택|대상|자격|수당|급여|바우처|융자|대출)/g,
-    /[가-힣A-Za-z0-9·\-\s]{2,28}(신청|접수|지급|모집|채용|공고|시행|확대|신설|개편)/g,
+    /(청년|소상공인|자영업|저소득층|취약계층|신혼부부|노인|장애인|아동|농어민|구직자|근로자|중소기업|임산부|부모|학생|어르신)[가-힣A-Za-z0-9·\-\s]{0,18}(지원|신청|모집|혜택|대상|자격|조건|조회|서류|기간|수당|급여|바우처|융자|대출)/g,
+    /[가-힣A-Za-z0-9·\-\s]{2,28}(신청|접수|지급|모집|채용|공고|시행|확대|신설|개편|조회|마감)/g,
   ];
   for (const pattern of patterns) {
     for (const m of clean.matchAll(pattern)) {
@@ -234,10 +275,38 @@ function extractPolicyPhrases(title: string): string[] {
 function scorePolicyKeyword(keyword: string): number {
   let score = 0;
   if (/(지원금|보조금|수당|급여|바우처|환급|장려금|소비쿠폰)/.test(keyword)) score += 40;
-  if (/(신청|대상|자격|지급|접수|모집)/.test(keyword)) score += 25;
+  if (/(신청|대상|자격|조건|조회|지급|접수|기간|마감|서류|모집)/.test(keyword)) score += 25;
   if (AUDIENCE_RE.test(keyword)) score += 18;
+  if (/(청년|소상공인|자영업|저소득|취약|주거|출산|육아|고용|창업)/.test(keyword)) score += 8;
+  if (/(정부|대한민국|정책|브리핑|국무|부처)$/.test(keyword)) score -= 20;
   if (keyword.length >= 5 && keyword.length <= 22) score += 12;
   if (keyword.length > 30) score -= 20;
+  return score;
+}
+
+function parsePolicyDate(value?: string): number {
+  const raw = cleanText(value || '');
+  if (!raw) return 0;
+  const direct = Date.parse(raw);
+  if (Number.isFinite(direct)) return direct;
+  const korean = raw.match(/(\d{4})[.\-년]\s*(\d{1,2})[.\-월]\s*(\d{1,2})/);
+  if (korean) {
+    const [, y, m, d] = korean;
+    return new Date(Number(y), Number(m) - 1, Number(d)).getTime();
+  }
+  return 0;
+}
+
+function scorePolicyItem(item: PolicyBriefingKeyword): number {
+  let score = scorePolicyKeyword(item.keyword);
+  const published = parsePolicyDate(item.publishedAt);
+  if (published > 0) {
+    const age = Date.now() - published;
+    if (age >= 0 && age <= POLICY_FRESHNESS_MS.sixHours) score += 22;
+    else if (age <= POLICY_FRESHNESS_MS.oneDay) score += 16;
+    else if (age <= POLICY_FRESHNESS_MS.threeDays) score += 8;
+  }
+  if (/RSS|최신|인기/.test(item.category || '')) score += 4;
   return score;
 }
 
@@ -334,9 +403,12 @@ export async function getPolicyBriefingKeywords(limit: number = 30): Promise<Pol
   }
 
   const supportFirst = merged.sort((a, b) => {
-    const aw = scorePolicyKeyword(a.keyword);
-    const bw = scorePolicyKeyword(b.keyword);
+    const aw = scorePolicyItem(a);
+    const bw = scorePolicyItem(b);
     if (aw !== bw) return bw - aw;
+    const at = parsePolicyDate(a.publishedAt);
+    const bt = parsePolicyDate(b.publishedAt);
+    if (at !== bt) return bt - at;
     return a.rank - b.rank;
   });
 
@@ -344,8 +416,7 @@ export async function getPolicyBriefingKeywords(limit: number = 30): Promise<Pol
     return supportFirst.slice(0, limit).map((item, idx) => ({ ...item, rank: idx + 1 }));
   }
 
-  const defaults = ['고유가 피해지원금', '민생회복 소비쿠폰', '청년 지원금', '소상공인 지원금', '주거 지원금', '육아휴직 급여', '실업급여 신청'];
-  return defaults.slice(0, limit).map((keyword, idx) => ({
+  return getPolicyFallbackKeywords(limit).map((keyword, idx) => ({
     rank: idx + 1,
     keyword,
     source: 'policy-briefing',
@@ -353,6 +424,10 @@ export async function getPolicyBriefingKeywords(limit: number = 30): Promise<Pol
     category: '정책브리핑 기본',
     title: keyword,
   }));
+}
+
+export function getPolicyFallbackKeywords(limit: number = 30): string[] {
+  return POLICY_FALLBACK_KEYWORDS.slice(0, Math.min(Math.max(limit, 1), POLICY_FALLBACK_KEYWORDS.length));
 }
 
 export async function getGovernmentTrendKeywords(limit: number = 30): Promise<PolicyBriefingKeyword[]> {

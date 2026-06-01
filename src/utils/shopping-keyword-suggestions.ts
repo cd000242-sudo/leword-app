@@ -47,7 +47,22 @@ const COMMERCE_SEEDS: Record<string, string[]> = {
     '구스 이불', '메모리폼 베개', '라텍스 매트리스',
     '블랙아웃 커튼', 'LED 스탠드',
   ],
+  '👟 패션/잡화': [
+    '러닝화', '여성 가방', '남자 지갑', '레인부츠',
+    '여름 샌들', '기능성 티셔츠', '노트북 백팩', '데일리 운동화',
+  ],
+  '🚗 차량용품': [
+    '블랙박스', '차량용 청소기', '차량용 공기청정기', '타이어 공기압 주입기',
+    '차량용 냉장고', '하이패스 단말기', '차량용 무선충전기', '엔진오일',
+  ],
+  '🎁 선물/시즌': [
+    '집들이 선물', '부모님 선물', '어버이날 선물', '스승의날 선물',
+    '생일 선물', '신혼부부 선물', '명절 선물세트', '회사 답례품',
+  ],
 };
+
+export const SHOPPING_AUTO_DISCOVERY_MIN_SEEDS = 30;
+export const SHOPPING_AUTO_DISCOVERY_MAX_SEEDS = 60;
 
 export interface SuggestionGroup {
   category: string;
@@ -56,9 +71,9 @@ export interface SuggestionGroup {
 
 /**
  * 정적 풀 + (옵션) 동적 피드 합병
- * 각 카테고리에서 2-4개씩 랜덤 샘플링 → 30개 내외
+ * 각 카테고리에서 4개씩 회전 샘플링 → 무입력 발굴도 30개 이상 확보
  */
-export function getStaticShoppingSuggestions(perCategory: number = 3): SuggestionGroup[] {
+export function getStaticShoppingSuggestions(perCategory: number = 4): SuggestionGroup[] {
   const groups: SuggestionGroup[] = [];
   for (const [category, all] of Object.entries(COMMERCE_SEEDS)) {
     // 시간 기반 회전(6시간마다 다른 샘플) — Math.random 금지 (grading 규칙이 아니라 샘플링이라 허용되나, 회전으로 대체)
@@ -195,7 +210,10 @@ export function buildShoppingDiscoverySeeds(input: {
   staticGroups?: SuggestionGroup[];
   limit?: number;
 }): ShoppingDiscoverySeed[] {
-  const limit = Math.min(Math.max(Number(input.limit) || 12, 1), 40);
+  const limit = Math.min(
+    Math.max(Number(input.limit) || SHOPPING_AUTO_DISCOVERY_MIN_SEEDS, 1),
+    SHOPPING_AUTO_DISCOVERY_MAX_SEEDS
+  );
   const out: ShoppingDiscoverySeed[] = [];
   const seen = new Set<string>();
 
@@ -257,16 +275,16 @@ export function buildShoppingDiscoverySeeds(input: {
  * 키워드 무입력 상태에서 쇼핑커넥트가 바로 발굴을 시작할 때 쓰는 시드.
  * 속도를 위해 네이버 검증을 여기서 기다리지 않고, 캐시/동적 피드/정적 풀을 즉시 합친다.
  */
-export async function getShoppingDiscoverySeeds(limit: number = 12): Promise<ShoppingDiscoverySeed[]> {
+export async function getShoppingDiscoverySeeds(limit: number = SHOPPING_AUTO_DISCOVERY_MIN_SEEDS): Promise<ShoppingDiscoverySeed[]> {
   const cached = readVerifiedCache();
   if (!cached) {
-    getVerifiedShoppingSuggestions(30).catch(() => {});
+    getVerifiedShoppingSuggestions(SHOPPING_AUTO_DISCOVERY_MIN_SEEDS).catch(() => {});
   }
 
   return buildShoppingDiscoverySeeds({
     verified: cached?.items || [],
     dynamic: getDynamicSuggestionsFromRichFeed(),
-    staticGroups: getStaticShoppingSuggestions(3),
+    staticGroups: getStaticShoppingSuggestions(4),
     limit,
   });
 }
@@ -385,12 +403,12 @@ export async function getShoppingSuggestions(): Promise<{
 
   // 캐시 없으면 백그라운드에서 트리거 (await 안 함)
   if (!cached) {
-    getVerifiedShoppingSuggestions(30).catch(() => {});
+    getVerifiedShoppingSuggestions(SHOPPING_AUTO_DISCOVERY_MIN_SEEDS).catch(() => {});
   }
 
   return {
     dynamic,
     verified,
-    static: getStaticShoppingSuggestions(3),
+    static: getStaticShoppingSuggestions(4),
   };
 }

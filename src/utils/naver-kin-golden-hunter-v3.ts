@@ -280,7 +280,27 @@ function getLatestViewFloor(hoursAgo: number): number {
   return 15;
 }
 
-function isLatestHiddenHoneyCandidate(q: any): boolean {
+export function resolveKinFreshHoursAgo(
+  listHoursAgoInput: unknown,
+  detailHoursAgoInput: unknown,
+  fallbackHours = 24,
+): number {
+  const toFresh = (value: unknown): number | null => {
+    const n = Number(value);
+    return Number.isFinite(n) && n >= 0 && n <= LATEST_HONEY_MAX_HOURS ? n : null;
+  };
+
+  const listHours = toFresh(listHoursAgoInput);
+  const detailHours = toFresh(detailHoursAgoInput);
+  if (listHours !== null && detailHours !== null) return Math.min(listHours, detailHours);
+  if (listHours !== null) return listHours;
+  if (detailHours !== null) return detailHours;
+
+  const fallback = Number(fallbackHours);
+  return Number.isFinite(fallback) && fallback >= 0 ? fallback : 24;
+}
+
+export function isLatestHiddenHoneyCandidate(q: any): boolean {
   const url = String(q.url || '');
   const viewCount = Number(q.viewCount) || 0;
   const answerCount = Number(q.answerCount) || 0;
@@ -300,7 +320,7 @@ function isLatestHiddenHoneyCandidate(q: any): boolean {
   return true;
 }
 
-function getLatestHiddenSortScore(q: any): number {
+export function getLatestHiddenSortScore(q: any): number {
   const withVelocity = { ...q, viewsPerHour: Number(q.viewsPerHour) || getViewsPerHour(q) };
   const honey = buildHoneyFields(withVelocity, buildKinSignals(withVelocity, { isMainExposed: false })).honeyPotScore;
   const answerBonus = Number(q.answerCount) === 0 ? 12 : Number(q.answerCount) === 1 ? 7 : 0;
@@ -1843,9 +1863,9 @@ export async function fullHunt(): Promise<GoldenHuntResult> {
         const effAns = (detAns > 0 && detAns <= listAns) ? detAns : listAns;
         if (effAns > 3) continue;
         const baseHiddenScore = Number(q.hiddenScore) || Number(q.seedOpportunity) || 0;
-        // 신선도: STEP2 가 sort=date(최신순)로 수집해 신선 보장. 상세 날짜는 사이드바 오탐이라 신뢰 금지
-        //   → 24h(신선) 가정 (trending 과 동일 정책).
-        const finalHoursAgo = 24;
+        // 신선도: 목록 상대시간을 우선 살리고, 상세 상대시간은 7일 이내로 검증될 때만 보강한다.
+        // 상세의 오래된 절대날짜/사이드바 오탐은 resolveKinFreshHoursAgo 에서 폐기한다.
+        const finalHoursAgo = resolveKinFreshHoursAgo(q.hoursAgo, detail.hoursAgoFromDetail, 24);
         const finalViewCount = detail.viewCount || 0;
         const finalViewsPerHour = Math.round((finalViewCount / Math.max(1, finalHoursAgo)) * 10) / 10;
         questionsWithViewCount.push({
@@ -2288,10 +2308,9 @@ export async function getTrendingHiddenQuestions(): Promise<GoldenHuntResult> {
         const effAns = (detAns > 0 && detAns <= listAns) ? detAns : listAns;
         if (effAns > 3) continue;
         // 외부링크 하드 차단 제거 (과다 카운트로 전량 탈락 → rising 정책 일치)
-        // 신선도: STEP2 가 sort=date(최신순)로 수집하므로 수집 자체가 신선함을 보장.
-        //   상세 상대시간(N일 전)은 사이드바/연관질문 텍스트를 오탐(라이브: 59/60 가 7일초과 오판) →
-        //   하드 탈락에 쓰지 않고 24h(신선) 가정. (절대날짜 오탐과 동일 계열, rising 도 동일 정책)
-        const finalHoursAgo = 24;
+        // 신선도: 목록 상대시간을 우선 살리고, 상세 상대시간은 7일 이내로 검증될 때만 보강한다.
+        // 상세의 오래된 절대날짜/사이드바 오탐은 resolveKinFreshHoursAgo 에서 폐기한다.
+        const finalHoursAgo = resolveKinFreshHoursAgo(q.hoursAgo, detail.hoursAgoFromDetail, 24);
         const finalViewCount = detail.viewCount || 0;
         const finalViewsPerHour = Math.round((finalViewCount / Math.max(1, finalHoursAgo)) * 10) / 10;
         

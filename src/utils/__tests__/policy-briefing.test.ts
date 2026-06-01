@@ -5,7 +5,11 @@
  * 표시 제목 정제 규칙을 검증한다.
  */
 
-import { compactPolicyDisplayTitle } from '../policy-briefing-api';
+import {
+  compactPolicyDisplayTitle,
+  compactPolicyKeywordPhrase,
+  getPolicyFallbackKeywords,
+} from '../policy-briefing-api';
 
 let passed = 0;
 let failed = 0;
@@ -33,6 +37,18 @@ const noSentence = compactPolicyDisplayTitle(
   '청년 월세 지원 신청'
 );
 assert('문장 구분이 없으면 말줄임으로 제한', noSentence.length <= 99 && noSentence.endsWith('...'), noSentence);
+
+assert('정책 키워드는 조회·기간·서류형 의도를 보존',
+  compactPolicyKeywordPhrase('청년 월세 지원금 신청 기간과 준비서류를 확인하세요') === '청년 월세 지원금 신청',
+  compactPolicyKeywordPhrase('청년 월세 지원금 신청 기간과 준비서류를 확인하세요'));
+
+assert('지원금 fallback은 빈 소스 상황에서도 30개 이상 제공',
+  getPolicyFallbackKeywords(36).length >= 36,
+  `${getPolicyFallbackKeywords(36).length}`);
+
+assert('지원금 fallback은 실제 작성 가능한 신청/대상형 키워드를 포함',
+  getPolicyFallbackKeywords(36).some(k => /소상공인|청년|근로장려금/.test(k) && /신청|대상|조회|기간/.test(k)),
+  getPolicyFallbackKeywords(36).join(', '));
 
 console.log(`\n[policy-briefing.test] passed: ${passed} / failed: ${failed}`);
 if (failed > 0) {

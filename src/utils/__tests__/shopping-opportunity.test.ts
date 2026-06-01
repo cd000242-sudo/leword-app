@@ -13,7 +13,11 @@ import {
   scoreLeWordEntryKeyword,
   type ShoppingItem,
 } from '../naver-shopping-api';
-import { buildShoppingDiscoverySeeds } from '../shopping-keyword-suggestions';
+import {
+  SHOPPING_AUTO_DISCOVERY_MIN_SEEDS,
+  buildShoppingDiscoverySeeds,
+  getStaticShoppingSuggestions,
+} from '../shopping-keyword-suggestions';
 
 let passed = 0;
 let failed = 0;
@@ -89,6 +93,33 @@ assert('실시간 근거가 카드 데이터에 남음',
 
 const ranked = rankShoppingOpportunities([merelyPopularProduct, trendingProduct], context, 2);
 assert('랭킹 1위는 수요 근거가 있는 상품', ranked[0]?.productId === 'hot-1', ranked.map(i => i.productId).join(','));
+
+const autoDiscoveredProduct = makeItem({
+  title: '접이식 캠핑 의자 가벼운 1인용 로우체어',
+  cleanTitle: '접이식 캠핑 의자',
+  lprice: 34900,
+  hprice: 49900,
+  mallName: '쿠팡',
+  productId: 'auto-camping-1',
+  brand: '캠핑문',
+  category1: '스포츠/레저',
+  category2: '캠핑',
+  category3: '캠핑의자',
+  discoveryQuery: '캠핑 의자 추천',
+  discoverySource: 'auto-discovery',
+});
+attachShoppingOpportunityScore(autoDiscoveredProduct, {
+  keyword: '무선 이어폰 추천',
+  intentPrimary: 'buy',
+  totalHits: 5000,
+  relatedKeywords: [],
+  crossSourceSeeds: [],
+  recency: { status: 'rising', ratio: 1.7 },
+});
+assert('무입력 확장 상품은 첫 시드가 아니라 발견된 시드 기준으로 추천문을 생성',
+  (autoDiscoveredProduct.writeRecommendation || '').includes('"캠핑 의자 추천"') &&
+    (autoDiscoveredProduct.opportunityReasons || []).some(r => r.includes('검색 키워드와 상품명이 직접 맞물림')),
+  autoDiscoveredProduct.writeRecommendation);
 
 const conversionOnlyProduct = makeItem({
   title: '무선 이어폰 추천 프리미엄 블루투스 이어폰',
@@ -178,6 +209,16 @@ assert('무입력 쇼핑 발굴은 중복 키워드를 제거',
 assert('검증 황금 시드가 자동 발굴 우선순위 상단',
   autoDiscoverySeeds[0]?.keyword === '무선 이어폰 추천',
   autoDiscoverySeeds.map(s => `${s.keyword}:${s.priorityScore}`).join(', '));
+
+const defaultAutoDiscoverySeeds = buildShoppingDiscoverySeeds({
+  staticGroups: getStaticShoppingSuggestions(4),
+});
+assert('무입력 쇼핑 발굴 기본값은 최소 30개 시드를 확보',
+  defaultAutoDiscoverySeeds.length >= SHOPPING_AUTO_DISCOVERY_MIN_SEEDS,
+  `${defaultAutoDiscoverySeeds.length} < ${SHOPPING_AUTO_DISCOVERY_MIN_SEEDS}`);
+assert('무입력 쇼핑 발굴 기본 시드는 카테고리 다양성을 확보',
+  new Set(defaultAutoDiscoverySeeds.map(s => s.category).filter(Boolean)).size >= 8,
+  defaultAutoDiscoverySeeds.map(s => `${s.keyword}:${s.category}`).join(', '));
 
 console.log(`\n[shopping-opportunity.test] passed: ${passed} / failed: ${failed}`);
 if (failed > 0) {

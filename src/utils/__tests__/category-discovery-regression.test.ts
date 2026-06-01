@@ -10,6 +10,7 @@ import {
   matchesDiscoveryCategory,
   resolveDiscoveryCategoryIds,
 } from '../category-discovery-map';
+import { buildCategoryFirstGoldenSeedPlan } from '../category-first-golden-discovery';
 import { BLOGGER_CATEGORIES } from '../blogger-profile';
 import { getSeedsForUserCategories } from '../sources/category-seed-catalog';
 
@@ -86,6 +87,47 @@ assert('user celeb profile injects at least 30 star seeds', userCelebSeeds.lengt
 assert('user celeb seeds include fast issue intent',
   userCelebSeeds.some(seed => /컴백|공식입장|근황|시상식/.test(seed)),
   userCelebSeeds.slice(0, 12).join(', '));
+
+const june2026 = new Date('2026-06-01T09:00:00+09:00');
+const policyPlan = buildCategoryFirstGoldenSeedPlan({
+  category: '지원금',
+  maxSeeds: 180,
+  now: june2026,
+});
+assert('category-first support plan resolves policy id',
+  policyPlan.categoryIds.includes('policy'),
+  policyPlan.categoryIds.join(','));
+assert('category-first support plan fills a large current seed pool',
+  policyPlan.seeds.length >= 160,
+  `${policyPlan.seeds.length}`);
+assert('category-first support plan includes current-date and application intent',
+  policyPlan.seeds.some(seed => /2026|6월|최신/.test(seed))
+    && policyPlan.seeds.some(seed => /신청|대상|자격|지급일|마감/.test(seed)),
+  policyPlan.seeds.slice(0, 20).join(', '));
+
+const focusedPolicyPlan = buildCategoryFirstGoldenSeedPlan({
+  category: '지원금',
+  keyword: '근로장려금',
+  maxSeeds: 80,
+  now: june2026,
+});
+assert('category-first optional keyword acts as a category-scoped focus seed',
+  focusedPolicyPlan.seeds.slice(0, 12).some(seed => /근로장려금/.test(seed))
+    && focusedPolicyPlan.seeds.some(seed => /근로장려금.*(신청|지급일|대상|자격)/.test(seed)),
+  focusedPolicyPlan.seeds.slice(0, 20).join(', '));
+
+const starPlan = buildCategoryFirstGoldenSeedPlan({
+  category: '스타',
+  maxSeeds: 180,
+  now: june2026,
+});
+assert('category-first star plan resolves entertainment family',
+  starPlan.categoryIds.includes('celeb') && starPlan.categoryIds.includes('broadcast') && starPlan.categoryIds.includes('music'),
+  starPlan.categoryIds.join(','));
+assert('category-first star plan includes fresh entertainment intent',
+  starPlan.seeds.some(seed => /2026|6월|최신/.test(seed))
+    && starPlan.seeds.some(seed => /컴백|근황|공식입장|콘서트|팬미팅|시상식/.test(seed)),
+  starPlan.seeds.slice(0, 20).join(', '));
 
 for (const category of BLOGGER_CATEGORIES) {
   const profileSeeds = getSeedsForUserCategories([category.id], 30);

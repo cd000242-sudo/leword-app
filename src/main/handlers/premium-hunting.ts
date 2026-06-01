@@ -25,7 +25,13 @@ import { predictTitleCtr, generateOptimizedTitles, batchGenerateTitlesWithCtr } 
 import { buildHomePublishPlan, batchBuildHomePublishPlans } from '../../utils/pro-hunter-v12/home-publish-planner';
 import { analyzeVacancy, batchAnalyzeVacancy } from '../../utils/pro-hunter-v12/vacancy-detector';
 import { getRelatedKeywords as getRelatedKeywordsFromCache } from '../../utils/related-keyword-cache';
-import { expandHomeNeedKeywords, rankHomeNeedKeywords, isWeakHomeNeedKeyword } from '../../utils/pro-hunter-v12/home-keyword-intent';
+import {
+  expandHomeNeedKeywords,
+  rankHomeNeedKeywords,
+  isWeakHomeNeedKeyword,
+  HOME_HUNTER_MIN_SPLUS_RESULTS,
+  HOME_NEED_SPLUS_SCORE,
+} from '../../utils/pro-hunter-v12/home-keyword-intent';
 
 
 export function setupPremiumHuntingHandlers(): void {
@@ -776,18 +782,32 @@ export function setupPremiumHuntingHandlers(): void {
           };
         }
 
+        const requestedMode = options.mode || 'realtime';
+        const requestedCategory = String(options.category || '').trim();
+        if (requestedMode === 'category' && (!requestedCategory || requestedCategory === 'all')) {
+          return {
+            success: false,
+            error: 'PRO 트래픽 키워드 헌터는 카테고리 모드에서 집중 카테고리 1개를 먼저 선택해야 합니다.',
+            keywords: [],
+            summary: {
+              totalFound: 0,
+              mode: 'missing_category',
+            },
+          };
+        }
+
         console.log('[PRO-TRAFFIC] ✅ PRO 사용 가능 (1년/영구제)');
         console.log('[PRO-TRAFFIC] 🏆 트래픽 폭발 황금키워드 헌팅 시작!');
-        console.log(`[PRO-TRAFFIC] 옵션: 카테고리=${options.category}, 신생타겟=${options.targetRookie}, 개수=${options.count}`);
+        console.log(`[PRO-TRAFFIC] 옵션: 카테고리=${requestedCategory || 'all'}, 신생타겟=${options.targetRookie}, 개수=${options.count}`);
 
         // 🔥 PRO 황금 키워드 헌팅 실행
-        const requestedCount = normalizeProTrafficResultCount(options.mode || 'realtime', options.count || 30);
+        const requestedCount = normalizeProTrafficResultCount(requestedMode, options.count || 30);
         const discoveryFirstRequested = (options as any).discoveryFirst === true;
 
         const result = await huntProTrafficKeywords({
-          mode: options.mode || 'realtime',
+          mode: requestedMode,
           seedKeywords: options.seedKeywords || [],
-          category: options.category || 'all',
+          category: requestedCategory || 'all',
           targetRookie: options.targetRookie !== false,
           includeSeasonKeywords: options.includeSeasonKeywords !== false,
           explosionMode: options.explosionMode === true,
@@ -1531,9 +1551,14 @@ export function setupPremiumHuntingHandlers(): void {
           return out;
         };
 
+        const perRootHomeAngleLimit = Math.min(
+          HOME_HUNTER_MIN_SPLUS_RESULTS,
+          Math.max(12, Math.ceil(limit / Math.max(1, roots.length)) + 8),
+        );
+
         // Depth 0: root 자체를 홈판형 발행 각도로 먼저 확장한다.
         for (const root of roots) {
-          for (const item of expandHomeNeedKeywords(root, category, 10)) {
+          for (const item of expandHomeNeedKeywords(root, category, perRootHomeAngleLimit)) {
             allExpanded.add(item.keyword);
           }
         }
@@ -1545,7 +1570,7 @@ export function setupPremiumHuntingHandlers(): void {
             const k = String(kw || '').trim();
             if (isGoodSeed(k, roots)) {
               if (!isWeakHomeNeedKeyword(k, category)) allExpanded.add(k);
-              for (const item of expandHomeNeedKeywords(k, category, 4)) {
+              for (const item of expandHomeNeedKeywords(k, category, 8)) {
                 allExpanded.add(item.keyword);
               }
               depth1Pool.add(k);
@@ -1564,7 +1589,7 @@ export function setupPremiumHuntingHandlers(): void {
               const k = String(kw || '').trim();
               if (!isGoodSeed(k, roots)) continue;
               if (!isWeakHomeNeedKeyword(k, category)) allExpanded.add(k);
-              for (const item of expandHomeNeedKeywords(k, category, 3)) {
+              for (const item of expandHomeNeedKeywords(k, category, 6)) {
                 allExpanded.add(item.keyword);
               }
             }
@@ -1573,10 +1598,14 @@ export function setupPremiumHuntingHandlers(): void {
 
         // v2.42.64: subsumption 제거 — "쿠션팩트 추천"과 "쿠션팩트 추천 베스트"는 검색량/문서량이 달라 둘 다 가치 있음
         // Set 자체 dedup만으로 충분 (완전 동일 문자열만 제거)
-        const finalSeeds: string[] = rankHomeNeedKeywords(
+        const rankedHomeSeeds = rankHomeNeedKeywords(
           Array.from(allExpanded).map(keyword => ({ keyword, category }))
-        )
-          .filter(item => item.homeNeedScore >= 45)
+        );
+        const splusHomeSeeds = rankedHomeSeeds.filter(item => item.homeNeedScore >= HOME_NEED_SPLUS_SCORE);
+        const selectedHomeSeeds = splusHomeSeeds.length >= Math.min(limit, HOME_HUNTER_MIN_SPLUS_RESULTS)
+          ? splusHomeSeeds
+          : rankedHomeSeeds.filter(item => item.homeNeedScore >= 45);
+        const finalSeeds: string[] = selectedHomeSeeds
           .slice(0, limit)
           .map(item => item.keyword);
 

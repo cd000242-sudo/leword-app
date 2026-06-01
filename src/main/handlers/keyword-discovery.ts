@@ -22,6 +22,7 @@ import { getCachedReport } from '../../utils/sources/health-checker';
 import { getDiscoveryCategorySeeds, matchesDiscoveryCategory, resolveDiscoveryCategoryIds } from '../../utils/category-discovery-map';
 import { deterministicRange } from '../../utils/deterministic-random';
 import { countSss, getGoldenDiscoveryScanLimit, rankGoldenDiscoveryResults } from '../../utils/golden-discovery-floor';
+import { buildCategoryFirstGoldenSeedPlan } from '../../utils/category-first-golden-discovery';
 
 // v4.0: 외부 신호 캐시 (앱 lifetime, 30분 TTL)
 let _v4SignalCache: { map: Map<string, ExternalSignals>; expiresAt: number } | null = null;
@@ -128,6 +129,14 @@ export function setupKeywordDiscoveryHandlers(): void {
     // 강제로 네이버만 사용
     const source = 'naver';
     const category = actualOptions.category || '';
+    const categoryFirstMode = actualOptions.categoryFirst === true || !!category;
+    if (actualOptions.requireCategory === true && !category) {
+      event.sender.send('keyword-discovery-progress', {
+        type: 'error',
+        message: '황금키워드 발굴은 카테고리를 먼저 선택해야 합니다.'
+      });
+      return { success: false, keywords: [], error: '카테고리를 먼저 선택해주세요.' };
+    }
     const page = actualOptions.page || 0;
     const rawLimitValue = actualOptions.limit;
     const rawLimit = Number(rawLimitValue);
@@ -181,7 +190,7 @@ export function setupKeywordDiscoveryHandlers(): void {
         // 🔥 API 키가 없으면 백업 황금키워드 제공
         if (!naverClientId || !naverClientSecret) {
           console.log('[KEYWORD-MASTER] ⚠️ 네이버 API 키 없음, 백업 황금키워드 제공');
-          const backupKeywords = generateLiteBackupKeywords(actualKeyword);
+          const backupKeywords = generateLiteBackupKeywords(actualKeyword || category || '황금키워드');
           event.sender.send('keyword-discovery-progress', {
             type: 'complete',
             current: backupKeywords.length,
@@ -228,23 +237,43 @@ export function setupKeywordDiscoveryHandlers(): void {
           abortCheckInterval.unref?.();
 
           try {
-            const preliminaryScanLimit = getGoldenDiscoveryScanLimit(effectiveLimit, isUnlimited);
-            const categorySeeds = getDiscoveryCategorySeeds(category, Math.min(420, Math.max(120, preliminaryScanLimit * 2)));
-            const categoryIds = resolveDiscoveryCategoryIds(category);
-            const scanLimit = getGoldenDiscoveryScanLimit(effectiveLimit, isUnlimited, categorySeeds.length);
-            const seedForDiscovery = actualKeyword || categorySeeds[0] || category || '황금키워드';
+            const preliminaryScanLimit = getGoldenDiscoveryScanLimit(effectiveLimit, isUnlimited, 0, {
+              categoryFirst: categoryFirstMode,
+            });
+            const categorySeedBudget = Math.min(
+              isUnlimited ? 1200 : (categoryFirstMode ? 900 : 520),
+              Math.max(categoryFirstMode ? 420 : 180, preliminaryScanLimit)
+            );
+            const categorySeedPlan = category
+              ? buildCategoryFirstGoldenSeedPlan({
+                category,
+                keyword: actualKeyword,
+                maxSeeds: categorySeedBudget,
+              })
+              : null;
+            const categorySeeds = categorySeedPlan?.seeds
+              || getDiscoveryCategorySeeds(category, Math.min(420, Math.max(120, preliminaryScanLimit * 2)));
+            const categoryIds = categorySeedPlan?.categoryIds || resolveDiscoveryCategoryIds(category);
+            const scanLimit = getGoldenDiscoveryScanLimit(effectiveLimit, isUnlimited, categorySeeds.length, {
+              categoryFirst: categoryFirstMode,
+            });
+            const seedForDiscovery = categoryFirstMode
+              ? (categorySeeds[0] || actualKeyword || category || '황금키워드')
+              : (actualKeyword || categorySeeds[0] || category || '황금키워드');
             const discoveryOptions = {
               limit: scanLimit,
               minVolume: 10,
-              seedKeywords: actualKeyword
-                ? categorySeeds.slice(0, Math.min(categorySeeds.length, 90))
-                : categorySeeds,
+              seedKeywords: categoryFirstMode
+                ? categorySeeds
+                : (actualKeyword
+                  ? categorySeeds.slice(0, Math.min(categorySeeds.length, 90))
+                  : categorySeeds),
               categoryIds,
               categoryStrict: categoryIds.length > 0,
             };
 
             if (categoryIds.length > 0) {
-              console.log(`[KEYWORD-MASTER] 카테고리 시드 주입: category=${category} ids=${categoryIds.join(',')} seeds=${categorySeeds.length}, seed="${seedForDiscovery}"`);
+              console.log(`[KEYWORD-MASTER] 카테고리 우선 시드 주입: category=${category} ids=${categoryIds.join(',')} seeds=${categorySeeds.length}, seed="${seedForDiscovery}", hints=${categorySeedPlan?.freshnessHints.join('|') || '-'}`);
             }
 
             const chunk: MDPResult[] = [];
@@ -288,7 +317,7 @@ export function setupKeywordDiscoveryHandlers(): void {
                   event.sender.send('keyword-discovery-progress', {
                     status: isUnlimited
                       ? `발굴 중... (${totalAdded}개 검증)`
-                      : `SSS 후보 탐색 중... (${sssAdded}/${sssTarget}, 검증 ${totalAdded}개)`,
+                      : `${category ? category + ' ' : ''}SSS 후보 탐색 중... (${sssAdded}/${sssTarget}, 검증 ${totalAdded}개)`,
                     current: isUnlimited ? totalAdded : sssAdded,
                     target: isUnlimited ? 5000 : sssTarget
                   });
@@ -317,6 +346,9 @@ export function setupKeywordDiscoveryHandlers(): void {
               candidatesScanned: totalAdded,
               sssCount: finalSssCount,
               sssTarget: isUnlimited ? undefined : Math.max(30, effectiveLimit),
+              discoveryMode: categoryFirstMode ? 'category-first' : 'keyword',
+              categoryIds,
+              freshnessHints: categorySeedPlan?.freshnessHints,
               source: 'mdp_engine'
             };
 

@@ -12,6 +12,10 @@ export interface GoldenDiscoveryLike {
   cpc?: number | null;
 }
 
+export interface GoldenDiscoveryScanOptions {
+  categoryFirst?: boolean;
+}
+
 function gradeRank(grade: unknown): number {
   const g = String(grade || '').toUpperCase();
   if (g === 'SSS') return 6;
@@ -30,11 +34,16 @@ export function getGoldenDiscoveryScanLimit(
   requestedLimit: number,
   isUnlimited: boolean,
   seedCount = 0,
+  options: GoldenDiscoveryScanOptions = {},
 ): number {
-  if (isUnlimited) return 5000;
+  const categoryFirst = options.categoryFirst === true;
+  if (isUnlimited) return categoryFirst ? 12000 : 5000;
   const displayTarget = Math.max(GOLDEN_DISCOVERY_SSS_FLOOR, requestedLimit || GOLDEN_DISCOVERY_SSS_FLOOR);
-  const seedPressure = seedCount > 0 ? Math.min(2400, Math.max(0, seedCount * 4)) : 0;
-  return Math.min(5000, Math.max(displayTarget * 12, 360, seedPressure));
+  const targetPressure = categoryFirst ? displayTarget * 80 : displayTarget * 12;
+  const seedPressure = seedCount > 0
+    ? Math.min(categoryFirst ? 12000 : 2400, Math.max(0, seedCount * (categoryFirst ? 12 : 4)))
+    : 0;
+  return Math.min(categoryFirst ? 12000 : 5000, Math.max(targetPressure, categoryFirst ? 2400 : 360, seedPressure));
 }
 
 export function countSss<T extends GoldenDiscoveryLike>(items: T[]): number {

@@ -1,12 +1,9 @@
 /**
- * 다음(Daum) 실시간 트렌드 크롤러 (Playwright)
+ * 다음(Daum) 실시간 트렌드 크롤러 (Patchright/Playwright pool)
  *
  * 다음 검색 페이지의 "실시간 트렌드" 영역 크롤링
  * 셀렉터: ul.list_trend > li > a.link_trend[data-keyword]
  */
-
-import { chromium, Browser } from 'playwright';
-import { findSystemChrome } from './chrome-finder';
 
 export interface DaumRealtimeKeyword {
   rank: number;
@@ -15,42 +12,22 @@ export interface DaumRealtimeKeyword {
   timestamp: string;
 }
 
-let browserInstance: Browser | null = null;
-
-async function getBrowser(): Promise<Browser> {
-  if (!browserInstance || !browserInstance.isConnected()) {
-    const executablePath = findSystemChrome();
-    // v2.42.57: 작업표시줄 깜빡임 방지 args 추가
-    browserInstance = await chromium.launch({
-      headless: true,
-      executablePath,
-      args: [
-        '--no-sandbox', '--disable-setuid-sandbox', '--disable-dev-shm-usage',
-        '--no-startup-window', '--no-first-run', '--no-default-browser-check',
-        '--disable-background-networking', '--disable-default-apps', '--disable-extensions',
-        '--mute-audio', '--hide-scrollbars',
-      ]
-    });
-  }
-  return browserInstance;
-}
-
 /**
  * 다음 실시간 트렌드 크롤링
  * 검색 페이지의 ul.list_trend에서 data-keyword 속성으로 키워드 추출
  */
 export async function getDaumRealtimeKeywordsWithPuppeteer(limit: number = 10): Promise<DaumRealtimeKeyword[]> {
-  let context: any = null;
+  let browser: any = null;
   let page: any = null;
 
   try {
     console.log('[DAUM-REALTIME] 실시간 트렌드 수집 시작');
 
-    const browser = await getBrowser();
-    context = await browser.newContext({
-      userAgent: 'Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/120.0.0.0 Safari/537.36'
+    const { browserPool } = await import('./puppeteer-pool');
+    browser = await browserPool.acquire();
+    page = await browser.newPage({
+      userAgent: 'Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/120.0.0.0 Safari/537.36',
     });
-    page = await context.newPage();
 
     // 다음 검색 페이지 (아무 검색어로 접속하면 오른쪽에 실시간 트렌드 표시)
     await page.goto('https://search.daum.net/search?w=tot&q=test', {
@@ -104,8 +81,11 @@ export async function getDaumRealtimeKeywordsWithPuppeteer(limit: number = 10): 
     if (page) {
       try { await page.close(); } catch { /* 무시 */ }
     }
-    if (context) {
-      try { await context.close(); } catch { /* 무시 */ }
+    if (browser) {
+      try {
+        const { browserPool } = await import('./puppeteer-pool');
+        browserPool.release(browser);
+      } catch { /* 무시 */ }
     }
   }
 }

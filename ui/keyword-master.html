@@ -1713,12 +1713,110 @@
         }
       };
 
+      window.__goldenProfileCategoryState = { profile: null, categories: [] };
+
+      function goldenProfileCategoryRows(profile, cats) {
+        const selected = Array.isArray(profile?.selectedCategories) ? profile.selectedCategories.slice(0, 1) : [];
+        const byId = new Map((cats || []).map(c => [String(c.id), c]));
+        return selected
+          .map(id => byId.get(String(id)) || { id, label: id, icon: '📁' })
+          .filter(c => c && c.id);
+      }
+
+      function syncGoldenProfileCategoryButtons() {
+        const select = document.getElementById('keywordCategory');
+        const current = select?.value || '';
+        document.querySelectorAll('[data-golden-profile-cat]').forEach(btn => {
+          const active = btn.getAttribute('data-golden-profile-cat') === current;
+          btn.style.background = active
+            ? 'linear-gradient(135deg,#06b6d4,#2563eb)'
+            : 'rgba(15,23,42,0.72)';
+          btn.style.borderColor = active ? 'rgba(125,211,252,0.8)' : 'rgba(148,163,184,0.24)';
+          btn.style.color = active ? '#ffffff' : '#cbd5e1';
+          btn.style.boxShadow = active ? '0 8px 18px rgba(37,99,235,0.22)' : 'none';
+        });
+      }
+
+      window.selectGoldenProfileCategory = function(categoryId) {
+        const select = document.getElementById('keywordCategory');
+        if (!select || !categoryId) return;
+        select.value = categoryId;
+        syncGoldenProfileCategoryButtons();
+        select.dispatchEvent(new Event('change', { bubbles: true }));
+      };
+
+      window.refreshGoldenProfileCategories = async function() {
+        const panel = document.getElementById('goldenProfileCategoryPanel');
+        const select = document.getElementById('keywordCategory');
+        const group = document.getElementById('keywordProfileCategoryGroup');
+        if (!panel || !select || !group || !window.electronAPI) return;
+
+        try {
+          const r = await window.electronAPI.invoke('blogger-profile-get');
+          const profile = r?.profile || null;
+          const cats = r?.categories || [];
+          window.__goldenProfileCategoryState = { profile, categories: cats };
+          const rows = goldenProfileCategoryRows(profile, cats);
+
+          group.innerHTML = '';
+          if (rows.length > 0) {
+            for (const cat of rows) {
+              const opt = document.createElement('option');
+              opt.value = String(cat.id);
+              opt.textContent = `${cat.icon || '📁'} ${cat.label || cat.id}`;
+              opt.style.background = '#ecfeff';
+              opt.style.color = '#0f172a';
+              group.appendChild(opt);
+            }
+          }
+
+          if (rows.length === 0) {
+            panel.innerHTML = `
+              <div style="display:flex; align-items:center; gap:10px; flex-wrap:wrap;">
+                <span style="font-size:13px; font-weight:800; color:#67e8f9;">🎯 집중 카테고리</span>
+                <span style="font-size:12px; color:#94a3b8;">미설정</span>
+              </div>
+              <button onclick="openBloggerProfileModal()" style="height:36px; padding:0 14px; border:none; border-radius:10px; background:linear-gradient(135deg,#06b6d4,#3b82f6); color:white; font-size:12px; font-weight:800; cursor:pointer;">내 블로그 설정</button>
+            `;
+            return;
+          }
+
+          if (!select.value) {
+            select.value = String(rows[0].id);
+          }
+
+          panel.innerHTML = `
+            <div style="display:flex; align-items:center; gap:10px; flex-wrap:wrap; min-width:220px;">
+              <span style="font-size:13px; font-weight:900; color:#67e8f9;">🎯 집중 카테고리</span>
+              <span style="font-size:11px; color:#94a3b8;">대표 1개 · 이 주제만 깊게</span>
+            </div>
+            <div style="display:flex; align-items:center; gap:8px; flex-wrap:wrap; flex:1;">
+              ${rows.map(cat => `
+                <button type="button" data-golden-profile-cat="${escapeHtml(cat.id)}" title="이 카테고리 하나만 깊게 발굴"
+                  style="height:34px; padding:0 12px; border:1px solid rgba(148,163,184,0.24); border-radius:999px; background:rgba(15,23,42,0.72); color:#cbd5e1; font-size:12px; font-weight:800; cursor:pointer; transition:all 0.15s;">
+                  ${escapeHtml(cat.icon || '📁')} ${escapeHtml(cat.label || cat.id)}
+                </button>
+              `).join('')}
+              <button onclick="openBloggerProfileModal()" style="height:34px; padding:0 12px; border:1px solid rgba(6,182,212,0.35); border-radius:999px; background:rgba(6,182,212,0.12); color:#67e8f9; font-size:12px; font-weight:800; cursor:pointer;">편집</button>
+            </div>
+          `;
+
+          panel.querySelectorAll('[data-golden-profile-cat]').forEach(btn => {
+            btn.addEventListener('click', () => window.selectGoldenProfileCategory(btn.getAttribute('data-golden-profile-cat')));
+          });
+          syncGoldenProfileCategoryButtons();
+        } catch (err) {
+          console.warn('[GOLDEN-PROFILE] 내 블로그 카테고리 로드 실패:', err);
+        }
+      };
+
       window.openBloggerProfileModal = async function() {
         const existing = document.getElementById('bloggerProfileModal');
         if (existing) existing.remove();
         const r = await window.electronAPI.invoke('blogger-profile-get');
         const cats = r?.categories || [];
         const profile = r?.profile || { selectedCategories: [], experienceLevel: 'beginner', dailyVisitors: 0 };
+        const primaryCategoryId = Array.isArray(profile.selectedCategories) ? profile.selectedCategories[0] : '';
 
         const modal = document.createElement('div');
         modal.id = 'bloggerProfileModal';
@@ -1729,23 +1827,23 @@
             <div style="display:flex; justify-content:space-between; align-items:flex-start; margin-bottom:20px;">
               <div>
                 <h2 style="margin:0 0 6px; font-size:22px; font-weight:800; color:#f1f5f9;">${isFirstSetup ? '👋 내 블로그 정보 1회 등록' : '👤 내 블로그 프로필'}</h2>
-                <p style="margin:0; font-size:12.5px; color:rgba(255,255,255,0.6); line-height:1.6;">${isFirstSetup ? '30초 입력으로 모든 발굴이 내 블로그에 맞춰집니다. 키워드 발굴 시 내 카테고리는 +30 보너스, 내 경험 수준에 맞는 난이도 자동 보정.' : '모든 발굴이 이 프로필 기반으로 친화도 재계산됩니다.'}</p>
+                <p style="margin:0; font-size:12.5px; color:rgba(255,255,255,0.6); line-height:1.6;">${isFirstSetup ? '대표 운영 카테고리 1개만 정합니다. 황금키워드는 이 한 주제 안에서만 깊게 발굴하고, 효과 있는 키워드는 마인드맵으로 같은 주제 안에서 확장합니다.' : '대표 카테고리 1개만 사용합니다. 여러 주제를 섞지 않고 이 카테고리 안에서만 황금키워드를 깊게 탐색합니다.'}</p>
               </div>
               <button onclick="document.getElementById('bloggerProfileModal')?.remove()" style="background:rgba(255,255,255,0.1); border:none; border-radius:10px; color:#fff; width:36px; height:36px; cursor:pointer; font-size:18px;">✕</button>
             </div>
 
-            <!-- 카테고리 선택 (최대 6개) -->
+            <!-- 대표 카테고리 선택 (1개) -->
             <div style="margin-bottom:24px;">
-              <h3 style="margin:0 0 10px; font-size:14px; color:#93c5fd; font-weight:700;">📂 내 블로그 카테고리 (최대 6개)</h3>
+              <h3 style="margin:0 0 10px; font-size:14px; color:#93c5fd; font-weight:700;">📂 대표 운영 카테고리 <span style="font-size:11px; color:rgba(255,255,255,0.48); font-weight:500;">1개만 선택 · 이 주제만 깊게 발굴</span></h3>
               <div id="bpCategoryGrid" style="display:grid; grid-template-columns:repeat(auto-fill,minmax(150px,1fr)); gap:8px;">
                 ${cats.map(c => `
                   <label style="display:flex; align-items:center; gap:8px; padding:10px 12px; background:rgba(255,255,255,0.04); border:1px solid rgba(255,255,255,0.1); border-radius:10px; cursor:pointer; font-size:12.5px; color:#e2e8f0; transition:all 0.15s;" onmouseover="this.style.background='rgba(59,130,246,0.15)'" onmouseout="this.style.background=this.querySelector('input').checked ? 'rgba(59,130,246,0.25)' : 'rgba(255,255,255,0.04)'">
-                    <input type="checkbox" name="bpCategory" value="${c.id}" ${profile.selectedCategories.includes(c.id) ? 'checked' : ''} onchange="bpOnCategoryChange(this)" style="accent-color:#3b82f6;">
+                    <input type="radio" name="bpCategory" value="${c.id}" ${primaryCategoryId === c.id ? 'checked' : ''} onchange="bpOnCategoryChange(this)" style="accent-color:#3b82f6;">
                     <span>${c.icon} ${c.label}</span>
                   </label>
                 `).join('')}
               </div>
-              <div id="bpCatCount" style="margin-top:8px; font-size:11px; color:rgba(255,255,255,0.55);">선택: <span id="bpCatCountNum">${profile.selectedCategories.length}</span>/6</div>
+              <div id="bpCatCount" style="margin-top:8px; font-size:11px; color:rgba(255,255,255,0.55);">대표 카테고리: <span id="bpCatCountNum">${primaryCategoryId ? '1' : '0'}</span>/1 · 다른 주제는 섞지 않습니다</div>
             </div>
 
             <!-- 경험 수준 -->
@@ -1797,11 +1895,6 @@
       };
 
       window.bpOnCategoryChange = function(input) {
-        const checked = document.querySelectorAll('input[name="bpCategory"]:checked');
-        if (checked.length > 6) {
-          input.checked = false;
-          alert('최대 6개까지만 선택 가능합니다.');
-        }
         const count = document.querySelectorAll('input[name="bpCategory"]:checked').length;
         const numEl = document.getElementById('bpCatCountNum');
         if (numEl) numEl.textContent = String(count);
@@ -1824,7 +1917,11 @@
       window.saveBloggerProfile = async function() {
         const selectedCategories = Array.from(document.querySelectorAll('input[name="bpCategory"]:checked')).map(el => el.value);
         if (selectedCategories.length === 0) {
-          alert('최소 1개 카테고리를 선택해주세요.');
+          alert('대표 카테고리 1개를 선택해주세요.');
+          return;
+        }
+        if (selectedCategories.length !== 1) {
+          alert('대표 카테고리는 1개만 선택할 수 있습니다.');
           return;
         }
         const experienceLevel = document.querySelector('input[name="bpExp"]:checked')?.value || 'beginner';
@@ -1839,6 +1936,9 @@
           return;
         }
         document.getElementById('bloggerProfileModal')?.remove();
+        if (typeof window.refreshGoldenProfileCategories === 'function') {
+          window.refreshGoldenProfileCategories();
+        }
         // 발굴 자동 재실행
         if (typeof window.refreshRichFeed === 'function') {
           window.refreshRichFeed(true);
@@ -1850,6 +1950,9 @@
         const r = await window.electronAPI.invoke('blogger-profile-delete');
         if (r?.success) {
           document.getElementById('bloggerProfileModal')?.remove();
+          if (typeof window.refreshGoldenProfileCategories === 'function') {
+            window.refreshGoldenProfileCategories();
+          }
           alert('프로필이 초기화되었습니다.');
         }
       };
@@ -1863,6 +1966,13 @@
           }
         } catch {}
       };
+
+      document.addEventListener('DOMContentLoaded', () => {
+        setTimeout(() => {
+          window.refreshGoldenProfileCategories?.();
+          document.getElementById('keywordCategory')?.addEventListener('change', syncGoldenProfileCategoryButtons);
+        }, 250);
+      });
 
       // 🔥 v2.30.1: 수익 예측 함수 제거 — 추측 기반이라 정확도 낮음
       //   sv × CTR × CPC × ... 곱셈은 수많은 가정값에 의존. 실측 데이터가 아님.
@@ -2196,16 +2306,22 @@
           </div>
         </div>
 
-        <!-- 🆕 연예 갓 떴음 (4매체 통합) - v2.42.75 (v2.42.79: 전체 폭) -->
+        <!-- 🏛️ 지원금·정책 갓 떴음 — 정책브리핑 공식 신호 -->
         <div
           style="background: white; border-radius: 16px; padding: 20px; border: 3px solid #2563eb; box-shadow: 0 4px 12px rgba(37, 99, 235, 0.2); grid-column: 1 / -1;">
           <div style="display: flex; justify-content: space-between; align-items: center; margin-bottom: 12px;">
-            <div style="font-size: 18px; font-weight: 700; color: #1d4ed8;">정책브리핑</div>
-            <a href="#"
-              onclick="event.preventDefault(); if(window.electronAPI && window.electronAPI.openExternal) { window.electronAPI.openExternal('https://www.korea.kr/'); } else if(window.blogger && window.blogger.openLink) { window.blogger.openLink('https://www.korea.kr/'); } else { window.open('https://www.korea.kr/', '_blank'); }"
-              style="font-size: 11px; color: #1d4ed8; text-decoration: none; cursor: pointer;">바로가기</a>
+            <div>
+              <div style="font-size: 17px; font-weight: 800; color: #1d4ed8;">🏛️ 지원금·정책 갓 떴음</div>
+              <div style="font-size: 10px; color: #64748b; margin-top: 2px;">정책브리핑 RSS + 부처별 공식자료 · 신청/대상/조회형 키워드 우선</div>
+            </div>
+            <div style="display:flex; align-items:center; gap:10px;">
+              <span style="font-size: 11px; color: #94a3b8;">5분마다 자동 갱신</span>
+              <a href="#"
+                onclick="event.preventDefault(); if(window.electronAPI && window.electronAPI.openExternal) { window.electronAPI.openExternal('https://www.korea.kr/'); } else if(window.blogger && window.blogger.openLink) { window.blogger.openLink('https://www.korea.kr/'); } else { window.open('https://www.korea.kr/', '_blank'); }"
+                style="font-size: 11px; color: #1d4ed8; text-decoration: none; cursor: pointer; font-weight:700;">바로가기</a>
+            </div>
           </div>
-          <div id="bokjiroKeywordsTop" style="max-height: 340px; overflow-y: auto; font-size: 13px;">
+          <div id="bokjiroKeywordsTop" style="max-height: 420px; overflow-y: auto; font-size: 13px;">
             <div style="text-align: center; padding: 15px; color: #64748b;">로딩 중...</div>
           </div>
         </div>
@@ -3544,16 +3660,22 @@
     <div class="main-feature">
       <div class="golden-keyword-finder">
         <div style="display: flex; align-items: center; justify-content: center; gap: 12px; margin-bottom: 16px;">
-          <h2 style="margin: 0;">LEWORD 키워드 조회</h2>
+          <h2 style="margin: 0;">카테고리 황금키워드 발굴</h2>
           <span onclick="showFeatureGuide('keyword-search');"
             style="width: 32px; height: 32px; background: rgba(255,255,255,0.2); border-radius: 50%; display: flex; align-items: center; justify-content: center; cursor: pointer; transition: all 0.2s; font-size: 16px;"
             onmouseover="this.style.background='rgba(255,255,255,0.3)'; this.style.transform='scale(1.1)'"
             onmouseout="this.style.background='rgba(255,255,255,0.2)'; this.style.transform='scale(1)'">❓</span>
         </div>
         <div class="keyword-input-section" style="display: flex; flex-direction: column; gap: 16px;">
+          <div id="goldenProfileCategoryPanel"
+            style="display:flex; align-items:center; justify-content:space-between; gap:12px; flex-wrap:wrap; padding:14px 16px; background:rgba(6,182,212,0.08); border:1px solid rgba(6,182,212,0.26); border-radius:14px;">
+            <div style="font-size:13px; font-weight:800; color:#67e8f9;">🎯 집중 카테고리 · 1개씩 깊게 발굴</div>
+            <button onclick="openBloggerProfileModal()"
+              style="height:36px; padding:0 14px; border:none; border-radius:10px; background:linear-gradient(135deg,#06b6d4,#3b82f6); color:white; font-size:12px; font-weight:800; cursor:pointer;">내 블로그 설정</button>
+          </div>
           <!-- 카테고리 및 소스 선택 -->
           <div style="display: grid; grid-template-columns: 1fr 1fr; gap: 16px;">
-            <div>
+            <div style="order: 2;">
               <label
                 style="display: block; margin-bottom: 8px; font-size: 13px; font-weight: 600; color: rgba(255, 255, 255, 0.7); text-transform: uppercase; letter-spacing: 0.5px;">검색
                 소스</label>
@@ -3562,12 +3684,13 @@
                 <option value="naver" style="background: #ffffff; color: #1e293b;">네이버</option>
               </select>
             </div>
-            <div>
+            <div style="order: 1;">
               <label
-                style="display: block; margin-bottom: 8px; font-size: 13px; font-weight: 600; color: rgba(255, 255, 255, 0.7); text-transform: uppercase; letter-spacing: 0.5px;">카테고리</label>
+                style="display: block; margin-bottom: 8px; font-size: 13px; font-weight: 600; color: rgba(255, 255, 255, 0.7); text-transform: uppercase; letter-spacing: 0.5px;">1. 카테고리</label>
               <select id="keywordCategory"
                 style="width: 100%; padding: 14px 18px; border: 2px solid rgba(96, 165, 250, 0.3); border-radius: 12px; font-size: 15px; font-weight: 600; background: rgba(30, 41, 59, 0.8); color: #ffffff;">
-                <option value="" style="background: #ffffff; color: #1e293b; font-weight: 700;">전체 카테고리</option>
+                <option value="" disabled selected style="background: #ffffff; color: #1e293b; font-weight: 700;">카테고리 먼저 선택</option>
+                <optgroup id="keywordProfileCategoryGroup" label="🎯 내 블로그 집중 카테고리" style="background: #ecfeff; color: #0f172a; font-weight: 800;"></optgroup>
                 <optgroup label="📰 뉴스/시사" style="background: #f8fafc; color: #1e293b; font-weight: 700;">
                   <option value="정치" style="background: #ffffff; color: #1e293b;">정치</option>
                   <option value="경제" style="background: #ffffff; color: #1e293b;">경제</option>
@@ -3677,11 +3800,11 @@
             </div>
 
             <!-- 키워드 입력 및 발굴 컨트롤 -->
-            <div>
+            <div style="order: 3; grid-column: 1 / -1;">
               <label
-                style="display: block; margin-bottom: 8px; font-size: 13px; font-weight: 600; color: rgba(255, 255, 255, 0.7); text-transform: uppercase; letter-spacing: 0.5px;">키워드
-                검색</label>
-              <input type="text" id="keywordInput" placeholder="검색할 키워드를 입력하세요 (예: 임플란트)"
+                style="display: block; margin-bottom: 8px; font-size: 13px; font-weight: 600; color: rgba(255, 255, 255, 0.7); text-transform: uppercase; letter-spacing: 0.5px;">2. 보강 키워드
+                <span style="font-size: 11px; color: rgba(255,255,255,0.42); text-transform:none; letter-spacing:0;">선택</span></label>
+              <input type="text" id="keywordInput" placeholder="비워두면 선택 카테고리 전체에서 발굴"
                 style="width: 100%; padding: 18px 24px; border: 2px solid rgba(96, 165, 250, 0.3); border-radius: 12px; font-size: 16px; background: rgba(30, 41, 59, 0.8); color: #ffffff; transition: all 0.3s ease;"
                 onkeypress="if(event.key === 'Enter') startKeywordDiscovery()"
                 onfocus="this.style.borderColor='#60a5fa'; this.style.boxShadow='0 0 0 4px rgba(96, 165, 250, 0.2)'; this.style.background='rgba(30, 41, 59, 1)';"
@@ -3689,7 +3812,7 @@
             </div>
 
             <!-- 개수 제한 및 발굴 컨트롤 -->
-            <div style="grid-column: 1 / -1; display: flex; flex-direction: column; gap: 14px; padding: 16px; background: rgba(15, 23, 42, 0.42); border: 1px solid rgba(96, 165, 250, 0.16); border-radius: 14px;">
+            <div style="order: 4; grid-column: 1 / -1; display: flex; flex-direction: column; gap: 14px; padding: 16px; background: rgba(15, 23, 42, 0.42); border: 1px solid rgba(96, 165, 250, 0.16); border-radius: 14px;">
               <div style="display: grid; grid-template-columns: repeat(auto-fit, minmax(92px, 1fr)); gap: 10px;">
               <label
                 style="height: 46px; display: flex; align-items: center; justify-content: center; gap: 8px; padding: 0 14px; background: rgba(248,250,252,0.96); border: 1px solid rgba(255,255,255,0.45); border-radius: 10px; cursor: pointer; box-sizing: border-box;">
@@ -3725,7 +3848,7 @@
               <div style="display: grid; grid-template-columns: minmax(220px, 1.2fr) minmax(260px, 1fr); gap: 12px; align-items: stretch;">
                 <button id="discoveryBtn" onclick="startKeywordDiscovery()"
                   style="height: 56px; padding: 0 28px; background: linear-gradient(135deg, #2563eb 0%, #7c3aed 100%); color: white; border: none; border-radius: 12px; font-weight: 800; cursor: pointer; font-size: 16px; box-shadow: 0 10px 26px rgba(37, 99, 235, 0.25);">
-                  🔍 키워드 조회
+                  💎 카테고리 황금키워드 발굴
                 </button>
                 <div style="display: grid; grid-template-columns: 118px 1fr; gap: 10px;">
                   <select id="mindmapLimitSelect" style="height: 56px; padding: 0 12px; border: 1px solid rgba(168, 85, 247, 0.42); border-radius: 12px; font-size: 13px; background: rgba(30, 41, 59, 0.92); color: #c4b5fd; font-weight:700; outline:none;" title="시드 → 꼬리에 꼬리 깊이 자동: 50개 1단계 / 500개 5단계">
@@ -5636,7 +5759,7 @@
             const el = document.getElementById('bokjiroKeywordsTop');
             if (!el) return;
             try {
-              const r = await window.electronAPI.invoke('source-policy-briefing-aggregate', { limit: 36 });
+              const r = await window.electronAPI.invoke('source-policy-briefing-aggregate', { limit: 60 });
               if (!r?.success || !r.items?.length) {
                 el.innerHTML = '<div style="color:#94a3b8; padding:15px; text-align:center; font-size:12px;">새 정책/지원금 신호가 없습니다</div>';
                 return;
@@ -5681,7 +5804,7 @@
                   </div>
                 `;
               }).join('');
-              el.innerHTML = `<div style="display:grid; grid-template-columns:repeat(auto-fit, minmax(min(100%, 620px), 1fr)); gap:0 18px;">${rowsHtml}</div>`;
+              el.innerHTML = `<div style="display:grid; grid-template-columns:repeat(auto-fit, minmax(min(100%, 360px), 1fr)); gap:0 18px;">${rowsHtml}</div>`;
             } catch (e) {
               el.innerHTML = '<div style="color:#94a3b8; padding:15px; text-align:center; font-size:12px;">로드 실패</div>';
             }
@@ -6309,14 +6432,16 @@
         // 키워드 발굴 시작 (전역 스코프에 노출)
         window.startKeywordDiscovery = async function startKeywordDiscovery() {
           const keyword = document.getElementById('keywordInput')?.value.trim() || '';
-          const category = document.getElementById('keywordCategory')?.value || '';
+          const categorySelect = document.getElementById('keywordCategory');
+          const category = categorySelect?.value || '';
+          const categoryLabel = categorySelect?.selectedOptions?.[0]?.textContent?.trim() || category;
+          const discoveryKeyword = keyword || `category:${category || 'none'}`;
 
           // 전역 변수에 현재 키워드 저장 (중지 시 참조용)
-          currentDiscoveryKeyword = keyword;
+          currentDiscoveryKeyword = discoveryKeyword;
 
-          // 키워드 입력이 없어도 카테고리만 선택하면 가능
-          if (!keyword && !category) {
-            alert('키워드를 입력하거나 카테고리를 선택해주세요');
+          if (!category) {
+            alert('먼저 황금키워드를 발굴할 카테고리를 선택해주세요');
             return;
           }
 
@@ -6340,14 +6465,6 @@
 
           if (maxCount !== null && (isNaN(maxCount) || maxCount < 1)) {
             alert('올바른 개수를 입력하세요');
-            return;
-          }
-
-          // 🔥 키워드만 입력되고 카테고리가 없으면 get-keyword-expansions 직접 호출 (개수 제한 포함)
-          if (keyword && !category) {
-            console.log(`[LEWORD] 키워드만 입력됨, get-keyword-expansions 직접 호출 (개수: ${maxCount || '무제한'})`);
-            await handleKeywordExpansionSearch(keyword, maxCount);
-            window.keywordExpansionProgress.isRunning = false;
             return;
           }
 
@@ -6439,7 +6556,7 @@
 
           // 초기 상태 설정
           if (statusText) {
-            statusText.textContent = '키워드 발굴을 시작합니다...';
+            statusText.textContent = `${categoryLabel} 카테고리 하나를 깊게 발굴합니다...`;
           }
 
           // 진행률 초기화
@@ -6456,7 +6573,7 @@
             progressStatus.textContent = '준비 중...';
           }
 
-          resultsDiv.innerHTML = '<div class="loading" style="padding: 20px; text-align: center; color: #667eea;">⏳ 키워드를 검색하고 있습니다...</div>';
+          resultsDiv.innerHTML = `<div class="loading" style="padding: 20px; text-align: center; color: #667eea;">⏳ ${categoryLabel} 카테고리에서 황금키워드를 발굴하고 있습니다...</div>`;
 
           try {
             // 실시간 업데이트를 위한 IPC 리스너 등록
@@ -6504,6 +6621,8 @@
             const finalResults = await window.blogger.findGoldenKeywords(keyword, {
               source: source,
               category: category,
+              categoryFirst: true,
+              requireCategory: true,
               limit: maxCount === null ? 1000 : maxCount // 무제한일 경우 기본 1000개 (백엔드 로직에 따라 조절)
             });
 
@@ -6563,7 +6682,7 @@
               }
               resultsDiv.innerHTML = `<div style="padding: 20px; background: #fef3c7; border-radius: 12px; color: #92400e; text-align: center;">
                 <div style="font-size: 18px; font-weight: 700; margin-bottom: 12px;">🔍 키워드를 찾을 수 없습니다</div>
-                <div style="margin-bottom: 12px;">입력하신 키워드 "${keyword}"에 대한 연관 키워드를 찾을 수 없습니다.</div>
+                <div style="margin-bottom: 12px;">"${categoryLabel}" 카테고리에서 조건에 맞는 키워드를 찾을 수 없습니다.</div>
                 <div style="font-size: 14px; color: #78350f;">다른 키워드로 시도해보시거나 네이버 API 키 설정을 확인해주세요.</div>
               </div>`;
             }
@@ -15070,7 +15189,7 @@
           `;
 
           try {
-            const res = await window.electronAPI.invoke('shopping-connect-search', { keyword: autoDiscovery ? '' : kw, sort: apiSort, display: 50, start: startParam, autoDiscoveryLimit: 10 });
+            const res = await window.electronAPI.invoke('shopping-connect-search', { keyword: autoDiscovery ? '' : kw, sort: apiSort, display: 50, start: startParam, autoDiscoveryLimit: 30 });
             if (!res.success) {
               resultsDiv.innerHTML = `<div style="text-align:center;padding:60px;color:#fb7185;"><div style="font-size:40px;">❌</div><div style="margin-top:12px;">${res.error || '검색 실패'}</div></div>`;
               return;
@@ -15260,7 +15379,7 @@
               ? `<div style="background:linear-gradient(135deg,rgba(52,211,153,0.11),rgba(96,165,250,0.05));border:1px solid rgba(52,211,153,0.28);border-radius:12px;padding:14px 16px;margin-bottom:14px;">
                   <div style="font-size:13px;font-weight:800;color:#34d399;margin-bottom:8px;">🚀 무입력 쇼핑 자동 발굴 <span style="font-size:11px;color:rgba(255,255,255,0.55);font-weight:500;">${autoSeeds.length}개 시드 중 "${scEsc(res.keyword || '')}"부터 탐색</span></div>
                   <div style="display:flex;gap:6px;flex-wrap:wrap;">
-                    ${autoSeeds.slice(0, 12).map(s => {
+                    ${autoSeeds.slice(0, 30).map(s => {
                       const kwText = scEsc(s.keyword || '');
                       const sourceColor = s.source === 'verified' ? '#fbbf24' : s.source === 'dynamic' ? '#34d399' : '#93c5fd';
                       const label = s.source === 'verified' ? '검증' : s.source === 'dynamic' ? '오늘' : '카테고리';
@@ -17547,7 +17666,7 @@
               const month = new Date().getMonth() + 1;
               const monthRe = new RegExp(`${month}월|2026|최신|이번\\s*주|오늘|지금|마감|변경|바뀐`);
               const juneTokens = ['6월','초여름','여름','장마','장마철','제습','냉방','에어컨','선풍기','모기','휴가','여름방학','상반기','현충일'];
-              const actionTokens = ['신청','대상','조건','서류','지급일','사용처','변경','바뀐','마감','체크리스트','준비물','비교','정리','방법','주의사항','실수','후기','코스','일정','비용','할인','환급','계산','조회'];
+              const actionTokens = ['신청','대상','조건','서류','지급일','사용처','변경','바뀐','마감','체크리스트','준비물','비교','정리','방법','주의사항','실수','후기','코스','일정','비용','할인','환급','계산','조회','핵심','포인트','가이드','업데이트','선택','관리','확인','작품','정보'];
               const personaTokens = ['직장인','주부','초보','입문','부모님','아이','가족','1인 가구','신혼','30대','40대','50대','60대','소상공인','자영업자','청년','학생','시니어'];
               if (monthRe.test(kw)) score += 18;
               if (month === 6 && juneTokens.some(t => kw.includes(t))) score += 22;
@@ -17562,29 +17681,68 @@
               if (/(주식\s*추천|코인|도박|성폭|살인|자살|화재|폭발)/.test(kw)) score -= 60;
               return Math.max(0, Math.min(100, score));
             };
-            const expandHomeAngles = (keyword, category) => {
+            const expandHomeAngles = (keyword, category, limit = 8) => {
               const kw = String(keyword || '').replace(/\s+/g, ' ').trim();
               if (!kw) return [];
               const cat = String(category || blogCategory || 'general').toLowerCase();
               const suffixMap = {
-                policy: ['2026 6월 신청 조건', '지급일과 준비서류', '대상 조회 방법', '놓치기 쉬운 변경사항'],
-                finance: ['상반기 점검 체크리스트', '6월 바뀐 조건', '환급·공제 확인할 것', '초보가 놓치는 주의사항'],
-                health: ['초여름 관리 방법', '장마철 주의사항', '직장인 체크리스트', '증상별 비교 정리'],
-                living: ['장마철 체크리스트', '제습·냄새 해결 방법', '다이소 활용 정리', '초여름 준비물'],
-                travel: ['6월 주말 코스', '장마철 대체 일정', '여름휴가 준비물', '비 오면 갈만한 곳'],
-                parenting: ['여름방학 준비 체크리스트', '장마철 실내놀이', '아이 건강 주의사항', '준비물 비용 정리'],
-                celebrity: ['이번 주 이슈 정리', '방송 전 알아둘 포인트', '팬들이 찾는 일정 정리', '관련 상품 체크리스트'],
-                issue: ['이번 주 확인할 것', '6월 바뀐 점 정리', '생활에 영향 있는 포인트', '오늘 글감 체크리스트'],
-                general: ['6월 지금 확인할 것', '초여름 체크리스트', '놓치기 쉬운 변경사항', '오늘 쓰기 좋은 정리']
+                policy: ['2026 6월 신청 조건', '지급일과 준비서류', '대상 조회 방법', '놓치기 쉬운 변경사항', '마감 전 체크리스트', '공식 확인 경로', '온라인 신청 방법', '소득 기준과 제외 대상'],
+                finance: ['상반기 점검 체크리스트', '6월 바뀐 조건', '환급·공제 확인할 것', '초보가 놓치는 주의사항', '직장인 기준 정리', '부모님이 궁금한 핵심', '수수료와 비용 비교', '오늘 확인할 변경사항'],
+                health: ['초여름 관리 방법', '장마철 주의사항', '직장인 체크리스트', '증상별 비교 정리', '부모님 건강 확인 포인트', '오늘 시작할 관리법', '주의할 생활 습관', '초보 운동 루틴'],
+                living: ['장마철 체크리스트', '제습·냄새 해결 방법', '다이소 활용 정리', '초여름 준비물', '원룸 관리 방법', '오늘 확인할 집안 점검', '가족 생활비 절약 팁', '냄새·습기 비교 정리'],
+                travel: ['6월 주말 코스', '장마철 대체 일정', '여름휴가 준비물', '비 오면 갈만한 곳', '가족 여행 체크리스트', '비용과 예약 방법', '오늘 확인할 운영 정보', '초보 여행 동선'],
+                parenting: ['여름방학 준비 체크리스트', '장마철 실내놀이', '아이 건강 주의사항', '준비물 비용 정리', '부모님이 놓치는 포인트', '오늘 확인할 일정', '초등 저학년 기준 정리', '가족별 선택 기준'],
+                celebrity: ['이번 주 이슈 정리', '방송 전 알아둘 포인트', '팬들이 찾는 일정 정리', '관련 상품 체크리스트', '오늘 공개 정보 정리', '다시보기와 회차 정리', '출연진과 관전 포인트', '팬들이 놓친 장면'],
+                issue: ['이번 주 확인할 것', '6월 바뀐 점 정리', '생활에 영향 있는 포인트', '오늘 글감 체크리스트', '지금 검색 많은 이유', '초보도 이해되는 정리', '오늘 기준 핵심 정보', '주말 전 확인할 것'],
+                general: ['6월 지금 확인할 것', '초여름 체크리스트', '놓치기 쉬운 변경사항', '오늘 쓰기 좋은 정리', '이번 주 핵심 포인트', '초보 기준 가이드', '가족이 확인할 정보', '지금 바뀐 점']
               };
+              const commonSPlusAngles = [
+                '2026 6월 최신 정리',
+                '2026 6월 핵심 체크리스트',
+                '2026 6월 바뀐 점 정리',
+                '이번 주 확인할 핵심 5가지',
+                '오늘 바로 확인할 체크리스트',
+                '지금 놓치기 쉬운 변경사항',
+                '마감 전 확인할 포인트 5가지',
+                '상반기 마지막 체크리스트',
+                '초여름 준비물과 비용 정리',
+                '6월 실수하기 쉬운 부분 5가지',
+                '오늘 기준 비교 정리',
+                '이번 주 자주 묻는 질문 정리',
+                '2026년 현재 확인 방법',
+                '지금 알아둘 주의사항',
+                '6월 초보 기준 정리',
+                '오늘 가족이 확인할 포인트',
+                '이번 주 직장인 체크리스트',
+                '지금 부모님이 궁금해하는 핵심',
+                '6월 최신 일정과 방법',
+                '오늘 확인할 대상별 차이',
+                '이번 주 변화와 준비물',
+                '2026 6월 비용과 선택 기준',
+                '지금 검색 많은 이유 정리',
+                '초여름 관리 방법 체크',
+                '오늘 놓치면 아쉬운 팁 5가지',
+                '이번 주 업데이트 정리',
+                '6월 한눈에 보는 핵심',
+                '지금 필요한 준비물 정리',
+                '오늘 기준 장단점 비교',
+                '2026 6월 실전 가이드',
+                '이번 주 발행하기 좋은 질문',
+                '오늘 검색자가 궁금한 핵심'
+              ];
               const suffixes = suffixMap[cat] || suffixMap.general;
               const candidates = [];
               if (scoreHomeNeedKeyword(kw, cat) >= 45) candidates.push(kw);
-              suffixes.forEach(s => candidates.push(kw.includes(s) ? kw : `${kw} ${s}`));
+              [...suffixes, ...commonSPlusAngles].forEach(s => candidates.push(kw.includes(s) ? kw : `${kw} ${s}`));
               candidates.push(`2026 6월 ${kw} 체크리스트`, `${kw} 지금 확인할 변경사항`);
-              return Array.from(new Set(candidates))
-                .filter(k => scoreHomeNeedKeyword(k, cat) >= 45)
-                .slice(0, 5);
+              const safeLimit = Math.min(250, Math.max(1, Number.isFinite(limit) ? Math.floor(limit) : 8));
+              const ranked = Array.from(new Set(candidates))
+                .map(k => ({ keyword: k, score: scoreHomeNeedKeyword(k, cat) }))
+                .filter(x => x.score >= 45)
+                .sort((a, b) => b.score - a.score || a.keyword.length - b.keyword.length);
+              const splus = ranked.filter(x => x.score >= 80);
+              const pool = safeLimit >= 30 && splus.length >= 30 ? splus : ranked;
+              return pool.slice(0, safeLimit).map(x => x.keyword);
             };
             const rankAndTrimHomeSeeds = () => {
               const seen = new Set();
@@ -17621,7 +17779,8 @@
                 if (seedKeywords.length >= seedPoolLimit) break;
                 const normalized = normalizeHomeSeed(raw, source);
                 if (!normalized) continue;
-                const variants = expandHomeAngles(normalized.keyword, normalized.category || blogCategory || 'general');
+                const angleLimit = normalized._manual ? 30 : (normalized._source === 'category-dynamic' ? 12 : 6);
+                const variants = expandHomeAngles(normalized.keyword, normalized.category || blogCategory || 'general', angleLimit);
                 const candidateKeywords = variants.length > 0 ? variants : [normalized.keyword];
                 for (const keyword of candidateKeywords) {
                   if (seedKeywords.length >= seedPoolLimit) break;
@@ -19061,7 +19220,7 @@
               </button>
             </div>
             <h2 style="font-size: 28px; font-weight: 800; background: linear-gradient(135deg, #fbbf24 0%, #f59e0b 100%); -webkit-background-clip: text; -webkit-text-fill-color: transparent; margin: 0 0 8px 0;">🏆 PRO 트래픽 키워드 헌터 v11.0 <span style="font-size: 16px; color: #ef4444;">터보</span></h2>
-            <p style="font-size: 14px; color: rgba(255, 255, 255, 0.7); margin: 0;">16개 소스 · 3분 캐시 · 경쟁분석 · 클러스터링 · 최적 발행시간</p>
+            <p style="font-size: 14px; color: rgba(255, 255, 255, 0.7); margin: 0;">황금키워드 발굴기의 초상위호환 · 카테고리 1개 집중 · 최대 250개 SSS 후보</p>
                   </div>
           
           <!-- 🎯 분석 모드 선택 (3가지) -->
@@ -19072,19 +19231,19 @@
             </div>
             <div style="display: grid; grid-template-columns: repeat(3, 1fr); gap: 10px;">
               <label style="cursor: pointer;">
-                <input type="radio" name="proTrafficMode" value="realtime" checked style="display: none;">
-                <div id="modeRealtime" class="mode-card" style="background: rgba(251, 191, 36, 0.2); border: 2px solid #fbbf24; border-radius: 12px; padding: 14px; text-align: center; transition: all 0.3s;">
+                <input type="radio" name="proTrafficMode" value="realtime" style="display: none;">
+                <div id="modeRealtime" class="mode-card" style="background: rgba(255, 255, 255, 0.05); border: 2px solid rgba(255, 255, 255, 0.1); border-radius: 12px; padding: 14px; text-align: center; transition: all 0.3s;">
                   <div style="font-size: 28px; margin-bottom: 6px;">🔥</div>
                   <div style="font-size: 13px; font-weight: 700; color: #fbbf24;">실시간 이슈</div>
                   <div style="font-size: 10px; color: rgba(255,255,255,0.6); margin-top: 4px;">지금 뜨는 키워드</div>
                 </div>
               </label>
               <label style="cursor: pointer;">
-                <input type="radio" name="proTrafficMode" value="category" style="display: none;">
-                <div id="modeCategory" class="mode-card" style="background: rgba(255, 255, 255, 0.05); border: 2px solid rgba(255, 255, 255, 0.1); border-radius: 12px; padding: 14px; text-align: center; transition: all 0.3s;">
+                <input type="radio" name="proTrafficMode" value="category" checked style="display: none;">
+                <div id="modeCategory" class="mode-card" style="background: rgba(34, 197, 94, 0.2); border: 2px solid #22c55e; border-radius: 12px; padding: 14px; text-align: center; transition: all 0.3s;">
                   <div style="font-size: 28px; margin-bottom: 6px;">📁</div>
                   <div style="font-size: 13px; font-weight: 700; color: #22c55e;">카테고리별</div>
-                  <div style="font-size: 10px; color: rgba(255,255,255,0.6); margin-top: 4px;">분야별 황금키워드</div>
+                  <div style="font-size: 10px; color: rgba(255,255,255,0.6); margin-top: 4px;">한 카테고리 집중 발굴</div>
                 </div>
               </label>
               <label style="cursor: pointer;">
@@ -19144,9 +19303,10 @@
           
           <div id="proTrafficCategoryRow" style="margin-bottom: 20px;">
             <div id="proTrafficCategoryBox" style="background: rgba(255, 255, 255, 0.05); border-radius: 14px; padding: 16px; border: 1px solid rgba(255, 255, 255, 0.1);">
-              <label style="font-size: 13px; font-weight: 700; color: #fbbf24; display: block; margin-bottom: 10px;">📁 카테고리</label>
+              <label style="font-size: 13px; font-weight: 700; color: #fbbf24; display: block; margin-bottom: 10px;">📁 집중 카테고리 (1개만)</label>
               <select id="proTrafficCategory" style="width: 100%; padding: 12px 14px; border: 2px solid rgba(234, 179, 8, 0.3); border-radius: 10px; font-size: 14px; background: rgba(30, 41, 59, 0.8); color: white; cursor: pointer; outline: none;">
-                ${PRO_TRAFFIC_CATEGORIES.map(c => `<option value="${c.value}">${c.label}</option>`).join('')}
+                <option value="" disabled selected>카테고리 먼저 선택</option>
+                ${PRO_TRAFFIC_CATEGORIES.filter(c => c.value !== 'all').map(c => `<option value="${c.value}">${c.label}</option>`).join('')}
               </select>
             </div>
             <!-- 추가 시드 키워드 입력은 제거됨 (UX 단순화). proTrafficSeeds id는 hidden input으로 호환성 유지 -->
@@ -19200,16 +19360,16 @@
 
           <div style="margin-top: 14px; padding: 12px 14px; background: rgba(251, 191, 36, 0.08); border: 1px solid rgba(251, 191, 36, 0.35); border-radius: 8px;">
             <p style="font-size: 12px; color: #fcd34d; margin: 0 0 6px 0; line-height: 1.55; font-weight: 700;">
-              🎯 SSS 우선 모드 — SSS/SS/S 검증 결과만 표시
+              🎯 PRO 초상위 모드 — 카테고리 하나를 깊게 파서 SSS/SS/S 검증 결과만 표시
             </p>
             <p style="font-size: 11px; color: rgba(255,255,255,0.78); margin: 0; line-height: 1.6;">
-              황금키워드 분석기가 놓치는 키워드를 찾기 위해 하드 차단 대신 주의 마커를 붙여 넓게 보여줍니다. 다중 소스(네이버 검색광고 + 자동완성 + Daum + Google + SmartBlock + AI 브리핑)로 대량 발굴 후, <strong>등급 + 황금비율 + 검색량 + 문서수 역수</strong>로 정렬합니다.
+              황금키워드 분석기가 놓치는 키워드를 찾기 위해 한 카테고리에서 더 깊게 긁고, 하드 차단 대신 주의 마커를 붙여 넓게 보여줍니다. 다중 소스(네이버 검색광고 + 자동완성 + Daum + Google + SmartBlock + AI 브리핑)로 대량 발굴 후, <strong>등급 + 황금비율 + 검색량 + 문서수 역수</strong>로 정렬합니다.
             </p>
           </div>
 
           <div style="margin-top: 10px; padding: 10px 14px; background: rgba(239, 68, 68, 0.1); border: 1px solid rgba(239, 68, 68, 0.3); border-radius: 8px;">
             <p style="font-size: 11px; color: #f87171; margin: 0; line-height: 1.5;">
-              ⚠️ <strong>주의:</strong> 모든 수치는 <strong>추정치</strong>이며 실제와 다를 수 있습니다. 상위노출과 트래픽은 콘텐츠 품질, 블로그 지수, 경쟁 상황에 따라 달라집니다.
+              ⚠️ <strong>주의:</strong> 검색량/문서수는 가능한 실측 API 값을 우선 사용합니다. 상위노출과 트래픽은 콘텐츠 품질, 블로그 지수, 경쟁 상황에 따라 달라집니다.
             </p>
                   </div>
           
@@ -19274,7 +19434,7 @@
             // 실시간/시즌 모드: 카테고리 선택창 완전 숨김
             catRow.style.display = 'none';
             const catSel = document.getElementById('proTrafficCategory');
-            if (catSel) catSel.value = 'all';
+            if (catSel) catSel.value = '';
           }
         }
 
@@ -19346,7 +19506,8 @@
 
         async function huntProTrafficKeywords(isRefresh = true) {
           const mode = document.querySelector('input[name="proTrafficMode"]:checked')?.value || 'realtime';
-          const category = document.getElementById('proTrafficCategory').value;
+          const selectedCategory = document.getElementById('proTrafficCategory')?.value || '';
+          const category = mode === 'category' ? selectedCategory : 'all';
           const seedsInput = document.getElementById('proTrafficSeeds').value;
           const targetRookie = document.getElementById('proTrafficRookie').checked;
           const includeSeason = document.getElementById('proTrafficSeason').checked;
@@ -19358,6 +19519,11 @@
           const resultsDiv = document.getElementById('proTrafficResults');
 
           const seedKeywords = seedsInput ? seedsInput.split(',').map(s => s.trim()).filter(s => s) : [];
+
+          if (mode === 'category' && !category) {
+            showNotification('PRO 트래픽 헌터는 카테고리 하나를 먼저 선택해야 깊게 발굴할 수 있습니다.', 'warning');
+            return;
+          }
 
           // 새로고침 시 초기화
           if (isRefresh) {

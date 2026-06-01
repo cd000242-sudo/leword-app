@@ -1298,7 +1298,7 @@ import { analyzeSerpWithPlaywright, closeBrowser as closePlaywrightBrowser } fro
 
 import { getNaverSearchAdKeywordVolume, getNaverSearchAdKeywordSuggestions, NaverSearchAdConfig } from './naver-searchad-api';
 import { classifyKeyword, isKeywordMatchingCategory, getCategorySeeds, getCategoryById, CATEGORIES, CATEGORY_ICONS } from './categories';
-import { getProTrafficFinalRerankPoolSize, normalizeProTrafficResultCount } from './pro-traffic-floor';
+import { getProTrafficFinalRerankPoolSize, normalizeProTrafficResultCount, rankProTrafficSssFloorResults } from './pro-traffic-floor';
 import { getDiscoveryCategorySeeds } from './category-discovery-map';
 import { getNaverBlogDocumentCount } from './naver-blog-api';
 import { classifyKeywordIntent } from './keyword-intent-classifier';
@@ -5861,7 +5861,14 @@ export async function huntProTrafficKeywords(options: {
     console.log(`[PRO-TRAFFIC] 🏆 프리미엄 황금키워드 필터 통과: ${selectionPool.length}개 (S/SS/SSS만, 최소검색량=${bestMinSv}, 최소비율=${premiumMinRatioEffective}, 문서수상한=${premiumMaxDocumentsEffective})`);
     console.log(`[PRO-TRAFFIC] 🏁 최종 선정: ${selectedKeywords.length}개`);
 
-    selectedKeywords = enforcePremiumGoldenOnly(selectedKeywords, count, category, strictPro, premiumCriteria);
+    selectedKeywords = enforcePremiumGoldenOnly(
+      [...selectedKeywords, ...enrichedPremium, ...allFinalVerified, ...verifiedResults, ...sortedAllFinalCandidates],
+      count,
+      category,
+      strictPro,
+      premiumCriteria
+    );
+    selectedKeywords = rankProTrafficSssFloorResults(selectedKeywords, count, mode === 'category') as ProTrafficKeyword[];
 
     const withUltimate = selectedKeywords.filter(r => r.ultimateAnalysis).length;
     console.log(`[PRO-TRAFFIC] 🏆 끝판왕 분석 포함: ${withUltimate}개`);
@@ -6302,16 +6309,14 @@ export async function huntProTrafficKeywords(options: {
   }
 
   // 끝판왕 분석 포함된 키워드 수 로깅
-  selectedKeywords = enforcePremiumGoldenOnly(selectedKeywords, count, category, strictPro, premiumCriteria);
-  if (selectedKeywords.length < count) {
-    selectedKeywords = enforcePremiumGoldenOnly(
-      [...selectedKeywords, ...allFinalVerified, ...verifiedResults, ...sortedAllFinalCandidates, ...results],
-      count,
-      category,
-      strictPro,
-      premiumCriteria
-    );
-  }
+  selectedKeywords = enforcePremiumGoldenOnly(
+    [...selectedKeywords, ...allFinalVerified, ...verifiedResults, ...sortedAllFinalCandidates, ...results],
+    count,
+    category,
+    strictPro,
+    premiumCriteria
+  );
+  selectedKeywords = rankProTrafficSssFloorResults(selectedKeywords, count, mode === 'category') as ProTrafficKeyword[];
 
   const withUltimate = selectedKeywords.filter(r => r.ultimateAnalysis).length;
   console.log(`[PRO-TRAFFIC] 🏆 끝판왕 분석 포함: ${withUltimate}개`);
