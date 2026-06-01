@@ -124,6 +124,18 @@ export const CATEGORY_EVERGREEN_SEEDS: Partial<Record<BloggerCategoryId, string[
     '대출 이자 계산', '신용점수 올리는법', '신용회복위원회',
     '근로장려금 자격', '자녀장려금 신청',
   ],
+  policy: [
+    '근로장려금 신청 자격', '근로장려금 지급일', '자녀장려금 신청 기간', '자녀장려금 소득 기준',
+    '청년월세지원 신청', '청년월세지원 대상', '청년도약계좌 조건', '청년내일저축계좌 신청',
+    '소상공인 지원금 신청', '소상공인 정책자금 대출', '소상공인 전기요금 지원', '자영업자 고용보험 지원',
+    '국민취업지원제도 신청', '내일배움카드 신청 방법', '실업급여 신청 조건', '실업급여 수급 기간',
+    '육아휴직급여 신청', '육아휴직급여 계산', '출산지원금 신청', '첫만남이용권 사용처',
+    '부모급여 신청', '아동수당 지급일', '한부모가정 지원금', '다자녀 혜택 기준',
+    '기초연금 수급자격', '장애인활동지원 신청', '긴급복지지원 신청', '의료급여 수급권자',
+    '주거급여 신청자격', '전세보증금 반환보증 지원', '에너지바우처 신청', '문화누리카드 사용처',
+    '농식품바우처 신청', '평생교육바우처 신청', '교육급여 바우처 신청', '청년 취업 지원금',
+    '고용촉진장려금 신청', '국민연금 반환일시금', '건강보험료 환급 조회', '정부24 보조금24 조회',
+  ],
   education: [
     '컴퓨터활용능력 1급', '정보처리기사 시험', '한국사능력검정시험',
     '토익 공부법', '토익 점수 올리는법',
@@ -152,6 +164,18 @@ export const CATEGORY_EVERGREEN_SEEDS: Partial<Record<BloggerCategoryId, string[
     '국내 음악 추천', 'K팝 신곡',
     '게임 추천 PC', '게임 추천 모바일',
     '웹툰 추천', '웹소설 추천',
+  ],
+  celeb: [
+    '오늘의 연예 이슈', '실시간 연예 뉴스', '스타 근황', '연예인 근황',
+    '아이돌 컴백 일정', '아이돌 신곡 발매', '아이돌 티저 공개', '아이돌 쇼케이스 일정',
+    '걸그룹 컴백', '보이그룹 컴백', '신인 아이돌 데뷔', '음악방송 1위 후보',
+    '배우 드라마 캐스팅', '배우 영화 출연', '드라마 출연진 발표', '예능 게스트 출연',
+    '연예인 열애설', '연예인 결혼 발표', '연예인 입대 일정', '연예인 전역 소식',
+    '소속사 전속계약', '소속사 공식입장', '팬미팅 일정', '콘서트 티켓 예매',
+    '시상식 라인업', '시상식 수상자', '레드카펫 패션', '공항패션 브랜드',
+    '연예인 인스타 업데이트', '화보 공개', '인터뷰 공개', '뮤직비디오 공개',
+    '음원 차트 순위', '앨범 초동 판매량', '팬사인회 응모', '굿즈 예약 판매',
+    '방송 편성표', '예능 시청률', '드라마 시청률', 'OTT 공개 예정작',
   ],
   wedding: [
     '결혼식 준비 순서', '예식장 선정 팁',
@@ -207,6 +231,73 @@ export const CATEGORY_EVERGREEN_SEEDS: Partial<Record<BloggerCategoryId, string[
   ],
 };
 
+const DEFAULT_INTENT_SUFFIXES = [
+  '추천', '비교', '후기', '가격', '비용', '방법', '체크리스트', '주의사항',
+];
+
+const CATEGORY_INTENT_SUFFIXES: Partial<Record<BloggerCategoryId, string[]>> = {
+  policy: ['신청 방법', '대상 조건', '지급일', '준비서류', '온라인 신청', '조회 방법', '소득 기준', '사용처'],
+  finance: ['조건', '비교', '추천', '한도', '세액공제', '환급', '신청 방법', '주의사항'],
+  realestate: ['조건', '일정', '자격', '대출 한도', '세금', '비교', '주의사항', '체크리스트'],
+  celeb: ['근황', '일정', '공식입장', '출연 정보', '티켓 예매', '라인업', '인스타', '정리'],
+  culture: ['추천', '일정', '순위', '후기', '예매', '출연진', '공개일', '정리'],
+  wedding: ['비용', '순서', '체크리스트', '후기', '추천', '주의사항', '예약', '비교'],
+  pregnancy: ['시기', '주의사항', '준비물', '비용', '추천', '신청', '체크리스트', '후기'],
+  parenting: ['시기', '방법', '추천', '후기', '주의사항', '체크리스트', '비교', '가격'],
+  parenting_kids: ['준비물', '비용', '추천', '신청', '비교', '후기', '체크리스트', '방법'],
+  senior: ['자격', '비용', '추천', '신청', '주의사항', '비교', '운동법', '체크리스트'],
+  sidejob: ['시작 방법', '수익', '후기', '세금', '주의사항', '추천', '비교', '체크리스트'],
+  self: ['방법', '추천', '루틴', '앱', '후기', '체크리스트', '계획표', '습관'],
+  it: ['사용법', '설정', '비교', '추천', '오류 해결', '단축키', '후기', '가격'],
+  auto: ['비용', '교체주기', '보험', '비교', '후기', '방법', '주의사항', '체크리스트'],
+  travel: ['코스', '비용', '예약', '준비물', '후기', '추천', '일정', '주의사항'],
+  food: ['맛집', '메뉴', '예약', '후기', '추천', '만드는법', '가격', '비교'],
+  home: ['추천', '비교', '비용', '설치', '청소법', '정리법', '후기', '체크리스트'],
+  pet: ['추천', '비용', '병원', '보험', '후기', '주의사항', '방법', '체크리스트'],
+  beauty: ['추천', '성분', '후기', '비교', '순서', '가격', '올리브영', '민감성'],
+  fashion: ['코디', '브랜드', '추천', '후기', '사이즈', '가격', '세일', '비교'],
+  health: ['효능', '부작용', '추천', '비교', '복용법', '운동법', '주의사항', '후기'],
+  education: ['시험일정', '공부법', '기출', '비용', '접수', '자격', '후기', '체크리스트'],
+};
+
+function normalizeSeed(seed: string): string {
+  return String(seed || '').replace(/\s+/g, ' ').trim();
+}
+
+function uniqueSeeds(values: string[]): string[] {
+  const seen = new Set<string>();
+  const out: string[] = [];
+  for (const raw of values) {
+    const seed = normalizeSeed(raw);
+    if (!seed || seed.length < 2) continue;
+    const key = seed.toLowerCase().replace(/\s+/g, '');
+    if (seen.has(key)) continue;
+    seen.add(key);
+    out.push(seed);
+  }
+  return out;
+}
+
+function expandCategorySeeds(categoryId: BloggerCategoryId, perCategory: number): string[] {
+  const base = uniqueSeeds(CATEGORY_EVERGREEN_SEEDS[categoryId] || []);
+  if (base.length === 0) return [];
+
+  const suffixes = CATEGORY_INTENT_SUFFIXES[categoryId] || DEFAULT_INTENT_SUFFIXES;
+  const expanded: string[] = [];
+  for (const seed of base) {
+    expanded.push(seed);
+    for (const suffix of suffixes) {
+      if (expanded.length >= Math.max(perCategory * 3, 90)) break;
+      if (seed.includes(suffix)) continue;
+      expanded.push(`${seed} ${suffix}`);
+    }
+  }
+
+  const unique = uniqueSeeds(expanded);
+  if (unique.length <= perCategory) return unique;
+  return deterministicShuffle(unique, `category-seeds-expanded:${categoryId}:${perCategory}`).slice(0, perCategory);
+}
+
 /**
  * 사용자 프로필 카테고리 → evergreen 시드 합집합
  * 카테고리당 최대 N개로 sampling (전체 풀 폭주 방지)
@@ -217,13 +308,7 @@ export function getSeedsForUserCategories(
 ): string[] {
   const result: string[] = [];
   for (const cid of categoryIds) {
-    const seeds = CATEGORY_EVERGREEN_SEEDS[cid] || [];
-    if (seeds.length <= perCategory) {
-      result.push(...seeds);
-    } else {
-      const shuffled = deterministicShuffle(seeds, `category-seeds:${cid}`);
-      result.push(...shuffled.slice(0, perCategory));
-    }
+    result.push(...expandCategorySeeds(cid, perCategory));
   }
   return Array.from(new Set(result));
 }

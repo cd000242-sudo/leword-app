@@ -878,10 +878,26 @@ function enforcePremiumGoldenOnly(
     const norm = normalizeKeywordForDup(item.keyword);
     if (!norm || seen.has(norm)) continue;
 
+    const existingGrade = normalizeGradeValue(item.grade);
     const computedGrade = normalizeGradeValue(
       computePremiumGradeEffective(item, strict, { ...criteria, category })
     );
-    const finalGrade = PREMIUM_GOLDEN_GRADES.has(computedGrade) ? computedGrade : '';
+    let finalGrade = PREMIUM_GOLDEN_GRADES.has(computedGrade) ? computedGrade : '';
+
+    if (existingGrade === 'SSS') {
+      const sanity = validateGrade({
+        keyword: item.keyword || '',
+        searchVolume: typeof item.searchVolume === 'number' ? item.searchVolume : 0,
+        documentCount: typeof item.documentCount === 'number' ? item.documentCount : 0,
+        goldenRatio: typeof item.goldenRatio === 'number' ? item.goldenRatio : 0,
+        score: typeof item.totalScore === 'number' ? item.totalScore : 85,
+        dcEstimated: (item as any).dcEstimated,
+        svEstimated: (item as any).svEstimated,
+        source: 'pro-traffic',
+      });
+      const sanityGrade = normalizeGradeValue(applySanity('SSS', sanity));
+      if (sanityGrade === 'SSS') finalGrade = 'SSS';
+    }
 
     if (!finalGrade) continue;
 
@@ -1282,6 +1298,7 @@ import { analyzeSerpWithPlaywright, closeBrowser as closePlaywrightBrowser } fro
 
 import { getNaverSearchAdKeywordVolume, getNaverSearchAdKeywordSuggestions, NaverSearchAdConfig } from './naver-searchad-api';
 import { classifyKeyword, isKeywordMatchingCategory, getCategorySeeds, getCategoryById, CATEGORIES, CATEGORY_ICONS } from './categories';
+import { getProTrafficFinalRerankPoolSize, normalizeProTrafficResultCount } from './pro-traffic-floor';
 import { getDiscoveryCategorySeeds } from './category-discovery-map';
 import { getNaverBlogDocumentCount } from './naver-blog-api';
 import { classifyKeywordIntent } from './keyword-intent-classifier';
@@ -2558,13 +2575,15 @@ export async function huntProTrafficKeywords(options: {
     category = 'all',
     targetRookie = true,
     includeSeasonKeywords = true,
-    count = 20,
+    count: requestedCount = 20,
     forceRefresh = true, // 기본적으로 새로고침 시 캐시 초기화
     explosionMode = false,
     useDeepMining = true, // 🔥 기본 활성화: 끝판왕 딥 마이닝 통합
     discoveryFirst = false,
-    fastDiscovery = discoveryFirst && count >= 50
+    fastDiscovery: fastDiscoveryOption
   } = options;
+  const count = normalizeProTrafficResultCount(mode, requestedCount, 20);
+  const fastDiscovery = fastDiscoveryOption ?? (discoveryFirst && count >= 50);
 
   // 🔥 v2.13.0 M11: explosionMode + useDeepMining 동시 활성 시 Rate Limit 경고
   if (explosionMode && useDeepMining) {
@@ -3248,7 +3267,7 @@ export async function huntProTrafficKeywords(options: {
   // 비-explosion 카테고리 70 → 150 (시드 2× → 후보 풀 2× → SSS 후보 ~2×)
   const seedTarget = fastDiscovery
     ? (mode === 'category'
-      ? Math.min(220, Math.max(120, Math.ceil(count * 1.2)))
+      ? Math.min(360, Math.max(160, Math.ceil(count * 1.4)))
       : Math.min(180, Math.max(100, Math.ceil(count * 1.1))))
     : explosionMode
     ? (mode === 'category'
@@ -5317,9 +5336,7 @@ export async function huntProTrafficKeywords(options: {
 
   // 🔥 v2.16.0: 극블루오션 놓치지 않도록 pool 대폭 확대
   //    극블루오션은 gr 10+ 희소 키워드 → pool 크게 해서 상위 컷 확보
-  const finalRerankPoolSize = explosionMode
-    ? Math.min(Math.max(count * 25, 300), 500)
-    : Math.min(Math.max(count * 10, 100), 200);
+  const finalRerankPoolSize = getProTrafficFinalRerankPoolSize(count, explosionMode);
 
   // 📁 카테고리 후필터: API 확장 후에도 카테고리 매칭 키워드를 상위 배치
   const filterByCategory = (keywords: ProTrafficKeyword[], cat: string): ProTrafficKeyword[] => {
@@ -6652,7 +6669,7 @@ function extractSeedsFromNewsTitles(titles: string[]): string[] {
   }
 
   // 🔥 v2.16.0: 극블루오션 최대 수집 — seed 풀 60 → 200 확장
-  return [...new Set(seeds)].slice(0, 200);
+  return [...new Set(seeds)].slice(0, 500);
 }
 
 /** 네이버 인기 뉴스에서 시드 키워드를 수집 (5초 타임아웃, 실패 시 빈 배열) */

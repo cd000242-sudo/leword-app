@@ -7,6 +7,7 @@ import { getNaverSearchAdKeywordSuggestions } from '../../utils/naver-searchad-a
 import { EnvironmentManager } from '../../utils/environment-manager';
 import * as licenseManager from '../../utils/licenseManager';
 import { huntProTrafficKeywords, getProTrafficCategories } from '../../utils/pro-traffic-keyword-hunter';
+import { normalizeProTrafficResultCount } from '../../utils/pro-traffic-floor';
 import { huntAdsenseKeywords, ADSENSE_CATEGORIES } from '../../utils/adsense-keyword-hunter';
 import { enhanceProResults } from '../../utils/pro-traffic-adsense-enhancer';
 import { startEnrichment, getEnrichmentStatus } from '../../utils/sources/manus-enricher';
@@ -24,6 +25,7 @@ import { predictTitleCtr, generateOptimizedTitles, batchGenerateTitlesWithCtr } 
 import { buildHomePublishPlan, batchBuildHomePublishPlans } from '../../utils/pro-hunter-v12/home-publish-planner';
 import { analyzeVacancy, batchAnalyzeVacancy } from '../../utils/pro-hunter-v12/vacancy-detector';
 import { getRelatedKeywords as getRelatedKeywordsFromCache } from '../../utils/related-keyword-cache';
+import { expandHomeNeedKeywords, rankHomeNeedKeywords, isWeakHomeNeedKeyword } from '../../utils/pro-hunter-v12/home-keyword-intent';
 
 
 export function setupPremiumHuntingHandlers(): void {
@@ -779,7 +781,7 @@ export function setupPremiumHuntingHandlers(): void {
         console.log(`[PRO-TRAFFIC] 옵션: 카테고리=${options.category}, 신생타겟=${options.targetRookie}, 개수=${options.count}`);
 
         // 🔥 PRO 황금 키워드 헌팅 실행
-        const requestedCount = Math.min(Math.max(options.count || 20, 5), 200);
+        const requestedCount = normalizeProTrafficResultCount(options.mode || 'realtime', options.count || 30);
         const discoveryFirstRequested = (options as any).discoveryFirst === true;
 
         const result = await huntProTrafficKeywords({
@@ -914,16 +916,16 @@ export function setupPremiumHuntingHandlers(): void {
           const datalabConfig = { clientId: envCfg.naverClientId || '', clientSecret: envCfg.naverClientSecret || '' };
           if (datalabConfig.clientId && datalabConfig.clientSecret && finalKeywords.length > 0) {
             const { checkKeywordsRecency } = await import('../../utils/naver-datalab-api');
-            const toCheck = finalKeywords.slice(0, 60); // 상위 60건만
+            const toCheck = finalKeywords.slice(0, Math.min(finalKeywords.length, Math.max(60, requestedCount))); // 요청 수량까지 우선 확인
             const recencyMap = await checkKeywordsRecency(datalabConfig, toCheck.map((k: any) => String(k.keyword)));
-            const MIN_FLOOR = 15;
             for (const k of finalKeywords) {
               const rec = recencyMap.get(String(k.keyword));
               if (rec) (k as any).recencyStatus = rec.status;
             }
             const live = finalKeywords.filter((k: any) => k.recencyStatus !== 'dead');
             const deadCount = finalKeywords.length - live.length;
-            if (!discoveryFirst && live.length >= MIN_FLOOR && deadCount > 0) {
+            const minKeepAfterRecency = Math.min(requestedCount, finalKeywords.length);
+            if (!discoveryFirst && live.length >= minKeepAfterRecency && deadCount > 0) {
               finalKeywords = live;
               console.log(`[PRO-TRAFFIC v2.43.47] 추세 검증 dead ${deadCount}건 제외 (${live.length}건 잔존)`);
             } else if (deadCount > 0) {
@@ -1451,7 +1453,7 @@ export function setupPremiumHuntingHandlers(): void {
         const clientSecret = env.naverClientSecret || process.env['NAVER_CLIENT_SECRET'] || '';
         if (!clientId || !clientSecret) return { success: false, error: 'Naver API 키 필요', seeds: [] };
 
-        const limit = Math.min(360, Math.max(1, payload?.limit || 25));
+        const limit = Math.min(480, Math.max(1, payload?.limit || 25));
         const category = String(payload?.category || '').toLowerCase();
 
         // v2.42.65: 각 카테고리 root 8~12개로 균형 확대 (얇은 카테고리 보강)
@@ -1467,6 +1469,7 @@ export function setupPremiumHuntingHandlers(): void {
           health: ['영양제', '비타민', '오메가3', '단백질 보충제', '다이어트', '운동', '요가', '필라테스', '홈트레이닝', '러닝', '식단', '유산균'],
           garden: ['화분', '식물 키우기', '베란다 텃밭', '실내 식물', '플랜테리어', '몬스테라', '다육이', '공기정화 식물', '식물 분갈이', '식물 영양제'],
           finance: ['연말정산', '청년도약계좌', '주택청약', 'ETF', '적금', '신용카드', '실비보험', '재테크', '주식', '청년 지원금', '연금저축', '비상금'],
+          policy: ['소상공인 지원금', '청년 월세 지원', '근로장려금', '에너지바우처', '육아휴직급여', '출산지원금', '국민취업지원제도', '보조금24', '정부24 지원금', '농식품바우처', '평생교육바우처', '주거급여'],
           career: ['이직 준비', '면접', '자격증', '연봉 협상', '직장인 부업', '이력서', '자기소개서', '퇴사', '재택근무', '직장인 스트레스', '신입 사원'],
           realestate: ['전세 사기', '월세 계약', '청약 1순위', '아파트 시세', '오피스텔', '전세 대출', '주택담보대출', '부동산 세금', '재건축', '신축 아파트'],
           travel: ['제주도 여행', '강릉 여행', '부산 여행', '일본 여행', '캠핑장', '글램핑', '베트남 여행', '동남아 여행', '국내 여행지', '가족 여행', '커플 여행'],
@@ -1528,13 +1531,23 @@ export function setupPremiumHuntingHandlers(): void {
           return out;
         };
 
+        // Depth 0: root 자체를 홈판형 발행 각도로 먼저 확장한다.
+        for (const root of roots) {
+          for (const item of expandHomeNeedKeywords(root, category, 10)) {
+            allExpanded.add(item.keyword);
+          }
+        }
+
         // Depth 1: roots → autocomplete
         const d1Results = await expandBatch(roots);
         for (const arr of d1Results) {
           for (const kw of arr) {
             const k = String(kw || '').trim();
             if (isGoodSeed(k, roots)) {
-              allExpanded.add(k);
+              if (!isWeakHomeNeedKeyword(k, category)) allExpanded.add(k);
+              for (const item of expandHomeNeedKeywords(k, category, 4)) {
+                allExpanded.add(item.keyword);
+              }
               depth1Pool.add(k);
             }
           }
@@ -1549,18 +1562,27 @@ export function setupPremiumHuntingHandlers(): void {
           for (const arr of d2Results) {
             for (const kw of arr) {
               const k = String(kw || '').trim();
-              if (isGoodSeed(k, roots)) allExpanded.add(k);
+              if (!isGoodSeed(k, roots)) continue;
+              if (!isWeakHomeNeedKeyword(k, category)) allExpanded.add(k);
+              for (const item of expandHomeNeedKeywords(k, category, 3)) {
+                allExpanded.add(item.keyword);
+              }
             }
           }
         }
 
         // v2.42.64: subsumption 제거 — "쿠션팩트 추천"과 "쿠션팩트 추천 베스트"는 검색량/문서량이 달라 둘 다 가치 있음
         // Set 자체 dedup만으로 충분 (완전 동일 문자열만 제거)
-        const finalSeeds: string[] = Array.from(allExpanded).slice(0, limit);
+        const finalSeeds: string[] = rankHomeNeedKeywords(
+          Array.from(allExpanded).map(keyword => ({ keyword, category }))
+        )
+          .filter(item => item.homeNeedScore >= 45)
+          .slice(0, limit)
+          .map(item => item.keyword);
 
         const seeds = finalSeeds.map(k => ({
           keyword: k, searchVolume: 0, documentCount: 0,
-          category, _dynamic: true,
+          category, _dynamic: true, homeNeedScore: rankHomeNeedKeywords([{ keyword: k, category }])[0]?.homeNeedScore || 0,
         }));
         return {
           success: true,

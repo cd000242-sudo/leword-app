@@ -21,6 +21,7 @@ import { callAllSources } from '../../utils/sources/source-registry';
 import { getCachedReport } from '../../utils/sources/health-checker';
 import { getDiscoveryCategorySeeds, matchesDiscoveryCategory, resolveDiscoveryCategoryIds } from '../../utils/category-discovery-map';
 import { deterministicRange } from '../../utils/deterministic-random';
+import { countSss, getGoldenDiscoveryScanLimit, rankGoldenDiscoveryResults } from '../../utils/golden-discovery-floor';
 
 // v4.0: 외부 신호 캐시 (앱 lifetime, 30분 TTL)
 let _v4SignalCache: { map: Map<string, ExternalSignals>; expiresAt: number } | null = null;
@@ -134,7 +135,9 @@ export function setupKeywordDiscoveryHandlers(): void {
       && rawLimitValue !== null
       && String(rawLimitValue).trim() !== ''
       && Number.isFinite(rawLimit);
-    const limit = hasExplicitLimit ? rawLimit : 30;
+    const limit = hasExplicitLimit
+      ? (rawLimit === 0 ? 0 : Math.max(category ? 30 : 1, rawLimit))
+      : 30;
 
     // 명시적으로 0을 보낸 경우만 무제한으로 설정하고, 정밀 기본값은 30개로 고정한다.
     const isUnlimited = hasExplicitLimit && limit === 0;
@@ -225,11 +228,13 @@ export function setupKeywordDiscoveryHandlers(): void {
           abortCheckInterval.unref?.();
 
           try {
-            const categorySeeds = getDiscoveryCategorySeeds(category, Math.min(180, Math.max(60, effectiveLimit * 4)));
+            const preliminaryScanLimit = getGoldenDiscoveryScanLimit(effectiveLimit, isUnlimited);
+            const categorySeeds = getDiscoveryCategorySeeds(category, Math.min(420, Math.max(120, preliminaryScanLimit * 2)));
             const categoryIds = resolveDiscoveryCategoryIds(category);
+            const scanLimit = getGoldenDiscoveryScanLimit(effectiveLimit, isUnlimited, categorySeeds.length);
             const seedForDiscovery = actualKeyword || categorySeeds[0] || category || '황금키워드';
             const discoveryOptions = {
-              limit: isUnlimited ? 5000 : effectiveLimit,
+              limit: scanLimit,
               minVolume: 10,
               seedKeywords: actualKeyword
                 ? categorySeeds.slice(0, Math.min(categorySeeds.length, 90))
@@ -244,6 +249,8 @@ export function setupKeywordDiscoveryHandlers(): void {
 
             const chunk: MDPResult[] = [];
             let totalAdded = 0;
+            let sssAdded = 0;
+            const sssTarget = isUnlimited ? Number.POSITIVE_INFINITY : Math.max(30, effectiveLimit);
 
             for await (const result of engine.discover(seedForDiscovery, discoveryOptions)) {
               if (checkAbort()) break;
@@ -258,22 +265,32 @@ export function setupKeywordDiscoveryHandlers(): void {
               };
 
               allKeywords.push(formattedResult as any);
-              chunk.push(result);
+              chunk.push(formattedResult as any);
               totalAdded++;
+              if (result.grade === 'SSS') {
+                sssAdded++;
+                if (!isUnlimited && sssAdded >= sssTarget) {
+                  console.log(`[KEYWORD-MASTER] SSS 목표 달성: ${sssAdded}/${sssTarget} — 탐색 조기 종료`);
+                  engine.abort();
+                  break;
+                }
+              }
 
               // 50개마다 브라우저로 청크 전송
               if (chunk.length >= 50) {
                 if (!event.sender.isDestroyed()) {
                   event.sender.send('keyword-discovery-chunk', {
                     keywords: [...chunk],
-                    current: totalAdded,
-                    target: isUnlimited ? 5000 : effectiveLimit
+                    current: isUnlimited ? totalAdded : sssAdded,
+                    target: isUnlimited ? 5000 : sssTarget
                   });
 
                   event.sender.send('keyword-discovery-progress', {
-                    status: `발굴 중... (${totalAdded}개 찾음)`,
-                    current: totalAdded,
-                    target: isUnlimited ? 5000 : effectiveLimit
+                    status: isUnlimited
+                      ? `발굴 중... (${totalAdded}개 검증)`
+                      : `SSS 후보 탐색 중... (${sssAdded}/${sssTarget}, 검증 ${totalAdded}개)`,
+                    current: isUnlimited ? totalAdded : sssAdded,
+                    target: isUnlimited ? 5000 : sssTarget
                   });
                 }
                 chunk.length = 0; // 청크 비우기
@@ -284,17 +301,22 @@ export function setupKeywordDiscoveryHandlers(): void {
             if (chunk.length > 0 && !event.sender.isDestroyed()) {
               event.sender.send('keyword-discovery-chunk', {
                 keywords: chunk,
-                current: totalAdded,
-                target: isUnlimited ? 5000 : effectiveLimit
+                current: isUnlimited ? totalAdded : sssAdded,
+                target: isUnlimited ? 5000 : sssTarget
               });
             }
 
-            console.log(`[KEYWORD-MASTER] MDP 발굴 완료: 총 ${totalAdded}개`);
+            const rankedKeywords = rankGoldenDiscoveryResults(allKeywords as any[], effectiveLimit, isUnlimited);
+            const finalSssCount = countSss(rankedKeywords as any[]);
+            console.log(`[KEYWORD-MASTER] MDP 발굴 완료: 후보 ${totalAdded}개 → 노출 ${rankedKeywords.length}개, SSS ${finalSssCount}개`);
 
             return {
               success: true,
-              keywords: allKeywords,
-              total: totalAdded,
+              keywords: rankedKeywords,
+              total: rankedKeywords.length,
+              candidatesScanned: totalAdded,
+              sssCount: finalSssCount,
+              sssTarget: isUnlimited ? undefined : Math.max(30, effectiveLimit),
               source: 'mdp_engine'
             };
 

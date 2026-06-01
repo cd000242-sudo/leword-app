@@ -3573,6 +3573,7 @@
                   <option value="경제" style="background: #ffffff; color: #1e293b;">경제</option>
                   <option value="사회" style="background: #ffffff; color: #1e293b;">사회</option>
                   <option value="국제" style="background: #ffffff; color: #1e293b;">국제/세계</option>
+                  <option value="지원금" style="background: #ffffff; color: #1e293b;">지원금/정책/복지</option>
                 </optgroup>
                 <optgroup label="💻 기술/IT" style="background: #f8fafc; color: #1e293b; font-weight: 700;">
                   <option value="IT" style="background: #ffffff; color: #1e293b;">IT/테크</option>
@@ -3590,6 +3591,7 @@
                 </optgroup>
                 <optgroup label="🎬 엔터테인먼트" style="background: #f8fafc; color: #1e293b; font-weight: 700;">
                   <option value="엔터테인먼트" style="background: #ffffff; color: #1e293b;">엔터테인먼트</option>
+                  <option value="스타" style="background: #ffffff; color: #1e293b;">스타/연예인 이슈</option>
                   <option value="영화" style="background: #ffffff; color: #1e293b;">영화</option>
                   <option value="드라마" style="background: #ffffff; color: #1e293b;">드라마</option>
                   <option value="음악" style="background: #ffffff; color: #1e293b;">음악</option>
@@ -3634,7 +3636,18 @@
                   <option value="금융" style="background: #ffffff; color: #1e293b;">금융</option>
                   <option value="투자" style="background: #ffffff; color: #1e293b;">투자</option>
                   <option value="주식" style="background: #ffffff; color: #1e293b;">주식</option>
+                  <option value="보험" style="background: #ffffff; color: #1e293b;">보험</option>
                   <option value="부동산투자" style="background: #ffffff; color: #1e293b;">부동산 투자</option>
+                </optgroup>
+                <optgroup label="💼 일/수익화" style="background: #f8fafc; color: #1e293b; font-weight: 700;">
+                  <option value="부업" style="background: #ffffff; color: #1e293b;">부업/N잡</option>
+                  <option value="자기계발" style="background: #ffffff; color: #1e293b;">자기계발</option>
+                  <option value="비즈니스" style="background: #ffffff; color: #1e293b;">비즈니스/창업</option>
+                </optgroup>
+                <optgroup label="💍 이벤트/라이프" style="background: #f8fafc; color: #1e293b; font-weight: 700;">
+                  <option value="결혼" style="background: #ffffff; color: #1e293b;">결혼/웨딩</option>
+                  <option value="취미" style="background: #ffffff; color: #1e293b;">취미</option>
+                  <option value="독서" style="background: #ffffff; color: #1e293b;">독서/도서</option>
                 </optgroup>
                 <optgroup label="⚽ 스포츠" style="background: #f8fafc; color: #1e293b; font-weight: 700;">
                   <option value="스포츠" style="background: #ffffff; color: #1e293b;">스포츠</option>
@@ -3680,8 +3693,8 @@
               <div style="display: grid; grid-template-columns: repeat(auto-fit, minmax(92px, 1fr)); gap: 10px;">
               <label
                 style="height: 46px; display: flex; align-items: center; justify-content: center; gap: 8px; padding: 0 14px; background: rgba(248,250,252,0.96); border: 1px solid rgba(255,255,255,0.45); border-radius: 10px; cursor: pointer; box-sizing: border-box;">
-                <input type="radio" name="keywordLimit" value="30" checked>
-                <span style="font-size: 14px; font-weight: 600;">30개</span>
+                <input type="radio" name="keywordLimit" value="10" checked>
+                <span style="font-size: 14px; font-weight: 600;">10개</span>
               </label>
               <label
                 style="height: 46px; display: flex; align-items: center; justify-content: center; gap: 8px; padding: 0 14px; background: rgba(248,250,252,0.96); border: 1px solid rgba(255,255,255,0.45); border-radius: 10px; cursor: pointer; box-sizing: border-box;">
@@ -6312,7 +6325,7 @@
 
           const source = document.getElementById('keywordSource')?.value || 'naver';
           const limitRadio = document.querySelector('input[name="keywordLimit"]:checked');
-          const limitValue = limitRadio?.value || '30';
+          const limitValue = limitRadio?.value || '10';
           const customLimit = document.getElementById('customKeywordLimit')?.value;
 
           // 개수 제한 계산 (먼저 계산)
@@ -6511,12 +6524,16 @@
               : (Array.isArray(finalResults?.keywords) ? finalResults.keywords : []);
 
             if (finalKeywordList.length > 0) {
-              const remainingKeywords = finalKeywordList.filter(item =>
-                !discoveryResults.some(existing => existing.keyword === item.keyword)
-              );
-              if (remainingKeywords.length > 0) {
-                discoveryResults.push(...remainingKeywords);
-                displayGoldenResults(discoveryResults);
+              const seenFinalKeywords = new Set();
+              discoveryResults = finalKeywordList.filter((item) => {
+                const key = String(item?.keyword || '').replace(/\s+/g, '').toLowerCase();
+                if (!key || seenFinalKeywords.has(key)) return false;
+                seenFinalKeywords.add(key);
+                return true;
+              });
+              displayGoldenResults(discoveryResults);
+              if (countSpan) {
+                countSpan.textContent = `${discoveryResults.length}개`;
               }
             }
 
@@ -6534,7 +6551,10 @@
             if (discoveryResults.length > 0) {
               exportSection.style.display = 'block';
               if (statusText) {
-                statusText.textContent = `발굴 완료! 총 ${discoveryResults.length}개 키워드를 발굴했습니다.`;
+                const sssCount = typeof finalResults?.sssCount === 'number'
+                  ? finalResults.sssCount
+                  : discoveryResults.filter(item => String(item?.grade || '').toUpperCase() === 'SSS').length;
+                statusText.textContent = `발굴 완료! 총 ${discoveryResults.length}개 키워드 · SSS ${sssCount}개`;
               }
               // resultsDiv는 displayGoldenResults에서 업데이트됨
             } else {
@@ -16953,23 +16973,50 @@
         // PRO 트래픽 헌터 카테고리 옵션 (pro-traffic-keyword-hunter.ts의 category enum과 동기화)
         const PRO_TRAFFIC_CATEGORIES = [
           { value: 'all', label: '🌐 전체 (자동 추천)' },
+          { value: 'policy', label: '💰 정책·지원금' },
+          { value: 'finance', label: '💵 재테크/금융' },
+          { value: 'insurance_safe', label: '🛡️ 보험 정보' },
+          { value: 'realestate', label: '🏢 부동산' },
+          { value: 'sidejob', label: '💼 부업/N잡' },
+          { value: 'business', label: '🏪 비즈니스/창업' },
           { value: 'celeb', label: '⭐ 연예/이슈' },
+          { value: 'broadcast', label: '📡 방송' },
+          { value: 'drama', label: '📺 드라마' },
+          { value: 'movie', label: '🎬 영화' },
+          { value: 'music', label: '🎵 음악' },
           { value: 'life_tips', label: '💡 생활 꿀팁' },
           { value: 'health', label: '🏥 건강' },
-          { value: 'business', label: '💼 비즈니스' },
+          { value: 'diet', label: '🥗 다이어트' },
+          { value: 'mental', label: '🧘 멘탈/수면' },
           { value: 'self_development', label: '📚 자기계발' },
+          { value: 'parenting', label: '🧒 육아' },
+          { value: 'baby_products', label: '🍼 출산/육아용품' },
+          { value: 'wedding', label: '💍 결혼/웨딩' },
           { value: 'fashion', label: '👗 패션/뷰티' },
+          { value: 'beauty', label: '💄 화장품/뷰티' },
+          { value: 'electronics', label: '🔌 가전/쇼핑' },
+          { value: 'smartphone', label: '📱 스마트폰' },
+          { value: 'laptop', label: '💻 노트북/PC' },
           { value: 'interior', label: '🏠 인테리어' },
-          { value: 'realestate', label: '🏢 부동산' },
+          { value: 'kitchen', label: '🍳 주방/살림' },
+          { value: 'home_life', label: '🧺 생활용품' },
+          { value: 'food', label: '🍽️ 맛집/음식' },
+          { value: 'recipe', label: '🥘 레시피' },
+          { value: 'travel_domestic', label: '🚄 국내여행' },
+          { value: 'travel_overseas', label: '✈️ 해외여행' },
+          { value: 'pet_dog', label: '🐶 반려견' },
+          { value: 'pet_cat', label: '🐱 반려묘' },
+          { value: 'car', label: '🚗 자동차' },
+          { value: 'car_maintain', label: '🛠️ 자동차 관리' },
+          { value: 'education', label: '🎓 교육/자격증' },
+          { value: 'job', label: '🧑‍💼 취업/직무' },
           { value: 'it', label: '💻 IT/테크' },
-          { value: 'movie', label: '🎬 영화' },
-          { value: 'drama', label: '📺 드라마' },
-          { value: 'music', label: '🎵 음악' },
           { value: 'book', label: '📖 도서' },
           { value: 'anime', label: '🎌 애니' },
-          { value: 'broadcast', label: '📡 방송' },
+          { value: 'game', label: '🎮 게임' },
+          { value: 'sports', label: '⚽ 스포츠' },
+          { value: 'hobby', label: '🎨 취미' },
           { value: 'daily', label: '☀️ 일상' },
-          { value: 'policy', label: '💰 정책·지원금' },
           { value: 'pro_premium', label: '💎 PRO 프리미엄' },
           { value: 'lite_standard', label: '⚡ 라이트 표준' }
         ];
@@ -17491,6 +17538,70 @@
             }
 
             let seedKeywords = [];
+            const seedPoolLimit = Math.min(720, candidateTarget * 2);
+            const scoreHomeNeedKeyword = (keyword, category) => {
+              const kw = String(keyword || '').replace(/\s+/g, ' ').trim();
+              if (!kw) return 0;
+              const tokens = kw.split(/\s+/).filter(Boolean);
+              let score = 22;
+              const month = new Date().getMonth() + 1;
+              const monthRe = new RegExp(`${month}월|2026|최신|이번\\s*주|오늘|지금|마감|변경|바뀐`);
+              const juneTokens = ['6월','초여름','여름','장마','장마철','제습','냉방','에어컨','선풍기','모기','휴가','여름방학','상반기','현충일'];
+              const actionTokens = ['신청','대상','조건','서류','지급일','사용처','변경','바뀐','마감','체크리스트','준비물','비교','정리','방법','주의사항','실수','후기','코스','일정','비용','할인','환급','계산','조회'];
+              const personaTokens = ['직장인','주부','초보','입문','부모님','아이','가족','1인 가구','신혼','30대','40대','50대','60대','소상공인','자영업자','청년','학생','시니어'];
+              if (monthRe.test(kw)) score += 18;
+              if (month === 6 && juneTokens.some(t => kw.includes(t))) score += 22;
+              if (actionTokens.some(t => kw.includes(t))) score += 22;
+              if (personaTokens.some(t => kw.includes(t))) score += 14;
+              if (/\d+\s*(개|가지|만원|원|일|주|월|박|시간|%)|TOP\s*\d+/i.test(kw)) score += 10;
+              if (kw.length >= 10 && kw.length <= 34) score += 10;
+              if (tokens.length >= 4) score += 10;
+              const onlyGeneric = tokens.length <= 2 || (tokens.length <= 3 && /(추천|순위|가격|후기|뜻|날씨|뉴스|이슈|바로가기|링크)$/.test(kw));
+              if (onlyGeneric && !actionTokens.some(t => kw.includes(t)) && !juneTokens.some(t => kw.includes(t))) score -= 35;
+              if (/^(오늘\s*)?(이슈|뉴스|실시간|추천|가격|날씨)$/.test(kw)) score -= 50;
+              if (/(주식\s*추천|코인|도박|성폭|살인|자살|화재|폭발)/.test(kw)) score -= 60;
+              return Math.max(0, Math.min(100, score));
+            };
+            const expandHomeAngles = (keyword, category) => {
+              const kw = String(keyword || '').replace(/\s+/g, ' ').trim();
+              if (!kw) return [];
+              const cat = String(category || blogCategory || 'general').toLowerCase();
+              const suffixMap = {
+                policy: ['2026 6월 신청 조건', '지급일과 준비서류', '대상 조회 방법', '놓치기 쉬운 변경사항'],
+                finance: ['상반기 점검 체크리스트', '6월 바뀐 조건', '환급·공제 확인할 것', '초보가 놓치는 주의사항'],
+                health: ['초여름 관리 방법', '장마철 주의사항', '직장인 체크리스트', '증상별 비교 정리'],
+                living: ['장마철 체크리스트', '제습·냄새 해결 방법', '다이소 활용 정리', '초여름 준비물'],
+                travel: ['6월 주말 코스', '장마철 대체 일정', '여름휴가 준비물', '비 오면 갈만한 곳'],
+                parenting: ['여름방학 준비 체크리스트', '장마철 실내놀이', '아이 건강 주의사항', '준비물 비용 정리'],
+                celebrity: ['이번 주 이슈 정리', '방송 전 알아둘 포인트', '팬들이 찾는 일정 정리', '관련 상품 체크리스트'],
+                issue: ['이번 주 확인할 것', '6월 바뀐 점 정리', '생활에 영향 있는 포인트', '오늘 글감 체크리스트'],
+                general: ['6월 지금 확인할 것', '초여름 체크리스트', '놓치기 쉬운 변경사항', '오늘 쓰기 좋은 정리']
+              };
+              const suffixes = suffixMap[cat] || suffixMap.general;
+              const candidates = [];
+              if (scoreHomeNeedKeyword(kw, cat) >= 45) candidates.push(kw);
+              suffixes.forEach(s => candidates.push(kw.includes(s) ? kw : `${kw} ${s}`));
+              candidates.push(`2026 6월 ${kw} 체크리스트`, `${kw} 지금 확인할 변경사항`);
+              return Array.from(new Set(candidates))
+                .filter(k => scoreHomeNeedKeyword(k, cat) >= 45)
+                .slice(0, 5);
+            };
+            const rankAndTrimHomeSeeds = () => {
+              const seen = new Set();
+              seedKeywords = seedKeywords
+                .map(s => ({ ...s, _homeNeedScore: scoreHomeNeedKeyword(s.keyword, s.category || blogCategory || 'general') }))
+                .filter(s => {
+                  const key = String(s.keyword || '').toLowerCase().replace(/\s+/g, '');
+                  if (!key || seen.has(key)) return false;
+                  seen.add(key);
+                  return true;
+                })
+                .sort((a, b) => {
+                  const sourceWeight = (x) => x._source === 'category-dynamic' ? 16 : x._source === 'realtime' || x._trending ? 12 : x._manual ? 10 : x._builtin ? 6 : 0;
+                  return ((b._homeNeedScore || 0) + sourceWeight(b)) - ((a._homeNeedScore || 0) + sourceWeight(a));
+                })
+                .slice(0, candidateTarget);
+            };
             const normalizeHomeSeed = (item, source) => {
               const rawKeyword = typeof item === 'string' ? item : item?.keyword;
               const keyword = String(rawKeyword || '').replace(/\s+/g, ' ').trim();
@@ -17507,12 +17618,18 @@
               const seen = new Set(seedKeywords.map(s => s.keyword));
               let added = 0;
               for (const raw of (items || [])) {
-                if (seedKeywords.length >= candidateTarget) break;
+                if (seedKeywords.length >= seedPoolLimit) break;
                 const normalized = normalizeHomeSeed(raw, source);
-                if (!normalized || seen.has(normalized.keyword)) continue;
-                seen.add(normalized.keyword);
-                seedKeywords.push(normalized);
-                added++;
+                if (!normalized) continue;
+                const variants = expandHomeAngles(normalized.keyword, normalized.category || blogCategory || 'general');
+                const candidateKeywords = variants.length > 0 ? variants : [normalized.keyword];
+                for (const keyword of candidateKeywords) {
+                  if (seedKeywords.length >= seedPoolLimit) break;
+                  if (seen.has(keyword)) continue;
+                  seen.add(keyword);
+                  seedKeywords.push({ ...normalized, keyword, _source: normalized._source || source });
+                  added++;
+                }
               }
               return added;
             };
@@ -17562,8 +17679,8 @@
                 seedKeywords = [
                   ...trendingToAdd,
                   ...seedKeywords.filter(s => !trendKeys.has(s.keyword)),
-                ].slice(0, candidateTarget);
-                console.log(`[HOME-HUNTER] v2.42.94 트렌딩 시드 ${trendingToAdd.length}개 강제 주입 (후보풀=${seedKeywords.length}/${candidateTarget})`);
+                ].slice(0, seedPoolLimit);
+                console.log(`[HOME-HUNTER] v2.42.94 트렌딩 시드 ${trendingToAdd.length}개 강제 주입 (후보풀=${seedKeywords.length}/${seedPoolLimit})`);
               }
             } catch (e) {
               console.warn('[HOME-HUNTER] 트렌딩 주입 실패:', e?.message);
@@ -17619,7 +17736,7 @@
 
             // v2.42.62: 카테고리 선택 시 동적 시드 시도 (Naver 자동완성 실시간 확장)
             //   하드코딩 풀보다 우선 — 트렌드 반영
-            if (seedKeywords.length < candidateTarget && blogCategory) {
+            if (blogCategory) {
               try {
                 const dynResp = await window.electronAPI.invoke('home-hunter-category-seeds', {
                   category: blogCategory, limit: candidateTarget,
@@ -17827,6 +17944,9 @@
               }
               console.log(`[HOME-HUNTER] 빌트인 시드 ${seedKeywords.length - beforeBuiltin}개 보강 (총 ${seedKeywords.length}/${candidateTarget})`);
             }
+
+            rankAndTrimHomeSeeds();
+            console.log(`[HOME-HUNTER] 홈판형 니즈 점수 정렬 완료: 후보 ${seedKeywords.length}/${candidateTarget}, top=${seedKeywords.slice(0, 5).map(s => `${s.keyword}(${s._homeNeedScore})`).join(', ')}`);
 
             // v2.42.31: sv=0/dc=0 시드(빌트인 또는 추정값)는 Naver SearchAd API로 일괄 보강
             //   keyword-value-verifier가 sv<100을 must-pass fail로 처리해서 자동 isKilled되므로
@@ -19069,7 +19189,8 @@
               <option value="30">30개</option>
               <option value="50" selected>50개 (표준)</option>
               <option value="100">100개 (확장)</option>
-              <option value="200">200개 (최대)</option>
+              <option value="200">200개</option>
+              <option value="250">250개 (최대)</option>
             </select>
                 </div>
 
@@ -19232,7 +19353,7 @@
           const explosionMode = document.getElementById('proTrafficExplosion').checked;
           const countRaw = document.getElementById('proTrafficCount')?.value;
           const countNum = countRaw ? Number(String(countRaw).replace(/,/g, '').trim()) : NaN;
-          const count = Number.isFinite(countNum) ? Math.max(5, Math.min(200, Math.floor(countNum))) : 50;
+          const count = Number.isFinite(countNum) ? Math.max(5, Math.min(250, Math.floor(countNum))) : 50;
           const btn = document.getElementById('proTrafficBtn');
           const resultsDiv = document.getElementById('proTrafficResults');
 
