@@ -5,6 +5,7 @@
 
 import { apiCache, cachedApiCall } from './api-cache';
 import { ErrorHandler } from './error-handler';
+import { rankRelatedKeywordCandidates } from './keyword-relevance';
 
 export interface NaverDatalabConfig {
   clientId: string;
@@ -1594,19 +1595,44 @@ export async function getNaverRelatedKeywords(
         return a.localeCompare(b);
       });
 
-      // 입력 키워드가 결과에 없으면 맨 앞에 추가
-      if (!uniqueKeywords.includes(baseKeyword) && baseKeyword.trim().length > 0) {
-        uniqueKeywords.unshift(baseKeyword);
+      const relevanceCandidates = uniqueKeywords.map(keyword => {
+        const sources: string[] = [];
+        if (autocompleteKeywords.includes(keyword)) sources.push('autocomplete');
+        if (smartBlockKeywords.has(keyword)) sources.push('naver-smartblock');
+        if (mindMapKeywords.has(keyword)) sources.push('mindmap');
+        if (spiderWebKeywords.has(keyword)) sources.push('spider');
+        if (extractedKeywords.has(keyword)) sources.push('title-extract');
+        return { keyword, sources, freq: Math.max(1, sources.length) };
+      });
+      let rankedUniqueKeywords = rankRelatedKeywordCandidates(baseKeyword, relevanceCandidates, {
+        limit: Math.max(options.limit || 10, 120),
+        minScore: 30,
+        includeSeed: true,
+      }).map(item => item.keyword);
+      if (rankedUniqueKeywords.length < Math.min(options.limit || 10, 10)) {
+        rankedUniqueKeywords = rankRelatedKeywordCandidates(baseKeyword, relevanceCandidates, {
+          limit: Math.max(options.limit || 10, 120),
+          minScore: 22,
+          includeSeed: true,
+        }).map(item => item.keyword);
+      }
+      if (rankedUniqueKeywords.length === 0) {
+        rankedUniqueKeywords = uniqueKeywords.slice(0, options.limit || 10);
       }
 
-      console.log(`[NAVER-RELATED] ✅ 최종 연관키워드 ${uniqueKeywords.length}개 추출 완료 (의미 있는 키워드만)`);
+      // 입력 키워드가 결과에 없으면 맨 앞에 추가
+      if (!rankedUniqueKeywords.includes(baseKeyword) && baseKeyword.trim().length > 0) {
+        rankedUniqueKeywords.unshift(baseKeyword);
+      }
+
+      console.log(`[NAVER-RELATED] ✅ 최종 연관키워드 ${rankedUniqueKeywords.length}개 추출 완료 (관련성 랭킹 통과)`);
 
       // limit 적용 (더 많은 키워드 포함)
       let rank = 1;
       const limit = options.limit || 10;
       const startIdx = (options.page || 0) * limit;
       const endIdx = startIdx + limit;
-      const keywordArray = uniqueKeywords.slice(startIdx, endIdx);
+      const keywordArray = rankedUniqueKeywords.slice(startIdx, endIdx);
 
       for (const keyword of keywordArray.slice(0, limit)) {
         if (keyword && keyword.trim().length > 0 && rank <= limit) {

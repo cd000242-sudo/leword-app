@@ -3,7 +3,7 @@ import { generateQueryPatterns } from './pattern-generator';
 import { classifyKeywordIntent, getNaverKeywordSearchVolumeSeparate, getNaverSerpSignal } from './naver-datalab-api';
 import { getNaverAutocompleteKeywords } from './naver-autocomplete';
 import { estimateCPC, calculatePurchaseIntent, calculateCompetitionLevel, CATEGORY_CPC_DATABASE } from './profit-golden-keyword-engine';
-import { classifyKeyword } from './categories';
+import { classifyKeyword, isKeywordMatchingCategory } from './categories';
 
 /**
  * Master Discovery Protocol (MDP) Engine v4.0
@@ -54,6 +54,14 @@ export interface ExternalSignals {
     communityBuzzScore: number;  // 0-100
     snsLeadingScore: number;      // 0-100
     sources: string[];
+}
+
+export interface MDPDiscoverOptions {
+    limit: number;
+    minVolume?: number;
+    seedKeywords?: string[];
+    categoryIds?: string[];
+    categoryStrict?: boolean;
 }
 
 /**
@@ -143,8 +151,23 @@ export class MDPEngine {
     /**
      * 6단계 발굴 파이프라인 실행
      */
-    public async *discover(seed: string, options: { limit: number; minVolume?: number }) {
-        this.queue.push(seed);
+    public async *discover(seed: string, options: MDPDiscoverOptions) {
+        const initialSeeds = Array.from(new Set([
+            seed,
+            ...(Array.isArray(options.seedKeywords) ? options.seedKeywords : []),
+        ].map(s => String(s || '').replace(/\s+/g, ' ').trim()).filter(Boolean)));
+
+        for (const initialSeed of initialSeeds) {
+            this.queue.push(initialSeed);
+        }
+
+        if (this.queue.length === 0) return;
+
+        const semanticAnchors = initialSeeds;
+        const categoryIds = Array.from(new Set((options.categoryIds || [])
+            .map(id => String(id || '').trim())
+            .filter(Boolean)));
+        const categoryStrict = options.categoryStrict === true && categoryIds.length > 0;
         let count = 0;
         const minVolume = options.minVolume || 10;
 
@@ -194,7 +217,12 @@ export class MDPEngine {
                     for (const sig of signals) {
                         // Phase 4: Semantic Distance Control (순수도 제어)
                         // 시드 키워드와 너무 동떨어진 키워드 배제
-                        const similarity = this.calculateSemanticSimilarity(seed, sig.keyword);
+                        const anchorsForCurrent = semanticAnchors.includes(current)
+                            ? semanticAnchors
+                            : [...semanticAnchors, current];
+                        const similarity = anchorsForCurrent.reduce((best, anchor) => {
+                            return Math.max(best, this.calculateSemanticSimilarity(anchor, sig.keyword));
+                        }, 0);
                         if (similarity < 0.15) continue; // 최소 유사도 기준 (0~1)
                         const totalVolume = (sig.pcSearchVolume || 0) + (sig.mobileSearchVolume || 0);
                         if (totalVolume < minVolume) continue;
@@ -209,6 +237,9 @@ export class MDPEngine {
 
                         // Phase 3 Upgrade: 카테고리 인식 수익성 모델링 (v3.0)
                         const detectedCategory = classifyKeyword(sig.keyword).primary;
+                        if (categoryStrict && !categoryIds.some(id => isKeywordMatchingCategory(sig.keyword, id))) {
+                            continue;
+                        }
                         const categoryCPC = estimateCPC(sig.keyword, detectedCategory);
                         const purchaseIntent = calculatePurchaseIntent(sig.keyword);
                         const competitionLvl = calculateCompetitionLevel(docCount, totalVolume);

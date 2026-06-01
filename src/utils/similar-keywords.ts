@@ -3,6 +3,7 @@
 // 모델 비활성 시: 자동완성 + 시맨틱 sibling fallback
 
 import { listTrackedKeywords } from './pro-hunter-v12/tracking-store';
+import { rankRelatedKeywordCandidates } from './keyword-relevance';
 
 export interface SimilarKeyword {
   keyword: string;
@@ -64,7 +65,13 @@ export async function findSimilarKeywords(
       clientSecret: options.clientSecret || '',
     };
     const auto = await getNaverAutocompleteKeywords(clean, config);
-    for (const k of auto) {
+    const rankedAuto = rankRelatedKeywordCandidates(
+      clean,
+      auto.map(keyword => ({ keyword, sources: ['autocomplete'] })),
+      { limit: limit * 2, minScore: 28 },
+    );
+    for (const item of rankedAuto) {
+      const k = item.keyword;
       const t = k.trim();
       if (!t || seen.has(t)) continue;
       seen.add(t);
@@ -84,7 +91,13 @@ export async function findSimilarKeywords(
         options.clientId,
         options.clientSecret,
       );
-      for (const s of siblings) {
+      const rankedSiblings = rankRelatedKeywordCandidates(
+        clean,
+        siblings.map(keyword => ({ keyword, sources: ['sibling'] })),
+        { limit: limit * 2, minScore: 24 },
+      );
+      for (const item of rankedSiblings) {
+        const s = item.keyword;
         const t = s.trim();
         if (!t || seen.has(t)) continue;
         seen.add(t);

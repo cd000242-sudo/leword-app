@@ -4,6 +4,7 @@
 
 import type { Browser, Page } from 'puppeteer';
 import { KeywordRecommendation } from './types';
+import { deterministicRange, deterministicRatio } from '../deterministic-random';
 
 // 브라우저 재사용
 let browserInstance: Browser | null = null;
@@ -169,7 +170,7 @@ export async function getEasierKeywords(
     if (kw.includes(originalKeyword)) estimatedScore += 5;
     
     // 랜덤 변동 추가
-    estimatedScore += Math.floor(Math.random() * 10 - 5);
+    estimatedScore += deterministicRange(`${originalKeyword}:${kw}:score-adjust`, -5, 4);
     estimatedScore = Math.min(100, Math.max(0, estimatedScore));
     
     // 원본보다 10점 이상 높은 경우만 추천
@@ -184,8 +185,8 @@ export async function getEasierKeywords(
       
       recommendations.push({
         keyword: kw,
-        searchVolume: Math.floor(originalSearchVolume * (0.3 + Math.random() * 0.5)),
-        publishVolume: Math.floor(originalPublishVolume * (0.2 + Math.random() * 0.4)),
+        searchVolume: Math.floor(originalSearchVolume * deterministicRatio(`${originalKeyword}:${kw}:sv`, 0.3, 0.8, 3)),
+        publishVolume: Math.floor(originalPublishVolume * deterministicRatio(`${originalKeyword}:${kw}:pv`, 0.2, 0.6, 3)),
         competitionScore: estimatedScore,
         improvementRate,
         displayType: 'smartblock',

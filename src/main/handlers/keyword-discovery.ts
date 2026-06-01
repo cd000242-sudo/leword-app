@@ -19,6 +19,8 @@ import { MDPEngine, MDPResult, ExternalSignals } from '../../utils/mdp-engine';
 import { keywordDiscoveryAbortMap, checkUnlimitedLicense } from './shared';
 import { callAllSources } from '../../utils/sources/source-registry';
 import { getCachedReport } from '../../utils/sources/health-checker';
+import { getDiscoveryCategorySeeds, matchesDiscoveryCategory, resolveDiscoveryCategoryIds } from '../../utils/category-discovery-map';
+import { deterministicRange } from '../../utils/deterministic-random';
 
 // v4.0: 외부 신호 캐시 (앱 lifetime, 30분 TTL)
 let _v4SignalCache: { map: Map<string, ExternalSignals>; expiresAt: number } | null = null;
@@ -112,12 +114,14 @@ export function setupKeywordDiscoveryHandlers(): void {
       actualOptions = options || {};
     }
 
+    const discoveryKey = actualKeyword || `category:${actualOptions?.category || 'all'}`;
+
     // 중지 플래그 초기화
-    keywordDiscoveryAbortMap.set(actualKeyword, false);
+    keywordDiscoveryAbortMap.set(discoveryKey, false);
 
     // 중지 여부 확인 헬퍼 함수
     const checkAbort = (): boolean => {
-      return keywordDiscoveryAbortMap.get(actualKeyword) === true;
+      return keywordDiscoveryAbortMap.get(discoveryKey) === true || keywordDiscoveryAbortMap.get(actualKeyword) === true;
     };
 
     // 강제로 네이버만 사용
@@ -213,7 +217,7 @@ export function setupKeywordDiscoveryHandlers(): void {
 
           // v2.43.0: 1500ms (CPU 67% 감소) + unref + finally 보장 (모든 경로에서 clear)
           const abortCheckInterval = setInterval(() => {
-            if (keywordDiscoveryAbortMap.get(actualKeyword)) {
+            if (keywordDiscoveryAbortMap.get(discoveryKey) || keywordDiscoveryAbortMap.get(actualKeyword)) {
               engine.abort();
               clearInterval(abortCheckInterval);
             }
@@ -221,20 +225,35 @@ export function setupKeywordDiscoveryHandlers(): void {
           abortCheckInterval.unref?.();
 
           try {
+            const categorySeeds = getDiscoveryCategorySeeds(category, Math.min(180, Math.max(60, effectiveLimit * 4)));
+            const categoryIds = resolveDiscoveryCategoryIds(category);
+            const seedForDiscovery = actualKeyword || categorySeeds[0] || category || '황금키워드';
             const discoveryOptions = {
               limit: isUnlimited ? 5000 : effectiveLimit,
-              minVolume: 10
+              minVolume: 10,
+              seedKeywords: actualKeyword
+                ? categorySeeds.slice(0, Math.min(categorySeeds.length, 90))
+                : categorySeeds,
+              categoryIds,
+              categoryStrict: categoryIds.length > 0,
             };
+
+            if (categoryIds.length > 0) {
+              console.log(`[KEYWORD-MASTER] 카테고리 시드 주입: category=${category} ids=${categoryIds.join(',')} seeds=${categorySeeds.length}, seed="${seedForDiscovery}"`);
+            }
 
             const chunk: MDPResult[] = [];
             let totalAdded = 0;
 
-            for await (const result of engine.discover(actualKeyword, discoveryOptions)) {
+            for await (const result of engine.discover(seedForDiscovery, discoveryOptions)) {
               if (checkAbort()) break;
+              if (categoryIds.length > 0 && !matchesDiscoveryCategory(result.keyword, category)) {
+                continue;
+              }
 
               const formattedResult = {
                 ...result,
-                category: result.intent, // UI 호환성을 위해 intent를 category로도 매핑
+                category: category || result.intent, // UI 호환성을 위해 intent를 category로도 매핑
                 competitionRatio: result.goldenRatio, // UI 호환성
               };
 
@@ -2086,7 +2105,7 @@ export function setupKeywordDiscoveryHandlers(): void {
                 }
               }
               // 실시간 검색어는 급상승 중이므로 높은 성장률 부여
-              const growthRate = 100 + Math.random() * 300; // 100-400% 급상승
+              const growthRate = deterministicRange(`realtime-growth:${refinedKeyword}`, 100, 400);
 
               // 카테고리 필터링 (확장된 카테고리 목록)
               if (category && category !== '' && category !== '전체') {

@@ -15,6 +15,7 @@
 import { getNaverSearchAdKeywordSuggestions, getNaverSearchAdKeywordVolume } from './naver-searchad-api';
 import { getNaverBlogDocumentCount } from './naver-blog-api';
 import { getDaumRealtimeKeywords, getGoogleRealtimeKeywords } from './realtime-search-keywords';
+import { deterministicRange, deterministicShuffle } from './deterministic-random';
 
 // 키워드 타입 분류
 export type KeywordType = 
@@ -736,7 +737,7 @@ export class TrafficExplosionHunter {
     
     // 기본 시드 추가 (실시간 트렌드가 부족할 경우 + 추가로)
     const neededSeeds = Math.max(10 - seeds.length, 5); // 최소 5개는 추가
-    const shuffled = safeHighValueSeeds.sort(() => Math.random() - 0.5);
+    const shuffled = deterministicShuffle(safeHighValueSeeds, `traffic-seeds:${new Date().toISOString().slice(0, 10)}`);
     
     shuffled.slice(0, neededSeeds).forEach(kw => {
       if (!seeds.find(s => s.keyword === kw)) {
@@ -935,15 +936,15 @@ export class TrafficExplosionHunter {
           // 상위노출 가능성 (황금비율 기반!)
           let topExposurePotential: number;
           if (goldenRatio >= 10) {
-            topExposurePotential = 90 + Math.round(Math.random() * 10); // 90~100%
+            topExposurePotential = deterministicRange(`${keyword}:top-exposure:10`, 90, 100);
           } else if (goldenRatio >= 5) {
-            topExposurePotential = 80 + Math.round(Math.random() * 10); // 80~90%
+            topExposurePotential = deterministicRange(`${keyword}:top-exposure:5`, 80, 90);
           } else if (goldenRatio >= 2) {
-            topExposurePotential = 65 + Math.round(Math.random() * 15); // 65~80%
+            topExposurePotential = deterministicRange(`${keyword}:top-exposure:2`, 65, 80);
           } else if (goldenRatio >= 1) {
-            topExposurePotential = 50 + Math.round(Math.random() * 15); // 50~65%
+            topExposurePotential = deterministicRange(`${keyword}:top-exposure:1`, 50, 65);
           } else {
-            topExposurePotential = 30 + Math.round(Math.random() * 20); // 30~50%
+            topExposurePotential = deterministicRange(`${keyword}:top-exposure:0`, 30, 50);
           }
           
           // 종합 점수 계산
@@ -1023,5 +1024,4 @@ export async function huntTrafficExplosionKeywords(
   const hunter = new TrafficExplosionHunter(config);
   return hunter.huntTrafficExplosionKeywords(options);
 }
-
 

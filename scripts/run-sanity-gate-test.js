@@ -17,6 +17,11 @@ const testFiles = [
     path.join(__dirname, '..', 'src', 'utils', '__tests__', 'policy-briefing.test.ts'),
     path.join(__dirname, '..', 'src', 'utils', '__tests__', 'realtime-strength.test.ts'),
     path.join(__dirname, '..', 'src', 'utils', '__tests__', 'home-publish-planner.test.ts'),
+    path.join(__dirname, '..', 'src', 'utils', '__tests__', 'category-discovery-regression.test.ts'),
+    path.join(__dirname, '..', 'src', 'utils', '__tests__', 'rich-feed-precision-floor.test.ts'),
+    path.join(__dirname, '..', 'src', 'utils', '__tests__', 'keyword-relevance-regression.test.ts'),
+    path.join(__dirname, '..', 'src', 'utils', '__tests__', 'deterministic-scoring-regression.test.ts'),
+    path.join(__dirname, '..', 'src', 'utils', '__tests__', 'kin-hidden-honey-regression.test.ts'),
 ];
 
 for (const testFile of testFiles) {

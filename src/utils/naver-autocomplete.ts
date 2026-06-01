@@ -9,6 +9,8 @@
  */
 
 import axios from 'axios';
+import { stableHash } from './deterministic-random';
+import { rankRelatedKeywordCandidates } from './keyword-relevance';
 
 export interface NaverApiConfig {
   clientId: string;
@@ -35,7 +37,7 @@ const MOBILE_USER_AGENTS = [
 
 function getRandomUA(mobile = false): string {
   const list = mobile ? MOBILE_USER_AGENTS : USER_AGENTS;
-  return list[Math.floor(Math.random() * list.length)];
+  return list[stableHash(mobile ? 'naver-mobile-ua' : 'naver-pc-ua') % list.length];
 }
 
 /**
@@ -201,7 +203,19 @@ export async function getNaverAutocompleteKeywords(
 ): Promise<string[]> {
   console.log(`[NAVER-AUTOCOMPLETE] 🚀 끝판왕 자동완성 시작: "${baseKeyword}"`);
   
-  const keywords = new Set<string>();
+  const keywordMap = new Map<string, { keyword: string; sources: Set<string>; freq: number }>();
+  const addKeyword = (keyword: string, source: string) => {
+    const kw = String(keyword || '').trim();
+    if (!kw) return;
+    const key = kw.toLowerCase().replace(/\s+/g, '');
+    const existing = keywordMap.get(key);
+    if (existing) {
+      existing.sources.add(source);
+      existing.freq++;
+    } else {
+      keywordMap.set(key, { keyword: kw, sources: new Set([source]), freq: 1 });
+    }
+  };
   
   try {
     // 🔥 병렬로 4개 API 동시 호출!
@@ -214,26 +228,26 @@ export async function getNaverAutocompleteKeywords(
     
     // 결과 수집
     if (pcResults.status === 'fulfilled') {
-      pcResults.value.forEach(kw => keywords.add(kw));
+      pcResults.value.forEach(kw => addKeyword(kw, 'naver-pc'));
       console.log(`[NAVER-AUTOCOMPLETE] ✅ PC API: ${pcResults.value.length}개`);
     }
     if (mobileResults.status === 'fulfilled') {
-      mobileResults.value.forEach(kw => keywords.add(kw));
+      mobileResults.value.forEach(kw => addKeyword(kw, 'naver-mobile'));
       console.log(`[NAVER-AUTOCOMPLETE] ✅ 모바일 API: ${mobileResults.value.length}개`);
     }
     if (shoppingResults.status === 'fulfilled') {
-      shoppingResults.value.forEach(kw => keywords.add(kw));
+      shoppingResults.value.forEach(kw => addKeyword(kw, 'naver-shopping'));
       console.log(`[NAVER-AUTOCOMPLETE] ✅ 쇼핑 API: ${shoppingResults.value.length}개`);
     }
     if (relatedResults.status === 'fulfilled') {
-      relatedResults.value.forEach(kw => keywords.add(kw));
+      relatedResults.value.forEach(kw => addKeyword(kw, 'naver-relkwd'));
       console.log(`[NAVER-AUTOCOMPLETE] ✅ 연관검색어: ${relatedResults.value.length}개`);
     }
     
-    console.log(`[NAVER-AUTOCOMPLETE] 📊 1차 수집 완료: ${keywords.size}개`);
+    console.log(`[NAVER-AUTOCOMPLETE] 📊 1차 수집 완료: ${keywordMap.size}개`);
     
     // 🔥 키워드가 부족하면 자모 확장
-    if (keywords.size < 30) {
+    if (keywordMap.size < 30) {
       const jamoList = ['ㄱ', 'ㄴ', 'ㄷ', 'ㄹ', 'ㅁ', 'ㅂ', 'ㅅ', 'ㅇ', 'ㅈ', 'ㅊ', 'ㅋ', 'ㅌ', 'ㅍ', 'ㅎ'];
       
       const jamoPromises = jamoList.map(jamo => fetchMobileAutocomplete(`${baseKeyword} ${jamo}`));
@@ -241,15 +255,15 @@ export async function getNaverAutocompleteKeywords(
       
       jamoResults.forEach(result => {
         if (result.status === 'fulfilled') {
-          result.value.forEach(kw => keywords.add(kw));
+          result.value.forEach(kw => addKeyword(kw, 'naver-jamo'));
         }
       });
       
-      console.log(`[NAVER-AUTOCOMPLETE] 📊 자모 확장 후: ${keywords.size}개`);
+      console.log(`[NAVER-AUTOCOMPLETE] 📊 자모 확장 후: ${keywordMap.size}개`);
     }
     
     // 🔥 수익화 접미사 확장
-    if (keywords.size < 50) {
+    if (keywordMap.size < 50) {
       const suffixes = ['추천', '비교', '가격', '후기', '방법', '종류', '순위', '장단점'];
       
       const suffixPromises = suffixes.map(suffix => fetchMobileAutocomplete(`${baseKeyword} ${suffix}`));
@@ -257,29 +271,33 @@ export async function getNaverAutocompleteKeywords(
       
       suffixResults.forEach(result => {
         if (result.status === 'fulfilled') {
-          result.value.forEach(kw => keywords.add(kw));
+          result.value.forEach(kw => addKeyword(kw, 'naver-suffix'));
         }
       });
       
-      console.log(`[NAVER-AUTOCOMPLETE] 📊 접미사 확장 후: ${keywords.size}개`);
+      console.log(`[NAVER-AUTOCOMPLETE] 📊 접미사 확장 후: ${keywordMap.size}개`);
     }
     
-    // 필터링 및 정렬
-    const result = Array.from(keywords)
-      .filter(kw => {
+    // 필터링 및 관련성 정렬
+    const candidates = Array.from(keywordMap.values())
+      .filter(item => {
+        const kw = item.keyword;
         if (!kw || kw.length < 2 || kw.length > 50) return false;
         if (kw === baseKeyword) return false;
         if (/^[\d\s\.\,\-\_]+$/.test(kw)) return false;
         if (/[<>{}[\]\\\/]/.test(kw)) return false;
         return true;
       })
-      .sort((a, b) => {
-        const aHasBase = a.includes(baseKeyword) ? 1 : 0;
-        const bHasBase = b.includes(baseKeyword) ? 1 : 0;
-        if (aHasBase !== bHasBase) return bHasBase - aHasBase;
-        return a.length - b.length;
-      })
-      .slice(0, 100);
+      .map(item => ({
+        keyword: item.keyword,
+        sources: Array.from(item.sources),
+        freq: item.freq,
+      }));
+    let ranked = rankRelatedKeywordCandidates(baseKeyword, candidates, { limit: 100, minScore: 34 });
+    if (ranked.length < 10) {
+      ranked = rankRelatedKeywordCandidates(baseKeyword, candidates, { limit: 100, minScore: 24 });
+    }
+    const result = ranked.map(item => item.keyword);
     
     console.log(`[NAVER-AUTOCOMPLETE] ✅ 최종 ${result.length}개 반환`);
     return result;

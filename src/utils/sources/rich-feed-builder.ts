@@ -26,6 +26,8 @@ import { getEvergreenSafetyNetSeeds, getAllRevenueSeeds } from './evergreen-safe
 import { buildIDFStats, scoreSeedKeyword, isQualitySeed } from './quality-extractor';
 import { loadBloggerProfile, calculateProfileAffinity, experienceAdjustment, BloggerProfile } from '../blogger-profile';
 import { computePlatformFit, PlatformFitResult } from '../platform-fitness';
+import { getDiscoveryCategorySeeds } from '../category-discovery-map';
+import { deterministicShuffle, stableHash } from '../deterministic-random';
 
 export type Freshness = 'BURNING' | 'RISING' | 'STABLE' | 'EVERGREEN';
 // 🔥 v2.31.0: SSR 등급 신설 — "수익 황금" (SSS + 고CPC + 상업의도 + 수익 카테고리)
@@ -80,6 +82,8 @@ export interface RichKeywordRow {
     claudeReason?: string;
     // Phase 1: 플랫폼 적합도 (실측 신호 기반 결정론적). 추정 트래픽 숫자 아님 — 배지/근거용.
     platformFit?: PlatformFitResult;
+    // 정밀 모드에서 SSR/SSS가 30개 미만일 때만 추가되는 실측 기반 보강 후보.
+    precisionBackfill?: boolean;
 }
 
 export interface RichFeedDiagnostic {
@@ -1131,12 +1135,12 @@ export async function buildRichFeed(
         // 베이스 자체가 modifier이면 의미 없음 (중복 modifier 결합)
         if (NICHE_MODIFIERS.includes(bkw)) continue;
 
-        const shuffled = NICHE_MODIFIERS.slice().sort(() => Math.random() - 0.5);
+        const shuffled = deterministicShuffle(NICHE_MODIFIERS, `rich-feed-modifiers:${bkw}`);
         const picks = shuffled.slice(0, MOD_PER_SEED);
         const baseScore = scoreSeedKeyword(bkw, idfStats, base.sources.length);
 
         for (const mod of picks) {
-            const orderFront = Math.random() < 0.5;
+            const orderFront = (stableHash(`rich-feed-modifier-order:${bkw}:${mod}`) % 2) === 0;
             const derived = orderFront ? `${mod} ${bkw}` : `${bkw} ${mod}`;
             if (seedMap.has(derived) || seenKeywords.has(derived)) continue;
             if (!isQualitySeed(derived) || isTooGeneric2Token(derived)) continue;
@@ -1161,22 +1165,25 @@ export async function buildRichFeed(
             const { getSeedsForUserCategories } = await import('./category-seed-catalog');
             const userCatSeeds = getSeedsForUserCategories(
                 _bloggerProfile.selectedCategories as any[],
-                30, // 카테고리당 30개
+                isBulkMode ? 70 : 50, // 카테고리당 후보 풀 확대
+            );
+            const discoveryCatSeeds = _bloggerProfile.selectedCategories.flatMap(cid =>
+                getDiscoveryCategorySeeds(cid, isBulkMode ? 90 : 60)
             );
             const injected: typeof baseSeeds = [];
-            for (const kw of userCatSeeds) {
+            for (const kw of [...userCatSeeds, ...discoveryCatSeeds]) {
                 if (seenKeywords.has(kw)) continue;
                 seenKeywords.add(kw);
                 injected.push({
                     keyword: kw,
                     sources: ['user-category'],
-                    qualityScore: 1.6, // 시즌(1.4) 보다 약간 높게 — 사용자 맞춤 우선
+                    qualityScore: 1.75, // 시즌(1.4) 보다 높게 — 사용자 선택 카테고리 우선
                 });
             }
             if (injected.length > 0) {
                 extraSeeds.push(...injected);
-                console.log(`[rich-feed v2.43.42] 사용자 카테고리(${_bloggerProfile.selectedCategories.join(',')}) evergreen 시드 ${injected.length}개 주입`);
-                emit('user-category', 19, `👤 내 카테고리 evergreen ${injected.length}개 시드 주입`);
+                console.log(`[rich-feed v2.49.66] 사용자 카테고리(${_bloggerProfile.selectedCategories.join(',')}) 시드 ${injected.length}개 주입 (catalog=${userCatSeeds.length}, discovery=${discoveryCatSeeds.length})`);
+                emit('user-category', 19, `👤 내 카테고리 시드 ${injected.length}개 주입`);
             }
         }
     } catch (e: any) {
@@ -1472,7 +1479,10 @@ export async function buildRichFeed(
         // Efraimidis-Spirakis: key = rand^(1/weight), 상위 k 선택 = 품질 가중 샘플링
         const keyed = items.map(x => ({
             item: x,
-            key: Math.pow(Math.random(), 1 / Math.max(0.0001, Math.pow(x.qualityScore, exponent))),
+            key: Math.pow(
+                (stableHash(`rich-feed-weighted:${(x as any).keyword || ''}:${exponent}`) + 1) / 0x100000000,
+                1 / Math.max(0.0001, Math.pow(x.qualityScore, exponent))
+            ),
         }));
         keyed.sort((a, b) => b.key - a.key);
         return keyed.slice(0, k).map(e => e.item);
@@ -2378,9 +2388,19 @@ export async function buildRichFeed(
                 emit('grading', 94, `정밀 SSS 보강 +${promoted}건 — SSS ${currentSss()}/${sssFloor}`);
             }
         }
-        const preciseOnly = enrichedRows.filter(r => r.grade === 'SSR' || r.grade === 'SSS');
+        const preciseRows = selectPrecisionRowsWithBackfill(enrichedRows, floorBackupRows, {
+            minReturnCount: sssFloor,
+            selectedCategoryIds,
+            minPerSelectedCategory: MIN_RESULTS_PER_SELECTED_CATEGORY,
+            excludedKeywords: userExcludedKeywords,
+        });
+        const backfilled = preciseRows.filter(r => r.precisionBackfill).length;
         enrichedRows.length = 0;
-        enrichedRows.push(...preciseOnly);
+        enrichedRows.push(...preciseRows);
+        if (backfilled > 0) {
+            console.log(`[rich-feed v2.49.67] 정밀 30개 바닥 보강: +${backfilled}, final=${enrichedRows.length}/${sssFloor}`);
+            emit('grading', 94, `정밀 후보 ${enrichedRows.length}/${sssFloor}건 확보 — 실측 보강 ${backfilled}건`);
+        }
     }
 
     // 5. 정렬 (등급 → AI 미점령 우선 → 기회지수 → 소스 수)
@@ -2505,6 +2525,133 @@ function stableKeywordHash(keyword: string): number {
         hash = Math.imul(hash, 16777619);
     }
     return hash >>> 0;
+}
+
+export interface PrecisionBackfillOptions {
+    minReturnCount: number;
+    selectedCategoryIds?: string[];
+    minPerSelectedCategory?: number;
+    excludedKeywords?: Set<string>;
+}
+
+function precisionBackfillTier(row: RichKeywordRow): number {
+    if (!row?.keyword || !row.grade) return 0;
+    if (row.svEstimated) return 0;
+    if (isOverbroadGoldenCandidate(row.keyword, row.searchVolume, row.documentCount)) return 0;
+
+    const grade = row.grade;
+    const isUsableGrade = grade === 'SS' || grade === 'S' || grade === 'A' || grade === 'B';
+    if (!isUsableGrade) return 0;
+
+    const tokenCount = String(row.keyword || '').trim().split(/\s+/).filter(Boolean).length;
+    const writability = typeof row.bloggerWritability === 'number' ? row.bloggerWritability : 50;
+    if (tokenCount <= 1 && !hasCommercialIntent(row.keyword)) return 0;
+    if (row.searchVolume < 50 || row.searchVolume > 30000) return 0;
+    if (row.documentCount <= 0 || row.documentCount > 40000) return 0;
+
+    if (row.dcEstimated) {
+        if (row.goldenRatio < 1.5 || writability < 55) return 0;
+        return grade === 'SS' || grade === 'S' || grade === 'A' ? 2 : 0;
+    }
+
+    if (row.goldenRatio < 1.0 || writability < 35) return 0;
+    if (grade === 'SS' || grade === 'S' || grade === 'A') return 3;
+    if (grade === 'B' && row.goldenRatio >= 1.5 && writability >= 55 && tokenCount >= 2) return 1;
+    return 0;
+}
+
+function precisionBackfillScore(row: RichKeywordRow): number {
+    const writability = typeof row.bloggerWritability === 'number' ? row.bloggerWritability : 50;
+    const dcScore = row.documentCount <= 1000 ? 100 :
+        row.documentCount <= 3000 ? 85 :
+        row.documentCount <= 8000 ? 65 :
+        row.documentCount <= 15000 ? 45 : 25;
+    const ratioScore = Math.min(100, row.goldenRatio * 18);
+    const volumeScore = row.searchVolume >= 300 && row.searchVolume <= 10000 ? 100 :
+        row.searchVolume >= 100 && row.searchVolume < 300 ? 70 :
+        row.searchVolume > 10000 && row.searchVolume <= 30000 ? 65 : 45;
+    const sourceScore = Math.min(100, Math.max(1, row.sourceCount || 1) * 20);
+    return dcScore * 0.30 + ratioScore * 0.30 + volumeScore * 0.18 + writability * 0.17 + sourceScore * 0.05;
+}
+
+function clonePrecisionBackfillRow(row: RichKeywordRow): RichKeywordRow {
+    const sources = Array.from(new Set([...(row.sources || []), 'precision-backfill']));
+    return {
+        ...row,
+        sources,
+        sourceCount: Math.max(row.sourceCount || 0, sources.length),
+        precisionBackfill: true,
+    };
+}
+
+export function selectPrecisionRowsWithBackfill(
+    primaryRows: RichKeywordRow[],
+    backupRows: RichKeywordRow[],
+    options: PrecisionBackfillOptions
+): RichKeywordRow[] {
+    const minReturnCount = Math.max(0, options.minReturnCount || 0);
+    const selectedCategoryIds = Array.from(new Set((options.selectedCategoryIds || []).filter(Boolean)));
+    const minPerSelectedCategory = Math.max(0, options.minPerSelectedCategory || 0);
+    const excludedKeywords = options.excludedKeywords || new Set<string>();
+    const out: RichKeywordRow[] = [];
+    const used = new Set<string>();
+
+    const add = (row: RichKeywordRow, backfill: boolean = false): boolean => {
+        const keyword = String(row?.keyword || '').trim();
+        if (!keyword || used.has(keyword) || excludedKeywords.has(keyword)) return false;
+        used.add(keyword);
+        out.push(backfill ? clonePrecisionBackfillRow(row) : row);
+        return true;
+    };
+
+    for (const row of primaryRows) {
+        if (row.grade === 'SSR' || row.grade === 'SSS') add(row);
+    }
+    if (out.length >= minReturnCount) return out;
+
+    const candidates = backupRows
+        .filter(row => {
+            const keyword = String(row?.keyword || '').trim();
+            return keyword && !used.has(keyword) && !excludedKeywords.has(keyword) && precisionBackfillTier(row) > 0;
+        })
+        .sort((a, b) => {
+            const tierDiff = precisionBackfillTier(b) - precisionBackfillTier(a);
+            if (tierDiff !== 0) return tierDiff;
+            const scoreDiff = precisionBackfillScore(b) - precisionBackfillScore(a);
+            if (Math.abs(scoreDiff) > 0.001) return scoreDiff;
+            return stableKeywordHash(a.keyword) - stableKeywordHash(b.keyword);
+        });
+
+    const takeFrom = (pool: RichKeywordRow[], categoryId?: string, maxCount?: number): number => {
+        let picked = 0;
+        for (const row of pool) {
+            if (out.length >= minReturnCount) break;
+            if (typeof maxCount === 'number' && picked >= maxCount) break;
+            if (categoryId && row.categoryId !== categoryId) continue;
+            if (add(row, true)) picked++;
+        }
+        return picked;
+    };
+
+    if (selectedCategoryIds.length > 0 && minPerSelectedCategory > 0) {
+        for (const tier of [3, 2, 1]) {
+            const tierPool = candidates.filter(row => precisionBackfillTier(row) === tier);
+            for (const categoryId of selectedCategoryIds) {
+                const current = out.filter(row => row.categoryId === categoryId).length;
+                const need = Math.max(0, minPerSelectedCategory - current);
+                if (need > 0) takeFrom(tierPool, categoryId, need);
+                if (out.length >= minReturnCount) break;
+            }
+            if (out.length >= minReturnCount) break;
+        }
+    }
+
+    for (const tier of [3, 2, 1]) {
+        if (out.length >= minReturnCount) break;
+        takeFrom(candidates.filter(row => precisionBackfillTier(row) === tier));
+    }
+
+    return out;
 }
 
 function selectBalancedTopRows(
@@ -2729,7 +2876,7 @@ export async function getCachedRichFeed(
     const profileKey = (() => {
         try {
             const p = loadBloggerProfile();
-            return (p?.selectedCategories || []).join(',');
+            return (p?.selectedCategories || []).map(String).sort().join(',');
         } catch {
             return '';
         }

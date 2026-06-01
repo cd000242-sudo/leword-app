@@ -9,6 +9,8 @@
  * 4. 더미 데이터 절대 금지 - 모든 분석은 실제 데이터 기반
  */
 
+import { estimateCPC } from './profit-golden-keyword-engine';
+
 export interface KeywordData {
   keyword: string;
   searchVolume: number;
@@ -681,49 +683,49 @@ export class TimingGoldenFinder {
     
     // 1. 금융/보험 (고CPC)
     if (/보험|대출|금리|투자|주식|연금|적금/.test(kw)) {
-      estimatedCPC = 800 + Math.round(Math.random() * 700); // 800-1500원
+      estimatedCPC = estimateCPC(keyword.keyword, 'finance');
       adSuitability = 95;
       affiliatePotential = 85;
       revenueStrategy = '💰 금융 키워드는 CPC가 높습니다. 보험/대출 비교 콘텐츠로 제휴마케팅 수익 극대화 가능';
     }
     // 2. 지원금/정책 (중상CPC + 높은 검색량)
     else if (/지원금|페이백|환급|신청|보조금/.test(kw)) {
-      estimatedCPC = 200 + Math.round(Math.random() * 300); // 200-500원
+      estimatedCPC = estimateCPC(keyword.keyword, 'subsidy');
       adSuitability = 80;
       affiliatePotential = 40;
       revenueStrategy = '📋 정책/지원금 키워드는 검색량이 폭발적입니다. 상세 신청 가이드로 트래픽 확보 → 애드센스 수익화';
     }
     // 3. 쇼핑/제품 (제휴마케팅 최적)
     else if (/추천|비교|후기|리뷰|가격|할인|구매/.test(kw)) {
-      estimatedCPC = 150 + Math.round(Math.random() * 200); // 150-350원
+      estimatedCPC = estimateCPC(keyword.keyword, 'shopping');
       adSuitability = 70;
       affiliatePotential = 95;
       revenueStrategy = '🛒 구매 의도가 높은 키워드! 쿠팡파트너스/제휴링크로 높은 전환율 기대';
     }
     // 4. 이슈/뉴스 (낮은 수익성)
     else if (/구속|체포|사망|논란|속보/.test(kw)) {
-      estimatedCPC = 50 + Math.round(Math.random() * 100); // 50-150원
+      estimatedCPC = estimateCPC(keyword.keyword, 'entertainment');
       adSuitability = 30;
       affiliatePotential = 10;
       revenueStrategy = '📰 이슈 키워드는 광고 매칭이 어렵습니다. 대량 트래픽으로 애드센스 노출 수익 확보가 목표';
     }
     // 5. 건강/의료
     else if (/병원|치료|증상|약|건강/.test(kw)) {
-      estimatedCPC = 400 + Math.round(Math.random() * 400); // 400-800원
+      estimatedCPC = estimateCPC(keyword.keyword, 'health');
       adSuitability = 85;
       affiliatePotential = 60;
       revenueStrategy = '🏥 건강 키워드는 CPC가 높습니다. 신뢰성 있는 정보 제공으로 장기 트래픽 확보';
     }
     // 6. 여행/숙박
     else if (/여행|호텔|숙소|항공|펜션/.test(kw)) {
-      estimatedCPC = 300 + Math.round(Math.random() * 300); // 300-600원
+      estimatedCPC = estimateCPC(keyword.keyword, 'travel');
       adSuitability = 80;
       affiliatePotential = 90;
       revenueStrategy = '✈️ 여행 키워드는 제휴마케팅 최적! 호텔/항공 예약 링크로 높은 수익 가능';
     }
     // 7. 기본
     else {
-      estimatedCPC = 100 + Math.round(Math.random() * 150); // 100-250원
+      estimatedCPC = estimateCPC(keyword.keyword, 'default');
       adSuitability = 60;
       affiliatePotential = 50;
       revenueStrategy = '📝 양질의 정보성 콘텐츠로 애드센스 수익화. 관련 상품 링크 삽입으로 추가 수익 가능';

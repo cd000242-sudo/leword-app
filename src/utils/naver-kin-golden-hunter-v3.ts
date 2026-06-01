@@ -2283,12 +2283,10 @@ export async function getTrendingHiddenQuestions(): Promise<GoldenHuntResult> {
 
         if (detail.isAdopted) continue;
         // 답변수: 상세 정규식 오추출(전량 4+) 방어 — 목록값(수집 시 ≤3 검증) 신뢰, 상세는 더 작을 때만 채택
-        {
-          const listAns = Number(q.answerCount) || 0;
-          const detAns = Number(detail.answerCount) || 0;
-          const effAns = (detAns > 0 && detAns <= listAns) ? detAns : listAns;
-          if (effAns > 3) continue;
-        }
+        const listAns = Number(q.answerCount) || 0;
+        const detAns = Number(detail.answerCount) || 0;
+        const effAns = (detAns > 0 && detAns <= listAns) ? detAns : listAns;
+        if (effAns > 3) continue;
         // 외부링크 하드 차단 제거 (과다 카운트로 전량 탈락 → rising 정책 일치)
         // 신선도: STEP2 가 sort=date(최신순)로 수집하므로 수집 자체가 신선함을 보장.
         //   상세 상대시간(N일 전)은 사이드바/연관질문 텍스트를 오탐(라이브: 59/60 가 7일초과 오판) →
@@ -2300,7 +2298,7 @@ export async function getTrendingHiddenQuestions(): Promise<GoldenHuntResult> {
         withViewCount.push({
           ...q,
           viewCount: finalViewCount,
-          answerCount: detail.answerCount || q.answerCount || 0,
+          answerCount: effAns,
           likeCount: detail.likeCount || q.likeCount || 0,
           hoursAgo: finalHoursAgo,
           viewsPerHour: finalViewsPerHour,

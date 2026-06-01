@@ -145,10 +145,89 @@ export function setupKeywordAnalysisHandlers(): void {
     }
 
     // TODO: 실제 순위 확인 로직 구현
+    const env = EnvironmentManager.getInstance().getConfig();
+    const clientId = env.naverClientId || process.env['NAVER_CLIENT_ID'] || '';
+    const clientSecret = env.naverClientSecret || process.env['NAVER_CLIENT_SECRET'] || '';
+    if (!clientId || !clientSecret) {
+      return {
+        rank: null,
+        totalResults: 0,
+        estimatedCTR: null,
+        estimated: false,
+        error: 'NAVER_OPEN_API_REQUIRED',
+        message: '네이버 Open API 키가 없어 실측 순위를 조회하지 못했습니다.'
+      };
+    }
+
+    const normalizeUrl = (url: string): string => {
+      try {
+        const decoded = decodeURIComponent(String(url || '').trim());
+        return decoded
+          .replace(/^https?:\/\//i, '')
+          .replace(/^m\./i, '')
+          .replace(/^www\./i, '')
+          .replace(/[?#].*$/, '')
+          .replace(/\/$/, '')
+          .toLowerCase();
+      } catch {
+        return String(url || '').trim().toLowerCase();
+      }
+    };
+    const target = normalizeUrl(data.blogUrl);
+    const ctrForRank = (rank: number): string => {
+      if (rank <= 1) return '25.0';
+      if (rank === 2) return '15.0';
+      if (rank === 3) return '10.0';
+      if (rank <= 5) return '7.0';
+      if (rank <= 10) return '4.0';
+      if (rank <= 20) return '2.0';
+      return '0.8';
+    };
+
+    let totalResults = 0;
+    for (let start = 1; start <= 401; start += 100) {
+      const url = `https://openapi.naver.com/v1/search/blog.json?query=${encodeURIComponent(data.keyword)}&display=100&start=${start}&sort=sim`;
+      const res = await fetch(url, {
+        headers: {
+          'X-Naver-Client-Id': clientId,
+          'X-Naver-Client-Secret': clientSecret,
+        },
+      });
+      if (!res.ok) {
+        const body = await res.text().catch(() => '');
+        return {
+          rank: null,
+          totalResults,
+          estimatedCTR: null,
+          estimated: false,
+          error: `NAVER_OPEN_API_${res.status}`,
+          message: body.slice(0, 200)
+        };
+      }
+      const json: any = await res.json();
+      totalResults = Number(json.total || totalResults || 0);
+      const items = Array.isArray(json.items) ? json.items : [];
+      for (let i = 0; i < items.length; i++) {
+        const link = normalizeUrl(items[i]?.link || items[i]?.bloggerlink || '');
+        if (target && link.includes(target)) {
+          const rank = start + i;
+          return {
+            rank,
+            totalResults,
+            estimatedCTR: ctrForRank(rank),
+            estimated: false
+          };
+        }
+      }
+      if (items.length < 100) break;
+    }
+
     return {
-      rank: Math.floor(Math.random() * 50) + 1,
-      totalResults: Math.floor(Math.random() * 50000) + 10000,
-      estimatedCTR: (Math.random() * 10 + 5).toFixed(1)
+      rank: null,
+      totalResults,
+      estimatedCTR: null,
+      estimated: false,
+      message: '상위 500개 네이버 블로그 결과에서 해당 URL을 찾지 못했습니다.'
     };
   });
 
@@ -2302,6 +2381,16 @@ export function setupKeywordAnalysisHandlers(): void {
     ipcMain.handle('get-autocomplete-suggestions', async (_event, keyword: string) => {
       try {
         console.log(`[AUTOCOMPLETE] 🔥 자동완성 조회 (100% 성공률 목표): ${keyword}`);
+
+        const env = EnvironmentManager.getInstance().getConfig();
+        const rankedSuggestions = await getNaverAutocompleteKeywords(String(keyword || '').trim(), {
+          clientId: env.naverClientId || process.env['NAVER_CLIENT_ID'] || '',
+          clientSecret: env.naverClientSecret || process.env['NAVER_CLIENT_SECRET'] || '',
+        });
+        return {
+          success: true,
+          suggestions: rankedSuggestions
+        };
 
         const suggestions: string[] = [];
         const suggestionSet = new Set<string>(); // 중복 방지

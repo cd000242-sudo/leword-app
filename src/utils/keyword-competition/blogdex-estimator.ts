@@ -5,6 +5,18 @@
 
 import { AuthorityLevel } from './types';
 
+function interpolateRank(
+  dailyVisitors: number,
+  minVisitors: number,
+  maxVisitors: number,
+  bestRank: number,
+  worstRank: number
+): number {
+  const clamped = Math.max(minVisitors, Math.min(maxVisitors, dailyVisitors));
+  const progress = (clamped - minVisitors) / Math.max(1, maxVisitors - minVisitors);
+  return Math.round(worstRank - progress * (worstRank - bestRank));
+}
+
 /**
  * 방문자 수 기반 권위 수준 추정
  */
@@ -44,16 +56,16 @@ export function estimateBlogdexRank(dailyVisitors: number | null): number | null
   // 방문자 수가 주요 지표 중 하나
   if (dailyVisitors >= 2000) {
     // 최적 블로그: 1,000 ~ 1,500위 추정
-    return Math.floor(1000 + Math.random() * 500);
+    return interpolateRank(dailyVisitors, 2000, 10000, 1000, 1500);
   } else if (dailyVisitors >= 300) {
     // 준최적: 10,000 ~ 15,000위 추정
-    return Math.floor(10000 + Math.random() * 5000);
+    return interpolateRank(dailyVisitors, 300, 1999, 10000, 15000);
   } else if (dailyVisitors >= 100) {
     // 일반: 50,000 ~ 100,000위 추정
-    return Math.floor(50000 + Math.random() * 50000);
+    return interpolateRank(dailyVisitors, 100, 299, 50000, 100000);
   } else {
     // 저품질: 100,000위 이상
-    return Math.floor(100000 + Math.random() * 100000);
+    return interpolateRank(dailyVisitors, 1, 99, 100000, 200000);
   }
 }
 

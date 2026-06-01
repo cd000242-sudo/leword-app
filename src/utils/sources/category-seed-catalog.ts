@@ -3,6 +3,7 @@
 // blogger-profile.ts 의 BloggerCategoryId 와 1:1 매핑
 
 import type { BloggerCategoryId } from '../blogger-profile';
+import { deterministicShuffle } from '../deterministic-random';
 
 /**
  * 카테고리별 evergreen 시드 (시즌 무관 꾸준한 트래픽)
@@ -220,7 +221,7 @@ export function getSeedsForUserCategories(
     if (seeds.length <= perCategory) {
       result.push(...seeds);
     } else {
-      const shuffled = seeds.slice().sort(() => Math.random() - 0.5);
+      const shuffled = deterministicShuffle(seeds, `category-seeds:${cid}`);
       result.push(...shuffled.slice(0, perCategory));
     }
   }

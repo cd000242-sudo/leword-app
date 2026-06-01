@@ -27,6 +27,51 @@ import { getRelatedKeywords as getRelatedKeywordsFromCache } from '../../utils/r
 
 
 export function setupPremiumHuntingHandlers(): void {
+  const stableKeywordHash = (value: string): number => {
+    let hash = 2166136261;
+    for (let i = 0; i < value.length; i++) {
+      hash ^= value.charCodeAt(i);
+      hash = Math.imul(hash, 16777619);
+    }
+    return hash >>> 0;
+  };
+
+  const deterministicRange = (key: string, min: number, max: number): number => {
+    const lo = Math.ceil(min);
+    const hi = Math.floor(max);
+    if (hi <= lo) return lo;
+    return lo + (stableKeywordHash(key) % (hi - lo + 1));
+  };
+
+  const calculateStaticOpportunityScore = (keyword: string, searchVolume: number, documentCount: number): number => {
+    const sv = Math.max(0, Number(searchVolume) || 0);
+    const dc = Math.max(0, Number(documentCount) || 0);
+    const ratio = dc > 0 ? sv / Math.max(1, dc) : 0;
+    const volumeScore = sv >= 1000 && sv <= 30000 ? 28 : sv >= 300 && sv < 1000 ? 18 : sv > 30000 ? 16 : 6;
+    const ratioScore = Math.min(34, ratio * 5);
+    const docScore = dc > 0 && dc <= 5000 ? 24 : dc <= 10000 ? 16 : dc <= 30000 ? 8 : 0;
+    const intentScore = /(추천|비교|후기|방법|신청|조건|가격|순위|정리|체크)/.test(keyword) ? 12 : 6;
+    return Math.max(0, Math.min(92, Math.round(volumeScore + ratioScore + docScore + intentScore)));
+  };
+
+  const calculateStaticGrade = (keyword: string, searchVolume: number, documentCount: number): 'SS' | 'S' | 'A' | 'B' => {
+    const sv = Math.max(0, Number(searchVolume) || 0);
+    const dc = Math.max(0, Number(documentCount) || 0);
+    const ratio = dc > 0 ? sv / Math.max(1, dc) : 0;
+    const score = calculateStaticOpportunityScore(keyword, sv, dc);
+
+    // Backup/static paths are not live-verified, so they cannot mint SSS.
+    if (score >= 82 && sv >= 1000 && dc > 0 && dc <= 10000 && ratio >= 3) return 'SS';
+    if (score >= 68 && sv >= 500 && ratio >= 1.5) return 'S';
+    if (score >= 52 && sv >= 100) return 'A';
+    return 'B';
+  };
+
+  const calculateStaticRookieGrade = (keyword: string, searchVolume: number, documentCount: number): 'S' | 'A' | 'B' => {
+    const grade = calculateStaticGrade(keyword, searchVolume, documentCount);
+    return grade === 'SS' || grade === 'S' ? 'S' : grade === 'A' ? 'A' : 'B';
+  };
+
   ipcMain.handle('infinite-keyword-search', async (event, options: {
     initialKeyword: string;
     maxKeywords: number; // 몇 개의 키워드를 조회할지
@@ -619,14 +664,15 @@ export function setupPremiumHuntingHandlers(): void {
     };
 
     // 기본 키워드 + 시즌 키워드 결합
-    let keywords = longtailDB[category] || longtailDB['제품리뷰'];
+    let keywords = [...(longtailDB[category] || longtailDB['제품리뷰'])];
 
     // 시즌 키워드 추가
     seasonal.forEach(season => {
+      const seed = `${target}|${season}|${currentYear}|${currentMonth}`;
       keywords.push({
         keyword: `${target} ${season} 추천`,
-        searchVolume: Math.floor(Math.random() * 5000) + 5000,
-        documentCount: Math.floor(Math.random() * 1000) + 500
+        searchVolume: deterministicRange(seed, 5000, 10000),
+        documentCount: deterministicRange(`${seed}|dc`, 500, 1500)
       });
     });
 
@@ -635,7 +681,9 @@ export function setupPremiumHuntingHandlers(): void {
       searchVolume: kw.searchVolume,
       documentCount: kw.documentCount,
       goldenRatio: parseFloat((kw.searchVolume / kw.documentCount).toFixed(2)),
-      grade: (index < 2 ? 'SSS' : (index < 5 ? 'SS' : (index < 8 ? 'S' : 'A'))) as 'SSS' | 'SS' | 'S' | 'A',
+      grade: (calculateStaticGrade(kw.keyword, kw.searchVolume, kw.documentCount) === 'B'
+        ? 'A'
+        : calculateStaticGrade(kw.keyword, kw.searchVolume, kw.documentCount)) as 'SS' | 'S' | 'A',
       category,
       target,
       recommendation: index < 3
@@ -783,6 +831,7 @@ export function setupPremiumHuntingHandlers(): void {
         let finalBlockedCount = 0;
         let finalBlockedReasons: any = undefined;
         let enhancedByAdsense = false;
+        const keepWatchlistCandidates = discoveryFirst || !strictGates || options.mode === 'category';
 
         if (enhanceOpts) {
           const { enhanced, blockedCount, blockedReasons } = enhanceProResults(result.keywords, enhanceOpts);
@@ -843,7 +892,7 @@ export function setupPremiumHuntingHandlers(): void {
             if (warnings.length > 0) {
               (k as any).hunterWarnings = Array.from(new Set(warnings));
               (k as any).hunterCandidateTier = 'watchlist';
-              if (!discoveryFirst) continue;
+              if (!keepWatchlistCandidates) continue;
             } else {
               (k as any).hunterCandidateTier = 'verified';
             }
@@ -1083,22 +1132,28 @@ export function setupPremiumHuntingHandlers(): void {
     const keywords = goldenKeywordDB[selectedCategory] || goldenKeywordDB['all'];
 
     // 황금 키워드 형식으로 변환
-    return keywords.map((kw, index) => ({
+    return keywords.map((kw, index) => {
+      const opportunityScore = calculateStaticOpportunityScore(kw.keyword, kw.searchVolume, kw.documentCount);
+      const grade = calculateStaticGrade(kw.keyword, kw.searchVolume, kw.documentCount);
+      const rookieGrade = calculateStaticRookieGrade(kw.keyword, kw.searchVolume, kw.documentCount);
+      const baseKey = `${kw.keyword}|${kw.searchVolume}|${kw.documentCount}`;
+
+      return {
       keyword: kw.keyword,
       searchVolume: kw.searchVolume,
       documentCount: kw.documentCount,
       goldenRatio: parseFloat((kw.searchVolume / kw.documentCount).toFixed(2)),
 
       rookieFriendly: {
-        score: Math.min(95, 70 + Math.floor(Math.random() * 25)),
-        grade: index < 3 ? 'S' : (index < 7 ? 'A' : 'B') as 'S' | 'A' | 'B',
+        score: Math.min(95, Math.max(45, opportunityScore - 4)),
+        grade: rookieGrade,
         reason: '낮은 경쟁, 높은 검색량으로 신생 블로거도 상위노출 가능',
         canRankWithin: index < 5 ? '3-7일' : '1-2주',
         requiredBlogIndex: '최적화 지수 30 이상'
       },
 
       timing: {
-        score: Math.min(98, 75 + Math.floor(Math.random() * 23)),
+        score: Math.min(98, Math.max(55, opportunityScore + deterministicRange(`${baseKey}|timing`, -4, 8))),
         urgency: index < 3 ? 'NOW' : 'TODAY' as 'NOW' | 'TODAY',
         bestPublishTime: ['오전 7-9시', '오후 12-14시', '저녁 19-21시'][index % 3],
         trendDirection: 'rising' as const,
@@ -1106,10 +1161,10 @@ export function setupPremiumHuntingHandlers(): void {
       },
 
       blueOcean: {
-        score: Math.min(92, 65 + Math.floor(Math.random() * 27)),
+        score: Math.min(92, Math.max(45, opportunityScore + deterministicRange(`${baseKey}|blue`, -10, 5))),
         competitorStrength: 'weak' as const,
         avgCompetitorBlogAge: '6개월 미만',
-        oldPostRatio: 45 + Math.floor(Math.random() * 30),
+        oldPostRatio: deterministicRange(`${baseKey}|old`, 45, 74),
         opportunity: '지금 작성하면 1페이지 진입 가능!'
       },
 
@@ -1117,17 +1172,17 @@ export function setupPremiumHuntingHandlers(): void {
         daily: `${Math.floor(kw.searchVolume * 0.02)}-${Math.floor(kw.searchVolume * 0.05)}명`,
         weekly: `${Math.floor(kw.searchVolume * 0.1)}-${Math.floor(kw.searchVolume * 0.25)}명`,
         monthly: `${Math.floor(kw.searchVolume * 0.3)}-${Math.floor(kw.searchVolume * 0.6)}명`,
-        confidence: 75 + Math.floor(Math.random() * 15),
+        confidence: deterministicRange(`${baseKey}|confidence`, 70, 88),
         disclaimer: '상위노출 기준 예상치입니다'
       },
 
-      totalScore: Math.min(98, 80 + Math.floor(Math.random() * 18)),
-      grade: index < 2 ? 'SSS' : (index < 5 ? 'SS' : 'S') as 'SSS' | 'SS' | 'S',
+      totalScore: opportunityScore,
+      grade,
 
       proStrategy: {
         title: `${kw.keyword} 완벽 가이드 [2025년 최신]`,
         outline: ['서론 및 핵심 요약', '상세 정보 및 방법', '주의사항 및 팁', '결론 및 추가 정보'],
-        wordCount: 2500 + Math.floor(Math.random() * 1000),
+        wordCount: deterministicRange(`${baseKey}|words`, 2200, 3400),
         mustInclude: ['신청방법', '자격조건', '기간', '주의사항'],
         avoidTopics: ['허위정보', '과장광고'],
         monetization: '애드센스 + 제휴마케팅 추천'
@@ -1139,7 +1194,8 @@ export function setupPremiumHuntingHandlers(): void {
       safetyReason: '검증된 안전 키워드',
       source: 'PRO 황금키워드 DB',
       timestamp
-    }));
+    };
+    });
   }
 
   if (!ipcMain.listenerCount('get-pro-traffic-categories')) {

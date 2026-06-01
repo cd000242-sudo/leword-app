@@ -16,6 +16,7 @@
  */
 
 import axios from 'axios';
+import { rankRelatedKeywordCandidates } from './keyword-relevance';
 
 const FALLBACK_TIMEOUT = 5000;
 const UA = 'Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/121.0.0.0 Safari/537.36';
@@ -290,22 +291,27 @@ export async function fetchRelatedKeywordsMulti(
     }
 
     // 점수 정렬: 소스다양성 × 3 + freq + log10(monthlyVolume)
-    const ranked = Array.from(map.entries()).map(([keyword, v]) => ({
+    const candidateRows = Array.from(map.entries()).map(([keyword, v]) => ({
         keyword,
         sources: Array.from(v.sources),
         freq: v.freq,
         monthlyVolume: v.monthlyVolume || undefined,
-    })).sort((a, b) => {
-        const scoreA = a.sources.length * 3 + a.freq + (a.monthlyVolume ? Math.log10(a.monthlyVolume + 1) : 0);
-        const scoreB = b.sources.length * 3 + b.freq + (b.monthlyVolume ? Math.log10(b.monthlyVolume + 1) : 0);
-        return scoreB - scoreA;
-    });
+    }));
+    let ranked = rankRelatedKeywordCandidates(seed, candidateRows, { limit: 200, minScore: 32 });
+    if (ranked.length < 10) {
+        ranked = rankRelatedKeywordCandidates(seed, candidateRows, { limit: 200, minScore: 24 });
+    }
 
     const ms = Date.now() - t0;
     const succeeded = results.filter(r => r.status === 'fulfilled').length;
     console.log(`[RELATED-FALLBACK] "${seed}" → ${ranked.length}개 (${succeeded}/${tasks.length} 소스 성공, ${ms}ms)`);
 
-    return ranked;
+    return ranked.map(item => ({
+        keyword: item.keyword,
+        sources: item.sources || [],
+        freq: item.freq || 1,
+        monthlyVolume: item.monthlyVolume,
+    }));
 }
 
 /**

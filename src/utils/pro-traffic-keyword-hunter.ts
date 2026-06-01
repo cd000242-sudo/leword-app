@@ -19,6 +19,7 @@
  */
 
 import { validateGrade, applySanity } from './sanity-gate';
+import { deterministicPick, deterministicShuffle } from './deterministic-random';
 
 export interface ProTrafficKeyword {
   keyword: string;
@@ -491,6 +492,9 @@ function getProPremiumMinRatioForCategory(category: string): number {
   if (c === 'celeb') return 0.25;
   if (c === 'fashion') return 0.4;
   if (c === 'life_tips') return 0.3; // 생활팁은 문서수가 많은 편이므로 기준 완화
+  if (c === 'policy') return 0.2;
+  if (c === 'finance' || c === 'realestate') return 0.25;
+  if (c === 'movie' || c === 'drama' || c === 'music' || c === 'book' || c === 'anime' || c === 'broadcast') return 0.15;
   if (c === 'business' || c === 'self_development' || c === 'it' || c === 'health') return 0.5;
   return 0.45;
 }
@@ -498,10 +502,14 @@ function getProPremiumMinRatioForCategory(category: string): number {
 function getProPremiumMaxDocumentsForCategory(category: string): number {
   const c = String(category || '');
   if (c === 'lite_standard') return PREMIUM_GOLDEN_MAX_DOCUMENT_COUNT;
-  if (c === 'celeb') return 100000;
-  if (c === 'fashion') return 50000;
+  if (c === 'celeb') return 1500000;
+  if (c === 'fashion') return 120000;
   if (c === 'life_tips') return 300000; // 생활팁: 시즌 키워드는 dc 30만대가 흔함
-  return 50000;
+  if (c === 'policy') return 250000;
+  if (c === 'finance' || c === 'realestate') return 200000;
+  if (c === 'health' || c === 'it' || c === 'business' || c === 'interior' || c === 'daily' || c === 'self_development') return 150000;
+  if (c === 'movie' || c === 'drama' || c === 'music' || c === 'book' || c === 'anime' || c === 'broadcast') return 350000;
+  return 120000;
 }
 
 /**
@@ -1274,6 +1282,7 @@ import { analyzeSerpWithPlaywright, closeBrowser as closePlaywrightBrowser } fro
 
 import { getNaverSearchAdKeywordVolume, getNaverSearchAdKeywordSuggestions, NaverSearchAdConfig } from './naver-searchad-api';
 import { classifyKeyword, isKeywordMatchingCategory, getCategorySeeds, getCategoryById, CATEGORIES, CATEGORY_ICONS } from './categories';
+import { getDiscoveryCategorySeeds } from './category-discovery-map';
 import { getNaverBlogDocumentCount } from './naver-blog-api';
 import { classifyKeywordIntent } from './keyword-intent-classifier';
 import { getNaverSerpSignal } from './naver-serp-signal-api';
@@ -1590,12 +1599,7 @@ const PROFIT_INTENT_PATTERNS = [
 
 // 🔥 배열 셔플 함수 (Fisher-Yates 알고리즘 - 매번 다른 결과!)
 function shuffleArray<T>(array: T[]): T[] {
-  const shuffled = [...array];
-  for (let i = shuffled.length - 1; i > 0; i--) {
-    const j = Math.floor(Math.random() * (i + 1));
-    [shuffled[i], shuffled[j]] = [shuffled[j], shuffled[i]];
-  }
-  return shuffled;
+  return deterministicShuffle(array, 'pro-traffic-seed-order');
 }
 
 /**
@@ -2898,6 +2902,10 @@ export async function huntProTrafficKeywords(options: {
       return isStrictPolicyKeyword(keyword);
     }
 
+    if (cat === 'fashion') {
+      return isKeywordMatchingCategory(keyword, 'fashion') || isKeywordMatchingCategory(keyword, 'beauty');
+    }
+
     return isKeywordMatchingCategory(keyword, cat);
   };
 
@@ -3014,7 +3022,8 @@ export async function huntProTrafficKeywords(options: {
     const categoryKeywords = getEnhancedCategoryGoldenKeywords(category);
     // categories.ts 단일 소스 시드 (보강)
     const unifiedSeeds = getCategorySeeds(category);
-    const mergedSeeds = [...new Set([...categoryKeywords, ...unifiedSeeds])];
+    const discoveryCategorySeeds = getDiscoveryCategorySeeds(category, Math.max(120, count * 4));
+    const mergedSeeds = [...new Set([...categoryKeywords, ...unifiedSeeds, ...discoveryCategorySeeds])];
     allSeedKeywords = [...allSeedKeywords, ...shuffleArray(mergedSeeds)];
     // 🔥 surge 키워드도 카테고리 시드에 최상위 주입
     const isCatSpec = category !== 'all' && category !== 'pro_premium' && category !== 'lite_standard';
@@ -3024,7 +3033,7 @@ export async function huntProTrafficKeywords(options: {
       allSeedKeywords = [...surgeKeywordsForSeed, ...allSeedKeywords];
       console.log(`[PRO-TRAFFIC] 🔥 카테고리 모드에 급증 키워드 ${surgeKeywordsForSeed.length}개 시드 주입`);
     }
-    console.log(`[PRO-TRAFFIC] 📁 카테고리 키워드 ${mergedSeeds.length}개 로드 (기존 ${categoryKeywords.length} + 통합 ${unifiedSeeds.length})`);
+    console.log(`[PRO-TRAFFIC] 📁 카테고리 키워드 ${mergedSeeds.length}개 로드 (기존 ${categoryKeywords.length} + 통합 ${unifiedSeeds.length} + 발굴맵 ${discoveryCategorySeeds.length})`);
 
     // v2.43.45: 카테고리 모드에도 사용자 블로거 프로필 카테고리 / 시즌 시드 통합
     try {
@@ -3220,7 +3229,7 @@ export async function huntProTrafficKeywords(options: {
     if (lim === 0) return [];
 
     // 🔥 다양성 확보를 위해 시드 집합에서 무작위로 샘플링
-    const shuffledSeeds = [...seedsSorted].sort(() => Math.random() - 0.5);
+    const shuffledSeeds = shuffleArray(seedsSorted);
 
     if (!preferLongtailSeeds) return shuffledSeeds.slice(0, lim);
 
@@ -3277,12 +3286,12 @@ export async function huntProTrafficKeywords(options: {
       // 실시간 모드에서만 타겟/질문형 합성 시드 적용
       const TARGET_SEGMENTS = ['초보자', '직장인', '학생', '주부', '50대', '신혼부부', '자취생', '1인가구'];
       for (const seed of allSeedKeywords.slice(0, 8)) {
-        const segment = TARGET_SEGMENTS[Math.floor(Math.random() * TARGET_SEGMENTS.length)];
+        const segment = deterministicPick(TARGET_SEGMENTS, `${seed}:target-segment`) || TARGET_SEGMENTS[0];
         targetSeeds.push(`${segment} ${seed}`);
       }
       const QUESTION_PATTERNS = ['하는법', '해야하나', '괜찮을까', '차이', '비교', '어디서', '언제'];
       for (const seed of allSeedKeywords.slice(0, 8)) {
-        const pattern = QUESTION_PATTERNS[Math.floor(Math.random() * QUESTION_PATTERNS.length)];
+        const pattern = deterministicPick(QUESTION_PATTERNS, `${seed}:question-pattern`) || QUESTION_PATTERNS[0];
         if (!seed.includes(pattern)) {
           questionSeeds.push(`${seed} ${pattern}`);
         }
@@ -5325,8 +5334,8 @@ export async function huntProTrafficKeywords(options: {
       }
     }
     console.log(`[PRO-TRAFFIC] 📁 카테고리 후필터: ${cat} 매칭=${matched.length}개, 비매칭=${unmatched.length}개`);
-    // 카테고리 매칭 키워드만 반환. 너무 적으면(5개 미만) 비매칭 중 상위만 보충
-    const MIN_RESULTS = 5;
+    // 카테고리 매칭을 우선하되, 목표 개수보다 적을 때는 상위 후보를 보충해 0개/소량 반환을 막는다.
+    const MIN_RESULTS = Math.min(keywords.length, Math.max(count, mode === 'category' ? 30 : 5));
     if (matched.length >= MIN_RESULTS) return matched;
     const fillCount = MIN_RESULTS - matched.length;
     return [...matched, ...unmatched.slice(0, fillCount)];
