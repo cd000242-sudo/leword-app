@@ -110,11 +110,11 @@ assert('golden discovery backend honors explicit 10-result quick preview request
 
 assert('seedless 10-result golden discovery takes the ultra-fast path',
   /const\s+seedlessQuickPreview\s*=\s*quickPreview\s*&&\s*!\s*String\(actualKeyword\s*\|\|\s*''\)\.trim\(\)/.test(keywordDiscovery)
-    && /seedlessQuickPreview\s*&&\s*!\s*cachedSignals[\s\S]{0,160}외부 트렌드 대기 없이 바로 검증/.test(keywordDiscovery)
+    && /quickPreview\s*&&\s*!\s*cachedSignals[\s\S]{0,160}외부 트렌드 대기 없이 바로 검증/.test(keywordDiscovery)
     && /seedlessQuickPreview\s*\?\s*120/.test(keywordDiscovery)
-    && /seedlessQuickPreview\s*\?\s*1000\s*:\s*3500/.test(keywordDiscovery)
-    && /const\s+effectiveScanLimit\s*=\s*seedlessQuickPreview[\s\S]{0,80}Math\.min\(180,\s*scanLimit\)/.test(keywordDiscovery)
-    && /maxProcessedSeeds:\s*seedlessQuickPreview[\s\S]{0,140}Math\.min\(categorySeeds\.length,\s*14\)/.test(keywordDiscovery),
+    && /const\s+quickLiveSeedTimeoutMs\s*=\s*quickPreview[\s\S]{0,120}seedlessQuickPreview\s*\?\s*1000\s*:\s*1200[\s\S]{0,80}3500/.test(keywordDiscovery)
+    && /const\s+effectiveScanLimit\s*=\s*quickPreview[\s\S]{0,120}Math\.min\(seedlessQuickPreview\s*\?\s*180\s*:\s*240,\s*scanLimit\)/.test(keywordDiscovery)
+    && /maxProcessedSeeds:\s*seedlessQuickPreview[\s\S]{0,180}Math\.min\(categorySeeds\.length,\s*seedlessQuickPreview\s*\?\s*14\s*:\s*24\)/.test(keywordDiscovery),
   'empty-seed 10-result mode can still wait on deep category discovery budgets');
 
 assert('golden discovery writes live progress events into the visible log panel',
@@ -140,7 +140,7 @@ assert('MDP category discovery reports progress and filters category before SERP
     && /checkedSignals\s*<\s*maxCheckedSignals/.test(mdpEngine)
     && /private\s+reportProgress\(options:\s*MDPDiscoverOptions,\s*progress:\s*MDPDiscoverProgress\)/.test(mdpEngine)
     && /phase:\s*'batch'/.test(mdpEngine)
-    && /const\s+detectedCategory\s*=\s*classifyKeyword\(sig\.keyword\)\.primary;[\s\S]{0,260}if\s*\(categoryStrict[\s\S]{0,420}const\s+serpSignal\s*=\s*fastPreview[\s\S]{0,320}await\s+getNaverSerpSignal/.test(mdpEngine),
+    && /const\s+detectedCategory\s*=\s*classifyKeyword\(sig\.keyword\)\.primary;[\s\S]{0,320}const\s+categoryMatched\s*=[\s\S]{0,260}if\s*\(!categoryMatched\s*&&\s*!includeMeasuredFallback\)[\s\S]{0,420}const\s+serpSignal\s*=\s*fastPreview[\s\S]{0,320}await\s+getNaverSerpSignal/.test(mdpEngine),
   'MDP progress callback or category-before-SERP optimization is missing');
 
 assert('MDP quick preview trims pattern batches and skips slow SERP detail',
@@ -151,6 +151,25 @@ assert('MDP quick preview trims pattern batches and skips slow SERP detail',
     && /const\s+patternBatchSize\s*=\s*fastPreview\s*\?\s*18\s*:\s*10/.test(mdpEngine)
     && /fastPreview:\s*quickPreview/.test(keywordDiscovery),
   '10-result quick preview still uses deep MDP batch/SERP path');
+
+assert('golden discovery quick preview keeps measured keyword rows instead of returning empty',
+  /includeMeasuredFallback\?:\s*boolean/.test(mdpEngine)
+    && /measurementOnly\?:\s*boolean/.test(mdpEngine)
+    && /categoryMatched\?:\s*boolean/.test(mdpEngine)
+    && /const\s+includeMeasuredFallback\s*=\s*options\.includeMeasuredFallback\s*===\s*true/.test(mdpEngine)
+    && /const\s+categoryMatched\s*=\s*!\s*categoryStrict[\s\S]{0,160}isKeywordMatchingCategory/.test(mdpEngine)
+    && /measurementOnly\s*=\s*includeMeasuredFallback[\s\S]{0,220}rawGrade\s*===\s*'C'[\s\S]{0,80}rawGrade\s*===\s*'D'[\s\S]{0,120}!\s*categoryMatched/.test(mdpEngine)
+    && /measurementOnly\s*\?\s*'B'\s*:\s*rawGrade/.test(mdpEngine)
+    && /includeMeasuredFallback:\s*quickPreview/.test(keywordDiscovery)
+    && /measurementOnly\s*&&\s*quickPreview/.test(keywordDiscovery),
+  'quick preview can still discard every measured keyword when SSS/A/B gates miss');
+
+assert('manual 10-result golden discovery uses quick budgets too',
+  /const\s+quickSignalMap\s*=\s*quickPreview\s*\?/.test(keywordDiscovery)
+    && /const\s+quickLiveSeedTimeoutMs\s*=\s*quickPreview[\s\S]{0,120}1200/.test(keywordDiscovery)
+    && /const\s+effectiveScanLimit\s*=\s*quickPreview[\s\S]{0,120}Math\.min\(seedlessQuickPreview\s*\?\s*180\s*:\s*240,\s*scanLimit\)/.test(keywordDiscovery)
+    && /Math\.min\(categorySeeds\.length,\s*seedlessQuickPreview\s*\?\s*14\s*:\s*24\)/.test(keywordDiscovery),
+  'typed-keyword 10-result mode can still run the slow deep category scan');
 
 assert('golden discovery UI stops after completion and displays MDP searchVolume fallback',
   /window\.keywordExpansionProgress\.isRunning\s*=\s*false/.test(html)

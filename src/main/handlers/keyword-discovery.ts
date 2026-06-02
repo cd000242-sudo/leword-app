@@ -356,16 +356,17 @@ export function setupKeywordDiscoveryHandlers(): void {
               ? _v4SignalCache.map
               : null;
             sendDiscoveryProgress(
-              seedlessQuickPreview && !cachedSignals
+              quickPreview && !cachedSignals
                 ? '빠른 샘플 모드: 외부 트렌드 대기 없이 바로 검증합니다.'
                 : '외부 트렌드 신호를 확인하는 중입니다.',
               { current: 0, target: progressTarget, phase: 'signals' },
               true,
             );
             const isPro = checkUnlimitedLicense().allowed;
-            const sigMap = seedlessQuickPreview
+            const quickSignalMap = quickPreview
               ? (cachedSignals || new Map<string, ExternalSignals>())
-              : await getV4Signals(isPro);
+              : null;
+            const sigMap = quickSignalMap || await getV4Signals(isPro);
             if (sigMap.size > 0) {
               engine.injectBatchSignals(sigMap);
               console.log(`[KEYWORD-MASTER] v4.0 외부 신호 ${sigMap.size}개 주입 (PRO=${isPro})`);
@@ -400,6 +401,9 @@ export function setupKeywordDiscoveryHandlers(): void {
             if (categoryFirstMode && category) {
               sendDiscoveryProgress(`${category} 카테고리의 실시간 시드를 수집하는 중입니다.`, { current: 0, target: progressTarget, phase: 'live-seeds' }, true);
             }
+            const quickLiveSeedTimeoutMs = quickPreview
+              ? (seedlessQuickPreview ? 1000 : 1200)
+              : 3500;
             const liveCategorySeeds = categoryFirstMode && category
               ? await collectCategoryFirstLiveSeeds(
                 category,
@@ -408,7 +412,7 @@ export function setupKeywordDiscoveryHandlers(): void {
                   : (quickPreview
                     ? Math.min(40, Math.max(12, Math.floor(categorySeedBudget * 0.18)))
                     : Math.min(160, Math.max(60, Math.floor(categorySeedBudget * 0.25)))),
-                seedlessQuickPreview ? 1000 : 3500,
+                quickLiveSeedTimeoutMs,
               )
               : [];
             const categorySeedPlan = category
@@ -426,8 +430,8 @@ export function setupKeywordDiscoveryHandlers(): void {
               categoryFirst: categoryFirstMode,
               honorRequestedLimit: quickPreview,
             });
-            const effectiveScanLimit = seedlessQuickPreview
-              ? Math.min(180, scanLimit)
+            const effectiveScanLimit = quickPreview
+              ? Math.min(seedlessQuickPreview ? 180 : 240, scanLimit)
               : scanLimit;
             const seedForDiscovery = categoryFirstMode
               ? (categorySeeds[0] || actualKeyword || category || '황금키워드')
@@ -443,7 +447,7 @@ export function setupKeywordDiscoveryHandlers(): void {
               maxProcessedSeeds: seedlessQuickPreview
                 ? Math.max(8, Math.min(categorySeeds.length, 14))
                 : quickPreview
-                ? Math.max(16, Math.min(categorySeeds.length + 20, categoryFirstMode ? 90 : 50))
+                ? Math.max(10, Math.min(categorySeeds.length, seedlessQuickPreview ? 14 : 24))
                 : Math.max(60, Math.min(categorySeeds.length + 120, categoryFirstMode ? 900 : 260)),
               minVolume: 10,
               seedKeywords: categoryFirstMode
@@ -454,6 +458,7 @@ export function setupKeywordDiscoveryHandlers(): void {
               categoryIds,
               categoryStrict: categoryIds.length > 0,
               fastPreview: quickPreview,
+              includeMeasuredFallback: quickPreview,
             };
 
             if (categoryIds.length > 0) {
@@ -502,7 +507,8 @@ export function setupKeywordDiscoveryHandlers(): void {
 
             for await (const result of engine.discover(seedForDiscovery, discoveryOptions)) {
               if (checkAbort()) break;
-              if (categoryIds.length > 0 && !matchesDiscoveryCategory(result.keyword, category)) {
+              const allowMeasuredFallback = (result as any).measurementOnly && quickPreview;
+              if (categoryIds.length > 0 && !matchesDiscoveryCategory(result.keyword, category) && !allowMeasuredFallback) {
                 continue;
               }
 

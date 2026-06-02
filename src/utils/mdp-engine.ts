@@ -44,6 +44,8 @@ export interface MDPResult {
     communityBuzzScore?: number;
     snsLeadingScore?: number;
     externalSources?: string[];
+    measurementOnly?: boolean;
+    categoryMatched?: boolean;
 }
 
 /**
@@ -65,6 +67,7 @@ export interface MDPDiscoverOptions {
     maxCheckedSignals?: number;
     maxProcessedSeeds?: number;
     fastPreview?: boolean;
+    includeMeasuredFallback?: boolean;
     onProgress?: (progress: MDPDiscoverProgress) => void;
 }
 
@@ -203,6 +206,7 @@ export class MDPEngine {
             ? Math.max(1, Math.floor(Number(options.maxProcessedSeeds)))
             : Number.POSITIVE_INFINITY;
         const fastPreview = options.fastPreview === true;
+        const includeMeasuredFallback = options.includeMeasuredFallback === true;
 
         this.reportProgress(options, {
             phase: 'start',
@@ -328,7 +332,9 @@ export class MDPEngine {
 
                         // Phase 3 Upgrade: 카테고리 인식 수익성 모델링 (v3.0)
                         const detectedCategory = classifyKeyword(sig.keyword).primary;
-                        if (categoryStrict && !categoryIds.some(id => isKeywordMatchingCategory(sig.keyword, id))) {
+                        const categoryMatched = !categoryStrict
+                            || categoryIds.some(id => isKeywordMatchingCategory(sig.keyword, id));
+                        if (!categoryMatched && !includeMeasuredFallback) {
                             continue;
                         }
 
@@ -416,15 +422,21 @@ export class MDPEngine {
                         const clampedScore = Math.min(100, Math.max(0, Math.round(finalScore + externalBonus)));
 
                         // ====== 등급 판정 (다중 게이트) ======
-                        const grade = this.calculateGrade(clampedScore, totalVolume, docCount, goldenRatio, serpDifficulty);
+                        const rawGrade = this.calculateGrade(clampedScore, totalVolume, docCount, goldenRatio, serpDifficulty);
+                        const measurementOnly = includeMeasuredFallback
+                            && (rawGrade === 'C' || rawGrade === 'D' || !categoryMatched);
 
                         // B등급 미만 필터링
-                        if (grade === 'C' || grade === 'D') continue;
+                        if ((rawGrade === 'C' || rawGrade === 'D') && !includeMeasuredFallback) continue;
+                        const grade: GoldenGrade = measurementOnly ? 'B' : rawGrade;
+                        const scoreForDisplay = measurementOnly ? Math.max(45, clampedScore) : clampedScore;
 
                         // 황금 사유 생성
-                        const goldenReason = this.generateGoldenReason(
-                            totalVolume, docCount, goldenRatio, categoryCPC, purchaseIntent, competitionScore, grade
-                        );
+                        const goldenReason = measurementOnly
+                            ? `Measured keyword metrics: sv ${totalVolume.toLocaleString()}, dc ${docCount.toLocaleString()} - golden gates not met, review candidate`
+                            : this.generateGoldenReason(
+                                totalVolume, docCount, goldenRatio, categoryCPC, purchaseIntent, competitionScore, grade
+                            );
 
                         // 월수익 추정
                         const ctr = Math.max(0.05, 0.3 - (competitionLvl * 0.025));
@@ -442,7 +454,7 @@ export class MDPEngine {
                             searchVolume: totalVolume,
                             documentCount: docCount,
                             goldenRatio: parseFloat(goldenRatio.toFixed(2)),
-                            score: clampedScore,
+                            score: scoreForDisplay,
                             // Phase 2 Data
                             hasSmartBlock: serpSignal.hasSmartBlock,
                             hasViewSection: serpSignal.hasViewSection,
@@ -462,6 +474,8 @@ export class MDPEngine {
                             communityBuzzScore: communityScore,
                             snsLeadingScore: snsScore,
                             externalSources: ext?.sources,
+                            measurementOnly,
+                            categoryMatched,
                         };
 
                         yield result;
@@ -476,7 +490,7 @@ export class MDPEngine {
                         });
 
                         // Step 6: Recursive Expansion — B등급 이상만 확장
-                        if (goldenRatio > 2.0 && clampedScore >= 50 && count < options.limit) {
+                        if (!measurementOnly && goldenRatio > 2.0 && clampedScore >= 50 && count < options.limit) {
                             this.queue.push(sig.keyword);
                         }
 
