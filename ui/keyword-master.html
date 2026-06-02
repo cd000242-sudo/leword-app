@@ -6589,27 +6589,63 @@
           }
 
           resultsDiv.innerHTML = `<div class="loading" style="padding: 20px; text-align: center; color: #667eea;">⏳ ${categoryLabel} 카테고리에서 황금키워드를 발굴하고 있습니다...</div>`;
+          const logsDiv = document.getElementById('progressLogs');
+          if (logsDiv) {
+            logsDiv.innerHTML = '';
+            logsDiv.style.display = 'block';
+          }
+          const toggleBtn = document.getElementById('toggleLogsBtn');
+          if (toggleBtn) {
+            toggleBtn.textContent = '📥 로그 접기';
+          }
+          window.lewordLastGoldenDiscoveryProgressLog = '';
+          if (typeof window.addProgressLog === 'function') {
+            window.addProgressLog(`🚀 ${categoryLabel} 카테고리 황금키워드 발굴 시작`, 'info');
+          }
+          window.lewordProgressUI.lastEventAt = Date.now();
+          if (typeof window.startLewordHeartbeat === 'function') {
+            window.startLewordHeartbeat();
+          }
 
+          let cleanupProgress = null;
+          let cleanupChunk = null;
           try {
             // 실시간 업데이트를 위한 IPC 리스너 등록
-            const cleanupProgress = window.electronAPI.on('keyword-discovery-progress', (data) => {
+            cleanupProgress = window.electronAPI.on('keyword-discovery-progress', (data) => {
+              window.lewordProgressUI.lastEventAt = Date.now();
+              const msg = data.message || data.status || '발굴 중...';
               if (statusText) {
-                statusText.textContent = data.status || '발굴 중...';
+                statusText.textContent = msg;
+              }
+
+              if (typeof window.addProgressLog === 'function' && msg) {
+                const logKey = `${data.phase || data.type || 'progress'}:${msg}`;
+                if (window.lewordLastGoldenDiscoveryProgressLog !== logKey) {
+                  const logType = data.type === 'complete'
+                    ? 'success'
+                    : data.type === 'error'
+                      ? 'error'
+                      : 'info';
+                  window.addProgressLog(msg, logType);
+                  window.lewordLastGoldenDiscoveryProgressLog = logKey;
+                }
               }
 
               if (data.target) {
-                const progress = Math.min(100, Math.round((data.current / data.target) * 100));
+                const current = Number(data.current || 0);
+                const target = Number(data.target || 0);
+                const progress = target > 0 ? Math.min(100, Math.round((current / target) * 100)) : 0;
                 const progressBar = document.getElementById('progressBar');
                 const progressPercent = document.getElementById('progressPercent');
                 const progressStatus = document.getElementById('progressStatus');
 
                 if (progressBar) progressBar.style.width = `${progress}%`;
                 if (progressPercent) progressPercent.textContent = `${progress}%`;
-                if (progressStatus) progressStatus.textContent = `${data.status || '진행 중'} (${data.current}/${data.target})`;
+                if (progressStatus) progressStatus.textContent = `${msg} (${current.toLocaleString()}/${target.toLocaleString()})`;
               }
             });
 
-            const cleanupChunk = window.electronAPI.on('keyword-discovery-chunk', (data) => {
+            cleanupChunk = window.electronAPI.on('keyword-discovery-chunk', (data) => {
               if (!data.keywords || data.keywords.length === 0) return;
 
               console.log(`[KEYWORD-MASTER] 청크 수신: ${data.keywords.length}개`);
@@ -6642,8 +6678,10 @@
             });
 
             // 리스너 제거
-            cleanupProgress();
-            cleanupChunk();
+            cleanupProgress?.();
+            cleanupChunk?.();
+            cleanupProgress = null;
+            cleanupChunk = null;
 
             console.log('[KEYWORD-MASTER] 전체 발굴 완료');
 
@@ -6712,6 +6750,11 @@
           <div style="margin-bottom: 12px;">${error.message || '키워드 발굴에 실패했습니다'}</div>
         </div>`;
           } finally {
+            cleanupProgress?.();
+            cleanupChunk?.();
+            if (typeof window.stopLewordHeartbeat === 'function') {
+              window.stopLewordHeartbeat();
+            }
             // UI 복원
             isDiscovering = false;
             const discoveryBtn = document.getElementById('discoveryBtn');
@@ -6731,6 +6774,9 @@
           console.log('[KEYWORD-MASTER] ⏹️ 중지 버튼 클릭됨');
           discoveryAbort = true;
           isDiscovering = false;
+          if (typeof window.stopLewordHeartbeat === 'function') {
+            window.stopLewordHeartbeat();
+          }
 
           // 백엔드에도 중지 신호 전송
           try {

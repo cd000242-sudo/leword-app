@@ -62,6 +62,19 @@ export interface MDPDiscoverOptions {
     seedKeywords?: string[];
     categoryIds?: string[];
     categoryStrict?: boolean;
+    onProgress?: (progress: MDPDiscoverProgress) => void;
+}
+
+export interface MDPDiscoverProgress {
+    phase: 'start' | 'seed' | 'autocomplete' | 'patterns' | 'batch' | 'yield' | 'complete';
+    currentSeed?: string;
+    processedSeeds?: number;
+    queuedSeeds?: number;
+    batchIndex?: number;
+    totalBatches?: number;
+    checked?: number;
+    yielded?: number;
+    patterns?: number;
 }
 
 /**
@@ -148,6 +161,14 @@ export class MDPEngine {
         return undefined;
     }
 
+    private reportProgress(options: MDPDiscoverOptions, progress: MDPDiscoverProgress): void {
+        try {
+            options.onProgress?.(progress);
+        } catch {
+            // Progress listeners must never interrupt discovery.
+        }
+    }
+
     /**
      * 6단계 발굴 파이프라인 실행
      */
@@ -169,7 +190,18 @@ export class MDPEngine {
             .filter(Boolean)));
         const categoryStrict = options.categoryStrict === true && categoryIds.length > 0;
         let count = 0;
+        let processedSeeds = 0;
+        let checkedSignals = 0;
         const minVolume = options.minVolume || 10;
+
+        this.reportProgress(options, {
+            phase: 'start',
+            currentSeed: seed,
+            processedSeeds,
+            queuedSeeds: this.queue.length,
+            checked: checkedSignals,
+            yielded: count,
+        });
 
         while (this.queue.length > 0 && count < options.limit) {
             if (this.abortRequested) break;
@@ -177,13 +209,31 @@ export class MDPEngine {
             const current = this.queue.shift()!;
             if (this.visited.has(current)) continue;
             this.visited.add(current);
+            processedSeeds++;
 
             try {
+                this.reportProgress(options, {
+                    phase: 'seed',
+                    currentSeed: current,
+                    processedSeeds,
+                    queuedSeeds: this.queue.length,
+                    checked: checkedSignals,
+                    yielded: count,
+                });
+
                 // Step 1: Semantic Split
                 const units = splitKeywordSemantically(current);
 
                 // Phase 1 Upgrade: 실시간 자동완성 신호 수집 (Intelligent Semantic Analysis)
                 console.log(`[MDP-ENGINE] 실시간 신호 수집 중: "${current}"`);
+                this.reportProgress(options, {
+                    phase: 'autocomplete',
+                    currentSeed: current,
+                    processedSeeds,
+                    queuedSeeds: this.queue.length,
+                    checked: checkedSignals,
+                    yielded: count,
+                });
                 const autocompleteResults = await getNaverAutocompleteKeywords(current, this.config);
                 const dynamicSuffixes = autocompleteResults
                     .map(kw => kw.replace(current, '').trim())
@@ -199,11 +249,33 @@ export class MDPEngine {
                 for (let i = 0; i < patternArray.length; i += 10) {
                     chunks.push(patternArray.slice(i, i + 10));
                 }
+                this.reportProgress(options, {
+                    phase: 'patterns',
+                    currentSeed: current,
+                    processedSeeds,
+                    queuedSeeds: this.queue.length,
+                    checked: checkedSignals,
+                    yielded: count,
+                    patterns: patternArray.length,
+                    totalBatches: chunks.length,
+                });
 
                 let adaptiveDelay = 300; // 기본 스로틀링
 
-                for (const chunk of chunks) {
+                for (let chunkIndex = 0; chunkIndex < chunks.length; chunkIndex++) {
+                    const chunk = chunks[chunkIndex];
                     if (this.abortRequested) break;
+
+                    this.reportProgress(options, {
+                        phase: 'batch',
+                        currentSeed: current,
+                        processedSeeds,
+                        queuedSeeds: this.queue.length,
+                        batchIndex: chunkIndex + 1,
+                        totalBatches: chunks.length,
+                        checked: checkedSignals,
+                        yielded: count,
+                    });
 
                     const startTime = Date.now();
                     const signals = await getNaverKeywordSearchVolumeSeparate(this.config, chunk);
@@ -215,6 +287,7 @@ export class MDPEngine {
 
                     // Step 5: Money Filter & Scoring
                     for (const sig of signals) {
+                        checkedSignals++;
                         // Phase 4: Semantic Distance Control (순수도 제어)
                         // 시드 키워드와 너무 동떨어진 키워드 배제
                         const anchorsForCurrent = semanticAnchors.includes(current)
@@ -232,14 +305,14 @@ export class MDPEngine {
 
                         const intentInfo = classifyKeywordIntent(sig.keyword);
 
-                        // Phase 2 Upgrade: SERP 신호 분석
-                        const serpSignal = await getNaverSerpSignal(sig.keyword);
-
                         // Phase 3 Upgrade: 카테고리 인식 수익성 모델링 (v3.0)
                         const detectedCategory = classifyKeyword(sig.keyword).primary;
                         if (categoryStrict && !categoryIds.some(id => isKeywordMatchingCategory(sig.keyword, id))) {
                             continue;
                         }
+
+                        // Phase 2 Upgrade: SERP 신호 분석
+                        const serpSignal = await getNaverSerpSignal(sig.keyword);
                         const categoryCPC = estimateCPC(sig.keyword, detectedCategory);
                         const purchaseIntent = calculatePurchaseIntent(sig.keyword);
                         const competitionLvl = calculateCompetitionLevel(docCount, totalVolume);
@@ -365,6 +438,14 @@ export class MDPEngine {
 
                         yield result;
                         count++;
+                        this.reportProgress(options, {
+                            phase: 'yield',
+                            currentSeed: current,
+                            processedSeeds,
+                            queuedSeeds: this.queue.length,
+                            checked: checkedSignals,
+                            yielded: count,
+                        });
 
                         // Step 6: Recursive Expansion — B등급 이상만 확장
                         if (goldenRatio > 2.0 && clampedScore >= 50 && count < options.limit) {
@@ -381,6 +462,15 @@ export class MDPEngine {
                 console.error(`[MDP-ENGINE] Error discovering "${current}":`, err);
             }
         }
+
+        this.reportProgress(options, {
+            phase: 'complete',
+            currentSeed: seed,
+            processedSeeds,
+            queuedSeeds: this.queue.length,
+            checked: checkedSignals,
+            yielded: count,
+        });
     }
 
     /**

@@ -24,6 +24,7 @@ const keywordDiscovery = fs.readFileSync(path.join(__dirname, '..', '..', 'main'
 const exposureTracking = fs.readFileSync(path.join(__dirname, '..', '..', 'main', 'handlers', 'exposure-tracking.ts'), 'utf8');
 const bloggerProfile = fs.readFileSync(path.join(__dirname, '..', 'blogger-profile.ts'), 'utf8');
 const categoriesSource = fs.readFileSync(path.join(__dirname, '..', 'categories.ts'), 'utf8');
+const mdpEngine = fs.readFileSync(path.join(__dirname, '..', 'mdp-engine.ts'), 'utf8');
 
 assert('keyword analyzer default option is 10',
   /name="keywordLimit"\s+value="10"\s+checked/.test(html),
@@ -95,6 +96,29 @@ assert('golden discovery UI requires category-first selection',
 assert('golden discovery sends category-first mode to backend',
   /categoryFirst:\s*true/.test(html) && /requireCategory:\s*true/.test(html),
   'category-first backend flags missing');
+
+assert('golden discovery writes live progress events into the visible log panel',
+  /window\.lewordLastGoldenDiscoveryProgressLog/.test(html)
+    && /window\.addProgressLog\(msg,\s*logType\)/.test(html)
+    && /cleanupProgress\s*=\s*window\.electronAPI\.on\('keyword-discovery-progress'/.test(html)
+    && /finally\s*\{[\s\S]{0,240}cleanupProgress\?\.\(\)/.test(html)
+    && /window\.startLewordHeartbeat/.test(html)
+    && /window\.stopLewordHeartbeat/.test(html),
+  'golden discovery progress logs, heartbeat, or listener cleanup are missing');
+
+assert('golden discovery backend emits scan-stage progress instead of waiting for result chunks',
+  /sendDiscoveryProgress\(/.test(keywordDiscovery)
+    && /외부 트렌드 신호/.test(keywordDiscovery)
+    && /시드 \$\{categorySeeds\.length\}개 확보/.test(keywordDiscovery)
+    && /discoveryOptions\.onProgress\s*=/.test(keywordDiscovery),
+  'golden discovery backend progress events are too sparse');
+
+assert('MDP category discovery reports progress and filters category before SERP lookup',
+  /onProgress\?: \(progress: MDPDiscoverProgress\) => void/.test(mdpEngine)
+    && /private\s+reportProgress\(options:\s*MDPDiscoverOptions,\s*progress:\s*MDPDiscoverProgress\)/.test(mdpEngine)
+    && /phase:\s*'batch'/.test(mdpEngine)
+    && /const\s+detectedCategory\s*=\s*classifyKeyword\(sig\.keyword\)\.primary;[\s\S]{0,260}if\s*\(categoryStrict[\s\S]{0,260}const\s+serpSignal\s*=\s*await\s+getNaverSerpSignal/.test(mdpEngine),
+  'MDP progress callback or category-before-SERP optimization is missing');
 
 assert('golden discovery exposes saved blog profile categories',
   /id="goldenProfileCategoryPanel"/.test(html)

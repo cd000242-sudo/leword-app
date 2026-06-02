@@ -250,8 +250,38 @@ export function setupKeywordDiscoveryHandlers(): void {
     // 명시적으로 0을 보낸 경우만 무제한으로 설정하고, 정밀 기본값은 30개로 고정한다.
     const isUnlimited = hasExplicitLimit && limit === 0;
     const effectiveLimit = isUnlimited ? 10000 : limit; // 무제한일 때 10000개까지 (실질적 무제한)
+    const progressStartedAt = Date.now();
+    const progressTarget = isUnlimited ? 5000 : Math.max(30, effectiveLimit);
+    let lastProgressAt = 0;
+    const sendDiscoveryProgress = (
+      status: string,
+      data: Record<string, any> = {},
+      force = false,
+    ) => {
+      const now = Date.now();
+      if (!force && now - lastProgressAt < 1200) return;
+      lastProgressAt = now;
+      try {
+        event.sender.send('keyword-discovery-progress', {
+          type: 'progress',
+          status,
+          message: status,
+          elapsedMs: now - progressStartedAt,
+          current: typeof data.current === 'number' ? data.current : 0,
+          target: typeof data.target === 'number' ? data.target : progressTarget,
+          ...data,
+        });
+      } catch {}
+    };
 
     console.log('[KEYWORD-MASTER] 황금 키워드 발굴:', actualKeyword, { source, category, page, limit, effectiveLimit, isUnlimited: isUnlimited ? '무제한' : limit });
+    sendDiscoveryProgress(
+      category
+        ? `${category} 카테고리 황금키워드 발굴을 시작합니다.`
+        : '황금키워드 발굴을 시작합니다.',
+      { current: 0, target: progressTarget, phase: 'start' },
+      true,
+    );
 
     try {
       // 환경 변수에서 API 키 로드 (EnvironmentManager 사용)
@@ -314,16 +344,20 @@ export function setupKeywordDiscoveryHandlers(): void {
 
           // ===== v4.0: 비차단 외부 신호 주입 (3초 budget, 캐시 우선, 실패 무시) =====
           try {
+            sendDiscoveryProgress('외부 트렌드 신호를 확인하는 중입니다.', { current: 0, target: progressTarget, phase: 'signals' }, true);
             const isPro = checkUnlimitedLicense().allowed;
             const sigMap = await getV4Signals(isPro);
             if (sigMap.size > 0) {
               engine.injectBatchSignals(sigMap);
               console.log(`[KEYWORD-MASTER] v4.0 외부 신호 ${sigMap.size}개 주입 (PRO=${isPro})`);
+              sendDiscoveryProgress(`외부 트렌드 신호 ${sigMap.size}개를 반영했습니다.`, { current: 0, target: progressTarget, phase: 'signals' }, true);
             } else {
               console.log('[KEYWORD-MASTER] v4.0 신호 없음 — 기본 MDP로 진행');
+              sendDiscoveryProgress('외부 신호 없이 기본 MDP 검증으로 진행합니다.', { current: 0, target: progressTarget, phase: 'signals' }, true);
             }
           } catch (aggErr: any) {
             console.warn('[KEYWORD-MASTER] v4.0 신호 주입 실패 (무시하고 계속):', aggErr?.message);
+            sendDiscoveryProgress('외부 신호 확인은 실패했지만 기본 검증을 계속합니다.', { current: 0, target: progressTarget, phase: 'signals' }, true);
           }
 
           // v2.43.0: 1500ms (CPU 67% 감소) + unref + finally 보장 (모든 경로에서 clear)
@@ -343,6 +377,9 @@ export function setupKeywordDiscoveryHandlers(): void {
               isUnlimited ? 1200 : (categoryFirstMode ? 900 : 520),
               Math.max(categoryFirstMode ? 420 : 180, preliminaryScanLimit)
             );
+            if (categoryFirstMode && category) {
+              sendDiscoveryProgress(`${category} 카테고리의 실시간 시드를 수집하는 중입니다.`, { current: 0, target: progressTarget, phase: 'live-seeds' }, true);
+            }
             const liveCategorySeeds = categoryFirstMode && category
               ? await collectCategoryFirstLiveSeeds(
                 category,
@@ -366,7 +403,12 @@ export function setupKeywordDiscoveryHandlers(): void {
             const seedForDiscovery = categoryFirstMode
               ? (categorySeeds[0] || actualKeyword || category || '황금키워드')
               : (actualKeyword || categorySeeds[0] || category || '황금키워드');
-            const discoveryOptions = {
+            sendDiscoveryProgress(
+              `${category || '전체'} 시드 ${categorySeeds.length}개 확보, 최대 ${scanLimit.toLocaleString()}개 후보를 검증합니다.`,
+              { current: 0, target: scanLimit, phase: 'scan-plan', seeds: categorySeeds.length, scanLimit },
+              true,
+            );
+            const discoveryOptions: any = {
               limit: scanLimit,
               minVolume: 10,
               seedKeywords: categoryFirstMode
@@ -387,6 +429,39 @@ export function setupKeywordDiscoveryHandlers(): void {
             let sssAdded = 0;
             const sssTarget = isUnlimited ? Number.POSITIVE_INFINITY : Math.max(30, effectiveLimit);
             const sssTracker = isUnlimited ? null : createGoldenSssTargetTracker(sssTarget);
+            const phaseLabels: Record<string, string> = {
+              start: '엔진 준비',
+              seed: '시드 분석',
+              autocomplete: '자동완성 수집',
+              patterns: '패턴 생성',
+              batch: '검색량 검증',
+              yield: '후보 발견',
+              complete: '엔진 검증 완료',
+            };
+            discoveryOptions.onProgress = (progress: any) => {
+              const checked = Math.max(0, Number(progress?.checked || 0));
+              const yielded = Math.max(totalAdded, Number(progress?.yielded || 0));
+              const label = phaseLabels[progress?.phase] || '검증 진행';
+              const batchText = progress?.batchIndex && progress?.totalBatches
+                ? ` · 배치 ${progress.batchIndex}/${progress.totalBatches}`
+                : '';
+              const seedText = progress?.currentSeed ? ` · ${String(progress.currentSeed).slice(0, 40)}` : '';
+              const sssText = isUnlimited ? '' : ` · SSS ${sssAdded}/${sssTarget}`;
+              sendDiscoveryProgress(
+                `${category ? category + ' ' : ''}${label}: 검증 ${checked.toLocaleString()}개, 후보 ${yielded.toLocaleString()}개${sssText}${batchText}${seedText}`,
+                {
+                  current: checked,
+                  target: scanLimit,
+                  phase: progress?.phase,
+                  checked,
+                  yielded,
+                  sssCurrent: sssAdded,
+                  sssTarget: isUnlimited ? undefined : sssTarget,
+                  currentSeed: progress?.currentSeed,
+                },
+                progress?.phase === 'start' || progress?.phase === 'complete',
+              );
+            };
 
             for await (const result of engine.discover(seedForDiscovery, discoveryOptions)) {
               if (checkAbort()) break;
@@ -445,6 +520,19 @@ export function setupKeywordDiscoveryHandlers(): void {
             const rankedKeywords = rankGoldenDiscoveryResults(allKeywords as any[], effectiveLimit, isUnlimited);
             const finalSssCount = countSss(rankedKeywords as any[]);
             console.log(`[KEYWORD-MASTER] MDP 발굴 완료: 후보 ${totalAdded}개 → 노출 ${rankedKeywords.length}개, SSS ${finalSssCount}개`);
+            sendDiscoveryProgress(
+              `발굴 완료: 노출 ${rankedKeywords.length}개, SSS ${finalSssCount}개, 검증 후보 ${totalAdded}개`,
+              {
+                type: 'complete',
+                current: scanLimit,
+                target: scanLimit,
+                phase: 'complete',
+                yielded: totalAdded,
+                sssCurrent: finalSssCount,
+                sssTarget: isUnlimited ? undefined : Math.max(30, effectiveLimit),
+              },
+              true,
+            );
 
             return {
               success: true,
