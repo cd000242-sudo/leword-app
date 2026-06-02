@@ -100,6 +100,8 @@ export type PracticalIntentGroup =
   | 'reaction'
   | 'generic';
 
+const NON_PERSON_SINGLE_TOKEN_RE = /(제네시스|카니발|아반떼|쏘렌토|아이오닉|그랜저|임플란트|에어컨|냉장고|세탁기|청소기|제습기|영양제|비타민|유산균|오메가|노트북|운동화|향수|화장품|지원금|보조금|대출|보험|부동산|아파트|청약)/;
+
 function detectExpansionDomain(seed: string, corpus = ''): ExpansionDomain {
   const compacted = compactKeyword(`${seed} ${corpus}`);
   if (/지원금|보조금|지원사업|정부지원|정책브리핑|정부24|보조금24|바우처|장려금|근로장려금|자녀장려금|급여|수당|기초연금|실업급여|주거급여|긴급복지|생계지원|소상공인|자영업자|청년월세|취업지원|에너지바우처|문화누리카드|민생회복|소비쿠폰|지역화폐|환급금/.test(compacted)) {
@@ -138,16 +140,22 @@ function inferExpansionDomain(seed: string, candidates: RelatedCandidateInput[])
   const [best, second] = rankedDomains;
   if (best && best[1] >= 2 && best[1] >= ((second?.[1] || 0) + 1)) return best[0];
 
+  const normalizedSeed = normalizeKeyword(seed);
+  const normalizedSeedHead = normalizedSeed.split(/\s+/)[0] || normalizedSeed;
+  const seedIsKnownNonPerson = NON_PERSON_SINGLE_TOKEN_RE.test(normalizedSeed)
+    || NON_PERSON_SINGLE_TOKEN_RE.test(normalizedSeedHead);
   const corpus = corpusKeywords.join(' ');
   const compacted = compactKeyword(`${seed} ${corpus}`);
   if (
-    /프로필|인스타|출연|출연진|나이|근황|소속사|다시보기|방송시간|앨범|콘서트|컴백|드라마|예능|공식입장|공항패션/.test(compacted)
+    !seedIsKnownNonPerson
+    && /프로필|인스타|출연|출연진|나이|근황|소속사|다시보기|방송시간|앨범|콘서트|컴백|드라마|예능|공식입장|공항패션/.test(compacted)
   ) {
     return 'entertainment';
   }
 
   const mediaContextCount = (corpus.match(/사진|이미지|움짤|갤러리|배경화면|기사|뉴스/g) || []).length;
-  const looksLikeShortKoreanName = /^[가-힣]{2,8}$/.test(normalizeKeyword(seed));
+  const looksLikeShortKoreanName = /^[가-힣]{2,8}$/.test(normalizedSeed)
+    && !seedIsKnownNonPerson;
   const seedHasHardNonEntertainmentIntent = /지원금|보조금|신청|조건|자격|서류|가격|추천|후기|사이즈|복용|성분|효능/.test(compactKeyword(seed));
   const hardNonEntertainmentCandidateCount = corpusKeywords.filter(keyword =>
     /지원금|보조금|신청|조건|자격|서류|가격|추천|후기|사이즈|복용|성분|효능/.test(compactKeyword(keyword)),

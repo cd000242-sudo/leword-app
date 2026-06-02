@@ -72,6 +72,22 @@ assert('drops non-policy device drift from benefit seed',
   !policyDomain.includes('갤럭시 업데이트 방법'),
   policyDomain.join(', '));
 
+const person = rankRelatedKeywordCandidates('장윤기', [
+  { keyword: '장윤기 나이', sources: ['autocomplete'] },
+  { keyword: '장윤기 부모', sources: ['autocomplete'] },
+  { keyword: '장윤기 부모 가격', sources: ['naver-suffix'] },
+  { keyword: '장윤기 부모 추천', sources: ['naver-suffix'] },
+  { keyword: '장윤기 일정 가격', sources: ['naver-suffix'] },
+  { keyword: '장윤기 다시보기', sources: ['autocomplete'] },
+  { keyword: '장윤기 예능', sources: ['autocomplete'] },
+], { minScore: 30, limit: 10 }).map(item => item.keyword);
+assert('drops awkward person family-commerce keywords',
+  person.includes('장윤기 나이')
+    && person.includes('장윤기 부모')
+    && person.includes('장윤기 다시보기')
+    && !person.some(keyword => /장윤기.*(부모|일정).*(가격|추천|비교|후기|방법)/.test(keyword)),
+  person.join(', '));
+
 console.log(`\n[keyword-relevance-regression.test] passed: ${passed} / failed: ${failed}`);
 if (failed > 0) {
   failures.forEach(f => console.error('  ' + f));

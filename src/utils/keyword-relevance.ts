@@ -144,6 +144,37 @@ function hasCommercialIntent(value: string): boolean {
   return /추천|후기|리뷰|가격|비용|비교|순위|랭킹|할인|쿠폰|구매|구입|신청|조건|대상|조회|방법|종류/.test(value);
 }
 
+const PERSON_CONTEXT_RE = /(나이|부모|가족|아버지|어머니|엄마|아빠|형제|남편|아내|배우자|결혼|열애|프로필|인스타|인스타그램|근황|출연|출연진|예능|드라마|다시보기|방송시간|방송|유튜브|배우|가수|개그맨|셰프|작가|감독|선수|아이돌|소속사|학력|학교|고향|일정|팬미팅|공식입장|무대|앨범)/;
+const PERSON_BAD_INTENT_RE = /(가격|비용|견적|시세|추천|비교|순위|랭킹|할인|쿠폰|구매|구입|리뷰|후기|방법|사용법|장단점|종류)/;
+const NON_PERSON_SINGLE_TOKEN_RE = /(제네시스|카니발|아반떼|쏘렌토|아이오닉|그랜저|임플란트|에어컨|냉장고|세탁기|청소기|제습기|영양제|비타민|유산균|오메가|노트북|운동화|향수|화장품|지원금|보조금|대출|보험|부동산|아파트|청약)/;
+
+function looksLikeShortKoreanName(value: string): boolean {
+  const normalized = normalizeCandidateKeyword(value);
+  return /^[가-힣]{2,8}$/.test(normalized)
+    && !NON_PERSON_SINGLE_TOKEN_RE.test(normalized);
+}
+
+function isAwkwardPersonCommercialCandidate(seed: string, keyword: string): boolean {
+  const normalizedSeed = normalizeCandidateKeyword(seed);
+  const normalizedKeyword = normalizeCandidateKeyword(keyword);
+  if (!looksLikeShortKoreanName(normalizedSeed)) return false;
+
+  const compactSeed = compact(normalizedSeed);
+  const compactKeyword = compact(normalizedKeyword);
+  if (!compactKeyword.includes(compactSeed)) return false;
+
+  const hasPersonContext = PERSON_CONTEXT_RE.test(normalizedKeyword);
+  const hasBadIntent = PERSON_BAD_INTENT_RE.test(normalizedKeyword);
+  if (!hasBadIntent) return false;
+
+  // 인물/연예인형 검색에서 "부모 가격", "일정 가격", "부모 추천" 같은 조합은
+  // 자동완성 보강이 만든 잡음이다. 실제 연관키워드로 보여주지 않는다.
+  if (hasPersonContext) return true;
+
+  const tail = compactKeyword.replace(compactSeed, '');
+  return PERSON_BAD_INTENT_RE.test(tail) && tail.length <= 8;
+}
+
 function bestSourceWeight(sources: string[]): number {
   let best = 0;
   for (const source of sources) best = Math.max(best, SOURCE_WEIGHT[source] || 0);
@@ -163,6 +194,7 @@ function isBadCandidate(keyword: string): boolean {
 export function scoreKeywordRelevance(seed: string, candidate: RelatedCandidateInput): RankedRelatedKeyword | null {
   const keyword = normalizeCandidateKeyword(candidate.keyword);
   if (isBadCandidate(keyword)) return null;
+  if (isAwkwardPersonCommercialCandidate(seed, keyword)) return null;
 
   const seedCompact = compact(seed);
   const keywordCompact = compact(keyword);

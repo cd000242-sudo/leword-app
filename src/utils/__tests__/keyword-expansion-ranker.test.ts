@@ -163,6 +163,31 @@ assert('keyword analyzer celebrity expansion infers star intent from candidate c
     && celebrityEnough.includes('장원영 출연'),
   celebrityEnough.join(', '));
 
+const personNoise = rankKeywordExpansionStrings('장윤기', [
+  '장윤기 나이',
+  '장윤기 부모',
+  '장윤기 부모 가격',
+  '장윤기 부모 추천',
+  '장윤기 부모 비교',
+  '장윤기 부모 후기',
+  '장윤기 부모 방법',
+  '장윤기 일정 가격',
+  '장윤기 다시보기',
+  '장윤기 예능',
+], {
+  source: 'autocomplete',
+  limit: 20,
+  minScore: 30,
+  ensureIntentCoverage: true,
+  intentCoverageMin: 8,
+});
+assert('keyword analyzer person expansion blocks awkward family-commerce suffixes',
+  personNoise.includes('장윤기 나이')
+    && personNoise.includes('장윤기 부모')
+    && personNoise.includes('장윤기 다시보기')
+    && !personNoise.some(keyword => /장윤기.*(부모|일정).*(가격|추천|비교|후기|방법)/.test(keyword)),
+  personNoise.join(', '));
+
 const sparsePolicy = rankKeywordExpansionStrings('근로장려금 신청', [
   '바로가기 이동',
 ], {

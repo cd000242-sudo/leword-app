@@ -337,6 +337,13 @@ export function setupKeywordAnalysisHandlers(): void {
 
         // 🔥🔥🔥 검색의도가 명확한 키워드 검증 함수 (끝판왕 필터) 🔥🔥🔥
         const seedWord = trimmedKeyword.split(' ')[0].toLowerCase();
+        const PERSON_CONTEXT_RE = /(나이|부모|가족|아버지|어머니|엄마|아빠|형제|프로필|인스타|근황|출연|출연진|예능|드라마|다시보기|방송시간|유튜브|배우|가수|개그맨|셰프|작가|감독|선수|아이돌|소속사|학력|고향|일정|팬미팅|공식입장)/;
+        const NON_PERSON_SINGLE_TOKEN_RE = /(제네시스|카니발|아반떼|쏘렌토|아이오닉|그랜저|임플란트|에어컨|냉장고|세탁기|청소기|제습기|영양제|비타민|유산균|오메가|노트북|운동화|향수|화장품|지원금|보조금|대출|보험|부동산|아파트|청약)/;
+        const isLikelyPersonExpansion = (contextKeywords: string[] = []) => {
+          if (!/^[가-힣]{2,8}$/.test(trimmedKeyword)) return false;
+          if (NON_PERSON_SINGLE_TOKEN_RE.test(trimmedKeyword)) return false;
+          return PERSON_CONTEXT_RE.test(`${trimmedKeyword} ${contextKeywords.slice(0, 120).join(' ')}`);
+        };
 
         const isValidSearchKeyword = (kw: string): boolean => {
           const trimmed = kw.trim();
@@ -1301,7 +1308,12 @@ export function setupKeywordAnalysisHandlers(): void {
           const additionalKeywords: string[] = [];
 
           // 🔥 v12.0: 확장된 자모 + 접미사 (200개 패턴!)
-          const suffixes = [
+          const isPersonExpansion = isLikelyPersonExpansion(Array.from(existingKeywords));
+          const suffixes = isPersonExpansion ? [
+            ' 나이', ' 프로필', ' 인스타', ' 출연', ' 예능', ' 다시보기', ' 근황',
+            ' 가족', ' 부모', ' 소속사', ' 방송시간', ' 일정', ' 팬미팅', ' 공식입장',
+            ' 유튜브', ' 작품', ' 방송'
+          ] : [
             // 한글 자모 (14개)
             'ㄱ', 'ㄴ', 'ㄷ', 'ㄹ', 'ㅁ', 'ㅂ', 'ㅅ', 'ㅇ', 'ㅈ', 'ㅊ', 'ㅋ', 'ㅌ', 'ㅍ', 'ㅎ',
             // 가나다 (14개)
@@ -1437,7 +1449,10 @@ export function setupKeywordAnalysisHandlers(): void {
             sendProgress('additional', additionalKeywords.length, maxAdditional, `🔄 3차 확장 시작... (${additionalKeywords.length}개)`);
 
             // 추가 접미사 조합
-            const extraSuffixes = [
+            const extraSuffixes = isPersonExpansion ? [
+              ' 영상', ' 방송', ' 무대', ' 사진', ' 인터뷰', ' 팬카페',
+              ' 최근', ' 오늘', ' 최신', ' 논란', ' 해명', ' 반응'
+            ] : [
               ' 어떻게', ' 왜', ' 언제', ' 어디서', ' 누가', ' 무엇',
               ' 좋은', ' 나쁜', ' 싼', ' 비싼', ' 인기', ' 유명',
               ' 서울', ' 강남', ' 부산', ' 대구', ' 인천', ' 광주',

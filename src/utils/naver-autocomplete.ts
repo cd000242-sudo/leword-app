@@ -35,6 +35,16 @@ const MOBILE_USER_AGENTS = [
   'Mozilla/5.0 (Linux; Android 14; SM-S918B) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/120.0.0.0 Mobile Safari/537.36',
 ];
 
+const PERSON_CONTEXT_RE = /(나이|부모|가족|아버지|어머니|엄마|아빠|형제|프로필|인스타|근황|출연|출연진|예능|드라마|다시보기|방송시간|유튜브|배우|가수|개그맨|셰프|작가|감독|선수|아이돌|소속사|학력|고향|일정|팬미팅|공식입장)/;
+const NON_PERSON_SINGLE_TOKEN_RE = /(제네시스|카니발|아반떼|쏘렌토|아이오닉|그랜저|임플란트|에어컨|냉장고|세탁기|청소기|제습기|영양제|비타민|유산균|오메가|노트북|운동화|향수|화장품|지원금|보조금|대출|보험|부동산|아파트|청약)/;
+
+function isLikelyPersonAutocompleteQuery(query: string, candidates: string[] = []): boolean {
+  const normalized = String(query || '').replace(/\s+/g, ' ').trim();
+  if (!/^[가-힣]{2,8}$/.test(normalized)) return false;
+  if (NON_PERSON_SINGLE_TOKEN_RE.test(normalized)) return false;
+  return PERSON_CONTEXT_RE.test(`${normalized} ${candidates.slice(0, 80).join(' ')}`);
+}
+
 function getRandomUA(mobile = false): string {
   const list = mobile ? MOBILE_USER_AGENTS : USER_AGENTS;
   return list[stableHash(mobile ? 'naver-mobile-ua' : 'naver-pc-ua') % list.length];
@@ -264,7 +274,10 @@ export async function getNaverAutocompleteKeywords(
     
     // 🔥 수익화 접미사 확장
     if (keywordMap.size < 50) {
-      const suffixes = ['추천', '비교', '가격', '후기', '방법', '종류', '순위', '장단점'];
+      const currentCandidates = Array.from(keywordMap.values()).map(item => item.keyword);
+      const suffixes = isLikelyPersonAutocompleteQuery(baseKeyword, currentCandidates)
+        ? ['나이', '프로필', '인스타', '출연', '예능', '다시보기', '근황', '가족', '부모', '소속사', '방송시간', '일정']
+        : ['추천', '비교', '가격', '후기', '방법', '종류', '순위', '장단점'];
       
       const suffixPromises = suffixes.map(suffix => fetchMobileAutocomplete(`${baseKeyword} ${suffix}`));
       const suffixResults = await Promise.allSettled(suffixPromises);
