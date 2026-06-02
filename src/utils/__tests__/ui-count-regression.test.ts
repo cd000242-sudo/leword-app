@@ -16,6 +16,8 @@ function assert(name: string, cond: boolean, detail?: string) {
 
 const htmlPath = path.join(__dirname, '..', '..', '..', 'ui', 'keyword-master.html');
 const html = fs.readFileSync(htmlPath, 'utf8');
+const keywordExpansionSearchBlock = html.match(/window\.handleKeywordExpansionSearch\s*=\s*async function[\s\S]*?function displayKeywordResults/)?.[0] || '';
+const categoryGoldenDiscoveryBlock = html.match(/window\.startKeywordDiscovery\s*=\s*async function[\s\S]*?window\.stopKeywordDiscovery/)?.[0] || '';
 const proTrafficCountSelect = html.match(/<select id="proTrafficCount"[\s\S]*?<\/select>/)?.[0] || '';
 const sourceSignals = fs.readFileSync(path.join(__dirname, '..', '..', 'main', 'handlers', 'source-signals.ts'), 'utf8');
 const premiumHunting = fs.readFileSync(path.join(__dirname, '..', '..', 'main', 'handlers', 'premium-hunting.ts'), 'utf8');
@@ -33,6 +35,20 @@ assert('keyword analyzer default option is 10',
 assert('keyword analyzer JS fallback defaults to 10',
   /const\s+limitValue\s*=\s*limitRadio\?\.value\s*\|\|\s*'10'/.test(html),
   'limitValue fallback is not 10');
+
+assert('keyword lookup and category auto golden discovery have separate buttons and actions',
+  /id="keywordLookupBtn"[\s\S]{0,220}onclick="startKeywordLookupFromInput\(\)"/.test(html)
+    && /id="categoryGoldenDiscoveryBtn"[\s\S]{0,260}onclick="startKeywordDiscovery\(\)"/.test(html)
+    && /카테고리별 자동/.test(html)
+    && /window\.startKeywordLookupFromInput\s*=\s*function/.test(html)
+    && /const\s+discoveryBtn\s*=\s*document\.getElementById\('keywordLookupBtn'\)/.test(keywordExpansionSearchBlock)
+    && /const\s+categoryGoldenDiscoveryBtn\s*=\s*document\.getElementById\('categoryGoldenDiscoveryBtn'\)/.test(keywordExpansionSearchBlock)
+    && /const\s+discoveryBtn\s*=\s*document\.getElementById\('categoryGoldenDiscoveryBtn'\)/.test(categoryGoldenDiscoveryBlock)
+    && /const\s+keywordLookupBtn\s*=\s*document\.getElementById\('keywordLookupBtn'\)/.test(categoryGoldenDiscoveryBlock)
+    && /handleKeywordExpansionSearch\(keyword,\s*maxCount\)/.test(html)
+    && /const\s+keywordLookupBtn\s*=\s*document\.getElementById\('keywordLookupBtn'\)[\s\S]{0,260}keywordLookupBtn\.click\(\)/.test(html)
+    && !/const\s+discoveryBtn\s*=\s*document\.getElementById\('discoveryBtn'\)[\s\S]{0,220}discoveryBtn\.click\(\)/.test(html),
+  'keyword lookup can still be routed into category golden discovery');
 
 assert('PRO traffic UI exposes 250 result option',
   /<option\s+value="250"[^>]*>250개/.test(html),

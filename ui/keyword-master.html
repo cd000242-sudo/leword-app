@@ -3860,10 +3860,14 @@
                 <span style="font-size: 14px; font-weight: 700; color: #1e293b;">♾️ 무제한</span>
               </label>
               </div>
-              <div style="display: grid; grid-template-columns: minmax(220px, 1.2fr) minmax(260px, 1fr); gap: 12px; align-items: stretch;">
-                <button id="discoveryBtn" onclick="startKeywordDiscovery()"
+              <div style="display: grid; grid-template-columns: minmax(180px, 0.9fr) minmax(240px, 1.15fr) minmax(260px, 1fr); gap: 12px; align-items: stretch;">
+                <button id="keywordLookupBtn" onclick="startKeywordLookupFromInput()"
+                  style="height: 56px; padding: 0 24px; background: linear-gradient(135deg, #0ea5e9 0%, #6366f1 100%); color: white; border: none; border-radius: 12px; font-weight: 800; cursor: pointer; font-size: 16px; box-shadow: 0 10px 26px rgba(14, 165, 233, 0.22);">
+                  🔍 키워드 조회
+                </button>
+                <button id="categoryGoldenDiscoveryBtn" onclick="startKeywordDiscovery()"
                   style="height: 56px; padding: 0 28px; background: linear-gradient(135deg, #2563eb 0%, #7c3aed 100%); color: white; border: none; border-radius: 12px; font-weight: 800; cursor: pointer; font-size: 16px; box-shadow: 0 10px 26px rgba(37, 99, 235, 0.25);">
-                  💎 카테고리 황금키워드 발굴
+                  💎 카테고리별 자동 황금키워드 발굴
                 </button>
                 <div style="display: grid; grid-template-columns: 118px 1fr; gap: 10px;">
                   <select id="mindmapLimitSelect" style="height: 56px; padding: 0 12px; border: 1px solid rgba(168, 85, 247, 0.42); border-radius: 12px; font-size: 13px; background: rgba(30, 41, 59, 0.92); color: #c4b5fd; font-weight:700; outline:none;" title="시드 → 꼬리에 꼬리 깊이 자동: 50개 1단계 / 500개 5단계">
@@ -5004,11 +5008,36 @@
         // 🔥 LEWORD 키워드 확장 조회 함수
         // =====================================================
 
+        window.startKeywordLookupFromInput = function () {
+          const keyword = document.getElementById('keywordInput')?.value.trim() || '';
+          if (!keyword) {
+            alert('조회할 키워드를 입력해주세요.');
+            return;
+          }
+          const limitRadio = document.querySelector('input[name="keywordLimit"]:checked');
+          const limitValue = limitRadio?.value || '10';
+          const customLimit = document.getElementById('customKeywordLimit')?.value;
+          let maxCount = null;
+          if (limitValue === 'unlimited') {
+            maxCount = null;
+          } else if (limitValue === 'custom' && customLimit) {
+            maxCount = parseInt(customLimit, 10);
+          } else if (limitValue !== 'custom') {
+            maxCount = parseInt(limitValue, 10);
+          }
+          if (maxCount !== null && (isNaN(maxCount) || maxCount < 1)) {
+            alert('올바른 개수를 선택해주세요.');
+            return;
+          }
+          return window.handleKeywordExpansionSearch(keyword, maxCount);
+        };
+
         window.handleKeywordExpansionSearch = async function (keyword, maxCount = null) {
           // 🔥 [NEW] 검색어 저장 (정렬에 사용)
           window.lewordLastSearchKeyword = keyword ? keyword.trim() : "";
 
-          const discoveryBtn = document.getElementById('discoveryBtn');
+          const discoveryBtn = document.getElementById('keywordLookupBtn');
+          const categoryGoldenDiscoveryBtn = document.getElementById('categoryGoldenDiscoveryBtn');
           const stopBtn = document.getElementById('stopBtn');
           const resultsDiv = document.getElementById('goldenResults');
           const statusDiv = document.getElementById('discoveryStatus');
@@ -5032,6 +5061,7 @@
             // UI 상태 변경
             discoveryBtn.disabled = true;
             discoveryBtn.style.display = 'none';
+            if (categoryGoldenDiscoveryBtn) categoryGoldenDiscoveryBtn.disabled = true;
             stopBtn.style.display = 'block';
             statusDiv.style.display = 'block';
             exportSection.style.display = 'none';
@@ -5120,6 +5150,7 @@
             // UI 복원
             discoveryBtn.disabled = false;
             discoveryBtn.style.display = 'block';
+            if (categoryGoldenDiscoveryBtn) categoryGoldenDiscoveryBtn.disabled = false;
             stopBtn.style.display = 'none';
             statusDiv.style.display = 'none';
             window.keywordExpansionProgress.isRunning = false;
@@ -6485,7 +6516,8 @@
 
           const quickPreview = maxCount !== null && maxCount > 0 && maxCount < 30;
 
-          const discoveryBtn = document.getElementById('discoveryBtn');
+          const discoveryBtn = document.getElementById('categoryGoldenDiscoveryBtn');
+          const keywordLookupBtn = document.getElementById('keywordLookupBtn');
           const stopBtn = document.getElementById('stopBtn');
           const resultsDiv = document.getElementById('goldenResults');
           const statusDiv = document.getElementById('discoveryStatus');
@@ -6567,6 +6599,7 @@
 
           discoveryBtn.disabled = true;
           discoveryBtn.style.display = 'none';
+          if (keywordLookupBtn) keywordLookupBtn.disabled = true;
           stopBtn.style.display = 'block';
           statusDiv.style.display = 'block';
           exportSection.style.display = 'none';
@@ -6777,11 +6810,15 @@
             }
             // UI 복원
             isDiscovering = false;
-            const discoveryBtn = document.getElementById('discoveryBtn');
+            const discoveryBtn = document.getElementById('categoryGoldenDiscoveryBtn');
+            const keywordLookupBtn = document.getElementById('keywordLookupBtn');
             const stopBtn = document.getElementById('stopBtn');
             if (discoveryBtn) {
               discoveryBtn.disabled = false;
               discoveryBtn.style.display = 'block';
+            }
+            if (keywordLookupBtn) {
+              keywordLookupBtn.disabled = false;
             }
             if (stopBtn) {
               stopBtn.style.display = 'none';
@@ -6813,7 +6850,8 @@
             console.error('[KEYWORD-MASTER] 백엔드 중지 신호 전송 실패:', err);
           }
 
-          const discoveryBtn = document.getElementById('discoveryBtn');
+          const discoveryBtn = document.getElementById('categoryGoldenDiscoveryBtn');
+          const keywordLookupBtn = document.getElementById('keywordLookupBtn');
           const stopBtn = document.getElementById('stopBtn');
           const statusText = document.getElementById('statusText');
           const resultsDiv = document.getElementById('goldenResults');
@@ -6821,6 +6859,9 @@
           if (discoveryBtn) {
             discoveryBtn.disabled = false;
             discoveryBtn.style.display = 'block';
+          }
+          if (keywordLookupBtn) {
+            keywordLookupBtn.disabled = false;
           }
           if (stopBtn) {
             stopBtn.style.display = 'none';
@@ -11746,7 +11787,7 @@
           document.body.appendChild(dock);
         };
 
-        // v2.42.36: searchKeyword — 메인 입력 필드(#keywordInput)에 키워드 채우고 메인 발굴 버튼(#discoveryBtn) 클릭
+        // v2.42.36/v2.49.79: searchKeyword — 메인 입력 필드(#keywordInput)에 키워드 채우고 일반 키워드 조회 버튼(#keywordLookupBtn) 클릭
         //   기존 querySelector('.keyword-input-section input') 은 첫 번째 input 만 찾아 수식어/마인드맵 input 으로 잘못 잡힐 위험.
         //   ID 직접 지정으로 정확성 보장.
         function searchKeyword(keyword, autoTrigger = false) {
@@ -11770,17 +11811,16 @@
           keywordInput.focus();
           keywordInput.scrollIntoView({ behavior: 'smooth', block: 'center' });
 
-          // v2.42.36: autoTrigger — 메인 발굴 버튼 정확히 ID로 클릭
+          // v2.42.36/v2.49.79: autoTrigger — 카테고리 자동 발굴이 아니라 일반 키워드 조회로 재검색
           if (autoTrigger) {
             setTimeout(() => {
-              const discoveryBtn = document.getElementById('discoveryBtn');
-              if (discoveryBtn && !discoveryBtn.disabled) {
-                discoveryBtn.click();
+              const keywordLookupBtn = document.getElementById('keywordLookupBtn');
+              if (keywordLookupBtn && !keywordLookupBtn.disabled) {
+                keywordLookupBtn.click();
                 console.log('[LEWORD] 🔄 자동 재검색 트리거:', keyword);
-              } else if (typeof window.startKeywordDiscovery === 'function') {
-                // discoveryBtn 못 찾으면 함수 직접 호출
-                window.startKeywordDiscovery();
-                console.log('[LEWORD] 🔄 startKeywordDiscovery() 직접 호출:', keyword);
+              } else if (typeof window.startKeywordLookupFromInput === 'function') {
+                window.startKeywordLookupFromInput();
+                console.log('[LEWORD] 🔄 startKeywordLookupFromInput() 직접 호출:', keyword);
               } else {
                 console.warn('[LEWORD] 재검색 진입점을 찾지 못함');
               }
