@@ -34,10 +34,27 @@ assert('policy id resolves directly', policyIds.includes('policy'), policyIds.jo
 const supportIds = resolveDiscoveryCategoryIds('지원금');
 assert('support-fund Korean alias resolves to policy', supportIds.includes('policy'), supportIds.join(','));
 
+const governmentSupportIds = resolveDiscoveryCategoryIds('정부지원금');
+assert('government support alias resolves to policy', governmentSupportIds.includes('policy'), governmentSupportIds.join(','));
+
+const policyBriefingIds = resolveDiscoveryCategoryIds('정책브리핑');
+assert('policy briefing alias resolves to policy', policyBriefingIds.includes('policy'), policyBriefingIds.join(','));
+
+const koreaPolicyBriefingIds = resolveDiscoveryCategoryIds('대한민국 정책브리핑');
+assert('Korea policy briefing spaced alias resolves to policy', koreaPolicyBriefingIds.includes('policy'), koreaPolicyBriefingIds.join(','));
+
 const starIds = resolveDiscoveryCategoryIds('스타');
 assert('star Korean alias resolves to entertainment family',
   starIds.includes('celeb') && starIds.includes('broadcast') && starIds.includes('music'),
   starIds.join(','));
+const starCelebrityIds = resolveDiscoveryCategoryIds('스타 연예인');
+assert('compound star celebrity alias resolves to entertainment family',
+  starCelebrityIds.includes('celeb') && starCelebrityIds.includes('broadcast') && starCelebrityIds.includes('music'),
+  starCelebrityIds.join(','));
+const celebrityIssueIds = resolveDiscoveryCategoryIds('연예인 이슈');
+assert('celebrity issue alias resolves to entertainment family',
+  celebrityIssueIds.includes('celeb') && celebrityIssueIds.includes('broadcast') && celebrityIssueIds.includes('music'),
+  celebrityIssueIds.join(','));
 const celebrityIds = resolveDiscoveryCategoryIds('celebrity');
 assert('celebrity UI alias resolves to entertainment family',
   celebrityIds.includes('celeb') && celebrityIds.includes('broadcast') && celebrityIds.includes('music'),
@@ -80,12 +97,22 @@ assert('policy category-only discovery has at least 30 seeds', policySeeds.lengt
 assert('policy seeds preserve application/support intent',
   policySeeds.some(seed => /지원금|신청|조건|바우처/.test(seed)),
   policySeeds.slice(0, 12).join(', '));
+const policyBriefingSeeds = getDiscoveryCategorySeeds('정책브리핑', 80);
+assert('policy briefing category entry uses official-support seed pool',
+  policyBriefingSeeds.length >= 30
+    && policyBriefingSeeds.some(seed => /정책브리핑|정부24|보조금24|복지로|지원금/.test(seed)),
+  policyBriefingSeeds.slice(0, 16).join(', '));
 
 const celebSeeds = getDiscoveryCategorySeeds('celeb', 80);
 assert('celeb category-only discovery has at least 30 seeds', celebSeeds.length >= 30, `${celebSeeds.length}`);
 assert('celeb seeds preserve star/entertainment intent',
   celebSeeds.some(seed => /연예|아이돌|컴백|팬미팅|콘서트/.test(seed)),
   celebSeeds.slice(0, 12).join(', '));
+const starCelebritySeeds = getDiscoveryCategorySeeds('스타 연예인', 80);
+assert('compound star celebrity category entry uses entertainment issue seed pool',
+  starCelebritySeeds.length >= 30
+    && starCelebritySeeds.some(seed => /연예인|스타|아이돌|컴백|공식입장|팬미팅/.test(seed)),
+  starCelebritySeeds.slice(0, 16).join(', '));
 const celebritySeeds = getDiscoveryCategorySeeds('celebrity', 80);
 assert('celebrity UI alias does not fall back to generic template seeds',
   celebritySeeds.length >= 30
@@ -141,6 +168,18 @@ assert('category-first support live seeds get current intent expansions',
   livePolicyPlan.seeds.some(seed => /청년 도약 보조금 신청.*(2026|6월|최신|신청방법|대상|자격)/.test(seed)),
   livePolicyPlan.seeds.slice(0, 32).join(', '));
 
+const policyBriefingPlan = buildCategoryFirstGoldenSeedPlan({
+  category: '대한민국 정책브리핑',
+  maxSeeds: 140,
+  now: june2026,
+  liveSeeds: ['대한민국 정책브리핑 소상공인 지원금 접수'],
+});
+assert('category-first policy briefing plan resolves and expands official live seeds',
+  policyBriefingPlan.categoryIds.includes('policy')
+    && policyBriefingPlan.seeds.some(seed => /대한민국 정책브리핑 소상공인 지원금 접수/.test(seed))
+    && policyBriefingPlan.seeds.some(seed => /정책브리핑|공식발표|공고|신청방법|대상/.test(seed)),
+  policyBriefingPlan.seeds.slice(0, 32).join(', '));
+
 const focusedPolicyPlan = buildCategoryFirstGoldenSeedPlan({
   category: '지원금',
   keyword: '근로장려금',
@@ -179,6 +218,20 @@ assert('category-first star plan prioritizes live entertainment seeds',
 assert('category-first star live seeds get current entertainment expansions',
   liveStarPlan.seeds.some(seed => /아이돌 컴백 공식입장.*(2026|6월|최신|근황|공식입장|컴백 일정)/.test(seed)),
   liveStarPlan.seeds.slice(0, 32).join(', '));
+
+const compoundStarPlan = buildCategoryFirstGoldenSeedPlan({
+  category: '스타 연예인',
+  maxSeeds: 140,
+  now: june2026,
+  liveSeeds: ['연예인 이슈 공식입장'],
+});
+assert('category-first compound star celebrity plan keeps entertainment issue intent',
+  compoundStarPlan.categoryIds.includes('celeb')
+    && compoundStarPlan.categoryIds.includes('broadcast')
+    && compoundStarPlan.categoryIds.includes('music')
+    && compoundStarPlan.seeds.some(seed => /연예인 이슈 공식입장/.test(seed))
+    && compoundStarPlan.seeds.some(seed => /근황|공식입장|컴백 일정|출연 정보/.test(seed)),
+  compoundStarPlan.seeds.slice(0, 32).join(', '));
 
 for (const category of BLOGGER_CATEGORIES) {
   const profileSeeds = getSeedsForUserCategories([category.id], 30);

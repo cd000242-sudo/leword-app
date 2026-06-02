@@ -11,6 +11,7 @@ import { findUltimateNicheKeywords } from '../../utils/ultimate-niche-finder';
 import { checkUnlimitedLicense } from './shared';
 import { getFreshKeywordsAPI } from '../../utils/mass-collection/fresh-keywords-api';
 import { rankKeywordExpansionStrings } from '../../utils/keyword-expansion-ranker';
+import { deterministicRange } from '../../utils/deterministic-random';
 
 
 export function setupKeywordAnalysisHandlers(): void {
@@ -1647,7 +1648,7 @@ export function setupKeywordAnalysisHandlers(): void {
                   const retryAfterRaw = docCountRes.headers?.get?.('retry-after');
                   const retryAfterSec = retryAfterRaw ? parseInt(String(retryAfterRaw), 10) : NaN;
                   const base = Number.isFinite(retryAfterSec) ? (retryAfterSec * 1000) : (1500 * (retry + 1));
-                  const jitter = Math.floor(Math.random() * 350);
+                  const jitter = deterministicRange(`doccount-429:${keyword}:${retry}`, 0, 350);
                   const backoffMs = Math.min(10000, base + jitter);
 
                   // 전체 워커 일시 정지

@@ -21,6 +21,10 @@ const COMMON_INTENTS = [
 
 const CATEGORY_INTENTS: Record<string, string[]> = {
   policy: [
+    '정책브리핑',
+    '공식발표',
+    '공고',
+    '접수',
     '신청방법',
     '대상',
     '자격',
@@ -33,6 +37,7 @@ const CATEGORY_INTENTS: Record<string, string[]> = {
     '신규',
   ],
   celeb: [
+    '연예 이슈',
     '근황',
     '공식입장',
     '컴백 일정',

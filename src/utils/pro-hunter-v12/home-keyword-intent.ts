@@ -93,6 +93,26 @@ const CATEGORY_SPLUS_ANGLES: Record<string, string[]> = {
     '마감 전 결과 조회 방법',
     '오늘 확인할 제외 대상',
     '2026 6월 공식 공고 핵심',
+    '이번 주 접수 가능 대상 확인',
+    '공식 발표 기준으로 신청 전 확인할 것',
+    '정부24 조회와 온라인 신청 차이',
+    '보조금24에서 확인할 지원 대상',
+    '복지로 공고에서 놓치기 쉬운 조건',
+    '소득 기준 변경사항과 제외 대상',
+    '지급일 전 준비서류 정리',
+    '마감 전 온라인 접수 순서',
+    '신청 후 결과 조회 방법',
+    '공식 공고 기준 자격 확인법',
+    '신규 접수 전 확인할 변경사항',
+    '대상별 신청 서류 차이',
+    '소상공인 신청 조건과 제외 기준',
+    '지원금 사용처와 지급일 정리',
+    '접수 마감 전 공식 확인 경로',
+    '신청 오류 전 확인할 필수 서류',
+    '자영업자 대상 조회 방법',
+    '지금 바뀐 신청 기준 핵심',
+    '공식 발표 후 바로 확인할 항목',
+    '6월 신규 공고 신청 체크',
   ],
   finance: [
     '2026 6월 환급 조건 정리',
@@ -157,6 +177,26 @@ const CATEGORY_SPLUS_ANGLES: Record<string, string[]> = {
     '2026 6월 다시보기와 회차',
     '이번 주 출연진 관전 포인트',
     '오늘 반응 좋은 장면 정리',
+    '오늘 공개된 공식입장 정리',
+    '이번 주 컴백 일정과 티저 공개',
+    '팬들이 놓친 무대 장면 정리',
+    '출연 정보와 방송 시간 체크',
+    '다시보기 회차와 줄거리 정리',
+    '시상식 라인업과 수상 후보',
+    '콘서트 예매 일정과 좌석 정보',
+    '팬미팅 일정과 응모 방법',
+    '공개된 예고편 반응 정리',
+    '드라마 출연진과 관전 포인트',
+    '예능 출연 회차와 다시보기',
+    '앨범 발매 일정과 초동 반응',
+    '공항패션 브랜드와 팬 반응',
+    '소속사 공식입장 핵심 정리',
+    '열애설 반응과 공식입장 확인',
+    '근황 사진과 인스타 업데이트',
+    '팬들이 많이 찾는 줄거리 정리',
+    '오늘 공개된 무대 반응 정리',
+    '이번 주 방송 전 확인할 포인트',
+    '공식 티저 공개 후 반응 정리',
   ],
   issue: [
     '오늘 검색 많은 이유 정리',
@@ -165,6 +205,16 @@ const CATEGORY_SPLUS_ANGLES: Record<string, string[]> = {
     '지금 알아둘 핵심 정보',
     '오늘 발행하기 좋은 질문',
   ],
+};
+
+const CATEGORY_REQUIRED_INTENT: Partial<Record<string, RegExp>> = {
+  policy: /(신청|대상|자격|조건|서류|지급일|사용처|조회|마감|공식|공고|제외|소득|기준|온라인|접수|변경사항|변경|결과)/,
+  celebrity: /(이슈|방송|일정|공개|출연|팬|반응|장면|컴백|공식입장|다시보기|회차|줄거리|시상식|근황|관전|예고|티저|콘서트|팬미팅|앨범|무대|소속사|공항패션|인스타|열애설)/,
+};
+
+const CATEGORY_NOISE_INTENT: Partial<Record<string, RegExp>> = {
+  policy: /(초여름 관리|가족이|직장인 체크|장단점 비교|비용 정리|생활 팁|원룸|건강|관리 방법|출근룩|코디|다시보기)/,
+  celebrity: /(직장인|초여름 관리|비용 정리|장단점 비교|대상별 차이|준비물|관리 방법|소득 기준|신청 조건|온라인 신청|지급일|사용처)/,
 };
 
 function compact(value: string): string {
@@ -250,6 +300,13 @@ function normalizedCategory(category?: string): string {
   return normalizeHomeNeedCategory(category);
 }
 
+function isStrictCategoryHomeNeed(keyword: string, category: string): boolean {
+  const required = CATEGORY_REQUIRED_INTENT[category];
+  const noise = CATEGORY_NOISE_INTENT[category];
+  if (noise?.test(keyword)) return false;
+  return required ? required.test(keyword) : true;
+}
+
 function uniqueKeywords(values: Iterable<string>): string[] {
   const seen = new Set<string>();
   const out: string[] = [];
@@ -291,6 +348,11 @@ export function scoreHomeNeedKeyword(keyword: string, category = 'general', now 
 
   const cat = normalizedCategory(category);
   if (cat !== 'general' && CATEGORY_SUFFIXES[cat]) score += 5;
+  const requiredIntent = CATEGORY_REQUIRED_INTENT[cat];
+  if (requiredIntent) {
+    score += requiredIntent.test(kw) ? 20 : -34;
+  }
+  if (CATEGORY_NOISE_INTENT[cat]?.test(kw)) score -= 70;
 
   const hasOnlyGenericIntent = tokens.length <= 2 || (tokens.length <= 3 && GENERIC_HEADS.some(t => kw.endsWith(t)));
   if (hasOnlyGenericIntent && !ACTION_TOKENS.some(t => kw.includes(t)) && !JUNE_TOKENS.some(t => kw.includes(t))) score -= 35;
@@ -343,7 +405,10 @@ export function expandHomeNeedKeywords(seed: string, category = 'general', limit
     .sort((a, b) => b.score - a.score || a.keyword.length - b.keyword.length);
 
   const splusOnly = ranked.filter(item => item.grade === 'S+');
-  const pool = safeLimit >= HOME_HUNTER_MIN_SPLUS_RESULTS && splusOnly.length >= HOME_HUNTER_MIN_SPLUS_RESULTS
+  const strictSplusOnly = splusOnly.filter(item => isStrictCategoryHomeNeed(item.keyword, cat));
+  const pool = safeLimit >= HOME_HUNTER_MIN_SPLUS_RESULTS && strictSplusOnly.length >= safeLimit
+    ? strictSplusOnly
+    : safeLimit >= HOME_HUNTER_MIN_SPLUS_RESULTS && splusOnly.length >= HOME_HUNTER_MIN_SPLUS_RESULTS
     ? splusOnly
     : ranked;
   return pool.slice(0, safeLimit);

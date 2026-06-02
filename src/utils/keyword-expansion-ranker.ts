@@ -80,6 +80,24 @@ function stripTrailingIntent(seed: string): string {
 }
 
 type ExpansionDomain = 'policy' | 'supplement' | 'footwear' | 'entertainment' | 'generic';
+export type PracticalIntentGroup =
+  | 'eligibility'
+  | 'apply'
+  | 'timing'
+  | 'documents'
+  | 'lookup'
+  | 'criteria'
+  | 'review'
+  | 'comparison'
+  | 'price'
+  | 'usage'
+  | 'risk'
+  | 'ingredients'
+  | 'profile'
+  | 'appearance'
+  | 'watch'
+  | 'reaction'
+  | 'generic';
 
 function detectExpansionDomain(seed: string, corpus = ''): ExpansionDomain {
   const compacted = compactKeyword(`${seed} ${corpus}`);
@@ -99,11 +117,43 @@ function detectExpansionDomain(seed: string, corpus = ''): ExpansionDomain {
 }
 
 function inferExpansionDomain(seed: string, candidates: RelatedCandidateInput[]): ExpansionDomain {
-  const corpus = candidates
+  const seedDomain = detectExpansionDomain(seed);
+  if (seedDomain !== 'generic') return seedDomain;
+
+  const counts = new Map<ExpansionDomain, number>();
+  const corpusKeywords = candidates
     .slice(0, 80)
-    .map(candidate => candidate.keyword)
-    .join(' ');
-  return detectExpansionDomain(seed, corpus);
+    .map(candidate => candidate.keyword);
+  for (const keyword of corpusKeywords) {
+    const domain = detectExpansionDomain(keyword);
+    if (domain === 'generic') continue;
+    counts.set(domain, (counts.get(domain) || 0) + 1);
+  }
+
+  const rankedDomains = Array.from(counts.entries()).sort((a, b) => b[1] - a[1]);
+  const [best, second] = rankedDomains;
+  if (best && best[1] >= 2 && best[1] >= ((second?.[1] || 0) + 1)) return best[0];
+
+  const corpus = corpusKeywords.join(' ');
+  const compacted = compactKeyword(`${seed} ${corpus}`);
+  if (
+    /프로필|인스타|출연|출연진|나이|근황|소속사|다시보기|방송시간|앨범|콘서트|컴백|드라마|예능|공식입장|공항패션/.test(compacted)
+  ) {
+    return 'entertainment';
+  }
+
+  const mediaContextCount = (corpus.match(/사진|이미지|움짤|갤러리|배경화면|기사|뉴스/g) || []).length;
+  const looksLikeShortKoreanName = /^[가-힣]{2,8}$/.test(normalizeKeyword(seed));
+  const seedHasHardNonEntertainmentIntent = /지원금|보조금|신청|조건|자격|서류|가격|추천|후기|사이즈|복용|성분|효능/.test(compactKeyword(seed));
+  const hardNonEntertainmentCandidateCount = corpusKeywords.filter(keyword =>
+    /지원금|보조금|신청|조건|자격|서류|가격|추천|후기|사이즈|복용|성분|효능/.test(compactKeyword(keyword)),
+  ).length;
+  const hasHardNonEntertainmentIntent = seedHasHardNonEntertainmentIntent || hardNonEntertainmentCandidateCount >= 2;
+  if (looksLikeShortKoreanName && mediaContextCount >= 3 && !hasHardNonEntertainmentIntent) {
+    return 'entertainment';
+  }
+
+  return 'generic';
 }
 
 const DOMAIN_INTENTS: Record<ExpansionDomain, string[]> = {
@@ -113,6 +163,104 @@ const DOMAIN_INTENTS: Record<ExpansionDomain, string[]> = {
   entertainment: ['프로필', '인스타', '출연', '나이', '근황', '소속사', '공식입장', '드라마', '예능', '일정', '팬미팅', '예매', '티켓팅', '라인업', '출연진', '방송시간', '다시보기'],
   generic: ['추천', '후기', '가격', '비교', '방법', '장단점', '주의사항', '체크리스트', '2026', '최신'],
 };
+
+const DOMAIN_INTENT_GROUP_ORDER: Record<ExpansionDomain, PracticalIntentGroup[]> = {
+  policy: ['eligibility', 'apply', 'timing', 'documents', 'lookup', 'criteria'],
+  supplement: ['review', 'usage', 'risk', 'ingredients', 'price', 'comparison'],
+  footwear: ['review', 'price', 'comparison', 'usage'],
+  entertainment: ['profile', 'appearance', 'timing', 'watch', 'reaction'],
+  generic: ['review', 'comparison', 'price', 'usage', 'risk'],
+};
+
+export function classifyPracticalIntentGroup(
+  keyword: string,
+  domainHint: ExpansionDomain | 'government-benefit' | 'entertainment-issue' = 'generic',
+): PracticalIntentGroup {
+  const kw = compactKeyword(keyword);
+  const domain = domainHint === 'government-benefit'
+    ? 'policy'
+    : domainHint === 'entertainment-issue'
+      ? 'entertainment'
+      : domainHint;
+
+  if (domain === 'policy') {
+    if (/대상|자격|조건|누가|지원대상|제외대상/.test(kw)) return 'eligibility';
+    if (/신청|접수|온라인신청|방법|홈페이지/.test(kw)) return 'apply';
+    if (/기간|마감|지급일|일정|발표일|언제/.test(kw)) return 'timing';
+    if (/서류|준비물|필요서류|제출/.test(kw)) return 'documents';
+    if (/조회|확인|결과|발표|전화번호/.test(kw)) return 'lookup';
+    if (/소득|기준|금액|선정|내역|지원금액/.test(kw)) return 'criteria';
+  }
+
+  if (domain === 'supplement') {
+    if (/후기|추천|평점|리뷰/.test(kw)) return 'review';
+    if (/복용|먹는법|복용법|복용시간|섭취|사용법/.test(kw)) return 'usage';
+    if (/부작용|주의|위험|금기/.test(kw)) return 'risk';
+    if (/성분|효능|효과|원료/.test(kw)) return 'ingredients';
+    if (/가격|비용|할인|최저가/.test(kw)) return 'price';
+    if (/비교|순위|차이|대체/.test(kw)) return 'comparison';
+  }
+
+  if (domain === 'footwear') {
+    if (/후기|추천|착용감|리뷰/.test(kw)) return 'review';
+    if (/가격|할인|쿠폰|최저가/.test(kw)) return 'price';
+    if (/비교|순위|차이/.test(kw)) return 'comparison';
+    if (/사이즈|코디|착샷|관리|발볼|쿠션/.test(kw)) return 'usage';
+  }
+
+  if (domain === 'entertainment') {
+    if (/프로필|나이|인스타|소속사|키|본명/.test(kw)) return 'profile';
+    if (/출연|출연진|드라마|예능|앨범|콘서트|라인업|공식입장/.test(kw)) return 'appearance';
+    if (/일정|방송시간|공개일|발매|컴백|시상식/.test(kw)) return 'timing';
+    if (/다시보기|ott|회차|줄거리|결말/.test(kw)) return 'watch';
+    if (/반응|근황|논란|열애설|팬|후기/.test(kw)) return 'reaction';
+  }
+
+  if (/후기|추천|리뷰/.test(kw)) return 'review';
+  if (/비교|순위|차이/.test(kw)) return 'comparison';
+  if (/가격|비용|할인/.test(kw)) return 'price';
+  if (/방법|사용법|체크리스트|하는법/.test(kw)) return 'usage';
+  if (/주의|부작용|위험/.test(kw)) return 'risk';
+  return 'generic';
+}
+
+function rebalancePracticalIntentCoverage(
+  ranked: RankedRelatedKeyword[],
+  limit: number,
+  intentCoverageMin: number,
+  domain: ExpansionDomain,
+): RankedRelatedKeyword[] {
+  if (ranked.length <= 1 || limit <= 1 || intentCoverageMin <= 1) return ranked.slice(0, limit);
+
+  const groupOrder = DOMAIN_INTENT_GROUP_ORDER[domain] || DOMAIN_INTENT_GROUP_ORDER.generic;
+  const desiredGroupCount = Math.min(
+    groupOrder.length,
+    Math.max(0, Math.min(intentCoverageMin, Math.ceil(limit * 0.65))),
+  );
+  if (desiredGroupCount <= 1) return ranked.slice(0, limit);
+
+  const selected: RankedRelatedKeyword[] = [];
+  const used = new Set<string>();
+  const add = (item: RankedRelatedKeyword | undefined) => {
+    if (!item) return;
+    const key = compactKeyword(item.keyword);
+    if (!key || used.has(key)) return;
+    used.add(key);
+    selected.push(item);
+  };
+
+  for (const group of groupOrder) {
+    if (selected.length >= desiredGroupCount) break;
+    add(ranked.find(item => classifyPracticalIntentGroup(item.keyword, domain) === group));
+  }
+
+  for (const item of ranked) {
+    if (selected.length >= limit) break;
+    add(item);
+  }
+
+  return selected.slice(0, limit);
+}
 
 export function buildPracticalIntentExpansions(seed: string, limit = 20, domainHint?: ExpansionDomain): string[] {
   const base = stripTrailingIntent(seed);
@@ -161,6 +309,8 @@ export function rankKeywordExpansionCandidates(
     Math.min(limit, Math.floor(Number(options.intentCoverageMin) || minKeep)),
   );
 
+  let inferredDomain = inferExpansionDomain(seed, Array.from(normalizedByKey.values()));
+
   const rankNormalized = (minScore: number) => rankRelatedKeywordCandidates(seed, Array.from(normalizedByKey.values()), {
     limit: Math.max(limit, 120),
     minScore,
@@ -168,8 +318,8 @@ export function rankKeywordExpansionCandidates(
   });
 
   const injectIntentFallbacks = () => {
-    const domain = inferExpansionDomain(seed, Array.from(normalizedByKey.values()));
-    const fallbackSeeds = buildPracticalIntentExpansions(seed, Math.max(intentCoverageMin + 6, 18), domain);
+    inferredDomain = inferExpansionDomain(seed, Array.from(normalizedByKey.values()));
+    const fallbackSeeds = buildPracticalIntentExpansions(seed, Math.max(intentCoverageMin + 6, 18), inferredDomain);
     fallbackSeeds.forEach((keyword, index) => {
       const key = compactKeyword(keyword);
       if (!key || normalizedByKey.has(key)) return;
@@ -192,6 +342,10 @@ export function rankKeywordExpansionCandidates(
 
   if (ranked.length < Math.min(minKeep, limit)) {
     ranked = rankNormalized(fallbackMinScore);
+  }
+
+  if (options.ensureIntentCoverage === true) {
+    ranked = rebalancePracticalIntentCoverage(ranked, limit, intentCoverageMin, inferredDomain);
   }
 
   return ranked.slice(0, limit);

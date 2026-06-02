@@ -281,6 +281,51 @@ function getLatestViewFloor(hoursAgo: number): number {
   return 15;
 }
 
+function getKinAnswerQuality(q: any): number {
+  const answerCount = Number(q.answerCount) || 0;
+  const fallback = answerCount === 0 ? 0 : answerCount <= 2 ? 42 : answerCount <= 3 ? 60 : 74;
+  const raw = Number(q.answerQualityScore);
+  const quality = Number.isFinite(raw) ? raw : fallback;
+  return Math.max(0, Math.min(100, quality));
+}
+
+export function getKinAnswerGapScore(q: any): number {
+  const answerCount = Number(q.answerCount) || 0;
+  if (Boolean(q.isAdopted) || answerCount > 3) return 0;
+  if (answerCount === 0) return 100;
+
+  const quality = getKinAnswerQuality(q);
+  const viewCount = Number(q.viewCount) || 0;
+  const viewsPerHour = Number(q.viewsPerHour) || getViewsPerHour(q);
+  const viewsPerAnswer = viewCount / Math.max(1, answerCount);
+  const countGap = answerCount === 1 ? 38 : answerCount === 2 ? 26 : 12;
+  const qualityGap = Math.max(0, 75 - quality) * 0.9;
+  const demandGap = viewsPerAnswer >= 300 ? 26 : viewsPerAnswer >= 150 ? 18 : viewsPerAnswer >= 80 ? 10 : 0;
+  const velocityGap = viewsPerHour >= 20 ? 12 : viewsPerHour >= 8 ? 8 : viewsPerHour >= 3 ? 4 : 0;
+  const solvedPenalty = quality >= 85 ? 34 : quality >= 75 && answerCount >= 2 ? 20 : 0;
+
+  return Math.max(0, Math.min(100, Math.round(countGap + qualityGap + demandGap + velocityGap - solvedPenalty)));
+}
+
+export function hasKinAnswerGap(q: any): boolean {
+  const answerCount = Number(q.answerCount) || 0;
+  if (Boolean(q.isAdopted) || answerCount > 3) return false;
+  if (answerCount === 0) return true;
+
+  const quality = getKinAnswerQuality(q);
+  const viewCount = Number(q.viewCount) || 0;
+  const viewsPerHour = Number(q.viewsPerHour) || getViewsPerHour(q);
+  const viewsPerAnswer = viewCount / Math.max(1, answerCount);
+
+  if (quality >= 85 && answerCount >= 2) return false;
+  if (answerCount === 1 && quality < 72) return true;
+  if (answerCount <= 2 && quality < 65) return true;
+  if (answerCount <= 2 && quality < 75 && (viewsPerAnswer >= 250 || viewsPerHour >= 20)) return true;
+  if (answerCount <= 3 && quality < 55 && (viewsPerAnswer >= 120 || viewsPerHour >= 8)) return true;
+
+  return getKinAnswerGapScore(q) >= 58;
+}
+
 export function resolveKinFreshHoursAgo(
   listHoursAgoInput: unknown,
   detailHoursAgoInput: unknown,
@@ -316,6 +361,7 @@ export function isLatestHiddenHoneyCandidate(q: any): boolean {
   if (Boolean(q.isMainExposed)) return false;
   if (hoursAgo > LATEST_HONEY_MAX_HOURS) return false;
   if (answerCount > 3) return false;
+  if (!hasKinAnswerGap({ ...q, viewsPerHour })) return false;
   if (externalLinkCount >= 2) return false;
   if (viewCount < getLatestViewFloor(hoursAgo) && viewsPerHour < 0.3) return false;
 
@@ -333,6 +379,8 @@ export function hasActionableHoneyDemand(q: any): boolean {
   const hoursAgo = getQuestionHoursAgo(q);
   const viewsPerHour = Number(q.viewsPerHour) || getViewsPerHour(q);
 
+  if (!hasKinAnswerGap({ ...q, viewsPerHour })) return false;
+
   if (grade === 'SSS') return viewCount >= 120 || viewsPerHour >= 8;
   if (grade === 'SS') return viewCount >= 80 || viewsPerHour >= 5;
 
@@ -347,12 +395,15 @@ export function getLatestHiddenSortScore(q: any): number {
   const withVelocity = { ...q, viewsPerHour: Number(q.viewsPerHour) || getViewsPerHour(q) };
   const signals = buildKinSignals(withVelocity);
   const honey = buildHoneyFields(withVelocity, signals).honeyPotScore;
-  const answerBonus = Number(q.answerCount) === 0 ? 12 : Number(q.answerCount) === 1 ? 7 : 0;
+  const answerCount = Number(q.answerCount) || 0;
+  const answerBonus = answerCount === 0 ? 14 : answerCount === 1 ? 9 : answerCount === 2 ? 4 : -8;
+  const answerGapBonus = getKinAnswerGapScore(withVelocity) * 0.35;
+  const solvedPenalty = getKinAnswerQuality(withVelocity) >= 85 && answerCount >= 2 ? 18 : 0;
   const velocityBonus = Math.min(18, getViewsPerHour(withVelocity) * 3);
   const hoursAgo = getQuestionHoursAgo(q);
   const freshBonus = hoursAgo <= 24 ? 10 : hoursAgo <= 72 ? 5 : 0;
   const hiddenPenalty = signals.isMainExposed ? 35 : 0;
-  return honey + answerBonus + velocityBonus + freshBonus - hiddenPenalty;
+  return honey + answerBonus + answerGapBonus + velocityBonus + freshBonus - hiddenPenalty - solvedPenalty;
 }
 
 export function isActionableHoneyResult(q: any): boolean {

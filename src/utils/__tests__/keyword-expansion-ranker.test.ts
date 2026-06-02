@@ -1,4 +1,8 @@
-import { rankKeywordExpansionCandidates, rankKeywordExpansionStrings } from '../keyword-expansion-ranker';
+import {
+  classifyPracticalIntentGroup,
+  rankKeywordExpansionCandidates,
+  rankKeywordExpansionStrings,
+} from '../keyword-expansion-ranker';
 import * as fs from 'fs';
 import * as path from 'path';
 
@@ -205,6 +209,58 @@ assert('keyword analyzer sparse footwear autocomplete backfills shopping decisio
     && sparseShoes.includes('나이키 운동화 후기')
     && sparseShoes.includes('나이키 운동화 가격'),
   sparseShoes.join(', '));
+
+const crowdedPolicy = rankKeywordExpansionStrings('소상공인 지원금', [
+  '소상공인 지원금 뉴스',
+  '소상공인 지원금 발표',
+  '소상공인 지원금 총정리',
+  '소상공인 지원금 최신',
+  '소상공인 지원금 기사',
+  '소상공인 지원금 블로그',
+  '소상공인 지원금 바로가기',
+  '무선 이어폰 추천',
+], {
+  source: 'autocomplete',
+  limit: 12,
+  minScore: 30,
+  ensureIntentCoverage: true,
+  intentCoverageMin: 10,
+});
+const crowdedPolicyGroups = new Set(crowdedPolicy.map(keyword => classifyPracticalIntentGroup(keyword, 'policy')));
+assert('keyword analyzer policy expansion balances action-intent groups instead of returning one-note news/summary results',
+  crowdedPolicyGroups.has('eligibility')
+    && crowdedPolicyGroups.has('apply')
+    && crowdedPolicyGroups.has('timing')
+    && crowdedPolicyGroups.has('documents')
+    && crowdedPolicyGroups.has('lookup')
+    && !crowdedPolicy.includes('무선 이어폰 추천'),
+  crowdedPolicy.map(keyword => `${keyword}:${classifyPracticalIntentGroup(keyword, 'policy')}`).join(', '));
+
+const crowdedCelebrity = rankKeywordExpansionStrings('아이유', [
+  '아이유 사진',
+  '아이유 이미지',
+  '아이유 움짤',
+  '아이유 갤러리',
+  '아이유 배경화면',
+  '아이유 기사',
+  '아이유 뉴스',
+  '소상공인 지원금 신청',
+], {
+  source: 'autocomplete',
+  limit: 12,
+  minScore: 30,
+  ensureIntentCoverage: true,
+  intentCoverageMin: 10,
+});
+const crowdedCelebrityGroups = new Set(crowdedCelebrity.map(keyword => classifyPracticalIntentGroup(keyword, 'entertainment')));
+assert('keyword analyzer celebrity expansion balances profile/content/schedule/watch/reaction intents',
+  crowdedCelebrityGroups.has('profile')
+    && crowdedCelebrityGroups.has('appearance')
+    && crowdedCelebrityGroups.has('timing')
+    && crowdedCelebrityGroups.has('watch')
+    && crowdedCelebrityGroups.has('reaction')
+    && !crowdedCelebrity.includes('소상공인 지원금 신청'),
+  crowdedCelebrity.map(keyword => `${keyword}:${classifyPracticalIntentGroup(keyword, 'entertainment')}`).join(', '));
 
 const keywordAnalysisHandler = fs.readFileSync(
   path.join(__dirname, '..', '..', 'main', 'handlers', 'keyword-analysis.ts'),

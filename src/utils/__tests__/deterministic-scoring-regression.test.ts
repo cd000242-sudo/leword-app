@@ -26,6 +26,7 @@ const forbidden = [
   { label: 'random recommendation score', re: /estimatedScore\s*\+=\s*[^;\n]*Math\.random/ },
   { label: 'random volume estimate', re: /(searchVolume|publishVolume):\s*[^,\n]*Math\.random/ },
   { label: 'random score field', re: /(score|confidence|wordCount):\s*[^,\n]*Math\.random/ },
+  { label: 'direct random call', re: /Math\.random\(\)/ },
   { label: 'index-based SSS', re: /index\s*[<=>][^;\n]*['"]SSS['"]/ },
 ];
 

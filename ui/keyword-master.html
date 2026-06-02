@@ -1716,6 +1716,20 @@
 
       window.__goldenProfileCategoryState = { profile: null, categories: [] };
 
+      const BLOGGER_PROFILE_CATEGORY_PRIORITY = [
+        'policy', 'celeb', 'finance', 'health', 'education', 'sidejob', 'realestate', 'it',
+      ];
+
+      function prioritizeBloggerProfileCategories(categories) {
+        const priority = new Map(BLOGGER_PROFILE_CATEGORY_PRIORITY.map((id, index) => [id, index]));
+        return [...(categories || [])].sort((a, b) => {
+          const ai = priority.has(a?.id) ? priority.get(a.id) : 999;
+          const bi = priority.has(b?.id) ? priority.get(b.id) : 999;
+          if (ai !== bi) return ai - bi;
+          return String(a?.label || a?.id || '').localeCompare(String(b?.label || b?.id || ''), 'ko-KR');
+        });
+      }
+
       function goldenProfileCategoryRows(profile, cats) {
         const selected = Array.isArray(profile?.selectedCategories) ? profile.selectedCategories.slice(0, 1) : [];
         const byId = new Map((cats || []).map(c => [String(c.id), c]));
@@ -1815,7 +1829,7 @@
         const existing = document.getElementById('bloggerProfileModal');
         if (existing) existing.remove();
         const r = await window.electronAPI.invoke('blogger-profile-get');
-        const cats = r?.categories || [];
+        const cats = prioritizeBloggerProfileCategories(r?.categories || []);
         const profile = r?.profile || { selectedCategories: [], experienceLevel: 'beginner', dailyVisitors: 0 };
         const primaryCategoryId = Array.isArray(profile.selectedCategories) ? profile.selectedCategories[0] : '';
 

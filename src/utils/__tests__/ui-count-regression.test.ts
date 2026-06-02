@@ -108,6 +108,12 @@ assert('blogger profile and golden dropdown expose policy and celebrity categori
     && /스타\/연예 이슈/.test(bloggerProfile),
   'policy/star categories are not exposed in profile or golden UI');
 
+assert('blogger profile modal pins high-traffic policy and star categories first',
+  /const\s+BLOGGER_PROFILE_CATEGORY_PRIORITY\s*=\s*\[\s*'policy'\s*,\s*'celeb'/.test(html)
+    && /function\s+prioritizeBloggerProfileCategories/.test(html)
+    && /const\s+cats\s*=\s*prioritizeBloggerProfileCategories\(r\?\.categories\s*\|\|\s*\[\]\)/.test(html),
+  'profile modal does not prioritize policy/star categories for focused golden discovery');
+
 assert('PRO and home hunter category pickers expose policy and star intent paths',
   /value:\s*'policy',\s*label:\s*'[^']*정책·지원금'/.test(html)
     && /value:\s*'celeb',\s*label:\s*'[^']*연예\/이슈'/.test(html)

@@ -1,6 +1,7 @@
 import { calculateKinHoneyPotProfile, gradeQuestion } from '../naver-kin-golden-config';
 import {
   hasActionableHoneyDemand,
+  hasKinAnswerGap,
   getLatestHiddenSortScore,
   isActionableHoneyResult,
   isLatestHiddenHoneyCandidate,
@@ -69,6 +70,43 @@ assert('정렬 점수는 미노출 후보를 메인 노출 후보보다 우선�
 
 const overAnswered = { ...freshHotQuestion, answerCount: 4 };
 assert('답변 4개 이상은 최신 꿀통 후보에서 제외', !isLatestHiddenHoneyCandidate(overAnswered));
+
+const solvedButUnadoptedHighTraffic = {
+  ...freshHotQuestion,
+  title: '아이폰 배터리 교체 비용 얼마나 나오나요',
+  viewCount: 780,
+  answerCount: 3,
+  hoursAgo: 9,
+  viewsPerHour: 86.7,
+  answerQualityScore: 92,
+  questionIntentScore: 88,
+  honeyPotGrade: 'S',
+};
+assert('미채택이어도 이미 충분한 답변이 있으면 숨은 꿀통 공백이 아니다',
+  !hasKinAnswerGap(solvedButUnadoptedHighTraffic)
+    && !isLatestHiddenHoneyCandidate(solvedButUnadoptedHighTraffic)
+    && !isActionableHoneyResult(solvedButUnadoptedHighTraffic),
+  `${hasKinAnswerGap(solvedButUnadoptedHighTraffic)} ${isLatestHiddenHoneyCandidate(solvedButUnadoptedHighTraffic)} ${isActionableHoneyResult(solvedButUnadoptedHighTraffic)}`);
+
+const weakAnsweredHighTraffic = {
+  ...freshHotQuestion,
+  title: '아이폰 배터리 교체 비용과 예약 방법 알려주세요',
+  viewCount: 780,
+  answerCount: 2,
+  hoursAgo: 9,
+  viewsPerHour: 86.7,
+  answerQualityScore: 32,
+  questionIntentScore: 88,
+  honeyPotGrade: 'SS',
+};
+assert('조회 반응이 크고 기존 답변이 빈약하면 보강형 꿀질문으로 유지',
+  hasKinAnswerGap(weakAnsweredHighTraffic)
+    && isLatestHiddenHoneyCandidate(weakAnsweredHighTraffic)
+    && isActionableHoneyResult(weakAnsweredHighTraffic),
+  `${hasKinAnswerGap(weakAnsweredHighTraffic)} ${isLatestHiddenHoneyCandidate(weakAnsweredHighTraffic)} ${isActionableHoneyResult(weakAnsweredHighTraffic)}`);
+assert('정렬은 이미 충분한 답변보다 실제 답변 공백을 우선한다',
+  getLatestHiddenSortScore(weakAnsweredHighTraffic) > getLatestHiddenSortScore(solvedButUnadoptedHighTraffic),
+  `${getLatestHiddenSortScore(weakAnsweredHighTraffic)} <= ${getLatestHiddenSortScore(solvedButUnadoptedHighTraffic)}`);
 
 assert('B-grade candidate is not actionable even if it passes the loose latest gate',
   !isActionableHoneyResult({ ...freshHotQuestion, viewCount: 70, viewsPerHour: 8.8, honeyPotGrade: 'B' }));
