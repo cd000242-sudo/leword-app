@@ -48,6 +48,24 @@ assert('PRO category mode absorbs category-first golden discovery plan',
     && /\.\.\.categoryFirstGoldenSeeds,\s*\.\.\.categoryKeywords,\s*\.\.\.unifiedSeeds,\s*\.\.\.discoveryCategorySeeds/.test(source),
   'PRO must be a strict superset of golden category discovery seeds');
 
+assert('PRO category mode normalizes UI/profile aliases before dynamic and floor logic',
+  /import \{ getDiscoveryCategorySeeds, resolveDiscoveryCategoryIds \} from '\.\/category-discovery-map'/.test(source)
+    && /export function normalizeProTrafficCategory\(category: string \| undefined \| null\): string/.test(source)
+    && /const resolvedIds = resolveDiscoveryCategoryIds\(raw\)/.test(source)
+    && /category: rawCategory = 'all'/.test(source)
+    && /const category = normalizeProTrafficCategory\(rawCategory\)/.test(source)
+    && /DYNAMIC_CATEGORIES\.has\(category\)/.test(source)
+    && /buildCategoryFirstGoldenSeedPlan\(\{[\s\S]{0,120}category,/.test(source)
+    && /DYNAMIC_TREND_SEEDS\[category\]/.test(source),
+  'Korean labels such as 지원금/스타 can bypass policy/celeb PRO branches');
+
+assert('PRO premium gates and category matching use normalized category ids',
+  /const c = normalizeProTrafficCategory\(category\)/.test(source)
+    && /const cat = normalizeProTrafficCategory\(criteria\?\.category\)/.test(source)
+    && /cat = normalizeProTrafficCategory\(cat\)/.test(source)
+    && /const normalizedCategory = normalizeProTrafficCategory\(category\)/.test(source),
+  'raw category aliases still reach PRO gates or realtime status lookup');
+
 assert('PRO category mode only injects profile evergreen seeds for the focused category',
   /filterFocusedProfileCategoryIds/.test(source)
     && /const focusedProfileCategories = filterFocusedProfileCategoryIds\(category, profile\.selectedCategories\)/.test(source)

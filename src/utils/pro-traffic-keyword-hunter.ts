@@ -488,7 +488,7 @@ const PREMIUM_GOLDEN_MAX_DOCUMENT_COUNT = 50000;
 const PREMIUM_GOLDEN_GRADES = new Set(['SSS', 'SS', 'S']);
 
 function getProPremiumMinRatioForCategory(category: string): number {
-  const c = String(category || '');
+  const c = normalizeProTrafficCategory(category);
   if (c === 'lite_standard') return PREMIUM_GOLDEN_MIN_RATIO;
   if (c === 'celeb') return 0.25;
   if (c === 'fashion') return 0.4;
@@ -501,7 +501,7 @@ function getProPremiumMinRatioForCategory(category: string): number {
 }
 
 function getProPremiumMaxDocumentsForCategory(category: string): number {
-  const c = String(category || '');
+  const c = normalizeProTrafficCategory(category);
   if (c === 'lite_standard') return PREMIUM_GOLDEN_MAX_DOCUMENT_COUNT;
   if (c === 'celeb') return 1500000;
   if (c === 'fashion') return 120000;
@@ -555,6 +555,7 @@ function applyProTrafficSanityGrade(target: PremiumGrade, r: ProTrafficKeyword):
 }
 
 function computePremiumGrade(r: ProTrafficKeyword, category?: string): 'SSS' | 'SS' | 'S' | 'A' | null {
+  category = normalizeProTrafficCategory(category);
   const sv = typeof r.searchVolume === 'number' && Number.isFinite(r.searchVolume) ? r.searchVolume : 0;
   const dcRaw = typeof r.documentCount === 'number' && Number.isFinite(r.documentCount) ? r.documentCount : null;
   if (dcRaw === null) return null;
@@ -685,7 +686,7 @@ function computePremiumGradeStrict(r: ProTrafficKeyword, criteria?: { minRatio?:
   // 🎯 v2.40.4 — strict 진입 게이트도 P25 매칭
   if (sv < 100) return null;
   if (isGenericSingleToken(r.keyword)) return null;
-  const cat = criteria?.category;
+  const cat = normalizeProTrafficCategory(criteria?.category);
   if (cat === 'celeb') {
     if (gr < 0.05) return null;
   } else if (cat === 'life_tips') {
@@ -1356,7 +1357,7 @@ import {
   rankProTrafficSssFloorResults,
   selectProTrafficSssPromotionCandidates
 } from './pro-traffic-floor';
-import { getDiscoveryCategorySeeds } from './category-discovery-map';
+import { getDiscoveryCategorySeeds, resolveDiscoveryCategoryIds } from './category-discovery-map';
 import { getNaverBlogDocumentCount } from './naver-blog-api';
 import { classifyKeywordIntent } from './keyword-intent-classifier';
 import { getNaverSerpSignal } from './naver-serp-signal-api';
@@ -1368,6 +1369,24 @@ import {
 import { scanForSurges, listRecentSurges, type TrendSignal } from './pro-hunter-v12/trend-surge-detector';
 // 🔥 실시간 트렌드 제품명 주입 — Cross-source 집계 (Phase 1-3 + v2.13.0 H5 확장)
 import { aggregateBeautyTrendSeeds, aggregateFashionTrendSeeds, aggregateGenericCategorySeeds, summarizeTrendSeeds, type TrendSeed } from './sources/trend-seed-aggregator';
+
+const PRO_TRAFFIC_CATEGORY_ID_SET = new Set(CATEGORIES.map(cat => cat.id));
+
+export function normalizeProTrafficCategory(category: string | undefined | null): string {
+  const raw = String(category || 'all').trim();
+  if (!raw) return 'all';
+  if (PRO_TRAFFIC_CATEGORY_ID_SET.has(raw)) return raw;
+
+  const compact = raw.replace(/\s+/g, '');
+  if (PRO_TRAFFIC_CATEGORY_ID_SET.has(compact)) return compact;
+
+  const resolvedIds = resolveDiscoveryCategoryIds(raw);
+  for (const id of resolvedIds) {
+    if (PRO_TRAFFIC_CATEGORY_ID_SET.has(id)) return id;
+  }
+
+  return raw;
+}
 
 /**
  * 런타임 동적 시드 캐시 — 카테고리별 실시간 트렌드 제품명 보관
@@ -1424,7 +1443,8 @@ const TREND_STATUS: Record<string, RealtimeTrendStatus> = {};
  * 외부(UI)에서 조회 — "실시간 수집 실패" 배지 표시용
  */
 export function getRealtimeTrendStatus(category: string): RealtimeTrendStatus | null {
-  return TREND_STATUS[category] || null;
+  const normalizedCategory = normalizeProTrafficCategory(category);
+  return TREND_STATUS[normalizedCategory] || TREND_STATUS[category] || null;
 }
 
 const ENTERTAINMENT_DYNAMIC_CATEGORIES = ['celeb', 'broadcast', 'drama', 'movie', 'music'];
@@ -2728,7 +2748,7 @@ export async function huntProTrafficKeywords(options: {
   const {
     mode = 'realtime', // 🎯 기본: 실시간 이슈
     seedKeywords = [],
-    category = 'all',
+    category: rawCategory = 'all',
     targetRookie = true,
     includeSeasonKeywords = true,
     count: requestedCount = 20,
@@ -2738,6 +2758,10 @@ export async function huntProTrafficKeywords(options: {
     discoveryFirst = false,
     fastDiscovery: fastDiscoveryOption
   } = options;
+  const category = normalizeProTrafficCategory(rawCategory);
+  if (String(rawCategory || 'all').trim() !== category) {
+    console.log(`[PRO-TRAFFIC] 카테고리 alias 정규화: "${rawCategory}" → "${category}"`);
+  }
   const count = normalizeProTrafficResultCount(mode, requestedCount, 20);
   const fastDiscovery = fastDiscoveryOption ?? (discoveryFirst && count >= 50);
 
@@ -3058,6 +3082,7 @@ export async function huntProTrafficKeywords(options: {
   };
 
   const isKeywordInSelectedCategory = (keyword: string, cat: string): boolean => {
+    cat = normalizeProTrafficCategory(cat);
     if (!cat || cat === 'all' || cat === 'pro_premium' || cat === 'lite_standard') return true;
 
     // celeb/music: 전자제품 모델명 제외 (특수 케이스)
