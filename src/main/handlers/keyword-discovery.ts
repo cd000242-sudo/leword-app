@@ -230,11 +230,7 @@ export function setupKeywordDiscoveryHandlers(): void {
     const category = actualOptions.category || '';
     const categoryFirstMode = actualOptions.categoryFirst === true || !!category;
     if (actualOptions.requireCategory === true && !category) {
-      event.sender.send('keyword-discovery-progress', {
-        type: 'error',
-        message: '황금키워드 발굴은 카테고리를 먼저 선택해야 합니다.'
-      });
-      return { success: false, keywords: [], error: '카테고리를 먼저 선택해주세요.' };
+      console.warn('[KEYWORD-MASTER] requireCategory=true 요청이지만 카테고리가 없어 전체 카테고리 발굴로 전환합니다.');
     }
     const page = actualOptions.page || 0;
     const rawLimitValue = actualOptions.limit;

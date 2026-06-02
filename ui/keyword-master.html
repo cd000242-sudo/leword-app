@@ -3675,7 +3675,7 @@
     <div class="main-feature">
       <div class="golden-keyword-finder">
         <div style="display: flex; align-items: center; justify-content: center; gap: 12px; margin-bottom: 16px;">
-          <h2 style="margin: 0;">카테고리 황금키워드 발굴</h2>
+          <h2 style="margin: 0;">황금키워드 발굴</h2>
           <span onclick="showFeatureGuide('keyword-search');"
             style="width: 32px; height: 32px; background: rgba(255,255,255,0.2); border-radius: 50%; display: flex; align-items: center; justify-content: center; cursor: pointer; transition: all 0.2s; font-size: 16px;"
             onmouseover="this.style.background='rgba(255,255,255,0.3)'; this.style.transform='scale(1.1)'"
@@ -3684,7 +3684,7 @@
         <div class="keyword-input-section" style="display: flex; flex-direction: column; gap: 16px;">
           <div id="goldenProfileCategoryPanel"
             style="display:flex; align-items:center; justify-content:space-between; gap:12px; flex-wrap:wrap; padding:14px 16px; background:rgba(6,182,212,0.08); border:1px solid rgba(6,182,212,0.26); border-radius:14px;">
-            <div style="font-size:13px; font-weight:800; color:#67e8f9;">🎯 집중 카테고리 · 1개씩 깊게 발굴</div>
+            <div style="font-size:13px; font-weight:800; color:#67e8f9;">🎯 카테고리 선택 시 집중 발굴 · 미선택 시 전체 카테고리 탐색</div>
             <button onclick="openBloggerProfileModal()"
               style="height:36px; padding:0 14px; border:none; border-radius:10px; background:linear-gradient(135deg,#06b6d4,#3b82f6); color:white; font-size:12px; font-weight:800; cursor:pointer;">내 블로그 설정</button>
           </div>
@@ -3701,10 +3701,10 @@
             </div>
             <div style="order: 1;">
               <label
-                style="display: block; margin-bottom: 8px; font-size: 13px; font-weight: 600; color: rgba(255, 255, 255, 0.7); text-transform: uppercase; letter-spacing: 0.5px;">1. 카테고리</label>
+                style="display: block; margin-bottom: 8px; font-size: 13px; font-weight: 600; color: rgba(255, 255, 255, 0.7); text-transform: uppercase; letter-spacing: 0.5px;">1. 카테고리 <span style="font-size: 11px; color: rgba(255,255,255,0.42); text-transform:none; letter-spacing:0;">선택</span></label>
               <select id="keywordCategory"
                 style="width: 100%; padding: 14px 18px; border: 2px solid rgba(96, 165, 250, 0.3); border-radius: 12px; font-size: 15px; font-weight: 600; background: rgba(30, 41, 59, 0.8); color: #ffffff;">
-                <option value="" disabled selected style="background: #ffffff; color: #1e293b; font-weight: 700;">카테고리 먼저 선택</option>
+                <option value="" selected style="background: #ffffff; color: #1e293b; font-weight: 700;">전체 카테고리에서 찾기</option>
                 <optgroup id="keywordProfileCategoryGroup" label="🎯 내 블로그 집중 카테고리" style="background: #ecfeff; color: #0f172a; font-weight: 800;"></optgroup>
                 <optgroup label="📰 뉴스/시사" style="background: #f8fafc; color: #1e293b; font-weight: 700;">
                   <option value="정치" style="background: #ffffff; color: #1e293b;">정치</option>
@@ -3819,7 +3819,7 @@
               <label
                 style="display: block; margin-bottom: 8px; font-size: 13px; font-weight: 600; color: rgba(255, 255, 255, 0.7); text-transform: uppercase; letter-spacing: 0.5px;">2. 보강 키워드
                 <span style="font-size: 11px; color: rgba(255,255,255,0.42); text-transform:none; letter-spacing:0;">선택</span></label>
-              <input type="text" id="keywordInput" placeholder="비워두면 선택 카테고리 전체에서 발굴"
+              <input type="text" id="keywordInput" placeholder="키워드를 넣으면 전체/선택 카테고리에서 분석 · 비워두면 전체 발굴"
                 style="width: 100%; padding: 18px 24px; border: 2px solid rgba(96, 165, 250, 0.3); border-radius: 12px; font-size: 16px; background: rgba(30, 41, 59, 0.8); color: #ffffff; transition: all 0.3s ease;"
                 onkeypress="if(event.key === 'Enter') startKeywordDiscovery()"
                 onfocus="this.style.borderColor='#60a5fa'; this.style.boxShadow='0 0 0 4px rgba(96, 165, 250, 0.2)'; this.style.background='rgba(30, 41, 59, 1)';"
@@ -6480,16 +6480,14 @@
           const keyword = document.getElementById('keywordInput')?.value.trim() || '';
           const categorySelect = document.getElementById('keywordCategory');
           const category = categorySelect?.value || '';
-          const categoryLabel = categorySelect?.selectedOptions?.[0]?.textContent?.trim() || category;
-          const discoveryKeyword = keyword || `category:${category || 'none'}`;
+          const categoryLabel = category
+            ? (categorySelect?.selectedOptions?.[0]?.textContent?.trim() || category)
+            : '전체 카테고리';
+          const discoveryScopeLabel = category ? `${categoryLabel} 카테고리` : '전체 카테고리';
+          const discoveryKeyword = keyword || `category:${category || 'all'}`;
 
           // 전역 변수에 현재 키워드 저장 (중지 시 참조용)
           currentDiscoveryKeyword = discoveryKeyword;
-
-          if (!category) {
-            alert('먼저 황금키워드를 발굴할 카테고리를 선택해주세요');
-            return;
-          }
 
           // 🔥 프로그레스 활성화
           window.keywordExpansionProgress.isRunning = true;
@@ -6606,7 +6604,9 @@
 
           // 초기 상태 설정
           if (statusText) {
-            statusText.textContent = `${categoryLabel} 카테고리 하나를 깊게 발굴합니다...`;
+            statusText.textContent = category
+              ? `${categoryLabel} 카테고리 하나를 깊게 발굴합니다...`
+              : '전체 카테고리에서 입력 키워드 중심으로 발굴합니다...';
           }
 
           // 진행률 초기화
@@ -6623,7 +6623,7 @@
             progressStatus.textContent = '준비 중...';
           }
 
-          resultsDiv.innerHTML = `<div class="loading" style="padding: 20px; text-align: center; color: #667eea;">⏳ ${categoryLabel} 카테고리에서 황금키워드를 발굴하고 있습니다...</div>`;
+          resultsDiv.innerHTML = `<div class="loading" style="padding: 20px; text-align: center; color: #667eea;">⏳ ${discoveryScopeLabel}에서 황금키워드를 발굴하고 있습니다...</div>`;
           const logsDiv = document.getElementById('progressLogs');
           if (logsDiv) {
             logsDiv.innerHTML = '';
@@ -6635,7 +6635,7 @@
           }
           window.lewordLastGoldenDiscoveryProgressLog = '';
           if (typeof window.addProgressLog === 'function') {
-            window.addProgressLog(`🚀 ${categoryLabel} 카테고리 황금키워드 발굴 시작`, 'info');
+            window.addProgressLog(`🚀 ${discoveryScopeLabel} 황금키워드 발굴 시작`, 'info');
           }
           if (quickPreview && typeof window.addProgressLog === 'function') {
             window.addProgressLog(`⚡ 빠른 샘플 모드: ${maxCount}개만 먼저 검증합니다.`, 'info');
@@ -6710,8 +6710,8 @@
             const finalResults = await window.blogger.findGoldenKeywords(keyword, {
               source: source,
               category: category,
-              categoryFirst: true,
-              requireCategory: true,
+              categoryFirst: !!category,
+              requireCategory: false,
               quickPreview,
               limit: maxCount === null ? 1000 : maxCount // 무제한일 경우 기본 1000개 (백엔드 로직에 따라 조절)
             });
@@ -6774,7 +6774,7 @@
               }
               resultsDiv.innerHTML = `<div style="padding: 20px; background: #fef3c7; border-radius: 12px; color: #92400e; text-align: center;">
                 <div style="font-size: 18px; font-weight: 700; margin-bottom: 12px;">🔍 키워드를 찾을 수 없습니다</div>
-                <div style="margin-bottom: 12px;">"${categoryLabel}" 카테고리에서 조건에 맞는 키워드를 찾을 수 없습니다.</div>
+                <div style="margin-bottom: 12px;">${discoveryScopeLabel}에서 조건에 맞는 키워드를 찾을 수 없습니다.</div>
                 <div style="font-size: 14px; color: #78350f;">다른 키워드로 시도해보시거나 네이버 API 키 설정을 확인해주세요.</div>
               </div>`;
             }

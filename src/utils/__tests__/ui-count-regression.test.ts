@@ -104,14 +104,19 @@ assert('PRO traffic requires one category before category hunting',
     && /requestedMode\s*===\s*'category'[\s\S]*requestedCategory\s*===\s*'all'/.test(premiumHunting),
   'PRO traffic category guard missing');
 
-assert('golden discovery UI requires category-first selection',
-  /<option\s+value=""\s+disabled\s+selected[^>]*>카테고리 먼저 선택<\/option>/.test(html)
-    && /먼저 황금키워드를 발굴할 카테고리를 선택해주세요/.test(html),
-  'category-first prompt or guard is missing');
+assert('golden discovery category picker is optional and defaults to all categories',
+  /<option\s+value=""\s+selected[^>]*>전체 카테고리에서 찾기<\/option>/.test(html)
+    && /카테고리 선택 시 집중 발굴/.test(html)
+    && /키워드를 넣으면 전체\/선택 카테고리에서 분석/.test(html)
+    && !/먼저 황금키워드를 발굴할 카테고리를 선택해주세요/.test(html),
+  'golden discovery still requires category selection');
 
-assert('golden discovery sends category-first mode to backend',
-  /categoryFirst:\s*true/.test(html) && /requireCategory:\s*true/.test(html),
-  'category-first backend flags missing');
+assert('golden discovery sends optional category mode to backend',
+  /categoryFirst:\s*!!category/.test(html)
+    && /requireCategory:\s*false/.test(html)
+    && /requireCategory=true 요청이지만 카테고리가 없어 전체 카테고리 발굴로 전환/.test(keywordDiscovery)
+    && !/return\s*\{\s*success:\s*false,\s*keywords:\s*\[\],\s*error:\s*'카테고리를 먼저 선택해주세요\.'/.test(keywordDiscovery),
+  'optional category backend flow is missing');
 
 assert('golden discovery sends quick preview flag for 10-result sample mode',
   /const\s+quickPreview\s*=\s*maxCount\s*!==\s*null\s*&&\s*maxCount\s*>\s*0\s*&&\s*maxCount\s*<\s*30/.test(html)
