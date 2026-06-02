@@ -35,6 +35,23 @@ export interface MindmapMeasuredKeywordItem {
   depth: number;
 }
 
+export function isMindmapDisplayMetric(item: MindmapMeasuredKeywordItem): boolean {
+  if (!item?.keyword) return false;
+  if (item.isSeed) return true;
+  const upper = item.searchVolumeUpperBound ?? item.searchVolume ?? 0;
+  return item.documentCount > 0
+    && item.searchVolumeKnown === true
+    && upper > 0;
+}
+
+export function isMindmapExpansionSeedMetric(item: MindmapMeasuredKeywordItem): boolean {
+  if (!item?.keyword || item.isSeed) return false;
+  if (!item.searchVolumeKnown || item.documentCount <= 0) return false;
+  const upper = item.searchVolumeUpperBound ?? item.searchVolume ?? 0;
+  if (upper < 30) return false;
+  return item.grade !== 'C';
+}
+
 export function compactMindmapKeyword(keyword: string): string {
   return String(keyword || '').toLowerCase().replace(/[\s+]+/g, '').trim();
 }

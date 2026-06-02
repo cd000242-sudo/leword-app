@@ -64,7 +64,40 @@ function unique<T>(arr: T[]): T[] {
     return Array.from(new Set(arr.filter(Boolean)));
 }
 
-function detectIntent(keyword: string, category?: string): 'policy' | 'commerce' | 'travel' | 'entertainment' | 'health' | 'general' {
+type HomeIntent = 'policy' | 'commerce' | 'travel' | 'entertainment' | 'health' | 'general';
+
+function detectCategoryIntent(category?: string): HomeIntent | null {
+    const raw = cleanKeyword(category || '');
+    const c = raw.toLowerCase().replace(/[\s_-]+/g, '');
+    if (!c) return null;
+
+    if (['policy', 'subsidy', 'support'].includes(c) || /(지원금|정책|복지|보조금|급여|수당)/.test(raw)) {
+        return 'policy';
+    }
+    if (['celeb', 'celebrity', 'star', 'entertainment', 'culture', 'movie', 'drama', 'broadcast', 'music', 'book', 'game'].includes(c)
+        || /(스타|연예|엔터|문화|방송|드라마|영화|ott|가수|배우)/i.test(raw)) {
+        return 'entertainment';
+    }
+    if (['travel', 'traveldomestic', 'traveloverseas', 'camping'].includes(c) || /(여행|숙박|캠핑|나들이)/.test(raw)) {
+        return 'travel';
+    }
+    if (['health', 'senior'].includes(c) || /(건강|운동|시니어|노후)/.test(raw)) {
+        return 'health';
+    }
+    if (['shopping', 'commerce', 'beauty', 'fashion', 'food', 'recipe', 'it', 'smartphone', 'laptop', 'car', 'auto'].includes(c)
+        || /(쇼핑|뷰티|화장품|패션|맛집|요리|자동차|차량|가전|디지털|it)/i.test(raw)) {
+        return 'commerce';
+    }
+    if (['finance', 'business', 'career', 'sidejob', 'realestate', 'living', 'interior', 'parenting', 'pregnancy', 'education', 'wedding', 'issue', 'general'].includes(c)) {
+        return 'general';
+    }
+    return null;
+}
+
+function detectIntent(keyword: string, category?: string): HomeIntent {
+    const categoryIntent = detectCategoryIntent(category);
+    if (categoryIntent) return categoryIntent;
+
     const text = `${keyword} ${category || ''}`;
     if (POLICY_RE.test(text)) return 'policy';
     if (TRAVEL_RE.test(text)) return 'travel';
@@ -73,8 +106,6 @@ function detectIntent(keyword: string, category?: string): 'policy' | 'commerce'
     if (COMMERCE_RE.test(text)) return 'commerce';
     return 'general';
 }
-
-type HomeIntent = ReturnType<typeof detectIntent>;
 
 const HOME_TITLE_ACTION_RULES: Record<HomeIntent, RegExp[]> = {
     policy: [

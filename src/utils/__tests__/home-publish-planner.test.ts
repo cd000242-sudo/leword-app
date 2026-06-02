@@ -6,6 +6,10 @@
  */
 
 import { buildHomePublishPlan, scoreHomePanelTitleNeed } from '../pro-hunter-v12/home-publish-planner';
+import {
+  expandHomeNeedKeywords,
+  HOME_HUNTER_MIN_SPLUS_RESULTS,
+} from '../pro-hunter-v12/home-keyword-intent';
 
 let passed = 0;
 let failed = 0;
@@ -126,6 +130,83 @@ assert('플래너는 결정적이다', again.primaryTitle === buildHomePublishPl
   vacancySlots: 6,
   daysSinceFirstAppear: 2,
 }).primaryTitle, again.primaryTitle);
+
+const categoryOnlyPolicyPlan = buildHomePublishPlan({
+  keyword: '6월 신청 체크리스트',
+  category: 'policy',
+  homeScore: 78,
+  qualityScore: 82,
+  vacancySlots: 6,
+  influencerCount: 1,
+  bigDomainCount: 1,
+  surgeRatio: 1.8,
+  daysSinceFirstAppear: 2,
+});
+
+assert('카테고리만 policy여도 신청/대상/서류형 홈판 제목으로 만든다',
+  /신청|대상|자격|서류|공식|조회|변경/.test(categoryOnlyPolicyPlan.primaryTitle),
+  categoryOnlyPolicyPlan.primaryTitle);
+assert('카테고리만 policy여도 정책 글감 필수 항목을 제공한다',
+  categoryOnlyPolicyPlan.mustInclude.includes('신청 대상') && categoryOnlyPolicyPlan.mustInclude.includes('공식 확인 경로'),
+  categoryOnlyPolicyPlan.mustInclude.join(','));
+
+const categoryOnlyCelebrityPlan = buildHomePublishPlan({
+  keyword: '6월 공개 일정 체크리스트',
+  category: 'celebrity',
+  homeScore: 78,
+  qualityScore: 82,
+  vacancySlots: 6,
+  influencerCount: 1,
+  bigDomainCount: 1,
+  surgeRatio: 1.8,
+  daysSinceFirstAppear: 2,
+});
+
+assert('카테고리만 celebrity여도 연예/이슈형 홈판 제목으로 만든다',
+  /출연진|회차|다시보기|최신 반응|줄거리|일정/.test(categoryOnlyCelebrityPlan.primaryTitle),
+  categoryOnlyCelebrityPlan.primaryTitle);
+assert('카테고리만 celebrity여도 연예 글감 필수 항목을 제공한다',
+  categoryOnlyCelebrityPlan.mustInclude.includes('출연진') && categoryOnlyCelebrityPlan.mustInclude.includes('다시보기'),
+  categoryOnlyCelebrityPlan.mustInclude.join(','));
+
+const homePlanScenarios = [
+  { category: 'policy', seed: '소상공인 지원금' },
+  { category: 'celebrity', seed: '넷플릭스 가족 영화' },
+  { category: 'living', seed: '장마철 빨래 냄새' },
+];
+
+for (const scenario of homePlanScenarios) {
+  const expanded = expandHomeNeedKeywords(
+    scenario.seed,
+    scenario.category,
+    HOME_HUNTER_MIN_SPLUS_RESULTS,
+  );
+  const plans = expanded.map(item => buildHomePublishPlan({
+    keyword: item.keyword,
+    category: scenario.category,
+    searchVolume: 2400,
+    documentCount: 1200,
+    homeScore: 78,
+    qualityScore: 82,
+    vacancySlots: 6,
+    influencerCount: 1,
+    bigDomainCount: 1,
+    surgeRatio: 1.8,
+    daysSinceFirstAppear: 2,
+    titleCandidates: [],
+  }));
+
+  assert(`${scenario.category} S+ 홈판 후보 30개가 모두 발행 판단까지 이어진다`,
+    plans.length >= HOME_HUNTER_MIN_SPLUS_RESULTS
+      && plans.every(plan => ['PUBLISH_NOW', 'WRITE_TODAY'].includes(plan.status)),
+    plans.map(plan => `${plan.status}:${plan.primaryTitle}`).slice(0, 8).join(' | '));
+  assert(`${scenario.category} S+ 홈판 후보 30개가 제목 3개 이상을 제공한다`,
+    plans.length >= HOME_HUNTER_MIN_SPLUS_RESULTS && plans.every(plan => plan.titleOptions.length >= 3),
+    plans.map(plan => `${plan.titleOptions.length}:${plan.primaryTitle}`).slice(0, 8).join(' | '));
+  assert(`${scenario.category} S+ 홈판 후보 문단은 노출 보장을 말하지 않는다`,
+    plans.every(plan => !/보장|확정/.test(plan.firstParagraph)),
+    plans.map(plan => plan.firstParagraph).slice(0, 3).join(' | '));
+}
 
 console.log(`\n[home-publish-planner.test] passed: ${passed} / failed: ${failed}`);
 if (failed > 0) {

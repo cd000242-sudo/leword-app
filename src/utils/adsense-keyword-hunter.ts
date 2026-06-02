@@ -225,6 +225,17 @@ export interface AdsenseApprovalContentClusterItem {
     angle: string;
 }
 
+export interface AdsenseApprovalReadiness {
+    ready: boolean;
+    score: number;
+    requiredFamilies: string[];
+    satisfiedFamilies: string[];
+    missingFamilies: string[];
+    uniqueIntentCount: number;
+    clusterSize: number;
+    summary: string;
+}
+
 export interface AdsenseApprovalProfile {
     score: number;                       // 0~100, 승인용 종합 점수
     grade: AdsenseApprovalGrade;
@@ -237,6 +248,8 @@ export interface AdsenseApprovalProfile {
     contentDepthScore: number;
     seriesPotentialScore: number;
     originalityScore: number;
+    readinessScore: number;
+    approvalReadiness: AdsenseApprovalReadiness;
     titleCandidates: string[];
     contentAngles: string[];
     contentCluster: AdsenseApprovalContentClusterItem[];
@@ -2003,7 +2016,85 @@ export function buildAdsenseApprovalContentCluster(
         items.push(item);
         if (items.length >= safeLimit) break;
     }
+
+    const minimumApprovalClusterSize = Math.min(safeLimit, 8);
+    if (items.length < minimumApprovalClusterSize) {
+        const fallbackTemplates: Array<{ suffix: string; intent: AdsenseApprovalClusterIntent; angle: string }> = [
+            { suffix: '핵심 질문', intent: 'faq', angle: '승인용 본문에서 독자가 바로 묻는 질문을 답변형으로 정리' },
+            { suffix: '체크리스트', intent: 'checklist', angle: '글 하나로 끝나지 않도록 확인 항목을 표와 목록으로 확장' },
+            { suffix: '대상 조건', intent: 'eligibility', angle: '적용되는 사람과 제외되는 상황을 분리해 원본성 확보' },
+            { suffix: '진행 순서', intent: 'process', angle: '처음부터 끝까지 따라갈 수 있는 절차형 글감으로 구성' },
+            { suffix: '준비물', intent: 'documents', angle: '필요 자료와 확인 경로를 묶어 충분한 본문 분량 확보' },
+            { suffix: '비교 기준', intent: 'comparison', angle: '비슷한 선택지와 차이를 비교해 단순 요약을 피함' },
+            { suffix: '주의사항', intent: 'mistakes', angle: '초보자가 놓치는 실수와 예외를 별도 글감으로 분리' },
+            { suffix: '최신 변경', intent: 'followup', angle: '기준 변경과 업데이트 포인트를 추적하는 후속 글감' },
+        ];
+
+        for (const tpl of fallbackTemplates) {
+            const item = makeClusterItem(items.length + 1, base, tpl.suffix, tpl.intent, tpl.angle);
+            const key = item.keyword.replace(/\s+/g, '').toLowerCase();
+            if (seen.has(key)) continue;
+            seen.add(key);
+            items.push(item);
+            if (items.length >= minimumApprovalClusterSize) break;
+        }
+    }
     return items.map((item, index) => ({ ...item, order: index + 1 }));
+}
+
+const ADSENSE_APPROVAL_READINESS_FAMILIES: Array<{
+    id: string;
+    intents: AdsenseApprovalClusterIntent[];
+}> = [
+    { id: 'overview', intents: ['overview'] },
+    { id: 'action', intents: ['eligibility', 'process'] },
+    { id: 'evidence', intents: ['documents', 'checklist'] },
+    { id: 'differentiation', intents: ['mistakes', 'comparison', 'faq'] },
+    { id: 'continuity', intents: ['deadline', 'followup', 'faq'] },
+];
+
+export function evaluateAdsenseApprovalReadiness(
+    cluster: AdsenseApprovalContentClusterItem[],
+): AdsenseApprovalReadiness {
+    const items = Array.isArray(cluster) ? cluster : [];
+    const intents = new Set<AdsenseApprovalClusterIntent>(
+        items.map(item => item.intent).filter(Boolean) as AdsenseApprovalClusterIntent[],
+    );
+    const requiredFamilies = ADSENSE_APPROVAL_READINESS_FAMILIES.map(f => f.id);
+    const satisfiedFamilies = ADSENSE_APPROVAL_READINESS_FAMILIES
+        .filter(f => f.intents.some(intent => intents.has(intent)))
+        .map(f => f.id);
+    const missingFamilies = requiredFamilies.filter(id => !satisfiedFamilies.includes(id));
+    const uniqueIntentCount = intents.size;
+
+    let score = 0;
+    score += Math.min(40, items.length * 4);
+    score += satisfiedFamilies.length * 10;
+    score += Math.min(10, uniqueIntentCount * 2);
+    if (items.length >= 8) score += 10;
+    else score -= (8 - items.length) * 4;
+    if (missingFamilies.length === 0) score += 8;
+    else score -= missingFamilies.length * 6;
+    score = clampScore(score);
+
+    const ready =
+        items.length >= 8
+        && uniqueIntentCount >= 5
+        && satisfiedFamilies.length >= 4
+        && missingFamilies.length <= 1;
+
+    return {
+        ready,
+        score,
+        requiredFamilies,
+        satisfiedFamilies,
+        missingFamilies,
+        uniqueIntentCount,
+        clusterSize: items.length,
+        summary: ready
+            ? `승인용 글감 ${items.length}개 · 의도 ${uniqueIntentCount}종 · 준비도 ${score}`
+            : `승인용 글감 부족: ${missingFamilies.join(', ') || 'cluster'} · ${items.length}개/${uniqueIntentCount}종`,
+    };
 }
 
 export function calculateAdsenseApprovalProfile(input: {
@@ -2031,7 +2122,8 @@ export function calculateAdsenseApprovalProfile(input: {
     const safetyFitScore = scoreApprovalSafety(input);
     const contentDepthScore = scoreApprovalContentDepth(input.keyword, input.writable, input.zeroClickRisk);
     const contentCluster = buildAdsenseApprovalContentCluster(input.keyword, input.category, 10);
-    const clusterSeriesBonus = contentCluster.length >= 8 ? 10 : contentCluster.length >= 5 ? 4 : -12;
+    const approvalReadiness = evaluateAdsenseApprovalReadiness(contentCluster);
+    const clusterSeriesBonus = approvalReadiness.ready ? 12 : contentCluster.length >= 8 ? 6 : contentCluster.length >= 5 ? 2 : -12;
     const seriesPotentialScore = clampScore(scoreApprovalSeriesPotential(input.keyword, input.category) + clusterSeriesBonus);
     const originalityScore = scoreApprovalOriginality(input.keyword, input.category);
     const crossValidationBonus = Math.min(5, input.crossValidation?.score || 0);
@@ -2054,6 +2146,7 @@ export function calculateAdsenseApprovalProfile(input: {
     if (input.ymylRisk !== 'low') risks.push(`YMYL ${input.ymylRisk === 'high' ? '고위험' : '주의'}`);
     if (input.zeroClickRisk.level === 'high') risks.push('AI 요약형 0클릭 위험 높음');
     if (originalityScore < 45) risks.push('원본성 낮음: 단답/프로필/복붙형 주제');
+    if (!approvalReadiness.ready) risks.push(`승인용 글감 준비도 부족: ${approvalReadiness.missingFamilies.join(', ') || approvalReadiness.summary}`);
     if (searchIntent.primary === 'transactional') risks.push('거래형 의도: 승인용보다 구매/쇼핑 글감에 가까움');
     else if (searchIntent.primary === 'commercial') risks.push('상업조사 의도: 승인용 최상단보다 PRO/리뷰 글감에 가까움');
     else if (searchIntent.primary === 'navigational') risks.push('항해형 의도: 특정 사이트 이동 목적이라 승인용 글감으로 약함');
@@ -2067,12 +2160,14 @@ export function calculateAdsenseApprovalProfile(input: {
     if (input.searchVolume > 30000) score = Math.min(score, 82);
     if (input.documentCount > 200000) score = Math.min(score, 62);
     if (originalityScore < 45) score = Math.min(score, 58);
+    if (!approvalReadiness.ready || approvalReadiness.score < 65) score = Math.min(score, 68);
+    else if (approvalReadiness.score < 75) score = Math.min(score, 78);
     if (!input.writable) score = Math.min(score, 35);
     score = clampScore(score);
 
     let grade: AdsenseApprovalGrade = 'B';
-    if (score >= 85 && measured && originalityScore >= 60 && input.ymylRisk === 'low' && input.safety !== 'danger') grade = 'S+';
-    else if (score >= 75 && measured && originalityScore >= 55 && input.safety !== 'danger') grade = 'S';
+    if (score >= 85 && measured && originalityScore >= 60 && approvalReadiness.ready && approvalReadiness.score >= 75 && input.ymylRisk === 'low' && input.safety !== 'danger') grade = 'S+';
+    else if (score >= 75 && measured && originalityScore >= 55 && approvalReadiness.ready && approvalReadiness.score >= 65 && input.safety !== 'danger') grade = 'S';
     else if (score >= 65) grade = 'A';
 
     const reasons: string[] = [];
@@ -2083,6 +2178,7 @@ export function calculateAdsenseApprovalProfile(input: {
     if (contentDepthScore >= 75) reasons.push('글감 깊이 충분');
     if (seriesPotentialScore >= 70) reasons.push('시리즈 확장 가능');
     if (originalityScore >= 70) reasons.push('원본성 각도 충분');
+    if (approvalReadiness.ready) reasons.push('승인용 글감 묶음 충분');
 
     return {
         score,
@@ -2098,6 +2194,8 @@ export function calculateAdsenseApprovalProfile(input: {
         contentDepthScore,
         seriesPotentialScore,
         originalityScore,
+        readinessScore: approvalReadiness.score,
+        approvalReadiness,
         titleCandidates: buildApprovalTitles(input.keyword, input.category),
         contentAngles: buildApprovalAngles(input.keyword, input.category),
         contentCluster,
@@ -3957,6 +4055,8 @@ function finalizeAdsenseResults(
         if (opts.excludeYmylHigh && k.ymylRisk === 'high') return false;
         if (k.infoIntentScore < opts.minInfoIntent) return false;
         if (k.approvalScore < opts.minApprovalScore) return false;
+        const readiness = k.approvalProfile?.approvalReadiness;
+        if (!readiness || !readiness.ready || (readiness.score || 0) < 65) return false;
         if (adjustedMinRevenue > 0 && k.estimatedMonthlyRevenue < adjustedMinRevenue) return false;
         return true;
     });

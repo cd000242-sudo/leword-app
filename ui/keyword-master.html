@@ -19076,6 +19076,8 @@
               if (k.valueGate?.isKilled) return false;
               const approvalScore = k.approvalScore ?? k.approvalProfile?.score ?? 0;
               if (approvalScore < minApprovalScore) return false;
+              const readiness = k.approvalProfile?.approvalReadiness;
+              if (!readiness || readiness.ready !== true || (readiness.score || 0) < 65) return false;
               if ((approvalGradeRank[k.approvalGrade] || 0) < (approvalGradeRank[minApprovalGrade] || 0)) return false;
               if (excludeYmylHigh && k.ymylRisk === 'high') return false;
               if (k.safety === 'danger') return false;

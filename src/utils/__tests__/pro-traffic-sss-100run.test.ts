@@ -12,6 +12,7 @@ import {
   countProTrafficSss,
   getProTrafficCategoryMiningPoolSize,
   getProTrafficFinalRerankPoolSize,
+  isProTrafficDataValidSss,
   normalizeProTrafficResultCount,
   rankProTrafficSssFloorResults,
   selectProTrafficSssPromotionCandidates,
@@ -237,6 +238,54 @@ const promoted250 = selectProTrafficSssPromotionCandidates(
 assert('PRO 250 mode keeps scanning until 250 SSS-eligible candidates are found',
   promoted250.length === 250,
   `${promoted250.length}`);
+
+const invalidLabeledSss = Array.from({ length: 40 }, (_, i): ProFixtureKeyword => ({
+  keyword: `invalid labeled sss metric gap ${i + 1}`,
+  grade: 'SSS',
+  category: 'policy',
+  searchVolume: i % 2 === 0 ? 0 : 1900,
+  documentCount: i % 2 === 0 ? 700 : 0,
+  goldenRatio: i % 2 === 0 ? 0 : 2.7,
+  totalScore: 100,
+  profitAnalysis: {
+    profitGoldenRatio: 50,
+    estimatedMonthlyRevenue: 90000,
+    purchaseIntentScore: 99,
+  },
+  revenueEstimate: {
+    estimatedCPC: 900,
+    revenueGrade: 'SSS',
+  },
+}));
+const validAfterInvalid = Array.from({ length: 36 }, (_, i): ProFixtureKeyword => ({
+  keyword: `valid measured sss after invalid ${i + 1}`,
+  grade: 'SSS',
+  category: 'policy',
+  searchVolume: 1600 + i,
+  documentCount: 500 + i,
+  goldenRatio: Number(((1600 + i) / (500 + i)).toFixed(2)),
+  totalScore: 92 - i * 0.01,
+  profitAnalysis: {
+    profitGoldenRatio: 24,
+    estimatedMonthlyRevenue: 70000,
+    purchaseIntentScore: 88,
+  },
+  revenueEstimate: {
+    estimatedCPC: 620,
+    revenueGrade: 'SSS',
+  },
+}));
+const rankedMeasuredOnly = rankProTrafficSssFloorResults(
+  [...invalidLabeledSss, ...validAfterInvalid],
+  30,
+  true,
+);
+assert('PRO SSS floor ignores invalid zero-metric SSS labels',
+  rankedMeasuredOnly.length === PRO_TRAFFIC_CATEGORY_SSS_FLOOR
+    && countProTrafficSss(rankedMeasuredOnly) === PRO_TRAFFIC_CATEGORY_SSS_FLOOR
+    && rankedMeasuredOnly.every(isProTrafficDataValidSss)
+    && rankedMeasuredOnly.every(item => item.keyword.startsWith('valid measured sss')),
+  rankedMeasuredOnly.map(item => `${item.keyword}:${item.searchVolume}/${item.documentCount}/${item.goldenRatio}`).join(' | '));
 
 const requestedCounts = [10, 30, 50, 100, 250];
 

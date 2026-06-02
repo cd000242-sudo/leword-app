@@ -88,7 +88,7 @@ function gradeRank(grade: unknown): number {
 }
 
 export function countProTrafficSss<T extends ProTrafficFloorLike>(items: T[]): number {
-  return (items || []).filter(item => String(item.grade || '').toUpperCase() === 'SSS').length;
+  return (items || []).filter(item => isProTrafficDataValidSss(item)).length;
 }
 
 function hasPositiveMeasuredMetrics(item: ProTrafficFloorLike): boolean {
@@ -98,6 +98,17 @@ function hasPositiveMeasuredMetrics(item: ProTrafficFloorLike): boolean {
     && item.documentCount > 0
     && typeof item.goldenRatio === 'number'
     && item.goldenRatio > 0;
+}
+
+export function isProTrafficDataValidSss(item: ProTrafficFloorLike): boolean {
+  return String(item?.grade || '').toUpperCase() === 'SSS'
+    && hasPositiveMeasuredMetrics(item);
+}
+
+function effectiveGradeRank(item: ProTrafficFloorLike): number {
+  const rank = gradeRank(item.grade);
+  if (rank >= 4 && !hasPositiveMeasuredMetrics(item)) return 1;
+  return rank;
 }
 
 export function selectProTrafficSssPromotionCandidates<T extends ProTrafficFloorLike>(
@@ -142,7 +153,7 @@ export function rankProTrafficSssFloorResults<T extends ProTrafficFloorLike>(
   );
 
   const sorted = [...items].sort((a, b) => {
-    const gradeDiff = gradeRank(b.grade) - gradeRank(a.grade);
+    const gradeDiff = effectiveGradeRank(b) - effectiveGradeRank(a);
     if (gradeDiff !== 0) return gradeDiff;
 
     const ratioDiff = (b.goldenRatio || 0) - (a.goldenRatio || 0);

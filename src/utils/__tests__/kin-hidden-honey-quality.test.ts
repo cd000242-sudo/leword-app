@@ -1,5 +1,6 @@
 import { calculateKinHoneyPotProfile, gradeQuestion } from '../naver-kin-golden-config';
 import {
+  hasActionableHoneyDemand,
   getLatestHiddenSortScore,
   isActionableHoneyResult,
   isLatestHiddenHoneyCandidate,
@@ -40,6 +41,8 @@ assert('최신 꿀통 후보 게이트 통과', isLatestHiddenHoneyCandidate(fre
 
 assert('SSS latest hidden candidate is actionable',
   isActionableHoneyResult({ ...freshHotQuestion, honeyPotGrade: 'SSS' }));
+assert('SSS latest hidden candidate has measurable actionable demand',
+  hasActionableHoneyDemand({ ...freshHotQuestion, honeyPotGrade: 'SSS' }));
 
 const thinDemand = {
   ...freshHotQuestion,
@@ -69,6 +72,29 @@ assert('답변 4개 이상은 최신 꿀통 후보에서 제외', !isLatestHidde
 
 assert('B-grade candidate is not actionable even if it passes the loose latest gate',
   !isActionableHoneyResult({ ...freshHotQuestion, viewCount: 70, viewsPerHour: 8.8, honeyPotGrade: 'B' }));
+
+const weakSGrade = {
+  ...freshHotQuestion,
+  viewCount: 24,
+  hoursAgo: 18,
+  viewsPerHour: 1.3,
+  answerCount: 1,
+  honeyPotGrade: 'S',
+};
+assert('최신 후보라도 조회 반응이 약한 S급은 최종 꿀질문에서 제외',
+  isLatestHiddenHoneyCandidate(weakSGrade) && !hasActionableHoneyDemand(weakSGrade) && !isActionableHoneyResult(weakSGrade),
+  `${isLatestHiddenHoneyCandidate(weakSGrade)} ${hasActionableHoneyDemand(weakSGrade)} ${isActionableHoneyResult(weakSGrade)}`);
+
+const freshNoAnswerSGrade = {
+  ...freshHotQuestion,
+  viewCount: 64,
+  hoursAgo: 12,
+  viewsPerHour: 5.3,
+  answerCount: 0,
+  honeyPotGrade: 'S',
+};
+assert('24시간 내 무답변+반응 있는 S급은 최종 꿀질문으로 유지',
+  hasActionableHoneyDemand(freshNoAnswerSGrade) && isActionableHoneyResult(freshNoAnswerSGrade));
 
 const oldPopular = { ...freshHotQuestion, viewCount: 5000, answerCount: 0, hoursAgo: 240, viewsPerHour: 20 };
 assert('7일 초과 질문은 조회수가 높아도 최신 꿀통 후보 제외', !isLatestHiddenHoneyCandidate(oldPopular));

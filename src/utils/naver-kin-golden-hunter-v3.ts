@@ -326,6 +326,23 @@ export function isLatestHiddenHoneyCandidate(q: any): boolean {
   return true;
 }
 
+export function hasActionableHoneyDemand(q: any): boolean {
+  const grade = q.honeyPotGrade || q.goldenGrade || 'B';
+  const viewCount = Number(q.viewCount) || 0;
+  const answerCount = Number(q.answerCount) || 0;
+  const hoursAgo = getQuestionHoursAgo(q);
+  const viewsPerHour = Number(q.viewsPerHour) || getViewsPerHour(q);
+
+  if (grade === 'SSS') return viewCount >= 120 || viewsPerHour >= 8;
+  if (grade === 'SS') return viewCount >= 80 || viewsPerHour >= 5;
+
+  return (
+    viewCount >= 120 ||
+    viewsPerHour >= 6 ||
+    (answerCount === 0 && hoursAgo <= 24 && viewCount >= 50 && viewsPerHour >= 3)
+  );
+}
+
 export function getLatestHiddenSortScore(q: any): number {
   const withVelocity = { ...q, viewsPerHour: Number(q.viewsPerHour) || getViewsPerHour(q) };
   const signals = buildKinSignals(withVelocity);
@@ -340,7 +357,9 @@ export function getLatestHiddenSortScore(q: any): number {
 
 export function isActionableHoneyResult(q: any): boolean {
   const grade = q.honeyPotGrade || q.goldenGrade || 'B';
-  return ['SSS', 'SS', 'S'].includes(grade) && isLatestHiddenHoneyCandidate(q);
+  return ['SSS', 'SS', 'S'].includes(grade)
+    && isLatestHiddenHoneyCandidate(q)
+    && hasActionableHoneyDemand(q);
 }
 
 // ============================================================
@@ -1904,6 +1923,9 @@ export async function fullHunt(): Promise<GoldenHuntResult> {
     }
 
     await detailPage.close();
+    if (detailBrowser !== browser) {
+      await releaseBrowser(detailBrowser);
+    }
 
     // 🔥 최종 필터링: 조회수 기반 + 실제 질문만
     const navKeywords = ['로그인', 'Q&A', '교육', '학문', 'IT', '테크', '엔터테인먼트',
@@ -2345,6 +2367,9 @@ export async function getTrendingHiddenQuestions(): Promise<GoldenHuntResult> {
     }
     
     await detailPage.close();
+    if (detailBrowser !== browser) {
+      await releaseBrowser(detailBrowser);
+    }
     await page.close();
 
     // Step 4: 최신/미노출/저답변/조회반응 후보만 최종 통과

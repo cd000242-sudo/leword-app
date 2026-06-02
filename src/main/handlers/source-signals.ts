@@ -36,7 +36,11 @@ import { getRegistry, getAllStates, unblockSource, unblockAll, callAllSources } 
 import { getStorageStats, getRisingKeywords, getNewKeywords, clearStorage } from '../../utils/sources/source-storage';
 import { getCallStats, resetCallStats } from '../../utils/sources/rate-limiter';
 import { rankMindmapExpansionCandidates, MindmapExpansionCandidate } from '../../utils/mindmap-expansion-quality';
-import { buildMindmapMeasuredKeywordItem } from '../../utils/mindmap-metrics';
+import {
+    buildMindmapMeasuredKeywordItem,
+    isMindmapDisplayMetric,
+    isMindmapExpansionSeedMetric,
+} from '../../utils/mindmap-metrics';
 
 function pro<T>(handler: () => Promise<T>): Promise<T | { error: string; requiresUnlimited: true }> {
     const lic = checkUnlimitedLicense();
@@ -785,7 +789,7 @@ export function setupSourceSignalHandlers(): void {
             const d1Metrics = await getNaverKeywordSearchVolumeSeparate(config, d1Pool, { includeDocumentCount: true });
             const d1Items = d1Metrics
                 .map((m: any) => buildMindmapMeasuredKeywordItem(m, { seed, depth: 1 }))
-                .filter(i => i.documentCount > 0 || i.searchVolume !== null);
+                .filter(isMindmapDisplayMetric);
             measuredByDepth.set(1, d1Items);
             sendProgress(`1단계 완료: ${d1Items.length}건`, 'depth-1-done', d1Items.length, d1Items.length);
 
@@ -797,17 +801,17 @@ export function setupSourceSignalHandlers(): void {
 
                 // 이전 depth 의 SSS/SS 우선 → 부족하면 S 도 → 그래도 0이면 top N
                 let nextSeeds = prevItems
-                    .filter(i => !i.isSeed && (i.grade === 'SSS' || i.grade === 'SS'))
+                    .filter(i => isMindmapExpansionSeedMetric(i) && (i.grade === 'SSS' || i.grade === 'SS'))
                     .slice(0, seedCap)
                     .map(i => i.keyword);
                 if (nextSeeds.length === 0) {
                     nextSeeds = prevItems
-                        .filter(i => !i.isSeed && i.grade === 'S')
+                        .filter(i => isMindmapExpansionSeedMetric(i) && i.grade === 'S')
                         .slice(0, seedCap)
                         .map(i => i.keyword);
                 }
                 if (nextSeeds.length === 0) {
-                    nextSeeds = prevItems.filter(i => !i.isSeed).slice(0, Math.min(5, seedCap)).map(i => i.keyword);
+                    nextSeeds = prevItems.filter(isMindmapExpansionSeedMetric).slice(0, Math.min(5, seedCap)).map(i => i.keyword);
                 }
                 // v2.42.45: nextSeeds 가 부족하면 brand sibling 추가 — 다른 메이커로 확장
                 if (nextSeeds.length < seedCap) {
@@ -836,7 +840,7 @@ export function setupSourceSignalHandlers(): void {
                 const dMetrics = await getNaverKeywordSearchVolumeSeparate(config, dPool, { includeDocumentCount: true });
                 const dItems = dMetrics
                     .map((m: any) => buildMindmapMeasuredKeywordItem(m, { seed, depth: d }))
-                    .filter(i => i.documentCount > 0 || i.searchVolume !== null);
+                    .filter(isMindmapDisplayMetric);
                 measuredByDepth.set(d, dItems);
                 sendProgress(`${d}단계 완료: ${dItems.length}건`, `depth-${d}-done`, dItems.length, dItems.length);
             }

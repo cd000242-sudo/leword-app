@@ -284,6 +284,45 @@ function clampPriority(score: number): number {
   return Math.max(0, Math.min(100, Math.round(score * 10) / 10));
 }
 
+function sortShoppingDiscoverySeeds(seeds: ShoppingDiscoverySeed[]): ShoppingDiscoverySeed[] {
+  return [...seeds].sort((a, b) =>
+    b.priorityScore - a.priorityScore ||
+    (b.searchVolume || 0) - (a.searchVolume || 0) ||
+    a.keyword.localeCompare(b.keyword, 'ko')
+  );
+}
+
+function shoppingSeedCategoryKey(seed: ShoppingDiscoverySeed): string {
+  return String(seed.category || seed.source || 'unknown').replace(/\s+/g, ' ').trim();
+}
+
+function selectBalancedShoppingDiscoverySeeds(
+  seeds: ShoppingDiscoverySeed[],
+  limit: number,
+): ShoppingDiscoverySeed[] {
+  const sorted = sortShoppingDiscoverySeeds(seeds);
+  const perCategorySoftCap = Math.max(2, Math.ceil(limit / 10));
+  const selected: ShoppingDiscoverySeed[] = [];
+  const used = new Set<string>();
+  const categoryCounts = new Map<string, number>();
+
+  const take = (seed: ShoppingDiscoverySeed, enforceCap: boolean): void => {
+    if (selected.length >= limit) return;
+    const key = normalizeSeedKey(seed.keyword);
+    if (!key || used.has(key)) return;
+    const categoryKey = shoppingSeedCategoryKey(seed);
+    const current = categoryCounts.get(categoryKey) || 0;
+    if (enforceCap && current >= perCategorySoftCap) return;
+    used.add(key);
+    categoryCounts.set(categoryKey, current + 1);
+    selected.push(seed);
+  };
+
+  sorted.forEach(seed => take(seed, true));
+  if (selected.length < limit) sorted.forEach(seed => take(seed, false));
+  return selected.slice(0, limit);
+}
+
 export function buildShoppingDiscoverySeeds(input: {
   verified?: VerifiedKeyword[];
   dynamic?: string[];
@@ -343,13 +382,7 @@ export function buildShoppingDiscoverySeeds(input: {
     });
   }
 
-  return out
-    .sort((a, b) =>
-      b.priorityScore - a.priorityScore ||
-      (b.searchVolume || 0) - (a.searchVolume || 0) ||
-      a.keyword.localeCompare(b.keyword, 'ko')
-    )
-    .slice(0, limit);
+  return selectBalancedShoppingDiscoverySeeds(out, limit);
 }
 
 /**

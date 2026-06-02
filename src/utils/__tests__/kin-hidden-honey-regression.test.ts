@@ -27,5 +27,10 @@ assert('latest hidden sort does not force every candidate to isMainExposed false
 assert('premium latest hidden final output keeps only actionable SSS/SS/S questions', /filter\(q\s*=>\s*isActionableHoneyResult\(q\)\)/.test(block));
 assert('both hidden premium hunters use actionable final output gate',
   (text.match(/filter\(q\s*=>\s*isActionableHoneyResult\(q\)\)/g) || []).length >= 2);
+assert('actionable honey result includes a real demand gate',
+  /export function hasActionableHoneyDemand/.test(text)
+    && /isActionableHoneyResult[\s\S]*hasActionableHoneyDemand\(q\)/.test(text));
+assert('extra detail browser acquired by hidden hunters is released',
+  (text.match(/if\s*\(detailBrowser\s*!==\s*browser\)\s*\{\s*await releaseBrowser\(detailBrowser\);/g) || []).length >= 2);
 
 console.log('[kin-hidden-honey-regression] passed');
