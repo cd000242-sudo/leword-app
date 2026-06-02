@@ -10,7 +10,7 @@
 
 import axios from 'axios';
 import { stableHash } from './deterministic-random';
-import { rankRelatedKeywordCandidates } from './keyword-relevance';
+import { rankKeywordExpansionCandidates } from './keyword-expansion-ranker';
 
 export interface NaverApiConfig {
   clientId: string;
@@ -293,9 +293,23 @@ export async function getNaverAutocompleteKeywords(
         sources: Array.from(item.sources),
         freq: item.freq,
       }));
-    let ranked = rankRelatedKeywordCandidates(baseKeyword, candidates, { limit: 100, minScore: 34 });
-    if (ranked.length < 10) {
-      ranked = rankRelatedKeywordCandidates(baseKeyword, candidates, { limit: 100, minScore: 24 });
+    let ranked = rankKeywordExpansionCandidates(baseKeyword, candidates, {
+      limit: 100,
+      minScore: 34,
+      fallbackMinScore: 24,
+      minKeep: 20,
+      ensureIntentCoverage: true,
+      intentCoverageMin: 30,
+    });
+    if (ranked.length < 20) {
+      ranked = rankKeywordExpansionCandidates(baseKeyword, candidates, {
+        limit: 100,
+        minScore: 24,
+        fallbackMinScore: 18,
+        minKeep: 20,
+        ensureIntentCoverage: true,
+        intentCoverageMin: 30,
+      });
     }
     const result = ranked.map(item => item.keyword);
     

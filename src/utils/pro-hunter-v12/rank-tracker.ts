@@ -5,26 +5,32 @@
 import { listTrackedPosts, recordPostRank, recordPostRankMulti } from './tracking-store';
 import { notifyRankChange } from './notifier';
 import { retrainFromTracking } from './model-retrainer';
+import { browserPool } from '../puppeteer-pool';
+import { isSameNaverBlogPost } from './rank-url-normalizer';
 
 const CHECK_INTERVAL_MS = 24 * 60 * 60 * 1000; // 24시간
 let timer: NodeJS.Timeout | null = null;
+let initTimer: NodeJS.Timeout | null = null;
+const USER_AGENT =
+  'Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/131.0.0.0 Safari/537.36';
 
 const SEARCH_URL = (kw: string) =>
   `https://search.naver.com/search.naver?where=blog&query=${encodeURIComponent(kw)}&sm=tab_opt&nso=so%3Ar%2Cp%3Aall`;
 
 async function findRankForPost(keyword: string, postUrl: string): Promise<number | null> {
-  const { launchCompatibleBrowser } = await import('../puppeteer-pool');
-  const browser = await launchCompatibleBrowser({
-    headless: 'new',
-    args: ['--no-sandbox', '--disable-setuid-sandbox', '--disable-dev-shm-usage'],
-  });
+  let browser: any = null;
+  let page: any = null;
   try {
-    const page = await browser.newPage();
-    await page.setUserAgent(
-      'Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/131.0.0.0 Safari/537.36'
-    );
+    browser = await browserPool.acquire();
+    page = await browser.newPage({
+      userAgent: USER_AGENT,
+      viewport: { width: 1280, height: 800 },
+      locale: 'ko-KR',
+      extraHTTPHeaders: { 'Accept-Language': 'ko-KR,ko;q=0.9,en-US;q=0.8,en;q=0.7' },
+    });
+    await page.setUserAgent(USER_AGENT);
     await page.goto(SEARCH_URL(keyword), { waitUntil: 'domcontentloaded', timeout: 25000 });
-    await new Promise((r) => setTimeout(r, 1500));
+    await page.waitForTimeout(1200);
 
     // 상위 30개 URL 수집
     const urls = await page.evaluate(() => {
@@ -34,7 +40,14 @@ async function findRankForPost(keyword: string, postUrl: string): Promise<number
       for (const a of Array.from(links)) {
         const href = (a as HTMLAnchorElement).href;
         if (!href || seen.has(href)) continue;
-        if (!/blog\.naver\.com\/[^/]+\/\d+/.test(href)) continue;
+        let expanded = href;
+        try {
+          expanded = decodeURIComponent(href);
+        } catch {}
+        const isPathPost = /(?:m\.)?blog\.naver\.com\/[^/?#]+\/\d+/i.test(expanded);
+        const isPostView = /PostView\.naver\?[^#\s]*(?:blogId=|logNo=)/i.test(expanded);
+        const isRedirect = /[?&](?:u|url|target)=https?:\/\/(?:m\.)?blog\.naver\.com/i.test(expanded);
+        if (!isPathPost && !isPostView && !isRedirect) continue;
         seen.add(href);
         out.push(href);
         if (out.length >= 30) break;
@@ -43,18 +56,16 @@ async function findRankForPost(keyword: string, postUrl: string): Promise<number
     });
 
     // postUrl 매칭 (정규화)
-    const normalize = (u: string) => u.replace(/^https?:\/\//, '').replace(/^m\./, '').replace(/[?#].*$/, '');
-    const target = normalize(postUrl);
     for (let i = 0; i < urls.length; i++) {
-      if (normalize(urls[i]).includes(target.split('/').slice(0, 3).join('/'))) {
+      if (isSameNaverBlogPost(urls[i], postUrl)) {
         // postId까지 비교
-        const postIdMatch = postUrl.match(/\/(\d+)$/);
-        if (postIdMatch && urls[i].includes(postIdMatch[1])) return i + 1;
+        return i + 1;
       }
     }
     return null;
   } finally {
-    await browser.close().catch(() => {});
+    if (page) await page.close().catch(() => {});
+    if (browser) browserPool.release(browser);
   }
 }
 
@@ -121,10 +132,11 @@ async function runCheck(): Promise<void> {
 }
 
 export function startRankTracker(): void {
-  if (timer) return;
+  if (timer || initTimer) return;
   const { markWorkerStarted, markWorkerTick } = require('./worker-status');
   markWorkerStarted('rank');
-  const initTimer = setTimeout(() => {
+  initTimer = setTimeout(() => {
+    initTimer = null;
     Promise.resolve(runCheck()).then(() => markWorkerTick('rank')).catch((e: any) => markWorkerTick('rank', e?.message));
     timer = setInterval(() => {
       Promise.resolve(runCheck()).then(() => markWorkerTick('rank')).catch((e: any) => markWorkerTick('rank', e?.message));
@@ -136,6 +148,10 @@ export function startRankTracker(): void {
 }
 
 export function stopRankTracker(): void {
+  if (initTimer) {
+    clearTimeout(initTimer);
+    initTimer = null;
+  }
   if (timer) {
     clearInterval(timer);
     timer = null;

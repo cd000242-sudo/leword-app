@@ -26,8 +26,37 @@ function gradeRank(grade: unknown): number {
   return 1;
 }
 
-function compactKeyword(keyword: string): string {
+export function compactGoldenKeyword(keyword: string): string {
   return String(keyword || '').toLowerCase().replace(/\s+/g, '').trim();
+}
+
+export interface GoldenSssTargetTracker {
+  readonly uniqueSssCount: number;
+  add(item: GoldenDiscoveryLike): number;
+  shouldStop(): boolean;
+}
+
+export function createGoldenSssTargetTracker(targetCount: number): GoldenSssTargetTracker {
+  const target = Math.max(
+    GOLDEN_DISCOVERY_SSS_FLOOR,
+    Math.floor(Number(targetCount) || GOLDEN_DISCOVERY_SSS_FLOOR),
+  );
+  const seenSss = new Set<string>();
+
+  return {
+    get uniqueSssCount() {
+      return seenSss.size;
+    },
+    add(item: GoldenDiscoveryLike): number {
+      if (String(item?.grade || '').toUpperCase() !== 'SSS') return seenSss.size;
+      const key = compactGoldenKeyword(item.keyword);
+      if (key) seenSss.add(key);
+      return seenSss.size;
+    },
+    shouldStop(): boolean {
+      return seenSss.size >= target;
+    },
+  };
 }
 
 export function getGoldenDiscoveryScanLimit(
@@ -58,7 +87,7 @@ export function rankGoldenDiscoveryResults<T extends GoldenDiscoveryLike>(
   const seen = new Set<string>();
   const unique: T[] = [];
   for (const item of items || []) {
-    const key = compactKeyword(item.keyword);
+    const key = compactGoldenKeyword(item.keyword);
     if (!key || seen.has(key)) continue;
     seen.add(key);
     unique.push(item);

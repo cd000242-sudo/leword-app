@@ -8,6 +8,8 @@
  * 4. 제목 패턴 및 키워드 전략 분석
  */
 
+import { browserPool } from './puppeteer-pool';
+
 export interface BloggerProfile {
     blogId: string;
     name: string;
@@ -60,9 +62,8 @@ export async function benchmarkSniperPro(
 ): Promise<BenchmarkResult[]> {
     console.log(`\n🕵️‍♂️ [SNIPER] 황금 키워드 ${goldenKeywords.length}개를 장악한 '1티어 블로그' 추적 중...`);
 
-    const shouldCloseBrowser = !existingBrowser;
-    const { launchCompatibleBrowser } = await import('./puppeteer-pool');
-    const browser = existingBrowser || await launchCompatibleBrowser({ headless: "new" });
+    const shouldReleaseBrowser = !existingBrowser;
+    const browser = existingBrowser || await browserPool.acquire();
     const blogMap = new Map<string, BloggerProfile>();
 
     try {
@@ -235,7 +236,7 @@ export async function benchmarkSniperPro(
     } catch (e) {
         console.error("[SNIPER] Critical Error:", e);
     } finally {
-        if (shouldCloseBrowser) await browser.close();
+        if (shouldReleaseBrowser) browserPool.release(browser);
     }
 
     // 🏆 최종 TOP 5 선별 및 리포트 생성

@@ -16,10 +16,13 @@ function assert(name: string, cond: boolean, detail?: string) {
 
 const htmlPath = path.join(__dirname, '..', '..', '..', 'ui', 'keyword-master.html');
 const html = fs.readFileSync(htmlPath, 'utf8');
+const proTrafficCountSelect = html.match(/<select id="proTrafficCount"[\s\S]*?<\/select>/)?.[0] || '';
 const sourceSignals = fs.readFileSync(path.join(__dirname, '..', '..', 'main', 'handlers', 'source-signals.ts'), 'utf8');
 const premiumHunting = fs.readFileSync(path.join(__dirname, '..', '..', 'main', 'handlers', 'premium-hunting.ts'), 'utf8');
 const configUtility = fs.readFileSync(path.join(__dirname, '..', '..', 'main', 'handlers', 'config-utility.ts'), 'utf8');
+const exposureTracking = fs.readFileSync(path.join(__dirname, '..', '..', 'main', 'handlers', 'exposure-tracking.ts'), 'utf8');
 const bloggerProfile = fs.readFileSync(path.join(__dirname, '..', 'blogger-profile.ts'), 'utf8');
+const categoriesSource = fs.readFileSync(path.join(__dirname, '..', 'categories.ts'), 'utf8');
 
 assert('keyword analyzer default option is 10',
   /name="keywordLimit"\s+value="10"\s+checked/.test(html),
@@ -33,6 +36,12 @@ assert('PRO traffic UI exposes 250 result option',
   /<option\s+value="250"[^>]*>250개/.test(html),
   '250 option missing');
 
+assert('PRO traffic UI starts at the 30 SSS category floor',
+  /<option\s+value="30"/.test(proTrafficCountSelect)
+    && !/<option\s+value="10"/.test(proTrafficCountSelect)
+    && !/<option\s+value="20"/.test(proTrafficCountSelect),
+  'PRO count picker must not offer counts below the category SSS floor');
+
 assert('PRO traffic UI positions the feature as golden discovery super-upgrade',
   /황금키워드 발굴기의 초상위호환/.test(html)
     && /최대 250개 SSS 후보/.test(html)
@@ -42,6 +51,28 @@ assert('PRO traffic UI positions the feature as golden discovery super-upgrade',
 assert('PRO traffic UI clamps requested count to 250',
   /Math\.min\(250,\s*Math\.floor\(countNum\)\)/.test(html),
   'UI clamp is not 250');
+
+assert('PRO traffic keeps high-count category hunting in deep mode unless explicitly requested',
+  /fastDiscovery:\s*\(options as any\)\.fastDiscovery\s*===\s*true/.test(premiumHunting)
+    && !/fastDiscovery:\s*\(options as any\)\.fastDiscovery\s*===\s*true\s*\|\|\s*requestedCount\s*>=\s*50/.test(premiumHunting),
+  'high requested counts must not auto-enable fastDiscovery');
+
+assert('PRO traffic UI does not auto-send fastDiscovery for 50+ requests',
+  /fastDiscovery:\s*false/.test(html)
+    && !/fastDiscovery:\s*count\s*>=\s*50/.test(html),
+  'UI must keep 50/100/250 requests on the deep mining path');
+
+assert('PRO traffic category picker syncs from backend category enum',
+  /refreshProTrafficCategoriesFromBackend/.test(html)
+    && /get-pro-traffic-categories/.test(html)
+    && /renderProTrafficCategoryOptions/.test(html)
+    && /await refreshProTrafficCategoriesFromBackend\(\)/.test(html)
+    && /await originalOpenProTrafficModal\(\)/.test(html),
+  'PRO category picker is still static-only and can drift from backend categories');
+
+assert('PRO traffic category icons cover entertainment issue categories',
+  ['drama', 'anime', 'broadcast', 'celeb'].every(id => new RegExp(`${id}:\\s*['"]`).test(categoriesSource)),
+  'entertainment category icons missing from CATEGORY_ICONS');
 
 assert('PRO traffic defaults to category-focus mode',
   /name="proTrafficMode"\s+value="category"\s+checked/.test(html)
@@ -83,6 +114,12 @@ assert('PRO and home hunter category pickers expose policy and star intent paths
     && /<option\s+value="celebrity"[^>]*>[^<]*스타·연예<\/option>/.test(html),
   'policy/star categories are not exposed in PRO or home hunter UI');
 
+assert('home hunter strict S+ mode requires explicit S+ value grade through final output',
+  /strictSPlusMode\s*&&\s*x\.valueGate\.valueGrade\s*!==\s*'S\+'/.test(html)
+    && /x\.valueGate\.valueGrade\s*===\s*'S\+'[\s\S]*\(x\.valueGate\.qualityScore\s*\|\|\s*0\)\s*>=\s*minQuality/.test(html)
+    && /filter\(x\s*=>\s*!strictSPlusMode\s*\|\|[\s\S]*x\.valueGate\.valueGrade\s*===\s*'S\+'/.test(html),
+  'home hunter strict mode can leak non-S+ candidates');
+
 assert('golden discovery makes profile categories single-focus execution',
   /집중 카테고리/.test(html)
     && /대표 1개/.test(html)
@@ -109,9 +146,13 @@ assert('blogger profile save refreshes golden discovery category shortcuts',
 
 assert('shopping connect no-keyword discovery requests 30 seeds',
   /autoDiscoveryLimit:\s*30/.test(html)
-    && /autoDiscoveryLimit\s*=\s*Math\.min\(Math\.max\(Number\(params\?\.autoDiscoveryLimit\)\s*\|\|\s*30,\s*10\),\s*30\)/.test(configUtility)
+    && /normalizeShoppingAutoDiscoveryLimit\(params\?\.autoDiscoveryLimit\)/.test(configUtility)
+    && /getShoppingRecommendationLimit\(autoDiscovery,\s*autoDiscoveryLimit\)/.test(configUtility)
+    && /getShoppingAutoDiscoveryExpansionLimit\(discoverySeeds\.length,\s*autoDiscoveryLimit\)/.test(configUtility)
+    && /getShoppingAutoDiscoverySearchLimit\(discoverySeeds\.length,\s*autoDiscoveryLimit\)/.test(configUtility)
+    && /opportunityRanked\.slice\(0,\s*recommendationLimit\)/.test(configUtility)
     && /autoSeeds\.slice\(0,\s*30\)/.test(html),
-  'shopping auto discovery is not using/showing 30 seeds');
+  'shopping auto discovery is not using/showing 30 seeds and final recommendations');
 
 assert('shopping connect scores expanded products by their discovery query',
   /item\.discoveryQuery\s*\|\|\s*rootKeyword/.test(fs.readFileSync(path.join(__dirname, '..', 'naver-shopping-api.ts'), 'utf8'))
@@ -124,6 +165,51 @@ assert('policy briefing panel is full-width realtime-style and requests enough i
     && /minmax\(min\(100%,\s*360px\),\s*1fr\)/.test(html)
     && /5분마다 자동 갱신/.test(html),
   'policy briefing realtime panel is not expanded');
+
+assert('exposure tracking turns proven winners into mindmap expansion seeds',
+  /rankExposureGrowthSeeds\(tracked,\s*\{\s*limit:\s*12,\s*expansionLimit:\s*6\s*\}\)/.test(exposureTracking)
+    && /expansionSeeds/.test(exposureTracking)
+    && /const\s+growthSeeds\s*=\s*r\.expansionSeeds\s*\|\|\s*\[\]/.test(html)
+    && /lewordMindmapResearch\s*&&\s*lewordMindmapResearch\('\$\{safeKwJs\}'\)/.test(html),
+  'exposure winner-to-mindmap loop is missing');
+
+const rankedExpansionHelper = html.match(/window\.fetchLeWordRankedExpansionKeywords[\s\S]*?async function extractKeywordsRecursively/)?.[0] || '';
+const infiniteExtractionBlock = html.match(/async function extractKeywordsRecursively[\s\S]*?function updateInfiniteProgress/)?.[0] || '';
+const legacyMindmapExtractionBlock = html.match(/window\.extractMindmapKeywords\s*=\s*async function[\s\S]*?\n\s*};\s*\n\s*window\.updateMindmapProgress/)?.[0] || '';
+const queueMindmapExpansionBlock = html.match(/window\.startInfiniteExpansion\s*=\s*async function[\s\S]*?window\.extractMindmapKeywords/)?.[0] || '';
+const richFeedTopicIdeasBlock = html.match(/window\.rfShowTopicIdeas\s*=\s*async function[\s\S]*?topicSimilarStatus/)?.[0] || '';
+
+assert('legacy expansion paths use unified ranked expansion helper',
+  /get-autocomplete-suggestions[\s\S]*get-keyword-expansions/.test(rankedExpansionHelper)
+    && /window\.lewordRankedExpansionCache/.test(rankedExpansionHelper)
+    && /cache\.size\s*>\s*250/.test(rankedExpansionHelper)
+    && /fetchLeWordRankedExpansionKeywords/.test(infiniteExtractionBlock)
+    && /fetchLeWordRankedExpansionKeywords/.test(legacyMindmapExtractionBlock),
+  'legacy keyword expansion can bypass the ranked autocomplete/expansion helper');
+
+assert('queue-based mindmap expansion uses ranked helper instead of shallow autocomplete only',
+  /fetchLeWordRankedExpansionKeywords\(currentKeyword,\s*40\)/.test(queueMindmapExpansionBlock)
+    && !/get-autocomplete-suggestions['"],\s*currentKeyword/.test(queueMindmapExpansionBlock),
+  'queue-based mindmap expansion can bypass get-keyword-expansions fallback');
+
+assert('rich-feed topic ideas use ranked expansion instead of shallow autocomplete only',
+  /fetchLeWordRankedExpansionKeywords\(kw,\s*12\)/.test(richFeedTopicIdeasBlock)
+    && !/get-autocomplete-suggestions/.test(richFeedTopicIdeasBlock),
+  'rich-feed topic ideas can still use shallow autocomplete only');
+
+assert('mindmap metrics require complete Naver SearchAd credentials and preserve measured display',
+  /!config\.clientId\s*\|\|\s*!config\.clientSecret/.test(sourceSignals)
+    && /const\s+svDisplay\s*=\s*it\.searchVolumeDisplay\s*\|\|/.test(html)
+    && /it\.searchVolume\s*===\s*0\s*\?\s*'< 20'/.test(html),
+  'mindmap metrics can silently run with partial API keys or display hidden low volume as raw zero');
+
+assert('legacy recursive direct blogger calls stay disabled after ranked helper migration',
+  /if\s*\(false\s*&&\s*window\.blogger\s*&&\s*typeof\s+window\.blogger\.getRelatedKeywords/.test(infiniteExtractionBlock)
+    && !/if\s*\(\s*window\.blogger\s*&&\s*typeof\s+window\.blogger/.test(infiniteExtractionBlock)
+    && /if\s*\(false\s*&&\s*window\.blogger\s*&&\s*typeof\s+window\.blogger\.getAutoComplete/.test(legacyMindmapExtractionBlock)
+    && /if\s*\(false\s*&&\s*window\.blogger\s*&&\s*typeof\s+window\.blogger\.getRelatedKeywords/.test(legacyMindmapExtractionBlock)
+    && !/if\s*\(\s*window\.blogger\s*&&\s*typeof\s+window\.blogger/.test(legacyMindmapExtractionBlock),
+  'legacy recursive expansion is calling shallow blogger autocomplete/related sources live again');
 
 console.log(`\n[ui-count-regression.test] passed: ${passed} / failed: ${failed}`);
 if (failed > 0) {

@@ -11,6 +11,7 @@ const YOUTUBE_THRESHOLD = 72 * 60 * 60 * 1000; // 72시간 전 갱신
 const THREADS_THRESHOLD = 7 * 24 * 60 * 60 * 1000; // 7일 전 갱신
 
 let timer: NodeJS.Timeout | null = null;
+let initTimer: NodeJS.Timeout | null = null;
 
 async function checkAndRefresh(): Promise<void> {
   try {
@@ -42,18 +43,23 @@ async function checkAndRefresh(): Promise<void> {
 }
 
 export function startRefreshScheduler(): void {
-  if (timer) return;
+  if (timer || initTimer) return;
   // 첫 실행은 30초 지연 (앱 기동과 충돌 방지)
-  const initialTimer = setTimeout(() => {
+  initTimer = setTimeout(() => {
+    initTimer = null;
     checkAndRefresh();
     timer = setInterval(checkAndRefresh, CHECK_INTERVAL);
     timer.unref?.(); // v2.45.0: idle 이벤트 루프 깨우지 않음
   }, 30 * 1000);
-  initialTimer.unref?.();
+  initTimer.unref?.();
   console.log('[KEY-WIZARD][scheduler] ✅ 자동 갱신 스케줄러 시작');
 }
 
 export function stopRefreshScheduler(): void {
+  if (initTimer) {
+    clearTimeout(initTimer);
+    initTimer = null;
+  }
   if (timer) {
     clearInterval(timer);
     timer = null;

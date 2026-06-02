@@ -9,6 +9,7 @@ import { calibrateVolume } from './volume-calibrator';
 
 const CHECK_INTERVAL_MS = 12 * 60 * 60 * 1000; // 12시간
 let timer: NodeJS.Timeout | null = null;
+let initTimer: NodeJS.Timeout | null = null;
 
 async function fetchDocCount(keyword: string): Promise<number | null> {
   const env = EnvironmentManager.getInstance().getConfig();
@@ -111,10 +112,11 @@ async function runCheck(): Promise<void> {
 }
 
 export function startLifecycleTracker(): void {
-  if (timer) return;
+  if (timer || initTimer) return;
   const { markWorkerStarted, markWorkerTick } = require('./worker-status');
   markWorkerStarted('lifecycle');
-  const initTimer = setTimeout(() => {
+  initTimer = setTimeout(() => {
+    initTimer = null;
     runCheck().then(() => markWorkerTick('lifecycle')).catch((e: any) => markWorkerTick('lifecycle', e?.message));
     timer = setInterval(() => {
       runCheck().then(() => markWorkerTick('lifecycle')).catch((e: any) => markWorkerTick('lifecycle', e?.message));
@@ -126,6 +128,10 @@ export function startLifecycleTracker(): void {
 }
 
 export function stopLifecycleTracker(): void {
+  if (initTimer) {
+    clearTimeout(initTimer);
+    initTimer = null;
+  }
   if (timer) {
     clearInterval(timer);
     timer = null;

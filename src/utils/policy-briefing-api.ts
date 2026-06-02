@@ -59,6 +59,26 @@ const POLICY_FALLBACK_KEYWORDS = [
   '보조금24 숨은 지원금', '청년 구직활동지원금', '취업성공수당 신청', '중소기업 청년 지원금',
 ];
 
+const POLICY_DISCOVERY_INTENTS = [
+  '신청',
+  '대상',
+  '자격',
+  '조건',
+  '기간',
+  '준비서류',
+  '조회',
+  '지급일',
+  '금액',
+  '마감',
+  '온라인 신청',
+  '신청 방법',
+  '변경사항',
+  '사용처',
+];
+
+const POLICY_GENERIC_SINGLE_TOKEN_RE = /^(지원금|보조금|수당|급여|바우처|쿠폰|환급|장려금|대출|융자|감면|공제|신청|지급|대상|자격|조건|조회|기간|마감|서류|청년|소상공인|복지|주거|육아|출산|의료|교육|창업|민생)$/;
+const POLICY_ACTIONABLE_INTENT_RE = /(신청|대상|자격|조건|기간|준비서류|서류|조회|지급일|금액|마감|온라인|방법|변경사항|사용처|사용|접수|모집|수급자격)/;
+
 function decodeHtmlEntities(text: string): string {
   return String(text || '')
     .replace(/&quot;/g, '"')
@@ -211,6 +231,42 @@ function isSeedLike(keyword: string): boolean {
   if (/^(관련|대한|우리|이번|오늘|내일|위한|통해|부터|까지)/.test(clean)) return false;
   if (/(이유로|포괄임금|미지급|포함된|까지|넘어|방문해|참여할|부담을|덜어|머리를 맞대고|시각으로|선보이다)/.test(clean)) return false;
   return INTENT_RE.test(clean) || AUDIENCE_RE.test(clean);
+}
+
+function isPolicyDiscoverySeedLike(keyword: string): boolean {
+  const clean = normalizeKeywordPhrase(keyword);
+  if (!clean || clean.length < 3 || clean.length > 42) return false;
+  if (EXCLUDE_RE.test(clean) || POLICY_GENERIC_SINGLE_TOKEN_RE.test(clean)) return false;
+  if (/^\d+$/.test(clean)) return false;
+  return SUPPORT_RE.test(clean) || INTENT_RE.test(clean) || AUDIENCE_RE.test(clean);
+}
+
+function pushUniquePolicyDiscoverySeed(out: string[], seen: Set<string>, raw: string): void {
+  const clean = normalizeKeywordPhrase(raw).replace(/\s+/g, ' ').trim();
+  if (!isPolicyDiscoverySeedLike(clean)) return;
+  const key = clean.toLowerCase().replace(/\s+/g, '');
+  if (!key || seen.has(key)) return;
+  seen.add(key);
+  out.push(clean);
+}
+
+export function expandPolicyDiscoverySeeds(keyword: string, limit: number = 12): string[] {
+  const base = compactPolicyKeywordPhrase(keyword);
+  if (!base || !isPolicyDiscoverySeedLike(base)) return [];
+
+  const out: string[] = [];
+  const seen = new Set<string>();
+  if (POLICY_ACTIONABLE_INTENT_RE.test(base)) {
+    pushUniquePolicyDiscoverySeed(out, seen, base);
+  }
+
+  for (const intent of POLICY_DISCOVERY_INTENTS) {
+    if (out.length >= limit) break;
+    if (base.includes(intent)) continue;
+    pushUniquePolicyDiscoverySeed(out, seen, `${base} ${intent}`);
+  }
+
+  return out.slice(0, Math.max(1, limit));
 }
 
 function addCandidate(
@@ -427,7 +483,14 @@ export async function getPolicyBriefingKeywords(limit: number = 30): Promise<Pol
 }
 
 export function getPolicyFallbackKeywords(limit: number = 30): string[] {
-  return POLICY_FALLBACK_KEYWORDS.slice(0, Math.min(Math.max(limit, 1), POLICY_FALLBACK_KEYWORDS.length));
+  const out: string[] = [];
+  const seen = new Set<string>();
+  for (const keyword of POLICY_FALLBACK_KEYWORDS) {
+    for (const expanded of expandPolicyDiscoverySeeds(keyword, 8)) {
+      pushUniquePolicyDiscoverySeed(out, seen, expanded);
+    }
+  }
+  return out.slice(0, Math.min(Math.max(limit, 1), out.length));
 }
 
 export async function getGovernmentTrendKeywords(limit: number = 30): Promise<PolicyBriefingKeyword[]> {

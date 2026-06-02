@@ -15,8 +15,14 @@ import {
 } from '../naver-shopping-api';
 import {
   SHOPPING_AUTO_DISCOVERY_MIN_SEEDS,
+  SHOPPING_AUTO_DISCOVERY_MAX_SEEDS,
   buildShoppingDiscoverySeeds,
+  ensureShoppingDiscoveryIntentQuery,
+  getShoppingAutoDiscoveryExpansionLimit,
+  getShoppingAutoDiscoverySearchLimit,
+  getShoppingRecommendationLimit,
   getStaticShoppingSuggestions,
+  normalizeShoppingAutoDiscoveryLimit,
 } from '../shopping-keyword-suggestions';
 
 let passed = 0;
@@ -204,11 +210,23 @@ assert('무입력 쇼핑 발굴은 검증/동적/정적 시드를 합쳐 반환'
   autoDiscoverySeeds.map(s => `${s.keyword}:${s.source}`).join(', '));
 assert('무입력 쇼핑 발굴은 중복 키워드를 제거',
   autoDiscoverySeeds.filter(s => s.keyword === '무선 이어폰 추천').length === 1 &&
-    autoDiscoverySeeds.filter(s => s.keyword === '가정용 제습기').length === 1,
+    autoDiscoverySeeds.filter(s => s.keyword === '가정용 제습기 추천').length === 1,
   autoDiscoverySeeds.map(s => s.keyword).join(', '));
 assert('검증 황금 시드가 자동 발굴 우선순위 상단',
   autoDiscoverySeeds[0]?.keyword === '무선 이어폰 추천',
   autoDiscoverySeeds.map(s => `${s.keyword}:${s.priorityScore}`).join(', '));
+
+assert('shopping discovery keeps existing shopping-intent queries unchanged',
+  ensureShoppingDiscoveryIntentQuery('무선 이어폰 추천') === '무선 이어폰 추천',
+  ensureShoppingDiscoveryIntentQuery('무선 이어폰 추천'));
+assert('shopping discovery turns raw product nouns into bloggable intent queries',
+  ensureShoppingDiscoveryIntentQuery('커피머신') === '커피머신 추천',
+  ensureShoppingDiscoveryIntentQuery('커피머신'));
+assert('no-keyword shopping discovery exposes writeable intent queries, not raw product nouns',
+  autoDiscoverySeeds
+    .filter(s => s.source === 'dynamic' || s.source === 'static')
+    .every(s => /추천|비교|후기|리뷰|가성비|순위|가격|할인|구매|체크포인트|장단점/.test(s.keyword)),
+  autoDiscoverySeeds.map(s => `${s.keyword}:${s.source}`).join(', '));
 
 const defaultAutoDiscoverySeeds = buildShoppingDiscoverySeeds({
   staticGroups: getStaticShoppingSuggestions(4),
@@ -219,6 +237,22 @@ assert('무입력 쇼핑 발굴 기본값은 최소 30개 시드를 확보',
 assert('무입력 쇼핑 발굴 기본 시드는 카테고리 다양성을 확보',
   new Set(defaultAutoDiscoverySeeds.map(s => s.category).filter(Boolean)).size >= 8,
   defaultAutoDiscoverySeeds.map(s => `${s.keyword}:${s.category}`).join(', '));
+
+assert('shopping auto discovery limit floors external small requests to 30',
+  normalizeShoppingAutoDiscoveryLimit(10) === SHOPPING_AUTO_DISCOVERY_MIN_SEEDS,
+  `${normalizeShoppingAutoDiscoveryLimit(10)}`);
+assert('shopping auto discovery limit caps runaway requests at 60',
+  normalizeShoppingAutoDiscoveryLimit(1000) === SHOPPING_AUTO_DISCOVERY_MAX_SEEDS,
+  `${normalizeShoppingAutoDiscoveryLimit(1000)}`);
+assert('shopping auto discovery searches most of the 30 seed pool',
+  getShoppingAutoDiscoveryExpansionLimit(30, 30) >= 29
+    && getShoppingAutoDiscoverySearchLimit(30, 30) >= 24,
+  `expand=${getShoppingAutoDiscoveryExpansionLimit(30, 30)}, search=${getShoppingAutoDiscoverySearchLimit(30, 30)}`);
+assert('shopping auto discovery keeps 30 final recommendations instead of collapsing to direct-search 10',
+  getShoppingRecommendationLimit(true, 30) === 30
+    && getShoppingRecommendationLimit(true, 10) === SHOPPING_AUTO_DISCOVERY_MIN_SEEDS
+    && getShoppingRecommendationLimit(false, 60) === 10,
+  `auto30=${getShoppingRecommendationLimit(true, 30)}, auto10=${getShoppingRecommendationLimit(true, 10)}, direct=${getShoppingRecommendationLimit(false, 60)}`);
 
 console.log(`\n[shopping-opportunity.test] passed: ${passed} / failed: ${failed}`);
 if (failed > 0) {

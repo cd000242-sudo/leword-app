@@ -20,6 +20,7 @@
 
 import { validateGrade, applySanity } from './sanity-gate';
 import { deterministicPick, deterministicShuffle } from './deterministic-random';
+import { buildCategoryFirstGoldenSeedPlan } from './category-first-golden-discovery';
 
 export interface ProTrafficKeyword {
   keyword: string;
@@ -860,6 +861,53 @@ function normalizeGradeValue(grade: unknown): string {
   return String(grade || '').toUpperCase().replace(/[^A-Z]/g, '');
 }
 
+function getProTrafficSanityScore(item: any): number {
+  const candidates = [item?.mdpScore, item?.totalScore, item?.score, item?.goldenScore];
+  for (const value of candidates) {
+    const score = Number(value);
+    if (Number.isFinite(score) && score > 0) return Math.min(100, Math.max(0, score));
+  }
+  return 85;
+}
+
+function getProTrafficSssSanityGrade(item: any): string {
+  const sanity = validateGrade({
+    keyword: item?.keyword || '',
+    searchVolume: item?.searchVolume ?? 0,
+    documentCount: item?.documentCount ?? item?.docCount ?? 0,
+    goldenRatio: item?.goldenRatio ?? 0,
+    score: getProTrafficSanityScore(item),
+    dcEstimated: item?.dcEstimated,
+    svEstimated: item?.svEstimated,
+    dcConfidence: item?.dcConfidence,
+    source: 'pro-traffic',
+  });
+  return normalizeGradeValue(applySanity('SSS', sanity));
+}
+
+function promoteDynamicProTrafficSss(
+  rankedCandidates: Array<{ k: ProTrafficKeyword; score: number }>,
+  targetCount: number,
+  categoryMode: boolean,
+): { promoted: number; target: number } {
+  const target = normalizeProTrafficResultCount(categoryMode ? 'category' : 'realtime', targetCount);
+  const candidates = selectProTrafficSssPromotionCandidates(
+    rankedCandidates.map(item => item.k),
+    targetCount,
+    categoryMode,
+    item => getProTrafficSssSanityGrade(item) === 'SSS',
+  );
+
+  for (const item of candidates) {
+    const finalGrade = getProTrafficSssSanityGrade(item);
+    if (finalGrade === 'SSS') {
+      item.grade = finalGrade as ProTrafficKeyword['grade'];
+    }
+  }
+
+  return { promoted: candidates.length, target };
+}
+
 function enforcePremiumGoldenOnly(
   items: ProTrafficKeyword[],
   targetCount: number,
@@ -1298,7 +1346,16 @@ import { analyzeSerpWithPlaywright, closeBrowser as closePlaywrightBrowser } fro
 
 import { getNaverSearchAdKeywordVolume, getNaverSearchAdKeywordSuggestions, NaverSearchAdConfig } from './naver-searchad-api';
 import { classifyKeyword, isKeywordMatchingCategory, getCategorySeeds, getCategoryById, CATEGORIES, CATEGORY_ICONS } from './categories';
-import { getProTrafficFinalRerankPoolSize, normalizeProTrafficResultCount, rankProTrafficSssFloorResults } from './pro-traffic-floor';
+import {
+  getProTrafficCategoryDiscoverySeedBudget,
+  getProTrafficCategoryGoldenSeedBudget,
+  getProTrafficCategoryMiningPoolSize,
+  getProTrafficCategoryNormalSeedTarget,
+  getProTrafficFinalRerankPoolSize,
+  normalizeProTrafficResultCount,
+  rankProTrafficSssFloorResults,
+  selectProTrafficSssPromotionCandidates
+} from './pro-traffic-floor';
 import { getDiscoveryCategorySeeds } from './category-discovery-map';
 import { getNaverBlogDocumentCount } from './naver-blog-api';
 import { classifyKeywordIntent } from './keyword-intent-classifier';
@@ -1310,7 +1367,7 @@ import {
 } from '../data/hunter-seeds';
 import { scanForSurges, listRecentSurges, type TrendSignal } from './pro-hunter-v12/trend-surge-detector';
 // 🔥 실시간 트렌드 제품명 주입 — Cross-source 집계 (Phase 1-3 + v2.13.0 H5 확장)
-import { aggregateBeautyTrendSeeds, aggregateFashionTrendSeeds, aggregateGenericCategorySeeds, summarizeTrendSeeds } from './sources/trend-seed-aggregator';
+import { aggregateBeautyTrendSeeds, aggregateFashionTrendSeeds, aggregateGenericCategorySeeds, summarizeTrendSeeds, type TrendSeed } from './sources/trend-seed-aggregator';
 
 /**
  * 런타임 동적 시드 캐시 — 카테고리별 실시간 트렌드 제품명 보관
@@ -1368,6 +1425,83 @@ const TREND_STATUS: Record<string, RealtimeTrendStatus> = {};
  */
 export function getRealtimeTrendStatus(category: string): RealtimeTrendStatus | null {
   return TREND_STATUS[category] || null;
+}
+
+const ENTERTAINMENT_DYNAMIC_CATEGORIES = ['celeb', 'broadcast', 'drama', 'movie', 'music'];
+
+function normalizeEntertainmentIssueSeed(raw: string): string {
+  let text = String(raw || '')
+    .replace(/<[^>]+>/g, ' ')
+    .replace(/[“”"「」『』]/g, ' ')
+    .replace(/\[[^\]]{1,18}\]/g, ' ')
+    .replace(/\s+/g, ' ')
+    .trim();
+  if (!/[가-힣a-zA-Z]/.test(text) || text.length < 2) return '';
+  if (text.length > 34) {
+    const clipped = text.slice(0, 34);
+    text = clipped.replace(/\s+\S*$/, '').trim() || clipped.trim();
+  }
+  return text;
+}
+
+function addEntertainmentIssueSeed(
+  map: Map<string, { rawName: string; sources: Set<string>; freq: number }>,
+  raw: string,
+  source: string,
+  freq = 1,
+): void {
+  const seed = normalizeEntertainmentIssueSeed(raw);
+  if (!seed) return;
+  const key = seed.toLowerCase().replace(/\s+/g, '');
+  const existing = map.get(key);
+  if (!existing) {
+    map.set(key, { rawName: seed, sources: new Set([source]), freq });
+  } else {
+    existing.sources.add(source);
+    existing.freq += freq;
+  }
+}
+
+async function aggregateEntertainmentIssueSeeds(category: string): Promise<TrendSeed[]> {
+  const map = new Map<string, { rawName: string; sources: Set<string>; freq: number }>();
+  const perSourceLimit = category === 'music' ? 24 : 30;
+
+  const [aggregate, starNews] = await Promise.allSettled([
+    import('./entertainment-news-aggregator')
+      .then(mod => mod.fetchEntertainmentAggregate({ maxMinutesAgo: 360, limitPerSource: perSourceLimit })),
+    import('./starnews-trending')
+      .then(mod => Promise.all([
+        mod.fetchStarNewsFresh({ maxMinutesAgo: 360, limit: perSourceLimit }),
+        mod.fetchStarNewsTrending(perSourceLimit),
+      ])),
+  ]);
+
+  if (aggregate.status === 'fulfilled') {
+    for (const item of aggregate.value) {
+      addEntertainmentIssueSeed(map, item.title, item.source, item.minutesAgo !== null && item.minutesAgo <= 60 ? 3 : 2);
+      addEntertainmentIssueSeed(map, `${item.title} ${item.category}`, item.source, 1);
+    }
+  }
+
+  if (starNews.status === 'fulfilled') {
+    const [fresh, trending] = starNews.value;
+    for (const item of fresh) {
+      addEntertainmentIssueSeed(map, item.title, 'starnews:fresh', item.minutesAgo !== null && item.minutesAgo <= 60 ? 3 : 2);
+      addEntertainmentIssueSeed(map, `${item.title} ${item.category}`, 'starnews:fresh', 1);
+    }
+    for (const item of trending) {
+      addEntertainmentIssueSeed(map, item.title, 'starnews:hot', 2);
+    }
+  }
+
+  return Array.from(map.entries())
+    .map(([seed, v]) => ({
+      seed: v.rawName,
+      rawName: v.rawName,
+      sources: Array.from(v.sources),
+      crossScore: Math.round(v.freq * Math.pow(2, v.sources.size - 1) * 10) / 10,
+    }))
+    .sort((a, b) => b.crossScore - a.crossScore || a.seed.length - b.seed.length);
 }
 
 async function hydrateDynamicSeeds(category: string): Promise<void> {
@@ -1451,6 +1585,29 @@ async function hydrateDynamicSeeds(category: string): Promise<void> {
       DYNAMIC_TREND_SEEDS[category] = [];
     }
   }
+
+  if (ENTERTAINMENT_DYNAMIC_CATEGORIES.includes(category)) {
+    try {
+      const t0 = Date.now();
+      const seeds = await aggregateEntertainmentIssueSeeds(category);
+      const ms = Date.now() - t0;
+      console.log(`[PRO-HUNTER] ⭐ ${category} 실시간 연예/이슈 시드 ${seeds.length}개 (${ms}ms) — ${summarizeTrendSeeds(seeds)}`);
+      DYNAMIC_TREND_SEEDS[category] = seeds.slice(0, 80).map(s => s.seed);
+      const allSources = new Set<string>();
+      seeds.forEach(s => s.sources.forEach(src => allSources.add(src)));
+      TREND_STATUS[category] = {
+        category,
+        total: seeds.length,
+        crossValidated: seeds.filter(s => s.sources.length >= 2).length,
+        sources: Array.from(allSources),
+        success: seeds.length > 0,
+        message: seeds.length > 0 ? `실시간 연예/이슈 ${seeds.length}개 시드 수집` : '실시간 연예 소스 응답 없음 — 정적 시드만 사용',
+      };
+    } catch (err: any) {
+      console.warn(`[PRO-HUNTER] ⚠️ ${category} 실시간 연예/이슈 수집 실패:`, err?.message);
+      DYNAMIC_TREND_SEEDS[category] = [];
+    }
+  }
 }
 import {
   REALTIME_SOURCE_WEIGHT,
@@ -1461,9 +1618,8 @@ import {
 // 🤖 MDP v2.0 인터페이스 정의
 import { analyzeKeywordTrendingReason } from './keyword-trend-analyzer';
 import { getSignalBzKeywords } from './signal-bz-crawler';
-import { getZumRealtimeKeywordsWithPuppeteer } from './zum-realtime-api';
-// v2.45.0: puppeteer 기반 daum/nate 제거 — axios+cheerio (realtime-search-keywords 사용)
-import { getDaumRealtimeKeywords, getNateRealtimeKeywords } from './realtime-search-keywords';
+// v2.45+: 포털 실시간 수집은 axios+cheerio 통합 경로 사용 (브라우저 프로세스 미사용)
+import { getDaumRealtimeKeywords, getNateRealtimeKeywords, getZumRealtimeKeywords } from './realtime-search-keywords';
 import { getNaverPopularNews } from './naver-news-crawler';
 import { runUltimateAnalysis, UltimateAnalysis } from './ultimate-keyword-analyzer';
 import { getTrackingDataForKeyword } from './pro-hunter-v12/tracking-store';
@@ -2594,6 +2750,7 @@ export async function huntProTrafficKeywords(options: {
   const DYNAMIC_CATEGORIES = new Set([
     'beauty', 'fashion', 'all',
     'life_tips', 'health', 'finance', 'realestate', 'self_development', 'kitchen', 'parenting', 'policy',
+    ...ENTERTAINMENT_DYNAMIC_CATEGORIES,
   ]);
   if (DYNAMIC_CATEGORIES.has(category)) {
     await hydrateDynamicSeeds(category);
@@ -3007,13 +3164,17 @@ export async function huntProTrafficKeywords(options: {
   if (DYNAMIC_CATEGORIES.has(category) && category !== 'all') {
     const realtimeSeeds = DYNAMIC_TREND_SEEDS[category] || [];
     if (realtimeSeeds.length > 0) {
-      // 각 상품명마다 3변형: 원본, +추천, +후기 → 최종 결과에 브랜드명 키워드 보장
+      // 카테고리별 실시간 시드 3변형: 정책은 신청/대상, 연예는 근황/공식입장, 커머스는 추천/후기.
       const injectedSeeds: string[] = [];
+      const entertainmentSeedCategorySet = new Set(ENTERTAINMENT_DYNAMIC_CATEGORIES);
       for (const name of realtimeSeeds.slice(0, 25)) {
         injectedSeeds.push(name);
         if (category === 'policy') {
           injectedSeeds.push(`${name} 신청`);
           injectedSeeds.push(`${name} 대상`);
+        } else if (entertainmentSeedCategorySet.has(category)) {
+          injectedSeeds.push(`${name} 근황`);
+          injectedSeeds.push(`${name} 공식입장`);
         } else {
           injectedSeeds.push(`${name} 추천`);
           injectedSeeds.push(`${name} 후기`);
@@ -3038,11 +3199,17 @@ export async function huntProTrafficKeywords(options: {
     // 📁 카테고리별 황금키워드 모드
     console.log('[PRO-TRAFFIC] 📁 카테고리별 황금키워드 모드 활성화');
     // 기존 시드 DB
+    const categoryFirstGoldenPlan = buildCategoryFirstGoldenSeedPlan({
+      category,
+      maxSeeds: getProTrafficCategoryGoldenSeedBudget(count),
+      liveSeeds: DYNAMIC_TREND_SEEDS[category] || [],
+    });
+    const categoryFirstGoldenSeeds = categoryFirstGoldenPlan.seeds;
     const categoryKeywords = getEnhancedCategoryGoldenKeywords(category);
     // categories.ts 단일 소스 시드 (보강)
     const unifiedSeeds = getCategorySeeds(category);
-    const discoveryCategorySeeds = getDiscoveryCategorySeeds(category, Math.max(120, count * 4));
-    const mergedSeeds = [...new Set([...categoryKeywords, ...unifiedSeeds, ...discoveryCategorySeeds])];
+    const discoveryCategorySeeds = getDiscoveryCategorySeeds(category, getProTrafficCategoryDiscoverySeedBudget(count));
+    const mergedSeeds = [...new Set([...categoryFirstGoldenSeeds, ...categoryKeywords, ...unifiedSeeds, ...discoveryCategorySeeds])];
     allSeedKeywords = [...allSeedKeywords, ...shuffleArray(mergedSeeds)];
     // 🔥 surge 키워드도 카테고리 시드에 최상위 주입
     const isCatSpec = category !== 'all' && category !== 'pro_premium' && category !== 'lite_standard';
@@ -3058,11 +3225,17 @@ export async function huntProTrafficKeywords(options: {
     try {
       const { loadBloggerProfile } = await import('./blogger-profile');
       const { getSeedsForUserCategories } = await import('./sources/category-seed-catalog');
+      const { filterFocusedProfileCategoryIds } = await import('./category-discovery-map');
       const profile = loadBloggerProfile();
       if (profile && profile.selectedCategories.length > 0) {
-        const userCatSeeds = getSeedsForUserCategories(profile.selectedCategories as any, 20);
-        allSeedKeywords = [...allSeedKeywords, ...userCatSeeds];
-        console.log(`[PRO-TRAFFIC v2.43.45] 카테고리 모드: 사용자 evergreen ${userCatSeeds.length}개 추가`);
+        const focusedProfileCategories = filterFocusedProfileCategoryIds(category, profile.selectedCategories);
+        if (focusedProfileCategories.length > 0) {
+          const userCatSeeds = getSeedsForUserCategories(focusedProfileCategories as any, 20);
+          allSeedKeywords = [...allSeedKeywords, ...userCatSeeds];
+          console.log(`[PRO-TRAFFIC v2.43.45] 카테고리 모드: focused profile evergreen ${userCatSeeds.length}개 추가 (${focusedProfileCategories.join(',')})`);
+        } else {
+          console.log(`[PRO-TRAFFIC v2.43.45] 카테고리 모드: requested=${category}, profile=${profile.selectedCategories.join(',')} 불일치로 profile seed 생략`);
+        }
       }
     } catch (e: any) {
       console.warn('[PRO-TRAFFIC v2.43.45] 카테고리 모드 사용자 시드 주입 실패:', e?.message);
@@ -3275,7 +3448,7 @@ export async function huntProTrafficKeywords(options: {
         ? 140
         : (weakExplosionCategories.has(category) ? 170 : 130))
       : 90)
-      : (mode === 'category' ? 150 : 100);
+      : (mode === 'category' ? getProTrafficCategoryNormalSeedTarget(count) : 100);
 
   // ─── 시드 차별화 전략: 카테고리 모드에서는 자연 연관 키워드 위주로 최소화 ───
   // (기계적 조합은 Naver 검색량 0을 자주 반환해 파이프라인이 고갈됨)
@@ -5189,7 +5362,7 @@ export async function huntProTrafficKeywords(options: {
 
   // 🎯 A) 카테고리 지정 시: "카테고리 내부"에서만 퍼센타일/폭발/완화 수행 (혼입 금지)
   if (category !== 'all' && category !== 'pro_premium' && category !== 'lite_standard') {
-    const targetPoolSize = explosionMode ? Math.max(count * 25, 250) : count;
+    const targetPoolSize = getProTrafficCategoryMiningPoolSize(count, explosionMode);
     const verifiedCategory = verifiedResults.filter(r => isKeywordInSelectedCategory(r.keyword, category));
     console.log(`[PRO-TRAFFIC] 📁 카테고리 검증 풀(혼입 금지): ${category} → ${verifiedCategory.length}개`);
 
@@ -5351,7 +5524,13 @@ export async function huntProTrafficKeywords(options: {
       }
     }
     console.log(`[PRO-TRAFFIC] 📁 카테고리 후필터: ${cat} 매칭=${matched.length}개, 비매칭=${unmatched.length}개`);
-    // 카테고리 매칭을 우선하되, 목표 개수보다 적을 때는 상위 후보를 보충해 0개/소량 반환을 막는다.
+    // PRO 카테고리 모드는 황금키워드 발굴기의 상위호환이다.
+    // 부족분을 다른 카테고리로 채우면 "한 카테고리 집중 발굴" 목적이 깨지므로 여기서 혼입을 차단한다.
+    if (mode === 'category' && cat !== 'all' && cat !== 'pro_premium' && cat !== 'lite_standard') {
+      return matched;
+    }
+
+    // 카테고리 지정이 없는 모드에서만 목표 개수 보충을 허용한다.
     const MIN_RESULTS = Math.min(keywords.length, Math.max(count, mode === 'category' ? 30 : 5));
     if (matched.length >= MIN_RESULTS) return matched;
     const fillCount = MIN_RESULTS - matched.length;
@@ -5836,33 +6015,22 @@ export async function huntProTrafficKeywords(options: {
         typeof x.k.documentCount === 'number' && x.k.documentCount > 0
       )
       .sort((a, b) => b.score - a.score);
-    // v2.49.11: sanity-gate.ts SSoT 통과 행만 SSS (Phase A 합의)
-    const { validateGrade: vgPT1, applySanity: asPT1 } = require('./sanity-gate');
-    const dynamicSssCap = Math.min(count, verifiedForSss.length);
-    let proSss1Blocked = 0;
-    for (let i = 0; i < dynamicSssCap; i++) {
-      const k = verifiedForSss[i].k;
-      const sanity = vgPT1({
-        keyword: k.keyword,
-        searchVolume: (k as any).searchVolume ?? 0,
-        documentCount: (k as any).documentCount ?? (k as any).docCount ?? 0,
-        goldenRatio: (k as any).goldenRatio ?? 0,
-        score: (k as any).mdpScore ?? 0,
-        dcEstimated: (k as any).dcEstimated,
-        source: 'pro-traffic',
-      });
-      const finalGrade = asPT1('SSS', sanity);
-      k.grade = finalGrade;
-      if (finalGrade !== 'SSS') proSss1Blocked++;
-    }
-    console.log(`[PRO-TRAFFIC] 🎯 동적 SSS 라벨링: ${dynamicSssCap - proSss1Blocked}/${dynamicSssCap}개 (sanity 차단 ${proSss1Blocked})`);
+    // v2.49.45: sanity 통과 후보가 count개 찰 때까지 뒤쪽 후보까지 계속 스캔한다.
+    // 첫 count개 안에 red-ocean/big-word가 섞여도 PRO SSS floor가 17개 수준으로 무너지는 회귀 방지.
+    const dynamicSss = promoteDynamicProTrafficSss(verifiedForSss, count, mode === 'category');
+    console.log(`[PRO-TRAFFIC] 🎯 동적 SSS 라벨링: ${dynamicSss.promoted}/${dynamicSss.target}개 (후보 스캔 보강)`);
 
     console.log(`[PRO-TRAFFIC] ✅ ${enrichedPremium.length}개 키워드 분석 완료 (끝판왕 v2.0 포함)`);
     console.log(`[PRO-TRAFFIC] 🏆 프리미엄 황금키워드 필터 통과: ${selectionPool.length}개 (S/SS/SSS만, 최소검색량=${bestMinSv}, 최소비율=${premiumMinRatioEffective}, 문서수상한=${premiumMaxDocumentsEffective})`);
     console.log(`[PRO-TRAFFIC] 🏁 최종 선정: ${selectedKeywords.length}개`);
 
+    const finalEnforceSourceExplosion = (mode === 'category' && category !== 'all' && category !== 'pro_premium' && category !== 'lite_standard')
+      ? [...selectedKeywords, ...enrichedPremium, ...allFinalVerified, ...sortedAllFinalCandidates]
+        .filter(r => isKeywordInSelectedCategory(r.keyword, category))
+      : [...selectedKeywords, ...enrichedPremium, ...allFinalVerified, ...verifiedResults, ...sortedAllFinalCandidates];
+
     selectedKeywords = enforcePremiumGoldenOnly(
-      [...selectedKeywords, ...enrichedPremium, ...allFinalVerified, ...verifiedResults, ...sortedAllFinalCandidates],
+      finalEnforceSourceExplosion,
       count,
       category,
       strictPro,
@@ -6178,7 +6346,8 @@ export async function huntProTrafficKeywords(options: {
     }
   }
 
-  // 🔥 최종 보루: 원천 `results` 배열까지 거슬러 가서 공격적 보충 — 카테고리 혼입 + 검증 완화
+  // 🔥 최종 보루: 원천 `results` 배열까지 거슬러 가서 공격적 보충
+  // 단, PRO 카테고리 모드에서는 선택 카테고리 밖 후보를 절대 섞지 않는다.
   // results는 파이프라인 초반 풀(카테고리/verified 필터 이전). 가장 큰 원본.
   if (selectedKeywords.length < count) {
     const need = count - selectedKeywords.length;
@@ -6190,7 +6359,11 @@ export async function huntProTrafficKeywords(options: {
       existingKeys.add(kw.replace(/\s+/g, ''));
     }
     // 복수 소스 통합: results (원천) + verifiedResults + allFinalVerified + sortedAllFinalCandidates
-    const allSources = [...verifiedResults, ...allFinalVerified, ...sortedAllFinalCandidates, ...results];
+    const isFocusedCategoryModeForTopUp = category !== 'all' && category !== 'pro_premium' && category !== 'lite_standard';
+    const allSourcesRaw = [...verifiedResults, ...allFinalVerified, ...sortedAllFinalCandidates, ...results];
+    const allSources = isFocusedCategoryModeForTopUp
+      ? allSourcesRaw.filter(r => isKeywordInSelectedCategory(r.keyword, category))
+      : allSourcesRaw;
     const uniqueMap = new Map<string, ProTrafficKeyword>();
     for (const r of allSources) {
       const k = String(r.keyword || '');
@@ -6286,31 +6459,19 @@ export async function huntProTrafficKeywords(options: {
         typeof x.k.documentCount === 'number' && x.k.documentCount > 0
       )
       .sort((a, b) => b.score - a.score);
-    // v2.49.11: 2nd path 도 sanity-gate 통과
-    const { validateGrade: vgPT2, applySanity: asPT2 } = require('./sanity-gate');
-    const dynamicSssCap2 = Math.min(count, verifiedForSss2.length);
-    let proSss2Blocked = 0;
-    for (let i = 0; i < dynamicSssCap2; i++) {
-      const k = verifiedForSss2[i].k;
-      const sanity = vgPT2({
-        keyword: k.keyword,
-        searchVolume: (k as any).searchVolume ?? 0,
-        documentCount: (k as any).documentCount ?? (k as any).docCount ?? 0,
-        goldenRatio: (k as any).goldenRatio ?? 0,
-        score: (k as any).mdpScore ?? 0,
-        dcEstimated: (k as any).dcEstimated,
-        source: 'pro-traffic',
-      });
-      const finalGrade = asPT2('SSS', sanity);
-      k.grade = finalGrade;
-      if (finalGrade !== 'SSS') proSss2Blocked++;
-    }
-    console.log(`[PRO-TRAFFIC] 🎯 동적 SSS 라벨링(2nd): ${dynamicSssCap2 - proSss2Blocked}/${dynamicSssCap2}개 (sanity 차단 ${proSss2Blocked})`);
+    // v2.49.45: 2nd path도 같은 방식으로 SSS 후보를 count까지 보강 스캔한다.
+    const dynamicSss2 = promoteDynamicProTrafficSss(verifiedForSss2, count, mode === 'category');
+    console.log(`[PRO-TRAFFIC] 🎯 동적 SSS 라벨링(2nd): ${dynamicSss2.promoted}/${dynamicSss2.target}개 (후보 스캔 보강)`);
   }
 
   // 끝판왕 분석 포함된 키워드 수 로깅
+  const finalEnforceSource = (mode === 'category' && category !== 'all' && category !== 'pro_premium' && category !== 'lite_standard')
+    ? [...selectedKeywords, ...allFinalVerified, ...sortedAllFinalCandidates]
+      .filter(r => isKeywordInSelectedCategory(r.keyword, category))
+    : [...selectedKeywords, ...allFinalVerified, ...verifiedResults, ...sortedAllFinalCandidates, ...results];
+
   selectedKeywords = enforcePremiumGoldenOnly(
-    [...selectedKeywords, ...allFinalVerified, ...verifiedResults, ...sortedAllFinalCandidates, ...results],
+    finalEnforceSource,
     count,
     category,
     strictPro,
@@ -7545,7 +7706,7 @@ async function getMultiSourceKeywords(includeHeavySources: boolean = true): Prom
   try {
     const settled = await Promise.allSettled([
       includeHeavySources ? getSignalBzKeywords(20).then(r => r.map(k => k.keyword)) : Promise.resolve([] as string[]),
-      includeHeavySources ? getZumRealtimeKeywordsWithPuppeteer(20).then(r => r.map(k => k.keyword)) : Promise.resolve([] as string[]),
+      includeHeavySources ? getZumRealtimeKeywords(20).then(r => r.map(k => k.keyword)) : Promise.resolve([] as string[]),
       includeHeavySources ? getDaumRealtimeKeywords(20).then(r => r.map(k => k.keyword)) : Promise.resolve([] as string[]),
       includeHeavySources ? getNateRealtimeKeywords(20).then(r => r.map(k => k.keyword)) : Promise.resolve([] as string[]),
       getNewsIssueKeywords(),

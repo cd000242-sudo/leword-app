@@ -11,7 +11,7 @@ import { getYouTubeTrendKeywords } from '../../utils/youtube-data-api';
 import { EnvironmentManager } from '../../utils/environment-manager';
 import { TimingGoldenFinder, KeywordData, TimingScore } from '../../utils/timing-golden-finder';
 import { getAllRealtimeKeywords, getZumRealtimeKeywords, getGoogleRealtimeKeywords, getNateRealtimeKeywords, getDaumRealtimeKeywords, getNaverRealtimeKeywords, strengthenRealtimeKeywordGroups, RealtimeKeyword } from '../../utils/realtime-search-keywords';
-// v2.45.0: puppeteer 기반 daum/nate 제거 — axios+cheerio 사용 (realtime-search-keywords에서 import)
+// v2.45+: 실시간 포털 수집은 axios+cheerio 통합 경로 사용 (브라우저 프로세스 미사용)
 import { analyzeKeywordTrendingReason } from '../../utils/keyword-trend-analyzer';
 import { validateKeyword, validateKeywords } from '../../utils/keyword-validator';
 import * as licenseManager from '../../utils/licenseManager';
@@ -21,7 +21,7 @@ import { callAllSources } from '../../utils/sources/source-registry';
 import { getCachedReport } from '../../utils/sources/health-checker';
 import { getDiscoveryCategorySeeds, matchesDiscoveryCategory, resolveDiscoveryCategoryIds } from '../../utils/category-discovery-map';
 import { deterministicRange } from '../../utils/deterministic-random';
-import { countSss, getGoldenDiscoveryScanLimit, rankGoldenDiscoveryResults } from '../../utils/golden-discovery-floor';
+import { createGoldenSssTargetTracker, countSss, getGoldenDiscoveryScanLimit, rankGoldenDiscoveryResults } from '../../utils/golden-discovery-floor';
 import { buildCategoryFirstGoldenSeedPlan } from '../../utils/category-first-golden-discovery';
 
 // v4.0: 외부 신호 캐시 (앱 lifetime, 30분 TTL)
@@ -83,6 +83,105 @@ async function getV4Signals(isPro: boolean): Promise<Map<string, ExternalSignals
         _v4PullInFlight,
         new Promise<Map<string, ExternalSignals>>(resolve => setTimeout(() => resolve(new Map()), 3000)),
     ]);
+}
+
+function normalizeCategoryLiveSeed(raw: unknown): string {
+    let text = String(raw || '')
+        .replace(/<[^>]+>/g, ' ')
+        .replace(/&quot;/g, '"')
+        .replace(/&#39;|&apos;/g, "'")
+        .replace(/&amp;/g, '&')
+        .replace(/[“”"「」『』]/g, ' ')
+        .replace(/\[[^\]]{1,18}\]/g, ' ')
+        .replace(/\s+/g, ' ')
+        .trim();
+
+    if (!/[가-힣a-zA-Z]/.test(text) || text.length < 2) return '';
+    if (text.length > 42) {
+        const clipped = text.slice(0, 42);
+        text = clipped.replace(/\s+\S*$/, '').trim() || clipped.trim();
+    }
+    return text;
+}
+
+function pushUniqueLiveSeed(out: string[], seen: Set<string>, raw: unknown): void {
+    const text = normalizeCategoryLiveSeed(raw);
+    if (!text) return;
+    const key = text.toLowerCase().replace(/\s+/g, '');
+    if (seen.has(key)) return;
+    seen.add(key);
+    out.push(text);
+}
+
+function withLiveSeedTimeout<T>(promise: Promise<T>, ms: number, fallback: T): Promise<T> {
+    const timeout = new Promise<T>(resolve => {
+        const timer = setTimeout(() => resolve(fallback), ms);
+        timer.unref?.();
+    });
+    return Promise.race([promise, timeout]);
+}
+
+async function collectCategoryFirstLiveSeeds(category: string, limit = 80): Promise<string[]> {
+    const categoryIds = resolveDiscoveryCategoryIds(category);
+    if (!category || categoryIds.length === 0) return [];
+
+    const tasks: Array<Promise<string[]>> = [];
+    const isPolicy = categoryIds.includes('policy');
+    const isEntertainment = categoryIds.some(id => ['celeb', 'broadcast', 'music', 'movie', 'drama'].includes(id));
+
+    if (isPolicy) {
+        tasks.push(withLiveSeedTimeout(
+            import('../../utils/policy-briefing-api')
+                .then(async mod => {
+                    const items = await mod.getPolicyBriefingKeywords(Math.max(limit, 120));
+                    return items.flatMap(item => [
+                        ...mod.expandPolicyDiscoverySeeds(item.keyword, 8),
+                        item.keyword,
+                        item.title,
+                    ].filter(Boolean) as string[]);
+                }),
+            3500,
+            [],
+        ));
+    }
+
+    if (isEntertainment) {
+        const perSourceLimit = Math.min(30, Math.max(10, Math.ceil(limit / 4)));
+        tasks.push(withLiveSeedTimeout(
+            import('../../utils/entertainment-news-aggregator')
+                .then(mod => mod.fetchEntertainmentAggregate({ maxMinutesAgo: 360, limitPerSource: perSourceLimit }))
+                .then(items => items.flatMap(item => [item.title, `${item.title} ${item.category}`])),
+            3500,
+            [],
+        ));
+        tasks.push(withLiveSeedTimeout(
+            import('../../utils/starnews-trending')
+                .then(mod => Promise.all([
+                    mod.fetchStarNewsFresh({ maxMinutesAgo: 360, limit: Math.min(30, limit) }),
+                    mod.fetchStarNewsTrending(Math.min(30, limit)),
+                ]))
+                .then(([fresh, trending]) => [
+                    ...fresh.map(item => item.title),
+                    ...trending.map(item => item.title),
+                ]),
+            3500,
+            [],
+        ));
+    }
+
+    if (tasks.length === 0) return [];
+
+    const settled = await Promise.allSettled(tasks);
+    const out: string[] = [];
+    const seen = new Set<string>();
+    for (const result of settled) {
+        if (result.status !== 'fulfilled') continue;
+        for (const raw of result.value) {
+            pushUniqueLiveSeed(out, seen, raw);
+            if (out.length >= limit) return out;
+        }
+    }
+    return out;
 }
 
 
@@ -244,11 +343,18 @@ export function setupKeywordDiscoveryHandlers(): void {
               isUnlimited ? 1200 : (categoryFirstMode ? 900 : 520),
               Math.max(categoryFirstMode ? 420 : 180, preliminaryScanLimit)
             );
+            const liveCategorySeeds = categoryFirstMode && category
+              ? await collectCategoryFirstLiveSeeds(
+                category,
+                Math.min(160, Math.max(60, Math.floor(categorySeedBudget * 0.25))),
+              )
+              : [];
             const categorySeedPlan = category
               ? buildCategoryFirstGoldenSeedPlan({
                 category,
                 keyword: actualKeyword,
                 maxSeeds: categorySeedBudget,
+                liveSeeds: liveCategorySeeds,
               })
               : null;
             const categorySeeds = categorySeedPlan?.seeds
@@ -273,13 +379,14 @@ export function setupKeywordDiscoveryHandlers(): void {
             };
 
             if (categoryIds.length > 0) {
-              console.log(`[KEYWORD-MASTER] 카테고리 우선 시드 주입: category=${category} ids=${categoryIds.join(',')} seeds=${categorySeeds.length}, seed="${seedForDiscovery}", hints=${categorySeedPlan?.freshnessHints.join('|') || '-'}`);
+              console.log(`[KEYWORD-MASTER] 카테고리 우선 시드 주입: category=${category} ids=${categoryIds.join(',')} seeds=${categorySeeds.length}, live=${categorySeedPlan?.liveSeedCount || 0}, seed="${seedForDiscovery}", hints=${categorySeedPlan?.freshnessHints.join('|') || '-'}`);
             }
 
             const chunk: MDPResult[] = [];
             let totalAdded = 0;
             let sssAdded = 0;
             const sssTarget = isUnlimited ? Number.POSITIVE_INFINITY : Math.max(30, effectiveLimit);
+            const sssTracker = isUnlimited ? null : createGoldenSssTargetTracker(sssTarget);
 
             for await (const result of engine.discover(seedForDiscovery, discoveryOptions)) {
               if (checkAbort()) break;
@@ -297,8 +404,8 @@ export function setupKeywordDiscoveryHandlers(): void {
               chunk.push(formattedResult as any);
               totalAdded++;
               if (result.grade === 'SSS') {
-                sssAdded++;
-                if (!isUnlimited && sssAdded >= sssTarget) {
+                sssAdded = sssTracker ? sssTracker.add(result as any) : sssAdded + 1;
+                if (!isUnlimited && sssTracker?.shouldStop()) {
                   console.log(`[KEYWORD-MASTER] SSS 목표 달성: ${sssAdded}/${sssTarget} — 탐색 조기 종료`);
                   engine.abort();
                   break;
@@ -349,6 +456,7 @@ export function setupKeywordDiscoveryHandlers(): void {
               discoveryMode: categoryFirstMode ? 'category-first' : 'keyword',
               categoryIds,
               freshnessHints: categorySeedPlan?.freshnessHints,
+              liveSeedCount: categorySeedPlan?.liveSeedCount || 0,
               source: 'mdp_engine'
             };
 
@@ -925,11 +1033,10 @@ export function setupKeywordDiscoveryHandlers(): void {
             }
           })());
 
-          // ZUM 크롤링
+          // ZUM 크롤링 (axios+cheerio 통합 경로)
           promises.push((async () => {
             try {
-              const { getZumRealtimeKeywordsWithPuppeteer } = await import('../../utils/zum-realtime-api');
-              const zumKeywords = await getZumRealtimeKeywordsWithPuppeteer(limit);
+              const zumKeywords = await getZumRealtimeKeywords(limit);
               return { platform: 'zum', keywords: zumKeywords };
             } catch (err: any) {
               console.error(`[GET-REALTIME-KEYWORDS] ❌ ZUM 수집 실패:`, err?.message || err);
@@ -1009,8 +1116,7 @@ export function setupKeywordDiscoveryHandlers(): void {
             }
           } else if (platform === 'zum') {
             try {
-              const { getZumRealtimeKeywordsWithPuppeteer } = await import('../../utils/zum-realtime-api');
-              const zumKeywords = await getZumRealtimeKeywordsWithPuppeteer(limit);
+              const zumKeywords = await getZumRealtimeKeywords(limit);
               result.zum = zumKeywords.map((kw: any) => ({
                 keyword: kw.keyword || kw.text || '',
                 rank: kw.rank || 0,

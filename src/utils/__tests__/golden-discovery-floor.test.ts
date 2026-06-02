@@ -7,6 +7,7 @@
  */
 
 import {
+  createGoldenSssTargetTracker,
   countSss,
   getGoldenDiscoveryScanLimit,
   rankGoldenDiscoveryResults,
@@ -57,6 +58,18 @@ const duplicateRanked = rankGoldenDiscoveryResults([
 ], 30, false);
 const compactDuplicates = duplicateRanked.filter(item => item.keyword.replace(/\s+/g, '') === '청년지원금신청');
 assert('ranker removes compact keyword duplicates', compactDuplicates.length === 1, `${compactDuplicates.length}`);
+
+const sssTracker = createGoldenSssTargetTracker(30);
+for (let i = 0; i < 29; i++) sssTracker.add(sss[i]);
+sssTracker.add({ ...sss[0], keyword: sss[0].keyword.replace(/\s+/g, '') });
+sssTracker.add({ ...lower[0], grade: 'SS' });
+assert('unique SSS tracker ignores duplicate compact variants before stopping',
+  sssTracker.uniqueSssCount === 29 && !sssTracker.shouldStop(),
+  `${sssTracker.uniqueSssCount}`);
+sssTracker.add(sss[29]);
+assert('unique SSS tracker stops only after 30 unique SSS keywords',
+  sssTracker.uniqueSssCount === 30 && sssTracker.shouldStop(),
+  `${sssTracker.uniqueSssCount}`);
 
 const scanLimit = getGoldenDiscoveryScanLimit(30, false, 80);
 assert('scan limit searches deeper than the visible floor', scanLimit >= 360, `${scanLimit}`);

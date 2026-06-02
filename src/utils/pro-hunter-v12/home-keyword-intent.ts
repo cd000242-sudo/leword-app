@@ -171,14 +171,83 @@ function compact(value: string): string {
   return String(value || '').replace(/\s+/g, ' ').trim();
 }
 
+export function normalizeHomeNeedCategory(category?: string): string {
+  const raw = String(category || '').trim();
+  const c = raw.toLowerCase().replace(/\s+/g, '');
+  if (!c) return 'general';
+
+  const aliases: Record<string, string> = {
+    home: 'living',
+    home_life: 'living',
+    living: 'living',
+    interior: 'living',
+    '인테리어/생활': 'living',
+    '육아(영유아)': 'parenting',
+    '육아(초중고)': 'parenting',
+    parenting_kids: 'parenting',
+    pregnancy: 'parenting',
+    '임신/출산': 'parenting',
+    recipe: 'food',
+    '맛집/요리': 'food',
+    travel_domestic: 'travel',
+    travel_overseas: 'travel',
+    camping: 'travel',
+    '여행/숙박': 'travel',
+    business: 'finance',
+    career: 'finance',
+    sidejob: 'finance',
+    realestate: 'finance',
+    '재테크/투자': 'finance',
+    '부업/n잡': 'finance',
+    policy: 'policy',
+    subsidy: 'policy',
+    support: 'policy',
+    '지원금/정책/복지': 'policy',
+    '지원금': 'policy',
+    '정책': 'policy',
+    '복지': 'policy',
+    health: 'health',
+    senior: 'health',
+    '건강/운동': 'health',
+    '시니어/노후': 'health',
+    beauty: 'beauty',
+    '뷰티/화장품': 'beauty',
+    fashion: 'fashion',
+    '패션/스타일': 'fashion',
+    it: 'it',
+    smartphone: 'it',
+    laptop: 'it',
+    ai_tool: 'it',
+    'it/디지털': 'it',
+    education: 'issue',
+    '교육/자격증': 'issue',
+    car: 'issue',
+    auto: 'issue',
+    '자동차': 'issue',
+    wedding: 'issue',
+    '결혼/예식': 'issue',
+    celeb: 'celebrity',
+    celebrity: 'celebrity',
+    star: 'celebrity',
+    entertainment: 'celebrity',
+    culture: 'celebrity',
+    movie: 'celebrity',
+    drama: 'celebrity',
+    broadcast: 'celebrity',
+    music: 'celebrity',
+    book: 'celebrity',
+    game: 'celebrity',
+    '스타/연예이슈': 'celebrity',
+    '연예': 'celebrity',
+    '연예인': 'celebrity',
+    '문화/엔터': 'celebrity',
+  };
+
+  return aliases[c] || c || 'general';
+}
+
 function normalizedCategory(category?: string): string {
-  const c = String(category || '').toLowerCase();
-  if (c === 'home_life') return 'living';
-  if (c === 'career' || c === 'business' || c === 'sidejob') return 'finance';
-  if (c === 'camping') return 'travel';
-  if (c === 'recipe') return 'food';
-  if (c === 'entertainment' || c === 'music' || c === 'book' || c === 'game') return 'celebrity';
-  return c || 'general';
+  return normalizeHomeNeedCategory(category);
 }
 
 function uniqueKeywords(values: Iterable<string>): string[] {

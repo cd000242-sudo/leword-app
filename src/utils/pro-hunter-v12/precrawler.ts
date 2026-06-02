@@ -28,6 +28,7 @@ const INTERVAL_MS = 30 * 60 * 1000;   // 30분 간격
 const MAX_PER_RUN = 3;                // 한 번에 최대 3개 (부하 제한)
 
 let timer: NodeJS.Timeout | null = null;
+let initTimer: NodeJS.Timeout | null = null;
 
 function getStorePath(): string {
   const dir = path.join(app.getPath('userData'), 'pro-hunter-v12');
@@ -140,10 +141,11 @@ async function runOnce(): Promise<void> {
 }
 
 export function startPrecrawler(): void {
-  if (timer) return;
+  if (timer || initTimer) return;
   const { markWorkerStarted, markWorkerTick } = require('./worker-status');
   markWorkerStarted('precrawler');
-  const initTimer = setTimeout(() => {
+  initTimer = setTimeout(() => {
+    initTimer = null;
     Promise.resolve(runOnce()).then(() => markWorkerTick('precrawler')).catch((e: any) => markWorkerTick('precrawler', e?.message));
     timer = setInterval(() => {
       Promise.resolve(runOnce()).then(() => markWorkerTick('precrawler')).catch((e: any) => markWorkerTick('precrawler', e?.message));
@@ -155,6 +157,10 @@ export function startPrecrawler(): void {
 }
 
 export function stopPrecrawler(): void {
+  if (initTimer) {
+    clearTimeout(initTimer);
+    initTimer = null;
+  }
   if (timer) {
     clearInterval(timer);
     timer = null;

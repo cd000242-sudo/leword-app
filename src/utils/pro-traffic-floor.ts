@@ -1,6 +1,8 @@
 export const PRO_TRAFFIC_CATEGORY_SSS_FLOOR = 30;
-export const PRO_TRAFFIC_MIN_RESULT_COUNT = 5;
+export const PRO_TRAFFIC_MIN_RESULT_COUNT = PRO_TRAFFIC_CATEGORY_SSS_FLOOR;
 export const PRO_TRAFFIC_MAX_RESULT_COUNT = 250;
+export const PRO_TRAFFIC_CATEGORY_SEED_BUDGET_FLOOR = 420;
+export const PRO_TRAFFIC_CATEGORY_SEED_TARGET_MAX = 900;
 
 export interface ProTrafficFloorLike {
   keyword: string;
@@ -35,10 +37,40 @@ export function getProTrafficFinalRerankPoolSize(
   requestedCount: number,
   explosionMode = false,
 ): number {
-  const count = Math.max(PRO_TRAFFIC_MIN_RESULT_COUNT, Math.floor(Number(requestedCount) || 0));
+  const count = Math.min(
+    PRO_TRAFFIC_MAX_RESULT_COUNT,
+    Math.max(PRO_TRAFFIC_MIN_RESULT_COUNT, Math.floor(Number(requestedCount) || 0)),
+  );
+
   return explosionMode
-    ? Math.min(Math.max(count * 25, 300), Math.max(500, count * 4))
-    : Math.min(Math.max(count * 10, 100), Math.max(200, count * 4));
+    ? Math.max(500, count * 10)
+    : Math.max(PRO_TRAFFIC_CATEGORY_SSS_FLOOR * 12, count * 8);
+}
+
+export function getProTrafficCategoryMiningPoolSize(
+  requestedCount: number,
+  explosionMode = false,
+): number {
+  const count = normalizeProTrafficResultCount('category', requestedCount);
+  return Math.max(count, getProTrafficFinalRerankPoolSize(count, explosionMode));
+}
+
+export function getProTrafficCategoryGoldenSeedBudget(requestedCount: number): number {
+  const count = normalizeProTrafficResultCount('category', requestedCount);
+  return Math.max(PRO_TRAFFIC_CATEGORY_SEED_BUDGET_FLOOR, count * 8);
+}
+
+export function getProTrafficCategoryDiscoverySeedBudget(requestedCount: number): number {
+  const count = normalizeProTrafficResultCount('category', requestedCount);
+  return Math.max(PRO_TRAFFIC_CATEGORY_SEED_BUDGET_FLOOR, count * 6);
+}
+
+export function getProTrafficCategoryNormalSeedTarget(requestedCount: number): number {
+  const count = normalizeProTrafficResultCount('category', requestedCount);
+  return Math.min(
+    PRO_TRAFFIC_CATEGORY_SEED_TARGET_MAX,
+    Math.max(PRO_TRAFFIC_CATEGORY_SEED_BUDGET_FLOOR, Math.ceil(count * 2.4)),
+  );
 }
 
 function compactKeyword(keyword: string): string {
@@ -57,6 +89,43 @@ function gradeRank(grade: unknown): number {
 
 export function countProTrafficSss<T extends ProTrafficFloorLike>(items: T[]): number {
   return (items || []).filter(item => String(item.grade || '').toUpperCase() === 'SSS').length;
+}
+
+function hasPositiveMeasuredMetrics(item: ProTrafficFloorLike): boolean {
+  return typeof item.searchVolume === 'number'
+    && item.searchVolume > 0
+    && typeof item.documentCount === 'number'
+    && item.documentCount > 0
+    && typeof item.goldenRatio === 'number'
+    && item.goldenRatio > 0;
+}
+
+export function selectProTrafficSssPromotionCandidates<T extends ProTrafficFloorLike>(
+  rankedCandidates: T[],
+  requestedCount: number,
+  categoryMode: boolean,
+  canPromoteToSss: (item: T) => boolean,
+): T[] {
+  const target = normalizeProTrafficResultCount(
+    categoryMode ? 'category' : 'realtime',
+    requestedCount,
+    categoryMode ? PRO_TRAFFIC_CATEGORY_SSS_FLOOR : PRO_TRAFFIC_MIN_RESULT_COUNT,
+  );
+
+  const selected: T[] = [];
+  const seen = new Set<string>();
+
+  for (const item of rankedCandidates || []) {
+    if (selected.length >= target) break;
+    const key = compactKeyword(item?.keyword || '');
+    if (!key || seen.has(key)) continue;
+    seen.add(key);
+    if (!hasPositiveMeasuredMetrics(item)) continue;
+    if (!canPromoteToSss(item)) continue;
+    selected.push(item);
+  }
+
+  return selected;
 }
 
 export function rankProTrafficSssFloorResults<T extends ProTrafficFloorLike>(

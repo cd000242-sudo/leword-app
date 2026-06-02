@@ -36,6 +36,7 @@ import { getRegistry, getAllStates, unblockSource, unblockAll, callAllSources } 
 import { getStorageStats, getRisingKeywords, getNewKeywords, clearStorage } from '../../utils/sources/source-storage';
 import { getCallStats, resetCallStats } from '../../utils/sources/rate-limiter';
 import { rankMindmapExpansionCandidates, MindmapExpansionCandidate } from '../../utils/mindmap-expansion-quality';
+import { buildMindmapMeasuredKeywordItem } from '../../utils/mindmap-metrics';
 
 function pro<T>(handler: () => Promise<T>): Promise<T | { error: string; requiresUnlimited: true }> {
     const lic = checkUnlimitedLicense();
@@ -602,68 +603,16 @@ export function setupSourceSignalHandlers(): void {
                 clientId: env.naverClientId || process.env['NAVER_CLIENT_ID'] || '',
                 clientSecret: env.naverClientSecret || process.env['NAVER_CLIENT_SECRET'] || '',
             };
-            if (!config.clientId) return { success: false, error: 'Naver API 키 없음 (환경설정에서 등록 필요)' };
+            if (!config.clientId || !config.clientSecret) {
+                return { success: false, error: 'Naver API 키 없음 (환경설정에서 Client ID/Secret 등록 필요)' };
+            }
 
             const sendProgress = (msg: string, phase: string, current: number, total: number) => {
                 try { event.sender.send('related-expansion-progress', { msg, phase, current, total }); } catch { /* no-op */ }
             };
 
             // CLAUDE.md 등급 기준
-            const calculateGrade = (sv: number, dc: number, ratio: number) => {
-                if (sv >= 1000 && dc > 0 && dc <= 5000 && ratio >= 5) return 'SSS';
-                if (sv >= 500 && dc > 0 && dc <= 10000 && ratio >= 3) return 'SS';
-                if (sv >= 300 && ratio >= 2) return 'S';
-                if (sv >= 100) return 'A';
-                if (sv >= 30) return 'B';
-                return 'C';
-            };
             const gradeOrder: Record<string, number> = { SSS: 6, SS: 5, S: 4, A: 3, B: 2, C: 1 };
-            const buildMeasuredKeywordItem = (m: any, isSeed: boolean, depth: number) => {
-                const pcKnown = m?.pcSearchVolume !== null && m?.pcSearchVolume !== undefined;
-                const mobileKnown = m?.mobileSearchVolume !== null && m?.mobileSearchVolume !== undefined;
-                const pc = pcKnown ? Number(m.pcSearchVolume) || 0 : null;
-                const mobile = mobileKnown ? Number(m.mobileSearchVolume) || 0 : null;
-                const volumeKnown = pcKnown || mobileKnown;
-                const sv = volumeKnown ? ((pc || 0) + (mobile || 0)) : null;
-                const dc = m?.documentCount || 0;
-                const ratio = dc > 0 && sv !== null ? parseFloat((sv / dc).toFixed(2)) : 0;
-                const pcLt10 = pcKnown && (m.pcSearchVolumeLt10 === true || pc === 0);
-                const mobileLt10 = mobileKnown && (m.mobileSearchVolumeLt10 === true || mobile === 0);
-                const hiddenCap = (pcLt10 ? 10 : 0) + (mobileLt10 ? 10 : 0);
-                const lowerBound = sv || 0;
-                let searchVolumeDisplay = '-';
-                if (volumeKnown) {
-                    if (hiddenCap > 0 && lowerBound === 0) searchVolumeDisplay = `< ${hiddenCap}`;
-                    else if (hiddenCap > 0) searchVolumeDisplay = `${lowerBound.toLocaleString()}+`;
-                    else searchVolumeDisplay = lowerBound.toLocaleString();
-                }
-                let goldenRatioDisplay = '-';
-                if (dc > 0 && sv !== null) {
-                    if (hiddenCap > 0 && lowerBound === 0) {
-                        goldenRatioDisplay = `< ${(hiddenCap / dc).toFixed(2)}`;
-                    } else {
-                        goldenRatioDisplay = ratio.toFixed(2);
-                    }
-                }
-                return {
-                    keyword: m.keyword,
-                    searchVolume: sv,
-                    searchVolumeDisplay,
-                    searchVolumeKnown: volumeKnown,
-                    pcSearchVolume: pc,
-                    mobileSearchVolume: mobile,
-                    pcSearchVolumeLt10: pcLt10,
-                    mobileSearchVolumeLt10: mobileLt10,
-                    documentCount: dc,
-                    goldenRatio: ratio,
-                    goldenRatioDisplay,
-                    grade: calculateGrade(sv || 0, dc, ratio),
-                    cpc: m.monthlyAveCpc || 0,
-                    competition: m.competition || null,
-                    isSeed,
-                    depth,
-                };
-            };
 
             // v2.42.46: 브랜드 동의어 사전 — 30+ 카테고리 × 평균 8 브랜드 = 250+ 풀
             const BRAND_FAMILIES: Record<string, string[]> = {
@@ -835,7 +784,7 @@ export function setupSourceSignalHandlers(): void {
             const d1Pool = Array.from(new Set([seed, ...d1Candidates])).slice(0, Math.min(200, expandPerSeed + siblingSeeds.length * 12 + 5));
             const d1Metrics = await getNaverKeywordSearchVolumeSeparate(config, d1Pool, { includeDocumentCount: true });
             const d1Items = d1Metrics
-                .map((m: any) => buildMeasuredKeywordItem(m, m.keyword === seed, 1))
+                .map((m: any) => buildMindmapMeasuredKeywordItem(m, { seed, depth: 1 }))
                 .filter(i => i.documentCount > 0 || i.searchVolume !== null);
             measuredByDepth.set(1, d1Items);
             sendProgress(`1단계 완료: ${d1Items.length}건`, 'depth-1-done', d1Items.length, d1Items.length);
@@ -886,7 +835,7 @@ export function setupSourceSignalHandlers(): void {
 
                 const dMetrics = await getNaverKeywordSearchVolumeSeparate(config, dPool, { includeDocumentCount: true });
                 const dItems = dMetrics
-                    .map((m: any) => buildMeasuredKeywordItem(m, false, d))
+                    .map((m: any) => buildMindmapMeasuredKeywordItem(m, { seed, depth: d }))
                     .filter(i => i.documentCount > 0 || i.searchVolume !== null);
                 measuredByDepth.set(d, dItems);
                 sendProgress(`${d}단계 완료: ${dItems.length}건`, `depth-${d}-done`, dItems.length, dItems.length);

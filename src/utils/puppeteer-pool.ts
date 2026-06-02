@@ -37,6 +37,7 @@ export class PuppeteerLaunchError extends Error {
 
 type BrowserEngine = 'patchright' | 'playwright';
 
+const compatibleBrowserLaunches = new Set<any>();
 const DEFAULT_UA =
   'Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/131.0.0.0 Safari/537.36';
 const DEFAULT_VIEWPORT = { width: 1920, height: 1080 };
@@ -498,6 +499,7 @@ export class PuppeteerPool {
 
     await Promise.allSettled(this.pool.map(instance => instance.close()));
     this.pool = [];
+    await destroyCompatibleBrowserLaunches();
   }
 
   getStats(): { size: number; maxSize: number; inUse: number; idle: number; engine?: BrowserEngine } {
@@ -519,7 +521,7 @@ export async function launchCompatibleBrowser(options: any = {}): Promise<any> {
     ...options,
   });
   const rawBrowser = await engine.chromium.launch(launchOptions);
-  return adaptBrowser(rawBrowser, engine.engine, {
+  const browser = adaptBrowser(rawBrowser, engine.engine, {
     ignoreHTTPSErrors: true,
     locale: 'ko-KR',
     timezoneId: 'Asia/Seoul',
@@ -527,6 +529,32 @@ export async function launchCompatibleBrowser(options: any = {}): Promise<any> {
     userAgent: DEFAULT_UA,
     extraHTTPHeaders: { 'Accept-Language': 'ko-KR,ko;q=0.9,en-US;q=0.8,en;q=0.7' },
   });
+  compatibleBrowserLaunches.add(browser);
+  const close = browser.close.bind(browser);
+  browser.close = async (...args: any[]) => {
+    compatibleBrowserLaunches.delete(browser);
+    return close(...args);
+  };
+  return browser;
+}
+
+export async function destroyCompatibleBrowserLaunches(): Promise<void> {
+  const browsers = Array.from(compatibleBrowserLaunches);
+  compatibleBrowserLaunches.clear();
+  const closeBrowser = async (browser: any) => {
+    try {
+      await Promise.resolve(browser?.close?.());
+    } catch {}
+  };
+  await Promise.allSettled(
+    browsers.map(browser => Promise.race([
+      closeBrowser(browser),
+      new Promise(resolve => {
+        const timer = setTimeout(resolve, 2500);
+        (timer as any).unref?.();
+      }),
+    ])),
+  );
 }
 
 function buildPoolConfig(): BrowserPoolConfig {

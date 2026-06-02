@@ -58,6 +58,8 @@ const SOURCE_LABEL: Record<RealtimeKeyword['source'], string> = {
 const BLOG_INTENT_RE = /(추천|후기|리뷰|정리|방법|신청|대상|자격|일정|가격|비교|순위|혜택|지원|지원금|보조금|장려금|환급|조회|발급|예매|라인업|출연|결과|코스|맛집|축제|할인|증상|원인|준비물|기간|조건)/;
 const FRESH_EVENT_RE = /(오늘|내일|이번|주말|방금|속보|발표|공개|출시|오픈|마감|접수|컴백|결혼|사망|확정|변경|개편|202[0-9]|시즌|상반기|하반기)/;
 const POLICY_VALUE_RE = /(지원금|보조금|장려금|바우처|급여|수당|환급|감면|면제|정책|복지|대출|청년|소상공인|육아|출산|노인|장애인|근로|고용|국민연금|건강보험)/;
+const POLICY_FAMILY_RE = /(지원금|보조금|장려금|바우처|급여|수당|환급|감면|면제|정책|복지|대출|청년|소상공인|자영업|육아|출산|노인|장애인|근로|고용|국민연금|건강보험)/;
+const FAMILY_INTENT_SUFFIX_RE = /(온라인신청|신청방법|준비서류|변경사항|공식입장|지급일|사용처|신청|대상|자격|조건|기간|서류|조회|금액|마감|방법|혜택|정리|일정|예매|라인업|출연|결과|근황|컴백|공개|라이브|티켓)+$/;
 const AD_NOISE_RE = /(보험|대출|변호사|법무법인|성형|라식|임플란트|도박|카지노|토토|성인|사주|점집|흥신소)/;
 const GENERIC_BROAD_RE = /^(뉴스|날씨|환율|주식|코인|비트코인|로또|운세|사주|부동산|보험|대출|병원|학원|맛집|여행|연예|스포츠|쇼핑|쿠팡|유튜브|넷플릭스)$/;
 const GENERIC_BROAD_WORD_RE = /(뉴스|날씨|환율|주식|코인|로또|운세|사주|부동산)$/;
@@ -79,6 +81,27 @@ export function normalizeRealtimeKeywordKey(input: string): string {
     .trim()
     .toLowerCase()
     .replace(/\s+/g, '');
+}
+
+export function getRealtimeKeywordFamilyKey(input: string): string {
+  const clean = String(input || '').replace(/\s+/g, ' ').trim();
+  const compact = normalizeRealtimeKeywordKey(clean);
+  if (!compact) return '';
+
+  const policyFamily = POLICY_FAMILY_RE.test(clean);
+  const hasActionShape = BLOG_INTENT_RE.test(clean) || FRESH_EVENT_RE.test(clean);
+  if (!policyFamily && !hasActionShape) return compact;
+
+  let family = compact;
+  let previous = '';
+  while (family !== previous) {
+    previous = family;
+    family = family.replace(FAMILY_INTENT_SUFFIX_RE, '');
+  }
+
+  if (policyFamily && family.length >= 4) return `policy:${family}`;
+  if (hasActionShape && family.length >= 4) return `issue:${family}`;
+  return compact;
 }
 
 export function scoreRealtimeKeywordStrength(keyword: string, context: RealtimeStrengthContext = {}) {
@@ -203,9 +226,14 @@ export function strengthenRealtimeKeywordGroups<T extends RealtimeKeywordGroups>
     for (const item of keywords) {
       const key = normalizeRealtimeKeywordKey(item.keyword);
       if (!key) continue;
+      const familyKey = getRealtimeKeywordFamilyKey(item.keyword);
       const source = item.source || (platform === 'bokjiro' ? 'policy' : platform);
       if (!sourceMap.has(key)) sourceMap.set(key, new Set());
       sourceMap.get(key)?.add(source);
+      if (familyKey && familyKey !== key) {
+        if (!sourceMap.has(familyKey)) sourceMap.set(familyKey, new Set());
+        sourceMap.get(familyKey)?.add(source);
+      }
     }
   }
 
@@ -218,7 +246,11 @@ export function strengthenRealtimeKeywordGroups<T extends RealtimeKeywordGroups>
     const enriched = keywords
       .map((item) => {
         const key = normalizeRealtimeKeywordKey(item.keyword);
-        const matchedSources = key ? Array.from(sourceMap.get(key) || []) : [];
+        const familyKey = getRealtimeKeywordFamilyKey(item.keyword);
+        const sourceSet = new Set<RealtimeKeyword['source']>();
+        if (key) for (const source of sourceMap.get(key) || []) sourceSet.add(source);
+        if (familyKey) for (const source of sourceMap.get(familyKey) || []) sourceSet.add(source);
+        const matchedSources = Array.from(sourceSet);
         const strength = scoreRealtimeKeywordStrength(item.keyword, {
           rank: item.rank,
           change: item.change,

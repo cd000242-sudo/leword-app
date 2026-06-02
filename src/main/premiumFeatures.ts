@@ -5,6 +5,7 @@ import * as path from 'path';
 import * as licenseManager from '../utils/licenseManager';
 import { benchmarkSniperPro } from '../utils/benchmark-sniper';
 import { getExtractorInstance } from '../utils/accurate-blog-index-extractor';
+import { browserPool } from '../utils/puppeteer-pool';
 
 let electronRuntime: typeof Electron | null = null;
 try {
@@ -462,16 +463,7 @@ async function analyzeCompetitorBlog(blogUrl: string): Promise<CompetitorBlogAna
   let browser: any = null;
 
   try {
-    const { launchCompatibleBrowser } = await import('../utils/puppeteer-pool');
-    browser = await launchCompatibleBrowser({
-      headless: 'new',
-      args: [
-        '--no-sandbox',
-        '--disable-setuid-sandbox',
-        '--disable-dev-shm-usage',
-        '--window-size=1920,1080',
-      ],
-    });
+    browser = await browserPool.acquire();
 
     const page = await browser.newPage();
     await page.setUserAgent('Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/120.0.0.0 Safari/537.36');
@@ -653,7 +645,7 @@ async function analyzeCompetitorBlog(blogUrl: string): Promise<CompetitorBlogAna
     throw error;
   } finally {
     if (browser) {
-      await browser.close();
+      browserPool.release(browser);
     }
   }
 }
@@ -1653,11 +1645,7 @@ async function reverseAnalyzeKeywords(blogUrl: string): Promise<ReverseKeywordAn
   let browser: any = null;
 
   try {
-    const { launchCompatibleBrowser } = await import('../utils/puppeteer-pool');
-    browser = await launchCompatibleBrowser({
-      headless: 'new',
-      args: ['--no-sandbox', '--disable-setuid-sandbox', '--disable-dev-shm-usage', '--window-size=1920,1080'],
-    });
+    browser = await browserPool.acquire();
 
     const page = await browser.newPage();
     await page.setUserAgent('Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/120.0.0.0 Safari/537.36');
@@ -1783,7 +1771,7 @@ async function reverseAnalyzeKeywords(blogUrl: string): Promise<ReverseKeywordAn
     throw error;
   } finally {
     if (browser) {
-      await browser.close();
+      browserPool.release(browser);
     }
   }
 }

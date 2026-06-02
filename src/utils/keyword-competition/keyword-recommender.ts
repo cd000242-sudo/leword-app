@@ -5,32 +5,10 @@
 import type { Browser, Page } from 'puppeteer';
 import { KeywordRecommendation } from './types';
 import { deterministicRange, deterministicRatio } from '../deterministic-random';
-
-// 브라우저 재사용
-let browserInstance: Browser | null = null;
-let browserLastUsed = 0;
-const BROWSER_TIMEOUT = 120000;
+import { browserPool } from '../puppeteer-pool';
 
 async function getBrowser(): Promise<Browser> {
-  const now = Date.now();
-  
-  if (browserInstance && (now - browserLastUsed) < BROWSER_TIMEOUT) {
-    browserLastUsed = now;
-    return browserInstance;
-  }
-  
-  if (browserInstance) {
-    try { await browserInstance.close(); } catch { /* ignore */ }
-  }
-  
-  const { launchCompatibleBrowser } = await import('../puppeteer-pool');
-  browserInstance = await launchCompatibleBrowser({
-    headless: 'new',
-    args: ['--no-sandbox', '--disable-setuid-sandbox', '--disable-dev-shm-usage']
-  }) as Browser;
-  
-  browserLastUsed = now;
-  return browserInstance;
+  return browserPool.acquire() as Promise<Browser>;
 }
 
 /**
@@ -138,7 +116,11 @@ async function fetchNaverRelatedKeywords(keyword: string): Promise<string[]> {
   } catch (error) {
     return [];
   } finally {
-    await page.close();
+    try {
+      await page.close();
+    } finally {
+      browserPool.release(browser);
+    }
   }
 }
 
@@ -209,8 +191,5 @@ export async function getEasierKeywords(
  * 브라우저 정리
  */
 export async function closeBrowser(): Promise<void> {
-  if (browserInstance) {
-    try { await browserInstance.close(); } catch { /* ignore */ }
-    browserInstance = null;
-  }
+  await browserPool.closeIdle();
 }

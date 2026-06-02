@@ -39,23 +39,20 @@ export class PuppeteerBlogIndexExtractor {
    */
   async extractWithPuppeteer(blogId: string): Promise<Partial<AdvancedBlogStats['metrics']> | null> {
     let browser: any = null;
+    let browserPool: any = null;
+    const releaseBrowser = () => {
+      if (!browser || !browserPool) return;
+      browserPool.release(browser);
+      browser = null;
+    };
     
     try {
       console.log(`[PUPPETEER-EXTRACTOR] 블로그 지수 추출 시작: ${blogId}`);
       
-      const { launchCompatibleBrowser } = await import('./puppeteer-pool');
+      const poolModule = await import('./puppeteer-pool');
+      browserPool = poolModule.browserPool;
 
-      browser = await launchCompatibleBrowser({
-        headless: 'new',
-        args: [
-          '--no-sandbox',
-          '--disable-setuid-sandbox',
-          '--disable-blink-features=AutomationControlled',
-          '--disable-dev-shm-usage',
-          '--disable-web-security',
-          '--disable-features=IsolateOrigins,site-per-process'
-        ]
-      });
+      browser = await browserPool.acquire();
       
       const page = await browser.newPage();
       
@@ -272,8 +269,7 @@ export class PuppeteerBlogIndexExtractor {
       
       if (extractedData.blogIndex || extractedData.visitors || extractedData.followers) {
         console.log(`[PUPPETEER-EXTRACTOR] ✅ 프로필 페이지에서 추출 성공:`, extractedData);
-        await browser.close();
-        browser = null;
+        releaseBrowser();
         return {
           puppeteerIndex: extractedData.blogIndex,
           puppeteerVisitors: extractedData.visitors,
@@ -356,8 +352,7 @@ export class PuppeteerBlogIndexExtractor {
         
         if (searchExtractedData.blogIndex) {
           console.log(`[PUPPETEER-EXTRACTOR] ✅ 검색 결과 페이지에서 추출 성공:`, searchExtractedData);
-          await browser.close();
-          browser = null;
+          releaseBrowser();
           return {
             puppeteerIndex: searchExtractedData.blogIndex
           };
@@ -371,22 +366,13 @@ export class PuppeteerBlogIndexExtractor {
       }
       
       // 모든 방법 실패 시 브라우저 닫기
-      if (browser) {
-        await browser.close();
-        browser = null;
-      }
+      releaseBrowser();
       
       console.log(`[PUPPETEER-EXTRACTOR] ⚠️ 모든 방법 실패`);
       return null;
       
     } catch (error: any) {
-      if (browser) {
-        try {
-          await browser.close();
-        } catch (e) {
-          // 무시
-        }
-      }
+      releaseBrowser();
       console.warn(`[PUPPETEER-EXTRACTOR] 추출 실패: ${error.message || String(error)}`);
       return null;
     }
@@ -715,4 +701,3 @@ export class AdvancedBlogIndexExtractor {
     return result;
   }
 }
-

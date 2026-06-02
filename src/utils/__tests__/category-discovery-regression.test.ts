@@ -6,6 +6,7 @@
  */
 
 import {
+  filterFocusedProfileCategoryIds,
   getDiscoveryCategorySeeds,
   matchesDiscoveryCategory,
   resolveDiscoveryCategoryIds,
@@ -37,6 +38,20 @@ const starIds = resolveDiscoveryCategoryIds('스타');
 assert('star Korean alias resolves to entertainment family',
   starIds.includes('celeb') && starIds.includes('broadcast') && starIds.includes('music'),
   starIds.join(','));
+const celebrityIds = resolveDiscoveryCategoryIds('celebrity');
+assert('celebrity UI alias resolves to entertainment family',
+  celebrityIds.includes('celeb') && celebrityIds.includes('broadcast') && celebrityIds.includes('music'),
+  celebrityIds.join(','));
+
+assert('focused support category keeps only matching profile seed category',
+  JSON.stringify(filterFocusedProfileCategoryIds('지원금', ['beauty', 'policy', 'celeb'])) === JSON.stringify(['policy']),
+  filterFocusedProfileCategoryIds('지원금', ['beauty', 'policy', 'celeb']).join(','));
+assert('focused star category keeps only entertainment profile seed category',
+  JSON.stringify(filterFocusedProfileCategoryIds('스타', ['policy', 'celeb', 'beauty'])) === JSON.stringify(['celeb']),
+  filterFocusedProfileCategoryIds('스타', ['policy', 'celeb', 'beauty']).join(','));
+assert('unfocused category mode can still use every profile category',
+  filterFocusedProfileCategoryIds('all', ['policy', 'celeb']).length === 2,
+  filterFocusedProfileCategoryIds('all', ['policy', 'celeb']).join(','));
 
 const fashionIds = resolveDiscoveryCategoryIds('fashion');
 assert('fashion UI category keeps beauty sibling', fashionIds.includes('fashion') && fashionIds.includes('beauty'), fashionIds.join(','));
@@ -71,6 +86,12 @@ assert('celeb category-only discovery has at least 30 seeds', celebSeeds.length 
 assert('celeb seeds preserve star/entertainment intent',
   celebSeeds.some(seed => /연예|아이돌|컴백|팬미팅|콘서트/.test(seed)),
   celebSeeds.slice(0, 12).join(', '));
+const celebritySeeds = getDiscoveryCategorySeeds('celebrity', 80);
+assert('celebrity UI alias does not fall back to generic template seeds',
+  celebritySeeds.length >= 30
+    && celebritySeeds.some(seed => /연예|아이돌|컴백|팬미팅|콘서트|드라마|예능/.test(seed))
+    && !celebritySeeds.slice(0, 8).every(seed => /추천|비교|후기|가격|방법|효과|차이점|순위/.test(seed)),
+  celebritySeeds.slice(0, 16).join(', '));
 
 const profileIds = BLOGGER_CATEGORIES.map(c => c.id);
 assert('blogger profile exposes policy category', profileIds.includes('policy'), profileIds.join(','));
@@ -105,6 +126,21 @@ assert('category-first support plan includes current-date and application intent
     && policyPlan.seeds.some(seed => /신청|대상|자격|지급일|마감/.test(seed)),
   policyPlan.seeds.slice(0, 20).join(', '));
 
+const livePolicyPlan = buildCategoryFirstGoldenSeedPlan({
+  category: '지원금',
+  maxSeeds: 140,
+  now: june2026,
+  liveSeeds: ['청년 도약 보조금 신청', '소상공인 새출발 지원금 접수'],
+});
+assert('category-first support plan prioritizes live policy briefing seeds',
+  livePolicyPlan.liveSeedCount === 2
+    && livePolicyPlan.seeds.slice(0, 14).some(seed => seed === '청년 도약 보조금 신청')
+    && livePolicyPlan.seeds.slice(0, 22).some(seed => /소상공인 새출발 지원금 접수/.test(seed)),
+  livePolicyPlan.seeds.slice(0, 28).join(', '));
+assert('category-first support live seeds get current intent expansions',
+  livePolicyPlan.seeds.some(seed => /청년 도약 보조금 신청.*(2026|6월|최신|신청방법|대상|자격)/.test(seed)),
+  livePolicyPlan.seeds.slice(0, 32).join(', '));
+
 const focusedPolicyPlan = buildCategoryFirstGoldenSeedPlan({
   category: '지원금',
   keyword: '근로장려금',
@@ -129,6 +165,21 @@ assert('category-first star plan includes fresh entertainment intent',
     && starPlan.seeds.some(seed => /컴백|근황|공식입장|콘서트|팬미팅|시상식/.test(seed)),
   starPlan.seeds.slice(0, 20).join(', '));
 
+const liveStarPlan = buildCategoryFirstGoldenSeedPlan({
+  category: '스타',
+  maxSeeds: 140,
+  now: june2026,
+  liveSeeds: ['아이돌 컴백 공식입장', '배우 드라마 출연 확정'],
+});
+assert('category-first star plan prioritizes live entertainment seeds',
+  liveStarPlan.liveSeedCount === 2
+    && liveStarPlan.seeds.slice(0, 14).some(seed => seed === '아이돌 컴백 공식입장')
+    && liveStarPlan.seeds.slice(0, 22).some(seed => /배우 드라마 출연 확정/.test(seed)),
+  liveStarPlan.seeds.slice(0, 28).join(', '));
+assert('category-first star live seeds get current entertainment expansions',
+  liveStarPlan.seeds.some(seed => /아이돌 컴백 공식입장.*(2026|6월|최신|근황|공식입장|컴백 일정)/.test(seed)),
+  liveStarPlan.seeds.slice(0, 32).join(', '));
+
 for (const category of BLOGGER_CATEGORIES) {
   const profileSeeds = getSeedsForUserCategories([category.id], 30);
   assert(`profile category ${category.id} injects 30+ seeds`,
@@ -139,6 +190,23 @@ for (const category of BLOGGER_CATEGORIES) {
   assert(`discovery category ${category.id} expands to 30+ seeds`,
     discoverySeeds.length >= 30,
     `${category.label}: ${discoverySeeds.length}`);
+}
+
+const genericFallbackPattern = /추천 가성비 순위 2026|비교 장단점 총정리|후기 실사용 솔직 리뷰/;
+for (const category of BLOGGER_CATEGORIES) {
+  const labelIds = resolveDiscoveryCategoryIds(category.label);
+  const labelSeeds = getDiscoveryCategorySeeds(category.label, 40);
+  const normalizedLabel = category.label.replace(/\s+/g, '');
+
+  assert(`profile label ${category.id} resolves to concrete discovery ids`,
+    labelIds.length > 0
+      && !labelIds.includes(category.label)
+      && !labelIds.includes(normalizedLabel),
+    `${category.label} => ${labelIds.join(',')}`);
+  assert(`profile label ${category.id} avoids generic fallback seed templates`,
+    labelSeeds.length >= 30
+      && !genericFallbackPattern.test(labelSeeds.slice(0, 6).join('|')),
+    `${category.label}: ${labelSeeds.slice(0, 8).join(', ')}`);
 }
 
 assert('health matcher accepts vitamin/ supplement keywords',

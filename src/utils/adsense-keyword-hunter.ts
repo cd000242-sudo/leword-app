@@ -205,6 +205,26 @@ export interface BlueOceanResult {
 
 export type AdsenseApprovalGrade = 'S+' | 'S' | 'A' | 'B';
 
+export type AdsenseApprovalClusterIntent =
+    | 'overview'
+    | 'eligibility'
+    | 'process'
+    | 'documents'
+    | 'deadline'
+    | 'mistakes'
+    | 'comparison'
+    | 'faq'
+    | 'checklist'
+    | 'followup';
+
+export interface AdsenseApprovalContentClusterItem {
+    order: number;
+    keyword: string;
+    title: string;
+    intent: AdsenseApprovalClusterIntent;
+    angle: string;
+}
+
 export interface AdsenseApprovalProfile {
     score: number;                       // 0~100, 승인용 종합 점수
     grade: AdsenseApprovalGrade;
@@ -216,8 +236,10 @@ export interface AdsenseApprovalProfile {
     safetyFitScore: number;
     contentDepthScore: number;
     seriesPotentialScore: number;
+    originalityScore: number;
     titleCandidates: string[];
     contentAngles: string[];
+    contentCluster: AdsenseApprovalContentClusterItem[];
     outline: string[];
     reasons: string[];
     risks: string[];
@@ -1711,6 +1733,19 @@ const APPROVAL_SHALLOW_PATTERNS = [
     '뜻', '의미', '정의', '나이', '키', '프로필', '사주', '근황',
 ];
 
+const APPROVAL_ORIGINALITY_POSITIVE_PATTERNS = [
+    '체크리스트', '주의사항', '준비물', '서류', '절차', '단계', '방법',
+    '비교', '차이', '장단점', '실패', '후기', '리뷰', '직접', '실제',
+    '경험', '사례', '정리', '총정리', 'FAQ', '자주 묻는 질문',
+    '공식', '정부', '지자체', '고시', '공고', '약관', '기준',
+];
+
+const APPROVAL_THIN_COPY_PATTERNS = [
+    '뜻', '의미', '정의', '프로필', '나이', '키', '학력', '고향', '인스타',
+    '주소', '전화번호', '영업시간', '홈페이지', '공식사이트', '다운로드',
+    '무료보기', '다시보기', '실시간', '중계', '사주', '꿈해몽',
+];
+
 function clampScore(n: number): number {
     return Math.max(0, Math.min(100, Math.round(n)));
 }
@@ -1778,6 +1813,35 @@ function scoreApprovalSeriesPotential(keyword: string, category: string): number
     return clampScore(score);
 }
 
+function scoreApprovalOriginality(keyword: string, category: string): number {
+    const lower = String(keyword || '').toLowerCase();
+    const tokens = keyword.split(/[\s·,/]+/).filter(t => t.length >= 2);
+    let score = 42 + Math.min(20, tokens.length * 5);
+
+    const positiveMatches = APPROVAL_ORIGINALITY_POSITIVE_PATTERNS
+        .filter(p => lower.includes(p.toLowerCase())).length;
+    score += Math.min(30, positiveMatches * 8);
+
+    if (['subsidy', 'season', 'education', 'certificate', 'living', 'life_tips', 'diy', 'gardening', 'recipe', 'it', 'app'].includes(category)) {
+        score += 8;
+    }
+    if (/202\d|20\d{2}|이번달|올해|최신|개정|변경|마감|신청|대상|조건|서류/.test(lower)) {
+        score += 8;
+    }
+    if (/내돈내산|직접|실제|후기|체험|사용기/.test(lower) && !['medical', 'dental', 'plastic', 'loan', 'legal'].includes(category)) {
+        score += 7;
+    }
+
+    const thinMatches = APPROVAL_THIN_COPY_PATTERNS
+        .filter(p => lower.includes(p.toLowerCase())).length;
+    score -= Math.min(38, thinMatches * 12);
+
+    if (tokens.length <= 2 && thinMatches > 0) score -= 18;
+    if (/뉴스|속보|실검|갤러리|짤|사진/.test(lower)) score -= 12;
+
+    return clampScore(score);
+}
+
 function buildApprovalTitles(keyword: string, category: string): string[] {
     if (category === 'subsidy' || /지원금|보조금|장려금|환급|바우처/.test(keyword)) {
         return [
@@ -1835,6 +1899,113 @@ function buildApprovalOutline(keyword: string): string[] {
     ];
 }
 
+function stripApprovalIntent(keyword: string): string {
+    let out = String(keyword || '').replace(/\s+/g, ' ').trim();
+    const trailing = [
+        '체크리스트', '신청방법', '자격조건', '대상자', '필요서류',
+        '주의사항', '총정리', '정리', '방법', '신청', '서류', '조건',
+        '자격', '대상', '기간', '마감', '조회', '확인', 'FAQ',
+    ].sort((a, b) => b.length - a.length);
+    for (const token of trailing) {
+        out = out.replace(new RegExp(`\\s*${token}$`, 'i'), '').trim();
+    }
+    return out || String(keyword || '').trim();
+}
+
+function makeClusterItem(
+    order: number,
+    base: string,
+    suffix: string,
+    intent: AdsenseApprovalClusterIntent,
+    angle: string,
+): AdsenseApprovalContentClusterItem {
+    const keyword = `${base} ${suffix}`.replace(/\s+/g, ' ').trim();
+    return {
+        order,
+        keyword,
+        title: `${keyword} ${angle.includes('FAQ') ? '자주 묻는 질문 정리' : '핵심 정리'}`,
+        intent,
+        angle,
+    };
+}
+
+export function buildAdsenseApprovalContentCluster(
+    keyword: string,
+    category: string,
+    limit = 10,
+): AdsenseApprovalContentClusterItem[] {
+    const base = stripApprovalIntent(keyword);
+    const lower = String(keyword || '').toLowerCase();
+    const thin = APPROVAL_THIN_COPY_PATTERNS.some(p => lower.includes(p.toLowerCase()));
+    const safeLimit = Math.max(1, Math.floor(Number(limit) || 10));
+
+    if (thin) {
+        return [
+            makeClusterItem(1, base, '핵심 정리', 'overview', '복붙 정보가 아니라 확인 가능한 기본 정보만 요약'),
+            makeClusterItem(2, base, '자주 묻는 질문', 'faq', 'FAQ 형식으로 검색 의도별 답변 정리'),
+            makeClusterItem(3, base, '최신 확인 방법', 'followup', '변경될 수 있는 정보 확인 경로 안내'),
+        ].slice(0, Math.min(safeLimit, 3));
+    }
+
+    const isPolicy = category === 'subsidy' || /지원금|보조금|장려금|환급|바우처|급여|수당/.test(keyword);
+    const isRecipe = category === 'recipe' || /레시피|요리|만드는법|끓이는법/.test(keyword);
+    const isHowTo = /방법|하는법|체크리스트|준비물|절차|가이드|정리/.test(keyword);
+    const isReview = /비교|추천|후기|리뷰|장단점/.test(keyword);
+
+    const templates: Array<{ suffix: string; intent: AdsenseApprovalClusterIntent; angle: string }> = isPolicy
+        ? [
+            { suffix: '핵심 요약', intent: 'overview', angle: '대상/금액/기간을 한 화면에서 이해하도록 정리' },
+            { suffix: '대상 자격', intent: 'eligibility', angle: '대상과 제외대상을 분리해서 승인형 정보성 확보' },
+            { suffix: '신청방법', intent: 'process', angle: '온라인/방문 신청 절차를 단계별로 정리' },
+            { suffix: '서류 준비물', intent: 'documents', angle: '필요서류와 발급처를 체크리스트로 제공' },
+            { suffix: '지급일 조회', intent: 'deadline', angle: '신청 후 확인할 날짜와 조회 경로 정리' },
+            { suffix: '주의사항 실수', intent: 'mistakes', angle: '탈락/반려되는 실수와 예외 조건 정리' },
+            { suffix: '지역별 차이', intent: 'comparison', angle: '지자체별 조건 차이를 표로 비교' },
+            { suffix: 'FAQ', intent: 'faq', angle: 'FAQ 기반으로 짧은 의문을 묶어 체류 시간 확보' },
+            { suffix: '체크리스트', intent: 'checklist', angle: '신청 전 마지막 확인용 목록 제공' },
+            { suffix: '변경사항', intent: 'followup', angle: '최신 공고와 개정 내용 추적 글감' },
+        ]
+        : isRecipe
+        ? [
+            { suffix: '준비물', intent: 'overview', angle: '재료와 도구를 먼저 정리' },
+            { suffix: '순서', intent: 'process', angle: '실패하지 않는 단계별 순서 제공' },
+            { suffix: '실패 원인', intent: 'mistakes', angle: '초보자가 자주 틀리는 포인트 정리' },
+            { suffix: '보관법', intent: 'followup', angle: '완성 후 보관과 재활용 팁' },
+            { suffix: 'FAQ', intent: 'faq', angle: 'FAQ 형식으로 대체 재료와 시간 답변' },
+        ]
+        : isReview
+        ? [
+            { suffix: '비교 기준', intent: 'overview', angle: '선택 기준을 먼저 선언해 신뢰도 확보' },
+            { suffix: '장단점', intent: 'comparison', angle: '장점보다 단점과 맞지 않는 대상을 분리' },
+            { suffix: '후기 체크포인트', intent: 'checklist', angle: '구매 전 확인할 항목을 표로 정리' },
+            { suffix: '주의사항', intent: 'mistakes', angle: '실패 구매를 줄이는 조건 정리' },
+            { suffix: 'FAQ', intent: 'faq', angle: 'FAQ 기반으로 상황별 선택 답변' },
+        ]
+        : [
+            { suffix: '핵심 요약', intent: 'overview', angle: '처음 찾는 사람이 바로 이해할 핵심 정리' },
+            { suffix: '기준 조건', intent: 'eligibility', angle: '적용되는 조건과 예외를 분리' },
+            { suffix: '방법 절차', intent: 'process', angle: '실행 순서를 단계별로 정리' },
+            { suffix: '준비물 체크리스트', intent: 'documents', angle: '준비할 항목을 표로 제공' },
+            { suffix: '주의사항', intent: 'mistakes', angle: '실수하기 쉬운 부분을 먼저 경고' },
+            { suffix: '비교 차이', intent: 'comparison', angle: '비슷한 선택지와 차이를 비교' },
+            { suffix: 'FAQ', intent: 'faq', angle: 'FAQ 형식으로 검색 의도 여러 개 흡수' },
+            { suffix: '최신 변경사항', intent: 'followup', angle: '최신 기준 변경을 업데이트 글감으로 확보' },
+        ];
+
+    const seen = new Set<string>();
+    const items: AdsenseApprovalContentClusterItem[] = [];
+    for (const tpl of templates) {
+        if (!isHowTo && tpl.intent === 'documents' && !isPolicy) continue;
+        const item = makeClusterItem(items.length + 1, base, tpl.suffix, tpl.intent, tpl.angle);
+        const key = item.keyword.replace(/\s+/g, '').toLowerCase();
+        if (seen.has(key)) continue;
+        seen.add(key);
+        items.push(item);
+        if (items.length >= safeLimit) break;
+    }
+    return items.map((item, index) => ({ ...item, order: index + 1 }));
+}
+
 export function calculateAdsenseApprovalProfile(input: {
     keyword: string;
     category: string;
@@ -1852,19 +2023,27 @@ export function calculateAdsenseApprovalProfile(input: {
     const measured = input.dataSource !== 'estimated' && input.searchVolume > 0 && input.documentCount > 0;
     const searchDemandScore = scoreApprovalSearchDemand(input.searchVolume);
     const competitionFitScore = scoreApprovalCompetition(input.searchVolume, input.documentCount);
-    const intentFitScore = clampScore(input.infoIntentScore);
+    const searchIntent = classifySearchIntent(input.keyword);
+    let intentFitScore = clampScore(input.infoIntentScore);
+    if (searchIntent.primary === 'transactional') intentFitScore = Math.min(intentFitScore, 45);
+    else if (searchIntent.primary === 'commercial') intentFitScore = Math.min(intentFitScore, 68);
+    else if (searchIntent.primary === 'navigational') intentFitScore = Math.min(intentFitScore, 35);
     const safetyFitScore = scoreApprovalSafety(input);
     const contentDepthScore = scoreApprovalContentDepth(input.keyword, input.writable, input.zeroClickRisk);
-    const seriesPotentialScore = scoreApprovalSeriesPotential(input.keyword, input.category);
+    const contentCluster = buildAdsenseApprovalContentCluster(input.keyword, input.category, 10);
+    const clusterSeriesBonus = contentCluster.length >= 8 ? 10 : contentCluster.length >= 5 ? 4 : -12;
+    const seriesPotentialScore = clampScore(scoreApprovalSeriesPotential(input.keyword, input.category) + clusterSeriesBonus);
+    const originalityScore = scoreApprovalOriginality(input.keyword, input.category);
     const crossValidationBonus = Math.min(5, input.crossValidation?.score || 0);
 
     let score = Math.round(
-        searchDemandScore * 0.16 +
-        competitionFitScore * 0.18 +
-        intentFitScore * 0.20 +
+        searchDemandScore * 0.14 +
+        competitionFitScore * 0.16 +
+        intentFitScore * 0.18 +
         safetyFitScore * 0.20 +
-        contentDepthScore * 0.16 +
-        seriesPotentialScore * 0.10 +
+        contentDepthScore * 0.14 +
+        seriesPotentialScore * 0.08 +
+        originalityScore * 0.10 +
         crossValidationBonus
     );
 
@@ -1874,18 +2053,26 @@ export function calculateAdsenseApprovalProfile(input: {
     if (input.documentCount > 80000) risks.push('문서수가 많아 차별화 난이도 높음');
     if (input.ymylRisk !== 'low') risks.push(`YMYL ${input.ymylRisk === 'high' ? '고위험' : '주의'}`);
     if (input.zeroClickRisk.level === 'high') risks.push('AI 요약형 0클릭 위험 높음');
+    if (originalityScore < 45) risks.push('원본성 낮음: 단답/프로필/복붙형 주제');
+    if (searchIntent.primary === 'transactional') risks.push('거래형 의도: 승인용보다 구매/쇼핑 글감에 가까움');
+    else if (searchIntent.primary === 'commercial') risks.push('상업조사 의도: 승인용 최상단보다 PRO/리뷰 글감에 가까움');
+    else if (searchIntent.primary === 'navigational') risks.push('항해형 의도: 특정 사이트 이동 목적이라 승인용 글감으로 약함');
 
     if (!measured) score = Math.min(score, 55);
     if (input.safety === 'danger' || input.ymylRisk === 'high') score = Math.min(score, 52);
     else if (input.ymylRisk === 'medium') score = Math.min(score, 82);
+    if (searchIntent.primary === 'transactional') score = Math.min(score, 64);
+    else if (searchIntent.primary === 'commercial') score = Math.min(score, 78);
+    else if (searchIntent.primary === 'navigational') score = Math.min(score, 58);
     if (input.searchVolume > 30000) score = Math.min(score, 82);
     if (input.documentCount > 200000) score = Math.min(score, 62);
+    if (originalityScore < 45) score = Math.min(score, 58);
     if (!input.writable) score = Math.min(score, 35);
     score = clampScore(score);
 
     let grade: AdsenseApprovalGrade = 'B';
-    if (score >= 85 && measured && input.ymylRisk === 'low' && input.safety !== 'danger') grade = 'S+';
-    else if (score >= 75 && measured && input.safety !== 'danger') grade = 'S';
+    if (score >= 85 && measured && originalityScore >= 60 && input.ymylRisk === 'low' && input.safety !== 'danger') grade = 'S+';
+    else if (score >= 75 && measured && originalityScore >= 55 && input.safety !== 'danger') grade = 'S';
     else if (score >= 65) grade = 'A';
 
     const reasons: string[] = [];
@@ -1895,6 +2082,7 @@ export function calculateAdsenseApprovalProfile(input: {
     if (safetyFitScore >= 76) reasons.push('승인 안전성 양호');
     if (contentDepthScore >= 75) reasons.push('글감 깊이 충분');
     if (seriesPotentialScore >= 70) reasons.push('시리즈 확장 가능');
+    if (originalityScore >= 70) reasons.push('원본성 각도 충분');
 
     return {
         score,
@@ -1909,8 +2097,10 @@ export function calculateAdsenseApprovalProfile(input: {
         safetyFitScore,
         contentDepthScore,
         seriesPotentialScore,
+        originalityScore,
         titleCandidates: buildApprovalTitles(input.keyword, input.category),
         contentAngles: buildApprovalAngles(input.keyword, input.category),
+        contentCluster,
         outline: buildApprovalOutline(input.keyword),
         reasons,
         risks,

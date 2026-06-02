@@ -189,6 +189,7 @@ function buildKinSignals(q: any, overrides: Partial<KinSignals> = {}): KinSignal
   const rawHoursAgo = Number(q.hoursAgo);
   const hoursAgo = Number.isFinite(rawHoursAgo) ? rawHoursAgo : 999;
   const defaultAnswerQuality = answerCount === 0 ? 0 : answerCount <= 2 ? 42 : answerCount <= 5 ? 58 : 72;
+  const providedIntent = Number(q.questionIntentScore);
   return {
     viewCount: Number(q.viewCount) || 0,
     answerCount,
@@ -200,7 +201,7 @@ function buildKinSignals(q: any, overrides: Partial<KinSignals> = {}): KinSignal
     hasExternalLinks: Boolean(q.hasExternalLinks),
     externalLinkCount: Number(q.externalLinkCount) || 0,
     answerQualityScore: Number(q.answerQualityScore ?? defaultAnswerQuality),
-    questionIntentScore: scoreQuestionIntent(q.title || ''),
+    questionIntentScore: Number.isFinite(providedIntent) ? clampIntentScore(providedIntent) : scoreQuestionIntent(q.title || ''),
     isExpertOnly: Boolean(q.isExpertOnly),
     ...overrides,
   };
@@ -312,25 +313,32 @@ export function isLatestHiddenHoneyCandidate(q: any): boolean {
   // isExpertOnly 제외: 네이버 지식인 모든 페이지 텍스트에 전문가 카테고리(의사/변호사/세무사) 링크가
   //   상존 → 정규식이 전량 오탐. rising(라이브 검증)도 isExpertOnly 로 거르지 않음. isAdopted 만 신뢰.
   if (Boolean(q.isAdopted)) return false;
+  if (Boolean(q.isMainExposed)) return false;
   if (hoursAgo > LATEST_HONEY_MAX_HOURS) return false;
   if (answerCount > 3) return false;
   if (externalLinkCount >= 2) return false;
   if (viewCount < getLatestViewFloor(hoursAgo) && viewsPerHour < 0.3) return false;
+
+  const intentScore = buildKinSignals({ ...q, viewsPerHour }).questionIntentScore || 0;
+  if (intentScore < 38) return false;
+  if (intentScore < 50 && viewCount < 300 && viewsPerHour < 10) return false;
 
   return true;
 }
 
 export function getLatestHiddenSortScore(q: any): number {
   const withVelocity = { ...q, viewsPerHour: Number(q.viewsPerHour) || getViewsPerHour(q) };
-  const honey = buildHoneyFields(withVelocity, buildKinSignals(withVelocity, { isMainExposed: false })).honeyPotScore;
+  const signals = buildKinSignals(withVelocity);
+  const honey = buildHoneyFields(withVelocity, signals).honeyPotScore;
   const answerBonus = Number(q.answerCount) === 0 ? 12 : Number(q.answerCount) === 1 ? 7 : 0;
   const velocityBonus = Math.min(18, getViewsPerHour(withVelocity) * 3);
   const hoursAgo = getQuestionHoursAgo(q);
   const freshBonus = hoursAgo <= 24 ? 10 : hoursAgo <= 72 ? 5 : 0;
-  return honey + answerBonus + velocityBonus + freshBonus;
+  const hiddenPenalty = signals.isMainExposed ? 35 : 0;
+  return honey + answerBonus + velocityBonus + freshBonus - hiddenPenalty;
 }
 
-function isActionableHoneyResult(q: any): boolean {
+export function isActionableHoneyResult(q: any): boolean {
   const grade = q.honeyPotGrade || q.goldenGrade || 'B';
   return ['SSS', 'SS', 'S'].includes(grade) && isLatestHiddenHoneyCandidate(q);
 }
@@ -1458,8 +1466,8 @@ export async function getRisingQuestions(): Promise<GoldenHuntResult> {
     const risingQuestions = withViewCount
       .filter(q => q.viewCount >= 1 && !q.isAdopted)
       .sort((a, b) => {
-        const ah = buildHoneyFields(a, buildKinSignals(a, { isMainExposed: false })).honeyPotScore;
-        const bh = buildHoneyFields(b, buildKinSignals(b, { isMainExposed: false })).honeyPotScore;
+        const ah = buildHoneyFields(a, buildKinSignals(a)).honeyPotScore;
+        const bh = buildHoneyFields(b, buildKinSignals(b)).honeyPotScore;
         return bh - ah;
       })
       .slice(0, 45);
@@ -1469,7 +1477,6 @@ export async function getRisingQuestions(): Promise<GoldenHuntResult> {
     // 결과 포맷팅 — Phase 1 통합 scoring
     const goldenQuestions: GoldenQuestion[] = risingQuestions.map((q, idx) => {
       const signals = buildKinSignals(q, {
-        isMainExposed: false,
         viewsPerHour: Number(q.viewsPerHour) || 0,
       });
       const honey = buildHoneyFields(q, signals);
@@ -1953,7 +1960,7 @@ export async function fullHunt(): Promise<GoldenHuntResult> {
       const rawSafeHoursAgo = Number(q.hoursAgo);
       const safeHoursAgo = Number.isFinite(rawSafeHoursAgo) ? rawSafeHoursAgo : 999;
 
-      const signals = buildKinSignals(q, { isMainExposed: false });
+      const signals = buildKinSignals(q);
       const honey = buildHoneyFields(q, signals);
       
       // 🔥 트래픽 표시 (조회수 기반)
@@ -2041,10 +2048,10 @@ export async function fullHunt(): Promise<GoldenHuntResult> {
         isRealData: true
       };
     });
-    // 후보 게이트(신선+무답변+조회반응)로 통과시키고 honeyPotScore 정렬로 품질 랭킹.
-    // 등급 S+ 게이트(score>=62)는 실측 점수 분포(최대~75)에 비해 과도 → 후보 게이트로 대체.
+    // 최종 출력은 최신+미노출+저답변+조회반응 후보 중 SSS/SS/S 꿀통 등급만 통과.
+    // B급 이하 후보는 후보 풀에 있어도 사용자 결과에는 노출하지 않는다.
     const goldenQuestions = mappedQuestions
-      .filter(q => isLatestHiddenHoneyCandidate(q))
+      .filter(q => isActionableHoneyResult(q))
       .slice(0, 40);
     
     const crawlTime = Math.round((Date.now() - startTime) / 1000);
@@ -2353,7 +2360,7 @@ export async function getTrendingHiddenQuestions(): Promise<GoldenHuntResult> {
     
     // 결과 생성
     const mappedQuestions: GoldenQuestion[] = validQuestions.map((q, idx) => {
-      const signals = buildKinSignals(q, { isMainExposed: false });
+      const signals = buildKinSignals(q);
       const honey = buildHoneyFields(q, signals);
       const daysAgo = Math.floor(q.hoursAgo / 24);
       const timeText = daysAgo === 0 ? '오늘' : `${daysAgo}일 전`;
@@ -2400,10 +2407,10 @@ export async function getTrendingHiddenQuestions(): Promise<GoldenHuntResult> {
         isRealData: true
       };
     });
-    // 후보 게이트(신선+무답변+조회반응)로 통과시키고 honeyPotScore 정렬로 품질 랭킹.
-    // 등급 S+ 게이트(score>=62)는 실측 점수 분포(최대~75)에 비해 과도 → 후보 게이트로 대체.
+    // 최종 출력은 최신+미노출+저답변+조회반응 후보 중 SSS/SS/S 꿀통 등급만 통과.
+    // B급 이하 후보는 후보 풀에 있어도 사용자 결과에는 노출하지 않는다.
     const goldenQuestions = mappedQuestions
-      .filter(q => isLatestHiddenHoneyCandidate(q))
+      .filter(q => isActionableHoneyResult(q))
       .slice(0, 40);
     
     const crawlTime = Math.round((Date.now() - startTime) / 1000);

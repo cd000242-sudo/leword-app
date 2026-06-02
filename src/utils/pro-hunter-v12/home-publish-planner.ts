@@ -74,6 +74,60 @@ function detectIntent(keyword: string, category?: string): 'policy' | 'commerce'
     return 'general';
 }
 
+type HomeIntent = ReturnType<typeof detectIntent>;
+
+const HOME_TITLE_ACTION_RULES: Record<HomeIntent, RegExp[]> = {
+    policy: [
+        /신청|대상|자격|조건|서류|기간|마감|공식|조회|방법|준비|변경|지급|확인/,
+        /지원금|보조금|장려금|바우처|급여|환급|감면|혜택/,
+    ],
+    commerce: [
+        /추천|비교|가격|후기|구매|할인|브랜드|성분|장단점|체크|순위/,
+        /구매전|고르기|실사용|가성비|대체|차이/,
+    ],
+    travel: [
+        /코스|일정|예약|비용|동선|준비|숙소|교통|주차|맛집|체크/,
+        /당일치기|가볼만한|아이랑|가족|커플|혼자/,
+    ],
+    entertainment: [
+        /회차|줄거리|다시보기|출연진|공개|일정|시청률|반응|OTT|결말/,
+        /몇부작|방영|시즌|예고|원작|등장인물/,
+    ],
+    health: [
+        /증상|원인|관리|주의|체크|방법|운동|식단|부작용|병원|검사/,
+        /초기|예방|회복|복용|면역|생활습관/,
+    ],
+    general: [
+        /최신|정리|체크|방법|질문|주의|비교|이유|준비|확인|조회/,
+        /오늘|이번주|지금|바뀐|달라진|놓치면|처음/,
+    ],
+};
+
+const HOME_TITLE_FRESHNESS_RE = /2026|2027|최신|오늘|이번주|지금|마감|변경|공개|시즌|상반기|하반기|월|일/;
+const HOME_TITLE_FORMAT_RE = /총정리|체크리스트|비교|가이드|리스트|순서|전후|주의|실수|준비물|꿀팁|TOP\s*\d+|\d+\s*가지/;
+const WEAK_HOME_TITLE_RE = /(최신\s*(핵심\s*)?정리|바로\s*확인|알아보기|한눈에\s*보기|총정리)\s*$/;
+
+export function scoreHomePanelTitleNeed(title: string, keyword: string, intent?: HomeIntent): number {
+    const cleanTitle = cleanKeyword(title);
+    const cleanSeed = cleanKeyword(keyword);
+    if (!cleanTitle || !cleanSeed || !cleanTitle.includes(cleanSeed)) return 0;
+
+    const kind = intent || detectIntent(cleanSeed);
+    const actionHits = HOME_TITLE_ACTION_RULES[kind].reduce((sum, rule) => sum + (rule.test(cleanTitle) ? 1 : 0), 0);
+
+    let score = 34;
+    score += Math.min(32, actionHits * 16);
+    if (HOME_TITLE_FRESHNESS_RE.test(cleanTitle)) score += 10;
+    if (HOME_TITLE_FORMAT_RE.test(cleanTitle)) score += 12;
+    if (/[?？]/.test(cleanTitle)) score += 4;
+    if (cleanTitle.length >= cleanSeed.length + 10) score += 8;
+    if (cleanTitle.length > 48) score -= 6;
+    if (cleanTitle.length < cleanSeed.length + 7) score -= 18;
+    if (WEAK_HOME_TITLE_RE.test(cleanTitle) && actionHits === 0) score -= 24;
+
+    return clamp(score);
+}
+
 function fallbackTitles(keyword: string, intent: ReturnType<typeof detectIntent>): string[] {
     const kw = cleanKeyword(keyword);
     if (intent === 'policy') {
@@ -141,18 +195,33 @@ function buildTitleOptions(input: HomePublishPlannerInput, intent: ReturnType<ty
     const scored = unique(rawTitles).map(title => {
         const predicted = predictTitleCtr(title, keyword);
         const risky = OVERCLAIM_RE.test(title) && !POLICY_RE.test(keyword);
-        const adjustedScore = clamp(predicted.ctrScore - (risky ? 18 : 0) - (title.length > 44 ? 4 : 0));
+        const titleNeedScore = scoreHomePanelTitleNeed(title, keyword, intent);
+        const weakNeed = titleNeedScore < 55;
+        const adjustedScore = clamp(
+            predicted.ctrScore +
+            Math.round((titleNeedScore - 60) * 0.28) -
+            (risky ? 18 : 0) -
+            (weakNeed ? 14 : 0) -
+            (title.length > 44 ? 4 : 0)
+        );
         return {
             result: { ...predicted, ctrScore: adjustedScore },
             risky,
+            titleNeedScore,
+            weakNeed,
         };
-    }).sort((a, b) => b.result.ctrScore - a.result.ctrScore);
+    }).sort((a, b) =>
+        Number(a.weakNeed) - Number(b.weakNeed) ||
+        b.titleNeedScore - a.titleNeedScore ||
+        b.result.ctrScore - a.result.ctrScore
+    );
 
+    const readyFirst = scored.filter(t => !t.risky && !t.weakNeed);
     const safeFirst = scored.filter(t => !t.risky);
-    const pool = safeFirst.length >= 3 ? safeFirst : scored;
+    const pool = readyFirst.length >= 3 ? readyFirst : (safeFirst.length >= 3 ? safeFirst : scored);
     return pool.slice(0, 3).map((item, idx) => ({
         title: item.result.title,
-        role: idx === 0 ? 'primary' : (item.risky ? 'safe' : 'backup'),
+        role: idx === 0 ? 'primary' : (item.risky || item.weakNeed ? 'safe' : 'backup'),
         ctrScore: item.result.ctrScore,
         reason: titleReason(item.result, intent, item.risky),
     }));

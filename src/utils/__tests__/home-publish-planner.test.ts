@@ -5,7 +5,7 @@
  * 안정적으로 만들어주는지 검증한다.
  */
 
-import { buildHomePublishPlan } from '../pro-hunter-v12/home-publish-planner';
+import { buildHomePublishPlan, scoreHomePanelTitleNeed } from '../pro-hunter-v12/home-publish-planner';
 
 let passed = 0;
 let failed = 0;
@@ -45,6 +45,32 @@ assert('제목 후보가 3개 제공된다', policyPlan.titleOptions.length === 
 assert('정책 글에 필요한 항목이 포함된다', policyPlan.mustInclude.includes('신청 대상') && policyPlan.mustInclude.includes('공식 확인 경로'), policyPlan.mustInclude.join(','));
 assert('노출 보장 표현을 피하도록 안내한다', policyPlan.avoid.includes('노출 보장 표현'), policyPlan.avoid.join(','));
 assert('첫 문단에서 보장을 말하지 않는다', !/보장|확정/.test(policyPlan.firstParagraph), policyPlan.firstParagraph);
+
+const genericTitleScore = scoreHomePanelTitleNeed('청년 월세 지원금 최신 정리', '청년 월세 지원금', 'policy');
+const actionableTitleScore = scoreHomePanelTitleNeed('청년 월세 지원금 신청 대상과 준비서류 총정리', '청년 월세 지원금', 'policy');
+assert('홈판 제목 점수는 단순 최신 정리보다 실행 니즈를 더 높게 본다',
+  actionableTitleScore >= genericTitleScore + 20,
+  `${actionableTitleScore} <= ${genericTitleScore}`);
+
+const titleGatePlan = buildHomePublishPlan({
+  keyword: '청년 월세 지원금',
+  category: 'policy',
+  homeScore: 82,
+  titleCandidates: [
+    { title: '청년 월세 지원금 최신 정리', ctrScore: 95, expectedCtr: 4.8, matchedPatterns: ['최신성'], penalties: [] },
+    { title: '청년 월세 지원금 신청 대상과 준비서류 총정리', ctrScore: 62, expectedCtr: 3.3, matchedPatterns: [], penalties: [] },
+  ],
+  qualityScore: 86,
+  vacancySlots: 7,
+  influencerCount: 1,
+  bigDomainCount: 1,
+  surgeRatio: 1.8,
+  daysSinceFirstAppear: 1,
+});
+
+assert('홈판 발행 제목은 뻔한 정리형보다 클릭 후 해결할 각도를 우선한다',
+  /신청|대상|자격|조건|서류|준비/.test(titleGatePlan.primaryTitle),
+  titleGatePlan.primaryTitle);
 
 const weakPlan = buildHomePublishPlan({
   keyword: '날씨',

@@ -1571,10 +1571,11 @@
         `;
         document.body.appendChild(modal);
         try {
-          const r = await window.electronAPI.invoke('get-autocomplete-suggestions', kw);
           const body = document.getElementById('topicIdeasBody');
           if (!body) return;
-          const sugs = Array.isArray(r?.suggestions) ? r.suggestions.slice(0, 12) : [];
+          const sugs = typeof window.fetchLeWordRankedExpansionKeywords === 'function'
+            ? await window.fetchLeWordRankedExpansionKeywords(kw, 12)
+            : [];
           if (sugs.length === 0) {
             body.innerHTML = '<div style="color:rgba(255,255,255,0.55); padding:20px;">자동완성 결과가 없습니다. 다른 키워드를 시도해보세요.</div>';
             return;
@@ -11280,6 +11281,16 @@
         }
 
         // 키워드 검색 함수 (모달용)
+        window.ensureRelatedKeywordModalFront = function(modalArg) {
+          const modal = modalArg || document.getElementById('relatedKwModal');
+          if (!modal) return;
+          modal.style.display = 'flex';
+          modal.style.zIndex = '2147483000';
+          document.body.appendChild(modal);
+          modal.tabIndex = -1;
+          try { modal.focus({ preventScroll: true }); } catch (e) { try { modal.focus(); } catch (_) {} }
+        };
+
         // v2.42.44: 연관 키워드 마인드맵 모달 — 최소화/복원 기능 추가
         window.openRelatedKeywordModal = async function() {
           // 기존 모달이 hide 상태로 있으면 복원만 (재발굴 X)
@@ -11288,6 +11299,7 @@
             existingModal.style.display = 'flex';
             existingModal.style.zIndex = '2147483000';
             document.body.appendChild(existingModal);
+            window.ensureRelatedKeywordModalFront?.(existingModal);
             document.getElementById('relatedKwMinimizedDock')?.remove();
             return;
           }
@@ -11334,6 +11346,7 @@
             </div>
           `;
           document.body.appendChild(modal);
+          window.ensureRelatedKeywordModalFront?.(modal);
           // v2.42.44: 배경 클릭/ESC = 최소화 (결과 보존). 완전 닫기는 X 버튼만.
           modal.addEventListener('click', e => {
             if (e.target === modal && modal.dataset.completed === 'true') {
@@ -11603,6 +11616,7 @@
           document.getElementById('relatedKwMinimizedDock')?.remove();
           if (typeof window.openRelatedKeywordModal === 'function') {
             window.openRelatedKeywordModal();
+            setTimeout(() => window.ensureRelatedKeywordModalFront?.(), 0);
           }
         };
 
@@ -12129,6 +12143,78 @@
           displayInfiniteResults();
         }
 
+        window.fetchLeWordRankedExpansionKeywords = window.fetchLeWordRankedExpansionKeywords || async function(keyword, targetCount = 30) {
+          const seed = String(keyword || '').replace(/\s+/g, ' ').trim();
+          if (!seed) return [];
+
+          const limit = Math.max(10, Math.min(120, Math.floor(Number(targetCount) || 30)));
+          const cache = window.lewordRankedExpansionCache = window.lewordRankedExpansionCache || new Map();
+          const cacheKey = `${seed.toLowerCase()}::${limit}`;
+          if (cache.has(cacheKey)) {
+            return cache.get(cacheKey).slice(0, limit);
+          }
+
+          const out = [];
+          const seen = new Set([seed.toLowerCase().replace(/\s+/g, '')]);
+          const add = (value) => {
+            const raw = typeof value === 'string' ? value : value?.keyword;
+            const kw = String(raw || '').replace(/\s+/g, ' ').trim();
+            if (!kw || kw.length < 2 || kw.length > 80) return;
+            const key = kw.toLowerCase().replace(/\s+/g, '');
+            if (!key || seen.has(key)) return;
+            seen.add(key);
+            out.push(kw);
+          };
+          const invoke = window.electronAPI && typeof window.electronAPI.invoke === 'function'
+            ? window.electronAPI.invoke.bind(window.electronAPI)
+            : null;
+
+          if (invoke) {
+            try {
+              const auto = await invoke('get-autocomplete-suggestions', seed);
+              if (Array.isArray(auto?.suggestions)) auto.suggestions.forEach(add);
+              if (Array.isArray(auto?.keywords)) auto.keywords.forEach(add);
+            } catch (e) {
+              console.warn('[EXPANSION] ranked autocomplete failed:', e?.message || e);
+            }
+          }
+
+          if (invoke && out.length < Math.min(10, limit)) {
+            try {
+              const expansion = await invoke('get-keyword-expansions', seed, { maxCount: Math.min(80, Math.max(30, limit)) });
+              const rows = Array.isArray(expansion?.keywords)
+                ? expansion.keywords
+                : (Array.isArray(expansion?.suggestions) ? expansion.suggestions : []);
+              rows.forEach(add);
+            } catch (e) {
+              console.warn('[EXPANSION] ranked keyword expansion failed:', e?.message || e);
+            }
+          }
+
+          if (out.length < Math.min(10, limit) && window.blogger && typeof window.blogger.getAutoComplete === 'function') {
+            try {
+              const autoComplete = await window.blogger.getAutoComplete(seed);
+              if (Array.isArray(autoComplete)) autoComplete.forEach(add);
+            } catch (e) {
+              console.warn('[EXPANSION] legacy autocomplete fallback failed:', e?.message || e);
+            }
+          }
+
+          if (out.length < Math.min(10, limit) && window.blogger && typeof window.blogger.getRelatedKeywords === 'function') {
+            try {
+              const related = await window.blogger.getRelatedKeywords(seed);
+              if (Array.isArray(related)) related.forEach(add);
+            } catch (e) {
+              console.warn('[EXPANSION] legacy related fallback failed:', e?.message || e);
+            }
+          }
+
+          const finalKeywords = out.slice(0, limit);
+          if (cache.size > 250) cache.clear();
+          cache.set(cacheKey, finalKeywords);
+          return finalKeywords;
+        };
+
         async function extractKeywordsRecursively(keyword, depth, maxDepth, targetCount) {
           if (!infiniteExtractionRunning) return;
           if (maxDepth > 0 && depth >= maxDepth) return;
@@ -12153,16 +12239,14 @@
 
           try {
             // 1. 자동완성 키워드 가져오기
-            let relatedKeywords = [];
-            if (window.blogger && typeof window.blogger.getAutoComplete === 'function') {
-              const autoComplete = await window.blogger.getAutoComplete(keyword);
-              if (Array.isArray(autoComplete)) {
-                relatedKeywords = autoComplete.slice(0, 10);
-              }
-            }
+            const remaining = targetCount > 0 ? Math.max(0, targetCount - infiniteKeywordsList.length) : 50;
+            let relatedKeywords = await window.fetchLeWordRankedExpansionKeywords(
+              keyword,
+              Math.min(50, Math.max(30, remaining))
+            );
 
             // 2. 연관 키워드 가져오기 (네이버 검색광고 API)
-            if (window.blogger && typeof window.blogger.getRelatedKeywords === 'function') {
+            if (false && window.blogger && typeof window.blogger.getRelatedKeywords === 'function') {
               try {
                 const related = await window.blogger.getRelatedKeywords(keyword);
                 if (Array.isArray(related)) {
@@ -14407,27 +14491,26 @@
             }
 
             try {
-              const result = await window.electronAPI.invoke('get-autocomplete-suggestions', currentKeyword);
+              const suggestions = await window.fetchLeWordRankedExpansionKeywords(currentKeyword, 40);
 
-              if (result.success && result.suggestions && result.suggestions.length > 0) {
-                console.log(`[MINDMAP] "${currentKeyword}" → ${result.suggestions.length}개 자동완성`);
+              if (suggestions.length > 0) {
+                console.log(`[MINDMAP] "${currentKeyword}" → ${suggestions.length}개 확장 키워드`);
 
-                for (const suggestion of result.suggestions) {
+                for (const suggestion of suggestions) {
                   if (window.mindmapKeywordsList.length >= MM_MAX_KEYWORDS) break;
                   const lowerSuggestion = suggestion.toLowerCase();
                   if (!window.mindmapKeywordsSet.has(lowerSuggestion)) {
                     window.mindmapKeywordsSet.add(lowerSuggestion);
-                    window.mindmapKeywordsList.push({ keyword: suggestion, depth: 1, source: '자동완성' });
+                    window.mindmapKeywordsList.push({ keyword: suggestion, depth: 1, source: '확장' });
                     // 큐 상한 보호 — 초과 시 큐에 push 안 함
                     if (window.mindmapQueue.length < MM_MAX_QUEUE) {
                       window.mindmapQueue.push(suggestion);
                     }
                   }
                 }
-                // v2.43.10: 자기 재주입 루프 제거 — 큐 자연 소진 시 종료 (무한 루프 차단)
               }
             } catch (error) {
-              console.warn(`[MINDMAP] ${currentKeyword} 자동완성 실패:`, error);
+              console.warn(`[MINDMAP] ${currentKeyword} 확장 키워드 조회 실패:`, error);
             }
 
             window.updateMmProgress();
@@ -14482,10 +14565,14 @@
           }
 
           try {
-            let relatedKeywords = [];
+            const remaining = targetCount > 0 ? Math.max(0, targetCount - window.mindmapKeywordsList.length) : 50;
+            let relatedKeywords = await window.fetchLeWordRankedExpansionKeywords(
+              keyword,
+              Math.min(50, Math.max(30, remaining))
+            );
 
             // 1. 자동완성 키워드 가져오기
-            if (window.blogger && typeof window.blogger.getAutoComplete === 'function') {
+            if (false && window.blogger && typeof window.blogger.getAutoComplete === 'function') {
               try {
                 const autoComplete = await window.blogger.getAutoComplete(keyword);
                 if (Array.isArray(autoComplete)) {
@@ -14495,7 +14582,7 @@
             }
 
             // 2. 연관 키워드 가져오기 (네이버 검색광고 API)
-            if (window.blogger && typeof window.blogger.getRelatedKeywords === 'function') {
+            if (false && window.blogger && typeof window.blogger.getRelatedKeywords === 'function') {
               try {
                 const related = await window.blogger.getRelatedKeywords(keyword);
                 if (Array.isArray(related)) {
@@ -14827,6 +14914,7 @@
           const t = r.totals || {};
           const cats = r.byCategory || [];
           const items = r.items || [];
+          const growthSeeds = r.expansionSeeds || [];
 
           dash.innerHTML = `
             <div style="display:grid; grid-template-columns:repeat(auto-fit, minmax(140px, 1fr)); gap:10px; margin-bottom:16px;">
@@ -14851,6 +14939,42 @@
                 <div style="font-size:22px; font-weight:800; color:#60a5fa;">${t.currentlyInTop10 || 0}</div>
               </div>
             </div>
+
+            ${growthSeeds.length > 0 ? `
+              <div style="background:linear-gradient(135deg,rgba(34,197,94,0.1),rgba(99,102,241,0.08)); border:1px solid rgba(34,197,94,0.28); border-radius:10px; padding:14px; margin-bottom:14px;">
+                <div style="display:flex; align-items:center; justify-content:space-between; gap:10px; margin-bottom:10px;">
+                  <div>
+                    <div style="font-size:13px; font-weight:900; color:#bbf7d0;">🚀 효과 검증된 확장 시드</div>
+                    <div style="font-size:10px; color:rgba(255,255,255,0.5); margin-top:2px;">SERP TOP30 반복 노출 또는 TOP10 진입 키워드만 선별</div>
+                  </div>
+                  <span style="font-size:11px; color:#86efac; font-weight:800;">${growthSeeds.length}개</span>
+                </div>
+                <div style="display:grid; grid-template-columns:repeat(auto-fit,minmax(260px,1fr)); gap:10px;">
+                  ${growthSeeds.slice(0, 6).map(seed => {
+                    const safeKw = escapeHtml(seed.keyword || '');
+                    const safeKwJs = String(seed.keyword || '').replace(/\\/g, '\\\\').replace(/'/g, "\\'");
+                    const gradeColor = seed.growthGrade === 'S+' ? '#22c55e' : seed.growthGrade === 'S' ? '#60a5fa' : '#fbbf24';
+                    const rankText = seed.currentRank ? `현재 #${seed.currentRank}` : `최고 #${seed.bestRank || '-'}`;
+                    return `
+                      <div style="background:rgba(2,6,23,0.45); border:1px solid rgba(255,255,255,0.08); border-radius:8px; padding:10px;">
+                        <div style="display:flex; align-items:center; justify-content:space-between; gap:8px; margin-bottom:6px;">
+                          <div style="font-size:13px; font-weight:900; color:white; overflow:hidden; text-overflow:ellipsis; white-space:nowrap;">${safeKw}</div>
+                          <span style="background:${gradeColor}22; color:${gradeColor}; border:1px solid ${gradeColor}66; padding:2px 7px; border-radius:6px; font-size:10px; font-weight:900;">${seed.growthGrade}</span>
+                        </div>
+                        <div style="font-size:10px; color:rgba(255,255,255,0.58); line-height:1.5;">${rankText} · TOP30 ${seed.top30Rate}% · ${escapeHtml(seed.category || 'general')}</div>
+                        <div style="display:flex; gap:5px; flex-wrap:wrap; margin-top:8px;">
+                          ${(seed.suggestedExpansions || []).slice(0, 3).map(k => `<span style="font-size:9px; color:#c4b5fd; background:rgba(168,85,247,0.12); border:1px solid rgba(168,85,247,0.24); border-radius:5px; padding:2px 6px;">${escapeHtml(k)}</span>`).join('')}
+                        </div>
+                        <div style="display:flex; gap:6px; margin-top:9px;">
+                          <button onclick="lewordMindmapResearch && lewordMindmapResearch('${safeKwJs}')" title="마인드맵 확장" style="flex:1; padding:7px 8px; border:none; border-radius:7px; background:linear-gradient(135deg,#8b5cf6,#6366f1); color:white; font-size:11px; font-weight:800; cursor:pointer;">🔗 마인드맵</button>
+                          <button onclick="copyToClipboard && copyToClipboard('${safeKwJs}')" title="키워드 복사" style="width:34px; border:none; border-radius:7px; background:rgba(255,255,255,0.08); color:white; cursor:pointer;">📋</button>
+                        </div>
+                      </div>
+                    `;
+                  }).join('')}
+                </div>
+              </div>
+            ` : ''}
 
             ${cats.length > 0 ? `
               <div style="background:rgba(255,255,255,0.04); border-radius:10px; padding:14px; margin-bottom:14px;">
@@ -17090,7 +17214,7 @@
         }
 
         // PRO 트래픽 헌터 카테고리 옵션 (pro-traffic-keyword-hunter.ts의 category enum과 동기화)
-        const PRO_TRAFFIC_CATEGORIES = [
+        let PRO_TRAFFIC_CATEGORIES = [
           { value: 'all', label: '🌐 전체 (자동 추천)' },
           { value: 'policy', label: '💰 정책·지원금' },
           { value: 'finance', label: '💵 재테크/금융' },
@@ -17139,6 +17263,33 @@
           { value: 'pro_premium', label: '💎 PRO 프리미엄' },
           { value: 'lite_standard', label: '⚡ 라이트 표준' }
         ];
+
+        async function refreshProTrafficCategoriesFromBackend() {
+          try {
+            if (!window.electronAPI?.invoke) return PRO_TRAFFIC_CATEGORIES;
+            const r = await window.electronAPI.invoke('get-pro-traffic-categories');
+            const categories = Array.isArray(r?.categories) ? r.categories : [];
+            if (r?.success && categories.length > 0) {
+              PRO_TRAFFIC_CATEGORIES = categories
+                .filter(c => c && c.value && c.label)
+                .map(c => ({
+                  value: String(c.value),
+                  label: String(c.label),
+                  icon: c.icon ? String(c.icon) : ''
+                }));
+            }
+          } catch (err) {
+            console.warn('[PRO-TRAFFIC] category sync failed, using fallback categories:', err);
+          }
+          return PRO_TRAFFIC_CATEGORIES;
+        }
+
+        function renderProTrafficCategoryOptions() {
+          return PRO_TRAFFIC_CATEGORIES
+            .filter(c => c.value !== 'all')
+            .map(c => `<option value="${escapeHtml(c.value)}">${escapeHtml(c.label)}</option>`)
+            .join('');
+        }
 
         // ============================================================
         // 💵 AdSense 키워드 헌터
@@ -17269,7 +17420,7 @@
               <div style="text-align: center; margin-bottom: 24px;">
                 <div style="display:inline-block; background: linear-gradient(135deg, #ef4444, #dc2626); padding: 6px 16px; border-radius: 20px; font-size: 12px; font-weight: 800; color: white; margin-bottom: 12px;">📆 1년/영구제 라이선스 전용</div>
                 <h2 style="font-size: 28px; font-weight: 800; background: linear-gradient(135deg, #4285f4 0%, #1a73e8 100%); -webkit-background-clip: text; -webkit-text-fill-color: transparent; margin: 0 0 8px 0;">✅ AdSense 승인 키워드 헌터</h2>
-                <p style="font-size: 14px; color: rgba(255,255,255,0.7); margin: 0;">실측 검색량·문서수 + 정보형 의도 + YMYL 안전성 + 글감 깊이로 승인용 주제 발굴</p>
+                <p style="font-size: 14px; color: rgba(255,255,255,0.7); margin: 0;">실측 검색량·문서수 + 정보형 의도 + YMYL 안전성 + 원본성 + 글감 확장성으로 승인용 주제 발굴</p>
               </div>
 
               <!-- 🚨 네이버 연관검색어 종료 (2026-04-30) 공식 분석 기반 대응 -->
@@ -17294,6 +17445,7 @@
                   <span style="background:rgba(255,255,255,0.08); padding:4px 10px; border-radius:6px; color:rgba(255,255,255,0.9);">🔍 <strong style="color:#22c55e;">실측</strong> 검색량+문서수</span>
                   <span style="background:rgba(255,255,255,0.08); padding:4px 10px; border-radius:6px; color:rgba(255,255,255,0.9);">📖 <strong style="color:#4285f4;">정보형 의도</strong> 60점+</span>
                   <span style="background:rgba(255,255,255,0.08); padding:4px 10px; border-radius:6px; color:rgba(255,255,255,0.9);">🛡️ <strong style="color:#22c55e;">YMYL</strong> 안전성</span>
+                  <span style="background:rgba(255,255,255,0.08); padding:4px 10px; border-radius:6px; color:rgba(255,255,255,0.9);">🧾 <strong style="color:#a78bfa;">원본성</strong> 단답/복붙형 차단</span>
                   <span style="background:rgba(255,255,255,0.08); padding:4px 10px; border-radius:6px; color:rgba(255,255,255,0.9);">✍️ <strong style="color:#fbbf24;">제목/글감</strong> 확장성</span>
                 </div>
               </div>
@@ -18244,6 +18396,7 @@
             const valuableOnly = allSorted.filter(x => {
               if (!x.valueGate) return false;
               if (x.valueGate.isKilled) return false;
+              if (strictSPlusMode && x.valueGate.valueGrade !== 'S+') return false;
               if ((x.valueGate.qualityScore || 0) < minQuality) return false;
               // 🆕 빈자리 hard kill — 측정값 있을 때 ≥3 강제
               if (x.vacancy && typeof x.vacancy.vacancySlots === 'number' && x.vacancy.vacancySlots < 3) return false;
@@ -18351,7 +18504,7 @@
               const needMore = minResults - filtered.length;
               const sPlusPool = enriched
                 .filter(x => x?.keyword && !have.has(x.keyword))
-                .filter(x => x.valueGate && !x.valueGate.isKilled && (x.valueGate.qualityScore || 0) >= minQuality)
+                .filter(x => x.valueGate && !x.valueGate.isKilled && x.valueGate.valueGrade === 'S+' && (x.valueGate.qualityScore || 0) >= minQuality)
                 .sort((a, b) => candidateRankScore(b) - candidateRankScore(a));
               const sPlusTopUp = sPlusPool.slice(0, needMore).map(c => ({
                 ...c,
@@ -18401,6 +18554,7 @@
               if (rawTopUp.length > 0 && !fallbackTier) fallbackTier = 'seedBackfill';
             }
             filtered = filtered
+              .filter(x => !strictSPlusMode || (x.valueGate && !x.valueGate.isKilled && x.valueGate.valueGrade === 'S+' && (x.valueGate.qualityScore || 0) >= minQuality))
               .sort((a, b) => candidateRankScore(b) - candidateRankScore(a))
               .slice(0, outputLimit);
             // seedKeywords 직접 보충(homeScore=0)은 최후에만 DATA 후보로 표시한다. 실제 정렬은 실측 점수 우선.
@@ -18909,7 +19063,24 @@
             }
 
             // Kill 차단 + 가치 등급순 정렬
-            const valuableOnly = verifiedKeywords.filter(k => !k.valueGate || !k.valueGate.isKilled);
+            const approvalGradeRank = { 'S+': 4, S: 3, A: 2, B: 1, C: 0 };
+            const minApprovalGrade = minApprovalScore >= 85 ? 'S+' : minApprovalScore >= 75 ? 'S' : minApprovalScore >= 60 ? 'A' : 'B';
+            const isRealMeasuredApproval = (k) =>
+              k
+              && k.dataSource !== 'estimated'
+              && (k.searchVolume || 0) > 0
+              && (k.documentCount || 0) > 0
+              && k.approvalProfile?.measured !== false;
+            const valuableOnly = verifiedKeywords.filter(k => {
+              if (!isRealMeasuredApproval(k)) return false;
+              if (k.valueGate?.isKilled) return false;
+              const approvalScore = k.approvalScore ?? k.approvalProfile?.score ?? 0;
+              if (approvalScore < minApprovalScore) return false;
+              if ((approvalGradeRank[k.approvalGrade] || 0) < (approvalGradeRank[minApprovalGrade] || 0)) return false;
+              if (excludeYmylHigh && k.ymylRisk === 'high') return false;
+              if (k.safety === 'danger') return false;
+              return true;
+            });
             valuableOnly.sort((a, b) => {
               const aApproval = a.approvalScore ?? a.approvalProfile?.score ?? 0;
               const bApproval = b.approvalScore ?? b.approvalProfile?.score ?? 0;
@@ -19197,8 +19368,9 @@
           }
         };
 
-        function openProTrafficModal() {
+        async function openProTrafficModal() {
           lockBodyScroll();
+          await refreshProTrafficCategoriesFromBackend();
 
           const existingModal = document.getElementById('proTrafficModal');
           if (existingModal) existingModal.remove();
@@ -19306,7 +19478,7 @@
               <label style="font-size: 13px; font-weight: 700; color: #fbbf24; display: block; margin-bottom: 10px;">📁 집중 카테고리 (1개만)</label>
               <select id="proTrafficCategory" style="width: 100%; padding: 12px 14px; border: 2px solid rgba(234, 179, 8, 0.3); border-radius: 10px; font-size: 14px; background: rgba(30, 41, 59, 0.8); color: white; cursor: pointer; outline: none;">
                 <option value="" disabled selected>카테고리 먼저 선택</option>
-                ${PRO_TRAFFIC_CATEGORIES.filter(c => c.value !== 'all').map(c => `<option value="${c.value}">${c.label}</option>`).join('')}
+                ${renderProTrafficCategoryOptions()}
               </select>
             </div>
             <!-- 추가 시드 키워드 입력은 제거됨 (UX 단순화). proTrafficSeeds id는 hidden input으로 호환성 유지 -->
@@ -19344,8 +19516,6 @@
               </div>
             </div>
             <select id="proTrafficCount" title="목표 SSS급 발굴 수 — B/C 후보 제외" style="padding: 8px 14px; border: 2px solid rgba(234, 179, 8, 0.3); border-radius: 8px; font-size: 13px; background: rgba(30, 41, 59, 0.8); color: white; cursor: pointer; outline: none;">
-              <option value="10">10개</option>
-              <option value="20">20개</option>
               <option value="30">30개</option>
               <option value="50" selected>50개 (표준)</option>
               <option value="100">100개 (확장)</option>
@@ -19440,8 +19610,8 @@
 
         // 모달 열릴 때 리스너 설정
         const originalOpenProTrafficModal = openProTrafficModal;
-        openProTrafficModal = function () {
-          originalOpenProTrafficModal();
+        openProTrafficModal = async function () {
+          await originalOpenProTrafficModal();
           setTimeout(setupProTrafficModeListeners, 100);
         };
 
@@ -19612,7 +19782,7 @@
               explosionMode,
               count,
               discoveryFirst: false,
-              fastDiscovery: count >= 50,
+              fastDiscovery: false,
               strictGates: false,
               enhanceWithAdsenseGates: false
               // Manus 보강은 별도 비동기 IPC로 처리 (start-manus-enrichment)

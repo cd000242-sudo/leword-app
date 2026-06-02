@@ -813,7 +813,7 @@ export function setupPremiumHuntingHandlers(): void {
           explosionMode: options.explosionMode === true,
           useDeepMining: (options as any).useDeepMining !== false, // 🔥 딥 마이닝 기본 활성화
           discoveryFirst: discoveryFirstRequested,
-          fastDiscovery: (options as any).fastDiscovery === true || requestedCount >= 50,
+          fastDiscovery: (options as any).fastDiscovery === true,
           count: requestedCount, // 🎯 SSS 대량 추출 지원 (50→200)
           forceRefresh: true // 항상 새로운 결과
         });

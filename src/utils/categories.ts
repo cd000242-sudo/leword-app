@@ -1038,6 +1038,7 @@ export const CATEGORY_ICONS: Record<string, string> = {
   car: '🚗', car_maintain: '🔧',
   game: '🎮', movie: '🎬', music: '🎵', sports: '⚽', hobby: '🎨', book: '📖',
   smartphone: '📱', laptop: '💻', app: '📲', ai_tool: '🤖',
+  drama: '📺', anime: '🎞️', broadcast: '📡', celeb: '🌟',
   season_spring: '🌸', season_summer: '☀️', season_fall: '🍂', season_winter: '❄️',
   self_development: '📚', business: '💼', it: '💻', life_tips: '💡',
 };

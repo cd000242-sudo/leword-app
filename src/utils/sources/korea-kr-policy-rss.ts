@@ -1,4 +1,4 @@
-import { getPolicyBriefingKeywords } from '../policy-briefing-api';
+import { expandPolicyDiscoverySeeds, getPolicyBriefingKeywords } from '../policy-briefing-api';
 
 const POLICY_BOOST_TERMS = [
     '지원금', '보조금', '수당', '급여', '바우처', '쿠폰', '할인권', '환급',
@@ -13,11 +13,11 @@ export async function getPolicyKeywords(): Promise<Array<{ keyword: string; freq
     for (const item of items) {
         const keyword = item.keyword.trim();
         if (!keyword || keyword.length < 2 || keyword.length > 50) continue;
-        const weight = POLICY_BOOST_TERMS.some(term => keyword.includes(term)) ? 4 : 2;
-        freq.set(keyword, (freq.get(keyword) || 0) + weight);
-
-        for (const term of POLICY_BOOST_TERMS) {
-            if (keyword.includes(term)) freq.set(term, (freq.get(term) || 0) + 1);
+        const expandedSeeds = expandPolicyDiscoverySeeds(keyword, 8);
+        const seeds = expandedSeeds.length > 0 ? expandedSeeds : [keyword];
+        for (const seed of seeds) {
+            const weight = POLICY_BOOST_TERMS.some(term => seed.includes(term)) ? 4 : 2;
+            freq.set(seed, (freq.get(seed) || 0) + weight);
         }
     }
 

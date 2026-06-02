@@ -7,6 +7,7 @@
 import type { Browser, Page } from 'puppeteer';
 import { NaverSearchResult, SmartBlockData, PopularItemData, SerpLayout } from './types';
 import * as fs from 'fs';
+import { browserPool } from '../puppeteer-pool';
 
 function getChromePath(): string | undefined {
   const paths = [
@@ -20,41 +21,8 @@ function getChromePath(): string | undefined {
   return undefined;
 }
 
-// 브라우저 재사용
-let browserInstance: Browser | null = null;
-let browserLastUsed = 0;
-const BROWSER_TIMEOUT = 120000;
-
 async function getBrowser(): Promise<Browser> {
-  const now = Date.now();
-
-  if (browserInstance && (now - browserLastUsed) < BROWSER_TIMEOUT) {
-    browserLastUsed = now;
-    return browserInstance;
-  }
-
-  if (browserInstance) {
-    try { await browserInstance.close(); } catch { /* ignore */ }
-  }
-
-  const { launchCompatibleBrowser } = await import('../puppeteer-pool');
-  browserInstance = await launchCompatibleBrowser({
-    headless: 'new', // 최신 Puppeteer headless 모드
-    executablePath: getChromePath(),
-    defaultViewport: null,
-    args: [
-      '--no-sandbox',
-      '--disable-setuid-sandbox',
-      '--disable-dev-shm-usage',
-      '--disable-gpu',
-      '--disable-extensions',
-      '--no-first-run'
-    ]
-  }) as Browser;
-
-
-  browserLastUsed = now;
-  return browserInstance;
+  return browserPool.acquire() as Promise<Browser>;
 }
 
 export function extractBlogId(url: string): string {
@@ -441,15 +409,16 @@ export async function crawlNaverSearch(keyword: string): Promise<NaverSearchResu
       popularItems: []
     };
   } finally {
-    await page.close();
+    try {
+      await page.close();
+    } finally {
+      browserPool.release(browser);
+    }
   }
 }
 
 export async function closeBrowser(): Promise<void> {
-  if (browserInstance) {
-    try { await browserInstance.close(); } catch { /* ignore */ }
-    browserInstance = null;
-  }
+  await browserPool.closeIdle();
 }
 
 /**
@@ -529,7 +498,11 @@ export async function crawlPostContent(postUrl: string): Promise<{
     console.log(`[CONTENT] ⚠️ 본문 크롤링 실패: ${error.message}`);
     return { content: '', keyPoints: [] };
   } finally {
-    await page.close();
+    try {
+      await page.close();
+    } finally {
+      browserPool.release(browser);
+    }
   }
 }
 
@@ -738,6 +711,10 @@ export async function crawlNewsSnippets(keyword: string): Promise<string[]> {
     console.error(`[PUPPETEER] 크롤링 실패: ${error.message}`);
     return [];
   } finally {
-    await page.close();
+    try {
+      await page.close();
+    } finally {
+      browserPool.release(browser);
+    }
   }
 }

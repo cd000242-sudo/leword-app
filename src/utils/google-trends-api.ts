@@ -4,6 +4,8 @@
  * 공식 API가 없으므로 웹 크롤링 방식 활용
  */
 
+import { browserPool } from './puppeteer-pool';
+
 export interface GoogleTrendKeyword {
   rank: number;
   keyword: string;
@@ -147,16 +149,7 @@ export async function getGoogleTrendKeywords(): Promise<GoogleTrendKeyword[]> {
     console.log('[GOOGLE-TRENDS] Patchright로 Google Trends 크롤링 시작');
     
     console.log('[GOOGLE-TRENDS] 브라우저 실행 중...');
-    const { launchCompatibleBrowser } = await import('./puppeteer-pool');
-    browser = await launchCompatibleBrowser({
-      headless: 'new',
-      args: [
-        '--no-sandbox',
-        '--disable-setuid-sandbox',
-        '--disable-blink-features=AutomationControlled',
-        '--disable-dev-shm-usage'
-      ]
-    });
+    browser = await browserPool.acquire();
     
     const page = await browser.newPage();
     
@@ -555,7 +548,7 @@ export async function getGoogleTrendKeywords(): Promise<GoogleTrendKeyword[]> {
   } finally {
     if (browser) {
       try {
-        await browser.close();
+        browserPool.release(browser);
         console.log('[GOOGLE-TRENDS] 브라우저 종료 완료');
       } catch (e) {
         console.warn('[GOOGLE-TRENDS] 브라우저 종료 오류:', e);

@@ -5,6 +5,7 @@ export interface CategoryFirstGoldenSeedPlan {
   categoryIds: string[];
   seeds: string[];
   freshnessHints: string[];
+  liveSeedCount: number;
 }
 
 const COMMON_INTENTS = [
@@ -85,6 +86,22 @@ function unique(values: string[]): string[] {
   return out;
 }
 
+function normalizeLiveSeed(raw: string): string {
+  let value = String(raw || '')
+    .replace(/<[^>]+>/g, ' ')
+    .replace(/[“”"「」『』]/g, ' ')
+    .replace(/\[[^\]]{1,18}\]/g, ' ')
+    .replace(/\s+/g, ' ')
+    .trim();
+
+  if (!/[가-힣a-zA-Z]/.test(value)) return '';
+  if (value.length > 34) {
+    const clipped = value.slice(0, 34);
+    value = clipped.replace(/\s+\S*$/, '').trim() || clipped.trim();
+  }
+  return value;
+}
+
 function getKoreanDateParts(now = new Date()): { year: number; month: number } {
   const parts = new Intl.DateTimeFormat('ko-KR', {
     timeZone: 'Asia/Seoul',
@@ -117,6 +134,7 @@ export function buildCategoryFirstGoldenSeedPlan(params: {
   keyword?: string;
   maxSeeds?: number;
   now?: Date;
+  liveSeeds?: string[];
 }): CategoryFirstGoldenSeedPlan {
   const category = String(params.category || '').trim();
   const keyword = String(params.keyword || '').replace(/\s+/g, ' ').trim();
@@ -127,6 +145,8 @@ export function buildCategoryFirstGoldenSeedPlan(params: {
   const freshnessHints = [`${year}`, `${year}년`, `${month}월`, `${year}년 ${month}월`, season, '최신'];
   const intents = getCategoryIntents(categoryIds);
   const baseSeeds = getDiscoveryCategorySeeds(category, Math.max(160, Math.min(720, maxSeeds)));
+  const liveSeeds = unique((params.liveSeeds || []).map(normalizeLiveSeed))
+    .slice(0, Math.min(120, Math.max(20, Math.floor(maxSeeds * 0.35))));
 
   const seeds: string[] = [];
 
@@ -137,6 +157,19 @@ export function buildCategoryFirstGoldenSeedPlan(params: {
     seeds.push(`${keyword} 최신`);
     for (const intent of intents.slice(0, 10)) {
       if (!keyword.includes(intent)) seeds.push(`${keyword} ${intent}`);
+    }
+  }
+
+  for (const seed of liveSeeds) {
+    seeds.push(seed);
+  }
+
+  for (const seed of liveSeeds.slice(0, 80)) {
+    seeds.push(`${seed} ${year}`);
+    seeds.push(`${seed} ${month}월`);
+    seeds.push(`${seed} 최신`);
+    for (const intent of intents.slice(0, 6)) {
+      if (!seed.includes(intent)) seeds.push(`${seed} ${intent}`);
     }
   }
 
@@ -163,5 +196,6 @@ export function buildCategoryFirstGoldenSeedPlan(params: {
     categoryIds,
     seeds: unique(seeds).slice(0, maxSeeds),
     freshnessHints,
+    liveSeedCount: liveSeeds.length,
   };
 }

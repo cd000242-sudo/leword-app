@@ -10,9 +10,11 @@ import {
   PRO_TRAFFIC_CATEGORY_SSS_FLOOR,
   PRO_TRAFFIC_MAX_RESULT_COUNT,
   countProTrafficSss,
+  getProTrafficCategoryMiningPoolSize,
   getProTrafficFinalRerankPoolSize,
   normalizeProTrafficResultCount,
   rankProTrafficSssFloorResults,
+  selectProTrafficSssPromotionCandidates,
 } from '../pro-traffic-floor';
 
 type ProFixtureKeyword = {
@@ -155,9 +157,86 @@ assert('PRO category mode supports 250 requested results',
 assert('PRO 250 mode uses a deep rerank pool',
   getProTrafficFinalRerankPoolSize(250, false) >= 1000,
   `${getProTrafficFinalRerankPoolSize(250, false)}`);
+assert('PRO 30 mode uses a 12x+ rerank pool over the visible SSS floor',
+  getProTrafficFinalRerankPoolSize(30, false) >= PRO_TRAFFIC_CATEGORY_SSS_FLOOR * 12,
+  `${getProTrafficFinalRerankPoolSize(30, false)}`);
+assert('PRO 250 mode uses a 2000+ rerank pool as the golden-discovery supersetter',
+  getProTrafficFinalRerankPoolSize(250, false) >= 2000,
+  `${getProTrafficFinalRerankPoolSize(250, false)}`);
 assert('PRO 250 explosion mode also uses a deep rerank pool',
   getProTrafficFinalRerankPoolSize(250, true) >= 1000,
   `${getProTrafficFinalRerankPoolSize(250, true)}`);
+assert('PRO category mining pool is deeper than the visible floor',
+  getProTrafficCategoryMiningPoolSize(30, false) > PRO_TRAFFIC_CATEGORY_SSS_FLOOR,
+  `${getProTrafficCategoryMiningPoolSize(30, false)}`);
+assert('PRO category 250 mode mines 1000+ before selecting 250 visible SSS',
+  getProTrafficCategoryMiningPoolSize(250, false) >= 1000,
+  `${getProTrafficCategoryMiningPoolSize(250, false)}`);
+assert('PRO category 250 mode mines 2000+ before selecting 250 visible SSS',
+  getProTrafficCategoryMiningPoolSize(250, false) >= 2000,
+  `${getProTrafficCategoryMiningPoolSize(250, false)}`);
+
+const blockedBeforeEligible = [
+  ...Array.from({ length: 35 }, (_, i): ProFixtureKeyword => ({
+    keyword: `blocked red ocean top candidate ${i + 1}`,
+    grade: 'SS',
+    category: 'policy',
+    searchVolume: 5000 + i,
+    documentCount: 250000 + i,
+    goldenRatio: 0.02,
+    totalScore: 99,
+    profitAnalysis: {
+      profitGoldenRatio: 0.2,
+      estimatedMonthlyRevenue: 50000,
+      purchaseIntentScore: 95,
+    },
+    revenueEstimate: {
+      estimatedCPC: 700,
+      revenueGrade: 'SS',
+    },
+  })),
+  ...Array.from({ length: 270 }, (_, i): ProFixtureKeyword => ({
+    keyword: `eligible policy support sss candidate ${i + 1}`,
+    grade: 'SS',
+    category: 'policy',
+    searchVolume: 1800 + i,
+    documentCount: 650 + i,
+    goldenRatio: Number(((1800 + i) / (650 + i)).toFixed(2)),
+    totalScore: 96,
+    profitAnalysis: {
+      profitGoldenRatio: 30,
+      estimatedMonthlyRevenue: 80000,
+      purchaseIntentScore: 91,
+    },
+    revenueEstimate: {
+      estimatedCPC: 650,
+      revenueGrade: 'SSS',
+    },
+  })),
+];
+
+const promoted30 = selectProTrafficSssPromotionCandidates(
+  blockedBeforeEligible,
+  30,
+  true,
+  item => item.goldenRatio >= 1 && item.documentCount <= 10000,
+);
+assert('PRO dynamic SSS promotion scans beyond the first requested bucket',
+  promoted30.length === PRO_TRAFFIC_CATEGORY_SSS_FLOOR,
+  `${promoted30.length}`);
+assert('PRO dynamic SSS promotion skips blocked high-score red-ocean candidates',
+  promoted30.every(item => item.keyword.startsWith('eligible policy support')),
+  promoted30.map(item => item.keyword).slice(0, 5).join(', '));
+
+const promoted250 = selectProTrafficSssPromotionCandidates(
+  blockedBeforeEligible,
+  250,
+  true,
+  item => item.goldenRatio >= 1 && item.documentCount <= 10000,
+);
+assert('PRO 250 mode keeps scanning until 250 SSS-eligible candidates are found',
+  promoted250.length === 250,
+  `${promoted250.length}`);
 
 const requestedCounts = [10, 30, 50, 100, 250];
 

@@ -64,6 +64,82 @@ const COMMERCE_SEEDS: Record<string, string[]> = {
 export const SHOPPING_AUTO_DISCOVERY_MIN_SEEDS = 30;
 export const SHOPPING_AUTO_DISCOVERY_MAX_SEEDS = 60;
 
+const SHOPPING_DISCOVERY_INTENT_TOKENS = [
+  '추천',
+  '비교',
+  '후기',
+  '리뷰',
+  '가성비',
+  '순위',
+  '가격',
+  '할인',
+  '구매',
+  '체크포인트',
+  '장단점',
+] as const;
+
+const SHOPPING_DISCOVERY_INTENT_PATTERN = new RegExp(SHOPPING_DISCOVERY_INTENT_TOKENS.join('|'));
+const SHOPPING_DISCOVERY_SUFFIX_PATTERN = new RegExp(`\\s+(${SHOPPING_DISCOVERY_INTENT_TOKENS.join('|')})$`);
+
+export function ensureShoppingDiscoveryIntentQuery(keyword: string): string {
+  let cleaned = String(keyword || '').replace(/\s+/g, ' ').trim();
+  if (!cleaned) return '';
+  if (SHOPPING_DISCOVERY_INTENT_PATTERN.test(cleaned)) {
+    return cleaned.slice(0, 35).trim();
+  }
+
+  const suffix = '추천';
+  const maxBaseLength = Math.max(2, 35 - suffix.length - 1);
+  if (cleaned.length > maxBaseLength) {
+    cleaned = cleaned.slice(0, maxBaseLength).trim();
+  }
+  return `${cleaned} ${suffix}`.trim();
+}
+
+export function normalizeShoppingAutoDiscoveryLimit(limit?: number | string | null): number {
+  const raw = Number(limit);
+  const base = Number.isFinite(raw) && raw > 0
+    ? Math.floor(raw)
+    : SHOPPING_AUTO_DISCOVERY_MIN_SEEDS;
+  return Math.min(
+    Math.max(base, SHOPPING_AUTO_DISCOVERY_MIN_SEEDS),
+    SHOPPING_AUTO_DISCOVERY_MAX_SEEDS
+  );
+}
+
+export function getShoppingRecommendationLimit(
+  autoDiscovery: boolean,
+  requestedLimit?: number | string | null
+): number {
+  return autoDiscovery
+    ? normalizeShoppingAutoDiscoveryLimit(requestedLimit)
+    : 10;
+}
+
+export function getShoppingAutoDiscoveryExpansionLimit(
+  seedCount: number,
+  requestedLimit?: number | string | null
+): number {
+  const target = normalizeShoppingAutoDiscoveryLimit(requestedLimit);
+  const seedCapacity = Math.max(0, Math.floor(seedCount) - 1);
+  return Math.min(
+    SHOPPING_AUTO_DISCOVERY_MAX_SEEDS,
+    Math.max(24, target - 1, seedCapacity)
+  );
+}
+
+export function getShoppingAutoDiscoverySearchLimit(
+  seedCount: number,
+  requestedLimit?: number | string | null
+): number {
+  const target = normalizeShoppingAutoDiscoveryLimit(requestedLimit);
+  const seedCapacity = Math.max(0, Math.floor(seedCount) - 1);
+  return Math.min(
+    30,
+    Math.max(24, Math.ceil(target * 0.8), Math.min(seedCapacity, 30))
+  );
+}
+
 export interface SuggestionGroup {
   category: string;
   keywords: string[];
@@ -197,7 +273,11 @@ function writeVerifiedCache(cache: VerifiedCache): void {
 }
 
 function normalizeSeedKey(keyword: string): string {
-  return String(keyword || '').replace(/\s+/g, ' ').trim().toLowerCase();
+  return String(keyword || '')
+    .replace(/\s+/g, ' ')
+    .trim()
+    .toLowerCase()
+    .replace(SHOPPING_DISCOVERY_SUFFIX_PATTERN, '');
 }
 
 function clampPriority(score: number): number {
@@ -218,7 +298,8 @@ export function buildShoppingDiscoverySeeds(input: {
   const seen = new Set<string>();
 
   const add = (seed: ShoppingDiscoverySeed) => {
-    const keyword = String(seed.keyword || '').replace(/\s+/g, ' ').trim();
+    const rawKeyword = String(seed.keyword || '').replace(/\s+/g, ' ').trim();
+    const keyword = ensureShoppingDiscoveryIntentQuery(rawKeyword);
     if (keyword.length < 2 || keyword.length > 35) return;
     const key = normalizeSeedKey(keyword);
     if (!key || seen.has(key)) return;

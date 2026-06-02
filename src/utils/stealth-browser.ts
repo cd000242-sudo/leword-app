@@ -256,31 +256,21 @@ export async function loadPageWithStealth(
 /**
  * Stealth 브라우저 인스턴스 생성 (시스템 Chrome 사용)
  */
-export async function createStealthBrowser(options: {
+export async function createStealthBrowser(_options: {
   headless?: boolean | 'new';
   args?: string[];
 } = {}): Promise<puppeteer.Browser> {
-  const {
-    headless = 'new',
-    args = []
-  } = options;
-  
-  const defaultArgs = [
-    '--no-sandbox',
-    '--disable-setuid-sandbox',
-    '--disable-dev-shm-usage',
-    '--disable-blink-features=AutomationControlled',
-    '--disable-features=IsolateOrigins,site-per-process',
-    '--window-size=1920,1080',
-    '--start-maximized'
-  ];
-  
-  const { launchCompatibleBrowser } = await import('./puppeteer-pool');
-  const browser = await launchCompatibleBrowser({
-    headless,
-    args: [...defaultArgs, ...args],
-    ignoreHTTPSErrors: true
-  });
-  
-  return browser;
+  const { browserPool } = await import('./puppeteer-pool');
+  const browser = await browserPool.acquire();
+  const originalClose = browser.close?.bind(browser);
+  let released = false;
+
+  browser.close = async () => {
+    if (released) return;
+    released = true;
+    if (originalClose) browser.close = originalClose;
+    browserPool.release(browser);
+  };
+
+  return browser as puppeteer.Browser;
 }

@@ -12,17 +12,73 @@ import { setupSourceSignalHandlers } from './handlers/source-signals';
 import { setupKeyWizardHandlers } from './handlers/key-wizard';
 import { setupKeywordBlueprintHandlers } from './handlers/keyword-blueprint';
 import { setupExposureTrackingHandlers } from './handlers/exposure-tracking';
-import { startRefreshScheduler } from './key-wizard/refresh-scheduler';
-import { startLifecycleTracker } from '../utils/pro-hunter-v12/lifecycle-tracker';
-import { startRankTracker } from '../utils/pro-hunter-v12/rank-tracker';
-import { startPrecrawler } from '../utils/pro-hunter-v12/precrawler';
-import { startSurgeScanner } from '../utils/pro-hunter-v12/trend-surge-detector';
-import { startAutoHuntingScheduler } from '../utils/pro-hunter-v12/auto-hunting-scheduler';
+import { startRefreshScheduler, stopRefreshScheduler } from './key-wizard/refresh-scheduler';
+import { startLifecycleTracker, stopLifecycleTracker } from '../utils/pro-hunter-v12/lifecycle-tracker';
+import { startRankTracker, stopRankTracker } from '../utils/pro-hunter-v12/rank-tracker';
+import { startPrecrawler, stopPrecrawler } from '../utils/pro-hunter-v12/precrawler';
+import { startSurgeScanner, stopSurgeScanner } from '../utils/pro-hunter-v12/trend-surge-detector';
+import { startAutoHuntingScheduler, stopAutoHuntingScheduler } from '../utils/pro-hunter-v12/auto-hunting-scheduler';
 import { bootstrapSources } from '../utils/sources/source-bootstrap';
-import { startAutoHealthCheck } from '../utils/sources/health-checker';
+import { startAutoHealthCheck, stopAutoHealthCheck } from '../utils/sources/health-checker';
 
 // 중복 호출 방지 플래그
 let handlersSetup = false;
+let currentBackgroundWorkersEnabled = false;
+
+function readBackgroundWorkerPreference(): boolean {
+  try {
+    const fs = require('fs');
+    const path = require('path');
+    const { app } = require('electron');
+    const prefFile = path.join(app.getPath('userData'), 'performance-prefs.json');
+    if (fs.existsSync(prefFile)) {
+      const raw = JSON.parse(fs.readFileSync(prefFile, 'utf8'));
+      return raw?.enableBackgroundWorkers === true;
+    }
+  } catch {}
+  return false;
+}
+
+function startBackgroundWorkers(): void {
+  startRefreshScheduler();
+  startLifecycleTracker();
+  startRankTracker();
+  startPrecrawler();
+  startSurgeScanner();
+  startAutoHuntingScheduler();
+  try {
+    bootstrapSources();
+    startAutoHealthCheck(30 * 60_000);
+    console.log('[KEYWORD-MASTER] v4.0 ?뚯뒪 遺?몄뒪?몃옪 + ?ъ뒪泥댄겕 ?쒖옉');
+  } catch (e: any) {
+    console.error('[KEYWORD-MASTER] v4.0 遺?몄뒪?몃옪 ?ㅽ뙣:', e?.message);
+  }
+}
+
+function stopBackgroundWorkers(): void {
+  stopAutoHealthCheck();
+  stopAutoHuntingScheduler();
+  stopSurgeScanner();
+  stopPrecrawler();
+  stopRankTracker();
+  stopLifecycleTracker();
+  stopRefreshScheduler();
+}
+
+async function applyBackgroundWorkerPreference(enable: boolean): Promise<{ enabled: boolean }> {
+  if (enable) {
+    if (!currentBackgroundWorkersEnabled) {
+      console.log('[PERF] 諛깃렇?쇱슫???뚯빱 ?쒖꽦??(?ъ슜??紐낆떆 ON)');
+      startBackgroundWorkers();
+    }
+    currentBackgroundWorkersEnabled = true;
+  } else {
+    stopBackgroundWorkers();
+    currentBackgroundWorkersEnabled = false;
+    console.log('[PERF] ??諛깃렇?쇱슫???뚯빱 OFF (?깅뒫 ?곗꽑 紐⑤뱶)');
+  }
+  return { enabled: currentBackgroundWorkersEnabled };
+}
 
 export function setupKeywordMasterHandlers() {
   console.log('[KEYWORD-MASTER] IPC 핸들러 등록 시작');
@@ -47,7 +103,9 @@ export function setupKeywordMasterHandlers() {
     'get-keyword-expansions',
     'search-suffix-keywords',
     'hunt-adsense-keywords',
-    'get-adsense-categories'
+    'get-adsense-categories',
+    'perf-get-bg-pref',
+    'perf-set-bg-pref'
   ];
 
   handlerNames.forEach(name => {
@@ -116,7 +174,11 @@ export function setupKeywordMasterHandlers() {
   }
 
   // 성능 토글 IPC (UI에서 환경설정 변경 가능)
-  ipcMain.handle('perf-get-bg-pref', () => ({ success: true, enableBackgroundWorkers: enableBg }));
+  currentBackgroundWorkersEnabled = enableBg;
+  if (!enableBg) {
+    stopBackgroundWorkers();
+  }
+  ipcMain.handle('perf-get-bg-pref', () => ({ success: true, enableBackgroundWorkers: currentBackgroundWorkersEnabled }));
   ipcMain.handle('perf-set-bg-pref', async (_e, p: { enableBackgroundWorkers: boolean }) => {
     try {
       const fs = require('fs');
@@ -126,7 +188,8 @@ export function setupKeywordMasterHandlers() {
       if (!fs.existsSync(dir)) fs.mkdirSync(dir, { recursive: true });
       const prefFile = path.join(dir, 'performance-prefs.json');
       fs.writeFileSync(prefFile, JSON.stringify({ enableBackgroundWorkers: !!p?.enableBackgroundWorkers }), 'utf8');
-      return { success: true, message: '저장됨. 앱 재시작 후 적용.' };
+      const applied = await applyBackgroundWorkerPreference(!!p?.enableBackgroundWorkers);
+      return { success: true, enableBackgroundWorkers: applied.enabled, message: '저장됨. 즉시 적용.' };
     } catch (err: any) {
       return { success: false, error: err?.message };
     }

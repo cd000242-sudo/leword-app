@@ -167,11 +167,15 @@ function calculateHoneyPotGrade(signals: KinSignals, score: number): KinGrade {
   const { viewCount = 0, answerCount = 0, hoursAgo = 999 } = signals;
   const vph = signals.viewsPerHour || 0;
   const externalLinks = signals.externalLinkCount || 0;
+  const intentScore = Math.max(0, Math.min(100, signals.questionIntentScore ?? 50));
   const hasDemand = viewCount >= 50 || vph >= 3;
+  const hasStrongSssDemand = viewCount >= 120 || vph >= 8;
 
   if (
     score >= 82 &&
     hasDemand &&
+    hasStrongSssDemand &&
+    intentScore >= 60 &&
     answerCount <= 1 &&
     hoursAgo <= 72 &&
     !signals.isMainExposed &&
@@ -275,6 +279,10 @@ export function calculateGoldenScore(signals: KinSignals): number {
 
   // 채택된 질문은 강한 페널티 (기회가 없음)
   if (signals.isAdopted) score -= 50;
+  if (signals.isExpertOnly) score -= 30;
+  if (signals.isMainExposed) score -= 22;
+  if (signals.hasExternalLinks || (signals.externalLinkCount || 0) > 0) score -= 15;
+  if ((signals.questionIntentScore ?? 50) < 45) score -= 18;
 
   // 급상승 보너스 (시간당 조회수 50+ = 실시간 폭발)
   if (signals.viewsPerHour && signals.viewsPerHour >= 50) {
@@ -322,20 +330,26 @@ export function calculateGoldenScore(signals: KinSignals): number {
  */
 export function calculateGrade(signals: KinSignals, score: number): KinGrade {
   // 채택된 질문은 무조건 B (score 무시)
-  if (signals.isAdopted) return 'B';
+  if (signals.isAdopted || signals.isExpertOnly) return 'B';
 
   const { viewCount = 0, answerCount = 0, hoursAgo = 999 } = signals;
+  const intentScore = Math.max(0, Math.min(100, signals.questionIntentScore ?? 50));
+  const externalLinks = signals.externalLinkCount || 0;
 
   // 임계값은 2026-04-14 실측 분포에 맞춰 튜닝됨 (baseline/grade-distribution.json)
   // 실측: avg 47.7, SS avg 64.5, S avg 51.9, A avg 34.4
   // 목표: SSS 비율 5~15% (DoD)
 
-  // SSS: 점수 60+ AND 조회 300+ AND 답변 ≤3 AND 1주 이내
+  // SSS: 최신·고조회·저답변·미채택·미노출·검색 전환 의도가 모두 살아있는 질문.
   if (
     score >= 60 &&
     viewCount >= 300 &&
-    answerCount <= 3 &&
-    hoursAgo <= 168
+    answerCount <= 1 &&
+    hoursAgo <= 72 &&
+    intentScore >= 60 &&
+    !signals.isMainExposed &&
+    !signals.hasExternalLinks &&
+    externalLinks === 0
   ) {
     return 'SSS';
   }
@@ -344,8 +358,10 @@ export function calculateGrade(signals: KinSignals, score: number): KinGrade {
   if (
     score >= 50 &&
     viewCount >= 100 &&
-    answerCount <= 5 &&
-    hoursAgo <= 336
+    answerCount <= 3 &&
+    hoursAgo <= 168 &&
+    intentScore >= 45 &&
+    externalLinks <= 1
   ) {
     return 'SS';
   }

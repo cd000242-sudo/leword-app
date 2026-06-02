@@ -10,6 +10,7 @@ import * as licenseManager from '../../utils/licenseManager';
 import { findUltimateNicheKeywords } from '../../utils/ultimate-niche-finder';
 import { checkUnlimitedLicense } from './shared';
 import { getFreshKeywordsAPI } from '../../utils/mass-collection/fresh-keywords-api';
+import { rankKeywordExpansionStrings } from '../../utils/keyword-expansion-ranker';
 
 
 export function setupKeywordAnalysisHandlers(): void {
@@ -808,8 +809,17 @@ export function setupKeywordAnalysisHandlers(): void {
             }
           }
 
-          // 검색량 조회 및 추가
-          const autocompleteArray = Array.from(uniqueAutocomplete).slice(0, isUnlimited ? 9000 : Math.min(desiredAutocompleteCount, Math.max(120, targetCount)));
+          // 검색량 조회 및 추가. 자동완성/자모/2차 확장은 반드시 시드 관련성으로 다시 정렬한다.
+          const autocompleteLimit = isUnlimited ? 9000 : Math.min(desiredAutocompleteCount, Math.max(120, targetCount));
+          const autocompleteArray = rankKeywordExpansionStrings(trimmedKeyword, Array.from(uniqueAutocomplete), {
+            source: 'autocomplete',
+            limit: autocompleteLimit,
+            minScore: 30,
+            fallbackMinScore: 24,
+            minKeep: Math.min(12, autocompleteLimit),
+            ensureIntentCoverage: true,
+            intentCoverageMin: Math.min(40, Math.max(12, targetCount)),
+          });
           for (let i = 0; i < autocompleteArray.length; i += 5) {
             if (!isUnlimited && allKeywords.length >= targetCount) break;
             const batch = autocompleteArray.slice(i, i + 5);
@@ -941,7 +951,17 @@ export function setupKeywordAnalysisHandlers(): void {
           // 3단계: 카테고리 키워드들의 검색량 조회 (실제 데이터만!)
           const validCategoryKeywords: string[] = [];
 
-          for (const kw of Array.from(uniqueRelated).slice(0, 100)) {
+          const rankedRelatedKeywords = rankKeywordExpansionStrings(trimmedKeyword, Array.from(uniqueRelated), {
+            source: 'naver-relkwd',
+            limit: 100,
+            minScore: 30,
+            fallbackMinScore: 22,
+            minKeep: Math.min(10, targetCount),
+            ensureIntentCoverage: true,
+            intentCoverageMin: Math.min(30, Math.max(8, Math.floor(targetCount / 2))),
+          });
+
+          for (const kw of rankedRelatedKeywords) {
             if (!isUnlimited && allKeywords.length >= targetCount) break;
 
             try {
@@ -1456,16 +1476,26 @@ export function setupKeywordAnalysisHandlers(): void {
             console.log(`[KEYWORD-EXPANSIONS] 🔄 3차 확장 완료: +${tertiaryCount}개 (총 ${additionalKeywords.length}개)`);
           }
 
-          console.log(`[KEYWORD-EXPANSIONS] 📝 총 확장 키워드: ${additionalKeywords.length}개`);
-          sendProgress('additional', additionalKeywords.length, maxAdditional, `✅ ${additionalKeywords.length}개 키워드 수집 완료!`);
+          const rankedAdditionalKeywords = rankKeywordExpansionStrings(trimmedKeyword, additionalKeywords, {
+            source: 'autocomplete',
+            limit: maxAdditional,
+            minScore: 30,
+            fallbackMinScore: 24,
+            minKeep: isUnlimited ? 40 : Math.min(12, targetCount),
+            ensureIntentCoverage: true,
+            intentCoverageMin: isUnlimited ? 40 : Math.min(24, Math.max(8, Math.floor(targetCount / 2))),
+          });
+
+          console.log(`[KEYWORD-EXPANSIONS] 📝 총 확장 키워드: ${additionalKeywords.length}개 → 관련성 랭킹 ${rankedAdditionalKeywords.length}개`);
+          sendProgress('additional', rankedAdditionalKeywords.length, maxAdditional, `✅ 관련성 높은 확장 키워드 ${rankedAdditionalKeywords.length}개 선별 완료!`);
 
           if (shouldComputeMetrics) {
             console.log(`[KEYWORD-EXPANSIONS] 📊 검색량 조회 시작 (병렬 처리)...`);
 
-            for (let i = 0; i < additionalKeywords.length; i += 5) {
+            for (let i = 0; i < rankedAdditionalKeywords.length; i += 5) {
               if (!isUnlimited && allKeywords.length >= targetCount) break;
 
-              const batch = additionalKeywords.slice(i, i + 5);
+              const batch = rankedAdditionalKeywords.slice(i, i + 5);
 
               let volumeData: any[] | null = null;
               try {
@@ -1496,14 +1526,14 @@ export function setupKeywordAnalysisHandlers(): void {
               }
 
               if (i % 50 === 0) {
-                sendProgress('additional', i, additionalKeywords.length,
+                sendProgress('additional', i, rankedAdditionalKeywords.length,
                   `📊 검색량 조회 중... (${allKeywords.length}개)`);
               }
 
               await new Promise(resolve => setTimeout(resolve, 50));
             }
           } else {
-            allKeywords.push(...additionalKeywords.map(kw => ({
+            allKeywords.push(...rankedAdditionalKeywords.map(kw => ({
               keyword: kw,
               pcSearchVolume: null,
               mobileSearchVolume: null,

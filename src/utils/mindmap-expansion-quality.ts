@@ -1,4 +1,5 @@
-import { rankRelatedKeywordCandidates, RelatedCandidateInput, RankedRelatedKeyword } from './keyword-relevance';
+import { RelatedCandidateInput, RankedRelatedKeyword } from './keyword-relevance';
+import { rankKeywordExpansionCandidates } from './keyword-expansion-ranker';
 
 export interface MindmapExpansionCandidate extends RelatedCandidateInput {
   keyword: string;
@@ -44,17 +45,10 @@ export function rankMindmapExpansionCandidates(
     normalized.push({ ...candidate, keyword });
   }
 
-  let ranked = rankRelatedKeywordCandidates(seed, normalized, {
-    limit: Math.max(safeLimit, 120),
+  return rankKeywordExpansionCandidates(seed, normalized, {
+    limit: safeLimit,
     minScore: 30,
+    fallbackMinScore: 22,
+    minKeep: Math.min(8, safeLimit),
   });
-
-  if (ranked.length < Math.min(8, safeLimit)) {
-    ranked = rankRelatedKeywordCandidates(seed, normalized, {
-      limit: Math.max(safeLimit, 120),
-      minScore: 22,
-    });
-  }
-
-  return ranked.slice(0, safeLimit);
 }

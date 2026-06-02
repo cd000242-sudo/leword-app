@@ -8,6 +8,7 @@
 import {
   compactPolicyDisplayTitle,
   compactPolicyKeywordPhrase,
+  expandPolicyDiscoverySeeds,
   getPolicyFallbackKeywords,
 } from '../policy-briefing-api';
 
@@ -49,6 +50,29 @@ assert('지원금 fallback은 빈 소스 상황에서도 30개 이상 제공',
 assert('지원금 fallback은 실제 작성 가능한 신청/대상형 키워드를 포함',
   getPolicyFallbackKeywords(36).some(k => /소상공인|청년|근로장려금/.test(k) && /신청|대상|조회|기간/.test(k)),
   getPolicyFallbackKeywords(36).join(', '));
+
+const expandedPolicySeeds = expandPolicyDiscoverySeeds('청년 월세 지원금', 12);
+assert('정책 공식명 하나는 신청/대상/서류형 검색 의도로 확장',
+  expandedPolicySeeds.length >= 8
+    && expandedPolicySeeds.includes('청년 월세 지원금 신청')
+    && expandedPolicySeeds.some(k => /대상|자격|조건/.test(k))
+    && expandedPolicySeeds.some(k => /서류|기간|조회/.test(k)),
+  expandedPolicySeeds.join(', '));
+
+assert('정책 확장 시드는 너무 큰 단일 토큰으로 후퇴하지 않음',
+  !expandedPolicySeeds.includes('지원금')
+    && expandedPolicySeeds.every(k => k.length <= 42)
+    && expandedPolicySeeds.length === new Set(expandedPolicySeeds.map(k => k.replace(/\s+/g, ''))).size,
+  expandedPolicySeeds.join(', '));
+
+const fallback100 = getPolicyFallbackKeywords(100);
+assert('정책 fallback은 네트워크 실패 상황에서도 100개 이상 대량 시드 제공',
+  fallback100.length >= 100,
+  `${fallback100.length}`);
+
+assert('정책 fallback 100개는 작성 가능한 의도형 키워드 중심',
+  fallback100.slice(0, 100).filter(k => /신청|대상|자격|조건|기간|서류|조회|지급일|마감|금액|방법|변경|온라인/.test(k)).length >= 90,
+  fallback100.slice(0, 100).join(', '));
 
 console.log(`\n[policy-briefing.test] passed: ${passed} / failed: ${failed}`);
 if (failed > 0) {

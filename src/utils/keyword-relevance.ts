@@ -4,6 +4,7 @@ export interface RelatedCandidateInput {
   source?: string;
   freq?: number;
   monthlyVolume?: number;
+  priority?: number;
 }
 
 export interface RankedRelatedKeyword extends RelatedCandidateInput {
@@ -45,9 +46,42 @@ const SOURCE_WEIGHT: Record<string, number> = {
   'naver-related-question': 18,
   sibling: 24,
   mindmap: 16,
+  'intent-fallback': 16,
   spider: 8,
   'title-extract': 6,
 };
+
+const DOMAIN_GROUPS: Array<{ name: string; patterns: RegExp[] }> = [
+  {
+    name: 'supplement',
+    patterns: [
+      /영양제|건강기능식품|건기식|비타민|멀티비타민|종합비타민|오메가\s*3|오메가3/i,
+      /유산균|프로바이오틱스|루테인|밀크씨슬|마그네슘|칼슘|철분|아연|엽산/i,
+      /콜라겐|프로폴리스|코엔자임|코큐텐|비오틴|홍삼|복용법|복용시간|부족\s*증상/i,
+    ],
+  },
+  {
+    name: 'government-benefit',
+    patterns: [
+      /지원금|보조금|지원사업|정부지원|정부24|보조금24|바우처|소비쿠폰/i,
+      /장려금|근로장려금|자녀장려금|급여|수당|기초연금|실업급여|주거급여|교육급여/i,
+      /긴급복지|생계지원|소상공인|자영업자|청년월세|청년도약|취업지원|국민취업지원/i,
+      /에너지바우처|문화누리카드|평생교육바우처|출산지원|육아휴직급여/i,
+    ],
+  },
+  {
+    name: 'footwear',
+    patterns: [
+      /운동화|러닝화|스니커즈|워킹화|등산화|신발|나이키|아디다스|뉴발란스|아식스/i,
+    ],
+  },
+  {
+    name: 'entertainment-issue',
+    patterns: [
+      /아이돌|배우|가수|연예인|컴백|공식입장|팬미팅|콘서트|시상식|드라마|예능|출연/i,
+    ],
+  },
+];
 
 export function normalizeCandidateKeyword(value: string): string {
   return String(value || '')
@@ -94,6 +128,18 @@ function countOverlap(a: string[], b: string[]): number {
   return a.filter(token => bs.has(token)).length;
 }
 
+function detectDomains(value: string): string[] {
+  const normalized = normalizeCandidateKeyword(value);
+  const compacted = normalized.replace(/\s+/g, '');
+  const domains: string[] = [];
+  for (const group of DOMAIN_GROUPS) {
+    if (group.patterns.some(pattern => pattern.test(normalized) || pattern.test(compacted))) {
+      domains.push(group.name);
+    }
+  }
+  return domains;
+}
+
 function hasCommercialIntent(value: string): boolean {
   return /추천|후기|리뷰|가격|비용|비교|순위|랭킹|할인|쿠폰|구매|구입|신청|조건|대상|조회|방법|종류/.test(value);
 }
@@ -132,6 +178,9 @@ export function scoreKeywordRelevance(seed: string, candidate: RelatedCandidateI
   const coreOverlap = countOverlap(seedCore, keywordCore);
   const head = seedCore[seedCore.length - 1] || seedTokens[seedTokens.length - 1] || '';
   const sameHead = head.length >= 2 && keywordCore.includes(head);
+  const seedDomains = detectDomains(seed);
+  const candidateDomains = detectDomains(keyword);
+  const sharedDomains = seedDomains.filter(domain => candidateDomains.includes(domain));
   const sources = Array.from(new Set([...(candidate.sources || []), candidate.source || ''].filter(Boolean)));
   const reasons: string[] = [];
 
@@ -161,6 +210,13 @@ export function scoreKeywordRelevance(seed: string, candidate: RelatedCandidateI
     score += 18;
     reasons.push('same-head');
   }
+  if (sharedDomains.length > 0) {
+    const domainBonus = coreOverlap > 0 || sameHead || keywordCompact.includes(seedCompact)
+      ? 10
+      : 24;
+    score += domainBonus;
+    reasons.push(`domain:${sharedDomains.join('|')}`);
+  }
 
   const sourceScore = bestSourceWeight(sources);
   if (sourceScore > 0) {
@@ -170,6 +226,10 @@ export function scoreKeywordRelevance(seed: string, candidate: RelatedCandidateI
 
   const freq = Math.max(0, candidate.freq || sources.length || 0);
   if (freq > 1) score += Math.min(12, (freq - 1) * 4);
+  if (candidate.priority && candidate.priority > 0) {
+    score += Math.min(12, candidate.priority);
+    reasons.push('priority');
+  }
   if (candidate.monthlyVolume && candidate.monthlyVolume > 0) {
     score += Math.min(18, Math.log10(candidate.monthlyVolume + 1) * 4);
     reasons.push('volume');
@@ -180,7 +240,7 @@ export function scoreKeywordRelevance(seed: string, candidate: RelatedCandidateI
   if (keyword.length > 35) score -= 10;
   if (sources.includes('naver-shopping') && !hasCommercialIntent(seed) && coreOverlap === 0 && !sameHead) score -= 18;
   if (coreOverlap === 0 && !sameHead && !keywordCompact.includes(seedCompact) && !seedCompact.includes(keywordCompact)) {
-    score -= 28;
+    score -= sharedDomains.length > 0 ? 8 : 28;
   }
 
   return { ...candidate, keyword, sources, score, reasons };

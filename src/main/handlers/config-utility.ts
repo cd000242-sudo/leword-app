@@ -871,7 +871,15 @@ export function setupConfigUtilityHandlers(): void {
       try {
         const originalKeyword = String(params?.keyword ?? '').trim();
         const autoDiscovery = !originalKeyword;
-        const autoDiscoveryLimit = Math.min(Math.max(Number(params?.autoDiscoveryLimit) || 30, 10), 30);
+        const {
+          getShoppingDiscoverySeeds,
+          getShoppingAutoDiscoveryExpansionLimit,
+          getShoppingAutoDiscoverySearchLimit,
+          getShoppingRecommendationLimit,
+          normalizeShoppingAutoDiscoveryLimit,
+        } = await import('../../utils/shopping-keyword-suggestions');
+        const autoDiscoveryLimit = normalizeShoppingAutoDiscoveryLimit(params?.autoDiscoveryLimit);
+        const recommendationLimit = getShoppingRecommendationLimit(autoDiscovery, autoDiscoveryLimit);
         const sort = (params?.sort ?? 'sim') as 'sim' | 'date' | 'asc' | 'dsc';
         const display = Math.min(Math.max(Number(params?.display) || 50, 1), 100);
         const start = Math.min(Math.max(Number(params?.start) || 1, 1), 1000);
@@ -892,7 +900,6 @@ export function setupConfigUtilityHandlers(): void {
         const { classifySearchIntent, getIntentScoreAdjust } = await import('../../utils/search-intent-classifier');
         const { aggregateCommerceTrendSeeds, summarizeTrendSeeds } = await import('../../utils/sources/trend-seed-aggregator');
         const { NAVER_SHOPPING_CATEGORIES } = await import('../../utils/sources/naver-shopping-keyword-rank');
-        const { getShoppingDiscoverySeeds } = await import('../../utils/shopping-keyword-suggestions');
         // v2.43.64: Phase 9 — 네이버 검색 추세 검증 (rising/stable/declining/dead)
         const { checkKeywordsRecency, getNaverKeywordSearchVolumeSeparate } = await import('../../utils/naver-datalab-api');
 
@@ -943,7 +950,7 @@ export function setupConfigUtilityHandlers(): void {
           }
         }
 
-        let recommended = pickBlogRecommendedItems(result.items, 10);
+        let recommended = pickBlogRecommendedItems(result.items, recommendationLimit);
 
         // 쿠팡파트너스 설정돼있으면 추천 10개를 트래킹 링크로 변환
         // v2.43.63: 4팀+2팀 — Product Search API 로 productId 정확 매칭 후 deeplink 변환
@@ -998,7 +1005,9 @@ export function setupConfigUtilityHandlers(): void {
             console.warn('[SHOPPING-CONNECT] 쿠팡파트너스 링크 변환 실패:', e?.message);
           }
         };
-        await hydrateCoupangPartnerLinks(recommended);
+        if (!autoDiscovery) {
+          await hydrateCoupangPartnerLinks(recommended);
+        }
 
         // 🔥 Phase 4: 판매중 제품 필터 — 리뷰/관심도 있는 상품만 analyzer 에 주입
         //   naver-shopping-api 는 reviewCount 필드 제공 안 함 → productType=1 일반상품만
@@ -1097,6 +1106,12 @@ export function setupConfigUtilityHandlers(): void {
             crossSourceSeeds,
             autoDiscovery ? 24 : 8
           );
+          const autoExpansionLimit = autoDiscovery
+            ? getShoppingAutoDiscoveryExpansionLimit(discoverySeeds.length, autoDiscoveryLimit)
+            : 8;
+          const autoSearchLimit = autoDiscovery
+            ? getShoppingAutoDiscoverySearchLimit(discoverySeeds.length, autoDiscoveryLimit)
+            : 6;
           const seenExpansion = new Set<string>([keyword.toLowerCase()]);
           expansionQueries = [...autoDiscoveryQueries, ...baseExpansionQueries]
             .filter(q => {
@@ -1105,11 +1120,11 @@ export function setupConfigUtilityHandlers(): void {
               seenExpansion.add(key);
               return true;
             })
-            .slice(0, autoDiscovery ? 24 : 8);
+            .slice(0, autoExpansionLimit);
           if (expansionQueries.length > 0) {
             try {
               const expandedResults = await Promise.allSettled(
-                expansionQueries.slice(0, autoDiscovery ? 16 : 6).map(q =>
+                expansionQueries.slice(0, autoSearchLimit).map(q =>
                   searchNaverShopping(q.query, { display: 20, sort: 'sim', start: 1 })
                     .then(r => ({ query: q, result: r }))
                 )
@@ -1169,11 +1184,11 @@ export function setupConfigUtilityHandlers(): void {
           crossSourceSeeds,
           recency,
         };
-        const opportunityRanked = rankShoppingOpportunities(result.items, opportunityContext, 20);
+        const opportunityRanked = rankShoppingOpportunities(result.items, opportunityContext, Math.max(20, recommendationLimit));
         if (opportunityRanked.length > 0) {
-          recommended = opportunityRanked.slice(0, 10);
-          await hydrateCoupangPartnerLinks(recommended);
+          recommended = opportunityRanked.slice(0, recommendationLimit);
         }
+        await hydrateCoupangPartnerLinks(recommended);
 
         // v2.49.44: 각 추천 상품을 LEWORD 진입판단 후보로 변환.
         // 제품명 그대로만 보지 않고 같은 계열 대체 브랜드/카테고리 구매 키워드까지 제시한다.

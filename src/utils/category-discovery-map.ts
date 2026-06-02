@@ -27,7 +27,7 @@ const CATEGORY_ALIASES: Record<string, string[]> = {
   육아: ['parenting', 'baby_products'],
   반려동물: ['pet_dog', 'pet_cat', 'pet_etc'],
   인테리어: ['interior'],
-  엔터테인먼트: ['celeb'],
+  엔터테인먼트: ['celeb', 'broadcast', 'music'],
   연예: ['celeb', 'broadcast', 'music'],
   연예인: ['celeb', 'broadcast', 'music'],
   스타: ['celeb', 'broadcast', 'music'],
@@ -85,6 +85,7 @@ const CATEGORY_ALIASES: Record<string, string[]> = {
   결혼: ['wedding'],
   웨딩: ['wedding'],
   celeb: ['celeb'],
+  celebrity: ['celeb', 'broadcast', 'music'],
   policy: ['policy'],
   subsidy: ['policy'],
   support: ['policy'],
@@ -102,6 +103,25 @@ const CATEGORY_ALIASES: Record<string, string[]> = {
   pet: ['pet_dog', 'pet_cat', 'pet_etc'],
   car_all: ['car', 'car_maintain'],
   life_tips: ['life_tips', 'home_life'],
+  '육아(영유아)': ['parenting'],
+  '육아(초중고)': ['parenting', 'education', 'baby_products'],
+  '뷰티/화장품': ['beauty'],
+  '패션/스타일': ['fashion', 'beauty'],
+  '맛집/요리': ['food', 'recipe'],
+  '여행/숙박': ['travel_domestic', 'travel_overseas'],
+  '건강/운동': ['health'],
+  'IT/디지털': ['it', 'smartphone', 'laptop', 'ai_tool'],
+  '인테리어/생활': ['interior', 'home_life', 'kitchen'],
+  '재테크/투자': ['finance', 'realestate'],
+  '지원금/정책/복지': ['policy'],
+  '교육/자격증': ['education'],
+  '문화/엔터': ['movie', 'drama', 'broadcast', 'celeb', 'music', 'book', 'hobby'],
+  '스타/연예이슈': ['celeb', 'broadcast', 'music'],
+  '스타/연예 이슈': ['celeb', 'broadcast', 'music'],
+  '결혼/예식': ['wedding'],
+  '임신/출산': ['parenting', 'baby_products', 'health', 'policy'],
+  '시니어/노후': ['health', 'finance', 'policy'],
+  '부업/N잡': ['sidejob', 'business'],
 };
 
 const SEED_EXTRA_SUFFIXES = [
@@ -139,6 +159,21 @@ export function resolveDiscoveryCategoryIds(category: string | undefined | null)
   const direct = CATEGORY_ALIASES[raw] || CATEGORY_ALIASES[normalized];
   if (direct) return direct;
   return raw ? [raw] : [];
+}
+
+export function filterFocusedProfileCategoryIds(
+  requestedCategory: string | undefined | null,
+  profileCategoryIds: string[],
+): string[] {
+  const profileIds = unique((profileCategoryIds || []).map(id => String(id || '').trim()));
+  const requestedIds = resolveDiscoveryCategoryIds(requestedCategory);
+  if (requestedIds.length === 0) return profileIds;
+
+  const requestedSet = new Set(requestedIds);
+  return profileIds.filter((profileId) => {
+    const resolved = resolveDiscoveryCategoryIds(profileId);
+    return resolved.some(id => requestedSet.has(id));
+  });
 }
 
 export function matchesDiscoveryCategory(keyword: string, category: string | undefined | null): boolean {

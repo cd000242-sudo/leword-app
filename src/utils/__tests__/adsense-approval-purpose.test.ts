@@ -2,7 +2,9 @@ import * as fs from 'fs';
 import * as path from 'path';
 import {
   calculateAdsenseApprovalProfile,
+  buildAdsenseApprovalContentCluster,
   calculateZeroClickRisk,
+  classifySearchIntent,
   evaluateAdsenseEligibility,
   type CrossValidationResult,
 } from '../adsense-keyword-hunter';
@@ -58,9 +60,25 @@ const approval = calculateAdsenseApprovalProfile({
 assert('승인용 S+는 실측 안전 정보형 글감에서만 나온다',
   approval.grade === 'S+' && approval.measured && approval.score >= 85,
   `${approval.grade} ${approval.score} ${approval.summary}`);
+assert('승인용 S+는 원본성 각도까지 충분해야 한다',
+  approval.originalityScore >= 70 && approval.reasons.includes('원본성 각도 충분'),
+  `${approval.originalityScore} ${approval.reasons.join(',')}`);
 assert('승인용 제목 후보는 실제 글 발행 각도를 제공한다',
   approval.titleCandidates.length >= 3 && approval.titleCandidates.every(t => t.includes(safeKeyword)),
   approval.titleCandidates.join(' | '));
+assert('승인용 S+는 초보자가 바로 시리즈로 발행할 콘텐츠 클러스터를 제공한다',
+  approval.contentCluster.length >= 8
+    && approval.contentCluster.some(item => item.intent === 'eligibility' && /대상|자격/.test(item.keyword))
+    && approval.contentCluster.some(item => item.intent === 'documents' && /서류|준비물/.test(item.keyword))
+    && approval.contentCluster.some(item => item.intent === 'mistakes' && /주의사항|실수/.test(item.title)),
+  approval.contentCluster.map(item => `${item.intent}:${item.keyword}`).join(' | '));
+assert('승인용 클러스터는 글 순서와 고유 제목까지 제공한다',
+  approval.contentCluster.every((item, index) =>
+    item.order === index + 1
+    && item.title.includes(item.keyword)
+    && item.angle.length >= 8
+  ),
+  JSON.stringify(approval.contentCluster));
 
 const estimated = calculateAdsenseApprovalProfile({
   keyword: safeKeyword,
@@ -127,6 +145,67 @@ assert('YMYL 고위험은 수치가 좋아도 승인 S/S+로 승격하지 않는
   !['S+', 'S'].includes(ymylApproval.grade) && ymylApproval.score <= 52,
   `${ymylApproval.grade} ${ymylApproval.score}`);
 
+const thinCopyKeyword = '아이유 나이 프로필';
+const thinCopyApproval = calculateAdsenseApprovalProfile({
+  keyword: thinCopyKeyword,
+  category: 'all',
+  searchVolume: 2400,
+  documentCount: 600,
+  dataSource: 'naver-api',
+  infoIntentScore: 88,
+  safety: 'safe',
+  ymylRisk: 'low',
+  writable: true,
+  adsenseEligibility: evaluateAdsenseEligibility({
+    keyword: thinCopyKeyword,
+    ymylRisk: 'low',
+    safety: 'safe',
+    dataConfidence: 'high',
+  }),
+  zeroClickRisk: calculateZeroClickRisk(thinCopyKeyword),
+  crossValidation: verifiedCross,
+});
+assert('단답/프로필/복붙형 주제는 실측 수치가 좋아도 승인 S/S+로 승격하지 않는다',
+  !['S+', 'S'].includes(thinCopyApproval.grade)
+    && thinCopyApproval.originalityScore < 45
+    && thinCopyApproval.contentCluster.length <= 3
+    && thinCopyApproval.risks.includes('원본성 낮음: 단답/프로필/복붙형 주제'),
+  `${thinCopyApproval.grade} ${thinCopyApproval.score} ${thinCopyApproval.originalityScore} cluster=${thinCopyApproval.contentCluster.length} ${thinCopyApproval.risks.join(',')}`);
+
+const directCluster = buildAdsenseApprovalContentCluster('근로장려금 신청', 'subsidy', 10);
+assert('승인용 클러스터 빌더는 신청형 정책 키워드를 10개 글감으로 확장한다',
+  directCluster.length === 10
+    && directCluster[0].intent === 'overview'
+    && directCluster.some(item => /지급일/.test(item.keyword))
+    && directCluster.some(item => /FAQ/.test(item.angle)),
+  directCluster.map(item => `${item.order}:${item.keyword}:${item.angle}`).join(' | '));
+
+const transactionalKeyword = '아이폰 17 가격 할인 구매 비교';
+const transactionalApproval = calculateAdsenseApprovalProfile({
+  keyword: transactionalKeyword,
+  category: 'smartphone',
+  searchVolume: 2400,
+  documentCount: 600,
+  dataSource: 'naver-api',
+  infoIntentScore: 92,
+  safety: 'safe',
+  ymylRisk: 'low',
+  writable: true,
+  adsenseEligibility: evaluateAdsenseEligibility({
+    keyword: transactionalKeyword,
+    ymylRisk: 'low',
+    safety: 'safe',
+    dataConfidence: 'high',
+  }),
+  zeroClickRisk: calculateZeroClickRisk(transactionalKeyword),
+  crossValidation: verifiedCross,
+});
+assert('거래형 구매 키워드는 수치가 좋아도 승인용 S/S+로 승격하지 않는다',
+  classifySearchIntent(transactionalKeyword).primary === 'transactional'
+    && !['S+', 'S'].includes(transactionalApproval.grade)
+    && transactionalApproval.risks.includes('거래형 의도: 승인용보다 구매/쇼핑 글감에 가까움'),
+  `${classifySearchIntent(transactionalKeyword).primary} ${transactionalApproval.grade} ${transactionalApproval.score} ${transactionalApproval.risks.join(',')}`);
+
 const html = fs.readFileSync(path.join(__dirname, '..', '..', '..', 'ui', 'keyword-master.html'), 'utf8');
 const premiumHunting = fs.readFileSync(path.join(__dirname, '..', '..', 'main', 'handlers', 'premium-hunting.ts'), 'utf8');
 
@@ -138,6 +217,18 @@ assert('AdSense 기본 정렬은 수익이 아니라 승인 적합도다',
   /<option\s+value="approval"\s+selected>✅ 승인 적합도<\/option>/.test(html)
     && /minApprovalScore:\s*typeof\s+options\?\.minApprovalScore/.test(premiumHunting),
   'approval-first defaults missing');
+assert('AdSense UI는 원본성/글감 확장성을 승인 기준으로 노출한다',
+  /원본성/.test(html) && /글감 확장성/.test(html),
+  'originality copy missing');
+assert('AdSense UI final output keeps measured approval-grade candidates only',
+  /const\s+approvalGradeRank\s*=\s*\{[^}]*'S\+'\s*:\s*4[^}]*S\s*:\s*3[^}]*A\s*:\s*2/s.test(html)
+    && /const\s+minApprovalGrade\s*=/.test(html)
+    && /const\s+isRealMeasuredApproval\s*=/.test(html)
+    && /dataSource\s*!==\s*'estimated'/.test(html)
+    && /approvalProfile\?\.measured\s*!==\s*false/.test(html)
+    && /approvalScore\s*<\s*minApprovalScore/.test(html)
+    && /valueGate\?\.isKilled/.test(html),
+  'final measured approval gate missing');
 
 console.log(`\n[adsense-approval-purpose.test] passed: ${passed} / failed: ${failed}`);
 if (failed > 0) {

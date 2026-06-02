@@ -22,5 +22,10 @@ assert('stored answer count uses effAns', /answerCount:\s*effAns/.test(block));
 assert('detail answer count is not stored directly in trending hidden mode', !/answerCount:\s*detail\.answerCount/.test(block));
 assert('freshness resolver preserves real latest time', /resolveKinFreshHoursAgo\(q\.hoursAgo,\s*detail\.hoursAgoFromDetail,\s*24\)/.test(block));
 assert('hidden mode does not hardcode every candidate to 24h', !/const\s+finalHoursAgo\s*=\s*24\s*;/.test(block));
+assert('latest hidden candidate gate rejects known main-exposed questions', /Boolean\(q\.isMainExposed\)\)\s*return false/.test(text));
+assert('latest hidden sort does not force every candidate to isMainExposed false', !/getLatestHiddenSortScore[\s\S]*buildKinSignals\(withVelocity,\s*\{\s*isMainExposed:\s*false\s*\}\)/.test(text));
+assert('premium latest hidden final output keeps only actionable SSS/SS/S questions', /filter\(q\s*=>\s*isActionableHoneyResult\(q\)\)/.test(block));
+assert('both hidden premium hunters use actionable final output gate',
+  (text.match(/filter\(q\s*=>\s*isActionableHoneyResult\(q\)\)/g) || []).length >= 2);
 
 console.log('[kin-hidden-honey-regression] passed');

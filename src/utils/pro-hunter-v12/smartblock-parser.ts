@@ -3,6 +3,7 @@
 // 네이버 검색 결과에서 인기글/VIEW/지식iN/쇼핑/카페/인플루언서 등 블록별 분석
 
 import type { Browser } from 'puppeteer';
+import { browserPool } from '../puppeteer-pool';
 
 export type SmartBlockType =
   | 'popular_post'      // 인기글
@@ -144,11 +145,7 @@ function strategyForBlock(type: SmartBlockType): { canPenetrate: boolean; strate
 }
 
 export async function analyzeSmartBlocks(keyword: string): Promise<SmartBlockAnalysis> {
-  const { launchCompatibleBrowser } = await import('../puppeteer-pool');
-  const browser: Browser = await launchCompatibleBrowser({
-    headless: 'new',
-    args: ['--no-sandbox', '--disable-setuid-sandbox', '--disable-dev-shm-usage', '--disable-gpu'],
-  });
+  const browser: Browser = await browserPool.acquire();
 
   try {
     const page = await browser.newPage();
@@ -332,6 +329,6 @@ export async function analyzeSmartBlocks(keyword: string): Promise<SmartBlockAna
       bloggerOpportunityScore: score,
     };
   } finally {
-    await browser.close().catch(() => {});
+    browserPool.release(browser);
   }
 }

@@ -5,6 +5,7 @@
 import * as fs from 'fs';
 import * as path from 'path';
 import { app } from 'electron';
+import { browserPool } from '../puppeteer-pool';
 
 export interface UserProfile {
   blogUrl: string;             // https://blog.naver.com/{id}
@@ -69,12 +70,7 @@ export async function measureBlog(url: string): Promise<UserProfile> {
   if (!blogId) throw new Error('네이버 블로그 URL이 아닙니다 (blog.naver.com/{id})');
 
   // 동적 import (puppeteer 무거움)
-  const { launchCompatibleBrowser } = await import('../puppeteer-pool');
-
-  const browser = await launchCompatibleBrowser({
-    headless: 'new',
-    args: ['--no-sandbox', '--disable-setuid-sandbox', '--disable-dev-shm-usage'],
-  });
+  const browser = await browserPool.acquire();
 
   try {
     const page = await browser.newPage();
@@ -152,7 +148,7 @@ export async function measureBlog(url: string): Promise<UserProfile> {
       manualOverride: false,
     };
   } finally {
-    await browser.close().catch(() => {});
+    browserPool.release(browser);
   }
 }
 

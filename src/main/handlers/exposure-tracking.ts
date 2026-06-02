@@ -5,6 +5,7 @@ import axios from 'axios';
 import * as cheerio from 'cheerio';
 import * as path from 'path';
 import * as fs from 'fs';
+import { rankExposureGrowthSeeds } from '../../utils/exposure-growth-loop';
 
 interface BlogPost {
   url: string;
@@ -207,26 +208,9 @@ const DESKTOP_UAS = [
 
 type SerpStatus = 'found' | 'not-in-top30' | 'blocked' | 'error' | 'invalid-url';
 
-// v2.42.89: Playwright 폴백 — HTTP 403 차단 시 실제 브라우저로 우회
-let playwrightBrowser: any = null;
-async function getPlaywrightBrowser(): Promise<any> {
-  if (playwrightBrowser && playwrightBrowser.isConnected()) return playwrightBrowser;
-  const { chromium } = await import('playwright');
-  const { findSystemChrome } = await import('../../utils/chrome-finder');
-  const executablePath = findSystemChrome();
-  playwrightBrowser = await chromium.launch({
-    headless: true,
-    executablePath,
-    args: ['--no-sandbox', '--disable-setuid-sandbox', '--disable-dev-shm-usage', '--disable-blink-features=AutomationControlled'],
-  });
-  return playwrightBrowser;
-}
-
 export async function closeExposureBrowser(): Promise<void> {
-  if (playwrightBrowser) {
-    try { await playwrightBrowser.close(); } catch {}
-    playwrightBrowser = null;
-  }
+  const { browserPool } = await import('../../utils/puppeteer-pool');
+  await browserPool.closeIdle();
 }
 
 function parseHtmlForRank(html: string, blogId: string, postNo: string): { rank: number | null; status: SerpStatus } {
@@ -279,35 +263,41 @@ async function checkSerpRankHttp(keyword: string, blogId: string, postNo: string
 }
 
 async function checkSerpRankPlaywright(keyword: string, blogId: string, postNo: string): Promise<{ rank: number | null; status: SerpStatus }> {
+  let browser: any = null;
   let page: any = null;
   try {
-    const browser = await getPlaywrightBrowser();
+    const { browserPool } = await import('../../utils/puppeteer-pool');
+    browser = await browserPool.acquire();
     const ua = DESKTOP_UAS[Math.floor(Math.random() * DESKTOP_UAS.length)];
-    const context = await browser.newContext({
+    page = await browser.newPage({
       userAgent: ua,
       viewport: { width: 1280, height: 800 },
       locale: 'ko-KR',
       extraHTTPHeaders: { 'Accept-Language': 'ko-KR,ko;q=0.9' },
     });
-    await context.addInitScript(() => {
+    await page.evaluateOnNewDocument(() => {
       Object.defineProperty(navigator, 'webdriver', { get: () => undefined });
     });
-    page = await context.newPage();
     // v2.42.89: 데스크탑 SERP — 차단 회피
     const url = `https://search.naver.com/search.naver?where=blog&query=${encodeURIComponent(keyword)}`;
     const resp = await page.goto(url, { waitUntil: 'domcontentloaded', timeout: 20000 });
     if (!resp || resp.status() === 403 || resp.status() === 429) {
-      await context.close();
       return { rank: null, status: 'blocked' };
     }
     await page.waitForTimeout(800 + Math.random() * 600);
     const html = await page.content();
-    await context.close();
     return parseHtmlForRank(html, blogId, postNo);
   } catch (err: any) {
-    try { if (page) await page.close(); } catch {}
     console.warn('[EXPOSURE-PLAYWRIGHT] err:', err?.message);
     return { rank: null, status: 'error' };
+  } finally {
+    try { if (page) await page.close(); } catch {}
+    if (browser) {
+      try {
+        const { browserPool } = await import('../../utils/puppeteer-pool');
+        browserPool.release(browser);
+      } catch {}
+    }
   }
 }
 
@@ -690,6 +680,7 @@ export function setupExposureTrackingHandlers(): void {
         const totalExposed10 = items.filter(i => i.currentInTop10).length;
         const checkedPairs = checkedItems.length;
         const uncheckedPairs = items.length - checkedPairs;
+        const expansionSeeds = rankExposureGrowthSeeds(tracked, { limit: 12, expansionLimit: 6 });
 
         return {
           success: true,
@@ -706,8 +697,10 @@ export function setupExposureTrackingHandlers(): void {
             // v2.42.84: hit rate 분모는 측정된 페어만
             hitRate30: checkedPairs ? Math.round((totalExposed30 / checkedPairs) * 100) : 0,
             hitRate10: checkedPairs ? Math.round((totalExposed10 / checkedPairs) * 100) : 0,
+            expansionSeedCount: expansionSeeds.length,
           },
           byCategory,
+          expansionSeeds,
           items: items.sort((a, b) => (b.totalChecks - a.totalChecks)),
         };
       } catch (err: any) { return { success: false, error: err?.message }; }

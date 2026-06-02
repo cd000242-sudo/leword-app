@@ -4,6 +4,7 @@
 // 네이버 + 구글 이중 타겟 전략 지원
 
 import { EnvironmentManager } from '../environment-manager';
+import { browserPool } from '../puppeteer-pool';
 
 export interface GoogleSerpItem {
   rank: number;
@@ -164,11 +165,7 @@ export async function fetchGoogleTop10(keyword: string): Promise<GoogleSerpAnaly
 }
 
 async function scrapeGoogle(keyword: string): Promise<GoogleSerpItem[]> {
-  const { launchCompatibleBrowser } = await import('../puppeteer-pool');
-  const browser = await launchCompatibleBrowser({
-    headless: 'new',
-    args: ['--no-sandbox', '--disable-setuid-sandbox', '--disable-dev-shm-usage'],
-  });
+  const browser = await browserPool.acquire();
   try {
     const page = await browser.newPage();
     await page.setUserAgent(
@@ -211,6 +208,6 @@ async function scrapeGoogle(keyword: string): Promise<GoogleSerpItem[]> {
       };
     });
   } finally {
-    await browser.close().catch(() => {});
+    browserPool.release(browser);
   }
 }

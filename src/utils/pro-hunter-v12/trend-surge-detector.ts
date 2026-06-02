@@ -212,6 +212,7 @@ export function clearSurgeHistory(): void {
 
 // 자동 스캔 스케줄러 (6시간 주기)
 let timer: NodeJS.Timeout | null = null;
+let initTimer: NodeJS.Timeout | null = null;
 
 async function autoScan(): Promise<void> {
   // v2.46.0 E: 사용자 발굴 중이면 skip
@@ -243,10 +244,11 @@ async function autoScan(): Promise<void> {
 }
 
 export function startSurgeScanner(): void {
-  if (timer) return;
+  if (timer || initTimer) return;
   const { markWorkerStarted, markWorkerTick } = require('./worker-status');
   markWorkerStarted('surge');
-  const initTimer = setTimeout(() => {
+  initTimer = setTimeout(() => {
+    initTimer = null;
     Promise.resolve(autoScan()).then(() => markWorkerTick('surge')).catch((e: any) => markWorkerTick('surge', e?.message));
     timer = setInterval(() => {
       Promise.resolve(autoScan()).then(() => markWorkerTick('surge')).catch((e: any) => markWorkerTick('surge', e?.message));
@@ -258,6 +260,10 @@ export function startSurgeScanner(): void {
 }
 
 export function stopSurgeScanner(): void {
+  if (initTimer) {
+    clearTimeout(initTimer);
+    initTimer = null;
+  }
   if (timer) {
     clearInterval(timer);
     timer = null;

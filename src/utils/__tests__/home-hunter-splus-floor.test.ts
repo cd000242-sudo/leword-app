@@ -3,6 +3,7 @@ import {
   gradeHomeNeedScore,
   HOME_HUNTER_MIN_SPLUS_RESULTS,
   HOME_NEED_SPLUS_SCORE,
+  normalizeHomeNeedCategory,
   rankHomeNeedKeywords,
 } from '../pro-hunter-v12/home-keyword-intent';
 
@@ -79,6 +80,34 @@ const ranked = rankHomeNeedKeywords([
 assert('랭커가 S+ 홈판 니즈 후보를 우선 정렬', ranked[0].homeNeedGrade === 'S+',
   ranked.map(item => `${item.keyword}:${item.homeNeedScore}:${item.homeNeedGrade}`).join(', '));
 assert('S+ 점수 기준이 명확하다', gradeHomeNeedScore(HOME_NEED_SPLUS_SCORE) === 'S+');
+
+const labelScenarios = [
+  { category: 'celeb', expected: 'celebrity', seed: '아이돌 컴백' },
+  { category: '스타/연예 이슈', expected: 'celebrity', seed: '아이돌 컴백' },
+  { category: '문화/엔터', expected: 'celebrity', seed: '넷플릭스 가족 영화' },
+  { category: '지원금/정책/복지', expected: 'policy', seed: '소상공인 지원금' },
+  { category: '인테리어/생활', expected: 'living', seed: '장마철 곰팡이 제거' },
+  { category: '재테크/투자', expected: 'finance', seed: '청년청약계좌' },
+];
+
+for (const scenario of labelScenarios) {
+  const normalized = normalizeHomeNeedCategory(scenario.category);
+  const expanded = expandHomeNeedKeywords(
+    scenario.seed,
+    scenario.category,
+    HOME_HUNTER_MIN_SPLUS_RESULTS,
+  );
+  const splus = expanded.filter(item => item.grade === 'S+' && item.score >= HOME_NEED_SPLUS_SCORE);
+
+  assert(`profile/home category label ${scenario.category} normalizes to ${scenario.expected}`,
+    normalized === scenario.expected,
+    `${scenario.category} => ${normalized}`);
+  assert(`profile/home category label ${scenario.category} keeps 30 S+ home angles`,
+    expanded.length === HOME_HUNTER_MIN_SPLUS_RESULTS
+      && splus.length >= HOME_HUNTER_MIN_SPLUS_RESULTS
+      && expanded.every(item => item.category === scenario.expected),
+    expanded.map(item => `${item.keyword}:${item.category}:${item.score}:${item.grade}`).join(' | '));
+}
 
 console.log(`\n[home-hunter-splus-floor.test] passed: ${passed} / failed: ${failed}`);
 if (failed > 0) {

@@ -26,6 +26,7 @@ interface DailyHuntRecord {
 const huntHistory: DailyHuntRecord[] = [];
 const MAX_HISTORY = 365;
 let timer: NodeJS.Timeout | null = null;
+let catchupTimer: NodeJS.Timeout | null = null;
 
 const TARGET_CATEGORIES = ['subsidy', 'season', 'living', 'recipe', 'parenting'];
 
@@ -168,7 +169,13 @@ export function startAutoHuntingScheduler(): void {
     if (stored.lastRunAt && sinceLastRun > ONE_DAY) {
         const missedDays = Math.floor(sinceLastRun / ONE_DAY);
         console.log(`[AUTO-HUNT] 🔄 누락 ${missedDays}일 감지 — 5분 후 즉시 보충 헌팅`);
-        setTimeout(() => runDailyHunt(), 5 * 60 * 1000);
+        if (!catchupTimer) {
+            catchupTimer = setTimeout(() => {
+                catchupTimer = null;
+                runDailyHunt();
+            }, 5 * 60 * 1000);
+            (catchupTimer as any).unref?.();
+        }
     }
 
     const delay = scheduleNextRun();
@@ -179,6 +186,18 @@ export function startAutoHuntingScheduler(): void {
         (timer as any).unref?.(); // v2.45.0: idle CPU 감소
     }, delay);
     (timer as any).unref?.();
+}
+
+export function stopAutoHuntingScheduler(): void {
+    if (catchupTimer) {
+        clearTimeout(catchupTimer);
+        catchupTimer = null;
+    }
+    if (timer) {
+        clearTimeout(timer);
+        clearInterval(timer);
+        timer = null;
+    }
 }
 
 export function getDailyHuntHistory(category?: string, days: number = 30): DailyHuntRecord[] {

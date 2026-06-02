@@ -10,6 +10,7 @@
 import type { Browser, Page } from 'puppeteer';
 import { BlogIndex, AuthorityLevel } from './types';
 import * as fs from 'fs';
+import { browserPool } from '../puppeteer-pool';
 
 function getChromePath(): string | undefined {
   const paths = [
@@ -23,11 +24,6 @@ function getChromePath(): string | undefined {
   return undefined;
 }
 
-// 브라우저 재사용
-let browserInstance: Browser | null = null;
-let browserLastUsed = 0;
-const BROWSER_TIMEOUT = 120000;
-
 // 캐시 (블로그 영향력지수 조회는 느리므로 캐시 적극 활용)
 const blogIndexCache = new Map<string, BlogIndex>();
 
@@ -35,31 +31,7 @@ const blogIndexCache = new Map<string, BlogIndex>();
  * 브라우저 가져오기
  */
 async function getBrowser(): Promise<Browser> {
-  const now = Date.now();
-  
-  if (browserInstance && (now - browserLastUsed) < BROWSER_TIMEOUT) {
-    browserLastUsed = now;
-    return browserInstance;
-  }
-  
-  if (browserInstance) {
-    try { await browserInstance.close(); } catch { /* ignore */ }
-  }
-  
-  const { launchCompatibleBrowser } = await import('../puppeteer-pool');
-  browserInstance = await launchCompatibleBrowser({
-    headless: 'new',
-    executablePath: getChromePath(),
-    args: [
-      '--no-sandbox',
-      '--disable-setuid-sandbox',
-      '--disable-dev-shm-usage',
-      '--disable-gpu'
-    ]
-  }) as Browser;
-  
-  browserLastUsed = now;
-  return browserInstance;
+  return browserPool.acquire() as Promise<Browser>;
 }
 
 /**
@@ -315,7 +287,11 @@ export async function getBlogIndexFromNaver(blogId: string): Promise<BlogIndex |
     console.log(`[BLOG-INDEX] ⚠️ ${blogId}: 프로필 조회 실패`);
     return null;
   } finally {
-    await page.close();
+    try {
+      await page.close();
+    } finally {
+      browserPool.release(browser);
+    }
   }
 }
 
@@ -484,8 +460,5 @@ export async function getBlogIndexes(blogIds: string[], visitorCounts: Map<strin
  * 브라우저 정리
  */
 export async function closeBrowser(): Promise<void> {
-  if (browserInstance) {
-    try { await browserInstance.close(); } catch { /* ignore */ }
-    browserInstance = null;
-  }
+  await browserPool.closeIdle();
 }

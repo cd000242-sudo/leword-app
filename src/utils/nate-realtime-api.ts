@@ -6,7 +6,7 @@
  */
 
 import type { Browser, Page } from 'puppeteer';
-import * as fs from 'fs';
+import { browserPool } from './puppeteer-pool';
 
 export interface NateRealtimeKeyword {
   rank: number;
@@ -17,28 +17,8 @@ export interface NateRealtimeKeyword {
   timestamp: string;
 }
 
-// 브라우저 재사용
-let browserInstance: Browser | null = null;
-let browserLastUsed = 0;
-const BROWSER_TIMEOUT = 60000;
-
 async function getBrowser(): Promise<Browser> {
-  const now = Date.now();
-  
-  if (browserInstance && (now - browserLastUsed) < BROWSER_TIMEOUT) {
-    browserLastUsed = now;
-    return browserInstance;
-  }
-  
-  if (browserInstance) {
-    try { await browserInstance.close(); } catch { /* ignore */ }
-  }
-  
-  const { launchCompatibleBrowser } = await import('./puppeteer-pool');
-  browserInstance = await launchCompatibleBrowser({ headless: 'new' }) as Browser;
-  
-  browserLastUsed = now;
-  return browserInstance;
+  return browserPool.acquire() as Promise<Browser>;
 }
 
 /**
@@ -189,7 +169,8 @@ export async function getNateRealtimeKeywordsWithPuppeteer(limit: number = 10): 
     console.error('[NATE-REALTIME] ❌ 크롤링 오류:', error.message);
     return [];
   } finally {
-    await page.close();
+    await page.close().catch(() => {});
+    browserPool.release(browser);
   }
 }
 
@@ -277,8 +258,5 @@ async function extractKeywords(page: Page): Promise<string[]> {
 }
 
 export async function closeBrowser(): Promise<void> {
-  if (browserInstance) {
-    try { await browserInstance.close(); } catch { /* ignore */ }
-    browserInstance = null;
-  }
+  await browserPool.closeIdle();
 }
