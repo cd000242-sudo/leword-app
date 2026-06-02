@@ -121,7 +121,7 @@ function withLiveSeedTimeout<T>(promise: Promise<T>, ms: number, fallback: T): P
     return Promise.race([promise, timeout]);
 }
 
-async function collectCategoryFirstLiveSeeds(category: string, limit = 80): Promise<string[]> {
+async function collectCategoryFirstLiveSeeds(category: string, limit = 80, timeoutMs = 3500): Promise<string[]> {
     const categoryIds = resolveDiscoveryCategoryIds(category);
     if (!category || categoryIds.length === 0) return [];
 
@@ -133,14 +133,14 @@ async function collectCategoryFirstLiveSeeds(category: string, limit = 80): Prom
         tasks.push(withLiveSeedTimeout(
             import('../../utils/policy-briefing-api')
                 .then(async mod => {
-                    const items = await mod.getPolicyBriefingKeywords(Math.max(limit, 120));
+                    const items = await mod.getPolicyBriefingKeywords(Math.max(limit, timeoutMs <= 1200 ? 40 : 120));
                     return items.flatMap(item => [
                         ...mod.expandPolicyDiscoverySeeds(item.keyword, 8),
                         item.keyword,
                         item.title,
                     ].filter(Boolean) as string[]);
                 }),
-            3500,
+            timeoutMs,
             [],
         ));
     }
@@ -151,7 +151,7 @@ async function collectCategoryFirstLiveSeeds(category: string, limit = 80): Prom
             import('../../utils/entertainment-news-aggregator')
                 .then(mod => mod.fetchEntertainmentAggregate({ maxMinutesAgo: 360, limitPerSource: perSourceLimit }))
                 .then(items => items.flatMap(item => [item.title, `${item.title} ${item.category}`])),
-            3500,
+            timeoutMs,
             [],
         ));
         tasks.push(withLiveSeedTimeout(
@@ -164,7 +164,7 @@ async function collectCategoryFirstLiveSeeds(category: string, limit = 80): Prom
                     ...fresh.map(item => item.title),
                     ...trending.map(item => item.title),
                 ]),
-            3500,
+            timeoutMs,
             [],
         ));
     }
@@ -247,6 +247,7 @@ export function setupKeywordDiscoveryHandlers(): void {
       && rawLimit > 0
       && rawLimit < 30
       && actualOptions.quickPreview !== false;
+    const seedlessQuickPreview = quickPreview && !String(actualKeyword || '').trim();
     const limit = hasExplicitLimit
       ? (rawLimit === 0 ? 0 : Math.max(1, Math.floor(rawLimit)))
       : 30;
@@ -281,7 +282,7 @@ export function setupKeywordDiscoveryHandlers(): void {
       } catch {}
     };
 
-    console.log('[KEYWORD-MASTER] 황금 키워드 발굴:', actualKeyword, { source, category, page, limit, effectiveLimit, visibleTarget, quickPreview, isUnlimited: isUnlimited ? '무제한' : limit });
+    console.log('[KEYWORD-MASTER] 황금 키워드 발굴:', actualKeyword, { source, category, page, limit, effectiveLimit, visibleTarget, quickPreview, seedlessQuickPreview, isUnlimited: isUnlimited ? '무제한' : limit });
     sendDiscoveryProgress(
       category
         ? `${category} 카테고리 황금키워드 발굴을 시작합니다.`
@@ -351,9 +352,20 @@ export function setupKeywordDiscoveryHandlers(): void {
 
           // ===== v4.0: 비차단 외부 신호 주입 (3초 budget, 캐시 우선, 실패 무시) =====
           try {
-            sendDiscoveryProgress('외부 트렌드 신호를 확인하는 중입니다.', { current: 0, target: progressTarget, phase: 'signals' }, true);
+            const cachedSignals = _v4SignalCache && _v4SignalCache.expiresAt > Date.now()
+              ? _v4SignalCache.map
+              : null;
+            sendDiscoveryProgress(
+              seedlessQuickPreview && !cachedSignals
+                ? '빠른 샘플 모드: 외부 트렌드 대기 없이 바로 검증합니다.'
+                : '외부 트렌드 신호를 확인하는 중입니다.',
+              { current: 0, target: progressTarget, phase: 'signals' },
+              true,
+            );
             const isPro = checkUnlimitedLicense().allowed;
-            const sigMap = await getV4Signals(isPro);
+            const sigMap = seedlessQuickPreview
+              ? (cachedSignals || new Map<string, ExternalSignals>())
+              : await getV4Signals(isPro);
             if (sigMap.size > 0) {
               engine.injectBatchSignals(sigMap);
               console.log(`[KEYWORD-MASTER] v4.0 외부 신호 ${sigMap.size}개 주입 (PRO=${isPro})`);
@@ -382,8 +394,8 @@ export function setupKeywordDiscoveryHandlers(): void {
               honorRequestedLimit: quickPreview,
             });
             const categorySeedBudget = Math.min(
-              isUnlimited ? 1200 : (quickPreview ? 260 : (categoryFirstMode ? 900 : 520)),
-              Math.max(quickPreview ? 80 : (categoryFirstMode ? 420 : 180), preliminaryScanLimit)
+              isUnlimited ? 1200 : (seedlessQuickPreview ? 120 : (quickPreview ? 260 : (categoryFirstMode ? 900 : 520))),
+              Math.max(seedlessQuickPreview ? 60 : (quickPreview ? 80 : (categoryFirstMode ? 420 : 180)), preliminaryScanLimit)
             );
             if (categoryFirstMode && category) {
               sendDiscoveryProgress(`${category} 카테고리의 실시간 시드를 수집하는 중입니다.`, { current: 0, target: progressTarget, phase: 'live-seeds' }, true);
@@ -391,9 +403,12 @@ export function setupKeywordDiscoveryHandlers(): void {
             const liveCategorySeeds = categoryFirstMode && category
               ? await collectCategoryFirstLiveSeeds(
                 category,
-                quickPreview
-                  ? Math.min(40, Math.max(12, Math.floor(categorySeedBudget * 0.18)))
-                  : Math.min(160, Math.max(60, Math.floor(categorySeedBudget * 0.25))),
+                seedlessQuickPreview
+                  ? Math.min(12, Math.max(6, Math.floor(categorySeedBudget * 0.1)))
+                  : (quickPreview
+                    ? Math.min(40, Math.max(12, Math.floor(categorySeedBudget * 0.18)))
+                    : Math.min(160, Math.max(60, Math.floor(categorySeedBudget * 0.25)))),
+                seedlessQuickPreview ? 1000 : 3500,
               )
               : [];
             const categorySeedPlan = category
@@ -411,18 +426,23 @@ export function setupKeywordDiscoveryHandlers(): void {
               categoryFirst: categoryFirstMode,
               honorRequestedLimit: quickPreview,
             });
+            const effectiveScanLimit = seedlessQuickPreview
+              ? Math.min(180, scanLimit)
+              : scanLimit;
             const seedForDiscovery = categoryFirstMode
               ? (categorySeeds[0] || actualKeyword || category || '황금키워드')
               : (actualKeyword || categorySeeds[0] || category || '황금키워드');
             sendDiscoveryProgress(
-              `${category || '전체'} 시드 ${categorySeeds.length}개 확보, 최대 ${scanLimit.toLocaleString()}개 후보를 검증합니다.`,
-              { current: 0, target: scanLimit, phase: 'scan-plan', seeds: categorySeeds.length, scanLimit },
+              `${category || '전체'} 시드 ${categorySeeds.length}개 확보, 최대 ${effectiveScanLimit.toLocaleString()}개 후보를 검증합니다.`,
+              { current: 0, target: effectiveScanLimit, phase: 'scan-plan', seeds: categorySeeds.length, scanLimit: effectiveScanLimit },
               true,
             );
             const discoveryOptions: any = {
-              limit: scanLimit,
-              maxCheckedSignals: scanLimit,
-              maxProcessedSeeds: quickPreview
+              limit: effectiveScanLimit,
+              maxCheckedSignals: effectiveScanLimit,
+              maxProcessedSeeds: seedlessQuickPreview
+                ? Math.max(8, Math.min(categorySeeds.length, 14))
+                : quickPreview
                 ? Math.max(16, Math.min(categorySeeds.length + 20, categoryFirstMode ? 90 : 50))
                 : Math.max(60, Math.min(categorySeeds.length + 120, categoryFirstMode ? 900 : 260)),
               minVolume: 10,

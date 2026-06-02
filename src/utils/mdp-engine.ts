@@ -240,16 +240,20 @@ export class MDPEngine {
                 const units = splitKeywordSemantically(current);
 
                 // Phase 1 Upgrade: 실시간 자동완성 신호 수집 (Intelligent Semantic Analysis)
-                console.log(`[MDP-ENGINE] 실시간 신호 수집 중: "${current}"`);
-                this.reportProgress(options, {
-                    phase: 'autocomplete',
-                    currentSeed: current,
-                    processedSeeds,
-                    queuedSeeds: this.queue.length,
-                    checked: checkedSignals,
-                    yielded: count,
-                });
-                const autocompleteResults = await getNaverAutocompleteKeywords(current, this.config);
+                if (!fastPreview) {
+                    console.log(`[MDP-ENGINE] 실시간 신호 수집 중: "${current}"`);
+                    this.reportProgress(options, {
+                        phase: 'autocomplete',
+                        currentSeed: current,
+                        processedSeeds,
+                        queuedSeeds: this.queue.length,
+                        checked: checkedSignals,
+                        yielded: count,
+                    });
+                }
+                const autocompleteResults = fastPreview
+                    ? []
+                    : await getNaverAutocompleteKeywords(current, this.config);
                 const dynamicSuffixes = autocompleteResults
                     .map(kw => kw.replace(current, '').trim())
                     .filter(suf => suf.length > 0 && suf.length < 10);

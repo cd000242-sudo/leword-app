@@ -108,6 +108,15 @@ assert('golden discovery backend honors explicit 10-result quick preview request
     && !/Math\.max\(category\s*\?\s*30\s*:\s*1,\s*rawLimit\)/.test(keywordDiscovery),
   'backend still floors category quick-preview requests to 30');
 
+assert('seedless 10-result golden discovery takes the ultra-fast path',
+  /const\s+seedlessQuickPreview\s*=\s*quickPreview\s*&&\s*!\s*String\(actualKeyword\s*\|\|\s*''\)\.trim\(\)/.test(keywordDiscovery)
+    && /seedlessQuickPreview\s*&&\s*!\s*cachedSignals[\s\S]{0,160}외부 트렌드 대기 없이 바로 검증/.test(keywordDiscovery)
+    && /seedlessQuickPreview\s*\?\s*120/.test(keywordDiscovery)
+    && /seedlessQuickPreview\s*\?\s*1000\s*:\s*3500/.test(keywordDiscovery)
+    && /const\s+effectiveScanLimit\s*=\s*seedlessQuickPreview[\s\S]{0,80}Math\.min\(180,\s*scanLimit\)/.test(keywordDiscovery)
+    && /maxProcessedSeeds:\s*seedlessQuickPreview[\s\S]{0,140}Math\.min\(categorySeeds\.length,\s*14\)/.test(keywordDiscovery),
+  'empty-seed 10-result mode can still wait on deep category discovery budgets');
+
 assert('golden discovery writes live progress events into the visible log panel',
   /window\.lewordLastGoldenDiscoveryProgressLog/.test(html)
     && /window\.addProgressLog\(msg,\s*logType\)/.test(html)
@@ -122,7 +131,7 @@ assert('golden discovery backend emits scan-stage progress instead of waiting fo
     && /외부 트렌드 신호/.test(keywordDiscovery)
     && /시드 \$\{categorySeeds\.length\}개 확보/.test(keywordDiscovery)
     && /discoveryOptions\.onProgress\s*=/.test(keywordDiscovery)
-    && /maxCheckedSignals:\s*scanLimit/.test(keywordDiscovery),
+    && /maxCheckedSignals:\s*effectiveScanLimit/.test(keywordDiscovery),
   'golden discovery backend progress events are too sparse');
 
 assert('MDP category discovery reports progress and filters category before SERP lookup',
@@ -137,6 +146,7 @@ assert('MDP category discovery reports progress and filters category before SERP
 assert('MDP quick preview trims pattern batches and skips slow SERP detail',
   /fastPreview\?:\s*boolean/.test(mdpEngine)
     && /const\s+fastPreview\s*=\s*options\.fastPreview\s*===\s*true/.test(mdpEngine)
+    && /const\s+autocompleteResults\s*=\s*fastPreview[\s\S]{0,80}\?\s*\[\][\s\S]{0,120}getNaverAutocompleteKeywords/.test(mdpEngine)
     && /slice\(0,\s*fastPreview\s*\?\s*18\s*:\s*50\)/.test(mdpEngine)
     && /const\s+patternBatchSize\s*=\s*fastPreview\s*\?\s*18\s*:\s*10/.test(mdpEngine)
     && /fastPreview:\s*quickPreview/.test(keywordDiscovery),
