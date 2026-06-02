@@ -110,15 +110,25 @@ assert('golden discovery backend emits scan-stage progress instead of waiting fo
   /sendDiscoveryProgress\(/.test(keywordDiscovery)
     && /외부 트렌드 신호/.test(keywordDiscovery)
     && /시드 \$\{categorySeeds\.length\}개 확보/.test(keywordDiscovery)
-    && /discoveryOptions\.onProgress\s*=/.test(keywordDiscovery),
+    && /discoveryOptions\.onProgress\s*=/.test(keywordDiscovery)
+    && /maxCheckedSignals:\s*scanLimit/.test(keywordDiscovery),
   'golden discovery backend progress events are too sparse');
 
 assert('MDP category discovery reports progress and filters category before SERP lookup',
   /onProgress\?: \(progress: MDPDiscoverProgress\) => void/.test(mdpEngine)
+    && /maxCheckedSignals\?:\s*number/.test(mdpEngine)
+    && /checkedSignals\s*<\s*maxCheckedSignals/.test(mdpEngine)
     && /private\s+reportProgress\(options:\s*MDPDiscoverOptions,\s*progress:\s*MDPDiscoverProgress\)/.test(mdpEngine)
     && /phase:\s*'batch'/.test(mdpEngine)
     && /const\s+detectedCategory\s*=\s*classifyKeyword\(sig\.keyword\)\.primary;[\s\S]{0,260}if\s*\(categoryStrict[\s\S]{0,260}const\s+serpSignal\s*=\s*await\s+getNaverSerpSignal/.test(mdpEngine),
   'MDP progress callback or category-before-SERP optimization is missing');
+
+assert('golden discovery UI stops after completion and displays MDP searchVolume fallback',
+  /window\.keywordExpansionProgress\.isRunning\s*=\s*false/.test(html)
+    && /progressBarDone[\s\S]{0,180}classList\.remove\('leword-progress-animated'\)/.test(html)
+    && /hasDirectSearchVol\s*=\s*typeof\s+item\.searchVolume\s*===\s*'number'/.test(html)
+    && /const\s+totalVol\s*=\s*\(hasPcVol\s*\|\|\s*hasMoVol\)\s*\?[\s\S]{0,120}hasDirectSearchVol\s*\?\s*item\.searchVolume/.test(html),
+  'golden discovery completion cleanup or direct searchVolume display fallback is missing');
 
 assert('golden discovery exposes saved blog profile categories',
   /id="goldenProfileCategoryPanel"/.test(html)

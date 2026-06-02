@@ -6752,6 +6752,20 @@
           } finally {
             cleanupProgress?.();
             cleanupChunk?.();
+            if (window.keywordExpansionProgress) {
+              window.keywordExpansionProgress.isRunning = false;
+              window.keywordExpansionProgress.currentStep = '';
+              window.keywordExpansionProgress.message = '';
+              window.keywordExpansionProgress.percent = 100;
+            }
+            if (window.progressAnimationFrame) {
+              cancelAnimationFrame(window.progressAnimationFrame);
+              window.progressAnimationFrame = null;
+            }
+            const progressBarDone = document.getElementById('progressBar');
+            if (progressBarDone) {
+              progressBarDone.classList.remove('leword-progress-animated');
+            }
             if (typeof window.stopLewordHeartbeat === 'function') {
               window.stopLewordHeartbeat();
             }
@@ -6774,6 +6788,11 @@
           console.log('[KEYWORD-MASTER] ⏹️ 중지 버튼 클릭됨');
           discoveryAbort = true;
           isDiscovering = false;
+          if (window.keywordExpansionProgress) {
+            window.keywordExpansionProgress.isRunning = false;
+            window.keywordExpansionProgress.currentStep = '';
+            window.keywordExpansionProgress.message = '';
+          }
           if (typeof window.stopLewordHeartbeat === 'function') {
             window.stopLewordHeartbeat();
           }
@@ -6866,10 +6885,11 @@
           results.forEach((item, idx) => {
             const hasPcVol = typeof item.pcSearchVolume === 'number' && isFinite(item.pcSearchVolume);
             const hasMoVol = typeof item.mobileSearchVolume === 'number' && isFinite(item.mobileSearchVolume);
+            const hasDirectSearchVol = typeof item.searchVolume === 'number' && isFinite(item.searchVolume);
             const pcVol = hasPcVol ? item.pcSearchVolume : 0;
             const moVol = hasMoVol ? item.mobileSearchVolume : 0;
-            const totalVol = pcVol + moVol;
-            const hasTotalVol = hasPcVol || hasMoVol;
+            const totalVol = (hasPcVol || hasMoVol) ? (pcVol + moVol) : (hasDirectSearchVol ? item.searchVolume : 0);
+            const hasTotalVol = hasPcVol || hasMoVol || hasDirectSearchVol;
             const totalHasLt10 = (hasPcVol && pcVol === 0) || (hasMoVol && moVol === 0);
             const totalVolDisplay = hasTotalVol
               ? (totalHasLt10 && totalVol === 0 ? '< 20' : (totalHasLt10 ? `${totalVol.toLocaleString()}+` : totalVol.toLocaleString()))

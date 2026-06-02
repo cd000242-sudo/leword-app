@@ -62,6 +62,8 @@ export interface MDPDiscoverOptions {
     seedKeywords?: string[];
     categoryIds?: string[];
     categoryStrict?: boolean;
+    maxCheckedSignals?: number;
+    maxProcessedSeeds?: number;
     onProgress?: (progress: MDPDiscoverProgress) => void;
 }
 
@@ -193,6 +195,12 @@ export class MDPEngine {
         let processedSeeds = 0;
         let checkedSignals = 0;
         const minVolume = options.minVolume || 10;
+        const maxCheckedSignals = Number.isFinite(options.maxCheckedSignals)
+            ? Math.max(1, Math.floor(Number(options.maxCheckedSignals)))
+            : Number.POSITIVE_INFINITY;
+        const maxProcessedSeeds = Number.isFinite(options.maxProcessedSeeds)
+            ? Math.max(1, Math.floor(Number(options.maxProcessedSeeds)))
+            : Number.POSITIVE_INFINITY;
 
         this.reportProgress(options, {
             phase: 'start',
@@ -203,7 +211,12 @@ export class MDPEngine {
             yielded: count,
         });
 
-        while (this.queue.length > 0 && count < options.limit) {
+        while (
+            this.queue.length > 0 &&
+            count < options.limit &&
+            checkedSignals < maxCheckedSignals &&
+            processedSeeds < maxProcessedSeeds
+        ) {
             if (this.abortRequested) break;
 
             const current = this.queue.shift()!;
@@ -287,6 +300,7 @@ export class MDPEngine {
 
                     // Step 5: Money Filter & Scoring
                     for (const sig of signals) {
+                        if (checkedSignals >= maxCheckedSignals) break;
                         checkedSignals++;
                         // Phase 4: Semantic Distance Control (순수도 제어)
                         // 시드 키워드와 너무 동떨어진 키워드 배제
@@ -454,6 +468,8 @@ export class MDPEngine {
 
                         if (count >= options.limit) break;
                     }
+
+                    if (checkedSignals >= maxCheckedSignals) break;
 
                     // 레이트 리밋 방지를 위한 미세 지연
                     await new Promise(resolve => setTimeout(resolve, adaptiveDelay));

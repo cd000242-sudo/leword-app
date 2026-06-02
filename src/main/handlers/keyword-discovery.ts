@@ -410,6 +410,8 @@ export function setupKeywordDiscoveryHandlers(): void {
             );
             const discoveryOptions: any = {
               limit: scanLimit,
+              maxCheckedSignals: scanLimit,
+              maxProcessedSeeds: Math.max(60, Math.min(categorySeeds.length + 120, categoryFirstMode ? 900 : 260)),
               minVolume: 10,
               seedKeywords: categoryFirstMode
                 ? categorySeeds
