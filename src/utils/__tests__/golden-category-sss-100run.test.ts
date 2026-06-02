@@ -133,6 +133,7 @@ for (let run = 0; run < 100; run++) {
   const pool = buildRunPool(run);
   const requestedLimit = [10, 20, 30][run % 3];
   const ranked = rankGoldenDiscoveryResults(pool, requestedLimit, false);
+  const quickPreview = rankGoldenDiscoveryResults(pool, 10, false, { honorRequestedLimit: true });
   const sssCount = countSss(ranked);
   const firstThirty = ranked.slice(0, 30);
   const duplicateCount = ranked.length - new Set(ranked.map(item => compact(item.keyword))).size;
@@ -154,6 +155,9 @@ for (let run = 0; run < 100; run++) {
   assert(`run ${run + 1}: compact duplicates are removed`,
     duplicateCount === 0,
     `${duplicateCount}`);
+  assert(`run ${run + 1}: quick preview honors 10-result requests`,
+    quickPreview.length === 10 && countSss(quickPreview) === 10,
+    `len=${quickPreview.length}, sss=${countSss(quickPreview)}`);
 }
 
 console.log(`\n[golden-category-sss-100run.test] passed: ${passed} / failed: ${failed}`);

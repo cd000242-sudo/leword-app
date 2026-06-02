@@ -97,6 +97,17 @@ assert('golden discovery sends category-first mode to backend',
   /categoryFirst:\s*true/.test(html) && /requireCategory:\s*true/.test(html),
   'category-first backend flags missing');
 
+assert('golden discovery sends quick preview flag for 10-result sample mode',
+  /const\s+quickPreview\s*=\s*maxCount\s*!==\s*null\s*&&\s*maxCount\s*>\s*0\s*&&\s*maxCount\s*<\s*30/.test(html)
+    && /quickPreview,/.test(html),
+  '10-result category discovery can silently run the deep 30-SSS path');
+
+assert('golden discovery backend honors explicit 10-result quick preview requests',
+  /const\s+quickPreview\s*=\s*hasExplicitLimit[\s\S]{0,160}rawLimit\s*<\s*30[\s\S]{0,120}actualOptions\.quickPreview\s*!==\s*false/.test(keywordDiscovery)
+    && /resolveGoldenDiscoveryTarget\(effectiveLimit,\s*\{\s*honorRequestedLimit:\s*quickPreview\s*\}\)/.test(keywordDiscovery)
+    && !/Math\.max\(category\s*\?\s*30\s*:\s*1,\s*rawLimit\)/.test(keywordDiscovery),
+  'backend still floors category quick-preview requests to 30');
+
 assert('golden discovery writes live progress events into the visible log panel',
   /window\.lewordLastGoldenDiscoveryProgressLog/.test(html)
     && /window\.addProgressLog\(msg,\s*logType\)/.test(html)
@@ -120,8 +131,16 @@ assert('MDP category discovery reports progress and filters category before SERP
     && /checkedSignals\s*<\s*maxCheckedSignals/.test(mdpEngine)
     && /private\s+reportProgress\(options:\s*MDPDiscoverOptions,\s*progress:\s*MDPDiscoverProgress\)/.test(mdpEngine)
     && /phase:\s*'batch'/.test(mdpEngine)
-    && /const\s+detectedCategory\s*=\s*classifyKeyword\(sig\.keyword\)\.primary;[\s\S]{0,260}if\s*\(categoryStrict[\s\S]{0,260}const\s+serpSignal\s*=\s*await\s+getNaverSerpSignal/.test(mdpEngine),
+    && /const\s+detectedCategory\s*=\s*classifyKeyword\(sig\.keyword\)\.primary;[\s\S]{0,260}if\s*\(categoryStrict[\s\S]{0,420}const\s+serpSignal\s*=\s*fastPreview[\s\S]{0,320}await\s+getNaverSerpSignal/.test(mdpEngine),
   'MDP progress callback or category-before-SERP optimization is missing');
+
+assert('MDP quick preview trims pattern batches and skips slow SERP detail',
+  /fastPreview\?:\s*boolean/.test(mdpEngine)
+    && /const\s+fastPreview\s*=\s*options\.fastPreview\s*===\s*true/.test(mdpEngine)
+    && /slice\(0,\s*fastPreview\s*\?\s*18\s*:\s*50\)/.test(mdpEngine)
+    && /const\s+patternBatchSize\s*=\s*fastPreview\s*\?\s*18\s*:\s*10/.test(mdpEngine)
+    && /fastPreview:\s*quickPreview/.test(keywordDiscovery),
+  '10-result quick preview still uses deep MDP batch/SERP path');
 
 assert('golden discovery UI stops after completion and displays MDP searchVolume fallback',
   /window\.keywordExpansionProgress\.isRunning\s*=\s*false/.test(html)

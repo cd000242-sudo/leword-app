@@ -21,7 +21,7 @@ import { callAllSources } from '../../utils/sources/source-registry';
 import { getCachedReport } from '../../utils/sources/health-checker';
 import { getDiscoveryCategorySeeds, matchesDiscoveryCategory, resolveDiscoveryCategoryIds } from '../../utils/category-discovery-map';
 import { deterministicRange } from '../../utils/deterministic-random';
-import { createGoldenSssTargetTracker, countSss, getGoldenDiscoveryScanLimit, rankGoldenDiscoveryResults } from '../../utils/golden-discovery-floor';
+import { createGoldenSssTargetTracker, countSss, getGoldenDiscoveryScanLimit, rankGoldenDiscoveryResults, resolveGoldenDiscoveryTarget } from '../../utils/golden-discovery-floor';
 import { buildCategoryFirstGoldenSeedPlan } from '../../utils/category-first-golden-discovery';
 
 // v4.0: 외부 신호 캐시 (앱 lifetime, 30분 TTL)
@@ -243,15 +243,22 @@ export function setupKeywordDiscoveryHandlers(): void {
       && rawLimitValue !== null
       && String(rawLimitValue).trim() !== ''
       && Number.isFinite(rawLimit);
+    const quickPreview = hasExplicitLimit
+      && rawLimit > 0
+      && rawLimit < 30
+      && actualOptions.quickPreview !== false;
     const limit = hasExplicitLimit
-      ? (rawLimit === 0 ? 0 : Math.max(category ? 30 : 1, rawLimit))
+      ? (rawLimit === 0 ? 0 : Math.max(1, Math.floor(rawLimit)))
       : 30;
 
     // 명시적으로 0을 보낸 경우만 무제한으로 설정하고, 정밀 기본값은 30개로 고정한다.
     const isUnlimited = hasExplicitLimit && limit === 0;
     const effectiveLimit = isUnlimited ? 10000 : limit; // 무제한일 때 10000개까지 (실질적 무제한)
+    const visibleTarget = isUnlimited
+      ? 10000
+      : resolveGoldenDiscoveryTarget(effectiveLimit, { honorRequestedLimit: quickPreview });
     const progressStartedAt = Date.now();
-    const progressTarget = isUnlimited ? 5000 : Math.max(30, effectiveLimit);
+    const progressTarget = isUnlimited ? 5000 : visibleTarget;
     let lastProgressAt = 0;
     const sendDiscoveryProgress = (
       status: string,
@@ -274,7 +281,7 @@ export function setupKeywordDiscoveryHandlers(): void {
       } catch {}
     };
 
-    console.log('[KEYWORD-MASTER] 황금 키워드 발굴:', actualKeyword, { source, category, page, limit, effectiveLimit, isUnlimited: isUnlimited ? '무제한' : limit });
+    console.log('[KEYWORD-MASTER] 황금 키워드 발굴:', actualKeyword, { source, category, page, limit, effectiveLimit, visibleTarget, quickPreview, isUnlimited: isUnlimited ? '무제한' : limit });
     sendDiscoveryProgress(
       category
         ? `${category} 카테고리 황금키워드 발굴을 시작합니다.`
@@ -372,10 +379,11 @@ export function setupKeywordDiscoveryHandlers(): void {
           try {
             const preliminaryScanLimit = getGoldenDiscoveryScanLimit(effectiveLimit, isUnlimited, 0, {
               categoryFirst: categoryFirstMode,
+              honorRequestedLimit: quickPreview,
             });
             const categorySeedBudget = Math.min(
-              isUnlimited ? 1200 : (categoryFirstMode ? 900 : 520),
-              Math.max(categoryFirstMode ? 420 : 180, preliminaryScanLimit)
+              isUnlimited ? 1200 : (quickPreview ? 260 : (categoryFirstMode ? 900 : 520)),
+              Math.max(quickPreview ? 80 : (categoryFirstMode ? 420 : 180), preliminaryScanLimit)
             );
             if (categoryFirstMode && category) {
               sendDiscoveryProgress(`${category} 카테고리의 실시간 시드를 수집하는 중입니다.`, { current: 0, target: progressTarget, phase: 'live-seeds' }, true);
@@ -383,7 +391,9 @@ export function setupKeywordDiscoveryHandlers(): void {
             const liveCategorySeeds = categoryFirstMode && category
               ? await collectCategoryFirstLiveSeeds(
                 category,
-                Math.min(160, Math.max(60, Math.floor(categorySeedBudget * 0.25))),
+                quickPreview
+                  ? Math.min(40, Math.max(12, Math.floor(categorySeedBudget * 0.18)))
+                  : Math.min(160, Math.max(60, Math.floor(categorySeedBudget * 0.25))),
               )
               : [];
             const categorySeedPlan = category
@@ -399,6 +409,7 @@ export function setupKeywordDiscoveryHandlers(): void {
             const categoryIds = categorySeedPlan?.categoryIds || resolveDiscoveryCategoryIds(category);
             const scanLimit = getGoldenDiscoveryScanLimit(effectiveLimit, isUnlimited, categorySeeds.length, {
               categoryFirst: categoryFirstMode,
+              honorRequestedLimit: quickPreview,
             });
             const seedForDiscovery = categoryFirstMode
               ? (categorySeeds[0] || actualKeyword || category || '황금키워드')
@@ -411,7 +422,9 @@ export function setupKeywordDiscoveryHandlers(): void {
             const discoveryOptions: any = {
               limit: scanLimit,
               maxCheckedSignals: scanLimit,
-              maxProcessedSeeds: Math.max(60, Math.min(categorySeeds.length + 120, categoryFirstMode ? 900 : 260)),
+              maxProcessedSeeds: quickPreview
+                ? Math.max(16, Math.min(categorySeeds.length + 20, categoryFirstMode ? 90 : 50))
+                : Math.max(60, Math.min(categorySeeds.length + 120, categoryFirstMode ? 900 : 260)),
               minVolume: 10,
               seedKeywords: categoryFirstMode
                 ? categorySeeds
@@ -420,6 +433,7 @@ export function setupKeywordDiscoveryHandlers(): void {
                   : categorySeeds),
               categoryIds,
               categoryStrict: categoryIds.length > 0,
+              fastPreview: quickPreview,
             };
 
             if (categoryIds.length > 0) {
@@ -429,8 +443,9 @@ export function setupKeywordDiscoveryHandlers(): void {
             const chunk: MDPResult[] = [];
             let totalAdded = 0;
             let sssAdded = 0;
-            const sssTarget = isUnlimited ? Number.POSITIVE_INFINITY : Math.max(30, effectiveLimit);
-            const sssTracker = isUnlimited ? null : createGoldenSssTargetTracker(sssTarget);
+            const sssTarget = isUnlimited ? Number.POSITIVE_INFINITY : visibleTarget;
+            const sssTracker = isUnlimited ? null : createGoldenSssTargetTracker(sssTarget, { honorRequestedLimit: quickPreview });
+            const chunkThreshold = quickPreview ? Math.max(5, Math.min(10, sssTarget)) : 50;
             const phaseLabels: Record<string, string> = {
               start: '엔진 준비',
               seed: '시드 분석',
@@ -490,7 +505,7 @@ export function setupKeywordDiscoveryHandlers(): void {
               }
 
               // 50개마다 브라우저로 청크 전송
-              if (chunk.length >= 50) {
+              if (chunk.length >= chunkThreshold) {
                 if (!event.sender.isDestroyed()) {
                   event.sender.send('keyword-discovery-chunk', {
                     keywords: [...chunk],
@@ -519,7 +534,12 @@ export function setupKeywordDiscoveryHandlers(): void {
               });
             }
 
-            const rankedKeywords = rankGoldenDiscoveryResults(allKeywords as any[], effectiveLimit, isUnlimited);
+            const rankedKeywords = rankGoldenDiscoveryResults(
+              allKeywords as any[],
+              effectiveLimit,
+              isUnlimited,
+              { honorRequestedLimit: quickPreview },
+            );
             const finalSssCount = countSss(rankedKeywords as any[]);
             console.log(`[KEYWORD-MASTER] MDP 발굴 완료: 후보 ${totalAdded}개 → 노출 ${rankedKeywords.length}개, SSS ${finalSssCount}개`);
             sendDiscoveryProgress(
@@ -531,7 +551,7 @@ export function setupKeywordDiscoveryHandlers(): void {
                 phase: 'complete',
                 yielded: totalAdded,
                 sssCurrent: finalSssCount,
-                sssTarget: isUnlimited ? undefined : Math.max(30, effectiveLimit),
+                sssTarget: isUnlimited ? undefined : sssTarget,
               },
               true,
             );
@@ -542,7 +562,8 @@ export function setupKeywordDiscoveryHandlers(): void {
               total: rankedKeywords.length,
               candidatesScanned: totalAdded,
               sssCount: finalSssCount,
-              sssTarget: isUnlimited ? undefined : Math.max(30, effectiveLimit),
+              sssTarget: isUnlimited ? undefined : sssTarget,
+              quickPreview,
               discoveryMode: categoryFirstMode ? 'category-first' : 'keyword',
               categoryIds,
               freshnessHints: categorySeedPlan?.freshnessHints,

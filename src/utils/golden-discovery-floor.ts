@@ -14,6 +14,11 @@ export interface GoldenDiscoveryLike {
 
 export interface GoldenDiscoveryScanOptions {
   categoryFirst?: boolean;
+  honorRequestedLimit?: boolean;
+}
+
+export interface GoldenDiscoveryTargetOptions {
+  honorRequestedLimit?: boolean;
 }
 
 function gradeRank(grade: unknown): number {
@@ -36,10 +41,23 @@ export interface GoldenSssTargetTracker {
   shouldStop(): boolean;
 }
 
-export function createGoldenSssTargetTracker(targetCount: number): GoldenSssTargetTracker {
+export function resolveGoldenDiscoveryTarget(
+  requestedLimit: number,
+  options: GoldenDiscoveryTargetOptions = {},
+): number {
+  const requested = Math.max(1, Math.floor(Number(requestedLimit) || GOLDEN_DISCOVERY_SSS_FLOOR));
+  return options.honorRequestedLimit
+    ? requested
+    : Math.max(GOLDEN_DISCOVERY_SSS_FLOOR, requested);
+}
+
+export function createGoldenSssTargetTracker(
+  targetCount: number,
+  options: GoldenDiscoveryTargetOptions = {},
+): GoldenSssTargetTracker {
   const target = Math.max(
-    GOLDEN_DISCOVERY_SSS_FLOOR,
-    Math.floor(Number(targetCount) || GOLDEN_DISCOVERY_SSS_FLOOR),
+    1,
+    resolveGoldenDiscoveryTarget(targetCount, options),
   );
   const seenSss = new Set<string>();
 
@@ -67,12 +85,21 @@ export function getGoldenDiscoveryScanLimit(
 ): number {
   const categoryFirst = options.categoryFirst === true;
   if (isUnlimited) return categoryFirst ? 12000 : 5000;
-  const displayTarget = Math.max(GOLDEN_DISCOVERY_SSS_FLOOR, requestedLimit || GOLDEN_DISCOVERY_SSS_FLOOR);
-  const targetPressure = categoryFirst ? displayTarget * 80 : displayTarget * 12;
+  const honorRequestedLimit = options.honorRequestedLimit === true;
+  const displayTarget = resolveGoldenDiscoveryTarget(requestedLimit || GOLDEN_DISCOVERY_SSS_FLOOR, { honorRequestedLimit });
+  const targetPressure = categoryFirst
+    ? displayTarget * (honorRequestedLimit ? 36 : 80)
+    : displayTarget * (honorRequestedLimit ? 8 : 12);
   const seedPressure = seedCount > 0
-    ? Math.min(categoryFirst ? 12000 : 2400, Math.max(0, seedCount * (categoryFirst ? 12 : 4)))
+    ? Math.min(
+      categoryFirst ? (honorRequestedLimit ? 1600 : 12000) : 2400,
+      Math.max(0, seedCount * (categoryFirst ? (honorRequestedLimit ? 2 : 12) : 4)),
+    )
     : 0;
-  return Math.min(categoryFirst ? 12000 : 5000, Math.max(targetPressure, categoryFirst ? 2400 : 360, seedPressure));
+  return Math.min(
+    categoryFirst ? (honorRequestedLimit ? 1800 : 12000) : 5000,
+    Math.max(targetPressure, categoryFirst ? (honorRequestedLimit ? 360 : 2400) : 180, seedPressure),
+  );
 }
 
 export function countSss<T extends GoldenDiscoveryLike>(items: T[]): number {
@@ -83,6 +110,7 @@ export function rankGoldenDiscoveryResults<T extends GoldenDiscoveryLike>(
   items: T[],
   requestedLimit: number,
   isUnlimited = false,
+  options: GoldenDiscoveryTargetOptions = {},
 ): T[] {
   const seen = new Set<string>();
   const unique: T[] = [];
@@ -114,6 +142,6 @@ export function rankGoldenDiscoveryResults<T extends GoldenDiscoveryLike>(
   });
 
   if (isUnlimited) return sorted;
-  const displayTarget = Math.max(GOLDEN_DISCOVERY_SSS_FLOOR, requestedLimit || GOLDEN_DISCOVERY_SSS_FLOOR);
+  const displayTarget = resolveGoldenDiscoveryTarget(requestedLimit || GOLDEN_DISCOVERY_SSS_FLOOR, options);
   return sorted.slice(0, displayTarget);
 }

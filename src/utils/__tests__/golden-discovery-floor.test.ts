@@ -11,6 +11,7 @@ import {
   countSss,
   getGoldenDiscoveryScanLimit,
   rankGoldenDiscoveryResults,
+  resolveGoldenDiscoveryTarget,
 } from '../golden-discovery-floor';
 
 let passed = 0;
@@ -51,6 +52,16 @@ assert('ranker keeps lower grades out while enough SSS exists',
   ranked.every(item => item.grade === 'SSS'),
   ranked.map(item => String(item.grade)).join(','));
 
+const quickRanked = rankGoldenDiscoveryResults([...lower, ...sss], 10, false, { honorRequestedLimit: true });
+assert('quick preview returns exactly requested 10 results',
+  quickRanked.length === 10,
+  `${quickRanked.length}`);
+assert('quick preview still ranks SSS first',
+  countSss(quickRanked) === 10,
+  `${countSss(quickRanked)}`);
+assert('quick preview target honors requested limit',
+  resolveGoldenDiscoveryTarget(10, { honorRequestedLimit: true }) === 10);
+
 const duplicateRanked = rankGoldenDiscoveryResults([
   { keyword: '청년 지원금 신청', grade: 'SSS', score: 110, searchVolume: 1000, documentCount: 100, goldenRatio: 10 },
   { keyword: '청년지원금신청', grade: 'SSS', score: 109, searchVolume: 5000, documentCount: 50, goldenRatio: 30 },
@@ -71,6 +82,12 @@ assert('unique SSS tracker stops only after 30 unique SSS keywords',
   sssTracker.uniqueSssCount === 30 && sssTracker.shouldStop(),
   `${sssTracker.uniqueSssCount}`);
 
+const quickSssTracker = createGoldenSssTargetTracker(10, { honorRequestedLimit: true });
+for (let i = 0; i < 10; i++) quickSssTracker.add(sss[i]);
+assert('quick preview SSS tracker stops after requested 10 unique SSS keywords',
+  quickSssTracker.uniqueSssCount === 10 && quickSssTracker.shouldStop(),
+  `${quickSssTracker.uniqueSssCount}`);
+
 const scanLimit = getGoldenDiscoveryScanLimit(30, false, 80);
 assert('scan limit searches deeper than the visible floor', scanLimit >= 360, `${scanLimit}`);
 
@@ -78,6 +95,14 @@ const categoryScanLimit = getGoldenDiscoveryScanLimit(30, false, 420);
 assert('category seed pressure scans much deeper for 30 SSS target',
   categoryScanLimit >= 1600,
   `${categoryScanLimit}`);
+
+const quickCategoryScanLimit = getGoldenDiscoveryScanLimit(10, false, 420, {
+  categoryFirst: true,
+  honorRequestedLimit: true,
+});
+assert('quick preview category scan stays bounded for 10-result requests',
+  quickCategoryScanLimit < categoryScanLimit && quickCategoryScanLimit <= 1800,
+  `${quickCategoryScanLimit} vs ${categoryScanLimit}`);
 
 const unlimitedRanked = rankGoldenDiscoveryResults([...lower, ...sss], 30, true);
 assert('unlimited mode does not clamp result count', unlimitedRanked.length === lower.length + sss.length, `${unlimitedRanked.length}`);

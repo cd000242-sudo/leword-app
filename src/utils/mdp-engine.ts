@@ -64,6 +64,7 @@ export interface MDPDiscoverOptions {
     categoryStrict?: boolean;
     maxCheckedSignals?: number;
     maxProcessedSeeds?: number;
+    fastPreview?: boolean;
     onProgress?: (progress: MDPDiscoverProgress) => void;
 }
 
@@ -201,6 +202,7 @@ export class MDPEngine {
         const maxProcessedSeeds = Number.isFinite(options.maxProcessedSeeds)
             ? Math.max(1, Math.floor(Number(options.maxProcessedSeeds)))
             : Number.POSITIVE_INFINITY;
+        const fastPreview = options.fastPreview === true;
 
         this.reportProgress(options, {
             phase: 'start',
@@ -257,10 +259,11 @@ export class MDPEngine {
 
                 // Step 4: Signal Collection (Batch)
                 // 전체 패턴을 한 번에 조회하지 않고, 10개씩 배치 처리
-                const patternArray = Array.from(patterns).slice(0, 50); // v2.0: 샘플링 범위 확대
+                const patternArray = Array.from(patterns).slice(0, fastPreview ? 18 : 50); // v2.0: 샘플링 범위 확대
                 const chunks: string[][] = [];
-                for (let i = 0; i < patternArray.length; i += 10) {
-                    chunks.push(patternArray.slice(i, i + 10));
+                const patternBatchSize = fastPreview ? 18 : 10;
+                for (let i = 0; i < patternArray.length; i += patternBatchSize) {
+                    chunks.push(patternArray.slice(i, i + patternBatchSize));
                 }
                 this.reportProgress(options, {
                     phase: 'patterns',
@@ -273,7 +276,7 @@ export class MDPEngine {
                     totalBatches: chunks.length,
                 });
 
-                let adaptiveDelay = 300; // 기본 스로틀링
+                let adaptiveDelay = fastPreview ? 0 : 300; // 기본 스로틀링
 
                 for (let chunkIndex = 0; chunkIndex < chunks.length; chunkIndex++) {
                     const chunk = chunks[chunkIndex];
@@ -326,7 +329,14 @@ export class MDPEngine {
                         }
 
                         // Phase 2 Upgrade: SERP 신호 분석
-                        const serpSignal = await getNaverSerpSignal(sig.keyword);
+                        const serpSignal = fastPreview
+                            ? {
+                                hasSmartBlock: false,
+                                hasViewSection: true,
+                                hasInfluencer: false,
+                                difficultyScore: 5,
+                            }
+                            : await getNaverSerpSignal(sig.keyword);
                         const categoryCPC = estimateCPC(sig.keyword, detectedCategory);
                         const purchaseIntent = calculatePurchaseIntent(sig.keyword);
                         const competitionLvl = calculateCompetitionLevel(docCount, totalVolume);
@@ -472,7 +482,9 @@ export class MDPEngine {
                     if (checkedSignals >= maxCheckedSignals) break;
 
                     // 레이트 리밋 방지를 위한 미세 지연
-                    await new Promise(resolve => setTimeout(resolve, adaptiveDelay));
+                    if (!fastPreview && adaptiveDelay > 0) {
+                        await new Promise(resolve => setTimeout(resolve, adaptiveDelay));
+                    }
                 }
             } catch (err) {
                 console.error(`[MDP-ENGINE] Error discovering "${current}":`, err);

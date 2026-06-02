@@ -6483,6 +6483,8 @@
             return;
           }
 
+          const quickPreview = maxCount !== null && maxCount > 0 && maxCount < 30;
+
           const discoveryBtn = document.getElementById('discoveryBtn');
           const stopBtn = document.getElementById('stopBtn');
           const resultsDiv = document.getElementById('goldenResults');
@@ -6602,6 +6604,9 @@
           if (typeof window.addProgressLog === 'function') {
             window.addProgressLog(`🚀 ${categoryLabel} 카테고리 황금키워드 발굴 시작`, 'info');
           }
+          if (quickPreview && typeof window.addProgressLog === 'function') {
+            window.addProgressLog(`⚡ 빠른 샘플 모드: ${maxCount}개만 먼저 검증합니다.`, 'info');
+          }
           window.lewordProgressUI.lastEventAt = Date.now();
           if (typeof window.startLewordHeartbeat === 'function') {
             window.startLewordHeartbeat();
@@ -6674,6 +6679,7 @@
               category: category,
               categoryFirst: true,
               requireCategory: true,
+              quickPreview,
               limit: maxCount === null ? 1000 : maxCount // 무제한일 경우 기본 1000개 (백엔드 로직에 따라 조절)
             });
 
