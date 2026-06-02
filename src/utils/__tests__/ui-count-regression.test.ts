@@ -20,6 +20,7 @@ const proTrafficCountSelect = html.match(/<select id="proTrafficCount"[\s\S]*?<\
 const sourceSignals = fs.readFileSync(path.join(__dirname, '..', '..', 'main', 'handlers', 'source-signals.ts'), 'utf8');
 const premiumHunting = fs.readFileSync(path.join(__dirname, '..', '..', 'main', 'handlers', 'premium-hunting.ts'), 'utf8');
 const configUtility = fs.readFileSync(path.join(__dirname, '..', '..', 'main', 'handlers', 'config-utility.ts'), 'utf8');
+const keywordDiscovery = fs.readFileSync(path.join(__dirname, '..', '..', 'main', 'handlers', 'keyword-discovery.ts'), 'utf8');
 const exposureTracking = fs.readFileSync(path.join(__dirname, '..', '..', 'main', 'handlers', 'exposure-tracking.ts'), 'utf8');
 const bloggerProfile = fs.readFileSync(path.join(__dirname, '..', 'blogger-profile.ts'), 'utf8');
 const categoriesSource = fs.readFileSync(path.join(__dirname, '..', 'categories.ts'), 'utf8');
@@ -156,9 +157,11 @@ assert('shopping connect no-keyword discovery requests 30 seeds',
     && /getShoppingRecommendationLimit\(autoDiscovery,\s*autoDiscoveryLimit\)/.test(configUtility)
     && /getShoppingAutoDiscoveryExpansionLimit\(discoverySeeds\.length,\s*autoDiscoveryLimit\)/.test(configUtility)
     && /getShoppingAutoDiscoverySearchLimit\(discoverySeeds\.length,\s*autoDiscoveryLimit\)/.test(configUtility)
+    && /balanceDiscovery:\s*true/.test(configUtility)
+    && /maxPerDiscoveryQuery:\s*3/.test(configUtility)
     && /opportunityRanked\.slice\(0,\s*recommendationLimit\)/.test(configUtility)
     && /autoSeeds\.slice\(0,\s*30\)/.test(html),
-  'shopping auto discovery is not using/showing 30 seeds and final recommendations');
+  'shopping auto discovery is not using/showing 30 diversified seeds and final recommendations');
 
 assert('shopping connect scores expanded products by their discovery query',
   /item\.discoveryQuery\s*\|\|\s*rootKeyword/.test(fs.readFileSync(path.join(__dirname, '..', 'naver-shopping-api.ts'), 'utf8'))
@@ -171,6 +174,12 @@ assert('policy briefing panel is full-width realtime-style and requests enough i
     && /minmax\(min\(100%,\s*360px\),\s*1fr\)/.test(html)
     && /5분마다 자동 갱신/.test(html),
   'policy briefing realtime panel is not expanded');
+
+assert('realtime all mode includes policy briefing source',
+  /getBokjiroRealtimeKeywords\(limit\)/.test(keywordDiscovery)
+    && /platform:\s*'bokjiro'/.test(keywordDiscovery)
+    && /else\s+if\s*\(p\s*===\s*'bokjiro'\)\s*result\.bokjiro\s*=\s*converted/.test(keywordDiscovery),
+  'realtime all mode can still finish with policy=0 because policy source is not collected');
 
 assert('exposure tracking turns proven winners into mindmap expansion seeds',
   /rankExposureGrowthSeeds\(tracked,\s*\{\s*limit:\s*12,\s*expansionLimit:\s*6\s*\}\)/.test(exposureTracking)

@@ -4,6 +4,7 @@ import {
   calculateAdsenseApprovalProfile,
   buildAdsenseApprovalContentCluster,
   evaluateAdsenseApprovalReadiness,
+  evaluateAdsenseKeyword,
   calculateZeroClickRisk,
   classifySearchIntent,
   evaluateAdsenseEligibility,
@@ -224,6 +225,34 @@ assert('거래형 구매 키워드는 수치가 좋아도 승인용 S/S+로 승�
     && transactionalApproval.risks.includes('거래형 의도: 승인용보다 구매/쇼핑 글감에 가까움'),
   `${classifySearchIntent(transactionalKeyword).primary} ${transactionalApproval.grade} ${transactionalApproval.score} ${transactionalApproval.risks.join(',')}`);
 
+const approvalKeywordData = evaluateAdsenseKeyword({
+  keyword: safeKeyword,
+  category: 'subsidy',
+  searchVolume: 2400,
+  documentCount: 600,
+  dataSource: 'naver-api',
+  realCpc: 300,
+});
+assert('AdSense 호환 등급/문구도 수익이 아니라 승인등급에서 파생된다',
+  approvalKeywordData.grade === 'SSS'
+    && approvalKeywordData.approvalGrade === 'S+'
+    && /승인\s*S\+/.test(approvalKeywordData.gradeReason)
+    && !/(Publisher|RPM|월\s*[0-9,.]+|월수익|실수익|예상수익)/i.test(approvalKeywordData.gradeReason),
+  `${approvalKeywordData.grade} ${approvalKeywordData.approvalGrade} ${approvalKeywordData.gradeReason}`);
+
+const highRevenueYmylBait = evaluateAdsenseKeyword({
+  keyword: ymylKeyword,
+  category: 'loan',
+  searchVolume: 6000,
+  documentCount: 500,
+  dataSource: 'naver-api',
+  realCpc: 12000,
+});
+assert('고CPC/YMYL 키워드는 수익이 커도 승인 호환 등급으로 SSS/SS가 되지 않는다',
+  !['SSS', 'SS'].includes(highRevenueYmylBait.grade)
+    && !/(Publisher|RPM|월\s*[0-9,.]+|월수익|실수익|예상수익)/i.test(highRevenueYmylBait.gradeReason),
+  `${highRevenueYmylBait.grade} ${highRevenueYmylBait.approvalGrade} ${highRevenueYmylBait.gradeReason}`);
+
 const html = fs.readFileSync(path.join(__dirname, '..', '..', '..', 'ui', 'keyword-master.html'), 'utf8');
 const adsenseEngine = fs.readFileSync(path.join(__dirname, '..', 'adsense-keyword-hunter.ts'), 'utf8');
 const premiumHunting = fs.readFileSync(path.join(__dirname, '..', '..', 'main', 'handlers', 'premium-hunting.ts'), 'utf8');
@@ -250,6 +279,11 @@ assert('AdSense UI final output keeps measured approval-grade candidates only',
     && /approvalScore\s*<\s*minApprovalScore/.test(html)
     && /valueGate\?\.isKilled/.test(html),
   'final measured approval gate missing');
+assert('AdSense UI 카드에는 수익형 gradeReason을 직접 노출하지 않는다',
+  !/\$\{kw\.gradeReason\}/.test(html)
+    && /approvalReason/.test(html)
+    && /approvalRisk/.test(html),
+  'revenue gradeReason still rendered');
 assert('AdSense backend final filter enforces publishing-cluster readiness',
   /const\s+readiness\s*=\s*k\.approvalProfile\?\.approvalReadiness/.test(adsenseEngine)
     && /!readiness\s*\|\|\s*!readiness\.ready/.test(adsenseEngine)

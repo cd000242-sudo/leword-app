@@ -68,7 +68,8 @@ const TRAILING_INTENTS = [
   '추천', '후기', '리뷰', '가격', '비용', '비교', '순위', '랭킹',
   '신청', '조건', '대상', '자격', '조회', '확인', '서류', '지급일',
   '방법', '효능', '효과', '부작용', '성분', '복용법', '사이즈',
-  '할인', '쿠폰', '코디', '세탁', '관리',
+  '할인', '쿠폰', '코디', '세탁', '관리', '사용법', '전기세',
+  '소음', '용량', '평수', '청소', '물통', '곰팡이', '냄새', '위치', '원룸', '단점',
 ].sort((a, b) => b.length - a.length);
 
 function stripTrailingIntent(seed: string): string {
@@ -79,7 +80,7 @@ function stripTrailingIntent(seed: string): string {
   return out || normalizeKeyword(seed);
 }
 
-type ExpansionDomain = 'policy' | 'supplement' | 'footwear' | 'entertainment' | 'generic';
+type ExpansionDomain = 'policy' | 'supplement' | 'footwear' | 'home-appliance' | 'entertainment' | 'generic';
 export type PracticalIntentGroup =
   | 'eligibility'
   | 'apply'
@@ -109,6 +110,9 @@ function detectExpansionDomain(seed: string, corpus = ''): ExpansionDomain {
   }
   if (/운동화|러닝화|스니커즈|워킹화|등산화|신발|나이키|아디다스|뉴발란스|아식스/.test(compacted)) {
     return 'footwear';
+  }
+  if (/제습기|가습기|공기청정기|청소기|로봇청소기|에어컨|선풍기|건조기|세탁기|식기세척기|전자레인지|전기밥솥|커피머신|정수기|냉장고|온풍기|히터/.test(compacted)) {
+    return 'home-appliance';
   }
   if (/아이돌|배우|가수|연예인|스타|걸그룹|보이그룹|컴백|공식입장|팬미팅|콘서트|시상식|드라마|예능|출연|직캠|공항패션|무대|프로필|인스타|소속사/.test(compacted)) {
     return 'entertainment';
@@ -160,6 +164,7 @@ const DOMAIN_INTENTS: Record<ExpansionDomain, string[]> = {
   policy: ['대상', '지급일', '신청기간', '조건', '자격', '신청', '서류', '필요서류', '지원내용', '소득기준', '조회', '마감', '신청방법', '온라인신청', '지역별', '선정기준', '홈페이지', '전화번호', '발표일', '2026'],
   supplement: ['후기', '추천', '복용법', '부작용', '성분', '효능', '복용시간', '가격', '비교', '주의사항', '먹는법', '추천대상'],
   footwear: ['추천', '후기', '가격', '사이즈', '비교', '코디', '세탁', '관리', '착용감', '할인', '쿠션', '발볼'],
+  'home-appliance': ['추천', '후기', '전기세', '소음', '용량', '평수', '청소', '관리', '물통', '곰팡이', '위치', '원룸', '비교', '가격', '사용법', '단점'],
   entertainment: ['프로필', '인스타', '출연', '나이', '근황', '소속사', '공식입장', '드라마', '예능', '일정', '팬미팅', '예매', '티켓팅', '라인업', '출연진', '방송시간', '다시보기'],
   generic: ['추천', '후기', '가격', '비교', '방법', '장단점', '주의사항', '체크리스트', '2026', '최신'],
 };
@@ -168,6 +173,7 @@ const DOMAIN_INTENT_GROUP_ORDER: Record<ExpansionDomain, PracticalIntentGroup[]>
   policy: ['eligibility', 'apply', 'timing', 'documents', 'lookup', 'criteria'],
   supplement: ['review', 'usage', 'risk', 'ingredients', 'price', 'comparison'],
   footwear: ['review', 'price', 'comparison', 'usage'],
+  'home-appliance': ['review', 'price', 'risk', 'usage', 'comparison'],
   entertainment: ['profile', 'appearance', 'timing', 'watch', 'reaction'],
   generic: ['review', 'comparison', 'price', 'usage', 'risk'],
 };
@@ -206,6 +212,14 @@ export function classifyPracticalIntentGroup(
     if (/가격|할인|쿠폰|최저가/.test(kw)) return 'price';
     if (/비교|순위|차이/.test(kw)) return 'comparison';
     if (/사이즈|코디|착샷|관리|발볼|쿠션/.test(kw)) return 'usage';
+  }
+
+  if (domain === 'home-appliance') {
+    if (/후기|추천|리뷰/.test(kw)) return 'review';
+    if (/가격|비용|전기세|전기요금|할인|최저가/.test(kw)) return 'price';
+    if (/소음|곰팡이|냄새|고장|단점|주의|위험/.test(kw)) return 'risk';
+    if (/청소|관리|사용법|물통|위치|설치|필터|세척/.test(kw)) return 'usage';
+    if (/비교|순위|차이|용량|평수|원룸/.test(kw)) return 'comparison';
   }
 
   if (domain === 'entertainment') {

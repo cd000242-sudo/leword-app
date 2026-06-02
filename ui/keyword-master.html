@@ -19231,6 +19231,10 @@
           keywords.forEach((kw) => {
             const sv = kw.searchVolume?.toLocaleString() || '-';
             const dc = kw.documentCount?.toLocaleString() || '-';
+            const approvalReason = (kw.approvalProfile?.reasons || []).slice(0, 3).join(' · ')
+              || kw.approvalProfile?.measuredReason
+              || '승인 적합도 기준으로 검토';
+            const approvalRisk = (kw.approvalProfile?.risks || []).slice(0, 2).join(' · ');
             html += `
               <div style="background:rgba(255,255,255,0.03); border-radius:16px; border:1px solid rgba(255,255,255,0.08); margin-bottom:14px; padding:20px;">
                 <div style="display:flex; justify-content:space-between; align-items:flex-start; margin-bottom:14px; flex-wrap:wrap; gap:8px;">
@@ -19286,7 +19290,9 @@
                       if (!factorChips && !recChip) return '';
                       return `<div style="margin-top:5px; display:flex; align-items:center; flex-wrap:wrap; gap:2px;">${factorChips}${recChip}</div>`;
                     })()}
-                    <div style="font-size:11px; color:rgba(255,255,255,0.5); margin-top:4px;">${kw.gradeReason}</div>
+                    <div style="font-size:11px; color:rgba(255,255,255,0.58); margin-top:4px;">
+                      ${approvalReason}${approvalRisk ? ` <span style="color:#fbbf24;">· 리스크: ${approvalRisk}</span>` : ''}
+                    </div>
                     ${kw.manusInsight ? `<div style="margin-top:6px; padding:6px 10px; background:rgba(99,102,241,0.08); border-radius:8px; border-left:3px solid #a855f7; font-size:11px; color:rgba(255,255,255,0.85); line-height:1.5;">🎯 <strong style="color:#c4b5fd;">Manus 앵글:</strong> ${String(kw.manusInsight.angle || '').replace(/&/g,'&amp;').replace(/</g,'&lt;').replace(/>/g,'&gt;')}${(Array.isArray(kw.manusInsight.riskFlags) && kw.manusInsight.riskFlags.length > 0) ? ` <span style="color:#fca5a5; font-size:10px; margin-left:6px;">⚠️ ${kw.manusInsight.riskFlags.map(f => String(f).replace(/&/g,'&amp;').replace(/</g,'&lt;').replace(/>/g,'&gt;')).join(', ')}</span>` : ''}</div>` : ''}
                   </div>
                   <div style="text-align:right;">

@@ -1184,7 +1184,12 @@ export function setupConfigUtilityHandlers(): void {
           crossSourceSeeds,
           recency,
         };
-        const opportunityRanked = rankShoppingOpportunities(result.items, opportunityContext, Math.max(20, recommendationLimit));
+        const opportunityRanked = rankShoppingOpportunities(
+          result.items,
+          opportunityContext,
+          Math.max(20, recommendationLimit),
+          autoDiscovery ? { balanceDiscovery: true, maxPerDiscoveryQuery: 3 } : undefined
+        );
         if (opportunityRanked.length > 0) {
           recommended = opportunityRanked.slice(0, recommendationLimit);
         }

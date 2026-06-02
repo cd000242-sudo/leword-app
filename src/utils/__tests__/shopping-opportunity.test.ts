@@ -10,6 +10,7 @@ import {
   buildProductLeWordSeeds,
   deriveShoppingExpansionQueries,
   rankShoppingOpportunities,
+  selectBalancedShoppingOpportunities,
   scoreLeWordEntryKeyword,
   type ShoppingItem,
 } from '../naver-shopping-api';
@@ -99,6 +100,61 @@ assert('실시간 근거가 카드 데이터에 남음',
 
 const ranked = rankShoppingOpportunities([merelyPopularProduct, trendingProduct], context, 2);
 assert('랭킹 1위는 수요 근거가 있는 상품', ranked[0]?.productId === 'hot-1', ranked.map(i => i.productId).join(','));
+
+const crowdedSameSeedProducts = [
+  ...Array.from({ length: 8 }, (_, i) => makeItem({
+    ...trendingProduct,
+    productId: `earbud-${i + 1}`,
+    title: `QCY HT08 무선 이어폰 추천 ${i + 1}`,
+    discoveryQuery: '무선 이어폰 추천',
+    discoverySource: 'auto-discovery',
+    opportunityScore: 90 - i,
+    conversionScore: 50 - i,
+  })),
+  ...Array.from({ length: 4 }, (_, i) => makeItem({
+    title: `접이식 캠핑 의자 추천 ${i + 1}`,
+    cleanTitle: '접이식 캠핑 의자',
+    lprice: 39000,
+    hprice: 59000,
+    mallName: '쿠팡',
+    productId: `camping-${i + 1}`,
+    category1: '스포츠/레저',
+    category2: '캠핑',
+    category3: '캠핑의자',
+    discoveryQuery: '캠핑 의자 추천',
+    discoverySource: 'auto-discovery',
+    opportunityScore: 78 - i,
+    conversionScore: 42 - i,
+  })),
+  ...Array.from({ length: 4 }, (_, i) => makeItem({
+    title: `가정용 제습기 추천 ${i + 1}`,
+    cleanTitle: '가정용 제습기',
+    lprice: 129000,
+    hprice: 179000,
+    mallName: '네이버',
+    productId: `dehumidifier-${i + 1}`,
+    category1: '디지털/가전',
+    category2: '생활가전',
+    category3: '제습기',
+    discoveryQuery: '가정용 제습기 추천',
+    discoverySource: 'auto-discovery',
+    opportunityScore: 74 - i,
+    conversionScore: 36 - i,
+  })),
+];
+const balancedCrowded = selectBalancedShoppingOpportunities(crowdedSameSeedProducts, 9, 3);
+const balancedQueryCounts: Map<string, number> = balancedCrowded.reduce((acc, item) => {
+  const key = item.discoveryQuery || 'unknown';
+  acc.set(key, (acc.get(key) || 0) + 1);
+  return acc;
+}, new Map<string, number>());
+const maxBalancedQueryCount = Math.max(...Array.from(balancedQueryCounts.values()));
+assert('무입력 쇼핑 추천은 한 발견 쿼리에만 몰리지 않고 여러 글감으로 분산',
+  balancedCrowded.length === 9
+    && balancedCrowded[0]?.productId === 'earbud-1'
+    && new Set(balancedCrowded.map(item => item.discoveryQuery)).size >= 3
+    && maxBalancedQueryCount <= 3,
+  Array.from(balancedQueryCounts.entries()).map(([k, v]) => `${k}:${v}`).join(', '));
 
 const autoDiscoveredProduct = makeItem({
   title: '접이식 캠핑 의자 가벼운 1인용 로우체어',

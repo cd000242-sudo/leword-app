@@ -210,6 +210,26 @@ assert('keyword analyzer sparse footwear autocomplete backfills shopping decisio
     && sparseShoes.includes('나이키 운동화 가격'),
   sparseShoes.join(', '));
 
+const sparseHomeAppliance = rankKeywordExpansionStrings('가정용 제습기', [
+  '무선 이어폰 추천',
+  '에어컨 청소 비용',
+], {
+  source: 'autocomplete',
+  limit: 12,
+  minScore: 30,
+  ensureIntentCoverage: true,
+  intentCoverageMin: 8,
+});
+assert('keyword analyzer home-appliance expansion backfills practical operation and problem intents',
+  sparseHomeAppliance.length >= 8
+    && sparseHomeAppliance.includes('가정용 제습기 전기세')
+    && sparseHomeAppliance.includes('가정용 제습기 소음')
+    && sparseHomeAppliance.includes('가정용 제습기 곰팡이')
+    && sparseHomeAppliance.includes('가정용 제습기 청소')
+    && !sparseHomeAppliance.includes('무선 이어폰 추천')
+    && !sparseHomeAppliance.includes('에어컨 청소 비용'),
+  sparseHomeAppliance.join(', '));
+
 const crowdedPolicy = rankKeywordExpansionStrings('소상공인 지원금', [
   '소상공인 지원금 뉴스',
   '소상공인 지원금 발표',

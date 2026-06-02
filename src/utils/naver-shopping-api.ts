@@ -302,6 +302,8 @@ export interface ConversionScoreOptions {
   sweetSpotMax?: number;       // 기본 70000
   lowPriceFloor?: number;      // 기본 5000
   highPriceCeil?: number;      // 기본 500000
+  balanceDiscovery?: boolean;
+  maxPerDiscoveryQuery?: number;
 }
 
 // 제휴 수익 관점 우선순위 (쿠팡 최우선)
@@ -849,15 +851,76 @@ export function rankShoppingOpportunities(
   const normal = items.filter(i => i.productType === 1 && i.lprice > 0);
   for (const item of normal) attachShoppingOpportunityScore(item, context, opts);
 
-  return normal.slice().sort((a, b) => {
-    const opp = (b.opportunityScore || 0) - (a.opportunityScore || 0);
-    if (opp !== 0) return opp;
-    const conv = (b.conversionScore || 0) - (a.conversionScore || 0);
-    if (conv !== 0) return conv;
-    const demand = (b.opportunityBreakdown?.demand || 0) - (a.opportunityBreakdown?.demand || 0);
-    if (demand !== 0) return demand;
-    return (a.lprice || 0) - (b.lprice || 0);
-  }).slice(0, limit);
+  const ranked = normal.slice().sort(compareShoppingOpportunity);
+  if (opts?.balanceDiscovery) {
+    return selectBalancedShoppingOpportunities(ranked, limit, opts.maxPerDiscoveryQuery);
+  }
+  return ranked.slice(0, limit);
+}
+
+function compareShoppingOpportunity(a: ShoppingItem, b: ShoppingItem): number {
+  const opp = (b.opportunityScore || 0) - (a.opportunityScore || 0);
+  if (opp !== 0) return opp;
+  const conv = (b.conversionScore || 0) - (a.conversionScore || 0);
+  if (conv !== 0) return conv;
+  const demand = (b.opportunityBreakdown?.demand || 0) - (a.opportunityBreakdown?.demand || 0);
+  if (demand !== 0) return demand;
+  return (a.lprice || 0) - (b.lprice || 0);
+}
+
+function normalizeDiscoveryGroup(item: ShoppingItem): string {
+  const raw = item.discoveryQuery
+    || item.category3
+    || item.category2
+    || item.category1
+    || item.cleanTitle
+    || item.title
+    || 'direct';
+  return stripTags(String(raw)).replace(/\s+/g, ' ').trim().toLowerCase() || 'direct';
+}
+
+function shoppingItemIdentity(item: ShoppingItem, index: number): string {
+  const productId = String(item.productId || '').trim();
+  if (productId) return `id:${productId}`;
+  const title = stripTags(item.cleanTitle || item.title || '').replace(/\s+/g, ' ').trim();
+  const mall = String(item.mallName || '').trim();
+  if (title || mall || item.lprice) return `p:${title}|${item.lprice || 0}|${mall}`;
+  return `idx:${index}`;
+}
+
+export function selectBalancedShoppingOpportunities(
+  items: ShoppingItem[],
+  limit: number = 10,
+  maxPerDiscoveryQuery?: number
+): ShoppingItem[] {
+  const safeLimit = Math.max(0, Math.floor(limit));
+  if (safeLimit <= 0) return [];
+
+  const perGroupCap = Math.max(1, Math.floor(
+    maxPerDiscoveryQuery ?? Math.max(2, Math.ceil(safeLimit / 8))
+  ));
+  const ranked = items.slice().sort(compareShoppingOpportunity);
+  const selected: ShoppingItem[] = [];
+  const selectedIds = new Set<string>();
+  const groupCounts = new Map<string, number>();
+
+  const take = (item: ShoppingItem, index: number, enforceCap: boolean) => {
+    if (selected.length >= safeLimit) return;
+    const id = shoppingItemIdentity(item, index);
+    if (selectedIds.has(id)) return;
+    const group = normalizeDiscoveryGroup(item);
+    const count = groupCounts.get(group) || 0;
+    if (enforceCap && count >= perGroupCap) return;
+    selected.push(item);
+    selectedIds.add(id);
+    groupCounts.set(group, count + 1);
+  };
+
+  ranked.forEach((item, index) => take(item, index, true));
+  if (selected.length < safeLimit) {
+    ranked.forEach((item, index) => take(item, index, false));
+  }
+  return selected.slice(0, safeLimit);
 }
 
 export function computeConversionScore(item: ShoppingItem, opts: ConversionScoreOptions = {}): number {

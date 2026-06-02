@@ -1066,6 +1066,18 @@ export function setupKeywordDiscoveryHandlers(): void {
             }
           })());
 
+          // 정책브리핑/지원금 공식 신호 (korea.kr fallback 포함)
+          promises.push((async () => {
+            try {
+              const { getBokjiroRealtimeKeywords } = await import('../../utils/realtime-search-keywords');
+              const keywords = await getBokjiroRealtimeKeywords(limit);
+              return { platform: 'bokjiro', keywords };
+            } catch (err: any) {
+              console.error(`[GET-REALTIME-KEYWORDS] ❌ 정책브리핑 수집 실패:`, err?.message || err);
+              return { platform: 'bokjiro', keywords: [] };
+            }
+          })());
+
           // 모든 플랫폼 병렬 실행
           const results = await Promise.allSettled(promises);
 

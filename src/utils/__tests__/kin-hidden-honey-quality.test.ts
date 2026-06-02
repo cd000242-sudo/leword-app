@@ -159,6 +159,22 @@ assert('정렬은 조회+답변공백+검색의도+신선도를 함께 본다',
   getLatestHiddenSortScore(freshHotQuestion) > getLatestHiddenSortScore(lowerIntent),
   `${getLatestHiddenSortScore(freshHotQuestion)} <= ${getLatestHiddenSortScore(lowerIntent)}`);
 
+const vagueHighTraffic = {
+  ...freshHotQuestion,
+  title: '급해요 제발 알려주세요',
+  viewCount: 950,
+  hoursAgo: 6,
+  viewsPerHour: 158,
+  questionIntentScore: 34,
+};
+const vagueProfile = calculateKinHoneyPotProfile(vagueHighTraffic);
+assert('조회 폭발이어도 답변형 글감이 불명확하면 꿀통 등급을 SS 이상으로 올리지 않는다',
+  !['SSS', 'SS'].includes(vagueProfile.grade)
+    && gradeQuestion(vagueHighTraffic).grade !== 'SSS'
+    && !isLatestHiddenHoneyCandidate(vagueHighTraffic)
+    && !isActionableHoneyResult({ ...vagueHighTraffic, honeyPotGrade: vagueProfile.grade }),
+  `${vagueProfile.grade} ${vagueProfile.score} / ${gradeQuestion(vagueHighTraffic).grade}`);
+
 console.log(`\n[kin-hidden-honey-quality.test] passed: ${passed} / failed: ${failed}`);
 if (failed > 0) {
   failures.forEach(f => console.error('  ' + f));

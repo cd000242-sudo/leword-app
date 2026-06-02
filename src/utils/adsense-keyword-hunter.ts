@@ -1024,54 +1024,10 @@ export function evaluateAdsenseKeyword(input: {
     const ctr = (CATEGORY_CTR[category] ?? CATEGORY_CTR.default) *
         (0.6 + (infoIntentScore / 100) * 0.8);
 
-    // 등급 — 다중 게이트 (점수만으로 결정 금지, CLAUDE.md 규칙)
+    // 호환 등급은 approvalProfile 계산 후 승인등급에서 파생한다.
+    // CPC/RPM/월수익은 참고 지표일 뿐, AdSense 승인 헌터의 주 등급축이 아니다.
     let grade: AdsenseKeywordData['grade'] = 'B';
-    let gradeReason = '';
-
-    // v3 완화 게이트 (4 에이전트 토론 반영):
-    // - SSS: 5중 → 4중 (경쟁비 2+ 로 완화, 검색량 800+로 완화)
-    // - SS: 4중 → 3중 (경쟁비 게이트 제거, 정보의도/수익으로만 판단)
-    // v3.6: Publisher Revenue Factor 0.40 적용 후 게이트 재조정
-    // (광고주 입찰 기준 월수익 → Publisher 실수익은 ×0.40이라 게이트도 ×0.40)
-    if (
-        estimatedMonthlyRevenue >= 60000 &&
-        infoIntentScore >= 65 &&
-        searchVolume >= 800 &&
-        competitionRatio >= 2 &&
-        safety.level !== 'danger'
-    ) {
-        // v2.49.11: sanity-gate.ts SSoT 통과 후 SSS 부여 (ternary 회피)
-        const { validateGrade: vgAD, applySanity: asAD } = require('./sanity-gate');
-        const sanityAD = vgAD({
-            keyword, searchVolume, documentCount,
-            goldenRatio: competitionRatio, score: infoIntentScore,
-            dcEstimated: dataSource === 'estimated', source: 'adsense',
-        });
-        grade = asAD('SSS', sanityAD);
-        gradeReason = `💎 Publisher 실수익 월 ${(estimatedMonthlyRevenue / 10000).toFixed(1)}만원+ · 정보의도 ${infoIntentScore} · 경쟁비 ${competitionRatio.toFixed(1)}배${grade !== 'SSS' ? ' (sanity ' + sanityAD.reasons.join(',') + ')' : ''}`;
-    } else if (
-        estimatedMonthlyRevenue >= 24000 &&
-        infoIntentScore >= 55 &&
-        searchVolume >= 400 &&
-        safety.level !== 'danger'
-    ) {
-        grade = 'SS';
-        gradeReason = `🏆 Publisher 실수익 월 ${(estimatedMonthlyRevenue / 10000).toFixed(1)}만원+ · 정보의도 ${infoIntentScore}`;
-    } else if (
-        estimatedMonthlyRevenue >= 8000 &&
-        infoIntentScore >= 45 &&
-        searchVolume >= 150 &&
-        safety.level !== 'danger'
-    ) {
-        grade = 'S';
-        gradeReason = `⭐ 월 ${(estimatedMonthlyRevenue / 10000).toFixed(1)}만원+ · 안정형`;
-    } else if (estimatedMonthlyRevenue >= 4000 && infoIntentScore >= 40) {
-        grade = 'A';
-        gradeReason = `📈 Publisher 실수익 월 ${(estimatedMonthlyRevenue / 10000).toFixed(1)}만원 · 입문형`;
-    } else {
-        grade = 'B';
-        gradeReason = `예상수익 낮음 (월 ${estimatedMonthlyRevenue.toLocaleString()}원)`;
-    }
+    let gradeReason = '승인 프로필 계산 전';
 
     const writability = isWritableKeyword(keyword);
     const valueBreakdown = calculateValueScore({
@@ -1115,6 +1071,18 @@ export function evaluateAdsenseKeyword(input: {
         zeroClickRisk,
         crossValidation,
     });
+    const approvalGradeToLegacy: Record<AdsenseApprovalGrade, AdsenseKeywordData['grade']> = {
+        'S+': 'SSS',
+        S: 'SS',
+        A: 'S',
+        B: 'B',
+    };
+    grade = approvalGradeToLegacy[approvalProfile.grade] || 'B';
+    const approvalReason = approvalProfile.reasons.slice(0, 3).join(' · ') || approvalProfile.measuredReason;
+    const approvalRisk = approvalProfile.risks.length > 0
+        ? ` · 리스크: ${approvalProfile.risks.slice(0, 2).join(' · ')}`
+        : '';
+    gradeReason = `승인 ${approvalProfile.grade} · 승인점수 ${approvalProfile.score}/100 · ${approvalReason}${approvalRisk}`;
 
     return {
         keyword,

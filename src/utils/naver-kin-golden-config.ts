@@ -171,6 +171,9 @@ function calculateHoneyPotGrade(signals: KinSignals, score: number): KinGrade {
   const hasDemand = viewCount >= 50 || vph >= 3;
   const hasStrongSssDemand = viewCount >= 120 || vph >= 8;
 
+  if (intentScore < 38) return score >= 45 ? 'A' : 'B';
+  if (intentScore < 50 && score >= 62) return 'S';
+
   if (
     score >= 82 &&
     hasDemand &&

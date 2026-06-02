@@ -169,6 +169,50 @@ assert('카테고리만 celebrity여도 연예 글감 필수 항목을 제공한
   categoryOnlyCelebrityPlan.mustInclude.includes('출연진') && categoryOnlyCelebrityPlan.mustInclude.includes('다시보기'),
   categoryOnlyCelebrityPlan.mustInclude.join(','));
 
+const livingPlan = buildHomePublishPlan({
+  keyword: '장마철 빨래 냄새 오늘 해결할 냄새와 습기',
+  category: 'living',
+  homeScore: 78,
+  qualityScore: 82,
+  vacancySlots: 6,
+  influencerCount: 1,
+  bigDomainCount: 1,
+  surgeRatio: 1.8,
+  daysSinceFirstAppear: 2,
+});
+
+assert('생활 홈판 발행 제목은 최신정리 대신 해결할 문제를 전면에 둔다',
+  /(냄새|습기|제습|관리|해결|점검|실수)/.test(livingPlan.primaryTitle)
+    && !/최신 핵심 정리/.test(livingPlan.primaryTitle),
+  livingPlan.primaryTitle);
+assert('생활 홈판 플랜은 해결형 목차와 필수 항목을 제공한다',
+  livingPlan.mustInclude.includes('원인')
+    && livingPlan.mustInclude.includes('해결 방법')
+    && livingPlan.outline.some(item => /원인|해결/.test(item)),
+  `${livingPlan.mustInclude.join(',')} / ${livingPlan.outline.join(' > ')}`);
+
+const financePlan = buildHomePublishPlan({
+  keyword: '청년도약계좌 6월 바뀐 조건',
+  category: 'finance',
+  homeScore: 78,
+  qualityScore: 82,
+  vacancySlots: 6,
+  influencerCount: 1,
+  bigDomainCount: 1,
+  surgeRatio: 1.8,
+  daysSinceFirstAppear: 2,
+});
+
+assert('재테크 홈판 발행 제목은 최신정리 대신 조건·비용 판단을 전면에 둔다',
+  /(조건|혜택|비용|수수료|환급|공제|주의|비교)/.test(financePlan.primaryTitle)
+    && !/최신 핵심 정리/.test(financePlan.primaryTitle),
+  financePlan.primaryTitle);
+assert('재테크 홈판 플랜은 조건·금액·주의사항 필수 항목을 제공한다',
+  financePlan.mustInclude.includes('가입 조건')
+    && financePlan.mustInclude.includes('금액/혜택')
+    && financePlan.mustInclude.includes('주의사항'),
+  financePlan.mustInclude.join(','));
+
 const homePlanScenarios = [
   { category: 'policy', seed: '소상공인 지원금' },
   { category: 'celebrity', seed: '넷플릭스 가족 영화' },

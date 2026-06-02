@@ -120,6 +120,31 @@ const CATEGORY_SPLUS_ANGLES: Record<string, string[]> = {
     '오늘 확인할 공제 변경사항',
     '6월 초보가 놓치는 실수',
     '지금 비교할 수수료와 혜택',
+    '6월 바뀐 조건과 가입 기준',
+    '오늘 확인할 금리와 만기 조건',
+    '직장인 납입 금액 체크리스트',
+    '초보가 헷갈리는 해지 주의사항',
+    '환급과 공제 적용 대상 비교',
+    '소득 기준별 혜택 차이 정리',
+    '가입 전 확인할 비용과 수수료',
+    '이번 주 변경사항과 실수 포인트',
+    '만기 전 놓치기 쉬운 조건',
+    '청년 기준 혜택과 제외 대상',
+    '납입 금액별 받을 수 있는 혜택',
+    '중도해지 전 확인할 손해 포인트',
+    '월급 기준 가입 가능 여부 확인',
+    '은행별 혜택과 수수료 비교',
+    '소득 구간별 신청 조건 정리',
+    '6월 신청 전 준비할 체크리스트',
+    '직장인이 놓치는 공제 항목',
+    '초보 기준 금리 비교 방법',
+    '혜택 유지 조건과 주의사항',
+    '오늘 확인할 만기 수령액 계산',
+    '이번 달 납입 전 확인할 변경사항',
+    '가입 가능 대상과 제외 조건',
+    '혜택 줄어드는 실수 5가지',
+    '공제 조건과 환급 일정 정리',
+    '비용 부담 줄이는 선택 기준',
   ],
   health: [
     '2026 6월 증상별 관리법',
@@ -134,6 +159,30 @@ const CATEGORY_SPLUS_ANGLES: Record<string, string[]> = {
     '오늘 해결할 냄새와 습기',
     '초여름 준비물 비용 정리',
     '지금 바꿔야 할 생활 팁',
+    '장마철 제습 위치와 관리 방법',
+    '빨래 냄새 원인과 해결 순서',
+    '원룸 습기 줄이는 체크리스트',
+    '곰팡이 생기기 전 집안 점검',
+    '오늘 청소할 곳과 준비물 정리',
+    '습기 많은 집 전기세 아끼는 법',
+    '다이소 준비물로 냄새 잡는 방법',
+    '제습기 없이 습기 줄이는 방법',
+    '장마 전 창문과 욕실 점검',
+    '빨래 말릴 때 냄새 줄이는 실수',
+    '집안 냄새 원인별 관리 방법',
+    '원룸 빨래 냄새 해결 체크',
+    '초여름 생활비 줄이는 집안 관리',
+    '장마철 신발장 냄새 관리법',
+    '베란다 곰팡이 예방 체크리스트',
+    '욕실 습기와 냄새 해결 방법',
+    '가족이 확인할 집안 제습 포인트',
+    '오늘 바로 바꿀 환기 습관',
+    '빨래 건조 시간 줄이는 방법',
+    '에어컨 제습 전 확인할 청소 포인트',
+    '집안 습도별 관리 기준',
+    '여름 전 침구 냄새 관리 방법',
+    '장마철 물때와 곰팡이 청소 순서',
+    '습기 냄새 재발 막는 체크리스트',
   ],
   travel: [
     '2026 6월 주말 코스 정리',
@@ -210,11 +259,31 @@ const CATEGORY_SPLUS_ANGLES: Record<string, string[]> = {
 const CATEGORY_REQUIRED_INTENT: Partial<Record<string, RegExp>> = {
   policy: /(신청|대상|자격|조건|서류|지급일|사용처|조회|마감|공식|공고|제외|소득|기준|온라인|접수|변경사항|변경|결과)/,
   celebrity: /(이슈|방송|일정|공개|출연|팬|반응|장면|컴백|공식입장|다시보기|회차|줄거리|시상식|근황|관전|예고|티저|콘서트|팬미팅|앨범|무대|소속사|공항패션|인스타|열애설)/,
+  living: /(장마|제습|냄새|습기|집안|원룸|청소|관리|점검|준비물|곰팡이|빨래|생활비|절약|다이소|해결|초여름)/,
+  finance: /(조건|환급|공제|비용|수수료|혜택|직장인|초보|주의사항|변경|체크리스트|비교|실수|상반기|금리|만기|납입|소득)/,
+  travel: /(코스|예약|비용|일정|준비물|동선|장마|비\s*오면|가족|숙소|주차|운영|대체|여름휴가)/,
 };
 
 const CATEGORY_NOISE_INTENT: Partial<Record<string, RegExp>> = {
   policy: /(초여름 관리|가족이|직장인 체크|장단점 비교|비용 정리|생활 팁|원룸|건강|관리 방법|출근룩|코디|다시보기)/,
   celebrity: /(직장인|초여름 관리|비용 정리|장단점 비교|대상별 차이|준비물|관리 방법|소득 기준|신청 조건|온라인 신청|지급일|사용처)/,
+  living: /(최신\s*일정|한눈에\s*보는\s*핵심|오늘\s*기준\s*비교\s*정리|오늘\s*확인할\s*대상별\s*차이|최신\s*정리|업데이트\s*정리|장단점\s*비교)/,
+  finance: /(초여름\s*관리|최신\s*일정|한눈에\s*보는\s*핵심|최신\s*정리|업데이트\s*정리|생활\s*팁|집안|원룸|냄새|습기)/,
+};
+
+const CATEGORY_ANGLE_PRIORITY: Partial<Record<string, { positive: RegExp; negative: RegExp }>> = {
+  living: {
+    positive: /(해결|제습|냄새|습기|집안|원룸|관리|점검|준비물|곰팡이|청소|빨래|생활비|절약|다이소)/,
+    negative: /(최신\s*정리|최신\s*일정|한눈에\s*보는\s*핵심|오늘\s*기준\s*비교\s*정리|오늘\s*확인할\s*대상별\s*차이|업데이트\s*정리|장단점\s*비교)/,
+  },
+  finance: {
+    positive: /(조건|환급|공제|비용|수수료|혜택|직장인|초보|주의사항|변경|체크리스트|비교|실수|금리|만기|납입|소득|상반기)/,
+    negative: /(초여름\s*관리|최신\s*정리|최신\s*일정|한눈에\s*보는\s*핵심|업데이트\s*정리|생활\s*팁)/,
+  },
+  travel: {
+    positive: /(코스|예약|비용|일정|준비물|동선|장마|비\s*오면|가족|숙소|주차|운영|대체|여름휴가)/,
+    negative: /(최신\s*정리|최신\s*일정|한눈에\s*보는\s*핵심|업데이트\s*정리)/,
+  },
 };
 
 function compact(value: string): string {
@@ -320,6 +389,17 @@ function uniqueKeywords(values: Iterable<string>): string[] {
   return out;
 }
 
+function homeNeedTieBreakScore(keyword: string, category: string): number {
+  const kw = compact(keyword);
+  const priority = CATEGORY_ANGLE_PRIORITY[category];
+  let score = 0;
+  if (priority?.positive.test(kw)) score += 40;
+  if (priority?.negative.test(kw)) score -= 45;
+  if (/해결|신청|대상|조건|서류|비용|예약|회차|다시보기|전기세|소음|청소|주의사항/.test(kw)) score += 12;
+  if (/최신\s*핵심\s*정리|오늘\s*쓰기\s*좋은\s*정리|이번\s*주\s*핵심\s*포인트/.test(kw)) score -= 18;
+  return score;
+}
+
 export function gradeHomeNeedScore(score: number): HomeNeedGrade {
   const s = Number.isFinite(score) ? score : 0;
   if (s >= HOME_NEED_SPLUS_SCORE) return 'S+';
@@ -402,7 +482,11 @@ export function expandHomeNeedKeywords(seed: string, category = 'general', limit
       return { keyword, category: cat, score, grade: gradeHomeNeedScore(score) };
     })
     .filter(item => item.score >= 45)
-    .sort((a, b) => b.score - a.score || a.keyword.length - b.keyword.length);
+    .sort((a, b) =>
+      b.score - a.score ||
+      homeNeedTieBreakScore(b.keyword, cat) - homeNeedTieBreakScore(a.keyword, cat) ||
+      a.keyword.length - b.keyword.length
+    );
 
   const splusOnly = ranked.filter(item => item.grade === 'S+');
   const strictSplusOnly = splusOnly.filter(item => isStrictCategoryHomeNeed(item.keyword, cat));
