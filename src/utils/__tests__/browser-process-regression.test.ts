@@ -38,6 +38,7 @@ function listTsFiles(dir: string): string[] {
 }
 
 const pool = read('src/utils/puppeteer-pool.ts');
+const chromeFinder = read('src/utils/chrome-finder.ts');
 const main = read('src/main.ts');
 const cleaner = read('src/utils/chrome-zombie-cleaner.ts');
 const serpCrawler = read('src/utils/serp-crawler.ts');
@@ -67,6 +68,24 @@ assert('browser pool prefers patchright before playwright',
   pool.indexOf("await import('patchright')") >= 0
     && pool.indexOf("await import('playwright')") > pool.indexOf("await import('patchright')"),
   'patchright is not first');
+
+assert('chrome finder checks packaged executable/resource layouts before Playwright default cache',
+  /process\.resourcesPath/.test(chromeFinder)
+    && /path\.dirname\(process\.execPath\)/.test(chromeFinder)
+    && /app\.asar\.unpacked/.test(chromeFinder)
+    && /resources['"], ['"]chromium/.test(chromeFinder),
+  'bundled Chromium lookup is too narrow and can fall through to missing ms-playwright cache');
+
+assert('chrome finder can reuse Playwright or Patchright cache only when an executable exists',
+  /function findPlaywrightChromium/.test(chromeFinder)
+    && /ms-playwright/.test(chromeFinder)
+    && /patchright-core/.test(chromeFinder)
+    && /findChromiumInPlatformDir/.test(chromeFinder),
+  'existing Playwright/Patchright Chromium cache is not resolved as executablePath');
+
+assert('compatible browser helper classifies launch errors instead of leaking raw Playwright install prompt',
+  /catch \(err: any\)\s*\{\s*throw classifyLaunchError\(err, launchOptions\.executablePath\);/s.test(pool),
+  'launchCompatibleBrowser can leak raw "npx playwright install" errors');
 
 assert('compatible direct launches are tracked and destroyed with the pool',
   /const compatibleBrowserLaunches = new Set<any>\(\)/.test(pool)

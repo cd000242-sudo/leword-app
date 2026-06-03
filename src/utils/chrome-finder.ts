@@ -15,6 +15,33 @@ import * as path from 'path';
 let cachedChromePath: string | null = null;
 let chromiumChecked = false;
 
+function existsFile(filePath: string | undefined): filePath is string {
+  if (!filePath) return false;
+  try {
+    return fs.existsSync(filePath) && fs.statSync(filePath).isFile();
+  } catch {
+    return false;
+  }
+}
+
+function addUniquePath(list: string[], candidate: string | undefined): void {
+  if (!candidate) return;
+  const normalized = path.normalize(candidate);
+  if (!list.includes(normalized)) list.push(normalized);
+}
+
+function findConfiguredChromePath(): string | undefined {
+  const configured = process.env['LEWORD_CHROME_PATH'] || process.env['CHROME_PATH'];
+  if (existsFile(configured)) {
+    console.log('[CHROME] ✅ 환경변수 Chrome 경로 사용:', configured);
+    return configured;
+  }
+  if (configured) {
+    console.warn('[CHROME] ⚠️ 환경변수 Chrome 경로가 존재하지 않음:', configured);
+  }
+  return undefined;
+}
+
 /**
  * v2.44.0: 앱 패키지에 번들된 Chromium 경로를 찾습니다 (최우선).
  *
@@ -33,26 +60,39 @@ function findBundledChromium(): string | undefined {
       : 'chrome';
 
   const bases: string[] = [];
+  const resourcesPath = (process as any).resourcesPath as string | undefined;
+  const execDir = process.execPath ? path.dirname(process.execPath) : undefined;
+
   // Electron packaged: resources/chromium/
-  if ((process as any).resourcesPath) {
-    bases.push(path.join((process as any).resourcesPath, 'chromium'));
-  }
+  addUniquePath(bases, resourcesPath ? path.join(resourcesPath, 'chromium') : undefined);
+  // Electron packaged fallback: <app exe dir>/resources/chromium/
+  addUniquePath(bases, execDir ? path.join(execDir, 'resources', 'chromium') : undefined);
+  // asarUnpack/file-layout variants
+  addUniquePath(bases, resourcesPath ? path.join(resourcesPath, 'app.asar.unpacked', 'resources', 'chromium') : undefined);
+  addUniquePath(bases, execDir ? path.join(execDir, 'resources', 'app.asar.unpacked', 'resources', 'chromium') : undefined);
   // Dev: <cwd>/resources/chromium/
-  bases.push(path.join(process.cwd(), 'resources', 'chromium'));
-  // 옆에 chrome-win64 디렉토리로 풀린 경우도 대응
+  addUniquePath(bases, path.join(process.cwd(), 'resources', 'chromium'));
+  // Dist/dev when cwd differs from project root
+  addUniquePath(bases, path.resolve(__dirname, '..', '..', 'resources', 'chromium'));
+  addUniquePath(bases, path.resolve(__dirname, '..', 'resources', 'chromium'));
+  // Rare layout: chromium is next to the app executable.
+  addUniquePath(bases, execDir ? path.join(execDir, 'chromium') : undefined);
+
+  // 옆에 chrome-win64/chrome-win 디렉토리로 풀린 경우도 대응
   for (const base of [...bases]) {
-    bases.push(path.join(base, 'chrome-win64'));
-    bases.push(path.join(base, 'chrome-win'));
+    addUniquePath(bases, path.join(base, 'chrome-win64'));
+    addUniquePath(bases, path.join(base, 'chrome-win'));
+    addUniquePath(bases, path.join(base, 'chrome-linux'));
+    addUniquePath(bases, path.join(base, 'chrome-mac'));
+    addUniquePath(bases, path.join(base, 'chrome-mac-arm64'));
   }
 
   for (const base of bases) {
     const candidate = path.join(base, execName);
-    try {
-      if (fs.existsSync(candidate)) {
-        console.log('[CHROME] ✅ 번들 Chromium 발견:', candidate);
-        return candidate;
-      }
-    } catch { /* 무시 */ }
+    if (existsFile(candidate)) {
+      console.log('[CHROME] ✅ 번들 Chromium 발견:', candidate);
+      return candidate;
+    }
   }
   return undefined;
 }
@@ -119,6 +159,48 @@ function findPuppeteerChromium(): string | undefined {
         }
       }
     } catch (e) {
+      continue;
+    }
+  }
+
+  return undefined;
+}
+
+/**
+ * Playwright/Patchright가 이미 내려받은 Chromium을 찾습니다.
+ * 기본 launch가 ms-playwright의 "현재 버전"만 찾다가 실패하는 경우가 있어,
+ * 캐시에 남아있는 실행 가능한 Chromium을 직접 executablePath로 지정합니다.
+ */
+function findPlaywrightChromium(): string | undefined {
+  const homeDir = process.env.HOME || process.env.USERPROFILE || '';
+  const localAppData = process.env.LOCALAPPDATA || (homeDir ? path.join(homeDir, 'AppData', 'Local') : '');
+  const browserPathEnv = process.env.PLAYWRIGHT_BROWSERS_PATH;
+  const roots: string[] = [];
+
+  if (browserPathEnv && browserPathEnv !== '0') addUniquePath(roots, browserPathEnv);
+  addUniquePath(roots, localAppData ? path.join(localAppData, 'ms-playwright') : undefined);
+  addUniquePath(roots, homeDir ? path.join(homeDir, 'AppData', 'Local', 'ms-playwright') : undefined);
+  addUniquePath(roots, homeDir ? path.join(homeDir, '.cache', 'ms-playwright') : undefined);
+  addUniquePath(roots, path.join(process.cwd(), 'node_modules', 'playwright-core', '.local-browsers'));
+  addUniquePath(roots, path.join(process.cwd(), 'node_modules', 'patchright-core', '.local-browsers'));
+  addUniquePath(roots, path.join(__dirname, '..', '..', 'node_modules', 'playwright-core', '.local-browsers'));
+  addUniquePath(roots, path.join(__dirname, '..', '..', 'node_modules', 'patchright-core', '.local-browsers'));
+
+  for (const root of roots) {
+    if (!fs.existsSync(root)) continue;
+    try {
+      const versions = fs.readdirSync(root)
+        .filter(name => /^chromium-/.test(name))
+        .sort()
+        .reverse();
+      for (const version of versions) {
+        const chromePath = findChromiumInPlatformDir(path.join(root, version));
+        if (chromePath) {
+          console.log('[CHROME] ✅ Playwright/Patchright 캐시 Chromium 발견:', chromePath);
+          return chromePath;
+        }
+      }
+    } catch {
       continue;
     }
   }
@@ -236,6 +318,14 @@ export function findChromePath(): string | undefined {
     return cachedChromePath;
   }
 
+  // 0. 수동 지정 경로 — 고객 PC별 보안 정책 우회용
+  const configured = findConfiguredChromePath();
+  if (configured) {
+    cachedChromePath = configured;
+    chromiumChecked = true;
+    return configured;
+  }
+
   // 1. 앱 번들 Chromium (최우선) — packaged 앱에서 가장 신뢰 가능
   const bundled = findBundledChromium();
   if (bundled) {
@@ -252,7 +342,15 @@ export function findChromePath(): string | undefined {
     return puppeteerChrome;
   }
 
-  // 3. 시스템 Chrome 찾기
+  // 3. Playwright/Patchright 캐시 Chromium
+  const playwrightChrome = findPlaywrightChromium();
+  if (playwrightChrome) {
+    cachedChromePath = playwrightChrome;
+    chromiumChecked = true;
+    return playwrightChrome;
+  }
+
+  // 4. 시스템 Chrome 찾기
   const systemChrome = findSystemChrome();
   if (systemChrome) {
     cachedChromePath = systemChrome;

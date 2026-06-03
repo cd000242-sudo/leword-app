@@ -520,7 +520,12 @@ export async function launchCompatibleBrowser(options: any = {}): Promise<any> {
     ...getPuppeteerLaunchOptions({ headless: options.headless === false ? false : true }),
     ...options,
   });
-  const rawBrowser = await engine.chromium.launch(launchOptions);
+  let rawBrowser: any;
+  try {
+    rawBrowser = await engine.chromium.launch(launchOptions);
+  } catch (err: any) {
+    throw classifyLaunchError(err, launchOptions.executablePath);
+  }
   const browser = adaptBrowser(rawBrowser, engine.engine, {
     ignoreHTTPSErrors: true,
     locale: 'ko-KR',
