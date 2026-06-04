@@ -26,6 +26,8 @@ const testFiles = [
     path.join(__dirname, '..', 'src', 'utils', '__tests__', 'home-keyword-intent.test.ts'),
     path.join(__dirname, '..', 'src', 'utils', '__tests__', 'home-hunter-splus-floor.test.ts'),
     path.join(__dirname, '..', 'src', 'utils', '__tests__', 'category-discovery-regression.test.ts'),
+    path.join(__dirname, '..', 'src', 'utils', '__tests__', 'fresh-issue-golden-seeds.test.ts'),
+    path.join(__dirname, '..', 'src', 'utils', '__tests__', 'golden-keyword-precision.test.ts'),
     path.join(__dirname, '..', 'src', 'utils', '__tests__', 'golden-discovery-floor.test.ts'),
     path.join(__dirname, '..', 'src', 'utils', '__tests__', 'golden-category-sss-100run.test.ts'),
     path.join(__dirname, '..', 'src', 'utils', '__tests__', 'pro-traffic-floor.test.ts'),

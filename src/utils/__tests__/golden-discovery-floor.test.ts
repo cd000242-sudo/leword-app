@@ -107,6 +107,38 @@ assert('quick preview category scan stays bounded for 10-result requests',
 const unlimitedRanked = rankGoldenDiscoveryResults([...lower, ...sss], 30, true);
 assert('unlimited mode does not clamp result count', unlimitedRanked.length === lower.length + sss.length, `${unlimitedRanked.length}`);
 
+const bulkSss = Array.from({ length: 130 }, (_, i) => ({
+  keyword: `bulk SSS candidate ${i + 1}`,
+  grade: 'SSS',
+  score: 98 - i * 0.01,
+  searchVolume: 1500 + i * 20,
+  documentCount: 100 + i,
+  goldenRatio: 9 - i * 0.01,
+}));
+
+const bulkRanked = rankGoldenDiscoveryResults([...lower, ...bulkSss], 100, false);
+assert('bulk mode returns 100 visible results when 100 SSS candidates exist',
+  bulkRanked.length === 100,
+  `${bulkRanked.length}`);
+assert('bulk mode keeps all visible 100 results as SSS when enough SSS exists',
+  countSss(bulkRanked) === 100 && bulkRanked.every(item => item.grade === 'SSS'),
+  `${countSss(bulkRanked)} / ${bulkRanked.map(item => item.grade).join(',')}`);
+
+const bulkSssTracker = createGoldenSssTargetTracker(100);
+for (let i = 0; i < 99; i++) bulkSssTracker.add(bulkSss[i]);
+assert('bulk SSS tracker does not stop before 100 unique SSS keywords',
+  bulkSssTracker.uniqueSssCount === 99 && !bulkSssTracker.shouldStop(),
+  `${bulkSssTracker.uniqueSssCount}`);
+bulkSssTracker.add(bulkSss[99]);
+assert('bulk SSS tracker stops at 100 unique SSS keywords',
+  bulkSssTracker.uniqueSssCount === 100 && bulkSssTracker.shouldStop(),
+  `${bulkSssTracker.uniqueSssCount}`);
+
+const bulkCategoryScanLimit = getGoldenDiscoveryScanLimit(100, false, 720, { categoryFirst: true });
+assert('bulk category scan limit is deep enough for a 100 SSS target',
+  bulkCategoryScanLimit >= 8000,
+  `${bulkCategoryScanLimit}`);
+
 console.log(`\n[golden-discovery-floor.test] passed: ${passed} / failed: ${failed}`);
 if (failed > 0) {
   failures.forEach(f => console.error('  ' + f));

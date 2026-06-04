@@ -4,6 +4,7 @@ import { classifyKeywordIntent, getNaverKeywordSearchVolumeSeparate, getNaverSer
 import { getNaverAutocompleteKeywords } from './naver-autocomplete';
 import { estimateCPC, calculatePurchaseIntent, calculateCompetitionLevel, CATEGORY_CPC_DATABASE } from './profit-golden-keyword-engine';
 import { classifyKeyword, isKeywordMatchingCategory } from './categories';
+import { assessGoldenKeywordPrecision } from './golden-keyword-precision';
 
 /**
  * Master Discovery Protocol (MDP) Engine v4.0
@@ -428,8 +429,24 @@ export class MDPEngine {
 
                         // B등급 미만 필터링
                         if ((rawGrade === 'C' || rawGrade === 'D') && !includeMeasuredFallback) continue;
-                        const grade: GoldenGrade = measurementOnly ? 'B' : rawGrade;
-                        const scoreForDisplay = measurementOnly ? Math.max(45, clampedScore) : clampedScore;
+                        let grade: GoldenGrade = measurementOnly ? 'B' : rawGrade;
+                        let scoreForDisplay = measurementOnly ? Math.max(45, clampedScore) : clampedScore;
+                        const precision = assessGoldenKeywordPrecision({
+                            keyword: sig.keyword,
+                            grade,
+                            score: scoreForDisplay,
+                            searchVolume: totalVolume,
+                            documentCount: docCount,
+                            goldenRatio,
+                            categoryIds,
+                            categoryStrict,
+                            measurementOnly,
+                        });
+                        if (!precision.ok) {
+                            if (!includeMeasuredFallback) continue;
+                            grade = 'B';
+                            scoreForDisplay = Math.min(74, Math.max(45, scoreForDisplay));
+                        }
 
                         // 황금 사유 생성
                         const goldenReason = measurementOnly

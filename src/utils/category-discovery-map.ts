@@ -1,4 +1,4 @@
-import { getCategorySeeds, isKeywordMatchingCategory } from './categories';
+import { CATEGORY_MAP, getCategorySeeds, isKeywordMatchingCategory } from './categories';
 import { getEnhancedCategoryGoldenKeywords } from './profit-keyword-hunter-upgrade';
 
 const CATEGORY_ALIASES: Record<string, string[]> = {
@@ -215,4 +215,30 @@ export function getDiscoveryCategorySeeds(category: string | undefined | null, m
   }
 
   return unique([...baseSeeds, ...expanded]).slice(0, maxSeeds);
+}
+
+export function getCrossCategoryDiscoverySeeds(excludedCategoryIds: string[] = [], maxSeeds = 240): string[] {
+  const excluded = new Set((excludedCategoryIds || []).map(id => String(id || '').trim()).filter(Boolean));
+  const categoryIds = Array.from(CATEGORY_MAP.values())
+    .map(category => category.id)
+    .filter(id => id && id !== 'all' && id !== 'pro_premium' && !excluded.has(id));
+
+  const out: string[] = [];
+  const perCategoryBaseLimit = Math.max(3, Math.min(8, Math.ceil(maxSeeds / Math.max(1, categoryIds.length))));
+  for (const id of categoryIds) {
+    const seeds = unique([
+      ...getCategorySeeds(id),
+      ...getEnhancedCategoryGoldenKeywords(id),
+    ]).slice(0, perCategoryBaseLimit);
+    for (const seed of seeds) {
+      out.push(seed);
+      const hasIntent = SEED_EXTRA_SUFFIXES.some(suffix => seed.includes(suffix));
+      if (hasIntent) continue;
+      for (const suffix of SEED_EXTRA_SUFFIXES.slice(0, 2)) {
+        out.push(`${seed} ${suffix}`);
+      }
+    }
+  }
+
+  return unique(out).slice(0, maxSeeds);
 }

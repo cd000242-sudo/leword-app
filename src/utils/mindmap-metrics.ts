@@ -74,6 +74,22 @@ function readNumber(value: unknown): number | null {
   return Number.isFinite(value) ? value : null;
 }
 
+function formatMindmapMetricRatio(value: number): string {
+  if (!Number.isFinite(value)) return '-';
+  if (value <= 0) return '0.00';
+  if (value < 0.01) return '< 0.01';
+  return value.toFixed(2);
+}
+
+function formatMindmapVolumeRange(lowerBound: number, hiddenCap: number): string {
+  if (hiddenCap <= 0) return lowerBound.toLocaleString();
+  if (lowerBound <= 0) return `< ${hiddenCap}`;
+
+  const upperExclusive = lowerBound + hiddenCap;
+  const upperInclusive = Math.max(lowerBound, upperExclusive - 1);
+  return `${lowerBound.toLocaleString()}~${upperInclusive.toLocaleString()}`;
+}
+
 export function buildMindmapMeasuredKeywordItem(
   metric: RawMindmapMetric,
   options: { seed?: string; isSeed?: boolean; depth: number },
@@ -99,8 +115,7 @@ export function buildMindmapMeasuredKeywordItem(
 
   let searchVolumeDisplay = '-';
   if (volumeKnown) {
-    if (isRange && lowerBound === 0) searchVolumeDisplay = `< ${hiddenCap}`;
-    else if (isRange) searchVolumeDisplay = `${lowerBound.toLocaleString()}+`;
+    if (isRange) searchVolumeDisplay = formatMindmapVolumeRange(lowerBound, hiddenCap);
     else searchVolumeDisplay = lowerBound.toLocaleString();
   }
 
@@ -112,9 +127,16 @@ export function buildMindmapMeasuredKeywordItem(
   let goldenRatioDisplay = '-';
   if (documentCount > 0 && searchVolume !== null) {
     if (isRange && lowerBound === 0 && hiddenCap > 0) {
-      goldenRatioDisplay = `< ${(hiddenCap / documentCount).toFixed(2)}`;
+      goldenRatioDisplay = `< ${formatMindmapMetricRatio(hiddenCap / documentCount).replace(/^<\s*/, '')}`;
+    } else if (isRange && hiddenCap > 0) {
+      const lowerRatioText = formatMindmapMetricRatio(lowerBound / documentCount);
+      const upperInclusive = Math.max(lowerBound, (upperBound || lowerBound) - 1);
+      const upperRatioText = formatMindmapMetricRatio(upperInclusive / documentCount);
+      goldenRatioDisplay = lowerRatioText === upperRatioText
+        ? lowerRatioText
+        : `${lowerRatioText}~${upperRatioText}`;
     } else {
-      goldenRatioDisplay = ratio.toFixed(2);
+      goldenRatioDisplay = formatMindmapMetricRatio(ratio);
     }
   }
 

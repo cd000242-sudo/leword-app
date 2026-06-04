@@ -6963,6 +6963,9 @@
             const gradeColors = { 'SSS': '#dc2626', 'SS': '#ea580c', 'S': '#22c55e', 'A': '#3b82f6', 'B': '#fbbf24' };
             const gradeValue = item.grade || '';
             const gradeColor = gradeColors[gradeValue] || '#94a3b8';
+            const supplementBadge = item.crossCategorySupplement
+              ? '<span title="선택 카테고리 SSS 부족분을 전체 카테고리에서 보충한 후보" style="display:inline-block; margin-left:6px; background:rgba(99,102,241,0.12); color:#4f46e5; border:1px solid rgba(99,102,241,0.28); padding:2px 6px; border-radius:5px; font-size:10px; font-weight:800;">보충</span>'
+              : '';
 
             // 판정 (goldenReason + blueOcean)
             const goldenReason = item.goldenReason || '';
@@ -6989,7 +6992,7 @@
             <td style="padding: 12px 10px; font-weight: 700; color: #94a3b8; font-size:12px;">${idx + 1}</td>
             <td style="padding: 12px 10px; text-align: center;">${gradeValue ? '<span style="background: ' + gradeColor + '; color: white; padding: 3px 8px; border-radius: 6px; font-size: 11px; font-weight: 800;">' + gradeValue + '</span>' : ''}</td>
             <td style="padding: 12px 10px;">
-              <div style="font-weight: 700; color: #1e293b; font-size:14px;">${item.keyword}</div>
+              <div style="font-weight: 700; color: #1e293b; font-size:14px;">${item.keyword}${supplementBadge}</div>
               <div style="font-size: 10px; color: #64748b;">${item.intentBadge || ''} ${item.intent || 'Info'}</div>
             </td>
             <td style="padding: 12px 10px; text-align: center;">${serpBadges}</td>
@@ -7028,10 +7031,12 @@
           // 등급별 통계 요약
           const gradeCounts = { SSS: 0, SS: 0, S: 0, A: 0, B: 0 };
           let blueOceanCount = 0;
+          let supplementCount = 0;
           results.forEach(item => {
             const g = item.grade || '';
             if (gradeCounts.hasOwnProperty(g)) gradeCounts[g]++;
             if (item.isBlueOcean) blueOceanCount++;
+            if (item.crossCategorySupplement) supplementCount++;
           });
 
           html += `
@@ -7040,6 +7045,7 @@
           <span><span style="background: #ea580c; color: white; padding: 2px 6px; border-radius: 4px; font-size: 10px; font-weight: 800;">SS</span> ${gradeCounts.SS}개</span>
           <span><span style="background: #22c55e; color: white; padding: 2px 6px; border-radius: 4px; font-size: 10px; font-weight: 800;">S</span> ${gradeCounts.S}개</span>
           <span>🌊 블루오션: ${blueOceanCount}개</span>
+          ${supplementCount > 0 ? `<span><span style="background:rgba(99,102,241,0.12); color:#4f46e5; border:1px solid rgba(99,102,241,0.28); padding:2px 6px; border-radius:4px; font-size:10px; font-weight:800;">보충</span> ${supplementCount}개</span>` : ''}
         </div>
       `;
 
@@ -11544,6 +11550,9 @@
               const isSeed = it.isSeed;
               const depthMark = it.depth === 5 ? '🎄' : it.depth === 4 ? '🌲' : it.depth === 3 ? '🌳' : it.depth === 2 ? '🌿' : '🌱';
               const svDisplay = it.searchVolumeDisplay || (typeof it.searchVolume === 'number' ? (it.searchVolume === 0 ? '< 20' : it.searchVolume.toLocaleString()) : '-');
+              const svTitle = it.searchVolumeIsRange
+                ? `네이버 SearchAd가 10 미만 값을 숨겨 범위로 표시합니다. 하한 ${it.searchVolumeLowerBound ?? 0}, 상한 ${it.searchVolumeUpperBound ? it.searchVolumeUpperBound - 1 : '?'}`
+                : '네이버 SearchAd API 실측 검색량';
               const ratioDisplay = it.goldenRatioDisplay || (typeof it.goldenRatio === 'number' && isFinite(it.goldenRatio) ? it.goldenRatio.toFixed(2) : '-');
               return `
                 <tr style="border-bottom:1px solid rgba(255,255,255,0.06); ${isSeed ? 'background:rgba(168,85,247,0.08);' : ''}">
@@ -11553,7 +11562,7 @@
                     <span style="background:${gradeColor[it.grade] || '#64748b'}; color:#fff; padding:3px 8px; border-radius:6px; font-size:11px; font-weight:800; margin-left:4px;">${it.grade}</span>
                   </td>
                   <td style="padding:10px 8px; font-weight:700; color:#fff; font-size:14px;">${it.keyword}</td>
-                  <td style="padding:10px 8px; text-align:right; color:#f1f5f9; font-weight:600;">${svDisplay}</td>
+                  <td title="${svTitle}" style="padding:10px 8px; text-align:right; color:#f1f5f9; font-weight:600;">${svDisplay}</td>
                   <td style="padding:10px 8px; text-align:right; color:#cbd5e1;">${(it.documentCount || 0).toLocaleString()}</td>
                   <td style="padding:10px 8px; text-align:right; font-weight:800; color:${ratioColor(it.goldenRatio)};">${ratioDisplay}</td>
                   <td style="padding:10px 8px; text-align:right; color:#22c55e; font-weight:600;">${it.cpc > 0 ? '₩' + it.cpc.toLocaleString() : '<span style="color:#64748b;">-</span>'}</td>

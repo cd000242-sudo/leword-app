@@ -45,10 +45,33 @@ export function rankMindmapExpansionCandidates(
     normalized.push({ ...candidate, keyword });
   }
 
-  return rankKeywordExpansionCandidates(seed, normalized, {
+  const primaryRanked = rankKeywordExpansionCandidates(seed, normalized, {
     limit: safeLimit,
     minScore: 30,
     fallbackMinScore: 22,
     minKeep: Math.min(8, safeLimit),
   });
+
+  if (primaryRanked.length >= safeLimit) return primaryRanked.slice(0, safeLimit);
+
+  const intentBackfill = rankKeywordExpansionCandidates(seed, [], {
+    limit: safeLimit,
+    minScore: 30,
+    fallbackMinScore: 22,
+    minKeep: Math.min(12, safeLimit),
+    ensureIntentCoverage: true,
+    intentCoverageMin: Math.min(24, Math.max(8, safeLimit)),
+  });
+
+  const seenKeys = new Set(primaryRanked.map(item => compactKeyword(item.keyword)));
+  const merged = [...primaryRanked];
+  for (const item of intentBackfill) {
+    const key = compactKeyword(item.keyword);
+    if (!key || seenKeys.has(key)) continue;
+    seenKeys.add(key);
+    merged.push(item);
+    if (merged.length >= safeLimit) break;
+  }
+
+  return merged.slice(0, safeLimit);
 }

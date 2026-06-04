@@ -7,6 +7,7 @@
 
 import {
   filterFocusedProfileCategoryIds,
+  getCrossCategoryDiscoverySeeds,
   getDiscoveryCategorySeeds,
   matchesDiscoveryCategory,
   resolveDiscoveryCategoryIds,
@@ -270,6 +271,14 @@ assert('celeb matcher accepts star issue keywords',
   matchesDiscoveryCategory('아이돌 컴백 일정 팬미팅', 'celeb'));
 assert('policy matcher rejects unrelated fashion keyword',
   !matchesDiscoveryCategory('여름 원피스 코디 추천', 'policy'));
+
+const crossCategorySeeds = getCrossCategoryDiscoverySeeds(['policy'], 120);
+assert('cross-category supplement seeds provide broad non-primary coverage',
+  crossCategorySeeds.length >= 100,
+  `${crossCategorySeeds.length}`);
+assert('cross-category supplement excludes primary category seed family',
+  !crossCategorySeeds.slice(0, 80).some(seed => matchesDiscoveryCategory(seed, 'policy')),
+  crossCategorySeeds.slice(0, 20).join(', '));
 
 console.log(`\n[category-discovery-regression.test] passed: ${passed} / failed: ${failed}`);
 if (failed > 0) {

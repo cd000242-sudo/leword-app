@@ -22,6 +22,7 @@ const proTrafficCountSelect = html.match(/<select id="proTrafficCount"[\s\S]*?<\
 const sourceSignals = fs.readFileSync(path.join(__dirname, '..', '..', 'main', 'handlers', 'source-signals.ts'), 'utf8');
 const premiumHunting = fs.readFileSync(path.join(__dirname, '..', '..', 'main', 'handlers', 'premium-hunting.ts'), 'utf8');
 const configUtility = fs.readFileSync(path.join(__dirname, '..', '..', 'main', 'handlers', 'config-utility.ts'), 'utf8');
+const keywordAnalysis = fs.readFileSync(path.join(__dirname, '..', '..', 'main', 'handlers', 'keyword-analysis.ts'), 'utf8');
 const keywordDiscovery = fs.readFileSync(path.join(__dirname, '..', '..', 'main', 'handlers', 'keyword-discovery.ts'), 'utf8');
 const exposureTracking = fs.readFileSync(path.join(__dirname, '..', '..', 'main', 'handlers', 'exposure-tracking.ts'), 'utf8');
 const bloggerProfile = fs.readFileSync(path.join(__dirname, '..', 'blogger-profile.ts'), 'utf8');
@@ -135,8 +136,35 @@ assert('seedless 10-result golden discovery takes the ultra-fast path',
     && /seedlessQuickPreview\s*\?\s*120/.test(keywordDiscovery)
     && /const\s+quickLiveSeedTimeoutMs\s*=\s*quickPreview[\s\S]{0,120}seedlessQuickPreview\s*\?\s*1000\s*:\s*1200[\s\S]{0,80}3500/.test(keywordDiscovery)
     && /const\s+effectiveScanLimit\s*=\s*quickPreview[\s\S]{0,120}Math\.min\(seedlessQuickPreview\s*\?\s*180\s*:\s*240,\s*scanLimit\)/.test(keywordDiscovery)
-    && /maxProcessedSeeds:\s*seedlessQuickPreview[\s\S]{0,180}Math\.min\(categorySeeds\.length,\s*seedlessQuickPreview\s*\?\s*14\s*:\s*24\)/.test(keywordDiscovery),
+    && /maxProcessedSeeds:\s*seedlessQuickPreview[\s\S]{0,180}Math\.min\(discoverySeedCount,\s*seedlessQuickPreview\s*\?\s*14\s*:\s*24\)/.test(keywordDiscovery),
   'empty-seed 10-result mode can still wait on deep category discovery budgets');
+
+assert('golden discovery injects fresh issue radar seeds into MDP discovery',
+  /buildFreshIssueGoldenSeeds/.test(keywordDiscovery)
+    && /externalSignalMapForSeeds\s*=\s*sigMap/.test(keywordDiscovery)
+    && /freshIssueSeedRecords/.test(keywordDiscovery)
+    && /combinedDiscoverySeeds/.test(keywordDiscovery)
+    && /seedKeywords:\s*categoryFirstMode[\s\S]{0,260}combinedDiscoverySeeds/.test(keywordDiscovery)
+    && /freshIssueSeedCount/.test(keywordDiscovery)
+    && /급상승\s*\$\{freshIssueSeedRecords\.length\}개/.test(keywordDiscovery),
+  'daily fresh issue signals can still remain score-only instead of becoming discovery seeds');
+
+assert('MDP SSS results pass the golden precision gate before yield',
+  /assessGoldenKeywordPrecision/.test(mdpEngine)
+    && /const\s+precision\s*=\s*assessGoldenKeywordPrecision\(\{[\s\S]{0,260}keyword:\s*sig\.keyword/.test(mdpEngine)
+    && /if\s*\(!precision\.ok\)\s*\{[\s\S]{0,120}if\s*\(!includeMeasuredFallback\)\s*continue/.test(mdpEngine)
+    && /grade\s*=\s*'B'/.test(mdpEngine),
+  'SSS candidates can still bypass semantic precision checks');
+
+assert('golden discovery backfills category shortages from other categories with explicit supplement tags',
+  /getCrossCategoryDiscoverySeeds/.test(keywordDiscovery)
+    && /shouldRunCrossCategorySupplement/.test(keywordDiscovery)
+    && /crossCategorySupplement:\s*true/.test(keywordDiscovery)
+    && /primaryCategoryMatched:\s*false/.test(keywordDiscovery)
+    && /crossCategorySupplementCount/.test(keywordDiscovery)
+    && /보충/.test(html)
+    && /item\.crossCategorySupplement/.test(html),
+  'category shortage backfill can disappear or become indistinguishable in the UI');
 
 assert('golden discovery writes live progress events into the visible log panel',
   /window\.lewordLastGoldenDiscoveryProgressLog/.test(html)
@@ -150,7 +178,7 @@ assert('golden discovery writes live progress events into the visible log panel'
 assert('golden discovery backend emits scan-stage progress instead of waiting for result chunks',
   /sendDiscoveryProgress\(/.test(keywordDiscovery)
     && /외부 트렌드 신호/.test(keywordDiscovery)
-    && /시드 \$\{categorySeeds\.length\}개 확보/.test(keywordDiscovery)
+    && /시드 \$\{discoverySeedCount\}개 확보[\s\S]{0,120}급상승/.test(keywordDiscovery)
     && /discoveryOptions\.onProgress\s*=/.test(keywordDiscovery)
     && /maxCheckedSignals:\s*effectiveScanLimit/.test(keywordDiscovery),
   'golden discovery backend progress events are too sparse');
@@ -189,7 +217,7 @@ assert('manual 10-result golden discovery uses quick budgets too',
   /const\s+quickSignalMap\s*=\s*quickPreview\s*\?/.test(keywordDiscovery)
     && /const\s+quickLiveSeedTimeoutMs\s*=\s*quickPreview[\s\S]{0,120}1200/.test(keywordDiscovery)
     && /const\s+effectiveScanLimit\s*=\s*quickPreview[\s\S]{0,120}Math\.min\(seedlessQuickPreview\s*\?\s*180\s*:\s*240,\s*scanLimit\)/.test(keywordDiscovery)
-    && /Math\.min\(categorySeeds\.length,\s*seedlessQuickPreview\s*\?\s*14\s*:\s*24\)/.test(keywordDiscovery),
+    && /Math\.min\(discoverySeedCount,\s*seedlessQuickPreview\s*\?\s*14\s*:\s*24\)/.test(keywordDiscovery),
   'typed-keyword 10-result mode can still run the slow deep category scan');
 
 assert('golden discovery UI stops after completion and displays MDP searchVolume fallback',
@@ -320,6 +348,20 @@ assert('mindmap metrics require complete Naver SearchAd credentials and preserve
     && /const\s+svDisplay\s*=\s*it\.searchVolumeDisplay\s*\|\|/.test(html)
     && /it\.searchVolume\s*===\s*0\s*\?\s*'< 20'/.test(html),
   'mindmap metrics can silently run with partial API keys or display hidden low volume as raw zero');
+
+assert('keyword lookup returns measured search volume and document count fields',
+  /const\s+shouldComputeMetrics\s*=\s*hasNaverApiKeys\s*&&\s*!isUnlimited/.test(keywordAnalysis)
+    && /getNaverKeywordSearchVolumeSeparate[\s\S]{0,180}includeDocumentCount:\s*false/.test(keywordAnalysis)
+    && /const\s+fetchDocumentCount\s*=\s*async\s*\(keyword:\s*string/.test(keywordAnalysis)
+    && /documentCount:\s*typeof\s+k\.documentCount\s*===\s*'number'\s*\?\s*k\.documentCount\s*:\s*null/.test(keywordAnalysis),
+  'general keyword lookup can return rows without measured search-volume/document-count fields');
+
+assert('mindmap expansion shares ranked intent backfill and measured metric pipeline',
+  /rankKeywordExpansionCandidates\(seed,\s*normalized/.test(fs.readFileSync(path.join(__dirname, '..', 'mindmap-expansion-quality.ts'), 'utf8'))
+    && /rankKeywordExpansionCandidates\(seed,\s*\[\],\s*\{[\s\S]{0,240}ensureIntentCoverage:\s*true/.test(fs.readFileSync(path.join(__dirname, '..', 'mindmap-expansion-quality.ts'), 'utf8'))
+    && /getNaverKeywordSearchVolumeSeparate\(config,\s*d1Pool,\s*\{\s*includeDocumentCount:\s*true\s*\}\)/.test(sourceSignals)
+    && /\.filter\(isMindmapDisplayMetric\)/.test(sourceSignals),
+  'mindmap can diverge from common intent expansion or expose unmeasured rows');
 
 assert('legacy recursive direct blogger calls stay disabled after ranked helper migration',
   /if\s*\(false\s*&&\s*window\.blogger\s*&&\s*typeof\s+window\.blogger\.getRelatedKeywords/.test(infiniteExtractionBlock)

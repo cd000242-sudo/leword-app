@@ -67,6 +67,7 @@ const TRAILING_INTENTS = [
   '신청방법', '하는방법', '하는법', '복용시간', '주의사항',
   '추천', '후기', '리뷰', '가격', '비용', '비교', '순위', '랭킹',
   '신청', '조건', '대상', '자격', '조회', '확인', '서류', '지급일',
+  '혜택', '지원내용', '지원금액', '금액', '소득기준', '선정기준', '문의처', '전화번호', '마감',
   '방법', '효능', '효과', '부작용', '성분', '복용법', '사이즈',
   '할인', '쿠폰', '코디', '세탁', '관리', '사용법', '전기세',
   '소음', '용량', '평수', '청소', '물통', '곰팡이', '냄새', '위치', '원룸', '단점',
@@ -80,7 +81,7 @@ function stripTrailingIntent(seed: string): string {
   return out || normalizeKeyword(seed);
 }
 
-type ExpansionDomain = 'policy' | 'supplement' | 'footwear' | 'home-appliance' | 'entertainment' | 'generic';
+type ExpansionDomain = 'policy' | 'supplement' | 'footwear' | 'home-appliance' | 'entertainment' | 'incident' | 'generic';
 export type PracticalIntentGroup =
   | 'eligibility'
   | 'apply'
@@ -106,6 +107,9 @@ function detectExpansionDomain(seed: string, corpus = ''): ExpansionDomain {
   const compacted = compactKeyword(`${seed} ${corpus}`);
   if (/지원금|보조금|지원사업|정부지원|정책브리핑|정부24|보조금24|바우처|장려금|근로장려금|자녀장려금|급여|수당|기초연금|실업급여|주거급여|긴급복지|생계지원|소상공인|자영업자|청년월세|취업지원|에너지바우처|문화누리카드|민생회복|소비쿠폰|지역화폐|환급금/.test(compacted)) {
     return 'policy';
+  }
+  if (/정보유출|개인정보|유출사고|유출|해킹|보안사고|침해사고|침해|피싱|스미싱|랜섬웨어|계정도용|명의도용|사칭|2차피해|피해확인|피해조회/.test(compacted)) {
+    return 'incident';
   }
   if (/영양제|건강기능식품|건기식|비타민|오메가3|유산균|프로바이오틱스|루테인|밀크씨슬|마그네슘|칼슘|철분|아연|엽산|콜라겐|홍삼/.test(compacted)) {
     return 'supplement';
@@ -156,9 +160,9 @@ function inferExpansionDomain(seed: string, candidates: RelatedCandidateInput[])
   const mediaContextCount = (corpus.match(/사진|이미지|움짤|갤러리|배경화면|기사|뉴스/g) || []).length;
   const looksLikeShortKoreanName = /^[가-힣]{2,8}$/.test(normalizedSeed)
     && !seedIsKnownNonPerson;
-  const seedHasHardNonEntertainmentIntent = /지원금|보조금|신청|조건|자격|서류|가격|추천|후기|사이즈|복용|성분|효능/.test(compactKeyword(seed));
+  const seedHasHardNonEntertainmentIntent = /지원금|보조금|신청|조건|자격|서류|가격|추천|후기|사이즈|복용|성분|효능|정보유출|개인정보|유출|해킹|피싱|스미싱|피해/.test(compactKeyword(seed));
   const hardNonEntertainmentCandidateCount = corpusKeywords.filter(keyword =>
-    /지원금|보조금|신청|조건|자격|서류|가격|추천|후기|사이즈|복용|성분|효능/.test(compactKeyword(keyword)),
+    /지원금|보조금|신청|조건|자격|서류|가격|추천|후기|사이즈|복용|성분|효능|정보유출|개인정보|유출|해킹|피싱|스미싱|피해/.test(compactKeyword(keyword)),
   ).length;
   const hasHardNonEntertainmentIntent = seedHasHardNonEntertainmentIntent || hardNonEntertainmentCandidateCount >= 2;
   if (looksLikeShortKoreanName && mediaContextCount >= 3 && !hasHardNonEntertainmentIntent) {
@@ -168,13 +172,36 @@ function inferExpansionDomain(seed: string, candidates: RelatedCandidateInput[])
   return 'generic';
 }
 
+function isAwkwardExpansionForDomain(seed: string, keyword: string, domain: ExpansionDomain): boolean {
+  const seedKey = compactKeyword(seed);
+  const keywordKey = compactKeyword(keyword);
+  if (!seedKey || !keywordKey) return false;
+
+  const tail = keywordKey.startsWith(seedKey)
+    ? keywordKey.slice(seedKey.length)
+    : keywordKey;
+
+  if (/장(방법|가격|비교|추천|후기|리뷰|순위|정보|장단점)/.test(tail)) return true;
+  if (
+    (domain === 'incident' || domain === 'policy')
+    && /(가격|비용|추천|후기|리뷰|비교|순위|랭킹|최저가|할인|구매|판매|견적|장단점)$/.test(tail)
+  ) return true;
+  return false;
+}
+
 const DOMAIN_INTENTS: Record<ExpansionDomain, string[]> = {
-  policy: ['대상', '지급일', '신청기간', '조건', '자격', '신청', '서류', '필요서류', '지원내용', '소득기준', '조회', '마감', '신청방법', '온라인신청', '지역별', '선정기준', '홈페이지', '전화번호', '발표일', '2026'],
+  policy: [
+    '신청방법', '자격', '대상', '혜택', '지원내용', '지원금액', '조건', '신청기간',
+    '지급일', '서류', '필요서류', '소득기준', '선정기준', '조회', '결과 확인',
+    '마감', '온라인 신청', '홈페이지', '문의처', '전화번호', '지역별', '중복 지원',
+    '제외 대상', '주의사항', '변경사항', '발표일', '2026'
+  ],
   supplement: ['후기', '추천', '복용법', '부작용', '성분', '효능', '복용시간', '가격', '비교', '주의사항', '먹는법', '추천대상'],
   footwear: ['추천', '후기', '가격', '사이즈', '비교', '코디', '세탁', '관리', '착용감', '할인', '쿠션', '발볼'],
   'home-appliance': ['추천', '후기', '전기세', '소음', '용량', '평수', '청소', '관리', '물통', '곰팡이', '위치', '원룸', '비교', '가격', '사용법', '단점'],
   entertainment: ['프로필', '인스타', '출연', '나이', '근황', '소속사', '공식입장', '드라마', '예능', '일정', '팬미팅', '예매', '티켓팅', '라인업', '출연진', '방송시간', '다시보기'],
-  generic: ['추천', '후기', '가격', '비교', '방법', '장단점', '주의사항', '체크리스트', '2026', '최신'],
+  incident: ['확인', '피해 확인', '피해 조회', '공지', '보상', '대응', '대처', '원인', '고객센터', '신고', '비밀번호 변경', '계정 보호', '2차 피해', '피싱 문자', '스미싱', '탈퇴', '환불'],
+  generic: ['방법', '뜻', '원인', '해결', '주의사항', '체크리스트', '사례', 'FAQ', '최신', '정리', '종류', '문제', '대처', '확인'],
 };
 
 const DOMAIN_INTENT_GROUP_ORDER: Record<ExpansionDomain, PracticalIntentGroup[]> = {
@@ -183,7 +210,8 @@ const DOMAIN_INTENT_GROUP_ORDER: Record<ExpansionDomain, PracticalIntentGroup[]>
   footwear: ['review', 'price', 'comparison', 'usage'],
   'home-appliance': ['review', 'price', 'risk', 'usage', 'comparison'],
   entertainment: ['profile', 'appearance', 'timing', 'watch', 'reaction'],
-  generic: ['review', 'comparison', 'price', 'usage', 'risk'],
+  incident: ['lookup', 'risk', 'usage', 'criteria', 'timing'],
+  generic: ['usage', 'lookup', 'risk', 'criteria', 'comparison', 'review'],
 };
 
 export function classifyPracticalIntentGroup(
@@ -202,8 +230,8 @@ export function classifyPracticalIntentGroup(
     if (/신청|접수|온라인신청|방법|홈페이지/.test(kw)) return 'apply';
     if (/기간|마감|지급일|일정|발표일|언제/.test(kw)) return 'timing';
     if (/서류|준비물|필요서류|제출/.test(kw)) return 'documents';
-    if (/조회|확인|결과|발표|전화번호/.test(kw)) return 'lookup';
-    if (/소득|기준|금액|선정|내역|지원금액/.test(kw)) return 'criteria';
+    if (/조회|확인|결과|발표|전화번호|문의처/.test(kw)) return 'lookup';
+    if (/혜택|지원내용|소득|기준|금액|선정|내역|지원금액|중복지원/.test(kw)) return 'criteria';
   }
 
   if (domain === 'supplement') {
@@ -238,10 +266,20 @@ export function classifyPracticalIntentGroup(
     if (/반응|근황|논란|열애설|팬|후기/.test(kw)) return 'reaction';
   }
 
+  if (domain === 'incident') {
+    if (/확인|조회|공지|명단|유출여부|대상/.test(kw)) return 'lookup';
+    if (/피해|2차피해|피싱|스미싱|도용|사칭|해킹|침해/.test(kw)) return 'risk';
+    if (/대응|대처|신고|비밀번호|변경|탈퇴|복구|차단|계정보호/.test(kw)) return 'usage';
+    if (/보상|배상|환불|쿠폰|고객센터|문의/.test(kw)) return 'criteria';
+    if (/언제|일정|발표|날짜/.test(kw)) return 'timing';
+  }
+
   if (/후기|추천|리뷰/.test(kw)) return 'review';
   if (/비교|순위|차이/.test(kw)) return 'comparison';
   if (/가격|비용|할인/.test(kw)) return 'price';
-  if (/방법|사용법|체크리스트|하는법/.test(kw)) return 'usage';
+  if (/방법|사용법|체크리스트|하는법|해결|원인/.test(kw)) return 'usage';
+  if (/뜻|의미|확인|조회|faq|질문/.test(kw)) return 'lookup';
+  if (/사례|기준|정리|요약/.test(kw)) return 'criteria';
   if (/주의|부작용|위험/.test(kw)) return 'risk';
   return 'generic';
 }
@@ -332,6 +370,13 @@ export function rankKeywordExpansionCandidates(
   );
 
   let inferredDomain = inferExpansionDomain(seed, Array.from(normalizedByKey.values()));
+  if (inferredDomain === 'incident' || inferredDomain === 'policy' || inferredDomain === 'generic') {
+    for (const [key, candidate] of normalizedByKey) {
+      if (isAwkwardExpansionForDomain(seed, candidate.keyword, inferredDomain)) {
+        normalizedByKey.delete(key);
+      }
+    }
+  }
 
   const rankNormalized = (minScore: number) => rankRelatedKeywordCandidates(seed, Array.from(normalizedByKey.values()), {
     limit: Math.max(limit, 120),

@@ -339,10 +339,23 @@ export function setupKeywordAnalysisHandlers(): void {
         const seedWord = trimmedKeyword.split(' ')[0].toLowerCase();
         const PERSON_CONTEXT_RE = /(나이|부모|가족|아버지|어머니|엄마|아빠|형제|프로필|인스타|근황|출연|출연진|예능|드라마|다시보기|방송시간|유튜브|배우|가수|개그맨|셰프|작가|감독|선수|아이돌|소속사|학력|고향|일정|팬미팅|공식입장)/;
         const NON_PERSON_SINGLE_TOKEN_RE = /(제네시스|카니발|아반떼|쏘렌토|아이오닉|그랜저|임플란트|에어컨|냉장고|세탁기|청소기|제습기|영양제|비타민|유산균|오메가|노트북|운동화|향수|화장품|지원금|보조금|대출|보험|부동산|아파트|청약)/;
+        const POLICY_CONTEXT_RE = /(지원금|보조금|지원사업|정부\s*지원|정책브리핑|정부24|보조금24|바우처|장려금|근로장려금|자녀장려금|급여|수당|기초연금|실업급여|주거급여|긴급복지|생계지원|소상공인|자영업자|청년월세|취업지원|에너지바우처|문화누리카드|민생회복|소비쿠폰|지역화폐|환급금)/;
+        const INCIDENT_CONTEXT_RE = /(정보\s*유출|개인정보|유출\s*사고|해킹|보안\s*사고|침해\s*사고|피싱|스미싱|랜섬웨어|계정\s*도용|명의\s*도용|사칭|2차\s*피해|피해\s*확인|피해\s*조회)/;
+        const isPolicyExpansion = POLICY_CONTEXT_RE.test(trimmedKeyword);
+        const isIncidentExpansion = INCIDENT_CONTEXT_RE.test(trimmedKeyword);
         const isLikelyPersonExpansion = (contextKeywords: string[] = []) => {
           if (!/^[가-힣]{2,8}$/.test(trimmedKeyword)) return false;
           if (NON_PERSON_SINGLE_TOKEN_RE.test(trimmedKeyword)) return false;
           return PERSON_CONTEXT_RE.test(`${trimmedKeyword} ${contextKeywords.slice(0, 120).join(' ')}`);
+        };
+        const isAwkwardIncidentKeyword = (kw: string): boolean => {
+          if (!isIncidentExpansion) return false;
+          const compactSeed = trimmedKeyword.replace(/\s+/g, '').toLowerCase();
+          const compactKw = kw.replace(/\s+/g, '').toLowerCase();
+          const tail = compactKw.startsWith(compactSeed) ? compactKw.slice(compactSeed.length) : compactKw;
+          if (/장(방법|가격|비교|추천|후기|리뷰|순위|정보|장단점)/.test(tail)) return true;
+          if (/(가격|비용|추천|후기|리뷰|비교|순위|랭킹|최저가|할인|구매|판매|견적|장단점)$/.test(tail)) return true;
+          return false;
         };
 
         const isValidSearchKeyword = (kw: string): boolean => {
@@ -357,6 +370,7 @@ export function setupKeywordAnalysisHandlers(): void {
 
           // 원본 키워드와 동일하면 제외
           if (trimmed.toLowerCase() === trimmedKeyword.toLowerCase()) return false;
+          if (isAwkwardIncidentKeyword(trimmed)) return false;
 
           // ============================================
           // 2️⃣ 특수문자/기호 필터 (완전 제거)
@@ -1313,6 +1327,16 @@ export function setupKeywordAnalysisHandlers(): void {
             ' 나이', ' 프로필', ' 인스타', ' 출연', ' 예능', ' 다시보기', ' 근황',
             ' 가족', ' 부모', ' 소속사', ' 방송시간', ' 일정', ' 팬미팅', ' 공식입장',
             ' 유튜브', ' 작품', ' 방송'
+          ] : isPolicyExpansion ? [
+            ' 신청방법', ' 자격', ' 대상', ' 혜택', ' 지원내용', ' 지원금액',
+            ' 조건', ' 신청기간', ' 지급일', ' 서류', ' 필요서류', ' 소득기준',
+            ' 선정기준', ' 조회', ' 결과 확인', ' 마감', ' 온라인 신청',
+            ' 홈페이지', ' 문의처', ' 전화번호', ' 지역별', ' 중복 지원',
+            ' 제외 대상', ' 주의사항', ' 변경사항', ' 발표일'
+          ] : isIncidentExpansion ? [
+            ' 확인', ' 확인방법', ' 피해 확인', ' 피해 조회', ' 공지', ' 보상',
+            ' 대응', ' 대처', ' 원인', ' 고객센터', ' 신고', ' 비밀번호 변경',
+            ' 계정 보호', ' 2차 피해', ' 피싱 문자', ' 스미싱', ' 탈퇴', ' 환불'
           ] : [
             // 한글 자모 (14개)
             'ㄱ', 'ㄴ', 'ㄷ', 'ㄹ', 'ㅁ', 'ㅂ', 'ㅅ', 'ㅇ', 'ㅈ', 'ㅊ', 'ㅋ', 'ㅌ', 'ㅍ', 'ㅎ',
@@ -1452,6 +1476,15 @@ export function setupKeywordAnalysisHandlers(): void {
             const extraSuffixes = isPersonExpansion ? [
               ' 영상', ' 방송', ' 무대', ' 사진', ' 인터뷰', ' 팬카페',
               ' 최근', ' 오늘', ' 최신', ' 논란', ' 해명', ' 반응'
+            ] : isPolicyExpansion ? [
+              ' 신청 대상', ' 신청 절차', ' 신청 안되는 이유', ' 신청 오류',
+              ' 자격 확인', ' 혜택 정리', ' 지원내용 정리', ' 지급 금액',
+              ' 필요 서류', ' 온라인 신청 방법', ' 마감일', ' 선정 기준',
+              ' 지역별 차이', ' 문의 전화', ' 중복 수급', ' 변경 공지'
+            ] : isIncidentExpansion ? [
+              ' 피해', ' 피해자', ' 보상 기준', ' 보상 신청', ' 공지사항', ' 대처 방법',
+              ' 신고 방법', ' 고객센터 전화번호', ' 비밀번호 변경', ' 계정 보호',
+              ' 2차 피해 예방', ' 피싱 주의'
             ] : [
               ' 어떻게', ' 왜', ' 언제', ' 어디서', ' 누가', ' 무엇',
               ' 좋은', ' 나쁜', ' 싼', ' 비싼', ' 인기', ' 유명',

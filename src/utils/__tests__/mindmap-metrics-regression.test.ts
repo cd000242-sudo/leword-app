@@ -44,6 +44,22 @@ assert('hidden low-volume seed is displayable but not reused as an expansion see
     && isMindmapExpansionSeedMetric(hiddenLowVolume) === false,
   JSON.stringify(hiddenLowVolume));
 
+const partiallyMaskedVolume = buildMindmapMeasuredKeywordItem({
+  keyword: 'earned income support application period',
+  pcSearchVolume: 0,
+  mobileSearchVolume: 30,
+  documentCount: 126479,
+  pcSearchVolumeLt10: true,
+  mobileSearchVolumeLt10: false,
+}, { seed: 'earned income support', depth: 1 });
+
+assert('partially masked SearchAd volume is displayed as a bounded range, not plus-only',
+  partiallyMaskedVolume.searchVolumeDisplay === '30~39'
+    && partiallyMaskedVolume.searchVolumeLowerBound === 30
+    && partiallyMaskedVolume.searchVolumeUpperBound === 40
+    && partiallyMaskedVolume.goldenRatioDisplay === '< 0.01',
+  JSON.stringify(partiallyMaskedVolume));
+
 const normalizedSeed = buildMindmapMeasuredKeywordItem({
   keyword: '닥터린영양제추천',
   pcSearchVolume: 14950,

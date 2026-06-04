@@ -207,6 +207,34 @@ assert('keyword analyzer sparse policy backfill does not keep navigation noise',
   !sparsePolicy.includes('바로가기 이동'),
   sparsePolicy.join(', '));
 
+const policyPillars = rankKeywordExpansionStrings('고유가 지원금 2차', [
+  '고유가 지원금 2차 가격',
+  '고유가 지원금 2차 추천',
+  '고유가 지원금 2차 후기',
+], {
+  source: 'autocomplete',
+  limit: 24,
+  minScore: 30,
+  ensureIntentCoverage: true,
+  intentCoverageMin: 18,
+});
+const requiredPolicyPillars = [
+  '고유가 지원금 2차 신청방법',
+  '고유가 지원금 2차 자격',
+  '고유가 지원금 2차 혜택',
+  '고유가 지원금 2차 지원내용',
+  '고유가 지원금 2차 지원금액',
+  '고유가 지원금 2차 신청기간',
+  '고유가 지원금 2차 서류',
+  '고유가 지원금 2차 조회',
+  '고유가 지원금 2차 마감',
+  '고유가 지원금 2차 문의처',
+];
+assert('keyword analyzer policy seed expands into article-pillar intents for spiderweb content',
+  requiredPolicyPillars.every(keyword => policyPillars.includes(keyword))
+    && !policyPillars.some(keyword => /가격|추천|후기|리뷰|비교|순위/.test(keyword.replace('고유가 지원금 2차', ''))),
+  policyPillars.join(', '));
+
 const sparseSupplement = rankKeywordExpansionStrings('닥터린 영양제 추천', [], {
   source: 'autocomplete',
   limit: 12,
@@ -307,6 +335,51 @@ assert('keyword analyzer celebrity expansion balances profile/content/schedule/w
     && !crowdedCelebrity.includes('소상공인 지원금 신청'),
   crowdedCelebrity.map(keyword => `${keyword}:${classifyPracticalIntentGroup(keyword, 'entertainment')}`).join(', '));
 
+const incidentKeyword = rankKeywordExpansionStrings('티빙 정보 유출', [
+  '티빙 정보 유출 확인',
+  '티빙 정보 유출 피해 확인',
+  '티빙 정보 유출 공지',
+  '티빙 정보 유출 보상',
+  '티빙 정보 유출 장 방법',
+  '티빙 정보 유출 장 가격',
+  '티빙 정보 유출 장 비교',
+  '티빙 정보 유출 추천',
+  '티빙 정보 유출 후기',
+  'kt 티빙 정보 유출',
+], {
+  source: 'autocomplete',
+  limit: 16,
+  minScore: 30,
+  ensureIntentCoverage: true,
+  intentCoverageMin: 10,
+});
+assert('keyword analyzer incident expansion keeps verification and damage intents',
+  incidentKeyword.includes('티빙 정보 유출 확인')
+    && incidentKeyword.includes('티빙 정보 유출 피해 확인')
+    && incidentKeyword.includes('티빙 정보 유출 공지')
+    && incidentKeyword.includes('티빙 정보 유출 보상'),
+  incidentKeyword.join(', '));
+assert('keyword analyzer incident expansion blocks commerce suffix noise',
+  !incidentKeyword.some(keyword => /장\s*(방법|가격|비교)|추천|후기|리뷰|가격|비교|순위/.test(keyword.replace('티빙 정보 유출', ''))),
+  incidentKeyword.join(', '));
+
+const sparseIncident = rankKeywordExpansionStrings('티빙 정보 유출', [], {
+  source: 'autocomplete',
+  limit: 12,
+  minScore: 30,
+  ensureIntentCoverage: true,
+  intentCoverageMin: 8,
+});
+const sparseIncidentGroups = new Set(sparseIncident.map(keyword => classifyPracticalIntentGroup(keyword, 'incident')));
+assert('keyword analyzer sparse incident autocomplete backfills practical response intents',
+  sparseIncident.length >= 8
+    && sparseIncidentGroups.has('lookup')
+    && sparseIncidentGroups.has('risk')
+    && sparseIncidentGroups.has('usage')
+    && sparseIncidentGroups.has('criteria')
+    && !sparseIncident.some(keyword => /가격|비교|추천|후기|리뷰|순위|장단점/.test(keyword)),
+  sparseIncident.map(keyword => `${keyword}:${classifyPracticalIntentGroup(keyword, 'incident')}`).join(', '));
+
 const keywordAnalysisHandler = fs.readFileSync(
   path.join(__dirname, '..', '..', 'main', 'handlers', 'keyword-analysis.ts'),
   'utf8',
@@ -321,6 +394,12 @@ assert('keyword analysis IPC enables sparse-result practical intent coverage on 
     && /intentCoverageMin:\s*Math\.min\(40,\s*Math\.max\(12,\s*targetCount\)\)/.test(keywordAnalysisHandler)
     && /intentCoverageMin:\s*isUnlimited\s*\?\s*40\s*:\s*Math\.min\(24,\s*Math\.max\(8,\s*Math\.floor\(targetCount \/ 2\)\)\)/.test(keywordAnalysisHandler),
   `coverageOptionCount=${coverageOptionCount}`);
+
+assert('keyword analysis IPC routes policy seeds to article-pillar suffix harvesting',
+  /POLICY_CONTEXT_RE/.test(keywordAnalysisHandler)
+    && /' 신청방법', ' 자격', ' 대상', ' 혜택', ' 지원내용', ' 지원금액'/.test(keywordAnalysisHandler)
+    && /' 신청 대상', ' 신청 절차', ' 신청 안되는 이유'/.test(keywordAnalysisHandler),
+  'policy seeds can fall back to generic commerce suffixes again');
 
 assert('naver autocomplete uses practical intent coverage when raw related sources are sparse',
   /rankKeywordExpansionCandidates/.test(naverAutocompleteSource)
