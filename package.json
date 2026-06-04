@@ -18,10 +18,17 @@
     "postinstall": "node scripts/download-chromium.js",
     "dist": "npm run prepare-dist && npm run build && electron-builder",
     "dist:win": "npm run prepare-dist && npm run build && electron-builder --win --publish always",
-    "dist:mac": "npm run prepare-dist && npm run build && electron-builder --mac",
+    "dist:mac": "node scripts/build-mac.js --arch universal",
     "release": "npm run verify:all && npm run prepare-dist && npm run build && electron-builder --win --publish always && node scripts/publish-release.js",
-    "release:mac": "npm run verify:all && npm run prepare-dist && npm run build && electron-builder --mac --publish always && node scripts/publish-release.js",
-    "release:all": "npm run verify:all && npm run prepare-dist && npm run build && electron-builder --win --mac --publish always && node scripts/publish-release.js"
+    "release:mac": "node scripts/build-mac.js --arch universal --publish",
+    "release:all": "npm run verify:all && npm run prepare-dist && npm run build && electron-builder --win --mac --publish always && node scripts/publish-release.js",
+    "dist:mac:arm64": "node scripts/build-mac.js --arch arm64",
+    "dist:mac:x64": "node scripts/build-mac.js --arch x64",
+    "dist:mac:universal": "node scripts/build-mac.js --arch universal",
+    "dist:mac:unsigned": "node scripts/build-mac.js --arch universal --unsigned",
+    "dist:mac:arm64:unsigned": "node scripts/build-mac.js --arch arm64 --unsigned",
+    "dist:mac:universal:unsigned": "node scripts/build-mac.js --arch universal --unsigned",
+    "release:mac:unsigned": "node scripts/build-mac.js --arch universal --unsigned --publish"
   },
   "keywords": [
     "keyword",
@@ -108,8 +115,33 @@
       "include": "build/installer.nsh"
     },
     "mac": {
-      "target": "dmg",
-      "icon": "assets/icon.icns"
+      "target": [
+        {
+          "target": "dmg",
+          "arch": [
+            "arm64",
+            "x64"
+          ]
+        },
+        {
+          "target": "zip",
+          "arch": [
+            "arm64",
+            "x64"
+          ]
+        }
+      ],
+      "icon": "build/icon.icns",
+      "category": "public.app-category.productivity",
+      "hardenedRuntime": true,
+      "gatekeeperAssess": false,
+      "entitlements": "build/entitlements.mac.plist",
+      "entitlementsInherit": "build/entitlements.mac.plist",
+      "artifactName": "LEWORD-${version}-${arch}.${ext}",
+      "extendInfo": {
+        "NSDownloadsFolderUsageDescription": "LEWORD saves exported keyword and automation files to Downloads.",
+        "NSDocumentsFolderUsageDescription": "LEWORD may open or save user-selected keyword files."
+      }
     },
     "publish": [
       {
@@ -118,6 +150,10 @@
         "repo": "leword-app",
         "releaseType": "release"
       }
-    ]
+    ],
+    "dmg": {
+      "title": "LEWORD ${version}",
+      "artifactName": "LEWORD-${version}-${arch}.${ext}"
+    }
   }
 }
