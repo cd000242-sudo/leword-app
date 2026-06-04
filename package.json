@@ -135,6 +135,8 @@
       "category": "public.app-category.productivity",
       "hardenedRuntime": true,
       "gatekeeperAssess": false,
+      "singleArchFiles": "**/node_modules/@img/*darwin*/**/*",
+      "x64ArchFiles": "**/node_modules/@img/*darwin*/**/*",
       "entitlements": "build/entitlements.mac.plist",
       "entitlementsInherit": "build/entitlements.mac.plist",
       "artifactName": "LEWORD-${version}-${arch}.${ext}",
