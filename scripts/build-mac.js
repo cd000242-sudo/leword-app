@@ -246,7 +246,7 @@ if (has('--unsigned')) {
 
 run('npm', ['run', 'build'], env);
 
-const builderArgs = ['electron-builder', '--mac', 'zip'];
+const builderArgs = ['electron-builder', '--mac', 'dmg', 'zip'];
 if (arch === 'universal') {
   builderArgs.push('--universal');
 } else if (arch === 'both') {
