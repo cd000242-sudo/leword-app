@@ -37,7 +37,7 @@ function printHelp() {
     '  npm run dist:mac:universal:unsigned',
     '',
     'Options:',
-    '  --arch arm64|x64|universal   macOS architecture to build',
+    '  --arch arm64|x64|universal|both   macOS architecture to build',
     '  --unsigned                   build without Developer ID signing for local tests',
     '  --publish                    upload dmg/zip/latest-mac.yml to configured GitHub Release',
     '',
@@ -226,8 +226,8 @@ if (process.platform !== 'darwin') {
   process.exit(2);
 }
 
-const arch = getOption('--arch', 'universal');
-if (!['arm64', 'x64', 'universal'].includes(arch)) {
+const arch = getOption('--arch', 'both');
+if (!['arm64', 'x64', 'universal', 'both'].includes(arch)) {
   console.error('Invalid --arch value: ' + arch);
   process.exit(1);
 }
@@ -235,6 +235,12 @@ if (!['arm64', 'x64', 'universal'].includes(arch)) {
 const env = { ...process.env };
 if (has('--unsigned')) {
   env.CSC_IDENTITY_AUTO_DISCOVERY = 'false';
+  delete env.CSC_LINK;
+  delete env.CSC_KEY_PASSWORD;
+  delete env.CSC_NAME;
+  delete env.APPLE_ID;
+  delete env.APPLE_APP_SPECIFIC_PASSWORD;
+  delete env.APPLE_TEAM_ID;
   console.warn('Building unsigned macOS package. Gatekeeper will warn users on first launch.');
 }
 
@@ -243,6 +249,8 @@ run('npm', ['run', 'build'], env);
 const builderArgs = ['electron-builder', '--mac', 'dmg', 'zip'];
 if (arch === 'universal') {
   builderArgs.push('--universal');
+} else if (arch === 'both') {
+  builderArgs.push('--arm64', '--x64');
 } else {
   builderArgs.push('--' + arch);
 }

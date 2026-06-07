@@ -82,17 +82,17 @@
     "postinstall": "node scripts/download-chromium.js",
     "dist": "npm run prepare-dist && npm run build && electron-builder",
     "dist:win": "npm run prepare-dist && npm run build && electron-builder --win --publish always",
-    "dist:mac": "node scripts/build-mac.js --arch universal",
+    "dist:mac": "node scripts/build-mac.js --arch both",
     "release": "npm run verify:all && npm run prepare-dist && npm run build && electron-builder --win --publish always && node scripts/publish-release.js",
-    "release:mac": "node scripts/build-mac.js --arch universal --publish",
+    "release:mac": "node scripts/build-mac.js --arch both --publish",
     "release:all": "npm run verify:all && npm run prepare-dist && npm run build && electron-builder --win --mac --publish always && node scripts/publish-release.js",
     "dist:mac:arm64": "node scripts/build-mac.js --arch arm64",
     "dist:mac:x64": "node scripts/build-mac.js --arch x64",
     "dist:mac:universal": "node scripts/build-mac.js --arch universal",
-    "dist:mac:unsigned": "node scripts/build-mac.js --arch universal --unsigned",
+    "dist:mac:unsigned": "node scripts/build-mac.js --arch both --unsigned",
     "dist:mac:arm64:unsigned": "node scripts/build-mac.js --arch arm64 --unsigned",
     "dist:mac:universal:unsigned": "node scripts/build-mac.js --arch universal --unsigned",
-    "release:mac:unsigned": "node scripts/build-mac.js --arch universal --unsigned --publish"
+    "release:mac:unsigned": "node scripts/build-mac.js --arch both --unsigned --publish"
   },
   "keywords": [
     "keyword",

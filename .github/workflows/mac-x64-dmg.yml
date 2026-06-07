@@ -1,4 +1,4 @@
-name: Build macOS Universal Release
+name: Build LEWORD macOS Intel DMG
 
 on:
   workflow_dispatch:
@@ -10,8 +10,8 @@ permissions:
   contents: write
 
 jobs:
-  build-mac:
-    name: Build universal DMG/ZIP
+  build-x64-dmg:
+    name: Build and upload x64 DMG
     runs-on: macos-latest
 
     steps:
@@ -31,9 +31,8 @@ jobs:
             npm install --ignore-scripts
           fi
 
-      - name: Build and publish macOS universal release
+      - name: Build Intel DMG
         env:
-          GH_TOKEN: ${{ secrets.GITHUB_TOKEN }}
           CSC_LINK: ${{ secrets.MAC_CSC_LINK }}
           CSC_KEY_PASSWORD: ${{ secrets.MAC_CSC_KEY_PASSWORD }}
           APPLE_ID: ${{ secrets.APPLE_ID }}
@@ -41,36 +40,35 @@ jobs:
           APPLE_TEAM_ID: ${{ secrets.APPLE_TEAM_ID }}
         run: |
           if [ -z "${CSC_LINK}" ]; then
-            echo "::warning::MAC_CSC_LINK is not set. Building unsigned artifacts; Gatekeeper and customer auto-update may not work reliably."
-            npm run release:mac:unsigned
-          else
-            npm run release:mac
+            echo "::warning::MAC_CSC_LINK is not set. Building unsigned Intel DMG for manual distribution."
+            export CSC_IDENTITY_AUTO_DISCOVERY=false
+            unset CSC_LINK CSC_KEY_PASSWORD APPLE_ID APPLE_APP_SPECIFIC_PASSWORD APPLE_TEAM_ID
           fi
+          npm run build
+          npx electron-builder --mac dmg --x64 --publish never
 
-      - name: Upload macOS assets to GitHub Release
+      - name: Upload Intel DMG to GitHub Release
         env:
           GH_TOKEN: ${{ secrets.GITHUB_TOKEN }}
         run: |
           VERSION=$(node -p "require('./package.json').version")
           TAG="v${VERSION}"
           if ! gh release view "${TAG}" >/dev/null 2>&1; then
-            gh release create "${TAG}" --title "${TAG}" --notes "macOS release artifacts"
+            gh release create "${TAG}" --title "${TAG}" --notes "macOS Intel DMG"
           fi
           shopt -s nullglob
-          assets=(release/*.dmg release/*.zip release/*.blockmap release/latest-mac.yml)
+          assets=(release/LEWORD-${VERSION}-x64.dmg release/LEWORD-${VERSION}-x64.dmg.blockmap)
           if [ ${#assets[@]} -eq 0 ]; then
-            echo "No macOS assets found"
+            echo "No Intel DMG assets found"
             exit 1
           fi
           gh release upload "${TAG}" "${assets[@]}" --clobber
 
-      - name: Upload macOS artifacts
+      - name: Upload Intel DMG artifact
         uses: actions/upload-artifact@v4
         with:
-          name: leword-mac-universal
+          name: leword-mac-x64-dmg
           if-no-files-found: error
           path: |
-            release/*.dmg
-            release/*.zip
-            release/*.blockmap
-            release/latest-mac.yml
+            release/LEWORD-*-x64.dmg
+            release/LEWORD-*-x64.dmg.blockmap
