@@ -1147,6 +1147,92 @@ export async function getEducationVideos(config: YouTubeSearchConfig) { return g
 export async function getTechVideos(config: YouTubeSearchConfig) { return getYouTubeTrending({ ...config, categoryId: '28' }); }
 
 /** 캐시 초기화 */
+const YOUTUBE_TREND_STOP_WORDS = new Set([
+  '영상', '동영상', '비디오', '보기', '시청', '구독', '좋아요', '조회수',
+  '채널', '라이브', '실시간', '공식', '뉴스', '속보', '기사', '보도',
+  '오늘', '내일', '어제', '이번', '최근', '지금', '확인', '공개', '발표',
+  'shorts', 'short', 'official', 'video', 'live', 'full', 'teaser',
+]);
+
+const YOUTUBE_ALLOWED_LATIN_TOKENS = new Set([
+  'KBO', 'MLB', 'NBA', 'UFC', 'AFC', 'WBC', 'FIFA', 'OTT', 'AI', 'IT',
+  'IPO', 'ETF', 'GDP', 'CPI', 'FOMC',
+]);
+
+function cleanYouTubeTrendToken(raw: string): string {
+  return String(raw || '')
+    .replace(/[#@]/g, '')
+    .replace(/_/g, ' ')
+    .replace(/^[^\w가-힣]+|[^\w가-힣]+$/g, '')
+    .trim();
+}
+
+function isAllowedYouTubeTrendPhraseToken(token: string): boolean {
+  const value = cleanYouTubeTrendToken(token);
+  if (!value) return false;
+  if (/[가-힣]/.test(value)) return true;
+  if (/^\d{1,4}$/.test(value)) return true;
+  return YOUTUBE_ALLOWED_LATIN_TOKENS.has(value);
+}
+
+function isValidYouTubeTrendKeywordCandidate(keyword: string): boolean {
+  const value = cleanYouTubeTrendToken(keyword).replace(/\s+/g, ' ').trim();
+  if (value.length < 2 || value.length > 24) return false;
+  if (!/[가-힣]/.test(value)) return false;
+  if (/^\d+$/.test(value)) return false;
+  if (YOUTUBE_TREND_STOP_WORDS.has(value.toLowerCase())) return false;
+
+  const tokens = value.split(/\s+/).filter(Boolean);
+  if (tokens.some(token => !isAllowedYouTubeTrendPhraseToken(token))) return false;
+
+  return true;
+}
+
+export function extractYouTubeTrendKeywordCandidates(title: string): string[] {
+  const normalized = String(title || '')
+    .replace(/&quot;|&#34;/g, ' ')
+    .replace(/&#39;|&apos;/g, ' ')
+    .replace(/&amp;/g, ' ')
+    .replace(/[|·•]/g, ' ')
+    .replace(/[\[\]()（）【】<>《》「」『』"'“”]/g, ' ')
+    .replace(/[^\w\s가-힣]/g, ' ')
+    .replace(/_/g, ' ')
+    .replace(/\s+/g, ' ')
+    .trim();
+
+  if (!normalized) return [];
+
+  const tokens = normalized
+    .split(/\s+/)
+    .map(cleanYouTubeTrendToken)
+    .filter(Boolean);
+
+  const candidates: string[] = [];
+  const seen = new Set<string>();
+  const pushCandidate = (parts: string[] | string) => {
+    const candidate = Array.isArray(parts)
+      ? parts.join(' ').replace(/\s+/g, ' ').trim()
+      : String(parts || '').replace(/\s+/g, ' ').trim();
+    const key = candidate.toLowerCase().replace(/\s+/g, '');
+    if (!key || seen.has(key) || !isValidYouTubeTrendKeywordCandidate(candidate)) return;
+    seen.add(key);
+    candidates.push(candidate);
+  };
+
+  tokens.forEach(token => pushCandidate(token));
+
+  for (const size of [2, 3]) {
+    for (let index = 0; index <= tokens.length - size; index++) {
+      const parts = tokens.slice(index, index + size);
+      if (parts.every(isAllowedYouTubeTrendPhraseToken)) {
+        pushCandidate(parts);
+      }
+    }
+  }
+
+  return candidates;
+}
+
 /**
  * YouTube 트렌드 키워드 추출 (트렌딩 영상 제목 기반)
  */
@@ -1183,19 +1269,16 @@ export async function getYouTubeTrendKeywords(config: {
     const maxViewsPerHour = Math.max(...trendingResult.videos.map(v => v.viewsPerHour), 1);
 
     trendingResult.videos.forEach((video) => {
-      // 제목에서 핵심 키워드 추출 (2-10자 단어)
+      // 제목에서 한글 검색 의도가 있는 핵심 키워드만 추출
       const title = video.title || '';
-      const words = title
-        .replace(/[^\w\s가-힣]/g, ' ')
-        .split(/\s+/)
-        .filter(word => word.length >= 2 && word.length <= 10)
-        .filter(word => !['영상', '동영상', '비디오', '보기', '시청', '구독', '좋아요'].includes(word));
+      const words = extractYouTubeTrendKeywordCandidates(title);
 
       // 조회수가 높은 영상의 키워드 우선
       words.forEach(word => {
         const keyword = word.trim();
-        if (keyword && keyword.length >= 2 && !seenKeywords.has(keyword)) {
-          seenKeywords.add(keyword);
+        const keywordKey = keyword.toLowerCase().replace(/\s+/g, '');
+        if (keyword && keyword.length >= 2 && !seenKeywords.has(keywordKey)) {
+          seenKeywords.add(keywordKey);
           // 시간당 조회수 기반 실제 급상승률 계산
           const changeRate = Math.round((video.viewsPerHour / maxViewsPerHour) * 200);
           keywords.push({

@@ -29,6 +29,11 @@ const ENTERTAINMENT_INTENT_PATTERNS = [
     '팬미팅', '콘서트', '예매', '라인업', '반응', '해명', '프로필'
 ];
 
+const SPORTS_INTENT_PATTERNS = [
+    '중계', '경기일정', '티켓팅 일정', '예매', '라인업', '순위',
+    '선발', '하이라이트', '직관 준비물', '일정', '결과', '부상 소식'
+];
+
 function compact(value: string): string {
     return String(value || '').toLowerCase().replace(/\s+/g, '');
 }
@@ -40,6 +45,9 @@ function getDomainIntentPatterns(base: string): string[] | null {
     }
     if (/정보유출|개인정보|유출|해킹|보안사고|침해|피싱|스미싱|랜섬웨어|도용|사칭|2차피해|피해확인|보상|환불|장애|먹통/.test(kw)) {
         return INCIDENT_INTENT_PATTERNS;
+    }
+    if (/kbo|k리그|epl|nba|mlb|프로야구|야구|축구|농구|골프|테니스|월드컵|올스타전|개막전|결승전|스포츠/.test(kw)) {
+        return SPORTS_INTENT_PATTERNS;
     }
     if (/아이돌|배우|가수|연예인|스타|걸그룹|보이그룹|컴백|공식입장|팬미팅|콘서트|시상식|드라마|예능|출연|열애|결혼|논란/.test(kw)) {
         return ENTERTAINMENT_INTENT_PATTERNS;
@@ -58,6 +66,9 @@ function isBlockedDomainSuffix(domainPatterns: string[] | null, suffix: string):
     if (domainPatterns === ENTERTAINMENT_INTENT_PATTERNS) {
         return /(가격|최저가|렌탈|대여|중고)$/.test(compactSuffix);
     }
+    if (domainPatterns === SPORTS_INTENT_PATTERNS) {
+        return /(가격|최저가|렌탈|대여|중고|성분|부작용)$/.test(compactSuffix);
+    }
     return false;
 }
 
@@ -68,6 +79,9 @@ export function generateQueryPatterns(units: SemanticUnits, externalSuffixes: st
     const base = core;
     const fullBase = [brand, model, core].filter(Boolean).join(' ');
     const domainPatterns = getDomainIntentPatterns(fullBase || base);
+
+    if (base) patterns.add(base);
+    if (fullBase && fullBase !== base) patterns.add(fullBase);
 
     // 1. 외부 신호(자동완성 등) 기반 패턴 우선 생성
     if (externalSuffixes.length > 0) {
@@ -92,6 +106,9 @@ export function generateQueryPatterns(units: SemanticUnits, externalSuffixes: st
         } else if (domainPatterns === INCIDENT_INTENT_PATTERNS) {
             patterns.add(`${base} 공식 공지`);
             patterns.add(`${base} 피해 보상`);
+        } else if (domainPatterns === SPORTS_INTENT_PATTERNS) {
+            patterns.add(`${base} 경기 시간`);
+            patterns.add(`${base} 티켓 예매`);
         } else {
             patterns.add(`${base} 공식입장`);
             patterns.add(`${base} 반응`);

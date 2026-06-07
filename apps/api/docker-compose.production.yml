@@ -1,0 +1,28 @@
+services:
+  leword-api:
+    image: ${LEWORD_MOBILE_API_IMAGE:-ghcr.io/cd000242-sudo/leword-mobile-api:latest}
+    restart: unless-stopped
+    ports:
+      - "${LEWORD_API_PORT:-34983}:34983"
+    env_file:
+      - .env.production
+    environment:
+      NODE_ENV: production
+      LEWORD_API_PORT: "34983"
+      LEWORD_CHROME_PATH: /usr/bin/chromium
+      LEWORD_MOBILE_CACHE_FILE: /data/mobile-cache.json
+    volumes:
+      - leword-mobile-cache:/data
+    healthcheck:
+      test:
+        - CMD
+        - node
+        - -e
+        - "const port=process.env.LEWORD_API_PORT||34983; fetch('http://127.0.0.1:'+port+'/health').then((r)=>process.exit(r.ok?0:1)).catch(()=>process.exit(1))"
+      interval: 30s
+      timeout: 5s
+      start_period: 20s
+      retries: 3
+
+volumes:
+  leword-mobile-cache:

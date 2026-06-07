@@ -1,0 +1,87 @@
+{
+  "cli": {
+    "version": ">= 14.0.0",
+    "appVersionSource": "remote"
+  },
+  "build": {
+    "development": {
+      "developmentClient": true,
+      "distribution": "internal",
+      "channel": "development",
+      "android": {
+        "buildType": "apk"
+      },
+      "ios": {
+        "simulator": true
+      }
+    },
+    "internal": {
+      "distribution": "internal",
+      "channel": "internal",
+      "android": {
+        "buildType": "apk"
+      },
+      "env": {
+        "LEWORD_API_ENV": "internal"
+      }
+    },
+    "local-apk": {
+      "distribution": "internal",
+      "channel": "local-apk",
+      "android": {
+        "buildType": "apk"
+      },
+      "env": {
+        "LEWORD_API_ENV": "local",
+        "EXPO_PUBLIC_LEWORD_API_URL": "http://172.30.1.57:34983"
+      }
+    },
+    "preview": {
+      "distribution": "internal",
+      "channel": "preview",
+      "android": {
+        "buildType": "app-bundle"
+      },
+      "env": {
+        "LEWORD_API_ENV": "preview"
+      }
+    },
+    "production": {
+      "autoIncrement": true,
+      "channel": "production",
+      "env": {
+        "LEWORD_API_ENV": "production"
+      }
+    }
+  },
+  "submit": {
+    "production": {
+      "android": {
+        "track": "internal",
+        "releaseStatus": "draft",
+        "serviceAccountKeyPath": "./credentials/google-play-service-account.json"
+      },
+      "ios": {
+        "appleId": "REPLACE_WITH_APPLE_ID",
+        "ascAppId": "REPLACE_WITH_APP_STORE_CONNECT_APP_ID",
+        "appleTeamId": "REPLACE_WITH_APPLE_TEAM_ID",
+        "sku": "com.leword.mobile",
+        "language": "ko-KR"
+      }
+    },
+    "public": {
+      "android": {
+        "track": "production",
+        "releaseStatus": "draft",
+        "serviceAccountKeyPath": "./credentials/google-play-service-account.json"
+      },
+      "ios": {
+        "appleId": "REPLACE_WITH_APPLE_ID",
+        "ascAppId": "REPLACE_WITH_APP_STORE_CONNECT_APP_ID",
+        "appleTeamId": "REPLACE_WITH_APPLE_TEAM_ID",
+        "sku": "com.leword.mobile",
+        "language": "ko-KR"
+      }
+    }
+  }
+}

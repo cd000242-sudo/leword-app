@@ -1,0 +1,58 @@
+{
+  "expo": {
+    "name": "LEWORD",
+    "slug": "leword-mobile",
+    "version": "0.1.0",
+    "scheme": "leword",
+    "platforms": [
+      "ios",
+      "android"
+    ],
+    "orientation": "portrait",
+    "userInterfaceStyle": "automatic",
+    "icon": "./assets/icon.png",
+    "splash": {
+      "image": "./assets/splash.png",
+      "resizeMode": "contain",
+      "backgroundColor": "#0f172a"
+    },
+    "assetBundlePatterns": [
+      "**/*"
+    ],
+    "plugins": [
+      [
+        "expo-notifications",
+        {
+          "defaultChannel": "leword-fresh-keywords",
+          "color": "#22c55e"
+        }
+      ]
+    ],
+    "ios": {
+      "supportsTablet": false,
+      "bundleIdentifier": "com.leword.mobile",
+      "buildNumber": "1",
+      "infoPlist": {
+        "ITSAppUsesNonExemptEncryption": false
+      }
+    },
+    "android": {
+      "package": "com.leword.mobile",
+      "versionCode": 1,
+      "usesCleartextTraffic": true,
+      "permissions": [
+        "POST_NOTIFICATIONS"
+      ],
+      "adaptiveIcon": {
+        "foregroundImage": "./assets/adaptive-icon.png",
+        "backgroundColor": "#111827"
+      }
+    },
+    "extra": {
+      "lewordApiBaseUrl": "https://api.leword.app",
+      "eas": {
+        "projectId": "e27ca560-8927-46fe-b601-43fc6d0648b3"
+      }
+    }
+  }
+}

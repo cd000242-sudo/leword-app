@@ -61,11 +61,12 @@ export function calculateMindmapMetricGrade(
   documentCount: number,
   ratio: number,
 ): MindmapMetricGrade {
+  if (searchVolume <= 0 || documentCount <= 0 || !Number.isFinite(ratio) || ratio <= 0) return 'C';
   if (searchVolume >= 1000 && documentCount > 0 && documentCount <= 5000 && ratio >= 5) return 'SSS';
   if (searchVolume >= 500 && documentCount > 0 && documentCount <= 10000 && ratio >= 3) return 'SS';
-  if (searchVolume >= 300 && ratio >= 2) return 'S';
-  if (searchVolume >= 100) return 'A';
-  if (searchVolume >= 30) return 'B';
+  if (searchVolume >= 300 && documentCount <= 15000 && ratio >= 2) return 'S';
+  if (searchVolume >= 100 && documentCount <= 30000) return 'A';
+  if (searchVolume >= 30 && documentCount <= 80000) return 'B';
   return 'C';
 }
 

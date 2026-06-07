@@ -1,0 +1,13 @@
+.git
+.codex-build-cache
+dist
+release
+node_modules
+apps/mobile/node_modules
+apps/mobile/.expo
+apps/mobile/.expo-export
+apps/mobile/credentials/*
+!apps/mobile/credentials/README.md
+resources/chromium
+*.log
+*.tmp

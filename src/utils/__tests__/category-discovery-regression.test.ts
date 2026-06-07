@@ -234,6 +234,78 @@ assert('category-first compound star celebrity plan keeps entertainment issue in
     && compoundStarPlan.seeds.some(seed => /근황|공식입장|컴백 일정|출연 정보/.test(seed)),
   compoundStarPlan.seeds.slice(0, 32).join(', '));
 
+const screenshotUiCategoryCases: Array<{
+  label: string;
+  expectedIds: string[];
+  marker: RegExp;
+}> = [
+  { label: '문학·책', expectedIds: ['book'], marker: /베스트셀러|서평|독서|책 추천|도서 추천/ },
+  { label: '영화', expectedIds: ['movie'], marker: /개봉|결말|쿠키|OTT|예매/ },
+  { label: '미술·디자인', expectedIds: ['hobby'], marker: /그림|수채화|캘리그라피|전시|디자인|클래스/ },
+  { label: '공연·전시', expectedIds: ['music', 'hobby'], marker: /공연|콘서트|티켓|뮤지컬|전시/ },
+  { label: '음악', expectedIds: ['music'], marker: /컴백|콘서트|앨범|차트|음원/ },
+  { label: '드라마', expectedIds: ['drama'], marker: /방송시간|출연진|몇부작|결말|재방송|시청률/ },
+  { label: '스타·연예인', expectedIds: ['celeb', 'broadcast', 'music'], marker: /근황|공식입장|컴백|팬미팅|콘서트/ },
+  { label: '만화·애니', expectedIds: ['anime', 'book'], marker: /애니|극장판|방영일|라프텔|원작/ },
+  { label: '방송', expectedIds: ['broadcast'], marker: /방송시간|출연진|게스트|재방송|다시보기|방청/ },
+  { label: '육아·생활', expectedIds: ['parenting', 'home_life'], marker: /육아|준비물|검진|생활|청소|수납/ },
+  { label: '유아·질문', expectedIds: ['parenting', 'baby_products'], marker: /육아|유아|준비물|발달|검진|질문/ },
+  { label: '반려동물', expectedIds: ['pet_dog', 'pet_cat', 'pet_etc'], marker: /강아지|고양이|사료|병원|훈련/ },
+  { label: '좋은글·이미지', expectedIds: ['book', 'self_development', 'hobby'], marker: /명언|좋은글|이미지|서평|에세이|독서/ },
+  { label: '패션·미용', expectedIds: ['fashion', 'beauty'], marker: /코디|브랜드|사이즈|올리브영|성분/ },
+  { label: '인테리어·DIY', expectedIds: ['interior', 'home_life', 'hobby'], marker: /인테리어|DIY|셀프|시공|견적/ },
+  { label: '요리·레시피', expectedIds: ['recipe', 'food'], marker: /레시피|재료|양념|맛집|만드는법/ },
+  { label: '상품리뷰', expectedIds: ['electronics', 'fashion', 'beauty', 'kitchen'], marker: /리뷰|후기|비교|추천|순위/ },
+  { label: '원예·재배', expectedIds: ['hobby', 'home_life'], marker: /원예|식물|가드닝|화분|재배/ },
+  { label: '게임', expectedIds: ['game'], marker: /게임|공략|출시|업데이트|스팀/ },
+  { label: '스포츠', expectedIds: ['sports'], marker: /중계|티켓|경기|라인업|순위/ },
+  { label: '사진', expectedIds: ['hobby', 'smartphone'], marker: /사진|촬영|카메라|보정|출사지/ },
+  { label: '자동차', expectedIds: ['car', 'car_maintain'], marker: /자동차|중고차|보험|점검|교체/ },
+  { label: '취미', expectedIds: ['hobby'], marker: /취미|DIY|클래스|키트|재료/ },
+  { label: '국내여행', expectedIds: ['travel_domestic'], marker: /여행|축제|주차|코스|숙소/ },
+  { label: '세계여행', expectedIds: ['travel_overseas'], marker: /항공권|비자|환전|해외|숙소/ },
+  { label: '맛집', expectedIds: ['food'], marker: /맛집|메뉴|예약|웨이팅|주차/ },
+  { label: 'IT·컴퓨터', expectedIds: ['it', 'laptop'], marker: /컴퓨터|노트북|아이폰|갤럭시|오류|업데이트/ },
+  { label: '사회·정치', expectedIds: ['policy', 'life_tips'], marker: /정책|지원금|공식발표|이슈|사회/ },
+  { label: '건강·의학', expectedIds: ['health'], marker: /건강|증상|검사|복용법|부작용|병원/ },
+  { label: '비즈니스·경제', expectedIds: ['business', 'finance'], marker: /사업자|세무|창업|금리|환급|지원금/ },
+  { label: '어학·외국어', expectedIds: ['english', 'education'], marker: /영어|어학|토익|회화|시험/ },
+  { label: '교육·학문', expectedIds: ['education', 'book'], marker: /시험|기출|합격률|교재|독학|교육/ },
+];
+
+const screenshotUiSeedUniverse = new Set<string>();
+for (const uiCategory of screenshotUiCategoryCases) {
+  const ids = resolveDiscoveryCategoryIds(uiCategory.label);
+  const seeds = getDiscoveryCategorySeeds(uiCategory.label, 160);
+  const seedText = seeds.join('|');
+  const plan = buildCategoryFirstGoldenSeedPlan({
+    category: uiCategory.label,
+    maxSeeds: 220,
+    now: june2026,
+  });
+
+  seeds.forEach(seed => screenshotUiSeedUniverse.add(seed));
+
+  assert(`screenshot UI category ${uiCategory.label} resolves to concrete ids`,
+    uiCategory.expectedIds.every(id => ids.includes(id))
+      && !ids.includes(uiCategory.label)
+      && !ids.includes(uiCategory.label.replace(/\s+/g, '')),
+    `${uiCategory.label} => ${ids.join(',')}`);
+  assert(`screenshot UI category ${uiCategory.label} produces 100+ measurable seed candidates`,
+    seeds.length >= 100,
+    `${uiCategory.label}: ${seeds.length} seeds`);
+  assert(`screenshot UI category ${uiCategory.label} preserves category-specific intent`,
+    uiCategory.marker.test(seedText),
+    `${uiCategory.label}: ${seeds.slice(0, 24).join(', ')}`);
+  assert(`category-first plan ${uiCategory.label} expands to 180+ current candidates`,
+    plan.seeds.length >= 180 && uiCategory.expectedIds.every(id => plan.categoryIds.includes(id)),
+    `${uiCategory.label}: ${plan.seeds.length} seeds, ids=${plan.categoryIds.join(',')}`);
+}
+
+assert('screenshot UI category universe provides 1000+ unique candidates before measurement',
+  screenshotUiSeedUniverse.size >= 1000,
+  `${screenshotUiSeedUniverse.size}`);
+
 for (const category of BLOGGER_CATEGORIES) {
   const profileSeeds = getSeedsForUserCategories([category.id], 30);
   assert(`profile category ${category.id} injects 30+ seeds`,
@@ -269,6 +341,18 @@ assert('policy matcher accepts support fund keywords',
   matchesDiscoveryCategory('소상공인 지원금 신청 조건', 'policy'));
 assert('celeb matcher accepts star issue keywords',
   matchesDiscoveryCategory('아이돌 컴백 일정 팬미팅', 'celeb'));
+assert('entertainment matcher accepts live drama episode-count keywords',
+  matchesDiscoveryCategory('멋진 신세계 몇부작', '엔터테인먼트'));
+assert('drama matcher accepts live drama relationship-map keywords',
+  matchesDiscoveryCategory('신입사원 강회장 인물관계도', 'drama'));
+assert('broadcast matcher accepts live official-video keywords',
+  matchesDiscoveryCategory('멋진 신세계 공식영상', 'broadcast'));
+assert('music matcher accepts concert schedule keywords',
+  matchesDiscoveryCategory('2026 흠뻑쇼 일정', 'music'));
+assert('entertainment matcher accepts live celeb profile keywords',
+  matchesDiscoveryCategory('장한별 프로필', '엔터테인먼트'));
+assert('entertainment matcher rejects obvious non-entertainment profile keywords',
+  !matchesDiscoveryCategory('강훈식 프로필', '엔터테인먼트'));
 assert('policy matcher rejects unrelated fashion keyword',
   !matchesDiscoveryCategory('여름 원피스 코디 추천', 'policy'));
 

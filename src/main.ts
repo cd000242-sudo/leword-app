@@ -87,8 +87,7 @@ function createKeywordWindow() {
     return;
   }
 
-  // 개발 모드: dist/src/main.js에서 실행됨 -> ../preload.js (dist/preload.js)
-  // 프로덕션: resources/app.asar/dist/src/main.js -> ../preload.js
+  // dist/main.js 또는 dist/src/main.js 양쪽 실행 경로를 모두 지원
   let preloadPath = path.join(__dirname, '../preload.js');
 
   // preload.js가 없으면 다른 경로들을 시도
@@ -109,7 +108,15 @@ function createKeywordWindow() {
     }
   }
 
-  const htmlPath = path.join(__dirname, '../ui/keyword-master.html');
+  const htmlCandidates = [
+    path.join(__dirname, '../ui/keyword-master.html'),
+    path.join(__dirname, '../../ui/keyword-master.html'),
+    path.join(process.cwd(), 'ui/keyword-master.html'),
+    path.join(app.getAppPath(), 'ui/keyword-master.html'),
+    path.join(app.getAppPath(), 'dist/ui/keyword-master.html'),
+  ];
+  const htmlPath = htmlCandidates.find(candidate => fs.existsSync(candidate))
+    || path.join(__dirname, '../ui/keyword-master.html');
 
   console.log('[LEWORD] __dirname:', __dirname);
   console.log('[LEWORD] preloadPath:', preloadPath);

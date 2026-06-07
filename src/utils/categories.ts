@@ -750,6 +750,8 @@ export const CATEGORIES: readonly CategoryDefinition[] = [
     ],
     excludeTokens: ['e스포츠', '게임', '롤'],
     seeds: [
+      '2026 KBO 올스타전', '프로야구 올스타전 티켓팅', 'KBO 개막전 예매',
+      '월드컵 예선 중계',
       '2026 KBO 일정', 'EPL 순위 실시간', '골프 초보 레슨',
       '테니스 라켓 추천', '야구 직관 준비물', '축구화 추천',
       'NBA 중계 보는법', '골프연습장 비용', '헬스장 등록 비용',

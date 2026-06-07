@@ -10,6 +10,8 @@ import {
   createGoldenSssTargetTracker,
   countSss,
   getGoldenDiscoveryScanLimit,
+  isActionableGoldenKeyword,
+  isQualityGoldenDiscoveryResult,
   rankGoldenDiscoveryResults,
   resolveGoldenDiscoveryTarget,
 } from '../golden-discovery-floor';
@@ -69,6 +71,174 @@ const duplicateRanked = rankGoldenDiscoveryResults([
 ], 30, false);
 const compactDuplicates = duplicateRanked.filter(item => item.keyword.replace(/\s+/g, '') === '청년지원금신청');
 assert('ranker removes compact keyword duplicates', compactDuplicates.length === 1, `${compactDuplicates.length}`);
+
+const duplicateQualityOrder = rankGoldenDiscoveryResults([
+  { keyword: '신혼부부 전세대출 조건', grade: 'SS', score: 80, searchVolume: 700, documentCount: 170, goldenRatio: 4.12 },
+  { keyword: '신혼부부 전세대출 조건', grade: 'SSS', score: 92, searchVolume: 3960, documentCount: 120, goldenRatio: 33 },
+], 1, false, {
+  honorRequestedLimit: true,
+  strictVisibleSssOnly: true,
+  requireActionableIntent: true,
+  qualityBackfillToTarget: true,
+});
+assert('ranker keeps the stronger duplicate after sorting, not the first-seen weaker row',
+  duplicateQualityOrder.length === 1 && duplicateQualityOrder[0].grade === 'SSS',
+  duplicateQualityOrder.map(item => `${item.keyword}:${item.grade}:${item.searchVolume}/${item.documentCount}/${item.goldenRatio}/${item.score}`).join('|'));
+
+const fakeSssRanked = rankGoldenDiscoveryResults([
+  { keyword: 'broad fake golden seed', grade: 'SSS', score: 99, searchVolume: 360, documentCount: 1611294, goldenRatio: 0 },
+  ...sss.slice(0, 30),
+], 30, false);
+assert('ranker removes SSS labels that fail measured golden gates',
+  !fakeSssRanked.some(item => item.keyword === 'broad fake golden seed'),
+  fakeSssRanked.map(item => `${item.keyword}:${item.grade}:${item.searchVolume}/${item.documentCount}/${item.goldenRatio}`).join('|'));
+
+const clustered = [
+  { keyword: 'summer dress recommendation', grade: 'SSS', score: 99, searchVolume: 5400, documentCount: 420, goldenRatio: 12.86 },
+  { keyword: 'best summer dress recommendation', grade: 'SSS', score: 98, searchVolume: 5200, documentCount: 430, goldenRatio: 12.09 },
+  { keyword: 'summer dress recommendation outfit', grade: 'SSS', score: 97, searchVolume: 5100, documentCount: 440, goldenRatio: 11.59 },
+  { keyword: 'exam answer release date', grade: 'SSS', score: 92, searchVolume: 3300, documentCount: 25, goldenRatio: 132 },
+  { keyword: 'garden flower festival tickets', grade: 'SSS', score: 91, searchVolume: 4400, documentCount: 49, goldenRatio: 89.8 },
+  { keyword: 'local movie screening schedule', grade: 'SSS', score: 90, searchVolume: 2800, documentCount: 35, goldenRatio: 80 },
+  { keyword: 'new device recall lookup', grade: 'SSS', score: 89, searchVolume: 2500, documentCount: 40, goldenRatio: 62.5 },
+];
+const clusteredRanked = rankGoldenDiscoveryResults(clustered, 5, false, {
+  honorRequestedLimit: true,
+  diversifySimilarIntents: true,
+  maxSimilarPerCluster: 1,
+} as any);
+const repeatedRecommendationCount = clusteredRanked
+  .filter(item => item.keyword.includes('summer dress recommendation')).length;
+assert('ranker limits near-duplicate intent clusters when diversity is requested',
+  clusteredRanked.length === 5 && repeatedRecommendationCount === 1,
+  clusteredRanked.map(item => item.keyword).join('|'));
+
+const beginnerActionablePool = [
+  { keyword: '원피스', grade: 'SSS', score: 99, searchVolume: 12000, documentCount: 300, goldenRatio: 40 },
+  { keyword: '여름 원피스 코디', grade: 'SSS', score: 98, searchVolume: 9000, documentCount: 200, goldenRatio: 45 },
+  { keyword: '원피스 사이즈 비교', grade: 'SSS', score: 97, searchVolume: 3000, documentCount: 100, goldenRatio: 30 },
+  { keyword: '삼성전자', grade: 'SSS', score: 96, searchVolume: 50000, documentCount: 400, goldenRatio: 125 },
+  { keyword: '뉴스', grade: 'SSS', score: 95, searchVolume: 5200, documentCount: 210, goldenRatio: 24.76 },
+  { keyword: 'festival parking guide', grade: 'SSS', score: 94, searchVolume: 4100, documentCount: 180, goldenRatio: 22.78 },
+  { keyword: '여름 하객 원피스 코디', grade: 'SSS', score: 93, searchVolume: 2600, documentCount: 90, goldenRatio: 28.89 },
+  { keyword: '키작녀 원피스 사이즈 비교', grade: 'SSS', score: 92, searchVolume: 4800, documentCount: 80, goldenRatio: 60 },
+  { keyword: '코코부 뜻', grade: 'SSS', score: 91, searchVolume: 3200, documentCount: 110, goldenRatio: 29.09 },
+  { keyword: '2027 6모 등급컷', grade: 'SSS', score: 90, searchVolume: 5100, documentCount: 70, goldenRatio: 72.86 },
+  { keyword: '임영웅 콘서트 예매 일정', grade: 'SSS', score: 89, searchVolume: 4600, documentCount: 120, goldenRatio: 38.33 },
+  { keyword: '프로야구 올스타전 티켓팅 일정', grade: 'SSS', score: 88, searchVolume: 3900, documentCount: 95, goldenRatio: 41.05 },
+];
+const beginnerActionableRanked = rankGoldenDiscoveryResults(beginnerActionablePool, 6, false, {
+  honorRequestedLimit: true,
+  strictVisibleSssOnly: true,
+  requireActionableIntent: true,
+});
+assert('actionable gate identifies beginner-writeable keywords',
+  ['여름 하객 원피스 코디', '키작녀 원피스 사이즈 비교', '코코부 뜻', '2027 6모 등급컷', '임영웅 콘서트 예매 일정', '프로야구 올스타전 티켓팅 일정'].every(keyword => isActionableGoldenKeyword(keyword))
+    && ['원피스', '여름 원피스 코디', '원피스 사이즈 비교', '삼성전자', '뉴스', 'festival parking guide'].every(keyword => !isActionableGoldenKeyword(keyword)),
+  beginnerActionableRanked.map(item => item.keyword).join('|'));
+assert('ranker removes broad or bare SSS keywords when actionable output is required',
+  beginnerActionableRanked.length === 6
+    && beginnerActionableRanked.every(item => isActionableGoldenKeyword(item.keyword))
+    && !beginnerActionableRanked.some(item => ['원피스', '여름 원피스 코디', '원피스 사이즈 비교', '삼성전자', '뉴스', 'festival parking guide'].includes(item.keyword)),
+  beginnerActionableRanked.map(item => item.keyword).join('|'));
+
+const scarceStrictSssPool = [
+  { keyword: '임영웅 콘서트 예매 일정', grade: 'SSS', score: 95, searchVolume: 4600, documentCount: 120, goldenRatio: 38.33 },
+  { keyword: '2027 6모 등급컷', grade: 'SSS', score: 94, searchVolume: 5100, documentCount: 70, goldenRatio: 72.86 },
+  { keyword: '프로야구 올스타전 티켓팅 일정', grade: 'SSS', score: 93, searchVolume: 3900, documentCount: 95, goldenRatio: 41.05 },
+  { keyword: '부산 드림콘서트 예매 일정', grade: 'SSS', score: 92, searchVolume: 2600, documentCount: 90, goldenRatio: 28.89 },
+  { keyword: '문서수 폭발 가짜 SSS', grade: 'SSS', score: 99, searchVolume: 9000, documentCount: 200000, goldenRatio: 0.04 },
+  { keyword: '드라마 폭싹 속았수다 방송시간', grade: 'SS', score: 82, searchVolume: 900, documentCount: 180, goldenRatio: 5 },
+  { keyword: '넷플릭스 신작 드라마 몇부작', grade: 'SS', score: 81, searchVolume: 800, documentCount: 200, goldenRatio: 4 },
+  { keyword: 'KBO 올스타전 중계 일정', grade: 'SS', score: 80, searchVolume: 1200, documentCount: 240, goldenRatio: 5 },
+  { keyword: '청년 월세 지원금 신청 서류', grade: 'SS', score: 79, searchVolume: 700, documentCount: 170, goldenRatio: 4.12 },
+  { keyword: '여름 축제 주차 위치', grade: 'S', score: 70, searchVolume: 420, documentCount: 120, goldenRatio: 3.5 },
+  { keyword: '토익 접수 일정 준비물', grade: 'S', score: 68, searchVolume: 350, documentCount: 150, goldenRatio: 2.33 },
+  { keyword: '원피스', grade: 'SS', score: 82, searchVolume: 5000, documentCount: 100, goldenRatio: 50 },
+  { keyword: 'festival parking guide', grade: 'SS', score: 82, searchVolume: 5000, documentCount: 100, goldenRatio: 50 },
+  { keyword: '드라마 방송시간 부실 후보', grade: 'SS', score: 74, searchVolume: 900, documentCount: 180, goldenRatio: 5 },
+  { keyword: '드라마 방송시간 문서수 과다', grade: 'SS', score: 82, searchVolume: 900, documentCount: 15000, goldenRatio: 0.06 },
+];
+const qualityBackfilled = rankGoldenDiscoveryResults(scarceStrictSssPool, 10, false, {
+  honorRequestedLimit: true,
+  diversifySimilarIntents: true,
+  maxSimilarPerCluster: 2,
+  strictVisibleSssOnly: true,
+  requireActionableIntent: true,
+  qualityBackfillToTarget: true,
+});
+assert('quality backfill fills the requested quantity without exposing weak keywords',
+  qualityBackfilled.length === 10
+    && countSss(qualityBackfilled) === 4
+    && qualityBackfilled.every(item => isQualityGoldenDiscoveryResult(item, { requireActionableIntent: true }))
+    && !qualityBackfilled.some(item => ['문서수 폭발 가짜 SSS', '원피스', 'festival parking guide', '드라마 방송시간 부실 후보', '드라마 방송시간 문서수 과다'].includes(item.keyword)),
+  qualityBackfilled.map(item => `${item.keyword}:${item.grade}:${item.searchVolume}/${item.documentCount}/${item.goldenRatio}/${item.score}`).join('|'));
+assert('quality backfill keeps strict SSS candidates at the top',
+  qualityBackfilled.slice(0, 4).every(item => item.grade === 'SSS')
+    && qualityBackfilled.slice(4).every(item => ['SS', 'S'].includes(String(item.grade))),
+  qualityBackfilled.map(item => `${item.keyword}:${item.grade}`).join('|'));
+
+assert('S quality allows very large document pools when volume ratio is strong',
+  isQualityGoldenDiscoveryResult({
+    keyword: '삼성전자 주가',
+    grade: 'S',
+    score: 86,
+    searchVolume: 38312700,
+    documentCount: 1080381,
+    goldenRatio: 35.46,
+  }, { requireActionableIntent: true }),
+  'high-volume high-ratio S result should stay eligible');
+
+assert('profile issue intent accepts common no-space Korean search forms',
+  isQualityGoldenDiscoveryResult({
+    keyword: '성리프로필',
+    grade: 'SS',
+    score: 86,
+    searchVolume: 42140,
+    documentCount: 835,
+    goldenRatio: 50.47,
+  }, { requireActionableIntent: true }),
+  'no-space profile keywords are common Naver search forms');
+
+const bulkThirtySss = Array.from({ length: 30 }, (_, i) => ({
+  keyword: `${['2027 6모 등급컷', '2026 제헌절 공휴일', '리센느 프로필', '송지호 바다하늘길 주차', '1227회 로또 당첨번호'][i % 5]} ${Math.floor(i / 5) + 1}`,
+  grade: 'SSS',
+  score: 92 - i * 0.05,
+  searchVolume: 2600 + i * 30,
+  documentCount: 180 + i,
+  goldenRatio: 12,
+}));
+const bulkQualityBackfill = Array.from({ length: 45 }, (_, i) => ({
+  keyword: `${['KBO 올스타전 예매 일정', '드라마 공식영상 다시보기', '흠뻑쇼 티켓팅 일정', '모의고사 답지 발표', '정책지원금 신청 서류'][i % 5]} ${Math.floor(i / 5) + 1}`,
+  grade: i % 3 === 0 ? 'SS' : i % 3 === 1 ? 'S' : 'A',
+  score: i % 3 === 0 ? 78 : i % 3 === 1 ? 68 : 61,
+  searchVolume: i % 3 === 0 ? 900 : i % 3 === 1 ? 420 : 180,
+  documentCount: i % 3 === 0 ? 230 : i % 3 === 1 ? 160 : 90,
+  goldenRatio: i % 3 === 0 ? 3.9 : i % 3 === 1 ? 2.7 : 2,
+}));
+const bulkSixtyRanked = rankGoldenDiscoveryResults(
+  [
+    ...bulkQualityBackfill,
+    ...bulkThirtySss,
+    { keyword: '원피스', grade: 'SS', score: 90, searchVolume: 50000, documentCount: 1000000, goldenRatio: 0.05 },
+  ],
+  60,
+  false,
+  {
+    diversifySimilarIntents: true,
+    maxSimilarPerCluster: 6,
+    strictVisibleSssOnly: true,
+    requireActionableIntent: true,
+    qualityBackfillToTarget: true,
+  },
+);
+assert('bulk 60 fills with SSS first and measured SS/S/A quality backfill',
+  bulkSixtyRanked.length === 60
+    && countSss(bulkSixtyRanked) === 30
+    && bulkSixtyRanked.slice(0, 30).every(item => item.grade === 'SSS')
+    && bulkSixtyRanked.slice(30).every(item => isQualityGoldenDiscoveryResult(item, { requireActionableIntent: true }))
+    && !bulkSixtyRanked.some(item => item.keyword === '원피스'),
+  bulkSixtyRanked.map(item => `${item.keyword}:${item.grade}`).join('|'));
 
 const sssTracker = createGoldenSssTargetTracker(30);
 for (let i = 0; i < 29; i++) sssTracker.add(sss[i]);

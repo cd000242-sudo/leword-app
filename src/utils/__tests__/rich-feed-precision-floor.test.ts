@@ -71,6 +71,37 @@ for (const categoryId of categories) {
   assert(`selected category floor ${categoryId}`, count >= 5, `${count}`);
 }
 
+const estimatedFashionSeed: RichKeywordRow = {
+  ...row('원피스 추천', 'shopping', 'A'),
+  searchVolume: 360,
+  documentCount: 180,
+  goldenRatio: 2,
+  dcEstimated: true,
+  sources: ['datalab-shopping-expanded', 'fashion'],
+  sourceCount: 2,
+  bloggerWritability: 80,
+};
+
+const unmarkedHalfSvFallback: RichKeywordRow = {
+  ...row('여름 원피스 추천', 'shopping', 'A'),
+  searchVolume: 360,
+  documentCount: 180,
+  goldenRatio: 2,
+  dcEstimated: false,
+  bloggerWritability: 80,
+};
+
+const blockedBackfill = selectPrecisionRowsWithBackfill([], [estimatedFashionSeed, unmarkedHalfSvFallback], {
+  minReturnCount: 2,
+  selectedCategoryIds: ['shopping'],
+  minPerSelectedCategory: 1,
+  excludedKeywords: new Set(),
+});
+
+assert('precision backfill rejects estimated/fallback document counts',
+  blockedBackfill.length === 0,
+  blockedBackfill.map(r => `${r.keyword}:${r.documentCount}`).join(','));
+
 console.log(`\n[rich-feed-precision-floor.test] passed: ${passed} / failed: ${failed}`);
 if (failed > 0) {
   failures.forEach(f => console.error('  ' + f));

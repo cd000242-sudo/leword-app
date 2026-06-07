@@ -1,0 +1,391 @@
+name: Mobile API and App Release
+
+on:
+  workflow_dispatch:
+    inputs:
+      target:
+        description: Release target to run
+        required: true
+        default: verify-only
+        type: choice
+        options:
+          - verify-only
+          - api-image
+          - android-internal
+          - android-public
+          - ios-testflight
+          - full-release
+      submit_to_stores:
+        description: Submit the latest EAS build to Google Play internal/public track or TestFlight
+        required: true
+        default: false
+        type: boolean
+      run_api_smoke:
+        description: Run smoke test against the deployed HTTPS mobile API
+        required: true
+        default: false
+        type: boolean
+
+permissions:
+  contents: read
+  packages: write
+
+concurrency:
+  group: mobile-release-${{ github.ref }}
+  cancel-in-progress: false
+
+env:
+  NODE_VERSION: 22.13.0
+  REGISTRY: ghcr.io
+  API_IMAGE_REPOSITORY: leword-mobile-api
+  LEWORD_MOBILE_RELEASE_ENV: production
+  EXPO_PUBLIC_LEWORD_API_URL: ${{ vars.LEWORD_MOBILE_API_URL }}
+  EXPO_PUBLIC_EAS_PROJECT_ID: ${{ vars.EXPO_PUBLIC_EAS_PROJECT_ID }}
+  EXPO_PUBLIC_LEWORD_PRIVACY_URL: ${{ vars.LEWORD_PRIVACY_URL }}
+  LEWORD_MOBILE_SMOKE_API_URL: ${{ vars.LEWORD_MOBILE_API_URL }}
+  LEWORD_MOBILE_SMOKE_TOKEN: ${{ secrets.LEWORD_MOBILE_SMOKE_TOKEN }}
+  LEWORD_MOBILE_PERF_API_URL: ${{ vars.LEWORD_MOBILE_API_URL }}
+  LEWORD_MOBILE_PERF_TOKEN: ${{ secrets.LEWORD_MOBILE_SMOKE_TOKEN }}
+  LEWORD_MOBILE_ENTITLEMENT_URL: ${{ vars.LEWORD_MOBILE_ENTITLEMENT_URL }}
+  LEWORD_MOBILE_PREWARM_INTERVAL_MINUTES: ${{ vars.LEWORD_MOBILE_PREWARM_INTERVAL_MINUTES }}
+  LEWORD_MOBILE_CACHE_FILE: /tmp/leword-mobile-cache.json
+  LEWORD_MOBILE_PUSH_PROVIDER: expo
+  NAVER_CLIENT_ID: ${{ secrets.NAVER_CLIENT_ID }}
+  NAVER_CLIENT_SECRET: ${{ secrets.NAVER_CLIENT_SECRET }}
+  NAVER_SEARCH_AD_ACCESS_LICENSE: ${{ secrets.NAVER_SEARCH_AD_ACCESS_LICENSE }}
+  NAVER_SEARCH_AD_SECRET_KEY: ${{ secrets.NAVER_SEARCH_AD_SECRET_KEY }}
+  NAVER_SEARCH_AD_CUSTOMER_ID: ${{ secrets.NAVER_SEARCH_AD_CUSTOMER_ID }}
+  EXPO_TOKEN: ${{ secrets.EXPO_TOKEN }}
+
+jobs:
+  verify:
+    name: Verify mobile parity and release gates
+    runs-on: ubuntu-24.04
+    steps:
+      - name: Checkout
+        uses: actions/checkout@v4
+
+      - name: Setup Node.js
+        uses: actions/setup-node@v4
+        with:
+          node-version: ${{ env.NODE_VERSION }}
+          cache: npm
+
+      - name: Install root dependencies
+        run: npm ci
+
+      - name: Install mobile dependencies
+        run: npm --prefix apps/mobile ci
+
+      - name: Check selected CI release inputs
+        env:
+          GOOGLE_PLAY_SERVICE_ACCOUNT_JSON_B64: ${{ secrets.GOOGLE_PLAY_SERVICE_ACCOUNT_JSON_B64 }}
+          EXPO_APPLE_ID: ${{ secrets.EXPO_APPLE_ID }}
+          EXPO_ASC_APP_ID: ${{ secrets.EXPO_ASC_APP_ID }}
+          EXPO_APPLE_TEAM_ID: ${{ secrets.EXPO_APPLE_TEAM_ID }}
+          EXPO_APPLE_APP_SPECIFIC_PASSWORD: ${{ secrets.EXPO_APPLE_APP_SPECIFIC_PASSWORD }}
+          EXPO_ASC_API_KEY_P8_B64: ${{ secrets.EXPO_ASC_API_KEY_P8_B64 }}
+          EXPO_ASC_API_KEY_ISSUER_ID: ${{ secrets.EXPO_ASC_API_KEY_ISSUER_ID }}
+          EXPO_ASC_API_KEY_ID: ${{ secrets.EXPO_ASC_API_KEY_ID }}
+          LEWORD_MOBILE_REVIEWER_TOKEN_READY: ${{ secrets.LEWORD_MOBILE_REVIEWER_TOKEN_READY }}
+        run: npm run mobile:ci-secrets-gate -- --target "${{ github.event.inputs.target }}" --submit "${{ github.event.inputs.submit_to_stores }}" --smoke "${{ github.event.inputs.run_api_smoke }}"
+
+      - name: Run full verification
+        run: npm run verify:all
+
+      - name: Export Android JS bundle
+        run: npm run mobile:export:android
+
+      - name: Check API deployment package
+        run: npm run mobile:api-deploy-gate
+
+      - name: Check store compliance manifest
+        run: npm run mobile:store-compliance
+
+      - name: Check store listing metadata
+        run: npm run mobile:store-listing
+
+      - name: Check store visual assets
+        run: npm run mobile:store-assets
+
+      - name: Write mobile UI release gate
+        run: npm run mobile:ui-release-gate:save
+
+      - name: Write store submission package
+        run: npm run mobile:store-submission-package:save
+
+      - name: Write release audit
+        run: npm run mobile:release-audit:save
+
+      - name: Write target release kit
+        env:
+          GOOGLE_PLAY_SERVICE_ACCOUNT_JSON_B64: ${{ secrets.GOOGLE_PLAY_SERVICE_ACCOUNT_JSON_B64 }}
+          EXPO_APPLE_ID: ${{ secrets.EXPO_APPLE_ID }}
+          EXPO_ASC_APP_ID: ${{ secrets.EXPO_ASC_APP_ID }}
+          EXPO_APPLE_TEAM_ID: ${{ secrets.EXPO_APPLE_TEAM_ID }}
+          EXPO_APPLE_APP_SPECIFIC_PASSWORD: ${{ secrets.EXPO_APPLE_APP_SPECIFIC_PASSWORD }}
+          EXPO_ASC_API_KEY_P8_B64: ${{ secrets.EXPO_ASC_API_KEY_P8_B64 }}
+          EXPO_ASC_API_KEY_ISSUER_ID: ${{ secrets.EXPO_ASC_API_KEY_ISSUER_ID }}
+          EXPO_ASC_API_KEY_ID: ${{ secrets.EXPO_ASC_API_KEY_ID }}
+          LEWORD_MOBILE_REVIEWER_TOKEN_READY: ${{ secrets.LEWORD_MOBILE_REVIEWER_TOKEN_READY }}
+        run: npm run mobile:release-kit:save -- --target "${{ github.event.inputs.target }}" --submit "${{ github.event.inputs.submit_to_stores }}" --smoke "${{ github.event.inputs.run_api_smoke }}"
+
+      - name: Write GitHub setup plan
+        run: npm run mobile:github-setup-plan:save -- --target "${{ github.event.inputs.target }}" --submit "${{ github.event.inputs.submit_to_stores }}" --smoke "${{ github.event.inputs.run_api_smoke }}"
+
+      - name: Write release dry run
+        env:
+          GOOGLE_PLAY_SERVICE_ACCOUNT_JSON_B64: ${{ secrets.GOOGLE_PLAY_SERVICE_ACCOUNT_JSON_B64 }}
+          EXPO_APPLE_ID: ${{ secrets.EXPO_APPLE_ID }}
+          EXPO_ASC_APP_ID: ${{ secrets.EXPO_ASC_APP_ID }}
+          EXPO_APPLE_TEAM_ID: ${{ secrets.EXPO_APPLE_TEAM_ID }}
+          EXPO_APPLE_APP_SPECIFIC_PASSWORD: ${{ secrets.EXPO_APPLE_APP_SPECIFIC_PASSWORD }}
+          EXPO_ASC_API_KEY_P8_B64: ${{ secrets.EXPO_ASC_API_KEY_P8_B64 }}
+          EXPO_ASC_API_KEY_ISSUER_ID: ${{ secrets.EXPO_ASC_API_KEY_ISSUER_ID }}
+          EXPO_ASC_API_KEY_ID: ${{ secrets.EXPO_ASC_API_KEY_ID }}
+          LEWORD_MOBILE_REVIEWER_TOKEN_READY: ${{ secrets.LEWORD_MOBILE_REVIEWER_TOKEN_READY }}
+        run: npm run mobile:release-dry-run:save -- --target "${{ github.event.inputs.target }}" --submit "${{ github.event.inputs.submit_to_stores }}" --smoke "${{ github.event.inputs.run_api_smoke }}"
+
+      - name: Write release dispatch plan
+        env:
+          GOOGLE_PLAY_SERVICE_ACCOUNT_JSON_B64: ${{ secrets.GOOGLE_PLAY_SERVICE_ACCOUNT_JSON_B64 }}
+          EXPO_APPLE_ID: ${{ secrets.EXPO_APPLE_ID }}
+          EXPO_ASC_APP_ID: ${{ secrets.EXPO_ASC_APP_ID }}
+          EXPO_APPLE_TEAM_ID: ${{ secrets.EXPO_APPLE_TEAM_ID }}
+          EXPO_APPLE_APP_SPECIFIC_PASSWORD: ${{ secrets.EXPO_APPLE_APP_SPECIFIC_PASSWORD }}
+          EXPO_ASC_API_KEY_P8_B64: ${{ secrets.EXPO_ASC_API_KEY_P8_B64 }}
+          EXPO_ASC_API_KEY_ISSUER_ID: ${{ secrets.EXPO_ASC_API_KEY_ISSUER_ID }}
+          EXPO_ASC_API_KEY_ID: ${{ secrets.EXPO_ASC_API_KEY_ID }}
+          LEWORD_MOBILE_REVIEWER_TOKEN_READY: ${{ secrets.LEWORD_MOBILE_REVIEWER_TOKEN_READY }}
+          MOBILE_RELEASE_REF: ${{ github.ref_name }}
+        run: npm run mobile:release-dispatch-plan:save -- --target "${{ github.event.inputs.target }}" --submit "${{ github.event.inputs.submit_to_stores }}" --smoke "${{ github.event.inputs.run_api_smoke }}" --ref "${{ github.ref_name }}"
+
+      - name: Write mobile release status
+        env:
+          MOBILE_RELEASE_REF: ${{ github.ref_name }}
+        run: npm run mobile:release-status:save -- --ref "${{ github.ref_name }}"
+
+      - name: Write public store release gate
+        env:
+          LEWORD_MOBILE_REVIEWER_TOKEN_READY: ${{ secrets.LEWORD_MOBILE_REVIEWER_TOKEN_READY }}
+        run: npm run mobile:public-release-gate:save
+
+      - name: Write Android public store release gate
+        env:
+          LEWORD_MOBILE_REVIEWER_TOKEN_READY: ${{ secrets.LEWORD_MOBILE_REVIEWER_TOKEN_READY }}
+        run: npm run mobile:public-release-gate:android:save
+
+      - name: Write mobile launch SLA report
+        run: npm run mobile:launch-sla:save
+
+      - name: Scan release evidence for secrets
+        run: npm run mobile:release-secret-scan:save
+
+      - name: Upload release evidence
+        uses: actions/upload-artifact@v4
+        with:
+          name: mobile-release-evidence
+          if-no-files-found: error
+          path: |
+            .codex-build-cache/mobile-release-audit.json
+            .codex-build-cache/mobile-release-kit.json
+            .codex-build-cache/mobile-release-dry-run.json
+            .codex-build-cache/mobile-release-dispatch-plan.json
+            .codex-build-cache/mobile-release-status.json
+            .codex-build-cache/mobile-release-secret-scan.json
+            .codex-build-cache/mobile-public-release-gate.json
+            .codex-build-cache/mobile-public-release-gate-android.json
+            .codex-build-cache/mobile-github-setup-plan.json
+            .codex-build-cache/mobile-github-setup.ps1
+            .codex-build-cache/mobile-ui-release-gate.json
+            .codex-build-cache/mobile-store-submission-package.json
+            .codex-build-cache/mobile-store-submission-google-play.txt
+            .codex-build-cache/mobile-store-submission-app-store.txt
+            .codex-build-cache/mobile-launch-sla-report.json
+            docs/mobile-store-compliance.json
+            docs/mobile-store-listing.json
+            docs/mobile-store-assets.json
+            apps/mobile/assets/icon.png
+            apps/mobile/assets/adaptive-icon.png
+            apps/mobile/assets/splash.png
+            apps/mobile/assets/store/feature-graphic.png
+            apps/mobile/assets/store/screenshots/*.png
+            apps/mobile/.expo-export/android/metadata.json
+            apps/mobile/.expo-export/android/_expo/static/js/android/*.hbc
+
+  api-image:
+    name: Build and publish production API image
+    runs-on: ubuntu-24.04
+    needs: verify
+    if: ${{ github.event.inputs.target == 'api-image' || github.event.inputs.target == 'full-release' }}
+    steps:
+      - name: Checkout
+        uses: actions/checkout@v4
+
+      - name: Login to GitHub Container Registry
+        run: echo "${{ secrets.GITHUB_TOKEN }}" | docker login ${{ env.REGISTRY }} -u "${{ github.actor }}" --password-stdin
+
+      - name: Build and push API Docker image
+        shell: bash
+        run: |
+          IMAGE_NAME="${REGISTRY}/${GITHUB_REPOSITORY_OWNER,,}/${API_IMAGE_REPOSITORY}"
+          mkdir -p .codex-build-cache
+          docker build -f apps/api/Dockerfile -t "${IMAGE_NAME}:${GITHUB_SHA}" -t "${IMAGE_NAME}:latest" .
+          docker push "${IMAGE_NAME}:${GITHUB_SHA}"
+          docker push "${IMAGE_NAME}:latest"
+          echo "${IMAGE_NAME}:${GITHUB_SHA}" > .codex-build-cache/mobile-api-image.txt
+
+      - name: Upload API image reference
+        uses: actions/upload-artifact@v4
+        with:
+          name: mobile-api-image-reference
+          if-no-files-found: error
+          path: .codex-build-cache/mobile-api-image.txt
+
+  api-smoke:
+    name: Smoke deployed mobile API
+    runs-on: ubuntu-24.04
+    needs: verify
+    if: ${{ github.event.inputs.run_api_smoke == 'true' }}
+    steps:
+      - name: Checkout
+        uses: actions/checkout@v4
+
+      - name: Setup Node.js
+        uses: actions/setup-node@v4
+        with:
+          node-version: ${{ env.NODE_VERSION }}
+          cache: npm
+
+      - name: Install root dependencies
+        run: npm ci
+
+      - name: Run deployed API smoke
+        env:
+          LEWORD_MOBILE_SMOKE_RUN_JOB: 'true'
+        run: npm run mobile:api-smoke
+
+      - name: Run deployed API performance smoke
+        env:
+          LEWORD_MOBILE_PERF_RUN_JOB: 'true'
+        run: npm run mobile:api-performance-smoke:save
+
+      - name: Upload API smoke evidence
+        uses: actions/upload-artifact@v4
+        with:
+          name: mobile-api-smoke-evidence
+          if-no-files-found: error
+          path: .codex-build-cache/mobile-api-performance-smoke.json
+
+  android-internal:
+    name: Build Android internal release
+    runs-on: ubuntu-24.04
+    needs:
+      - verify
+    if: ${{ github.event.inputs.target == 'android-internal' || github.event.inputs.target == 'android-public' || github.event.inputs.target == 'full-release' }}
+    steps:
+      - name: Checkout
+        uses: actions/checkout@v4
+
+      - name: Setup Node.js
+        uses: actions/setup-node@v4
+        with:
+          node-version: ${{ env.NODE_VERSION }}
+          cache: npm
+
+      - name: Install root dependencies
+        run: npm ci
+
+      - name: Install mobile dependencies
+        run: npm --prefix apps/mobile ci
+
+      - name: Materialize submit config when submitting
+        if: ${{ github.event.inputs.submit_to_stores == 'true' }}
+        env:
+          GOOGLE_PLAY_SERVICE_ACCOUNT_JSON_B64: ${{ secrets.GOOGLE_PLAY_SERVICE_ACCOUNT_JSON_B64 }}
+        run: npm run mobile:submit-config:materialize
+
+      - name: Export Android JS bundle
+        run: npm run mobile:export:android
+
+      - name: Verify cloud build inputs
+        run: npm run mobile:release-gate:cloud
+
+      - name: Build Android internal APK
+        if: ${{ github.event.inputs.target == 'android-internal' || github.event.inputs.target == 'full-release' }}
+        run: npm run mobile:build:android:internal
+
+      - name: Build and submit Android production AAB
+        if: ${{ github.event.inputs.submit_to_stores == 'true' && (github.event.inputs.target == 'android-internal' || github.event.inputs.target == 'full-release') }}
+        run: |
+          npm run mobile:deploy-readiness:android
+          npm run mobile:build:android:production
+          npm run mobile:submit:android:internal
+
+      - name: Build and submit Android public AAB
+        if: ${{ github.event.inputs.submit_to_stores == 'true' && github.event.inputs.target == 'android-public' }}
+        env:
+          LEWORD_MOBILE_REVIEWER_TOKEN_READY: ${{ secrets.LEWORD_MOBILE_REVIEWER_TOKEN_READY }}
+          LEWORD_MOBILE_PERF_RUN_JOB: 'true'
+        run: |
+          npm run mobile:deploy-readiness:android
+          npm run mobile:build:android:production
+          npm run mobile:api-performance-smoke:save
+          npm run mobile:public-release-gate:android
+          npm run mobile:submit-gate:android:public
+          npm run mobile:submit:android:public
+
+  ios-testflight:
+    name: Build iOS TestFlight release
+    runs-on: ubuntu-24.04
+    needs:
+      - verify
+    if: ${{ github.event.inputs.target == 'ios-testflight' || github.event.inputs.target == 'full-release' }}
+    steps:
+      - name: Checkout
+        uses: actions/checkout@v4
+
+      - name: Setup Node.js
+        uses: actions/setup-node@v4
+        with:
+          node-version: ${{ env.NODE_VERSION }}
+          cache: npm
+
+      - name: Install root dependencies
+        run: npm ci
+
+      - name: Install mobile dependencies
+        run: npm --prefix apps/mobile ci
+
+      - name: Materialize iOS submit config
+        env:
+          EXPO_APPLE_ID: ${{ secrets.EXPO_APPLE_ID }}
+          EXPO_ASC_APP_ID: ${{ secrets.EXPO_ASC_APP_ID }}
+          EXPO_APPLE_TEAM_ID: ${{ secrets.EXPO_APPLE_TEAM_ID }}
+          EXPO_ASC_API_KEY_P8_B64: ${{ secrets.EXPO_ASC_API_KEY_P8_B64 }}
+          EXPO_ASC_API_KEY_ISSUER_ID: ${{ secrets.EXPO_ASC_API_KEY_ISSUER_ID }}
+          EXPO_ASC_API_KEY_ID: ${{ secrets.EXPO_ASC_API_KEY_ID }}
+        run: npm run mobile:submit-config:materialize
+
+      - name: Export Android JS bundle for release gate
+        run: npm run mobile:export:android
+
+      - name: Verify cloud build inputs
+        run: npm run mobile:release-gate:cloud
+
+      - name: Build iOS production app
+        run: npm run mobile:build:ios:testflight
+
+      - name: Submit latest iOS build to TestFlight
+        if: ${{ github.event.inputs.submit_to_stores == 'true' }}
+        env:
+          EXPO_APPLE_ID: ${{ secrets.EXPO_APPLE_ID }}
+          EXPO_ASC_APP_ID: ${{ secrets.EXPO_ASC_APP_ID }}
+          EXPO_APPLE_TEAM_ID: ${{ secrets.EXPO_APPLE_TEAM_ID }}
+          EXPO_APPLE_APP_SPECIFIC_PASSWORD: ${{ secrets.EXPO_APPLE_APP_SPECIFIC_PASSWORD }}
+          EXPO_ASC_API_KEY_P8_B64: ${{ secrets.EXPO_ASC_API_KEY_P8_B64 }}
+          EXPO_ASC_API_KEY_ISSUER_ID: ${{ secrets.EXPO_ASC_API_KEY_ISSUER_ID }}
+          EXPO_ASC_API_KEY_ID: ${{ secrets.EXPO_ASC_API_KEY_ID }}
+        run: |
+          npm run mobile:deploy-readiness:ios
+          npm run mobile:submit:ios:testflight

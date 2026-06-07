@@ -4,6 +4,7 @@
     "module": "commonjs",
     "lib": ["ES2020", "DOM"],
     "outDir": "./dist",
+    "rootDir": ".",
     "strict": false,
     "noImplicitAny": false,
     "esModuleInterop": true,
@@ -16,4 +17,3 @@
   "include": ["src/**/*"],
   "exclude": ["node_modules", "dist"]
 }
-

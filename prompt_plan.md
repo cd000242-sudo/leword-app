@@ -1,3 +1,70 @@
+# LEWORD 모바일 PC 기능 완전 연동 계획
+
+> 작성일: 2026-06-06
+> 상태: **진행 중**
+> 목표: 모바일 앱에서 PC 기능을 숨기지 않고 서브탭별로 정리한 뒤, 실행 가능한 기능부터 PC 엔진 API로 하나씩 연결하고 테스트한다.
+
+## 요구사항 정리
+
+- 기존 PC 앱 favicon(`assets/256.ico`)을 모바일 앱 로고/스플래시 자산으로 사용한다.
+- 모바일 첫 화면은 간단하고 직관적으로 유지하되, 좌측 서브탭으로 PC 기능 전체를 정리한다.
+- 모바일과 PC는 별도 설정으로 분리하지 않고, 패널 로그인/PC API 서버 기준으로 자동 연동한다.
+- 실시간 검색어, 정책 브리핑, 오늘 이슈, 추천 인박스는 앱 첫 흐름에서 바로 보여야 한다.
+- PC 기능 parity는 버튼만 복사하는 것이 아니라 모바일 → API → PC 엔진/핸들러 → 결과 표시 → 테스트까지 검증한다.
+
+## 단계별 실행
+
+1. **로고 통일**
+   - `assets/256.ico`에서 PNG favicon 원본 추출
+   - `apps/mobile/assets/icon.png`, `adaptive-icon.png`, `splash.png` 재생성
+   - Expo asset gate와 APK 빌드로 확인
+
+2. **PC 기능 카탈로그**
+   - `src/main/handlers/*.ts`의 `ipcMain.handle(...)` 전체를 API 서버에서 스캔
+   - `today/discovery/analysis/expansion/premium/schedule/settings` 서브탭으로 자동 분류
+   - 상태를 `ready/linked/planned/pc-only`로 표시
+   - 모바일 화면에서 탭별 전체 기능 수와 상위 기능 목록 표시
+
+3. **즉시 실행 기능 확장**
+   - 현재 연결된 6개 작업: 황금키워드, PRO 트래픽, 키워드 분석, 마인드맵, 홈판, 지식인
+   - 완료: 실시간/정책/이슈 소스 신호 API (`/v1/mobile/source-signals`)와 앱 `소스 갱신` 버튼 연결
+   - 완료: 패널 로그인 세션이 패널 제공 PC API URL/토큰을 받아 모바일 SecureStore에 저장되고 앱 재실행 시 자동 복원
+   - 완료: API 상태 세부 진단 (`/v1/mobile/api-status`)과 설정 탭 `API 상태 진단` 카드 연결
+   - 완료: 키워드 그룹 API (`/v1/mobile/keyword-groups`)와 스케줄 탭 `키워드 그룹` 목록/등록/삭제 연결
+   - 완료: 스케줄 대시보드 API (`/v1/mobile/schedule-dashboard`)와 스케줄 탭 `스케줄 대시보드` 상태 카드 연결
+   - 완료: 예약 추가/토글 API (`/v1/mobile/schedules`)와 스케줄 탭 `현재 키워드 예약`/활성·비활성 전환 연결
+   - 완료: 예약 상세 편집/삭제 API (`PATCH`/`DELETE /v1/mobile/schedules/:id`)와 스케줄 탭 `예약 상세 저장`/`편집`/`삭제` 연결
+   - 완료: 내보내기/공유 API (`/v1/mobile/export/keywords`)와 설정/결과 `CSV 공유`/`텍스트 공유`/`JSON 공유` 연결
+   - 완료: 워드프레스 공유 저장소 API (`/v1/mobile/wordpress`)와 설정 탭 `WP 상태 동기화`/`WP 사이트 저장`/`WP 초안 등록` 연결
+   - 완료: 워드프레스 REST 카테고리 실시간 조회/실제 초안 발행 실행 API (`/v1/mobile/wordpress/categories`, `/v1/mobile/wordpress/publish`)와 설정 탭 `WP 카테고리 조회`/`WP REST 전송` 연결
+   - 완료: 순위 추적 조회 API (`/v1/mobile/rank-tracking`)와 분석 탭 `순위 추적`/`순위 추적 갱신` 카드 연결
+   - 완료: 순위 추적 수동 등록/삭제/빠른 점검 API (`/v1/mobile/rank-tracking/manual`, `/run`, `/pair`)와 분석 탭 입력/실행 컨트롤 연결
+   - 완료: PRO 청사진 성과 로그 조회 API (`/v1/mobile/pro-outcomes`)와 프리미엄 탭 `PRO 성과 로그`/`성과 갱신` 카드 연결
+   - 완료: PRO tracked post 등록 API (`/v1/mobile/rank-tracking/pro-post`)와 분석 탭 `PRO 글 추적 등록` 컨트롤 연결
+   - 완료: PRO 성과 기록/삭제/동기화 API (`/v1/mobile/pro-outcomes/record`, `/item`, `/sync`)와 프리미엄 탭 `성과 기록`/`성과 동기화`/`성과 삭제` 컨트롤 연결
+   - 완료: PRO 청사진 생성/초안 생성/수익 추정 API (`/v1/mobile/pro-blueprint`, `/draft`, `/revenue`)와 프리미엄 탭 `PRO 청사진`/`청사진 생성`/`초안 생성`/`수익 추정` 컨트롤 연결
+   - 다음 우선순위: PRO 수익 설정/카테고리 RPM/포트폴리오 수익, RPM 분석 계열 모바일 액션 연결
+   - 각 기능은 모바일 계약 타입, API route, PC executor, UI 카드, 테스트를 한 세트로 추가
+
+4. **검증 루프**
+   - 기능별 단위 테스트
+   - `apps/api` 타입체크
+   - `apps/mobile` 타입체크
+   - 모바일 UI release gate
+   - 실제 로컬 API smoke
+   - EAS APK 재빌드 후 휴대폰 설치 테스트
+
+5. **완료 기준**
+   - 앱에서 PC 기능 전체 목록이 누락 없이 보인다.
+   - `ready` 기능은 휴대폰에서 직접 실행되고 결과까지 표시된다.
+   - `linked` 기능은 대시보드/로그인/예열/푸시와 연결된다.
+   - `planned` 기능은 다음 구현 대상이 명확히 남는다.
+   - `pc-only` 기능은 파일/창/클립보드처럼 모바일에서 실행하지 않는 이유가 표시된다.
+
+---
+
+## 이전 계획
+
 # 원클릭 API 키 자동 세팅 마법사 — 구현 계획
 
 > 작성일: 2026-04-15

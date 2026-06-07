@@ -22,6 +22,36 @@ export interface ProTrafficFloorLike {
   } | null;
 }
 
+export function isProTrafficWritableKeywordText(
+  keyword: string | undefined | null,
+  category: string | undefined | null = 'all',
+): boolean {
+  const raw = String(keyword || '').normalize('NFKC').replace(/\s+/g, ' ').trim();
+  if (!raw || raw.length < 2) return false;
+  if (!/[\uAC00-\uD7A3]/.test(raw)) return false;
+
+  const compact = raw.replace(/\s+/g, '');
+  const tokens = raw.split(/\s+/).filter(Boolean);
+  const normalizedCategory = String(category || 'all').toLowerCase();
+  const isEntertainment = ['celeb', 'broadcast', 'drama', 'movie', 'music', 'anime'].includes(normalizedCategory);
+
+  if (tokens.length > 6) return false;
+  if (compact.length > (isEntertainment ? 30 : 34)) return false;
+  if (/^[^\uAC00-\uD7A3A-Za-z0-9]+/.test(raw)) return false;
+  if (/[\u0000-\u001F<>]/.test(raw)) return false;
+  if (/[“”‘’"'`]|…|\.{2,}|→|⇒|♥|★|☆|ⓓ|・/.test(raw)) return false;
+  if (/[!?！？]/.test(raw)) return false;
+  if (/[,:;，：；]/.test(raw) && (tokens.length >= 2 || compact.length > 10)) return false;
+  if (/\b20\d{2}[.\-/]\d{1,2}[.\-/]\d{1,2}\b/.test(raw)) return false;
+  if (/\b\d+(?:\.\d+)?%/.test(raw)) return false;
+  if (/[가-힣]{2,4}\s*기자/.test(raw)) return false;
+
+  const headlineVerbs = /(한다|했다|됐다|통했다|잡고|제치고|어쩌나|어떡하나|미쳤다|갑자기|다시 배|최고|수상|승계|추가|논란 동영상 유포)/;
+  if (isEntertainment && tokens.length >= 4 && headlineVerbs.test(raw)) return false;
+
+  return true;
+}
+
 export function normalizeProTrafficResultCount(
   mode: string | undefined | null,
   requestedCount: number | undefined | null,

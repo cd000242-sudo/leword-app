@@ -12,6 +12,7 @@ import { checkUnlimitedLicense } from './shared';
 import { getFreshKeywordsAPI } from '../../utils/mass-collection/fresh-keywords-api';
 import { rankKeywordExpansionStrings } from '../../utils/keyword-expansion-ranker';
 import { deterministicRange } from '../../utils/deterministic-random';
+import { rankGoldenDiscoveryResults } from '../../utils/golden-discovery-floor';
 
 
 export function setupKeywordAnalysisHandlers(): void {
@@ -2039,8 +2040,9 @@ export function setupKeywordAnalysisHandlers(): void {
 
         // 3) 황금 비율 계산 + 필터
         const minRatio = payload?.minRatio ?? 5;
-        const minSearchVolume = payload?.minSearchVolume ?? 300;
-        const maxDocCount = payload?.maxDocCount ?? 10000;
+        const minSearchVolume = payload?.minSearchVolume ?? 1000;
+        const maxDocCount = payload?.maxDocCount ?? 5000;
+        const allowRelaxedDiscoveryFallback = false;
 
         const enriched = measured.map(m => {
           const sv = ((m.pcSearchVolume || 0) + (m.mobileSearchVolume || 0));
@@ -2080,12 +2082,17 @@ export function setupKeywordAnalysisHandlers(): void {
           if (r < r_min) return false;
           return true;
         };
-        let golden = enriched.filter(k => goldenFilter(k, minSearchVolume, maxDocCount, minRatio)).map(k => ({ ...k, isGolden: true }));
+        let golden: any[] = enriched.filter(k => goldenFilter(k, minSearchVolume, maxDocCount, minRatio)).map(k => ({
+          ...k,
+          isGolden: true,
+          grade: 'SSS' as const,
+          score: Math.min(100, 85 + Math.min(10, Number(k.goldenRatio || 0) - minRatio)),
+        }));
         let relaxedUsed = false;
         let relaxedThresholds = { minRatio, minSearchVolume, maxDocCount, relaxed: false };
 
         // v2.43.1: 0건이면 자동 완화 재시도 (sv 100, dc 30000, ratio 2)
-        if (golden.length === 0 && stats.svMeasured > 0) {
+        if (allowRelaxedDiscoveryFallback && golden.length === 0 && stats.svMeasured > 0) {
           send('progress', `🔧 엄격 컷 0건 → 완화 재시도 (sv≥100, dc≤30000, 비율≥2)`);
           golden = enriched.filter(k => goldenFilter(k, 100, 30000, 2)).map(k => ({ ...k, isGolden: false, _relaxed: true }));
           relaxedUsed = true;
@@ -2093,7 +2100,7 @@ export function setupKeywordAnalysisHandlers(): void {
         }
 
         // 정렬: 황금비율 내림차순 → 검색량 내림차순
-        if (golden.length < targetReturnCount && stats.svMeasured > 0) {
+        if (allowRelaxedDiscoveryFallback && golden.length < targetReturnCount && stats.svMeasured > 0) {
           send('progress', `?뵩 ?⑷툑 ?ㅼ썙??30媛?誘몃떖(${golden.length}/${targetReturnCount}) ??候補 而?蹂댁텛`);
           const tiers = [
             { sv: 100, dc: 30000, ratio: 2 },
@@ -2114,11 +2121,13 @@ export function setupKeywordAnalysisHandlers(): void {
           }
         }
 
-        golden.sort((a, b) => {
-          const ra = a.goldenRatio ?? 0;
-          const rb = b.goldenRatio ?? 0;
-          if (rb !== ra) return rb - ra;
-          return (b.searchVolume ?? 0) - (a.searchVolume ?? 0);
+        golden = rankGoldenDiscoveryResults(golden, targetReturnCount, false, {
+          honorRequestedLimit: true,
+          diversifySimilarIntents: true,
+          maxSimilarPerCluster: 2,
+          strictVisibleSssOnly: true,
+          requireActionableIntent: true,
+          qualityBackfillToTarget: true,
         });
 
         const msg = relaxedUsed

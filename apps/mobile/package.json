@@ -1,0 +1,39 @@
+{
+  "name": "@leword/mobile",
+  "version": "0.1.0",
+  "private": true,
+  "description": "LEWORD mobile app. Heavy keyword discovery runs on PC-grade LEWORD API workers.",
+  "main": "index.js",
+  "scripts": {
+    "start": "expo start",
+    "android": "expo run:android",
+    "ios": "expo run:ios",
+    "doctor": "npx expo-doctor@latest",
+    "build:android:internal": "npx eas-cli build --platform android --profile internal",
+    "build:android:production": "npx eas-cli build --platform android --profile production",
+    "build:ios:simulator": "npx eas-cli build --platform ios --profile development",
+    "build:ios:testflight": "npx eas-cli build --platform ios --profile production",
+    "submit:android:internal": "npx eas-cli submit --platform android --profile production --latest",
+    "submit:android:public": "npx eas-cli submit --platform android --profile public --latest",
+    "submit:ios:testflight": "npx eas-cli submit --platform ios --profile production --latest",
+    "typecheck": "tsc --noEmit"
+  },
+  "dependencies": {
+    "expo": "~56.0.0",
+    "expo-constants": "~56.0.16",
+    "expo-device": "~56.0.4",
+    "expo-notifications": "~56.0.15",
+    "expo-secure-store": "~56.0.4",
+    "expo-status-bar": "~56.0.4",
+    "leword": "file:../..",
+    "react": "19.2.3",
+    "react-native": "~0.85.0"
+  },
+  "devDependencies": {
+    "@types/react": "~19.2.0",
+    "typescript": "~6.0.3"
+  },
+  "overrides": {
+    "uuid": "^11.1.1"
+  }
+}

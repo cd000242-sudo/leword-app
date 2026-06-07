@@ -9,6 +9,8 @@
 import {
   countSss,
   getGoldenDiscoveryScanLimit,
+  isActionableGoldenKeyword,
+  isQualityGoldenDiscoveryResult,
   rankGoldenDiscoveryResults,
 } from '../golden-discovery-floor';
 
@@ -116,7 +118,142 @@ function buildRunPool(run: number): FixtureKeyword[] {
     score: item.score - 0.1,
   }));
 
-  return rotate([...lower, ...duplicates, ...sss], run * 17);
+  const invalidSss = Array.from({ length: 8 }, (_, i): FixtureKeyword => ({
+    keyword: `invalid fake SSS broad ${run}-${i}`,
+    category: fixture.category,
+    grade: 'SSS',
+    score: 99 - i * 0.1,
+    searchVolume: 120 + i * 30,
+    documentCount: 100000 + i * 10000,
+    goldenRatio: 0.01,
+    cpc: 50,
+  }));
+
+  return rotate([...lower, ...invalidSss, ...duplicates, ...sss], run * 17);
+}
+
+function buildRepetitiveCluster(run: number): FixtureKeyword[] {
+  return Array.from({ length: 20 }, (_, i): FixtureKeyword => {
+    const searchVolume = 6200 - i * 30;
+    const documentCount = 300 + i;
+    return {
+      keyword: `run ${run} summer dress recommendation variant ${i + 1}`,
+      category: 'fashion',
+      grade: 'SSS',
+      score: 99 - i * 0.05,
+      searchVolume,
+      documentCount,
+      goldenRatio: Number((searchVolume / documentCount).toFixed(2)),
+      cpc: 280,
+    };
+  });
+}
+
+const diverseBackfillTopics = [
+  '2027 6모 등급컷 발표',
+  '여름 하객 원피스 코디',
+  '키작녀 원피스 사이즈 비교',
+  '임영웅 콘서트 예매 일정',
+  '유재석 새 예능 방송시간',
+  '프로야구 올스타전 티켓팅 일정',
+  '월드컵 예선 중계 시간',
+  '드라마 결말 해석',
+  '아이돌 컴백 쇼케이스 일정',
+  '청년월세지원 신청 서류',
+  '근로장려금 지급일 조회',
+  '신혼부부 전세대출 조건',
+  '장마철 제습기 전기세 비교',
+  '40대 선크림 민감성 피부 추천',
+  '아이폰17 사전예약 가격',
+  '부산 불꽃축제 주차 위치',
+  '여름휴가 제주 숙소 예약',
+  '반려견 심장사상충 검사 비용',
+  '자취 원룸 에어컨 전기세 비교',
+  '아파트 청약 당첨자 발표 조회',
+  '초등 여름방학 체험학습 신청',
+  '대학생 국가장학금 신청 기간',
+  '직장인 연말정산 환급 조회',
+  'KBO 개막전 예매 일정',
+  '방송 출연진 공개 시간',
+  '영화 개봉일 예매 일정',
+  '서울 축제 입장료 주차',
+  '지역 병원 휴일 진료 시간표',
+  '고속버스 시간표 예약',
+  '도서관 문화강좌 신청 방법',
+  '박람회 사전등록 신청',
+  '학교 급식 변경 조회',
+  '콘서트 좌석 배치도 예매',
+  '호텔 패키지 할인 예약',
+  '공영주차장 요금 변경',
+  '독감 백신 접종 비용',
+  '전입신고 준비물 체크리스트',
+  '소상공인 정책자금 대상 조건',
+  '청년도약계좌 신청 방법',
+  '스포츠 결승전 티켓팅 일정',
+];
+
+function buildDiverseBackfill(run: number): FixtureKeyword[] {
+  return diverseBackfillTopics.map((topic, i): FixtureKeyword => {
+    const searchVolume = 3000 + ((run * 29 + i * 137) % 5000);
+    const documentCount = 30 + ((run * 7 + i * 13) % 450);
+    return {
+      keyword: `${topic} ${run}-${i}`,
+      category: 'mixed',
+      grade: 'SSS',
+      score: 94 - (i % 6) * 0.2,
+      searchVolume,
+      documentCount,
+      goldenRatio: Number((searchVolume / documentCount).toFixed(2)),
+      cpc: 220 + (i % 7) * 30,
+    };
+  });
+}
+
+function buildBeginnerBareNoise(run: number): FixtureKeyword[] {
+  const bareTopics = [
+    'dress',
+    'samsung',
+    'cocobu',
+    'breaking news',
+    'economy',
+    'market',
+    'celebrity',
+    'weather',
+    'sports',
+    'coin',
+  ];
+  return bareTopics.map((topic, i): FixtureKeyword => ({
+    keyword: `${topic} ${run}-${i}`,
+    category: 'mixed',
+    grade: 'SSS',
+    score: 99 - i * 0.1,
+    searchVolume: 9000 + i * 300,
+    documentCount: 40 + i,
+    goldenRatio: 90 - i,
+    cpc: 100,
+  }));
+}
+
+function buildQualityBackfill(run: number): FixtureKeyword[] {
+  return diverseBackfillTopics.map((topic, i): FixtureKeyword => {
+    const isSs = i % 2 === 0;
+    const searchVolume = isSs
+      ? 700 + ((run * 31 + i * 43) % 1200)
+      : 360 + ((run * 17 + i * 29) % 700);
+    const documentCount = isSs
+      ? 90 + ((run * 11 + i * 7) % 210)
+      : 80 + ((run * 13 + i * 5) % 180);
+    return {
+      keyword: `${topic} 품질보충 ${run}-${i}`,
+      category: 'mixed',
+      grade: isSs ? 'SS' : 'S',
+      score: isSs ? 82 - (i % 5) * 0.3 : 71 - (i % 5) * 0.4,
+      searchVolume,
+      documentCount,
+      goldenRatio: Number((searchVolume / documentCount).toFixed(2)),
+      cpc: 180 + (i % 6) * 25,
+    };
+  });
 }
 
 const categoryScanLimit = getGoldenDiscoveryScanLimit(30, false, 360, { categoryFirst: true });
@@ -155,9 +292,92 @@ for (let run = 0; run < 100; run++) {
   assert(`run ${run + 1}: compact duplicates are removed`,
     duplicateCount === 0,
     `${duplicateCount}`);
+  assert(`run ${run + 1}: invalid measured SSS labels are removed`,
+    ranked.every(item => !item.keyword.startsWith('invalid fake SSS')),
+    ranked.map(item => `${item.keyword}:${item.searchVolume}/${item.documentCount}/${item.goldenRatio}`).join('|'));
   assert(`run ${run + 1}: quick preview honors 10-result requests`,
     quickPreview.length === 10 && countSss(quickPreview) === 10,
     `len=${quickPreview.length}, sss=${countSss(quickPreview)}`);
+
+  const diversified = rankGoldenDiscoveryResults(
+    rotate([...buildRepetitiveCluster(run), ...buildDiverseBackfill(run), ...pool], run * 11),
+    30,
+    false,
+    {
+      diversifySimilarIntents: true,
+      maxSimilarPerCluster: 2,
+      strictVisibleSssOnly: true,
+    },
+  );
+  const repeatedClusterCount = diversified
+    .filter(item => item.keyword.startsWith(`run ${run} summer dress recommendation`)).length;
+  assert(`run ${run + 1}: diversified ranker keeps repeated intent clusters capped`,
+    diversified.length === 30 && repeatedClusterCount <= 2,
+    `len=${diversified.length}, repeated=${repeatedClusterCount}, keywords=${diversified.map(item => item.keyword).join('|')}`);
+  assert(`run ${run + 1}: diversified ranker still fills 30 valid SSS results`,
+    countSss(diversified) === 30 && diversified.every(item =>
+      item.grade === 'SSS'
+      && item.searchVolume >= 1000
+      && item.documentCount <= 5000
+      && item.goldenRatio >= 5
+      && item.score >= 85
+    ),
+    diversified.map(item => `${item.keyword}:${item.grade}:${item.searchVolume}/${item.documentCount}/${item.goldenRatio}/${item.score}`).join('|'));
+
+  const actionable = rankGoldenDiscoveryResults(
+    rotate([...buildBeginnerBareNoise(run), ...buildRepetitiveCluster(run), ...buildDiverseBackfill(run)], run * 13),
+    30,
+    false,
+    {
+      diversifySimilarIntents: true,
+      maxSimilarPerCluster: 2,
+      strictVisibleSssOnly: true,
+      requireActionableIntent: true,
+    },
+  );
+  assert(`run ${run + 1}: actionable ranker removes broad bare topics and still fills 30 SSS results`,
+    actionable.length === 30
+      && countSss(actionable) === 30
+      && actionable.every(item => isActionableGoldenKeyword(item.keyword))
+      && actionable.every(item => !buildBeginnerBareNoise(run).some(noise => noise.keyword === item.keyword)),
+    actionable.map(item => `${item.keyword}:${item.grade}`).join('|'));
+
+  const scarceDiversified = rankGoldenDiscoveryResults(
+    rotate([...buildRepetitiveCluster(run), ...pool.slice(0, 22), ...pool.filter(item => item.grade !== 'SSS').slice(0, 20)], run * 5),
+    30,
+    false,
+    {
+      diversifySimilarIntents: true,
+      maxSimilarPerCluster: 2,
+      strictVisibleSssOnly: true,
+    },
+  );
+  assert(`run ${run + 1}: strict golden output never backfills with lower grades`,
+    scarceDiversified.every(item => item.grade === 'SSS') && countSss(scarceDiversified) === scarceDiversified.length,
+    scarceDiversified.map(item => `${item.keyword}:${item.grade}`).join('|'));
+
+  const qualityBackfilled = rankGoldenDiscoveryResults(
+    rotate([
+      ...buildDiverseBackfill(run).slice(0, 12),
+      ...buildQualityBackfill(run),
+      ...buildBeginnerBareNoise(run),
+    ], run * 19),
+    30,
+    false,
+    {
+      diversifySimilarIntents: true,
+      maxSimilarPerCluster: 2,
+      strictVisibleSssOnly: true,
+      requireActionableIntent: true,
+      qualityBackfillToTarget: true,
+    },
+  );
+  assert(`run ${run + 1}: quality backfill fills 30 results when strict SSS is scarce`,
+    qualityBackfilled.length === 30
+      && countSss(qualityBackfilled) === 12
+      && qualityBackfilled.every(item => isQualityGoldenDiscoveryResult(item, { requireActionableIntent: true }))
+      && qualityBackfilled.every(item => !buildBeginnerBareNoise(run).some(noise => noise.keyword === item.keyword)),
+    qualityBackfilled.map(item => `${item.keyword}:${item.grade}:${item.searchVolume}/${item.documentCount}/${item.goldenRatio}/${item.score}`).join('|'));
 }
 
 console.log(`\n[golden-category-sss-100run.test] passed: ${passed} / failed: ${failed}`);

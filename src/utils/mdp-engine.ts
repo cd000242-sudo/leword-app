@@ -176,6 +176,24 @@ export class MDPEngine {
         }
     }
 
+    private isEntertainmentCategoryContext(categoryIds: string[]): boolean {
+        return categoryIds.some(id => ['celeb', 'broadcast', 'music', 'drama', 'movie', 'anime'].includes(id));
+    }
+
+    private isKoreanEntity(text: string): boolean {
+        const compact = String(text || '').replace(/\s+/g, '');
+        return compact.length >= 2 && /[\uac00-\ud7a3]/.test(compact);
+    }
+
+    private getFastPreviewSerpSignal() {
+        return {
+            hasSmartBlock: false,
+            hasViewSection: true,
+            hasInfluencer: false,
+            difficultyScore: 5,
+        };
+    }
+
     /**
      * 6단계 발굴 파이프라인 실행
      */
@@ -333,20 +351,19 @@ export class MDPEngine {
 
                         // Phase 3 Upgrade: 카테고리 인식 수익성 모델링 (v3.0)
                         const detectedCategory = classifyKeyword(sig.keyword).primary;
+                        const seedCat = categoryIds.some(id => isKeywordMatchingCategory(current, id));
+                        const entCat = categoryStrict && this.isEntertainmentCategoryContext(categoryIds) && this.isKoreanEntity(current) && similarity >= 0.45;
                         const categoryMatched = !categoryStrict
-                            || categoryIds.some(id => isKeywordMatchingCategory(sig.keyword, id));
+                            || categoryIds.some(id => isKeywordMatchingCategory(sig.keyword, id))
+                            || seedCat
+                            || entCat;
                         if (!categoryMatched && !includeMeasuredFallback) {
                             continue;
                         }
 
                         // Phase 2 Upgrade: SERP 신호 분석
                         const serpSignal = fastPreview
-                            ? {
-                                hasSmartBlock: false,
-                                hasViewSection: true,
-                                hasInfluencer: false,
-                                difficultyScore: 5,
-                            }
+                            ? this.getFastPreviewSerpSignal()
                             : await getNaverSerpSignal(sig.keyword);
                         const categoryCPC = estimateCPC(sig.keyword, detectedCategory);
                         const purchaseIntent = calculatePurchaseIntent(sig.keyword);
@@ -421,16 +438,23 @@ export class MDPEngine {
                         // v4.0 보너스 — 외부 신호 1개 이상 매칭 시 가산점 (가중치 0이라도 발견 사실은 보상)
                         const externalBonus = ext ? Math.min(5, (ext.sources.length || 0) * 1.5) : 0;
                         const clampedScore = Math.min(100, Math.max(0, Math.round(finalScore + externalBonus)));
+                        const measuredSssGate = totalVolume >= 1000
+                            && docCount > 0
+                            && docCount <= 5000
+                            && goldenRatio >= 5;
+                        const scoreAfterMetricRescue = measuredSssGate
+                            ? Math.max(85, clampedScore)
+                            : clampedScore;
 
                         // ====== 등급 판정 (다중 게이트) ======
-                        const rawGrade = this.calculateGrade(clampedScore, totalVolume, docCount, goldenRatio, serpDifficulty);
+                        const rawGrade = this.calculateGrade(scoreAfterMetricRescue, totalVolume, docCount, goldenRatio, serpDifficulty);
                         const measurementOnly = includeMeasuredFallback
                             && (rawGrade === 'C' || rawGrade === 'D' || !categoryMatched);
 
                         // B등급 미만 필터링
                         if ((rawGrade === 'C' || rawGrade === 'D') && !includeMeasuredFallback) continue;
                         let grade: GoldenGrade = measurementOnly ? 'B' : rawGrade;
-                        let scoreForDisplay = measurementOnly ? Math.max(45, clampedScore) : clampedScore;
+                        let scoreForDisplay = measurementOnly ? Math.max(45, scoreAfterMetricRescue) : scoreAfterMetricRescue;
                         const precision = assessGoldenKeywordPrecision({
                             keyword: sig.keyword,
                             grade,

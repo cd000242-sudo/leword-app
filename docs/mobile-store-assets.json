@@ -1,0 +1,67 @@
+{
+  "assetVersion": "mobile-assets-v1",
+  "appId": "com.leword.mobile",
+  "generator": "scripts/mobile-generate-assets.js",
+  "officialReferences": {
+    "appleScreenshotSpecifications": "https://developer.apple.com/help/app-store-connect/reference/screenshot-specifications",
+    "googlePlayPreviewAssets": "https://support.google.com/googleplay/android-developer/answer/9866151"
+  },
+  "appConfig": {
+    "icon": "apps/mobile/assets/icon.png",
+    "splashImage": "apps/mobile/assets/splash.png",
+    "androidAdaptiveIconForeground": "apps/mobile/assets/adaptive-icon.png",
+    "androidAdaptiveIconBackgroundColor": "#111827",
+    "iosSupportsTablet": false
+  },
+  "storeAssets": {
+    "googlePlayFeatureGraphic": {
+      "path": "apps/mobile/assets/store/feature-graphic.png",
+      "width": 1024,
+      "height": 500
+    },
+    "phoneScreenshots": [
+      {
+        "path": "apps/mobile/assets/store/screenshots/01-category-hunt.png",
+        "width": 1290,
+        "height": 2796,
+        "flow": "Category-first mobile home"
+      },
+      {
+        "path": "apps/mobile/assets/store/screenshots/02-server-progress.png",
+        "width": 1290,
+        "height": 2796,
+        "flow": "Keyword job progress with server queue state"
+      },
+      {
+        "path": "apps/mobile/assets/store/screenshots/03-sss-results.png",
+        "width": 1290,
+        "height": 2796,
+        "flow": "SSS/S result cards with measured search volume and document count"
+      },
+      {
+        "path": "apps/mobile/assets/store/screenshots/04-mindmap-expand.png",
+        "width": 1290,
+        "height": 2796,
+        "flow": "Mindmap expansion result"
+      },
+      {
+        "path": "apps/mobile/assets/store/screenshots/05-recommendation-inbox.png",
+        "width": 1290,
+        "height": 2796,
+        "flow": "Recommendation inbox"
+      }
+    ]
+  },
+  "finalCapturePolicy": {
+    "deviceCapturedScreenshotsRequiredBeforePublicRelease": true,
+    "internalTrackMayUseGeneratedScreenshots": true,
+    "note": "Generated screenshots prove the listing asset pipeline and dimensions. Replace with device-captured screenshots after the production API and EAS build are available."
+  },
+  "publicReleaseEvidence": {
+    "deviceCapturedScreenshotsReady": false,
+    "screenshotSource": "generated",
+    "evidencePath": "",
+    "reviewerTokenReady": false,
+    "reviewerTokenEvidencePath": ""
+  }
+}

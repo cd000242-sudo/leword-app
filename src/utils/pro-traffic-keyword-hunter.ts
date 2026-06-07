@@ -924,6 +924,7 @@ function enforcePremiumGoldenOnly(
 
   for (const item of items) {
     if (!item || !item.keyword) continue;
+    if (!isProTrafficWritableKeywordText(item.keyword, category)) continue;
     const norm = normalizeKeywordForDup(item.keyword);
     if (!norm || seen.has(norm)) continue;
 
@@ -1353,6 +1354,7 @@ import {
   getProTrafficCategoryMiningPoolSize,
   getProTrafficCategoryNormalSeedTarget,
   getProTrafficFinalRerankPoolSize,
+  isProTrafficWritableKeywordText,
   normalizeProTrafficResultCount,
   rankProTrafficSssFloorResults,
   selectProTrafficSssPromotionCandidates
@@ -3092,7 +3094,9 @@ export async function huntProTrafficKeywords(options: {
     }
 
     if (cat === 'drama') {
-      return isKeywordMatchingCategory(keyword, 'movie');
+      return isKeywordMatchingCategory(keyword, 'drama')
+        || isKeywordMatchingCategory(keyword, 'broadcast')
+        || isKeywordMatchingCategory(keyword, 'celeb');
     }
 
     if (cat === 'life_tips') {

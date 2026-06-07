@@ -88,6 +88,20 @@ assert('measured related fallback can be reused for deeper expansion',
     && isMindmapExpansionSeedMetric(fallbackVolume) === true,
   JSON.stringify(fallbackVolume));
 
+const redOceanShoppingSeed = buildMindmapMeasuredKeywordItem({
+  keyword: '원피스 추천',
+  pcSearchVolume: 180,
+  mobileSearchVolume: 180,
+  documentCount: 1611294,
+}, { seed: '원피스', depth: 1 });
+
+assert('mindmap red-ocean measured keyword is displayed but not promoted as an expansion seed',
+  redOceanShoppingSeed.grade === 'C'
+    && redOceanShoppingSeed.goldenRatio === 0
+    && isMindmapDisplayMetric(redOceanShoppingSeed) === true
+    && isMindmapExpansionSeedMetric(redOceanShoppingSeed) === false,
+  JSON.stringify(redOceanShoppingSeed));
+
 const docOnlyUnknownVolume = buildMindmapMeasuredKeywordItem({
   keyword: '정확하지 않은 문서수만 있는 후보',
   pcSearchVolume: null,

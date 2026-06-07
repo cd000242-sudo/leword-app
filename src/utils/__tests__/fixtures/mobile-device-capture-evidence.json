@@ -1,0 +1,14 @@
+{
+  "kind": "mobile-device-capture-evidence",
+  "platform": "android",
+  "buildProfile": "production",
+  "source": "device-captured",
+  "screenshots": [
+    "apps/mobile/assets/store/device-captures/01-category-hunt.png",
+    "apps/mobile/assets/store/device-captures/02-server-progress.png",
+    "apps/mobile/assets/store/device-captures/03-sss-results.png",
+    "apps/mobile/assets/store/device-captures/04-mindmap-expand.png",
+    "apps/mobile/assets/store/device-captures/05-recommendation-inbox.png"
+  ],
+  "note": "Fixture proves the public release gate requires a resolvable evidence reference. Replace with final EAS device-captured screenshots before public store release."
+}

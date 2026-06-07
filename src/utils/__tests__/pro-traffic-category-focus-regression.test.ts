@@ -77,6 +77,11 @@ assert('PRO category mode scales seed target for large requested counts',
   /mode === 'category' \? getProTrafficCategoryNormalSeedTarget\(count\) : 100/.test(source),
   'category mode kept a fixed seed target and cannot satisfy 250-count hunts');
 
+assert('PRO drama category filter keeps drama intent instead of movie-only matching',
+  /if \(cat === 'drama'\) \{[\s\S]{0,220}isKeywordMatchingCategory\(keyword, 'drama'\)[\s\S]{0,120}isKeywordMatchingCategory\(keyword, 'broadcast'\)[\s\S]{0,120}isKeywordMatchingCategory\(keyword, 'celeb'\)/.test(source)
+    && !/if \(cat === 'drama'\) \{[\s\S]{0,80}return isKeywordMatchingCategory\(keyword, 'movie'\);/.test(source),
+  'drama category was filtering against movie and dropping drama/broadcast issue seeds');
+
 assert('legacy category-mixing fallback comment is removed',
   !source.includes('카테고리 혼입 + 검증 완화'));
 

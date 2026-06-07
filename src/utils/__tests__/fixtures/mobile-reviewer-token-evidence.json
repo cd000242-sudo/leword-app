@@ -1,0 +1,7 @@
+{
+  "kind": "mobile-reviewer-token-evidence",
+  "containsSecret": false,
+  "reviewerNotesUpdated": true,
+  "productionApiUrlDocumented": true,
+  "note": "Fixture proves reviewer-token readiness needs a resolvable non-secret evidence reference when LEWORD_MOBILE_REVIEWER_TOKEN_READY is not supplied by CI."
+}

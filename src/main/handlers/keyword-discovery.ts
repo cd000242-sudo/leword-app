@@ -19,11 +19,13 @@ import { MDPEngine, MDPResult, ExternalSignals } from '../../utils/mdp-engine';
 import { keywordDiscoveryAbortMap, checkUnlimitedLicense } from './shared';
 import { callAllSources } from '../../utils/sources/source-registry';
 import { getCachedReport } from '../../utils/sources/health-checker';
+import { getNaverNewsRankingKeywords } from '../../utils/sources/naver-news-ranking';
 import { getCrossCategoryDiscoverySeeds, getDiscoveryCategorySeeds, matchesDiscoveryCategory, resolveDiscoveryCategoryIds } from '../../utils/category-discovery-map';
 import { deterministicRange } from '../../utils/deterministic-random';
-import { createGoldenSssTargetTracker, countSss, getGoldenDiscoveryScanLimit, rankGoldenDiscoveryResults, resolveGoldenDiscoveryTarget } from '../../utils/golden-discovery-floor';
+import { createGoldenSssTargetTracker, countSss, getGoldenDiscoveryScanLimit, isQualityGoldenDiscoveryResult, rankGoldenDiscoveryResults, resolveGoldenDiscoveryTarget } from '../../utils/golden-discovery-floor';
 import { buildCategoryFirstGoldenSeedPlan } from '../../utils/category-first-golden-discovery';
 import { buildFreshIssueGoldenSeeds } from '../../utils/fresh-issue-golden-seeds';
+import { discoverDirectGoldenKeywords } from '../../utils/direct-golden-keyword-miner';
 
 // v4.0: 외부 신호 캐시 (앱 lifetime, 30분 TTL)
 let _v4SignalCache: { map: Map<string, ExternalSignals>; expiresAt: number } | null = null;
@@ -127,8 +129,30 @@ async function collectCategoryFirstLiveSeeds(category: string, limit = 80, timeo
     if (!category || categoryIds.length === 0) return [];
 
     const tasks: Array<Promise<string[]>> = [];
+    const genericLimit = Math.min(
+        limit,
+        timeoutMs <= 1200 ? 24 : 60,
+    );
+    const genericTimeoutMs = Math.max(
+        400,
+        Math.min(timeoutMs, timeoutMs <= 1200 ? 900 : 1800),
+    );
     const isPolicy = categoryIds.includes('policy');
     const isEntertainment = categoryIds.some(id => ['celeb', 'broadcast', 'music', 'movie', 'drama'].includes(id));
+
+    tasks.push(withLiveSeedTimeout(
+        getNaverRealtimeKeywords(Math.max(10, Math.min(40, genericLimit)))
+            .then(items => items.map(item => item.keyword)),
+        genericTimeoutMs,
+        [],
+    ));
+
+    tasks.push(withLiveSeedTimeout(
+        getNaverNewsRankingKeywords()
+            .then(items => items.slice(0, Math.max(10, genericLimit)).map(item => item.keyword)),
+        genericTimeoutMs,
+        [],
+    ));
 
     if (isPolicy) {
         tasks.push(withLiveSeedTimeout(
@@ -169,8 +193,6 @@ async function collectCategoryFirstLiveSeeds(category: string, limit = 80, timeo
             [],
         ));
     }
-
-    if (tasks.length === 0) return [];
 
     const settled = await Promise.allSettled(tasks);
     const out: string[] = [];
@@ -496,7 +518,12 @@ export function setupKeywordDiscoveryHandlers(): void {
             let totalAdded = 0;
             let sssAdded = 0;
             const sssTarget = isUnlimited ? Number.POSITIVE_INFINITY : visibleTarget;
-            const sssTracker = isUnlimited ? null : createGoldenSssTargetTracker(sssTarget, { honorRequestedLimit: quickPreview });
+            const sssTracker = isUnlimited ? null : createGoldenSssTargetTracker(sssTarget, {
+              honorRequestedLimit: quickPreview,
+              diversifySimilarIntents: true,
+              maxSimilarPerCluster: 2,
+              requireActionableIntent: true,
+            });
             const chunkThreshold = quickPreview ? Math.max(5, Math.min(10, sssTarget)) : 50;
             const phaseLabels: Record<string, string> = {
               start: '엔진 준비',
@@ -589,11 +616,19 @@ export function setupKeywordDiscoveryHandlers(): void {
 
             let crossCategorySupplementCount = 0;
             let crossCategorySupplementSssCount = 0;
+            let directMeasuredSupplementCount = 0;
+            let directMeasuredSupplementSssCount = 0;
             const preSupplementRanked = rankGoldenDiscoveryResults(
               allKeywords as any[],
               effectiveLimit,
               isUnlimited,
-              { honorRequestedLimit: quickPreview },
+              {
+                honorRequestedLimit: quickPreview,
+                diversifySimilarIntents: true,
+                maxSimilarPerCluster: effectiveLimit > 30 ? 6 : 2,
+                strictVisibleSssOnly: true,
+                requireActionableIntent: true,
+              },
             );
             const preSupplementSssCount = countSss(preSupplementRanked as any[]);
             const shouldRunCrossCategorySupplement =
@@ -731,16 +766,163 @@ export function setupKeywordDiscoveryHandlers(): void {
               }
             }
 
+            const preDirectRanked = rankGoldenDiscoveryResults(
+              allKeywords as any[],
+              effectiveLimit,
+              isUnlimited,
+              {
+                honorRequestedLimit: quickPreview,
+                diversifySimilarIntents: true,
+                maxSimilarPerCluster: effectiveLimit > 30 ? 6 : 2,
+                strictVisibleSssOnly: true,
+                requireActionableIntent: true,
+              },
+            );
+            const preDirectSssCount = countSss(preDirectRanked as any[]);
+            const shouldRunDirectMeasuredSupplement =
+              !quickPreview
+              && !isUnlimited
+              && preDirectSssCount < sssTarget
+              && !checkAbort();
+
+            if (shouldRunDirectMeasuredSupplement) {
+              const bulkQualityMode = sssTarget >= 60;
+              const directNeed = Math.max(1, sssTarget - preDirectSssCount);
+              const visibleNeed = Math.max(1, effectiveLimit - preDirectRanked.length);
+              const directLiveSeeds = Array.from(new Set([
+                ...liveCategorySeeds,
+                ...freshIssueSeeds,
+                ...Array.from(externalSignalMapForSeeds.keys()).slice(0, 260),
+              ])).slice(0, 320);
+
+              sendDiscoveryProgress(
+                `SSS ${preDirectSssCount}/${sssTarget}개 확보 — 실측 황금키워드 보강으로 부족분 ${directNeed}개를 추가 검증합니다.`,
+                {
+                  current: preDirectSssCount,
+                  target: sssTarget,
+                  phase: 'direct-measured-supplement',
+                  supplementNeed: directNeed,
+                  liveSeeds: directLiveSeeds.length,
+                },
+                true,
+              );
+
+              const directResults = await discoverDirectGoldenKeywords(
+                {
+                  clientId: naverClientId,
+                  clientSecret: naverClientSecret,
+                },
+                {
+                  category,
+                  keyword: actualKeyword,
+                  limit: Math.max(sssTarget, bulkQualityMode ? visibleNeed + 20 : directNeed + 10),
+                  maxSeeds: categoryFirstMode ? 1000 : 1000,
+                  maxCandidates: sssTarget >= 60
+                    ? Math.max(1800, Math.min(3600, Math.max(visibleNeed, directNeed) * 120))
+                    : Math.max(1500, Math.min(3000, directNeed * 180)),
+                  liveSeeds: directLiveSeeds,
+                  includeCrossCategory: true,
+                  requireCategoryMatch: false,
+                  includeSearchAdSuggestions: true,
+                  includeProTrafficSupplement: bulkQualityMode,
+                  suggestionSeedLimit: categoryFirstMode ? 24 : 20,
+                  suggestionsPerSeed: 30,
+                  maxSimilarPerCluster: sssTarget >= 60 ? 6 : 2,
+                  onProgress: (progress) => {
+                    const phase = progress.phase || 'measure';
+                    const measured = Number(progress.measured || 0);
+                    const candidates = Number(progress.candidates || 0);
+                    sendDiscoveryProgress(
+                      `실측 보강 ${phase}: 후보 ${candidates.toLocaleString()}개, 측정 ${measured.toLocaleString()}개, 발견 ${directMeasuredSupplementSssCount}/${directNeed}`,
+                      {
+                        current: measured || preDirectSssCount,
+                        target: candidates || sssTarget,
+                        phase: 'direct-measured-supplement',
+                        measured,
+                        candidates,
+                        yielded: progress.yielded,
+                      },
+                      phase === 'candidate-plan' || phase === 'rank',
+                    );
+                  },
+                },
+              );
+
+              const seenAllKeywords = new Set(
+                allKeywords.map((item: any) => String(item?.keyword || '').replace(/\s+/g, '').toLowerCase()).filter(Boolean),
+              );
+              const directChunk: any[] = [];
+              for (const result of directResults) {
+                if (checkAbort()) break;
+                const isDirectSss = String(result.grade || '').toUpperCase() === 'SSS';
+                const isDirectQuality = isDirectSss || (
+                  bulkQualityMode && isQualityGoldenDiscoveryResult(result as any, { requireActionableIntent: true })
+                );
+                if (!isDirectQuality) continue;
+                const key = String(result.keyword || '').replace(/\s+/g, '').toLowerCase();
+                if (!key || seenAllKeywords.has(key)) continue;
+                seenAllKeywords.add(key);
+
+                const formattedDirect = {
+                  ...result,
+                  category: category || result.intent,
+                  competitionRatio: result.goldenRatio,
+                  directMeasuredSupplement: true,
+                  supplementReason: '실제 검색량/문서수 기준으로 검증된 작성가능 SSS 보강',
+                };
+                allKeywords.push(formattedDirect as any);
+                directChunk.push(formattedDirect as any);
+                totalAdded++;
+                directMeasuredSupplementCount++;
+                if (isDirectSss) {
+                  directMeasuredSupplementSssCount++;
+                  sssAdded = sssTracker ? sssTracker.add(result as any) : sssAdded + 1;
+                }
+
+                if (directChunk.length >= chunkThreshold && !event.sender.isDestroyed()) {
+                  event.sender.send('keyword-discovery-chunk', {
+                    keywords: [...directChunk],
+                    current: Math.min(sssTarget, preDirectSssCount + directMeasuredSupplementSssCount),
+                    target: sssTarget,
+                    supplement: true,
+                    directMeasuredSupplement: true,
+                  });
+                  directChunk.length = 0;
+                }
+
+                if (bulkQualityMode && directMeasuredSupplementCount >= Math.max(visibleNeed, directNeed)) break;
+                if (!bulkQualityMode && directMeasuredSupplementSssCount >= directNeed) break;
+              }
+
+              if (directChunk.length > 0 && !event.sender.isDestroyed()) {
+                event.sender.send('keyword-discovery-chunk', {
+                  keywords: directChunk,
+                  current: Math.min(sssTarget, preDirectSssCount + directMeasuredSupplementSssCount),
+                  target: sssTarget,
+                  supplement: true,
+                  directMeasuredSupplement: true,
+                });
+              }
+            }
+
             const rankedKeywords = rankGoldenDiscoveryResults(
               allKeywords as any[],
               effectiveLimit,
               isUnlimited,
-              { honorRequestedLimit: quickPreview },
+              {
+                honorRequestedLimit: quickPreview,
+                diversifySimilarIntents: true,
+                maxSimilarPerCluster: effectiveLimit > 30 ? 6 : 2,
+                strictVisibleSssOnly: true,
+                requireActionableIntent: true,
+                qualityBackfillToTarget: true,
+              },
             );
             const finalSssCount = countSss(rankedKeywords as any[]);
-            console.log(`[KEYWORD-MASTER] MDP 발굴 완료: 후보 ${totalAdded}개 → 노출 ${rankedKeywords.length}개, SSS ${finalSssCount}개, 보충 ${crossCategorySupplementCount}개`);
+            const finalQualityBackfillCount = Math.max(0, rankedKeywords.length - finalSssCount);
+            console.log(`[KEYWORD-MASTER] MDP 발굴 완료: 후보 ${totalAdded}개 → 노출 ${rankedKeywords.length}개, SSS ${finalSssCount}개, 품질보충 ${finalQualityBackfillCount}개, 보충 ${crossCategorySupplementCount}개, 실측보강 ${directMeasuredSupplementCount}개`);
             sendDiscoveryProgress(
-              `발굴 완료: 노출 ${rankedKeywords.length}개, SSS ${finalSssCount}개, 보충 ${crossCategorySupplementCount}개, 검증 후보 ${totalAdded}개`,
+              `발굴 완료: 노출 ${rankedKeywords.length}개, SSS ${finalSssCount}개, 품질보충 ${finalQualityBackfillCount}개, 보충 ${crossCategorySupplementCount}개, 실측보강 ${directMeasuredSupplementCount}개, 검증 후보 ${totalAdded}개`,
               {
                 type: 'complete',
                 current: scanLimit,
@@ -749,8 +931,11 @@ export function setupKeywordDiscoveryHandlers(): void {
                 yielded: totalAdded,
                 sssCurrent: finalSssCount,
                 sssTarget: isUnlimited ? undefined : sssTarget,
+                qualityBackfillCount: finalQualityBackfillCount,
                 crossCategorySupplementCount,
                 crossCategorySupplementSssCount,
+                directMeasuredSupplementCount,
+                directMeasuredSupplementSssCount,
               },
               true,
             );
@@ -762,8 +947,11 @@ export function setupKeywordDiscoveryHandlers(): void {
               candidatesScanned: totalAdded,
               sssCount: finalSssCount,
               sssTarget: isUnlimited ? undefined : sssTarget,
+              qualityBackfillCount: finalQualityBackfillCount,
               crossCategorySupplementCount,
               crossCategorySupplementSssCount,
+              directMeasuredSupplementCount,
+              directMeasuredSupplementSssCount,
               quickPreview,
               discoveryMode: categoryFirstMode ? 'category-first' : 'keyword',
               categoryIds,

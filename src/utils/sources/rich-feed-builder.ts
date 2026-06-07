@@ -2534,9 +2534,43 @@ export interface PrecisionBackfillOptions {
     excludedKeywords?: Set<string>;
 }
 
+function isLowConfidencePrecisionBackfill(row: RichKeywordRow): boolean {
+    if (row.dcEstimated || (row as any).dcConfidence === 'low') return true;
+    if (!Number.isFinite(row.searchVolume) || !Number.isFinite(row.documentCount)) return true;
+    if (row.searchVolume <= 0 || row.documentCount <= 0) return true;
+
+    try {
+        const { validateGrade } = require('../sanity-gate');
+        const sanity = validateGrade({
+            keyword: row.keyword,
+            searchVolume: row.searchVolume,
+            documentCount: row.documentCount,
+            goldenRatio: Number.isFinite(row.goldenRatio)
+                ? row.goldenRatio
+                : row.searchVolume / Math.max(1, row.documentCount),
+            score: typeof row.bloggerWritability === 'number' ? row.bloggerWritability : 50,
+            dcEstimated: row.dcEstimated,
+            svEstimated: row.svEstimated,
+            dcConfidence: (row as any).dcConfidence,
+            source: 'rich-feed',
+        });
+        if (sanity.estimatedFlags.dc) return true;
+        if (sanity.reasons.includes('FALLBACK_HALF_SV_EXACT')) return true;
+        if (sanity.reasons.includes('FALLBACK_HALF_SV_NEAR')) return true;
+        if (sanity.reasons.includes('DC_CONFIDENCE_LOW')) return true;
+    } catch {
+        const halfSvRatio = row.documentCount / (row.searchVolume * 0.5);
+        if (halfSvRatio >= 0.95 && halfSvRatio <= 1.05) return true;
+        if (halfSvRatio >= 0.45 && halfSvRatio <= 0.55) return true;
+    }
+
+    return false;
+}
+
 function precisionBackfillTier(row: RichKeywordRow): number {
     if (!row?.keyword || !row.grade) return 0;
     if (row.svEstimated) return 0;
+    if (isLowConfidencePrecisionBackfill(row)) return 0;
     if (isOverbroadGoldenCandidate(row.keyword, row.searchVolume, row.documentCount)) return 0;
 
     const grade = row.grade;
@@ -2548,11 +2582,6 @@ function precisionBackfillTier(row: RichKeywordRow): number {
     if (tokenCount <= 1 && !hasCommercialIntent(row.keyword)) return 0;
     if (row.searchVolume < 50 || row.searchVolume > 30000) return 0;
     if (row.documentCount <= 0 || row.documentCount > 40000) return 0;
-
-    if (row.dcEstimated) {
-        if (row.goldenRatio < 1.5 || writability < 55) return 0;
-        return grade === 'SS' || grade === 'S' || grade === 'A' ? 2 : 0;
-    }
 
     if (row.goldenRatio < 1.0 || writability < 35) return 0;
     if (grade === 'SS' || grade === 'S' || grade === 'A') return 3;

@@ -7,6 +7,7 @@ import {
   getProTrafficCategoryMiningPoolSize,
   PRO_TRAFFIC_CATEGORY_SSS_FLOOR,
   PRO_TRAFFIC_MAX_RESULT_COUNT,
+  isProTrafficWritableKeywordText,
 } from '../pro-traffic-floor';
 import { GOLDEN_DISCOVERY_SSS_FLOOR } from '../golden-discovery-floor';
 
@@ -85,6 +86,14 @@ assert('PRO normal category mining keeps 420+ actual seeds before expansion',
 assert('PRO normal category 250 mining keeps 600+ actual seeds before expansion',
   getProTrafficCategoryNormalSeedTarget(250) >= 600,
   `${getProTrafficCategoryNormalSeedTarget(250)}`);
+assert('PRO writable filter blocks raw entertainment news headline fragments',
+  !isProTrafficWritableKeywordText("보넥도, '바이럴' MV 티저… K팝의 유산을 승계한다 2026.06.06", 'celeb'));
+assert('PRO writable filter blocks reporter-tail compressed headline fragments',
+  !isProTrafficWritableKeywordText('이민우,♥이아미에셋째임신제안펑후베이비만들까?최진실기자・', 'celeb'));
+assert('PRO writable filter keeps concise profile and schedule keywords',
+  isProTrafficWritableKeywordText('리센느 프로필', 'celeb')
+    && isProTrafficWritableKeywordText('2026 흠뻑쇼 일정', 'celeb')
+    && isProTrafficWritableKeywordText('멋진 신세계 몇부작', 'drama'));
 
 console.log(`\n[pro-traffic-floor.test] passed: ${passed} / failed: ${failed}`);
 if (failed > 0) {

@@ -1,0 +1,94 @@
+{
+  "appId": "com.leword.mobile",
+  "privacyPolicyUrl": "https://leword.app/privacy",
+  "supportUrl": "https://leword.app/support",
+  "reviewerAccess": {
+    "demoTokenRequired": true,
+    "instructions": "Open LEWORD Mobile, enter the production API URL, enter the reviewer mobile token, then run keyword analysis or open the recommendation inbox. Heavy keyword discovery runs on LEWORD API workers, not on the device.",
+    "tokenStorage": "The mobile app keeps the typed API token in memory for the current session and sends it as an Authorization bearer token to the LEWORD API."
+  },
+  "privacy": {
+    "tracking": false,
+    "thirdPartyAds": false,
+    "analyticsSdk": false,
+    "permissions": [
+      "POST_NOTIFICATIONS"
+    ],
+    "dataLinkedToUser": [
+      {
+        "category": "Identifiers",
+        "examples": [
+          "API bearer token",
+          "Expo push token",
+          "device id derived from platform, brand, model, and OS version"
+        ],
+        "purpose": "Authentication, entitlement checks, and push delivery"
+      },
+      {
+        "category": "User Content",
+        "examples": [
+          "keyword seeds",
+          "category selections",
+          "job parameters"
+        ],
+        "purpose": "Keyword analysis and mobile job execution"
+      },
+      {
+        "category": "Usage Data",
+        "examples": [
+          "notification read state",
+          "job state and result cache keys"
+        ],
+        "purpose": "Recommendation inbox, job progress, and faster repeated requests"
+      }
+    ],
+    "dataNotCollected": [
+      "precise location",
+      "contacts",
+      "photos",
+      "payment card data",
+      "advertising id"
+    ],
+    "dataSharedWithThirdParties": [
+      {
+        "recipient": "Expo Push Service",
+        "condition": "Only when push registration is enabled and LEWORD_MOBILE_PUSH_PROVIDER=expo or an Expo-compatible push gateway is configured",
+        "data": [
+          "Expo push token",
+          "notification payload"
+        ]
+      }
+    ],
+    "encryptedInTransit": true,
+    "productionOnlyHttps": true
+  },
+  "storeForms": {
+    "appleAppPrivacy": {
+      "privacyPolicyRequired": true,
+      "tracking": false,
+      "linkedDataCategories": [
+        "Identifiers",
+        "User Content",
+        "Usage Data"
+      ],
+      "notLinkedDataCategories": []
+    },
+    "googlePlayDataSafety": {
+      "dataCollected": true,
+      "dataShared": true,
+      "dataEncryptedInTransit": true,
+      "usersCanRequestDeletion": true,
+      "optionalDataCollection": [
+        "push token and notification delivery data"
+      ],
+      "requiredDataCollection": [
+        "API token",
+        "keyword job parameters"
+      ]
+    }
+  },
+  "sourceNotes": [
+    "Apple requires app privacy details in App Store Connect and a privacy policy link in metadata and the app.",
+    "Google Play requires the Data safety form to describe collected/shared data and security practices."
+  ]
+}

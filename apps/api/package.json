@@ -1,0 +1,13 @@
+{
+  "name": "@leword/api",
+  "version": "0.1.0",
+  "private": true,
+  "description": "LEWORD Cloud API skeleton for mobile clients.",
+  "main": "src/server.ts",
+  "scripts": {
+    "start": "ts-node src/server.ts",
+    "start:prod": "node -r ts-node/register/transpile-only src/server.ts",
+    "deploy:gate": "node ../../scripts/mobile-api-deploy-gate.js",
+    "typecheck": "tsc --noEmit"
+  }
+}

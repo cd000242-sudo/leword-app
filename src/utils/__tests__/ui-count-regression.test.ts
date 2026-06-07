@@ -149,6 +149,24 @@ assert('golden discovery injects fresh issue radar seeds into MDP discovery',
     && /급상승\s*\$\{freshIssueSeedRecords\.length\}개/.test(keywordDiscovery),
   'daily fresh issue signals can still remain score-only instead of becoming discovery seeds');
 
+assert('category golden discovery collects realtime and news seeds before MDP discovery',
+  /collectCategoryFirstLiveSeeds/.test(keywordDiscovery)
+    && /getNaverRealtimeKeywords\(/.test(keywordDiscovery)
+    && /getNaverNewsRankingKeywords\(/.test(keywordDiscovery)
+    && /const\s+liveCategorySeeds\s*=\s*categoryFirstMode[\s\S]{0,280}collectCategoryFirstLiveSeeds/.test(keywordDiscovery)
+    && /buildCategoryFirstGoldenSeedPlan\(\{[\s\S]{0,220}liveSeeds:\s*liveCategorySeeds/.test(keywordDiscovery),
+  'category golden discovery can still rely only on static category seeds');
+
+assert('golden discovery final output requires beginner-actionable keyword intent',
+  /requireActionableIntent\?:\s*boolean/.test(fs.readFileSync(path.join(__dirname, '..', 'golden-discovery-floor.ts'), 'utf8'))
+    && /isActionableGoldenKeyword/.test(fs.readFileSync(path.join(__dirname, '..', 'golden-discovery-floor.ts'), 'utf8'))
+    && /KOREAN_RE/.test(fs.readFileSync(path.join(__dirname, '..', 'golden-discovery-floor.ts'), 'utf8'))
+    && /SEMI_LARGE_COMPACT_RE/.test(fs.readFileSync(path.join(__dirname, '..', 'golden-discovery-floor.ts'), 'utf8'))
+    && /createGoldenSssTargetTracker\(sssTarget,[\s\S]{0,220}requireActionableIntent:\s*true/.test(keywordDiscovery)
+    && /rankGoldenDiscoveryResults\([\s\S]{0,320}strictVisibleSssOnly:\s*true,[\s\S]{0,80}requireActionableIntent:\s*true/.test(keywordDiscovery)
+    && /rankGoldenDiscoveryResults\([\s\S]{0,320}strictVisibleSssOnly:\s*true,[\s\S]{0,80}requireActionableIntent:\s*true/.test(keywordAnalysis),
+  'SSS output can still expose broad bare keywords that beginners cannot write immediately');
+
 assert('MDP SSS results pass the golden precision gate before yield',
   /assessGoldenKeywordPrecision/.test(mdpEngine)
     && /const\s+precision\s*=\s*assessGoldenKeywordPrecision\(\{[\s\S]{0,260}keyword:\s*sig\.keyword/.test(mdpEngine)

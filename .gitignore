@@ -15,6 +15,19 @@ resources/chromium/
 leword-source-history.json
 test-results/
 .cache/
+.codex-build-cache/
+.expo/
+apps/mobile/.expo/
+apps/mobile/.expo-export/
+apps/mobile/builds/
+apps/mobile/android/.gradle/
+apps/mobile/android/build/
+apps/mobile/android/app/build/
+apps/mobile/android/app/.cxx/
+apps/mobile/android/.cxx/
+apps/mobile/credentials/*
+!apps/mobile/credentials/README.md
+.leword-mobile-cache.json
 scripts/test-categories-audit.js
 scripts/test-category-hunt.js
 
