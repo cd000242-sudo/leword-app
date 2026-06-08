@@ -136,12 +136,32 @@ export interface MobileNotificationSnapshot {
   items: MobileNotificationItem[];
 }
 
+export type MobileLiveGoldenFreshness = 'live' | 'warm' | 'aging';
+
+export interface MobileLiveGoldenBoardItem extends MobileKeywordMetric {
+  id: string;
+  rank: number;
+  discoveredAt: string;
+  updatedAt: string;
+  freshness: MobileLiveGoldenFreshness;
+  isPublicPreview: boolean;
+  publicSearchVolumeLabel: string;
+  publicDocumentCountLabel: string;
+  publicReason: string;
+}
+
 export interface MobileLiveGoldenRadarSnapshot {
   enabled: boolean;
   running: boolean;
   intervalMs: number;
   cycleLimit: number;
   maxCandidates: number;
+  boardTarget: number;
+  boardCount: number;
+  publicPreviewCount: number;
+  boardUpdatedAt?: string;
+  board: MobileLiveGoldenBoardItem[];
+  publicPreview: MobileLiveGoldenBoardItem[];
   totalRuns: number;
   successfulRuns: number;
   skippedRuns: number;
