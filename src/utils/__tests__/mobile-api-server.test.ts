@@ -1171,6 +1171,7 @@ const result: MobileKeywordResult = {
 
   console.log('[mobile-api-server-remote-entitlement.test] passed');
 
+  const panelLoginRequests: any[] = [];
   const panelLoginService = http.createServer((req, res) => {
     if (req.method !== 'POST' || req.url !== '/mobile/session') {
       res.writeHead(404, { 'Content-Type': 'application/json' });
@@ -1184,23 +1185,28 @@ const result: MobileKeywordResult = {
     });
     req.on('end', () => {
       const payload = JSON.parse(raw || '{}');
+      panelLoginRequests.push(payload);
       assert('panel receives mobile user id', payload.userId === 'panel-user');
       assert('panel receives mobile password alias', payload.userPassword === 'panel-pass');
-      res.writeHead(200, { 'Content-Type': 'application/json' });
-      res.end(JSON.stringify({
+      const responsePayload: any = {
         ok: true,
-        mobileToken: 'panel-issued-token',
         userId: 'panel-user',
         plan: 'pro',
         apiBaseUrl: 'http://192.168.0.10:34983',
         message: 'panel linked this device to the PC API',
-      }));
+      };
+      if (payload.action === 'register') {
+        responsePayload.mobileToken = 'panel-issued-token';
+      }
+      res.writeHead(200, { 'Content-Type': 'application/json' });
+      res.end(JSON.stringify(responsePayload));
     });
   });
   const panelLoginPort = await listen(panelLoginService);
   const panelAuthServer = createLewordApiServer({ executor });
   const panelAuthPort = await listen(panelAuthServer);
   const panelAuthBaseUrl = `http://127.0.0.1:${panelAuthPort}`;
+  const previousPanelLoginUrl = process.env['LEWORD_MOBILE_PANEL_LOGIN_URL'];
 
   try {
     const login = await fetch(`${panelAuthBaseUrl}/v1/mobile/session`, {
@@ -1215,6 +1221,12 @@ const result: MobileKeywordResult = {
     });
     const loginJson: any = await login.json();
     assert('panel login creates session', login.status === 200 && loginJson.ok === true);
+    assert('license code login uses register action',
+      panelLoginRequests[0].action === 'register'
+        && panelLoginRequests[0].licenseCode === 'LEWORD-PANEL'
+        && panelLoginRequests[0].code === 'LEWORD-PANEL');
+    assert('panel login uses existing PC license app id',
+      panelLoginRequests[0].appId === 'com.leword.keyword.master');
     assert('panel token becomes mobile access token', loginJson.session.accessToken === 'panel-issued-token');
     assert('panel plan normalizes to pro tier', loginJson.session.tier === 'pro');
     assert('panel-provided PC API URL becomes session API URL',
@@ -1225,7 +1237,32 @@ const result: MobileKeywordResult = {
       loginJson.session.dashboard.apiBaseUrl);
     assert('panel login marks source metadata',
       loginJson.session.source === 'panel-server' && typeof loginJson.session.linkedAt === 'string');
+
+    process.env['LEWORD_MOBILE_PANEL_LOGIN_URL'] = `http://127.0.0.1:${panelLoginPort}/mobile/session`;
+    const existingLogin = await fetch(`${panelAuthBaseUrl}/v1/mobile/session`, {
+      method: 'POST',
+      headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify({
+        userId: 'panel-user',
+        password: 'panel-pass',
+      }),
+    });
+    const existingLoginJson: any = await existingLogin.json();
+    assert('existing panel account logs in without license code',
+      existingLogin.status === 200 && existingLoginJson.ok === true);
+    assert('existing login uses credential verification without blank license fields',
+      panelLoginRequests[1].action === 'verify-credentials'
+        && !Object.prototype.hasOwnProperty.call(panelLoginRequests[1], 'licenseCode')
+        && !Object.prototype.hasOwnProperty.call(panelLoginRequests[1], 'code'));
+    assert('existing login never turns password into persisted access token',
+      existingLoginJson.session.accessToken !== 'panel-pass'
+        && String(existingLoginJson.session.accessToken || '').startsWith('panel-'));
   } finally {
+    if (previousPanelLoginUrl === undefined) {
+      delete process.env['LEWORD_MOBILE_PANEL_LOGIN_URL'];
+    } else {
+      process.env['LEWORD_MOBILE_PANEL_LOGIN_URL'] = previousPanelLoginUrl;
+    }
     await close(panelAuthServer);
     await close(panelLoginService);
   }

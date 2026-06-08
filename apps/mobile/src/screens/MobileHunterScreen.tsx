@@ -23,8 +23,6 @@ import {
   type MobileLiveGoldenRadarSnapshot,
   type MobileKeywordScheduleItem,
   type MobileNotificationSnapshot,
-  type MobilePcFeatureCatalog,
-  type MobilePcFeatureCatalogItem,
   type MobilePrewarmSnapshot,
   type MobileProBlueprintActionResult,
   type MobileProOutcomeSnapshot,
@@ -130,7 +128,6 @@ const PC_FEATURE_TABS: Array<{ id: PcFeatureTab; label: string; title: string }>
   { id: 'expansion', label: '확장', title: '마인드맵·연관 확장' },
   { id: 'premium', label: 'PRO', title: 'PRO·RPM 수익형' },
   { id: 'schedule', label: '예약', title: '스케줄·알림' },
-  { id: 'settings', label: '설정', title: '계정·API·내보내기' },
 ];
 
 const PC_FEATURES: Record<PcFeatureTab, PcFeatureItem[]> = {
@@ -251,13 +248,6 @@ function modeSeedPlaceholder(mode: HunterMode): string {
   return '선택 입력: 지원금, 여행, 쇼핑';
 }
 
-function catalogStatusLabel(item: MobilePcFeatureCatalogItem): string {
-  if (item.status === 'ready') return '실행';
-  if (item.status === 'linked') return '연동';
-  if (item.status === 'pc-only') return 'PC';
-  return '예정';
-}
-
 function apiDiagnosticStatusLabel(status: MobileApiStatusSnapshot['overallStatus']): string {
   if (status === 'ready') return 'READY';
   if (status === 'partial') return 'PARTIAL';
@@ -288,9 +278,9 @@ export function MobileHunterScreen() {
   const [userId, setUserId] = useState('');
   const [password, setPassword] = useState('');
   const [licenseCode, setLicenseCode] = useState('');
+  const [rememberLogin, setRememberLogin] = useState(true);
   const [session, setSession] = useState<MobileAuthSession | null>(null);
   const [dashboard, setDashboard] = useState<MobileDashboardSnapshot | null>(null);
-  const [pcCatalog, setPcCatalog] = useState<MobilePcFeatureCatalog | null>(null);
   const [dashboardLane, setDashboardLane] = useState<DashboardLane>('realtime');
   const [featureTab, setFeatureTab] = useState<PcFeatureTab>('today');
   const [showAdvanced, setShowAdvanced] = useState(false);
@@ -354,7 +344,7 @@ export function MobileHunterScreen() {
   const [wordpressPostStatus, setWordpressPostStatus] = useState('draft');
   const [lastWordPressPublish, setLastWordPressPublish] = useState<MobileWordPressPublishResult | null>(null);
   const [pushStatus, setPushStatus] = useState('푸시 등록 전');
-  const [apiHealth, setApiHealth] = useState('연동 전');
+  const [apiHealth, setApiHealth] = useState('로그인 전');
   const [error, setError] = useState<string>('');
   const [isRunning, setIsRunning] = useState(false);
   const [isCheckingApi, setIsCheckingApi] = useState(false);
@@ -412,11 +402,6 @@ export function MobileHunterScreen() {
     () => PC_FEATURES[featureTab] || PC_FEATURES.today,
     [featureTab],
   );
-  const selectedCatalogItems = useMemo(
-    () => (pcCatalog?.items || []).filter((item) => item.tab === featureTab),
-    [featureTab, pcCatalog],
-  );
-
   const rememberWordPressSnapshot = useCallback((snapshot: MobileWordPressSnapshot) => {
     setWordpressPublishing(snapshot);
     const site = snapshot.sites.items[0];
@@ -434,6 +419,7 @@ export function MobileHunterScreen() {
         if (cancelled || !stored) return;
         const restored = stored.session;
         const restoredApiUrl = restored.apiBaseUrl || apiUrl;
+        setRememberLogin(true);
         setApiUrl(restoredApiUrl);
         setAccessToken(restored.accessToken);
         setUserId(restored.userId);
@@ -442,7 +428,7 @@ export function MobileHunterScreen() {
         setNotifications(restored.dashboard.notifications);
         setPrewarm(restored.dashboard.prewarm);
         setLiveGolden(restored.dashboard.liveGolden);
-        setApiHealth('저장된 패널 세션으로 PC API 자동 복원');
+        setApiHealth('저장된 로그인 세션 복원 중');
 
         const restoreClient = new LewordMobileClient({
           baseUrl: restoredApiUrl,
@@ -464,10 +450,10 @@ export function MobileHunterScreen() {
         if (restoredProOutcomes && !cancelled) setProOutcomes(restoredProOutcomes);
         const restoredWordPress = await restoreClient.getWordPressPublishing().catch(() => null);
         if (restoredWordPress && !cancelled) rememberWordPressSnapshot(restoredWordPress);
-        setApiHealth('PC API 자동 복원 완료');
+        setApiHealth('PRO 로그인 세션 복원 완료');
       })
       .catch(() => {
-        if (!cancelled) setApiHealth('연동 대기');
+        if (!cancelled) setApiHealth('로그인 대기');
       })
       .finally(() => {
         if (!cancelled) setIsRestoringSession(false);
@@ -477,20 +463,6 @@ export function MobileHunterScreen() {
       cancelled = true;
     };
   }, [rememberWordPressSnapshot]);
-
-  useEffect(() => {
-    let cancelled = false;
-    client.getPcFeatureCatalog()
-      .then((catalog) => {
-        if (!cancelled) setPcCatalog(catalog);
-      })
-      .catch(() => {
-        if (!cancelled) setPcCatalog(null);
-      });
-    return () => {
-      cancelled = true;
-    };
-  }, [client]);
 
   const checkApiHealth = useCallback(async () => {
     setError('');
@@ -528,15 +500,28 @@ export function MobileHunterScreen() {
     setError('');
     setIsLoggingIn(true);
     try {
+      const trimmedUserId = userId.trim();
+      const trimmedPassword = password.trim();
+      const trimmedLicenseCode = licenseCode.trim();
+      if (!trimmedUserId || !trimmedPassword) {
+        setError('기존 사용자는 라이선스 코드 없이 아이디와 비밀번호만 입력하면 됩니다.');
+        return;
+      }
+
       const loginClient = new LewordMobileClient({ baseUrl: apiUrl });
       const nextSession = await loginClient.login({
-        userId: userId.trim(),
-        password: password.trim(),
-        licenseCode: licenseCode.trim() || undefined,
+        userId: trimmedUserId,
+        password: trimmedPassword,
+        licenseCode: trimmedLicenseCode || undefined,
       });
-      await saveMobileSession(nextSession);
+      if (rememberLogin) {
+        await saveMobileSession(nextSession);
+      } else {
+        await clearMobileSession();
+      }
       setSession(nextSession);
       setAccessToken(nextSession.accessToken);
+      setUserId(nextSession.userId || trimmedUserId);
       setApiUrl(nextSession.apiBaseUrl || apiUrl);
       setDashboard(nextSession.dashboard);
       setNotifications(nextSession.dashboard.notifications);
@@ -557,13 +542,16 @@ export function MobileHunterScreen() {
       const wordpress = await linkedClient.getWordPressPublishing().catch(() => null);
       if (wordpress) rememberWordPressSnapshot(wordpress);
       setPassword('');
-      setApiHealth(nextSession.pcLinked ? 'PC API 자동 연동됨' : nextSession.message);
+      setLicenseCode('');
+      setApiHealth(rememberLogin
+        ? (nextSession.pcLinked ? 'PRO 로그인 완료' : nextSession.message)
+        : '이번 실행에서만 로그인됨');
     } catch (err) {
-      setError((err as Error).message || '로그인 또는 PC 자동 연동에 실패했습니다.');
+      setError((err as Error).message || '로그인에 실패했습니다.');
     } finally {
       setIsLoggingIn(false);
     }
-  }, [apiUrl, licenseCode, password, rememberWordPressSnapshot, userId]);
+  }, [apiUrl, licenseCode, password, rememberLogin, rememberWordPressSnapshot, userId]);
 
   const unlinkLocalSession = useCallback(async () => {
     setError('');
@@ -571,6 +559,8 @@ export function MobileHunterScreen() {
     setSession(null);
     setAccessToken('');
     setPassword('');
+    setLicenseCode('');
+    setRememberLogin(false);
     setDashboard(null);
     setNotifications(null);
     setPrewarm(null);
@@ -1476,7 +1466,7 @@ export function MobileHunterScreen() {
     if (item.categoryId) setCategoryId(item.categoryId);
     if (item.seedKeyword) setSeedKeyword(item.seedKeyword);
     if (!item.mode && item.status === 'pc') {
-      setError(`${item.title}은 PC 기능 목록에 포함되어 있고, 모바일 실행 API는 다음 단계에서 연결합니다.`);
+      setError(`${item.title}은 상태 확인용 기능입니다.`);
     }
   }, []);
 
@@ -1696,7 +1686,7 @@ export function MobileHunterScreen() {
 
   const progressPercent = Math.max(0, Math.min(100, job?.progressPercent || 0));
   const resultItems = result?.keywords || [];
-  const connected = !!session || /연결됨|연동/.test(apiHealth);
+  const connected = !!session || /로그인|연결됨|연동/.test(apiHealth);
 
   return (
     <ScrollView contentContainerStyle={styles.container}>
@@ -1704,19 +1694,19 @@ export function MobileHunterScreen() {
         <View style={styles.headerTop}>
           <Text style={styles.kicker}>LEWORD MOBILE</Text>
           <Text style={[styles.linkBadge, connected && styles.linkBadgeOn]}>
-            {connected ? 'PC 연동됨' : '연동 필요'}
+            {connected ? 'PRO 로그인됨' : '로그인 필요'}
           </Text>
         </View>
-        <Text style={styles.title}>오늘 쓸 키워드만 바로 보기</Text>
+        <Text style={styles.title}>PRO 실시간 키워드 보드</Text>
         <Text style={styles.subtitle}>
-          로그인하면 패널 계정과 PC 엔진을 자동으로 연결하고, 실시간 검색어·정책·이슈를 한 화면에서 봅니다.
+          기존 사용자는 아이디와 비밀번호만 입력하면 실시간 검색어·정책·이슈를 한 화면에서 봅니다.
         </Text>
       </View>
 
       <View style={styles.loginBox}>
         <Text style={styles.cardTitle}>내 패널 로그인</Text>
         <Text style={styles.cardText}>
-          모바일 설정을 따로 맞추지 않고 계정 기준으로 PC API와 자동 연동합니다.
+          이미 등록된 계정은 라이선스 코드 없이 바로 로그인합니다.
         </Text>
         <TextInput
           value={userId}
@@ -1733,50 +1723,43 @@ export function MobileHunterScreen() {
           autoCapitalize="none"
           autoCorrect={false}
           secureTextEntry
-          placeholder="비밀번호 또는 모바일 토큰"
+          placeholder="비밀번호"
           placeholderTextColor="#64748b"
           style={styles.input}
         />
-        <TextInput
-          value={licenseCode}
-          onChangeText={setLicenseCode}
-          autoCapitalize="characters"
-          autoCorrect={false}
-          placeholder="라이선스 코드 선택 입력"
-          placeholderTextColor="#64748b"
-          style={styles.input}
-        />
+        <Pressable
+          accessibilityRole="checkbox"
+          accessibilityState={{ checked: rememberLogin }}
+          style={styles.rememberRow}
+          onPress={() => setRememberLogin((value) => !value)}
+        >
+          <View style={[styles.rememberCheckbox, rememberLogin && styles.rememberCheckboxOn]}>
+            {rememberLogin ? <Text style={styles.rememberCheckmark}>✓</Text> : null}
+          </View>
+          <View style={styles.rememberCopy}>
+            <Text style={styles.rememberText}>로그인 기억하기</Text>
+            <Text style={styles.rememberSubText}>비밀번호는 저장하지 않고 세션만 보관합니다.</Text>
+          </View>
+        </Pressable>
         <Pressable
           style={[styles.primaryButton, isLoggingIn && styles.disabledButton]}
           onPress={loginAndLinkPc}
           disabled={isLoggingIn}
         >
           <Text style={styles.primaryButtonText}>
-            {isLoggingIn ? '연동 중' : '로그인하고 PC 자동 연동'}
+            {isLoggingIn ? '로그인 중' : 'PRO 로그인'}
           </Text>
         </Pressable>
         <View style={styles.inlineActions}>
-          <Pressable
-            style={[styles.secondaryButton, isCheckingApi && styles.disabledButton]}
-            onPress={checkApiHealth}
-            disabled={isCheckingApi}
-          >
-            <Text style={styles.secondaryButtonText}>
-              {isCheckingApi ? '확인 중' : 'PC 연결 확인'}
-            </Text>
-          </Pressable>
-          <Pressable style={styles.secondaryButton} onPress={refreshApiStatus}>
-            <Text style={styles.secondaryButtonText}>API 진단</Text>
-          </Pressable>
           <Pressable style={styles.secondaryButton} onPress={() => setShowAdvanced(!showAdvanced)}>
-            <Text style={styles.secondaryButtonText}>{showAdvanced ? '설정 닫기' : '고급 연결'}</Text>
+            <Text style={styles.secondaryButtonText}>{showAdvanced ? '설정 닫기' : '설정'}</Text>
           </Pressable>
           <Pressable style={styles.secondaryButton} onPress={unlinkLocalSession}>
-            <Text style={styles.secondaryButtonText}>연동 해제</Text>
+            <Text style={styles.secondaryButtonText}>로그아웃</Text>
           </Pressable>
         </View>
         <Text style={styles.statusText}>
-          {isRestoringSession ? '저장된 패널 세션 확인 중' : session?.message || apiHealth}
+          {isRestoringSession ? '저장된 로그인 세션 확인 중' : session?.message || apiHealth}
         </Text>
       </View>
 
@@ -1800,12 +1783,89 @@ export function MobileHunterScreen() {
             autoCapitalize="none"
             autoCorrect={false}
             secureTextEntry
-            placeholder="자동 연동 시 입력 불필요"
+            placeholder="설정 필요 시 입력"
             placeholderTextColor="#64748b"
             style={styles.input}
           />
+          <Text style={styles.sectionLabel}>신규 등록 코드</Text>
+          <TextInput
+            value={licenseCode}
+            onChangeText={setLicenseCode}
+            autoCapitalize="characters"
+            autoCorrect={false}
+            placeholder="신규 사용자만 입력"
+            placeholderTextColor="#64748b"
+            style={styles.input}
+          />
+          <View style={styles.inlineActions}>
+            <Pressable
+              style={[styles.secondaryButton, isCheckingApi && styles.disabledButton]}
+              onPress={checkApiHealth}
+              disabled={isCheckingApi}
+            >
+              <Text style={styles.secondaryButtonText}>
+                {isCheckingApi ? '확인 중' : '상태 확인'}
+              </Text>
+            </Pressable>
+            <Pressable style={styles.secondaryButton} onPress={refreshApiStatus}>
+              <Text style={styles.secondaryButtonText}>API 진단</Text>
+            </Pressable>
+          </View>
         </View>
       ) : null}
+
+      <View style={styles.proOverviewBox}>
+        <View style={styles.progressHeader}>
+          <Text style={styles.cardTitle}>PRO 실시간 한눈에</Text>
+          <Text style={styles.counterText}>
+            {liveGolden ? `${liveGolden.boardCount}/${liveGolden.boardTarget}` : '-'}
+          </Text>
+        </View>
+        <Text style={styles.cardText}>
+          실시간 검색어, 정책 브리핑, 오늘 이슈를 한 화면에서 보고 바로 분석으로 넘깁니다.
+        </Text>
+        <View style={styles.proOverviewGrid}>
+          {[
+            { key: 'realtime', title: '실시간', items: dashboard?.realtime || [] },
+            { key: 'policy', title: '정책', items: dashboard?.policy || [] },
+            { key: 'issues', title: '이슈', items: dashboard?.issues || [] },
+          ].map((section) => (
+            <View key={section.key} style={styles.proOverviewColumn}>
+              <Text style={styles.proOverviewTitle}>{section.title}</Text>
+              {section.items.slice(0, 3).map((item) => (
+                <Pressable
+                  key={item.id}
+                  style={styles.proOverviewItem}
+                  onPress={() => {
+                    setSeedKeyword(item.keyword);
+                    setCategoryId(item.categoryId || categoryId);
+                    setMode(item.kind === 'policy' ? 'home' : 'analysis');
+                  }}
+                >
+                  <Text style={styles.proOverviewKeyword} numberOfLines={1}>{item.keyword}</Text>
+                  <Text style={styles.proOverviewSource} numberOfLines={1}>{item.source}</Text>
+                </Pressable>
+              ))}
+              {section.items.length === 0 ? (
+                <Text style={styles.proOverviewEmpty}>로그인 후 표시</Text>
+              ) : null}
+            </View>
+          ))}
+        </View>
+        <View style={styles.liveGoldenStatus}>
+          <View style={[styles.progressPulse, !liveGolden?.running && styles.liveGoldenIdlePulse]} />
+          <View style={styles.liveGoldenStatusBody}>
+            <Text style={styles.pushStatusText}>
+              {liveGolden?.running ? '실시간 황금 발굴 중' : liveGolden?.enabled ? '실시간 황금 발굴 대기' : '실시간 황금 발굴 준비 전'}
+            </Text>
+            <Text style={styles.metricText}>
+              {liveGolden
+                ? `발행 ${liveGolden.publishedCount}개 · 보드 ${liveGolden.boardCount}개 · 다음 ${liveGolden.nextCategoryId}`
+                : '로그인하면 PRO 보드 상태가 표시됩니다.'}
+            </Text>
+          </View>
+        </View>
+      </View>
 
       <View style={styles.dashboardBox}>
         <View style={styles.progressHeader}>
@@ -1852,7 +1912,7 @@ export function MobileHunterScreen() {
             </View>
           </Pressable>
         )) : (
-          <Text style={styles.emptyText}>로그인하거나 PC 연결 확인을 누르면 오늘 피드가 표시됩니다.</Text>
+          <Text style={styles.emptyText}>로그인하면 오늘 피드가 표시됩니다.</Text>
         )}
       </View>
 
@@ -1873,20 +1933,8 @@ export function MobileHunterScreen() {
         <View style={styles.featurePanel}>
           <Text style={styles.featurePanelTitle}>{selectedFeatureTab.title}</Text>
           <Text style={styles.featurePanelText}>
-            PC 기능을 모바일에서 한눈에 보고, 실행 가능한 항목은 바로 PC 엔진 작업으로 연결합니다.
+            필요한 작업만 고르고 바로 실행합니다.
           </Text>
-          {pcCatalog ? (
-            <View style={styles.catalogSummary}>
-              <Text style={styles.catalogSummaryText}>
-                PC 전체 {pcCatalog.totalHandlers}개 · 즉시실행 {pcCatalog.ready} · 연동 {pcCatalog.linked}
-              </Text>
-              <Text style={styles.catalogSummaryText}>
-                이 탭 {pcCatalog.tabs[featureTab]}개 · 예정 {pcCatalog.planned} · PC전용 {pcCatalog.pcOnly}
-              </Text>
-            </View>
-          ) : (
-            <Text style={styles.catalogEmptyText}>PC 전체 기능 카탈로그를 불러오는 중입니다.</Text>
-          )}
           {featureTab === 'analysis' ? (
             <View style={styles.scheduleDashboardBox}>
               <View style={styles.progressHeader}>
@@ -2043,12 +2091,12 @@ export function MobileHunterScreen() {
               <View style={styles.proBlueprintBox}>
                 <View style={styles.progressHeader}>
                   <Text style={styles.cardTitle}>PRO 청사진</Text>
-                  <Text style={[styles.catalogStatus, styles.catalogStatusLinked]}>PC 연동</Text>
+                  <Text style={[styles.catalogStatus, styles.catalogStatusLinked]}>PRO</Text>
                 </View>
                 <Text style={styles.cardText}>
                   {proBlueprintResult?.success
                     ? `최근 ${proBlueprintResult.blueprint?.keyword || proBlueprintKeyword} · ${proBlueprintResult.prediction?.rankRange || '예측 대기'}`
-                    : 'PC PRO v12 · 청사진 · 초안 · 수익 추정'}
+                    : '청사진 · 초안 · 수익 추정'}
                 </Text>
                 <TextInput
                   placeholder="키워드"
@@ -2777,33 +2825,10 @@ export function MobileHunterScreen() {
                 item.status === 'ready' && styles.featureStatusReady,
                 item.status === 'linked' && styles.featureStatusLinked,
               ]}>
-                {item.status === 'ready' ? '모바일 실행 가능' : item.status === 'linked' ? 'PC 연동 보기' : 'PC 기능 정리됨'}
+                {item.status === 'ready' ? '바로 실행' : item.status === 'linked' ? '상태 보기' : '기능 준비됨'}
               </Text>
             </Pressable>
           ))}
-          {selectedCatalogItems.slice(0, 14).map((item) => (
-            <View key={item.id} style={styles.catalogRow}>
-              <View style={styles.catalogRowHeader}>
-                <Text style={[
-                  styles.catalogStatus,
-                  item.status === 'ready' && styles.catalogStatusReady,
-                  item.status === 'linked' && styles.catalogStatusLinked,
-                  item.status === 'pc-only' && styles.catalogStatusPcOnly,
-                ]}>
-                  {catalogStatusLabel(item)}
-                </Text>
-                <Text style={styles.catalogTitle}>{item.title}</Text>
-              </View>
-              <Text style={styles.catalogMeta}>
-                {item.module} · {item.handler}{item.mobileRoute ? ` · ${item.mobileRoute}` : ''}
-              </Text>
-            </View>
-          ))}
-          {selectedCatalogItems.length > 14 ? (
-            <Text style={styles.catalogMoreText}>
-              이 탭의 PC 기능 {selectedCatalogItems.length - 14}개는 다음 단계에서 이어서 연결합니다.
-            </Text>
-          ) : null}
         </View>
       </View>
 
@@ -3078,6 +3103,58 @@ const styles = StyleSheet.create({
     backgroundColor: '#171a12',
     borderWidth: 1,
     borderColor: '#b88a1f',
+  },
+  proOverviewBox: {
+    gap: 10,
+    padding: 14,
+    borderRadius: 8,
+    backgroundColor: '#101827',
+    borderWidth: 1,
+    borderColor: '#2563eb',
+  },
+  proOverviewGrid: {
+    flexDirection: 'row',
+    gap: 8,
+  },
+  proOverviewColumn: {
+    flex: 1,
+    minHeight: 132,
+    gap: 7,
+    padding: 10,
+    borderRadius: 8,
+    backgroundColor: '#0f172a',
+    borderWidth: 1,
+    borderColor: '#1d4ed8',
+  },
+  proOverviewTitle: {
+    color: '#bfdbfe',
+    fontSize: 12,
+    fontWeight: '900',
+  },
+  proOverviewItem: {
+    minHeight: 38,
+    justifyContent: 'center',
+    paddingVertical: 5,
+    paddingHorizontal: 7,
+    borderRadius: 8,
+    backgroundColor: '#111827',
+    borderWidth: 1,
+    borderColor: '#334155',
+  },
+  proOverviewKeyword: {
+    color: '#f8fafc',
+    fontSize: 12,
+    fontWeight: '900',
+  },
+  proOverviewSource: {
+    color: '#93c5fd',
+    fontSize: 10,
+    marginTop: 2,
+  },
+  proOverviewEmpty: {
+    color: '#94a3b8',
+    fontSize: 11,
+    lineHeight: 16,
   },
   quickBox: {
     gap: 12,
@@ -3536,6 +3613,48 @@ const styles = StyleSheet.create({
     flexDirection: 'row',
     flexWrap: 'wrap',
     gap: 10,
+  },
+  rememberRow: {
+    minHeight: 54,
+    flexDirection: 'row',
+    alignItems: 'center',
+    gap: 10,
+    paddingHorizontal: 2,
+  },
+  rememberCheckbox: {
+    width: 24,
+    height: 24,
+    alignItems: 'center',
+    justifyContent: 'center',
+    borderRadius: 6,
+    backgroundColor: '#0b1220',
+    borderWidth: 2,
+    borderColor: '#475569',
+  },
+  rememberCheckboxOn: {
+    backgroundColor: '#a3e635',
+    borderColor: '#bef264',
+  },
+  rememberCheckmark: {
+    color: '#18230b',
+    fontSize: 17,
+    fontWeight: '900',
+    lineHeight: 20,
+  },
+  rememberCopy: {
+    flex: 1,
+    minWidth: 0,
+  },
+  rememberText: {
+    color: '#f8fafc',
+    fontSize: 14,
+    fontWeight: '900',
+  },
+  rememberSubText: {
+    color: '#94a3b8',
+    fontSize: 11,
+    lineHeight: 16,
+    marginTop: 2,
   },
   inlineActions: {
     flexDirection: 'row',

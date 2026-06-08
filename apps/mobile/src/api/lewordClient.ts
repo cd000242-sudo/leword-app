@@ -662,7 +662,14 @@ export class LewordMobileClient {
     });
 
     if (!response.ok) {
-      throw new Error(`LEWORD API failed: ${response.status}`);
+      let message = `LEWORD API failed: ${response.status}`;
+      try {
+        const payload = await response.clone().json();
+        message = payload?.message || payload?.error || message;
+      } catch {
+        // Keep the status message when the server does not return JSON.
+      }
+      throw new Error(message);
     }
 
     return response;

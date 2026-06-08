@@ -1,5 +1,7 @@
 import {
   MOBILE_PC_PARITY_SLA,
+  type MobileLiveGoldenBoardItem,
+  type MobileLiveGoldenFreshness,
   type MobileKeywordMetric,
   type MobileKeywordResult,
   type MobileLiveGoldenRadarSnapshot,
@@ -8,12 +10,18 @@ import {
 import type { MobileNotificationInbox } from './notification-inbox';
 import { EnvironmentManager, type EnvConfig } from '../utils/environment-manager';
 import { discoverDirectGoldenKeywords } from '../utils/direct-golden-keyword-miner';
+import { classifyKeywordIntent, getNaverKeywordSearchVolumeSeparate } from '../utils/naver-datalab-api';
+import * as fs from 'fs';
+import * as path from 'path';
 import {
   countSss,
+  isActionableGoldenKeyword,
   isQualityGoldenDiscoveryResult,
   rankGoldenDiscoveryResults,
 } from '../utils/golden-discovery-floor';
 import type { MDPResult } from '../utils/mdp-engine';
+import { classifyKeyword } from '../utils/categories';
+import { getDiscoveryCategorySeeds } from '../utils/category-discovery-map';
 
 export interface MobileLiveGoldenRadarRunGate {
   ok: boolean;
@@ -26,6 +34,9 @@ export interface MobileLiveGoldenRadarOptions {
   runOnStart?: boolean;
   runOnStartDelayMs?: number;
   cycleLimit?: number;
+  boardTarget?: number;
+  publicPreviewCount?: number;
+  boardFile?: string;
   maxSeeds?: number;
   maxCandidates?: number;
   categories?: string[];
@@ -34,6 +45,8 @@ export interface MobileLiveGoldenRadarOptions {
     config: { clientId: string; clientSecret: string },
     options: Parameters<typeof discoverDirectGoldenKeywords>[1],
   ) => Promise<MDPResult[]>;
+  liveSeedProvider?: (categoryId: string) => Promise<string[]>;
+  enableBackfill?: boolean;
   shouldRun?: () => MobileLiveGoldenRadarRunGate | boolean;
   setIntervalFn?: (handler: () => void, intervalMs: number) => unknown;
   clearIntervalFn?: (handle: unknown) => void;
@@ -43,15 +56,48 @@ export interface MobileLiveGoldenRadarOptions {
 }
 
 const DEFAULT_CATEGORIES = Object.freeze([
-  'celebrity',
+  'celeb',
+  'broadcast',
+  'drama',
+  'movie',
+  'music',
+  'sports',
   'policy',
   'finance',
   'education',
-  'living',
-  'travel',
+  'life_tips',
+  'home_life',
+  'fashion',
+  'beauty',
+  'electronics',
+  'travel_domestic',
+  'travel_overseas',
   'health',
+  'food',
+  'recipe',
   'it',
+  'ai_tool',
+  'game',
 ]);
+
+const PUBLIC_PREVIEW_ROTATION_MS = 60_000;
+const LIVE_SEED_COLLECTION_TIMEOUT_MS = 3_500;
+const BROAD_KEYWORD_VOLUME_CEILING = 500_000;
+const BROAD_KEYWORD_DOCUMENT_CEILING = 80_000;
+const PUBLIC_PREVIEW_VOLUME_CEILING = 250_000;
+const PUBLIC_PREVIEW_DOCUMENT_CEILING = 30_000;
+const PUBLIC_PREVIEW_PROFILE_INTENT_MAX = 1;
+const LIVE_BOARD_PROFILE_INTENT_TOP_WINDOW = 30;
+const LIVE_BOARD_PROFILE_INTENT_TOP_MAX = 2;
+
+const GRADE_WEIGHT: Record<MobileResultGrade, number> = {
+  SSS: 120,
+  SS: 95,
+  S: 75,
+  A: 45,
+  B: 20,
+  C: 0,
+};
 
 function normalizeGrade(value: unknown, score = 0): MobileResultGrade {
   const grade = String(value || '').toUpperCase().replace(/[^A-Z]/g, '');
@@ -73,11 +119,368 @@ function normalizeKeyword(value: unknown): string {
   return String(value || '').replace(/\s+/g, ' ').trim();
 }
 
+function uniqueKeywords(values: string[], limit = 40): string[] {
+  const seen = new Set<string>();
+  const out: string[] = [];
+  for (const raw of values) {
+    const value = normalizeKeyword(raw);
+    if (!value) continue;
+    const key = value.toLowerCase().replace(/\s+/g, '');
+    if (seen.has(key)) continue;
+    seen.add(key);
+    out.push(value);
+    if (out.length >= limit) break;
+  }
+  return out;
+}
+
+function withTimeout<T>(promise: Promise<T>, timeoutMs: number, fallback: T): Promise<T> {
+  return new Promise((resolve) => {
+    const timer = setTimeout(() => resolve(fallback), timeoutMs);
+    promise
+      .then((value) => resolve(value))
+      .catch(() => resolve(fallback))
+      .finally(() => clearTimeout(timer));
+  });
+}
+
+function keywordId(keyword: string): string {
+  return keyword
+    .trim()
+    .toLowerCase()
+    .replace(/\s+/g, '-')
+    .replace(/[^a-z0-9\uAC00-\uD7A3-]/g, '')
+    .slice(0, 80) || 'keyword';
+}
+
+function formatRange(value: number | null, kind: 'search' | 'document'): string {
+  if (value === null || !Number.isFinite(value)) return 'checking';
+  if (value < 20) return kind === 'search' ? 'under 20' : 'under 20';
+  if (value < 100) return '20-99';
+  if (value < 300) return '100-299';
+  if (value < 500) return '300-499';
+  if (value < 1000) return '500-999';
+  if (value < 2000) return '1k range';
+  if (value < 5000) return '2k-5k';
+  if (value < 10000) return '5k-10k';
+  if (value < 30000) return '10k-30k';
+  return kind === 'search' ? '30k+' : '30k+';
+}
+
+function keywordClusterKey(keyword: string): string {
+  return keyword
+    .trim()
+    .toLowerCase()
+    .replace(/\s+/g, '')
+    .replace(/[^a-z0-9\uAC00-\uD7A3]/g, '')
+    .slice(0, 8);
+}
+
+function publicPreviewClusterKey(keyword: string): string {
+  const clean = normalizeKeyword(keyword);
+  if (/로또|복권|당첨번호|당첨지역|판매점/.test(clean)) return 'lottery';
+  if (/모의고사|등급컷|답지|수능|기출|6모|9모/.test(clean)) return 'education-exam';
+  if (/프로야구|KBO|야구|올스타|중계|경기/.test(clean)) return 'baseball';
+  if (/흠뻑쇼|콘서트|팬미팅|컴백/.test(clean)) return 'concert';
+  if (/공휴일|지원금|장려금|바우처|정책|환급/.test(clean)) return 'policy';
+  return keywordClusterKey(clean);
+}
+
+function mdpResultId(result: MDPResult): string {
+  return keywordId(normalizeKeyword(result.keyword));
+}
+
+function isNovelMdpResult(
+  result: MDPResult,
+  existingIds: Set<string>,
+  existingClusters: Set<string>,
+): boolean {
+  const keyword = normalizeKeyword(result.keyword);
+  const id = keywordId(keyword);
+  const cluster = keywordClusterKey(keyword);
+  return !existingIds.has(id) && (!cluster || !existingClusters.has(cluster));
+}
+
+function appendUniqueMdpResults(
+  out: MDPResult[],
+  candidates: MDPResult[],
+  seen: Set<string>,
+  limit: number,
+  predicate?: (item: MDPResult) => boolean,
+): void {
+  for (const item of candidates) {
+    if (out.length >= limit) return;
+    if (predicate && !predicate(item)) continue;
+    const id = mdpResultId(item);
+    if (!id || seen.has(id)) continue;
+    seen.add(id);
+    out.push(item);
+  }
+}
+
+function rotateItems<T>(items: T[], offset: number): T[] {
+  if (items.length <= 1) return items;
+  const normalizedOffset = ((offset % items.length) + items.length) % items.length;
+  return [...items.slice(normalizedOffset), ...items.slice(0, normalizedOffset)];
+}
+
+function boardScore(item: MobileLiveGoldenBoardItem): number {
+  const grade = GRADE_WEIGHT[item.grade] || 0;
+  const measured = item.isMeasured ? 18 : 0;
+  const ratio = Math.min(80, Math.max(0, item.goldenRatio || 0));
+  const volume = Math.min(35, Math.log10(Math.max(1, item.totalSearchVolume || 0)) * 7);
+  const documents = item.documentCount === null
+    ? 0
+    : Math.max(0, 25 - Math.log10(Math.max(1, item.documentCount)) * 4);
+  return grade + measured + ratio + volume + documents + (item.score || 0) * 0.08;
+}
+
+function freshnessFrom(updatedAt: string, nowMs: number): MobileLiveGoldenFreshness {
+  const ageMs = nowMs - Date.parse(updatedAt);
+  if (!Number.isFinite(ageMs) || ageMs < 90 * 60 * 1000) return 'live';
+  if (ageMs < 12 * 60 * 60 * 1000) return 'warm';
+  return 'aging';
+}
+
+function publicReason(item: MobileKeywordMetric): string {
+  const parts: string[] = [];
+  if (item.grade === 'SSS' || item.grade === 'SS') parts.push(`${item.grade} 후보`);
+  if (item.goldenRatio !== null && item.goldenRatio >= 5) parts.push('문서 대비 수요 우세');
+  if (item.intent) parts.push(item.intent.replace(/[-_]/g, ' '));
+  return parts.slice(0, 2).join(' · ') || '실시간 검증 통과 후보';
+}
+
+const ACTIONABLE_KEYWORD_HINT_RE = /(일정|답지|등급컷|당첨번호|당첨지역|중계|올스타전|공휴일|신청|대상|자격|지급일|조회|후기|가격|비교|추천|예약|예매|출연진|몇부작|다시보기|결말|쿠키영상|사용법|오류|설정|업데이트|준비물|조건|서류|마감|발표|라인업|하이라이트|프로필|공식입장|기자회견|회동|발언|입장|논란|비주얼|공개|MVP|급락|관련주|전망|주가|소식)/;
+const SPECIFIC_LIVE_KEYWORD_HINT_RE = /(\d{4}|\d+회|\d+월|오늘|이번주|이번달|상반기|하반기|일정|답지|등급컷|올스타전|공휴일|신청|지급일|접수|마감|예매|예약|방송시간|몇부작|출연진|결말|쿠키영상|준비물|후기|가격|비교|추천|주차|라인업|하이라이트|프로필|공식입장|기자회견|회동|발언|논란|비주얼|공개|MVP|급락|관련주|전망|주가|소식)/;
+const THIN_PROFILE_INTENT_RE = /(프로필|인물정보|약력|나이|인스타)$/i;
+const PROFILE_INTENT_EXEMPT_RE = /(카카오톡|카톡|인스타그램|블로그|프로필\s*(사진|설정|변경|꾸미기|삭제|비공개|차단)|사용법|오류|업데이트|방법|신청|조회|대상|자격|지급일|일정|예매|예약|중계|등급컷|답지|당첨번호|주가|전망)/i;
+const RICH_PROFILE_CONTEXT_RE = /(공식입장|해명|논란|기자회견|회동|발언|입장|출연진|방송시간|몇부작|다시보기|결말|하이라이트|라인업|MVP|소식|공개|비주얼)/i;
+
+function isMalformedLiveKeyword(keyword: string): boolean {
+  const clean = normalizeKeyword(keyword);
+  if (!clean) return true;
+  const compact = clean.replace(/\s+/g, '');
+  if (/^[가-힣]+[0-9]+[가-힣0-9]+$/.test(compact) && !/\s/.test(clean)) return true;
+  if (/^[a-z0-9\s_-]+$/i.test(clean) && !/[가-힣]/.test(clean)) return true;
+  return false;
+}
+
+function isActionableLiveKeyword(keyword: string): boolean {
+  return ACTIONABLE_KEYWORD_HINT_RE.test(normalizeKeyword(keyword));
+}
+
+function isThinProfileIntentKeyword(keyword: string): boolean {
+  const clean = normalizeKeyword(keyword);
+  if (!clean || PROFILE_INTENT_EXEMPT_RE.test(clean)) return false;
+  const compact = clean.replace(/\s+/g, '');
+  if (!THIN_PROFILE_INTENT_RE.test(compact)) return false;
+  const withoutProfileIntent = clean.replace(/프로필|인물정보|약력|나이|인스타/gi, ' ');
+  return !RICH_PROFILE_CONTEXT_RE.test(withoutProfileIntent);
+}
+
+function maxThinProfileBoardCount(boardTarget: number): number {
+  return Math.max(2, Math.min(6, Math.floor(Math.max(1, boardTarget) * 0.08)));
+}
+
+function selectLiveBoardItems<T extends MobileLiveGoldenBoardItem>(
+  sorted: T[],
+  boardTarget: number,
+): T[] {
+  const target = Math.max(1, Math.floor(boardTarget));
+  const maxProfileCount = maxThinProfileBoardCount(target);
+  const topProfileMax = Math.min(maxProfileCount, LIVE_BOARD_PROFILE_INTENT_TOP_MAX);
+  const selected: T[] = [];
+  const delayedProfiles: T[] = [];
+  const selectedIds = new Set<string>();
+  let profileCount = 0;
+
+  const push = (item: T): boolean => {
+    if (selected.length >= target || selectedIds.has(item.id)) return false;
+    selected.push(item);
+    selectedIds.add(item.id);
+    return true;
+  };
+
+  for (const item of sorted) {
+    if (selected.length >= target) break;
+    if (!isThinProfileIntentKeyword(item.keyword)) {
+      push(item);
+      continue;
+    }
+    if (profileCount >= maxProfileCount) continue;
+    if (selected.length < LIVE_BOARD_PROFILE_INTENT_TOP_WINDOW && profileCount >= topProfileMax) {
+      delayedProfiles.push(item);
+      continue;
+    }
+    if (push(item)) profileCount++;
+  }
+
+  for (const item of delayedProfiles) {
+    if (selected.length >= target || profileCount >= maxProfileCount) break;
+    if (selected.length < LIVE_BOARD_PROFILE_INTENT_TOP_WINDOW) continue;
+    if (push(item)) profileCount++;
+  }
+
+  return selected;
+}
+
+function isLiveRadarUsableKeyword(keyword: string, volume: number | null, documents: number | null): boolean {
+  if (isMalformedLiveKeyword(keyword)) return false;
+  const clean = normalizeKeyword(keyword);
+  const specific = SPECIFIC_LIVE_KEYWORD_HINT_RE.test(clean);
+  if (volume !== null && volume >= BROAD_KEYWORD_VOLUME_CEILING) return false;
+  if (documents !== null && documents >= BROAD_KEYWORD_DOCUMENT_CEILING) return false;
+  if (volume !== null && documents !== null && volume >= 300_000 && documents >= 50_000) return false;
+  if (!specific && volume !== null && volume >= 250_000) return false;
+  if (!specific && documents !== null && documents >= 30_000) return false;
+  if (!isActionableLiveKeyword(clean)) {
+    return false;
+  }
+  return true;
+}
+
+function isPublicPreviewCandidate(item: MobileLiveGoldenBoardItem): boolean {
+  if (!isLiveRadarUsableMetric(item)) return false;
+  if (item.grade === 'B' || item.grade === 'C') return false;
+  if (item.totalSearchVolume !== null && item.totalSearchVolume >= PUBLIC_PREVIEW_VOLUME_CEILING) return false;
+  if (item.documentCount !== null && item.documentCount >= PUBLIC_PREVIEW_DOCUMENT_CEILING) return false;
+  if (item.goldenRatio !== null && item.goldenRatio < 2) return false;
+  return true;
+}
+
+function inferLiveCategory(keyword: string, fallbackCategory: string): string {
+  const clean = normalizeKeyword(keyword);
+  if (/로또|복권|당첨번호|당첨지역|판매점/.test(clean)) return 'life_tips';
+  if (/모의고사|등급컷|답지|수능|기출|접수|합격자|합격률|시험/.test(clean)) return 'education';
+  if (/프로야구|KBO|야구|축구|농구|배구|월드컵|올스타|중계|경기|라인업|하이라이트/.test(clean)) return 'sports';
+  if (/공휴일|지원금|장려금|바우처|정책|정부24|환급|보조금|복지|수당/.test(clean)) return 'policy';
+  if (/흠뻑쇼|콘서트|컴백|팬미팅|앨범|음원|가수|차트|티저/.test(clean)) return 'music';
+  if (/드라마|몇부작|방송시간|인물관계도|재방송|시청률/.test(clean)) return 'drama';
+  if (/영화|개봉|쿠키영상|관람평|상영관|결말/.test(clean)) return 'movie';
+  const primary = normalizeKeyword(classifyKeyword(clean).primary);
+  if (primary && primary !== 'default' && primary !== 'all') return primary;
+  return normalizeKeyword(fallbackCategory) || 'live';
+}
+
+function isLiveRadarUsableMetric(item: MobileKeywordMetric): boolean {
+  return isLiveRadarUsableKeyword(item.keyword, item.totalSearchVolume, item.documentCount);
+}
+
+function isLiveRadarUsableMdpResult(item: MDPResult): boolean {
+  return isLiveRadarUsableKeyword(
+    item.keyword,
+    finiteNumber(item.searchVolume),
+    finiteNumber(item.documentCount),
+  );
+}
+
+function isLiveRadarQualityResult(item: MDPResult): boolean {
+  if (!isLiveRadarUsableMdpResult(item)) return false;
+  if (isQualityGoldenDiscoveryResult(item, { requireActionableIntent: true })) return true;
+  if (!isActionableGoldenKeyword(item.keyword)) return false;
+  const volume = finiteNumber(item.searchVolume) || 0;
+  const docs = finiteNumber(item.documentCount) || 0;
+  const ratio = finiteNumber(item.goldenRatio) || (docs > 0 ? volume / docs : 0);
+  return volume >= 300 && docs > 0 && docs <= 30_000 && ratio >= 2;
+}
+
+function getBackfillIntents(categoryId: string): string[] {
+  if (categoryId === 'policy') return ['신청방법', '대상', '자격', '지급일', '조회', '마감', '준비서류'];
+  if (categoryId === 'sports') return ['중계', '경기일정', '예매', '라인업', '하이라이트', '직관 준비물'];
+  if (categoryId === 'drama') return ['출연진', '몇부작', '방송시간', '재방송', '결말 해석'];
+  if (categoryId === 'movie') return ['개봉일', '출연진', '쿠키영상', '결말 해석', '예매'];
+  if (categoryId === 'broadcast') return ['출연진', '방송시간', '다시보기', '재방송', '공식영상'];
+  if (categoryId === 'celeb') return ['공식입장', '근황', '기자회견', '논란 정리', '발언', '출연작', '방송', '인스타', '프로필'];
+  if (categoryId === 'music') return ['컴백 일정', '콘서트 예매', '팬미팅 일정', '앨범 발매일'];
+  if (categoryId === 'education') return ['등급컷', '답지', '시험일정', '접수', '준비물'];
+  if (categoryId === 'fashion') return ['코디', '브랜드', '사이즈', '후기', '할인'];
+  if (categoryId === 'beauty') return ['성분', '피부타입', '후기', '추천', '순서'];
+  if (categoryId === 'travel_domestic' || categoryId === 'travel_overseas') return ['일정', '준비물', '예약', '주차', '경비'];
+  if (categoryId === 'food') return ['맛집', '메뉴', '예약', '가격', '주차'];
+  if (categoryId === 'recipe') return ['황금레시피', '재료', '만드는법', '보관법'];
+  if (categoryId === 'it' || categoryId === 'ai_tool') return ['사용법', '설정', '오류 해결', '비교', '추천'];
+  return ['추천', '비교', '후기', '가격', '방법', '일정', '조회', '발표', '기자회견', '논란 정리'];
+}
+
+function buildBackfillCandidates(categoryId: string, liveSeeds: string[], maxSeeds: number): string[] {
+  const baseSeeds = uniqueKeywords([
+    ...liveSeeds,
+    ...getDiscoveryCategorySeeds(categoryId, Math.max(24, Math.min(80, maxSeeds))),
+  ], 48);
+  const intents = getBackfillIntents(categoryId);
+  const candidates: string[] = [];
+  for (const seed of baseSeeds) {
+    candidates.push(seed);
+    for (const intent of intents) {
+      if (!seed.includes(intent)) candidates.push(`${seed} ${intent}`);
+      if (candidates.length >= 120) break;
+    }
+    if (candidates.length >= 120) break;
+  }
+  return uniqueKeywords(candidates, 120);
+}
+
+function liveMetricScore(volume: number, docs: number, ratio: number, actionable: boolean): number {
+  const ratioScore = ratio >= 50 ? 100 : ratio >= 20 ? 94 : ratio >= 10 ? 86 : ratio >= 5 ? 76 : ratio >= 3 ? 66 : 48;
+  const volumeScore = volume >= 10_000 ? 92 : volume >= 3_000 ? 86 : volume >= 1_000 ? 78 : volume >= 500 ? 68 : volume >= 100 ? 54 : 35;
+  const docScore = docs <= 300 ? 100 : docs <= 1_000 ? 92 : docs <= 3_000 ? 86 : docs <= 8_000 ? 76 : docs <= 20_000 ? 58 : 35;
+  const intentScore = actionable ? 100 : 0;
+  return Math.round(ratioScore * 0.42 + volumeScore * 0.22 + docScore * 0.22 + intentScore * 0.14);
+}
+
+function liveGradeFromMetrics(score: number, volume: number, docs: number, ratio: number): MobileResultGrade {
+  if (score >= 85 && volume >= 1000 && docs <= 5000 && ratio >= 5) return 'SSS';
+  if (score >= 75 && volume >= 500 && docs <= 10000 && ratio >= 3) return 'SS';
+  if (score >= 65 && volume >= 300 && ratio >= 2) return 'S';
+  if (score >= 55 && volume >= 100) return 'A';
+  if (score >= 45) return 'B';
+  return 'C';
+}
+
+function rowToBackfillResult(
+  row: Awaited<ReturnType<typeof getNaverKeywordSearchVolumeSeparate>>[number],
+  categoryId: string,
+): MDPResult | null {
+  const keyword = normalizeKeyword(row.keyword);
+  const pc = finiteNumber(row.pcSearchVolume) || 0;
+  const mobile = finiteNumber(row.mobileSearchVolume) || 0;
+  const volume = pc + mobile;
+  const docs = finiteNumber(row.documentCount) || 0;
+  if (volume <= 0 || docs <= 0) return null;
+  if (!isLiveRadarUsableKeyword(keyword, volume, docs)) return null;
+  const ratio = Number((volume / docs).toFixed(2));
+  const actionable = isActionableGoldenKeyword(keyword);
+  const score = liveMetricScore(volume, docs, ratio, actionable);
+  const grade = liveGradeFromMetrics(score, volume, docs, ratio);
+  const intentInfo = classifyKeywordIntent(keyword);
+  const result: MDPResult = {
+    keyword,
+    intent: intentInfo.intent,
+    intentBadge: intentInfo.badge,
+    searchVolume: volume,
+    documentCount: docs,
+    goldenRatio: ratio,
+    score,
+    grade,
+    cpc: finiteNumber(row.monthlyAveCpc) || undefined,
+    goldenReason: `라이브 보강 측정: 검색량 ${volume.toLocaleString()} / 문서수 ${docs.toLocaleString()} / 비율 ${ratio}`,
+    hasSmartBlock: false,
+    hasViewSection: true,
+    hasInfluencer: false,
+    difficultyScore: docs > 0 ? Math.min(10, Math.max(1, Math.ceil(docs / Math.max(1, volume)))) : 10,
+    externalSources: ['mobile-live-seed-backfill'],
+    measurementOnly: false,
+    categoryMatched: inferLiveCategory(keyword, categoryId) === categoryId,
+  };
+  return isLiveRadarQualityResult(result) ? result : null;
+}
+
 function mapDirectResult(result: MDPResult, categoryId: string): MobileKeywordMetric {
   const totalSearchVolume = finiteNumber(result.searchVolume);
   const documentCount = finiteNumber(result.documentCount);
+  const keyword = normalizeKeyword(result.keyword);
   return {
-    keyword: normalizeKeyword(result.keyword),
+    keyword,
     grade: normalizeGrade(result.grade, finiteNumber(result.score) || 0),
     score: finiteNumber(result.score),
     pcSearchVolume: null,
@@ -86,7 +489,7 @@ function mapDirectResult(result: MDPResult, categoryId: string): MobileKeywordMe
     documentCount,
     goldenRatio: finiteNumber(result.goldenRatio),
     cpc: finiteNumber(result.cpc),
-    category: categoryId || 'live',
+    category: inferLiveCategory(keyword, categoryId || 'live'),
     source: 'mobile-live-golden-radar',
     intent: result.intent || 'live-golden-discovery',
     evidence: [
@@ -127,6 +530,9 @@ export class MobileLiveGoldenRadar {
   private readonly runOnStart: boolean;
   private readonly runOnStartDelayMs: number;
   private readonly cycleLimit: number;
+  private readonly boardTarget: number;
+  private readonly publicPreviewCount: number;
+  private readonly boardFile?: string;
   private readonly maxSeeds: number;
   private readonly maxCandidates: number;
   private readonly categories: string[];
@@ -135,6 +541,8 @@ export class MobileLiveGoldenRadar {
     config: { clientId: string; clientSecret: string },
     options: Parameters<typeof discoverDirectGoldenKeywords>[1],
   ) => Promise<MDPResult[]>;
+  private readonly liveSeedProvider?: (categoryId: string) => Promise<string[]>;
+  private readonly enableBackfill: boolean;
   private readonly shouldRun: () => MobileLiveGoldenRadarRunGate | boolean;
   private readonly setIntervalFn: (handler: () => void, intervalMs: number) => unknown;
   private readonly clearIntervalFn: (handle: unknown) => void;
@@ -151,6 +559,8 @@ export class MobileLiveGoldenRadar {
   private skippedRuns = 0;
   private failedRuns = 0;
   private publishedCount = 0;
+  private boardUpdatedAt?: string;
+  private readonly board = new Map<string, MobileLiveGoldenBoardItem>();
   private lastStartedAt?: string;
   private lastFinishedAt?: string;
   private lastError?: string;
@@ -164,9 +574,14 @@ export class MobileLiveGoldenRadar {
     ));
     this.runOnStart = options.runOnStart !== false;
     this.runOnStartDelayMs = Math.max(5_000, Math.floor(options.runOnStartDelayMs ?? 15_000));
-    this.cycleLimit = Math.max(3, Math.min(15, Math.floor(
+    this.cycleLimit = Math.max(8, Math.min(15, Math.floor(
       options.cycleLimit || MOBILE_PC_PARITY_SLA.workerBudgets.liveGoldenCycleLimit,
     )));
+    this.boardTarget = Math.max(10, Math.min(120, Math.floor(
+      options.boardTarget || MOBILE_PC_PARITY_SLA.qualityFloors.goldenBulkSss,
+    )));
+    this.publicPreviewCount = Math.max(1, Math.min(10, Math.floor(options.publicPreviewCount || 5)));
+    this.boardFile = normalizeKeyword(options.boardFile || '') || undefined;
     this.maxSeeds = Math.max(20, Math.min(200, Math.floor(options.maxSeeds || 80)));
     this.maxCandidates = Math.max(120, Math.min(800, Math.floor(
       options.maxCandidates || MOBILE_PC_PARITY_SLA.workerBudgets.liveGoldenMaxCandidates,
@@ -176,12 +591,15 @@ export class MobileLiveGoldenRadar {
       .filter(Boolean);
     this.getEnvConfig = options.getEnvConfig || (() => EnvironmentManager.getInstance().getConfig());
     this.discover = options.discover || discoverDirectGoldenKeywords;
+    this.liveSeedProvider = options.liveSeedProvider;
+    this.enableBackfill = options.enableBackfill !== false;
     this.shouldRun = options.shouldRun || (() => true);
     this.setIntervalFn = options.setIntervalFn || ((handler, intervalMs) => setInterval(handler, intervalMs));
     this.clearIntervalFn = options.clearIntervalFn || ((handle) => clearInterval(handle as ReturnType<typeof setInterval>));
     this.setTimeoutFn = options.setTimeoutFn || ((handler, delayMs) => setTimeout(handler, delayMs));
     this.clearTimeoutFn = options.clearTimeoutFn || ((handle) => clearTimeout(handle as ReturnType<typeof setTimeout>));
     this.now = options.now || (() => new Date());
+    this.loadBoardFromFile();
   }
 
   start(): MobileLiveGoldenRadarSnapshot {
@@ -229,6 +647,7 @@ export class MobileLiveGoldenRadar {
     this.lastError = undefined;
     const categoryId = this.nextCategory();
     const startedAtMs = Date.now();
+    const discoveryLimit = Math.min(30, Math.max(this.cycleLimit * 3, this.cycleLimit));
 
     try {
       const env = this.getEnvConfig();
@@ -236,23 +655,97 @@ export class MobileLiveGoldenRadar {
         throw new Error('Naver Open API config missing');
       }
 
+      const liveSeeds = await this.collectLiveSeeds(categoryId);
       const direct = await this.discover({
         clientId: env.naverClientId,
         clientSecret: env.naverClientSecret,
       }, {
         category: categoryId,
-        limit: this.cycleLimit,
+        limit: discoveryLimit,
         maxSeeds: this.maxSeeds,
         maxCandidates: this.maxCandidates,
-        includeCrossCategory: true,
+        liveSeeds,
+        includeCrossCategory: false,
         requireCategoryMatch: false,
         includeSearchAdSuggestions: true,
-        suggestionSeedLimit: 6,
-        suggestionsPerSeed: 12,
+        suggestionSeedLimit: 4,
+        suggestionsPerSeed: 8,
         maxSimilarPerCluster: 2,
       });
-      const ranked = rankGoldenDiscoveryResults(
-        direct.filter((item) => isQualityGoldenDiscoveryResult(item, { requireActionableIntent: true })),
+      let qualityDirect = direct.filter(isLiveRadarQualityResult);
+      const existingIdsForRun = new Set(this.board.keys());
+      const existingClustersForRun = new Set([...this.board.values()].map((item) => keywordClusterKey(item.keyword)).filter(Boolean));
+      const hasNovelDirect = qualityDirect.some((item) => isNovelMdpResult(item, existingIdsForRun, existingClustersForRun));
+      if (this.enableBackfill && (qualityDirect.length < this.cycleLimit || !hasNovelDirect)) {
+        const backfill = await this.discoverBackfill({
+          clientId: env.naverClientId,
+          clientSecret: env.naverClientSecret,
+        }, categoryId, liveSeeds);
+        if (backfill.length > 0) {
+          qualityDirect = [...qualityDirect, ...backfill];
+        }
+      }
+      const novelQualityCount = qualityDirect.filter((item) => isNovelMdpResult(item, existingIdsForRun, existingClustersForRun)).length;
+      if (this.enableBackfill && novelQualityCount < this.cycleLimit) {
+        const globalDirect = await this.discover({
+          clientId: env.naverClientId,
+          clientSecret: env.naverClientSecret,
+        }, {
+          category: 'all',
+          limit: discoveryLimit,
+          maxSeeds: Math.min(this.maxSeeds, 120),
+          maxCandidates: Math.min(this.maxCandidates, 220),
+          liveSeeds,
+          includeCrossCategory: true,
+          requireCategoryMatch: false,
+          includeSearchAdSuggestions: false,
+          suggestionSeedLimit: 0,
+          suggestionsPerSeed: 0,
+          maxSimilarPerCluster: 2,
+        });
+        const globalQuality = globalDirect.filter(isLiveRadarQualityResult);
+        if (globalQuality.length > 0) {
+          qualityDirect = [...qualityDirect, ...globalQuality];
+        }
+      }
+      const matchedDirect = qualityDirect.filter((item) => item.categoryMatched === true);
+      const unmatchedDirect = qualityDirect.filter((item) => item.categoryMatched !== true);
+      const primaryPool = matchedDirect.length > 0 ? matchedDirect : qualityDirect;
+      const rankedPrimary = rankGoldenDiscoveryResults(
+        primaryPool,
+        discoveryLimit,
+        false,
+        {
+          honorRequestedLimit: true,
+          diversifySimilarIntents: true,
+          maxSimilarPerCluster: 2,
+          strictVisibleSssOnly: false,
+          requireActionableIntent: true,
+          qualityBackfillToTarget: true,
+        },
+      );
+      const rankedBackfill = rankedPrimary.length < this.cycleLimit && matchedDirect.length > 0
+        ? rankGoldenDiscoveryResults(
+          unmatchedDirect,
+          discoveryLimit - rankedPrimary.length,
+          false,
+          {
+            honorRequestedLimit: true,
+            diversifySimilarIntents: true,
+            maxSimilarPerCluster: 2,
+            strictVisibleSssOnly: false,
+            requireActionableIntent: true,
+            qualityBackfillToTarget: true,
+          },
+        )
+        : [];
+      const existingIds = existingIdsForRun;
+      const existingClusters = existingClustersForRun;
+      const seen = new Set<string>();
+      const ranked: MDPResult[] = [];
+      const isNovel = (item: MDPResult) => isNovelMdpResult(item, existingIds, existingClusters);
+      const rankedNovel = rankGoldenDiscoveryResults(
+        qualityDirect.filter(isNovel),
         this.cycleLimit,
         false,
         {
@@ -264,14 +757,20 @@ export class MobileLiveGoldenRadar {
           qualityBackfillToTarget: true,
         },
       );
+      appendUniqueMdpResults(ranked, rankedNovel, seen, this.cycleLimit, isNovel);
+      appendUniqueMdpResults(ranked, rankedPrimary, seen, this.cycleLimit, isNovel);
+      appendUniqueMdpResults(ranked, rankedBackfill, seen, this.cycleLimit, isNovel);
+      appendUniqueMdpResults(ranked, rankedPrimary, seen, this.cycleLimit);
+      appendUniqueMdpResults(ranked, rankedBackfill, seen, this.cycleLimit);
       const result = resultFromMetrics(
         ranked.map((item) => mapDirectResult(item, categoryId)),
         startedAtMs,
       );
+      this.mergeBoard(result.keywords);
       const published = this.notificationInbox?.publishFromResult({
         product: 'golden-discovery',
         kind: 'live-golden',
-        title: '실시간 황금키워드 발굴',
+        title: '실시간 황금키워드 발견',
         targetLabel: categoryId,
         result,
         limit: Math.min(4, this.cycleLimit),
@@ -292,13 +791,109 @@ export class MobileLiveGoldenRadar {
     return this.snapshot();
   }
 
+  private async collectLiveSeeds(categoryId: string): Promise<string[]> {
+    try {
+      if (this.liveSeedProvider) {
+        return uniqueKeywords(await this.liveSeedProvider(categoryId), 28);
+      }
+      const fallbackSeeds = getDiscoveryCategorySeeds(categoryId, 24);
+      const [
+        signalRows,
+        policyRows,
+        issueRows,
+      ] = await Promise.all([
+        withTimeout(
+          import('../utils/signal-bz-crawler').then(({ getSignalBzKeywords }) => getSignalBzKeywords(8)),
+          LIVE_SEED_COLLECTION_TIMEOUT_MS,
+          [],
+        ),
+        withTimeout(
+          import('../utils/policy-briefing-api').then(({ getPolicyBriefingKeywords }) => getPolicyBriefingKeywords(8)),
+          LIVE_SEED_COLLECTION_TIMEOUT_MS,
+          [],
+        ),
+        withTimeout(
+          import('../utils/entertainment-news-aggregator').then(({ fetchEntertainmentAggregate }) => fetchEntertainmentAggregate({
+            maxMinutesAgo: 360,
+            limitPerSource: 4,
+          })),
+          LIVE_SEED_COLLECTION_TIMEOUT_MS,
+          [],
+        ),
+      ]);
+      const allSignals = [
+        ...(signalRows as Array<{ keyword?: string }>).map((row) => ({ keyword: row.keyword, categoryId: '' })),
+        ...(policyRows as Array<{ keyword?: string; title?: string }>).map((row) => ({ keyword: row.keyword || row.title, categoryId: 'policy' })),
+        ...(issueRows as Array<{ title?: string; category?: string }>).map((row) => ({ keyword: row.title, categoryId: row.category || 'celeb' })),
+      ];
+      const matched: string[] = [];
+      const fallback: string[] = [];
+      for (const signal of allSignals) {
+        const keyword = normalizeKeyword(signal.keyword);
+        if (!keyword) continue;
+        const signalCategory = normalizeKeyword(signal.categoryId);
+        const inferredCategory = inferLiveCategory(keyword, signalCategory || categoryId);
+        if (categoryId === 'all' || signalCategory === categoryId || inferredCategory === categoryId) {
+          matched.push(keyword);
+        } else {
+          fallback.push(keyword);
+        }
+      }
+      return uniqueKeywords([...matched, ...fallback, ...fallbackSeeds], 28);
+    } catch {
+      return uniqueKeywords(getDiscoveryCategorySeeds(categoryId, 24), 24);
+    }
+  }
+
+  private async discoverBackfill(
+    config: { clientId: string; clientSecret: string },
+    categoryId: string,
+    liveSeeds: string[],
+  ): Promise<MDPResult[]> {
+    const candidates = buildBackfillCandidates(categoryId, liveSeeds, this.maxSeeds);
+    if (candidates.length === 0) return [];
+    const rows = await getNaverKeywordSearchVolumeSeparate(config, candidates.slice(0, 100), {
+      includeDocumentCount: true,
+    });
+    const seen = new Set<string>();
+    const out: MDPResult[] = [];
+    for (const row of rows) {
+      const item = rowToBackfillResult(row, categoryId);
+      if (!item) continue;
+      const id = mdpResultId(item);
+      if (seen.has(id)) continue;
+      seen.add(id);
+      out.push(item);
+    }
+    return rankGoldenDiscoveryResults(out, this.cycleLimit, false, {
+      honorRequestedLimit: true,
+      diversifySimilarIntents: true,
+      maxSimilarPerCluster: 2,
+      strictVisibleSssOnly: false,
+      requireActionableIntent: true,
+      qualityBackfillToTarget: true,
+    });
+  }
+
   snapshot(): MobileLiveGoldenRadarSnapshot {
+    const board = this.sortedBoard();
+    const publicPreviewIds = new Set(this.selectPublicPreview(board).map((item) => item.id));
+    const markedBoard = board.map((item) => ({
+      ...item,
+      isPublicPreview: publicPreviewIds.has(item.id),
+    }));
     return {
       enabled: this.enabled,
       running: this.running,
       intervalMs: this.intervalMs,
       cycleLimit: this.cycleLimit,
       maxCandidates: this.maxCandidates,
+      boardTarget: this.boardTarget,
+      boardCount: markedBoard.length,
+      publicPreviewCount: Math.min(this.publicPreviewCount, markedBoard.length),
+      boardUpdatedAt: this.boardUpdatedAt,
+      board: markedBoard,
+      publicPreview: markedBoard.filter((item) => item.isPublicPreview),
       totalRuns: this.totalRuns,
       successfulRuns: this.successfulRuns,
       skippedRuns: this.skippedRuns,
@@ -313,10 +908,214 @@ export class MobileLiveGoldenRadar {
     };
   }
 
+  private selectPublicPreview(board: MobileLiveGoldenBoardItem[]): MobileLiveGoldenBoardItem[] {
+    const count = Math.min(this.publicPreviewCount, board.length);
+    if (count <= 0) return [];
+    const previewSource = board.filter(isPublicPreviewCandidate);
+    const source = previewSource.length >= count ? previewSource : board.filter(isLiveRadarUsableMetric);
+    if (source.length <= count) return source.slice(0, count);
+
+    const protectedTopCount = Math.min(count, Math.max(0, source.length - count));
+    const lowerBoard = source.slice(protectedTopCount);
+    const lowerRecent = [...lowerBoard]
+      .sort((a, b) => Date.parse(b.updatedAt) - Date.parse(a.updatedAt))
+      .slice(0, count * 4);
+    const lowerTail = lowerBoard.slice(-count * 4);
+    const poolMap = new Map<string, MobileLiveGoldenBoardItem>();
+    for (const item of [...lowerRecent, ...lowerTail]) {
+      poolMap.set(item.id, item);
+    }
+    const pool = [...poolMap.values()];
+    const rotation = Math.floor(this.now().getTime() / PUBLIC_PREVIEW_ROTATION_MS) + this.totalRuns;
+    const rotated = rotateItems(pool, rotation);
+    const selected: MobileLiveGoldenBoardItem[] = [];
+    const selectedCategories = new Set<string>();
+    const selectedClusters = new Set<string>();
+    let selectedProfileIntents = 0;
+
+    for (const item of rotated) {
+      if (selected.length >= count) break;
+      const profileIntent = isThinProfileIntentKeyword(item.keyword);
+      if (profileIntent && selectedProfileIntents >= PUBLIC_PREVIEW_PROFILE_INTENT_MAX) continue;
+      const cluster = publicPreviewClusterKey(item.keyword);
+      if (cluster && selectedClusters.has(cluster)) continue;
+      const category = normalizeKeyword(item.category);
+      if (category && selectedCategories.has(category) && selectedCategories.size < count) continue;
+      selected.push(item);
+      if (profileIntent) selectedProfileIntents++;
+      if (category) selectedCategories.add(category);
+      if (cluster) selectedClusters.add(cluster);
+    }
+
+    for (const item of rotated) {
+      if (selected.length >= count) break;
+      if (selected.some((entry) => entry.id === item.id)) continue;
+      const profileIntent = isThinProfileIntentKeyword(item.keyword);
+      if (profileIntent && selectedProfileIntents >= PUBLIC_PREVIEW_PROFILE_INTENT_MAX) continue;
+      const cluster = publicPreviewClusterKey(item.keyword);
+      if (cluster && selectedClusters.has(cluster) && rotated.length - selected.length >= count) continue;
+      selected.push(item);
+      if (profileIntent) selectedProfileIntents++;
+      if (cluster) selectedClusters.add(cluster);
+    }
+
+    return selected;
+  }
+
   private nextCategory(): string {
     const categoryId = this.categories[this.categoryIndex] || 'all';
     this.categoryIndex = (this.categoryIndex + 1) % Math.max(1, this.categories.length);
     return categoryId;
+  }
+
+  private mergeBoard(keywords: MobileKeywordMetric[]): void {
+    if (keywords.length === 0) return;
+    const stamp = this.now().toISOString();
+    for (const keyword of keywords) {
+      const normalizedKeyword = normalizeKeyword(keyword.keyword);
+      if (!normalizedKeyword || keyword.grade === 'C') continue;
+      if (!isLiveRadarUsableMetric({ ...keyword, keyword: normalizedKeyword })) continue;
+      const id = keywordId(normalizedKeyword);
+      const existing = this.board.get(id);
+      const item: MobileLiveGoldenBoardItem = {
+        ...keyword,
+        keyword: normalizedKeyword,
+        id,
+        rank: existing?.rank || 0,
+        discoveredAt: existing?.discoveredAt || stamp,
+        updatedAt: stamp,
+        freshness: 'live',
+        isPublicPreview: false,
+        publicSearchVolumeLabel: formatRange(keyword.totalSearchVolume, 'search'),
+        publicDocumentCountLabel: formatRange(keyword.documentCount, 'document'),
+        publicReason: publicReason(keyword),
+      };
+      this.board.set(id, item);
+    }
+
+    this.pruneBoard();
+    this.boardUpdatedAt = stamp;
+    this.saveBoardToFile();
+  }
+
+  private sortedBoard(): MobileLiveGoldenBoardItem[] {
+    const nowMs = this.now().getTime();
+    const sorted = [...this.board.values()]
+      .map((item) => ({
+        ...item,
+        freshness: freshnessFrom(item.updatedAt, nowMs),
+      }))
+      .sort((a, b) => {
+        const scoreDiff = boardScore(b) - boardScore(a);
+        if (scoreDiff !== 0) return scoreDiff;
+        return Date.parse(b.updatedAt) - Date.parse(a.updatedAt);
+      });
+    return selectLiveBoardItems(sorted, this.boardTarget)
+      .map((item, index) => ({
+        ...item,
+        rank: index + 1,
+      }));
+  }
+
+  private pruneBoard(): void {
+    const keepIds = new Set(this.sortedBoard().map((item) => item.id));
+    for (const item of [...this.board.values()]) {
+      if (!keepIds.has(item.id)) this.board.delete(item.id);
+    }
+  }
+
+  private loadBoardFromFile(): void {
+    if (!this.boardFile) return;
+    try {
+      if (!fs.existsSync(this.boardFile)) return;
+      const raw = fs.readFileSync(this.boardFile, 'utf8').trim();
+      if (!raw) return;
+      const parsed = JSON.parse(raw);
+      const rows = Array.isArray(parsed?.items)
+        ? parsed.items
+        : Array.isArray(parsed?.board)
+          ? parsed.board
+          : [];
+      const stamp = this.now().toISOString();
+      for (const row of rows) {
+        const keyword = normalizeKeyword(row?.keyword);
+        if (!keyword) continue;
+        const totalSearchVolume = finiteNumber(row?.totalSearchVolume);
+        const documentCount = finiteNumber(row?.documentCount);
+        const grade = normalizeGrade(row?.grade, finiteNumber(row?.score) || 0);
+        if (grade === 'C') continue;
+        if (!isLiveRadarUsableKeyword(keyword, totalSearchVolume, documentCount)) continue;
+        const id = normalizeKeyword(row?.id) || keywordId(keyword);
+        const item: MobileLiveGoldenBoardItem = {
+          keyword,
+          grade,
+          score: finiteNumber(row?.score),
+          pcSearchVolume: finiteNumber(row?.pcSearchVolume),
+          mobileSearchVolume: finiteNumber(row?.mobileSearchVolume),
+          totalSearchVolume,
+          documentCount,
+          goldenRatio: finiteNumber(row?.goldenRatio),
+          cpc: finiteNumber(row?.cpc),
+          category: inferLiveCategory(keyword, normalizeKeyword(row?.category) || 'live'),
+          source: normalizeKeyword(row?.source) || 'mobile-live-golden-radar',
+          intent: normalizeKeyword(row?.intent) || 'live-golden-discovery',
+          evidence: Array.isArray(row?.evidence)
+            ? row.evidence.map((entry: unknown) => normalizeKeyword(entry)).filter(Boolean).slice(0, 8)
+            : [],
+          isMeasured: Boolean(row?.isMeasured) || (totalSearchVolume !== null && documentCount !== null),
+          id,
+          rank: finiteNumber(row?.rank) || 0,
+          discoveredAt: normalizeKeyword(row?.discoveredAt) || normalizeKeyword(row?.updatedAt) || stamp,
+          updatedAt: normalizeKeyword(row?.updatedAt) || normalizeKeyword(row?.discoveredAt) || stamp,
+          freshness: 'warm',
+          isPublicPreview: false,
+          publicSearchVolumeLabel: normalizeKeyword(row?.publicSearchVolumeLabel) || formatRange(totalSearchVolume, 'search'),
+          publicDocumentCountLabel: normalizeKeyword(row?.publicDocumentCountLabel) || formatRange(documentCount, 'document'),
+          publicReason: normalizeKeyword(row?.publicReason) || publicReason({
+            keyword,
+            grade,
+            score: finiteNumber(row?.score),
+            pcSearchVolume: finiteNumber(row?.pcSearchVolume),
+            mobileSearchVolume: finiteNumber(row?.mobileSearchVolume),
+            totalSearchVolume,
+            documentCount,
+            goldenRatio: finiteNumber(row?.goldenRatio),
+            cpc: finiteNumber(row?.cpc),
+            category: normalizeKeyword(row?.category) || 'live',
+            source: normalizeKeyword(row?.source) || 'mobile-live-golden-radar',
+            intent: normalizeKeyword(row?.intent) || 'live-golden-discovery',
+            evidence: [],
+            isMeasured: Boolean(row?.isMeasured) || (totalSearchVolume !== null && documentCount !== null),
+          }),
+        };
+        this.board.set(id, item);
+      }
+      this.pruneBoard();
+      this.boardUpdatedAt = normalizeKeyword(parsed?.boardUpdatedAt) || this.sortedBoard()[0]?.updatedAt;
+      this.lastMessage = `loaded ${this.board.size} live golden board items`;
+    } catch (err) {
+      this.lastError = (err as Error).message || String(err);
+      this.lastMessage = `live golden board load failed: ${this.lastError}`;
+    }
+  }
+
+  private saveBoardToFile(): void {
+    if (!this.boardFile) return;
+    try {
+      fs.mkdirSync(path.dirname(this.boardFile), { recursive: true });
+      const payload = {
+        version: 1,
+        boardUpdatedAt: this.boardUpdatedAt,
+        savedAt: this.now().toISOString(),
+        items: this.sortedBoard(),
+      };
+      const tmpFile = `${this.boardFile}.tmp`;
+      fs.writeFileSync(tmpFile, JSON.stringify(payload, null, 2), 'utf8');
+      fs.renameSync(tmpFile, this.boardFile);
+    } catch (err) {
+      this.lastError = (err as Error).message || String(err);
+      this.lastMessage = `live golden board save failed: ${this.lastError}`;
+    }
   }
 }
 
@@ -328,8 +1127,12 @@ export function createMobileLiveGoldenRadarFromEnv(
   if (process.env['LEWORD_MOBILE_LIVE_GOLDEN_ENABLED'] === 'false') return null;
   const intervalMinutes = Number(process.env['LEWORD_MOBILE_LIVE_GOLDEN_INTERVAL_MINUTES'] || 0);
   const cycleLimit = Number(process.env['LEWORD_MOBILE_LIVE_GOLDEN_LIMIT'] || 0);
+  const maxSeeds = Number(process.env['LEWORD_MOBILE_LIVE_GOLDEN_MAX_SEEDS'] || 0);
   const maxCandidates = Number(process.env['LEWORD_MOBILE_LIVE_GOLDEN_MAX_CANDIDATES'] || 0);
-  const runOnStart = process.env['LEWORD_MOBILE_LIVE_GOLDEN_ON_START'] === 'true';
+  const boardTarget = Number(process.env['LEWORD_MOBILE_LIVE_GOLDEN_BOARD_TARGET'] || 0);
+  const publicPreviewCount = Number(process.env['LEWORD_PUBLIC_GOLDEN_PREVIEW_COUNT'] || 0);
+  const boardFile = normalizeKeyword(process.env['LEWORD_MOBILE_LIVE_GOLDEN_BOARD_FILE'] || '');
+  const runOnStart = process.env['LEWORD_MOBILE_LIVE_GOLDEN_ON_START'] !== 'false';
   return new MobileLiveGoldenRadar({
     notificationInbox,
     shouldRun,
@@ -337,6 +1140,10 @@ export function createMobileLiveGoldenRadarFromEnv(
       ? intervalMinutes * 60 * 1000
       : undefined,
     cycleLimit: Number.isFinite(cycleLimit) && cycleLimit > 0 ? cycleLimit : undefined,
+    boardTarget: Number.isFinite(boardTarget) && boardTarget > 0 ? boardTarget : undefined,
+    publicPreviewCount: Number.isFinite(publicPreviewCount) && publicPreviewCount > 0 ? publicPreviewCount : undefined,
+    boardFile: boardFile || undefined,
+    maxSeeds: Number.isFinite(maxSeeds) && maxSeeds > 0 ? maxSeeds : undefined,
     maxCandidates: Number.isFinite(maxCandidates) && maxCandidates > 0 ? maxCandidates : undefined,
     runOnStart,
   });

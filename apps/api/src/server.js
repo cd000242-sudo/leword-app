@@ -5,6 +5,7 @@ var __importDefault = (this && this.__importDefault) || function (mod) {
 Object.defineProperty(exports, "__esModule", { value: true });
 exports.createLewordApiServer = createLewordApiServer;
 exports.startLewordApiServer = startLewordApiServer;
+const crypto_1 = __importDefault(require("crypto"));
 const http_1 = __importDefault(require("http"));
 const path_1 = __importDefault(require("path"));
 const contracts_1 = require("../../../src/mobile/contracts");
@@ -29,6 +30,8 @@ const pro_blueprint_1 = require("../../../src/mobile/pro-blueprint");
 const wordpress_publishing_1 = require("../../../src/mobile/wordpress-publishing");
 const source_signals_1 = require("../../../src/mobile/source-signals");
 const api_guardrails_1 = require("../../../src/mobile/api-guardrails");
+const DEFAULT_LEWORD_LICENSE_SERVER_URL = 'https://script.google.com/macros/s/AKfycbxBOGkjVj4p-6XZ4SEFYKhW3FBmo5gt7Fv6djWhB1TljnDDmx_qlfZ4YdlJNohzIZ8NJw/exec';
+const DEFAULT_LEWORD_LICENSE_APP_ID = 'com.leword.keyword.master';
 function json(res, statusCode, body, headers = {}) {
     res.writeHead(statusCode, {
         'Content-Type': 'application/json; charset=utf-8',
@@ -170,38 +173,74 @@ function normalizeLoginTier(value) {
     const tier = String(value || '').toLowerCase();
     if (tier === 'admin' || tier === 'unlimited' || tier === 'pro' || tier === 'standard')
         return tier;
+    if (tier === 'professional' || tier === 'leword' || tier === 'all' || tier === 'allinone')
+        return 'pro';
+    if (tier === 'ex' || tier === 'life' || tier === 'lifetime' || tier === 'permanent')
+        return 'unlimited';
+    if (tier === '1year' || tier === '365day' || tier === '3months' || tier === '90day' || tier === 'three-months-plus')
+        return 'pro';
     return 'standard';
 }
+function isPanelLoginAccepted(payload) {
+    if (!payload || payload.ok === false || payload.valid === false || payload.success === false)
+        return false;
+    return payload.ok === true || payload.valid === true || payload.success === true;
+}
+function panelLoginUrl(body) {
+    return String(body?.panelServerUrl
+        || process.env['LEWORD_MOBILE_PANEL_LOGIN_URL']
+        || process.env['LICENSE_SERVER_URL']
+        || DEFAULT_LEWORD_LICENSE_SERVER_URL).trim();
+}
 async function verifyPanelLogin(body) {
-    const panelUrl = String(body?.panelServerUrl || process.env['LEWORD_MOBILE_PANEL_LOGIN_URL'] || '').trim();
+    const panelUrl = panelLoginUrl(body);
     if (!panelUrl)
         return { ok: false, message: 'panel login url missing' };
-    const response = await fetch(panelUrl, {
-        method: 'POST',
-        headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify({
+    const licenseCode = String(body?.licenseCode || '').trim();
+    const appId = body?.appId || process.env['LEWORD_MOBILE_LICENSE_APP_ID'] || DEFAULT_LEWORD_LICENSE_APP_ID;
+    const buildPayload = (action) => {
+        const panelPayload = {
+            action,
             userId: body?.userId,
             userPassword: body?.password,
             password: body?.password,
-            licenseCode: body?.licenseCode || '',
-            appId: 'com.leword.mobile',
+            appId,
             requestedAt: new Date().toISOString(),
-        }),
-    });
-    if (!response.ok)
-        return { ok: false, message: `panel login HTTP ${response.status}` };
-    const payload = await response.json();
-    if (!payload?.ok && !payload?.valid && !payload?.success) {
-        return { ok: false, message: payload?.message || payload?.error || 'panel login rejected' };
-    }
-    return {
-        ok: true,
-        accessToken: String(payload.accessToken || payload.mobileToken || payload.token || '').trim(),
-        apiBaseUrl: String(payload.apiBaseUrl || payload.pcApiBaseUrl || payload.mobileApiBaseUrl || '').trim().replace(/\/+$/, ''),
-        userId: String(payload.userId || body?.userId || 'mobile-user'),
-        tier: normalizeLoginTier(payload.tier || payload.plan || payload.licenseType),
-        message: payload.message || '패널 서버와 연동되었습니다.',
+        };
+        if (licenseCode) {
+            panelPayload.code = licenseCode;
+            panelPayload.licenseCode = licenseCode;
+        }
+        return panelPayload;
     };
+    const actions = licenseCode ? ['register'] : ['verify-credentials', 'login'];
+    let lastMessage = 'panel login rejected';
+    for (const action of actions) {
+        const response = await fetch(panelUrl, {
+            method: 'POST',
+            headers: { 'Content-Type': 'application/json' },
+            body: JSON.stringify(buildPayload(action)),
+        });
+        if (!response.ok) {
+            lastMessage = `panel login HTTP ${response.status}`;
+            continue;
+        }
+        const payload = await response.json();
+        if (!isPanelLoginAccepted(payload)) {
+            lastMessage = payload?.message || payload?.error || lastMessage;
+            continue;
+        }
+        return {
+            ok: true,
+            accessToken: String(payload.accessToken || payload.mobileToken || payload.token || '').trim(),
+            apiBaseUrl: String(payload.apiBaseUrl || payload.pcApiBaseUrl || payload.mobileApiBaseUrl || '').trim().replace(/\/+$/, ''),
+            userId: String(payload.userId || body?.userId || 'mobile-user'),
+            tier: normalizeLoginTier(payload.tier || payload.plan || payload.licenseType || payload.type),
+            expiresAt: payload.expiresAt ?? null,
+            message: payload.message || '로그인되었습니다.',
+        };
+    }
+    return { ok: false, message: lastMessage };
 }
 async function createLoginSession(req, res, verifier, notificationInbox, prewarmService, liveGoldenRadar, maxBodyBytes) {
     try {
@@ -238,7 +277,7 @@ async function createLoginSession(req, res, verifier, notificationInbox, prewarm
             message: err.message || 'panel login failed',
         }));
         if (panel.ok) {
-            const token = panel.accessToken || candidateToken || `panel-${Date.now().toString(36)}`;
+            const token = panel.accessToken || `panel-${crypto_1.default.randomUUID()}`;
             const apiBaseUrl = panel.apiBaseUrl || requestApiBaseUrl(req);
             const session = {
                 ok: true,

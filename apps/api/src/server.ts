@@ -1,4 +1,5 @@
 import http from 'http';
+import crypto from 'crypto';
 import path from 'path';
 import {
   MOBILE_API_ENDPOINTS,
@@ -69,6 +70,7 @@ import {
   createEnvironmentMobileEntitlementVerifier,
   getMinimumMobileEntitlementTier,
   isMobileEntitlementAllowed,
+  type MobileEntitlement,
   type MobileEntitlementTier,
   type MobileEntitlementVerifier,
 } from '../../../src/mobile/entitlements';
@@ -122,12 +124,20 @@ import {
 } from '../../../src/mobile/wordpress-publishing';
 import { buildMobileSourceSignalSnapshot, fallbackSourceSignals } from '../../../src/mobile/source-signals';
 import {
+  buildPublicLiveGoldenPayload,
+  cleanPublicSourceSignals,
+  renderLewordLanding,
+} from './public-site';
+import {
   getMobileApiGuardrailOptions,
   MobileApiBodyTooLargeError,
   MobileApiRateLimiter,
   parseMobileJsonBody,
   type MobileApiGuardrailOptions,
 } from '../../../src/mobile/api-guardrails';
+
+const DEFAULT_LEWORD_LICENSE_SERVER_URL = 'https://script.google.com/macros/s/AKfycbxBOGkjVj4p-6XZ4SEFYKhW3FBmo5gt7Fv6djWhB1TljnDDmx_qlfZ4YdlJNohzIZ8NJw/exec';
+const DEFAULT_LEWORD_LICENSE_APP_ID = 'com.leword.keyword.master';
 
 export interface LewordApiServerOptions {
   executor?: MobileJobExecutor;
@@ -154,9 +164,28 @@ function json(
 ): void {
   res.writeHead(statusCode, {
     'Content-Type': 'application/json; charset=utf-8',
+    'Access-Control-Allow-Origin': '*',
+    'Access-Control-Allow-Methods': 'GET,POST,PUT,PATCH,DELETE,OPTIONS',
+    'Access-Control-Allow-Headers': 'Authorization, Content-Type, X-Requested-With',
     ...headers,
   });
   res.end(JSON.stringify(body));
+}
+
+function html(
+  res: http.ServerResponse,
+  statusCode: number,
+  body: string,
+  headers: Record<string, string | number> = {},
+): void {
+  res.writeHead(statusCode, {
+    'Content-Type': 'text/html; charset=utf-8',
+    'Access-Control-Allow-Origin': '*',
+    'Access-Control-Allow-Methods': 'GET,POST,PUT,PATCH,DELETE,OPTIONS',
+    'Access-Control-Allow-Headers': 'Authorization, Content-Type, X-Requested-With',
+    ...headers,
+  });
+  res.end(body);
 }
 
 function notFound(res: http.ServerResponse, message = 'endpoint not found'): void {
@@ -340,10 +369,27 @@ function buildDashboard(
   };
 }
 
-function normalizeLoginTier(value: unknown): string {
+function normalizeLoginTier(value: unknown): MobileEntitlementTier {
   const tier = String(value || '').toLowerCase();
   if (tier === 'admin' || tier === 'unlimited' || tier === 'pro' || tier === 'standard') return tier;
+  if (tier === 'professional' || tier === 'leword' || tier === 'all' || tier === 'allinone') return 'pro';
+  if (tier === 'ex' || tier === 'life' || tier === 'lifetime' || tier === 'permanent') return 'unlimited';
+  if (tier === '1year' || tier === '365day' || tier === '3months' || tier === '90day' || tier === 'three-months-plus') return 'pro';
   return 'standard';
+}
+
+function isPanelLoginAccepted(payload: any): boolean {
+  if (!payload || payload.ok === false || payload.valid === false || payload.success === false) return false;
+  return payload.ok === true || payload.valid === true || payload.success === true;
+}
+
+function panelLoginUrl(body: any): string {
+  return String(
+    body?.panelServerUrl
+      || process.env['LEWORD_MOBILE_PANEL_LOGIN_URL']
+      || process.env['LICENSE_SERVER_URL']
+      || DEFAULT_LEWORD_LICENSE_SERVER_URL,
+  ).trim();
 }
 
 async function verifyPanelLogin(body: any): Promise<{
@@ -351,43 +397,65 @@ async function verifyPanelLogin(body: any): Promise<{
   accessToken?: string;
   apiBaseUrl?: string;
   userId?: string;
-  tier?: string;
+  tier?: MobileEntitlementTier;
+  expiresAt?: string | null;
   message?: string;
 }> {
-  const panelUrl = String(body?.panelServerUrl || process.env['LEWORD_MOBILE_PANEL_LOGIN_URL'] || '').trim();
+  const panelUrl = panelLoginUrl(body);
   if (!panelUrl) return { ok: false, message: 'panel login url missing' };
-
-  const response = await fetch(panelUrl, {
-    method: 'POST',
-    headers: { 'Content-Type': 'application/json' },
-    body: JSON.stringify({
+  const licenseCode = String(body?.licenseCode || '').trim();
+  const appId = body?.appId || process.env['LEWORD_MOBILE_LICENSE_APP_ID'] || DEFAULT_LEWORD_LICENSE_APP_ID;
+  const buildPayload = (action: string): Record<string, unknown> => {
+    const panelPayload: Record<string, unknown> = {
+      action,
       userId: body?.userId,
       userPassword: body?.password,
       password: body?.password,
-      licenseCode: body?.licenseCode || '',
-      appId: 'com.leword.mobile',
+      appId,
       requestedAt: new Date().toISOString(),
-    }),
-  });
-  if (!response.ok) return { ok: false, message: `panel login HTTP ${response.status}` };
-  const payload = await response.json();
-  if (!payload?.ok && !payload?.valid && !payload?.success) {
-    return { ok: false, message: payload?.message || payload?.error || 'panel login rejected' };
-  }
-  return {
-    ok: true,
-    accessToken: String(payload.accessToken || payload.mobileToken || payload.token || '').trim(),
-    apiBaseUrl: String(payload.apiBaseUrl || payload.pcApiBaseUrl || payload.mobileApiBaseUrl || '').trim().replace(/\/+$/, ''),
-    userId: String(payload.userId || body?.userId || 'mobile-user'),
-    tier: normalizeLoginTier(payload.tier || payload.plan || payload.licenseType),
-    message: payload.message || '패널 서버와 연동되었습니다.',
+    };
+    if (licenseCode) {
+      panelPayload.code = licenseCode;
+      panelPayload.licenseCode = licenseCode;
+    }
+    return panelPayload;
   };
+  const actions = licenseCode ? ['register'] : ['verify-credentials', 'login'];
+
+  let lastMessage = 'panel login rejected';
+  for (const action of actions) {
+    const response = await fetch(panelUrl, {
+      method: 'POST',
+      headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify(buildPayload(action)),
+    });
+    if (!response.ok) {
+      lastMessage = `panel login HTTP ${response.status}`;
+      continue;
+    }
+    const payload = await response.json();
+    if (!isPanelLoginAccepted(payload)) {
+      lastMessage = payload?.message || payload?.error || lastMessage;
+      continue;
+    }
+    return {
+      ok: true,
+      accessToken: String(payload.accessToken || payload.mobileToken || payload.token || '').trim(),
+      apiBaseUrl: String(payload.apiBaseUrl || payload.pcApiBaseUrl || payload.mobileApiBaseUrl || '').trim().replace(/\/+$/, ''),
+      userId: String(payload.userId || body?.userId || 'mobile-user'),
+      tier: normalizeLoginTier(payload.tier || payload.plan || payload.licenseType || payload.type),
+      expiresAt: payload.expiresAt ?? null,
+      message: payload.message || '로그인되었습니다.',
+    };
+  }
+  return { ok: false, message: lastMessage };
 }
 
 async function createLoginSession(
   req: http.IncomingMessage,
   res: http.ServerResponse,
   verifier: MobileEntitlementVerifier | null,
+  runtimeEntitlements: Map<string, MobileEntitlement>,
   notificationInbox: MobileNotificationInbox | null,
   prewarmService: MobilePrewarmService | null,
   liveGoldenRadar: MobileLiveGoldenRadar | null,
@@ -430,20 +498,28 @@ async function createLoginSession(
       accessToken?: string;
       apiBaseUrl?: string;
       userId?: string;
-      tier?: string;
+      tier?: MobileEntitlementTier;
+      expiresAt?: string | null;
       message?: string;
     } = await verifyPanelLogin(body).catch((err) => ({
       ok: false,
       message: (err as Error).message || 'panel login failed',
     }));
     if (panel.ok) {
-      const token = panel.accessToken || candidateToken || `panel-${Date.now().toString(36)}`;
+      const token = panel.accessToken || `panel-${crypto.randomUUID()}`;
       const apiBaseUrl = panel.apiBaseUrl || requestApiBaseUrl(req);
+      const tier = panel.tier || 'standard';
+      runtimeEntitlements.set(token, {
+        subjectId: panel.userId || userId,
+        tier,
+        expiresAt: panel.expiresAt ?? null,
+        source: 'license-service',
+      });
       const session: MobileAuthSession = {
         ok: true,
         accessToken: token,
         userId: panel.userId || userId,
-        tier: panel.tier || 'standard',
+        tier,
         apiBaseUrl,
         pcLinked: true,
         source: 'panel-server',
@@ -457,6 +533,11 @@ async function createLoginSession(
 
     if (!verifier) {
       const apiBaseUrl = requestApiBaseUrl(req);
+      runtimeEntitlements.set(candidateToken || 'local-dev-mobile', {
+        subjectId: userId,
+        tier: 'admin',
+        source: 'fixture',
+      });
       const session: MobileAuthSession = {
         ok: true,
         accessToken: candidateToken || 'local-dev-mobile',
@@ -587,6 +668,7 @@ export function createLewordApiServer(options: LewordApiServerOptions = {}): htt
   const prewarmScheduler = options.prewarmScheduler === null || !prewarmService
     ? null
     : options.prewarmScheduler || createMobilePrewarmSchedulerFromEnv(prewarmService);
+  const liveGoldenIgnoresPrewarm = process.env['LEWORD_MOBILE_LIVE_GOLDEN_IGNORE_PREWARM'] === 'true';
   const liveGoldenRadar = options.liveGoldenRadar === null || !notificationInbox
     ? null
     : options.liveGoldenRadar || createMobileLiveGoldenRadarFromEnv(notificationInbox, () => {
@@ -594,7 +676,7 @@ export function createLewordApiServer(options: LewordApiServerOptions = {}): htt
       if (stats.running > 0 || stats.queued > 0) {
         return { ok: false, message: 'manual mobile job queue is busy' };
       }
-      if (prewarmService?.snapshot().running) {
+      if (!liveGoldenIgnoresPrewarm && prewarmService?.snapshot().running) {
         return { ok: false, message: 'server prewarm is running' };
       }
       return { ok: true };
@@ -604,6 +686,15 @@ export function createLewordApiServer(options: LewordApiServerOptions = {}): htt
     : options.entitlementVerifier || createEnvironmentMobileEntitlementVerifier({
       staticToken: getRequiredAuthToken(options),
     });
+  const runtimeEntitlements = new Map<string, MobileEntitlement>();
+  const sessionAwareEntitlementVerifier: MobileEntitlementVerifier = async (token) => {
+    const runtime = runtimeEntitlements.get(token);
+    if (runtime) {
+      return { ok: true, entitlement: runtime };
+    }
+    if (!entitlementVerifier) return { ok: false, reason: 'mobile entitlement not found' };
+    return entitlementVerifier(token);
+  };
   const apiGuardrails = options.apiGuardrails === null
     ? null
     : {
@@ -620,12 +711,47 @@ export function createLewordApiServer(options: LewordApiServerOptions = {}): htt
     void (async () => {
     const url = new URL(req.url || '/', `http://${req.headers.host || 'localhost'}`);
 
+    if (req.method === 'OPTIONS') {
+      res.writeHead(204, {
+        'Access-Control-Allow-Origin': '*',
+        'Access-Control-Allow-Methods': 'GET,POST,PUT,PATCH,DELETE,OPTIONS',
+        'Access-Control-Allow-Headers': 'Authorization, Content-Type, X-Requested-With',
+      });
+      res.end();
+      return;
+    }
+
     if (rateLimiter && url.pathname !== '/health') {
       const limit = rateLimiter.check(req);
       if (!limit.ok) {
         rateLimited(res, limit);
         return;
       }
+    }
+
+    if (req.method === 'GET' && (url.pathname === '/' || url.pathname === '/leword' || url.pathname === '/leword/')) {
+      html(res, 200, renderLewordLanding(), {
+        'Cache-Control': 'no-store',
+      });
+      return;
+    }
+
+    if (req.method === 'GET' && url.pathname === '/v1/public/live-golden') {
+      json(res, 200, buildPublicLiveGoldenPayload(liveGoldenRadar?.snapshot() || null), {
+        'Cache-Control': 'no-store',
+      });
+      return;
+    }
+
+    if (req.method === 'GET' && url.pathname === '/v1/public/source-signals') {
+      const limit = Number(url.searchParams.get('limit') || 6);
+      const snapshot = await buildMobileSourceSignalSnapshot({
+        limit: Number.isFinite(limit) ? limit : 6,
+      });
+      json(res, 200, { ok: true, snapshot: cleanPublicSourceSignals(snapshot) }, {
+        'Cache-Control': 'no-store',
+      });
+      return;
     }
 
     if (req.method === 'GET' && url.pathname === '/health') {
@@ -671,13 +797,16 @@ export function createLewordApiServer(options: LewordApiServerOptions = {}): htt
     const keywordGroupMatch = url.pathname.match(/^\/v1\/mobile\/keyword-groups\/([^/]+)$/);
     const scheduleMatch = url.pathname.match(/^\/v1\/mobile\/schedules\/([^/]+)$/);
 
-    if (req.method === 'POST' && url.pathname === MOBILE_AUTH_ROUTES.login) {
-      await createLoginSession(req, res, entitlementVerifier, notificationInbox, prewarmService, liveGoldenRadar, maxBodyBytes);
+    if (
+      req.method === 'POST' &&
+      (url.pathname === MOBILE_AUTH_ROUTES.login || url.pathname === '/v1/web/session')
+    ) {
+      await createLoginSession(req, res, entitlementVerifier, runtimeEntitlements, notificationInbox, prewarmService, liveGoldenRadar, maxBodyBytes);
       return;
     }
 
     if (req.method === 'GET' && url.pathname === MOBILE_AUTH_ROUTES.dashboard) {
-      if (!await authorizeMobileRequest(req, res, entitlementVerifier, 'standard')) return;
+      if (!await authorizeMobileRequest(req, res, sessionAwareEntitlementVerifier, 'standard')) return;
       json(res, 200, { ok: true, dashboard: buildDashboard(req, notificationInbox, prewarmService, liveGoldenRadar) });
       return;
     }
@@ -688,7 +817,7 @@ export function createLewordApiServer(options: LewordApiServerOptions = {}): htt
     }
 
     if (req.method === 'GET' && url.pathname === MOBILE_SOURCE_ROUTES.signals) {
-      if (!await authorizeMobileRequest(req, res, entitlementVerifier, 'standard')) return;
+      if (!await authorizeMobileRequest(req, res, sessionAwareEntitlementVerifier, 'standard')) return;
       const laneParam = url.searchParams.get('lane') || 'all';
       const lane = ['all', 'realtime', 'policy', 'issues'].includes(laneParam) ? laneParam as any : 'all';
       const limit = Number(url.searchParams.get('limit') || 6);
@@ -698,7 +827,7 @@ export function createLewordApiServer(options: LewordApiServerOptions = {}): htt
     }
 
     if (req.method === 'GET' && url.pathname === MOBILE_STATUS_ROUTES.apiStatus) {
-      if (!await authorizeMobileRequest(req, res, entitlementVerifier, 'standard')) return;
+      if (!await authorizeMobileRequest(req, res, sessionAwareEntitlementVerifier, 'standard')) return;
       json(res, 200, {
         ok: true,
         snapshot: buildMobileApiStatusSnapshot({
@@ -709,7 +838,7 @@ export function createLewordApiServer(options: LewordApiServerOptions = {}): htt
     }
 
     if (req.method === 'POST' && url.pathname === MOBILE_EXPORT_ROUTES.keywords) {
-      if (!await authorizeMobileRequest(req, res, entitlementVerifier, 'standard')) return;
+      if (!await authorizeMobileRequest(req, res, sessionAwareEntitlementVerifier, 'standard')) return;
       try {
         const body = await parseBody(req, maxBodyBytes) as MobileKeywordExportRequest;
         const artifact = buildMobileKeywordExportArtifact(body);
@@ -725,13 +854,13 @@ export function createLewordApiServer(options: LewordApiServerOptions = {}): htt
     }
 
     if (req.method === 'GET' && url.pathname === MOBILE_WORDPRESS_ROUTES.snapshot) {
-      if (!await authorizeMobileRequest(req, res, entitlementVerifier, 'standard')) return;
+      if (!await authorizeMobileRequest(req, res, sessionAwareEntitlementVerifier, 'standard')) return;
       json(res, 200, { ok: true, snapshot: readMobileWordPressSnapshot() });
       return;
     }
 
     if (req.method === 'POST' && url.pathname === MOBILE_WORDPRESS_ROUTES.site) {
-      if (!await authorizeMobileRequest(req, res, entitlementVerifier, 'standard')) return;
+      if (!await authorizeMobileRequest(req, res, sessionAwareEntitlementVerifier, 'standard')) return;
       try {
         const body = await parseBody(req, maxBodyBytes) as MobileWordPressSiteInput;
         const saved = upsertMobileWordPressSite({ input: body });
@@ -743,7 +872,7 @@ export function createLewordApiServer(options: LewordApiServerOptions = {}): htt
     }
 
     if (req.method === 'GET' && url.pathname === MOBILE_WORDPRESS_ROUTES.categories) {
-      if (!await authorizeMobileRequest(req, res, entitlementVerifier, 'standard')) return;
+      if (!await authorizeMobileRequest(req, res, sessionAwareEntitlementVerifier, 'standard')) return;
       try {
         const refreshed = await refreshMobileWordPressCategories({
           siteId: url.searchParams.get('siteId') || undefined,
@@ -764,7 +893,7 @@ export function createLewordApiServer(options: LewordApiServerOptions = {}): htt
     }
 
     if (req.method === 'POST' && url.pathname === MOBILE_WORDPRESS_ROUTES.drafts) {
-      if (!await authorizeMobileRequest(req, res, entitlementVerifier, 'standard')) return;
+      if (!await authorizeMobileRequest(req, res, sessionAwareEntitlementVerifier, 'standard')) return;
       try {
         const body = await parseBody(req, maxBodyBytes) as MobileWordPressDraftInput;
         const created = createMobileWordPressDraft({ input: body });
@@ -776,7 +905,7 @@ export function createLewordApiServer(options: LewordApiServerOptions = {}): htt
     }
 
     if (req.method === 'POST' && url.pathname === MOBILE_WORDPRESS_ROUTES.publish) {
-      if (!await authorizeMobileRequest(req, res, entitlementVerifier, 'standard')) return;
+      if (!await authorizeMobileRequest(req, res, sessionAwareEntitlementVerifier, 'standard')) return;
       try {
         const body = await parseBody(req, maxBodyBytes) as MobileWordPressPublishInput;
         const published = await publishMobileWordPressDraft({ input: body });
@@ -800,25 +929,25 @@ export function createLewordApiServer(options: LewordApiServerOptions = {}): htt
     }
 
     if (req.method === 'GET' && url.pathname === MOBILE_KEYWORD_GROUP_ROUTES.list) {
-      if (!await authorizeMobileRequest(req, res, entitlementVerifier, 'standard')) return;
+      if (!await authorizeMobileRequest(req, res, sessionAwareEntitlementVerifier, 'standard')) return;
       json(res, 200, { ok: true, snapshot: readMobileKeywordGroupSnapshot() });
       return;
     }
 
     if (req.method === 'GET' && url.pathname === MOBILE_SCHEDULE_ROUTES.dashboard) {
-      if (!await authorizeMobileRequest(req, res, entitlementVerifier, 'standard')) return;
+      if (!await authorizeMobileRequest(req, res, sessionAwareEntitlementVerifier, 'standard')) return;
       json(res, 200, { ok: true, snapshot: buildMobileScheduleDashboardSnapshot() });
       return;
     }
 
     if (req.method === 'GET' && url.pathname === MOBILE_RANK_TRACKING_ROUTES.snapshot) {
-      if (!await authorizeMobileRequest(req, res, entitlementVerifier, 'standard')) return;
+      if (!await authorizeMobileRequest(req, res, sessionAwareEntitlementVerifier, 'standard')) return;
       json(res, 200, { ok: true, snapshot: readMobileRankTrackingSnapshot() });
       return;
     }
 
     if (req.method === 'POST' && url.pathname === MOBILE_RANK_TRACKING_ROUTES.manual) {
-      if (!await authorizeMobileRequest(req, res, entitlementVerifier, 'standard')) return;
+      if (!await authorizeMobileRequest(req, res, sessionAwareEntitlementVerifier, 'standard')) return;
       try {
         const body = await parseBody(req, maxBodyBytes) as MobileRankTrackingManualInput;
         const result = addMobileRankTrackingManualPair({ input: body });
@@ -830,7 +959,7 @@ export function createLewordApiServer(options: LewordApiServerOptions = {}): htt
     }
 
     if (req.method === 'POST' && url.pathname === MOBILE_RANK_TRACKING_ROUTES.proPost) {
-      if (!await authorizeMobileRequest(req, res, entitlementVerifier, 'standard')) return;
+      if (!await authorizeMobileRequest(req, res, sessionAwareEntitlementVerifier, 'standard')) return;
       try {
         const body = await parseBody(req, maxBodyBytes) as MobileProTrackedPostInput;
         const result = addMobileProTrackedPost({ input: body });
@@ -842,7 +971,7 @@ export function createLewordApiServer(options: LewordApiServerOptions = {}): htt
     }
 
     if (req.method === 'POST' && url.pathname === MOBILE_RANK_TRACKING_ROUTES.run) {
-      if (!await authorizeMobileRequest(req, res, entitlementVerifier, 'standard')) return;
+      if (!await authorizeMobileRequest(req, res, sessionAwareEntitlementVerifier, 'standard')) return;
       try {
         const body = await parseBody(req, maxBodyBytes) as MobileRankTrackingRunInput;
         const result = await runMobileRankTrackingSerpCheck({ input: body });
@@ -854,7 +983,7 @@ export function createLewordApiServer(options: LewordApiServerOptions = {}): htt
     }
 
     if (req.method === 'DELETE' && url.pathname === MOBILE_RANK_TRACKING_ROUTES.pair) {
-      if (!await authorizeMobileRequest(req, res, entitlementVerifier, 'standard')) return;
+      if (!await authorizeMobileRequest(req, res, sessionAwareEntitlementVerifier, 'standard')) return;
       try {
         const body = await parseBody(req, maxBodyBytes) as MobileRankTrackingPairInput;
         const result = removeMobileRankTrackingPair({ input: body });
@@ -866,13 +995,13 @@ export function createLewordApiServer(options: LewordApiServerOptions = {}): htt
     }
 
     if (req.method === 'GET' && url.pathname === MOBILE_PRO_OUTCOME_ROUTES.snapshot) {
-      if (!await authorizeMobileRequest(req, res, entitlementVerifier, 'standard')) return;
+      if (!await authorizeMobileRequest(req, res, sessionAwareEntitlementVerifier, 'standard')) return;
       json(res, 200, { ok: true, snapshot: readMobileProOutcomeSnapshot() });
       return;
     }
 
     if (req.method === 'POST' && url.pathname === MOBILE_PRO_OUTCOME_ROUTES.record) {
-      if (!await authorizeMobileRequest(req, res, entitlementVerifier, 'standard')) return;
+      if (!await authorizeMobileRequest(req, res, sessionAwareEntitlementVerifier, 'standard')) return;
       try {
         const body = await parseBody(req, maxBodyBytes) as MobileProOutcomeRecordInput;
         const result = recordMobileProOutcome({ input: body });
@@ -884,7 +1013,7 @@ export function createLewordApiServer(options: LewordApiServerOptions = {}): htt
     }
 
     if (req.method === 'DELETE' && url.pathname === MOBILE_PRO_OUTCOME_ROUTES.item) {
-      if (!await authorizeMobileRequest(req, res, entitlementVerifier, 'standard')) return;
+      if (!await authorizeMobileRequest(req, res, sessionAwareEntitlementVerifier, 'standard')) return;
       try {
         const body = await parseBody(req, maxBodyBytes) as MobileProOutcomeDeleteInput;
         const result = deleteMobileProOutcome({ input: body });
@@ -896,14 +1025,14 @@ export function createLewordApiServer(options: LewordApiServerOptions = {}): htt
     }
 
     if (req.method === 'POST' && url.pathname === MOBILE_PRO_OUTCOME_ROUTES.sync) {
-      if (!await authorizeMobileRequest(req, res, entitlementVerifier, 'standard')) return;
+      if (!await authorizeMobileRequest(req, res, sessionAwareEntitlementVerifier, 'standard')) return;
       const result = syncMobileProOutcomesFromRankTracker();
       json(res, 202, { ok: true, result });
       return;
     }
 
     if (req.method === 'POST' && url.pathname === MOBILE_PRO_BLUEPRINT_ROUTES.blueprint) {
-      if (!await authorizeMobileRequest(req, res, entitlementVerifier, 'pro')) return;
+      if (!await authorizeMobileRequest(req, res, sessionAwareEntitlementVerifier, 'pro')) return;
       try {
         const body = await parseBody(req, maxBodyBytes) as MobileProBlueprintInput;
         const result = await generateMobileProBlueprint({ input: body, services: proBlueprintServices });
@@ -915,7 +1044,7 @@ export function createLewordApiServer(options: LewordApiServerOptions = {}): htt
     }
 
     if (req.method === 'POST' && url.pathname === MOBILE_PRO_BLUEPRINT_ROUTES.draft) {
-      if (!await authorizeMobileRequest(req, res, entitlementVerifier, 'pro')) return;
+      if (!await authorizeMobileRequest(req, res, sessionAwareEntitlementVerifier, 'pro')) return;
       try {
         const body = await parseBody(req, maxBodyBytes) as MobileProDraftInput;
         const result = await generateMobileProDraft({ input: body, services: proBlueprintServices });
@@ -927,7 +1056,7 @@ export function createLewordApiServer(options: LewordApiServerOptions = {}): htt
     }
 
     if (req.method === 'POST' && url.pathname === MOBILE_PRO_BLUEPRINT_ROUTES.revenue) {
-      if (!await authorizeMobileRequest(req, res, entitlementVerifier, 'pro')) return;
+      if (!await authorizeMobileRequest(req, res, sessionAwareEntitlementVerifier, 'pro')) return;
       try {
         const body = await parseBody(req, maxBodyBytes) as MobileProRevenueEstimateInput;
         const result = estimateMobileProRevenue({ input: body });
@@ -939,14 +1068,14 @@ export function createLewordApiServer(options: LewordApiServerOptions = {}): htt
     }
 
     if (req.method === 'GET' && url.pathname === MOBILE_PRO_BLUEPRINT_ROUTES.revenueConfig) {
-      if (!await authorizeMobileRequest(req, res, entitlementVerifier, 'pro')) return;
+      if (!await authorizeMobileRequest(req, res, sessionAwareEntitlementVerifier, 'pro')) return;
       const result = loadMobileProRevenueConfig();
       json(res, 200, { ok: true, result });
       return;
     }
 
     if (req.method === 'POST' && url.pathname === MOBILE_PRO_BLUEPRINT_ROUTES.revenueConfig) {
-      if (!await authorizeMobileRequest(req, res, entitlementVerifier, 'pro')) return;
+      if (!await authorizeMobileRequest(req, res, sessionAwareEntitlementVerifier, 'pro')) return;
       try {
         const body = await parseBody(req, maxBodyBytes) as MobileProRevenueConfigInput;
         const result = saveMobileProRevenueConfig({ input: body });
@@ -958,14 +1087,14 @@ export function createLewordApiServer(options: LewordApiServerOptions = {}): htt
     }
 
     if (req.method === 'GET' && url.pathname === MOBILE_PRO_BLUEPRINT_ROUTES.categoryRpm) {
-      if (!await authorizeMobileRequest(req, res, entitlementVerifier, 'pro')) return;
+      if (!await authorizeMobileRequest(req, res, sessionAwareEntitlementVerifier, 'pro')) return;
       const result = getMobileProCategoryRpmTable();
       json(res, 200, { ok: true, result });
       return;
     }
 
     if (req.method === 'POST' && url.pathname === MOBILE_PRO_BLUEPRINT_ROUTES.portfolioRevenue) {
-      if (!await authorizeMobileRequest(req, res, entitlementVerifier, 'pro')) return;
+      if (!await authorizeMobileRequest(req, res, sessionAwareEntitlementVerifier, 'pro')) return;
       try {
         const body = await parseBody(req, maxBodyBytes) as MobileProPortfolioRevenueInput;
         const result = estimateMobileProPortfolioRevenue({ input: body });
@@ -977,7 +1106,7 @@ export function createLewordApiServer(options: LewordApiServerOptions = {}): htt
     }
 
     if (req.method === 'POST' && url.pathname === MOBILE_SCHEDULE_ROUTES.list) {
-      if (!await authorizeMobileRequest(req, res, entitlementVerifier, 'standard')) return;
+      if (!await authorizeMobileRequest(req, res, sessionAwareEntitlementVerifier, 'standard')) return;
       try {
         const body = await parseBody(req, maxBodyBytes) as MobileKeywordScheduleCreateInput;
         const created = addMobileKeywordSchedule({ input: body });
@@ -993,7 +1122,7 @@ export function createLewordApiServer(options: LewordApiServerOptions = {}): htt
     }
 
     if (scheduleMatch && req.method === 'PATCH') {
-      if (!await authorizeMobileRequest(req, res, entitlementVerifier, 'standard')) return;
+      if (!await authorizeMobileRequest(req, res, sessionAwareEntitlementVerifier, 'standard')) return;
       try {
         const body = await parseBody(req, maxBodyBytes) as MobileKeywordScheduleUpdateInput;
         const updated = updateMobileKeywordSchedule({
@@ -1016,7 +1145,7 @@ export function createLewordApiServer(options: LewordApiServerOptions = {}): htt
     }
 
     if (scheduleMatch && req.method === 'DELETE') {
-      if (!await authorizeMobileRequest(req, res, entitlementVerifier, 'standard')) return;
+      if (!await authorizeMobileRequest(req, res, sessionAwareEntitlementVerifier, 'standard')) return;
       const deleted = deleteMobileKeywordSchedule({
         id: decodeURIComponent(scheduleMatch[1]),
       });
@@ -1029,7 +1158,7 @@ export function createLewordApiServer(options: LewordApiServerOptions = {}): htt
     }
 
     if (req.method === 'POST' && url.pathname === MOBILE_KEYWORD_GROUP_ROUTES.list) {
-      if (!await authorizeMobileRequest(req, res, entitlementVerifier, 'standard')) return;
+      if (!await authorizeMobileRequest(req, res, sessionAwareEntitlementVerifier, 'standard')) return;
       try {
         const body = await parseBody(req, maxBodyBytes) as MobileKeywordGroupInput;
         const created = addMobileKeywordGroup({ input: body });
@@ -1041,7 +1170,7 @@ export function createLewordApiServer(options: LewordApiServerOptions = {}): htt
     }
 
     if (keywordGroupMatch && req.method === 'PATCH') {
-      if (!await authorizeMobileRequest(req, res, entitlementVerifier, 'standard')) return;
+      if (!await authorizeMobileRequest(req, res, sessionAwareEntitlementVerifier, 'standard')) return;
       try {
         const body = await parseBody(req, maxBodyBytes) as MobileKeywordGroupInput;
         const updated = updateMobileKeywordGroup({
@@ -1060,7 +1189,7 @@ export function createLewordApiServer(options: LewordApiServerOptions = {}): htt
     }
 
     if (keywordGroupMatch && req.method === 'DELETE') {
-      if (!await authorizeMobileRequest(req, res, entitlementVerifier, 'standard')) return;
+      if (!await authorizeMobileRequest(req, res, sessionAwareEntitlementVerifier, 'standard')) return;
       const deleted = deleteMobileKeywordGroup({
         id: decodeURIComponent(keywordGroupMatch[1]),
       });
@@ -1073,7 +1202,7 @@ export function createLewordApiServer(options: LewordApiServerOptions = {}): htt
     }
 
     if (req.method === 'POST' && url.pathname === MOBILE_PUSH_ROUTES.register) {
-      if (!await authorizeMobileRequest(req, res, entitlementVerifier, 'standard')) return;
+      if (!await authorizeMobileRequest(req, res, sessionAwareEntitlementVerifier, 'standard')) return;
       if (!pushRegistry || !pushDispatcher) {
         json(res, 503, { ok: false, message: 'mobile push service disabled' } satisfies MobileJobErrorResponse);
         return;
@@ -1093,7 +1222,7 @@ export function createLewordApiServer(options: LewordApiServerOptions = {}): htt
     }
 
     if (req.method === 'DELETE' && pushUnregisterMatch) {
-      if (!await authorizeMobileRequest(req, res, entitlementVerifier, 'standard')) return;
+      if (!await authorizeMobileRequest(req, res, sessionAwareEntitlementVerifier, 'standard')) return;
       if (!pushRegistry || !pushDispatcher) {
         json(res, 503, { ok: false, message: 'mobile push service disabled' } satisfies MobileJobErrorResponse);
         return;
@@ -1108,7 +1237,7 @@ export function createLewordApiServer(options: LewordApiServerOptions = {}): htt
     }
 
     if (req.method === 'GET' && url.pathname === MOBILE_NOTIFICATION_ROUTES.inbox) {
-      if (!await authorizeMobileRequest(req, res, entitlementVerifier, 'standard')) return;
+      if (!await authorizeMobileRequest(req, res, sessionAwareEntitlementVerifier, 'standard')) return;
       if (!notificationInbox) {
         json(res, 503, { ok: false, message: 'mobile notification inbox disabled' } satisfies MobileJobErrorResponse);
         return;
@@ -1119,7 +1248,7 @@ export function createLewordApiServer(options: LewordApiServerOptions = {}): htt
     }
 
     if (req.method === 'PATCH' && notificationReadMatch) {
-      if (!await authorizeMobileRequest(req, res, entitlementVerifier, 'standard')) return;
+      if (!await authorizeMobileRequest(req, res, sessionAwareEntitlementVerifier, 'standard')) return;
       if (!notificationInbox) {
         json(res, 503, { ok: false, message: 'mobile notification inbox disabled' } satisfies MobileJobErrorResponse);
         return;
@@ -1134,7 +1263,7 @@ export function createLewordApiServer(options: LewordApiServerOptions = {}): htt
     }
 
     if (req.method === 'GET' && url.pathname === MOBILE_LIVE_GOLDEN_ROUTES.snapshot) {
-      if (!await authorizeMobileRequest(req, res, entitlementVerifier, 'standard')) return;
+      if (!await authorizeMobileRequest(req, res, sessionAwareEntitlementVerifier, 'standard')) return;
       if (!liveGoldenRadar) {
         json(res, 503, { ok: false, message: 'mobile live golden radar disabled' } satisfies MobileJobErrorResponse);
         return;
@@ -1144,7 +1273,7 @@ export function createLewordApiServer(options: LewordApiServerOptions = {}): htt
     }
 
     if (req.method === 'POST' && url.pathname === MOBILE_LIVE_GOLDEN_ROUTES.run) {
-      if (!await authorizeMobileRequest(req, res, entitlementVerifier, 'admin')) return;
+      if (!await authorizeMobileRequest(req, res, sessionAwareEntitlementVerifier, 'admin')) return;
       if (!liveGoldenRadar) {
         json(res, 503, { ok: false, message: 'mobile live golden radar disabled' } satisfies MobileJobErrorResponse);
         return;
@@ -1154,7 +1283,7 @@ export function createLewordApiServer(options: LewordApiServerOptions = {}): htt
     }
 
     if (req.method === 'GET' && url.pathname === MOBILE_PREWARM_ROUTES.snapshot) {
-      if (!await authorizeMobileRequest(req, res, entitlementVerifier, 'standard')) return;
+      if (!await authorizeMobileRequest(req, res, sessionAwareEntitlementVerifier, 'standard')) return;
       if (!prewarmService) {
         json(res, 503, { ok: false, message: 'mobile prewarm service disabled' } satisfies MobileJobErrorResponse);
         return;
@@ -1164,7 +1293,7 @@ export function createLewordApiServer(options: LewordApiServerOptions = {}): htt
     }
 
     if (req.method === 'POST' && url.pathname === MOBILE_PREWARM_ROUTES.run) {
-      if (!await authorizeMobileRequest(req, res, entitlementVerifier, 'admin')) return;
+      if (!await authorizeMobileRequest(req, res, sessionAwareEntitlementVerifier, 'admin')) return;
       if (!prewarmService) {
         json(res, 503, { ok: false, message: 'mobile prewarm service disabled' } satisfies MobileJobErrorResponse);
         return;
@@ -1184,7 +1313,7 @@ export function createLewordApiServer(options: LewordApiServerOptions = {}): htt
         notFound(res, 'job not found');
         return;
       }
-      if (!await authorizeMobileRequest(req, res, entitlementVerifier, getMinimumMobileEntitlementTier(job.product))) return;
+      if (!await authorizeMobileRequest(req, res, sessionAwareEntitlementVerifier, getMinimumMobileEntitlementTier(job.product))) return;
       streamJobEvents(req, res, store, jobRoute.jobId);
       return;
     }
@@ -1195,7 +1324,7 @@ export function createLewordApiServer(options: LewordApiServerOptions = {}): htt
         notFound(res, 'job not found');
         return;
       }
-      if (!await authorizeMobileRequest(req, res, entitlementVerifier, getMinimumMobileEntitlementTier(job.product))) return;
+      if (!await authorizeMobileRequest(req, res, sessionAwareEntitlementVerifier, getMinimumMobileEntitlementTier(job.product))) return;
       json(res, 200, { ok: true, job, links: jobLinks(job.id) });
       return;
     }
@@ -1206,7 +1335,7 @@ export function createLewordApiServer(options: LewordApiServerOptions = {}): htt
         notFound(res, 'job not found');
         return;
       }
-      if (!await authorizeMobileRequest(req, res, entitlementVerifier, getMinimumMobileEntitlementTier(job.product))) return;
+      if (!await authorizeMobileRequest(req, res, sessionAwareEntitlementVerifier, getMinimumMobileEntitlementTier(job.product))) return;
       json(res, 200, { ok: true, job, links: jobLinks(job.id) });
       return;
     }
@@ -1217,7 +1346,7 @@ export function createLewordApiServer(options: LewordApiServerOptions = {}): htt
       return;
     }
 
-    if (!await authorizeMobileRequest(req, res, entitlementVerifier, getMinimumMobileEntitlementTier(endpoint.product))) return;
+    if (!await authorizeMobileRequest(req, res, sessionAwareEntitlementVerifier, getMinimumMobileEntitlementTier(endpoint.product))) return;
     void createJob(res, endpoint, req, store, pcWorkerExecutor, resultCache, maxBodyBytes);
     })().catch((err: any) => {
       json(res, 500, { ok: false, message: err?.message || 'mobile API internal error' } satisfies MobileJobErrorResponse);

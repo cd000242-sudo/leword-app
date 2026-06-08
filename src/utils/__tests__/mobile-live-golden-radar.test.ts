@@ -24,6 +24,26 @@ function result(keyword: string, index: number): any {
   };
 }
 
+function floodResult(keyword: string, index: number, profile = false): any {
+  return {
+    keyword,
+    grade: 'SSS',
+    score: (profile ? 96 : 88) - index * 0.1,
+    searchVolume: 3200 + index * 80,
+    documentCount: 180 + index * 5,
+    goldenRatio: 18 - index * 0.05,
+    cpc: 90,
+    categoryMatched: true,
+    intent: 'live-golden',
+    goldenReason: 'measured live profile flood fixture',
+    externalSources: ['test-fixture'],
+  };
+}
+
+function thinProfileCount(items: Array<{ keyword: string }>): number {
+  return items.filter((item) => /(프로필|인물정보|약력|나이|인스타)$/.test(item.keyword.replace(/\s+/g, ''))).length;
+}
+
 (async () => {
   const inbox = new MobileNotificationInbox({
     now: () => new Date('2026-06-07T09:00:00.000Z'),
@@ -39,6 +59,8 @@ function result(keyword: string, index: number): any {
       naverClientId: 'client',
       naverClientSecret: 'secret',
     }),
+    liveSeedProvider: async () => [],
+    enableBackfill: false,
     discover: async (_config, options) => {
       discoverCalls += 1;
       assert('live radar keeps candidate budget small', Number(options?.maxCandidates) <= 180);
@@ -61,6 +83,54 @@ function result(keyword: string, index: number): any {
     notifications.items.every((item) => item.kind === 'live-golden'),
     JSON.stringify(notifications.items));
   assert('live radar rotates next category', snapshot.nextCategoryId === 'policy');
+  assert('live radar can still keep a concise profile keyword',
+    snapshot.board.some((item) => item.keyword === '리센느 프로필'),
+    snapshot.board.map((item) => item.keyword).join('|'));
+
+  const profileFloodRadar = new MobileLiveGoldenRadar({
+    notificationInbox: inbox,
+    runOnStart: false,
+    cycleLimit: 15,
+    boardTarget: 30,
+    publicPreviewCount: 5,
+    categories: ['celeb'],
+    getEnvConfig: () => ({
+      naverClientId: 'client',
+      naverClientSecret: 'secret',
+    }),
+    liveSeedProvider: async () => [],
+    enableBackfill: false,
+    discover: async () => [
+      '전영현 프로필',
+      '양의지 프로필',
+      '김한희 프로필',
+      '정성호 프로필',
+      '백진경 프로필',
+      '강훈식 프로필',
+      '리센느 프로필',
+      '성리 프로필',
+    ].map((keyword, index) => floodResult(keyword, index, true)).concat([
+      '2027 6모 등급컷',
+      '1227회 로또 당첨번호',
+      '근로장려금 지급일',
+      'KBO 올스타전 중계',
+      '멋진 신세계 몇부작',
+      '청년 지원금 신청',
+      '삼성전자 주가 전망',
+      '임영웅 콘서트 예매 일정',
+      '부산 축제 주차 위치',
+      '모의고사 답지 발표',
+    ].map((keyword, index) => floodResult(keyword, index + 20))),
+  });
+  const floodSnapshot = await profileFloodRadar.runOnce();
+  assert('live golden board caps thin profile intent instead of flooding the top board',
+    thinProfileCount(floodSnapshot.board.slice(0, 30)) <= 2
+      && floodSnapshot.board.some((item) => item.keyword === '2027 6모 등급컷')
+      && floodSnapshot.board.some((item) => item.keyword === '청년 지원금 신청'),
+    floodSnapshot.board.map((item) => `${item.rank}:${item.keyword}`).join('|'));
+  assert('public live golden preview exposes at most one thin profile intent',
+    thinProfileCount(floodSnapshot.publicPreview) <= 1,
+    floodSnapshot.publicPreview.map((item) => item.keyword).join('|'));
 
   let skippedDiscoverCalls = 0;
   const skippedRadar = new MobileLiveGoldenRadar({
@@ -71,6 +141,8 @@ function result(keyword: string, index: number): any {
       naverClientId: 'client',
       naverClientSecret: 'secret',
     }),
+    liveSeedProvider: async () => [],
+    enableBackfill: false,
     discover: async () => {
       skippedDiscoverCalls += 1;
       return [];
