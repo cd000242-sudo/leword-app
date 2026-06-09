@@ -90,34 +90,52 @@ jobs:
           LEWORD_MOBILE_REVIEWER_TOKEN_READY: ${{ secrets.LEWORD_MOBILE_REVIEWER_TOKEN_READY }}
         run: npm run mobile:ci-secrets-gate -- --target "${{ github.event.inputs.target }}" --submit "${{ github.event.inputs.submit_to_stores }}" --smoke "${{ github.event.inputs.run_api_smoke }}"
 
+      - name: Run API image verification
+        if: ${{ github.event.inputs.target == 'api-image' }}
+        run: |
+          npm run build
+          npm run lint:sss
+          npm run test:sanity
+          npm --prefix apps/api run typecheck
+          npm run mobile:api-deploy-gate
+
       - name: Run full verification
+        if: ${{ github.event.inputs.target != 'api-image' }}
         run: npm run verify:all
 
       - name: Export Android JS bundle
+        if: ${{ github.event.inputs.target != 'api-image' }}
         run: npm run mobile:export:android
 
       - name: Check API deployment package
         run: npm run mobile:api-deploy-gate
 
       - name: Check store compliance manifest
+        if: ${{ github.event.inputs.target != 'api-image' }}
         run: npm run mobile:store-compliance
 
       - name: Check store listing metadata
+        if: ${{ github.event.inputs.target != 'api-image' }}
         run: npm run mobile:store-listing
 
       - name: Check store visual assets
+        if: ${{ github.event.inputs.target != 'api-image' }}
         run: npm run mobile:store-assets
 
       - name: Write mobile UI release gate
+        if: ${{ github.event.inputs.target != 'api-image' }}
         run: npm run mobile:ui-release-gate:save
 
       - name: Write store submission package
+        if: ${{ github.event.inputs.target != 'api-image' }}
         run: npm run mobile:store-submission-package:save
 
       - name: Write release audit
+        if: ${{ github.event.inputs.target != 'api-image' }}
         run: npm run mobile:release-audit:save
 
       - name: Write target release kit
+        if: ${{ github.event.inputs.target != 'api-image' }}
         env:
           GOOGLE_PLAY_SERVICE_ACCOUNT_JSON_B64: ${{ secrets.GOOGLE_PLAY_SERVICE_ACCOUNT_JSON_B64 }}
           EXPO_APPLE_ID: ${{ secrets.EXPO_APPLE_ID }}
@@ -131,9 +149,11 @@ jobs:
         run: npm run mobile:release-kit:save -- --target "${{ github.event.inputs.target }}" --submit "${{ github.event.inputs.submit_to_stores }}" --smoke "${{ github.event.inputs.run_api_smoke }}"
 
       - name: Write GitHub setup plan
+        if: ${{ github.event.inputs.target != 'api-image' }}
         run: npm run mobile:github-setup-plan:save -- --target "${{ github.event.inputs.target }}" --submit "${{ github.event.inputs.submit_to_stores }}" --smoke "${{ github.event.inputs.run_api_smoke }}"
 
       - name: Write release dry run
+        if: ${{ github.event.inputs.target != 'api-image' }}
         env:
           GOOGLE_PLAY_SERVICE_ACCOUNT_JSON_B64: ${{ secrets.GOOGLE_PLAY_SERVICE_ACCOUNT_JSON_B64 }}
           EXPO_APPLE_ID: ${{ secrets.EXPO_APPLE_ID }}
@@ -147,6 +167,7 @@ jobs:
         run: npm run mobile:release-dry-run:save -- --target "${{ github.event.inputs.target }}" --submit "${{ github.event.inputs.submit_to_stores }}" --smoke "${{ github.event.inputs.run_api_smoke }}"
 
       - name: Write release dispatch plan
+        if: ${{ github.event.inputs.target != 'api-image' }}
         env:
           GOOGLE_PLAY_SERVICE_ACCOUNT_JSON_B64: ${{ secrets.GOOGLE_PLAY_SERVICE_ACCOUNT_JSON_B64 }}
           EXPO_APPLE_ID: ${{ secrets.EXPO_APPLE_ID }}
@@ -161,27 +182,33 @@ jobs:
         run: npm run mobile:release-dispatch-plan:save -- --target "${{ github.event.inputs.target }}" --submit "${{ github.event.inputs.submit_to_stores }}" --smoke "${{ github.event.inputs.run_api_smoke }}" --ref "${{ github.ref_name }}"
 
       - name: Write mobile release status
+        if: ${{ github.event.inputs.target != 'api-image' }}
         env:
           MOBILE_RELEASE_REF: ${{ github.ref_name }}
         run: npm run mobile:release-status:save -- --ref "${{ github.ref_name }}"
 
       - name: Write public store release gate
+        if: ${{ github.event.inputs.target != 'api-image' }}
         env:
           LEWORD_MOBILE_REVIEWER_TOKEN_READY: ${{ secrets.LEWORD_MOBILE_REVIEWER_TOKEN_READY }}
         run: npm run mobile:public-release-gate:save
 
       - name: Write Android public store release gate
+        if: ${{ github.event.inputs.target != 'api-image' }}
         env:
           LEWORD_MOBILE_REVIEWER_TOKEN_READY: ${{ secrets.LEWORD_MOBILE_REVIEWER_TOKEN_READY }}
         run: npm run mobile:public-release-gate:android:save
 
       - name: Write mobile launch SLA report
+        if: ${{ github.event.inputs.target != 'api-image' }}
         run: npm run mobile:launch-sla:save
 
       - name: Scan release evidence for secrets
+        if: ${{ github.event.inputs.target != 'api-image' }}
         run: npm run mobile:release-secret-scan:save
 
       - name: Upload release evidence
+        if: ${{ github.event.inputs.target != 'api-image' }}
         uses: actions/upload-artifact@v4
         with:
           name: mobile-release-evidence
