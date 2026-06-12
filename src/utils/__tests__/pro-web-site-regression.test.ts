@@ -76,6 +76,22 @@ assert('operations dashboard is wired to server snapshots',
     && html.includes('Promise.allSettled')
     && html.includes('setInterval(loadOpsDashboard, 90000)'));
 
+assert('renders dedicated result center instead of raw JSON-only output',
+  html.includes('id="resultSummary"')
+    && html.includes('결과 센터')
+    && html.includes('원문 결과 대기 중')
+    && html.includes('function renderFeatureResult')
+    && html.includes('function renderKeywordResultSummary')
+    && html.includes('function renderSnapshotResultSummary'));
+
+assert('result center exposes KPI summary and keyword actions',
+  html.includes('class="result-kpis"')
+    && html.includes('class="result-list"')
+    && html.includes('keywordActionHtml')
+    && html.includes('data-board-action="naver"')
+    && html.includes('data-board-action="analyze"')
+    && html.includes('renderFeatureResult(feature, result)'));
+
 const fixed = new Date('2026-06-12T00:00:00.000Z').toISOString();
 const snapshot: MobileSourceSignalSnapshot = {
   updatedAt: fixed,

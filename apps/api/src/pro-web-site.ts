@@ -272,6 +272,37 @@ export function renderLewordProWeb(): string {
       line-height: 1.55;
       white-space: pre-wrap;
     }
+    .result-stack { display: grid; gap: 10px; min-width: 0; }
+    .result-panel {
+      border: 1px solid var(--line);
+      border-radius: 8px;
+      background: #07111f;
+      padding: 12px;
+      min-height: 180px;
+    }
+    .result-panel h3 { margin: 0 0 6px; font-size: 16px; }
+    .result-panel p { margin: 0 0 10px; color: var(--muted); font-size: 12px; line-height: 1.5; }
+    .result-kpis { display: grid; grid-template-columns: repeat(4, minmax(0, 1fr)); gap: 8px; margin-bottom: 10px; }
+    .result-kpi {
+      border: 1px solid rgba(159,177,200,.18);
+      border-radius: 8px;
+      background: #0b1626;
+      padding: 10px;
+    }
+    .result-kpi strong { display: block; color: var(--gold); font-size: 18px; }
+    .result-kpi span { display: block; margin-top: 3px; color: var(--muted); font-size: 11px; }
+    .result-list { display: grid; gap: 8px; margin: 0; padding: 0; list-style: none; }
+    .result-list li {
+      border-top: 1px solid rgba(159,177,200,.16);
+      padding-top: 8px;
+      display: grid;
+      gap: 5px;
+      font-size: 12px;
+      line-height: 1.45;
+    }
+    .result-list strong { font-size: 13px; overflow-wrap: anywhere; }
+    .result-list span { color: var(--muted); overflow-wrap: anywhere; }
+    .result-actions { display: flex; gap: 6px; flex-wrap: wrap; }
     .modal {
       display: none;
       position: fixed;
@@ -303,6 +334,7 @@ export function renderLewordProWeb(): string {
     }
     @media (max-width: 820px) {
       .source-grid, .metrics, .workbench, .lookup-row, .golden-stats, .ops-grid { grid-template-columns: 1fr; }
+      .result-kpis { grid-template-columns: 1fr 1fr; }
       .golden-row { grid-template-columns: 48px minmax(0, 1fr); }
       .golden-row .grade { justify-self: start; }
       .golden-actions { grid-column: 1 / -1; justify-content: flex-start; }
@@ -473,7 +505,13 @@ export function renderLewordProWeb(): string {
           </div>
           <div class="workbench">
             <div class="log" id="runLog">LEWORD Pro Web 대기 중</div>
-            <div class="log" id="resultLog">결과 요약 대기 중</div>
+            <div class="result-stack">
+              <div class="result-panel" id="resultSummary">
+                <h3>결과 센터</h3>
+                <p>키워드 조회나 Pro 기능을 실행하면 KPI, 상위 후보, 바로가기 액션을 이곳에 정리합니다.</p>
+              </div>
+              <div class="log" id="resultLog">원문 결과 대기 중</div>
+            </div>
           </div>
         </section>
       </section>
@@ -568,6 +606,115 @@ export function renderLewordProWeb(): string {
     }
     function setResult(message) {
       qs('resultLog').textContent = typeof message === 'string' ? message : JSON.stringify(message, null, 2);
+    }
+    function resultKpiHtml(metrics) {
+      return '<div class="result-kpis">' + metrics.map(function(metric) {
+        return '<div class="result-kpi"><strong>' + escapeHtml(metric.value) + '</strong><span>' + escapeHtml(metric.label) + '</span></div>';
+      }).join('') + '</div>';
+    }
+    function renderResultSummary(title, subtitle, metrics, rows) {
+      const list = Array.isArray(rows) && rows.length
+        ? '<ul class="result-list">' + rows.join('') + '</ul>'
+        : '<ul class="result-list"><li><span>표시할 상세 항목이 없습니다.</span></li></ul>';
+      qs('resultSummary').innerHTML = '<h3>' + escapeHtml(title) + '</h3>'
+        + '<p>' + escapeHtml(subtitle || '') + '</p>'
+        + resultKpiHtml(metrics || [])
+        + list;
+    }
+    function keywordActionHtml(keyword) {
+      const safe = escapeAttr(keyword || '');
+      return '<div class="result-actions">'
+        + '<button class="tiny-btn" type="button" data-board-action="naver" data-keyword="' + safe + '">네이버</button>'
+        + '<button class="tiny-btn" type="button" data-board-action="google" data-keyword="' + safe + '">Google</button>'
+        + '<button class="tiny-btn pro" type="button" data-board-action="analyze" data-keyword="' + safe + '">Pro 분석</button>'
+        + '</div>';
+    }
+    function renderKeywordResultSummary(title, result) {
+      const rows = Array.isArray(result && result.keywords) ? result.keywords : [];
+      const summary = result && result.summary ? result.summary : {};
+      const sss = summary.sss == null ? rows.filter(function(row) { return row.grade === 'SSS'; }).length : summary.sss;
+      const measured = summary.measured == null ? rows.filter(function(row) { return row.isMeasured; }).length : summary.measured;
+      const topRows = rows.slice(0, 5).map(function(row) {
+        return '<li><strong>' + escapeHtml(row.keyword || '-') + '</strong>'
+          + '<span>등급 ' + escapeHtml(row.grade || '-') + ' · 전체 ' + fmt(row.totalSearchVolume) + ' · PC ' + fmt(row.pcSearchVolume) + ' · 모바일 ' + fmt(row.mobileSearchVolume) + ' · 문서 ' + fmt(row.documentCount) + ' · 황금비 ' + fmt(row.goldenRatio) + '</span>'
+          + keywordActionHtml(row.keyword || '')
+          + '</li>';
+      });
+      renderResultSummary(title, '서버 실측 결과를 PC/모바일/문서수 기준으로 정리했습니다.', [
+        { label: '전체 후보', value: fmt(summary.total == null ? rows.length : summary.total) },
+        { label: 'SSS 후보', value: fmt(sss) },
+        { label: '실측 완료', value: fmt(measured) },
+        { label: '처리 시간', value: summary.elapsedMs == null ? '-' : fmt(summary.elapsedMs) + 'ms' },
+      ], topRows);
+    }
+    function renderSnapshotResultSummary(feature, payload) {
+      const title = feature && feature.title ? feature.title : '서버 스냅샷';
+      const snapshot = payload && payload.snapshot ? payload.snapshot : payload;
+      if (snapshot && snapshot.totals) {
+        const totals = snapshot.totals || {};
+        const posts = ((snapshot.posts || {}).items || []).slice(0, 5).map(function(post) {
+          return '<li><strong>' + escapeHtml(post.keyword || post.postTitle || '추적 글') + '</strong><span>현재 순위 ' + fmt(post.currentRank) + ' · Top30 ' + (post.currentInTop30 ? '노출' : '미노출') + ' · ' + escapeHtml(post.postTitle || post.postUrl || '-') + '</span></li>';
+        });
+        renderResultSummary('내 노출 추적', '서버가 저장한 노출/순위 추적 현황입니다.', [
+          { label: '추적쌍', value: fmt(totals.trackedPairs || 0) },
+          { label: 'Top30', value: fmt(totals.currentlyInTop30 || 0) },
+          { label: 'Top10', value: fmt(totals.currentlyInTop10 || 0) },
+          { label: '알림', value: fmt(totals.alerts || 0) },
+        ], posts);
+        return;
+      }
+      if (snapshot && snapshot.benchmark) {
+        const benchmark = snapshot.benchmark || {};
+        const top = (benchmark.topPerformingKeywords || []).slice(0, 5).map(function(item) {
+          return '<li><strong>' + escapeHtml(item.keyword || '성과 키워드') + '</strong><span>순위 ' + fmt(item.rank) + ' · 조회 ' + fmt(item.views || 0) + ' · 수익 ' + fmt(item.revenue || 0) + '</span></li>';
+        });
+        renderResultSummary('성과 기록', '예측 대비 실제 순위/조회/수익 기록입니다.', [
+          { label: '전체 기록', value: fmt(snapshot.totalRecords || 0) },
+          { label: '측정 글', value: fmt(snapshot.measuredPosts || 0) },
+          { label: '월 조회', value: fmt(benchmark.totalMonthlyViews || 0) },
+          { label: '월 수익', value: fmt(benchmark.totalMonthlyRevenue || 0) },
+        ], top);
+        return;
+      }
+      if (snapshot && snapshot.sites && snapshot.drafts) {
+        const drafts = (snapshot.drafts.items || []).slice(0, 5).map(function(draft) {
+          return '<li><strong>' + escapeHtml(draft.title || draft.keyword || '발행 초안') + '</strong><span>' + escapeHtml(draft.status || 'draft') + ' · ' + fmtTime(draft.updatedAt || draft.createdAt) + '</span></li>';
+        });
+        renderResultSummary('워드프레스/발행', '연결 사이트와 발행 초안 현황입니다.', [
+          { label: '연결 사이트', value: fmt(snapshot.sites.total || 0) },
+          { label: '발행 초안', value: fmt(snapshot.drafts.total || 0) },
+          { label: '구성 상태', value: snapshot.configured ? '정상' : '대기' },
+          { label: '갱신', value: fmtTime(snapshot.updatedAt) },
+        ], drafts);
+        return;
+      }
+      if (snapshot && snapshot.schedules) {
+        const schedules = (snapshot.schedules.items || []).slice(0, 5).map(function(item) {
+          return '<li><strong>' + escapeHtml(item.keyword || item.topic || '예약') + '</strong><span>' + escapeHtml(item.status || '-') + ' · ' + fmtTime(item.scheduleDateTime) + ' · ' + escapeHtml(item.platform || '-') + '</span></li>';
+        });
+        renderResultSummary('스케줄/알림', '예약 발행과 키워드 알림 상태입니다.', [
+          { label: '전체 예약', value: fmt(snapshot.schedules.total || 0) },
+          { label: '대기', value: fmt(snapshot.schedules.pending || 0) },
+          { label: '완료', value: fmt(snapshot.schedules.completed || 0) },
+          { label: '키워드 그룹', value: fmt((snapshot.groups || {}).total || 0) },
+        ], schedules);
+        return;
+      }
+      renderResultSummary(title, '서버 원문 결과는 아래 JSON 로그에서 확인할 수 있습니다.', [
+        { label: '라우트', value: feature && feature.route ? feature.route : '-' },
+        { label: '상태', value: '완료' },
+        { label: '타입', value: payload && payload.ok === false ? '오류' : '스냅샷' },
+        { label: '시간', value: new Date().toLocaleTimeString('ko-KR') },
+      ], []);
+    }
+    function renderFeatureResult(feature, result) {
+      setResult(result);
+      if (result && Array.isArray(result.keywords)) {
+        renderKeywordRows(result);
+        renderKeywordResultSummary(feature && feature.title ? feature.title : '키워드 결과', result);
+        return;
+      }
+      renderSnapshotResultSummary(feature, result);
     }
     function headers() {
       const out = { 'Content-Type': 'application/json' };
@@ -937,21 +1084,26 @@ export function renderLewordProWeb(): string {
           const payload = await apiGet(feature.route, true);
           if (feature.handler && payload.catalog && Array.isArray(payload.catalog.items)) {
             const matched = payload.catalog.items.filter(function(item) { return item.handler === feature.handler; });
-            setResult({ feature: feature.title, route: feature.route, matchedHandlers: matched });
+            renderFeatureResult(feature, { feature: feature.title, route: feature.route, matchedHandlers: matched });
           } else {
-            setResult(payload.snapshot || payload.catalog || payload);
+            renderFeatureResult(feature, payload.snapshot || payload.catalog || payload);
           }
           log(feature.title + ' 서버 상태 확인 완료');
           return;
         }
         const created = await apiPost(feature.route, feature.payload ? feature.payload(q) : {});
         const result = await pollJob(created);
-        setResult(result.summary || result);
-        if (result && Array.isArray(result.keywords)) renderKeywordRows(result);
+        renderFeatureResult(feature, result);
         log(feature.title + ' 완료');
       } catch (err) {
         log(feature.title + ' 실패: ' + err.message);
         setResult({ error: err.message });
+        renderResultSummary(feature.title + ' 실패', err.message, [
+          { label: '상태', value: '오류' },
+          { label: '시간', value: new Date().toLocaleTimeString('ko-KR') },
+          { label: '라우트', value: feature.route || '-' },
+          { label: '입력', value: q || '-' },
+        ], []);
       }
     }
     async function runLookup(mode) {
@@ -1005,7 +1157,8 @@ export function renderLewordProWeb(): string {
     qs('refreshFeatureStatus').addEventListener('click', refreshFeatureStatus);
     qs('clearLog').addEventListener('click', function() {
       qs('runLog').textContent = 'LEWORD Pro Web 대기 중';
-      qs('resultLog').textContent = '결과 요약 대기 중';
+      qs('resultLog').textContent = '원문 결과 대기 중';
+      qs('resultSummary').innerHTML = '<h3>결과 센터</h3><p>키워드 조회나 Pro 기능을 실행하면 KPI, 상위 후보, 바로가기 액션을 이곳에 정리합니다.</p>';
     });
     document.addEventListener('click', function(event) {
       const target = event.target.closest('[data-feature]');
