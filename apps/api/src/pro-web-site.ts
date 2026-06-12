@@ -138,6 +138,52 @@ export function renderLewordProWeb(): string {
     .signal:first-of-type { border-top: 0; padding-top: 0; }
     .signal strong { display: block; font-size: 14px; overflow-wrap: anywhere; }
     .signal span { display: block; margin-top: 4px; color: var(--muted); font-size: 12px; line-height: 1.45; }
+    .golden-stats { display: grid; grid-template-columns: repeat(4, minmax(0, 1fr)); gap: 10px; margin-bottom: 14px; }
+    .board-stat {
+      border: 1px solid rgba(159,177,200,.2);
+      border-radius: 8px;
+      background: #07111f;
+      padding: 12px;
+    }
+    .board-stat strong { display: block; color: var(--gold); font-size: 20px; }
+    .board-stat span { display: block; margin-top: 4px; color: var(--muted); font-size: 12px; }
+    .board-progress { height: 8px; border-radius: 999px; background: #07111f; overflow: hidden; border: 1px solid rgba(159,177,200,.2); }
+    .board-progress div { width: 0%; height: 100%; background: linear-gradient(90deg, var(--gold), var(--green)); }
+    .board-meta { display: flex; justify-content: space-between; gap: 12px; margin: 10px 0 14px; color: var(--muted); font-size: 12px; flex-wrap: wrap; }
+    .golden-list { display: grid; gap: 8px; }
+    .golden-row {
+      display: grid;
+      grid-template-columns: 58px minmax(0, 1fr) 64px minmax(240px, auto);
+      align-items: center;
+      gap: 12px;
+      border: 1px solid rgba(159,177,200,.2);
+      border-radius: 8px;
+      background: #0b1626;
+      padding: 12px;
+    }
+    .rank { color: var(--gold); font-weight: 1000; }
+    .golden-main strong { display: block; font-size: 15px; overflow-wrap: anywhere; }
+    .golden-main span { display: block; margin-top: 4px; color: var(--muted); font-size: 12px; line-height: 1.45; }
+    .golden-actions { display: flex; gap: 6px; justify-content: flex-end; flex-wrap: wrap; }
+    .tiny-btn {
+      min-height: 32px;
+      border: 1px solid var(--line);
+      border-radius: 8px;
+      background: #17263d;
+      color: var(--text);
+      padding: 7px 9px;
+      font-weight: 900;
+      font-size: 12px;
+    }
+    .tiny-btn.pro { border-color: rgba(248,194,27,.45); color: var(--gold); background: rgba(248,194,27,.08); }
+    .locked {
+      border: 1px dashed rgba(248,194,27,.45);
+      border-radius: 8px;
+      padding: 14px;
+      color: #ffe58a;
+      background: rgba(248,194,27,.08);
+      line-height: 1.55;
+    }
     .lookup-row { display: grid; grid-template-columns: minmax(180px, 1fr) 160px 130px; gap: 8px; }
     .input {
       width: 100%;
@@ -236,7 +282,10 @@ export function renderLewordProWeb(): string {
       .feature-grid { grid-template-columns: repeat(2, minmax(0, 1fr)); }
     }
     @media (max-width: 820px) {
-      .source-grid, .metrics, .workbench, .lookup-row { grid-template-columns: 1fr; }
+      .source-grid, .metrics, .workbench, .lookup-row, .golden-stats { grid-template-columns: 1fr; }
+      .golden-row { grid-template-columns: 48px minmax(0, 1fr); }
+      .golden-row .grade { justify-self: start; }
+      .golden-actions { grid-column: 1 / -1; justify-content: flex-start; }
       .sidebar { grid-template-columns: 1fr 1fr; }
       .hero h1 { font-size: 28px; }
     }
@@ -254,6 +303,7 @@ export function renderLewordProWeb(): string {
     <header class="topbar">
       <a class="brand" href="/leword"><span class="brand-mark">L</span><span>LEWORD Pro Web</span></a>
       <nav class="nav" aria-label="주요 메뉴">
+        <a href="#golden">황금키워드 보드</a>
         <a href="#sources">실시간 소스</a>
         <a href="#lookup">키워드 조회</a>
         <a href="#features">Pro 기능</a>
@@ -263,6 +313,7 @@ export function renderLewordProWeb(): string {
 
     <div class="layout">
       <aside class="sidebar" aria-label="Pro 기능 탭">
+        <a class="side-link" href="#golden">LIVE 황금키워드 보드</a>
         <a class="side-link" href="#sources">네이버/다음/네이트/줌/정책/이슈</a>
         <a class="side-link" href="#lookup">PC/모바일 실측 조회</a>
         <a class="side-link" href="#features">전체 Pro 기능</a>
@@ -280,6 +331,29 @@ export function renderLewordProWeb(): string {
             <div class="metric-card"><strong id="metricMeasured">0</strong><span>실측 키워드</span></div>
             <div class="metric-card"><strong id="metricServer">확인 중</strong><span>서버 상태</span></div>
           </div>
+        </section>
+
+        <section class="panel" id="golden">
+          <div class="panel-title">
+            <div>
+              <h2>LIVE 황금키워드 보드</h2>
+              <div class="muted">서버가 계속 수집하고 실측한 황금키워드 후보입니다. 로그인 전에는 공개 5개, Pro 로그인 후에는 전체 보드와 정확 지표를 표시합니다.</div>
+            </div>
+            <button class="btn blue" type="button" id="refreshGolden">보드 새로고침</button>
+          </div>
+          <div class="golden-stats">
+            <div class="board-stat"><strong id="goldenBoardCount">0/60</strong><span>검증 보드</span></div>
+            <div class="board-stat"><strong id="goldenPublicCount">0</strong><span>현재 표시</span></div>
+            <div class="board-stat"><strong id="goldenLockedCount">0</strong><span>Pro 잠금</span></div>
+            <div class="board-stat"><strong id="goldenState">확인 중</strong><span>보드 상태</span></div>
+          </div>
+          <div class="board-progress"><div id="goldenProgress"></div></div>
+          <div class="board-meta">
+            <span id="goldenPolicy">공개 정책 확인 중</span>
+            <span id="goldenUpdated">업데이트 대기</span>
+          </div>
+          <div id="goldenNotice" class="locked">황금키워드 보드를 불러오는 중입니다.</div>
+          <div class="golden-list" id="goldenBoardList" style="margin-top:10px;"></div>
         </section>
 
         <section class="panel" id="sources">
@@ -428,10 +502,19 @@ export function renderLewordProWeb(): string {
         return ({ '&': '&amp;', '<': '&lt;', '>': '&gt;', '"': '&quot;', "'": '&#39;' })[ch];
       });
     }
+    function escapeAttr(value) {
+      return escapeHtml(value).replace(new RegExp(String.fromCharCode(96), 'g'), '&#96;');
+    }
     function fmt(value) {
       if (value === null || value === undefined || value === '') return '-';
       if (typeof value === 'number') return Number.isFinite(value) ? value.toLocaleString('ko-KR') : '-';
       return String(value);
+    }
+    function fmtTime(value) {
+      if (!value) return '-';
+      const date = new Date(value);
+      if (Number.isNaN(date.getTime())) return '-';
+      return date.toLocaleString('ko-KR', { month: '2-digit', day: '2-digit', hour: '2-digit', minute: '2-digit' });
     }
     function compactKeywordInput() {
       return qs('keywordInput').value.trim();
@@ -532,6 +615,98 @@ export function renderLewordProWeb(): string {
           + '<td>' + (row.isMeasured ? '실측' : '측정 필요') + '</td>'
           + '</tr>';
       }).join('');
+    }
+    function setGoldenSummary(boardCount, boardTarget, visibleCount, lockedCount, running, updatedAt, policy) {
+      const target = boardTarget || 60;
+      const count = boardCount || 0;
+      const pct = Math.min(100, Math.round((count / Math.max(1, target)) * 100));
+      qs('metricBoard').textContent = count + '/' + target;
+      qs('goldenBoardCount').textContent = count + '/' + target;
+      qs('goldenPublicCount').textContent = String(visibleCount || 0);
+      qs('goldenLockedCount').textContent = String(lockedCount || 0);
+      qs('goldenState').textContent = running ? '발굴중' : '대기';
+      qs('goldenProgress').style.width = pct + '%';
+      qs('goldenPolicy').textContent = policy || '하위 5개 공개';
+      qs('goldenUpdated').textContent = updatedAt ? '최근 갱신 ' + fmtTime(updatedAt) : '업데이트 대기';
+    }
+    function renderGoldenRows(items, exact) {
+      const rows = (items || []).slice(0, exact ? 60 : 5);
+      if (!rows.length) {
+        qs('goldenBoardList').innerHTML = '';
+        qs('goldenNotice').textContent = '서버가 황금키워드 후보를 검증하는 중입니다.';
+        return;
+      }
+      qs('goldenBoardList').innerHTML = rows.map(function(item) {
+        const searchVolume = exact ? fmt(item.totalSearchVolume) : escapeHtml(item.publicSearchVolumeLabel || '-');
+        const documents = exact ? fmt(item.documentCount) : escapeHtml(item.publicDocumentCountLabel || '-');
+        const reason = exact
+          ? '황금비율 ' + fmt(item.goldenRatio) + ' · ' + escapeHtml(item.intent || item.source || '실측')
+          : escapeHtml(item.publicReason || '실측 후보');
+        return '<article class="golden-row">'
+          + '<div class="rank">#' + escapeHtml(item.rank || '-') + '</div>'
+          + '<div class="golden-main"><strong>' + escapeHtml(item.keyword || '-') + '</strong><span>'
+          + '검색량 ' + searchVolume + ' · 문서수 ' + documents + ' · ' + reason
+          + '</span></div>'
+          + '<div class="grade ' + escapeHtml(item.grade || '') + '">' + escapeHtml(item.grade || '-') + '</div>'
+          + '<div class="golden-actions">'
+          + '<button class="tiny-btn" type="button" data-board-action="naver" data-keyword="' + escapeAttr(item.keyword || '') + '">네이버</button>'
+          + '<button class="tiny-btn" type="button" data-board-action="google" data-keyword="' + escapeAttr(item.keyword || '') + '">Google</button>'
+          + '<button class="tiny-btn pro" type="button" data-board-action="analyze" data-keyword="' + escapeAttr(item.keyword || '') + '">Pro 분석</button>'
+          + '</div>'
+          + '</article>';
+      }).join('');
+    }
+    function renderPublicGoldenBoard(payload) {
+      const items = payload.publicPreview || [];
+      setGoldenSummary(
+        payload.boardCount,
+        payload.boardTarget,
+        items.length,
+        payload.lockedCount,
+        payload.running,
+        payload.updatedAt,
+        payload.previewPolicyLabel || '하위 5개 공개'
+      );
+      qs('metricMeasured').textContent = fmt(payload.boardCount || 0);
+      qs('goldenNotice').textContent = '공개 화면은 맛보기만 표시합니다. Pro 로그인 후 전체 순위와 정확 검색량·문서수·황금비율을 불러옵니다.';
+      renderGoldenRows(items, false);
+    }
+    function renderProGoldenBoard(snapshot) {
+      const items = (snapshot && snapshot.board) || [];
+      setGoldenSummary(
+        snapshot.boardCount || items.length,
+        snapshot.boardTarget || 60,
+        items.length,
+        0,
+        snapshot.running,
+        snapshot.boardUpdatedAt || snapshot.lastFinishedAt,
+        'Pro 전체 공개'
+      );
+      qs('metricMeasured').textContent = items.filter(function(item) { return item.isMeasured !== false; }).length.toLocaleString('ko-KR');
+      qs('goldenNotice').textContent = 'Pro 로그인 상태입니다. 전체 순위와 정확 지표를 표시합니다.';
+      renderGoldenRows(items, true);
+    }
+    async function loadGoldenBoard() {
+      if (session && session.accessToken) {
+        try {
+          const payload = await apiGet(endpoints.liveGolden, true);
+          if (payload && payload.snapshot) {
+            renderProGoldenBoard(payload.snapshot);
+            log('LIVE 황금키워드 Pro 보드 갱신: ' + ((payload.snapshot.board || []).length) + '개');
+            return;
+          }
+        } catch (err) {
+          log('Pro 보드 갱신 실패, 공개 보드로 전환: ' + err.message);
+        }
+      }
+      try {
+        const payload = await apiGet(endpoints.publicLiveGolden, false);
+        renderPublicGoldenBoard(payload);
+        log('LIVE 황금키워드 공개 보드 갱신: ' + (payload.boardCount || 0) + '개');
+      } catch (err) {
+        qs('goldenState').textContent = '오류';
+        qs('goldenNotice').textContent = '황금키워드 보드를 불러오지 못했습니다: ' + err.message;
+      }
     }
     function splitFallbackLanes(snapshot) {
       const realtime = (snapshot && snapshot.realtime) || [];
@@ -670,7 +845,7 @@ export function renderLewordProWeb(): string {
         qs('loginMessage').textContent = '로그인 완료';
         closeLogin();
         log('Pro 로그인 완료: ' + (payload.session.tier || 'standard'));
-        await Promise.all([loadSources(), refreshFeatureStatus().catch(function() {})]);
+        await Promise.all([loadSources(), loadGoldenBoard(), refreshFeatureStatus().catch(function() {})]);
       } catch (err) {
         qs('loginMessage').textContent = err.message;
       }
@@ -680,6 +855,7 @@ export function renderLewordProWeb(): string {
       runLookup(qs('lookupMode').value);
     });
     qs('refreshSources').addEventListener('click', loadSources);
+    qs('refreshGolden').addEventListener('click', loadGoldenBoard);
     qs('refreshFeatureStatus').addEventListener('click', refreshFeatureStatus);
     qs('clearLog').addEventListener('click', function() {
       qs('runLog').textContent = 'LEWORD Pro Web 대기 중';
@@ -691,12 +867,32 @@ export function renderLewordProWeb(): string {
       const feature = features.find(function(row) { return row.id === target.getAttribute('data-feature'); });
       if (feature) runFeature(feature);
     });
+    document.addEventListener('click', function(event) {
+      const target = event.target.closest('[data-board-action]');
+      if (!target) return;
+      const keyword = target.getAttribute('data-keyword') || '';
+      const action = target.getAttribute('data-board-action');
+      if (!keyword) return;
+      if (action === 'naver') {
+        window.open('https://search.naver.com/search.naver?query=' + encodeURIComponent(keyword), '_blank', 'noopener');
+        return;
+      }
+      if (action === 'google') {
+        window.open('https://www.google.com/search?q=' + encodeURIComponent(keyword), '_blank', 'noopener');
+        return;
+      }
+      qs('keywordInput').value = keyword;
+      qs('lookupMode').value = 'golden-discovery';
+      runLookup('golden-discovery');
+    });
 
     restoreSession();
     renderFeatureGrid();
     loadHealth();
+    loadGoldenBoard();
     loadSources();
     setInterval(loadHealth, 30000);
+    setInterval(loadGoldenBoard, 60000);
     setInterval(loadSources, 60000);
   </script>
 </body>

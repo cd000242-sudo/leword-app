@@ -16,6 +16,17 @@ const html = renderLewordLanding();
 assert('renders LEWORD Pro Web shell', html.includes('LEWORD Pro Web'));
 assert('does not expose integration-structure subtab copy', !html.includes('연동구조'));
 assert('keeps existing id/password login', html.includes('LEWORD Pro 로그인') && html.includes('아이디') && html.includes('비밀번호'));
+assert('renders live golden keyword board section',
+  html.includes('id="golden"')
+    && html.includes('LIVE 황금키워드 보드')
+    && html.includes('id="goldenBoardList"')
+    && html.includes('id="refreshGolden"'));
+assert('loads public and pro golden boards',
+  html.includes("publicLiveGolden: '/v1/public/live-golden'")
+    && html.includes("liveGolden: '/v1/live-golden/snapshot'")
+    && html.includes('function loadGoldenBoard()')
+    && html.includes('renderPublicGoldenBoard')
+    && html.includes('renderProGoldenBoard'));
 assert('shows six source lanes in requested order',
   html.indexOf('네이버 <span class="lane-count"') < html.indexOf('다음 <span class="lane-count"')
     && html.indexOf('다음 <span class="lane-count"') < html.indexOf('네이트 <span class="lane-count"')
