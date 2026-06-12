@@ -207,6 +207,51 @@ function thinProfileCount(items: Array<{ keyword: string }>): number {
     staleSnapshot.publicPreview.map((item) => `${item.keyword}:${item.updatedAt}`).join('|'));
   fs.rmSync(staleBoardFile, { force: true });
 
+  const proGapBoardFile = path.join(process.cwd(), 'tmp', 'mobile-live-golden-pro-gap-test.json');
+  fs.writeFileSync(proGapBoardFile, JSON.stringify({
+    boardUpdatedAt: '2026-06-13T08:50:00.000Z',
+    items: [
+      ['청년미래적금 가입신청 대상', 'SSS', 96, 32000, 240, 133.3, 'policy'],
+      ['소상공인 환급금 조회 방법', 'SSS', 93, 18000, 420, 42.8, 'policy'],
+      ['근로장려금 지급일 조회', 'SS', 88, 12000, 780, 15.3, 'policy'],
+      ['KBO 올스타전 예매 일정', 'SS', 82, 8200, 1200, 6.8, 'sports'],
+      ['나혼자산다 출연진', 'S', 75, 4200, 950, 4.4, 'broadcast'],
+      ['여름휴가 준비물 체크리스트', 'S', 72, 2400, 820, 2.9, 'travel_domestic'],
+      ['드라마 다시보기 방법', 'S', 70, 1200, 520, 2.3, 'drama'],
+      ['프로야구 예매', 'S', 68, 900, 360, 2.5, 'sports'],
+    ].map(([keyword, grade, score, totalSearchVolume, documentCount, goldenRatio, category]) => ({
+      keyword,
+      grade,
+      score,
+      totalSearchVolume,
+      documentCount,
+      goldenRatio,
+      category,
+      updatedAt: '2026-06-13T08:50:00.000Z',
+      discoveredAt: '2026-06-13T08:50:00.000Z',
+      isMeasured: true,
+    })),
+  }), 'utf8');
+  const proGapRadar = new MobileLiveGoldenRadar({
+    notificationInbox: inbox,
+    runOnStart: false,
+    boardFile: proGapBoardFile,
+    publicPreviewCount: 3,
+    now: () => new Date('2026-06-13T09:00:00.000Z'),
+  });
+  const proGapSnapshot = proGapRadar.snapshot();
+  const protectedProKeywords = new Set(proGapSnapshot.board.slice(0, 3).map((item) => item.keyword));
+  assert('pro board ranks monster opportunity keywords first',
+    proGapSnapshot.board[0]?.keyword === '청년미래적금 가입신청 대상'
+      && proGapSnapshot.board[1]?.keyword === '소상공인 환급금 조회 방법',
+    proGapSnapshot.board.map((item) => `${item.rank}:${item.keyword}`).join('|'));
+  assert('free preview samples lower measured winners while hiding pro top tier',
+    proGapSnapshot.publicPreview.length === 3
+      && proGapSnapshot.publicPreview.every((item) => !protectedProKeywords.has(item.keyword))
+      && proGapSnapshot.publicPreview.every((item) => item.rank > 3 && item.isMeasured && ['SSS', 'SS', 'S'].includes(item.grade)),
+    proGapSnapshot.publicPreview.map((item) => `${item.rank}:${item.keyword}`).join('|'));
+  fs.rmSync(proGapBoardFile, { force: true });
+
   let skippedDiscoverCalls = 0;
   const skippedRadar = new MobileLiveGoldenRadar({
     notificationInbox: inbox,

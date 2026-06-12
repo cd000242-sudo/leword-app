@@ -278,15 +278,89 @@ function rotateItems<T>(items: T[], offset: number): T[] {
   return [...items.slice(normalizedOffset), ...items.slice(0, normalizedOffset)];
 }
 
+function keywordLongTailScore(keyword: string): number {
+  const clean = normalizeKeyword(keyword);
+  const compactLength = clean.replace(/\s+/g, '').length;
+  const tokenCount = clean.split(/\s+/).filter(Boolean).length;
+  const lengthScore = compactLength >= 10 && compactLength <= 28
+    ? 16
+    : compactLength >= 7 && compactLength <= 34
+      ? 10
+      : 0;
+  const tokenScore = tokenCount >= 4
+    ? 18
+    : tokenCount === 3
+      ? 14
+      : tokenCount === 2
+        ? 8
+        : 0;
+  return lengthScore + tokenScore;
+}
+
+function keywordNeedScore(keyword: string, intent: string): number {
+  const clean = `${normalizeKeyword(keyword)} ${normalizeKeyword(intent)}`;
+  if (/(신청|대상|자격|지급일|조회|예매|예약|가격|비교|추천|후기|방법|준비물|서류|마감|오류|설정|사용법|답지|등급컷|당첨번호|중계|라인업|출연진|몇부작|결말|쿠키영상|관련주|전망|주가)/.test(clean)) {
+    return 30;
+  }
+  if (ACTIONABLE_KEYWORD_HINT_RE.test(clean)) return 18;
+  return 0;
+}
+
+function volumeOpportunityScore(volume: number): number {
+  if (volume >= 30_000) return 64;
+  if (volume >= 10_000) return 56;
+  if (volume >= 5_000) return 48;
+  if (volume >= 2_000) return 40;
+  if (volume >= 1_000) return 32;
+  if (volume >= 500) return 22;
+  if (volume >= 300) return 14;
+  return 0;
+}
+
+function documentScarcityScore(documents: number | null): number {
+  if (documents === null) return 0;
+  if (documents <= 100) return 70;
+  if (documents <= 300) return 62;
+  if (documents <= 1_000) return 54;
+  if (documents <= 3_000) return 46;
+  if (documents <= 5_000) return 36;
+  if (documents <= 10_000) return 22;
+  if (documents <= 30_000) return 8;
+  return -20;
+}
+
+function ratioOpportunityScore(ratio: number): number {
+  if (ratio >= 50) return 92;
+  if (ratio >= 25) return 82;
+  if (ratio >= 10) return 72;
+  if (ratio >= 5) return 58;
+  if (ratio >= 3) return 42;
+  if (ratio >= 2) return 26;
+  return 0;
+}
+
 function boardScore(item: MobileLiveGoldenBoardItem): number {
   const grade = GRADE_WEIGHT[item.grade] || 0;
-  const measured = item.isMeasured ? 18 : 0;
-  const ratio = Math.min(80, Math.max(0, item.goldenRatio || 0));
-  const volume = Math.min(35, Math.log10(Math.max(1, item.totalSearchVolume || 0)) * 7);
-  const documents = item.documentCount === null
-    ? 0
-    : Math.max(0, 25 - Math.log10(Math.max(1, item.documentCount)) * 4);
-  return grade + measured + ratio + volume + documents + (item.score || 0) * 0.08;
+  const measured = item.isMeasured ? 30 : 0;
+  const volume = Math.max(0, item.totalSearchVolume || 0);
+  const documents = item.documentCount;
+  const ratio = Math.max(0, item.goldenRatio || (
+    volume > 0 && documents && documents > 0 ? volume / documents : 0
+  ));
+  const monsterBonus = volume >= 1_000 && documents !== null && documents <= 5_000 && ratio >= 5
+    ? 48
+    : volume >= 500 && documents !== null && documents <= 10_000 && ratio >= 3
+      ? 24
+      : 0;
+  return grade
+    + measured
+    + volumeOpportunityScore(volume)
+    + documentScarcityScore(documents)
+    + ratioOpportunityScore(ratio)
+    + keywordLongTailScore(item.keyword)
+    + keywordNeedScore(item.keyword, item.intent)
+    + monsterBonus
+    + (item.score || 0) * 0.12;
 }
 
 function ageMsFrom(updatedAt: string, nowMs: number): number {
@@ -1004,7 +1078,10 @@ export class MobileLiveGoldenRadar {
     const source = previewSource.length >= count ? previewSource : metricSource;
     if (source.length <= count) return source.slice(0, count);
 
-    const protectedTopCount = Math.min(count, Math.max(0, source.length - count));
+    const protectedTopCount = Math.min(
+      Math.max(0, source.length - count),
+      Math.max(count * 3, Math.floor(source.length * 0.55)),
+    );
     const lowerBoard = source.slice(protectedTopCount);
     const lowerRecent = [...lowerBoard]
       .sort((a, b) => Date.parse(b.updatedAt) - Date.parse(a.updatedAt))
