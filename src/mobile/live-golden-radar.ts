@@ -93,6 +93,37 @@ const PUBLIC_PREVIEW_DOCUMENT_CEILING = 30_000;
 const PUBLIC_PREVIEW_PROFILE_INTENT_MAX = 0;
 const LIVE_BOARD_CATEGORY_SHARE_CAP = 0.24;
 const LIVE_BOARD_CLUSTER_MAX = 2;
+const SEMANTIC_CLUSTER_SUFFIX_RE = new RegExp(`(?:${[
+  '\\uBA87\\uBD80\\uC791',
+  '\\uCD9C\\uC5F0\\uC9C4',
+  '\\uB4F1\\uAE09\\uCEF7',
+  '\\uB2F5\\uC9C0',
+  '\\uB2F9\\uCCA8\\uBC88\\uD638',
+  '\\uC608\\uB9E4',
+  '\\uC77C\\uC815',
+  '\\uC2E0\\uCCAD',
+  '\\uB300\\uC0C1',
+  '\\uC790\\uACA9',
+  '\\uC870\\uD68C',
+  '\\uBC29\\uBC95',
+  '\\uC900\\uBE44\\uBB3C',
+  '\\uAC00\\uACA9\\uBE44\\uAD50',
+  '\\uCD94\\uCC9C',
+  '\\uD6C4\\uAE30',
+  '\\uB2E4\\uC2DC\\uBCF4\\uAE30',
+  '\\uACB0\\uB9D0',
+  '\\uCFE0\\uD0A4\\uC601\\uC0C1',
+  '\\uC8FC\\uCC28',
+  '\\uC704\\uCE58',
+  '\\uC11C\\uB958',
+  '\\uB9C8\\uAC10',
+  '\\uBC1C\\uD45C',
+  '\\uC911\\uACC4',
+  '\\uB77C\\uC778\\uC5C5',
+  '\\uD558\\uC774\\uB77C\\uC774\\uD2B8',
+  '\\uC6D0\\uC791',
+  '\\uC778\\uBB3C\\uAD00\\uACC4\\uB3C4',
+].join('|')})+$`, 'u');
 
 const GRADE_WEIGHT: Record<MobileResultGrade, number> = {
   SSS: 120,
@@ -172,12 +203,21 @@ function formatRange(value: number | null, kind: 'search' | 'document'): string 
 }
 
 function keywordClusterKey(keyword: string): string {
-  return keyword
+  const compact = keyword
     .trim()
     .toLowerCase()
     .replace(/\s+/g, '')
     .replace(/[^a-z0-9\uAC00-\uD7A3]/g, '')
-    .slice(0, 8);
+    .replace(/^(\d{4})(\d{1,2}\uBAA8)/u, '$2');
+  if (!compact) return '';
+
+  let semantic = compact;
+  for (let i = 0; i < 3; i += 1) {
+    const next = semantic.replace(SEMANTIC_CLUSTER_SUFFIX_RE, '');
+    if (next === semantic || next.length < 3) break;
+    semantic = next;
+  }
+  return (semantic.length >= 3 ? semantic : compact).slice(0, 12);
 }
 
 function publicPreviewClusterKey(keyword: string): string {
@@ -347,6 +387,33 @@ function boardScore(item: MobileLiveGoldenBoardItem): number {
   const ratio = Math.max(0, item.goldenRatio || (
     volume > 0 && documents && documents > 0 ? volume / documents : 0
   ));
+  const longTail = keywordLongTailScore(item.keyword);
+  const need = keywordNeedScore(item.keyword, item.intent);
+  const monsterOpportunity = volume >= 30_000 && documents !== null && documents <= 1_000 && ratio >= 20
+    ? 150
+    : volume >= 10_000 && documents !== null && documents <= 2_000 && ratio >= 10
+      ? 110
+      : volume >= 5_000 && documents !== null && documents <= 3_000 && ratio >= 5
+        ? 82
+        : volume >= 1_000 && documents !== null && documents <= 5_000 && ratio >= 5
+          ? 58
+          : volume >= 500 && documents !== null && documents <= 10_000 && ratio >= 3
+            ? 34
+            : 0;
+  const firstMoverScarcity = documents !== null && volume >= 1_000
+    ? documents <= 300
+      ? 58
+      : documents <= 1_000
+        ? 42
+        : documents <= 3_000
+          ? 26
+          : 0
+    : 0;
+  const longTailNeedSynergy = longTail >= 24 && need >= 18 && volume >= 500 && documents !== null && documents <= 10_000
+    ? 54
+    : longTail >= 18 && need >= 18 && volume >= 300
+      ? 30
+      : 0;
   const monsterBonus = volume >= 1_000 && documents !== null && documents <= 5_000 && ratio >= 5
     ? 48
     : volume >= 500 && documents !== null && documents <= 10_000 && ratio >= 3
@@ -357,8 +424,11 @@ function boardScore(item: MobileLiveGoldenBoardItem): number {
     + volumeOpportunityScore(volume)
     + documentScarcityScore(documents)
     + ratioOpportunityScore(ratio)
-    + keywordLongTailScore(item.keyword)
-    + keywordNeedScore(item.keyword, item.intent)
+    + longTail
+    + need
+    + monsterOpportunity
+    + firstMoverScarcity
+    + longTailNeedSynergy
     + monsterBonus
     + (item.score || 0) * 0.12;
 }
@@ -533,14 +603,16 @@ function isPublicPreviewFallbackCandidate(item: MobileLiveGoldenBoardItem): bool
   if (isMalformedLiveKeyword(item.keyword) || isThinProfileIntentKeyword(item.keyword)) return false;
   if (item.grade === 'B' || item.grade === 'C') return false;
   if (item.totalSearchVolume !== null && item.totalSearchVolume >= PUBLIC_PREVIEW_VOLUME_CEILING) return false;
-  if (item.documentCount !== null && item.documentCount >= Math.max(PUBLIC_PREVIEW_DOCUMENT_CEILING, 60_000)) return false;
   if (
     item.totalSearchVolume !== null
     && item.documentCount !== null
     && item.documentCount > 0
   ) {
     const ratio = item.goldenRatio !== null ? item.goldenRatio : item.totalSearchVolume / item.documentCount;
-    if (item.totalSearchVolume < 100 || ratio < 0.8) return false;
+    if (item.totalSearchVolume < 100) return false;
+    if (ratio < 0.75) return false;
+    if (item.documentCount >= 120_000 && ratio < 1.5) return false;
+    if (item.documentCount >= 60_000 && ratio < 1.0) return false;
   }
   return isActionableLiveKeyword(item.keyword) || SPECIFIC_LIVE_KEYWORD_HINT_RE.test(item.keyword);
 }
