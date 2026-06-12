@@ -83,8 +83,8 @@ function thinProfileCount(items: Array<{ keyword: string }>): number {
     notifications.items.every((item) => item.kind === 'live-golden'),
     JSON.stringify(notifications.items));
   assert('live radar rotates next category', snapshot.nextCategoryId === 'policy');
-  assert('live radar can still keep a concise profile keyword',
-    snapshot.board.some((item) => item.keyword === '리센느 프로필'),
+  assert('live radar filters thin person profile keyword',
+    !snapshot.board.some((item) => item.keyword === '리센느 프로필'),
     snapshot.board.map((item) => item.keyword).join('|'));
 
   const profileFloodRadar = new MobileLiveGoldenRadar({
@@ -123,13 +123,13 @@ function thinProfileCount(items: Array<{ keyword: string }>): number {
     ].map((keyword, index) => floodResult(keyword, index + 20))),
   });
   const floodSnapshot = await profileFloodRadar.runOnce();
-  assert('live golden board caps thin profile intent instead of flooding the top board',
-    thinProfileCount(floodSnapshot.board.slice(0, 30)) <= 2
+  assert('live golden board rejects thin profile intent instead of flooding the top board',
+    thinProfileCount(floodSnapshot.board.slice(0, 30)) === 0
       && floodSnapshot.board.some((item) => item.keyword === '2027 6모 등급컷')
       && floodSnapshot.board.some((item) => item.keyword === '청년 지원금 신청'),
     floodSnapshot.board.map((item) => `${item.rank}:${item.keyword}`).join('|'));
-  assert('public live golden preview exposes at most one thin profile intent',
-    thinProfileCount(floodSnapshot.publicPreview) <= 1,
+  assert('public live golden preview exposes no thin profile intent',
+    thinProfileCount(floodSnapshot.publicPreview) === 0,
     floodSnapshot.publicPreview.map((item) => item.keyword).join('|'));
 
   let skippedDiscoverCalls = 0;

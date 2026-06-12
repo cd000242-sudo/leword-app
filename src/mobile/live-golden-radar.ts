@@ -86,9 +86,9 @@ const BROAD_KEYWORD_VOLUME_CEILING = 500_000;
 const BROAD_KEYWORD_DOCUMENT_CEILING = 80_000;
 const PUBLIC_PREVIEW_VOLUME_CEILING = 250_000;
 const PUBLIC_PREVIEW_DOCUMENT_CEILING = 30_000;
-const PUBLIC_PREVIEW_PROFILE_INTENT_MAX = 1;
+const PUBLIC_PREVIEW_PROFILE_INTENT_MAX = 0;
 const LIVE_BOARD_PROFILE_INTENT_TOP_WINDOW = 30;
-const LIVE_BOARD_PROFILE_INTENT_TOP_MAX = 2;
+const LIVE_BOARD_PROFILE_INTENT_TOP_MAX = 0;
 
 const GRADE_WEIGHT: Record<MobileResultGrade, number> = {
   SSS: 120,
@@ -279,7 +279,7 @@ function isThinProfileIntentKeyword(keyword: string): boolean {
 }
 
 function maxThinProfileBoardCount(boardTarget: number): number {
-  return Math.max(2, Math.min(6, Math.floor(Math.max(1, boardTarget) * 0.08)));
+  return 0;
 }
 
 function selectLiveBoardItems<T extends MobileLiveGoldenBoardItem>(
@@ -327,6 +327,7 @@ function selectLiveBoardItems<T extends MobileLiveGoldenBoardItem>(
 function isLiveRadarUsableKeyword(keyword: string, volume: number | null, documents: number | null): boolean {
   if (isMalformedLiveKeyword(keyword)) return false;
   const clean = normalizeKeyword(keyword);
+  if (isThinProfileIntentKeyword(clean)) return false;
   const specific = SPECIFIC_LIVE_KEYWORD_HINT_RE.test(clean);
   if (volume !== null && volume >= BROAD_KEYWORD_VOLUME_CEILING) return false;
   if (documents !== null && documents >= BROAD_KEYWORD_DOCUMENT_CEILING) return false;
