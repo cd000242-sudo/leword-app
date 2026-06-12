@@ -76,7 +76,31 @@ jobs:
         env:
           PUPPETEER_SKIP_DOWNLOAD: 'true'
           PLAYWRIGHT_SKIP_BROWSER_DOWNLOAD: '1'
-        run: npm ci --ignore-scripts
+        run: |
+          npm ci --ignore-scripts
+          mkdir -p node_modules/electron
+          cat > node_modules/electron/index.js <<'EOF'
+          const userData = process.env.LEWORD_SERVER_USER_DATA || '/tmp/leword-api-user-data';
+          module.exports = {
+            app: {
+              getPath() { return userData; },
+              isReady() { return true; },
+              whenReady() { return Promise.resolve(); },
+              getVersion() { return process.env.npm_package_version || '0.0.0'; },
+            },
+            safeStorage: {
+              isEncryptionAvailable() { return false; },
+              encryptString(value) { return Buffer.from(String(value || ''), 'utf8'); },
+              decryptString(value) { return Buffer.isBuffer(value) ? value.toString('utf8') : String(value || ''); },
+            },
+            shell: {
+              openExternal() { return Promise.resolve(); },
+              showItemInFolder() {},
+            },
+            Notification: class { show() {} },
+            BrowserWindow: class {},
+          };
+          EOF
 
       - name: Install root dependencies
         if: ${{ github.event.inputs.target != 'api-image' }}
