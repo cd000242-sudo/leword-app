@@ -601,6 +601,7 @@ function getBackfillIntents(categoryId: string): string[] {
 
 function buildBackfillCandidates(categoryId: string, liveSeeds: string[], maxSeeds: number): string[] {
   const liveSeedBases = normalizeLiveSeeds(liveSeeds, 36);
+  const candidateLimit = Math.max(120, Math.min(220, Math.floor(maxSeeds || 120)));
   const baseSeeds = uniqueKeywords([
     ...liveSeedBases,
     ...getDiscoveryCategorySeeds(categoryId, Math.max(24, Math.min(80, maxSeeds))),
@@ -616,11 +617,11 @@ function buildBackfillCandidates(categoryId: string, liveSeeds: string[], maxSee
     const intentLimit = seedIsLive ? (seedAlreadySpecific ? 0 : 3) : intents.length;
     for (const intent of intents.slice(0, intentLimit)) {
       if (!seed.includes(intent)) candidates.push(`${seed} ${intent}`);
-      if (candidates.length >= 120) break;
+      if (candidates.length >= candidateLimit) break;
     }
-    if (candidates.length >= 120) break;
+    if (candidates.length >= candidateLimit) break;
   }
-  return uniqueKeywords(candidates, 120);
+  return uniqueKeywords(candidates, candidateLimit);
 }
 
 function liveMetricScore(volume: number, docs: number, ratio: number, actionable: boolean): number {
@@ -896,14 +897,14 @@ export class MobileLiveGoldenRadar {
         }, {
           category: 'all',
           limit: discoveryLimit,
-          maxSeeds: Math.min(this.maxSeeds, 120),
-          maxCandidates: Math.min(this.maxCandidates, 220),
+          maxSeeds: Math.min(this.maxSeeds, 200),
+          maxCandidates: Math.min(this.maxCandidates, 420),
           liveSeeds,
           includeCrossCategory: true,
           requireCategoryMatch: false,
-          includeSearchAdSuggestions: false,
-          suggestionSeedLimit: 0,
-          suggestionsPerSeed: 0,
+          includeSearchAdSuggestions: true,
+          suggestionSeedLimit: 3,
+          suggestionsPerSeed: 6,
           maxSimilarPerCluster: 2,
         }), LIVE_DISCOVERY_TIMEOUT_MS, []);
         const globalQuality = globalDirect.filter(isLiveRadarQualityResult);
@@ -1055,7 +1056,8 @@ export class MobileLiveGoldenRadar {
   ): Promise<MDPResult[]> {
     const candidates = buildBackfillCandidates(categoryId, liveSeeds, this.maxSeeds);
     if (candidates.length === 0) return [];
-    const rows = await withTimeout(getNaverKeywordSearchVolumeSeparate(config, candidates.slice(0, 100), {
+    const measurementLimit = Math.max(100, Math.min(220, Math.floor(this.maxCandidates * 0.5)));
+    const rows = await withTimeout(getNaverKeywordSearchVolumeSeparate(config, candidates.slice(0, measurementLimit), {
       includeDocumentCount: true,
     }), LIVE_BACKFILL_TIMEOUT_MS, []);
     const seen = new Set<string>();
