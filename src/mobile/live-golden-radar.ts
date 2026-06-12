@@ -1235,11 +1235,18 @@ export class MobileLiveGoldenRadar {
         .filter(isPublicPreviewFallbackCandidate)
         .filter((item) => ageMsFrom(item.updatedAt, nowMs) <= LIVE_BOARD_MAX_AGE_MS)
       : [];
+    const protectedBackfill = protectedTopCount > count * 2
+      ? board
+        .slice(Math.max(count * 2, protectedTopCount - count), protectedTopCount)
+        .filter(isPublicPreviewFallbackCandidate)
+        .filter((item) => ageMsFrom(item.updatedAt, nowMs) <= LIVE_BOARD_MAX_AGE_MS)
+      : [];
     pushSource(previewSource);
     pushSource(metricSource);
     pushSource(freshFallback);
     pushSource(warmMetricSource);
     pushSource(warmFallback);
+    pushSource(protectedBackfill);
     const source = [...sourceMap.values()];
 
     const lowerRecent = [...source]
