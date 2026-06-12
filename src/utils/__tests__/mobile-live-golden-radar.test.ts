@@ -252,6 +252,48 @@ function thinProfileCount(items: Array<{ keyword: string }>): number {
     proGapSnapshot.publicPreview.map((item) => `${item.rank}:${item.keyword}`).join('|'));
   fs.rmSync(proGapBoardFile, { force: true });
 
+  const previewLeakBoardFile = path.join(process.cwd(), 'tmp', 'mobile-live-golden-preview-leak-test.json');
+  fs.writeFileSync(previewLeakBoardFile, JSON.stringify({
+    boardUpdatedAt: '2026-06-13T08:55:00.000Z',
+    items: [
+      ['청년미래적금 신청 대상', 'SSS', 98, 42000, 300, 140, 'policy'],
+      ['소상공인 환급금 조회 방법', 'SSS', 96, 36000, 420, 85, 'policy'],
+      ['프로야구 올스타전 예매 일정', 'SS', 91, 28000, 700, 40, 'sports'],
+      ['지역 축제 주차 위치', 'S', 74, 5400, 50000, 1.4, 'life'],
+      ['여름 휴가 준비물 체크리스트', 'S', 73, 5200, 52000, 1.3, 'life'],
+      ['드라마 다시보기 방법', 'S', 72, 5000, 54000, 1.2, 'drama'],
+      ['KBO 중계 일정', 'S', 71, 4800, 56000, 1.1, 'sports'],
+      ['공휴일 병원 진료 조회', 'S', 70, 4600, 58000, 1.0, 'life'],
+      ['자격증 접수 마감일', 'S', 69, 4400, 60000, 0.9, 'education'],
+      ['신제품 출시 가격 비교', 'S', 68, 4200, 62000, 0.8, 'electronics'],
+    ].map(([keyword, grade, score, totalSearchVolume, documentCount, goldenRatio, category]) => ({
+      keyword,
+      grade,
+      score,
+      totalSearchVolume,
+      documentCount,
+      goldenRatio,
+      category,
+      updatedAt: '2026-06-13T08:55:00.000Z',
+      discoveredAt: '2026-06-13T08:55:00.000Z',
+      isMeasured: true,
+    })),
+  }), 'utf8');
+  const previewLeakRadar = new MobileLiveGoldenRadar({
+    notificationInbox: inbox,
+    runOnStart: false,
+    boardFile: previewLeakBoardFile,
+    publicPreviewCount: 5,
+    now: () => new Date('2026-06-13T09:00:00.000Z'),
+  });
+  const previewLeakSnapshot = previewLeakRadar.snapshot();
+  assert('free preview never leaks pro head even when strict public candidates are scarce',
+    previewLeakSnapshot.publicPreview.length === 5
+      && previewLeakSnapshot.publicPreview.every((item) => item.rank > 3)
+      && previewLeakSnapshot.publicPreview.every((item) => !['청년미래적금 신청 대상', '소상공인 환급금 조회 방법', '프로야구 올스타전 예매 일정'].includes(item.keyword)),
+    previewLeakSnapshot.publicPreview.map((item) => `${item.rank}:${item.keyword}`).join('|'));
+  fs.rmSync(previewLeakBoardFile, { force: true });
+
   let skippedDiscoverCalls = 0;
   const skippedRadar = new MobileLiveGoldenRadar({
     notificationInbox: inbox,

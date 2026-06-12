@@ -1069,24 +1069,37 @@ export class MobileLiveGoldenRadar {
     const count = Math.min(this.publicPreviewCount, board.length);
     if (count <= 0) return [];
     const nowMs = this.now().getTime();
-    const previewSource = board
+    const protectedTopCount = board.length > count
+      ? Math.min(
+        Math.max(0, board.length - count),
+        Math.max(count * 3, Math.floor(board.length * 0.55)),
+      )
+      : 0;
+    const freeBoard = protectedTopCount > 0 ? board.slice(protectedTopCount) : board;
+    const isFresh = (item: MobileLiveGoldenBoardItem) => ageMsFrom(item.updatedAt, nowMs) <= PUBLIC_PREVIEW_MAX_AGE_MS;
+    const sourceMap = new Map<string, MobileLiveGoldenBoardItem>();
+    const pushSource = (items: MobileLiveGoldenBoardItem[]) => {
+      for (const item of items) {
+        if (!sourceMap.has(item.id)) sourceMap.set(item.id, item);
+      }
+    };
+    const previewSource = freeBoard
       .filter(isPublicPreviewCandidate)
-      .filter((item) => ageMsFrom(item.updatedAt, nowMs) <= PUBLIC_PREVIEW_MAX_AGE_MS);
-    const metricSource = board
+      .filter(isFresh);
+    const metricSource = freeBoard
       .filter(isLiveRadarUsableMetric)
-      .filter((item) => ageMsFrom(item.updatedAt, nowMs) <= PUBLIC_PREVIEW_MAX_AGE_MS);
-    const source = previewSource.length >= count ? previewSource : metricSource;
+      .filter(isFresh);
+    const freshFallback = freeBoard.filter(isFresh);
+    pushSource(previewSource);
+    pushSource(metricSource);
+    pushSource(freshFallback);
+    const source = [...sourceMap.values()];
     if (source.length <= count) return source.slice(0, count);
 
-    const protectedTopCount = Math.min(
-      Math.max(0, source.length - count),
-      Math.max(count * 3, Math.floor(source.length * 0.55)),
-    );
-    const lowerBoard = source.slice(protectedTopCount);
-    const lowerRecent = [...lowerBoard]
+    const lowerRecent = [...source]
       .sort((a, b) => Date.parse(b.updatedAt) - Date.parse(a.updatedAt))
       .slice(0, count * 4);
-    const lowerTail = lowerBoard.slice(-count * 4);
+    const lowerTail = source.slice(-count * 4);
     const poolMap = new Map<string, MobileLiveGoldenBoardItem>();
     for (const item of [...lowerRecent, ...lowerTail]) {
       poolMap.set(item.id, item);
