@@ -266,6 +266,36 @@ export function renderLewordProWeb(): string {
     .tool-checks { display: flex; gap: 10px; flex-wrap: wrap; grid-column: 1 / -1; color: #d9e6f7; font-size: 12px; }
     .tool-checks label { display: inline-flex; align-items: center; gap: 5px; white-space: nowrap; }
     .tool-note { margin-top: 10px; color: var(--muted); font-size: 12px; line-height: 1.5; }
+    .catalog-strip {
+      display: grid;
+      grid-template-columns: repeat(5, minmax(0, 1fr));
+      gap: 8px;
+      margin: 0 0 12px;
+    }
+    .catalog-pill {
+      border: 1px solid rgba(159,177,200,.2);
+      border-radius: 8px;
+      background: #07111f;
+      padding: 10px;
+      min-height: 58px;
+    }
+    .catalog-pill strong { display: block; color: var(--gold); font-size: 17px; }
+    .catalog-pill span { display: block; margin-top: 4px; color: var(--muted); font-size: 11px; line-height: 1.35; }
+    .catalog-list {
+      display: grid;
+      grid-template-columns: repeat(2, minmax(0, 1fr));
+      gap: 8px;
+      margin-bottom: 12px;
+    }
+    .catalog-item {
+      border: 1px solid rgba(159,177,200,.18);
+      border-radius: 8px;
+      background: #0b1626;
+      padding: 10px;
+      min-width: 0;
+    }
+    .catalog-item strong { display: block; font-size: 13px; overflow-wrap: anywhere; }
+    .catalog-item span { display: block; margin-top: 4px; color: var(--muted); font-size: 11px; line-height: 1.4; overflow-wrap: anywhere; }
     .ops-grid { display: grid; grid-template-columns: repeat(4, minmax(0, 1fr)); gap: 10px; }
     .ops-card {
       border: 1px solid rgba(159,177,200,.2);
@@ -383,7 +413,7 @@ export function renderLewordProWeb(): string {
       .feature-grid, .ops-grid { grid-template-columns: repeat(2, minmax(0, 1fr)); }
     }
     @media (max-width: 820px) {
-      .source-grid, .metrics, .workbench, .lookup-row, .golden-stats, .ops-grid, .tool-form { grid-template-columns: 1fr; }
+      .source-grid, .metrics, .workbench, .lookup-row, .golden-stats, .ops-grid, .tool-form, .catalog-strip, .catalog-list { grid-template-columns: 1fr; }
       .quality-strip { grid-template-columns: 1fr 1fr; }
       .result-toolbar { grid-template-columns: 1fr; }
       .result-kpis { grid-template-columns: 1fr 1fr; }
@@ -563,6 +593,8 @@ export function renderLewordProWeb(): string {
             </div>
             <div class="tool-note" id="toolProfileNote">Pro 트래픽 폭발 키워드 헌터 설정을 조정한 뒤 실행하세요.</div>
           </div>
+          <div class="catalog-strip" id="featureCatalogStrip"></div>
+          <div class="catalog-list" id="featureCatalogList"></div>
           <div class="feature-grid" id="featureGrid"></div>
         </section>
 
@@ -1222,6 +1254,57 @@ export function renderLewordProWeb(): string {
           + '</article>';
       }).join('');
     }
+    function catalogStatusLabel(status) {
+      if (status === 'ready') return '즉시 실행';
+      if (status === 'linked') return '서버 연동';
+      if (status === 'pc-only') return 'PC 전용';
+      return '분리 예정';
+    }
+    function catalogPill(label, value, meta) {
+      return '<div class="catalog-pill"><strong>' + escapeHtml(value) + '</strong><span>' + escapeHtml(label + ' · ' + meta) + '</span></div>';
+    }
+    function renderFeatureCatalog(catalog, apiStatus) {
+      const items = catalog && Array.isArray(catalog.items) ? catalog.items : [];
+      const manualReady = features.filter(function(feature) { return feature.status === 'ready'; }).length;
+      const total = catalog && catalog.totalHandlers != null ? catalog.totalHandlers : items.length;
+      const ready = catalog && catalog.ready != null ? catalog.ready : manualReady;
+      const linked = catalog && catalog.linked != null ? catalog.linked : features.filter(function(feature) { return feature.status === 'linked'; }).length;
+      const planned = catalog && catalog.planned != null ? catalog.planned : 0;
+      const statusText = apiStatus && apiStatus.ready === false
+        ? 'API 설정 확인 필요'
+        : apiStatus && apiStatus.ok === false
+          ? 'API 상태 확인 필요'
+          : '서버 기능 점검 가능';
+      qs('featureCatalogStrip').innerHTML = [
+        catalogPill('Electron IPC', total ? fmt(total) : '로그인 후', '전체 기능 표면'),
+        catalogPill('즉시 실행', fmt(ready), '서버 job 실행'),
+        catalogPill('서버 연동', fmt(linked), '스냅샷/저장/발행'),
+        catalogPill('분리 예정', fmt(planned), '웹 전환 후보'),
+        catalogPill('상태', statusText, 'API/권한/런타임'),
+      ].join('');
+      const priority = items.length
+        ? items
+          .filter(function(item) { return item.status === 'ready' || item.status === 'linked'; })
+          .slice(0, 12)
+        : features.map(function(feature) {
+          return {
+            title: feature.title,
+            status: feature.status,
+            mobileRoute: feature.route,
+            description: feature.desc,
+          };
+        });
+      qs('featureCatalogList').innerHTML = priority.map(function(item) {
+        return '<article class="catalog-item">'
+          + '<span class="status-pill ' + escapeHtml(item.status || '') + '">' + escapeHtml(catalogStatusLabel(item.status)) + '</span>'
+          + '<strong>' + escapeHtml(item.title || item.handler || '-') + '</strong>'
+          + '<span>' + escapeHtml((item.mobileRoute || item.route || '-') + ' · ' + (item.description || item.ipcEquivalent || 'server')) + '</span>'
+          + '</article>';
+      }).join('');
+      if (!priority.length) {
+        qs('featureCatalogList').innerHTML = '<article class="catalog-item"><strong>로그인 후 Electron 기능 카탈로그를 불러옵니다.</strong><span>현재 화면의 주요 Pro 도구는 위 실행 패널에서 바로 사용할 수 있습니다.</span></article>';
+      }
+    }
     function emptyOpsMessage() {
       return '<ul class="ops-list"><li>아직 표시할 데이터가 없습니다.</li></ul>';
     }
@@ -1326,6 +1409,7 @@ export function renderLewordProWeb(): string {
         const payload = await apiGet(endpoints.pcFeatures, true);
         pcCatalog = payload.catalog;
         const status = await apiGet(endpoints.apiStatus, true).catch(function(err) { return { error: err.message }; });
+        renderFeatureCatalog(pcCatalog, status.snapshot || status);
         setResult({ pcFeatureCatalog: pcCatalog && pcCatalog.summary ? pcCatalog.summary : pcCatalog, apiStatus: status.snapshot || status });
         log('서버 기능 카탈로그와 API 상태를 확인했습니다.');
       } catch (err) {
@@ -1483,6 +1567,7 @@ export function renderLewordProWeb(): string {
 
     restoreSession();
     renderFeatureGrid();
+    renderFeatureCatalog(null, null);
     selectTool(selectedToolId);
     renderOpsLocked();
     loadHealth();

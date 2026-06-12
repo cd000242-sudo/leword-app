@@ -110,6 +110,15 @@ assert('renders feature-specific tool settings panel',
     && html.includes('id="runSelectedTool"')
     && html.includes('선택 도구 실행'));
 
+assert('renders Electron parity feature catalog dashboard',
+  html.includes('id="featureCatalogStrip"')
+    && html.includes('id="featureCatalogList"')
+    && html.includes('function renderFeatureCatalog')
+    && html.includes('function catalogStatusLabel')
+    && html.includes("pcFeatures: '/v1/mobile/pc-features'")
+    && html.includes('renderFeatureCatalog(pcCatalog, status.snapshot || status)')
+    && html.includes('renderFeatureCatalog(null, null)'));
+
 assert('tool settings drive server payloads instead of one generic button',
   html.includes('function collectToolOptions()')
     && html.includes('function selectTool(id)')
