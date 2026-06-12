@@ -224,6 +224,26 @@ export function renderLewordProWeb(): string {
     }
     .feature-card h3 { margin: 0; font-size: 16px; line-height: 1.35; }
     .feature-card p { margin: 0; color: var(--muted); font-size: 12px; line-height: 1.5; flex: 1; }
+    .ops-grid { display: grid; grid-template-columns: repeat(4, minmax(0, 1fr)); gap: 10px; }
+    .ops-card {
+      border: 1px solid rgba(159,177,200,.2);
+      border-radius: 8px;
+      background: #0b1626;
+      padding: 14px;
+      min-height: 178px;
+    }
+    .ops-card h3 { margin: 0 0 10px; font-size: 15px; line-height: 1.35; }
+    .ops-number { display: block; color: var(--gold); font-size: 24px; font-weight: 1000; }
+    .ops-meta { display: block; margin: 4px 0 10px; color: var(--muted); font-size: 12px; line-height: 1.45; }
+    .ops-list { display: grid; gap: 6px; margin: 0; padding: 0; list-style: none; }
+    .ops-list li {
+      border-top: 1px solid rgba(159,177,200,.14);
+      padding-top: 6px;
+      color: #d9e6f7;
+      font-size: 12px;
+      line-height: 1.45;
+      overflow-wrap: anywhere;
+    }
     .status-pill {
       display: inline-flex;
       width: fit-content;
@@ -279,10 +299,10 @@ export function renderLewordProWeb(): string {
       .layout { grid-template-columns: 1fr; }
       .sidebar { position: static; grid-template-columns: repeat(4, 1fr); }
       .side-note { grid-column: 1 / -1; }
-      .feature-grid { grid-template-columns: repeat(2, minmax(0, 1fr)); }
+      .feature-grid, .ops-grid { grid-template-columns: repeat(2, minmax(0, 1fr)); }
     }
     @media (max-width: 820px) {
-      .source-grid, .metrics, .workbench, .lookup-row, .golden-stats { grid-template-columns: 1fr; }
+      .source-grid, .metrics, .workbench, .lookup-row, .golden-stats, .ops-grid { grid-template-columns: 1fr; }
       .golden-row { grid-template-columns: 48px minmax(0, 1fr); }
       .golden-row .grade { justify-self: start; }
       .golden-actions { grid-column: 1 / -1; justify-content: flex-start; }
@@ -307,6 +327,7 @@ export function renderLewordProWeb(): string {
         <a href="#sources">실시간 소스</a>
         <a href="#lookup">키워드 조회</a>
         <a href="#features">Pro 기능</a>
+        <a href="#ops">운영 현황</a>
         <button type="button" id="loginOpen">Pro 로그인</button>
       </nav>
     </header>
@@ -317,6 +338,7 @@ export function renderLewordProWeb(): string {
         <a class="side-link" href="#sources">네이버/다음/네이트/줌/정책/이슈</a>
         <a class="side-link" href="#lookup">PC/모바일 실측 조회</a>
         <a class="side-link" href="#features">전체 Pro 기능</a>
+        <a class="side-link" href="#ops">노출/성과/발행/스케줄</a>
         <a class="side-link" href="#workbench">실행 로그</a>
         <div class="side-note">내부 설명 대신 실제 실행 콘솔만 보여줍니다. 서버가 수집, 측정, 캐시, job 실행을 담당합니다.</div>
       </aside>
@@ -425,6 +447,22 @@ export function renderLewordProWeb(): string {
           <div class="feature-grid" id="featureGrid"></div>
         </section>
 
+        <section class="panel" id="ops">
+          <div class="panel-title">
+            <div>
+              <h2>Pro 운영 대시보드</h2>
+              <div class="muted">내 노출 추적, Pro 성과 기록, 워드프레스 발행, 예약 스케줄을 서버 스냅샷으로 모아 보여줍니다.</div>
+            </div>
+            <button class="btn blue" type="button" id="refreshOps">운영 현황 새로고침</button>
+          </div>
+          <div class="ops-grid">
+            <article class="ops-card" id="ops-rank"><h3>내 노출 추적</h3><span class="ops-number">-</span><span class="ops-meta">Pro 로그인 후 확인</span></article>
+            <article class="ops-card" id="ops-outcomes"><h3>성과 기록</h3><span class="ops-number">-</span><span class="ops-meta">Pro 로그인 후 확인</span></article>
+            <article class="ops-card" id="ops-wordpress"><h3>워드프레스/발행</h3><span class="ops-number">-</span><span class="ops-meta">Pro 로그인 후 확인</span></article>
+            <article class="ops-card" id="ops-schedule"><h3>스케줄/알림</h3><span class="ops-number">-</span><span class="ops-meta">Pro 로그인 후 확인</span></article>
+          </div>
+        </section>
+
         <section class="panel" id="workbench">
           <div class="panel-title">
             <div>
@@ -468,6 +506,9 @@ export function renderLewordProWeb(): string {
       apiStatus: '/v1/mobile/api-status',
       pcFeatures: '/v1/mobile/pc-features',
       rankTracking: '/v1/mobile/rank-tracking',
+      proOutcomes: '/v1/mobile/pro-outcomes',
+      wordpress: '/v1/mobile/wordpress',
+      scheduleDashboard: '/v1/mobile/schedule-dashboard',
       liveGolden: '/v1/live-golden/snapshot',
       keywordAnalysis: '/v1/keywords/analyze',
       mindmap: '/v1/mindmap/expand',
@@ -773,6 +814,104 @@ export function renderLewordProWeb(): string {
           + '</article>';
       }).join('');
     }
+    function emptyOpsMessage() {
+      return '<ul class="ops-list"><li>아직 표시할 데이터가 없습니다.</li></ul>';
+    }
+    function renderOpsCard(id, title, value, meta, items) {
+      const target = qs('ops-' + id);
+      if (!target) return;
+      const list = Array.isArray(items) && items.length
+        ? '<ul class="ops-list">' + items.slice(0, 3).map(function(item) { return '<li>' + escapeHtml(item) + '</li>'; }).join('') + '</ul>'
+        : emptyOpsMessage();
+      target.innerHTML = '<h3>' + escapeHtml(title) + '</h3>'
+        + '<span class="ops-number">' + escapeHtml(value) + '</span>'
+        + '<span class="ops-meta">' + escapeHtml(meta) + '</span>'
+        + list;
+    }
+    function renderOpsLocked() {
+      renderOpsCard('rank', '내 노출 추적', '-', 'Pro 로그인 후 서버 추적 현황을 확인합니다.', []);
+      renderOpsCard('outcomes', '성과 기록', '-', 'Pro 로그인 후 실제 노출/수익 기록을 확인합니다.', []);
+      renderOpsCard('wordpress', '워드프레스/발행', '-', 'Pro 로그인 후 사이트와 발행 초안을 확인합니다.', []);
+      renderOpsCard('schedule', '스케줄/알림', '-', 'Pro 로그인 후 예약과 알림 상태를 확인합니다.', []);
+    }
+    function settledValue(result) {
+      return result && result.status === 'fulfilled' ? result.value : null;
+    }
+    function settledError(result) {
+      return result && result.status === 'rejected' && result.reason ? result.reason.message || String(result.reason) : null;
+    }
+    async function loadOpsDashboard() {
+      if (!session || !session.accessToken) {
+        renderOpsLocked();
+        return;
+      }
+      const results = await Promise.allSettled([
+        apiGet(endpoints.rankTracking, true),
+        apiGet(endpoints.proOutcomes, true),
+        apiGet(endpoints.wordpress, true),
+        apiGet(endpoints.scheduleDashboard, true)
+      ]);
+      const rank = settledValue(results[0]);
+      const outcomes = settledValue(results[1]);
+      const wordpress = settledValue(results[2]);
+      const schedule = settledValue(results[3]);
+
+      if (rank && rank.snapshot) {
+        const totals = rank.snapshot.totals || {};
+        const posts = ((rank.snapshot.posts || {}).items || []).slice(0, 3).map(function(post) {
+          const rankText = post.currentRank ? String(post.currentRank) + '위' : 'Top30 밖';
+          return (post.keyword || post.postTitle || '추적 글') + ' · ' + rankText + ' · ' + (post.postTitle || post.postUrl || '-');
+        });
+        renderOpsCard('rank', '내 노출 추적', fmt(totals.currentlyInTop30 || 0) + '/' + fmt(totals.trackedPairs || 0), 'Top30 노출 / 추적쌍 · Top10 ' + fmt(totals.currentlyInTop10 || 0), posts);
+      } else {
+        renderOpsCard('rank', '내 노출 추적', '오류', settledError(results[0]) || '스냅샷을 불러오지 못했습니다.', []);
+      }
+
+      if (outcomes && outcomes.snapshot) {
+        const snapshot = outcomes.snapshot;
+        const benchmark = snapshot.benchmark || {};
+        const topKeywords = (benchmark.topPerformingKeywords || []).slice(0, 3).map(function(item) {
+          return (item.keyword || '성과 키워드') + ' · 조회 ' + fmt(item.views || 0) + ' · 수익 ' + fmt(item.revenue || 0);
+        });
+        renderOpsCard('outcomes', '성과 기록', fmt(snapshot.measuredPosts || 0) + '/' + fmt(snapshot.totalRecords || 0), '측정 글 / 전체 기록 · 월수익 ' + fmt(benchmark.totalMonthlyRevenue || 0), topKeywords);
+      } else {
+        renderOpsCard('outcomes', '성과 기록', '오류', settledError(results[1]) || '스냅샷을 불러오지 못했습니다.', []);
+      }
+
+      if (wordpress && wordpress.snapshot) {
+        const snapshot = wordpress.snapshot;
+        const sites = snapshot.sites || {};
+        const drafts = snapshot.drafts || {};
+        const draftItems = (drafts.items || []).slice(0, 3).map(function(draft) {
+          return (draft.title || draft.keyword || '발행 초안') + ' · ' + (draft.status || 'draft');
+        });
+        renderOpsCard('wordpress', '워드프레스/발행', fmt(drafts.total || 0), '초안 · 연결 사이트 ' + fmt(sites.total || 0), draftItems);
+      } else {
+        renderOpsCard('wordpress', '워드프레스/발행', '오류', settledError(results[2]) || '스냅샷을 불러오지 못했습니다.', []);
+      }
+
+      if (schedule && schedule.snapshot) {
+        const snapshot = schedule.snapshot;
+        const schedules = snapshot.schedules || {};
+        const groups = snapshot.groups || {};
+        const nextItems = (schedules.items || []).slice(0, 3).map(function(item) {
+          return (item.keyword || item.topic || '예약') + ' · ' + (item.status || '-') + ' · ' + fmtTime(item.scheduleDateTime);
+        });
+        renderOpsCard('schedule', '스케줄/알림', fmt(schedules.pending || 0) + '/' + fmt(schedules.total || 0), '대기 / 전체 예약 · 그룹 ' + fmt(groups.total || 0) + ' · 다음 ' + fmtTime(schedules.nextRunAt), nextItems);
+      } else {
+        renderOpsCard('schedule', '스케줄/알림', '오류', settledError(results[3]) || '스냅샷을 불러오지 못했습니다.', []);
+      }
+
+      setResult({
+        operations: {
+          rankTracking: rank && rank.snapshot ? rank.snapshot.totals : settledError(results[0]),
+          outcomes: outcomes && outcomes.snapshot ? { totalRecords: outcomes.snapshot.totalRecords, measuredPosts: outcomes.snapshot.measuredPosts } : settledError(results[1]),
+          wordpress: wordpress && wordpress.snapshot ? { sites: wordpress.snapshot.sites.total, drafts: wordpress.snapshot.drafts.total } : settledError(results[2]),
+          schedule: schedule && schedule.snapshot ? { schedules: schedule.snapshot.schedules.total, pending: schedule.snapshot.schedules.pending } : settledError(results[3])
+        }
+      });
+      log('Pro 운영 대시보드를 갱신했습니다.');
+    }
     async function refreshFeatureStatus() {
       if (!requireSession()) return;
       try {
@@ -845,7 +984,7 @@ export function renderLewordProWeb(): string {
         qs('loginMessage').textContent = '로그인 완료';
         closeLogin();
         log('Pro 로그인 완료: ' + (payload.session.tier || 'standard'));
-        await Promise.all([loadSources(), loadGoldenBoard(), refreshFeatureStatus().catch(function() {})]);
+        await Promise.all([loadSources(), loadGoldenBoard(), loadOpsDashboard(), refreshFeatureStatus().catch(function() {})]);
       } catch (err) {
         qs('loginMessage').textContent = err.message;
       }
@@ -856,6 +995,13 @@ export function renderLewordProWeb(): string {
     });
     qs('refreshSources').addEventListener('click', loadSources);
     qs('refreshGolden').addEventListener('click', loadGoldenBoard);
+    qs('refreshOps').addEventListener('click', function() {
+      if (!requireSession()) {
+        renderOpsLocked();
+        return;
+      }
+      loadOpsDashboard().catch(function(err) { log('운영 대시보드 갱신 실패: ' + err.message); });
+    });
     qs('refreshFeatureStatus').addEventListener('click', refreshFeatureStatus);
     qs('clearLog').addEventListener('click', function() {
       qs('runLog').textContent = 'LEWORD Pro Web 대기 중';
@@ -888,12 +1034,15 @@ export function renderLewordProWeb(): string {
 
     restoreSession();
     renderFeatureGrid();
+    renderOpsLocked();
     loadHealth();
     loadGoldenBoard();
     loadSources();
+    loadOpsDashboard();
     setInterval(loadHealth, 30000);
     setInterval(loadGoldenBoard, 60000);
     setInterval(loadSources, 60000);
+    setInterval(loadOpsDashboard, 90000);
   </script>
 </body>
 </html>`;

@@ -58,6 +58,24 @@ assert('ready server-backed routes are wired',
     && html.includes("'/v1/mindmap/expand'")
     && html.includes("'/v1/keywords/analyze'"));
 
+assert('renders pro operations dashboard for Electron parity',
+  html.includes('id="ops"')
+    && html.includes('Pro 운영 대시보드')
+    && html.includes('내 노출 추적')
+    && html.includes('성과 기록')
+    && html.includes('워드프레스/발행')
+    && html.includes('스케줄/알림')
+    && html.includes('id="refreshOps"'));
+
+assert('operations dashboard is wired to server snapshots',
+  html.includes("proOutcomes: '/v1/mobile/pro-outcomes'")
+    && html.includes("wordpress: '/v1/mobile/wordpress'")
+    && html.includes("scheduleDashboard: '/v1/mobile/schedule-dashboard'")
+    && html.includes("rankTracking: '/v1/mobile/rank-tracking'")
+    && html.includes('function loadOpsDashboard()')
+    && html.includes('Promise.allSettled')
+    && html.includes('setInterval(loadOpsDashboard, 90000)'));
+
 const fixed = new Date('2026-06-12T00:00:00.000Z').toISOString();
 const snapshot: MobileSourceSignalSnapshot = {
   updatedAt: fixed,
