@@ -224,6 +224,29 @@ export function renderLewordProWeb(): string {
     }
     .feature-card h3 { margin: 0; font-size: 16px; line-height: 1.35; }
     .feature-card p { margin: 0; color: var(--muted); font-size: 12px; line-height: 1.5; flex: 1; }
+    .tool-console {
+      border: 1px solid rgba(53,183,255,.28);
+      border-radius: 8px;
+      background: #0b1626;
+      padding: 14px;
+      margin-bottom: 12px;
+    }
+    .tool-tabs { display: flex; gap: 6px; flex-wrap: wrap; margin-bottom: 12px; }
+    .tool-tab {
+      min-height: 34px;
+      border: 1px solid var(--line);
+      border-radius: 8px;
+      background: #17263d;
+      color: #d9e6f7;
+      padding: 7px 10px;
+      font-size: 12px;
+      font-weight: 900;
+    }
+    .tool-tab.active { border-color: rgba(248,194,27,.7); color: #07111f; background: var(--gold); }
+    .tool-form { display: grid; grid-template-columns: 1.2fr .9fr .7fr .8fr; gap: 8px; align-items: center; }
+    .tool-checks { display: flex; gap: 10px; flex-wrap: wrap; grid-column: 1 / -1; color: #d9e6f7; font-size: 12px; }
+    .tool-checks label { display: inline-flex; align-items: center; gap: 5px; white-space: nowrap; }
+    .tool-note { margin-top: 10px; color: var(--muted); font-size: 12px; line-height: 1.5; }
     .ops-grid { display: grid; grid-template-columns: repeat(4, minmax(0, 1fr)); gap: 10px; }
     .ops-card {
       border: 1px solid rgba(159,177,200,.2);
@@ -333,7 +356,7 @@ export function renderLewordProWeb(): string {
       .feature-grid, .ops-grid { grid-template-columns: repeat(2, minmax(0, 1fr)); }
     }
     @media (max-width: 820px) {
-      .source-grid, .metrics, .workbench, .lookup-row, .golden-stats, .ops-grid { grid-template-columns: 1fr; }
+      .source-grid, .metrics, .workbench, .lookup-row, .golden-stats, .ops-grid, .tool-form { grid-template-columns: 1fr; }
       .result-kpis { grid-template-columns: 1fr 1fr; }
       .golden-row { grid-template-columns: 48px minmax(0, 1fr); }
       .golden-row .grade { justify-self: start; }
@@ -476,6 +499,39 @@ export function renderLewordProWeb(): string {
             </div>
             <button class="btn blue" type="button" id="refreshFeatureStatus">서버 상태 확인</button>
           </div>
+          <div class="tool-console" id="toolConsole">
+            <div class="tool-tabs" id="toolTabs" aria-label="Pro 도구 선택"></div>
+            <div class="tool-form">
+              <input class="input" id="toolSeedInput" placeholder="시드 키워드 또는 상품/질문 키워드" autocomplete="off" />
+              <select class="input" id="toolCategory">
+                <option value="all">전체 카테고리</option>
+                <option value="policy">정책/지원금</option>
+                <option value="broadcast">방송/이슈</option>
+                <option value="shopping">쇼핑</option>
+                <option value="sports">스포츠</option>
+                <option value="education">교육</option>
+                <option value="life">생활</option>
+              </select>
+              <input class="input" id="toolTargetCount" type="number" min="5" max="80" step="5" value="30" />
+              <select class="input" id="toolSort">
+                <option value="sim">관련도/정밀</option>
+                <option value="date">최신순</option>
+                <option value="trending">트렌딩</option>
+                <option value="rising">급상승</option>
+                <option value="full">전체 헌팅</option>
+              </select>
+              <div class="tool-checks">
+                <label><input type="checkbox" id="toolFreshIssue" checked /> 실시간 이슈</label>
+                <label><input type="checkbox" id="toolSeasonal" checked /> 시즌성</label>
+                <label><input type="checkbox" id="toolEvergreen" checked /> evergreen</label>
+                <label><input type="checkbox" id="toolVolumeMetrics" checked /> PC/모바일 실측</label>
+                <label><input type="checkbox" id="toolCrossRef" checked /> 교차검증</label>
+              </div>
+              <button class="btn primary" type="button" id="runSelectedTool">선택 도구 실행</button>
+              <button class="btn blue" type="button" id="copyLookupKeyword">조회 키워드 가져오기</button>
+            </div>
+            <div class="tool-note" id="toolProfileNote">Pro 트래픽 폭발 키워드 헌터 설정을 조정한 뒤 실행하세요.</div>
+          </div>
           <div class="feature-grid" id="featureGrid"></div>
         </section>
 
@@ -562,18 +618,19 @@ export function renderLewordProWeb(): string {
     };
 
     const features = [
-      { id: 'pro-traffic', title: 'PRO 트래픽 폭발 키워드 헌터', status: 'ready', route: endpoints.proTraffic, desc: '실시간 이슈, 계절성, evergreen 신호를 서버 job으로 분석합니다.', payload: (q) => ({ categoryId: 'all', seedKeyword: q || undefined, targetCount: 30, includeSeasonal: true, includeEvergreen: true, includeFreshIssue: true }) },
+      { id: 'pro-traffic', title: 'PRO 트래픽 폭발 키워드 헌터', status: 'ready', route: endpoints.proTraffic, desc: '실시간 이슈, 계절성, evergreen 신호를 서버 job으로 분석합니다.', defaultTargetCount: 30, payload: (q, options) => ({ categoryId: options.categoryId || 'all', seedKeyword: q || undefined, targetCount: options.targetCount || 30, includeSeasonal: options.includeSeasonal !== false, includeEvergreen: options.includeEvergreen !== false, includeFreshIssue: options.includeFreshIssue !== false }) },
       { id: 'exposure', title: '내 노출 추적', status: 'linked', route: endpoints.rankTracking, desc: '서버의 노출/순위 추적 스냅샷과 SERP 체크 라우트에 연결합니다.', method: 'GET' },
-      { id: 'shopping', title: '쇼핑 커넥트', status: 'ready', route: endpoints.shoppingConnect, desc: '네이버 쇼핑 상품 신호를 서버 job으로 분석하고 블로그 진입 키워드로 변환합니다.', requiresKeyword: true, payload: (q) => ({ keyword: q, targetCount: 20, sort: 'sim' }) },
-      { id: 'youtube', title: '유튜브 황금키워드', status: 'ready', route: endpoints.youtubeGolden, desc: 'YouTube 급상승 영상 신호를 수집하고 네이버 수요와 교차검증합니다.', payload: () => ({ maxResults: 50, crossReferenceNaver: true }) },
-      { id: 'adsense', title: '애드센스 승인 키워드 헌터', status: 'ready', route: endpoints.adsense, desc: 'home-board/adsense 계열 엔진을 서버 job으로 실행합니다.', payload: (q) => ({ categoryId: 'policy', seedKeyword: q || undefined, targetCount: 30, requireSplusFloor: true }) },
-      { id: 'naver-mate', title: '네이버 메이트 키워드 헌터', status: 'ready', route: endpoints.naverMate, desc: '네이버 자동완성/연관어 기반 확장을 서버 측정표로 연결합니다.', requiresKeyword: true, payload: (q) => ({ seedKeyword: q, targetCount: 50, includeAutocomplete: true, includeRelated: true, includeVolumeMetrics: true }) },
-      { id: 'kin', title: '지식인 황금질문', status: 'ready', route: endpoints.kin, desc: '지식인 외부유입 질문을 서버 job으로 발굴합니다.', payload: () => ({ tabType: 'trending', targetCount: 30, isPremiumRequest: true }) },
-      { id: 'blueprint', title: 'Pro 블루프린트/수익 설계', status: 'linked', route: endpoints.revenue, desc: '키워드별 예상 수익과 글감 블루프린트 서버 라우트에 연결합니다.', payload: (q) => ({ keyword: q || '소상공인 지원금 신청', monthlyViews: 3000, category: 'policy' }) }
+      { id: 'shopping', title: '쇼핑 커넥트', status: 'ready', route: endpoints.shoppingConnect, desc: '네이버 쇼핑 상품 신호를 서버 job으로 분석하고 블로그 진입 키워드로 변환합니다.', requiresKeyword: true, defaultTargetCount: 20, payload: (q, options) => ({ keyword: q, targetCount: options.targetCount || 20, sort: options.sort || 'sim' }) },
+      { id: 'youtube', title: '유튜브 황금키워드', status: 'ready', route: endpoints.youtubeGolden, desc: 'YouTube 급상승 영상 신호를 수집하고 네이버 수요와 교차검증합니다.', defaultTargetCount: 50, payload: (_q, options) => ({ maxResults: options.targetCount || 50, crossReferenceNaver: options.crossReferenceNaver !== false }) },
+      { id: 'adsense', title: '애드센스 승인 키워드 헌터', status: 'ready', route: endpoints.adsense, desc: 'home-board/adsense 계열 엔진을 서버 job으로 실행합니다.', defaultTargetCount: 30, payload: (q, options) => ({ categoryId: options.categoryId === 'all' ? 'policy' : options.categoryId || 'policy', seedKeyword: q || undefined, targetCount: options.targetCount || 30, requireSplusFloor: true }) },
+      { id: 'naver-mate', title: '네이버 메이트 키워드 헌터', status: 'ready', route: endpoints.naverMate, desc: '네이버 자동완성/연관어 기반 확장을 서버 측정표로 연결합니다.', requiresKeyword: true, defaultTargetCount: 50, payload: (q, options) => ({ seedKeyword: q, targetCount: options.targetCount || 50, includeAutocomplete: true, includeRelated: true, includeVolumeMetrics: options.includeVolumeMetrics !== false }) },
+      { id: 'kin', title: '지식인 황금질문', status: 'ready', route: endpoints.kin, desc: '지식인 외부유입 질문을 서버 job으로 발굴합니다.', defaultTargetCount: 30, payload: (_q, options) => ({ tabType: ['rising', 'full'].includes(options.sort) ? options.sort : 'trending', targetCount: options.targetCount || 30, isPremiumRequest: true }) },
+      { id: 'blueprint', title: 'Pro 블루프린트/수익 설계', status: 'linked', route: endpoints.revenue, desc: '키워드별 예상 수익과 글감 블루프린트 서버 라우트에 연결합니다.', requiresKeyword: false, defaultTargetCount: 30, payload: (q, options) => ({ keyword: q || '소상공인 지원금 신청', monthlyViews: Math.max(100, (options.targetCount || 30) * 100), category: options.categoryId === 'all' ? 'policy' : options.categoryId || 'policy' }) }
     ];
 
     let session = null;
     let pcCatalog = null;
+    let selectedToolId = 'pro-traffic';
 
     function qs(id) { return document.getElementById(id); }
     function escapeHtml(value) {
@@ -950,6 +1007,42 @@ export function renderLewordProWeb(): string {
         qs('metricServer').textContent = '오류';
       }
     }
+    function getSelectedTool() {
+      return features.find(function(feature) { return feature.id === selectedToolId; }) || features[0];
+    }
+    function renderToolTabs() {
+      qs('toolTabs').innerHTML = features.map(function(feature) {
+        const active = feature.id === selectedToolId ? ' active' : '';
+        return '<button class="tool-tab' + active + '" type="button" data-tool="' + escapeAttr(feature.id) + '">' + escapeHtml(feature.title) + '</button>';
+      }).join('');
+    }
+    function selectTool(id) {
+      const feature = features.find(function(row) { return row.id === id; }) || features[0];
+      selectedToolId = feature.id;
+      qs('toolTargetCount').value = String(feature.defaultTargetCount || 30);
+      qs('toolSeedInput').placeholder = feature.requiresKeyword
+        ? feature.title + ' 실행 키워드 필수'
+        : feature.title + ' 시드 키워드 선택 입력';
+      qs('toolProfileNote').textContent = feature.title + ' · ' + feature.desc;
+      renderToolTabs();
+    }
+    function toolKeywordInput() {
+      return (qs('toolSeedInput').value.trim() || compactKeywordInput()).trim();
+    }
+    function collectToolOptions() {
+      const count = Math.max(5, Math.min(80, Number(qs('toolTargetCount').value || 30)));
+      return {
+        keyword: toolKeywordInput(),
+        categoryId: qs('toolCategory').value || 'all',
+        targetCount: count,
+        sort: qs('toolSort').value || 'sim',
+        includeFreshIssue: qs('toolFreshIssue').checked,
+        includeSeasonal: qs('toolSeasonal').checked,
+        includeEvergreen: qs('toolEvergreen').checked,
+        includeVolumeMetrics: qs('toolVolumeMetrics').checked,
+        crossReferenceNaver: qs('toolCrossRef').checked,
+      };
+    }
     function renderFeatureGrid() {
       qs('featureGrid').innerHTML = features.map(function(feature) {
         const pill = feature.status === 'ready' ? '실행 가능' : feature.status === 'linked' ? '서버 연결' : '서버 분리 대상';
@@ -1071,9 +1164,10 @@ export function renderLewordProWeb(): string {
         log('기능 상태 확인 실패: ' + err.message);
       }
     }
-    async function runFeature(feature) {
+    async function runFeature(feature, options) {
       if (!requireSession()) return;
-      const q = compactKeywordInput();
+      const runOptions = options || {};
+      const q = runOptions.keyword == null ? compactKeywordInput() : String(runOptions.keyword || '').trim();
       try {
         if (feature.requiresKeyword && !q) {
           log(feature.title + '는 키워드 입력이 필요합니다.');
@@ -1091,7 +1185,7 @@ export function renderLewordProWeb(): string {
           log(feature.title + ' 서버 상태 확인 완료');
           return;
         }
-        const created = await apiPost(feature.route, feature.payload ? feature.payload(q) : {});
+        const created = await apiPost(feature.route, feature.payload ? feature.payload(q, runOptions) : {});
         const result = await pollJob(created);
         renderFeatureResult(feature, result);
         log(feature.title + ' 완료');
@@ -1145,6 +1239,20 @@ export function renderLewordProWeb(): string {
       event.preventDefault();
       runLookup(qs('lookupMode').value);
     });
+    qs('toolTabs').addEventListener('click', function(event) {
+      const target = event.target.closest('[data-tool]');
+      if (!target) return;
+      selectTool(target.getAttribute('data-tool'));
+    });
+    qs('copyLookupKeyword').addEventListener('click', function() {
+      qs('toolSeedInput').value = compactKeywordInput();
+      qs('toolSeedInput').focus();
+    });
+    qs('runSelectedTool').addEventListener('click', function() {
+      const feature = getSelectedTool();
+      const options = collectToolOptions();
+      runFeature(feature, options);
+    });
     qs('refreshSources').addEventListener('click', loadSources);
     qs('refreshGolden').addEventListener('click', loadGoldenBoard);
     qs('refreshOps').addEventListener('click', function() {
@@ -1187,6 +1295,7 @@ export function renderLewordProWeb(): string {
 
     restoreSession();
     renderFeatureGrid();
+    selectTool(selectedToolId);
     renderOpsLocked();
     loadHealth();
     loadGoldenBoard();

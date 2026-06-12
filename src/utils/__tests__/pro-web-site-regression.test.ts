@@ -92,6 +92,25 @@ assert('result center exposes KPI summary and keyword actions',
     && html.includes('data-board-action="analyze"')
     && html.includes('renderFeatureResult(feature, result)'));
 
+assert('renders feature-specific tool settings panel',
+  html.includes('id="toolConsole"')
+    && html.includes('id="toolTabs"')
+    && html.includes('id="toolSeedInput"')
+    && html.includes('id="toolCategory"')
+    && html.includes('id="toolTargetCount"')
+    && html.includes('id="toolSort"')
+    && html.includes('id="runSelectedTool"')
+    && html.includes('선택 도구 실행'));
+
+assert('tool settings drive server payloads instead of one generic button',
+  html.includes('function collectToolOptions()')
+    && html.includes('function selectTool(id)')
+    && html.includes('runFeature(feature, options)')
+    && html.includes('feature.payload(q, runOptions)')
+    && html.includes('includeFreshIssue: options.includeFreshIssue !== false')
+    && html.includes('crossReferenceNaver: options.crossReferenceNaver !== false')
+    && html.includes('includeVolumeMetrics: options.includeVolumeMetrics !== false'));
+
 const fixed = new Date('2026-06-12T00:00:00.000Z').toISOString();
 const snapshot: MobileSourceSignalSnapshot = {
   updatedAt: fixed,
