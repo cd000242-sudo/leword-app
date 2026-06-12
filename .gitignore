@@ -17,6 +17,7 @@ test-results/
 .cache/
 .codex-build-cache/
 .expo/
+.server-keys/
 apps/mobile/.expo/
 apps/mobile/.expo-export/
 apps/mobile/builds/

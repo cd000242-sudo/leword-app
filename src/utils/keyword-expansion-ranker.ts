@@ -12,6 +12,7 @@ export interface KeywordExpansionRankOptions {
   includeSeed?: boolean;
   ensureIntentCoverage?: boolean;
   intentCoverageMin?: number;
+  allowSyntheticFallback?: boolean;
 }
 
 function normalizeKeyword(keyword: string): string {
@@ -40,6 +41,10 @@ function getCandidateSources(candidate: RelatedCandidateInput): string[] {
     ...(candidate.sources || []),
     candidate.source || '',
   ].filter(Boolean)));
+}
+
+function isSyntheticExpansionSource(source: string): boolean {
+  return /intent-fallback|pc-intent-expansion|pc-mindmap-intent-expansion/i.test(source);
 }
 
 function mergeExpansionCandidate(
@@ -356,6 +361,7 @@ export function rankKeywordExpansionCandidates(
     const key = compactKeyword(keyword);
     if (!keyword || !key) continue;
     if (!isUsableExpansionKeyword(keyword)) continue;
+    if (options.allowSyntheticFallback !== true && getCandidateSources(candidate).some(isSyntheticExpansionSource)) continue;
     const next = { ...candidate, keyword };
     const current = normalizedByKey.get(key);
     normalizedByKey.set(key, current ? mergeExpansionCandidate(current, next) : next);
@@ -402,10 +408,8 @@ export function rankKeywordExpansionCandidates(
 
   let ranked = rankNormalized(primaryMinScore);
 
-  if (options.ensureIntentCoverage === true) {
-    injectIntentFallbacks();
-    ranked = rankNormalized(primaryMinScore);
-  }
+  // User-facing expansion must stay real-source only. Intent coverage now
+  // rebalances measured/live candidates; it does not synthesize keywords.
 
   if (ranked.length < Math.min(minKeep, limit)) {
     ranked = rankNormalized(fallbackMinScore);

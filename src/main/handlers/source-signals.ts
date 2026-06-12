@@ -42,6 +42,79 @@ import {
     isMindmapExpansionSeedMetric,
 } from '../../utils/mindmap-metrics';
 
+type MindmapContextKeywordInput = string | {
+    keyword?: string;
+    searchVolume?: number;
+    monthlyVolume?: number;
+    documentCount?: number;
+    grade?: string;
+    source?: string;
+};
+
+async function collectDirectGoldenLiveSeeds(env: any, maxResults: number = 120): Promise<string[]> {
+    const out: string[] = [];
+    const push = (value: any) => {
+        const text = String(value || '').replace(/\s+/g, ' ').trim();
+        if (!text || text.length < 2 || text.length > 40) return;
+        if (!/[가-힣]/.test(text)) return;
+        const key = text.toLowerCase().replace(/\s+/g, '');
+        if (out.some(item => item.toLowerCase().replace(/\s+/g, '') === key)) return;
+        out.push(text);
+    };
+    const withTimeout = async <T>(promise: Promise<T>, ms: number, fallback: T): Promise<T> => Promise.race([
+        promise,
+        new Promise<T>(resolve => setTimeout(() => resolve(fallback), ms)),
+    ]);
+
+    await Promise.all([
+        (async () => {
+            try {
+                const { getNaverRealtimeKeywords } = await import('../../utils/realtime-search-keywords');
+                const items = await withTimeout(getNaverRealtimeKeywords(Math.min(40, maxResults)), 5000, [] as any[]);
+                items.map((item: any) => item.keyword).forEach(push);
+            } catch {}
+        })(),
+        (async () => {
+            try {
+                const ent = await import('../../utils/entertainment-news-aggregator');
+                const items = await withTimeout(ent.fetchEntertainmentAggregate({ maxMinutesAgo: 720, limitPerSource: 24 }), 5000, [] as any[]);
+                items.slice(0, Math.min(60, maxResults)).flatMap((item: any) => [item.title, item.keyword, `${item.title || ''} ${item.category || ''}`]).forEach(push);
+            } catch {}
+        })(),
+        (async () => {
+            try {
+                const { getNaverNewsRankingKeywords } = await import('../../utils/sources/naver-news-ranking');
+                const items = await withTimeout(getNaverNewsRankingKeywords(), 5000, [] as any[]);
+                items.slice(0, Math.min(40, maxResults)).map((item: any) => item.keyword).forEach(push);
+            } catch {}
+        })(),
+        (async () => {
+            try {
+                const policy = await import('../../utils/policy-briefing-api');
+                const items = await withTimeout(policy.getPolicyBriefingKeywords(Math.min(24, maxResults)), 5000, [] as any[]);
+                items.slice(0, 16).flatMap((item: any) => [
+                    item.keyword,
+                    ...(policy.expandPolicyDiscoverySeeds ? policy.expandPolicyDiscoverySeeds(item.keyword, 3) : []),
+                ]).forEach(push);
+            } catch {}
+        })(),
+        (async () => {
+            try {
+                const youtubeApiKey = env?.youtubeApiKey || process.env['YOUTUBE_API_KEY'] || '';
+                if (!youtubeApiKey) return;
+                const { getYouTubeTrendKeywords } = await import('../../utils/youtube-data-api');
+                const items = await withTimeout(
+                    getYouTubeTrendKeywords({ apiKey: youtubeApiKey, maxResults: Math.min(70, maxResults) }),
+                    7000,
+                    [] as any[],
+                );
+                items.slice(0, Math.min(70, maxResults)).map((item: any) => item.keyword).forEach(push);
+            } catch {}
+        })(),
+    ]);
+    return out.slice(0, maxResults);
+}
+
 function pro<T>(handler: () => Promise<T>): Promise<T | { error: string; requiresUnlimited: true }> {
     const lic = checkUnlimitedLicense();
     if (!lic.allowed) return Promise.resolve(lic.error as any);
@@ -301,6 +374,77 @@ export function setupSourceSignalHandlers(): void {
 
             // v2.42.14: aiAugmentation='claude' 시 force=true 강제 (캐시 우회 — 매번 새 Claude 호출)
             const force = aiAugmentation === 'claude' || discoveryMode === 'bulk' ? true : (options?.force === true);
+            if (discoveryMode === 'balanced' && aiAugmentation === 'none') {
+                const { EnvironmentManager } = await import('../../utils/environment-manager');
+                const env = EnvironmentManager.getInstance().getConfig();
+                const clientId = env.naverClientId || process.env['NAVER_CLIENT_ID'] || '';
+                const clientSecret = env.naverClientSecret || process.env['NAVER_CLIENT_SECRET'] || '';
+                if (clientId && clientSecret) {
+                    const { discoverDirectGoldenKeywords } = await import('../../utils/direct-golden-keyword-miner');
+                    const liveSeeds = await collectDirectGoldenLiveSeeds(env, 120);
+                    onProgress({ step: 'direct-seed', percent: 26, message: `direct golden live seeds ${liveSeeds.length} ready` });
+                    const directRows = await discoverDirectGoldenKeywords(
+                        { clientId, clientSecret },
+                        {
+                            category: '전체',
+                            limit: 30,
+                            maxSeeds: 700,
+                            maxCandidates: 900,
+                            liveSeeds,
+                            includeCrossCategory: true,
+                            requireCategoryMatch: false,
+                            onProgress: (p: any) => {
+                                const phasePercent: Record<string, number> = {
+                                    'candidate-plan': 32,
+                                    'searchad-suggestions': 42,
+                                    measure: 72,
+                                    rank: 92,
+                                };
+                                const pct = phasePercent[p.phase] || 50;
+                                onProgress({
+                                    step: `direct-${p.phase || 'run'}`,
+                                    percent: pct,
+                                    message: `direct golden ${p.phase || 'run'} - candidates ${p.candidates || 0}, measured ${p.measured || 0}, yielded ${p.yielded || 0}`,
+                                });
+                            },
+                        },
+                    );
+                    const rows = directRows.map((row: any, idx: number): RichKeywordRow => ({
+                        rank: idx + 1,
+                        keyword: row.keyword,
+                        category: row.intent || 'direct',
+                        categoryId: 'direct-golden',
+                        categoryIcon: '🏆',
+                        grade: (row.grade || '') as RichKeywordRow['grade'],
+                        searchVolume: row.searchVolume || 0,
+                        documentCount: row.documentCount || 0,
+                        goldenRatio: row.goldenRatio || 0,
+                        cpc: typeof row.cpc === 'number' ? row.cpc : null,
+                        freshness: 'RISING',
+                        sources: Array.from(new Set([...(row.externalSources || []), 'direct-golden-miner'])),
+                        sourceCount: Math.max(1, (row.externalSources || []).length + 1),
+                        purchaseIntent: row.purchaseIntentScore || 0,
+                        isBlueOcean: row.isBlueOcean === true,
+                    }));
+                    onProgress({ step: 'done', percent: 100, message: `direct golden complete — ${rows.length} rows` });
+                    const byCategory: Record<string, number> = {};
+                    const bySource: Record<string, number> = {};
+                    for (const row of rows) {
+                        byCategory[row.category] = (byCategory[row.category] || 0) + 1;
+                        for (const src of row.sources) bySource[src] = (bySource[src] || 0) + 1;
+                    }
+                    return {
+                        success: true,
+                        timestamp: Date.now(),
+                        total: rows.length,
+                        tier,
+                        rows,
+                        byCategory,
+                        bySource,
+                        isPro,
+                    };
+                }
+            }
             const result = await getCachedRichFeed(force, { tier, limit, aiAugmentation, discoveryMode }, onProgress);
             return { success: true, ...result, isPro };
         } catch (e: any) {
@@ -586,7 +730,7 @@ export function setupSourceSignalHandlers(): void {
     //     ≤50: depth 1 / ≤150: 2 / ≤500: 3 / ≤1000: 4 / ≤2000: 5
     //   각 depth 는 이전 depth 의 SSS/SS 키워드만 다음 시드로 (변별력 유지)
     //   진행률 이벤트: 'related-expansion-progress'
-    ipcMain.handle('expand-keyword-related-metrics', async (event, payload: { seed: string; limit?: number }) => {
+    ipcMain.handle('expand-keyword-related-metrics', async (event, payload: { seed: string; limit?: number; contextKeywords?: MindmapContextKeywordInput[] }) => {
         try {
             const seed = String(payload?.seed || '').trim();
             if (!seed) return { success: false, error: '시드 키워드 필요' };
@@ -718,6 +862,44 @@ export function setupSourceSignalHandlers(): void {
                 return out;
             };
 
+            const normalizeContextCandidates = (items?: MindmapContextKeywordInput[]): MindmapExpansionCandidate[] => {
+                const seen = new Set<string>();
+                const out: MindmapExpansionCandidate[] = [];
+                for (const item of Array.isArray(items) ? items : []) {
+                    const rawKeyword = typeof item === 'string' ? item : item?.keyword;
+                    const keyword = String(rawKeyword || '').replace(/\s+/g, ' ').trim();
+                    const key = keyword.toLowerCase().replace(/\s+/g, '');
+                    if (!keyword || keyword.length < 2 || keyword.length > 42 || !key || seen.has(key)) continue;
+                    seen.add(key);
+                    const source = typeof item === 'string'
+                        ? 'completed-pool'
+                        : String(item.source || 'completed-pool');
+                    const monthlyVolume = typeof item === 'string'
+                        ? undefined
+                        : (typeof item.searchVolume === 'number'
+                            ? item.searchVolume
+                            : (typeof item.monthlyVolume === 'number' ? item.monthlyVolume : undefined));
+                    out.push({
+                        keyword,
+                        sources: source === 'rich-feed-completed' ? [source] : [source, 'completed-pool'],
+                        source,
+                        monthlyVolume,
+                        freq: 4,
+                        priority: Math.max(1, 80 - out.length),
+                    });
+                    if (out.length >= 300) break;
+                }
+                return out;
+            };
+
+            const contextCandidates = normalizeContextCandidates(payload?.contextKeywords);
+            const contextRanked = contextCandidates.length > 0
+                ? rankMindmapExpansionCandidates(seed, contextCandidates, Math.min(120, Math.max(expandPerSeed, limit))).map(item => item.keyword)
+                : [];
+            if (contextRanked.length > 0) {
+                sendProgress(`완료 결과 풀 ${contextRanked.length}개를 1단계 후보로 반영`, 'depth-1-expand', 0, 1);
+            }
+
             const expandOneSeed = async (s: string, count: number): Promise<string[]> => {
                 const [related, longtail] = await Promise.all([
                     Promise.race([
@@ -758,7 +940,10 @@ export function setupSourceSignalHandlers(): void {
 
             // depth 1
             sendProgress(`1단계 확장 중: "${seed}"`, 'depth-1-expand', 0, 1);
-            const d1Candidates = await expandOneSeed(seed, expandPerSeed);
+            const d1Candidates = Array.from(new Set([
+                ...contextRanked,
+                ...(await expandOneSeed(seed, expandPerSeed)),
+            ]));
             d1Candidates.forEach(k => allCandidates.add(k));
 
             // v2.42.45: 브랜드 sibling 시드 자동 추가 (1단계부터 다양성 확보)
@@ -785,7 +970,7 @@ export function setupSourceSignalHandlers(): void {
             sendProgress(`1단계 후보 ${d1Candidates.length}개 — 검색량 측정 중`, 'depth-1-measure', 0, d1Candidates.length + 1);
 
             // v2.42.48: d1Pool 중복 제거 (시드가 expandOneSeed 결과에 포함될 수 있어서)
-            const d1Pool = Array.from(new Set([seed, ...d1Candidates])).slice(0, Math.min(200, expandPerSeed + siblingSeeds.length * 12 + 5));
+            const d1Pool = Array.from(new Set([seed, ...d1Candidates])).slice(0, Math.min(300, expandPerSeed + contextRanked.length + siblingSeeds.length * 12 + 5));
             const d1Metrics = await getNaverKeywordSearchVolumeSeparate(config, d1Pool, { includeDocumentCount: true });
             const d1Items = d1Metrics
                 .map((m: any) => buildMindmapMeasuredKeywordItem(m, { seed, depth: 1 }))
@@ -879,6 +1064,7 @@ export function setupSourceSignalHandlers(): void {
                     depth3: measuredByDepth.get(3)?.length || 0,
                     depth4: measuredByDepth.get(4)?.length || 0,
                     depth5: measuredByDepth.get(5)?.length || 0,
+                    context: contextRanked.length,
                     totalCandidates: allCandidates.size,
                     measured: finalItems.length,
                 },

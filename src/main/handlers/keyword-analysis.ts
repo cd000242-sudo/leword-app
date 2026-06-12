@@ -842,6 +842,7 @@ export function setupKeywordAnalysisHandlers(): void {
             minKeep: Math.min(12, autocompleteLimit),
             ensureIntentCoverage: true,
             intentCoverageMin: Math.min(40, Math.max(12, targetCount)),
+            allowSyntheticFallback: false,
           });
           for (let i = 0; i < autocompleteArray.length; i += 5) {
             if (!isUnlimited && allKeywords.length >= targetCount) break;
@@ -982,6 +983,7 @@ export function setupKeywordAnalysisHandlers(): void {
             minKeep: Math.min(10, targetCount),
             ensureIntentCoverage: true,
             intentCoverageMin: Math.min(30, Math.max(8, Math.floor(targetCount / 2))),
+            allowSyntheticFallback: false,
           });
 
           for (const kw of rankedRelatedKeywords) {
@@ -1534,6 +1536,7 @@ export function setupKeywordAnalysisHandlers(): void {
             minKeep: isUnlimited ? 40 : Math.min(12, targetCount),
             ensureIntentCoverage: true,
             intentCoverageMin: isUnlimited ? 40 : Math.min(24, Math.max(8, Math.floor(targetCount / 2))),
+            allowSyntheticFallback: false,
           });
 
           console.log(`[KEYWORD-EXPANSIONS] 📝 총 확장 키워드: ${additionalKeywords.length}개 → 관련성 랭킹 ${rankedAdditionalKeywords.length}개`);

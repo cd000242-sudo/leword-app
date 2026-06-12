@@ -233,6 +233,7 @@ export function buildFreshIssueGoldenSeeds(
         minKeep: intentsPerSeed - forcedIntentKeywords.length,
         ensureIntentCoverage: true,
         intentCoverageMin: intentsPerSeed - forcedIntentKeywords.length,
+        allowSyntheticFallback: false,
       })
       : [];
     const intentKeywords = Array.from(new Set([...forcedIntentKeywords, ...rankedIntentKeywords]));

@@ -44,6 +44,9 @@ const SOURCE_WEIGHT: Record<string, number> = {
   'naver-smartblock': 12,
   'naver-ai-briefing': 10,
   'naver-related-question': 18,
+  'completed-pool': 34,
+  'mindmap-completed': 36,
+  'rich-feed-completed': 18,
   sibling: 24,
   mindmap: 16,
   'intent-fallback': 16,
@@ -76,6 +79,13 @@ const DOMAIN_GROUPS: Array<{ name: string; patterns: RegExp[] }> = [
     ],
   },
   {
+    name: 'skincare',
+    patterns: [
+      /스팟\s*엑스|스팟엑스|스팟|세럼|에센스|앰플|크림|토너|패드|피부|스킨|더마|나이아신|pdrn|글루타|글루타샷/i,
+      /쥐젖|비립종|편평사마귀|여드름|어드름|잡티|기미|미백|모공|트러블|진정|재생/i,
+    ],
+  },
+  {
     name: 'entertainment-issue',
     patterns: [
       /아이돌|배우|가수|연예인|컴백|공식입장|팬미팅|콘서트|시상식|드라마|예능|출연/i,
@@ -98,6 +108,10 @@ export function normalizeCandidateKeyword(value: string): string {
 
 function compact(value: string): string {
   return normalizeCandidateKeyword(value).toLowerCase().replace(/\s+/g, '');
+}
+
+function stripTrailingQueryIntent(compacted: string): string {
+  return compacted.replace(/(후기|리뷰|내돈내산|추천|가격|비교|방법|사용법|효과|부작용|종류|뜻|정리|문제|사례|원인|최신|faq)$/i, '');
 }
 
 export function tokenizeKeyword(value: string): string[] {
@@ -199,6 +213,7 @@ export function scoreKeywordRelevance(seed: string, candidate: RelatedCandidateI
   const seedCompact = compact(seed);
   const keywordCompact = compact(keyword);
   if (!seedCompact || (!candidate.source && !candidate.sources?.length && seedCompact === keywordCompact)) return null;
+  const seedBaseCompact = stripTrailingQueryIntent(seedCompact);
 
   const seedTokens = tokenizeKeyword(seed);
   const keywordTokens = tokenizeKeyword(keyword);
@@ -225,6 +240,14 @@ export function scoreKeywordRelevance(seed: string, candidate: RelatedCandidateI
     score += 42;
     reasons.push('contains-seed');
     if (keywordCompact.startsWith(seedCompact)) score += 10;
+  } else if (
+    seedBaseCompact.length >= 4
+    && seedBaseCompact !== seedCompact
+    && keywordCompact.includes(seedBaseCompact)
+  ) {
+    score += 42;
+    reasons.push('contains-seed-base');
+    if (keywordCompact.startsWith(seedBaseCompact)) score += 10;
   } else if (seedCompact.includes(keywordCompact)) {
     score += keywordCompact.length >= 4 ? 12 : -12;
     reasons.push('seed-contains');
@@ -267,11 +290,11 @@ export function scoreKeywordRelevance(seed: string, candidate: RelatedCandidateI
     reasons.push('volume');
   }
 
-  if (hasCommercialIntent(keyword) && (coreOverlap > 0 || sameHead || keywordCompact.includes(seedCompact))) score += 6;
+  if (hasCommercialIntent(keyword) && (coreOverlap > 0 || sameHead || keywordCompact.includes(seedCompact) || (seedBaseCompact.length >= 4 && keywordCompact.includes(seedBaseCompact)))) score += 6;
   if (keyword.length <= 4 && coreOverlap === 0 && !sameHead) score -= 22;
   if (keyword.length > 35) score -= 10;
   if (sources.includes('naver-shopping') && !hasCommercialIntent(seed) && coreOverlap === 0 && !sameHead) score -= 18;
-  if (coreOverlap === 0 && !sameHead && !keywordCompact.includes(seedCompact) && !seedCompact.includes(keywordCompact)) {
+  if (coreOverlap === 0 && !sameHead && !keywordCompact.includes(seedCompact) && !(seedBaseCompact.length >= 4 && keywordCompact.includes(seedBaseCompact)) && !seedCompact.includes(keywordCompact)) {
     score -= sharedDomains.length > 0 ? 8 : 28;
   }
 

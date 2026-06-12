@@ -313,6 +313,7 @@ export async function getNaverAutocompleteKeywords(
       minKeep: 20,
       ensureIntentCoverage: true,
       intentCoverageMin: 30,
+      allowSyntheticFallback: false,
     });
     if (ranked.length < 20) {
       ranked = rankKeywordExpansionCandidates(baseKeyword, candidates, {
@@ -322,6 +323,7 @@ export async function getNaverAutocompleteKeywords(
         minKeep: 20,
         ensureIntentCoverage: true,
         intentCoverageMin: 30,
+        allowSyntheticFallback: false,
       });
     }
     const result = ranked.map(item => item.keyword);

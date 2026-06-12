@@ -28,6 +28,11 @@ const exposureTracking = fs.readFileSync(path.join(__dirname, '..', '..', 'main'
 const bloggerProfile = fs.readFileSync(path.join(__dirname, '..', 'blogger-profile.ts'), 'utf8');
 const categoriesSource = fs.readFileSync(path.join(__dirname, '..', 'categories.ts'), 'utf8');
 const mdpEngine = fs.readFileSync(path.join(__dirname, '..', 'mdp-engine.ts'), 'utf8');
+const richFeedBuilder = fs.readFileSync(path.join(__dirname, '..', 'sources', 'rich-feed-builder.ts'), 'utf8');
+const richFeedSectionBlock = html.match(/<div id="richFeedSection"[\s\S]*?<script>/)?.[0] || '';
+const richFeedRefreshBlock = html.match(/async function refreshRichFeed[\s\S]*?function renderRichFeedTabs/)?.[0] || '';
+const richFeedTableBlock = html.match(/function renderRichFeedTable[\s\S]*?window\.rfReportInaccurate/)?.[0] || '';
+const richFeedTopPicksBlock = html.match(/window\.rfRenderTopPicks[\s\S]*?const RF_EXCLUDE_KEY/)?.[0] || '';
 
 assert('keyword analyzer default option is 10',
   /name="keywordLimit"\s+value="10"\s+checked/.test(html),
@@ -36,6 +41,83 @@ assert('keyword analyzer default option is 10',
 assert('keyword analyzer JS fallback defaults to 10',
   /const\s+limitValue\s*=\s*limitRadio\?\.value\s*\|\|\s*'10'/.test(html),
   'limitValue fallback is not 10');
+
+assert('rich golden feed auto-starts live discovery without a manual click',
+  /function\s+startRichFeedAutoLive\(\)/.test(html)
+    && /document\.addEventListener\('DOMContentLoaded',\s*startRichFeedAutoLive,\s*\{\s*once:\s*true\s*\}\)/.test(html)
+    && /setTimeout\(\(\)\s*=>\s*refreshRichFeed\(false\),\s*900\)/.test(html)
+    && /setInterval\(\(\)\s*=>\s*\{[\s\S]{0,120}refreshRichFeed\(false\)/.test(html)
+    && /window\.__rfRefreshRunning/.test(richFeedRefreshBlock),
+  'rich feed can still sit idle until the user presses the start button');
+
+assert('rich golden feed table removes CPC from the visible UI',
+  !/>CPC<\/th>/.test(richFeedSectionBlock)
+    && !/네이버 검색광고 API 실측 평균 입찰가/.test(richFeedSectionBlock)
+    && !/cpcTxt/.test(richFeedTopPicksBlock)
+    && !/\(r\.cpc\s*\|\|\s*0\)\s*>=/.test(richFeedTopPicksBlock),
+  'CPC is still visible or still gating the rich feed top picks');
+
+assert('rich golden feed keeps the row layout horizontal and shows 60 rows per page',
+  /const\s+RF_PAGE_SIZE\s*=\s*60/.test(html)
+    && /class="rf-keyword-cell"/.test(richFeedTableBlock)
+    && /class="rf-keyword-line"/.test(richFeedTableBlock)
+    && /class="rf-keyword-main"/.test(richFeedTableBlock)
+    && /class="rf-source-line"/.test(richFeedTableBlock)
+    && /colspan="10"/.test(richFeedSectionBlock)
+    && /colspan="10"/.test(richFeedRefreshBlock)
+    && /colspan="10"/.test(richFeedTableBlock),
+  'rich feed can still wrap keyword text vertically or keep the old 11/12-column layout');
+
+assert('rich feed cache refuses underfilled three-row results',
+  /cached\.result\.total\s*>=\s*MIN_ACCEPTABLE_TOTAL/.test(richFeedBuilder)
+    && /const\s+MIN_ACCEPTABLE_TOTAL\s*=\s*30/.test(richFeedBuilder),
+  'underfilled rich feed cache can still be reused as a valid result');
+
+assert('rich feed separates scan budget from visible precision and bulk targets',
+  /const\s+visibleTarget\s*=\s*isBulkMode\s*\?\s*60\s*:\s*30/.test(richFeedBuilder)
+    && /const\s+minReturnCount\s*=\s*Math\.min\(limit,\s*visibleTarget\)/.test(richFeedBuilder)
+    && /selectBalancedTopRows\(\s*enrichedRows,\s*minReturnCount/.test(richFeedBuilder),
+  'rich feed can still expose scan limit instead of precision 30 / bulk 60 targets');
+
+assert('rich feed keeps measured SS/S/A precision backfill instead of returning three rows',
+  /isPrecisionVerificationCandidate/.test(richFeedBuilder)
+    && /isEmergencyPrecisionFloorCandidate/.test(richFeedBuilder)
+    && /!\s*isBulkMode\s*&&\s*\(precisionBackfillTier\(r\)\s*>\s*0\s*\|\|\s*isPrecisionVerificationCandidate\(r\)\)/.test(richFeedBuilder)
+    && /!\s*isBulkMode\s*&&\s*precisionBackfillTier\(r\)\s*>\s*0/.test(richFeedBuilder)
+    && /precisionBackupMap/.test(richFeedBuilder)
+    && /precisePrimaryRows/.test(richFeedBuilder)
+    && /selectPrecisionRowsWithBackfill\(precisePrimaryRows,\s*Array\.from\(precisionBackupMap\.values\(\)\)/.test(richFeedBuilder)
+    && /precision emergency floor/.test(richFeedBuilder)
+    && /clonePrecisionBackfillRow\(row\)/.test(richFeedBuilder),
+  'measured SS/S/A backfill candidates can still be dropped before the 30-row floor');
+
+assert('rich feed balanced mode has fast live-discovery budgets and early stop',
+  /const\s+HARD_CAP_MS\s*=\s*\(isBulkMode\s*\?\s*4\s*:\s*3\)\s*\*\s*60\s*\*\s*1000/.test(richFeedBuilder)
+    && /const\s+AC_TOP_N\s*=\s*isBulkMode\s*\?\s*80\s*:\s*35/.test(richFeedBuilder)
+    && /const\s+datalabCategoryLimit\s*=\s*isBulkMode\s*\?\s*orderedCats\.length\s*:\s*Math\.min\(6,\s*orderedCats\.length\)/.test(richFeedBuilder)
+    && /const\s+qualityRowsReadyTarget\s*=/.test(richFeedBuilder)
+    && /qualityRowsReady\(\)/.test(richFeedBuilder)
+    && /!\s*isBulkMode\s*&&\s*isPrecisionVerificationCandidate\(r\)/.test(richFeedBuilder)
+    && /API early stop/.test(richFeedBuilder),
+  'balanced rich feed can still spend minutes scanning after enough quality candidates are ready');
+
+assert('rich feed injects realtime news policy and youtube seeds before measurement',
+  /live-issue-seed/.test(richFeedBuilder)
+    && /getNaverRealtimeKeywords/.test(richFeedBuilder)
+    && /fetchEntertainmentAggregate/.test(richFeedBuilder)
+    && /getNaverNewsRankingKeywords/.test(richFeedBuilder)
+    && /getPolicyBriefingKeywords/.test(richFeedBuilder)
+    && /getYouTubeTrendKeywords/.test(richFeedBuilder),
+  'rich feed can still miss live issue/news/policy/youtube seeds before measuring golden candidates');
+
+assert('rich feed balanced IPC uses direct golden miner instead of three-row rich fallback',
+  /collectDirectGoldenLiveSeeds/.test(sourceSignals)
+    && /discoverDirectGoldenKeywords/.test(sourceSignals)
+    && /discoveryMode\s*===\s*'balanced'[\s\S]{0,80}aiAugmentation\s*===\s*'none'/.test(sourceSignals)
+    && /maxCandidates:\s*900/.test(sourceSignals)
+    && /limit:\s*30/.test(sourceSignals)
+    && /direct-golden-miner/.test(sourceSignals),
+  'balanced rich feed IPC can still route through the underfilled rich-feed builder first');
 
 assert('keyword lookup and category auto golden discovery have separate buttons and actions',
   /id="keywordLookupBtn"[\s\S]{0,220}onclick="startKeywordLookupFromInput\(\)"/.test(html)
@@ -276,6 +358,16 @@ assert('home hunter strict S+ mode requires explicit S+ value grade through fina
     && /filter\(x\s*=>\s*!strictSPlusMode\s*\|\|[\s\S]*x\.valueGate\.valueGrade\s*===\s*'S\+'/.test(html),
   'home hunter strict mode can leak non-S+ candidates');
 
+assert('home hunter slot is repurposed to AI Mate citation mode',
+  /openNaverMateKeywordModal/.test(html)
+    && /네이버 AI 메이트 키워드 찾기/.test(html)
+    && /AI 인용 친화도 공식/.test(html)
+    && /function\s+getAiMateCitationSignals/.test(html)
+    && /getAiMateCitationSignals\(x\)\.score\s*>=\s*minScore/.test(html)
+    && /AI Mate 점수/.test(html)
+    && /source:\s*'ai-mate-hunter'/.test(html),
+  'AI Mate citation mode is not fully wired through UI, scoring, cutoff, and tracking');
+
 assert('golden discovery makes profile categories single-focus execution',
   /집중 카테고리/.test(html)
     && /대표 1개/.test(html)
@@ -374,12 +466,16 @@ assert('keyword lookup returns measured search volume and document count fields'
     && /documentCount:\s*typeof\s+k\.documentCount\s*===\s*'number'\s*\?\s*k\.documentCount\s*:\s*null/.test(keywordAnalysis),
   'general keyword lookup can return rows without measured search-volume/document-count fields');
 
-assert('mindmap expansion shares ranked intent backfill and measured metric pipeline',
+assert('mindmap expansion uses completed/live candidates and blocks synthetic hardcoded backfill',
   /rankKeywordExpansionCandidates\(seed,\s*normalized/.test(fs.readFileSync(path.join(__dirname, '..', 'mindmap-expansion-quality.ts'), 'utf8'))
-    && /rankKeywordExpansionCandidates\(seed,\s*\[\],\s*\{[\s\S]{0,240}ensureIntentCoverage:\s*true/.test(fs.readFileSync(path.join(__dirname, '..', 'mindmap-expansion-quality.ts'), 'utf8'))
+    && !/rankKeywordExpansionCandidates\(seed,\s*\[\],/.test(fs.readFileSync(path.join(__dirname, '..', 'mindmap-expansion-quality.ts'), 'utf8'))
+    && /buildLewordMindmapContextKeywords/.test(html)
+    && /contextKeywords/.test(html)
+    && /contextKeywords\?:\s*MindmapContextKeywordInput\[\]/.test(sourceSignals)
+    && /contextRanked/.test(sourceSignals)
     && /getNaverKeywordSearchVolumeSeparate\(config,\s*d1Pool,\s*\{\s*includeDocumentCount:\s*true\s*\}\)/.test(sourceSignals)
     && /\.filter\(isMindmapDisplayMetric\)/.test(sourceSignals),
-  'mindmap can diverge from common intent expansion or expose unmeasured rows');
+  'mindmap can still synthesize hardcoded rows or ignore completed result pools');
 
 assert('legacy recursive direct blogger calls stay disabled after ranked helper migration',
   /if\s*\(false\s*&&\s*window\.blogger\s*&&\s*typeof\s+window\.blogger\.getRelatedKeywords/.test(infiniteExtractionBlock)

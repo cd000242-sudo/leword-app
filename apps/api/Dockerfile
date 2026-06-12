@@ -21,7 +21,11 @@ COPY package.json package-lock.json tsconfig.json tsconfig.electron.json ./
 COPY src ./src
 COPY apps/api ./apps/api
 
+RUN find src apps/api/src -name '*.js' -delete
+
 RUN npm ci --include=dev --ignore-scripts
+
+RUN node -e "const fs=require('fs'); const dir='node_modules/electron'; fs.mkdirSync(dir,{recursive:true}); const src=['const userData=process.env.LEWORD_SERVER_USER_DATA || \\'/data\\';','module.exports={ app:{ getPath(){ return userData; }, isReady(){ return true; }, whenReady(){ return Promise.resolve(); }, getVersion(){ return process.env.npm_package_version || \\'0.0.0\\'; } }, safeStorage:{ isEncryptionAvailable(){ return false; }, encryptString(value){ return Buffer.from(String(value || \\'\\'),\\'utf8\\'); }, decryptString(value){ return Buffer.isBuffer(value) ? value.toString(\\'utf8\\') : String(value || \\'\\'); } }, shell:{ openExternal(){ return Promise.resolve(); }, showItemInFolder(){} }, Notification: class { show(){} }, BrowserWindow: class {} };']; fs.writeFileSync(dir+'/index.js', src.join('\\n'), 'utf8')"
 
 EXPOSE 34983
 

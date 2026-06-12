@@ -701,6 +701,38 @@ function isBalancedFloorCandidate(row: RichKeywordRow): boolean {
  *  - SSS/SS 는 writable 필수 (엄격한 품질)
  *  - S/A/B 는 docCount 자연 필터만 적용 (문근영·장동혁 같은 중도 키워드는 유지)
  */
+function isPrecisionVerificationCandidate(row: RichKeywordRow): boolean {
+    if (!row?.keyword || !row.grade) return false;
+    if (row.svEstimated) return false;
+    if (isOverbroadGoldenCandidate(row.keyword, row.searchVolume, row.documentCount)) return false;
+    const grade = row.grade;
+    if (grade !== 'SS' && grade !== 'S' && grade !== 'A' && grade !== 'B') return false;
+    const tokenCount = String(row.keyword || '').trim().split(/\s+/).filter(Boolean).length;
+    const writability = typeof row.bloggerWritability === 'number' ? row.bloggerWritability : 50;
+    if (tokenCount <= 1 && !hasCommercialIntent(row.keyword)) return false;
+    if (row.searchVolume < 50 || row.searchVolume > 50000) return false;
+    if (row.documentCount <= 0 || row.documentCount > 50000) return false;
+    if (row.goldenRatio < 0.5) return false;
+    if (writability < 35) return false;
+    if (grade === 'B') return row.goldenRatio >= 1.5 && writability >= 55 && tokenCount >= 2;
+    return true;
+}
+
+function isEmergencyPrecisionFloorCandidate(row: RichKeywordRow): boolean {
+    if (isPrecisionVerificationCandidate(row)) return true;
+    if (!row?.keyword || !row.grade) return false;
+    if (row.svEstimated) return false;
+    if (isOverbroadGoldenCandidate(row.keyword, row.searchVolume, row.documentCount)) return false;
+    if (row.grade !== 'SS' && row.grade !== 'S' && row.grade !== 'A' && row.grade !== 'B') return false;
+    const tokenCount = String(row.keyword || '').trim().split(/\s+/).filter(Boolean).length;
+    const writability = typeof row.bloggerWritability === 'number' ? row.bloggerWritability : 50;
+    if (row.searchVolume < 30 || row.documentCount <= 0) return false;
+    if (row.goldenRatio < 0.2 && !hasCommercialIntent(row.keyword)) return false;
+    if (writability < 30) return false;
+    if (tokenCount <= 1 && !hasCommercialIntent(row.keyword) && row.documentCount > 5000) return false;
+    return true;
+}
+
 function calculateGrade(volume: number, docCount: number, ratio: number, score: number, keyword: string, dcEstimated: boolean = false, svEstimated: boolean = false): GoldenGrade | '' {
     // ★ v2.49.9: Single Source of Truth — sanity-gate.ts 단일 검증 layer (Phase A 합의안)
     //   기존 inline halfSvRatio ±5% → sanity-gate validateGrade 가 ±5% 정확 + ±40% 광역 인접 매칭 모두 처리.
@@ -889,7 +921,6 @@ export async function buildRichFeed(
     const limit = options.limit || 100;
     const discoveryMode: RichFeedDiscoveryMode = options.discoveryMode === 'bulk' ? 'bulk' : 'balanced';
     const isBulkMode = discoveryMode === 'bulk';
-    const minReturnCount = isBulkMode ? Math.min(limit, 100) : Math.min(limit, 30);
 
     // v2.43.25 (사이클#2): 블로거 프로필 로드 — 사용자 카테고리에 맞춘 친화도 보정
     _bloggerProfile = loadBloggerProfile();
@@ -899,6 +930,9 @@ export async function buildRichFeed(
             .filter(Boolean)
     ));
     const selectedCategoryCount = selectedCategoryIds.length;
+    const visibleTarget = isBulkMode ? 60 : 30;
+    const minReturnCount = Math.min(limit, visibleTarget);
+    const qualityRowsReadyTarget = isBulkMode ? Math.max(90, visibleTarget + 30) : visibleTarget + 12;
     const MIN_RESULTS_PER_SELECTED_CATEGORY = isBulkMode ? 20 : 5;
     if (isBulkMode) {
         console.log(`[rich-feed] bulk discovery mode enabled: limit=${limit}, selectedCategories=${selectedCategoryCount}`);
@@ -913,7 +947,7 @@ export async function buildRichFeed(
     // v2.49.42: 3.5분 → 6분 (사용자 실측: 75 batch 중 30 batch timeout, 결과 1건만)
     //   진단: 시드 풀 3729 (v2.49.40 expansion 효과) → API 검증 75 batch 필요 → 4분+ 소요
     //   timeout 시 enrichedRows 부분 처리 → SSS 4/SS 8 발견했어도 promotion/grading 단계까지 도달 못함
-    const HARD_CAP_MS = (isBulkMode ? 6 : 3.5) * 60 * 1000;
+    const HARD_CAP_MS = (isBulkMode ? 4 : 3) * 60 * 1000;
     const startedAt = Date.now();
     const isExceeded = () => Date.now() - startedAt > HARD_CAP_MS;
 
@@ -1053,8 +1087,8 @@ export async function buildRichFeed(
     //   현재: 상위 N개 시드 → 네이버 자동완성 4채널(PC/Mobile/Shopping/연관) 호출 → 실제 사용자 검색 쿼리만
     //   효과: 인위 조합 5000개 → 실제 검색 longtail 300~800개. SSS 통과율 5~10배 ↑
     const env_ac = EnvironmentManager.getInstance().getConfig();
-    const AC_TOP_N = 80;        // 상위 80 시드만 자동완성 호출 (Naver autocomplete 부담 통제)
-    const AC_CONCURRENCY = 5;
+    const AC_TOP_N = isBulkMode ? 80 : 35;        // balanced는 빠른 30개 확보가 목적이라 자동완성 폭을 제한
+    const AC_CONCURRENCY = isBulkMode ? 5 : 7;
     const acSeeds = baseSeeds.slice(0, AC_TOP_N);
     const extraSeeds: typeof baseSeeds = [];
     const acClientId = env_ac.naverClientId || '';
@@ -1345,6 +1379,8 @@ export async function buildRichFeed(
             ...SHOPPING_CATEGORIES.filter(c => userCids.has(c.cid)),
             ...SHOPPING_CATEGORIES.filter(c => !userCids.has(c.cid)),
         ];
+        const datalabCategoryLimit = isBulkMode ? orderedCats.length : Math.min(6, orderedCats.length);
+        const datalabCats = orderedCats.slice(0, datalabCategoryLimit);
         // v2.49.36: 상세 디버깅 로그 (사용자 진단 요청)
         const userCidStr = userCids.size > 0 ? [...userCids].join(',') : 'none';
         const blogCatStr = _bloggerProfile?.selectedCategories?.join(',') || 'none';
@@ -1353,12 +1389,12 @@ export async function buildRichFeed(
         const datalabSeeds: typeof baseSeeds = [];
         let fetchSuccess = 0;
         let fetchEmpty = 0;
-        for (let i = 0; i < orderedCats.length; i++) {
+        for (let i = 0; i < datalabCats.length; i++) {
             if (isExceeded()) {
                 console.log(`[DEBUG-DATALAB] timeout — ${i}/${orderedCats.length} 카테고리에서 중단`);
                 break;
             }
-            const cat = orderedCats[i];
+            const cat = datalabCats[i];
             const t0 = Date.now();
             const items = await fetchTopKeywordsByCategory(cat.cid, 20);
             const ms = Date.now() - t0;
@@ -1447,6 +1483,87 @@ export async function buildRichFeed(
         console.warn('[rich-feed v2.49.33] surge-detector 로드 실패:', e?.message);
     }
 
+    try {
+        const liveLimit = isBulkMode ? 140 : 100;
+        const liveOut: string[] = [];
+        const pushLive = (value: any) => {
+            const text = String(value || '').replace(/\s+/g, ' ').trim();
+            if (!text || text.length < 2 || text.length > 40) return;
+            if (!/[가-힣]/.test(text)) return;
+            const key = text.toLowerCase().replace(/\s+/g, '');
+            if (liveOut.some(item => item.toLowerCase().replace(/\s+/g, '') === key)) return;
+            liveOut.push(text);
+        };
+        const withTimeout = async <T>(promise: Promise<T>, ms: number, fallback: T): Promise<T> => Promise.race([
+            promise,
+            new Promise<T>(resolve => setTimeout(() => resolve(fallback), ms)),
+        ]);
+        const liveConfig = EnvironmentManager.getInstance().getConfig();
+        await Promise.all([
+            (async () => {
+                try {
+                    const { getNaverRealtimeKeywords } = await import('../realtime-search-keywords');
+                    const items = await withTimeout(getNaverRealtimeKeywords(Math.min(40, liveLimit)), 5000, [] as any[]);
+                    items.map((item: any) => item.keyword).forEach(pushLive);
+                } catch {}
+            })(),
+            (async () => {
+                try {
+                    const ent = await import('../entertainment-news-aggregator');
+                    const items = await withTimeout(ent.fetchEntertainmentAggregate({ maxMinutesAgo: 720, limitPerSource: 24 }), 5000, [] as any[]);
+                    items.slice(0, 60).flatMap((item: any) => [item.title, item.keyword, `${item.title || ''} ${item.category || ''}`]).forEach(pushLive);
+                } catch {}
+            })(),
+            (async () => {
+                try {
+                    const { getNaverNewsRankingKeywords } = await import('./naver-news-ranking');
+                    const items = await withTimeout(getNaverNewsRankingKeywords(), 5000, [] as any[]);
+                    items.slice(0, 40).map((item: any) => item.keyword).forEach(pushLive);
+                } catch {}
+            })(),
+            (async () => {
+                try {
+                    const policy = await import('../policy-briefing-api');
+                    const items = await withTimeout(policy.getPolicyBriefingKeywords(Math.min(24, liveLimit)), 5000, [] as any[]);
+                    items.slice(0, 16).flatMap((item: any) => [
+                        item.keyword,
+                        ...(policy.expandPolicyDiscoverySeeds ? policy.expandPolicyDiscoverySeeds(item.keyword, 3) : []),
+                    ]).forEach(pushLive);
+                } catch {}
+            })(),
+            (async () => {
+                try {
+                    const youtubeApiKey = liveConfig.youtubeApiKey || process.env['YOUTUBE_API_KEY'] || '';
+                    if (!youtubeApiKey) return;
+                    const { getYouTubeTrendKeywords } = await import('../youtube-data-api');
+                    const items = await withTimeout(
+                        getYouTubeTrendKeywords({ apiKey: youtubeApiKey, maxResults: Math.min(70, liveLimit) }),
+                        7000,
+                        [] as any[],
+                    );
+                    items.slice(0, 70).map((item: any) => item.keyword).forEach(pushLive);
+                } catch {}
+            })(),
+        ]);
+        const liveSeeds: typeof baseSeeds = [];
+        for (const keyword of liveOut.slice(0, liveLimit)) {
+            if (seenKeywords.has(keyword)) continue;
+            seenKeywords.add(keyword);
+            liveSeeds.push({
+                keyword,
+                sources: ['live-issue-seed'],
+                qualityScore: 2.35,
+            });
+        }
+        if (liveSeeds.length > 0) {
+            extraSeeds.push(...liveSeeds);
+            console.log(`[rich-feed v2.49.88] live issue seeds injected: ${liveSeeds.length}`);
+            emit('live-issue', 26, `live issue seeds ${liveSeeds.length} added`);
+        }
+    } catch (e: any) {
+        console.warn('[rich-feed v2.49.88] live issue seed injection failed:', e?.message);
+    }
+
     diagnostic.longtail.expandedAdded = extraSeeds.length;
 
     // v2.49.36: 핵심 디버깅 — 시드 풀 형성 후 분포
@@ -1467,7 +1584,7 @@ export async function buildRichFeed(
         : 0;
     const targetSize = isBulkMode
         ? Math.min(5000, Math.max(limit * 4, 2500, categorySampleFloor))
-        : Math.min(2400, Math.max(limit * 4, 1200, categorySampleFloor));
+        : Math.min(1800, Math.max(limit * 3, 1000, categorySampleFloor));
     diagnostic.candidates.targetSize = targetSize;
 
     const weightedSampleWithoutReplacement = <T extends { qualityScore: number }>(
@@ -1723,6 +1840,14 @@ export async function buildRichFeed(
         }
     };
 
+    const qualityRowsReady = () => enrichedRows.filter(r =>
+        r.grade === 'SSR' ||
+        r.grade === 'SSS' ||
+        precisionBackfillTier(r) > 0 ||
+        (!isBulkMode && isPrecisionVerificationCandidate(r)) ||
+        (isBulkMode && isBulkPracticalCandidate(r))
+    ).length;
+
     for (let i = 0; i < batches.length; i += PARALLEL_BATCHES) {
         // 🔥 v2.27.5: 5분 하드캡 체크 — 초과 시 현재까지 수집된 것만 사용
         if (isExceeded()) {
@@ -1735,6 +1860,12 @@ export async function buildRichFeed(
         completedBatches += slice.length;
         const batchPercent = 20 + Math.round((completedBatches / totalBatches) * 65);
         emit('api', batchPercent, `네이버 API 검증 ${completedBatches}/${totalBatches} (누적 ${enrichedRows.length}건)`);
+        const readyCount = qualityRowsReady();
+        if (readyCount >= qualityRowsReadyTarget) {
+            console.log(`[rich-feed v2.49.86] early stop: quality ${readyCount}/${qualityRowsReadyTarget}, batches ${completedBatches}/${totalBatches}`);
+            emit('api', Math.max(batchPercent, 76), `quality candidates ${readyCount}/${qualityRowsReadyTarget} ready - API early stop`);
+            break;
+        }
         await new Promise(r => setTimeout(r, 50));
     }
 
@@ -2090,6 +2221,7 @@ export async function buildRichFeed(
     // SS/S/A는 정밀 결과 수를 채우는 용도로 섞지 않고, 대량 모드에서만 후보로 노출한다.
     const highGradeOnly = enrichedRows.filter(r =>
         r.grade === 'SSR' || r.grade === 'SSS' ||
+        (!isBulkMode && (precisionBackfillTier(r) > 0 || isPrecisionVerificationCandidate(r))) ||
         (isBulkMode && r.grade === 'SS') ||
         (isBulkMode && isBulkPracticalCandidate(r))
     );
@@ -2270,6 +2402,7 @@ export async function buildRichFeed(
         const postVerifyFloorBackupRows = enrichedRows.slice();
         const stillHighGrade = enrichedRows.filter(r =>
             r.grade === 'SSR' || r.grade === 'SSS' ||
+            (!isBulkMode && precisionBackfillTier(r) > 0) ||
             (isBulkMode && r.grade === 'SS') ||
             (isBulkMode && isBulkPracticalCandidate(r))
         );
@@ -2326,7 +2459,7 @@ export async function buildRichFeed(
     // v2.49.44: 정밀 최종 보장 — SS/S/A를 그대로 보여주지 않고 sanity-gate 재검증을 통과한 후보만 SSS로 승격.
     // 사용자가 보는 상단 30개는 모두 SSR/SSS 라벨이어야 하며, 추정/빅워드/레드오션은 SSoT가 차단한다.
     if (!isBulkMode) {
-        const sssFloor = Math.min(30, limit);
+        const sssFloor = minReturnCount;
         const currentSss = () => enrichedRows.filter(r => r.grade === 'SSR' || r.grade === 'SSS').length;
         let need = sssFloor - currentSss();
         if (need > 0) {
@@ -2388,12 +2521,47 @@ export async function buildRichFeed(
                 emit('grading', 94, `정밀 SSS 보강 +${promoted}건 — SSS ${currentSss()}/${sssFloor}`);
             }
         }
-        const preciseRows = selectPrecisionRowsWithBackfill(enrichedRows, floorBackupRows, {
+        const precisionBackupMap = new Map<string, RichKeywordRow>();
+        for (const row of [...floorBackupRows, ...enrichedRows]) {
+            if (row?.keyword && !precisionBackupMap.has(row.keyword)) precisionBackupMap.set(row.keyword, row);
+        }
+        const precisePrimaryRows = enrichedRows.filter(r => r.grade === 'SSR' || r.grade === 'SSS');
+        let preciseRows = selectPrecisionRowsWithBackfill(precisePrimaryRows, Array.from(precisionBackupMap.values()), {
             minReturnCount: sssFloor,
             selectedCategoryIds,
             minPerSelectedCategory: MIN_RESULTS_PER_SELECTED_CATEGORY,
             excludedKeywords: userExcludedKeywords,
         });
+        if (preciseRows.length < sssFloor) {
+            const usedEmergency = new Set(preciseRows.map(r => r.keyword));
+            const emergencyRows = Array.from(precisionBackupMap.values())
+                .filter(row => {
+                    const keyword = String(row?.keyword || '').trim();
+                    return keyword
+                        && !usedEmergency.has(keyword)
+                        && !userExcludedKeywords.has(keyword)
+                        && isEmergencyPrecisionFloorCandidate(row);
+                })
+                .sort((a, b) => {
+                    const gradeRank: Record<string, number> = { SS: 4, S: 3, A: 2, B: 1 };
+                    const gradeDiff = (gradeRank[b.grade || ''] || 0) - (gradeRank[a.grade || ''] || 0);
+                    if (gradeDiff !== 0) return gradeDiff;
+                    const scoreDiff = precisionBackfillScore(b) - precisionBackfillScore(a);
+                    if (Math.abs(scoreDiff) > 0.001) return scoreDiff;
+                    return stableKeywordHash(a.keyword) - stableKeywordHash(b.keyword);
+                });
+            const filled: RichKeywordRow[] = [...preciseRows];
+            for (const row of emergencyRows) {
+                if (filled.length >= sssFloor) break;
+                usedEmergency.add(row.keyword);
+                filled.push(clonePrecisionBackfillRow(row));
+            }
+            if (filled.length > preciseRows.length) {
+                console.log(`[rich-feed v2.49.87] precision emergency floor: +${filled.length - preciseRows.length}, final=${filled.length}/${sssFloor}`);
+                emit('grading', 94, `precision floor ${filled.length}/${sssFloor} filled from verified candidates`);
+                preciseRows = filled;
+            }
+        }
         const backfilled = preciseRows.filter(r => r.precisionBackfill).length;
         enrichedRows.length = 0;
         enrichedRows.push(...preciseRows);
@@ -2424,7 +2592,7 @@ export async function buildRichFeed(
 
     const balancedRows = selectBalancedTopRows(
         enrichedRows,
-        limit,
+        minReturnCount,
         selectedCategoryIds,
         MIN_RESULTS_PER_SELECTED_CATEGORY
     );
@@ -2919,7 +3087,7 @@ export async function getCachedRichFeed(
     });
 
     // 1) 메모리 캐시 (15분, force 아니면 우선)
-    if (!force && cached && cached.expiresAt > now && cached.cacheKey === cacheKey) {
+    if (!force && cached && cached.expiresAt > now && cached.cacheKey === cacheKey && cached.result.total >= MIN_ACCEPTABLE_TOTAL) {
         try { onProgress?.({ step: 'cache', percent: 100, message: `캐시 사용 (${cached.result.total}건)` }); } catch {}
         return cached.result;
     }

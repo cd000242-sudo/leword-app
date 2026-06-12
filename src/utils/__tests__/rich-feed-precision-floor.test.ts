@@ -71,6 +71,40 @@ for (const categoryId of categories) {
   assert(`selected category floor ${categoryId}`, count >= 5, `${count}`);
 }
 
+const realLogLikePrimary = [
+  row('비렌느 스팟엑스 후기', 'beauty', 'SSS'),
+  row('도미나크림 가격', 'beauty', 'SSS'),
+  row('병원비 환급금 조회', 'health', 'SSR'),
+];
+const realLogLikeBackup: RichKeywordRow[] = [];
+const pushRealLogRows = (prefix: string, grade: RichKeywordRow['grade'], count: number, offset: number) => {
+  for (let i = 0; i < count; i++) {
+    const r = row(`${prefix} ${i + 1}`, i % 2 === 0 ? 'beauty' : 'health', grade, offset + i);
+    r.searchVolume = 800 + i * 40;
+    r.documentCount = 180 + i * 7;
+    r.goldenRatio = Number((r.searchVolume / r.documentCount).toFixed(2));
+    r.bloggerWritability = 68;
+    realLogLikeBackup.push(r);
+  }
+};
+pushRealLogRows('실측 SS 후보', 'SS', 15, 100);
+pushRealLogRows('실측 S 후보', 'S', 11, 200);
+pushRealLogRows('실측 A 후보', 'A', 8, 300);
+
+const realLogLikeResult = selectPrecisionRowsWithBackfill(realLogLikePrimary, realLogLikeBackup, {
+  minReturnCount: 30,
+  selectedCategoryIds: ['beauty', 'health'],
+  minPerSelectedCategory: 5,
+  excludedKeywords: new Set(),
+});
+
+assert('real app log scenario fills 30 from measured SS/S/A candidates',
+  realLogLikeResult.length === 30,
+  `${realLogLikeResult.length}`);
+assert('real app log scenario marks lower-grade rows as precision backfill',
+  realLogLikeResult.filter(r => r.precisionBackfill).length >= 27,
+  `${realLogLikeResult.filter(r => r.precisionBackfill).length}`);
+
 const estimatedFashionSeed: RichKeywordRow = {
   ...row('원피스 추천', 'shopping', 'A'),
   searchVolume: 360,
