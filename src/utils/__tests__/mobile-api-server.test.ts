@@ -102,7 +102,7 @@ const result: MobileKeywordResult = {
     return result;
   };
 
-  const server = createLewordApiServer({ executor, resultCache: null });
+  const server = createLewordApiServer({ executor, resultCache: null, entitlementVerifier: null });
   const port = await listen(server);
   const baseUrl = `http://127.0.0.1:${port}`;
 
@@ -212,6 +212,7 @@ const result: MobileKeywordResult = {
 
   const proBlueprintServer = createLewordApiServer({
     executor,
+    entitlementVerifier: null,
     proBlueprintServices: {
       generateBlueprint: async (keyword: string, options: { force?: boolean; searchVolume?: number | null }) => ({
         blueprint: {
@@ -413,7 +414,7 @@ const result: MobileKeywordResult = {
     res.end(JSON.stringify({ message: 'not found' }));
   });
   const fakeWordPressPort = await listen(fakeWordPressServer);
-  const wordpressServer = createLewordApiServer({ executor });
+  const wordpressServer = createLewordApiServer({ executor, entitlementVerifier: null });
   const wordpressPort = await listen(wordpressServer);
   const wordpressBaseUrl = `http://127.0.0.1:${wordpressPort}`;
 
@@ -569,7 +570,7 @@ const result: MobileKeywordResult = {
       },
     },
   });
-  const rankServer = createLewordApiServer({ executor });
+  const rankServer = createLewordApiServer({ executor, entitlementVerifier: null });
   const rankPort = await listen(rankServer);
   const rankBaseUrl = `http://127.0.0.1:${rankPort}`;
 
@@ -766,7 +767,7 @@ const result: MobileKeywordResult = {
   const keywordGroupsFile = path.join(os.tmpdir(), `leword-keyword-groups-${Date.now()}.json`);
   const oldKeywordGroupsFile = process.env['LEWORD_KEYWORD_GROUPS_FILE'];
   process.env['LEWORD_KEYWORD_GROUPS_FILE'] = keywordGroupsFile;
-  const keywordGroupServer = createLewordApiServer({ executor });
+  const keywordGroupServer = createLewordApiServer({ executor, entitlementVerifier: null });
   const keywordGroupPort = await listen(keywordGroupServer);
   const keywordGroupBaseUrl = `http://127.0.0.1:${keywordGroupPort}`;
 
@@ -859,7 +860,7 @@ const result: MobileKeywordResult = {
   fs.writeFileSync(process.env['LEWORD_KEYWORD_GROUPS_FILE'], JSON.stringify([
     { id: 'api-g1', name: 'schedule group', keywords: ['schedule dashboard fixture'] },
   ]), 'utf8');
-  const scheduleServer = createLewordApiServer({ executor });
+  const scheduleServer = createLewordApiServer({ executor, entitlementVerifier: null });
   const schedulePort = await listen(scheduleServer);
   const scheduleBaseUrl = `http://127.0.0.1:${schedulePort}`;
 
@@ -1257,6 +1258,29 @@ const result: MobileKeywordResult = {
     assert('existing login never turns password into persisted access token',
       existingLoginJson.session.accessToken !== 'panel-pass'
         && String(existingLoginJson.session.accessToken || '').startsWith('panel-'));
+
+    const webLogin = await fetch(`${panelAuthBaseUrl}/v1/web/session`, {
+      method: 'POST',
+      headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify({
+        userId: 'panel-user',
+        password: 'panel-pass',
+      }),
+    });
+    const webLoginJson: any = await webLogin.json();
+    assert('pro web login accepts existing user id and password only',
+      webLogin.status === 200
+        && webLoginJson.ok === true
+        && webLoginJson.session?.userId === 'panel-user'
+        && webLoginJson.session?.source === 'panel-server',
+      JSON.stringify({ status: webLogin.status, body: webLoginJson }));
+    assert('pro web login uses credential verification without license fields',
+      panelLoginRequests[2].action === 'verify-credentials'
+        && !Object.prototype.hasOwnProperty.call(panelLoginRequests[2], 'licenseCode')
+        && !Object.prototype.hasOwnProperty.call(panelLoginRequests[2], 'code'));
+    assert('pro web login never persists the password as token',
+      webLoginJson.session.accessToken !== 'panel-pass'
+        && String(webLoginJson.session.accessToken || '').startsWith('panel-'));
   } finally {
     if (previousPanelLoginUrl === undefined) {
       delete process.env['LEWORD_MOBILE_PANEL_LOGIN_URL'];
@@ -1295,6 +1319,7 @@ const result: MobileKeywordResult = {
   });
   const schedulerServer = createLewordApiServer({
     executor,
+    entitlementVerifier: null,
     resultCache: new InMemoryMobileResultCache(),
     prewarmScheduler: scheduler,
   });
@@ -1315,6 +1340,7 @@ const result: MobileKeywordResult = {
 
   let executionCount = 0;
   const cacheServer = createLewordApiServer({
+    entitlementVerifier: null,
     resultCache: new InMemoryMobileResultCache(),
     executor: async () => {
       executionCount += 1;
@@ -1395,6 +1421,7 @@ const result: MobileKeywordResult = {
     },
   });
   const prewarmServer = createLewordApiServer({
+    entitlementVerifier: null,
     resultCache: new InMemoryMobileResultCache(),
     pushRegistry,
     pushDispatcher,
@@ -1570,6 +1597,7 @@ const result: MobileKeywordResult = {
     ],
   });
   const liveServer = createLewordApiServer({
+    entitlementVerifier: null,
     liveGoldenRadar,
     notificationInbox: liveInbox,
     prewarmService: null,

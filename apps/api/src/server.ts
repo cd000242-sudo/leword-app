@@ -687,14 +687,15 @@ export function createLewordApiServer(options: LewordApiServerOptions = {}): htt
       staticToken: getRequiredAuthToken(options),
     });
   const runtimeEntitlements = new Map<string, MobileEntitlement>();
-  const sessionAwareEntitlementVerifier: MobileEntitlementVerifier = async (token) => {
-    const runtime = runtimeEntitlements.get(token);
-    if (runtime) {
-      return { ok: true, entitlement: runtime };
+  const sessionAwareEntitlementVerifier: MobileEntitlementVerifier | null = entitlementVerifier
+    ? async (token) => {
+      const runtime = runtimeEntitlements.get(token);
+      if (runtime) {
+        return { ok: true, entitlement: runtime };
+      }
+      return entitlementVerifier(token);
     }
-    if (!entitlementVerifier) return { ok: false, reason: 'mobile entitlement not found' };
-    return entitlementVerifier(token);
-  };
+    : null;
   const apiGuardrails = options.apiGuardrails === null
     ? null
     : {
