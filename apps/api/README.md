@@ -34,6 +34,13 @@ $env:LEWORD_MOBILE_API_IMAGE='ghcr.io/<owner>/leword-mobile-api:<sha>'
 docker compose -f apps/api/docker-compose.production.yml up -d
 ```
 
+The same restart path is automated by `.github/workflows/api-production-restart.yml`. Configure these repository secrets, then run the workflow with the image tag from `mobile-api-image-reference`:
+
+- `LEWORD_PROD_SSH_HOST`
+- `LEWORD_PROD_SSH_USER`
+- `LEWORD_PROD_SSH_KEY`
+- Optional: `LEWORD_PROD_SSH_PORT`, `LEWORD_PROD_SSH_KNOWN_HOSTS`, `LEWORD_GHCR_USER`, `LEWORD_GHCR_TOKEN`
+
 `apps/api/docker-compose.production.yml` keeps the mobile result cache on the `leword-mobile-cache` volume, loads `apps/api/.env.production`, maps port `34983`, and healthchecks `/health`.
 
 ## Required Runtime

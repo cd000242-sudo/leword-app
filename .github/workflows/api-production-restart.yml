@@ -1,0 +1,103 @@
+name: Production API Restart
+
+on:
+  workflow_dispatch:
+    inputs:
+      image:
+        description: GHCR API image to deploy
+        required: true
+        default: ghcr.io/cd000242-sudo/leword-mobile-api:latest
+      remote_path:
+        description: Repository path on the production server
+        required: true
+        default: /opt/leword-app
+      compose_file:
+        description: Compose file path relative to remote_path
+        required: true
+        default: apps/api/docker-compose.production.yml
+      bind_port:
+        description: Host-local API bind port used for health checks
+        required: true
+        default: '34983'
+
+permissions:
+  contents: read
+
+jobs:
+  restart:
+    name: Pull image, restart compose, and check health
+    runs-on: ubuntu-24.04
+    steps:
+      - name: Check required SSH secrets
+        env:
+          SSH_HOST: ${{ secrets.LEWORD_PROD_SSH_HOST }}
+          SSH_USER: ${{ secrets.LEWORD_PROD_SSH_USER }}
+          SSH_KEY: ${{ secrets.LEWORD_PROD_SSH_KEY }}
+        run: |
+          test -n "$SSH_HOST" || { echo "LEWORD_PROD_SSH_HOST secret is required"; exit 1; }
+          test -n "$SSH_USER" || { echo "LEWORD_PROD_SSH_USER secret is required"; exit 1; }
+          test -n "$SSH_KEY" || { echo "LEWORD_PROD_SSH_KEY secret is required"; exit 1; }
+
+      - name: Configure SSH
+        env:
+          SSH_HOST: ${{ secrets.LEWORD_PROD_SSH_HOST }}
+          SSH_KEY: ${{ secrets.LEWORD_PROD_SSH_KEY }}
+          SSH_KNOWN_HOSTS: ${{ secrets.LEWORD_PROD_SSH_KNOWN_HOSTS }}
+          SSH_PORT: ${{ secrets.LEWORD_PROD_SSH_PORT }}
+        run: |
+          set -euo pipefail
+          SSH_PORT="${SSH_PORT:-22}"
+          install -m 700 -d ~/.ssh
+          printf '%s\n' "$SSH_KEY" > ~/.ssh/leword_prod
+          chmod 600 ~/.ssh/leword_prod
+          if [ -n "$SSH_KNOWN_HOSTS" ]; then
+            printf '%s\n' "$SSH_KNOWN_HOSTS" > ~/.ssh/known_hosts
+          else
+            ssh-keyscan -p "$SSH_PORT" "$SSH_HOST" > ~/.ssh/known_hosts
+          fi
+
+      - name: Restart production API
+        shell: bash
+        env:
+          SSH_HOST: ${{ secrets.LEWORD_PROD_SSH_HOST }}
+          SSH_USER: ${{ secrets.LEWORD_PROD_SSH_USER }}
+          SSH_PORT: ${{ secrets.LEWORD_PROD_SSH_PORT }}
+          GHCR_USER: ${{ secrets.LEWORD_GHCR_USER }}
+          GHCR_TOKEN: ${{ secrets.LEWORD_GHCR_TOKEN }}
+          IMAGE: ${{ inputs.image }}
+          REMOTE_PATH: ${{ inputs.remote_path }}
+          COMPOSE_FILE: ${{ inputs.compose_file }}
+          BIND_PORT: ${{ inputs.bind_port }}
+        run: |
+          set -euo pipefail
+          SSH_PORT="${SSH_PORT:-22}"
+          GHCR_USER="${GHCR_USER:-cd000242-sudo}"
+          ssh -i ~/.ssh/leword_prod -p "$SSH_PORT" -o StrictHostKeyChecking=yes "${SSH_USER}@${SSH_HOST}" \
+            "REMOTE_PATH=${REMOTE_PATH@Q} COMPOSE_FILE=${COMPOSE_FILE@Q} LEWORD_MOBILE_API_IMAGE=${IMAGE@Q} LEWORD_API_BIND_PORT=${BIND_PORT@Q} GHCR_USER=${GHCR_USER@Q} GHCR_TOKEN=${GHCR_TOKEN@Q} bash -s" <<'REMOTE'
+          set -euo pipefail
+          cd "$REMOTE_PATH"
+          if [ -n "${GHCR_TOKEN:-}" ]; then
+            printf '%s\n' "$GHCR_TOKEN" | docker login ghcr.io -u "$GHCR_USER" --password-stdin
+          fi
+          if docker compose version >/dev/null 2>&1; then
+            compose=(docker compose)
+          elif command -v docker-compose >/dev/null 2>&1; then
+            compose=(docker-compose)
+          else
+            echo "docker compose or docker-compose is required on the production server"
+            exit 1
+          fi
+          export LEWORD_MOBILE_API_IMAGE LEWORD_API_BIND_PORT
+          "${compose[@]}" -f "$COMPOSE_FILE" pull leword-api
+          "${compose[@]}" -f "$COMPOSE_FILE" up -d leword-api
+          "${compose[@]}" -f "$COMPOSE_FILE" ps leword-api
+          health_url="http://127.0.0.1:${LEWORD_API_BIND_PORT:-34983}/health"
+          for attempt in $(seq 1 30); do
+            if command -v curl >/dev/null 2>&1 && curl -fsS "$health_url"; then
+              exit 0
+            fi
+            sleep 2
+          done
+          "${compose[@]}" -f "$COMPOSE_FILE" logs --tail=160 leword-api
+          exit 1
+          REMOTE

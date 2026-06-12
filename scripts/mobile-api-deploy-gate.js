@@ -39,6 +39,9 @@ function collectMobileApiDeployGate() {
   const releaseWorkflow = exists('.github/workflows/mobile-release.yml')
     ? read('.github/workflows/mobile-release.yml')
     : '';
+  const restartWorkflow = exists('.github/workflows/api-production-restart.yml')
+    ? read('.github/workflows/api-production-restart.yml')
+    : '';
 
   const requiredEnv = [
     'NAVER_CLIENT_ID',
@@ -106,6 +109,15 @@ function collectMobileApiDeployGate() {
         && /docker push "\$\{IMAGE_NAME\}:latest"/.test(releaseWorkflow)
         && /mobile-api-image\.txt/.test(releaseWorkflow),
       '.github/workflows/mobile-release.yml api-image job'),
+    check('Production restart workflow pulls image and checks health',
+      /LEWORD_PROD_SSH_HOST/.test(restartWorkflow)
+        && /LEWORD_PROD_SSH_USER/.test(restartWorkflow)
+        && /LEWORD_PROD_SSH_KEY/.test(restartWorkflow)
+        && /docker compose/.test(restartWorkflow)
+        && /pull leword-api/.test(restartWorkflow)
+        && /up -d leword-api/.test(restartWorkflow)
+        && /\/health/.test(restartWorkflow),
+      '.github/workflows/api-production-restart.yml'),
     check('Docker ignore protects release credentials',
       /apps\/mobile\/credentials\/\*/.test(dockerignore) && /node_modules/.test(dockerignore),
       '.dockerignore should keep secrets and local modules out of the image context'),
