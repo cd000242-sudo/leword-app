@@ -134,6 +134,46 @@ function thinProfileCount(items: Array<{ keyword: string }>): number {
     thinProfileCount(floodSnapshot.publicPreview) === 0,
     floodSnapshot.publicPreview.map((item) => item.keyword).join('|'));
 
+  const profileAliasBoardFile = path.join(process.cwd(), 'tmp', 'mobile-live-golden-profile-alias-test.json');
+  fs.writeFileSync(profileAliasBoardFile, JSON.stringify({
+    boardUpdatedAt: '2026-06-13T08:40:00.000Z',
+    items: [
+      ['전영현 프로필', 'SSS', 98, 18000, 120, 150, 'celeb'],
+      ['양의지 프로필', 'SSS', 97, 15000, 140, 107, 'sports'],
+      ['김한희 프로필 가족', 'SSS', 96, 12000, 160, 75, 'celeb'],
+      ['정성호 나이 학력', 'SSS', 95, 11000, 180, 61, 'celeb'],
+      ['백진경 인물정보', 'SSS', 94, 9000, 200, 45, 'celeb'],
+      ['2026 흠뻑쇼 일정', 'SS', 86, 7000, 900, 7.7, 'music'],
+      ['KBO 올스타전 예매 일정', 'SS', 84, 6200, 880, 7, 'sports'],
+      ['근로장려금 지급일 조회', 'SS', 82, 5400, 760, 7.1, 'policy'],
+    ].map(([keyword, grade, score, totalSearchVolume, documentCount, goldenRatio, category]) => ({
+      keyword,
+      grade,
+      score,
+      totalSearchVolume,
+      documentCount,
+      goldenRatio,
+      category,
+      updatedAt: '2026-06-13T08:40:00.000Z',
+      discoveredAt: '2026-06-13T08:40:00.000Z',
+      isMeasured: true,
+    })),
+  }), 'utf8');
+  const profileAliasRadar = new MobileLiveGoldenRadar({
+    notificationInbox: inbox,
+    runOnStart: false,
+    boardFile: profileAliasBoardFile,
+    publicPreviewCount: 5,
+    now: () => new Date('2026-06-13T09:00:00.000Z'),
+  });
+  const profileAliasSnapshot = profileAliasRadar.snapshot();
+  assert('stored live golden board purges name plus thin profile variants',
+    profileAliasSnapshot.board.every((item) => !/(프로필|인물정보|약력|나이|학력|고향|인스타)/.test(item.keyword))
+      && profileAliasSnapshot.board.some((item) => item.keyword === '2026 흠뻑쇼 일정')
+      && profileAliasSnapshot.publicPreview.every((item) => !/(프로필|인물정보|약력|나이|학력|고향|인스타)/.test(item.keyword)),
+    profileAliasSnapshot.board.map((item) => `${item.rank}:${item.keyword}`).join('|'));
+  fs.rmSync(profileAliasBoardFile, { force: true });
+
   let capturedLiveSeeds: string[] = [];
   const seedCleaningRadar = new MobileLiveGoldenRadar({
     notificationInbox: inbox,
@@ -293,6 +333,58 @@ function thinProfileCount(items: Array<{ keyword: string }>): number {
       && previewLeakSnapshot.publicPreview.every((item) => !['청년미래적금 신청 대상', '소상공인 환급금 조회 방법', '프로야구 올스타전 예매 일정'].includes(item.keyword)),
     previewLeakSnapshot.publicPreview.map((item) => `${item.rank}:${item.keyword}`).join('|'));
   fs.rmSync(previewLeakBoardFile, { force: true });
+
+  const categoryDiversityBoardFile = path.join(process.cwd(), 'tmp', 'mobile-live-golden-category-diversity-test.json');
+  const categoryDiversityRows = [
+    ['청년지원금 신청 대상', 'SSS', 98, 38000, 240, 158, 'policy'],
+    ['소상공인 환급 조회 방법', 'SSS', 97, 32000, 260, 123, 'policy'],
+    ['근로장려금 지급일 조회', 'SSS', 96, 28000, 300, 93, 'policy'],
+    ['국민지원금 신청 서류', 'SSS', 95, 25000, 320, 78, 'policy'],
+    ['고용지원금 마감 일정', 'SSS', 94, 23000, 340, 67, 'policy'],
+    ['환급금 조회 방법', 'SSS', 93, 21000, 360, 58, 'policy'],
+    ['KBO 올스타전 예매 일정', 'SS', 88, 9000, 700, 12, 'sports'],
+    ['프로야구 중계 일정', 'SS', 87, 8600, 760, 11, 'sports'],
+    ['야구 경기 하이라이트', 'S', 74, 4600, 900, 5, 'sports'],
+    ['6월 모의고사 등급컷', 'SS', 86, 8200, 720, 11, 'education'],
+    ['수능 접수 마감 일정', 'SS', 85, 7800, 740, 10, 'education'],
+    ['기출 답지 공개 일정', 'S', 73, 4200, 840, 5, 'education'],
+    ['하트시그널 몇부작', 'SS', 84, 7200, 800, 9, 'drama'],
+    ['드라마 결말 다시보기', 'S', 72, 3900, 820, 4.7, 'drama'],
+    ['쿠키영상 결말 해석', 'S', 71, 3600, 780, 4.6, 'movie'],
+    ['콘서트 예매 일정', 'S', 70, 3300, 760, 4.3, 'music'],
+  ];
+  fs.writeFileSync(categoryDiversityBoardFile, JSON.stringify({
+    boardUpdatedAt: '2026-06-13T08:58:00.000Z',
+    items: categoryDiversityRows.map(([keyword, grade, score, totalSearchVolume, documentCount, goldenRatio, category]) => ({
+      keyword,
+      grade,
+      score,
+      totalSearchVolume,
+      documentCount,
+      goldenRatio,
+      category,
+      updatedAt: '2026-06-13T08:58:00.000Z',
+      discoveredAt: '2026-06-13T08:58:00.000Z',
+      isMeasured: true,
+    })),
+  }), 'utf8');
+  const categoryDiversityRadar = new MobileLiveGoldenRadar({
+    notificationInbox: inbox,
+    runOnStart: false,
+    boardFile: categoryDiversityBoardFile,
+    boardTarget: 12,
+    publicPreviewCount: 5,
+    now: () => new Date('2026-06-13T09:00:00.000Z'),
+  });
+  const categoryDiversitySnapshot = categoryDiversityRadar.snapshot();
+  const policyCount = categoryDiversitySnapshot.board.filter((item) => item.category === 'policy').length;
+  const uniqueCategories = new Set(categoryDiversitySnapshot.board.map((item) => item.category));
+  assert('pro live golden board caps one-category flooding before filling diverse winners',
+    categoryDiversitySnapshot.board.length === 12
+      && policyCount <= 3
+      && uniqueCategories.size >= 5,
+    categoryDiversitySnapshot.board.map((item) => `${item.rank}:${item.category}:${item.keyword}`).join('|'));
+  fs.rmSync(categoryDiversityBoardFile, { force: true });
 
   let skippedDiscoverCalls = 0;
   const skippedRadar = new MobileLiveGoldenRadar({

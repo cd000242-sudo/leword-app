@@ -91,8 +91,8 @@ const BROAD_KEYWORD_DOCUMENT_CEILING = 80_000;
 const PUBLIC_PREVIEW_VOLUME_CEILING = 250_000;
 const PUBLIC_PREVIEW_DOCUMENT_CEILING = 30_000;
 const PUBLIC_PREVIEW_PROFILE_INTENT_MAX = 0;
-const LIVE_BOARD_PROFILE_INTENT_TOP_WINDOW = 30;
-const LIVE_BOARD_PROFILE_INTENT_TOP_MAX = 0;
+const LIVE_BOARD_CATEGORY_SHARE_CAP = 0.24;
+const LIVE_BOARD_CLUSTER_MAX = 2;
 
 const GRADE_WEIGHT: Record<MobileResultGrade, number> = {
   SSS: 120,
@@ -402,7 +402,8 @@ function publicReason(item: MobileKeywordMetric): string {
 
 const ACTIONABLE_KEYWORD_HINT_RE = /(일정|답지|등급컷|당첨번호|당첨지역|중계|올스타전|공휴일|신청|대상|자격|지급일|조회|후기|가격|비교|추천|예약|예매|출연진|몇부작|다시보기|결말|쿠키영상|사용법|오류|설정|업데이트|준비물|조건|서류|마감|발표|라인업|하이라이트|공식입장|기자회견|회동|발언|입장|논란|비주얼|공개|MVP|급락|관련주|전망|주가|소식|악수|방한|연기|참석|별세|끝내기|안타|방문|체결|인상|인하|파업|수사|구속|출시|발매|확정|취소|변경|개편|오픈|폐지)/;
 const SPECIFIC_LIVE_KEYWORD_HINT_RE = /(\d{4}|\d+회|\d+월|오늘|이번주|이번달|상반기|하반기|일정|답지|등급컷|올스타전|공휴일|신청|지급일|접수|마감|예매|예약|방송시간|몇부작|출연진|결말|쿠키영상|준비물|후기|가격|비교|추천|주차|라인업|하이라이트|공식입장|기자회견|회동|발언|논란|비주얼|공개|MVP|급락|관련주|전망|주가|소식|악수|방한|연기|참석|별세|끝내기|안타|방문|체결|인상|인하|파업|수사|구속|출시|발매|확정|취소|변경|개편|오픈|폐지)/;
-const THIN_PROFILE_INTENT_RE = /(프로필|인물정보|약력|나이|인스타)$/i;
+const THIN_PROFILE_INTENT_RE = /(프로필|인물정보|약력|나이|학력|고향|키|인스타|나무위키|가족|결혼|남편|아내|부인|군대)$/i;
+const PROFILE_INTENT_TOKEN_RE = /(프로필|인물정보|약력|나이|학력|고향|키|인스타|나무위키|가족|결혼|남편|아내|부인|군대|작품활동|필모그래피)/i;
 const PROFILE_INTENT_EXEMPT_RE = /(카카오톡|카톡|인스타그램|블로그|프로필\s*(사진|설정|변경|꾸미기|삭제|비공개|차단)|사용법|오류|업데이트|방법|신청|조회|대상|자격|지급일|일정|예매|예약|중계|등급컷|답지|당첨번호|주가|전망)/i;
 const RICH_PROFILE_CONTEXT_RE = /(공식입장|해명|논란|기자회견|회동|발언|입장|출연진|방송시간|몇부작|다시보기|결말|하이라이트|라인업|MVP|소식|공개|비주얼)/i;
 
@@ -423,13 +424,25 @@ function isThinProfileIntentKeyword(keyword: string): boolean {
   const clean = normalizeKeyword(keyword);
   if (!clean || PROFILE_INTENT_EXEMPT_RE.test(clean)) return false;
   const compact = clean.replace(/\s+/g, '');
-  if (!THIN_PROFILE_INTENT_RE.test(compact)) return false;
-  const withoutProfileIntent = clean.replace(/프로필|인물정보|약력|나이|인스타/gi, ' ');
-  return !RICH_PROFILE_CONTEXT_RE.test(withoutProfileIntent);
+  const hasThinEnding = THIN_PROFILE_INTENT_RE.test(compact);
+  const hasProfileToken = PROFILE_INTENT_TOKEN_RE.test(clean);
+  if (!hasThinEnding && !hasProfileToken) return false;
+  const withoutProfileIntent = clean.replace(PROFILE_INTENT_TOKEN_RE, ' ');
+  if (RICH_PROFILE_CONTEXT_RE.test(withoutProfileIntent)) return false;
+  if (hasThinEnding) return true;
+  return !ACTIONABLE_KEYWORD_HINT_RE.test(withoutProfileIntent);
 }
 
 function maxThinProfileBoardCount(boardTarget: number): number {
   return 0;
+}
+
+function maxCategoryBoardCount(boardTarget: number): number {
+  return Math.max(3, Math.ceil(Math.max(1, boardTarget) * LIVE_BOARD_CATEGORY_SHARE_CAP));
+}
+
+function boardCategoryKey(item: MobileLiveGoldenBoardItem): string {
+  return normalizeKeyword(item.category) || inferLiveCategory(item.keyword, 'live');
 }
 
 function selectLiveBoardItems<T extends MobileLiveGoldenBoardItem>(
@@ -438,37 +451,54 @@ function selectLiveBoardItems<T extends MobileLiveGoldenBoardItem>(
 ): T[] {
   const target = Math.max(1, Math.floor(boardTarget));
   const maxProfileCount = maxThinProfileBoardCount(target);
-  const topProfileMax = Math.min(maxProfileCount, LIVE_BOARD_PROFILE_INTENT_TOP_MAX);
+  const maxPerCategory = maxCategoryBoardCount(target);
   const selected: T[] = [];
-  const delayedProfiles: T[] = [];
   const selectedIds = new Set<string>();
+  const categoryCounts = new Map<string, number>();
+  const clusterCounts = new Map<string, number>();
   let profileCount = 0;
 
-  const push = (item: T): boolean => {
+  const push = (item: T, options: { respectCategory?: boolean; respectCluster?: boolean } = {}): boolean => {
     if (selected.length >= target || selectedIds.has(item.id)) return false;
+    const isProfileIntent = isThinProfileIntentKeyword(item.keyword);
+    if (isProfileIntent && profileCount >= maxProfileCount) return false;
+    const category = boardCategoryKey(item);
+    const cluster = publicPreviewClusterKey(item.keyword);
+    if (
+      options.respectCategory
+      && category
+      && (categoryCounts.get(category) || 0) >= maxPerCategory
+    ) {
+      return false;
+    }
+    if (
+      options.respectCluster
+      && cluster
+      && (clusterCounts.get(cluster) || 0) >= LIVE_BOARD_CLUSTER_MAX
+    ) {
+      return false;
+    }
     selected.push(item);
     selectedIds.add(item.id);
+    if (isProfileIntent) profileCount++;
+    if (category) categoryCounts.set(category, (categoryCounts.get(category) || 0) + 1);
+    if (cluster) clusterCounts.set(cluster, (clusterCounts.get(cluster) || 0) + 1);
     return true;
   };
 
   for (const item of sorted) {
     if (selected.length >= target) break;
-    if (!isThinProfileIntentKeyword(item.keyword)) {
-      push(item);
-      continue;
-    }
-    if (profileCount >= maxProfileCount) continue;
-    if (selected.length < LIVE_BOARD_PROFILE_INTENT_TOP_WINDOW && profileCount >= topProfileMax) {
-      delayedProfiles.push(item);
-      continue;
-    }
-    if (push(item)) profileCount++;
+    push(item, { respectCategory: true, respectCluster: true });
   }
 
-  for (const item of delayedProfiles) {
-    if (selected.length >= target || profileCount >= maxProfileCount) break;
-    if (selected.length < LIVE_BOARD_PROFILE_INTENT_TOP_WINDOW) continue;
-    if (push(item)) profileCount++;
+  for (const item of sorted) {
+    if (selected.length >= target) break;
+    push(item, { respectCategory: true });
+  }
+
+  for (const item of sorted) {
+    if (selected.length >= target) break;
+    push(item);
   }
 
   return selected;
@@ -497,6 +527,22 @@ function isPublicPreviewCandidate(item: MobileLiveGoldenBoardItem): boolean {
   if (item.documentCount !== null && item.documentCount >= PUBLIC_PREVIEW_DOCUMENT_CEILING) return false;
   if (item.goldenRatio !== null && item.goldenRatio < 2) return false;
   return true;
+}
+
+function isPublicPreviewFallbackCandidate(item: MobileLiveGoldenBoardItem): boolean {
+  if (isMalformedLiveKeyword(item.keyword) || isThinProfileIntentKeyword(item.keyword)) return false;
+  if (item.grade === 'B' || item.grade === 'C') return false;
+  if (item.totalSearchVolume !== null && item.totalSearchVolume >= PUBLIC_PREVIEW_VOLUME_CEILING) return false;
+  if (item.documentCount !== null && item.documentCount >= Math.max(PUBLIC_PREVIEW_DOCUMENT_CEILING, 60_000)) return false;
+  if (
+    item.totalSearchVolume !== null
+    && item.documentCount !== null
+    && item.documentCount > 0
+  ) {
+    const ratio = item.goldenRatio !== null ? item.goldenRatio : item.totalSearchVolume / item.documentCount;
+    if (item.totalSearchVolume < 100 || ratio < 0.8) return false;
+  }
+  return isActionableLiveKeyword(item.keyword) || SPECIFIC_LIVE_KEYWORD_HINT_RE.test(item.keyword);
 }
 
 function inferLiveCategory(keyword: string, fallbackCategory: string): string {
@@ -1089,14 +1135,18 @@ export class MobileLiveGoldenRadar {
     const metricSource = freeBoard
       .filter(isLiveRadarUsableMetric)
       .filter(isFresh);
-    const freshFallback = freeBoard.filter(isFresh);
+    const freshFallback = freeBoard
+      .filter(isPublicPreviewFallbackCandidate)
+      .filter(isFresh);
     const warmMetricSource = protectedTopCount > 0
       ? freeBoard
         .filter(isLiveRadarUsableMetric)
         .filter((item) => ageMsFrom(item.updatedAt, nowMs) <= LIVE_BOARD_MAX_AGE_MS)
       : [];
     const warmFallback = protectedTopCount > 0
-      ? freeBoard.filter((item) => ageMsFrom(item.updatedAt, nowMs) <= LIVE_BOARD_MAX_AGE_MS)
+      ? freeBoard
+        .filter(isPublicPreviewFallbackCandidate)
+        .filter((item) => ageMsFrom(item.updatedAt, nowMs) <= LIVE_BOARD_MAX_AGE_MS)
       : [];
     pushSource(previewSource);
     pushSource(metricSource);
@@ -1104,7 +1154,6 @@ export class MobileLiveGoldenRadar {
     pushSource(warmMetricSource);
     pushSource(warmFallback);
     const source = [...sourceMap.values()];
-    if (source.length <= count) return source.slice(0, count);
 
     const lowerRecent = [...source]
       .sort((a, b) => Date.parse(b.updatedAt) - Date.parse(a.updatedAt))
