@@ -111,6 +111,25 @@ assert('tool settings drive server payloads instead of one generic button',
     && html.includes('crossReferenceNaver: options.crossReferenceNaver !== false')
     && html.includes('includeVolumeMetrics: options.includeVolumeMetrics !== false'));
 
+assert('result center can persist, export, and track keyword outcomes',
+  html.includes("keywordGroups: '/v1/mobile/keyword-groups'")
+    && html.includes("keywordExport: '/v1/mobile/export/keywords'")
+    && html.includes("rankTrackingManual: '/v1/mobile/rank-tracking/manual'")
+    && html.includes('id="saveKeywordGroup"')
+    && html.includes('id="exportKeywordCsv"')
+    && html.includes('id="exportKeywordJson"')
+    && html.includes('id="trackTopKeyword"')
+    && html.includes('id="trackingPostUrl"'));
+
+assert('result center action handlers call server persistence routes',
+  html.includes('function saveKeywordGroupFromResult()')
+    && html.includes('function exportKeywordResult(format)')
+    && html.includes('function trackTopKeywordFromResult()')
+    && html.includes('apiPost(endpoints.keywordGroups')
+    && html.includes('apiPost(endpoints.keywordExport')
+    && html.includes('apiPost(endpoints.rankTrackingManual')
+    && html.includes('downloadArtifact(payload.artifact)'));
+
 const fixed = new Date('2026-06-12T00:00:00.000Z').toISOString();
 const snapshot: MobileSourceSignalSnapshot = {
   updatedAt: fixed,

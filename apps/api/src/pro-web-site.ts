@@ -326,6 +326,14 @@ export function renderLewordProWeb(): string {
     .result-list strong { font-size: 13px; overflow-wrap: anywhere; }
     .result-list span { color: var(--muted); overflow-wrap: anywhere; }
     .result-actions { display: flex; gap: 6px; flex-wrap: wrap; }
+    .result-toolbar {
+      display: grid;
+      grid-template-columns: minmax(180px, 1fr) repeat(4, auto);
+      gap: 8px;
+      align-items: center;
+      margin: 10px 0;
+    }
+    .result-toolbar .input { min-height: 34px; padding: 7px 9px; font-size: 12px; }
     .modal {
       display: none;
       position: fixed;
@@ -357,6 +365,7 @@ export function renderLewordProWeb(): string {
     }
     @media (max-width: 820px) {
       .source-grid, .metrics, .workbench, .lookup-row, .golden-stats, .ops-grid, .tool-form { grid-template-columns: 1fr; }
+      .result-toolbar { grid-template-columns: 1fr; }
       .result-kpis { grid-template-columns: 1fr 1fr; }
       .golden-row { grid-template-columns: 48px minmax(0, 1fr); }
       .golden-row .grade { justify-self: start; }
@@ -600,6 +609,9 @@ export function renderLewordProWeb(): string {
       apiStatus: '/v1/mobile/api-status',
       pcFeatures: '/v1/mobile/pc-features',
       rankTracking: '/v1/mobile/rank-tracking',
+      rankTrackingManual: '/v1/mobile/rank-tracking/manual',
+      keywordGroups: '/v1/mobile/keyword-groups',
+      keywordExport: '/v1/mobile/export/keywords',
       proOutcomes: '/v1/mobile/pro-outcomes',
       wordpress: '/v1/mobile/wordpress',
       scheduleDashboard: '/v1/mobile/schedule-dashboard',
@@ -631,6 +643,7 @@ export function renderLewordProWeb(): string {
     let session = null;
     let pcCatalog = null;
     let selectedToolId = 'pro-traffic';
+    let lastKeywordResult = null;
 
     function qs(id) { return document.getElementById(id); }
     function escapeHtml(value) {
@@ -688,6 +701,7 @@ export function renderLewordProWeb(): string {
     }
     function renderKeywordResultSummary(title, result) {
       const rows = Array.isArray(result && result.keywords) ? result.keywords : [];
+      lastKeywordResult = rows.length ? result : null;
       const summary = result && result.summary ? result.summary : {};
       const sss = summary.sss == null ? rows.filter(function(row) { return row.grade === 'SSS'; }).length : summary.sss;
       const measured = summary.measured == null ? rows.filter(function(row) { return row.isMeasured; }).length : summary.measured;
@@ -697,12 +711,19 @@ export function renderLewordProWeb(): string {
           + keywordActionHtml(row.keyword || '')
           + '</li>';
       });
+      const toolbar = '<li><div class="result-toolbar">'
+        + '<input class="input" id="trackingPostUrl" placeholder="추적 등록용 내 글 URL" autocomplete="off" />'
+        + '<button class="tiny-btn pro" type="button" id="saveKeywordGroup">그룹 저장</button>'
+        + '<button class="tiny-btn" type="button" id="exportKeywordCsv">CSV</button>'
+        + '<button class="tiny-btn" type="button" id="exportKeywordJson">JSON</button>'
+        + '<button class="tiny-btn pro" type="button" id="trackTopKeyword">상위 추적 등록</button>'
+        + '</div><span>결과를 저장하거나 내 글 URL을 입력해 상위 키워드를 노출 추적에 바로 등록합니다.</span></li>';
       renderResultSummary(title, '서버 실측 결과를 PC/모바일/문서수 기준으로 정리했습니다.', [
         { label: '전체 후보', value: fmt(summary.total == null ? rows.length : summary.total) },
         { label: 'SSS 후보', value: fmt(sss) },
         { label: '실측 완료', value: fmt(measured) },
         { label: '처리 시간', value: summary.elapsedMs == null ? '-' : fmt(summary.elapsedMs) + 'ms' },
-      ], topRows);
+      ], [toolbar].concat(topRows));
     }
     function renderSnapshotResultSummary(feature, payload) {
       const title = feature && feature.title ? feature.title : '서버 스냅샷';
@@ -772,6 +793,100 @@ export function renderLewordProWeb(): string {
         return;
       }
       renderSnapshotResultSummary(feature, result);
+    }
+    function lastKeywordRows(limit) {
+      const rows = lastKeywordResult && Array.isArray(lastKeywordResult.keywords) ? lastKeywordResult.keywords : [];
+      return rows.slice(0, limit || 50);
+    }
+    function ensureKeywordResult() {
+      const rows = lastKeywordRows(1);
+      if (!rows.length) {
+        log('저장할 키워드 결과가 없습니다. 먼저 Pro 도구나 키워드 조회를 실행하세요.');
+        return false;
+      }
+      return true;
+    }
+    function downloadArtifact(artifact) {
+      if (!artifact || !artifact.content) return;
+      const blob = new Blob([artifact.content], { type: artifact.mimeType || 'text/plain;charset=utf-8' });
+      const url = URL.createObjectURL(blob);
+      const link = document.createElement('a');
+      link.href = url;
+      link.download = artifact.filename || 'leword-keywords.txt';
+      document.body.appendChild(link);
+      link.click();
+      link.remove();
+      setTimeout(function() { URL.revokeObjectURL(url); }, 1000);
+    }
+    async function saveKeywordGroupFromResult() {
+      if (!requireSession() || !ensureKeywordResult()) return;
+      const rows = lastKeywordRows(50);
+      const title = 'Pro Web 결과 ' + new Date().toLocaleString('ko-KR');
+      try {
+        const payload = await apiPost(endpoints.keywordGroups, {
+          name: title,
+          seedKeyword: rows[0] && rows[0].keyword,
+          keywords: rows.map(function(row) { return row.keyword; }).filter(Boolean)
+        });
+        setResult(payload);
+        renderSnapshotResultSummary({ title: '키워드 그룹 저장' }, {
+          ok: true,
+          route: endpoints.keywordGroups,
+          savedGroup: payload.group,
+          snapshot: payload.snapshot,
+        });
+        log('키워드 그룹 저장 완료: ' + ((payload.group && payload.group.keywordCount) || rows.length) + '개');
+      } catch (err) {
+        log('키워드 그룹 저장 실패: ' + err.message);
+      }
+    }
+    async function exportKeywordResult(format) {
+      if (!requireSession() || !ensureKeywordResult()) return;
+      const rows = lastKeywordRows(80);
+      try {
+        const payload = await apiPost(endpoints.keywordExport, {
+          format: format,
+          title: 'LEWORD Pro Web 결과',
+          keywords: rows,
+        });
+        if (payload.artifact) downloadArtifact(payload.artifact);
+        setResult(payload);
+        renderResultSummary('키워드 내보내기 완료', (payload.artifact && payload.artifact.filename) || '다운로드 artifact를 생성했습니다.', [
+          { label: '형식', value: format.toUpperCase() },
+          { label: '항목', value: fmt((payload.artifact && payload.artifact.itemCount) || rows.length) },
+          { label: '크기', value: fmt((payload.artifact && payload.artifact.byteLength) || 0) + 'B' },
+          { label: '시간', value: new Date().toLocaleTimeString('ko-KR') },
+        ], []);
+        log('키워드 ' + format.toUpperCase() + ' 내보내기 완료');
+      } catch (err) {
+        log('키워드 내보내기 실패: ' + err.message);
+      }
+    }
+    async function trackTopKeywordFromResult() {
+      if (!requireSession() || !ensureKeywordResult()) return;
+      const postUrlInput = qs('trackingPostUrl');
+      const postUrl = postUrlInput ? postUrlInput.value.trim() : '';
+      if (!postUrl) {
+        log('추적 등록에는 내 글 URL이 필요합니다.');
+        if (postUrlInput) postUrlInput.focus();
+        return;
+      }
+      const rows = lastKeywordRows(5);
+      const keyword = rows[0].keyword;
+      try {
+        const payload = await apiPost(endpoints.rankTrackingManual, {
+          keyword: keyword,
+          postUrl: postUrl,
+          postTitle: 'Pro Web 추적 등록',
+          category: 'pro-web',
+        });
+        setResult(payload);
+        renderSnapshotResultSummary({ title: '내 노출 추적 등록' }, payload.snapshot || payload);
+        log('상위 키워드 추적 등록 완료: ' + keyword);
+        await loadOpsDashboard().catch(function() {});
+      } catch (err) {
+        log('추적 등록 실패: ' + err.message);
+      }
     }
     function headers() {
       const out = { 'Content-Type': 'application/json' };
@@ -1267,6 +1382,26 @@ export function renderLewordProWeb(): string {
       qs('runLog').textContent = 'LEWORD Pro Web 대기 중';
       qs('resultLog').textContent = '원문 결과 대기 중';
       qs('resultSummary').innerHTML = '<h3>결과 센터</h3><p>키워드 조회나 Pro 기능을 실행하면 KPI, 상위 후보, 바로가기 액션을 이곳에 정리합니다.</p>';
+      lastKeywordResult = null;
+    });
+    document.addEventListener('click', function(event) {
+      const actionTarget = event.target.closest('#saveKeywordGroup, #exportKeywordCsv, #exportKeywordJson, #trackTopKeyword');
+      if (!actionTarget) return;
+      if (actionTarget.id === 'saveKeywordGroup') {
+        saveKeywordGroupFromResult();
+        return;
+      }
+      if (actionTarget.id === 'exportKeywordCsv') {
+        exportKeywordResult('csv');
+        return;
+      }
+      if (actionTarget.id === 'exportKeywordJson') {
+        exportKeywordResult('json');
+        return;
+      }
+      if (actionTarget.id === 'trackTopKeyword') {
+        trackTopKeywordFromResult();
+      }
     });
     document.addEventListener('click', function(event) {
       const target = event.target.closest('[data-feature]');
