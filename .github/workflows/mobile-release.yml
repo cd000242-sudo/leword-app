@@ -71,10 +71,19 @@ jobs:
           node-version: ${{ env.NODE_VERSION }}
           cache: npm
 
+      - name: Install root dependencies for API image
+        if: ${{ github.event.inputs.target == 'api-image' }}
+        env:
+          PUPPETEER_SKIP_DOWNLOAD: 'true'
+          PLAYWRIGHT_SKIP_BROWSER_DOWNLOAD: '1'
+        run: npm ci --ignore-scripts
+
       - name: Install root dependencies
+        if: ${{ github.event.inputs.target != 'api-image' }}
         run: npm ci
 
       - name: Install mobile dependencies
+        if: ${{ github.event.inputs.target != 'api-image' }}
         run: npm --prefix apps/mobile ci
 
       - name: Check selected CI release inputs
