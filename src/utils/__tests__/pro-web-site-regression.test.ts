@@ -27,6 +27,14 @@ assert('loads public and pro golden boards',
     && html.includes('function loadGoldenBoard()')
     && html.includes('renderPublicGoldenBoard')
     && html.includes('renderProGoldenBoard'));
+assert('live golden board exposes quality control strip',
+  html.includes('id="goldenQualityStrip"')
+    && html.includes('function renderGoldenQuality')
+    && html.includes('function isThinProfileKeywordText')
+    && html.includes('프로필 누출')
+    && html.includes('카테고리 다양성')
+    && html.includes('SSS/SS 후보')
+    && html.includes('Pro 잠금'));
 assert('shows six source lanes in requested order',
   html.indexOf('네이버 <span class="lane-count"') < html.indexOf('다음 <span class="lane-count"')
     && html.indexOf('다음 <span class="lane-count"') < html.indexOf('네이트 <span class="lane-count"')

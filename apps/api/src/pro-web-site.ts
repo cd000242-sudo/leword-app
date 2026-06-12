@@ -150,6 +150,25 @@ export function renderLewordProWeb(): string {
     .board-progress { height: 8px; border-radius: 999px; background: #07111f; overflow: hidden; border: 1px solid rgba(159,177,200,.2); }
     .board-progress div { width: 0%; height: 100%; background: linear-gradient(90deg, var(--gold), var(--green)); }
     .board-meta { display: flex; justify-content: space-between; gap: 12px; margin: 10px 0 14px; color: var(--muted); font-size: 12px; flex-wrap: wrap; }
+    .quality-strip {
+      display: grid;
+      grid-template-columns: repeat(4, minmax(0, 1fr));
+      gap: 8px;
+      margin: 0 0 12px;
+    }
+    .quality-pill {
+      border: 1px solid rgba(159,177,200,.2);
+      border-radius: 8px;
+      background: #07111f;
+      padding: 10px;
+      min-height: 58px;
+    }
+    .quality-pill strong { display: block; color: var(--text); font-size: 15px; }
+    .quality-pill span { display: block; margin-top: 4px; color: var(--muted); font-size: 11px; line-height: 1.35; }
+    .quality-pill.good { border-color: rgba(52,211,153,.35); }
+    .quality-pill.good strong { color: var(--green); }
+    .quality-pill.warn { border-color: rgba(248,194,27,.4); }
+    .quality-pill.warn strong { color: var(--gold); }
     .golden-list { display: grid; gap: 8px; }
     .golden-row {
       display: grid;
@@ -365,6 +384,7 @@ export function renderLewordProWeb(): string {
     }
     @media (max-width: 820px) {
       .source-grid, .metrics, .workbench, .lookup-row, .golden-stats, .ops-grid, .tool-form { grid-template-columns: 1fr; }
+      .quality-strip { grid-template-columns: 1fr 1fr; }
       .result-toolbar { grid-template-columns: 1fr; }
       .result-kpis { grid-template-columns: 1fr 1fr; }
       .golden-row { grid-template-columns: 48px minmax(0, 1fr); }
@@ -377,6 +397,7 @@ export function renderLewordProWeb(): string {
       .shell { padding: 12px; }
       .topbar { align-items: flex-start; flex-direction: column; }
       .nav, .feature-grid, .sidebar { grid-template-columns: 1fr; width: 100%; }
+      .quality-strip { grid-template-columns: 1fr; }
       .nav a, .nav button, .btn { width: 100%; }
       .hero h1 { font-size: 24px; }
     }
@@ -438,6 +459,7 @@ export function renderLewordProWeb(): string {
             <span id="goldenPolicy">공개 정책 확인 중</span>
             <span id="goldenUpdated">업데이트 대기</span>
           </div>
+          <div class="quality-strip" id="goldenQualityStrip"></div>
           <div id="goldenNotice" class="locked">황금키워드 보드를 불러오는 중입니다.</div>
           <div class="golden-list" id="goldenBoardList" style="margin-top:10px;"></div>
         </section>
@@ -653,6 +675,9 @@ export function renderLewordProWeb(): string {
     }
     function escapeAttr(value) {
       return escapeHtml(value).replace(new RegExp(String.fromCharCode(96), 'g'), '&#96;');
+    }
+    function normalizeText(value) {
+      return String(value || '').replace(/\s+/g, ' ').trim();
     }
     function fmt(value) {
       if (value === null || value === undefined || value === '') return '-';
@@ -989,6 +1014,32 @@ export function renderLewordProWeb(): string {
       qs('goldenPolicy').textContent = policy || '하위 5개 공개';
       qs('goldenUpdated').textContent = updatedAt ? '최근 갱신 ' + fmtTime(updatedAt) : '업데이트 대기';
     }
+    function isThinProfileKeywordText(keyword) {
+      return /(프로필|인물정보|약력|나이|학력|고향|키|인스타|나무위키|가족|결혼|남편|아내|부인|군대|작품활동|필모그래피)/.test(normalizeText(keyword));
+    }
+    function qualityPill(label, value, meta, state) {
+      return '<div class="quality-pill ' + escapeHtml(state || '') + '"><strong>' + escapeHtml(value) + '</strong><span>' + escapeHtml(label + ' · ' + meta) + '</span></div>';
+    }
+    function renderGoldenQuality(items, exact, boardCount, lockedCount) {
+      const rows = Array.isArray(items) ? items : [];
+      const measured = rows.filter(function(item) { return item.isMeasured !== false && (item.totalSearchVolume != null || item.documentCount != null || exact); }).length;
+      const topTier = rows.filter(function(item) { return item.grade === 'SSS' || item.grade === 'SS'; }).length;
+      const profileLeak = rows.filter(function(item) { return isThinProfileKeywordText(item.keyword || ''); }).length;
+      const categories = new Set(rows.map(function(item) { return normalizeText(item.category || item.source || 'unknown'); }).filter(Boolean));
+      const visible = rows.length;
+      const totalBoard = boardCount || visible;
+      const lockCount = Math.max(0, lockedCount || Math.max(0, totalBoard - visible));
+      qs('goldenQualityStrip').innerHTML = [
+        exact
+          ? qualityPill('실측률', fmt(measured) + '/' + fmt(visible), 'PC·모바일·문서수 기준', measured >= visible ? 'good' : 'warn')
+          : qualityPill('무료 미리보기', fmt(visible) + '개', '하위 후보만 노출', 'warn'),
+        qualityPill('프로필 누출', fmt(profileLeak), profileLeak === 0 ? '차단 정상' : '검토 필요', profileLeak === 0 ? 'good' : 'warn'),
+        qualityPill('카테고리 다양성', fmt(categories.size), '도배 방지 캡 적용', categories.size >= Math.min(4, visible) ? 'good' : 'warn'),
+        exact
+          ? qualityPill('SSS/SS 후보', fmt(topTier), 'Pro 상위 검증권', topTier > 0 ? 'good' : 'warn')
+          : qualityPill('Pro 잠금', fmt(lockCount), '상위 보드 보호', lockCount > visible ? 'good' : 'warn'),
+      ].join('');
+    }
     function renderGoldenRows(items, exact) {
       const rows = (items || []).slice(0, exact ? 60 : 5);
       if (!rows.length) {
@@ -1029,6 +1080,7 @@ export function renderLewordProWeb(): string {
       );
       qs('metricMeasured').textContent = fmt(payload.boardCount || 0);
       qs('goldenNotice').textContent = '공개 화면은 맛보기만 표시합니다. Pro 로그인 후 전체 순위와 정확 검색량·문서수·황금비율을 불러옵니다.';
+      renderGoldenQuality(items, false, payload.boardCount, payload.lockedCount);
       renderGoldenRows(items, false);
     }
     function renderProGoldenBoard(snapshot) {
@@ -1044,6 +1096,7 @@ export function renderLewordProWeb(): string {
       );
       qs('metricMeasured').textContent = items.filter(function(item) { return item.isMeasured !== false; }).length.toLocaleString('ko-KR');
       qs('goldenNotice').textContent = 'Pro 로그인 상태입니다. 전체 순위와 정확 지표를 표시합니다.';
+      renderGoldenQuality(items, true, snapshot.boardCount || items.length, 0);
       renderGoldenRows(items, true);
     }
     async function loadGoldenBoard() {
