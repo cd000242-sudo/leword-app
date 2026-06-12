@@ -1,6 +1,8 @@
 import { MobileLiveGoldenRadar } from '../../mobile/live-golden-radar';
 import { MobileNotificationInbox } from '../../mobile/notification-inbox';
 import type { MobileKeywordResult } from '../../mobile/contracts';
+import * as fs from 'fs';
+import * as path from 'path';
 
 function assert(name: string, condition: boolean, detail?: string): void {
   if (!condition) {
@@ -131,6 +133,79 @@ function thinProfileCount(items: Array<{ keyword: string }>): number {
   assert('public live golden preview exposes no thin profile intent',
     thinProfileCount(floodSnapshot.publicPreview) === 0,
     floodSnapshot.publicPreview.map((item) => item.keyword).join('|'));
+
+  let capturedLiveSeeds: string[] = [];
+  const seedCleaningRadar = new MobileLiveGoldenRadar({
+    notificationInbox: inbox,
+    runOnStart: false,
+    cycleLimit: 4,
+    categories: ['celeb'],
+    getEnvConfig: () => ({
+      naverClientId: 'client',
+      naverClientSecret: 'secret',
+    }),
+    liveSeedProvider: async () => [
+      '이재명·멜로니 악수 [up]',
+      '쥬얼리, 불화설 끝 20년만에 완전체.. 조민아까지 눈물 [스타이슈]김미화 기자 ・ 2026.06.12 ・ 23:23',
+      '서건창 끝내기 안타',
+    ],
+    enableBackfill: false,
+    discover: async (_config, options) => {
+      capturedLiveSeeds = Array.isArray(options?.liveSeeds) ? options.liveSeeds : [];
+      return [result('이재명 멜로니 악수', 0), result('서건창 끝내기 안타', 1)];
+    },
+  });
+  await seedCleaningRadar.runOnce();
+  assert('live radar cleans portal/news seeds before measuring',
+    capturedLiveSeeds.includes('이재명 멜로니 악수')
+      && capturedLiveSeeds.includes('서건창 끝내기 안타')
+      && capturedLiveSeeds.every((seed) => seed.length <= 34 && !/[·\[\]]/.test(seed) && !seed.includes('기자')),
+    capturedLiveSeeds.join('|'));
+
+  const staleBoardFile = path.join(process.cwd(), 'tmp', 'mobile-live-golden-stale-board-test.json');
+  fs.mkdirSync(path.dirname(staleBoardFile), { recursive: true });
+  fs.writeFileSync(staleBoardFile, JSON.stringify({
+    boardUpdatedAt: '2026-06-13T08:30:00.000Z',
+    items: [
+      {
+        keyword: '6모 등급컷',
+        grade: 'SSS',
+        score: 91,
+        totalSearchVolume: 12000,
+        documentCount: 1200,
+        goldenRatio: 10,
+        category: 'education',
+        updatedAt: '2026-06-08T07:39:17.894Z',
+        discoveredAt: '2026-06-08T07:39:17.894Z',
+        isMeasured: true,
+      },
+      {
+        keyword: '올트먼 방한 연기',
+        grade: 'SS',
+        score: 82,
+        totalSearchVolume: 1800,
+        documentCount: 600,
+        goldenRatio: 3,
+        category: 'it',
+        updatedAt: '2026-06-13T08:20:00.000Z',
+        discoveredAt: '2026-06-13T08:20:00.000Z',
+        isMeasured: true,
+      },
+    ],
+  }), 'utf8');
+  const staleRadar = new MobileLiveGoldenRadar({
+    notificationInbox: inbox,
+    runOnStart: false,
+    boardFile: staleBoardFile,
+    publicPreviewCount: 5,
+    now: () => new Date('2026-06-13T09:00:00.000Z'),
+  });
+  const staleSnapshot = staleRadar.snapshot();
+  assert('public preview hides stale repeated keywords and prefers fresh issues',
+    staleSnapshot.publicPreview.length === 1
+      && staleSnapshot.publicPreview[0]?.keyword === '올트먼 방한 연기',
+    staleSnapshot.publicPreview.map((item) => `${item.keyword}:${item.updatedAt}`).join('|'));
+  fs.rmSync(staleBoardFile, { force: true });
 
   let skippedDiscoverCalls = 0;
   const skippedRadar = new MobileLiveGoldenRadar({

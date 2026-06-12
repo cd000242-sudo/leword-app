@@ -82,6 +82,10 @@ const DEFAULT_CATEGORIES = Object.freeze([
 
 const PUBLIC_PREVIEW_ROTATION_MS = 60_000;
 const LIVE_SEED_COLLECTION_TIMEOUT_MS = 3_500;
+const LIVE_DISCOVERY_TIMEOUT_MS = 55_000;
+const LIVE_BACKFILL_TIMEOUT_MS = 25_000;
+const PUBLIC_PREVIEW_MAX_AGE_MS = 48 * 60 * 60 * 1000;
+const LIVE_BOARD_MAX_AGE_MS = 7 * 24 * 60 * 60 * 1000;
 const BROAD_KEYWORD_VOLUME_CEILING = 500_000;
 const BROAD_KEYWORD_DOCUMENT_CEILING = 80_000;
 const PUBLIC_PREVIEW_VOLUME_CEILING = 250_000;
@@ -186,6 +190,56 @@ function publicPreviewClusterKey(keyword: string): string {
   return keywordClusterKey(clean);
 }
 
+function normalizeLiveSeedText(value: unknown): string {
+  let clean = normalizeKeyword(value)
+    .replace(/\[(same|up|new|down)\]/gi, ' ')
+    .replace(/["'“”‘’]/g, ' ')
+    .replace(/[♥★◆◇■□●○]/g, ' ')
+    .replace(/\[[^\]]{1,40}\]/g, ' ')
+    .replace(/\([^)]{1,40}\)/g, ' ')
+    .replace(/[·ㆍ]/g, ' ')
+    .replace(/기자\s*・.*$/g, ' ')
+    .replace(/\d{4}\.\d{1,2}\.\d{1,2}.*$/g, ' ')
+    .replace(/\s+/g, ' ')
+    .trim();
+  if (clean.length > 42) {
+    clean = normalizeKeyword(clean.split(/[,.!?…]| - | — | \/|:/)[0] || clean);
+  }
+  return clean;
+}
+
+function isNoisyLiveSeed(keyword: string): boolean {
+  const clean = normalizeKeyword(keyword);
+  if (!clean) return true;
+  if (clean.length > 34) return true;
+  if (/(기자|스타이슈|단독|종합|사진|영상|전문|속보만|무단전재)/.test(clean)) return true;
+  if (clean.split(/\s+/).length > 7) return true;
+  return false;
+}
+
+function expandLiveSeedKeyword(value: unknown): string[] {
+  const clean = normalizeLiveSeedText(value);
+  if (!clean) return [];
+  const plain = normalizeKeyword(clean.replace(/[^0-9A-Za-z가-힣\s]/g, ' '));
+  const out: string[] = [clean, plain];
+  const tokens = plain
+    .split(/\s+/)
+    .map((token) => token.trim())
+    .filter((token) => token.length > 1 && !/(기자|여사|관련|오늘|이번|속보)/.test(token));
+  const action = clean.match(ACTIONABLE_KEYWORD_HINT_RE)?.[0] || '';
+  if (tokens.length >= 2) {
+    out.push(tokens.slice(0, Math.min(4, tokens.length)).join(' '));
+    if (action && !plain.includes(action)) out.push(`${tokens.slice(0, Math.min(3, tokens.length)).join(' ')} ${action}`);
+  }
+  return uniqueKeywords(out, 4)
+    .filter((keyword) => !isNoisyLiveSeed(keyword))
+    .filter((keyword) => !isThinProfileIntentKeyword(keyword));
+}
+
+function normalizeLiveSeeds(values: string[], limit = 28): string[] {
+  return uniqueKeywords(values.flatMap(expandLiveSeedKeyword), limit);
+}
+
 function mdpResultId(result: MDPResult): string {
   return keywordId(normalizeKeyword(result.keyword));
 }
@@ -235,6 +289,28 @@ function boardScore(item: MobileLiveGoldenBoardItem): number {
   return grade + measured + ratio + volume + documents + (item.score || 0) * 0.08;
 }
 
+function ageMsFrom(updatedAt: string, nowMs: number): number {
+  const updatedMs = Date.parse(updatedAt);
+  if (!Number.isFinite(updatedMs)) return Number.POSITIVE_INFINITY;
+  return Math.max(0, nowMs - updatedMs);
+}
+
+function boardSortScore(item: MobileLiveGoldenBoardItem, nowMs: number): number {
+  const ageMs = ageMsFrom(item.updatedAt, nowMs);
+  const recency = ageMs < 90 * 60 * 1000
+    ? 32
+    : ageMs < 12 * 60 * 60 * 1000
+      ? 22
+      : ageMs < 24 * 60 * 60 * 1000
+        ? 14
+        : ageMs < 48 * 60 * 60 * 1000
+          ? 6
+          : ageMs > 5 * 24 * 60 * 60 * 1000
+            ? -80
+            : -28;
+  return boardScore(item) + recency;
+}
+
 function freshnessFrom(updatedAt: string, nowMs: number): MobileLiveGoldenFreshness {
   const ageMs = nowMs - Date.parse(updatedAt);
   if (!Number.isFinite(ageMs) || ageMs < 90 * 60 * 1000) return 'live';
@@ -250,8 +326,8 @@ function publicReason(item: MobileKeywordMetric): string {
   return parts.slice(0, 2).join(' · ') || '실시간 검증 통과 후보';
 }
 
-const ACTIONABLE_KEYWORD_HINT_RE = /(일정|답지|등급컷|당첨번호|당첨지역|중계|올스타전|공휴일|신청|대상|자격|지급일|조회|후기|가격|비교|추천|예약|예매|출연진|몇부작|다시보기|결말|쿠키영상|사용법|오류|설정|업데이트|준비물|조건|서류|마감|발표|라인업|하이라이트|프로필|공식입장|기자회견|회동|발언|입장|논란|비주얼|공개|MVP|급락|관련주|전망|주가|소식)/;
-const SPECIFIC_LIVE_KEYWORD_HINT_RE = /(\d{4}|\d+회|\d+월|오늘|이번주|이번달|상반기|하반기|일정|답지|등급컷|올스타전|공휴일|신청|지급일|접수|마감|예매|예약|방송시간|몇부작|출연진|결말|쿠키영상|준비물|후기|가격|비교|추천|주차|라인업|하이라이트|프로필|공식입장|기자회견|회동|발언|논란|비주얼|공개|MVP|급락|관련주|전망|주가|소식)/;
+const ACTIONABLE_KEYWORD_HINT_RE = /(일정|답지|등급컷|당첨번호|당첨지역|중계|올스타전|공휴일|신청|대상|자격|지급일|조회|후기|가격|비교|추천|예약|예매|출연진|몇부작|다시보기|결말|쿠키영상|사용법|오류|설정|업데이트|준비물|조건|서류|마감|발표|라인업|하이라이트|공식입장|기자회견|회동|발언|입장|논란|비주얼|공개|MVP|급락|관련주|전망|주가|소식|악수|방한|연기|참석|별세|끝내기|안타|방문|체결|인상|인하|파업|수사|구속|출시|발매|확정|취소|변경|개편|오픈|폐지)/;
+const SPECIFIC_LIVE_KEYWORD_HINT_RE = /(\d{4}|\d+회|\d+월|오늘|이번주|이번달|상반기|하반기|일정|답지|등급컷|올스타전|공휴일|신청|지급일|접수|마감|예매|예약|방송시간|몇부작|출연진|결말|쿠키영상|준비물|후기|가격|비교|추천|주차|라인업|하이라이트|공식입장|기자회견|회동|발언|논란|비주얼|공개|MVP|급락|관련주|전망|주가|소식|악수|방한|연기|참석|별세|끝내기|안타|방문|체결|인상|인하|파업|수사|구속|출시|발매|확정|취소|변경|개편|오픈|폐지)/;
 const THIN_PROFILE_INTENT_RE = /(프로필|인물정보|약력|나이|인스타)$/i;
 const PROFILE_INTENT_EXEMPT_RE = /(카카오톡|카톡|인스타그램|블로그|프로필\s*(사진|설정|변경|꾸미기|삭제|비공개|차단)|사용법|오류|업데이트|방법|신청|조회|대상|자격|지급일|일정|예매|예약|중계|등급컷|답지|당첨번호|주가|전망)/i;
 const RICH_PROFILE_CONTEXT_RE = /(공식입장|해명|논란|기자회견|회동|발언|입장|출연진|방송시간|몇부작|다시보기|결말|하이라이트|라인업|MVP|소식|공개|비주얼)/i;
@@ -391,7 +467,7 @@ function getBackfillIntents(categoryId: string): string[] {
   if (categoryId === 'drama') return ['출연진', '몇부작', '방송시간', '재방송', '결말 해석'];
   if (categoryId === 'movie') return ['개봉일', '출연진', '쿠키영상', '결말 해석', '예매'];
   if (categoryId === 'broadcast') return ['출연진', '방송시간', '다시보기', '재방송', '공식영상'];
-  if (categoryId === 'celeb') return ['공식입장', '근황', '기자회견', '논란 정리', '발언', '출연작', '방송', '인스타', '프로필'];
+  if (categoryId === 'celeb') return ['공식입장', '근황', '기자회견', '논란 정리', '발언', '출연작', '방송'];
   if (categoryId === 'music') return ['컴백 일정', '콘서트 예매', '팬미팅 일정', '앨범 발매일'];
   if (categoryId === 'education') return ['등급컷', '답지', '시험일정', '접수', '준비물'];
   if (categoryId === 'fashion') return ['코디', '브랜드', '사이즈', '후기', '할인'];
@@ -404,15 +480,21 @@ function getBackfillIntents(categoryId: string): string[] {
 }
 
 function buildBackfillCandidates(categoryId: string, liveSeeds: string[], maxSeeds: number): string[] {
+  const liveSeedBases = normalizeLiveSeeds(liveSeeds, 36);
   const baseSeeds = uniqueKeywords([
-    ...liveSeeds,
+    ...liveSeedBases,
     ...getDiscoveryCategorySeeds(categoryId, Math.max(24, Math.min(80, maxSeeds))),
   ], 48);
   const intents = getBackfillIntents(categoryId);
+  const liveSeedSet = new Set(liveSeedBases.map((seed) => seed.toLowerCase().replace(/\s+/g, '')));
   const candidates: string[] = [];
   for (const seed of baseSeeds) {
     candidates.push(seed);
-    for (const intent of intents) {
+    const key = seed.toLowerCase().replace(/\s+/g, '');
+    const seedIsLive = liveSeedSet.has(key);
+    const seedAlreadySpecific = isActionableLiveKeyword(seed);
+    const intentLimit = seedIsLive ? (seedAlreadySpecific ? 0 : 3) : intents.length;
+    for (const intent of intents.slice(0, intentLimit)) {
       if (!seed.includes(intent)) candidates.push(`${seed} ${intent}`);
       if (candidates.length >= 120) break;
     }
@@ -657,7 +739,7 @@ export class MobileLiveGoldenRadar {
       }
 
       const liveSeeds = await this.collectLiveSeeds(categoryId);
-      const direct = await this.discover({
+      const direct = await withTimeout(this.discover({
         clientId: env.naverClientId,
         clientSecret: env.naverClientSecret,
       }, {
@@ -672,7 +754,7 @@ export class MobileLiveGoldenRadar {
         suggestionSeedLimit: 4,
         suggestionsPerSeed: 8,
         maxSimilarPerCluster: 2,
-      });
+      }), LIVE_DISCOVERY_TIMEOUT_MS, []);
       let qualityDirect = direct.filter(isLiveRadarQualityResult);
       const existingIdsForRun = new Set(this.board.keys());
       const existingClustersForRun = new Set([...this.board.values()].map((item) => keywordClusterKey(item.keyword)).filter(Boolean));
@@ -688,7 +770,7 @@ export class MobileLiveGoldenRadar {
       }
       const novelQualityCount = qualityDirect.filter((item) => isNovelMdpResult(item, existingIdsForRun, existingClustersForRun)).length;
       if (this.enableBackfill && novelQualityCount < this.cycleLimit) {
-        const globalDirect = await this.discover({
+        const globalDirect = await withTimeout(this.discover({
           clientId: env.naverClientId,
           clientSecret: env.naverClientSecret,
         }, {
@@ -703,7 +785,7 @@ export class MobileLiveGoldenRadar {
           suggestionSeedLimit: 0,
           suggestionsPerSeed: 0,
           maxSimilarPerCluster: 2,
-        });
+        }), LIVE_DISCOVERY_TIMEOUT_MS, []);
         const globalQuality = globalDirect.filter(isLiveRadarQualityResult);
         if (globalQuality.length > 0) {
           qualityDirect = [...qualityDirect, ...globalQuality];
@@ -795,7 +877,7 @@ export class MobileLiveGoldenRadar {
   private async collectLiveSeeds(categoryId: string): Promise<string[]> {
     try {
       if (this.liveSeedProvider) {
-        return uniqueKeywords(await this.liveSeedProvider(categoryId), 28);
+        return normalizeLiveSeeds(await this.liveSeedProvider(categoryId), 28);
       }
       const fallbackSeeds = getDiscoveryCategorySeeds(categoryId, 24);
       const [
@@ -840,7 +922,7 @@ export class MobileLiveGoldenRadar {
           fallback.push(keyword);
         }
       }
-      return uniqueKeywords([...matched, ...fallback, ...fallbackSeeds], 28);
+      return uniqueKeywords([...normalizeLiveSeeds(matched, 18), ...normalizeLiveSeeds(fallback, 8), ...fallbackSeeds], 28);
     } catch {
       return uniqueKeywords(getDiscoveryCategorySeeds(categoryId, 24), 24);
     }
@@ -853,9 +935,9 @@ export class MobileLiveGoldenRadar {
   ): Promise<MDPResult[]> {
     const candidates = buildBackfillCandidates(categoryId, liveSeeds, this.maxSeeds);
     if (candidates.length === 0) return [];
-    const rows = await getNaverKeywordSearchVolumeSeparate(config, candidates.slice(0, 100), {
+    const rows = await withTimeout(getNaverKeywordSearchVolumeSeparate(config, candidates.slice(0, 100), {
       includeDocumentCount: true,
-    });
+    }), LIVE_BACKFILL_TIMEOUT_MS, []);
     const seen = new Set<string>();
     const out: MDPResult[] = [];
     for (const row of rows) {
@@ -912,8 +994,14 @@ export class MobileLiveGoldenRadar {
   private selectPublicPreview(board: MobileLiveGoldenBoardItem[]): MobileLiveGoldenBoardItem[] {
     const count = Math.min(this.publicPreviewCount, board.length);
     if (count <= 0) return [];
-    const previewSource = board.filter(isPublicPreviewCandidate);
-    const source = previewSource.length >= count ? previewSource : board.filter(isLiveRadarUsableMetric);
+    const nowMs = this.now().getTime();
+    const previewSource = board
+      .filter(isPublicPreviewCandidate)
+      .filter((item) => ageMsFrom(item.updatedAt, nowMs) <= PUBLIC_PREVIEW_MAX_AGE_MS);
+    const metricSource = board
+      .filter(isLiveRadarUsableMetric)
+      .filter((item) => ageMsFrom(item.updatedAt, nowMs) <= PUBLIC_PREVIEW_MAX_AGE_MS);
+    const source = previewSource.length >= count ? previewSource : metricSource;
     if (source.length <= count) return source.slice(0, count);
 
     const protectedTopCount = Math.min(count, Math.max(0, source.length - count));
@@ -1002,12 +1090,13 @@ export class MobileLiveGoldenRadar {
   private sortedBoard(): MobileLiveGoldenBoardItem[] {
     const nowMs = this.now().getTime();
     const sorted = [...this.board.values()]
+      .filter((item) => ageMsFrom(item.updatedAt, nowMs) <= LIVE_BOARD_MAX_AGE_MS)
       .map((item) => ({
         ...item,
         freshness: freshnessFrom(item.updatedAt, nowMs),
       }))
       .sort((a, b) => {
-        const scoreDiff = boardScore(b) - boardScore(a);
+        const scoreDiff = boardSortScore(b, nowMs) - boardSortScore(a, nowMs);
         if (scoreDiff !== 0) return scoreDiff;
         return Date.parse(b.updatedAt) - Date.parse(a.updatedAt);
       });
