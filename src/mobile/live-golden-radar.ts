@@ -124,6 +124,15 @@ const SEMANTIC_CLUSTER_SUFFIX_RE = new RegExp(`(?:${[
   '\\uC6D0\\uC791',
   '\\uC778\\uBB3C\\uAD00\\uACC4\\uB3C4',
 ].join('|')})+$`, 'u');
+const SEASONAL_CONTENT_CLUSTER_SUFFIX_RE = new RegExp(`(?:${[
+  '\\uBA87\\uBD80\\uC791',
+  '\\uCD9C\\uC5F0\\uC9C4',
+  '\\uB2E4\\uC2DC\\uBCF4\\uAE30',
+  '\\uACB0\\uB9D0',
+  '\\uCFE0\\uD0A4\\uC601\\uC0C1',
+  '\\uC6D0\\uC791',
+  '\\uC778\\uBB3C\\uAD00\\uACC4\\uB3C4',
+].join('|')})+$`, 'u');
 
 const GRADE_WEIGHT: Record<MobileResultGrade, number> = {
   SSS: 120,
@@ -211,11 +220,15 @@ function keywordClusterKey(keyword: string): string {
     .replace(/^(\d{4})(\d{1,2}\uBAA8)/u, '$2');
   if (!compact) return '';
 
+  const isSeasonalContentCluster = SEASONAL_CONTENT_CLUSTER_SUFFIX_RE.test(compact);
   let semantic = compact;
   for (let i = 0; i < 3; i += 1) {
     const next = semantic.replace(SEMANTIC_CLUSTER_SUFFIX_RE, '');
     if (next === semantic || next.length < 3) break;
     semantic = next;
+  }
+  if (isSeasonalContentCluster) {
+    semantic = semantic.replace(/([\uAC00-\uD7A3]{3,})\d{1,2}$/u, '$1');
   }
   return (semantic.length >= 3 ? semantic : compact).slice(0, 12);
 }

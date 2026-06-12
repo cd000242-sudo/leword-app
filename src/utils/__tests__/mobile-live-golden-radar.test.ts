@@ -387,13 +387,15 @@ function thinProfileCount(items: Array<{ keyword: string }>): number {
   fs.rmSync(categoryDiversityBoardFile, { force: true });
 
   const semanticClusterBoardFile = path.join(process.cwd(), 'tmp', 'mobile-live-golden-semantic-cluster-test.json');
-  const heartSignalBase = '\uD558\uD2B8\uC2DC\uADF8\uB1105';
+  const heartSignalRoot = '\uD558\uD2B8\uC2DC\uADF8\uB110';
+  const heartSignalBase = `${heartSignalRoot}5`;
   const semanticClusterRows = [
     [`${heartSignalBase} \uCD9C\uC5F0\uC9C4`, 'SSS', 99, 42000, 400, 105, 'drama'],
     [`${heartSignalBase} \uBA87\uBD80\uC791`, 'SSS', 98, 39000, 420, 92, 'drama'],
     [`${heartSignalBase} \uB2E4\uC2DC\uBCF4\uAE30`, 'SSS', 97, 36000, 430, 83, 'drama'],
     [`${heartSignalBase} \uACB0\uB9D0`, 'SSS', 96, 33000, 440, 75, 'drama'],
     [`${heartSignalBase} \uC6D0\uC791`, 'SSS', 95, 30000, 450, 66, 'drama'],
+    [`${heartSignalRoot} \uBA87\uBD80\uC791`, 'SSS', 94, 28000, 460, 60, 'drama'],
     ['\uCCAD\uB144\uBBF8\uB798\uC801\uAE08 \uAC00\uC785\uC2E0\uCCAD \uB300\uC0C1', 'SSS', 92, 26000, 360, 72, 'policy'],
     ['KBO \uC62C\uC2A4\uD0C0\uC804 \uC608\uB9E4 \uC77C\uC815', 'SS', 88, 15000, 900, 16, 'sports'],
     ['6\uBAA8 \uB4F1\uAE09\uCEF7', 'SS', 86, 12000, 700, 17, 'education'],
@@ -428,7 +430,7 @@ function thinProfileCount(items: Array<{ keyword: string }>): number {
     now: () => new Date('2026-06-13T09:00:00.000Z'),
   });
   const semanticClusterSnapshot = semanticClusterRadar.snapshot();
-  const heartSignalCount = semanticClusterSnapshot.board.filter((item) => item.keyword.includes(heartSignalBase)).length;
+  const heartSignalCount = semanticClusterSnapshot.board.filter((item) => item.keyword.includes(heartSignalRoot)).length;
   assert('pro live golden board caps same-issue suffix variants by semantic cluster',
     semanticClusterSnapshot.board.length === 10 && heartSignalCount <= 2,
     semanticClusterSnapshot.board.map((item) => `${item.rank}:${item.keyword}`).join('|'));
