@@ -38,7 +38,7 @@ The same restart path is automated by `.github/workflows/api-production-restart.
 
 - `LEWORD_PROD_SSH_HOST`
 - `LEWORD_PROD_SSH_USER`
-- `LEWORD_PROD_SSH_KEY`
+- One of `LEWORD_PROD_SSH_KEY` or `LEWORD_PROD_SSH_PASSWORD`
 - Optional: `LEWORD_PROD_SSH_PORT`, `LEWORD_PROD_SSH_KNOWN_HOSTS`, `LEWORD_GHCR_USER`, `LEWORD_GHCR_TOKEN`
 
 `apps/api/docker-compose.production.yml` keeps the mobile result cache on the `leword-mobile-cache` volume, loads `apps/api/.env.production`, maps port `34983`, and healthchecks `/health`.

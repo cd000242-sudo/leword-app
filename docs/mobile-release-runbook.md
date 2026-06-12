@@ -118,7 +118,7 @@ $env:LEWORD_MOBILE_API_IMAGE='ghcr.io/<owner>/leword-mobile-api:<sha>'
 docker compose -f apps/api/docker-compose.production.yml up -d
 ```
 
-For hands-off production restarts, run `.github/workflows/api-production-restart.yml` after the `api-image` workflow succeeds. Required repository secrets are `LEWORD_PROD_SSH_HOST`, `LEWORD_PROD_SSH_USER`, and `LEWORD_PROD_SSH_KEY`; optional secrets are `LEWORD_PROD_SSH_PORT`, `LEWORD_PROD_SSH_KNOWN_HOSTS`, `LEWORD_GHCR_USER`, and `LEWORD_GHCR_TOKEN`.
+For hands-off production restarts, run `.github/workflows/api-production-restart.yml` after the `api-image` workflow succeeds. Required repository secrets are `LEWORD_PROD_SSH_HOST`, `LEWORD_PROD_SSH_USER`, and one of `LEWORD_PROD_SSH_KEY` or `LEWORD_PROD_SSH_PASSWORD`; optional secrets are `LEWORD_PROD_SSH_PORT`, `LEWORD_PROD_SSH_KNOWN_HOSTS`, `LEWORD_GHCR_USER`, and `LEWORD_GHCR_TOKEN`.
 
 The API image installs system Chromium and exposes a `/health` container healthcheck so orchestration can replace broken workers before the mobile app points users at them. The production compose file loads `apps/api/.env.production`, maps port `34983`, and persists `LEWORD_MOBILE_CACHE_FILE` on the `leword-mobile-cache` volume.
 

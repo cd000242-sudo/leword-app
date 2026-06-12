@@ -113,6 +113,8 @@ function collectMobileApiDeployGate() {
       /LEWORD_PROD_SSH_HOST/.test(restartWorkflow)
         && /LEWORD_PROD_SSH_USER/.test(restartWorkflow)
         && /LEWORD_PROD_SSH_KEY/.test(restartWorkflow)
+        && /LEWORD_PROD_SSH_PASSWORD/.test(restartWorkflow)
+        && /sshpass/.test(restartWorkflow)
         && /docker compose/.test(restartWorkflow)
         && /pull leword-api/.test(restartWorkflow)
         && /up -d leword-api/.test(restartWorkflow)

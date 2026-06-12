@@ -33,23 +33,31 @@ jobs:
           SSH_HOST: ${{ secrets.LEWORD_PROD_SSH_HOST }}
           SSH_USER: ${{ secrets.LEWORD_PROD_SSH_USER }}
           SSH_KEY: ${{ secrets.LEWORD_PROD_SSH_KEY }}
+          SSH_PASSWORD: ${{ secrets.LEWORD_PROD_SSH_PASSWORD }}
         run: |
           test -n "$SSH_HOST" || { echo "LEWORD_PROD_SSH_HOST secret is required"; exit 1; }
           test -n "$SSH_USER" || { echo "LEWORD_PROD_SSH_USER secret is required"; exit 1; }
-          test -n "$SSH_KEY" || { echo "LEWORD_PROD_SSH_KEY secret is required"; exit 1; }
+          test -n "$SSH_KEY$SSH_PASSWORD" || { echo "LEWORD_PROD_SSH_KEY or LEWORD_PROD_SSH_PASSWORD secret is required"; exit 1; }
 
       - name: Configure SSH
         env:
           SSH_HOST: ${{ secrets.LEWORD_PROD_SSH_HOST }}
           SSH_KEY: ${{ secrets.LEWORD_PROD_SSH_KEY }}
+          SSH_PASSWORD: ${{ secrets.LEWORD_PROD_SSH_PASSWORD }}
           SSH_KNOWN_HOSTS: ${{ secrets.LEWORD_PROD_SSH_KNOWN_HOSTS }}
           SSH_PORT: ${{ secrets.LEWORD_PROD_SSH_PORT }}
         run: |
           set -euo pipefail
           SSH_PORT="${SSH_PORT:-22}"
           install -m 700 -d ~/.ssh
-          printf '%s\n' "$SSH_KEY" > ~/.ssh/leword_prod
-          chmod 600 ~/.ssh/leword_prod
+          if [ -n "$SSH_KEY" ]; then
+            printf '%s\n' "$SSH_KEY" > ~/.ssh/leword_prod
+            chmod 600 ~/.ssh/leword_prod
+          fi
+          if [ -z "$SSH_KEY" ] && [ -n "$SSH_PASSWORD" ]; then
+            sudo apt-get update
+            sudo apt-get install -y --no-install-recommends sshpass
+          fi
           if [ -n "$SSH_KNOWN_HOSTS" ]; then
             printf '%s\n' "$SSH_KNOWN_HOSTS" > ~/.ssh/known_hosts
           else
@@ -62,6 +70,8 @@ jobs:
           SSH_HOST: ${{ secrets.LEWORD_PROD_SSH_HOST }}
           SSH_USER: ${{ secrets.LEWORD_PROD_SSH_USER }}
           SSH_PORT: ${{ secrets.LEWORD_PROD_SSH_PORT }}
+          SSH_KEY: ${{ secrets.LEWORD_PROD_SSH_KEY }}
+          SSHPASS: ${{ secrets.LEWORD_PROD_SSH_PASSWORD }}
           GHCR_USER: ${{ secrets.LEWORD_GHCR_USER }}
           GHCR_TOKEN: ${{ secrets.LEWORD_GHCR_TOKEN }}
           IMAGE: ${{ inputs.image }}
@@ -72,7 +82,12 @@ jobs:
           set -euo pipefail
           SSH_PORT="${SSH_PORT:-22}"
           GHCR_USER="${GHCR_USER:-cd000242-sudo}"
-          ssh -i ~/.ssh/leword_prod -p "$SSH_PORT" -o StrictHostKeyChecking=yes "${SSH_USER}@${SSH_HOST}" \
+          if [ -n "$SSH_KEY" ]; then
+            ssh_cmd=(ssh -i ~/.ssh/leword_prod)
+          else
+            ssh_cmd=(sshpass -e ssh)
+          fi
+          "${ssh_cmd[@]}" -p "$SSH_PORT" -o StrictHostKeyChecking=yes "${SSH_USER}@${SSH_HOST}" \
             "REMOTE_PATH=${REMOTE_PATH@Q} COMPOSE_FILE=${COMPOSE_FILE@Q} LEWORD_MOBILE_API_IMAGE=${IMAGE@Q} LEWORD_API_BIND_PORT=${BIND_PORT@Q} GHCR_USER=${GHCR_USER@Q} GHCR_TOKEN=${GHCR_TOKEN@Q} bash -s" <<'REMOTE'
           set -euo pipefail
           cd "$REMOTE_PATH"
