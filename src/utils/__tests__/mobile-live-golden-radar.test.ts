@@ -266,7 +266,7 @@ function thinProfileCount(items: Array<{ keyword: string }>): number {
       ['공휴일 병원 진료 조회', 'S', 70, 4600, 58000, 1.0, 'life'],
       ['자격증 접수 마감일', 'S', 69, 4400, 60000, 0.9, 'education'],
       ['신제품 출시 가격 비교', 'S', 68, 4200, 62000, 0.8, 'electronics'],
-    ].map(([keyword, grade, score, totalSearchVolume, documentCount, goldenRatio, category]) => ({
+    ].map(([keyword, grade, score, totalSearchVolume, documentCount, goldenRatio, category], index) => ({
       keyword,
       grade,
       score,
@@ -274,8 +274,8 @@ function thinProfileCount(items: Array<{ keyword: string }>): number {
       documentCount,
       goldenRatio,
       category,
-      updatedAt: '2026-06-13T08:55:00.000Z',
-      discoveredAt: '2026-06-13T08:55:00.000Z',
+      updatedAt: index < 3 ? '2026-06-13T08:55:00.000Z' : '2026-06-10T08:55:00.000Z',
+      discoveredAt: index < 3 ? '2026-06-13T08:55:00.000Z' : '2026-06-10T08:55:00.000Z',
       isMeasured: true,
     })),
   }), 'utf8');
@@ -287,7 +287,7 @@ function thinProfileCount(items: Array<{ keyword: string }>): number {
     now: () => new Date('2026-06-13T09:00:00.000Z'),
   });
   const previewLeakSnapshot = previewLeakRadar.snapshot();
-  assert('free preview never leaks pro head even when strict public candidates are scarce',
+  assert('free preview fills lower warm slots without leaking pro head when strict public candidates are scarce',
     previewLeakSnapshot.publicPreview.length === 5
       && previewLeakSnapshot.publicPreview.every((item) => item.rank > 3)
       && previewLeakSnapshot.publicPreview.every((item) => !['청년미래적금 신청 대상', '소상공인 환급금 조회 방법', '프로야구 올스타전 예매 일정'].includes(item.keyword)),

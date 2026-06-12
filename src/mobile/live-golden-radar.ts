@@ -1090,9 +1090,19 @@ export class MobileLiveGoldenRadar {
       .filter(isLiveRadarUsableMetric)
       .filter(isFresh);
     const freshFallback = freeBoard.filter(isFresh);
+    const warmMetricSource = protectedTopCount > 0
+      ? freeBoard
+        .filter(isLiveRadarUsableMetric)
+        .filter((item) => ageMsFrom(item.updatedAt, nowMs) <= LIVE_BOARD_MAX_AGE_MS)
+      : [];
+    const warmFallback = protectedTopCount > 0
+      ? freeBoard.filter((item) => ageMsFrom(item.updatedAt, nowMs) <= LIVE_BOARD_MAX_AGE_MS)
+      : [];
     pushSource(previewSource);
     pushSource(metricSource);
     pushSource(freshFallback);
+    pushSource(warmMetricSource);
+    pushSource(warmFallback);
     const source = [...sourceMap.values()];
     if (source.length <= count) return source.slice(0, count);
 
