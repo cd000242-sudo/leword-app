@@ -434,6 +434,9 @@ function thinProfileCount(items: Array<{ keyword: string }>): number {
   assert('pro live golden board caps same-issue suffix variants by semantic cluster',
     semanticClusterSnapshot.board.length === 10 && heartSignalCount <= 2,
     semanticClusterSnapshot.board.map((item) => `${item.rank}:${item.keyword}`).join('|'));
+  assert('public live golden preview still fills the promised five lower slots after semantic clustering',
+    semanticClusterSnapshot.publicPreview.length === 5,
+    semanticClusterSnapshot.publicPreview.map((item) => `${item.rank}:${item.keyword}`).join('|'));
   fs.rmSync(semanticClusterBoardFile, { force: true });
 
   let skippedDiscoverCalls = 0;

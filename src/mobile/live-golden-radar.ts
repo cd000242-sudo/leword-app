@@ -1284,6 +1284,15 @@ export class MobileLiveGoldenRadar {
       if (cluster) selectedClusters.add(cluster);
     }
 
+    for (const item of rotated) {
+      if (selected.length >= count) break;
+      if (selected.some((entry) => entry.id === item.id)) continue;
+      const profileIntent = isThinProfileIntentKeyword(item.keyword);
+      if (profileIntent && selectedProfileIntents >= PUBLIC_PREVIEW_PROFILE_INTENT_MAX) continue;
+      selected.push(item);
+      if (profileIntent) selectedProfileIntents++;
+    }
+
     return selected;
   }
 
