@@ -83,6 +83,7 @@ const testFiles = [
     path.join(__dirname, '..', 'src', 'utils', '__tests__', 'mobile-release-secret-scan.test.ts'),
     path.join(__dirname, '..', 'src', 'utils', '__tests__', 'mobile-pc-engine-executor.test.ts'),
     path.join(__dirname, '..', 'src', 'utils', '__tests__', 'mobile-pc-feature-catalog.test.ts'),
+    path.join(__dirname, '..', 'src', 'utils', '__tests__', 'pro-web-site-regression.test.ts'),
     path.join(__dirname, '..', 'src', 'utils', '__tests__', 'mobile-source-signals.test.ts'),
 ];
 

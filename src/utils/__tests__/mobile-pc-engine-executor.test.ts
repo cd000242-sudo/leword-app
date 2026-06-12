@@ -487,6 +487,89 @@ async function runInjectedKinHiddenHoney(): Promise<void> {
   assert('kin hidden uses injected PC adapter fixture', progress.includes('fixture kin adapter'));
 }
 
+async function runInjectedShoppingConnect(): Promise<void> {
+  let received: any = null;
+  const executor = createMobilePcEngineExecutor({
+    runShoppingConnect: async (params, context) => {
+      received = params;
+      context.progress(55, 'fixture shopping adapter');
+      return makeSssResult(params.targetCount, '쇼핑 커넥트');
+    },
+  });
+  const progress: string[] = [];
+  const result = await executor(makeJob('shopping-connect', {
+    keyword: '  무선 이어폰  ',
+    targetCount: 999,
+    sort: 'unknown',
+  }), {
+    signal: new AbortController().signal,
+    progress: (_percent, message) => progress.push(message),
+  });
+
+  assert('shopping normalizes keyword', received.keyword === '무선 이어폰');
+  assert('shopping target clamps to 80', received.targetCount === 80);
+  assert('shopping sort defaults to sim', received.sort === 'sim');
+  assert('shopping returns injected SSS fixtures', result.keywords.length === 80 && result.summary.sss === 80);
+  assert('shopping uses injected PC adapter fixture', progress.includes('fixture shopping adapter'));
+}
+
+async function runInjectedYoutubeGolden(): Promise<void> {
+  let received: any = null;
+  const executor = createMobilePcEngineExecutor({
+    runYoutubeGolden: async (params, context) => {
+      received = params;
+      context.progress(55, 'fixture youtube adapter');
+      return makeSssResult(params.maxResults, '유튜브 황금키워드');
+    },
+  });
+  const progress: string[] = [];
+  const result = await executor(makeJob('youtube-golden', {
+    maxResults: 999,
+    categoryId: ' 24 ',
+    crossReferenceNaver: false,
+  }), {
+    signal: new AbortController().signal,
+    progress: (_percent, message) => progress.push(message),
+  });
+
+  assert('youtube target clamps to 100', received.maxResults === 100);
+  assert('youtube category is normalized', received.categoryId === '24');
+  assert('youtube cross reference false is preserved', received.crossReferenceNaver === false);
+  assert('youtube returns injected SSS fixtures', result.keywords.length === 100 && result.summary.sss === 100);
+  assert('youtube uses injected PC adapter fixture', progress.includes('fixture youtube adapter'));
+}
+
+async function runInjectedNaverMate(): Promise<void> {
+  let received: any = null;
+  const executor = createMobilePcEngineExecutor({
+    runNaverMate: async (params, context) => {
+      received = params;
+      context.progress(55, 'fixture naver mate adapter');
+      return makeSssResult(params.targetCount, '네이버 메이트');
+    },
+  });
+  const progress: string[] = [];
+  const result = await executor(makeJob('naver-mate-hunter', {
+    seedKeyword: '  소상공인 지원금  ',
+    targetCount: 500,
+    includeAutocomplete: false,
+    includeRelated: false,
+    includeVolumeMetrics: false,
+  }), {
+    signal: new AbortController().signal,
+    progress: (_percent, message) => progress.push(message),
+  });
+
+  assert('naver mate normalizes seed keyword', received.seedKeyword === '소상공인 지원금');
+  assert('naver mate target clamps to 120', received.targetCount === 120);
+  assert('naver mate option false values are preserved',
+    received.includeAutocomplete === false
+      && received.includeRelated === false
+      && received.includeVolumeMetrics === false);
+  assert('naver mate returns injected SSS fixtures', result.keywords.length === 120 && result.summary.sss === 120);
+  assert('naver mate uses injected PC adapter fixture', progress.includes('fixture naver mate adapter'));
+}
+
 (async () => {
   await runKeywordAnalysis();
   await runMindmapExpansion();
@@ -495,6 +578,9 @@ async function runInjectedKinHiddenHoney(): Promise<void> {
   await runInjectedProTraffic();
   await runHomeBoardDefaultAdapter();
   await runInjectedKinHiddenHoney();
+  await runInjectedShoppingConnect();
+  await runInjectedYoutubeGolden();
+  await runInjectedNaverMate();
   console.log('[mobile-pc-engine-executor.test] passed');
   process.exit(0);
 })().catch((err) => {

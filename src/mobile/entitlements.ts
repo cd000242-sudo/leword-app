@@ -48,6 +48,9 @@ const PRODUCT_MIN_TIER: Record<MobileKeywordProduct, MobileEntitlementTier> = {
   'pro-traffic-hunter': 'pro',
   'home-board-hunter': 'pro',
   'kin-hidden-honey': 'pro',
+  'shopping-connect': 'pro',
+  'youtube-golden': 'pro',
+  'naver-mate-hunter': 'pro',
 };
 
 interface EntitlementFileEntry {

@@ -4,12 +4,15 @@ import {
   type KeywordAnalysisMobileParams,
   type KinHiddenHoneyMobileParams,
   type MindmapExpansionMobileParams,
+  type NaverMateMobileParams,
   type MobileJobEnvelope,
   type MobileKeywordMetric,
   type MobileKeywordProduct,
   type MobileKeywordResult,
   type MobileResultGrade,
   type ProTrafficMobileParams,
+  type ShoppingConnectMobileParams,
+  type YoutubeGoldenMobileParams,
 } from './contracts';
 import {
   type MobileJobExecutor,
@@ -97,6 +100,21 @@ export type MobileKinHiddenHoneyAdapter = (
   context: MobileJobExecutorContext,
 ) => Promise<MobileKeywordResult>;
 
+export type MobileShoppingConnectAdapter = (
+  params: ShoppingConnectMobileParams,
+  context: MobileJobExecutorContext,
+) => Promise<MobileKeywordResult>;
+
+export type MobileYoutubeGoldenAdapter = (
+  params: YoutubeGoldenMobileParams,
+  context: MobileJobExecutorContext,
+) => Promise<MobileKeywordResult>;
+
+export type MobileNaverMateAdapter = (
+  params: NaverMateMobileParams,
+  context: MobileJobExecutorContext,
+) => Promise<MobileKeywordResult>;
+
 export type MobileKeywordMetricsAdapter = (
   metrics: MobileKeywordMetric[],
   context: MobileJobExecutorContext,
@@ -107,6 +125,9 @@ export interface MobilePcEngineExecutorOptions {
   runProTraffic?: MobileProTrafficAdapter;
   runHomeBoard?: MobileHomeBoardAdapter;
   runKinHiddenHoney?: MobileKinHiddenHoneyAdapter;
+  runShoppingConnect?: MobileShoppingConnectAdapter;
+  runYoutubeGolden?: MobileYoutubeGoldenAdapter;
+  runNaverMate?: MobileNaverMateAdapter;
   measureKeywordMetrics?: MobileKeywordMetricsAdapter;
   getEnvConfig?: () => Partial<EnvConfig>;
 }
@@ -327,6 +348,71 @@ function metricFromKinQuestion(question: any): MobileKeywordMetric {
   };
 }
 
+function metricFromShoppingSeed(seed: any, item: any, fallbackKeyword: string): MobileKeywordMetric {
+  const searchVolume = finiteNumber(seed?.searchVolume);
+  const documentCount = finiteNumber(seed?.documentCount);
+  const goldenRatio = finiteNumber(seed?.goldenRatio)
+    ?? (searchVolume !== null && documentCount !== null && documentCount > 0 ? searchVolume / documentCount : null);
+  const score = finiteNumber(seed?.entryScore)
+    ?? finiteNumber(item?.opportunityScore)
+    ?? finiteNumber(item?.conversionScore)
+    ?? 50;
+  return {
+    keyword: normalizeKeyword(seed?.keyword || item?.discoveryQuery || fallbackKeyword),
+    grade: normalizeGrade(undefined, score),
+    score,
+    pcSearchVolume: null,
+    mobileSearchVolume: null,
+    totalSearchVolume: searchVolume,
+    documentCount,
+    goldenRatio,
+    cpc: null,
+    category: normalizeKeyword(item?.category1 || item?.category2) || 'shopping',
+    source: 'pc-shopping-connect',
+    intent: normalizeKeyword(seed?.relation) || 'commerce-entry',
+    evidence: [
+      'pc-shopping-connect',
+      normalizeKeyword(item?.title || item?.cleanTitle),
+      normalizeKeyword(item?.writeRecommendation),
+      ...(Array.isArray(item?.opportunityReasons) ? item.opportunityReasons : []),
+    ].filter(Boolean),
+    isMeasured: searchVolume !== null || documentCount !== null,
+  };
+}
+
+function metricFromYoutubeKeyword(keyword: any, cross: any | undefined): MobileKeywordMetric {
+  const score = finiteNumber(keyword?.totalScore)
+    ?? finiteNumber(keyword?.trendScore)
+    ?? finiteNumber(cross?.urgencyScore)
+    ?? 50;
+  const pcSearchVolume = finiteNumber(cross?.pcSearchVolume);
+  const mobileSearchVolume = finiteNumber(cross?.mobileSearchVolume);
+  const totalSearchVolume = finiteNumber(cross?.totalSearchVolume)
+    ?? ((pcSearchVolume !== null || mobileSearchVolume !== null) ? (pcSearchVolume || 0) + (mobileSearchVolume || 0) : null);
+  const documentCount = finiteNumber(cross?.documentCount);
+  return {
+    keyword: normalizeKeyword(keyword?.keyword || cross?.keyword),
+    grade: normalizeGrade(keyword?.grade, score),
+    score,
+    pcSearchVolume,
+    mobileSearchVolume,
+    totalSearchVolume,
+    documentCount,
+    goldenRatio: finiteNumber(cross?.ratio),
+    cpc: null,
+    category: 'youtube',
+    source: 'pc-youtube-golden-keywords',
+    intent: 'youtube-trend-to-blog',
+    evidence: [
+      'pc-youtube-golden-keywords',
+      normalizeKeyword(keyword?.reason),
+      normalizeKeyword(cross?.verdict),
+      ...(Array.isArray(cross?.warnings) ? cross.warnings : []),
+    ].filter(Boolean),
+    isMeasured: totalSearchVolume !== null || documentCount !== null,
+  };
+}
+
 function resultFromMetrics(
   keywords: MobileKeywordMetric[],
   startedAt: number,
@@ -522,6 +608,38 @@ function asKinHiddenHoneyParams(params: unknown): KinHiddenHoneyMobileParams {
   };
 }
 
+function asShoppingConnectParams(params: unknown): ShoppingConnectMobileParams {
+  const payload = (params || {}) as Partial<ShoppingConnectMobileParams>;
+  const sort = payload.sort === 'date' || payload.sort === 'asc' || payload.sort === 'dsc'
+    ? payload.sort
+    : 'sim';
+  return {
+    keyword: normalizeKeyword(payload.keyword),
+    targetCount: clampInt(payload.targetCount, 20, 1, 80),
+    sort,
+  };
+}
+
+function asYoutubeGoldenParams(params: unknown): YoutubeGoldenMobileParams {
+  const payload = (params || {}) as Partial<YoutubeGoldenMobileParams>;
+  return {
+    maxResults: clampInt(payload.maxResults, 50, 10, 100),
+    categoryId: payload.categoryId ? normalizeKeyword(payload.categoryId) : undefined,
+    crossReferenceNaver: payload.crossReferenceNaver !== false,
+  };
+}
+
+function asNaverMateParams(params: unknown): NaverMateMobileParams {
+  const payload = (params || {}) as Partial<NaverMateMobileParams>;
+  return {
+    seedKeyword: normalizeKeyword(payload.seedKeyword),
+    targetCount: clampInt(payload.targetCount, 50, 1, 120),
+    includeAutocomplete: payload.includeAutocomplete !== false,
+    includeRelated: payload.includeRelated !== false,
+    includeVolumeMetrics: payload.includeVolumeMetrics !== false,
+  };
+}
+
 function asKeywordAnalysisParams(params: unknown): KeywordAnalysisMobileParams {
   const payload = (params || {}) as Partial<KeywordAnalysisMobileParams>;
   return {
@@ -564,6 +682,76 @@ function envValue(env: Partial<EnvConfig>, key: keyof EnvConfig, ...envNames: st
     if (value) return value;
   }
   return normalizeKeyword(env[key] || '');
+}
+
+async function collectLiveExpansionCandidates(
+  seed: string,
+  limit: number,
+  env: Partial<EnvConfig>,
+  context: MobileJobExecutorContext,
+): Promise<Array<{ keyword: string; sources: string[]; source: string; freq: number; monthlyVolume?: number }>> {
+  const clientId = envValue(env, 'naverClientId', 'NAVER_CLIENT_ID');
+  const clientSecret = envValue(env, 'naverClientSecret', 'NAVER_CLIENT_SECRET');
+  if (!clientId || !clientSecret) return [];
+
+  const config = { clientId, clientSecret };
+  const byKey = new Map<string, { keyword: string; sources: string[]; source: string; freq: number; monthlyVolume?: number }>();
+  const add = (keyword: string, source: string, monthlyVolume?: number) => {
+    const normalized = normalizeKeyword(keyword);
+    const key = compactKeyword(normalized);
+    if (!normalized || normalized.length < 2 || normalized.length > 42 || !key) return;
+    const current = byKey.get(key);
+    if (current) {
+      current.freq += 1;
+      if (!current.sources.includes(source)) current.sources.push(source);
+      if (typeof monthlyVolume === 'number') current.monthlyVolume = Math.max(current.monthlyVolume || 0, monthlyVolume);
+      return;
+    }
+    byKey.set(key, {
+      keyword: normalized,
+      sources: [source],
+      source,
+      freq: 1,
+      monthlyVolume,
+    });
+  };
+
+  const [autocomplete, related] = await Promise.all([
+    import('../utils/naver-autocomplete')
+      .then(mod => mod.getNaverAutocompleteKeywords(seed, config))
+      .catch(() => [] as string[]),
+    import('../utils/naver-datalab-api')
+      .then(mod => mod.getNaverRelatedKeywords(seed, config, { limit: Math.min(80, Math.max(20, limit)) }))
+      .catch(() => [] as Array<{ keyword?: string; searchVolume?: number; monthlyVolume?: number }>),
+  ]);
+  ensureNotAborted(context);
+
+  for (const keyword of autocomplete || []) add(keyword, 'autocomplete');
+  for (const item of related || []) {
+    const row = item as any;
+    add(
+      String(row?.keyword || ''),
+      'naver-relkwd',
+      typeof row?.searchVolume === 'number'
+        ? row.searchVolume
+        : (typeof row?.monthlyVolume === 'number' ? row.monthlyVolume : undefined),
+    );
+  }
+
+  return Array.from(byKey.values()).slice(0, Math.max(limit, 1));
+}
+
+function buildServerFallbackExpansionCandidates(
+  seed: string,
+  limit: number,
+  source: string,
+): Array<{ keyword: string; sources: string[]; source: string; freq: number; monthlyVolume?: number }> {
+  return buildCleanIntentCandidates(seed, Math.max(limit, 1)).map((keyword, index) => ({
+    keyword,
+    sources: [source],
+    source,
+    freq: Math.max(1, limit - index),
+  }));
 }
 
 function addEvidence(evidence: string[], value: string): string[] {
@@ -996,10 +1184,236 @@ async function runKinHiddenHoneyWithPcHunter(
   return resultFromMetrics(metrics, startedAt, 'pc-engine-plus');
 }
 
+async function runShoppingConnectWithPcEngine(
+  params: ShoppingConnectMobileParams,
+  context: MobileJobExecutorContext,
+  measureKeywordMetrics: MobileKeywordMetricsAdapter,
+): Promise<MobileKeywordResult> {
+  const startedAt = Date.now();
+  if (!params.keyword) throw new Error('keyword is required');
+
+  context.progress(10, `starting PC shopping connect for ${params.keyword}`);
+  ensureNotAborted(context);
+
+  const shopping = await import('../utils/naver-shopping-api');
+  const result = await shopping.searchNaverShopping(params.keyword, {
+    display: Math.min(100, Math.max(params.targetCount * 3, 30)),
+    sort: params.sort,
+  });
+  ensureNotAborted(context);
+
+  const scoredItems = result.items.map((item) => ({
+    ...item,
+    conversionScore: shopping.computeConversionScore(item),
+  }));
+  const rankedItems = shopping.rankShoppingOpportunities(
+    scoredItems,
+    {
+      keyword: params.keyword,
+      intentPrimary: 'buy',
+      totalHits: result.total,
+      relatedKeywords: [],
+      crossSourceSeeds: [],
+    },
+    Math.max(params.targetCount, 20),
+    { balanceDiscovery: true },
+  );
+
+  context.progress(55, `building LeWord entry keywords from ${rankedItems.length} shopping products`);
+  ensureNotAborted(context);
+
+  const metrics: MobileKeywordMetric[] = [];
+  const seen = new Set<string>();
+  for (const item of rankedItems) {
+    const seeds = shopping.buildProductLeWordSeeds(item, params.keyword, 5);
+    if (seeds.length === 0) {
+      seeds.push({
+        keyword: normalizeKeyword(item.cleanTitle || item.simplifiedTitle || item.title || params.keyword),
+        relation: 'same-product',
+        reason: 'shopping product opportunity',
+      });
+    }
+    for (const seed of seeds) {
+      const key = compactKeyword(seed.keyword);
+      if (!key || seen.has(key)) continue;
+      seen.add(key);
+      metrics.push(metricFromShoppingSeed(seed, item, params.keyword));
+      if (metrics.length >= params.targetCount) break;
+    }
+    if (metrics.length >= params.targetCount) break;
+  }
+
+  const measuredMetrics = await measureKeywordMetrics(metrics, context);
+  return resultFromMetrics(measuredMetrics, startedAt, 'pc-engine-plus');
+}
+
+async function runYoutubeGoldenWithPcEngine(
+  params: YoutubeGoldenMobileParams,
+  context: MobileJobExecutorContext,
+  getEnvConfig: () => Partial<EnvConfig>,
+): Promise<MobileKeywordResult> {
+  const startedAt = Date.now();
+  const env = getEnvConfig();
+  const apiKey = envValue(env, 'youtubeApiKey', 'YOUTUBE_API_KEY');
+  if (!apiKey) {
+    throw new MobilePcEngineConfigError(
+      'youtube-golden',
+      'YouTube API key is required on the server worker.',
+    );
+  }
+
+  context.progress(10, 'collecting YouTube trending videos with PC engine');
+  ensureNotAborted(context);
+
+  const youtube = await import('../utils/youtube-data-api');
+  const analyzer = await import('../utils/youtube-trend-analyzer');
+  const trending = await youtube.getYouTubeTrending({
+    apiKey,
+    maxResults: params.maxResults,
+    categoryId: params.categoryId,
+    regionCode: 'KR',
+    useCache: true,
+  });
+  ensureNotAborted(context);
+
+  const videos = Array.isArray(trending.videos) ? trending.videos : [];
+  context.progress(45, `analyzing ${videos.length} YouTube trend videos`);
+  const dashboard = analyzer.aggregateTrendDashboard(videos);
+  const patterns = analyzer.analyzeTitlePatterns(videos);
+  const golden = analyzer.generateGoldenKeywords(dashboard, patterns, videos);
+
+  const crossByKeyword = new Map<string, any>();
+  if (params.crossReferenceNaver && golden.length > 0) {
+    const clientId = envValue(env, 'naverClientId', 'NAVER_CLIENT_ID');
+    const clientSecret = envValue(env, 'naverClientSecret', 'NAVER_CLIENT_SECRET');
+    if (clientId && clientSecret) {
+      context.progress(72, 'cross-referencing YouTube keywords with Naver SearchAd/OpenAPI');
+      const cross = await analyzer.crossReferenceWithNaver(
+        golden.map((item) => item.keyword).slice(0, Math.min(30, params.maxResults)),
+        { clientId, clientSecret },
+        videos,
+      );
+      for (const item of cross.opportunities || []) {
+        const key = compactKeyword(item.keyword);
+        if (key) crossByKeyword.set(key, item);
+      }
+    } else {
+      context.progress(72, 'skipping Naver cross-reference because OpenAPI keys are missing');
+    }
+  }
+  ensureNotAborted(context);
+
+  const seen = new Set<string>();
+  const metrics = golden
+    .map((item) => metricFromYoutubeKeyword(item, crossByKeyword.get(compactKeyword(item.keyword))))
+    .filter((item) => {
+      const key = compactKeyword(item.keyword);
+      if (!key || seen.has(key)) return false;
+      seen.add(key);
+      return true;
+    })
+    .slice(0, params.maxResults);
+
+  return resultFromMetrics(metrics, startedAt, 'pc-engine-plus');
+}
+
+async function runNaverMateWithPcEngine(
+  params: NaverMateMobileParams,
+  context: MobileJobExecutorContext,
+  measureKeywordMetrics: MobileKeywordMetricsAdapter,
+  getEnvConfig: () => Partial<EnvConfig>,
+): Promise<MobileKeywordResult> {
+  const startedAt = Date.now();
+  if (!params.seedKeyword) throw new Error('seedKeyword is required');
+
+  const env = getEnvConfig();
+  const config = requireNaverOpenApiConfig(env, 'naver-mate-hunter');
+  const candidates: Array<{ keyword: string; score: number; source: string; evidence: string[] }> = [
+    {
+      keyword: params.seedKeyword,
+      score: 88,
+      source: 'naver-mate-seed',
+      evidence: ['pc-naver-mate-seed'],
+    },
+  ];
+
+  const addCandidate = (keyword: unknown, score: number, source: string, evidence: string[]) => {
+    const normalized = normalizeKeyword(keyword);
+    if (!normalized) return;
+    candidates.push({ keyword: normalized, score, source, evidence });
+  };
+
+  if (params.includeAutocomplete) {
+    context.progress(20, 'collecting Naver autocomplete signals');
+    ensureNotAborted(context);
+    const autocomplete = await import('../utils/naver-autocomplete');
+    const keywords = await autocomplete.getNaverAutocompleteKeywords(params.seedKeyword, config)
+      .catch((err: any) => {
+        context.progress(30, `Naver autocomplete unavailable: ${err?.message || err}`);
+        return [] as string[];
+      });
+    keywords.slice(0, params.targetCount * 2).forEach((keyword, index) => {
+      addCandidate(keyword, Math.max(45, 86 - index * 0.55), 'pc-naver-autocomplete', [
+        'pc-naver-autocomplete',
+        'naver-pc-mobile-shopping-related',
+      ]);
+    });
+  }
+
+  if (params.includeRelated) {
+    context.progress(48, 'collecting Naver related keyword signals');
+    ensureNotAborted(context);
+    const datalab = await import('../utils/naver-datalab-api');
+    const related = await datalab.getNaverRelatedKeywords(params.seedKeyword, config, {
+      limit: Math.min(100, Math.max(params.targetCount, 30)),
+      spiderWebDepth: 1,
+    }).catch((err: any) => {
+      context.progress(58, `Naver related keywords unavailable: ${err?.message || err}`);
+      return [] as any[];
+    });
+    related.forEach((item: any, index: number) => {
+      const volumeScore = Math.min(22, Math.log10(Math.max(1, Number(item?.searchVolume || 0))) * 6);
+      addCandidate(item?.keyword, Math.max(45, 78 - index * 0.35 + volumeScore), 'pc-naver-related-keywords', [
+        'pc-naver-related-keywords',
+        normalizeKeyword(item?.intent),
+        normalizeKeyword(item?.category),
+      ].filter(Boolean));
+    });
+  }
+
+  context.progress(72, `ranking ${candidates.length} Naver Mate candidates`);
+  ensureNotAborted(context);
+
+  const seen = new Set<string>();
+  const ranked = candidates
+    .sort((a, b) => b.score - a.score)
+    .filter((item) => {
+      const key = compactKeyword(item.keyword);
+      if (!key || seen.has(key)) return false;
+      seen.add(key);
+      return true;
+    })
+    .slice(0, params.targetCount)
+    .map((item) => metricFromExpansion(
+      item.keyword,
+      item.score,
+      item.source,
+      'naver-mate',
+      'naver',
+      item.evidence,
+    ));
+
+  const measuredMetrics = params.includeVolumeMetrics
+    ? await measureKeywordMetrics(ranked, context)
+    : ranked;
+  return resultFromMetrics(measuredMetrics, startedAt, 'pc-engine-plus');
+}
+
 async function runKeywordAnalysis(
   job: MobileJobEnvelope<unknown, MobileKeywordResult>,
   context: MobileJobExecutorContext,
   measureKeywordMetrics: MobileKeywordMetricsAdapter,
+  getEnvConfig: () => Partial<EnvConfig>,
 ): Promise<MobileKeywordResult> {
   const startedAt = Date.now();
   const params = asKeywordAnalysisParams(job.params);
@@ -1008,23 +1422,25 @@ async function runKeywordAnalysis(
   context.progress(10, 'normalizing keyword analysis request');
   ensureNotAborted(context);
 
-  const intentFallbacks = buildCleanIntentCandidates(
-    params.keyword,
-    Math.max(params.maxRelatedCount * 2, 24),
-  );
-
   context.progress(35, 'ranking related keywords with PC expansion engine');
   ensureNotAborted(context);
+  let liveCandidates = await collectLiveExpansionCandidates(
+    params.keyword,
+    Math.max(params.maxRelatedCount * 3, 60),
+    getEnvConfig(),
+    context,
+  );
+  if (liveCandidates.length === 0) {
+    liveCandidates = buildServerFallbackExpansionCandidates(
+      params.keyword,
+      Math.max(params.maxRelatedCount * 3, 60),
+      'server-intent-template',
+    );
+  }
 
   const ranked = rankKeywordExpansionCandidates(
     params.keyword,
-    intentFallbacks.map((keyword, index) => ({
-      keyword,
-      sources: ['pc-intent-expansion'],
-      source: 'pc-intent-expansion',
-      freq: Math.max(1, intentFallbacks.length - index),
-      priority: Math.max(1, intentFallbacks.length - index),
-    })),
+    liveCandidates,
     {
       limit: params.maxRelatedCount,
       minScore: 30,
@@ -1032,6 +1448,7 @@ async function runKeywordAnalysis(
       minKeep: Math.min(10, params.maxRelatedCount),
       ensureIntentCoverage: true,
       intentCoverageMin: Math.min(24, Math.max(8, params.maxRelatedCount)),
+      allowSyntheticFallback: false,
     },
   );
 
@@ -1043,20 +1460,10 @@ async function runKeywordAnalysis(
     item.score,
     item.source || item.sources?.[0] || 'pc-expansion-ranker',
     'related-keyword',
-    params.categoryId || 'auto',
-    ['pc-keyword-expansion-ranker', ...item.reasons],
-  ));
-  const coverageMetrics = intentFallbacks
-    .slice(0, Math.min(6, params.maxRelatedCount))
-    .map((keyword) => metricFromExpansion(
-      keyword,
-      72,
-      'pc-intent-expansion',
-      'related-keyword',
       params.categoryId || 'auto',
-      ['pc-keyword-expansion-ranker', 'intent-coverage-preserved'],
+      ['pc-keyword-expansion-ranker', ...item.reasons],
     ));
-  const metrics = mergeCoverageMetrics(coverageMetrics, rankedMetrics, params.maxRelatedCount);
+  const metrics = rankedMetrics.slice(0, params.maxRelatedCount);
   const measuredMetrics = await measureKeywordMetrics(metrics, context);
 
   return resultFromMetrics(measuredMetrics, startedAt, 'pc-engine-plus');
@@ -1066,6 +1473,7 @@ async function runMindmapExpansion(
   job: MobileJobEnvelope<unknown, MobileKeywordResult>,
   context: MobileJobExecutorContext,
   measureKeywordMetrics: MobileKeywordMetricsAdapter,
+  getEnvConfig: () => Partial<EnvConfig>,
 ): Promise<MobileKeywordResult> {
   const startedAt = Date.now();
   const params = asMindmapParams(job.params);
@@ -1074,27 +1482,37 @@ async function runMindmapExpansion(
   context.progress(10, 'normalizing mindmap expansion request');
   ensureNotAborted(context);
 
-  const fallbackKeywords = buildCleanIntentCandidates(
+  let candidates: MindmapExpansionCandidate[] = await collectLiveExpansionCandidates(
     params.seedKeyword,
-    Math.max(params.targetCount * 2, 60),
+    Math.max(params.targetCount * 3, 60),
+    getEnvConfig(),
+    context,
   );
-
-  const candidates: MindmapExpansionCandidate[] = fallbackKeywords.map((keyword, index) => ({
-    keyword,
-    sources: ['pc-mindmap-intent-expansion'],
-    source: 'pc-mindmap-intent-expansion',
-    freq: Math.max(1, fallbackKeywords.length - index),
-    priority: Math.max(1, fallbackKeywords.length - index),
-  }));
+  const usingServerFallback = candidates.length === 0;
+  if (usingServerFallback) {
+    candidates = buildServerFallbackExpansionCandidates(
+      params.seedKeyword,
+      Math.max(params.targetCount * 3, 60),
+      'server-mindmap-intent-template',
+    );
+  }
 
   context.progress(45, 'ranking mindmap candidates with PC quality gate');
   ensureNotAborted(context);
 
-  const ranked = rankMindmapExpansionCandidates(
-    params.seedKeyword,
-    candidates,
-    params.targetCount,
-  );
+  const ranked = usingServerFallback
+    ? candidates.slice(0, params.targetCount).map((item, index) => ({
+      keyword: item.keyword,
+      score: Math.max(45, 82 - index * 0.5),
+      source: item.source,
+      sources: item.sources,
+      reasons: ['server-zero-live-fallback', item.source],
+    }))
+    : rankMindmapExpansionCandidates(
+      params.seedKeyword,
+      candidates,
+      params.targetCount,
+    );
 
   context.progress(80, 'building mobile mindmap result envelope');
   ensureNotAborted(context);
@@ -1107,17 +1525,7 @@ async function runMindmapExpansion(
     'auto',
     ['pc-mindmap-expansion-quality', ...item.reasons],
   ));
-  const coverageMetrics = fallbackKeywords
-    .slice(0, Math.min(8, params.targetCount))
-    .map((keyword) => metricFromExpansion(
-      keyword,
-      72,
-      'pc-mindmap-intent-expansion',
-      'mindmap-expansion',
-      'auto',
-      ['pc-mindmap-expansion-quality', 'intent-coverage-preserved'],
-    ));
-  const metrics = mergeCoverageMetrics(coverageMetrics, rankedMetrics, params.targetCount);
+  const metrics = rankedMetrics.slice(0, params.targetCount);
   const measuredMetrics = params.includeVolumeMetrics
     ? await measureKeywordMetrics(metrics, context)
     : metrics;
@@ -1138,9 +1546,9 @@ export function createMobilePcEngineExecutor(
 
     switch (job.product) {
       case 'keyword-analysis':
-        return runKeywordAnalysis(job, context, measureKeywordMetrics);
+        return runKeywordAnalysis(job, context, measureKeywordMetrics, getEnvConfig);
       case 'mindmap-expansion':
-        return runMindmapExpansion(job, context, measureKeywordMetrics);
+        return runMindmapExpansion(job, context, measureKeywordMetrics, getEnvConfig);
       case 'golden-discovery': {
         const params = asGoldenParams(job.params);
         const adapter = options.runGoldenDiscovery
@@ -1161,6 +1569,24 @@ export function createMobilePcEngineExecutor(
       case 'kin-hidden-honey': {
         const params = asKinHiddenHoneyParams(job.params);
         const adapter = options.runKinHiddenHoney || runKinHiddenHoneyWithPcHunter;
+        return adapter(params, context);
+      }
+      case 'shopping-connect': {
+        const params = asShoppingConnectParams(job.params);
+        const adapter = options.runShoppingConnect
+          || ((payload, ctx) => runShoppingConnectWithPcEngine(payload, ctx, measureKeywordMetrics));
+        return adapter(params, context);
+      }
+      case 'youtube-golden': {
+        const params = asYoutubeGoldenParams(job.params);
+        const adapter = options.runYoutubeGolden
+          || ((payload, ctx) => runYoutubeGoldenWithPcEngine(payload, ctx, getEnvConfig));
+        return adapter(params, context);
+      }
+      case 'naver-mate-hunter': {
+        const params = asNaverMateParams(job.params);
+        const adapter = options.runNaverMate
+          || ((payload, ctx) => runNaverMateWithPcEngine(payload, ctx, measureKeywordMetrics, getEnvConfig));
         return adapter(params, context);
       }
       default:

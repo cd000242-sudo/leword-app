@@ -124,8 +124,8 @@ import {
 } from '../../../src/mobile/wordpress-publishing';
 import { buildMobileSourceSignalSnapshot, fallbackSourceSignals } from '../../../src/mobile/source-signals';
 import {
+  buildPublicSourceSignalPayload,
   buildPublicLiveGoldenPayload,
-  cleanPublicSourceSignals,
   renderLewordLanding,
 } from './public-site';
 import {
@@ -748,7 +748,7 @@ export function createLewordApiServer(options: LewordApiServerOptions = {}): htt
       const snapshot = await buildMobileSourceSignalSnapshot({
         limit: Number.isFinite(limit) ? limit : 6,
       });
-      json(res, 200, { ok: true, snapshot: cleanPublicSourceSignals(snapshot) }, {
+      json(res, 200, buildPublicSourceSignalPayload(snapshot), {
         'Cache-Control': 'no-store',
       });
       return;

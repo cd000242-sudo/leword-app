@@ -5,6 +5,7 @@ import type {
   MobileSignalItem,
   MobileSourceSignalSnapshot,
 } from '../../../src/mobile/contracts';
+import { renderLewordProWeb } from './pro-web-site';
 
 type PublicPreviewPolicy = 'lower-five' | 'building-board';
 
@@ -149,7 +150,95 @@ export function cleanPublicSourceSignals(snapshot: MobileSourceSignalSnapshot): 
   };
 }
 
+export interface PublicSourceSignalLane {
+  id: 'naver' | 'daum' | 'nate' | 'zum' | 'policy' | 'issue';
+  label: string;
+  description: string;
+  items: MobileSignalItem[];
+}
+
+export interface PublicSourceSignalPayload {
+  ok: true;
+  updatedAt: string;
+  fallbackUsed: boolean;
+  lanes: PublicSourceSignalLane[];
+  snapshot: MobileSourceSignalSnapshot;
+}
+
+function signalText(item: MobileSignalItem): string {
+  return `${item.source || ''} ${item.title || ''} ${item.keyword || ''}`.toLowerCase();
+}
+
+function signalMatches(item: MobileSignalItem, tokens: string[]): boolean {
+  const text = signalText(item);
+  return tokens.some((token) => text.includes(token));
+}
+
+function pickRealtimeSignals(
+  realtime: MobileSignalItem[],
+  tokens: string[],
+  fallback: MobileSignalItem | undefined,
+): MobileSignalItem[] {
+  const matched = realtime.filter((item) => signalMatches(item, tokens));
+  if (matched.length > 0) return matched;
+  return fallback ? [fallback] : [];
+}
+
+export function buildPublicSourceSignalPayload(snapshot: MobileSourceSignalSnapshot): PublicSourceSignalPayload {
+  const clean = cleanPublicSourceSignals(snapshot);
+  const realtime = clean.realtime || [];
+  const lanes: PublicSourceSignalLane[] = [
+    {
+      id: 'naver',
+      label: '네이버',
+      description: '네이버 실시간, 뉴스, 검색 수요 신호',
+      items: pickRealtimeSignals(realtime, ['naver', '네이버'], realtime[0]),
+    },
+    {
+      id: 'daum',
+      label: '다음',
+      description: '다음 랭킹과 생활/뉴스 신호',
+      items: pickRealtimeSignals(realtime, ['daum', '다음'], realtime[1]),
+    },
+    {
+      id: 'nate',
+      label: '네이트',
+      description: '네이트 이슈/랭킹 신호',
+      items: pickRealtimeSignals(realtime, ['nate', '네이트'], realtime[2]),
+    },
+    {
+      id: 'zum',
+      label: '줌',
+      description: '줌 실시간/이슈 신호',
+      items: pickRealtimeSignals(realtime, ['zum', '줌', 'zuminternet'], realtime[3]),
+    },
+    {
+      id: 'policy',
+      label: '정책',
+      description: '정책브리핑, 지원금, 공공 알림 신호',
+      items: clean.policy || [],
+    },
+    {
+      id: 'issue',
+      label: '이슈',
+      description: '방송, 연예, 스포츠, 사회 이슈 신호',
+      items: clean.issues || [],
+    },
+  ];
+  return {
+    ok: true,
+    updatedAt: clean.updatedAt,
+    fallbackUsed: clean.fallbackUsed,
+    lanes: lanes.map((lane) => ({
+      ...lane,
+      items: lane.items.slice(0, 6),
+    })),
+    snapshot: clean,
+  };
+}
+
 export function renderLewordLanding(): string {
+  return renderLewordProWeb();
   return `<!doctype html>
 <html lang="ko">
 <head>

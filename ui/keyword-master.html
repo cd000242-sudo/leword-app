@@ -749,7 +749,7 @@
             <option value="balanced">정밀</option>
             <option value="bulk">대량</option>
           </select>
-          <button onclick="refreshRichFeed(true)" style="padding:10px 18px; border:none; border-radius:10px; background:linear-gradient(135deg,#f59e0b,#ef4444); color:white; font-weight:700; font-size:13px; cursor:pointer;">⚡ 발굴 시작</button>
+          <button onclick="refreshRichFeed(true)" title="자동 발굴 결과를 즉시 다시 갱신합니다." style="padding:10px 18px; border:none; border-radius:10px; background:linear-gradient(135deg,#f59e0b,#ef4444); color:white; font-weight:700; font-size:13px; cursor:pointer;">⚡ 즉시 갱신</button>
           <button onclick="openBloggerProfileModal()" title="내 블로그 프로필 — 카테고리/경험/방문자 입력 (모든 발굴에 자동 적용)" style="padding:10px 14px; border:none; border-radius:10px; background:linear-gradient(135deg,#06b6d4,#3b82f6); color:white; font-weight:700; font-size:12px; cursor:pointer;">👤 내 블로그</button>
           <button id="rfSemanticBtn" onclick="openSemanticModal()" title="🧠 의미 분류 — KoSBERT 임베딩 모델로 키워드 의미 검증 (최초 ~110MB 다운로드, 이후 캐시)" style="padding:10px 14px; border:none; border-radius:10px; background:linear-gradient(135deg,#8b5cf6,#ec4899); color:white; font-weight:700; font-size:12px; cursor:pointer;">🧠 의미 분류</button>
           <button onclick="rfExport('csv')" title="엑셀(.xlsx 호환 CSV)로 다운로드" style="padding:10px 14px; border:none; border-radius:10px; background:#10b981; color:white; font-weight:700; font-size:12px; cursor:pointer;">📥 엑셀다운</button>
@@ -764,7 +764,7 @@
         <span id="hbDown" style="color:#ef4444;">❌ -</span>
         <!-- 🔥 v2.31.0: 등급 Legend (SSR 추가 — 수익 황금) -->
         <span style="display:inline-flex; gap:6px; margin-left:12px; padding:3px 8px; background:rgba(251,191,36,0.08); border:1px solid rgba(251,191,36,0.2); border-radius:6px;">
-          <span title="SSR — SSS 등급 + CPC 1000원+ + 상업 키워드 + 수익 카테고리 (네이버 검색광고 실측 CPC + 검색량)" style="color:#a855f7; font-weight:900; cursor:help;">👑 SSR</span>
+          <span title="SSR — SSS 등급 + 상업 키워드 + 수익 카테고리 + 초보자 작성 가능성" style="color:#a855f7; font-weight:900; cursor:help;">👑 SSR</span>
           <span title="SSS: 검색량 1000+ / 문서수 5000↓ / 황금비율 5+ — 상위노출 거의 확정 (트래픽 중심)" style="color:#dc2626; font-weight:800; cursor:help;">SSS</span>
           <span title="SS: SSS 다음 등급. 검색량 500+ / 문서수 10000↓ / 황금비율 3+ — 안정적 상위 노출 가능" style="color:#3b82f6; font-weight:800; cursor:help;">SS</span>
           <span style="color:#64748b; font-size:10px;">💡 정밀은 SSR/SSS 30개+, 대량은 SSS+SS 후보까지 확장</span>
@@ -820,14 +820,13 @@
               <th style="padding:12px 8px; text-align:right;">검색량</th>
               <th style="padding:12px 8px; text-align:right;">문서수</th>
               <th style="padding:12px 8px; text-align:right; color:#fbbf24;">기회지수</th>
-              <th style="padding:12px 8px; text-align:right;" title="네이버 검색광고 API 실측 평균 입찰가">CPC</th>
               <th style="padding:12px 8px; text-align:center;">신선도</th>
               <th style="padding:12px 8px; text-align:left;">발견 소스</th>
               <th style="padding:12px 8px; text-align:center;">액션</th>
             </tr>
           </thead>
           <tbody id="rfTbody">
-            <tr><td colspan="11" style="padding:60px; text-align:center; color:#64748b;">⚡ 발굴 시작 버튼을 눌러주세요.<br><span style="font-size:11px;">17개 데이터 소스에서 시드 수집 → 검색량·문서수 실측까지 약 30~60초 소요</span></td></tr>
+            <tr><td colspan="10" style="padding:60px; text-align:center; color:#64748b;">⚡ 앱 시작 후 자동으로 라이브 발굴을 시작합니다.<br><span style="font-size:11px;">17개 데이터 소스에서 시드 수집 → 검색량·문서수 실측까지 약 30~60초 소요</span></td></tr>
           </tbody>
         </table>
         <!-- 🔥 v2.31.0: 오늘의 TOP 5 큐레이션 -->
@@ -871,12 +870,21 @@
       .age-seg.top { color:#fbbf24; }
       .rf-action-btn { padding:4px 8px; background:#1e293b; color:#cbd5e1; border:1px solid #334155; border-radius:5px; cursor:pointer; font-size:10px; margin:0 1px; }
       .rf-action-btn:hover { background:#475569; color:#fbbf24; }
+      .rf-keyword-cell { min-width:360px; max-width:620px; }
+      .rf-keyword-line { display:flex; align-items:center; gap:6px; flex-wrap:nowrap; min-width:0; white-space:nowrap; overflow:hidden; }
+      .rf-keyword-main { min-width:0; overflow:hidden; text-overflow:ellipsis; color:#f8fafc; font-size:13px; font-weight:800; }
+      .rf-keyword-chip { flex:0 0 auto; }
+      .rf-source-cell { min-width:210px; }
+      .rf-source-line { display:flex; align-items:center; gap:4px; flex-wrap:wrap; }
     </style>
 
     <script>
       let rfAllRows = [];
       let rfDiagnostic = null; // v2.42.13: 0건 발생 시 진단 정보
       let rfCurrentCategory = '*';
+      const RF_AUTO_REFRESH_MS = 12 * 60 * 1000;
+      window.__rfRefreshRunning = false;
+      window.__rfAutoLiveStarted = false;
 
       // 📡 진행 이벤트 수신 리스너 (전역 1회 등록)
       // 🔥 v2.32.1: 진행률 역행 방지 — 낮은 퍼센트는 무시 (IPC 순서 역전/중복 호출 방어)
@@ -913,6 +921,13 @@
       }
 
       async function refreshRichFeed(force) {
+        if (window.__rfRefreshRunning) {
+          const status = document.getElementById('rfStatus');
+          if (status) status.textContent = '⏳ 이미 발굴 중...';
+          return;
+        }
+        window.__rfRefreshRunning = true;
+        try {
         // v2.43.25 (사이클#2): 발굴 시작 시 프로필 없으면 온보딩 모달 자동 표시
         try {
           const pr = await window.electronAPI.invoke('blogger-profile-get');
@@ -939,7 +954,7 @@
         if (ppct) ppct.textContent = '0%';
         if (pmsg) pmsg.textContent = '시작 중...';
 
-        tbody.innerHTML = '<tr><td colspan="12" style="padding:40px; text-align:center; color:#fbbf24;">🔍 발굴 진행 중 — 상단 진행바 확인</td></tr>';
+        tbody.innerHTML = '<tr><td colspan="10" style="padding:40px; text-align:center; color:#fbbf24;">🔍 자동 라이브 발굴 진행 중 — 상단 진행바 확인</td></tr>';
         try {
           if (!window.electronAPI) throw new Error('electronAPI 미초기화');
           const useClaude = !!document.getElementById('rfUseClaude')?.checked;
@@ -950,11 +965,18 @@
             discoveryMode
           });
           if (!r || !r.success) {
-            tbody.innerHTML = '<tr><td colspan="12" style="padding:40px; text-align:center; color:#fca5a5;">발굴 실패: ' + (r && r.error || '알 수 없음') + '</td></tr>';
+            tbody.innerHTML = '<tr><td colspan="10" style="padding:40px; text-align:center; color:#fca5a5;">발굴 실패: ' + (r && r.error || '알 수 없음') + '</td></tr>';
             return;
           }
           const excluded = rfGetExcluded();
           rfAllRows = (r.rows || []).filter(row => !excluded.has(row.keyword));
+          window.__lewordGoldenKeywordPool = rfAllRows.map(row => ({
+            keyword: row.keyword,
+            searchVolume: row.searchVolume,
+            documentCount: row.documentCount,
+            grade: row.grade,
+            source: 'rich-feed-completed'
+          }));
           rfDiagnostic = r.diagnostic || null;
           // v2.49.37: 발굴 응답 완료 시 diagnostic 객체 console 에 표시 (사용자 디버깅 요청)
           console.log('[RF-RESULT] 발굴 완료. total=' + r.total + ' rows=' + (r.rows||[]).length);
@@ -966,7 +988,7 @@
           document.getElementById('rfTierBadge').textContent = (r.tier === 'pro') ? '💎 PRO' : 'LITE';
           status.textContent = '✅ ' + new Date(r.timestamp).toLocaleTimeString('ko-KR') + ' 갱신';
           renderRichFeedTabs(r.byCategory || {});
-          // 🔥 v2.31.0: 오늘의 TOP 5 큐레이션 (SSR 우선, 없으면 SSS 중 commercial+고CPC)
+          // 🔥 v2.31.0: 오늘의 TOP 큐레이션 (SSR 우선, 없으면 SSS/SS 중 글쓰기 친화 후보)
           rfRenderTopPicks(rfAllRows);
           rfFiltered = rfAllRows;
           rfCurrentPage = 1;
@@ -975,9 +997,30 @@
           // 완료 후 2초 뒤 진행바 숨기기
           setTimeout(() => { if (progressBox) progressBox.style.display = 'none'; }, 2000);
         } catch (e) {
-          tbody.innerHTML = '<tr><td colspan="12" style="padding:40px; text-align:center; color:#fca5a5;">' + (e && e.message || e) + '</td></tr>';
+          tbody.innerHTML = '<tr><td colspan="10" style="padding:40px; text-align:center; color:#fca5a5;">' + (e && e.message || e) + '</td></tr>';
           if (progressBox) progressBox.style.display = 'none';
         }
+        } finally {
+          window.__rfRefreshRunning = false;
+        }
+      }
+
+      function startRichFeedAutoLive() {
+        if (window.__rfAutoLiveStarted) return;
+        window.__rfAutoLiveStarted = true;
+        const status = document.getElementById('rfStatus');
+        if (status) status.textContent = '⚡ 자동 발굴 준비 중...';
+        setTimeout(() => refreshRichFeed(false), 900);
+        if (window.__rfAutoLiveTimer) clearInterval(window.__rfAutoLiveTimer);
+        window.__rfAutoLiveTimer = setInterval(() => {
+          if (!window.__rfRefreshRunning) refreshRichFeed(false);
+        }, RF_AUTO_REFRESH_MS);
+      }
+
+      if (document.readyState === 'loading') {
+        document.addEventListener('DOMContentLoaded', startRichFeedAutoLive, { once: true });
+      } else {
+        startRichFeedAutoLive();
       }
 
       function renderRichFeedTabs(byCat) {
@@ -995,10 +1038,10 @@
       // 🔥 v2.19.0: 필터 state (카테고리 + 검색량 구간 + 트렌드 타입)
       let rfSvMin = 0, rfSvMax = 999999999;
       let rfCurrentTrend = '*';
-      // 🔥 v2.27.1: 페이지네이션 state (20개씩)
+      // 🔥 v2.49.85: 페이지네이션 state (첫 화면 60개 노출)
       let rfFiltered = [];
       let rfCurrentPage = 1;
-      const RF_PAGE_SIZE = 30;
+      const RF_PAGE_SIZE = 60;
 
       function rfApplyAllFilters() {
         let filtered = rfAllRows;
@@ -1174,7 +1217,7 @@
                 <div style="color:#fcd34d; font-size:10px;">💡 이 정보를 캡처해서 보내주시면 정확히 어떤 게이트가 0건을 만드는지 식별 가능합니다.</div>
               </div>`;
           }
-          tbody.innerHTML = `<tr><td colspan="12" style="padding:40px; text-align:center; color:#64748b;">
+          tbody.innerHTML = `<tr><td colspan="10" style="padding:40px; text-align:center; color:#64748b;">
             <div style="font-size:14px; margin-bottom:8px;">조건에 맞는 결과가 없습니다.</div>
             <div style="font-size:12px; color:#475569;">💡 필터 조건(카테고리/검색량/트렌드) 중 하나를 "전체"로 바꿔보세요.</div>
             ${diagHtml}
@@ -1228,8 +1271,8 @@
             <tr id="rf-row-${idx}">
               <td style="padding:10px 8px; text-align:center; color:#64748b; font-weight:700;">${r.rank}</td>
               <td style="padding:10px 8px; text-align:center;"><span title="${r.category}">${r.categoryIcon}</span></td>
-              <td style="padding:10px 8px; text-align:center;">${r.grade ? `<span class="rf-grade ${r.grade}" title="${r.grade === 'SSR' ? '수익 황금 (고CPC + 상업 키워드 + 수익 카테고리)' : r.grade}">${r.grade === 'SSR' ? '👑SSR' : r.grade}</span>` : '-'}</td>
-              <td style="padding:10px 8px; font-weight:700; color:#f1f5f9;">${bluebadge} ${r.keyword} ${trendBadge} ${claudeBadge} ${(() => {
+              <td style="padding:10px 8px; text-align:center;">${r.grade ? `<span class="rf-grade ${r.grade}" title="${r.grade === 'SSR' ? '수익 황금 (상업 키워드 + 수익 카테고리)' : r.grade}">${r.grade === 'SSR' ? '👑SSR' : r.grade}</span>` : '-'}</td>
+              <td class="rf-keyword-cell" style="padding:10px 8px; font-weight:700; color:#f1f5f9;"><div class="rf-keyword-line">${bluebadge}<span class="rf-keyword-main" title="${String(r.keyword).replace(/"/g, '&quot;')}">${r.keyword}</span>${trendBadge}${claudeBadge}${(() => {
                 // v2.43.27: 친화도 점수(추정치) 노출 제거 — 사유 라벨만 표시 (실측 매칭만)
                 //   사용자 정책: "추정치 절대 넣지마" (메모리 + 명시 지시)
                 //   점수는 내부 필터링/정렬에만 사용. UI는 매칭된 카테고리 라벨만.
@@ -1268,7 +1311,7 @@
                     estimatedChips.push(`<span title="🤖 AI 브리핑 미점령 (실측) — 블로그 클릭 기회 있음" style="display:inline-block; margin-left:4px; padding:1px 6px; border-radius:6px; background:rgba(16,185,129,0.12); border:1px solid rgba(16,185,129,0.35); color:#86efac; font-size:9.5px; font-weight:700;">🤖✓미점령</span>`);
                 }
                 return positiveChips + estimatedChips.join('');
-              })()}</td>
+              })()}</div></td>
               <td style="padding:10px 8px; text-align:right; color:#cbd5e1;">${r.searchVolume.toLocaleString()}${(() => {
                 // v2.43.27: 일평균 검색량 = 월 검색량 ÷ 30 (단순 산술 환산, 추정 아님)
                 //   "트래픽" 워딩 제거 — 검색량과 트래픽은 다름 (검색량 ÷ CTR ÷ 위치 등 추정 필요)
@@ -1279,7 +1322,6 @@
               })()}</td>
               <td style="padding:10px 8px; text-align:right; color:#94a3b8;">${r.documentCount.toLocaleString()}</td>
               <td style="padding:10px 8px; text-align:right; font-weight:800; color:${ratioColor};">${r.goldenRatio.toFixed(2)}</td>
-              <td style="padding:10px 8px; text-align:right; color:#cbd5e1;" title="네이버 검색광고 API 실측 평균 입찰가">${(typeof r.cpc === 'number' && r.cpc > 0) ? '₩' + r.cpc.toLocaleString() : '<span style="color:#64748b;">-</span>'}</td>
               <td style="padding:10px 8px; text-align:center;"><span class="rf-fresh ${r.freshness}">${freshIcon(r.freshness)}</span>${(() => {
                 // v2.43.28-29: 최근 30일 추세 (네이버 데이터랩 실측)
                 const rs = r.recencyStatus;
@@ -1294,7 +1336,7 @@
                 if (!m) return '';
                 return `<div style="font-size:9.5px; color:${m.color}; margin-top:3px;" title="네이버 데이터랩 최근 7일 vs 30일 평균 실측">${m.icon} ${m.label}</div>`;
               })()}</td>
-              <td style="padding:10px 8px; text-align:left;">${platformBadges ? platformBadges + '<br>' : ''}${sources}${moreSources}<br><button class="rf-action-btn age-btn" onclick="loadAgeDist('${kwSafe}', this)" title="네이버 데이터랩 연령대 검색 비중 (상대 추정)">🎂 연령</button><span class="age-result" style="font-size:9px; color:#94a3b8; margin-left:4px;"></span></td>
+              <td class="rf-source-cell" style="padding:10px 8px; text-align:left;"><div class="rf-source-line">${platformBadges}${sources}${moreSources}<button class="rf-action-btn age-btn" onclick="loadAgeDist('${kwSafe}', this)" title="네이버 데이터랩 연령대 검색 비중 (상대 추정)">🎂 연령</button><span class="age-result" style="font-size:9px; color:#94a3b8; margin-left:4px;"></span></div></td>
               <td style="padding:10px 8px; text-align:center; white-space:nowrap;">
                 <button class="rf-action-btn" title="복사" onclick="rfCopyKw('${kwSafe}')">📋</button>
                 <button class="rf-action-btn" title="📝 글감 미리보기 — 자동완성 기반 제목 후보 5개 (v2.43.24)" onclick="rfShowTopicIdeas('${kwSafe}')">📝</button>
@@ -1306,7 +1348,7 @@
                 <button class="rf-action-btn" title="👎 부정확 신고 — 가짜 SSS / 어색 키워드 / 검색량 불일치 보고 (v2.49.13 Phase E)" onclick="rfReportInaccurate('${kwSafe}', ${idx}, '${r.grade}')" style="background:rgba(239,68,68,0.12); border-color:rgba(239,68,68,0.4); color:#ef4444;">👎</button>
               </td>
             </tr>
-            <tr id="rf-drill-${idx}" style="display:none;"><td colspan="11" style="padding:0; background:rgba(0,0,0,0.3);"><div id="rf-drill-content-${idx}" style="padding:14px 24px; color:#cbd5e1; font-size:12px;"></div></td></tr>
+            <tr id="rf-drill-${idx}" style="display:none;"><td colspan="10" style="padding:0; background:rgba(0,0,0,0.3);"><div id="rf-drill-content-${idx}" style="padding:14px 24px; color:#cbd5e1; font-size:12px;"></div></td></tr>
           `;
         }).join('');
       }
@@ -2006,7 +2048,7 @@
         let picks = ssrRows.slice(0, maxDisplay);
         if (picks.length < 5) {
           const extra = rows.filter(r =>
-            r.grade === 'SSS' && writableEnough(r) && (r.cpc || 0) >= 500 && COMMERCIAL_RE.test(String(r.keyword)) && (r.documentCount || 0) <= 8000
+            r.grade === 'SSS' && writableEnough(r) && COMMERCIAL_RE.test(String(r.keyword)) && (r.documentCount || 0) <= 8000
           ).slice(0, 5 - picks.length);
           picks = [...picks, ...extra];
         }
@@ -2024,7 +2066,6 @@
         list.innerHTML = picks.map((r, i) => {
           const gradeColor = r.grade === 'SSR' ? '#a855f7' : r.grade === 'SSS' ? '#dc2626' : '#ea580c';
           const gradeBg = r.grade === 'SSR' ? 'rgba(168,85,247,0.15)' : r.grade === 'SSS' ? 'rgba(220,38,38,0.12)' : 'rgba(234,88,12,0.12)';
-          const cpcTxt = (typeof r.cpc === 'number' && r.cpc > 0) ? `₩${r.cpc.toLocaleString()}` : '-';
           const svTxt = (r.searchVolume || 0).toLocaleString();
           const dcTxt = (r.documentCount || 0).toLocaleString();
           return `<div style="display:flex; align-items:center; gap:12px; padding:10px 14px; background:rgba(255,255,255,0.03); border-radius:8px; border-left:3px solid ${gradeColor};">
@@ -2033,7 +2074,6 @@
             <span style="flex:1; font-weight:700; color:#f1f5f9; font-size:14px; cursor:pointer;" onclick="rfCopyKw('${String(r.keyword).replace(/'/g,"\\'")}')">${r.keyword}</span>
             <span style="color:#94a3b8; font-size:11px;">sv ${svTxt}</span>
             <span style="color:#94a3b8; font-size:11px;">dc ${dcTxt}</span>
-            <span style="color:#22c55e; font-size:11px; font-weight:700;">${cpcTxt}</span>
             <button class="rf-action-btn" onclick="rfCopyKw('${String(r.keyword).replace(/'/g,"\\'")}')">📋</button>
           </div>`;
         }).join('');
@@ -4073,8 +4113,8 @@
             <span style="font-size: 24px; color: white; opacity: 0.8;">→</span>
           </button>
 
-          <!-- 🏠 네이버 홈판 키워드 헌터 (신규) -->
-          <button onclick="openNaverHomeHunterModal()" style="
+          <!-- 🤖 네이버 AI 메이트 키워드 찾기 -->
+          <button onclick="openNaverMateKeywordModal()" style="
             background: linear-gradient(135deg, #03c75a 0%, #00b04f 100%);
             border: 2px solid rgba(255,255,255,0.3);
             border-radius: 16px;
@@ -4090,10 +4130,10 @@
           " onmouseover="this.style.transform='translateY(-4px)'; this.style.boxShadow='0 8px 30px rgba(3, 199, 90, 0.5)'"
              onmouseout="this.style.transform='translateY(0)'; this.style.boxShadow='0 4px 20px rgba(3, 199, 90, 0.4)'">
             <span style="position:absolute; top:-8px; right:8px; background:linear-gradient(135deg,#ef4444,#dc2626); color:white; padding:3px 10px; border-radius:10px; font-size:10px; font-weight:900;">NEW</span>
-            <div style="width: 56px; height: 56px; background: rgba(255,255,255,0.2); border-radius: 14px; display: flex; align-items: center; justify-content: center; font-size: 32px; flex-shrink: 0;">🏠</div>
+            <div style="width: 56px; height: 56px; background: rgba(255,255,255,0.2); border-radius: 14px; display: flex; align-items: center; justify-content: center; font-size: 32px; flex-shrink: 0;">🤖</div>
             <div style="flex: 1;">
-              <div style="font-size: 18px; font-weight: 800; color: white; margin-bottom: 3px;">네이버 홈판 키워드 헌터</div>
-              <div style="font-size: 12px; color: rgba(255,255,255,0.85);">홈판 노출 점수 · CTR 예측 제목 5개 · 인플루언서 차단 · 빈자리 감지</div>
+              <div style="font-size: 18px; font-weight: 800; color: white; margin-bottom: 3px;">네이버 AI 메이트 키워드 찾기</div>
+              <div style="font-size: 12px; color: rgba(255,255,255,0.85);">AI 브리핑 · 관련질문 · 출처형 글감 · 인용 친화도</div>
             </div>
             <span style="font-size: 24px; color: white; opacity: 0.8;">→</span>
           </button>
@@ -11424,19 +11464,39 @@
           try { modal.focus({ preventScroll: true }); } catch (e) { try { modal.focus(); } catch (_) {} }
         };
 
+        window.buildLewordMindmapContextKeywords = function(activeSeed) {
+          const normalize = (value) => String(value || '').replace(/\s+/g, ' ').trim();
+          const compact = (value) => normalize(value).toLowerCase().replace(/\s+/g, '');
+          const activeKey = compact(activeSeed);
+          const pools = [
+            { source: 'mindmap-completed', items: Array.isArray(window.__lastMindmapItems) ? window.__lastMindmapItems : [] },
+            { source: 'rich-feed-completed', items: Array.isArray(window.__lewordGoldenKeywordPool) ? window.__lewordGoldenKeywordPool : [] }
+          ];
+          const seen = new Set();
+          const out = [];
+          for (const pool of pools) {
+            for (const item of pool.items) {
+            const keyword = normalize(typeof item === 'string' ? item : item?.keyword);
+            const key = compact(keyword);
+            if (!keyword || !key || key === activeKey || seen.has(key)) continue;
+            seen.add(key);
+            out.push({
+              keyword,
+              searchVolume: Number(item?.searchVolume || item?.monthlyVolume || 0) || undefined,
+              documentCount: Number(item?.documentCount || 0) || undefined,
+              grade: item?.grade || undefined,
+              source: item?.source || pool.source
+            });
+            if (out.length >= 300) break;
+            }
+            if (out.length >= 300) break;
+          }
+          return out;
+        };
+
         // v2.42.44: 연관 키워드 마인드맵 모달 — 최소화/복원 기능 추가
         window.openRelatedKeywordModal = async function() {
           // 기존 모달이 hide 상태로 있으면 복원만 (재발굴 X)
-          const existingModal = document.getElementById('relatedKwModal');
-          if (existingModal && existingModal.dataset.completed === 'true') {
-            existingModal.style.display = 'flex';
-            existingModal.style.zIndex = '2147483000';
-            document.body.appendChild(existingModal);
-            window.ensureRelatedKeywordModalFront?.(existingModal);
-            document.getElementById('relatedKwMinimizedDock')?.remove();
-            return;
-          }
-
           const input = document.getElementById('keywordInput');
           const limitSel = document.getElementById('mindmapLimitSelect');
           const seed = (input?.value || '').trim();
@@ -11446,6 +11506,16 @@
             return;
           }
           const limit = parseInt(limitSel?.value || '50', 10);
+          const existingModal = document.getElementById('relatedKwModal');
+          if (
+            existingModal && existingModal.dataset.completed === 'true'
+            && existingModal.dataset.seed === seed
+            && existingModal.dataset.limit === String(limit)
+          ) {
+            window.ensureRelatedKeywordModalFront?.(existingModal);
+            document.getElementById('relatedKwMinimizedDock')?.remove();
+            return;
+          }
 
           // 기존 모달 완전 제거 후 새로 발굴 (시드/갯수 다를 수 있음)
           existingModal?.remove();
@@ -11527,7 +11597,10 @@
           } catch (e) { console.warn('[related-modal] progress 구독 실패:', e?.message); }
 
           try {
-            const resp = await window.electronAPI.invoke('expand-keyword-related-metrics', { seed, limit });
+            const contextKeywords = typeof window.buildLewordMindmapContextKeywords === 'function'
+              ? window.buildLewordMindmapContextKeywords(seed)
+              : [];
+            const resp = await window.electronAPI.invoke('expand-keyword-related-metrics', { seed, limit, contextKeywords });
             try { if (typeof unsubProgress === 'function') unsubProgress(); } catch {}
             const body = document.getElementById('relatedKwBody');
             if (!body) return;
@@ -11621,6 +11694,7 @@
             // v2.42.44: 결과 완료 플래그 + 시드 보관 (최소화 dock 표시용)
             modal.dataset.completed = 'true';
             modal.dataset.seed = seed;
+            modal.dataset.limit = String(limit);
             modal.dataset.itemCount = String(items.length);
             // v2.42.49: 엑셀 저장용 items 전역 보관 + 버튼 활성화
             window.__lastMindmapItems = items;
@@ -17433,7 +17507,7 @@
         const ADSENSE_CATEGORY_RISK = {
           subsidy: { level: 'safe', reason: '✅ 정부 지원금 정보 공유는 공식 출처 기반으로 쓰기 좋아 승인용 정보형 주제로 추천' },
           season: { level: 'safe', reason: '✅ 매월 시즌 황금키워드 — 선물/여행/이벤트 등 검색 폭증 시즌만 자동 추출' },
-          'naver-home': { level: 'safe', reason: '🏠 네이버 메인 홈판 노출 특화 — CTR + 신선도 + 카테고리 적합도 + 빈자리 종합' },
+          'naver-home': { level: 'safe', reason: '🤖 AI 메이트 인용 후보 — 질문형 의도 + 출처형 글감 + 신선도 + 빈자리 종합' },
           loan: { level: 'danger', reason: '🚨 대출 광고는 등록 금융사만 가능 (광고법 위반 위험) + 신생 블로그 저품질' },
           legal: { level: 'danger', reason: '🚨 법률 자문은 변호사만 가능 + 잘못된 정보 시 법적 책임' },
           medical: { level: 'danger', reason: '🚨 의료 정보는 의료법 적용 + 신생 블로그 저품질 + 의료기관 공식 글에 밀림' },
@@ -17452,7 +17526,7 @@
 
         let ADSENSE_CATEGORIES_CACHE = [
           { value: 'all', label: '🎯 전체 (자동 분류)' },
-          { value: 'naver-home', label: '🏠 ✨ 네이버 홈판 (CTR+신선도+빈자리·끝판왕)' },
+          { value: 'naver-home', label: '🤖 ✨ AI 메이트 인용 후보 (답변형+출처형+빈자리)' },
           { value: 'season', label: '📅 ✅ 이번 달 시즌 승인 주제 (자동 갱신)' },
           { value: 'subsidy', label: '💎 ✅ 정부 지원금·보조금 (공식정보형·추천)' },
           { value: 'loan', label: '🚨 대출·신용 (승인 고위험)' },
@@ -17680,7 +17754,7 @@
         }
 
         // ============================================================
-        // 🏠 네이버 홈판 키워드 헌터
+        // 🤖 네이버 AI 메이트 키워드 찾기
         // ============================================================
         async function openNaverHomeHunterModal() {
           // AI 모드 사전 점검 — Claude 모드인데 키 없으면 자동 auto 모드 권유
@@ -17710,29 +17784,29 @@
               <button onclick="closeNaverHomeHunterModal()" style="position: absolute; top: 16px; right: 16px; width: 40px; height: 40px; background: rgba(255,255,255,0.1); border: none; border-radius: 50%; color: white; font-size: 20px; cursor: pointer; display: flex; align-items: center; justify-content: center; z-index: 10;">✕</button>
 
               <div style="text-align: center; margin-bottom: 24px;">
-                <div style="display:inline-block; background: linear-gradient(135deg, #ef4444, #dc2626); padding: 6px 16px; border-radius: 20px; font-size: 12px; font-weight: 800; color: white; margin-bottom: 12px;">🆕 메인 홈판 노출 후보 발굴</div>
-                <h2 style="font-size: 28px; font-weight: 800; background: linear-gradient(135deg, #03c75a 0%, #00b04f 100%); -webkit-background-clip: text; -webkit-text-fill-color: transparent; margin: 0 0 8px 0;">🏠 메인 홈판 키워드 헌터</h2>
-                <p style="font-size: 14px; color: rgba(255,255,255,0.7); margin: 0;">네이버 메인 홈피드 노출 가능성 높은 키워드 후보 — CTR 12 패턴 · 신선도 · 카테고리 · 빈자리 종합</p>
-                <p style="font-size: 11px; color: rgba(255,255,255,0.45); margin: 8px 0 0; line-height:1.5;">⚠️ 메인 홈피드는 AiRS 개인화 추천이라 100% 보장 불가. 점수는 검증된 신호 4종 가중합으로, 동시 충족 시 노출 우위 후보로 분류합니다.</p>
+                <div style="display:inline-block; background: linear-gradient(135deg, #ef4444, #dc2626); padding: 6px 16px; border-radius: 20px; font-size: 12px; font-weight: 800; color: white; margin-bottom: 12px;">🆕 AI 인용 후보 발굴</div>
+                <h2 style="font-size: 28px; font-weight: 800; background: linear-gradient(135deg, #03c75a 0%, #00b04f 100%); -webkit-background-clip: text; -webkit-text-fill-color: transparent; margin: 0 0 8px 0;">🤖 네이버 AI 메이트 키워드 찾기</h2>
+                <p style="font-size: 14px; color: rgba(255,255,255,0.7); margin: 0;">AI 브리핑/관련질문/스마트블록에 답변형으로 물릴 가능성이 높은 키워드 후보 — 질문 의도 · 출처형 글감 · 신선도 · 빈자리 종합</p>
+                <p style="font-size: 11px; color: rgba(255,255,255,0.45); margin: 8px 0 0; line-height:1.5;">⚠️ LLM 없이 보장 판정은 불가합니다. 대신 네이버 API/SERP 실측 신호와 답변형 패턴을 합산해 AI가 인용하기 좋은 글감 후보로 분류합니다.</p>
               </div>
 
               <div style="background: rgba(3,199,90,0.08); border-radius: 12px; padding: 14px; margin-bottom: 18px; border: 1px solid rgba(3,199,90,0.25);">
                 <div style="display:flex; align-items:center; gap:8px; margin-bottom:8px;">
                   <span style="font-size:16px;">🎯</span>
-                  <span style="font-weight:700; color:#22c55e; font-size:13px;">홈판 점수 공식</span>
+                  <span style="font-weight:700; color:#22c55e; font-size:13px;">AI 인용 친화도 공식</span>
                 </div>
                 <div style="display:flex; flex-wrap:wrap; gap:8px; font-size:11px;">
-                  <span style="background:rgba(255,255,255,0.08); padding:4px 10px; border-radius:6px; color:rgba(255,255,255,0.9);">📝 <strong style="color:#22c55e;">CTR 잠재</strong> 35%</span>
-                  <span style="background:rgba(255,255,255,0.08); padding:4px 10px; border-radius:6px; color:rgba(255,255,255,0.9);">⚡ <strong style="color:#fbbf24;">신선도</strong> 30%</span>
-                  <span style="background:rgba(255,255,255,0.08); padding:4px 10px; border-radius:6px; color:rgba(255,255,255,0.9);">🎯 <strong style="color:#60a5fa;">카테고리 적합도</strong> 20%</span>
-                  <span style="background:rgba(255,255,255,0.08); padding:4px 10px; border-radius:6px; color:rgba(255,255,255,0.9);">🪑 <strong style="color:#a78bfa;">빈자리</strong> 15%</span>
+                  <span style="background:rgba(255,255,255,0.08); padding:4px 10px; border-radius:6px; color:rgba(255,255,255,0.9);">❓ <strong style="color:#22c55e;">질문·답변 의도</strong> 30%</span>
+                  <span style="background:rgba(255,255,255,0.08); padding:4px 10px; border-radius:6px; color:rgba(255,255,255,0.9);">📚 <strong style="color:#fbbf24;">출처·근거형 글감</strong> 30%</span>
+                  <span style="background:rgba(255,255,255,0.08); padding:4px 10px; border-radius:6px; color:rgba(255,255,255,0.9);">⚡ <strong style="color:#60a5fa;">AI 브리핑/이슈 신호</strong> 25%</span>
+                  <span style="background:rgba(255,255,255,0.08); padding:4px 10px; border-radius:6px; color:rgba(255,255,255,0.9);">🪑 <strong style="color:#a78bfa;">SERP 빈자리</strong> 15%</span>
                 </div>
               </div>
 
               <div style="display:grid; grid-template-columns: 1fr 1fr; gap:12px; margin-bottom:16px;">
                 <div>
                   <label style="font-size:13px; font-weight:700; color:#22c55e; display:block; margin-bottom:8px;">🌱 시드 키워드 (선택)</label>
-                  <input id="homeSeed" placeholder="예: 봄나물, 환절기 면역력 (비우면 자동 시드)" style="width:100%; padding:12px 14px; border:2px solid rgba(3,199,90,0.3); border-radius:10px; font-size:14px; background:rgba(15,23,42,0.8); color:white; outline:none; box-sizing:border-box;">
+                  <input id="homeSeed" placeholder="예: 전세사기 보증금 받는법, 여름 원피스 소재 비교 (비우면 자동 시드)" style="width:100%; padding:12px 14px; border:2px solid rgba(3,199,90,0.3); border-radius:10px; font-size:14px; background:rgba(15,23,42,0.8); color:white; outline:none; box-sizing:border-box;">
                 </div>
                 <div>
                   <label style="font-size:13px; font-weight:700; color:#22c55e; display:block; margin-bottom:8px;">📁 블로그 카테고리 (C-Rank 가산)</label>
@@ -17802,14 +17876,14 @@
                   💎 가치 등급
                   <select id="homeMinQuality" style="padding:6px 10px; border:1px solid rgba(255,255,255,0.2); border-radius:6px; background:rgba(15,23,42,0.8); color:white;">
                     <option value="0">전체</option>
-                    <option value="45">B+ (홈판 후보 풀 확보)</option>
+                    <option value="45">B+ (AI 후보 풀 확보)</option>
                     <option value="58">A+ (가치 검증 통과)</option>
                     <option value="75">S (강력 추천)</option>
                     <option value="90" selected>S+ (끝판왕 기본)</option>
                   </select>
                 </label>
                 <label style="display:flex; align-items:center; gap:8px; color:rgba(255,255,255,0.85); font-size:13px;">
-                  최소 homeScore
+                  최소 AI Mate 점수
                   <select id="homeMinScore" style="padding:6px 10px; border:1px solid rgba(255,255,255,0.2); border-radius:6px; background:rgba(15,23,42,0.8); color:white;">
                     <option value="50" selected>50 (후보 풀 확보)</option>
                     <option value="60">60 (권장 · 40% 통과)</option>
@@ -17821,7 +17895,7 @@
                   <input type="checkbox" id="homeBlockInfluencer" style="width:18px; height:18px; accent-color:#22c55e;">
                   👤 인플루언서 차단 (≤1)
                 </label>
-                <label style="display:flex; align-items:center; gap:8px; color:rgba(255,255,255,0.85); font-size:13px; cursor:pointer;" title="SERP 빈자리 5개 이상 — 홈판 노출 가능성 신호">
+                <label style="display:flex; align-items:center; gap:8px; color:rgba(255,255,255,0.85); font-size:13px; cursor:pointer;" title="SERP 빈자리 5개 이상 — AI 답변형 글감 진입 가능성 신호">
                   <input type="checkbox" id="homeMinVacancy" style="width:18px; height:18px; accent-color:#22c55e;">
                   🪑 빈자리 5+ 만
                 </label>
@@ -17850,7 +17924,7 @@
               </details>
 
               <button id="homeHuntBtn" onclick="huntNaverHomeKeywords()" style="width:100%; padding:14px; background:linear-gradient(135deg, #03c75a 0%, #00b04f 100%); border:none; border-radius:12px; color:white; font-size:15px; font-weight:800; cursor:pointer; margin-bottom:16px; box-shadow:0 4px 20px rgba(3,199,90,0.4);">
-                🏠 메인 홈판 키워드 발굴 시작
+                🤖 AI 메이트 키워드 찾기 시작
               </button>
 
               <div id="homeHunterResults"></div>
@@ -17886,6 +17960,10 @@
           unlockBodyScroll();
         }
 
+        function openNaverMateKeywordModal() {
+          return openNaverHomeHunterModal();
+        }
+
         async function huntNaverHomeKeywords() {
           const seed = document.getElementById('homeSeed').value.trim();
           const blogCategory = document.getElementById('homeBlogCategory').value;
@@ -17904,12 +17982,12 @@
           const btn = document.getElementById('homeHuntBtn');
           const resultsDiv = document.getElementById('homeHunterResults');
           btn.disabled = true;
-          btn.innerHTML = '<span style="display:inline-block; animation:spin 1s linear infinite;">🔄</span> 대량 헌팅 중... (최소 30개 보장)';
+          btn.innerHTML = '<span style="display:inline-block; animation:spin 1s linear infinite;">🔄</span> AI 인용 후보 분석 중... (최소 30개 보장)';
           resultsDiv.innerHTML = `
             <div style="background:rgba(15,23,42,0.9); border-radius:16px; padding:24px; border:1px solid rgba(3,199,90,0.3); text-align:center;">
-              <div style="font-size:48px; margin-bottom:12px;">🏠</div>
-              <div style="font-size:16px; font-weight:600; color:#22c55e;">네이버 홈판 키워드 분석 중...</div>
-              <div style="font-size:12px; color:rgba(255,255,255,0.6); margin-top:8px;">${strictSPlusMode ? 'S+ 전용 후보' : '후보 풀'} ${candidateTarget}개 확보 → homeScore + CTR 제목 + 빈자리 감지 → 최소 ${minResults}개 노출</div>
+              <div style="font-size:48px; margin-bottom:12px;">🤖</div>
+              <div style="font-size:16px; font-weight:600; color:#22c55e;">AI 메이트 키워드 분석 중...</div>
+              <div style="font-size:12px; color:rgba(255,255,255,0.6); margin-top:8px;">${strictSPlusMode ? 'S+ 전용 후보' : '후보 풀'} ${candidateTarget}개 확보 → AI Mate 점수 + 답변형 제목 + 빈자리 감지 → 최소 ${minResults}개 노출</div>
             </div>
           `;
 
@@ -17935,7 +18013,7 @@
                   <div style="font-size:56px; margin-bottom:16px;">🔒</div>
                   <div style="font-size:20px; font-weight:700; color:#22c55e; margin-bottom:12px;">프리미엄 전용 기능</div>
                   <div style="font-size:14px; color:rgba(255,255,255,0.8); line-height:1.6;">
-                    <strong>네이버 홈판 키워드 헌터</strong>는<br/>
+                    <strong>네이버 AI 메이트 키워드 찾기</strong>는<br/>
                     1년/영구제 라이선스 사용자에게만 제공됩니다.
                   </div>
                 </div>
@@ -18519,8 +18597,8 @@
                 const aKilled = a.valueGate && a.valueGate.valuable === false && a.valueGate.passedCount < 4;
                 const bKilled = b.valueGate && b.valueGate.valuable === false && b.valueGate.passedCount < 4;
                 if (aKilled !== bKilled) return aKilled ? 1 : -1;
-                // 2차: homeScore
-                return (b.homeScore?.homeScore || 0) - (a.homeScore?.homeScore || 0);
+                // 2차: AI Mate 인용 친화도
+                return getAiMateCitationSignals(b).score - getAiMateCitationSignals(a).score;
               });
 
             // 🚫 가치 미달 + 진입 불가 키워드 완전 차단 (10인 평가 통합)
@@ -18540,7 +18618,7 @@
               return true;
             });
 
-            let passed = valuableOnly.filter(x => (x.homeScore?.homeScore || 0) >= minScore);
+            let passed = valuableOnly.filter(x => getAiMateCitationSignals(x).score >= minScore);
             if (blockInfluencer) passed = passed.filter(x => !x.vacancy || x.vacancy.influencerCount <= 1);
             if (requireVacancy) passed = passed.filter(x => x.vacancy && x.vacancy.vacancySlots >= 5);
 
@@ -18575,7 +18653,7 @@
               // Tier 2: enriched 중 killed 아닌 것 + homeScore≥25 (v2.42.69: vacancy 하드kill 당한 0점 항목 제외)
               const notKilled = enriched.filter(x => (!x.valueGate || !x.valueGate.isKilled) && (x.homeScore?.homeScore || 0) >= 25);
               if (notKilled.length > 0) {
-                const sorted = notKilled.sort((a, b) => (b.homeScore?.homeScore || 0) - (a.homeScore?.homeScore || 0));
+                const sorted = notKilled.sort((a, b) => getAiMateCitationSignals(b).score - getAiMateCitationSignals(a).score);
                 filtered = sorted.slice(0, minResults).map(c => ({ ...c, _tier: 'salvaged' }));
                 fallbackTier = 'salvaged';
               }
@@ -18617,7 +18695,7 @@
                 .filter(x => !have.has(x.keyword))
                 .filter(x => !strictSPlusMode || (x.valueGate && !x.valueGate.isKilled && (x.valueGate.qualityScore || 0) >= minQuality))
                 .filter(x => (x.homeScore?.homeScore || 0) >= 25) // 핵심: homeScore≥25 미만은 무가치
-                .sort((a, b) => (b.homeScore?.homeScore || 0) - (a.homeScore?.homeScore || 0));
+                .sort((a, b) => getAiMateCitationSignals(b).score - getAiMateCitationSignals(a).score);
               const topUp = enrichedPool.slice(0, needMore).map(c => ({ ...c, _backfilled: true, _topup: 'enriched' }));
               filtered.push(...topUp);
               backfilled += topUp.length;
@@ -18625,7 +18703,7 @@
             // v2.49.8: 홈판 헌터는 "판단 가능한 후보 30개+"가 목적이므로,
             // 엄격 컷으로 부족하면 killed/hard-vacancy를 뒤로 밀되 제목 생성 가능한 실측 후보를 보강한다.
             const candidateRankScore = (c) => {
-              const hs = c.homeScore?.homeScore || 0;
+              const hs = getAiMateCitationSignals(c).score;
               const quality = c.valueGate?.qualityScore || 0;
               const vacancy = c.vacancy?.vacancySlots ?? 0;
               const title = c.bestTitle?.ctrScore || 0;
@@ -18754,13 +18832,13 @@
             const poolBadge = `<span style="background:rgba(14,165,233,0.14); color:#7dd3fc; padding:3px 10px; border-radius:6px; font-size:10px; font-weight:700;">🔎 ${strictSPlusMode ? 'S+ 후보풀' : '후보풀'} ${seedKeywords.length}개 측정</span>`;
             // v2.42.33: fallback tier 배지 — 사용자가 결과 신뢰도 차이를 명확히 인지
             const tierBadge = fallbackTier === 'splusBroad'
-              ? `<span style="background:rgba(168,85,247,0.18); color:#d8b4fe; padding:3px 10px; border-radius:6px; font-size:10px; font-weight:800;" title="S+ 가치등급은 유지하고 homeScore/빈자리 컷만 완화해 30개를 채움">🏆 S+ BROAD (진입컷 완화)</span>`
+              ? `<span style="background:rgba(168,85,247,0.18); color:#d8b4fe; padding:3px 10px; border-radius:6px; font-size:10px; font-weight:800;" title="S+ 가치등급은 유지하고 AI Mate/빈자리 컷만 완화해 30개를 채움">🏆 S+ BROAD (진입컷 완화)</span>`
               : fallbackTier === 'candidate30'
               ? `<span style="background:rgba(14,165,233,0.14); color:#7dd3fc; padding:3px 10px; border-radius:6px; font-size:10px; font-weight:700;" title="엄격 컷 통과분이 부족해 실측 후보를 점수순으로 보강">📌 CANDIDATE 30 (실측 후보 보강)</span>`
               : fallbackTier === 'seedBackfill'
                 ? `<span style="background:rgba(148,163,184,0.16); color:#cbd5e1; padding:3px 10px; border-radius:6px; font-size:10px; font-weight:700;" title="API 측정 실패/부족으로 시드 후보를 최후 보강">📎 DATA 후보 보강</span>`
                 : fallbackTier === 'soft'
-              ? `<span style="background:rgba(251,191,36,0.15); color:#fbbf24; padding:3px 10px; border-radius:6px; font-size:10px; font-weight:700;" title="homeScore 컷(${minScore}) 미달이지만 가치 검증은 통과 — 추정 점수 노출">🔶 SOFT (점수컷 완화)</span>`
+              ? `<span style="background:rgba(251,191,36,0.15); color:#fbbf24; padding:3px 10px; border-radius:6px; font-size:10px; font-weight:700;" title="AI Mate 컷(${minScore}) 미달이지만 가치 검증은 통과 — 추정 점수 노출">🔶 SOFT (점수컷 완화)</span>`
               : fallbackTier === 'salvaged'
                 ? `<span style="background:rgba(96,165,250,0.15); color:#60a5fa; padding:3px 10px; border-radius:6px; font-size:10px; font-weight:700;" title="가치 등급 미달이나 KILL은 아닌 시드 — 점수 미보장">🛟 SALVAGED (가치컷 완화)</span>`
                 : fallbackTier === 'lastResort'
@@ -18769,8 +18847,8 @@
 
             resultsDiv.innerHTML = `
               <div style="margin-bottom:6px; display:flex; align-items:center; gap:12px; flex-wrap:wrap;">
-                <span style="font-size:18px;">🏠</span>
-                <span style="font-size:18px; font-weight:800; color:#22c55e;">홈판 키워드 ${filtered.length}건</span>
+                <span style="font-size:18px;">🤖</span>
+                <span style="font-size:18px; font-weight:800; color:#22c55e;">AI 메이트 후보 ${filtered.length}건</span>
                 ${tierBadge}
                 ${backfillBadge}
                 ${valueBadge}
@@ -18779,7 +18857,7 @@
                 <span style="font-size:11px; color:rgba(255,255,255,0.6);">(최소 ${minScore}+, 인플루언서 차단 ${blockInfluencer ? 'ON' : 'OFF'}, 보장 ${minResults}개)</span>
               </div>
               <div style="font-size:10px; color:rgba(255,255,255,0.5); margin-bottom:14px;">
-                💡 ${backfilled > 0 ? `<strong style="color:#fbbf24;">컷 미달 ${backfilled}개</strong>는 점수순 보충 (변별력 유지). ` : ''}모든 수치는 네이버 API/SERP 실측. homeScore는 4개 실측 신호(CTR가능성·신선도·카테고리·빈자리)의 가중 합산이며, 외부 노출률 % 는 표시하지 않습니다(네이버 블랙박스).
+                💡 ${backfilled > 0 ? `<strong style="color:#fbbf24;">컷 미달 ${backfilled}개</strong>는 점수순 보충 (변별력 유지). ` : ''}모든 수치는 네이버 API/SERP 실측입니다. AI Mate 점수는 질문형 의도·출처형 글감·신선도·빈자리 신호를 합산한 예측값이며, 실제 AI 인용 보장은 표시하지 않습니다.
               </div>
               <div style="display:flex; flex-direction:column; gap:12px;">
                 ${filtered.map((x, i) => renderHomeKeywordCard(x, i + 1, x._backfilled)).join('')}
@@ -18791,7 +18869,7 @@
                 window.electronAPI.invoke('exposure-record-keyword', {
                   keyword: x.keyword,
                   category: x.category || blogCategory || 'general',
-                  source: 'home-hunter',
+                  source: 'ai-mate-hunter',
                 }).catch(() => {});
               }
             } catch (e) { /* skip */ }
@@ -18799,7 +18877,7 @@
             resultsDiv.innerHTML = `<div style="padding:24px; background:rgba(239,68,68,0.1); border-radius:12px; border:1px solid rgba(239,68,68,0.3); color:#fca5a5;">❌ 헌팅 실패: ${err?.message || err}</div>`;
           } finally {
             btn.disabled = false;
-            btn.innerHTML = '🏠 홈판 키워드 헌팅 시작';
+            btn.innerHTML = '🤖 AI 메이트 키워드 찾기 시작';
           }
         }
 
@@ -18822,11 +18900,66 @@
           return `<span title="${escapeHtml(tooltip)}" style="background:${bg}; color:${color}; padding:2px 8px; border-radius:6px; font-size:10px; font-weight:800;">${label} ${confIcon}</span>`;
         }
 
+        function getAiMateCitationSignals(x) {
+          const kw = String(x?.keyword || '');
+          const title = String(x?.publishPlan?.primaryTitle || x?.bestTitle?.title || '');
+          const text = `${kw} ${title}`;
+          const signals = [];
+          let score = 18;
+          const add = (amount, label) => {
+            score += amount;
+            if (!signals.includes(label)) signals.push(label);
+          };
+
+          if (/(방법|조건|대상|서류|신청|받는법|가능|비교|차이|정리|체크|체크리스트|FAQ|질문|답변|뜻|원인|해결|기준|순서|주의사항|부작용|효과|가격|후기)/.test(text)) {
+            add(22, '답변형 의도');
+          }
+          if (/(공식|출처|근거|표|리스트|비교표|계산|기준|수치|금액|일정|마감|발표|정책|지원금|환급|보험|세금|법|제도)/.test(text)) {
+            add(20, '출처형 글감');
+          }
+          if (/(2026|2025|최신|변경|업데이트|오늘|이번주|이번 달|시즌|발표|속보|논란|이슈|개봉|방송|경기|결과|일정)/.test(text)) {
+            add(16, '최신 이슈');
+          }
+
+          const quality = x?.valueGate?.qualityScore || 0;
+          if (quality >= 90) add(18, 'S+ 가치');
+          else if (quality >= 75) add(14, '고품질');
+          else if (quality >= 58) add(9, '검증 통과');
+
+          const vacancy = x?.vacancy?.vacancySlots;
+          if (vacancy >= 5) add(12, 'SERP 빈자리');
+          else if (vacancy >= 3) add(8, '진입 여지');
+
+          const surge = x?.fresh?.surgeRatio;
+          if (surge >= 2) add(10, '급상승');
+          else if (surge >= 1.2) add(6, '신선도');
+
+          const sv = Number(x?.searchVolume || 0);
+          const dc = Number(x?.documentCount || 0);
+          if (sv >= 10000) add(8, '대중 수요');
+          else if (sv >= 300) add(6, '검색 수요');
+          if (sv > 0 && dc > 0 && sv / dc >= 5) add(8, '황금비율');
+          else if (sv > 0 && dc > 0 && sv / dc >= 2) add(5, '경쟁 적정');
+
+          const measuredHomeScore = Number(x?.homeScore?.homeScore || 0);
+          score += Math.round(Math.min(12, Math.max(0, measuredHomeScore) / 10));
+
+          const finalScore = Math.max(0, Math.min(100, Math.round(score)));
+          const grade = finalScore >= 85 ? 'CITE-S' : finalScore >= 70 ? 'CITE-A' : finalScore >= 55 ? 'WATCH' : 'LOW';
+          return {
+            score: finalScore,
+            grade,
+            signals: (signals.length ? signals : ['실측 후보']).slice(0, 5),
+            measuredHomeScore,
+          };
+        }
+
         function renderHomeKeywordCard(x, rank, isBackfilled) {
           // v2.42.70: 실측 데이터만 표시 — CTR%/expectedCtr%/노출확률% 같은 하드코딩 추정값 제거
           const hs = x.homeScore || {};
-          const score = hs.homeScore || 0;
-          const grade = hs.grade || '-';
+          const aiMate = getAiMateCitationSignals(x);
+          const score = aiMate.score;
+          const grade = aiMate.grade;
           const v = x.vacancy || {};
           const fr = x.fresh || {};
           const bestTitle = x.bestTitle;
@@ -18844,6 +18977,7 @@
           const gradeBg = score >= 85 ? 'rgba(34,197,94,0.15)' : score >= 70 ? 'rgba(59,130,246,0.15)' : score >= 55 ? 'rgba(251,191,36,0.15)' : 'rgba(239,68,68,0.15)';
           const cardOpacity = isBackfilled ? '0.7' : '1';
           const backfillTag = isBackfilled ? `<span style="background:rgba(251,191,36,0.2); color:#fbbf24; padding:2px 8px; border-radius:6px; font-size:9px; font-weight:800; margin-left:6px;">📉 컷 미달</span>` : '';
+          const aiMateSignalsHtml = aiMate.signals.map(s => `<span style="background:rgba(34,197,94,0.11); color:#a7f3d0; border:1px solid rgba(34,197,94,0.25); padding:3px 8px; border-radius:999px; font-size:10px; font-weight:800;">${escapeHtml(s)}</span>`).join('');
 
           // 실측 신선도 라벨
           const surgeText = (typeof fr.surgeRatio === 'number' && fr.surgeRatio > 0)
@@ -18866,8 +19000,12 @@
                 </div>
                 <div style="text-align:right; flex-shrink:0;">
                   <div style="font-size:28px; font-weight:900; color:${gradeColor}; line-height:1;">${score}</div>
-                  <div style="font-size:10px; color:rgba(255,255,255,0.5);" title="신호 4종 가중 합산 — 외부 노출 확률은 추정 불가">homeScore</div>
+                  <div style="font-size:10px; color:rgba(255,255,255,0.5);" title="질문 의도·출처형 글감·신선도·빈자리 기반 AI 인용 친화도. 실제 AI 인용 보장은 아님">AI Mate</div>
                 </div>
+              </div>
+              <div style="display:flex; align-items:center; gap:6px; flex-wrap:wrap; margin-bottom:12px;">
+                ${aiMateSignalsHtml}
+                ${aiMate.measuredHomeScore ? `<span style="background:rgba(255,255,255,0.06); color:rgba(255,255,255,0.65); padding:3px 8px; border-radius:999px; font-size:10px; font-weight:700;" title="기존 네이버 실측 신호 기반 내부 점수">실측 ${aiMate.measuredHomeScore}/100</span>` : ''}
               </div>
 
               ${displayTitle ? `

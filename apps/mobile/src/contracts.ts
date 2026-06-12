@@ -4,7 +4,10 @@ export type MobileKeywordProduct =
   | 'keyword-analysis'
   | 'mindmap-expansion'
   | 'home-board-hunter'
-  | 'kin-hidden-honey';
+  | 'kin-hidden-honey'
+  | 'shopping-connect'
+  | 'youtube-golden'
+  | 'naver-mate-hunter';
 
 export type MobileJobState =
   | 'queued'
@@ -894,6 +897,26 @@ export interface KinHiddenHoneyMobileParams {
   isPremiumRequest: boolean;
 }
 
+export interface ShoppingConnectMobileParams {
+  keyword: string;
+  targetCount: number;
+  sort: 'sim' | 'date' | 'asc' | 'dsc';
+}
+
+export interface YoutubeGoldenMobileParams {
+  maxResults: number;
+  categoryId?: string;
+  crossReferenceNaver: boolean;
+}
+
+export interface NaverMateMobileParams {
+  seedKeyword: string;
+  targetCount: number;
+  includeAutocomplete: boolean;
+  includeRelated: boolean;
+  includeVolumeMetrics: boolean;
+}
+
 export interface MobileKeywordResult {
   keywords: MobileKeywordMetric[];
   summary: {
@@ -955,6 +978,27 @@ export const MOBILE_API_ENDPOINTS: readonly MobileApiEndpointSpec[] = Object.fre
     product: 'kin-hidden-honey',
     method: 'POST',
     path: '/v1/kin/honey',
+    transport: 'sse',
+  },
+  {
+    key: 'runShoppingConnect',
+    product: 'shopping-connect',
+    method: 'POST',
+    path: '/v1/shopping/connect',
+    transport: 'sse',
+  },
+  {
+    key: 'runYoutubeGolden',
+    product: 'youtube-golden',
+    method: 'POST',
+    path: '/v1/youtube/golden',
+    transport: 'sse',
+  },
+  {
+    key: 'runNaverMateHunter',
+    product: 'naver-mate-hunter',
+    method: 'POST',
+    path: '/v1/naver/mate',
     transport: 'sse',
   },
 ]);

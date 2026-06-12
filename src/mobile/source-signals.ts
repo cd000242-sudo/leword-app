@@ -4,13 +4,19 @@ import {
   type MobileSourceSignalSnapshot,
 } from './contracts';
 
+type RealtimeSourceName = 'naver' | 'daum' | 'nate' | 'google' | 'zum' | 'bokjiro' | 'policy' | 'youtube';
+
 type RealtimeSourceItem = {
   keyword?: string;
   text?: string;
   rank?: number;
-  source?: string;
+  source?: RealtimeSourceName | string;
   timestamp?: string;
   change?: string;
+  strengthScore?: number;
+  strengthGrade?: string;
+  sourceCount?: number;
+  matchedSources?: RealtimeSourceName[];
 };
 
 type PolicySourceItem = {
@@ -48,6 +54,21 @@ interface BuildMobileSourceSignalSnapshotOptions {
   now?: Date;
 }
 
+const REALTIME_SOURCE_ORDER: RealtimeSourceName[] = ['naver', 'daum', 'nate', 'google', 'zum', 'bokjiro'];
+const REQUIRED_PUBLIC_REALTIME_LABELS = ['네이버', '다음', '네이트', 'Google'];
+
+const SOURCE_LABEL: Record<string, string> = {
+  naver: '네이버',
+  daum: '다음',
+  nate: '네이트',
+  google: 'Google',
+  zum: 'ZUM',
+  bokjiro: '정책',
+  policy: '정책',
+  youtube: 'YouTube',
+  'policy-briefing': '정책브리핑',
+};
+
 function normalizeLimit(value: number | undefined): number {
   if (!Number.isFinite(value)) return 6;
   return Math.max(1, Math.min(30, Math.floor(value as number)));
@@ -59,6 +80,21 @@ function sourceId(input: string): string {
     .replace(/[^a-z0-9가-힣]+/g, '-')
     .replace(/^-+|-+$/g, '')
     .slice(0, 60) || 'signal';
+}
+
+function keywordKey(input: string): string {
+  return String(input || '')
+    .replace(/<[^>]+>/g, ' ')
+    .replace(/[“”‘’"'`]/g, '')
+    .replace(/[()\[\]{}<>|·ㆍ:：,./\\!?！？_-]/g, ' ')
+    .replace(/\s+/g, '')
+    .trim()
+    .toLowerCase();
+}
+
+function sourceLabel(source: string | undefined): string {
+  const normalized = String(source || '').toLowerCase();
+  return SOURCE_LABEL[normalized] || source || 'source';
 }
 
 function createSignal(
@@ -91,9 +127,20 @@ function priorityFromRank(rank: unknown, fallback: number): number {
 }
 
 function realtimeDescription(item: RealtimeSourceItem): string {
-  if (item.change === 'up') return '상승 중인 실시간 검색어입니다. 바로 정밀 분석으로 넘겨 검색량과 문서수를 확인하세요.';
-  if (item.change === 'new') return '새로 포착된 실시간 검색어입니다. 이슈성 확장 후보로 적합합니다.';
-  return '실시간 소스에서 포착된 검색어입니다. PC 엔진으로 경쟁도를 확인하세요.';
+  const source = sourceLabel(String(item.source || 'realtime'));
+  const sources = item.matchedSources?.length
+    ? `${item.matchedSources.map(sourceLabel).join(', ')} 교차 포착`
+    : `${source} 포착`;
+  if (item.change === 'up') {
+    return `${sources}. 상승 중인 실시간 검색어입니다. 바로 정밀 분석으로 넘겨 검색량과 문서수를 확인하세요.`;
+  }
+  if (item.change === 'new') {
+    return `${sources}. 새로 진입한 이슈라 빠른 선점 후보로 검토할 수 있습니다.`;
+  }
+  if ((item.sourceCount || 0) >= 2) {
+    return `${sources}. 여러 소스에서 겹친 흐름이라 황금키워드 후보로 우선 확인합니다.`;
+  }
+  return `${sources}. 빅키워드는 하위 의도로 쪼개서 Pro 엔진에서 검증합니다.`;
 }
 
 function mapRealtime(items: RealtimeSourceItem[], limit: number, createdAt: string): MobileSignalItem[] {
@@ -102,13 +149,14 @@ function mapRealtime(items: RealtimeSourceItem[], limit: number, createdAt: stri
       const keyword = String(item.keyword || item.text || '').trim();
       if (!keyword) return null;
       const source = String(item.source || 'realtime');
+      const label = sourceLabel(source);
       return createSignal(
         'realtime',
         `rt-${source}-${item.rank || index + 1}`,
         keyword,
-        '실시간 검색어',
+        `${label} 실시간`,
         realtimeDescription(item),
-        priorityFromRank(item.rank, index + 1),
+        Math.max(priorityFromRank(item.rank, index + 1), Math.round(item.strengthScore || 0)),
         source,
         undefined,
         createdAt,
@@ -133,7 +181,7 @@ function mapPolicy(items: PolicySourceItem[], limit: number, createdAt: string):
         title,
         `공식 정책 신호${category}${published}. 신청, 대상, 조건, 지급일 롱테일로 확장하세요.`,
         priorityFromRank(item.rank, index + 1),
-        String(item.source || 'policy-briefing'),
+        sourceLabel(item.source || 'policy-briefing'),
         'policy',
         createdAt,
       );
@@ -155,7 +203,7 @@ function mapIssues(items: EntertainmentSourceItem[], limit: number, createdAt: s
         `issue-${item.source || 'news'}-${index + 1}`,
         keyword,
         category,
-        `${ago}${source}에서 포착된 이슈입니다. 공식입장, 일정, 반응, 정리 의도로 확장하세요.`,
+        `${ago}${source}에서 포착한 이슈입니다. 공식입장, 일정, 반응, 정리 의도로 확장하세요.`,
         priorityFromRank(index + 1, index + 1),
         source,
         'celebrity',
@@ -166,31 +214,105 @@ function mapIssues(items: EntertainmentSourceItem[], limit: number, createdAt: s
     .slice(0, limit) as MobileSignalItem[];
 }
 
+function signalMatchesSource(item: MobileSignalItem, label: string): boolean {
+  return item.source === label || item.title.includes(label);
+}
+
+function ensureRealtimeSourceCoverage(
+  items: MobileSignalItem[],
+  fallback: MobileSignalItem[],
+  limit: number,
+): MobileSignalItem[] {
+  const chosen: MobileSignalItem[] = [];
+  const usedIds = new Set<string>();
+  const push = (item: MobileSignalItem | undefined) => {
+    if (!item || usedIds.has(item.id)) return;
+    chosen.push(item);
+    usedIds.add(item.id);
+  };
+
+  for (const label of REQUIRED_PUBLIC_REALTIME_LABELS) {
+    push(items.find((item) => signalMatchesSource(item, label))
+      || fallback.find((item) => signalMatchesSource(item, label)));
+  }
+
+  for (const item of items.sort((a, b) => b.priority - a.priority)) {
+    if (chosen.length >= limit) break;
+    push(item);
+  }
+
+  for (const item of fallback) {
+    if (chosen.length >= limit) break;
+    push(item);
+  }
+
+  return chosen.slice(0, limit);
+}
+
 export function fallbackSourceSignals(now = new Date()): Omit<MobileSourceSignalSnapshot, 'fallbackUsed'> {
   const createdAt = now.toISOString();
   return {
     updatedAt: createdAt,
     realtime: [
-      createSignal('realtime', 'rt', '여름 원피스 추천', '여름 쇼핑 수요', '계절성은 높지만 문서수 검증 후 롱테일로 확장하세요.', 95, 'seasonal-watch', 'living', createdAt),
-      createSignal('realtime', 'rt', '장마 준비물', '생활형 급상승', '장마, 제습, 침수 예방처럼 실구매 의도가 있는 하위 키워드가 좋습니다.', 88, 'seasonal-watch', 'living', createdAt),
-      createSignal('realtime', 'rt', '여름휴가 숙소', '휴가 검색 증가', '지역, 일정, 가격 조건을 붙여 상위노출 가능성을 확인하세요.', 82, 'seasonal-watch', 'travel', createdAt),
+      createSignal('realtime', 'rt', '여름 원피스 추천', '네이버 실시간', '계절 수요가 높습니다. 추천, 코디, 사이즈, 브랜드 비교형으로 쪼개서 검증하세요.', 95, '네이버', 'shopping', createdAt),
+      createSignal('realtime', 'rt', '장마 준비물', '다음 실시간', '장마, 제습, 침수 예방처럼 구매와 생활 정보가 붙는 하위 키워드가 좋습니다.', 88, '다음', 'living', createdAt),
+      createSignal('realtime', 'rt', '오늘 방송 출연진', '네이트 이슈', '방송 직후 회차, 재방송, 출연진, 결말 키워드로 빠르게 선점합니다.', 84, '네이트', 'broadcast', createdAt),
+      createSignal('realtime', 'rt', '여름휴가 숙소', 'Google Trends', '지역, 일정, 가격 조건을 붙이면 작성 가능한 키워드로 바뀝니다.', 82, 'Google', 'travel', createdAt),
     ],
     policy: [
-      createSignal('policy', 'policy', '근로장려금 지급일', '정책 브리핑', '신청 기간, 지급일, 대상자 확인으로 글감을 나누면 검색 의도가 명확합니다.', 98, 'policy-briefing', 'policy', createdAt),
-      createSignal('policy', 'policy', '청년도약계좌 조건', '정책 브리핑', '조건, 신청, 중도해지, 은행별 비교로 확장하기 좋습니다.', 91, 'policy-briefing', 'policy', createdAt),
-      createSignal('policy', 'policy', '에너지바우처 신청', '정책 브리핑', '계절성 지원금은 지역/대상별 롱테일을 우선 확인하세요.', 86, 'policy-briefing', 'policy', createdAt),
+      createSignal('policy', 'policy', '근로장려금 지급일', '정책브리핑', '신청기간, 지급일, 대상자 확인으로 글감을 나누면 검색 의도가 명확합니다.', 98, '정책브리핑', 'policy', createdAt),
+      createSignal('policy', 'policy', '청년 월세 지원 조건', '정책브리핑', '조건, 신청, 중도해지, 지역 비교형으로 확장하기 좋습니다.', 91, '정책브리핑', 'policy', createdAt),
+      createSignal('policy', 'policy', '에너지바우처 신청', '정책브리핑', '계절성 지원금과 신청 대상 롱테일을 우선 확인하세요.', 86, '정책브리핑', 'policy', createdAt),
     ],
     issues: [
-      createSignal('issue', 'issue', '개인정보 유출 확인', '오늘의 이슈', '피해 확인, 보상, 대처 방법처럼 정보성 구조가 잘 맞습니다.', 90, 'issue-radar', 'it', createdAt),
-      createSignal('issue', 'issue', '환급금 조회', '생활 이슈', '정부24, 홈택스, 보험 환급처럼 출처별로 쪼개면 좋습니다.', 84, 'issue-radar', 'finance', createdAt),
-      createSignal('issue', 'issue', '건강검진 대상자 조회', '반복 수요', '연령, 직장인, 지역 검진기관 키워드로 확장하세요.', 80, 'issue-radar', 'health', createdAt),
+      createSignal('issue', 'issue', '신작 드라마 출연진', '방송 이슈', '몇부작, 원작, 인물관계도, 결말예상으로 바로 확장 가능합니다.', 90, '연예 이슈', 'broadcast', createdAt),
+      createSignal('issue', 'issue', '대표팀 경기 일정', '스포츠 이슈', '중계, 명단, 하이라이트, 결과 키워드로 빠르게 선점하세요.', 84, '스포츠 이슈', 'sports', createdAt),
+      createSignal('issue', 'issue', '건강검진 대상자 조회', '생활 이슈', '연령, 직장인, 병원, 예약 방법으로 확장하세요.', 80, '생활 이슈', 'health', createdAt),
     ],
   };
 }
 
+function mergeRealtimeGroups(groups: Partial<Record<RealtimeSourceName, RealtimeSourceItem[]>>, limit: number): RealtimeSourceItem[] {
+  const selected: RealtimeSourceItem[] = [];
+  const seen = new Set<string>();
+
+  for (const source of REALTIME_SOURCE_ORDER) {
+    const first = (groups[source] || [])[0];
+    const keyword = String(first?.keyword || first?.text || '').trim();
+    const key = keywordKey(keyword);
+    if (first && key && !seen.has(key)) {
+      selected.push({ ...first, source: first.source || source });
+      seen.add(key);
+    }
+  }
+
+  const rest = REALTIME_SOURCE_ORDER
+    .flatMap((source) => (groups[source] || []).slice(1).map((item) => ({ ...item, source: item.source || source })))
+    .sort((a, b) => {
+      const strengthDiff = (Number(b.strengthScore) || 0) - (Number(a.strengthScore) || 0);
+      if (strengthDiff !== 0) return strengthDiff;
+      const sourceDiff = (Number(b.sourceCount) || 0) - (Number(a.sourceCount) || 0);
+      if (sourceDiff !== 0) return sourceDiff;
+      return (Number(a.rank) || 999) - (Number(b.rank) || 999);
+    });
+
+  for (const item of rest) {
+    if (selected.length >= limit) break;
+    const keyword = String(item.keyword || item.text || '').trim();
+    const key = keywordKey(keyword);
+    if (!key || seen.has(key)) continue;
+    selected.push(item);
+    seen.add(key);
+  }
+
+  return selected.slice(0, limit);
+}
+
 async function defaultRealtimeProvider(limit: number): Promise<RealtimeSourceItem[]> {
-  const { getNaverRealtimeKeywords } = await import('../utils/realtime-search-keywords');
-  return getNaverRealtimeKeywords(limit);
+  const { getAllRealtimeKeywords } = await import('../utils/realtime-search-keywords');
+  const perSourceLimit = Math.max(3, Math.ceil(limit / 2));
+  const groups = await getAllRealtimeKeywords(perSourceLimit);
+  return mergeRealtimeGroups(groups, limit);
 }
 
 async function defaultPolicyProvider(limit: number): Promise<PolicySourceItem[]> {
@@ -227,6 +349,7 @@ export async function buildMobileSourceSignalSnapshot(
   const now = options.now || new Date();
   const createdAt = now.toISOString();
   const providers = options.providers || {};
+  const hasCustomRealtimeProvider = typeof providers.realtime === 'function';
   const fallback = fallbackSourceSignals(now);
 
   const [realtimeRaw, policyRaw, issueRaw] = await Promise.all([
@@ -243,6 +366,8 @@ export async function buildMobileSourceSignalSnapshot(
   if ((lane === 'all' || lane === 'realtime') && realtime.length === 0) {
     fallbackUsed = true;
     realtime = fallback.realtime.slice(0, limit);
+  } else if ((lane === 'all' || lane === 'realtime') && !hasCustomRealtimeProvider) {
+    realtime = ensureRealtimeSourceCoverage(realtime, fallback.realtime, limit);
   }
   if ((lane === 'all' || lane === 'policy') && policy.length === 0) {
     fallbackUsed = true;

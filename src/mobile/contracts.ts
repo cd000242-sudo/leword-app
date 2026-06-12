@@ -4,7 +4,10 @@ export type MobileKeywordProduct =
   | 'keyword-analysis'
   | 'mindmap-expansion'
   | 'home-board-hunter'
-  | 'kin-hidden-honey';
+  | 'kin-hidden-honey'
+  | 'shopping-connect'
+  | 'youtube-golden'
+  | 'naver-mate-hunter';
 
 export type MobileJobState =
   | 'queued'
@@ -919,6 +922,26 @@ export interface KinHiddenHoneyMobileParams {
   isPremiumRequest: boolean;
 }
 
+export interface ShoppingConnectMobileParams {
+  keyword: string;
+  targetCount: number;
+  sort: 'sim' | 'date' | 'asc' | 'dsc';
+}
+
+export interface YoutubeGoldenMobileParams {
+  maxResults: number;
+  categoryId?: string;
+  crossReferenceNaver: boolean;
+}
+
+export interface NaverMateMobileParams {
+  seedKeyword: string;
+  targetCount: number;
+  includeAutocomplete: boolean;
+  includeRelated: boolean;
+  includeVolumeMetrics: boolean;
+}
+
 export interface MobileKeywordResult {
   keywords: MobileKeywordMetric[];
   summary: {
@@ -999,6 +1022,36 @@ export const MOBILE_API_ENDPOINTS: readonly MobileApiEndpointSpec[] = Object.fre
     method: 'POST',
     path: '/v1/kin/honey',
     ipcEquivalent: 'search-kin-questions',
+    transport: 'sse',
+    requiresServerWorker: true,
+    mobileCanRunLocally: false,
+  },
+  {
+    key: 'runShoppingConnect',
+    product: 'shopping-connect',
+    method: 'POST',
+    path: '/v1/shopping/connect',
+    ipcEquivalent: 'shopping-connect-search',
+    transport: 'sse',
+    requiresServerWorker: true,
+    mobileCanRunLocally: false,
+  },
+  {
+    key: 'runYoutubeGolden',
+    product: 'youtube-golden',
+    method: 'POST',
+    path: '/v1/youtube/golden',
+    ipcEquivalent: 'youtube-golden-keywords',
+    transport: 'sse',
+    requiresServerWorker: true,
+    mobileCanRunLocally: false,
+  },
+  {
+    key: 'runNaverMateHunter',
+    product: 'naver-mate-hunter',
+    method: 'POST',
+    path: '/v1/naver/mate',
+    ipcEquivalent: 'get-autocomplete-suggestions',
     transport: 'sse',
     requiresServerWorker: true,
     mobileCanRunLocally: false,

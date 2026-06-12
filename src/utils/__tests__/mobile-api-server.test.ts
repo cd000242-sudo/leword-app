@@ -90,7 +90,7 @@ const result: MobileKeywordResult = {
   const executor: MobileJobExecutor = async (_job, ctx) => {
     ctx.progress(15, 'streaming mobile progress');
     await new Promise<void>((resolve) => {
-      const timer = setTimeout(resolve, 250);
+      const timer = setTimeout(resolve, 1500);
       ctx.signal.addEventListener('abort', () => {
         clearTimeout(timer);
         resolve();
@@ -102,7 +102,7 @@ const result: MobileKeywordResult = {
     return result;
   };
 
-  const server = createLewordApiServer({ executor });
+  const server = createLewordApiServer({ executor, resultCache: null });
   const port = await listen(server);
   const baseUrl = `http://127.0.0.1:${port}`;
 
