@@ -84,8 +84,8 @@ const DEFAULT_CATEGORIES = Object.freeze([
 
 const PUBLIC_PREVIEW_ROTATION_MS = 60_000;
 const LIVE_SEED_COLLECTION_TIMEOUT_MS = 5_000;
-const LIVE_DISCOVERY_TIMEOUT_MS = 120_000;
-const LIVE_BACKFILL_TIMEOUT_MS = 45_000;
+const LIVE_DISCOVERY_TIMEOUT_MS = 45_000;
+const LIVE_BACKFILL_TIMEOUT_MS = 25_000;
 const PUBLIC_PREVIEW_MAX_AGE_MS = 48 * 60 * 60 * 1000;
 const LIVE_BOARD_MAX_AGE_MS = 7 * 24 * 60 * 60 * 1000;
 const BROAD_KEYWORD_VOLUME_CEILING = 500_000;
@@ -95,7 +95,7 @@ const PUBLIC_PREVIEW_DOCUMENT_CEILING = 30_000;
 const PUBLIC_PREVIEW_PROFILE_INTENT_MAX = 0;
 const LIVE_BOARD_CATEGORY_SHARE_CAP = 0.24;
 const LIVE_BOARD_CLUSTER_MAX = 2;
-const LIVE_DIRECT_CANDIDATE_MAX_PER_CYCLE = 900;
+const LIVE_DIRECT_CANDIDATE_MAX_PER_CYCLE = 600;
 const NEWS_HEADLINE_FRAGMENT_RE = /(?:\uBD80\uCE5C\uC0C1|\uC0AC\uACFC|\uAD6C\uC18D\uC601\uC7A5|\uD610\uC758|\uC870\uC0AC|\uB17C\uB780|\uC911\uB2E8|\uC778\uC99D|\uC9C0\uC5F0|\uBC15\uC218|\uC120\uC218\uB4E4|\uBC29\uBB38|\uC2AC\uD514|\uD574\uBA85|\uBC1C\uC5B8|\uC120\uACE0|\uCCB4\uD3EC|\uC555\uC218\uC218\uC0C9|\uC0AC\uB9DD|\uBCC4\uC138|\uACB0\uBCC4|\uC5F4\uC560|\uD63C\uC778)/u;
 const SEMANTIC_CLUSTER_SUFFIX_RE = new RegExp(`(?:${[
   '\\uBA87\\uBD80\\uC791',
@@ -1059,28 +1059,6 @@ export class MobileLiveGoldenRadar {
       }
 
       novelQualityCount = qualityDirect.filter((item) => isNovelMdpResult(item, existingIdsForRun, existingClustersForRun)).length;
-      if (this.enableBackfill && novelQualityCount < this.cycleLimit) {
-        const globalDirect = await withTimeout(this.discover({
-          clientId: env.naverClientId,
-          clientSecret: env.naverClientSecret,
-        }, {
-          category: 'all',
-          limit: discoveryLimit,
-          maxSeeds: this.maxSeeds,
-          maxCandidates: directMaxCandidates,
-          liveSeeds,
-          includeCrossCategory: true,
-          requireCategoryMatch: false,
-          includeSearchAdSuggestions: true,
-          suggestionSeedLimit: 12,
-          suggestionsPerSeed: 18,
-          maxSimilarPerCluster: 2,
-        }), LIVE_DISCOVERY_TIMEOUT_MS, []);
-        const globalQuality = globalDirect.filter(isLiveRadarQualityResult);
-        if (globalQuality.length > 0) {
-          qualityDirect = [...qualityDirect, ...globalQuality];
-        }
-      }
       const matchedDirect = qualityDirect.filter((item) => item.categoryMatched === true);
       const unmatchedDirect = qualityDirect.filter((item) => item.categoryMatched !== true);
       const primaryPool = matchedDirect.length > 0 ? matchedDirect : qualityDirect;
@@ -1238,7 +1216,7 @@ export class MobileLiveGoldenRadar {
   ): Promise<MDPResult[]> {
     const candidates = buildBackfillCandidates(categoryId, liveSeeds, this.maxSeeds);
     if (candidates.length === 0) return [];
-    const measurementLimit = Math.max(160, Math.min(900, Math.floor(this.maxCandidates * 0.5)));
+    const measurementLimit = Math.max(120, Math.min(360, Math.floor(this.maxCandidates * 0.25)));
     const rows = await withTimeout(getNaverKeywordSearchVolumeSeparate(config, candidates.slice(0, measurementLimit), {
       includeDocumentCount: true,
     }), LIVE_BACKFILL_TIMEOUT_MS, []);
