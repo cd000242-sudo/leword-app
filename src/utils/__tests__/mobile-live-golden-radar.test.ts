@@ -254,6 +254,8 @@ function thinProfileCount(items: Array<{ keyword: string }>): number {
       '\uBC29\uD0C4\uC18C\uB144\uB2E8, 75\uBD84 \uC9C0\uC5F0 \uC0AC\uACFC',
       '\uBCF4\uC774\uB125\uC2A4\uD2B8\uB3C4\uC5B4, \uCCAB \uC815\uADDC\uB85C 4\uC5F0\uC18D \uBC00\uB9AC\uC5B8\uC140\uB9C1',
       '\uC815\uBABD\uADDC \uD68C\uC7A5 \uBC15\uC218\uC640 \uC120\uC218\uB4E4',
+      '\uBC15\uD56D\uC11C \uB4F1\uD310.. 2002\uB144 \uC6D4\uB4DC\uCEF5',
+      '\uC624!!! \uC5ED\uC804\uACE8',
       '2026 KBO \uC62C\uC2A4\uD0C0\uC804 \uC608\uB9E4',
     ],
     enableBackfill: false,
@@ -267,7 +269,7 @@ function thinProfileCount(items: Array<{ keyword: string }>): number {
     capturedHeadlineSeeds.includes('\uBC29\uD0C4\uC18C\uB144\uB2E8')
       && capturedHeadlineSeeds.includes('\uBCF4\uC774\uB125\uC2A4\uD2B8\uB3C4\uC5B4')
       && capturedHeadlineSeeds.includes('2026 KBO \uC62C\uC2A4\uD0C0\uC804 \uC608\uB9E4')
-      && !capturedHeadlineSeeds.some((seed) => /\uC9C0\uC5F0|\uC0AC\uACFC|\uBC00\uB9AC\uC5B8\uC140\uB9C1|\uBC15\uC218|\uC120\uC218\uB4E4/.test(seed)),
+      && !capturedHeadlineSeeds.some((seed) => /\uC9C0\uC5F0|\uC0AC\uACFC|\uBC00\uB9AC\uC5B8\uC140\uB9C1|\uBC15\uC218|\uC120\uC218\uB4E4|\.\.|!!!/.test(seed)),
     capturedHeadlineSeeds.join('|'));
 
   const staleBoardFile = path.join(process.cwd(), 'tmp', 'mobile-live-golden-stale-board-test.json');

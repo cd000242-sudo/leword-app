@@ -296,6 +296,7 @@ function isNoisyLiveSeed(keyword: string): boolean {
   const clean = normalizeKeyword(keyword);
   if (!clean) return true;
   if (clean.length > 34) return true;
+  if (/[.!?]{2,}|…/.test(clean)) return true;
   if (/(기자|스타이슈|단독|종합|사진|영상|전문|속보만|무단전재)/.test(clean)) return true;
   const tokenCount = clean.split(/\s+/).filter(Boolean).length;
   if (tokenCount > 7) return true;
