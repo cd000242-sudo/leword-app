@@ -689,7 +689,12 @@ function isLiveRadarQualityResult(item: MDPResult): boolean {
   const volume = finiteNumber(item.searchVolume) || 0;
   const docs = finiteNumber(item.documentCount) || 0;
   const ratio = finiteNumber(item.goldenRatio) || (docs > 0 ? volume / docs : 0);
-  return volume >= 300 && docs > 0 && docs <= 30_000 && ratio >= 2;
+  if (volume >= 300 && docs > 0 && docs <= 30_000 && ratio >= 2) return true;
+  return volume >= 100
+    && docs > 0
+    && docs <= 10_000
+    && ratio >= 1.2
+    && keywordLongTailScore(item.keyword) >= 18;
 }
 
 function getBackfillIntents(categoryId: string): string[] {
@@ -1230,7 +1235,7 @@ export class MobileLiveGoldenRadar {
       let enrichedRow = row;
       if (
         (row.documentCount === null || row.documentCount === undefined || row.documentCount <= 0)
-        && volume >= 300
+        && volume >= 100
         && documentCountSupplements < 12
       ) {
         documentCountSupplements += 1;
