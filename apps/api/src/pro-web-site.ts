@@ -9,17 +9,22 @@ export function renderLewordProWeb(): string {
   <style>
     :root {
       color-scheme: dark;
-      --bg: #07111f;
-      --panel: #101b2d;
-      --panel2: #16243a;
-      --line: #2b3d58;
+      --bg: #07090d;
+      --panel: #10161f;
+      --panel2: #151d29;
+      --panel3: #0c1118;
+      --line: #273347;
+      --line-soft: rgba(151, 164, 184, .16);
       --text: #f8fbff;
-      --muted: #9fb1c8;
-      --gold: #f8c21b;
-      --green: #16c784;
-      --blue: #35b7ff;
-      --red: #ff4d58;
-      --orange: #ff8a34;
+      --muted: #a4b1c4;
+      --muted2: #708097;
+      --gold: #f5c542;
+      --green: #35d399;
+      --blue: #5bb7ff;
+      --red: #ff4d6d;
+      --orange: #ff9f43;
+      --shadow: 0 22px 54px rgba(0,0,0,.34);
+      --shadow-soft: 0 10px 28px rgba(0,0,0,.24);
     }
     * { box-sizing: border-box; }
     html { scroll-behavior: smooth; }
@@ -27,63 +32,84 @@ export function renderLewordProWeb(): string {
       margin: 0;
       min-height: 100vh;
       font-family: -apple-system, BlinkMacSystemFont, "Segoe UI", sans-serif;
-      background: var(--bg);
+      background:
+        linear-gradient(180deg, #07090d 0%, #0b1119 42%, #080a0f 100%),
+        repeating-linear-gradient(90deg, rgba(255,255,255,.025) 0 1px, transparent 1px 72px),
+        repeating-linear-gradient(0deg, rgba(255,255,255,.018) 0 1px, transparent 1px 72px);
       color: var(--text);
       letter-spacing: 0;
+    }
+    body::before {
+      content: "";
+      position: fixed;
+      inset: 0;
+      pointer-events: none;
+      background: linear-gradient(90deg, rgba(245,197,66,.05), transparent 32%, rgba(53,211,153,.04) 68%, rgba(91,183,255,.045));
+      opacity: .85;
     }
     button, input, select { font: inherit; }
     button { cursor: pointer; }
     a { color: inherit; text-decoration: none; }
-    .shell { max-width: 1440px; margin: 0 auto; padding: 18px; }
+    .shell { position: relative; z-index: 1; max-width: 1480px; margin: 0 auto; padding: 16px 20px 30px; }
     .topbar {
       display: flex;
       align-items: center;
       justify-content: space-between;
       gap: 14px;
-      padding: 8px 0 16px;
+      padding: 10px 0 14px;
       position: sticky;
       top: 0;
       z-index: 20;
-      background: rgba(7,17,31,.92);
-      backdrop-filter: blur(10px);
+      background: rgba(7,9,13,.86);
+      border-bottom: 1px solid rgba(151,164,184,.12);
+      backdrop-filter: blur(16px);
     }
     .brand { display: flex; align-items: center; gap: 12px; font-weight: 1000; font-size: 22px; }
     .brand-mark {
-      width: 38px;
-      height: 38px;
+      width: 40px;
+      height: 40px;
       display: grid;
       place-items: center;
       border-radius: 8px;
-      background: linear-gradient(135deg, var(--gold), #9cff38);
+      background: linear-gradient(135deg, var(--gold), #b7f65c);
       color: #07111f;
+      box-shadow: 0 10px 28px rgba(245,197,66,.28);
     }
     .nav { display: flex; gap: 8px; flex-wrap: wrap; justify-content: flex-end; }
     .nav a, .nav button, .btn {
       min-height: 38px;
       border: 1px solid var(--line);
       border-radius: 8px;
-      background: #17263d;
+      background: linear-gradient(180deg, #182233, #111823);
       color: var(--text);
       padding: 9px 12px;
       font-weight: 900;
       font-size: 13px;
+      box-shadow: inset 0 1px 0 rgba(255,255,255,.04);
+      transition: transform .16s ease, border-color .16s ease, background .16s ease, color .16s ease;
     }
-    .btn.primary { border: 0; background: linear-gradient(135deg, var(--gold), #9cff38); color: #07111f; }
-    .btn.blue { border-color: rgba(53,183,255,.5); color: #c9efff; }
+    .nav a:hover, .nav button:hover, .btn:hover, .tiny-btn:hover, .tool-tab:hover { transform: translateY(-1px); border-color: rgba(245,197,66,.44); }
+    .nav a:focus-visible, .nav button:focus-visible, .btn:focus-visible, .tiny-btn:focus-visible, .input:focus-visible, .tool-tab:focus-visible {
+      outline: 2px solid rgba(91,183,255,.72);
+      outline-offset: 2px;
+    }
+    .btn.primary { border: 0; background: linear-gradient(135deg, var(--gold), #b7f65c); color: #07111f; box-shadow: 0 10px 24px rgba(245,197,66,.22); }
+    .btn.blue { border-color: rgba(91,183,255,.45); color: #d7f1ff; }
     .btn.red { border-color: rgba(255,77,88,.45); color: #ffb4bb; }
-    .layout { display: grid; grid-template-columns: 270px minmax(0, 1fr); gap: 16px; align-items: start; }
+    .layout { display: grid; grid-template-columns: 282px minmax(0, 1fr); gap: 18px; align-items: start; }
     .sidebar, .panel, .lane, .feature-card, .metric-card {
       border: 1px solid var(--line);
       border-radius: 8px;
-      background: var(--panel);
-      box-shadow: 0 18px 42px rgba(0,0,0,.22);
+      background: linear-gradient(180deg, rgba(21,29,41,.96), rgba(14,20,29,.98));
+      box-shadow: var(--shadow-soft);
     }
     .sidebar {
       position: sticky;
       top: 72px;
-      padding: 14px;
+      padding: 12px;
       display: grid;
       gap: 8px;
+      background: rgba(12,17,24,.88);
     }
     .side-link {
       border: 1px solid transparent;
@@ -93,15 +119,27 @@ export function renderLewordProWeb(): string {
       font-size: 13px;
       font-weight: 900;
       background: rgba(255,255,255,.035);
+      position: relative;
     }
-    .side-link:hover { border-color: rgba(53,183,255,.45); color: white; }
+    .side-link::before {
+      content: "";
+      position: absolute;
+      left: 0;
+      top: 10px;
+      bottom: 10px;
+      width: 3px;
+      border-radius: 999px;
+      background: transparent;
+    }
+    .side-link:hover { border-color: rgba(91,183,255,.42); color: white; background: rgba(91,183,255,.07); }
+    .side-link:hover::before { background: var(--gold); }
     .side-note {
       margin-top: 8px;
       padding: 12px;
       border-radius: 8px;
-      background: rgba(53,183,255,.08);
-      border: 1px solid rgba(53,183,255,.25);
-      color: #bfe9ff;
+      background: rgba(53,211,153,.07);
+      border: 1px solid rgba(53,211,153,.24);
+      color: #c4f7df;
       font-size: 12px;
       line-height: 1.55;
     }
@@ -109,45 +147,63 @@ export function renderLewordProWeb(): string {
     .hero {
       border: 1px solid var(--line);
       border-radius: 8px;
-      background: linear-gradient(135deg, rgba(22,199,132,.12), rgba(53,183,255,.08)), var(--panel);
-      padding: 22px;
+      background:
+        linear-gradient(135deg, rgba(245,197,66,.12), rgba(53,211,153,.07) 50%, rgba(91,183,255,.08)),
+        linear-gradient(180deg, #151d29, #101720);
+      padding: 24px;
+      box-shadow: var(--shadow);
+      position: relative;
+      overflow: hidden;
+    }
+    .hero::after {
+      content: "";
+      position: absolute;
+      left: 0;
+      right: 0;
+      bottom: 0;
+      height: 2px;
+      background: linear-gradient(90deg, var(--gold), var(--green), var(--blue));
     }
     .hero h1 { margin: 0 0 8px; font-size: 34px; line-height: 1.18; letter-spacing: 0; word-break: keep-all; }
     .hero p { margin: 0; max-width: 980px; color: #c8d5e7; line-height: 1.65; word-break: keep-all; }
     .metrics { display: grid; grid-template-columns: repeat(4, 1fr); gap: 10px; margin-top: 18px; }
-    .metric-card { padding: 14px; }
-    .metric-card strong { display: block; font-size: 22px; color: var(--gold); }
+    .metric-card { padding: 14px; background: rgba(7,9,13,.5); }
+    .metric-card strong { display: block; font-size: 23px; color: var(--gold); }
     .metric-card span { display: block; margin-top: 4px; color: var(--muted); font-size: 12px; }
-    .panel { padding: 18px; min-width: 0; }
+    .panel { padding: 18px; min-width: 0; box-shadow: var(--shadow-soft); }
     .panel-title { display: flex; align-items: center; justify-content: space-between; gap: 12px; margin-bottom: 14px; }
     .panel-title h2 { margin: 0; font-size: 21px; letter-spacing: 0; }
     .muted { color: var(--muted); font-size: 13px; line-height: 1.5; }
     .source-grid { display: grid; grid-template-columns: repeat(3, minmax(0, 1fr)); gap: 10px; }
-    .lane { padding: 14px; min-height: 206px; }
+    .lane { padding: 14px; min-height: 206px; background: linear-gradient(180deg, rgba(19,27,39,.98), rgba(12,17,24,.98)); }
+    .lane:hover, .feature-card:hover, .ops-card:hover, .catalog-item:hover, .golden-row:hover {
+      border-color: rgba(91,183,255,.36);
+      box-shadow: 0 16px 38px rgba(0,0,0,.28);
+    }
     .lane h3 { margin: 0 0 10px; font-size: 17px; display: flex; justify-content: space-between; gap: 8px; }
     .lane-count {
       border-radius: 999px;
-      background: rgba(248,194,27,.12);
-      border: 1px solid rgba(248,194,27,.35);
+      background: rgba(245,197,66,.12);
+      border: 1px solid rgba(245,197,66,.35);
       color: var(--gold);
       padding: 3px 8px;
       font-size: 11px;
       white-space: nowrap;
     }
-    .signal { border-top: 1px solid rgba(159,177,200,.18); padding: 10px 0; }
+    .signal { border-top: 1px solid var(--line-soft); padding: 10px 0; }
     .signal:first-of-type { border-top: 0; padding-top: 0; }
     .signal strong { display: block; font-size: 14px; overflow-wrap: anywhere; }
     .signal span { display: block; margin-top: 4px; color: var(--muted); font-size: 12px; line-height: 1.45; }
     .golden-stats { display: grid; grid-template-columns: repeat(4, minmax(0, 1fr)); gap: 10px; margin-bottom: 14px; }
     .board-stat {
-      border: 1px solid rgba(159,177,200,.2);
+      border: 1px solid var(--line-soft);
       border-radius: 8px;
-      background: #07111f;
+      background: linear-gradient(180deg, rgba(7,9,13,.78), rgba(10,15,22,.92));
       padding: 12px;
     }
     .board-stat strong { display: block; color: var(--gold); font-size: 20px; }
     .board-stat span { display: block; margin-top: 4px; color: var(--muted); font-size: 12px; }
-    .board-progress { height: 8px; border-radius: 999px; background: #07111f; overflow: hidden; border: 1px solid rgba(159,177,200,.2); }
+    .board-progress { height: 8px; border-radius: 999px; background: #07090d; overflow: hidden; border: 1px solid var(--line-soft); }
     .board-progress div { width: 0%; height: 100%; background: linear-gradient(90deg, var(--gold), var(--green)); }
     .board-meta { display: flex; justify-content: space-between; gap: 12px; margin: 10px 0 14px; color: var(--muted); font-size: 12px; flex-wrap: wrap; }
     .quality-strip {
@@ -157,9 +213,9 @@ export function renderLewordProWeb(): string {
       margin: 0 0 12px;
     }
     .quality-pill {
-      border: 1px solid rgba(159,177,200,.2);
+      border: 1px solid var(--line-soft);
       border-radius: 8px;
-      background: #07111f;
+      background: rgba(7,9,13,.62);
       padding: 10px;
       min-height: 58px;
     }
@@ -175,10 +231,16 @@ export function renderLewordProWeb(): string {
       grid-template-columns: 58px minmax(0, 1fr) 64px minmax(240px, auto);
       align-items: center;
       gap: 12px;
-      border: 1px solid rgba(159,177,200,.2);
+      border: 1px solid var(--line-soft);
       border-radius: 8px;
-      background: #0b1626;
+      background:
+        linear-gradient(90deg, rgba(245,197,66,.08), transparent 26%),
+        linear-gradient(180deg, #101822, #0b1017);
       padding: 12px;
+      transition: border-color .16s ease, box-shadow .16s ease, transform .16s ease;
+    }
+    .golden-row:hover {
+      transform: translateY(-1px);
     }
     .rank { color: var(--gold); font-weight: 1000; }
     .golden-main strong { display: block; font-size: 15px; overflow-wrap: anywhere; }
@@ -188,19 +250,19 @@ export function renderLewordProWeb(): string {
       min-height: 32px;
       border: 1px solid var(--line);
       border-radius: 8px;
-      background: #17263d;
+      background: linear-gradient(180deg, #182233, #111823);
       color: var(--text);
       padding: 7px 9px;
       font-weight: 900;
       font-size: 12px;
     }
-    .tiny-btn.pro { border-color: rgba(248,194,27,.45); color: var(--gold); background: rgba(248,194,27,.08); }
+    .tiny-btn.pro { border-color: rgba(245,197,66,.48); color: var(--gold); background: rgba(245,197,66,.09); }
     .locked {
       border: 1px dashed rgba(248,194,27,.45);
       border-radius: 8px;
       padding: 14px;
       color: #ffe58a;
-      background: rgba(248,194,27,.08);
+      background: rgba(245,197,66,.08);
       line-height: 1.55;
     }
     .lookup-row { display: grid; grid-template-columns: minmax(180px, 1fr) 160px 130px; gap: 8px; }
@@ -209,14 +271,15 @@ export function renderLewordProWeb(): string {
       min-height: 42px;
       border-radius: 8px;
       border: 1px solid var(--line);
-      background: #07111f;
+      background: #080c12;
       color: var(--text);
       padding: 10px 12px;
+      box-shadow: inset 0 1px 0 rgba(255,255,255,.03);
     }
-    .table-wrap { margin-top: 14px; overflow: auto; border: 1px solid var(--line); border-radius: 8px; }
+    .table-wrap { margin-top: 14px; overflow: auto; border: 1px solid var(--line); border-radius: 8px; background: rgba(7,9,13,.62); }
     table { width: 100%; border-collapse: collapse; min-width: 980px; }
     th, td { padding: 10px 11px; border-bottom: 1px solid rgba(159,177,200,.18); text-align: left; font-size: 13px; }
-    th { color: #c8d5e7; background: #0c1727; position: sticky; top: 0; }
+    th { color: #c8d5e7; background: #0b111a; position: sticky; top: 0; }
     td { color: #edf4ff; }
     .grade {
       display: inline-flex;
@@ -225,14 +288,14 @@ export function renderLewordProWeb(): string {
       min-width: 38px;
       border-radius: 999px;
       padding: 4px 8px;
-      background: var(--red);
+      background: linear-gradient(135deg, var(--red), #ff315c);
       color: white;
       font-weight: 1000;
       font-size: 12px;
     }
-    .grade.SS { background: var(--orange); }
-    .grade.S { background: var(--gold); color: #07111f; }
-    .grade.A { background: var(--green); color: #052016; }
+    .grade.SS { background: linear-gradient(135deg, var(--orange), #ff7a2d); }
+    .grade.S { background: linear-gradient(135deg, var(--gold), #ffe66d); color: #07111f; }
+    .grade.A { background: linear-gradient(135deg, var(--green), #9df5c7); color: #052016; }
     .feature-grid { display: grid; grid-template-columns: repeat(4, minmax(0, 1fr)); gap: 10px; }
     .feature-card {
       padding: 14px;
@@ -240,28 +303,40 @@ export function renderLewordProWeb(): string {
       flex-direction: column;
       gap: 10px;
       min-height: 190px;
+      background: linear-gradient(180deg, rgba(19,27,39,.98), rgba(11,16,23,.98));
+      position: relative;
+      overflow: hidden;
+    }
+    .feature-card::before {
+      content: "";
+      position: absolute;
+      inset: 0 0 auto 0;
+      height: 2px;
+      background: linear-gradient(90deg, var(--gold), rgba(53,211,153,.7), rgba(91,183,255,.7));
+      opacity: .8;
     }
     .feature-card h3 { margin: 0; font-size: 16px; line-height: 1.35; }
     .feature-card p { margin: 0; color: var(--muted); font-size: 12px; line-height: 1.5; flex: 1; }
     .tool-console {
-      border: 1px solid rgba(53,183,255,.28);
+      border: 1px solid rgba(91,183,255,.28);
       border-radius: 8px;
-      background: #0b1626;
+      background: linear-gradient(180deg, rgba(8,12,18,.9), rgba(13,19,28,.96));
       padding: 14px;
       margin-bottom: 12px;
+      box-shadow: inset 0 1px 0 rgba(255,255,255,.035);
     }
     .tool-tabs { display: flex; gap: 6px; flex-wrap: wrap; margin-bottom: 12px; }
     .tool-tab {
       min-height: 34px;
       border: 1px solid var(--line);
       border-radius: 8px;
-      background: #17263d;
+      background: #111926;
       color: #d9e6f7;
       padding: 7px 10px;
       font-size: 12px;
       font-weight: 900;
     }
-    .tool-tab.active { border-color: rgba(248,194,27,.7); color: #07111f; background: var(--gold); }
+    .tool-tab.active { border-color: rgba(245,197,66,.7); color: #07111f; background: linear-gradient(135deg, var(--gold), #b7f65c); }
     .tool-form { display: grid; grid-template-columns: 1.2fr .9fr .7fr .8fr; gap: 8px; align-items: center; }
     .tool-checks { display: flex; gap: 10px; flex-wrap: wrap; grid-column: 1 / -1; color: #d9e6f7; font-size: 12px; }
     .tool-checks label { display: inline-flex; align-items: center; gap: 5px; white-space: nowrap; }
@@ -273,9 +348,9 @@ export function renderLewordProWeb(): string {
       margin: 0 0 12px;
     }
     .catalog-pill {
-      border: 1px solid rgba(159,177,200,.2);
+      border: 1px solid var(--line-soft);
       border-radius: 8px;
-      background: #07111f;
+      background: rgba(7,9,13,.64);
       padding: 10px;
       min-height: 58px;
     }
@@ -288,9 +363,9 @@ export function renderLewordProWeb(): string {
       margin-bottom: 12px;
     }
     .catalog-item {
-      border: 1px solid rgba(159,177,200,.18);
+      border: 1px solid var(--line-soft);
       border-radius: 8px;
-      background: #0b1626;
+      background: rgba(11,16,23,.86);
       padding: 10px;
       min-width: 0;
     }
@@ -298,9 +373,9 @@ export function renderLewordProWeb(): string {
     .catalog-item span { display: block; margin-top: 4px; color: var(--muted); font-size: 11px; line-height: 1.4; overflow-wrap: anywhere; }
     .ops-grid { display: grid; grid-template-columns: repeat(4, minmax(0, 1fr)); gap: 10px; }
     .ops-card {
-      border: 1px solid rgba(159,177,200,.2);
+      border: 1px solid var(--line-soft);
       border-radius: 8px;
-      background: #0b1626;
+      background: linear-gradient(180deg, rgba(16,24,34,.96), rgba(10,14,20,.98));
       padding: 14px;
       min-height: 178px;
     }
@@ -323,12 +398,12 @@ export function renderLewordProWeb(): string {
       padding: 4px 8px;
       font-size: 11px;
       font-weight: 900;
-      border: 1px solid rgba(22,199,132,.35);
+      border: 1px solid rgba(53,211,153,.35);
       color: #98f7c7;
-      background: rgba(22,199,132,.08);
+      background: rgba(53,211,153,.08);
     }
-    .status-pill.linked { border-color: rgba(53,183,255,.4); color: #bfe9ff; background: rgba(53,183,255,.08); }
-    .status-pill.planned { border-color: rgba(248,194,27,.45); color: var(--gold); background: rgba(248,194,27,.08); }
+    .status-pill.linked { border-color: rgba(91,183,255,.4); color: #bfe9ff; background: rgba(91,183,255,.08); }
+    .status-pill.planned { border-color: rgba(245,197,66,.45); color: var(--gold); background: rgba(245,197,66,.08); }
     .workbench { display: grid; grid-template-columns: minmax(0, 1.1fr) minmax(300px, .9fr); gap: 12px; }
     .log {
       min-height: 180px;
@@ -336,7 +411,7 @@ export function renderLewordProWeb(): string {
       overflow: auto;
       border: 1px solid var(--line);
       border-radius: 8px;
-      background: #07111f;
+      background: #07090d;
       padding: 12px;
       color: #c8d5e7;
       font-family: ui-monospace, SFMono-Regular, Consolas, monospace;
@@ -348,7 +423,7 @@ export function renderLewordProWeb(): string {
     .result-panel {
       border: 1px solid var(--line);
       border-radius: 8px;
-      background: #07111f;
+      background: rgba(7,9,13,.86);
       padding: 12px;
       min-height: 180px;
     }
@@ -356,9 +431,9 @@ export function renderLewordProWeb(): string {
     .result-panel p { margin: 0 0 10px; color: var(--muted); font-size: 12px; line-height: 1.5; }
     .result-kpis { display: grid; grid-template-columns: repeat(4, minmax(0, 1fr)); gap: 8px; margin-bottom: 10px; }
     .result-kpi {
-      border: 1px solid rgba(159,177,200,.18);
+      border: 1px solid var(--line-soft);
       border-radius: 8px;
-      background: #0b1626;
+      background: #101822;
       padding: 10px;
     }
     .result-kpi strong { display: block; color: var(--gold); font-size: 18px; }
@@ -396,10 +471,10 @@ export function renderLewordProWeb(): string {
     .modal.open { display: flex; }
     .dialog {
       width: min(430px, 100%);
-      border: 1px solid rgba(53,183,255,.4);
+      border: 1px solid rgba(91,183,255,.36);
       border-radius: 8px;
-      background: #0f172a;
-      box-shadow: 0 24px 80px rgba(0,0,0,.38);
+      background: linear-gradient(180deg, #121a26, #0d121b);
+      box-shadow: 0 24px 80px rgba(0,0,0,.46);
       padding: 20px;
     }
     .dialog h2 { margin: 0 0 8px; font-size: 22px; }
