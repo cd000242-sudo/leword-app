@@ -22,6 +22,7 @@ import {
 import type { MDPResult } from '../utils/mdp-engine';
 import { classifyKeyword } from '../utils/categories';
 import { getDiscoveryCategorySeeds } from '../utils/category-discovery-map';
+import { measureDocumentCount } from '../utils/measure-dc';
 
 export interface MobileLiveGoldenRadarRunGate {
   ok: boolean;
@@ -1221,8 +1222,31 @@ export class MobileLiveGoldenRadar {
     }), LIVE_BACKFILL_TIMEOUT_MS, []);
     const seen = new Set<string>();
     const out: MDPResult[] = [];
+    let documentCountSupplements = 0;
     for (const row of rows) {
-      const item = rowToBackfillResult(row, categoryId);
+      const pc = finiteNumber(row.pcSearchVolume) || 0;
+      const mobile = finiteNumber(row.mobileSearchVolume) || 0;
+      const volume = pc + mobile;
+      let enrichedRow = row;
+      if (
+        (row.documentCount === null || row.documentCount === undefined || row.documentCount <= 0)
+        && volume >= 300
+        && documentCountSupplements < 12
+      ) {
+        documentCountSupplements += 1;
+        const measuredDc = await withTimeout(
+          measureDocumentCount(row.keyword, {
+            searchVolume: volume,
+            scrapeTimeoutMs: 1500,
+          }).catch(() => null),
+          3500,
+          null,
+        );
+        if (measuredDc && !measuredDc.isEstimated && measuredDc.dc > 0) {
+          enrichedRow = { ...row, documentCount: measuredDc.dc };
+        }
+      }
+      const item = rowToBackfillResult(enrichedRow, categoryId);
       if (!item) continue;
       const id = mdpResultId(item);
       if (seen.has(id)) continue;
