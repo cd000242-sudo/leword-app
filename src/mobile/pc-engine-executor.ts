@@ -444,8 +444,9 @@ function metricFromSourceSignal(
 ): MobileKeywordMetric {
   const priorityScore = finiteNumber(signal.priority) ?? 0;
   const score = Math.max(45, Math.min(92, 72 + priorityScore * 3 - index * 0.7));
+  const keyword = normalizeKeyword(sourceSignalKeyword(signal));
   return {
-    keyword: normalizeKeyword(signal.keyword || signal.title),
+    keyword,
     grade: normalizeGrade(undefined, score),
     score,
     pcSearchVolume: null,
@@ -466,6 +467,24 @@ function metricFromSourceSignal(
     ].filter(Boolean),
     isMeasured: false,
   };
+}
+
+function sourceSignalKeyword(signal: MobileSignalItem): string {
+  const raw = normalizeKeyword(signal.keyword || signal.title);
+  const withoutBracket = raw
+    .replace(/\[[^\]]{2,60}\]/g, ' ')
+    .replace(/[“”"']/g, ' ')
+    .replace(/\s+/g, ' ')
+    .trim();
+  const firstClause = (withoutBracket.split(/[,.!?。|｜·]/)[0] || withoutBracket).trim();
+  const stopWords = new Set(['단독', '영상', '속보', '공식', '종합', '인터뷰', '포토', '오늘', '최신']);
+  const tokens = firstClause
+    .split(/\s+/)
+    .map((token) => token.replace(/^[^\w가-힣]+|[^\w가-힣]+$/g, ''))
+    .filter((token) => token.length >= 2 && !stopWords.has(token));
+  const candidate = tokens.slice(0, 5).join(' ').trim();
+  const resolved = candidate.length >= 2 ? candidate : raw.slice(0, 42).trim();
+  return resolved.length > 42 ? resolved.slice(0, 42).trim() : resolved;
 }
 
 async function buildSourceSignalMetrics(
@@ -1286,7 +1305,7 @@ async function runKinHiddenHoneyWithPcHunter(
     .filter((item: MobileKeywordMetric) => item.keyword);
   if (metrics.length === 0) {
     const fallback = await buildSourceSignalMetrics(
-      'issues',
+      'all',
       params.targetCount,
       context,
       'pc-kin-live-source-fallback',
@@ -1337,7 +1356,22 @@ async function runShoppingConnectWithPcEngine(
     return resultFromMetrics((result as any).fallbackMetrics, startedAt, 'pc-engine-plus');
   }
 
-  const scoredItems = result.items.map((item) => ({
+  const shoppingItems = Array.isArray(result.items) ? result.items : [];
+  if (shoppingItems.length === 0) {
+    context.progress(45, `shopping returned 0 products; using SearchAd/OpenAPI measured commerce fallback for ${params.keyword}`);
+    const fallback = await buildMeasuredIntentFallback(
+      params.keyword,
+      params.targetCount,
+      'pc-shopping-empty-searchad-fallback',
+      'commerce-entry',
+      'shopping',
+      context,
+      measureKeywordMetrics,
+    );
+    return resultFromMetrics(fallback, startedAt, 'pc-engine-plus');
+  }
+
+  const scoredItems = shoppingItems.map((item) => ({
     ...item,
     conversionScore: shopping.computeConversionScore(item),
   }));
@@ -1452,7 +1486,7 @@ async function runYoutubeGoldenWithPcEngine(
 
   if (metrics.length === 0) {
     const fallback = await buildSourceSignalMetrics(
-      'issues',
+      'all',
       params.maxResults,
       context,
       'pc-youtube-live-source-fallback',

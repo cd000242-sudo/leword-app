@@ -577,15 +577,19 @@ function runFallbackRegressionGuards(): void {
   assert('shopping connect has SearchAd/OpenAPI quota fallback',
     source.includes('pc-shopping-quota-searchad-fallback')
       && source.includes('isQuotaLimitError')
-      && source.includes('shopping quota exhausted'));
+      && source.includes('shopping quota exhausted')
+      && source.includes('pc-shopping-empty-searchad-fallback')
+      && source.includes('shopping returned 0 products'));
   assert('KIN empty result has live source signal fallback',
     source.includes('pc-kin-live-source-fallback')
       && source.includes('kin-question-source-gap')
-      && source.includes('buildSourceSignalMetrics'));
+      && source.includes('buildSourceSignalMetrics')
+      && source.includes('sourceSignalKeyword'));
   assert('YouTube empty result has live source signal fallback',
     source.includes('pc-youtube-live-source-fallback')
       && source.includes('youtube-trend-source-gap')
-      && source.includes('buildSourceSignalMetrics'));
+      && source.includes('buildSourceSignalMetrics')
+      && source.includes("'all'"));
 }
 
 (async () => {

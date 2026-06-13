@@ -53,6 +53,10 @@ function cloneResult(result: MobileKeywordResult, fromCache: boolean): MobileKey
   };
 }
 
+function isCacheableResult(result: MobileKeywordResult | undefined): boolean {
+  return Array.isArray(result?.keywords) && result.keywords.length > 0;
+}
+
 export function makeMobileResultCacheKey(product: MobileKeywordProduct, params: unknown): string {
   return `${product}:${stableStringify(params)}`;
 }
@@ -85,11 +89,21 @@ export class InMemoryMobileResultCache {
       this.entries.delete(key);
       return undefined;
     }
+    if (!isCacheableResult(entry.result)) {
+      this.entries.delete(key);
+      this.persist();
+      return undefined;
+    }
     return cloneResult(entry.result, true);
   }
 
   set(product: MobileKeywordProduct, params: unknown, result: MobileKeywordResult): void {
     const key = makeMobileResultCacheKey(product, params);
+    if (!isCacheableResult(result)) {
+      this.entries.delete(key);
+      this.persist();
+      return;
+    }
     const createdAtMs = this.now();
     this.entries.set(key, {
       key,
