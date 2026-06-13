@@ -1,4 +1,4 @@
-import { MobileLiveGoldenRadar } from '../../mobile/live-golden-radar';
+import { MobileLiveGoldenRadar, __liveGoldenRadarTestInternals } from '../../mobile/live-golden-radar';
 import { MobileNotificationInbox } from '../../mobile/notification-inbox';
 import type { MobileKeywordResult } from '../../mobile/contracts';
 import * as fs from 'fs';
@@ -271,6 +271,54 @@ function thinProfileCount(items: Array<{ keyword: string }>): number {
       && capturedHeadlineSeeds.includes('2026 KBO \uC62C\uC2A4\uD0C0\uC804 \uC608\uB9E4')
       && !capturedHeadlineSeeds.some((seed) => /\uC9C0\uC5F0|\uC0AC\uACFC|\uBC00\uB9AC\uC5B8\uC140\uB9C1|\uBC15\uC218|\uC120\uC218\uB4E4|\.\.|!!!/.test(seed)),
     capturedHeadlineSeeds.join('|'));
+
+  const liveIssueBackfillCandidates = __liveGoldenRadarTestInternals.buildBackfillCandidates('all', [
+    'KIA 3연패 탈출! [up]',
+    '1228회 로또 1등 당첨 11명 [new]',
+    '파키스탄 총리 24시간 내 합의 예상 [new]',
+  ], 80);
+  assert('live issue backfill uses issue-specific intents instead of shopping tails',
+    liveIssueBackfillCandidates.some((keyword) => keyword.includes('KIA 3연패 탈출') && /중계|경기일정|라인업|하이라이트/.test(keyword))
+      && liveIssueBackfillCandidates.some((keyword) => keyword.includes('1228회 로또') && /당첨번호|당첨지역|실수령액|판매점/.test(keyword))
+      && liveIssueBackfillCandidates.some((keyword) => keyword.includes('파키스탄 총리') && /정리|현재 상황|전망|소식/.test(keyword))
+      && !liveIssueBackfillCandidates.some((keyword) => /KIA 3연패 탈출.*(추천|가격|비교|후기)/.test(keyword)),
+    liveIssueBackfillCandidates.slice(0, 30).join('|'));
+
+  let capturedIssueSeeds: string[] = [];
+  const liveIssueRadar = new MobileLiveGoldenRadar({
+    notificationInbox: inbox,
+    runOnStart: false,
+    cycleLimit: 4,
+    categories: ['all'],
+    getEnvConfig: () => ({
+      naverClientId: 'client',
+      naverClientSecret: 'secret',
+    }),
+    liveSeedProvider: async () => [
+      'KIA 3연패 탈출! [up]',
+      '1228회 로또 1등 당첨 11명 [new]',
+      '파키스탄 총리 24시간 내 합의 예상 [new]',
+    ],
+    enableBackfill: false,
+    discover: async (_config, options) => {
+      capturedIssueSeeds = Array.isArray(options?.liveSeeds) ? options.liveSeeds : [];
+      return [
+        result('KIA 3연패 탈출 정리', 0),
+        result('1228회 로또 당첨번호', 1),
+        result('파키스탄 총리 합의 정리', 2),
+      ];
+    },
+  });
+  const liveIssueSnapshot = await liveIssueRadar.runOnce();
+  assert('live radar accepts measured issue intent keywords after cleanup',
+    capturedIssueSeeds.includes('KIA 3연패 탈출')
+      && capturedIssueSeeds.includes('1228회 로또 1등 당첨 11명')
+      && capturedIssueSeeds.includes('파키스탄 총리 24시간 내 합의 예상')
+      && capturedIssueSeeds.every((seed) => !/[!\[\]]/.test(seed))
+      && liveIssueSnapshot.board.some((item) => item.keyword === 'KIA 3연패 탈출 정리' && item.category === 'sports')
+      && liveIssueSnapshot.board.some((item) => item.keyword === '1228회 로또 당첨번호' && item.category === 'life_tips')
+      && liveIssueSnapshot.board.some((item) => item.keyword === '파키스탄 총리 합의 정리'),
+    `${capturedIssueSeeds.join('|')} :: ${liveIssueSnapshot.board.map((item) => `${item.keyword}:${item.category}`).join('|')}`);
 
   const staleBoardFile = path.join(process.cwd(), 'tmp', 'mobile-live-golden-stale-board-test.json');
   fs.mkdirSync(path.dirname(staleBoardFile), { recursive: true });

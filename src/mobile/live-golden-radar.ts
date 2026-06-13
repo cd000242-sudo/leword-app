@@ -266,6 +266,7 @@ function publicPreviewClusterKey(keyword: string): string {
 function normalizeLiveSeedText(value: unknown): string {
   let clean = normalizeKeyword(value)
     .replace(/\[(same|up|new|down)\]/gi, ' ')
+    .replace(/[!?！？]+/g, ' ')
     .replace(/["'“”‘’]/g, ' ')
     .replace(/[♥★◆◇■□●○]/g, ' ')
     .replace(/\[[^\]]{1,40}\]/g, ' ')
@@ -301,8 +302,13 @@ function isNoisyLiveSeed(keyword: string): boolean {
   if (/(기자|스타이슈|단독|종합|사진|영상|전문|속보만|무단전재)/.test(clean)) return true;
   const tokenCount = clean.split(/\s+/).filter(Boolean).length;
   if (tokenCount > 7) return true;
+  const issueSignal = LIVE_GENERAL_ISSUE_RE.test(clean)
+    || LIVE_SPORTS_SIGNAL_RE.test(clean)
+    || LIVE_LOTTERY_SIGNAL_RE.test(clean)
+    || LIVE_POLICY_SIGNAL_RE.test(clean)
+    || LIVE_FINANCE_SIGNAL_RE.test(clean);
   if (!isActionableLiveKeyword(clean) && NEWS_HEADLINE_FRAGMENT_RE.test(clean)) return true;
-  if (!isActionableLiveKeyword(clean) && tokenCount >= 5) return true;
+  if (!isActionableLiveKeyword(clean) && !issueSignal && tokenCount >= 5) return true;
   return false;
 }
 
@@ -521,8 +527,14 @@ function publicReason(item: MobileKeywordMetric): string {
   return parts.slice(0, 2).join(' · ') || '실시간 검증 통과 후보';
 }
 
-const ACTIONABLE_KEYWORD_HINT_RE = /(일정|답지|등급컷|당첨번호|당첨지역|중계|올스타전|공휴일|신청|대상|자격|지급일|조회|후기|가격|비교|추천|예약|예매|출연진|몇부작|다시보기|결말|쿠키영상|사용법|오류|설정|업데이트|준비물|조건|서류|마감|발표|라인업|하이라이트|공식입장|기자회견|회동|발언|입장|논란|비주얼|공개|MVP|급락|관련주|전망|주가|소식|악수|방한|연기|참석|별세|끝내기|안타|방문|체결|인상|인하|파업|수사|구속|출시|발매|확정|취소|변경|개편|오픈|폐지)/;
-const SPECIFIC_LIVE_KEYWORD_HINT_RE = /(\d{4}|\d+회|\d+월|오늘|이번주|이번달|상반기|하반기|일정|답지|등급컷|올스타전|공휴일|신청|지급일|접수|마감|예매|예약|방송시간|몇부작|출연진|결말|쿠키영상|준비물|후기|가격|비교|추천|주차|라인업|하이라이트|공식입장|기자회견|회동|발언|논란|비주얼|공개|MVP|급락|관련주|전망|주가|소식|악수|방한|연기|참석|별세|끝내기|안타|방문|체결|인상|인하|파업|수사|구속|출시|발매|확정|취소|변경|개편|오픈|폐지)/;
+const ACTIONABLE_KEYWORD_HINT_RE = /(일정|답지|등급컷|당첨번호|당첨지역|중계|올스타전|공휴일|신청|대상|자격|지급일|조회|후기|가격|비교|추천|예약|예매|출연진|몇부작|다시보기|결말|쿠키영상|사용법|오류|설정|업데이트|준비물|조건|서류|마감|발표|라인업|하이라이트|공식입장|기자회견|회동|발언|입장|논란|정리|현재\s*상황|이유|합의|예상|비주얼|공개|MVP|급락|관련주|전망|주가|소식|악수|방한|연기|참석|별세|끝내기|안타|방문|체결|인상|인하|파업|수사|구속|출시|발매|확정|취소|변경|개편|오픈|폐지)/;
+const SPECIFIC_LIVE_KEYWORD_HINT_RE = /(\d{4}|\d+회|\d+월|오늘|이번주|이번달|상반기|하반기|일정|답지|등급컷|올스타전|공휴일|신청|지급일|접수|마감|예매|예약|방송시간|몇부작|출연진|결말|쿠키영상|준비물|후기|가격|비교|추천|주차|라인업|하이라이트|공식입장|기자회견|회동|발언|논란|정리|현재\s*상황|이유|합의|예상|비주얼|공개|MVP|급락|관련주|전망|주가|소식|악수|방한|연기|참석|별세|끝내기|안타|방문|체결|인상|인하|파업|수사|구속|출시|발매|확정|취소|변경|개편|오픈|폐지)/;
+const LIVE_SPORTS_SIGNAL_RE = /(KIA|LG|두산|롯데|한화|삼성|SSG|NC|KT|키움|KBO|프로야구|야구|축구|농구|배구|FIFA|월드컵|K리그|EPL|연패|연승|탈출|역전골|안타|경기|감독|선수|이적|우승|준우승)/i;
+const LIVE_LOTTERY_SIGNAL_RE = /(로또|복권|당첨\s*\d+명|당첨번호|당첨지역|판매점|실수령액)/;
+const LIVE_POLICY_SIGNAL_RE = /(지원금|환급|보조금|정부|정책|신청|대상|자격|지급|복지|청년|소상공인|부모가|온라인\s*신청|에너지캐시백)/;
+const LIVE_BROADCAST_SIGNAL_RE = /(드라마|예능|방송|시즌|신세계|하트시그널|하트\s*시그널|참교육|신입사원|출연진|시청률|다시보기|몇부작|결말)/;
+const LIVE_FINANCE_SIGNAL_RE = /(주가|증시|코스피|코스닥|환율|금리|공모주|청약|실적|배당|관련주|급락|급등|상장|온누리상품권)/;
+const LIVE_GENERAL_ISSUE_RE = /(합의|예상|심경|구형|사고|논란|수사|구속|체포|방문|회동|발언|입장|공식입장|사과|중단|침수|파업|인상|인하|확정|취소|변경|폐지)/;
 const THIN_PROFILE_INTENT_RE = /(프로필|인물정보|약력|나이|학력|고향|키|인스타|나무위키|가족|결혼|남편|아내|부인|군대)$/i;
 const PROFILE_INTENT_TOKEN_RE = /(프로필|인물정보|약력|나이|학력|고향|키|인스타|나무위키|가족|결혼|남편|아내|부인|군대|작품활동|필모그래피)/i;
 const PROFILE_INTENT_EXEMPT_RE = /(카카오톡|카톡|인스타그램|블로그|프로필\s*(사진|설정|변경|꾸미기|삭제|비공개|차단)|사용법|오류|업데이트|방법|신청|조회|대상|자격|지급일|일정|예매|예약|중계|등급컷|답지|당첨번호|주가|전망)/i;
@@ -639,7 +651,7 @@ function isLiveRadarUsableKeyword(keyword: string, volume: number | null, docume
   if (volume !== null && documents !== null && volume >= 300_000 && documents >= 50_000) return false;
   if (!specific && volume !== null && volume >= 250_000) return false;
   if (!specific && documents !== null && documents >= 30_000) return false;
-  if (!isActionableLiveKeyword(clean)) {
+  if (!isActionableLiveKeyword(clean) && !specific) {
     return false;
   }
   return true;
@@ -674,6 +686,11 @@ function isPublicPreviewFallbackCandidate(item: MobileLiveGoldenBoardItem): bool
 
 function inferLiveCategory(keyword: string, fallbackCategory: string): string {
   const clean = normalizeKeyword(keyword);
+  if (LIVE_LOTTERY_SIGNAL_RE.test(clean)) return 'life_tips';
+  if (LIVE_SPORTS_SIGNAL_RE.test(clean)) return 'sports';
+  if (LIVE_POLICY_SIGNAL_RE.test(clean)) return 'policy';
+  if (LIVE_BROADCAST_SIGNAL_RE.test(clean)) return 'broadcast';
+  if (LIVE_FINANCE_SIGNAL_RE.test(clean)) return 'finance';
   if (/로또|복권|당첨번호|당첨지역|판매점/.test(clean)) return 'life_tips';
   if (/모의고사|등급컷|답지|수능|기출|접수|합격자|합격률|시험/.test(clean)) return 'education';
   if (/프로야구|KBO|야구|축구|농구|배구|월드컵|올스타|중계|경기|라인업|하이라이트/.test(clean)) return 'sports';
@@ -701,10 +718,12 @@ function isLiveRadarUsableMdpResult(item: MDPResult): boolean {
 function isLiveRadarQualityResult(item: MDPResult): boolean {
   if (!isLiveRadarUsableMdpResult(item)) return false;
   if (isQualityGoldenDiscoveryResult(item, { requireActionableIntent: true })) return true;
-  if (!isActionableGoldenKeyword(item.keyword)) return false;
+  const specific = SPECIFIC_LIVE_KEYWORD_HINT_RE.test(normalizeKeyword(item.keyword));
+  if (!isActionableGoldenKeyword(item.keyword) && !specific) return false;
   const volume = finiteNumber(item.searchVolume) || 0;
   const docs = finiteNumber(item.documentCount) || 0;
   const ratio = finiteNumber(item.goldenRatio) || (docs > 0 ? volume / docs : 0);
+  if (specific && volume >= 500 && docs > 0 && docs <= 20_000 && ratio >= 1.5) return true;
   if (volume >= 300 && docs > 0 && docs <= 30_000 && ratio >= 2) return true;
   return volume >= 100
     && docs > 0
@@ -722,18 +741,24 @@ function getBackfillIntents(categoryId: string): string[] {
   if (categoryId === 'celeb') return ['공식입장', '근황', '기자회견', '논란 정리', '발언', '출연작', '방송'];
   if (categoryId === 'music') return ['컴백 일정', '콘서트 예매', '팬미팅 일정', '앨범 발매일'];
   if (categoryId === 'education') return ['등급컷', '답지', '시험일정', '접수', '준비물'];
+  if (categoryId === 'life_tips') return ['당첨번호', '당첨지역', '실수령액', '판매점', '추첨시간', '조회'];
   if (categoryId === 'fashion') return ['코디', '브랜드', '사이즈', '후기', '할인'];
   if (categoryId === 'beauty') return ['성분', '피부타입', '후기', '추천', '순서'];
   if (categoryId === 'travel_domestic' || categoryId === 'travel_overseas') return ['일정', '준비물', '예약', '주차', '경비'];
   if (categoryId === 'food') return ['맛집', '메뉴', '예약', '가격', '주차'];
   if (categoryId === 'recipe') return ['황금레시피', '재료', '만드는법', '보관법'];
   if (categoryId === 'it' || categoryId === 'ai_tool') return ['사용법', '설정', '오류 해결', '비교', '추천'];
+  if (categoryId === 'live_issue') return ['정리', '현재 상황', '이유', '공식입장', '전망', '관련주', '일정', '소식'];
   return ['추천', '비교', '후기', '가격', '방법', '일정', '조회', '발표', '기자회견', '논란 정리'];
 }
 
 function getLiveSeedBackfillIntents(seed: string, categoryId: string): string[] {
   const inferred = inferLiveCategory(seed, categoryId);
   const clean = normalizeKeyword(seed);
+  if (LIVE_LOTTERY_SIGNAL_RE.test(clean)) return getBackfillIntents('life_tips');
+  if (LIVE_SPORTS_SIGNAL_RE.test(clean)) return getBackfillIntents('sports');
+  if (LIVE_POLICY_SIGNAL_RE.test(clean)) return getBackfillIntents('policy');
+  if (LIVE_FINANCE_SIGNAL_RE.test(clean)) return getBackfillIntents('finance');
   if (inferred === 'policy') return getBackfillIntents('policy');
   if (inferred === 'sports') return getBackfillIntents('sports');
   if (inferred === 'education') return getBackfillIntents('education');
@@ -745,6 +770,15 @@ function getLiveSeedBackfillIntents(seed: string, categoryId: string): string[] 
     || /드라마|예능|방송|시즌|신세계|하트시그널|하트 시그널|참교육|신입사원/.test(clean)
   ) {
     return ['몇부작', '출연진', '다시보기', '방송시간', '재방송', '결말', '인물관계도', '공식영상'];
+  }
+  if (
+    categoryId === 'all'
+    || inferred === 'all'
+    || inferred === 'live'
+    || inferred === 'default'
+    || LIVE_GENERAL_ISSUE_RE.test(clean)
+  ) {
+    return getBackfillIntents('live_issue');
   }
   return uniqueKeywords([
     ...getBackfillIntents(inferred),
@@ -815,7 +849,7 @@ function rowToBackfillResult(
   if (volume <= 0 || docs <= 0) return null;
   if (!isLiveRadarUsableKeyword(keyword, volume, docs)) return null;
   const ratio = Number((volume / docs).toFixed(2));
-  const actionable = isActionableGoldenKeyword(keyword);
+  const actionable = isActionableGoldenKeyword(keyword) || SPECIFIC_LIVE_KEYWORD_HINT_RE.test(keyword);
   const score = liveMetricScore(volume, docs, ratio, actionable);
   const grade = liveGradeFromMetrics(score, volume, docs, ratio);
   const intentInfo = classifyKeywordIntent(keyword);
@@ -889,6 +923,13 @@ function normalizeGate(value: MobileLiveGoldenRadarRunGate | boolean | undefined
   if (value && typeof value === 'object') return value;
   return { ok: true };
 }
+
+export const __liveGoldenRadarTestInternals = {
+  buildBackfillCandidates,
+  getLiveSeedBackfillIntents,
+  inferLiveCategory,
+  normalizeLiveSeeds,
+};
 
 export class MobileLiveGoldenRadar {
   private readonly notificationInbox: MobileNotificationInbox | null;
