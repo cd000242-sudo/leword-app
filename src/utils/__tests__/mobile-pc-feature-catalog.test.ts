@@ -30,11 +30,22 @@ const readyHandlers = new Set(
 assert('catalog scans the desktop IPC surface', catalog.totalHandlers >= 200, String(catalog.totalHandlers));
 assert('catalog exposes every tab bucket', Object.values(catalog.tabs).every((count) => count > 0), JSON.stringify(catalog.tabs));
 assert('catalog exposes current mobile feature route', MOBILE_AUTH_ROUTES.pcFeatures === '/v1/mobile/pc-features');
-assert('ready count matches current job endpoints', catalog.ready === MOBILE_API_ENDPOINTS.length, `${catalog.ready} vs ${MOBILE_API_ENDPOINTS.length}`);
+assert('ready count includes current job endpoints and server-backed Electron aliases',
+  catalog.ready >= MOBILE_API_ENDPOINTS.length,
+  `${catalog.ready} vs ${MOBILE_API_ENDPOINTS.length}`);
 
 for (const endpoint of MOBILE_API_ENDPOINTS) {
   assert(`ready endpoint maps ${endpoint.ipcEquivalent}`, readyHandlers.has(endpoint.ipcEquivalent));
 }
+
+assert('Electron discovery aliases are promoted to server-backed ready jobs',
+  catalog.items.some((item) => item.ipcEquivalent === 'find-golden-keywords' && item.mobileRoute === '/v1/golden/discover' && item.status === 'ready')
+    && catalog.items.some((item) => item.ipcEquivalent === 'get-niche-keywords' && item.mobileRoute === '/v1/golden/discover' && item.status === 'ready')
+    && catalog.items.some((item) => item.ipcEquivalent === 'find-ultimate-niche-keywords' && item.mobileRoute === '/v1/golden/discover' && item.status === 'ready'));
+assert('Electron YouTube and expansion aliases are promoted to ready jobs',
+  catalog.items.some((item) => item.ipcEquivalent === 'youtube-trend-analysis' && item.mobileRoute === '/v1/youtube/golden' && item.status === 'ready')
+    && catalog.items.some((item) => item.ipcEquivalent === 'youtube-title-patterns' && item.mobileRoute === '/v1/youtube/golden' && item.status === 'ready')
+    && catalog.items.some((item) => item.ipcEquivalent === 'generate-keyword-mindmap' && item.mobileRoute === '/v1/mindmap/expand' && item.status === 'ready'));
 
 assert('dashboard linked handlers are represented',
   catalog.items.some((item) => item.ipcEquivalent === 'get-realtime-keywords' && item.mobileRoute === MOBILE_SOURCE_ROUTES.signals));

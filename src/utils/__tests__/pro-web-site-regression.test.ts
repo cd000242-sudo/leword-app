@@ -3,6 +3,7 @@ import {
   renderLewordLanding,
 } from '../../../apps/api/src/public-site';
 import type { MobileSourceSignalSnapshot } from '../../mobile/contracts';
+import vm from 'vm';
 
 function assert(name: string, condition: unknown, detail = ''): void {
   if (!condition) {
@@ -12,6 +13,14 @@ function assert(name: string, condition: unknown, detail = ''): void {
 }
 
 const html = renderLewordLanding();
+
+for (const [index, match] of Array.from(html.matchAll(/<script>([\s\S]*?)<\/script>/g)).entries()) {
+  try {
+    new vm.Script(match[1], { filename: `pro-web-inline-${index}.js` });
+  } catch (err) {
+    assert(`inline script ${index} is syntactically valid`, false, err instanceof Error ? err.message : String(err));
+  }
+}
 
 assert('renders LEWORD Pro Web shell', html.includes('LEWORD Pro Web'));
 assert('does not expose integration-structure subtab copy', !html.includes('연동구조'));
@@ -77,6 +86,16 @@ for (const label of [
   '모바일 APK 다운로드',
 ]) {
   assert(`feature visible: ${label}`, html.includes(label));
+}
+
+for (const featureId of [
+  "id: 'source-radar'",
+  "id: 'niche'",
+  "id: 'seasonal-longtail'",
+  "id: 'competitor-analysis'",
+  "id: 'content-blueprint'",
+]) {
+  assert(`expanded parity feature id visible: ${featureId}`, html.includes(featureId));
 }
 
 assert('ready server-backed routes are wired',
@@ -148,11 +167,11 @@ assert('renders feature-specific tool settings panel',
     && html.includes('id="runSelectedTool"')
     && html.includes('선택 도구 실행'));
 
-assert('renders tabbed Electron parity catalog without old noisy feature grid',
-  html.includes('Electron 기능 매핑')
+assert('keeps technical Electron mapping hidden while retaining telemetry wiring',
+  !html.includes('Electron 기능 매핑')
     && html.includes('id="featureCatalogStrip"')
-    && html.includes('id="featureCatalogTabs"')
-    && html.includes('id="featureCatalogList"')
+    && html.includes('id="featureCatalogTabs" hidden')
+    && html.includes('id="featureCatalogList" hidden')
     && !html.includes('id="featureGrid"')
     && html.includes('function renderFeatureCatalog')
     && html.includes('function renderCatalogTabs')
@@ -183,6 +202,12 @@ assert('tool settings drive server payloads instead of one generic button',
     && html.includes('includeFreshIssue: options.includeFreshIssue !== false')
     && html.includes('crossReferenceNaver: options.crossReferenceNaver !== false')
     && html.includes('includeVolumeMetrics: options.includeVolumeMetrics !== false'));
+
+assert('blog draft workflow creates a blueprint before requesting a draft',
+  html.includes("workflow: 'blueprint-draft'")
+    && html.includes("feature.workflow === 'blueprint-draft'")
+    && html.includes('apiPost(endpoints.blueprint')
+    && html.includes('apiPost(endpoints.blueprintDraft'));
 
 assert('result center can persist, export, and track keyword outcomes',
   html.includes("keywordGroups: '/v1/mobile/keyword-groups'")
