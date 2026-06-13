@@ -367,6 +367,44 @@ function thinProfileCount(items: Array<{ keyword: string }>): number {
       && !liveIssueDocumentFallbackSnapshot.board.some((item) => /\uB4F1\uAE09\uCEF7|\uB2F5\uC9C0/.test(item.keyword)),
     liveIssueDocumentFallbackSnapshot.board.map((item) => `${item.keyword}:${item.source}:${item.documentCount}`).join('|'));
 
+  const publicQualityBoardFile = path.join(process.cwd(), 'tmp', 'mobile-live-golden-public-quality-test.json');
+  fs.writeFileSync(publicQualityBoardFile, JSON.stringify({
+    boardUpdatedAt: '2026-06-13T08:57:00.000Z',
+    items: [
+      ['청년미래적금 신청 대상', 'SSS', 98, 42000, 300, 140, 'policy'],
+      ['소상공인 환급금 조회 방법', 'SSS', 96, 36000, 420, 85, 'policy'],
+      ['KBO 올스타전 예매 일정', 'SS', 91, 28000, 700, 40, 'sports'],
+      ['파키스탄 총리 합의 정리', 'A', 64, null, null, null, 'live_issue'],
+      ['대전교도소 실탄 분실 현재 상황', 'A', 63, null, null, null, 'live_issue'],
+      ['곽혈수 성폭행 징역 구형 관련주', 'A', 62, null, null, null, 'live_issue'],
+      ['실시간 이슈 정리', 'B', 51, null, null, null, 'live_issue'],
+    ].map(([keyword, grade, score, totalSearchVolume, documentCount, goldenRatio, category], index) => ({
+      keyword,
+      grade,
+      score,
+      totalSearchVolume,
+      documentCount,
+      goldenRatio,
+      category,
+      updatedAt: '2026-06-13T08:57:00.000Z',
+      discoveredAt: '2026-06-13T08:57:00.000Z',
+      isMeasured: index < 3,
+    })),
+  }), 'utf8');
+  const publicQualityRadar = new MobileLiveGoldenRadar({
+    notificationInbox: inbox,
+    runOnStart: false,
+    boardFile: publicQualityBoardFile,
+    publicPreviewCount: 3,
+    now: () => new Date('2026-06-13T09:00:00.000Z'),
+  });
+  const publicQualitySnapshot = publicQualityRadar.snapshot();
+  assert('public preview excludes B grade and non-finance stock-tail issue keywords',
+    !publicQualitySnapshot.board.some((item) => item.keyword.includes('관련주'))
+      && publicQualitySnapshot.publicPreview.every((item) => !['B', 'C'].includes(item.grade)),
+    publicQualitySnapshot.publicPreview.map((item) => `${item.keyword}:${item.grade}`).join('|'));
+  fs.rmSync(publicQualityBoardFile, { force: true });
+
   const staleBoardFile = path.join(process.cwd(), 'tmp', 'mobile-live-golden-stale-board-test.json');
   fs.mkdirSync(path.dirname(staleBoardFile), { recursive: true });
   fs.writeFileSync(staleBoardFile, JSON.stringify({
