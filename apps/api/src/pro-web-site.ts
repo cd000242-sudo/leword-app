@@ -535,7 +535,7 @@ export function renderLewordProWeb(): string {
 
       <section class="main">
         <section class="hero">
-          <h1>LEWORD Pro Web: 서버 기반 키워드 끝판왕 콘솔</h1>
+          <h1>LEWORD Pro Web: 서버 기반 키워드 분석</h1>
           <p>Electron 앱의 핵심 기능을 웹에서 바로 실행하도록 재배치했습니다. 화면은 콘솔 역할만 하고, 실시간 소스 수집, PC/모바일 검색량 측정, 문서수 확인, 장기 분석 job, Pro 권한 체크는 서버가 담당합니다.</p>
           <div class="metrics">
             <div class="metric-card"><strong id="metricSession">로그인 필요</strong><span>Pro 세션</span></div>
