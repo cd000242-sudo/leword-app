@@ -999,7 +999,7 @@ export function renderLewordProWeb(): string {
     const legacyFeatureCards = [
       { id: 'pro-traffic', title: 'PRO 트래픽 폭발 키워드 헌터', status: 'ready', route: endpoints.proTraffic, desc: '실시간 이슈, 계절성, evergreen 신호를 서버 job으로 분석합니다.', defaultTargetCount: 30, payload: (q, options) => ({ categoryId: options.categoryId || 'all', seedKeyword: q || undefined, targetCount: options.targetCount || 30, includeSeasonal: options.includeSeasonal !== false, includeEvergreen: options.includeEvergreen !== false, includeFreshIssue: options.includeFreshIssue !== false }) },
       { id: 'exposure', title: '내노출 추적', status: 'linked', route: endpoints.rankTracking, desc: '서버의 노출/순위 추적 스냅샷과 SERP 체크 라우트에 연결합니다.', method: 'GET' },
-      { id: 'shopping', title: '쇼핑 커넥트', status: 'ready', route: endpoints.shoppingConnect, desc: '네이버 쇼핑 상품 신호를 서버 job으로 분석하고 블로그 진입 키워드로 변환합니다.', requiresKeyword: true, defaultTargetCount: 20, payload: (q, options) => ({ keyword: q, targetCount: options.targetCount || 20, sort: options.sort || 'sim' }) },
+      { id: 'shopping', title: '쇼핑 커넥트', status: 'ready', route: endpoints.shoppingConnect, desc: '네이버 쇼핑 상품 신호를 서버 job으로 분석하고 블로그 진입 키워드로 변환합니다.', requiresKeyword: false, defaultTargetCount: 30, payload: (q, options) => ({ keyword: q, targetCount: options.targetCount || 30, autoDiscoveryLimit: options.targetCount || 30, sort: options.sort || 'sim' }) },
       { id: 'youtube', title: '유튜브 황금키워드', status: 'ready', route: endpoints.youtubeGolden, desc: 'YouTube 급상승 영상 신호를 수집하고 네이버 수요와 교차검증합니다.', defaultTargetCount: 50, payload: (_q, options) => ({ maxResults: options.targetCount || 50, crossReferenceNaver: options.crossReferenceNaver !== false }) },
       { id: 'adsense', title: '애드센스 승인 키워드 헌터', status: 'ready', route: endpoints.adsense, desc: 'home-board/adsense 계열 엔진을 서버 job으로 실행합니다.', defaultTargetCount: 30, payload: (q, options) => ({ categoryId: options.categoryId === 'all' ? 'policy' : options.categoryId || 'policy', seedKeyword: q || undefined, targetCount: options.targetCount || 30, requireSplusFloor: true }) },
       { id: 'naver-mate', title: '네이버 메이트 키워드 헌터', status: 'ready', route: endpoints.naverMate, desc: '네이버 자동완성/연관어 기반 확장을 서버 측정표로 연결합니다.', requiresKeyword: true, defaultTargetCount: 50, payload: (q, options) => ({ seedKeyword: q, targetCount: options.targetCount || 50, includeAutocomplete: true, includeRelated: true, includeVolumeMetrics: options.includeVolumeMetrics !== false }) },
@@ -1029,7 +1029,7 @@ export function renderLewordProWeb(): string {
       { id: 'mindmap', group: 'expand', title: '마인드맵 확장', status: 'ready', route: endpoints.mindmap, desc: '시드 키워드를 연관, 롱테일 후보군으로 확장하고 측정값을 붙입니다.', requiresKeyword: true, defaultTargetCount: 50, payload: (q, options) => ({ seedKeyword: q, depth: 1, targetCount: options.targetCount || 50, includeVolumeMetrics: options.includeVolumeMetrics !== false }) },
       { id: 'naver-mate', group: 'expand', title: '네이버 메이트 키워드 헌터', status: 'ready', route: endpoints.naverMate, desc: '네이버 자동완성/연관어 기반 확장을 서버 측정표로 연결합니다.', requiresKeyword: true, defaultTargetCount: 50, payload: (q, options) => ({ seedKeyword: q, targetCount: options.targetCount || 50, includeAutocomplete: true, includeRelated: true, includeVolumeMetrics: options.includeVolumeMetrics !== false }) },
       { id: 'seasonal-longtail', group: 'expand', title: '계절/롱테일 키워드 캘린더', status: 'ready', route: endpoints.mindmap, desc: '시즌성, 접미어, 롱테일 조합을 확장하고 PC/모바일 실측값을 붙입니다.', requiresKeyword: true, defaultTargetCount: 50, payload: (q, options) => ({ seedKeyword: q, depth: 2, targetCount: options.targetCount || 50, includeVolumeMetrics: options.includeVolumeMetrics !== false }) },
-      { id: 'shopping', group: 'expand', title: '쇼핑 커넥트', status: 'ready', route: endpoints.shoppingConnect, desc: '네이버 쇼핑 상품 신호를 서버 job으로 분석하고 블로그 진입 키워드로 변환합니다.', requiresKeyword: true, defaultTargetCount: 20, payload: (q, options) => ({ keyword: q, targetCount: options.targetCount || 20, sort: options.sort || 'sim' }) },
+      { id: 'shopping', group: 'expand', title: '쇼핑 커넥트', status: 'ready', route: endpoints.shoppingConnect, desc: '네이버 쇼핑 상품 신호를 서버 job으로 분석하고 블로그 진입 키워드로 변환합니다.', requiresKeyword: false, defaultTargetCount: 30, payload: (q, options) => ({ keyword: q, targetCount: options.targetCount || 30, autoDiscoveryLimit: options.targetCount || 30, sort: options.sort || 'sim' }) },
       { id: 'competitor-analysis', group: 'analysis', title: '경쟁/블로그 지수 분석', status: 'ready', route: endpoints.keywordAnalysis, desc: '키워드 경쟁도, 문서수, 연관 후보, 상위노출 가능성을 정밀 조회합니다.', requiresKeyword: true, defaultTargetCount: 30, payload: (q, options) => ({ keyword: q, maxRelatedCount: options.targetCount || 30, includeMindmapPreview: true }) },
       { id: 'exposure', group: 'ops', title: '내노출 추적', status: 'linked', route: endpoints.rankTracking, desc: '서버의 노출/순위 추적 스냅샷과 SERP 체크 라우트에 연결합니다.', method: 'GET' },
       { id: 'rank-check', group: 'ops', title: 'SERP 순위 즉시 점검', status: 'linked', route: endpoints.rankTrackingRun, desc: '등록된 추적 키워드의 현재 노출 순위를 서버에서 다시 확인합니다.', direct: true, payload: (_q, options) => ({ limit: options.targetCount || 30 }) },
@@ -1850,7 +1850,9 @@ export function renderLewordProWeb(): string {
       return (qs('toolSeedInput').value.trim() || compactKeywordInput()).trim();
     }
     function collectToolOptions() {
-      const count = Math.max(5, Math.min(80, Number(qs('toolTargetCount').value || 30)));
+      const selected = getSelectedTool();
+      const minCount = selected && selected.id === 'shopping' ? 30 : 5;
+      const count = Math.max(minCount, Math.min(80, Number(qs('toolTargetCount').value || 30)));
       return {
         keyword: toolKeywordInput(),
         categoryId: qs('toolCategory').value || 'all',

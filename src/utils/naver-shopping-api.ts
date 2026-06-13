@@ -51,6 +51,7 @@ export interface ShoppingItem {
     conversion: number;
     penalty: number;
   };
+  shoppingProductQuality?: ShoppingProductQuality;
   scoreBreakdown?: {
     coupang: number;
     sweetSpot: number;
@@ -61,6 +62,15 @@ export interface ShoppingItem {
     majorMall: number;
     penalty: number;
   };
+}
+
+export interface ShoppingProductQuality {
+  score: number;
+  isSaleableProduct: boolean;
+  reject: boolean;
+  hotSignalScore: number;
+  reasons: string[];
+  penalties: string[];
 }
 
 export interface ShoppingLeWordKeyword {
@@ -359,6 +369,127 @@ export interface ShoppingOpportunityContext {
   relatedKeywords?: string[];
   crossSourceSeeds?: Array<{ seed: string; sources?: string[]; crossScore?: number }>;
   recency?: { status?: string; ratio?: number };
+}
+
+const SHOPPING_PRODUCT_NOUN_RE =
+  /(이어폰|헤드폰|헤드셋|스피커|충전기|보조배터리|노트북|태블릿|모니터|키보드|마우스|공기청정기|청소기|로봇청소기|제습기|가습기|에어컨|선풍기|서큘레이터|커피머신|쿠션|선크림|크림|앰플|세럼|샴푸|트리트먼트|마스크팩|틴트|립스틱|영양제|비타민|유산균|오메가|콜라겐|루테인|운동화|스니커즈|원피스|블라우스|티셔츠|가방|지갑|시계|선글라스|의자|책상|매트|텐트|침낭|캠핑|유모차|카시트|기저귀|사료|모래|간식|블랙박스|타이어|세차|매트리스|베개|커튼|식기|텀블러|도시락|마사지|건조기|면도기|칫솔|전기자전거|자전거|스마트워치|냉장고|세탁기|오븐|에어프라이어|상품|제품|세트|기기|용품|가전)/u;
+const SHOPPING_BUY_INTENT_RE =
+  /(추천|후기|리뷰|비교|가격|최저가|할인|쿠폰|핫딜|특가|세일|랭킹|순위|가성비|신상|재입고|구매|구입|선물|베스트|TOP\s*\d+)/iu;
+const SHOPPING_HOT_SIGNAL_RE =
+  /(trend|trending|rank|ranking|shopping|youtube|oliveyoung|datalab|auto-discovery|autocomplete|실시간|급상승|랭킹|쇼핑인사이트|데이터랩|오늘|이번주|핫딜|특가|세일|신상|재입고|품절|완판|유행|인기)/iu;
+const SHOPPING_NON_PRODUCT_RE =
+  /(프로필|나이|키|학력|결혼|이혼|사망|별세|논란|사건|사고|재판|징역|구속|선거|대통령|장관|정책|지원금|신청|일정|경기|축구|야구|월드컵|드라마|영화|방송|연예|배우|가수|아이돌|주가|코인|환율|부동산|아파트|분양|청약|날씨|태풍|지진|화재)/u;
+const SHOPPING_TOO_GENERIC_RE = /^(추천|후기|리뷰|비교|가격|할인|쿠폰|핫딜|특가|세일|쇼핑|상품|제품|이슈|실시간|검색어)$/u;
+
+function scoreHotShoppingSignals(item: ShoppingItem, context?: ShoppingOpportunityContext): number {
+  const sourceText = [
+    item.discoverySource || '',
+    item.discoveryReason || '',
+    item.discoveryQuery || '',
+    ...(context?.crossSourceSeeds || []).flatMap(seed => [seed.seed, ...(seed.sources || []), String(seed.crossScore || '')]),
+  ].join(' ');
+  let score = 0;
+  if (SHOPPING_HOT_SIGNAL_RE.test(sourceText)) score += 8;
+  if (context?.recency?.status === 'rising') score += 8;
+  else if (context?.recency?.status === 'stable') score += 3;
+  if ((context?.crossSourceSeeds || []).some(seed => seed.seed && titleMatchesSignal(item.title || '', seed.seed))) score += 8;
+  if (SHOPPING_BUY_INTENT_RE.test(`${item.discoveryQuery || ''} ${context?.keyword || ''}`)) score += 4;
+  if ((item.reviewCount || 0) >= 100 || (item.rating || 0) >= 4.3) score += 3;
+  return Math.min(24, score);
+}
+
+export function judgeShoppingProductOpportunity(
+  item: ShoppingItem,
+  context?: ShoppingOpportunityContext,
+): ShoppingProductQuality {
+  const title = stripTags(item.cleanTitle || item.simplifiedTitle || item.title || '');
+  const categoryText = [item.category1, item.category2, item.category3, item.category4].filter(Boolean).join(' ');
+  const keywordText = [context?.keyword, item.discoveryQuery, item.discoveryReason].filter(Boolean).join(' ');
+  const fullText = `${title} ${categoryText} ${keywordText} ${item.brand || ''} ${item.maker || ''}`;
+  const reasons: string[] = [];
+  const penalties: string[] = [];
+  let score = 0;
+
+  const hasProductNoun = SHOPPING_PRODUCT_NOUN_RE.test(fullText);
+  const hasBuyIntent = SHOPPING_BUY_INTENT_RE.test(keywordText) || SHOPPING_BUY_INTENT_RE.test(title);
+  const hasTaxonomy = Boolean(item.category2 || item.category3 || item.category4);
+  const hasBrandOrMaker = Boolean((item.brand || '').trim() || (item.maker || '').trim());
+  const hasModel = hasSpecificModelCode(title);
+  const hasMerchant = Boolean((item.mallName || '').trim() || (item.link || '').trim() || (item.productId || '').trim());
+  const price = Number(item.lprice || 0);
+  const hotSignalScore = scoreHotShoppingSignals(item, context);
+
+  if (price >= 5000 && price <= 700000) {
+    score += 14;
+    reasons.push('판매 가능한 가격대');
+  } else if (price > 0) {
+    score += 4;
+    penalties.push('가격대가 블로그 전환 구간에서 벗어남');
+  } else {
+    penalties.push('가격 정보 없음');
+  }
+
+  if (hasTaxonomy) {
+    score += 14;
+    reasons.push('쇼핑 카테고리 분류 확인');
+  }
+  if (hasProductNoun) {
+    score += 14;
+    reasons.push('구체적인 제품/용품 명사 포함');
+  }
+  if (hasBrandOrMaker) {
+    score += 10;
+    reasons.push('브랜드/제조사 비교 가능');
+  }
+  if (hasModel) {
+    score += 8;
+    reasons.push('모델명/시리즈 신호 포함');
+  }
+  if (hasBuyIntent) {
+    score += 10;
+    reasons.push('추천/후기/비교/가격형 구매 의도');
+  }
+  if (hasMerchant) {
+    score += 8;
+    reasons.push('판매처/상품 링크 확인');
+  }
+  if ((item.reviewCount || 0) >= 30 || (item.rating || 0) >= 4 || (item.hprice && item.hprice > item.lprice)) {
+    score += 8;
+    reasons.push('리뷰/가격범위 기반 검증 신호');
+  }
+  if (hotSignalScore > 0) {
+    score += Math.min(18, hotSignalScore);
+    reasons.push('실시간/랭킹/교차소스 핫제품 신호');
+  }
+
+  const genericKeyword = SHOPPING_TOO_GENERIC_RE.test(String(item.discoveryQuery || context?.keyword || '').trim());
+  if (genericKeyword) {
+    score -= 20;
+    penalties.push('단독 사용이 어려운 일반 쇼핑어');
+  }
+  const nonProductIssue = SHOPPING_NON_PRODUCT_RE.test(fullText);
+  if (nonProductIssue && !hasProductNoun && !hasTaxonomy) {
+    score -= 55;
+    penalties.push('프로필/뉴스/정책/스포츠성 비상품 이슈');
+  } else if (nonProductIssue && !hasProductNoun) {
+    score -= 18;
+    penalties.push('비상품 이슈어 혼입');
+  }
+  if (!hasProductNoun && !hasTaxonomy && !hasBrandOrMaker) {
+    score -= 28;
+    penalties.push('제품 판별 신호 부족');
+  }
+
+  const finalScore = clampScore(score);
+  const reject = (nonProductIssue && !hasProductNoun && !hasTaxonomy) || finalScore < 28;
+  return {
+    score: Math.round(finalScore * 10) / 10,
+    isSaleableProduct: !reject && finalScore >= 48,
+    reject,
+    hotSignalScore,
+    reasons: Array.from(new Set(reasons)).slice(0, 5),
+    penalties: Array.from(new Set(penalties)).slice(0, 4),
+  };
 }
 
 const FAMILY_DEFAULT_PRODUCT: Partial<Record<keyof typeof BRAND_FAMILIES, string>> = {
@@ -675,6 +806,35 @@ export function attachShoppingOpportunityScore(
   let buyerIntent = 0;
   let contentFit = 0;
   let penalty = 0;
+  const productQuality = judgeShoppingProductOpportunity(item, context);
+  item.shoppingProductQuality = productQuality;
+
+  if (productQuality.hotSignalScore > 0) {
+    demand += Math.min(12, productQuality.hotSignalScore);
+    const msg = `실시간/랭킹 쇼핑 신호 ${productQuality.hotSignalScore}점`;
+    reasons.push(msg);
+    demandEvidence.push(msg);
+    badges.push('핫제품');
+  }
+
+  if (productQuality.score >= 72) {
+    buyerIntent += 7;
+    contentFit += 7;
+    reasons.push('제품명/카테고리/판매처/핫신호가 모두 맞는 쇼핑커넥트 우선 후보');
+    badges.push('판매가능');
+  } else if (productQuality.score >= 50) {
+    contentFit += 4;
+    reasons.push('블로그 추천/비교 글로 전환 가능한 상품 신호');
+  } else {
+    penalty -= 8;
+    reasons.push('상품성 판정 점수가 낮아 우선순위 하향');
+  }
+
+  if (productQuality.reject) {
+    penalty -= 45;
+    reasons.unshift(`비상품/저품질 쇼핑 키워드 차단: ${productQuality.penalties[0] || '제품 판별 신호 부족'}`);
+    badges.push('차단후보');
+  }
 
   const directKeywordMatch = titleMatchesSignal(title, keyword);
   if (directKeywordMatch) {
@@ -816,6 +976,20 @@ export function attachShoppingOpportunityScore(
       badges.push('수요검증필요');
     }
   }
+  if (productQuality.reject && opportunityScore > 34) {
+    opportunityScore = 34;
+    reasons.unshift('쇼핑커넥트 상품성 판정에서 제외해야 할 후보로 감점');
+  } else if (!productQuality.isSaleableProduct && opportunityScore > 47) {
+    opportunityScore = 47;
+    reasons.unshift('판매 가능성 신호가 부족해 관찰 후보로 제한');
+  }
+  if (context.recency?.status === 'dead' && opportunityScore > 54) {
+    opportunityScore = 54;
+    reasons.unshift('최근 검색 추세가 죽어 있어 HOT/BÜY 추천에서 제외');
+  } else if (context.recency?.status === 'declining' && opportunityScore > 66) {
+    opportunityScore = 66;
+    reasons.unshift('최근 검색 추세가 하락 중이라 우선순위 제한');
+  }
 
   let grade: ShoppingItem['opportunityGrade'] = 'LOW';
   if (opportunityScore >= 75) grade = 'HOT';
@@ -823,7 +997,13 @@ export function attachShoppingOpportunityScore(
   else if (opportunityScore >= 48) grade = 'WATCH';
 
   const matchedSignals = [...crossMatches.map(s => s.seed), ...relatedMatches];
-  const prioritizedReasons = Array.from(new Set([...demandEvidence, ...itemReasons, ...reasons])).slice(0, 6);
+  const prioritizedReasons = Array.from(new Set([
+    ...demandEvidence,
+    ...reasons,
+    ...productQuality.reasons,
+    ...itemReasons,
+    ...productQuality.penalties.map(reason => `주의: ${reason}`),
+  ])).slice(0, 6);
 
   item.opportunityScore = opportunityScore;
   item.opportunityGrade = grade;
@@ -849,9 +1029,11 @@ export function rankShoppingOpportunities(
   opts?: ConversionScoreOptions
 ): ShoppingItem[] {
   const normal = items.filter(i => i.productType === 1 && i.lprice > 0);
-  for (const item of normal) attachShoppingOpportunityScore(item, context, opts);
+  const judged = normal.filter(item => !judgeShoppingProductOpportunity(item, context).reject);
+  const pool = judged.length > 0 ? judged : normal;
+  for (const item of pool) attachShoppingOpportunityScore(item, context, opts);
 
-  const ranked = normal.slice().sort(compareShoppingOpportunity);
+  const ranked = pool.slice().sort(compareShoppingOpportunity);
   if (opts?.balanceDiscovery) {
     return selectBalancedShoppingOpportunities(ranked, limit, opts.maxPerDiscoveryQuery);
   }

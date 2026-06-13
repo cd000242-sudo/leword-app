@@ -878,8 +878,9 @@ export function setupConfigUtilityHandlers(): void {
           getShoppingRecommendationLimit,
           normalizeShoppingAutoDiscoveryLimit,
         } = await import('../../utils/shopping-keyword-suggestions');
-        const autoDiscoveryLimit = normalizeShoppingAutoDiscoveryLimit(params?.autoDiscoveryLimit);
-        const recommendationLimit = getShoppingRecommendationLimit(autoDiscovery, autoDiscoveryLimit);
+        const requestedRecommendationLimit = params?.targetCount ?? params?.autoDiscoveryLimit;
+        const autoDiscoveryLimit = normalizeShoppingAutoDiscoveryLimit(params?.autoDiscoveryLimit ?? params?.targetCount);
+        const recommendationLimit = getShoppingRecommendationLimit(autoDiscovery, requestedRecommendationLimit);
         const sort = (params?.sort ?? 'sim') as 'sim' | 'date' | 'asc' | 'dsc';
         const display = Math.min(Math.max(Number(params?.display) || 50, 1), 100);
         const start = Math.min(Math.max(Number(params?.start) || 1, 1), 1000);
@@ -1187,7 +1188,7 @@ export function setupConfigUtilityHandlers(): void {
         const opportunityRanked = rankShoppingOpportunities(
           result.items,
           opportunityContext,
-          Math.max(20, recommendationLimit),
+          Math.max(30, recommendationLimit),
           autoDiscovery ? { balanceDiscovery: true, maxPerDiscoveryQuery: 3 } : undefined
         );
         if (opportunityRanked.length > 0) {

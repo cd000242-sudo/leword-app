@@ -513,6 +513,18 @@ async function runInjectedShoppingConnect(): Promise<void> {
   assert('shopping sort defaults to sim', received.sort === 'sim');
   assert('shopping returns injected SSS fixtures', result.keywords.length === 80 && result.summary.sss === 80);
   assert('shopping uses injected PC adapter fixture', progress.includes('fixture shopping adapter'));
+
+  received = null;
+  const floorResult = await executor(makeJob('shopping-connect', {
+    keyword: '선크림',
+    targetCount: 5,
+    sort: 'date',
+  }), {
+    signal: new AbortController().signal,
+    progress: (_percent, message) => progress.push(message),
+  });
+  assert('shopping target floors to 30 sellable product keywords', received.targetCount === 30);
+  assert('shopping floor request returns 30 fixtures', floorResult.keywords.length === 30 && floorResult.summary.sss === 30);
 }
 
 async function runInjectedYoutubeGolden(): Promise<void> {
@@ -580,6 +592,11 @@ function runFallbackRegressionGuards(): void {
       && source.includes('shopping quota exhausted')
       && source.includes('pc-shopping-empty-searchad-fallback')
       && source.includes('shopping returned 0 products'));
+  assert('shopping connect can run seedless auto discovery on the server',
+    source.includes('const autoDiscovery = !params.keyword')
+      && source.includes('getShoppingDiscoverySeeds(params.targetCount)')
+      && source.includes("source: 'auto-discovery'"),
+    'seedless shopping connect still requires a manual keyword');
   assert('KIN empty result has live source signal fallback',
     source.includes('pc-kin-live-source-fallback')
       && source.includes('kin-question-source-gap')

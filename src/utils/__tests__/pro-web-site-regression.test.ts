@@ -120,6 +120,14 @@ assert('ready server-backed routes are wired',
     && html.includes("'/v1/live-golden/run'")
     && html.includes("'/v1/prewarm/run'"));
 
+assert('shopping connect defaults to 30 sellable product keywords on web',
+  /id:\s*'shopping'[\s\S]{0,260}defaultTargetCount:\s*30[\s\S]{0,160}targetCount:\s*options\.targetCount\s*\|\|\s*30/.test(html)
+    && /id:\s*'shopping'[\s\S]{0,260}requiresKeyword:\s*false/.test(html)
+    && /id:\s*'shopping'[\s\S]{0,360}autoDiscoveryLimit:\s*options\.targetCount\s*\|\|\s*30/.test(html)
+    && /selected\s*&&\s*selected\.id\s*===\s*'shopping'\s*\?\s*30\s*:\s*5/.test(html)
+    && !/id:\s*'shopping'[\s\S]{0,260}defaultTargetCount:\s*20/.test(html),
+  'shopping connect still starts below the 30 product keyword floor');
+
 assert('renders pro operations dashboard for Electron parity',
   html.includes('id="ops"')
     && html.includes('Pro 운영 대시보드')

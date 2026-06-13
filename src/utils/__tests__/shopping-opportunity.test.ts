@@ -9,6 +9,7 @@ import {
   attachShoppingOpportunityScore,
   buildProductLeWordSeeds,
   deriveShoppingExpansionQueries,
+  judgeShoppingProductOpportunity,
   rankShoppingOpportunities,
   selectBalancedShoppingOpportunities,
   scoreLeWordEntryKeyword,
@@ -97,9 +98,41 @@ assert('작성 추천 문장이 생성됨',
 assert('실시간 근거가 카드 데이터에 남음',
   (trendingProduct.opportunityReasons || []).some(r => r.includes('실시간 유행 시드')),
   JSON.stringify(trendingProduct.opportunityReasons));
+assert('핫제품은 쇼핑 상품성 판정에서도 판매 가능 후보',
+  trendingProduct.shoppingProductQuality?.isSaleableProduct === true
+    && (trendingProduct.shoppingProductQuality?.hotSignalScore || 0) > 0,
+  JSON.stringify(trendingProduct.shoppingProductQuality));
 
 const ranked = rankShoppingOpportunities([merelyPopularProduct, trendingProduct], context, 2);
 assert('랭킹 1위는 수요 근거가 있는 상품', ranked[0]?.productId === 'hot-1', ranked.map(i => i.productId).join(','));
+
+const profileNoiseProduct = makeItem({
+  title: '전영현 프로필 굿즈 이벤트 한정판',
+  cleanTitle: '전영현 프로필 굿즈',
+  lprice: 12000,
+  hprice: 0,
+  mallName: '테스트스토어',
+  productId: 'noise-profile-1',
+  category1: '기타',
+  discoveryQuery: '전영현 프로필',
+  discoverySource: 'trend-seed',
+  discoveryReason: '실시간 이슈 혼입',
+});
+const profileNoiseContext = {
+  keyword: '전영현 프로필',
+  intentPrimary: 'info',
+  totalHits: 9000,
+  relatedKeywords: ['전영현 프로필', '전영현 나이'],
+  crossSourceSeeds: [{ seed: '전영현 프로필', sources: ['news'], crossScore: 9 }],
+  recency: { status: 'rising', ratio: 2.2 },
+};
+const profileNoiseQuality = judgeShoppingProductOpportunity(profileNoiseProduct, profileNoiseContext);
+const profileNoiseScore = attachShoppingOpportunityScore(profileNoiseProduct, profileNoiseContext);
+assert('프로필/뉴스성 비상품 키워드는 쇼핑커넥트 후보에서 차단',
+  profileNoiseQuality.reject === true
+    && profileNoiseProduct.opportunityGrade === 'LOW'
+    && profileNoiseScore <= 34,
+  `quality=${JSON.stringify(profileNoiseQuality)}, score=${profileNoiseScore}, grade=${profileNoiseProduct.opportunityGrade}`);
 
 const crowdedSameSeedProducts = [
   ...Array.from({ length: 8 }, (_, i) => makeItem({
@@ -329,8 +362,9 @@ assert('shopping auto discovery searches most of the 30 seed pool',
 assert('shopping auto discovery keeps 30 final recommendations instead of collapsing to direct-search 10',
   getShoppingRecommendationLimit(true, 30) === 30
     && getShoppingRecommendationLimit(true, 10) === SHOPPING_AUTO_DISCOVERY_MIN_SEEDS
-    && getShoppingRecommendationLimit(false, 60) === 10,
-  `auto30=${getShoppingRecommendationLimit(true, 30)}, auto10=${getShoppingRecommendationLimit(true, 10)}, direct=${getShoppingRecommendationLimit(false, 60)}`);
+    && getShoppingRecommendationLimit(false, 10) === SHOPPING_AUTO_DISCOVERY_MIN_SEEDS
+    && getShoppingRecommendationLimit(false, 60) === 60,
+  `auto30=${getShoppingRecommendationLimit(true, 30)}, auto10=${getShoppingRecommendationLimit(true, 10)}, direct10=${getShoppingRecommendationLimit(false, 10)}, direct60=${getShoppingRecommendationLimit(false, 60)}`);
 
 console.log(`\n[shopping-opportunity.test] passed: ${passed} / failed: ${failed}`);
 if (failed > 0) {

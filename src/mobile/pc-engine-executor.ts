@@ -791,7 +791,7 @@ function asShoppingConnectParams(params: unknown): ShoppingConnectMobileParams {
     : 'sim';
   return {
     keyword: normalizeKeyword(payload.keyword),
-    targetCount: clampInt(payload.targetCount, 20, 1, 80),
+    targetCount: clampInt(payload.targetCount, 30, 30, 80),
     sort,
   };
 }
@@ -1378,20 +1378,60 @@ async function runShoppingConnectWithPcEngine(
   measureKeywordMetrics: MobileKeywordMetricsAdapter,
 ): Promise<MobileKeywordResult> {
   const startedAt = Date.now();
-  if (!params.keyword) throw new Error('keyword is required');
+  const autoDiscovery = !params.keyword;
+  const rootKeyword = params.keyword || '쇼핑 자동 발굴';
 
-  context.progress(10, `starting PC shopping connect for ${params.keyword}`);
+  context.progress(10, autoDiscovery ? 'starting PC shopping auto discovery' : `starting PC shopping connect for ${params.keyword}`);
   ensureNotAborted(context);
 
   const shopping = await import('../utils/naver-shopping-api');
-  const result = await shopping.searchNaverShopping(params.keyword, {
-    display: Math.min(100, Math.max(params.targetCount * 3, 30)),
-    sort: params.sort,
-  }).catch(async (err: unknown) => {
-    if (!isQuotaLimitError(err)) throw err;
-    context.progress(35, `shopping quota exhausted; using SearchAd/OpenAPI measured commerce fallback for ${params.keyword}`);
+  const discovery = await import('../utils/shopping-keyword-suggestions');
+  const searchPlans = autoDiscovery
+    ? (await discovery.getShoppingDiscoverySeeds(params.targetCount)).slice(0, Math.min(30, params.targetCount)).map((seed) => ({
+        keyword: seed.keyword,
+        source: 'auto-discovery' as const,
+        reason: seed.reason,
+      }))
+    : [{
+        keyword: params.keyword,
+        source: 'direct' as const,
+        reason: 'direct shopping keyword',
+      }];
+  if (searchPlans.length === 0) throw new Error('shopping discovery seeds are empty');
+
+  const settledShopping = await Promise.allSettled(searchPlans.map((plan) =>
+    shopping.searchNaverShopping(plan.keyword, {
+      display: autoDiscovery ? 20 : Math.min(100, Math.max(params.targetCount * 3, 30)),
+      sort: params.sort,
+    }).then((result) => ({ plan, result }))
+  ));
+  const rejectedReasons = settledShopping
+    .filter((row): row is PromiseRejectedResult => row.status === 'rejected')
+    .map(row => row.reason);
+  const result = {
+    total: 0,
+    items: [] as any[],
+  };
+  const seenProducts = new Set<string>();
+  for (const row of settledShopping) {
+    if (row.status !== 'fulfilled') continue;
+    result.total += Number(row.value.result.total || 0);
+    for (const item of row.value.result.items || []) {
+      const key = item.productId || `${item.title}|${item.lprice}|${item.mallName}`;
+      if (!key || seenProducts.has(key)) continue;
+      seenProducts.add(key);
+      item.discoveryQuery = row.value.plan.keyword;
+      item.discoverySource = row.value.plan.source;
+      item.discoveryReason = row.value.plan.reason;
+      result.items.push(item);
+    }
+  }
+  if (result.items.length === 0 && rejectedReasons.length > 0) {
+    const quotaError = rejectedReasons.find(isQuotaLimitError);
+    if (!quotaError) throw rejectedReasons[0];
+    context.progress(35, `shopping quota exhausted; using SearchAd/OpenAPI measured commerce fallback for ${rootKeyword}`);
     const fallback = await buildMeasuredIntentFallback(
-      params.keyword,
+      rootKeyword,
       params.targetCount,
       'pc-shopping-quota-searchad-fallback',
       'commerce-entry',
@@ -1404,7 +1444,7 @@ async function runShoppingConnectWithPcEngine(
       items: [],
       fallbackMetrics: fallback,
     } as any;
-  });
+  }
   ensureNotAborted(context);
 
   if (Array.isArray((result as any).fallbackMetrics)) {
@@ -1413,9 +1453,9 @@ async function runShoppingConnectWithPcEngine(
 
   const shoppingItems = Array.isArray(result.items) ? result.items : [];
   if (shoppingItems.length === 0) {
-    context.progress(45, `shopping returned 0 products; using SearchAd/OpenAPI measured commerce fallback for ${params.keyword}`);
+    context.progress(45, `shopping returned 0 products; using SearchAd/OpenAPI measured commerce fallback for ${rootKeyword}`);
     const fallback = await buildMeasuredIntentFallback(
-      params.keyword,
+      rootKeyword,
       params.targetCount,
       'pc-shopping-empty-searchad-fallback',
       'commerce-entry',
@@ -1433,13 +1473,13 @@ async function runShoppingConnectWithPcEngine(
   const rankedItems = shopping.rankShoppingOpportunities(
     scoredItems,
     {
-      keyword: params.keyword,
+      keyword: rootKeyword,
       intentPrimary: 'buy',
       totalHits: result.total,
       relatedKeywords: [],
       crossSourceSeeds: [],
     },
-    Math.max(params.targetCount, 20),
+    Math.max(params.targetCount, 30),
     { balanceDiscovery: true },
   );
 
@@ -1449,10 +1489,10 @@ async function runShoppingConnectWithPcEngine(
   const metrics: MobileKeywordMetric[] = [];
   const seen = new Set<string>();
   for (const item of rankedItems) {
-    const seeds = shopping.buildProductLeWordSeeds(item, params.keyword, 5);
+    const seeds = shopping.buildProductLeWordSeeds(item, item.discoveryQuery || rootKeyword, 5);
     if (seeds.length === 0) {
       seeds.push({
-        keyword: normalizeKeyword(item.cleanTitle || item.simplifiedTitle || item.title || params.keyword),
+        keyword: normalizeKeyword(item.cleanTitle || item.simplifiedTitle || item.title || item.discoveryQuery || rootKeyword),
         relation: 'same-product',
         reason: 'shopping product opportunity',
       });
@@ -1461,7 +1501,7 @@ async function runShoppingConnectWithPcEngine(
       const key = compactKeyword(seed.keyword);
       if (!key || seen.has(key)) continue;
       seen.add(key);
-      metrics.push(metricFromShoppingSeed(seed, item, params.keyword));
+      metrics.push(metricFromShoppingSeed(seed, item, item.discoveryQuery || rootKeyword));
       if (metrics.length >= params.targetCount) break;
     }
     if (metrics.length >= params.targetCount) break;

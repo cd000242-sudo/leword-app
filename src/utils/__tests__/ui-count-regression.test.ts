@@ -394,8 +394,9 @@ assert('blogger profile save refreshes golden discovery category shortcuts',
 
 assert('shopping connect no-keyword discovery requests 30 seeds',
   /autoDiscoveryLimit:\s*30/.test(html)
-    && /normalizeShoppingAutoDiscoveryLimit\(params\?\.autoDiscoveryLimit\)/.test(configUtility)
-    && /getShoppingRecommendationLimit\(autoDiscovery,\s*autoDiscoveryLimit\)/.test(configUtility)
+    && /requestedRecommendationLimit\s*=\s*params\?\.targetCount\s*\?\?\s*params\?\.autoDiscoveryLimit/.test(configUtility)
+    && /normalizeShoppingAutoDiscoveryLimit\(params\?\.autoDiscoveryLimit\s*\?\?\s*params\?\.targetCount\)/.test(configUtility)
+    && /getShoppingRecommendationLimit\(autoDiscovery,\s*requestedRecommendationLimit\)/.test(configUtility)
     && /getShoppingAutoDiscoveryExpansionLimit\(discoverySeeds\.length,\s*autoDiscoveryLimit\)/.test(configUtility)
     && /getShoppingAutoDiscoverySearchLimit\(discoverySeeds\.length,\s*autoDiscoveryLimit\)/.test(configUtility)
     && /balanceDiscovery:\s*true/.test(configUtility)

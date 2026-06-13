@@ -111,9 +111,8 @@ export function getShoppingRecommendationLimit(
   autoDiscovery: boolean,
   requestedLimit?: number | string | null
 ): number {
-  return autoDiscovery
-    ? normalizeShoppingAutoDiscoveryLimit(requestedLimit)
-    : 10;
+  void autoDiscovery;
+  return normalizeShoppingAutoDiscoveryLimit(requestedLimit);
 }
 
 export function getShoppingAutoDiscoveryExpansionLimit(
