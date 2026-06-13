@@ -45,8 +45,10 @@ assert('side navigation switches isolated views instead of one stacked page',
   html.includes('data-view-target="golden"')
     && html.includes('data-view-target="sources"')
     && html.includes('data-view-target="features"')
+    && html.includes('data-view-target="downloads"')
     && html.includes('class="panel main-view" id="sources" data-view="sources"')
     && html.includes('class="panel main-view" id="lookup" data-view="lookup"')
+    && html.includes('class="panel main-view" id="downloads" data-view="downloads"')
     && html.includes('function setActiveView')
     && html.includes("document.querySelectorAll('[data-view-target]')"));
 assert('source board renders a wider always-on realtime feed',
@@ -65,6 +67,14 @@ for (const label of [
   '애드센스 승인 키워드 헌터',
   '네이버 메이트 키워드 헌터',
   '지식인 황금질문',
+  '황금키워드 정밀 발굴',
+  '키워드 정밀 조회',
+  '마인드맵 확장',
+  'SERP 순위 즉시 점검',
+  '블로그 초안 생성',
+  '서버/API 상태',
+  'PC 앱 다운로드',
+  '모바일 APK 다운로드',
 ]) {
   assert(`feature visible: ${label}`, html.includes(label));
 }
@@ -76,8 +86,12 @@ assert('ready server-backed routes are wired',
     && html.includes("'/v1/shopping/connect'")
     && html.includes("'/v1/youtube/golden'")
     && html.includes("'/v1/naver/mate'")
+    && html.includes("'/v1/golden/discover'")
     && html.includes("'/v1/mindmap/expand'")
-    && html.includes("'/v1/keywords/analyze'"));
+    && html.includes("'/v1/keywords/analyze'")
+    && html.includes("'/v1/mobile/rank-tracking/run'")
+    && html.includes("'/v1/live-golden/run'")
+    && html.includes("'/v1/prewarm/run'"));
 
 assert('renders pro operations dashboard for Electron parity',
   html.includes('id="ops"')
@@ -86,6 +100,10 @@ assert('renders pro operations dashboard for Electron parity',
     && html.includes('성과 기록')
     && html.includes('워드프레스/발행')
     && html.includes('스케줄/알림')
+    && html.includes('id="opsTabs"')
+    && html.includes('data-ops-tab="rank"')
+    && html.includes('data-ops-panel="rank"')
+    && html.includes('function setActiveOpsTab')
     && html.includes('id="refreshOps"'));
 
 assert('operations dashboard is wired to server snapshots',
@@ -115,9 +133,12 @@ assert('result center exposes KPI summary and keyword actions',
 
 assert('renders feature-specific tool settings panel',
   html.includes('id="toolConsole"')
+    && html.includes('id="toolGroupTabs"')
     && html.includes('id="toolTabs"')
     && html.includes('id="toolDetail"')
     && html.includes('id="toolResultPanel"')
+    && html.includes('function selectToolGroup')
+    && html.includes('function currentGroupFeatures')
     && html.includes('function renderToolDetail')
     && html.includes('function renderToolFeatureResult')
     && html.includes('id="toolSeedInput"')
@@ -127,20 +148,34 @@ assert('renders feature-specific tool settings panel',
     && html.includes('id="runSelectedTool"')
     && html.includes('선택 도구 실행'));
 
-assert('renders Electron parity feature catalog dashboard',
-  html.includes('id="featureCatalogStrip"')
-    && html.includes('id="featureCatalogList"')
+assert('hides noisy Electron catalog cards while retaining status introspection',
+  !html.includes('id="featureCatalogStrip"')
+    && !html.includes('id="featureCatalogList"')
+    && !html.includes('id="featureGrid"')
     && html.includes('function renderFeatureCatalog')
     && html.includes('function catalogStatusLabel')
     && html.includes("pcFeatures: '/v1/mobile/pc-features'")
     && html.includes('renderFeatureCatalog(pcCatalog, status.snapshot || status)')
-    && html.includes('renderFeatureCatalog(null, null)'));
+    && html.includes('if (!stripTarget || !listTarget) return;'));
+
+assert('renders working app download surface',
+  html.includes('id="downloads"')
+    && html.includes("downloads: '/v1/downloads'")
+    && html.includes("pcDownload: '/download/pc'")
+    && html.includes("androidDownload: '/download/android'")
+    && html.includes('id="pcDownloadMeta"')
+    && html.includes('id="androidDownloadMeta"')
+    && html.includes('function loadDownloads()')
+    && html.includes('href="/download/pc"')
+    && html.includes('href="/download/android"'));
 
 assert('tool settings drive server payloads instead of one generic button',
   html.includes('function collectToolOptions()')
     && html.includes('function selectTool(id)')
     && html.includes('runFeature(feature, options)')
     && html.includes('feature.payload(q, runOptions)')
+    && html.includes("feature.method === 'DOWNLOAD'")
+    && html.includes('feature.direct')
     && html.includes('includeFreshIssue: options.includeFreshIssue !== false')
     && html.includes('crossReferenceNaver: options.crossReferenceNaver !== false')
     && html.includes('includeVolumeMetrics: options.includeVolumeMetrics !== false'));

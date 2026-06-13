@@ -1,5 +1,6 @@
 import http from 'http';
 import crypto from 'crypto';
+import fs from 'fs';
 import path from 'path';
 import {
   MOBILE_API_ENDPOINTS,
@@ -186,6 +187,127 @@ function html(
     ...headers,
   });
   res.end(body);
+}
+
+type LewordDownloadKind = 'pc' | 'android';
+
+interface LewordDownloadMeta {
+  available: boolean;
+  filename: string;
+  size: number;
+  updatedAt: string | null;
+  url: string;
+}
+
+function downloadRoot(): string {
+  if (process.env.LEWORD_DOWNLOAD_DIR) return process.env.LEWORD_DOWNLOAD_DIR;
+  if (fs.existsSync('/data')) return '/data/downloads';
+  return path.resolve(process.cwd(), 'downloads');
+}
+
+function firstExistingFile(paths: Array<string | undefined | null>): string | null {
+  for (const filePath of paths) {
+    if (!filePath) continue;
+    try {
+      const stat = fs.statSync(filePath);
+      if (stat.isFile()) return filePath;
+    } catch {}
+  }
+  return null;
+}
+
+function downloadCandidates(kind: LewordDownloadKind): string[] {
+  const root = downloadRoot();
+  if (kind === 'pc') {
+    return [
+      process.env.LEWORD_PC_APP_DOWNLOAD_PATH,
+      path.join(root, 'LEWORD-2.49.84.exe'),
+      path.join(root, 'LEWORD-setup.exe'),
+      path.resolve(process.cwd(), 'release', 'LEWORD-2.49.84.exe'),
+      path.resolve(process.cwd(), '..', '..', 'release', 'LEWORD-2.49.84.exe'),
+    ].filter(Boolean) as string[];
+  }
+  return [
+    process.env.LEWORD_ANDROID_APK_DOWNLOAD_PATH,
+    path.join(root, 'LEWORD-mobile-0.1.0.apk'),
+    path.join(root, 'LEWORD-mobile.apk'),
+    path.resolve(process.cwd(), 'apps', 'mobile', 'builds', 'LEWORD-mobile-0.1.0.apk'),
+    path.resolve(process.cwd(), '..', '..', 'apps', 'mobile', 'builds', 'LEWORD-mobile-0.1.0.apk'),
+    path.resolve(process.cwd(), 'apps', 'mobile', 'android', 'app', 'build', 'outputs', 'apk', 'release', 'app-release.apk'),
+  ].filter(Boolean) as string[];
+}
+
+function logoCandidates(): string[] {
+  const root = downloadRoot();
+  return [
+    process.env.LEWORD_LOGO_PATH,
+    path.join(root, 'leword-logo.png'),
+    path.resolve(process.cwd(), 'apps', 'mobile', 'assets', 'icon.png'),
+    path.resolve(process.cwd(), '..', '..', 'apps', 'mobile', 'assets', 'icon.png'),
+  ].filter(Boolean) as string[];
+}
+
+function downloadMeta(kind: LewordDownloadKind): LewordDownloadMeta {
+  const filePath = firstExistingFile(downloadCandidates(kind));
+  const filename = kind === 'pc' ? 'LEWORD-2.49.84.exe' : 'LEWORD-mobile-0.1.0.apk';
+  if (!filePath) {
+    return {
+      available: false,
+      filename,
+      size: 0,
+      updatedAt: null,
+      url: kind === 'pc' ? '/download/pc' : '/download/android',
+    };
+  }
+  const stat = fs.statSync(filePath);
+  return {
+    available: true,
+    filename: path.basename(filePath) || filename,
+    size: stat.size,
+    updatedAt: stat.mtime.toISOString(),
+    url: kind === 'pc' ? '/download/pc' : '/download/android',
+  };
+}
+
+function safeDownloadName(filename: string): string {
+  return filename.replace(/[^\x20-\x7E]/g, '_').replace(/["\\]/g, '_');
+}
+
+function serveFile(
+  res: http.ServerResponse,
+  filePath: string,
+  contentType: string,
+  filename?: string,
+): void {
+  const stat = fs.statSync(filePath);
+  const headers: Record<string, string | number> = {
+    'Content-Type': contentType,
+    'Content-Length': stat.size,
+    'Cache-Control': 'no-store',
+    'Access-Control-Allow-Origin': '*',
+  };
+  if (filename) {
+    headers['Content-Disposition'] = `attachment; filename="${safeDownloadName(filename)}"`;
+  }
+  res.writeHead(200, headers);
+  fs.createReadStream(filePath).pipe(res);
+}
+
+function serveDownload(res: http.ServerResponse, kind: LewordDownloadKind): void {
+  const filePath = firstExistingFile(downloadCandidates(kind));
+  if (!filePath) {
+    json(res, 404, {
+      ok: false,
+      message: kind === 'pc' ? 'PC app installer is not ready' : 'Android APK is not ready',
+    } satisfies MobileJobErrorResponse);
+    return;
+  }
+  serveFile(
+    res,
+    filePath,
+    kind === 'pc' ? 'application/vnd.microsoft.portable-executable' : 'application/vnd.android.package-archive',
+    path.basename(filePath),
+  );
 }
 
 function notFound(res: http.ServerResponse, message = 'endpoint not found'): void {
@@ -728,6 +850,37 @@ export function createLewordApiServer(options: LewordApiServerOptions = {}): htt
         rateLimited(res, limit);
         return;
       }
+    }
+
+    if (req.method === 'GET' && url.pathname === '/assets/leword-logo.png') {
+      const filePath = firstExistingFile(logoCandidates());
+      if (!filePath) {
+        notFound(res, 'leword logo not found');
+        return;
+      }
+      serveFile(res, filePath, 'image/png');
+      return;
+    }
+
+    if (req.method === 'GET' && url.pathname === '/v1/downloads') {
+      json(res, 200, {
+        ok: true,
+        pc: downloadMeta('pc'),
+        android: downloadMeta('android'),
+      }, {
+        'Cache-Control': 'no-store',
+      });
+      return;
+    }
+
+    if (req.method === 'GET' && url.pathname === '/download/pc') {
+      serveDownload(res, 'pc');
+      return;
+    }
+
+    if (req.method === 'GET' && url.pathname === '/download/android') {
+      serveDownload(res, 'android');
+      return;
     }
 
     if (req.method === 'GET' && (url.pathname === '/' || url.pathname === '/leword' || url.pathname === '/leword/')) {

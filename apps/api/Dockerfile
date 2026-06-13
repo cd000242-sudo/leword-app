@@ -20,6 +20,7 @@ RUN apt-get update \
 COPY package.json package-lock.json tsconfig.json tsconfig.electron.json ./
 COPY src ./src
 COPY apps/api ./apps/api
+COPY apps/mobile/assets ./apps/mobile/assets
 
 RUN find src apps/api/src -name '*.js' -delete
 
