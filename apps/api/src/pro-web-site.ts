@@ -414,15 +414,48 @@ export function renderLewordProWeb(): string {
       gap: 8px;
       margin-bottom: 12px;
     }
+    .catalog-tabs {
+      display: flex;
+      gap: 8px;
+      overflow-x: auto;
+      padding-bottom: 4px;
+      margin: 12px 0;
+    }
+    .catalog-tab {
+      min-height: 34px;
+      border: 1px solid var(--line);
+      border-radius: 8px;
+      background: rgba(255,255,255,.035);
+      color: var(--muted);
+      padding: 8px 10px;
+      font-weight: 900;
+      font-size: 12px;
+      white-space: nowrap;
+    }
+    .catalog-tab.active {
+      border-color: rgba(245,197,66,.64);
+      color: var(--gold);
+      background: rgba(245,197,66,.1);
+    }
     .catalog-item {
       border: 1px solid var(--line-soft);
       border-radius: 8px;
       background: rgba(11,16,23,.86);
       padding: 10px;
       min-width: 0;
+      display: grid;
+      gap: 7px;
     }
     .catalog-item strong { display: block; font-size: 13px; overflow-wrap: anywhere; }
     .catalog-item span { display: block; margin-top: 4px; color: var(--muted); font-size: 11px; line-height: 1.4; overflow-wrap: anywhere; }
+    .catalog-actions { display: flex; gap: 6px; flex-wrap: wrap; margin-top: 4px; }
+    .catalog-empty {
+      border: 1px dashed var(--line);
+      border-radius: 8px;
+      color: var(--muted);
+      padding: 16px;
+      background: rgba(7,9,13,.48);
+    }
     .ops-grid { display: grid; grid-template-columns: repeat(4, minmax(0, 1fr)); gap: 10px; }
     .ops-grid.ops-panels { grid-template-columns: 1fr; }
     .ops-panel { display: none; }
@@ -746,6 +779,17 @@ export function renderLewordProWeb(): string {
               <p>왼쪽 서브탭에서 Pro 기능을 선택한 뒤 실행하면 이 영역에 진행 상태와 핵심 후보가 바로 표시됩니다.</p>
             </div>
           </div>
+          <div class="tool-console" style="margin-top:14px;">
+            <div class="panel-title" style="margin-bottom:8px;">
+              <div>
+                <h2 style="font-size:18px;">Electron 기능 매핑</h2>
+                <div class="muted">Electron IPC 기준으로 웹에서 즉시 실행 가능한 기능과 서버 연동된 기능을 탭별로 나눠 보여줍니다.</div>
+              </div>
+            </div>
+            <div class="catalog-strip" id="featureCatalogStrip"></div>
+            <div class="catalog-tabs" id="featureCatalogTabs" aria-label="Electron 기능 분류"></div>
+            <div class="catalog-list" id="featureCatalogList"></div>
+          </div>
         </section>
 
         <section class="panel main-view" id="ops" data-view="ops">
@@ -926,7 +970,17 @@ export function renderLewordProWeb(): string {
     let lastKeywordResult = null;
     let activeViewId = 'golden';
     let selectedOpsId = 'rank';
+    let selectedCatalogTab = 'today';
     const viewIds = ['golden', 'sources', 'lookup', 'features', 'ops', 'downloads', 'workbench'];
+    const catalogTabs = [
+      { id: 'today', label: '오늘/실시간' },
+      { id: 'discovery', label: '발굴' },
+      { id: 'analysis', label: '분석/추적' },
+      { id: 'expansion', label: '확장' },
+      { id: 'premium', label: '프리미엄' },
+      { id: 'schedule', label: '스케줄' },
+      { id: 'settings', label: '설정/발행' }
+    ];
 
     function qs(id) { return document.getElementById(id); }
     function normalizeViewId(id) {
@@ -1648,6 +1702,117 @@ export function renderLewordProWeb(): string {
     function catalogPill(label, value, meta) {
       return '<div class="catalog-pill"><strong>' + escapeHtml(value) + '</strong><span>' + escapeHtml(label + ' · ' + meta) + '</span></div>';
     }
+    function catalogTabLabel(id) {
+      const row = catalogTabs.find(function(tab) { return tab.id === id; });
+      return row ? row.label : id;
+    }
+    function normalizeRoute(route) {
+      return String(route || '').split('?')[0];
+    }
+    function featureForCatalogItem(item) {
+      const route = normalizeRoute(item && item.mobileRoute);
+      const direct = features.find(function(feature) {
+        return normalizeRoute(feature.route) === route;
+      });
+      if (direct) return direct;
+      const byIpc = {
+        'discover-golden-keywords': 'golden-discovery',
+        'hunt-pro-traffic-keywords': 'pro-traffic',
+        'get-keyword-expansions': 'keyword-analysis',
+        'expand-keyword-related-metrics': 'mindmap',
+        'hunt-adsense-keywords': 'adsense',
+        'search-kin-questions': 'kin',
+        'shopping-connect-search': 'shopping',
+        'youtube-golden-keywords': 'youtube',
+        'get-autocomplete-suggestions': 'naver-mate',
+        'get-realtime-keywords': 'sources',
+        'source-policy-briefing-aggregate': 'sources',
+        'source-entertainment-aggregate': 'sources',
+        'run-live-golden-radar': 'live-golden-run',
+        'run-daily-hunt-now': 'prewarm-run',
+        'get-pro-hunt-dashboard': 'prewarm',
+        'api-health-check': 'api-status',
+        'check-api-keys': 'api-status',
+        'test-api-keys': 'api-status',
+        'get-system-status': 'api-status',
+        'exposure-get-stats': 'exposure',
+        'exposure-run-serp-check': 'rank-check',
+        'pro12-run-rank-check': 'rank-check',
+        'pro12-list-outcomes': 'outcomes',
+        'pro12-sync-outcomes': 'outcome-sync',
+        'generate-keyword-blueprint': 'blueprint',
+        'pro12-generate-draft': 'blueprint-draft',
+        'pro12-estimate-revenue': 'blueprint',
+        'wordpress-check-auth-status': 'wordpress',
+        'get-schedules': 'schedule',
+        'get-keyword-schedules': 'schedule',
+        'get-dashboard-stats': 'schedule'
+      };
+      const id = byIpc[item && item.ipcEquivalent] || byIpc[item && item.handler];
+      return id ? features.find(function(feature) { return feature.id === id; }) : null;
+    }
+    function canRunCatalogItem(item) {
+      if (!item || item.status === 'planned' || item.status === 'pc-only') return false;
+      const route = normalizeRoute(item.mobileRoute);
+      if (!route || route.indexOf(':') >= 0 || route === '/v1/web/login') return false;
+      if (featureForCatalogItem(item)) return true;
+      return item.status === 'linked' && /^\/(health|v1\/mobile\/api-status|v1\/mobile\/pc-features)/.test(route.replace(/^\//, '/'));
+    }
+    function renderCatalogTabs(catalog) {
+      const tabTarget = qs('featureCatalogTabs');
+      if (!tabTarget) return;
+      const tabCounts = catalog && catalog.tabs ? catalog.tabs : {};
+      tabTarget.innerHTML = catalogTabs.map(function(tab) {
+        const active = tab.id === selectedCatalogTab ? ' active' : '';
+        const count = tabCounts[tab.id] || 0;
+        return '<button class="catalog-tab' + active + '" type="button" data-catalog-tab="' + escapeAttr(tab.id) + '">'
+          + escapeHtml(tab.label) + ' ' + fmt(count)
+          + '</button>';
+      }).join('');
+    }
+    function runCatalogItem(itemId) {
+      const catalog = pcCatalog && Array.isArray(pcCatalog.items) ? pcCatalog : null;
+      const item = catalog ? catalog.items.find(function(row) { return row.id === itemId; }) : null;
+      if (!item && String(itemId || '').indexOf('manual:') === 0) {
+        const feature = features.find(function(row) { return row.id === String(itemId).slice(7); });
+        if (feature) runFeature(feature, collectToolOptions());
+        return;
+      }
+      if (!item) return;
+      const feature = featureForCatalogItem(item);
+      if (feature) {
+        selectTool(feature.id);
+        runFeature(feature, collectToolOptions());
+        return;
+      }
+      if (!canRunCatalogItem(item)) {
+        setResult({ electronFeature: item, message: '이 Electron 기능은 웹 전용 입력 폼 또는 PC 전용 권한이 필요합니다.' });
+        renderResultSummary(item.title || item.handler || 'Electron 기능', '아직 웹에서 직접 실행하지 않는 항목입니다. 서버 라우트와 상태는 카탈로그에 기록되어 있습니다.', [
+          { label: '상태', value: catalogStatusLabel(item.status) },
+          { label: 'IPC', value: item.ipcEquivalent || item.handler || '-' },
+          { label: '라우트', value: item.mobileRoute || '-' },
+          { label: '탭', value: catalogTabLabel(item.tab) },
+        ], []);
+        return;
+      }
+      apiGet(item.mobileRoute, true).then(function(payload) {
+        setResult({ electronFeature: item, payload: payload });
+        renderResultSummary(item.title || item.handler || 'Electron 기능', '서버 연결 상태를 확인했습니다.', [
+          { label: '상태', value: catalogStatusLabel(item.status) },
+          { label: 'IPC', value: item.ipcEquivalent || item.handler || '-' },
+          { label: '라우트', value: item.mobileRoute || '-' },
+          { label: '시간', value: new Date().toLocaleTimeString('ko-KR') },
+        ], []);
+      }).catch(function(err) {
+        setResult({ electronFeature: item, error: err.message });
+        renderResultSummary(item.title || item.handler || 'Electron 기능 실패', err.message, [
+          { label: '상태', value: '오류' },
+          { label: '라우트', value: item.mobileRoute || '-' },
+          { label: '시간', value: new Date().toLocaleTimeString('ko-KR') },
+          { label: '탭', value: catalogTabLabel(item.tab) },
+        ], []);
+      });
+    }
     function renderFeatureCatalog(catalog, apiStatus) {
       const stripTarget = qs('featureCatalogStrip');
       const listTarget = qs('featureCatalogList');
@@ -1663,6 +1828,7 @@ export function renderLewordProWeb(): string {
           ? 'API 상태 확인 필요'
           : '서버 기능 점검 가능';
       if (!stripTarget || !listTarget) return;
+      renderCatalogTabs(catalog);
       stripTarget.innerHTML = [
         catalogPill('Electron IPC', total ? fmt(total) : '로그인 후', '전체 기능 표면'),
         catalogPill('즉시 실행', fmt(ready), '서버 job 실행'),
@@ -1672,10 +1838,16 @@ export function renderLewordProWeb(): string {
       ].join('');
       const priority = items.length
         ? items
-          .filter(function(item) { return item.status === 'ready' || item.status === 'linked'; })
-          .slice(0, 12)
+          .filter(function(item) { return item.tab === selectedCatalogTab; })
+          .sort(function(a, b) {
+            const order = { ready: 0, linked: 1, planned: 2, 'pc-only': 3 };
+            return (order[a.status] || 9) - (order[b.status] || 9)
+              || String(a.title || a.handler || '').localeCompare(String(b.title || b.handler || ''));
+          })
         : features.map(function(feature) {
           return {
+            id: 'manual:' + feature.id,
+            tab: selectedCatalogTab,
             title: feature.title,
             status: feature.status,
             mobileRoute: feature.route,
@@ -1683,14 +1855,18 @@ export function renderLewordProWeb(): string {
           };
         });
       listTarget.innerHTML = priority.map(function(item) {
+        const action = canRunCatalogItem(item)
+          ? '<div class="catalog-actions"><button class="tiny-btn" type="button" data-catalog-run="' + escapeAttr(item.id || '') + '">' + (item.status === 'ready' ? '실행' : '확인') + '</button></div>'
+          : '<div class="catalog-actions"><span class="muted">' + escapeHtml(item.status === 'pc-only' ? 'PC 앱에서 처리' : '전용 웹 폼 연결 예정') + '</span></div>';
         return '<article class="catalog-item">'
           + '<span class="status-pill ' + escapeHtml(item.status || '') + '">' + escapeHtml(catalogStatusLabel(item.status)) + '</span>'
           + '<strong>' + escapeHtml(item.title || item.handler || '-') + '</strong>'
-          + '<span>' + escapeHtml((item.mobileRoute || item.route || '-') + ' · ' + (item.description || item.ipcEquivalent || 'server')) + '</span>'
+          + '<span>' + escapeHtml(catalogTabLabel(item.tab || selectedCatalogTab) + ' · ' + (item.mobileRoute || item.route || '-') + ' · ' + (item.ipcEquivalent || item.handler || 'server')) + '</span>'
+          + action
           + '</article>';
       }).join('');
       if (!priority.length) {
-        listTarget.innerHTML = '<article class="catalog-item"><strong>로그인 후 Electron 기능 카탈로그를 불러옵니다.</strong><span>현재 화면의 주요 Pro 도구는 위 실행 패널에서 바로 사용할 수 있습니다.</span></article>';
+        listTarget.innerHTML = '<div class="catalog-empty">이 탭에는 표시할 Electron 기능이 없습니다. 다른 서브탭을 선택하거나 서버 상태를 새로고침하세요.</div>';
       }
     }
     function setActiveOpsTab(id) {
@@ -2061,6 +2237,17 @@ export function renderLewordProWeb(): string {
         setActiveView('features', { load: false });
         runFeature(feature, collectToolOptions());
       }
+    });
+    document.addEventListener('click', function(event) {
+      const tab = event.target.closest('[data-catalog-tab]');
+      if (!tab) return;
+      selectedCatalogTab = tab.getAttribute('data-catalog-tab') || selectedCatalogTab;
+      renderFeatureCatalog(pcCatalog, null);
+    });
+    document.addEventListener('click', function(event) {
+      const target = event.target.closest('[data-catalog-run]');
+      if (!target) return;
+      runCatalogItem(target.getAttribute('data-catalog-run'));
     });
     document.addEventListener('click', function(event) {
       const target = event.target.closest('[data-board-action]');

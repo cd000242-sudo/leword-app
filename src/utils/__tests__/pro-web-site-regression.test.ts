@@ -148,15 +148,19 @@ assert('renders feature-specific tool settings panel',
     && html.includes('id="runSelectedTool"')
     && html.includes('선택 도구 실행'));
 
-assert('hides noisy Electron catalog cards while retaining status introspection',
-  !html.includes('id="featureCatalogStrip"')
-    && !html.includes('id="featureCatalogList"')
+assert('renders tabbed Electron parity catalog without old noisy feature grid',
+  html.includes('Electron 기능 매핑')
+    && html.includes('id="featureCatalogStrip"')
+    && html.includes('id="featureCatalogTabs"')
+    && html.includes('id="featureCatalogList"')
     && !html.includes('id="featureGrid"')
     && html.includes('function renderFeatureCatalog')
-    && html.includes('function catalogStatusLabel')
+    && html.includes('function renderCatalogTabs')
+    && html.includes('function runCatalogItem')
     && html.includes("pcFeatures: '/v1/mobile/pc-features'")
     && html.includes('renderFeatureCatalog(pcCatalog, status.snapshot || status)')
-    && html.includes('if (!stripTarget || !listTarget) return;'));
+    && html.includes('data-catalog-tab')
+    && html.includes('data-catalog-run'));
 
 assert('renders working app download surface',
   html.includes('id="downloads"')
