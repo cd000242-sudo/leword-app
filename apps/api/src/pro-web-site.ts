@@ -602,12 +602,12 @@ export function renderLewordProWeb(): string {
           <div class="panel-title">
             <div>
               <h2>Pro 운영 대시보드</h2>
-              <div class="muted">내 노출 추적, Pro 성과 기록, 워드프레스 발행, 예약 스케줄을 서버 스냅샷으로 모아 보여줍니다.</div>
+              <div class="muted">내노출 추적, Pro 성과 기록, 워드프레스 발행, 예약 스케줄을 서버 스냅샷으로 모아 보여줍니다.</div>
             </div>
             <button class="btn blue" type="button" id="refreshOps">운영 현황 새로고침</button>
           </div>
           <div class="ops-grid">
-            <article class="ops-card" id="ops-rank"><h3>내 노출 추적</h3><span class="ops-number">-</span><span class="ops-meta">Pro 로그인 후 확인</span></article>
+            <article class="ops-card" id="ops-rank"><h3>내노출 추적</h3><span class="ops-number">-</span><span class="ops-meta">Pro 로그인 후 확인</span></article>
             <article class="ops-card" id="ops-outcomes"><h3>성과 기록</h3><span class="ops-number">-</span><span class="ops-meta">Pro 로그인 후 확인</span></article>
             <article class="ops-card" id="ops-wordpress"><h3>워드프레스/발행</h3><span class="ops-number">-</span><span class="ops-meta">Pro 로그인 후 확인</span></article>
             <article class="ops-card" id="ops-schedule"><h3>스케줄/알림</h3><span class="ops-number">-</span><span class="ops-meta">Pro 로그인 후 확인</span></article>
@@ -685,7 +685,7 @@ export function renderLewordProWeb(): string {
 
     const features = [
       { id: 'pro-traffic', title: 'PRO 트래픽 폭발 키워드 헌터', status: 'ready', route: endpoints.proTraffic, desc: '실시간 이슈, 계절성, evergreen 신호를 서버 job으로 분석합니다.', defaultTargetCount: 30, payload: (q, options) => ({ categoryId: options.categoryId || 'all', seedKeyword: q || undefined, targetCount: options.targetCount || 30, includeSeasonal: options.includeSeasonal !== false, includeEvergreen: options.includeEvergreen !== false, includeFreshIssue: options.includeFreshIssue !== false }) },
-      { id: 'exposure', title: '내 노출 추적', status: 'linked', route: endpoints.rankTracking, desc: '서버의 노출/순위 추적 스냅샷과 SERP 체크 라우트에 연결합니다.', method: 'GET' },
+      { id: 'exposure', title: '내노출 추적', status: 'linked', route: endpoints.rankTracking, desc: '서버의 노출/순위 추적 스냅샷과 SERP 체크 라우트에 연결합니다.', method: 'GET' },
       { id: 'shopping', title: '쇼핑 커넥트', status: 'ready', route: endpoints.shoppingConnect, desc: '네이버 쇼핑 상품 신호를 서버 job으로 분석하고 블로그 진입 키워드로 변환합니다.', requiresKeyword: true, defaultTargetCount: 20, payload: (q, options) => ({ keyword: q, targetCount: options.targetCount || 20, sort: options.sort || 'sim' }) },
       { id: 'youtube', title: '유튜브 황금키워드', status: 'ready', route: endpoints.youtubeGolden, desc: 'YouTube 급상승 영상 신호를 수집하고 네이버 수요와 교차검증합니다.', defaultTargetCount: 50, payload: (_q, options) => ({ maxResults: options.targetCount || 50, crossReferenceNaver: options.crossReferenceNaver !== false }) },
       { id: 'adsense', title: '애드센스 승인 키워드 헌터', status: 'ready', route: endpoints.adsense, desc: 'home-board/adsense 계열 엔진을 서버 job으로 실행합니다.', defaultTargetCount: 30, payload: (q, options) => ({ categoryId: options.categoryId === 'all' ? 'policy' : options.categoryId || 'policy', seedKeyword: q || undefined, targetCount: options.targetCount || 30, requireSplusFloor: true }) },
@@ -790,7 +790,7 @@ export function renderLewordProWeb(): string {
         const posts = ((snapshot.posts || {}).items || []).slice(0, 5).map(function(post) {
           return '<li><strong>' + escapeHtml(post.keyword || post.postTitle || '추적 글') + '</strong><span>현재 순위 ' + fmt(post.currentRank) + ' · Top30 ' + (post.currentInTop30 ? '노출' : '미노출') + ' · ' + escapeHtml(post.postTitle || post.postUrl || '-') + '</span></li>';
         });
-        renderResultSummary('내 노출 추적', '서버가 저장한 노출/순위 추적 현황입니다.', [
+        renderResultSummary('내노출 추적', '서버가 저장한 노출/순위 추적 현황입니다.', [
           { label: '추적쌍', value: fmt(totals.trackedPairs || 0) },
           { label: 'Top30', value: fmt(totals.currentlyInTop30 || 0) },
           { label: 'Top10', value: fmt(totals.currentlyInTop10 || 0) },
@@ -938,7 +938,7 @@ export function renderLewordProWeb(): string {
           category: 'pro-web',
         });
         setResult(payload);
-        renderSnapshotResultSummary({ title: '내 노출 추적 등록' }, payload.snapshot || payload);
+        renderSnapshotResultSummary({ title: '내노출 추적 등록' }, payload.snapshot || payload);
         log('상위 키워드 추적 등록 완료: ' + keyword);
         await loadOpsDashboard().catch(function() {});
       } catch (err) {
@@ -1320,7 +1320,7 @@ export function renderLewordProWeb(): string {
         + list;
     }
     function renderOpsLocked() {
-      renderOpsCard('rank', '내 노출 추적', '-', 'Pro 로그인 후 서버 추적 현황을 확인합니다.', []);
+      renderOpsCard('rank', '내노출 추적', '-', 'Pro 로그인 후 서버 추적 현황을 확인합니다.', []);
       renderOpsCard('outcomes', '성과 기록', '-', 'Pro 로그인 후 실제 노출/수익 기록을 확인합니다.', []);
       renderOpsCard('wordpress', '워드프레스/발행', '-', 'Pro 로그인 후 사이트와 발행 초안을 확인합니다.', []);
       renderOpsCard('schedule', '스케줄/알림', '-', 'Pro 로그인 후 예약과 알림 상태를 확인합니다.', []);
@@ -1353,9 +1353,9 @@ export function renderLewordProWeb(): string {
           const rankText = post.currentRank ? String(post.currentRank) + '위' : 'Top30 밖';
           return (post.keyword || post.postTitle || '추적 글') + ' · ' + rankText + ' · ' + (post.postTitle || post.postUrl || '-');
         });
-        renderOpsCard('rank', '내 노출 추적', fmt(totals.currentlyInTop30 || 0) + '/' + fmt(totals.trackedPairs || 0), 'Top30 노출 / 추적쌍 · Top10 ' + fmt(totals.currentlyInTop10 || 0), posts);
+        renderOpsCard('rank', '내노출 추적', fmt(totals.currentlyInTop30 || 0) + '/' + fmt(totals.trackedPairs || 0), 'Top30 노출 / 추적쌍 · Top10 ' + fmt(totals.currentlyInTop10 || 0), posts);
       } else {
-        renderOpsCard('rank', '내 노출 추적', '오류', settledError(results[0]) || '스냅샷을 불러오지 못했습니다.', []);
+        renderOpsCard('rank', '내노출 추적', '오류', settledError(results[0]) || '스냅샷을 불러오지 못했습니다.', []);
       }
 
       if (outcomes && outcomes.snapshot) {

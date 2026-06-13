@@ -46,7 +46,7 @@ assert('keyword lookup table separates PC and mobile',
 
 for (const label of [
   'PRO 트래픽 폭발 키워드 헌터',
-  '내 노출 추적',
+  '내노출 추적',
   '쇼핑 커넥트',
   '유튜브 황금키워드',
   '애드센스 승인 키워드 헌터',
@@ -69,7 +69,7 @@ assert('ready server-backed routes are wired',
 assert('renders pro operations dashboard for Electron parity',
   html.includes('id="ops"')
     && html.includes('Pro 운영 대시보드')
-    && html.includes('내 노출 추적')
+    && html.includes('내노출 추적')
     && html.includes('성과 기록')
     && html.includes('워드프레스/발행')
     && html.includes('스케줄/알림')
