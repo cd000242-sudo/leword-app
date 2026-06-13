@@ -23,6 +23,9 @@ for (const [index, match] of Array.from(html.matchAll(/<script>([\s\S]*?)<\/scri
 }
 
 assert('renders LEWORD Pro Web shell', html.includes('LEWORD Pro Web'));
+assert('uses resilient CSS brand mark instead of a fragile logo image',
+  html.includes('class="brand-mark" aria-hidden="true">L</span>')
+    && !html.includes('<img class="brand-logo"'));
 assert('does not expose integration-structure subtab copy', !html.includes('연동구조'));
 assert('keeps existing id/password login', html.includes('LEWORD Pro 로그인') && html.includes('아이디') && html.includes('비밀번호'));
 assert('renders live golden keyword board section',

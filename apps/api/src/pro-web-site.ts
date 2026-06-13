@@ -672,7 +672,7 @@ export function renderLewordProWeb(): string {
 <body>
   <main class="shell">
     <header class="topbar">
-      <a class="brand" href="/leword"><img class="brand-logo" src="/assets/leword-logo.png" alt="" /><span>LEWORD Pro Web</span></a>
+      <a class="brand" href="/leword"><span class="brand-mark" aria-hidden="true">L</span><span>LEWORD Pro Web</span></a>
       <nav class="nav" aria-label="주요 메뉴">
         <a href="#golden" data-view-target="golden">황금키워드 보드</a>
         <a href="#sources" data-view-target="sources">실시간 소스</a>
