@@ -745,9 +745,9 @@ export function createLewordApiServer(options: LewordApiServerOptions = {}): htt
     }
 
     if (req.method === 'GET' && url.pathname === '/v1/public/source-signals') {
-      const limit = Number(url.searchParams.get('limit') || 6);
+      const limit = Number(url.searchParams.get('limit') || 18);
       const snapshot = await buildMobileSourceSignalSnapshot({
-        limit: Number.isFinite(limit) ? limit : 6,
+        limit: Number.isFinite(limit) ? limit : 18,
       });
       json(res, 200, buildPublicSourceSignalPayload(snapshot), {
         'Cache-Control': 'no-store',
@@ -821,7 +821,7 @@ export function createLewordApiServer(options: LewordApiServerOptions = {}): htt
       if (!await authorizeMobileRequest(req, res, sessionAwareEntitlementVerifier, 'standard')) return;
       const laneParam = url.searchParams.get('lane') || 'all';
       const lane = ['all', 'realtime', 'policy', 'issues'].includes(laneParam) ? laneParam as any : 'all';
-      const limit = Number(url.searchParams.get('limit') || 6);
+      const limit = Number(url.searchParams.get('limit') || 18);
       const snapshot = await buildMobileSourceSignalSnapshot({ lane, limit });
       json(res, 200, { ok: true, snapshot });
       return;

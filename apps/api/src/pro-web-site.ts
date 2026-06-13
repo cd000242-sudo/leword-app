@@ -89,6 +89,7 @@ export function renderLewordProWeb(): string {
       transition: transform .16s ease, border-color .16s ease, background .16s ease, color .16s ease;
     }
     .nav a:hover, .nav button:hover, .btn:hover, .tiny-btn:hover, .tool-tab:hover { transform: translateY(-1px); border-color: rgba(245,197,66,.44); }
+    .nav a.active { border-color: rgba(245,197,66,.64); color: var(--gold); background: rgba(245,197,66,.1); }
     .nav a:focus-visible, .nav button:focus-visible, .btn:focus-visible, .tiny-btn:focus-visible, .input:focus-visible, .tool-tab:focus-visible {
       outline: 2px solid rgba(91,183,255,.72);
       outline-offset: 2px;
@@ -131,8 +132,9 @@ export function renderLewordProWeb(): string {
       border-radius: 999px;
       background: transparent;
     }
-    .side-link:hover { border-color: rgba(91,183,255,.42); color: white; background: rgba(91,183,255,.07); }
-    .side-link:hover::before { background: var(--gold); }
+    .side-link:hover, .side-link.active { border-color: rgba(91,183,255,.42); color: white; background: rgba(91,183,255,.07); }
+    .side-link.active { border-color: rgba(245,197,66,.66); color: var(--gold); background: rgba(245,197,66,.1); }
+    .side-link:hover::before, .side-link.active::before { background: var(--gold); }
     .side-note {
       margin-top: 8px;
       padding: 12px;
@@ -144,6 +146,8 @@ export function renderLewordProWeb(): string {
       line-height: 1.55;
     }
     .main { display: grid; gap: 16px; min-width: 0; }
+    .main-view { display: none; }
+    .main-view.active { display: block; }
     .hero {
       border: 1px solid var(--line);
       border-radius: 8px;
@@ -175,7 +179,7 @@ export function renderLewordProWeb(): string {
     .panel-title h2 { margin: 0; font-size: 21px; letter-spacing: 0; }
     .muted { color: var(--muted); font-size: 13px; line-height: 1.5; }
     .source-grid { display: grid; grid-template-columns: repeat(3, minmax(0, 1fr)); gap: 10px; }
-    .lane { padding: 14px; min-height: 206px; background: linear-gradient(180deg, rgba(19,27,39,.98), rgba(12,17,24,.98)); }
+    .lane { padding: 14px; min-height: 320px; background: linear-gradient(180deg, rgba(19,27,39,.98), rgba(12,17,24,.98)); }
     .lane:hover, .feature-card:hover, .ops-card:hover, .catalog-item:hover, .golden-row:hover {
       border-color: rgba(91,183,255,.36);
       box-shadow: 0 16px 38px rgba(0,0,0,.28);
@@ -190,6 +194,7 @@ export function renderLewordProWeb(): string {
       font-size: 11px;
       white-space: nowrap;
     }
+    .signal-list { display: grid; max-height: 560px; overflow: auto; padding-right: 2px; }
     .signal { border-top: 1px solid var(--line-soft); padding: 10px 0; }
     .signal:first-of-type { border-top: 0; padding-top: 0; }
     .signal strong { display: block; font-size: 14px; overflow-wrap: anywhere; }
@@ -341,6 +346,44 @@ export function renderLewordProWeb(): string {
     .tool-checks { display: flex; gap: 10px; flex-wrap: wrap; grid-column: 1 / -1; color: #d9e6f7; font-size: 12px; }
     .tool-checks label { display: inline-flex; align-items: center; gap: 5px; white-space: nowrap; }
     .tool-note { margin-top: 10px; color: var(--muted); font-size: 12px; line-height: 1.5; }
+    .tool-detail {
+      margin-top: 12px;
+      border: 1px solid var(--line-soft);
+      border-radius: 8px;
+      background: rgba(7,9,13,.54);
+      padding: 12px;
+    }
+    .tool-detail-grid {
+      display: grid;
+      grid-template-columns: repeat(3, minmax(0, 1fr));
+      gap: 8px;
+    }
+    .tool-detail-card {
+      border: 1px solid rgba(159,177,200,.16);
+      border-radius: 8px;
+      background: rgba(18,26,38,.74);
+      padding: 10px;
+      min-height: 74px;
+    }
+    .tool-detail-card strong { display: block; color: var(--gold); font-size: 12px; margin-bottom: 5px; }
+    .tool-detail-card span { color: #c8d5e7; font-size: 12px; line-height: 1.45; overflow-wrap: anywhere; }
+    .tool-result-panel {
+      margin-top: 12px;
+      border: 1px solid rgba(53,211,153,.22);
+      border-radius: 8px;
+      background: linear-gradient(180deg, rgba(8,18,16,.75), rgba(8,12,18,.92));
+      padding: 12px;
+    }
+    .tool-result-panel h3 { margin: 0 0 6px; font-size: 15px; }
+    .tool-result-panel p { margin: 0 0 10px; color: var(--muted); font-size: 12px; line-height: 1.5; }
+    .mini-json {
+      margin: 8px 0 0;
+      max-height: 260px;
+      overflow: auto;
+      white-space: pre-wrap;
+      color: #c8d5e7;
+      font-size: 11px;
+    }
     .catalog-strip {
       display: grid;
       grid-template-columns: repeat(5, minmax(0, 1fr));
@@ -488,7 +531,7 @@ export function renderLewordProWeb(): string {
       .feature-grid, .ops-grid { grid-template-columns: repeat(2, minmax(0, 1fr)); }
     }
     @media (max-width: 820px) {
-      .source-grid, .metrics, .workbench, .lookup-row, .golden-stats, .ops-grid, .tool-form, .catalog-strip, .catalog-list { grid-template-columns: 1fr; }
+      .source-grid, .metrics, .workbench, .lookup-row, .golden-stats, .ops-grid, .tool-form, .tool-detail-grid, .catalog-strip, .catalog-list { grid-template-columns: 1fr; }
       .quality-strip { grid-template-columns: 1fr 1fr; }
       .result-toolbar { grid-template-columns: 1fr; }
       .result-kpis { grid-template-columns: 1fr 1fr; }
@@ -513,28 +556,27 @@ export function renderLewordProWeb(): string {
     <header class="topbar">
       <a class="brand" href="/leword"><span class="brand-mark">L</span><span>LEWORD Pro Web</span></a>
       <nav class="nav" aria-label="주요 메뉴">
-        <a href="#golden">황금키워드 보드</a>
-        <a href="#sources">실시간 소스</a>
-        <a href="#lookup">키워드 조회</a>
-        <a href="#features">Pro 기능</a>
-        <a href="#ops">운영 현황</a>
+        <a href="#golden" data-view-target="golden">황금키워드 보드</a>
+        <a href="#sources" data-view-target="sources">실시간 소스</a>
+        <a href="#lookup" data-view-target="lookup">키워드 조회</a>
+        <a href="#features" data-view-target="features">Pro 기능</a>
+        <a href="#ops" data-view-target="ops">운영 현황</a>
         <button type="button" id="loginOpen">Pro 로그인</button>
       </nav>
     </header>
 
     <div class="layout">
       <aside class="sidebar" aria-label="Pro 기능 탭">
-        <a class="side-link" href="#golden">LIVE 황금키워드 보드</a>
-        <a class="side-link" href="#sources">네이버/다음/네이트/줌/정책/이슈</a>
-        <a class="side-link" href="#lookup">PC/모바일 실측 조회</a>
-        <a class="side-link" href="#features">전체 Pro 기능</a>
-        <a class="side-link" href="#ops">노출/성과/발행/스케줄</a>
-        <a class="side-link" href="#workbench">실행 로그</a>
-        <div class="side-note">내부 설명 대신 실제 실행 콘솔만 보여줍니다. 서버가 수집, 측정, 캐시, job 실행을 담당합니다.</div>
+        <a class="side-link" href="#golden" data-view-target="golden">LIVE 황금키워드 보드</a>
+        <a class="side-link" href="#sources" data-view-target="sources">네이버/다음/네이트/줌/정책/이슈</a>
+        <a class="side-link" href="#lookup" data-view-target="lookup">PC/모바일 실측 조회</a>
+        <a class="side-link" href="#features" data-view-target="features">전체 Pro 기능</a>
+        <a class="side-link" href="#ops" data-view-target="ops">노출/성과/발행/스케줄</a>
+        <a class="side-link" href="#workbench" data-view-target="workbench">실행 로그</a>
       </aside>
 
       <section class="main">
-        <section class="hero">
+        <section class="hero main-view active" data-view="golden">
           <h1>LEWORD Pro Web: 서버 기반 키워드 분석</h1>
           <p>Electron 앱의 핵심 기능을 웹에서 바로 실행하도록 재배치했습니다. 화면은 콘솔 역할만 하고, 실시간 소스 수집, PC/모바일 검색량 측정, 문서수 확인, 장기 분석 job, Pro 권한 체크는 서버가 담당합니다.</p>
           <div class="metrics">
@@ -545,7 +587,7 @@ export function renderLewordProWeb(): string {
           </div>
         </section>
 
-        <section class="panel" id="golden">
+        <section class="panel main-view active" id="golden" data-view="golden">
           <div class="panel-title">
             <div>
               <h2>LIVE 황금키워드 보드</h2>
@@ -569,7 +611,7 @@ export function renderLewordProWeb(): string {
           <div class="golden-list" id="goldenBoardList" style="margin-top:10px;"></div>
         </section>
 
-        <section class="panel" id="sources">
+        <section class="panel main-view" id="sources" data-view="sources">
           <div class="panel-title">
             <div>
               <h2>실시간 소스 보드</h2>
@@ -587,7 +629,7 @@ export function renderLewordProWeb(): string {
           </div>
         </section>
 
-        <section class="panel" id="lookup">
+        <section class="panel main-view" id="lookup" data-view="lookup">
           <div class="panel-title">
             <div>
               <h2>키워드 실측 조회</h2>
@@ -627,7 +669,7 @@ export function renderLewordProWeb(): string {
           </div>
         </section>
 
-        <section class="panel" id="features">
+        <section class="panel main-view" id="features" data-view="features">
           <div class="panel-title">
             <div>
               <h2>Pro 전체 기능 런처</h2>
@@ -667,13 +709,18 @@ export function renderLewordProWeb(): string {
               <button class="btn blue" type="button" id="copyLookupKeyword">조회 키워드 가져오기</button>
             </div>
             <div class="tool-note" id="toolProfileNote">Pro 트래픽 폭발 키워드 헌터 설정을 조정한 뒤 실행하세요.</div>
+            <div class="tool-detail" id="toolDetail"></div>
+            <div class="tool-result-panel" id="toolResultPanel">
+              <h3>도구 실행 대기</h3>
+              <p>왼쪽 서브탭에서 Pro 기능을 선택한 뒤 실행하면 이 영역에 진행 상태와 핵심 후보가 바로 표시됩니다.</p>
+            </div>
           </div>
           <div class="catalog-strip" id="featureCatalogStrip"></div>
           <div class="catalog-list" id="featureCatalogList"></div>
           <div class="feature-grid" id="featureGrid"></div>
         </section>
 
-        <section class="panel" id="ops">
+        <section class="panel main-view" id="ops" data-view="ops">
           <div class="panel-title">
             <div>
               <h2>Pro 운영 대시보드</h2>
@@ -689,7 +736,7 @@ export function renderLewordProWeb(): string {
           </div>
         </section>
 
-        <section class="panel" id="workbench">
+        <section class="panel main-view" id="workbench" data-view="workbench">
           <div class="panel-title">
             <div>
               <h2>서버 실행 로그</h2>
@@ -773,8 +820,33 @@ export function renderLewordProWeb(): string {
     let pcCatalog = null;
     let selectedToolId = 'pro-traffic';
     let lastKeywordResult = null;
+    let activeViewId = 'golden';
+    const viewIds = ['golden', 'sources', 'lookup', 'features', 'ops', 'workbench'];
 
     function qs(id) { return document.getElementById(id); }
+    function normalizeViewId(id) {
+      return viewIds.indexOf(id) >= 0 ? id : 'golden';
+    }
+    function setActiveView(id, options) {
+      const next = normalizeViewId(id);
+      const opts = options || {};
+      activeViewId = next;
+      document.querySelectorAll('[data-view]').forEach(function(node) {
+        node.classList.toggle('active', node.getAttribute('data-view') === next);
+      });
+      document.querySelectorAll('[data-view-target]').forEach(function(node) {
+        node.classList.toggle('active', node.getAttribute('data-view-target') === next);
+      });
+      if (location.hash !== '#' + next && opts.hash !== false) {
+        history.replaceState(null, '', '#' + next);
+      }
+      if (opts.load === false) return;
+      if (next === 'golden') loadGoldenBoard().catch(function(err) { log('황금키워드 보드 갱신 실패: ' + err.message); });
+      if (next === 'sources') loadSources().catch(function(err) { log('실시간 소스 갱신 실패: ' + err.message); });
+      if (next === 'features' && session && session.accessToken) refreshFeatureStatus().catch(function(err) { log('Pro 기능 상태 확인 실패: ' + err.message); });
+      if (next === 'ops') loadOpsDashboard().catch(function(err) { log('운영 현황 갱신 실패: ' + err.message); });
+      if (next === 'lookup') setTimeout(function() { if (qs('keywordInput')) qs('keywordInput').focus(); }, 0);
+    }
     function escapeHtml(value) {
       return String(value == null ? '' : value).replace(/[&<>"']/g, function(ch) {
         return ({ '&': '&amp;', '<': '&lt;', '>': '&gt;', '"': '&quot;', "'": '&#39;' })[ch];
@@ -813,6 +885,67 @@ export function renderLewordProWeb(): string {
       return '<div class="result-kpis">' + metrics.map(function(metric) {
         return '<div class="result-kpi"><strong>' + escapeHtml(metric.value) + '</strong><span>' + escapeHtml(metric.label) + '</span></div>';
       }).join('') + '</div>';
+    }
+    function toolGuide(feature) {
+      const guides = {
+        'pro-traffic': ['실시간 이슈, 시즌성, evergreen 후보를 한 번에 섞어 트래픽 폭발 후보를 좁힙니다.', '검색량, 문서수, 황금비율, 등급을 서버 job으로 검증합니다.', '무료 보드보다 넓은 후보군을 돌려 Pro 전용 선점 키워드를 뽑습니다.'],
+        exposure: ['내 글 URL과 키워드 노출 상태를 서버 저장소에서 확인합니다.', '현재 순위, Top30 여부, 알림 대상을 운영 현황과 연결합니다.', '상위 키워드는 결과 센터에서 바로 추적 등록할 수 있습니다.'],
+        shopping: ['상품/카테고리 키워드를 블로그 진입형 롱테일로 변환합니다.', '쇼핑 수요와 검색 키워드 확장 후보를 함께 정렬합니다.', '상품명만 넣어도 정보형/비교형 글감으로 분해합니다.'],
+        youtube: ['유튜브 급상승/영상 신호를 네이버 수요와 교차 검증합니다.', '영상 이슈를 블로그/숏폼/뉴스형 키워드로 재가공합니다.', '교차검증 옵션을 켜면 포털 수요까지 함께 봅니다.'],
+        adsense: ['RPM/CPC가 붙기 쉬운 정책, 금융, 지원금 계열 후보를 우선합니다.', '승인 글감으로 쓰기 쉬운 정보형 롱테일을 분리합니다.', 'SSS 바닥 조건을 켜서 낮은 품질 후보를 걸러냅니다.'],
+        'naver-mate': ['자동완성, 연관, 실측 검색량을 묶어 네이버 친화 후보를 만듭니다.', 'PC/모바일 분리 지표를 켜면 표에서 바로 비교할 수 있습니다.', '시드 키워드를 넣을수록 정밀한 확장이 됩니다.'],
+        kin: ['지식인 질문 신호에서 답변형 황금질문을 추립니다.', '질문 의도, 최신성, 상승 여부를 기준으로 정렬합니다.', '블로그 제목과 FAQ 섹션으로 바로 전환하기 좋습니다.'],
+        blueprint: ['키워드별 예상 조회수, 글감 구조, 수익 설계를 한 화면에 묶습니다.', '카테고리와 월간 조회 가정값으로 수익 플랜을 계산합니다.', '발행 전략을 만들 때 운영 현황과 함께 쓰는 도구입니다.'],
+      };
+      return guides[feature && feature.id] || ['서버 기능 상태를 확인하고 연결된 데이터를 불러옵니다.', '실행 결과는 결과 센터와 실행 로그에 동시에 남습니다.', '권한이 필요하면 로그인 창을 먼저 띄웁니다.'];
+    }
+    function renderToolDetail(feature) {
+      const guide = toolGuide(feature);
+      const route = feature && feature.route ? feature.route : '-';
+      const method = feature && feature.method === 'GET' ? '상태 확인' : '서버 job 실행';
+      const target = qs('toolDetail');
+      if (!target || !feature) return;
+      target.innerHTML = '<div class="tool-detail-grid">'
+        + '<div class="tool-detail-card"><strong>실행 방식</strong><span>' + escapeHtml(method + ' · ' + route) + '</span></div>'
+        + '<div class="tool-detail-card"><strong>분석 의도</strong><span>' + escapeHtml(guide[0]) + '</span></div>'
+        + '<div class="tool-detail-card"><strong>결과 활용</strong><span>' + escapeHtml(guide[1]) + '</span></div>'
+        + '</div>'
+        + '<div class="tool-note">' + escapeHtml(guide[2]) + '</div>';
+    }
+    function renderToolResultPanel(feature, title, subtitle, metrics, rows) {
+      const target = qs('toolResultPanel');
+      if (!target) return;
+      const list = Array.isArray(rows) && rows.length
+        ? '<ul class="result-list">' + rows.join('') + '</ul>'
+        : '';
+      target.innerHTML = '<h3>' + escapeHtml(title || (feature && feature.title) || '도구 실행') + '</h3>'
+        + '<p>' + escapeHtml(subtitle || '') + '</p>'
+        + resultKpiHtml(metrics || [])
+        + list;
+    }
+    function renderToolWaiting(feature) {
+      renderToolResultPanel(feature, (feature && feature.title ? feature.title : 'Pro 도구') + ' 대기', '설정을 확인한 뒤 실행 버튼을 누르면 서버 진행 상태와 핵심 후보가 여기에 표시됩니다.', [
+        { label: '상태', value: '대기' },
+        { label: '권한', value: session ? 'Pro 연결' : '로그인 필요' },
+        { label: '결과', value: '-' },
+        { label: '시간', value: new Date().toLocaleTimeString('ko-KR') },
+      ], []);
+    }
+    function renderToolLocked(feature) {
+      renderToolResultPanel(feature, (feature && feature.title ? feature.title : 'Pro 도구') + ' 로그인 필요', '이 도구는 Pro 세션이 있어야 실행됩니다. 아이디와 비밀번호만 입력하면 기존 사용자 계정으로 바로 접속합니다.', [
+        { label: '상태', value: '권한 대기' },
+        { label: '입력', value: feature && feature.requiresKeyword ? '키워드 필요' : '선택' },
+        { label: '결과', value: '잠김' },
+        { label: '시간', value: new Date().toLocaleTimeString('ko-KR') },
+      ], []);
+    }
+    function renderToolRunning(feature, q) {
+      renderToolResultPanel(feature, (feature && feature.title ? feature.title : 'Pro 도구') + ' 실행 중', '서버에 요청을 보냈습니다. job 진행률은 실행 로그에도 계속 쌓입니다.', [
+        { label: '상태', value: '실행 중' },
+        { label: '키워드', value: q || '-' },
+        { label: '방식', value: feature && feature.method === 'GET' ? '조회' : 'job' },
+        { label: '시간', value: new Date().toLocaleTimeString('ko-KR') },
+      ], []);
     }
     function renderResultSummary(title, subtitle, metrics, rows) {
       const list = Array.isArray(rows) && rows.length
@@ -917,14 +1050,41 @@ export function renderLewordProWeb(): string {
         { label: '시간', value: new Date().toLocaleTimeString('ko-KR') },
       ], []);
     }
+    function renderToolFeatureResult(feature, result) {
+      if (!feature || !feature.id) return;
+      if (result && Array.isArray(result.keywords)) {
+        const rows = result.keywords;
+        const summary = result.summary || {};
+        const topRows = rows.slice(0, 6).map(function(row) {
+          return '<li><strong>' + escapeHtml(row.keyword || '-') + '</strong><span>등급 ' + escapeHtml(row.grade || '-') + ' · 전체 ' + fmt(row.totalSearchVolume) + ' · PC ' + fmt(row.pcSearchVolume) + ' · 모바일 ' + fmt(row.mobileSearchVolume) + ' · 문서 ' + fmt(row.documentCount) + ' · 황금비 ' + fmt(row.goldenRatio) + '</span></li>';
+        });
+        renderToolResultPanel(feature, feature.title + ' 완료', '상위 후보를 먼저 표시합니다. 전체 표와 저장/내보내기는 실행 로그 탭의 결과 센터에서 이어서 사용할 수 있습니다.', [
+          { label: '후보', value: fmt(summary.total == null ? rows.length : summary.total) },
+          { label: 'SSS', value: fmt(summary.sss == null ? rows.filter(function(row) { return row.grade === 'SSS'; }).length : summary.sss) },
+          { label: '실측', value: fmt(summary.measured == null ? rows.filter(function(row) { return row.isMeasured; }).length : summary.measured) },
+          { label: '시간', value: summary.elapsedMs == null ? new Date().toLocaleTimeString('ko-KR') : fmt(summary.elapsedMs) + 'ms' },
+        ], topRows);
+        return;
+      }
+      const snapshot = result && result.snapshot ? result.snapshot : result;
+      const preview = JSON.stringify(snapshot || result || {}, null, 2).slice(0, 2400);
+      renderToolResultPanel(feature, feature.title + ' 완료', '서버 응답을 받았습니다. 자세한 원문은 실행 로그 탭 결과 센터에도 남겨두었습니다.', [
+        { label: '상태', value: result && result.ok === false ? '확인 필요' : '완료' },
+        { label: '경로', value: feature.route || '-' },
+        { label: '방식', value: feature.method === 'GET' ? '조회' : 'job' },
+        { label: '시간', value: new Date().toLocaleTimeString('ko-KR') },
+      ], ['<li><span><pre class="mini-json">' + escapeHtml(preview) + '</pre></span></li>']);
+    }
     function renderFeatureResult(feature, result) {
       setResult(result);
       if (result && Array.isArray(result.keywords)) {
         renderKeywordRows(result);
         renderKeywordResultSummary(feature && feature.title ? feature.title : '키워드 결과', result);
+        renderToolFeatureResult(feature, result);
         return;
       }
       renderSnapshotResultSummary(feature, result);
+      renderToolFeatureResult(feature, result);
     }
     function lastKeywordRows(limit) {
       const rows = lastKeywordResult && Array.isArray(lastKeywordResult.keywords) ? lastKeywordResult.keywords : [];
@@ -1255,16 +1415,17 @@ export function renderLewordProWeb(): string {
     function renderSourceLane(lane) {
       const target = qs('lane-' + lane.id);
       if (!target) return;
-      const items = (lane.items || []).slice(0, 5);
-      target.querySelector('.lane-count').textContent = String(items.length);
+      const allItems = lane.items || [];
+      const items = allItems.slice(0, 12);
+      target.querySelector('.lane-count').textContent = String(allItems.length);
       const body = items.length ? items.map(function(item) {
         return '<div class="signal"><strong>' + escapeHtml(item.keyword || item.title || '-') + '</strong><span>' + escapeHtml(item.description || item.title || item.source || '-') + '</span><span>' + escapeHtml(item.source || lane.label) + '</span></div>';
       }).join('') : '<div class="muted">서버 수집 결과가 없습니다. 소스 상태를 확인하세요.</div>';
-      target.innerHTML = '<h3>' + escapeHtml(lane.label) + ' <span class="lane-count">' + items.length + '</span></h3>' + body;
+      target.innerHTML = '<h3>' + escapeHtml(lane.label) + ' <span class="lane-count">' + allItems.length + '</span></h3><div class="signal-list">' + body + '</div>';
     }
     async function loadSources() {
       try {
-        const url = session ? endpoints.proSources + '?limit=8' : endpoints.publicSources + '?limit=8';
+        const url = session ? endpoints.proSources + '?limit=24' : endpoints.publicSources + '?limit=24';
         const payload = await apiGet(url, !!session);
         const lanes = payload.lanes || splitFallbackLanes(payload.snapshot);
         lanes.forEach(renderSourceLane);
@@ -1300,6 +1461,8 @@ export function renderLewordProWeb(): string {
         : feature.title + ' 시드 키워드 선택 입력';
       qs('toolProfileNote').textContent = feature.title + ' · ' + feature.desc;
       renderToolTabs();
+      renderToolDetail(feature);
+      renderToolWaiting(feature);
     }
     function toolKeywordInput() {
       return (qs('toolSeedInput').value.trim() || compactKeywordInput()).trim();
@@ -1492,14 +1655,31 @@ export function renderLewordProWeb(): string {
       }
     }
     async function runFeature(feature, options) {
-      if (!requireSession()) return;
+      if (feature && feature.id) {
+        selectTool(feature.id);
+        setActiveView('features', { load: false });
+      }
+      if (!session || !session.accessToken) {
+        if (feature && feature.id) renderToolLocked(feature);
+        requireSession();
+        return;
+      }
       const runOptions = options || {};
       const q = runOptions.keyword == null ? compactKeywordInput() : String(runOptions.keyword || '').trim();
       try {
         if (feature.requiresKeyword && !q) {
           log(feature.title + '는 키워드 입력이 필요합니다.');
+          if (feature.id) {
+            renderToolResultPanel(feature, feature.title + ' 입력 필요', '시드 키워드 또는 조회 키워드를 넣은 뒤 다시 실행하세요.', [
+              { label: '상태', value: '입력 필요' },
+              { label: '필수값', value: '키워드' },
+              { label: '결과', value: '-' },
+              { label: '시간', value: new Date().toLocaleTimeString('ko-KR') },
+            ], []);
+          }
           return;
         }
+        if (feature.id) renderToolRunning(feature, q);
         log(feature.title + ' 실행 시작');
         if (feature.method === 'GET') {
           const payload = await apiGet(feature.route, true);
@@ -1525,13 +1705,26 @@ export function renderLewordProWeb(): string {
           { label: '라우트', value: feature.route || '-' },
           { label: '입력', value: q || '-' },
         ], []);
+        if (feature.id) {
+          renderToolResultPanel(feature, feature.title + ' 실패', err.message, [
+            { label: '상태', value: '오류' },
+            { label: '라우트', value: feature.route || '-' },
+            { label: '입력', value: q || '-' },
+            { label: '시간', value: new Date().toLocaleTimeString('ko-KR') },
+          ], []);
+        }
       }
     }
     async function runLookup(mode) {
-      if (!requireSession()) return;
+      if (!session || !session.accessToken) {
+        qs('keywordRows').innerHTML = '<tr><td colspan="11" class="muted">Pro 로그인 후 PC/모바일 실측 조회를 실행할 수 있습니다. 로그인 창을 열어두었습니다.</td></tr>';
+        requireSession();
+        return;
+      }
       const q = compactKeywordInput();
       if (!q) {
         log('키워드를 입력해야 합니다.');
+        qs('keywordRows').innerHTML = '<tr><td colspan="11" class="muted">조회할 키워드를 입력한 뒤 다시 실행하세요.</td></tr>';
         return;
       }
       const feature = mode === 'mindmap-expansion'
@@ -1542,6 +1735,15 @@ export function renderLewordProWeb(): string {
       await runFeature(feature);
     }
 
+    document.querySelectorAll('[data-view-target]').forEach(function(target) {
+      target.addEventListener('click', function(event) {
+        event.preventDefault();
+        setActiveView(target.getAttribute('data-view-target') || 'golden');
+      });
+    });
+    window.addEventListener('hashchange', function() {
+      setActiveView((location.hash || '#golden').slice(1), { hash: false });
+    });
     qs('loginOpen').addEventListener('click', openLogin);
     qs('loginClose').addEventListener('click', closeLogin);
     qs('loginModal').addEventListener('click', function(event) { if (event.target.id === 'loginModal') closeLogin(); });
@@ -1570,6 +1772,7 @@ export function renderLewordProWeb(): string {
       const target = event.target.closest('[data-tool]');
       if (!target) return;
       selectTool(target.getAttribute('data-tool'));
+      setActiveView('features', { load: false });
     });
     qs('copyLookupKeyword').addEventListener('click', function() {
       qs('toolSeedInput').value = compactKeywordInput();
@@ -1594,6 +1797,7 @@ export function renderLewordProWeb(): string {
       qs('runLog').textContent = 'LEWORD Pro Web 대기 중';
       qs('resultLog').textContent = '원문 결과 대기 중';
       qs('resultSummary').innerHTML = '<h3>결과 센터</h3><p>키워드 조회나 Pro 기능을 실행하면 KPI, 상위 후보, 바로가기 액션을 이곳에 정리합니다.</p>';
+      renderToolWaiting(getSelectedTool());
       lastKeywordResult = null;
     });
     document.addEventListener('click', function(event) {
@@ -1619,7 +1823,11 @@ export function renderLewordProWeb(): string {
       const target = event.target.closest('[data-feature]');
       if (!target) return;
       const feature = features.find(function(row) { return row.id === target.getAttribute('data-feature'); });
-      if (feature) runFeature(feature);
+      if (feature) {
+        selectTool(feature.id);
+        setActiveView('features', { load: false });
+        runFeature(feature, collectToolOptions());
+      }
     });
     document.addEventListener('click', function(event) {
       const target = event.target.closest('[data-board-action]');
@@ -1637,6 +1845,7 @@ export function renderLewordProWeb(): string {
       }
       qs('keywordInput').value = keyword;
       qs('lookupMode').value = 'golden-discovery';
+      setActiveView('lookup', { load: false });
       runLookup('golden-discovery');
     });
 
@@ -1645,6 +1854,7 @@ export function renderLewordProWeb(): string {
     renderFeatureCatalog(null, null);
     selectTool(selectedToolId);
     renderOpsLocked();
+    setActiveView((location.hash || '#golden').slice(1), { load: false });
     loadHealth();
     loadGoldenBoard();
     loadSources();

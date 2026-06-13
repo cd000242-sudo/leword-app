@@ -41,6 +41,19 @@ assert('shows six source lanes in requested order',
     && html.indexOf('줌 <span class="lane-count"') > html.indexOf('네이트 <span class="lane-count"')
     && html.includes('정책 <span class="lane-count"')
     && html.includes('이슈 <span class="lane-count"'));
+assert('side navigation switches isolated views instead of one stacked page',
+  html.includes('data-view-target="golden"')
+    && html.includes('data-view-target="sources"')
+    && html.includes('data-view-target="features"')
+    && html.includes('class="panel main-view" id="sources" data-view="sources"')
+    && html.includes('class="panel main-view" id="lookup" data-view="lookup"')
+    && html.includes('function setActiveView')
+    && html.includes("document.querySelectorAll('[data-view-target]')"));
+assert('source board renders a wider always-on realtime feed',
+  html.includes("endpoints.publicSources + '?limit=24'")
+    && html.includes("endpoints.proSources + '?limit=24'")
+    && html.includes('allItems.slice(0, 12)')
+    && html.includes('class="signal-list"'));
 assert('keyword lookup table separates PC and mobile',
   html.includes('<th>PC</th>') && html.includes('<th>모바일</th>') && html.includes('<th>전체</th>') && html.includes('<tbody id="keywordRows">'));
 
@@ -103,6 +116,10 @@ assert('result center exposes KPI summary and keyword actions',
 assert('renders feature-specific tool settings panel',
   html.includes('id="toolConsole"')
     && html.includes('id="toolTabs"')
+    && html.includes('id="toolDetail"')
+    && html.includes('id="toolResultPanel"')
+    && html.includes('function renderToolDetail')
+    && html.includes('function renderToolFeatureResult')
     && html.includes('id="toolSeedInput"')
     && html.includes('id="toolCategory"')
     && html.includes('id="toolTargetCount"')

@@ -231,7 +231,7 @@ export function buildPublicSourceSignalPayload(snapshot: MobileSourceSignalSnaps
     fallbackUsed: clean.fallbackUsed,
     lanes: lanes.map((lane) => ({
       ...lane,
-      items: lane.items.slice(0, 6),
+      items: lane.items.slice(0, 12),
     })),
     snapshot: clean,
   };
