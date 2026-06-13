@@ -48,6 +48,7 @@ export interface MobileLiveGoldenRadarOptions {
     options: Parameters<typeof discoverDirectGoldenKeywords>[1],
   ) => Promise<MDPResult[]>;
   liveSeedProvider?: (categoryId: string) => Promise<string[]>;
+  measureLiveDocumentCount?: typeof measureDocumentCount;
   enableBackfill?: boolean;
   shouldRun?: () => MobileLiveGoldenRadarRunGate | boolean;
   setIntervalFn?: (handler: () => void, intervalMs: number) => unknown;
@@ -97,6 +98,8 @@ const PUBLIC_PREVIEW_PROTECTED_TOP_COUNT = 3;
 const LIVE_BOARD_CATEGORY_SHARE_CAP = 0.24;
 const LIVE_BOARD_CLUSTER_MAX = 2;
 const LIVE_DIRECT_CANDIDATE_MAX_PER_CYCLE = 600;
+const LIVE_ISSUE_FALLBACK_DOCUMENT_LIMIT = 24;
+const LIVE_ISSUE_FALLBACK_CONCURRENCY = 4;
 const NEWS_HEADLINE_FRAGMENT_RE = /(?:\uBD80\uCE5C\uC0C1|\uC0AC\uACFC|\uAD6C\uC18D\uC601\uC7A5|\uD610\uC758|\uC870\uC0AC|\uB17C\uB780|\uC911\uB2E8|\uC778\uC99D|\uC9C0\uC5F0|\uBC15\uC218|\uC120\uC218\uB4E4|\uBC29\uBB38|\uC2AC\uD514|\uD574\uBA85|\uBC1C\uC5B8|\uC120\uACE0|\uCCB4\uD3EC|\uC555\uC218\uC218\uC0C9|\uC0AC\uB9DD|\uBCC4\uC138|\uACB0\uBCC4|\uC5F4\uC560|\uD63C\uC778)/u;
 const SEMANTIC_CLUSTER_SUFFIX_RE = new RegExp(`(?:${[
   '\\uBA87\\uBD80\\uC791',
@@ -875,6 +878,63 @@ function rowToBackfillResult(
   return isLiveRadarQualityResult(result) ? result : null;
 }
 
+function liveIssueFallbackGrade(score: number, docs: number | null): MobileResultGrade {
+  if (docs !== null && docs <= 300 && score >= 78) return 'SS';
+  if (docs !== null && docs <= 1_000 && score >= 68) return 'S';
+  if (docs !== null && docs <= 5_000 && score >= 58) return 'A';
+  if (docs !== null && docs <= 20_000 && score >= 45) return 'B';
+  return 'C';
+}
+
+function liveIssueFallbackScore(keyword: string, docs: number | null): number {
+  const scarcity = docs === null
+    ? 0
+    : docs <= 100
+      ? 42
+      : docs <= 300
+        ? 36
+        : docs <= 1_000
+          ? 30
+          : docs <= 3_000
+            ? 22
+            : docs <= 10_000
+              ? 12
+              : 4;
+  const need = keywordNeedScore(keyword, 'live-issue-fallback');
+  const longTail = keywordLongTailScore(keyword);
+  return Math.min(88, Math.round(28 + scarcity + need * 0.45 + longTail * 0.35));
+}
+
+function metricFromLiveIssueFallback(keyword: string, categoryId: string, docs: number | null): MobileKeywordMetric | null {
+  const clean = normalizeKeyword(keyword);
+  if (!clean || !isLiveRadarUsableKeyword(clean, null, docs)) return null;
+  if (!isActionableLiveKeyword(clean) && !SPECIFIC_LIVE_KEYWORD_HINT_RE.test(clean)) return null;
+  if (docs !== null && docs > 20_000) return null;
+  const score = liveIssueFallbackScore(clean, docs);
+  const grade = liveIssueFallbackGrade(score, docs);
+  if (grade === 'C') return null;
+  return {
+    keyword: clean,
+    grade,
+    score,
+    pcSearchVolume: null,
+    mobileSearchVolume: null,
+    totalSearchVolume: null,
+    documentCount: docs,
+    goldenRatio: null,
+    cpc: null,
+    category: inferLiveCategory(clean, categoryId || 'live'),
+    source: 'mobile-live-issue-document-radar',
+    intent: 'live-issue-document-gap',
+    evidence: [
+      'realtime-source-signal',
+      docs === null ? 'document-count-pending' : `document-count:${docs}`,
+      'search-volume-not-yet-in-monthly-api',
+    ],
+    isMeasured: docs !== null,
+  };
+}
+
 function mapDirectResult(result: MDPResult, categoryId: string): MobileKeywordMetric {
   const totalSearchVolume = finiteNumber(result.searchVolume);
   const documentCount = finiteNumber(result.documentCount);
@@ -950,6 +1010,8 @@ export class MobileLiveGoldenRadar {
     options: Parameters<typeof discoverDirectGoldenKeywords>[1],
   ) => Promise<MDPResult[]>;
   private readonly liveSeedProvider?: (categoryId: string) => Promise<string[]>;
+  private readonly measureLiveDocumentCount: typeof measureDocumentCount;
+  private readonly hasCustomLiveDocumentMeasure: boolean;
   private readonly enableBackfill: boolean;
   private readonly shouldRun: () => MobileLiveGoldenRadarRunGate | boolean;
   private readonly setIntervalFn: (handler: () => void, intervalMs: number) => unknown;
@@ -1005,6 +1067,8 @@ export class MobileLiveGoldenRadar {
     this.getEnvConfig = options.getEnvConfig || (() => EnvironmentManager.getInstance().getConfig());
     this.discover = options.discover || discoverDirectGoldenKeywords;
     this.liveSeedProvider = options.liveSeedProvider;
+    this.measureLiveDocumentCount = options.measureLiveDocumentCount || measureDocumentCount;
+    this.hasCustomLiveDocumentMeasure = Boolean(options.measureLiveDocumentCount);
     this.enableBackfill = options.enableBackfill !== false;
     this.shouldRun = options.shouldRun || (() => true);
     this.setIntervalFn = options.setIntervalFn || ((handler, intervalMs) => setInterval(handler, intervalMs));
@@ -1178,8 +1242,35 @@ export class MobileLiveGoldenRadar {
       appendUniqueMdpResults(ranked, rankedBackfill, seen, this.cycleLimit, isNovel);
       appendUniqueMdpResults(ranked, rankedPrimary, seen, this.cycleLimit);
       appendUniqueMdpResults(ranked, rankedBackfill, seen, this.cycleLimit);
+      const rankedMetrics = ranked.map((item) => mapDirectResult(item, categoryId));
+      const liveIssueFallback = rankedMetrics.length < this.cycleLimit && (this.enableBackfill || this.hasCustomLiveDocumentMeasure)
+        ? await this.discoverLiveIssueFallback(categoryId, liveSeeds)
+        : [];
+      const resultMetrics: MobileKeywordMetric[] = [...rankedMetrics];
+      const metricSeen = new Set<string>();
+      for (const metric of rankedMetrics) {
+        metricSeen.add(`id:${keywordId(metric.keyword)}`);
+        metricSeen.add(`compact:${keywordCompactId(metric.keyword)}`);
+      }
+      for (const metric of liveIssueFallback) {
+        if (resultMetrics.length >= this.cycleLimit) break;
+        const id = keywordId(metric.keyword);
+        const compactId = keywordCompactId(metric.keyword);
+        const cluster = keywordClusterKey(metric.keyword);
+        if (
+          metricSeen.has(`id:${id}`)
+          || metricSeen.has(`compact:${compactId}`)
+          || existingIds.has(id)
+          || (cluster && existingClusters.has(cluster))
+        ) {
+          continue;
+        }
+        metricSeen.add(`id:${id}`);
+        metricSeen.add(`compact:${compactId}`);
+        resultMetrics.push(metric);
+      }
       const result = resultFromMetrics(
-        ranked.map((item) => mapDirectResult(item, categoryId)),
+        resultMetrics,
         startedAtMs,
       );
       this.mergeBoard(result.keywords);
@@ -1194,7 +1285,10 @@ export class MobileLiveGoldenRadar {
 
       this.publishedCount += published.length;
       this.successfulRuns += 1;
-      this.lastMessage = `${categoryId} ${result.summary.total} found, ${published.length} published`;
+      const fallbackCount = result.keywords.filter((item) => item.source === 'mobile-live-issue-document-radar').length;
+      this.lastMessage = fallbackCount > 0
+        ? `${categoryId} ${result.summary.total} found (${fallbackCount} live issue fallback), ${published.length} published`
+        : `${categoryId} ${result.summary.total} found, ${published.length} published`;
     } catch (err) {
       this.failedRuns += 1;
       this.lastError = (err as Error).message || String(err);
@@ -1300,7 +1394,7 @@ export class MobileLiveGoldenRadar {
       ) {
         documentCountSupplements += 1;
         const measuredDc = await withTimeout(
-          measureDocumentCount(row.keyword, {
+          this.measureLiveDocumentCount(row.keyword, {
             searchVolume: volume,
             scrapeTimeoutMs: 1500,
           }).catch(() => null),
@@ -1326,6 +1420,73 @@ export class MobileLiveGoldenRadar {
       requireActionableIntent: true,
       qualityBackfillToTarget: true,
     });
+  }
+
+  private async discoverLiveIssueFallback(categoryId: string, liveSeeds: string[]): Promise<MobileKeywordMetric[]> {
+    const liveSeedBases = normalizeLiveSeeds(liveSeeds, 36);
+    if (liveSeedBases.length === 0) return [];
+
+    const liveBaseIds = liveSeedBases.map((seed) => keywordCompactId(seed)).filter(Boolean);
+    const isFromLiveSeed = (keyword: string): boolean => {
+      const compact = keywordCompactId(keyword);
+      return liveBaseIds.some((seedId) => compact.startsWith(seedId) || seedId.startsWith(compact));
+    };
+    const candidates = buildBackfillCandidates(categoryId, liveSeedBases, Math.min(this.maxSeeds, 240))
+      .filter(isFromLiveSeed)
+      .filter((keyword) => {
+        const clean = normalizeKeyword(keyword);
+        if (!clean || isMalformedLiveKeyword(clean) || isThinProfileIntentKeyword(clean)) return false;
+        if (!isLiveRadarUsableKeyword(clean, null, null)) return false;
+        return isActionableLiveKeyword(clean) || SPECIFIC_LIVE_KEYWORD_HINT_RE.test(clean);
+      })
+      .slice(0, LIVE_ISSUE_FALLBACK_DOCUMENT_LIMIT);
+
+    const seen = new Set<string>();
+    const out: MobileKeywordMetric[] = [];
+    const measureOne = async (keyword: string): Promise<MobileKeywordMetric | null> => {
+      const measured = await withTimeout(
+        this.measureLiveDocumentCount(keyword, {
+          searchVolume: 0,
+          scrapeTimeoutMs: 1600,
+        }).catch(() => null),
+        3500,
+        null,
+      );
+      if (!measured || measured.isEstimated || measured.dc <= 0 || measured.dc > 20_000) return null;
+      const metric = metricFromLiveIssueFallback(keyword, categoryId, measured.dc);
+      if (!metric) return null;
+      return {
+        ...metric,
+        evidence: [
+          ...metric.evidence,
+          `document-source:${measured.source}`,
+          `document-confidence:${measured.confidence}`,
+        ],
+      };
+    };
+
+    for (let i = 0; i < candidates.length && out.length < this.cycleLimit; i += LIVE_ISSUE_FALLBACK_CONCURRENCY) {
+      const batch = candidates.slice(i, i + LIVE_ISSUE_FALLBACK_CONCURRENCY);
+      const measured = await Promise.all(batch.map(measureOne));
+      for (const metric of measured) {
+        if (!metric) continue;
+        const compactId = keywordCompactId(metric.keyword);
+        if (seen.has(compactId)) continue;
+        seen.add(compactId);
+        out.push(metric);
+        if (out.length >= this.cycleLimit) break;
+      }
+    }
+
+    return out
+      .sort((a, b) => {
+        const gradeDelta = (GRADE_WEIGHT[b.grade] || 0) - (GRADE_WEIGHT[a.grade] || 0);
+        if (gradeDelta !== 0) return gradeDelta;
+        const scoreDelta = (b.score || 0) - (a.score || 0);
+        if (scoreDelta !== 0) return scoreDelta;
+        return (a.documentCount || Number.MAX_SAFE_INTEGER) - (b.documentCount || Number.MAX_SAFE_INTEGER);
+      })
+      .slice(0, this.cycleLimit);
   }
 
   snapshot(): MobileLiveGoldenRadarSnapshot {

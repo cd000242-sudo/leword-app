@@ -320,6 +320,50 @@ function thinProfileCount(items: Array<{ keyword: string }>): number {
       && liveIssueSnapshot.board.some((item) => item.keyword === '파키스탄 총리 합의 정리'),
     `${capturedIssueSeeds.join('|')} :: ${liveIssueSnapshot.board.map((item) => `${item.keyword}:${item.category}`).join('|')}`);
 
+  let fallbackMeasureCalls = 0;
+  const liveIssueDocumentFallbackRadar = new MobileLiveGoldenRadar({
+    notificationInbox: inbox,
+    runOnStart: false,
+    cycleLimit: 4,
+    categories: ['all'],
+    getEnvConfig: () => ({
+      naverClientId: 'client',
+      naverClientSecret: 'secret',
+    }),
+    liveSeedProvider: async () => [
+      'KIA 3\uC5F0\uD328 \uD0C8\uCD9C! [up]',
+      '1228\uD68C \uB85C\uB610 1\uB4F1 \uB2F9\uCCA8 11\uBA85 [new]',
+      '\uD30C\uD0A4\uC2A4\uD0C4 \uCD1D\uB9AC 24\uC2DC\uAC04 \uB0B4 \uD569\uC758 \uC608\uC0C1 [new]',
+    ],
+    enableBackfill: false,
+    discover: async () => [],
+    measureLiveDocumentCount: async (keyword) => {
+      fallbackMeasureCalls += 1;
+      const dc = keyword.includes('\uB85C\uB610') ? 220 : keyword.includes('KIA') ? 360 : 640;
+      return {
+        dc,
+        source: 'scrape',
+        confidence: 'medium',
+        isEstimated: false,
+      };
+    },
+  });
+  const liveIssueDocumentFallbackSnapshot = await liveIssueDocumentFallbackRadar.runOnce();
+  assert('live issue document fallback fills board when monthly search API has no rows',
+    fallbackMeasureCalls > 0
+      && liveIssueDocumentFallbackSnapshot.board.some((item) => (
+        item.source === 'mobile-live-issue-document-radar'
+        && item.keyword.includes('\uB85C\uB610')
+        && item.documentCount === 220
+        && item.totalSearchVolume === null
+      ))
+      && liveIssueDocumentFallbackSnapshot.board.some((item) => (
+        item.source === 'mobile-live-issue-document-radar'
+        && item.keyword.includes('KIA')
+        && item.category === 'sports'
+      )),
+    liveIssueDocumentFallbackSnapshot.board.map((item) => `${item.keyword}:${item.source}:${item.documentCount}`).join('|'));
+
   const staleBoardFile = path.join(process.cwd(), 'tmp', 'mobile-live-golden-stale-board-test.json');
   fs.mkdirSync(path.dirname(staleBoardFile), { recursive: true });
   fs.writeFileSync(staleBoardFile, JSON.stringify({
