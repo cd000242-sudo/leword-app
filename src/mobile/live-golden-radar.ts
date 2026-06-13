@@ -252,6 +252,8 @@ function normalizeLiveSeedText(value: unknown): string {
     .replace(/\[[^\]]{1,40}\]/g, ' ')
     .replace(/\([^)]{1,40}\)/g, ' ')
     .replace(/[·ㆍ]/g, ' ')
+    .replace(/\s*에\s*빠진다\s*$/g, ' ')
+    .replace(/\s*빠진다\s*$/g, ' ')
     .replace(/기자\s*・.*$/g, ' ')
     .replace(/\d{4}\.\d{1,2}\.\d{1,2}.*$/g, ' ')
     .replace(/\s+/g, ' ')
@@ -685,6 +687,33 @@ function getBackfillIntents(categoryId: string): string[] {
   return ['추천', '비교', '후기', '가격', '방법', '일정', '조회', '발표', '기자회견', '논란 정리'];
 }
 
+function getLiveSeedBackfillIntents(seed: string, categoryId: string): string[] {
+  const inferred = inferLiveCategory(seed, categoryId);
+  const clean = normalizeKeyword(seed);
+  if (inferred === 'policy') return getBackfillIntents('policy');
+  if (inferred === 'sports') return getBackfillIntents('sports');
+  if (inferred === 'education') return getBackfillIntents('education');
+  if (inferred === 'music') return getBackfillIntents('music');
+  if (inferred === 'movie') return getBackfillIntents('movie');
+  if (
+    inferred === 'drama'
+    || inferred === 'broadcast'
+    || /드라마|예능|방송|시즌|신세계|하트시그널|하트 시그널|참교육|신입사원/.test(clean)
+  ) {
+    return ['몇부작', '출연진', '다시보기', '방송시간', '재방송', '결말', '인물관계도', '공식영상'];
+  }
+  return uniqueKeywords([
+    ...getBackfillIntents(inferred),
+    ...getBackfillIntents(categoryId),
+    '정리',
+    '일정',
+    '방법',
+    '후기',
+    '대상',
+    '예매',
+  ], 12);
+}
+
 function buildBackfillCandidates(categoryId: string, liveSeeds: string[], maxSeeds: number): string[] {
   const liveSeedBases = normalizeLiveSeeds(liveSeeds, 36);
   const candidateLimit = Math.max(120, Math.min(220, Math.floor(maxSeeds || 120)));
@@ -700,8 +729,11 @@ function buildBackfillCandidates(categoryId: string, liveSeeds: string[], maxSee
     const key = seed.toLowerCase().replace(/\s+/g, '');
     const seedIsLive = liveSeedSet.has(key);
     const seedAlreadySpecific = isActionableLiveKeyword(seed);
-    const intentLimit = seedIsLive ? (seedAlreadySpecific ? 0 : 3) : intents.length;
-    for (const intent of intents.slice(0, intentLimit)) {
+    const seedIntents = seedIsLive ? getLiveSeedBackfillIntents(seed, categoryId) : intents;
+    const intentLimit = seedIsLive
+      ? (seedAlreadySpecific ? Math.min(2, seedIntents.length) : Math.min(8, seedIntents.length))
+      : intents.length;
+    for (const intent of seedIntents.slice(0, intentLimit)) {
       if (!seed.includes(intent)) candidates.push(`${seed} ${intent}`);
       if (candidates.length >= candidateLimit) break;
     }

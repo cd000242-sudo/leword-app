@@ -223,6 +223,7 @@ function thinProfileCount(items: Array<{ keyword: string }>): number {
     liveSeedProvider: async () => [
       '이재명·멜로니 악수 [up]',
       '쥬얼리, 불화설 끝 20년만에 완전체.. 조민아까지 눈물 [스타이슈]김미화 기자 ・ 2026.06.12 ・ 23:23',
+      '멋진 신세계에 빠진다',
       '서건창 끝내기 안타',
     ],
     enableBackfill: false,
@@ -234,8 +235,9 @@ function thinProfileCount(items: Array<{ keyword: string }>): number {
   await seedCleaningRadar.runOnce();
   assert('live radar cleans portal/news seeds before measuring',
     capturedLiveSeeds.includes('이재명 멜로니 악수')
+      && capturedLiveSeeds.includes('멋진 신세계')
       && capturedLiveSeeds.includes('서건창 끝내기 안타')
-      && capturedLiveSeeds.every((seed) => seed.length <= 34 && !/[·\[\]]/.test(seed) && !seed.includes('기자')),
+      && capturedLiveSeeds.every((seed) => seed.length <= 34 && !/[·\[\]]/.test(seed) && !seed.includes('기자') && !seed.includes('빠진다')),
     capturedLiveSeeds.join('|'));
 
   const staleBoardFile = path.join(process.cwd(), 'tmp', 'mobile-live-golden-stale-board-test.json');
