@@ -169,6 +169,8 @@ assert('renders feature-specific tool settings panel',
 
 assert('keeps technical Electron mapping hidden while retaining telemetry wiring',
   !html.includes('Electron 기능 매핑')
+    && !html.includes('Electron IPC')
+    && !html.includes('Electron \uAE30\uB2A5')
     && html.includes('id="featureCatalogStrip"')
     && html.includes('id="featureCatalogTabs" hidden')
     && html.includes('id="featureCatalogList" hidden')

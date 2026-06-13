@@ -1838,8 +1838,8 @@ export function renderLewordProWeb(): string {
         return;
       }
       if (!canRunCatalogItem(item)) {
-        setResult({ electronFeature: item, message: '이 Electron 기능은 웹 전용 입력 폼 또는 PC 전용 권한이 필요합니다.' });
-        renderResultSummary(item.title || item.handler || 'Electron 기능', '아직 웹에서 직접 실행하지 않는 항목입니다. 서버 라우트와 상태는 카탈로그에 기록되어 있습니다.', [
+        setResult({ proFeature: item, message: '이 Pro 기능은 웹 전용 입력 폼 또는 PC 앱 권한이 필요합니다.' });
+        renderResultSummary(item.title || item.handler || 'Pro 기능', '아직 웹에서 직접 실행하지 않는 항목입니다. 서버 라우트와 상태는 내부적으로 기록되어 있습니다.', [
           { label: '상태', value: catalogStatusLabel(item.status) },
           { label: 'IPC', value: item.ipcEquivalent || item.handler || '-' },
           { label: '라우트', value: item.mobileRoute || '-' },
@@ -1849,7 +1849,7 @@ export function renderLewordProWeb(): string {
       }
       apiGet(item.mobileRoute, true).then(function(payload) {
         setResult({ electronFeature: item, payload: payload });
-        renderResultSummary(item.title || item.handler || 'Electron 기능', '서버 연결 상태를 확인했습니다.', [
+        renderResultSummary(item.title || item.handler || 'Pro 기능', '서버 연결 상태를 확인했습니다.', [
           { label: '상태', value: catalogStatusLabel(item.status) },
           { label: 'IPC', value: item.ipcEquivalent || item.handler || '-' },
           { label: '라우트', value: item.mobileRoute || '-' },
@@ -1857,7 +1857,7 @@ export function renderLewordProWeb(): string {
         ], []);
       }).catch(function(err) {
         setResult({ electronFeature: item, error: err.message });
-        renderResultSummary(item.title || item.handler || 'Electron 기능 실패', err.message, [
+        renderResultSummary(item.title || item.handler || 'Pro 기능 실패', err.message, [
           { label: '상태', value: '오류' },
           { label: '라우트', value: item.mobileRoute || '-' },
           { label: '시간', value: new Date().toLocaleTimeString('ko-KR') },
@@ -1882,7 +1882,7 @@ export function renderLewordProWeb(): string {
       if (!stripTarget || !listTarget) return;
       renderCatalogTabs(catalog);
       stripTarget.innerHTML = [
-        catalogPill('Electron IPC', total ? fmt(total) : '로그인 후', '전체 기능 표면'),
+        catalogPill('전체 기능', total ? fmt(total) : '로그인 후', 'Pro 웹 사용 가능 범위'),
         catalogPill('즉시 실행', fmt(ready), '서버 job 실행'),
         catalogPill('서버 연동', fmt(linked), '스냅샷/저장/발행'),
         catalogPill('분리 예정', fmt(planned), '웹 전환 후보'),
@@ -1918,7 +1918,7 @@ export function renderLewordProWeb(): string {
           + '</article>';
       }).join('');
       if (!priority.length) {
-        listTarget.innerHTML = '<div class="catalog-empty">이 탭에는 표시할 Electron 기능이 없습니다. 다른 서브탭을 선택하거나 서버 상태를 새로고침하세요.</div>';
+        listTarget.innerHTML = '<div class="catalog-empty">이 탭에는 표시할 Pro 기능이 없습니다. 다른 서브탭을 선택하거나 서버 상태를 새로고침하세요.</div>';
       }
     }
     function setActiveOpsTab(id) {
