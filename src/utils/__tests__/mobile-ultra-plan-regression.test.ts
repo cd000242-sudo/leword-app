@@ -853,8 +853,9 @@ assert('mobile result cache can persist to disk',
     && /fs\.readFileSync/.test(resultCache));
 assert('mobile result cache does not replay empty keyword results',
   /isCacheableResult/.test(resultCache)
-    && /keywords\.length > 0/.test(resultCache)
-    && /this\.entries\.delete\(key\)/.test(resultCache));
+    && /keywords\.length === 0/.test(resultCache)
+    && /this\.entries\.delete\(key\)/.test(resultCache)
+    && /live-source-fallback/.test(resultCache));
 assert('mobile prewarm service warms default high-impact targets',
   /DEFAULT_MOBILE_PREWARM_TARGETS/.test(prewarmService)
     && /policy-golden-precision/.test(prewarmService)

@@ -532,7 +532,35 @@ async function buildMeasuredIntentFallback(
   context: MobileJobExecutorContext,
   measureKeywordMetrics: MobileKeywordMetricsAdapter,
 ): Promise<MobileKeywordMetric[]> {
-  const candidates = buildCleanIntentCandidates(seed, Math.max(6, limit))
+  const base = stripKnownIntent(seed) || normalizeKeyword(seed);
+  const directIntents = [
+    '추천',
+    '후기',
+    '가격',
+    '비교',
+    '순위',
+    '사용법',
+    '주의사항',
+    '전기세',
+    '용량',
+    '청소',
+    '렌탈',
+    '할인',
+    '구매처',
+    '가성비',
+    '소음',
+  ];
+  const seen = new Set<string>();
+  const keywords = [
+    ...directIntents.map((intentKeyword) => `${base} ${intentKeyword}`),
+    ...buildCleanIntentCandidates(seed, Math.max(6, limit * 2)),
+  ].filter((keyword) => {
+    const key = compactKeyword(keyword);
+    if (!key || seen.has(key)) return false;
+    seen.add(key);
+    return true;
+  });
+  const candidates = keywords
     .slice(0, limit)
     .map((keyword, index) => metricFromExpansion(
       keyword,

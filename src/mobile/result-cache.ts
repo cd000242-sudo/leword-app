@@ -54,7 +54,15 @@ function cloneResult(result: MobileKeywordResult, fromCache: boolean): MobileKey
 }
 
 function isCacheableResult(result: MobileKeywordResult | undefined): boolean {
-  return Array.isArray(result?.keywords) && result.keywords.length > 0;
+  const keywords = result?.keywords;
+  if (!Array.isArray(keywords) || keywords.length === 0) return false;
+  const hasUsefulMetric = keywords.some((item) => {
+    const total = typeof item.totalSearchVolume === 'number' ? item.totalSearchVolume : 0;
+    const docs = typeof item.documentCount === 'number' ? item.documentCount : 0;
+    return item.isMeasured === true || total > 0 || docs > 0;
+  });
+  const allLiveSourceFallback = keywords.every((item) => String(item.source || '').includes('live-source-fallback'));
+  return hasUsefulMetric || !allLiveSourceFallback;
 }
 
 export function makeMobileResultCacheKey(product: MobileKeywordProduct, params: unknown): string {
