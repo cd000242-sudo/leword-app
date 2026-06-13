@@ -57,7 +57,6 @@ export interface MobileLiveGoldenRadarOptions {
 }
 
 const DEFAULT_CATEGORIES = Object.freeze([
-  'all',
   'policy',
   'sports',
   'education',
@@ -85,7 +84,7 @@ const DEFAULT_CATEGORIES = Object.freeze([
 const PUBLIC_PREVIEW_ROTATION_MS = 60_000;
 const LIVE_SEED_COLLECTION_TIMEOUT_MS = 5_000;
 const LIVE_DISCOVERY_TIMEOUT_MS = 45_000;
-const LIVE_BACKFILL_TIMEOUT_MS = 25_000;
+const LIVE_BACKFILL_TIMEOUT_MS = 35_000;
 const PUBLIC_PREVIEW_MAX_AGE_MS = 48 * 60 * 60 * 1000;
 const LIVE_BOARD_MAX_AGE_MS = 7 * 24 * 60 * 60 * 1000;
 const BROAD_KEYWORD_VOLUME_CEILING = 500_000;
@@ -1216,7 +1215,7 @@ export class MobileLiveGoldenRadar {
   ): Promise<MDPResult[]> {
     const candidates = buildBackfillCandidates(categoryId, liveSeeds, this.maxSeeds);
     if (candidates.length === 0) return [];
-    const measurementLimit = Math.max(120, Math.min(360, Math.floor(this.maxCandidates * 0.25)));
+    const measurementLimit = Math.max(60, Math.min(120, Math.floor(this.maxCandidates * 0.05)));
     const rows = await withTimeout(getNaverKeywordSearchVolumeSeparate(config, candidates.slice(0, measurementLimit), {
       includeDocumentCount: true,
     }), LIVE_BACKFILL_TIMEOUT_MS, []);
