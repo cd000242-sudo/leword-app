@@ -1176,8 +1176,8 @@ export const MOBILE_PC_PARITY_SLA = Object.freeze({
     cacheTtlMinutesForFreshIssue: 15,
     cacheTtlMinutesForEvergreen: 1440,
     liveGoldenIntervalMinutes: 12,
-    liveGoldenCycleLimit: 8,
-    liveGoldenMaxCandidates: 420,
+    liveGoldenCycleLimit: 15,
+    liveGoldenMaxCandidates: 3600,
   },
   apiGuardrails: {
     maxBodyBytesDefault: 64 * 1024,

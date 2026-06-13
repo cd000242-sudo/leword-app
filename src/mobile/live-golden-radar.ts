@@ -57,15 +57,16 @@ export interface MobileLiveGoldenRadarOptions {
 }
 
 const DEFAULT_CATEGORIES = Object.freeze([
-  'celeb',
-  'broadcast',
+  'all',
+  'policy',
+  'sports',
+  'education',
   'drama',
+  'broadcast',
   'movie',
   'music',
-  'sports',
-  'policy',
+  'celeb',
   'finance',
-  'education',
   'life_tips',
   'home_life',
   'fashion',
@@ -82,9 +83,9 @@ const DEFAULT_CATEGORIES = Object.freeze([
 ]);
 
 const PUBLIC_PREVIEW_ROTATION_MS = 60_000;
-const LIVE_SEED_COLLECTION_TIMEOUT_MS = 3_500;
-const LIVE_DISCOVERY_TIMEOUT_MS = 55_000;
-const LIVE_BACKFILL_TIMEOUT_MS = 25_000;
+const LIVE_SEED_COLLECTION_TIMEOUT_MS = 5_000;
+const LIVE_DISCOVERY_TIMEOUT_MS = 120_000;
+const LIVE_BACKFILL_TIMEOUT_MS = 45_000;
 const PUBLIC_PREVIEW_MAX_AGE_MS = 48 * 60 * 60 * 1000;
 const LIVE_BOARD_MAX_AGE_MS = 7 * 24 * 60 * 60 * 1000;
 const BROAD_KEYWORD_VOLUME_CEILING = 500_000;
@@ -716,11 +717,11 @@ function getLiveSeedBackfillIntents(seed: string, categoryId: string): string[] 
 
 function buildBackfillCandidates(categoryId: string, liveSeeds: string[], maxSeeds: number): string[] {
   const liveSeedBases = normalizeLiveSeeds(liveSeeds, 36);
-  const candidateLimit = Math.max(120, Math.min(220, Math.floor(maxSeeds || 120)));
+  const candidateLimit = Math.max(120, Math.min(1000, Math.floor(maxSeeds || 240)));
   const baseSeeds = uniqueKeywords([
     ...liveSeedBases,
     ...getDiscoveryCategorySeeds(categoryId, Math.max(24, Math.min(80, maxSeeds))),
-  ], 48);
+  ], Math.max(80, Math.min(240, maxSeeds || 120)));
   const intents = getBackfillIntents(categoryId);
   const liveSeedSet = new Set(liveSeedBases.map((seed) => seed.toLowerCase().replace(/\s+/g, '')));
   const candidates: string[] = [];
@@ -905,8 +906,10 @@ export class MobileLiveGoldenRadar {
     )));
     this.publicPreviewCount = Math.max(1, Math.min(10, Math.floor(options.publicPreviewCount || 5)));
     this.boardFile = normalizeKeyword(options.boardFile || '') || undefined;
-    this.maxSeeds = Math.max(20, Math.min(200, Math.floor(options.maxSeeds || 80)));
-    this.maxCandidates = Math.max(120, Math.min(800, Math.floor(
+    this.maxSeeds = Math.max(20, Math.min(1000, Math.floor(
+      options.maxSeeds || Math.max(240, this.boardTarget * 8),
+    )));
+    this.maxCandidates = Math.max(120, Math.min(3600, Math.floor(
       options.maxCandidates || MOBILE_PC_PARITY_SLA.workerBudgets.liveGoldenMaxCandidates,
     )));
     this.startupCatchUpCycles = Math.max(1, Math.min(8, Math.floor(
@@ -994,8 +997,8 @@ export class MobileLiveGoldenRadar {
         includeCrossCategory: false,
         requireCategoryMatch: false,
         includeSearchAdSuggestions: true,
-        suggestionSeedLimit: 4,
-        suggestionsPerSeed: 8,
+        suggestionSeedLimit: 16,
+        suggestionsPerSeed: 24,
         maxSimilarPerCluster: 2,
       }), LIVE_DISCOVERY_TIMEOUT_MS, []);
       let qualityDirect = direct.filter(isLiveRadarQualityResult);
@@ -1019,14 +1022,14 @@ export class MobileLiveGoldenRadar {
         }, {
           category: 'all',
           limit: discoveryLimit,
-          maxSeeds: Math.min(this.maxSeeds, 200),
-          maxCandidates: Math.min(this.maxCandidates, 420),
+          maxSeeds: this.maxSeeds,
+          maxCandidates: this.maxCandidates,
           liveSeeds,
           includeCrossCategory: true,
           requireCategoryMatch: false,
           includeSearchAdSuggestions: true,
-          suggestionSeedLimit: 3,
-          suggestionsPerSeed: 6,
+          suggestionSeedLimit: 16,
+          suggestionsPerSeed: 24,
           maxSimilarPerCluster: 2,
         }), LIVE_DISCOVERY_TIMEOUT_MS, []);
         const globalQuality = globalDirect.filter(isLiveRadarQualityResult);
@@ -1133,28 +1136,28 @@ export class MobileLiveGoldenRadar {
   private async collectLiveSeeds(categoryId: string): Promise<string[]> {
     try {
       if (this.liveSeedProvider) {
-        return normalizeLiveSeeds(await this.liveSeedProvider(categoryId), 28);
+        return normalizeLiveSeeds(await this.liveSeedProvider(categoryId), 80);
       }
-      const fallbackSeeds = getDiscoveryCategorySeeds(categoryId, 24);
+      const fallbackSeeds = getDiscoveryCategorySeeds(categoryId, 60);
       const [
         signalRows,
         policyRows,
         issueRows,
       ] = await Promise.all([
         withTimeout(
-          import('../utils/signal-bz-crawler').then(({ getSignalBzKeywords }) => getSignalBzKeywords(8)),
+          import('../utils/signal-bz-crawler').then(({ getSignalBzKeywords }) => getSignalBzKeywords(16)),
           LIVE_SEED_COLLECTION_TIMEOUT_MS,
           [],
         ),
         withTimeout(
-          import('../utils/policy-briefing-api').then(({ getPolicyBriefingKeywords }) => getPolicyBriefingKeywords(8)),
+          import('../utils/policy-briefing-api').then(({ getPolicyBriefingKeywords }) => getPolicyBriefingKeywords(16)),
           LIVE_SEED_COLLECTION_TIMEOUT_MS,
           [],
         ),
         withTimeout(
           import('../utils/entertainment-news-aggregator').then(({ fetchEntertainmentAggregate }) => fetchEntertainmentAggregate({
             maxMinutesAgo: 360,
-            limitPerSource: 4,
+            limitPerSource: 8,
           })),
           LIVE_SEED_COLLECTION_TIMEOUT_MS,
           [],
@@ -1178,9 +1181,9 @@ export class MobileLiveGoldenRadar {
           fallback.push(keyword);
         }
       }
-      return uniqueKeywords([...normalizeLiveSeeds(matched, 18), ...normalizeLiveSeeds(fallback, 8), ...fallbackSeeds], 28);
+      return uniqueKeywords([...normalizeLiveSeeds(matched, 50), ...normalizeLiveSeeds(fallback, 24), ...fallbackSeeds], 80);
     } catch {
-      return uniqueKeywords(getDiscoveryCategorySeeds(categoryId, 24), 24);
+      return uniqueKeywords(getDiscoveryCategorySeeds(categoryId, 60), 60);
     }
   }
 
@@ -1191,7 +1194,7 @@ export class MobileLiveGoldenRadar {
   ): Promise<MDPResult[]> {
     const candidates = buildBackfillCandidates(categoryId, liveSeeds, this.maxSeeds);
     if (candidates.length === 0) return [];
-    const measurementLimit = Math.max(100, Math.min(220, Math.floor(this.maxCandidates * 0.5)));
+    const measurementLimit = Math.max(160, Math.min(900, Math.floor(this.maxCandidates * 0.5)));
     const rows = await withTimeout(getNaverKeywordSearchVolumeSeparate(config, candidates.slice(0, measurementLimit), {
       includeDocumentCount: true,
     }), LIVE_BACKFILL_TIMEOUT_MS, []);
