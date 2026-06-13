@@ -89,6 +89,42 @@ function thinProfileCount(items: Array<{ keyword: string }>): number {
     !snapshot.board.some((item) => item.keyword === '리센느 프로필'),
     snapshot.board.map((item) => item.keyword).join('|'));
 
+  let catchupDiscoverCalls = 0;
+  const catchupRadar = new MobileLiveGoldenRadar({
+    notificationInbox: inbox,
+    runOnStart: false,
+    cycleLimit: 3,
+    boardTarget: 10,
+    maxCandidates: 180,
+    categories: ['policy', 'sports', 'education'],
+    getEnvConfig: () => ({
+      naverClientId: 'client',
+      naverClientSecret: 'secret',
+    }),
+    liveSeedProvider: async () => [],
+    enableBackfill: false,
+    discover: async () => {
+      const batch = catchupDiscoverCalls + 1;
+      catchupDiscoverCalls += 1;
+      return [
+        result(`청년미래적금 ${batch}차 신청 대상`, 0),
+        result(`소상공인 환급금 ${batch}차 조회 방법`, 1),
+        result(`6모 등급컷 ${batch}차 확인`, 2),
+      ];
+    },
+  });
+  const catchupSnapshot = await catchupRadar.runUntilTarget(4);
+  assert('live radar catch-up fills board target across multiple cycles',
+    catchupDiscoverCalls === 4
+      && catchupSnapshot.successfulRuns === 4
+      && catchupSnapshot.boardCount === 10,
+    JSON.stringify({
+      calls: catchupDiscoverCalls,
+      successfulRuns: catchupSnapshot.successfulRuns,
+      boardCount: catchupSnapshot.boardCount,
+      keywords: catchupSnapshot.board.map((item) => item.keyword),
+    }));
+
   const profileFloodRadar = new MobileLiveGoldenRadar({
     notificationInbox: inbox,
     runOnStart: false,

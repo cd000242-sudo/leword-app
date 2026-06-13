@@ -1279,7 +1279,17 @@ export function createLewordApiServer(options: LewordApiServerOptions = {}): htt
         json(res, 503, { ok: false, message: 'mobile live golden radar disabled' } satisfies MobileJobErrorResponse);
         return;
       }
-      json(res, 202, { ok: true, snapshot: await liveGoldenRadar.runOnce() });
+      try {
+        const body = await parseBody(req, maxBodyBytes) as { cycles?: unknown };
+        const requestedCycles = Number(body?.cycles || url.searchParams.get('cycles') || 1);
+        const cycles = Number.isFinite(requestedCycles) ? Math.max(1, Math.min(8, Math.floor(requestedCycles))) : 1;
+        const snapshot = cycles > 1
+          ? await liveGoldenRadar.runUntilTarget(cycles)
+          : await liveGoldenRadar.runOnce();
+        json(res, 202, { ok: true, snapshot, cycles });
+      } catch (err) {
+        handleBodyError(res, err, maxBodyBytes);
+      }
       return;
     }
 

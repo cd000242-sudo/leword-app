@@ -39,6 +39,7 @@ export interface MobileLiveGoldenRadarOptions {
   boardFile?: string;
   maxSeeds?: number;
   maxCandidates?: number;
+  startupCatchUpCycles?: number;
   categories?: string[];
   getEnvConfig?: () => Partial<EnvConfig>;
   discover?: (
@@ -824,6 +825,7 @@ export class MobileLiveGoldenRadar {
   private readonly boardFile?: string;
   private readonly maxSeeds: number;
   private readonly maxCandidates: number;
+  private readonly startupCatchUpCycles: number;
   private readonly categories: string[];
   private readonly getEnvConfig: () => Partial<EnvConfig>;
   private readonly discover: (
@@ -875,6 +877,9 @@ export class MobileLiveGoldenRadar {
     this.maxCandidates = Math.max(120, Math.min(800, Math.floor(
       options.maxCandidates || MOBILE_PC_PARITY_SLA.workerBudgets.liveGoldenMaxCandidates,
     )));
+    this.startupCatchUpCycles = Math.max(1, Math.min(8, Math.floor(
+      options.startupCatchUpCycles || Math.ceil(this.boardTarget / Math.max(1, this.cycleLimit)),
+    )));
     this.categories = (options.categories || DEFAULT_CATEGORIES)
       .map((item) => normalizeKeyword(item))
       .filter(Boolean);
@@ -900,7 +905,7 @@ export class MobileLiveGoldenRadar {
     if (this.runOnStart) {
       this.startTimer = this.setTimeoutFn(() => {
         this.startTimer = null;
-        void this.runOnce();
+        void this.runUntilTarget(this.startupCatchUpCycles);
       }, this.runOnStartDelayMs);
     }
     this.lastMessage = 'live golden radar enabled';
@@ -1078,6 +1083,19 @@ export class MobileLiveGoldenRadar {
     }
 
     return this.snapshot();
+  }
+
+  async runUntilTarget(maxCycles = this.startupCatchUpCycles): Promise<MobileLiveGoldenRadarSnapshot> {
+    const cycleBudget = Math.max(1, Math.min(8, Math.floor(maxCycles)));
+    let snapshot = this.snapshot();
+    for (let cycle = 0; cycle < cycleBudget && snapshot.boardCount < this.boardTarget; cycle += 1) {
+      const beforeAttempts = this.totalRuns + this.skippedRuns + this.failedRuns;
+      snapshot = await this.runOnce();
+      const afterAttempts = this.totalRuns + this.skippedRuns + this.failedRuns;
+      if (snapshot.running || afterAttempts === beforeAttempts) break;
+      if (this.skippedRuns > 0 && /busy|skipped/i.test(snapshot.lastMessage || '')) break;
+    }
+    return snapshot;
   }
 
   private async collectLiveSeeds(categoryId: string): Promise<string[]> {
@@ -1471,6 +1489,7 @@ export function createMobileLiveGoldenRadarFromEnv(
   const cycleLimit = Number(process.env['LEWORD_MOBILE_LIVE_GOLDEN_LIMIT'] || 0);
   const maxSeeds = Number(process.env['LEWORD_MOBILE_LIVE_GOLDEN_MAX_SEEDS'] || 0);
   const maxCandidates = Number(process.env['LEWORD_MOBILE_LIVE_GOLDEN_MAX_CANDIDATES'] || 0);
+  const startupCatchUpCycles = Number(process.env['LEWORD_MOBILE_LIVE_GOLDEN_STARTUP_CYCLES'] || 0);
   const boardTarget = Number(process.env['LEWORD_MOBILE_LIVE_GOLDEN_BOARD_TARGET'] || 0);
   const publicPreviewCount = Number(process.env['LEWORD_PUBLIC_GOLDEN_PREVIEW_COUNT'] || 0);
   const boardFile = normalizeKeyword(process.env['LEWORD_MOBILE_LIVE_GOLDEN_BOARD_FILE'] || '');
@@ -1487,6 +1506,9 @@ export function createMobileLiveGoldenRadarFromEnv(
     boardFile: boardFile || undefined,
     maxSeeds: Number.isFinite(maxSeeds) && maxSeeds > 0 ? maxSeeds : undefined,
     maxCandidates: Number.isFinite(maxCandidates) && maxCandidates > 0 ? maxCandidates : undefined,
+    startupCatchUpCycles: Number.isFinite(startupCatchUpCycles) && startupCatchUpCycles > 0
+      ? startupCatchUpCycles
+      : undefined,
     runOnStart,
   });
 }

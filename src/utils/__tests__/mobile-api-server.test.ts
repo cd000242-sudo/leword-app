@@ -1559,42 +1559,98 @@ const result: MobileKeywordResult = {
   console.log('[mobile-api-server-prewarm.test] passed');
 
   const liveInbox = new MobileNotificationInbox();
+  let liveDiscoverCalls = 0;
   const liveGoldenRadar = new MobileLiveGoldenRadar({
     notificationInbox: liveInbox,
     runOnStart: false,
-    cycleLimit: 4,
+    cycleLimit: 8,
+    boardTarget: 10,
     maxCandidates: 160,
-    categories: ['celebrity'],
+    categories: ['policy', 'sports'],
     getEnvConfig: () => ({
       naverClientId: 'client',
       naverClientSecret: 'secret',
     }),
-    discover: async () => [
-      {
-        keyword: '2026 흠뻑쇼 일정',
-        grade: 'SSS',
-        score: 92,
-        searchVolume: 3000,
-        documentCount: 120,
-        goldenRatio: 25,
-        cpc: 100,
-        intent: 'schedule',
-        goldenReason: 'live fixture',
-        externalSources: ['api-test'],
-      } as any,
-      {
-        keyword: '리센느 프로필',
-        grade: 'SS',
-        score: 78,
-        searchVolume: 1800,
-        documentCount: 180,
-        goldenRatio: 10,
-        cpc: 90,
-        intent: 'profile',
-        goldenReason: 'live fixture',
-        externalSources: ['api-test'],
-      } as any,
-    ],
+    liveSeedProvider: async () => [],
+    enableBackfill: false,
+    discover: async () => {
+      const batch = liveDiscoverCalls + 1;
+      liveDiscoverCalls += 1;
+      return [
+        {
+          keyword: `2026 흠뻑쇼 ${batch}차 일정`,
+          grade: 'SSS',
+          score: 92,
+          searchVolume: 3000,
+          documentCount: 120,
+          goldenRatio: 25,
+          cpc: 100,
+          intent: 'schedule',
+          goldenReason: 'live fixture',
+          externalSources: ['api-test'],
+        } as any,
+        {
+          keyword: `근로장려금 ${batch}차 지급일 조회`,
+          grade: 'SS',
+          score: 78,
+          searchVolume: 1800,
+          documentCount: 180,
+          goldenRatio: 10,
+          cpc: 90,
+          intent: 'policy',
+          goldenReason: 'live fixture',
+          externalSources: ['api-test'],
+        } as any,
+        {
+          keyword: `KBO 올스타전 ${batch}차 예매 일정`,
+          grade: 'SS',
+          score: 82,
+          searchVolume: 2400,
+          documentCount: 220,
+          goldenRatio: 11,
+          cpc: 80,
+          intent: 'sports',
+          goldenReason: 'live fixture',
+          externalSources: ['api-test'],
+        } as any,
+        {
+          keyword: `6모 등급컷 ${batch}차 확인`,
+          grade: 'SS',
+          score: 80,
+          searchVolume: 2100,
+          documentCount: 200,
+          goldenRatio: 10,
+          cpc: 70,
+          intent: 'education',
+          goldenReason: 'live fixture',
+          externalSources: ['api-test'],
+        } as any,
+        {
+          keyword: `청년미래적금 ${batch}차 신청 대상`,
+          grade: 'SS',
+          score: 79,
+          searchVolume: 1900,
+          documentCount: 190,
+          goldenRatio: 10,
+          cpc: 95,
+          intent: 'policy',
+          goldenReason: 'live fixture',
+          externalSources: ['api-test'],
+        } as any,
+        {
+          keyword: '리센느 프로필',
+          grade: 'SS',
+          score: 78,
+          searchVolume: 1800,
+          documentCount: 180,
+          goldenRatio: 10,
+          cpc: 90,
+          intent: 'profile',
+          goldenReason: 'live fixture',
+          externalSources: ['api-test'],
+        } as any,
+      ];
+    },
   });
   const liveServer = createLewordApiServer({
     entitlementVerifier: null,
@@ -1613,11 +1669,18 @@ const result: MobileKeywordResult = {
         && healthJson.liveGoldenRoutes.snapshot === MOBILE_LIVE_GOLDEN_ROUTES.snapshot,
       JSON.stringify(healthJson.liveGolden));
 
-    const run = await fetch(`${liveBaseUrl}${MOBILE_LIVE_GOLDEN_ROUTES.run}`, { method: 'POST' });
+    const run = await fetch(`${liveBaseUrl}${MOBILE_LIVE_GOLDEN_ROUTES.run}`, {
+      method: 'POST',
+      headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify({ cycles: 3 }),
+    });
     const runJson: any = await run.json();
-    assert('live golden radar run route is accepted',
+    assert('live golden radar run route catches up to board target',
       run.status === 202
-        && runJson.snapshot.successfulRuns === 1
+        && runJson.cycles === 3
+        && liveDiscoverCalls === 2
+        && runJson.snapshot.boardCount === 10
+        && runJson.snapshot.successfulRuns === 2
         && runJson.snapshot.publishedCount > 0,
       JSON.stringify(runJson));
 
