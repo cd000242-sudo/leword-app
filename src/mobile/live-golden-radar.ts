@@ -95,6 +95,8 @@ const PUBLIC_PREVIEW_DOCUMENT_CEILING = 30_000;
 const PUBLIC_PREVIEW_PROFILE_INTENT_MAX = 0;
 const LIVE_BOARD_CATEGORY_SHARE_CAP = 0.24;
 const LIVE_BOARD_CLUSTER_MAX = 2;
+const LIVE_DIRECT_CANDIDATE_MAX_PER_CYCLE = 900;
+const NEWS_HEADLINE_FRAGMENT_RE = /(?:\uBD80\uCE5C\uC0C1|\uC0AC\uACFC|\uAD6C\uC18D\uC601\uC7A5|\uD610\uC758|\uC870\uC0AC|\uB17C\uB780|\uC911\uB2E8|\uC778\uC99D|\uC9C0\uC5F0|\uBC15\uC218|\uC120\uC218\uB4E4|\uBC29\uBB38|\uC2AC\uD514|\uD574\uBA85|\uBC1C\uC5B8|\uC120\uACE0|\uCCB4\uD3EC|\uC555\uC218\uC218\uC0C9|\uC0AC\uB9DD|\uBCC4\uC138|\uACB0\uBCC4|\uC5F4\uC560|\uD63C\uC778)/u;
 const SEMANTIC_CLUSTER_SUFFIX_RE = new RegExp(`(?:${[
   '\\uBA87\\uBD80\\uC791',
   '\\uCD9C\\uC5F0\\uC9C4',
@@ -180,6 +182,13 @@ function uniqueKeywords(values: string[], limit = 40): string[] {
   return out;
 }
 
+function directCandidateBudget(maxCandidates: number, cycleLimit: number): number {
+  return Math.max(
+    120,
+    Math.min(maxCandidates, LIVE_DIRECT_CANDIDATE_MAX_PER_CYCLE, Math.max(240, cycleLimit * 60)),
+  );
+}
+
 function withTimeout<T>(promise: Promise<T>, timeoutMs: number, fallback: T): Promise<T> {
   return new Promise((resolve) => {
     const timer = setTimeout(() => resolve(fallback), timeoutMs);
@@ -259,6 +268,16 @@ function normalizeLiveSeedText(value: unknown): string {
     .replace(/\d{4}\.\d{1,2}\.\d{1,2}.*$/g, ' ')
     .replace(/\s+/g, ' ')
     .trim();
+  const commaHead = normalizeKeyword(clean.split(/[,，]/u)[0] || '');
+  if (
+    commaHead
+    && commaHead !== clean
+    && commaHead.length >= 2
+    && commaHead.length <= 24
+    && /[0-9A-Za-z\uAC00-\uD7A3]/u.test(commaHead)
+  ) {
+    clean = commaHead;
+  }
   if (clean.length > 42) {
     clean = normalizeKeyword(clean.split(/[,.!?…]| - | — | \/|:/)[0] || clean);
   }
@@ -270,7 +289,10 @@ function isNoisyLiveSeed(keyword: string): boolean {
   if (!clean) return true;
   if (clean.length > 34) return true;
   if (/(기자|스타이슈|단독|종합|사진|영상|전문|속보만|무단전재)/.test(clean)) return true;
-  if (clean.split(/\s+/).length > 7) return true;
+  const tokenCount = clean.split(/\s+/).filter(Boolean).length;
+  if (tokenCount > 7) return true;
+  if (!isActionableLiveKeyword(clean) && NEWS_HEADLINE_FRAGMENT_RE.test(clean)) return true;
+  if (!isActionableLiveKeyword(clean) && tokenCount >= 5) return true;
   return false;
 }
 
@@ -985,27 +1007,11 @@ export class MobileLiveGoldenRadar {
       }
 
       const liveSeeds = await this.collectLiveSeeds(categoryId);
-      const direct = await withTimeout(this.discover({
-        clientId: env.naverClientId,
-        clientSecret: env.naverClientSecret,
-      }, {
-        category: categoryId,
-        limit: discoveryLimit,
-        maxSeeds: this.maxSeeds,
-        maxCandidates: this.maxCandidates,
-        liveSeeds,
-        includeCrossCategory: false,
-        requireCategoryMatch: false,
-        includeSearchAdSuggestions: true,
-        suggestionSeedLimit: 16,
-        suggestionsPerSeed: 24,
-        maxSimilarPerCluster: 2,
-      }), LIVE_DISCOVERY_TIMEOUT_MS, []);
-      let qualityDirect = direct.filter(isLiveRadarQualityResult);
+      const directMaxCandidates = directCandidateBudget(this.maxCandidates, this.cycleLimit);
       const existingIdsForRun = new Set(this.board.keys());
       const existingClustersForRun = new Set([...this.board.values()].map((item) => keywordClusterKey(item.keyword)).filter(Boolean));
-      const hasNovelDirect = qualityDirect.some((item) => isNovelMdpResult(item, existingIdsForRun, existingClustersForRun));
-      if (this.enableBackfill && (qualityDirect.length < this.cycleLimit || !hasNovelDirect)) {
+      let qualityDirect: MDPResult[] = [];
+      if (this.enableBackfill) {
         const backfill = await this.discoverBackfill({
           clientId: env.naverClientId,
           clientSecret: env.naverClientSecret,
@@ -1014,7 +1020,45 @@ export class MobileLiveGoldenRadar {
           qualityDirect = [...qualityDirect, ...backfill];
         }
       }
-      const novelQualityCount = qualityDirect.filter((item) => isNovelMdpResult(item, existingIdsForRun, existingClustersForRun)).length;
+
+      let novelQualityCount = qualityDirect.filter((item) => isNovelMdpResult(item, existingIdsForRun, existingClustersForRun)).length;
+      if (novelQualityCount < this.cycleLimit || qualityDirect.length < this.cycleLimit) {
+        const direct = await withTimeout(this.discover({
+          clientId: env.naverClientId,
+          clientSecret: env.naverClientSecret,
+        }, {
+          category: categoryId,
+          limit: discoveryLimit,
+          maxSeeds: this.maxSeeds,
+          maxCandidates: directMaxCandidates,
+          liveSeeds,
+          includeCrossCategory: false,
+          requireCategoryMatch: false,
+          includeSearchAdSuggestions: true,
+          suggestionSeedLimit: 12,
+          suggestionsPerSeed: 18,
+          maxSimilarPerCluster: 2,
+        }), LIVE_DISCOVERY_TIMEOUT_MS, []);
+        const directQuality = direct.filter(isLiveRadarQualityResult);
+        if (directQuality.length > 0) {
+          qualityDirect = [...qualityDirect, ...directQuality];
+        }
+      }
+
+      novelQualityCount = qualityDirect.filter((item) => isNovelMdpResult(item, existingIdsForRun, existingClustersForRun)).length;
+      if (this.enableBackfill && novelQualityCount < this.cycleLimit) {
+        const globalBackfill = categoryId === 'all'
+          ? []
+          : await this.discoverBackfill({
+            clientId: env.naverClientId,
+            clientSecret: env.naverClientSecret,
+          }, 'all', liveSeeds);
+        if (globalBackfill.length > 0) {
+          qualityDirect = [...qualityDirect, ...globalBackfill];
+        }
+      }
+
+      novelQualityCount = qualityDirect.filter((item) => isNovelMdpResult(item, existingIdsForRun, existingClustersForRun)).length;
       if (this.enableBackfill && novelQualityCount < this.cycleLimit) {
         const globalDirect = await withTimeout(this.discover({
           clientId: env.naverClientId,
@@ -1023,13 +1067,13 @@ export class MobileLiveGoldenRadar {
           category: 'all',
           limit: discoveryLimit,
           maxSeeds: this.maxSeeds,
-          maxCandidates: this.maxCandidates,
+          maxCandidates: directMaxCandidates,
           liveSeeds,
           includeCrossCategory: true,
           requireCategoryMatch: false,
           includeSearchAdSuggestions: true,
-          suggestionSeedLimit: 16,
-          suggestionsPerSeed: 24,
+          suggestionSeedLimit: 12,
+          suggestionsPerSeed: 18,
           maxSimilarPerCluster: 2,
         }), LIVE_DISCOVERY_TIMEOUT_MS, []);
         const globalQuality = globalDirect.filter(isLiveRadarQualityResult);

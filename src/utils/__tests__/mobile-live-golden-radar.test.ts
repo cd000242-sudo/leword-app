@@ -240,6 +240,36 @@ function thinProfileCount(items: Array<{ keyword: string }>): number {
       && capturedLiveSeeds.every((seed) => seed.length <= 34 && !/[·\[\]]/.test(seed) && !seed.includes('기자') && !seed.includes('빠진다')),
     capturedLiveSeeds.join('|'));
 
+  let capturedHeadlineSeeds: string[] = [];
+  const headlineCleaningRadar = new MobileLiveGoldenRadar({
+    notificationInbox: inbox,
+    runOnStart: false,
+    cycleLimit: 4,
+    categories: ['music'],
+    getEnvConfig: () => ({
+      naverClientId: 'client',
+      naverClientSecret: 'secret',
+    }),
+    liveSeedProvider: async () => [
+      '\uBC29\uD0C4\uC18C\uB144\uB2E8, 75\uBD84 \uC9C0\uC5F0 \uC0AC\uACFC',
+      '\uBCF4\uC774\uB125\uC2A4\uD2B8\uB3C4\uC5B4, \uCCAB \uC815\uADDC\uB85C 4\uC5F0\uC18D \uBC00\uB9AC\uC5B8\uC140\uB9C1',
+      '\uC815\uBABD\uADDC \uD68C\uC7A5 \uBC15\uC218\uC640 \uC120\uC218\uB4E4',
+      '2026 KBO \uC62C\uC2A4\uD0C0\uC804 \uC608\uB9E4',
+    ],
+    enableBackfill: false,
+    discover: async (_config, options) => {
+      capturedHeadlineSeeds = Array.isArray(options?.liveSeeds) ? options.liveSeeds : [];
+      return [result('2026 KBO \uC62C\uC2A4\uD0C0\uC804 \uC608\uB9E4', 0)];
+    },
+  });
+  await headlineCleaningRadar.runOnce();
+  assert('live radar sends entity/actionable seeds instead of raw news sentences',
+    capturedHeadlineSeeds.includes('\uBC29\uD0C4\uC18C\uB144\uB2E8')
+      && capturedHeadlineSeeds.includes('\uBCF4\uC774\uB125\uC2A4\uD2B8\uB3C4\uC5B4')
+      && capturedHeadlineSeeds.includes('2026 KBO \uC62C\uC2A4\uD0C0\uC804 \uC608\uB9E4')
+      && !capturedHeadlineSeeds.some((seed) => /\uC9C0\uC5F0|\uC0AC\uACFC|\uBC00\uB9AC\uC5B8\uC140\uB9C1|\uBC15\uC218|\uC120\uC218\uB4E4/.test(seed)),
+    capturedHeadlineSeeds.join('|'));
+
   const staleBoardFile = path.join(process.cwd(), 'tmp', 'mobile-live-golden-stale-board-test.json');
   fs.mkdirSync(path.dirname(staleBoardFile), { recursive: true });
   fs.writeFileSync(staleBoardFile, JSON.stringify({
