@@ -1005,7 +1005,7 @@ export function renderLewordProWeb(): string {
         const current = state.job || {};
         if (current.progressMessage) log(current.progressPercent + '% ' + current.progressMessage);
         if (current.state === 'completed') return current.result || state;
-        if (current.state === 'failed' || current.state === 'cancelled') throw new Error(current.progressMessage || current.state);
+        if (current.state === 'failed' || current.state === 'cancelled') throw new Error(current.error || current.progressMessage || current.state);
         await new Promise(function(resolve) { setTimeout(resolve, i < 6 ? 900 : 1600); });
       }
       throw new Error('job timeout');

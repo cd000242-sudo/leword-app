@@ -10,6 +10,8 @@ import {
   type MobileKeywordProduct,
   type MobileKeywordResult,
   type MobileResultGrade,
+  type MobileSignalItem,
+  type MobileSourceSignalLane,
   type ProTrafficMobileParams,
   type ShoppingConnectMobileParams,
   type YoutubeGoldenMobileParams,
@@ -65,6 +67,9 @@ import {
 import {
   discoverDirectGoldenKeywords,
 } from '../utils/direct-golden-keyword-miner';
+import {
+  buildMobileSourceSignalSnapshot,
+} from './source-signals';
 
 export class MobilePcEngineNotConnectedError extends Error {
   constructor(product: MobileKeywordProduct) {
@@ -429,6 +434,103 @@ function resultFromMetrics(
       parityMode,
     },
   };
+}
+
+function metricFromSourceSignal(
+  signal: MobileSignalItem,
+  index: number,
+  source: string,
+  intent: string,
+): MobileKeywordMetric {
+  const priorityScore = finiteNumber(signal.priority) ?? 0;
+  const score = Math.max(45, Math.min(92, 72 + priorityScore * 3 - index * 0.7));
+  return {
+    keyword: normalizeKeyword(signal.keyword || signal.title),
+    grade: normalizeGrade(undefined, score),
+    score,
+    pcSearchVolume: null,
+    mobileSearchVolume: null,
+    totalSearchVolume: null,
+    documentCount: null,
+    goldenRatio: null,
+    cpc: null,
+    category: normalizeKeyword(signal.categoryId || signal.kind) || 'live-source',
+    source,
+    intent,
+    evidence: [
+      source,
+      'server-source-signals',
+      normalizeKeyword(signal.source),
+      normalizeKeyword(signal.title),
+      normalizeKeyword(signal.description),
+    ].filter(Boolean),
+    isMeasured: false,
+  };
+}
+
+async function buildSourceSignalMetrics(
+  lane: MobileSourceSignalLane,
+  limit: number,
+  context: MobileJobExecutorContext,
+  source: string,
+  intent: string,
+  measureKeywordMetrics?: MobileKeywordMetricsAdapter,
+): Promise<MobileKeywordMetric[]> {
+  context.progress(74, `backfilling ${source} from live server source signals`);
+  const snapshot = await buildMobileSourceSignalSnapshot({
+    lane,
+    limit: Math.min(30, Math.max(6, limit)),
+  });
+  if (snapshot.fallbackUsed) {
+    context.progress(76, `${source} live source fallback was skipped because source snapshot used static fallback`);
+    return [];
+  }
+  const items = [
+    ...snapshot.realtime,
+    ...snapshot.policy,
+    ...snapshot.issues,
+  ];
+  const seen = new Set<string>();
+  const metrics = items
+    .map((item, index) => metricFromSourceSignal(item, index, source, intent))
+    .filter((item) => {
+      const key = compactKeyword(item.keyword);
+      if (!key || seen.has(key)) return false;
+      seen.add(key);
+      return true;
+    })
+    .slice(0, limit);
+  if (!metrics.length || !measureKeywordMetrics) return metrics;
+  return measureKeywordMetrics(metrics, context);
+}
+
+async function buildMeasuredIntentFallback(
+  seed: string,
+  limit: number,
+  source: string,
+  intent: string,
+  category: string,
+  context: MobileJobExecutorContext,
+  measureKeywordMetrics: MobileKeywordMetricsAdapter,
+): Promise<MobileKeywordMetric[]> {
+  const candidates = buildCleanIntentCandidates(seed, Math.max(6, limit))
+    .slice(0, limit)
+    .map((keyword, index) => metricFromExpansion(
+      keyword,
+      Math.max(45, 78 - index * 1.2),
+      source,
+      intent,
+      category,
+      [source, 'searchad-openapi-measured-fallback', `seed: ${seed}`],
+    ));
+  if (!candidates.length) return [];
+  context.progress(72, `measuring ${candidates.length} ${source} fallback candidates`);
+  return measureKeywordMetrics(candidates, context);
+}
+
+function isQuotaLimitError(err: unknown): boolean {
+  const message = String((err as any)?.message || err || '').toLowerCase();
+  return message.includes('quota') || message.includes('limit exceeded') || message.includes('쿼리 한도') || message.includes('429');
 }
 
 function normalizeGoldenDiscoveryResult(
@@ -1158,6 +1260,7 @@ async function runHomeBoardWithPcPlanner(
 async function runKinHiddenHoneyWithPcHunter(
   params: KinHiddenHoneyMobileParams,
   context: MobileJobExecutorContext,
+  measureKeywordMetrics: MobileKeywordMetricsAdapter,
 ): Promise<MobileKeywordResult> {
   const startedAt = Date.now();
   context.progress(10, `starting PC KIN hunter: ${params.tabType}`);
@@ -1181,6 +1284,17 @@ async function runKinHiddenHoneyWithPcHunter(
     .slice(0, params.targetCount)
     .map(metricFromKinQuestion)
     .filter((item: MobileKeywordMetric) => item.keyword);
+  if (metrics.length === 0) {
+    const fallback = await buildSourceSignalMetrics(
+      'issues',
+      params.targetCount,
+      context,
+      'pc-kin-live-source-fallback',
+      'kin-question-source-gap',
+      measureKeywordMetrics,
+    );
+    return resultFromMetrics(fallback, startedAt, 'pc-engine-plus');
+  }
   return resultFromMetrics(metrics, startedAt, 'pc-engine-plus');
 }
 
@@ -1199,8 +1313,29 @@ async function runShoppingConnectWithPcEngine(
   const result = await shopping.searchNaverShopping(params.keyword, {
     display: Math.min(100, Math.max(params.targetCount * 3, 30)),
     sort: params.sort,
+  }).catch(async (err: unknown) => {
+    if (!isQuotaLimitError(err)) throw err;
+    context.progress(35, `shopping quota exhausted; using SearchAd/OpenAPI measured commerce fallback for ${params.keyword}`);
+    const fallback = await buildMeasuredIntentFallback(
+      params.keyword,
+      params.targetCount,
+      'pc-shopping-quota-searchad-fallback',
+      'commerce-entry',
+      'shopping',
+      context,
+      measureKeywordMetrics,
+    );
+    return {
+      total: 0,
+      items: [],
+      fallbackMetrics: fallback,
+    } as any;
   });
   ensureNotAborted(context);
+
+  if (Array.isArray((result as any).fallbackMetrics)) {
+    return resultFromMetrics((result as any).fallbackMetrics, startedAt, 'pc-engine-plus');
+  }
 
   const scoredItems = result.items.map((item) => ({
     ...item,
@@ -1251,6 +1386,7 @@ async function runYoutubeGoldenWithPcEngine(
   params: YoutubeGoldenMobileParams,
   context: MobileJobExecutorContext,
   getEnvConfig: () => Partial<EnvConfig>,
+  measureKeywordMetrics: MobileKeywordMetricsAdapter,
 ): Promise<MobileKeywordResult> {
   const startedAt = Date.now();
   const env = getEnvConfig();
@@ -1313,6 +1449,18 @@ async function runYoutubeGoldenWithPcEngine(
       return true;
     })
     .slice(0, params.maxResults);
+
+  if (metrics.length === 0) {
+    const fallback = await buildSourceSignalMetrics(
+      'issues',
+      params.maxResults,
+      context,
+      'pc-youtube-live-source-fallback',
+      'youtube-trend-source-gap',
+      params.crossReferenceNaver ? measureKeywordMetrics : undefined,
+    );
+    return resultFromMetrics(fallback, startedAt, 'pc-engine-plus');
+  }
 
   return resultFromMetrics(metrics, startedAt, 'pc-engine-plus');
 }
@@ -1568,8 +1716,8 @@ export function createMobilePcEngineExecutor(
       }
       case 'kin-hidden-honey': {
         const params = asKinHiddenHoneyParams(job.params);
-        const adapter = options.runKinHiddenHoney || runKinHiddenHoneyWithPcHunter;
-        return adapter(params, context);
+        if (options.runKinHiddenHoney) return options.runKinHiddenHoney(params, context);
+        return runKinHiddenHoneyWithPcHunter(params, context, measureKeywordMetrics);
       }
       case 'shopping-connect': {
         const params = asShoppingConnectParams(job.params);
@@ -1580,7 +1728,7 @@ export function createMobilePcEngineExecutor(
       case 'youtube-golden': {
         const params = asYoutubeGoldenParams(job.params);
         const adapter = options.runYoutubeGolden
-          || ((payload, ctx) => runYoutubeGoldenWithPcEngine(payload, ctx, getEnvConfig));
+          || ((payload, ctx) => runYoutubeGoldenWithPcEngine(payload, ctx, getEnvConfig, measureKeywordMetrics));
         return adapter(params, context);
       }
       case 'naver-mate-hunter': {

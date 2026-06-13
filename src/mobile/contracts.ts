@@ -50,6 +50,7 @@ export interface MobileJobEnvelope<TParams, TResult> {
   state: MobileJobState;
   params: TParams;
   result?: TResult;
+  error?: string;
   progressPercent: number;
   progressMessage: string;
   createdAt: string;

@@ -142,10 +142,30 @@ async function testConcurrencyQueue(): Promise<void> {
     JSON.stringify(store.stats()));
 }
 
+async function testFailureExposesError(): Promise<void> {
+  const store = new InMemoryMobileJobStore({
+    idFactory: () => 'job_fail',
+  });
+  const executor: MobileJobExecutor = async (_job, ctx) => {
+    ctx.progress(35, 'calling quota limited provider');
+    throw new Error('provider quota exceeded');
+  };
+
+  const job = store.create('shopping-connect', { keyword: 'test' }, executor);
+  const failed = await waitForState(store, job.id, ['failed']);
+  const events = store.getEvents(job.id);
+
+  assert('failed job exposes error field', failed.error === 'provider quota exceeded');
+  assert('failed job keeps progress message for legacy clients', failed.progressMessage === 'provider quota exceeded');
+  assert('failed event exposes error field',
+    events.some((event) => event.type === 'failed' && event.error === 'provider quota exceeded'));
+}
+
 (async () => {
   await testCompletesWithProgress();
   await testCancellation();
   await testConcurrencyQueue();
+  await testFailureExposesError();
   console.log('[mobile-job-orchestrator.test] passed');
 })().catch((err) => {
   console.error(err);

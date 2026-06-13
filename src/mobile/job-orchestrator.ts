@@ -270,6 +270,7 @@ export class InMemoryMobileJobStore {
     this.jobs.set(jobId, {
       ...job,
       state: 'failed',
+      error,
       progressMessage: error,
       updatedAt: this.now().toISOString(),
     });

@@ -1,4 +1,6 @@
 import { createMobilePcEngineExecutor } from '../../mobile/pc-engine-executor';
+import * as fs from 'fs';
+import * as path from 'path';
 import type {
   MobileJobEnvelope,
   MobileKeywordMetric,
@@ -570,6 +572,22 @@ async function runInjectedNaverMate(): Promise<void> {
   assert('naver mate uses injected PC adapter fixture', progress.includes('fixture naver mate adapter'));
 }
 
+function runFallbackRegressionGuards(): void {
+  const source = fs.readFileSync(path.join(__dirname, '..', '..', 'mobile', 'pc-engine-executor.ts'), 'utf8');
+  assert('shopping connect has SearchAd/OpenAPI quota fallback',
+    source.includes('pc-shopping-quota-searchad-fallback')
+      && source.includes('isQuotaLimitError')
+      && source.includes('shopping quota exhausted'));
+  assert('KIN empty result has live source signal fallback',
+    source.includes('pc-kin-live-source-fallback')
+      && source.includes('kin-question-source-gap')
+      && source.includes('buildSourceSignalMetrics'));
+  assert('YouTube empty result has live source signal fallback',
+    source.includes('pc-youtube-live-source-fallback')
+      && source.includes('youtube-trend-source-gap')
+      && source.includes('buildSourceSignalMetrics'));
+}
+
 (async () => {
   await runKeywordAnalysis();
   await runMindmapExpansion();
@@ -581,6 +599,7 @@ async function runInjectedNaverMate(): Promise<void> {
   await runInjectedShoppingConnect();
   await runInjectedYoutubeGolden();
   await runInjectedNaverMate();
+  runFallbackRegressionGuards();
   console.log('[mobile-pc-engine-executor.test] passed');
   process.exit(0);
 })().catch((err) => {
