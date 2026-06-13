@@ -474,6 +474,8 @@ function sourceSignalKeyword(signal: MobileSignalItem): string {
   const withoutBracket = raw
     .replace(/\[[^\]]{2,60}\]/g, ' ')
     .replace(/[“”"']/g, ' ')
+    .replace(/\s*에\s*빠진다\s*$/g, '')
+    .replace(/\s*빠진다\s*$/g, '')
     .replace(/\s+/g, ' ')
     .trim();
   const firstClause = (withoutBracket.split(/[,.!?。|｜·]/)[0] || withoutBracket).trim();
@@ -485,6 +487,27 @@ function sourceSignalKeyword(signal: MobileSignalItem): string {
   const candidate = tokens.slice(0, 5).join(' ').trim();
   const resolved = candidate.length >= 2 ? candidate : raw.slice(0, 42).trim();
   return resolved.length > 42 ? resolved.slice(0, 42).trim() : resolved;
+}
+
+function sourceSignalKeywordCandidates(signal: MobileSignalItem): string[] {
+  const base = sourceSignalKeyword(signal);
+  if (!base) return [];
+  const issueIntents = ['몇부작', '출연진', '다시보기', '방송시간', '공식입장', '일정', '정리'];
+  const policyIntents = ['신청', '대상', '조건', '기간', '서류', '지급일', '방법'];
+  const realtimeIntents = ['정리', '일정', '방법', '대상', '후기', '가격', '예매'];
+  const intents = signal.kind === 'policy'
+    ? policyIntents
+    : signal.kind === 'issue' || signal.categoryId === 'celebrity'
+      ? issueIntents
+      : realtimeIntents;
+  const seen = new Set<string>();
+  return [base, ...intents.map((intentKeyword) => `${base} ${intentKeyword}`)]
+    .filter((keyword) => {
+      const key = compactKeyword(keyword);
+      if (!key || seen.has(key)) return false;
+      seen.add(key);
+      return true;
+    });
 }
 
 async function buildSourceSignalMetrics(
@@ -511,7 +534,11 @@ async function buildSourceSignalMetrics(
   ];
   const seen = new Set<string>();
   const metrics = items
-    .map((item, index) => metricFromSourceSignal(item, index, source, intent))
+    .flatMap((item, itemIndex) => sourceSignalKeywordCandidates(item)
+      .map((keyword, keywordIndex) => metricFromSourceSignal({
+        ...item,
+        keyword,
+      }, itemIndex + keywordIndex, source, intent)))
     .filter((item) => {
       const key = compactKeyword(item.keyword);
       if (!key || seen.has(key)) return false;
