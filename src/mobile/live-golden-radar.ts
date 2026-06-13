@@ -208,6 +208,14 @@ function keywordId(keyword: string): string {
     .slice(0, 80) || 'keyword';
 }
 
+function keywordCompactId(keyword: string): string {
+  return normalizeKeyword(keyword)
+    .toLowerCase()
+    .replace(/\s+/g, '')
+    .replace(/[^a-z0-9\uAC00-\uD7A3]/g, '')
+    .slice(0, 80) || keywordId(keyword);
+}
+
 function formatRange(value: number | null, kind: 'search' | 'document'): string {
   if (value === null || !Number.isFinite(value)) return 'checking';
   if (value < 20) return kind === 'search' ? 'under 20' : 'under 20';
@@ -345,8 +353,10 @@ function appendUniqueMdpResults(
     if (out.length >= limit) return;
     if (predicate && !predicate(item)) continue;
     const id = mdpResultId(item);
-    if (!id || seen.has(id)) continue;
-    seen.add(id);
+    const compactId = keywordCompactId(normalizeKeyword(item.keyword));
+    if (!id || seen.has(`id:${id}`) || seen.has(`compact:${compactId}`)) continue;
+    seen.add(`id:${id}`);
+    seen.add(`compact:${compactId}`);
     out.push(item);
   }
 }
@@ -563,12 +573,15 @@ function selectLiveBoardItems<T extends MobileLiveGoldenBoardItem>(
   const maxPerCategory = maxCategoryBoardCount(target);
   const selected: T[] = [];
   const selectedIds = new Set<string>();
+  const selectedCompactIds = new Set<string>();
   const categoryCounts = new Map<string, number>();
   const clusterCounts = new Map<string, number>();
   let profileCount = 0;
 
   const push = (item: T, options: { respectCategory?: boolean; respectCluster?: boolean } = {}): boolean => {
     if (selected.length >= target || selectedIds.has(item.id)) return false;
+    const compactId = keywordCompactId(item.keyword);
+    if (selectedCompactIds.has(compactId)) return false;
     const isProfileIntent = isThinProfileIntentKeyword(item.keyword);
     if (isProfileIntent && profileCount >= maxProfileCount) return false;
     const category = boardCategoryKey(item);
@@ -589,6 +602,7 @@ function selectLiveBoardItems<T extends MobileLiveGoldenBoardItem>(
     }
     selected.push(item);
     selectedIds.add(item.id);
+    selectedCompactIds.add(compactId);
     if (isProfileIntent) profileCount++;
     if (category) categoryCounts.set(category, (categoryCounts.get(category) || 0) + 1);
     if (cluster) clusterCounts.set(cluster, (clusterCounts.get(cluster) || 0) + 1);
@@ -1420,11 +1434,14 @@ export class MobileLiveGoldenRadar {
       if (!normalizedKeyword || keyword.grade === 'C') continue;
       if (!isLiveRadarUsableMetric({ ...keyword, keyword: normalizedKeyword })) continue;
       const id = keywordId(normalizedKeyword);
-      const existing = this.board.get(id);
+      const compactId = keywordCompactId(normalizedKeyword);
+      const existing = this.board.get(id)
+        || [...this.board.values()].find((item) => keywordCompactId(item.keyword) === compactId);
+      const boardId = existing?.id || id;
       const item: MobileLiveGoldenBoardItem = {
         ...keyword,
         keyword: normalizedKeyword,
-        id,
+        id: boardId,
         rank: existing?.rank || 0,
         discoveredAt: existing?.discoveredAt || stamp,
         updatedAt: stamp,
@@ -1434,7 +1451,7 @@ export class MobileLiveGoldenRadar {
         publicDocumentCountLabel: formatRange(keyword.documentCount, 'document'),
         publicReason: publicReason(keyword),
       };
-      this.board.set(id, item);
+      this.board.set(boardId, item);
     }
 
     this.pruneBoard();

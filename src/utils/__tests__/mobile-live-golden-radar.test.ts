@@ -460,6 +460,7 @@ function thinProfileCount(items: Array<{ keyword: string }>): number {
   const semanticClusterRows = [
     [`${heartSignalBase} \uCD9C\uC5F0\uC9C4`, 'SSS', 99, 42000, 400, 105, 'drama'],
     [`${heartSignalBase} \uBA87\uBD80\uC791`, 'SSS', 98, 39000, 420, 92, 'drama'],
+    [`\uD558\uD2B8 \uC2DC\uADF8\uB110 5 \uBA87\uBD80\uC791`, 'SSS', 98, 39000, 421, 92, 'drama'],
     [`${heartSignalBase} \uB2E4\uC2DC\uBCF4\uAE30`, 'SSS', 97, 36000, 430, 83, 'drama'],
     [`${heartSignalBase} \uACB0\uB9D0`, 'SSS', 96, 33000, 440, 75, 'drama'],
     [`${heartSignalBase} \uC6D0\uC791`, 'SSS', 95, 30000, 450, 66, 'drama'],
@@ -498,9 +499,11 @@ function thinProfileCount(items: Array<{ keyword: string }>): number {
     now: () => new Date('2026-06-13T09:00:00.000Z'),
   });
   const semanticClusterSnapshot = semanticClusterRadar.snapshot();
-  const heartSignalCount = semanticClusterSnapshot.board.filter((item) => item.keyword.includes(heartSignalRoot)).length;
+  const semanticClusterCompactKeywords = semanticClusterSnapshot.board.map((item) => item.keyword.replace(/\s+/g, ''));
+  const heartSignalCount = semanticClusterCompactKeywords.filter((keyword) => keyword.includes(heartSignalRoot)).length;
+  const heartSignalFewPartCount = semanticClusterCompactKeywords.filter((keyword) => keyword === `${heartSignalBase}\uBA87\uBD80\uC791`).length;
   assert('pro live golden board caps same-issue suffix variants by semantic cluster',
-    semanticClusterSnapshot.board.length === 10 && heartSignalCount <= 2,
+    semanticClusterSnapshot.board.length === 10 && heartSignalCount <= 2 && heartSignalFewPartCount <= 1,
     semanticClusterSnapshot.board.map((item) => `${item.rank}:${item.keyword}`).join('|'));
   assert('public live golden preview still fills the promised five lower slots after semantic clustering',
     semanticClusterSnapshot.publicPreview.length === 5,
