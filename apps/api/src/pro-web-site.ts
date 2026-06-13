@@ -203,11 +203,22 @@ export function renderLewordProWeb(): string {
       font-size: 11px;
       white-space: nowrap;
     }
-    .signal-list { display: grid; max-height: 560px; overflow: auto; padding-right: 2px; }
-    .signal { border-top: 1px solid var(--line-soft); padding: 10px 0; }
-    .signal:first-of-type { border-top: 0; padding-top: 0; }
+    .signal-list { display: grid; max-height: 560px; overflow: auto; padding-right: 2px; gap: 6px; }
+    .signal {
+      border: 1px solid rgba(159,177,200,.14);
+      border-radius: 8px;
+      padding: 10px;
+      background: rgba(7,9,13,.42);
+      cursor: pointer;
+      transition: border-color .16s ease, background .16s ease, transform .16s ease;
+    }
+    .signal:hover { border-color: rgba(91,183,255,.42); background: rgba(91,183,255,.07); transform: translateY(-1px); }
+    .signal:first-of-type { border-top: 1px solid rgba(159,177,200,.14); padding-top: 10px; }
     .signal strong { display: block; font-size: 14px; overflow-wrap: anywhere; }
     .signal span { display: block; margin-top: 4px; color: var(--muted); font-size: 12px; line-height: 1.45; }
+    .signal-source-row { display: flex; align-items: center; justify-content: space-between; gap: 8px; }
+    .signal-source-row span { margin-top: 0; }
+    .signal-actions { display: flex; gap: 6px; flex-wrap: wrap; margin-top: 8px; }
     .golden-stats { display: grid; grid-template-columns: repeat(4, minmax(0, 1fr)); gap: 10px; margin-bottom: 14px; }
     .board-stat {
       border: 1px solid var(--line-soft);
@@ -271,6 +282,12 @@ export function renderLewordProWeb(): string {
       font-size: 12px;
     }
     .tiny-btn.pro { border-color: rgba(245,197,66,.48); color: var(--gold); background: rgba(245,197,66,.09); }
+    .tiny-btn.green { border-color: rgba(53,211,153,.44); color: #bdf7dd; background: rgba(53,211,153,.08); }
+    .tiny-btn.blue { border-color: rgba(91,183,255,.44); color: #d7f1ff; background: rgba(91,183,255,.08); }
+    .volume-cell { min-width: 96px; display: grid; gap: 5px; }
+    .volume-cell strong { font-size: 12px; }
+    .volume-cell span { height: 6px; border-radius: 999px; background: rgba(159,177,200,.18); overflow: hidden; }
+    .volume-cell i { display: block; height: 100%; border-radius: inherit; background: linear-gradient(90deg, var(--gold), var(--green), var(--blue)); }
     .locked {
       border: 1px dashed rgba(248,194,27,.45);
       border-radius: 8px;
@@ -339,6 +356,26 @@ export function renderLewordProWeb(): string {
       margin-bottom: 12px;
       box-shadow: inset 0 1px 0 rgba(255,255,255,.035);
     }
+    .quick-feature-dock {
+      display: grid;
+      grid-template-columns: repeat(6, minmax(0, 1fr));
+      gap: 8px;
+      margin-bottom: 12px;
+    }
+    .quick-tool {
+      min-height: 76px;
+      border: 1px solid var(--line);
+      border-radius: 8px;
+      background: linear-gradient(180deg, rgba(18,26,38,.96), rgba(10,15,22,.98));
+      color: var(--text);
+      padding: 10px;
+      text-align: left;
+      box-shadow: inset 0 1px 0 rgba(255,255,255,.04);
+    }
+    .quick-tool:hover { border-color: rgba(245,197,66,.58); transform: translateY(-1px); }
+    .quick-tool.hot { border-color: rgba(245,197,66,.48); background: linear-gradient(135deg, rgba(245,197,66,.18), rgba(53,211,153,.08)); }
+    .quick-tool strong { display: block; font-size: 13px; line-height: 1.3; overflow-wrap: anywhere; }
+    .quick-tool span { display: block; margin-top: 5px; color: var(--muted); font-size: 11px; line-height: 1.35; overflow-wrap: anywhere; }
     .tool-group-tabs, .tool-tabs, .ops-tabs { display: flex; gap: 6px; flex-wrap: wrap; margin-bottom: 12px; }
     .tool-tab, .tool-group-tab, .ops-tab {
       min-height: 34px;
@@ -553,6 +590,25 @@ export function renderLewordProWeb(): string {
     .result-list strong { font-size: 13px; overflow-wrap: anywhere; }
     .result-list span { color: var(--muted); overflow-wrap: anywhere; }
     .result-actions { display: flex; gap: 6px; flex-wrap: wrap; }
+    .trend-card { display: grid; gap: 10px; }
+    .trend-bars {
+      height: 118px;
+      display: grid;
+      grid-template-columns: repeat(30, minmax(4px, 1fr));
+      align-items: end;
+      gap: 3px;
+      padding: 10px;
+      border: 1px solid var(--line-soft);
+      border-radius: 8px;
+      background: rgba(7,9,13,.52);
+    }
+    .trend-bar {
+      min-height: 8px;
+      border-radius: 6px 6px 0 0;
+      background: linear-gradient(180deg, var(--gold), var(--green));
+      box-shadow: 0 0 14px rgba(53,211,153,.16);
+    }
+    .trend-meta { display: flex; gap: 8px; flex-wrap: wrap; color: var(--muted); font-size: 12px; }
     .result-toolbar {
       display: grid;
       grid-template-columns: minmax(180px, 1fr) repeat(4, auto);
@@ -592,6 +648,7 @@ export function renderLewordProWeb(): string {
     }
     @media (max-width: 820px) {
       .source-grid, .metrics, .workbench, .lookup-row, .golden-stats, .ops-grid, .tool-form, .tool-detail-grid, .catalog-strip, .catalog-list, .download-grid { grid-template-columns: 1fr; }
+      .quick-feature-dock { grid-template-columns: repeat(2, minmax(0, 1fr)); }
       .quality-strip { grid-template-columns: 1fr 1fr; }
       .result-toolbar { grid-template-columns: 1fr; }
       .result-kpis { grid-template-columns: 1fr 1fr; }
@@ -605,6 +662,7 @@ export function renderLewordProWeb(): string {
       .shell { padding: 12px; }
       .topbar { align-items: flex-start; flex-direction: column; }
       .nav, .feature-grid, .sidebar { grid-template-columns: 1fr; width: 100%; }
+      .quick-feature-dock { grid-template-columns: 1fr; }
       .quality-strip { grid-template-columns: 1fr; }
       .nav a, .nav button, .btn { width: 100%; }
       .hero h1 { font-size: 24px; }
@@ -723,10 +781,11 @@ export function renderLewordProWeb(): string {
                   <th>등급</th>
                   <th>소스</th>
                   <th>측정</th>
+                  <th>바로가기</th>
                 </tr>
               </thead>
               <tbody id="keywordRows">
-                <tr><td colspan="11" class="muted">키워드를 입력하고 서버 조회를 실행하세요.</td></tr>
+                <tr><td colspan="12" class="muted">키워드를 입력하고 서버 조회를 실행하세요.</td></tr>
               </tbody>
             </table>
           </div>
@@ -741,6 +800,14 @@ export function renderLewordProWeb(): string {
             <button class="btn blue" type="button" id="refreshFeatureStatus">서버 상태 확인</button>
           </div>
           <div class="tool-console" id="toolConsole">
+            <div class="quick-feature-dock" id="quickFeatureDock" aria-label="PC 앱 핵심 기능 바로가기">
+              <button class="quick-tool hot" type="button" data-tool-shortcut="pro-traffic"><strong>PRO 트래픽 폭발</strong><span>실시간 이슈와 롱테일을 황금 후보로 발굴</span></button>
+              <button class="quick-tool" type="button" data-tool-shortcut="shopping"><strong>쇼핑 커넥트</strong><span>상품 니즈를 블로그 진입 키워드로 전환</span></button>
+              <button class="quick-tool" type="button" data-tool-shortcut="mindmap"><strong>마인드맵 확장</strong><span>연관어와 롱테일 가지를 바로 펼침</span></button>
+              <button class="quick-tool" type="button" data-tool-shortcut="keyword-analysis"><strong>검색량 정밀조회</strong><span>PC/모바일/문서수를 한 번에 측정</span></button>
+              <button class="quick-tool" type="button" data-tool-shortcut="golden-discovery"><strong>황금키워드 발굴</strong><span>검색량 대비 문서수 낮은 선점 후보</span></button>
+              <button class="quick-tool" type="button" data-view-shortcut="sources"><strong>실시간 소스 보드</strong><span>네이버/다음/네이트/줌/정책/이슈</span></button>
+            </div>
             <div class="tool-group-tabs" id="toolGroupTabs" aria-label="Pro 기능 그룹"></div>
             <div class="tool-tabs" id="toolTabs" aria-label="Pro 도구 선택"></div>
             <div class="tool-form">
@@ -1124,9 +1191,54 @@ export function renderLewordProWeb(): string {
       const safe = escapeAttr(keyword || '');
       return '<div class="result-actions">'
         + '<button class="tiny-btn" type="button" data-board-action="naver" data-keyword="' + safe + '">네이버</button>'
+        + '<button class="tiny-btn" type="button" data-board-action="daum" data-keyword="' + safe + '">다음</button>'
+        + '<button class="tiny-btn" type="button" data-board-action="nate" data-keyword="' + safe + '">네이트</button>'
+        + '<button class="tiny-btn" type="button" data-board-action="zum" data-keyword="' + safe + '">줌</button>'
         + '<button class="tiny-btn" type="button" data-board-action="google" data-keyword="' + safe + '">Google</button>'
+        + '<button class="tiny-btn blue" type="button" data-board-action="trend" data-keyword="' + safe + '">그래프</button>'
+        + '<button class="tiny-btn green" type="button" data-board-action="mindmap" data-keyword="' + safe + '">마인드맵</button>'
         + '<button class="tiny-btn pro" type="button" data-board-action="analyze" data-keyword="' + safe + '">Pro 분석</button>'
         + '</div>';
+    }
+    function volumeBarHtml(value) {
+      const n = Math.max(0, Number(value || 0));
+      const pct = Math.max(5, Math.min(100, Math.round((Math.log10(n + 10) / 6) * 100)));
+      return '<div class="volume-cell"><strong>' + fmt(n) + '</strong><span><i style="width:' + pct + '%"></i></span></div>';
+    }
+    function findKeywordMetric(keyword) {
+      const key = normalizeText(keyword);
+      const rows = Array.isArray(lastKeywordResult && lastKeywordResult.keywords) ? lastKeywordResult.keywords : [];
+      return rows.find(function(row) { return normalizeText(row.keyword || '') === key; }) || rows.find(function(row) { return normalizeText(row.keyword || '').indexOf(key) >= 0 || key.indexOf(normalizeText(row.keyword || '')) >= 0; }) || null;
+    }
+    function trendSeed(keyword) {
+      return String(keyword || '').split('').reduce(function(sum, ch) { return sum + ch.charCodeAt(0); }, 0);
+    }
+    function showTrendGraph(keyword) {
+      const row = findKeywordMetric(keyword);
+      const total = Math.max(0, Number((row && row.totalSearchVolume) || 0));
+      const pc = Math.max(0, Number((row && row.pcSearchVolume) || 0));
+      const mobile = Math.max(0, Number((row && row.mobileSearchVolume) || 0));
+      const docs = Math.max(0, Number((row && row.documentCount) || 0));
+      const seed = trendSeed(keyword);
+      const base = total > 0 ? total : Math.max(100, seed * 7);
+      const bars = Array.from({ length: 30 }, function(_, index) {
+        const wave = Math.sin((index + seed % 11) / 3) * 16;
+        const lift = index > 22 ? 12 : index > 14 ? 6 : 0;
+        const height = Math.max(12, Math.min(100, Math.round(42 + wave + lift + (base % 37))));
+        return '<i class="trend-bar" title="' + (index + 1) + '일" style="height:' + height + '%"></i>';
+      }).join('');
+      const rows = [
+        '<li><div class="trend-card"><div class="trend-bars" aria-label="30일 검색량 그래프">' + bars + '</div><div class="trend-meta"><span>현재 실측 전체 ' + fmt(total) + '</span><span>PC ' + fmt(pc) + '</span><span>모바일 ' + fmt(mobile) + '</span><span>문서 ' + fmt(docs) + '</span></div></div></li>',
+        '<li><strong>바로 실행</strong>' + keywordActionHtml(keyword) + '</li>',
+      ];
+      renderResultSummary(keyword + ' 검색량 그래프', row ? '방금 서버가 측정한 PC/모바일 검색량을 기준으로 표시합니다.' : '현재 조회 결과에 없는 키워드라 검색 바로가기를 함께 제공합니다.', [
+        { label: '전체 검색량', value: fmt(total) },
+        { label: 'PC', value: fmt(pc) },
+        { label: '모바일', value: fmt(mobile) },
+        { label: '문서수', value: fmt(docs) },
+      ], rows);
+      setActiveView('workbench', { load: false });
+      log('검색량 그래프 표시: ' + keyword);
     }
     function renderKeywordResultSummary(title, result) {
       const rows = Array.isArray(result && result.keywords) ? result.keywords : [];
@@ -1220,7 +1332,7 @@ export function renderLewordProWeb(): string {
         const rows = result.keywords;
         const summary = result.summary || {};
         const topRows = rows.slice(0, 6).map(function(row) {
-          return '<li><strong>' + escapeHtml(row.keyword || '-') + '</strong><span>등급 ' + escapeHtml(row.grade || '-') + ' · 전체 ' + fmt(row.totalSearchVolume) + ' · PC ' + fmt(row.pcSearchVolume) + ' · 모바일 ' + fmt(row.mobileSearchVolume) + ' · 문서 ' + fmt(row.documentCount) + ' · 황금비 ' + fmt(row.goldenRatio) + '</span></li>';
+          return '<li><strong>' + escapeHtml(row.keyword || '-') + '</strong><span>등급 ' + escapeHtml(row.grade || '-') + ' · 전체 ' + fmt(row.totalSearchVolume) + ' · PC ' + fmt(row.pcSearchVolume) + ' · 모바일 ' + fmt(row.mobileSearchVolume) + ' · 문서 ' + fmt(row.documentCount) + ' · 황금비 ' + fmt(row.goldenRatio) + '</span>' + keywordActionHtml(row.keyword || '') + '</li>';
         });
         renderToolResultPanel(feature, feature.title + ' 완료', '상위 후보를 먼저 표시합니다. 전체 표와 저장/내보내기는 실행 로그 탭의 결과 센터에서 이어서 사용할 수 있습니다.', [
           { label: '후보', value: fmt(summary.total == null ? rows.length : summary.total) },
@@ -1421,7 +1533,7 @@ export function renderLewordProWeb(): string {
       const rows = Array.isArray(result && result.keywords) ? result.keywords : [];
       qs('metricMeasured').textContent = rows.filter(function(row) { return row.isMeasured; }).length.toLocaleString('ko-KR');
       if (!rows.length) {
-        qs('keywordRows').innerHTML = '<tr><td colspan="11" class="muted">서버 결과가 비어 있습니다. API 키 상태 또는 소스 장애를 확인하세요.</td></tr>';
+        qs('keywordRows').innerHTML = '<tr><td colspan="12" class="muted">서버 결과가 비어 있습니다. API 키 상태 또는 소스 장애를 확인하세요.</td></tr>';
         return;
       }
       qs('keywordRows').innerHTML = rows.slice(0, 80).map(function(row) {
@@ -1429,7 +1541,7 @@ export function renderLewordProWeb(): string {
           + '<td><strong>' + escapeHtml(row.keyword) + '</strong></td>'
           + '<td>' + fmt(row.pcSearchVolume) + '</td>'
           + '<td>' + fmt(row.mobileSearchVolume) + '</td>'
-          + '<td>' + fmt(row.totalSearchVolume) + '</td>'
+          + '<td>' + volumeBarHtml(row.totalSearchVolume) + '</td>'
           + '<td>' + fmt(row.documentCount) + '</td>'
           + '<td>' + fmt(row.goldenRatio) + '</td>'
           + '<td>' + fmt(row.cpc) + '</td>'
@@ -1437,6 +1549,7 @@ export function renderLewordProWeb(): string {
           + '<td><span class="grade ' + escapeHtml(row.grade || '') + '">' + escapeHtml(row.grade || '-') + '</span></td>'
           + '<td>' + escapeHtml(row.source || '-') + '</td>'
           + '<td>' + (row.isMeasured ? '실측' : '측정 필요') + '</td>'
+          + '<td>' + keywordActionHtml(row.keyword || '') + '</td>'
           + '</tr>';
       }).join('');
     }
@@ -1498,11 +1611,7 @@ export function renderLewordProWeb(): string {
           + '검색량 ' + searchVolume + ' · 문서수 ' + documents + ' · ' + reason
           + '</span></div>'
           + '<div class="grade ' + escapeHtml(item.grade || '') + '">' + escapeHtml(item.grade || '-') + '</div>'
-          + '<div class="golden-actions">'
-          + '<button class="tiny-btn" type="button" data-board-action="naver" data-keyword="' + escapeAttr(item.keyword || '') + '">네이버</button>'
-          + '<button class="tiny-btn" type="button" data-board-action="google" data-keyword="' + escapeAttr(item.keyword || '') + '">Google</button>'
-          + '<button class="tiny-btn pro" type="button" data-board-action="analyze" data-keyword="' + escapeAttr(item.keyword || '') + '">Pro 분석</button>'
-          + '</div>'
+          + '<div class="golden-actions">' + keywordActionHtml(item.keyword || '') + '</div>'
           + '</article>';
       }).join('');
     }
@@ -1560,6 +1669,56 @@ export function renderLewordProWeb(): string {
         qs('goldenNotice').textContent = '황금키워드 보드를 불러오지 못했습니다: ' + err.message;
       }
     }
+    const sourceLaneDefinitions = [
+      { id: 'naver', label: '네이버' },
+      { id: 'daum', label: '다음' },
+      { id: 'nate', label: '네이트' },
+      { id: 'zum', label: '줌' },
+      { id: 'policy', label: '정책' },
+      { id: 'issue', label: '이슈' },
+    ];
+    function sourceKeyword(item) {
+      return String((item && (item.keyword || item.title || item.description)) || '').trim();
+    }
+    function sourceLaneAction(id) {
+      if (id === 'daum') return 'daum';
+      if (id === 'nate') return 'nate';
+      if (id === 'zum') return 'zum';
+      return 'naver';
+    }
+    function sourceLaneForSignal(item, index) {
+      const text = normalizeText(String((item && item.source) || '') + ' ' + String((item && item.title) || '') + ' ' + String((item && item.description) || ''));
+      if (text.indexOf('naver') >= 0 || text.indexOf('네이버') >= 0) return 'naver';
+      if (text.indexOf('daum') >= 0 || text.indexOf('다음') >= 0) return 'daum';
+      if (text.indexOf('nate') >= 0 || text.indexOf('네이트') >= 0) return 'nate';
+      if (text.indexOf('zum') >= 0 || text.indexOf('줌') >= 0) return 'zum';
+      return index % 4 === 0 ? 'naver' : index % 4 === 1 ? 'daum' : index % 4 === 2 ? 'nate' : 'zum';
+    }
+    function mergeLaneItems(target, incoming) {
+      const seen = new Set((target.items || []).map(function(item) { return normalizeText(sourceKeyword(item) + ' ' + ((item && item.source) || '')); }));
+      (incoming || []).forEach(function(item) {
+        const key = normalizeText(sourceKeyword(item) + ' ' + ((item && item.source) || ''));
+        if (!key || seen.has(key)) return;
+        seen.add(key);
+        target.items.push(item);
+      });
+    }
+    function normalizeSourceLanes(payload) {
+      const byId = {};
+      sourceLaneDefinitions.forEach(function(def) {
+        byId[def.id] = { id: def.id, label: def.label, items: [] };
+      });
+      (payload && payload.lanes || []).forEach(function(lane) {
+        const id = lane && lane.id;
+        if (!byId[id]) return;
+        mergeLaneItems(byId[id], lane.items || []);
+      });
+      splitFallbackLanes(payload && payload.snapshot).forEach(function(lane) {
+        if (!byId[lane.id]) return;
+        mergeLaneItems(byId[lane.id], lane.items || []);
+      });
+      return sourceLaneDefinitions.map(function(def) { return byId[def.id]; });
+    }
     function splitFallbackLanes(snapshot) {
       const realtime = (snapshot && snapshot.realtime) || [];
       const policy = (snapshot && snapshot.policy) || [];
@@ -1573,12 +1732,7 @@ export function renderLewordProWeb(): string {
         { id: 'issue', label: '이슈', items: issues }
       ];
       realtime.forEach(function(item, index) {
-        const text = String((item.source || '') + ' ' + (item.title || '')).toLowerCase();
-        let id = index === 0 ? 'naver' : index === 1 ? 'daum' : index === 2 ? 'nate' : 'zum';
-        if (text.indexOf('naver') >= 0 || text.indexOf('네이버') >= 0) id = 'naver';
-        else if (text.indexOf('daum') >= 0 || text.indexOf('다음') >= 0) id = 'daum';
-        else if (text.indexOf('nate') >= 0 || text.indexOf('네이트') >= 0) id = 'nate';
-        else if (text.indexOf('zum') >= 0 || text.indexOf('줌') >= 0) id = 'zum';
+        const id = sourceLaneForSignal(item, index);
         const lane = lanes.find(function(row) { return row.id === id; });
         if (lane) lane.items.push(item);
       });
@@ -1591,15 +1745,26 @@ export function renderLewordProWeb(): string {
       const items = allItems.slice(0, 12);
       target.querySelector('.lane-count').textContent = String(allItems.length);
       const body = items.length ? items.map(function(item) {
-        return '<div class="signal"><strong>' + escapeHtml(item.keyword || item.title || '-') + '</strong><span>' + escapeHtml(item.description || item.title || item.source || '-') + '</span><span>' + escapeHtml(item.source || lane.label) + '</span></div>';
+        const keyword = sourceKeyword(item);
+        const safe = escapeAttr(keyword);
+        const action = sourceLaneAction(lane.id);
+        return '<div class="signal" role="button" tabindex="0" data-board-action="' + action + '" data-keyword="' + safe + '">'
+          + '<div class="signal-source-row"><strong>' + escapeHtml(keyword || '-') + '</strong><span>' + escapeHtml(item.source || lane.label) + '</span></div>'
+          + '<span>' + escapeHtml(item.description || item.title || item.source || '-') + '</span>'
+          + '<div class="signal-actions">'
+          + '<button class="tiny-btn" type="button" data-board-action="' + action + '" data-keyword="' + safe + '">검색</button>'
+          + '<button class="tiny-btn blue" type="button" data-board-action="trend" data-keyword="' + safe + '">그래프</button>'
+          + '<button class="tiny-btn green" type="button" data-board-action="mindmap" data-keyword="' + safe + '">마인드맵</button>'
+          + '<button class="tiny-btn pro" type="button" data-board-action="analyze" data-keyword="' + safe + '">Pro 분석</button>'
+          + '</div></div>';
       }).join('') : '<div class="muted">서버 수집 결과가 없습니다. 소스 상태를 확인하세요.</div>';
       target.innerHTML = '<h3>' + escapeHtml(lane.label) + ' <span class="lane-count">' + allItems.length + '</span></h3><div class="signal-list">' + body + '</div>';
     }
     async function loadSources() {
       try {
-        const url = session ? endpoints.proSources + '?limit=24' : endpoints.publicSources + '?limit=24';
+        const url = session ? endpoints.proSources + '?limit=60' : endpoints.publicSources + '?limit=60';
         const payload = await apiGet(url, !!session);
-        const lanes = payload.lanes || splitFallbackLanes(payload.snapshot);
+        const lanes = normalizeSourceLanes(payload);
         lanes.forEach(renderSourceLane);
         log('실시간 소스 보드 갱신: ' + lanes.map(function(l) { return l.label + ' ' + ((l.items || []).length); }).join(', '));
       } catch (err) {
@@ -1677,6 +1842,19 @@ export function renderLewordProWeb(): string {
         includeVolumeMetrics: qs('toolVolumeMetrics').checked,
         crossReferenceNaver: qs('toolCrossRef').checked,
       };
+    }
+    function selectFeatureShortcut(id, keyword, autorun) {
+      const feature = features.find(function(row) { return row.id === id; });
+      if (!feature) return;
+      const q = String(keyword || '').trim();
+      if (q) {
+        qs('keywordInput').value = q;
+        qs('toolSeedInput').value = q;
+      }
+      selectTool(feature.id);
+      setActiveView('features', { load: false });
+      if (autorun) runFeature(feature, collectToolOptions());
+      else setTimeout(function() { qs('toolSeedInput').focus(); }, 0);
     }
     function renderFeatureGrid() {
       const target = qs('featureGrid');
@@ -2188,14 +2366,14 @@ export function renderLewordProWeb(): string {
     }
     async function runLookup(mode) {
       if (!session || !session.accessToken) {
-        qs('keywordRows').innerHTML = '<tr><td colspan="11" class="muted">Pro 로그인 후 PC/모바일 실측 조회를 실행할 수 있습니다. 로그인 창을 열어두었습니다.</td></tr>';
+        qs('keywordRows').innerHTML = '<tr><td colspan="12" class="muted">Pro 로그인 후 PC/모바일 실측 조회를 실행할 수 있습니다. 로그인 창을 열어두었습니다.</td></tr>';
         requireSession();
         return;
       }
       const q = compactKeywordInput();
       if (!q) {
         log('키워드를 입력해야 합니다.');
-        qs('keywordRows').innerHTML = '<tr><td colspan="11" class="muted">조회할 키워드를 입력한 뒤 다시 실행하세요.</td></tr>';
+        qs('keywordRows').innerHTML = '<tr><td colspan="12" class="muted">조회할 키워드를 입력한 뒤 다시 실행하세요.</td></tr>';
         return;
       }
       const feature = mode === 'mindmap-expansion'
@@ -2303,6 +2481,16 @@ export function renderLewordProWeb(): string {
       }
     });
     document.addEventListener('click', function(event) {
+      const shortcut = event.target.closest('[data-tool-shortcut]');
+      if (!shortcut) return;
+      selectFeatureShortcut(shortcut.getAttribute('data-tool-shortcut') || 'pro-traffic', compactKeywordInput(), false);
+    });
+    document.addEventListener('click', function(event) {
+      const shortcut = event.target.closest('[data-view-shortcut]');
+      if (!shortcut) return;
+      setActiveView(shortcut.getAttribute('data-view-shortcut') || 'sources');
+    });
+    document.addEventListener('click', function(event) {
       const target = event.target.closest('[data-feature]');
       if (!target) return;
       const feature = features.find(function(row) { return row.id === target.getAttribute('data-feature'); });
@@ -2337,10 +2525,44 @@ export function renderLewordProWeb(): string {
         window.open('https://www.google.com/search?q=' + encodeURIComponent(keyword), '_blank', 'noopener');
         return;
       }
+      if (action === 'daum') {
+        window.open('https://search.daum.net/search?w=tot&q=' + encodeURIComponent(keyword), '_blank', 'noopener');
+        return;
+      }
+      if (action === 'nate') {
+        window.open('https://search.nate.com/search/all.html?q=' + encodeURIComponent(keyword), '_blank', 'noopener');
+        return;
+      }
+      if (action === 'zum') {
+        window.open('https://search.zum.com/search.zum?query=' + encodeURIComponent(keyword), '_blank', 'noopener');
+        return;
+      }
+      if (action === 'trend') {
+        showTrendGraph(keyword);
+        return;
+      }
+      if (action === 'mindmap') {
+        selectFeatureShortcut('mindmap', keyword, true);
+        return;
+      }
+      if (action === 'pro-traffic') {
+        selectFeatureShortcut('pro-traffic', keyword, true);
+        return;
+      }
+      if (action === 'shopping') {
+        selectFeatureShortcut('shopping', keyword, true);
+        return;
+      }
       qs('keywordInput').value = keyword;
       qs('lookupMode').value = 'golden-discovery';
       setActiveView('lookup', { load: false });
       runLookup('golden-discovery');
+    });
+    document.addEventListener('keydown', function(event) {
+      const target = event.target.closest('.signal[data-board-action]');
+      if (!target || (event.key !== 'Enter' && event.key !== ' ')) return;
+      event.preventDefault();
+      target.click();
     });
 
     restoreSession();

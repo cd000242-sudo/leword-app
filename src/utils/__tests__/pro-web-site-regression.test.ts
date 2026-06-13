@@ -61,9 +61,10 @@ assert('side navigation switches isolated views instead of one stacked page',
     && html.includes('function setActiveView')
     && html.includes("document.querySelectorAll('[data-view-target]')"));
 assert('source board renders a wider always-on realtime feed',
-  html.includes("endpoints.publicSources + '?limit=24'")
-    && html.includes("endpoints.proSources + '?limit=24'")
+  html.includes("endpoints.publicSources + '?limit=60'")
+    && html.includes("endpoints.proSources + '?limit=60'")
     && html.includes('allItems.slice(0, 12)')
+    && html.includes('function normalizeSourceLanes')
     && html.includes('class="signal-list"'));
 assert('keyword lookup table separates PC and mobile',
   html.includes('<th>PC</th>') && html.includes('<th>모바일</th>') && html.includes('<th>전체</th>') && html.includes('<tbody id="keywordRows">'));
@@ -147,11 +148,22 @@ assert('result center exposes KPI summary and keyword actions',
     && html.includes('class="result-list"')
     && html.includes('keywordActionHtml')
     && html.includes('data-board-action="naver"')
+    && html.includes('data-board-action="daum"')
+    && html.includes('data-board-action="nate"')
+    && html.includes('data-board-action="zum"')
+    && html.includes('data-board-action="trend"')
+    && html.includes('data-board-action="mindmap"')
     && html.includes('data-board-action="analyze"')
+    && html.includes('function showTrendGraph')
     && html.includes('renderFeatureResult(feature, result)'));
 
 assert('renders feature-specific tool settings panel',
   html.includes('id="toolConsole"')
+    && html.includes('id="quickFeatureDock"')
+    && html.includes('data-tool-shortcut="pro-traffic"')
+    && html.includes('data-tool-shortcut="shopping"')
+    && html.includes('data-tool-shortcut="mindmap"')
+    && html.includes('data-view-shortcut="sources"')
     && html.includes('id="toolGroupTabs"')
     && html.includes('id="toolTabs"')
     && html.includes('id="toolDetail"')
