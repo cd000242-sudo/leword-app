@@ -339,12 +339,13 @@ function thinProfileCount(items: Array<{ keyword: string }>): number {
     discover: async () => [],
     measureLiveDocumentCount: async (keyword) => {
       fallbackMeasureCalls += 1;
+      const isKia = keyword.includes('KIA');
       const dc = keyword.includes('\uB85C\uB610') ? 220 : keyword.includes('KIA') ? 360 : 640;
       return {
-        dc,
-        source: 'scrape',
-        confidence: 'medium',
-        isEstimated: false,
+        dc: isKia ? 1 : dc,
+        source: isKia ? 'fallback' : 'scrape',
+        confidence: isKia ? 'low' : 'medium',
+        isEstimated: isKia,
       };
     },
   });
@@ -361,7 +362,9 @@ function thinProfileCount(items: Array<{ keyword: string }>): number {
         item.source === 'mobile-live-issue-document-radar'
         && item.keyword.includes('KIA')
         && item.category === 'sports'
-      )),
+        && item.documentCount === null
+      ))
+      && !liveIssueDocumentFallbackSnapshot.board.some((item) => /\uB4F1\uAE09\uCEF7|\uB2F5\uC9C0/.test(item.keyword)),
     liveIssueDocumentFallbackSnapshot.board.map((item) => `${item.keyword}:${item.source}:${item.documentCount}`).join('|'));
 
   const staleBoardFile = path.join(process.cwd(), 'tmp', 'mobile-live-golden-stale-board-test.json');

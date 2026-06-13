@@ -660,6 +660,19 @@ function isLiveRadarUsableKeyword(keyword: string, volume: number | null, docume
   return true;
 }
 
+function isStrongLiveIssueSeed(seed: string): boolean {
+  const clean = normalizeKeyword(seed);
+  if (!clean || isNoisyLiveSeed(clean) || isThinProfileIntentKeyword(clean)) return false;
+  return LIVE_LOTTERY_SIGNAL_RE.test(clean)
+    || LIVE_SPORTS_SIGNAL_RE.test(clean)
+    || LIVE_POLICY_SIGNAL_RE.test(clean)
+    || LIVE_BROADCAST_SIGNAL_RE.test(clean)
+    || LIVE_FINANCE_SIGNAL_RE.test(clean)
+    || LIVE_GENERAL_ISSUE_RE.test(clean)
+    || isActionableLiveKeyword(clean)
+    || SPECIFIC_LIVE_KEYWORD_HINT_RE.test(clean);
+}
+
 function isPublicPreviewCandidate(item: MobileLiveGoldenBoardItem): boolean {
   if (!isLiveRadarUsableMetric(item)) return false;
   if (item.grade === 'B' || item.grade === 'C') return false;
@@ -762,6 +775,8 @@ function getLiveSeedBackfillIntents(seed: string, categoryId: string): string[] 
   if (LIVE_SPORTS_SIGNAL_RE.test(clean)) return getBackfillIntents('sports');
   if (LIVE_POLICY_SIGNAL_RE.test(clean)) return getBackfillIntents('policy');
   if (LIVE_FINANCE_SIGNAL_RE.test(clean)) return getBackfillIntents('finance');
+  if (LIVE_GENERAL_ISSUE_RE.test(clean)) return getBackfillIntents('live_issue');
+  if (!isStrongLiveIssueSeed(clean) && (categoryId === 'all' || inferred === 'all' || inferred === 'live' || inferred === 'default')) return [];
   if (inferred === 'policy') return getBackfillIntents('policy');
   if (inferred === 'sports') return getBackfillIntents('sports');
   if (inferred === 'education') return getBackfillIntents('education');
@@ -879,6 +894,8 @@ function rowToBackfillResult(
 }
 
 function liveIssueFallbackGrade(score: number, docs: number | null): MobileResultGrade {
+  if (docs === null && score >= 62) return 'A';
+  if (docs === null && score >= 52) return 'B';
   if (docs !== null && docs <= 300 && score >= 78) return 'SS';
   if (docs !== null && docs <= 1_000 && score >= 68) return 'S';
   if (docs !== null && docs <= 5_000 && score >= 58) return 'A';
@@ -1397,6 +1414,7 @@ export class MobileLiveGoldenRadar {
           this.measureLiveDocumentCount(row.keyword, {
             searchVolume: volume,
             scrapeTimeoutMs: 1500,
+            scrapeOnly: true,
           }).catch(() => null),
           3500,
           null,
@@ -1423,7 +1441,7 @@ export class MobileLiveGoldenRadar {
   }
 
   private async discoverLiveIssueFallback(categoryId: string, liveSeeds: string[]): Promise<MobileKeywordMetric[]> {
-    const liveSeedBases = normalizeLiveSeeds(liveSeeds, 36);
+    const liveSeedBases = normalizeLiveSeeds(liveSeeds, 36).filter(isStrongLiveIssueSeed);
     if (liveSeedBases.length === 0) return [];
 
     const liveBaseIds = liveSeedBases.map((seed) => keywordCompactId(seed)).filter(Boolean);
@@ -1448,12 +1466,14 @@ export class MobileLiveGoldenRadar {
         this.measureLiveDocumentCount(keyword, {
           searchVolume: 0,
           scrapeTimeoutMs: 1600,
+          scrapeOnly: true,
         }).catch(() => null),
         3500,
         null,
       );
-      if (!measured || measured.isEstimated || measured.dc <= 0 || measured.dc > 20_000) return null;
-      const metric = metricFromLiveIssueFallback(keyword, categoryId, measured.dc);
+      if (!measured || measured.dc <= 0 || (!measured.isEstimated && measured.dc > 20_000)) return null;
+      const measuredDocs = measured.isEstimated ? null : measured.dc;
+      const metric = metricFromLiveIssueFallback(keyword, categoryId, measuredDocs);
       if (!metric) return null;
       return {
         ...metric,
