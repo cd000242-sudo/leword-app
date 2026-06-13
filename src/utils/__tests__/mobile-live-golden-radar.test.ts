@@ -404,6 +404,40 @@ function thinProfileCount(items: Array<{ keyword: string }>): number {
     previewLeakSnapshot.publicPreview.map((item) => `${item.rank}:${item.keyword}`).join('|'));
   fs.rmSync(previewLeakBoardFile, { force: true });
 
+  const movingPreviewBoardFile = path.join(process.cwd(), 'tmp', 'mobile-live-golden-moving-preview-test.json');
+  const movingCategories = ['policy', 'sports', 'education', 'drama', 'life_tips', 'it'];
+  fs.writeFileSync(movingPreviewBoardFile, JSON.stringify({
+    boardUpdatedAt: '2026-06-13T08:59:00.000Z',
+    items: Array.from({ length: 23 }, (_, index) => ({
+      keyword: `무료공개 ${index + 1} 신청 방법`,
+      grade: index < 12 ? 'SSS' : 'SS',
+      score: 99 - index,
+      totalSearchVolume: 90000 - index * 1200,
+      documentCount: 500 + index * 70,
+      goldenRatio: 180 - index * 6,
+      category: movingCategories[index % movingCategories.length],
+      updatedAt: '2026-06-13T08:59:00.000Z',
+      discoveredAt: '2026-06-13T08:59:00.000Z',
+      isMeasured: true,
+    })),
+  }), 'utf8');
+  const movingPreviewRadar = new MobileLiveGoldenRadar({
+    notificationInbox: inbox,
+    runOnStart: false,
+    boardFile: movingPreviewBoardFile,
+    boardTarget: 60,
+    publicPreviewCount: 5,
+    now: () => new Date('2026-06-13T09:00:00.000Z'),
+  });
+  const movingPreviewSnapshot = movingPreviewRadar.snapshot();
+  assert('free preview protects only the pro head and rotates fresh lower winners',
+    movingPreviewSnapshot.publicPreview.length === 5
+      && movingPreviewSnapshot.publicPreview.every((item) => item.rank > 3)
+      && movingPreviewSnapshot.publicPreview.some((item) => item.rank <= 8)
+      && movingPreviewSnapshot.publicPreview.every((item) => item.updatedAt === '2026-06-13T08:59:00.000Z'),
+    movingPreviewSnapshot.publicPreview.map((item) => `${item.rank}:${item.keyword}`).join('|'));
+  fs.rmSync(movingPreviewBoardFile, { force: true });
+
   const categoryDiversityBoardFile = path.join(process.cwd(), 'tmp', 'mobile-live-golden-category-diversity-test.json');
   const categoryDiversityRows = [
     ['청년지원금 신청 대상', 'SSS', 98, 38000, 240, 158, 'policy'],
@@ -548,6 +582,42 @@ function thinProfileCount(items: Array<{ keyword: string }>): number {
   scheduledRadar.start();
   scheduledRadar.stop();
   assert('live radar scheduler starts and stops cleanly', intervalRegistered && cleared);
+
+  let catchupTick: (() => void) | null = null;
+  let schedulerCatchupDiscoverCalls = 0;
+  const schedulerCatchupRadar = new MobileLiveGoldenRadar({
+    notificationInbox: inbox,
+    runOnStart: false,
+    cycleLimit: 5,
+    boardTarget: 10,
+    categories: ['policy', 'sports'],
+    getEnvConfig: () => ({
+      naverClientId: 'client',
+      naverClientSecret: 'secret',
+    }),
+    liveSeedProvider: async () => [],
+    enableBackfill: false,
+    setIntervalFn: (handler) => {
+      catchupTick = handler;
+      return 'catchup-timer';
+    },
+    clearIntervalFn: () => {},
+    discover: async () => {
+      const offset = schedulerCatchupDiscoverCalls * 5;
+      schedulerCatchupDiscoverCalls += 1;
+      return Array.from({ length: 5 }, (_, index) => result(`서버 보강 ${offset + index + 1} 신청 방법`, index));
+    },
+  });
+  schedulerCatchupRadar.start();
+  catchupTick?.();
+  await new Promise((resolve) => setTimeout(resolve, 25));
+  const schedulerCatchupSnapshot = schedulerCatchupRadar.snapshot();
+  schedulerCatchupRadar.stop();
+  assert('live radar scheduler catches up while board is below target',
+    schedulerCatchupDiscoverCalls >= 2
+      && schedulerCatchupSnapshot.boardCount === 10
+      && schedulerCatchupSnapshot.successfulRuns === 2,
+    `${schedulerCatchupDiscoverCalls}:${schedulerCatchupSnapshot.boardCount}:${schedulerCatchupSnapshot.successfulRuns}`);
 
   const summary: MobileKeywordResult['summary'] | undefined = undefined;
   assert('type smoke remains compatible with mobile keyword result summary', summary === undefined);

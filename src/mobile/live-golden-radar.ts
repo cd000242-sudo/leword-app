@@ -93,6 +93,7 @@ const BROAD_KEYWORD_DOCUMENT_CEILING = 80_000;
 const PUBLIC_PREVIEW_VOLUME_CEILING = 250_000;
 const PUBLIC_PREVIEW_DOCUMENT_CEILING = 30_000;
 const PUBLIC_PREVIEW_PROFILE_INTENT_MAX = 0;
+const PUBLIC_PREVIEW_PROTECTED_TOP_COUNT = 3;
 const LIVE_BOARD_CATEGORY_SHARE_CAP = 0.24;
 const LIVE_BOARD_CLUSTER_MAX = 2;
 const LIVE_DIRECT_CANDIDATE_MAX_PER_CYCLE = 600;
@@ -977,7 +978,10 @@ export class MobileLiveGoldenRadar {
     if (this.enabled) return this.snapshot();
     this.enabled = true;
     this.timer = this.setIntervalFn(() => {
-      void this.runOnce();
+      const snapshot = this.snapshot();
+      void (snapshot.boardCount < this.boardTarget
+        ? this.runUntilTarget(this.startupCatchUpCycles)
+        : this.runOnce());
     }, this.intervalMs);
     if (this.runOnStart) {
       this.startTimer = this.setTimeoutFn(() => {
@@ -1321,10 +1325,7 @@ export class MobileLiveGoldenRadar {
     if (count <= 0) return [];
     const nowMs = this.now().getTime();
     const protectedTopCount = board.length > count
-      ? Math.min(
-        Math.max(0, board.length - count),
-        Math.max(count * 3, Math.floor(board.length * 0.55)),
-      )
+      ? Math.min(PUBLIC_PREVIEW_PROTECTED_TOP_COUNT, Math.max(0, board.length - count))
       : 0;
     const freeBoard = protectedTopCount > 0 ? board.slice(protectedTopCount) : board;
     const isFresh = (item: MobileLiveGoldenBoardItem) => ageMsFrom(item.updatedAt, nowMs) <= PUBLIC_PREVIEW_MAX_AGE_MS;

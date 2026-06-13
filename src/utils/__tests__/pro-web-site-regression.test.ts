@@ -28,6 +28,10 @@ assert('uses resilient CSS brand mark instead of a fragile logo image',
     && !html.includes('<img class="brand-logo"'));
 assert('does not expose integration-structure subtab copy', !html.includes('연동구조'));
 assert('keeps existing id/password login', html.includes('LEWORD Pro 로그인') && html.includes('아이디') && html.includes('비밀번호'));
+assert('keeps license key auth collapsed as optional login path',
+  html.includes('<details class="login-license">')
+    && html.includes('id="licenseCode"')
+    && html.includes('if (licenseCode) loginPayload.licenseCode = licenseCode'));
 assert('renders live golden keyword board section',
   html.includes('id="golden"')
     && html.includes('LIVE 황금키워드 보드')

@@ -640,6 +640,20 @@ export function renderLewordProWeb(): string {
     .dialog p { margin: 0 0 14px; color: var(--muted); line-height: 1.55; }
     .dialog label { display: block; margin: 10px 0 6px; font-size: 13px; color: #d9e6f7; font-weight: 900; }
     .dialog-actions { display: grid; grid-template-columns: 1fr 1fr; gap: 8px; margin-top: 14px; }
+    .login-license {
+      margin-top: 12px;
+      border: 1px solid rgba(91,183,255,.24);
+      border-radius: 8px;
+      background: rgba(5,10,18,.34);
+      padding: 10px 12px;
+    }
+    .login-license summary {
+      cursor: pointer;
+      color: var(--gold);
+      font-weight: 900;
+      font-size: 13px;
+    }
+    .login-license p { margin: 8px 0 10px; font-size: 12px; }
     @media (max-width: 1160px) {
       .layout { grid-template-columns: 1fr; }
       .sidebar { position: static; grid-template-columns: repeat(4, 1fr); }
@@ -927,6 +941,12 @@ export function renderLewordProWeb(): string {
       <input class="input" id="userId" autocomplete="username" required />
       <label for="password">비밀번호</label>
       <input class="input" id="password" type="password" autocomplete="current-password" required />
+      <details class="login-license">
+        <summary>라이선스 키로 인증하기</summary>
+        <p class="muted">구매 또는 등록 키가 있는 경우에만 입력하세요. 평소에는 아이디와 비밀번호만으로 로그인됩니다.</p>
+        <label for="licenseCode">라이선스 키</label>
+        <input class="input" id="licenseCode" autocomplete="off" placeholder="LEWORD-XXXX-XXXX" />
+      </details>
       <div class="dialog-actions">
         <button class="btn primary" type="submit">로그인</button>
         <button class="btn" type="button" id="loginClose">닫기</button>
@@ -2400,9 +2420,12 @@ export function renderLewordProWeb(): string {
       event.preventDefault();
       const userId = qs('userId').value.trim();
       const password = qs('password').value.trim();
+      const licenseCode = qs('licenseCode').value.trim();
       qs('loginMessage').textContent = '로그인 중...';
       try {
-        const payload = await apiPost(endpoints.session, { userId: userId, password: password });
+        const loginPayload = { userId: userId, password: password };
+        if (licenseCode) loginPayload.licenseCode = licenseCode;
+        const payload = await apiPost(endpoints.session, loginPayload);
         if (!payload.session || !payload.session.accessToken) throw new Error(payload.message || '세션 발급 실패');
         saveSession(payload.session);
         qs('loginMessage').textContent = '로그인 완료';

@@ -484,6 +484,20 @@ export function renderLewordLanding(): string {
     .pro-dialog-actions { display: flex; gap: 10px; margin-top: 18px; }
     .pro-dialog-actions button { flex: 1; }
     .pro-message { min-height: 20px; margin-top: 12px; color: #93c5fd; font-size: 13px; line-height: 1.5; }
+    .pro-license {
+      margin-top: 12px;
+      border: 1px solid rgba(53,183,255,.24);
+      border-radius: 8px;
+      background: rgba(2,6,23,.46);
+      padding: 10px 12px;
+    }
+    .pro-license summary {
+      cursor: pointer;
+      color: var(--gold);
+      font-weight: 900;
+      font-size: 13px;
+    }
+    .pro-license p { margin: 8px 0 10px; font-size: 12px; }
     .lanes { display: grid; grid-template-columns: repeat(3, 1fr); gap: 14px; margin-top: 18px; }
     .lane { padding: 18px; }
     .lane h3 { margin: 0 0 12px; font-size: 17px; }
@@ -674,6 +688,12 @@ export function renderLewordLanding(): string {
       <input id="proUserId" name="userId" autocomplete="username" required />
       <label for="proPassword">비밀번호</label>
       <input id="proPassword" name="password" type="password" autocomplete="current-password" required />
+      <details class="pro-license">
+        <summary>라이선스 키로 인증하기</summary>
+        <p>구매 또는 등록 키가 있는 경우에만 입력하세요. 평소에는 아이디와 비밀번호만으로 로그인됩니다.</p>
+        <label for="proLicenseCode">라이선스 키</label>
+        <input id="proLicenseCode" name="licenseCode" autocomplete="off" placeholder="LEWORD-XXXX-XXXX" />
+      </details>
       <div class="pro-dialog-actions">
         <button class="primary" type="submit">로그인</button>
         <button class="secondary" type="button" id="proLoginClose">닫기</button>
@@ -859,6 +879,7 @@ export function renderLewordLanding(): string {
       const message = document.getElementById('proLoginMessage');
       const userId = document.getElementById('proUserId').value.trim();
       const password = document.getElementById('proPassword').value.trim();
+      const licenseCode = document.getElementById('proLicenseCode').value.trim();
       if (!userId || !password) {
         message.textContent = '아이디와 비밀번호를 입력해주세요.';
         return;
@@ -868,7 +889,7 @@ export function renderLewordLanding(): string {
         const res = await fetch('/v1/web/session', {
           method: 'POST',
           headers: { 'Content-Type': 'application/json' },
-          body: JSON.stringify({ userId, password }),
+          body: JSON.stringify(licenseCode ? { userId, password, licenseCode } : { userId, password }),
         });
         const payload = await res.json();
         if (!res.ok || !payload?.session?.accessToken) {
