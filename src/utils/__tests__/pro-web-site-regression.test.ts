@@ -43,6 +43,12 @@ assert('loads public and pro golden boards',
     && html.includes('function loadGoldenBoard()')
     && html.includes('renderPublicGoldenBoard')
     && html.includes('renderProGoldenBoard'));
+assert('client golden guard keeps regex escapes and live backfill',
+  html.includes('const lotto = text.match(/(\\d{3,4})\\s*회\\s*로또|로또\\s*(\\d{3,4})\\s*회/)')
+    && html.includes('2027\\s*6모')
+    && html.includes("publicSources: '/v1/public/source-signals'")
+    && html.includes('function liveSignalBackfillItems')
+    && html.includes('payload.clientBackfill = liveSignalBackfillItems'));
 assert('live golden board exposes quality control strip',
   html.includes('id="goldenQualityStrip"')
     && html.includes('function renderGoldenQuality')
