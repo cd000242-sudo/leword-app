@@ -67,9 +67,11 @@ assert('side navigation switches isolated views instead of one stacked page',
   html.includes('data-view-target="golden"')
     && html.includes('data-view-target="sources"')
     && html.includes('data-view-target="features"')
+    && html.includes('data-view-target="youtube"')
     && html.includes('data-view-target="downloads"')
     && html.includes('class="panel main-view" id="sources" data-view="sources"')
     && html.includes('class="panel main-view" id="lookup" data-view="lookup"')
+    && html.includes('class="panel main-view" id="youtube" data-view="youtube"')
     && html.includes('class="panel main-view" id="downloads" data-view="downloads"')
     && html.includes('function setActiveView')
     && html.includes("document.querySelectorAll('[data-view-target]')"));
@@ -157,7 +159,7 @@ assert('operations and execution log are not exposed as user navigation tabs',
     && !html.includes('전체 Pro 기능')
     && !html.includes('노출/성과/발행/스케줄')
     && !html.includes('실행 로그</a>')
-    && html.includes("const viewIds = ['golden', 'sources', 'lookup', 'features', 'settings', 'downloads']"));
+    && html.includes("const viewIds = ['golden', 'sources', 'lookup', 'features', 'youtube', 'settings', 'downloads']"));
 
 assert('renders dedicated result center instead of raw JSON-only output',
   html.includes('id="resultSummary"')
@@ -185,14 +187,14 @@ assert('renders feature-specific tool settings panel',
   html.includes('id="toolConsole"')
     && !html.includes('id="quickFeatureDock"')
     && !html.includes('data-tool-shortcut=')
+    && !html.includes('data-feature-shortcut="youtube"')
     && html.includes('id="toolGroupTabs"')
     && html.includes('[hidden] { display: none !important; }')
     && html.includes('id="toolTabs"')
-    && html.includes('id="toolDetail"')
+    && !html.includes('id="toolDetail"')
     && html.includes('id="toolResultPanel"')
     && html.includes('function selectToolGroup')
     && html.includes('function currentGroupFeatures')
-    && html.includes('function renderToolDetail')
     && html.includes('function renderToolFeatureResult')
     && html.includes('type="hidden" id="toolSeedInput"')
     && html.includes('id="toolAutoDiscoveryPanel"')
@@ -217,6 +219,15 @@ assert('additional features run as automatic discovery subtabs instead of seed-e
     && html.includes("target.hidden = true")
     && !html.includes('실행 키워드 필수')
     && !html.includes('시드 키워드 선택 입력'));
+
+assert('youtube lives only in the side youtube view, not in additional feature subtabs',
+  html.includes("const youtubeFeature = { id: 'youtube'")
+    && html.includes('id="runYoutubeTool"')
+    && html.includes('id="youtubeResultPanel"')
+    && html.includes('function collectYoutubeOptions')
+    && html.includes("setActiveView('youtube'")
+    && html.includes('유튜브 전용 사이드 화면')
+    && !/const features = \[[\s\S]{0,900}id:\s*'youtube'/.test(html));
 
 assert('buttons show a progress modal while server work runs',
   html.includes('id="progressModal"')
@@ -245,6 +256,14 @@ assert('user API key settings are first-class, local-only, and secret-safe',
     && html.includes('id="manusApiKey" type="password"')
     && html.includes('id="openaiApiKey" type="password"')
     && html.includes(' · AI 추론 ')
+    && html.includes('id="apiSettingsChecklist"')
+    && html.includes('function apiSettingGroups')
+    && html.includes('function apiSettingGroupState')
+    && html.includes('function renderApiSettingsChecklist')
+    && html.includes('function missingApiGroupsForRun')
+    && html.includes('function renderApiKeyRequired')
+    && html.includes('네이버 API 키 발급')
+    && html.includes('네이버 검색광고 API 키 발급')
     && html.includes('id="clearNaverApiSettings"')
     && html.includes("const userApiSettingsStorageKey = 'leword.pro.userApiSettings.v1'")
     && html.includes("out['X-Leword-User-Api-Credentials']")
@@ -252,6 +271,8 @@ assert('user API key settings are first-class, local-only, and secret-safe',
     && html.includes('function saveNaverApiSettings')
     && html.includes('function checkNaverApiSettings')
     && html.includes('function clearNaverApiSettings')
+    && html.includes('필수 API 키 누락')
+    && html.includes('API 키 필요')
     && html.includes('서버 공용 저장 아님')
     && !html.includes("naverApiSettings: apiUrl('/v1/mobile/api-settings/naver')"));
 
