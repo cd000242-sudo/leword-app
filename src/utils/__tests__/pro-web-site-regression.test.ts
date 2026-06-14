@@ -222,18 +222,27 @@ assert('buttons show a progress modal while server work runs',
     && html.includes('updateProgress(current.progressPercent || 20, current.progressMessage)')
     && html.includes('failProgress(err.message)'));
 
-assert('Naver API key settings are available but collapsed and secret-safe',
+assert('user API key settings are first-class, local-only, and secret-safe',
   html.includes('id="naverApiSettings"')
-    && html.includes('네이버 API 키 설정')
+    && html.includes('data-view-target="settings"')
+    && html.includes('id="settings" data-view="settings"')
+    && html.includes('환경설정')
+    && html.includes('서버 공용 설정으로 저장하지 않으며 실행 요청에만 전달됩니다.')
     && html.includes('id="naverClientId"')
     && html.includes('id="naverClientSecret" type="password"')
     && html.includes('id="naverSearchAdAccessLicense"')
     && html.includes('id="naverSearchAdSecretKey" type="password"')
     && html.includes('id="naverSearchAdCustomerId"')
-    && html.includes("naverApiSettings: apiUrl('/v1/mobile/api-settings/naver')")
+    && html.includes('id="youtubeApiKey" type="password"')
+    && html.includes('id="clearNaverApiSettings"')
+    && html.includes("const userApiSettingsStorageKey = 'leword.pro.userApiSettings.v1'")
+    && html.includes("out['X-Leword-User-Api-Credentials']")
+    && html.includes("{ userApiCredentials: true }")
     && html.includes('function saveNaverApiSettings')
     && html.includes('function checkNaverApiSettings')
-    && html.includes('키 값은 화면에 다시 표시하지 않습니다.'));
+    && html.includes('function clearNaverApiSettings')
+    && html.includes('서버 공용 저장 아님')
+    && !html.includes("naverApiSettings: apiUrl('/v1/mobile/api-settings/naver')"));
 
 assert('keeps technical Electron mapping hidden while retaining telemetry wiring',
   !html.includes('Electron 기능 매핑')

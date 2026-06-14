@@ -822,6 +822,14 @@ assert('api supports mobile result cache',
     && /createCompleted/.test(apiServer)
     && /resultCache\?\.set/.test(apiServer)
     && /LEWORD_MOBILE_CACHE_FILE/.test(apiServer));
+assert('api keeps user API credentials out of public jobs and cache keys',
+  /X-Leword-User-Api-Credentials/.test(apiServer)
+    && /decodeUserApiCredentialsHeader/.test(apiServer)
+    && /splitSensitiveJobParams/.test(apiServer)
+    && /fingerprintUserApiCredentials/.test(apiServer)
+    && /splitParams\.publicParams/.test(apiServer)
+    && /splitParams\.executorParams/.test(apiServer)
+    && /splitParams\.cacheParams/.test(apiServer));
 assert('api supports mobile prewarm routes',
   /MOBILE_PREWARM_ROUTES/.test(apiServer)
     && /MobilePrewarmService/.test(apiServer)
@@ -920,6 +928,14 @@ assert('mobile executor supports injectable heavy adapters for deterministic tes
     && /runHomeBoard\?/.test(pcExecutor)
     && /runKinHiddenHoney\?/.test(pcExecutor)
     && /measureKeywordMetrics\?/.test(pcExecutor));
+assert('mobile executor merges per-user API credentials before server env defaults',
+  /JOB_API_CREDENTIAL_KEYS/.test(pcExecutor)
+    && /extractJobApiCredentials/.test(pcExecutor)
+    && /mergeJobApiCredentials/.test(pcExecutor)
+    && /const configured = normalizeKeyword\(env\[key\] \|\| ''\)/.test(pcExecutor)
+    && /createDefaultKeywordMetricsAdapter\(getJobEnvConfig\)/.test(pcExecutor)
+    && /runYoutubeGoldenWithPcEngine\(payload, ctx, getJobEnvConfig/.test(pcExecutor)
+    && /runNaverMateWithPcEngine\(payload, ctx, jobMeasureKeywordMetrics, getJobEnvConfig/.test(pcExecutor));
 assert('api server defaults to mobile PC engine executor', /createMobilePcEngineExecutor/.test(apiServer));
 
 const plan = read('docs/mobile-ultra-plan.md');

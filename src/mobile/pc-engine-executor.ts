@@ -852,12 +852,51 @@ function defaultEnvConfig(): Partial<EnvConfig> {
   return EnvironmentManager.getInstance().getConfig();
 }
 
+type JobApiCredentialKey =
+  | 'naverClientId'
+  | 'naverClientSecret'
+  | 'naverSearchAdAccessLicense'
+  | 'naverSearchAdSecretKey'
+  | 'naverSearchAdCustomerId'
+  | 'youtubeApiKey';
+
+const JOB_API_CREDENTIAL_KEYS: JobApiCredentialKey[] = [
+  'naverClientId',
+  'naverClientSecret',
+  'naverSearchAdAccessLicense',
+  'naverSearchAdSecretKey',
+  'naverSearchAdCustomerId',
+  'youtubeApiKey',
+];
+
+function extractJobApiCredentials(params: unknown): Partial<EnvConfig> {
+  const rawParams = params && typeof params === 'object' && !Array.isArray(params)
+    ? params as Record<string, unknown>
+    : {};
+  const rawCredentials = rawParams.apiCredentials && typeof rawParams.apiCredentials === 'object'
+    ? rawParams.apiCredentials as Record<string, unknown>
+    : {};
+  const out: Partial<EnvConfig> = {};
+  for (const key of JOB_API_CREDENTIAL_KEYS) {
+    const value = normalizeKeyword(rawCredentials[key]);
+    if (value) out[key] = value;
+  }
+  return out;
+}
+
+function mergeJobApiCredentials(base: Partial<EnvConfig>, params: unknown): Partial<EnvConfig> {
+  const credentials = extractJobApiCredentials(params);
+  return Object.keys(credentials).length ? { ...base, ...credentials } : base;
+}
+
 function envValue(env: Partial<EnvConfig>, key: keyof EnvConfig, ...envNames: string[]): string {
+  const configured = normalizeKeyword(env[key] || '');
+  if (configured) return configured;
   for (const name of envNames) {
     const value = normalizeKeyword(process.env[name]);
     if (value) return value;
   }
-  return normalizeKeyword(env[key] || '');
+  return '';
 }
 
 async function collectLiveExpansionCandidates(
@@ -1113,8 +1152,8 @@ function requireNaverOpenApiConfig(
   env: Partial<EnvConfig>,
   product: MobileKeywordProduct,
 ): { clientId: string; clientSecret: string } {
-  const clientId = normalizeKeyword(env.naverClientId);
-  const clientSecret = normalizeKeyword(env.naverClientSecret);
+  const clientId = envValue(env, 'naverClientId', 'NAVER_CLIENT_ID');
+  const clientSecret = envValue(env, 'naverClientSecret', 'NAVER_CLIENT_SECRET');
   if (!clientId || !clientSecret) {
     throw new MobilePcEngineConfigError(
       product,
@@ -1270,6 +1309,7 @@ async function runGoldenDiscoveryWithPcMdp(
 async function runProTrafficWithPcHunter(
   params: ProTrafficMobileParams,
   context: MobileJobExecutorContext,
+  measureKeywordMetrics?: MobileKeywordMetricsAdapter,
 ): Promise<MobileKeywordResult> {
   const startedAt = Date.now();
   context.progress(8, `starting PC PRO traffic hunter for ${params.categoryId}`);
@@ -1295,12 +1335,16 @@ async function runProTrafficWithPcHunter(
     .slice(0, params.targetCount)
     .map((item) => metricFromProResult(item, params.categoryId))
     .filter((item) => item.keyword);
-  return resultFromMetrics(metrics, startedAt, 'pc-engine-plus');
+  const measuredMetrics = measureKeywordMetrics
+    ? await measureKeywordMetrics(metrics, context)
+    : metrics;
+  return resultFromMetrics(measuredMetrics, startedAt, 'pc-engine-plus');
 }
 
 async function runHomeBoardWithPcPlanner(
   params: HomeBoardMobileParams,
   context: MobileJobExecutorContext,
+  measureKeywordMetrics?: MobileKeywordMetricsAdapter,
 ): Promise<MobileKeywordResult> {
   const startedAt = Date.now();
   const seed = params.seedKeyword || defaultSeedForHomeCategory(params.categoryId);
@@ -1328,7 +1372,10 @@ async function runHomeBoardWithPcPlanner(
     : rankHomeNeedKeywords(expanded).slice(0, params.targetCount);
 
   const metrics = fallback.map((item) => metricFromHomeNeedResult(item, params.categoryId));
-  return resultFromMetrics(metrics, startedAt, 'pc-engine-plus');
+  const measuredMetrics = measureKeywordMetrics
+    ? await measureKeywordMetrics(metrics, context)
+    : metrics;
+  return resultFromMetrics(measuredMetrics, startedAt, 'pc-engine-plus');
 }
 
 async function runKinHiddenHoneyWithPcHunter(
@@ -1813,57 +1860,60 @@ async function runMindmapExpansion(
 export function createMobilePcEngineExecutor(
   options: MobilePcEngineExecutorOptions = {},
 ): MobileJobExecutor {
-  const getEnvConfig = options.getEnvConfig || defaultEnvConfig;
-  const measureKeywordMetrics = options.measureKeywordMetrics
-    || createDefaultKeywordMetricsAdapter(getEnvConfig);
+  const baseGetEnvConfig = options.getEnvConfig || defaultEnvConfig;
 
   return async (job, context) => {
     context.progress(5, 'accepted by MobilePcEngineExecutor');
     ensureNotAborted(context);
+    const getJobEnvConfig = () => mergeJobApiCredentials(baseGetEnvConfig(), job.params);
+    const jobMeasureKeywordMetrics = options.measureKeywordMetrics
+      || createDefaultKeywordMetricsAdapter(getJobEnvConfig);
 
     switch (job.product) {
       case 'keyword-analysis':
-        return runKeywordAnalysis(job, context, measureKeywordMetrics, getEnvConfig);
+        return runKeywordAnalysis(job, context, jobMeasureKeywordMetrics, getJobEnvConfig);
       case 'mindmap-expansion':
-        return runMindmapExpansion(job, context, measureKeywordMetrics, getEnvConfig);
+        return runMindmapExpansion(job, context, jobMeasureKeywordMetrics, getJobEnvConfig);
       case 'golden-discovery': {
         const params = asGoldenParams(job.params);
         const adapter = options.runGoldenDiscovery
-          || ((payload, ctx) => runGoldenDiscoveryWithPcMdp(payload, ctx, getEnvConfig));
+          || ((payload, ctx) => runGoldenDiscoveryWithPcMdp(payload, ctx, getJobEnvConfig));
         const result = await adapter(params, context);
         return normalizeGoldenDiscoveryResult(result, params.targetCount);
       }
       case 'pro-traffic-hunter': {
         const params = asProTrafficParams(job.params);
-        const adapter = options.runProTraffic || runProTrafficWithPcHunter;
+        const adapter = options.runProTraffic
+          || ((payload, ctx) => runProTrafficWithPcHunter(payload, ctx, jobMeasureKeywordMetrics));
         return adapter(params, context);
       }
       case 'home-board-hunter': {
         const params = asHomeBoardParams(job.params);
-        const adapter = options.runHomeBoard || runHomeBoardWithPcPlanner;
+        const adapter = options.runHomeBoard
+          || ((payload, ctx) => runHomeBoardWithPcPlanner(payload, ctx, jobMeasureKeywordMetrics));
         return adapter(params, context);
       }
       case 'kin-hidden-honey': {
         const params = asKinHiddenHoneyParams(job.params);
         if (options.runKinHiddenHoney) return options.runKinHiddenHoney(params, context);
-        return runKinHiddenHoneyWithPcHunter(params, context, measureKeywordMetrics);
+        return runKinHiddenHoneyWithPcHunter(params, context, jobMeasureKeywordMetrics);
       }
       case 'shopping-connect': {
         const params = asShoppingConnectParams(job.params);
         const adapter = options.runShoppingConnect
-          || ((payload, ctx) => runShoppingConnectWithPcEngine(payload, ctx, measureKeywordMetrics));
+          || ((payload, ctx) => runShoppingConnectWithPcEngine(payload, ctx, jobMeasureKeywordMetrics));
         return adapter(params, context);
       }
       case 'youtube-golden': {
         const params = asYoutubeGoldenParams(job.params);
         const adapter = options.runYoutubeGolden
-          || ((payload, ctx) => runYoutubeGoldenWithPcEngine(payload, ctx, getEnvConfig, measureKeywordMetrics));
+          || ((payload, ctx) => runYoutubeGoldenWithPcEngine(payload, ctx, getJobEnvConfig, jobMeasureKeywordMetrics));
         return adapter(params, context);
       }
       case 'naver-mate-hunter': {
         const params = asNaverMateParams(job.params);
         const adapter = options.runNaverMate
-          || ((payload, ctx) => runNaverMateWithPcEngine(payload, ctx, measureKeywordMetrics, getEnvConfig));
+          || ((payload, ctx) => runNaverMateWithPcEngine(payload, ctx, jobMeasureKeywordMetrics, getJobEnvConfig));
         return adapter(params, context);
       }
       default:

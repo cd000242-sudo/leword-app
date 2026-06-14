@@ -171,7 +171,7 @@ function json(
     'Content-Type': 'application/json; charset=utf-8',
     'Access-Control-Allow-Origin': '*',
     'Access-Control-Allow-Methods': 'GET,POST,PUT,PATCH,DELETE,OPTIONS',
-    'Access-Control-Allow-Headers': 'Authorization, Content-Type, X-Requested-With',
+    'Access-Control-Allow-Headers': 'Authorization, Content-Type, X-Requested-With, X-Leword-User-Api-Credentials',
     ...headers,
   });
   res.end(JSON.stringify(body));
@@ -187,7 +187,7 @@ function html(
     'Content-Type': 'text/html; charset=utf-8',
     'Access-Control-Allow-Origin': '*',
     'Access-Control-Allow-Methods': 'GET,POST,PUT,PATCH,DELETE,OPTIONS',
-    'Access-Control-Allow-Headers': 'Authorization, Content-Type, X-Requested-With',
+    'Access-Control-Allow-Headers': 'Authorization, Content-Type, X-Requested-With, X-Leword-User-Api-Credentials',
     ...headers,
   });
   res.end(body);
@@ -732,6 +732,82 @@ function sanitizeNaverApiSettings(body: unknown): Partial<Pick<EnvConfig, NaverA
   return updates;
 }
 
+type UserApiCredentialKey = NaverApiSettingKey | 'youtubeApiKey';
+
+const USER_API_CREDENTIAL_KEYS: UserApiCredentialKey[] = [
+  ...NAVER_API_SETTING_KEYS,
+  'youtubeApiKey',
+];
+
+type UserApiCredentials = Partial<Record<UserApiCredentialKey, string>>;
+
+function sanitizeUserApiCredentials(value: unknown): UserApiCredentials {
+  const raw = value && typeof value === 'object' && !Array.isArray(value)
+    ? value as Record<string, unknown>
+    : {};
+  const credentials: UserApiCredentials = {};
+  for (const key of USER_API_CREDENTIAL_KEYS) {
+    const candidate = raw[key];
+    if (typeof candidate === 'string' && candidate.trim()) {
+      credentials[key] = candidate.trim();
+    }
+  }
+  return credentials;
+}
+
+function decodeUserApiCredentialsHeader(req: http.IncomingMessage): UserApiCredentials {
+  const value = req.headers['x-leword-user-api-credentials'];
+  const encoded = Array.isArray(value) ? value[0] : value;
+  if (!encoded) return {};
+  try {
+    const jsonPayload = Buffer.from(String(encoded), 'base64').toString('utf8');
+    return sanitizeUserApiCredentials(JSON.parse(jsonPayload));
+  } catch {
+    return {};
+  }
+}
+
+function fingerprintUserApiCredentials(credentials: UserApiCredentials): string {
+  const entries = USER_API_CREDENTIAL_KEYS
+    .filter((key) => Boolean(credentials[key]))
+    .map((key) => [
+      key,
+      crypto.createHash('sha256').update(String(credentials[key])).digest('hex').slice(0, 16),
+    ]);
+  return crypto.createHash('sha256').update(JSON.stringify(entries)).digest('hex').slice(0, 16);
+}
+
+function splitSensitiveJobParams(
+  params: unknown,
+  headerCredentials: UserApiCredentials,
+): { publicParams: unknown; executorParams: unknown; cacheParams: unknown } {
+  const raw = params && typeof params === 'object' && !Array.isArray(params)
+    ? params as Record<string, unknown>
+    : {};
+  const bodyCredentials = sanitizeUserApiCredentials(raw.apiCredentials);
+  const credentials = { ...bodyCredentials, ...headerCredentials };
+  const configuredKeys = USER_API_CREDENTIAL_KEYS.filter((key) => Boolean(credentials[key]));
+  if (!configuredKeys.length) {
+    return { publicParams: params, executorParams: params, cacheParams: params };
+  }
+
+  const { apiCredentials: _apiCredentials, ...rest } = raw;
+  const publicParams = params && typeof params === 'object' && !Array.isArray(params)
+    ? rest
+    : { value: params };
+  const marker = {
+    mode: 'user-local',
+    configuredKeys,
+    fingerprint: fingerprintUserApiCredentials(credentials),
+  };
+
+  return {
+    publicParams: { ...publicParams, apiCredentials: marker },
+    executorParams: { ...publicParams, apiCredentials: credentials },
+    cacheParams: { ...publicParams, apiCredentials: marker },
+  };
+}
+
 function streamJobEvents(
   req: http.IncomingMessage,
   res: http.ServerResponse,
@@ -774,12 +850,13 @@ async function createJob(
 ): Promise<void> {
   try {
     const params = await parseBody(req, maxBodyBytes);
-    const cachedResult = resultCache?.get(endpoint.product, params);
+    const splitParams = splitSensitiveJobParams(params, decodeUserApiCredentialsHeader(req));
+    const cachedResult = resultCache?.get(endpoint.product, splitParams.cacheParams);
     const job = cachedResult
-      ? store.createCompleted(endpoint.product, params, cachedResult)
-      : store.create(endpoint.product, params, async (job, context) => {
-        const result = await pcWorkerExecutor(job, context);
-        resultCache?.set(endpoint.product, params, result);
+      ? store.createCompleted(endpoint.product, splitParams.publicParams, cachedResult)
+      : store.create(endpoint.product, splitParams.publicParams, async (job, context) => {
+        const result = await pcWorkerExecutor({ ...job, params: splitParams.executorParams }, context);
+        resultCache?.set(endpoint.product, splitParams.cacheParams, result);
         return result;
       });
 
@@ -876,7 +953,7 @@ export function createLewordApiServer(options: LewordApiServerOptions = {}): htt
       res.writeHead(204, {
         'Access-Control-Allow-Origin': '*',
         'Access-Control-Allow-Methods': 'GET,POST,PUT,PATCH,DELETE,OPTIONS',
-        'Access-Control-Allow-Headers': 'Authorization, Content-Type, X-Requested-With',
+        'Access-Control-Allow-Headers': 'Authorization, Content-Type, X-Requested-With, X-Leword-User-Api-Credentials',
       });
       res.end();
       return;
