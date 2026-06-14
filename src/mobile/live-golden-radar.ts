@@ -48,6 +48,7 @@ export interface MobileLiveGoldenRadarOptions {
     options: Parameters<typeof discoverDirectGoldenKeywords>[1],
   ) => Promise<MDPResult[]>;
   liveSeedProvider?: (categoryId: string) => Promise<string[]>;
+  measureLiveSearchVolumeSeparate?: typeof getNaverKeywordSearchVolumeSeparate;
   measureLiveDocumentCount?: typeof measureDocumentCount;
   enableBackfill?: boolean;
   shouldRun?: () => MobileLiveGoldenRadarRunGate | boolean;
@@ -1059,7 +1060,9 @@ function rowToBackfillResult(
   const actionable = isActionableGoldenKeyword(keyword) || SPECIFIC_LIVE_KEYWORD_HINT_RE.test(keyword);
   const score = liveMetricScore(volume, docs, ratio, actionable);
   const grade = liveGradeFromMetrics(score, volume, docs, ratio);
-  const intentInfo = classifyKeywordIntent(keyword);
+  const intentInfo = typeof classifyKeywordIntent === 'function'
+    ? classifyKeywordIntent(keyword)
+    : { intent: 'live-golden-discovery', badge: 'LIVE' };
   const result: MDPResult = {
     keyword,
     intent: intentInfo.intent,
@@ -1221,6 +1224,7 @@ export class MobileLiveGoldenRadar {
     options: Parameters<typeof discoverDirectGoldenKeywords>[1],
   ) => Promise<MDPResult[]>;
   private readonly liveSeedProvider?: (categoryId: string) => Promise<string[]>;
+  private readonly measureLiveSearchVolumeSeparate: typeof getNaverKeywordSearchVolumeSeparate;
   private readonly measureLiveDocumentCount: typeof measureDocumentCount;
   private readonly hasCustomLiveDocumentMeasure: boolean;
   private readonly enableBackfill: boolean;
@@ -1278,6 +1282,7 @@ export class MobileLiveGoldenRadar {
     this.getEnvConfig = options.getEnvConfig || (() => EnvironmentManager.getInstance().getConfig());
     this.discover = options.discover || discoverDirectGoldenKeywords;
     this.liveSeedProvider = options.liveSeedProvider;
+    this.measureLiveSearchVolumeSeparate = options.measureLiveSearchVolumeSeparate || getNaverKeywordSearchVolumeSeparate;
     this.measureLiveDocumentCount = options.measureLiveDocumentCount || measureDocumentCount;
     this.hasCustomLiveDocumentMeasure = Boolean(options.measureLiveDocumentCount);
     this.enableBackfill = options.enableBackfill !== false;
@@ -1455,7 +1460,10 @@ export class MobileLiveGoldenRadar {
       appendUniqueMdpResults(ranked, rankedBackfill, seen, this.cycleLimit);
       const rankedMetrics = ranked.map((item) => mapDirectResult(item, categoryId));
       const liveIssueFallback = rankedMetrics.length < this.cycleLimit && (this.enableBackfill || this.hasCustomLiveDocumentMeasure)
-        ? await this.discoverLiveIssueFallback(categoryId, liveSeeds)
+        ? await this.discoverLiveIssueFallback({
+          clientId: env.naverClientId,
+          clientSecret: env.naverClientSecret,
+        }, categoryId, liveSeeds)
         : [];
       const resultMetrics: MobileKeywordMetric[] = [...rankedMetrics];
       const metricSeen = new Set<string>();
@@ -1587,7 +1595,7 @@ export class MobileLiveGoldenRadar {
     const candidates = buildBackfillCandidates(categoryId, liveSeeds, this.maxSeeds, this.now());
     if (candidates.length === 0) return [];
     const measurementLimit = Math.max(60, Math.min(120, Math.floor(this.maxCandidates * 0.05)));
-    const rows = await withTimeout(getNaverKeywordSearchVolumeSeparate(config, candidates.slice(0, measurementLimit), {
+    const rows = await withTimeout(this.measureLiveSearchVolumeSeparate(config, candidates.slice(0, measurementLimit), {
       includeDocumentCount: true,
     }), LIVE_BACKFILL_TIMEOUT_MS, []);
     const seen = new Set<string>();
@@ -1634,7 +1642,11 @@ export class MobileLiveGoldenRadar {
     });
   }
 
-  private async discoverLiveIssueFallback(categoryId: string, liveSeeds: string[]): Promise<MobileKeywordMetric[]> {
+  private async discoverLiveIssueFallback(
+    config: { clientId: string; clientSecret: string },
+    categoryId: string,
+    liveSeeds: string[],
+  ): Promise<MobileKeywordMetric[]> {
     const liveSeedBases = normalizeLiveSeeds(liveSeeds, 36).filter(isStrongLiveIssueSeed);
     if (liveSeedBases.length === 0) return [];
 
@@ -1668,6 +1680,59 @@ export class MobileLiveGoldenRadar {
 
     const seen = new Set<string>();
     const out: MobileKeywordMetric[] = [];
+    const pushMetric = (metric: MobileKeywordMetric): void => {
+      const compactId = keywordCompactId(metric.keyword);
+      if (!compactId || seen.has(compactId)) return;
+      seen.add(compactId);
+      out.push(metric);
+    };
+    const volumeRows = await withTimeout(this.measureLiveSearchVolumeSeparate(config, candidates, {
+      includeDocumentCount: true,
+    }), LIVE_BACKFILL_TIMEOUT_MS, []);
+    let documentCountSupplements = 0;
+    for (const row of volumeRows) {
+      const pc = finiteNumber(row.pcSearchVolume) || 0;
+      const mobile = finiteNumber(row.mobileSearchVolume) || 0;
+      const volume = pc + mobile;
+      let enrichedRow = row;
+      if (
+        (row.documentCount === null || row.documentCount === undefined || row.documentCount <= 0)
+        && volume >= 100
+        && documentCountSupplements < 8
+      ) {
+        documentCountSupplements += 1;
+        const measuredDc = await withTimeout(
+          this.measureLiveDocumentCount(row.keyword, {
+            searchVolume: volume,
+            scrapeTimeoutMs: 1500,
+            scrapeOnly: true,
+          }).catch(() => null),
+          3500,
+          null,
+        );
+        if (measuredDc && !measuredDc.isEstimated && measuredDc.dc > 0) {
+          enrichedRow = { ...row, documentCount: measuredDc.dc };
+        }
+      }
+      const result = rowToBackfillResult(enrichedRow, categoryId);
+      if (!result) continue;
+      pushMetric({
+        ...mapDirectResult(result, categoryId),
+        source: 'mobile-live-issue-measured-radar',
+        intent: result.intent || 'live-issue-measured-gap',
+        evidence: [
+          'mobile-live-issue-measured-radar',
+          'searchad-live-issue-volume',
+          result.goldenReason || '',
+          ...(result.externalSources || []),
+        ].filter(Boolean),
+      });
+      if (out.length >= this.cycleLimit) break;
+    }
+    if (out.length >= this.cycleLimit) {
+      return out.slice(0, this.cycleLimit);
+    }
+
     const measureOne = async (keyword: string): Promise<MobileKeywordMetric | null> => {
       const measured = await withTimeout(
         this.measureLiveDocumentCount(keyword, {
@@ -1697,10 +1762,7 @@ export class MobileLiveGoldenRadar {
       const measured = await Promise.all(batch.map(measureOne));
       for (const metric of measured) {
         if (!metric) continue;
-        const compactId = keywordCompactId(metric.keyword);
-        if (seen.has(compactId)) continue;
-        seen.add(compactId);
-        out.push(metric);
+        pushMetric(metric);
         if (out.length >= this.cycleLimit) break;
       }
     }

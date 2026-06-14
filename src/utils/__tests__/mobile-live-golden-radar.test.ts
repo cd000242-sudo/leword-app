@@ -359,6 +359,7 @@ function thinProfileCount(items: Array<{ keyword: string }>): number {
     ],
     enableBackfill: false,
     discover: async () => [],
+    measureLiveSearchVolumeSeparate: async () => [],
     measureLiveDocumentCount: async (keyword) => {
       fallbackMeasureCalls += 1;
       const isKia = keyword.includes('KIA');
@@ -378,6 +379,67 @@ function thinProfileCount(items: Array<{ keyword: string }>): number {
       && liveIssueDocumentFallbackSnapshot.board.every((item) => item.isMeasured && (item.totalSearchVolume || 0) > 0 && (item.documentCount || 0) > 0)
       && !liveIssueDocumentFallbackSnapshot.board.some((item) => /\uB4F1\uAE09\uCEF7|\uB2F5\uC9C0/.test(item.keyword)),
     liveIssueDocumentFallbackSnapshot.board.map((item) => `${item.keyword}:${item.source}:${item.documentCount}`).join('|'));
+
+  let measuredFallbackVolumeCalls = 0;
+  const liveIssueMeasuredFallbackRadar = new MobileLiveGoldenRadar({
+    notificationInbox: inbox,
+    runOnStart: false,
+    cycleLimit: 4,
+    categories: ['all'],
+    getEnvConfig: () => ({
+      naverClientId: 'client',
+      naverClientSecret: 'secret',
+    }),
+    liveSeedProvider: async () => [
+      'KIA 3\uC5F0\uD328 \uD0C8\uCD9C! [up]',
+      '1228\uD68C \uB85C\uB610 1\uB4F1 \uB2F9\uCCA8 11\uBA85 [new]',
+      '\uD30C\uD0A4\uC2A4\uD0C4 \uCD1D\uB9AC 24\uC2DC\uAC04 \uB0B4 \uD569\uC758 \uC608\uC0C1 [new]',
+    ],
+    enableBackfill: false,
+    discover: async () => [],
+    measureLiveSearchVolumeSeparate: async () => {
+      measuredFallbackVolumeCalls += 1;
+      return [
+        {
+          keyword: 'KIA 3\uC5F0\uD328 \uD0C8\uCD9C \uC815\uB9AC',
+          pcSearchVolume: 2400,
+          mobileSearchVolume: 8600,
+          documentCount: 420,
+          competition: 'LOW',
+          monthlyAveCpc: 120,
+        },
+        {
+          keyword: '1228\uD68C \uB85C\uB610 \uB2F9\uCCA8\uBC88\uD638',
+          pcSearchVolume: 11000,
+          mobileSearchVolume: 27000,
+          documentCount: 820,
+          competition: 'LOW',
+          monthlyAveCpc: 90,
+        },
+        {
+          keyword: '\uD30C\uD0A4\uC2A4\uD0C4 \uCD1D\uB9AC \uD569\uC758 \uC815\uB9AC',
+          pcSearchVolume: 1800,
+          mobileSearchVolume: 5200,
+          documentCount: 360,
+          competition: 'LOW',
+          monthlyAveCpc: 150,
+        },
+      ];
+    },
+    measureLiveDocumentCount: async () => ({
+      dc: 300,
+      source: 'scrape',
+      confidence: 'high',
+      isEstimated: false,
+    }),
+  });
+  const liveIssueMeasuredFallbackSnapshot = await liveIssueMeasuredFallbackRadar.runOnce();
+  assert('live issue fallback is promoted only after measured search volume and document count are attached',
+    measuredFallbackVolumeCalls > 0
+      && liveIssueMeasuredFallbackSnapshot.board.length >= 3
+      && liveIssueMeasuredFallbackSnapshot.board.every((item) => item.source === 'mobile-live-issue-measured-radar')
+      && liveIssueMeasuredFallbackSnapshot.board.every((item) => item.isMeasured && (item.totalSearchVolume || 0) > 0 && (item.documentCount || 0) > 0),
+    `${liveIssueMeasuredFallbackSnapshot.lastMessage || ''} :: ${liveIssueMeasuredFallbackSnapshot.board.map((item) => `${item.keyword}:${item.totalSearchVolume}:${item.documentCount}:${item.source}`).join('|')}`);
 
   const publicQualityBoardFile = path.join(process.cwd(), 'tmp', 'mobile-live-golden-public-quality-test.json');
   fs.writeFileSync(publicQualityBoardFile, JSON.stringify({
