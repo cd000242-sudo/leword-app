@@ -95,8 +95,10 @@ const PUBLIC_PREVIEW_VOLUME_CEILING = 250_000;
 const PUBLIC_PREVIEW_DOCUMENT_CEILING = 30_000;
 const PUBLIC_PREVIEW_PROFILE_INTENT_MAX = 0;
 const PUBLIC_PREVIEW_PROTECTED_TOP_COUNT = 3;
-const LIVE_BOARD_CATEGORY_SHARE_CAP = 0.24;
+const LIVE_BOARD_CATEGORY_SHARE_CAP = 0.18;
 const LIVE_BOARD_CLUSTER_MAX = 2;
+const LIVE_BOARD_EPISODE_LOOKUP_SHARE_CAP = 0.06;
+const LIVE_BOARD_CONTENT_LOOKUP_SHARE_CAP = 0.18;
 const LIVE_DIRECT_CANDIDATE_MAX_PER_CYCLE = 600;
 const LIVE_ISSUE_FALLBACK_DOCUMENT_LIMIT = 24;
 const LIVE_ISSUE_FALLBACK_CONCURRENCY = 4;
@@ -104,6 +106,8 @@ const NEWS_HEADLINE_FRAGMENT_RE = /(?:\uBD80\uCE5C\uC0C1|\uC0AC\uACFC|\uAD6C\uC1
 const SEMANTIC_CLUSTER_SUFFIX_RE = new RegExp(`(?:${[
   '\\uBA87\\uBD80\\uC791',
   '\\uCD9C\\uC5F0\\uC9C4',
+  '\\uBC29\\uC1A1\\uC2DC\\uAC04',
+  '\\uC7AC\\uBC29\\uC1A1',
   '\\uB4F1\\uAE09\\uCEF7',
   '\\uB2F5\\uC9C0',
   '\\uB2F9\\uCCA8\\uBC88\\uD638',
@@ -130,17 +134,25 @@ const SEMANTIC_CLUSTER_SUFFIX_RE = new RegExp(`(?:${[
   '\\uB77C\\uC778\\uC5C5',
   '\\uD558\\uC774\\uB77C\\uC774\\uD2B8',
   '\\uC6D0\\uC791',
+  '\\uB4F1\\uC7A5\\uC778\\uBB3C',
   '\\uC778\\uBB3C\\uAD00\\uACC4\\uB3C4',
+  '\\uACF5\\uC2DD\\uC601\\uC0C1',
 ].join('|')})+$`, 'u');
 const SEASONAL_CONTENT_CLUSTER_SUFFIX_RE = new RegExp(`(?:${[
   '\\uBA87\\uBD80\\uC791',
   '\\uCD9C\\uC5F0\\uC9C4',
+  '\\uBC29\\uC1A1\\uC2DC\\uAC04',
+  '\\uC7AC\\uBC29\\uC1A1',
   '\\uB2E4\\uC2DC\\uBCF4\\uAE30',
   '\\uACB0\\uB9D0',
   '\\uCFE0\\uD0A4\\uC601\\uC0C1',
   '\\uC6D0\\uC791',
+  '\\uB4F1\\uC7A5\\uC778\\uBB3C',
   '\\uC778\\uBB3C\\uAD00\\uACC4\\uB3C4',
+  '\\uACF5\\uC2DD\\uC601\\uC0C1',
 ].join('|')})+$`, 'u');
+const EPISODE_LOOKUP_INTENT_RE = /\uBA87\uBD80\uC791/u;
+const CONTENT_LOOKUP_INTENT_RE = /(?:\uBA87\uBD80\uC791|\uCD9C\uC5F0\uC9C4|\uBC29\uC1A1\uC2DC\uAC04|\uC7AC\uBC29\uC1A1|\uB2E4\uC2DC\uBCF4\uAE30|\uACB0\uB9D0|\uCFE0\uD0A4\uC601\uC0C1|\uC6D0\uC791|\uB4F1\uC7A5\uC778\uBB3C|\uC778\uBB3C\uAD00\uACC4\uB3C4|\uACF5\uC2DD\uC601\uC0C1)/u;
 
 const GRADE_WEIGHT: Record<MobileResultGrade, number> = {
   SSS: 120,
@@ -602,6 +614,36 @@ function maxCategoryBoardCount(boardTarget: number): number {
   return Math.max(3, Math.ceil(Math.max(1, boardTarget) * LIVE_BOARD_CATEGORY_SHARE_CAP));
 }
 
+function maxEpisodeLookupBoardCount(boardTarget: number): number {
+  return Math.max(2, Math.ceil(Math.max(1, boardTarget) * LIVE_BOARD_EPISODE_LOOKUP_SHARE_CAP));
+}
+
+function maxContentLookupBoardCount(boardTarget: number): number {
+  return Math.max(3, Math.ceil(Math.max(1, boardTarget) * LIVE_BOARD_CONTENT_LOOKUP_SHARE_CAP));
+}
+
+function isEpisodeLookupKeyword(keyword: string): boolean {
+  return EPISODE_LOOKUP_INTENT_RE.test(normalizeKeyword(keyword));
+}
+
+function isContentLookupKeyword(keyword: string): boolean {
+  return CONTENT_LOOKUP_INTENT_RE.test(normalizeKeyword(keyword));
+}
+
+function hasCompleteLiveGoldenMetrics(item: {
+  totalSearchVolume?: number | null;
+  documentCount?: number | null;
+  isMeasured?: boolean;
+}): boolean {
+  const volume = finiteNumber(item.totalSearchVolume);
+  const documents = finiteNumber(item.documentCount);
+  return item.isMeasured !== false
+    && volume !== null
+    && documents !== null
+    && volume > 0
+    && documents > 0;
+}
+
 function boardCategoryKey(item: MobileLiveGoldenBoardItem): string {
   return normalizeKeyword(item.category) || inferLiveCategory(item.keyword, 'live');
 }
@@ -619,13 +661,22 @@ function selectLiveBoardItems<T extends MobileLiveGoldenBoardItem>(
   const categoryCounts = new Map<string, number>();
   const clusterCounts = new Map<string, number>();
   let profileCount = 0;
+  let episodeLookupCount = 0;
+  let contentLookupCount = 0;
+  const maxEpisodeLookupCount = maxEpisodeLookupBoardCount(target);
+  const maxContentLookupCount = maxContentLookupBoardCount(target);
 
   const push = (item: T, options: { respectCategory?: boolean; respectCluster?: boolean } = {}): boolean => {
     if (selected.length >= target || selectedIds.has(item.id)) return false;
     const compactId = keywordCompactId(item.keyword);
     if (selectedCompactIds.has(compactId)) return false;
+    if (!hasCompleteLiveGoldenMetrics(item)) return false;
     const isProfileIntent = isThinProfileIntentKeyword(item.keyword);
     if (isProfileIntent && profileCount >= maxProfileCount) return false;
+    const isEpisodeLookup = isEpisodeLookupKeyword(item.keyword);
+    const isContentLookup = isContentLookupKeyword(item.keyword);
+    if (isEpisodeLookup && episodeLookupCount >= maxEpisodeLookupCount) return false;
+    if (isContentLookup && contentLookupCount >= maxContentLookupCount) return false;
     const category = boardCategoryKey(item);
     const cluster = publicPreviewClusterKey(item.keyword);
     if (
@@ -646,6 +697,8 @@ function selectLiveBoardItems<T extends MobileLiveGoldenBoardItem>(
     selectedIds.add(item.id);
     selectedCompactIds.add(compactId);
     if (isProfileIntent) profileCount++;
+    if (isEpisodeLookup) episodeLookupCount++;
+    if (isContentLookup) contentLookupCount++;
     if (category) categoryCounts.set(category, (categoryCounts.get(category) || 0) + 1);
     if (cluster) clusterCounts.set(cluster, (clusterCounts.get(cluster) || 0) + 1);
     return true;
@@ -1803,6 +1856,7 @@ export class MobileLiveGoldenRadar {
     for (const keyword of keywords) {
       const normalizedKeyword = normalizeKeyword(keyword.keyword);
       if (!normalizedKeyword || keyword.grade === 'C') continue;
+      if (!hasCompleteLiveGoldenMetrics(keyword)) continue;
       if (!isLiveRadarUsableMetric({ ...keyword, keyword: normalizedKeyword }, now)) continue;
       const id = keywordId(normalizedKeyword);
       const compactId = keywordCompactId(normalizedKeyword);
@@ -1835,6 +1889,7 @@ export class MobileLiveGoldenRadar {
     const nowMs = now.getTime();
     const sorted = [...this.board.values()]
       .filter((item) => ageMsFrom(item.updatedAt, nowMs) <= LIVE_BOARD_MAX_AGE_MS)
+      .filter(hasCompleteLiveGoldenMetrics)
       .filter((item) => isLiveRadarUsableMetric(item, now))
       .map((item) => ({
         ...item,
@@ -1878,8 +1933,10 @@ export class MobileLiveGoldenRadar {
         if (!keyword) continue;
         const totalSearchVolume = finiteNumber(row?.totalSearchVolume);
         const documentCount = finiteNumber(row?.documentCount);
+        const isMeasured = Boolean(row?.isMeasured) || (totalSearchVolume !== null && documentCount !== null);
         const grade = normalizeGrade(row?.grade, finiteNumber(row?.score) || 0);
         if (grade === 'C') continue;
+        if (!hasCompleteLiveGoldenMetrics({ totalSearchVolume, documentCount, isMeasured })) continue;
         if (!isLiveRadarUsableKeyword(keyword, totalSearchVolume, documentCount, now)) continue;
         const id = normalizeKeyword(row?.id) || keywordId(keyword);
         const item: MobileLiveGoldenBoardItem = {
@@ -1898,7 +1955,7 @@ export class MobileLiveGoldenRadar {
           evidence: Array.isArray(row?.evidence)
             ? row.evidence.map((entry: unknown) => normalizeKeyword(entry)).filter(Boolean).slice(0, 8)
             : [],
-          isMeasured: Boolean(row?.isMeasured) || (totalSearchVolume !== null && documentCount !== null),
+          isMeasured,
           id,
           rank: finiteNumber(row?.rank) || 0,
           discoveredAt: normalizeKeyword(row?.discoveredAt) || normalizeKeyword(row?.updatedAt) || stamp,
@@ -1921,7 +1978,7 @@ export class MobileLiveGoldenRadar {
             source: normalizeKeyword(row?.source) || 'mobile-live-golden-radar',
             intent: normalizeKeyword(row?.intent) || 'live-golden-discovery',
             evidence: [],
-            isMeasured: Boolean(row?.isMeasured) || (totalSearchVolume !== null && documentCount !== null),
+            isMeasured,
           }),
         };
         this.board.set(id, item);

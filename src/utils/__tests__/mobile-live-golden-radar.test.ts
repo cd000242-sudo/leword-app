@@ -372,20 +372,10 @@ function thinProfileCount(items: Array<{ keyword: string }>): number {
     },
   });
   const liveIssueDocumentFallbackSnapshot = await liveIssueDocumentFallbackRadar.runOnce();
-  assert('live issue document fallback fills board when monthly search API has no rows',
+  assert('live issue document fallback does not enter the Pro board without measured search volume',
     fallbackMeasureCalls > 0
-      && liveIssueDocumentFallbackSnapshot.board.some((item) => (
-        item.source === 'mobile-live-issue-document-radar'
-        && item.keyword.includes('\uB85C\uB610')
-        && item.documentCount === 220
-        && item.totalSearchVolume === null
-      ))
-      && liveIssueDocumentFallbackSnapshot.board.some((item) => (
-        item.source === 'mobile-live-issue-document-radar'
-        && item.keyword.includes('KIA')
-        && item.category === 'sports'
-        && item.documentCount === null
-      ))
+      && liveIssueDocumentFallbackSnapshot.board.every((item) => item.source !== 'mobile-live-issue-document-radar')
+      && liveIssueDocumentFallbackSnapshot.board.every((item) => item.isMeasured && (item.totalSearchVolume || 0) > 0 && (item.documentCount || 0) > 0)
       && !liveIssueDocumentFallbackSnapshot.board.some((item) => /\uB4F1\uAE09\uCEF7|\uB2F5\uC9C0/.test(item.keyword)),
     liveIssueDocumentFallbackSnapshot.board.map((item) => `${item.keyword}:${item.source}:${item.documentCount}`).join('|'));
 
@@ -700,6 +690,104 @@ function thinProfileCount(items: Array<{ keyword: string }>): number {
     semanticClusterSnapshot.publicPreview.length === 5,
     semanticClusterSnapshot.publicPreview.map((item) => `${item.rank}:${item.keyword}`).join('|'));
   fs.rmSync(semanticClusterBoardFile, { force: true });
+
+  const measuredOnlyBoardFile = path.join(process.cwd(), 'tmp', 'mobile-live-golden-measured-only-test.json');
+  const measuredOnlyRows = [
+    ['\uCCAD\uB144\uBBF8\uB798\uC801\uAE08 \uAC00\uC785\uC2E0\uCCAD \uB300\uC0C1', 'SSS', 94, 26000, 360, 72, 'policy', true],
+    ['KBO \uC62C\uC2A4\uD0C0\uC804 \uC608\uB9E4 \uC77C\uC815', 'SS', 88, 15000, 900, 16, 'sports', true],
+    ['\uC7A5\uB9C8 \uC900\uBE44\uBB3C \uCCB4\uD06C\uB9AC\uC2A4\uD2B8', 'SS', 86, 12000, 700, 17, 'life_tips', true],
+    ['\uBB38\uC11C\uB9CC \uC788\uB294 \uC774\uC288 \uC815\uB9AC', 'SSS', 99, null, 80, 0, 'issue', true],
+    ['\uAC80\uC0C9\uB7C9 0 \uD6C4\uBCF4 \uC870\uD68C', 'SSS', 98, 0, 120, 0, 'policy', true],
+    ['\uBB38\uC11C\uC218 0 \uD6C4\uBCF4 \uC2E0\uCCAD', 'SSS', 97, 5000, 0, 0, 'policy', true],
+    ['\uCE21\uC815\uB300\uAE30 \uD6C4\uBCF4 \uC2E0\uCCAD', 'SSS', 96, null, null, 0, 'policy', false],
+  ];
+  fs.writeFileSync(measuredOnlyBoardFile, JSON.stringify({
+    boardUpdatedAt: '2026-06-13T09:01:00.000Z',
+    items: measuredOnlyRows.map(([keyword, grade, score, totalSearchVolume, documentCount, goldenRatio, category, isMeasured]) => ({
+      keyword,
+      grade,
+      score,
+      totalSearchVolume,
+      documentCount,
+      goldenRatio,
+      category,
+      updatedAt: '2026-06-13T09:01:00.000Z',
+      discoveredAt: '2026-06-13T09:01:00.000Z',
+      isMeasured,
+    })),
+  }), 'utf8');
+  const measuredOnlyRadar = new MobileLiveGoldenRadar({
+    notificationInbox: inbox,
+    runOnStart: false,
+    boardFile: measuredOnlyBoardFile,
+    boardTarget: 6,
+    publicPreviewCount: 5,
+    now: () => new Date('2026-06-13T09:02:00.000Z'),
+  });
+  const measuredOnlySnapshot = measuredOnlyRadar.snapshot();
+  assert('pro live golden board keeps only fully measured search volume and document count rows',
+    measuredOnlySnapshot.board.length === 3
+      && measuredOnlySnapshot.board.every((item) => item.isMeasured && (item.totalSearchVolume || 0) > 0 && (item.documentCount || 0) > 0)
+      && !measuredOnlySnapshot.board.some((item) => /0 \uD6C4\uBCF4|\uCE21\uC815\uB300\uAE30|\uBB38\uC11C\uB9CC/.test(item.keyword)),
+    measuredOnlySnapshot.board.map((item) => `${item.rank}:${item.keyword}:${item.totalSearchVolume}:${item.documentCount}`).join('|'));
+  fs.rmSync(measuredOnlyBoardFile, { force: true });
+
+  const contentDiversityBoardFile = path.join(process.cwd(), 'tmp', 'mobile-live-golden-content-diversity-test.json');
+  const contentDiversityRows = [
+    ['\uD558\uD2B8\uC2DC\uADF8\uB1105 \uBA87\uBD80\uC791', 'SSS', 99, 42000, 400, 105, 'drama'],
+    ['\uD0DC\uC591\uC758\uACC4\uC8082 \uBA87\uBD80\uC791', 'SSS', 98, 39000, 420, 92, 'drama'],
+    ['\uD478\uB978\uBC24 \uBA87\uBD80\uC791', 'SSS', 97, 36000, 430, 83, 'drama'],
+    ['\uD55C\uAC15\uB85C\uB9E8\uC2A4 \uBA87\uBD80\uC791', 'SSS', 96, 33000, 440, 75, 'drama'],
+    ['\uC0C8\uBCBD\uC758\uC57D\uC18D \uCD9C\uC5F0\uC9C4', 'SSS', 95, 30000, 450, 66, 'drama'],
+    ['\uB2EC\uBE5B\uC815\uC6D0 \uBC29\uC1A1\uC2DC\uAC04', 'SSS', 94, 28000, 460, 60, 'drama'],
+    ['\uC624\uB298\uC758\uC6B4\uBA85 \uB2E4\uC2DC\uBCF4\uAE30', 'SSS', 93, 26000, 470, 55, 'drama'],
+    ['\uC6D0\uB354\uC2A4\uD14C\uC774\uC9C0 \uACF5\uC2DD\uC601\uC0C1', 'SSS', 92, 25000, 480, 52, 'entertainment'],
+    ['\uCCAD\uB144\uBBF8\uB798\uC801\uAE08 \uAC00\uC785\uC2E0\uCCAD \uB300\uC0C1', 'SS', 91, 24000, 360, 66, 'policy'],
+    ['KBO \uC62C\uC2A4\uD0C0\uC804 \uC608\uB9E4 \uC77C\uC815', 'SS', 90, 23000, 900, 25, 'sports'],
+    ['\uC7A5\uB9C8 \uC900\uBE44\uBB3C \uCCB4\uD06C\uB9AC\uC2A4\uD2B8', 'SS', 89, 22000, 700, 31, 'life_tips'],
+    ['\uC81C\uC8FC \uB80C\uD130\uCE74 \uAC00\uACA9\uBE44\uAD50', 'SS', 88, 21000, 850, 24, 'travel_domestic'],
+    ['AI \uC601\uC0C1\uD234 \uCD94\uCC9C', 'SS', 87, 20000, 760, 26, 'it'],
+    ['\uC5EC\uB984 \uC120\uD06C\uB9BC \uCD94\uCC9C', 'SS', 86, 19000, 680, 27, 'beauty'],
+    ['\uCD08\uBCF5 \uC0BC\uACC4\uD0D5 \uC608\uC57D \uCD94\uCC9C', 'SS', 85, 18000, 740, 24, 'food'],
+    ['\uCF58\uC11C\uD2B8 \uC608\uB9E4 \uC77C\uC815', 'S', 84, 17500, 640, 27, 'music'],
+    ['\uC218\uC871\uAD6C \uACA9\uB9AC\uAE30\uAC04 \uD655\uC778', 'S', 84, 17000, 620, 27, 'health'],
+    ['\uBB34\uC120\uCCAD\uC18C\uAE30 \uAC00\uACA9\uBE44\uAD50', 'S', 83, 16000, 590, 27, 'electronics'],
+  ];
+  fs.writeFileSync(contentDiversityBoardFile, JSON.stringify({
+    boardUpdatedAt: '2026-06-13T09:03:00.000Z',
+    items: contentDiversityRows.map(([keyword, grade, score, totalSearchVolume, documentCount, goldenRatio, category]) => ({
+      keyword,
+      grade,
+      score,
+      totalSearchVolume,
+      documentCount,
+      goldenRatio,
+      category,
+      updatedAt: '2026-06-13T09:03:00.000Z',
+      discoveredAt: '2026-06-13T09:03:00.000Z',
+      isMeasured: true,
+    })),
+  }), 'utf8');
+  const contentDiversityRadar = new MobileLiveGoldenRadar({
+    notificationInbox: inbox,
+    runOnStart: false,
+    boardFile: contentDiversityBoardFile,
+    boardTarget: 12,
+    publicPreviewCount: 5,
+    now: () => new Date('2026-06-13T09:04:00.000Z'),
+  });
+  const contentDiversitySnapshot = contentDiversityRadar.snapshot();
+  const episodeLookupCount = contentDiversitySnapshot.board.filter((item) => /\uBA87\uBD80\uC791/.test(item.keyword)).length;
+  const contentLookupCount = contentDiversitySnapshot.board.filter((item) => /(?:\uBA87\uBD80\uC791|\uCD9C\uC5F0\uC9C4|\uBC29\uC1A1\uC2DC\uAC04|\uC7AC\uBC29\uC1A1|\uB2E4\uC2DC\uBCF4\uAE30|\uACB0\uB9D0|\uCFE0\uD0A4\uC601\uC0C1|\uC6D0\uC791|\uB4F1\uC7A5\uC778\uBB3C|\uC778\uBB3C\uAD00\uACC4\uB3C4|\uACF5\uC2DD\uC601\uC0C1)/.test(item.keyword)).length;
+  const contentDiversityCategories = new Set(contentDiversitySnapshot.board.map((item) => item.category));
+  assert('pro live golden board prevents drama episode lookup flooding while keeping diverse measured winners',
+    contentDiversitySnapshot.board.length === 12
+      && episodeLookupCount <= 2
+      && contentLookupCount <= 3
+      && contentDiversityCategories.size >= 7
+      && contentDiversitySnapshot.board.every((item) => item.isMeasured && (item.totalSearchVolume || 0) > 0 && (item.documentCount || 0) > 0),
+    contentDiversitySnapshot.board.map((item) => `${item.rank}:${item.category}:${item.keyword}`).join('|'));
+  fs.rmSync(contentDiversityBoardFile, { force: true });
 
   let skippedDiscoverCalls = 0;
   const skippedRadar = new MobileLiveGoldenRadar({
