@@ -78,6 +78,10 @@ import {
 import {
   getMobileRuntimeReadiness,
 } from '../../../src/mobile/runtime-readiness';
+import {
+  EnvironmentManager,
+  type EnvConfig,
+} from '../../../src/utils/environment-manager';
 import { buildMobilePcFeatureCatalog } from '../../../src/mobile/pc-feature-catalog';
 import { buildMobileKeywordExportArtifact } from '../../../src/mobile/export-share';
 import { buildMobileApiStatusSnapshot } from '../../../src/mobile/api-status';
@@ -694,6 +698,33 @@ function handleBodyError(res: http.ServerResponse, err: unknown, maxBodyBytes: n
   json(res, 400, { ok: false, message: 'invalid json body' } satisfies MobileJobErrorResponse);
 }
 
+type NaverApiSettingKey =
+  | 'naverClientId'
+  | 'naverClientSecret'
+  | 'naverSearchAdAccessLicense'
+  | 'naverSearchAdSecretKey'
+  | 'naverSearchAdCustomerId';
+
+const NAVER_API_SETTING_KEYS: NaverApiSettingKey[] = [
+  'naverClientId',
+  'naverClientSecret',
+  'naverSearchAdAccessLicense',
+  'naverSearchAdSecretKey',
+  'naverSearchAdCustomerId',
+];
+
+function sanitizeNaverApiSettings(body: unknown): Partial<Pick<EnvConfig, NaverApiSettingKey>> {
+  const raw = body && typeof body === 'object' ? body as Record<string, unknown> : {};
+  const updates: Partial<EnvConfig> = {};
+  for (const key of NAVER_API_SETTING_KEYS) {
+    const value = raw[key];
+    if (typeof value === 'string' && value.trim()) {
+      updates[key] = value.trim();
+    }
+  }
+  return updates;
+}
+
 function streamJobEvents(
   req: http.IncomingMessage,
   res: http.ServerResponse,
@@ -988,6 +1019,38 @@ export function createLewordApiServer(options: LewordApiServerOptions = {}): htt
           apiBaseUrl: requestApiBaseUrl(req),
         }),
       });
+      return;
+    }
+
+    if (req.method === 'POST' && url.pathname === MOBILE_STATUS_ROUTES.naverApiSettings) {
+      if (!await authorizeMobileRequest(req, res, sessionAwareEntitlementVerifier, 'standard')) return;
+      let body: unknown;
+      try {
+        body = await parseBody(req, maxBodyBytes);
+      } catch (err) {
+        handleBodyError(res, err, maxBodyBytes);
+        return;
+      }
+      try {
+        const updates = sanitizeNaverApiSettings(body);
+        const savedKeys = Object.keys(updates);
+        if (!savedKeys.length) {
+          json(res, 400, { ok: false, message: 'no naver api settings provided' } satisfies MobileJobErrorResponse);
+          return;
+        }
+        const envManager = EnvironmentManager.getInstance();
+        await envManager.saveConfig(updates);
+        envManager.reloadConfig();
+        json(res, 200, {
+          ok: true,
+          savedKeys,
+          snapshot: buildMobileApiStatusSnapshot({
+            apiBaseUrl: requestApiBaseUrl(req),
+          }),
+        });
+      } catch (err) {
+        json(res, 500, { ok: false, message: (err as Error).message || 'naver api settings save failed' } satisfies MobileJobErrorResponse);
+      }
       return;
     }
 

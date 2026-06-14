@@ -1097,6 +1097,7 @@ export const MOBILE_SOURCE_ROUTES = Object.freeze({
 
 export const MOBILE_STATUS_ROUTES = Object.freeze({
   apiStatus: '/v1/mobile/api-status',
+  naverApiSettings: '/v1/mobile/api-settings/naver',
 });
 
 export const MOBILE_KEYWORD_GROUP_ROUTES = Object.freeze({

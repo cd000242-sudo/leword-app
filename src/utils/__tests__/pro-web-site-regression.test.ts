@@ -97,25 +97,30 @@ for (const label of [
   '쇼핑 커넥트',
   '유튜브 황금키워드',
   '애드센스 승인 키워드 헌터',
-  '네이버 메이트 키워드 헌터',
+  '네이버 메이트 황금키워드',
   '지식인 황금질문',
   '황금키워드 정밀 발굴',
-  '키워드 정밀 조회',
-  '마인드맵 확장',
   'SERP 순위 즉시 점검',
   '블로그 초안 생성',
-  '서버/API 상태',
   'PC 앱 다운로드',
   '모바일 APK 다운로드',
 ]) {
   assert(`feature visible: ${label}`, html.includes(label));
 }
 
+assert('noisy duplicate tool tabs are removed from Pro feature tabs',
+  !html.includes('data-tool-shortcut="mindmap"')
+    && !html.includes('data-view-shortcut="sources"')
+    && !/id:\s*'keyword-analysis'[\s\S]{0,120}group:\s*'expand'/.test(html)
+    && !/id:\s*'mindmap'[\s\S]{0,120}group:\s*'expand'/.test(html)
+    && !/id:\s*'source-radar'[\s\S]{0,120}group:\s*'sources'/.test(html)
+    && !/id:\s*'api-status'[\s\S]{0,120}group:\s*'system'/.test(html)
+    && html.includes("id=\"lookupMode\"")
+    && html.includes("value=\"mindmap-expansion\"")
+    && html.includes("data-board-action=\"mindmap\""));
+
 for (const featureId of [
-  "id: 'source-radar'",
   "id: 'niche'",
-  "id: 'seasonal-longtail'",
-  "id: 'competitor-analysis'",
   "id: 'content-blueprint'",
 ]) {
   assert(`expanded parity feature id visible: ${featureId}`, html.includes(featureId));
@@ -189,11 +194,8 @@ assert('result center exposes KPI summary and keyword actions',
 
 assert('renders feature-specific tool settings panel',
   html.includes('id="toolConsole"')
-    && html.includes('id="quickFeatureDock"')
-    && html.includes('data-tool-shortcut="pro-traffic"')
-    && html.includes('data-tool-shortcut="shopping"')
-    && html.includes('data-tool-shortcut="mindmap"')
-    && html.includes('data-view-shortcut="sources"')
+    && !html.includes('id="quickFeatureDock"')
+    && !html.includes('data-tool-shortcut=')
     && html.includes('id="toolGroupTabs"')
     && html.includes('id="toolTabs"')
     && html.includes('id="toolDetail"')
@@ -209,11 +211,36 @@ assert('renders feature-specific tool settings panel',
     && html.includes('id="runSelectedTool"')
     && html.includes('선택 도구 실행'));
 
+assert('buttons show a progress modal while server work runs',
+  html.includes('id="progressModal"')
+    && html.includes('id="progressFill"')
+    && html.includes('id="progressPercent"')
+    && html.includes('function openProgress')
+    && html.includes('function updateProgress')
+    && html.includes('function completeProgress')
+    && html.includes('openProgress(feature.title + \' 실행\'')
+    && html.includes('updateProgress(current.progressPercent || 20, current.progressMessage)')
+    && html.includes('failProgress(err.message)'));
+
+assert('Naver API key settings are available but collapsed and secret-safe',
+  html.includes('id="naverApiSettings"')
+    && html.includes('네이버 API 키 설정')
+    && html.includes('id="naverClientId"')
+    && html.includes('id="naverClientSecret" type="password"')
+    && html.includes('id="naverSearchAdAccessLicense"')
+    && html.includes('id="naverSearchAdSecretKey" type="password"')
+    && html.includes('id="naverSearchAdCustomerId"')
+    && html.includes("naverApiSettings: '/v1/mobile/api-settings/naver'")
+    && html.includes('function saveNaverApiSettings')
+    && html.includes('function checkNaverApiSettings')
+    && html.includes('키 값은 화면에 다시 표시하지 않습니다.'));
+
 assert('keeps technical Electron mapping hidden while retaining telemetry wiring',
   !html.includes('Electron 기능 매핑')
     && !html.includes('Electron IPC')
     && !html.includes('Electron \uAE30\uB2A5')
     && html.includes('id="featureCatalogStrip"')
+    && html.includes('aria-label="기능 적용 현황" hidden')
     && html.includes('id="featureCatalogTabs" hidden')
     && html.includes('id="featureCatalogList" hidden')
     && !html.includes('id="featureGrid"')
