@@ -274,6 +274,14 @@ assert('tool settings drive server payloads instead of one generic button',
     && html.includes('crossReferenceNaver: options.crossReferenceNaver !== false')
     && html.includes('includeVolumeMetrics: options.includeVolumeMetrics !== false'));
 
+assert('feature runner separates auth expiry from missing server deployment',
+  html.includes('function formatApiError')
+    && html.includes('status === 404')
+    && html.includes('서버 API가 아직 최신 배포로 열리지 않았습니다')
+    && html.includes('function isRouteMissingMessage')
+    && html.includes('openLogin();')
+    && html.includes("const statusLabel = isRouteMissingMessage(err.message) ? '서버 배포 확인' : '오류'"));
+
 assert('blog draft workflow creates a blueprint before requesting a draft',
   html.includes("workflow: 'blueprint-draft'")
     && html.includes("feature.workflow === 'blueprint-draft'")
