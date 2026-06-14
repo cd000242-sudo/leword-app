@@ -57,7 +57,7 @@ function redactPublicPreviewItem(item: MobileLiveGoldenBoardItem): PublicLiveGol
 
 export function buildPublicLiveGoldenPayload(snapshot: MobileLiveGoldenRadarSnapshot | null): PublicLiveGoldenPayload {
   const publicPreview = snapshot?.publicPreview || [];
-  const boardTarget = snapshot?.boardTarget || 60;
+  const boardTarget = snapshot?.boardTarget || 120;
   const boardCount = snapshot?.boardCount || 0;
   const previewPolicy: PublicPreviewPolicy = boardCount > publicPreview.length ? 'lower-five' : 'building-board';
   return {
@@ -601,14 +601,14 @@ export function renderLewordLanding(): string {
         <div>
           <div class="eyebrow">24H LIVE KEYWORD RADAR</div>
           <h1>앱을 꺼도 서버가 계속 찾는 황금키워드 보드</h1>
-          <p class="lead">실시간 검색어, 정책브리핑, 스타·연예·방송·스포츠 이슈를 먼저 감지하고, 검색량과 문서수를 실측한 후보만 60개 보드에 채웁니다. 공개 화면은 하위 5개 맛보기만 보여주고, 원본 순위와 정확 수치는 Pro에서 보호합니다.</p>
+          <p class="lead">실시간 검색어, 정책브리핑, 스타·연예·방송·스포츠 이슈를 먼저 감지하고, 검색량과 문서수를 실측한 후보만 120개 보드에 채웁니다. 공개 화면은 하위 5개 맛보기만 보여주고, 원본 순위와 정확 수치는 Pro에서 보호합니다.</p>
           <div class="hero-actions">
             <a class="primary" href="#golden">LIVE 보드 보기</a>
             <a class="secondary" href="#signals">오늘 이슈 보기</a>
           </div>
         </div>
         <div class="metric-row">
-          <div class="metric"><strong id="metricBoard">0/60</strong><span>검증 보드</span></div>
+          <div class="metric"><strong id="metricBoard">0/120</strong><span>검증 보드</span></div>
           <div class="metric"><strong id="metricLocked">0</strong><span>Pro 잠금 키워드</span></div>
           <div class="metric"><strong id="metricState">대기</strong><span>서버 상태</span></div>
         </div>
@@ -625,7 +625,7 @@ export function renderLewordLanding(): string {
           <span id="boardUpdated">업데이트 대기</span>
         </div>
         <div id="keywordList" class="keyword-list"></div>
-        <div id="lockedNotice" class="locked">정확 검색량·문서수·황금비율·CPC·전체 60개 원본 순위는 LEWORD Pro에서만 공개됩니다.</div>
+        <div id="lockedNotice" class="locked">정확 검색량·문서수·황금비율·CPC·전체 120개 원본 순위는 LEWORD Pro에서만 공개됩니다.</div>
       </section>
     </section>
 
@@ -675,7 +675,7 @@ export function renderLewordLanding(): string {
     <section class="pro-strip">
       <div>
         <h2>Pro에서는 바로 작업까지 이어집니다</h2>
-        <p>60개 전체 보드, 원본 순위, 정확 검색량·문서수, 마인드맵 확장, 블로그스팟·워드프레스 초안 전송, 이미지 생성 크레딧까지 서버 계정으로 묶어갑니다.</p>
+        <p>120개 전체 보드, 원본 순위, 정확 검색량·문서수, 마인드맵 확장, 블로그스팟·워드프레스 초안 전송, 이미지 생성 크레딧까지 서버 계정으로 묶어갑니다.</p>
       </div>
       <a class="primary" href="/v1/public/live-golden">공개 API 보기</a>
     </section>
@@ -760,7 +760,8 @@ export function renderLewordLanding(): string {
 
     function renderProKeywords(snapshot) {
       const list = document.getElementById('keywordList');
-      const items = (snapshot.board || []).slice(0, 60);
+      const target = Math.max(60, Math.min(120, Number(snapshot.boardTarget || 120)));
+      const items = (snapshot.board || []).slice(0, target);
       if (!items.length) {
         list.innerHTML = '<div class="locked">Pro 보드가 아직 준비 중입니다.</div>';
         return;

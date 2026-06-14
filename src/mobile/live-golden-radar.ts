@@ -95,10 +95,13 @@ const PUBLIC_PREVIEW_VOLUME_CEILING = 250_000;
 const PUBLIC_PREVIEW_DOCUMENT_CEILING = 30_000;
 const PUBLIC_PREVIEW_PROFILE_INTENT_MAX = 0;
 const PUBLIC_PREVIEW_PROTECTED_TOP_COUNT = 3;
-const LIVE_BOARD_CATEGORY_SHARE_CAP = 0.18;
+const LIVE_BOARD_CATEGORY_SHARE_CAP = 0.12;
 const LIVE_BOARD_CLUSTER_MAX = 2;
-const LIVE_BOARD_EPISODE_LOOKUP_SHARE_CAP = 0.06;
-const LIVE_BOARD_CONTENT_LOOKUP_SHARE_CAP = 0.18;
+const LIVE_BOARD_CATEGORY_ABSOLUTE_MAX = 12;
+const LIVE_BOARD_EPISODE_LOOKUP_SHARE_CAP = 0.05;
+const LIVE_BOARD_EPISODE_LOOKUP_ABSOLUTE_MAX = 4;
+const LIVE_BOARD_CONTENT_LOOKUP_SHARE_CAP = 0.10;
+const LIVE_BOARD_CONTENT_LOOKUP_ABSOLUTE_MAX = 10;
 const LIVE_DIRECT_CANDIDATE_MAX_PER_CYCLE = 600;
 const LIVE_ISSUE_FALLBACK_DOCUMENT_LIMIT = 24;
 const LIVE_ISSUE_FALLBACK_CONCURRENCY = 4;
@@ -611,15 +614,24 @@ function maxThinProfileBoardCount(boardTarget: number): number {
 }
 
 function maxCategoryBoardCount(boardTarget: number): number {
-  return Math.max(3, Math.ceil(Math.max(1, boardTarget) * LIVE_BOARD_CATEGORY_SHARE_CAP));
+  return Math.min(
+    LIVE_BOARD_CATEGORY_ABSOLUTE_MAX,
+    Math.max(3, Math.ceil(Math.max(1, boardTarget) * LIVE_BOARD_CATEGORY_SHARE_CAP)),
+  );
 }
 
 function maxEpisodeLookupBoardCount(boardTarget: number): number {
-  return Math.max(2, Math.ceil(Math.max(1, boardTarget) * LIVE_BOARD_EPISODE_LOOKUP_SHARE_CAP));
+  return Math.min(
+    LIVE_BOARD_EPISODE_LOOKUP_ABSOLUTE_MAX,
+    Math.max(2, Math.ceil(Math.max(1, boardTarget) * LIVE_BOARD_EPISODE_LOOKUP_SHARE_CAP)),
+  );
 }
 
 function maxContentLookupBoardCount(boardTarget: number): number {
-  return Math.max(3, Math.ceil(Math.max(1, boardTarget) * LIVE_BOARD_CONTENT_LOOKUP_SHARE_CAP));
+  return Math.min(
+    LIVE_BOARD_CONTENT_LOOKUP_ABSOLUTE_MAX,
+    Math.max(3, Math.ceil(Math.max(1, boardTarget) * LIVE_BOARD_CONTENT_LOOKUP_SHARE_CAP)),
+  );
 }
 
 function isEpisodeLookupKeyword(keyword: string): boolean {

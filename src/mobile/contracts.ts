@@ -1155,7 +1155,7 @@ export const MOBILE_PC_PARITY_SLA = Object.freeze({
   },
   qualityFloors: {
     goldenPrecisionSss: 30,
-    goldenBulkSss: 60,
+    goldenBulkSss: 120,
     proTrafficMaxSssTarget: 250,
     mindmapDefaultMeasuredKeywords: 50,
     keywordAnalysisDefaultRelated: 10,
