@@ -38,15 +38,15 @@ assert('renders live golden keyword board section',
     && html.includes('id="goldenBoardList"')
     && html.includes('id="refreshGolden"'));
 assert('loads public and pro golden boards',
-  html.includes("publicLiveGolden: '/v1/public/live-golden'")
-    && html.includes("liveGolden: '/v1/live-golden/snapshot'")
+  html.includes("publicLiveGolden: apiUrl('/v1/public/live-golden')")
+    && html.includes("liveGolden: apiUrl('/v1/live-golden/snapshot')")
     && html.includes('function loadGoldenBoard()')
     && html.includes('renderPublicGoldenBoard')
     && html.includes('renderProGoldenBoard'));
 assert('client golden guard keeps regex escapes and live backfill',
   html.includes('const lotto = text.match(/(\\d{3,4})\\s*회\\s*로또|로또\\s*(\\d{3,4})\\s*회/)')
     && html.includes('2027\\s*6모')
-    && html.includes("publicSources: '/v1/public/source-signals'")
+    && html.includes("publicSources: apiUrl('/v1/public/source-signals')")
     && html.includes('function liveSignalBackfillItems')
     && html.includes('payload.clientBackfill = liveSignalBackfillItems'));
 assert('live golden board exposes quality control strip',
@@ -162,10 +162,10 @@ assert('renders pro operations dashboard for Electron parity',
     && html.includes('id="refreshOps"'));
 
 assert('operations dashboard is wired to server snapshots',
-  html.includes("proOutcomes: '/v1/mobile/pro-outcomes'")
-    && html.includes("wordpress: '/v1/mobile/wordpress'")
-    && html.includes("scheduleDashboard: '/v1/mobile/schedule-dashboard'")
-    && html.includes("rankTracking: '/v1/mobile/rank-tracking'")
+  html.includes("proOutcomes: apiUrl('/v1/mobile/pro-outcomes')")
+    && html.includes("wordpress: apiUrl('/v1/mobile/wordpress')")
+    && html.includes("scheduleDashboard: apiUrl('/v1/mobile/schedule-dashboard')")
+    && html.includes("rankTracking: apiUrl('/v1/mobile/rank-tracking')")
     && html.includes('function loadOpsDashboard()')
     && html.includes('Promise.allSettled')
     && html.includes('setInterval(loadOpsDashboard, 90000)'));
@@ -230,7 +230,7 @@ assert('Naver API key settings are available but collapsed and secret-safe',
     && html.includes('id="naverSearchAdAccessLicense"')
     && html.includes('id="naverSearchAdSecretKey" type="password"')
     && html.includes('id="naverSearchAdCustomerId"')
-    && html.includes("naverApiSettings: '/v1/mobile/api-settings/naver'")
+    && html.includes("naverApiSettings: apiUrl('/v1/mobile/api-settings/naver')")
     && html.includes('function saveNaverApiSettings')
     && html.includes('function checkNaverApiSettings')
     && html.includes('키 값은 화면에 다시 표시하지 않습니다.'));
@@ -247,21 +247,21 @@ assert('keeps technical Electron mapping hidden while retaining telemetry wiring
     && html.includes('function renderFeatureCatalog')
     && html.includes('function renderCatalogTabs')
     && html.includes('function runCatalogItem')
-    && html.includes("pcFeatures: '/v1/mobile/pc-features'")
+    && html.includes("pcFeatures: apiUrl('/v1/mobile/pc-features')")
     && html.includes('renderFeatureCatalog(pcCatalog, status.snapshot || status)')
     && html.includes('data-catalog-tab')
     && html.includes('data-catalog-run'));
 
 assert('renders working app download surface',
   html.includes('id="downloads"')
-    && html.includes("downloads: '/v1/downloads'")
-    && html.includes("pcDownload: '/download/pc'")
-    && html.includes("androidDownload: '/download/android'")
+    && html.includes("downloads: apiUrl('/v1/downloads')")
+    && html.includes('pcDownload: pcReleaseUrl')
+    && html.includes('androidDownload: androidReleaseUrl')
     && html.includes('id="pcDownloadMeta"')
     && html.includes('id="androidDownloadMeta"')
     && html.includes('function loadDownloads()')
-    && html.includes('href="/download/pc"')
-    && html.includes('href="/download/android"'));
+    && html.includes('releases/download/v2.49.85/LEWORD-2.49.85.exe')
+    && html.includes('releases/download/v2.49.85/LEWORD-mobile-0.1.0.apk'));
 
 assert('tool settings drive server payloads instead of one generic button',
   html.includes('function collectToolOptions()')
@@ -281,9 +281,9 @@ assert('blog draft workflow creates a blueprint before requesting a draft',
     && html.includes('apiPost(endpoints.blueprintDraft'));
 
 assert('result center can persist, export, and track keyword outcomes',
-  html.includes("keywordGroups: '/v1/mobile/keyword-groups'")
-    && html.includes("keywordExport: '/v1/mobile/export/keywords'")
-    && html.includes("rankTrackingManual: '/v1/mobile/rank-tracking/manual'")
+  html.includes("keywordGroups: apiUrl('/v1/mobile/keyword-groups')")
+    && html.includes("keywordExport: apiUrl('/v1/mobile/export/keywords')")
+    && html.includes("rankTrackingManual: apiUrl('/v1/mobile/rank-tracking/manual')")
     && html.includes('id="saveKeywordGroup"')
     && html.includes('id="exportKeywordCsv"')
     && html.includes('id="exportKeywordJson"')

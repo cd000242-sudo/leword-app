@@ -195,6 +195,10 @@ function html(
 
 type LewordDownloadKind = 'pc' | 'android';
 
+const LEWORD_DESKTOP_VERSION = '2.49.85';
+const LEWORD_DESKTOP_FILENAME = `LEWORD-${LEWORD_DESKTOP_VERSION}.exe`;
+const LEWORD_ANDROID_FILENAME = 'LEWORD-mobile-0.1.0.apk';
+
 interface LewordDownloadMeta {
   available: boolean;
   filename: string;
@@ -225,18 +229,21 @@ function downloadCandidates(kind: LewordDownloadKind): string[] {
   if (kind === 'pc') {
     return [
       process.env.LEWORD_PC_APP_DOWNLOAD_PATH,
+      path.join(root, LEWORD_DESKTOP_FILENAME),
       path.join(root, 'LEWORD-2.49.84.exe'),
       path.join(root, 'LEWORD-setup.exe'),
+      path.resolve(process.cwd(), 'release', LEWORD_DESKTOP_FILENAME),
       path.resolve(process.cwd(), 'release', 'LEWORD-2.49.84.exe'),
+      path.resolve(process.cwd(), '..', '..', 'release', LEWORD_DESKTOP_FILENAME),
       path.resolve(process.cwd(), '..', '..', 'release', 'LEWORD-2.49.84.exe'),
     ].filter(Boolean) as string[];
   }
   return [
     process.env.LEWORD_ANDROID_APK_DOWNLOAD_PATH,
-    path.join(root, 'LEWORD-mobile-0.1.0.apk'),
+    path.join(root, LEWORD_ANDROID_FILENAME),
     path.join(root, 'LEWORD-mobile.apk'),
-    path.resolve(process.cwd(), 'apps', 'mobile', 'builds', 'LEWORD-mobile-0.1.0.apk'),
-    path.resolve(process.cwd(), '..', '..', 'apps', 'mobile', 'builds', 'LEWORD-mobile-0.1.0.apk'),
+    path.resolve(process.cwd(), 'apps', 'mobile', 'builds', LEWORD_ANDROID_FILENAME),
+    path.resolve(process.cwd(), '..', '..', 'apps', 'mobile', 'builds', LEWORD_ANDROID_FILENAME),
     path.resolve(process.cwd(), 'apps', 'mobile', 'android', 'app', 'build', 'outputs', 'apk', 'release', 'app-release.apk'),
   ].filter(Boolean) as string[];
 }
@@ -253,7 +260,7 @@ function logoCandidates(): string[] {
 
 function downloadMeta(kind: LewordDownloadKind): LewordDownloadMeta {
   const filePath = firstExistingFile(downloadCandidates(kind));
-  const filename = kind === 'pc' ? 'LEWORD-2.49.84.exe' : 'LEWORD-mobile-0.1.0.apk';
+  const filename = kind === 'pc' ? LEWORD_DESKTOP_FILENAME : LEWORD_ANDROID_FILENAME;
   if (!filePath) {
     return {
       available: false,

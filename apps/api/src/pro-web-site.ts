@@ -736,8 +736,8 @@ export function renderLewordProWeb(): string {
         <a href="#lookup" data-view-target="lookup">키워드 조회</a>
         <a href="#features" data-view-target="features">Pro 기능</a>
         <a href="#ops" data-view-target="ops">운영 현황</a>
-        <a class="download" href="/download/pc">PC 앱 다운로드</a>
-        <a class="download" href="/download/android">모바일 APK</a>
+        <a class="download" href="https://github.com/cd000242-sudo/leword-app/releases/download/v2.49.85/LEWORD-2.49.85.exe">PC 앱 다운로드</a>
+        <a class="download" href="https://github.com/cd000242-sudo/leword-app/releases/download/v2.49.85/LEWORD-mobile-0.1.0.apk">모바일 APK</a>
         <button type="button" id="loginOpen">Pro 로그인</button>
       </nav>
     </header>
@@ -934,13 +934,13 @@ export function renderLewordProWeb(): string {
               <h3>PC Electron 앱</h3>
               <p>Windows용 LEWORD 데스크톱 앱입니다. 기존 Electron 앱의 전체 기능을 PC 환경에서 그대로 사용합니다.</p>
               <div class="download-meta" id="pcDownloadMeta">다운로드 파일 확인 중</div>
-              <a class="btn primary" href="/download/pc">PC 앱 다운로드</a>
+              <a class="btn primary" href="https://github.com/cd000242-sudo/leword-app/releases/download/v2.49.85/LEWORD-2.49.85.exe">PC 앱 다운로드</a>
             </article>
             <article class="download-card">
               <h3>Android 모바일 앱</h3>
               <p>서버 기반 Pro 기능, 실시간 소스, 키워드 저장/공유, 알림 기능을 사용하는 Android APK입니다.</p>
               <div class="download-meta" id="androidDownloadMeta">다운로드 파일 확인 중</div>
-              <a class="btn primary" href="/download/android">모바일 APK 다운로드</a>
+              <a class="btn primary" href="https://github.com/cd000242-sudo/leword-app/releases/download/v2.49.85/LEWORD-mobile-0.1.0.apk">모바일 APK 다운로드</a>
             </article>
           </div>
           <details class="settings-panel" id="naverApiSettings">
@@ -1038,45 +1038,57 @@ export function renderLewordProWeb(): string {
   </div>
 
   <script>
+    const apiBase = (function() {
+      if (window.LEWORD_API_BASE) return String(window.LEWORD_API_BASE).replace(/\\/$/, '');
+      const host = location.hostname || '';
+      if (host === 'www.leaderspro.kr' || host === 'leaderspro.kr') return 'https://141.164.59.17.sslip.io';
+      return '';
+    })();
+    function apiUrl(path) {
+      if (/^https?:\\/\\//i.test(path)) return path;
+      return apiBase ? apiBase + path : path;
+    }
+    const pcReleaseUrl = 'https://github.com/cd000242-sudo/leword-app/releases/download/v2.49.85/LEWORD-2.49.85.exe';
+    const androidReleaseUrl = 'https://github.com/cd000242-sudo/leword-app/releases/download/v2.49.85/LEWORD-mobile-0.1.0.apk';
     const endpoints = {
-      health: '/health',
-      session: '/v1/web/session',
-      publicLiveGolden: '/v1/public/live-golden',
-      publicSources: '/v1/public/source-signals',
-      proSources: '/v1/mobile/source-signals',
-      apiStatus: '/v1/mobile/api-status',
-      naverApiSettings: '/v1/mobile/api-settings/naver',
-      pcFeatures: '/v1/mobile/pc-features',
-      rankTracking: '/v1/mobile/rank-tracking',
-      rankTrackingManual: '/v1/mobile/rank-tracking/manual',
-      keywordGroups: '/v1/mobile/keyword-groups',
-      keywordExport: '/v1/mobile/export/keywords',
-      proOutcomes: '/v1/mobile/pro-outcomes',
-      wordpress: '/v1/mobile/wordpress',
-      scheduleDashboard: '/v1/mobile/schedule-dashboard',
-      liveGolden: '/v1/live-golden/snapshot',
-      keywordAnalysis: '/v1/keywords/analyze',
-      mindmap: '/v1/mindmap/expand',
-      golden: '/v1/golden/discover',
-      proTraffic: '/v1/pro/hunt',
-      adsense: '/v1/home-board/hunt',
-      shoppingConnect: '/v1/shopping/connect',
-      youtubeGolden: '/v1/youtube/golden',
-      naverMate: '/v1/naver/mate',
-      kin: '/v1/kin/honey',
-      blueprint: '/v1/mobile/pro-blueprint',
-      blueprintDraft: '/v1/mobile/pro-blueprint/draft',
-      revenue: '/v1/mobile/pro-blueprint/revenue',
-      portfolioRevenue: '/v1/mobile/pro-blueprint/portfolio-revenue',
-      categoryRpm: '/v1/mobile/pro-blueprint/category-rpm',
-      liveGoldenRun: '/v1/live-golden/run',
-      prewarmSnapshot: '/v1/prewarm/snapshot',
-      prewarmRun: '/v1/prewarm/run',
-      rankTrackingRun: '/v1/mobile/rank-tracking/run',
-      proOutcomeSync: '/v1/mobile/pro-outcomes/sync',
-      downloads: '/v1/downloads',
-      pcDownload: '/download/pc',
-      androidDownload: '/download/android'
+      health: apiUrl('/health'),
+      session: apiUrl('/v1/web/session'),
+      publicLiveGolden: apiUrl('/v1/public/live-golden'),
+      publicSources: apiUrl('/v1/public/source-signals'),
+      proSources: apiUrl('/v1/mobile/source-signals'),
+      apiStatus: apiUrl('/v1/mobile/api-status'),
+      naverApiSettings: apiUrl('/v1/mobile/api-settings/naver'),
+      pcFeatures: apiUrl('/v1/mobile/pc-features'),
+      rankTracking: apiUrl('/v1/mobile/rank-tracking'),
+      rankTrackingManual: apiUrl('/v1/mobile/rank-tracking/manual'),
+      keywordGroups: apiUrl('/v1/mobile/keyword-groups'),
+      keywordExport: apiUrl('/v1/mobile/export/keywords'),
+      proOutcomes: apiUrl('/v1/mobile/pro-outcomes'),
+      wordpress: apiUrl('/v1/mobile/wordpress'),
+      scheduleDashboard: apiUrl('/v1/mobile/schedule-dashboard'),
+      liveGolden: apiUrl('/v1/live-golden/snapshot'),
+      keywordAnalysis: apiUrl('/v1/keywords/analyze'),
+      mindmap: apiUrl('/v1/mindmap/expand'),
+      golden: apiUrl('/v1/golden/discover'),
+      proTraffic: apiUrl('/v1/pro/hunt'),
+      adsense: apiUrl('/v1/home-board/hunt'),
+      shoppingConnect: apiUrl('/v1/shopping/connect'),
+      youtubeGolden: apiUrl('/v1/youtube/golden'),
+      naverMate: apiUrl('/v1/naver/mate'),
+      kin: apiUrl('/v1/kin/honey'),
+      blueprint: apiUrl('/v1/mobile/pro-blueprint'),
+      blueprintDraft: apiUrl('/v1/mobile/pro-blueprint/draft'),
+      revenue: apiUrl('/v1/mobile/pro-blueprint/revenue'),
+      portfolioRevenue: apiUrl('/v1/mobile/pro-blueprint/portfolio-revenue'),
+      categoryRpm: apiUrl('/v1/mobile/pro-blueprint/category-rpm'),
+      liveGoldenRun: apiUrl('/v1/live-golden/run'),
+      prewarmSnapshot: apiUrl('/v1/prewarm/snapshot'),
+      prewarmRun: apiUrl('/v1/prewarm/run'),
+      rankTrackingRun: apiUrl('/v1/mobile/rank-tracking/run'),
+      proOutcomeSync: apiUrl('/v1/mobile/pro-outcomes/sync'),
+      downloads: apiUrl('/v1/downloads'),
+      pcDownload: pcReleaseUrl,
+      androidDownload: androidReleaseUrl
     };
 
     const toolGroups = [
