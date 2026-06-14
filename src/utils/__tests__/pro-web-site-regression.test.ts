@@ -186,6 +186,7 @@ assert('renders feature-specific tool settings panel',
     && !html.includes('id="quickFeatureDock"')
     && !html.includes('data-tool-shortcut=')
     && html.includes('id="toolGroupTabs"')
+    && html.includes('[hidden] { display: none !important; }')
     && html.includes('id="toolTabs"')
     && html.includes('id="toolDetail"')
     && html.includes('id="toolResultPanel"')
@@ -193,12 +194,29 @@ assert('renders feature-specific tool settings panel',
     && html.includes('function currentGroupFeatures')
     && html.includes('function renderToolDetail')
     && html.includes('function renderToolFeatureResult')
-    && html.includes('id="toolSeedInput"')
+    && html.includes('type="hidden" id="toolSeedInput"')
+    && html.includes('id="toolAutoDiscoveryPanel"')
+    && html.includes('id="toolAutoModeTitle"')
     && html.includes('id="toolCategory"')
     && html.includes('id="toolTargetCount"')
     && html.includes('id="toolSort"')
     && html.includes('id="runSelectedTool"')
-    && html.includes('선택 도구 실행'));
+    && html.includes('자동 발굴 실행')
+    && !html.includes('id="copyLookupKeyword"')
+    && !html.includes('조회 키워드 가져오기'));
+
+assert('additional features run as automatic discovery subtabs instead of seed-entry tools',
+  html.includes('function toolTabDescription')
+    && html.includes('function toolAutoModeText')
+    && html.includes('function latestSourceKeywordForCategory')
+    && html.includes('function autoSeedKeyword')
+    && html.includes("seedKeyword: q || options.autoSeedKeyword || '오늘 실시간 이슈'")
+    && html.includes("keyword: q || ''")
+    && html.includes("options.autoDiscovery = !options.keyword")
+    && html.includes('<em>자동 발굴 · 목표 ')
+    && html.includes("target.hidden = true")
+    && !html.includes('실행 키워드 필수')
+    && !html.includes('시드 키워드 선택 입력'));
 
 assert('buttons show a progress modal while server work runs',
   html.includes('id="progressModal"')
