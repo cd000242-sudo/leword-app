@@ -38,6 +38,7 @@ export interface MobileLiveGoldenRadarOptions {
   boardTarget?: number;
   publicPreviewCount?: number;
   boardFile?: string;
+  resultCacheFile?: string;
   maxSeeds?: number;
   maxCandidates?: number;
   startupCatchUpCycles?: number;
@@ -59,7 +60,10 @@ export interface MobileLiveGoldenRadarOptions {
   now?: () => Date;
 }
 
+type LiveSearchVolumeRow = Awaited<ReturnType<typeof getNaverKeywordSearchVolumeSeparate>>[number];
+
 const DEFAULT_CATEGORIES = Object.freeze([
+  'all',
   'policy',
   'sports',
   'education',
@@ -96,9 +100,9 @@ const PUBLIC_PREVIEW_VOLUME_CEILING = 250_000;
 const PUBLIC_PREVIEW_DOCUMENT_CEILING = 30_000;
 const PUBLIC_PREVIEW_PROFILE_INTENT_MAX = 0;
 const PUBLIC_PREVIEW_PROTECTED_TOP_COUNT = 3;
-const LIVE_BOARD_CATEGORY_SHARE_CAP = 0.12;
+const LIVE_BOARD_CATEGORY_SHARE_CAP = 0.18;
 const LIVE_BOARD_CLUSTER_MAX = 2;
-const LIVE_BOARD_CATEGORY_ABSOLUTE_MAX = 8;
+const LIVE_BOARD_CATEGORY_ABSOLUTE_MAX = 16;
 const LIVE_BOARD_EPISODE_LOOKUP_SHARE_CAP = 0.05;
 const LIVE_BOARD_EPISODE_LOOKUP_ABSOLUTE_MAX = 3;
 const LIVE_BOARD_CONTENT_LOOKUP_SHARE_CAP = 0.10;
@@ -106,6 +110,9 @@ const LIVE_BOARD_CONTENT_LOOKUP_ABSOLUTE_MAX = 6;
 const LIVE_DIRECT_CANDIDATE_MAX_PER_CYCLE = 600;
 const LIVE_ISSUE_FALLBACK_DOCUMENT_LIMIT = 24;
 const LIVE_ISSUE_FALLBACK_CONCURRENCY = 4;
+const LIVE_BACKFILL_VOLUME_PASS_MAX = 480;
+const LIVE_BACKFILL_DOCUMENT_PASS_MAX = 90;
+const LIVE_BACKFILL_DOCUMENT_CONCURRENCY = 4;
 const NEWS_HEADLINE_FRAGMENT_RE = /(?:\uBD80\uCE5C\uC0C1|\uC0AC\uACFC|\uAD6C\uC18D\uC601\uC7A5|\uD610\uC758|\uC870\uC0AC|\uB17C\uB780|\uC911\uB2E8|\uC778\uC99D|\uC9C0\uC5F0|\uBC15\uC218|\uC120\uC218\uB4E4|\uBC29\uBB38|\uC2AC\uD514|\uD574\uBA85|\uBC1C\uC5B8|\uC120\uACE0|\uCCB4\uD3EC|\uC555\uC218\uC218\uC0C9|\uC0AC\uB9DD|\uBCC4\uC138|\uACB0\uBCC4|\uC5F4\uC560|\uD63C\uC778)/u;
 const SEMANTIC_CLUSTER_SUFFIX_RE = new RegExp(`(?:${[
   '\\uBA87\\uBD80\\uC791',
@@ -158,6 +165,132 @@ const SEASONAL_CONTENT_CLUSTER_SUFFIX_RE = new RegExp(`(?:${[
 const EPISODE_LOOKUP_INTENT_RE = /\uBA87\uBD80\uC791/u;
 const CONTENT_LOOKUP_INTENT_RE = /(?:\uBA87\uBD80\uC791|\uCD9C\uC5F0\uC9C4|\uBC29\uC1A1\uC2DC\uAC04|\uC7AC\uBC29\uC1A1|\uB2E4\uC2DC\uBCF4\uAE30|\uACB0\uB9D0|\uCFE0\uD0A4\uC601\uC0C1|\uC6D0\uC791|\uB4F1\uC7A5\uC778\uBB3C|\uC778\uBB3C\uAD00\uACC4\uB3C4|\uACF5\uC2DD\uC601\uC0C1)/u;
 
+const ROBUST_ACTIONABLE_TERMS = Object.freeze([
+  '일정',
+  '신청',
+  '대상',
+  '자격',
+  '지급일',
+  '조회',
+  '방법',
+  '조건',
+  '서류',
+  '마감',
+  '발표',
+  '예매',
+  '가격비교',
+  '추천',
+  '후기',
+  '준비물',
+  '중계',
+  '라인업',
+  '하이라이트',
+  '출연진',
+  '몇부작',
+  '방송시간',
+  '다시보기',
+  '결말',
+  '쿠키영상',
+  '공식영상',
+  '공식입장',
+  '현재 상황',
+  '정리',
+  '이유',
+  '합의',
+  '예상',
+  '전망',
+  '소식',
+  '가능',
+  '위치',
+  '주차',
+  '할인',
+  '예약',
+]);
+
+const ROBUST_GENERAL_INTENTS = Object.freeze([
+  '정리',
+  '일정',
+  '방법',
+  '조회',
+  '대상',
+  '신청',
+  '발표',
+  '마감',
+  '예매',
+  '후기',
+  '가격비교',
+  '추천',
+  '준비물',
+  '현재 상황',
+  '이유',
+  '공식입장',
+]);
+
+const ROBUST_CATEGORY_INTENTS: Readonly<Record<string, readonly string[]>> = Object.freeze({
+  policy: ['신청 방법', '지원 대상', '자격 조건', '지급일 조회', '서류', '마감', '혜택 정리'],
+  sports: ['중계', '경기 일정', '예매 일정', '라인업', '하이라이트', '결과', '순위'],
+  education: ['시험 일정', '접수', '발표 일정', '등급컷', '답지', '기출 범위', '준비물'],
+  drama: ['몇부작', '출연진', '방송시간', '다시보기', '결말', '인물관계도', '공식영상'],
+  broadcast: ['출연진', '방송시간', '다시보기', '공식영상', '방청 신청', '재방송'],
+  movie: ['예매', '쿠키영상', '결말 해석', '출연진', '상영관', '후기'],
+  music: ['콘서트 일정', '예매 일정', '티켓팅', '라인업', '굿즈', '셋리스트'],
+  finance: ['주가 전망', '관련주', '실적 발표', '배당', '청약 일정', '수혜주'],
+  life_tips: ['조회', '방법', '당첨번호', '당첨지역', '판매점', '준비물', '체크리스트'],
+  health: ['증상', '원인', '검사', '치료', '예약', '주의사항'],
+  food: ['맛집', '예약', '메뉴', '가격', '추천', '후기'],
+  recipe: ['레시피', '재료', '만드는 법', '보관법', '칼로리'],
+  electronics: ['가격비교', '추천', '후기', '스펙', '할인', '출시일'],
+  fashion: ['코디', '브랜드', '사이즈', '후기', '할인', '추천'],
+  beauty: ['성분', '후기', '추천', '비교', '사용법', '할인'],
+  travel_domestic: ['일정', '예약', '주차', '입장료', '준비물', '후기'],
+  travel_overseas: ['일정', '항공권', '비자', '준비물', '환율', '후기'],
+  it: ['사용법', '설정', '오류 해결', '비교', '추천', '업데이트'],
+  ai_tool: ['사용법', '가격', '비교', '추천', '프롬프트', '업데이트'],
+  game: ['쿠폰', '업데이트', '티어', '공략', '사전예약', '출시일'],
+  shopping: ['가격비교', '추천', '후기', '할인', '구매처', '최저가'],
+  live_issue: ['정리', '현재 상황', '이유', '공식입장', '일정', '전망', '관련주'],
+});
+
+const ROBUST_CATEGORY_TERMS: Readonly<Record<string, readonly string[]>> = Object.freeze({
+  life_tips: ['로또', '복권', '당첨번호', '당첨지역', '판매점', '장마', '준비물', '체크리스트'],
+  sports: ['KBO', '프로야구', '야구', '축구', '농구', '배구', '월드컵', 'FIFA', '경기', '중계', '올스타전', '하이라이트'],
+  policy: ['지원금', '정책', '지급', '청년', '복지', '부모급여', '보조금', '환급', '캐시백', '공휴일', '정부', '민생'],
+  education: ['등급컷', '답지', '모의고사', '수능', '시험', '접수', '합격자', '기출'],
+  broadcast: ['예능', '방송', '방송시간', '재방송', '다시보기', '방청', '공식영상'],
+  drama: ['드라마', '몇부작', '출연진', '인물관계도', '등장인물'],
+  movie: ['영화', '개봉', '예매', '쿠키영상', '상영관', '결말'],
+  music: ['콘서트', '티켓팅', '예매', '라인업', '앨범', '노래', '가수', '셋리스트'],
+  finance: ['주가', '증시', '코스피', '코스닥', '환율', '금리', '공모주', '청약', '실적', '배당', '관련주', '수혜주'],
+  electronics: ['노트북', '휴대폰', '아이폰', '갤럭시', '청소기', '에어컨', '가전', '스펙'],
+  beauty: ['선크림', '화장품', '성분', '피부', '뷰티'],
+  fashion: ['코디', '브랜드', '사이즈', '패션'],
+  food: ['맛집', '메뉴', '삼계탕', '예약'],
+  travel_domestic: ['제주', '부산', '강릉', '렌터카', '여행', '숙소'],
+  health: ['증상', '검사', '치료', '병원', '입원', '격리'],
+  it: ['AI', '앱', '오류', '업데이트', '설정', '사용법'],
+  game: ['게임', '쿠폰', '사전예약', '티어', '공략'],
+});
+
+const ROBUST_STOP_TOKENS = new Set([
+  '기자',
+  '단독',
+  '속보',
+  '포착',
+  '논란',
+  '종료',
+  '중단',
+  '반박',
+  '방문',
+  '공개',
+  '사진',
+  '영상',
+  '오늘',
+  '이번주',
+]);
+
+const ROBUST_EXAM_STALE_RE = /(?:2027\s*)?(?:6모|6월\s*모의고사|모의고사).{0,12}(?:등급컷|답지|정답|해설)/u;
+const ROBUST_LOTTO_ROUND_RE = /(?:(\d{3,5})\s*회\s*로또|로또\s*(\d{3,5})\s*회)/u;
+
 const GRADE_WEIGHT: Record<MobileResultGrade, number> = {
   SSS: 120,
   SS: 95,
@@ -185,6 +318,11 @@ function finiteNumber(value: unknown): number | null {
 
 function normalizeKeyword(value: unknown): string {
   return String(value || '').replace(/\s+/g, ' ').trim();
+}
+
+function includesAnyTerm(value: string, terms: readonly string[]): boolean {
+  const clean = normalizeKeyword(value);
+  return terms.some((term) => clean.includes(term));
 }
 
 function uniqueKeywords(values: string[], limit = 40): string[] {
@@ -270,6 +408,48 @@ function keywordClusterKey(keyword: string): string {
     semantic = semantic.replace(/([\uAC00-\uD7A3]{3,})\d{1,2}$/u, '$1');
   }
   return (semantic.length >= 3 ? semantic : compact).slice(0, 12);
+}
+
+function liveCandidateDiversityKey(keyword: string): string {
+  let clean = normalizeKeyword(keyword)
+    .replace(/^\d{1,2}월\s+\d{1,2}일\s+/u, '')
+    .replace(/^20\d{2}년\s+\d{1,2}월\s+/u, '')
+    .replace(/^(오늘|이번주|이번달|\d{1,2}월)\s+/u, ' ');
+  const removable = [
+    ...ROBUST_ACTIONABLE_TERMS,
+    ...ROBUST_GENERAL_INTENTS,
+    ...Object.values(ROBUST_CATEGORY_INTENTS).flat(),
+  ]
+    .sort((a, b) => b.length - a.length);
+  for (const term of removable) {
+    clean = clean.replace(new RegExp(term.replace(/[.*+?^${}()|[\]\\]/g, '\\$&'), 'gu'), ' ');
+  }
+  const compact = normalizeKeyword(clean)
+    .toLowerCase()
+    .replace(/\s+/g, '')
+    .replace(/[^a-z0-9가-힣]/g, '');
+  return compact.slice(0, 18) || keywordClusterKey(keyword);
+}
+
+function diversifyLiveCandidates(values: string[], limit: number): string[] {
+  const unique = uniqueKeywords(values, limit * 3);
+  const selected: string[] = [];
+  const counts = new Map<string, number>();
+  const pushWithCap = (cap: number): void => {
+    for (const keyword of unique) {
+      if (selected.length >= limit) return;
+      if (selected.some((item) => keywordCompactId(item) === keywordCompactId(keyword))) continue;
+      const key = liveCandidateDiversityKey(keyword);
+      const count = counts.get(key) || 0;
+      if (count >= cap) continue;
+      counts.set(key, count + 1);
+      selected.push(keyword);
+    }
+  };
+  pushWithCap(18);
+  pushWithCap(36);
+  pushWithCap(limit);
+  return selected.slice(0, limit);
 }
 
 function publicPreviewClusterKey(keyword: string): string {
@@ -570,13 +750,33 @@ function currentLottoRound(now: Date = new Date()): number {
   return Math.floor((nowMs - LOTTO_FIRST_DRAW_AT_KST_MS) / LOTTO_DRAW_INTERVAL_MS) + 1;
 }
 
+function robustLottoRound(keyword: string): number | null {
+  const match = normalizeKeyword(keyword).match(ROBUST_LOTTO_ROUND_RE);
+  if (!match) return null;
+  const round = Number(match[1] || match[2]);
+  return Number.isFinite(round) ? round : null;
+}
+
+function isRobustLottoKeyword(keyword: string): boolean {
+  return /로또|복권|당첨번호|당첨지역|판매점/u.test(normalizeKeyword(keyword));
+}
+
+function isRobustSpecificLiveKeyword(keyword: string): boolean {
+  const clean = normalizeKeyword(keyword);
+  return /\d{3,5}\s*회|20\d{2}|오늘|이번주|일정|신청|대상|자격|조회|발표|예매|중계|하이라이트|라인업|몇부작|출연진|방송시간|다시보기|결말|쿠키영상|공식영상|가격비교|후기|추천|현재 상황|공식입장|합의|예상|전망|소식|관련주/u.test(clean);
+}
+
+function hasRobustActionableIntent(keyword: string): boolean {
+  return includesAnyTerm(keyword, ROBUST_ACTIONABLE_TERMS);
+}
+
 function isStaleOrFutureLiveKeyword(keyword: string, now: Date = new Date()): boolean {
   const clean = normalizeKeyword(keyword);
   if (!clean) return true;
-  if (VOLATILE_EXAM_ANSWER_RE.test(clean)) return true;
-  if (LIVE_LOTTERY_SIGNAL_RE.test(clean)) {
+  if (VOLATILE_EXAM_ANSWER_RE.test(clean) || ROBUST_EXAM_STALE_RE.test(clean)) return true;
+  if (LIVE_LOTTERY_SIGNAL_RE.test(clean) || isRobustLottoKeyword(clean)) {
     const roundMatch = clean.match(LOTTO_ROUND_RE);
-    const round = roundMatch ? Number(roundMatch[1] || roundMatch[2]) : null;
+    const round = roundMatch ? Number(roundMatch[1] || roundMatch[2]) : robustLottoRound(clean);
     if (round !== null && Number.isFinite(round) && round !== currentLottoRound(now)) {
       return true;
     }
@@ -594,7 +794,8 @@ function isMalformedLiveKeyword(keyword: string): boolean {
 }
 
 function isActionableLiveKeyword(keyword: string): boolean {
-  return ACTIONABLE_KEYWORD_HINT_RE.test(normalizeKeyword(keyword));
+  const clean = normalizeKeyword(keyword);
+  return ACTIONABLE_KEYWORD_HINT_RE.test(clean) || hasRobustActionableIntent(clean);
 }
 
 function isThinProfileIntentKeyword(keyword: string): boolean {
@@ -746,7 +947,7 @@ function isLiveRadarUsableKeyword(
   if (isStaleOrFutureLiveKeyword(clean, now)) return false;
   if (isThinProfileIntentKeyword(clean)) return false;
   if (/(관련주|주가)/.test(clean) && !STOCK_MARKET_CONTEXT_RE.test(clean)) return false;
-  const specific = SPECIFIC_LIVE_KEYWORD_HINT_RE.test(clean);
+  const specific = SPECIFIC_LIVE_KEYWORD_HINT_RE.test(clean) || isRobustSpecificLiveKeyword(clean);
   if (volume !== null && volume >= BROAD_KEYWORD_VOLUME_CEILING) return false;
   if (documents !== null && documents >= BROAD_KEYWORD_DOCUMENT_CEILING) return false;
   if (volume !== null && documents !== null && volume >= 300_000 && documents >= 50_000) return false;
@@ -762,13 +963,15 @@ function isStrongLiveIssueSeed(seed: string): boolean {
   const clean = normalizeKeyword(seed);
   if (!clean || isNoisyLiveSeed(clean) || isThinProfileIntentKeyword(clean)) return false;
   return LIVE_LOTTERY_SIGNAL_RE.test(clean)
+    || isRobustLottoKeyword(clean)
     || LIVE_SPORTS_SIGNAL_RE.test(clean)
     || LIVE_POLICY_SIGNAL_RE.test(clean)
     || LIVE_BROADCAST_SIGNAL_RE.test(clean)
     || LIVE_FINANCE_SIGNAL_RE.test(clean)
     || LIVE_GENERAL_ISSUE_RE.test(clean)
     || isActionableLiveKeyword(clean)
-    || SPECIFIC_LIVE_KEYWORD_HINT_RE.test(clean);
+    || SPECIFIC_LIVE_KEYWORD_HINT_RE.test(clean)
+    || isRobustSpecificLiveKeyword(clean);
 }
 
 function isPublicPreviewCandidate(item: MobileLiveGoldenBoardItem): boolean {
@@ -798,8 +1001,19 @@ function isPublicPreviewFallbackCandidate(item: MobileLiveGoldenBoardItem): bool
   return isActionableLiveKeyword(item.keyword) || SPECIFIC_LIVE_KEYWORD_HINT_RE.test(item.keyword);
 }
 
+function inferLiveCategoryByRobustRules(keyword: string): string | null {
+  const clean = normalizeKeyword(keyword);
+  for (const [category, terms] of Object.entries(ROBUST_CATEGORY_TERMS)) {
+    if (includesAnyTerm(clean, terms)) return category;
+  }
+  if (includesAnyTerm(clean, ROBUST_CATEGORY_INTENTS.shopping)) return 'shopping';
+  return null;
+}
+
 function inferLiveCategory(keyword: string, fallbackCategory: string): string {
   const clean = normalizeKeyword(keyword);
+  const robustCategory = inferLiveCategoryByRobustRules(clean);
+  if (robustCategory) return robustCategory;
   if (LIVE_LOTTERY_SIGNAL_RE.test(clean)) return 'life_tips';
   if (LIVE_SPORTS_SIGNAL_RE.test(clean)) return 'sports';
   if (LIVE_POLICY_SIGNAL_RE.test(clean)) return 'policy';
@@ -933,10 +1147,125 @@ function getLiveDateHints(now: Date = new Date()): string[] {
 function normalizeLiveSeedForDate(seed: string, now: Date): string {
   const clean = normalizeKeyword(seed);
   if (!clean || isStaleOrFutureLiveKeyword(clean, now)) return '';
-  if (LIVE_LOTTERY_SIGNAL_RE.test(clean) && !LOTTO_ROUND_RE.test(clean)) {
+  if ((LIVE_LOTTERY_SIGNAL_RE.test(clean) || isRobustLottoKeyword(clean)) && !LOTTO_ROUND_RE.test(clean) && robustLottoRound(clean) === null) {
     return `${currentLottoRound(now)}회 로또`;
   }
   return clean;
+}
+
+function normalizeRobustLiveSeedBase(value: unknown, now: Date): string {
+  const clean = normalizeKeyword(value)
+    .replace(/\[(same|up|new|down)\]/gi, ' ')
+    .replace(/[!?]+/g, ' ')
+    .replace(/\s+/g, ' ')
+    .trim();
+  if (!clean || isStaleOrFutureLiveKeyword(clean, now) || isThinProfileIntentKeyword(clean)) return '';
+  if (isRobustLottoKeyword(clean)) return normalizeLiveSeedForDate(clean, now);
+  return clean;
+}
+
+function currentLottoCandidateKeywords(now: Date): string[] {
+  const round = currentLottoRound(now);
+  return [
+    `${round}회 로또 당첨번호`,
+    `로또 ${round}회 당첨번호`,
+    `${round}회 로또 당첨지역`,
+    `${round}회 로또 판매점`,
+    `${round}회 로또 실수령액`,
+  ];
+}
+
+function buildSeedPhraseVariants(seed: string): string[] {
+  const clean = normalizeKeyword(seed);
+  if (!clean) return [];
+  const tokens = clean
+    .split(/\s+/)
+    .map((token) => token.replace(/[^\dA-Za-z가-힣]/g, '').trim())
+    .filter((token) => token.length > 0 && !ROBUST_STOP_TOKENS.has(token));
+  const out: string[] = [clean];
+  if (tokens.length >= 2) {
+    for (let size = Math.min(5, tokens.length); size >= 2; size -= 1) {
+      for (let start = 0; start + size <= tokens.length; start += 1) {
+        out.push(tokens.slice(start, start + size).join(' '));
+      }
+    }
+    out.push(tokens.slice(0, Math.min(4, tokens.length)).join(' '));
+    out.push(tokens.slice(Math.max(0, tokens.length - 4)).join(' '));
+  }
+  const compact = clean.replace(/\s+/g, '');
+  if (compact.length >= 4 && compact.length <= 18) out.push(compact);
+  return uniqueKeywords(out, 14)
+    .filter((keyword) => !isNoisyLiveSeed(keyword))
+    .filter((keyword) => !isThinProfileIntentKeyword(keyword));
+}
+
+function robustIntentTemplatesForSeed(seed: string, categoryId: string): string[] {
+  const inferred = inferLiveCategory(seed, categoryId);
+  const categoryIntents = ROBUST_CATEGORY_INTENTS[inferred]
+    || ROBUST_CATEGORY_INTENTS[categoryId]
+    || ROBUST_CATEGORY_INTENTS.live_issue;
+  return uniqueKeywords([
+    ...categoryIntents,
+    ...ROBUST_GENERAL_INTENTS,
+  ], 22);
+}
+
+function buildRobustLiveSeedCandidates(
+  categoryId: string,
+  liveSeeds: string[],
+  maxSeeds: number,
+  now: Date = new Date(),
+): string[] {
+  const candidateLimit = Math.max(120, Math.min(1000, Math.floor(maxSeeds || 360)));
+  const dateHints = getLiveDateHints(now);
+  const rawLiveBases = liveSeeds
+    .map((seed) => normalizeRobustLiveSeedBase(seed, now))
+    .filter(Boolean);
+  const bases = uniqueKeywords([
+    ...rawLiveBases,
+    ...normalizeLiveSeeds(liveSeeds, 100).map((seed) => normalizeLiveSeedForDate(seed, now)).filter(Boolean),
+    ...currentLottoCandidateKeywords(now),
+  ], 140);
+  const candidates: string[] = [];
+  const maxPerBase = Math.max(12, Math.floor(candidateLimit / Math.max(1, bases.length)) + 8);
+
+  for (const base of bases) {
+    if (candidates.length >= candidateLimit) break;
+    const baseStartCount = candidates.length;
+    const variants = buildSeedPhraseVariants(base);
+    for (const variant of variants) {
+      if (candidates.length >= candidateLimit) break;
+      if (candidates.length - baseStartCount >= maxPerBase) break;
+      const intents = robustIntentTemplatesForSeed(variant, categoryId);
+      const seedAlreadySpecific = isActionableLiveKeyword(variant) || isRobustSpecificLiveKeyword(variant);
+      const temporalHints = isRobustLottoKeyword(variant)
+        ? []
+        : dateHints.filter((hint) => !variant.includes(hint)).slice(0, seedAlreadySpecific ? 1 : 3);
+
+      candidates.push(variant);
+      for (const hint of temporalHints) {
+        if (candidates.length - baseStartCount >= maxPerBase) break;
+        candidates.push(`${hint} ${variant}`);
+      }
+      for (const intent of intents.slice(0, seedAlreadySpecific ? 6 : 14)) {
+        if (candidates.length - baseStartCount >= maxPerBase) break;
+        if (!variant.includes(intent)) candidates.push(`${variant} ${intent}`);
+        if (!seedAlreadySpecific) {
+          for (const hint of temporalHints.slice(0, 1)) {
+            if (candidates.length - baseStartCount >= maxPerBase) break;
+            if (!variant.includes(hint) && !variant.includes(intent)) {
+              candidates.push(`${hint} ${variant} ${intent}`);
+            }
+          }
+        }
+      }
+    }
+  }
+
+  return diversifyLiveCandidates(
+    candidates.filter((candidate) => isLiveRadarUsableKeyword(candidate, null, null, now)),
+    candidateLimit,
+  );
 }
 
 function buildDateAwareLiveSeedCandidates(
@@ -947,19 +1276,22 @@ function buildDateAwareLiveSeedCandidates(
 ): string[] {
   const candidateLimit = Math.max(80, Math.min(1000, Math.floor(maxSeeds || 240)));
   const dateHints = getLiveDateHints(now);
+  const robustCandidates = buildRobustLiveSeedCandidates(categoryId, liveSeeds, maxSeeds, now);
   const liveSeedBases = normalizeLiveSeeds(liveSeeds, 60)
     .map((seed) => normalizeLiveSeedForDate(seed, now))
     .filter(Boolean);
-  const candidates: string[] = [];
+  const candidates: string[] = [...robustCandidates];
 
   for (const seed of liveSeedBases) {
     if (candidates.length >= candidateLimit) break;
     const clean = normalizeKeyword(seed);
     if (!clean) continue;
     const intents = getLiveSeedBackfillIntents(clean, categoryId);
-    const seedAlreadySpecific = isActionableLiveKeyword(clean) || SPECIFIC_LIVE_KEYWORD_HINT_RE.test(clean);
+    const seedAlreadySpecific = isActionableLiveKeyword(clean)
+      || SPECIFIC_LIVE_KEYWORD_HINT_RE.test(clean)
+      || isRobustSpecificLiveKeyword(clean);
     const inferredCategory = inferLiveCategory(clean, categoryId);
-    const temporalHints = LIVE_LOTTERY_SIGNAL_RE.test(clean)
+    const temporalHints = LIVE_LOTTERY_SIGNAL_RE.test(clean) || isRobustLottoKeyword(clean)
       ? []
       : dateHints.filter((hint) => !clean.includes(hint)).slice(0, seedAlreadySpecific ? 1 : 3);
 
@@ -979,7 +1311,7 @@ function buildDateAwareLiveSeedCandidates(
 
     if (inferredCategory === 'policy') candidates.push(`${clean} 신청 대상`, `${clean} 지급일 조회`);
     if (inferredCategory === 'sports') candidates.push(`${clean} 중계 일정`, `${clean} 예매 일정`);
-    if (inferredCategory === 'life_tips' && LIVE_LOTTERY_SIGNAL_RE.test(clean)) {
+    if (inferredCategory === 'life_tips' && (LIVE_LOTTERY_SIGNAL_RE.test(clean) || isRobustLottoKeyword(clean))) {
       candidates.push(`${clean} 당첨번호`, `${clean} 당첨지역`, `${clean} 판매점`);
     }
     if (LIVE_GENERAL_ISSUE_RE.test(clean)) {
@@ -987,42 +1319,69 @@ function buildDateAwareLiveSeedCandidates(
     }
   }
 
-  return uniqueKeywords(
+  return diversifyLiveCandidates(
     candidates.filter((candidate) => isLiveRadarUsableKeyword(candidate, null, null, now)),
     candidateLimit,
   );
 }
 
 function buildBackfillCandidates(categoryId: string, liveSeeds: string[], maxSeeds: number, now: Date = new Date()): string[] {
-  const liveSeedBases = normalizeLiveSeeds(liveSeeds, 36)
+  const rawLiveBases = liveSeeds
+    .map((seed) => normalizeRobustLiveSeedBase(seed, now))
+    .filter(Boolean);
+  const liveSeedBases = uniqueKeywords([
+    ...rawLiveBases,
+    ...normalizeLiveSeeds(liveSeeds, 80),
+  ], 120)
     .map((seed) => normalizeLiveSeedForDate(seed, now))
     .filter(Boolean);
   const candidateLimit = Math.max(120, Math.min(1000, Math.floor(maxSeeds || 240)));
+  const robustCandidates = buildRobustLiveSeedCandidates(categoryId, liveSeeds, maxSeeds, now);
   const inferredLiveCandidates = buildDateAwareLiveSeedCandidates(categoryId, liveSeeds, maxSeeds, now);
   const baseSeeds = uniqueKeywords([
-    ...inferredLiveCandidates,
     ...liveSeedBases,
+    ...robustCandidates,
+    ...inferredLiveCandidates,
     ...getDiscoveryCategorySeeds(categoryId, Math.max(24, Math.min(80, maxSeeds))),
-  ], Math.max(80, Math.min(240, maxSeeds || 120)));
-  const intents = getBackfillIntents(categoryId);
-  const liveSeedSet = new Set([...liveSeedBases, ...inferredLiveCandidates].map((seed) => seed.toLowerCase().replace(/\s+/g, '')));
+    ...currentLottoCandidateKeywords(now),
+  ], Math.max(160, Math.min(600, maxSeeds || 240)));
+  const intents = uniqueKeywords([
+    ...getBackfillIntents(categoryId),
+    ...(ROBUST_CATEGORY_INTENTS[categoryId] || []),
+    ...ROBUST_GENERAL_INTENTS,
+  ], 28);
+  const liveSeedSet = new Set([...liveSeedBases, ...inferredLiveCandidates, ...robustCandidates].map((seed) => seed.toLowerCase().replace(/\s+/g, '')));
   const candidates: string[] = [];
+  const candidateClusterCounts = new Map<string, number>();
+  const maxCandidatesPerCluster = Math.max(12, Math.min(24, Math.ceil(candidateLimit / 6)));
+  const pushCandidate = (candidate: string): void => {
+    if (candidates.length >= candidateLimit) return;
+    const clean = normalizeKeyword(candidate);
+    if (!clean) return;
+    const cluster = liveCandidateDiversityKey(clean);
+    const count = candidateClusterCounts.get(cluster) || 0;
+    if (count >= maxCandidatesPerCluster) return;
+    candidateClusterCounts.set(cluster, count + 1);
+    candidates.push(clean);
+  };
   for (const seed of baseSeeds) {
-    candidates.push(seed);
+    pushCandidate(seed);
     const key = seed.toLowerCase().replace(/\s+/g, '');
     const seedIsLive = liveSeedSet.has(key);
-    const seedAlreadySpecific = isActionableLiveKeyword(seed);
-    const seedIntents = seedIsLive ? getLiveSeedBackfillIntents(seed, categoryId) : intents;
+    const seedAlreadySpecific = isActionableLiveKeyword(seed) || isRobustSpecificLiveKeyword(seed);
+    const seedIntents = seedIsLive
+      ? uniqueKeywords([...getLiveSeedBackfillIntents(seed, categoryId), ...robustIntentTemplatesForSeed(seed, categoryId)], 28)
+      : intents;
     const intentLimit = seedIsLive
-      ? (seedAlreadySpecific ? Math.min(2, seedIntents.length) : Math.min(8, seedIntents.length))
+      ? (seedAlreadySpecific ? Math.min(6, seedIntents.length) : Math.min(16, seedIntents.length))
       : intents.length;
     for (const intent of seedIntents.slice(0, intentLimit)) {
-      if (!seed.includes(intent)) candidates.push(`${seed} ${intent}`);
+      if (!seed.includes(intent)) pushCandidate(`${seed} ${intent}`);
       if (candidates.length >= candidateLimit) break;
     }
     if (candidates.length >= candidateLimit) break;
   }
-  return uniqueKeywords(
+  return diversifyLiveCandidates(
     candidates.filter((candidate) => isLiveRadarUsableKeyword(candidate, null, null, now)),
     candidateLimit,
   );
@@ -1045,8 +1404,33 @@ function liveGradeFromMetrics(score: number, volume: number, docs: number, ratio
   return 'C';
 }
 
+function rowSearchVolume(row: LiveSearchVolumeRow): number {
+  return (finiteNumber(row.pcSearchVolume) || 0) + (finiteNumber(row.mobileSearchVolume) || 0);
+}
+
+function preDocumentCandidateScore(row: LiveSearchVolumeRow, categoryId: string): number {
+  const keyword = normalizeKeyword(row.keyword);
+  const volume = rowSearchVolume(row);
+  const intent = keywordNeedScore(keyword, 'volume-pass') + (hasRobustActionableIntent(keyword) ? 18 : 0);
+  const longTail = keywordLongTailScore(keyword);
+  const category = inferLiveCategory(keyword, categoryId);
+  const categoryBonus = category === categoryId || categoryId === 'all' ? 20 : 0;
+  const volumeBand = volume >= 30_000
+    ? 70
+    : volume >= 10_000
+      ? 60
+      : volume >= 3_000
+        ? 48
+        : volume >= 1_000
+          ? 38
+          : volume >= 300
+            ? 24
+            : 8;
+  return volumeBand + intent + longTail + categoryBonus;
+}
+
 function rowToBackfillResult(
-  row: Awaited<ReturnType<typeof getNaverKeywordSearchVolumeSeparate>>[number],
+  row: LiveSearchVolumeRow,
   categoryId: string,
 ): MDPResult | null {
   const keyword = normalizeKeyword(row.keyword);
@@ -1214,6 +1598,7 @@ export class MobileLiveGoldenRadar {
   private readonly boardTarget: number;
   private readonly publicPreviewCount: number;
   private readonly boardFile?: string;
+  private readonly resultCacheFile?: string;
   private readonly maxSeeds: number;
   private readonly maxCandidates: number;
   private readonly startupCatchUpCycles: number;
@@ -1267,6 +1652,7 @@ export class MobileLiveGoldenRadar {
     )));
     this.publicPreviewCount = Math.max(1, Math.min(10, Math.floor(options.publicPreviewCount || 5)));
     this.boardFile = normalizeKeyword(options.boardFile || '') || undefined;
+    this.resultCacheFile = normalizeKeyword(options.resultCacheFile || '') || undefined;
     this.maxSeeds = Math.max(20, Math.min(1000, Math.floor(
       options.maxSeeds || Math.max(240, this.boardTarget * 8),
     )));
@@ -1293,6 +1679,7 @@ export class MobileLiveGoldenRadar {
     this.clearTimeoutFn = options.clearTimeoutFn || ((handle) => clearTimeout(handle as ReturnType<typeof setTimeout>));
     this.now = options.now || (() => new Date());
     this.loadBoardFromFile();
+    this.loadMeasuredResultCacheFromFile();
   }
 
   start(): MobileLiveGoldenRadarSnapshot {
@@ -1328,6 +1715,25 @@ export class MobileLiveGoldenRadar {
     return this.snapshot();
   }
 
+  private runLimitForCurrentBoard(): number {
+    const currentCount = this.sortedBoard().length;
+    if (currentCount >= this.boardTarget) return this.cycleLimit;
+    const startupDivisor = Math.max(2, Math.min(4, this.startupCatchUpCycles));
+    const fillTarget = Math.ceil(this.boardTarget / startupDivisor);
+    return Math.min(45, Math.max(this.cycleLimit, fillTarget));
+  }
+
+  private backfillMeasurementLimit(targetLimit: number): number {
+    return Math.max(
+      60,
+      Math.min(
+        this.maxCandidates,
+        LIVE_BACKFILL_VOLUME_PASS_MAX,
+        Math.max(targetLimit * 16, Math.floor(this.maxCandidates * 0.14)),
+      ),
+    );
+  }
+
   async runOnce(): Promise<MobileLiveGoldenRadarSnapshot> {
     if (this.running) return this.snapshot();
     const gate = normalizeGate(this.shouldRun());
@@ -1343,7 +1749,8 @@ export class MobileLiveGoldenRadar {
     this.lastError = undefined;
     const categoryId = this.nextCategory();
     const startedAtMs = Date.now();
-    const discoveryLimit = Math.min(30, Math.max(this.cycleLimit * 3, this.cycleLimit));
+    const runLimit = this.runLimitForCurrentBoard();
+    const discoveryLimit = Math.min(90, Math.max(runLimit * 2, this.cycleLimit));
 
     try {
       const env = this.getEnvConfig();
@@ -1352,7 +1759,7 @@ export class MobileLiveGoldenRadar {
       }
 
       const liveSeeds = await this.collectLiveSeeds(categoryId);
-      const directMaxCandidates = directCandidateBudget(this.maxCandidates, this.cycleLimit);
+      const directMaxCandidates = directCandidateBudget(this.maxCandidates, runLimit);
       const existingIdsForRun = new Set(this.board.keys());
       const existingClustersForRun = new Set([...this.board.values()].map((item) => keywordClusterKey(item.keyword)).filter(Boolean));
       let qualityDirect: MDPResult[] = [];
@@ -1360,14 +1767,14 @@ export class MobileLiveGoldenRadar {
         const backfill = await this.discoverBackfill({
           clientId: env.naverClientId,
           clientSecret: env.naverClientSecret,
-        }, categoryId, liveSeeds);
+        }, categoryId, liveSeeds, runLimit);
         if (backfill.length > 0) {
           qualityDirect = [...qualityDirect, ...backfill];
         }
       }
 
       let novelQualityCount = qualityDirect.filter((item) => isNovelMdpResult(item, existingIdsForRun, existingClustersForRun)).length;
-      if (novelQualityCount < this.cycleLimit || qualityDirect.length < this.cycleLimit) {
+      if (novelQualityCount < runLimit || qualityDirect.length < runLimit) {
         const direct = await withTimeout(this.discover({
           clientId: env.naverClientId,
           clientSecret: env.naverClientSecret,
@@ -1377,11 +1784,11 @@ export class MobileLiveGoldenRadar {
           maxSeeds: this.maxSeeds,
           maxCandidates: directMaxCandidates,
           liveSeeds,
-          includeCrossCategory: false,
+          includeCrossCategory: runLimit > this.cycleLimit,
           requireCategoryMatch: false,
           includeSearchAdSuggestions: true,
-          suggestionSeedLimit: 12,
-          suggestionsPerSeed: 18,
+          suggestionSeedLimit: Math.min(48, Math.max(12, runLimit)),
+          suggestionsPerSeed: Math.min(60, Math.max(18, Math.ceil(runLimit * 1.5))),
           maxSimilarPerCluster: 2,
         }), LIVE_DISCOVERY_TIMEOUT_MS, []);
         const directQuality = direct.filter(isLiveRadarQualityResult);
@@ -1391,13 +1798,13 @@ export class MobileLiveGoldenRadar {
       }
 
       novelQualityCount = qualityDirect.filter((item) => isNovelMdpResult(item, existingIdsForRun, existingClustersForRun)).length;
-      if (this.enableBackfill && novelQualityCount < this.cycleLimit) {
+      if (this.enableBackfill && novelQualityCount < runLimit) {
         const globalBackfill = categoryId === 'all'
           ? []
           : await this.discoverBackfill({
             clientId: env.naverClientId,
             clientSecret: env.naverClientSecret,
-          }, 'all', liveSeeds);
+          }, 'all', liveSeeds, runLimit);
         if (globalBackfill.length > 0) {
           qualityDirect = [...qualityDirect, ...globalBackfill];
         }
@@ -1420,7 +1827,7 @@ export class MobileLiveGoldenRadar {
           qualityBackfillToTarget: true,
         },
       );
-      const rankedBackfill = rankedPrimary.length < this.cycleLimit && matchedDirect.length > 0
+      const rankedBackfill = rankedPrimary.length < runLimit && matchedDirect.length > 0
         ? rankGoldenDiscoveryResults(
           unmatchedDirect,
           discoveryLimit - rankedPrimary.length,
@@ -1442,7 +1849,7 @@ export class MobileLiveGoldenRadar {
       const isNovel = (item: MDPResult) => isNovelMdpResult(item, existingIds, existingClusters);
       const rankedNovel = rankGoldenDiscoveryResults(
         qualityDirect.filter(isNovel),
-        this.cycleLimit,
+        runLimit,
         false,
         {
           honorRequestedLimit: true,
@@ -1453,17 +1860,17 @@ export class MobileLiveGoldenRadar {
           qualityBackfillToTarget: true,
         },
       );
-      appendUniqueMdpResults(ranked, rankedNovel, seen, this.cycleLimit, isNovel);
-      appendUniqueMdpResults(ranked, rankedPrimary, seen, this.cycleLimit, isNovel);
-      appendUniqueMdpResults(ranked, rankedBackfill, seen, this.cycleLimit, isNovel);
-      appendUniqueMdpResults(ranked, rankedPrimary, seen, this.cycleLimit);
-      appendUniqueMdpResults(ranked, rankedBackfill, seen, this.cycleLimit);
+      appendUniqueMdpResults(ranked, rankedNovel, seen, runLimit, isNovel);
+      appendUniqueMdpResults(ranked, rankedPrimary, seen, runLimit, isNovel);
+      appendUniqueMdpResults(ranked, rankedBackfill, seen, runLimit, isNovel);
+      appendUniqueMdpResults(ranked, rankedPrimary, seen, runLimit);
+      appendUniqueMdpResults(ranked, rankedBackfill, seen, runLimit);
       const rankedMetrics = ranked.map((item) => mapDirectResult(item, categoryId));
-      const liveIssueFallback = rankedMetrics.length < this.cycleLimit && (this.enableBackfill || this.hasCustomLiveDocumentMeasure)
+      const liveIssueFallback = rankedMetrics.length < runLimit && (this.enableBackfill || this.hasCustomLiveDocumentMeasure)
         ? await this.discoverLiveIssueFallback({
           clientId: env.naverClientId,
           clientSecret: env.naverClientSecret,
-        }, categoryId, liveSeeds)
+        }, categoryId, liveSeeds, runLimit)
         : [];
       const resultMetrics: MobileKeywordMetric[] = [...rankedMetrics];
       const metricSeen = new Set<string>();
@@ -1472,7 +1879,7 @@ export class MobileLiveGoldenRadar {
         metricSeen.add(`compact:${keywordCompactId(metric.keyword)}`);
       }
       for (const metric of liveIssueFallback) {
-        if (resultMetrics.length >= this.cycleLimit) break;
+        if (resultMetrics.length >= runLimit) break;
         const id = keywordId(metric.keyword);
         const compactId = keywordCompactId(metric.keyword);
         const cluster = keywordClusterKey(metric.keyword);
@@ -1499,7 +1906,7 @@ export class MobileLiveGoldenRadar {
         title: '실시간 황금키워드 발견',
         targetLabel: categoryId,
         result,
-        limit: Math.min(4, this.cycleLimit),
+        limit: Math.min(4, runLimit),
       }) || [];
 
       this.publishedCount += published.length;
@@ -1536,7 +1943,7 @@ export class MobileLiveGoldenRadar {
   private async collectLiveSeeds(categoryId: string): Promise<string[]> {
     try {
       if (this.liveSeedProvider) {
-        return normalizeLiveSeeds(await this.liveSeedProvider(categoryId), 80);
+        return normalizeLiveSeeds(await this.liveSeedProvider(categoryId), 140);
       }
       const fallbackSeeds = getDiscoveryCategorySeeds(categoryId, 60);
       const [
@@ -1545,19 +1952,19 @@ export class MobileLiveGoldenRadar {
         issueRows,
       ] = await Promise.all([
         withTimeout(
-          import('../utils/signal-bz-crawler').then(({ getSignalBzKeywords }) => getSignalBzKeywords(16)),
+          import('../utils/signal-bz-crawler').then(({ getSignalBzKeywords }) => getSignalBzKeywords(30)),
           LIVE_SEED_COLLECTION_TIMEOUT_MS,
           [],
         ),
         withTimeout(
-          import('../utils/policy-briefing-api').then(({ getPolicyBriefingKeywords }) => getPolicyBriefingKeywords(16)),
+          import('../utils/policy-briefing-api').then(({ getPolicyBriefingKeywords }) => getPolicyBriefingKeywords(30)),
           LIVE_SEED_COLLECTION_TIMEOUT_MS,
           [],
         ),
         withTimeout(
           import('../utils/entertainment-news-aggregator').then(({ fetchEntertainmentAggregate }) => fetchEntertainmentAggregate({
             maxMinutesAgo: 360,
-            limitPerSource: 8,
+            limitPerSource: 20,
           })),
           LIVE_SEED_COLLECTION_TIMEOUT_MS,
           [],
@@ -1581,23 +1988,80 @@ export class MobileLiveGoldenRadar {
           fallback.push(keyword);
         }
       }
-      return uniqueKeywords([...normalizeLiveSeeds(matched, 50), ...normalizeLiveSeeds(fallback, 24), ...fallbackSeeds], 80);
+      return uniqueKeywords([...normalizeLiveSeeds(matched, 90), ...normalizeLiveSeeds(fallback, 60), ...fallbackSeeds], 140);
     } catch {
-      return uniqueKeywords(getDiscoveryCategorySeeds(categoryId, 60), 60);
+      return uniqueKeywords(getDiscoveryCategorySeeds(categoryId, 100), 100);
     }
+  }
+
+  private async attachDocumentCountsToVolumeRows(
+    rows: LiveSearchVolumeRow[],
+    categoryId: string,
+    targetLimit: number,
+  ): Promise<LiveSearchVolumeRow[]> {
+    const now = this.now();
+    const ranked = rows
+      .filter((row) => {
+        const keyword = normalizeKeyword(row.keyword);
+        const volume = rowSearchVolume(row);
+        if (!keyword || volume < 100) return false;
+        return isLiveRadarUsableKeyword(keyword, volume, null, now);
+      })
+      .sort((a, b) => {
+        const scoreDiff = preDocumentCandidateScore(b, categoryId) - preDocumentCandidateScore(a, categoryId);
+        if (scoreDiff !== 0) return scoreDiff;
+        return rowSearchVolume(b) - rowSearchVolume(a);
+      })
+      .slice(0, Math.min(
+        LIVE_BACKFILL_DOCUMENT_PASS_MAX,
+        Math.max(targetLimit * 3, 36),
+      ));
+
+    const measured: Array<{ index: number; row: LiveSearchVolumeRow }> = [];
+    let cursor = 0;
+    const workers = Array.from({ length: LIVE_BACKFILL_DOCUMENT_CONCURRENCY }, async () => {
+      while (cursor < ranked.length) {
+        const index = cursor;
+        cursor += 1;
+        const row = ranked[index];
+        const keyword = normalizeKeyword(row.keyword);
+        const volume = rowSearchVolume(row);
+        const existingDocumentCount = finiteNumber(row.documentCount);
+        if (existingDocumentCount !== null && existingDocumentCount > 0) {
+          measured.push({ index, row: { ...row, documentCount: existingDocumentCount } });
+          continue;
+        }
+        const dc = await withTimeout(
+          this.measureLiveDocumentCount(keyword, {
+            searchVolume: volume,
+            scrapeTimeoutMs: 1600,
+          }).catch(() => null),
+          5000,
+          null,
+        );
+        if (!dc || dc.isEstimated || dc.dc <= 0) continue;
+        measured.push({ index, row: { ...row, documentCount: dc.dc } });
+      }
+    });
+    await Promise.all(workers);
+    return measured
+      .sort((a, b) => a.index - b.index)
+      .map((item) => item.row);
   }
 
   private async discoverBackfill(
     config: { clientId: string; clientSecret: string },
     categoryId: string,
     liveSeeds: string[],
+    targetLimit = this.cycleLimit,
   ): Promise<MDPResult[]> {
     const candidates = buildBackfillCandidates(categoryId, liveSeeds, this.maxSeeds, this.now());
     if (candidates.length === 0) return [];
-    const measurementLimit = Math.max(60, Math.min(120, Math.floor(this.maxCandidates * 0.05)));
-    const rows = await withTimeout(this.measureLiveSearchVolumeSeparate(config, candidates.slice(0, measurementLimit), {
-      includeDocumentCount: true,
+    const measurementLimit = this.backfillMeasurementLimit(targetLimit);
+    const volumeRows = await withTimeout(this.measureLiveSearchVolumeSeparate(config, candidates.slice(0, measurementLimit), {
+      includeDocumentCount: false,
     }), LIVE_BACKFILL_TIMEOUT_MS, []);
+    const rows = await this.attachDocumentCountsToVolumeRows(volumeRows, categoryId, targetLimit);
     const seen = new Set<string>();
     const out: MDPResult[] = [];
     let documentCountSupplements = 0;
@@ -1632,7 +2096,7 @@ export class MobileLiveGoldenRadar {
       seen.add(id);
       out.push(item);
     }
-    return rankGoldenDiscoveryResults(out, this.cycleLimit, false, {
+    return rankGoldenDiscoveryResults(out, targetLimit, false, {
       honorRequestedLimit: true,
       diversifySimilarIntents: true,
       maxSimilarPerCluster: 2,
@@ -1646,12 +2110,13 @@ export class MobileLiveGoldenRadar {
     config: { clientId: string; clientSecret: string },
     categoryId: string,
     liveSeeds: string[],
+    targetLimit = this.cycleLimit,
   ): Promise<MobileKeywordMetric[]> {
     const liveSeedBases = normalizeLiveSeeds(liveSeeds, 36).filter(isStrongLiveIssueSeed);
     if (liveSeedBases.length === 0) return [];
 
     const liveBaseIds = liveSeedBases.map((seed) => keywordCompactId(seed)).filter(Boolean);
-    const maxPerLiveSeed = Math.max(2, Math.ceil(this.cycleLimit / Math.max(1, liveBaseIds.length)) + 1);
+    const maxPerLiveSeed = Math.max(2, Math.ceil(targetLimit / Math.max(1, liveBaseIds.length)) + 1);
     const isFromLiveSeed = (keyword: string): boolean => {
       const compact = keywordCompactId(keyword);
       return liveBaseIds.some((seedId) => compact.startsWith(seedId) || seedId.startsWith(compact));
@@ -1676,7 +2141,7 @@ export class MobileLiveGoldenRadar {
         candidateCountsBySeed.set(sourceKey, count + 1);
         return true;
       })
-      .slice(0, LIVE_ISSUE_FALLBACK_DOCUMENT_LIMIT);
+      .slice(0, Math.max(LIVE_ISSUE_FALLBACK_DOCUMENT_LIMIT, targetLimit * 2));
 
     const seen = new Set<string>();
     const out: MobileKeywordMetric[] = [];
@@ -1727,10 +2192,10 @@ export class MobileLiveGoldenRadar {
           ...(result.externalSources || []),
         ].filter(Boolean),
       });
-      if (out.length >= this.cycleLimit) break;
+      if (out.length >= targetLimit) break;
     }
-    if (out.length >= this.cycleLimit) {
-      return out.slice(0, this.cycleLimit);
+    if (out.length >= targetLimit) {
+      return out.slice(0, targetLimit);
     }
 
     const measureOne = async (keyword: string): Promise<MobileKeywordMetric | null> => {
@@ -1757,13 +2222,13 @@ export class MobileLiveGoldenRadar {
       };
     };
 
-    for (let i = 0; i < candidates.length && out.length < this.cycleLimit; i += LIVE_ISSUE_FALLBACK_CONCURRENCY) {
+    for (let i = 0; i < candidates.length && out.length < targetLimit; i += LIVE_ISSUE_FALLBACK_CONCURRENCY) {
       const batch = candidates.slice(i, i + LIVE_ISSUE_FALLBACK_CONCURRENCY);
       const measured = await Promise.all(batch.map(measureOne));
       for (const metric of measured) {
         if (!metric) continue;
         pushMetric(metric);
-        if (out.length >= this.cycleLimit) break;
+        if (out.length >= targetLimit) break;
       }
     }
 
@@ -1775,7 +2240,7 @@ export class MobileLiveGoldenRadar {
         if (scoreDelta !== 0) return scoreDelta;
         return (a.documentCount || Number.MAX_SAFE_INTEGER) - (b.documentCount || Number.MAX_SAFE_INTEGER);
       })
-      .slice(0, this.cycleLimit);
+      .slice(0, targetLimit);
   }
 
   snapshot(): MobileLiveGoldenRadarSnapshot {
@@ -1988,6 +2453,77 @@ export class MobileLiveGoldenRadar {
     }
   }
 
+  private loadMeasuredResultCacheFromFile(): void {
+    if (!this.resultCacheFile) return;
+    try {
+      if (!fs.existsSync(this.resultCacheFile)) return;
+      const raw = fs.readFileSync(this.resultCacheFile, 'utf8').trim();
+      if (!raw) return;
+      const parsed = JSON.parse(raw);
+      const metrics: MobileKeywordMetric[] = [];
+      const pushKeyword = (row: any, fallbackCategory: string): void => {
+        const keyword = normalizeKeyword(row?.keyword);
+        if (!keyword) return;
+        const pcSearchVolume = finiteNumber(row?.pcSearchVolume);
+        const mobileSearchVolume = finiteNumber(row?.mobileSearchVolume);
+        const totalSearchVolume = finiteNumber(row?.totalSearchVolume)
+          || ((pcSearchVolume || 0) + (mobileSearchVolume || 0))
+          || finiteNumber(row?.searchVolume);
+        const documentCount = finiteNumber(row?.documentCount);
+        const score = finiteNumber(row?.score);
+        const grade = normalizeGrade(row?.grade, score || 0);
+        const goldenRatio = finiteNumber(row?.goldenRatio)
+          || (totalSearchVolume !== null && documentCount !== null && documentCount > 0
+            ? Number((totalSearchVolume / documentCount).toFixed(2))
+            : null);
+        const metric: MobileKeywordMetric = {
+          keyword,
+          grade,
+          score,
+          pcSearchVolume,
+          mobileSearchVolume,
+          totalSearchVolume,
+          documentCount,
+          goldenRatio,
+          cpc: finiteNumber(row?.cpc),
+          category: inferLiveCategory(keyword, normalizeKeyword(row?.category) || fallbackCategory || 'live'),
+          source: normalizeKeyword(row?.source) || 'mobile-measured-result-cache',
+          intent: normalizeKeyword(row?.intent) || 'measured-cache-golden-discovery',
+          evidence: Array.isArray(row?.evidence)
+            ? row.evidence.map((entry: unknown) => normalizeKeyword(entry)).filter(Boolean).slice(0, 8)
+            : ['mobile-measured-result-cache'],
+          isMeasured: row?.isMeasured !== false && totalSearchVolume !== null && documentCount !== null,
+        };
+        if (!hasCompleteLiveGoldenMetrics(metric)) return;
+        if (!isLiveRadarUsableMetric(metric, this.now())) return;
+        metrics.push(metric);
+      };
+
+      if (Array.isArray(parsed?.entries)) {
+        for (const entry of parsed.entries) {
+          const fallbackCategory = normalizeKeyword(entry?.category || entry?.product || entry?.mode || 'live');
+          const result = entry?.result;
+          if (Array.isArray(result?.keywords)) {
+            for (const row of result.keywords) pushKeyword(row, fallbackCategory);
+          }
+          if (Array.isArray(entry?.keywords)) {
+            for (const row of entry.keywords) pushKeyword(row, fallbackCategory);
+          }
+        }
+      }
+      if (Array.isArray(parsed?.keywords)) {
+        for (const row of parsed.keywords) pushKeyword(row, 'live');
+      }
+      if (metrics.length > 0) {
+        this.mergeBoard(metrics);
+        this.lastMessage = `loaded ${metrics.length} measured cache candidates`;
+      }
+    } catch (err) {
+      this.lastError = (err as Error).message || String(err);
+      this.lastMessage = `measured result cache load failed: ${this.lastError}`;
+    }
+  }
+
   private loadBoardFromFile(): void {
     if (!this.boardFile) return;
     try {
@@ -2100,6 +2636,7 @@ export function createMobileLiveGoldenRadarFromEnv(
   const boardTarget = Number(process.env['LEWORD_MOBILE_LIVE_GOLDEN_BOARD_TARGET'] || 0);
   const publicPreviewCount = Number(process.env['LEWORD_PUBLIC_GOLDEN_PREVIEW_COUNT'] || 0);
   const boardFile = normalizeKeyword(process.env['LEWORD_MOBILE_LIVE_GOLDEN_BOARD_FILE'] || '');
+  const resultCacheFile = normalizeKeyword(process.env['LEWORD_MOBILE_CACHE_FILE'] || '');
   const runOnStart = process.env['LEWORD_MOBILE_LIVE_GOLDEN_ON_START'] !== 'false';
   return new MobileLiveGoldenRadar({
     notificationInbox,
@@ -2111,6 +2648,7 @@ export function createMobileLiveGoldenRadarFromEnv(
     boardTarget: Number.isFinite(boardTarget) && boardTarget > 0 ? boardTarget : undefined,
     publicPreviewCount: Number.isFinite(publicPreviewCount) && publicPreviewCount > 0 ? publicPreviewCount : undefined,
     boardFile: boardFile || undefined,
+    resultCacheFile: resultCacheFile || undefined,
     maxSeeds: Number.isFinite(maxSeeds) && maxSeeds > 0 ? maxSeeds : undefined,
     maxCandidates: Number.isFinite(maxCandidates) && maxCandidates > 0 ? maxCandidates : undefined,
     startupCatchUpCycles: Number.isFinite(startupCatchUpCycles) && startupCatchUpCycles > 0
