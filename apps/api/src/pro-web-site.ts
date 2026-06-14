@@ -83,6 +83,17 @@ export function renderLewordProWeb(): string {
       color: #07111f;
       box-shadow: 0 10px 28px rgba(245,197,66,.28);
     }
+    .mobile-shell-toggle {
+      display: none;
+      min-height: 40px;
+      border: 1px solid rgba(245,197,66,.48);
+      border-radius: 8px;
+      background: rgba(245,197,66,.1);
+      color: var(--gold);
+      padding: 8px 10px;
+      font-weight: 1000;
+      font-size: 13px;
+    }
     .nav { display: flex; gap: 8px; flex-wrap: wrap; justify-content: flex-end; }
     .nav a, .nav button, .btn {
       min-height: 38px;
@@ -674,20 +685,31 @@ export function renderLewordProWeb(): string {
     }
     @media (max-width: 560px) {
       .shell { padding: 12px; }
-      .topbar { align-items: flex-start; flex-direction: column; }
+      .topbar { align-items: center; flex-direction: row; padding: 8px 0 10px; }
+      .brand { min-width: 0; font-size: 20px; gap: 10px; }
+      .brand-mark { flex: 0 0 40px; }
+      .brand span:last-child { min-width: 0; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
+      .mobile-shell-toggle { display: inline-flex; align-items: center; justify-content: center; flex: 0 0 auto; }
+      .nav { display: flex; flex-direction: column; }
       .nav, .feature-grid, .sidebar { grid-template-columns: 1fr; width: 100%; }
       .quick-feature-dock { grid-template-columns: 1fr; }
       .quality-strip { grid-template-columns: 1fr; }
       .nav a, .nav button, .btn { width: 100%; }
       .hero h1 { font-size: 24px; }
+      .shell.mobile-pro-collapsed .nav,
+      .shell.mobile-pro-collapsed .sidebar,
+      .shell.mobile-pro-collapsed .hero { display: none; }
+      .shell.mobile-pro-collapsed .layout { display: block; }
+      .shell.mobile-pro-collapsed .main { gap: 12px; }
     }
   </style>
 </head>
 <body>
-  <main class="shell">
+  <main class="shell mobile-pro-collapsed" id="proShell">
     <header class="topbar">
       <a class="brand" href="/leword"><span class="brand-mark" aria-hidden="true">L</span><span>LEWORD Pro Web</span></a>
-      <nav class="nav" aria-label="주요 메뉴">
+      <button class="mobile-shell-toggle" type="button" id="mobileProShellToggle" aria-expanded="false" aria-controls="proTopNav proSidebar">Pro 메뉴 열기</button>
+      <nav class="nav" id="proTopNav" aria-label="주요 메뉴">
         <a href="#golden" data-view-target="golden">황금키워드 보드</a>
         <a href="#sources" data-view-target="sources">실시간 소스</a>
         <a href="#lookup" data-view-target="lookup">키워드 조회</a>
@@ -700,7 +722,7 @@ export function renderLewordProWeb(): string {
     </header>
 
     <div class="layout">
-      <aside class="sidebar" aria-label="Pro 기능 탭">
+      <aside class="sidebar" id="proSidebar" aria-label="Pro 기능 탭">
         <a class="side-link" href="#golden" data-view-target="golden">LIVE 황금키워드 보드</a>
         <a class="side-link" href="#sources" data-view-target="sources">네이버/다음/네이트/줌/정책/이슈</a>
         <a class="side-link" href="#lookup" data-view-target="lookup">PC/모바일 실측 조회</a>
@@ -1068,6 +1090,34 @@ export function renderLewordProWeb(): string {
     ];
 
     function qs(id) { return document.getElementById(id); }
+    const mobileProChromeStorageKey = 'leword-mobile-pro-chrome';
+    function isMobileProChrome() {
+      return window.matchMedia && window.matchMedia('(max-width: 560px)').matches;
+    }
+    function mobileProChromePreference() {
+      try {
+        return localStorage.getItem(mobileProChromeStorageKey) || 'closed';
+      } catch (err) {
+        return 'closed';
+      }
+    }
+    function setMobileProChromePreference(value) {
+      try {
+        localStorage.setItem(mobileProChromeStorageKey, value);
+      } catch (err) {}
+    }
+    function setMobileProChromeCollapsed(collapsed) {
+      const shell = qs('proShell');
+      const toggle = qs('mobileProShellToggle');
+      if (!shell || !toggle) return;
+      const shouldCollapse = Boolean(collapsed) && isMobileProChrome();
+      shell.classList.toggle('mobile-pro-collapsed', shouldCollapse);
+      toggle.setAttribute('aria-expanded', shouldCollapse ? 'false' : 'true');
+      toggle.textContent = shouldCollapse ? 'Pro 메뉴 열기' : 'Pro 메뉴 접기';
+    }
+    function syncMobileProChrome() {
+      setMobileProChromeCollapsed(mobileProChromePreference() !== 'open');
+    }
     function normalizeViewId(id) {
       return viewIds.indexOf(id) >= 0 ? id : 'golden';
     }
@@ -2410,8 +2460,20 @@ export function renderLewordProWeb(): string {
       target.addEventListener('click', function(event) {
         event.preventDefault();
         setActiveView(target.getAttribute('data-view-target') || 'golden');
+        if (isMobileProChrome()) {
+          setMobileProChromePreference('closed');
+          setMobileProChromeCollapsed(true);
+        }
       });
     });
+    qs('mobileProShellToggle').addEventListener('click', function() {
+      const expanded = qs('mobileProShellToggle').getAttribute('aria-expanded') === 'true';
+      const nextPreference = expanded ? 'closed' : 'open';
+      setMobileProChromePreference(nextPreference);
+      setMobileProChromeCollapsed(nextPreference !== 'open');
+    });
+    window.addEventListener('resize', syncMobileProChrome);
+    syncMobileProChrome();
     window.addEventListener('hashchange', function() {
       setActiveView((location.hash || '#golden').slice(1), { hash: false });
     });

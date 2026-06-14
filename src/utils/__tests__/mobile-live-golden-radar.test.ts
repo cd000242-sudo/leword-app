@@ -109,7 +109,7 @@ function thinProfileCount(items: Array<{ keyword: string }>): number {
       return [
         result(`청년미래적금 ${batch}차 신청 대상`, 0),
         result(`소상공인 환급금 ${batch}차 조회 방법`, 1),
-        result(`6모 등급컷 ${batch}차 확인`, 2),
+        result(`장마 준비물 ${batch}차 체크리스트`, 2),
       ];
     },
   });
@@ -150,6 +150,7 @@ function thinProfileCount(items: Array<{ keyword: string }>): number {
     ].map((keyword, index) => floodResult(keyword, index, true)).concat([
       '2027 6모 등급컷',
       '1227회 로또 당첨번호',
+      '1228회 로또 당첨번호',
       '근로장려금 지급일',
       'KBO 올스타전 중계',
       '멋진 신세계 몇부작',
@@ -163,9 +164,17 @@ function thinProfileCount(items: Array<{ keyword: string }>): number {
   const floodSnapshot = await profileFloodRadar.runOnce();
   assert('live golden board rejects thin profile intent instead of flooding the top board',
     thinProfileCount(floodSnapshot.board.slice(0, 30)) === 0
-      && floodSnapshot.board.some((item) => item.keyword === '2027 6모 등급컷')
+      && !floodSnapshot.board.some((item) => item.keyword === '2027 6모 등급컷')
+      && !floodSnapshot.board.some((item) => item.keyword === '1227회 로또 당첨번호')
+      && floodSnapshot.board.some((item) => item.keyword === '1228회 로또 당첨번호')
       && floodSnapshot.board.some((item) => item.keyword === '청년 지원금 신청'),
     floodSnapshot.board.map((item) => `${item.rank}:${item.keyword}`).join('|'));
+  const lottoGuardNow = new Date('2026-06-14T00:00:00+09:00');
+  assert('live temporal guard keeps only the current lotto round and rejects exam answer snippets',
+    __liveGoldenRadarTestInternals.currentLottoRound(lottoGuardNow) === 1228
+      && __liveGoldenRadarTestInternals.isStaleOrFutureLiveKeyword('1227회 로또 당첨번호', lottoGuardNow)
+      && !__liveGoldenRadarTestInternals.isStaleOrFutureLiveKeyword('1228회 로또 당첨번호', lottoGuardNow)
+      && __liveGoldenRadarTestInternals.isStaleOrFutureLiveKeyword('2027 6모 등급컷', lottoGuardNow));
   assert('public live golden preview exposes no thin profile intent',
     thinProfileCount(floodSnapshot.publicPreview) === 0,
     floodSnapshot.publicPreview.map((item) => item.keyword).join('|'));
@@ -283,6 +292,19 @@ function thinProfileCount(items: Array<{ keyword: string }>): number {
       && liveIssueBackfillCandidates.some((keyword) => keyword.includes('파키스탄 총리') && /정리|현재 상황|전망|소식/.test(keyword))
       && !liveIssueBackfillCandidates.some((keyword) => /KIA 3연패 탈출.*(추천|가격|비교|후기)/.test(keyword)),
     liveIssueBackfillCandidates.slice(0, 30).join('|'));
+  const dateAwareCandidates = __liveGoldenRadarTestInternals.buildBackfillCandidates('all', [
+    '로또',
+    '1227회 로또 당첨번호',
+    '2027 6모 등급컷',
+    '장마 준비물',
+  ], 120, lottoGuardNow);
+  const dateHints = __liveGoldenRadarTestInternals.getLiveDateHints(lottoGuardNow);
+  assert('live candidate inference follows date-aware collect-measure-rank flow',
+    dateHints.includes('6월 14일')
+      && dateAwareCandidates.some((keyword) => keyword === '1228회 로또 당첨번호')
+      && dateAwareCandidates.some((keyword) => /장마 준비물/.test(keyword) && /오늘|이번주|6월/.test(keyword))
+      && !dateAwareCandidates.some((keyword) => /1227회|2027 6모|등급컷|답지/.test(keyword)),
+    dateAwareCandidates.slice(0, 40).join('|'));
 
   let capturedIssueSeeds: string[] = [];
   const liveIssueRadar = new MobileLiveGoldenRadar({
@@ -582,9 +604,9 @@ function thinProfileCount(items: Array<{ keyword: string }>): number {
     ['KBO 올스타전 예매 일정', 'SS', 88, 9000, 700, 12, 'sports'],
     ['프로야구 중계 일정', 'SS', 87, 8600, 760, 11, 'sports'],
     ['야구 경기 하이라이트', 'S', 74, 4600, 900, 5, 'sports'],
-    ['6월 모의고사 등급컷', 'SS', 86, 8200, 720, 11, 'education'],
+    ['수능 접수 준비물 체크리스트', 'SS', 86, 8200, 720, 11, 'education'],
     ['수능 접수 마감 일정', 'SS', 85, 7800, 740, 10, 'education'],
-    ['기출 답지 공개 일정', 'S', 73, 4200, 840, 5, 'education'],
+    ['한국사 시험 접수 일정', 'S', 73, 4200, 840, 5, 'education'],
     ['하트시그널 몇부작', 'SS', 84, 7200, 800, 9, 'drama'],
     ['드라마 결말 다시보기', 'S', 72, 3900, 820, 4.7, 'drama'],
     ['쿠키영상 결말 해석', 'S', 71, 3600, 780, 4.6, 'movie'],
@@ -636,7 +658,7 @@ function thinProfileCount(items: Array<{ keyword: string }>): number {
     [`${heartSignalRoot} \uBA87\uBD80\uC791`, 'SSS', 94, 28000, 460, 60, 'drama'],
     ['\uCCAD\uB144\uBBF8\uB798\uC801\uAE08 \uAC00\uC785\uC2E0\uCCAD \uB300\uC0C1', 'SSS', 92, 26000, 360, 72, 'policy'],
     ['KBO \uC62C\uC2A4\uD0C0\uC804 \uC608\uB9E4 \uC77C\uC815', 'SS', 88, 15000, 900, 16, 'sports'],
-    ['6\uBAA8 \uB4F1\uAE09\uCEF7', 'SS', 86, 12000, 700, 17, 'education'],
+    ['\uC7A5\uB9C8 \uC900\uBE44\uBB3C \uCCB4\uD06C\uB9AC\uC2A4\uD2B8', 'SS', 86, 12000, 700, 17, 'life_tips'],
     ['\uADFC\uB85C\uC7A5\uB824\uAE08 \uC9C0\uAE09\uC77C \uC870\uD68C', 'SS', 85, 9000, 650, 13, 'policy'],
     ['\uD504\uB85C\uC57C\uAD6C \uC911\uACC4 \uC77C\uC815', 'S', 74, 5500, 1000, 5.5, 'sports'],
     ['\uC18C\uC0C1\uACF5\uC778 \uD658\uAE09\uAE08 \uC870\uD68C \uBC29\uBC95', 'S', 73, 4800, 820, 5.8, 'policy'],

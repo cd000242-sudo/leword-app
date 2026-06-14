@@ -543,6 +543,30 @@ const THIN_PROFILE_INTENT_RE = /(프로필|인물정보|약력|나이|학력|고
 const PROFILE_INTENT_TOKEN_RE = /(프로필|인물정보|약력|나이|학력|고향|키|인스타|나무위키|가족|결혼|남편|아내|부인|군대|작품활동|필모그래피)/i;
 const PROFILE_INTENT_EXEMPT_RE = /(카카오톡|카톡|인스타그램|블로그|프로필\s*(사진|설정|변경|꾸미기|삭제|비공개|차단)|사용법|오류|업데이트|방법|신청|조회|대상|자격|지급일|일정|예매|예약|중계|등급컷|답지|당첨번호|주가|전망)/i;
 const RICH_PROFILE_CONTEXT_RE = /(공식입장|해명|논란|기자회견|회동|발언|입장|출연진|방송시간|몇부작|다시보기|결말|하이라이트|라인업|MVP|소식|공개|비주얼)/i;
+const LOTTO_FIRST_DRAW_AT_KST_MS = Date.UTC(2002, 11, 7, 11, 35, 0);
+const LOTTO_DRAW_INTERVAL_MS = 7 * 24 * 60 * 60 * 1000;
+const LOTTO_ROUND_RE = /(?:로또\s*)?(\d{3,5})\s*회|(\d{3,5})\s*회\s*(?:로또|복권)/;
+const VOLATILE_EXAM_ANSWER_RE = /(?:\d{4}\s*)?(?:6모|9모|모의고사|모평|수능|기출).{0,10}(?:등급컷|답지|정답|해설)|(?:등급컷|답지|정답|해설).{0,10}(?:6모|9모|모의고사|모평|수능|기출)/;
+
+function currentLottoRound(now: Date = new Date()): number {
+  const nowMs = now.getTime();
+  if (!Number.isFinite(nowMs) || nowMs <= LOTTO_FIRST_DRAW_AT_KST_MS) return 1;
+  return Math.floor((nowMs - LOTTO_FIRST_DRAW_AT_KST_MS) / LOTTO_DRAW_INTERVAL_MS) + 1;
+}
+
+function isStaleOrFutureLiveKeyword(keyword: string, now: Date = new Date()): boolean {
+  const clean = normalizeKeyword(keyword);
+  if (!clean) return true;
+  if (VOLATILE_EXAM_ANSWER_RE.test(clean)) return true;
+  if (LIVE_LOTTERY_SIGNAL_RE.test(clean)) {
+    const roundMatch = clean.match(LOTTO_ROUND_RE);
+    const round = roundMatch ? Number(roundMatch[1] || roundMatch[2]) : null;
+    if (round !== null && Number.isFinite(round) && round !== currentLottoRound(now)) {
+      return true;
+    }
+  }
+  return false;
+}
 
 function isMalformedLiveKeyword(keyword: string): boolean {
   const clean = normalizeKeyword(keyword);
@@ -645,9 +669,15 @@ function selectLiveBoardItems<T extends MobileLiveGoldenBoardItem>(
   return selected;
 }
 
-function isLiveRadarUsableKeyword(keyword: string, volume: number | null, documents: number | null): boolean {
+function isLiveRadarUsableKeyword(
+  keyword: string,
+  volume: number | null,
+  documents: number | null,
+  now: Date = new Date(),
+): boolean {
   if (isMalformedLiveKeyword(keyword)) return false;
   const clean = normalizeKeyword(keyword);
+  if (isStaleOrFutureLiveKeyword(clean, now)) return false;
   if (isThinProfileIntentKeyword(clean)) return false;
   if (/(관련주|주가)/.test(clean) && !STOCK_MARKET_CONTEXT_RE.test(clean)) return false;
   const specific = SPECIFIC_LIVE_KEYWORD_HINT_RE.test(clean);
@@ -721,8 +751,8 @@ function inferLiveCategory(keyword: string, fallbackCategory: string): string {
   return normalizeKeyword(fallbackCategory) || 'live';
 }
 
-function isLiveRadarUsableMetric(item: MobileKeywordMetric): boolean {
-  return isLiveRadarUsableKeyword(item.keyword, item.totalSearchVolume, item.documentCount);
+function isLiveRadarUsableMetric(item: MobileKeywordMetric, now: Date = new Date()): boolean {
+  return isLiveRadarUsableKeyword(item.keyword, item.totalSearchVolume, item.documentCount, now);
 }
 
 function isLiveRadarUsableMdpResult(item: MDPResult): boolean {
@@ -758,7 +788,7 @@ function getBackfillIntents(categoryId: string): string[] {
   if (categoryId === 'broadcast') return ['출연진', '방송시간', '다시보기', '재방송', '공식영상'];
   if (categoryId === 'celeb') return ['공식입장', '근황', '기자회견', '논란 정리', '발언', '출연작', '방송'];
   if (categoryId === 'music') return ['컴백 일정', '콘서트 예매', '팬미팅 일정', '앨범 발매일'];
-  if (categoryId === 'education') return ['등급컷', '답지', '시험일정', '접수', '준비물'];
+  if (categoryId === 'education') return ['시험일정', '접수', '준비물', '기출 범위', '발표 일정'];
   if (categoryId === 'life_tips') return ['당첨번호', '당첨지역', '실수령액', '판매점', '추첨시간', '조회'];
   if (categoryId === 'fashion') return ['코디', '브랜드', '사이즈', '후기', '할인'];
   if (categoryId === 'beauty') return ['성분', '피부타입', '후기', '추천', '순서'];
@@ -812,15 +842,104 @@ function getLiveSeedBackfillIntents(seed: string, categoryId: string): string[] 
   ], 12);
 }
 
-function buildBackfillCandidates(categoryId: string, liveSeeds: string[], maxSeeds: number): string[] {
-  const liveSeedBases = normalizeLiveSeeds(liveSeeds, 36);
+function getKstDateParts(now: Date): { year: number; month: number; day: number } {
+  const kst = new Date(now.getTime() + 9 * 60 * 60 * 1000);
+  return {
+    year: kst.getUTCFullYear(),
+    month: kst.getUTCMonth() + 1,
+    day: kst.getUTCDate(),
+  };
+}
+
+function getLiveDateHints(now: Date = new Date()): string[] {
+  const { year, month, day } = getKstDateParts(now);
+  return uniqueKeywords([
+    `${month}월 ${day}일`,
+    '오늘',
+    '이번주',
+    `${month}월`,
+    `${year} ${month}월`,
+    `${year}`,
+    '이번달',
+  ], 8);
+}
+
+function normalizeLiveSeedForDate(seed: string, now: Date): string {
+  const clean = normalizeKeyword(seed);
+  if (!clean || isStaleOrFutureLiveKeyword(clean, now)) return '';
+  if (LIVE_LOTTERY_SIGNAL_RE.test(clean) && !LOTTO_ROUND_RE.test(clean)) {
+    return `${currentLottoRound(now)}회 로또`;
+  }
+  return clean;
+}
+
+function buildDateAwareLiveSeedCandidates(
+  categoryId: string,
+  liveSeeds: string[],
+  maxSeeds: number,
+  now: Date = new Date(),
+): string[] {
+  const candidateLimit = Math.max(80, Math.min(1000, Math.floor(maxSeeds || 240)));
+  const dateHints = getLiveDateHints(now);
+  const liveSeedBases = normalizeLiveSeeds(liveSeeds, 60)
+    .map((seed) => normalizeLiveSeedForDate(seed, now))
+    .filter(Boolean);
+  const candidates: string[] = [];
+
+  for (const seed of liveSeedBases) {
+    if (candidates.length >= candidateLimit) break;
+    const clean = normalizeKeyword(seed);
+    if (!clean) continue;
+    const intents = getLiveSeedBackfillIntents(clean, categoryId);
+    const seedAlreadySpecific = isActionableLiveKeyword(clean) || SPECIFIC_LIVE_KEYWORD_HINT_RE.test(clean);
+    const inferredCategory = inferLiveCategory(clean, categoryId);
+    const temporalHints = LIVE_LOTTERY_SIGNAL_RE.test(clean)
+      ? []
+      : dateHints.filter((hint) => !clean.includes(hint)).slice(0, seedAlreadySpecific ? 1 : 3);
+
+    candidates.push(clean);
+    for (const hint of temporalHints) {
+      candidates.push(`${hint} ${clean}`);
+    }
+
+    for (const intent of intents.slice(0, seedAlreadySpecific ? 3 : 8)) {
+      if (!clean.includes(intent)) candidates.push(`${clean} ${intent}`);
+      for (const hint of temporalHints.slice(0, 1)) {
+        if (!clean.includes(hint) && !clean.includes(intent)) {
+          candidates.push(`${hint} ${clean} ${intent}`);
+        }
+      }
+    }
+
+    if (inferredCategory === 'policy') candidates.push(`${clean} 신청 대상`, `${clean} 지급일 조회`);
+    if (inferredCategory === 'sports') candidates.push(`${clean} 중계 일정`, `${clean} 예매 일정`);
+    if (inferredCategory === 'life_tips' && LIVE_LOTTERY_SIGNAL_RE.test(clean)) {
+      candidates.push(`${clean} 당첨번호`, `${clean} 당첨지역`, `${clean} 판매점`);
+    }
+    if (LIVE_GENERAL_ISSUE_RE.test(clean)) {
+      candidates.push(`${clean} 현재 상황`, `${clean} 정리`, `${clean} 이유`);
+    }
+  }
+
+  return uniqueKeywords(
+    candidates.filter((candidate) => isLiveRadarUsableKeyword(candidate, null, null, now)),
+    candidateLimit,
+  );
+}
+
+function buildBackfillCandidates(categoryId: string, liveSeeds: string[], maxSeeds: number, now: Date = new Date()): string[] {
+  const liveSeedBases = normalizeLiveSeeds(liveSeeds, 36)
+    .map((seed) => normalizeLiveSeedForDate(seed, now))
+    .filter(Boolean);
   const candidateLimit = Math.max(120, Math.min(1000, Math.floor(maxSeeds || 240)));
+  const inferredLiveCandidates = buildDateAwareLiveSeedCandidates(categoryId, liveSeeds, maxSeeds, now);
   const baseSeeds = uniqueKeywords([
+    ...inferredLiveCandidates,
     ...liveSeedBases,
     ...getDiscoveryCategorySeeds(categoryId, Math.max(24, Math.min(80, maxSeeds))),
   ], Math.max(80, Math.min(240, maxSeeds || 120)));
   const intents = getBackfillIntents(categoryId);
-  const liveSeedSet = new Set(liveSeedBases.map((seed) => seed.toLowerCase().replace(/\s+/g, '')));
+  const liveSeedSet = new Set([...liveSeedBases, ...inferredLiveCandidates].map((seed) => seed.toLowerCase().replace(/\s+/g, '')));
   const candidates: string[] = [];
   for (const seed of baseSeeds) {
     candidates.push(seed);
@@ -837,7 +956,10 @@ function buildBackfillCandidates(categoryId: string, liveSeeds: string[], maxSee
     }
     if (candidates.length >= candidateLimit) break;
   }
-  return uniqueKeywords(candidates, candidateLimit);
+  return uniqueKeywords(
+    candidates.filter((candidate) => isLiveRadarUsableKeyword(candidate, null, null, now)),
+    candidateLimit,
+  );
 }
 
 function liveMetricScore(volume: number, docs: number, ratio: number, actionable: boolean): number {
@@ -1005,8 +1127,13 @@ function normalizeGate(value: MobileLiveGoldenRadarRunGate | boolean | undefined
 
 export const __liveGoldenRadarTestInternals = {
   buildBackfillCandidates,
+  buildDateAwareLiveSeedCandidates,
+  currentLottoRound,
   getLiveSeedBackfillIntents,
+  getLiveDateHints,
   inferLiveCategory,
+  isLiveRadarUsableKeyword,
+  isStaleOrFutureLiveKeyword,
   normalizeLiveSeeds,
 };
 
@@ -1392,7 +1519,7 @@ export class MobileLiveGoldenRadar {
     categoryId: string,
     liveSeeds: string[],
   ): Promise<MDPResult[]> {
-    const candidates = buildBackfillCandidates(categoryId, liveSeeds, this.maxSeeds);
+    const candidates = buildBackfillCandidates(categoryId, liveSeeds, this.maxSeeds, this.now());
     if (candidates.length === 0) return [];
     const measurementLimit = Math.max(60, Math.min(120, Math.floor(this.maxCandidates * 0.05)));
     const rows = await withTimeout(getNaverKeywordSearchVolumeSeparate(config, candidates.slice(0, measurementLimit), {
@@ -1447,17 +1574,30 @@ export class MobileLiveGoldenRadar {
     if (liveSeedBases.length === 0) return [];
 
     const liveBaseIds = liveSeedBases.map((seed) => keywordCompactId(seed)).filter(Boolean);
+    const maxPerLiveSeed = Math.max(2, Math.ceil(this.cycleLimit / Math.max(1, liveBaseIds.length)) + 1);
     const isFromLiveSeed = (keyword: string): boolean => {
       const compact = keywordCompactId(keyword);
       return liveBaseIds.some((seedId) => compact.startsWith(seedId) || seedId.startsWith(compact));
     };
-    const candidates = buildBackfillCandidates(categoryId, liveSeedBases, Math.min(this.maxSeeds, 240))
+    const liveSeedKeyForCandidate = (keyword: string): string => {
+      const compact = keywordCompactId(keyword);
+      return liveBaseIds.find((seedId) => compact.startsWith(seedId) || seedId.startsWith(compact)) || compact;
+    };
+    const candidateCountsBySeed = new Map<string, number>();
+    const candidates = buildBackfillCandidates(categoryId, liveSeedBases, Math.min(this.maxSeeds, 240), this.now())
       .filter(isFromLiveSeed)
       .filter((keyword) => {
         const clean = normalizeKeyword(keyword);
         if (!clean || isMalformedLiveKeyword(clean) || isThinProfileIntentKeyword(clean)) return false;
         if (!isLiveRadarUsableKeyword(clean, null, null)) return false;
         return isActionableLiveKeyword(clean) || SPECIFIC_LIVE_KEYWORD_HINT_RE.test(clean);
+      })
+      .filter((keyword) => {
+        const sourceKey = liveSeedKeyForCandidate(keyword);
+        const count = candidateCountsBySeed.get(sourceKey) || 0;
+        if (count >= maxPerLiveSeed) return false;
+        candidateCountsBySeed.set(sourceKey, count + 1);
+        return true;
       })
       .slice(0, LIVE_ISSUE_FALLBACK_DOCUMENT_LIMIT);
 
@@ -1547,7 +1687,8 @@ export class MobileLiveGoldenRadar {
   private selectPublicPreview(board: MobileLiveGoldenBoardItem[]): MobileLiveGoldenBoardItem[] {
     const count = Math.min(this.publicPreviewCount, board.length);
     if (count <= 0) return [];
-    const nowMs = this.now().getTime();
+    const now = this.now();
+    const nowMs = now.getTime();
     const protectedTopCount = board.length > count
       ? Math.min(PUBLIC_PREVIEW_PROTECTED_TOP_COUNT, Math.max(0, board.length - count))
       : 0;
@@ -1565,7 +1706,7 @@ export class MobileLiveGoldenRadar {
       .filter(isFresh);
     const metricSource = freeBoard
       .filter(isPreviewGrade)
-      .filter(isLiveRadarUsableMetric)
+      .filter((item) => isLiveRadarUsableMetric(item, now))
       .filter(isFresh);
     const freshFallback = freeBoard
       .filter(isPublicPreviewFallbackCandidate)
@@ -1573,7 +1714,7 @@ export class MobileLiveGoldenRadar {
     const warmMetricSource = protectedTopCount > 0
       ? freeBoard
         .filter(isPreviewGrade)
-        .filter(isLiveRadarUsableMetric)
+        .filter((item) => isLiveRadarUsableMetric(item, now))
         .filter((item) => ageMsFrom(item.updatedAt, nowMs) <= LIVE_BOARD_MAX_AGE_MS)
       : [];
     const warmFallback = protectedTopCount > 0
@@ -1658,10 +1799,11 @@ export class MobileLiveGoldenRadar {
   private mergeBoard(keywords: MobileKeywordMetric[]): void {
     if (keywords.length === 0) return;
     const stamp = this.now().toISOString();
+    const now = this.now();
     for (const keyword of keywords) {
       const normalizedKeyword = normalizeKeyword(keyword.keyword);
       if (!normalizedKeyword || keyword.grade === 'C') continue;
-      if (!isLiveRadarUsableMetric({ ...keyword, keyword: normalizedKeyword })) continue;
+      if (!isLiveRadarUsableMetric({ ...keyword, keyword: normalizedKeyword }, now)) continue;
       const id = keywordId(normalizedKeyword);
       const compactId = keywordCompactId(normalizedKeyword);
       const existing = this.board.get(id)
@@ -1689,10 +1831,11 @@ export class MobileLiveGoldenRadar {
   }
 
   private sortedBoard(): MobileLiveGoldenBoardItem[] {
-    const nowMs = this.now().getTime();
+    const now = this.now();
+    const nowMs = now.getTime();
     const sorted = [...this.board.values()]
       .filter((item) => ageMsFrom(item.updatedAt, nowMs) <= LIVE_BOARD_MAX_AGE_MS)
-      .filter(isLiveRadarUsableMetric)
+      .filter((item) => isLiveRadarUsableMetric(item, now))
       .map((item) => ({
         ...item,
         freshness: freshnessFrom(item.updatedAt, nowMs),
@@ -1729,6 +1872,7 @@ export class MobileLiveGoldenRadar {
           ? parsed.board
           : [];
       const stamp = this.now().toISOString();
+      const now = this.now();
       for (const row of rows) {
         const keyword = normalizeKeyword(row?.keyword);
         if (!keyword) continue;
@@ -1736,7 +1880,7 @@ export class MobileLiveGoldenRadar {
         const documentCount = finiteNumber(row?.documentCount);
         const grade = normalizeGrade(row?.grade, finiteNumber(row?.score) || 0);
         if (grade === 'C') continue;
-        if (!isLiveRadarUsableKeyword(keyword, totalSearchVolume, documentCount)) continue;
+        if (!isLiveRadarUsableKeyword(keyword, totalSearchVolume, documentCount, now)) continue;
         const id = normalizeKeyword(row?.id) || keywordId(keyword);
         const item: MobileLiveGoldenBoardItem = {
           keyword,

@@ -19,6 +19,16 @@ function assert(name: string, condition: boolean, detail = ''): void {
   console.error(`FAIL ${name}${detail ? ` - ${detail}` : ''}`);
 }
 
+function currentLottoRound(now: Date = new Date()): number {
+  const firstDrawAtKstMs = Date.UTC(2002, 11, 7, 11, 35, 0);
+  const intervalMs = 7 * 24 * 60 * 60 * 1000;
+  const nowMs = now.getTime();
+  return Math.floor((nowMs - firstDrawAtKstMs) / intervalMs) + 1;
+}
+
+const currentYear = new Date().getFullYear();
+const lottoRound = currentLottoRound();
+
 const culturePlan = buildDirectGoldenKeywordCandidatePlan({
   category: '문화/엔터',
   maxSeeds: 120,
@@ -56,14 +66,14 @@ const liveEntityPlan = buildDirectGoldenKeywordCandidatePlan({
   maxSeeds: 120,
   maxCandidates: 900,
   includeCrossCategory: true,
-  liveSeeds: ['김유정 백아진 다시 만난다', '1227회 로또 1등 11명 각 26억', '하트시그널5'],
+  liveSeeds: ['김유정 백아진 다시 만난다', `${lottoRound}회 로또 1등 11명 각 26억`, '하트시그널5'],
 });
 
 assert(
   'live titles are split into writeable entity-intent candidates',
   liveEntityPlan.candidates.includes('김유정 프로필')
     && liveEntityPlan.candidates.includes('백아진 프로필')
-    && liveEntityPlan.candidates.includes('1227회 로또 당첨번호')
+    && liveEntityPlan.candidates.includes(`${lottoRound}회 로또 당첨번호`)
     && liveEntityPlan.candidates.includes('하트시그널5 몇부작')
     && liveEntityPlan.candidates.includes('하트시그널5 인물관계도'),
   liveEntityPlan.candidates.filter(keyword => /김유정|백아진|로또|하트시그널/.test(keyword)).slice(0, 40).join('|'),
@@ -89,24 +99,23 @@ assert(
 );
 
 assert(
-  'cross-category issue plan includes exam, holiday, and profile intents',
-  allPlan.candidates.includes('2027 6모 등급컷')
-    && allPlan.candidates.includes('2027 6모 답지')
-    && allPlan.candidates.includes('2026 제헌절 공휴일')
-    && allPlan.candidates.includes('강훈식 프로필'),
-  allPlan.candidates.filter(keyword => /6모|제헌절|강훈식/.test(keyword)).slice(0, 30).join('|'),
+  'cross-category plan removes stale exam-answer seeds and keeps live-safe issue intents',
+  !allPlan.candidates.some(keyword => /2027 6모|1227회|6모\s*(등급컷|답지|정답)|6월 모의고사\s*(등급컷|답지|정답)/.test(keyword))
+    && allPlan.candidates.includes(`${currentYear} 제헌절 공휴일`)
+    && allPlan.candidates.includes('강훈식 프로필')
+    && allPlan.candidates.includes(`${lottoRound}회 로또 당첨번호`),
+  allPlan.candidates.filter(keyword => /6모|1227회|제헌절|강훈식|로또/.test(keyword)).slice(0, 40).join('|'),
 );
 
 assert(
-  'user-approved issue samples are actionable when measured metrics pass',
+  'live-safe issue samples are actionable when measured metrics pass',
   [
-    '2027 6모 등급컷',
-    '2027 6모 답지',
+    `${lottoRound}회 로또 당첨번호`,
+    `${currentYear} 제헌절 공휴일`,
     '중간계 영화 출연진',
     '송지호 바다하늘길 주차',
-    '2026 제헌절 공휴일',
-    '강훈식 프로필',
-    '1227회 로또 당첨번호',
+    '2026 흠뻑쇼 일정',
+    'KBO 올스타전 예매 일정',
     '멋진 신세계 공식영상',
     '멋진 신세계 인물관계도',
     '신입사원 강회장 원작',
@@ -115,7 +124,7 @@ assert(
 
 const ranked = rankGoldenDiscoveryResults([
   {
-    keyword: '2027 6모 등급컷',
+    keyword: '임영웅 콘서트 예매 일정',
     grade: 'SSS',
     score: 89,
     searchVolume: 27480,
@@ -146,7 +155,7 @@ const ranked = rankGoldenDiscoveryResults([
 
 assert(
   'ranking keeps measured actionable SSS and drops broad/english noise',
-  ranked.length === 1 && ranked[0].keyword === '2027 6모 등급컷',
+  ranked.length === 1 && ranked[0].keyword === '임영웅 콘서트 예매 일정',
   JSON.stringify(ranked),
 );
 

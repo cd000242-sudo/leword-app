@@ -52,6 +52,15 @@ const MIN_VOLUME = 10;
 const CURRENT_YEAR = new Date().getFullYear();
 const NEXT_YEAR = CURRENT_YEAR + 1;
 const CURRENT_MONTH = new Date().getMonth() + 1;
+const LOTTO_FIRST_DRAW_AT_KST_MS = Date.UTC(2002, 11, 7, 11, 35, 0);
+const LOTTO_DRAW_INTERVAL_MS = 7 * 24 * 60 * 60 * 1000;
+const VOLATILE_EXAM_ANSWER_RE = /(?:\d{4}\s*)?(?:6모|9모|모의고사|모평|수능|기출).{0,10}(?:등급컷|답지|정답|해설)|(?:등급컷|답지|정답|해설).{0,10}(?:6모|9모|모의고사|모평|수능|기출)/;
+
+function currentLottoRound(now: Date = new Date()): number {
+  const nowMs = now.getTime();
+  if (!Number.isFinite(nowMs) || nowMs <= LOTTO_FIRST_DRAW_AT_KST_MS) return 1;
+  return Math.floor((nowMs - LOTTO_FIRST_DRAW_AT_KST_MS) / LOTTO_DRAW_INTERVAL_MS) + 1;
+}
 
 const COMMON_DIRECT_INTENTS = [
   '일정',
@@ -163,13 +172,11 @@ const CATEGORY_DIRECT_INTENTS: Record<string, string[]> = {
     '초보 가이드',
   ],
   education: [
-    '등급컷',
-    '답지',
     '시험일정',
-    '기출',
     '접수',
-    '합격자 발표',
     '준비물',
+    '기출 범위',
+    '합격자 발표',
     '신청방법',
   ],
   finance: [
@@ -341,12 +348,12 @@ const ISSUE_BASES_BY_CATEGORY_ID: Record<string, string[]> = {
     `${CURRENT_YEAR} 명탐정 코난 극장판`,
   ],
   education: [
-    `${NEXT_YEAR} 6모`,
-    `${NEXT_YEAR} 6월 모의고사`,
     `${CURRENT_YEAR} 수능`,
     `${CURRENT_YEAR} 수능특강`,
     `${CURRENT_YEAR} 공인중개사`,
     `${CURRENT_YEAR} 한국사능력검정시험`,
+    `${CURRENT_YEAR} 토익 접수`,
+    `${CURRENT_YEAR} 국가장학금`,
   ],
   finance: [
     '삼성전자',
@@ -393,18 +400,10 @@ const GLOBAL_ISSUE_BASES = [
   '하트시그널5',
   '2026 흠뻑쇼',
   '2026 KBO 올스타전',
-  '2027 6모',
-  '2027 6월 모의고사',
   '2026 제헌절 공휴일',
   '송지호 바다하늘길',
-  '1227회 로또',
+  `${currentLottoRound()}회 로또`,
   '중간계 영화',
-  `${NEXT_YEAR} 6모`,
-  `${NEXT_YEAR} 6모 등급컷`,
-  `${NEXT_YEAR} 6모 답지`,
-  `${NEXT_YEAR} 6월 모의고사`,
-  `${NEXT_YEAR} 6월 모의고사 등급컷`,
-  `${NEXT_YEAR} 6월 모의고사 답지`,
   `${CURRENT_YEAR} 제헌절`,
   `${CURRENT_YEAR} 제헌절 공휴일`,
   `${CURRENT_YEAR} 광복절`,
@@ -419,17 +418,10 @@ const GLOBAL_ISSUE_BASES = [
 ];
 
 const GLOBAL_USER_APPROVED_ANCHORS = [
-  '2027 6모 등급컷',
-  '2027 6모 답지',
-  '2027 6모 정답',
-  '6모 등급컷',
-  '6모 답지',
-  '2027 6월 모의고사 등급컷',
-  '2027 6월 모의고사 답지',
   '2026 제헌절 공휴일',
   '2026 광복절 대체공휴일',
-  '1227회 로또 당첨번호',
-  '1227회 로또 당첨지역',
+  `${currentLottoRound()}회 로또 당첨번호`,
+  `${currentLottoRound()}회 로또 당첨지역`,
   '2026 흠뻑쇼 일정',
   '2026 KBO 올스타전',
   '2026 KBO 올스타전 예매',
@@ -573,6 +565,7 @@ function isUsableCandidate(raw: string): boolean {
   if (/^[\d\s.,/_-]+$/.test(value)) return false;
   const compact = value.toLowerCase().replace(/[^\p{L}\p{N}]/gu, '');
   if (BROAD_SHOPPING_COMPACT_RE.test(compact)) return false;
+  if (VOLATILE_EXAM_ANSWER_RE.test(value)) return false;
   return true;
 }
 
@@ -617,7 +610,7 @@ function getSeedSpecificIntents(seed: string): string[] {
   }
 
   if (/(6모|9모|모의고사|수능|시험|고사|학력평가)/.test(compact)) {
-    intents.push('등급컷', '답지', '정답', '발표', '시험일정', '기출');
+    intents.push('발표 일정', '시험일정', '접수 일정', '준비물', '기출 범위');
   }
   if (/(제헌절|광복절|추석|설날|한글날|개천절|어린이날|현충일|성탄절|크리스마스|석가탄신일|부처님오신날)/.test(compact)) {
     intents.push('공휴일', '대체공휴일', '쉬는날', '연휴 일정');

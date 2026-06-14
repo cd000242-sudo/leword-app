@@ -1614,7 +1614,7 @@ const result: MobileKeywordResult = {
           externalSources: ['api-test'],
         } as any,
         {
-          keyword: `6모 등급컷 ${batch}차 확인`,
+          keyword: `장마 준비물 ${batch}차 체크리스트`,
           grade: 'SS',
           score: 80,
           searchVolume: 2100,

@@ -67,6 +67,15 @@ assert('side navigation switches isolated views instead of one stacked page',
     && html.includes('class="panel main-view" id="downloads" data-view="downloads"')
     && html.includes('function setActiveView')
     && html.includes("document.querySelectorAll('[data-view-target]')"));
+assert('mobile Pro Web chrome can collapse above the live board',
+  html.includes('<main class="shell mobile-pro-collapsed" id="proShell">')
+    && html.includes('id="mobileProShellToggle"')
+    && html.includes('aria-controls="proTopNav proSidebar"')
+    && html.includes('.shell.mobile-pro-collapsed .nav')
+    && html.includes('.shell.mobile-pro-collapsed .sidebar')
+    && html.includes('.shell.mobile-pro-collapsed .hero')
+    && html.includes('function setMobileProChromeCollapsed')
+    && html.includes("localStorage.setItem(mobileProChromeStorageKey, value)"));
 assert('source board renders a wider always-on realtime feed',
   html.includes("endpoints.publicSources + '?limit=60'")
     && html.includes("endpoints.proSources + '?limit=60'")
