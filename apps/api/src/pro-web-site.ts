@@ -1153,6 +1153,27 @@ export function renderLewordProWeb(): string {
     function normalizeText(value) {
       return String(value || '').replace(/\s+/g, ' ').trim();
     }
+    function currentLottoRound() {
+      const firstDraw = Date.UTC(2002, 11, 7, 11, 35, 0);
+      const week = 7 * 24 * 60 * 60 * 1000;
+      return Math.max(1, Math.floor((Date.now() - firstDraw) / week) + 1);
+    }
+    function isFreshGoldenKeywordText(value) {
+      const text = normalizeText(value).toLowerCase();
+      const lotto = text.match(/(\d{3,4})\s*회\s*로또|로또\s*(\d{3,4})\s*회/);
+      if (lotto) {
+        const round = Number(lotto[1] || lotto[2] || 0);
+        const current = currentLottoRound();
+        if (round < current || round > current + 1) return false;
+      }
+      if (/(6모|9모|모의고사|수능|기출).*(등급컷|답지|정답|해설)/.test(text)) return false;
+      return !/(2027\s*6모|2027\s*6월\s*모의고사|1227\s*회\s*로또|로또\s*1227\s*회)/.test(text);
+    }
+    function filterFreshGoldenItems(items) {
+      return (Array.isArray(items) ? items : []).filter(function(item) {
+        return isFreshGoldenKeywordText(item && item.keyword);
+      });
+    }
     function fmt(value) {
       if (value === null || value === undefined || value === '') return '-';
       if (typeof value === 'number') return Number.isFinite(value) ? value.toLocaleString('ko-KR') : '-';
@@ -1600,7 +1621,7 @@ export function renderLewordProWeb(): string {
       throw new Error('job timeout');
     }
     function renderKeywordRows(result) {
-      const rows = Array.isArray(result && result.keywords) ? result.keywords : [];
+      const rows = filterFreshGoldenItems(Array.isArray(result && result.keywords) ? result.keywords : []);
       qs('metricMeasured').textContent = rows.filter(function(row) { return row.isMeasured; }).length.toLocaleString('ko-KR');
       if (!rows.length) {
         qs('keywordRows').innerHTML = '<tr><td colspan="12" class="muted">서버 결과가 비어 있습니다. API 키 상태 또는 소스 장애를 확인하세요.</td></tr>';
@@ -1663,7 +1684,7 @@ export function renderLewordProWeb(): string {
       ].join('');
     }
     function renderGoldenRows(items, exact) {
-      const rows = (items || []).slice(0, exact ? 60 : 5);
+      const rows = filterFreshGoldenItems(items || []).slice(0, exact ? 60 : 5);
       if (!rows.length) {
         qs('goldenBoardList').innerHTML = '';
         qs('goldenNotice').textContent = '서버가 황금키워드 후보를 검증하는 중입니다.';
@@ -1686,7 +1707,7 @@ export function renderLewordProWeb(): string {
       }).join('');
     }
     function renderPublicGoldenBoard(payload) {
-      const items = payload.publicPreview || [];
+      const items = filterFreshGoldenItems(payload.publicPreview || []);
       setGoldenSummary(
         payload.boardCount,
         payload.boardTarget,
@@ -1702,7 +1723,7 @@ export function renderLewordProWeb(): string {
       renderGoldenRows(items, false);
     }
     function renderProGoldenBoard(snapshot) {
-      const items = (snapshot && snapshot.board) || [];
+      const items = filterFreshGoldenItems((snapshot && snapshot.board) || []);
       setGoldenSummary(
         snapshot.boardCount || items.length,
         snapshot.boardTarget || 60,
