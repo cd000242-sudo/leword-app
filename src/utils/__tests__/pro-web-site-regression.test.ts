@@ -92,25 +92,27 @@ assert('keyword lookup table separates PC and mobile',
   html.includes('<th>PC</th>') && html.includes('<th>모바일</th>') && html.includes('<th>전체</th>') && html.includes('<tbody id="keywordRows">'));
 
 for (const label of [
-  'PRO 트래픽 폭발 키워드 헌터',
-  '내노출 추적',
-  '쇼핑 커넥트',
-  '유튜브 황금키워드',
-  '애드센스 승인 키워드 헌터',
-  '네이버 메이트 황금키워드',
-  '지식인 황금질문',
-  '황금키워드 정밀 발굴',
-  'SERP 순위 즉시 점검',
-  '블로그 초안 생성',
+  'PRO 트래픽 폭발키워드 헌터',
+  '네이버 메이트 황금키워드 헌터',
+  '쇼핑커넥트 황금제품키워드',
+  '지식인 황금키워드',
+  '유튜브 황금키워드 및 쇼츠분석',
+  '키워드 분석기',
+  '추가 기능',
   'PC 앱 다운로드',
   '모바일 APK 다운로드',
 ]) {
   assert(`feature visible: ${label}`, html.includes(label));
 }
 
-assert('noisy duplicate tool tabs are removed from Pro feature tabs',
+assert('noisy duplicate and non-discovery tool tabs are removed from Pro feature tabs',
   !html.includes('data-tool-shortcut="mindmap"')
     && !html.includes('data-view-shortcut="sources"')
+    && !html.includes('황금키워드 정밀 발굴')
+    && !html.includes('니치/얼티밋 키워드 발굴')
+    && !html.includes('애드센스 승인 키워드 헌터')
+    && !html.includes('data-view-target="ops"')
+    && !html.includes('data-view-target="workbench"')
     && !/id:\s*'keyword-analysis'[\s\S]{0,120}group:\s*'expand'/.test(html)
     && !/id:\s*'mindmap'[\s\S]{0,120}group:\s*'expand'/.test(html)
     && !/id:\s*'source-radar'[\s\S]{0,120}group:\s*'sources'/.test(html)
@@ -119,12 +121,13 @@ assert('noisy duplicate tool tabs are removed from Pro feature tabs',
     && html.includes("value=\"mindmap-expansion\"")
     && html.includes("data-board-action=\"mindmap\""));
 
-for (const featureId of [
-  "id: 'niche'",
-  "id: 'content-blueprint'",
-]) {
-  assert(`expanded parity feature id visible: ${featureId}`, html.includes(featureId));
-}
+assert('additional feature subtabs are limited to the requested keyword-discovery set',
+  html.includes("const toolTabFeatureIds = ['pro-traffic', 'naver-mate', 'shopping', 'kin']")
+    && html.includes("id: 'youtube'")
+    && !html.includes("id: 'niche'")
+    && !html.includes("id: 'golden-discovery'")
+    && !html.includes("id: 'content-blueprint'")
+    && !html.includes("id: 'exposure'"));
 
 assert('ready server-backed routes are wired',
   html.includes("'/v1/pro/hunt'")
@@ -148,27 +151,13 @@ assert('shopping connect defaults to 30 sellable product keywords on web',
     && !/id:\s*'shopping'[\s\S]{0,260}defaultTargetCount:\s*20/.test(html),
   'shopping connect still starts below the 30 product keyword floor');
 
-assert('renders pro operations dashboard for Electron parity',
-  html.includes('id="ops"')
-    && html.includes('Pro 운영 대시보드')
-    && html.includes('내노출 추적')
-    && html.includes('성과 기록')
-    && html.includes('워드프레스/발행')
-    && html.includes('스케줄/알림')
-    && html.includes('id="opsTabs"')
-    && html.includes('data-ops-tab="rank"')
-    && html.includes('data-ops-panel="rank"')
-    && html.includes('function setActiveOpsTab')
-    && html.includes('id="refreshOps"'));
-
-assert('operations dashboard is wired to server snapshots',
-  html.includes("proOutcomes: apiUrl('/v1/mobile/pro-outcomes')")
-    && html.includes("wordpress: apiUrl('/v1/mobile/wordpress')")
-    && html.includes("scheduleDashboard: apiUrl('/v1/mobile/schedule-dashboard')")
-    && html.includes("rankTracking: apiUrl('/v1/mobile/rank-tracking')")
-    && html.includes('function loadOpsDashboard()')
-    && html.includes('Promise.allSettled')
-    && html.includes('setInterval(loadOpsDashboard, 90000)'));
+assert('operations and execution log are not exposed as user navigation tabs',
+  !html.includes('data-view-target="ops"')
+    && !html.includes('data-view-target="workbench"')
+    && !html.includes('전체 Pro 기능')
+    && !html.includes('노출/성과/발행/스케줄')
+    && !html.includes('실행 로그</a>')
+    && html.includes("const viewIds = ['golden', 'sources', 'lookup', 'features', 'settings', 'downloads']"));
 
 assert('renders dedicated result center instead of raw JSON-only output',
   html.includes('id="resultSummary"')
@@ -234,6 +223,10 @@ assert('user API key settings are first-class, local-only, and secret-safe',
     && html.includes('id="naverSearchAdSecretKey" type="password"')
     && html.includes('id="naverSearchAdCustomerId"')
     && html.includes('id="youtubeApiKey" type="password"')
+    && html.includes('id="anthropicApiKey" type="password"')
+    && html.includes('id="manusApiKey" type="password"')
+    && html.includes('id="openaiApiKey" type="password"')
+    && html.includes(' · AI 추론 ')
     && html.includes('id="clearNaverApiSettings"')
     && html.includes("const userApiSettingsStorageKey = 'leword.pro.userApiSettings.v1'")
     && html.includes("out['X-Leword-User-Api-Credentials']")
@@ -286,16 +279,16 @@ assert('tool settings drive server payloads instead of one generic button',
 assert('feature runner separates auth expiry from missing server deployment',
   html.includes('function formatApiError')
     && html.includes('status === 404')
-    && html.includes('서버 API가 아직 최신 배포로 열리지 않았습니다')
+    && html.includes('API 경로 또는 job 상태를 찾지 못했습니다')
+    && html.includes('function resolveApiLink')
+    && html.includes('apiGet(resolveApiLink(jobPayload.links.self), true)')
     && html.includes('function isRouteMissingMessage')
     && html.includes('openLogin();')
-    && html.includes("const statusLabel = isRouteMissingMessage(err.message) ? '서버 배포 확인' : '오류'"));
+    && html.includes("const statusLabel = isRouteMissingMessage(err.message) ? 'API 경로 확인' : '오류'"));
 
-assert('blog draft workflow creates a blueprint before requesting a draft',
-  html.includes("workflow: 'blueprint-draft'")
-    && html.includes("feature.workflow === 'blueprint-draft'")
-    && html.includes('apiPost(endpoints.blueprint')
-    && html.includes('apiPost(endpoints.blueprintDraft'));
+assert('blog draft workflow is not exposed in keyword-discovery-only tabs',
+  !html.includes("id: 'blueprint-draft'")
+    && !html.includes('블로그 초안 생성'));
 
 assert('result center can persist, export, and track keyword outcomes',
   html.includes("keywordGroups: apiUrl('/v1/mobile/keyword-groups')")

@@ -827,6 +827,9 @@ assert('api keeps user API credentials out of public jobs and cache keys',
     && /decodeUserApiCredentialsHeader/.test(apiServer)
     && /splitSensitiveJobParams/.test(apiServer)
     && /fingerprintUserApiCredentials/.test(apiServer)
+    && /anthropicApiKey/.test(apiServer)
+    && /manusApiKey/.test(apiServer)
+    && /openaiApiKey/.test(apiServer)
     && /splitParams\.publicParams/.test(apiServer)
     && /splitParams\.executorParams/.test(apiServer)
     && /splitParams\.cacheParams/.test(apiServer));
@@ -930,6 +933,9 @@ assert('mobile executor supports injectable heavy adapters for deterministic tes
     && /measureKeywordMetrics\?/.test(pcExecutor));
 assert('mobile executor merges per-user API credentials before server env defaults',
   /JOB_API_CREDENTIAL_KEYS/.test(pcExecutor)
+    && /anthropicApiKey/.test(pcExecutor)
+    && /manusApiKey/.test(pcExecutor)
+    && /openaiApiKey/.test(pcExecutor)
     && /extractJobApiCredentials/.test(pcExecutor)
     && /mergeJobApiCredentials/.test(pcExecutor)
     && /const configured = normalizeKeyword\(env\[key\] \|\| ''\)/.test(pcExecutor)

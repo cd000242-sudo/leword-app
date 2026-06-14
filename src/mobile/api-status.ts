@@ -90,6 +90,7 @@ const DIAGNOSTICS: DiagnosticSpec[] = [
       { name: 'anthropicApiKey', aliases: ['anthropicApiKey', 'ANTHROPIC_API_KEY', 'CLAUDE_API_KEY'] },
       { name: 'geminiApiKey', aliases: ['geminiApiKey', 'GEMINI_API_KEY', 'GEMINI_KEY'] },
       { name: 'manusApiKey', aliases: ['manusApiKey', 'MANUS_API_KEY'] },
+      { name: 'openaiApiKey', aliases: ['openaiApiKey', 'OPENAI_API_KEY'] },
     ],
     affects: ['intent-summary', 'content-gap', 'pro-enrichment'],
     readyRecommendation: '의도 요약, 콘텐츠 갭, PRO 보강 설명이 더 풍부해집니다.',

@@ -858,7 +858,10 @@ type JobApiCredentialKey =
   | 'naverSearchAdAccessLicense'
   | 'naverSearchAdSecretKey'
   | 'naverSearchAdCustomerId'
-  | 'youtubeApiKey';
+  | 'youtubeApiKey'
+  | 'anthropicApiKey'
+  | 'manusApiKey'
+  | 'openaiApiKey';
 
 const JOB_API_CREDENTIAL_KEYS: JobApiCredentialKey[] = [
   'naverClientId',
@@ -867,6 +870,9 @@ const JOB_API_CREDENTIAL_KEYS: JobApiCredentialKey[] = [
   'naverSearchAdSecretKey',
   'naverSearchAdCustomerId',
   'youtubeApiKey',
+  'anthropicApiKey',
+  'manusApiKey',
+  'openaiApiKey',
 ];
 
 function extractJobApiCredentials(params: unknown): Partial<EnvConfig> {

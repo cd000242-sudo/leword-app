@@ -24,6 +24,8 @@ export function loadEnvFromFile(): Record<string, string> {
     if (cfg?.youtubeApiKey) out.youtubeApiKey = String(cfg.youtubeApiKey);
     if (cfg?.geminiApiKey) out.geminiApiKey = String(cfg.geminiApiKey);
     if (cfg?.openaiApiKey) out.openaiApiKey = String(cfg.openaiApiKey);
+    if (cfg?.anthropicApiKey) out.anthropicApiKey = String(cfg.anthropicApiKey);
+    if (cfg?.manusApiKey) out.manusApiKey = String(cfg.manusApiKey);
     if (cfg?.lowSpecMode) out.lowSpecMode = String(cfg.lowSpecMode);
 
     // uppercase 호환 키 (기존 코드에서 process.env 형태로도 조회함)
@@ -38,6 +40,9 @@ export function loadEnvFromFile(): Record<string, string> {
     if (cfg?.youtubeApiKey) out.YOUTUBE_API_KEY = String(cfg.youtubeApiKey);
     if (cfg?.geminiApiKey) out.GEMINI_API_KEY = String(cfg.geminiApiKey);
     if (cfg?.openaiApiKey) out.OPENAI_API_KEY = String(cfg.openaiApiKey);
+    if (cfg?.anthropicApiKey) out.ANTHROPIC_API_KEY = String(cfg.anthropicApiKey);
+    if (cfg?.anthropicApiKey) out.CLAUDE_API_KEY = String(cfg.anthropicApiKey);
+    if (cfg?.manusApiKey) out.MANUS_API_KEY = String(cfg.manusApiKey);
   } catch {
     // 설정 파일이 없거나 Electron 컨텍스트가 아닐 수 있음 → process.env로만 진행
   }

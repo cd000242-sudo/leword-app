@@ -732,11 +732,19 @@ function sanitizeNaverApiSettings(body: unknown): Partial<Pick<EnvConfig, NaverA
   return updates;
 }
 
-type UserApiCredentialKey = NaverApiSettingKey | 'youtubeApiKey';
+type UserApiCredentialKey =
+  | NaverApiSettingKey
+  | 'youtubeApiKey'
+  | 'anthropicApiKey'
+  | 'manusApiKey'
+  | 'openaiApiKey';
 
 const USER_API_CREDENTIAL_KEYS: UserApiCredentialKey[] = [
   ...NAVER_API_SETTING_KEYS,
   'youtubeApiKey',
+  'anthropicApiKey',
+  'manusApiKey',
+  'openaiApiKey',
 ];
 
 type UserApiCredentials = Partial<Record<UserApiCredentialKey, string>>;
