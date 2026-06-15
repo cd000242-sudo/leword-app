@@ -27,6 +27,8 @@ import {
   type MobileJobErrorResponse,
   type MobileKeywordExportRequest,
   type MobileKeywordGroupInput,
+  type MobileKeywordMetric,
+  type MobileKeywordResult,
   type MobileKeywordScheduleCreateInput,
   type MobileKeywordScheduleUpdateInput,
   type MobileWordPressDraftInput,
@@ -143,6 +145,7 @@ import {
 
 const DEFAULT_LEWORD_LICENSE_SERVER_URL = 'https://script.google.com/macros/s/AKfycbxBOGkjVj4p-6XZ4SEFYKhW3FBmo5gt7Fv6djWhB1TljnDDmx_qlfZ4YdlJNohzIZ8NJw/exec';
 const DEFAULT_LEWORD_LICENSE_APP_ID = 'com.leword.keyword.master';
+const ADSENSE_ADS_TXT = 'google.com, pub-4008574892672964, DIRECT, f08c47fec0942fa0\n';
 
 export interface LewordApiServerOptions {
   executor?: MobileJobExecutor;
@@ -187,6 +190,22 @@ function html(
     'Content-Type': 'text/html; charset=utf-8',
     'Access-Control-Allow-Origin': '*',
     'Access-Control-Allow-Methods': 'GET,POST,PUT,PATCH,DELETE,OPTIONS',
+    'Access-Control-Allow-Headers': 'Authorization, Content-Type, X-Requested-With, X-Leword-User-Api-Credentials',
+    ...headers,
+  });
+  res.end(body);
+}
+
+function text(
+  res: http.ServerResponse,
+  statusCode: number,
+  body: string,
+  headers: Record<string, string | number> = {},
+): void {
+  res.writeHead(statusCode, {
+    'Content-Type': 'text/plain; charset=utf-8',
+    'Access-Control-Allow-Origin': '*',
+    'Access-Control-Allow-Methods': 'GET,OPTIONS',
     'Access-Control-Allow-Headers': 'Authorization, Content-Type, X-Requested-With, X-Leword-User-Api-Credentials',
     ...headers,
   });
@@ -847,6 +866,123 @@ function streamJobEvents(
   req.on('close', unsubscribe);
 }
 
+function compactServerKeyword(value: unknown): string {
+  return String(value || '').toLowerCase().replace(/\s+/g, '').trim();
+}
+
+function readKeywordAnalysisSeed(params: unknown): string {
+  const raw = params && typeof params === 'object' && !Array.isArray(params)
+    ? params as Record<string, unknown>
+    : {};
+  return String(raw.keyword || raw.seedKeyword || '').replace(/\s+/g, ' ').trim();
+}
+
+function uniqueEvidence(...groups: Array<unknown>): string[] {
+  const out: string[] = [];
+  const push = (value: unknown) => {
+    const text = String(value || '').trim();
+    if (text && !out.includes(text)) out.push(text);
+  };
+  for (const group of groups) {
+    if (Array.isArray(group)) {
+      group.forEach(push);
+    } else {
+      push(group);
+    }
+  }
+  return out.slice(0, 16);
+}
+
+function resultSummaryForKeywords(
+  result: MobileKeywordResult,
+  keywords: MobileKeywordMetric[],
+): MobileKeywordResult['summary'] {
+  return {
+    ...result.summary,
+    total: keywords.length,
+    sss: keywords.filter((item) => item.grade === 'SSS').length,
+    measured: keywords.filter((item) => item.isMeasured).length,
+  };
+}
+
+function metricFromLiveGoldenBoardItem(item: MobileKeywordMetric): MobileKeywordMetric {
+  return {
+    keyword: item.keyword,
+    grade: item.grade,
+    score: typeof item.score === 'number' ? item.score : null,
+    pcSearchVolume: item.pcSearchVolume,
+    mobileSearchVolume: item.mobileSearchVolume,
+    totalSearchVolume: item.totalSearchVolume,
+    documentCount: item.documentCount,
+    goldenRatio: item.goldenRatio,
+    cpc: item.cpc,
+    category: item.category || 'live-golden',
+    source: 'live-golden-board-exact-match',
+    intent: item.intent || 'live-golden-board',
+    evidence: uniqueEvidence(item.evidence, 'live-golden-board-exact-match'),
+    isMeasured: item.isMeasured !== false
+      && item.totalSearchVolume !== null
+      && item.documentCount !== null,
+  };
+}
+
+function overlayLiveGoldenExactKeyword(
+  endpoint: MobileApiEndpointSpec,
+  params: unknown,
+  result: MobileKeywordResult,
+  liveGoldenRadar: MobileLiveGoldenRadar | null,
+): MobileKeywordResult {
+  if (endpoint.product !== 'keyword-analysis' || !liveGoldenRadar || !result || !Array.isArray(result.keywords)) {
+    return result;
+  }
+  const seed = readKeywordAnalysisSeed(params);
+  const seedKey = compactServerKeyword(seed);
+  if (!seedKey) return result;
+  const boardItem = (liveGoldenRadar.snapshot().board || [])
+    .find((item) => compactServerKeyword(item.keyword) === seedKey);
+  if (!boardItem) return result;
+
+  const exactMetric = metricFromLiveGoldenBoardItem(boardItem);
+  const mergedKeywords: MobileKeywordMetric[] = [];
+  let inserted = false;
+  for (const keyword of result.keywords) {
+    const isExact = compactServerKeyword(keyword.keyword) === seedKey;
+    if (isExact) {
+      mergedKeywords.push({
+        ...keyword,
+        ...exactMetric,
+        source: 'live-golden-board-exact-match',
+        intent: keyword.intent || exactMetric.intent,
+        evidence: uniqueEvidence(exactMetric.evidence, keyword.evidence, 'analysis-board-metric-sync'),
+      });
+      inserted = true;
+      continue;
+    }
+    mergedKeywords.push(keyword);
+  }
+  if (!inserted) {
+    mergedKeywords.unshift({
+      ...exactMetric,
+      evidence: uniqueEvidence(exactMetric.evidence, 'analysis-board-metric-sync'),
+    });
+  }
+
+  const deduped: MobileKeywordMetric[] = [];
+  const seen = new Set<string>();
+  for (const keyword of mergedKeywords) {
+    const key = compactServerKeyword(keyword.keyword);
+    if (!key || seen.has(key)) continue;
+    seen.add(key);
+    deduped.push(keyword);
+  }
+
+  return {
+    ...result,
+    keywords: deduped,
+    summary: resultSummaryForKeywords(result, deduped),
+  };
+}
+
 async function createJob(
   res: http.ServerResponse,
   endpoint: MobileApiEndpointSpec,
@@ -854,18 +990,23 @@ async function createJob(
   store: InMemoryMobileJobStore,
   pcWorkerExecutor: MobileJobExecutor,
   resultCache: InMemoryMobileResultCache | null,
+  liveGoldenRadar: MobileLiveGoldenRadar | null,
   maxBodyBytes: number,
 ): Promise<void> {
   try {
     const params = await parseBody(req, maxBodyBytes);
     const splitParams = splitSensitiveJobParams(params, decodeUserApiCredentialsHeader(req));
     const cachedResult = resultCache?.get(endpoint.product, splitParams.cacheParams);
+    const cachedSyncedResult = cachedResult
+      ? overlayLiveGoldenExactKeyword(endpoint, splitParams.executorParams, cachedResult, liveGoldenRadar)
+      : null;
     const job = cachedResult
-      ? store.createCompleted(endpoint.product, splitParams.publicParams, cachedResult)
+      ? store.createCompleted(endpoint.product, splitParams.publicParams, cachedSyncedResult as MobileKeywordResult)
       : store.create(endpoint.product, splitParams.publicParams, async (job, context) => {
         const result = await pcWorkerExecutor({ ...job, params: splitParams.executorParams }, context);
-        resultCache?.set(endpoint.product, splitParams.cacheParams, result);
-        return result;
+        const syncedResult = overlayLiveGoldenExactKeyword(endpoint, splitParams.executorParams, result, liveGoldenRadar);
+        resultCache?.set(endpoint.product, splitParams.cacheParams, syncedResult);
+        return syncedResult;
       });
 
     json(res, 202, {
@@ -973,6 +1114,13 @@ export function createLewordApiServer(options: LewordApiServerOptions = {}): htt
         rateLimited(res, limit);
         return;
       }
+    }
+
+    if (req.method === 'GET' && url.pathname === '/ads.txt') {
+      text(res, 200, ADSENSE_ADS_TXT, {
+        'Cache-Control': 'public, max-age=3600',
+      });
+      return;
     }
 
     if (req.method === 'GET' && url.pathname === '/assets/leword-logo.png') {
@@ -1666,7 +1814,7 @@ export function createLewordApiServer(options: LewordApiServerOptions = {}): htt
     }
 
     if (!await authorizeMobileRequest(req, res, sessionAwareEntitlementVerifier, getMinimumMobileEntitlementTier(endpoint.product))) return;
-    void createJob(res, endpoint, req, store, pcWorkerExecutor, resultCache, maxBodyBytes);
+    void createJob(res, endpoint, req, store, pcWorkerExecutor, resultCache, liveGoldenRadar, maxBodyBytes);
     })().catch((err: any) => {
       json(res, 500, { ok: false, message: err?.message || 'mobile API internal error' } satisfies MobileJobErrorResponse);
     });

@@ -289,6 +289,9 @@ const ROBUST_STOP_TOKENS = new Set([
   '이번주',
 ]);
 
+const HIGH_VALUE_NEED_INTENT_RE = /(신청|대상|자격|조건|지급일|조회|예약|예매|티켓팅|가격|가격비교|비교|추천|후기|리뷰|방법|준비물|체크리스트|서류|마감|오류|설정|사용법|답지|등급컷|당첨번호|당첨지역|중계|라인업|관련주|전망|주가|주차|입장료|비용|견적|영업시간|위치|시간표|환급|지원금|혜택|청약|쿠폰|할인|구매처|최저가|가성비|사전예약|출시일|발매일)/u;
+const LOW_CONVERSION_LOOKUP_INTENT_RE = /(?:몇부작|출연진|방송시간|재방송|다시보기|결말|쿠키영상|원작|등장인물|인물관계도|공식영상|하이라이트|공식입장|해명|논란|기자회견|회동|발언|입장|근황|비주얼|공개|소식|방한|방문|합의|악수|체결|파업|수사|구속|별세|끝내기|안타|MVP)/u;
+
 const ROBUST_EXAM_STALE_RE = /(?:2027\s*)?(?:6모|6월\s*모의고사|모의고사).{0,12}(?:등급컷|답지|정답|해설)/u;
 const FUTURE_EXAM_SESSION_RE = /(20\d{2})\s*(?:6\uBAA8|9\uBAA8|[69]\uC6D4\s*\uBAA8\uC758\uACE0\uC0AC|\uBAA8\uC758\uACE0\uC0AC|\uBAA8\uD3C9|\uC218\uB2A5)/u;
 const BARE_ROUND_ONLY_RE = /^(\d{3,5})\s*\uD68C$/u;
@@ -302,6 +305,17 @@ const GRADE_WEIGHT: Record<MobileResultGrade, number> = {
   B: 20,
   C: 0,
 };
+
+const GRADE_RANK: Record<MobileResultGrade, number> = {
+  C: 0,
+  B: 1,
+  A: 2,
+  S: 3,
+  SS: 4,
+  SSS: 5,
+};
+
+const LIVE_SSS_GRADE: MobileResultGrade = 'SSS';
 
 function normalizeGrade(value: unknown, score = 0): MobileResultGrade {
   const grade = String(value || '').toUpperCase().replace(/[^A-Z]/g, '');
@@ -1404,13 +1418,51 @@ function liveMetricScore(volume: number, docs: number, ratio: number, actionable
   return Math.round(ratioScore * 0.42 + volumeScore * 0.22 + docScore * 0.22 + intentScore * 0.14);
 }
 
-function liveGradeFromMetrics(score: number, volume: number, docs: number, ratio: number): MobileResultGrade {
-  if (score >= 85 && volume >= 1000 && docs <= 5000 && ratio >= 5) return 'SSS';
-  if (score >= 75 && volume >= 500 && docs <= 10000 && ratio >= 3) return 'SS';
-  if (score >= 65 && volume >= 300 && ratio >= 2) return 'S';
-  if (score >= 55 && volume >= 100) return 'A';
-  if (score >= 45) return 'B';
-  return 'C';
+function liveGradeFromMetrics(score: number, volume: number, docs: number, ratio: number, keyword = ''): MobileResultGrade {
+  let grade: MobileResultGrade = 'C';
+  if (score >= 85 && volume >= 1000 && docs <= 5000 && ratio >= 5) grade = LIVE_SSS_GRADE;
+  else if (score >= 75 && volume >= 500 && docs <= 10000 && ratio >= 3) grade = 'SS';
+  else if (score >= 65 && volume >= 300 && ratio >= 2) grade = 'S';
+  else if (score >= 55 && volume >= 100) grade = 'A';
+  else if (score >= 45) grade = 'B';
+  return capSssForNeedIntent(grade, keyword);
+}
+
+function normalizeLiveMetricGrade(
+  keyword: string,
+  currentGrade: unknown,
+  scoreValue: number | null,
+  volume: number,
+  docs: number,
+  ratio: number,
+): MobileResultGrade {
+  const actionable = hasHighValueNeedIntent(keyword)
+    || hasRobustActionableIntent(keyword)
+    || isActionableGoldenKeyword(keyword)
+    || SPECIFIC_LIVE_KEYWORD_HINT_RE.test(keyword);
+  const computedScore = liveMetricScore(volume, docs, ratio, actionable);
+  const score = scoreValue !== null && scoreValue > 0 ? scoreValue : computedScore;
+  const rowGrade = normalizeGrade(currentGrade, score);
+  const gateGrade = liveGradeFromMetrics(score, volume, docs, ratio, keyword);
+  return lowerGrade(rowGrade, gateGrade);
+}
+
+function lowerGrade(a: MobileResultGrade, b: MobileResultGrade): MobileResultGrade {
+  return GRADE_RANK[a] <= GRADE_RANK[b] ? a : b;
+}
+
+function hasHighValueNeedIntent(keyword: string): boolean {
+  const clean = normalizeKeyword(keyword);
+  return HIGH_VALUE_NEED_INTENT_RE.test(clean) || HIGH_VALUE_NEED_INTENT_RE.test(clean.replace(/\s+/g, ''));
+}
+
+function capSssForNeedIntent(grade: MobileResultGrade, keyword: string): MobileResultGrade {
+  if (grade !== 'SSS') return grade;
+  const clean = normalizeKeyword(keyword);
+  if (!clean) return grade;
+  if (hasHighValueNeedIntent(clean)) return grade;
+  if (LOW_CONVERSION_LOOKUP_INTENT_RE.test(clean)) return 'SS';
+  return 'SS';
 }
 
 function rowSearchVolume(row: LiveSearchVolumeRow): number {
@@ -1452,7 +1504,7 @@ function rowToBackfillResult(
   const ratio = Number((volume / docs).toFixed(2));
   const actionable = isActionableGoldenKeyword(keyword) || SPECIFIC_LIVE_KEYWORD_HINT_RE.test(keyword);
   const score = liveMetricScore(volume, docs, ratio, actionable);
-  const grade = liveGradeFromMetrics(score, volume, docs, ratio);
+  const grade = liveGradeFromMetrics(score, volume, docs, ratio, keyword);
   const intentInfo = typeof classifyKeywordIntent === 'function'
     ? classifyKeywordIntent(keyword)
     : { intent: 'live-golden-discovery', badge: 'LIVE' };
@@ -2412,6 +2464,14 @@ export class MobileLiveGoldenRadar {
       if (!normalizedKeyword || keyword.grade === 'C') continue;
       if (!hasCompleteLiveGoldenMetrics(keyword)) continue;
       if (!isLiveRadarUsableMetric({ ...keyword, keyword: normalizedKeyword }, now)) continue;
+      const volume = finiteNumber(keyword.totalSearchVolume);
+      const docs = finiteNumber(keyword.documentCount);
+      const ratio = finiteNumber(keyword.goldenRatio)
+        || (volume !== null && docs !== null && docs > 0 ? Number((volume / docs).toFixed(2)) : null);
+      const grade = volume !== null && docs !== null && docs > 0 && ratio !== null
+        ? normalizeLiveMetricGrade(normalizedKeyword, keyword.grade, finiteNumber(keyword.score), volume, docs, ratio)
+        : keyword.grade;
+      if (grade === 'C') continue;
       const id = keywordId(normalizedKeyword);
       const compactId = keywordCompactId(normalizedKeyword);
       const existing = this.board.get(id)
@@ -2420,6 +2480,8 @@ export class MobileLiveGoldenRadar {
       const item: MobileLiveGoldenBoardItem = {
         ...keyword,
         keyword: normalizedKeyword,
+        grade,
+        goldenRatio: ratio,
         id: boardId,
         rank: existing?.rank || 0,
         discoveredAt: existing?.discoveredAt || stamp,
@@ -2428,7 +2490,7 @@ export class MobileLiveGoldenRadar {
         isPublicPreview: false,
         publicSearchVolumeLabel: formatRange(keyword.totalSearchVolume, 'search'),
         publicDocumentCountLabel: formatRange(keyword.documentCount, 'document'),
-        publicReason: publicReason(keyword),
+        publicReason: publicReason({ ...keyword, grade, goldenRatio: ratio }),
       };
       this.board.set(boardId, item);
     }
@@ -2486,11 +2548,13 @@ export class MobileLiveGoldenRadar {
           || finiteNumber(row?.searchVolume);
         const documentCount = finiteNumber(row?.documentCount);
         const score = finiteNumber(row?.score);
-        const grade = normalizeGrade(row?.grade, score || 0);
         const goldenRatio = finiteNumber(row?.goldenRatio)
           || (totalSearchVolume !== null && documentCount !== null && documentCount > 0
             ? Number((totalSearchVolume / documentCount).toFixed(2))
             : null);
+        const grade = totalSearchVolume !== null && documentCount !== null && documentCount > 0 && goldenRatio !== null
+          ? normalizeLiveMetricGrade(keyword, row?.grade, score, totalSearchVolume, documentCount, goldenRatio)
+          : normalizeGrade(row?.grade, score || 0);
         const metric: MobileKeywordMetric = {
           keyword,
           grade,
@@ -2570,9 +2634,7 @@ export class MobileLiveGoldenRadar {
         const computedScore = liveMetricScore(totalSearchVolume, documentCount, goldenRatio, actionable);
         const rowScore = finiteNumber(row?.score);
         const score = rowScore !== null && rowScore > 0 ? rowScore : computedScore;
-        const gateGrade = liveGradeFromMetrics(score, totalSearchVolume, documentCount, goldenRatio);
-        const rowGrade = normalizeGrade(row?.grade, score);
-        const grade = rowGrade === 'C' ? gateGrade : rowGrade;
+        const grade = normalizeLiveMetricGrade(keyword, row?.grade, score, totalSearchVolume, documentCount, goldenRatio);
         const metric: MobileKeywordMetric = {
           keyword,
           grade,
@@ -2649,7 +2711,14 @@ export class MobileLiveGoldenRadar {
         const totalSearchVolume = finiteNumber(row?.totalSearchVolume);
         const documentCount = finiteNumber(row?.documentCount);
         const isMeasured = Boolean(row?.isMeasured) || (totalSearchVolume !== null && documentCount !== null);
-        const grade = normalizeGrade(row?.grade, finiteNumber(row?.score) || 0);
+        const score = finiteNumber(row?.score);
+        const goldenRatio = finiteNumber(row?.goldenRatio)
+          || (totalSearchVolume !== null && documentCount !== null && documentCount > 0
+            ? Number((totalSearchVolume / documentCount).toFixed(2))
+            : null);
+        const grade = totalSearchVolume !== null && documentCount !== null && documentCount > 0 && goldenRatio !== null
+          ? normalizeLiveMetricGrade(keyword, row?.grade, score, totalSearchVolume, documentCount, goldenRatio)
+          : normalizeGrade(row?.grade, score || 0);
         if (grade === 'C') continue;
         if (!hasCompleteLiveGoldenMetrics({ totalSearchVolume, documentCount, isMeasured })) continue;
         if (!isLiveRadarUsableKeyword(keyword, totalSearchVolume, documentCount, now)) continue;
@@ -2662,7 +2731,7 @@ export class MobileLiveGoldenRadar {
           mobileSearchVolume: finiteNumber(row?.mobileSearchVolume),
           totalSearchVolume,
           documentCount,
-          goldenRatio: finiteNumber(row?.goldenRatio),
+          goldenRatio,
           cpc: finiteNumber(row?.cpc),
           category: inferLiveCategory(keyword, normalizeKeyword(row?.category) || 'live'),
           source: normalizeKeyword(row?.source) || 'mobile-live-golden-radar',
@@ -2687,7 +2756,7 @@ export class MobileLiveGoldenRadar {
             mobileSearchVolume: finiteNumber(row?.mobileSearchVolume),
             totalSearchVolume,
             documentCount,
-            goldenRatio: finiteNumber(row?.goldenRatio),
+            goldenRatio,
             cpc: finiteNumber(row?.cpc),
             category: normalizeKeyword(row?.category) || 'live',
             source: normalizeKeyword(row?.source) || 'mobile-live-golden-radar',

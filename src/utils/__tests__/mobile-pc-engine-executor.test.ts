@@ -105,6 +105,11 @@ async function runKeywordAnalysis(): Promise<void> {
   });
 
   assert('keyword analysis returns requested amount', result.keywords.length >= 10);
+  assert('keyword analysis keeps requested keyword as first measured row',
+    result.keywords[0]?.keyword === '고유가 지원금 2차'
+      && result.keywords[0]?.source === 'pc-keyword-analysis-exact'
+      && result.keywords[0]?.documentCount !== null,
+    result.keywords.slice(0, 3).map((item) => `${item.keyword}:${item.source}:${item.documentCount}`).join('|'));
   assert('keyword analysis keeps Korean candidate text clean',
     result.keywords.every((item) => !/[?]{2,}/.test(item.keyword)));
   assert('keyword analysis includes expected intent expansion',

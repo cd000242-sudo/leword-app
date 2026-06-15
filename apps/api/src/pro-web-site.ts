@@ -6,6 +6,7 @@ export function renderLewordProWeb(): string {
   <meta name="viewport" content="width=device-width, initial-scale=1" />
   <title>LEWORD Pro Web</title>
   <meta name="description" content="LEWORD Pro Web - 서버 기반 실시간 키워드 분석" />
+  <script async src="https://pagead2.googlesyndication.com/pagead/js/adsbygoogle.js?client=ca-pub-4008574892672964" crossorigin="anonymous"></script>
   <style>
     :root {
       color-scheme: dark;
@@ -3216,7 +3217,7 @@ export function renderLewordProWeb(): string {
         qs('loginMessage').textContent = '로그인 완료';
         closeLogin();
         hydrateNaverApiSettingsForm();
-        setActiveView('settings', { load: false });
+        setActiveView('golden', { load: false });
         log('Pro 로그인 완료: ' + (payload.session.tier || 'standard'));
         await Promise.all([loadSources(), loadGoldenBoard(), refreshFeatureStatus().catch(function() {})]);
       } catch (err) {

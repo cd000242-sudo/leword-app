@@ -1122,6 +1122,7 @@ function createDefaultKeywordMetricsAdapter(
     const hasSearchAdConfig = !!(
       envValue(env, 'naverSearchAdAccessLicense', 'NAVER_SEARCH_AD_ACCESS_LICENSE', 'NAVER_SEARCHAD_ACCESS_LICENSE')
       && envValue(env, 'naverSearchAdSecretKey', 'NAVER_SEARCH_AD_SECRET_KEY', 'NAVER_SEARCHAD_SECRET_KEY')
+      && envValue(env, 'naverSearchAdCustomerId', 'NAVER_SEARCH_AD_CUSTOMER_ID', 'NAVER_SEARCHAD_CUSTOMER_ID')
     );
     const hasOpenApiConfig = !!(
       envValue(env, 'naverClientId', 'NAVER_CLIENT_ID')
@@ -1793,7 +1794,24 @@ async function runKeywordAnalysis(
       params.categoryId || 'auto',
       ['pc-keyword-expansion-ranker', ...item.reasons],
     ));
-  const metrics = rankedMetrics.slice(0, params.maxRelatedCount);
+  const requestedMetric = metricFromExpansion(
+    params.keyword,
+    92,
+    'pc-keyword-analysis-exact',
+    'requested-keyword',
+    params.categoryId || 'auto',
+    ['pc-keyword-expansion-ranker', 'requested-keyword-exact-match'],
+  );
+  const seen = new Set<string>([compactKeyword(requestedMetric.keyword)]);
+  const metrics = [
+    requestedMetric,
+    ...rankedMetrics.filter((item) => {
+      const key = compactKeyword(item.keyword);
+      if (!key || seen.has(key)) return false;
+      seen.add(key);
+      return true;
+    }),
+  ].slice(0, params.maxRelatedCount + 1);
   const measuredMetrics = await measureKeywordMetrics(metrics, context);
 
   return resultFromMetrics(measuredMetrics, startedAt, 'pc-engine-plus');

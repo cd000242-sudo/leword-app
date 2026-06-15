@@ -1411,6 +1411,96 @@ const result: MobileKeywordResult = {
 
   console.log('[mobile-api-server-cache.test] passed');
 
+  const overlayInbox = new MobileNotificationInbox();
+  const overlayBoardFile = path.join(os.tmpdir(), `leword-live-board-overlay-${Date.now()}.json`);
+  writeJson(overlayBoardFile, {
+    boardUpdatedAt: '2026-06-15T03:00:00.000Z',
+    items: [{
+      keyword: '한강유람선예약',
+      grade: 'S',
+      score: 70,
+      pcSearchVolume: 1200,
+      mobileSearchVolume: 8880,
+      totalSearchVolume: 10080,
+      documentCount: 11316,
+      goldenRatio: 0.89,
+      cpc: 80,
+      category: 'travel_domestic',
+      source: 'live-golden-board-fixture',
+      intent: '예약',
+      evidence: ['fixture live board'],
+      updatedAt: '2026-06-15T03:00:00.000Z',
+      discoveredAt: '2026-06-15T03:00:00.000Z',
+      isMeasured: true,
+    }],
+  });
+  const overlayRadar = new MobileLiveGoldenRadar({
+    notificationInbox: overlayInbox,
+    runOnStart: false,
+    boardFile: overlayBoardFile,
+    boardTarget: 5,
+    now: () => new Date('2026-06-15T03:05:00.000Z'),
+  });
+  const overlayServer = createLewordApiServer({
+    entitlementVerifier: null,
+    resultCache: new InMemoryMobileResultCache(),
+    liveGoldenRadar: overlayRadar,
+    notificationInbox: overlayInbox,
+    prewarmService: null,
+    prewarmScheduler: null,
+    executor: async () => ({
+      ...result,
+      keywords: [{
+        keyword: '한강 유람선 예약 디너',
+        grade: 'SS',
+        pcSearchVolume: 10,
+        mobileSearchVolume: 70,
+        totalSearchVolume: 80,
+        documentCount: null,
+        goldenRatio: null,
+        cpc: 0,
+        category: 'auto',
+        source: 'fixture-related-only',
+        intent: 'related-keyword',
+        evidence: ['fixture related only'],
+        isMeasured: false,
+      }],
+      summary: {
+        total: 1,
+        sss: 0,
+        measured: 0,
+        elapsedMs: 1,
+        fromCache: false,
+        parityMode: 'pc-engine-plus',
+      },
+    }),
+  });
+  const overlayPort = await listen(overlayServer);
+  const overlayBaseUrl = `http://127.0.0.1:${overlayPort}`;
+  try {
+    const analyze = await fetch(`${overlayBaseUrl}/v1/keywords/analyze`, {
+      method: 'POST',
+      headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify({ keyword: '한강유람선예약', maxRelatedCount: 10 }),
+    });
+    const analyzeJson: any = await analyze.json();
+    const completed = await waitForCompletedJob(overlayBaseUrl, analyzeJson.job.id);
+    const firstKeyword = completed.result.keywords[0];
+    assert('keyword analysis exact row syncs live golden board metrics',
+      analyze.status === 202
+        && firstKeyword.keyword === '한강유람선예약'
+        && firstKeyword.totalSearchVolume === 10080
+        && firstKeyword.documentCount === 11316
+        && firstKeyword.source === 'live-golden-board-exact-match'
+        && completed.result.summary.measured === 1,
+      JSON.stringify(completed.result));
+  } finally {
+    await close(overlayServer);
+    fs.rmSync(overlayBoardFile, { force: true });
+  }
+
+  console.log('[mobile-api-server-live-board-overlay.test] passed');
+
   let prewarmExecutions = 0;
   const sentPushMessages: any[] = [];
   const pushRegistry = new MobilePushRegistry();

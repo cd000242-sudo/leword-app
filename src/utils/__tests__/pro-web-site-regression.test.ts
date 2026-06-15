@@ -14,6 +14,10 @@ function assert(name: string, condition: unknown, detail = ''): void {
 
 const html = renderLewordLanding();
 
+assert('includes AdSense site verification script',
+  html.includes('ca-pub-4008574892672964')
+    && html.includes('pagead2.googlesyndication.com/pagead/js/adsbygoogle.js'));
+
 for (const [index, match] of Array.from(html.matchAll(/<script>([\s\S]*?)<\/script>/g)).entries()) {
   try {
     new vm.Script(match[1], { filename: `pro-web-inline-${index}.js` });
@@ -32,6 +36,9 @@ assert('keeps license key auth collapsed as optional login path',
   html.includes('<details class="login-license">')
     && html.includes('id="licenseCode"')
     && html.includes('if (licenseCode) loginPayload.licenseCode = licenseCode'));
+assert('pro login does not masquerade as API key setup',
+  html.includes("setActiveView('golden', { load: false });")
+    && !html.includes("setActiveView('settings', { load: false });\n        log('Pro 로그인 완료"));
 assert('renders live golden keyword board section',
   html.includes('id="golden"')
     && html.includes('LIVE 황금키워드 보드')

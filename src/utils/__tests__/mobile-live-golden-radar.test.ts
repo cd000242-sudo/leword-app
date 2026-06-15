@@ -851,6 +851,52 @@ function thinProfileCount(items: Array<{ keyword: string }>): number {
     contentDiversitySnapshot.board.map((item) => `${item.rank}:${item.category}:${item.keyword}`).join('|'));
   fs.rmSync(contentDiversityBoardFile, { force: true });
 
+  const actionableGradeGateBoardFile = path.join(process.cwd(), 'tmp', 'mobile-live-golden-actionable-grade-gate-test.json');
+  const actionableGradeRows = [
+    ['멋진신세계몇부작', 'SSS', 99, 189300, 766, 247.13, 'drama'],
+    ['참교육몇부작', 'SSS', 98, 57880, 798, 72.53, 'drama'],
+    ['신입사원강회장출연진', 'SSS', 97, 20030, 456, 43.93, 'drama'],
+    ['KBO올스타전하이라이트', 'SSS', 96, 19440, 177, 109.83, 'sports'],
+    ['청년미래적금 가입신청 대상', 'SSS', 95, 26000, 360, 72, 'policy'],
+    ['송지호바다하늘길입장료', 'SSS', 94, 9500, 115, 82.6, 'travel_domestic'],
+    ['제주 렌터카 가격비교', 'SSS', 93, 21000, 850, 24, 'travel_domestic'],
+    ['육아휴직급여 지급일', 'SSS', 92, 12000, 620, 19.35, 'policy'],
+  ];
+  fs.writeFileSync(actionableGradeGateBoardFile, JSON.stringify({
+    boardUpdatedAt: '2026-06-15T08:00:00.000Z',
+    items: actionableGradeRows.map(([keyword, grade, score, totalSearchVolume, documentCount, goldenRatio, category]) => ({
+      keyword,
+      grade,
+      score,
+      totalSearchVolume,
+      documentCount,
+      goldenRatio,
+      category,
+      updatedAt: '2026-06-15T08:00:00.000Z',
+      discoveredAt: '2026-06-15T08:00:00.000Z',
+      isMeasured: true,
+    })),
+  }), 'utf8');
+  const actionableGradeGateRadar = new MobileLiveGoldenRadar({
+    notificationInbox: inbox,
+    runOnStart: false,
+    boardFile: actionableGradeGateBoardFile,
+    boardTarget: 8,
+    publicPreviewCount: 5,
+    now: () => new Date('2026-06-15T09:00:00.000Z'),
+  });
+  const actionableGradeGateSnapshot = actionableGradeGateRadar.snapshot();
+  const gradeByKeyword = new Map(actionableGradeGateSnapshot.board.map((item) => [item.keyword, item.grade]));
+  assert('cached live board caps pure content lookup issue rows below SSS',
+    gradeByKeyword.get('멋진신세계몇부작') !== 'SSS'
+      && gradeByKeyword.get('참교육몇부작') !== 'SSS'
+      && gradeByKeyword.get('신입사원강회장출연진') !== 'SSS'
+      && gradeByKeyword.get('KBO올스타전하이라이트') !== 'SSS'
+      && gradeByKeyword.get('청년미래적금 가입신청 대상') === 'SSS'
+      && gradeByKeyword.get('송지호바다하늘길입장료') === 'SSS',
+    actionableGradeGateSnapshot.board.map((item) => `${item.keyword}:${item.grade}`).join('|'));
+  fs.rmSync(actionableGradeGateBoardFile, { force: true });
+
   const persistentKeywordCacheFile = path.join(process.cwd(), 'tmp', 'mobile-live-golden-persistent-keyword-cache-test.json');
   fs.writeFileSync(persistentKeywordCacheFile, JSON.stringify({
     __schemaVersion: 'test-cache',
