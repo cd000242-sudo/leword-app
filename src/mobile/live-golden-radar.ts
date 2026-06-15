@@ -290,6 +290,7 @@ const ROBUST_STOP_TOKENS = new Set([
 ]);
 
 const ROBUST_EXAM_STALE_RE = /(?:2027\s*)?(?:6모|6월\s*모의고사|모의고사).{0,12}(?:등급컷|답지|정답|해설)/u;
+const FUTURE_EXAM_SESSION_RE = /(20\d{2})\s*(?:6\uBAA8|9\uBAA8|[69]\uC6D4\s*\uBAA8\uC758\uACE0\uC0AC|\uBAA8\uC758\uACE0\uC0AC|\uBAA8\uD3C9|\uC218\uB2A5)/u;
 const ROBUST_LOTTO_ROUND_RE = /(?:(\d{3,5})\s*회\s*로또|로또\s*(\d{3,5})\s*회)/u;
 
 const GRADE_WEIGHT: Record<MobileResultGrade, number> = {
@@ -775,6 +776,11 @@ function isStaleOrFutureLiveKeyword(keyword: string, now: Date = new Date()): bo
   const clean = normalizeKeyword(keyword);
   if (!clean) return true;
   if (VOLATILE_EXAM_ANSWER_RE.test(clean) || ROBUST_EXAM_STALE_RE.test(clean)) return true;
+  const futureExamSession = clean.match(FUTURE_EXAM_SESSION_RE);
+  if (futureExamSession) {
+    const examYear = Number(futureExamSession[1]);
+    if (Number.isFinite(examYear) && examYear > now.getFullYear()) return true;
+  }
   if (LIVE_LOTTERY_SIGNAL_RE.test(clean) || isRobustLottoKeyword(clean)) {
     const roundMatch = clean.match(LOTTO_ROUND_RE);
     const round = roundMatch ? Number(roundMatch[1] || roundMatch[2]) : robustLottoRound(clean);

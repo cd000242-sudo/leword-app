@@ -904,6 +904,11 @@ function thinProfileCount(items: Array<{ keyword: string }>): number {
       documentCount: 3147,
       category: 'education',
     },
+    '20276\uBAA8': {
+      searchVolume: 25640,
+      documentCount: 117,
+      category: 'education',
+    },
   }), 'utf8');
   const persistentKeywordCacheRadar = new MobileLiveGoldenRadar({
     notificationInbox: inbox,
@@ -920,7 +925,7 @@ function thinProfileCount(items: Array<{ keyword: string }>): number {
       && new Set(persistentKeywordCacheSnapshot.board.map((item) => item.category)).size >= 6,
     persistentKeywordCacheSnapshot.board.map((item) => `${item.rank}:${item.category}:${item.keyword}:${item.totalSearchVolume}:${item.documentCount}`).join('|'));
   assert('persistent measured keyword cache rejects stale lotto and future exam rows',
-    !persistentKeywordCacheSnapshot.board.some((item) => /1227\uD68C|2027 6\uBAA8/.test(item.keyword)),
+    !persistentKeywordCacheSnapshot.board.some((item) => /1227\uD68C|2027\s*6\uBAA8|20276\uBAA8/.test(item.keyword)),
     persistentKeywordCacheSnapshot.board.map((item) => `${item.rank}:${item.keyword}`).join('|'));
   fs.rmSync(persistentKeywordCacheFile, { force: true });
 
