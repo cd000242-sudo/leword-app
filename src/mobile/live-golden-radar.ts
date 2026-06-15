@@ -290,7 +290,35 @@ const ROBUST_STOP_TOKENS = new Set([
 ]);
 
 const HIGH_VALUE_NEED_INTENT_RE = /(신청|대상|자격|조건|지급일|조회|예약|예매|티켓팅|가격|가격비교|비교|추천|후기|리뷰|방법|준비물|체크리스트|서류|마감|오류|설정|사용법|답지|등급컷|당첨번호|당첨지역|중계|라인업|관련주|전망|주가|주차|입장료|비용|견적|영업시간|위치|시간표|환급|지원금|혜택|청약|쿠폰|할인|구매처|최저가|가성비|사전예약|출시일|발매일)/u;
-const LOW_CONVERSION_LOOKUP_INTENT_RE = /(?:몇부작|출연진|방송시간|재방송|다시보기|결말|쿠키영상|원작|등장인물|인물관계도|공식영상|하이라이트|공식입장|해명|논란|기자회견|회동|발언|입장|근황|비주얼|공개|소식|방한|방문|합의|악수|체결|파업|수사|구속|별세|끝내기|안타|MVP)/u;
+const LOW_CONVERSION_LOOKUP_INTENT_RE = /(?:몇부작|출연진|방송시간|재방송|다시보기|결말|쿠키영상|원작|등장인물|인물관계도|공식영상|하이라이트|공식입장|해명|논란|기자회견|회동|발언|근황|비주얼|공개|소식|방한|방문|합의|악수|체결|파업|수사|구속|별세|끝내기|안타|MVP)/u;
+const ADSENSE_NEED_INTENT_RE = /(?:신청|대상|자격|조건|지급일|조회|예약|예매|티켓팅|가격|가격비교|비교|추천|후기|리뷰|방법|준비물|체크리스트|서류|마감|설정|사용법|주차|입장료|비용|견적|영업시간|위치|시간표|환급|지원금|혜택|청약|쿠폰|할인|구매처|최저가|가성비|사전예약|출시일|발매일|보험|대출|카드|계좌|배송|재고|매장|예약방법|신청방법)/u;
+const ADSENSE_LOW_VALUE_LOOKUP_RE = /(?:몇부작|출연진|방송시간|재방송|다시보기|결말|쿠키영상|원작|등장인물|인물관계도|공식영상|하이라이트|라인업|공식입장|해명|논란|기자회견|회동|발언|근황|비주얼|공개|소식|방한|방문|합의|악수|체결|파업|수사|구속|별세|끝내기|안타|MVP)/u;
+const ADSENSE_LOTTO_LOOKUP_RE = /(?:로또|복권|당첨번호|당첨지역|판매점|실수령액)/u;
+const ADSENSE_BRAND_SAFETY_NEWS_RE = /(?:사망|사고|혐의|조사|구속|체포|압수수색|기소|재판|선고|논란|공식입장|해명|기자회견|회동|발언|파업|별세|결별|열애|혼인|끝내기|안타|MVP|하이라이트|공식영상)/u;
+const ADSENSE_HIGH_VALUE_CATEGORIES = new Set([
+  'policy',
+  'finance',
+  'shopping',
+  'electronics',
+  'beauty',
+  'fashion',
+  'food',
+  'recipe',
+  'travel_domestic',
+  'travel_overseas',
+  'health',
+  'home_life',
+  'it',
+  'ai_tool',
+  'game',
+]);
+const ADSENSE_LOW_VALUE_CATEGORIES = new Set([
+  'celeb',
+  'drama',
+  'broadcast',
+  'movie',
+  'music',
+]);
 
 const ROBUST_EXAM_STALE_RE = /(?:2027\s*)?(?:6모|6월\s*모의고사|모의고사).{0,12}(?:등급컷|답지|정답|해설)/u;
 const FUTURE_EXAM_SESSION_RE = /(20\d{2})\s*(?:6\uBAA8|9\uBAA8|[69]\uC6D4\s*\uBAA8\uC758\uACE0\uC0AC|\uBAA8\uC758\uACE0\uC0AC|\uBAA8\uD3C9|\uC218\uB2A5)/u;
@@ -703,6 +731,7 @@ function boardScore(item: MobileLiveGoldenBoardItem): number {
     + firstMoverScarcity
     + longTailNeedSynergy
     + monsterBonus
+    + adsenseReadinessScore(item) * 3
     + (item.score || 0) * 0.12;
 }
 
@@ -1451,18 +1480,121 @@ function lowerGrade(a: MobileResultGrade, b: MobileResultGrade): MobileResultGra
   return GRADE_RANK[a] <= GRADE_RANK[b] ? a : b;
 }
 
+function capGradeAtMost(grade: MobileResultGrade, maxGrade: MobileResultGrade): MobileResultGrade {
+  return lowerGrade(grade, maxGrade);
+}
+
+function hasMeasuredPcMobileSplit(item: {
+  pcSearchVolume?: number | null;
+  mobileSearchVolume?: number | null;
+}): boolean {
+  const pc = finiteNumber(item.pcSearchVolume);
+  const mobile = finiteNumber(item.mobileSearchVolume);
+  return pc !== null && mobile !== null && pc + mobile > 0;
+}
+
+function hasRealCpcValue(item: { cpc?: number | null }): boolean {
+  const cpc = finiteNumber(item.cpc);
+  return cpc !== null && cpc > 0;
+}
+
+function isLottoLookupKeyword(keyword: string): boolean {
+  const clean = normalizeKeyword(keyword);
+  return ADSENSE_LOTTO_LOOKUP_RE.test(clean)
+    || LIVE_LOTTERY_SIGNAL_RE.test(clean)
+    || isRobustLottoKeyword(clean);
+}
+
+function isLowAdsenseLookupKeyword(keyword: string): boolean {
+  const clean = normalizeKeyword(keyword);
+  return ADSENSE_LOW_VALUE_LOOKUP_RE.test(clean)
+    || LOW_CONVERSION_LOOKUP_INTENT_RE.test(clean)
+    || isEpisodeLookupKeyword(clean)
+    || isContentLookupKeyword(clean);
+}
+
+function isBrandSafetyNewsKeyword(keyword: string): boolean {
+  return ADSENSE_BRAND_SAFETY_NEWS_RE.test(normalizeKeyword(keyword));
+}
+
+function hasAdsenseNeedIntent(keyword: string): boolean {
+  const clean = normalizeKeyword(keyword);
+  if (isLottoLookupKeyword(clean) || isLowAdsenseLookupKeyword(clean) || isBrandSafetyNewsKeyword(clean)) {
+    return false;
+  }
+  return ADSENSE_NEED_INTENT_RE.test(clean)
+    || ADSENSE_NEED_INTENT_RE.test(clean.replace(/\s+/g, ''))
+    || hasHighValueNeedIntent(clean)
+    || hasRobustActionableIntent(clean)
+    || isActionableGoldenKeyword(clean);
+}
+
+function categoryAdsenseScore(category: string): number {
+  const clean = normalizeKeyword(category);
+  if (ADSENSE_HIGH_VALUE_CATEGORIES.has(clean)) return 22;
+  if (ADSENSE_LOW_VALUE_CATEGORIES.has(clean)) return -18;
+  return 0;
+}
+
+function adsenseReadinessScore(item: MobileLiveGoldenBoardItem): number {
+  const keyword = normalizeKeyword(item.keyword);
+  const category = boardCategoryKey(item);
+  const volume = Math.max(0, item.totalSearchVolume || 0);
+  const documents = item.documentCount;
+  const ratio = Math.max(0, item.goldenRatio || (
+    volume > 0 && documents && documents > 0 ? volume / documents : 0
+  ));
+  const lottoLookup = isLottoLookupKeyword(keyword);
+  const lowLookup = isLowAdsenseLookupKeyword(keyword);
+  const brandSafety = isBrandSafetyNewsKeyword(keyword);
+  let score = 0;
+
+  score += hasMeasuredPcMobileSplit(item) ? 18 : -45;
+  score += hasRealCpcValue(item) ? Math.min(28, 10 + Math.log10((item.cpc || 0) + 1) * 8) : -18;
+  score += categoryAdsenseScore(category);
+
+  if (hasAdsenseNeedIntent(keyword)) score += 58;
+  if (!lottoLookup && !lowLookup && !brandSafety) {
+    if (volume >= 500 && documents !== null && documents <= 10_000 && ratio >= 3) score += 24;
+    if (volume >= 1_000 && documents !== null && documents <= 3_000 && ratio >= 5) score += 34;
+    if (volume >= 3_000 && documents !== null && documents <= 1_000 && ratio >= 10) score += 24;
+  }
+
+  if (documents !== null && documents >= 15_000 && ratio < 2) score -= 46;
+  if (documents !== null && documents >= 30_000) score -= 64;
+  if (volume > 0 && volume < 300) score -= 12;
+
+  if (lottoLookup) score -= 180;
+  if (lowLookup) score -= 150;
+  if (brandSafety) score -= 120;
+
+  return Math.max(-240, Math.min(160, Math.round(score)));
+}
+
+function capGradeForAdsenseIntent(grade: MobileResultGrade, keyword: string): MobileResultGrade {
+  const clean = normalizeKeyword(keyword);
+  if (!clean) return grade;
+  if (isLottoLookupKeyword(clean)) return capGradeAtMost(grade, 'A');
+  if (isBrandSafetyNewsKeyword(clean)) return capGradeAtMost(grade, 'A');
+  if (isLowAdsenseLookupKeyword(clean)) return capGradeAtMost(grade, 'S');
+  if (grade === 'SSS' && !hasAdsenseNeedIntent(clean)) return 'SS';
+  return grade;
+}
+
 function hasHighValueNeedIntent(keyword: string): boolean {
   const clean = normalizeKeyword(keyword);
   return HIGH_VALUE_NEED_INTENT_RE.test(clean) || HIGH_VALUE_NEED_INTENT_RE.test(clean.replace(/\s+/g, ''));
 }
 
 function capSssForNeedIntent(grade: MobileResultGrade, keyword: string): MobileResultGrade {
+  const adsenseCapped = capGradeForAdsenseIntent(grade, keyword);
+  if (adsenseCapped !== grade) return adsenseCapped;
   if (grade !== 'SSS') return grade;
   const clean = normalizeKeyword(keyword);
   if (!clean) return grade;
   if (hasHighValueNeedIntent(clean)) return grade;
   if (LOW_CONVERSION_LOOKUP_INTENT_RE.test(clean)) return 'SS';
-  return 'SS';
+  return capGradeForAdsenseIntent('SS', clean);
 }
 
 function rowSearchVolume(row: LiveSearchVolumeRow): number {
@@ -1527,7 +1659,12 @@ function rowToBackfillResult(
     measurementOnly: false,
     categoryMatched: inferLiveCategory(keyword, categoryId) === categoryId,
   };
-  return isLiveRadarQualityResult(result) ? result : null;
+  const enrichedResult = Object.assign(result, {
+    pcSearchVolume: pc,
+    mobileSearchVolume: mobile,
+    monthlyAveCpc: finiteNumber(row.monthlyAveCpc) || undefined,
+  });
+  return isLiveRadarQualityResult(enrichedResult) ? enrichedResult : null;
 }
 
 function liveIssueFallbackGrade(score: number, docs: number | null): MobileResultGrade {
@@ -1593,16 +1730,21 @@ function mapDirectResult(result: MDPResult, categoryId: string): MobileKeywordMe
   const totalSearchVolume = finiteNumber(result.searchVolume);
   const documentCount = finiteNumber(result.documentCount);
   const keyword = normalizeKeyword(result.keyword);
+  const extra = result as MDPResult & {
+    pcSearchVolume?: number | null;
+    mobileSearchVolume?: number | null;
+    monthlyAveCpc?: number | null;
+  };
   return {
     keyword,
     grade: normalizeGrade(result.grade, finiteNumber(result.score) || 0),
     score: finiteNumber(result.score),
-    pcSearchVolume: null,
-    mobileSearchVolume: null,
+    pcSearchVolume: finiteNumber(extra.pcSearchVolume),
+    mobileSearchVolume: finiteNumber(extra.mobileSearchVolume),
     totalSearchVolume,
     documentCount,
     goldenRatio: finiteNumber(result.goldenRatio),
-    cpc: finiteNumber(result.cpc),
+    cpc: finiteNumber(result.cpc) ?? finiteNumber(extra.monthlyAveCpc),
     category: inferLiveCategory(keyword, categoryId || 'live'),
     source: 'mobile-live-golden-radar',
     intent: result.intent || 'live-golden-discovery',

@@ -440,6 +440,14 @@ function thinProfileCount(items: Array<{ keyword: string }>): number {
       && liveIssueMeasuredFallbackSnapshot.board.every((item) => item.source === 'mobile-live-issue-measured-radar')
       && liveIssueMeasuredFallbackSnapshot.board.every((item) => item.isMeasured && (item.totalSearchVolume || 0) > 0 && (item.documentCount || 0) > 0),
     `${liveIssueMeasuredFallbackSnapshot.lastMessage || ''} :: ${liveIssueMeasuredFallbackSnapshot.board.map((item) => `${item.keyword}:${item.totalSearchVolume}:${item.documentCount}:${item.source}`).join('|')}`);
+  assert('live issue measured fallback preserves searchad pc mobile split and cpc',
+    liveIssueMeasuredFallbackSnapshot.board.some((item) => (
+      item.keyword === 'KIA 3\uC5F0\uD328 \uD0C8\uCD9C \uC815\uB9AC'
+      && item.pcSearchVolume === 2400
+      && item.mobileSearchVolume === 8600
+      && item.cpc === 120
+    )),
+    liveIssueMeasuredFallbackSnapshot.board.map((item) => `${item.keyword}:${item.pcSearchVolume}:${item.mobileSearchVolume}:${item.cpc}`).join('|'));
 
   const publicQualityBoardFile = path.join(process.cwd(), 'tmp', 'mobile-live-golden-public-quality-test.json');
   fs.writeFileSync(publicQualityBoardFile, JSON.stringify({
@@ -896,6 +904,57 @@ function thinProfileCount(items: Array<{ keyword: string }>): number {
       && gradeByKeyword.get('송지호바다하늘길입장료') === 'SSS',
     actionableGradeGateSnapshot.board.map((item) => `${item.keyword}:${item.grade}`).join('|'));
   fs.rmSync(actionableGradeGateBoardFile, { force: true });
+
+  const adsenseReadinessBoardFile = path.join(process.cwd(), 'tmp', 'mobile-live-golden-adsense-readiness-test.json');
+  fs.writeFileSync(adsenseReadinessBoardFile, JSON.stringify({
+    boardUpdatedAt: '2026-06-15T08:00:00.000Z',
+    items: [
+      ['1228\uD68C\uB85C\uB610\uB2F9\uCCA8\uBC88\uD638', 'SSS', 99, 22740, 268, 84.85, 'life_tips'],
+      ['\uBA4B\uC9C4\uC2E0\uC138\uACC4\uBA87\uBD80\uC791', 'SSS', 99, 189300, 766, 247.13, 'drama'],
+      ['2026KBO\uC62C\uC2A4\uD0C0\uC804\uD558\uC774\uB77C\uC774\uD2B8', 'SSS', 96, 19440, 177, 109.83, 'sports'],
+      ['\uC2E0\uC785\uC0AC\uC6D0\uAC15\uD68C\uC7A5\uCD9C\uC5F0\uC9C4', 'SSS', 97, 20030, 456, 43.93, 'drama'],
+      ['\uCCAD\uB144\uBBF8\uB798\uC801\uAE08 \uAC00\uC785\uC2E0\uCCAD \uB300\uC0C1', 'SSS', 95, 26000, 360, 72, 'policy'],
+      ['\uC1A1\uC9C0\uD638\uBC14\uB2E4\uD558\uB298\uAE38\uC785\uC7A5\uB8CC', 'SSS', 94, 9500, 115, 82.6, 'travel_domestic'],
+      ['\uC81C\uC8FC \uB80C\uD130\uCE74 \uAC00\uACA9\uBE44\uAD50', 'SSS', 93, 21000, 850, 24, 'travel_domestic'],
+      ['\uC721\uC544\uD734\uC9C1\uAE09\uC5EC \uC9C0\uAE09\uC77C', 'SSS', 92, 12000, 620, 19.35, 'policy'],
+      ['\uBB34\uC120\uCCAD\uC18C\uAE30 \uAC00\uACA9\uBE44\uAD50', 'SSS', 91, 16000, 590, 27.12, 'electronics'],
+    ].map(([keyword, grade, score, totalSearchVolume, documentCount, goldenRatio, category]) => ({
+      keyword,
+      grade,
+      score,
+      totalSearchVolume,
+      documentCount,
+      goldenRatio,
+      category,
+      updatedAt: '2026-06-15T08:00:00.000Z',
+      discoveredAt: '2026-06-15T08:00:00.000Z',
+      isMeasured: true,
+    })),
+  }), 'utf8');
+  const adsenseReadinessRadar = new MobileLiveGoldenRadar({
+    notificationInbox: inbox,
+    runOnStart: false,
+    boardFile: adsenseReadinessBoardFile,
+    boardTarget: 6,
+    publicPreviewCount: 5,
+    now: () => new Date('2026-06-15T09:00:00.000Z'),
+  });
+  const adsenseReadinessSnapshot = adsenseReadinessRadar.snapshot();
+  const adsenseTopKeywords = adsenseReadinessSnapshot.board.slice(0, 5).map((item) => item.keyword);
+  const adsenseGradeByKeyword = new Map(adsenseReadinessSnapshot.board.map((item) => [item.keyword, item.grade]));
+  assert('live golden board ranks adsense-ready need keywords over one-shot lookup traffic',
+    adsenseTopKeywords.includes('\uCCAD\uB144\uBBF8\uB798\uC801\uAE08 \uAC00\uC785\uC2E0\uCCAD \uB300\uC0C1')
+      && adsenseTopKeywords.includes('\uC1A1\uC9C0\uD638\uBC14\uB2E4\uD558\uB298\uAE38\uC785\uC7A5\uB8CC')
+      && adsenseTopKeywords.includes('\uC81C\uC8FC \uB80C\uD130\uCE74 \uAC00\uACA9\uBE44\uAD50')
+      && adsenseTopKeywords.includes('\uBB34\uC120\uCCAD\uC18C\uAE30 \uAC00\uACA9\uBE44\uAD50')
+      && !adsenseTopKeywords.some((keyword) => /\uB85C\uB610|\uBA87\uBD80\uC791|\uD558\uC774\uB77C\uC774\uD2B8|\uCD9C\uC5F0\uC9C4/.test(keyword)),
+    adsenseReadinessSnapshot.board.map((item) => `${item.rank}:${item.keyword}:${item.grade}`).join('|'));
+  assert('lookup-heavy live board rows cannot keep SSS badges just because ratio is high',
+    adsenseGradeByKeyword.get('1228\uD68C\uB85C\uB610\uB2F9\uCCA8\uBC88\uD638') !== 'SSS'
+      && adsenseGradeByKeyword.get('\uBA4B\uC9C4\uC2E0\uC138\uACC4\uBA87\uBD80\uC791') !== 'SSS'
+      && adsenseGradeByKeyword.get('2026KBO\uC62C\uC2A4\uD0C0\uC804\uD558\uC774\uB77C\uC774\uD2B8') !== 'SSS',
+    adsenseReadinessSnapshot.board.map((item) => `${item.keyword}:${item.grade}`).join('|'));
+  fs.rmSync(adsenseReadinessBoardFile, { force: true });
 
   const persistentKeywordCacheFile = path.join(process.cwd(), 'tmp', 'mobile-live-golden-persistent-keyword-cache-test.json');
   fs.writeFileSync(persistentKeywordCacheFile, JSON.stringify({
