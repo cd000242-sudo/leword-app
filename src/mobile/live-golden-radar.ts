@@ -110,8 +110,8 @@ const LIVE_BOARD_CONTENT_LOOKUP_ABSOLUTE_MAX = 6;
 const LIVE_DIRECT_CANDIDATE_MAX_PER_CYCLE = 600;
 const LIVE_ISSUE_FALLBACK_DOCUMENT_LIMIT = 24;
 const LIVE_ISSUE_FALLBACK_CONCURRENCY = 4;
-const LIVE_BACKFILL_VOLUME_PASS_MAX = 480;
-const LIVE_BACKFILL_DOCUMENT_PASS_MAX = 90;
+const LIVE_BACKFILL_VOLUME_PASS_MAX = 320;
+const LIVE_BACKFILL_DOCUMENT_PASS_MAX = 48;
 const LIVE_BACKFILL_DOCUMENT_CONCURRENCY = 4;
 const NEWS_HEADLINE_FRAGMENT_RE = /(?:\uBD80\uCE5C\uC0C1|\uC0AC\uACFC|\uAD6C\uC18D\uC601\uC7A5|\uD610\uC758|\uC870\uC0AC|\uB17C\uB780|\uC911\uB2E8|\uC778\uC99D|\uC9C0\uC5F0|\uBC15\uC218|\uC120\uC218\uB4E4|\uBC29\uBB38|\uC2AC\uD514|\uD574\uBA85|\uBC1C\uC5B8|\uC120\uACE0|\uCCB4\uD3EC|\uC555\uC218\uC218\uC0C9|\uC0AC\uB9DD|\uBCC4\uC138|\uACB0\uBCC4|\uC5F4\uC560|\uD63C\uC778)/u;
 const SEMANTIC_CLUSTER_SUFFIX_RE = new RegExp(`(?:${[
@@ -1720,7 +1720,7 @@ export class MobileLiveGoldenRadar {
     if (currentCount >= this.boardTarget) return this.cycleLimit;
     const startupDivisor = Math.max(2, Math.min(4, this.startupCatchUpCycles));
     const fillTarget = Math.ceil(this.boardTarget / startupDivisor);
-    return Math.min(45, Math.max(this.cycleLimit, fillTarget));
+    return Math.min(24, Math.max(this.cycleLimit, fillTarget));
   }
 
   private backfillMeasurementLimit(targetLimit: number): number {
@@ -1729,7 +1729,7 @@ export class MobileLiveGoldenRadar {
       Math.min(
         this.maxCandidates,
         LIVE_BACKFILL_VOLUME_PASS_MAX,
-        Math.max(targetLimit * 16, Math.floor(this.maxCandidates * 0.14)),
+        Math.max(targetLimit * 10, Math.floor(this.maxCandidates * 0.08)),
       ),
     );
   }
@@ -1762,6 +1762,7 @@ export class MobileLiveGoldenRadar {
       const directMaxCandidates = directCandidateBudget(this.maxCandidates, runLimit);
       const existingIdsForRun = new Set(this.board.keys());
       const existingClustersForRun = new Set([...this.board.values()].map((item) => keywordClusterKey(item.keyword)).filter(Boolean));
+      const catchUpMode = this.sortedBoard().length < this.boardTarget;
       let qualityDirect: MDPResult[] = [];
       if (this.enableBackfill) {
         const backfill = await this.discoverBackfill({
@@ -1774,7 +1775,8 @@ export class MobileLiveGoldenRadar {
       }
 
       let novelQualityCount = qualityDirect.filter((item) => isNovelMdpResult(item, existingIdsForRun, existingClustersForRun)).length;
-      if (novelQualityCount < runLimit || qualityDirect.length < runLimit) {
+      const shouldRunHeavyDirect = !catchUpMode || qualityDirect.length === 0;
+      if (shouldRunHeavyDirect && (novelQualityCount < runLimit || qualityDirect.length < runLimit)) {
         const direct = await withTimeout(this.discover({
           clientId: env.naverClientId,
           clientSecret: env.naverClientSecret,
