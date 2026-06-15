@@ -899,6 +899,11 @@ function thinProfileCount(items: Array<{ keyword: string }>): number {
       documentCount: 300,
       category: 'lottery',
     },
+    '1227\uD68C': {
+      searchVolume: 4590,
+      documentCount: 1175,
+      category: 'lottery',
+    },
     '2027 6\uBAA8 \uB4F1\uAE09\uCEF7': {
       searchVolume: 208800,
       documentCount: 3147,
