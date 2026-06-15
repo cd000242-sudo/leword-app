@@ -39,6 +39,7 @@ export interface MobileLiveGoldenRadarOptions {
   publicPreviewCount?: number;
   boardFile?: string;
   resultCacheFile?: string;
+  keywordCacheFile?: string;
   maxSeeds?: number;
   maxCandidates?: number;
   startupCatchUpCycles?: number;
@@ -1599,6 +1600,7 @@ export class MobileLiveGoldenRadar {
   private readonly publicPreviewCount: number;
   private readonly boardFile?: string;
   private readonly resultCacheFile?: string;
+  private readonly keywordCacheFile?: string;
   private readonly maxSeeds: number;
   private readonly maxCandidates: number;
   private readonly startupCatchUpCycles: number;
@@ -1653,6 +1655,8 @@ export class MobileLiveGoldenRadar {
     this.publicPreviewCount = Math.max(1, Math.min(10, Math.floor(options.publicPreviewCount || 5)));
     this.boardFile = normalizeKeyword(options.boardFile || '') || undefined;
     this.resultCacheFile = normalizeKeyword(options.resultCacheFile || '') || undefined;
+    this.keywordCacheFile = normalizeKeyword(options.keywordCacheFile || '')
+      || (this.resultCacheFile ? path.join(path.dirname(this.resultCacheFile), 'keyword-cache.json') : undefined);
     this.maxSeeds = Math.max(20, Math.min(1000, Math.floor(
       options.maxSeeds || Math.max(240, this.boardTarget * 8),
     )));
@@ -1680,6 +1684,7 @@ export class MobileLiveGoldenRadar {
     this.now = options.now || (() => new Date());
     this.loadBoardFromFile();
     this.loadMeasuredResultCacheFromFile();
+    this.loadPersistentKeywordCacheFromFile();
   }
 
   start(): MobileLiveGoldenRadarSnapshot {
@@ -2526,6 +2531,96 @@ export class MobileLiveGoldenRadar {
     }
   }
 
+  private loadPersistentKeywordCacheFromFile(): void {
+    if (!this.keywordCacheFile) return;
+    try {
+      if (!fs.existsSync(this.keywordCacheFile)) return;
+      const raw = fs.readFileSync(this.keywordCacheFile, 'utf8').trim();
+      if (!raw) return;
+      const parsed = JSON.parse(raw);
+      const metrics: MobileKeywordMetric[] = [];
+      const pushKeyword = (key: unknown, row: any): void => {
+        const keyword = normalizeKeyword(row?.keyword || key);
+        if (!keyword || keyword === '__schemaVersion') return;
+        const pcSearchVolume = finiteNumber(row?.pcSearchVolume);
+        const mobileSearchVolume = finiteNumber(row?.mobileSearchVolume);
+        const pairedSearchVolume = pcSearchVolume !== null || mobileSearchVolume !== null
+          ? (pcSearchVolume || 0) + (mobileSearchVolume || 0)
+          : null;
+        const totalSearchVolume = finiteNumber(row?.totalSearchVolume)
+          ?? finiteNumber(row?.searchVolume)
+          ?? pairedSearchVolume;
+        const documentCount = finiteNumber(row?.documentCount)
+          ?? finiteNumber(row?.documents)
+          ?? finiteNumber(row?.docs);
+        if (totalSearchVolume === null || documentCount === null || documentCount <= 0) return;
+        const goldenRatio = finiteNumber(row?.goldenRatio)
+          ?? Number((totalSearchVolume / documentCount).toFixed(2));
+        const actionable = hasRobustActionableIntent(keyword)
+          || isActionableGoldenKeyword(keyword)
+          || SPECIFIC_LIVE_KEYWORD_HINT_RE.test(keyword);
+        const computedScore = liveMetricScore(totalSearchVolume, documentCount, goldenRatio, actionable);
+        const rowScore = finiteNumber(row?.score);
+        const score = rowScore !== null && rowScore > 0 ? rowScore : computedScore;
+        const gateGrade = liveGradeFromMetrics(score, totalSearchVolume, documentCount, goldenRatio);
+        const rowGrade = normalizeGrade(row?.grade, score);
+        const grade = rowGrade === 'C' ? gateGrade : rowGrade;
+        const metric: MobileKeywordMetric = {
+          keyword,
+          grade,
+          score,
+          pcSearchVolume,
+          mobileSearchVolume,
+          totalSearchVolume,
+          documentCount,
+          goldenRatio,
+          cpc: finiteNumber(row?.cpc) ?? finiteNumber(row?.realCpc),
+          category: inferLiveCategory(keyword, normalizeKeyword(row?.category) || 'persistent-cache'),
+          source: normalizeKeyword(row?.source) || 'persistent-keyword-cache',
+          intent: normalizeKeyword(row?.intent) || 'persistent-measured-golden-cache',
+          evidence: Array.isArray(row?.evidence)
+            ? row.evidence.map((entry: unknown) => normalizeKeyword(entry)).filter(Boolean).slice(0, 8)
+            : ['persistent-keyword-cache', 'measured-search-volume', 'measured-document-count'],
+          isMeasured: true,
+        };
+        if (metric.grade === 'C') return;
+        if (!hasCompleteLiveGoldenMetrics(metric)) return;
+        if (!isLiveRadarUsableMetric(metric, this.now())) return;
+        metrics.push(metric);
+      };
+
+      if (Array.isArray(parsed?.keywords)) {
+        for (const row of parsed.keywords) pushKeyword(row?.keyword, row);
+      }
+      if (Array.isArray(parsed?.items)) {
+        for (const row of parsed.items) pushKeyword(row?.keyword, row);
+      }
+      if (parsed && typeof parsed === 'object' && !Array.isArray(parsed)) {
+        for (const [key, row] of Object.entries(parsed)) {
+          if (key === '__schemaVersion') continue;
+          if (!row || typeof row !== 'object') continue;
+          pushKeyword(key, row);
+        }
+      }
+
+      if (metrics.length > 0) {
+        metrics.sort((a, b) => {
+          const ratioDiff = (b.goldenRatio || 0) - (a.goldenRatio || 0);
+          const scoreDiff = (b.score || 0) - (a.score || 0);
+          const volumeDiff = (b.totalSearchVolume || 0) - (a.totalSearchVolume || 0);
+          if (scoreDiff !== 0) return scoreDiff;
+          if (ratioDiff !== 0) return ratioDiff;
+          return volumeDiff;
+        });
+        this.mergeBoard(metrics.slice(0, Math.max(180, this.boardTarget * 12)));
+        this.lastMessage = `loaded ${metrics.length} persistent measured keyword candidates`;
+      }
+    } catch (err) {
+      this.lastError = (err as Error).message || String(err);
+      this.lastMessage = `persistent keyword cache load failed: ${this.lastError}`;
+    }
+  }
+
   private loadBoardFromFile(): void {
     if (!this.boardFile) return;
     try {
@@ -2639,6 +2734,7 @@ export function createMobileLiveGoldenRadarFromEnv(
   const publicPreviewCount = Number(process.env['LEWORD_PUBLIC_GOLDEN_PREVIEW_COUNT'] || 0);
   const boardFile = normalizeKeyword(process.env['LEWORD_MOBILE_LIVE_GOLDEN_BOARD_FILE'] || '');
   const resultCacheFile = normalizeKeyword(process.env['LEWORD_MOBILE_CACHE_FILE'] || '');
+  const keywordCacheFile = normalizeKeyword(process.env['LEWORD_MOBILE_KEYWORD_CACHE_FILE'] || '');
   const runOnStart = process.env['LEWORD_MOBILE_LIVE_GOLDEN_ON_START'] !== 'false';
   return new MobileLiveGoldenRadar({
     notificationInbox,
@@ -2651,6 +2747,7 @@ export function createMobileLiveGoldenRadarFromEnv(
     publicPreviewCount: Number.isFinite(publicPreviewCount) && publicPreviewCount > 0 ? publicPreviewCount : undefined,
     boardFile: boardFile || undefined,
     resultCacheFile: resultCacheFile || undefined,
+    keywordCacheFile: keywordCacheFile || undefined,
     maxSeeds: Number.isFinite(maxSeeds) && maxSeeds > 0 ? maxSeeds : undefined,
     maxCandidates: Number.isFinite(maxCandidates) && maxCandidates > 0 ? maxCandidates : undefined,
     startupCatchUpCycles: Number.isFinite(startupCatchUpCycles) && startupCatchUpCycles > 0

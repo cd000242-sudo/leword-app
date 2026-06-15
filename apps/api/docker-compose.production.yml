@@ -11,6 +11,7 @@ services:
       LEWORD_API_PORT: "34983"
       LEWORD_CHROME_PATH: /usr/bin/chromium
       LEWORD_MOBILE_CACHE_FILE: /data/mobile-cache.json
+      LEWORD_MOBILE_KEYWORD_CACHE_FILE: /data/keyword-cache.json
       LEWORD_MOBILE_LIVE_GOLDEN_BOARD_FILE: /data/live-golden-board.json
       LEWORD_MOBILE_LIVE_GOLDEN_ENABLED: "true"
       LEWORD_MOBILE_LIVE_GOLDEN_ON_START: "true"

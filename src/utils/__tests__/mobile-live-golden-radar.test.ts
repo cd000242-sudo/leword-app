@@ -851,6 +851,79 @@ function thinProfileCount(items: Array<{ keyword: string }>): number {
     contentDiversitySnapshot.board.map((item) => `${item.rank}:${item.category}:${item.keyword}`).join('|'));
   fs.rmSync(contentDiversityBoardFile, { force: true });
 
+  const persistentKeywordCacheFile = path.join(process.cwd(), 'tmp', 'mobile-live-golden-persistent-keyword-cache-test.json');
+  fs.writeFileSync(persistentKeywordCacheFile, JSON.stringify({
+    __schemaVersion: 'test-cache',
+    '\uCCAD\uB144\uBBF8\uB798\uC801\uAE08 \uAC00\uC785\uC2E0\uCCAD \uB300\uC0C1': {
+      searchVolume: 26000,
+      documentCount: 360,
+      category: 'policy',
+    },
+    'KBO \uC62C\uC2A4\uD0C0\uC804 \uC608\uB9E4 \uC77C\uC815': {
+      searchVolume: 15000,
+      documentCount: 900,
+      category: 'sports',
+    },
+    '\uC7A5\uB9C8 \uC900\uBE44\uBB3C \uCCB4\uD06C\uB9AC\uC2A4\uD2B8': {
+      searchVolume: 12000,
+      documentCount: 700,
+      category: 'life_tips',
+    },
+    '\uC81C\uC8FC \uB80C\uD130\uCE74 \uAC00\uACA9\uBE44\uAD50': {
+      searchVolume: 21000,
+      documentCount: 850,
+      category: 'travel_domestic',
+    },
+    '\uBB34\uC120\uCCAD\uC18C\uAE30 \uAC00\uACA9\uBE44\uAD50': {
+      searchVolume: 16000,
+      documentCount: 590,
+      category: 'electronics',
+    },
+    '\uC5EC\uB984 \uC120\uD06C\uB9BC \uCD94\uCC9C': {
+      searchVolume: 19000,
+      documentCount: 680,
+      category: 'beauty',
+    },
+    '\uCD08\uBCF5 \uC0BC\uACC4\uD0D5 \uC608\uC57D \uCD94\uCC9C': {
+      searchVolume: 18000,
+      documentCount: 740,
+      category: 'food',
+    },
+    '\uCF58\uC11C\uD2B8 \uC608\uB9E4 \uC77C\uC815': {
+      searchVolume: 17500,
+      documentCount: 640,
+      category: 'music',
+    },
+    '1227\uD68C \uB85C\uB610 \uB2F9\uCCA8\uBC88\uD638': {
+      searchVolume: 45000,
+      documentCount: 300,
+      category: 'lottery',
+    },
+    '2027 6\uBAA8 \uB4F1\uAE09\uCEF7': {
+      searchVolume: 208800,
+      documentCount: 3147,
+      category: 'education',
+    },
+  }), 'utf8');
+  const persistentKeywordCacheRadar = new MobileLiveGoldenRadar({
+    notificationInbox: inbox,
+    runOnStart: false,
+    keywordCacheFile: persistentKeywordCacheFile,
+    boardTarget: 8,
+    publicPreviewCount: 5,
+    now: () => new Date('2026-06-15T09:00:00.000Z'),
+  });
+  const persistentKeywordCacheSnapshot = persistentKeywordCacheRadar.snapshot();
+  assert('persistent measured keyword cache backfills diverse pro rows with real metrics',
+    persistentKeywordCacheSnapshot.board.length === 8
+      && persistentKeywordCacheSnapshot.board.every((item) => item.isMeasured && (item.totalSearchVolume || 0) > 0 && (item.documentCount || 0) > 0)
+      && new Set(persistentKeywordCacheSnapshot.board.map((item) => item.category)).size >= 6,
+    persistentKeywordCacheSnapshot.board.map((item) => `${item.rank}:${item.category}:${item.keyword}:${item.totalSearchVolume}:${item.documentCount}`).join('|'));
+  assert('persistent measured keyword cache rejects stale lotto and future exam rows',
+    !persistentKeywordCacheSnapshot.board.some((item) => /1227\uD68C|2027 6\uBAA8/.test(item.keyword)),
+    persistentKeywordCacheSnapshot.board.map((item) => `${item.rank}:${item.keyword}`).join('|'));
+  fs.rmSync(persistentKeywordCacheFile, { force: true });
+
   let skippedDiscoverCalls = 0;
   const skippedRadar = new MobileLiveGoldenRadar({
     notificationInbox: inbox,
