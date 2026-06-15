@@ -1113,6 +1113,60 @@ function thinProfileCount(items: Array<{ keyword: string }>): number {
     splitEnrichmentSnapshot.board.map((item) => `${item.keyword}:${item.pcSearchVolume}:${item.mobileSearchVolume}:${item.documentCount}:${item.cpc}`).join('|'));
   fs.rmSync(splitEnrichmentCacheFile, { force: true });
 
+  const strictReadyBoardFile = path.join(process.cwd(), 'tmp', 'mobile-live-golden-strict-ready-test.json');
+  const strictCategories = ['policy', 'travel_domestic', 'electronics', 'food', 'it', 'finance', 'shopping'];
+  const strictReadyRows = Array.from({ length: 70 }, (_, index) => ({
+    keyword: `\uC11C\uBC84\uBCF4\uAC15${index + 1} \uC2E0\uCCAD \uBC29\uBC95`,
+    grade: index < 8 ? 'SS' : 'A',
+    score: 90 - (index % 20),
+    pcSearchVolume: 100 + index,
+    mobileSearchVolume: 900 + index * 3,
+    totalSearchVolume: 1000 + index * 4,
+    documentCount: 200 + index * 5,
+    goldenRatio: Number(((1000 + index * 4) / (200 + index * 5)).toFixed(2)),
+    category: strictCategories[index % strictCategories.length],
+    updatedAt: '2026-06-15T08:00:00.000Z',
+    discoveredAt: '2026-06-15T08:00:00.000Z',
+    isMeasured: true,
+  }));
+  const strictFillerRows = [
+    '\uBA4B\uC9C4\uC2E0\uC138\uACC4\uBA87\uBD80\uC791',
+    '\uCC38\uAD50\uC721\uBA87\uBD80\uC791',
+    '\uC2E0\uC785\uC0AC\uC6D0\uAC15\uD68C\uC7A5\uCD9C\uC5F0\uC9C4',
+    '1228\uD68C\uB85C\uB610\uB2F9\uCCA8\uBC88\uD638',
+    '1228\uD68C\uB85C\uB610',
+  ].map((keyword, index) => ({
+    keyword,
+    grade: index < 3 ? 'S' : 'A',
+    score: 88,
+    totalSearchVolume: 20000 + index * 1000,
+    documentCount: 300 + index * 40,
+    goldenRatio: 40,
+    category: index < 3 ? 'drama' : 'life_tips',
+    updatedAt: '2026-06-15T08:00:00.000Z',
+    discoveredAt: '2026-06-15T08:00:00.000Z',
+    isMeasured: true,
+  }));
+  fs.writeFileSync(strictReadyBoardFile, JSON.stringify({
+    boardUpdatedAt: '2026-06-15T08:00:00.000Z',
+    items: [...strictReadyRows, ...strictFillerRows],
+  }), 'utf8');
+  const strictReadyRadar = new MobileLiveGoldenRadar({
+    notificationInbox: inbox,
+    runOnStart: false,
+    boardFile: strictReadyBoardFile,
+    boardTarget: 120,
+    publicPreviewCount: 5,
+    now: () => new Date('2026-06-15T09:00:00.000Z'),
+  });
+  const strictReadySnapshot = strictReadyRadar.snapshot();
+  assert('live golden board stops filling with weak rows once 60 strict measured rows are ready',
+    strictReadySnapshot.board.length === 70
+      && strictReadySnapshot.board.every((item) => item.pcSearchVolume !== null && item.mobileSearchVolume !== null)
+      && !strictReadySnapshot.board.some((item) => /\uBA87\uBD80\uC791|\uCD9C\uC5F0\uC9C4|\uB85C\uB610|\uB2F9\uCCA8\uBC88\uD638/.test(item.keyword)),
+    strictReadySnapshot.board.map((item) => `${item.rank}:${item.keyword}:${item.pcSearchVolume}:${item.mobileSearchVolume}`).join('|'));
+  fs.rmSync(strictReadyBoardFile, { force: true });
+
   let skippedDiscoverCalls = 0;
   const skippedRadar = new MobileLiveGoldenRadar({
     notificationInbox: inbox,

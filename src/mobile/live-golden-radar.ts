@@ -109,6 +109,7 @@ const LIVE_BOARD_EPISODE_LOOKUP_SHARE_CAP = 0.05;
 const LIVE_BOARD_EPISODE_LOOKUP_ABSOLUTE_MAX = 3;
 const LIVE_BOARD_CONTENT_LOOKUP_SHARE_CAP = 0.10;
 const LIVE_BOARD_CONTENT_LOOKUP_ABSOLUTE_MAX = 6;
+const LIVE_BOARD_STRICT_READY_MIN = 60;
 const LIVE_DIRECT_CANDIDATE_MAX_PER_CYCLE = 600;
 const LIVE_ISSUE_FALLBACK_DOCUMENT_LIMIT = 24;
 const LIVE_ISSUE_FALLBACK_CONCURRENCY = 4;
@@ -917,6 +918,28 @@ function boardCategoryKey(item: MobileLiveGoldenBoardItem): string {
 }
 
 function selectLiveBoardItems<T extends MobileLiveGoldenBoardItem>(
+  sorted: T[],
+  boardTarget: number,
+): T[] {
+  const target = Math.max(1, Math.floor(boardTarget));
+  const strictReadyTarget = Math.min(target, LIVE_BOARD_STRICT_READY_MIN);
+  const strictReady = sorted.filter(isStrictReadyLiveBoardItem);
+  if (strictReady.length >= strictReadyTarget) {
+    return selectLiveBoardItemsFromPool(strictReady, target);
+  }
+  return selectLiveBoardItemsFromPool(sorted, target);
+}
+
+function isStrictReadyLiveBoardItem(item: MobileLiveGoldenBoardItem): boolean {
+  const keyword = normalizeKeyword(item.keyword);
+  return hasCompleteLiveGoldenMetrics(item)
+    && hasMeasuredPcMobileSplit(item)
+    && !isLottoLookupKeyword(keyword)
+    && !isLowAdsenseLookupKeyword(keyword)
+    && !isBrandSafetyNewsKeyword(keyword);
+}
+
+function selectLiveBoardItemsFromPool<T extends MobileLiveGoldenBoardItem>(
   sorted: T[],
   boardTarget: number,
 ): T[] {
