@@ -1113,6 +1113,60 @@ function thinProfileCount(items: Array<{ keyword: string }>): number {
     splitEnrichmentSnapshot.board.map((item) => `${item.keyword}:${item.pcSearchVolume}:${item.mobileSearchVolume}:${item.documentCount}:${item.cpc}`).join('|'));
   fs.rmSync(splitEnrichmentCacheFile, { force: true });
 
+  const preserveSplitBoardFile = path.join(process.cwd(), 'tmp', 'mobile-live-golden-preserve-split-board-test.json');
+  const preserveSplitKeywordCacheFile = path.join(process.cwd(), 'tmp', 'mobile-live-golden-preserve-split-keyword-cache-test.json');
+  fs.writeFileSync(preserveSplitBoardFile, JSON.stringify({
+    boardUpdatedAt: '2026-06-15T08:00:00.000Z',
+    items: [{
+      keyword: '\uCCAD\uB144\uC9C0\uC6D0\uAE08 \uC2E0\uCCAD \uBC29\uBC95',
+      grade: 'SS',
+      score: 91,
+      pcSearchVolume: 220,
+      mobileSearchVolume: 1780,
+      totalSearchVolume: 2000,
+      documentCount: 500,
+      goldenRatio: 4,
+      cpc: 1300,
+      category: 'policy',
+      updatedAt: '2026-06-15T08:00:00.000Z',
+      discoveredAt: '2026-06-15T08:00:00.000Z',
+      isMeasured: true,
+    }],
+  }), 'utf8');
+  fs.writeFileSync(preserveSplitKeywordCacheFile, JSON.stringify({
+    items: [{
+      keyword: '\uCCAD\uB144\uC9C0\uC6D0\uAE08 \uC2E0\uCCAD \uBC29\uBC95',
+      grade: 'SS',
+      score: 93,
+      totalSearchVolume: 2600,
+      documentCount: 520,
+      goldenRatio: 5,
+      category: 'policy',
+      updatedAt: '2026-06-15T08:10:00.000Z',
+      discoveredAt: '2026-06-15T08:10:00.000Z',
+      isMeasured: true,
+    }],
+  }), 'utf8');
+  const preserveSplitRadar = new MobileLiveGoldenRadar({
+    notificationInbox: inbox,
+    runOnStart: false,
+    boardFile: preserveSplitBoardFile,
+    keywordCacheFile: preserveSplitKeywordCacheFile,
+    boardTarget: 120,
+    publicPreviewCount: 5,
+    now: () => new Date('2026-06-15T09:00:00.000Z'),
+  });
+  const preserveSplitItem = preserveSplitRadar.snapshot().board[0];
+  assert('live golden board keeps persisted pc/mobile split when keyword cache reload lacks split metrics',
+    preserveSplitItem?.pcSearchVolume === 220
+      && preserveSplitItem?.mobileSearchVolume === 1780
+      && preserveSplitItem?.totalSearchVolume === 2000
+      && preserveSplitItem?.documentCount === 520
+      && preserveSplitItem?.cpc === 1300,
+    JSON.stringify(preserveSplitItem));
+  fs.rmSync(preserveSplitBoardFile, { force: true });
+  fs.rmSync(preserveSplitKeywordCacheFile, { force: true });
+
   const strictReadyBoardFile = path.join(process.cwd(), 'tmp', 'mobile-live-golden-strict-ready-test.json');
   const strictCategories = ['policy', 'travel_domestic', 'electronics', 'food', 'it', 'finance', 'shopping'];
   const strictReadyRows = Array.from({ length: 70 }, (_, index) => ({

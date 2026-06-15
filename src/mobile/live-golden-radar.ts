@@ -2645,21 +2645,60 @@ export class MobileLiveGoldenRadar {
       if (!normalizedKeyword || keyword.grade === 'C') continue;
       if (!hasCompleteLiveGoldenMetrics(keyword)) continue;
       if (!isLiveRadarUsableMetric({ ...keyword, keyword: normalizedKeyword }, now)) continue;
-      const volume = finiteNumber(keyword.totalSearchVolume);
-      const docs = finiteNumber(keyword.documentCount);
-      const ratio = finiteNumber(keyword.goldenRatio)
-        || (volume !== null && docs !== null && docs > 0 ? Number((volume / docs).toFixed(2)) : null);
-      const grade = volume !== null && docs !== null && docs > 0 && ratio !== null
-        ? normalizeLiveMetricGrade(normalizedKeyword, keyword.grade, finiteNumber(keyword.score), volume, docs, ratio)
-        : keyword.grade;
-      if (grade === 'C') continue;
       const id = keywordId(normalizedKeyword);
       const compactId = keywordCompactId(normalizedKeyword);
       const existing = this.board.get(id)
         || [...this.board.values()].find((item) => keywordCompactId(item.keyword) === compactId);
+      const incomingVolume = finiteNumber(keyword.totalSearchVolume);
+      const docs = finiteNumber(keyword.documentCount);
+      const incomingPc = finiteNumber(keyword.pcSearchVolume);
+      const incomingMobile = finiteNumber(keyword.mobileSearchVolume);
+      const incomingSplitTotal = incomingPc !== null && incomingMobile !== null
+        ? incomingPc + incomingMobile
+        : 0;
+      const existingPc = finiteNumber(existing?.pcSearchVolume);
+      const existingMobile = finiteNumber(existing?.mobileSearchVolume);
+      const existingSplitTotal = existingPc !== null && existingMobile !== null
+        ? existingPc + existingMobile
+        : 0;
+      const pcSearchVolume = incomingSplitTotal > 0
+        ? incomingPc
+        : existingSplitTotal > 0
+          ? existingPc
+          : incomingPc;
+      const mobileSearchVolume = incomingSplitTotal > 0
+        ? incomingMobile
+        : existingSplitTotal > 0
+          ? existingMobile
+          : incomingMobile;
+      const splitTotal = pcSearchVolume !== null && mobileSearchVolume !== null
+        ? pcSearchVolume + mobileSearchVolume
+        : 0;
+      const volume = splitTotal > 0 ? splitTotal : incomingVolume;
+      const ratio = volume !== null && docs !== null && docs > 0
+        ? Number((volume / docs).toFixed(2))
+        : finiteNumber(keyword.goldenRatio);
+      const incomingCpc = finiteNumber(keyword.cpc);
+      const existingCpc = finiteNumber(existing?.cpc);
+      const cpc = incomingCpc !== null && incomingCpc > 0
+        ? incomingCpc
+        : existingCpc !== null && existingCpc > 0
+          ? existingCpc
+          : incomingCpc ?? existingCpc;
+      const metric = {
+        ...keyword,
+        pcSearchVolume,
+        mobileSearchVolume,
+        totalSearchVolume: volume ?? keyword.totalSearchVolume,
+        cpc,
+      };
+      const grade = volume !== null && docs !== null && docs > 0 && ratio !== null
+        ? normalizeLiveMetricGrade(normalizedKeyword, keyword.grade, finiteNumber(keyword.score), volume, docs, ratio)
+        : keyword.grade;
+      if (grade === 'C') continue;
       const boardId = existing?.id || id;
       const item: MobileLiveGoldenBoardItem = {
-        ...keyword,
+        ...metric,
         keyword: normalizedKeyword,
         grade,
         goldenRatio: ratio,
@@ -2669,9 +2708,9 @@ export class MobileLiveGoldenRadar {
         updatedAt: stamp,
         freshness: 'live',
         isPublicPreview: false,
-        publicSearchVolumeLabel: formatRange(keyword.totalSearchVolume, 'search'),
+        publicSearchVolumeLabel: formatRange(metric.totalSearchVolume, 'search'),
         publicDocumentCountLabel: formatRange(keyword.documentCount, 'document'),
-        publicReason: publicReason({ ...keyword, grade, goldenRatio: ratio }),
+        publicReason: publicReason({ ...metric, grade, goldenRatio: ratio }),
       };
       this.board.set(boardId, item);
     }
