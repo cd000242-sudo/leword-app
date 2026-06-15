@@ -905,6 +905,62 @@ function resultSummaryForKeywords(
   };
 }
 
+const SYNTHETIC_RESULT_MARKER_PATTERN = /\b(dummy|mock|fake|sample|demo|placeholder|synthetic|estimated|estimate)\b|추정|더미|샘플|server-intent-template|server-zero-live-fallback|intent-fallback|pc-intent-expansion/i;
+
+function isPositiveFiniteMetric(value: unknown): value is number {
+  return typeof value === 'number' && Number.isFinite(value) && value > 0;
+}
+
+function isNonNegativeFiniteMetric(value: unknown): value is number {
+  return typeof value === 'number' && Number.isFinite(value) && value >= 0;
+}
+
+function metricRuntimeMarkerText(metric: MobileKeywordMetric): string {
+  return [
+    metric.source,
+    metric.intent,
+    metric.category,
+    ...(Array.isArray(metric.evidence) ? metric.evidence : []),
+  ].join(' ');
+}
+
+function isStrictMeasuredKeywordMetric(
+  endpoint: MobileApiEndpointSpec,
+  metric: MobileKeywordMetric,
+): boolean {
+  if (!metric || !String(metric.keyword || '').trim()) return false;
+  if (metric.isMeasured !== true) return false;
+  if (SYNTHETIC_RESULT_MARKER_PATTERN.test(metricRuntimeMarkerText(metric))) return false;
+  if (!isPositiveFiniteMetric(metric.totalSearchVolume)) return false;
+  if (!isPositiveFiniteMetric(metric.documentCount)) return false;
+  if (endpoint.product === 'keyword-analysis') {
+    return isNonNegativeFiniteMetric(metric.pcSearchVolume)
+      && isNonNegativeFiniteMetric(metric.mobileSearchVolume);
+  }
+  return true;
+}
+
+function sanitizeMeasuredKeywordResult(
+  endpoint: MobileApiEndpointSpec,
+  result: MobileKeywordResult,
+): MobileKeywordResult {
+  if (!result || !Array.isArray(result.keywords)) return result;
+  const deduped: MobileKeywordMetric[] = [];
+  const seen = new Set<string>();
+  for (const metric of result.keywords) {
+    if (!isStrictMeasuredKeywordMetric(endpoint, metric)) continue;
+    const key = compactServerKeyword(metric.keyword);
+    if (!key || seen.has(key)) continue;
+    seen.add(key);
+    deduped.push(metric);
+  }
+  return {
+    ...result,
+    keywords: deduped,
+    summary: resultSummaryForKeywords(result, deduped),
+  };
+}
+
 function metricFromLiveGoldenBoardItem(item: MobileKeywordMetric): MobileKeywordMetric {
   return {
     keyword: item.keyword,
@@ -1030,15 +1086,24 @@ async function createJob(
     const splitParams = splitSensitiveJobParams(params, decodeUserApiCredentialsHeader(req));
     const cachedResult = resultCache?.get(endpoint.product, splitParams.cacheParams);
     const cachedSyncedResult = cachedResult
-      ? overlayLiveGoldenExactKeyword(endpoint, splitParams.executorParams, cachedResult, liveGoldenRadar)
+      ? sanitizeMeasuredKeywordResult(
+        endpoint,
+        overlayLiveGoldenExactKeyword(endpoint, splitParams.executorParams, cachedResult, liveGoldenRadar),
+      )
       : null;
+    if (cachedSyncedResult) {
+      resultCache?.set(endpoint.product, splitParams.cacheParams, cachedSyncedResult);
+    }
     const job = cachedResult
       ? store.createCompleted(endpoint.product, splitParams.publicParams, cachedSyncedResult as MobileKeywordResult)
       : store.create(endpoint.product, splitParams.publicParams, async (job, context) => {
         const result = await pcWorkerExecutor({ ...job, params: splitParams.executorParams }, context);
-        const syncedResult = overlayLiveGoldenExactKeyword(endpoint, splitParams.executorParams, result, liveGoldenRadar);
-        resultCache?.set(endpoint.product, splitParams.cacheParams, syncedResult);
-        return syncedResult;
+        const sanitizedResult = sanitizeMeasuredKeywordResult(
+          endpoint,
+          overlayLiveGoldenExactKeyword(endpoint, splitParams.executorParams, result, liveGoldenRadar),
+        );
+        resultCache?.set(endpoint.product, splitParams.cacheParams, sanitizedResult);
+        return sanitizedResult;
       });
 
     json(res, 202, {

@@ -1419,8 +1419,8 @@ const result: MobileKeywordResult = {
       keyword: '한강유람선예약',
       grade: 'S',
       score: 70,
-      pcSearchVolume: null,
-      mobileSearchVolume: null,
+      pcSearchVolume: 960,
+      mobileSearchVolume: 9120,
       totalSearchVolume: 10080,
       documentCount: 11316,
       goldenRatio: 0.89,
@@ -1489,6 +1489,8 @@ const result: MobileKeywordResult = {
     assert('keyword analysis exact row syncs live golden board metrics',
       analyze.status === 202
         && firstKeyword.keyword === '한강유람선예약'
+        && firstKeyword.pcSearchVolume === 960
+        && firstKeyword.mobileSearchVolume === 9120
         && firstKeyword.totalSearchVolume === 10080
         && firstKeyword.documentCount === 11316
         && firstKeyword.source === 'live-golden-board-exact-match'
@@ -1589,6 +1591,139 @@ const result: MobileKeywordResult = {
   }
 
   console.log('[mobile-api-server-live-board-overlay-split.test] passed');
+
+  let strictExecutorCalls = 0;
+  const uncleanKeywordResult: MobileKeywordResult = {
+    ...result,
+    keywords: [{
+      keyword: '실측키워드',
+      grade: 'SS',
+      pcSearchVolume: 120,
+      mobileSearchVolume: 880,
+      totalSearchVolume: 1000,
+      documentCount: 200,
+      goldenRatio: 5,
+      cpc: 0,
+      category: 'test',
+      source: 'pc-searchad-openapi',
+      intent: 'requested-keyword',
+      evidence: ['pc-searchad-volume', 'pc-naver-blog-document-count'],
+      isMeasured: true,
+    }, {
+      keyword: '더미키워드',
+      grade: 'SSS',
+      pcSearchVolume: 1000,
+      mobileSearchVolume: 2000,
+      totalSearchVolume: 3000,
+      documentCount: 10,
+      goldenRatio: 300,
+      cpc: 0,
+      category: 'test',
+      source: 'dummy-generator',
+      intent: 'requested-keyword',
+      evidence: ['dummy data'],
+      isMeasured: true,
+    }, {
+      keyword: '추정키워드',
+      grade: 'SSS',
+      pcSearchVolume: 500,
+      mobileSearchVolume: 500,
+      totalSearchVolume: 1000,
+      documentCount: 20,
+      goldenRatio: 50,
+      cpc: 0,
+      category: 'test',
+      source: 'estimated-serp',
+      intent: 'related-keyword',
+      evidence: ['estimated'],
+      isMeasured: true,
+    }, {
+      keyword: '부분측정키워드',
+      grade: 'S',
+      pcSearchVolume: 100,
+      mobileSearchVolume: 100,
+      totalSearchVolume: 200,
+      documentCount: null,
+      goldenRatio: null,
+      cpc: 0,
+      category: 'test',
+      source: 'pc-searchad-openapi',
+      intent: 'related-keyword',
+      evidence: ['pc-searchad-volume'],
+      isMeasured: true,
+    }, {
+      keyword: '분할없는키워드',
+      grade: 'S',
+      pcSearchVolume: null,
+      mobileSearchVolume: null,
+      totalSearchVolume: 1200,
+      documentCount: 300,
+      goldenRatio: 4,
+      cpc: 0,
+      category: 'test',
+      source: 'pc-searchad-openapi',
+      intent: 'related-keyword',
+      evidence: ['pc-searchad-volume', 'pc-naver-blog-document-count'],
+      isMeasured: true,
+    }],
+    summary: {
+      total: 5,
+      sss: 2,
+      measured: 5,
+      elapsedMs: 1,
+      fromCache: false,
+      parityMode: 'pc-engine-plus',
+    },
+  };
+  const strictCache = new InMemoryMobileResultCache();
+  strictCache.set('keyword-analysis', { keyword: '캐시검증' }, uncleanKeywordResult);
+  const strictServer = createLewordApiServer({
+    entitlementVerifier: null,
+    resultCache: strictCache,
+    liveGoldenRadar: null,
+    prewarmService: null,
+    prewarmScheduler: null,
+    executor: async () => {
+      strictExecutorCalls += 1;
+      return uncleanKeywordResult;
+    },
+  });
+  const strictPort = await listen(strictServer);
+  const strictBaseUrl = `http://127.0.0.1:${strictPort}`;
+  try {
+    const fresh = await fetch(`${strictBaseUrl}/v1/keywords/analyze`, {
+      method: 'POST',
+      headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify({ keyword: '실측키워드' }),
+    });
+    const freshJson: any = await fresh.json();
+    const freshCompleted = await waitForCompletedJob(strictBaseUrl, freshJson.job.id);
+    assert('keyword job hides dummy estimated and partial metrics',
+      freshCompleted.result.keywords.length === 1
+        && freshCompleted.result.keywords[0].keyword === '실측키워드'
+        && freshCompleted.result.summary.total === 1
+        && freshCompleted.result.summary.measured === 1
+        && freshCompleted.result.summary.sss === 0,
+      JSON.stringify(freshCompleted.result));
+
+    const cached = await fetch(`${strictBaseUrl}/v1/keywords/analyze`, {
+      method: 'POST',
+      headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify({ keyword: '캐시검증' }),
+    });
+    const cachedJson: any = await cached.json();
+    const cachedCompleted = await waitForCompletedJob(strictBaseUrl, cachedJson.job.id);
+    assert('cached keyword job also hides dummy estimated and partial metrics',
+      cachedCompleted.result.keywords.length === 1
+        && cachedCompleted.result.keywords[0].keyword === '실측키워드'
+        && cachedCompleted.result.summary.fromCache === true
+        && strictExecutorCalls === 1,
+      JSON.stringify({ result: cachedCompleted.result, strictExecutorCalls }));
+  } finally {
+    await close(strictServer);
+  }
+
+  console.log('[mobile-api-server-strict-measured-result.test] passed');
 
   let prewarmExecutions = 0;
   const sentPushMessages: any[] = [];
