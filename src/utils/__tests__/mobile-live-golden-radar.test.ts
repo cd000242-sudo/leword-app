@@ -1039,6 +1039,80 @@ function thinProfileCount(items: Array<{ keyword: string }>): number {
     persistentKeywordCacheSnapshot.board.map((item) => `${item.rank}:${item.keyword}`).join('|'));
   fs.rmSync(persistentKeywordCacheFile, { force: true });
 
+  const splitEnrichmentCacheFile = path.join(process.cwd(), 'tmp', 'mobile-live-golden-split-enrichment-test.json');
+  fs.writeFileSync(splitEnrichmentCacheFile, JSON.stringify({
+    __schemaVersion: 'test-cache',
+    '\uCCAD\uB144\uBBF8\uB798\uC801\uAE08 \uAC00\uC785\uC2E0\uCCAD \uB300\uC0C1': {
+      searchVolume: 26000,
+      documentCount: 360,
+      category: 'policy',
+    },
+    '\uC81C\uC8FC \uB80C\uD130\uCE74 \uAC00\uACA9\uBE44\uAD50': {
+      searchVolume: 21000,
+      documentCount: 850,
+      category: 'travel_domestic',
+    },
+  }), 'utf8');
+  let splitEnrichmentCalls = 0;
+  const splitEnrichmentRadar = new MobileLiveGoldenRadar({
+    notificationInbox: inbox,
+    runOnStart: false,
+    keywordCacheFile: splitEnrichmentCacheFile,
+    categories: ['policy'],
+    getEnvConfig: () => ({
+      naverClientId: 'client',
+      naverClientSecret: 'secret',
+      naverSearchAdAccessLicense: 'access',
+      naverSearchAdSecretKey: 'secret-key',
+    }),
+    liveSeedProvider: async () => [],
+    enableBackfill: false,
+    discover: async () => [],
+    measureLiveSearchVolumeSeparate: async (_config, keywords, options) => {
+      splitEnrichmentCalls += 1;
+      assert('split enrichment does not spend document-count quota', options?.includeDocumentCount === false);
+      return keywords.map((keyword) => {
+        if (keyword.includes('\uCCAD\uB144\uBBF8\uB798\uC801\uAE08')) {
+          return {
+            keyword,
+            pcSearchVolume: 4200,
+            mobileSearchVolume: 21800,
+            documentCount: null,
+            competition: 'LOW',
+            monthlyAveCpc: 740,
+          };
+        }
+        return {
+          keyword,
+          pcSearchVolume: 3100,
+          mobileSearchVolume: 17900,
+          documentCount: null,
+          competition: 'LOW',
+          monthlyAveCpc: 520,
+        };
+      });
+    },
+  });
+  const splitEnrichmentSnapshot = await splitEnrichmentRadar.runOnce();
+  assert('persistent board rows are enriched with real searchad pc mobile split without estimated documents',
+    splitEnrichmentCalls > 0
+      && splitEnrichmentSnapshot.board.some((item) => (
+        item.keyword === '\uCCAD\uB144\uBBF8\uB798\uC801\uAE08 \uAC00\uC785\uC2E0\uCCAD \uB300\uC0C1'
+        && item.pcSearchVolume === 4200
+        && item.mobileSearchVolume === 21800
+        && item.documentCount === 360
+        && item.cpc === 740
+      ))
+      && splitEnrichmentSnapshot.board.some((item) => (
+        item.keyword === '\uC81C\uC8FC \uB80C\uD130\uCE74 \uAC00\uACA9\uBE44\uAD50'
+        && item.pcSearchVolume === 3100
+        && item.mobileSearchVolume === 17900
+        && item.documentCount === 850
+        && item.cpc === 520
+      )),
+    splitEnrichmentSnapshot.board.map((item) => `${item.keyword}:${item.pcSearchVolume}:${item.mobileSearchVolume}:${item.documentCount}:${item.cpc}`).join('|'));
+  fs.rmSync(splitEnrichmentCacheFile, { force: true });
+
   let skippedDiscoverCalls = 0;
   const skippedRadar = new MobileLiveGoldenRadar({
     notificationInbox: inbox,
@@ -1095,6 +1169,7 @@ function thinProfileCount(items: Array<{ keyword: string }>): number {
       return 'catchup-timer';
     },
     clearIntervalFn: () => {},
+    measureLiveSearchVolumeSeparate: async () => [],
     discover: async () => {
       const offset = schedulerCatchupDiscoverCalls * 5;
       schedulerCatchupDiscoverCalls += 1;

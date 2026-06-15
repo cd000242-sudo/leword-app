@@ -93,6 +93,7 @@ const PUBLIC_PREVIEW_ROTATION_MS = 60_000;
 const LIVE_SEED_COLLECTION_TIMEOUT_MS = 5_000;
 const LIVE_DISCOVERY_TIMEOUT_MS = 45_000;
 const LIVE_BACKFILL_TIMEOUT_MS = 35_000;
+const LIVE_SPLIT_ENRICHMENT_TIMEOUT_MS = 25_000;
 const PUBLIC_PREVIEW_MAX_AGE_MS = 48 * 60 * 60 * 1000;
 const LIVE_BOARD_MAX_AGE_MS = 7 * 24 * 60 * 60 * 1000;
 const BROAD_KEYWORD_VOLUME_CEILING = 500_000;
@@ -114,6 +115,7 @@ const LIVE_ISSUE_FALLBACK_CONCURRENCY = 4;
 const LIVE_BACKFILL_VOLUME_PASS_MAX = 320;
 const LIVE_BACKFILL_DOCUMENT_PASS_MAX = 48;
 const LIVE_BACKFILL_DOCUMENT_CONCURRENCY = 4;
+const LIVE_BOARD_SPLIT_ENRICHMENT_LIMIT = 80;
 const NEWS_HEADLINE_FRAGMENT_RE = /(?:\uBD80\uCE5C\uC0C1|\uC0AC\uACFC|\uAD6C\uC18D\uC601\uC7A5|\uD610\uC758|\uC870\uC0AC|\uB17C\uB780|\uC911\uB2E8|\uC778\uC99D|\uC9C0\uC5F0|\uBC15\uC218|\uC120\uC218\uB4E4|\uBC29\uBB38|\uC2AC\uD514|\uD574\uBA85|\uBC1C\uC5B8|\uC120\uACE0|\uCCB4\uD3EC|\uC555\uC218\uC218\uC0C9|\uC0AC\uB9DD|\uBCC4\uC138|\uACB0\uBCC4|\uC5F4\uC560|\uD63C\uC778)/u;
 const SEMANTIC_CLUSTER_SUFFIX_RE = new RegExp(`(?:${[
   '\\uBA87\\uBD80\\uC791',
@@ -1498,6 +1500,13 @@ function hasRealCpcValue(item: { cpc?: number | null }): boolean {
   return cpc !== null && cpc > 0;
 }
 
+function hasSearchAdCredentials(env: Partial<EnvConfig>): boolean {
+  return Boolean(
+    normalizeKeyword(env.naverSearchAdAccessLicense)
+      && normalizeKeyword(env.naverSearchAdSecretKey),
+  );
+}
+
 function isLottoLookupKeyword(keyword: string): boolean {
   const clean = normalizeKeyword(keyword);
   return ADSENSE_LOTTO_LOOKUP_RE.test(clean)
@@ -2109,6 +2118,12 @@ export class MobileLiveGoldenRadar {
         startedAtMs,
       );
       this.mergeBoard(result.keywords);
+      const enrichedExisting = hasSearchAdCredentials(env)
+        ? await this.enrichExistingBoardSearchAdMetrics({
+          clientId: env.naverClientId,
+          clientSecret: env.naverClientSecret,
+        })
+        : 0;
       const published = this.notificationInbox?.publishFromResult({
         product: 'golden-discovery',
         kind: 'live-golden',
@@ -2121,9 +2136,10 @@ export class MobileLiveGoldenRadar {
       this.publishedCount += published.length;
       this.successfulRuns += 1;
       const fallbackCount = result.keywords.filter((item) => item.source === 'mobile-live-issue-document-radar').length;
+      const enrichSuffix = enrichedExisting > 0 ? `, ${enrichedExisting} split-enriched` : '';
       this.lastMessage = fallbackCount > 0
-        ? `${categoryId} ${result.summary.total} found (${fallbackCount} live issue fallback), ${published.length} published`
-        : `${categoryId} ${result.summary.total} found, ${published.length} published`;
+        ? `${categoryId} ${result.summary.total} found (${fallbackCount} live issue fallback), ${published.length} published${enrichSuffix}`
+        : `${categoryId} ${result.summary.total} found, ${published.length} published${enrichSuffix}`;
     } catch (err) {
       this.failedRuns += 1;
       this.lastError = (err as Error).message || String(err);
@@ -2640,6 +2656,85 @@ export class MobileLiveGoldenRadar {
     this.pruneBoard();
     this.boardUpdatedAt = stamp;
     this.saveBoardToFile();
+  }
+
+  private async enrichExistingBoardSearchAdMetrics(config: { clientId: string; clientSecret: string }): Promise<number> {
+    const candidates = this.sortedBoard()
+      .filter((item) => hasCompleteLiveGoldenMetrics(item))
+      .filter((item) => !hasMeasuredPcMobileSplit(item) || !hasRealCpcValue(item))
+      .slice(0, LIVE_BOARD_SPLIT_ENRICHMENT_LIMIT);
+    if (candidates.length === 0) return 0;
+
+    const rows = await withTimeout(
+      this.measureLiveSearchVolumeSeparate(config, candidates.map((item) => item.keyword), {
+        includeDocumentCount: false,
+      }),
+      LIVE_SPLIT_ENRICHMENT_TIMEOUT_MS,
+      [],
+    );
+    if (rows.length === 0) return 0;
+
+    const byCompactId = new Map<string, MobileLiveGoldenBoardItem>();
+    for (const item of candidates) {
+      const compactId = keywordCompactId(item.keyword);
+      if (compactId) byCompactId.set(compactId, item);
+    }
+
+    const stamp = this.now().toISOString();
+    let changed = 0;
+    for (const row of rows) {
+      const keyword = normalizeKeyword(row.keyword);
+      const item = this.board.get(keywordId(keyword)) || byCompactId.get(keywordCompactId(keyword));
+      if (!item) continue;
+      const pc = finiteNumber(row.pcSearchVolume);
+      const mobile = finiteNumber(row.mobileSearchVolume);
+      const measuredVolume = (pc || 0) + (mobile || 0);
+      if (pc === null || mobile === null || measuredVolume <= 0) continue;
+      const docs = finiteNumber(item.documentCount);
+      if (docs === null || docs <= 0) continue;
+      const ratio = Number((measuredVolume / docs).toFixed(2));
+      const cpcValue = finiteNumber(row.monthlyAveCpc);
+      const existingCpc = finiteNumber(item.cpc);
+      const cpc = cpcValue !== null && cpcValue > 0
+        ? cpcValue
+        : existingCpc !== null && existingCpc > 0
+          ? existingCpc
+          : null;
+      const grade = normalizeLiveMetricGrade(
+        item.keyword,
+        item.grade,
+        finiteNumber(item.score),
+        measuredVolume,
+        docs,
+        ratio,
+      );
+      const evidence = [
+        ...(Array.isArray(item.evidence) ? item.evidence : []),
+        'searchad-pc-mobile-split-enriched',
+      ].map((entry) => normalizeKeyword(entry)).filter(Boolean);
+      this.board.set(item.id, {
+        ...item,
+        grade,
+        pcSearchVolume: pc,
+        mobileSearchVolume: mobile,
+        totalSearchVolume: measuredVolume,
+        goldenRatio: ratio,
+        cpc,
+        updatedAt: stamp,
+        freshness: 'live',
+        evidence: [...new Set(evidence)].slice(0, 10),
+        publicSearchVolumeLabel: formatRange(measuredVolume, 'search'),
+        publicDocumentCountLabel: formatRange(docs, 'document'),
+      });
+      changed += 1;
+    }
+
+    if (changed > 0) {
+      this.pruneBoard();
+      this.boardUpdatedAt = stamp;
+      this.saveBoardToFile();
+    }
+    return changed;
   }
 
   private sortedBoard(): MobileLiveGoldenBoardItem[] {
