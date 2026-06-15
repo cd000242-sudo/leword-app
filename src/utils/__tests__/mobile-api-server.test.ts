@@ -1419,8 +1419,8 @@ const result: MobileKeywordResult = {
       keyword: '한강유람선예약',
       grade: 'S',
       score: 70,
-      pcSearchVolume: 1200,
-      mobileSearchVolume: 8880,
+      pcSearchVolume: null,
+      mobileSearchVolume: null,
       totalSearchVolume: 10080,
       documentCount: 11316,
       goldenRatio: 0.89,
@@ -1453,11 +1453,11 @@ const result: MobileKeywordResult = {
       keywords: [{
         keyword: '한강 유람선 예약 디너',
         grade: 'SS',
-        pcSearchVolume: 10,
-        mobileSearchVolume: 70,
-        totalSearchVolume: 80,
-        documentCount: null,
-        goldenRatio: null,
+        pcSearchVolume: 240,
+        mobileSearchVolume: 1760,
+        totalSearchVolume: 2000,
+        documentCount: 900,
+        goldenRatio: 2.22,
         cpc: 0,
         category: 'auto',
         source: 'fixture-related-only',
@@ -1500,6 +1500,95 @@ const result: MobileKeywordResult = {
   }
 
   console.log('[mobile-api-server-live-board-overlay.test] passed');
+
+  const overlaySplitInbox = new MobileNotificationInbox();
+  const overlaySplitBoardFile = path.join(os.tmpdir(), `leword-live-board-overlay-split-${Date.now()}.json`);
+  writeJson(overlaySplitBoardFile, {
+    boardUpdatedAt: '2026-06-15T03:10:00.000Z',
+    items: [{
+      keyword: '한강유람선예약',
+      grade: 'SS',
+      score: 78,
+      pcSearchVolume: null,
+      mobileSearchVolume: null,
+      totalSearchVolume: 6400,
+      documentCount: 320,
+      goldenRatio: 20,
+      cpc: 90,
+      category: 'test',
+      source: 'live-golden-board-fixture',
+      intent: 'test',
+      evidence: ['fixture live board split'],
+      updatedAt: '2026-06-15T03:10:00.000Z',
+      discoveredAt: '2026-06-15T03:10:00.000Z',
+      isMeasured: true,
+    }],
+  });
+  const overlaySplitRadar = new MobileLiveGoldenRadar({
+    notificationInbox: overlaySplitInbox,
+    runOnStart: false,
+    boardFile: overlaySplitBoardFile,
+    boardTarget: 5,
+    now: () => new Date('2026-06-15T03:15:00.000Z'),
+  });
+  const overlaySplitServer = createLewordApiServer({
+    entitlementVerifier: null,
+    resultCache: new InMemoryMobileResultCache(),
+    liveGoldenRadar: overlaySplitRadar,
+    notificationInbox: overlaySplitInbox,
+    prewarmService: null,
+    prewarmScheduler: null,
+    executor: async () => ({
+      ...result,
+      keywords: [{
+        keyword: '한강유람선예약',
+        grade: 'S',
+        pcSearchVolume: 1800,
+        mobileSearchVolume: 4600,
+        totalSearchVolume: 6400,
+        documentCount: 350,
+        goldenRatio: 18.29,
+        cpc: 0,
+        category: 'test',
+        source: 'pc-keyword-analysis-exact',
+        intent: 'requested-keyword',
+        evidence: ['fixture exact split'],
+        isMeasured: true,
+      }],
+      summary: {
+        total: 1,
+        sss: 0,
+        measured: 1,
+        elapsedMs: 1,
+        fromCache: false,
+        parityMode: 'pc-engine-plus',
+      },
+    }),
+  });
+  const overlaySplitPort = await listen(overlaySplitServer);
+  const overlaySplitBaseUrl = `http://127.0.0.1:${overlaySplitPort}`;
+  try {
+    const analyze = await fetch(`${overlaySplitBaseUrl}/v1/keywords/analyze`, {
+      method: 'POST',
+      headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify({ keyword: '한강유람선예약', maxRelatedCount: 10 }),
+    });
+    const analyzeJson: any = await analyze.json();
+    const completed = await waitForCompletedJob(overlaySplitBaseUrl, analyzeJson.job.id);
+    const firstKeyword = completed.result.keywords[0];
+    assert('keyword analysis overlay preserves measured PC/mobile split when board lacks split',
+      firstKeyword.totalSearchVolume === 6400
+        && firstKeyword.documentCount === 320
+        && firstKeyword.pcSearchVolume === 1800
+        && firstKeyword.mobileSearchVolume === 4600
+        && firstKeyword.source === 'live-golden-board-exact-match',
+      JSON.stringify(completed.result));
+  } finally {
+    await close(overlaySplitServer);
+    fs.rmSync(overlaySplitBoardFile, { force: true });
+  }
+
+  console.log('[mobile-api-server-live-board-overlay-split.test] passed');
 
   let prewarmExecutions = 0;
   const sentPushMessages: any[] = [];

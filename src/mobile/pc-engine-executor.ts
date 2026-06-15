@@ -1047,7 +1047,7 @@ async function fetchSearchAdVolumeMap(
   const secretKey = envValue(env, 'naverSearchAdSecretKey', 'NAVER_SEARCH_AD_SECRET_KEY', 'NAVER_SEARCHAD_SECRET_KEY');
   const customerId = envValue(env, 'naverSearchAdCustomerId', 'NAVER_SEARCH_AD_CUSTOMER_ID', 'NAVER_SEARCHAD_CUSTOMER_ID');
   const out = new Map<string, KeywordSearchVolume>();
-  if (!accessLicense || !secretKey) return out;
+  if (!accessLicense || !secretKey || !customerId) return out;
 
   ensureNotAborted(context);
   const volumes = await getNaverSearchAdKeywordVolume({
@@ -1109,6 +1109,40 @@ function mergeMeasuredMetric(
     evidence,
     isMeasured,
   };
+}
+
+function isFullyMeasuredKeyword(metric: MobileKeywordMetric): boolean {
+  return metric.isMeasured === true
+    && metric.totalSearchVolume !== null
+    && metric.totalSearchVolume > 0
+    && metric.documentCount !== null
+    && metric.documentCount > 0;
+}
+
+function isSyntheticKeywordAnalysisSource(metric: MobileKeywordMetric): boolean {
+  const source = `${metric.source} ${metric.evidence.join(' ')}`;
+  return /server-intent-template|server-zero-live-fallback|intent-fallback|pc-intent-expansion/i.test(source);
+}
+
+function filterKeywordAnalysisMetrics(
+  seed: string,
+  metrics: MobileKeywordMetric[],
+): MobileKeywordMetric[] {
+  const seedKey = compactKeyword(seed);
+  const seen = new Set<string>();
+  const out: MobileKeywordMetric[] = [];
+  for (const metric of metrics) {
+    const key = compactKeyword(metric.keyword);
+    if (!key || seen.has(key)) continue;
+    const exact = key === seedKey;
+    if (!exact) {
+      if (isSyntheticKeywordAnalysisSource(metric)) continue;
+      if (!isFullyMeasuredKeyword(metric)) continue;
+    }
+    seen.add(key);
+    out.push(metric);
+  }
+  return out;
 }
 
 function createDefaultKeywordMetricsAdapter(
@@ -1755,18 +1789,14 @@ async function runKeywordAnalysis(
 
   context.progress(35, 'ranking related keywords with PC expansion engine');
   ensureNotAborted(context);
-  let liveCandidates = await collectLiveExpansionCandidates(
+  const liveCandidates = await collectLiveExpansionCandidates(
     params.keyword,
     Math.max(params.maxRelatedCount * 3, 60),
     getEnvConfig(),
     context,
   );
   if (liveCandidates.length === 0) {
-    liveCandidates = buildServerFallbackExpansionCandidates(
-      params.keyword,
-      Math.max(params.maxRelatedCount * 3, 60),
-      'server-intent-template',
-    );
+    context.progress(52, 'no live related keyword source candidates; keeping exact keyword only');
   }
 
   const ranked = rankKeywordExpansionCandidates(
@@ -1812,7 +1842,10 @@ async function runKeywordAnalysis(
       return true;
     }),
   ].slice(0, params.maxRelatedCount + 1);
-  const measuredMetrics = await measureKeywordMetrics(metrics, context);
+  const measuredMetrics = filterKeywordAnalysisMetrics(
+    params.keyword,
+    await measureKeywordMetrics(metrics, context),
+  );
 
   return resultFromMetrics(measuredMetrics, startedAt, 'pc-engine-plus');
 }

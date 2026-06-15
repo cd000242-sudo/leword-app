@@ -926,6 +926,44 @@ function metricFromLiveGoldenBoardItem(item: MobileKeywordMetric): MobileKeyword
   };
 }
 
+function mergeExactMetricWithLiveBoard(
+  current: MobileKeywordMetric,
+  board: MobileKeywordMetric,
+): MobileKeywordMetric {
+  const boardPcSearchVolume = typeof board.pcSearchVolume === 'number' && board.pcSearchVolume > 0
+    ? board.pcSearchVolume
+    : null;
+  const boardMobileSearchVolume = typeof board.mobileSearchVolume === 'number' && board.mobileSearchVolume > 0
+    ? board.mobileSearchVolume
+    : null;
+  const pcSearchVolume = boardPcSearchVolume ?? current.pcSearchVolume;
+  const mobileSearchVolume = boardMobileSearchVolume ?? current.mobileSearchVolume;
+  const totalSearchVolume = board.totalSearchVolume ?? current.totalSearchVolume;
+  const documentCount = board.documentCount ?? current.documentCount;
+  const goldenRatio = board.goldenRatio
+    ?? (totalSearchVolume !== null && documentCount !== null && documentCount > 0
+      ? Number((totalSearchVolume / documentCount).toFixed(2))
+      : current.goldenRatio);
+
+  return {
+    ...current,
+    ...board,
+    score: board.score ?? current.score ?? null,
+    pcSearchVolume,
+    mobileSearchVolume,
+    totalSearchVolume,
+    documentCount,
+    goldenRatio,
+    cpc: board.cpc ?? current.cpc,
+    source: 'live-golden-board-exact-match',
+    intent: current.intent || board.intent,
+    evidence: uniqueEvidence(board.evidence, current.evidence, 'analysis-board-metric-sync'),
+    isMeasured: board.isMeasured !== false
+      && totalSearchVolume !== null
+      && documentCount !== null,
+  };
+}
+
 function overlayLiveGoldenExactKeyword(
   endpoint: MobileApiEndpointSpec,
   params: unknown,
@@ -948,13 +986,7 @@ function overlayLiveGoldenExactKeyword(
   for (const keyword of result.keywords) {
     const isExact = compactServerKeyword(keyword.keyword) === seedKey;
     if (isExact) {
-      mergedKeywords.push({
-        ...keyword,
-        ...exactMetric,
-        source: 'live-golden-board-exact-match',
-        intent: keyword.intent || exactMetric.intent,
-        evidence: uniqueEvidence(exactMetric.evidence, keyword.evidence, 'analysis-board-metric-sync'),
-      });
+      mergedKeywords.push(mergeExactMetricWithLiveBoard(keyword, exactMetric));
       inserted = true;
       continue;
     }

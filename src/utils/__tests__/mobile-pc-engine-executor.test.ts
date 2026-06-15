@@ -104,7 +104,9 @@ async function runKeywordAnalysis(): Promise<void> {
     progress: (_percent, message) => progress.push(message),
   });
 
-  assert('keyword analysis returns requested amount', result.keywords.length >= 10);
+  assert('keyword analysis does not synthesize related rows when live source has no candidates',
+    result.keywords.length === 1,
+    result.keywords.map((item) => `${item.keyword}:${item.source}`).join('|'));
   assert('keyword analysis keeps requested keyword as first measured row',
     result.keywords[0]?.keyword === '고유가 지원금 2차'
       && result.keywords[0]?.source === 'pc-keyword-analysis-exact'
@@ -112,12 +114,10 @@ async function runKeywordAnalysis(): Promise<void> {
     result.keywords.slice(0, 3).map((item) => `${item.keyword}:${item.source}:${item.documentCount}`).join('|'));
   assert('keyword analysis keeps Korean candidate text clean',
     result.keywords.every((item) => !/[?]{2,}/.test(item.keyword)));
-  assert('keyword analysis includes expected intent expansion',
-    result.keywords.some((item) => item.keyword.includes('신청방법') || item.keyword.includes('신청자격')));
   assert('keyword analysis uses PC ranker evidence',
     result.keywords.every((item) => item.evidence.some((evidence) => evidence.includes('pc-keyword-expansion-ranker'))));
   assert('keyword analysis returns measured metrics',
-    result.summary.measured >= 10
+    result.summary.measured === 1
       && result.keywords.every((item) => item.isMeasured
         && item.pcSearchVolume !== null
         && item.mobileSearchVolume !== null
@@ -129,6 +129,7 @@ async function runKeywordAnalysis(): Promise<void> {
       && item.evidence.includes('fixture-naver-blog-document-count')));
   assert('keyword analysis reports progress',
     progress.some((message) => message.includes('PC expansion engine'))
+      && progress.some((message) => message.includes('exact keyword only'))
       && progress.some((message) => message.includes('fixture measured keyword metrics')));
 }
 
