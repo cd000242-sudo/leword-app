@@ -36,6 +36,19 @@ assert('keeps license key auth collapsed as optional login path',
   html.includes('<details class="login-license">')
     && html.includes('id="licenseCode"')
     && html.includes('if (licenseCode) loginPayload.licenseCode = licenseCode'));
+assert('pro login shows a welcome modal and starts automatic discovery for KIN and shopping',
+  html.includes('id="welcomeModal"')
+    && html.includes('function openWelcomeModal')
+    && html.includes("const postLoginAutoFeatureIds = ['kin', 'shopping']")
+    && html.includes('function schedulePostLoginAutoDiscovery')
+    && html.includes('schedulePostLoginAutoDiscovery()'));
+assert('feature execution progress can be minimized and restored from a bottom pill',
+  html.includes('id="progressMinimize"')
+    && html.includes('id="progressPill"')
+    && html.includes('function minimizeProgress')
+    && html.includes('function restoreProgress')
+    && html.includes('function renderProgressPill')
+    && html.includes('openProgress(feature.title +'));
 assert('pro login does not masquerade as API key setup',
   html.includes("setActiveView('golden', { load: false });")
     && !html.includes("setActiveView('settings', { load: false });\n        log('Pro 로그인 완료"));
@@ -206,7 +219,7 @@ assert('result center exposes KPI summary and keyword actions',
     && html.includes('data-board-action="mindmap"')
     && html.includes('data-board-action="analyze"')
     && html.includes('function showTrendGraph')
-    && html.includes('renderFeatureResult(feature, result)'));
+    && html.includes('function renderFeatureResult(feature, result'));
 
 assert('renders feature-specific tool settings panel',
   html.includes('id="toolConsole"')
