@@ -57,7 +57,7 @@ function isCacheableResult(product: MobileKeywordProduct, result: MobileKeywordR
   const keywords = result?.keywords;
   if (!Array.isArray(keywords) || keywords.length === 0) return false;
   if (product === 'pro-traffic-hunter') {
-    return keywords.some((item) => {
+    return keywords.every((item) => {
       const total = typeof item.totalSearchVolume === 'number' ? item.totalSearchVolume : 0;
       const docs = typeof item.documentCount === 'number' ? item.documentCount : 0;
       return item.isMeasured === true && total > 0 && docs > 0;
