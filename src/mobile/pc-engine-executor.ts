@@ -1250,10 +1250,14 @@ function mergeMeasuredMetric(
   const pcSearchVolume = finiteNumber(volume?.pcSearchVolume) ?? metric.pcSearchVolume;
   const mobileSearchVolume = finiteNumber(volume?.mobileSearchVolume) ?? metric.mobileSearchVolume;
   const totalFromVolume = finiteNumber(volume?.totalSearchVolume);
-  const totalSearchVolume = totalFromVolume
-    ?? ((pcSearchVolume !== null || mobileSearchVolume !== null)
-      ? (pcSearchVolume || 0) + (mobileSearchVolume || 0)
-      : metric.totalSearchVolume);
+  const splitTotal = pcSearchVolume !== null || mobileSearchVolume !== null
+    ? (pcSearchVolume || 0) + (mobileSearchVolume || 0)
+    : null;
+  const totalSearchVolume = totalFromVolume !== null && totalFromVolume > 0
+    ? totalFromVolume
+    : splitTotal !== null && splitTotal > 0
+      ? splitTotal
+      : metric.totalSearchVolume;
   const resolvedDocumentCount = documentCount !== undefined && documentCount !== null
     ? documentCount
     : metric.documentCount;
@@ -1579,7 +1583,10 @@ async function runProTrafficWithPcHunter(
   const rawMetrics = result.keywords
     .map((item) => metricFromProResult(item, params.categoryId))
     .filter((item) => item.keyword);
-  const metrics = prioritizeFullyMeasuredMetrics(rawMetrics, params.targetCount);
+  const metrics = prioritizeFullyMeasuredMetrics(
+    rawMetrics,
+    Math.min(rawMetrics.length, Math.max(params.targetCount * 2, params.targetCount + 20)),
+  );
   const measuredMetrics = measureKeywordMetrics
     ? await measureKeywordMetrics(metrics, context)
     : metrics;

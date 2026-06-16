@@ -932,6 +932,11 @@ assert('mobile executor measures analysis and mindmap candidates with PC metrics
     && /calculateMindmapMetricGrade/.test(pcExecutor));
 assert('mobile executor preserves existing measured document counts when OpenAPI returns null',
   /documentCount !== undefined && documentCount !== null[\s\S]{0,80}\? documentCount[\s\S]{0,80}: metric\.documentCount/.test(pcExecutor));
+assert('mobile executor preserves existing measured search volume when SearchAd returns zero-only supplements',
+  /const splitTotal = pcSearchVolume !== null \|\| mobileSearchVolume !== null/.test(pcExecutor)
+    && /totalFromVolume !== null && totalFromVolume > 0/.test(pcExecutor)
+    && /splitTotal !== null && splitTotal > 0/.test(pcExecutor)
+    && /: metric\.totalSearchVolume/.test(pcExecutor));
 assert('mobile executor wires golden discovery to PC MDP engine', /MDPEngine/.test(pcExecutor) && /runGoldenDiscoveryWithPcMdp/.test(pcExecutor));
 assert('mobile bulk golden direct supplement keeps measured SS/S quality backfill',
   /isQualityGoldenDiscoveryResult/.test(pcExecutor)
@@ -944,7 +949,7 @@ assert('mobile executor wires PRO traffic to PC hunter', /huntProTrafficKeywords
 assert('mobile executor prewarms PRO traffic from a wider measured-first candidate pool',
   /const hunterCount = params\.seedKeyword[\s\S]{0,180}Math\.max\(params\.targetCount \* 4, 100\)/.test(pcExecutor)
     && /count: hunterCount/.test(pcExecutor)
-    && /prioritizeFullyMeasuredMetrics\(rawMetrics, params\.targetCount\)/.test(pcExecutor)
+    && /Math\.max\(params\.targetCount \* 2, params\.targetCount \+ 20\)/.test(pcExecutor)
     && /prioritizeFullyMeasuredMetrics\(measuredMetrics, params\.targetCount\)/.test(pcExecutor));
 assert('mobile executor recovers measured PRO traffic document counts from PC hunter evidence',
   /recoverProTrafficDocumentCount/.test(pcExecutor)
