@@ -52,6 +52,26 @@ assert('feature execution progress can be minimized and restored from a bottom p
 assert('pro login does not masquerade as API key setup',
   html.includes("setActiveView('golden', { load: false });")
     && !html.includes("setActiveView('settings', { load: false });\n        log('Pro 로그인 완료"));
+assert('api key settings are separate from Pro login credentials',
+  html.includes("const userApiSettingsStorageKey = 'leword.pro.userApiSettings.v1'")
+    && html.includes("localStorage.setItem('leword.pro.session'")
+    && html.includes('data-api-key-input="true"')
+    && html.includes('autocomplete="new-password"')
+    && html.includes('function clearLoginCredentialAutofillFromApiSettings')
+    && html.includes('Pro 로그인 아이디/비밀번호가 API 키 칸에 자동 입력되어 제거했습니다.'));
+assert('settings exposes a clean API issue modal and integration status check',
+  html.includes('id="openApiIssueModal"')
+    && html.includes('API 키 발급 모음')
+    && html.includes('id="apiIssueModal"')
+    && html.includes('id="apiIssueGrid"')
+    && html.includes('id="apiIssueCheck"')
+    && html.includes('연동상태 확인')
+    && html.includes('https://developers.naver.com/apps/#/register')
+    && html.includes('https://manage.searchad.naver.com/customers/links')
+    && html.includes('https://console.cloud.google.com/apis/library/youtube.googleapis.com')
+    && html.includes('https://console.anthropic.com/settings/keys')
+    && html.includes('https://open.manus.ai/')
+    && html.includes('https://platform.openai.com/api-keys'));
 assert('renders live golden keyword board section',
   html.includes('id="golden"')
     && html.includes('LIVE 황금키워드 보드')
@@ -288,14 +308,14 @@ assert('user API key settings are first-class, local-only, and secret-safe',
     && html.includes('환경설정')
     && html.includes('서버 공용 설정으로 저장하지 않으며 실행 요청에만 전달됩니다.')
     && html.includes('id="naverClientId"')
-    && html.includes('id="naverClientSecret" type="password"')
+    && /id="naverClientSecret"[^>]*type="password"/.test(html)
     && html.includes('id="naverSearchAdAccessLicense"')
-    && html.includes('id="naverSearchAdSecretKey" type="password"')
+    && /id="naverSearchAdSecretKey"[^>]*type="password"/.test(html)
     && html.includes('id="naverSearchAdCustomerId"')
-    && html.includes('id="youtubeApiKey" type="password"')
-    && html.includes('id="anthropicApiKey" type="password"')
-    && html.includes('id="manusApiKey" type="password"')
-    && html.includes('id="openaiApiKey" type="password"')
+    && /id="youtubeApiKey"[^>]*type="password"/.test(html)
+    && /id="anthropicApiKey"[^>]*type="password"/.test(html)
+    && /id="manusApiKey"[^>]*type="password"/.test(html)
+    && /id="openaiApiKey"[^>]*type="password"/.test(html)
     && html.includes(' · AI 추론 ')
     && html.includes('id="apiSettingsChecklist"')
     && html.includes('function apiSettingGroups')
