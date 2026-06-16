@@ -878,6 +878,7 @@ assert('mobile result cache does not replay empty keyword results',
 assert('mobile prewarm service warms default high-impact targets',
   /DEFAULT_MOBILE_PREWARM_TARGETS/.test(prewarmService)
     && /pro-traffic-all-24h/.test(prewarmService)
+    && /qualityProfile:\s*'publishable-v2'/.test(prewarmService)
     && /autoDiscovery:\s*true/.test(prewarmService)
     && /policy-golden-precision/.test(prewarmService)
     && /celebrity-pro-fresh/.test(prewarmService)

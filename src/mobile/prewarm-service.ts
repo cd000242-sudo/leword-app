@@ -26,6 +26,7 @@ export const DEFAULT_MOBILE_PREWARM_TARGETS: readonly MobilePrewarmTarget[] = Ob
     product: 'pro-traffic-hunter',
     priority: 5,
     params: {
+      qualityProfile: 'publishable-v2',
       categoryId: 'all',
       targetCount: 30,
       includeSeasonal: true,
@@ -53,6 +54,7 @@ export const DEFAULT_MOBILE_PREWARM_TARGETS: readonly MobilePrewarmTarget[] = Ob
     product: 'pro-traffic-hunter',
     priority: 20,
     params: {
+      qualityProfile: 'publishable-v2',
       categoryId: 'celebrity',
       targetCount: 100,
       includeSeasonal: true,
