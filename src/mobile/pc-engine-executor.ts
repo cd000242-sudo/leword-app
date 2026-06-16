@@ -1317,6 +1317,34 @@ function prioritizeFullyMeasuredMetrics(
   return [...measured, ...partial].slice(0, targetCount);
 }
 
+function isWeakProTrafficPublishIntent(metric: MobileKeywordMetric): boolean {
+  const compacted = compactKeyword(metric.keyword);
+  if (!compacted) return true;
+
+  return /(프로필|인스타|나이|학력|고향|키|혈액형|근황|몇부작|출연진|재방송|다시보기|방송시간|공식영상|하이라이트|예고편)$/.test(compacted);
+}
+
+function prioritizeProTrafficPublishableMetrics(
+  metrics: MobileKeywordMetric[],
+  targetCount: number,
+): MobileKeywordMetric[] {
+  const publishable: MobileKeywordMetric[] = [];
+  const weakIntent: MobileKeywordMetric[] = [];
+
+  for (const metric of metrics) {
+    if (isWeakProTrafficPublishIntent(metric)) {
+      weakIntent.push(metric);
+    } else {
+      publishable.push(metric);
+    }
+  }
+
+  return [
+    ...prioritizeFullyMeasuredMetrics(publishable, publishable.length),
+    ...prioritizeFullyMeasuredMetrics(weakIntent, weakIntent.length),
+  ].slice(0, targetCount);
+}
+
 function isSyntheticKeywordAnalysisSource(metric: MobileKeywordMetric): boolean {
   const source = `${metric.source} ${metric.evidence.join(' ')}`;
   return /server-intent-template|server-zero-live-fallback|intent-fallback|pc-intent-expansion/i.test(source);
@@ -1583,7 +1611,7 @@ async function runProTrafficWithPcHunter(
   const rawMetrics = result.keywords
     .map((item) => metricFromProResult(item, params.categoryId))
     .filter((item) => item.keyword);
-  const metrics = prioritizeFullyMeasuredMetrics(
+  const metrics = prioritizeProTrafficPublishableMetrics(
     rawMetrics,
     Math.min(rawMetrics.length, Math.max(params.targetCount * 2, params.targetCount + 20)),
   );
@@ -1591,7 +1619,7 @@ async function runProTrafficWithPcHunter(
     ? await measureKeywordMetrics(metrics, context)
     : metrics;
   return resultFromMetrics(
-    prioritizeFullyMeasuredMetrics(measuredMetrics, params.targetCount),
+    prioritizeProTrafficPublishableMetrics(measuredMetrics, params.targetCount),
     startedAt,
     'pc-engine-plus',
   );

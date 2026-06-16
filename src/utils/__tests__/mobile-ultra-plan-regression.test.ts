@@ -951,7 +951,11 @@ assert('mobile executor prewarms PRO traffic from a wider measured-first candida
   /const hunterCount = params\.seedKeyword[\s\S]{0,180}Math\.max\(params\.targetCount \* 4, 100\)/.test(pcExecutor)
     && /count: hunterCount/.test(pcExecutor)
     && /Math\.max\(params\.targetCount \* 2, params\.targetCount \+ 20\)/.test(pcExecutor)
-    && /prioritizeFullyMeasuredMetrics\(measuredMetrics, params\.targetCount\)/.test(pcExecutor));
+    && /prioritizeProTrafficPublishableMetrics\(measuredMetrics, params\.targetCount\)/.test(pcExecutor));
+assert('mobile executor downranks weak PRO traffic profile and episode-count intents',
+  /isWeakProTrafficPublishIntent/.test(pcExecutor)
+    && /프로필\|인스타\|나이[\s\S]{0,160}몇부작\|출연진[\s\S]{0,160}공식영상\|하이라이트/.test(pcExecutor)
+    && /prioritizeProTrafficPublishableMetrics/.test(pcExecutor));
 assert('mobile executor recovers measured PRO traffic document counts from PC hunter evidence',
   /recoverProTrafficDocumentCount/.test(pcExecutor)
     && /pc-pro-traffic-document-count-recovered/.test(pcExecutor));
