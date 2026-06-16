@@ -170,6 +170,61 @@ async function runMindmapExpansion(): Promise<void> {
     progress.some((message) => message.includes('no live mindmap candidates')));
 }
 
+async function runMindmapExpansionWithWebContext(): Promise<void> {
+  const measured = { value: false };
+  const executor = createMobilePcEngineExecutor({
+    getEnvConfig: () => ({}),
+    measureKeywordMetrics: async (metrics, context) => {
+      measured.value = true;
+      context.progress(84, 'fixture measured context mindmap metrics');
+      return measureFixtureMetrics(metrics);
+    },
+  });
+  const progress: string[] = [];
+  const result = await executor(makeJob('mindmap-expansion', {
+    seedKeyword: 'han river reservation',
+    targetCount: 5,
+    includeVolumeMetrics: true,
+    contextKeywords: [
+      {
+        keyword: 'han river reservation dinner',
+        pcSearchVolume: 120,
+        mobileSearchVolume: 880,
+        totalSearchVolume: 1000,
+        documentCount: 180,
+        source: 'keyword-analysis-result',
+        evidence: ['fixture-web-analysis'],
+        isMeasured: true,
+      },
+      {
+        keyword: 'han river reservation time',
+        pcSearchVolume: 80,
+        mobileSearchVolume: 620,
+        totalSearchVolume: 700,
+        documentCount: 150,
+        source: 'keyword-analysis-result',
+        evidence: ['fixture-web-analysis'],
+        isMeasured: true,
+      },
+    ],
+  }), {
+    signal: new AbortController().signal,
+    progress: (_percent, message) => progress.push(message),
+  });
+
+  assert('mindmap expands from web keyword-analysis context without synthetic fallback',
+    result.keywords.length > 0 && result.summary.total > 0 && result.summary.measured > 0,
+    JSON.stringify(result));
+  assert('mindmap measures context candidates',
+    measured.value === true);
+  assert('mindmap keeps web context candidates as the expansion source',
+    result.keywords.some((item) => item.keyword === 'han river reservation dinner'
+      || item.keyword === 'han river reservation time'),
+    JSON.stringify(result.keywords.map((item) => item.keyword)));
+  assert('mindmap with context runs ranking path',
+    progress.some((message) => message.includes('ranking mindmap candidates')));
+}
+
 async function runInjectedGoldenDiscovery(): Promise<void> {
   let receivedTarget = 0;
   const executor = createMobilePcEngineExecutor({
@@ -618,6 +673,7 @@ function runFallbackRegressionGuards(): void {
 (async () => {
   await runKeywordAnalysis();
   await runMindmapExpansion();
+  await runMindmapExpansionWithWebContext();
   await runInjectedGoldenDiscovery();
   await runInjectedGoldenQualityBackfill();
   await runInjectedProTraffic();

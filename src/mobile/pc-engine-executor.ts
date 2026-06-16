@@ -4,6 +4,7 @@ import {
   type KeywordAnalysisMobileParams,
   type KinHiddenHoneyMobileParams,
   type MindmapExpansionMobileParams,
+  type MobileKeywordContextCandidate,
   type NaverMateMobileParams,
   type MobileJobEnvelope,
   type MobileKeywordMetric,
@@ -827,6 +828,7 @@ function asKeywordAnalysisParams(params: unknown): KeywordAnalysisMobileParams {
     categoryId: payload.categoryId ? normalizeKeyword(payload.categoryId) : undefined,
     maxRelatedCount: clampInt(payload.maxRelatedCount, 10, 1, 250),
     includeMindmapPreview: payload.includeMindmapPreview !== false,
+    contextKeywords: normalizeContextKeywords(payload.contextKeywords),
   };
 }
 
@@ -849,6 +851,7 @@ function asMindmapParams(params: unknown): MindmapExpansionMobileParams {
     depth: clampInt(payload.depth, 1, 1, 3),
     targetCount: clampInt(payload.targetCount, 50, 1, 250),
     includeVolumeMetrics: payload.includeVolumeMetrics !== false,
+    contextKeywords: normalizeContextKeywords(payload.contextKeywords),
   };
 }
 
@@ -909,37 +912,121 @@ function envValue(env: Partial<EnvConfig>, key: keyof EnvConfig, ...envNames: st
   return '';
 }
 
+type LiveExpansionCandidate = {
+  keyword: string;
+  sources: string[];
+  source: string;
+  freq: number;
+  monthlyVolume?: number;
+};
+
+function normalizeContextKeywords(
+  input: unknown,
+): MobileKeywordContextCandidate[] | undefined {
+  if (!Array.isArray(input)) return undefined;
+  const out: MobileKeywordContextCandidate[] = [];
+  const seen = new Set<string>();
+  for (const item of input) {
+    const row = item && typeof item === 'object'
+      ? item as MobileKeywordContextCandidate
+      : { keyword: String(item || '') };
+    const keyword = normalizeKeyword(row.keyword);
+    const key = compactKeyword(keyword);
+    if (!keyword || !key || seen.has(key)) continue;
+    seen.add(key);
+    out.push({
+      keyword,
+      pcSearchVolume: finiteNumber(row.pcSearchVolume),
+      mobileSearchVolume: finiteNumber(row.mobileSearchVolume),
+      totalSearchVolume: finiteNumber(row.totalSearchVolume),
+      documentCount: finiteNumber(row.documentCount),
+      goldenRatio: finiteNumber(row.goldenRatio),
+      source: normalizeKeyword(row.source || ''),
+      evidence: Array.isArray(row.evidence)
+        ? row.evidence.map((value) => normalizeKeyword(value)).filter(Boolean).slice(0, 8)
+        : [],
+      isMeasured: row.isMeasured === true,
+    });
+    if (out.length >= 120) break;
+  }
+  return out.length ? out : undefined;
+}
+
+function contextExpansionCandidates(
+  seed: string,
+  contextKeywords: MobileKeywordContextCandidate[] | undefined,
+  limit: number,
+): LiveExpansionCandidate[] {
+  const seedKey = compactKeyword(seed);
+  const out: LiveExpansionCandidate[] = [];
+  const seen = new Set<string>();
+  for (const row of contextKeywords || []) {
+    const keyword = normalizeKeyword(row.keyword);
+    const key = compactKeyword(keyword);
+    if (!keyword || !key || key === seedKey || seen.has(key)) continue;
+    seen.add(key);
+    const pc = finiteNumber(row.pcSearchVolume);
+    const mobile = finiteNumber(row.mobileSearchVolume);
+    const total = finiteNumber(row.totalSearchVolume)
+      ?? ((pc !== null || mobile !== null) ? (pc || 0) + (mobile || 0) : null);
+    const sources = [
+      'web-analysis-context',
+      normalizeKeyword(row.source || ''),
+      ...(Array.isArray(row.evidence) ? row.evidence : []),
+    ].filter(Boolean);
+    out.push({
+      keyword,
+      sources: Array.from(new Set(sources)),
+      source: 'web-analysis-context',
+      freq: row.isMeasured ? 4 : 2,
+      monthlyVolume: total !== null && total > 0 ? total : undefined,
+    });
+    if (out.length >= limit) break;
+  }
+  return out;
+}
+
 async function collectLiveExpansionCandidates(
   seed: string,
   limit: number,
   env: Partial<EnvConfig>,
   context: MobileJobExecutorContext,
-): Promise<Array<{ keyword: string; sources: string[]; source: string; freq: number; monthlyVolume?: number }>> {
+  contextKeywords?: MobileKeywordContextCandidate[],
+): Promise<LiveExpansionCandidate[]> {
   const clientId = envValue(env, 'naverClientId', 'NAVER_CLIENT_ID');
   const clientSecret = envValue(env, 'naverClientSecret', 'NAVER_CLIENT_SECRET');
-  if (!clientId || !clientSecret) return [];
+  const contextCandidates = contextExpansionCandidates(seed, contextKeywords, Math.max(limit, 1));
 
   const config = { clientId, clientSecret };
-  const byKey = new Map<string, { keyword: string; sources: string[]; source: string; freq: number; monthlyVolume?: number }>();
-  const add = (keyword: string, source: string, monthlyVolume?: number) => {
+  const byKey = new Map<string, LiveExpansionCandidate>();
+  const add = (keyword: string, source: string, monthlyVolume?: number, freq = 1, sources?: string[]) => {
     const normalized = normalizeKeyword(keyword);
     const key = compactKeyword(normalized);
     if (!normalized || normalized.length < 2 || normalized.length > 42 || !key) return;
     const current = byKey.get(key);
     if (current) {
-      current.freq += 1;
+      current.freq += freq;
       if (!current.sources.includes(source)) current.sources.push(source);
+      for (const extra of sources || []) {
+        if (extra && !current.sources.includes(extra)) current.sources.push(extra);
+      }
       if (typeof monthlyVolume === 'number') current.monthlyVolume = Math.max(current.monthlyVolume || 0, monthlyVolume);
       return;
     }
     byKey.set(key, {
       keyword: normalized,
-      sources: [source],
+      sources: Array.from(new Set([source, ...(sources || [])].filter(Boolean))),
       source,
-      freq: 1,
+      freq,
       monthlyVolume,
     });
   };
+
+  for (const item of contextCandidates) {
+    add(item.keyword, item.source, item.monthlyVolume, item.freq, item.sources);
+  }
+
+  if (!clientId || !clientSecret) return Array.from(byKey.values()).slice(0, Math.max(limit, 1));
 
   const [autocomplete, related] = await Promise.all([
     import('../utils/naver-autocomplete')
@@ -961,6 +1048,26 @@ async function collectLiveExpansionCandidates(
         ? row.searchVolume
         : (typeof row?.monthlyVolume === 'number' ? row.monthlyVolume : undefined),
     );
+  }
+
+  const current = Array.from(byKey.values());
+  if (current.length < Math.min(limit, 30)) {
+    const secondHopSeeds = current
+      .sort((a, b) => (b.freq - a.freq) || ((b.monthlyVolume || 0) - (a.monthlyVolume || 0)))
+      .slice(0, Math.min(8, current.length));
+    const secondHop = await Promise.allSettled(secondHopSeeds.map((item) =>
+      import('../utils/naver-autocomplete')
+        .then(mod => mod.getNaverAutocompleteKeywords(item.keyword, config))
+        .catch(() => [] as string[])
+        .then((keywords) => ({ seed: item.keyword, keywords })),
+    ));
+    ensureNotAborted(context);
+    for (const row of secondHop) {
+      if (row.status !== 'fulfilled') continue;
+      for (const keyword of row.value.keywords.slice(0, 40)) {
+        add(keyword, 'autocomplete-second-hop', undefined, 1, ['autocomplete-second-hop', `seed:${row.value.seed}`]);
+      }
+    }
   }
 
   return Array.from(byKey.values()).slice(0, Math.max(limit, 1));
@@ -1785,6 +1892,7 @@ async function runKeywordAnalysis(
     Math.max(params.maxRelatedCount * 3, 60),
     getEnvConfig(),
     context,
+    params.contextKeywords,
   );
   if (liveCandidates.length === 0) {
     context.progress(52, 'no live related keyword source candidates; keeping exact keyword only');
@@ -1859,6 +1967,7 @@ async function runMindmapExpansion(
     Math.max(params.targetCount * 3, 60),
     getEnvConfig(),
     context,
+    params.contextKeywords,
   );
   if (candidates.length === 0) {
     context.progress(72, 'no live mindmap candidates from autocomplete/related sources');

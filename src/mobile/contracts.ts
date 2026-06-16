@@ -915,6 +915,7 @@ export interface KeywordAnalysisMobileParams {
   categoryId?: string;
   maxRelatedCount: number;
   includeMindmapPreview: boolean;
+  contextKeywords?: MobileKeywordContextCandidate[];
 }
 
 export interface MindmapExpansionMobileParams {
@@ -922,6 +923,19 @@ export interface MindmapExpansionMobileParams {
   depth: number;
   targetCount: number;
   includeVolumeMetrics: boolean;
+  contextKeywords?: MobileKeywordContextCandidate[];
+}
+
+export interface MobileKeywordContextCandidate {
+  keyword: string;
+  pcSearchVolume?: number | null;
+  mobileSearchVolume?: number | null;
+  totalSearchVolume?: number | null;
+  documentCount?: number | null;
+  goldenRatio?: number | null;
+  source?: string;
+  evidence?: string[];
+  isMeasured?: boolean;
 }
 
 export interface HomeBoardMobileParams {

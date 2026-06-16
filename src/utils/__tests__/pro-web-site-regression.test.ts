@@ -100,6 +100,15 @@ assert('source board renders a wider always-on realtime feed',
 assert('keyword lookup table separates PC and mobile',
   html.includes('<th>PC</th>') && html.includes('<th>모바일</th>') && html.includes('<th>전체</th>') && html.includes('<tbody id="keywordRows">'));
 
+assert('keyword analyzer keeps raw analysis rows and shares them with mindmap expansion',
+  html.includes('function keywordResultRows(result)')
+    && html.includes('function buildLookupContextKeywords(seed, limit)')
+    && html.includes('function withKeywordContextPayload(url, body)')
+    && html.includes('payload.contextKeywords = buildLookupContextKeywords(seed')
+    && html.includes("payload.engineVersion = 'web-electron-parity-20260616'")
+    && html.includes('const rows = keywordResultRows(result);')
+    && !html.includes('const rows = filterFreshGoldenItems(Array.isArray(result && result.keywords) ? result.keywords : []);'));
+
 for (const label of [
   'PRO 트래픽 폭발키워드 헌터',
   '네이버 메이트 황금키워드 헌터',
