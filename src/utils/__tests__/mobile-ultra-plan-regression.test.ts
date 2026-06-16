@@ -884,7 +884,8 @@ assert('mobile prewarm service warms default high-impact targets',
 assert('mobile result cache keeps prewarmed pro traffic warm for 24 hours',
   /proTrafficPrewarmCacheTtlMinutes:\s*1440/.test(sharedMobileContract)
     && /product === 'pro-traffic-hunter'/.test(resultCache)
-    && /proTrafficPrewarmCacheTtlMinutes/.test(resultCache));
+    && /proTrafficPrewarmCacheTtlMinutes/.test(resultCache)
+    && /item\.isMeasured === true && total > 0 && docs > 0/.test(resultCache));
 assert('mobile prewarm publishes winners to notification inbox',
   /notificationInbox/.test(prewarmService)
     && /publishFromResult/.test(prewarmService)

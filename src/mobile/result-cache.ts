@@ -53,9 +53,16 @@ function cloneResult(result: MobileKeywordResult, fromCache: boolean): MobileKey
   };
 }
 
-function isCacheableResult(result: MobileKeywordResult | undefined): boolean {
+function isCacheableResult(product: MobileKeywordProduct, result: MobileKeywordResult | undefined): boolean {
   const keywords = result?.keywords;
   if (!Array.isArray(keywords) || keywords.length === 0) return false;
+  if (product === 'pro-traffic-hunter') {
+    return keywords.some((item) => {
+      const total = typeof item.totalSearchVolume === 'number' ? item.totalSearchVolume : 0;
+      const docs = typeof item.documentCount === 'number' ? item.documentCount : 0;
+      return item.isMeasured === true && total > 0 && docs > 0;
+    });
+  }
   const hasUsefulMetric = keywords.some((item) => {
     const total = typeof item.totalSearchVolume === 'number' ? item.totalSearchVolume : 0;
     const docs = typeof item.documentCount === 'number' ? item.documentCount : 0;
@@ -99,7 +106,7 @@ export class InMemoryMobileResultCache {
       this.entries.delete(key);
       return undefined;
     }
-    if (!isCacheableResult(entry.result)) {
+    if (!isCacheableResult(product, entry.result)) {
       this.entries.delete(key);
       this.persist();
       return undefined;
@@ -109,7 +116,7 @@ export class InMemoryMobileResultCache {
 
   set(product: MobileKeywordProduct, params: unknown, result: MobileKeywordResult): void {
     const key = makeMobileResultCacheKey(product, params);
-    if (!isCacheableResult(result)) {
+    if (!isCacheableResult(product, result)) {
       this.entries.delete(key);
       this.persist();
       return;
