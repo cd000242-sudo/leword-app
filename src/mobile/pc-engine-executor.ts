@@ -787,6 +787,7 @@ function asKinHiddenHoneyParams(params: unknown): KinHiddenHoneyMobileParams {
     tabType: tab,
     targetCount: clampInt(payload.targetCount, 15, 1, 100),
     isPremiumRequest: payload.isPremiumRequest === true || tab === 'trending' || tab === 'hidden',
+    contextKeywords: normalizeContextKeywords(payload.contextKeywords),
   };
 }
 
@@ -799,6 +800,7 @@ function asShoppingConnectParams(params: unknown): ShoppingConnectMobileParams {
     keyword: normalizeKeyword(payload.keyword),
     targetCount: clampInt(payload.targetCount, 30, 30, 80),
     sort,
+    contextKeywords: normalizeContextKeywords(payload.contextKeywords),
   };
 }
 
@@ -819,6 +821,7 @@ function asNaverMateParams(params: unknown): NaverMateMobileParams {
     includeAutocomplete: payload.includeAutocomplete !== false,
     includeRelated: payload.includeRelated !== false,
     includeVolumeMetrics: payload.includeVolumeMetrics !== false,
+    contextKeywords: normalizeContextKeywords(payload.contextKeywords),
   };
 }
 
@@ -987,8 +990,9 @@ function contextExpansionCandidates(
   return out;
 }
 
-function proTrafficContextSeedKeywords(
-  params: ProTrafficMobileParams,
+function contextSeedKeywords(
+  seedKeyword: string | undefined,
+  contextKeywords: MobileKeywordContextCandidate[] | undefined,
   limit: number,
 ): string[] {
   const seen = new Set<string>();
@@ -1000,11 +1004,42 @@ function proTrafficContextSeedKeywords(
     seen.add(key);
     out.push(normalized);
   };
-  if (params.seedKeyword) push(params.seedKeyword);
-  contextExpansionCandidates(params.seedKeyword || '', params.contextKeywords, Math.max(limit, 1))
+  if (seedKeyword) push(seedKeyword);
+  contextExpansionCandidates(seedKeyword || '', contextKeywords, Math.max(limit, 1))
     .sort((a, b) => (b.freq - a.freq) || ((b.monthlyVolume || 0) - (a.monthlyVolume || 0)))
     .forEach((item) => push(item.keyword));
   return out.slice(0, Math.max(limit, 1));
+}
+
+function proTrafficContextSeedKeywords(
+  params: ProTrafficMobileParams,
+  limit: number,
+): string[] {
+  return contextSeedKeywords(params.seedKeyword, params.contextKeywords, limit);
+}
+
+async function buildMeasuredContextKeywordMetrics(
+  seedKeyword: string | undefined,
+  contextKeywords: MobileKeywordContextCandidate[] | undefined,
+  limit: number,
+  source: string,
+  intent: string,
+  category: string,
+  context: MobileJobExecutorContext,
+  measureKeywordMetrics: MobileKeywordMetricsAdapter,
+): Promise<MobileKeywordMetric[]> {
+  const seeds = contextSeedKeywords(seedKeyword, contextKeywords, limit);
+  if (!seeds.length) return [];
+  context.progress(70, `measuring ${seeds.length} ${source} web context candidates`);
+  const metrics = seeds.map((keyword, index) => metricFromExpansion(
+    keyword,
+    Math.max(50, 84 - index * 0.65),
+    source,
+    intent,
+    category,
+    [source, 'web-analysis-context', seedKeyword ? `seed: ${seedKeyword}` : 'seed: auto'],
+  ));
+  return measureKeywordMetrics(metrics, context);
 }
 
 async function collectLiveExpansionCandidates(
@@ -1572,6 +1607,28 @@ async function runKinHiddenHoneyWithPcHunter(
     .slice(0, params.targetCount)
     .map(metricFromKinQuestion)
     .filter((item: MobileKeywordMetric) => item.keyword);
+  if (metrics.length < params.targetCount) {
+    const contextTopUp = await buildMeasuredContextKeywordMetrics(
+      undefined,
+      params.contextKeywords,
+      Math.max(0, params.targetCount - metrics.length),
+      'pc-kin-web-context-topup',
+      'kin-question-web-context',
+      'naver-kin',
+      context,
+      measureKeywordMetrics,
+    );
+    if (contextTopUp.length > 0) {
+      const seen = new Set(metrics.map((item: MobileKeywordMetric) => compactKeyword(item.keyword)).filter(Boolean));
+      for (const metric of contextTopUp) {
+        const key = compactKeyword(metric.keyword);
+        if (!key || seen.has(key)) continue;
+        seen.add(key);
+        metrics.push(metric);
+        if (metrics.length >= params.targetCount) break;
+      }
+    }
+  }
   if (metrics.length === 0) {
     const fallback = await buildSourceSignalMetrics(
       'all',
@@ -1593,24 +1650,49 @@ async function runShoppingConnectWithPcEngine(
 ): Promise<MobileKeywordResult> {
   const startedAt = Date.now();
   const autoDiscovery = !params.keyword;
+  const contextSeeds = contextSeedKeywords(
+    params.keyword || undefined,
+    params.contextKeywords,
+    Math.min(30, Math.max(params.targetCount, 30)),
+  );
   const rootKeyword = params.keyword || '쇼핑 자동 발굴';
+
+  const shoppingRootKeyword = params.keyword || contextSeeds[0] || rootKeyword;
 
   context.progress(10, autoDiscovery ? 'starting PC shopping auto discovery' : `starting PC shopping connect for ${params.keyword}`);
   ensureNotAborted(context);
 
   const shopping = await import('../utils/naver-shopping-api');
   const discovery = await import('../utils/shopping-keyword-suggestions');
-  const searchPlans = autoDiscovery
+  const contextPlans = contextSeeds.map((keyword) => ({
+    keyword,
+    source: 'trend-seed' as const,
+    reason: 'web keyword-analysis context',
+  }));
+  if (contextPlans.length > 0) {
+    context.progress(16, `injecting ${contextPlans.length} web context seeds into shopping connect`);
+  }
+  const discoveryPlans = autoDiscovery
     ? (await discovery.getShoppingDiscoverySeeds(params.targetCount)).slice(0, Math.min(30, params.targetCount)).map((seed) => ({
         keyword: seed.keyword,
         source: 'auto-discovery' as const,
         reason: seed.reason,
       }))
+    : [];
+  const rawSearchPlans = autoDiscovery
+    ? [...contextPlans, ...discoveryPlans]
     : [{
         keyword: params.keyword,
         source: 'direct' as const,
         reason: 'direct shopping keyword',
-      }];
+      }, ...contextPlans];
+  const seenPlans = new Set<string>();
+  const searchPlans = rawSearchPlans.filter((plan) => {
+    const key = compactKeyword(plan.keyword);
+    if (!key || seenPlans.has(key)) return false;
+    seenPlans.add(key);
+    return true;
+  }).slice(0, autoDiscovery ? Math.min(30, Math.max(params.targetCount, 30)) : Math.min(30, Math.max(1, params.targetCount)));
   if (searchPlans.length === 0) throw new Error('shopping discovery seeds are empty');
 
   const settledShopping = await Promise.allSettled(searchPlans.map((plan) =>
@@ -1643,9 +1725,9 @@ async function runShoppingConnectWithPcEngine(
   if (result.items.length === 0 && rejectedReasons.length > 0) {
     const quotaError = rejectedReasons.find(isQuotaLimitError);
     if (!quotaError) throw rejectedReasons[0];
-    context.progress(35, `shopping quota exhausted; using SearchAd/OpenAPI measured commerce fallback for ${rootKeyword}`);
+    context.progress(35, `shopping quota exhausted; using SearchAd/OpenAPI measured commerce fallback for ${shoppingRootKeyword}`);
     const fallback = await buildMeasuredIntentFallback(
-      rootKeyword,
+      shoppingRootKeyword,
       params.targetCount,
       'pc-shopping-quota-searchad-fallback',
       'commerce-entry',
@@ -1667,9 +1749,9 @@ async function runShoppingConnectWithPcEngine(
 
   const shoppingItems = Array.isArray(result.items) ? result.items : [];
   if (shoppingItems.length === 0) {
-    context.progress(45, `shopping returned 0 products; using SearchAd/OpenAPI measured commerce fallback for ${rootKeyword}`);
+    context.progress(45, `shopping returned 0 products; using SearchAd/OpenAPI measured commerce fallback for ${shoppingRootKeyword}`);
     const fallback = await buildMeasuredIntentFallback(
-      rootKeyword,
+      shoppingRootKeyword,
       params.targetCount,
       'pc-shopping-empty-searchad-fallback',
       'commerce-entry',
@@ -1687,7 +1769,7 @@ async function runShoppingConnectWithPcEngine(
   const rankedItems = shopping.rankShoppingOpportunities(
     scoredItems,
     {
-      keyword: rootKeyword,
+      keyword: shoppingRootKeyword,
       intentPrimary: 'buy',
       totalHits: result.total,
       relatedKeywords: [],
@@ -1703,10 +1785,10 @@ async function runShoppingConnectWithPcEngine(
   const metrics: MobileKeywordMetric[] = [];
   const seen = new Set<string>();
   for (const item of rankedItems) {
-    const seeds = shopping.buildProductLeWordSeeds(item, item.discoveryQuery || rootKeyword, 5);
+    const seeds = shopping.buildProductLeWordSeeds(item, item.discoveryQuery || shoppingRootKeyword, 5);
     if (seeds.length === 0) {
       seeds.push({
-        keyword: normalizeKeyword(item.cleanTitle || item.simplifiedTitle || item.title || item.discoveryQuery || rootKeyword),
+        keyword: normalizeKeyword(item.cleanTitle || item.simplifiedTitle || item.title || item.discoveryQuery || shoppingRootKeyword),
         relation: 'same-product',
         reason: 'shopping product opportunity',
       });
@@ -1715,7 +1797,7 @@ async function runShoppingConnectWithPcEngine(
       const key = compactKeyword(seed.keyword);
       if (!key || seen.has(key)) continue;
       seen.add(key);
-      metrics.push(metricFromShoppingSeed(seed, item, item.discoveryQuery || rootKeyword));
+      metrics.push(metricFromShoppingSeed(seed, item, item.discoveryQuery || shoppingRootKeyword));
       if (metrics.length >= params.targetCount) break;
     }
     if (metrics.length >= params.targetCount) break;
@@ -1833,6 +1915,22 @@ async function runNaverMateWithPcEngine(
     if (!normalized) return;
     candidates.push({ keyword: normalized, score, source, evidence });
   };
+
+  const contextSeeds = contextSeedKeywords(
+    params.seedKeyword || undefined,
+    params.contextKeywords,
+    Math.min(120, Math.max(params.targetCount * 2, 30)),
+  );
+  if (contextSeeds.length > 1 || (contextSeeds.length === 1 && compactKeyword(contextSeeds[0]) !== compactKeyword(params.seedKeyword))) {
+    context.progress(16, `injecting ${contextSeeds.length} web context seeds into Naver Mate`);
+  }
+  contextSeeds.forEach((keyword, index) => {
+    if (compactKeyword(keyword) === compactKeyword(params.seedKeyword)) return;
+    addCandidate(keyword, Math.max(52, 90 - index * 0.35), 'pc-naver-mate-web-context', [
+      'pc-naver-mate-web-context',
+      'web-analysis-context',
+    ]);
+  });
 
   if (params.includeAutocomplete) {
     context.progress(20, 'collecting Naver autocomplete signals');

@@ -542,9 +542,11 @@ async function runHomeBoardDefaultAdapter(): Promise<void> {
 
 async function runInjectedKinHiddenHoney(): Promise<void> {
   let receivedTab = '';
+  let receivedContextKeywords = 0;
   const executor = createMobilePcEngineExecutor({
     runKinHiddenHoney: async (params, context) => {
       receivedTab = params.tabType;
+      receivedContextKeywords = params.contextKeywords?.length || 0;
       context.progress(55, 'fixture kin adapter');
       return makeSssResult(params.targetCount, '지식인 꿀질문');
     },
@@ -554,12 +556,22 @@ async function runInjectedKinHiddenHoney(): Promise<void> {
     tabType: 'hidden',
     targetCount: 15,
     isPremiumRequest: true,
+    contextKeywords: [
+      {
+        keyword: 'kin context question keyword',
+        totalSearchVolume: 1400,
+        documentCount: 120,
+        source: 'web-analysis-result',
+        isMeasured: true,
+      },
+    ],
   }), {
     signal: new AbortController().signal,
     progress: (_percent, message) => progress.push(message),
   });
 
   assert('kin hidden tab is preserved', receivedTab === 'hidden');
+  assert('kin hidden preserves web context keywords', receivedContextKeywords === 1);
   assert('kin hidden returns requested SSS fixtures', result.keywords.length === 15 && result.summary.sss === 15);
   assert('kin hidden uses injected PC adapter fixture', progress.includes('fixture kin adapter'));
 }
@@ -578,6 +590,15 @@ async function runInjectedShoppingConnect(): Promise<void> {
     keyword: '  무선 이어폰  ',
     targetCount: 999,
     sort: 'unknown',
+    contextKeywords: [
+      {
+        keyword: 'wireless earbuds hot product',
+        totalSearchVolume: 2200,
+        documentCount: 180,
+        source: 'web-analysis-result',
+        isMeasured: true,
+      },
+    ],
   }), {
     signal: new AbortController().signal,
     progress: (_percent, message) => progress.push(message),
@@ -586,6 +607,7 @@ async function runInjectedShoppingConnect(): Promise<void> {
   assert('shopping normalizes keyword', received.keyword === '무선 이어폰');
   assert('shopping target clamps to 80', received.targetCount === 80);
   assert('shopping sort defaults to sim', received.sort === 'sim');
+  assert('shopping preserves web context keywords', received.contextKeywords.length === 1);
   assert('shopping returns injected SSS fixtures', result.keywords.length === 80 && result.summary.sss === 80);
   assert('shopping uses injected PC adapter fixture', progress.includes('fixture shopping adapter'));
 
@@ -644,6 +666,15 @@ async function runInjectedNaverMate(): Promise<void> {
     includeAutocomplete: false,
     includeRelated: false,
     includeVolumeMetrics: false,
+    contextKeywords: [
+      {
+        keyword: 'naver mate context longtail',
+        totalSearchVolume: 3100,
+        documentCount: 220,
+        source: 'web-analysis-result',
+        isMeasured: true,
+      },
+    ],
   }), {
     signal: new AbortController().signal,
     progress: (_percent, message) => progress.push(message),
@@ -655,6 +686,7 @@ async function runInjectedNaverMate(): Promise<void> {
     received.includeAutocomplete === false
       && received.includeRelated === false
       && received.includeVolumeMetrics === false);
+  assert('naver mate preserves web context keywords', received.contextKeywords.length === 1);
   assert('naver mate returns injected SSS fixtures', result.keywords.length === 120 && result.summary.sss === 120);
   assert('naver mate uses injected PC adapter fixture', progress.includes('fixture naver mate adapter'));
 }

@@ -950,12 +950,14 @@ export interface KinHiddenHoneyMobileParams {
   tabType: 'popular' | 'latest' | 'trending' | 'hidden';
   targetCount: number;
   isPremiumRequest: boolean;
+  contextKeywords?: MobileKeywordContextCandidate[];
 }
 
 export interface ShoppingConnectMobileParams {
   keyword: string;
   targetCount: number;
   sort: 'sim' | 'date' | 'asc' | 'dsc';
+  contextKeywords?: MobileKeywordContextCandidate[];
 }
 
 export interface YoutubeGoldenMobileParams {
@@ -970,6 +972,7 @@ export interface NaverMateMobileParams {
   includeAutocomplete: boolean;
   includeRelated: boolean;
   includeVolumeMetrics: boolean;
+  contextKeywords?: MobileKeywordContextCandidate[];
 }
 
 export interface MobileKeywordResult {
