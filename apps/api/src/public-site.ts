@@ -2,6 +2,7 @@ import type {
   MobileLiveGoldenBoardItem,
   MobileLiveGoldenFreshness,
   MobileLiveGoldenRadarSnapshot,
+  MobilePublishDecision,
   MobileSignalItem,
   MobileSourceSignalSnapshot,
 } from '../../../src/mobile/contracts';
@@ -21,6 +22,7 @@ export interface PublicLiveGoldenPreviewItem {
   publicReason: string;
   discoveredAt: string;
   updatedAt: string;
+  publishDecision?: MobilePublishDecision;
 }
 
 export interface PublicLiveGoldenPayload {
@@ -52,6 +54,7 @@ function redactPublicPreviewItem(item: MobileLiveGoldenBoardItem): PublicLiveGol
     publicReason: item.publicReason,
     discoveredAt: item.discoveredAt,
     updatedAt: item.updatedAt,
+    publishDecision: item.publishDecision,
   };
 }
 
