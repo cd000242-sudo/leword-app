@@ -23,6 +23,7 @@ import type { MDPResult } from '../utils/mdp-engine';
 import { classifyKeyword } from '../utils/categories';
 import { getDiscoveryCategorySeeds } from '../utils/category-discovery-map';
 import { measureDocumentCount } from '../utils/measure-dc';
+import { evaluatePublishDecision } from './publish-decision';
 
 export interface MobileLiveGoldenRadarRunGate {
   ok: boolean;
@@ -2497,6 +2498,7 @@ export class MobileLiveGoldenRadar {
     const markedBoard = board.map((item) => ({
       ...item,
       isPublicPreview: publicPreviewIds.has(item.id),
+      publishDecision: evaluatePublishDecision(item),
     }));
     return {
       enabled: this.enabled,

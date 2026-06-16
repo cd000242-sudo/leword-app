@@ -70,6 +70,9 @@ import {
 import {
   buildMobileSourceSignalSnapshot,
 } from './source-signals';
+import {
+  attachPublishDecisions,
+} from './publish-decision';
 
 export class MobilePcEngineNotConnectedError extends Error {
   constructor(product: MobileKeywordProduct) {
@@ -423,12 +426,13 @@ function resultFromMetrics(
   startedAt: number,
   parityMode: MobileKeywordResult['summary']['parityMode'] = 'pc-engine',
 ): MobileKeywordResult {
+  const decidedKeywords = attachPublishDecisions(keywords);
   return {
-    keywords,
+    keywords: decidedKeywords,
     summary: {
-      total: keywords.length,
-      sss: keywords.filter((item) => item.grade === 'SSS').length,
-      measured: keywords.filter((item) => item.isMeasured).length,
+      total: decidedKeywords.length,
+      sss: decidedKeywords.filter((item) => item.grade === 'SSS').length,
+      measured: decidedKeywords.filter((item) => item.isMeasured).length,
       elapsedMs: Date.now() - startedAt,
       fromCache: false,
       parityMode,
@@ -960,19 +964,6 @@ async function collectLiveExpansionCandidates(
   }
 
   return Array.from(byKey.values()).slice(0, Math.max(limit, 1));
-}
-
-function buildServerFallbackExpansionCandidates(
-  seed: string,
-  limit: number,
-  source: string,
-): Array<{ keyword: string; sources: string[]; source: string; freq: number; monthlyVolume?: number }> {
-  return buildCleanIntentCandidates(seed, Math.max(limit, 1)).map((keyword, index) => ({
-    keyword,
-    sources: [source],
-    source,
-    freq: Math.max(1, limit - index),
-  }));
 }
 
 function addEvidence(evidence: string[], value: string): string[] {
@@ -1869,31 +1860,19 @@ async function runMindmapExpansion(
     getEnvConfig(),
     context,
   );
-  const usingServerFallback = candidates.length === 0;
-  if (usingServerFallback) {
-    candidates = buildServerFallbackExpansionCandidates(
-      params.seedKeyword,
-      Math.max(params.targetCount * 3, 60),
-      'server-mindmap-intent-template',
-    );
+  if (candidates.length === 0) {
+    context.progress(72, 'no live mindmap candidates from autocomplete/related sources');
+    return resultFromMetrics([], startedAt, 'pc-engine-plus');
   }
 
   context.progress(45, 'ranking mindmap candidates with PC quality gate');
   ensureNotAborted(context);
 
-  const ranked = usingServerFallback
-    ? candidates.slice(0, params.targetCount).map((item, index) => ({
-      keyword: item.keyword,
-      score: Math.max(45, 82 - index * 0.5),
-      source: item.source,
-      sources: item.sources,
-      reasons: ['server-zero-live-fallback', item.source],
-    }))
-    : rankMindmapExpansionCandidates(
-      params.seedKeyword,
-      candidates,
-      params.targetCount,
-    );
+  const ranked = rankMindmapExpansionCandidates(
+    params.seedKeyword,
+    candidates,
+    params.targetCount,
+  );
 
   context.progress(80, 'building mobile mindmap result envelope');
   ensureNotAborted(context);

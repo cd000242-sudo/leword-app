@@ -89,6 +89,7 @@ async function measureFixtureMetrics(metrics: MobileKeywordMetric[]): Promise<Mo
 
 async function runKeywordAnalysis(): Promise<void> {
   const executor = createMobilePcEngineExecutor({
+    getEnvConfig: () => ({}),
     measureKeywordMetrics: async (metrics, context) => {
       context.progress(84, 'fixture measured keyword metrics');
       return measureFixtureMetrics(metrics);
@@ -124,6 +125,13 @@ async function runKeywordAnalysis(): Promise<void> {
         && item.totalSearchVolume !== null
         && item.documentCount !== null
         && item.goldenRatio !== null));
+  assert('keyword analysis attaches publish decision for blogger fit',
+    result.keywords.every((item) => item.publishDecision
+      && item.publishDecision.score >= 0
+      && item.publishDecision.score <= 100
+      && ['publish', 'conditional', 'exclude'].includes(item.publishDecision.verdict)
+      && item.publishDecision.label.length > 0),
+    JSON.stringify(result.keywords.map((item) => item.publishDecision)));
   assert('keyword analysis preserves SearchAd/OpenAPI evidence',
     result.keywords.every((item) => item.evidence.includes('fixture-searchad-volume')
       && item.evidence.includes('fixture-naver-blog-document-count')));
@@ -134,8 +142,11 @@ async function runKeywordAnalysis(): Promise<void> {
 }
 
 async function runMindmapExpansion(): Promise<void> {
+  let measured = false;
   const executor = createMobilePcEngineExecutor({
+    getEnvConfig: () => ({}),
     measureKeywordMetrics: async (metrics, context) => {
+      measured = true;
       context.progress(84, 'fixture measured mindmap metrics');
       return measureFixtureMetrics(metrics);
     },
@@ -150,24 +161,13 @@ async function runMindmapExpansion(): Promise<void> {
     progress: (_percent, message) => progress.push(message),
   });
 
-  assert('mindmap returns requested amount', result.keywords.length >= 20);
-  assert('mindmap keeps Korean candidate text clean',
-    result.keywords.every((item) => !/[?]{2,}/.test(item.keyword)));
-  assert('mindmap includes incident intent expansion',
-    result.keywords.some((item) => item.keyword.includes('피해 확인') || item.keyword.includes('보상 기준')));
-  assert('mindmap uses PC quality gate evidence',
-    result.keywords.every((item) => item.evidence.some((evidence) => evidence.includes('pc-mindmap-expansion-quality'))));
-  assert('mindmap returns measured metrics',
-    result.summary.measured >= 20
-      && result.keywords.every((item) => item.isMeasured
-        && item.pcSearchVolume !== null
-        && item.mobileSearchVolume !== null
-        && item.totalSearchVolume !== null
-        && item.documentCount !== null
-        && item.goldenRatio !== null));
+  assert('mindmap does not synthesize hardcoded rows when live source has no candidates',
+    result.keywords.length === 0 && result.summary.total === 0 && result.summary.measured === 0,
+    JSON.stringify(result));
+  assert('mindmap skips measurement when there are no live expansion candidates',
+    measured === false);
   assert('mindmap reports progress',
-    progress.some((message) => message.includes('PC quality gate'))
-      && progress.some((message) => message.includes('fixture measured mindmap metrics')));
+    progress.some((message) => message.includes('no live mindmap candidates')));
 }
 
 async function runInjectedGoldenDiscovery(): Promise<void> {

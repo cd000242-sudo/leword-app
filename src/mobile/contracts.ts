@@ -27,6 +27,19 @@ export type MobileJobEventType =
 
 export type MobileResultGrade = 'SSS' | 'SS' | 'S' | 'A' | 'B' | 'C';
 
+export type MobilePublishVerdict = 'publish' | 'conditional' | 'exclude';
+
+export interface MobilePublishDecision {
+  verdict: MobilePublishVerdict;
+  label: string;
+  score: number;
+  reasons: string[];
+  cautions: string[];
+  nextAction: string;
+  titleAngles: string[];
+  clusterKeywords: string[];
+}
+
 export interface MobileKeywordMetric {
   keyword: string;
   grade: MobileResultGrade;
@@ -42,6 +55,7 @@ export interface MobileKeywordMetric {
   intent: string;
   evidence: string[];
   isMeasured: boolean;
+  publishDecision?: MobilePublishDecision;
 }
 
 export interface MobileJobEnvelope<TParams, TResult> {
