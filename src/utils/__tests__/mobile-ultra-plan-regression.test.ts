@@ -930,6 +930,8 @@ assert('mobile executor measures analysis and mindmap candidates with PC metrics
     && /pc-searchad-volume/.test(pcExecutor)
     && /pc-naver-blog-document-count/.test(pcExecutor)
     && /calculateMindmapMetricGrade/.test(pcExecutor));
+assert('mobile executor preserves existing measured document counts when OpenAPI returns null',
+  /documentCount !== undefined && documentCount !== null[\s\S]{0,80}\? documentCount[\s\S]{0,80}: metric\.documentCount/.test(pcExecutor));
 assert('mobile executor wires golden discovery to PC MDP engine', /MDPEngine/.test(pcExecutor) && /runGoldenDiscoveryWithPcMdp/.test(pcExecutor));
 assert('mobile bulk golden direct supplement keeps measured SS/S quality backfill',
   /isQualityGoldenDiscoveryResult/.test(pcExecutor)

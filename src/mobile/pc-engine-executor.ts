@@ -1254,7 +1254,7 @@ function mergeMeasuredMetric(
     ?? ((pcSearchVolume !== null || mobileSearchVolume !== null)
       ? (pcSearchVolume || 0) + (mobileSearchVolume || 0)
       : metric.totalSearchVolume);
-  const resolvedDocumentCount = documentCount !== undefined
+  const resolvedDocumentCount = documentCount !== undefined && documentCount !== null
     ? documentCount
     : metric.documentCount;
   const cpc = finiteNumber(volume?.monthlyAveCpc) ?? metric.cpc;
