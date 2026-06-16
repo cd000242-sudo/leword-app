@@ -939,6 +939,11 @@ assert('mobile bulk golden direct supplement avoids runaway 6000+ measured candi
   /Math\.max\(1800, Math\.min\(3600/.test(pcExecutor)
     && !/Math\.max\(6000, Math\.min\(10000/.test(pcExecutor));
 assert('mobile executor wires PRO traffic to PC hunter', /huntProTrafficKeywords/.test(pcExecutor) && /runProTrafficWithPcHunter/.test(pcExecutor));
+assert('mobile executor prewarms PRO traffic from a wider measured-first candidate pool',
+  /const hunterCount = params\.seedKeyword[\s\S]{0,180}Math\.max\(params\.targetCount \* 4, 100\)/.test(pcExecutor)
+    && /count: hunterCount/.test(pcExecutor)
+    && /prioritizeFullyMeasuredMetrics\(rawMetrics, params\.targetCount\)/.test(pcExecutor)
+    && /prioritizeFullyMeasuredMetrics\(measuredMetrics, params\.targetCount\)/.test(pcExecutor));
 assert('mobile executor recovers measured PRO traffic document counts from PC hunter evidence',
   /recoverProTrafficDocumentCount/.test(pcExecutor)
     && /pc-pro-traffic-document-count-recovered/.test(pcExecutor));

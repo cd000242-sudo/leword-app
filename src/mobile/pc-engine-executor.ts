@@ -1297,6 +1297,22 @@ function isFullyMeasuredKeyword(metric: MobileKeywordMetric): boolean {
     && metric.documentCount > 0;
 }
 
+function prioritizeFullyMeasuredMetrics(
+  metrics: MobileKeywordMetric[],
+  targetCount: number,
+): MobileKeywordMetric[] {
+  const measured: MobileKeywordMetric[] = [];
+  const partial: MobileKeywordMetric[] = [];
+  for (const metric of metrics) {
+    if (isFullyMeasuredKeyword(metric)) {
+      measured.push(metric);
+    } else {
+      partial.push(metric);
+    }
+  }
+  return [...measured, ...partial].slice(0, targetCount);
+}
+
 function isSyntheticKeywordAnalysisSource(metric: MobileKeywordMetric): boolean {
   const source = `${metric.source} ${metric.evidence.join(' ')}`;
   return /server-intent-template|server-zero-live-fallback|intent-fallback|pc-intent-expansion/i.test(source);
@@ -1540,6 +1556,9 @@ async function runProTrafficWithPcHunter(
   if (seedKeywords.length > 0) {
     context.progress(14, `injecting ${seedKeywords.length} web context seeds into PC PRO hunter`);
   }
+  const hunterCount = params.seedKeyword
+    ? params.targetCount
+    : Math.min(250, Math.max(params.targetCount * 4, 100));
 
   const result: ProTrafficHuntResult = await huntProTrafficKeywords({
     mode: 'category',
@@ -1549,22 +1568,26 @@ async function runProTrafficWithPcHunter(
     includeSeasonKeywords: params.includeSeasonal,
     explosionMode: params.includeFreshIssue,
     useDeepMining: true,
-    discoveryFirst: params.targetCount >= 50,
-    fastDiscovery: params.targetCount >= 100,
-    count: params.targetCount,
+    discoveryFirst: hunterCount >= 50,
+    fastDiscovery: hunterCount >= 100,
+    count: hunterCount,
     forceRefresh: true,
   });
   ensureNotAborted(context);
 
-  context.progress(88, `PC PRO hunter returned ${result.keywords.length}/${params.targetCount}`);
-  const metrics = result.keywords
-    .slice(0, params.targetCount)
+  context.progress(88, `PC PRO hunter returned ${result.keywords.length}; selecting ${params.targetCount} measured-first candidates`);
+  const rawMetrics = result.keywords
     .map((item) => metricFromProResult(item, params.categoryId))
     .filter((item) => item.keyword);
+  const metrics = prioritizeFullyMeasuredMetrics(rawMetrics, params.targetCount);
   const measuredMetrics = measureKeywordMetrics
     ? await measureKeywordMetrics(metrics, context)
     : metrics;
-  return resultFromMetrics(measuredMetrics, startedAt, 'pc-engine-plus');
+  return resultFromMetrics(
+    prioritizeFullyMeasuredMetrics(measuredMetrics, params.targetCount),
+    startedAt,
+    'pc-engine-plus',
+  );
 }
 
 async function runHomeBoardWithPcPlanner(
