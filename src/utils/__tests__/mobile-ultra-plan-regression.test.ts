@@ -173,6 +173,7 @@ assert('mobile Metro watches workspace root for shared contracts',
     && /workspaceRoot/.test(mobileSources)
     && /nodeModulesPaths/.test(mobileSources));
 const mobileContract = read('apps/mobile/src/contracts.ts');
+const sharedMobileContract = read('src/mobile/contracts.ts');
 assert('mobile contract mirror preserves PC endpoint paths and SSS floors',
   MOBILE_API_ENDPOINTS.every((endpoint) => mobileContract.includes(endpoint.path))
     && Object.values(MOBILE_NOTIFICATION_ROUTES).every((route) => mobileContract.includes(route))
@@ -822,6 +823,11 @@ assert('api supports mobile result cache',
     && /createCompleted/.test(apiServer)
     && /resultCache\?\.set/.test(apiServer)
     && /LEWORD_MOBILE_CACHE_FILE/.test(apiServer));
+assert('api normalizes pro traffic cache keys to hit server prewarm results',
+  /normalizeProTrafficCacheParams/.test(apiServer)
+    && /normalizeMobileJobCacheParams/.test(apiServer)
+    && /normalizedCacheParams/.test(apiServer)
+    && /contextKeywords/.test(apiServer) === false);
 assert('api keeps user API credentials out of public jobs and cache keys',
   /X-Leword-User-Api-Credentials/.test(apiServer)
     && /decodeUserApiCredentialsHeader/.test(apiServer)
@@ -869,9 +875,15 @@ assert('mobile result cache does not replay empty keyword results',
     && /live-source-fallback/.test(resultCache));
 assert('mobile prewarm service warms default high-impact targets',
   /DEFAULT_MOBILE_PREWARM_TARGETS/.test(prewarmService)
+    && /pro-traffic-all-24h/.test(prewarmService)
+    && /autoDiscovery:\s*true/.test(prewarmService)
     && /policy-golden-precision/.test(prewarmService)
     && /celebrity-pro-fresh/.test(prewarmService)
     && /resultCache\.set/.test(prewarmService));
+assert('mobile result cache keeps prewarmed pro traffic warm for 24 hours',
+  /proTrafficPrewarmCacheTtlMinutes:\s*1440/.test(sharedMobileContract)
+    && /product === 'pro-traffic-hunter'/.test(resultCache)
+    && /proTrafficPrewarmCacheTtlMinutes/.test(resultCache));
 assert('mobile prewarm publishes winners to notification inbox',
   /notificationInbox/.test(prewarmService)
     && /publishFromResult/.test(prewarmService)
@@ -889,6 +901,10 @@ assert('mobile prewarm scheduler supports env-driven cache warming',
     && /LEWORD_MOBILE_PREWARM_INTERVAL_MINUTES/.test(prewarmScheduler)
     && /runOnStart/.test(prewarmScheduler)
     && /stop\(\)/.test(prewarmScheduler));
+assert('production compose keeps server prewarm running all day',
+  /LEWORD_MOBILE_PREWARM_INTERVAL_MINUTES:\s*\$\{LEWORD_MOBILE_PREWARM_INTERVAL_MINUTES:-60\}/.test(apiProductionCompose)
+    && /LEWORD_MOBILE_PREWARM_LIMIT:\s*\$\{LEWORD_MOBILE_PREWARM_LIMIT:-8\}/.test(apiProductionCompose)
+    && /LEWORD_MOBILE_PREWARM_ON_START:\s*\$\{LEWORD_MOBILE_PREWARM_ON_START:-true\}/.test(apiProductionCompose));
 assert('mobile live golden radar is low-load and non-overlapping',
   /MobileLiveGoldenRadar/.test(liveGoldenRadar)
     && /liveGoldenCycleLimit/.test(liveGoldenRadar)

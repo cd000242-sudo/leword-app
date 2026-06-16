@@ -28,6 +28,7 @@ import {
   type MobileKeywordExportRequest,
   type MobileKeywordGroupInput,
   type MobileKeywordMetric,
+  type MobileKeywordProduct,
   type MobileKeywordResult,
   type MobileKeywordScheduleCreateInput,
   type MobileKeywordScheduleUpdateInput,
@@ -835,6 +836,52 @@ function splitSensitiveJobParams(
   };
 }
 
+function normalizeBooleanParam(value: unknown, fallback: boolean): boolean {
+  return typeof value === 'boolean' ? value : fallback;
+}
+
+function normalizeTargetCount(value: unknown, fallback: number): number {
+  const parsed = typeof value === 'number'
+    ? value
+    : typeof value === 'string'
+      ? Number(value)
+      : NaN;
+  if (!Number.isFinite(parsed)) return fallback;
+  return Math.max(1, Math.min(250, Math.floor(parsed)));
+}
+
+function normalizeProTrafficCacheParams(params: unknown): unknown {
+  const raw = params && typeof params === 'object' && !Array.isArray(params)
+    ? params as Record<string, unknown>
+    : {};
+  const seedKeyword = typeof raw.seedKeyword === 'string'
+    ? raw.seedKeyword.replace(/\s+/g, ' ').trim()
+    : '';
+  const normalized: Record<string, unknown> = {
+    categoryId: typeof raw.categoryId === 'string' && raw.categoryId.trim()
+      ? raw.categoryId.trim()
+      : 'all',
+    targetCount: normalizeTargetCount(raw.targetCount, 30),
+    includeSeasonal: normalizeBooleanParam(raw.includeSeasonal, true),
+    includeEvergreen: normalizeBooleanParam(raw.includeEvergreen, true),
+    includeFreshIssue: normalizeBooleanParam(raw.includeFreshIssue, true),
+    autoDiscovery: normalizeBooleanParam(raw.autoDiscovery, true),
+    includeAiInference: normalizeBooleanParam(raw.includeAiInference, true),
+  };
+  if (seedKeyword) {
+    normalized.seedKeyword = seedKeyword;
+    if (raw.apiCredentials) normalized.apiCredentials = raw.apiCredentials;
+  }
+  return normalized;
+}
+
+function normalizeMobileJobCacheParams(product: MobileKeywordProduct, params: unknown): unknown {
+  if (product === 'pro-traffic-hunter') {
+    return normalizeProTrafficCacheParams(params);
+  }
+  return params;
+}
+
 function streamJobEvents(
   req: http.IncomingMessage,
   res: http.ServerResponse,
@@ -1084,7 +1131,8 @@ async function createJob(
   try {
     const params = await parseBody(req, maxBodyBytes);
     const splitParams = splitSensitiveJobParams(params, decodeUserApiCredentialsHeader(req));
-    const cachedResult = resultCache?.get(endpoint.product, splitParams.cacheParams);
+    const normalizedCacheParams = normalizeMobileJobCacheParams(endpoint.product, splitParams.cacheParams);
+    const cachedResult = resultCache?.get(endpoint.product, normalizedCacheParams);
     const cachedSyncedResult = cachedResult
       ? sanitizeMeasuredKeywordResult(
         endpoint,
@@ -1092,7 +1140,7 @@ async function createJob(
       )
       : null;
     if (cachedSyncedResult) {
-      resultCache?.set(endpoint.product, splitParams.cacheParams, cachedSyncedResult);
+      resultCache?.set(endpoint.product, normalizedCacheParams, cachedSyncedResult);
     }
     const job = cachedResult
       ? store.createCompleted(endpoint.product, splitParams.publicParams, cachedSyncedResult as MobileKeywordResult)
@@ -1102,7 +1150,7 @@ async function createJob(
           endpoint,
           overlayLiveGoldenExactKeyword(endpoint, splitParams.executorParams, result, liveGoldenRadar),
         );
-        resultCache?.set(endpoint.product, splitParams.cacheParams, sanitizedResult);
+        resultCache?.set(endpoint.product, normalizedCacheParams, sanitizedResult);
         return sanitizedResult;
       });
 

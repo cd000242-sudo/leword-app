@@ -1207,6 +1207,7 @@ export const MOBILE_PC_PARITY_SLA = Object.freeze({
     maxBrowserPoolSizePerWorker: 8,
     queueRetryLimit: 2,
     cacheTtlMinutesForFreshIssue: 15,
+    proTrafficPrewarmCacheTtlMinutes: 1440,
     cacheTtlMinutesForEvergreen: 1440,
     liveGoldenIntervalMinutes: 12,
     liveGoldenCycleLimit: 15,

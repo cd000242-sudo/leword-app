@@ -1411,6 +1411,88 @@ const result: MobileKeywordResult = {
 
   console.log('[mobile-api-server-cache.test] passed');
 
+  const proTrafficPrewarmCache = new InMemoryMobileResultCache();
+  proTrafficPrewarmCache.set('pro-traffic-hunter', {
+    categoryId: 'all',
+    targetCount: 30,
+    includeSeasonal: true,
+    includeEvergreen: true,
+    includeFreshIssue: true,
+    autoDiscovery: true,
+    includeAiInference: true,
+  }, {
+    ...result,
+    keywords: [{
+      keyword: 'server prewarmed pro traffic keyword',
+      grade: 'SSS',
+      pcSearchVolume: 900,
+      mobileSearchVolume: 2200,
+      totalSearchVolume: 3100,
+      documentCount: 80,
+      goldenRatio: 38.75,
+      cpc: 210,
+      category: 'pro-traffic',
+      source: 'prewarm-fixture',
+      intent: 'prewarmed',
+      evidence: ['pro traffic prewarm fixture'],
+      isMeasured: true,
+    }],
+    summary: {
+      total: 1,
+      sss: 1,
+      measured: 1,
+      elapsedMs: 7,
+      fromCache: false,
+      parityMode: 'pc-engine',
+    },
+  });
+  let proTrafficExecutorCalls = 0;
+  const proTrafficCacheServer = createLewordApiServer({
+    entitlementVerifier: null,
+    resultCache: proTrafficPrewarmCache,
+    executor: async () => {
+      proTrafficExecutorCalls += 1;
+      return result;
+    },
+  });
+  const proTrafficCachePort = await listen(proTrafficCacheServer);
+  const proTrafficCacheBaseUrl = `http://127.0.0.1:${proTrafficCachePort}`;
+
+  try {
+    const cachedProTraffic = await fetch(`${proTrafficCacheBaseUrl}/v1/pro/hunt`, {
+      method: 'POST',
+      headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify({
+        categoryId: 'all',
+        targetCount: 30,
+        includeSeasonal: true,
+        includeEvergreen: true,
+        includeFreshIssue: true,
+        autoDiscovery: true,
+        includeAiInference: true,
+        contextKeywords: ['volatile browser-side context'],
+        apiCredentials: {
+          naverClientId: 'user-client-id',
+          naverClientSecret: 'user-client-secret',
+        },
+      }),
+    });
+    const cachedProTrafficJson: any = await cachedProTraffic.json();
+    assert('prewarmed pro traffic job is served completed despite volatile web context',
+      cachedProTraffic.status === 202
+        && cachedProTrafficJson.job.state === 'completed'
+        && cachedProTrafficJson.job.result.summary.fromCache === true
+        && cachedProTrafficJson.job.result.keywords[0].keyword === 'server prewarmed pro traffic keyword',
+      JSON.stringify(cachedProTrafficJson));
+    assert('prewarmed pro traffic cache avoids duplicate PC worker execution',
+      proTrafficExecutorCalls === 0,
+      String(proTrafficExecutorCalls));
+  } finally {
+    await close(proTrafficCacheServer);
+  }
+
+  console.log('[mobile-api-server-pro-traffic-prewarm-cache.test] passed');
+
   const overlayInbox = new MobileNotificationInbox();
   const overlayBoardFile = path.join(os.tmpdir(), `leword-live-board-overlay-${Date.now()}.json`);
   writeJson(overlayBoardFile, {

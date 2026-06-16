@@ -125,6 +125,9 @@ assert('keyword analyzer keeps raw analysis rows and shares them with mindmap ex
 assert('pro traffic hunter shares web analysis context with the PC engine',
   /id:\s*'pro-traffic'[\s\S]{0,520}contextKeywords:\s*buildLookupContextKeywords/.test(html)
     && /id:\s*'pro-traffic'[\s\S]{0,520}autoDiscovery:\s*true/.test(html));
+assert('pro traffic hunter explains the server prewarmed cache path',
+  html.includes('서버가 24시간 prewarm한 PRO 트래픽 후보')
+    && html.includes('서버 24시간 prewarm 후보'));
 
 assert('all keyword-discovery subtabs share web analysis context with PC engines',
   /id:\s*'naver-mate'[\s\S]{0,560}contextKeywords:\s*buildLookupContextKeywords/.test(html)

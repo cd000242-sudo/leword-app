@@ -21,6 +21,11 @@ function assertProductionApiUrl(url) {
   );
 }
 
+function readNumericContractValue(source, key) {
+  const match = source.match(new RegExp(`${key}:\\s*(\\d+)`));
+  return match ? Number(match[1]) : NaN;
+}
+
 const mobilePackage = readJson('apps/mobile/package.json');
 const appConfig = readJson('apps/mobile/app.json');
 const easConfig = readJson('apps/mobile/eas.json');
@@ -94,9 +99,12 @@ if (isProductionCheck) {
 }
 assert('Mobile user UI does not expose admin prewarm run', !/추천 예열/.test(mobileScreen) && !/onPress=\{runPrewarm\}/.test(mobileScreen));
 assert('Contracts keep server-only heavy runtime policy', /heavyBrowserAutomation:\s*'server-only'/.test(contracts));
-assert('Golden precision SSS floor remains 30+', /goldenPrecisionSss:\s*30/.test(contracts));
-assert('Golden bulk SSS floor remains 60+', /goldenBulkSss:\s*60/.test(contracts));
-assert('PRO target remains 250', /proTrafficMaxSssTarget:\s*250/.test(contracts));
+assert('Golden precision SSS floor remains 30+',
+  readNumericContractValue(contracts, 'goldenPrecisionSss') >= 30);
+assert('Golden bulk SSS floor remains 60+',
+  readNumericContractValue(contracts, 'goldenBulkSss') >= 60);
+assert('PRO target remains 250+',
+  readNumericContractValue(contracts, 'proTrafficMaxSssTarget') >= 250);
 assert('Mobile API enforces public request guardrails',
   /apiGuardrails/.test(contracts)
     && /MobileApiRateLimiter/.test(apiGuardrails)

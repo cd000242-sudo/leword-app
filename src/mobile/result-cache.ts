@@ -70,9 +70,11 @@ export function makeMobileResultCacheKey(product: MobileKeywordProduct, params: 
 }
 
 export function getMobileResultCacheTtlMs(product: MobileKeywordProduct): number {
-  const minutes = FRESH_PRODUCTS.has(product)
-    ? MOBILE_PC_PARITY_SLA.workerBudgets.cacheTtlMinutesForFreshIssue
-    : MOBILE_PC_PARITY_SLA.workerBudgets.cacheTtlMinutesForEvergreen;
+  const minutes = product === 'pro-traffic-hunter'
+    ? MOBILE_PC_PARITY_SLA.workerBudgets.proTrafficPrewarmCacheTtlMinutes
+    : FRESH_PRODUCTS.has(product)
+      ? MOBILE_PC_PARITY_SLA.workerBudgets.cacheTtlMinutesForFreshIssue
+      : MOBILE_PC_PARITY_SLA.workerBudgets.cacheTtlMinutesForEvergreen;
   return minutes * 60 * 1000;
 }
 

@@ -21,6 +21,21 @@ export interface MobilePrewarmServiceOptions {
 
 export const DEFAULT_MOBILE_PREWARM_TARGETS: readonly MobilePrewarmTarget[] = Object.freeze([
   {
+    id: 'pro-traffic-all-24h',
+    label: 'PRO 트래픽 24시간 선발굴',
+    product: 'pro-traffic-hunter',
+    priority: 5,
+    params: {
+      categoryId: 'all',
+      targetCount: 30,
+      includeSeasonal: true,
+      includeEvergreen: true,
+      includeFreshIssue: true,
+      autoDiscovery: true,
+      includeAiInference: true,
+    },
+  },
+  {
     id: 'policy-golden-precision',
     label: '지원금/정책 황금 정밀',
     product: 'golden-discovery',
