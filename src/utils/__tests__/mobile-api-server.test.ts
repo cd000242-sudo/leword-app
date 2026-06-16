@@ -1493,6 +1493,110 @@ const result: MobileKeywordResult = {
 
   console.log('[mobile-api-server-pro-traffic-prewarm-cache.test] passed');
 
+  const incompleteProTrafficCache = new InMemoryMobileResultCache();
+  incompleteProTrafficCache.set('pro-traffic-hunter', {
+    categoryId: 'all',
+    targetCount: 30,
+    includeSeasonal: true,
+    includeEvergreen: true,
+    includeFreshIssue: true,
+    autoDiscovery: true,
+    includeAiInference: true,
+  }, {
+    ...result,
+    keywords: [{
+      keyword: 'incomplete cached pro traffic keyword',
+      grade: 'SSS',
+      pcSearchVolume: 900,
+      mobileSearchVolume: 2200,
+      totalSearchVolume: 3100,
+      documentCount: null,
+      goldenRatio: 38.75,
+      cpc: 210,
+      category: 'pro-traffic',
+      source: 'prewarm-fixture',
+      intent: 'prewarmed',
+      evidence: ['metric-measurement-partial-or-unavailable'],
+      isMeasured: false,
+    }],
+    summary: {
+      total: 1,
+      sss: 1,
+      measured: 0,
+      elapsedMs: 7,
+      fromCache: false,
+      parityMode: 'pc-engine',
+    },
+  });
+  let incompleteProTrafficExecutorCalls = 0;
+  const incompleteProTrafficCacheServer = createLewordApiServer({
+    entitlementVerifier: null,
+    resultCache: incompleteProTrafficCache,
+    executor: async () => {
+      incompleteProTrafficExecutorCalls += 1;
+      return {
+        ...result,
+        keywords: [{
+          keyword: 'fresh measured pro traffic keyword',
+          grade: 'SSS',
+          pcSearchVolume: 1200,
+          mobileSearchVolume: 3300,
+          totalSearchVolume: 4500,
+          documentCount: 90,
+          goldenRatio: 50,
+          cpc: 210,
+          category: 'pro-traffic',
+          source: 'fresh-fixture',
+          intent: 'measured',
+          evidence: ['fresh measured fixture'],
+          isMeasured: true,
+        }],
+        summary: {
+          total: 1,
+          sss: 1,
+          measured: 1,
+          elapsedMs: 10,
+          fromCache: false,
+          parityMode: 'pc-engine',
+        },
+      };
+    },
+  });
+  const incompleteProTrafficCachePort = await listen(incompleteProTrafficCacheServer);
+  const incompleteProTrafficCacheBaseUrl = `http://127.0.0.1:${incompleteProTrafficCachePort}`;
+
+  try {
+    const refreshedProTraffic = await fetch(`${incompleteProTrafficCacheBaseUrl}/v1/pro/hunt`, {
+      method: 'POST',
+      headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify({
+        categoryId: 'all',
+        targetCount: 30,
+        includeSeasonal: true,
+        includeEvergreen: true,
+        includeFreshIssue: true,
+        autoDiscovery: true,
+        includeAiInference: true,
+        contextKeywords: ['volatile browser-side context'],
+      }),
+    });
+    const refreshedProTrafficJson: any = await refreshedProTraffic.json();
+    assert('incomplete prewarmed pro traffic cache is not served as an empty completed job',
+      refreshedProTraffic.status === 202
+        && refreshedProTrafficJson.job.state !== 'completed',
+      JSON.stringify(refreshedProTrafficJson));
+    const refreshedJob = await waitForCompletedJob(incompleteProTrafficCacheBaseUrl, refreshedProTrafficJson.job.id);
+    assert('incomplete prewarmed pro traffic cache falls back to fresh measured execution',
+      incompleteProTrafficExecutorCalls === 1
+        && refreshedJob.result.keywords[0].keyword === 'fresh measured pro traffic keyword'
+        && refreshedJob.result.summary.measured === 1,
+      JSON.stringify({ refreshedJob, incompleteProTrafficExecutorCalls }));
+  } finally {
+    await close(incompleteProTrafficCacheServer);
+  }
+
+  console.log('[mobile-api-server-pro-traffic-incomplete-cache.test] passed');
+
   const overlayInbox = new MobileNotificationInbox();
   const overlayBoardFile = path.join(os.tmpdir(), `leword-live-board-overlay-${Date.now()}.json`);
   writeJson(overlayBoardFile, {

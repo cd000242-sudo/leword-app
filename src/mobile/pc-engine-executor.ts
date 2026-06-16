@@ -258,12 +258,35 @@ function metricFromDirectGoldenResult(result: MDPResult, categoryId: string): Mo
   };
 }
 
+function recoverDocumentCountFromText(value: unknown): number | null {
+  const text = String(value || '');
+  const patterns = [
+    /문서\s*([0-9,]+)\s*개/i,
+    /documents?\s*[:：]?\s*([0-9,]+)/i,
+    /documentCount\s*[:：]?\s*([0-9,]+)/i,
+  ];
+  for (const pattern of patterns) {
+    const match = text.match(pattern);
+    if (!match) continue;
+    const count = Number(match[1].replace(/,/g, ''));
+    if (Number.isFinite(count) && count > 0) return count;
+  }
+  return null;
+}
+
+function recoverProTrafficDocumentCount(result: ProTrafficKeyword): number | null {
+  return recoverDocumentCountFromText(result.profitAnalysis?.gradeReason)
+    ?? recoverDocumentCountFromText(result.goldenBackground)
+    ?? recoverDocumentCountFromText(result.proStrategy?.title);
+}
+
 function metricFromProResult(result: ProTrafficKeyword, categoryId: string): MobileKeywordMetric {
   const totalSearchVolume = finiteNumber(result.searchVolume);
-  const documentCount = finiteNumber(result.documentCount);
+  const documentCount = finiteNumber(result.documentCount) ?? recoverProTrafficDocumentCount(result);
   const cpc = finiteNumber(result.profitAnalysis?.estimatedCPC)
     ?? finiteNumber(result.revenueEstimate?.estimatedCPC)
     ?? null;
+  const recoveredDocumentCount = documentCount !== null && finiteNumber(result.documentCount) === null;
 
   return {
     keyword: normalizeKeyword(result.keyword),
@@ -285,6 +308,7 @@ function metricFromProResult(result: ProTrafficKeyword, categoryId: string): Mob
       result.profitAnalysis?.gradeReason || '',
       result.goldenBackground || '',
       result.proStrategy?.title || '',
+      recoveredDocumentCount ? 'pc-pro-traffic-document-count-recovered' : '',
     ].filter(Boolean),
     isMeasured: totalSearchVolume !== null && documentCount !== null,
   };

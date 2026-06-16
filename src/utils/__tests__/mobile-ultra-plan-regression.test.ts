@@ -827,6 +827,7 @@ assert('api normalizes pro traffic cache keys to hit server prewarm results',
   /normalizeProTrafficCacheParams/.test(apiServer)
     && /normalizeMobileJobCacheParams/.test(apiServer)
     && /normalizedCacheParams/.test(apiServer)
+    && /hasUsableCachedResult/.test(apiServer)
     && /contextKeywords/.test(apiServer) === false);
 assert('api keeps user API credentials out of public jobs and cache keys',
   /X-Leword-User-Api-Credentials/.test(apiServer)
@@ -937,6 +938,9 @@ assert('mobile bulk golden direct supplement avoids runaway 6000+ measured candi
   /Math\.max\(1800, Math\.min\(3600/.test(pcExecutor)
     && !/Math\.max\(6000, Math\.min\(10000/.test(pcExecutor));
 assert('mobile executor wires PRO traffic to PC hunter', /huntProTrafficKeywords/.test(pcExecutor) && /runProTrafficWithPcHunter/.test(pcExecutor));
+assert('mobile executor recovers measured PRO traffic document counts from PC hunter evidence',
+  /recoverProTrafficDocumentCount/.test(pcExecutor)
+    && /pc-pro-traffic-document-count-recovered/.test(pcExecutor));
 assert('mobile executor wires home board to PC home planner',
   /expandHomeNeedKeywords/.test(pcExecutor) && /buildHomePublishPlan/.test(pcExecutor));
 assert('mobile executor wires KIN to PC golden hunter',

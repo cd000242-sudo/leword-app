@@ -1142,7 +1142,8 @@ async function createJob(
     if (cachedSyncedResult) {
       resultCache?.set(endpoint.product, normalizedCacheParams, cachedSyncedResult);
     }
-    const job = cachedResult
+    const hasUsableCachedResult = !!cachedSyncedResult && cachedSyncedResult.keywords.length > 0;
+    const job = hasUsableCachedResult
       ? store.createCompleted(endpoint.product, splitParams.publicParams, cachedSyncedResult as MobileKeywordResult)
       : store.create(endpoint.product, splitParams.publicParams, async (job, context) => {
         const result = await pcWorkerExecutor({ ...job, params: splitParams.executorParams }, context);
