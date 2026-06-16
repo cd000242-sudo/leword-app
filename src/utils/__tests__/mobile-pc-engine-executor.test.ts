@@ -481,9 +481,11 @@ async function runInjectedGoldenQualityBackfill(): Promise<void> {
 
 async function runInjectedProTraffic(): Promise<void> {
   let receivedTarget = 0;
+  let receivedContextKeywords = 0;
   const executor = createMobilePcEngineExecutor({
     runProTraffic: async (params, context) => {
       receivedTarget = params.targetCount;
+      receivedContextKeywords = params.contextKeywords?.length || 0;
       context.progress(55, 'fixture pro adapter');
       return makeSssResult(params.targetCount, 'PRO 트래픽 황금');
     },
@@ -495,12 +497,24 @@ async function runInjectedProTraffic(): Promise<void> {
     includeSeasonal: true,
     includeEvergreen: true,
     includeFreshIssue: true,
+    contextKeywords: [
+      {
+        keyword: 'context hot traffic keyword',
+        pcSearchVolume: 300,
+        mobileSearchVolume: 1700,
+        totalSearchVolume: 2000,
+        documentCount: 200,
+        source: 'web-analysis-result',
+        isMeasured: true,
+      },
+    ],
   }), {
     signal: new AbortController().signal,
     progress: (_percent, message) => progress.push(message),
   });
 
   assert('pro target preserves 250 requested amount', receivedTarget === 250);
+  assert('pro target preserves web context keywords', receivedContextKeywords === 1);
   assert('pro target returns 250 SSS metrics', result.summary.sss === 250 && result.keywords.length === 250);
   assert('pro target uses PC adapter fixture', progress.includes('fixture pro adapter'));
 }

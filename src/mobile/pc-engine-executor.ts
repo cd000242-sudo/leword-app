@@ -764,6 +764,7 @@ function asProTrafficParams(params: unknown): ProTrafficMobileParams {
     includeSeasonal: payload.includeSeasonal !== false,
     includeEvergreen: payload.includeEvergreen !== false,
     includeFreshIssue: payload.includeFreshIssue !== false,
+    contextKeywords: normalizeContextKeywords(payload.contextKeywords),
   };
 }
 
@@ -984,6 +985,26 @@ function contextExpansionCandidates(
     if (out.length >= limit) break;
   }
   return out;
+}
+
+function proTrafficContextSeedKeywords(
+  params: ProTrafficMobileParams,
+  limit: number,
+): string[] {
+  const seen = new Set<string>();
+  const out: string[] = [];
+  const push = (keyword: string) => {
+    const normalized = normalizeKeyword(keyword);
+    const key = compactKeyword(normalized);
+    if (!normalized || !key || seen.has(key)) return;
+    seen.add(key);
+    out.push(normalized);
+  };
+  if (params.seedKeyword) push(params.seedKeyword);
+  contextExpansionCandidates(params.seedKeyword || '', params.contextKeywords, Math.max(limit, 1))
+    .sort((a, b) => (b.freq - a.freq) || ((b.monthlyVolume || 0) - (a.monthlyVolume || 0)))
+    .forEach((item) => push(item.keyword));
+  return out.slice(0, Math.max(limit, 1));
 }
 
 async function collectLiveExpansionCandidates(
@@ -1453,11 +1474,18 @@ async function runProTrafficWithPcHunter(
   const startedAt = Date.now();
   context.progress(8, `starting PC PRO traffic hunter for ${params.categoryId}`);
   ensureNotAborted(context);
+  const seedKeywords = proTrafficContextSeedKeywords(
+    params,
+    Math.min(90, Math.max(params.targetCount * 2, 30)),
+  );
+  if (seedKeywords.length > 0) {
+    context.progress(14, `injecting ${seedKeywords.length} web context seeds into PC PRO hunter`);
+  }
 
   const result: ProTrafficHuntResult = await huntProTrafficKeywords({
     mode: 'category',
     category: params.categoryId,
-    seedKeywords: params.seedKeyword ? [params.seedKeyword] : [],
+    seedKeywords,
     targetRookie: true,
     includeSeasonKeywords: params.includeSeasonal,
     explosionMode: params.includeFreshIssue,

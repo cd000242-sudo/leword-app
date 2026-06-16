@@ -908,6 +908,7 @@ export interface ProTrafficMobileParams {
   includeSeasonal: boolean;
   includeEvergreen: boolean;
   includeFreshIssue: boolean;
+  contextKeywords?: MobileKeywordContextCandidate[];
 }
 
 export interface KeywordAnalysisMobileParams {

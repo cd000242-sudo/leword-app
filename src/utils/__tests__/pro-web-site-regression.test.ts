@@ -109,6 +109,10 @@ assert('keyword analyzer keeps raw analysis rows and shares them with mindmap ex
     && html.includes('const rows = keywordResultRows(result);')
     && !html.includes('const rows = filterFreshGoldenItems(Array.isArray(result && result.keywords) ? result.keywords : []);'));
 
+assert('pro traffic hunter shares web analysis context with the PC engine',
+  /id:\s*'pro-traffic'[\s\S]{0,520}contextKeywords:\s*buildLookupContextKeywords/.test(html)
+    && /id:\s*'pro-traffic'[\s\S]{0,520}autoDiscovery:\s*true/.test(html));
+
 for (const label of [
   'PRO 트래픽 폭발키워드 헌터',
   '네이버 메이트 황금키워드 헌터',
