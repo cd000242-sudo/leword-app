@@ -858,6 +858,7 @@ function normalizeProTrafficCacheParams(params: unknown): unknown {
     ? raw.seedKeyword.replace(/\s+/g, ' ').trim()
     : '';
   const normalized: Record<string, unknown> = {
+    qualityProfile: 'publishable-v2',
     categoryId: typeof raw.categoryId === 'string' && raw.categoryId.trim()
       ? raw.categoryId.trim()
       : 'all',

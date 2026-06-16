@@ -826,6 +826,7 @@ assert('api supports mobile result cache',
 assert('api normalizes pro traffic cache keys to hit server prewarm results',
   /normalizeProTrafficCacheParams/.test(apiServer)
     && /normalizeMobileJobCacheParams/.test(apiServer)
+    && /qualityProfile: 'publishable-v2'/.test(apiServer)
     && /normalizedCacheParams/.test(apiServer)
     && /hasUsableCachedResult/.test(apiServer)
     && /contextKeywords/.test(apiServer) === false);

@@ -1413,6 +1413,7 @@ const result: MobileKeywordResult = {
 
   const proTrafficPrewarmCache = new InMemoryMobileResultCache();
   proTrafficPrewarmCache.set('pro-traffic-hunter', {
+    qualityProfile: 'publishable-v2',
     categoryId: 'all',
     targetCount: 30,
     includeSeasonal: true,
@@ -1495,6 +1496,7 @@ const result: MobileKeywordResult = {
 
   const incompleteProTrafficCache = new InMemoryMobileResultCache();
   incompleteProTrafficCache.set('pro-traffic-hunter', {
+    qualityProfile: 'publishable-v2',
     categoryId: 'all',
     targetCount: 30,
     includeSeasonal: true,
