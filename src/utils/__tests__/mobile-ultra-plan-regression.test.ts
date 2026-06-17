@@ -935,6 +935,12 @@ assert('mobile executor measures analysis and mindmap candidates with PC metrics
     && /calculateMindmapMetricGrade/.test(pcExecutor));
 assert('mobile executor preserves existing measured document counts when OpenAPI returns null',
   /documentCount !== undefined && documentCount !== null[\s\S]{0,80}\? documentCount[\s\S]{0,80}: metric\.documentCount/.test(pcExecutor));
+assert('mobile executor measures total content documents with blog and cafe OpenAPI',
+  /fetchNaverOpenApiSearchTotal\(keyword, 'blog'/.test(pcExecutor)
+    && /fetchNaverOpenApiSearchTotal\(keyword, 'cafearticle'/.test(pcExecutor)
+    && /search\/\$\{endpoint\}\.json/.test(pcExecutor)
+    && /fetchNaverDocumentCountMap/.test(pcExecutor)
+    && /pc-naver-openapi-document-count/.test(pcExecutor));
 assert('mobile executor preserves existing measured search volume when SearchAd returns zero-only supplements',
   /const splitTotal = pcSearchVolume !== null \|\| mobileSearchVolume !== null/.test(pcExecutor)
     && /totalFromVolume !== null && totalFromVolume > 0/.test(pcExecutor)

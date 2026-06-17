@@ -1165,8 +1165,9 @@ function addEvidence(evidence: string[], value: string): string[] {
   return evidence.includes(value) ? evidence : [...evidence, value];
 }
 
-async function fetchNaverBlogDocumentCount(
+async function fetchNaverOpenApiSearchTotal(
   keyword: string,
+  endpoint: 'blog' | 'cafearticle',
   env: Partial<EnvConfig>,
   signal: AbortSignal,
 ): Promise<number | null> {
@@ -1180,7 +1181,7 @@ async function fetchNaverBlogDocumentCount(
   const timeoutId = setTimeout(() => controller.abort(), 8000);
 
   try {
-    const url = `https://openapi.naver.com/v1/search/blog.json?query=${encodeURIComponent(keyword)}&display=1&sort=sim`;
+    const url = `https://openapi.naver.com/v1/search/${endpoint}.json?query=${encodeURIComponent(keyword)}&display=1&sort=sim`;
     const response = await fetch(url, {
       headers: {
         'X-Naver-Client-Id': clientId,
@@ -1201,7 +1202,21 @@ async function fetchNaverBlogDocumentCount(
   }
 }
 
-async function fetchNaverBlogDocumentCountMap(
+async function fetchNaverDocumentCount(
+  keyword: string,
+  env: Partial<EnvConfig>,
+  signal: AbortSignal,
+): Promise<number | null> {
+  const [blogTotal, cafeTotal] = await Promise.all([
+    fetchNaverOpenApiSearchTotal(keyword, 'blog', env, signal),
+    fetchNaverOpenApiSearchTotal(keyword, 'cafearticle', env, signal),
+  ]);
+  const totals = [blogTotal, cafeTotal].filter((value): value is number => value !== null && value >= 0);
+  if (totals.length === 0) return null;
+  return totals.reduce((sum, value) => sum + value, 0);
+}
+
+async function fetchNaverDocumentCountMap(
   keywords: string[],
   env: Partial<EnvConfig>,
   context: MobileJobExecutorContext,
@@ -1215,7 +1230,7 @@ async function fetchNaverBlogDocumentCountMap(
       ensureNotAborted(context);
       const keyword = pending.shift();
       if (!keyword) continue;
-      const documentCount = await fetchNaverBlogDocumentCount(keyword, env, context.signal);
+      const documentCount = await fetchNaverDocumentCount(keyword, env, context.signal);
       out.set(compactKeyword(keyword), documentCount);
     }
   };
@@ -1282,6 +1297,7 @@ function mergeMeasuredMetric(
   }
   if (resolvedDocumentCount !== null && resolvedDocumentCount !== metric.documentCount) {
     evidence = addEvidence(evidence, 'pc-naver-blog-document-count');
+    evidence = addEvidence(evidence, 'pc-naver-openapi-document-count');
   }
   if (!isMeasured) {
     evidence = addEvidence(evidence, 'metric-measurement-partial-or-unavailable');
@@ -1408,7 +1424,7 @@ function createDefaultKeywordMetricsAdapter(
 
     const [volumeMap, documentCountMap] = await Promise.all([
       hasSearchAdConfig ? fetchSearchAdVolumeMap(keywords, env, context) : Promise.resolve(new Map<string, KeywordSearchVolume>()),
-      hasOpenApiConfig ? fetchNaverBlogDocumentCountMap(keywords, env, context) : Promise.resolve(new Map<string, number | null>()),
+      hasOpenApiConfig ? fetchNaverDocumentCountMap(keywords, env, context) : Promise.resolve(new Map<string, number | null>()),
     ]);
     ensureNotAborted(context);
 

@@ -244,6 +244,18 @@ assert('result center exposes KPI summary and keyword actions',
     && html.includes('function showTrendGraph')
     && html.includes('function renderFeatureResult(feature, result'));
 
+assert('keyword analyzer hides duplicate lookup insight while mindmap renders branches',
+  html.includes('function clearLookupInsight')
+    && html.includes('function clearResultSummary')
+    && html.includes('function renderMindmapLookupInsight')
+    && html.includes('class="mindmap-view"')
+    && html.includes('class="mindmap-branches"')
+    && html.includes('feature && feature.route === endpoints.keywordAnalysis')
+    && html.includes('clearResultSummary();')
+    && html.includes('clearLookupInsight();')
+    && html.includes('feature && feature.route === endpoints.mindmap')
+    && html.includes('renderMindmapLookupInsight(compactKeywordInput(), result)'));
+
 assert('renders feature-specific tool settings panel',
   html.includes('id="toolConsole"')
     && !html.includes('id="quickFeatureDock"')

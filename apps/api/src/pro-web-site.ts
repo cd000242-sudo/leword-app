@@ -667,6 +667,34 @@ export function renderLewordProWeb(): string {
     .result-list strong { font-size: 13px; overflow-wrap: anywhere; }
     .result-list span { color: var(--muted); overflow-wrap: anywhere; }
     .result-actions { display: flex; gap: 6px; flex-wrap: wrap; }
+    .mindmap-view {
+      display: grid;
+      grid-template-columns: minmax(160px, 220px) 1fr;
+      gap: 12px;
+      align-items: stretch;
+      margin-top: 12px;
+    }
+    .mindmap-root, .mindmap-node {
+      border: 1px solid rgba(91,183,255,.32);
+      border-radius: 8px;
+      background: rgba(7,9,13,.52);
+      color: var(--text);
+      padding: 11px;
+      text-align: left;
+    }
+    .mindmap-root {
+      display: grid;
+      place-items: center;
+      min-height: 128px;
+      border-color: rgba(245,197,66,.58);
+      background: linear-gradient(135deg, rgba(245,197,66,.18), rgba(53,211,153,.08));
+      color: var(--gold);
+      font-weight: 1000;
+    }
+    .mindmap-branches { display: grid; grid-template-columns: repeat(3, minmax(0, 1fr)); gap: 8px; }
+    .mindmap-node strong { display: block; font-size: 13px; overflow-wrap: anywhere; }
+    .mindmap-node span { display: block; margin-top: 5px; color: var(--muted); font-size: 11px; line-height: 1.4; }
+    .mindmap-node:hover { border-color: rgba(53,211,153,.48); transform: translateY(-1px); }
     .trend-card { display: grid; gap: 10px; }
     .trend-bars {
       height: 118px;
@@ -825,7 +853,7 @@ export function renderLewordProWeb(): string {
       .feature-grid, .ops-grid { grid-template-columns: repeat(2, minmax(0, 1fr)); }
     }
     @media (max-width: 820px) {
-      .source-grid, .metrics, .workbench, .lookup-row, .golden-stats, .ops-grid, .tool-tabs, .tool-form, .tool-detail-grid, .catalog-strip, .catalog-list, .download-grid, .settings-grid, .settings-checklist, .admin-ai-provider-grid, .api-issue-grid { grid-template-columns: 1fr; }
+      .source-grid, .metrics, .workbench, .lookup-row, .golden-stats, .ops-grid, .tool-tabs, .tool-form, .tool-detail-grid, .catalog-strip, .catalog-list, .download-grid, .settings-grid, .settings-checklist, .admin-ai-provider-grid, .api-issue-grid, .mindmap-view, .mindmap-branches { grid-template-columns: 1fr; }
       .quick-feature-dock { grid-template-columns: repeat(2, minmax(0, 1fr)); }
       .quality-strip { grid-template-columns: 1fr 1fr; }
       .result-toolbar { grid-template-columns: 1fr; }
@@ -1707,6 +1735,38 @@ export function renderLewordProWeb(): string {
         + resultKpiHtml(metrics || [])
         + list;
     }
+    function clearLookupInsight() {
+      const target = qs('lookupInsightPanel');
+      if (!target) return;
+      target.hidden = true;
+      target.innerHTML = '';
+    }
+    function renderMindmapLookupInsight(seed, result) {
+      const target = qs('lookupInsightPanel');
+      if (!target) return;
+      const rows = keywordResultRows(result).slice(0, 30);
+      const measured = rows.filter(function(row) { return row.isMeasured; }).length;
+      const seedLabel = normalizeText(seed) || 'seed';
+      const nodes = rows.map(function(row) {
+        const safe = escapeAttr(row.keyword || '');
+        return '<button class="mindmap-node" type="button" data-board-action="analyze" data-keyword="' + safe + '">'
+          + '<strong>' + escapeHtml(row.keyword || '-') + '</strong>'
+          + '<span>전체 ' + fmt(row.totalSearchVolume) + ' · PC ' + fmt(row.pcSearchVolume) + ' · 모바일 ' + fmt(row.mobileSearchVolume) + ' · 문서 ' + fmt(row.documentCount) + ' · 등급 ' + escapeHtml(row.grade || '-') + '</span>'
+          + '</button>';
+      }).join('');
+      target.hidden = false;
+      target.innerHTML = '<h3>마인드맵 확장</h3>'
+        + '<p>자동완성/연관어 후보를 서버에서 수집한 뒤 실측 가능한 항목만 가지로 정리했습니다.</p>'
+        + resultKpiHtml([
+          { label: '가지', value: fmt(rows.length) },
+          { label: '실측', value: fmt(measured) },
+          { label: 'SSS', value: fmt(rows.filter(function(row) { return row.grade === 'SSS'; }).length) },
+          { label: '시간', value: new Date().toLocaleTimeString('ko-KR') },
+        ])
+        + (rows.length
+          ? '<div class="mindmap-view"><div class="mindmap-root">' + escapeHtml(seedLabel) + '</div><div class="mindmap-branches">' + nodes + '</div></div>'
+          : '<ul class="result-list"><li><span>실측 가능한 마인드맵 후보가 없습니다. API 키 상태와 네이버 자동완성/연관어 응답을 확인하세요.</span></li></ul>');
+    }
     function renderToolWaiting(feature) {
       renderToolResultPanel(feature, feature && feature.title ? feature.title : 'Pro 도구', '자동 발굴 실행을 누르면 진행률 모달이 뜨고, 완료 후 이 영역에 후보와 실측 지표가 정리됩니다.', [], []);
     }
@@ -1730,10 +1790,19 @@ export function renderLewordProWeb(): string {
       const list = Array.isArray(rows) && rows.length
         ? '<ul class="result-list">' + rows.join('') + '</ul>'
         : '<ul class="result-list"><li><span>표시할 상세 항목이 없습니다.</span></li></ul>';
-      qs('resultSummary').innerHTML = '<h3>' + escapeHtml(title) + '</h3>'
+      const target = qs('resultSummary');
+      if (!target) return;
+      target.hidden = false;
+      target.innerHTML = '<h3>' + escapeHtml(title) + '</h3>'
         + '<p>' + escapeHtml(subtitle || '') + '</p>'
         + resultKpiHtml(metrics || [])
         + list;
+    }
+    function clearResultSummary() {
+      const target = qs('resultSummary');
+      if (!target) return;
+      target.hidden = true;
+      target.innerHTML = '';
     }
     function keywordActionHtml(keyword) {
       const safe = escapeAttr(keyword || '');
@@ -1947,6 +2016,12 @@ export function renderLewordProWeb(): string {
         renderKeywordRows(result);
         renderKeywordResultSummary(feature && feature.title ? feature.title : '키워드 결과', result);
         if ((!feature || !feature.id) && activeViewId === 'lookup') {
+          if (feature && feature.route === endpoints.keywordAnalysis) {
+            clearResultSummary();
+            clearLookupInsight();
+          } else if (feature && feature.route === endpoints.mindmap) {
+            renderMindmapLookupInsight(compactKeywordInput(), result);
+          } else {
           const rows = result.keywords || [];
           const topRows = rows.slice(0, 5).map(function(row) {
             return '<li><strong>' + escapeHtml(row.keyword || '-') + '</strong><span>전체 ' + fmt(row.totalSearchVolume) + ' · PC ' + fmt(row.pcSearchVolume) + ' · 모바일 ' + fmt(row.mobileSearchVolume) + ' · 문서 ' + fmt(row.documentCount) + ' · 등급 ' + escapeHtml(row.grade || '-') + '</span>' + publishDecisionInline(row) + keywordActionHtml(row.keyword || '') + '</li>';
@@ -1962,6 +2037,7 @@ export function renderLewordProWeb(): string {
             { label: '발행 추천', value: fmt(publishReady) },
             { label: '시간', value: new Date().toLocaleTimeString('ko-KR') },
           ], topRows);
+          }
         }
         renderToolFeatureResult(feature, result);
         return;
