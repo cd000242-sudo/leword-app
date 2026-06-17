@@ -337,6 +337,25 @@ assert('user API key settings are first-class, local-only, and secret-safe',
     && html.includes('서버 공용 저장 아님')
     && !html.includes("naverApiSettings: apiUrl('/v1/mobile/api-settings/naver')"));
 
+assert('admin-only AI worker settings let admins choose Codex or Claude Code separately from Pro login',
+  html.includes('id="adminAiWorkerSettings"')
+    && html.includes('관리자 AI 작업자 설정')
+    && html.includes('name="adminAiWorkerProvider" value="codex"')
+    && html.includes('name="adminAiWorkerProvider" value="claude-code"')
+    && html.includes('name="adminAiWorkerProvider" value="api"')
+    && html.includes('id="codexCliLoggedIn"')
+    && html.includes('id="claudeCodeCliLoggedIn"')
+    && html.includes('id="saveAdminAiWorkerSettings"')
+    && html.includes('id="checkAdminAiWorkerSettings"')
+    && html.includes("const adminAiWorkerSettingsStorageKey = 'leword.pro.adminAiWorkerSettings.v1'")
+    && html.includes('function isAdminSession')
+    && html.includes("session.tier === 'admin'")
+    && html.includes('function adminAiWorkerRequestPayload')
+    && html.includes('payload.adminAiWorker = adminAiWorker')
+    && html.includes('관리자 전용 설정입니다. admin 계정으로 Pro 로그인하면 Codex/Claude Code 작업자를 선택할 수 있습니다.')
+    && !html.includes('id="userId" name="leword-api-naver-client-id"')
+    && !html.includes('id="password" name="leword-api-naver-client-secret"'));
+
 assert('keeps technical Electron mapping hidden while retaining telemetry wiring',
   !html.includes('Electron 기능 매핑')
     && !html.includes('Electron IPC')
