@@ -24,6 +24,7 @@ import { classifyKeyword } from '../utils/categories';
 import { getDiscoveryCategorySeeds } from '../utils/category-discovery-map';
 import { measureDocumentCount } from '../utils/measure-dc';
 import { evaluatePublishDecision } from './publish-decision';
+import { applyKeywordAiJudge } from './keyword-ai-judge';
 
 export interface MobileLiveGoldenRadarRunGate {
   ok: boolean;
@@ -2495,7 +2496,7 @@ export class MobileLiveGoldenRadar {
   snapshot(): MobileLiveGoldenRadarSnapshot {
     const board = this.sortedBoard();
     const publicPreviewIds = new Set(this.selectPublicPreview(board).map((item) => item.id));
-    const markedBoard = board.map((item) => ({
+    const markedBoard = board.map((item) => applyKeywordAiJudge({
       ...item,
       isPublicPreview: publicPreviewIds.has(item.id),
       publishDecision: evaluatePublishDecision(item),
@@ -2698,11 +2699,18 @@ export class MobileLiveGoldenRadar {
         ? normalizeLiveMetricGrade(normalizedKeyword, keyword.grade, finiteNumber(keyword.score), volume, docs, ratio)
         : keyword.grade;
       if (grade === 'C') continue;
-      const boardId = existing?.id || id;
-      const item: MobileLiveGoldenBoardItem = {
+      const judgedMetric = applyKeywordAiJudge({
         ...metric,
         keyword: normalizedKeyword,
         grade,
+        goldenRatio: ratio,
+      });
+      if (judgedMetric.aiJudge?.verdict === 'exclude') continue;
+      const boardId = existing?.id || id;
+      const item: MobileLiveGoldenBoardItem = {
+        ...judgedMetric,
+        keyword: normalizedKeyword,
+        grade: judgedMetric.grade,
         goldenRatio: ratio,
         id: boardId,
         rank: existing?.rank || 0,

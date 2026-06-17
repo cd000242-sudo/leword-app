@@ -74,6 +74,9 @@ import {
 import {
   attachPublishDecisions,
 } from './publish-decision';
+import {
+  attachKeywordAiJudges,
+} from './keyword-ai-judge';
 
 export class MobilePcEngineNotConnectedError extends Error {
   constructor(product: MobileKeywordProduct) {
@@ -451,13 +454,18 @@ function resultFromMetrics(
   startedAt: number,
   parityMode: MobileKeywordResult['summary']['parityMode'] = 'pc-engine',
 ): MobileKeywordResult {
-  const decidedKeywords = attachPublishDecisions(keywords);
+  const decidedKeywords = attachKeywordAiJudges(attachPublishDecisions(keywords), {
+    downgradeExcluded: false,
+  });
   return {
     keywords: decidedKeywords,
     summary: {
       total: decidedKeywords.length,
       sss: decidedKeywords.filter((item) => item.grade === 'SSS').length,
       measured: decidedKeywords.filter((item) => item.isMeasured).length,
+      aiJudged: decidedKeywords.filter((item) => item.aiJudge).length,
+      excludedByAiJudge: decidedKeywords.filter((item) => item.aiJudge?.verdict === 'exclude').length,
+      publishReady: decidedKeywords.filter((item) => item.aiJudge?.verdict === 'publish').length,
       elapsedMs: Date.now() - startedAt,
       fromCache: false,
       parityMode,

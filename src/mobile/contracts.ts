@@ -29,6 +29,30 @@ export type MobileResultGrade = 'SSS' | 'SS' | 'S' | 'A' | 'B' | 'C';
 
 export type MobilePublishVerdict = 'publish' | 'conditional' | 'exclude';
 
+export type MobileKeywordMeasurementStatus =
+  | 'measured'
+  | 'partial'
+  | 'unmeasured'
+  | 'synthetic-blocked';
+
+export type MobileKeywordAiJudgeVerdict = 'publish' | 'conditional' | 'exclude';
+
+export interface MobileKeywordAiJudge {
+  verdict: MobileKeywordAiJudgeVerdict;
+  score: number;
+  confidence: number;
+  needIntent: 'strong' | 'medium' | 'weak';
+  blogAngle: 'actionable' | 'informational' | 'thin' | 'unsafe';
+  shoppingIntent: 'high' | 'medium' | 'low';
+  adsenseValue: 'high' | 'medium' | 'low';
+  freshnessRisk: 'low' | 'medium' | 'high';
+  spamRisk: 'low' | 'medium' | 'high';
+  reasons: string[];
+  rejectReason?: string;
+  model: 'rule-judge-v1' | 'ai-judge-v1';
+  checkedAt: string;
+}
+
 export interface MobilePublishDecision {
   verdict: MobilePublishVerdict;
   label: string;
@@ -55,6 +79,9 @@ export interface MobileKeywordMetric {
   intent: string;
   evidence: string[];
   isMeasured: boolean;
+  measurementStatus?: MobileKeywordMeasurementStatus;
+  aiJudge?: MobileKeywordAiJudge;
+  rejectReason?: string;
   publishDecision?: MobilePublishDecision;
 }
 
@@ -984,6 +1011,9 @@ export interface MobileKeywordResult {
     elapsedMs: number;
     fromCache: boolean;
     parityMode: 'pc-engine' | 'pc-engine-plus';
+    aiJudged?: number;
+    excludedByAiJudge?: number;
+    publishReady?: number;
   };
 }
 

@@ -71,6 +71,9 @@ import {
 } from '../../../src/mobile/live-golden-radar';
 import { InMemoryMobileResultCache } from '../../../src/mobile/result-cache';
 import {
+  applyKeywordAiJudge,
+} from '../../../src/mobile/keyword-ai-judge';
+import {
   createEnvironmentMobileEntitlementVerifier,
   getMinimumMobileEntitlementTier,
   isMobileEntitlementAllowed,
@@ -944,12 +947,16 @@ function uniqueEvidence(...groups: Array<unknown>): string[] {
 function resultSummaryForKeywords(
   result: MobileKeywordResult,
   keywords: MobileKeywordMetric[],
+  excludedByAiJudge = 0,
 ): MobileKeywordResult['summary'] {
   return {
     ...result.summary,
     total: keywords.length,
     sss: keywords.filter((item) => item.grade === 'SSS').length,
     measured: keywords.filter((item) => item.isMeasured).length,
+    aiJudged: keywords.filter((item) => item.aiJudge).length,
+    excludedByAiJudge,
+    publishReady: keywords.filter((item) => item.aiJudge?.verdict === 'publish').length,
   };
 }
 
@@ -995,17 +1002,25 @@ function sanitizeMeasuredKeywordResult(
   if (!result || !Array.isArray(result.keywords)) return result;
   const deduped: MobileKeywordMetric[] = [];
   const seen = new Set<string>();
+  let excludedByAiJudge = 0;
   for (const metric of result.keywords) {
-    if (!isStrictMeasuredKeywordMetric(endpoint, metric)) continue;
-    const key = compactServerKeyword(metric.keyword);
+    const judged = applyKeywordAiJudge(metric);
+    if (!isStrictMeasuredKeywordMetric(endpoint, judged)) continue;
+    const key = compactServerKeyword(judged.keyword);
     if (!key || seen.has(key)) continue;
+    const isRequestedKeywordAnalysisMetric = endpoint.product === 'keyword-analysis'
+      && (judged.intent === 'requested-keyword' || judged.source === 'pc-keyword-analysis-exact');
+    if (judged.aiJudge?.verdict === 'exclude' && !isRequestedKeywordAnalysisMetric) {
+      excludedByAiJudge += 1;
+      continue;
+    }
     seen.add(key);
-    deduped.push(metric);
+    deduped.push(judged);
   }
   return {
     ...result,
     keywords: deduped,
-    summary: resultSummaryForKeywords(result, deduped),
+    summary: resultSummaryForKeywords(result, deduped, excludedByAiJudge),
   };
 }
 
