@@ -776,6 +776,18 @@ export function renderLewordProWeb(): string {
     .settings-checklist { display: grid; grid-template-columns: repeat(2, minmax(0, 1fr)); gap: 8px; margin-top: 10px; }
     .admin-ai-panel { margin-top: 14px; border-color: rgba(245,197,66,.36); background: linear-gradient(180deg, rgba(16,22,31,.96), rgba(8,12,18,.98)); }
     .admin-ai-panel.locked { opacity: .74; }
+    .admin-ai-panel.password-locked { border-color: rgba(255,159,67,.5); }
+    .admin-ai-lock-banner {
+      margin-top: 10px;
+      border: 1px dashed rgba(245,197,66,.48);
+      border-radius: 8px;
+      background: rgba(245,197,66,.08);
+      color: #f7dc86;
+      padding: 10px 12px;
+      cursor: pointer;
+    }
+    .admin-ai-lock-banner strong { display: block; font-size: 13px; color: var(--gold); }
+    .admin-ai-lock-banner span { display: block; margin-top: 4px; color: #cbd7e8; font-size: 12px; line-height: 1.45; }
     .admin-ai-provider-grid { display: grid; grid-template-columns: repeat(3, minmax(0, 1fr)); gap: 8px; margin-top: 12px; }
     .admin-ai-provider {
       border: 1px solid var(--line);
@@ -1136,6 +1148,10 @@ export function renderLewordProWeb(): string {
           <div class="settings-panel admin-ai-panel locked" id="adminAiWorkerSettings">
             <h3 style="margin:0 0 6px;">관리자 AI 작업자 설정</h3>
             <p class="muted" style="margin:0;">Codex와 Claude Code는 관리자 전용 서버 작업자입니다. 관리자 계정으로 Pro 로그인한 뒤 사용할 작업자를 선택하세요.</p>
+            <div class="admin-ai-lock-banner" id="adminAiLockBanner" role="button" tabindex="0">
+              <strong>관리자 설정 잠김</strong>
+              <span>관리자 로그인 후 비밀번호를 입력하면 Codex/Claude Code 작업자 설정이 열립니다.</span>
+            </div>
             <div class="admin-ai-provider-grid" id="adminAiProviderGrid">
               <label class="admin-ai-provider" data-admin-ai-provider="codex">
                 <input type="radio" name="adminAiWorkerProvider" value="codex" />
@@ -1271,6 +1287,20 @@ export function renderLewordProWeb(): string {
     </div>
   </div>
 
+  <div class="modal" id="adminPasswordModal" aria-hidden="true">
+    <div class="dialog" role="dialog" aria-modal="true" aria-labelledby="adminPasswordTitle">
+      <h2 id="adminPasswordTitle">관리자 설정 비밀번호</h2>
+      <p>관리자 AI 작업자 설정을 열려면 별도 비밀번호를 입력하세요.</p>
+      <label for="adminSettingsPassword">비밀번호</label>
+      <input class="input" id="adminSettingsPassword" type="password" autocomplete="current-password" />
+      <div class="dialog-actions">
+        <button class="btn primary" type="button" id="adminPasswordConfirm">확인</button>
+        <button class="btn" type="button" id="adminPasswordClose">닫기</button>
+      </div>
+      <div class="muted" id="adminPasswordMessage" style="margin-top:12px; min-height:18px;"></div>
+    </div>
+  </div>
+
   <div class="modal" id="progressModal" aria-hidden="true" aria-live="polite">
     <div class="dialog progress-dialog" role="status">
       <div class="progress-head">
@@ -1378,6 +1408,8 @@ export function renderLewordProWeb(): string {
     let selectedCatalogTab = 'today';
     const userApiSettingsStorageKey = 'leword.pro.userApiSettings.v1';
     const adminAiWorkerSettingsStorageKey = 'leword.pro.adminAiWorkerSettings.v1';
+    const adminSettingsUnlockStorageKey = 'leword.pro.adminSettingsUnlocked.v1';
+    const adminSettingsPasswordHash = '90f14c2572ba2cad85b9cf6c07784d67cca06d962b7c6dca75f13fc8162f7fdc';
     const toolTabFeatureIds = ['pro-traffic', 'naver-mate', 'shopping', 'kin'];
     const viewIds = ['golden', 'sources', 'lookup', 'features', 'youtube', 'settings', 'downloads'];
     const catalogTabs = [
@@ -2074,9 +2106,13 @@ export function renderLewordProWeb(): string {
     }
     function saveSession(value) {
       session = value;
-      if (session) localStorage.setItem('leword.pro.session', JSON.stringify(session));
+      if (session) {
+        localStorage.setItem('leword.pro.session', JSON.stringify(session));
+        if (session.tier !== 'admin') setAdminSettingsUnlocked(false);
+      }
       else {
         localStorage.removeItem('leword.pro.session');
+        setAdminSettingsUnlocked(false);
         postLoginAutoRunStarted = false;
       }
       renderSession();
@@ -2095,6 +2131,33 @@ export function renderLewordProWeb(): string {
     }
     function isAdminSession() {
       return !!(session && session.tier === 'admin');
+    }
+    function setAdminSettingsUnlocked(value) {
+      try {
+        if (value) sessionStorage.setItem(adminSettingsUnlockStorageKey, adminSettingsPasswordHash);
+        else sessionStorage.removeItem(adminSettingsUnlockStorageKey);
+      } catch (err) {}
+    }
+    function isAdminSettingsUnlocked() {
+      if (!isAdminSession()) return false;
+      try {
+        return sessionStorage.getItem(adminSettingsUnlockStorageKey) === adminSettingsPasswordHash;
+      } catch (err) {
+        return false;
+      }
+    }
+    async function hashAdminSettingsPassword(value) {
+      if (!window.crypto || !window.crypto.subtle || typeof TextEncoder === 'undefined') {
+        throw new Error('보안 해시를 사용할 수 있는 최신 브라우저에서 다시 시도하세요.');
+      }
+      const bytes = new TextEncoder().encode(value || '');
+      const digest = await window.crypto.subtle.digest('SHA-256', bytes);
+      return Array.from(new Uint8Array(digest)).map(function(byte) {
+        return byte.toString(16).padStart(2, '0');
+      }).join('');
+    }
+    async function verifyAdminSettingsPassword(value) {
+      return (await hashAdminSettingsPassword(value)) === adminSettingsPasswordHash;
     }
     function adminAiWorkerProviderLabel(provider) {
       if (provider === 'claude-code') return 'Claude Code';
@@ -2151,14 +2214,22 @@ export function renderLewordProWeb(): string {
       if (!target) return;
       const state = adminAiWorkerReadyState(settings);
       const adminStatus = isAdminSession() ? 'ready' : 'missing';
+      const unlocked = isAdminSettingsUnlocked();
+      const passwordStatusHtml = '<div class="settings-check ' + (unlocked ? 'ready' : 'missing') + '"><strong>비밀번호 · ' + (unlocked ? '확인됨' : '잠김') + '</strong><span>' + (unlocked ? '관리자 설정 입력이 활성화되었습니다.' : '관리자 설정을 열려면 비밀번호를 입력하세요.') + '</span></div>';
       target.innerHTML =
         '<div class="settings-check ' + adminStatus + '"><strong>관리자 권한 · ' + (isAdminSession() ? '확인됨' : '잠김') + '</strong><span>' + (isAdminSession() ? 'admin 세션에서만 작업자 선택이 저장됩니다.' : '관리자 계정으로 Pro 로그인해야 설정할 수 있습니다.') + '</span></div>'
         + '<div class="settings-check ' + state.status + '"><strong>' + escapeHtml(adminAiWorkerProviderLabel(settings.provider)) + ' · ' + (state.ready ? '사용 준비' : '확인 필요') + '</strong><span>' + escapeHtml(state.detail) + '</span></div>';
+      target.insertAdjacentHTML('beforeend', passwordStatusHtml);
     }
     function renderAdminAiWorkerStatusMessage(settings) {
       const saved = settings || readAdminAiWorkerSettings();
       const state = adminAiWorkerReadyState(saved);
       if (!qs('adminAiWorkerMessage')) return;
+      if (isAdminSession() && !isAdminSettingsUnlocked()) {
+        qs('adminAiWorkerMessage').textContent = '관리자 설정은 비밀번호 확인 후 열립니다. 패널을 클릭해 비밀번호를 입력하세요.';
+        renderAdminAiWorkerChecklist(saved);
+        return;
+      }
       if (!isAdminSession()) {
         qs('adminAiWorkerMessage').textContent = '관리자 전용 설정입니다. admin 계정으로 Pro 로그인하면 Codex/Claude Code 작업자를 선택할 수 있습니다.';
       } else {
@@ -2171,33 +2242,41 @@ export function renderLewordProWeb(): string {
       if (!panel) return;
       const settings = readAdminAiWorkerSettings();
       const admin = isAdminSession();
-      panel.classList.toggle('locked', !admin);
+      const unlocked = isAdminSettingsUnlocked();
+      const enabled = admin && unlocked;
+      panel.classList.toggle('locked', !enabled);
+      panel.classList.toggle('password-locked', admin && !unlocked);
+      if (qs('adminAiLockBanner')) {
+        qs('adminAiLockBanner').hidden = enabled;
+        qs('adminAiLockBanner').querySelector('strong').textContent = admin ? '관리자 설정 비밀번호 필요' : '관리자 로그인 필요';
+        qs('adminAiLockBanner').querySelector('span').textContent = admin ? '클릭해서 비밀번호를 입력하면 관리자 AI 작업자 설정이 열립니다.' : 'admin 계정으로 Pro 로그인한 뒤 비밀번호를 입력해야 열립니다.';
+      }
       document.querySelectorAll('input[name="adminAiWorkerProvider"]').forEach(function(input) {
         input.checked = input.value === settings.provider;
-        input.disabled = !admin;
+        input.disabled = !enabled;
       });
       document.querySelectorAll('[data-admin-ai-provider]').forEach(function(card) {
         card.classList.toggle('active', card.getAttribute('data-admin-ai-provider') === settings.provider);
       });
       if (qs('codexCliLoggedIn')) {
         qs('codexCliLoggedIn').checked = !!settings.codexCliLoggedIn;
-        qs('codexCliLoggedIn').disabled = !admin;
+        qs('codexCliLoggedIn').disabled = !enabled;
       }
       if (qs('claudeCodeCliLoggedIn')) {
         qs('claudeCodeCliLoggedIn').checked = !!settings.claudeCodeCliLoggedIn;
-        qs('claudeCodeCliLoggedIn').disabled = !admin;
+        qs('claudeCodeCliLoggedIn').disabled = !enabled;
       }
       if (qs('adminAiWorkerNote')) {
         qs('adminAiWorkerNote').value = settings.note || '';
-        qs('adminAiWorkerNote').disabled = !admin;
+        qs('adminAiWorkerNote').disabled = !enabled;
       }
       ['saveAdminAiWorkerSettings', 'checkAdminAiWorkerSettings'].forEach(function(id) {
-        if (qs(id)) qs(id).disabled = !admin;
+        if (qs(id)) qs(id).disabled = !enabled;
       });
       renderAdminAiWorkerStatusMessage(settings);
     }
     function adminAiWorkerRequestPayload() {
-      if (!isAdminSession()) return null;
+      if (!isAdminSession() || !isAdminSettingsUnlocked()) return null;
       const settings = readAdminAiWorkerSettings();
       const state = adminAiWorkerReadyState(settings);
       return {
@@ -2213,6 +2292,10 @@ export function renderLewordProWeb(): string {
       if (!isAdminSession()) {
         renderAdminAiWorkerStatusMessage(readAdminAiWorkerSettings());
         openLogin();
+        return;
+      }
+      if (!isAdminSettingsUnlocked()) {
+        openAdminPasswordModal();
         return;
       }
       openProgress('관리자 AI 작업자 저장', 'Codex/Claude Code 선택값을 관리자 로컬 설정으로 저장합니다.');
@@ -2232,6 +2315,10 @@ export function renderLewordProWeb(): string {
       if (!isAdminSession()) {
         renderAdminAiWorkerStatusMessage(readAdminAiWorkerSettings());
         openLogin();
+        return;
+      }
+      if (!isAdminSettingsUnlocked()) {
+        openAdminPasswordModal();
         return;
       }
       openProgress('관리자 AI 작업자 연동상태 확인', 'Codex/Claude Code 로그인 확인값과 선택 작업자를 점검합니다.');
@@ -2258,6 +2345,55 @@ export function renderLewordProWeb(): string {
         qs('adminAiWorkerMessage').textContent = err.message;
         failProgress(err.message);
       }
+    }
+    function openAdminPasswordModal() {
+      if (!isAdminSession()) {
+        openLogin();
+        return;
+      }
+      const modal = qs('adminPasswordModal');
+      const input = qs('adminSettingsPassword');
+      if (!modal || !input) return;
+      input.value = '';
+      if (qs('adminPasswordMessage')) qs('adminPasswordMessage').textContent = '';
+      modal.classList.add('open');
+      modal.setAttribute('aria-hidden', 'false');
+      setTimeout(function() { input.focus(); }, 0);
+    }
+    function closeAdminPasswordModal() {
+      if (!qs('adminPasswordModal')) return;
+      qs('adminPasswordModal').classList.remove('open');
+      qs('adminPasswordModal').setAttribute('aria-hidden', 'true');
+    }
+    async function confirmAdminSettingsPassword() {
+      const input = qs('adminSettingsPassword');
+      const message = qs('adminPasswordMessage');
+      const value = input ? input.value : '';
+      if (!value) {
+        if (message) message.textContent = '비밀번호를 입력하세요.';
+        return;
+      }
+      try {
+        if (!(await verifyAdminSettingsPassword(value))) {
+          if (message) message.textContent = '비밀번호가 맞지 않습니다.';
+          return;
+        }
+        setAdminSettingsUnlocked(true);
+        closeAdminPasswordModal();
+        hydrateAdminAiWorkerSettingsForm();
+        log('관리자 설정 비밀번호 확인 완료');
+      } catch (err) {
+        if (message) message.textContent = err.message || String(err);
+      }
+    }
+    function handleAdminAiLockedClick(event) {
+      if (isAdminSettingsUnlocked()) return;
+      const panel = qs('adminAiWorkerSettings');
+      if (!panel || !panel.contains(event.target)) return;
+      event.preventDefault();
+      event.stopPropagation();
+      if (!isAdminSession()) openLogin();
+      else openAdminPasswordModal();
     }
     function openLogin() {
       qs('loginModal').classList.add('open');
@@ -3895,6 +4031,16 @@ export function renderLewordProWeb(): string {
     qs('saveNaverApiSettings').addEventListener('click', saveNaverApiSettings);
     qs('checkNaverApiSettings').addEventListener('click', checkNaverApiSettings);
     qs('clearNaverApiSettings').addEventListener('click', clearNaverApiSettings);
+    qs('adminAiWorkerSettings').addEventListener('click', handleAdminAiLockedClick);
+    qs('adminAiLockBanner').addEventListener('keydown', function(event) {
+      if (event.key === 'Enter' || event.key === ' ') handleAdminAiLockedClick(event);
+    });
+    qs('adminPasswordConfirm').addEventListener('click', confirmAdminSettingsPassword);
+    qs('adminPasswordClose').addEventListener('click', closeAdminPasswordModal);
+    qs('adminSettingsPassword').addEventListener('keydown', function(event) {
+      if (event.key === 'Enter') confirmAdminSettingsPassword();
+    });
+    qs('adminPasswordModal').addEventListener('click', function(event) { if (event.target.id === 'adminPasswordModal') closeAdminPasswordModal(); });
     qs('saveAdminAiWorkerSettings').addEventListener('click', saveAdminAiWorkerSettings);
     qs('checkAdminAiWorkerSettings').addEventListener('click', checkAdminAiWorkerSettings);
     qs('adminAiProviderGrid').addEventListener('change', function() {
