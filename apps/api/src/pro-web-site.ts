@@ -1348,6 +1348,7 @@ export function renderLewordProWeb(): string {
     const endpoints = {
       health: apiUrl('/health'),
       session: apiUrl('/v1/web/session'),
+      adminSettingsUnlock: apiUrl('/v1/admin/settings/unlock'),
       publicLiveGolden: apiUrl('/v1/public/live-golden'),
       publicSources: apiUrl('/v1/public/source-signals'),
       proSources: apiUrl('/v1/mobile/source-signals'),
@@ -1409,7 +1410,6 @@ export function renderLewordProWeb(): string {
     const userApiSettingsStorageKey = 'leword.pro.userApiSettings.v1';
     const adminAiWorkerSettingsStorageKey = 'leword.pro.adminAiWorkerSettings.v1';
     const adminSettingsUnlockStorageKey = 'leword.pro.adminSettingsUnlocked.v1';
-    const adminSettingsPasswordHash = '90f14c2572ba2cad85b9cf6c07784d67cca06d962b7c6dca75f13fc8162f7fdc';
     const toolTabFeatureIds = ['pro-traffic', 'naver-mate', 'shopping', 'kin'];
     const viewIds = ['golden', 'sources', 'lookup', 'features', 'youtube', 'settings', 'downloads'];
     const catalogTabs = [
@@ -2132,32 +2132,24 @@ export function renderLewordProWeb(): string {
     function isAdminSession() {
       return !!(session && session.tier === 'admin');
     }
-    function setAdminSettingsUnlocked(value) {
+    function setAdminSettingsUnlocked(value, expiresInSeconds) {
       try {
-        if (value) sessionStorage.setItem(adminSettingsUnlockStorageKey, adminSettingsPasswordHash);
-        else sessionStorage.removeItem(adminSettingsUnlockStorageKey);
+        if (value) {
+          const ttl = Number(expiresInSeconds || 3600);
+          sessionStorage.setItem(adminSettingsUnlockStorageKey, JSON.stringify({ unlocked: true, expiresAt: Date.now() + Math.max(60, ttl) * 1000 }));
+        } else {
+          sessionStorage.removeItem(adminSettingsUnlockStorageKey);
+        }
       } catch (err) {}
     }
     function isAdminSettingsUnlocked() {
       if (!isAdminSession()) return false;
       try {
-        return sessionStorage.getItem(adminSettingsUnlockStorageKey) === adminSettingsPasswordHash;
+        const saved = JSON.parse(sessionStorage.getItem(adminSettingsUnlockStorageKey) || 'null');
+        return !!(saved && saved.unlocked === true && Number(saved.expiresAt || 0) > Date.now());
       } catch (err) {
         return false;
       }
-    }
-    async function hashAdminSettingsPassword(value) {
-      if (!window.crypto || !window.crypto.subtle || typeof TextEncoder === 'undefined') {
-        throw new Error('보안 해시를 사용할 수 있는 최신 브라우저에서 다시 시도하세요.');
-      }
-      const bytes = new TextEncoder().encode(value || '');
-      const digest = await window.crypto.subtle.digest('SHA-256', bytes);
-      return Array.from(new Uint8Array(digest)).map(function(byte) {
-        return byte.toString(16).padStart(2, '0');
-      }).join('');
-    }
-    async function verifyAdminSettingsPassword(value) {
-      return (await hashAdminSettingsPassword(value)) === adminSettingsPasswordHash;
     }
     function adminAiWorkerProviderLabel(provider) {
       if (provider === 'claude-code') return 'Claude Code';
@@ -2374,11 +2366,9 @@ export function renderLewordProWeb(): string {
         return;
       }
       try {
-        if (!(await verifyAdminSettingsPassword(value))) {
-          if (message) message.textContent = '비밀번호가 맞지 않습니다.';
-          return;
-        }
-        setAdminSettingsUnlocked(true);
+        const payload = await apiPost(endpoints.adminSettingsUnlock, { password: value });
+        if (!payload || payload.unlocked !== true) throw new Error(payload && payload.message ? payload.message : '관리자 설정 잠금 해제에 실패했습니다.');
+        setAdminSettingsUnlocked(true, payload.expiresInSeconds);
         closeAdminPasswordModal();
         hydrateAdminAiWorkerSettingsForm();
         log('관리자 설정 비밀번호 확인 완료');

@@ -150,6 +150,7 @@ import {
 const DEFAULT_LEWORD_LICENSE_SERVER_URL = 'https://script.google.com/macros/s/AKfycbxBOGkjVj4p-6XZ4SEFYKhW3FBmo5gt7Fv6djWhB1TljnDDmx_qlfZ4YdlJNohzIZ8NJw/exec';
 const DEFAULT_LEWORD_LICENSE_APP_ID = 'com.leword.keyword.master';
 const ADSENSE_ADS_TXT = 'google.com, pub-4008574892672964, DIRECT, f08c47fec0942fa0\n';
+const ADMIN_SETTINGS_UNLOCK_ROUTE = '/v1/admin/settings/unlock';
 
 export interface LewordApiServerOptions {
   executor?: MobileJobExecutor;
@@ -387,6 +388,22 @@ function getBearerToken(req: http.IncomingMessage): string {
   const authorization = req.headers.authorization || '';
   const match = authorization.match(/^Bearer\s+(.+)$/i);
   return match ? match[1].trim() : '';
+}
+
+function adminSettingsPasswordHash(): string {
+  return String(process.env['LEWORD_ADMIN_SETTINGS_PASSWORD_SHA256'] || '').trim().toLowerCase();
+}
+
+function verifyAdminSettingsPassword(password: string): { ok: boolean; configured: boolean } {
+  const expected = adminSettingsPasswordHash();
+  if (!/^[a-f0-9]{64}$/.test(expected)) return { ok: false, configured: false };
+  const actual = crypto.createHash('sha256').update(password, 'utf8').digest('hex');
+  const expectedBuffer = Buffer.from(expected, 'hex');
+  const actualBuffer = Buffer.from(actual, 'hex');
+  return {
+    ok: expectedBuffer.length === actualBuffer.length && crypto.timingSafeEqual(expectedBuffer, actualBuffer),
+    configured: true,
+  };
 }
 
 async function authorizeMobileRequest(
@@ -711,6 +728,38 @@ async function createLoginSession(
     }
 
     json(res, 401, { ok: false, message: panel.message || '로그인에 실패했습니다.' } satisfies MobileJobErrorResponse);
+  } catch (err) {
+    handleBodyError(res, err, maxBodyBytes);
+  }
+}
+
+async function unlockAdminSettings(
+  req: http.IncomingMessage,
+  res: http.ServerResponse,
+  maxBodyBytes: number,
+): Promise<void> {
+  try {
+    const body = await parseBody(req, maxBodyBytes) as any;
+    const password = String(body?.password || '').trim();
+    if (!password) {
+      json(res, 400, { ok: false, message: '관리자 설정 비밀번호를 입력하세요.' } satisfies MobileJobErrorResponse);
+      return;
+    }
+    const result = verifyAdminSettingsPassword(password);
+    if (!result.configured) {
+      json(res, 503, { ok: false, message: '관리자 설정 비밀번호가 서버에 구성되지 않았습니다.' } satisfies MobileJobErrorResponse);
+      return;
+    }
+    if (!result.ok) {
+      json(res, 400, { ok: false, message: '관리자 설정 비밀번호가 맞지 않습니다.' } satisfies MobileJobErrorResponse);
+      return;
+    }
+    json(res, 200, {
+      ok: true,
+      unlocked: true,
+      expiresInSeconds: 60 * 60,
+      message: '관리자 설정 잠금이 해제되었습니다.',
+    });
   } catch (err) {
     handleBodyError(res, err, maxBodyBytes);
   }
@@ -1389,6 +1438,12 @@ export function createLewordApiServer(options: LewordApiServerOptions = {}): htt
       (url.pathname === MOBILE_AUTH_ROUTES.login || url.pathname === '/v1/web/session')
     ) {
       await createLoginSession(req, res, entitlementVerifier, runtimeEntitlements, notificationInbox, prewarmService, liveGoldenRadar, maxBodyBytes);
+      return;
+    }
+
+    if (req.method === 'POST' && url.pathname === ADMIN_SETTINGS_UNLOCK_ROUTE) {
+      if (!await authorizeMobileRequest(req, res, sessionAwareEntitlementVerifier, 'admin')) return;
+      await unlockAdminSettings(req, res, maxBodyBytes);
       return;
     }
 

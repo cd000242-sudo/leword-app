@@ -1,5 +1,6 @@
 import fs from 'fs';
 import http from 'http';
+import crypto from 'crypto';
 import os from 'os';
 import path from 'path';
 import { createLewordApiServer } from '../../../apps/api/src/server';
@@ -991,6 +992,13 @@ const result: MobileKeywordResult = {
 
   console.log('[mobile-api-server-auth.test] passed');
 
+  const previousAdminSettingsPasswordHash = process.env.LEWORD_ADMIN_SETTINGS_PASSWORD_SHA256;
+  const adminSettingsTestPassword = 'test-admin-settings-password';
+  process.env.LEWORD_ADMIN_SETTINGS_PASSWORD_SHA256 = crypto
+    .createHash('sha256')
+    .update(adminSettingsTestPassword, 'utf8')
+    .digest('hex');
+
   const entitlementServer = createLewordApiServer({
     executor,
     entitlementVerifier: async (token) => {
@@ -1080,8 +1088,41 @@ const result: MobileKeywordResult = {
       body: JSON.stringify({ limit: 1 }),
     });
     assert('admin entitlement can run prewarm', adminPrewarm.status === 202);
+
+    const proAdminUnlock = await fetch(`${entitlementBaseUrl}/v1/admin/settings/unlock`, {
+      method: 'POST',
+      headers: {
+        'Content-Type': 'application/json',
+        Authorization: 'Bearer pro-user',
+      },
+      body: JSON.stringify({ password: adminSettingsTestPassword }),
+    });
+    assert('admin settings unlock is admin-only', proAdminUnlock.status === 403);
+
+    const wrongAdminUnlock = await fetch(`${entitlementBaseUrl}/v1/admin/settings/unlock`, {
+      method: 'POST',
+      headers: {
+        'Content-Type': 'application/json',
+        Authorization: 'Bearer admin-user',
+      },
+      body: JSON.stringify({ password: 'wrong-password' }),
+    });
+    assert('admin settings unlock rejects wrong password without ending admin session', wrongAdminUnlock.status === 400);
+
+    const adminUnlock = await fetch(`${entitlementBaseUrl}/v1/admin/settings/unlock`, {
+      method: 'POST',
+      headers: {
+        'Content-Type': 'application/json',
+        Authorization: 'Bearer admin-user',
+      },
+      body: JSON.stringify({ password: adminSettingsTestPassword }),
+    });
+    const adminUnlockPayload: any = await adminUnlock.json();
+    assert('admin settings unlock accepts admin password', adminUnlock.status === 200 && adminUnlockPayload.unlocked === true);
   } finally {
     await close(entitlementServer);
+    if (previousAdminSettingsPasswordHash === undefined) delete process.env.LEWORD_ADMIN_SETTINGS_PASSWORD_SHA256;
+    else process.env.LEWORD_ADMIN_SETTINGS_PASSWORD_SHA256 = previousAdminSettingsPasswordHash;
   }
 
   console.log('[mobile-api-server-entitlement.test] passed');
