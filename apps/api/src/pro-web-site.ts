@@ -7,6 +7,7 @@ export function renderLewordProWeb(): string {
   <title>LEWORD Pro Web</title>
   <meta name="description" content="LEWORD Pro Web - 서버 기반 실시간 키워드 분석" />
   <script async src="https://pagead2.googlesyndication.com/pagead/js/adsbygoogle.js?client=ca-pub-4008574892672964" crossorigin="anonymous"></script>
+  <script src="https://js.tosspayments.com/v2/standard"></script>
   <style>
     :root {
       color-scheme: dark;
@@ -830,6 +831,9 @@ export function renderLewordProWeb(): string {
     .admin-ai-provider strong { font-size: 13px; color: #f6f8ff; }
     .admin-ai-provider span { color: var(--muted); font-size: 12px; line-height: 1.45; }
     .admin-ai-provider.active { border-color: rgba(245,197,66,.78); background: linear-gradient(135deg, rgba(245,197,66,.18), rgba(53,211,153,.08)); }
+    .admin-content-editor { width: 100%; min-height: 230px; resize: vertical; font-family: ui-monospace, SFMono-Regular, Consolas, monospace; line-height: 1.45; }
+    .admin-content-tools { display: grid; grid-template-columns: repeat(3, minmax(0, 1fr)); gap: 8px; margin-top: 12px; }
+    .admin-content-tools .input { min-height: 42px; }
     .settings-check {
       border: 1px solid rgba(159,177,200,.16);
       border-radius: 8px;
@@ -853,7 +857,7 @@ export function renderLewordProWeb(): string {
       .feature-grid, .ops-grid { grid-template-columns: repeat(2, minmax(0, 1fr)); }
     }
     @media (max-width: 820px) {
-      .source-grid, .metrics, .workbench, .lookup-row, .golden-stats, .ops-grid, .tool-tabs, .tool-form, .tool-detail-grid, .catalog-strip, .catalog-list, .download-grid, .settings-grid, .settings-checklist, .admin-ai-provider-grid, .api-issue-grid, .mindmap-view, .mindmap-branches { grid-template-columns: 1fr; }
+      .source-grid, .metrics, .workbench, .lookup-row, .golden-stats, .ops-grid, .tool-tabs, .tool-form, .tool-detail-grid, .catalog-strip, .catalog-list, .download-grid, .settings-grid, .settings-checklist, .admin-ai-provider-grid, .admin-content-tools, .api-issue-grid, .mindmap-view, .mindmap-branches { grid-template-columns: 1fr; }
       .quick-feature-dock { grid-template-columns: repeat(2, minmax(0, 1fr)); }
       .quality-strip { grid-template-columns: 1fr 1fr; }
       .result-toolbar { grid-template-columns: 1fr; }
@@ -904,6 +908,7 @@ export function renderLewordProWeb(): string {
         <a class="side-link" href="#youtube" data-view-target="youtube">유튜브 황금키워드 및 쇼츠분석</a>
         <a class="side-link" href="#settings" data-view-target="settings">환경설정/API 키</a>
         <a class="side-link" href="#downloads" data-view-target="downloads">앱 다운로드</a>
+        <a class="side-link" href="#commerce" data-view-target="commerce">구매/매출</a>
       </aside>
 
       <section class="main">
@@ -1222,6 +1227,45 @@ export function renderLewordProWeb(): string {
             <div class="settings-message" id="adminAiWorkerMessage">관리자 계정으로 로그인하면 Codex 또는 Claude Code 작업자를 선택할 수 있습니다.</div>
             <div class="settings-checklist" id="adminAiWorkerChecklist"></div>
           </div>
+          <div class="settings-panel admin-ai-panel locked" id="adminSiteContentSettings">
+            <h3 style="margin:0 0 6px;">사이트 콘텐츠 관리</h3>
+            <p class="muted" style="margin:0;">관리자만 제품정보, 무료 챗봇, 구매 문구, 신규 제품 초안을 서버에 저장합니다. 저장 데이터는 /v1/public/site-content에서 공개 조회할 수 있습니다.</p>
+            <div class="admin-ai-lock-banner" id="adminContentLockBanner" role="button" tabindex="0">
+              <strong>관리자 콘텐츠 잠김</strong>
+              <span>관리자 로그인 후 비밀번호 확인을 완료하면 사이트 콘텐츠 편집기가 열립니다.</span>
+            </div>
+            <div class="settings-grid">
+              <div>
+                <label for="adminContentSection">수정 영역</label>
+                <select class="input" id="adminContentSection">
+                  <option value="products">제품정보</option>
+                  <option value="chatbots">무료 챗봇</option>
+                  <option value="purchase">구매/요금제</option>
+                </select>
+              </div>
+              <div>
+                <label>서버 저장 위치</label>
+                <div class="muted" id="adminContentStorage" style="min-height:44px; line-height:1.5;">관리자 콘텐츠를 불러오면 표시됩니다.</div>
+              </div>
+            </div>
+            <textarea class="input admin-content-editor" id="adminContentJson" spellcheck="false" placeholder='{"products":[{"id":"new-product","name":"새 제품","href":"/new"}]}'></textarea>
+            <div class="settings-actions">
+              <button class="btn blue" type="button" id="refreshAdminProductEditor">제품 편집 양식 새로고침</button>
+            </div>
+            <div class="settings-checklist" id="adminProductEditor"></div>
+            <div class="admin-content-tools">
+              <input class="input" id="newProductId" placeholder="신규 제품 ID" autocomplete="off" />
+              <input class="input" id="newProductName" placeholder="신규 제품명" autocomplete="off" />
+              <input class="input" id="newProductHref" placeholder="/new-product" autocomplete="off" />
+            </div>
+            <div class="settings-actions">
+              <button class="btn blue" type="button" id="openAdminLogin">관리자 로그인</button>
+              <button class="btn blue" type="button" id="loadAdminSiteContent">콘텐츠 불러오기</button>
+              <button class="btn primary" type="button" id="saveAdminSiteContent">콘텐츠 저장</button>
+              <button class="btn" type="button" id="addAdminProductDraft">신규 제품 추가</button>
+            </div>
+            <div class="settings-message" id="adminContentMessage">관리자 로그인 후 콘텐츠를 불러오세요.</div>
+          </div>
         </section>
 
         <section class="panel main-view" id="downloads" data-view="downloads">
@@ -1244,6 +1288,33 @@ export function renderLewordProWeb(): string {
               <div class="download-meta" id="androidDownloadMeta">다운로드 파일 확인 중</div>
               <a class="btn primary" href="https://github.com/cd000242-sudo/leword-app/releases/download/v2.49.85/LEWORD-mobile-0.1.0.apk">모바일 APK 다운로드</a>
             </article>
+          </div>
+        </section>
+
+        <section class="panel main-view" id="commerce" data-view="commerce">
+          <div class="panel-title">
+            <div>
+              <h2>구매/매출 운영</h2>
+              <div class="muted">상품/요금제는 관리자 콘텐츠에서 수정하고, 결제는 Toss Payments 승인 원장과 연결합니다.</div>
+            </div>
+            <button class="btn blue" type="button" id="refreshCommerce">매출/방문 새로고침</button>
+          </div>
+          <div class="download-grid" id="commerceCatalog">
+            <article class="download-card">
+              <h3>요금제 불러오는 중</h3>
+              <p>서버 카탈로그와 Toss Payments 설정을 확인하고 있습니다.</p>
+            </article>
+          </div>
+          <div class="ops-tabs" style="margin-top:16px;">
+            <button class="ops-tab active" type="button" data-commerce-period="today">오늘</button>
+            <button class="ops-tab" type="button" data-commerce-period="month">이번 달</button>
+            <button class="ops-tab" type="button" id="toggleInternalAnalytics">내 방문 제외</button>
+          </div>
+          <div class="ops-grid" id="commerceDashboard">
+            <article class="ops-card"><h3>매출</h3><span class="ops-number">-</span><span class="ops-meta">관리자 로그인 후 확인</span></article>
+            <article class="ops-card"><h3>방문</h3><span class="ops-number">-</span><span class="ops-meta">관리자 로그인 후 확인</span></article>
+            <article class="ops-card"><h3>주문</h3><span class="ops-number">-</span><span class="ops-meta">관리자 로그인 후 확인</span></article>
+            <article class="ops-card"><h3>상품</h3><span class="ops-number">-</span><span class="ops-meta">관리자 로그인 후 확인</span></article>
           </div>
         </section>
 
@@ -1301,6 +1372,45 @@ export function renderLewordProWeb(): string {
         <button class="btn" type="button" id="welcomeSettings">API 키 확인</button>
       </div>
     </div>
+  </div>
+
+  <div class="modal" id="checkoutModal" aria-hidden="true">
+    <form class="dialog" id="checkoutForm" autocomplete="on">
+      <h2 id="checkoutTitle">LEWORD 결제</h2>
+      <p id="checkoutSummary">요금제를 선택하면 결제 정보가 표시됩니다.</p>
+      <label for="checkoutBuyerName">구매자명</label>
+      <input class="input" id="checkoutBuyerName" autocomplete="name" required />
+      <label for="checkoutBuyerEmail">이메일</label>
+      <input class="input" id="checkoutBuyerEmail" type="email" autocomplete="email" required />
+      <label for="checkoutBuyerPhone">휴대폰 번호</label>
+      <input class="input" id="checkoutBuyerPhone" inputmode="tel" autocomplete="tel" placeholder="01012345678" required />
+      <div class="dialog-actions">
+        <button class="btn primary" type="submit" id="checkoutSubmit">Toss Payments 결제</button>
+        <button class="btn" type="button" id="checkoutClose">닫기</button>
+      </div>
+      <div class="muted" id="checkoutMessage" style="margin-top:12px; min-height:18px;"></div>
+    </form>
+  </div>
+
+  <div class="modal" id="adminLoginModal" aria-hidden="true">
+    <form class="dialog" id="adminLoginForm" autocomplete="off">
+      <h2>관리자 로그인</h2>
+      <p>일반 Pro 로그인과 분리된 관리자 전용 로그인입니다. 관리자 계정으로 접속한 뒤 비밀번호 확인을 하면 콘텐츠 관리가 열립니다.</p>
+      <label for="adminUserId">관리자 ID</label>
+      <input class="input" id="adminUserId" name="leword-admin-user-id" autocomplete="off" autocapitalize="none" spellcheck="false" required />
+      <label for="adminUserPassword">관리자 비밀번호</label>
+      <input class="input" id="adminUserPassword" name="leword-admin-password" type="password" autocomplete="new-password" required />
+      <details class="login-license">
+        <summary>라이선스 키로 관리자 인증</summary>
+        <label for="adminLicenseCode">라이선스 키</label>
+        <input class="input" id="adminLicenseCode" autocomplete="off" placeholder="LEWORD-ADMIN-XXXX" />
+      </details>
+      <div class="dialog-actions">
+        <button class="btn primary" type="submit">관리자 접속</button>
+        <button class="btn" type="button" id="adminLoginClose">닫기</button>
+      </div>
+      <div class="muted" id="adminLoginMessage" style="margin-top:12px; min-height:18px;"></div>
+    </form>
   </div>
 
   <div class="modal" id="apiIssueModal" aria-hidden="true">
@@ -1377,6 +1487,13 @@ export function renderLewordProWeb(): string {
       health: apiUrl('/health'),
       session: apiUrl('/v1/web/session'),
       adminSettingsUnlock: apiUrl('/v1/admin/settings/unlock'),
+      adminSiteContent: apiUrl('/v1/admin/site-content'),
+      adminCommerceDashboard: apiUrl('/v1/admin/commerce/dashboard'),
+      publicSiteContent: apiUrl('/v1/public/site-content'),
+      publicCommerceCatalog: apiUrl('/v1/public/commerce/catalog'),
+      analyticsCollect: apiUrl('/v1/analytics/collect'),
+      checkoutOrders: apiUrl('/v1/checkout/orders'),
+      tossConfirm: apiUrl('/v1/payments/toss/confirm'),
       publicLiveGolden: apiUrl('/v1/public/live-golden'),
       publicSources: apiUrl('/v1/public/source-signals'),
       proSources: apiUrl('/v1/mobile/source-signals'),
@@ -1435,11 +1552,17 @@ export function renderLewordProWeb(): string {
     let activeViewId = 'golden';
     let selectedOpsId = 'rank';
     let selectedCatalogTab = 'today';
+    let commerceCatalogPayload = null;
+    let selectedCommercePlan = null;
+    let selectedCommercePeriod = 'today';
     const userApiSettingsStorageKey = 'leword.pro.userApiSettings.v1';
     const adminAiWorkerSettingsStorageKey = 'leword.pro.adminAiWorkerSettings.v1';
     const adminSettingsUnlockStorageKey = 'leword.pro.adminSettingsUnlocked.v1';
+    const analyticsVisitorStorageKey = 'leword.analytics.visitor.v1';
+    const analyticsSessionStorageKey = 'leword.analytics.session.v1';
+    const analyticsExcludeStorageKey = 'leword.analytics.exclude.v1';
     const toolTabFeatureIds = ['pro-traffic', 'naver-mate', 'shopping', 'kin'];
-    const viewIds = ['golden', 'sources', 'lookup', 'features', 'youtube', 'settings', 'downloads'];
+    const viewIds = ['golden', 'sources', 'lookup', 'features', 'youtube', 'settings', 'downloads', 'commerce'];
     const catalogTabs = [
       { id: 'today', label: '오늘/실시간' },
       { id: 'discovery', label: '발굴' },
@@ -1492,6 +1615,10 @@ export function renderLewordProWeb(): string {
     function normalizeViewId(id) {
       return viewIds.indexOf(id) >= 0 ? id : 'golden';
     }
+    function initialViewId() {
+      if ((location.hash || '').length > 1) return (location.hash || '#golden').slice(1);
+      return /^\\/admin\\/?$/i.test(location.pathname || '') ? 'commerce' : 'golden';
+    }
     function setActiveView(id, options) {
       const next = normalizeViewId(id);
       const opts = options || {};
@@ -1510,6 +1637,14 @@ export function renderLewordProWeb(): string {
       if (next === 'sources') loadSources().catch(function(err) { log('실시간 소스 갱신 실패: ' + err.message); });
       if (next === 'features' && session && session.accessToken) refreshFeatureStatus().catch(function(err) { log('Pro 기능 상태 확인 실패: ' + err.message); });
       if (next === 'downloads') loadDownloads().catch(function(err) { log('다운로드 상태 확인 실패: ' + err.message); });
+      if (next === 'commerce') {
+        loadCommerceCatalog().catch(function(err) { log('구매 카탈로그 갱신 실패: ' + err.message); });
+        loadCommerceDashboard(selectedCommercePeriod).catch(function(err) { log('매출 대시보드 갱신 실패: ' + err.message); });
+      }
+      if (next === 'settings') {
+        hydrateNaverApiSettingsForm();
+        startApiAutofillGuard(2500);
+      }
       if (next === 'lookup') setTimeout(function() { if (qs('keywordInput')) qs('keywordInput').focus(); }, 0);
     }
     function escapeHtml(value) {
@@ -1588,6 +1723,89 @@ export function renderLewordProWeb(): string {
       const date = new Date(value);
       if (Number.isNaN(date.getTime())) return '-';
       return date.toLocaleString('ko-KR', { month: '2-digit', day: '2-digit', hour: '2-digit', minute: '2-digit' });
+    }
+    function fmtWon(value) {
+      const amount = Number(value || 0);
+      return Number.isFinite(amount) ? amount.toLocaleString('ko-KR') + '원' : '-';
+    }
+    function commercePeriodLabel(period) {
+      return period === 'month' ? '이번 달' : '오늘';
+    }
+    function browserId(prefix) {
+      const bytes = new Uint8Array(12);
+      if (window.crypto && window.crypto.getRandomValues) {
+        window.crypto.getRandomValues(bytes);
+      } else {
+        const seed = String(Date.now()) + ':' + String(window.performance && window.performance.now ? window.performance.now() : 0);
+        for (let i = 0; i < bytes.length; i += 1) bytes[i] = seed.charCodeAt(i % seed.length) & 255;
+      }
+      let hex = '';
+      bytes.forEach(function(value) { hex += ('0' + value.toString(16)).slice(-2); });
+      return prefix + '-' + hex;
+    }
+    function storedId(storage, key, prefix) {
+      try {
+        let value = storage.getItem(key);
+        if (!value) {
+          value = browserId(prefix);
+          storage.setItem(key, value);
+        }
+        return value;
+      } catch (err) {
+        return browserId(prefix);
+      }
+    }
+    function commerceVisitorId() {
+      return storedId(localStorage, analyticsVisitorStorageKey, 'visitor');
+    }
+    function commerceSessionId() {
+      return storedId(sessionStorage, analyticsSessionStorageKey, 'session');
+    }
+    function isInternalAnalyticsExcluded() {
+      try {
+        return localStorage.getItem(analyticsExcludeStorageKey) === '1';
+      } catch (err) {
+        return false;
+      }
+    }
+    function setInternalAnalyticsExcluded(value) {
+      try {
+        localStorage.setItem(analyticsExcludeStorageKey, value ? '1' : '0');
+      } catch (err) {}
+      syncInternalAnalyticsToggle();
+    }
+    function syncInternalAnalyticsToggle() {
+      const button = qs('toggleInternalAnalytics');
+      if (!button) return;
+      const excluded = isInternalAnalyticsExcluded();
+      button.classList.toggle('active', excluded);
+      button.textContent = excluded ? '내 방문 제외 중' : '내 방문 포함';
+    }
+    function sendCommerceAnalytics(type, eventName, metadata) {
+      const payload = {
+        type: type || 'event',
+        eventName: eventName || null,
+        path: location.pathname + location.search,
+        title: document.title,
+        visitorId: commerceVisitorId(),
+        sessionId: commerceSessionId(),
+        referrer: document.referrer || '',
+        internal: isInternalAnalyticsExcluded(),
+        metadata: metadata || {},
+      };
+      const raw = JSON.stringify(payload);
+      if (navigator.sendBeacon) {
+        try {
+          const ok = navigator.sendBeacon(endpoints.analyticsCollect, new Blob([raw], { type: 'application/json' }));
+          if (ok) return Promise.resolve();
+        } catch (err) {}
+      }
+      return fetch(endpoints.analyticsCollect, {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: raw,
+        keepalive: true,
+      }).then(function() {});
     }
     function compactKeywordInput() {
       return qs('keywordInput').value.trim();
@@ -2204,6 +2422,7 @@ export function renderLewordProWeb(): string {
       qs('metricSession').textContent = session ? (session.tier || 'Pro') : '로그인 필요';
       qs('loginOpen').textContent = session ? 'Pro 접속중' : 'Pro 로그인';
       hydrateAdminAiWorkerSettingsForm();
+      hydrateAdminSiteContentSettings();
     }
     function isAdminSession() {
       return !!(session && session.tier === 'admin');
@@ -2359,7 +2578,7 @@ export function renderLewordProWeb(): string {
     async function saveAdminAiWorkerSettings() {
       if (!isAdminSession()) {
         renderAdminAiWorkerStatusMessage(readAdminAiWorkerSettings());
-        openLogin();
+        openAdminLoginModal();
         return;
       }
       if (!isAdminSettingsUnlocked()) {
@@ -2371,6 +2590,7 @@ export function renderLewordProWeb(): string {
         const settings = collectAdminAiWorkerSettings();
         writeAdminAiWorkerSettings(settings);
         hydrateAdminAiWorkerSettingsForm();
+        hydrateAdminSiteContentSettings();
         setResult({ adminAiWorker: Object.assign({ storage: 'browser-local-admin-only' }, adminAiWorkerRequestPayload()) });
         log('관리자 AI 작업자 저장 완료: ' + adminAiWorkerProviderLabel(settings.provider));
         completeProgress('관리자 AI 작업자 설정이 저장되었습니다.');
@@ -2382,7 +2602,7 @@ export function renderLewordProWeb(): string {
     async function checkAdminAiWorkerSettings() {
       if (!isAdminSession()) {
         renderAdminAiWorkerStatusMessage(readAdminAiWorkerSettings());
-        openLogin();
+        openAdminLoginModal();
         return;
       }
       if (!isAdminSettingsUnlocked()) {
@@ -2416,7 +2636,7 @@ export function renderLewordProWeb(): string {
     }
     function openAdminPasswordModal() {
       if (!isAdminSession()) {
-        openLogin();
+        openAdminLoginModal();
         return;
       }
       const modal = qs('adminPasswordModal');
@@ -2447,6 +2667,7 @@ export function renderLewordProWeb(): string {
         setAdminSettingsUnlocked(true, payload.expiresInSeconds);
         closeAdminPasswordModal();
         hydrateAdminAiWorkerSettingsForm();
+        hydrateAdminSiteContentSettings();
         log('관리자 설정 비밀번호 확인 완료');
       } catch (err) {
         if (message) message.textContent = err.message || String(err);
@@ -2458,8 +2679,309 @@ export function renderLewordProWeb(): string {
       if (!panel || !panel.contains(event.target)) return;
       event.preventDefault();
       event.stopPropagation();
-      if (!isAdminSession()) openLogin();
+      if (!isAdminSession()) openAdminLoginModal();
       else openAdminPasswordModal();
+    }
+    function openAdminLoginModal() {
+      const modal = qs('adminLoginModal');
+      if (!modal) return;
+      modal.classList.add('open');
+      modal.setAttribute('aria-hidden', 'false');
+      if (qs('adminLoginMessage')) qs('adminLoginMessage').textContent = '';
+      setTimeout(function() { if (qs('adminUserId')) qs('adminUserId').focus(); }, 0);
+    }
+    function closeAdminLoginModal() {
+      if (!qs('adminLoginModal')) return;
+      qs('adminLoginModal').classList.remove('open');
+      qs('adminLoginModal').setAttribute('aria-hidden', 'true');
+    }
+    async function submitAdminLogin(event) {
+      event.preventDefault();
+      const userId = qs('adminUserId') ? qs('adminUserId').value.trim() : '';
+      const password = qs('adminUserPassword') ? qs('adminUserPassword').value.trim() : '';
+      const licenseCode = qs('adminLicenseCode') ? qs('adminLicenseCode').value.trim() : '';
+      if (!userId || !password) {
+        if (qs('adminLoginMessage')) qs('adminLoginMessage').textContent = '관리자 ID와 비밀번호를 입력하세요.';
+        return;
+      }
+      try {
+        openProgress('관리자 로그인', '관리자 세션을 확인하고 있습니다.');
+        const payload = await apiPost(endpoints.session, { userId: userId, password: password, licenseCode: licenseCode, adminLogin: true });
+        if (!payload || !payload.session) throw new Error(payload && payload.message ? payload.message : '관리자 로그인에 실패했습니다.');
+        if (payload.session.tier !== 'admin') throw new Error('관리자 권한 계정이 아닙니다. 일반 Pro 계정은 관리자 설정을 열 수 없습니다.');
+        saveSession(payload.session);
+        closeAdminLoginModal();
+        hydrateAdminAiWorkerSettingsForm();
+        hydrateAdminSiteContentSettings();
+        loadCommerceDashboard(selectedCommercePeriod).catch(function() {});
+        openAdminPasswordModal();
+        completeProgress('관리자 계정 확인 완료. 비밀번호 확인을 이어서 진행하세요.');
+      } catch (err) {
+        if (qs('adminLoginMessage')) qs('adminLoginMessage').textContent = err.message || String(err);
+        failProgress(err.message || String(err));
+      }
+    }
+    function defaultAdminSiteContent() {
+      return {
+        section: 'products',
+        products: [
+          { id: 'naver', name: 'Better Life Naver', status: 'published', href: '/detail' },
+          { id: 'leword', name: 'LEWORD', status: 'published', href: '/leword' },
+          { id: 'orbit', name: 'Leaders Orbit', status: 'published', href: '/orbit' },
+        ],
+        chatbots: [],
+        purchase: { headline: 'Leaders Pro 올인원', note: '구매 문구를 관리자 화면에서 수정합니다.' },
+      };
+    }
+    function setAdminContentControlsEnabled(enabled) {
+      ['adminContentSection', 'adminContentJson', 'refreshAdminProductEditor', 'newProductId', 'newProductName', 'newProductHref', 'loadAdminSiteContent', 'saveAdminSiteContent', 'addAdminProductDraft'].forEach(function(id) {
+        if (qs(id)) qs(id).disabled = !enabled;
+      });
+      document.querySelectorAll('[data-admin-product-field], [data-admin-plan-field], [data-admin-add-plan], [data-admin-remove-product], [data-admin-remove-plan]').forEach(function(node) {
+        node.disabled = !enabled;
+      });
+    }
+    function hydrateAdminSiteContentSettings() {
+      const panel = qs('adminSiteContentSettings');
+      if (!panel) return;
+      const enabled = isAdminSession() && isAdminSettingsUnlocked();
+      panel.classList.toggle('locked', !enabled);
+      panel.classList.toggle('password-locked', isAdminSession() && !isAdminSettingsUnlocked());
+      setAdminContentControlsEnabled(enabled);
+      if (qs('adminContentLockBanner')) {
+        qs('adminContentLockBanner').hidden = enabled;
+        qs('adminContentLockBanner').querySelector('strong').textContent = isAdminSession() ? '관리자 콘텐츠 비밀번호 필요' : '관리자 로그인 필요';
+        qs('adminContentLockBanner').querySelector('span').textContent = isAdminSession() ? '비밀번호를 확인하면 제품정보, 무료 챗봇, 구매 문구를 편집할 수 있습니다.' : '관리자 로그인 후 비밀번호 확인을 진행하세요.';
+      }
+      if (!qs('adminContentJson').value.trim()) {
+        qs('adminContentJson').value = JSON.stringify(defaultAdminSiteContent(), null, 2);
+      }
+      try {
+        renderAdminProductEditor(parseAdminSiteContentEditor());
+      } catch (err) {}
+    }
+    function requireAdminContentUnlocked() {
+      if (!isAdminSession()) {
+        openAdminLoginModal();
+        return false;
+      }
+      if (!isAdminSettingsUnlocked()) {
+        openAdminPasswordModal();
+        return false;
+      }
+      return true;
+    }
+    async function loadAdminSiteContent() {
+      if (!requireAdminContentUnlocked()) return;
+      try {
+        openProgress('사이트 콘텐츠 불러오기', '서버 저장 콘텐츠를 불러오고 있습니다.');
+        const payload = await apiGet(endpoints.adminSiteContent, true);
+        const content = payload && payload.content ? payload.content : defaultAdminSiteContent();
+        qs('adminContentJson').value = JSON.stringify(content, null, 2);
+        renderAdminProductEditor(content);
+        if (qs('adminContentSection')) qs('adminContentSection').value = content.section || 'products';
+        if (qs('adminContentStorage')) qs('adminContentStorage').textContent = payload && payload.storage ? payload.storage : '/v1/admin/site-content';
+        if (qs('adminContentMessage')) qs('adminContentMessage').textContent = '서버 콘텐츠를 불러왔습니다.';
+        setResult({ adminSiteContent: { ok: true, content: content } });
+        completeProgress('사이트 콘텐츠를 불러왔습니다.');
+      } catch (err) {
+        if (qs('adminContentMessage')) qs('adminContentMessage').textContent = err.message || String(err);
+        failProgress(err.message || String(err));
+      }
+    }
+    function parseAdminSiteContentEditor() {
+      const raw = qs('adminContentJson') ? qs('adminContentJson').value.trim() : '';
+      if (!raw) return defaultAdminSiteContent();
+      return JSON.parse(raw);
+    }
+    function adminStatusOptions(value) {
+      const current = value || 'published';
+      return ['published', 'draft', 'archived'].map(function(status) {
+        return '<option value="' + status + '"' + (current === status ? ' selected' : '') + '>' + status + '</option>';
+      }).join('');
+    }
+    function renderAdminProductEditor(content) {
+      const target = qs('adminProductEditor');
+      if (!target) return;
+      const draft = content || defaultAdminSiteContent();
+      const products = Array.isArray(draft.products) ? draft.products : [];
+      const disabled = isAdminSession() && isAdminSettingsUnlocked() ? '' : ' disabled';
+      if (!products.length) {
+        target.innerHTML = '<div class="settings-check missing"><strong>제품 없음</strong><span>신규 제품을 추가하면 상세 편집 양식이 표시됩니다.</span></div>';
+        target.dataset.dirty = '0';
+        return;
+      }
+      target.innerHTML = products.map(function(product, productIndex) {
+        const plans = Array.isArray(product.plans) && product.plans.length ? product.plans : [{
+          id: product.defaultPlanId || 'default',
+          name: product.planName || '기본 요금제',
+          price: product.salePrice || product.price || product.amount || 0,
+          billingPeriod: product.billingPeriod || product.period || '',
+          status: product.status || 'published',
+          description: product.planDescription || '',
+        }];
+        const planHtml = plans.map(function(plan, planIndex) {
+          return '<div data-admin-plan-row="' + planIndex + '" style="border-top:1px solid rgba(151,164,184,.16); margin-top:10px; padding-top:10px;">'
+            + '<div class="settings-grid">'
+            + '<label>요금제 ID<input class="input" data-admin-plan-field="id" value="' + escapeAttr(plan.id || '') + '"' + disabled + ' /></label>'
+            + '<label>요금제명<input class="input" data-admin-plan-field="name" value="' + escapeAttr(plan.name || '') + '"' + disabled + ' /></label>'
+            + '<label>금액<input class="input" type="number" min="0" step="100" data-admin-plan-field="price" value="' + escapeAttr(plan.price || plan.salePrice || plan.amount || 0) + '"' + disabled + ' /></label>'
+            + '<label>기간<input class="input" data-admin-plan-field="billingPeriod" value="' + escapeAttr(plan.billingPeriod || plan.period || '') + '"' + disabled + ' /></label>'
+            + '<label>상태<select class="input" data-admin-plan-field="status"' + disabled + '>' + adminStatusOptions(plan.status || product.status || 'published') + '</select></label>'
+            + '</div>'
+            + '<label>요금제 설명<textarea class="input" data-admin-plan-field="description"' + disabled + '>' + escapeHtml(plan.description || plan.note || '') + '</textarea></label>'
+            + '<button class="btn red" type="button" data-admin-remove-plan="' + productIndex + ':' + planIndex + '"' + disabled + '>요금제 삭제</button>'
+            + '</div>';
+        }).join('');
+        return '<div class="settings-check ready" data-admin-product-row="' + productIndex + '">'
+          + '<strong>제품 ' + (productIndex + 1) + ' · ' + escapeHtml(product.name || product.id || '새 제품') + '</strong>'
+          + '<span>'
+          + '<div class="settings-grid" style="margin-top:10px;">'
+          + '<label>제품 ID<input class="input" data-admin-product-field="id" value="' + escapeAttr(product.id || '') + '"' + disabled + ' /></label>'
+          + '<label>제품명<input class="input" data-admin-product-field="name" value="' + escapeAttr(product.name || product.title || '') + '"' + disabled + ' /></label>'
+          + '<label>상세 URL<input class="input" data-admin-product-field="href" value="' + escapeAttr(product.href || '') + '"' + disabled + ' /></label>'
+          + '<label>상태<select class="input" data-admin-product-field="status"' + disabled + '>' + adminStatusOptions(product.status || 'published') + '</select></label>'
+          + '</div>'
+          + '<label>상세 설명<textarea class="input" data-admin-product-field="description"' + disabled + '>' + escapeHtml(product.description || product.note || '') + '</textarea></label>'
+          + planHtml
+          + '<div class="settings-actions" style="margin-top:10px;">'
+          + '<button class="btn blue" type="button" data-admin-add-plan="' + productIndex + '"' + disabled + '>요금제 추가</button>'
+          + '<button class="btn red" type="button" data-admin-remove-product="' + productIndex + '"' + disabled + '>제품 삭제</button>'
+          + '</div>'
+          + '</span>'
+          + '</div>';
+      }).join('');
+      target.dataset.dirty = '0';
+    }
+    function collectAdminProductEditorContent() {
+      const content = parseAdminSiteContentEditor();
+      const rows = Array.from(document.querySelectorAll('[data-admin-product-row]'));
+      if (!rows.length) return content;
+      content.products = rows.map(function(row) {
+        function productValue(field) {
+          const input = row.querySelector('[data-admin-product-field="' + field + '"]');
+          return input ? input.value.trim() : '';
+        }
+        const plans = Array.from(row.querySelectorAll('[data-admin-plan-row]')).map(function(planRow) {
+          function planValue(field) {
+            const input = planRow.querySelector('[data-admin-plan-field="' + field + '"]');
+            return input ? input.value.trim() : '';
+          }
+          return {
+            id: planValue('id') || 'default',
+            name: planValue('name') || '기본 요금제',
+            price: Number(planValue('price') || 0),
+            currency: 'KRW',
+            billingPeriod: planValue('billingPeriod'),
+            status: planValue('status') || 'published',
+            description: planValue('description'),
+          };
+        });
+        return {
+          id: productValue('id'),
+          name: productValue('name'),
+          href: productValue('href'),
+          status: productValue('status') || 'published',
+          description: productValue('description'),
+          plans: plans,
+        };
+      }).filter(function(product) {
+        return product.id || product.name;
+      });
+      content.section = 'products';
+      return content;
+    }
+    function syncAdminProductEditorToJson() {
+      const editor = qs('adminProductEditor');
+      if (!editor || !editor.querySelector('[data-admin-product-row]')) return parseAdminSiteContentEditor();
+      const content = collectAdminProductEditorContent();
+      qs('adminContentJson').value = JSON.stringify(content, null, 2);
+      editor.dataset.dirty = '1';
+      return content;
+    }
+    function refreshAdminProductEditorFromJson() {
+      try {
+        renderAdminProductEditor(parseAdminSiteContentEditor());
+        if (qs('adminContentMessage')) qs('adminContentMessage').textContent = '제품 편집 양식을 최신 JSON으로 갱신했습니다.';
+      } catch (err) {
+        if (qs('adminContentMessage')) qs('adminContentMessage').textContent = err.message || String(err);
+      }
+    }
+    function addAdminPlanDraft(productIndex) {
+      if (!requireAdminContentUnlocked()) return;
+      const content = syncAdminProductEditorToJson();
+      if (!Array.isArray(content.products) || !content.products[productIndex]) return;
+      if (!Array.isArray(content.products[productIndex].plans)) content.products[productIndex].plans = [];
+      content.products[productIndex].plans.push({
+        id: 'plan-' + (content.products[productIndex].plans.length + 1),
+        name: '새 요금제',
+        price: 0,
+        currency: 'KRW',
+        billingPeriod: '',
+        status: 'draft',
+        description: '',
+      });
+      qs('adminContentJson').value = JSON.stringify(content, null, 2);
+      renderAdminProductEditor(content);
+    }
+    function removeAdminProductDraft(productIndex) {
+      if (!requireAdminContentUnlocked()) return;
+      const content = syncAdminProductEditorToJson();
+      if (!Array.isArray(content.products)) return;
+      content.products.splice(productIndex, 1);
+      qs('adminContentJson').value = JSON.stringify(content, null, 2);
+      renderAdminProductEditor(content);
+    }
+    function removeAdminPlanDraft(productIndex, planIndex) {
+      if (!requireAdminContentUnlocked()) return;
+      const content = syncAdminProductEditorToJson();
+      if (!Array.isArray(content.products) || !content.products[productIndex] || !Array.isArray(content.products[productIndex].plans)) return;
+      content.products[productIndex].plans.splice(planIndex, 1);
+      qs('adminContentJson').value = JSON.stringify(content, null, 2);
+      renderAdminProductEditor(content);
+    }
+    async function saveAdminSiteContent() {
+      if (!requireAdminContentUnlocked()) return;
+      try {
+        const content = syncAdminProductEditorToJson();
+        content.section = qs('adminContentSection') ? qs('adminContentSection').value : (content.section || 'products');
+        openProgress('사이트 콘텐츠 저장', '관리자 콘텐츠를 서버에 저장하고 있습니다.');
+        const payload = await apiPost(endpoints.adminSiteContent, { content: content, updatedBy: session && session.userId ? session.userId : 'admin' });
+        qs('adminContentJson').value = JSON.stringify(payload.content || content, null, 2);
+        renderAdminProductEditor(payload.content || content);
+        if (qs('adminContentStorage')) qs('adminContentStorage').textContent = payload.storage || '/v1/admin/site-content';
+        if (qs('adminContentMessage')) qs('adminContentMessage').textContent = '저장 완료. 공개 조회 API에 반영됐습니다.';
+        setResult({ adminSiteContent: payload });
+        completeProgress('사이트 콘텐츠 저장 완료');
+      } catch (err) {
+        if (qs('adminContentMessage')) qs('adminContentMessage').textContent = err.message || String(err);
+        failProgress(err.message || String(err));
+      }
+    }
+    function addAdminProductDraft() {
+      if (!requireAdminContentUnlocked()) return;
+      try {
+        const content = parseAdminSiteContentEditor();
+        if (!Array.isArray(content.products)) content.products = [];
+        const id = qs('newProductId') ? qs('newProductId').value.trim() : '';
+        const name = qs('newProductName') ? qs('newProductName').value.trim() : '';
+        const href = qs('newProductHref') ? qs('newProductHref').value.trim() : '';
+        if (!id || !name) throw new Error('신규 제품 ID와 제품명을 입력하세요.');
+        content.products.push({
+          id: id,
+          name: name,
+          href: href || '/' + id,
+          status: 'draft',
+          createdAt: new Date().toISOString(),
+        });
+        content.section = 'products';
+        qs('adminContentSection').value = 'products';
+        qs('adminContentJson').value = JSON.stringify(content, null, 2);
+        renderAdminProductEditor(content);
+        if (qs('adminContentMessage')) qs('adminContentMessage').textContent = '신규 제품 초안을 추가했습니다. 저장 버튼을 눌러 서버에 반영하세요.';
+      } catch (err) {
+        if (qs('adminContentMessage')) qs('adminContentMessage').textContent = err.message || String(err);
+      }
     }
     function openLogin() {
       qs('loginModal').classList.add('open');
@@ -2592,6 +3114,232 @@ export function renderLewordProWeb(): string {
       }
       if (!res.ok) throw new Error(formatApiError(url, res.status, payload));
       return payload;
+    }
+    function commercePlans() {
+      const catalog = commerceCatalogPayload && commerceCatalogPayload.products ? commerceCatalogPayload : { products: [] };
+      const rows = [];
+      (Array.isArray(catalog.products) ? catalog.products : []).forEach(function(product) {
+        (Array.isArray(product.plans) ? product.plans : []).forEach(function(plan) {
+          rows.push({ product: product, plan: plan });
+        });
+      });
+      return rows;
+    }
+    function findCommercePlan(productId, planId) {
+      return commercePlans().find(function(row) {
+        return row.product.id === productId && row.plan.id === planId;
+      }) || null;
+    }
+    function renderCommerceCatalog(catalog) {
+      const target = qs('commerceCatalog');
+      if (!target) return;
+      const products = catalog && Array.isArray(catalog.products) ? catalog.products : [];
+      const tossReady = !!(catalog && catalog.toss && catalog.toss.clientKeyConfigured);
+      const cards = [];
+      products.forEach(function(product) {
+        (Array.isArray(product.plans) ? product.plans : []).forEach(function(plan) {
+          const description = plan.description || product.description || '관리자 콘텐츠에서 금액, 상세 설명, 판매 상태를 직접 수정할 수 있습니다.';
+          cards.push(
+            '<article class="download-card">'
+            + '<h3>' + escapeHtml(product.name) + '</h3>'
+            + '<p>' + escapeHtml(description) + '</p>'
+            + '<div class="download-meta">'
+            + escapeHtml(plan.name) + ' · ' + fmtWon(plan.price)
+            + (plan.billingPeriod ? ' · ' + escapeHtml(plan.billingPeriod) : '')
+            + '</div>'
+            + '<button class="btn primary" type="button" data-checkout-product="' + escapeAttr(product.id) + '" data-checkout-plan="' + escapeAttr(plan.id) + '"' + (tossReady ? '' : ' disabled') + '>'
+            + (tossReady ? '구매하기' : 'Toss clientKey 필요')
+            + '</button>'
+            + '</article>'
+          );
+        });
+      });
+      if (!cards.length) {
+        cards.push('<article class="download-card"><h3>판매 중인 요금제가 없습니다</h3><p>관리자 콘텐츠의 products/plans에 published 상태 요금제를 추가하면 바로 노출됩니다.</p></article>');
+      }
+      target.innerHTML = cards.join('');
+      if (!tossReady) {
+        target.insertAdjacentHTML('beforeend', '<article class="download-card"><h3>Toss Payments 설정 필요</h3><p>서버 환경변수 TOSS_PAYMENTS_CLIENT_KEY와 TOSS_PAYMENTS_SECRET_KEY를 넣으면 구매 버튼이 활성화됩니다.</p></article>');
+      }
+    }
+    async function loadCommerceCatalog() {
+      const payload = await apiGet(endpoints.publicCommerceCatalog, false);
+      commerceCatalogPayload = payload && payload.catalog ? payload.catalog : payload;
+      renderCommerceCatalog(commerceCatalogPayload);
+      return commerceCatalogPayload;
+    }
+    function openCheckout(productId, planId) {
+      const selected = findCommercePlan(productId, planId);
+      if (!selected) {
+        log('선택한 요금제를 찾지 못했습니다.');
+        return;
+      }
+      selectedCommercePlan = selected;
+      qs('checkoutTitle').textContent = selected.product.name + ' 결제';
+      qs('checkoutSummary').textContent = selected.plan.name + ' · ' + fmtWon(selected.plan.price);
+      qs('checkoutMessage').textContent = '';
+      try {
+        const saved = JSON.parse(localStorage.getItem('leword.checkout.buyer.v1') || 'null');
+        if (saved) {
+          if (qs('checkoutBuyerName') && saved.name) qs('checkoutBuyerName').value = saved.name;
+          if (qs('checkoutBuyerEmail') && saved.email) qs('checkoutBuyerEmail').value = saved.email;
+          if (qs('checkoutBuyerPhone') && saved.phone) qs('checkoutBuyerPhone').value = saved.phone;
+        }
+      } catch (err) {}
+      qs('checkoutModal').classList.add('open');
+      qs('checkoutModal').setAttribute('aria-hidden', 'false');
+      setTimeout(function() { if (qs('checkoutBuyerName')) qs('checkoutBuyerName').focus(); }, 0);
+      sendCommerceAnalytics('event', 'checkout_opened', {
+        productId: selected.product.id,
+        planId: selected.plan.id,
+        amount: selected.plan.price,
+      }).catch(function() {});
+    }
+    function closeCheckout() {
+      if (!qs('checkoutModal')) return;
+      qs('checkoutModal').classList.remove('open');
+      qs('checkoutModal').setAttribute('aria-hidden', 'true');
+    }
+    async function submitCheckout(event) {
+      event.preventDefault();
+      if (!selectedCommercePlan) {
+        qs('checkoutMessage').textContent = '요금제를 다시 선택해주세요.';
+        return;
+      }
+      const buyer = {
+        name: qs('checkoutBuyerName').value.trim(),
+        email: qs('checkoutBuyerEmail').value.trim(),
+        phone: qs('checkoutBuyerPhone').value.trim(),
+      };
+      if (!buyer.name || !buyer.email || !buyer.phone) {
+        qs('checkoutMessage').textContent = '구매자 정보를 모두 입력해주세요.';
+        return;
+      }
+      qs('checkoutSubmit').disabled = true;
+      qs('checkoutMessage').textContent = '주문을 생성하고 Toss Payments 결제창을 여는 중입니다.';
+      try {
+        localStorage.setItem('leword.checkout.buyer.v1', JSON.stringify(buyer));
+      } catch (err) {}
+      try {
+        const payload = await apiPost(endpoints.checkoutOrders, {
+          items: [{
+            productId: selectedCommercePlan.product.id,
+            planId: selectedCommercePlan.plan.id,
+            quantity: 1,
+          }],
+          buyer: buyer,
+          visitorId: commerceVisitorId(),
+          sessionId: commerceSessionId(),
+        });
+        const order = payload.order;
+        const toss = payload.toss || (commerceCatalogPayload && commerceCatalogPayload.toss) || {};
+        if (!order || !order.orderId) throw new Error('주문 생성 응답이 올바르지 않습니다.');
+        if (!toss.clientKey) throw new Error('Toss Payments clientKey가 서버에 설정되지 않았습니다.');
+        if (!window.TossPayments) throw new Error('Toss Payments SDK를 불러오지 못했습니다.');
+        await sendCommerceAnalytics('event', 'checkout_started', {
+          productId: selectedCommercePlan.product.id,
+          planId: selectedCommercePlan.plan.id,
+          orderId: order.orderId,
+          amount: order.amount,
+        }).catch(function() {});
+        const tossPayments = window.TossPayments(toss.clientKey);
+        const payment = tossPayments.payment({ customerKey: order.customerKey });
+        await payment.requestPayment({
+          method: 'CARD',
+          amount: { currency: order.currency || 'KRW', value: order.amount },
+          orderId: order.orderId,
+          orderName: order.orderName,
+          customerName: buyer.name,
+          customerEmail: buyer.email,
+          customerMobilePhone: buyer.phone.replace(/[^0-9]/g, ''),
+          successUrl: location.origin + '/checkout/success',
+          failUrl: location.origin + '/checkout/fail',
+        });
+      } catch (err) {
+        qs('checkoutMessage').textContent = err.message || String(err);
+        qs('checkoutSubmit').disabled = false;
+        sendCommerceAnalytics('event', 'checkout_error', { message: err.message || String(err) }).catch(function() {});
+      }
+    }
+    async function handleCheckoutRedirect() {
+      const path = location.pathname.replace(/\\/+$/, '') || '/';
+      if (path !== '/checkout/success' && path !== '/checkout/fail') return;
+      setActiveView('commerce', { load: false, hash: false });
+      await loadCommerceCatalog().catch(function() {});
+      const params = new URLSearchParams(location.search);
+      if (path === '/checkout/fail') {
+        const message = params.get('message') || params.get('code') || '결제가 취소되었거나 실패했습니다.';
+        renderCommerceDashboardMessage('결제 실패', message);
+        sendCommerceAnalytics('event', 'checkout_failed', {
+          code: params.get('code') || '',
+          message: message,
+        }).catch(function() {});
+        history.replaceState(null, '', '/#commerce');
+        return;
+      }
+      const paymentKey = params.get('paymentKey') || '';
+      const orderId = params.get('orderId') || '';
+      const amount = Number(params.get('amount') || 0);
+      if (!paymentKey || !orderId || !Number.isFinite(amount) || amount <= 0) {
+        renderCommerceDashboardMessage('결제 승인 대기', 'Toss 성공 파라미터가 부족합니다. 관리자 원장에서 주문 상태를 확인해주세요.');
+        return;
+      }
+      renderCommerceDashboardMessage('결제 승인 중', '서버에서 Toss Payments 승인 금액을 검증하고 있습니다.');
+      const payload = await apiPost(endpoints.tossConfirm, { paymentKey: paymentKey, orderId: orderId, amount: amount });
+      if (!payload || payload.ok !== true) throw new Error(payload && payload.reason ? payload.reason : '결제 승인 실패');
+      renderCommerceDashboardMessage('결제 완료', '주문 ' + orderId + ' · ' + fmtWon(amount) + ' 승인이 매출 원장에 반영됐습니다.');
+      sendCommerceAnalytics('event', 'purchase', { orderId: orderId, amount: amount }).catch(function() {});
+      await loadCommerceDashboard(selectedCommercePeriod).catch(function() {});
+      history.replaceState(null, '', '/#commerce');
+    }
+    function renderCommerceDashboardMessage(title, message) {
+      const target = qs('commerceDashboard');
+      if (!target) return;
+      target.innerHTML =
+        '<article class="ops-card"><h3>' + escapeHtml(title) + '</h3><span class="ops-number">-</span><span class="ops-meta">' + escapeHtml(message) + '</span></article>';
+    }
+    function renderCommerceDashboardLocked() {
+      const target = qs('commerceDashboard');
+      if (!target) return;
+      target.innerHTML =
+        '<article class="ops-card"><h3>매출</h3><span class="ops-number">-</span><span class="ops-meta">관리자 로그인 후 확인</span></article>'
+        + '<article class="ops-card"><h3>방문</h3><span class="ops-number">-</span><span class="ops-meta">내 방문 제외 토글은 지금도 적용됩니다</span></article>'
+        + '<article class="ops-card"><h3>주문</h3><span class="ops-number">-</span><span class="ops-meta">Toss 승인 원장 연결됨</span></article>'
+        + '<article class="ops-card"><h3>상품</h3><span class="ops-number">-</span><span class="ops-meta">관리자 콘텐츠 products/plans에서 수정</span></article>';
+    }
+    function renderCommerceDashboard(dashboard) {
+      const target = qs('commerceDashboard');
+      if (!target) return;
+      const revenue = dashboard && dashboard.revenue ? (dashboard.revenue.selected || dashboard.revenue.today || {}) : {};
+      const analytics = dashboard && dashboard.analytics ? (dashboard.analytics.selected || dashboard.analytics.today || {}) : {};
+      const products = Array.isArray(dashboard && dashboard.products) ? dashboard.products : [];
+      const recentOrders = Array.isArray(dashboard && dashboard.recentOrders) ? dashboard.recentOrders : [];
+      const recentHtml = recentOrders.slice(0, 8).map(function(order) {
+        const buyer = order.buyer || {};
+        return '<li>' + escapeHtml(order.orderName || order.orderId) + ' · ' + escapeHtml(order.status || '-') + ' · ' + fmtWon(order.amount) + ' · ' + escapeHtml(buyer.email || '-') + '</li>';
+      }).join('');
+      const productHtml = products.slice(0, 6).map(function(row) {
+        return '<li>' + escapeHtml(row.productName || row.productId) + ' · ' + fmt(row.quantity || 0) + '개 · ' + fmtWon(row.grossAmount || 0) + '</li>';
+      }).join('');
+      target.innerHTML =
+        '<article class="ops-card"><h3>' + commercePeriodLabel(selectedCommercePeriod) + ' 순매출</h3><span class="ops-number">' + fmtWon(revenue.netAmount || 0) + '</span><span class="ops-meta">총 ' + fmtWon(revenue.grossAmount || 0) + ' · 취소 ' + fmtWon(revenue.canceledAmount || 0) + '</span></article>'
+        + '<article class="ops-card"><h3>방문자</h3><span class="ops-number">' + fmt(analytics.uniqueVisitors || 0) + '</span><span class="ops-meta">페이지뷰 ' + fmt(analytics.pageviews || 0) + ' · 내부 제외 ' + fmt(analytics.internalEvents || 0) + '</span></article>'
+        + '<article class="ops-card"><h3>주문</h3><span class="ops-number">' + fmt(revenue.orderCount || 0) + '</span><span class="ops-meta">평균 주문 ' + fmtWon(revenue.averageOrderValue || 0) + ' · 결제 ' + fmt(revenue.paymentCount || 0) + '건</span></article>'
+        + '<article class="ops-card"><h3>최근 주문</h3><span class="ops-number">' + fmt(recentOrders.length) + '</span><span class="ops-meta"><ul style="margin:8px 0 0; padding-left:18px;">' + (recentHtml || '<li>아직 주문이 없습니다.</li>') + '</ul></span></article>'
+        + '<article class="ops-card"><h3>상품별 판매</h3><span class="ops-number">' + fmt(products.length) + '</span><span class="ops-meta"><ul style="margin:8px 0 0; padding-left:18px;">' + (productHtml || '<li>판매 데이터 대기 중</li>') + '</ul></span></article>';
+    }
+    async function loadCommerceDashboard(period) {
+      selectedCommercePeriod = period === 'month' ? 'month' : 'today';
+      document.querySelectorAll('[data-commerce-period]').forEach(function(node) {
+        node.classList.toggle('active', node.getAttribute('data-commerce-period') === selectedCommercePeriod);
+      });
+      if (!isAdminSession() || !session || !session.accessToken) {
+        renderCommerceDashboardLocked();
+        return null;
+      }
+      const payload = await apiGet(endpoints.adminCommerceDashboard + '?period=' + encodeURIComponent(selectedCommercePeriod), true);
+      renderCommerceDashboard(payload.dashboard || payload);
+      return payload.dashboard || payload;
     }
     function naverApiSettingsFields() {
       return [
@@ -2730,6 +3478,7 @@ export function renderLewordProWeb(): string {
         const raw = JSON.parse(localStorage.getItem(userApiSettingsStorageKey) || '{}');
         return naverApiSettingsFields().reduce(function(out, id) {
           const value = raw && typeof raw[id] === 'string' ? raw[id].trim() : '';
+          if (id === 'naverClientId' && isLoginCredentialValue(value)) return out;
           if (value) out[id] = value;
           return out;
         }, {});
@@ -2765,12 +3514,22 @@ export function renderLewordProWeb(): string {
         }
       });
       renderNaverApiStatusMessage({ localSettings: settings });
-      setTimeout(function() { clearLoginCredentialAutofillFromApiSettings(false); }, 80);
+      startApiAutofillGuard(1800);
     }
     function loginCredentialValues() {
-      return [qs('userId') && qs('userId').value, qs('password') && qs('password').value]
+      return [
+        qs('userId') && qs('userId').value,
+        qs('password') && qs('password').value,
+        qs('adminUserId') && qs('adminUserId').value,
+        qs('adminUserPassword') && qs('adminUserPassword').value,
+        session && session.userId,
+      ]
         .map(function(value) { return String(value || '').trim(); })
         .filter(function(value) { return value.length >= 3; });
+    }
+    function isLoginCredentialValue(value) {
+      const trimmed = String(value || '').trim();
+      return !!trimmed && loginCredentialValues().includes(trimmed);
     }
     function clearLoginCredentialAutofillFromApiSettings(showMessage) {
       const loginValues = loginCredentialValues();
@@ -2790,11 +3549,29 @@ export function renderLewordProWeb(): string {
       }
       return cleared;
     }
+    var apiAutofillGuardTimer = null;
+    function startApiAutofillGuard(durationMs) {
+      clearLoginCredentialAutofillFromApiSettings(false);
+      if (apiAutofillGuardTimer) clearInterval(apiAutofillGuardTimer);
+      const startedAt = Date.now();
+      apiAutofillGuardTimer = setInterval(function() {
+        clearLoginCredentialAutofillFromApiSettings(false);
+        if (Date.now() - startedAt > (durationMs || 1500)) {
+          clearInterval(apiAutofillGuardTimer);
+          apiAutofillGuardTimer = null;
+        }
+      }, 180);
+    }
     function collectNaverApiSettings() {
       clearLoginCredentialAutofillFromApiSettings(true);
       return naverApiSettingsFields().reduce(function(out, id) {
         const input = qs(id);
         const value = input ? input.value.trim() : '';
+        if (id === 'naverClientId' && isLoginCredentialValue(value)) {
+          if (input) input.value = '';
+          qs('naverApiSettingsMessage').textContent = 'Pro 로그인 ID가 네이버 API Client ID에 들어와 제거했습니다. Client ID는 네이버 개발자센터에서 발급받은 별도 값을 입력하세요.';
+          return out;
+        }
         if (value) out[id] = value;
         return out;
       }, {});
@@ -4065,6 +4842,7 @@ export function renderLewordProWeb(): string {
         setActiveView('golden', { load: false });
         log('Pro 로그인 완료: ' + (payload.session.tier || 'standard'));
         await Promise.all([loadSources(), loadGoldenBoard(), refreshFeatureStatus().catch(function() {})]);
+        loadCommerceDashboard(selectedCommercePeriod).catch(function() {});
         schedulePostLoginAutoDiscovery();
       } catch (err) {
         qs('loginMessage').textContent = err.message;
@@ -4107,6 +4885,51 @@ export function renderLewordProWeb(): string {
       if (event.key === 'Enter') confirmAdminSettingsPassword();
     });
     qs('adminPasswordModal').addEventListener('click', function(event) { if (event.target.id === 'adminPasswordModal') closeAdminPasswordModal(); });
+    qs('adminLoginForm').addEventListener('submit', submitAdminLogin);
+    qs('adminLoginClose').addEventListener('click', closeAdminLoginModal);
+    qs('adminLoginModal').addEventListener('click', function(event) { if (event.target.id === 'adminLoginModal') closeAdminLoginModal(); });
+    qs('openAdminLogin').addEventListener('click', openAdminLoginModal);
+    qs('adminContentLockBanner').addEventListener('click', function(event) {
+      event.preventDefault();
+      if (!isAdminSession()) openAdminLoginModal();
+      else openAdminPasswordModal();
+    });
+    qs('adminContentLockBanner').addEventListener('keydown', function(event) {
+      if (event.key === 'Enter' || event.key === ' ') {
+        event.preventDefault();
+        if (!isAdminSession()) openAdminLoginModal();
+        else openAdminPasswordModal();
+      }
+    });
+    qs('loadAdminSiteContent').addEventListener('click', loadAdminSiteContent);
+    qs('saveAdminSiteContent').addEventListener('click', saveAdminSiteContent);
+    qs('addAdminProductDraft').addEventListener('click', addAdminProductDraft);
+    qs('refreshAdminProductEditor').addEventListener('click', refreshAdminProductEditorFromJson);
+    qs('adminProductEditor').addEventListener('input', function(event) {
+      if (!event.target.closest('[data-admin-product-field], [data-admin-plan-field]')) return;
+      try { syncAdminProductEditorToJson(); } catch (err) {}
+    });
+    qs('adminProductEditor').addEventListener('change', function(event) {
+      if (!event.target.closest('[data-admin-product-field], [data-admin-plan-field]')) return;
+      try { syncAdminProductEditorToJson(); } catch (err) {}
+    });
+    qs('adminProductEditor').addEventListener('click', function(event) {
+      const addPlan = event.target.closest('[data-admin-add-plan]');
+      const removeProduct = event.target.closest('[data-admin-remove-product]');
+      const removePlan = event.target.closest('[data-admin-remove-plan]');
+      if (addPlan) {
+        addAdminPlanDraft(Number(addPlan.getAttribute('data-admin-add-plan') || 0));
+        return;
+      }
+      if (removeProduct) {
+        removeAdminProductDraft(Number(removeProduct.getAttribute('data-admin-remove-product') || 0));
+        return;
+      }
+      if (removePlan) {
+        const parts = String(removePlan.getAttribute('data-admin-remove-plan') || '0:0').split(':').map(function(value) { return Number(value || 0); });
+        removeAdminPlanDraft(parts[0] || 0, parts[1] || 0);
+      }
+    });
     qs('saveAdminAiWorkerSettings').addEventListener('click', saveAdminAiWorkerSettings);
     qs('checkAdminAiWorkerSettings').addEventListener('click', checkAdminAiWorkerSettings);
     qs('adminAiProviderGrid').addEventListener('change', function() {
@@ -4138,7 +4961,28 @@ export function renderLewordProWeb(): string {
       renderToolWaiting(getSelectedTool());
       lastKeywordResult = null;
     });
+    qs('refreshCommerce').addEventListener('click', function() {
+      loadCommerceCatalog().catch(function(err) { log('구매 카탈로그 갱신 실패: ' + err.message); });
+      loadCommerceDashboard(selectedCommercePeriod).catch(function(err) { log('매출 대시보드 갱신 실패: ' + err.message); });
+    });
+    qs('toggleInternalAnalytics').addEventListener('click', function() {
+      setInternalAnalyticsExcluded(!isInternalAnalyticsExcluded());
+      sendCommerceAnalytics('event', 'analytics_exclusion_changed', { excluded: isInternalAnalyticsExcluded() }).catch(function() {});
+    });
+    document.querySelectorAll('[data-commerce-period]').forEach(function(tab) {
+      tab.addEventListener('click', function() {
+        loadCommerceDashboard(tab.getAttribute('data-commerce-period')).catch(function(err) { log('매출 대시보드 갱신 실패: ' + err.message); });
+      });
+    });
+    qs('checkoutClose').addEventListener('click', closeCheckout);
+    qs('checkoutModal').addEventListener('click', function(event) { if (event.target.id === 'checkoutModal') closeCheckout(); });
+    qs('checkoutForm').addEventListener('submit', submitCheckout);
     document.addEventListener('click', function(event) {
+      const checkoutTarget = event.target.closest('[data-checkout-product][data-checkout-plan]');
+      if (checkoutTarget) {
+        openCheckout(checkoutTarget.getAttribute('data-checkout-product'), checkoutTarget.getAttribute('data-checkout-plan'));
+        return;
+      }
       const actionTarget = event.target.closest('#saveKeywordGroup, #exportKeywordCsv, #exportKeywordJson, #trackTopKeyword');
       if (!actionTarget) return;
       if (actionTarget.id === 'saveKeywordGroup') {
@@ -4248,12 +5092,21 @@ export function renderLewordProWeb(): string {
     renderFeatureCatalog(null, null);
     selectTool(selectedToolId);
     setActiveOpsTab(selectedOpsId);
+    syncInternalAnalyticsToggle();
     renderOpsLocked();
-    setActiveView((location.hash || '#golden').slice(1), { load: false });
+    renderCommerceDashboardLocked();
+    setActiveView(initialViewId(), { load: false });
     loadHealth();
     loadGoldenBoard();
     loadSources();
     loadDownloads().catch(function() {});
+    loadCommerceCatalog().catch(function(err) { log('구매 카탈로그 초기화 실패: ' + err.message); });
+    loadCommerceDashboard(selectedCommercePeriod).catch(function(err) { log('매출 대시보드 초기화 실패: ' + err.message); });
+    handleCheckoutRedirect().catch(function(err) {
+      renderCommerceDashboardMessage('결제 승인 실패', err.message || String(err));
+      sendCommerceAnalytics('event', 'checkout_confirm_failed', { message: err.message || String(err) }).catch(function() {});
+    });
+    sendCommerceAnalytics('pageview', 'pageview', { view: activeViewId }).catch(function() {});
     setInterval(loadHealth, 30000);
     setInterval(loadGoldenBoard, 60000);
     setInterval(loadSources, 60000);

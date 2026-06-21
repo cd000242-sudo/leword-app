@@ -109,12 +109,43 @@ assert('side navigation switches isolated views instead of one stacked page',
     && html.includes('data-view-target="features"')
     && html.includes('data-view-target="youtube"')
     && html.includes('data-view-target="downloads"')
+    && html.includes('data-view-target="commerce"')
     && html.includes('class="panel main-view" id="sources" data-view="sources"')
     && html.includes('class="panel main-view" id="lookup" data-view="lookup"')
     && html.includes('class="panel main-view" id="youtube" data-view="youtube"')
     && html.includes('class="panel main-view" id="downloads" data-view="downloads"')
+    && html.includes('class="panel main-view" id="commerce" data-view="commerce"')
     && html.includes('function setActiveView')
     && html.includes("document.querySelectorAll('[data-view-target]')"));
+
+assert('commerce tab wires editable catalog, Toss checkout, analytics, and admin sales dashboard',
+  html.includes('https://js.tosspayments.com/v2/standard')
+    && html.includes("adminCommerceDashboard: apiUrl('/v1/admin/commerce/dashboard')")
+    && html.includes("publicCommerceCatalog: apiUrl('/v1/public/commerce/catalog')")
+    && html.includes("analyticsCollect: apiUrl('/v1/analytics/collect')")
+    && html.includes("checkoutOrders: apiUrl('/v1/checkout/orders')")
+    && html.includes("tossConfirm: apiUrl('/v1/payments/toss/confirm')")
+    && html.includes('id="commerceCatalog"')
+    && html.includes('id="commerceDashboard"')
+    && html.includes('id="checkoutForm"')
+    && html.includes('function loadCommerceCatalog')
+    && html.includes('function submitCheckout')
+    && html.includes('function handleCheckoutRedirect')
+    && html.includes('function loadCommerceDashboard')
+    && html.includes('function initialViewId')
+    && html.includes("location.pathname || '') ? 'commerce' : 'golden'")
+    && html.includes("sendCommerceAnalytics('pageview', 'pageview'"));
+
+assert('admin site content exposes form-based product and pricing edits',
+  html.includes('id="adminProductEditor"')
+    && html.includes('id="refreshAdminProductEditor"')
+    && html.includes('function renderAdminProductEditor')
+    && html.includes('function syncAdminProductEditorToJson')
+    && html.includes('data-admin-product-field="name"')
+    && html.includes('data-admin-plan-field="price"')
+    && html.includes('data-admin-add-plan')
+    && html.includes('data-admin-remove-product')
+    && html.includes('data-admin-remove-plan'));
 assert('mobile Pro Web chrome can collapse above the live board',
   html.includes('<main class="shell mobile-pro-collapsed" id="proShell">')
     && html.includes('id="mobileProShellToggle"')
@@ -220,7 +251,7 @@ assert('operations and execution log are not exposed as user navigation tabs',
     && !html.includes('전체 Pro 기능')
     && !html.includes('노출/성과/발행/스케줄')
     && !html.includes('실행 로그</a>')
-    && html.includes("const viewIds = ['golden', 'sources', 'lookup', 'features', 'youtube', 'settings', 'downloads']"));
+    && html.includes("const viewIds = ['golden', 'sources', 'lookup', 'features', 'youtube', 'settings', 'downloads', 'commerce']"));
 
 assert('renders dedicated result center instead of raw JSON-only output',
   html.includes('id="resultSummary"')

@@ -140,6 +140,15 @@ import {
   renderLewordLanding,
 } from './public-site';
 import {
+  buildCommerceCatalog,
+  buildCommerceDashboard,
+  confirmTossPayment,
+  createCommerceOrder,
+  recordAnalyticsEvent,
+  recordTossWebhookEvent,
+  resolveCommerceStoreFile,
+} from '../../../src/mobile/commerce-ops';
+import {
   getMobileApiGuardrailOptions,
   MobileApiBodyTooLargeError,
   MobileApiRateLimiter,
@@ -151,6 +160,14 @@ const DEFAULT_LEWORD_LICENSE_SERVER_URL = 'https://script.google.com/macros/s/AK
 const DEFAULT_LEWORD_LICENSE_APP_ID = 'com.leword.keyword.master';
 const ADSENSE_ADS_TXT = 'google.com, pub-4008574892672964, DIRECT, f08c47fec0942fa0\n';
 const ADMIN_SETTINGS_UNLOCK_ROUTE = '/v1/admin/settings/unlock';
+const ADMIN_SITE_CONTENT_ROUTE = '/v1/admin/site-content';
+const ADMIN_COMMERCE_DASHBOARD_ROUTE = '/v1/admin/commerce/dashboard';
+const PUBLIC_SITE_CONTENT_ROUTE = '/v1/public/site-content';
+const PUBLIC_COMMERCE_CATALOG_ROUTE = '/v1/public/commerce/catalog';
+const PUBLIC_ANALYTICS_COLLECT_ROUTE = '/v1/analytics/collect';
+const CHECKOUT_ORDER_ROUTE = '/v1/checkout/orders';
+const TOSS_CONFIRM_ROUTE = '/v1/payments/toss/confirm';
+const TOSS_WEBHOOK_ROUTE = '/v1/payments/toss/webhook';
 
 export interface LewordApiServerOptions {
   executor?: MobileJobExecutor;
@@ -235,6 +252,92 @@ function downloadRoot(): string {
   if (process.env.LEWORD_DOWNLOAD_DIR) return process.env.LEWORD_DOWNLOAD_DIR;
   if (fs.existsSync('/data')) return '/data/downloads';
   return path.resolve(process.cwd(), 'downloads');
+}
+
+function apiDataRoot(): string {
+  if (process.env.LEWORD_API_DATA_DIR) return process.env.LEWORD_API_DATA_DIR;
+  if (fs.existsSync('/data')) return '/data';
+  return path.resolve(process.cwd(), 'data');
+}
+
+type SiteContentSection = 'products' | 'chatbots' | 'purchase';
+
+interface SiteContentDraft {
+  section: SiteContentSection;
+  products: Array<Record<string, unknown>>;
+  chatbots: Array<Record<string, unknown>>;
+  purchase: Record<string, unknown>;
+  updatedAt: string;
+  updatedBy: string;
+}
+
+function defaultSiteContentDraft(): SiteContentDraft {
+  return {
+    section: 'products',
+    products: [
+      { id: 'naver', name: 'Better Life Naver', status: 'published', href: '/detail' },
+      { id: 'leword', name: 'LEWORD', status: 'published', href: '/leword' },
+      { id: 'orbit', name: 'Leaders Orbit', status: 'published', href: '/orbit' },
+    ],
+    chatbots: [],
+    purchase: {
+      headline: 'Leaders Pro 올인원',
+      note: '구매/무료 체험/제품 안내 문구를 관리자 화면에서 수정할 수 있습니다.',
+    },
+    updatedAt: new Date(0).toISOString(),
+    updatedBy: 'system',
+  };
+}
+
+function siteContentFile(): string {
+  return process.env.LEADERS_PRO_SITE_CONTENT_FILE || path.join(apiDataRoot(), 'leaderspro-site-content.json');
+}
+
+function normalizeSiteContentSection(value: unknown): SiteContentSection {
+  return value === 'chatbots' || value === 'purchase' || value === 'products' ? value : 'products';
+}
+
+function sanitizeRecordArray(value: unknown): Array<Record<string, unknown>> {
+  if (!Array.isArray(value)) return [];
+  return value
+    .filter((item) => item && typeof item === 'object' && !Array.isArray(item))
+    .map((item) => item as Record<string, unknown>)
+    .slice(0, 80);
+}
+
+function sanitizeSiteContentDraft(value: unknown, updatedBy = 'admin'): SiteContentDraft {
+  const raw = value && typeof value === 'object' && !Array.isArray(value)
+    ? value as Record<string, unknown>
+    : {};
+  const fallback = defaultSiteContentDraft();
+  const purchase = raw.purchase && typeof raw.purchase === 'object' && !Array.isArray(raw.purchase)
+    ? raw.purchase as Record<string, unknown>
+    : fallback.purchase;
+  return {
+    section: normalizeSiteContentSection(raw.section),
+    products: sanitizeRecordArray(raw.products).length ? sanitizeRecordArray(raw.products) : fallback.products,
+    chatbots: sanitizeRecordArray(raw.chatbots),
+    purchase,
+    updatedAt: new Date().toISOString(),
+    updatedBy: String(updatedBy || 'admin').slice(0, 80),
+  };
+}
+
+function readSiteContentDraft(): SiteContentDraft {
+  const filePath = siteContentFile();
+  try {
+    if (!fs.existsSync(filePath)) return defaultSiteContentDraft();
+    const parsed = JSON.parse(fs.readFileSync(filePath, 'utf8'));
+    return sanitizeSiteContentDraft(parsed, String(parsed?.updatedBy || 'server'));
+  } catch {
+    return defaultSiteContentDraft();
+  }
+}
+
+function writeSiteContentDraft(value: SiteContentDraft): void {
+  const filePath = siteContentFile();
+  fs.mkdirSync(path.dirname(filePath), { recursive: true });
+  fs.writeFileSync(filePath, `${JSON.stringify(value, null, 2)}\n`, 'utf8');
 }
 
 function firstExistingFile(paths: Array<string | undefined | null>): string | null {
@@ -769,6 +872,23 @@ function parseBody(req: http.IncomingMessage, maxBodyBytes: number): Promise<unk
   return parseMobileJsonBody(req, maxBodyBytes);
 }
 
+function requestClientIp(req: http.IncomingMessage): string {
+  const forwarded = req.headers['x-forwarded-for'];
+  const raw = Array.isArray(forwarded) ? forwarded[0] : forwarded;
+  const first = String(raw || '').split(',')[0].trim();
+  return first || req.socket.remoteAddress || '';
+}
+
+function requestReferrer(req: http.IncomingMessage): string {
+  const value = req.headers.referer || req.headers.referrer || '';
+  return Array.isArray(value) ? String(value[0] || '') : String(value || '');
+}
+
+function requestUserAgent(req: http.IncomingMessage): string {
+  const value = req.headers['user-agent'] || '';
+  return Array.isArray(value) ? String(value[0] || '') : String(value || '');
+}
+
 function handleBodyError(res: http.ServerResponse, err: unknown, maxBodyBytes: number): void {
   if (err instanceof MobileApiBodyTooLargeError) {
     payloadTooLarge(res, maxBodyBytes);
@@ -1098,6 +1218,29 @@ function mergeExactMetricWithLiveBoard(
   current: MobileKeywordMetric,
   board: MobileKeywordMetric,
 ): MobileKeywordMetric {
+  const currentPcSearchVolume = typeof current.pcSearchVolume === 'number' && current.pcSearchVolume > 0
+    ? current.pcSearchVolume
+    : null;
+  const currentMobileSearchVolume = typeof current.mobileSearchVolume === 'number' && current.mobileSearchVolume > 0
+    ? current.mobileSearchVolume
+    : null;
+  const currentHasMeasuredCore = currentPcSearchVolume !== null
+    && currentMobileSearchVolume !== null
+    && typeof current.totalSearchVolume === 'number'
+    && current.totalSearchVolume > 0
+    && typeof current.documentCount === 'number'
+    && current.documentCount > 0;
+  if (currentHasMeasuredCore) {
+    return {
+      ...current,
+      score: current.score ?? board.score ?? null,
+      cpc: current.cpc ?? board.cpc,
+      category: current.category || board.category,
+      evidence: uniqueEvidence(current.evidence, board.evidence, 'analysis-board-metric-sync'),
+      isMeasured: true,
+    };
+  }
+
   const boardPcSearchVolume = typeof board.pcSearchVolume === 'number' && board.pcSearchVolume > 0
     ? board.pcSearchVolume
     : null;
@@ -1365,7 +1508,18 @@ export function createLewordApiServer(options: LewordApiServerOptions = {}): htt
       return;
     }
 
-    if (req.method === 'GET' && (url.pathname === '/' || url.pathname === '/leword' || url.pathname === '/leword/')) {
+    if (
+      req.method === 'GET'
+      && (
+        url.pathname === '/'
+        || url.pathname === '/admin'
+        || url.pathname === '/admin/'
+        || url.pathname === '/leword'
+        || url.pathname === '/leword/'
+        || url.pathname === '/checkout/success'
+        || url.pathname === '/checkout/fail'
+      )
+    ) {
       html(res, 200, renderLewordLanding(), {
         'Cache-Control': 'no-store',
       });
@@ -1387,6 +1541,79 @@ export function createLewordApiServer(options: LewordApiServerOptions = {}): htt
       json(res, 200, buildPublicSourceSignalPayload(snapshot), {
         'Cache-Control': 'no-store',
       });
+      return;
+    }
+
+    if (req.method === 'GET' && url.pathname === PUBLIC_SITE_CONTENT_ROUTE) {
+      json(res, 200, { ok: true, content: readSiteContentDraft() }, {
+        'Cache-Control': 'no-store',
+      });
+      return;
+    }
+
+    if (req.method === 'GET' && url.pathname === PUBLIC_COMMERCE_CATALOG_ROUTE) {
+      json(res, 200, { ok: true, catalog: buildCommerceCatalog(readSiteContentDraft()) }, {
+        'Cache-Control': 'no-store',
+      });
+      return;
+    }
+
+    if (req.method === 'POST' && url.pathname === PUBLIC_ANALYTICS_COLLECT_ROUTE) {
+      try {
+        const body = await parseBody(req, maxBodyBytes) as any;
+        const result = recordAnalyticsEvent({
+          input: body || {},
+          request: {
+            ip: requestClientIp(req),
+            userAgent: requestUserAgent(req),
+            referrer: requestReferrer(req),
+          },
+        });
+        json(res, 202, { ok: true, id: result.event.id });
+      } catch (err) {
+        handleBodyError(res, err, maxBodyBytes);
+      }
+      return;
+    }
+
+    if (req.method === 'POST' && url.pathname === CHECKOUT_ORDER_ROUTE) {
+      try {
+        const body = await parseBody(req, maxBodyBytes) as any;
+        const catalog = buildCommerceCatalog(readSiteContentDraft());
+        const created = createCommerceOrder({
+          catalog,
+          input: body || {},
+        });
+        json(res, 201, {
+          ok: true,
+          order: created.order,
+          toss: catalog.toss,
+        });
+      } catch (err) {
+        json(res, 400, { ok: false, message: (err as Error).message || 'checkout order failed' } satisfies MobileJobErrorResponse);
+      }
+      return;
+    }
+
+    if (req.method === 'POST' && url.pathname === TOSS_CONFIRM_ROUTE) {
+      try {
+        const body = await parseBody(req, maxBodyBytes) as any;
+        const result = await confirmTossPayment({ input: body || {} });
+        json(res, result.ok ? 200 : 400, result);
+      } catch (err) {
+        handleBodyError(res, err, maxBodyBytes);
+      }
+      return;
+    }
+
+    if (req.method === 'POST' && url.pathname === TOSS_WEBHOOK_ROUTE) {
+      try {
+        const body = await parseBody(req, maxBodyBytes) as Record<string, unknown>;
+        const result = recordTossWebhookEvent({ event: body || {} });
+        json(res, 202, { ok: result.ok, event: result.event, order: result.order, payment: result.payment });
+      } catch (err) {
+        handleBodyError(res, err, maxBodyBytes);
+      }
       return;
     }
 
@@ -1444,6 +1671,36 @@ export function createLewordApiServer(options: LewordApiServerOptions = {}): htt
     if (req.method === 'POST' && url.pathname === ADMIN_SETTINGS_UNLOCK_ROUTE) {
       if (!await authorizeMobileRequest(req, res, sessionAwareEntitlementVerifier, 'admin')) return;
       await unlockAdminSettings(req, res, maxBodyBytes);
+      return;
+    }
+
+    if ((req.method === 'GET' || req.method === 'POST') && url.pathname === ADMIN_SITE_CONTENT_ROUTE) {
+      if (!await authorizeMobileRequest(req, res, sessionAwareEntitlementVerifier, 'admin')) return;
+      if (req.method === 'GET') {
+        json(res, 200, { ok: true, content: readSiteContentDraft(), storage: siteContentFile() });
+        return;
+      }
+      try {
+        const body = await parseBody(req, maxBodyBytes) as any;
+        const content = sanitizeSiteContentDraft(body?.content || body, body?.updatedBy || 'admin');
+        writeSiteContentDraft(content);
+        json(res, 200, { ok: true, content, storage: siteContentFile() });
+      } catch (err) {
+        handleBodyError(res, err, maxBodyBytes);
+      }
+      return;
+    }
+
+    if (req.method === 'GET' && url.pathname === ADMIN_COMMERCE_DASHBOARD_ROUTE) {
+      if (!await authorizeMobileRequest(req, res, sessionAwareEntitlementVerifier, 'admin')) return;
+      const period = url.searchParams.get('period') === 'month' ? 'month' : 'today';
+      json(res, 200, {
+        ok: true,
+        dashboard: buildCommerceDashboard({ period }),
+        storage: resolveCommerceStoreFile(),
+      }, {
+        'Cache-Control': 'no-store',
+      });
       return;
     }
 
