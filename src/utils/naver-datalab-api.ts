@@ -6,6 +6,12 @@
 import { apiCache, cachedApiCall } from './api-cache';
 import { ErrorHandler } from './error-handler';
 import { rankRelatedKeywordCandidates } from './keyword-relevance';
+import {
+  isNaverBlogOpenApiQuotaBlocked,
+  isNaverBlogOpenApiQuotaExceededText,
+  markNaverBlogOpenApiQuotaBlocked,
+  selectNaverBlogOpenApiCredential,
+} from './naver-blog-api';
 
 export interface NaverDatalabConfig {
   clientId: string;
@@ -875,14 +881,16 @@ export async function getNaverKeywordSearchVolumeSeparate(
     };
 
     const fetchApi = async (originalKeyword: string): Promise<number | null> => {
+      const credential = selectNaverBlogOpenApiCredential(config);
+      if (!credential) return null;
       const params = new URLSearchParams({ query: originalKeyword, display: '1', sort: 'sim' });
       const controller = new AbortController();
       const timer = setTimeout(() => controller.abort(), API_TIMEOUT_MS);
       try {
         const response = await fetch(`${apiUrl}?${params.toString()}`, {
           headers: {
-            'X-Naver-Client-Id': config.clientId,
-            'X-Naver-Client-Secret': config.clientSecret,
+            'X-Naver-Client-Id': credential.clientId,
+            'X-Naver-Client-Secret': credential.clientSecret,
           },
           signal: controller.signal,
         });
@@ -891,6 +899,10 @@ export async function getNaverKeywordSearchVolumeSeparate(
           const data = await response.json();
           const totalRaw = (data as any)?.total;
           return typeof totalRaw === 'number' ? totalRaw : (typeof totalRaw === 'string' ? parseInt(totalRaw, 10) : null);
+        }
+        const errorText = await response.text().catch(() => '');
+        if (response.status === 429 || isNaverBlogOpenApiQuotaExceededText(errorText)) {
+          markNaverBlogOpenApiQuotaBlocked(credential);
         }
         return null;
       } catch {
@@ -902,6 +914,7 @@ export async function getNaverKeywordSearchVolumeSeparate(
     const fetchApiWithRetry = async (originalKeyword: string): Promise<number | null> => {
       const first = await fetchApi(originalKeyword);
       if (first !== null) return first;
+      if (isNaverBlogOpenApiQuotaBlocked(config)) return null;
       await new Promise(r => setTimeout(r, 400));
       return await fetchApi(originalKeyword);
     };
@@ -915,6 +928,7 @@ export async function getNaverKeywordSearchVolumeSeparate(
           if (idx >= input.length) return;
           // 🔥 v2.27.4: 영구 캐시 HIT 이면 API 건너뛰기
           if (results[idx].documentCount !== null) continue;
+          if (isNaverBlogOpenApiQuotaBlocked(config)) return;
           const originalKeyword = input[idx];
           let dc = await fetchApiWithRetry(originalKeyword);
           const fromApi = dc !== null;

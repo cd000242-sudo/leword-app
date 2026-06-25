@@ -37,12 +37,53 @@ const MOBILE_USER_AGENTS = [
 
 const PERSON_CONTEXT_RE = /(나이|부모|가족|아버지|어머니|엄마|아빠|형제|프로필|인스타|근황|출연|출연진|예능|드라마|다시보기|방송시간|유튜브|배우|가수|개그맨|셰프|작가|감독|선수|아이돌|소속사|학력|고향|일정|팬미팅|공식입장)/;
 const NON_PERSON_SINGLE_TOKEN_RE = /(제네시스|카니발|아반떼|쏘렌토|아이오닉|그랜저|임플란트|에어컨|냉장고|세탁기|청소기|제습기|영양제|비타민|유산균|오메가|노트북|운동화|향수|화장품|지원금|보조금|대출|보험|부동산|아파트|청약)/;
+const LOW_VALUE_AUTOCOMPLETE_REPEAT_TOKEN_RE = /^(?:20\d{2}|최신|오늘|이번주|추천|후기|리뷰|비교|가격|설치|용량|신청|조회|정리|총정리|체크리스트|실사용|할인|정보|구매처|최저가|출시일|스펙)$/u;
+const LOW_VALUE_AUTOCOMPLETE_COMPACT_CHAIN_RE = /(추천20\d{2}|20\d{2}추천|추천사용법|추천용량|추천최저가|최저가추천|추천가격|가격추천|추천구매처|추천할인정보|추천출시일|추천스펙|비교후기|비교가격|비교구매처|비교최저가|가격후기|가격할인정보|가격구매처|가격출시일|최저가후기|최저가실사용|최저가구매처|구매처최저가|구매처실사용|실사용후기|할인실사용|할인정보후기|추천실사용|스펙스펙|스펙추천|스펙후기|스펙비교|스펙출시일)/u;
+const AUTOCOMPLETE_GENERIC_INTENT_TOKEN_RE = /^(?:20\d{2}|\d+월|최신|오늘|이번주|추천|후기|리뷰|비교|가격|설치|용량|신청|조회|정리|총정리|체크리스트|실사용|할인|정보|방법|가이드|사용법|주의사항|전기세|전기요금|청소|렌탈|구매처|최저가|출시일|스펙|가성비|소음|조건|순위|필터교체|필터)$/u;
 
 function isLikelyPersonAutocompleteQuery(query: string, candidates: string[] = []): boolean {
   const normalized = String(query || '').replace(/\s+/g, ' ').trim();
   if (!/^[가-힣]{2,8}$/.test(normalized)) return false;
   if (NON_PERSON_SINGLE_TOKEN_RE.test(normalized)) return false;
   return PERSON_CONTEXT_RE.test(`${normalized} ${candidates.slice(0, 80).join(' ')}`);
+}
+
+function autocompleteTokens(query: string): string[] {
+  return String(query || '')
+    .replace(/\s+/g, ' ')
+    .trim()
+    .split(/\s+/)
+    .map((token) => token.replace(/[^\dA-Za-z가-힣]/g, '').trim())
+    .filter(Boolean);
+}
+
+function compactAutocompleteQuery(query: string): string {
+  return String(query || '')
+    .replace(/\s+/g, '')
+    .replace(/[^\dA-Za-z가-힣]/g, '')
+    .toLowerCase();
+}
+
+function isLowValueAutocompleteQuery(query: string): boolean {
+  const clean = String(query || '').replace(/\s+/g, ' ').trim();
+  if (!clean) return true;
+  if (LOW_VALUE_AUTOCOMPLETE_COMPACT_CHAIN_RE.test(compactAutocompleteQuery(clean))) return true;
+  const tokens = autocompleteTokens(clean);
+  const seen = new Set<string>();
+  for (const token of tokens) {
+    const key = token.toLowerCase();
+    if (seen.has(key) && LOW_VALUE_AUTOCOMPLETE_REPEAT_TOKEN_RE.test(token)) return true;
+    seen.add(key);
+  }
+  const genericCount = tokens.filter((token) => AUTOCOMPLETE_GENERIC_INTENT_TOKEN_RE.test(token)).length;
+  let trailingGenericRun = 0;
+  for (let i = tokens.length - 1; i >= 0; i -= 1) {
+    if (!AUTOCOMPLETE_GENERIC_INTENT_TOKEN_RE.test(tokens[i])) break;
+    trailingGenericRun += 1;
+  }
+  if (genericCount >= 3 && tokens.length >= 4) return true;
+  if (trailingGenericRun >= 2 && tokens.length >= 4) return true;
+  return false;
 }
 
 function getRandomUA(mobile = false): string {
@@ -211,7 +252,12 @@ export async function getNaverAutocompleteKeywords(
   baseKeyword: string,
   config: NaverApiConfig
 ): Promise<string[]> {
-  console.log(`[NAVER-AUTOCOMPLETE] 🚀 끝판왕 자동완성 시작: "${baseKeyword}"`);
+  const normalizedBaseKeyword = String(baseKeyword || '').replace(/\s+/g, ' ').trim();
+  if (isLowValueAutocompleteQuery(normalizedBaseKeyword)) {
+    console.log(`[NAVER-AUTOCOMPLETE] 🧹 저품질 조립형 입력 제외: "${normalizedBaseKeyword}"`);
+    return [];
+  }
+  console.log(`[NAVER-AUTOCOMPLETE] 🚀 끝판왕 자동완성 시작: "${normalizedBaseKeyword}"`);
   
   const keywordMap = new Map<string, { keyword: string; sources: Set<string>; freq: number }>();
   const addKeyword = (keyword: string, source: string) => {

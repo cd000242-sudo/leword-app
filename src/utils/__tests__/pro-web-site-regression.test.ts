@@ -54,10 +54,38 @@ assert('pro login does not masquerade as API key setup',
     && !html.includes("setActiveView('settings', { load: false });\n        log('Pro 로그인 완료"));
 assert('api key settings are separate from Pro login credentials',
   html.includes("const userApiSettingsStorageKey = 'leword.pro.userApiSettings.v1'")
+    && html.includes("const proLoginIdStorageKey = 'leword.pro.lastLoginId.v1'")
     && html.includes("localStorage.setItem('leword.pro.session'")
+    && html.includes('id="proLoginAccountId"')
+    && html.includes('id="proLoginAccountPassword"')
+    && html.includes('function prepareFreshProLoginFields')
+    && html.includes('function clearProLoginAutofillFromApiSettings')
+    && html.includes('function apiSettingsCredentialValues')
+    && !html.includes('id="userId"')
+    && !html.includes('id="password"')
+    && html.includes('if (saved.userId) rememberProLoginUserId(saved.userId);')
+    && html.includes('if (session && session.userId) rememberProLoginUserId(session.userId);')
+    && html.includes('function rememberProLoginUserId')
+    && html.includes('function loginLicenseCodeForSubmit')
+    && html.includes("if (!details || !input || !details.open) return '';")
+    && html.includes("if (qs('loginMessage')) qs('loginMessage').textContent = '';")
+    && html.includes("if (qs('licenseCode')) qs('licenseCode').value = '';")
+    && html.includes('let recentLoginCredentialValues = []')
+    && html.includes("qs('proLoginAccountId') && qs('proLoginAccountId').value")
+    && html.includes("qs('adminUserId') && qs('adminUserId').value")
+    && html.includes('session && session.userId')
+    && html.includes('function sanitizeUserApiSettings')
+    && html.includes('function toggleApiKeyVisibility')
+    && html.includes('data-api-reveal="naverClientId"')
+    && html.includes("saveSession(Object.assign({}, payload.session, { userId: payload.session.userId || userId }))")
+    && html.includes("const requestHeaders = url === endpoints.session ? { 'Content-Type': 'application/json' } : headers(options);")
+    && html.includes("const licenseCode = loginLicenseCodeForSubmit();")
+    && html.includes("saveSession(null);\n        const loginPayload = { userId: userId, password: password };")
+    && html.includes('아이디 또는 비밀번호가 맞지 않습니다. 자동완성 값이 들어갔다면 지우고 다시 입력하세요.')
     && html.includes('data-api-key-input="true"')
-    && html.includes('autocomplete="new-password"')
+    && html.includes('autocomplete="off" readonly data-lpignore="true"')
     && html.includes('function clearLoginCredentialAutofillFromApiSettings')
+    && html.includes('readUserApiSettings();\n        clearLoginCredentialAutofillFromApiSettings(false);')
     && html.includes('Pro 로그인 아이디/비밀번호가 API 키 칸에 자동 입력되어 제거했습니다.'));
 assert('settings exposes a clean API issue modal and integration status check',
   html.includes('id="openApiIssueModal"')
@@ -133,7 +161,7 @@ assert('commerce tab wires editable catalog, Toss checkout, analytics, and admin
     && html.includes('function handleCheckoutRedirect')
     && html.includes('function loadCommerceDashboard')
     && html.includes('function initialViewId')
-    && html.includes("location.pathname || '') ? 'commerce' : 'golden'")
+    && html.includes("return isAdminSurface() ? 'commerce' : 'golden'")
     && html.includes("sendCommerceAnalytics('pageview', 'pageview'"));
 
 assert('admin site content exposes form-based product and pricing edits',
@@ -244,6 +272,14 @@ assert('shopping connect defaults to 30 sellable product keywords on web',
     && /selected\s*&&\s*selected\.id\s*===\s*'shopping'\s*\?\s*30\s*:\s*5/.test(html)
     && !/id:\s*'shopping'[\s\S]{0,260}defaultTargetCount:\s*20/.test(html),
   'shopping connect still starts below the 30 product keyword floor');
+
+assert('shopping connect renders product picks and writing angles in keyword results',
+  html.includes('function shoppingProductPickHtml')
+    && html.includes('shoppingProductPick')
+    && html.includes('추천 제품')
+    && html.includes('글감')
+    && html.includes('전환 포인트'),
+  'shopping connect results must show which product to write and why it can convert');
 
 assert('operations and execution log are not exposed as user navigation tabs',
   !html.includes('data-view-target="ops"')
@@ -380,6 +416,18 @@ assert('user API key settings are first-class, local-only, and secret-safe',
     && html.includes('서버 공용 저장 아님')
     && !html.includes("naverApiSettings: apiUrl('/v1/mobile/api-settings/naver')"));
 
+const settingsHydrateIndex = html.indexOf("if (next === 'settings') {\n        hydrateNaverApiSettingsForm();\n        startApiAutofillGuard(30000);");
+const loadFalseIndex = html.indexOf('if (opts.load === false) return;');
+assert('API settings resist credential autofill and hydrate even when opened without view loading',
+  settingsHydrateIndex >= 0
+    && loadFalseIndex >= 0
+    && settingsHydrateIndex < loadFalseIndex
+    && html.includes('function lockApiInputAgainstCredentialAutofill')
+    && html.includes('input.setAttribute(\'readonly\', \'readonly\')')
+    && html.includes('function unlockApiInputForTyping')
+    && html.includes("document.querySelectorAll('[data-api-key-input]')")
+    && html.includes('startApiAutofillGuard(30000)'));
+
 assert('admin-only AI worker settings let admins choose Codex or Claude Code separately from Pro login',
   html.includes('id="adminAiWorkerSettings"')
     && html.includes('관리자 AI 작업자 설정')
@@ -406,7 +454,9 @@ assert('admin-only AI worker settings let admins choose Codex or Claude Code sep
     && !html.includes('@Qkrtjdgus12')
     && html.includes('관리자 전용 설정입니다. admin 계정으로 Pro 로그인하면 Codex/Claude Code 작업자를 선택할 수 있습니다.')
     && !html.includes('id="userId" name="leword-api-naver-client-id"')
-    && !html.includes('id="password" name="leword-api-naver-client-secret"'));
+    && !html.includes('id="password" name="leword-api-naver-client-secret"')
+    && !html.includes('id="userId" name="leword-local-api-naver-client-id"')
+    && !html.includes('id="password" name="leword-local-api-naver-client-secret"'));
 
 assert('keeps technical Electron mapping hidden while retaining telemetry wiring',
   !html.includes('Electron 기능 매핑')
@@ -430,11 +480,28 @@ assert('renders working app download surface',
     && html.includes("downloads: apiUrl('/v1/downloads')")
     && html.includes('pcDownload: pcReleaseUrl')
     && html.includes('androidDownload: androidReleaseUrl')
+    && html.includes('id="pcDownloadButton"')
+    && html.includes('id="androidDownloadButton"')
     && html.includes('id="pcDownloadMeta"')
     && html.includes('id="androidDownloadMeta"')
     && html.includes('function loadDownloads()')
-    && html.includes('releases/download/v2.49.85/LEWORD-2.49.85.exe')
-    && html.includes('releases/download/v2.49.85/LEWORD-mobile-0.1.0.apk'));
+    && !html.includes('github.com/cd000242-sudo/leword-app/releases/download'));
+
+const downloadsStart = html.indexOf('<section class="panel main-view" id="downloads" data-view="downloads">');
+const downloadsEnd = html.indexOf('<section class="panel main-view" id="commerce" data-view="commerce">', downloadsStart);
+const downloadsHtml = downloadsStart >= 0 && downloadsEnd > downloadsStart ? html.slice(downloadsStart, downloadsEnd) : '';
+const adminContentStart = html.indexOf('id="adminSiteContentSettings"');
+const adminContentEnd = html.indexOf('<section class="panel main-view" id="downloads" data-view="downloads">', adminContentStart);
+const adminContentHtml = adminContentStart >= 0 && adminContentEnd > adminContentStart ? html.slice(adminContentStart, adminContentEnd) : '';
+
+assert('download upload controls are not exposed inside LEWORD Pro Web',
+  !html.includes("adminDownloadUpload: apiUrl('/v1/admin/downloads/upload')")
+    && !html.includes('function uploadDownloadFile(kind, file)')
+    && !html.includes('id="adminDownloadUploadPanel"')
+    && !html.includes('id="downloadAdminLogin"')
+    && !html.includes('data-download-upload-kind')
+    && !downloadsHtml.includes('download-upload-panel')
+    && !adminContentHtml.includes('download-upload-panel'));
 
 assert('tool settings drive server payloads instead of one generic button',
   html.includes('function collectToolOptions()')

@@ -8,7 +8,7 @@ export type MobileEntitlementTier = 'standard' | 'pro' | 'unlimited' | 'admin';
 export interface MobileEntitlement {
   subjectId: string;
   tier: MobileEntitlementTier;
-  source: 'env-static-token' | 'entitlement-file' | 'license-service' | 'fixture';
+  source: 'env-static-token' | 'entitlement-file' | 'license-service' | 'configured-web-login' | 'fixture';
   expiresAt?: string | null;
 }
 

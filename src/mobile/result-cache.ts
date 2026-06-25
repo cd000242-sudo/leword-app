@@ -22,9 +22,15 @@ interface MobileResultCacheEntry {
 
 const FRESH_PRODUCTS = new Set<MobileKeywordProduct>([
   'golden-discovery',
-  'pro-traffic-hunter',
   'home-board-hunter',
   'kin-hidden-honey',
+]);
+
+const DAILY_PREWARM_PRODUCTS = new Set<MobileKeywordProduct>([
+  'pro-traffic-hunter',
+  'shopping-connect',
+  'youtube-golden',
+  'naver-mate-hunter',
 ]);
 
 function stableStringify(value: unknown): string {
@@ -41,21 +47,63 @@ function stableStringify(value: unknown): string {
 }
 
 function cloneResult(result: MobileKeywordResult, fromCache: boolean): MobileKeywordResult {
+  const keywords = cacheableKeywords(result);
   return {
-    keywords: result.keywords.map((item) => ({
+    keywords: keywords.map((item) => ({
       ...item,
       evidence: [...item.evidence],
     })),
     summary: {
       ...result.summary,
+      total: keywords.length,
+      sss: keywords.filter((item) => item.grade === 'SSS').length,
+      measured: keywords.filter((item) => item.isMeasured === true).length,
       fromCache,
     },
   };
 }
 
-function isCacheableResult(product: MobileKeywordProduct, result: MobileKeywordResult | undefined): boolean {
-  const keywords = result?.keywords;
-  if (!Array.isArray(keywords) || keywords.length === 0) return false;
+function isKeywordCacheVisible(item: MobileKeywordResult['keywords'][number]): boolean {
+  const aiVerdict = String(item.aiJudge?.verdict || '').toLowerCase();
+  const publishVerdict = String(item.publishDecision?.verdict || '').toLowerCase();
+  return aiVerdict !== 'exclude' && publishVerdict !== 'exclude';
+}
+
+function cacheableKeywords(result: MobileKeywordResult | undefined): MobileKeywordResult['keywords'] {
+  return Array.isArray(result?.keywords)
+    ? result.keywords.filter(isKeywordCacheVisible)
+    : [];
+}
+
+function targetCountFromParams(params: unknown): number | null {
+  if (!params || typeof params !== 'object') return null;
+  const raw = (params as Record<string, unknown>)['targetCount'];
+  const value = typeof raw === 'number' ? raw : Number(raw);
+  return Number.isFinite(value) && value > 0 ? value : null;
+}
+
+function minimumCacheKeywordCount(product: MobileKeywordProduct, params: unknown): number {
+  const targetCount = targetCountFromParams(params);
+  if (product === 'pro-traffic-hunter' && targetCount && targetCount >= 20) {
+    return Math.min(30, Math.max(5, Math.floor(targetCount * 0.5)));
+  }
+  if (DAILY_PREWARM_PRODUCTS.has(product) && targetCount && targetCount >= 20) {
+    return Math.min(10, Math.max(3, Math.floor(targetCount * 0.25)));
+  }
+  if (targetCount && targetCount >= 20) {
+    return Math.min(10, Math.max(3, Math.floor(targetCount * 0.25)));
+  }
+  return 1;
+}
+
+function isCacheableResult(
+  product: MobileKeywordProduct,
+  result: MobileKeywordResult | undefined,
+  params: unknown,
+): boolean {
+  const keywords = cacheableKeywords(result);
+  if (keywords.length === 0) return false;
+  if (keywords.length < minimumCacheKeywordCount(product, params)) return false;
   if (product === 'pro-traffic-hunter') {
     return keywords.every((item) => {
       const total = typeof item.totalSearchVolume === 'number' ? item.totalSearchVolume : 0;
@@ -77,7 +125,7 @@ export function makeMobileResultCacheKey(product: MobileKeywordProduct, params: 
 }
 
 export function getMobileResultCacheTtlMs(product: MobileKeywordProduct): number {
-  const minutes = product === 'pro-traffic-hunter'
+  const minutes = DAILY_PREWARM_PRODUCTS.has(product)
     ? MOBILE_PC_PARITY_SLA.workerBudgets.proTrafficPrewarmCacheTtlMinutes
     : FRESH_PRODUCTS.has(product)
       ? MOBILE_PC_PARITY_SLA.workerBudgets.cacheTtlMinutesForFreshIssue
@@ -106,7 +154,7 @@ export class InMemoryMobileResultCache {
       this.entries.delete(key);
       return undefined;
     }
-    if (!isCacheableResult(product, entry.result)) {
+    if (!isCacheableResult(product, entry.result, params)) {
       this.entries.delete(key);
       this.persist();
       return undefined;
@@ -116,7 +164,7 @@ export class InMemoryMobileResultCache {
 
   set(product: MobileKeywordProduct, params: unknown, result: MobileKeywordResult): void {
     const key = makeMobileResultCacheKey(product, params);
-    if (!isCacheableResult(product, result)) {
+    if (!isCacheableResult(product, result, params)) {
       this.entries.delete(key);
       this.persist();
       return;
@@ -135,6 +183,16 @@ export class InMemoryMobileResultCache {
 
   size(): number {
     return this.entries.size;
+  }
+
+  recent(product?: MobileKeywordProduct, limit = 10): MobileKeywordResult[] {
+    const now = this.now();
+    return [...this.entries.values()]
+      .filter((entry) => (!product || entry.product === product) && entry.expiresAtMs > now)
+      .sort((a, b) => b.createdAtMs - a.createdAtMs)
+      .filter((entry) => isCacheableResult(entry.product, entry.result, {}))
+      .slice(0, Math.max(0, Math.floor(limit)))
+      .map((entry) => cloneResult(entry.result, true));
   }
 
   private trim(): void {

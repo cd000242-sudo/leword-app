@@ -581,6 +581,8 @@ export function deriveShoppingExpansionQueries(
   crossSourceSeeds: Array<{ seed: string; sources?: string[]; crossScore?: number }> = [],
   maxQueries: number = 8
 ): Array<{ query: string; source: ShoppingItem['discoverySource']; reason: string }> {
+  const safeRelatedKeywords = Array.isArray(relatedKeywords) ? relatedKeywords : [];
+  const safeCrossSourceSeeds = Array.isArray(crossSourceSeeds) ? crossSourceSeeds : [];
   const out: Array<{ query: string; source: ShoppingItem['discoverySource']; reason: string }> = [];
   const seen = new Set<string>();
   const add = (query: string, source: ShoppingItem['discoverySource'], reason: string) => {
@@ -600,14 +602,14 @@ export function deriveShoppingExpansionQueries(
     if (out.length >= maxQueries) break;
   }
 
-  const commercialRelated = relatedKeywords
+  const commercialRelated = safeRelatedKeywords
     .filter(k => /(추천|후기|리뷰|비교|가격|최저가|할인|순위|구매)/.test(k))
     .slice(0, 4);
   for (const related of commercialRelated) {
     add(related, 'autocomplete-demand', '자동완성 구매 의도');
   }
 
-  for (const seed of crossSourceSeeds.slice(0, 4)) {
+  for (const seed of safeCrossSourceSeeds.slice(0, 4)) {
     if (seed?.seed) add(seed.seed, 'trend-seed', '실시간 유행 시드');
   }
 
@@ -737,6 +739,33 @@ export function buildProductLeWordSeeds(item: ShoppingItem, baseKeyword: string,
     add(`${brand} ${category} 후기`, 'same-product', '브랜드+세부 카테고리 후기 키워드');
   }
 
+  if (category) {
+    add(`${category} 추천`, 'category', '카테고리 대표 구매 키워드');
+    add(`${category} 순위`, 'category', '구매 전 비교 순위 키워드');
+  }
+
+  let earlyPeerAdded = false;
+  for (const group of familyGroups) {
+    for (const peer of group.peerBrands) {
+      if (brand && peer === brand) continue;
+      add(`${peer} ${group.productNoun || category || '제품'} 추천`, 'peer-brand', '같은 계열 대체 브랜드 키워드');
+      earlyPeerAdded = true;
+      break;
+    }
+    if (earlyPeerAdded) break;
+  }
+
+  if (category) {
+    add(`${category} 가격`, 'category', '구매 직전 가격 키워드');
+    add(`${category} 비교`, 'category', '대체 상품 비교 키워드');
+    add(`${category} 가성비`, 'category', '가성비 구매 의도 키워드');
+    add(`${category} 구매처`, 'category', '구매처 탐색 키워드');
+    if (/(에어컨|제습기|정수기|비데|공기청정기|청소기)/.test(category)) {
+      add(`${category} 렌탈`, 'category', '렌탈 전환 키워드');
+      add(`${category} 설치`, 'category', '설치 전환 키워드');
+    }
+  }
+
   for (const group of familyGroups) {
     for (const peer of group.peerBrands) {
       if (brand && peer === brand) continue;
@@ -746,10 +775,6 @@ export function buildProductLeWordSeeds(item: ShoppingItem, baseKeyword: string,
     if (out.length >= maxSeeds) break;
   }
 
-  if (category) {
-    add(`${category} 추천`, 'category', '카테고리 대표 구매 키워드');
-    add(`${category} 비교`, 'category', '대체 상품 비교 키워드');
-  }
   if (product) {
     add(`${product} 후기`, 'same-product', '제품명 직접 후기 키워드');
     add(`${product} 가격`, 'same-product', '구매 직전 가격 키워드');
@@ -1028,7 +1053,8 @@ export function rankShoppingOpportunities(
   limit: number = 10,
   opts?: ConversionScoreOptions
 ): ShoppingItem[] {
-  const normal = items.filter(i => i.productType === 1 && i.lprice > 0);
+  const safeItems = Array.isArray(items) ? items : [];
+  const normal = safeItems.filter(i => i.productType === 1 && i.lprice > 0);
   const judged = normal.filter(item => !judgeShoppingProductOpportunity(item, context).reject);
   const pool = judged.length > 0 ? judged : normal;
   for (const item of pool) attachShoppingOpportunityScore(item, context, opts);
@@ -1077,11 +1103,12 @@ export function selectBalancedShoppingOpportunities(
 ): ShoppingItem[] {
   const safeLimit = Math.max(0, Math.floor(limit));
   if (safeLimit <= 0) return [];
+  const safeItems = Array.isArray(items) ? items : [];
 
   const perGroupCap = Math.max(1, Math.floor(
     maxPerDiscoveryQuery ?? Math.max(2, Math.ceil(safeLimit / 8))
   ));
-  const ranked = items.slice().sort(compareShoppingOpportunity);
+  const ranked = safeItems.slice().sort(compareShoppingOpportunity);
   const selected: ShoppingItem[] = [];
   const selectedIds = new Set<string>();
   const groupCounts = new Map<string, number>();

@@ -563,6 +563,18 @@ export async function destroyCompatibleBrowserLaunches(): Promise<void> {
 }
 
 function buildPoolConfig(): BrowserPoolConfig {
+  const envMaxSize = Number.parseInt(process.env.LEWORD_BROWSER_POOL_MAX_SIZE || '', 10);
+  const envIdleTimeout = Number.parseInt(process.env.LEWORD_BROWSER_POOL_IDLE_MS || '', 10);
+  if (Number.isFinite(envMaxSize) && envMaxSize > 0) {
+    return {
+      maxSize: Math.max(1, Math.min(8, envMaxSize)),
+      idleTimeout: Number.isFinite(envIdleTimeout) && envIdleTimeout >= 5000
+        ? envIdleTimeout
+        : 30000,
+      headless: true,
+    };
+  }
+
   try {
     // eslint-disable-next-line @typescript-eslint/no-var-requires
     const { EnvironmentManager } = require('./environment-manager');

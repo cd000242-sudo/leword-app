@@ -41,6 +41,34 @@ function runReadyEnvWithSearchAdAliases(): void {
   assert('complete env has no required blockers', report.summary.failedRequired === 0);
   assert('SearchAd no-underscore aliases are accepted',
     report.checks.find((item) => item.name === 'Naver SearchAd credentials configured')?.ok === true);
+  assert('OpenAPI single key reports configured count',
+    report.checks.find((item) => item.name === 'Naver Open API credentials configured')?.detail.includes('1 OpenAPI key') === true);
+  assert('OpenAPI quota check passes when no key is blocked',
+    report.checks.find((item) => item.name === 'Naver Open API document quota available')?.ok === true);
+}
+
+function runReadyEnvWithOpenApiPool(): void {
+  const report = getMobileRuntimeReadiness({
+    now: fixedNow,
+    env: {
+      NAVER_CLIENT_ID_POOL: 'naver-client-a,naver-client-b',
+      NAVER_CLIENT_SECRET_POOL: 'naver-secret-a,naver-secret-b',
+      NAVER_SEARCHAD_ACCESS_LICENSE: 'searchad-license',
+      NAVER_SEARCHAD_SECRET_KEY: 'searchad-secret',
+      NAVER_SEARCHAD_CUSTOMER_ID: 'searchad-customer',
+      LEWORD_MOBILE_ENTITLEMENT_URL: 'https://api.leword.app/mobile/entitlement',
+      LEWORD_MOBILE_PREWARM_INTERVAL_MINUTES: '15',
+      LEWORD_MOBILE_CACHE_FILE: 'C:\\leword\\mobile-cache.json',
+      LEWORD_MOBILE_PUSH_PROVIDER: 'expo',
+      LEWORD_MOBILE_PUSH_TIMEOUT_MS: '5000',
+    },
+  });
+
+  assert('pooled OpenAPI env is production ready', report.ok === true);
+  assert('OpenAPI pool reports configured count',
+    report.checks.find((item) => item.name === 'Naver Open API credentials configured')?.detail.includes('2 OpenAPI key') === true);
+  assert('OpenAPI pool quota check passes',
+    report.checks.find((item) => item.name === 'Naver Open API document quota available')?.ok === true);
 }
 
 function runPlaceholderUrlRejection(): void {
@@ -67,6 +95,7 @@ function runPlaceholderUrlRejection(): void {
 
 runEmptyEnv();
 runReadyEnvWithSearchAdAliases();
+runReadyEnvWithOpenApiPool();
 runPlaceholderUrlRejection();
 
 console.log('[mobile-runtime-readiness.test] passed');

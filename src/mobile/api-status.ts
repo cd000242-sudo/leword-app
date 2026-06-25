@@ -39,8 +39,26 @@ const DIAGNOSTICS: DiagnosticSpec[] = [
     label: 'Naver Open API',
     requiredForMobileResults: true,
     keys: [
-      { name: 'naverClientId', aliases: ['naverClientId', 'NAVER_CLIENT_ID'] },
-      { name: 'naverClientSecret', aliases: ['naverClientSecret', 'NAVER_CLIENT_SECRET'] },
+      {
+        name: 'naverClientId',
+        aliases: [
+          'naverClientId',
+          'NAVER_CLIENT_ID',
+          'NAVER_OPENAPI_KEY_POOL',
+          'NAVER_CLIENT_KEY_POOL',
+          'NAVER_CLIENT_ID_POOL',
+        ],
+      },
+      {
+        name: 'naverClientSecret',
+        aliases: [
+          'naverClientSecret',
+          'NAVER_CLIENT_SECRET',
+          'NAVER_OPENAPI_KEY_POOL',
+          'NAVER_CLIENT_KEY_POOL',
+          'NAVER_CLIENT_SECRET_POOL',
+        ],
+      },
     ],
     affects: ['document-count', 'autocomplete', 'competition-analysis', 'mindmap-expansion'],
     readyRecommendation: '문서수, 자동완성, 경쟁 분석을 PC와 같은 기준으로 측정할 수 있습니다.',

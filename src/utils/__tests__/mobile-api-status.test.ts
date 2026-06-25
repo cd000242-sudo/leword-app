@@ -58,4 +58,20 @@ assert('diagnostic snapshot does not leak raw searchad license',
 assert('diagnostic snapshot only exposes key lengths',
   serialized.includes('"length":23') || serialized.includes('"length":26'));
 
+const pooledSnapshot = buildMobileApiStatusSnapshot({
+  apiBaseUrl: 'http://192.168.0.10:34983',
+  env: {
+    NAVER_CLIENT_ID_POOL: 'openapi-client-a,openapi-client-b',
+    NAVER_CLIENT_SECRET_POOL: 'openapi-secret-a,openapi-secret-b',
+    naverSearchAdAccessLicense: 'searchad-license-raw-value',
+    naverSearchAdSecretKey: 'searchad-secret-raw-value',
+    naverSearchAdCustomerId: 'searchad-customer',
+  },
+  now: () => new Date('2026-06-06T00:00:00.000Z'),
+});
+
+const pooledOpenApi = pooledSnapshot.items.find((item) => item.id === 'naver-openapi');
+assert('naver open api pool is accepted without single id/secret',
+  pooledOpenApi?.status === 'ready', pooledOpenApi?.status);
+
 console.log('[mobile-api-status] passed');

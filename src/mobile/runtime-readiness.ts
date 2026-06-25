@@ -1,4 +1,8 @@
 import { getMobileApiGuardrailOptions } from './api-guardrails';
+import {
+  getNaverBlogOpenApiCredentials,
+  isNaverBlogOpenApiQuotaBlocked,
+} from '../utils/naver-blog-api';
 
 export type MobileRuntimeReadinessSeverity = 'required' | 'recommended';
 
@@ -82,14 +86,33 @@ export function getMobileRuntimeReadiness(
   const prewarmInterval = Number(readEnv(env, ['LEWORD_MOBILE_PREWARM_INTERVAL_MINUTES']) || 0);
   const pushTimeout = Number(readEnv(env, ['LEWORD_MOBILE_PUSH_TIMEOUT_MS']) || 5000);
   const guardrails = getMobileApiGuardrailOptions(env);
+  const naverOpenApiCredentialConfig = {
+    clientId: naverClientId,
+    clientSecret: naverClientSecret,
+    env,
+  };
+  const naverOpenApiCredentials = getNaverBlogOpenApiCredentials(naverOpenApiCredentialConfig);
+  const naverOpenApiQuotaBlocked = naverOpenApiCredentials.length > 0
+    && isNaverBlogOpenApiQuotaBlocked(naverOpenApiCredentialConfig, now().getTime());
 
   const pushReady = pushProvider === 'expo' || isProductionHttpsUrl(pushEndpoint);
 
   const checks = [
     check(
       'Naver Open API credentials configured',
-      !!naverClientId && !!naverClientSecret,
-      'required for measured document counts in keyword-analysis and mindmap-expansion',
+      naverOpenApiCredentials.length > 0,
+      naverOpenApiCredentials.length > 0
+        ? `${naverOpenApiCredentials.length} OpenAPI key(s) configured for measured document counts`
+        : 'required for measured document counts in keyword-analysis and mindmap-expansion',
+    ),
+    check(
+      'Naver Open API document quota available',
+      naverOpenApiCredentials.length > 0 && !naverOpenApiQuotaBlocked,
+      naverOpenApiCredentials.length === 0
+        ? 'configure at least one Naver OpenAPI key before document-count jobs run'
+        : naverOpenApiQuotaBlocked
+          ? `all ${naverOpenApiCredentials.length} configured OpenAPI key(s) are in quota cooldown`
+          : `${naverOpenApiCredentials.length} configured OpenAPI key(s) have available quota`,
     ),
     check(
       'Naver SearchAd credentials configured',

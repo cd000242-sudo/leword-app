@@ -61,7 +61,8 @@ export class MobileNotificationInbox {
 
   publishFromResult(options: PublishMobileResultNotificationOptions): MobileNotificationItem[] {
     const stamp = this.now().toISOString();
-    const winners = options.result.keywords
+    const keywords = Array.isArray(options.result?.keywords) ? options.result.keywords : [];
+    const winners = keywords
       .filter((item) => VALUABLE_GRADES.has(item.grade) && item.isMeasured)
       .sort((a, b) => scoreNotification(b) - scoreNotification(a))
       .slice(0, Math.max(1, options.limit || 3));

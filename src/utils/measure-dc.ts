@@ -76,12 +76,56 @@ const SCRAPE_MIN_VALID_N = 10;
  *   widget noise 차단은 n >= 10 게이트가 담당.
  */
 const STRICT_PATTERNS: ReadonlyArray<RegExp> = [
+    /(?:\uBE14\uB85C\uADF8\s*)?\uAC80\uC0C9\uACB0\uACFC\s*(?:\uC57D\s*)?([0-9,]+)\s*\uAC74/u,
+    /(?:\uC804\uCCB4|\uCD1D)\s*(?:\uC57D\s*)?([0-9,]+)\s*\uAC74/u,
+    /1\s*-\s*10\s*\/\s*([0-9,]+)\s*\uAC74/u,
+    /([0-9,]+)\s*\uAC74\s*(?:\uC758\s*)?(?:\uBE14\uB85C\uADF8|\uBB38\uC11C|\uAC80\uC0C9\uACB0\uACFC|\uACB0\uACFC)/u,
+    /(?:totalCount|total_count|blogTotal)["']?\s*[:=]\s*["']?([0-9,]+)/i,
     /블로그\s*검색결과\s*약\s*([0-9,]+)\s*건/,    // 가장 안전 — "블로그 검색결과" prefix
     /검색결과\s*약\s*([0-9,]+)\s*건/,              // 안전 — "검색결과" prefix
     /\d+-\d+\s*\/\s*([0-9,]+)\s*건/,              // 페이지네이션 "1-10 / N건"
     /총\s*([0-9,]+)\s*건/,                          // "총 N건" 결과 헤더
     /([0-9,]+)\s*건\s*중/,                          // "N건 중" suffix
 ];
+
+function decodeHtmlText(html: string): string {
+    return String(html || '')
+        .replace(/<script\b[^>]*>[\s\S]*?<\/script>/gi, ' ')
+        .replace(/<style\b[^>]*>[\s\S]*?<\/style>/gi, ' ')
+        .replace(/<[^>]+>/g, ' ')
+        .replace(/&nbsp;|&#160;/gi, ' ')
+        .replace(/&amp;/gi, '&')
+        .replace(/&lt;/gi, '<')
+        .replace(/&gt;/gi, '>')
+        .replace(/&quot;/gi, '"')
+        .replace(/&#39;|&apos;/gi, "'")
+        .replace(/&#x([0-9a-f]+);/gi, (_m, hex) => String.fromCodePoint(parseInt(hex, 16)))
+        .replace(/&#(\d+);/g, (_m, dec) => String.fromCodePoint(parseInt(dec, 10)))
+        .replace(/\s+/g, ' ')
+        .trim();
+}
+
+function parseDocumentCountMatch(match: RegExpMatchArray | null): number | null {
+    const raw = match?.[1];
+    if (!raw) return null;
+    const n = parseInt(String(raw).replace(/,/g, ''), 10);
+    if (!Number.isFinite(n) || n <= 0 || n < SCRAPE_MIN_VALID_N) return null;
+    return n;
+}
+
+function extractNaverBlogDocumentCountFromHtml(html: string): number | null {
+    const sources = [String(html || ''), decodeHtmlText(html)];
+    const candidates: number[] = [];
+    for (const source of sources) {
+        if (!source) continue;
+        for (const pattern of STRICT_PATTERNS) {
+            const n = parseDocumentCountMatch(source.match(pattern));
+            if (n !== null) candidates.push(n);
+        }
+    }
+    if (candidates.length === 0) return null;
+    return Math.max(...candidates);
+}
 
 async function scrapeNaverBlogDc(keyword: string, timeoutMs: number): Promise<number | null> {
     const ctrl = new AbortController();
@@ -98,6 +142,11 @@ async function scrapeNaverBlogDc(keyword: string, timeoutMs: number): Promise<nu
             signal: ctrl.signal as any,
         });
         const html = String(resp.data || '');
+        const robustCount = extractNaverBlogDocumentCountFromHtml(html);
+        if (robustCount !== null) {
+            console.log(`[measure-dc] scrape measured "${keyword}": n=${robustCount}`);
+            return robustCount;
+        }
         for (const p of STRICT_PATTERNS) {
             const m = html.match(p);
             if (m && m[1]) {
@@ -135,6 +184,22 @@ export async function measureDocumentCount(
 ): Promise<DcMeasurement> {
     const sv = opts.searchVolume ?? 0;
     const scrapeTimeoutMs = opts.scrapeTimeoutMs ?? 2000;
+
+    // Use verified persistent cache even on API quota-avoidance paths.
+    if (!opts.skipCache) {
+        const cached = getPersistent(keyword);
+        if (cached?.documentCount != null && cached.documentCount > 0) {
+            const ageMs = Date.now() - ((cached as any).savedAt || 0);
+            if (ageMs < FRESH_CACHE_MS) {
+                return {
+                    dc: cached.documentCount,
+                    source: 'cache',
+                    confidence: 'high',
+                    isEstimated: false,
+                };
+            }
+        }
+    }
 
     // v2.49.17: scrapeOnly 분기 — verify path 에서 API rate-limit 회피용.
     //   기존 scrapeWebDc 와 동일 동작 (API 다시 호출 X, scrape 만).

@@ -154,7 +154,7 @@ export async function getNaverSearchAdKeywordVolume(
   //   다 이 깊은 버그를 못 보고 표면만 만짐.
   //   v2.49.18 휴리스틱 fallback 은 그대로 유지 (svEstimated 마킹). 정확 매칭 100% 보장 후
   //   사용자에게 결과 50~300건 복원 + 추정 칩으로 신뢰도 보장.
-  const chunkSize = 5;
+  const chunkSize = 4;
   for (let i = 0; i < cleanKeywords.length; i += chunkSize) {
     const chunk = cleanKeywords.slice(i, i + chunkSize);
     const hintKeywordsValue = chunk.map(k => buildProcessedKeyword(k)).join(',');
@@ -178,7 +178,7 @@ export async function getNaverSearchAdKeywordVolume(
       };
 
       // 🔥 v2.28.0: Rate Limit 완화 — 600ms 간격 (분당 100 배치, 실측 OK)
-      const minIntervalMs = 600;
+      const minIntervalMs = 900;
       const now = Date.now();
       lastSearchAdRequestAt = Math.max(now, lastSearchAdRequestAt + minIntervalMs);
       const waitMs = lastSearchAdRequestAt - now;
@@ -218,13 +218,8 @@ export async function getNaverSearchAdKeywordVolume(
           return rel === normalizedRequest;
         });
 
-        // 2차: 정확 일치 실패 시, 포함 관계 매칭 시도 (한미반도체 주가 → 한미반도체주가)
-        if (!match) {
-          match = keywordList.find((item: any) => {
-            const rel = normalize(decodeHtmlEntities(item.relKeyword || ''));
-            return rel.includes(normalizedRequest) || normalizedRequest.includes(rel);
-          });
-        }
+        // 정확 일치만 허용한다. 포함 매칭은 긴 키워드가 15자 hintKeyword로 잘릴 때
+        // 더 짧은 연관어 검색량을 빌려오는 원인이 되어 황금보드/분석기 값이 달라진다.
 
         // v2.42.82: "단일 청크 fallback" 제거 — 첫 번째 결과를 가져오면 무관한
         // 키워드의 검색량을 사용자 키워드 값으로 잘못 표시함 (사용자 제보: 같은 키워드가

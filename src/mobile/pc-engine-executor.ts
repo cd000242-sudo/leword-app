@@ -11,6 +11,7 @@ import {
   type MobileKeywordProduct,
   type MobileKeywordResult,
   type MobileResultGrade,
+  type MobileShoppingProductPick,
   type MobileSignalItem,
   type MobileSourceSignalLane,
   type ProTrafficMobileParams,
@@ -76,6 +77,10 @@ import {
 } from './publish-decision';
 import {
   attachKeywordAiJudges,
+  hasTrustedDocumentCountMeasurement,
+  hasTrustedSearchVolumeMeasurement,
+  isUltimateGoldenKeywordCandidate,
+  isUltimateLowValueLookupKeyword,
 } from './keyword-ai-judge';
 
 export class MobilePcEngineNotConnectedError extends Error {
@@ -362,13 +367,15 @@ function metricFromHomeNeedResult(
 
 function metricFromKinQuestion(question: any): MobileKeywordMetric {
   const score = finiteNumber(question?.honeyPotScore ?? question?.goldenScore) ?? 0;
+  const viewCount = finiteNumber(question?.viewCount);
+  const answerCount = finiteNumber(question?.answerCount);
   return {
     keyword: normalizeKeyword(question?.title),
     grade: normalizeGrade(question?.honeyPotGrade ?? question?.goldenGrade, score),
     pcSearchVolume: null,
     mobileSearchVolume: null,
-    totalSearchVolume: finiteNumber(question?.viewCount),
-    documentCount: finiteNumber(question?.answerCount),
+    totalSearchVolume: null,
+    documentCount: null,
     goldenRatio: null,
     cpc: null,
     category: normalizeKeyword(question?.category) || 'naver-kin',
@@ -379,8 +386,118 @@ function metricFromKinQuestion(question: any): MobileKeywordMetric {
       normalizeKeyword(question?.honeyPotReason ?? question?.goldenReason),
       normalizeKeyword(question?.answerAngle),
       normalizeKeyword(question?.blogBridgeTitle),
+      viewCount !== null ? `kin-view-count ${viewCount}` : '',
+      answerCount !== null ? `kin-answer-count ${answerCount}` : '',
     ].filter(Boolean),
-    isMeasured: true,
+    isMeasured: false,
+  };
+}
+
+function shoppingText(value: unknown): string {
+  return normalizeKeyword(String(value || '')
+    .replace(/<[^>]*>/g, ' ')
+    .replace(/&quot;/g, '"')
+    .replace(/&#39;/g, "'")
+    .replace(/&amp;/g, '&'));
+}
+
+function uniqueShoppingNotes(values: unknown[], limit: number): string[] {
+  const seen = new Set<string>();
+  const out: string[] = [];
+  for (const value of values) {
+    const text = shoppingText(value);
+    if (!text || seen.has(text)) continue;
+    seen.add(text);
+    out.push(text);
+    if (out.length >= limit) break;
+  }
+  return out;
+}
+
+function buildShoppingRecommendedAngle(seed: any, item: any): string {
+  const signalText = [
+    seed?.relation,
+    seed?.reason,
+    item?.writeRecommendation,
+    ...(Array.isArray(item?.opportunityReasons) ? item.opportunityReasons : []),
+    ...(Array.isArray(item?.opportunityBadges) ? item.opportunityBadges : []),
+  ].map(shoppingText).join(' ');
+  const hotScore = finiteNumber(item?.shoppingProductQuality?.hotSignalScore) ?? 0;
+  const opportunityGrade = shoppingText(item?.opportunityGrade).toUpperCase();
+  if (/가격|할인|가성비|비교|최저|후기|추천/.test(signalText)) return '가격/후기 비교형';
+  if (hotScore >= 5 || opportunityGrade === 'HOT') return '지금 수요 상승형';
+  if (/입문|초보|처음|방법|고르는/.test(signalText)) return '구매 전 선택 기준형';
+  return '구매 전환 정보형';
+}
+
+function buildShoppingProductPick(
+  seed: any,
+  item: any,
+  fallbackKeyword: string,
+): MobileShoppingProductPick | undefined {
+  const keyword = shoppingText(seed?.keyword || item?.discoveryQuery || fallbackKeyword);
+  const productName = shoppingText(item?.cleanTitle || item?.simplifiedTitle || item?.title || keyword);
+  if (!productName) return undefined;
+
+  const category = uniqueShoppingNotes([
+    item?.category1,
+    item?.category2,
+    item?.category3,
+    item?.category4,
+  ], 4).join(' > ');
+  const mallName = shoppingText(item?.mallName);
+  const brand = shoppingText(item?.brand || item?.maker);
+  const price = finiteNumber(item?.lprice);
+  const conversionScore = finiteNumber(item?.conversionScore ?? item?.opportunityScore);
+  const qualityScore = finiteNumber(item?.shoppingProductQuality?.score);
+  const hotSignalScore = finiteNumber(item?.shoppingProductQuality?.hotSignalScore);
+  const recommendedAngle = buildShoppingRecommendedAngle(seed, item);
+  const writeRecommendation = shoppingText(item?.writeRecommendation);
+  const sellableReason = shoppingText(writeRecommendation || seed?.reason || item?.discoveryReason)
+    || uniqueShoppingNotes(item?.opportunityReasons || [], 1)[0]
+    || `${keyword || productName} 검색 의도를 ${productName} 비교 글로 연결`;
+  const priceTrigger = price !== null ? `가격대 ${price.toLocaleString('ko-KR')}원 기준 비교` : '';
+  const mallTrigger = mallName ? `${mallName} 판매 정보와 후기 확인` : '';
+  const qualityTrigger = hotSignalScore !== null && hotSignalScore > 0 ? '최근 수요 신호가 붙은 제품군' : '';
+  const reasonTriggers = uniqueShoppingNotes([
+    ...(Array.isArray(item?.opportunityReasons) ? item.opportunityReasons : []),
+    ...(Array.isArray(item?.shoppingProductQuality?.reasons) ? item.shoppingProductQuality.reasons : []),
+  ], 3);
+  const buyingTriggers = uniqueShoppingNotes([
+    priceTrigger,
+    mallTrigger,
+    qualityTrigger,
+    ...reasonTriggers,
+    '구매 전 스펙/후기/대체품 비교',
+  ], 4);
+  const titleBase = keyword || productName;
+  const titleDrafts = uniqueShoppingNotes([
+    `${titleBase} 구매 전 ${productName} 선택 기준`,
+    `${productName} 후기·가격 비교, 지금 살 만한 이유`,
+    `${titleBase} 찾는 사람이 ${productName}에서 확인할 포인트`,
+  ], 3);
+  const caution = item?.shoppingProductQuality?.reject
+    ? '상품성 신호가 약해 상위 노출 전 재검증 필요'
+    : (item?.opportunityGrade === 'WATCH' ? '수요 근거가 약하면 후기/비교형으로만 접근' : undefined);
+
+  return {
+    productName,
+    productTitle: shoppingText(item?.title) || productName,
+    mallName: mallName || undefined,
+    brand: brand || undefined,
+    category: category || undefined,
+    imageUrl: shoppingText(item?.image) || undefined,
+    productUrl: shoppingText(item?.link || item?.productUrl) || undefined,
+    price,
+    conversionScore,
+    qualityScore,
+    hotSignalScore,
+    sellableReason,
+    writeRecommendation: writeRecommendation || undefined,
+    recommendedAngle,
+    titleDrafts,
+    buyingTriggers,
+    caution,
   };
 }
 
@@ -413,7 +530,190 @@ function metricFromShoppingSeed(seed: any, item: any, fallbackKeyword: string): 
       ...(Array.isArray(item?.opportunityReasons) ? item.opportunityReasons : []),
     ].filter(Boolean),
     isMeasured: searchVolume !== null || documentCount !== null,
+    shoppingProductPick: buildShoppingProductPick(seed, item, fallbackKeyword),
   };
+}
+
+function metricFromShoppingDiscoverySeed(seed: any): MobileKeywordMetric | null {
+  const keyword = normalizeKeyword(seed?.keyword);
+  if (!keyword) return null;
+  const pcSearchVolume = finiteNumber(seed?.pcSearchVolume);
+  const mobileSearchVolume = finiteNumber(seed?.mobileSearchVolume);
+  const totalSearchVolume = finiteNumber(seed?.searchVolume);
+  const documentCount = finiteNumber(seed?.documentCount);
+  if (pcSearchVolume === null || mobileSearchVolume === null || totalSearchVolume === null || documentCount === null) {
+    return null;
+  }
+  const goldenRatio = finiteNumber(seed?.goldenRatio)
+    ?? (totalSearchVolume !== null && documentCount !== null && documentCount > 0
+      ? Number((totalSearchVolume / documentCount).toFixed(2))
+      : null);
+  return {
+    keyword,
+    grade: measuredGrade('B', totalSearchVolume, documentCount, goldenRatio),
+    score: finiteNumber(seed?.priorityScore) ?? 60,
+    pcSearchVolume,
+    mobileSearchVolume,
+    totalSearchVolume,
+    documentCount,
+    goldenRatio,
+    cpc: null,
+    category: normalizeKeyword(seed?.category) || 'shopping',
+    source: 'pc-shopping-verified-discovery',
+    intent: 'commerce-entry',
+    evidence: [
+      'pc-shopping-verified-discovery',
+      normalizeKeyword(seed?.reason),
+    ].filter(Boolean),
+    isMeasured: pcSearchVolume !== null && mobileSearchVolume !== null && totalSearchVolume !== null && documentCount !== null,
+    searchVolumeSource: pcSearchVolume !== null || mobileSearchVolume !== null ? 'searchad' : undefined,
+    searchVolumeConfidence: pcSearchVolume !== null || mobileSearchVolume !== null ? 'high' : undefined,
+    isSearchVolumeEstimated: false,
+    documentCountSource: documentCount !== null ? 'naver-api' : undefined,
+    documentCountConfidence: documentCount !== null ? 'high' : undefined,
+    isDocumentCountEstimated: false,
+  };
+}
+
+const SHOPPING_RELEVANCE_STOP_TOKENS = new Set([
+  '추천',
+  '후기',
+  '가격',
+  '비교',
+  '순위',
+  '최저가',
+  '구매',
+  '리뷰',
+  '2026',
+  '2025',
+]);
+
+function shoppingRelevanceTokens(value: unknown): string[] {
+  return normalizeKeyword(value)
+    .toLowerCase()
+    .replace(/[^\dA-Za-z가-힣\s]/g, ' ')
+    .split(/\s+/)
+    .map((token) => token.trim())
+    .filter((token) => token.length >= 2 && !SHOPPING_RELEVANCE_STOP_TOKENS.has(token));
+}
+
+function isShoppingItemRelevantToDiscovery(item: any, fallbackKeyword: string): boolean {
+  const queryTokens = shoppingRelevanceTokens(item?.discoveryQuery || fallbackKeyword);
+  if (queryTokens.length === 0) return true;
+  const itemText = [
+    item?.title,
+    item?.cleanTitle,
+    item?.simplifiedTitle,
+    item?.brand,
+    item?.maker,
+    item?.category1,
+    item?.category2,
+    item?.category3,
+    item?.category4,
+  ].map(normalizeKeyword).join(' ').toLowerCase();
+  if (!itemText) return false;
+  return queryTokens.some((token) => itemText.includes(token));
+}
+
+function shoppingItemKeywordMatchScore(keyword: string, item: any, fallbackKeyword: string): number {
+  const key = compactKeyword(keyword);
+  if (!key) return 0;
+  let score = 0;
+  let strongSignals = 0;
+  const compactValue = (value: unknown) => compactKeyword(shoppingText(value));
+  const brand = compactValue(item?.brand || item?.maker);
+  const categories = [
+    item?.category4,
+    item?.category3,
+    item?.category2,
+    item?.category1,
+  ].map(compactValue).filter((value) => value.length >= 2);
+  const discovery = compactValue(item?.discoveryQuery || fallbackKeyword);
+  const productTokens = shoppingRelevanceTokens([
+    item?.cleanTitle,
+    item?.simplifiedTitle,
+    item?.title,
+  ].map(shoppingText).join(' '));
+
+  if (brand && key.includes(brand)) {
+    score += 6;
+    strongSignals += 2;
+  }
+  for (const category of categories) {
+    if (key.includes(category)) {
+      score += 5;
+      strongSignals += 2;
+      break;
+    }
+  }
+  if (discovery && (key.includes(discovery) || discovery.includes(key))) score += 3;
+  const tokenHits = productTokens
+    .filter((token) => !/^(?:스마트|무선|자동|추천|가격|후기|비교|순위|가성비|구매처)$/.test(token))
+    .filter((token) => key.includes(compactKeyword(token))).length;
+  if (tokenHits >= 2) strongSignals += 1;
+  score += Math.min(4, tokenHits);
+  if (isShoppingItemRelevantToDiscovery(item, fallbackKeyword)) score += 1;
+  if (strongSignals === 0) return 0;
+  return score;
+}
+
+function attachShoppingProductPicksToMetrics(
+  metrics: MobileKeywordMetric[],
+  shoppingItems: any[],
+  fallbackKeyword: string,
+): MobileKeywordMetric[] {
+  if (!metrics.length || !shoppingItems.length) return metrics;
+  const candidates = shoppingItems.slice(0, 120);
+  return metrics.map((metric) => {
+    if (metric.shoppingProductPick) return metric;
+    let bestItem: any | undefined;
+    let bestScore = 0;
+    for (const item of candidates) {
+      const score = shoppingItemKeywordMatchScore(metric.keyword, item, fallbackKeyword);
+      if (score > bestScore) {
+        bestScore = score;
+        bestItem = item;
+      }
+    }
+    if (!bestItem || bestScore < 5) return metric;
+    const shoppingProductPick = buildShoppingProductPick({
+      keyword: metric.keyword,
+      relation: 'category',
+      reason: '실측 쇼핑 키워드와 상품 후보 매칭',
+    }, bestItem, fallbackKeyword);
+    if (!shoppingProductPick) return metric;
+    return {
+      ...metric,
+      shoppingProductPick,
+      evidence: uniqueKeywords([
+        ...(Array.isArray(metric.evidence) ? metric.evidence : []),
+        'shopping-product-pick-attached-from-live-item',
+        shoppingText(bestItem.discoveryQuery || fallbackKeyword),
+      ], 10),
+    };
+  });
+}
+
+function shoppingKeywordVariants(keyword: string): string[] {
+  const clean = normalizeKeyword(keyword);
+  if (!clean) return [];
+  const variants: string[] = [];
+  const slashMatch = clean.match(/([가-힣A-Za-z0-9]+)\/([가-힣A-Za-z0-9]+)/);
+  if (slashMatch) {
+    variants.push(clean.replace(slashMatch[0], slashMatch[1]));
+    variants.push(clean.replace(slashMatch[0], slashMatch[2]));
+    if (/머신/.test(slashMatch[1]) && /메이커/.test(slashMatch[2])) {
+      variants.push(clean.replace(slashMatch[0], '커피머신'));
+      variants.push(clean.replace(slashMatch[0], '커피메이커'));
+    }
+  } else {
+    variants.push(clean);
+  }
+  const stripped = variants.flatMap((value) => [
+    value,
+    value.replace(/\s+[A-Z0-9]{2,}(?:-[A-Z0-9]+)+/gi, '').trim(),
+  ]);
+  return uniqueKeywords(stripped, 8);
 }
 
 function metricFromYoutubeKeyword(keyword: any, cross: any | undefined): MobileKeywordMetric {
@@ -471,6 +771,121 @@ function resultFromMetrics(
       parityMode,
     },
   };
+}
+
+function metricGradeRank(grade: unknown): number {
+  const normalized = String(grade || '').toUpperCase();
+  if (normalized === 'SSS') return 5;
+  if (normalized === 'SS') return 4;
+  if (normalized === 'S') return 3;
+  if (normalized === 'A') return 2;
+  if (normalized === 'B') return 1;
+  return 0;
+}
+
+function measuredDecisionScore(metric: MobileKeywordMetric): number {
+  const judgeScore = finiteNumber(metric.aiJudge?.score) ?? 0;
+  const ratio = finiteNumber(metric.goldenRatio) ?? 0;
+  const total = finiteNumber(metric.totalSearchVolume) ?? 0;
+  const docs = finiteNumber(metric.documentCount) ?? 0;
+  const publishBoost = metric.aiJudge?.verdict === 'publish' ? 100000 : 0;
+  return publishBoost
+    + judgeScore * 1000
+    + metricGradeRank(metric.grade) * 500
+    + Math.min(250, ratio) * 10
+    + Math.min(50000, total) / 100
+    - Math.min(50000, docs) / 10000;
+}
+
+function prioritizeMeasuredDecisionMetrics(
+  metrics: MobileKeywordMetric[],
+  targetCount: number,
+  options: {
+    publishOnly?: boolean;
+    requirePcMobileSplit?: boolean;
+    minTotalSearchVolume?: number;
+    maxDocumentCount?: number;
+    minGoldenRatio?: number;
+  } = {},
+): MobileKeywordMetric[] {
+  const seen = new Set<string>();
+  return attachPublishDecisions(attachKeywordAiJudges(metrics, { downgradeExcluded: false }))
+    .filter((metric) => {
+      const key = compactKeyword(metric.keyword);
+      if (!key || seen.has(key)) return false;
+      seen.add(key);
+      if (!isFullyMeasuredKeyword(metric)) return false;
+      if (metric.aiJudge?.verdict === 'exclude') return false;
+      if (metric.publishDecision?.verdict === 'exclude') return false;
+      if (options.publishOnly && metric.aiJudge?.verdict !== 'publish') return false;
+      if (options.requirePcMobileSplit) {
+        const pc = finiteNumber(metric.pcSearchVolume);
+        const mobile = finiteNumber(metric.mobileSearchVolume);
+        if (pc === null || mobile === null || pc + mobile <= 0) return false;
+      }
+      const total = finiteNumber(metric.totalSearchVolume) ?? 0;
+      const docs = finiteNumber(metric.documentCount) ?? Number.POSITIVE_INFINITY;
+      const ratio = finiteNumber(metric.goldenRatio) ?? 0;
+      if (total < (options.minTotalSearchVolume ?? 0)) return false;
+      if (docs > (options.maxDocumentCount ?? Number.POSITIVE_INFINITY)) return false;
+      if (ratio < (options.minGoldenRatio ?? 0)) return false;
+      return true;
+    })
+    .sort((a, b) => measuredDecisionScore(b) - measuredDecisionScore(a))
+    .slice(0, targetCount);
+}
+
+function prioritizeShoppingProductPickMetrics(
+  metrics: MobileKeywordMetric[],
+  targetCount: number,
+): MobileKeywordMetric[] {
+  const seen = new Set<string>();
+  return attachPublishDecisions(attachKeywordAiJudges(metrics, { downgradeExcluded: false }))
+    .filter((metric) => {
+      const key = compactKeyword(metric.keyword);
+      if (!key || seen.has(key)) return false;
+      seen.add(key);
+      if (!metric.shoppingProductPick) return false;
+      if (!isFullyMeasuredKeyword(metric)) return false;
+      if (metric.aiJudge?.verdict === 'exclude') return false;
+      if (metric.publishDecision?.verdict === 'exclude') return false;
+      const pc = finiteNumber(metric.pcSearchVolume);
+      const mobile = finiteNumber(metric.mobileSearchVolume);
+      if (pc === null || mobile === null || pc + mobile <= 0) return false;
+      const total = finiteNumber(metric.totalSearchVolume) ?? 0;
+      const docs = finiteNumber(metric.documentCount) ?? Number.POSITIVE_INFINITY;
+      if (total < 10 || docs > 150000) return false;
+      return true;
+    })
+    .sort((a, b) => {
+      const pickScore = (finiteNumber(b.shoppingProductPick?.conversionScore) ?? 0)
+        - (finiteNumber(a.shoppingProductPick?.conversionScore) ?? 0);
+      if (pickScore !== 0) return pickScore;
+      return measuredDecisionScore(b) - measuredDecisionScore(a);
+    })
+    .slice(0, targetCount);
+}
+
+function mergePrioritizedKeywordMetrics(
+  groups: MobileKeywordMetric[][],
+  targetCount: number,
+): MobileKeywordMetric[] {
+  const seen = new Set<string>();
+  const out: MobileKeywordMetric[] = [];
+  for (const group of groups) {
+    for (const metric of group) {
+      const key = compactKeyword(metric.keyword);
+      if (!key || seen.has(key)) continue;
+      seen.add(key);
+      out.push(metric);
+      if (out.length >= targetCount) return out;
+    }
+  }
+  return out;
+}
+
+function proTrafficFallbackLane(categoryId: string): MobileSourceSignalLane {
+  return compactKeyword(categoryId).includes('policy') ? 'policy' : 'all';
 }
 
 function metricFromSourceSignal(
@@ -547,6 +962,731 @@ function sourceSignalKeywordCandidates(signal: MobileSignalItem): string[] {
     });
 }
 
+function keywordTokens(keyword: string): string[] {
+  return normalizeKeyword(keyword)
+    .replace(/\[[^\]]+\]/g, ' ')
+    .replace(/[^\dA-Za-z\uAC00-\uD7A3\s]/gu, ' ')
+    .split(/\s+/)
+    .map(token => token.trim())
+    .filter(token => token.length >= 2);
+}
+
+const SAFE_HANGUL_SEARCH_RE = /[A-Za-z0-9\uAC00-\uD7A3]/u;
+
+const SAFE_MEASURED_INTENT_SUFFIXES = [
+  '\uBC29\uBC95',
+  '\uC870\uD68C',
+  '\uACC4\uC0B0',
+  '\uC2E0\uCCAD',
+  '\uC790\uACA9',
+  '\uC870\uAC74',
+  '\uAE30\uAC04',
+  '\uC11C\uB958',
+  '\uBE44\uC6A9',
+  '\uAC00\uACA9',
+  '\uD6C4\uAE30',
+  '\uBE44\uAD50',
+  '\uCD94\uCC9C',
+  '\uC8FC\uC758\uC0AC\uD56D',
+  '\uB0A9\uBD80',
+  '\uD658\uAE09',
+  '\uD655\uC778',
+  '\uB300\uC0C1',
+  '\uBCC0\uACBD',
+] as const;
+
+const SAFE_NUMERIC_KOREAN_QUERY_ALIASES: Array<[RegExp, string]> = [
+  [/\uC77C\s*\uB300/gu, '1\uB300'],
+  [/\uC774\s*\uB300/gu, '2\uB300'],
+  [/\uC0BC\s*\uB300/gu, '3\uB300'],
+  [/\uC0AC\s*\uB300/gu, '4\uB300'],
+  [/\uC624\s*\uB300/gu, '5\uB300'],
+  [/\uC721\s*\uB300/gu, '6\uB300'],
+  [/\uCE60\s*\uB300/gu, '7\uB300'],
+  [/\uD314\s*\uB300/gu, '8\uB300'],
+  [/\uAD6C\s*\uB300/gu, '9\uB300'],
+  [/\uC2ED\s*\uB300/gu, '10\uB300'],
+  [/1\s*\uB300/gu, '\uC77C\uB300'],
+  [/2\s*\uB300/gu, '\uC774\uB300'],
+  [/3\s*\uB300/gu, '\uC0BC\uB300'],
+  [/4\s*\uB300/gu, '\uC0AC\uB300'],
+  [/5\s*\uB300/gu, '\uC624\uB300'],
+  [/6\s*\uB300/gu, '\uC721\uB300'],
+  [/7\s*\uB300/gu, '\uCE60\uB300'],
+  [/8\s*\uB300/gu, '\uD314\uB300'],
+  [/9\s*\uB300/gu, '\uAD6C\uB300'],
+  [/10\s*\uB300/gu, '\uC2ED\uB300'],
+] as const;
+
+const SAFE_SPACING_INTENT_SUFFIXES = [
+  '\uACC4\uC0B0\uAE30',
+  '\uACC4\uC0B0',
+  '\uC870\uD68C',
+  '\uC2E0\uCCAD',
+  '\uD655\uC778',
+  '\uAC00\uACA9',
+  '\uBE44\uAD50',
+  '\uCD94\uCC9C',
+  '\uBC29\uBC95',
+] as const;
+
+const MINDMAP_ARTICLE_TITLE_QUERY_RE = /(?:\uCD1D\uC815\uB9AC|\uD55C\uB208\uC5D0|\uC644\uBCBD\s*(?:\uAC00\uC774\uB4DC|\uD65C\uC6A9\uBC95)|\uC774\uAC83\uB9CC\s*\uC54C\uBA74|\uD655\uC778\uD560\s*\d+\uAC00\uC9C0|\d+\uAC00\uC9C0|\uC4F0\uAE30\s*\uC804|\uAE30\uBCF8\s*\uAD6C\uC131\s*\uC774\uD574|\uB3C4\uC6C0(?:\uC740)?\s*\uD544\uC218|\uD544\uC218(?:\uC785\uB2C8\uB2E4)?|\uC0B4\uD3B4\uBD10\uC694|\uC54C\uC544\uBCF4\uAE30)$/u;
+
+const INSURANCE_CALCULATOR_INTENT_SUFFIXES = [
+  '\uACC4\uC0B0\uAE30',
+  '\uACC4\uC0B0',
+  '\uBCF4\uD5D8\uB8CC \uACC4\uC0B0\uAE30',
+  '\uBCF4\uD5D8\uB8CC \uACC4\uC0B0',
+  '\uC694\uC728',
+  '\uC694\uC728\uD45C',
+  '\uAC00\uC785\uD655\uC778',
+  '\uAC00\uC785\uB0B4\uC5ED \uD655\uC778',
+  '\uB0A9\uBD80',
+  '\uB0A9\uBD80\uD655\uC778',
+  '\uC644\uB0A9\uC99D\uBA85\uC11C',
+  '\uAC00\uC785\uC790\uBA85\uBD80',
+  '\uACC4\uC0B0\uBC29\uBC95',
+  '\uBAA8\uC758\uACC4\uC0B0',
+  '\uC6D4\uAE09\uACC4\uC0B0',
+  '\uC2E4\uC218\uB839\uC561',
+  '\uACF5\uC81C\uC728',
+  '\uD655\uC778\uC11C',
+  '\uC99D\uBA85\uC11C',
+] as const;
+
+function buildInsuranceCalculatorMeasuredRoots(keyword: string, limit = 24): string[] {
+  const normalized = normalizeKeyword(keyword).replace(/\s+/g, ' ').trim();
+  const compact = compactKeyword(normalized);
+  if (!normalized || !/(?:\uC0AC\uB300|4\uB300)\uBCF4\uD5D8/u.test(compact)) return [];
+  if (!compact.includes('\uACC4\uC0B0') && !compact.includes('\uBCF4\uD5D8')) return [];
+  const heads = [
+    '4\uB300\uBCF4\uD5D8',
+    '4\uB300 \uBCF4\uD5D8',
+    '\uC0AC\uB300\uBCF4\uD5D8',
+    '\uC0AC\uB300 \uBCF4\uD5D8',
+  ];
+  const adjacentMeasuredRoots = [
+    '\uAC74\uAC15\uBCF4\uD5D8\uB8CC \uACC4\uC0B0\uAE30',
+    '\uAD6D\uBBFC\uC5F0\uAE08 \uACC4\uC0B0\uAE30',
+    '\uACE0\uC6A9\uBCF4\uD5D8 \uACC4\uC0B0\uAE30',
+    '\uC0B0\uC7AC\uBCF4\uD5D8 \uACC4\uC0B0\uAE30',
+    '\uC6D4\uAE09 \uC2E4\uC218\uB839\uC561 \uACC4\uC0B0\uAE30',
+    '\uAE09\uC5EC \uACC4\uC0B0\uAE30',
+    '\uC5F0\uBD09 \uACC4\uC0B0\uAE30',
+    '\uD1F4\uC9C1\uAE08 \uACC4\uC0B0\uAE30',
+    '4\uB300\uBCF4\uD5D8 \uAC00\uC785\uB0B4\uC5ED \uD655\uC778\uC11C',
+    '4\uB300\uBCF4\uD5D8 \uB0A9\uBD80\uD655\uC778\uC11C',
+    '4\uB300\uBCF4\uD5D8 \uC0AC\uC5C5\uC7A5 \uAC00\uC785\uC790\uBA85\uBD80',
+    '\uAC74\uAC15\uBCF4\uD5D8 \uC790\uACA9\uB4DD\uC2E4\uD655\uC778\uC11C',
+  ];
+  const seen = new Set<string>();
+  const out: string[] = [];
+  const push = (value: string) => {
+    const clean = normalizeKeyword(value).replace(/\s+/g, ' ').trim();
+    const key = compactKeyword(clean);
+    if (!key || seen.has(key) || clean.length < 2 || clean.length > 42) return;
+    seen.add(key);
+    out.push(clean);
+  };
+  push(normalized);
+  buildKoreanNumericAliasRoots(normalized, 8).forEach(push);
+  buildSpacingIntentAliasRoots(normalized, 8).forEach(push);
+  adjacentMeasuredRoots.forEach(push);
+  for (const head of heads) {
+    push(head);
+    const feeHead = `${head.replace(/\s+/g, '')}\uB8CC`;
+    push(feeHead);
+    push(`${feeHead} \uACC4\uC0B0`);
+    push(`${feeHead} \uACC4\uC0B0\uAE30`);
+    for (const suffix of INSURANCE_CALCULATOR_INTENT_SUFFIXES) {
+      push(`${head} ${suffix}`);
+      if (out.length >= limit) return out;
+    }
+  }
+  return out.slice(0, limit);
+}
+
+function buildMindmapMeasuredQueryRoots(keyword: string, limit = 32): string[] {
+  return uniqueKeywords([
+    ...buildInsuranceCalculatorMeasuredRoots(keyword, limit),
+    ...buildKoreanNumericAliasRoots(keyword, 8),
+    ...buildSpacingIntentAliasRoots(keyword, 8),
+  ], limit);
+}
+
+function buildSpacingIntentAliasRoots(keyword: string, limit = 12): string[] {
+  const normalized = normalizeKeyword(keyword).replace(/\s+/g, ' ').trim();
+  if (!normalized) return [];
+  const compact = normalized.replace(/\s+/g, '');
+  const out: string[] = [];
+  const seen = new Set<string>();
+  const push = (value: string) => {
+    const clean = normalizeKeyword(value).replace(/\s+/g, ' ').trim();
+    const key = compactKeyword(clean);
+    if (!key || seen.has(key) || clean === normalized || clean.length < 2 || clean.length > 42) return;
+    seen.add(key);
+    out.push(clean);
+  };
+  for (const suffix of SAFE_SPACING_INTENT_SUFFIXES) {
+    if (!compact.endsWith(suffix)) continue;
+    const prefix = compact.slice(0, -suffix.length);
+    if (prefix.length < 2) continue;
+    push(`${prefix} ${suffix}`);
+    if (out.length >= limit) break;
+  }
+  return out.slice(0, limit);
+}
+
+function buildKoreanNumericAliasRoots(keyword: string, limit = 12): string[] {
+  const normalized = normalizeKeyword(keyword).replace(/\s+/g, ' ').trim();
+  if (!normalized) return [];
+  const out: string[] = [];
+  const seen = new Set<string>();
+  const push = (value: string) => {
+    const clean = normalizeKeyword(value).replace(/\s+/g, ' ').trim();
+    const key = compactKeyword(clean);
+    if (!key || seen.has(key) || clean === normalized || clean.length < 2 || clean.length > 42) return;
+    seen.add(key);
+    out.push(clean);
+  };
+  for (const [pattern, replacement] of SAFE_NUMERIC_KOREAN_QUERY_ALIASES) {
+    const alias = normalized.replace(pattern, replacement);
+    push(alias);
+    buildSpacingIntentAliasRoots(alias, limit).forEach(push);
+    if (out.length >= limit) break;
+  }
+  return out.slice(0, limit);
+}
+
+function buildSafeMeasuredIntentRoots(keyword: string, limit = 24): string[] {
+  const normalized = normalizeKeyword(keyword).replace(/\s+/g, ' ').trim();
+  if (!normalized) return [];
+  const tokens = keywordTokens(normalized);
+  const measuredQueryRoots = buildMindmapMeasuredQueryRoots(normalized, 12);
+  const numericAliases = buildKoreanNumericAliasRoots(normalized, 6);
+  const spacingAliases = buildSpacingIntentAliasRoots(normalized, 6);
+  const bases = uniqueKeywords([
+    normalized,
+    ...measuredQueryRoots,
+    ...numericAliases,
+    ...spacingAliases,
+    tokens.slice(0, 4).join(' '),
+    tokens.slice(0, 3).join(' '),
+    tokens.slice(0, 2).join(' '),
+  ], 12);
+  const seen = new Set<string>();
+  const out: string[] = [];
+  const push = (value: string) => {
+    const clean = normalizeKeyword(value).replace(/\s+/g, ' ').trim();
+    const key = compactKeyword(clean);
+    if (!key || seen.has(key) || clean.length < 2 || clean.length > 42) return;
+    seen.add(key);
+    out.push(clean);
+  };
+  bases.forEach(push);
+  for (const base of bases.slice(0, 4)) {
+    for (const suffix of SAFE_MEASURED_INTENT_SUFFIXES) {
+      push(keywordAlreadyHasIntentSuffix(base, suffix) ? base : `${base} ${suffix}`);
+      if (out.length >= limit) return out;
+    }
+  }
+  return out.slice(0, limit);
+}
+
+function intentRootDomain(keyword: string): 'sports' | 'policy' | 'commerce' | 'entertainment' | 'finance' | 'generic' {
+  const text = normalizeKeyword(keyword);
+  if (/(KBO|FIFA|월드컵|축구|야구|농구|배구|올스타|경기|선수|피파랭킹|순위|중계)/i.test(text)) return 'sports';
+  if (/(지원금|장려금|바우처|급여|수당|복지|정책|신청|대상|자격|정부|청년|소상공인|부모급여)/.test(text)) return 'policy';
+  if (/(가격|추천|후기|리뷰|할인|쿠폰|제품|예약|리조트|호텔|캠핑|에어컨|노트북|게임기|쇼핑|구매)/.test(text)) return 'commerce';
+  if (/(드라마|예능|방송|영화|배우|가수|콘서트|공연|출연진|몇부작|다시보기|공식영상|티저|컴백)/.test(text)) return 'entertainment';
+  if (/(주가|실적|전망|배당|목표가|환율|금리|공모주|청약|상장|코인)/.test(text)) return 'finance';
+  return 'generic';
+}
+
+const INTENT_ROOT_SUFFIXES: Record<ReturnType<typeof intentRootDomain>, string[]> = {
+  sports: ['일정', '중계', '라인업', '순위', '결과', '하이라이트', '예매'],
+  policy: ['신청', '자격', '대상', '지급일', '조회', '서류', '기간', '조건'],
+  commerce: ['가격', '후기', '추천', '비교', '할인', '예약', '구매처'],
+  entertainment: ['출연진', '다시보기', '방송시간', '공식영상', '예매', '일정', '반응'],
+  finance: ['주가', '전망', '실적', '배당', '목표가', '청약', '상장일'],
+  generic: ['정리', '이유', '방법', '일정', '조회', '후기'],
+};
+
+function buildIntentQueryRoots(keyword: string, limit = 24): string[] {
+  const normalized = normalizeKeyword(keyword);
+  const tokens = keywordTokens(normalized);
+  const domain = intentRootDomain(normalized);
+  const suffixes = INTENT_ROOT_SUFFIXES[domain];
+  const bases: string[] = [];
+  const addBase = (value: string) => {
+    const clean = normalizeKeyword(value);
+    if (!clean || clean.length < 2 || clean.length > 32) return;
+    bases.push(clean);
+  };
+
+  addBase(normalized);
+  addBase(tokens.slice(0, 4).join(' '));
+  addBase(tokens.slice(0, 3).join(' '));
+  addBase(tokens.slice(0, 2).join(' '));
+  for (let size = 2; size <= 3; size += 1) {
+    for (let index = 0; index <= tokens.length - size; index += 1) {
+      addBase(tokens.slice(index, index + size).join(' '));
+    }
+  }
+
+  const seen = new Set<string>();
+  const out: string[] = [];
+  const push = (value: string) => {
+    const clean = normalizeKeyword(value).replace(/\s+/g, ' ').trim();
+    const key = compactKeyword(clean);
+    if (!key || seen.has(key) || clean.length < 2 || clean.length > 42) return;
+    seen.add(key);
+    out.push(clean);
+  };
+
+  bases.forEach(push);
+  for (const base of bases.slice(0, 5)) {
+    for (const suffix of suffixes) {
+      const candidate = keywordAlreadyHasIntentSuffix(base, suffix) ? base : `${base} ${suffix}`;
+      push(candidate);
+      if (out.length >= limit) return out;
+    }
+  }
+  return out.slice(0, limit);
+}
+
+function expandNaverMateQueryRoots(roots: string[], targetCount: number): string[] {
+  return uniqueKeywords(
+    roots.flatMap(root => [
+      ...buildNaverMateMeasuredQueryRoots(root, 24),
+      ...buildIntentQueryRoots(root, 8),
+      ...buildSafeMeasuredIntentRoots(root, 8),
+    ]),
+    Math.min(80, Math.max(32, targetCount * 2)),
+  );
+}
+
+const NAVER_MATE_NEED_SUFFIXES = [
+  '\uC2E0\uCCAD',
+  '\uB300\uC0C1',
+  '\uC870\uAC74',
+  '\uC11C\uB958',
+  '\uC9C0\uAE09\uC77C',
+  '\uC870\uD68C',
+  '\uBC29\uBC95',
+  '\uAE30\uAC04',
+  '\uB9C8\uAC10',
+  '\uC815\uB9AC',
+  '\uAC00\uACA9',
+  '\uCD94\uCC9C',
+  '\uBE44\uAD50',
+  '\uD6C4\uAE30',
+  '\uC608\uC57D',
+  '\uC608\uB9E4',
+  '\uC77C\uC815',
+  '\uACB0\uACFC',
+  '\uC21C\uC704',
+  '\uC2DC\uAC04',
+  '\uC900\uBE44\uBB3C',
+];
+
+const NAVER_MATE_NEED_SUFFIX_SET = new Set(NAVER_MATE_NEED_SUFFIXES.map((suffix) => compactKeyword(suffix)));
+
+const NAVER_MATE_ROOT_STOPWORDS = new Set([
+  '\uC18D\uBCF4',
+  '\uB2E8\uB3C5',
+  '\uACF5\uC2DD',
+  '\uC885\uD569',
+  '\uCD5C\uC2E0',
+  '\uC624\uB298',
+  '\uB0B4\uC77C',
+  '\uC774\uBC88\uC8FC',
+  '\uB274\uC2A4',
+  '\uBCF4\uB3C4',
+  '\uC601\uC0C1',
+  '\uC0AC\uC9C4',
+  '\uC774\uC288',
+  '\uAD00\uB828',
+  '\uBC18\uC751',
+].map((word) => compactKeyword(word)));
+
+const NAVER_MATE_SENTENCE_LIKE_RE = new RegExp([
+  '\\uC54C\\uB824\\uC8FC\\uC138\\uC694',
+  '\\uD574\\uC8FC\\uC138\\uC694',
+  '\\uD569\\uB2C8\\uB2E4',
+  '\\uB429\\uB2C8\\uB2E4',
+  '\\uC788\\uB098\\uC694',
+  '\\uBB34\\uC5C7',
+  '\\uC5B4\\uB5BB\\uAC8C',
+  '\\uC65C',
+  '^comment\\b',
+].join('|'), 'iu');
+
+const NAVER_MATE_UTILITY_SIGNAL_RE = new RegExp([
+  '\\uC2E0\\uCCAD',
+  '\\uB300\\uC0C1',
+  '\\uC870\\uAC74',
+  '\\uC11C\\uB958',
+  '\\uC9C0\\uAE09\\uC77C',
+  '\\uC870\\uD68C',
+  '\\uBC29\\uBC95',
+  '\\uAE30\\uAC04',
+  '\\uB9C8\\uAC10',
+  '\\uD658\\uAE09',
+  '\\uC9C0\\uC6D0\\uAE08',
+  '\\uBCF4\\uC870\\uAE08',
+  '\\uC7A5\\uB824\\uAE08',
+  '\\uBCF5\\uC9C0',
+  '\\uD61C\\uD0DD',
+  '\\uBCF4\\uD5D8',
+  '\\uACC4\\uC0B0\\uAE30',
+  '\\uC694\\uC728',
+  '\\uACF5\\uC81C',
+  '\\uC138\\uAE08',
+  '\\uB0A9\\uBD80',
+  '\\uC99D\\uBA85\\uC11C',
+  '\\uBC1C\\uAE09',
+  '\\uC790\\uACA9',
+  '\\uC815\\uCC45',
+  '\\uC81C\\uB3C4',
+  '\\uCCAD\\uB144',
+  '\\uC721\\uC544',
+  '\\uCD9C\\uC0B0',
+  '\\uD734\\uAC00',
+  '\\uC0AC\\uC5C5\\uC790',
+  '\\uAE09\\uC5EC',
+  '\\uCE74\\uB4DC',
+  '\\uD560\\uC778',
+  '\\uB300\\uCD9C',
+  '\\uC5F0\\uB9D0\\uC815\\uC0B0',
+  '\\uC18C\\uB4DD\\uACF5\\uC81C',
+  '\\uC758\\uB8CC\\uBE44',
+  '\\uAD50\\uC721\\uBE44',
+].join('|'), 'iu');
+
+const NAVER_MATE_VOLATILE_NEWS_RE = new RegExp([
+  '\\uAC10\\uB3C5',
+  '\\uC120\\uC218',
+  '\\uACBD\\uAE30',
+  '\\uC6D4\\uB4DC\\uCEF5',
+  'KBO',
+  '\\uC62C\\uC2A4\\uD0C0',
+  '\\uD648\\uB7F0',
+  '\\uCD95\\uAD6C',
+  '\\uC57C\\uAD6C',
+  '\\uB4DC\\uB77C\\uB9C8',
+  '\\uBC30\\uC6B0',
+  '\\uAC00\\uC218',
+  '\\uCF58\\uC11C\\uD2B8',
+  '\\uD504\\uB85C\\uD544',
+  '\\uB098\\uC774',
+  '\\uC778\\uC2A4\\uD0C0',
+  '\\uC5F4\\uC560',
+  '\\uC0AC\\uB9DD',
+  '\\uBD80\\uACE0',
+  '\\uB17C\\uB780',
+  '\\uC0AC\\uACFC',
+  '\\uD574\\uBA85',
+  '\\uBC1C\\uC5B8',
+  '\\uCC38\\uC11D',
+  '\\uAE30\\uC790\\uD68C\\uACAC',
+  '\\uACF5\\uC2DD\\uC785\\uC7A5',
+  '\\uADFC\\uD669',
+].join('|'), 'iu');
+
+function stripNaverMateKnownSuffix(keyword: string): string {
+  let out = normalizeKeyword(keyword);
+  for (const suffix of NAVER_MATE_NEED_SUFFIXES) {
+    const suffixRe = new RegExp(`\\s*${suffix}\\s*$`, 'iu');
+    out = out.replace(suffixRe, '').trim();
+  }
+  return out || normalizeKeyword(keyword);
+}
+
+function isNaverMateRootToken(token: string): boolean {
+  const clean = token.replace(/[^\dA-Za-z\uAC00-\uD7A3]/gu, '').trim();
+  if (clean.length < 2 || clean.length > 16) return false;
+  if (/^\d+$/.test(clean)) return false;
+  const key = compactKeyword(clean);
+  if (!key || NAVER_MATE_ROOT_STOPWORDS.has(key)) return false;
+  return SAFE_HANGUL_SEARCH_RE.test(clean);
+}
+
+function naverMateConciseBases(root: string, limit: number): string[] {
+  const cleaned = stripNaverMateKnownSuffix(root)
+    .replace(/\[[^\]]{2,80}\]/g, ' ')
+    .replace(/[(){}<>:"'`.,!?;|/\\]+/g, ' ')
+    .replace(/\s+/g, ' ')
+    .trim();
+  const tokens = keywordTokens(cleaned).filter(isNaverMateRootToken);
+  const bases: string[] = [];
+  const add = (value: string) => {
+    const clean = normalizeKeyword(value);
+    const tokenCount = keywordTokens(clean).length;
+    if (!clean || clean.length < 2 || clean.length > 28 || tokenCount > 4) return;
+    bases.push(clean);
+  };
+
+  add(cleaned);
+  add(tokens.slice(0, 4).join(' '));
+  add(tokens.slice(0, 3).join(' '));
+  add(tokens.slice(0, 2).join(' '));
+  for (let size = 2; size <= 3; size += 1) {
+    for (let index = 0; index <= tokens.length - size; index += 1) {
+      add(tokens.slice(index, index + size).join(' '));
+    }
+  }
+  return uniqueKeywords(bases, limit);
+}
+
+function buildNaverMateMeasuredQueryRoots(root: string, limit = 32): string[] {
+  const bases = naverMateConciseBases(root, Math.max(8, Math.ceil(limit / 2)));
+  const out: string[] = [];
+  const push = (value: string) => {
+    const clean = normalizeKeyword(value);
+    if (!isSearchPhraseCandidate(clean)) return;
+    out.push(clean);
+  };
+
+  for (const base of bases) {
+    push(base);
+    if (out.length >= limit) return uniqueKeywords(out, limit);
+  }
+  for (const base of bases) {
+    const baseKey = compactKeyword(base);
+    for (const suffix of NAVER_MATE_NEED_SUFFIXES) {
+      const suffixKey = compactKeyword(suffix);
+      const candidate = baseKey.endsWith(suffixKey) || NAVER_MATE_NEED_SUFFIX_SET.has(baseKey)
+        ? base
+        : `${base} ${suffix}`;
+      push(candidate);
+      if (out.length >= limit) return uniqueKeywords(out, limit);
+    }
+  }
+  return uniqueKeywords(out, limit);
+}
+
+function isNaverMateConciseMeasuredCandidate(keyword: string): boolean {
+  const clean = normalizeKeyword(keyword);
+  if (!isSearchPhraseCandidate(clean)) return false;
+  if (clean.length > 34) return false;
+  if (keywordTokens(clean).length > 5) return false;
+  if (NAVER_MATE_SENTENCE_LIKE_RE.test(clean)) return false;
+  if (NAVER_MATE_VOLATILE_NEWS_RE.test(clean) && !NAVER_MATE_UTILITY_SIGNAL_RE.test(clean)) return false;
+  return true;
+}
+
+function isNaverMateUtilityRootCandidate(keyword: string): boolean {
+  const clean = normalizeKeyword(keyword);
+  if (!isNaverMateConciseMeasuredCandidate(clean)) return false;
+  return NAVER_MATE_UTILITY_SIGNAL_RE.test(clean);
+}
+
+function naverMateCandidateSeedKey(candidate: { keyword: string; evidence: string[] }): string {
+  const seed = candidate.evidence.find((item) => /^seed:/i.test(item || ''));
+  return compactKeyword(seed ? seed.replace(/^seed:/i, '') : candidate.keyword);
+}
+
+const NAVER_MATE_SOURCE_NOISE_TOKENS = new Set([
+  '\uC900',
+  '\uC5D0\uB3C4',
+  '\uAC00\uB2A5\uC131',
+  '\uC788\uB294',
+  '\uC5C6\uB294',
+  '\uB204\uAD6C',
+  '\uC5B8\uC81C',
+  '\uC624\uB298',
+  '\uCD5C\uC2E0',
+  '\uB300\uD55C',
+  '\uC704\uD55C',
+  '\uC774\uB77C\uACE0',
+  '\uC785\uB2C8\uB2E4',
+  '\uD569\uB2C8\uB2E4',
+  '\uB418\uC5C8\uC5B4\uC694',
+  '\uC54C\uB824\uC8FC\uC138\uC694',
+].map((word) => compactKeyword(word)));
+
+function naverMateSignalTextValues(signal: MobileSignalItem): string[] {
+  return uniqueKeywords([
+    signal.keyword,
+    signal.title,
+    signal.description,
+    sourceSignalKeyword(signal),
+  ].map((value) => normalizeKeyword(value)).filter(Boolean), 8);
+}
+
+function naverMateSignalTokenWindows(value: string): string[] {
+  const tokens = keywordTokens(stripNaverMateKnownSuffix(value))
+    .filter((token) => isNaverMateRootToken(token))
+    .filter((token) => !NAVER_MATE_SOURCE_NOISE_TOKENS.has(compactKeyword(token)));
+  const out: string[] = [];
+  const push = (candidate: string) => {
+    const clean = normalizeKeyword(candidate);
+    if (!clean || clean.length < 2 || clean.length > 28) return;
+    out.push(clean);
+  };
+  push(tokens.slice(0, 4).join(' '));
+  push(tokens.slice(0, 3).join(' '));
+  push(tokens.slice(0, 2).join(' '));
+  for (let size = 2; size <= 4; size += 1) {
+    for (let index = 0; index <= tokens.length - size; index += 1) {
+      push(tokens.slice(index, index + size).join(' '));
+    }
+  }
+  return uniqueKeywords(out, 18);
+}
+
+function buildNaverMateSourceSignalQueryRoots(signal: MobileSignalItem, limit = 12): string[] {
+  if (!isNaverMateSourceSignalWorthExpanding(signal)) return [];
+  const out: string[] = [];
+  const seen = new Set<string>();
+  const push = (value: string) => {
+    const clean = normalizeKeyword(value);
+    const key = compactKeyword(clean);
+    if (!key || seen.has(key) || !isNaverMateConciseMeasuredCandidate(clean)) return;
+    seen.add(key);
+    out.push(clean);
+  };
+
+  for (const value of naverMateSignalTextValues(signal)) {
+    for (const base of [
+      ...naverMateConciseBases(value, 10),
+      ...naverMateSignalTokenWindows(value),
+    ]) {
+      for (const candidate of buildNaverMateMeasuredQueryRoots(base, 6)) {
+        push(candidate);
+        if (out.length >= limit) return out;
+      }
+    }
+  }
+  return out;
+}
+
+function isNaverMateSourceSignalWorthExpanding(signal: MobileSignalItem): boolean {
+  const text = normalizeKeyword([
+    signal.keyword,
+    signal.title,
+    signal.description,
+    signal.source,
+    signal.categoryId,
+    signal.kind,
+  ].filter(Boolean).join(' '));
+  if (!text) return false;
+  if (!NAVER_MATE_UTILITY_SIGNAL_RE.test(text)) return false;
+  const directKeyword = normalizeKeyword(sourceSignalKeyword(signal));
+  if (NAVER_MATE_VOLATILE_NEWS_RE.test(text) && !NAVER_MATE_UTILITY_SIGNAL_RE.test(directKeyword)) {
+    return false;
+  }
+  return true;
+}
+
+function roundRobinNaverMateSourceSignals(
+  snapshot: Awaited<ReturnType<typeof buildMobileSourceSignalSnapshot>>,
+  limit: number,
+): MobileSignalItem[] {
+  const lanes = [
+    snapshot.policy || [],
+    snapshot.realtime || [],
+    snapshot.issues || [],
+  ].map((lane) => lane.filter(isNaverMateSourceSignalWorthExpanding)).filter((lane) => lane.length > 0);
+  if (!lanes.length) {
+    return [];
+  }
+  const out: MobileSignalItem[] = [];
+  const seen = new Set<string>();
+  const maxLaneLength = Math.max(...lanes.map((lane) => lane.length), 0);
+  for (let index = 0; index < maxLaneLength; index += 1) {
+    for (const lane of lanes) {
+      const signal = lane[index];
+      if (!signal) continue;
+      const key = compactKeyword(signal.keyword || signal.title || signal.id);
+      if (!key || seen.has(key)) continue;
+      seen.add(key);
+      out.push(signal);
+      if (out.length >= limit) return out;
+    }
+  }
+  return out;
+}
+
+function balancedSourceSignalRoots(
+  snapshot: Awaited<ReturnType<typeof buildMobileSourceSignalSnapshot>>,
+  limit: number,
+): string[] {
+  const lanes = [
+    snapshot.policy || [],
+    snapshot.realtime || [],
+    snapshot.issues || [],
+  ].map((lane) => lane.filter(isNaverMateSourceSignalWorthExpanding)).filter((lane) => lane.length > 0);
+  if (!lanes.length) {
+    return [];
+  }
+  const out: string[] = [];
+  const maxLaneLength = Math.max(...lanes.map((lane) => lane.length), 0);
+  for (let index = 0; index < maxLaneLength; index += 1) {
+    for (const lane of lanes) {
+      const signal = lane[index];
+      if (!signal) continue;
+      for (const root of buildNaverMateSourceSignalQueryRoots(signal, 3)) {
+        out.push(root);
+        if (out.length >= limit) return uniqueKeywords(out, limit);
+      }
+    }
+  }
+  return uniqueKeywords(out, limit);
+}
+
+function buildYouTubeSearchIntentRoots(keyword: string, category?: string, limit = 16): string[] {
+  const normalized = normalizeKeyword(keyword);
+  const baseRoots = buildIntentQueryRoots(normalized, 10);
+  const domain = intentRootDomain(`${normalized} ${category || ''}`);
+  const youtubeSuffixes = domain === 'sports'
+    ? ['하이라이트', '중계', '라인업', '결과', '일정']
+    : domain === 'entertainment'
+      ? ['공식영상', '다시보기', '출연진', '방송시간', '반응']
+      : domain === 'commerce'
+        ? ['후기', '가격', '추천', '비교', '할인']
+        : ['정리', '방법', '이유', '반응', '후기'];
+  const seen = new Set<string>();
+  const out: string[] = [];
+  const push = (value: string) => {
+    const clean = normalizeKeyword(value);
+    const key = compactKeyword(clean);
+    if (!key || seen.has(key) || clean.length < 3 || clean.length > 42) return;
+    seen.add(key);
+    out.push(clean);
+  };
+  baseRoots.slice(0, 6).forEach(push);
+  for (const root of baseRoots.slice(0, 4)) {
+    for (const suffix of youtubeSuffixes) {
+      push(keywordAlreadyHasIntentSuffix(root, suffix) ? root : `${root} ${suffix}`);
+      if (out.length >= limit) return out;
+    }
+  }
+  return out.slice(0, limit);
+}
+
+function isSearchPhraseCandidate(keyword: string): boolean {
+  const clean = normalizeKeyword(keyword);
+  if (!clean || clean.length < 2 || clean.length > 42) return false;
+  if (/[\[\]{}<>「」『』“”"…]|(?:\.\.\.)/.test(clean)) return false;
+  if (/[.!?]{1,}$/.test(clean)) return false;
+  if (/(습니다|합니다|했습니다|됩니다|입니다|아닙니다|있습니다|없습니다|착수했습니다|공표했습니다)$/.test(clean)) return false;
+  const tokens = keywordTokens(clean);
+  if (tokens.length > 6) return false;
+  if (tokens.length >= 5 && !/(신청|자격|지급일|조회|방법|후기|가격|추천|비교|일정|중계|라인업|순위|결과|출연진|다시보기|공식영상|예매|주가|전망)$/.test(clean)) {
+    return false;
+  }
+  return SAFE_HANGUL_SEARCH_RE.test(clean);
+}
+
+function isNaverMateIntentRootCandidate(keyword: string): boolean {
+  const clean = normalizeKeyword(keyword);
+  if (!isSearchPhraseCandidate(clean)) return false;
+  return /(신청|자격|대상|지급일|조회|서류|기간|조건|가격|후기|추천|비교|할인|예약|구매처|일정|중계|라인업|순위|결과|하이라이트|예매|출연진|다시보기|방송시간|공식영상|반응|주가|전망|실적|배당|목표가|청약|상장일|정리|이유|방법)$/.test(clean)
+    || keywordTokens(clean).length <= 3;
+}
+
 async function buildSourceSignalMetrics(
   lane: MobileSourceSignalLane,
   limit: number,
@@ -587,6 +1727,62 @@ async function buildSourceSignalMetrics(
   return measureKeywordMetrics(metrics, context);
 }
 
+async function buildNaverMateLiveSourceFallbackMetrics(
+  limit: number,
+  context: MobileJobExecutorContext,
+  measureKeywordMetrics: MobileKeywordMetricsAdapter,
+  progressPercent = 86,
+): Promise<MobileKeywordMetric[]> {
+  context.progress(progressPercent, 'measuring Naver Mate live source intent roots');
+  const snapshot = await buildMobileSourceSignalSnapshot({
+    lane: 'all',
+    limit: Math.min(120, Math.max(45, limit)),
+  });
+  if (snapshot.fallbackUsed) {
+    context.progress(Math.min(99, progressPercent + 1), 'Naver Mate live source fallback skipped because source snapshot used static fallback');
+    return [];
+  }
+
+  const signals = roundRobinNaverMateSourceSignals(snapshot, Math.min(90, Math.max(30, limit)));
+  const seen = new Set<string>();
+  const candidates: Array<{ keyword: string; signal: MobileSignalItem }> = [];
+  const rows = signals.map((signal) => ({
+    signal,
+    keywords: buildNaverMateSourceSignalQueryRoots(signal, 8),
+  })).filter((row) => row.keywords.length > 0);
+  const maxKeywordRows = Math.max(...rows.map((row) => row.keywords.length), 0);
+  for (let keywordIndex = 0; keywordIndex < maxKeywordRows; keywordIndex += 1) {
+    for (const row of rows) {
+      const keyword = row.keywords[keywordIndex];
+      if (!keyword) continue;
+      const key = compactKeyword(keyword);
+      if (!key || seen.has(key)) continue;
+      seen.add(key);
+      candidates.push({ keyword, signal: row.signal });
+      if (candidates.length >= limit) break;
+    }
+    if (candidates.length >= limit) break;
+  }
+  context.progress(Math.min(99, progressPercent + 1), `Naver Mate live source candidates: ${candidates.length}`);
+
+  const metrics = candidates.map(({ keyword, signal }, index) => metricFromExpansion(
+    keyword,
+    Math.max(45, Math.min(90, 84 + (finiteNumber(signal.priority) ?? 0) * 0.8 - index * 0.12)),
+    'pc-naver-mate-live-source-fallback',
+    'naver-mate',
+    normalizeKeyword(signal.categoryId || signal.kind) || 'naver',
+    [
+      'pc-naver-mate-live-source-fallback',
+      'server-source-signals',
+      normalizeKeyword(signal.source),
+      normalizeKeyword(signal.keyword),
+      normalizeKeyword(signal.title),
+    ].filter(Boolean),
+  ));
+  if (!metrics.length) return [];
+  return measureKeywordMetrics(metrics, context);
+}
+
 async function buildMeasuredIntentFallback(
   seed: string,
   limit: number,
@@ -597,28 +1793,46 @@ async function buildMeasuredIntentFallback(
   measureKeywordMetrics: MobileKeywordMetricsAdapter,
 ): Promise<MobileKeywordMetric[]> {
   const base = stripKnownIntent(seed) || normalizeKeyword(seed);
-  const directIntents = [
-    '추천',
-    '후기',
-    '가격',
-    '비교',
-    '순위',
-    '사용법',
-    '주의사항',
-    '전기세',
-    '용량',
-    '청소',
-    '렌탈',
-    '할인',
-    '구매처',
-    '가성비',
-    '소음',
-  ];
+  if (isAutoDiscoveryPlaceholderKeyword(base)) return [];
+  const isShoppingFallback = /shopping/i.test(source) || category === 'shopping';
+  const directIntents = isShoppingFallback
+    ? [
+        '추천',
+        '순위',
+        '가격',
+        '비교',
+        '가성비',
+        '구매처',
+        '후기',
+        '할인',
+        '특가',
+        '렌탈',
+        '설치',
+        '배송',
+      ]
+    : [
+        '추천',
+        '후기',
+        '가격',
+        '비교',
+        '순위',
+        '사용법',
+        '주의사항',
+        '전기세',
+        '용량',
+        '청소',
+        '렌탈',
+        '할인',
+        '구매처',
+        '가성비',
+        '소음',
+      ];
   const seen = new Set<string>();
   const keywords = [
-    ...directIntents.map((intentKeyword) => `${base} ${intentKeyword}`),
+    ...directIntents.map((intentKeyword) => keywordAlreadyHasIntentSuffix(base, intentKeyword) ? base : `${base} ${intentKeyword}`),
     ...buildCleanIntentCandidates(seed, Math.max(6, limit * 2)),
   ].filter((keyword) => {
+    if (!isMeasuredFallbackCandidateUseful(keyword)) return false;
     const key = compactKeyword(keyword);
     if (!key || seen.has(key)) return false;
     seen.add(key);
@@ -637,6 +1851,255 @@ async function buildMeasuredIntentFallback(
   if (!candidates.length) return [];
   context.progress(72, `measuring ${candidates.length} ${source} fallback candidates`);
   return measureKeywordMetrics(candidates, context);
+}
+
+const NAVER_MATE_MEASURED_SIGNAL_RE = /(pc-naver|naver-autocomplete|autocomplete|auto-complete|related-keyword|relkwd|related-keywords|second-hop|pc-naver-mate-live-source-fallback|pc-naver-mate-intent-root-measured|server-measured-naver-mate-prewarm|naver-expansion-measured-need)/i;
+const NAVER_MATE_LOW_VALUE_COMPACT_RE = /(?:\uD504\uB85C\uD544|\uB098\uC774|\uC778\uC2A4\uD0C0|\uD559\uB825|\uACE0\uD5A5|\uD0A4|\uD608\uC561\uD615|\uBA87\uBD80\uC791|\uCD9C\uC5F0\uC9C4|\uC7AC\uBC29\uC1A1|\uB2E4\uC2DC\uBCF4\uAE30|\uBC29\uC1A1\uC2DC\uAC04|\uACF5\uC2DD\uC601\uC0C1|\uD558\uC774\uB77C\uC774\uD2B8|\uC608\uACE0\uD3B8)$/u;
+
+function isNaverMateMeasuredSignalMetric(metric: MobileKeywordMetric): boolean {
+  const text = [
+    metric.keyword,
+    metric.source,
+    metric.intent,
+    metric.category,
+    ...(Array.isArray(metric.evidence) ? metric.evidence : []),
+  ].join(' ');
+  return NAVER_MATE_MEASURED_SIGNAL_RE.test(text);
+}
+
+function isNaverMateDisplayQualityMetric(metric: MobileKeywordMetric): boolean {
+  const key = compactKeyword(metric.keyword);
+  if (!key) return false;
+  if (isUltimateLowValueLookupKeyword(metric.keyword)) return false;
+  if (NAVER_MATE_LOW_VALUE_COMPACT_RE.test(key)) return false;
+  return metricGradeRank(metric.grade) > 0;
+}
+
+function recoverNaverMateMeasuredMetrics(
+  metrics: MobileKeywordMetric[],
+  targetCount: number,
+): MobileKeywordMetric[] {
+  const seen = new Set<string>();
+  const eligible = attachPublishDecisions(attachKeywordAiJudges(metrics, { downgradeExcluded: false }))
+    .filter((metric) => {
+      const key = compactKeyword(metric.keyword);
+      if (!key || seen.has(key)) return false;
+      seen.add(key);
+      if (!isFullyMeasuredKeyword(metric)) return false;
+      if (!isSearchPhraseCandidate(metric.keyword)) return false;
+      if (!isNaverMateMeasuredSignalMetric(metric)) return false;
+      if (!isNaverMateDisplayQualityMetric(metric)) return false;
+      if (metric.aiJudge?.verdict === 'exclude') return false;
+      if (metric.publishDecision?.verdict === 'exclude') return false;
+      const pc = finiteNumber(metric.pcSearchVolume);
+      const mobile = finiteNumber(metric.mobileSearchVolume);
+      const total = finiteNumber(metric.totalSearchVolume) ?? 0;
+      if (pc === null || mobile === null || pc + mobile <= 0 || total < 30) return false;
+      return true;
+    });
+  const strict = eligible
+    .filter((metric) => (finiteNumber(metric.documentCount) ?? Number.POSITIVE_INFINITY) <= 150000)
+    .sort((a, b) => measuredDecisionScore(b) - measuredDecisionScore(a));
+  const strictKeys = new Set(strict.map((metric) => compactKeyword(metric.keyword)).filter(Boolean));
+  const measuredBroadFill = eligible
+    .filter((metric) => {
+      const key = compactKeyword(metric.keyword);
+      if (!key || strictKeys.has(key)) return false;
+      const docs = finiteNumber(metric.documentCount) ?? Number.POSITIVE_INFINITY;
+      const total = finiteNumber(metric.totalSearchVolume) ?? 0;
+      const ratio = finiteNumber(metric.goldenRatio) ?? 0;
+      return docs <= 500000 && (total >= 100 || ratio >= 0.03);
+    })
+    .sort((a, b) => measuredDecisionScore(b) - measuredDecisionScore(a));
+  return mergePrioritizedKeywordMetrics([strict, measuredBroadFill], targetCount);
+}
+
+function naverMateUtilityScore(metric: MobileKeywordMetric): number {
+  const ratio = finiteNumber(metric.goldenRatio) ?? 0;
+  const total = finiteNumber(metric.totalSearchVolume) ?? 0;
+  const docs = finiteNumber(metric.documentCount) ?? 0;
+  const sourceBoost = /live-source-fallback|prewarm|intent-root/i.test(`${metric.source} ${metric.evidence.join(' ')}`)
+    ? 750
+    : 0;
+  return sourceBoost
+    + metricGradeRank(metric.grade) * 1000
+    + Math.min(100, ratio) * 40
+    + Math.min(300000, total) / 500
+    - Math.min(300000, docs) / 5000;
+}
+
+function prioritizeNaverMateUtilityMeasuredMetrics(
+  metrics: MobileKeywordMetric[],
+  targetCount: number,
+  maxDocumentCount: number,
+): MobileKeywordMetric[] {
+  const seen = new Set<string>();
+  return metrics
+    .filter((metric) => {
+      const key = compactKeyword(metric.keyword);
+      if (!key || seen.has(key)) return false;
+      seen.add(key);
+      if (!isFullyMeasuredKeyword(metric)) return false;
+      if (!isSearchPhraseCandidate(metric.keyword)) return false;
+      if (!isNaverMateMeasuredSignalMetric(metric)) return false;
+      if (!isNaverMateDisplayQualityMetric(metric)) return false;
+      const pc = finiteNumber(metric.pcSearchVolume);
+      const mobile = finiteNumber(metric.mobileSearchVolume);
+      const total = finiteNumber(metric.totalSearchVolume) ?? 0;
+      const docs = finiteNumber(metric.documentCount) ?? Number.POSITIVE_INFINITY;
+      if (pc === null || mobile === null || pc + mobile <= 0) return false;
+      if (total < 30) return false;
+      if (docs > Math.max(500000, maxDocumentCount)) return false;
+      return true;
+    })
+    .sort((a, b) => naverMateUtilityScore(b) - naverMateUtilityScore(a))
+    .slice(0, targetCount);
+}
+
+function prioritizeNaverMateMeasuredMetrics(
+  metrics: MobileKeywordMetric[],
+  targetCount: number,
+  maxDocumentCount = 150000,
+): MobileKeywordMetric[] {
+  const strict = prioritizeMeasuredDecisionMetrics(metrics, targetCount, {
+    requirePcMobileSplit: true,
+    minTotalSearchVolume: 30,
+    maxDocumentCount,
+  }).filter(isNaverMateDisplayQualityMetric);
+  const utility = prioritizeNaverMateUtilityMeasuredMetrics(metrics, targetCount, maxDocumentCount);
+  const recovered = recoverNaverMateMeasuredMetrics(metrics, targetCount);
+  return mergePrioritizedKeywordMetrics([strict, utility, recovered], targetCount);
+}
+
+function keywordAlreadyHasIntentSuffix(keyword: string, intent: string): boolean {
+  const clean = normalizeKeyword(keyword).replace(/\s+/g, '');
+  const suffix = normalizeKeyword(intent).replace(/\s+/g, '');
+  return Boolean(clean && suffix && clean.endsWith(suffix));
+}
+
+const FALLBACK_INTENT_FRAGMENT_RE = /(추천|후기|가격|비교|순위|사용법|주의사항|전기세|전기요금|용량|청소|렌탈|할인|구매처|가성비|소음|설치|신청|조건|총정리|리뷰|최신|오늘|이번주|체크리스트|필터\s*교체)/gu;
+const FALLBACK_LOW_SIGNAL_CHAIN_RE = /(?:^|\s)(20\d{2})\s+\1(?:\s|$)|(?:최신|오늘|이번주|추천|후기|리뷰|비교|가격|설치|용량)\s+\1/u;
+
+function hasRepeatedFallbackToken(keyword: string): boolean {
+  const tokens = normalizeKeyword(keyword)
+    .split(/\s+/)
+    .map((token) => token.replace(/[^\dA-Za-z가-힣]/g, '').trim())
+    .filter((token) => token.length >= 2);
+  const seen = new Set<string>();
+  for (const token of tokens) {
+    const key = token.toLowerCase();
+    if (seen.has(key)) return true;
+    seen.add(key);
+  }
+  return false;
+}
+
+function measuredFallbackIntentFragmentCount(keyword: string): number {
+  const hits = normalizeKeyword(keyword).match(FALLBACK_INTENT_FRAGMENT_RE) || [];
+  return new Set(hits.map((hit) => hit.replace(/\s+/g, ''))).size;
+}
+
+function isMeasuredFallbackCandidateUseful(keyword: string): boolean {
+  const clean = normalizeKeyword(keyword);
+  if (!clean || FALLBACK_LOW_SIGNAL_CHAIN_RE.test(clean)) return false;
+  if (hasRepeatedFallbackToken(clean)) return false;
+  const tokenCount = clean.split(/\s+/).filter(Boolean).length;
+  const fragmentCount = measuredFallbackIntentFragmentCount(clean);
+  if (fragmentCount >= 4) return false;
+  if (tokenCount >= 6 && fragmentCount >= 3) return false;
+  return true;
+}
+
+function isAutoDiscoveryPlaceholderKeyword(keyword: string): boolean {
+  return /^(?:쇼핑\s*)?자동\s*발굴(?:\s|$)/.test(normalizeKeyword(keyword));
+}
+
+function isNaverMateAutoDiscoverySeed(keyword: string): boolean {
+  const clean = normalizeKeyword(keyword);
+  const key = compactKeyword(clean);
+  return !clean
+    || isAutoDiscoveryPlaceholderKeyword(clean)
+    || key === compactKeyword('\uC790\uB3D9 \uBC1C\uAD74')
+    || key === compactKeyword('\uC790\uB3D9\uBC1C\uAD74')
+    || key === compactKeyword('오늘 실시간 이슈')
+    || key === compactKeyword('오늘 이슈')
+    || key === compactKeyword('실시간 이슈');
+}
+
+function isKinAnswerDemandKeyword(keyword: string): boolean {
+  const clean = normalizeKeyword(keyword);
+  if (!clean || clean.length < 3) return false;
+  return /(방법|가능|되나요|인가요|어떻게|왜|무엇|차이|조건|자격|대상|신청|조회|지급일|원인|증상|해결|비용|가격|후기|주의사항|정리|궁금|질문|비교|할까|해야|받는법|하는법)/.test(clean);
+}
+
+function isKinAnswerDemandMetric(metric: MobileKeywordMetric): boolean {
+  const marker = [
+    metric.keyword,
+    metric.source,
+    metric.intent,
+    metric.category,
+    ...(Array.isArray(metric.evidence) ? metric.evidence : []),
+  ].join(' ');
+  return /(kin|지식인|question|qna|qa)/i.test(marker)
+    || isKinAnswerDemandKeyword(metric.keyword);
+}
+
+function uniqueKeywords(values: string[], limit = 40): string[] {
+  const seen = new Set<string>();
+  const out: string[] = [];
+  for (const value of values) {
+    const keyword = normalizeKeyword(value);
+    const key = compactKeyword(keyword);
+    if (!keyword || !key || seen.has(key)) continue;
+    seen.add(key);
+    out.push(keyword);
+    if (out.length >= limit) break;
+  }
+  return out;
+}
+
+async function buildMeasuredIntentFallbackFromSeeds(
+  seeds: string[],
+  limit: number,
+  source: string,
+  intent: string,
+  category: string,
+  context: MobileJobExecutorContext,
+  measureKeywordMetrics: MobileKeywordMetricsAdapter,
+): Promise<MobileKeywordMetric[]> {
+  const isShoppingFallback = /shopping/i.test(source) || category === 'shopping';
+  const cleanSeeds = uniqueKeywords(
+    seeds
+      .map(seed => normalizeKeyword(seed))
+      .filter(seed => seed && !isAutoDiscoveryPlaceholderKeyword(seed)),
+    isShoppingFallback
+      ? Math.min(60, Math.max(30, limit * 4))
+      : Math.min(24, Math.max(1, limit * 2)),
+  );
+  const collected: MobileKeywordMetric[] = [];
+  const activeSeedLimit = isShoppingFallback
+    ? Math.min(cleanSeeds.length, Math.max(12, Math.ceil(limit * 0.8)))
+    : Math.min(cleanSeeds.length, Math.max(6, Math.ceil(limit / 2)));
+  const perSeedLimit = isShoppingFallback
+    ? Math.max(4, Math.ceil(limit / Math.max(1, activeSeedLimit)) + 3)
+    : Math.max(2, Math.ceil(limit / Math.max(1, activeSeedLimit)) + 1);
+  const targetMeasuredCount = isShoppingFallback
+    ? Math.min(120, Math.max(limit * 3, limit))
+    : limit;
+  for (const seed of cleanSeeds.slice(0, activeSeedLimit)) {
+    const measured = await buildMeasuredIntentFallback(
+      seed,
+      perSeedLimit,
+      source,
+      intent,
+      category,
+      context,
+      measureKeywordMetrics,
+    );
+    collected.push(...measured);
+    if (strictFullyMeasuredMetrics(collected, targetMeasuredCount).length >= targetMeasuredCount) break;
+  }
+  return strictFullyMeasuredMetrics(collected, targetMeasuredCount);
 }
 
 function isQuotaLimitError(err: unknown): boolean {
@@ -695,6 +2158,9 @@ function stripKnownIntent(seed: string): string {
   const trailing = [
     '신청방법', '신청 방법', '신청자격', '자격', '대상', '혜택', '서류', '기간', '마감', '조회', '확인',
     '피해 확인', '피해 조회', '보상', '대처', '예방법', '해결', '방법', '후기', '가격', '추천',
+    '비교', '순위', '사용법', '주의사항', '전기세', '전기요금', '용량', '청소', '렌탈', '할인',
+    '구매처', '가성비', '소음', '설치', '조건', '총정리', '리뷰', '최신', '오늘', '이번주',
+    '체크리스트', '필터 교체',
   ];
   for (const intent of trailing) {
     out = out.replace(new RegExp(`\\s*${intent.replace(/\s+/g, '\\s*')}$`, 'i'), '').trim();
@@ -793,6 +2259,7 @@ function asProTrafficParams(params: unknown): ProTrafficMobileParams {
     categoryId: normalizeKeyword(payload.categoryId) || 'all',
     targetCount: clampInt(payload.targetCount, 30, 1, 250),
     seedKeyword: payload.seedKeyword ? normalizeKeyword(payload.seedKeyword) : undefined,
+    autoDiscovery: payload.autoDiscovery === true,
     includeSeasonal: payload.includeSeasonal !== false,
     includeEvergreen: payload.includeEvergreen !== false,
     includeFreshIssue: payload.includeFreshIssue !== false,
@@ -853,6 +2320,7 @@ function asNaverMateParams(params: unknown): NaverMateMobileParams {
     includeAutocomplete: payload.includeAutocomplete !== false,
     includeRelated: payload.includeRelated !== false,
     includeVolumeMetrics: payload.includeVolumeMetrics !== false,
+    autoDiscovery: payload.autoDiscovery === true,
     contextKeywords: normalizeContextKeywords(payload.contextKeywords),
   };
 }
@@ -1050,6 +2518,156 @@ function proTrafficContextSeedKeywords(
   return contextSeedKeywords(params.seedKeyword, params.contextKeywords, limit);
 }
 
+function defaultProTrafficDiscoveryRoots(categoryId: string): string[] {
+  const category = compactKeyword(categoryId);
+  if (/policy|support|subsidy/.test(category)) {
+    return [
+      '청년미래적금 신청 대상',
+      '근로장려금 지급일 조회',
+      '자녀장려금 지급일 조회',
+      '소상공인 환급금 조회',
+      '기초연금 수급자격',
+      '첫만남이용권 신청',
+      '에너지바우처 신청 대상',
+      '국민연금 반환일시금 대상',
+    ];
+  }
+  if (/shopping/.test(category)) {
+    return [
+      '여름 선크림 추천 후기',
+      '공기청정기 필터 교체',
+      '제습기 전기세 비교',
+      '무선청소기 가격비교',
+      '캠핑 선풍기 추천',
+      '장마 제습제 추천',
+    ];
+  }
+  if (/electronics|digital|it/.test(category)) {
+    return [
+      'AI 영상툴 가격비교',
+      '아이폰 배터리 교체 비용',
+      '갤럭시 업데이트 오류',
+      '공기청정기 필터 교체',
+      '무선청소기 가격비교',
+      '노트북 배터리 교체 비용',
+    ];
+  }
+  if (/travel/.test(category)) {
+    return [
+      '송지호 바다하늘길 입장료',
+      '제주 렌터카 가격비교',
+      '여름휴가 숙소 예약',
+      '지역 축제 주차 위치',
+      '워터파크 할인 예약',
+      '공항 주차 예약',
+    ];
+  }
+  if (/home|living|life/.test(category)) {
+    return [
+      '에어컨 청소 비용',
+      '제습기 전기세 비교',
+      '공기청정기 필터 교체',
+      '장마 준비물 체크리스트',
+      '도어락 배터리 교체',
+      '세탁기 통세척 방법',
+    ];
+  }
+  return [
+    '청년미래적금 신청 대상',
+    '제주 렌터카 가격비교',
+    'AI 영상툴 가격비교',
+    '여름 선크림 추천 후기',
+    '장마 준비물 체크리스트',
+    '도수치료 보험 적용 비용',
+  ];
+}
+
+function isLikelyMeasuredSearchQuery(keyword: string): boolean {
+  const clean = normalizeKeyword(keyword);
+  if (!clean || clean.length < 3 || clean.length > 34) return false;
+  if (/[?!…]|(?:합니다|드립니다|인가요|할까요|해주세요)/.test(clean)) return false;
+  if (/(총정리\s*){2,}|(?:신청|조회|지급일|대상|서류|조건).*(?:신청|조회|지급일|대상|서류|조건).*(?:신청|조회|지급일|대상|서류|조건)/.test(clean)) return false;
+  if (/(청년·일반 국민|아동·장애인|조건 최신|조건 공고|공식발표|정책브리핑|접수 공고)/.test(clean)) return false;
+  return true;
+}
+
+function isStrictAutoDiscoverySearchQuery(keyword: string): boolean {
+  const clean = normalizeKeyword(keyword);
+  if (!isLikelyMeasuredSearchQuery(clean)) return false;
+  if (/(실사용\s*){2,}|(?:가격|할인)\s*할인\s*정보|구매처\s*실사용\s*후기|추천\s*실사용\s*후기|가격\s*할인\s*정보|할인\s*정보\s*후기/.test(clean)) return false;
+  if (/(?:가격|후기|추천|비교|구매처|할인|스펙|출시일).*(?:가격|후기|추천|비교|구매처|할인|스펙|출시일).*(?:가격|후기|추천|비교|구매처|할인|스펙|출시일)/.test(clean)) return false;
+  return true;
+}
+
+async function buildProTrafficLiveMeasuredMetrics(
+  params: ProTrafficMobileParams,
+  context: MobileJobExecutorContext,
+  measureKeywordMetrics: MobileKeywordMetricsAdapter,
+): Promise<MobileKeywordMetric[]> {
+  const env = defaultEnvConfig();
+  const roots = contextSeedKeywords(
+    params.seedKeyword,
+    params.contextKeywords,
+    Math.min(12, Math.max(6, params.targetCount)),
+  );
+  for (const root of defaultProTrafficDiscoveryRoots(params.categoryId)) {
+    if (!roots.some((item) => compactKeyword(item) === compactKeyword(root))) roots.push(root);
+  }
+  const selectedRoots = roots
+    .filter(params.autoDiscovery === true ? isStrictAutoDiscoverySearchQuery : isLikelyMeasuredSearchQuery)
+    .slice(0, params.autoDiscovery === true ? 7 : 10);
+  if (selectedRoots.length === 0) return [];
+
+  context.progress(18, `collecting ${selectedRoots.length} live autocomplete roots`);
+  const candidateRows = await Promise.all(selectedRoots.map((root) =>
+    collectLiveExpansionCandidates(
+      root,
+      Math.min(45, Math.max(18, params.targetCount)),
+      env,
+      context,
+      params.contextKeywords,
+    ).catch(() => [] as LiveExpansionCandidate[]),
+  ));
+  ensureNotAborted(context);
+
+  const seen = new Set<string>();
+  const candidates: LiveExpansionCandidate[] = [];
+  for (const root of selectedRoots) {
+    const key = compactKeyword(root);
+    if (!key || seen.has(key)) continue;
+    seen.add(key);
+    candidates.push({
+      keyword: root,
+      source: 'live-root-query',
+      sources: ['live-root-query'],
+      freq: 6,
+    });
+  }
+  for (const row of candidateRows.flat()) {
+    const keyword = normalizeKeyword(row.keyword);
+    const key = compactKeyword(keyword);
+    if (!key || seen.has(key)) continue;
+    if (params.autoDiscovery === true ? !isStrictAutoDiscoverySearchQuery(keyword) : !isLikelyMeasuredSearchQuery(keyword)) continue;
+    seen.add(key);
+    candidates.push(row);
+  }
+  candidates.sort((a, b) => (b.freq - a.freq) || ((b.monthlyVolume || 0) - (a.monthlyVolume || 0)));
+  const limit = params.autoDiscovery === true
+    ? Math.min(110, Math.max(params.targetCount * 3, 60))
+    : Math.min(180, Math.max(params.targetCount * 4, 80));
+  const metrics = candidates.slice(0, limit).map((item, index) => metricFromExpansion(
+    item.keyword,
+    Math.max(50, 92 - index * 0.15),
+    'live-autocomplete-pro-traffic',
+    'live-measured-autocomplete',
+    params.categoryId,
+    ['live-autocomplete-pro-traffic', ...item.sources].slice(0, 8),
+  ));
+  if (metrics.length === 0) return [];
+  context.progress(36, `measuring ${metrics.length} live autocomplete candidates`);
+  return measureKeywordMetrics(metrics, context);
+}
+
 async function buildMeasuredContextKeywordMetrics(
   seedKeyword: string | undefined,
   contextKeywords: MobileKeywordContextCandidate[] | undefined,
@@ -1165,12 +2783,42 @@ function addEvidence(evidence: string[], value: string): string[] {
   return evidence.includes(value) ? evidence : [...evidence, value];
 }
 
+let naverOpenApiQuotaBlockedUntil = 0;
+let lastNaverOpenApiRequestAt = 0;
+
+function isNaverOpenApiQuotaBlocked(): boolean {
+  return Date.now() < naverOpenApiQuotaBlockedUntil;
+}
+
+function markNaverOpenApiQuotaBlocked(): void {
+  naverOpenApiQuotaBlockedUntil = Date.now() + 60 * 60 * 1000;
+}
+
+function isNaverOpenApiQuotaExceeded(response: Response, data: any): boolean {
+  const message = `${data?.errorCode || ''} ${data?.errorMessage || ''}`.toLowerCase();
+  return response.status === 429
+    || message.includes('quota')
+    || message.includes('limit exceeded')
+    || message.includes('쿼리 한도');
+}
+
+async function waitForNaverOpenApiSlot(): Promise<void> {
+  const minIntervalMs = 250;
+  const now = Date.now();
+  lastNaverOpenApiRequestAt = Math.max(now, lastNaverOpenApiRequestAt + minIntervalMs);
+  const waitMs = lastNaverOpenApiRequestAt - now;
+  if (waitMs > 0) {
+    await new Promise((resolve) => setTimeout(resolve, waitMs));
+  }
+}
+
 async function fetchNaverOpenApiSearchTotal(
   keyword: string,
   endpoint: 'blog' | 'cafearticle',
   env: Partial<EnvConfig>,
   signal: AbortSignal,
 ): Promise<number | null> {
+  if (isNaverOpenApiQuotaBlocked()) return null;
   const clientId = envValue(env, 'naverClientId', 'NAVER_CLIENT_ID');
   const clientSecret = envValue(env, 'naverClientSecret', 'NAVER_CLIENT_SECRET');
   if (!clientId || !clientSecret) return null;
@@ -1182,6 +2830,7 @@ async function fetchNaverOpenApiSearchTotal(
 
   try {
     const url = `https://openapi.naver.com/v1/search/${endpoint}.json?query=${encodeURIComponent(keyword)}&display=1&sort=sim`;
+    await waitForNaverOpenApiSlot();
     const response = await fetch(url, {
       headers: {
         'X-Naver-Client-Id': clientId,
@@ -1189,8 +2838,11 @@ async function fetchNaverOpenApiSearchTotal(
       },
       signal: controller.signal,
     });
-    if (!response.ok) return null;
     const data = await response.json();
+    if (!response.ok) {
+      if (isNaverOpenApiQuotaExceeded(response, data)) markNaverOpenApiQuotaBlocked();
+      return null;
+    }
     const total = finiteNumber(data?.total);
     return total !== null && total >= 0 ? total : null;
   } catch (error) {
@@ -1206,28 +2858,40 @@ async function fetchNaverDocumentCount(
   keyword: string,
   env: Partial<EnvConfig>,
   signal: AbortSignal,
-): Promise<number | null> {
+): Promise<{
+  documentCount: number;
+  source: 'naver-api';
+  confidence: 'high';
+  isEstimated: false;
+} | null> {
   const [blogTotal, cafeTotal] = await Promise.all([
     fetchNaverOpenApiSearchTotal(keyword, 'blog', env, signal),
     fetchNaverOpenApiSearchTotal(keyword, 'cafearticle', env, signal),
   ]);
   const totals = [blogTotal, cafeTotal].filter((value): value is number => value !== null && value >= 0);
   if (totals.length === 0) return null;
-  return totals.reduce((sum, value) => sum + value, 0);
+  return {
+    documentCount: totals.reduce((sum, value) => sum + value, 0),
+    source: 'naver-api',
+    confidence: 'high',
+    isEstimated: false,
+  };
 }
 
 async function fetchNaverDocumentCountMap(
   keywords: string[],
   env: Partial<EnvConfig>,
   context: MobileJobExecutorContext,
-): Promise<Map<string, number | null>> {
-  const out = new Map<string, number | null>();
+): Promise<Map<string, Awaited<ReturnType<typeof fetchNaverDocumentCount>>>> {
+  const out = new Map<string, Awaited<ReturnType<typeof fetchNaverDocumentCount>>>();
+  if (isNaverOpenApiQuotaBlocked()) return out;
   const pending = [...keywords];
-  const workerCount = Math.min(5, Math.max(1, pending.length));
+  const workerCount = Math.min(2, Math.max(1, pending.length));
 
   const worker = async () => {
     while (pending.length > 0) {
       ensureNotAborted(context);
+      if (isNaverOpenApiQuotaBlocked()) break;
       const keyword = pending.shift();
       if (!keyword) continue;
       const documentCount = await fetchNaverDocumentCount(keyword, env, context.signal);
@@ -1268,7 +2932,7 @@ async function fetchSearchAdVolumeMap(
 function mergeMeasuredMetric(
   metric: MobileKeywordMetric,
   volume: KeywordSearchVolume | undefined,
-  documentCount: number | null | undefined,
+  documentMeasurement: Awaited<ReturnType<typeof fetchNaverDocumentCount>> | undefined,
 ): MobileKeywordMetric {
   const pcSearchVolume = finiteNumber(volume?.pcSearchVolume) ?? metric.pcSearchVolume;
   const mobileSearchVolume = finiteNumber(volume?.mobileSearchVolume) ?? metric.mobileSearchVolume;
@@ -1281,29 +2945,40 @@ function mergeMeasuredMetric(
     : splitTotal !== null && splitTotal > 0
       ? splitTotal
       : metric.totalSearchVolume;
-  const resolvedDocumentCount = documentCount !== undefined && documentCount !== null
-    ? documentCount
+  const resolvedDocumentCount = documentMeasurement !== undefined && documentMeasurement !== null
+    ? documentMeasurement.documentCount
     : metric.documentCount;
   const cpc = finiteNumber(volume?.monthlyAveCpc) ?? metric.cpc;
   const goldenRatio = ratioFromMetrics(totalSearchVolume, resolvedDocumentCount) ?? metric.goldenRatio;
-  const isMeasured = totalSearchVolume !== null && resolvedDocumentCount !== null;
+  const searchVolumeSource = volume ? 'searchad' : metric.searchVolumeSource;
+  const searchVolumeConfidence = volume ? 'high' : metric.searchVolumeConfidence;
+  const isSearchVolumeEstimated = Boolean(volume?.svEstimated) || metric.isSearchVolumeEstimated === true;
+  const documentCountSource = documentMeasurement
+    ? documentMeasurement.source
+    : metric.documentCountSource;
+  const documentCountConfidence = documentMeasurement
+    ? documentMeasurement.confidence
+    : metric.documentCountConfidence;
+  const isDocumentCountEstimated = documentMeasurement
+    ? documentMeasurement.isEstimated
+    : metric.isDocumentCountEstimated === true;
 
   let evidence = metric.evidence;
   if (volume && totalSearchVolume !== null) {
     evidence = addEvidence(evidence, 'pc-searchad-volume');
+    if (volume.svEstimated) {
+      evidence = addEvidence(evidence, 'pc-searchad-volume-estimated');
+    }
     if (volume.pcSearchVolumeLt10 || volume.mobileSearchVolumeLt10) {
       evidence = addEvidence(evidence, 'pc-searchad-lt10-range');
     }
   }
-  if (resolvedDocumentCount !== null && resolvedDocumentCount !== metric.documentCount) {
+  if (documentMeasurement && resolvedDocumentCount !== null && resolvedDocumentCount !== metric.documentCount) {
     evidence = addEvidence(evidence, 'pc-naver-blog-document-count');
     evidence = addEvidence(evidence, 'pc-naver-openapi-document-count');
   }
-  if (!isMeasured) {
-    evidence = addEvidence(evidence, 'metric-measurement-partial-or-unavailable');
-  }
 
-  return {
+  const trustedCandidate: MobileKeywordMetric = {
     ...metric,
     pcSearchVolume,
     mobileSearchVolume,
@@ -1313,8 +2988,129 @@ function mergeMeasuredMetric(
     cpc,
     grade: measuredGrade(metric.grade, totalSearchVolume, resolvedDocumentCount, goldenRatio),
     evidence,
+    isMeasured: totalSearchVolume !== null && resolvedDocumentCount !== null,
+    searchVolumeSource,
+    searchVolumeConfidence,
+    isSearchVolumeEstimated,
+    documentCountSource,
+    documentCountConfidence,
+    isDocumentCountEstimated,
+  };
+  const isMeasured = trustedCandidate.isMeasured
+    && hasTrustedSearchVolumeMeasurement(trustedCandidate)
+    && hasTrustedDocumentCountMeasurement(trustedCandidate);
+  if (!isMeasured) {
+    evidence = addEvidence(evidence, 'metric-measurement-partial-or-unavailable');
+  }
+
+  return {
+    ...trustedCandidate,
+    evidence,
     isMeasured,
   };
+}
+
+function shouldMeasureDocumentCount(
+  metric: MobileKeywordMetric,
+  volume: KeywordSearchVolume | undefined,
+): boolean {
+  if (metric.intent === 'requested-keyword' || metric.source === 'pc-keyword-analysis-exact') {
+    return true;
+  }
+  if (metric.documentCount !== null && metric.documentCount !== undefined) return false;
+  const totalFromVolume = finiteNumber(volume?.totalSearchVolume);
+  const pc = finiteNumber(volume?.pcSearchVolume);
+  const mobile = finiteNumber(volume?.mobileSearchVolume);
+  const splitTotal = pc !== null || mobile !== null ? (pc || 0) + (mobile || 0) : null;
+  const total = totalFromVolume ?? splitTotal ?? finiteNumber(metric.totalSearchVolume);
+  const measuredProductCandidate = /pc-shopping|pc-kin|pc-pro-traffic|pc-naver-mate|pc-naver-autocomplete|pc-naver-related|pc-youtube|pc-mindmap|mindmap/i.test(String(metric.source || ''));
+  if (measuredProductCandidate && total !== null && total > 0) {
+    return true;
+  }
+  return total !== null && total >= 300;
+}
+
+function normalizeMindmapSearchPhrase(keyword: string): string {
+  return normalizeKeyword(keyword)
+    .replace(/#/g, ' ')
+    .replace(/[<>{}[\]\\|]/g, ' ')
+    .replace(/\s+/g, ' ')
+    .trim();
+}
+
+function isMindmapSearchPhraseCandidate(keyword: string): boolean {
+  const clean = normalizeMindmapSearchPhrase(keyword);
+  if (!clean || clean.length < 2 || clean.length > 42) return false;
+  if (/^[\d\s.,_-]+$/.test(clean)) return false;
+  if (/[?]{2,}/.test(clean)) return false;
+  if (/[:;!?]/.test(clean)) return false;
+  if (MINDMAP_ARTICLE_TITLE_QUERY_RE.test(clean)) return false;
+  const tokens = keywordTokens(clean);
+  if (tokens.length > 5) return false;
+  return SAFE_HANGUL_SEARCH_RE.test(clean);
+}
+
+async function buildMeasuredMindmapSeedMetrics(
+  seedKeyword: string,
+  contextKeywords: MobileKeywordContextCandidate[] | undefined,
+  targetCount: number,
+  context: MobileJobExecutorContext,
+  measureKeywordMetrics: MobileKeywordMetricsAdapter,
+): Promise<MobileKeywordMetric[]> {
+  const seedList = contextSeedKeywords(
+    seedKeyword,
+    contextKeywords,
+    Math.min(8, Math.max(2, targetCount)),
+  );
+  const normalizedSeed = normalizeKeyword(seedKeyword).replace(/\s+/g, ' ').trim();
+  const seedKey = compactKeyword(normalizedSeed);
+  const primaryRoots = [
+    normalizedSeed,
+    ...buildMindmapMeasuredQueryRoots(normalizedSeed, 32),
+    ...buildSafeMeasuredIntentRoots(normalizedSeed, 24),
+    ...buildIntentQueryRoots(normalizedSeed, 8),
+  ];
+  const contextRoots = seedList
+    .filter((seed) => compactKeyword(seed) !== seedKey)
+    .flatMap((seed) => [
+      seed,
+      ...buildMindmapMeasuredQueryRoots(seed, 8),
+      ...buildSafeMeasuredIntentRoots(seed, 10),
+      ...buildIntentQueryRoots(seed, 4),
+    ]);
+  const roots = uniqueKeywords(
+    [
+      ...primaryRoots,
+      ...contextRoots,
+    ],
+    Math.min(90, Math.max(24, targetCount * 4)),
+  ).map(normalizeMindmapSearchPhrase).filter(isMindmapSearchPhraseCandidate);
+  const seen = new Set<string>();
+  const candidates = roots
+    .filter((keyword) => {
+      const key = compactKeyword(keyword);
+      if (!key || seen.has(key)) return false;
+      seen.add(key);
+      return true;
+    })
+    .slice(0, Math.min(48, Math.max(12, targetCount * 2)))
+    .map((keyword, index) => {
+      const source = compactKeyword(keyword) === seedKey
+        ? 'pc-mindmap-exact-measured-seed'
+        : 'pc-mindmap-measured-intent-expansion';
+      return metricFromExpansion(
+        keyword,
+        Math.max(48, 84 - index * 0.6),
+        source,
+        'mindmap-expansion',
+        'auto',
+        [source, `seed: ${seedKeyword}`],
+      );
+    });
+  if (!candidates.length) return [];
+  context.progress(72, `measuring ${candidates.length} pc-mindmap measured intent candidates`);
+  const measured = await measureKeywordMetrics(candidates, context);
+  return prioritizeMindmapMeasuredMetrics(measured, targetCount);
 }
 
 function isFullyMeasuredKeyword(metric: MobileKeywordMetric): boolean {
@@ -1322,7 +3118,53 @@ function isFullyMeasuredKeyword(metric: MobileKeywordMetric): boolean {
     && metric.totalSearchVolume !== null
     && metric.totalSearchVolume > 0
     && metric.documentCount !== null
-    && metric.documentCount > 0;
+    && metric.documentCount > 0
+    && hasTrustedSearchVolumeMeasurement(metric)
+    && hasTrustedDocumentCountMeasurement(metric);
+}
+
+function strictFullyMeasuredMetrics(
+  metrics: MobileKeywordMetric[],
+  targetCount: number,
+): MobileKeywordMetric[] {
+  return metrics.filter(isFullyMeasuredKeyword).slice(0, targetCount);
+}
+
+const LOW_SIGNAL_MINDMAP_KEYWORD_RE = /^(?:\uD65C\uC6A9\s*\uBC29\uBC95|\uC0AC\uC6A9\s*\uBC29\uBC95|\uC815\uB9AC|\uBC29\uBC95|\uC870\uD68C|\uC2E0\uCCAD|\uD655\uC778)$/u;
+
+function isUsefulMindmapMeasuredMetric(metric: MobileKeywordMetric): boolean {
+  if (!isFullyMeasuredKeyword(metric)) return false;
+  if (LOW_SIGNAL_MINDMAP_KEYWORD_RE.test(normalizeMindmapSearchPhrase(metric.keyword))) return false;
+  const total = finiteNumber(metric.totalSearchVolume) ?? 0;
+  const docs = finiteNumber(metric.documentCount) ?? Number.POSITIVE_INFINITY;
+  const ratio = finiteNumber(metric.goldenRatio) ?? 0;
+  if (metricGradeRank(metric.grade) <= 0) return false;
+  if (total < 30) return false;
+  if (docs > 500000 && ratio < 1) return false;
+  return true;
+}
+
+function prioritizeMindmapMeasuredMetrics(
+  metrics: MobileKeywordMetric[],
+  targetCount: number,
+): MobileKeywordMetric[] {
+  const seen = new Set<string>();
+  const exactMeasuredSeeds = metrics.filter((metric) =>
+    metric.source === 'pc-mindmap-exact-measured-seed'
+    && isFullyMeasuredKeyword(metric)
+  );
+  const usefulExpansions = metrics.filter((metric) =>
+    metric.source !== 'pc-mindmap-exact-measured-seed'
+    && isUsefulMindmapMeasuredMetric(metric)
+  );
+  return [...exactMeasuredSeeds, ...usefulExpansions]
+    .filter((metric) => {
+      const key = compactKeyword(metric.keyword);
+      if (!key || seen.has(key)) return false;
+      seen.add(key);
+      return true;
+    })
+    .slice(0, targetCount);
 }
 
 function prioritizeFullyMeasuredMetrics(
@@ -1344,6 +3186,7 @@ function prioritizeFullyMeasuredMetrics(
 function isWeakProTrafficPublishIntent(metric: MobileKeywordMetric): boolean {
   const compacted = compactKeyword(metric.keyword);
   if (!compacted) return true;
+  if (isUltimateLowValueLookupKeyword(metric.keyword)) return true;
 
   return /(프로필|인스타|나이|학력|고향|키|혈액형|근황|몇부작|출연진|재방송|다시보기|방송시간|공식영상|하이라이트|예고편)$/.test(compacted);
 }
@@ -1351,22 +3194,39 @@ function isWeakProTrafficPublishIntent(metric: MobileKeywordMetric): boolean {
 function prioritizeProTrafficPublishableMetrics(
   metrics: MobileKeywordMetric[],
   targetCount: number,
+  options: { strictUltimate?: boolean } = {},
 ): MobileKeywordMetric[] {
-  const publishable: MobileKeywordMetric[] = [];
-  const weakIntent: MobileKeywordMetric[] = [];
-
-  for (const metric of metrics) {
-    if (isWeakProTrafficPublishIntent(metric)) {
-      weakIntent.push(metric);
-    } else {
-      publishable.push(metric);
-    }
+  const publishable = metrics.filter((metric) => !isWeakProTrafficPublishIntent(metric));
+  if (!options.strictUltimate) {
+    return prioritizeFullyMeasuredMetrics(publishable, targetCount);
   }
 
-  return [
-    ...prioritizeFullyMeasuredMetrics(publishable, publishable.length),
-    ...prioritizeFullyMeasuredMetrics(weakIntent, weakIntent.length),
-  ].slice(0, targetCount);
+  const judged = attachKeywordAiJudges(publishable, { downgradeExcluded: false });
+  const strict = judged.filter((metric) => isUltimateGoldenKeywordCandidate(metric, {
+    requirePcMobileSplit: true,
+    requireMeasurementProvenance: true,
+    minAiScore: 98,
+    minTotalSearchVolume: 300,
+    maxDocumentCount: 8000,
+    minGoldenRatio: 5,
+  }));
+  if (strict.length >= targetCount) {
+    return prioritizeFullyMeasuredMetrics(strict, targetCount);
+  }
+
+  const strictKeys = new Set(strict.map((metric) => compactKeyword(metric.keyword)).filter(Boolean));
+  const measuredPublishable = prioritizeMeasuredDecisionMetrics(
+    judged.filter((metric) => !strictKeys.has(compactKeyword(metric.keyword))),
+    Math.max(targetCount, targetCount - strict.length),
+    {
+      publishOnly: true,
+      requirePcMobileSplit: true,
+      minTotalSearchVolume: 300,
+      maxDocumentCount: 30000,
+      minGoldenRatio: 1,
+    },
+  );
+  return prioritizeFullyMeasuredMetrics([...strict, ...measuredPublishable], targetCount);
 }
 
 function isSyntheticKeywordAnalysisSource(metric: MobileKeywordMetric): boolean {
@@ -1422,10 +3282,21 @@ function createDefaultKeywordMetricsAdapter(
     context.progress(84, `measuring ${keywords.length} keyword metrics with PC SearchAd/OpenAPI`);
     ensureNotAborted(context);
 
-    const [volumeMap, documentCountMap] = await Promise.all([
-      hasSearchAdConfig ? fetchSearchAdVolumeMap(keywords, env, context) : Promise.resolve(new Map<string, KeywordSearchVolume>()),
-      hasOpenApiConfig ? fetchNaverDocumentCountMap(keywords, env, context) : Promise.resolve(new Map<string, number | null>()),
-    ]);
+    const volumeMap = hasSearchAdConfig
+      ? await fetchSearchAdVolumeMap(keywords, env, context)
+      : new Map<string, KeywordSearchVolume>();
+    ensureNotAborted(context);
+    const documentKeywords = hasOpenApiConfig
+      ? metrics
+        .map((metric) => normalizeKeyword(metric.keyword))
+        .filter((keyword, index) => {
+          const key = compactKeyword(keyword);
+          return Boolean(key && shouldMeasureDocumentCount(metrics[index], volumeMap.get(key)));
+        })
+      : [];
+    const documentCountMap = documentKeywords.length > 0
+      ? await fetchNaverDocumentCountMap(documentKeywords, env, context)
+      : new Map<string, Awaited<ReturnType<typeof fetchNaverDocumentCount>>>();
     ensureNotAborted(context);
 
     return metrics.map((metric) => {
@@ -1612,6 +3483,24 @@ async function runProTrafficWithPcHunter(
   if (seedKeywords.length > 0) {
     context.progress(14, `injecting ${seedKeywords.length} web context seeds into PC PRO hunter`);
   }
+  const liveMeasuredMetrics = measureKeywordMetrics
+    ? await buildProTrafficLiveMeasuredMetrics(params, context, measureKeywordMetrics)
+    : [];
+  const liveStrictMetrics = prioritizeProTrafficPublishableMetrics(
+    liveMeasuredMetrics,
+    params.targetCount,
+    { strictUltimate: true },
+  );
+  if (!params.seedKeyword && (params as any).autoDiscovery === true) {
+    context.progress(84, `live measured prewarm filled ${liveStrictMetrics.length} strict PRO candidates`);
+    if (liveStrictMetrics.length >= params.targetCount) {
+      return resultFromMetrics(liveStrictMetrics, startedAt, 'pc-engine-plus');
+    }
+    context.progress(
+      85,
+      `live strict pool below target; continuing PC PRO hunter for ${params.targetCount - liveStrictMetrics.length} more candidates`,
+    );
+  }
   const hunterCount = params.seedKeyword
     ? params.targetCount
     : Math.min(250, Math.max(params.targetCount * 4, 100));
@@ -1635,15 +3524,60 @@ async function runProTrafficWithPcHunter(
   const rawMetrics = result.keywords
     .map((item) => metricFromProResult(item, params.categoryId))
     .filter((item) => item.keyword);
+  const combinedRawMetrics = [...liveMeasuredMetrics, ...rawMetrics];
   const metrics = prioritizeProTrafficPublishableMetrics(
-    rawMetrics,
-    Math.min(rawMetrics.length, Math.max(params.targetCount * 2, params.targetCount + 20)),
+    combinedRawMetrics,
+    Math.min(combinedRawMetrics.length, Math.max(params.targetCount * 2, params.targetCount + 20)),
   );
   const measuredMetrics = measureKeywordMetrics
     ? await measureKeywordMetrics(metrics, context)
     : metrics;
+  let finalMetrics = prioritizeProTrafficPublishableMetrics(
+    [...liveMeasuredMetrics, ...measuredMetrics],
+    params.targetCount,
+    { strictUltimate: true },
+  );
+  if (!params.seedKeyword && (params as any).autoDiscovery === true && finalMetrics.length < params.targetCount && measureKeywordMetrics) {
+    context.progress(
+      90,
+      `strict PRO pool has ${finalMetrics.length}/${params.targetCount}; measuring live source signal top-up`,
+    );
+    const sourceSignalMetrics = await buildSourceSignalMetrics(
+      proTrafficFallbackLane(params.categoryId),
+      Math.max(params.targetCount * 3, 80),
+      context,
+      'pc-pro-traffic-source-signal-topup',
+      'measured-live-need-topup',
+      measureKeywordMetrics,
+    );
+    finalMetrics = prioritizeProTrafficPublishableMetrics(
+      [...liveMeasuredMetrics, ...measuredMetrics, ...sourceSignalMetrics],
+      params.targetCount,
+      { strictUltimate: true },
+    );
+  }
+  if (!params.seedKeyword && (params as any).autoDiscovery === true && finalMetrics.length < params.targetCount && measureKeywordMetrics) {
+    context.progress(
+      92,
+      `measured PRO pool has ${finalMetrics.length}/${params.targetCount}; measuring root intent top-up`,
+    );
+    const rootTopUp = await buildMeasuredIntentFallbackFromSeeds(
+      uniqueKeywords([...seedKeywords, ...defaultProTrafficDiscoveryRoots(params.categoryId)], 12),
+      Math.max(params.targetCount - finalMetrics.length, Math.min(30, params.targetCount)),
+      'pc-pro-traffic-root-intent-topup',
+      'measured-pro-traffic-need',
+      params.categoryId,
+      context,
+      measureKeywordMetrics,
+    );
+    finalMetrics = prioritizeProTrafficPublishableMetrics(
+      [...liveMeasuredMetrics, ...measuredMetrics, ...rootTopUp],
+      params.targetCount,
+      { strictUltimate: true },
+    );
+  }
   return resultFromMetrics(
-    prioritizeProTrafficPublishableMetrics(measuredMetrics, params.targetCount),
+    finalMetrics,
     startedAt,
     'pc-engine-plus',
   );
@@ -1713,11 +3647,24 @@ async function runKinHiddenHoneyWithPcHunter(
     .slice(0, params.targetCount)
     .map(metricFromKinQuestion)
     .filter((item: MobileKeywordMetric) => item.keyword);
-  if (metrics.length < params.targetCount) {
+  const measuredKinMetrics = metrics.length > 0
+    ? await measureKeywordMetrics(metrics, context)
+    : [];
+  let finalMetrics = prioritizeMeasuredDecisionMetrics(
+    measuredKinMetrics.filter(isKinAnswerDemandMetric),
+    params.targetCount,
+    {
+      requirePcMobileSplit: true,
+      minTotalSearchVolume: 30,
+      maxDocumentCount: 150000,
+    },
+  );
+  if (finalMetrics.length < params.targetCount) {
+    const kinContextKeywords = (params.contextKeywords || []).filter((item) => isKinAnswerDemandKeyword(item.keyword));
     const contextTopUp = await buildMeasuredContextKeywordMetrics(
       undefined,
-      params.contextKeywords,
-      Math.max(0, params.targetCount - metrics.length),
+      kinContextKeywords,
+      Math.max(0, params.targetCount - finalMetrics.length),
       'pc-kin-web-context-topup',
       'kin-question-web-context',
       'naver-kin',
@@ -1725,28 +3672,37 @@ async function runKinHiddenHoneyWithPcHunter(
       measureKeywordMetrics,
     );
     if (contextTopUp.length > 0) {
-      const seen = new Set(metrics.map((item: MobileKeywordMetric) => compactKeyword(item.keyword)).filter(Boolean));
+      const seen = new Set(finalMetrics.map((item: MobileKeywordMetric) => compactKeyword(item.keyword)).filter(Boolean));
       for (const metric of contextTopUp) {
         const key = compactKeyword(metric.keyword);
         if (!key || seen.has(key)) continue;
         seen.add(key);
-        metrics.push(metric);
-        if (metrics.length >= params.targetCount) break;
+        finalMetrics.push(metric);
+        if (finalMetrics.length >= params.targetCount) break;
       }
     }
   }
-  if (metrics.length === 0) {
+  finalMetrics = prioritizeMeasuredDecisionMetrics(finalMetrics, params.targetCount, {
+    requirePcMobileSplit: true,
+    minTotalSearchVolume: 30,
+    maxDocumentCount: 50000,
+  });
+  if (finalMetrics.length < params.targetCount) {
     const fallback = await buildSourceSignalMetrics(
       'all',
-      params.targetCount,
+      Math.max(params.targetCount * 2, 60),
       context,
       'pc-kin-live-source-fallback',
       'kin-question-source-gap',
       measureKeywordMetrics,
     );
-    return resultFromMetrics(fallback, startedAt, 'pc-engine-plus');
+    finalMetrics = prioritizeMeasuredDecisionMetrics([...finalMetrics, ...fallback].filter(isKinAnswerDemandMetric), params.targetCount, {
+      requirePcMobileSplit: true,
+      minTotalSearchVolume: 30,
+      maxDocumentCount: 50000,
+    });
   }
-  return resultFromMetrics(metrics, startedAt, 'pc-engine-plus');
+  return resultFromMetrics(finalMetrics, startedAt, 'pc-engine-plus');
 }
 
 async function runShoppingConnectWithPcEngine(
@@ -1760,10 +3716,7 @@ async function runShoppingConnectWithPcEngine(
     params.keyword || undefined,
     params.contextKeywords,
     Math.min(30, Math.max(params.targetCount, 30)),
-  );
-  const rootKeyword = params.keyword || '쇼핑 자동 발굴';
-
-  const shoppingRootKeyword = params.keyword || contextSeeds[0] || rootKeyword;
+  ).filter(seed => !isAutoDiscoveryPlaceholderKeyword(seed));
 
   context.progress(10, autoDiscovery ? 'starting PC shopping auto discovery' : `starting PC shopping connect for ${params.keyword}`);
   ensureNotAborted(context);
@@ -1778,13 +3731,25 @@ async function runShoppingConnectWithPcEngine(
   if (contextPlans.length > 0) {
     context.progress(16, `injecting ${contextPlans.length} web context seeds into shopping connect`);
   }
+  const shoppingDiscoverySeedLimit = Math.min(60, Math.max(params.targetCount * 2, 30));
   const discoveryPlans = autoDiscovery
-    ? (await discovery.getShoppingDiscoverySeeds(params.targetCount)).slice(0, Math.min(30, params.targetCount)).map((seed) => ({
+    ? (await discovery.getShoppingDiscoverySeeds(shoppingDiscoverySeedLimit)).slice(0, shoppingDiscoverySeedLimit).map((seed) => ({
         keyword: seed.keyword,
         source: 'auto-discovery' as const,
         reason: seed.reason,
+        pcSearchVolume: seed.pcSearchVolume,
+        mobileSearchVolume: seed.mobileSearchVolume,
+        searchVolume: seed.searchVolume,
+        documentCount: seed.documentCount,
+        goldenRatio: seed.goldenRatio,
+        category: seed.category,
+        priorityScore: seed.priorityScore,
       }))
     : [];
+  const shoppingRootKeyword = params.keyword
+    || contextSeeds[0]
+    || discoveryPlans.find(plan => !isAutoDiscoveryPlaceholderKeyword(plan.keyword))?.keyword
+    || '';
   const rawSearchPlans = autoDiscovery
     ? [...contextPlans, ...discoveryPlans]
     : [{
@@ -1795,11 +3760,27 @@ async function runShoppingConnectWithPcEngine(
   const seenPlans = new Set<string>();
   const searchPlans = rawSearchPlans.filter((plan) => {
     const key = compactKeyword(plan.keyword);
+    if (isAutoDiscoveryPlaceholderKeyword(plan.keyword)) return false;
     if (!key || seenPlans.has(key)) return false;
     seenPlans.add(key);
     return true;
-  }).slice(0, autoDiscovery ? Math.min(30, Math.max(params.targetCount, 30)) : Math.min(30, Math.max(1, params.targetCount)));
+  }).slice(0, autoDiscovery ? Math.min(60, Math.max(params.targetCount * 2, 30)) : Math.min(30, Math.max(1, params.targetCount)));
   if (searchPlans.length === 0) throw new Error('shopping discovery seeds are empty');
+  const balancedStaticShoppingSeeds = autoDiscovery
+    ? discovery.getStaticShoppingSuggestions(6).flatMap((group) => group.keywords)
+    : [];
+  const fallbackSeeds = uniqueKeywords(
+    [
+      shoppingRootKeyword,
+      ...balancedStaticShoppingSeeds,
+      ...searchPlans.map(plan => plan.keyword),
+      ...discoveryPlans.map(plan => plan.keyword),
+      ...contextSeeds,
+    ]
+      .flatMap(seed => shoppingKeywordVariants(seed))
+      .filter(seed => seed && !isAutoDiscoveryPlaceholderKeyword(seed)),
+    Math.min(80, Math.max(30, params.targetCount * 3)),
+  );
 
   const settledShopping = await Promise.allSettled(searchPlans.map((plan) =>
     shopping.searchNaverShopping(plan.keyword, {
@@ -1832,8 +3813,8 @@ async function runShoppingConnectWithPcEngine(
     const quotaError = rejectedReasons.find(isQuotaLimitError);
     if (!quotaError) throw rejectedReasons[0];
     context.progress(35, `shopping quota exhausted; using SearchAd/OpenAPI measured commerce fallback for ${shoppingRootKeyword}`);
-    const fallback = await buildMeasuredIntentFallback(
-      shoppingRootKeyword,
+    const fallback = await buildMeasuredIntentFallbackFromSeeds(
+      fallbackSeeds,
       params.targetCount,
       'pc-shopping-quota-searchad-fallback',
       'commerce-entry',
@@ -1841,11 +3822,7 @@ async function runShoppingConnectWithPcEngine(
       context,
       measureKeywordMetrics,
     );
-    return {
-      total: 0,
-      items: [],
-      fallbackMetrics: fallback,
-    } as any;
+    return resultFromMetrics(fallback, startedAt, 'pc-engine-plus');
   }
   ensureNotAborted(context);
 
@@ -1856,8 +3833,8 @@ async function runShoppingConnectWithPcEngine(
   const shoppingItems = Array.isArray(result.items) ? result.items : [];
   if (shoppingItems.length === 0) {
     context.progress(45, `shopping returned 0 products; using SearchAd/OpenAPI measured commerce fallback for ${shoppingRootKeyword}`);
-    const fallback = await buildMeasuredIntentFallback(
-      shoppingRootKeyword,
+    const fallback = await buildMeasuredIntentFallbackFromSeeds(
+      fallbackSeeds,
       params.targetCount,
       'pc-shopping-empty-searchad-fallback',
       'commerce-entry',
@@ -1868,12 +3845,19 @@ async function runShoppingConnectWithPcEngine(
     return resultFromMetrics(fallback, startedAt, 'pc-engine-plus');
   }
 
-  const scoredItems = shoppingItems.map((item) => ({
+  const scoredItems = shoppingItems
+    .filter((item) => isShoppingItemRelevantToDiscovery(item, shoppingRootKeyword))
+    .map((item) => ({
+      ...item,
+      conversionScore: shopping.computeConversionScore(item),
+    }));
+  const rankingItems = scoredItems.length > 0 ? scoredItems : shoppingItems.map((item) => ({
     ...item,
     conversionScore: shopping.computeConversionScore(item),
   }));
+  const shoppingCandidateMetricLimit = Math.min(120, Math.max(params.targetCount * 3, 90));
   const rankedItems = shopping.rankShoppingOpportunities(
-    scoredItems,
+    rankingItems,
     {
       keyword: shoppingRootKeyword,
       intentPrimary: 'buy',
@@ -1881,7 +3865,7 @@ async function runShoppingConnectWithPcEngine(
       relatedKeywords: [],
       crossSourceSeeds: [],
     },
-    Math.max(params.targetCount, 30),
+    shoppingCandidateMetricLimit,
     { balanceDiscovery: true },
   );
 
@@ -1890,8 +3874,15 @@ async function runShoppingConnectWithPcEngine(
 
   const metrics: MobileKeywordMetric[] = [];
   const seen = new Set<string>();
+  for (const plan of discoveryPlans) {
+    const metric = metricFromShoppingDiscoverySeed(plan);
+    const key = compactKeyword(metric?.keyword || '');
+    if (!metric || !key || seen.has(key)) continue;
+    seen.add(key);
+    metrics.push(metric);
+  }
   for (const item of rankedItems) {
-    const seeds = shopping.buildProductLeWordSeeds(item, item.discoveryQuery || shoppingRootKeyword, 5);
+    const seeds = shopping.buildProductLeWordSeeds(item, item.discoveryQuery || shoppingRootKeyword, 10);
     if (seeds.length === 0) {
       seeds.push({
         keyword: normalizeKeyword(item.cleanTitle || item.simplifiedTitle || item.title || item.discoveryQuery || shoppingRootKeyword),
@@ -1900,17 +3891,75 @@ async function runShoppingConnectWithPcEngine(
       });
     }
     for (const seed of seeds) {
-      const key = compactKeyword(seed.keyword);
-      if (!key || seen.has(key)) continue;
-      seen.add(key);
-      metrics.push(metricFromShoppingSeed(seed, item, item.discoveryQuery || shoppingRootKeyword));
-      if (metrics.length >= params.targetCount) break;
+      const variants = shoppingKeywordVariants(seed.keyword);
+      for (const keyword of variants) {
+        const key = compactKeyword(keyword);
+        if (!key || seen.has(key)) continue;
+        seen.add(key);
+        metrics.push(metricFromShoppingSeed({ ...seed, keyword }, item, item.discoveryQuery || shoppingRootKeyword));
+        if (metrics.length >= shoppingCandidateMetricLimit) break;
+      }
+      if (metrics.length >= shoppingCandidateMetricLimit) break;
     }
-    if (metrics.length >= params.targetCount) break;
+    if (metrics.length >= shoppingCandidateMetricLimit) break;
   }
 
   const measuredMetrics = await measureKeywordMetrics(metrics, context);
-  return resultFromMetrics(measuredMetrics, startedAt, 'pc-engine-plus');
+  const measuredProductPicks = prioritizeShoppingProductPickMetrics(
+    measuredMetrics,
+    params.targetCount,
+  );
+  let strictMetrics = prioritizeMeasuredDecisionMetrics(
+    measuredMetrics,
+    params.targetCount,
+    {
+      requirePcMobileSplit: true,
+      minTotalSearchVolume: 30,
+      maxDocumentCount: 50000,
+    },
+  );
+  let finalMetrics = mergePrioritizedKeywordMetrics(
+    [measuredProductPicks, strictMetrics],
+    params.targetCount,
+  );
+  if (finalMetrics.length < params.targetCount) {
+    context.progress(
+      82,
+      `shopping publishable pool has ${finalMetrics.length}/${params.targetCount}; measuring commerce intent top-up`,
+    );
+    const fallback = await buildMeasuredIntentFallbackFromSeeds(
+      fallbackSeeds,
+      Math.max(params.targetCount - finalMetrics.length, Math.min(30, params.targetCount)),
+      'pc-shopping-commerce-intent-topup',
+      'commerce-entry',
+      'shopping',
+      context,
+      measureKeywordMetrics,
+    );
+    const fallbackWithProductPicks = attachShoppingProductPicksToMetrics(
+      fallback,
+      rankedItems,
+      shoppingRootKeyword,
+    );
+    const measuredProductPicksWithFallback = prioritizeShoppingProductPickMetrics(
+      [...measuredMetrics, ...fallbackWithProductPicks],
+      params.targetCount,
+    );
+    strictMetrics = prioritizeMeasuredDecisionMetrics(
+      [...measuredMetrics, ...fallbackWithProductPicks],
+      params.targetCount,
+      {
+        requirePcMobileSplit: true,
+        minTotalSearchVolume: 30,
+        maxDocumentCount: 150000,
+      },
+    );
+    finalMetrics = mergePrioritizedKeywordMetrics(
+      [measuredProductPicksWithFallback, strictMetrics],
+      params.targetCount,
+    );
+  }
+  return resultFromMetrics(finalMetrics, startedAt, 'pc-engine-plus');
 }
 
 async function runYoutubeGoldenWithPcEngine(
@@ -1934,10 +3983,13 @@ async function runYoutubeGoldenWithPcEngine(
 
   const youtube = await import('../utils/youtube-data-api');
   const analyzer = await import('../utils/youtube-trend-analyzer');
+  const categoryId = params.categoryId && params.categoryId !== 'all'
+    ? params.categoryId
+    : undefined;
   const trending = await youtube.getYouTubeTrending({
     apiKey,
     maxResults: params.maxResults,
-    categoryId: params.categoryId,
+    categoryId,
     regionCode: 'KR',
     useCache: true,
   });
@@ -1970,30 +4022,168 @@ async function runYoutubeGoldenWithPcEngine(
   }
   ensureNotAborted(context);
 
+  const youtubeNoiseKeywords = new Set([
+    '그냥', '장면은', '메인', '분석', '예고편', '공개', '공식', '영상', '방송', '게임',
+    '그림', '대회', '직전', '감독', '지시', '선수들', '브랜드', '데이', '체크', '마이크',
+    '중요할', '먹으라고', '탈락', '못할', '뭐가', '있어', '라이브', '쇼츠', '티저',
+  ]);
+  const isUsefulYoutubeKeyword = (keyword: string): boolean => {
+    const normalized = normalizeKeyword(keyword).replace(/\s+/g, ' ').trim();
+    const compacted = compactKeyword(normalized);
+    if (!normalized || !compacted || normalized.length < 3 || normalized.length > 36) return false;
+    if (!isSearchPhraseCandidate(normalized)) return false;
+    if (!/[가-힣]/.test(normalized)) return false;
+    if (/^\d+(?:회|탄|차|부)?$/.test(normalized)) return false;
+    if (youtubeNoiseKeywords.has(normalized.toLowerCase())) return false;
+    const tokens = normalized.split(/\s+/).filter(Boolean);
+    if (tokens.length === 1 && compacted.length < 5) return false;
+    if (tokens.length === 1 && youtubeNoiseKeywords.has(compacted.toLowerCase())) return false;
+    return true;
+  };
+  const youtubeIntentExpansions = (keyword: string, category?: string): string[] => {
+    const base = normalizeKeyword(keyword).replace(/\s+/g, ' ').trim();
+    if (!isUsefulYoutubeKeyword(base)) return [];
+    const lowerCategory = String(category || '').toLowerCase();
+    const compacted = compactKeyword(base);
+    const suffixes = /(영화|애니|movie|animation)/i.test(lowerCategory) || /스파이더맨|드라마|영화|애니/.test(base)
+      ? ['예고편', '개봉일', '출연진', '쿠키영상', '줄거리', '해석', '리뷰']
+      : /(게임|gaming)/i.test(lowerCategory) || /게임|리니지|스타|공성전|숨바꼭질/.test(base)
+        ? ['공략', '하는법', '출시일', '쿠폰', '정리', '설정', '랭킹']
+        : /(스포츠|sports|kbo|fifa|월드컵)/i.test(lowerCategory) || /kbo|경기|월드컵|야구|축구/.test(base.toLowerCase())
+          ? ['중계', '일정', '라인업', '결과', '하이라이트', '순위']
+          : ['정리', '뜻', '방법', '후기', '반응'];
+    const out = [base, ...buildYouTubeSearchIntentRoots(base, category, 12)];
+    for (const suffix of suffixes) {
+      const expanded = `${base} ${suffix}`.replace(/\s+/g, ' ').trim();
+      if (compactKeyword(expanded) !== compacted) out.push(expanded);
+    }
+    return uniqueKeywords(out.filter(isUsefulYoutubeKeyword), 18);
+  };
   const seen = new Set<string>();
-  const metrics = golden
-    .map((item) => metricFromYoutubeKeyword(item, crossByKeyword.get(compactKeyword(item.keyword))))
-    .filter((item) => {
-      const key = compactKeyword(item.keyword);
-      if (!key || seen.has(key)) return false;
-      seen.add(key);
-      return true;
-    })
-    .slice(0, params.maxResults);
-
-  if (metrics.length === 0) {
-    const fallback = await buildSourceSignalMetrics(
-      'all',
-      params.maxResults,
-      context,
-      'pc-youtube-live-source-fallback',
-      'youtube-trend-source-gap',
-      params.crossReferenceNaver ? measureKeywordMetrics : undefined,
+  const metrics: MobileKeywordMetric[] = [];
+  const pushYoutubeMetric = (
+    keyword: string,
+    score: number,
+    source: string,
+    evidence: string[],
+    cross?: any,
+  ) => {
+    const normalized = normalizeKeyword(keyword);
+    const key = compactKeyword(normalized);
+    if (!isUsefulYoutubeKeyword(normalized) || !key || seen.has(key)) return;
+    seen.add(key);
+    const metric = metricFromYoutubeKeyword(
+      { keyword: normalized, trendScore: score, reason: source },
+      cross || crossByKeyword.get(key),
     );
-    return resultFromMetrics(fallback, startedAt, 'pc-engine-plus');
+    metrics.push({
+      ...metric,
+      grade: normalizeGrade(metric.grade, score),
+      source,
+      evidence: Array.from(new Set([...(metric.evidence || []), ...evidence].filter(Boolean))),
+    });
+  };
+
+  golden.forEach((item, index) => {
+    const score = finiteNumber(item.totalScore) ?? finiteNumber(item.trendScore) ?? Math.max(55, 88 - index);
+    youtubeIntentExpansions(item.keyword, (item as any).category).forEach((keyword, expandIndex) => {
+      pushYoutubeMetric(
+        keyword,
+        Math.max(50, score - expandIndex * 1.5),
+        expandIndex === 0 ? 'pc-youtube-golden-keywords' : 'pc-youtube-blog-intent-expansion',
+        ['youtube-trend-analyzer', normalizeKeyword(item.reason), expandIndex > 0 ? 'youtube-blog-search-intent' : ''].filter(Boolean),
+      );
+    });
+  });
+
+  const trendKeywords = await youtube.getYouTubeTrendKeywords({
+    apiKey,
+    maxResults: Math.min(80, Math.max(50, params.maxResults)),
+  }).catch(() => [] as Array<{ keyword: string; viewCount?: number; changeRate?: number; category?: string }>);
+  trendKeywords.forEach((item, index) => {
+    const score = Math.min(95, Math.max(55, finiteNumber(item.changeRate) ?? (86 - index * 0.35)));
+    youtubeIntentExpansions(item.keyword, item.category).forEach((keyword, expandIndex) => {
+      pushYoutubeMetric(
+        keyword,
+        Math.max(50, score - expandIndex * 1.25),
+        expandIndex === 0 ? 'pc-youtube-title-keyword' : 'pc-youtube-blog-intent-expansion',
+        [
+          'youtube-title-keyword',
+          expandIndex > 0 ? 'youtube-blog-search-intent' : '',
+          typeof item.viewCount === 'number' ? `youtube-view-count ${item.viewCount}` : '',
+          normalizeKeyword(item.category),
+        ].filter(Boolean),
+      );
+    });
+  });
+
+  for (const video of videos) {
+    const videoScore = finiteNumber((video as any)?.viewsPerHour)
+      ? Math.min(95, 55 + Math.log10(Math.max(10, (video as any).viewsPerHour)) * 8)
+      : 65;
+    const titleCandidates = typeof youtube.extractYouTubeTrendKeywordCandidates === 'function'
+      ? youtube.extractYouTubeTrendKeywordCandidates((video as any).title || '')
+      : [];
+    for (const keyword of titleCandidates) {
+      youtubeIntentExpansions(keyword, (video as any).categoryName).forEach((expanded, expandIndex) => {
+        pushYoutubeMetric(
+          expanded,
+          Math.max(50, videoScore - expandIndex * 1.25),
+          expandIndex === 0 ? 'pc-youtube-title-candidate' : 'pc-youtube-blog-intent-expansion',
+          [
+            'youtube-title-candidate',
+            expandIndex > 0 ? 'youtube-blog-search-intent' : '',
+            normalizeKeyword((video as any).categoryName),
+            typeof (video as any).viewCount === 'number' ? `youtube-view-count ${(video as any).viewCount}` : '',
+          ].filter(Boolean),
+        );
+      });
+      if (metrics.length >= Math.min(180, Math.max(80, params.maxResults * 4))) break;
+    }
+    if (metrics.length >= Math.min(180, Math.max(80, params.maxResults * 4))) break;
   }
 
-  return resultFromMetrics(metrics, startedAt, 'pc-engine-plus');
+  const candidateMetrics = metrics.slice(0, Math.min(180, Math.max(80, params.maxResults * 4)));
+  if (candidateMetrics.length > 0) {
+    context.progress(82, `measuring ${candidateMetrics.length} YouTube trend keywords with Naver SearchAd/OpenAPI`);
+    const measured = await measureKeywordMetrics(candidateMetrics, context);
+    const finalMetrics = prioritizeMeasuredDecisionMetrics(
+      measured,
+      params.maxResults,
+      {
+        requirePcMobileSplit: true,
+        minTotalSearchVolume: 30,
+        maxDocumentCount: 100000,
+      },
+    );
+    if (finalMetrics.length > 0) {
+      return resultFromMetrics(finalMetrics, startedAt, 'pc-engine-plus');
+    }
+  }
+
+  const fallback = await buildSourceSignalMetrics(
+    'all',
+    params.maxResults,
+    context,
+    'pc-youtube-live-source-fallback',
+    'youtube-trend-source-gap',
+    params.crossReferenceNaver ? measureKeywordMetrics : undefined,
+  );
+  const measuredFallback = prioritizeMeasuredDecisionMetrics(
+    fallback,
+    params.maxResults,
+    {
+      requirePcMobileSplit: true,
+      minTotalSearchVolume: 30,
+      maxDocumentCount: 100000,
+    },
+  ).filter((item) => {
+    const key = compactKeyword(item.keyword);
+    if (!key || seen.has(key)) return false;
+    seen.add(key);
+    return true;
+  });
+  return resultFromMetrics(measuredFallback, startedAt, 'pc-engine-plus');
 }
 
 async function runNaverMateWithPcEngine(
@@ -2007,51 +4197,102 @@ async function runNaverMateWithPcEngine(
 
   const env = getEnvConfig();
   const config = requireNaverOpenApiConfig(env, 'naver-mate-hunter');
-  const candidates: Array<{ keyword: string; score: number; source: string; evidence: string[] }> = [
-    {
-      keyword: params.seedKeyword,
-      score: 88,
-      source: 'naver-mate-seed',
-      evidence: ['pc-naver-mate-seed'],
-    },
-  ];
+  const autoDiscovery = params.autoDiscovery === true || isNaverMateAutoDiscoverySeed(params.seedKeyword);
+  const candidates: Array<{ keyword: string; score: number; source: string; evidence: string[] }> = [];
 
   const addCandidate = (keyword: unknown, score: number, source: string, evidence: string[]) => {
     const normalized = normalizeKeyword(keyword);
-    if (!normalized) return;
+    if (!normalized || !isSearchPhraseCandidate(normalized)) return;
     candidates.push({ keyword: normalized, score, source, evidence });
   };
 
   const contextSeeds = contextSeedKeywords(
-    params.seedKeyword || undefined,
+    autoDiscovery ? undefined : params.seedKeyword || undefined,
     params.contextKeywords,
     Math.min(120, Math.max(params.targetCount * 2, 30)),
   );
+  if (!autoDiscovery) {
+    addCandidate(params.seedKeyword, 88, 'naver-mate-seed', ['pc-naver-mate-seed']);
+  }
   if (contextSeeds.length > 1 || (contextSeeds.length === 1 && compactKeyword(contextSeeds[0]) !== compactKeyword(params.seedKeyword))) {
     context.progress(16, `injecting ${contextSeeds.length} web context seeds into Naver Mate`);
   }
-  contextSeeds.forEach((keyword, index) => {
-    if (compactKeyword(keyword) === compactKeyword(params.seedKeyword)) return;
-    addCandidate(keyword, Math.max(52, 90 - index * 0.35), 'pc-naver-mate-web-context', [
-      'pc-naver-mate-web-context',
-      'web-analysis-context',
-    ]);
-  });
+  if (!autoDiscovery) {
+    contextSeeds.forEach((keyword, index) => {
+      if (compactKeyword(keyword) === compactKeyword(params.seedKeyword)) return;
+      addCandidate(keyword, Math.max(52, 90 - index * 0.35), 'pc-naver-mate-web-context', [
+        'pc-naver-mate-web-context',
+        'web-analysis-context',
+      ]);
+    });
+  }
+
+  let roots = uniqueKeywords(
+    [
+      autoDiscovery ? '' : params.seedKeyword,
+      ...contextSeeds,
+    ].filter((keyword) => !isNaverMateAutoDiscoverySeed(keyword)),
+    Math.min(12, Math.max(4, Math.ceil(params.targetCount / 4))),
+  );
+  if (autoDiscovery && roots.length < Math.min(4, params.targetCount)) {
+    context.progress(18, 'collecting live source roots for Naver Mate auto discovery');
+    const snapshot = await buildMobileSourceSignalSnapshot({
+      lane: 'all',
+      limit: Math.min(40, Math.max(12, params.targetCount)),
+    });
+    if (!snapshot.fallbackUsed) {
+      const sourceRoots = balancedSourceSignalRoots(
+        snapshot,
+        Math.min(30, Math.max(12, params.targetCount)),
+      ).filter(isNaverMateUtilityRootCandidate);
+      roots = uniqueKeywords(
+        [...roots, ...sourceRoots].filter((keyword) => !isNaverMateAutoDiscoverySeed(keyword)),
+        Math.min(60, Math.max(24, params.targetCount)),
+      );
+      if (sourceRoots.length > 0) {
+        context.progress(19, `Naver Mate live source roots: ${roots.length}`);
+      }
+    }
+  }
+  roots = expandNaverMateQueryRoots(roots, params.targetCount);
+  if (autoDiscovery && roots.length > 0) {
+    context.progress(19, `Naver Mate intent query roots: ${roots.length}`);
+  }
+
+  const earlyMeasuredSourceMetrics = autoDiscovery && params.includeVolumeMetrics
+    ? await buildNaverMateLiveSourceFallbackMetrics(
+      Math.min(80, Math.max(40, params.targetCount)),
+      context,
+      measureKeywordMetrics,
+      22,
+    )
+    : [];
+  if (earlyMeasuredSourceMetrics.length > 0) {
+    context.progress(24, `Naver Mate early measured source pool: ${earlyMeasuredSourceMetrics.filter(isFullyMeasuredKeyword).length}/${earlyMeasuredSourceMetrics.length}`);
+  }
 
   if (params.includeAutocomplete) {
-    context.progress(20, 'collecting Naver autocomplete signals');
+    context.progress(28, 'collecting Naver autocomplete signals');
     ensureNotAborted(context);
     const autocomplete = await import('../utils/naver-autocomplete');
-    const keywords = await autocomplete.getNaverAutocompleteKeywords(params.seedKeyword, config)
-      .catch((err: any) => {
-        context.progress(30, `Naver autocomplete unavailable: ${err?.message || err}`);
-        return [] as string[];
+    const autocompleteRoots = (roots.length ? roots : [params.seedKeyword].filter((keyword) => !isNaverMateAutoDiscoverySeed(keyword)))
+      .filter((keyword) => !autoDiscovery || isNaverMateUtilityRootCandidate(keyword))
+      .slice(0, autoDiscovery ? Math.min(18, Math.max(6, params.targetCount)) : Math.min(36, Math.max(12, params.targetCount)));
+    const settledAutocomplete = await Promise.allSettled(autocompleteRoots.map((root) =>
+      autocomplete.getNaverAutocompleteKeywords(root, config)
+        .then((keywords) => ({ root, keywords }))
+    ));
+    settledAutocomplete.forEach((row, rootIndex) => {
+      if (row.status !== 'fulfilled') {
+        context.progress(36, `Naver autocomplete unavailable: ${row.reason?.message || row.reason}`);
+        return;
+      }
+      row.value.keywords.slice(0, Math.max(8, params.targetCount)).forEach((keyword, index) => {
+        addCandidate(keyword, Math.max(45, 88 - rootIndex * 1.5 - index * 0.35), 'pc-naver-autocomplete', [
+          'pc-naver-autocomplete',
+          `seed:${row.value.root}`,
+        ]);
       });
-    keywords.slice(0, params.targetCount * 2).forEach((keyword, index) => {
-      addCandidate(keyword, Math.max(45, 86 - index * 0.55), 'pc-naver-autocomplete', [
-        'pc-naver-autocomplete',
-        'naver-pc-mobile-shopping-related',
-      ]);
     });
   }
 
@@ -2059,20 +4300,29 @@ async function runNaverMateWithPcEngine(
     context.progress(48, 'collecting Naver related keyword signals');
     ensureNotAborted(context);
     const datalab = await import('../utils/naver-datalab-api');
-    const related = await datalab.getNaverRelatedKeywords(params.seedKeyword, config, {
-      limit: Math.min(100, Math.max(params.targetCount, 30)),
-      spiderWebDepth: 1,
-    }).catch((err: any) => {
-      context.progress(58, `Naver related keywords unavailable: ${err?.message || err}`);
-      return [] as any[];
-    });
-    related.forEach((item: any, index: number) => {
-      const volumeScore = Math.min(22, Math.log10(Math.max(1, Number(item?.searchVolume || 0))) * 6);
-      addCandidate(item?.keyword, Math.max(45, 78 - index * 0.35 + volumeScore), 'pc-naver-related-keywords', [
-        'pc-naver-related-keywords',
-        normalizeKeyword(item?.intent),
-        normalizeKeyword(item?.category),
-      ].filter(Boolean));
+    const relatedRoots = (roots.length ? roots : [params.seedKeyword].filter((keyword) => !isNaverMateAutoDiscoverySeed(keyword)))
+      .filter((keyword) => !autoDiscovery || isNaverMateUtilityRootCandidate(keyword))
+      .slice(0, autoDiscovery ? Math.min(8, Math.max(4, Math.ceil(params.targetCount / 4))) : Math.min(24, Math.max(8, params.targetCount)));
+    const settledRelated = await Promise.allSettled(relatedRoots.map((root) =>
+      datalab.getNaverRelatedKeywords(root, config, {
+        limit: autoDiscovery ? Math.min(35, Math.max(params.targetCount, 20)) : Math.min(80, Math.max(params.targetCount, 30)),
+        spiderWebDepth: autoDiscovery ? 0 : 1,
+      }).then((related) => ({ root, related }))
+    ));
+    settledRelated.forEach((row, rootIndex) => {
+      if (row.status !== 'fulfilled') {
+        context.progress(58, `Naver related keywords unavailable: ${row.reason?.message || row.reason}`);
+        return;
+      }
+      row.value.related.forEach((item: any, index: number) => {
+        const volumeScore = Math.min(22, Math.log10(Math.max(1, Number(item?.searchVolume || 0))) * 6);
+        addCandidate(item?.keyword, Math.max(45, 82 - rootIndex * 1.25 - index * 0.25 + volumeScore), 'pc-naver-related-keywords', [
+          'pc-naver-related-keywords',
+          `seed:${row.value.root}`,
+          normalizeKeyword(item?.intent),
+          normalizeKeyword(item?.category),
+        ].filter(Boolean));
+      });
     });
   }
 
@@ -2080,15 +4330,22 @@ async function runNaverMateWithPcEngine(
   ensureNotAborted(context);
 
   const seen = new Set<string>();
+  const seedCounts = new Map<string, number>();
+  const maxCandidatesPerSeed = Math.max(4, Math.ceil(params.targetCount / 8));
   const ranked = candidates
     .sort((a, b) => b.score - a.score)
     .filter((item) => {
       const key = compactKeyword(item.keyword);
       if (!key || seen.has(key)) return false;
+      if (!isNaverMateConciseMeasuredCandidate(item.keyword)) return false;
+      const seedKey = naverMateCandidateSeedKey(item);
+      const seedCount = seedCounts.get(seedKey) || 0;
+      if (seedCount >= maxCandidatesPerSeed) return false;
+      seedCounts.set(seedKey, seedCount + 1);
       seen.add(key);
       return true;
     })
-    .slice(0, params.targetCount)
+    .slice(0, Math.min(180, Math.max(params.targetCount * 3, params.targetCount)))
     .map((item) => metricFromExpansion(
       item.keyword,
       item.score,
@@ -2098,10 +4355,98 @@ async function runNaverMateWithPcEngine(
       item.evidence,
     ));
 
-  const measuredMetrics = params.includeVolumeMetrics
-    ? await measureKeywordMetrics(ranked, context)
+  let measuredMetrics = params.includeVolumeMetrics
+    ? [...earlyMeasuredSourceMetrics, ...(await measureKeywordMetrics(ranked, context))]
     : ranked;
-  return resultFromMetrics(measuredMetrics, startedAt, 'pc-engine-plus');
+  let finalMetrics = params.includeVolumeMetrics
+    ? prioritizeNaverMateMeasuredMetrics(measuredMetrics, params.targetCount, 50000)
+    : ranked;
+  const naverMateMinimumUsefulCount = Math.min(params.targetCount, autoDiscovery ? 16 : 30);
+  if (params.includeVolumeMetrics && finalMetrics.length < naverMateMinimumUsefulCount && roots.length > 0) {
+    context.progress(
+      78,
+      `Naver Mate measured pool has ${finalMetrics.length}/${params.targetCount}; measuring intent-root candidates`,
+    );
+    const rootTopUpMetrics = roots
+      .filter(isNaverMateIntentRootCandidate)
+      .filter((keyword) => !autoDiscovery || isNaverMateUtilityRootCandidate(keyword))
+      .slice(0, autoDiscovery ? Math.min(36, Math.max(16, params.targetCount)) : Math.min(120, Math.max(40, params.targetCount * 3)))
+      .map((keyword, index) => metricFromExpansion(
+        keyword,
+        Math.max(45, 80 - index * 0.2),
+        'pc-naver-mate-intent-root-measured',
+        'naver-mate',
+        'naver',
+        ['pc-naver-mate-intent-root-measured', 'live-source-intent-query-root'],
+      ));
+    if (rootTopUpMetrics.length > 0) {
+      const measuredRootTopUp = await measureKeywordMetrics(rootTopUpMetrics, context);
+      measuredMetrics = [...measuredMetrics, ...measuredRootTopUp];
+      finalMetrics = prioritizeNaverMateMeasuredMetrics(measuredMetrics, params.targetCount, 150000);
+    }
+  }
+  if (params.includeVolumeMetrics && finalMetrics.length < Math.min(naverMateMinimumUsefulCount, 12) && roots.length > 0) {
+    context.progress(
+      82,
+      `Naver Mate measured pool has ${finalMetrics.length}/${params.targetCount}; collecting second-hop expansions`,
+    );
+    const topUpRows = await Promise.all(roots
+      .filter((keyword) => !autoDiscovery || isNaverMateUtilityRootCandidate(keyword))
+      .slice(0, autoDiscovery ? Math.min(4, roots.length) : Math.min(16, roots.length))
+      .map((root) =>
+      collectLiveExpansionCandidates(
+        root,
+        autoDiscovery ? Math.min(35, Math.max(16, params.targetCount)) : Math.min(80, Math.max(30, params.targetCount)),
+        env,
+        context,
+        params.contextKeywords,
+      ).catch(() => [] as LiveExpansionCandidate[])
+    ));
+    const existingKeys = new Set(ranked.map((item) => compactKeyword(item.keyword)).filter(Boolean));
+    const topUpSeen = new Set<string>();
+    const topUpMetrics = topUpRows.flat()
+      .filter((item) => {
+        const key = compactKeyword(item.keyword);
+        if (!key || existingKeys.has(key) || topUpSeen.has(key)) return false;
+        if (!isNaverMateConciseMeasuredCandidate(item.keyword)) return false;
+        topUpSeen.add(key);
+        return /(autocomplete|relkwd|related)/i.test([item.source, ...item.sources].join(' '));
+      })
+      .slice(0, Math.min(240, Math.max(80, params.targetCount * 5)))
+      .map((item, index) => {
+        const sourceText = [item.source, ...item.sources].join(' ');
+        const source = /autocomplete/i.test(sourceText)
+          ? 'pc-naver-autocomplete-second-hop'
+          : 'pc-naver-related-keywords-second-hop';
+        return metricFromExpansion(
+          item.keyword,
+          Math.max(45, 78 - index * 0.2),
+          source,
+          'naver-mate',
+          'naver',
+          [source, ...item.sources].slice(0, 8),
+        );
+      });
+    if (topUpMetrics.length > 0) {
+      const measuredTopUp = await measureKeywordMetrics(topUpMetrics, context);
+      measuredMetrics = [...measuredMetrics, ...measuredTopUp];
+      finalMetrics = prioritizeNaverMateMeasuredMetrics(measuredMetrics, params.targetCount, 50000);
+    }
+  }
+  if (params.includeVolumeMetrics && finalMetrics.length < Math.min(naverMateMinimumUsefulCount, 12)) {
+    context.progress(86, `Naver Mate measured pool low (${finalMetrics.length}/${params.targetCount}); measuring live source fallback`);
+    const sourceFallback = await buildNaverMateLiveSourceFallbackMetrics(
+      Math.min(180, Math.max(120, params.targetCount * 3)),
+      context,
+      measureKeywordMetrics,
+    );
+    measuredMetrics = [...measuredMetrics, ...sourceFallback];
+    finalMetrics = prioritizeNaverMateMeasuredMetrics(measuredMetrics, params.targetCount, 150000);
+  }
+  const displayMetrics = params.includeVolumeMetrics
+    ? finalMetrics.filter(isNaverMateDisplayQualityMetric)
+    : finalMetrics;
+  return resultFromMetrics(displayMetrics, startedAt, 'pc-engine-plus');
 }
 
 async function runKeywordAnalysis(
@@ -2202,8 +4547,33 @@ async function runMindmapExpansion(
     params.contextKeywords,
   );
   if (candidates.length === 0) {
-    context.progress(72, 'no live mindmap candidates from autocomplete/related sources');
-    return resultFromMetrics([], startedAt, 'pc-engine-plus');
+    const aliasSeeds = buildKoreanNumericAliasRoots(params.seedKeyword, 4);
+    if (aliasSeeds.length > 0) {
+      context.progress(42, `collecting mindmap numeric alias candidates: ${aliasSeeds.join(', ')}`);
+      const aliasRows = await Promise.all(aliasSeeds.map((alias) =>
+        collectLiveExpansionCandidates(
+          alias,
+          Math.max(params.targetCount * 2, 40),
+          getEnvConfig(),
+          context,
+          params.contextKeywords,
+        ).catch(() => [] as MindmapExpansionCandidate[])
+      ));
+      candidates = aliasRows.flat();
+    }
+  }
+  if (candidates.length === 0) {
+    context.progress(52, 'no live mindmap candidates; measuring seed/context intent candidates');
+    const fallback = params.includeVolumeMetrics
+      ? await buildMeasuredMindmapSeedMetrics(
+        params.seedKeyword,
+        params.contextKeywords,
+        params.targetCount,
+        context,
+        measureKeywordMetrics,
+      )
+      : [];
+    return resultFromMetrics(fallback, startedAt, 'pc-engine-plus');
   }
 
   context.progress(45, 'ranking mindmap candidates with PC quality gate');
@@ -2218,20 +4588,49 @@ async function runMindmapExpansion(
   context.progress(80, 'building mobile mindmap result envelope');
   ensureNotAborted(context);
 
-  const rankedMetrics = ranked.map((item) => metricFromExpansion(
-    item.keyword,
-    item.score,
-    item.source || item.sources?.[0] || 'pc-mindmap-ranker',
-    'mindmap-expansion',
-    'auto',
-    ['pc-mindmap-expansion-quality', ...item.reasons],
-  ));
+  const rankedMetrics = ranked
+    .map((item) => ({
+      ...item,
+      keyword: normalizeMindmapSearchPhrase(item.keyword),
+    }))
+    .filter((item) => isMindmapSearchPhraseCandidate(item.keyword))
+    .map((item) => metricFromExpansion(
+      item.keyword,
+      item.score,
+      item.source || item.sources?.[0] || 'pc-mindmap-ranker',
+      'mindmap-expansion',
+      'auto',
+      ['pc-mindmap-expansion-quality', ...item.reasons],
+    ));
   const metrics = rankedMetrics.slice(0, params.targetCount);
   const measuredMetrics = params.includeVolumeMetrics
     ? await measureKeywordMetrics(metrics, context)
     : metrics;
+  let finalMetrics = params.includeVolumeMetrics
+    ? prioritizeMindmapMeasuredMetrics(measuredMetrics, params.targetCount)
+    : measuredMetrics;
 
-  return resultFromMetrics(measuredMetrics, startedAt, 'pc-engine-plus');
+  const minimumMeasuredMindmapRows = Math.min(params.targetCount, 10);
+  if (params.includeVolumeMetrics && finalMetrics.length < minimumMeasuredMindmapRows) {
+    context.progress(88, `mindmap measured pool low (${finalMetrics.length}/${minimumMeasuredMindmapRows}); measuring seed/context fallback`);
+    const fallback = await buildMeasuredMindmapSeedMetrics(
+      params.seedKeyword,
+      [
+        ...(params.contextKeywords || []),
+        ...metrics.map((item) => ({
+          keyword: item.keyword,
+          source: item.source,
+          evidence: item.evidence,
+        })),
+      ],
+      params.targetCount,
+      context,
+      measureKeywordMetrics,
+    );
+    finalMetrics = mergePrioritizedKeywordMetrics([finalMetrics, fallback], params.targetCount);
+  }
+
+  return resultFromMetrics(finalMetrics, startedAt, 'pc-engine-plus');
 }
 
 export function createMobilePcEngineExecutor(

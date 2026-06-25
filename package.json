@@ -1,6 +1,6 @@
 {
   "name": "leword",
-  "version": "2.49.85",
+  "version": "2.49.86",
   "description": "LEWORD - 키워드 마스터 독립 앱",
   "main": "dist/src/main.js",
   "scripts": {

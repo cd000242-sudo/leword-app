@@ -211,6 +211,8 @@ export function getDynamicSuggestionsFromRichFeed(): string[] {
 export interface VerifiedKeyword {
   keyword: string;
   category: string;
+  pcSearchVolume?: number;
+  mobileSearchVolume?: number;
   searchVolume: number;
   documentCount: number;
   goldenRatio: number;
@@ -223,6 +225,8 @@ export interface ShoppingDiscoverySeed {
   source: ShoppingDiscoverySeedSource;
   reason: string;
   category?: string;
+  pcSearchVolume?: number;
+  mobileSearchVolume?: number;
   searchVolume?: number;
   documentCount?: number;
   goldenRatio?: number;
@@ -258,6 +262,13 @@ function readVerifiedCache(): VerifiedCache | null {
     const parsed = JSON.parse(raw);
     if (!parsed || !Array.isArray(parsed.items)) return null;
     if (Date.now() - (parsed.timestamp || 0) > VERIFIED_CACHE_TTL) return null;
+    if (parsed.items.some((item: any) =>
+      item
+        && typeof item.searchVolume === 'number'
+        && (typeof item.pcSearchVolume !== 'number' || typeof item.mobileSearchVolume !== 'number')
+    )) {
+      return null;
+    }
     return parsed;
   } catch {
     return null;
@@ -352,6 +363,8 @@ export function buildShoppingDiscoverySeeds(input: {
       keyword: v.keyword,
       source: 'verified',
       category: v.category,
+      pcSearchVolume: v.pcSearchVolume,
+      mobileSearchVolume: v.mobileSearchVolume,
       searchVolume: v.searchVolume,
       documentCount: v.documentCount,
       goldenRatio: v.goldenRatio,
@@ -390,14 +403,19 @@ export function buildShoppingDiscoverySeeds(input: {
  */
 export async function getShoppingDiscoverySeeds(limit: number = SHOPPING_AUTO_DISCOVERY_MIN_SEEDS): Promise<ShoppingDiscoverySeed[]> {
   const cached = readVerifiedCache();
+  let verified = cached?.items || [];
   if (!cached) {
-    getVerifiedShoppingSuggestions(SHOPPING_AUTO_DISCOVERY_MIN_SEEDS).catch(() => {});
+    try {
+      verified = await getVerifiedShoppingSuggestions(Math.max(limit, SHOPPING_AUTO_DISCOVERY_MIN_SEEDS));
+    } catch {
+      verified = [];
+    }
   }
 
   return buildShoppingDiscoverySeeds({
-    verified: cached?.items || [],
+    verified,
     dynamic: getDynamicSuggestionsFromRichFeed(),
-    staticGroups: getStaticShoppingSuggestions(4),
+    staticGroups: getStaticShoppingSuggestions(6),
     limit,
   });
 }
@@ -452,6 +470,8 @@ export async function getVerifiedShoppingSuggestions(limit: number = 30): Promis
           verified.push({
             keyword: info.keyword,
             category: info.category,
+            pcSearchVolume: sig.pcSearchVolume || 0,
+            mobileSearchVolume: sig.mobileSearchVolume || 0,
             searchVolume: sv,
             documentCount: dc,
             goldenRatio: parseFloat(goldenRatio.toFixed(2)),

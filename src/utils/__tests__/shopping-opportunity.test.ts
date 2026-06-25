@@ -272,6 +272,11 @@ const lewordSeeds = buildProductLeWordSeeds(nikeItem, '나이키', 6);
 assert('제품 LEWORD 후보에 대체 브랜드 키워드 포함',
   lewordSeeds.some(seed => seed.relation === 'peer-brand' && /아디다스|푸마|뉴발란스/.test(seed.keyword)),
   lewordSeeds.map(seed => seed.keyword).join(', '));
+const commerceIntentSeeds = buildProductLeWordSeeds(nikeItem, '나이키', 10);
+assert('제품 LEWORD 후보는 제품군 순위/가격/가성비 구매 의도까지 확장',
+  commerceIntentSeeds.some(seed => /운동화 순위/.test(seed.keyword))
+    && commerceIntentSeeds.some(seed => /운동화 가격|운동화 가성비|운동화 구매처/.test(seed.keyword)),
+  commerceIntentSeeds.map(seed => seed.keyword).join(', '));
 
 const scoredSeed = scoreLeWordEntryKeyword({
   keyword: '아디다스 운동화 추천',
@@ -318,7 +323,7 @@ assert('no-keyword shopping discovery exposes writeable intent queries, not raw 
   autoDiscoverySeeds.map(s => `${s.keyword}:${s.source}`).join(', '));
 
 const defaultAutoDiscoverySeeds = buildShoppingDiscoverySeeds({
-  staticGroups: getStaticShoppingSuggestions(4),
+  staticGroups: getStaticShoppingSuggestions(6),
 });
 assert('무입력 쇼핑 발굴 기본값은 최소 30개 시드를 확보',
   defaultAutoDiscoverySeeds.length >= SHOPPING_AUTO_DISCOVERY_MIN_SEEDS,
@@ -365,6 +370,11 @@ assert('shopping auto discovery keeps 30 final recommendations instead of collap
     && getShoppingRecommendationLimit(false, 10) === SHOPPING_AUTO_DISCOVERY_MIN_SEEDS
     && getShoppingRecommendationLimit(false, 60) === 60,
   `auto30=${getShoppingRecommendationLimit(true, 30)}, auto10=${getShoppingRecommendationLimit(true, 10)}, direct10=${getShoppingRecommendationLimit(false, 10)}, direct60=${getShoppingRecommendationLimit(false, 60)}`);
+assert('shopping opportunity helpers tolerate missing array inputs',
+  deriveShoppingExpansionQueries('무선 이어폰 추천', undefined as any, undefined as any, 4).length >= 0
+    && rankShoppingOpportunities(undefined as any, context, 5).length === 0
+    && selectBalancedShoppingOpportunities(undefined as any, 5).length === 0,
+  'shopping helpers should not throw on missing array inputs');
 
 console.log(`\n[shopping-opportunity.test] passed: ${passed} / failed: ${failed}`);
 if (failed > 0) {

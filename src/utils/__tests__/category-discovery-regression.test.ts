@@ -319,6 +319,12 @@ for (const category of BLOGGER_CATEGORIES) {
 }
 
 const genericFallbackPattern = /추천 가성비 순위 2026|비교 장단점 총정리|후기 실사용 솔직 리뷰/;
+const shoppingDiscoverySeeds = getDiscoveryCategorySeeds('shopping', 80);
+assert('internal shopping category resolves to concrete product-category seeds',
+  shoppingDiscoverySeeds.length >= 30
+    && !genericFallbackPattern.test(shoppingDiscoverySeeds.slice(0, 12).join('|'))
+    && /건조기|로봇청소기|선크림|프라이팬|유모차|기저귀/.test(shoppingDiscoverySeeds.slice(0, 60).join('|')),
+  shoppingDiscoverySeeds.slice(0, 12).join(', '));
 for (const category of BLOGGER_CATEGORIES) {
   const labelIds = resolveDiscoveryCategoryIds(category.label);
   const labelSeeds = getDiscoveryCategorySeeds(category.label, 40);

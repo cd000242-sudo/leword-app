@@ -35,6 +35,23 @@ export type MobileKeywordMeasurementStatus =
   | 'unmeasured'
   | 'synthetic-blocked';
 
+export type MobileMeasurementConfidence = 'high' | 'medium' | 'low';
+
+export type MobileSearchVolumeSource =
+  | 'searchad'
+  | 'cache'
+  | 'manual'
+  | 'unknown'
+  | 'none';
+
+export type MobileDocumentCountSource =
+  | 'naver-api'
+  | 'cache'
+  | 'scrape'
+  | 'fallback'
+  | 'unknown'
+  | 'none';
+
 export type MobileKeywordAiJudgeVerdict = 'publish' | 'conditional' | 'exclude';
 
 export interface MobileKeywordAiJudge {
@@ -64,6 +81,26 @@ export interface MobilePublishDecision {
   clusterKeywords: string[];
 }
 
+export interface MobileShoppingProductPick {
+  productName: string;
+  productTitle?: string;
+  mallName?: string;
+  brand?: string;
+  category?: string;
+  imageUrl?: string;
+  productUrl?: string;
+  price?: number | null;
+  conversionScore?: number | null;
+  qualityScore?: number | null;
+  hotSignalScore?: number | null;
+  sellableReason?: string;
+  writeRecommendation?: string;
+  recommendedAngle: string;
+  titleDrafts: string[];
+  buyingTriggers: string[];
+  caution?: string;
+}
+
 export interface MobileKeywordMetric {
   keyword: string;
   grade: MobileResultGrade;
@@ -79,10 +116,17 @@ export interface MobileKeywordMetric {
   intent: string;
   evidence: string[];
   isMeasured: boolean;
+  searchVolumeSource?: MobileSearchVolumeSource;
+  searchVolumeConfidence?: MobileMeasurementConfidence;
+  isSearchVolumeEstimated?: boolean;
+  documentCountSource?: MobileDocumentCountSource;
+  documentCountConfidence?: MobileMeasurementConfidence;
+  isDocumentCountEstimated?: boolean;
   measurementStatus?: MobileKeywordMeasurementStatus;
   aiJudge?: MobileKeywordAiJudge;
   rejectReason?: string;
   publishDecision?: MobilePublishDecision;
+  shoppingProductPick?: MobileShoppingProductPick;
 }
 
 export interface MobileJobEnvelope<TParams, TResult> {
@@ -214,6 +258,7 @@ export interface MobileLiveGoldenRadarSnapshot {
   publishedCount: number;
   lastStartedAt?: string;
   lastFinishedAt?: string;
+  nextRetryAt?: string;
   lastError?: string;
   lastMessage?: string;
   nextCategoryId: string;
@@ -879,7 +924,7 @@ export interface MobileAuthSession {
   tier: string;
   apiBaseUrl: string;
   pcLinked: boolean;
-  source: 'mobile-token' | 'panel-server' | 'local-dev';
+  source: 'mobile-token' | 'panel-server' | 'configured-web-login' | 'local-dev';
   linkedAt: string;
   message: string;
   dashboard: MobileDashboardSnapshot;
@@ -932,6 +977,7 @@ export interface ProTrafficMobileParams {
   categoryId: string;
   targetCount: number;
   seedKeyword?: string;
+  autoDiscovery?: boolean;
   includeSeasonal: boolean;
   includeEvergreen: boolean;
   includeFreshIssue: boolean;
@@ -999,6 +1045,7 @@ export interface NaverMateMobileParams {
   includeAutocomplete: boolean;
   includeRelated: boolean;
   includeVolumeMetrics: boolean;
+  autoDiscovery?: boolean;
   contextKeywords?: MobileKeywordContextCandidate[];
 }
 

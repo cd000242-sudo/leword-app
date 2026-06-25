@@ -6,6 +6,15 @@ import type {
   MobileKeywordMetric,
   MobileKeywordResult,
 } from '../../mobile/contracts';
+import {
+  getNaverBlogOpenApiQuotaBlockedUntil,
+  getNaverBlogOpenApiCredentials,
+  isNaverBlogOpenApiQuotaBlocked,
+  isNaverBlogOpenApiQuotaExceededText,
+  isNaverBlogOpenApiRateLimitedText,
+  markNaverBlogOpenApiQuotaBlocked,
+  selectNaverBlogOpenApiCredential,
+} from '../naver-blog-api';
 
 function assert(name: string, condition: boolean, detail?: string): void {
   if (!condition) {
@@ -142,18 +151,18 @@ async function runKeywordAnalysis(): Promise<void> {
 }
 
 async function runMindmapExpansion(): Promise<void> {
-  let measured = false;
+  const measured = { value: false };
   const executor = createMobilePcEngineExecutor({
     getEnvConfig: () => ({}),
     measureKeywordMetrics: async (metrics, context) => {
-      measured = true;
+      measured.value = true;
       context.progress(84, 'fixture measured mindmap metrics');
       return measureFixtureMetrics(metrics);
     },
   });
   const progress: string[] = [];
   const result = await executor(makeJob('mindmap-expansion', {
-    seedKeyword: '티빙 정보 유출',
+    seedKeyword: 'han river reservation',
     targetCount: 20,
     includeVolumeMetrics: true,
   }), {
@@ -161,13 +170,83 @@ async function runMindmapExpansion(): Promise<void> {
     progress: (_percent, message) => progress.push(message),
   });
 
-  assert('mindmap does not synthesize hardcoded rows when live source has no candidates',
-    result.keywords.length === 0 && result.summary.total === 0 && result.summary.measured === 0,
+  assert('mindmap measures seed fallback candidates when live source has no candidates',
+    result.keywords.length > 0
+      && result.summary.total > 0
+      && result.summary.measured === result.keywords.length
+      && result.keywords.some((item) => item.keyword === 'han river reservation'
+        && item.source === 'pc-mindmap-exact-measured-seed')
+      && result.keywords.every((item) => item.isMeasured
+        && ['pc-mindmap-measured-intent-expansion', 'pc-mindmap-exact-measured-seed'].includes(item.source)
+        && item.intent === 'mindmap-expansion'
+        && item.pcSearchVolume !== null
+        && item.mobileSearchVolume !== null
+        && item.documentCount !== null),
     JSON.stringify(result));
-  assert('mindmap skips measurement when there are no live expansion candidates',
-    measured === false);
+  assert('mindmap uses the measurement adapter for seed fallback candidates',
+    measured.value === true);
   assert('mindmap reports progress',
-    progress.some((message) => message.includes('no live mindmap candidates')));
+    progress.some((message) => message.includes('no live mindmap candidates'))
+      && progress.some((message) => message.includes('pc-mindmap measured intent candidates')));
+}
+
+function runNaverOpenApiKeyPoolGuards(): void {
+  const stateFile = path.join(process.cwd(), 'tmp', 'naver-openapi-key-pool-test.json');
+  fs.rmSync(stateFile, { force: true });
+  const oldStateFile = process.env['LEWORD_NAVER_OPENAPI_QUOTA_STATE_FILE'];
+  const oldIdPool = process.env['NAVER_CLIENT_ID_POOL'];
+  const oldSecretPool = process.env['NAVER_CLIENT_SECRET_POOL'];
+  const oldJsonPool = process.env['NAVER_OPENAPI_KEY_POOL'];
+  const oldPairPool = process.env['NAVER_CLIENT_KEY_POOL'];
+  const oldSingleId = process.env['NAVER_CLIENT_ID'];
+  const oldSingleSecret = process.env['NAVER_CLIENT_SECRET'];
+  try {
+    process.env['LEWORD_NAVER_OPENAPI_QUOTA_STATE_FILE'] = stateFile;
+    process.env['NAVER_CLIENT_ID_POOL'] = 'pool-client-a;pool-client-b';
+    process.env['NAVER_CLIENT_SECRET_POOL'] = 'pool-secret-a;pool-secret-b';
+    delete process.env['NAVER_OPENAPI_KEY_POOL'];
+    delete process.env['NAVER_CLIENT_KEY_POOL'];
+    delete process.env['NAVER_CLIENT_ID'];
+    delete process.env['NAVER_CLIENT_SECRET'];
+
+    const credentials = getNaverBlogOpenApiCredentials();
+    const first = selectNaverBlogOpenApiCredential();
+    if (first) markNaverBlogOpenApiQuotaBlocked(first);
+    const second = selectNaverBlogOpenApiCredential();
+    const partialBlockedUntil = getNaverBlogOpenApiQuotaBlockedUntil();
+
+    assert('naver OpenAPI key pool parses zipped id/secret pairs',
+      credentials.length === 2
+        && credentials[0].clientId === 'pool-client-a'
+        && credentials[1].clientSecret === 'pool-secret-b');
+    assert('naver OpenAPI key pool rotates away from a quota-blocked key',
+      first?.clientId === 'pool-client-a'
+        && second?.clientId === 'pool-client-b'
+        && !isNaverBlogOpenApiQuotaBlocked());
+    if (second) markNaverBlogOpenApiQuotaBlocked(second);
+    const allBlockedUntil = getNaverBlogOpenApiQuotaBlockedUntil();
+    assert('naver OpenAPI quota retry time is exposed only when every configured key is blocked',
+      partialBlockedUntil === null
+        && typeof allBlockedUntil === 'number'
+        && allBlockedUntil > Date.now(),
+      JSON.stringify({ partialBlockedUntil, allBlockedUntil }));
+  } finally {
+    if (oldStateFile === undefined) delete process.env['LEWORD_NAVER_OPENAPI_QUOTA_STATE_FILE'];
+    else process.env['LEWORD_NAVER_OPENAPI_QUOTA_STATE_FILE'] = oldStateFile;
+    if (oldIdPool === undefined) delete process.env['NAVER_CLIENT_ID_POOL'];
+    else process.env['NAVER_CLIENT_ID_POOL'] = oldIdPool;
+    if (oldSecretPool === undefined) delete process.env['NAVER_CLIENT_SECRET_POOL'];
+    else process.env['NAVER_CLIENT_SECRET_POOL'] = oldSecretPool;
+    if (oldJsonPool === undefined) delete process.env['NAVER_OPENAPI_KEY_POOL'];
+    else process.env['NAVER_OPENAPI_KEY_POOL'] = oldJsonPool;
+    if (oldPairPool === undefined) delete process.env['NAVER_CLIENT_KEY_POOL'];
+    else process.env['NAVER_CLIENT_KEY_POOL'] = oldPairPool;
+    if (oldSingleId === undefined) delete process.env['NAVER_CLIENT_ID'];
+    else process.env['NAVER_CLIENT_ID'] = oldSingleId;
+    if (oldSingleSecret === undefined) delete process.env['NAVER_CLIENT_SECRET'];
+    else process.env['NAVER_CLIENT_SECRET'] = oldSingleSecret;
+    fs.rmSync(stateFile, { force: true });
+  }
 }
 
 async function runMindmapExpansionWithWebContext(): Promise<void> {
@@ -666,6 +745,7 @@ async function runInjectedNaverMate(): Promise<void> {
     includeAutocomplete: false,
     includeRelated: false,
     includeVolumeMetrics: false,
+    autoDiscovery: true,
     contextKeywords: [
       {
         keyword: 'naver mate context longtail',
@@ -686,6 +766,7 @@ async function runInjectedNaverMate(): Promise<void> {
     received.includeAutocomplete === false
       && received.includeRelated === false
       && received.includeVolumeMetrics === false);
+  assert('naver mate preserves auto discovery flag', received.autoDiscovery === true);
   assert('naver mate preserves web context keywords', received.contextKeywords.length === 1);
   assert('naver mate returns injected SSS fixtures', result.keywords.length === 120 && result.summary.sss === 120);
   assert('naver mate uses injected PC adapter fixture', progress.includes('fixture naver mate adapter'));
@@ -693,30 +774,236 @@ async function runInjectedNaverMate(): Promise<void> {
 
 function runFallbackRegressionGuards(): void {
   const source = fs.readFileSync(path.join(__dirname, '..', '..', 'mobile', 'pc-engine-executor.ts'), 'utf8');
+  const naverBlogApiSource = fs.readFileSync(path.join(__dirname, '..', 'naver-blog-api.ts'), 'utf8');
+  const liveGoldenSource = fs.readFileSync(path.join(__dirname, '..', '..', 'mobile', 'live-golden-radar.ts'), 'utf8');
+  const proTrafficSource = fs.readFileSync(path.join(__dirname, '..', 'pro-traffic-keyword-hunter.ts'), 'utf8');
+  const naverAutocompleteSource = fs.readFileSync(path.join(__dirname, '..', 'naver-autocomplete.ts'), 'utf8');
+  const prewarmServiceSource = fs.readFileSync(path.join(__dirname, '..', '..', 'mobile', 'prewarm-service.ts'), 'utf8');
   assert('shopping connect has SearchAd/OpenAPI quota fallback',
     source.includes('pc-shopping-quota-searchad-fallback')
       && source.includes('isQuotaLimitError')
       && source.includes('shopping quota exhausted')
+      && source.includes('buildMeasuredIntentFallbackFromSeeds')
+      && source.includes('strictFullyMeasuredMetrics')
+      && /return resultFromMetrics\(fallback, startedAt, 'pc-engine-plus'\)/.test(source)
       && source.includes('pc-shopping-empty-searchad-fallback')
       && source.includes('shopping returned 0 products'));
+  assert('shopping auto discovery never uses internal placeholder as a fallback seed',
+    source.includes('isAutoDiscoveryPlaceholderKeyword')
+      && source.includes(".filter(seed => !isAutoDiscoveryPlaceholderKeyword(seed))")
+      && source.includes('fallbackSeeds')
+      && !source.includes("const rootKeyword = params.keyword || '쇼핑 자동 발굴'"),
+    'seedless shopping fallback must use real discovery seeds, not the UI placeholder');
+  assert('shopping fallback avoids duplicated intent suffixes',
+    source.includes('keywordAlreadyHasIntentSuffix')
+      && source.includes('keywordAlreadyHasIntentSuffix(base, intentKeyword) ? base'),
+    'shopping fallback should not emit 추천 추천 or 후기 후기 chains');
+  assert('shopping connect returns a product pick and writing angle for each product keyword',
+    source.includes('function buildShoppingProductPick')
+      && source.includes('shoppingProductPick: buildShoppingProductPick')
+      && source.includes('prioritizeShoppingProductPickMetrics')
+      && source.includes('shoppingCandidateMetricLimit')
+      && source.includes('shoppingDiscoverySeedLimit')
+      && source.includes('params.targetCount * 3')
+      && source.includes('Math.min(60, Math.max(params.targetCount * 2, 30))')
+      && source.includes('balancedStaticShoppingSeeds')
+      && source.includes('getStaticShoppingSuggestions(6)')
+      && source.includes('isShoppingItemRelevantToDiscovery')
+      && source.includes('shoppingKeywordVariants')
+      && source.includes('.flatMap(seed => shoppingKeywordVariants(seed))')
+      && source.includes('Math.min(80, Math.max(30, params.targetCount * 3))')
+      && source.includes('attachShoppingProductPicksToMetrics')
+      && source.includes('strongSignals === 0')
+      && source.includes('shopping-product-pick-attached-from-live-item')
+      && source.includes('measuredProductPicksWithFallback')
+      && source.includes('mergePrioritizedKeywordMetrics')
+      && source.includes('writeRecommendation')
+      && source.includes('titleDrafts')
+      && source.includes('buyingTriggers')
+      && source.includes('conversionScore'),
+    'shopping connect must explain which product to write about, not only emit a keyword');
+  assert('shopping measured fallback is commerce-intent focused',
+    source.includes("const isShoppingFallback = /shopping/i.test(source) || category === 'shopping'")
+      && source.includes("'구매처'")
+      && source.includes("'특가'")
+      && source.includes("'배송'"),
+    'shopping connect fallback must not spend most measurements on generic usage/caution informational suffixes');
+  assert('measured fallback rejects repeated low-value intent chains before API spend',
+    source.includes('isMeasuredFallbackCandidateUseful')
+      && source.includes('hasRepeatedFallbackToken')
+      && source.includes('FALLBACK_INTENT_FRAGMENT_RE')
+      && source.includes('FALLBACK_LOW_SIGNAL_CHAIN_RE')
+      && source.includes('if (!isMeasuredFallbackCandidateUseful(keyword)) return false'),
+    'fallback candidate generator must filter 2026 2026 / 최신 최신 / over-expanded intent chains before SearchAd/OpenAPI calls');
+  assert('measured fallback can widen roots enough to fill server-side shopping targets',
+    source.includes('activeSeedLimit')
+      && source.includes('Math.min(24, Math.max(1, limit * 2))')
+      && source.includes('Math.min(60, Math.max(30, limit * 4))')
+      && source.includes('targetMeasuredCount')
+      && source.includes('Math.min(120, Math.max(limit * 3, limit))')
+      && source.includes('cleanSeeds.slice(0, activeSeedLimit)'),
+    'server-side measured fallback should not be capped to six roots when a feature needs 30+ measured candidates');
+  assert('live golden radar rejects repeated low-value tokens before board publication',
+    liveGoldenSource.includes('hasRepeatedLiveCandidateToken')
+      && liveGoldenSource.includes('LOW_VALUE_REPEAT_TOKEN_RE')
+      && liveGoldenSource.includes('LOW_VALUE_LIVE_COMPACT_CHAIN_RE')
+      && liveGoldenSource.includes('추천최저가')
+      && liveGoldenSource.includes('liveGenericIntentTokenCount')
+      && liveGoldenSource.includes('if (hasRepeatedLiveCandidateToken(clean)) return true'),
+    'live golden board must reject repeated year/current/intent tokens');
+  assert('PRO traffic hunter filters over-expanded generated candidates before verification',
+    proTrafficSource.includes('isOverExpandedProTrafficCandidate')
+      && proTrafficSource.includes('hasRepeatedProCandidateToken')
+      && proTrafficSource.includes('normalizeProTrafficSearchSeed')
+      && proTrafficSource.includes('isProTrafficApiWorthyCandidate')
+      && proTrafficSource.includes('PRO 후보 품질 필터')
+      && proTrafficSource.includes('PRO_LOW_SIGNAL_CHAIN_RE')
+      && proTrafficSource.includes('추천최저가')
+      && proTrafficSource.includes('구매처최저가')
+      && proTrafficSource.includes('스펙스펙')
+      && proTrafficSource.includes('qualityFiltered = allKeywords.filter')
+      && proTrafficSource.includes('allSeedKeywords.map(normalizeProTrafficSearchSeed).filter(Boolean)')
+      && proTrafficSource.includes('fetchKeywordDataBatch(batchKeywordList'),
+    'PRO hunter must not spend SearchAd/OpenAPI calls on 2026 2026, 실사용 실사용 후기, or 가격 할인 정보 chains');
+  assert('PRO traffic hunter treats only fully measured candidates as verified',
+    proTrafficSource.includes('const svOk = typeof r.searchVolume')
+      && proTrafficSource.includes('const dcOk = typeof r.documentCount')
+      && proTrafficSource.includes('return svOk && dcOk')
+      && proTrafficSource.includes('rawUnified: ProTrafficKeyword[] = []')
+      && proTrafficSource.includes('최종 보루도 실측 완료 후보만 허용'),
+    'PRO hunter must not publish raw or half-measured fallback candidates');
+  assert('Naver autocomplete skips low-value generated inputs before related SearchAd fallback',
+    naverAutocompleteSource.includes('isLowValueAutocompleteQuery')
+      && naverAutocompleteSource.includes('LOW_VALUE_AUTOCOMPLETE_COMPACT_CHAIN_RE')
+      && naverAutocompleteSource.includes('구매처최저가')
+      && naverAutocompleteSource.includes('스펙스펙')
+      && naverAutocompleteSource.includes('return []'),
+    'autocomplete should not spend related-keyword SearchAd calls on generated tail chains');
+  assert('server prewarm prioritizes actionable policy/live needs before broad electronics mining',
+    /id:\s*'shopping-connect-hot-products'[\s\S]{0,140}priority:\s*4/.test(prewarmServiceSource)
+      && /id:\s*'policy-golden-precision'[\s\S]{0,130}priority:\s*5/.test(prewarmServiceSource)
+      && /id:\s*'policy-home-board'[\s\S]{0,130}priority:\s*6/.test(prewarmServiceSource)
+      && /id:\s*'kin-hidden-honey'[\s\S]{0,130}priority:\s*7/.test(prewarmServiceSource)
+      && /id:\s*'naver-mate-auto-discovery'[\s\S]{0,220}product:\s*'naver-mate-hunter'/.test(prewarmServiceSource)
+      && /id:\s*'naver-mate-auto-discovery'[\s\S]{0,220}priority:\s*8/.test(prewarmServiceSource)
+      && /id:\s*'policy-pro-traffic-24h'[\s\S]{0,140}priority:\s*20/.test(prewarmServiceSource)
+      && /id:\s*'electronics-pro-traffic-24h'[\s\S]{0,160}priority:\s*80/.test(prewarmServiceSource)
+      && /id:\s*'electronics-pro-traffic-24h'[\s\S]{0,220}targetCount:\s*20/.test(prewarmServiceSource),
+    'startup prewarm must not let broad electronics queries block live/free golden boards');
+  assert('default metric adapter measures volume before spending OpenAPI document quota',
+    source.includes('shouldMeasureDocumentCount')
+      && source.includes('markNaverOpenApiQuotaBlocked')
+      && /const volumeMap = hasSearchAdConfig[\s\S]{0,420}const documentKeywords = hasOpenApiConfig/.test(source),
+    'document count lookup should be quota-aware and volume-qualified');
   assert('shopping connect can run seedless auto discovery on the server',
     source.includes('const autoDiscovery = !params.keyword')
-      && source.includes('getShoppingDiscoverySeeds(params.targetCount)')
+      && source.includes('shoppingDiscoverySeedLimit')
+      && source.includes('getShoppingDiscoverySeeds(shoppingDiscoverySeedLimit)')
       && source.includes("source: 'auto-discovery'"),
     'seedless shopping connect still requires a manual keyword');
   assert('KIN empty result has live source signal fallback',
     source.includes('pc-kin-live-source-fallback')
       && source.includes('kin-question-source-gap')
       && source.includes('buildSourceSignalMetrics')
-      && source.includes('sourceSignalKeyword'));
+      && source.includes('sourceSignalKeyword')
+      && source.includes('isKinAnswerDemandMetric')
+      && source.includes('isKinAnswerDemandKeyword'));
+  assert('Naver Mate auto discovery expands real Naver suggestions instead of replaying context rows',
+    source.includes('isNaverMateAutoDiscoverySeed')
+      && source.includes('autoDiscovery ? undefined : params.seedKeyword')
+      && source.includes('collecting live source roots for Naver Mate auto discovery')
+      && source.includes('buildMobileSourceSignalSnapshot')
+      && /pc-naver-mate\|pc-naver-autocomplete\|pc-naver-related/.test(source)
+      && source.includes("'pc-naver-autocomplete'")
+      && source.includes("'pc-naver-related-keywords'")
+      && source.includes('buildNaverMateMeasuredQueryRoots')
+      && source.includes('NAVER_MATE_NEED_SUFFIXES')
+      && source.includes('naverMateConciseBases')
+      && source.includes('isNaverMateConciseMeasuredCandidate')
+      && source.includes('naverMateCandidateSeedKey')
+      && source.includes('maxCandidatesPerSeed')
+      && source.includes('prioritizeNaverMateMeasuredMetrics')
+      && source.includes('prioritizeNaverMateUtilityMeasuredMetrics')
+      && source.includes('naverMateUtilityScore')
+      && source.includes('NAVER_MATE_LOW_VALUE_COMPACT_RE')
+      && source.includes('isNaverMateDisplayQualityMetric')
+      && source.includes('finalMetrics.filter(isNaverMateDisplayQualityMetric)')
+      && source.includes('buildNaverMateLiveSourceFallbackMetrics')
+      && source.includes('buildNaverMateSourceSignalQueryRoots')
+      && source.includes('roundRobinNaverMateSourceSignals')
+      && source.includes('NAVER_MATE_SOURCE_NOISE_TOKENS')
+      && source.includes('NAVER_MATE_UTILITY_SIGNAL_RE')
+      && source.includes('NAVER_MATE_VOLATILE_NEWS_RE')
+      && source.includes('isNaverMateUtilityRootCandidate')
+      && source.includes('isNaverMateSourceSignalWorthExpanding')
+      && source.includes('spiderWebDepth: autoDiscovery ? 0 : 1')
+      && source.includes('naverMateMinimumUsefulCount')
+      && source.includes('earlyMeasuredSourceMetrics')
+      && source.includes('Naver Mate early measured source pool')
+      && source.includes('targetCount * 2'),
+    'Naver Mate must use context only as expansion roots and return measured autocomplete/related candidates');
+  assert('mindmap and Naver Mate preserve real Hangul search phrases through server recovery',
+    source.includes('SAFE_MEASURED_INTENT_SUFFIXES')
+      && source.includes('buildSafeMeasuredIntentRoots')
+      && source.includes('SAFE_HANGUL_SEARCH_RE')
+      && source.includes('SAFE_NUMERIC_KOREAN_QUERY_ALIASES')
+      && source.includes('buildKoreanNumericAliasRoots')
+      && source.includes('SAFE_SPACING_INTENT_SUFFIXES')
+      && source.includes('buildSpacingIntentAliasRoots')
+      && source.includes("'\\uACC4\\uC0B0\\uAE30'")
+      && source.includes("'\u0034\\uB300'")
+      && source.includes('pc-mindmap-exact-measured-seed')
+      && source.includes('isUsefulMindmapMeasuredMetric')
+      && source.includes('prioritizeMindmapMeasuredMetrics')
+      && source.includes('LOW_SIGNAL_MINDMAP_KEYWORD_RE')
+      && source.includes('recoverNaverMateMeasuredMetrics')
+      && source.includes('measuredBroadFill')
+      && source.includes('docs <= 500000')
+      && source.includes('mergePrioritizedKeywordMetrics([strict, utility, recovered], targetCount)')
+      && source.includes('pc-naver-mate-live-source-fallback')
+      && source.includes('Naver Mate measured pool low')
+      && source.includes("key === compactKeyword('\\uC790\\uB3D9 \\uBC1C\\uAD74')"),
+    'mindmap/Naver Mate must not return 0 just because legacy mojibake regexes or strict filters dropped measured Korean candidates');
   assert('YouTube empty result has live source signal fallback',
     source.includes('pc-youtube-live-source-fallback')
       && source.includes('youtube-trend-source-gap')
       && source.includes('buildSourceSignalMetrics')
       && source.includes("'all'"));
+  assert('PRO auto discovery continues PC hunter when live strict pool is below target',
+    source.includes('liveStrictMetrics.length >= params.targetCount')
+      && source.includes('live strict pool below target; continuing PC PRO hunter'),
+    'auto discovery must not return 0 just because live measured prewarm had no strict rows');
+  assert('Naver OpenAPI document counts are cached to protect daily quota',
+    naverBlogApiSource.includes('naver-document-count-cache.json')
+      && naverBlogApiSource.includes('getCachedNaverBlogDocumentCount')
+      && naverBlogApiSource.includes('setCachedNaverBlogDocumentCount'),
+    'document counts must use measured cache before spending OpenAPI quota');
+  assert('Naver OpenAPI quota/cache state persists in server /data volume',
+    naverBlogApiSource.includes("fs.existsSync('/data') ? '/data' : ''")
+      && naverBlogApiSource.includes('naver-openapi-quota-state.json')
+      && naverBlogApiSource.includes('naver-document-count-cache.json'),
+    'quota and measured document-count cache must not fall back to container tmp before /data');
+  assert('Naver OpenAPI stale quota cooldown is retried instead of blocking until midnight',
+    naverBlogApiSource.includes('savedAtMs')
+      && naverBlogApiSource.includes('NAVER_BLOG_OPENAPI_QUOTA_COOLDOWN_MS')
+      && naverBlogApiSource.includes('nowMs - savedAtMs > NAVER_BLOG_OPENAPI_QUOTA_COOLDOWN_MS')
+      && naverBlogApiSource.includes('saveNaverBlogOpenApiQuotaState()'),
+    'stale persisted quota cooldown should be cleared so recovered OpenAPI keys can measure documents again');
+  assert('Naver OpenAPI speed limit is not treated as daily quota exhaustion',
+    isNaverBlogOpenApiRateLimitedText('{"errorMessage":"Rate limit exceeded. (속도 제한을 초과했습니다.)","errorCode":"012"}')
+      && !isNaverBlogOpenApiQuotaExceededText('{"errorMessage":"Rate limit exceeded. (속도 제한을 초과했습니다.)","errorCode":"012"}')
+      && isNaverBlogOpenApiQuotaExceededText('{"errorMessage":"Query limit exceeded","errorCode":"010"}')
+      && naverBlogApiSource.includes('NAVER_BLOG_OPENAPI_RATE_LIMIT_BACKOFF_MS')
+      && naverBlogApiSource.includes('markNaverBlogOpenApiRateLimited()'),
+    'OpenAPI 012 should pause briefly instead of blocking the key until reset');
+  assert('Naver OpenAPI logs do not expose client secret fragments',
+    !/Client Secret:\s*\$\{/.test(naverBlogApiSource)
+      && !/clientSecret\.substring/.test(naverBlogApiSource),
+    'OpenAPI client secret must never be printed even partially');
 }
 
 (async () => {
+  runNaverOpenApiKeyPoolGuards();
   await runKeywordAnalysis();
   await runMindmapExpansion();
   await runMindmapExpansionWithWebContext();

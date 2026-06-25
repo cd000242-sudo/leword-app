@@ -17,30 +17,62 @@ export interface MobilePrewarmServiceOptions {
   notificationInbox?: MobileNotificationInbox | null;
   targets?: MobilePrewarmTarget[];
   now?: () => Date;
+  targetTimeoutMs?: number;
+  concurrency?: number;
+}
+
+const PRO_PREWARM_BASE_PARAMS = Object.freeze({
+  qualityProfile: 'publishable-v2',
+  includeSeasonal: true,
+  includeEvergreen: true,
+  includeFreshIssue: false,
+  autoDiscovery: true,
+  includeAiInference: true,
+});
+
+const DEFAULT_PREWARM_TARGET_TIMEOUT_MS = 8 * 60 * 1000;
+const DEFAULT_PREWARM_CONCURRENCY = 2;
+
+function normalizeTargetTimeoutMs(value: unknown): number {
+  const parsed = Number(value);
+  if (!Number.isFinite(parsed) || parsed <= 0) return DEFAULT_PREWARM_TARGET_TIMEOUT_MS;
+  return Math.max(60_000, Math.min(30 * 60_000, Math.floor(parsed)));
+}
+
+function normalizePrewarmConcurrency(value: unknown): number {
+  const parsed = Number(value);
+  if (!Number.isFinite(parsed) || parsed <= 0) return DEFAULT_PREWARM_CONCURRENCY;
+  return Math.max(1, Math.min(4, Math.floor(parsed)));
 }
 
 export const DEFAULT_MOBILE_PREWARM_TARGETS: readonly MobilePrewarmTarget[] = Object.freeze([
   {
-    id: 'pro-traffic-all-24h',
-    label: 'PRO 트래픽 24시간 선발굴',
-    product: 'pro-traffic-hunter',
-    priority: 5,
+    id: 'shopping-connect-hot-products',
+    label: 'Shopping connect hot product keywords',
+    product: 'shopping-connect',
+    priority: 4,
     params: {
-      qualityProfile: 'publishable-v2',
-      categoryId: 'all',
       targetCount: 30,
-      includeSeasonal: true,
-      includeEvergreen: true,
-      includeFreshIssue: true,
-      autoDiscovery: true,
-      includeAiInference: true,
+      sort: 'date',
+      contextKeywords: [],
+    },
+  },
+  {
+    id: 'policy-pro-traffic-24h',
+    label: 'Policy PRO need mining',
+    product: 'pro-traffic-hunter',
+    priority: 20,
+    params: {
+      ...PRO_PREWARM_BASE_PARAMS,
+      categoryId: 'policy',
+      targetCount: 40,
     },
   },
   {
     id: 'policy-golden-precision',
-    label: '지원금/정책 황금 정밀',
+    label: 'Policy golden precision',
     product: 'golden-discovery',
-    priority: 10,
+    priority: 5,
     params: {
       categoryId: 'policy',
       mode: 'precision',
@@ -49,24 +81,43 @@ export const DEFAULT_MOBILE_PREWARM_TARGETS: readonly MobilePrewarmTarget[] = Ob
     },
   },
   {
-    id: 'celebrity-pro-fresh',
-    label: '스타/연예 PRO 최신',
+    id: 'travel-domestic-pro-traffic-24h',
+    label: 'Travel utility PRO need mining',
     product: 'pro-traffic-hunter',
-    priority: 20,
+    priority: 30,
     params: {
-      qualityProfile: 'publishable-v2',
-      categoryId: 'celebrity',
-      targetCount: 100,
-      includeSeasonal: true,
-      includeEvergreen: true,
-      includeFreshIssue: true,
+      ...PRO_PREWARM_BASE_PARAMS,
+      categoryId: 'travel_domestic',
+      targetCount: 40,
+    },
+  },
+  {
+    id: 'home-life-pro-traffic-24h',
+    label: 'Home life PRO need mining',
+    product: 'pro-traffic-hunter',
+    priority: 40,
+    params: {
+      ...PRO_PREWARM_BASE_PARAMS,
+      categoryId: 'home_life',
+      targetCount: 35,
+    },
+  },
+  {
+    id: 'pro-traffic-all-24h',
+    label: 'PRO traffic 24h broad mining',
+    product: 'pro-traffic-hunter',
+    priority: 50,
+    params: {
+      ...PRO_PREWARM_BASE_PARAMS,
+      categoryId: 'all',
+      targetCount: 60,
     },
   },
   {
     id: 'policy-home-board',
-    label: '정책 홈판 후보',
+    label: 'Policy home-board candidates',
     product: 'home-board-hunter',
-    priority: 30,
+    priority: 6,
     params: {
       categoryId: 'policy',
       targetCount: 30,
@@ -75,13 +126,39 @@ export const DEFAULT_MOBILE_PREWARM_TARGETS: readonly MobilePrewarmTarget[] = Ob
   },
   {
     id: 'kin-hidden-honey',
-    label: '지식인 숨은 꿀질문',
+    label: 'KIN hidden honey questions',
     product: 'kin-hidden-honey',
-    priority: 40,
+    priority: 7,
     params: {
       tabType: 'hidden',
-      targetCount: 15,
+      targetCount: 30,
       isPremiumRequest: true,
+    },
+  },
+  {
+    id: 'naver-mate-auto-discovery',
+    label: 'Naver Mate autocomplete and related keyword mining',
+    product: 'naver-mate-hunter',
+    priority: 8,
+    params: {
+      seedKeyword: '\uC624\uB298 \uC2E4\uC2DC\uAC04 \uC774\uC288',
+      targetCount: 50,
+      includeAutocomplete: true,
+      includeRelated: true,
+      includeVolumeMetrics: true,
+      autoDiscovery: true,
+      contextKeywords: [],
+    },
+  },
+  {
+    id: 'electronics-pro-traffic-24h',
+    label: 'Electronics shopping PRO need mining',
+    product: 'pro-traffic-hunter',
+    priority: 80,
+    params: {
+      ...PRO_PREWARM_BASE_PARAMS,
+      categoryId: 'electronics',
+      targetCount: 20,
     },
   },
 ]);
@@ -102,6 +179,22 @@ function makePrewarmJob(
   };
 }
 
+function assertPrewarmResultIsMeasured(target: MobilePrewarmTarget, result: MobileKeywordResult): void {
+  const summary = result.summary;
+  const measured = Number(summary?.measured ?? 0);
+  const total = Number(summary?.total ?? result.keywords?.length ?? 0);
+  const publishReady = Number(summary?.publishReady ?? 0);
+  if (total <= 0) {
+    throw new Error(`${target.label}: prewarm returned no measured keywords yet`);
+  }
+  if (measured <= 0) {
+    throw new Error(`${target.label}: prewarm result has no PC/mobile or document measurements`);
+  }
+  if ('publishReady' in summary && publishReady <= 0) {
+    throw new Error(`${target.label}: prewarm result has no publish-ready measured keywords yet`);
+  }
+}
+
 export class MobilePrewarmService {
   private readonly executor: MobileJobExecutor;
   private readonly resultCache: InMemoryMobileResultCache;
@@ -109,6 +202,8 @@ export class MobilePrewarmService {
   private readonly targets: MobilePrewarmTarget[];
   private readonly states = new Map<string, MobilePrewarmTargetState>();
   private readonly now: () => Date;
+  private readonly targetTimeoutMs: number;
+  private readonly concurrency: number;
   private running = false;
   private updatedAt: string;
 
@@ -119,6 +214,12 @@ export class MobilePrewarmService {
     this.targets = [...(options.targets || DEFAULT_MOBILE_PREWARM_TARGETS)]
       .sort((a, b) => a.priority - b.priority);
     this.now = options.now || (() => new Date());
+    this.targetTimeoutMs = normalizeTargetTimeoutMs(
+      options.targetTimeoutMs ?? process.env['LEWORD_MOBILE_PREWARM_TARGET_TIMEOUT_MS'],
+    );
+    this.concurrency = normalizePrewarmConcurrency(
+      options.concurrency ?? process.env['LEWORD_MOBILE_PREWARM_CONCURRENCY'],
+    );
     this.updatedAt = this.now().toISOString();
 
     for (const target of this.targets) {
@@ -157,9 +258,17 @@ export class MobilePrewarmService {
     this.touch();
 
     const selected = this.targets.slice(0, Math.max(1, limit || this.targets.length));
-    for (const target of selected) {
-      await this.runTarget(target);
-    }
+    let cursor = 0;
+    const workerCount = Math.min(this.concurrency, selected.length);
+    const workers = Array.from({ length: workerCount }, async () => {
+      while (cursor < selected.length) {
+        const target = selected[cursor];
+        cursor += 1;
+        if (!target) continue;
+        await this.runTarget(target);
+      }
+    });
+    await Promise.all(workers);
 
     this.running = false;
     this.touch();
@@ -175,21 +284,33 @@ export class MobilePrewarmService {
 
     this.setState(target, 'running');
     const controller = new AbortController();
+    let timeoutId: ReturnType<typeof setTimeout> | null = null;
     try {
-      const result = await this.executor(makePrewarmJob(target, this.now().toISOString()), {
+      const jobPromise = this.executor(makePrewarmJob(target, this.now().toISOString()), {
         signal: controller.signal,
         progress: () => undefined,
       });
+      const timeoutPromise = new Promise<never>((_, reject) => {
+        timeoutId = setTimeout(() => {
+          controller.abort();
+          reject(new Error(`prewarm target timeout after ${this.targetTimeoutMs}ms`));
+        }, this.targetTimeoutMs);
+      });
+      const result = await Promise.race([jobPromise, timeoutPromise]);
+      assertPrewarmResultIsMeasured(target, result);
       this.resultCache.set(target.product, target.params, result);
       this.notificationInbox?.publishFromResult({
         product: target.product,
-        title: `${target.label} 예열 완료`,
+        title: `${target.label} prewarm complete`,
         targetLabel: target.label,
         result,
       });
       this.setState(target, 'completed', result.summary);
     } catch (err) {
-      this.setState(target, 'failed', undefined, (err as Error).message || String(err));
+      const error = err as Error;
+      this.setState(target, 'failed', undefined, error.message || String(err));
+    } finally {
+      if (timeoutId) clearTimeout(timeoutId);
     }
   }
 

@@ -1,16 +1,24 @@
 import {
   MOBILE_PC_PARITY_SLA,
+  type MobileDocumentCountSource,
   type MobileLiveGoldenBoardItem,
   type MobileLiveGoldenFreshness,
+  type MobileMeasurementConfidence,
   type MobileKeywordMetric,
   type MobileKeywordResult,
   type MobileLiveGoldenRadarSnapshot,
   type MobileResultGrade,
+  type MobileSearchVolumeSource,
 } from './contracts';
 import type { MobileNotificationInbox } from './notification-inbox';
 import { EnvironmentManager, type EnvConfig } from '../utils/environment-manager';
 import { discoverDirectGoldenKeywords } from '../utils/direct-golden-keyword-miner';
 import { classifyKeywordIntent, getNaverKeywordSearchVolumeSeparate } from '../utils/naver-datalab-api';
+import { getNaverAutocompleteKeywords } from '../utils/naver-autocomplete';
+import {
+  getNaverSearchAdKeywordSuggestions,
+  type NaverSearchAdConfig,
+} from '../utils/naver-searchad-api';
 import * as fs from 'fs';
 import * as path from 'path';
 import {
@@ -22,9 +30,20 @@ import {
 import type { MDPResult } from '../utils/mdp-engine';
 import { classifyKeyword } from '../utils/categories';
 import { getDiscoveryCategorySeeds } from '../utils/category-discovery-map';
-import { measureDocumentCount } from '../utils/measure-dc';
+import { measureDocumentCount, type DcMeasurement } from '../utils/measure-dc';
+import {
+  getNaverBlogOpenApiQuotaBlockedUntil,
+  isNaverBlogOpenApiQuotaBlocked,
+} from '../utils/naver-blog-api';
 import { evaluatePublishDecision } from './publish-decision';
-import { applyKeywordAiJudge } from './keyword-ai-judge';
+import {
+  applyKeywordAiJudge,
+  hasTrustedDocumentCountMeasurement,
+  hasTrustedSearchVolumeMeasurement,
+  hasUltimateHighValueNeedIntent,
+  isUltimateGoldenKeywordCandidate,
+  isUltimateLowValueLookupKeyword,
+} from './keyword-ai-judge';
 
 export interface MobileLiveGoldenRadarRunGate {
   ok: boolean;
@@ -54,6 +73,8 @@ export interface MobileLiveGoldenRadarOptions {
   liveSeedProvider?: (categoryId: string) => Promise<string[]>;
   measureLiveSearchVolumeSeparate?: typeof getNaverKeywordSearchVolumeSeparate;
   measureLiveDocumentCount?: typeof measureDocumentCount;
+  autocompleteProvider?: typeof getNaverAutocompleteKeywords;
+  searchAdSuggestionProvider?: typeof getNaverSearchAdKeywordSuggestions;
   enableBackfill?: boolean;
   shouldRun?: () => MobileLiveGoldenRadarRunGate | boolean;
   setIntervalFn?: (handler: () => void, intervalMs: number) => unknown;
@@ -66,35 +87,29 @@ export interface MobileLiveGoldenRadarOptions {
 type LiveSearchVolumeRow = Awaited<ReturnType<typeof getNaverKeywordSearchVolumeSeparate>>[number];
 
 const DEFAULT_CATEGORIES = Object.freeze([
-  'all',
-  'policy',
-  'sports',
-  'education',
-  'drama',
-  'broadcast',
-  'movie',
-  'music',
-  'celeb',
-  'finance',
-  'life_tips',
-  'home_life',
-  'fashion',
-  'beauty',
+  'shopping',
   'electronics',
+  'home_life',
   'travel_domestic',
-  'travel_overseas',
-  'health',
   'food',
-  'recipe',
+  'beauty',
+  'fashion',
+  'policy',
+  'finance',
+  'health',
+  'life_tips',
   'it',
   'ai_tool',
+  'recipe',
+  'travel_overseas',
   'game',
+  'all',
 ]);
 
 const PUBLIC_PREVIEW_ROTATION_MS = 60_000;
 const LIVE_SEED_COLLECTION_TIMEOUT_MS = 5_000;
 const LIVE_DISCOVERY_TIMEOUT_MS = 45_000;
-const LIVE_BACKFILL_TIMEOUT_MS = 35_000;
+const LIVE_BACKFILL_TIMEOUT_MS = 60_000;
 const LIVE_SPLIT_ENRICHMENT_TIMEOUT_MS = 25_000;
 const PUBLIC_PREVIEW_MAX_AGE_MS = 48 * 60 * 60 * 1000;
 const LIVE_BOARD_MAX_AGE_MS = 7 * 24 * 60 * 60 * 1000;
@@ -112,14 +127,44 @@ const LIVE_BOARD_EPISODE_LOOKUP_ABSOLUTE_MAX = 3;
 const LIVE_BOARD_CONTENT_LOOKUP_SHARE_CAP = 0.10;
 const LIVE_BOARD_CONTENT_LOOKUP_ABSOLUTE_MAX = 6;
 const LIVE_BOARD_STRICT_READY_MIN = 60;
-const LIVE_DIRECT_CANDIDATE_MAX_PER_CYCLE = 600;
-const LIVE_ISSUE_FALLBACK_DOCUMENT_LIMIT = 24;
-const LIVE_ISSUE_FALLBACK_CONCURRENCY = 4;
-const LIVE_BACKFILL_VOLUME_PASS_MAX = 320;
+const LIVE_DIRECT_CANDIDATE_MAX_PER_CYCLE = 1200;
+const LIVE_ISSUE_FALLBACK_DOCUMENT_LIMIT = 16;
+const LIVE_ISSUE_FALLBACK_CONCURRENCY = 2;
+const LIVE_BACKFILL_VOLUME_PASS_MAX = 120;
 const LIVE_BACKFILL_DOCUMENT_PASS_MAX = 48;
-const LIVE_BACKFILL_DOCUMENT_CONCURRENCY = 4;
+const LIVE_BACKFILL_DOCUMENT_CONCURRENCY = 1;
+const LIVE_BACKFILL_DOCUMENT_SUPPLEMENT_MAX = 24;
+const LIVE_ISSUE_DOCUMENT_SUPPLEMENT_MAX = 12;
 const LIVE_BOARD_SPLIT_ENRICHMENT_LIMIT = 80;
+const LIVE_CACHE_PROMOTION_MAX_CANDIDATES = 360;
+const LIVE_CACHE_PROMOTION_BATCH_SIZE = 20;
+const LIVE_CACHE_PROMOTION_BATCH_TIMEOUT_MS = 35_000;
+const LIVE_CACHE_PROMOTION_MIN_VOLUME = 100;
+const LIVE_CACHE_PROMOTION_MIN_RATIO = 0.5;
+const LIVE_CACHE_PROMOTION_STRONG_NEED_MIN_RATIO = 0.08;
+const LIVE_CACHE_PROMOTION_STRONG_NEED_DOCUMENT_CEILING = 80_000;
+const LIVE_SEARCHAD_CANDIDATE_MIN_CHARS = 3;
+const LIVE_SEARCHAD_CANDIDATE_MAX_CHARS = 30;
+const LIVE_SEARCHAD_CANDIDATE_MAX_TOKENS = 5;
+const LIVE_QUOTA_RETRY_BUFFER_MS = 5_000;
+const LIVE_QUOTA_RETRY_MIN_DELAY_MS = 1_000;
 const NEWS_HEADLINE_FRAGMENT_RE = /(?:\uBD80\uCE5C\uC0C1|\uC0AC\uACFC|\uAD6C\uC18D\uC601\uC7A5|\uD610\uC758|\uC870\uC0AC|\uB17C\uB780|\uC911\uB2E8|\uC778\uC99D|\uC9C0\uC5F0|\uBC15\uC218|\uC120\uC218\uB4E4|\uBC29\uBB38|\uC2AC\uD514|\uD574\uBA85|\uBC1C\uC5B8|\uC120\uACE0|\uCCB4\uD3EC|\uC555\uC218\uC218\uC0C9|\uC0AC\uB9DD|\uBCC4\uC138|\uACB0\uBCC4|\uC5F4\uC560|\uD63C\uC778)/u;
+
+function formatKstRetryAt(untilMs: number | null): string {
+  if (!untilMs) return '';
+  const kst = new Date(untilMs + 9 * 60 * 60 * 1000)
+    .toISOString()
+    .replace('T', ' ')
+    .replace('.000Z', ' KST');
+  return `; retry after ${kst}`;
+}
+
+function liveQuotaRetryDelayMs(untilMs: number, nowMs: number, intervalMs: number): number {
+  return Math.max(
+    LIVE_QUOTA_RETRY_MIN_DELAY_MS,
+    Math.min(intervalMs, Math.floor(untilMs - nowMs + LIVE_QUOTA_RETRY_BUFFER_MS)),
+  );
+}
 const SEMANTIC_CLUSTER_SUFFIX_RE = new RegExp(`(?:${[
   '\\uBA87\\uBD80\\uC791',
   '\\uCD9C\\uC5F0\\uC9C4',
@@ -131,9 +176,12 @@ const SEMANTIC_CLUSTER_SUFFIX_RE = new RegExp(`(?:${[
   '\\uC608\\uB9E4',
   '\\uC77C\\uC815',
   '\\uC2E0\\uCCAD',
+  '\\uAC00\\uC785',
   '\\uB300\\uC0C1',
   '\\uC790\\uACA9',
+  '\\uC870\\uAC74',
   '\\uC870\\uD68C',
+  '\\uC9C0\\uAE09\\uC77C',
   '\\uBC29\\uBC95',
   '\\uC900\\uBE44\\uBB3C',
   '\\uAC00\\uACA9\\uBE44\\uAD50',
@@ -145,6 +193,7 @@ const SEMANTIC_CLUSTER_SUFFIX_RE = new RegExp(`(?:${[
   '\\uC8FC\\uCC28',
   '\\uC704\\uCE58',
   '\\uC11C\\uB958',
+  '\\uB9C8\\uAC10\\uC77C',
   '\\uB9C8\\uAC10',
   '\\uBC1C\\uD45C',
   '\\uC911\\uACC4',
@@ -170,8 +219,301 @@ const SEASONAL_CONTENT_CLUSTER_SUFFIX_RE = new RegExp(`(?:${[
 ].join('|')})+$`, 'u');
 const EPISODE_LOOKUP_INTENT_RE = /\uBA87\uBD80\uC791/u;
 const CONTENT_LOOKUP_INTENT_RE = /(?:\uBA87\uBD80\uC791|\uCD9C\uC5F0\uC9C4|\uBC29\uC1A1\uC2DC\uAC04|\uC7AC\uBC29\uC1A1|\uB2E4\uC2DC\uBCF4\uAE30|\uACB0\uB9D0|\uCFE0\uD0A4\uC601\uC0C1|\uC6D0\uC791|\uB4F1\uC7A5\uC778\uBB3C|\uC778\uBB3C\uAD00\uACC4\uB3C4|\uACF5\uC2DD\uC601\uC0C1)/u;
+const LIVE_ULTIMATE_NEED_INTENT_RE = new RegExp([
+  '\\uC2E0\\uCCAD\\uBC29\\uBC95',
+  '\\uC2E0\\uCCAD',
+  '\\uB300\\uC0C1',
+  '\\uC790\\uACA9',
+  '\\uC870\\uAC74',
+  '\\uC9C0\\uAE09\\uC77C',
+  '\\uC870\\uD68C',
+  '\\uC11C\\uB958',
+  '\\uB9C8\\uAC10',
+  '\\uD658\\uAE09',
+  '\\uC9C0\\uC6D0\\uAE08',
+  '\\uD61C\\uD0DD',
+  '\\uBC14\\uC6B0\\uCC98',
+  '\\uC218\\uB2F9',
+  '\\uAE09\\uC5EC',
+  '\\uACC4\\uC0B0\\uAE30',
+  '\\uACC4\\uC0B0',
+  '\\uC2E4\\uC218\\uB839\\uC561',
+  '\\uBCF4\\uC99D',
+  '\\uD2B9\\uB840\\uBCF4\\uC99D',
+  '\\uC138\\uC561\\uACF5\\uC81C',
+  '\\uBCF4\\uD5D8',
+  '\\uB300\\uCD9C',
+  '\\uCCAD\\uC57D',
+  '\\uC624\\uB958',
+  '\\uC124\\uC815',
+  '\\uC0AC\\uC6A9\\uBC95',
+  '\\uC124\\uCE58',
+  '\\uB2E4\\uC6B4\\uB85C\\uB4DC',
+  '\\uD574\\uACB0',
+  '\\uAC00\\uACA9\\uBE44\\uAD50',
+  '\\uBE44\\uAD50',
+  '\\uCD94\\uCC9C',
+  '\\uD6C4\\uAE30',
+  '\\uB9AC\\uBDF0',
+  '\\uD560\\uC778',
+  '\\uCFE0\\uD3F0',
+  '\\uAD6C\\uB9E4\\uCC98',
+  '\\uCD5C\\uC800\\uAC00',
+  '\\uC7AC\\uACE0',
+  '\\uBC30\\uC1A1',
+  '\\uB80C\\uD0C8',
+  '\\uAD50\\uCCB4',
+  '\\uC218\\uB9AC',
+  'AS',
+  '\\uC785\\uC7A5\\uB8CC',
+  '\\uC8FC\\uCC28',
+  '\\uC608\\uC57D',
+  '\\uC608\\uB9E4',
+  '\\uD2F0\\uCF13\\uD305',
+  '\\uCDE8\\uC18C\\uD45C',
+  '\\uD658\\uBD88',
+  '\\uC88C\\uC11D',
+  '\\uC219\\uC18C',
+  '\\uACAC\\uC801',
+].join('|'), 'iu');
+const LIVE_LOW_VALUE_TOPIC_RE = new RegExp([
+  '\\uD504\\uB85C\\uD544',
+  '\\uC778\\uC2A4\\uD0C0',
+  '\\uB098\\uC774',
+  '\\uBA87\\uBD80\\uC791',
+  '\\uCD9C\\uC5F0\\uC9C4',
+  '\\uBC29\\uC1A1\\uC2DC\\uAC04',
+  '\\uC7AC\\uBC29\\uC1A1',
+  '\\uB2E4\\uC2DC\\uBCF4\\uAE30',
+  '\\uACB0\\uB9D0',
+  '\\uCFE0\\uD0A4\\uC601\\uC0C1',
+  '\\uC6D0\\uC791',
+  '\\uC778\\uBB3C\\uAD00\\uACC4\\uB3C4',
+  '\\uACF5\\uC2DD\\uC601\\uC0C1',
+  '\\uD558\\uC774\\uB77C\\uC774\\uD2B8',
+  '\\uC2DC\\uCCAD\\uB960',
+  '\\uB77C\\uC778\\uC5C5',
+  '\\uC608\\uACE0\\uD3B8',
+  '\\uC5F0\\uD328',
+  '\\uD0C8\\uCD9C',
+  '\\uD648\\uB7F0',
+  '\\uC548\\uD0C0',
+  '\\uC5ED\\uC804\\uACE8',
+  '\\uC120\\uC218',
+  '\\uB85C\\uB610',
+  '\\uB2F9\\uCCA8\\uBC88\\uD638',
+  '\\uB2F9\\uCCA8\\uC9C0\\uC5ED',
+  '\\uB4F1\\uAE09\\uCEF7',
+  '\\uC6D4\\uB4DC\\uCEF5',
+  '\\uD504\\uB85C\\uC57C\\uAD6C',
+  '\\uC62C\\uC2A4\\uD0C0\\uC804',
+  '\\uD751\\uBED1\\uC1FC',
+  '\\uB4DC\\uB77C\\uB9C8',
+  'KBO',
+  'MVP',
+].join('|'), 'iu');
+const LIVE_NEWS_ONLY_TOPIC_RE = new RegExp([
+  '\\uB17C\\uB780',
+  '\\uD574\\uBA85',
+  '\\uACF5\\uC2DD\\uC785\\uC7A5',
+  '\\uAE30\\uC790\\uD68C\\uACAC',
+  '\\uD68C\\uB3D9',
+  '\\uBC1C\\uC5B8',
+  '\\uC218\\uC0AC',
+  '\\uAD6C\\uC18D',
+  '\\uD310\\uACB0',
+  '\\uD30C\\uC7A5',
+  '\\uC0AC\\uACFC',
+  '\\uADFC\\uD669',
+  '\\uBCC4\\uC138',
+  '\\uC0AC\\uB9DD',
+].join('|'), 'iu');
+const LOW_VALUE_LIVE_SIGNAL_CATEGORY_RE = /^(?:celeb|drama|broadcast|movie|music|sports|issue|entertainment)$/i;
+const LIVE_ULTIMATE_GENERAL_INTENTS = Object.freeze([
+  '방법',
+  '조회',
+  '일정',
+  '준비물',
+  '후기',
+  '비교',
+  '가격',
+  '주의사항',
+]);
+const LIVE_ULTIMATE_CATEGORY_INTENTS: Readonly<Record<string, readonly string[]>> = Object.freeze({
+  policy: [
+    '신청 방법',
+    '대상 조건',
+    '자격 서류',
+    '지급일 조회',
+    '마감일',
+    '환급 방법',
+    '사용처',
+    '금액 조회',
+  ],
+  finance: [
+    '세액공제 조건',
+    '금리 비교',
+    '청약 일정',
+    '환급 조회',
+    '수수료 비교',
+    '수혜주 전망',
+  ],
+  shopping: [
+    '가격 비교',
+    '추천 후기',
+    '할인 쿠폰',
+    '구매처 재고',
+    '최저가',
+    '실사용 후기',
+  ],
+  travel_domestic: [
+    '주차',
+    '입장료',
+    '예약 방법',
+    '운영시간',
+    '준비물',
+    '코스 후기',
+  ],
+  travel_overseas: [
+    '비자 서류',
+    '항공권 가격',
+    '숙소 예약',
+    '환전 준비물',
+    '여행 일정',
+    '입국 조건',
+  ],
+  health: [
+    '보험 적용',
+    '검사 비용',
+    '예약 방법',
+    '주의사항',
+    '증상 체크',
+    '병원 후기',
+  ],
+  it: [
+    '오류 해결',
+    '설정 사용법',
+    '가격 비교',
+    '다운로드 설치',
+    '업데이트 방법',
+    '대체 서비스',
+  ],
+  ai_tool: [
+    '사용법',
+    '가격 비교',
+    '프롬프트',
+    '오류 해결',
+    '무료 대체',
+    '업데이트',
+  ],
+  home_life: [
+    '수리 비용',
+    '교체 가격',
+    '추천 후기',
+    '오류 해결',
+    '청소 방법',
+    '렌탈 비교',
+  ],
+  food: [
+    '메뉴 가격',
+    '예약 방법',
+    '영업시간',
+    '주차',
+    '웨이팅 후기',
+    '포장 가능',
+  ],
+  recipe: [
+    '레시피',
+    '재료',
+    '만드는 법',
+    '보관법',
+    '칼로리',
+    '실패 원인',
+  ],
+  electronics: [
+    '가격 비교',
+    '스펙 비교',
+    '추천 후기',
+    '할인 정보',
+    '출시일',
+    '구매처',
+  ],
+  fashion: [
+    '사이즈 추천',
+    '코디',
+    '할인 정보',
+    '실착 후기',
+    '브랜드 비교',
+    '구매처',
+  ],
+  beauty: [
+    '성분 비교',
+    '사용 후기',
+    '추천',
+    '할인 정보',
+    '부작용',
+    '사용법',
+  ],
+  sports: [
+    '중계 일정',
+    '경기 일정',
+    '예매 일정',
+    '직관 준비물',
+    '티켓 가격',
+    '좌석 추천',
+  ],
+  education: [
+    '시험 일정',
+    '접수 방법',
+    '준비물',
+    '기출 범위',
+    '발표 일정',
+    '응시자격',
+  ],
+  music: [
+    '콘서트 일정',
+    '예매 일정',
+    '티켓팅 방법',
+    '좌석 가격',
+    '굿즈 구매',
+    '셋리스트',
+  ],
+  game: [
+    '쿠폰',
+    '업데이트',
+    '공략',
+    '사전예약',
+    '출시일',
+    '티어 추천',
+  ],
+});
+const LIVE_ULTIMATE_EXPANDABLE_CATEGORIES = new Set([
+  'policy',
+  'finance',
+  'shopping',
+  'travel_domestic',
+  'travel_overseas',
+  'health',
+  'it',
+  'ai_tool',
+  'home_life',
+  'food',
+  'recipe',
+  'electronics',
+  'fashion',
+  'beauty',
+  'sports',
+  'education',
+  'music',
+  'game',
+]);
 
 const ROBUST_ACTIONABLE_TERMS = Object.freeze([
+  '\uACC4\uC0B0\uAE30',
+  '\uACC4\uC0B0',
+  '\uC2E4\uC218\uB839\uC561',
+  '\uC218\uB2F9',
+  '\uAE09\uC5EC',
   '일정',
   '신청',
   '대상',
@@ -218,18 +560,10 @@ const ROBUST_GENERAL_INTENTS = Object.freeze([
   '일정',
   '방법',
   '조회',
-  '대상',
-  '신청',
-  '발표',
-  '마감',
-  '예매',
   '후기',
-  '가격비교',
+  '비교',
   '추천',
   '준비물',
-  '현재 상황',
-  '이유',
-  '공식입장',
 ]);
 
 const ROBUST_CATEGORY_INTENTS: Readonly<Record<string, readonly string[]>> = Object.freeze({
@@ -270,7 +604,7 @@ const ROBUST_CATEGORY_TERMS: Readonly<Record<string, readonly string[]>> = Objec
   electronics: ['노트북', '휴대폰', '아이폰', '갤럭시', '청소기', '에어컨', '가전', '스펙'],
   beauty: ['선크림', '화장품', '성분', '피부', '뷰티'],
   fashion: ['코디', '브랜드', '사이즈', '패션'],
-  food: ['맛집', '메뉴', '삼계탕', '예약'],
+  food: ['맛집', '메뉴', '삼계탕', '카페', '디저트', '브런치', '베이커리', '핫플', '혼밥'],
   travel_domestic: ['제주', '부산', '강릉', '렌터카', '여행', '숙소'],
   health: ['증상', '검사', '치료', '병원', '입원', '격리'],
   it: ['AI', '앱', '오류', '업데이트', '설정', '사용법'],
@@ -294,12 +628,47 @@ const ROBUST_STOP_TOKENS = new Set([
   '이번주',
 ]);
 
-const HIGH_VALUE_NEED_INTENT_RE = /(신청|대상|자격|조건|지급일|조회|예약|예매|티켓팅|가격|가격비교|비교|추천|후기|리뷰|방법|준비물|체크리스트|서류|마감|오류|설정|사용법|답지|등급컷|당첨번호|당첨지역|중계|라인업|관련주|전망|주가|주차|입장료|비용|견적|영업시간|위치|시간표|환급|지원금|혜택|청약|쿠폰|할인|구매처|최저가|가성비|사전예약|출시일|발매일)/u;
+const HIGH_VALUE_NEED_INTENT_RE = /(신청|대상|자격|조건|지급일|조회|예약|예매|티켓팅|가격|가격비교|비교|추천|후기|리뷰|방법|준비물|체크리스트|서류|마감|오류|설정|사용법|답지|등급컷|당첨번호|당첨지역|중계|라인업|관련주|전망|주가|주차|입장료|비용|견적|영업시간|위치|시간표|환급|지원금|장려금|보조금|바우처|수당|급여|계산기|계산|실수령액|세액공제|혜택|청약|쿠폰|할인|구매처|최저가|가성비|사전예약|출시일|발매일)/u;
 const LOW_CONVERSION_LOOKUP_INTENT_RE = /(?:몇부작|출연진|방송시간|재방송|다시보기|결말|쿠키영상|원작|등장인물|인물관계도|공식영상|하이라이트|공식입장|해명|논란|기자회견|회동|발언|근황|비주얼|공개|소식|방한|방문|합의|악수|체결|파업|수사|구속|별세|끝내기|안타|MVP)/u;
 const ADSENSE_NEED_INTENT_RE = /(?:신청|대상|자격|조건|지급일|조회|예약|예매|티켓팅|가격|가격비교|비교|추천|후기|리뷰|방법|준비물|체크리스트|서류|마감|설정|사용법|주차|입장료|비용|견적|영업시간|위치|시간표|환급|지원금|혜택|청약|쿠폰|할인|구매처|최저가|가성비|사전예약|출시일|발매일|보험|대출|카드|계좌|배송|재고|매장|예약방법|신청방법)/u;
 const ADSENSE_LOW_VALUE_LOOKUP_RE = /(?:몇부작|출연진|방송시간|재방송|다시보기|결말|쿠키영상|원작|등장인물|인물관계도|공식영상|하이라이트|라인업|공식입장|해명|논란|기자회견|회동|발언|근황|비주얼|공개|소식|방한|방문|합의|악수|체결|파업|수사|구속|별세|끝내기|안타|MVP)/u;
 const ADSENSE_LOTTO_LOOKUP_RE = /(?:로또|복권|당첨번호|당첨지역|판매점|실수령액)/u;
 const ADSENSE_BRAND_SAFETY_NEWS_RE = /(?:사망|사고|혐의|조사|구속|체포|압수수색|기소|재판|선고|논란|공식입장|해명|기자회견|회동|발언|파업|별세|결별|열애|혼인|끝내기|안타|MVP|하이라이트|공식영상)/u;
+const BROAD_BENEFIT_PRODUCT_RE = /(?:\uBC14\uC6B0\uCC98|\uC7A5\uB824\uAE08|\uC9C0\uC6D0\uAE08|\uBCF4\uC870\uAE08|\uC218\uB2F9|\uAE09\uC5EC|\uD61C\uD0DD|\uCE90\uC2DC\uBC31|\uD658\uAE09|\uCCAD\uC57D)/u;
+const CONCRETE_PUBLISH_ACTION_RE = /(?:\uC2E0\uCCAD|\uC2E0\uCCAD\uBC29\uBC95|\uB300\uC0C1|\uC790\uACA9|\uC870\uAC74|\uC9C0\uAE09\uC77C|\uC870\uD68C|\uC11C\uB958|\uB9C8\uAC10|\uBC29\uBC95|\uACC4\uC0B0|\uBE44\uAD50|\uC608\uC57D|\uC608\uB9E4|\uAC00\uACA9|\uC8FC\uCC28|\uC785\uC7A5\uB8CC|\uAD6C\uB9E4\uCC98|\uCD5C\uC800\uAC00|\uD560\uC778|\uCFE0\uD3F0|\uD6C4\uAE30|\uCD94\uCC9C|\uC900\uBE44\uBB3C|\uC8FC\uC758\uC0AC\uD56D)/u;
+const PRESS_RELEASE_SLOGAN_SEED_RE = /(?:\uC5EC\uB294\s+\uC0C8\uB85C\uC6B4|\uC0C8\uB85C\uC6B4\s+.+\s+\uBBF8\uB798|\uBBF8\uB798|\uBE44\uC804|\uD611\uB825|\uAC04\uB2F4\uD68C|\uCD94\uC9C4|\uAC1C\uCD5C|\uD568\uAED8|\uD070\uB2E4|\uC120\uB3C4|\uB3C4\uC57D|\uD601\uC2E0|\uD65C\uC131\uD654|\uAC15\uD654)/u;
+const CONCRETE_POLICY_PRODUCT_RE = /(?:\uC9C0\uC6D0\uAE08|\uC7A5\uB824\uAE08|\uBC14\uC6B0\uCC98|\uBCF4\uC870\uAE08|\uC218\uB2F9|\uAE09\uC5EC|\uD61C\uD0DD|\uD658\uAE09|\uCCAD\uC57D|\uC138\uC561\uACF5\uC81C|\uBCF4\uD5D8|\uB300\uCD9C|\uCE90\uC2DC\uBC31|\uCFE0\uD3F0|\uBC1C\uAE09|\uC2E0\uCCAD|\uB300\uC0C1|\uC790\uACA9|\uC11C\uB958|\uB9C8\uAC10|\uC9C0\uAE09\uC77C|\uC870\uD68C)/u;
+const SEARCHAD_POLICY_PRODUCT_BASE_RE = /(?:[\uAC00-\uD7A3]{2,12}\uBC14\uC6B0\uCC98|\uC815\uCC45\uC790\uAE08|\uADFC\uB85C\uC7A5\uB824\uAE08|\uC790\uB140\uC7A5\uB824\uAE08|\uC5D0\uB108\uC9C0\uBC14\uC6B0\uCC98|\uCCAB\uB9CC\uB0A8\uC774\uC6A9\uAD8C|\uAE30\uCD08\uC5F0\uAE08|\uCCAD\uB144\uB3C4\uC57D\uACC4\uC88C|\uCCAD\uB144\uBBF8\uB798\uC801\uAE08|\uC18C\uC0C1\uACF5\uC778.{0,6}(?:\uD658\uAE09|\uC9C0\uC6D0|\uB300\uCD9C|\uC9C0\uC6D0\uAE08|\uC815\uCC45\uC790\uAE08)|\uBBFC\uC0DD\uD68C\uBCF5\uC9C0\uC6D0\uAE08|\uC0C1\uC0DD\uD398\uC774\uBC31|\uC2E4\uC5C5\uAE09\uC5EC|\uC721\uC544\uD734\uC9C1\uAE09\uC5EC|\uBD80\uBAA8\uAE09\uC5EC|\uC544\uB3D9\uC218\uB2F9|\uAC74\uAC15\uBCF4\uD5D8|\uB3C4\uC218\uCE58\uB8CC|\uD0C8\uBAA8\uCE58\uB8CC\uC81C|\uC5EC\uC131\uCCAD\uC18C\uB144.{0,6}\uBC14\uC6B0\uCC98)/u;
+const SEARCHAD_PRESS_ACTIVITY_RE = /(?:\uAC04\uB2F4\uD68C|\uC124\uBA85\uD68C|\uD611\uC57D|\uAC1C\uCD5C|\uBAA8\uC9D1|\uC120\uC815|\uD655\uB300|\uCD94\uC9C4|\uBBF8\uB798|\uC0AC\uC5C5|\uD504\uB85C\uC81D\uD2B8|\uBD80\uD2B8\uCEA0\uD504|\uAD50\uC721\uC0DD|\uCC38\uC5EC\uAE30\uAD00|\uC591\uC131|\uC778\uC7AC\uC591\uC131)/u;
+const SEARCHAD_FINANCE_BASE_RE = /(?:ETF|\uBC30\uB2F9\uC8FC|ISA|\uC801\uAE08|\uC608\uAE08|\uCCAD\uC57D|\uB300\uCD9C|\uBCF4\uD5D8|\uC138\uC561\uACF5\uC81C|\uC99D\uAD8C\uC0AC|\uC218\uC218\uB8CC|\uD658\uAE09|\uAD00\uB828\uC8FC|\uACF5\uBAA8\uC8FC)/iu;
+const LOW_VALUE_SENTENCE_SEED_RE = /(?:\uC5B4\uB514\uC5D0|\uBB34\uC5C7|\uB204\uAC00|\uC65C|\uC5B4\uB5BB\uAC8C|\uACC4\uC2E0\uAC00\uC694|\uC778\uAC00\uC694|\uD560\uAE4C\uC694|\uD588\uB098\uC694|\uD558\uC138\uC694|\uC54C\uB824\uC8FC\uC138\uC694|\uB4DC\uB9BD\uB2C8\uB2E4|\uC55E\uB2F9\uAE30\uACE0)/u;
+const LOW_VALUE_CRISIS_NEWS_RE = /(?:\uC774\uB780|\uD638\uB974\uBB34\uC988|\uC804\uC7C1|\uACF5\uC2B5|\uBD09\uC1C4|\uC7AC\uBD09\uC1C4|\uC704\uAE30|\uD575|\uBBF8\uC0AC\uC77C|\uC0AC\uB9DD|\uBCC4\uC138|\uD22C\uBCD1|\uD610\uC758|\uC870\uC0AC|\uAD6C\uC18D|\uCCB4\uD3EC|\uD30C\uC5C5)/u;
+const LOW_VALUE_POLICY_FRAGMENT_RE = /(?:\uC6D0\uAC00\uC815\s*\uBCF5\uADC0|\uC77C\uC2DC\uBCF4\uD638\uAE30\uAC04|\uC778\uAD6C\uAC10\uC18C\uC9C0\uC5ED\s*\uC18C\uC0C1\uACF5\uC778|\uC18C\uC0C1\uACF5\uC778\uACFC\s*\uC778\uAD6C\uAC10\uC18C\uC9C0\uC5ED|\uC0AC\uB791\uC744\s*\uCC98\uBC29\uD574|\uAD11\uBCF5\uC808\s*\uB300\uCCB4\uACF5\uD734\uC77C\s*\uC2E0\uCCAD|공식\s*확인\s*경로|놓치기\s*쉬운\s*변경사항|변경사항\s*금액|오늘\s*확인할\s*제외|확인할\s*제외|소득\s*기준과(?:\s*제외)?|부정수급|거짓\s*근로계약서|58명\s*적발|구독\s*서비스\s*내역\s*한눈에)/u;
+const GENERIC_AUDIENCE_TERMS = new Set([
+  '\uCCAD\uB144',
+  '\uC77C\uBC18',
+  '\uAD6D\uBBFC',
+  '\uC544\uB3D9',
+  '\uC7A5\uC560\uC778',
+  '\uC5EC\uC131',
+  '\uACE0\uB839\uC790',
+  '\uB178\uC778',
+  '\uD559\uC0DD',
+  '\uADFC\uB85C\uC790',
+  '\uC9C1\uC7A5\uC778',
+  '\uC18C\uC0C1\uACF5\uC778',
+  '\uC790\uC601\uC5C5\uC790',
+  '\uBD80\uBAA8',
+  '\uAC00\uAD6C',
+  '\uCDE8\uC57D\uACC4\uCE35',
+  '\uC800\uC18C\uB4DD\uCE35',
+  '\uC2E0\uD63C\uBD80\uBD80',
+  '\uC784\uC0B0\uBD80',
+  '\uB18D\uC5B4\uBBFC',
+  '\uAD6C\uC9C1\uC790',
+  '\uC911\uC18C\uAE30\uC5C5',
+  '\uC5B4\uB974\uC2E0',
+]);
 const ADSENSE_HIGH_VALUE_CATEGORIES = new Set([
   'policy',
   'finance',
@@ -368,6 +737,74 @@ function finiteNumber(value: unknown): number | null {
 
 function normalizeKeyword(value: unknown): string {
   return String(value || '').replace(/\s+/g, ' ').trim();
+}
+
+function normalizeMeasurementConfidence(value: unknown): MobileMeasurementConfidence | undefined {
+  const clean = normalizeKeyword(value).toLowerCase();
+  if (clean === 'high' || clean === 'medium' || clean === 'low') return clean;
+  return undefined;
+}
+
+function normalizeSearchVolumeSource(value: unknown): MobileSearchVolumeSource | undefined {
+  const clean = normalizeKeyword(value).toLowerCase();
+  if (clean === 'searchad' || clean === 'cache' || clean === 'manual' || clean === 'unknown' || clean === 'none') {
+    return clean;
+  }
+  return undefined;
+}
+
+function normalizeDocumentCountSource(value: unknown): MobileDocumentCountSource | undefined {
+  const clean = normalizeKeyword(value).toLowerCase();
+  if (clean === 'naver-api' || clean === 'cache' || clean === 'scrape' || clean === 'fallback' || clean === 'unknown' || clean === 'none') {
+    return clean;
+  }
+  return undefined;
+}
+
+function measurementMetadataFromRow(row: any): Partial<MobileKeywordMetric> {
+  const pc = finiteNumber(row?.pcSearchVolume);
+  const mobile = finiteNumber(row?.mobileSearchVolume);
+  const hasSearchAdSplit = pc !== null || mobile !== null;
+  const meta: Partial<MobileKeywordMetric> = {};
+  const searchVolumeSource = normalizeSearchVolumeSource(row?.searchVolumeSource || row?.svSource)
+    ?? (hasSearchAdSplit ? 'searchad' : undefined);
+  const searchVolumeConfidence = normalizeMeasurementConfidence(row?.searchVolumeConfidence || row?.svConfidence)
+    ?? (searchVolumeSource === 'searchad' && hasSearchAdSplit ? 'high' : undefined);
+  const documentCountSource = normalizeDocumentCountSource(row?.documentCountSource || row?.dcSource);
+  const documentCountConfidence = normalizeMeasurementConfidence(row?.documentCountConfidence || row?.dcConfidence);
+  if (searchVolumeSource) meta.searchVolumeSource = searchVolumeSource;
+  if (searchVolumeConfidence) meta.searchVolumeConfidence = searchVolumeConfidence;
+  if (row?.isSearchVolumeEstimated === true || row?.svEstimated === true) meta.isSearchVolumeEstimated = true;
+  if (row?.isSearchVolumeEstimated === false || row?.svEstimated === false) meta.isSearchVolumeEstimated = false;
+  if (searchVolumeSource === 'searchad' && hasSearchAdSplit && meta.isSearchVolumeEstimated === undefined) {
+    meta.isSearchVolumeEstimated = false;
+  }
+  if (documentCountSource) meta.documentCountSource = documentCountSource;
+  if (documentCountConfidence) meta.documentCountConfidence = documentCountConfidence;
+  if (row?.isDocumentCountEstimated === true || row?.dcEstimated === true) meta.isDocumentCountEstimated = true;
+  if (row?.isDocumentCountEstimated === false || row?.dcEstimated === false) meta.isDocumentCountEstimated = false;
+  return meta;
+}
+
+function measurementMetadataFromDocumentCount(measurement: DcMeasurement): Partial<MobileKeywordMetric> {
+  return {
+    documentCountSource: measurement.source,
+    documentCountConfidence: measurement.confidence,
+    isDocumentCountEstimated: measurement.isEstimated,
+  };
+}
+
+function measurementMetadataWithPersistentDefaults(row: any): Partial<MobileKeywordMetric> {
+  const meta = measurementMetadataFromRow(row);
+  const documentCount = finiteNumber(row?.documentCount)
+    ?? finiteNumber(row?.documents)
+    ?? finiteNumber(row?.docs);
+  if (documentCount !== null && documentCount > 0 && !meta.documentCountSource) {
+    meta.documentCountSource = 'cache';
+    meta.documentCountConfidence = 'medium';
+    meta.isDocumentCountEstimated = false;
+  }
+  return meta;
 }
 
 function includesAnyTerm(value: string, terms: readonly string[]): boolean {
@@ -546,6 +983,9 @@ function normalizeLiveSeedText(value: unknown): string {
 function isNoisyLiveSeed(keyword: string): boolean {
   const clean = normalizeKeyword(keyword);
   if (!clean) return true;
+  if (isGenericAudienceOnlyKeyword(clean)) return true;
+  if (isOverExpandedLiveCandidate(clean)) return true;
+  if (LOW_VALUE_SENTENCE_SEED_RE.test(clean) || LOW_VALUE_CRISIS_NEWS_RE.test(clean) || LOW_VALUE_POLICY_FRAGMENT_RE.test(clean)) return true;
   if (clean.length > 34) return true;
   if (/[.!?]{2,}|…/.test(clean)) return true;
   if (/(기자|스타이슈|단독|종합|사진|영상|전문|속보만|무단전재)/.test(clean)) return true;
@@ -577,7 +1017,8 @@ function expandLiveSeedKeyword(value: unknown): string[] {
   }
   return uniqueKeywords(out, 4)
     .filter((keyword) => !isNoisyLiveSeed(keyword))
-    .filter((keyword) => !isThinProfileIntentKeyword(keyword));
+    .filter((keyword) => !isThinProfileIntentKeyword(keyword))
+    .filter((keyword) => !isLowValueLiveCandidate(keyword));
 }
 
 function normalizeLiveSeeds(values: string[], limit = 28): string[] {
@@ -688,6 +1129,7 @@ function ratioOpportunityScore(ratio: number): number {
 function boardScore(item: MobileLiveGoldenBoardItem): number {
   const grade = GRADE_WEIGHT[item.grade] || 0;
   const measured = item.isMeasured ? 30 : 0;
+  const exactAutocomplete = (item.evidence || []).includes('autocomplete-exact-measured') ? 65 : 0;
   const volume = Math.max(0, item.totalSearchVolume || 0);
   const documents = item.documentCount;
   const ratio = Math.max(0, item.goldenRatio || (
@@ -736,6 +1178,7 @@ function boardScore(item: MobileLiveGoldenBoardItem): number {
     + firstMoverScarcity
     + longTailNeedSynergy
     + monsterBonus
+    + exactAutocomplete
     + adsenseReadinessScore(item) * 3
     + (item.score || 0) * 0.12;
 }
@@ -814,11 +1257,122 @@ function isRobustLottoKeyword(keyword: string): boolean {
 
 function isRobustSpecificLiveKeyword(keyword: string): boolean {
   const clean = normalizeKeyword(keyword);
+  if (isLowValueLiveCandidate(clean)) return false;
+  if (hasLiveUltimateNeedIntent(clean)) return true;
   return /\d{3,5}\s*회|20\d{2}|오늘|이번주|일정|신청|대상|자격|조회|발표|예매|중계|하이라이트|라인업|몇부작|출연진|방송시간|다시보기|결말|쿠키영상|공식영상|가격비교|후기|추천|현재 상황|공식입장|합의|예상|전망|소식|관련주/u.test(clean);
 }
 
 function hasRobustActionableIntent(keyword: string): boolean {
   return includesAnyTerm(keyword, ROBUST_ACTIONABLE_TERMS);
+}
+
+function isSearchAdMeasurableLiveCandidate(keyword: string, categoryId: string, now: Date = new Date()): boolean {
+  const clean = normalizeKeyword(keyword);
+  if (!clean) return false;
+  const compactLength = clean.replace(/\s+/g, '').length;
+  const tokenCount = clean.split(/\s+/).filter(Boolean).length;
+  const policyProductAction = isPolicyProductActionKeyword(clean);
+  const knownPolicyNeed = isKnownPolicyProductNeedKeyword(clean);
+  const highNeedIntent = hasLiveUltimateNeedIntent(clean);
+  const knownPolicyProduct = SEARCHAD_POLICY_PRODUCT_BASE_RE.test(clean);
+  const knownFinanceBase = SEARCHAD_FINANCE_BASE_RE.test(clean);
+  const normalizedCategory = normalizeKeyword(categoryId);
+  const knownTravelNeed = highNeedIntent
+    && (
+      normalizedCategory === 'travel_domestic'
+      || normalizedCategory === 'travel_overseas'
+      || VENUE_TRAVEL_BASE_RE.test(clean)
+      || /(?:여행|당일치기|근교|렌터카|렌트카|숙소|항공권)/u.test(clean)
+    );
+  if (compactLength < LIVE_SEARCHAD_CANDIDATE_MIN_CHARS || compactLength > LIVE_SEARCHAD_CANDIDATE_MAX_CHARS) return false;
+  if (tokenCount > LIVE_SEARCHAD_CANDIDATE_MAX_TOKENS) return false;
+  if (tokenCount >= LIVE_SEARCHAD_CANDIDATE_MAX_TOKENS && !knownPolicyNeed && !knownFinanceBase && !knownTravelNeed) return false;
+  if (isMalformedLiveKeyword(clean) || isStaleOrFutureLiveKeyword(clean, now)) return false;
+  if (!policyProductAction && isLowValueLiveCandidate(clean)) return false;
+  if (!policyProductAction && isOverExpandedLiveCandidate(clean)) return false;
+  if (isNoisyLiveSeed(clean) && !(policyProductAction || knownPolicyNeed || (highNeedIntent && (knownPolicyProduct || knownFinanceBase)))) return false;
+  if (ultimateIntentFragmentCount(clean) >= 3 && !(policyProductAction || knownPolicyNeed)) return false;
+
+  const inferred = inferLiveCategory(clean, categoryId || 'all');
+  const policyLike = inferred === 'policy' || normalizedCategory === 'policy' || LIVE_POLICY_SIGNAL_RE.test(clean);
+  const financeLike = inferred === 'finance' || normalizedCategory === 'finance' || LIVE_FINANCE_SIGNAL_RE.test(clean);
+
+  if (policyLike) {
+    if (SEARCHAD_PRESS_ACTIVITY_RE.test(clean) && !knownPolicyProduct) return false;
+    if (!knownPolicyProduct && tokenCount >= 4 && !highNeedIntent) return false;
+  }
+
+  if (financeLike) {
+    if (SEARCHAD_PRESS_ACTIVITY_RE.test(clean) && !knownFinanceBase) return false;
+    if (!knownFinanceBase && tokenCount >= 4 && !highNeedIntent) return false;
+  }
+
+  return highNeedIntent
+    || policyProductAction
+    || knownPolicyNeed
+    || hasRobustActionableIntent(clean)
+    || isActionableGoldenKeyword(clean);
+}
+
+function debugSearchAdMeasurableLiveCandidate(keyword: string, categoryId: string, now: Date = new Date()): Record<string, unknown> {
+  const clean = normalizeKeyword(keyword);
+  const compactLength = clean.replace(/\s+/g, '').length;
+  const tokenCount = clean.split(/\s+/).filter(Boolean).length;
+  const policyProductAction = isPolicyProductActionKeyword(clean);
+  const knownPolicyNeed = isKnownPolicyProductNeedKeyword(clean);
+  const highNeedIntent = hasLiveUltimateNeedIntent(clean);
+  const knownPolicyProduct = SEARCHAD_POLICY_PRODUCT_BASE_RE.test(clean);
+  const knownFinanceBase = SEARCHAD_FINANCE_BASE_RE.test(clean);
+  return {
+    clean,
+    compactLength,
+    tokenCount,
+    policyProductAction,
+    knownPolicyNeed,
+    highNeedIntent,
+    knownPolicyProduct,
+    knownFinanceBase,
+    malformed: isMalformedLiveKeyword(clean),
+    stale: isStaleOrFutureLiveKeyword(clean, now),
+    lowValue: isLowValueLiveCandidate(clean),
+    overExpanded: isOverExpandedLiveCandidate(clean),
+    noisy: isNoisyLiveSeed(clean),
+    intentFragments: ultimateIntentFragmentCount(clean),
+    robustAction: hasRobustActionableIntent(clean),
+    actionableGolden: isActionableGoldenKeyword(clean),
+    result: isSearchAdMeasurableLiveCandidate(clean, categoryId, now),
+  };
+}
+
+function isPolicyProductActionKeyword(keyword: string): boolean {
+  const clean = normalizeKeyword(keyword);
+  if (!clean) return false;
+  const compactLength = clean.replace(/\s+/g, '').length;
+  const tokenCount = clean.split(/\s+/).filter(Boolean).length;
+  return SEARCHAD_POLICY_PRODUCT_BASE_RE.test(clean)
+    && hasConcretePolicyProductAction(clean)
+    && compactLength >= LIVE_SEARCHAD_CANDIDATE_MIN_CHARS
+    && compactLength <= LIVE_SEARCHAD_CANDIDATE_MAX_CHARS
+    && tokenCount <= LIVE_SEARCHAD_CANDIDATE_MAX_TOKENS
+    && ultimateIntentFragmentCount(clean) <= 2
+    && !isStaleOrFutureLiveKeyword(clean);
+}
+
+function hasConcretePolicyProductAction(keyword: string): boolean {
+  const clean = normalizeKeyword(keyword);
+  return CONCRETE_PUBLISH_ACTION_RE.test(clean)
+    || /(?:\uC0AC\uC6A9\uCC98|\uAE08\uC561|\uD61C\uD0DD|\uC120\uC815\uAE30\uC900)/u.test(clean);
+}
+
+function isKnownPolicyProductNeedKeyword(keyword: string): boolean {
+  const clean = normalizeKeyword(keyword);
+  if (!clean) return false;
+  if (isPolicyProductActionKeyword(clean)) return true;
+  if (!SEARCHAD_POLICY_PRODUCT_BASE_RE.test(clean)) return false;
+  if (!hasConcretePolicyProductAction(clean)) return false;
+  if (!hasLiveUltimateNeedIntent(clean) && !hasRobustActionableIntent(clean)) return false;
+  if (isUltimateLowValueLookupKeyword(clean) || isOverExpandedLiveCandidate(clean)) return false;
+  return true;
 }
 
 function isStaleOrFutureLiveKeyword(keyword: string, now: Date = new Date()): boolean {
@@ -852,7 +1406,8 @@ function isMalformedLiveKeyword(keyword: string): boolean {
 
 function isActionableLiveKeyword(keyword: string): boolean {
   const clean = normalizeKeyword(keyword);
-  return ACTIONABLE_KEYWORD_HINT_RE.test(clean) || hasRobustActionableIntent(clean);
+  if (isLowValueLiveCandidate(clean)) return false;
+  return hasLiveUltimateNeedIntent(clean);
 }
 
 function isThinProfileIntentKeyword(keyword: string): boolean {
@@ -922,28 +1477,172 @@ function boardCategoryKey(item: MobileLiveGoldenBoardItem): string {
 function selectLiveBoardItems<T extends MobileLiveGoldenBoardItem>(
   sorted: T[],
   boardTarget: number,
+  now: Date = new Date(),
 ): T[] {
   const target = Math.max(1, Math.floor(boardTarget));
-  const strictReadyTarget = Math.min(target, LIVE_BOARD_STRICT_READY_MIN);
   const strictReady = sorted.filter(isStrictReadyLiveBoardItem);
-  if (strictReady.length >= strictReadyTarget) {
-    return selectLiveBoardItemsFromPool(strictReady, target);
+  const strictSelected = selectLiveBoardItemsFromPool(strictReady, target);
+  if (strictSelected.length >= target) return strictSelected;
+  const selectedIds = new Set(strictSelected.map((item) => item.id));
+  const nearReady = sorted
+    .filter((item) => !selectedIds.has(item.id))
+    .filter(isNearUltimateLiveBoardItem);
+  const nearSelected = selectLiveBoardItemsFromPool(
+    [...strictSelected, ...nearReady],
+    target,
+    (item) => isStrictReadyLiveBoardItem(item) || isNearUltimateLiveBoardItem(item),
+  );
+  if (nearSelected.length >= target) return nearSelected;
+
+  const expandedSelectedIds = new Set(nearSelected.map((item) => item.id));
+  const measuredReady = sorted
+    .filter((item) => !expandedSelectedIds.has(item.id))
+    .filter((item) => isMeasuredProBoardItem(item, now));
+  return selectLiveBoardItemsFromPool(
+    [...nearSelected, ...measuredReady],
+    target,
+    (item) => isStrictReadyLiveBoardItem(item)
+      || isNearUltimateLiveBoardItem(item)
+      || isMeasuredProBoardItem(item, now),
+  );
+}
+
+function selectMeasuredPublishableFallbackItems<T extends MobileLiveGoldenBoardItem>(
+  sorted: T[],
+  boardTarget: number,
+  now: Date,
+): T[] {
+  const target = Math.max(1, Math.floor(boardTarget));
+  const selected: T[] = [];
+  const selectedIds = new Set<string>();
+  const selectedCompactIds = new Set<string>();
+  for (const item of sorted) {
+    if (selected.length >= target) break;
+    const compactId = keywordCompactId(item.keyword);
+    if (selectedIds.has(item.id) || selectedCompactIds.has(compactId)) continue;
+    if (
+      (isPublishableLiveResultMetric(item, now) || isMeasuredProBoardFallbackMetric(item, now))
+      && hasMeasuredPcMobileSplit(item)
+      && hasTrustedSearchVolumeMeasurement(item)
+      && hasTrustedDocumentCountMeasurement(item)
+    ) {
+      selected.push(item);
+      selectedIds.add(item.id);
+      selectedCompactIds.add(compactId);
+    }
   }
-  return selectLiveBoardItemsFromPool(sorted, target);
+  return selected;
+}
+
+function appendMeasuredPublishableFallbackItems<T extends MobileLiveGoldenBoardItem>(
+  selected: T[],
+  sorted: T[],
+  boardTarget: number,
+  now: Date,
+): T[] {
+  const target = Math.max(1, Math.floor(boardTarget));
+  if (selected.length >= target) return selected;
+  const selectedIds = new Set(selected.map((item) => item.id));
+  const merged = [...selected];
+  const fallback = selectMeasuredPublishableFallbackItems(sorted, target, now);
+  for (const item of fallback) {
+    if (merged.length >= target) break;
+    if (selectedIds.has(item.id)) continue;
+    selectedIds.add(item.id);
+    merged.push(item);
+  }
+  return merged;
 }
 
 function isStrictReadyLiveBoardItem(item: MobileLiveGoldenBoardItem): boolean {
   const keyword = normalizeKeyword(item.keyword);
   return hasCompleteLiveGoldenMetrics(item)
+    && hasTrustedSearchVolumeMeasurement(item)
+    && hasTrustedDocumentCountMeasurement(item)
     && hasMeasuredPcMobileSplit(item)
+    && liveBoardOpportunityScore(item) >= 98
     && !isLottoLookupKeyword(keyword)
     && !isLowAdsenseLookupKeyword(keyword)
-    && !isBrandSafetyNewsKeyword(keyword);
+    && !isBrandSafetyNewsKeyword(keyword)
+    && isUltimateGoldenKeywordCandidate(item, {
+      requirePcMobileSplit: true,
+      requireMeasurementProvenance: true,
+      minAiScore: 98,
+      minTotalSearchVolume: 300,
+      maxDocumentCount: 8000,
+      minGoldenRatio: 5,
+    });
+}
+
+function maxDocumentCountForNearUltimate(item: {
+  totalSearchVolume?: number | null;
+  documentCount?: number | null;
+  goldenRatio?: number | null;
+}): number {
+  const volume = finiteNumber(item.totalSearchVolume) || 0;
+  const docs = finiteNumber(item.documentCount) || 0;
+  const ratio = finiteNumber(item.goldenRatio) || (volume > 0 && docs > 0 ? volume / docs : 0);
+  if (volume >= 100_000 && ratio >= 5) return 30_000;
+  if (volume >= 30_000 && ratio >= 3) return 30_000;
+  if (volume >= 10_000 && ratio >= 2.5) return 25_000;
+  return 15_000;
+}
+
+function isNearUltimateLiveBoardItem(item: MobileLiveGoldenBoardItem): boolean {
+  const keyword = normalizeKeyword(item.keyword);
+  const maxDocumentCount = maxDocumentCountForNearUltimate(item);
+  return hasCompleteLiveGoldenMetrics(item)
+    && hasTrustedSearchVolumeMeasurement(item)
+    && hasTrustedDocumentCountMeasurement(item)
+    && hasMeasuredPcMobileSplit(item)
+    && liveBoardOpportunityScore(item) >= 75
+    && !isLottoLookupKeyword(keyword)
+    && !isLowAdsenseLookupKeyword(keyword)
+    && !isBrandSafetyNewsKeyword(keyword)
+    && isUltimateGoldenKeywordCandidate(item, {
+      requirePcMobileSplit: true,
+      requireMeasurementProvenance: true,
+      minAiScore: 98,
+      minTotalSearchVolume: 300,
+      maxDocumentCount,
+      minGoldenRatio: 2,
+    });
+}
+
+function isMeasuredProBoardItem(item: MobileLiveGoldenBoardItem, now: Date = new Date()): boolean {
+  const keyword = normalizeKeyword(item.keyword);
+  const volume = finiteNumber(item.totalSearchVolume) || 0;
+  const docs = finiteNumber(item.documentCount) || 0;
+  const ratio = finiteNumber(item.goldenRatio) || (volume > 0 && docs > 0 ? volume / docs : 0);
+  const strongNeedKeyword = isStrongMeasuredNeedKeyword(keyword);
+  const maxDocs = strongNeedKeyword
+    ? Math.min(BROAD_KEYWORD_DOCUMENT_CEILING, LIVE_CACHE_PROMOTION_STRONG_NEED_DOCUMENT_CEILING)
+    : BROAD_KEYWORD_DOCUMENT_CEILING;
+  const minRatio = strongNeedKeyword
+    ? LIVE_CACHE_PROMOTION_STRONG_NEED_MIN_RATIO
+    : LIVE_CACHE_PROMOTION_MIN_RATIO;
+  if (item.grade === 'C') return false;
+  if (!hasCompleteLiveGoldenMetrics(item)) return false;
+  if (!hasTrustedSearchVolumeMeasurement(item)) return false;
+  if (!hasTrustedDocumentCountMeasurement(item)) return false;
+  if (!hasMeasuredPcMobileSplit(item)) return false;
+  if (!isLiveRadarUsableMetric(item, now) && !isMeasuredProExactKeywordMetric(item, now)) return false;
+  if (volume < 100 || docs <= 0 || docs > maxDocs || ratio < minRatio) return false;
+  if (isLottoLookupKeyword(keyword) || isLowAdsenseLookupKeyword(keyword) || isBrandSafetyNewsKeyword(keyword)) return false;
+  const judged = applyKeywordAiJudge(item, { now, downgradeExcluded: false });
+  const ai = judged.aiJudge;
+  if (!ai) return false;
+  if (ai.verdict === 'exclude' || ai.spamRisk === 'high') return false;
+  const strategicMeasuredIntent = livePromotionPriorityBonus(keyword, item.category || 'all') >= 260
+    && !LIVE_PROMOTION_SYNTHETIC_INTENT_CHAIN_RE.test(keyword);
+  if (ai.needIntent === 'weak' && !hasAdsenseNeedIntent(keyword) && !strategicMeasuredIntent) return false;
+  return true;
 }
 
 function selectLiveBoardItemsFromPool<T extends MobileLiveGoldenBoardItem>(
   sorted: T[],
   boardTarget: number,
+  isEligible: (item: T) => boolean = isStrictReadyLiveBoardItem,
 ): T[] {
   const target = Math.max(1, Math.floor(boardTarget));
   const maxProfileCount = maxThinProfileBoardCount(target);
@@ -964,6 +1663,7 @@ function selectLiveBoardItemsFromPool<T extends MobileLiveGoldenBoardItem>(
     const compactId = keywordCompactId(item.keyword);
     if (selectedCompactIds.has(compactId)) return false;
     if (!hasCompleteLiveGoldenMetrics(item)) return false;
+    if (!isEligible(item)) return false;
     const isProfileIntent = isThinProfileIntentKeyword(item.keyword);
     if (isProfileIntent && profileCount >= maxProfileCount) return false;
     const isEpisodeLookup = isEpisodeLookupKeyword(item.keyword);
@@ -1009,7 +1709,7 @@ function selectLiveBoardItemsFromPool<T extends MobileLiveGoldenBoardItem>(
 
   for (const item of sorted) {
     if (selected.length >= target) break;
-    push(item);
+    push(item, { respectCluster: true });
   }
 
   return selected;
@@ -1023,8 +1723,15 @@ function isLiveRadarUsableKeyword(
 ): boolean {
   if (isMalformedLiveKeyword(keyword)) return false;
   const clean = normalizeKeyword(keyword);
+  const knownPolicyNeed = isKnownPolicyProductNeedKeyword(clean);
   if (isStaleOrFutureLiveKeyword(clean, now)) return false;
   if (isThinProfileIntentKeyword(clean)) return false;
+  if (!knownPolicyNeed && isLowValueLiveCandidate(clean)) return false;
+  if (!knownPolicyNeed && isOverExpandedLiveCandidate(clean)) return false;
+  if (!knownPolicyNeed && isBroadBenefitProductKeyword(clean)) return false;
+  if (!knownPolicyNeed && isGenericAudienceOnlyKeyword(clean)) return false;
+  if (LOW_VALUE_SENTENCE_SEED_RE.test(clean) || LOW_VALUE_CRISIS_NEWS_RE.test(clean) || LOW_VALUE_POLICY_FRAGMENT_RE.test(clean)) return false;
+  if (!knownPolicyNeed && !hasLiveUltimateNeedIntent(clean)) return false;
   if (/(관련주|주가)/.test(clean) && !STOCK_MARKET_CONTEXT_RE.test(clean)) return false;
   const specific = SPECIFIC_LIVE_KEYWORD_HINT_RE.test(clean) || isRobustSpecificLiveKeyword(clean);
   if (volume !== null && volume >= BROAD_KEYWORD_VOLUME_CEILING) return false;
@@ -1041,20 +1748,106 @@ function isLiveRadarUsableKeyword(
 function isStrongLiveIssueSeed(seed: string): boolean {
   const clean = normalizeKeyword(seed);
   if (!clean || isNoisyLiveSeed(clean) || isThinProfileIntentKeyword(clean)) return false;
-  return LIVE_LOTTERY_SIGNAL_RE.test(clean)
-    || isRobustLottoKeyword(clean)
-    || LIVE_SPORTS_SIGNAL_RE.test(clean)
-    || LIVE_POLICY_SIGNAL_RE.test(clean)
-    || LIVE_BROADCAST_SIGNAL_RE.test(clean)
+  if (isLowValueLiveCandidate(clean)) return false;
+  if (hasLiveUltimateNeedIntent(clean)) return true;
+  return LIVE_POLICY_SIGNAL_RE.test(clean)
     || LIVE_FINANCE_SIGNAL_RE.test(clean)
-    || LIVE_GENERAL_ISSUE_RE.test(clean)
     || isActionableLiveKeyword(clean)
-    || SPECIFIC_LIVE_KEYWORD_HINT_RE.test(clean)
     || isRobustSpecificLiveKeyword(clean);
+}
+
+function isLowValueLiveSourceCategory(categoryId: string): boolean {
+  return LOW_VALUE_LIVE_SIGNAL_CATEGORY_RE.test(normalizeKeyword(categoryId));
+}
+
+function shouldUseLiveSourceSignalForGoldenBoard(
+  keyword: string,
+  signalCategory: string,
+  requestedCategory: string,
+): boolean {
+  const clean = normalizeKeyword(keyword);
+  if (!clean || isNoisyLiveSeed(clean) || isLowValueLiveCandidate(clean)) return false;
+  const inferred = inferLiveCategory(clean, signalCategory || requestedCategory || 'all');
+  if (isLowValueLiveSourceCategory(signalCategory) || isLowValueLiveSourceCategory(inferred)) {
+    return LIVE_POLICY_SIGNAL_RE.test(clean)
+      || LIVE_FINANCE_SIGNAL_RE.test(clean)
+      || PRODUCT_BASE_SIGNAL_RE.test(clean)
+      || VENUE_TRAVEL_BASE_RE.test(clean);
+  }
+  if (requestedCategory !== 'all' && inferred !== requestedCategory && signalCategory !== requestedCategory) {
+    return false;
+  }
+  return isStrongLiveIssueSeed(clean)
+    || hasLiveUltimateNeedIntent(clean)
+    || SPECIFIC_LIVE_KEYWORD_HINT_RE.test(clean);
+}
+
+function isPublishableLiveResultMetric(metric: MobileKeywordMetric, now: Date): boolean {
+  const judged = applyKeywordAiJudge(metric, { now });
+  const maxDocumentCount = maxDocumentCountForNearUltimate(judged);
+  return isUltimateGoldenKeywordCandidate(judged, {
+    now,
+    requirePcMobileSplit: true,
+    requireMeasurementProvenance: true,
+    minAiScore: 98,
+    minTotalSearchVolume: 300,
+    maxDocumentCount,
+    minGoldenRatio: 2,
+  });
+}
+
+function measuredProBoardFallbackRejectReason(metric: MobileLiveGoldenBoardItem, now: Date): string {
+  const keyword = normalizeKeyword(metric.keyword);
+  if (!keyword) return 'empty-keyword';
+  if (!hasCompleteLiveGoldenMetrics(metric)) return 'incomplete-metrics';
+  if (!isLiveRadarUsableMetric(metric, now) && !isMeasuredProExactKeywordMetric(metric, now)) {
+    return 'not-live-radar-usable';
+  }
+  if (!hasMeasuredPcMobileSplit(metric)) return 'missing-pc-mobile-split';
+  if (!hasTrustedSearchVolumeMeasurement(metric)) return 'untrusted-search-volume';
+  if (!hasTrustedDocumentCountMeasurement(metric)) return 'untrusted-document-count';
+  if (isLottoLookupKeyword(keyword)) return 'lotto-lookup';
+  if (isLowAdsenseLookupKeyword(keyword)) return 'low-adsense-lookup';
+  if (isBrandSafetyNewsKeyword(keyword)) return 'brand-safety-news';
+  if (ROBUST_EXAM_STALE_RE.test(keyword)) return 'exam-stale';
+  if (LOW_VALUE_EVENT_TOPIC_RE.test(keyword)) return 'low-value-event';
+
+  const volume = finiteNumber(metric.totalSearchVolume) || 0;
+  const docs = finiteNumber(metric.documentCount) || 0;
+  const ratio = finiteNumber(metric.goldenRatio) || (docs > 0 ? volume / docs : 0);
+  const promotionBonus = livePromotionPriorityBonus(keyword, metric.category || 'all');
+  const strategicMeasuredIntent = promotionBonus >= 260
+    && !LIVE_PROMOTION_SYNTHETIC_INTENT_CHAIN_RE.test(keyword);
+  const strongNeedKeyword = isStrongMeasuredNeedKeyword(keyword);
+  const maxDocs = strongNeedKeyword
+    ? Math.min(BROAD_KEYWORD_DOCUMENT_CEILING, LIVE_CACHE_PROMOTION_STRONG_NEED_DOCUMENT_CEILING)
+    : BROAD_KEYWORD_DOCUMENT_CEILING;
+  const minRatio = strongNeedKeyword
+    ? LIVE_CACHE_PROMOTION_STRONG_NEED_MIN_RATIO
+    : LIVE_CACHE_PROMOTION_MIN_RATIO;
+  if (volume < 100) return 'volume-too-low';
+  if (docs <= 0 || docs > maxDocs) return 'document-count-out-of-range';
+  if (ratio < minRatio) return 'ratio-too-low';
+
+  const judged = applyKeywordAiJudge(metric, { now, downgradeExcluded: false });
+  const ai = judged.aiJudge;
+  if (!ai) return 'missing-ai-judge';
+  if (ai.verdict === 'exclude') return 'ai-exclude';
+  if (ai.spamRisk === 'high') return 'spam-risk-high';
+  if (ai.freshnessRisk === 'high' && ratio < 2) return 'freshness-risk-high';
+  if (ai.verdict === 'conditional' && ai.score < 78 && !strategicMeasuredIntent) return `conditional-low-score:${ai.score}`;
+  if (ai.score < 70 && !hasAdsenseNeedIntent(keyword) && !strategicMeasuredIntent) return `ai-score-low:${ai.score}`;
+  if (ai.needIntent === 'weak' && !hasAdsenseNeedIntent(keyword) && !strategicMeasuredIntent) return `weak-need-intent:${ai.score}`;
+  return 'ok';
+}
+
+function isMeasuredProBoardFallbackMetric(metric: MobileLiveGoldenBoardItem, now: Date): boolean {
+  return measuredProBoardFallbackRejectReason(metric, now) === 'ok';
 }
 
 function isPublicPreviewCandidate(item: MobileLiveGoldenBoardItem): boolean {
   if (!isLiveRadarUsableMetric(item)) return false;
+  if (!isStrictReadyLiveBoardItem(item)) return false;
   if (item.grade === 'B' || item.grade === 'C') return false;
   if (item.totalSearchVolume !== null && item.totalSearchVolume >= PUBLIC_PREVIEW_VOLUME_CEILING) return false;
   if (item.documentCount !== null && item.documentCount >= PUBLIC_PREVIEW_DOCUMENT_CEILING) return false;
@@ -1063,25 +1856,12 @@ function isPublicPreviewCandidate(item: MobileLiveGoldenBoardItem): boolean {
 }
 
 function isPublicPreviewFallbackCandidate(item: MobileLiveGoldenBoardItem): boolean {
-  if (isMalformedLiveKeyword(item.keyword) || isThinProfileIntentKeyword(item.keyword)) return false;
-  if (item.grade === 'B' || item.grade === 'C') return false;
-  if (item.totalSearchVolume !== null && item.totalSearchVolume >= PUBLIC_PREVIEW_VOLUME_CEILING) return false;
-  if (
-    item.totalSearchVolume !== null
-    && item.documentCount !== null
-    && item.documentCount > 0
-  ) {
-    const ratio = item.goldenRatio !== null ? item.goldenRatio : item.totalSearchVolume / item.documentCount;
-    if (item.totalSearchVolume < 100) return false;
-    if (ratio < 0.75) return false;
-    if (item.documentCount >= 120_000 && ratio < 1.5) return false;
-    if (item.documentCount >= 60_000 && ratio < 1.0) return false;
-  }
-  return isActionableLiveKeyword(item.keyword) || SPECIFIC_LIVE_KEYWORD_HINT_RE.test(item.keyword);
+  return isPublicPreviewCandidate(item);
 }
 
 function inferLiveCategoryByRobustRules(keyword: string): string | null {
   const clean = normalizeKeyword(keyword);
+  if (VENUE_TRAVEL_BASE_RE.test(clean)) return /항공권|비자|환전|유심/u.test(clean) ? 'travel_overseas' : 'travel_domestic';
   for (const [category, terms] of Object.entries(ROBUST_CATEGORY_TERMS)) {
     if (includesAnyTerm(clean, terms)) return category;
   }
@@ -1162,6 +1942,10 @@ function getBackfillIntents(categoryId: string): string[] {
 function getLiveSeedBackfillIntents(seed: string, categoryId: string): string[] {
   const inferred = inferLiveCategory(seed, categoryId);
   const clean = normalizeKeyword(seed);
+  if (isLowValueLiveCandidate(clean)) return [];
+  if (hasLiveUltimateNeedIntent(clean)) {
+    return ultimateNeedTemplatesForCategory(inferred || categoryId);
+  }
   if (LIVE_LOTTERY_SIGNAL_RE.test(clean)) return getBackfillIntents('life_tips');
   if (LIVE_SPORTS_SIGNAL_RE.test(clean)) return getBackfillIntents('sports');
   if (LIVE_POLICY_SIGNAL_RE.test(clean)) return getBackfillIntents('policy');
@@ -1239,6 +2023,7 @@ function normalizeRobustLiveSeedBase(value: unknown, now: Date): string {
     .replace(/\s+/g, ' ')
     .trim();
   if (!clean || isStaleOrFutureLiveKeyword(clean, now) || isThinProfileIntentKeyword(clean)) return '';
+  if (isGenericAudienceOnlyKeyword(clean)) return '';
   if (isRobustLottoKeyword(clean)) return normalizeLiveSeedForDate(clean, now);
   return clean;
 }
@@ -1254,9 +2039,345 @@ function currentLottoCandidateKeywords(now: Date): string[] {
   ];
 }
 
+function isPressReleaseSloganSeed(keyword: string): boolean {
+  const clean = normalizeKeyword(keyword);
+  if (!clean || !PRESS_RELEASE_SLOGAN_SEED_RE.test(clean)) return false;
+  if (CONCRETE_POLICY_PRODUCT_RE.test(clean) || CONCRETE_PUBLISH_ACTION_RE.test(clean)) return false;
+  const tokenCount = clean.split(/\s+/).filter(Boolean).length;
+  const compactLength = clean.replace(/\s+/g, '').length;
+  return tokenCount >= 4 || compactLength >= 14;
+}
+
+function isLowValueLiveCandidate(keyword: string): boolean {
+  const clean = normalizeKeyword(keyword);
+  if (!clean) return true;
+  return isUltimateLowValueLookupKeyword(clean)
+    || isPressReleaseSloganSeed(clean)
+    || LIVE_LOW_VALUE_TOPIC_RE.test(clean)
+    || LIVE_NEWS_ONLY_TOPIC_RE.test(clean)
+    || LOW_VALUE_EVENT_TOPIC_RE.test(clean)
+    || LOW_VALUE_PERSON_COMMERCE_RE.test(clean)
+    || LOW_VALUE_SYNTHETIC_CHAIN_RE.test(clean)
+    || hasTooManyCommerceProductHeads(clean)
+    || (BARE_OPAQUE_EVENT_BOOKING_RE.test(clean.replace(/\s+/g, '')) && !EVENT_BOOKING_UTILITY_EXEMPT_RE.test(clean))
+    || isIncompatiblePolicyUsageIntent(clean)
+    || GENERIC_BENEFIT_INTENT_RE.test(clean)
+    || BARE_INTENT_ONLY_RE.test(clean)
+    || isCommerceIntentWithoutProductBase(clean)
+    || LOW_VALUE_SENTENCE_SEED_RE.test(clean)
+    || LOW_VALUE_CRISIS_NEWS_RE.test(clean)
+    || LOW_VALUE_POLICY_FRAGMENT_RE.test(clean);
+}
+
+function hasLiveUltimateNeedIntent(keyword: string): boolean {
+  const clean = normalizeKeyword(keyword);
+  if (!clean || isLowValueLiveCandidate(clean)) return false;
+  if (hasUltimateHighValueNeedIntent(clean)) return true;
+  if (LIVE_ULTIMATE_NEED_INTENT_RE.test(clean)) return true;
+  const compact = clean.replace(/\s+/g, '');
+  return compact !== clean && LIVE_ULTIMATE_NEED_INTENT_RE.test(compact);
+}
+
+const POLICY_ONLY_INTENT_RE = /(?:신청|대상|자격|지급일|환급|서류|마감|사용처|금액\s*조회|지원\s*대상|혜택)/u;
+const POLICY_USAGE_COMPATIBLE_BASE_RE = /(?:\uBC14\uC6B0\uCC98|\uCE74\uB4DC|\uC0C1\uD488\uAD8C|\uC774\uC6A9\uAD8C|\uCFE0\uD3F0|\uD3EC\uC778\uD2B8|\uCE90\uC2DC\uBC31)/u;
+const POLICY_USAGE_INCOMPATIBLE_BASE_RE = /(?:\uC2E4\uC5C5\uAE09\uC5EC|\uBD80\uBAA8\uAE09\uC5EC|\uC721\uC544\uD734\uC9C1\uAE09\uC5EC|\uC544\uB3D9\uC218\uB2F9|\uC218\uB2F9|\uAE09\uC5EC|\uADFC\uB85C\uC7A5\uB824\uAE08|\uC790\uB140\uC7A5\uB824\uAE08|\uCD9C\uC0B0\uC9C0\uC6D0\uAE08|\uC9C0\uC6D0\uAE08|\uD658\uAE09\uAE08|\uAE30\uCD08\uC5F0\uAE08|\uCCAD\uB144\uB3C4\uC57D\uACC4\uC88C|\uCCAD\uB144\uBBF8\uB798\uC801\uAE08|\uC801\uAE08|\uC815\uCC45\uC790\uAE08|\uB300\uCD9C|\uC138\uC561\uACF5\uC81C)/u;
+const USAGE_PLACE_INTENT_RE = /\uC0AC\uC6A9\uCC98/u;
+
+function isIncompatiblePolicyUsageIntent(keyword: string): boolean {
+  const clean = normalizeKeyword(keyword);
+  return USAGE_PLACE_INTENT_RE.test(clean)
+    && POLICY_USAGE_INCOMPATIBLE_BASE_RE.test(clean)
+    && !POLICY_USAGE_COMPATIBLE_BASE_RE.test(clean);
+}
+
+function hasTooManyCommerceProductHeads(keyword: string): boolean {
+  const compact = normalizeKeyword(keyword).replace(/\s+/g, '');
+  if (!compact) return false;
+  let hits = 0;
+  for (const pattern of LIVE_COMMERCE_PRODUCT_HEADS) {
+    if (pattern.test(compact)) hits += 1;
+  }
+  return hits >= 3;
+}
+
+const VENUE_TRAVEL_INTENT_RE = /(?:주차|입장료|숙소|항공권|비자|환전|입국|운영시간|코스)/u;
+const FOOD_ONLY_INTENT_RE = /(?:메뉴|웨이팅|포장|맛집)/u;
+const SPORTS_EVENT_INTENT_RE = /(?:중계|경기\s*일정|예매(?:\s*일정)?|라인업|순위|결과|직관|티켓|좌석)/u;
+const PRODUCT_PURCHASE_INTENT_RE = /(?:가격|비교|추천|후기|할인|쿠폰|구매처|최저가|재고|스펙|사이즈|성분|실사용|실착)/u;
+const SPORTS_EQUIPMENT_BASE_RE = /(?:라켓|축구화|농구화|러닝화|운동화|골프채|골프공|글러브|배트|유니폼|헬멧|보호대|요가매트|덤벨)/u;
+const PRODUCT_BASE_SIGNAL_RE = /(?:아이폰|갤럭시|노트북|태블릿|청소기|에어컨|냉장고|세탁기|모니터|키보드|마우스|이어폰|헤드폰|충전기|보조배터리|선풍기|제습기|가습기|공기청정기|로봇청소기|선크림|화장품|세럼|크림|샴푸|패딩|레인부츠|장화|양산|우산|수영복|샌들|크록스|가방|신발|운동화|라켓|축구화|골프채|골프공|글러브|배트|유니폼|요가매트|덤벨|텐트|캠핑|아이스박스|텀블러|침구|매트리스|의자|책상|유심|렌터카|렌트카|항공권|숙소|호텔|상품권|쿠폰|바우처|카드|보험|대출|청약|AI\s*툴|AI\s*영상|영상툴|생성툴|자동화툴|앱|서비스)/iu;
+const LIVE_COMMERCE_PRODUCT_HEADS = [
+  /무선\s*에어건/u,
+  /세차\s*송풍기/u,
+  /먼지\s*청소기/u,
+  /청소기/u,
+  /제습기/u,
+  /에어컨/u,
+  /공기청정기/u,
+  /음식물\s*처리기/u,
+  /로봇\s*청소기/u,
+  /선풍기/u,
+];
+const VENUE_TRAVEL_BASE_RE = /(?:바다하늘길|둘레길|해수욕장|전망대|수목원|휴양림|공원|축제|박람회|전시|관광|가볼만한곳|입장료|주차장|운영시간|렌터카|렌트카|숙소|호텔|항공권|비자|환전|유심)/u;
+const NON_PRODUCT_NEWS_BASE_RE = /(?:KBO|프로야구|올스타전|월드컵|FIFA|흠뻑쇼|콘서트|팬미팅|컴백|라인업|하이라이트|셋리스트|특검|반란|회장|후보|활약|근황|연속\s*안타|발언|논란|출전|작은\s*키|참교육|신입사원)/iu;
+const LOW_VALUE_PERSON_COMMERCE_RE = /(?:(?:\d{1,2}월\s*\d{1,2}일\s*)?[가-힣]{2,5}(?:\s+[가-힣]{2,5})?\s*(?:활약|근황|특검|반란|회장|후보|연속\s*안타|출전|작은\s*키|발언|논란|프로필).*(?:가격|할인|쿠폰|구매처|최저가|재고|실사용|추천\s*후기)|^\d{1,2}월\s*\d{1,2}일\s+[가-힣]{2,5}(?:\s+[가-힣]{2,5})?\s*(?:가격|할인|쿠폰|구매처|최저가|재고|실사용|추천\s*후기))/u;
+const LOW_VALUE_EVENT_TOPIC_RE = /(?:KBO|프로야구|올스타전|월드컵|FIFA|흠뻑쇼|신입사원\s*강회장|참교육\s*몇부작|드라마\s*참교육|로또|당첨번호|\d{3,5}\s*회|등급컷|광복절|제헌절|개천절|한글날)/iu;
+const GENERIC_BENEFIT_INTENT_RE = /^(?:지원금|보조금|환급금|장려금|바우처|수당|급여)\s*(?:신청|대상|자격|조건|지급일|조회|마감|환급|서류|사용처|지원)/u;
+const BARE_INTENT_ONLY_RE = /^(?:신청|신청방법|대상|자격|조건|지급일|조회|서류|마감|마감일|환급|방법|사용처|금액|준비서류|지원|혜택|가격|비교|추천|후기|할인|쿠폰|구매처|재고|최저가)(?:\s+(?:신청|신청방법|대상|자격|조건|지급일|조회|서류|마감|마감일|환급|방법|사용처|금액|준비서류|지원|혜택|가격|비교|추천|후기|할인|쿠폰|구매처|재고|최저가)){0,2}$/u;
+const LOW_VALUE_SYNTHETIC_CHAIN_RE = /(?:^\d{1,2}월\s*\d{1,2}일\s+|([가-힣A-Za-z0-9]{2,})\s*신청\s*\1\s*신청(?:대상|방법|자격|조건|조회|지급일|서류|문의|안내|하기|현황)?|^신청\s+[가-힣A-Za-z0-9]{2,}\s*신청(?:대상|방법|자격|조건|조회|지급일|서류|문의|안내|하기|현황)|신청\s*(?:국가)?[가-힣A-Za-z0-9]{2,}\s*신청(?:대상|방법|자격|조건|조회|지급일|서류|문의|안내|하기|현황)?|가입신청\s*(?:신청|금액)|신청\s*신청|구매처\s*(?:구매처|재고)|최저가\s*구매처\s*재고|할인\s*정보\s*(?:추천|할인|구매처|최저가|실사용)|일정\s*콘서트\s*일정|티켓팅\s*방법\s*굿즈|굿즈\s*구매\s*(?:조회|준비물|주의사항|발표|정리)|준비서류\s*(?:신청|대상|자격|조건|지급일|환급|지원|금액|조회|마감)|정리\s*운영시간|현재\s*상황\s*운영시간|정부24\s*(?:지급일|신청|조회|마감)|공식\s*확인(?:\s*경로)?|놓치기\s*쉬운\s*변경사항|변경사항|6월\s*온라인|금액\s*조회\s*(?:신청|대상|자격|지급일|환급)|마감일\s*지급일|신청기간\s*(?:대상|자격|지급일|환급|금액|지원)|내역\s*한눈에|현재\s*상황\s*(?:정리|이유)|총정리)/u;
+const BARE_OPAQUE_EVENT_BOOKING_RE = /^[\uAC00-\uD7A3A-Za-z0-9]{2,16}(?:\uC608\uB9E4|\uD2F0\uCF13\uD305)$/u;
+const EVENT_BOOKING_UTILITY_EXEMPT_RE = /(?:\uD56D\uACF5\uAD8C|\uC219\uC18C|\uD638\uD154|\uB80C\uD130\uCE74|\uB80C\uD2B8\uCE74|\uAE30\uCC28|KTX|SRT|\uBC84\uC2A4|\uC720\uB78C\uC120|\uD06C\uB8E8\uC988|\uC785\uC7A5\uAD8C|\uCCB4\uD5D8|\uBC15\uB78C\uD68C|\uC804\uC2DC|\uC218\uBAA9\uC6D0|\uD734\uC591\uB9BC)/iu;
+const ULTIMATE_INTENT_FRAGMENT_RE = /(?:신청|대상|자격|조건|일정|지급일|조회|서류|마감|환급|사용처|방법|금액|지원금|지원|보조금|장려금|대지급금|수당|수급|보험|급여|바우처|세액공제|수혜주|관련주|주가|전망|실적|발표|가격|비용|검사|증상|원인|비교|추천|후기|할인|쿠폰|구매처|최저가|재고|예약|예매|티켓팅|좌석|주차|입장료|영업시간|운영시간|숙소|항공권|비자|환전|메뉴|웨이팅|준비물|주의사항|오류|설정|사용법|업데이트|공략|사전예약|출시일|티어|성분|스펙|사이즈|굿즈)/gu;
+const COMMERCE_GENERIC_INTENT_RE = /^(?:방법|일정|조회|발표|정리|준비물|주의사항)$/u;
+const VENUE_FRIENDLY_CATEGORIES = new Set(['travel_domestic', 'travel_overseas', 'food', 'health', 'music', 'sports']);
+const PRODUCT_FRIENDLY_CATEGORIES = new Set([
+  'shopping',
+  'electronics',
+  'fashion',
+  'beauty',
+  'home_life',
+  'food',
+  'recipe',
+  'it',
+  'ai_tool',
+  'game',
+]);
+const STRICT_COMMERCE_CATEGORIES = new Set(['shopping', 'electronics', 'fashion', 'beauty']);
+
+function isUltimateIntentCompatible(base: string, intent: string, categoryId: string): boolean {
+  const cleanBase = normalizeKeyword(base);
+  const cleanIntent = normalizeKeyword(intent);
+  const category = inferLiveCategoryByRobustRules(cleanBase) || normalizeKeyword(categoryId);
+  if (!cleanIntent) return false;
+  const isPolicyCategory = category === 'policy' || category === 'finance';
+  const isPolicyBase = LIVE_POLICY_SIGNAL_RE.test(cleanBase) || LIVE_FINANCE_SIGNAL_RE.test(cleanBase);
+  const productIntent = PRODUCT_PURCHASE_INTENT_RE.test(cleanIntent);
+  const productBase = PRODUCT_BASE_SIGNAL_RE.test(cleanBase);
+
+  if (
+    USAGE_PLACE_INTENT_RE.test(cleanIntent)
+    && POLICY_USAGE_INCOMPATIBLE_BASE_RE.test(cleanBase)
+    && !POLICY_USAGE_COMPATIBLE_BASE_RE.test(cleanBase)
+  ) return false;
+  if (POLICY_ONLY_INTENT_RE.test(cleanIntent) && !isPolicyCategory && !isPolicyBase) return false;
+  if (category === 'policy' && (VENUE_TRAVEL_INTENT_RE.test(cleanIntent) || SPORTS_EVENT_INTENT_RE.test(cleanIntent))) return false;
+  if (category === 'policy' && PRODUCT_PURCHASE_INTENT_RE.test(cleanIntent) && !/비교|조회/u.test(cleanIntent)) return false;
+  if (FOOD_ONLY_INTENT_RE.test(cleanIntent) && category !== 'food') return false;
+  if (VENUE_TRAVEL_INTENT_RE.test(cleanIntent) && !VENUE_FRIENDLY_CATEGORIES.has(category)) return false;
+  if (SPORTS_EVENT_INTENT_RE.test(cleanIntent) && category !== 'sports' && category !== 'music') return false;
+  if (category === 'sports' && SPORTS_EQUIPMENT_BASE_RE.test(cleanBase) && SPORTS_EVENT_INTENT_RE.test(cleanIntent)) return false;
+  if (category === 'sports' && productIntent && !SPORTS_EQUIPMENT_BASE_RE.test(cleanBase)) return false;
+  if (productIntent && NON_PRODUCT_NEWS_BASE_RE.test(cleanBase) && !productBase) return false;
+  if (productIntent && !productBase && !VENUE_TRAVEL_BASE_RE.test(cleanBase) && !isPolicyBase && !/(?:맛집|메뉴|병원|검사|치료|수리|교체|청소|설정|오류|사용법)/u.test(cleanBase)) return false;
+  if (productIntent && !PRODUCT_FRIENDLY_CATEGORIES.has(category) && category !== 'sports') return false;
+  if (STRICT_COMMERCE_CATEGORIES.has(category) && COMMERCE_GENERIC_INTENT_RE.test(cleanIntent)) return false;
+  return true;
+}
+
+function ultimateIntentFragmentCount(keyword: string): number {
+  const clean = normalizeKeyword(keyword);
+  const hits = clean.match(ULTIMATE_INTENT_FRAGMENT_RE) || [];
+  return new Set(hits.map((hit) => hit.replace(/\s+/g, ''))).size;
+}
+
+function hasRepeatedCompactIntentChain(keyword: string): boolean {
+  const tokens = normalizeKeyword(keyword).split(/\s+/).filter(Boolean);
+  if (tokens.length < 2) return false;
+  const compact = (values: string[]) => values
+    .join('')
+    .toLowerCase()
+    .replace(/[^a-z0-9\uAC00-\uD7A3]/g, '');
+  for (let split = 1; split < tokens.length; split += 1) {
+    const left = compact(tokens.slice(0, split));
+    const right = compact(tokens.slice(split));
+    if (left.length >= 5 && right.startsWith(left) && right.length - left.length >= 2) {
+      return true;
+    }
+  }
+  return false;
+}
+
+const LOW_VALUE_REPEAT_TOKEN_RE = /^(?:20\d{2}|최신|오늘|이번주|추천|후기|리뷰|비교|가격|설치|용량|신청|조회|정리|총정리|체크리스트|실사용|할인|정보|구매처|재고|최저가|출시일|스펙)$/u;
+const LOW_VALUE_LIVE_COMPACT_CHAIN_RE = /(추천20\d{2}|20\d{2}추천|추천사용법|추천용량|추천최저가|최저가추천|추천가격|가격추천|추천구매처|추천할인정보|추천출시일|추천스펙|비교후기|비교가격|비교구매처|비교최저가|가격후기|가격할인정보|가격구매처|가격출시일|최저가후기|최저가실사용|최저가구매처|구매처최저가|가이드구매처|용량선택가이드구매처|구매처실사용|실사용후기|할인실사용|할인정보후기|추천실사용|스펙스펙|스펙추천|스펙후기|스펙비교|스펙출시일|렌탈비교추천|렌탈비교후기|렌탈비교할인)/u;
+const LIVE_GENERIC_INTENT_TOKEN_RE = /^(?:20\d{2}|\d+월|최신|오늘|이번주|추천|후기|리뷰|비교|가격|설치|용량|신청|조회|정리|총정리|체크리스트|실사용|할인|정보|방법|가이드|사용법|주의사항|전기세|전기요금|청소|렌탈|구매처|가성비|소음|조건|순위|필터교체|필터|재고|최저가|출시일|스펙)$/u;
+
+function hasRepeatedLiveCandidateToken(keyword: string): boolean {
+  const tokens = normalizeKeyword(keyword)
+    .split(/\s+/)
+    .map((token) => token.replace(/[^\dA-Za-z가-힣]/g, '').trim())
+    .filter((token) => token.length >= 2);
+  const seen = new Set<string>();
+  for (const token of tokens) {
+    const key = token.toLowerCase();
+    if (seen.has(key) && LOW_VALUE_REPEAT_TOKEN_RE.test(token)) return true;
+    seen.add(key);
+  }
+  return false;
+}
+
+function compactLiveCandidate(keyword: string): string {
+  return normalizeKeyword(keyword)
+    .replace(/\s+/g, '')
+    .replace(/[^\dA-Za-z가-힣]/g, '')
+    .toLowerCase();
+}
+
+function liveCandidateTokens(keyword: string): string[] {
+  return normalizeKeyword(keyword)
+    .split(/\s+/)
+    .map((token) => token.replace(/[^\dA-Za-z가-힣]/g, '').trim())
+    .filter(Boolean);
+}
+
+function liveGenericIntentTokenCount(keyword: string): number {
+  return liveCandidateTokens(keyword)
+    .filter((token) => LIVE_GENERIC_INTENT_TOKEN_RE.test(token))
+    .length;
+}
+
+function liveTrailingGenericIntentRun(keyword: string): number {
+  const tokens = liveCandidateTokens(keyword);
+  let count = 0;
+  for (let i = tokens.length - 1; i >= 0; i -= 1) {
+    if (!LIVE_GENERIC_INTENT_TOKEN_RE.test(tokens[i])) break;
+    count += 1;
+  }
+  return count;
+}
+
+function isOverExpandedLiveCandidate(keyword: string): boolean {
+  const clean = normalizeKeyword(keyword);
+  if (!clean) return true;
+  if (LOW_VALUE_SYNTHETIC_CHAIN_RE.test(clean) || LOW_VALUE_PERSON_COMMERCE_RE.test(clean)) return true;
+  if (LOW_VALUE_LIVE_COMPACT_CHAIN_RE.test(compactLiveCandidate(clean))) return true;
+  if (hasRepeatedCompactIntentChain(clean)) return true;
+  if (hasRepeatedLiveCandidateToken(clean)) return true;
+  const fragmentCount = ultimateIntentFragmentCount(clean);
+  const tokenCount = clean.split(/\s+/).filter(Boolean).length;
+  const genericTokenCount = liveGenericIntentTokenCount(clean);
+  const trailingGenericRun = liveTrailingGenericIntentRun(clean);
+  const policyOrBenefit = LIVE_POLICY_SIGNAL_RE.test(clean) || LIVE_FINANCE_SIGNAL_RE.test(clean);
+  if (policyOrBenefit) {
+    if (fragmentCount >= 5) return true;
+    if (tokenCount >= 9 && fragmentCount >= 3) return true;
+    return false;
+  }
+  const inferredCategory = inferLiveCategory(clean, 'live');
+  const productSyntheticCategory = new Set(['shopping', 'electronics', 'fashion', 'beauty', 'home_life', 'it', 'game']).has(inferredCategory);
+  if (productSyntheticCategory) {
+    if (tokenCount >= 6 && fragmentCount >= 3) return true;
+    if (genericTokenCount >= 3 && tokenCount >= 4) return true;
+    if (trailingGenericRun >= 3 && tokenCount >= 4) return true;
+    if (tokenCount >= 8 && fragmentCount >= 1) return true;
+    return false;
+  }
+  if (fragmentCount >= 4) return true;
+  if (tokenCount >= 7 && fragmentCount >= 3) return true;
+  if (tokenCount >= 9 && fragmentCount >= 2) return true;
+  return false;
+}
+
+function isCommerceIntentWithoutProductBase(keyword: string): boolean {
+  const clean = normalizeKeyword(keyword);
+  if (!PRODUCT_PURCHASE_INTENT_RE.test(clean)) return false;
+  if (PRODUCT_BASE_SIGNAL_RE.test(clean)) return false;
+  if (VENUE_TRAVEL_BASE_RE.test(clean)) return false;
+  if (LIVE_POLICY_SIGNAL_RE.test(clean) || LIVE_FINANCE_SIGNAL_RE.test(clean)) return false;
+  if (/(?:맛집|메뉴|카페|디저트|레시피|병원|검사|치료|보험|비용|수리|교체|청소|설정|오류|사용법)/u.test(clean)) return false;
+  return true;
+}
+
+function keywordAlreadyHasIntent(keyword: string, intent: string): boolean {
+  const key = normalizeKeyword(keyword).replace(/\s+/g, '').toLowerCase();
+  const intentKey = normalizeKeyword(intent).replace(/\s+/g, '').toLowerCase();
+  if (!intentKey) return false;
+  if (key.includes(intentKey)) return true;
+  const markers = [
+    '신청',
+    '대상',
+    '자격',
+    '조건',
+    '지급일',
+    '조회',
+    '서류',
+    '마감',
+    '환급',
+    '사용처',
+    '금액',
+    '일정',
+    '방법',
+    '가격',
+    '비용',
+    '비교',
+    '추천',
+    '후기',
+    '할인',
+    '쿠폰',
+    '구매처',
+    '최저가',
+    '재고',
+    '예약',
+    '예매',
+    '주차',
+    '입장료',
+    '준비물',
+    '운영시간',
+    '보험',
+  ];
+  return markers.some((marker) => intentKey.includes(marker) && key.includes(marker));
+}
+
+function ultimateNeedTemplatesForCategory(categoryId: string): string[] {
+  const category = normalizeKeyword(categoryId);
+  const categorySpecific = LIVE_ULTIMATE_CATEGORY_INTENTS[category];
+  return uniqueKeywords(categorySpecific?.length ? [...categorySpecific] : [...LIVE_ULTIMATE_GENERAL_INTENTS], 18);
+}
+
+function normalizeUltimateSeedBase(seed: string): string {
+  let clean = normalizeKeyword(seed)
+    .replace(/[()[\]{}"'`]/g, ' ')
+    .replace(/\s+/g, ' ')
+    .trim();
+  if (!clean || isLowValueLiveCandidate(clean)) return '';
+  if (isGenericAudienceOnlyKeyword(clean)) return '';
+  if (isOverExpandedLiveCandidate(clean)) return '';
+  clean = clean
+    .replace(/\s+(?:\uB300\uC0C1|\uD655\uB300|\uAC1C\uD3B8|\uC804\uBA74|\uAC1C\uC815|\uD589\uC815\uC608\uACE0)\s*$/u, '')
+    .replace(/^(?:\uB41C|\uD55C|\uC81C\uAE30\uD55C)\s+/u, '')
+    .replace(/\s+/g, ' ')
+    .trim();
+  return clean.length >= 3 && clean.length <= 28 ? clean : '';
+}
+
+function buildUltimateNeedCandidatesForSeed(seed: string, categoryId: string, limit = 14): string[] {
+  const base = normalizeUltimateSeedBase(seed);
+  if (!base) return [];
+  const inferred = inferLiveCategory(base, categoryId);
+  const expandable = LIVE_ULTIMATE_EXPANDABLE_CATEGORIES.has(inferred)
+    || LIVE_ULTIMATE_EXPANDABLE_CATEGORIES.has(normalizeKeyword(categoryId));
+  const baseHasNeedIntent = hasLiveUltimateNeedIntent(base);
+  if (baseHasNeedIntent && !expandable) return [base];
+  if (!baseHasNeedIntent && !expandable) return [];
+  if (baseHasNeedIntent && ['music', 'sports', 'broadcast', 'drama', 'movie'].includes(inferred)) return [base];
+  if (baseHasNeedIntent && ultimateIntentFragmentCount(base) >= 2) return [base];
+  const templates = ultimateNeedTemplatesForCategory(inferred || categoryId);
+  const out: string[] = [];
+  if (baseHasNeedIntent) out.push(base);
+  for (const intent of templates) {
+    if (out.length >= limit) break;
+    if (!isUltimateIntentCompatible(base, intent, inferred || categoryId)) continue;
+    out.push(keywordAlreadyHasIntent(base, intent) ? base : `${base} ${intent}`);
+  }
+  return uniqueKeywords(out, limit)
+    .filter((candidate) => hasLiveUltimateNeedIntent(candidate))
+    .filter((candidate) => !isLowValueLiveCandidate(candidate))
+    .filter((candidate) => !isOverExpandedLiveCandidate(candidate));
+}
+
 function buildSeedPhraseVariants(seed: string): string[] {
   const clean = normalizeKeyword(seed);
   if (!clean) return [];
+  const mustKeepBenefitToken = BROAD_BENEFIT_PRODUCT_RE.test(clean);
   const tokens = clean
     .split(/\s+/)
     .map((token) => token.replace(/[^\dA-Za-z가-힣]/g, '').trim())
@@ -1274,6 +2395,8 @@ function buildSeedPhraseVariants(seed: string): string[] {
   const compact = clean.replace(/\s+/g, '');
   if (compact.length >= 4 && compact.length <= 18) out.push(compact);
   return uniqueKeywords(out, 14)
+    .filter((keyword) => !mustKeepBenefitToken || BROAD_BENEFIT_PRODUCT_RE.test(keyword))
+    .filter((keyword) => !isOverExpandedLiveCandidate(keyword))
     .filter((keyword) => !isNoisyLiveSeed(keyword))
     .filter((keyword) => !isThinProfileIntentKeyword(keyword));
 }
@@ -1286,7 +2409,7 @@ function robustIntentTemplatesForSeed(seed: string, categoryId: string): string[
   return uniqueKeywords([
     ...categoryIntents,
     ...ROBUST_GENERAL_INTENTS,
-  ], 22);
+  ], 22).filter((intent) => isUltimateIntentCompatible(seed, intent, inferred || categoryId));
 }
 
 function buildRobustLiveSeedCandidates(
@@ -1303,7 +2426,7 @@ function buildRobustLiveSeedCandidates(
   const bases = uniqueKeywords([
     ...rawLiveBases,
     ...normalizeLiveSeeds(liveSeeds, 100).map((seed) => normalizeLiveSeedForDate(seed, now)).filter(Boolean),
-    ...currentLottoCandidateKeywords(now),
+    ...rawLiveBases.flatMap((seed) => buildUltimateNeedCandidatesForSeed(seed, categoryId, 8)),
   ], 140);
   const candidates: string[] = [];
   const maxPerBase = Math.max(12, Math.floor(candidateLimit / Math.max(1, bases.length)) + 8);
@@ -1315,6 +2438,19 @@ function buildRobustLiveSeedCandidates(
     for (const variant of variants) {
       if (candidates.length >= candidateLimit) break;
       if (candidates.length - baseStartCount >= maxPerBase) break;
+      const variantCategory = inferLiveCategory(variant, categoryId);
+      const variantExpandable = LIVE_ULTIMATE_EXPANDABLE_CATEGORIES.has(variantCategory)
+        || LIVE_ULTIMATE_EXPANDABLE_CATEGORIES.has(normalizeKeyword(categoryId));
+      const variantHasNeedIntent = hasLiveUltimateNeedIntent(variant);
+      if (!variantExpandable && variantHasNeedIntent) {
+        candidates.push(variant);
+        continue;
+      }
+      if (!variantExpandable && !variantHasNeedIntent) continue;
+      if (ultimateIntentFragmentCount(variant) >= 2) {
+        candidates.push(variant);
+        continue;
+      }
       const intents = robustIntentTemplatesForSeed(variant, categoryId);
       const seedAlreadySpecific = isActionableLiveKeyword(variant) || isRobustSpecificLiveKeyword(variant);
       const temporalHints = isRobustLottoKeyword(variant)
@@ -1328,11 +2464,11 @@ function buildRobustLiveSeedCandidates(
       }
       for (const intent of intents.slice(0, seedAlreadySpecific ? 6 : 14)) {
         if (candidates.length - baseStartCount >= maxPerBase) break;
-        if (!variant.includes(intent)) candidates.push(`${variant} ${intent}`);
+        if (!keywordAlreadyHasIntent(variant, intent)) candidates.push(`${variant} ${intent}`);
         if (!seedAlreadySpecific) {
           for (const hint of temporalHints.slice(0, 1)) {
             if (candidates.length - baseStartCount >= maxPerBase) break;
-            if (!variant.includes(hint) && !variant.includes(intent)) {
+            if (!variant.includes(hint) && !keywordAlreadyHasIntent(variant, intent)) {
               candidates.push(`${hint} ${variant} ${intent}`);
             }
           }
@@ -1370,6 +2506,9 @@ function buildDateAwareLiveSeedCandidates(
       || SPECIFIC_LIVE_KEYWORD_HINT_RE.test(clean)
       || isRobustSpecificLiveKeyword(clean);
     const inferredCategory = inferLiveCategory(clean, categoryId);
+    const seedExpandable = LIVE_ULTIMATE_EXPANDABLE_CATEGORIES.has(inferredCategory)
+      || LIVE_ULTIMATE_EXPANDABLE_CATEGORIES.has(normalizeKeyword(categoryId));
+    const seedHasNeedIntent = hasLiveUltimateNeedIntent(clean);
     const temporalHints = LIVE_LOTTERY_SIGNAL_RE.test(clean) || isRobustLottoKeyword(clean)
       ? []
       : dateHints.filter((hint) => !clean.includes(hint)).slice(0, seedAlreadySpecific ? 1 : 3);
@@ -1378,11 +2517,15 @@ function buildDateAwareLiveSeedCandidates(
     for (const hint of temporalHints) {
       candidates.push(`${hint} ${clean}`);
     }
+    if (ultimateIntentFragmentCount(clean) >= 2) continue;
+    if (!seedExpandable && seedHasNeedIntent) continue;
+    if (!seedExpandable && !seedHasNeedIntent) continue;
 
     for (const intent of intents.slice(0, seedAlreadySpecific ? 3 : 8)) {
-      if (!clean.includes(intent)) candidates.push(`${clean} ${intent}`);
+      if (!isUltimateIntentCompatible(clean, intent, inferredCategory || categoryId)) continue;
+      if (!keywordAlreadyHasIntent(clean, intent)) candidates.push(`${clean} ${intent}`);
       for (const hint of temporalHints.slice(0, 1)) {
-        if (!clean.includes(hint) && !clean.includes(intent)) {
+        if (!clean.includes(hint) && !keywordAlreadyHasIntent(clean, intent)) {
           candidates.push(`${hint} ${clean} ${intent}`);
         }
       }
@@ -1404,6 +2547,280 @@ function buildDateAwareLiveSeedCandidates(
   );
 }
 
+const LIVE_MEASURED_PROBE_BASES: Record<string, readonly string[]> = Object.freeze({
+  all: [
+    '제주 렌터카',
+    '무선청소기',
+    '로봇청소기',
+    '도수치료',
+    'IRP',
+    'ISA',
+    '근로장려금',
+    '자녀장려금',
+    '에너지바우처',
+    '소상공인 정책자금',
+  ],
+  policy: [
+    '근로장려금',
+    '자녀장려금',
+    '에너지바우처',
+    '청년미래적금',
+    '육아휴직급여',
+    '부모급여',
+    '실업급여',
+    '소상공인 정책자금',
+    '여성청소년 생리용품 바우처',
+  ],
+  finance: [
+    'IRP',
+    'ISA',
+    '연금저축',
+    '퇴직연금',
+    '주택청약',
+    '자동차 보험',
+    '여행자보험',
+    'ETF',
+  ],
+  shopping: [
+    '무선 에어건',
+    '차량용 에어건',
+    '세차 송풍기',
+    '소형 제습기',
+    '10리터 제습기',
+    '창문형 에어컨',
+    '이동식 에어컨',
+    '음식물 처리기',
+    '로봇청소기 물걸레',
+    '공기청정기 필터',
+    '빨래 쉰내 제거',
+    '요석 제거제',
+    '무선청소기',
+    '로봇청소기',
+    '제습기',
+    '창문형 에어컨',
+    '공기청정기 필터',
+    '선크림',
+    '레인부츠',
+    '여름 샌들',
+  ],
+  electronics: [
+    '무선 에어건',
+    '차량용 에어건',
+    '세차 송풍기',
+    '소형 제습기',
+    '10리터 제습기',
+    '창문형 에어컨',
+    '이동식 에어컨',
+    '음식물 처리기',
+    '로봇청소기 물걸레',
+    '공기청정기 필터',
+    '무선청소기',
+    '로봇청소기',
+    '제습기',
+    '창문형 에어컨',
+    '공기청정기 필터',
+    '노트북',
+    '태블릿',
+    '아이폰',
+  ],
+  travel_domestic: [
+    '제주 렌터카',
+    '제주 렌트카',
+    '부산 렌터카',
+    '강릉 숙소',
+    '여수 숙소',
+    '서울 근교 당일치기 여행',
+    '제주 항공권',
+    '제주 숙소',
+  ],
+  travel_overseas: [
+    '일본 유심',
+    '오사카 항공권',
+    '도쿄 호텔',
+    '베트남 유심',
+    '다낭 항공권',
+    '대만 환전',
+  ],
+  health: [
+    '도수치료',
+    '치아보험',
+    '임플란트',
+    '탈모치료제',
+    '비타민D 검사',
+    '수면다원검사',
+  ],
+  it: [
+    'AI 영상툴',
+    'AI 이미지 생성',
+    '챗GPT 플러스',
+    '노트북',
+    '태블릿',
+  ],
+  education: [
+    '국민내일배움카드',
+    '한국사능력검정시험',
+    '토익 시험',
+    '컴활 1급',
+  ],
+  sports: [
+    '테니스 라켓',
+    '골프채',
+    '러닝화',
+    'KBO 올스타전',
+  ],
+});
+
+const LIVE_MEASURED_PROBE_INTENTS: Record<string, readonly string[]> = Object.freeze({
+  all: ['가격비교', '추천', '후기', '예약', '비용', '조회', '신청 대상', '신청 방법'],
+  policy: ['신청 대상', '신청 방법', '지급일 조회', '사용처', '지원금 조건', '자격 조건'],
+  finance: ['세액공제 한도', '수수료 비교', '금리 비교', '환급 조회', '조건', '신청 방법'],
+  shopping: ['가격비교', '최저가', '추천 후기', '구매처', '할인 쿠폰'],
+  electronics: ['가격비교', '추천 후기', '최저가', '구매처', '스펙 비교'],
+  travel_domestic: ['가격비교', '예약', '추천', '후기', '주차', '입장료', '숙소 예약', '당일치기 코스'],
+  travel_overseas: ['가격비교', '예약', '추천', '후기', '비자 서류', '환전 방법', '유심 추천'],
+  health: ['보험 적용 비용', '검사 비용', '치료 비용', '후기', '주의사항'],
+  it: ['가격비교', '추천', '사용법', '구독료', '요금제 비교'],
+  education: ['신청 방법', '시험 일정', '준비물', '응시료', '합격 기준'],
+  sports: ['가격비교', '추천 후기', '최저가', '구매처', '스펙 비교', '예매 일정', '중계 일정', '라인업'],
+});
+
+const LIVE_MEASURED_PROBE_CATEGORY_COMPAT: Record<string, readonly string[]> = Object.freeze({
+  shopping: ['electronics', 'fashion', 'beauty', 'sports'],
+  electronics: ['shopping', 'it'],
+  travel_domestic: ['shopping'],
+  travel_overseas: ['shopping'],
+  finance: [],
+  policy: [],
+});
+
+const LIVE_MEASURED_PROBE_SIGNAL_RE = /(?:가격비교|최저가|비교|추천|후기|예약|예매|비용|보험\s*적용|세액공제|수수료|금리|신청|대상|지급일|사용처|구매처|렌터카|렌트카|항공권|숙소|호텔|청소기|에어컨|제습기|공기청정기|ISA|IRP)/iu;
+const LIVE_MEASURED_PROBE_SPORTS_EQUIPMENT_RE = /(?:라켓|골프채|러닝화|축구화|골프공|글러브|배트|유니폼|요가매트|덤벨)/u;
+const LIVE_MEASURED_PROBE_PRODUCT_INTENT_RE = /(?:가격비교|최저가|비교|추천|후기|구매처|할인|쿠폰|스펙)/u;
+const LIVE_MEASURED_PROBE_EVENT_OR_POLICY_INTENT_RE = /(?:예약|예매|중계|라인업|경기|일정|입장료|주차|신청|지급일|자격|서류|환급|사용처|대상|조건|마감)/u;
+const LIVE_MEASURED_PROBE_GENERIC_AUDIENCE_RE = /(?:청년\s*일반\s*국민|청년일반\s*국민|일반\s*국민|아동\s*장애인|아동장애인)/u;
+
+function categoryAcceptsMeasuredProbe(keyword: string, categoryId: string): boolean {
+  const normalizedCategory = normalizeKeyword(categoryId || 'all');
+  if (!normalizedCategory || normalizedCategory === 'all') return true;
+  const inferred = inferLiveCategory(keyword, normalizedCategory);
+  if (inferred === normalizedCategory) return true;
+  const compatible = LIVE_MEASURED_PROBE_CATEGORY_COMPAT[normalizedCategory] || [];
+  return compatible.includes(inferred);
+}
+
+function measuredProbeCategoryKeys(categoryId: string, liveSeeds: string[]): string[] {
+  const normalizedCategory = normalizeKeyword(categoryId || 'all') || 'all';
+  const inferredSeedCategories = liveSeeds
+    .map((seed) => inferLiveCategory(seed, normalizedCategory))
+    .filter(Boolean);
+  return uniqueKeywords([
+    'all',
+    normalizedCategory,
+    ...inferredSeedCategories,
+    ...(LIVE_MEASURED_PROBE_CATEGORY_COMPAT[normalizedCategory] || []),
+  ], 8);
+}
+
+function isLiveMeasuredProbeCandidate(keyword: string, categoryId: string, now: Date = new Date()): boolean {
+  const clean = normalizeKeyword(keyword);
+  if (!clean) return false;
+  if (!LIVE_MEASURED_PROBE_SIGNAL_RE.test(clean)) return false;
+  if (ultimateIntentFragmentCount(clean) > 2) return false;
+  if (isGenericAudienceOnlyKeyword(clean)) return false;
+  if (LIVE_MEASURED_PROBE_GENERIC_AUDIENCE_RE.test(clean)) return false;
+  if (!categoryAcceptsMeasuredProbe(clean, categoryId)) return false;
+  return isSearchAdMeasurableLiveCandidate(clean, categoryId, now);
+}
+
+function isMeasuredProbeIntentCompatible(base: string, intent: string, categoryId: string): boolean {
+  const cleanBase = normalizeKeyword(base);
+  const cleanIntent = normalizeKeyword(intent);
+  if (!cleanBase || !cleanIntent) return false;
+  if (LIVE_MEASURED_PROBE_SPORTS_EQUIPMENT_RE.test(cleanBase)) {
+    return LIVE_MEASURED_PROBE_PRODUCT_INTENT_RE.test(cleanIntent)
+      && !LIVE_MEASURED_PROBE_EVENT_OR_POLICY_INTENT_RE.test(cleanIntent);
+  }
+  const inferred = inferLiveCategory(cleanBase, categoryId);
+  const productLike = PRODUCT_BASE_SIGNAL_RE.test(cleanBase);
+  const policyOrFinanceOrTravel = ['policy', 'finance', 'travel_domestic', 'travel_overseas', 'health'].includes(inferred);
+  if (productLike && !policyOrFinanceOrTravel) {
+    return LIVE_MEASURED_PROBE_PRODUCT_INTENT_RE.test(cleanIntent)
+      && !LIVE_MEASURED_PROBE_EVENT_OR_POLICY_INTENT_RE.test(cleanIntent);
+  }
+  return true;
+}
+
+function buildMeasuredProbeCandidates(
+  categoryId: string,
+  liveSeeds: string[],
+  maxSeeds: number,
+  now: Date = new Date(),
+): string[] {
+  const categoryKeys = measuredProbeCategoryKeys(categoryId, liveSeeds);
+  const normalizedCategory = normalizeKeyword(categoryId || 'all') || 'all';
+  const useCatalogBases = normalizedCategory !== 'all';
+  const candidateLimit = Math.max(80, Math.min(240, Math.floor((maxSeeds || 240) * 0.6)));
+  const categoryBases = useCatalogBases
+    ? categoryKeys.flatMap((key) => LIVE_MEASURED_PROBE_BASES[key] || [])
+    : [];
+  const discoveryBases = useCatalogBases
+    ? categoryKeys.flatMap((key) => getDiscoveryCategorySeeds(key, 32))
+    : [];
+  const liveBases = uniqueKeywords([
+    ...liveSeeds.map((seed) => normalizeKeyword(seed)).filter(Boolean),
+    ...normalizeLiveSeeds(liveSeeds, 80),
+    ...liveSeeds.map((seed) => normalizeRobustLiveSeedBase(seed, now)).filter(Boolean),
+  ], 120).flatMap((seed) => buildSeedPhraseVariants(seed));
+  const bases = uniqueKeywords([
+    ...liveBases,
+    ...categoryBases,
+    ...discoveryBases,
+  ], 180)
+    .filter((base) => {
+      const clean = normalizeKeyword(base);
+      return clean
+        && !isLowValueLiveCandidate(clean)
+        && !isOverExpandedLiveCandidate(clean)
+        && !isNoisyLiveSeed(clean)
+        && !isGenericAudienceOnlyKeyword(clean)
+        && !LIVE_MEASURED_PROBE_GENERIC_AUDIENCE_RE.test(clean)
+        && categoryAcceptsMeasuredProbe(clean, categoryId);
+    });
+  const candidates: string[] = [];
+  const push = (candidate: string): void => {
+    if (candidates.length >= candidateLimit) return;
+    const clean = normalizeKeyword(candidate);
+    if (!clean || keywordCompactId(clean).length <= 0) return;
+    if (!isLiveMeasuredProbeCandidate(clean, categoryId, now)) return;
+    candidates.push(clean);
+  };
+
+  for (const base of bases) {
+    if (candidates.length >= candidateLimit) break;
+    push(base);
+    if (hasLiveUltimateNeedIntent(base) || ultimateIntentFragmentCount(base) >= 2) continue;
+    const inferred = inferLiveCategory(base, categoryId);
+    const normalizedCategory = normalizeKeyword(categoryId || 'all') || 'all';
+    const intentKeys = normalizedCategory === 'all'
+      ? categoryKeys
+      : uniqueKeywords([inferred, normalizedCategory], 4);
+    const intents = uniqueKeywords([
+      ...(LIVE_MEASURED_PROBE_INTENTS[inferred] || []),
+      ...intentKeys.flatMap((key) => LIVE_MEASURED_PROBE_INTENTS[key] || []),
+      ...(normalizedCategory === 'all' ? (LIVE_MEASURED_PROBE_INTENTS.all || []) : []),
+    ], 18).filter((intent) => isMeasuredProbeIntentCompatible(base, intent, inferred || categoryId));
+    for (const intent of intents) {
+      if (candidates.length >= candidateLimit) break;
+      const candidate = keywordAlreadyHasIntent(base, intent) ? base : `${base} ${intent}`;
+      if (!isUltimateIntentCompatible(base, intent, inferred || categoryId)
+        && !isLiveMeasuredProbeCandidate(candidate, categoryId, now)) continue;
+      push(candidate);
+    }
+  }
+
+  return uniqueKeywords(candidates, candidateLimit);
+}
+
 function buildBackfillCandidates(categoryId: string, liveSeeds: string[], maxSeeds: number, now: Date = new Date()): string[] {
   const rawLiveBases = liveSeeds
     .map((seed) => normalizeRobustLiveSeedBase(seed, now))
@@ -1417,14 +2834,23 @@ function buildBackfillCandidates(categoryId: string, liveSeeds: string[], maxSee
   const candidateLimit = Math.max(120, Math.min(1000, Math.floor(maxSeeds || 240)));
   const robustCandidates = buildRobustLiveSeedCandidates(categoryId, liveSeeds, maxSeeds, now);
   const inferredLiveCandidates = buildDateAwareLiveSeedCandidates(categoryId, liveSeeds, maxSeeds, now);
+  const measuredProbeCandidates = buildMeasuredProbeCandidates(categoryId, liveSeeds, maxSeeds, now);
+  const measuredProbeIds = new Set(measuredProbeCandidates.map((seed) => keywordCompactId(seed)).filter(Boolean));
+  const needExpandedSeeds = (seeds: string[], limit: number): string[] => seeds
+    .filter((seed) => !hasLiveUltimateNeedIntent(seed) && ultimateIntentFragmentCount(seed) < 2)
+    .flatMap((seed) => buildUltimateNeedCandidatesForSeed(seed, categoryId, limit));
   const baseSeeds = uniqueKeywords([
+    ...measuredProbeCandidates,
     ...liveSeedBases,
+    ...needExpandedSeeds(liveSeedBases, 8),
     ...robustCandidates,
     ...inferredLiveCandidates,
+    ...needExpandedSeeds(robustCandidates, 6),
+    ...needExpandedSeeds(inferredLiveCandidates, 6),
     ...getDiscoveryCategorySeeds(categoryId, Math.max(24, Math.min(80, maxSeeds))),
-    ...currentLottoCandidateKeywords(now),
   ], Math.max(160, Math.min(600, maxSeeds || 240)));
   const intents = uniqueKeywords([
+    ...ultimateNeedTemplatesForCategory(categoryId),
     ...getBackfillIntents(categoryId),
     ...(ROBUST_CATEGORY_INTENTS[categoryId] || []),
     ...ROBUST_GENERAL_INTENTS,
@@ -1437,6 +2863,7 @@ function buildBackfillCandidates(categoryId: string, liveSeeds: string[], maxSee
     if (candidates.length >= candidateLimit) return;
     const clean = normalizeKeyword(candidate);
     if (!clean) return;
+    if (isLowValueLiveCandidate(clean) || isOverExpandedLiveCandidate(clean)) return;
     const cluster = liveCandidateDiversityKey(clean);
     const count = candidateClusterCounts.get(cluster) || 0;
     if (count >= maxCandidatesPerCluster) return;
@@ -1447,31 +2874,247 @@ function buildBackfillCandidates(categoryId: string, liveSeeds: string[], maxSee
     pushCandidate(seed);
     const key = seed.toLowerCase().replace(/\s+/g, '');
     const seedIsLive = liveSeedSet.has(key);
+    const seedCategory = inferLiveCategory(seed, categoryId);
+    const seedExpandable = LIVE_ULTIMATE_EXPANDABLE_CATEGORIES.has(seedCategory)
+      || LIVE_ULTIMATE_EXPANDABLE_CATEGORIES.has(normalizeKeyword(categoryId));
+    const seedHasNeedIntent = hasLiveUltimateNeedIntent(seed);
+    if (!seedExpandable) {
+      if (seedHasNeedIntent) continue;
+      if (!seedIsLive) continue;
+    }
     const seedAlreadySpecific = isActionableLiveKeyword(seed) || isRobustSpecificLiveKeyword(seed);
+    if (ultimateIntentFragmentCount(seed) >= 2) continue;
+    if (seedHasNeedIntent) continue;
     const seedIntents = seedIsLive
-      ? uniqueKeywords([...getLiveSeedBackfillIntents(seed, categoryId), ...robustIntentTemplatesForSeed(seed, categoryId)], 28)
+      ? uniqueKeywords([
+        ...ultimateNeedTemplatesForCategory(seedCategory || categoryId),
+        ...getLiveSeedBackfillIntents(seed, categoryId),
+        ...robustIntentTemplatesForSeed(seed, categoryId),
+      ], 28)
       : intents;
+    const compatibleSeedIntents = seedIntents.filter((intent) => isUltimateIntentCompatible(seed, intent, seedCategory || categoryId));
     const intentLimit = seedIsLive
-      ? (seedAlreadySpecific ? Math.min(6, seedIntents.length) : Math.min(16, seedIntents.length))
-      : intents.length;
-    for (const intent of seedIntents.slice(0, intentLimit)) {
-      if (!seed.includes(intent)) pushCandidate(`${seed} ${intent}`);
+      ? (seedAlreadySpecific ? Math.min(6, compatibleSeedIntents.length) : Math.min(16, compatibleSeedIntents.length))
+      : compatibleSeedIntents.length;
+    for (const intent of compatibleSeedIntents.slice(0, intentLimit)) {
+      if (!keywordAlreadyHasIntent(seed, intent)) pushCandidate(`${seed} ${intent}`);
       if (candidates.length >= candidateLimit) break;
     }
     if (candidates.length >= candidateLimit) break;
   }
   return diversifyLiveCandidates(
-    candidates.filter((candidate) => isLiveRadarUsableKeyword(candidate, null, null, now)),
+    candidates.filter((candidate) => !isOverExpandedLiveCandidate(candidate))
+      .filter((candidate) => isLiveRadarUsableKeyword(candidate, null, null, now)),
     candidateLimit,
   );
 }
 
 function liveMetricScore(volume: number, docs: number, ratio: number, actionable: boolean): number {
-  const ratioScore = ratio >= 50 ? 100 : ratio >= 20 ? 94 : ratio >= 10 ? 86 : ratio >= 5 ? 76 : ratio >= 3 ? 66 : 48;
-  const volumeScore = volume >= 10_000 ? 92 : volume >= 3_000 ? 86 : volume >= 1_000 ? 78 : volume >= 500 ? 68 : volume >= 100 ? 54 : 35;
-  const docScore = docs <= 300 ? 100 : docs <= 1_000 ? 92 : docs <= 3_000 ? 86 : docs <= 8_000 ? 76 : docs <= 20_000 ? 58 : 35;
+  const ratioScore = ratio >= 80 ? 100 : ratio >= 30 ? 98 : ratio >= 15 ? 94 : ratio >= 10 ? 90 : ratio >= 5 ? 80 : ratio >= 3 ? 68 : 48;
+  const volumeScore = volume >= 30_000 ? 100 : volume >= 10_000 ? 96 : volume >= 3_000 ? 90 : volume >= 1_000 ? 86 : volume >= 500 ? 72 : volume >= 100 ? 54 : 35;
+  const docScore = docs <= 150 ? 100 : docs <= 300 ? 98 : docs <= 1_000 ? 94 : docs <= 3_000 ? 86 : docs <= 8_000 ? 72 : docs <= 20_000 ? 50 : 30;
   const intentScore = actionable ? 100 : 0;
-  return Math.round(ratioScore * 0.42 + volumeScore * 0.22 + docScore * 0.22 + intentScore * 0.14);
+  return Math.round(ratioScore * 0.38 + volumeScore * 0.18 + docScore * 0.26 + intentScore * 0.18);
+}
+
+function liveUltimateOpportunityScore(keyword: string, volume: number, docs: number, ratio: number): number {
+  const clean = normalizeKeyword(keyword);
+  if (!clean || volume <= 0 || docs <= 0 || ratio <= 0) return 0;
+  if (isLowValueLiveCandidate(clean) || isLottoLookupKeyword(clean) || isLowAdsenseLookupKeyword(clean)) return 0;
+  if (isBrandSafetyNewsKeyword(clean) || isBroadBenefitProductKeyword(clean) || isGenericAudienceOnlyKeyword(clean)) return 0;
+  const actionable = hasLiveUltimateNeedIntent(clean)
+    || hasHighValueNeedIntent(clean)
+    || hasRobustActionableIntent(clean)
+    || isActionableGoldenKeyword(clean);
+  if (!actionable) return 0;
+  let score = liveMetricScore(volume, docs, ratio, actionable);
+  if (volume >= 1_000 && docs <= 300 && ratio >= 10) score = Math.max(score, 98);
+  else if (volume >= 3_000 && docs <= 800 && ratio >= 7) score = Math.max(score, 98);
+  else if (volume >= 10_000 && docs <= 1_500 && ratio >= 5) score = Math.max(score, 98);
+  else if (volume >= 20_000 && docs <= 3_000 && ratio >= 4) score = Math.max(score, 98);
+  else if (volume >= 50_000 && docs <= 15_000 && ratio >= 6) score = Math.max(score, 98);
+  else if (volume >= 80_000 && docs <= 25_000 && ratio >= 7) score = Math.max(score, 98);
+  else if (volume >= 250_000 && docs <= 30_000 && ratio >= 10) score = Math.max(score, 98);
+  else if (volume >= 500 && docs <= 200 && ratio >= 4) score = Math.max(score, 95);
+  return Math.max(0, Math.min(100, score));
+}
+
+function liveBoardOpportunityScore(item: MobileKeywordMetric): number {
+  const volume = finiteNumber(item.totalSearchVolume);
+  const docs = finiteNumber(item.documentCount);
+  if (volume === null || docs === null || docs <= 0) return 0;
+  const ratio = finiteNumber(item.goldenRatio) ?? Number((volume / docs).toFixed(2));
+  return liveUltimateOpportunityScore(item.keyword, volume, docs, ratio);
+}
+
+const LIVE_PROMOTION_PRIORITY_RE = /(?:계산기|신청|대상|자격|조건|지급일|조회|사용처|가격|가격비교|비교|추천|후기|리뷰|방법|준비물|서류|마감|주차|입장료|예약|예매|최저가|할인|쿠폰|구매처|렌트카|렌터카|숙소|호텔|리조트|펜션|캠핑장|에어컨|제습기|공기청정기|창문형에어컨|세럼|크림|바우처|지원금|장려금|급여|수당|환급|청년|소상공인|연말정산|세액공제|연금저축)/u;
+const LIVE_PROMOTION_DEPRIORITY_RE = /(?:프로필|출연진|몇부작|줄거리|원작|공식입장|기자회견|논란|별세|사임|타계|월드컵|FIFA|KBO|올스타|하이라이트|로또|당첨번호|등급컷|답지|모의고사|선거|개표|당선자|충주시장|신입사원\s*강회장|맨\s*끝줄\s*소년|넷플릭스|드라마|배우)/u;
+const LIVE_PROMOTION_SYNTHETIC_INTENT_CHAIN_RE = /(?:지급일\s*(?:사용처|추천|후기|예약|비용|마감일)|마감일\s*(?:사용처|추천|후기|예약|비용)|준비서류\s*(?:사용처|추천|후기|예약|비용)|자격\s*(?:사용처|추천|후기|예약|비용)|대상\s*(?:사용처|추천|후기|예약|비용)|금액\s*(?:사용처|추천|후기|예약|비용)|사용처\s*(?:추천|후기|예약|비용|마감일|지급일)|(?:신청|대상|자격|지급일|마감일|사용처|준비서류).{0,12}(?:신청|대상|자격|지급일|마감일|사용처|준비서류).{0,12}(?:신청|대상|자격|지급일|마감일|사용처|준비서류))/u;
+const LIVE_COMMERCE_PRODUCT_PROMOTION_RE = /(?:에어컨|제습기|공기청정기|청소기|창문형에어컨|노트북|아이폰|갤럭시|세럼|크림|선크림|렌트카|렌터카|리조트|펜션|캠핑장|호텔|숙소|가격비교|최저가|구매처|할인|쿠폰|추천|후기|리뷰)/u;
+const LIVE_POLICY_ACTION_PROMOTION_RE = /(?:바우처|지원금|장려금|급여|수당|환급|청년|소상공인|연말정산|세액공제|연금저축|사용처|지급일|신청|대상|자격|조건|서류|마감|조회|계산기)/u;
+const LIVE_PROMOTION_STRATEGIC_CATEGORIES = new Set([
+  'policy',
+  'finance',
+  'shopping',
+  'electronics',
+  'beauty',
+  'fashion',
+  'food',
+  'health',
+  'home_life',
+  'it',
+  'travel_domestic',
+  'travel_overseas',
+]);
+const LIVE_PROMOTION_LOW_VALUE_CATEGORIES = new Set([
+  'broadcast',
+  'drama',
+  'movie',
+  'music',
+  'sports',
+  'celeb',
+  'education',
+  'live_issue',
+]);
+
+function livePromotionPriorityBonus(keyword: string, categoryId = ''): number {
+  const clean = normalizeKeyword(keyword);
+  if (!clean) return 0;
+  let score = 0;
+  if (
+    LIVE_PROMOTION_DEPRIORITY_RE.test(clean)
+    || LIVE_PROMOTION_SYNTHETIC_INTENT_CHAIN_RE.test(clean)
+    || isLottoLookupKeyword(clean)
+    || isLowAdsenseLookupKeyword(clean)
+    || isBrandSafetyNewsKeyword(clean)
+    || ROBUST_EXAM_STALE_RE.test(clean)
+    || LOW_VALUE_EVENT_TOPIC_RE.test(clean)
+  ) {
+    score -= LIVE_PROMOTION_SYNTHETIC_INTENT_CHAIN_RE.test(clean) ? 900 : 520;
+  }
+  if (
+    LIVE_POLICY_ACTION_PROMOTION_RE.test(clean)
+    || SEARCHAD_POLICY_PRODUCT_BASE_RE.test(clean)
+    || CONCRETE_POLICY_PRODUCT_RE.test(clean)
+  ) {
+    score += 260;
+  }
+  if (
+    LIVE_COMMERCE_PRODUCT_PROMOTION_RE.test(clean)
+    || PRODUCT_BASE_SIGNAL_RE.test(clean)
+    || VENUE_TRAVEL_BASE_RE.test(clean)
+  ) {
+    score += 210;
+  }
+  if (LIVE_PROMOTION_PRIORITY_RE.test(clean) || CONCRETE_PUBLISH_ACTION_RE.test(clean)) score += 140;
+  if (hasRobustActionableIntent(clean) || hasLiveUltimateNeedIntent(clean) || hasAdsenseNeedIntent(clean)) score += 120;
+
+  const category = inferLiveCategory(clean, categoryId || 'all');
+  if (LIVE_PROMOTION_STRATEGIC_CATEGORIES.has(category)) score += 45;
+  if (LIVE_PROMOTION_LOW_VALUE_CATEGORIES.has(category)) score -= 180;
+  return score;
+}
+
+function splitEnrichmentPriorityScore(item: MobileKeywordMetric, nowMs: number): number {
+  const volume = finiteNumber(item.totalSearchVolume) || 0;
+  const docs = finiteNumber(item.documentCount);
+  const ratio = finiteNumber(item.goldenRatio)
+    ?? (volume > 0 && docs !== null && docs > 0 ? Number((volume / docs).toFixed(2)) : 0);
+  const ageMs = ageMsFrom((item as MobileLiveGoldenBoardItem).updatedAt || '', nowMs);
+  const freshness = ageMs < 12 * 60 * 60 * 1000 ? 36 : ageMs < 48 * 60 * 60 * 1000 ? 18 : 0;
+  const need = hasLiveUltimateNeedIntent(item.keyword) ? 180 : 0;
+  const pendingSplit = hasMeasuredPcMobileSplit(item) ? 0 : 160;
+  const pendingCpc = hasRealCpcValue(item) ? 0 : 24;
+  const priority = livePromotionPriorityBonus(item.keyword, (item as { category?: string }).category || 'all');
+  const measuredDemand = volume >= 30_000 ? 320
+    : volume >= 10_000 ? 260
+      : volume >= 3_000 ? 210
+        : volume >= 1_000 ? 165
+          : volume >= 300 ? 110
+            : volume >= LIVE_CACHE_PROMOTION_MIN_VOLUME ? 60
+              : -900;
+  const measuredRatio = ratio >= 10 ? 170
+    : ratio >= 5 ? 140
+      : ratio >= 2 ? 95
+        : ratio >= LIVE_CACHE_PROMOTION_MIN_RATIO ? 45
+          : -220;
+  const measuredDocuments = docs !== null && docs > 0 && docs <= 1_000 ? 130
+    : docs !== null && docs <= 3_000 ? 105
+      : docs !== null && docs <= 10_000 ? 72
+        : docs !== null && docs <= BROAD_KEYWORD_DOCUMENT_CEILING ? 32
+          : -160;
+  return priority
+    + pendingSplit
+    + pendingCpc
+    + need
+    + measuredDemand
+    + measuredRatio
+    + measuredDocuments
+    + liveUltimateOpportunityScore(item.keyword, volume, docs || 0, ratio) * 4
+    + volumeOpportunityScore(volume)
+    + documentScarcityScore(docs)
+    + ratioOpportunityScore(ratio)
+    + freshness;
+}
+
+function isCachePromotionMeasurementCandidate(item: MobileKeywordMetric, now: Date): boolean {
+  const volume = finiteNumber(item.totalSearchVolume) || 0;
+  const docs = finiteNumber(item.documentCount);
+  const ratio = finiteNumber(item.goldenRatio)
+    ?? (volume > 0 && docs !== null && docs > 0 ? Number((volume / docs).toFixed(2)) : 0);
+  const strongNeedKeyword = isStrongMeasuredNeedKeyword(item.keyword);
+  const maxDocs = strongNeedKeyword
+    ? Math.min(BROAD_KEYWORD_DOCUMENT_CEILING, LIVE_CACHE_PROMOTION_STRONG_NEED_DOCUMENT_CEILING)
+    : BROAD_KEYWORD_DOCUMENT_CEILING;
+  const minRatio = strongNeedKeyword
+    ? LIVE_CACHE_PROMOTION_STRONG_NEED_MIN_RATIO
+    : LIVE_CACHE_PROMOTION_MIN_RATIO;
+  if (volume < LIVE_CACHE_PROMOTION_MIN_VOLUME) return false;
+  if (docs === null || docs <= 0 || docs > maxDocs) return false;
+  if (ratio < minRatio) return false;
+  return isLiveRadarUsableMetric(item, now) || isMeasuredProExactKeywordMetric(item, now);
+}
+
+function isMeasuredProExactKeywordMetric(
+  item: Partial<MobileKeywordMetric> & { keyword?: string },
+  now: Date = new Date(),
+): boolean {
+  const keyword = normalizeKeyword(item.keyword);
+  const volume = finiteNumber(item.totalSearchVolume) || 0;
+  const docs = finiteNumber(item.documentCount) || 0;
+  const ratio = finiteNumber(item.goldenRatio) || (volume > 0 && docs > 0 ? volume / docs : 0);
+  const strongNeedKeyword = isStrongMeasuredNeedKeyword(keyword);
+  const maxDocs = strongNeedKeyword
+    ? Math.min(BROAD_KEYWORD_DOCUMENT_CEILING, LIVE_CACHE_PROMOTION_STRONG_NEED_DOCUMENT_CEILING)
+    : BROAD_KEYWORD_DOCUMENT_CEILING;
+  const minRatio = strongNeedKeyword
+    ? LIVE_CACHE_PROMOTION_STRONG_NEED_MIN_RATIO
+    : LIVE_CACHE_PROMOTION_MIN_RATIO;
+  if (!keyword || item.grade === 'C') return false;
+  if (!hasCompleteLiveGoldenMetrics(item)) return false;
+  if (isMalformedLiveKeyword(keyword) || isStaleOrFutureLiveKeyword(keyword, now)) return false;
+  if (isThinProfileIntentKeyword(keyword) || isNoisyLiveSeed(keyword) || isOverExpandedLiveCandidate(keyword)) return false;
+  if (isUltimateLowValueLookupKeyword(keyword) || isLowValueLiveCandidate(keyword)) return false;
+  if (isLottoLookupKeyword(keyword) || isLowAdsenseLookupKeyword(keyword) || isBrandSafetyNewsKeyword(keyword)) return false;
+  if (volume < LIVE_CACHE_PROMOTION_MIN_VOLUME || docs <= 0 || docs > maxDocs) return false;
+  if (ratio < minRatio) return false;
+  return true;
+}
+
+function isMeasuredCacheSearchAdSplitCandidate(keyword: string, categoryId: string, now: Date): boolean {
+  const clean = normalizeKeyword(keyword);
+  if (!clean || isMalformedLiveKeyword(clean) || isStaleOrFutureLiveKeyword(clean, now)) return false;
+  if (isThinProfileIntentKeyword(clean) || isNoisyLiveSeed(clean) || isOverExpandedLiveCandidate(clean)) return false;
+  if (isUltimateLowValueLookupKeyword(clean) || isLowValueLiveCandidate(clean)) return false;
+  const compactLength = clean.replace(/\s+/g, '').length;
+  const tokenCount = clean.split(/\s+/).filter(Boolean).length;
+  if (compactLength < LIVE_SEARCHAD_CANDIDATE_MIN_CHARS || compactLength > LIVE_SEARCHAD_CANDIDATE_MAX_CHARS) return false;
+  if (tokenCount > LIVE_SEARCHAD_CANDIDATE_MAX_TOKENS) return false;
+  if (ultimateIntentFragmentCount(clean) > 3) return false;
+  return inferLiveCategory(clean, categoryId || 'all') !== 'live_issue'
+    || hasLiveUltimateNeedIntent(clean)
+    || hasRobustActionableIntent(clean)
+    || SPECIFIC_LIVE_KEYWORD_HINT_RE.test(clean);
 }
 
 function liveGradeFromMetrics(score: number, volume: number, docs: number, ratio: number, keyword = ''): MobileResultGrade {
@@ -1487,7 +3130,7 @@ function liveGradeFromMetrics(score: number, volume: number, docs: number, ratio
 function normalizeLiveMetricGrade(
   keyword: string,
   currentGrade: unknown,
-  scoreValue: number | null,
+  _scoreValue: number | null,
   volume: number,
   docs: number,
   ratio: number,
@@ -1497,7 +3140,8 @@ function normalizeLiveMetricGrade(
     || isActionableGoldenKeyword(keyword)
     || SPECIFIC_LIVE_KEYWORD_HINT_RE.test(keyword);
   const computedScore = liveMetricScore(volume, docs, ratio, actionable);
-  const score = scoreValue !== null && scoreValue > 0 ? scoreValue : computedScore;
+  const opportunityScore = liveUltimateOpportunityScore(keyword, volume, docs, ratio);
+  const score = Math.max(computedScore, opportunityScore);
   const rowGrade = normalizeGrade(currentGrade, score);
   const gateGrade = liveGradeFromMetrics(score, volume, docs, ratio, keyword);
   return lowerGrade(rowGrade, gateGrade);
@@ -1532,6 +3176,16 @@ function hasSearchAdCredentials(env: Partial<EnvConfig>): boolean {
   );
 }
 
+function searchAdConfigFromEnv(env: Partial<EnvConfig>): NaverSearchAdConfig | null {
+  const accessLicense = normalizeKeyword(env.naverSearchAdAccessLicense);
+  const secretKey = normalizeKeyword(env.naverSearchAdSecretKey);
+  if (!accessLicense || !secretKey) return null;
+  const customerId = normalizeKeyword(env.naverSearchAdCustomerId);
+  return customerId
+    ? { accessLicense, secretKey, customerId }
+    : { accessLicense, secretKey };
+}
+
 function isLottoLookupKeyword(keyword: string): boolean {
   const clean = normalizeKeyword(keyword);
   return ADSENSE_LOTTO_LOOKUP_RE.test(clean)
@@ -1545,6 +3199,29 @@ function isLowAdsenseLookupKeyword(keyword: string): boolean {
     || LOW_CONVERSION_LOOKUP_INTENT_RE.test(clean)
     || isEpisodeLookupKeyword(clean)
     || isContentLookupKeyword(clean);
+}
+
+function isBroadBenefitProductKeyword(keyword: string): boolean {
+  const clean = normalizeKeyword(keyword);
+  if (!clean || !BROAD_BENEFIT_PRODUCT_RE.test(clean)) return false;
+  if (CONCRETE_PUBLISH_ACTION_RE.test(clean)) return false;
+  const compact = clean.replace(/\s+/g, '');
+  return compact.length <= 18;
+}
+
+function isGenericAudienceOnlyKeyword(keyword: string): boolean {
+  const clean = normalizeKeyword(keyword);
+  if (!clean || BROAD_BENEFIT_PRODUCT_RE.test(clean)) return false;
+  const stripped = normalizeKeyword(
+    clean
+      .replace(CONCRETE_PUBLISH_ACTION_RE, ' ')
+      .replace(/\b(?:and|or)\b/gi, ' '),
+  );
+  const tokens = stripped
+    .split(/[·ㆍ\/,|+\s-]+/u)
+    .map((token) => token.replace(/\s+/g, '').trim())
+    .filter(Boolean);
+  return tokens.length >= 2 && tokens.every((token) => GENERIC_AUDIENCE_TERMS.has(token));
 }
 
 function isBrandSafetyNewsKeyword(keyword: string): boolean {
@@ -1620,6 +3297,19 @@ function hasHighValueNeedIntent(keyword: string): boolean {
   return HIGH_VALUE_NEED_INTENT_RE.test(clean) || HIGH_VALUE_NEED_INTENT_RE.test(clean.replace(/\s+/g, ''));
 }
 
+function isStrongMeasuredNeedKeyword(keyword: string): boolean {
+  const clean = normalizeKeyword(keyword);
+  if (!clean) return false;
+  if (isLottoLookupKeyword(clean) || isLowAdsenseLookupKeyword(clean) || isBrandSafetyNewsKeyword(clean)) return false;
+  if (LIVE_PROMOTION_SYNTHETIC_INTENT_CHAIN_RE.test(clean)) return false;
+  return hasLiveUltimateNeedIntent(clean)
+    || hasHighValueNeedIntent(clean)
+    || hasRobustActionableIntent(clean)
+    || hasAdsenseNeedIntent(clean)
+    || isActionableGoldenKeyword(clean)
+    || SPECIFIC_LIVE_KEYWORD_HINT_RE.test(clean);
+}
+
 function capSssForNeedIntent(grade: MobileResultGrade, keyword: string): MobileResultGrade {
   const adsenseCapped = capGradeForAdsenseIntent(grade, keyword);
   if (adsenseCapped !== grade) return adsenseCapped;
@@ -1653,7 +3343,35 @@ function preDocumentCandidateScore(row: LiveSearchVolumeRow, categoryId: string)
           : volume >= 300
             ? 24
             : 8;
-  return volumeBand + intent + longTail + categoryBonus;
+  const measuredProbeBonus = isLiveMeasuredProbeCandidate(keyword, categoryId) ? 32 : 0;
+  const intentFragments = ultimateIntentFragmentCount(keyword);
+  const specificityBonus = intentFragments >= 2
+    ? 90
+    : intentFragments === 1
+      ? -35
+      : -80;
+  const broadHighVolumePenalty = intentFragments < 2 && volume >= 30_000
+    ? -110
+    : intentFragments < 2 && volume >= 10_000
+      ? -70
+      : 0;
+  return volumeBand + intent + longTail + categoryBonus + measuredProbeBonus + specificityBonus + broadHighVolumePenalty;
+}
+
+function preVolumeCandidateScore(keyword: string, categoryId: string): number {
+  const clean = normalizeKeyword(keyword);
+  if (!clean) return -999;
+  if (isLowValueLiveCandidate(clean) || isOverExpandedLiveCandidate(clean) || isNoisyLiveSeed(clean)) return -900;
+  const inferred = inferLiveCategory(clean, categoryId);
+  const categoryBonus = categoryId === 'all' || inferred === categoryId ? 22 : 0;
+  const needScore = keywordNeedScore(clean, 'pre-volume')
+    + (hasLiveUltimateNeedIntent(clean) ? 24 : 0)
+    + (hasRobustActionableIntent(clean) ? 16 : 0);
+  const longTailScore = keywordLongTailScore(clean);
+  const intentPenalty = ultimateIntentFragmentCount(clean) >= 3 ? -26 : 0;
+  const sourcePenalty = isLowValueLiveSourceCategory(inferred) ? -40 : 0;
+  const measuredProbeBonus = isLiveMeasuredProbeCandidate(clean, categoryId) ? 90 : 0;
+  return categoryBonus + needScore + longTailScore + measuredProbeBonus + intentPenalty + sourcePenalty;
 }
 
 function rowToBackfillResult(
@@ -1669,7 +3387,7 @@ function rowToBackfillResult(
   if (!isLiveRadarUsableKeyword(keyword, volume, docs)) return null;
   const ratio = Number((volume / docs).toFixed(2));
   const actionable = isActionableGoldenKeyword(keyword) || SPECIFIC_LIVE_KEYWORD_HINT_RE.test(keyword);
-  const score = liveMetricScore(volume, docs, ratio, actionable);
+  const score = Math.max(liveMetricScore(volume, docs, ratio, actionable), liveUltimateOpportunityScore(keyword, volume, docs, ratio));
   const grade = liveGradeFromMetrics(score, volume, docs, ratio, keyword);
   const intentInfo = typeof classifyKeywordIntent === 'function'
     ? classifyKeywordIntent(keyword)
@@ -1697,6 +3415,7 @@ function rowToBackfillResult(
     pcSearchVolume: pc,
     mobileSearchVolume: mobile,
     monthlyAveCpc: finiteNumber(row.monthlyAveCpc) || undefined,
+    ...measurementMetadataFromRow(row),
   });
   return isLiveRadarQualityResult(enrichedResult) ? enrichedResult : null;
 }
@@ -1768,7 +3487,14 @@ function mapDirectResult(result: MDPResult, categoryId: string): MobileKeywordMe
     pcSearchVolume?: number | null;
     mobileSearchVolume?: number | null;
     monthlyAveCpc?: number | null;
+    searchVolumeSource?: MobileSearchVolumeSource;
+    searchVolumeConfidence?: MobileMeasurementConfidence;
+    isSearchVolumeEstimated?: boolean;
+    documentCountSource?: MobileDocumentCountSource;
+    documentCountConfidence?: MobileMeasurementConfidence;
+    isDocumentCountEstimated?: boolean;
   };
+  const measurementMeta = measurementMetadataFromRow(extra);
   return {
     keyword,
     grade: normalizeGrade(result.grade, finiteNumber(result.score) || 0),
@@ -1788,6 +3514,7 @@ function mapDirectResult(result: MDPResult, categoryId: string): MobileKeywordMe
       ...(result.externalSources || []),
     ].filter(Boolean),
     isMeasured: totalSearchVolume !== null && documentCount !== null,
+    ...measurementMeta,
   };
 }
 
@@ -1817,12 +3544,20 @@ function normalizeGate(value: MobileLiveGoldenRadarRunGate | boolean | undefined
 export const __liveGoldenRadarTestInternals = {
   buildBackfillCandidates,
   buildDateAwareLiveSeedCandidates,
+  buildMeasuredProbeCandidates,
   currentLottoRound,
+  debugSearchAdMeasurableLiveCandidate,
   getLiveSeedBackfillIntents,
   getLiveDateHints,
   inferLiveCategory,
+  isKnownPolicyProductNeedKeyword,
+  isMeasuredProBoardFallbackMetric,
+  isLiveMeasuredProbeCandidate,
   isLiveRadarUsableKeyword,
+  isPolicyProductActionKeyword,
+  isSearchAdMeasurableLiveCandidate,
   isStaleOrFutureLiveKeyword,
+  livePromotionPriorityBonus,
   normalizeLiveSeeds,
 };
 
@@ -1849,6 +3584,9 @@ export class MobileLiveGoldenRadar {
   private readonly liveSeedProvider?: (categoryId: string) => Promise<string[]>;
   private readonly measureLiveSearchVolumeSeparate: typeof getNaverKeywordSearchVolumeSeparate;
   private readonly measureLiveDocumentCount: typeof measureDocumentCount;
+  private readonly autocompleteProvider: typeof getNaverAutocompleteKeywords;
+  private readonly searchAdSuggestionProvider: typeof getNaverSearchAdKeywordSuggestions;
+  private readonly hasCustomLiveVolumeMeasure: boolean;
   private readonly hasCustomLiveDocumentMeasure: boolean;
   private readonly enableBackfill: boolean;
   private readonly shouldRun: () => MobileLiveGoldenRadarRunGate | boolean;
@@ -1859,6 +3597,8 @@ export class MobileLiveGoldenRadar {
   private readonly now: () => Date;
   private timer: unknown = null;
   private startTimer: unknown = null;
+  private quotaRetryTimer: unknown = null;
+  private quotaRetryAtMs: number | null = null;
   private enabled = false;
   private running = false;
   private categoryIndex = 0;
@@ -1869,10 +3609,13 @@ export class MobileLiveGoldenRadar {
   private publishedCount = 0;
   private boardUpdatedAt?: string;
   private readonly board = new Map<string, MobileLiveGoldenBoardItem>();
+  private readonly cacheDerivedLiveSeeds: string[] = [];
+  private lastCacheRefreshAtMs = 0;
   private lastStartedAt?: string;
   private lastFinishedAt?: string;
   private lastError?: string;
   private lastMessage?: string;
+  private documentQuotaBlockedForRun = false;
 
   constructor(options: MobileLiveGoldenRadarOptions = {}) {
     this.notificationInbox = options.notificationInbox || null;
@@ -1910,6 +3653,9 @@ export class MobileLiveGoldenRadar {
     this.liveSeedProvider = options.liveSeedProvider;
     this.measureLiveSearchVolumeSeparate = options.measureLiveSearchVolumeSeparate || getNaverKeywordSearchVolumeSeparate;
     this.measureLiveDocumentCount = options.measureLiveDocumentCount || measureDocumentCount;
+    this.autocompleteProvider = options.autocompleteProvider || getNaverAutocompleteKeywords;
+    this.searchAdSuggestionProvider = options.searchAdSuggestionProvider || getNaverSearchAdKeywordSuggestions;
+    this.hasCustomLiveVolumeMeasure = Boolean(options.measureLiveSearchVolumeSeparate);
     this.hasCustomLiveDocumentMeasure = Boolean(options.measureLiveDocumentCount);
     this.enableBackfill = options.enableBackfill !== false;
     this.shouldRun = options.shouldRun || (() => true);
@@ -1921,6 +3667,7 @@ export class MobileLiveGoldenRadar {
     this.loadBoardFromFile();
     this.loadMeasuredResultCacheFromFile();
     this.loadPersistentKeywordCacheFromFile();
+    this.lastCacheRefreshAtMs = Date.now();
   }
 
   start(): MobileLiveGoldenRadarSnapshot {
@@ -1951,6 +3698,7 @@ export class MobileLiveGoldenRadar {
       this.clearTimeoutFn(this.startTimer);
       this.startTimer = null;
     }
+    this.clearQuotaRetryTimer();
     this.enabled = false;
     this.lastMessage = 'live golden radar stopped';
     return this.snapshot();
@@ -1961,18 +3709,29 @@ export class MobileLiveGoldenRadar {
     if (currentCount >= this.boardTarget) return this.cycleLimit;
     const startupDivisor = Math.max(2, Math.min(4, this.startupCatchUpCycles));
     const fillTarget = Math.ceil(this.boardTarget / startupDivisor);
-    return Math.min(24, Math.max(this.cycleLimit, fillTarget));
+    return Math.min(60, Math.max(this.cycleLimit, fillTarget));
   }
 
   private backfillMeasurementLimit(targetLimit: number): number {
     return Math.max(
-      60,
+      48,
       Math.min(
         this.maxCandidates,
         LIVE_BACKFILL_VOLUME_PASS_MAX,
-        Math.max(targetLimit * 10, Math.floor(this.maxCandidates * 0.08)),
+        Math.max(targetLimit * 5, Math.floor(this.maxCandidates * 0.06)),
       ),
     );
+  }
+
+  private refreshMeasuredCachesFromDisk(force = false): void {
+    const nowMs = Date.now();
+    if (!force && nowMs - this.lastCacheRefreshAtMs < 60_000) return;
+    this.lastCacheRefreshAtMs = nowMs;
+    this.loadMeasuredResultCacheFromFile();
+    this.loadPersistentKeywordCacheFromFile();
+    if (!this.running) {
+      this.pruneBoard();
+    }
   }
 
   async runOnce(): Promise<MobileLiveGoldenRadarSnapshot> {
@@ -1991,14 +3750,66 @@ export class MobileLiveGoldenRadar {
     const categoryId = this.nextCategory();
     const startedAtMs = Date.now();
     const runLimit = this.runLimitForCurrentBoard();
-    const discoveryLimit = Math.min(90, Math.max(runLimit * 2, this.cycleLimit));
+    const discoveryLimit = Math.min(180, Math.max(runLimit * 3, this.cycleLimit));
+    this.refreshMeasuredCachesFromDisk(true);
 
     try {
       const env = this.getEnvConfig();
       if (!env.naverClientId || !env.naverClientSecret) {
         throw new Error('Naver Open API config missing');
       }
+      const documentQuotaBlocked = isNaverBlogOpenApiQuotaBlocked({
+        clientId: env.naverClientId,
+        clientSecret: env.naverClientSecret,
+      }, this.now().getTime());
+      const currentBoardCount = this.sortedBoard().length;
+      const minimumVisibleBoard = Math.max(1, Math.min(this.publicPreviewCount || 1, this.boardTarget));
+      const retryAt = documentQuotaBlocked
+        ? getNaverBlogOpenApiQuotaBlockedUntil({
+          clientId: env.naverClientId,
+          clientSecret: env.naverClientSecret,
+        }, this.now().getTime())
+        : null;
+      const canUseScrapeDocumentCounts = documentQuotaBlocked
+        && hasSearchAdCredentials(env)
+        && this.enableBackfill;
+      if (documentQuotaBlocked && currentBoardCount < minimumVisibleBoard && !canUseScrapeDocumentCounts) {
+        this.skippedRuns += 1;
+        this.lastMessage = `Naver OpenAPI document quota exhausted; waiting for reset before publishing measured-only golden keywords${formatKstRetryAt(retryAt)}`;
+        this.scheduleQuotaRetry(retryAt);
+        this.running = false;
+        this.lastFinishedAt = this.now().toISOString();
+        return this.snapshot();
+      }
+      this.documentQuotaBlockedForRun = documentQuotaBlocked;
+      if (documentQuotaBlocked) {
+        this.scheduleQuotaRetry(retryAt);
+      } else {
+        this.clearQuotaRetryTimer();
+      }
 
+      const shouldAttemptCachePromotion = hasSearchAdCredentials(env)
+        || currentBoardCount < minimumVisibleBoard;
+      const catchUpModeBeforeCache = currentBoardCount < this.boardTarget;
+      const promotedCacheCount = shouldAttemptCachePromotion
+        ? await this.promotePendingMeasuredCacheWithSearchAdMetrics({
+          clientId: env.naverClientId,
+          clientSecret: env.naverClientSecret,
+        }, Math.max(runLimit, this.boardTarget - currentBoardCount))
+        : 0;
+      const boardCountAfterCachePromotion = this.sortedBoard().length;
+      if (
+        catchUpModeBeforeCache
+        && promotedCacheCount > 0
+        && (
+          boardCountAfterCachePromotion >= this.boardTarget
+          || boardCountAfterCachePromotion > currentBoardCount
+        )
+      ) {
+        this.successfulRuns += 1;
+        this.lastMessage = `cache catch-up promoted ${promotedCacheCount}; board ${boardCountAfterCachePromotion}/${this.boardTarget}`;
+        return this.snapshot();
+      }
       const liveSeeds = await this.collectLiveSeeds(categoryId);
       const directMaxCandidates = directCandidateBudget(this.maxCandidates, runLimit);
       const existingIdsForRun = new Set(this.board.keys());
@@ -2016,7 +3827,11 @@ export class MobileLiveGoldenRadar {
       }
 
       let novelQualityCount = qualityDirect.filter((item) => isNovelMdpResult(item, existingIdsForRun, existingClustersForRun)).length;
-      const shouldRunHeavyDirect = !catchUpMode || qualityDirect.length === 0;
+      const shouldRunHeavyDirect = (!catchUpMode || !this.enableBackfill)
+        && (
+          novelQualityCount < runLimit
+          || qualityDirect.length < runLimit
+        );
       if (shouldRunHeavyDirect && (novelQualityCount < runLimit || qualityDirect.length < runLimit)) {
         const direct = await withTimeout(this.discover({
           clientId: env.naverClientId,
@@ -2029,7 +3844,7 @@ export class MobileLiveGoldenRadar {
           liveSeeds,
           includeCrossCategory: runLimit > this.cycleLimit,
           requireCategoryMatch: false,
-          includeSearchAdSuggestions: true,
+          includeSearchAdSuggestions: !catchUpMode,
           suggestionSeedLimit: Math.min(48, Math.max(12, runLimit)),
           suggestionsPerSeed: Math.min(60, Math.max(18, Math.ceil(runLimit * 1.5))),
           maxSimilarPerCluster: 2,
@@ -2138,8 +3953,11 @@ export class MobileLiveGoldenRadar {
         metricSeen.add(`compact:${compactId}`);
         resultMetrics.push(metric);
       }
+      const publishableResultMetrics = resultMetrics
+        .map((metric) => applyKeywordAiJudge(metric, { now: this.now() }))
+        .filter((metric) => isPublishableLiveResultMetric(metric, this.now()));
       const result = resultFromMetrics(
-        resultMetrics,
+        publishableResultMetrics,
         startedAtMs,
       );
       this.mergeBoard(result.keywords);
@@ -2161,7 +3979,11 @@ export class MobileLiveGoldenRadar {
       this.publishedCount += published.length;
       this.successfulRuns += 1;
       const fallbackCount = result.keywords.filter((item) => item.source === 'mobile-live-issue-document-radar').length;
-      const enrichSuffix = enrichedExisting > 0 ? `, ${enrichedExisting} split-enriched` : '';
+      const enrichParts = [
+        promotedCacheCount > 0 ? `${promotedCacheCount} cache-promoted` : '',
+        enrichedExisting > 0 ? `${enrichedExisting} split-enriched` : '',
+      ].filter(Boolean);
+      const enrichSuffix = enrichParts.length > 0 ? `, ${enrichParts.join(', ')}` : '';
       this.lastMessage = fallbackCount > 0
         ? `${categoryId} ${result.summary.total} found (${fallbackCount} live issue fallback), ${published.length} published${enrichSuffix}`
         : `${categoryId} ${result.summary.total} found, ${published.length} published${enrichSuffix}`;
@@ -2171,6 +3993,7 @@ export class MobileLiveGoldenRadar {
       this.lastMessage = this.lastError;
     } finally {
       this.running = false;
+      this.documentQuotaBlockedForRun = false;
       this.lastFinishedAt = this.now().toISOString();
     }
 
@@ -2190,10 +4013,35 @@ export class MobileLiveGoldenRadar {
     return snapshot;
   }
 
+  private rememberCacheDerivedLiveSeeds(keyword: string, categoryId: string): void {
+    const clean = normalizeKeyword(keyword);
+    if (!clean || isNoisyLiveSeed(clean) || isThinProfileIntentKeyword(clean) || isLowValueLiveCandidate(clean)) return;
+    const inferredCategory = inferLiveCategory(clean, categoryId || 'all');
+    const intentCandidates = ultimateIntentFragmentCount(clean) >= 2
+      ? [clean]
+      : getLiveSeedBackfillIntents(clean, inferredCategory)
+        .slice(0, 10)
+        .filter((intent) => isUltimateIntentCompatible(clean, intent, inferredCategory))
+        .map((intent) => keywordAlreadyHasIntent(clean, intent) ? clean : `${clean} ${intent}`);
+    const candidates = uniqueKeywords([
+      ...buildUltimateNeedCandidatesForSeed(clean, inferredCategory, 14),
+      ...intentCandidates,
+    ], 24)
+      .filter((candidate) => isLiveRadarUsableKeyword(candidate, null, null, this.now()));
+    for (const candidate of candidates) {
+      if (this.cacheDerivedLiveSeeds.length >= 600) break;
+      const compact = keywordCompactId(candidate);
+      if (!compact) continue;
+      if (this.cacheDerivedLiveSeeds.some((seed) => keywordCompactId(seed) === compact)) continue;
+      this.cacheDerivedLiveSeeds.push(candidate);
+    }
+  }
+
   private async collectLiveSeeds(categoryId: string): Promise<string[]> {
     try {
       if (this.liveSeedProvider) {
-        return normalizeLiveSeeds(await this.liveSeedProvider(categoryId), 140);
+        return normalizeLiveSeeds(await this.liveSeedProvider(categoryId), 140)
+          .filter(isStrongLiveIssueSeed);
       }
       const fallbackSeeds = getDiscoveryCategorySeeds(categoryId, 60);
       const [
@@ -2227,20 +4075,40 @@ export class MobileLiveGoldenRadar {
       ];
       const matched: string[] = [];
       const fallback: string[] = [];
+      const needMatched: string[] = [];
+      const needFallback: string[] = [];
       for (const signal of allSignals) {
         const keyword = normalizeKeyword(signal.keyword);
         if (!keyword) continue;
         const signalCategory = normalizeKeyword(signal.categoryId);
+        if (!shouldUseLiveSourceSignalForGoldenBoard(keyword, signalCategory, categoryId)) continue;
+        const needCandidates = buildUltimateNeedCandidatesForSeed(keyword, signalCategory || categoryId, 8)
+          .filter((candidate) => shouldUseLiveSourceSignalForGoldenBoard(candidate, signalCategory, categoryId));
         const inferredCategory = inferLiveCategory(keyword, signalCategory || categoryId);
         if (categoryId === 'all' || signalCategory === categoryId || inferredCategory === categoryId) {
           matched.push(keyword);
+          needMatched.push(...needCandidates);
         } else {
           fallback.push(keyword);
+          needFallback.push(...needCandidates);
         }
       }
-      return uniqueKeywords([...normalizeLiveSeeds(matched, 90), ...normalizeLiveSeeds(fallback, 60), ...fallbackSeeds], 140);
+      return uniqueKeywords([
+        ...needMatched,
+        ...normalizeLiveSeeds(matched, 70),
+        ...this.cacheDerivedLiveSeeds,
+        ...needFallback,
+        ...normalizeLiveSeeds(fallback, 40),
+        ...fallbackSeeds.flatMap((seed) => buildUltimateNeedCandidatesForSeed(seed, categoryId, 8)),
+        ...fallbackSeeds,
+      ], 240);
     } catch {
-      return uniqueKeywords(getDiscoveryCategorySeeds(categoryId, 100), 100);
+      const fallbackSeeds = getDiscoveryCategorySeeds(categoryId, 120);
+      return uniqueKeywords([
+        ...this.cacheDerivedLiveSeeds,
+        ...fallbackSeeds.flatMap((seed) => buildUltimateNeedCandidatesForSeed(seed, categoryId, 8)),
+        ...fallbackSeeds,
+      ], 180);
     }
   }
 
@@ -2264,7 +4132,7 @@ export class MobileLiveGoldenRadar {
       })
       .slice(0, Math.min(
         LIVE_BACKFILL_DOCUMENT_PASS_MAX,
-        Math.max(targetLimit * 3, 36),
+        Math.max(targetLimit * 5, 72),
       ));
 
     const measured: Array<{ index: number; row: LiveSearchVolumeRow }> = [];
@@ -2285,12 +4153,13 @@ export class MobileLiveGoldenRadar {
           this.measureLiveDocumentCount(keyword, {
             searchVolume: volume,
             scrapeTimeoutMs: 1600,
+            scrapeOnly: this.documentQuotaBlockedForRun,
           }).catch(() => null),
           5000,
           null,
         );
         if (!dc || dc.isEstimated || dc.dc <= 0) continue;
-        measured.push({ index, row: { ...row, documentCount: dc.dc } });
+        measured.push({ index, row: { ...row, documentCount: dc.dc, ...measurementMetadataFromDocumentCount(dc) } });
       }
     });
     await Promise.all(workers);
@@ -2299,16 +4168,227 @@ export class MobileLiveGoldenRadar {
       .map((item) => item.row);
   }
 
+  private async discoverAutocompleteBackfillCandidates(
+    config: { clientId: string; clientSecret: string },
+    categoryId: string,
+    liveSeeds: string[],
+    targetLimit: number,
+  ): Promise<string[]> {
+    const now = this.now();
+    const limit = Math.max(48, Math.min(240, Math.floor(targetLimit * 18)));
+    const seedLimit = Math.max(6, Math.min(18, Math.ceil(targetLimit * 1.5)));
+    const seeds = uniqueKeywords([
+      ...normalizeLiveSeeds(liveSeeds, 80),
+      ...this.cacheDerivedLiveSeeds,
+    ], 140)
+      .map((seed) => normalizeRobustLiveSeedBase(seed, now))
+      .filter(Boolean)
+      .filter((seed) => !isUltimateLowValueLookupKeyword(seed))
+      .filter((seed) => !LIVE_LOW_VALUE_TOPIC_RE.test(seed) && !LIVE_NEWS_ONLY_TOPIC_RE.test(seed))
+      .filter((seed) => !LOW_VALUE_POLICY_FRAGMENT_RE.test(seed) && !LOW_VALUE_SYNTHETIC_CHAIN_RE.test(seed))
+      .filter((seed) => !LOW_VALUE_PERSON_COMMERCE_RE.test(seed) && !isOverExpandedLiveCandidate(seed))
+      .filter((seed) => ultimateIntentFragmentCount(seed) <= 2)
+      .slice(0, seedLimit);
+    if (seeds.length === 0) return [];
+
+    const out: string[] = [];
+    const seen = new Set<string>();
+    let cursor = 0;
+    const push = (keyword: string, fallbackCategory: string): void => {
+      if (out.length >= limit) return;
+      const clean = normalizeKeyword(keyword);
+      if (!clean) return;
+      const knownPolicyNeed = isKnownPolicyProductNeedKeyword(clean);
+      if (!knownPolicyNeed && isLowValueLiveCandidate(clean)) return;
+      if (!knownPolicyNeed && isOverExpandedLiveCandidate(clean)) return;
+      if (!knownPolicyNeed && isNoisyLiveSeed(clean)) return;
+      if (!knownPolicyNeed && !isLiveRadarUsableKeyword(clean, null, null, now)) return;
+      const inferred = inferLiveCategory(clean, fallbackCategory || categoryId);
+      if (
+        categoryId !== 'all'
+        && inferred !== categoryId
+        && fallbackCategory !== categoryId
+        && !(knownPolicyNeed && normalizeKeyword(categoryId) === 'policy')
+      ) return;
+      const hasNeed = knownPolicyNeed
+        || hasLiveUltimateNeedIntent(clean)
+        || isActionableLiveKeyword(clean)
+        || SPECIFIC_LIVE_KEYWORD_HINT_RE.test(clean);
+      if (!hasNeed) return;
+      const compact = keywordCompactId(clean);
+      if (!compact || seen.has(compact)) return;
+      seen.add(compact);
+      out.push(clean);
+    };
+    const workers = Array.from({ length: Math.min(3, seeds.length) }, async () => {
+      while (cursor < seeds.length && out.length < limit) {
+        const seed = seeds[cursor];
+        cursor += 1;
+        const seedCategory = inferLiveCategory(seed, categoryId);
+        const suggestions = await withTimeout(
+          this.autocompleteProvider(seed, config).catch(() => [] as string[]),
+          8000,
+          [],
+        );
+        for (const suggestion of suggestions) {
+          push(suggestion, seedCategory);
+          if (out.length >= limit) break;
+        }
+      }
+    });
+    await Promise.all(workers);
+    return uniqueKeywords(out, limit);
+  }
+
+  private async discoverSearchAdSuggestionBackfillCandidates(
+    categoryId: string,
+    liveSeeds: string[],
+    targetLimit: number,
+  ): Promise<string[]> {
+    if (this.hasCustomLiveVolumeMeasure) return [];
+    const searchAdConfig = searchAdConfigFromEnv(this.getEnvConfig());
+    if (!searchAdConfig) return [];
+
+    const now = this.now();
+    const limit = Math.max(80, Math.min(320, Math.floor(targetLimit * 22)));
+    const seedLimit = Math.max(8, Math.min(24, Math.ceil(targetLimit * 1.8)));
+    const catalogSeeds = measuredProbeCategoryKeys(categoryId, liveSeeds)
+      .flatMap((key) => LIVE_MEASURED_PROBE_BASES[key] || [])
+      .map((seed) => normalizeKeyword(seed))
+      .filter(Boolean);
+    const seeds = uniqueKeywords([
+      ...normalizeLiveSeeds(liveSeeds, 80),
+      ...this.cacheDerivedLiveSeeds,
+      ...catalogSeeds,
+      ...catalogSeeds.map((seed) => seed.replace(/\s+/g, '')),
+      ...getDiscoveryCategorySeeds(categoryId, 48),
+    ], 180)
+      .map((seed) => normalizeRobustLiveSeedBase(seed, now) || normalizeKeyword(seed))
+      .filter(Boolean)
+      .filter((seed) => !isUltimateLowValueLookupKeyword(seed))
+      .filter((seed) => !isLowValueLiveCandidate(seed) && !isOverExpandedLiveCandidate(seed))
+      .filter((seed) => !isNoisyLiveSeed(seed))
+      .slice(0, seedLimit);
+    if (seeds.length === 0) return [];
+
+    const scored = new Map<string, { keyword: string; score: number; index: number }>();
+    let cursor = 0;
+    let order = 0;
+    const push = (keyword: string, rowScore: number, fallbackCategory: string): void => {
+      const clean = normalizeKeyword(keyword);
+      if (!clean || scored.size >= limit) return;
+      if (isLowValueLiveCandidate(clean) || isOverExpandedLiveCandidate(clean) || isNoisyLiveSeed(clean)) return;
+      const inferred = inferLiveCategory(clean, fallbackCategory || categoryId);
+      if (
+        categoryId !== 'all'
+        && inferred !== categoryId
+        && !categoryAcceptsMeasuredProbe(clean, categoryId)
+      ) return;
+      if (!isLiveRadarUsableKeyword(clean, null, null, now)) return;
+      if (!isSearchAdMeasurableLiveCandidate(clean, inferred || categoryId, now)) return;
+      const key = keywordCompactId(clean);
+      if (!key) return;
+      const score = rowScore + preVolumeCandidateScore(clean, inferred || categoryId);
+      const existing = scored.get(key);
+      if (existing && existing.score >= score) return;
+      scored.set(key, { keyword: clean, score, index: order++ });
+    };
+
+    const workers = Array.from({ length: Math.min(3, seeds.length) }, async () => {
+      while (cursor < seeds.length && scored.size < limit) {
+        const seed = seeds[cursor];
+        cursor += 1;
+        const fallbackCategory = inferLiveCategory(seed, categoryId);
+        const suggestions = await withTimeout(
+          this.searchAdSuggestionProvider(searchAdConfig, seed, 80).catch(() => []),
+          10_000,
+          [],
+        );
+        for (const suggestion of suggestions) {
+          const total = finiteNumber((suggestion as any).totalSearchVolume)
+            ?? ((finiteNumber((suggestion as any).pcSearchVolume) || 0) + (finiteNumber((suggestion as any).mobileSearchVolume) || 0));
+          if (total === null || total < 300) continue;
+          push((suggestion as any).keyword, Math.min(180, Math.log10(total + 10) * 34), fallbackCategory);
+          if (scored.size >= limit) break;
+        }
+      }
+    });
+    await Promise.all(workers);
+
+    return [...scored.values()]
+      .sort((a, b) => b.score - a.score || a.index - b.index)
+      .map((item) => item.keyword)
+      .slice(0, limit);
+  }
+
   private async discoverBackfill(
     config: { clientId: string; clientSecret: string },
     categoryId: string,
     liveSeeds: string[],
     targetLimit = this.cycleLimit,
   ): Promise<MDPResult[]> {
-    const candidates = buildBackfillCandidates(categoryId, liveSeeds, this.maxSeeds, this.now());
-    if (candidates.length === 0) return [];
+    const measuredProbeCandidates = buildMeasuredProbeCandidates(
+      categoryId,
+      liveSeeds,
+      this.maxSeeds,
+      this.now(),
+    );
     const measurementLimit = this.backfillMeasurementLimit(targetLimit);
-    const volumeRows = await withTimeout(this.measureLiveSearchVolumeSeparate(config, candidates.slice(0, measurementLimit), {
+    const hasMeasuredProbeCandidates = measuredProbeCandidates.length > 0;
+    const autocompleteCandidates = hasMeasuredProbeCandidates
+      ? []
+      : await this.discoverAutocompleteBackfillCandidates(
+        config,
+        categoryId,
+        liveSeeds,
+        targetLimit,
+      );
+    const searchAdSuggestionCandidates = await this.discoverSearchAdSuggestionBackfillCandidates(
+      categoryId,
+      liveSeeds,
+      targetLimit,
+    );
+    const measuredProbeCandidateIds = new Set(
+      measuredProbeCandidates.map((keyword) => keywordCompactId(keyword)).filter(Boolean),
+    );
+    const autocompleteCandidateIds = new Set(
+      autocompleteCandidates.map((keyword) => keywordCompactId(keyword)).filter(Boolean),
+    );
+    const searchAdSuggestionCandidateIds = new Set(
+      searchAdSuggestionCandidates.map((keyword) => keywordCompactId(keyword)).filter(Boolean),
+    );
+    const candidates = uniqueKeywords([
+      ...measuredProbeCandidates,
+      ...searchAdSuggestionCandidates,
+      ...autocompleteCandidates,
+      ...buildBackfillCandidates(categoryId, liveSeeds, this.maxSeeds, this.now()),
+    ], this.maxSeeds);
+    if (candidates.length === 0) return [];
+    const rankedCandidates = candidates
+      .map((keyword, index) => ({
+        keyword,
+        index,
+        score: preVolumeCandidateScore(keyword, categoryId)
+          + (
+            measuredProbeCandidateIds.has(keywordCompactId(keyword))
+            || isLiveMeasuredProbeCandidate(keyword, categoryId, this.now())
+              ? 420
+              : 0
+          )
+          + (autocompleteCandidateIds.has(keywordCompactId(keyword)) ? 40 : 0)
+          + (searchAdSuggestionCandidateIds.has(keywordCompactId(keyword)) ? 80 : 0),
+      }))
+      .filter((item) => item.score > -100)
+      .sort((a, b) => {
+        const scoreDiff = b.score - a.score;
+        if (scoreDiff !== 0) return scoreDiff;
+        return a.index - b.index;
+      })
+      .map((item) => item.keyword);
+    const searchAdCandidates = rankedCandidates
+      .filter((keyword) => isSearchAdMeasurableLiveCandidate(keyword, categoryId, this.now()))
+      .slice(0, measurementLimit);
+    const volumeRows = await withTimeout(this.measureLiveSearchVolumeSeparate(config, searchAdCandidates, {
       includeDocumentCount: false,
     }), LIVE_BACKFILL_TIMEOUT_MS, []);
     const rows = await this.attachDocumentCountsToVolumeRows(volumeRows, categoryId, targetLimit);
@@ -2323,28 +4403,40 @@ export class MobileLiveGoldenRadar {
       if (
         (row.documentCount === null || row.documentCount === undefined || row.documentCount <= 0)
         && volume >= 100
-        && documentCountSupplements < 12
+        && documentCountSupplements < LIVE_BACKFILL_DOCUMENT_SUPPLEMENT_MAX
       ) {
         documentCountSupplements += 1;
         const measuredDc = await withTimeout(
           this.measureLiveDocumentCount(row.keyword, {
             searchVolume: volume,
             scrapeTimeoutMs: 1500,
-            scrapeOnly: true,
+            scrapeOnly: this.documentQuotaBlockedForRun,
           }).catch(() => null),
           3500,
           null,
         );
         if (measuredDc && !measuredDc.isEstimated && measuredDc.dc > 0) {
-          enrichedRow = { ...row, documentCount: measuredDc.dc };
+          enrichedRow = { ...row, documentCount: measuredDc.dc, ...measurementMetadataFromDocumentCount(measuredDc) };
         }
       }
       const item = rowToBackfillResult(enrichedRow, categoryId);
       if (!item) continue;
+      const isAutocompleteExact = autocompleteCandidateIds.has(keywordCompactId(enrichedRow.keyword));
+      const prioritizedItem = isAutocompleteExact
+        ? {
+          ...item,
+          score: Math.min(100, (item.score || 0) + 8),
+          goldenReason: `${item.goldenReason || ''} · 자동완성 실측 원문 우선`,
+          externalSources: uniqueKeywords([
+            ...(item.externalSources || []),
+            'autocomplete-exact-measured',
+          ], 8),
+        }
+        : item;
       const id = mdpResultId(item);
       if (seen.has(id)) continue;
       seen.add(id);
-      out.push(item);
+      out.push(prioritizedItem);
     }
     return rankGoldenDiscoveryResults(out, targetLimit, false, {
       honorRequestedLimit: true,
@@ -2391,6 +4483,7 @@ export class MobileLiveGoldenRadar {
         candidateCountsBySeed.set(sourceKey, count + 1);
         return true;
       })
+      .filter((keyword) => isSearchAdMeasurableLiveCandidate(keyword, categoryId, this.now()))
       .slice(0, Math.max(LIVE_ISSUE_FALLBACK_DOCUMENT_LIMIT, targetLimit * 2));
 
     const seen = new Set<string>();
@@ -2402,7 +4495,7 @@ export class MobileLiveGoldenRadar {
       out.push(metric);
     };
     const volumeRows = await withTimeout(this.measureLiveSearchVolumeSeparate(config, candidates, {
-      includeDocumentCount: true,
+      includeDocumentCount: false,
     }), LIVE_BACKFILL_TIMEOUT_MS, []);
     let documentCountSupplements = 0;
     for (const row of volumeRows) {
@@ -2413,20 +4506,20 @@ export class MobileLiveGoldenRadar {
       if (
         (row.documentCount === null || row.documentCount === undefined || row.documentCount <= 0)
         && volume >= 100
-        && documentCountSupplements < 8
+        && documentCountSupplements < LIVE_ISSUE_DOCUMENT_SUPPLEMENT_MAX
       ) {
         documentCountSupplements += 1;
         const measuredDc = await withTimeout(
           this.measureLiveDocumentCount(row.keyword, {
             searchVolume: volume,
             scrapeTimeoutMs: 1500,
-            scrapeOnly: true,
+            scrapeOnly: this.documentQuotaBlockedForRun,
           }).catch(() => null),
           3500,
           null,
         );
         if (measuredDc && !measuredDc.isEstimated && measuredDc.dc > 0) {
-          enrichedRow = { ...row, documentCount: measuredDc.dc };
+          enrichedRow = { ...row, documentCount: measuredDc.dc, ...measurementMetadataFromDocumentCount(measuredDc) };
         }
       }
       const result = rowToBackfillResult(enrichedRow, categoryId);
@@ -2444,44 +4537,6 @@ export class MobileLiveGoldenRadar {
       });
       if (out.length >= targetLimit) break;
     }
-    if (out.length >= targetLimit) {
-      return out.slice(0, targetLimit);
-    }
-
-    const measureOne = async (keyword: string): Promise<MobileKeywordMetric | null> => {
-      const measured = await withTimeout(
-        this.measureLiveDocumentCount(keyword, {
-          searchVolume: 0,
-          scrapeTimeoutMs: 1600,
-          scrapeOnly: true,
-        }).catch(() => null),
-        3500,
-        null,
-      );
-      if (!measured || measured.dc <= 0 || (!measured.isEstimated && measured.dc > 20_000)) return null;
-      const measuredDocs = measured.isEstimated ? null : measured.dc;
-      const metric = metricFromLiveIssueFallback(keyword, categoryId, measuredDocs);
-      if (!metric) return null;
-      return {
-        ...metric,
-        evidence: [
-          ...metric.evidence,
-          `document-source:${measured.source}`,
-          `document-confidence:${measured.confidence}`,
-        ],
-      };
-    };
-
-    for (let i = 0; i < candidates.length && out.length < targetLimit; i += LIVE_ISSUE_FALLBACK_CONCURRENCY) {
-      const batch = candidates.slice(i, i + LIVE_ISSUE_FALLBACK_CONCURRENCY);
-      const measured = await Promise.all(batch.map(measureOne));
-      for (const metric of measured) {
-        if (!metric) continue;
-        pushMetric(metric);
-        if (out.length >= targetLimit) break;
-      }
-    }
-
     return out
       .sort((a, b) => {
         const gradeDelta = (GRADE_WEIGHT[b.grade] || 0) - (GRADE_WEIGHT[a.grade] || 0);
@@ -2494,6 +4549,9 @@ export class MobileLiveGoldenRadar {
   }
 
   snapshot(): MobileLiveGoldenRadarSnapshot {
+    if (!this.running) {
+      this.refreshMeasuredCachesFromDisk(false);
+    }
     const board = this.sortedBoard();
     const publicPreviewIds = new Set(this.selectPublicPreview(board).map((item) => item.id));
     const markedBoard = board.map((item) => applyKeywordAiJudge({
@@ -2509,7 +4567,7 @@ export class MobileLiveGoldenRadar {
       maxCandidates: this.maxCandidates,
       boardTarget: this.boardTarget,
       boardCount: markedBoard.length,
-      publicPreviewCount: Math.min(this.publicPreviewCount, markedBoard.length),
+      publicPreviewCount: markedBoard.filter((item) => item.isPublicPreview).length,
       boardUpdatedAt: this.boardUpdatedAt,
       board: markedBoard,
       publicPreview: markedBoard.filter((item) => item.isPublicPreview),
@@ -2520,6 +4578,7 @@ export class MobileLiveGoldenRadar {
       publishedCount: this.publishedCount,
       lastStartedAt: this.lastStartedAt,
       lastFinishedAt: this.lastFinishedAt,
+      nextRetryAt: this.quotaRetryAtMs ? new Date(this.quotaRetryAtMs).toISOString() : undefined,
       lastError: this.lastError,
       lastMessage: this.lastMessage,
       nextCategoryId: this.categories[this.categoryIndex] || 'all',
@@ -2527,17 +4586,47 @@ export class MobileLiveGoldenRadar {
     };
   }
 
+  private clearQuotaRetryTimer(): void {
+    if (this.quotaRetryTimer !== null) {
+      this.clearTimeoutFn(this.quotaRetryTimer);
+      this.quotaRetryTimer = null;
+    }
+    this.quotaRetryAtMs = null;
+  }
+
+  private scheduleQuotaRetry(retryAtMs: number | null): void {
+    if (!retryAtMs || !this.enabled) return;
+    const delayMs = liveQuotaRetryDelayMs(retryAtMs, this.now().getTime(), this.intervalMs);
+    this.clearQuotaRetryTimer();
+    this.quotaRetryAtMs = retryAtMs;
+    this.quotaRetryTimer = this.setTimeoutFn(() => {
+      this.quotaRetryTimer = null;
+      this.quotaRetryAtMs = null;
+      if (!this.enabled) return;
+      const snapshot = this.snapshot();
+      void (snapshot.boardCount < this.boardTarget
+        ? this.runUntilTarget(this.startupCatchUpCycles)
+        : this.runOnce());
+    }, delayMs);
+  }
+
   private selectPublicPreview(board: MobileLiveGoldenBoardItem[]): MobileLiveGoldenBoardItem[] {
-    const count = Math.min(this.publicPreviewCount, board.length);
-    if (count <= 0) return [];
+    if (this.publicPreviewCount <= 0 || board.length <= 0) return [];
     const now = this.now();
     const nowMs = now.getTime();
-    const protectedTopCount = board.length > count
-      ? Math.min(PUBLIC_PREVIEW_PROTECTED_TOP_COUNT, Math.max(0, board.length - count))
+    const requestedPreviewCount = Math.min(this.publicPreviewCount, board.length);
+    const protectedTopCount = board.length > requestedPreviewCount
+      ? Math.min(PUBLIC_PREVIEW_PROTECTED_TOP_COUNT, Math.max(0, board.length - requestedPreviewCount))
       : 0;
-    const freeBoard = protectedTopCount > 0 ? board.slice(protectedTopCount) : board;
+    const freeBoard = board.slice(protectedTopCount);
+    const count = Math.min(this.publicPreviewCount, freeBoard.length);
+    if (count <= 0) return [];
     const isFresh = (item: MobileLiveGoldenBoardItem) => ageMsFrom(item.updatedAt, nowMs) <= PUBLIC_PREVIEW_MAX_AGE_MS;
-    const isPreviewGrade = (item: MobileLiveGoldenBoardItem) => item.grade !== 'B' && item.grade !== 'C';
+    const isPreviewGrade = (item: MobileLiveGoldenBoardItem) => {
+      if (item.grade === 'B' || item.grade === 'C') return false;
+      const decision = evaluatePublishDecision(item);
+      return decision.verdict === 'publish' && decision.score >= 80;
+    };
     const sourceMap = new Map<string, MobileLiveGoldenBoardItem>();
     const pushSource = (items: MobileLiveGoldenBoardItem[]) => {
       for (const item of items) {
@@ -2639,15 +4728,20 @@ export class MobileLiveGoldenRadar {
     return categoryId;
   }
 
-  private mergeBoard(keywords: MobileKeywordMetric[]): void {
+  private mergeBoard(
+    keywords: MobileKeywordMetric[],
+    options: { pruneAndSave?: boolean } = {},
+  ): void {
     if (keywords.length === 0) return;
+    const shouldPruneAndSave = options.pruneAndSave !== false;
     const stamp = this.now().toISOString();
     const now = this.now();
     for (const keyword of keywords) {
       const normalizedKeyword = normalizeKeyword(keyword.keyword);
       if (!normalizedKeyword || keyword.grade === 'C') continue;
       if (!hasCompleteLiveGoldenMetrics(keyword)) continue;
-      if (!isLiveRadarUsableMetric({ ...keyword, keyword: normalizedKeyword }, now)) continue;
+      const normalizedMetric = { ...keyword, keyword: normalizedKeyword };
+      if (!isLiveRadarUsableMetric(normalizedMetric, now) && !isMeasuredProExactKeywordMetric(normalizedMetric, now)) continue;
       const id = keywordId(normalizedKeyword);
       const compactId = keywordCompactId(normalizedKeyword);
       const existing = this.board.get(id)
@@ -2681,6 +4775,9 @@ export class MobileLiveGoldenRadar {
       const ratio = volume !== null && docs !== null && docs > 0
         ? Number((volume / docs).toFixed(2))
         : finiteNumber(keyword.goldenRatio);
+      const opportunityScore = volume !== null && docs !== null && docs > 0 && ratio !== null
+        ? liveUltimateOpportunityScore(normalizedKeyword, volume, docs, ratio)
+        : finiteNumber(keyword.score);
       const incomingCpc = finiteNumber(keyword.cpc);
       const existingCpc = finiteNumber(existing?.cpc);
       const cpc = incomingCpc !== null && incomingCpc > 0
@@ -2688,21 +4785,40 @@ export class MobileLiveGoldenRadar {
         : existingCpc !== null && existingCpc > 0
           ? existingCpc
           : incomingCpc ?? existingCpc;
+      const searchVolumeSource = incomingSplitTotal > 0
+        ? keyword.searchVolumeSource
+        : existing?.searchVolumeSource || keyword.searchVolumeSource;
+      const searchVolumeConfidence = incomingSplitTotal > 0
+        ? keyword.searchVolumeConfidence
+        : existing?.searchVolumeConfidence || keyword.searchVolumeConfidence;
+      const isSearchVolumeEstimated = incomingSplitTotal > 0
+        ? keyword.isSearchVolumeEstimated
+        : existing?.isSearchVolumeEstimated ?? keyword.isSearchVolumeEstimated;
+      const documentCountSource = keyword.documentCountSource || existing?.documentCountSource;
+      const documentCountConfidence = keyword.documentCountConfidence || existing?.documentCountConfidence;
+      const isDocumentCountEstimated = keyword.isDocumentCountEstimated ?? existing?.isDocumentCountEstimated;
       const metric = {
         ...keyword,
         pcSearchVolume,
         mobileSearchVolume,
         totalSearchVolume: volume ?? keyword.totalSearchVolume,
         cpc,
+        searchVolumeSource,
+        searchVolumeConfidence,
+        isSearchVolumeEstimated,
+        documentCountSource,
+        documentCountConfidence,
+        isDocumentCountEstimated,
       };
       const grade = volume !== null && docs !== null && docs > 0 && ratio !== null
-        ? normalizeLiveMetricGrade(normalizedKeyword, keyword.grade, finiteNumber(keyword.score), volume, docs, ratio)
+        ? normalizeLiveMetricGrade(normalizedKeyword, keyword.grade, opportunityScore, volume, docs, ratio)
         : keyword.grade;
       if (grade === 'C') continue;
       const judgedMetric = applyKeywordAiJudge({
         ...metric,
         keyword: normalizedKeyword,
         grade,
+        score: opportunityScore ?? finiteNumber(keyword.score),
         goldenRatio: ratio,
       });
       if (judgedMetric.aiJudge?.verdict === 'exclude') continue;
@@ -2725,15 +4841,22 @@ export class MobileLiveGoldenRadar {
       this.board.set(boardId, item);
     }
 
-    this.pruneBoard();
-    this.boardUpdatedAt = stamp;
-    this.saveBoardToFile();
+    if (shouldPruneAndSave) {
+      this.pruneBoard();
+      this.boardUpdatedAt = stamp;
+      this.saveBoardToFile();
+    }
   }
 
   private async enrichExistingBoardSearchAdMetrics(config: { clientId: string; clientSecret: string }): Promise<number> {
-    const candidates = this.sortedBoard()
+    const nowMs = this.now().getTime();
+    const candidates = [...this.board.values()]
+      .filter((item) => ageMsFrom(item.updatedAt, nowMs) <= LIVE_BOARD_MAX_AGE_MS)
       .filter((item) => hasCompleteLiveGoldenMetrics(item))
+      .filter((item) => isLiveRadarUsableMetric(item, this.now()))
       .filter((item) => !hasMeasuredPcMobileSplit(item) || !hasRealCpcValue(item))
+      .filter((item) => isSearchAdMeasurableLiveCandidate(item.keyword, item.category || 'all', this.now()))
+      .sort((a, b) => splitEnrichmentPriorityScore(b, nowMs) - splitEnrichmentPriorityScore(a, nowMs))
       .slice(0, LIVE_BOARD_SPLIT_ENRICHMENT_LIMIT);
     if (candidates.length === 0) return 0;
 
@@ -2780,9 +4903,11 @@ export class MobileLiveGoldenRadar {
         docs,
         ratio,
       );
+      const opportunityScore = liveUltimateOpportunityScore(item.keyword, measuredVolume, docs, ratio);
       const evidence = [
         ...(Array.isArray(item.evidence) ? item.evidence : []),
         'searchad-pc-mobile-split-enriched',
+        (row as any).svEstimated ? 'searchad-volume-estimated' : '',
       ].map((entry) => normalizeKeyword(entry)).filter(Boolean);
       this.board.set(item.id, {
         ...item,
@@ -2791,7 +4916,11 @@ export class MobileLiveGoldenRadar {
         mobileSearchVolume: mobile,
         totalSearchVolume: measuredVolume,
         goldenRatio: ratio,
+        score: opportunityScore,
         cpc,
+        searchVolumeSource: 'searchad',
+        searchVolumeConfidence: 'high',
+        isSearchVolumeEstimated: (row as any).svEstimated === true,
         updatedAt: stamp,
         freshness: 'live',
         evidence: [...new Set(evidence)].slice(0, 10),
@@ -2809,13 +4938,166 @@ export class MobileLiveGoldenRadar {
     return changed;
   }
 
+  private async promotePendingMeasuredCacheWithSearchAdMetrics(
+    config: { clientId: string; clientSecret: string },
+    targetLimit: number,
+  ): Promise<number> {
+    const nowMs = this.now().getTime();
+    const now = this.now();
+    const measurementLimit = Math.min(
+      LIVE_CACHE_PROMOTION_MAX_CANDIDATES,
+      Math.max(5, Math.floor(targetLimit * 4)),
+    );
+    const candidates = [...this.board.values()]
+      .filter((item) => ageMsFrom(item.updatedAt, nowMs) <= LIVE_BOARD_MAX_AGE_MS)
+      .filter((item) => hasCompleteLiveGoldenMetrics(item))
+      .filter((item) => isCachePromotionMeasurementCandidate(item, now))
+      .filter((item) => !hasMeasuredPcMobileSplit(item))
+      .filter((item) => isMeasuredCacheSearchAdSplitCandidate(item.keyword, item.category || 'all', now))
+      .filter((item) => !LIVE_PROMOTION_SYNTHETIC_INTENT_CHAIN_RE.test(normalizeKeyword(item.keyword)))
+      .filter((item) => livePromotionPriorityBonus(item.keyword, item.category || 'all') > -300)
+      .sort((a, b) => splitEnrichmentPriorityScore(b, nowMs) - splitEnrichmentPriorityScore(a, nowMs))
+      .slice(0, measurementLimit);
+    if (candidates.length === 0) {
+      console.info('[LIVE-GOLDEN] cache promotion skipped: no candidates', {
+        boardSize: this.board.size,
+        targetLimit,
+      });
+      return 0;
+    }
+
+    const rows: Awaited<ReturnType<typeof this.measureLiveSearchVolumeSeparate>> = [];
+    for (let i = 0; i < candidates.length; i += LIVE_CACHE_PROMOTION_BATCH_SIZE) {
+      const batch = candidates.slice(i, i + LIVE_CACHE_PROMOTION_BATCH_SIZE);
+      const batchRows = await withTimeout(
+        this.measureLiveSearchVolumeSeparate(config, batch.map((item) => item.keyword), {
+          includeDocumentCount: false,
+        }),
+        LIVE_CACHE_PROMOTION_BATCH_TIMEOUT_MS,
+        [],
+      );
+      rows.push(...batchRows);
+      if (rows.length >= measurementLimit) {
+        break;
+      }
+    }
+    if (rows.length === 0) {
+      console.info('[LIVE-GOLDEN] cache promotion skipped: no SearchAd rows', {
+        candidates: candidates.length,
+        targetLimit,
+        sample: candidates.slice(0, 8).map((item) => item.keyword),
+      });
+      return 0;
+    }
+
+    const byCompactId = new Map<string, MobileLiveGoldenBoardItem>();
+    for (const item of candidates) {
+      const compactId = keywordCompactId(item.keyword);
+      if (compactId) byCompactId.set(compactId, item);
+    }
+
+    const stamp = this.now().toISOString();
+    let changed = 0;
+    let promotedCount = 0;
+    const rejectedSamples: Array<Record<string, unknown>> = [];
+    for (const row of rows) {
+      const keyword = normalizeKeyword(row.keyword);
+      const item = byCompactId.get(keywordCompactId(keyword));
+      if (!item) continue;
+      const pc = finiteNumber(row.pcSearchVolume);
+      const mobile = finiteNumber(row.mobileSearchVolume);
+      const measuredVolume = (pc || 0) + (mobile || 0);
+      const docs = finiteNumber(item.documentCount);
+      if (pc === null || mobile === null || measuredVolume <= 0 || docs === null || docs <= 0) continue;
+      const ratio = Number((measuredVolume / docs).toFixed(2));
+      const opportunityScore = liveUltimateOpportunityScore(item.keyword, measuredVolume, docs, ratio);
+      const grade = normalizeLiveMetricGrade(
+        item.keyword,
+        item.grade,
+        opportunityScore,
+        measuredVolume,
+        docs,
+        ratio,
+      );
+      if (grade === 'C') continue;
+      const promoted: MobileLiveGoldenBoardItem = {
+        ...item,
+        grade,
+        score: opportunityScore,
+        pcSearchVolume: pc,
+        mobileSearchVolume: mobile,
+        totalSearchVolume: measuredVolume,
+        goldenRatio: ratio,
+        cpc: finiteNumber(row.monthlyAveCpc) ?? finiteNumber(item.cpc),
+        searchVolumeSource: 'searchad',
+        searchVolumeConfidence: 'high',
+        isSearchVolumeEstimated: (row as any).svEstimated === true,
+        documentCountSource: item.documentCountSource || 'cache',
+        documentCountConfidence: item.documentCountConfidence || 'medium',
+        isDocumentCountEstimated: item.isDocumentCountEstimated === true,
+        updatedAt: stamp,
+        freshness: 'live',
+        evidence: [...new Set([
+          ...(Array.isArray(item.evidence) ? item.evidence : []),
+          'persistent-cache-split-promoted',
+          'searchad-pc-mobile-split-enriched',
+        ].map((entry) => normalizeKeyword(entry)).filter(Boolean))].slice(0, 10),
+        publicSearchVolumeLabel: formatRange(measuredVolume, 'search'),
+        publicDocumentCountLabel: formatRange(docs, 'document'),
+      };
+      const judged = applyKeywordAiJudge(promoted, { now: this.now() });
+      this.board.set(item.id, judged);
+      const now = this.now();
+      const publishable = isPublishableLiveResultMetric(judged, now) || isMeasuredProBoardItem(judged, now);
+      const fallbackReason = measuredProBoardFallbackRejectReason(judged, now);
+      if (!publishable && fallbackReason !== 'ok') {
+        if (rejectedSamples.length < 12) {
+          rejectedSamples.push({
+            keyword: judged.keyword,
+            grade: judged.grade,
+            score: judged.score,
+            totalSearchVolume: judged.totalSearchVolume,
+            documentCount: judged.documentCount,
+            goldenRatio: judged.goldenRatio,
+            category: judged.category,
+            aiVerdict: judged.aiJudge?.verdict,
+            aiScore: judged.aiJudge?.score,
+            needIntent: judged.aiJudge?.needIntent,
+            promotionBonus: livePromotionPriorityBonus(judged.keyword, judged.category || 'all'),
+            reason: fallbackReason,
+          });
+        }
+        changed += 1;
+        continue;
+      }
+      this.board.set(item.id, judged);
+      changed += 1;
+      promotedCount += 1;
+    }
+
+    if (changed > 0) {
+      this.pruneBoard();
+      this.boardUpdatedAt = stamp;
+      this.saveBoardToFile();
+    }
+    console.info('[LIVE-GOLDEN] cache promotion completed', {
+      candidates: candidates.length,
+      rows: rows.length,
+      changed,
+      promotedCount,
+      targetLimit,
+      rejectedSamples,
+    });
+    return changed;
+  }
+
   private sortedBoard(): MobileLiveGoldenBoardItem[] {
     const now = this.now();
     const nowMs = now.getTime();
     const sorted = [...this.board.values()]
       .filter((item) => ageMsFrom(item.updatedAt, nowMs) <= LIVE_BOARD_MAX_AGE_MS)
       .filter(hasCompleteLiveGoldenMetrics)
-      .filter((item) => isLiveRadarUsableMetric(item, now))
+      .filter((item) => isLiveRadarUsableMetric(item, now) || isMeasuredProExactKeywordMetric(item, now))
       .map((item) => ({
         ...item,
         freshness: freshnessFrom(item.updatedAt, nowMs),
@@ -2825,7 +5107,9 @@ export class MobileLiveGoldenRadar {
         if (scoreDiff !== 0) return scoreDiff;
         return Date.parse(b.updatedAt) - Date.parse(a.updatedAt);
       });
-    return selectLiveBoardItems(sorted, this.boardTarget)
+    const selected = selectLiveBoardItems(sorted, this.boardTarget, now);
+    const resilientSelected = appendMeasuredPublishableFallbackItems(selected, sorted, this.boardTarget, now);
+    return resilientSelected
       .map((item, index) => ({
         ...item,
         rank: index + 1,
@@ -2834,8 +5118,32 @@ export class MobileLiveGoldenRadar {
 
   private pruneBoard(): void {
     const keepIds = new Set(this.sortedBoard().map((item) => item.id));
+    const now = this.now();
+    const nowMs = now.getTime();
+    const minimumVisibleBoard = Math.min(this.publicPreviewCount, this.boardTarget);
+    if (keepIds.size < minimumVisibleBoard) {
+      const fallbackItems = [...this.board.values()]
+        .filter((item) => ageMsFrom(item.updatedAt, nowMs) <= LIVE_BOARD_MAX_AGE_MS)
+        .filter(hasCompleteLiveGoldenMetrics)
+        .filter((item) => isLiveRadarUsableMetric(item, now) || isMeasuredProExactKeywordMetric(item, now))
+        .sort((a, b) => {
+          const scoreDiff = boardSortScore(b, nowMs) - boardSortScore(a, nowMs);
+          if (scoreDiff !== 0) return scoreDiff;
+          return Date.parse(b.updatedAt) - Date.parse(a.updatedAt);
+        });
+      for (const item of selectMeasuredPublishableFallbackItems(fallbackItems, this.boardTarget, now)) {
+        if (keepIds.size >= minimumVisibleBoard) break;
+        keepIds.add(item.id);
+      }
+    }
     for (const item of [...this.board.values()]) {
-      if (!keepIds.has(item.id)) this.board.delete(item.id);
+      if (keepIds.has(item.id)) continue;
+      const pendingSplitEnrichment = ageMsFrom(item.updatedAt, nowMs) <= LIVE_BOARD_MAX_AGE_MS
+        && hasCompleteLiveGoldenMetrics(item)
+        && (isLiveRadarUsableMetric(item, now) || isMeasuredProExactKeywordMetric(item, now))
+        && (!hasMeasuredPcMobileSplit(item) || !hasRealCpcValue(item));
+      if (pendingSplitEnrichment) continue;
+      this.board.delete(item.id);
     }
   }
 
@@ -2850,17 +5158,21 @@ export class MobileLiveGoldenRadar {
       const pushKeyword = (row: any, fallbackCategory: string): void => {
         const keyword = normalizeKeyword(row?.keyword);
         if (!keyword) return;
+        this.rememberCacheDerivedLiveSeeds(keyword, fallbackCategory);
+        const measurementMeta = measurementMetadataWithPersistentDefaults(row);
         const pcSearchVolume = finiteNumber(row?.pcSearchVolume);
         const mobileSearchVolume = finiteNumber(row?.mobileSearchVolume);
         const totalSearchVolume = finiteNumber(row?.totalSearchVolume)
           || ((pcSearchVolume || 0) + (mobileSearchVolume || 0))
           || finiteNumber(row?.searchVolume);
         const documentCount = finiteNumber(row?.documentCount);
-        const score = finiteNumber(row?.score);
         const goldenRatio = finiteNumber(row?.goldenRatio)
           || (totalSearchVolume !== null && documentCount !== null && documentCount > 0
             ? Number((totalSearchVolume / documentCount).toFixed(2))
             : null);
+        const score = totalSearchVolume !== null && documentCount !== null && documentCount > 0 && goldenRatio !== null
+          ? liveUltimateOpportunityScore(keyword, totalSearchVolume, documentCount, goldenRatio)
+          : finiteNumber(row?.score);
         const grade = totalSearchVolume !== null && documentCount !== null && documentCount > 0 && goldenRatio !== null
           ? normalizeLiveMetricGrade(keyword, row?.grade, score, totalSearchVolume, documentCount, goldenRatio)
           : normalizeGrade(row?.grade, score || 0);
@@ -2881,9 +5193,10 @@ export class MobileLiveGoldenRadar {
             ? row.evidence.map((entry: unknown) => normalizeKeyword(entry)).filter(Boolean).slice(0, 8)
             : ['mobile-measured-result-cache'],
           isMeasured: row?.isMeasured !== false && totalSearchVolume !== null && documentCount !== null,
+          ...measurementMeta,
         };
         if (!hasCompleteLiveGoldenMetrics(metric)) return;
-        if (!isLiveRadarUsableMetric(metric, this.now())) return;
+        if (!isLiveRadarUsableMetric(metric, this.now()) && !isMeasuredProExactKeywordMetric(metric, this.now())) return;
         metrics.push(metric);
       };
 
@@ -2903,7 +5216,7 @@ export class MobileLiveGoldenRadar {
         for (const row of parsed.keywords) pushKeyword(row, 'live');
       }
       if (metrics.length > 0) {
-        this.mergeBoard(metrics);
+        this.mergeBoard(metrics, { pruneAndSave: false });
         this.lastMessage = `loaded ${metrics.length} measured cache candidates`;
       }
     } catch (err) {
@@ -2923,6 +5236,8 @@ export class MobileLiveGoldenRadar {
       const pushKeyword = (key: unknown, row: any): void => {
         const keyword = normalizeKeyword(row?.keyword || key);
         if (!keyword || keyword === '__schemaVersion') return;
+        this.rememberCacheDerivedLiveSeeds(keyword, normalizeKeyword(row?.category) || 'persistent-cache');
+        const measurementMeta = measurementMetadataWithPersistentDefaults(row);
         const pcSearchVolume = finiteNumber(row?.pcSearchVolume);
         const mobileSearchVolume = finiteNumber(row?.mobileSearchVolume);
         const pairedSearchVolume = pcSearchVolume !== null || mobileSearchVolume !== null
@@ -2941,8 +5256,7 @@ export class MobileLiveGoldenRadar {
           || isActionableGoldenKeyword(keyword)
           || SPECIFIC_LIVE_KEYWORD_HINT_RE.test(keyword);
         const computedScore = liveMetricScore(totalSearchVolume, documentCount, goldenRatio, actionable);
-        const rowScore = finiteNumber(row?.score);
-        const score = rowScore !== null && rowScore > 0 ? rowScore : computedScore;
+        const score = Math.max(computedScore, liveUltimateOpportunityScore(keyword, totalSearchVolume, documentCount, goldenRatio));
         const grade = normalizeLiveMetricGrade(keyword, row?.grade, score, totalSearchVolume, documentCount, goldenRatio);
         const metric: MobileKeywordMetric = {
           keyword,
@@ -2961,10 +5275,11 @@ export class MobileLiveGoldenRadar {
             ? row.evidence.map((entry: unknown) => normalizeKeyword(entry)).filter(Boolean).slice(0, 8)
             : ['persistent-keyword-cache', 'measured-search-volume', 'measured-document-count'],
           isMeasured: true,
+          ...measurementMeta,
         };
         if (metric.grade === 'C') return;
         if (!hasCompleteLiveGoldenMetrics(metric)) return;
-        if (!isLiveRadarUsableMetric(metric, this.now())) return;
+        if (!isLiveRadarUsableMetric(metric, this.now()) && !isMeasuredProExactKeywordMetric(metric, this.now())) return;
         metrics.push(metric);
       };
 
@@ -2991,7 +5306,7 @@ export class MobileLiveGoldenRadar {
           if (ratioDiff !== 0) return ratioDiff;
           return volumeDiff;
         });
-        this.mergeBoard(metrics.slice(0, Math.max(180, this.boardTarget * 12)));
+        this.mergeBoard(metrics.slice(0, Math.max(180, this.boardTarget * 12)), { pruneAndSave: false });
         this.lastMessage = `loaded ${metrics.length} persistent measured keyword candidates`;
       }
     } catch (err) {
@@ -3017,25 +5332,40 @@ export class MobileLiveGoldenRadar {
       for (const row of rows) {
         const keyword = normalizeKeyword(row?.keyword);
         if (!keyword) continue;
+        const measurementMeta = measurementMetadataWithPersistentDefaults(row);
         const totalSearchVolume = finiteNumber(row?.totalSearchVolume);
         const documentCount = finiteNumber(row?.documentCount);
         const isMeasured = Boolean(row?.isMeasured) || (totalSearchVolume !== null && documentCount !== null);
-        const score = finiteNumber(row?.score);
         const goldenRatio = finiteNumber(row?.goldenRatio)
           || (totalSearchVolume !== null && documentCount !== null && documentCount > 0
             ? Number((totalSearchVolume / documentCount).toFixed(2))
             : null);
+        const score = totalSearchVolume !== null && documentCount !== null && documentCount > 0 && goldenRatio !== null
+          ? liveUltimateOpportunityScore(keyword, totalSearchVolume, documentCount, goldenRatio)
+          : finiteNumber(row?.score);
         const grade = totalSearchVolume !== null && documentCount !== null && documentCount > 0 && goldenRatio !== null
           ? normalizeLiveMetricGrade(keyword, row?.grade, score, totalSearchVolume, documentCount, goldenRatio)
           : normalizeGrade(row?.grade, score || 0);
         if (grade === 'C') continue;
         if (!hasCompleteLiveGoldenMetrics({ totalSearchVolume, documentCount, isMeasured })) continue;
-        if (!isLiveRadarUsableKeyword(keyword, totalSearchVolume, documentCount, now)) continue;
+        if (
+          !isLiveRadarUsableKeyword(keyword, totalSearchVolume, documentCount, now)
+          && !isMeasuredProExactKeywordMetric({
+            keyword,
+            grade,
+            score,
+            totalSearchVolume,
+            documentCount,
+            goldenRatio,
+            isMeasured,
+            ...measurementMeta,
+          }, now)
+        ) continue;
         const id = normalizeKeyword(row?.id) || keywordId(keyword);
         const item: MobileLiveGoldenBoardItem = {
           keyword,
           grade,
-          score: finiteNumber(row?.score),
+          score,
           pcSearchVolume: finiteNumber(row?.pcSearchVolume),
           mobileSearchVolume: finiteNumber(row?.mobileSearchVolume),
           totalSearchVolume,
@@ -3060,7 +5390,7 @@ export class MobileLiveGoldenRadar {
           publicReason: normalizeKeyword(row?.publicReason) || publicReason({
             keyword,
             grade,
-            score: finiteNumber(row?.score),
+            score,
             pcSearchVolume: finiteNumber(row?.pcSearchVolume),
             mobileSearchVolume: finiteNumber(row?.mobileSearchVolume),
             totalSearchVolume,
@@ -3073,6 +5403,7 @@ export class MobileLiveGoldenRadar {
             evidence: [],
             isMeasured,
           }),
+          ...measurementMeta,
         };
         this.board.set(id, item);
       }

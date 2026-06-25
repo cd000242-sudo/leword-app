@@ -92,6 +92,21 @@ assert('mindmap keeps peer brand commercial variant', sibling.includes('아디�
 assert('mindmap drops unrelated category candidate', !sibling.includes('아이폰 가격'), sibling.join(', '));
 assert('mindmap removes compact duplicates', sibling.filter(k => k.replace(/\s+/g, '') === '나이키운동화').length === 1, sibling.join(', '));
 
+const insuranceCalculator = rankMindmapExpansionCandidates('\uC0AC\uB300\uBCF4\uD5D8\uACC4\uC0B0\uAE30', [
+  { keyword: '\uC0AC\uB300\uBCF4\uD5D8\uACC4\uC0B0\uAE30 \uC2E4\uC218\uB839\uC561 \uC6D4\uAE09 \uACC4\uC0B0 \uBC29\uBC95 \uCD1D\uC815\uB9AC', sources: ['naver-relkwd'] },
+  { keyword: '\uC0AC\uB300\uBCF4\uD5D8\uACC4\uC0B0\uAE30: \uAE30\uC900', sources: ['naver-relkwd'] },
+  { keyword: '\uC0AC\uB300\uBCF4\uD5D8\uACC4\uC0B0\uAE30 \uC4F0\uAE30 \uC804 \uD655\uC778\uD560 3\uAC00\uC9C0', sources: ['naver-relkwd'] },
+  { keyword: '4\uB300\uBCF4\uD5D8\uACC4\uC0B0\uAE30', sources: ['autocomplete'] },
+  { keyword: '4\uB300\uBCF4\uD5D8 \uC694\uC728', sources: ['autocomplete'] },
+], 10).map(item => item.keyword);
+assert('mindmap drops article-title calculator noise',
+  !insuranceCalculator.some(keyword => /\uCD1D\uC815\uB9AC|:|\uD655\uC778\uD560 3\uAC00\uC9C0/.test(keyword)),
+  insuranceCalculator.join(', '));
+assert('mindmap keeps concise measured-search calculator candidates',
+  insuranceCalculator.includes('4\uB300\uBCF4\uD5D8\uACC4\uC0B0\uAE30')
+    && insuranceCalculator.includes('4\uB300\uBCF4\uD5D8 \uC694\uC728'),
+  insuranceCalculator.join(', '));
+
 console.log(`\n[mindmap-expansion-quality.test] passed: ${passed} / failed: ${failed}`);
 if (failed > 0) {
   failures.forEach(f => console.error('  ' + f));

@@ -78,6 +78,16 @@ const POLICY_DISCOVERY_INTENTS = [
 
 const POLICY_GENERIC_SINGLE_TOKEN_RE = /^(지원금|보조금|수당|급여|바우처|쿠폰|환급|장려금|대출|융자|감면|공제|신청|지급|대상|자격|조건|조회|기간|마감|서류|청년|소상공인|복지|주거|육아|출산|의료|교육|창업|민생)$/;
 const POLICY_ACTIONABLE_INTENT_RE = /(신청|대상|자격|조건|기간|준비서류|서류|조회|지급일|금액|마감|온라인|방법|변경사항|사용처|사용|접수|모집|수급자격)/;
+const POLICY_LOW_VALUE_SENTENCE_RE = /(어디에|무엇|누가|왜|어떻게|계신가요|인가요|할까요|했나요|하세요|알려주세요|드립니다|앞당기고)/;
+const POLICY_LOW_VALUE_NEWS_RE = /(이란|호르무즈|전쟁|공습|봉쇄|재봉쇄|위기|핵|미사일|사망|별세|투병|혐의|조사|구속|체포|파업)/;
+const POLICY_LOW_VALUE_FRAGMENT_RE = /(원가정\s*복귀|일시보호기간|인구감소지역\s*소상공인|소상공인과\s*인구감소지역|사랑을\s*처방해|광복절\s*대체공휴일\s*신청)/;
+
+function isLowValuePolicySeed(text: string): boolean {
+  const clean = normalizeKeywordPhrase(text);
+  return POLICY_LOW_VALUE_SENTENCE_RE.test(clean)
+    || POLICY_LOW_VALUE_NEWS_RE.test(clean)
+    || POLICY_LOW_VALUE_FRAGMENT_RE.test(clean);
+}
 
 function decodeHtmlEntities(text: string): string {
   return String(text || '')
@@ -155,6 +165,7 @@ export function compactPolicyKeywordPhrase(text: string): string {
     .trim();
   const badSentence = /(이유로|포괄임금|미지급|포함된|까지|넘어|방문해|참여할|부담을|덜어|머리를 맞대고|시각으로|선보이다|정액수당|휴일근로수당|연차유급휴가|고액 급여|채용비리|산재간호대상|국가기술자격)/;
   if (badSentence.test(clean)) return '';
+  if (isLowValuePolicySeed(clean)) return '';
 
   if (/농산물 구매권/.test(clean)) return '농식품 바우처 지급';
 
@@ -224,6 +235,7 @@ export function compactPolicyKeywordPhrase(text: string): string {
 function isSeedLike(keyword: string): boolean {
   const clean = normalizeKeywordPhrase(keyword);
   if (!clean || clean.length < 3 || clean.length > 28) return false;
+  if (isLowValuePolicySeed(clean)) return false;
   if (EXCLUDE_RE.test(clean)) return false;
   if (/^\d+(월|일|년|차|명|개)?$/.test(clean)) return false;
   if (/\d+만\s*명|\d+년 이상/.test(clean)) return false;
@@ -236,6 +248,7 @@ function isSeedLike(keyword: string): boolean {
 function isPolicyDiscoverySeedLike(keyword: string): boolean {
   const clean = normalizeKeywordPhrase(keyword);
   if (!clean || clean.length < 3 || clean.length > 42) return false;
+  if (isLowValuePolicySeed(clean)) return false;
   if (EXCLUDE_RE.test(clean) || POLICY_GENERIC_SINGLE_TOKEN_RE.test(clean)) return false;
   if (/^\d+$/.test(clean)) return false;
   return SUPPORT_RE.test(clean) || INTENT_RE.test(clean) || AUDIENCE_RE.test(clean);

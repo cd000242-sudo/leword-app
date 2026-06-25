@@ -19,6 +19,44 @@ function finiteNumber(value: unknown): number | null {
   return Number.isFinite(n) ? n : null;
 }
 
+export function hasTrustedDocumentCountMeasurement(metric: MobileKeywordMetric): boolean {
+  const source = normalizeText(metric.documentCountSource).toLowerCase();
+  const confidence = normalizeText(metric.documentCountConfidence).toLowerCase();
+  if (metric.isDocumentCountEstimated === true || (metric as any).dcEstimated === true) return false;
+  if (source === 'fallback') return false;
+  if (confidence === 'low') return false;
+  return true;
+}
+
+export function hasTrustedSearchVolumeMeasurement(metric: MobileKeywordMetric): boolean {
+  const source = normalizeText(metric.searchVolumeSource).toLowerCase();
+  const confidence = normalizeText(metric.searchVolumeConfidence).toLowerCase();
+  if (metric.isSearchVolumeEstimated === true || (metric as any).svEstimated === true) return false;
+  if (source === 'fallback') return false;
+  if (confidence === 'low') return false;
+  return true;
+}
+
+export function hasExplicitTrustedDocumentCountMeasurement(metric: MobileKeywordMetric): boolean {
+  const source = normalizeText(metric.documentCountSource).toLowerCase();
+  const confidence = normalizeText(metric.documentCountConfidence).toLowerCase();
+  return !!source
+    && source !== 'unknown'
+    && source !== 'none'
+    && !!confidence
+    && hasTrustedDocumentCountMeasurement(metric);
+}
+
+export function hasExplicitTrustedSearchVolumeMeasurement(metric: MobileKeywordMetric): boolean {
+  const source = normalizeText(metric.searchVolumeSource).toLowerCase();
+  const confidence = normalizeText(metric.searchVolumeConfidence).toLowerCase();
+  return !!source
+    && source !== 'unknown'
+    && source !== 'none'
+    && !!confidence
+    && hasTrustedSearchVolumeMeasurement(metric);
+}
+
 const ACTIONABLE_NEED_RE = /(신청|대상|자격|조건|방법|조회|일정|마감|서류|준비물|예매|예약|가격|비교|추천|후기|할인|쿠폰|구매|사용법|설정|해결|발급|지급일|지원금|환급|청약|등급컷|라인업|중계|주차|입장료|위치|검사|비용)/u;
 const COMMERCE_RE = /(가격|비교|추천|후기|할인|쿠폰|구매|최저가|가성비|제품|상품|쇼핑|렌탈|보험|카드|대출|청약|예매|예약)/u;
 const EVERGREEN_RE = /(방법|조건|자격|서류|준비물|사용법|설정|해결|비교|추천|후기|조회|신청|발급|지급일|환급|주차|입장료|비용|검사|FAQ|체크리스트)/iu;
@@ -27,6 +65,300 @@ const NEWS_ONLY_RE = /(사과|논란|해명|구속|체포|압수수색|사망|�
 const UNSAFE_RE = /(성인|불법|해킹|도박|마약|폭행|성범죄|자살|살인|테러|혐오|개인정보유출)/u;
 const GENERIC_SINGLE_RE = /^(맛집|여행|패션|프로필|뉴스|이슈|추천|후기|가격|정보|일정|예매)$/u;
 const SYNTHETIC_MARKER_RE = /\b(dummy|mock|fake|sample|demo|placeholder|synthetic|estimated|estimate)\b|추정|더미|샘플|server-intent-template|server-zero-live-fallback|intent-fallback|pc-intent-expansion/i;
+const LOW_DIFFERENTIATION_EVENT_RE = /(?:KBO|프로야구|올스타전|월드컵|FIFA|흠뻑쇼|신입사원\s*강회장|참교육\s*몇부작|드라마\s*참교육|로또|당첨번호|\d{3,5}\s*회|등급컷|광복절|제헌절|개천절|한글날)/iu;
+const OVER_EXPANDED_INTENT_CHAIN_RE = /(?:^\d{1,2}월\s*\d{1,2}일\s+|([가-힣A-Za-z0-9]{2,})\s*신청\s*\1\s*신청(?:대상|방법|자격|조건|조회|지급일|서류|문의|안내|하기|현황)?|^신청\s+[가-힣A-Za-z0-9]{2,}\s*신청(?:대상|방법|자격|조건|조회|지급일|서류|문의|안내|하기|현황)|신청\s*(?:국가)?[가-힣A-Za-z0-9]{2,}\s*신청(?:대상|방법|자격|조건|조회|지급일|서류|문의|안내|하기|현황)?|가입신청\s*(?:신청|금액)|신청\s*신청|구매처\s*(?:구매처|재고)|최저가\s*구매처\s*재고|할인\s*정보\s*(?:추천|할인|구매처|최저가|실사용)|일정\s*콘서트\s*일정|티켓팅\s*방법\s*굿즈|굿즈\s*구매\s*(?:조회|준비물|주의사항|발표|정리)|준비서류\s*(?:신청|대상|자격|조건|지급일|환급|지원|금액|조회|마감)|정리\s*운영시간|현재\s*상황\s*운영시간|정부24\s*(?:지급일|신청|조회|마감)|공식\s*확인(?:\s*경로)?|놓치기\s*쉬운\s*변경사항|변경사항|6월\s*온라인|금액\s*조회\s*(?:신청|대상|자격|지급일|환급)|마감일\s*지급일|신청기간\s*(?:대상|자격|지급일|환급|금액|지원)|오늘\s*확인할\s*제외|확인할\s*제외|소득\s*기준과(?:\s*제외)?|내역\s*한눈에|현재\s*상황\s*(?:정리|이유)|총정리)/u;
+const BARE_OPAQUE_EVENT_BOOKING_RE = /^[\uAC00-\uD7A3A-Za-z0-9]{2,16}(?:\uC608\uB9E4|\uD2F0\uCF13\uD305)$/u;
+const EVENT_BOOKING_UTILITY_EXEMPT_RE = /(?:\uD56D\uACF5\uAD8C|\uC219\uC18C|\uD638\uD154|\uB80C\uD130\uCE74|\uB80C\uD2B8\uCE74|\uAE30\uCC28|KTX|SRT|\uBC84\uC2A4|\uC720\uB78C\uC120|\uD06C\uB8E8\uC988|\uC785\uC7A5\uAD8C|\uCCB4\uD5D8|\uBC15\uB78C\uD68C|\uC804\uC2DC|\uC218\uBAA9\uC6D0|\uD734\uC591\uB9BC)/iu;
+const GENERIC_BENEFIT_INTENT_RE = /^(?:지원금|보조금|환급금|장려금|바우처|수당|급여)\s*(?:신청|대상|자격|조건|지급일|조회|마감|환급|서류|사용처|지원)/u;
+const BARE_INTENT_ONLY_RE = /^(?:신청|신청방법|대상|자격|조건|지급일|조회|서류|마감|마감일|환급|방법|사용처|금액|준비서류|지원|혜택|가격|비교|추천|후기|할인|쿠폰|구매처|재고|최저가)(?:\s+(?:신청|신청방법|대상|자격|조건|지급일|조회|서류|마감|마감일|환급|방법|사용처|금액|준비서류|지원|혜택|가격|비교|추천|후기|할인|쿠폰|구매처|재고|최저가)){0,2}$/u;
+
+const ULTIMATE_LOW_VALUE_LOOKUP_RE = new RegExp([
+  '\uD504\uB85C\uD544',
+  '\uC778\uC2A4\uD0C0',
+  '\uB098\uC774',
+  '\uD559\uB825',
+  '\uACE0\uD5A5',
+  '\uD608\uC561\uD615',
+  '\uACB0\uD63C',
+  '\uB0A8\uD3B8',
+  '\uC544\uB0B4',
+  '\uBD80\uC778',
+  '\uC5EC\uCE5C',
+  '\uB0A8\uCE5C',
+  '\uC5F4\uC560',
+  '\uACB0\uBCC4',
+  '\uBA87\uBD80\uC791',
+  '\uCD9C\uC5F0\uC9C4',
+  '\uBC29\uC1A1\uC2DC\uAC04',
+  '\uC7AC\uBC29\uC1A1',
+  '\uB2E4\uC2DC\uBCF4\uAE30',
+  '\uACB0\uB9D0',
+  '\uCFE0\uD0A4\uC601\uC0C1',
+  '\uC6D0\uC791',
+  '\uB4F1\uC7A5\uC778\uBB3C',
+  '\uC778\uBB3C\uAD00\uACC4\uB3C4',
+  '\uACF5\uC2DD\uC601\uC0C1',
+  '\uD558\uC774\uB77C\uC774\uD2B8',
+  '\uC2DC\uCCAD\uB960',
+  '\uB77C\uC778\uC5C5',
+  '\uC608\uACE0\uD3B8',
+  '\uC904\uAC70\uB9AC',
+  '\uB85C\uB610',
+  '\uBCF5\uAD8C',
+  '\uB2F9\uCCA8\uBC88\uD638',
+  '\uB2F9\uCCA8\uC9C0\uC5ED',
+  '\uD310\uB9E4\uC810',
+  '\uC2E4\uC218\uB839\uC561',
+  '\uB4F1\uAE09\uCEF7',
+  '\uACF5\uC2DD\uC785\uC7A5',
+  '\uD574\uBA85',
+  '\uB17C\uB780',
+  '\uAE30\uC790\uD68C\uACAC',
+  '\uD68C\uB3D9',
+  '\uBC1C\uC5B8',
+  '\uADFC\uD669',
+  '\uACF5\uAC1C',
+  '\uC18C\uC2DD',
+  '\uBC29\uD55C',
+  '\uBC29\uBB38',
+  '\uD569\uC758',
+  '\uC545\uC218',
+  '\uCCB4\uACB0',
+  '\uD30C\uC5C5',
+  '\uC218\uC0AC',
+  '\uAD6C\uC18D',
+  '\uBCC4\uC138',
+  '\uC0AC\uB9DD',
+  '\uC911\uB2E8',
+  '\uB4DC\uB77C\uB9C8',
+  '\uD504\uB85C\uC57C\uAD6C',
+  '\uC62C\uC2A4\uD0C0\uC804',
+  '\uC6D4\uB4DC\uCEF5',
+  '\uD751\uBED1\uC1FC',
+  'MVP',
+  'KBO',
+  '\uC548\uD0C0',
+].join('|'), 'iu');
+
+const ULTIMATE_HIGH_VALUE_NEED_RE = new RegExp([
+  '\uC2E0\uCCAD\uBC29\uBC95',
+  '\uC2E0\uCCAD',
+  '\uB300\uC0C1',
+  '\uC790\uACA9',
+  '\uC870\uAC74',
+  '\uC77C\uC815',
+  '\uC9C0\uAE09\uC77C',
+  '\uC870\uD68C',
+  '\uC11C\uB958',
+  '\uB9C8\uAC10',
+  '\uD658\uAE09',
+  '\uC9C0\uC6D0\uAE08',
+  '\uD61C\uD0DD',
+  '\uCCAD\uC57D',
+  '\uBC14\uC6B0\uCC98',
+  '\uC218\uB2F9',
+  '\uAE09\uC5EC',
+  '\uACC4\uC0B0\uAE30',
+  '\uACC4\uC0B0',
+  '\uC2E4\uC218\uB839\uC561',
+  '\uBCF4\uC99D',
+  '\uC138\uC561\uACF5\uC81C',
+  '\uBCF4\uD5D8',
+  '\uB300\uCD9C',
+  '\uCE74\uB4DC',
+  '\uACC4\uC88C',
+  '\uBC1C\uAE09',
+  '\uC624\uB958',
+  '\uC124\uC815',
+  '\uC0AC\uC6A9\uBC95',
+  '\uD574\uACB0',
+  '\uAC00\uACA9\uBE44\uAD50',
+  '\uBE44\uAD50',
+  '\uCD94\uCC9C',
+  '\uD6C4\uAE30',
+  '\uB9AC\uBDF0',
+  '\uD560\uC778',
+  '\uCFE0\uD3F0',
+  '\uAD6C\uB9E4\uCC98',
+  '\uCD5C\uC800\uAC00',
+  '\uC7AC\uACE0',
+  '\uBC30\uC1A1',
+  '\uB9E4\uC7A5',
+  '\uAC00\uACA9',
+  '\uBE44\uC6A9',
+  '\uACAC\uC801',
+  '\uAD50\uCCB4',
+  '\uC218\uB9AC',
+  'AS',
+  '\uC785\uC7A5\uB8CC',
+  '\uC8FC\uCC28',
+  '\uC601\uC5C5\uC2DC\uAC04',
+  '\uC704\uCE58',
+  '\uC608\uC57D\uBC29\uBC95',
+  '\uC608\uB9E4',
+  '\uD2F0\uCF13\uD305',
+  '\uCDE8\uC18C\uD45C',
+  '\uD658\uBD88',
+  '\uC88C\uC11D',
+  '\uC900\uBE44\uBB3C',
+  '\uCCB4\uD06C\uB9AC\uC2A4\uD2B8',
+].join('|'), 'iu');
+
+const VIDEO_BRIDGE_NEED_RE = new RegExp([
+  '\uC21C\uC704',
+  '\uCD94\uCC9C',
+  '\uD6C4\uAE30',
+  '\uB9AC\uBDF0',
+  '\uBE44\uAD50',
+  '\uAC00\uACA9',
+  '\uCD5C\uC800\uAC00',
+  '\uAD6C\uB9E4\uCC98',
+  '\uC0AC\uC6A9\uBC95',
+  '\uC124\uCE58',
+  '\uC815\uB9AC',
+  '\uC815\uB9AC\uB300',
+  '\uC815\uB9AC\uD568',
+  '\uC218\uB0A9',
+  '\uCCAD\uC18C',
+  '\uAD00\uB9AC',
+  '\uC608\uC57D',
+  '\uC608\uB9E4',
+  '\uC5B8\uBC15\uC2F1',
+  '\uD558\uC6B8',
+  '\uCF54\uC2A4',
+].join('|'), 'iu');
+
+const VIDEO_BRIDGE_TOPIC_RE = new RegExp([
+  '\uC81C\uC2B5\uAE30',
+  '\uC5D0\uC5B4\uCEE8',
+  '\uCCAD\uC18C\uAE30',
+  '\uC120\uD48D\uAE30',
+  '\uB0C9\uC7A5\uACE0',
+  '\uC138\uD0C1\uAE30',
+  '\uAC74\uC870\uAE30',
+  '\uB85C\uBD07\uCCAD\uC18C\uAE30',
+  '\uC815\uB9AC\uB300',
+  '\uC815\uB9AC\uD568',
+  '\uC218\uB0A9',
+  '\uB0C4\uBE44',
+  '\uC811\uC2DC',
+  '\uC218\uC800',
+  '\uC2E0\uBC1C\uC7A5',
+  '\uB9AC\uC870\uD2B8',
+  '\uD39C\uC158',
+  '\uCEA0\uD551\uC7A5',
+  '\uACC4\uACE1',
+  '\uC219\uC18C',
+  '\uD638\uD154',
+  '\uC6CC\uD130\uD30C\uD06C',
+  '\uCD95\uC81C',
+  '\uB9DB\uC9D1',
+  '\uCE74\uD398',
+  '\uC5EC\uD589',
+].join('|'), 'iu');
+
+const YOUTUBE_BRIDGE_CONTEXT_RE = /(youtube|shorts|video|server-measured-youtube|pc-youtube|youtube-golden)/i;
+const SHOPPING_CONNECT_CONTEXT_RE = /(shopping-connect|server-measured-shopping|pc-shopping|commerce-entry|shopping|commerce)/i;
+
+const SHOPPING_CONNECT_TOPIC_RE = new RegExp([
+  '\uC81C\uC2B5\uAE30',
+  '\uC5D0\uC5B4\uCEE8',
+  '\uCCAD\uC18C\uAE30',
+  '\uC120\uD48D\uAE30',
+  '\uB0C9\uC7A5\uACE0',
+  '\uC138\uD0C1\uAE30',
+  '\uAC74\uC870\uAE30',
+  '\uB85C\uBD07\uCCAD\uC18C\uAE30',
+  '\uC815\uB9AC\uB300',
+  '\uC815\uB9AC\uD568',
+  '\uC218\uB0A9',
+  '\uB0C4\uBE44',
+  '\uC811\uC2DC',
+  '\uC218\uC800',
+  '\uC2E0\uBC1C\uC7A5',
+  '\uB80C\uD0C8',
+  '\uAD6C\uB3C5',
+  '\uB9AC\uC870\uD2B8',
+  '\uD39C\uC158',
+  '\uCEA0\uD551\uC7A5',
+  '\uACC4\uACE1',
+  '\uC219\uC18C',
+  '\uD638\uD154',
+  '\uC6CC\uD130\uD30C\uD06C',
+].join('|'), 'iu');
+
+const ULTIMATE_ACTION_MODIFIER_RE = new RegExp([
+  '\uC2E0\uCCAD\uBC29\uBC95',
+  '\uC2E0\uCCAD',
+  '\uB300\uC0C1',
+  '\uC790\uACA9',
+  '\uC870\uAC74',
+  '\uC77C\uC815',
+  '\uC9C0\uAE09\uC77C',
+  '\uC870\uD68C',
+  '\uC11C\uB958',
+  '\uB9C8\uAC10',
+  '\uD658\uAE09',
+  '\uD61C\uD0DD',
+  '\uCCAD\uC57D',
+  '\uC0AC\uC6A9\uCC98',
+  '\uC218\uB2F9',
+  '\uAE09\uC5EC',
+  '\uACC4\uC0B0\uAE30',
+  '\uACC4\uC0B0',
+  '\uC2E4\uC218\uB839\uC561',
+  '\uBC1C\uAE09',
+  '\uC624\uB958',
+  '\uC124\uC815',
+  '\uC0AC\uC6A9\uBC95',
+  '\uD574\uACB0',
+  '\uAC00\uACA9\uBE44\uAD50',
+  '\uBE44\uAD50',
+  '\uCD94\uCC9C',
+  '\uD6C4\uAE30',
+  '\uB9AC\uBDF0',
+  '\uD560\uC778',
+  '\uCFE0\uD3F0',
+  '\uAD6C\uB9E4\uCC98',
+  '\uCD5C\uC800\uAC00',
+  '\uC7AC\uACE0',
+  '\uBC30\uC1A1',
+  '\uB9E4\uC7A5',
+  '\uAC00\uACA9',
+  '\uBE44\uC6A9',
+  '\uACAC\uC801',
+  '\uAD50\uCCB4',
+  '\uC218\uB9AC',
+  'AS',
+  '\uC785\uC7A5\uB8CC',
+  '\uC8FC\uCC28',
+  '\uC601\uC5C5\uC2DC\uAC04',
+  '\uC704\uCE58',
+  '\uC608\uC57D\uBC29\uBC95',
+  '\uC608\uB9E4',
+  '\uD2F0\uCF13\uD305',
+  '\uCDE8\uC18C\uD45C',
+  '\uD658\uBD88',
+  '\uC88C\uC11D',
+  '\uC900\uBE44\uBB3C',
+  '\uCCB4\uD06C\uB9AC\uC2A4\uD2B8',
+].join('|'), 'iu');
+
+const ULTIMATE_EVENT_UTILITY_RE = new RegExp([
+  '\uC785\uC7A5\uB8CC',
+  '\uC8FC\uCC28',
+  '\uAC00\uACA9',
+  '\uC88C\uC11D',
+  '\uCDE8\uC18C',
+  '\uD658\uBD88',
+  '\uC219\uC18C',
+  '\uAD50\uD1B5',
+  '\uC608\uB9E4\uBC29\uBC95',
+  '\uC608\uC57D\uBC29\uBC95',
+  '\uC900\uBE44\uBB3C',
+].join('|'), 'iu');
+
+const ULTIMATE_LOW_VALUE_CATEGORY_RE = /(?:celeb|drama|broadcast|movie|music|sports|issue|entertainment)/i;
 
 const GRADE_ORDER: MobileResultGrade[] = ['C', 'B', 'A', 'S', 'SS', 'SSS'];
 
@@ -47,9 +379,18 @@ export function keywordMeasurementStatus(metric: MobileKeywordMetric): MobileKey
     metric.source,
     metric.intent,
     metric.category,
+    metric.searchVolumeSource,
+    metric.searchVolumeConfidence,
+    metric.isSearchVolumeEstimated ? 'search-volume-estimated' : '',
+    metric.documentCountSource,
+    metric.documentCountConfidence,
+    metric.isDocumentCountEstimated ? 'document-count-estimated' : '',
     ...(Array.isArray(metric.evidence) ? metric.evidence : []),
   ].join(' ');
   if (SYNTHETIC_MARKER_RE.test(markerText)) return 'synthetic-blocked';
+  if (!hasTrustedSearchVolumeMeasurement(metric) || !hasTrustedDocumentCountMeasurement(metric)) {
+    return 'synthetic-blocked';
+  }
 
   const total = finiteNumber(metric.totalSearchVolume);
   const documents = finiteNumber(metric.documentCount);
@@ -108,6 +449,53 @@ function categorySignal(category: string): number {
   return 0;
 }
 
+function hasRegexIntent(pattern: RegExp, keyword: string): boolean {
+  const clean = normalizeText(keyword);
+  if (pattern.test(clean)) return true;
+  const compacted = clean.replace(/\s+/g, '');
+  return compacted !== clean && pattern.test(compacted);
+}
+
+export function isUltimateLowValueLookupKeyword(keyword: string): boolean {
+  const clean = normalizeText(keyword);
+  const nonLotterySettlementNeed = /\uC2E4\uC218\uB839\uC561/u.test(clean)
+    && !/(?:\uB85C\uB610|\uBCF5\uAD8C|\uB2F9\uCCA8)/u.test(clean);
+  return !!clean && (
+    THIN_LOOKUP_RE.test(clean)
+    || NEWS_ONLY_RE.test(clean)
+    || LOW_DIFFERENTIATION_EVENT_RE.test(clean)
+    || OVER_EXPANDED_INTENT_CHAIN_RE.test(clean)
+    || (BARE_OPAQUE_EVENT_BOOKING_RE.test(clean.replace(/\s+/g, '')) && !EVENT_BOOKING_UTILITY_EXEMPT_RE.test(clean))
+    || GENERIC_BENEFIT_INTENT_RE.test(clean)
+    || BARE_INTENT_ONLY_RE.test(clean)
+    || (ULTIMATE_LOW_VALUE_LOOKUP_RE.test(clean) && !nonLotterySettlementNeed)
+  );
+}
+
+export function hasUltimateHighValueNeedIntent(keyword: string): boolean {
+  return hasRegexIntent(ULTIMATE_HIGH_VALUE_NEED_RE, keyword);
+}
+
+function hasUltimateEventUtility(keyword: string): boolean {
+  return hasRegexIntent(ULTIMATE_EVENT_UTILITY_RE, keyword);
+}
+
+function hasUltimateActionModifier(keyword: string): boolean {
+  return hasRegexIntent(ULTIMATE_ACTION_MODIFIER_RE, keyword);
+}
+
+function isUltimateLowValueCategory(category: string): boolean {
+  return ULTIMATE_LOW_VALUE_CATEGORY_RE.test(compactText(category));
+}
+
+function isTooBroadLowValueEventKeyword(keyword: string, category: string): boolean {
+  if (!isUltimateLowValueCategory(category)) return false;
+  const compact = compactText(keyword);
+  if (!compact) return true;
+  if (compact.length < 7) return true;
+  return /^(?:콘서트|공연|뮤지컬|영화|드라마|예능|방송|티켓|티켓팅)(?:예매|일정|예약|가격|좌석)$/u.test(compact);
+}
+
 export function judgeKeywordMetric(metric: MobileKeywordMetric, now: Date = new Date()): MobileKeywordAiJudge {
   const keyword = normalizeText(metric.keyword);
   const category = normalizeText(metric.category);
@@ -117,10 +505,47 @@ export function judgeKeywordMetric(metric: MobileKeywordMetric, now: Date = new 
   const ratio = finiteNumber(metric.goldenRatio)
     ?? (total !== null && documents !== null && documents > 0 ? Number((total / documents).toFixed(2)) : null);
   const hasPcMobileSplit = finiteNumber(metric.pcSearchVolume) !== null && finiteNumber(metric.mobileSearchVolume) !== null;
-  const actionable = ACTIONABLE_NEED_RE.test(keyword);
+  const runtimeIntentText = [
+    metric.source,
+    metric.intent,
+    metric.category,
+    ...(Array.isArray(metric.evidence) ? metric.evidence : []),
+  ].join(' ');
+  const lowValueLookup = isUltimateLowValueLookupKeyword(keyword);
+  const highValueNeed = hasUltimateHighValueNeedIntent(keyword);
+  const actionModifier = hasUltimateActionModifier(keyword);
+  const eventUtility = hasUltimateEventUtility(keyword);
+  const lowValueCategory = isUltimateLowValueCategory(category);
+  const broadLowValueEvent = isTooBroadLowValueEventKeyword(keyword, category);
   const commerce = COMMERCE_RE.test(keyword);
+  const shoppingConnectContext = SHOPPING_CONNECT_CONTEXT_RE.test(runtimeIntentText);
+  const shoppingConnectNeed = shoppingConnectContext
+    && !lowValueLookup
+    && !broadLowValueEvent
+    && (
+      commerce
+      || hasRegexIntent(VIDEO_BRIDGE_NEED_RE, keyword)
+      || hasRegexIntent(SHOPPING_CONNECT_TOPIC_RE, keyword)
+    );
+  const ultimateCommerce = (commerce || shoppingConnectNeed)
+    && (!lowValueCategory || highValueNeed || eventUtility || shoppingConnectNeed);
   const evergreen = EVERGREEN_RE.test(keyword);
-  const thin = THIN_LOOKUP_RE.test(keyword) || GENERIC_SINGLE_RE.test(keyword);
+  const youtubeBridgeContext = YOUTUBE_BRIDGE_CONTEXT_RE.test(runtimeIntentText);
+  const videoBridgeNeed = youtubeBridgeContext
+    && !lowValueLookup
+    && !broadLowValueEvent
+    && (
+      hasRegexIntent(VIDEO_BRIDGE_NEED_RE, keyword)
+      || (
+        hasRegexIntent(VIDEO_BRIDGE_TOPIC_RE, keyword)
+        && (commerce || /shopping|commerce|electronics|home|life|living|travel|food|youtube|shorts|video/i.test(runtimeIntentText))
+      )
+    );
+  const actionable = !lowValueLookup
+    && !broadLowValueEvent
+    && (ACTIONABLE_NEED_RE.test(keyword) || highValueNeed || videoBridgeNeed || shoppingConnectNeed)
+    && (!lowValueCategory || highValueNeed || ultimateCommerce || eventUtility || videoBridgeNeed);
+  const thin = lowValueLookup || GENERIC_SINGLE_RE.test(keyword);
   const newsOnly = NEWS_ONLY_RE.test(keyword);
   const unsafe = UNSAFE_RE.test(keyword);
 
@@ -158,21 +583,41 @@ export function judgeKeywordMetric(metric: MobileKeywordMetric, now: Date = new 
     score -= 10;
     reasons.push('weak-action-intent');
   }
-  if (commerce) {
+  if (highValueNeed) {
+    score += 8;
+    reasons.push('ultimate-high-value-need-intent');
+  }
+  if (ultimateCommerce) {
     score += 8;
     reasons.push('commerce-or-conversion-angle');
+  }
+  if (shoppingConnectNeed) {
+    score += 10;
+    reasons.push('shopping-connect-buyer-or-booking-intent');
+  }
+  if (videoBridgeNeed) {
+    score += 12;
+    reasons.push('youtube-shorts-video-search-intent');
   }
   if (evergreen) {
     score += 7;
     reasons.push('evergreen-blog-angle');
   }
   if (thin) {
-    score -= 30;
-    rejectReason ||= 'thin-lookup-or-profile-intent';
+    score -= lowValueLookup ? 52 : 30;
+    rejectReason ||= lowValueLookup ? 'low-value-lookup-intent' : 'thin-lookup-or-profile-intent';
   }
   if (newsOnly) {
     score -= 26;
     rejectReason ||= 'news-headline-only-risk';
+  }
+  if (lowValueCategory && !highValueNeed && !ultimateCommerce && !eventUtility && !videoBridgeNeed) {
+    score -= 24;
+    rejectReason ||= 'low-value-entertainment-or-sports-intent';
+  }
+  if (broadLowValueEvent) {
+    score -= 34;
+    rejectReason ||= 'too-broad-entertainment-event-intent';
   }
   if (unsafe) {
     score -= 44;
@@ -195,22 +640,25 @@ export function judgeKeywordMetric(metric: MobileKeywordMetric, now: Date = new 
 
   const needIntent: MobileKeywordAiJudge['needIntent'] = actionable
     ? 'strong'
-    : commerce || evergreen
+    : ultimateCommerce || evergreen || videoBridgeNeed
       ? 'medium'
       : 'weak';
   const blogAngle: MobileKeywordAiJudge['blogAngle'] = unsafe
     ? 'unsafe'
     : thin || newsOnly
       ? 'thin'
-      : actionable || evergreen
+      : actionable || evergreen || videoBridgeNeed
         ? 'actionable'
         : 'informational';
-  const shoppingIntent: MobileKeywordAiJudge['shoppingIntent'] = commerce
+  const shoppingIntent: MobileKeywordAiJudge['shoppingIntent'] = commerce || shoppingConnectNeed
     ? 'high'
     : /shopping|commerce|fashion|beauty|electronics|travel|food/.test(compactText(category))
       ? 'medium'
       : 'low';
-  const adsenseValue: MobileKeywordAiJudge['adsenseValue'] = score >= 78 && (actionable || commerce)
+  const adsenseValue: MobileKeywordAiJudge['adsenseValue'] = score >= 78
+    && !lowValueLookup
+    && !newsOnly
+    && (highValueNeed || ultimateCommerce || videoBridgeNeed)
     ? 'high'
     : score >= 58
       ? 'medium'
@@ -227,9 +675,13 @@ export function judgeKeywordMetric(metric: MobileKeywordMetric, now: Date = new 
       : 'low';
 
   const verdict: MobileKeywordAiJudge['verdict'] = unsafe
+    || lowValueLookup
+    || broadLowValueEvent
     || status === 'synthetic-blocked'
     || score < 45
     || (thin && !actionable)
+    || (newsOnly && !ultimateCommerce)
+    || (lowValueCategory && !highValueNeed && !ultimateCommerce && !eventUtility && !videoBridgeNeed)
     ? 'exclude'
     : score >= 72 && status === 'measured' && needIntent !== 'weak'
       ? 'publish'
@@ -291,6 +743,72 @@ export function attachKeywordAiJudges<T extends MobileKeywordMetric>(
 
 export function filterAiJudgeExcluded<T extends MobileKeywordMetric>(metrics: T[]): T[] {
   return metrics.filter((metric) => metric.aiJudge?.verdict !== 'exclude');
+}
+
+export interface UltimateGoldenKeywordCandidateOptions {
+  now?: Date;
+  requirePcMobileSplit?: boolean;
+  requireMeasurementProvenance?: boolean;
+  minAiScore?: number;
+  minTotalSearchVolume?: number;
+  maxDocumentCount?: number;
+  minGoldenRatio?: number;
+}
+
+export function isUltimateGoldenKeywordCandidate(
+  metric: MobileKeywordMetric,
+  options: UltimateGoldenKeywordCandidateOptions = {},
+): boolean {
+  const keyword = normalizeText(metric.keyword);
+  if (!keyword) return false;
+
+  const status = keywordMeasurementStatus(metric);
+  if (status !== 'measured') return false;
+
+  const pc = finiteNumber(metric.pcSearchVolume);
+  const mobile = finiteNumber(metric.mobileSearchVolume);
+  const hasPcMobileSplit = pc !== null
+    && mobile !== null
+    && pc >= 0
+    && mobile >= 0
+    && pc + mobile > 0;
+  if (options.requirePcMobileSplit && !hasPcMobileSplit) return false;
+  if (options.requireMeasurementProvenance) {
+    if (!hasExplicitTrustedSearchVolumeMeasurement(metric)) return false;
+    if (!hasExplicitTrustedDocumentCountMeasurement(metric)) return false;
+  }
+
+  const total = finiteNumber(metric.totalSearchVolume);
+  const documents = finiteNumber(metric.documentCount);
+  const ratio = finiteNumber(metric.goldenRatio)
+    ?? (total !== null && documents !== null && documents > 0 ? total / documents : null);
+  if (total === null || documents === null || ratio === null) return false;
+  if (total < (options.minTotalSearchVolume ?? 120)) return false;
+  if (documents <= 0 || documents > (options.maxDocumentCount ?? 15000)) return false;
+  if (ratio < (options.minGoldenRatio ?? 3)) return false;
+
+  if (isUltimateLowValueLookupKeyword(keyword)) return false;
+
+  const category = normalizeText(metric.category);
+  const highValueNeed = hasUltimateHighValueNeedIntent(keyword);
+  const actionModifier = hasUltimateActionModifier(keyword);
+  const eventUtility = hasUltimateEventUtility(keyword);
+  const lowValueCategory = isUltimateLowValueCategory(category);
+  if (isTooBroadLowValueEventKeyword(keyword, category)) return false;
+  const commerce = COMMERCE_RE.test(keyword) && (!lowValueCategory || highValueNeed || eventUtility);
+  const scarceBareNeed = highValueNeed && documents <= 15000 && ratio >= 3;
+  if (!highValueNeed && !commerce) return false;
+  if (!actionModifier && !commerce && !scarceBareNeed) return false;
+  if (lowValueCategory && !highValueNeed && !commerce && !eventUtility) return false;
+
+  const judge = metric.aiJudge ?? judgeKeywordMetric(metric, options.now);
+  if (judge.verdict !== 'publish') return false;
+  if (judge.score < (options.minAiScore ?? 78)) return false;
+  if (judge.needIntent !== 'strong') return false;
+  if (judge.blogAngle !== 'actionable') return false;
+  if (judge.adsenseValue !== 'high') return false;
+  if (judge.spamRisk === 'high' || judge.freshnessRisk === 'high') return false;
+  return true;
 }
 
 export function summarizeAiJudgedResult(result: MobileKeywordResult, keywords: MobileKeywordMetric[]): MobileKeywordResult['summary'] {

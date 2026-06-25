@@ -98,6 +98,17 @@ const result: MobileKeywordResult = {
   assert('duplicate keyword updates existing notification', updated.length === 1 && inbox.snapshot().total === 2);
   assert('updated duplicate remains unread', inbox.snapshot().items[0].read === false);
 
+  const emptyPublished = inbox.publishFromResult({
+    product: 'shopping-connect',
+    title: '쇼핑커넥트 사전발굴 완료',
+    result: {
+      ...result,
+      keywords: undefined as any,
+    },
+  });
+
+  assert('publishFromResult tolerates missing keyword arrays', emptyPublished.length === 0);
+
   const read = inbox.markRead(inbox.snapshot().items[0].id);
   assert('markRead returns item', !!read && read.read === true);
   assert('unread count decreases after markRead', inbox.snapshot().unreadCount === 1);

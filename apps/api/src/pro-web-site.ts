@@ -350,6 +350,10 @@ export function renderLewordProWeb(): string {
     .golden-decision { display: inline-flex; align-items: center; gap: 6px; flex-wrap: wrap; margin-top: 5px; }
     .golden-decision strong { border-radius: 999px; padding: 2px 7px; background: rgba(248,194,27,.14); color: #ffe58a; font-size: 11px; }
     .golden-decision span { color: var(--muted); }
+    .shopping-pick { margin-top: 8px; display: grid; gap: 4px; max-width: 420px; padding: 8px; border: 1px solid rgba(53,211,153,.26); border-radius: 8px; background: rgba(53,211,153,.07); color: #dbe7f7; font-size: 11px; line-height: 1.45; }
+    .shopping-pick strong { color: #ffe58a; }
+    .shopping-pick span { display: block; color: var(--muted); }
+    .shopping-pick a { color: #8bd7ff; font-weight: 900; }
     .feature-grid { display: grid; grid-template-columns: repeat(4, minmax(0, 1fr)); gap: 10px; }
     .feature-card {
       padding: 14px;
@@ -800,6 +804,10 @@ export function renderLewordProWeb(): string {
     .settings-panel summary { cursor: pointer; font-weight: 1000; color: #d9e6f7; }
     .settings-grid { display: grid; grid-template-columns: repeat(2, minmax(0, 1fr)); gap: 8px; margin-top: 12px; }
     .settings-grid label { margin: 0 0 5px; }
+    .api-key-row { display: grid; grid-template-columns: minmax(0, 1fr) 42px; gap: 6px; align-items: end; }
+    .api-key-row .input { width: 100%; }
+    .api-key-eye { min-height: 48px; padding: 0; border-radius: 8px; border: 1px solid rgba(91,183,255,.34); background: #101a29; color: #d8e7fb; font-weight: 1000; cursor: pointer; }
+    .api-key-eye.active { border-color: rgba(245,197,66,.7); color: var(--gold); background: rgba(245,197,66,.11); }
     .settings-actions { display: flex; gap: 8px; flex-wrap: wrap; margin-top: 12px; }
     .settings-message { min-height: 18px; margin-top: 10px; color: var(--muted); font-size: 12px; }
     .settings-checklist { display: grid; grid-template-columns: repeat(2, minmax(0, 1fr)); gap: 8px; margin-top: 10px; }
@@ -1130,39 +1138,39 @@ export function renderLewordProWeb(): string {
             <div class="settings-grid">
               <div>
                 <label for="naverClientId">네이버 API Client ID</label>
-                <input class="input" id="naverClientId" name="leword-api-naver-client-id" autocomplete="new-password" autocapitalize="none" spellcheck="false" data-api-key-input="true" />
+                <div class="api-key-row"><input class="input" id="naverClientId" name="leword-local-api-naver-client-id" type="password" autocomplete="off" readonly data-lpignore="true" data-1p-ignore="true" data-form-type="other" autocapitalize="none" spellcheck="false" data-api-key-input="true" /><button class="api-key-eye" type="button" data-api-reveal="naverClientId" aria-label="네이버 API Client ID 보기">보기</button></div>
               </div>
               <div>
                 <label for="naverClientSecret">네이버 API Client Secret</label>
-                <input class="input" id="naverClientSecret" name="leword-api-naver-client-secret" type="password" autocomplete="new-password" autocapitalize="none" spellcheck="false" data-api-key-input="true" />
+                <div class="api-key-row"><input class="input" id="naverClientSecret" name="leword-local-api-naver-client-secret" type="password" autocomplete="off" readonly data-lpignore="true" data-1p-ignore="true" data-form-type="other" autocapitalize="none" spellcheck="false" data-api-key-input="true" /><button class="api-key-eye" type="button" data-api-reveal="naverClientSecret" aria-label="네이버 API Client Secret 보기">보기</button></div>
               </div>
               <div>
                 <label for="naverSearchAdAccessLicense">네이버 검색광고 Access License</label>
-                <input class="input" id="naverSearchAdAccessLicense" name="leword-api-searchad-access-license" autocomplete="new-password" autocapitalize="none" spellcheck="false" data-api-key-input="true" />
+                <div class="api-key-row"><input class="input" id="naverSearchAdAccessLicense" name="leword-local-api-searchad-access-license" type="password" autocomplete="off" readonly data-lpignore="true" data-1p-ignore="true" data-form-type="other" autocapitalize="none" spellcheck="false" data-api-key-input="true" /><button class="api-key-eye" type="button" data-api-reveal="naverSearchAdAccessLicense" aria-label="네이버 검색광고 Access License 보기">보기</button></div>
               </div>
               <div>
                 <label for="naverSearchAdSecretKey">네이버 검색광고 Secret Key</label>
-                <input class="input" id="naverSearchAdSecretKey" name="leword-api-searchad-secret-key" type="password" autocomplete="new-password" autocapitalize="none" spellcheck="false" data-api-key-input="true" />
+                <div class="api-key-row"><input class="input" id="naverSearchAdSecretKey" name="leword-local-api-searchad-secret-key" type="password" autocomplete="off" readonly data-lpignore="true" data-1p-ignore="true" data-form-type="other" autocapitalize="none" spellcheck="false" data-api-key-input="true" /><button class="api-key-eye" type="button" data-api-reveal="naverSearchAdSecretKey" aria-label="네이버 검색광고 Secret Key 보기">보기</button></div>
               </div>
               <div>
                 <label for="naverSearchAdCustomerId">네이버 검색광고 Customer ID</label>
-                <input class="input" id="naverSearchAdCustomerId" name="leword-api-searchad-customer-id" autocomplete="new-password" autocapitalize="none" spellcheck="false" data-api-key-input="true" />
+                <div class="api-key-row"><input class="input" id="naverSearchAdCustomerId" name="leword-local-api-searchad-customer-id" type="password" autocomplete="off" readonly data-lpignore="true" data-1p-ignore="true" data-form-type="other" autocapitalize="none" spellcheck="false" data-api-key-input="true" /><button class="api-key-eye" type="button" data-api-reveal="naverSearchAdCustomerId" aria-label="네이버 검색광고 Customer ID 보기">보기</button></div>
               </div>
               <div>
                 <label for="youtubeApiKey">유튜브 Data API Key</label>
-                <input class="input" id="youtubeApiKey" name="leword-api-youtube-key" type="password" autocomplete="new-password" autocapitalize="none" spellcheck="false" data-api-key-input="true" />
+                <div class="api-key-row"><input class="input" id="youtubeApiKey" name="leword-local-api-youtube-key" type="password" autocomplete="off" readonly data-lpignore="true" data-1p-ignore="true" data-form-type="other" autocapitalize="none" spellcheck="false" data-api-key-input="true" /><button class="api-key-eye" type="button" data-api-reveal="youtubeApiKey" aria-label="유튜브 Data API Key 보기">보기</button></div>
               </div>
               <div>
                 <label for="anthropicApiKey">Claude API Key</label>
-                <input class="input" id="anthropicApiKey" name="leword-api-claude-key" type="password" autocomplete="new-password" autocapitalize="none" spellcheck="false" data-api-key-input="true" />
+                <div class="api-key-row"><input class="input" id="anthropicApiKey" name="leword-local-api-claude-key" type="password" autocomplete="off" readonly data-lpignore="true" data-1p-ignore="true" data-form-type="other" autocapitalize="none" spellcheck="false" data-api-key-input="true" /><button class="api-key-eye" type="button" data-api-reveal="anthropicApiKey" aria-label="Claude API Key 보기">보기</button></div>
               </div>
               <div>
                 <label for="manusApiKey">Manus API Key</label>
-                <input class="input" id="manusApiKey" name="leword-api-manus-key" type="password" autocomplete="new-password" autocapitalize="none" spellcheck="false" data-api-key-input="true" />
+                <div class="api-key-row"><input class="input" id="manusApiKey" name="leword-local-api-manus-key" type="password" autocomplete="off" readonly data-lpignore="true" data-1p-ignore="true" data-form-type="other" autocapitalize="none" spellcheck="false" data-api-key-input="true" /><button class="api-key-eye" type="button" data-api-reveal="manusApiKey" aria-label="Manus API Key 보기">보기</button></div>
               </div>
               <div>
                 <label for="openaiApiKey">OpenAI API Key</label>
-                <input class="input" id="openaiApiKey" name="leword-api-openai-key" type="password" autocomplete="new-password" autocapitalize="none" spellcheck="false" data-api-key-input="true" />
+                <div class="api-key-row"><input class="input" id="openaiApiKey" name="leword-local-api-openai-key" type="password" autocomplete="off" readonly data-lpignore="true" data-1p-ignore="true" data-form-type="other" autocapitalize="none" spellcheck="false" data-api-key-input="true" /><button class="api-key-eye" type="button" data-api-reveal="openaiApiKey" aria-label="OpenAI API Key 보기">보기</button></div>
               </div>
               <div>
                 <label>AI 추론 보조</label>
@@ -1280,13 +1288,13 @@ export function renderLewordProWeb(): string {
               <h3>PC Electron 앱</h3>
               <p>Windows용 LEWORD 데스크톱 앱입니다. 기존 Electron 앱의 전체 기능을 PC 환경에서 그대로 사용합니다.</p>
               <div class="download-meta" id="pcDownloadMeta">다운로드 파일 확인 중</div>
-              <a class="btn primary" href="https://github.com/cd000242-sudo/leword-app/releases/download/v2.49.85/LEWORD-2.49.85.exe">PC 앱 다운로드</a>
+              <a class="btn primary" id="pcDownloadButton" href="/download/pc">PC 앱 다운로드</a>
             </article>
             <article class="download-card">
               <h3>Android 모바일 앱</h3>
               <p>서버 기반 Pro 기능, 실시간 소스, 키워드 저장/공유, 알림 기능을 사용하는 Android APK입니다.</p>
               <div class="download-meta" id="androidDownloadMeta">다운로드 파일 확인 중</div>
-              <a class="btn primary" href="https://github.com/cd000242-sudo/leword-app/releases/download/v2.49.85/LEWORD-mobile-0.1.0.apk">모바일 APK 다운로드</a>
+              <a class="btn primary" id="androidDownloadButton" href="/download/android">모바일 APK 다운로드</a>
             </article>
           </div>
         </section>
@@ -1342,13 +1350,13 @@ export function renderLewordProWeb(): string {
   </main>
 
   <div class="modal" id="loginModal" aria-hidden="true">
-    <form class="dialog" id="loginForm">
+    <form class="dialog" id="loginForm" autocomplete="off" data-lpignore="true" data-1p-ignore="true">
       <h2>LEWORD Pro 로그인</h2>
       <p>기존 사용자 아이디와 비밀번호만 입력하면 서버 세션을 발급합니다.</p>
-      <label for="userId">아이디</label>
-      <input class="input" id="userId" autocomplete="username" required />
-      <label for="password">비밀번호</label>
-      <input class="input" id="password" type="password" autocomplete="current-password" required />
+      <label for="proLoginAccountId">아이디</label>
+      <input class="input" id="proLoginAccountId" name="leword-pro-account-id" autocomplete="off" autocapitalize="none" spellcheck="false" data-lpignore="true" data-1p-ignore="true" data-form-type="other" readonly required />
+      <label for="proLoginAccountPassword">비밀번호</label>
+      <input class="input" id="proLoginAccountPassword" name="leword-pro-account-password" type="password" autocomplete="new-password" data-lpignore="true" data-1p-ignore="true" data-form-type="other" readonly required />
       <details class="login-license">
         <summary>라이선스 키로 인증하기</summary>
         <p class="muted">구매 또는 등록 키가 있는 경우에만 입력하세요. 평소에는 아이디와 비밀번호만으로 로그인됩니다.</p>
@@ -1481,8 +1489,8 @@ export function renderLewordProWeb(): string {
       if (/^https?:\\/\\//i.test(value)) return value;
       return apiUrl(value);
     }
-    const pcReleaseUrl = 'https://github.com/cd000242-sudo/leword-app/releases/download/v2.49.85/LEWORD-2.49.85.exe';
-    const androidReleaseUrl = 'https://github.com/cd000242-sudo/leword-app/releases/download/v2.49.85/LEWORD-mobile-0.1.0.apk';
+    const pcReleaseUrl = apiUrl('/download/pc');
+    const androidReleaseUrl = apiUrl('/download/android');
     const endpoints = {
       health: apiUrl('/health'),
       session: apiUrl('/v1/web/session'),
@@ -1535,7 +1543,7 @@ export function renderLewordProWeb(): string {
       { id: 'keyword', label: '키워드 발굴' }
     ];
 
-    const youtubeFeature = { id: 'youtube', group: 'youtube', title: '유튜브 황금키워드 및 쇼츠분석', status: 'ready', route: endpoints.youtubeGolden, desc: 'YouTube 급상승/쇼츠 영상 신호를 수집하고 네이버 수요와 교차검증합니다.', defaultTargetCount: 50, payload: (_q, options) => ({ maxResults: options.targetCount || 50, categoryId: options.categoryId || 'all', crossReferenceNaver: options.crossReferenceNaver !== false, includeShortsSignals: options.includeShortsSignals !== false, includeAiInference: options.includeAiInference !== false }) };
+    const youtubeFeature = { id: 'youtube', group: 'youtube', title: '유튜브 황금키워드 및 쇼츠분석', status: 'ready', route: endpoints.youtubeGolden, desc: 'YouTube 급상승/쇼츠 영상 신호를 수집하고 네이버 수요와 교차검증합니다.', defaultTargetCount: 50, payload: (_q, options) => ({ maxResults: options.targetCount || 50, categoryId: options.categoryId && options.categoryId !== 'all' ? options.categoryId : undefined, crossReferenceNaver: options.crossReferenceNaver !== false, includeShortsSignals: options.includeShortsSignals !== false, includeAiInference: options.includeAiInference !== false }) };
 
     const features = [
       { id: 'pro-traffic', group: 'keyword', title: 'PRO 트래픽 폭발키워드 헌터', status: 'ready', route: endpoints.proTraffic, desc: '서버가 24시간 prewarm한 PRO 트래픽 후보를 먼저 보여주고, 필요하면 실시간 job으로 보강합니다.', defaultTargetCount: 30, payload: (q, options) => ({ categoryId: options.categoryId || 'all', seedKeyword: q || undefined, targetCount: options.targetCount || 30, includeSeasonal: options.includeSeasonal !== false, includeEvergreen: options.includeEvergreen !== false, includeFreshIssue: options.includeFreshIssue !== false, autoDiscovery: true, contextKeywords: buildLookupContextKeywords(q || options.autoSeedKeyword || '', 120), includeAiInference: options.includeAiInference !== false }) },
@@ -1556,11 +1564,13 @@ export function renderLewordProWeb(): string {
     let selectedCommercePlan = null;
     let selectedCommercePeriod = 'today';
     const userApiSettingsStorageKey = 'leword.pro.userApiSettings.v1';
+    const proLoginIdStorageKey = 'leword.pro.lastLoginId.v1';
     const adminAiWorkerSettingsStorageKey = 'leword.pro.adminAiWorkerSettings.v1';
     const adminSettingsUnlockStorageKey = 'leword.pro.adminSettingsUnlocked.v1';
     const analyticsVisitorStorageKey = 'leword.analytics.visitor.v1';
     const analyticsSessionStorageKey = 'leword.analytics.session.v1';
     const analyticsExcludeStorageKey = 'leword.analytics.exclude.v1';
+    let recentLoginCredentialValues = [];
     const toolTabFeatureIds = ['pro-traffic', 'naver-mate', 'shopping', 'kin'];
     const viewIds = ['golden', 'sources', 'lookup', 'features', 'youtube', 'settings', 'downloads', 'commerce'];
     const catalogTabs = [
@@ -1574,6 +1584,9 @@ export function renderLewordProWeb(): string {
     ];
 
     function qs(id) { return document.getElementById(id); }
+    function isAdminSurface() {
+      return /^\\/admin\\/?$/i.test(location.pathname || '');
+    }
     const mobileProChromeStorageKey = 'leword-mobile-pro-chrome';
     const postLoginAutoFeatureIds = ['kin', 'shopping'];
     const featureResultCache = {};
@@ -1617,7 +1630,7 @@ export function renderLewordProWeb(): string {
     }
     function initialViewId() {
       if ((location.hash || '').length > 1) return (location.hash || '#golden').slice(1);
-      return /^\\/admin\\/?$/i.test(location.pathname || '') ? 'commerce' : 'golden';
+      return isAdminSurface() ? 'commerce' : 'golden';
     }
     function setActiveView(id, options) {
       const next = normalizeViewId(id);
@@ -1632,6 +1645,10 @@ export function renderLewordProWeb(): string {
       if (location.hash !== '#' + next && opts.hash !== false) {
         history.replaceState(null, '', '#' + next);
       }
+      if (next === 'settings') {
+        hydrateNaverApiSettingsForm();
+        startApiAutofillGuard(30000);
+      }
       if (opts.load === false) return;
       if (next === 'golden') loadGoldenBoard().catch(function(err) { log('황금키워드 보드 갱신 실패: ' + err.message); });
       if (next === 'sources') loadSources().catch(function(err) { log('실시간 소스 갱신 실패: ' + err.message); });
@@ -1640,10 +1657,6 @@ export function renderLewordProWeb(): string {
       if (next === 'commerce') {
         loadCommerceCatalog().catch(function(err) { log('구매 카탈로그 갱신 실패: ' + err.message); });
         loadCommerceDashboard(selectedCommercePeriod).catch(function(err) { log('매출 대시보드 갱신 실패: ' + err.message); });
-      }
-      if (next === 'settings') {
-        hydrateNaverApiSettingsForm();
-        startApiAutofillGuard(2500);
       }
       if (next === 'lookup') setTimeout(function() { if (qs('keywordInput')) qs('keywordInput').focus(); }, 0);
     }
@@ -2062,6 +2075,27 @@ export function renderLewordProWeb(): string {
       const score = decision.score == null ? '' : ' ' + fmt(decision.score) + '점';
       return '<span class="golden-decision"><strong>' + escapeHtml(decision.label + score) + '</strong><span>' + escapeHtml(publishDecisionReason(decision) || decision.nextAction || '') + '</span></span>';
     }
+    function shoppingProductPickHtml(row) {
+      const pick = row && row.shoppingProductPick;
+      if (!pick || !pick.productName) return '';
+      const price = pick.price == null ? '' : ' · ' + fmt(pick.price) + '원';
+      const mall = pick.mallName ? ' · ' + pick.mallName : '';
+      const score = pick.conversionScore == null ? '' : ' · 전환점수 ' + fmt(pick.conversionScore);
+      const triggers = Array.isArray(pick.buyingTriggers) ? pick.buyingTriggers.slice(0, 3).join(' · ') : '';
+      const titles = Array.isArray(pick.titleDrafts) ? pick.titleDrafts.slice(0, 2).join(' / ') : '';
+      const reason = pick.sellableReason || pick.writeRecommendation || '';
+      const link = pick.productUrl
+        ? '<a href="' + escapeAttr(pick.productUrl) + '" target="_blank" rel="noopener noreferrer">상품 보기</a>'
+        : '';
+      return '<div class="shopping-pick">'
+        + '<strong>추천 제품: ' + escapeHtml(pick.productName) + '</strong>'
+        + '<span>' + escapeHtml((pick.recommendedAngle || '구매 전환 정보형') + mall + price + score) + '</span>'
+        + (reason ? '<span>글감: ' + escapeHtml(reason) + '</span>' : '')
+        + (triggers ? '<span>전환 포인트: ' + escapeHtml(triggers) + '</span>' : '')
+        + (titles ? '<span>제목 초안: ' + escapeHtml(titles) + '</span>' : '')
+        + (link ? '<span>' + link + '</span>' : '')
+        + '</div>';
+    }
     function volumeBarHtml(value) {
       const n = Math.max(0, Number(value || 0));
       const pct = Math.max(5, Math.min(100, Math.round((Math.log10(n + 10) / 6) * 100)));
@@ -2401,6 +2435,7 @@ export function renderLewordProWeb(): string {
     function saveSession(value) {
       session = value;
       if (session) {
+        if (session.userId) rememberProLoginUserId(session.userId);
         localStorage.setItem('leword.pro.session', JSON.stringify(session));
         if (session.tier !== 'admin') setAdminSettingsUnlocked(false);
       }
@@ -2414,11 +2449,15 @@ export function renderLewordProWeb(): string {
     function restoreSession() {
       try {
         const saved = JSON.parse(localStorage.getItem('leword.pro.session') || 'null');
-        if (saved && saved.accessToken) session = saved;
+        if (saved && saved.accessToken) {
+          session = saved;
+          if (saved.userId) rememberProLoginUserId(saved.userId);
+        }
       } catch {}
       renderSession();
     }
     function renderSession() {
+      if (session && session.userId) rememberProLoginUserId(session.userId);
       qs('metricSession').textContent = session ? (session.tier || 'Pro') : '로그인 필요';
       qs('loginOpen').textContent = session ? 'Pro 접속중' : 'Pro 로그인';
       hydrateAdminAiWorkerSettingsForm();
@@ -2709,7 +2748,9 @@ export function renderLewordProWeb(): string {
         const payload = await apiPost(endpoints.session, { userId: userId, password: password, licenseCode: licenseCode, adminLogin: true });
         if (!payload || !payload.session) throw new Error(payload && payload.message ? payload.message : '관리자 로그인에 실패했습니다.');
         if (payload.session.tier !== 'admin') throw new Error('관리자 권한 계정이 아닙니다. 일반 Pro 계정은 관리자 설정을 열 수 없습니다.');
-        saveSession(payload.session);
+        rememberProLoginUserId(userId);
+        saveSession(Object.assign({}, payload.session, { userId: payload.session.userId || userId }));
+        clearLoginCredentialAutofillFromApiSettings(false);
         closeAdminLoginModal();
         hydrateAdminAiWorkerSettingsForm();
         hydrateAdminSiteContentSettings();
@@ -2986,11 +3027,28 @@ export function renderLewordProWeb(): string {
     function openLogin() {
       qs('loginModal').classList.add('open');
       qs('loginModal').setAttribute('aria-hidden', 'false');
-      setTimeout(function() { qs('userId').focus(); }, 0);
+      if (qs('loginMessage')) qs('loginMessage').textContent = '';
+      if (qs('licenseCode')) qs('licenseCode').value = '';
+      try {
+        localStorage.removeItem(proLoginIdStorageKey);
+        prepareFreshProLoginFields(true);
+      } catch (err) {}
+      setTimeout(function() {
+        prepareFreshProLoginFields(false);
+        qs('proLoginAccountId').focus();
+      }, 250);
+      setTimeout(clearProLoginAutofillFromApiSettings, 750);
+      setTimeout(clearProLoginAutofillFromApiSettings, 1500);
     }
     function closeLogin() {
       qs('loginModal').classList.remove('open');
       qs('loginModal').setAttribute('aria-hidden', 'true');
+    }
+    function loginLicenseCodeForSubmit() {
+      const details = document.querySelector('#loginForm .login-license');
+      const input = qs('licenseCode');
+      if (!details || !input || !details.open) return '';
+      return String(input.value || '').trim();
     }
     function openWelcomeModal(tier) {
       const label = tier || (session && session.tier) || 'Pro';
@@ -3086,6 +3144,9 @@ export function renderLewordProWeb(): string {
     }
     function formatApiError(url, status, payload) {
       const message = payload && (payload.message || payload.error) ? String(payload.message || payload.error) : '';
+      if ((status === 401 || status === 403) && url === endpoints.session) {
+        return '아이디 또는 비밀번호가 맞지 않습니다. 자동완성 값이 들어갔다면 지우고 다시 입력하세요.';
+      }
       if (status === 401 || status === 403) return 'Pro 로그인 세션이 만료되었습니다. 다시 로그인하세요.';
       if (status === 404) return 'API 경로 또는 job 상태를 찾지 못했습니다. 잠시 후 다시 실행하거나 새로고침 후 재시도하세요. (' + routePath(url) + ')';
       return message || 'HTTP ' + status;
@@ -3106,7 +3167,8 @@ export function renderLewordProWeb(): string {
       return payload;
     }
     async function apiPost(url, body, options) {
-      const res = await fetch(url, { method: 'POST', headers: headers(options), body: JSON.stringify(withKeywordContextPayload(url, body || {})) });
+      const requestHeaders = url === endpoints.session ? { 'Content-Type': 'application/json' } : headers(options);
+      const res = await fetch(url, { method: 'POST', headers: requestHeaders, body: JSON.stringify(withKeywordContextPayload(url, body || {})) });
       const payload = await res.json().catch(function() { return {}; });
       if (url !== endpoints.session && (res.status === 401 || res.status === 403)) {
         saveSession(null);
@@ -3473,21 +3535,116 @@ export function renderLewordProWeb(): string {
       setResult({ ok: false, reason: 'missing-user-api-keys', missingGroups: groups.map(function(group) { return group.id; }) });
       log(title + ': ' + groups.map(function(group) { return group.label; }).join(', '));
     }
+    function storedProLoginUserId() {
+      try {
+        return String(localStorage.getItem(proLoginIdStorageKey) || '').trim();
+      } catch (err) {
+        return '';
+      }
+    }
+    function proLoginInputIds() {
+      return ['proLoginAccountId', 'proLoginAccountPassword'];
+    }
+    function setLoginFieldLocked(input, locked) {
+      if (!input) return;
+      if (locked) {
+        input.readOnly = true;
+        input.setAttribute('readonly', 'readonly');
+        input.dataset.loginAutofillLocked = 'true';
+      } else {
+        input.readOnly = false;
+        input.removeAttribute('readonly');
+        input.dataset.loginAutofillLocked = 'false';
+      }
+    }
+    function prepareFreshProLoginFields(locked) {
+      try {
+        localStorage.removeItem(proLoginIdStorageKey);
+      } catch (err) {}
+      const stamp = Date.now().toString(36);
+      const userInput = qs('proLoginAccountId');
+      const passwordInput = qs('proLoginAccountPassword');
+      if (userInput) {
+        userInput.value = '';
+        userInput.setAttribute('name', 'leword-pro-account-id-' + stamp);
+        userInput.setAttribute('autocomplete', 'off');
+        setLoginFieldLocked(userInput, locked);
+      }
+      if (passwordInput) {
+        passwordInput.value = '';
+        passwordInput.setAttribute('name', 'leword-pro-account-password-' + stamp);
+        passwordInput.setAttribute('autocomplete', 'new-password');
+        setLoginFieldLocked(passwordInput, locked);
+      }
+      clearProLoginAutofillFromApiSettings();
+    }
+    function apiSettingsCredentialValues() {
+      try {
+        const raw = JSON.parse(localStorage.getItem(userApiSettingsStorageKey) || '{}');
+        return naverApiSettingsFields()
+          .map(function(id) { return raw && typeof raw[id] === 'string' ? raw[id].trim() : ''; })
+          .filter(function(value) { return value.length >= 3; });
+      } catch (err) {
+        return [];
+      }
+    }
+    function clearProLoginAutofillFromApiSettings() {
+      const apiValues = apiSettingsCredentialValues();
+      if (!apiValues.length) return [];
+      const cleared = [];
+      proLoginInputIds().forEach(function(id) {
+        const input = qs(id);
+        if (!input) return;
+        const value = String(input.value || '').trim();
+        if (value && apiValues.includes(value)) {
+          input.value = '';
+          cleared.push(id);
+        }
+      });
+      return cleared;
+    }
+    function rememberProLoginUserId(userId) {
+      const value = String(userId || '').trim();
+      if (!value) return;
+      recentLoginCredentialValues = [value].concat(recentLoginCredentialValues.filter(function(item) {
+        return item !== value;
+      })).slice(0, 10);
+      try {
+        localStorage.removeItem(proLoginIdStorageKey);
+        readUserApiSettings();
+        clearLoginCredentialAutofillFromApiSettings(false);
+      } catch (err) {}
+    }
+    function sanitizeUserApiSettings(settings) {
+      const loginValues = loginCredentialValues();
+      return naverApiSettingsFields().reduce(function(out, id) {
+        const value = settings && typeof settings[id] === 'string' ? settings[id].trim() : '';
+        if (!value) return out;
+        if (loginValues.includes(value)) return out;
+        out[id] = value;
+        return out;
+      }, {});
+    }
+    function sameUserApiSettings(left, right) {
+      const leftKeys = Object.keys(left || {}).sort();
+      const rightKeys = Object.keys(right || {}).sort();
+      if (leftKeys.length !== rightKeys.length) return false;
+      return leftKeys.every(function(key) { return left[key] === right[key]; });
+    }
     function readUserApiSettings() {
       try {
         const raw = JSON.parse(localStorage.getItem(userApiSettingsStorageKey) || '{}');
-        return naverApiSettingsFields().reduce(function(out, id) {
-          const value = raw && typeof raw[id] === 'string' ? raw[id].trim() : '';
-          if (id === 'naverClientId' && isLoginCredentialValue(value)) return out;
-          if (value) out[id] = value;
-          return out;
-        }, {});
+        const settings = sanitizeUserApiSettings(raw);
+        if (!sameUserApiSettings(raw || {}, settings)) {
+          localStorage.setItem(userApiSettingsStorageKey, JSON.stringify(settings));
+        }
+        return settings;
       } catch (err) {
         return {};
       }
     }
     function writeUserApiSettings(settings) {
-      localStorage.setItem(userApiSettingsStorageKey, JSON.stringify(settings || {}));
+      localStorage.setItem(userApiSettingsStorageKey, JSON.stringify(sanitizeUserApiSettings(settings || {})));
     }
     function encodeUserApiCredentialsHeader() {
       const settings = readUserApiSettings();
@@ -3501,31 +3658,94 @@ export function renderLewordProWeb(): string {
     function apiSettingsReadyLabel(ok) {
       return ok ? '설정됨' : '미설정';
     }
+    function unlockApiInputForTyping(input) {
+      if (!input || input.dataset.apiAutofillLocked !== 'true') return;
+      input.readOnly = false;
+      input.removeAttribute('readonly');
+      input.dataset.apiAutofillLocked = 'false';
+    }
+    function lockApiInputAgainstCredentialAutofill(input) {
+      if (!input) return;
+      input.setAttribute('autocomplete', 'off');
+      input.setAttribute('autocorrect', 'off');
+      input.setAttribute('autocapitalize', 'none');
+      input.setAttribute('spellcheck', 'false');
+      input.readOnly = true;
+      input.setAttribute('readonly', 'readonly');
+      input.dataset.apiAutofillLocked = 'true';
+    }
     function hydrateNaverApiSettingsForm() {
       const settings = readUserApiSettings();
       naverApiSettingsFields().forEach(function(id) {
         const input = qs(id);
         if (!input) return;
+        if (!input.dataset.apiOriginalType) input.dataset.apiOriginalType = input.getAttribute('type') || 'text';
+        input.type = input.dataset.apiOriginalType || 'text';
+        input.dataset.apiVisible = 'false';
         input.value = '';
+        lockApiInputAgainstCredentialAutofill(input);
         if (settings[id]) {
           input.placeholder = '저장됨 - 변경할 때만 입력';
         } else {
           input.placeholder = '';
         }
+        const button = document.querySelector('[data-api-reveal="' + id + '"]');
+        if (button) {
+          button.textContent = '보기';
+          button.classList.remove('active');
+          button.setAttribute('aria-pressed', 'false');
+        }
       });
       renderNaverApiStatusMessage({ localSettings: settings });
-      startApiAutofillGuard(1800);
+      startApiAutofillGuard(30000);
+    }
+    function setApiKeyVisibility(id, visible) {
+      const input = qs(id);
+      if (!input) return;
+      if (!input.dataset.apiOriginalType) input.dataset.apiOriginalType = input.getAttribute('type') || 'text';
+      const button = document.querySelector('[data-api-reveal="' + id + '"]');
+      if (visible) {
+        unlockApiInputForTyping(input);
+        const settings = readUserApiSettings();
+        input.value = settings[id] || '';
+        input.type = 'text';
+        input.dataset.apiVisible = 'true';
+        if (button) {
+          button.textContent = '숨김';
+          button.classList.add('active');
+          button.setAttribute('aria-pressed', 'true');
+        }
+        if (!settings[id] && qs('naverApiSettingsMessage')) {
+          qs('naverApiSettingsMessage').textContent = '저장된 API 키가 없습니다. 값을 입력한 뒤 저장해 주세요.';
+        }
+      } else {
+        input.value = '';
+        input.type = input.dataset.apiOriginalType || 'text';
+        input.dataset.apiVisible = 'false';
+        lockApiInputAgainstCredentialAutofill(input);
+        if (button) {
+          button.textContent = '보기';
+          button.classList.remove('active');
+          button.setAttribute('aria-pressed', 'false');
+        }
+      }
+    }
+    function toggleApiKeyVisibility(id) {
+      const input = qs(id);
+      if (!input) return;
+      setApiKeyVisibility(id, input.dataset.apiVisible !== 'true');
     }
     function loginCredentialValues() {
       return [
-        qs('userId') && qs('userId').value,
-        qs('password') && qs('password').value,
+        qs('proLoginAccountId') && qs('proLoginAccountId').value,
+        qs('proLoginAccountPassword') && qs('proLoginAccountPassword').value,
         qs('adminUserId') && qs('adminUserId').value,
         qs('adminUserPassword') && qs('adminUserPassword').value,
         session && session.userId,
-      ]
+        storedProLoginUserId(),
+      ].concat(recentLoginCredentialValues || [])
         .map(function(value) { return String(value || '').trim(); })
-        .filter(function(value) { return value.length >= 3; });
+        .filter(function(value, index, list) { return value.length >= 3 && list.indexOf(value) === index; });
     }
     function isLoginCredentialValue(value) {
       const trimmed = String(value || '').trim();
@@ -3544,6 +3764,7 @@ export function renderLewordProWeb(): string {
           cleared.push(id);
         }
       });
+      readUserApiSettings();
       if (cleared.length && showMessage) {
         qs('naverApiSettingsMessage').textContent = 'Pro 로그인 아이디/비밀번호가 API 키 칸에 자동 입력되어 제거했습니다. API 키는 환경설정에 별도로 입력하세요.';
       }
@@ -3608,13 +3829,14 @@ export function renderLewordProWeb(): string {
       try {
         updateProgress(55, '입력값을 로컬 설정으로 병합하고 있습니다.');
         writeUserApiSettings(settings);
+        const savedSettings = readUserApiSettings();
         clearNaverApiSecretInputs();
         hydrateNaverApiSettingsForm();
         setResult({
           userApiSettings: {
             ok: true,
             storage: 'browser-local',
-            savedKeys: Object.keys(settings),
+            savedKeys: Object.keys(savedSettings),
           },
         });
         log('사용자 API 키 로컬 저장 완료');
@@ -3708,7 +3930,7 @@ export function renderLewordProWeb(): string {
       }
       qs('keywordRows').innerHTML = rows.slice(0, 80).map(function(row) {
         return '<tr>'
-          + '<td><strong>' + escapeHtml(row.keyword) + '</strong></td>'
+          + '<td><strong>' + escapeHtml(row.keyword) + '</strong>' + shoppingProductPickHtml(row) + '</td>'
           + '<td>' + fmt(row.pcSearchVolume) + '</td>'
           + '<td>' + fmt(row.mobileSearchVolume) + '</td>'
           + '<td>' + volumeBarHtml(row.totalSearchVolume) + '</td>'
@@ -4589,11 +4811,15 @@ export function renderLewordProWeb(): string {
     function renderDownloadMeta(payload) {
       const pc = payload && payload.pc ? payload.pc : {};
       const android = payload && payload.android ? payload.android : {};
+      if (qs('pcDownloadButton')) qs('pcDownloadButton').href = resolveApiLink(pc.url || endpoints.pcDownload || '/download/pc');
+      if (qs('androidDownloadButton')) qs('androidDownloadButton').href = resolveApiLink(android.url || endpoints.androidDownload || '/download/android');
+      const pcSource = pc.source === 'uploaded' ? '직접 업로드' : '서버 파일';
+      const androidSource = android.source === 'uploaded' ? '직접 업로드' : '서버 파일';
       qs('pcDownloadMeta').textContent = pc.available
-        ? '사용 가능 · ' + (pc.filename || 'LEWORD PC') + ' · ' + formatBytes(pc.size)
+        ? '사용 가능 · ' + pcSource + ' · ' + (pc.filename || 'LEWORD PC') + ' · ' + formatBytes(pc.size)
         : '파일 준비 중 · 서버 배포 상태를 확인하세요';
       qs('androidDownloadMeta').textContent = android.available
-        ? '사용 가능 · ' + (android.filename || 'LEWORD APK') + ' · ' + formatBytes(android.size)
+        ? '사용 가능 · ' + androidSource + ' · ' + (android.filename || 'LEWORD APK') + ' · ' + formatBytes(android.size)
         : 'APK 준비 중 · 모바일 빌드 상태를 확인하세요';
     }
     async function loadDownloads() {
@@ -4820,16 +5046,19 @@ export function renderLewordProWeb(): string {
     qs('progressDismiss').addEventListener('click', dismissProgress);
     qs('loginForm').addEventListener('submit', async function(event) {
       event.preventDefault();
-      const userId = qs('userId').value.trim();
-      const password = qs('password').value.trim();
-      const licenseCode = qs('licenseCode').value.trim();
+      const userId = qs('proLoginAccountId').value.trim();
+      const password = qs('proLoginAccountPassword').value.trim();
+      const licenseCode = loginLicenseCodeForSubmit();
       qs('loginMessage').textContent = '로그인 중...';
       try {
+        saveSession(null);
         const loginPayload = { userId: userId, password: password };
         if (licenseCode) loginPayload.licenseCode = licenseCode;
         const payload = await apiPost(endpoints.session, loginPayload);
         if (!payload.session || !payload.session.accessToken) throw new Error(payload.message || '세션 발급 실패');
-        saveSession(payload.session);
+        rememberProLoginUserId(userId);
+        saveSession(Object.assign({}, payload.session, { userId: payload.session.userId || userId }));
+        clearLoginCredentialAutofillFromApiSettings(false);
         postLoginAutoRunStarted = false;
         postLoginAutoFeatureIds.forEach(function(id) {
           delete featureResultCache[id];
@@ -4875,6 +5104,18 @@ export function renderLewordProWeb(): string {
     qs('saveNaverApiSettings').addEventListener('click', saveNaverApiSettings);
     qs('checkNaverApiSettings').addEventListener('click', checkNaverApiSettings);
     qs('clearNaverApiSettings').addEventListener('click', clearNaverApiSettings);
+    document.querySelectorAll('[data-api-key-input]').forEach(function(input) {
+      ['focus', 'mousedown', 'touchstart', 'keydown'].forEach(function(eventName) {
+        input.addEventListener(eventName, function() {
+          unlockApiInputForTyping(input);
+        }, { passive: true });
+      });
+    });
+    document.querySelectorAll('[data-api-reveal]').forEach(function(button) {
+      button.addEventListener('click', function() {
+        toggleApiKeyVisibility(button.getAttribute('data-api-reveal'));
+      });
+    });
     qs('adminAiWorkerSettings').addEventListener('click', handleAdminAiLockedClick);
     qs('adminAiLockBanner').addEventListener('keydown', function(event) {
       if (event.key === 'Enter' || event.key === ' ') handleAdminAiLockedClick(event);

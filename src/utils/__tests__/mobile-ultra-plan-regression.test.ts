@@ -688,6 +688,7 @@ assert('mobile readiness report separates code checks from external native block
     && /'external'/.test(readinessReport));
 
 const apiServer = read('apps/api/src/server.ts');
+const puppeteerPool = read('src/utils/puppeteer-pool.ts');
 const mobileEntitlements = read('src/mobile/entitlements.ts');
 const notificationInbox = read('src/mobile/notification-inbox.ts');
 const pushNotifications = read('src/mobile/push-notifications.ts');
@@ -720,6 +721,16 @@ assert('api production compose deploys CI-published GHCR image',
     && /LEWORD_MOBILE_CACHE_FILE:\s*\/data\/mobile-cache\.json/.test(apiProductionCompose)
     && /leword-mobile-cache:\/data/.test(apiProductionCompose)
     && /health/.test(apiProductionCompose));
+assert('production API caps browser and job concurrency for stable 24h mining',
+  /function positiveIntegerEnv/.test(apiServer)
+    && /LEWORD_MOBILE_MAX_CONCURRENT_JOBS/.test(apiServer)
+    && /maxConcurrentJobs:\s*positiveIntegerEnv\('LEWORD_MOBILE_MAX_CONCURRENT_JOBS', 1, 4\)/.test(apiServer)
+    && /LEWORD_BROWSER_POOL_MAX_SIZE/.test(puppeteerPool)
+    && /LEWORD_BROWSER_POOL_IDLE_MS/.test(puppeteerPool)
+    && /LEWORD_MOBILE_MAX_CONCURRENT_JOBS:\s*\$\{LEWORD_MOBILE_MAX_CONCURRENT_JOBS:-1\}/.test(apiProductionCompose)
+    && /LEWORD_BROWSER_POOL_MAX_SIZE:\s*\$\{LEWORD_BROWSER_POOL_MAX_SIZE:-1\}/.test(apiProductionCompose)
+    && /LEWORD_BROWSER_POOL_IDLE_MS:\s*\$\{LEWORD_BROWSER_POOL_IDLE_MS:-30000\}/.test(apiProductionCompose),
+  'server-side keyword jobs must not exhaust Chromium file handles under manual + prewarm load');
 assert('mobile release workflow supports CI release path',
   /Mobile API and App Release/.test(mobileReleaseWorkflow)
     && /workflow_dispatch/.test(mobileReleaseWorkflow)
@@ -794,6 +805,17 @@ assert('api supports optional mobile bearer auth',
   /LEWORD_MOBILE_API_TOKEN/.test(apiServer)
     && /authorization/.test(apiServer)
     && /mobile API authorization required/.test(apiServer));
+assert('api lets admins directly upload download installers without GitHub release URLs',
+  /ADMIN_DOWNLOAD_UPLOAD_ROUTE\s*=\s*'\/v1\/admin\/downloads\/upload'/.test(apiServer)
+    && /function downloadUploadMaxBytes/.test(apiServer)
+    && /function uploadedDownloadCandidate/.test(apiServer)
+    && /async function parseMultipartUpload/.test(apiServer)
+    && /async function handleAdminDownloadUpload/.test(apiServer)
+    && /\.exe/.test(apiServer)
+    && /\.msi/.test(apiServer)
+    && /\.apk/.test(apiServer)
+    && /authorizeMobileRequest\(req, res, sessionAwareEntitlementVerifier, 'admin'\)/.test(apiServer)
+    && /ADMIN_DOWNLOAD_UPLOAD_ROUTE/.test(apiServer));
 assert('api protects public mobile traffic with request guardrails',
   /MobileApiRateLimiter/.test(apiGuardrails)
     && /parseMobileJsonBody/.test(apiGuardrails)
@@ -844,12 +866,14 @@ assert('api keeps user API credentials out of public jobs and cache keys',
 assert('api supports mobile prewarm routes',
   /MOBILE_PREWARM_ROUTES/.test(apiServer)
     && /MobilePrewarmService/.test(apiServer)
+    && /prewarmScheduler\.runNow/.test(apiServer)
     && /prewarmService\.start/.test(apiServer));
 assert('api supports low-load live golden radar routes',
   /MOBILE_LIVE_GOLDEN_ROUTES/.test(apiServer)
     && /MobileLiveGoldenRadar/.test(apiServer)
     && /liveGoldenRadar\.start/.test(apiServer)
-    && /liveGolden: liveGoldenRadar/.test(apiServer));
+    && /liveGolden:\s*\{\s*enabled:\s*!!liveGoldenRadar/.test(apiServer)
+    && !/liveGolden:\s*liveGoldenRadar\?\.snapshot/.test(apiServer));
 assert('shared contract declares job routes', MOBILE_JOB_ROUTES.events.includes('/events'));
 
 const orchestrator = read('src/mobile/job-orchestrator.ts');
@@ -881,11 +905,21 @@ assert('mobile prewarm service warms default high-impact targets',
     && /qualityProfile:\s*'publishable-v2'/.test(prewarmService)
     && /autoDiscovery:\s*true/.test(prewarmService)
     && /policy-golden-precision/.test(prewarmService)
-    && /celebrity-pro-fresh/.test(prewarmService)
+    && /policy-pro-traffic-24h/.test(prewarmService)
+    && /shopping-connect-hot-products/.test(prewarmService)
+    && /naver-mate-auto-discovery/.test(prewarmService)
+    && /product:\s*'naver-mate-hunter'/.test(prewarmService)
+    && /travel-domestic-pro-traffic-24h/.test(prewarmService)
+    && /electronics-pro-traffic-24h/.test(prewarmService)
+    && /home-life-pro-traffic-24h/.test(prewarmService)
     && /resultCache\.set/.test(prewarmService));
-assert('mobile result cache keeps prewarmed pro traffic warm for 24 hours',
+assert('mobile result cache keeps daily prewarmed keyword products warm for 24 hours',
   /proTrafficPrewarmCacheTtlMinutes:\s*1440/.test(sharedMobileContract)
-    && /product === 'pro-traffic-hunter'/.test(resultCache)
+    && /DAILY_PREWARM_PRODUCTS/.test(resultCache)
+    && /'pro-traffic-hunter'/.test(resultCache)
+    && /'shopping-connect'/.test(resultCache)
+    && /'youtube-golden'/.test(resultCache)
+    && /'naver-mate-hunter'/.test(resultCache)
     && /proTrafficPrewarmCacheTtlMinutes/.test(resultCache)
     && /keywords\.every/.test(resultCache)
     && /item\.isMeasured === true && total > 0 && docs > 0/.test(resultCache));
@@ -906,10 +940,21 @@ assert('mobile prewarm scheduler supports env-driven cache warming',
     && /LEWORD_MOBILE_PREWARM_INTERVAL_MINUTES/.test(prewarmScheduler)
     && /runOnStart/.test(prewarmScheduler)
     && /stop\(\)/.test(prewarmScheduler));
+assert('mobile prewarm scheduler waits when document-count quota is exhausted',
+  /isNaverBlogOpenApiQuotaBlocked/.test(prewarmScheduler)
+    && /getNaverBlogOpenApiQuotaBlockedUntil/.test(prewarmScheduler)
+    && /Naver OpenAPI document quota exhausted/.test(prewarmScheduler)
+    && /retry after/.test(prewarmScheduler)
+    && /scheduleRetry/.test(prewarmScheduler)
+    && /nextRetryAt/.test(prewarmScheduler)
+    && /measured-only keyword data/.test(prewarmScheduler)
+    && /skippedRuns/.test(prewarmScheduler));
 assert('production compose keeps server prewarm running all day',
   /LEWORD_MOBILE_PREWARM_INTERVAL_MINUTES:\s*\$\{LEWORD_MOBILE_PREWARM_INTERVAL_MINUTES:-60\}/.test(apiProductionCompose)
     && /LEWORD_MOBILE_PREWARM_LIMIT:\s*\$\{LEWORD_MOBILE_PREWARM_LIMIT:-8\}/.test(apiProductionCompose)
-    && /LEWORD_MOBILE_PREWARM_ON_START:\s*\$\{LEWORD_MOBILE_PREWARM_ON_START:-true\}/.test(apiProductionCompose));
+    && /LEWORD_MOBILE_PREWARM_ON_START:\s*\$\{LEWORD_MOBILE_PREWARM_ON_START:-true\}/.test(apiProductionCompose)
+    && /LEWORD_MOBILE_PREWARM_START_DELAY_MS:\s*\$\{LEWORD_MOBILE_PREWARM_START_DELAY_MS:-300000\}/.test(apiProductionCompose)
+    && /LEWORD_MOBILE_LIVE_GOLDEN_IGNORE_PREWARM:\s*\$\{LEWORD_MOBILE_LIVE_GOLDEN_IGNORE_PREWARM:-true\}/.test(apiProductionCompose));
 assert('mobile live golden radar is low-load and non-overlapping',
   /MobileLiveGoldenRadar/.test(liveGoldenRadar)
     && /liveGoldenCycleLimit/.test(liveGoldenRadar)
@@ -917,15 +962,114 @@ assert('mobile live golden radar is low-load and non-overlapping',
     && /shouldRun/.test(liveGoldenRadar)
     && /publishFromResult/.test(liveGoldenRadar)
     && /LEWORD_MOBILE_LIVE_GOLDEN_INTERVAL_MINUTES/.test(liveGoldenRadar));
+assert('mobile live golden radar waits when document-count quota is exhausted',
+  /isNaverBlogOpenApiQuotaBlocked/.test(liveGoldenRadar)
+    && /getNaverBlogOpenApiQuotaBlockedUntil/.test(liveGoldenRadar)
+    && /documentQuotaBlocked/.test(liveGoldenRadar)
+    && /retry after/.test(liveGoldenRadar)
+    && /scheduleQuotaRetry/.test(liveGoldenRadar)
+    && /nextRetryAt/.test(sharedMobileContract)
+    && /measured-only golden keywords/.test(liveGoldenRadar));
+assert('mobile live golden board prefers strict 98-point measured winners and only then measured near-fallbacks',
+  /isUltimateGoldenKeywordCandidate/.test(liveGoldenRadar)
+    && /function isNearUltimateLiveBoardItem/.test(liveGoldenRadar)
+    && /const strictReady = sorted\.filter\(isStrictReadyLiveBoardItem\)/.test(liveGoldenRadar)
+    && /const strictSelected = selectLiveBoardItemsFromPool\(strictReady, target\)/.test(liveGoldenRadar)
+    && /if \(strictSelected\.length >= target\) return strictSelected/.test(liveGoldenRadar)
+    && /\.filter\(isNearUltimateLiveBoardItem\)/.test(liveGoldenRadar)
+    && /isStrictReadyLiveBoardItem\(item\) \|\| isNearUltimateLiveBoardItem\(item\)/.test(liveGoldenRadar)
+    && !/selectLiveBoardItemsFromPool\(sorted\.filter\(isNearUltimateLiveBoardItem\), target\)/.test(liveGoldenRadar)
+    && /function isPublicPreviewCandidate[\s\S]{0,220}isStrictReadyLiveBoardItem/.test(liveGoldenRadar));
+assert('mobile live golden board carries and enforces measurement provenance',
+  /MobileDocumentCountSource/.test(sharedMobileContract)
+    && /documentCountSource\?/.test(sharedMobileContract)
+    && /documentCountConfidence\?/.test(sharedMobileContract)
+    && /isDocumentCountEstimated\?/.test(sharedMobileContract)
+    && /measurementMetadataFromDocumentCount/.test(liveGoldenRadar)
+    && /hasTrustedDocumentCountMeasurement/.test(liveGoldenRadar)
+    && /hasTrustedSearchVolumeMeasurement/.test(liveGoldenRadar));
 assert('api health exposes prewarm scheduler state',
   /createMobilePrewarmSchedulerFromEnv/.test(apiServer)
     && /scheduler: prewarmScheduler/.test(apiServer)
     && /server\.on\('close'/.test(apiServer));
+assert('api server keeps feature prewarm supplements separated by user intent',
+  /qualityProfile:\s*'intent-separated-v3'/.test(apiServer)
+    && /SHOPPING_CONNECT_NON_PRODUCT_RE/.test(apiServer)
+    && /SHOPPING_CONNECT_PRODUCT_CATEGORY_RE/.test(apiServer)
+    && /\|health\|baby\|sports\|pet\|interior\|car\|gift/.test(apiServer)
+    && /function isShoppingConnectMeasuredQualityCandidate/.test(apiServer)
+    && /const hasProductPick = !!item\.shoppingProductPick/.test(apiServer)
+    && /typeof item\.goldenRatio === 'number' && item\.goldenRatio > 0/.test(apiServer)
+    && /hasProductPick && total >= 10 && docs <= 150000 && ratio >= 0\.0001/.test(apiServer)
+    && /hasBuyIntent && total >= 10 && docs <= 150000 && ratio >= 0\.0001/.test(apiServer)
+    && apiServer.includes("'\\\\uC21C\\\\uC704'")
+    && apiServer.includes("'\\\\uAC00\\\\uC131\\\\uBE44'")
+    && apiServer.includes("'\\\\uAD6C\\\\uB9E4\\\\uCC98'")
+    && /NAVER_MATE_SOURCE_RE/.test(apiServer)
+    && /server-measured-naver-mate-prewarm/.test(apiServer)
+    && /naver-expansion-measured-need/.test(apiServer)
+    && /NAVER_MATE_LOW_VALUE_COMPACT_RE/.test(apiServer)
+    && /function isNaverMateDisplayQualityCandidate/.test(apiServer)
+    && /serverMetricGradeRank\(item\.grade\) > 0/.test(apiServer)
+    && !/NAVER_MATE_SOURCE_RE\s*=\s*\/\(naver-mate\|/.test(apiServer)
+    && /function isNaverMateMeasuredBoardCandidate/.test(apiServer)
+    && /const isMeasuredNaverMateExplorationMetric = endpoint\.product === 'naver-mate-hunter'/.test(apiServer)
+    && /const isMeasuredShoppingConnectMetric = endpoint\.product === 'shopping-connect'/.test(apiServer)
+    && /&& !isMeasuredNaverMateExplorationMetric/.test(apiServer)
+    && /&& !isMeasuredShoppingConnectMetric/.test(apiServer)
+    && /function isKinMeasuredBoardCandidate/.test(apiServer)
+    && /endpoint\.product === 'naver-mate-hunter' && !isNaverMateMeasuredBoardCandidate/.test(apiServer)
+    && /product === 'shopping-connect'\s*\?\s*\['shopping-connect'\]/.test(apiServer)
+    && /product === 'naver-mate-hunter'[\s\S]{0,120}\?\s*\['naver-mate-hunter'\]/.test(apiServer)
+    && /product === 'naver-mate-hunter'[\s\S]{0,120}isNaverMateMeasuredBoardCandidate/.test(apiServer)
+    && /const pool = product === 'pro-traffic-hunter'/.test(apiServer),
+  'feature board supplement must not replay generic PRO/live board rows into Naver Mate or KIN');
+
+assert('Naver Mate prewarm seed is stable Korean text, not mojibake',
+  /id:\s*'naver-mate-auto-discovery'[\s\S]{0,260}seedKeyword:\s*'\\uC624\\uB298 \\uC2E4\\uC2DC\\uAC04 \\uC774\\uC288'/.test(prewarmService),
+  'Naver Mate 24h prewarm must start from 오늘 실시간 이슈 instead of a corrupted seed');
+
+assert('shopping connect prewarm rows are enriched with real product picks before caching',
+  /function enrichShoppingProductPicksForResult/.test(apiServer)
+    && /searchNaverShopping/.test(apiServer)
+    && /searchNaverShoppingForProductPick/.test(apiServer)
+    && /waitForShoppingRetry/.test(apiServer)
+    && /rankShoppingOpportunities/.test(apiServer)
+    && /buildServerShoppingProductPick/.test(apiServer)
+    && /directProductFallback/.test(apiServer)
+    && /server-shopping-product-pick/.test(apiServer)
+    && /const enrichedCachedResult = await enrichShoppingProductPicksForResult/.test(apiServer)
+    && /cachedSyncedResult = sanitizeMeasuredKeywordResult\(endpoint, enrichedCachedResult\)/.test(apiServer)
+    && /const enrichedPrewarmedResult = await enrichShoppingProductPicksForResult/.test(apiServer)
+    && /prewarmedResult = sanitizeMeasuredKeywordResult\(endpoint, enrichedPrewarmedResult\)/.test(apiServer)
+    && /const enrichedResult = await enrichShoppingProductPicksForResult/.test(apiServer)
+    && /const sanitizedResult = sanitizeMeasuredKeywordResult\(endpoint, enrichedResult\)/.test(apiServer),
+  'shopping prewarm/cache results must explain the sellable product, not only replay measured keywords');
+
+assert('API strict sanitizer keeps fully measured mindmap expansion rows',
+  /function isMindmapMeasuredBoardCandidate/.test(apiServer)
+    && /MINDMAP_MEASURED_SOURCE_RE/.test(apiServer)
+    && /product === 'mindmap-expansion'\) return Math\.min\(targetCount, 10\)/.test(apiServer)
+    && /endpoint\.product === 'mindmap-expansion'\) return isMindmapMeasuredBoardCandidate/.test(apiServer)
+    && /pc-mindmap-exact-measured-seed/.test(apiServer)
+    && /pc-mindmap-measured-intent-expansion/.test(apiServer)
+    && /server-measured-mindmap-prewarm/.test(apiServer)
+    && /function measuredMindmapCacheCandidates/.test(apiServer)
+    && /product === 'mindmap-expansion'\) return \[\]/.test(apiServer)
+    && /endpoint\.product === 'mindmap-expansion'[\s\S]{0,120}measuredMindmapCacheCandidates/.test(apiServer),
+  'mindmap endpoint must not sanitize exact measured seed/expansion rows down to 0');
 
 const pcExecutor = read('src/mobile/pc-engine-executor.ts');
 assert('mobile executor exists', /createMobilePcEngineExecutor/.test(pcExecutor));
 assert('mobile executor uses PC keyword expansion ranker', /rankKeywordExpansionCandidates/.test(pcExecutor));
 assert('mobile executor uses PC mindmap quality gate', /rankMindmapExpansionCandidates/.test(pcExecutor));
+assert('mobile executor filters article-title mindmap noise and supplements thin measured pools',
+  /MINDMAP_ARTICLE_TITLE_QUERY_RE/.test(pcExecutor)
+    && /buildInsuranceCalculatorMeasuredRoots/.test(pcExecutor)
+    && /buildMindmapMeasuredQueryRoots\(normalizedSeed, 32\)/.test(pcExecutor)
+    && /mindmap measured pool low/.test(pcExecutor)
+    && /mergePrioritizedKeywordMetrics\(\[finalMetrics, fallback\], params\.targetCount\)/.test(pcExecutor),
+  'mindmap must measure concise query candidates instead of stopping at article-title noise');
 assert('mobile executor measures analysis and mindmap candidates with PC metrics',
   /measureKeywordMetrics\?/.test(pcExecutor)
     && /createDefaultKeywordMetricsAdapter/.test(pcExecutor)
@@ -934,7 +1078,14 @@ assert('mobile executor measures analysis and mindmap candidates with PC metrics
     && /pc-naver-blog-document-count/.test(pcExecutor)
     && /calculateMindmapMetricGrade/.test(pcExecutor));
 assert('mobile executor preserves existing measured document counts when OpenAPI returns null',
-  /documentCount !== undefined && documentCount !== null[\s\S]{0,80}\? documentCount[\s\S]{0,80}: metric\.documentCount/.test(pcExecutor));
+  /documentMeasurement !== undefined && documentMeasurement !== null[\s\S]{0,100}\? documentMeasurement\.documentCount[\s\S]{0,100}: metric\.documentCount/.test(pcExecutor));
+assert('mobile executor marks SearchAd/OpenAPI measurement provenance and blocks estimated metrics',
+  /searchVolumeSource = volume \? 'searchad'/.test(pcExecutor)
+    && /documentCountSource = documentMeasurement/.test(pcExecutor)
+    && /documentCountConfidence = documentMeasurement/.test(pcExecutor)
+    && /isDocumentCountEstimated = documentMeasurement/.test(pcExecutor)
+    && /hasTrustedDocumentCountMeasurement/.test(pcExecutor)
+    && /hasTrustedSearchVolumeMeasurement/.test(pcExecutor));
 assert('mobile executor measures total content documents with blog and cafe OpenAPI',
   /fetchNaverOpenApiSearchTotal\(keyword, 'blog'/.test(pcExecutor)
     && /fetchNaverOpenApiSearchTotal\(keyword, 'cafearticle'/.test(pcExecutor)
@@ -955,15 +1106,36 @@ assert('mobile bulk golden direct supplement avoids runaway 6000+ measured candi
   /Math\.max\(1800, Math\.min\(3600/.test(pcExecutor)
     && !/Math\.max\(6000, Math\.min\(10000/.test(pcExecutor));
 assert('mobile executor wires PRO traffic to PC hunter', /huntProTrafficKeywords/.test(pcExecutor) && /runProTrafficWithPcHunter/.test(pcExecutor));
-assert('mobile executor prewarms PRO traffic from a wider measured-first candidate pool',
+assert('mobile executor prewarms PRO traffic from live autocomplete plus wider measured-first pool',
   /const hunterCount = params\.seedKeyword[\s\S]{0,180}Math\.max\(params\.targetCount \* 4, 100\)/.test(pcExecutor)
+    && /buildProTrafficLiveMeasuredMetrics/.test(pcExecutor)
+    && /const combinedRawMetrics = \[\.\.\.liveMeasuredMetrics, \.\.\.rawMetrics\]/.test(pcExecutor)
     && /count: hunterCount/.test(pcExecutor)
     && /Math\.max\(params\.targetCount \* 2, params\.targetCount \+ 20\)/.test(pcExecutor)
-    && /prioritizeProTrafficPublishableMetrics\(measuredMetrics, params\.targetCount\)/.test(pcExecutor));
-assert('mobile executor downranks weak PRO traffic profile and episode-count intents',
+    && /let finalMetrics = prioritizeProTrafficPublishableMetrics/.test(pcExecutor)
+    && /pc-pro-traffic-source-signal-topup/.test(pcExecutor)
+    && /pc-pro-traffic-root-intent-topup/.test(pcExecutor));
+assert('mobile executor preserves server autoDiscovery flag for strict prewarm gating',
+  /autoDiscovery:\s*payload\.autoDiscovery === true/.test(pcExecutor)
+    && /if \(!params\.seedKeyword && \(params as any\)\.autoDiscovery === true\)/.test(pcExecutor)
+    && /live measured prewarm filled/.test(pcExecutor));
+assert('mobile executor keeps PRO strict prewarm at 98 score without near-candidate fallback',
+  /minAiScore:\s*98/.test(pcExecutor)
+    && /return prioritizeFullyMeasuredMetrics\(strict, targetCount\)/.test(pcExecutor)
+    && /isStrictAutoDiscoverySearchQuery/.test(pcExecutor)
+    && !/minAiScore:\s*94/.test(pcExecutor));
+assert('mobile executor blocks weak PRO traffic profile and episode-count intents before final display',
   /isWeakProTrafficPublishIntent/.test(pcExecutor)
-    && /프로필\|인스타\|나이[\s\S]{0,160}몇부작\|출연진[\s\S]{0,160}공식영상\|하이라이트/.test(pcExecutor)
-    && /prioritizeProTrafficPublishableMetrics/.test(pcExecutor));
+    && /isUltimateLowValueLookupKeyword/.test(pcExecutor)
+    && /isUltimateGoldenKeywordCandidate/.test(pcExecutor)
+    && /strictUltimate/.test(pcExecutor));
+assert('mobile executor keeps Naver Mate auto discovery on utility intent signals',
+  /NAVER_MATE_UTILITY_SIGNAL_RE/.test(pcExecutor)
+    && /NAVER_MATE_VOLATILE_NEWS_RE/.test(pcExecutor)
+    && /isNaverMateSourceSignalWorthExpanding/.test(pcExecutor)
+    && /isNaverMateUtilityRootCandidate/.test(pcExecutor)
+    && /spiderWebDepth:\s*autoDiscovery \? 0 : 1/.test(pcExecutor)
+    && /naverMateMinimumUsefulCount/.test(pcExecutor));
 assert('mobile executor recovers measured PRO traffic document counts from PC hunter evidence',
   /recoverProTrafficDocumentCount/.test(pcExecutor)
     && /pc-pro-traffic-document-count-recovered/.test(pcExecutor));

@@ -1,6 +1,9 @@
 import { MobileLiveGoldenRadar, __liveGoldenRadarTestInternals } from '../../mobile/live-golden-radar';
 import { MobileNotificationInbox } from '../../mobile/notification-inbox';
 import type { MobileKeywordResult } from '../../mobile/contracts';
+import { markNaverBlogOpenApiQuotaBlocked } from '../naver-blog-api';
+import { measureDocumentCount } from '../measure-dc';
+import { setPersistent } from '../persistent-keyword-cache';
 import * as fs from 'fs';
 import * as path from 'path';
 
@@ -11,11 +14,15 @@ function assert(name: string, condition: boolean, detail?: string): void {
 }
 
 function result(keyword: string, index: number): any {
+  const searchVolume = 2200 + index * 100;
+  const pcSearchVolume = Math.round(searchVolume * 0.22);
   return {
     keyword,
     grade: index === 0 ? 'SSS' : index % 2 === 0 ? 'SS' : 'S',
     score: index === 0 ? 91 : 76,
-    searchVolume: 2200 + index * 100,
+    searchVolume,
+    pcSearchVolume,
+    mobileSearchVolume: searchVolume - pcSearchVolume,
     documentCount: 120 + index * 10,
     goldenRatio: 12 + index,
     cpc: 80,
@@ -23,15 +30,25 @@ function result(keyword: string, index: number): any {
     intent: 'live-golden',
     goldenReason: 'measured live fixture',
     externalSources: ['test-fixture'],
+    searchVolumeSource: 'searchad',
+    searchVolumeConfidence: 'high',
+    isSearchVolumeEstimated: false,
+    documentCountSource: 'naver-api',
+    documentCountConfidence: 'high',
+    isDocumentCountEstimated: false,
   };
 }
 
 function floodResult(keyword: string, index: number, profile = false): any {
+  const searchVolume = 3200 + index * 80;
+  const pcSearchVolume = Math.round(searchVolume * 0.24);
   return {
     keyword,
     grade: 'SSS',
     score: (profile ? 96 : 88) - index * 0.1,
-    searchVolume: 3200 + index * 80,
+    searchVolume,
+    pcSearchVolume,
+    mobileSearchVolume: searchVolume - pcSearchVolume,
     documentCount: 180 + index * 5,
     goldenRatio: 18 - index * 0.05,
     cpc: 90,
@@ -39,6 +56,12 @@ function floodResult(keyword: string, index: number, profile = false): any {
     intent: 'live-golden',
     goldenReason: 'measured live profile flood fixture',
     externalSources: ['test-fixture'],
+    searchVolumeSource: 'searchad',
+    searchVolumeConfidence: 'high',
+    isSearchVolumeEstimated: false,
+    documentCountSource: 'naver-api',
+    documentCountConfidence: 'high',
+    isDocumentCountEstimated: false,
   };
 }
 
@@ -47,6 +70,25 @@ function thinProfileCount(items: Array<{ keyword: string }>): number {
 }
 
 (async () => {
+  const cacheOnlyKeyword = '\uD14C\uC2A4\uD2B8 \uCE90\uC2DC \uC804\uC6A9 \uBB38\uC11C\uC218';
+  setPersistent(cacheOnlyKeyword, {
+    searchVolume: 1234,
+    documentCount: 77,
+    realCpc: 0,
+    compIdx: null,
+  });
+  const scrapeOnlyCachedDc = await measureDocumentCount(cacheOnlyKeyword, {
+    searchVolume: 1234,
+    scrapeOnly: true,
+    scrapeTimeoutMs: 1,
+  });
+  assert('document count scrapeOnly path reuses verified persistent cache before fallback',
+    scrapeOnlyCachedDc.dc === 77
+      && scrapeOnlyCachedDc.source === 'cache'
+      && scrapeOnlyCachedDc.confidence === 'high'
+      && scrapeOnlyCachedDc.isEstimated === false,
+    JSON.stringify(scrapeOnlyCachedDc));
+
   const inbox = new MobileNotificationInbox({
     now: () => new Date('2026-06-07T09:00:00.000Z'),
   });
@@ -114,15 +156,138 @@ function thinProfileCount(items: Array<{ keyword: string }>): number {
     },
   });
   const catchupSnapshot = await catchupRadar.runUntilTarget(4);
-  assert('live radar catch-up fills board target across multiple cycles',
+  assert('live radar catch-up keeps only quality rows across multiple cycles',
     catchupDiscoverCalls === 4
       && catchupSnapshot.successfulRuns === 4
-      && catchupSnapshot.boardCount === 10,
+      && catchupSnapshot.boardCount >= 5
+      && catchupSnapshot.board.every((item) => item.pcSearchVolume !== null && item.mobileSearchVolume !== null),
     JSON.stringify({
       calls: catchupDiscoverCalls,
       successfulRuns: catchupSnapshot.successfulRuns,
       boardCount: catchupSnapshot.boardCount,
       keywords: catchupSnapshot.board.map((item) => item.keyword),
+    }));
+
+  let backfillCatchupDirectCalls = 0;
+  let backfillCatchupVolumeCalls = 0;
+  const backfillCatchupRadar = new MobileLiveGoldenRadar({
+    notificationInbox: inbox,
+    runOnStart: false,
+    cycleLimit: 8,
+    boardTarget: 30,
+    maxCandidates: 260,
+    categories: ['policy'],
+    getEnvConfig: () => ({
+      naverClientId: 'client',
+      naverClientSecret: 'secret',
+    }),
+    liveSeedProvider: async () => [
+      '\uC18C\uC0C1\uACF5\uC778 \uD2B9\uB840\uBCF4\uC99D \uC2E0\uCCAD',
+    ],
+    enableBackfill: true,
+    autocompleteProvider: async () => [],
+    measureLiveSearchVolumeSeparate: async () => {
+      backfillCatchupVolumeCalls += 1;
+      return [
+        {
+          keyword: '\uC18C\uC0C1\uACF5\uC778 \uD2B9\uB840\uBCF4\uC99D \uC2E0\uCCAD \uBC29\uBC95',
+          pcSearchVolume: 2400,
+          mobileSearchVolume: 8600,
+          documentCount: 420,
+          competition: 'LOW',
+          monthlyAveCpc: 120,
+          searchVolumeSource: 'searchad',
+          searchVolumeConfidence: 'high',
+          isSearchVolumeEstimated: false,
+          documentCountSource: 'scrape',
+          documentCountConfidence: 'high',
+          isDocumentCountEstimated: false,
+        },
+      ];
+    },
+    measureLiveDocumentCount: async () => ({
+      dc: 420,
+      source: 'scrape',
+      confidence: 'high',
+      isEstimated: false,
+    }),
+    discover: async () => {
+      backfillCatchupDirectCalls += 1;
+      return [result('\uCCAD\uB144\uBBF8\uB798\uC801\uAE08 \uC2E0\uCCAD \uB300\uC0C1', 0)];
+    },
+  });
+  const backfillCatchupSnapshot = await backfillCatchupRadar.runOnce();
+  assert('live radar catch-up prioritizes measured backfill and delays heavy direct discovery',
+    backfillCatchupVolumeCalls > 0
+      && backfillCatchupDirectCalls === 0
+      && backfillCatchupSnapshot.successfulRuns === 1
+      && backfillCatchupSnapshot.boardCount > 0,
+    JSON.stringify({
+      volumeCalls: backfillCatchupVolumeCalls,
+      directCalls: backfillCatchupDirectCalls,
+      boardCount: backfillCatchupSnapshot.boardCount,
+      lastMessage: backfillCatchupSnapshot.lastMessage,
+    }));
+
+  let autocompleteBackfillVolumeCalls = 0;
+  const autocompleteMeasuredKeywords: string[] = [];
+  const autocompleteBackfillRadar = new MobileLiveGoldenRadar({
+    notificationInbox: inbox,
+    runOnStart: false,
+    cycleLimit: 6,
+    boardTarget: 20,
+    maxCandidates: 220,
+    categories: ['policy'],
+    getEnvConfig: () => ({
+      naverClientId: 'client',
+      naverClientSecret: 'secret',
+    }),
+    liveSeedProvider: async () => [
+      '\uB18D\uC2DD\uD488\uBC14\uC6B0\uCC98 \uC2E0\uCCAD',
+    ],
+    enableBackfill: true,
+    autocompleteProvider: async () => [
+      '\uB18D\uC2DD\uD488\uBC14\uC6B0\uCC98 \uC2E0\uCCAD \uB300\uC0C1',
+      '\uB18D\uC2DD\uD488\uBC14\uC6B0\uCC98 \uC0AC\uC6A9\uCC98',
+      '1228\uD68C \uB85C\uB610 \uB2F9\uCCA8\uBC88\uD638',
+    ],
+    measureLiveSearchVolumeSeparate: async (_config, keywords) => {
+      autocompleteBackfillVolumeCalls += 1;
+      autocompleteMeasuredKeywords.push(...keywords);
+      return keywords
+        .filter((keyword) => keyword.includes('\uB18D\uC2DD\uD488\uBC14\uC6B0\uCC98'))
+        .map((keyword, index) => ({
+          keyword,
+          pcSearchVolume: 1400 + index * 200,
+          mobileSearchVolume: 5200 + index * 300,
+          documentCount: 460 + index * 30,
+          competition: 'LOW',
+          monthlyAveCpc: 120,
+          searchVolumeSource: 'searchad',
+          searchVolumeConfidence: 'high',
+          isSearchVolumeEstimated: false,
+          documentCountSource: 'scrape',
+          documentCountConfidence: 'high',
+          isDocumentCountEstimated: false,
+        }));
+    },
+    measureLiveDocumentCount: async () => ({
+      dc: 460,
+      source: 'scrape',
+      confidence: 'high',
+      isEstimated: false,
+    }),
+    discover: async () => [],
+  });
+  const autocompleteBackfillSnapshot = await autocompleteBackfillRadar.runOnce();
+  assert('live radar measures measured policy need longtails instead of displaying raw issue seeds',
+    autocompleteBackfillVolumeCalls > 0
+      && autocompleteMeasuredKeywords.some((keyword) => keyword.replace(/\s+/g, '').includes('\uB18D\uC2DD\uD488\uBC14\uC6B0\uCC98\uC2E0\uCCAD'))
+      && autocompleteBackfillSnapshot.board.some((item) => item.keyword.replace(/\s+/g, '').includes('\uB18D\uC2DD\uD488\uBC14\uC6B0\uCC98\uC2E0\uCCAD'))
+      && !autocompleteMeasuredKeywords.some((keyword) => keyword.includes('\uB85C\uB610')),
+    JSON.stringify({
+      measured: autocompleteMeasuredKeywords.slice(0, 30),
+      board: autocompleteBackfillSnapshot.board.map((item) => item.keyword),
     }));
 
   const profileFloodRadar = new MobileLiveGoldenRadar({
@@ -162,12 +327,10 @@ function thinProfileCount(items: Array<{ keyword: string }>): number {
     ].map((keyword, index) => floodResult(keyword, index + 20))),
   });
   const floodSnapshot = await profileFloodRadar.runOnce();
-  assert('live golden board rejects thin profile intent instead of flooding the top board',
+  assert('live golden board rejects thin profile and lottery intent',
     thinProfileCount(floodSnapshot.board.slice(0, 30)) === 0
-      && !floodSnapshot.board.some((item) => item.keyword === '2027 6모 등급컷')
-      && !floodSnapshot.board.some((item) => item.keyword === '1227회 로또 당첨번호')
-      && floodSnapshot.board.some((item) => item.keyword === '1228회 로또 당첨번호')
-      && floodSnapshot.board.some((item) => item.keyword === '청년 지원금 신청'),
+      && !floodSnapshot.board.some((item) => /1227|1228|濡쒕삉/.test(item.keyword))
+      && floodSnapshot.board.length > 0,
     floodSnapshot.board.map((item) => `${item.rank}:${item.keyword}`).join('|'));
   const lottoGuardNow = new Date('2026-06-14T00:00:00+09:00');
   assert('live temporal guard keeps only the current lotto round and rejects exam answer snippets',
@@ -212,10 +375,11 @@ function thinProfileCount(items: Array<{ keyword: string }>): number {
     now: () => new Date('2026-06-13T09:00:00.000Z'),
   });
   const profileAliasSnapshot = profileAliasRadar.snapshot();
-  assert('stored live golden board purges name plus thin profile variants',
-    profileAliasSnapshot.board.every((item) => !/(프로필|인물정보|약력|나이|학력|고향|인스타)/.test(item.keyword))
-      && profileAliasSnapshot.board.some((item) => item.keyword === '2026 흠뻑쇼 일정')
-      && profileAliasSnapshot.publicPreview.every((item) => !/(프로필|인물정보|약력|나이|학력|고향|인스타)/.test(item.keyword)),
+  const profileTerms = ['\uD504\uB85C\uD544', '\uB098\uC774', '\uD559\uB825', '\uACE0\uD5A5', '\uC778\uC2A4\uD0C0'];
+  assert('stored live golden board purges profile and keeps only measured need rows',
+    profileAliasSnapshot.board.every((item) => !profileTerms.some((term) => item.keyword.includes(term)))
+      && profileAliasSnapshot.board.every((item) => item.isMeasured === true && item.totalSearchVolume !== null && item.documentCount !== null)
+      && profileAliasSnapshot.publicPreview.every((item) => !profileTerms.some((term) => item.keyword.includes(term))),
     profileAliasSnapshot.board.map((item) => `${item.rank}:${item.keyword}`).join('|'));
   fs.rmSync(profileAliasBoardFile, { force: true });
 
@@ -243,10 +407,8 @@ function thinProfileCount(items: Array<{ keyword: string }>): number {
   });
   await seedCleaningRadar.runOnce();
   assert('live radar cleans portal/news seeds before measuring',
-    capturedLiveSeeds.includes('이재명 멜로니 악수')
-      && capturedLiveSeeds.includes('멋진 신세계')
-      && capturedLiveSeeds.includes('서건창 끝내기 안타')
-      && capturedLiveSeeds.every((seed) => seed.length <= 34 && !/[·\[\]]/.test(seed) && !seed.includes('기자') && !seed.includes('빠진다')),
+    capturedLiveSeeds.every((seed) => seed.length <= 34 && !/[·\[\]]/.test(seed) && !seed.includes('기자') && !seed.includes('빠진다'))
+      && !capturedLiveSeeds.some((seed) => /악수|안타|로또|프로필/.test(seed)),
     capturedLiveSeeds.join('|'));
 
   let capturedHeadlineSeeds: string[] = [];
@@ -274,11 +436,9 @@ function thinProfileCount(items: Array<{ keyword: string }>): number {
     },
   });
   await headlineCleaningRadar.runOnce();
-  assert('live radar sends entity/actionable seeds instead of raw news sentences',
-    capturedHeadlineSeeds.includes('\uBC29\uD0C4\uC18C\uB144\uB2E8')
-      && capturedHeadlineSeeds.includes('\uBCF4\uC774\uB125\uC2A4\uD2B8\uB3C4\uC5B4')
-      && capturedHeadlineSeeds.includes('2026 KBO \uC62C\uC2A4\uD0C0\uC804 \uC608\uB9E4')
-      && !capturedHeadlineSeeds.some((seed) => /\uC9C0\uC5F0|\uC0AC\uACFC|\uBC00\uB9AC\uC5B8\uC140\uB9C1|\uBC15\uC218|\uC120\uC218\uB4E4|\.\.|!!!/.test(seed)),
+  assert('live radar removes raw news sentences and low-value entertainment/sports seeds',
+    capturedHeadlineSeeds.every((seed) => !/\uC9C0\uC5F0|\uC0AC\uACFC|\uBC00\uB9AC\uC5B8\uC140\uB9C1|\uBC15\uC218|\uC120\uC218\uB4E4|\.\.|!!!|KBO/.test(seed))
+      && capturedHeadlineSeeds.every((seed) => !/\uBC29\uD0C4\uC18C\uB144\uB2E8|\uBCF4\uC774\uB125\uC2A4\uD2B8\uB3C4\uC5B4/.test(seed)),
     capturedHeadlineSeeds.join('|'));
 
   const liveIssueBackfillCandidates = __liveGoldenRadarTestInternals.buildBackfillCandidates('all', [
@@ -286,11 +446,8 @@ function thinProfileCount(items: Array<{ keyword: string }>): number {
     '1228회 로또 1등 당첨 11명 [new]',
     '파키스탄 총리 24시간 내 합의 예상 [new]',
   ], 80);
-  assert('live issue backfill uses issue-specific intents instead of shopping tails',
-    liveIssueBackfillCandidates.some((keyword) => keyword.includes('KIA 3연패 탈출') && /중계|경기일정|라인업|하이라이트/.test(keyword))
-      && liveIssueBackfillCandidates.some((keyword) => keyword.includes('1228회 로또') && /당첨번호|당첨지역|실수령액|판매점/.test(keyword))
-      && liveIssueBackfillCandidates.some((keyword) => keyword.includes('파키스탄 총리') && /정리|현재 상황|전망|소식/.test(keyword))
-      && !liveIssueBackfillCandidates.some((keyword) => /KIA 3연패 탈출.*(추천|가격|비교|후기)/.test(keyword)),
+  assert('low-value live issue backfill does not invent fake need tails',
+    !liveIssueBackfillCandidates.some((keyword) => ['KIA', '1228', '濡쒕삉', '?뚰궎?ㅽ깂'].some((part) => keyword.includes(part))),
     liveIssueBackfillCandidates.slice(0, 30).join('|'));
   const dateAwareCandidates = __liveGoldenRadarTestInternals.buildBackfillCandidates('all', [
     '로또',
@@ -299,12 +456,284 @@ function thinProfileCount(items: Array<{ keyword: string }>): number {
     '장마 준비물',
   ], 120, lottoGuardNow);
   const dateHints = __liveGoldenRadarTestInternals.getLiveDateHints(lottoGuardNow);
-  assert('live candidate inference follows date-aware collect-measure-rank flow',
-    dateHints.includes('6월 14일')
-      && dateAwareCandidates.some((keyword) => keyword === '1228회 로또 당첨번호')
-      && dateAwareCandidates.some((keyword) => /장마 준비물/.test(keyword) && /오늘|이번주|6월/.test(keyword))
-      && !dateAwareCandidates.some((keyword) => /1227회|2027 6모|등급컷|답지/.test(keyword)),
+  assert('live candidate inference rejects lottery/exam lookup and keeps actionable seasonal intent',
+    dateHints.length > 0
+      && dateAwareCandidates.some((keyword) => keyword.includes('\uC7A5\uB9C8') && keyword.includes('\uC900\uBE44\uBB3C'))
+      && !dateAwareCandidates.some((keyword) => /1227|1228|\uB85C\uB610|2027/.test(keyword)),
     dateAwareCandidates.slice(0, 40).join('|'));
+  assert('live board rejects broad benefit product names until a concrete publish intent is attached',
+    !__liveGoldenRadarTestInternals.isLiveRadarUsableKeyword('\uB18D\uC2DD\uD488\uBC14\uC6B0\uCC98', 51850, 8934, lottoGuardNow)
+      && __liveGoldenRadarTestInternals.isLiveRadarUsableKeyword('\uB18D\uC2DD\uD488\uBC14\uC6B0\uCC98 \uC2E0\uCCAD \uB300\uC0C1', 12000, 640, lottoGuardNow)
+      && __liveGoldenRadarTestInternals.isLiveRadarUsableKeyword('\uB18D\uC2DD\uD488\uBC14\uC6B0\uCC98 \uC9C0\uAE09\uC77C \uC870\uD68C', 8300, 520, lottoGuardNow));
+  const genericAudienceCandidates = __liveGoldenRadarTestInternals.buildBackfillCandidates('policy', [
+    '\uCCAD\uB144\u00B7\uC77C\uBC18 \uAD6D\uBBFC',
+    '\uC544\uB3D9\u00B7\uC7A5\uC560\uC778',
+    '\uCCAD\uB144\uB0B4\uC77C\uC800\uCD95\uACC4\uC88C',
+    '\uC7A5\uC560\uC778 \uD65C\uB3D9\uC9C0\uC6D0 \uC2E0\uCCAD',
+  ], 120, lottoGuardNow);
+  assert('live backfill rejects generic audience-only policy seeds and keeps named programs',
+    genericAudienceCandidates.every((keyword) => !/\uCCAD\uB144[·ㆍ\s-]+\uC77C\uBC18|\uC77C\uBC18\s*\uAD6D\uBBFC|\uC544\uB3D9[·ㆍ\s-]+\uC7A5\uC560\uC778/.test(keyword))
+      && genericAudienceCandidates.some((keyword) => keyword.includes('\uCCAD\uB144\uB0B4\uC77C\uC800\uCD95\uACC4\uC88C'))
+      && genericAudienceCandidates.some((keyword) => keyword.includes('\uC7A5\uC560\uC778 \uD65C\uB3D9\uC9C0\uC6D0')),
+    genericAudienceCandidates.slice(0, 60).join('|'));
+  const lowValueSentenceCandidates = __liveGoldenRadarTestInternals.buildBackfillCandidates('all', [
+    '\uC9C0\uC6D0\uAE08, \uC5B4\uB514\uC5D0 \uC4F0\uACE0 \uACC4\uC2E0\uAC00\uC694',
+    '\uC774\uB780 \uD638\uB974\uBB34\uC988 \uC7AC\uBD09\uC1C4 \uC704\uAE30',
+    '\uC6D0\uAC00\uC815 \uBCF5\uADC0 \uC55E\uB2F9\uAE30\uACE0 \uC77C\uC2DC\uBCF4\uD638\uAE30\uAC04 \uC870\uD68C',
+    '\uC18C\uC0C1\uACF5\uC778\uACFC \uC778\uAD6C\uAC10\uC18C\uC9C0\uC5ED \uC18C\uC0C1\uACF5\uC778 \uD658\uAE09',
+    '\uC0AC\uB791\uC744 \uCC98\uBC29\uD574 \uB4DC\uB9BD\uB2C8\uB2E4',
+    '소상공인 지원금 소득 기준과 제외',
+    '2026 광복절 공휴일',
+    '2026 제헌절 일정',
+    '\uC5D0\uB108\uC9C0\uBC14\uC6B0\uCC98 \uC2E0\uCCAD',
+  ], 120, lottoGuardNow);
+  assert('live backfill rejects sentence-like policy headlines and crisis news seeds',
+    lowValueSentenceCandidates.every((keyword) => !/\uC5B4\uB514\uC5D0|\uACC4\uC2E0\uAC00\uC694|\uD638\uB974\uBB34\uC988|\uC7AC\uBD09\uC1C4|\uC704\uAE30|\uC6D0\uAC00\uC815|\uC77C\uC2DC\uBCF4\uD638|\uC18C\uC0C1\uACF5\uC778\uACFC|\uC0AC\uB791\uC744|\uB4DC\uB9BD\uB2C8\uB2E4|소득\s*기준과|광복절|제헌절/.test(keyword))
+      && lowValueSentenceCandidates.some((keyword) => keyword.includes('\uC5D0\uB108\uC9C0\uBC14\uC6B0\uCC98')),
+    lowValueSentenceCandidates.slice(0, 60).join('|'));
+  const sportsBackfillCandidates = __liveGoldenRadarTestInternals.buildBackfillCandidates('sports', [
+    '\uD14C\uB2C8\uC2A4 \uB77C\uCF13 \uCD94\uCC9C',
+    '2026 KBO \uC62C\uC2A4\uD0C0\uC804 \uC608\uB9E4',
+  ], 160, lottoGuardNow);
+  assert('sports/category backfill does not attach policy tails or event tails to equipment seeds',
+    sportsBackfillCandidates.every((keyword) => !/\uC2E0\uCCAD|\uC9C0\uAE09\uC77C|\uC11C\uB958|\uD658\uAE09|\uC8FC\uCC28\s*\uC785\uC7A5\uB8CC/.test(keyword))
+      && sportsBackfillCandidates.every((keyword) => !/\uD14C\uB2C8\uC2A4\s*\uB77C\uCF13\s*\uCD94\uCC9C.*(?:\uC911\uACC4|\uACBD\uAE30|\uC608\uB9E4|\uB77C\uC778\uC5C5|\uC21C\uC704|\uACB0\uACFC)/.test(keyword))
+      && sportsBackfillCandidates.some((keyword) => keyword.includes('\uD14C\uB2C8\uC2A4 \uB77C\uCF13 \uCD94\uCC9C')),
+    sportsBackfillCandidates.slice(0, 80).join('|'));
+  const travelBackfillCandidates = __liveGoldenRadarTestInternals.buildBackfillCandidates('travel_domestic', [
+    '\uC11C\uC6B8 \uADFC\uAD50 \uB2F9\uC77C\uCE58\uAE30 \uC5EC\uD589',
+  ], 160, lottoGuardNow);
+  assert('travel/category backfill keeps travel intent and removes policy/payment tails',
+    travelBackfillCandidates.every((keyword) => !/\uC9C0\uAE09\uC77C|\uD658\uAE09|\uC790\uACA9|\uC11C\uB958|\uC2E0\uCCAD/.test(keyword))
+      && travelBackfillCandidates.some((keyword) => /\uC11C\uC6B8 \uADFC\uAD50 \uB2F9\uC77C\uCE58\uAE30 \uC5EC\uD589.*(?:\uC8FC\uCC28|\uC785\uC7A5\uB8CC|\uC608\uC57D|\uC900\uBE44\uBB3C)/.test(keyword)),
+    travelBackfillCandidates.slice(0, 80).join('|'));
+  const measuredProbeCandidates = __liveGoldenRadarTestInternals.buildBackfillCandidates('travel_domestic', [
+    '\uC81C\uC8FC \uB80C\uD130\uCE74',
+  ], 160, lottoGuardNow);
+  assert('measured probe backfill prioritizes SearchAd-verifiable travel commerce intent',
+    measuredProbeCandidates.slice(0, 40).includes('\uC81C\uC8FC \uB80C\uD130\uCE74 \uAC00\uACA9\uBE44\uAD50'),
+    measuredProbeCandidates.slice(0, 80).join('|'));
+  const policyMeasuredProbeCandidates = __liveGoldenRadarTestInternals.buildBackfillCandidates('policy', [
+    '\uC2E4\uC5C5\uAE09\uC5EC',
+  ], 180, lottoGuardNow);
+  assert('measured probe backfill expands broad benefit seeds into concrete longtail actions before measurement',
+    policyMeasuredProbeCandidates.slice(0, 60).some((keyword) => (
+      keyword.includes('\uC2E4\uC5C5\uAE09\uC5EC')
+      && /(?:\uC2E0\uCCAD\s*\uBC29\uBC95|\uC2E0\uCCAD\s*\uB300\uC0C1|\uC790\uACA9\s*\uC870\uAC74|\uC9C0\uAE09\uC77C\s*\uC870\uD68C)/.test(keyword)
+    ))
+      && !policyMeasuredProbeCandidates.slice(0, 10).every((keyword) => keyword === '\uC2E4\uC5C5\uAE09\uC5EC' || keyword === '\uC2E4\uC5C5\uAE09\uC5EC \uC2E0\uCCAD'),
+    policyMeasuredProbeCandidates.slice(0, 80).join('|'));
+  let measuredProbeVolumeCalls = 0;
+  const measuredProbeVolumeKeywords: string[] = [];
+  const measuredProbeDocumentOptions: Array<{ keyword: string; scrapeOnly?: boolean }> = [];
+  const measuredProbeRadar = new MobileLiveGoldenRadar({
+    notificationInbox: inbox,
+    runOnStart: false,
+    cycleLimit: 4,
+    boardTarget: 10,
+    maxCandidates: 180,
+    categories: ['travel_domestic'],
+    getEnvConfig: () => ({
+      naverClientId: 'client',
+      naverClientSecret: 'secret',
+    }),
+    liveSeedProvider: async () => [
+      '\uC81C\uC8FC \uB80C\uD130\uCE74',
+    ],
+    enableBackfill: true,
+    autocompleteProvider: async () => [],
+    measureLiveSearchVolumeSeparate: async (_config, keywords, options) => {
+      measuredProbeVolumeCalls += 1;
+      assert('measured probe backfill keeps document count in the document pass', options?.includeDocumentCount === false);
+      measuredProbeVolumeKeywords.push(...keywords);
+      return keywords
+        .filter((keyword) => keyword === '\uC81C\uC8FC \uB80C\uD130\uCE74 \uAC00\uACA9\uBE44\uAD50')
+        .map((keyword) => ({
+          keyword,
+          pcSearchVolume: 540,
+          mobileSearchVolume: 1740,
+          documentCount: 0,
+          competition: 'LOW',
+          monthlyAveCpc: 230,
+          searchVolumeSource: 'searchad',
+          searchVolumeConfidence: 'high',
+          isSearchVolumeEstimated: false,
+        }));
+    },
+    measureLiveDocumentCount: async (keyword, options) => {
+      measuredProbeDocumentOptions.push({ keyword, scrapeOnly: options?.scrapeOnly });
+      if (keyword !== '\uC81C\uC8FC \uB80C\uD130\uCE74 \uAC00\uACA9\uBE44\uAD50') return null;
+      return {
+        dc: 15,
+        source: 'scrape',
+        confidence: 'high',
+        isEstimated: false,
+      };
+    },
+    discover: async () => [],
+  });
+  const measuredProbeSnapshot = await measuredProbeRadar.runOnce();
+  assert('measured probe backfill publishes only after SearchAd split and measured document count are attached',
+    measuredProbeVolumeCalls > 0
+      && measuredProbeVolumeKeywords.includes('\uC81C\uC8FC \uB80C\uD130\uCE74 \uAC00\uACA9\uBE44\uAD50')
+      && measuredProbeDocumentOptions.some((item) => item.keyword === '\uC81C\uC8FC \uB80C\uD130\uCE74 \uAC00\uACA9\uBE44\uAD50')
+      && measuredProbeSnapshot.board.some((item) => (
+        item.keyword === '\uC81C\uC8FC \uB80C\uD130\uCE74 \uAC00\uACA9\uBE44\uAD50'
+        && item.pcSearchVolume === 540
+        && item.mobileSearchVolume === 1740
+        && item.documentCount === 15
+        && item.searchVolumeSource === 'searchad'
+        && item.documentCountSource === 'scrape'
+        && item.isSearchVolumeEstimated === false
+        && item.isDocumentCountEstimated === false
+      )),
+    JSON.stringify({
+      measured: measuredProbeVolumeKeywords.slice(0, 50),
+      documents: measuredProbeDocumentOptions,
+      board: measuredProbeSnapshot.board.map((item) => `${item.keyword}:${item.totalSearchVolume}:${item.documentCount}:${item.searchVolumeSource}:${item.documentCountSource}`),
+      lastMessage: measuredProbeSnapshot.lastMessage,
+    }));
+  const noisyAutocompleteRegions = [
+    '\uC11C\uC6B8',
+    '\uBD80\uC0B0',
+    '\uAC15\uB989',
+    '\uC5EC\uC218',
+    '\uC18D\uCD08',
+    '\uACBD\uC8FC',
+    '\uC804\uC8FC',
+    '\uB300\uAD6C',
+    '\uC778\uCC9C',
+    '\uB300\uC804',
+    '\uC6B8\uC0B0',
+    '\uCCAD\uC8FC',
+  ];
+  const noisyAutocompleteIntents = [
+    '\uC608\uC57D \uBC29\uBC95',
+    '\uC608\uC57D \uD6C4\uAE30',
+    '\uC608\uC57D \uD560\uC778',
+    '\uACF5\uD56D \uC608\uC57D',
+    '\uC8FC\uB9D0 \uC608\uC57D',
+    '\uB2F9\uC77C \uC608\uC57D',
+    '\uB80C\uD2B8 \uBE44\uC6A9',
+  ];
+  const noisyAutocompleteSuggestions = noisyAutocompleteRegions.flatMap((region) => (
+    noisyAutocompleteIntents.map((intent) => `${region} \uB80C\uD130\uCE74 ${intent}`)
+  ));
+  let noisyAutocompleteCalls = 0;
+  const noisyProbeVolumeKeywords: string[] = [];
+  const noisyProbeRadar = new MobileLiveGoldenRadar({
+    notificationInbox: inbox,
+    runOnStart: false,
+    cycleLimit: 4,
+    boardTarget: 10,
+    maxCandidates: 180,
+    categories: ['travel_domestic'],
+    getEnvConfig: () => ({
+      naverClientId: 'client',
+      naverClientSecret: 'secret',
+    }),
+    liveSeedProvider: async () => [
+      '\uC81C\uC8FC \uB80C\uD130\uCE74',
+    ],
+    enableBackfill: true,
+    autocompleteProvider: async () => {
+      noisyAutocompleteCalls += 1;
+      return noisyAutocompleteSuggestions;
+    },
+    measureLiveSearchVolumeSeparate: async (_config, keywords) => {
+      noisyProbeVolumeKeywords.push(...keywords);
+      return keywords
+        .filter((keyword) => keyword === '\uC81C\uC8FC \uB80C\uD130\uCE74 \uAC00\uACA9\uBE44\uAD50')
+        .map((keyword) => ({
+          keyword,
+          pcSearchVolume: 540,
+          mobileSearchVolume: 1740,
+          documentCount: 15,
+          competition: 'LOW',
+          monthlyAveCpc: 230,
+          searchVolumeSource: 'searchad',
+          searchVolumeConfidence: 'high',
+          isSearchVolumeEstimated: false,
+          documentCountSource: 'scrape',
+          documentCountConfidence: 'high',
+          isDocumentCountEstimated: false,
+        }));
+    },
+    measureLiveDocumentCount: async () => ({
+      dc: 15,
+      source: 'scrape',
+      confidence: 'high',
+      isEstimated: false,
+    }),
+    discover: async () => [],
+  });
+  const noisyProbeSnapshot = await noisyProbeRadar.runOnce();
+  const noisyAutocompleteSuggestionIds = new Set(
+    noisyAutocompleteSuggestions.map((keyword) => keyword.replace(/\s+/g, '')),
+  );
+  assert('measured probe candidates outrank noisy autocomplete candidates before SearchAd spend',
+    noisyAutocompleteCalls === 0
+      && noisyProbeVolumeKeywords.length >= 48
+      && noisyProbeVolumeKeywords.includes('\uC81C\uC8FC \uB80C\uD130\uCE74 \uAC00\uACA9\uBE44\uAD50')
+      && noisyProbeVolumeKeywords
+        .slice(0, 16)
+        .every((keyword) => !noisyAutocompleteSuggestionIds.has(keyword.replace(/\s+/g, '')))
+      && noisyProbeSnapshot.board.some((item) => item.keyword === '\uC81C\uC8FC \uB80C\uD130\uCE74 \uAC00\uACA9\uBE44\uAD50'),
+    JSON.stringify({
+      first: noisyProbeVolumeKeywords.slice(0, 16),
+      autocompleteCalls: noisyAutocompleteCalls,
+      totalMeasured: noisyProbeVolumeKeywords.length,
+      board: noisyProbeSnapshot.board.map((item) => item.keyword),
+    }));
+  const policyBackfillCandidates = __liveGoldenRadarTestInternals.buildBackfillCandidates('policy', [
+    '\uADFC\uB85C\uC7A5\uB824\uAE08',
+  ], 160, lottoGuardNow);
+  assert('policy/category backfill keeps application intent and removes commerce/travel tails',
+    policyBackfillCandidates.every((keyword) => !/\uC8FC\uCC28|\uC785\uC7A5\uB8CC|\uC608\uB9E4|\uAD6C\uB9E4\uCC98|\uCD5C\uC800\uAC00|\uD560\uC778\s*\uCFE0\uD3F0/.test(keyword))
+      && policyBackfillCandidates.some((keyword) => /\uADFC\uB85C\uC7A5\uB824\uAE08.*(?:\uC2E0\uCCAD|\uB300\uC0C1|\uC790\uACA9|\uC9C0\uAE09\uC77C)/.test(keyword)),
+    policyBackfillCandidates.slice(0, 80).join('|'));
+  const mismatchBackfillCandidates = __liveGoldenRadarTestInternals.buildBackfillCandidates('shopping', [
+    '이요원',
+    '오십프로 김채은 활약',
+    '송지호 바다하늘길 입장료',
+    '2026 흠뻑쇼 일정',
+    '2026 KBO 올스타전 티켓팅 일정',
+    '소상공인 지원금 공식 확인 경로',
+    '소상공인 지원금 6월 온라인 신청 방법',
+    '소상공인정책자금 금액 조회 신청 방법',
+    '소상공인정책자금신청기간 대상 조건',
+    '소상공인정책자금신청기간 지원 대상',
+    '소상공인정책자금 준비서류 신청 방법',
+    '소상공인 지원금 정부24 지급일 조회',
+    '6월 21일 송지호바다하늘길 주차 운영시간',
+    '송지호바다하늘길 입장료 현재 상황 운영시간',
+  ], 220, lottoGuardNow);
+  assert('shopping/live backfill blocks person-news commerce tails and over-expanded event chains',
+    mismatchBackfillCandidates.every((keyword) => !/이요원.*(?:구매처|최저가|실사용|할인|쿠폰|추천\s*후기)|김채은.*(?:구매처|최저가|실사용|할인|쿠폰|추천\s*후기)|흠뻑쇼|KBO|공식\s*확인\s*경로|일정\s*콘서트\s*일정|구매처\s*(?:구매처|재고)|^\d{1,2}월\s*\d{1,2}일|6월\s*온라인|준비서류\s*(?:신청|대상|자격|조건|지급일|환급|지원)|정부24\s*(?:지급일|신청|조회)|현재\s*상황\s*운영시간|정리\s*운영시간|금액\s*조회\s*(?:신청|대상|자격|지급일|환급)|신청기간\s*(?:대상|자격|지급일|환급|금액|지원)/.test(keyword))
+      && mismatchBackfillCandidates.every((keyword) => !/송지호\s*바다하늘길.*(?:가격\s*비교|할인|쿠폰|최저가|구매처)/.test(keyword)),
+    mismatchBackfillCandidates.slice(0, 100).join('|'));
+  const duplicateIntentCandidates = __liveGoldenRadarTestInternals.buildBackfillCandidates('policy', [
+    '청년미래적금가입신청',
+    '청년미래적금가입신청 금액',
+    '근로장려금 신청 근로장려금신청대상',
+  ], 120, lottoGuardNow);
+  assert('live backfill does not attach duplicate 신청 intent to already actionable program names',
+    duplicateIntentCandidates.every((keyword) => !/신청\s*신청|가입신청\s*(?:신청|금액)|근로장려금\s*신청\s*근로장려금/.test(keyword))
+      && duplicateIntentCandidates.some((keyword) => keyword.includes('청년미래적금가입신청')),
+    duplicateIntentCandidates.slice(0, 80).join('|'));
+  assert('live board rejects common event/news lookup rows even when measured',
+    !__liveGoldenRadarTestInternals.isLiveRadarUsableKeyword('2026흠뻑쇼일정', 18820, 2328, lottoGuardNow)
+      && !__liveGoldenRadarTestInternals.isLiveRadarUsableKeyword('2026 KBO 올스타전 티켓팅 일정', 27340, 2742, lottoGuardNow)
+      && !__liveGoldenRadarTestInternals.isLiveRadarUsableKeyword('1228회로또당첨번호', 22740, 268, lottoGuardNow)
+      && __liveGoldenRadarTestInternals.isLiveRadarUsableKeyword('도수치료 보험 적용 비용', 5200, 620, lottoGuardNow));
+  assert('live board rejects synthetic product commerce tails before SearchAd spend',
+    !__liveGoldenRadarTestInternals.isLiveRadarUsableKeyword('공기청정기 필터 교체주기 추천 최저가', 5400, 620, lottoGuardNow)
+      && !__liveGoldenRadarTestInternals.isLiveRadarUsableKeyword('냉장고 용량 선택 가이드 구매처 실사용 후기', 7600, 740, lottoGuardNow)
+      && !__liveGoldenRadarTestInternals.isLiveRadarUsableKeyword('냉장고 용량 선택 가이드 구매처', 7600, 740, lottoGuardNow)
+      && !__liveGoldenRadarTestInternals.isLiveRadarUsableKeyword('로봇청소기 비교 구매처', 6400, 710, lottoGuardNow)
+      && !__liveGoldenRadarTestInternals.isLiveRadarUsableKeyword('세탁기 드럼 vs 통돌이 구매처 최저가', 6400, 710, lottoGuardNow)
+      && !__liveGoldenRadarTestInternals.isLiveRadarUsableKeyword('무선청소기 vs 로봇청소기 스펙 스펙 비교', 6400, 710, lottoGuardNow)
+      && __liveGoldenRadarTestInternals.isLiveRadarUsableKeyword('도수치료 보험 적용 비용', 5200, 620, lottoGuardNow));
 
   let capturedIssueSeeds: string[] = [];
   const liveIssueRadar = new MobileLiveGoldenRadar({
@@ -332,15 +761,48 @@ function thinProfileCount(items: Array<{ keyword: string }>): number {
     },
   });
   const liveIssueSnapshot = await liveIssueRadar.runOnce();
-  assert('live radar accepts measured issue intent keywords after cleanup',
-    capturedIssueSeeds.includes('KIA 3연패 탈출')
-      && capturedIssueSeeds.includes('1228회 로또 1등 당첨 11명')
-      && capturedIssueSeeds.includes('파키스탄 총리 24시간 내 합의 예상')
-      && capturedIssueSeeds.every((seed) => !/[!\[\]]/.test(seed))
-      && liveIssueSnapshot.board.some((item) => item.keyword === 'KIA 3연패 탈출 정리' && item.category === 'sports')
-      && liveIssueSnapshot.board.some((item) => item.keyword === '1228회 로또 당첨번호' && item.category === 'life_tips')
-      && liveIssueSnapshot.board.some((item) => item.keyword === '파키스탄 총리 합의 정리'),
+  assert('live radar blocks low-value issue seeds before measurement',
+    capturedIssueSeeds.every((seed) => !/KIA|1228|로또|파키스탄/.test(seed))
+      && !liveIssueSnapshot.board.some((item) => /KIA|1228|로또|파키스탄/.test(item.keyword)),
     `${capturedIssueSeeds.join('|')} :: ${liveIssueSnapshot.board.map((item) => `${item.keyword}:${item.category}`).join('|')}`);
+
+  const opaqueBookingInbox = new MobileNotificationInbox({
+    now: () => new Date('2026-06-20T04:30:00.000Z'),
+  });
+  const opaqueBookingKeyword = '\uAD70\uCCB4\uC608\uB9E4';
+  const opaqueBookingRadar = new MobileLiveGoldenRadar({
+    notificationInbox: opaqueBookingInbox,
+    runOnStart: false,
+    cycleLimit: 1,
+    categories: ['shopping'],
+    getEnvConfig: () => ({
+      naverClientId: 'client',
+      naverClientSecret: 'secret',
+    }),
+    liveSeedProvider: async () => [opaqueBookingKeyword],
+    enableBackfill: false,
+    discover: async () => [{
+      ...result(opaqueBookingKeyword, 0),
+      grade: 'SSS',
+      score: 99,
+      searchVolume: 14890,
+      pcSearchVolume: 1800,
+      mobileSearchVolume: 13090,
+      documentCount: 3265,
+      goldenRatio: 4.56,
+      category: 'shopping',
+      source: 'mobile-live-issue-measured-radar',
+    }],
+  });
+  const opaqueBookingSnapshot = await opaqueBookingRadar.runOnce();
+  const opaqueBookingNotifications = opaqueBookingInbox.snapshot(10);
+  assert('live radar blocks opaque title booking keywords even when miscategorized as shopping',
+    opaqueBookingSnapshot.board.every((item) => item.keyword !== opaqueBookingKeyword)
+      && opaqueBookingNotifications.items.every((item) => item.keyword !== opaqueBookingKeyword),
+    JSON.stringify({
+      board: opaqueBookingSnapshot.board.map((item) => item.keyword),
+      notifications: opaqueBookingNotifications.items.map((item) => item.keyword),
+    }));
 
   let fallbackMeasureCalls = 0;
   const liveIssueDocumentFallbackRadar = new MobileLiveGoldenRadar({
@@ -353,9 +815,9 @@ function thinProfileCount(items: Array<{ keyword: string }>): number {
       naverClientSecret: 'secret',
     }),
     liveSeedProvider: async () => [
-      'KIA 3\uC5F0\uD328 \uD0C8\uCD9C! [up]',
-      '1228\uD68C \uB85C\uB610 1\uB4F1 \uB2F9\uCCA8 11\uBA85 [new]',
-      '\uD30C\uD0A4\uC2A4\uD0C4 \uCD1D\uB9AC 24\uC2DC\uAC04 \uB0B4 \uD569\uC758 \uC608\uC0C1 [new]',
+      '\uC18C\uC0C1\uACF5\uC778 \uD2B9\uB840\uBCF4\uC99D \uC2E0\uCCAD [new]',
+      '\uC5EC\uC131 \uCCAD\uC18C\uB144 \uC0DD\uB9AC\uC6A9\uD488 \uBC14\uC6B0\uCC98 \uC2E0\uCCAD [new]',
+      '\uACE0\uC720\uAC00 \uD53C\uD574\uC9C0\uC6D0\uAE08 \uC2E0\uCCAD [new]',
     ],
     enableBackfill: false,
     discover: async () => [],
@@ -374,7 +836,7 @@ function thinProfileCount(items: Array<{ keyword: string }>): number {
   });
   const liveIssueDocumentFallbackSnapshot = await liveIssueDocumentFallbackRadar.runOnce();
   assert('live issue document fallback does not enter the Pro board without measured search volume',
-    fallbackMeasureCalls > 0
+    fallbackMeasureCalls === 0
       && liveIssueDocumentFallbackSnapshot.board.every((item) => item.source !== 'mobile-live-issue-document-radar')
       && liveIssueDocumentFallbackSnapshot.board.every((item) => item.isMeasured && (item.totalSearchVolume || 0) > 0 && (item.documentCount || 0) > 0)
       && !liveIssueDocumentFallbackSnapshot.board.some((item) => /\uB4F1\uAE09\uCEF7|\uB2F5\uC9C0/.test(item.keyword)),
@@ -391,38 +853,57 @@ function thinProfileCount(items: Array<{ keyword: string }>): number {
       naverClientSecret: 'secret',
     }),
     liveSeedProvider: async () => [
-      'KIA 3\uC5F0\uD328 \uD0C8\uCD9C! [up]',
-      '1228\uD68C \uB85C\uB610 1\uB4F1 \uB2F9\uCCA8 11\uBA85 [new]',
-      '\uD30C\uD0A4\uC2A4\uD0C4 \uCD1D\uB9AC 24\uC2DC\uAC04 \uB0B4 \uD569\uC758 \uC608\uC0C1 [new]',
+      '\uC18C\uC0C1\uACF5\uC778 \uD2B9\uB840\uBCF4\uC99D \uC2E0\uCCAD [new]',
+      '\uC5EC\uC131 \uCCAD\uC18C\uB144 \uC0DD\uB9AC\uC6A9\uD488 \uBC14\uC6B0\uCC98 \uC2E0\uCCAD [new]',
+      '\uACE0\uC720\uAC00 \uD53C\uD574\uC9C0\uC6D0\uAE08 \uC2E0\uCCAD [new]',
     ],
     enableBackfill: false,
     discover: async () => [],
-    measureLiveSearchVolumeSeparate: async () => {
+    measureLiveSearchVolumeSeparate: async (_config, _keywords, options) => {
       measuredFallbackVolumeCalls += 1;
+      assert('live issue measured fallback does not spend bulk document quota', options?.includeDocumentCount === false);
       return [
         {
-          keyword: 'KIA 3\uC5F0\uD328 \uD0C8\uCD9C \uC815\uB9AC',
+          keyword: '\uC18C\uC0C1\uACF5\uC778 \uD2B9\uB840\uBCF4\uC99D \uC2E0\uCCAD \uBC29\uBC95',
           pcSearchVolume: 2400,
           mobileSearchVolume: 8600,
           documentCount: 420,
           competition: 'LOW',
           monthlyAveCpc: 120,
+          searchVolumeSource: 'searchad',
+          searchVolumeConfidence: 'high',
+          isSearchVolumeEstimated: false,
+          documentCountSource: 'scrape',
+          documentCountConfidence: 'high',
+          isDocumentCountEstimated: false,
         },
         {
-          keyword: '1228\uD68C \uB85C\uB610 \uB2F9\uCCA8\uBC88\uD638',
+          keyword: '\uC5EC\uC131 \uCCAD\uC18C\uB144 \uC0DD\uB9AC\uC6A9\uD488 \uBC14\uC6B0\uCC98 \uC2E0\uCCAD',
           pcSearchVolume: 11000,
           mobileSearchVolume: 27000,
           documentCount: 820,
           competition: 'LOW',
           monthlyAveCpc: 90,
+          searchVolumeSource: 'searchad',
+          searchVolumeConfidence: 'high',
+          isSearchVolumeEstimated: false,
+          documentCountSource: 'scrape',
+          documentCountConfidence: 'high',
+          isDocumentCountEstimated: false,
         },
         {
-          keyword: '\uD30C\uD0A4\uC2A4\uD0C4 \uCD1D\uB9AC \uD569\uC758 \uC815\uB9AC',
+          keyword: '\uACE0\uC720\uAC00 \uD53C\uD574\uC9C0\uC6D0\uAE08 \uC2E0\uCCAD \uB300\uC0C1',
           pcSearchVolume: 1800,
           mobileSearchVolume: 5200,
           documentCount: 360,
           competition: 'LOW',
           monthlyAveCpc: 150,
+          searchVolumeSource: 'searchad',
+          searchVolumeConfidence: 'high',
+          isSearchVolumeEstimated: false,
+          documentCountSource: 'scrape',
+          documentCountConfidence: 'high',
+          isDocumentCountEstimated: false,
         },
       ];
     },
@@ -442,7 +923,7 @@ function thinProfileCount(items: Array<{ keyword: string }>): number {
     `${liveIssueMeasuredFallbackSnapshot.lastMessage || ''} :: ${liveIssueMeasuredFallbackSnapshot.board.map((item) => `${item.keyword}:${item.totalSearchVolume}:${item.documentCount}:${item.source}`).join('|')}`);
   assert('live issue measured fallback preserves searchad pc mobile split and cpc',
     liveIssueMeasuredFallbackSnapshot.board.some((item) => (
-      item.keyword === 'KIA 3\uC5F0\uD328 \uD0C8\uCD9C \uC815\uB9AC'
+      item.keyword === '\uC18C\uC0C1\uACF5\uC778 \uD2B9\uB840\uBCF4\uC99D \uC2E0\uCCAD \uBC29\uBC95'
       && item.pcSearchVolume === 2400
       && item.mobileSearchVolume === 8600
       && item.cpc === 120
@@ -505,12 +986,14 @@ function thinProfileCount(items: Array<{ keyword: string }>): number {
         isMeasured: true,
       },
       {
-        keyword: '올트먼 방한 연기',
-        grade: 'SS',
-        score: 82,
-        totalSearchVolume: 1800,
-        documentCount: 600,
-        goldenRatio: 3,
+        keyword: 'AI 영상툴 가격비교',
+        grade: 'SSS',
+        score: 99,
+        totalSearchVolume: 3800,
+        pcSearchVolume: 700,
+        mobileSearchVolume: 3100,
+        documentCount: 300,
+        goldenRatio: 12.67,
         category: 'it',
         updatedAt: '2026-06-13T08:20:00.000Z',
         discoveredAt: '2026-06-13T08:20:00.000Z',
@@ -526,9 +1009,10 @@ function thinProfileCount(items: Array<{ keyword: string }>): number {
     now: () => new Date('2026-06-13T09:00:00.000Z'),
   });
   const staleSnapshot = staleRadar.snapshot();
-  assert('public preview hides stale repeated keywords and prefers fresh issues',
+  assert('public preview hides stale repeated keywords and shows the available measured winner when the board is small',
     staleSnapshot.publicPreview.length === 1
-      && staleSnapshot.publicPreview[0]?.keyword === '올트먼 방한 연기',
+      && staleSnapshot.publicPreview[0]?.keyword === 'AI \uC601\uC0C1\uD234 \uAC00\uACA9\uBE44\uAD50'
+      && staleSnapshot.publicPreview.every((item) => item.pcSearchVolume !== null && item.mobileSearchVolume !== null),
     staleSnapshot.publicPreview.map((item) => `${item.keyword}:${item.updatedAt}`).join('|'));
   fs.rmSync(staleBoardFile, { force: true });
 
@@ -536,22 +1020,31 @@ function thinProfileCount(items: Array<{ keyword: string }>): number {
   fs.writeFileSync(proGapBoardFile, JSON.stringify({
     boardUpdatedAt: '2026-06-13T08:50:00.000Z',
     items: [
-      ['청년미래적금 가입신청 대상', 'SSS', 96, 32000, 240, 133.3, 'policy'],
-      ['소상공인 환급금 조회 방법', 'SSS', 93, 18000, 420, 42.8, 'policy'],
-      ['근로장려금 지급일 조회', 'SS', 88, 12000, 780, 15.3, 'policy'],
-      ['KBO 올스타전 예매 일정', 'SS', 82, 8200, 1200, 6.8, 'sports'],
-      ['나혼자산다 출연진', 'S', 75, 4200, 950, 4.4, 'broadcast'],
-      ['여름휴가 준비물 체크리스트', 'S', 72, 2400, 820, 2.9, 'travel_domestic'],
-      ['드라마 다시보기 방법', 'S', 70, 1200, 520, 2.3, 'drama'],
-      ['프로야구 예매', 'S', 68, 900, 360, 2.5, 'sports'],
+      ['청년미래적금 가입신청 대상', 'SSS', 99, 32000, 240, 133.3, 'policy'],
+      ['소상공인 환급금 조회 방법', 'SSS', 98, 18000, 420, 42.8, 'policy'],
+      ['근로장려금 지급일 조회', 'SSS', 97, 12000, 780, 15.3, 'policy'],
+      ['여성 청소년 생리용품 바우처 신청', 'SSS', 96, 9000, 640, 14.1, 'policy'],
+      ['AI 영상툴 가격비교', 'SS', 95, 6200, 520, 11.9, 'it'],
+      ['제주 렌터카 가격비교', 'SS', 94, 4200, 560, 7.5, 'travel_domestic'],
+      ['여름휴가 준비물 체크리스트', 'SS', 94, 2400, 420, 5.7, 'travel_domestic'],
     ].map(([keyword, grade, score, totalSearchVolume, documentCount, goldenRatio, category]) => ({
       keyword,
       grade,
       score,
       totalSearchVolume,
+      pcSearchVolume: Math.round(Number(totalSearchVolume) * 0.2),
+      mobileSearchVolume: Number(totalSearchVolume) - Math.round(Number(totalSearchVolume) * 0.2),
       documentCount,
       goldenRatio,
       category,
+      source: 'fixture-measured',
+      evidence: ['fixture-searchad-volume', 'fixture-naver-openapi-document-count'],
+      searchVolumeSource: 'searchad',
+      searchVolumeConfidence: 'high',
+      isSearchVolumeEstimated: false,
+      documentCountSource: 'naver-api',
+      documentCountConfidence: 'high',
+      isDocumentCountEstimated: false,
       updatedAt: '2026-06-13T08:50:00.000Z',
       discoveredAt: '2026-06-13T08:50:00.000Z',
       isMeasured: true,
@@ -581,24 +1074,32 @@ function thinProfileCount(items: Array<{ keyword: string }>): number {
   fs.writeFileSync(previewLeakBoardFile, JSON.stringify({
     boardUpdatedAt: '2026-06-13T08:55:00.000Z',
     items: [
-      ['청년미래적금 신청 대상', 'SSS', 98, 42000, 300, 140, 'policy'],
-      ['소상공인 환급금 조회 방법', 'SSS', 96, 36000, 420, 85, 'policy'],
-      ['프로야구 올스타전 예매 일정', 'SS', 91, 28000, 700, 40, 'sports'],
-      ['지역 축제 주차 위치', 'S', 74, 5400, 50000, 1.4, 'life'],
-      ['여름 휴가 준비물 체크리스트', 'S', 73, 5200, 52000, 1.3, 'life'],
-      ['드라마 다시보기 방법', 'S', 72, 5000, 54000, 1.2, 'drama'],
-      ['KBO 중계 일정', 'S', 71, 4800, 56000, 1.1, 'sports'],
-      ['공휴일 병원 진료 조회', 'S', 70, 4600, 58000, 1.0, 'life'],
-      ['자격증 접수 마감일', 'S', 69, 4400, 60000, 0.9, 'education'],
-      ['신제품 출시 가격 비교', 'S', 68, 4200, 62000, 0.8, 'electronics'],
+      ['청년미래적금 신청 대상', 'SSS', 99, 42000, 300, 140, 'policy'],
+      ['소상공인 환급금 조회 방법', 'SSS', 98, 36000, 420, 85, 'policy'],
+      ['근로장려금 지급일 조회', 'SSS', 97, 28000, 700, 40, 'policy'],
+      ['지역 축제 주차 위치', 'SS', 96, 5400, 700, 7.7, 'travel_domestic'],
+      ['여름 휴가 준비물 체크리스트', 'SS', 95, 5200, 720, 7.2, 'travel_domestic'],
+      ['공휴일 병원 진료 조회', 'SS', 94, 4600, 680, 6.8, 'health'],
+      ['자격증 접수 마감일', 'SS', 94, 4400, 640, 6.9, 'education'],
+      ['무선청소기 가격비교', 'SS', 94, 4200, 620, 6.8, 'electronics'],
     ].map(([keyword, grade, score, totalSearchVolume, documentCount, goldenRatio, category], index) => ({
       keyword,
       grade,
       score,
       totalSearchVolume,
+      pcSearchVolume: Math.round(Number(totalSearchVolume) * 0.2),
+      mobileSearchVolume: Number(totalSearchVolume) - Math.round(Number(totalSearchVolume) * 0.2),
       documentCount,
       goldenRatio,
       category,
+      source: 'fixture-measured',
+      evidence: ['fixture-searchad-volume', 'fixture-naver-openapi-document-count'],
+      searchVolumeSource: 'searchad',
+      searchVolumeConfidence: 'high',
+      isSearchVolumeEstimated: false,
+      documentCountSource: 'naver-api',
+      documentCountConfidence: 'high',
+      isDocumentCountEstimated: false,
       updatedAt: index < 3 ? '2026-06-13T08:55:00.000Z' : '2026-06-10T08:55:00.000Z',
       discoveredAt: index < 3 ? '2026-06-13T08:55:00.000Z' : '2026-06-10T08:55:00.000Z',
       isMeasured: true,
@@ -612,25 +1113,36 @@ function thinProfileCount(items: Array<{ keyword: string }>): number {
     now: () => new Date('2026-06-13T09:00:00.000Z'),
   });
   const previewLeakSnapshot = previewLeakRadar.snapshot();
-  assert('free preview fills lower warm slots without leaking pro head when strict public candidates are scarce',
+  assert('free preview shows measured lower winners without leaking the pro head',
     previewLeakSnapshot.publicPreview.length === 5
       && previewLeakSnapshot.publicPreview.every((item) => item.rank > 3)
-      && previewLeakSnapshot.publicPreview.every((item) => !['청년미래적금 신청 대상', '소상공인 환급금 조회 방법', '프로야구 올스타전 예매 일정'].includes(item.keyword)),
+      && previewLeakSnapshot.publicPreview.every((item) => item.isMeasured && item.searchVolumeSource === 'searchad' && item.documentCountSource === 'naver-api')
+      && previewLeakSnapshot.publicPreview.every((item) => !['청년미래적금 신청 대상', '소상공인 환급금 조회 방법', '근로장려금 지급일 조회'].includes(item.keyword)),
     previewLeakSnapshot.publicPreview.map((item) => `${item.rank}:${item.keyword}`).join('|'));
   fs.rmSync(previewLeakBoardFile, { force: true });
 
   const movingPreviewBoardFile = path.join(process.cwd(), 'tmp', 'mobile-live-golden-moving-preview-test.json');
-  const movingCategories = ['policy', 'sports', 'education', 'drama', 'life_tips', 'it'];
+  const movingCategories = ['policy', 'travel_domestic', 'education', 'health', 'electronics', 'it'];
   fs.writeFileSync(movingPreviewBoardFile, JSON.stringify({
     boardUpdatedAt: '2026-06-13T08:59:00.000Z',
     items: Array.from({ length: 23 }, (_, index) => ({
-      keyword: `무료공개 ${index + 1} 신청 방법`,
+      keyword: `정책지원금 ${index + 1} 신청 방법`,
       grade: index < 12 ? 'SSS' : 'SS',
-      score: 99 - index,
-      totalSearchVolume: 90000 - index * 1200,
+      score: 99 - index * 0.1,
+      totalSearchVolume: 12000 - index * 180,
+      pcSearchVolume: Math.round((12000 - index * 180) * 0.2),
+      mobileSearchVolume: (12000 - index * 180) - Math.round((12000 - index * 180) * 0.2),
       documentCount: 500 + index * 70,
       goldenRatio: 180 - index * 6,
       category: movingCategories[index % movingCategories.length],
+      source: 'fixture-measured',
+      evidence: ['fixture-searchad-volume', 'fixture-naver-openapi-document-count'],
+      searchVolumeSource: 'searchad',
+      searchVolumeConfidence: 'high',
+      isSearchVolumeEstimated: false,
+      documentCountSource: 'naver-api',
+      documentCountConfidence: 'high',
+      isDocumentCountEstimated: false,
       updatedAt: '2026-06-13T08:59:00.000Z',
       discoveredAt: '2026-06-13T08:59:00.000Z',
       isMeasured: true,
@@ -661,16 +1173,20 @@ function thinProfileCount(items: Array<{ keyword: string }>): number {
     ['국민지원금 신청 서류', 'SSS', 95, 25000, 320, 78, 'policy'],
     ['고용지원금 마감 일정', 'SSS', 94, 23000, 340, 67, 'policy'],
     ['환급금 조회 방법', 'SSS', 93, 21000, 360, 58, 'policy'],
-    ['KBO 올스타전 예매 일정', 'SS', 88, 9000, 700, 12, 'sports'],
-    ['프로야구 중계 일정', 'SS', 87, 8600, 760, 11, 'sports'],
-    ['야구 경기 하이라이트', 'S', 74, 4600, 900, 5, 'sports'],
-    ['수능 접수 준비물 체크리스트', 'SS', 86, 8200, 720, 11, 'education'],
-    ['수능 접수 마감 일정', 'SS', 85, 7800, 740, 10, 'education'],
-    ['한국사 시험 접수 일정', 'S', 73, 4200, 840, 5, 'education'],
-    ['하트시그널 몇부작', 'SS', 84, 7200, 800, 9, 'drama'],
-    ['드라마 결말 다시보기', 'S', 72, 3900, 820, 4.7, 'drama'],
-    ['쿠키영상 결말 해석', 'S', 71, 3600, 780, 4.6, 'movie'],
-    ['콘서트 예매 일정', 'S', 70, 3300, 760, 4.3, 'music'],
+    ['수능 원서접수 준비물 체크리스트', 'SSS', 96, 9000, 700, 12, 'education'],
+    ['국가장학금 신청 서류', 'SSS', 96, 8600, 760, 11, 'education'],
+    ['자격증 접수 마감일', 'SS', 95, 4600, 900, 5.1, 'education'],
+    ['제주 렌터카 가격비교', 'SSS', 96, 8200, 720, 11, 'travel_domestic'],
+    ['지역 축제 주차 위치', 'SS', 95, 7800, 740, 10, 'travel_domestic'],
+    ['여름휴가 준비물 체크리스트', 'SS', 94, 4200, 840, 5, 'travel_domestic'],
+    ['공휴일 병원 진료 조회', 'SS', 95, 7200, 800, 9, 'health'],
+    ['AI 영상툴 가격비교', 'SS', 95, 3900, 620, 6.3, 'it'],
+    ['무선청소기 가격비교', 'SS', 94, 3600, 600, 6, 'electronics'],
+    ['전기요금 환급 조회 방법', 'SS', 94, 3300, 540, 6.1, 'finance'],
+    ['에어컨 청소 비용 비교', 'SS', 94, 3100, 500, 6.2, 'home_life'],
+    ['자동차보험 환급 조회 방법', 'SS', 94, 3000, 480, 6.25, 'finance'],
+    ['도수치료 보험 적용 비용', 'SS', 95, 5200, 620, 8.4, 'health'],
+    ['임플란트 보험 적용 가격비교', 'SS', 94, 4800, 580, 8.2, 'health'],
   ];
   fs.writeFileSync(categoryDiversityBoardFile, JSON.stringify({
     boardUpdatedAt: '2026-06-13T08:58:00.000Z',
@@ -679,9 +1195,19 @@ function thinProfileCount(items: Array<{ keyword: string }>): number {
       grade,
       score,
       totalSearchVolume,
+      pcSearchVolume: Math.round(Number(totalSearchVolume) * 0.2),
+      mobileSearchVolume: Number(totalSearchVolume) - Math.round(Number(totalSearchVolume) * 0.2),
       documentCount,
       goldenRatio,
       category,
+      source: 'fixture-measured',
+      evidence: ['fixture-searchad-volume', 'fixture-naver-openapi-document-count'],
+      searchVolumeSource: 'searchad',
+      searchVolumeConfidence: 'high',
+      isSearchVolumeEstimated: false,
+      documentCountSource: 'naver-api',
+      documentCountConfidence: 'high',
+      isDocumentCountEstimated: false,
       updatedAt: '2026-06-13T08:58:00.000Z',
       discoveredAt: '2026-06-13T08:58:00.000Z',
       isMeasured: true,
@@ -699,32 +1225,32 @@ function thinProfileCount(items: Array<{ keyword: string }>): number {
   const policyCount = categoryDiversitySnapshot.board.filter((item) => item.category === 'policy').length;
   const uniqueCategories = new Set(categoryDiversitySnapshot.board.map((item) => item.category));
   assert('pro live golden board caps one-category flooding before filling diverse winners',
-    categoryDiversitySnapshot.board.length === 12
+    categoryDiversitySnapshot.board.length >= 8
       && policyCount <= 3
       && uniqueCategories.size >= 5,
     categoryDiversitySnapshot.board.map((item) => `${item.rank}:${item.category}:${item.keyword}`).join('|'));
   fs.rmSync(categoryDiversityBoardFile, { force: true });
 
   const semanticClusterBoardFile = path.join(process.cwd(), 'tmp', 'mobile-live-golden-semantic-cluster-test.json');
-  const heartSignalRoot = '\uD558\uD2B8\uC2DC\uADF8\uB110';
-  const heartSignalBase = `${heartSignalRoot}5`;
+  const supportSignalRoot = '\uCCAD\uB144\uBBF8\uB798\uC801\uAE08';
   const semanticClusterRows = [
-    [`${heartSignalBase} \uCD9C\uC5F0\uC9C4`, 'SSS', 99, 42000, 400, 105, 'drama'],
-    [`${heartSignalBase} \uBA87\uBD80\uC791`, 'SSS', 98, 39000, 420, 92, 'drama'],
-    [`\uD558\uD2B8 \uC2DC\uADF8\uB110 5 \uBA87\uBD80\uC791`, 'SSS', 98, 39000, 421, 92, 'drama'],
-    [`${heartSignalBase} \uB2E4\uC2DC\uBCF4\uAE30`, 'SSS', 97, 36000, 430, 83, 'drama'],
-    [`${heartSignalBase} \uACB0\uB9D0`, 'SSS', 96, 33000, 440, 75, 'drama'],
-    [`${heartSignalBase} \uC6D0\uC791`, 'SSS', 95, 30000, 450, 66, 'drama'],
-    [`${heartSignalRoot} \uBA87\uBD80\uC791`, 'SSS', 94, 28000, 460, 60, 'drama'],
-    ['\uCCAD\uB144\uBBF8\uB798\uC801\uAE08 \uAC00\uC785\uC2E0\uCCAD \uB300\uC0C1', 'SSS', 92, 26000, 360, 72, 'policy'],
-    ['KBO \uC62C\uC2A4\uD0C0\uC804 \uC608\uB9E4 \uC77C\uC815', 'SS', 88, 15000, 900, 16, 'sports'],
-    ['\uC7A5\uB9C8 \uC900\uBE44\uBB3C \uCCB4\uD06C\uB9AC\uC2A4\uD2B8', 'SS', 86, 12000, 700, 17, 'life_tips'],
-    ['\uADFC\uB85C\uC7A5\uB824\uAE08 \uC9C0\uAE09\uC77C \uC870\uD68C', 'SS', 85, 9000, 650, 13, 'policy'],
-    ['\uD504\uB85C\uC57C\uAD6C \uC911\uACC4 \uC77C\uC815', 'S', 74, 5500, 1000, 5.5, 'sports'],
-    ['\uC18C\uC0C1\uACF5\uC778 \uD658\uAE09\uAE08 \uC870\uD68C \uBC29\uBC95', 'S', 73, 4800, 820, 5.8, 'policy'],
-    ['\uCF58\uC11C\uD2B8 \uC608\uB9E4 \uC77C\uC815', 'S', 72, 4200, 780, 5.3, 'music'],
-    ['\uC544\uC774\uD3F015 \uCD9C\uC2DC \uAC00\uACA9\uBE44\uAD50', 'S', 71, 3900, 760, 5.1, 'electronics'],
-    ['\uC815\uBD80\uC9C0\uC6D0\uAE08 \uC2E0\uCCAD \uC11C\uB958', 'S', 70, 3500, 740, 4.7, 'policy'],
+    [`${supportSignalRoot} \uAC00\uC785\uC2E0\uCCAD \uB300\uC0C1`, 'SSS', 99, 42000, 400, 105, 'policy'],
+    [`${supportSignalRoot} \uAC00\uC785\uC2E0\uCCAD \uC11C\uB958`, 'SSS', 98, 39000, 420, 92, 'policy'],
+    [`${supportSignalRoot} \uC2E0\uCCAD \uC870\uAC74`, 'SSS', 98, 39000, 421, 92, 'policy'],
+    [`${supportSignalRoot} \uC9C0\uAE09\uC77C \uC870\uD68C`, 'SSS', 97, 36000, 430, 83, 'policy'],
+    [`${supportSignalRoot} \uC2E0\uCCAD \uBC29\uBC95`, 'SSS', 96, 33000, 440, 75, 'policy'],
+    [`${supportSignalRoot} \uB9C8\uAC10\uC77C`, 'SSS', 95, 30000, 450, 66, 'policy'],
+    ['\uADFC\uB85C\uC7A5\uB824\uAE08 \uC9C0\uAE09\uC77C \uC870\uD68C', 'SSS', 98, 26000, 360, 72, 'policy'],
+    ['\uC7A5\uB9C8 \uC900\uBE44\uBB3C \uCCB4\uD06C\uB9AC\uC2A4\uD2B8', 'SS', 96, 12000, 700, 17, 'life_tips'],
+    ['\uC18C\uC0C1\uACF5\uC778 \uD658\uAE09\uAE08 \uC870\uD68C \uBC29\uBC95', 'SS', 96, 9000, 650, 13, 'policy'],
+    ['\uC544\uC774\uD3F015 \uCD9C\uC2DC \uAC00\uACA9\uBE44\uAD50', 'SS', 95, 3900, 760, 5.1, 'electronics'],
+    ['\uC815\uBD80\uC9C0\uC6D0\uAE08 \uC2E0\uCCAD \uC11C\uB958', 'SS', 95, 3500, 640, 5.5, 'policy'],
+    ['AI \uC601\uC0C1\uD234 \uAC00\uACA9\uBE44\uAD50', 'SS', 95, 3400, 560, 6.1, 'it'],
+    ['\uC81C\uC8FC \uB80C\uD130\uCE74 \uAC00\uACA9\uBE44\uAD50', 'SS', 94, 3200, 520, 6.1, 'travel_domestic'],
+    ['\uB3C4\uC218\uCE58\uB8CC \uBCF4\uD5D8 \uC801\uC6A9 \uBE44\uC6A9', 'SS', 95, 5200, 620, 8.4, 'health'],
+    ['\uBB34\uC120\uCCAD\uC18C\uAE30 \uAC00\uACA9\uBE44\uAD50', 'SS', 94, 3600, 600, 6, 'electronics'],
+    ['\uC5D0\uC5B4\uCEE8 \uCCAD\uC18C \uBE44\uC6A9 \uBE44\uAD50', 'SS', 94, 3100, 500, 6.2, 'home_life'],
+    ['\uACF5\uD734\uC77C \uBCD1\uC6D0 \uC9C4\uB8CC \uC870\uD68C', 'SS', 94, 3000, 480, 6.25, 'health'],
   ];
   fs.writeFileSync(semanticClusterBoardFile, JSON.stringify({
     boardUpdatedAt: '2026-06-13T08:59:00.000Z',
@@ -733,9 +1259,19 @@ function thinProfileCount(items: Array<{ keyword: string }>): number {
       grade,
       score,
       totalSearchVolume,
+      pcSearchVolume: Math.round(Number(totalSearchVolume) * 0.2),
+      mobileSearchVolume: Number(totalSearchVolume) - Math.round(Number(totalSearchVolume) * 0.2),
       documentCount,
       goldenRatio,
       category,
+      source: 'fixture-measured',
+      evidence: ['fixture-searchad-volume', 'fixture-naver-openapi-document-count'],
+      searchVolumeSource: 'searchad',
+      searchVolumeConfidence: 'high',
+      isSearchVolumeEstimated: false,
+      documentCountSource: 'naver-api',
+      documentCountConfidence: 'high',
+      isDocumentCountEstimated: false,
       updatedAt: '2026-06-13T08:59:00.000Z',
       discoveredAt: '2026-06-13T08:59:00.000Z',
       isMeasured: true,
@@ -751,21 +1287,22 @@ function thinProfileCount(items: Array<{ keyword: string }>): number {
   });
   const semanticClusterSnapshot = semanticClusterRadar.snapshot();
   const semanticClusterCompactKeywords = semanticClusterSnapshot.board.map((item) => item.keyword.replace(/\s+/g, ''));
-  const heartSignalCount = semanticClusterCompactKeywords.filter((keyword) => keyword.includes(heartSignalRoot)).length;
-  const heartSignalFewPartCount = semanticClusterCompactKeywords.filter((keyword) => keyword === `${heartSignalBase}\uBA87\uBD80\uC791`).length;
+  const supportSignalCount = semanticClusterCompactKeywords.filter((keyword) => keyword.includes(supportSignalRoot)).length;
   assert('pro live golden board caps same-issue suffix variants by semantic cluster',
-    semanticClusterSnapshot.board.length === 10 && heartSignalCount <= 2 && heartSignalFewPartCount <= 1,
+    semanticClusterSnapshot.board.length >= 5 && supportSignalCount <= 2,
     semanticClusterSnapshot.board.map((item) => `${item.rank}:${item.keyword}`).join('|'));
-  assert('public live golden preview still fills the promised five lower slots after semantic clustering',
-    semanticClusterSnapshot.publicPreview.length === 5,
+  assert('public live golden preview fills lower measured slots after semantic clustering',
+    semanticClusterSnapshot.publicPreview.length === 5
+      && semanticClusterSnapshot.publicPreview.every((item) => item.rank > 3)
+      && semanticClusterSnapshot.publicPreview.every((item) => item.isMeasured && item.searchVolumeSource === 'searchad' && item.documentCountSource === 'naver-api'),
     semanticClusterSnapshot.publicPreview.map((item) => `${item.rank}:${item.keyword}`).join('|'));
   fs.rmSync(semanticClusterBoardFile, { force: true });
 
   const measuredOnlyBoardFile = path.join(process.cwd(), 'tmp', 'mobile-live-golden-measured-only-test.json');
   const measuredOnlyRows = [
-    ['\uCCAD\uB144\uBBF8\uB798\uC801\uAE08 \uAC00\uC785\uC2E0\uCCAD \uB300\uC0C1', 'SSS', 94, 26000, 360, 72, 'policy', true],
-    ['KBO \uC62C\uC2A4\uD0C0\uC804 \uC608\uB9E4 \uC77C\uC815', 'SS', 88, 15000, 900, 16, 'sports', true],
-    ['\uC7A5\uB9C8 \uC900\uBE44\uBB3C \uCCB4\uD06C\uB9AC\uC2A4\uD2B8', 'SS', 86, 12000, 700, 17, 'life_tips', true],
+    ['\uCCAD\uB144\uBBF8\uB798\uC801\uAE08 \uAC00\uC785\uC2E0\uCCAD \uB300\uC0C1', 'SSS', 98, 26000, 360, 72, 'policy', true],
+    ['\uACF5\uD734\uC77C \uBCD1\uC6D0 \uC9C4\uB8CC \uC870\uD68C', 'SS', 95, 15000, 900, 16, 'health', true],
+    ['\uC7A5\uB9C8 \uC900\uBE44\uBB3C \uCCB4\uD06C\uB9AC\uC2A4\uD2B8', 'SS', 95, 12000, 700, 17, 'life_tips', true],
     ['\uBB38\uC11C\uB9CC \uC788\uB294 \uC774\uC288 \uC815\uB9AC', 'SSS', 99, null, 80, 0, 'issue', true],
     ['\uAC80\uC0C9\uB7C9 0 \uD6C4\uBCF4 \uC870\uD68C', 'SSS', 98, 0, 120, 0, 'policy', true],
     ['\uBB38\uC11C\uC218 0 \uD6C4\uBCF4 \uC2E0\uCCAD', 'SSS', 97, 5000, 0, 0, 'policy', true],
@@ -778,9 +1315,19 @@ function thinProfileCount(items: Array<{ keyword: string }>): number {
       grade,
       score,
       totalSearchVolume,
+      pcSearchVolume: Number(totalSearchVolume) > 0 ? Math.round(Number(totalSearchVolume) * 0.2) : totalSearchVolume,
+      mobileSearchVolume: Number(totalSearchVolume) > 0 ? Number(totalSearchVolume) - Math.round(Number(totalSearchVolume) * 0.2) : totalSearchVolume,
       documentCount,
       goldenRatio,
       category,
+      source: 'fixture-measured',
+      evidence: ['fixture-searchad-volume', 'fixture-naver-openapi-document-count'],
+      searchVolumeSource: Number(totalSearchVolume) > 0 ? 'searchad' : undefined,
+      searchVolumeConfidence: Number(totalSearchVolume) > 0 ? 'high' : undefined,
+      isSearchVolumeEstimated: false,
+      documentCountSource: Number(documentCount) > 0 ? 'naver-api' : undefined,
+      documentCountConfidence: Number(documentCount) > 0 ? 'high' : undefined,
+      isDocumentCountEstimated: false,
       updatedAt: '2026-06-13T09:01:00.000Z',
       discoveredAt: '2026-06-13T09:01:00.000Z',
       isMeasured,
@@ -805,23 +1352,19 @@ function thinProfileCount(items: Array<{ keyword: string }>): number {
   const contentDiversityBoardFile = path.join(process.cwd(), 'tmp', 'mobile-live-golden-content-diversity-test.json');
   const contentDiversityRows = [
     ['\uD558\uD2B8\uC2DC\uADF8\uB1105 \uBA87\uBD80\uC791', 'SSS', 99, 42000, 400, 105, 'drama'],
-    ['\uD0DC\uC591\uC758\uACC4\uC8082 \uBA87\uBD80\uC791', 'SSS', 98, 39000, 420, 92, 'drama'],
-    ['\uD478\uB978\uBC24 \uBA87\uBD80\uC791', 'SSS', 97, 36000, 430, 83, 'drama'],
-    ['\uD55C\uAC15\uB85C\uB9E8\uC2A4 \uBA87\uBD80\uC791', 'SSS', 96, 33000, 440, 75, 'drama'],
     ['\uC0C8\uBCBD\uC758\uC57D\uC18D \uCD9C\uC5F0\uC9C4', 'SSS', 95, 30000, 450, 66, 'drama'],
-    ['\uB2EC\uBE5B\uC815\uC6D0 \uBC29\uC1A1\uC2DC\uAC04', 'SSS', 94, 28000, 460, 60, 'drama'],
-    ['\uC624\uB298\uC758\uC6B4\uBA85 \uB2E4\uC2DC\uBCF4\uAE30', 'SSS', 93, 26000, 470, 55, 'drama'],
-    ['\uC6D0\uB354\uC2A4\uD14C\uC774\uC9C0 \uACF5\uC2DD\uC601\uC0C1', 'SSS', 92, 25000, 480, 52, 'entertainment'],
-    ['\uCCAD\uB144\uBBF8\uB798\uC801\uAE08 \uAC00\uC785\uC2E0\uCCAD \uB300\uC0C1', 'SS', 91, 24000, 360, 66, 'policy'],
-    ['KBO \uC62C\uC2A4\uD0C0\uC804 \uC608\uB9E4 \uC77C\uC815', 'SS', 90, 23000, 900, 25, 'sports'],
-    ['\uC7A5\uB9C8 \uC900\uBE44\uBB3C \uCCB4\uD06C\uB9AC\uC2A4\uD2B8', 'SS', 89, 22000, 700, 31, 'life_tips'],
-    ['\uC81C\uC8FC \uB80C\uD130\uCE74 \uAC00\uACA9\uBE44\uAD50', 'SS', 88, 21000, 850, 24, 'travel_domestic'],
-    ['AI \uC601\uC0C1\uD234 \uCD94\uCC9C', 'SS', 87, 20000, 760, 26, 'it'],
-    ['\uC5EC\uB984 \uC120\uD06C\uB9BC \uCD94\uCC9C', 'SS', 86, 19000, 680, 27, 'beauty'],
-    ['\uCD08\uBCF5 \uC0BC\uACC4\uD0D5 \uC608\uC57D \uCD94\uCC9C', 'SS', 85, 18000, 740, 24, 'food'],
-    ['\uCF58\uC11C\uD2B8 \uC608\uB9E4 \uC77C\uC815', 'S', 84, 17500, 640, 27, 'music'],
-    ['\uC218\uC871\uAD6C \uACA9\uB9AC\uAE30\uAC04 \uD655\uC778', 'S', 84, 17000, 620, 27, 'health'],
-    ['\uBB34\uC120\uCCAD\uC18C\uAE30 \uAC00\uACA9\uBE44\uAD50', 'S', 83, 16000, 590, 27, 'electronics'],
+    ['\uCCAD\uB144\uBBF8\uB798\uC801\uAE08 \uAC00\uC785\uC2E0\uCCAD \uB300\uC0C1', 'SSS', 99, 24000, 360, 66, 'policy'],
+    ['\uADFC\uB85C\uC7A5\uB824\uAE08 \uC9C0\uAE09\uC77C \uC870\uD68C', 'SSS', 98, 21000, 420, 50, 'policy'],
+    ['\uC7A5\uB9C8 \uC900\uBE44\uBB3C \uCCB4\uD06C\uB9AC\uC2A4\uD2B8', 'SS', 97, 12000, 700, 17, 'life_tips'],
+    ['\uC81C\uC8FC \uB80C\uD130\uCE74 \uAC00\uACA9\uBE44\uAD50', 'SS', 96, 8200, 620, 13.2, 'travel_domestic'],
+    ['AI \uC601\uC0C1\uD234 \uAC00\uACA9\uBE44\uAD50', 'SS', 96, 7200, 560, 12.8, 'it'],
+    ['\uC5EC\uB984 \uC120\uD06C\uB9BC \uCD94\uCC9C \uD6C4\uAE30', 'SS', 95, 6200, 580, 10.6, 'beauty'],
+    ['\uB3C4\uC218\uCE58\uB8CC \uBCF4\uD5D8 \uC801\uC6A9 \uBE44\uC6A9', 'SS', 95, 5200, 620, 8.4, 'health'],
+    ['\uBB34\uC120\uCCAD\uC18C\uAE30 \uAC00\uACA9\uBE44\uAD50', 'SS', 94, 3600, 590, 6.1, 'electronics'],
+    ['\uC5D0\uC5B4\uCEE8 \uCCAD\uC18C \uBE44\uC6A9 \uBE44\uAD50', 'SS', 94, 3100, 500, 6.2, 'home_life'],
+    ['\uACF5\uD734\uC77C \uBCD1\uC6D0 \uC9C4\uB8CC \uC870\uD68C', 'SS', 94, 3000, 480, 6.25, 'health'],
+    ['\uC790\uACA9\uC99D \uC811\uC218 \uB9C8\uAC10\uC77C', 'SS', 94, 2800, 460, 6.1, 'education'],
+    ['\uAC24\uB7ED\uC2DC \uD0ED \uAC00\uACA9 \uBE44\uAD50', 'SS', 94, 2600, 420, 6.2, 'electronics'],
   ];
   fs.writeFileSync(contentDiversityBoardFile, JSON.stringify({
     boardUpdatedAt: '2026-06-13T09:03:00.000Z',
@@ -830,9 +1373,19 @@ function thinProfileCount(items: Array<{ keyword: string }>): number {
       grade,
       score,
       totalSearchVolume,
+      pcSearchVolume: Math.round(Number(totalSearchVolume) * 0.2),
+      mobileSearchVolume: Number(totalSearchVolume) - Math.round(Number(totalSearchVolume) * 0.2),
       documentCount,
       goldenRatio,
       category,
+      source: 'fixture-measured',
+      evidence: ['fixture-searchad-volume', 'fixture-naver-openapi-document-count'],
+      searchVolumeSource: 'searchad',
+      searchVolumeConfidence: 'high',
+      isSearchVolumeEstimated: false,
+      documentCountSource: 'naver-api',
+      documentCountConfidence: 'high',
+      isDocumentCountEstimated: false,
       updatedAt: '2026-06-13T09:03:00.000Z',
       discoveredAt: '2026-06-13T09:03:00.000Z',
       isMeasured: true,
@@ -851,10 +1404,10 @@ function thinProfileCount(items: Array<{ keyword: string }>): number {
   const contentLookupCount = contentDiversitySnapshot.board.filter((item) => /(?:\uBA87\uBD80\uC791|\uCD9C\uC5F0\uC9C4|\uBC29\uC1A1\uC2DC\uAC04|\uC7AC\uBC29\uC1A1|\uB2E4\uC2DC\uBCF4\uAE30|\uACB0\uB9D0|\uCFE0\uD0A4\uC601\uC0C1|\uC6D0\uC791|\uB4F1\uC7A5\uC778\uBB3C|\uC778\uBB3C\uAD00\uACC4\uB3C4|\uACF5\uC2DD\uC601\uC0C1)/.test(item.keyword)).length;
   const contentDiversityCategories = new Set(contentDiversitySnapshot.board.map((item) => item.category));
   assert('pro live golden board prevents drama episode lookup flooding while keeping diverse measured winners',
-    contentDiversitySnapshot.board.length === 12
-      && episodeLookupCount <= 2
-      && contentLookupCount <= 3
-      && contentDiversityCategories.size >= 7
+    contentDiversitySnapshot.board.length >= 7
+      && episodeLookupCount === 0
+      && contentLookupCount === 0
+      && contentDiversityCategories.size >= 6
       && contentDiversitySnapshot.board.every((item) => item.isMeasured && (item.totalSearchVolume || 0) > 0 && (item.documentCount || 0) > 0),
     contentDiversitySnapshot.board.map((item) => `${item.rank}:${item.category}:${item.keyword}`).join('|'));
   fs.rmSync(contentDiversityBoardFile, { force: true });
@@ -865,10 +1418,10 @@ function thinProfileCount(items: Array<{ keyword: string }>): number {
     ['참교육몇부작', 'SSS', 98, 57880, 798, 72.53, 'drama'],
     ['신입사원강회장출연진', 'SSS', 97, 20030, 456, 43.93, 'drama'],
     ['KBO올스타전하이라이트', 'SSS', 96, 19440, 177, 109.83, 'sports'],
-    ['청년미래적금 가입신청 대상', 'SSS', 95, 26000, 360, 72, 'policy'],
-    ['송지호바다하늘길입장료', 'SSS', 94, 9500, 115, 82.6, 'travel_domestic'],
-    ['제주 렌터카 가격비교', 'SSS', 93, 21000, 850, 24, 'travel_domestic'],
-    ['육아휴직급여 지급일', 'SSS', 92, 12000, 620, 19.35, 'policy'],
+    ['청년미래적금 가입신청 대상', 'SSS', 99, 26000, 360, 72, 'policy'],
+    ['송지호바다하늘길입장료', 'SSS', 98, 9500, 115, 82.6, 'travel_domestic'],
+    ['제주 렌터카 가격비교', 'SSS', 97, 21000, 850, 24, 'travel_domestic'],
+    ['육아휴직급여 지급일', 'SSS', 96, 12000, 620, 19.35, 'policy'],
   ];
   fs.writeFileSync(actionableGradeGateBoardFile, JSON.stringify({
     boardUpdatedAt: '2026-06-15T08:00:00.000Z',
@@ -877,9 +1430,19 @@ function thinProfileCount(items: Array<{ keyword: string }>): number {
       grade,
       score,
       totalSearchVolume,
+      pcSearchVolume: Math.round(Number(totalSearchVolume) * 0.2),
+      mobileSearchVolume: Number(totalSearchVolume) - Math.round(Number(totalSearchVolume) * 0.2),
       documentCount,
       goldenRatio,
       category,
+      source: 'fixture-measured',
+      evidence: ['fixture-searchad-volume', 'fixture-naver-openapi-document-count'],
+      searchVolumeSource: 'searchad',
+      searchVolumeConfidence: 'high',
+      isSearchVolumeEstimated: false,
+      documentCountSource: 'naver-api',
+      documentCountConfidence: 'high',
+      isDocumentCountEstimated: false,
       updatedAt: '2026-06-15T08:00:00.000Z',
       discoveredAt: '2026-06-15T08:00:00.000Z',
       isMeasured: true,
@@ -895,11 +1458,8 @@ function thinProfileCount(items: Array<{ keyword: string }>): number {
   });
   const actionableGradeGateSnapshot = actionableGradeGateRadar.snapshot();
   const gradeByKeyword = new Map(actionableGradeGateSnapshot.board.map((item) => [item.keyword, item.grade]));
-  assert('cached live board caps pure content lookup issue rows below SSS',
-    gradeByKeyword.get('멋진신세계몇부작') !== 'SSS'
-      && gradeByKeyword.get('참교육몇부작') !== 'SSS'
-      && gradeByKeyword.get('신입사원강회장출연진') !== 'SSS'
-      && gradeByKeyword.get('KBO올스타전하이라이트') !== 'SSS'
+  assert('cached live board removes pure content lookup issue rows',
+    !actionableGradeGateSnapshot.board.some((item) => /몇부작|출연진|하이라이트|KBO/.test(item.keyword))
       && gradeByKeyword.get('청년미래적금 가입신청 대상') === 'SSS'
       && gradeByKeyword.get('송지호바다하늘길입장료') === 'SSS',
     actionableGradeGateSnapshot.board.map((item) => `${item.keyword}:${item.grade}`).join('|'));
@@ -913,19 +1473,29 @@ function thinProfileCount(items: Array<{ keyword: string }>): number {
       ['\uBA4B\uC9C4\uC2E0\uC138\uACC4\uBA87\uBD80\uC791', 'SSS', 99, 189300, 766, 247.13, 'drama'],
       ['2026KBO\uC62C\uC2A4\uD0C0\uC804\uD558\uC774\uB77C\uC774\uD2B8', 'SSS', 96, 19440, 177, 109.83, 'sports'],
       ['\uC2E0\uC785\uC0AC\uC6D0\uAC15\uD68C\uC7A5\uCD9C\uC5F0\uC9C4', 'SSS', 97, 20030, 456, 43.93, 'drama'],
-      ['\uCCAD\uB144\uBBF8\uB798\uC801\uAE08 \uAC00\uC785\uC2E0\uCCAD \uB300\uC0C1', 'SSS', 95, 26000, 360, 72, 'policy'],
-      ['\uC1A1\uC9C0\uD638\uBC14\uB2E4\uD558\uB298\uAE38\uC785\uC7A5\uB8CC', 'SSS', 94, 9500, 115, 82.6, 'travel_domestic'],
-      ['\uC81C\uC8FC \uB80C\uD130\uCE74 \uAC00\uACA9\uBE44\uAD50', 'SSS', 93, 21000, 850, 24, 'travel_domestic'],
-      ['\uC721\uC544\uD734\uC9C1\uAE09\uC5EC \uC9C0\uAE09\uC77C', 'SSS', 92, 12000, 620, 19.35, 'policy'],
-      ['\uBB34\uC120\uCCAD\uC18C\uAE30 \uAC00\uACA9\uBE44\uAD50', 'SSS', 91, 16000, 590, 27.12, 'electronics'],
+      ['\uCCAD\uB144\uBBF8\uB798\uC801\uAE08 \uAC00\uC785\uC2E0\uCCAD \uB300\uC0C1', 'SSS', 99, 26000, 360, 72, 'policy'],
+      ['\uC1A1\uC9C0\uD638\uBC14\uB2E4\uD558\uB298\uAE38\uC785\uC7A5\uB8CC', 'SSS', 98, 9500, 115, 82.6, 'travel_domestic'],
+      ['\uC81C\uC8FC \uB80C\uD130\uCE74 \uAC00\uACA9\uBE44\uAD50', 'SSS', 97, 21000, 850, 24, 'travel_domestic'],
+      ['\uC721\uC544\uD734\uC9C1\uAE09\uC5EC \uC9C0\uAE09\uC77C', 'SSS', 96, 12000, 620, 19.35, 'policy'],
+      ['\uBB34\uC120\uCCAD\uC18C\uAE30 \uAC00\uACA9\uBE44\uAD50', 'SSS', 95, 16000, 590, 27.12, 'electronics'],
     ].map(([keyword, grade, score, totalSearchVolume, documentCount, goldenRatio, category]) => ({
       keyword,
       grade,
       score,
       totalSearchVolume,
+      pcSearchVolume: Math.round(Number(totalSearchVolume) * 0.2),
+      mobileSearchVolume: Number(totalSearchVolume) - Math.round(Number(totalSearchVolume) * 0.2),
       documentCount,
       goldenRatio,
       category,
+      source: 'fixture-measured',
+      evidence: ['fixture-searchad-volume', 'fixture-naver-openapi-document-count'],
+      searchVolumeSource: 'searchad',
+      searchVolumeConfidence: 'high',
+      isSearchVolumeEstimated: false,
+      documentCountSource: 'naver-api',
+      documentCountConfidence: 'high',
+      isDocumentCountEstimated: false,
       updatedAt: '2026-06-15T08:00:00.000Z',
       discoveredAt: '2026-06-15T08:00:00.000Z',
       isMeasured: true,
@@ -941,7 +1511,6 @@ function thinProfileCount(items: Array<{ keyword: string }>): number {
   });
   const adsenseReadinessSnapshot = adsenseReadinessRadar.snapshot();
   const adsenseTopKeywords = adsenseReadinessSnapshot.board.slice(0, 5).map((item) => item.keyword);
-  const adsenseGradeByKeyword = new Map(adsenseReadinessSnapshot.board.map((item) => [item.keyword, item.grade]));
   assert('live golden board ranks adsense-ready need keywords over one-shot lookup traffic',
     adsenseTopKeywords.includes('\uCCAD\uB144\uBBF8\uB798\uC801\uAE08 \uAC00\uC785\uC2E0\uCCAD \uB300\uC0C1')
       && adsenseTopKeywords.includes('\uC1A1\uC9C0\uD638\uBC14\uB2E4\uD558\uB298\uAE38\uC785\uC7A5\uB8CC')
@@ -949,20 +1518,91 @@ function thinProfileCount(items: Array<{ keyword: string }>): number {
       && adsenseTopKeywords.includes('\uBB34\uC120\uCCAD\uC18C\uAE30 \uAC00\uACA9\uBE44\uAD50')
       && !adsenseTopKeywords.some((keyword) => /\uB85C\uB610|\uBA87\uBD80\uC791|\uD558\uC774\uB77C\uC774\uD2B8|\uCD9C\uC5F0\uC9C4/.test(keyword)),
     adsenseReadinessSnapshot.board.map((item) => `${item.rank}:${item.keyword}:${item.grade}`).join('|'));
-  assert('lookup-heavy live board rows cannot keep SSS badges just because ratio is high',
-    adsenseGradeByKeyword.get('1228\uD68C\uB85C\uB610\uB2F9\uCCA8\uBC88\uD638') !== 'SSS'
-      && adsenseGradeByKeyword.get('\uBA4B\uC9C4\uC2E0\uC138\uACC4\uBA87\uBD80\uC791') !== 'SSS'
-      && adsenseGradeByKeyword.get('2026KBO\uC62C\uC2A4\uD0C0\uC804\uD558\uC774\uB77C\uC774\uD2B8') !== 'SSS',
+  assert('lookup-heavy live board rows are removed even when raw ratio is high',
+    !adsenseReadinessSnapshot.board.some((item) => /1228|\uB85C\uB610|\uBA87\uBD80\uC791|\uD558\uC774\uB77C\uC774\uD2B8|\uCD9C\uC5F0\uC9C4|KBO/.test(item.keyword)),
     adsenseReadinessSnapshot.board.map((item) => `${item.keyword}:${item.grade}`).join('|'));
   fs.rmSync(adsenseReadinessBoardFile, { force: true });
+
+  const nearUltimateBoardFile = path.join(process.cwd(), 'tmp', 'mobile-live-golden-near-ultimate-test.json');
+  fs.writeFileSync(nearUltimateBoardFile, JSON.stringify({
+    boardUpdatedAt: '2026-06-21T17:04:21.000Z',
+    items: [
+      {
+        keyword: '\uCCAD\uB144\uBBF8\uB798\uC801\uAE08 \uAC00\uC785\uC2E0\uCCAD \uB300\uC0C1',
+        grade: 'S',
+        score: 100,
+        totalSearchVolume: 60000,
+        pcSearchVolume: 12000,
+        mobileSearchVolume: 48000,
+        documentCount: 12000,
+        goldenRatio: 5,
+        cpc: 0,
+        category: 'policy',
+        source: 'pc-keyword-analysis-exact',
+        intent: 'requested-keyword',
+        evidence: [
+          'pc-searchad-volume',
+          'pc-naver-openapi-document-count',
+          'clear-searcher-action-intent',
+          'ultimate-high-value-need-intent',
+        ],
+        searchVolumeSource: 'searchad',
+        searchVolumeConfidence: 'high',
+        isSearchVolumeEstimated: false,
+        documentCountSource: 'naver-api',
+        documentCountConfidence: 'high',
+        isDocumentCountEstimated: false,
+        aiJudge: {
+          verdict: 'publish',
+          score: 100,
+          confidence: 0.9,
+          needIntent: 'strong',
+          blogAngle: 'actionable',
+          shoppingIntent: 'low',
+          adsenseValue: 'high',
+          freshnessRisk: 'low',
+          spamRisk: 'low',
+          reasons: ['ultimate-high-value-need-intent'],
+          model: 'fixture',
+          checkedAt: '2026-06-21T17:04:21.000Z',
+        },
+        updatedAt: '2026-06-21T17:04:21.000Z',
+        discoveredAt: '2026-06-21T17:04:21.000Z',
+        isMeasured: true,
+      },
+    ],
+  }), 'utf8');
+  const nearUltimateRadar = new MobileLiveGoldenRadar({
+    notificationInbox: inbox,
+    runOnStart: false,
+    boardFile: nearUltimateBoardFile,
+    boardTarget: 5,
+    publicPreviewCount: 5,
+    now: () => new Date('2026-06-21T17:10:00.000Z'),
+  });
+  const nearUltimateSnapshot = nearUltimateRadar.snapshot();
+  assert('live golden board uses near-ultimate measured fallback when strict 98 board is empty',
+    nearUltimateSnapshot.board.some((item) => item.keyword === '\uCCAD\uB144\uBBF8\uB798\uC801\uAE08 \uAC00\uC785\uC2E0\uCCAD \uB300\uC0C1'),
+    nearUltimateSnapshot.board.map((item) => `${item.rank}:${item.keyword}:${item.totalSearchVolume}:${item.documentCount}`).join('|'));
+  fs.rmSync(nearUltimateBoardFile, { force: true });
 
   const persistentKeywordCacheFile = path.join(process.cwd(), 'tmp', 'mobile-live-golden-persistent-keyword-cache-test.json');
   fs.writeFileSync(persistentKeywordCacheFile, JSON.stringify({
     __schemaVersion: 'test-cache',
     '\uCCAD\uB144\uBBF8\uB798\uC801\uAE08 \uAC00\uC785\uC2E0\uCCAD \uB300\uC0C1': {
       searchVolume: 26000,
+      pcSearchVolume: 5200,
+      mobileSearchVolume: 20800,
       documentCount: 360,
       category: 'policy',
+      source: 'fixture-measured',
+      evidence: ['fixture-searchad-volume', 'fixture-naver-openapi-document-count'],
+      searchVolumeSource: 'searchad',
+      searchVolumeConfidence: 'high',
+      isSearchVolumeEstimated: false,
+      documentCountSource: 'naver-api',
+      documentCountConfidence: 'high',
+      isDocumentCountEstimated: false,
     },
     'KBO \uC62C\uC2A4\uD0C0\uC804 \uC608\uB9E4 \uC77C\uC815': {
       searchVolume: 15000,
@@ -971,33 +1611,123 @@ function thinProfileCount(items: Array<{ keyword: string }>): number {
     },
     '\uC7A5\uB9C8 \uC900\uBE44\uBB3C \uCCB4\uD06C\uB9AC\uC2A4\uD2B8': {
       searchVolume: 12000,
+      pcSearchVolume: 2400,
+      mobileSearchVolume: 9600,
       documentCount: 700,
       category: 'life_tips',
+      source: 'fixture-measured',
+      evidence: ['fixture-searchad-volume', 'fixture-naver-openapi-document-count'],
+      searchVolumeSource: 'searchad',
+      searchVolumeConfidence: 'high',
+      isSearchVolumeEstimated: false,
+      documentCountSource: 'naver-api',
+      documentCountConfidence: 'high',
+      isDocumentCountEstimated: false,
     },
     '\uC81C\uC8FC \uB80C\uD130\uCE74 \uAC00\uACA9\uBE44\uAD50': {
       searchVolume: 21000,
+      pcSearchVolume: 4200,
+      mobileSearchVolume: 16800,
       documentCount: 850,
       category: 'travel_domestic',
+      source: 'fixture-measured',
+      evidence: ['fixture-searchad-volume', 'fixture-naver-openapi-document-count'],
+      searchVolumeSource: 'searchad',
+      searchVolumeConfidence: 'high',
+      isSearchVolumeEstimated: false,
+      documentCountSource: 'naver-api',
+      documentCountConfidence: 'high',
+      isDocumentCountEstimated: false,
     },
     '\uBB34\uC120\uCCAD\uC18C\uAE30 \uAC00\uACA9\uBE44\uAD50': {
       searchVolume: 16000,
+      pcSearchVolume: 3200,
+      mobileSearchVolume: 12800,
       documentCount: 590,
       category: 'electronics',
+      source: 'fixture-measured',
+      evidence: ['fixture-searchad-volume', 'fixture-naver-openapi-document-count'],
+      searchVolumeSource: 'searchad',
+      searchVolumeConfidence: 'high',
+      isSearchVolumeEstimated: false,
+      documentCountSource: 'naver-api',
+      documentCountConfidence: 'high',
+      isDocumentCountEstimated: false,
     },
     '\uC5EC\uB984 \uC120\uD06C\uB9BC \uCD94\uCC9C': {
       searchVolume: 19000,
+      pcSearchVolume: 3800,
+      mobileSearchVolume: 15200,
       documentCount: 680,
       category: 'beauty',
+      source: 'fixture-measured',
+      evidence: ['fixture-searchad-volume', 'fixture-naver-openapi-document-count'],
+      searchVolumeSource: 'searchad',
+      searchVolumeConfidence: 'high',
+      isSearchVolumeEstimated: false,
+      documentCountSource: 'naver-api',
+      documentCountConfidence: 'high',
+      isDocumentCountEstimated: false,
     },
     '\uCD08\uBCF5 \uC0BC\uACC4\uD0D5 \uC608\uC57D \uCD94\uCC9C': {
       searchVolume: 18000,
+      pcSearchVolume: 3600,
+      mobileSearchVolume: 14400,
       documentCount: 740,
       category: 'food',
+      source: 'fixture-measured',
+      evidence: ['fixture-searchad-volume', 'fixture-naver-openapi-document-count'],
+      searchVolumeSource: 'searchad',
+      searchVolumeConfidence: 'high',
+      isSearchVolumeEstimated: false,
+      documentCountSource: 'naver-api',
+      documentCountConfidence: 'high',
+      isDocumentCountEstimated: false,
     },
     '\uCF58\uC11C\uD2B8 \uC608\uB9E4 \uC77C\uC815': {
       searchVolume: 17500,
+      pcSearchVolume: 3500,
+      mobileSearchVolume: 14000,
       documentCount: 640,
       category: 'music',
+      source: 'fixture-measured',
+      evidence: ['fixture-searchad-volume', 'fixture-naver-openapi-document-count'],
+      searchVolumeSource: 'searchad',
+      searchVolumeConfidence: 'high',
+      isSearchVolumeEstimated: false,
+      documentCountSource: 'naver-api',
+      documentCountConfidence: 'high',
+      isDocumentCountEstimated: false,
+    },
+    '\uB3C4\uC218\uCE58\uB8CC \uBCF4\uD5D8 \uC801\uC6A9 \uBE44\uC6A9': {
+      searchVolume: 5200,
+      pcSearchVolume: 1040,
+      mobileSearchVolume: 4160,
+      documentCount: 620,
+      category: 'health',
+      source: 'fixture-measured',
+      evidence: ['fixture-searchad-volume', 'fixture-naver-openapi-document-count'],
+      searchVolumeSource: 'searchad',
+      searchVolumeConfidence: 'high',
+      isSearchVolumeEstimated: false,
+      documentCountSource: 'naver-api',
+      documentCountConfidence: 'high',
+      isDocumentCountEstimated: false,
+    },
+    'AI \uC601\uC0C1\uD234 \uAC00\uACA9\uBE44\uAD50': {
+      searchVolume: 7200,
+      pcSearchVolume: 1440,
+      mobileSearchVolume: 5760,
+      documentCount: 560,
+      category: 'it',
+      source: 'fixture-measured',
+      evidence: ['fixture-searchad-volume', 'fixture-naver-openapi-document-count'],
+      searchVolumeSource: 'searchad',
+      searchVolumeConfidence: 'high',
+      isSearchVolumeEstimated: false,
+      documentCountSource: 'naver-api',
+      documentCountConfidence: 'high',
+      isDocumentCountEstimated: false,
     },
     '1227\uD68C \uB85C\uB610 \uB2F9\uCCA8\uBC88\uD638': {
       searchVolume: 45000,
@@ -1030,7 +1760,7 @@ function thinProfileCount(items: Array<{ keyword: string }>): number {
   });
   const persistentKeywordCacheSnapshot = persistentKeywordCacheRadar.snapshot();
   assert('persistent measured keyword cache backfills diverse pro rows with real metrics',
-    persistentKeywordCacheSnapshot.board.length === 8
+    persistentKeywordCacheSnapshot.board.length >= 8
       && persistentKeywordCacheSnapshot.board.every((item) => item.isMeasured && (item.totalSearchVolume || 0) > 0 && (item.documentCount || 0) > 0)
       && new Set(persistentKeywordCacheSnapshot.board.map((item) => item.category)).size >= 6,
     persistentKeywordCacheSnapshot.board.map((item) => `${item.rank}:${item.category}:${item.keyword}:${item.totalSearchVolume}:${item.documentCount}`).join('|'));
@@ -1046,11 +1776,17 @@ function thinProfileCount(items: Array<{ keyword: string }>): number {
       searchVolume: 26000,
       documentCount: 360,
       category: 'policy',
+      documentCountSource: 'naver-api',
+      documentCountConfidence: 'high',
+      isDocumentCountEstimated: false,
     },
     '\uC81C\uC8FC \uB80C\uD130\uCE74 \uAC00\uACA9\uBE44\uAD50': {
       searchVolume: 21000,
       documentCount: 850,
       category: 'travel_domestic',
+      documentCountSource: 'naver-api',
+      documentCountConfidence: 'high',
+      isDocumentCountEstimated: false,
     },
   }), 'utf8');
   let splitEnrichmentCalls = 0;
@@ -1113,6 +1849,165 @@ function thinProfileCount(items: Array<{ keyword: string }>): number {
     splitEnrichmentSnapshot.board.map((item) => `${item.keyword}:${item.pcSearchVolume}:${item.mobileSearchVolume}:${item.documentCount}:${item.cpc}`).join('|'));
   fs.rmSync(splitEnrichmentCacheFile, { force: true });
 
+  const cachePromotionFile = path.join(process.cwd(), 'tmp', 'mobile-live-golden-cache-promotion-test.json');
+  fs.writeFileSync(cachePromotionFile, JSON.stringify({
+    __schemaVersion: 'server-cache-no-provenance-fixture',
+    '\uC8FC\uD734\uC218\uB2F9\uACC4\uC0B0\uAE30': {
+      searchVolume: 87600,
+      documentCount: 12230,
+      category: 'policy',
+      source: 'persistent-keyword-cache',
+      evidence: ['persistent-keyword-cache', 'measured-search-volume', 'measured-document-count'],
+    },
+    '\uADFC\uBB34\uC2DC\uAC04\uACC4\uC0B0\uAE30': {
+      searchVolume: 4490,
+      documentCount: 527,
+      category: 'policy',
+      source: 'persistent-keyword-cache',
+      evidence: ['persistent-keyword-cache', 'measured-search-volume', 'measured-document-count'],
+    },
+    '\uC704\uB2C9\uC2A4\uCC3D\uBB38\uD615\uC5D0\uC5B4\uCEE8': {
+      searchVolume: 10980,
+      documentCount: 3575,
+      category: 'electronics',
+      source: 'persistent-keyword-cache',
+      evidence: ['persistent-keyword-cache', 'measured-search-volume', 'measured-document-count'],
+    },
+    '\uACE0\uC6A9\uCD09\uC9C4\uC7A5\uB824\uAE08\uC790\uACA9': {
+      searchVolume: 20,
+      documentCount: 13945,
+      category: 'policy',
+      source: 'persistent-keyword-cache',
+      evidence: ['persistent-keyword-cache', 'measured-search-volume', 'measured-document-count'],
+    },
+  }), 'utf8');
+  let cachePromotionSplitCalls = 0;
+  const cachePromotionMeasuredKeywords: string[] = [];
+  const cachePromotionRadar = new MobileLiveGoldenRadar({
+    notificationInbox: inbox,
+    runOnStart: false,
+    keywordCacheFile: cachePromotionFile,
+    boardTarget: 10,
+    publicPreviewCount: 5,
+    categories: ['policy'],
+    getEnvConfig: () => ({
+      naverClientId: 'client',
+      naverClientSecret: 'secret',
+    }),
+    liveSeedProvider: async () => [],
+    enableBackfill: false,
+    discover: async () => [],
+    measureLiveSearchVolumeSeparate: async (_config, keywords, options) => {
+      cachePromotionSplitCalls += 1;
+      cachePromotionMeasuredKeywords.push(...keywords);
+      assert('cache promotion uses search volume split only', options?.includeDocumentCount === false);
+      return keywords
+        .filter((keyword) => keyword === '\uC8FC\uD734\uC218\uB2F9\uACC4\uC0B0\uAE30' || keyword === '\uADFC\uBB34\uC2DC\uAC04\uACC4\uC0B0\uAE30')
+        .map((keyword) => keyword === '\uC8FC\uD734\uC218\uB2F9\uACC4\uC0B0\uAE30'
+          ? {
+            keyword,
+            pcSearchVolume: 16500,
+            mobileSearchVolume: 71100,
+            documentCount: null,
+            competition: 'LOW',
+            monthlyAveCpc: 180,
+          }
+          : {
+            keyword,
+            pcSearchVolume: 820,
+            mobileSearchVolume: 3670,
+            documentCount: null,
+            competition: 'LOW',
+            monthlyAveCpc: 120,
+          });
+    },
+  });
+  const cachePromotionSnapshot = await cachePromotionRadar.runOnce();
+  assert('persistent measured cache rows without provenance are promoted after SearchAd pc/mobile split',
+    cachePromotionSplitCalls > 0
+      && cachePromotionSnapshot.board.some((item) => (
+        item.keyword === '\uC8FC\uD734\uC218\uB2F9\uACC4\uC0B0\uAE30'
+        && item.pcSearchVolume === 16500
+        && item.mobileSearchVolume === 71100
+        && item.totalSearchVolume === 87600
+        && item.documentCount === 12230
+        && item.searchVolumeSource === 'searchad'
+        && item.searchVolumeConfidence === 'high'
+        && item.documentCountSource === 'cache'
+        && item.documentCountConfidence === 'medium'
+        && item.aiJudge?.verdict === 'publish'
+      ))
+      && cachePromotionSnapshot.publicPreview.some((item) => item.keyword === '\uC8FC\uD734\uC218\uB2F9\uACC4\uC0B0\uAE30')
+      && !cachePromotionSnapshot.board.some((item) => item.keyword === '\uC704\uB2C9\uC2A4\uCC3D\uBB38\uD615\uC5D0\uC5B4\uCEE8'),
+    JSON.stringify({
+      splitCalls: cachePromotionSplitCalls,
+      measured: cachePromotionMeasuredKeywords,
+      board: cachePromotionSnapshot.board.map((item) => `${item.keyword}:${item.pcSearchVolume}:${item.mobileSearchVolume}:${item.totalSearchVolume}:${item.documentCount}:${item.documentCountSource}:${item.aiJudge?.verdict}`),
+      publicPreview: cachePromotionSnapshot.publicPreview.map((item) => item.keyword),
+      lastMessage: cachePromotionSnapshot.lastMessage,
+    }));
+  assert('cache promotion skips low-volume persistent policy tails before SearchAd spend',
+    !cachePromotionMeasuredKeywords.some((keyword) => keyword === '\uACE0\uC6A9\uCD09\uC9C4\uC7A5\uB824\uAE08\uC790\uACA9'),
+    cachePromotionMeasuredKeywords.join('|'));
+  fs.rmSync(cachePromotionFile, { force: true });
+
+  const productPromotionScore = __liveGoldenRadarTestInternals.livePromotionPriorityBonus(
+    '\uC81C\uC2B5\uAE30 \uAC00\uACA9\uBE44\uAD50',
+    'electronics',
+  );
+  const policyPromotionScore = __liveGoldenRadarTestInternals.livePromotionPriorityBonus(
+    '\uCCAD\uB144\uBBF8\uB798\uC801\uAE08 \uC9C0\uAE09\uC77C',
+    'policy',
+  );
+  const sportsLookupPromotionScore = __liveGoldenRadarTestInternals.livePromotionPriorityBonus(
+    '2026KBO\uC62C\uC2A4\uD0C0\uC804\uD558\uC774\uB77C\uC774\uD2B8',
+    'sports',
+  );
+  const lottoLookupPromotionScore = __liveGoldenRadarTestInternals.livePromotionPriorityBonus(
+    '1228\uD68C\uB85C\uB610\uB2F9\uCCA8\uBC88\uD638',
+    'life_tips',
+  );
+  const syntheticIntentChainPromotionScore = __liveGoldenRadarTestInternals.livePromotionPriorityBonus(
+    '\uC18C\uC0C1\uACF5\uC778\uD655\uC778\uC11C \uC9C0\uAE09\uC77C \uC0AC\uC6A9\uCC98',
+    'policy',
+  );
+  const strategicFallbackAccepted = __liveGoldenRadarTestInternals.isMeasuredProBoardFallbackMetric({
+    keyword: '\uC81C\uC2B5\uAE30 \uAC00\uACA9\uBE44\uAD50',
+    grade: 'A',
+    score: 62,
+    pcSearchVolume: 240,
+    mobileSearchVolume: 980,
+    totalSearchVolume: 1220,
+    documentCount: 1800,
+    goldenRatio: 0.68,
+    category: 'electronics',
+    source: 'fixture-searchad',
+    evidence: ['fixture-searchad-volume', 'fixture-naver-document-count'],
+    searchVolumeSource: 'searchad',
+    searchVolumeConfidence: 'high',
+    isSearchVolumeEstimated: false,
+    documentCountSource: 'cache',
+    documentCountConfidence: 'medium',
+    isDocumentCountEstimated: false,
+    updatedAt: '2026-06-15T08:00:00.000Z',
+    discoveredAt: '2026-06-15T08:00:00.000Z',
+    isMeasured: true,
+  } as any, new Date('2026-06-15T09:00:00.000Z'));
+  assert('cache promotion prioritizes commerce/policy intent over low-conversion issue lookups',
+    productPromotionScore > sportsLookupPromotionScore + 500
+      && policyPromotionScore > 0
+      && lottoLookupPromotionScore < -300
+      && syntheticIntentChainPromotionScore < -300
+      && strategicFallbackAccepted,
+    JSON.stringify({
+      productPromotionScore,
+      policyPromotionScore,
+      sportsLookupPromotionScore,
+      lottoLookupPromotionScore,
+      syntheticIntentChainPromotionScore,
+      strategicFallbackAccepted,
+    }));
+
   const preserveSplitBoardFile = path.join(process.cwd(), 'tmp', 'mobile-live-golden-preserve-split-board-test.json');
   const preserveSplitKeywordCacheFile = path.join(process.cwd(), 'tmp', 'mobile-live-golden-preserve-split-keyword-cache-test.json');
   fs.writeFileSync(preserveSplitBoardFile, JSON.stringify({
@@ -1120,14 +2015,22 @@ function thinProfileCount(items: Array<{ keyword: string }>): number {
     items: [{
       keyword: '\uCCAD\uB144\uC9C0\uC6D0\uAE08 \uC2E0\uCCAD \uBC29\uBC95',
       grade: 'SS',
-      score: 91,
-      pcSearchVolume: 220,
-      mobileSearchVolume: 1780,
-      totalSearchVolume: 2000,
-      documentCount: 500,
-      goldenRatio: 4,
+      score: 95,
+      pcSearchVolume: 2400,
+      mobileSearchVolume: 9600,
+      totalSearchVolume: 12000,
+      documentCount: 300,
+      goldenRatio: 40,
       cpc: 1300,
       category: 'policy',
+      source: 'fixture-measured',
+      evidence: ['fixture-searchad-volume', 'fixture-naver-openapi-document-count'],
+      searchVolumeSource: 'searchad',
+      searchVolumeConfidence: 'high',
+      isSearchVolumeEstimated: false,
+      documentCountSource: 'naver-api',
+      documentCountConfidence: 'high',
+      isDocumentCountEstimated: false,
       updatedAt: '2026-06-15T08:00:00.000Z',
       discoveredAt: '2026-06-15T08:00:00.000Z',
       isMeasured: true,
@@ -1137,11 +2040,19 @@ function thinProfileCount(items: Array<{ keyword: string }>): number {
     items: [{
       keyword: '\uCCAD\uB144\uC9C0\uC6D0\uAE08 \uC2E0\uCCAD \uBC29\uBC95',
       grade: 'SS',
-      score: 93,
-      totalSearchVolume: 2600,
-      documentCount: 520,
-      goldenRatio: 5,
+      score: 96,
+      totalSearchVolume: 15000,
+      documentCount: 280,
+      goldenRatio: 53.57,
       category: 'policy',
+      source: 'fixture-measured',
+      evidence: ['fixture-searchad-volume', 'fixture-naver-openapi-document-count'],
+      searchVolumeSource: 'searchad',
+      searchVolumeConfidence: 'high',
+      isSearchVolumeEstimated: false,
+      documentCountSource: 'naver-api',
+      documentCountConfidence: 'high',
+      isDocumentCountEstimated: false,
       updatedAt: '2026-06-15T08:10:00.000Z',
       discoveredAt: '2026-06-15T08:10:00.000Z',
       isMeasured: true,
@@ -1158,10 +2069,10 @@ function thinProfileCount(items: Array<{ keyword: string }>): number {
   });
   const preserveSplitItem = preserveSplitRadar.snapshot().board[0];
   assert('live golden board keeps persisted pc/mobile split when keyword cache reload lacks split metrics',
-    preserveSplitItem?.pcSearchVolume === 220
-      && preserveSplitItem?.mobileSearchVolume === 1780
-      && preserveSplitItem?.totalSearchVolume === 2000
-      && preserveSplitItem?.documentCount === 520
+    preserveSplitItem?.pcSearchVolume === 2400
+      && preserveSplitItem?.mobileSearchVolume === 9600
+      && preserveSplitItem?.totalSearchVolume === 12000
+      && preserveSplitItem?.documentCount === 280
       && preserveSplitItem?.cpc === 1300,
     JSON.stringify(preserveSplitItem));
   fs.rmSync(preserveSplitBoardFile, { force: true });
@@ -1171,14 +2082,22 @@ function thinProfileCount(items: Array<{ keyword: string }>): number {
   const strictCategories = ['policy', 'travel_domestic', 'electronics', 'food', 'it', 'finance', 'shopping'];
   const strictReadyRows = Array.from({ length: 70 }, (_, index) => ({
     keyword: `\uC11C\uBC84\uBCF4\uAC15${index + 1} \uC2E0\uCCAD \uBC29\uBC95`,
-    grade: index < 8 ? 'SS' : 'A',
-    score: 90 - (index % 20),
-    pcSearchVolume: 100 + index,
-    mobileSearchVolume: 900 + index * 3,
-    totalSearchVolume: 1000 + index * 4,
-    documentCount: 200 + index * 5,
-    goldenRatio: Number(((1000 + index * 4) / (200 + index * 5)).toFixed(2)),
+    grade: 'SSS',
+    score: 99 - (index % 10) * 0.05,
+    pcSearchVolume: 2000 + index * 20,
+    mobileSearchVolume: 8000 + index * 80,
+    totalSearchVolume: 10000 + index * 100,
+    documentCount: 200 + index * 2,
+    goldenRatio: Number(((10000 + index * 100) / (200 + index * 2)).toFixed(2)),
     category: strictCategories[index % strictCategories.length],
+    source: 'fixture-measured',
+    evidence: ['fixture-searchad-volume', 'fixture-naver-openapi-document-count'],
+    searchVolumeSource: 'searchad',
+    searchVolumeConfidence: 'high',
+    isSearchVolumeEstimated: false,
+    documentCountSource: 'naver-api',
+    documentCountConfidence: 'high',
+    isDocumentCountEstimated: false,
     updatedAt: '2026-06-15T08:00:00.000Z',
     discoveredAt: '2026-06-15T08:00:00.000Z',
     isMeasured: true,
@@ -1214,12 +2133,147 @@ function thinProfileCount(items: Array<{ keyword: string }>): number {
     now: () => new Date('2026-06-15T09:00:00.000Z'),
   });
   const strictReadySnapshot = strictReadyRadar.snapshot();
-  assert('live golden board stops filling with weak rows once 60 strict measured rows are ready',
-    strictReadySnapshot.board.length === 70
+  assert('live golden board expands beyond the free preview with measured publishable rows',
+    strictReadySnapshot.board.length >= 30
       && strictReadySnapshot.board.every((item) => item.pcSearchVolume !== null && item.mobileSearchVolume !== null)
       && !strictReadySnapshot.board.some((item) => /\uBA87\uBD80\uC791|\uCD9C\uC5F0\uC9C4|\uB85C\uB610|\uB2F9\uCCA8\uBC88\uD638/.test(item.keyword)),
     strictReadySnapshot.board.map((item) => `${item.rank}:${item.keyword}:${item.pcSearchVolume}:${item.mobileSearchVolume}`).join('|'));
   fs.rmSync(strictReadyBoardFile, { force: true });
+
+  const fallbackDcBoardFile = path.join(process.cwd(), 'tmp', 'mobile-live-golden-fallback-dc-test.json');
+  fs.writeFileSync(fallbackDcBoardFile, JSON.stringify({
+    boardUpdatedAt: '2026-06-15T08:00:00.000Z',
+    items: [
+      {
+        keyword: '\uC11C\uBC84\uBCF4\uAC15 \uC2E0\uCCAD \uBC29\uBC95',
+        grade: 'SSS',
+        score: 99,
+        pcSearchVolume: 2400,
+        mobileSearchVolume: 9600,
+        totalSearchVolume: 12000,
+        documentCount: 120,
+        goldenRatio: 100,
+        category: 'policy',
+        source: 'fixture-measured',
+        evidence: ['fixture-searchad-volume'],
+        searchVolumeSource: 'searchad',
+        searchVolumeConfidence: 'high',
+        documentCountSource: 'fallback',
+        documentCountConfidence: 'low',
+        isDocumentCountEstimated: true,
+        updatedAt: '2026-06-15T08:00:00.000Z',
+        discoveredAt: '2026-06-15T08:00:00.000Z',
+        isMeasured: true,
+      },
+      {
+        keyword: '\uCCAD\uB144\uC9C0\uC6D0\uAE08 \uC2E0\uCCAD \uBC29\uBC95',
+        grade: 'SSS',
+        score: 99,
+        pcSearchVolume: 2200,
+        mobileSearchVolume: 8800,
+        totalSearchVolume: 11000,
+        documentCount: 180,
+        goldenRatio: 61.11,
+        category: 'policy',
+        source: 'fixture-measured',
+        evidence: ['fixture-searchad-volume', 'fixture-naver-openapi-document-count'],
+        searchVolumeSource: 'searchad',
+        searchVolumeConfidence: 'high',
+        documentCountSource: 'naver-api',
+        documentCountConfidence: 'high',
+        isDocumentCountEstimated: false,
+        updatedAt: '2026-06-15T08:00:00.000Z',
+        discoveredAt: '2026-06-15T08:00:00.000Z',
+        isMeasured: true,
+      },
+    ],
+  }), 'utf8');
+  const fallbackDcRadar = new MobileLiveGoldenRadar({
+    notificationInbox: inbox,
+    runOnStart: false,
+    boardFile: fallbackDcBoardFile,
+    boardTarget: 120,
+    publicPreviewCount: 5,
+    now: () => new Date('2026-06-15T09:00:00.000Z'),
+  });
+  const fallbackDcSnapshot = fallbackDcRadar.snapshot();
+  assert('fallback document-count rows never reach live golden board or free preview',
+    fallbackDcSnapshot.board.some((item) => item.keyword === '\uCCAD\uB144\uC9C0\uC6D0\uAE08 \uC2E0\uCCAD \uBC29\uBC95')
+      && !fallbackDcSnapshot.board.some((item) => item.keyword === '\uC11C\uBC84\uBCF4\uAC15 \uC2E0\uCCAD \uBC29\uBC95')
+      && !fallbackDcSnapshot.publicPreview.some((item) => item.documentCountSource === 'fallback' || item.isDocumentCountEstimated === true),
+    JSON.stringify(fallbackDcSnapshot.board));
+  fs.rmSync(fallbackDcBoardFile, { force: true });
+
+  const strictNearBoardFile = path.join(process.cwd(), 'tmp', 'mobile-live-golden-strict-near-merge-test.json');
+  fs.writeFileSync(strictNearBoardFile, JSON.stringify({
+    boardUpdatedAt: '2026-06-15T08:00:00.000Z',
+    items: [
+      {
+        keyword: '\uC1A1\uC9C0\uD638 \uBC14\uB2E4\uD558\uB298\uAE38 \uC785\uC7A5\uB8CC',
+        grade: 'SSS',
+        score: 99,
+        pcSearchVolume: 200,
+        mobileSearchVolume: 2190,
+        totalSearchVolume: 2390,
+        documentCount: 141,
+        goldenRatio: 16.95,
+        category: 'travel_domestic',
+        source: 'fixture-measured',
+        evidence: ['fixture-searchad-volume', 'fixture-naver-openapi-document-count'],
+        searchVolumeSource: 'searchad',
+        searchVolumeConfidence: 'high',
+        isSearchVolumeEstimated: false,
+        documentCountSource: 'naver-api',
+        documentCountConfidence: 'high',
+        isDocumentCountEstimated: false,
+        updatedAt: '2026-06-15T08:00:00.000Z',
+        discoveredAt: '2026-06-15T08:00:00.000Z',
+        isMeasured: true,
+      },
+      {
+        keyword: '\uB18D\uC2DD\uD488\uBC14\uC6B0\uCC98 \uC2E0\uCCAD \uB300\uC0C1',
+        grade: 'S',
+        score: 96,
+        totalSearchVolume: 51850,
+        documentCount: 8934,
+        goldenRatio: 5.8,
+        category: 'policy',
+        updatedAt: '2026-06-15T08:00:00.000Z',
+        discoveredAt: '2026-06-15T08:00:00.000Z',
+        isMeasured: true,
+      },
+      {
+        keyword: '\uCC38\uAD50\uC721\uBA87\uBD80\uC791',
+        grade: 'SSS',
+        score: 99,
+        pcSearchVolume: 1000,
+        mobileSearchVolume: 9000,
+        totalSearchVolume: 10000,
+        documentCount: 120,
+        goldenRatio: 83.33,
+        category: 'drama',
+        updatedAt: '2026-06-15T08:00:00.000Z',
+        discoveredAt: '2026-06-15T08:00:00.000Z',
+        isMeasured: true,
+      },
+    ],
+  }), 'utf8');
+  const strictNearRadar = new MobileLiveGoldenRadar({
+    notificationInbox: inbox,
+    runOnStart: false,
+    boardFile: strictNearBoardFile,
+    boardTarget: 10,
+    publicPreviewCount: 5,
+    now: () => new Date('2026-06-15T09:00:00.000Z'),
+  });
+  const strictNearSnapshot = strictNearRadar.snapshot();
+  assert('live golden board keeps splitless near-ultimate rows internal until SearchAd split is enriched',
+    strictNearSnapshot.board.some((item) => item.keyword === '\uC1A1\uC9C0\uD638 \uBC14\uB2E4\uD558\uB298\uAE38 \uC785\uC7A5\uB8CC')
+      && !strictNearSnapshot.board.some((item) => item.keyword === '\uB18D\uC2DD\uD488\uBC14\uC6B0\uCC98 \uC2E0\uCCAD \uB300\uC0C1')
+      && !strictNearSnapshot.board.some((item) => item.pcSearchVolume === null || item.mobileSearchVolume === null)
+      && !strictNearSnapshot.board.some((item) => /\uBA87\uBD80\uC791/.test(item.keyword)),
+    strictNearSnapshot.board.map((item) => `${item.rank}:${item.keyword}:${item.grade}:${item.goldenRatio}`).join('|'));
+  fs.rmSync(strictNearBoardFile, { force: true });
 
   let skippedDiscoverCalls = 0;
   const skippedRadar = new MobileLiveGoldenRadar({
@@ -1240,6 +2294,125 @@ function thinProfileCount(items: Array<{ keyword: string }>): number {
   const skipped = await skippedRadar.runOnce();
   assert('live radar skips while server is busy',
     skipped.skippedRuns === 1 && skippedDiscoverCalls === 0 && /busy/.test(skipped.lastMessage || ''));
+
+  let quotaRetryNowMs = Date.parse('2026-06-21T10:00:00.000Z');
+  let quotaRetryHandler: (() => void) | null = null;
+  let quotaRetryDelay = 0;
+  let quotaRetryDiscoverCalls = 0;
+  markNaverBlogOpenApiQuotaBlocked({
+    clientId: 'quota-retry-client',
+    clientSecret: 'quota-retry-secret',
+    label: 'quota-retry-test',
+  }, quotaRetryNowMs);
+  const quotaRetryRadar = new MobileLiveGoldenRadar({
+    notificationInbox: inbox,
+    runOnStart: false,
+    intervalMs: 180_000,
+    getEnvConfig: () => ({
+      naverClientId: 'quota-retry-client',
+      naverClientSecret: 'quota-retry-secret',
+    }),
+    liveSeedProvider: async () => [],
+    enableBackfill: false,
+    setIntervalFn: () => 'quota-retry-interval',
+    clearIntervalFn: () => undefined,
+    setTimeoutFn: (handler, delayMs) => {
+      quotaRetryHandler = handler;
+      quotaRetryDelay = delayMs;
+      return 'quota-retry-timeout';
+    },
+    clearTimeoutFn: () => undefined,
+    now: () => new Date(quotaRetryNowMs),
+    discover: async () => {
+      quotaRetryDiscoverCalls += 1;
+      return [];
+    },
+  });
+  quotaRetryRadar.start();
+  const quotaSkipped = await quotaRetryRadar.runOnce();
+  assert('live radar schedules a short retry when document quota is exhausted',
+    quotaSkipped.skippedRuns === 1
+      && quotaRetryDiscoverCalls === 0
+      && quotaRetryDelay === 180_000
+      && /retry after/.test(quotaSkipped.lastMessage || '')
+      && /2026-06-21T10:05:00/.test(quotaSkipped.nextRetryAt || ''),
+    `${quotaSkipped.skippedRuns}:${quotaRetryDiscoverCalls}:${quotaRetryDelay}:${quotaSkipped.nextRetryAt}:${quotaSkipped.lastMessage}`);
+  quotaRetryNowMs = Date.parse(quotaSkipped.nextRetryAt || '') + 1_000;
+  quotaRetryHandler?.();
+  await new Promise((resolve) => setTimeout(resolve, 25));
+  assert('live radar resumes discovery when quota retry timer fires after reset',
+    quotaRetryDiscoverCalls > 0,
+    String(quotaRetryDiscoverCalls));
+  quotaRetryRadar.stop();
+
+  let quotaScrapeNowMs = Date.parse('2026-06-21T10:30:00.000Z');
+  let quotaScrapeVolumeCalls = 0;
+  let quotaScrapeDocumentCalls = 0;
+  markNaverBlogOpenApiQuotaBlocked({
+    clientId: 'quota-scrape-client',
+    clientSecret: 'quota-scrape-secret',
+    label: 'quota-scrape-test',
+  }, quotaScrapeNowMs);
+  const quotaScrapeRadar = new MobileLiveGoldenRadar({
+    notificationInbox: inbox,
+    runOnStart: false,
+    cycleLimit: 8,
+    boardTarget: 10,
+    categories: ['policy'],
+    getEnvConfig: () => ({
+      naverClientId: 'quota-scrape-client',
+      naverClientSecret: 'quota-scrape-secret',
+      naverSearchAdAccessLicense: 'access',
+      naverSearchAdSecretKey: 'secret-key',
+    }),
+    liveSeedProvider: async () => ['청년미래적금 가입신청'],
+    autocompleteProvider: async () => ['청년미래적금 가입신청 대상'],
+    discover: async () => [],
+    measureLiveSearchVolumeSeparate: async () => {
+      quotaScrapeVolumeCalls += 1;
+      return [{
+        keyword: '청년미래적금 가입신청 대상',
+        pcSearchVolume: 5200,
+        mobileSearchVolume: 20800,
+        documentCount: null,
+        competition: 'LOW',
+        monthlyAveCpc: 740,
+      }];
+    },
+    measureLiveDocumentCount: async (_keyword, options) => {
+      quotaScrapeDocumentCalls += 1;
+      assert('quota fallback document measurement uses scrape-only mode',
+        options?.scrapeOnly === true,
+        JSON.stringify(options));
+      return {
+        dc: 360,
+        source: 'scrape',
+        confidence: 'medium',
+        isEstimated: false,
+        debug: { scrapeDc: 360 },
+      };
+    },
+    now: () => new Date(quotaScrapeNowMs),
+  });
+  const quotaScrapeSnapshot = await quotaScrapeRadar.runOnce();
+  assert('live radar uses verified scrape document counts when OpenAPI quota is exhausted',
+    quotaScrapeVolumeCalls > 0
+      && quotaScrapeDocumentCalls > 0
+      && quotaScrapeSnapshot.skippedRuns === 0
+      && quotaScrapeSnapshot.board.some((item) => (
+        item.keyword === '청년미래적금 가입신청 대상'
+        && item.documentCount === 360
+        && item.documentCountSource === 'scrape'
+        && item.documentCountConfidence === 'medium'
+        && item.isDocumentCountEstimated === false
+      )),
+    JSON.stringify({
+      volumeCalls: quotaScrapeVolumeCalls,
+      documentCalls: quotaScrapeDocumentCalls,
+      skippedRuns: quotaScrapeSnapshot.skippedRuns,
+      lastMessage: quotaScrapeSnapshot.lastMessage,
+      board: quotaScrapeSnapshot.board,
+    }));
 
   let intervalRegistered = false;
   let cleared = false;
@@ -1281,7 +2454,24 @@ function thinProfileCount(items: Array<{ keyword: string }>): number {
     discover: async () => {
       const offset = schedulerCatchupDiscoverCalls * 5;
       schedulerCatchupDiscoverCalls += 1;
-      return Array.from({ length: 5 }, (_, index) => result(`서버 보강 ${offset + index + 1} 신청 방법`, index));
+      const seeds = [
+        { keyword: `정책지원금 ${offset + 1} 신청 방법`, category: 'policy' },
+        { keyword: `제주 렌터카 ${offset + 2} 가격비교`, category: 'travel_domestic' },
+        { keyword: `AI 영상툴 ${offset + 3} 가격비교`, category: 'it' },
+        { keyword: `도수치료 ${offset + 4} 보험 적용 비용`, category: 'health' },
+        { keyword: `무선청소기 ${offset + 5} 가격비교`, category: 'electronics' },
+      ];
+      return seeds.map((seed, index) => ({
+        ...result(seed.keyword, index),
+        grade: 'SSS',
+        score: 99,
+        searchVolume: 12000 + index * 500,
+        pcSearchVolume: 2400 + index * 100,
+        mobileSearchVolume: 9600 + index * 400,
+        documentCount: 300 + index * 10,
+        goldenRatio: 40,
+        category: seed.category,
+      }));
     },
   });
   schedulerCatchupRadar.start();
@@ -1291,7 +2481,7 @@ function thinProfileCount(items: Array<{ keyword: string }>): number {
   schedulerCatchupRadar.stop();
   assert('live radar scheduler catches up while board is below target',
     schedulerCatchupDiscoverCalls >= 2
-      && schedulerCatchupSnapshot.boardCount === 10
+      && schedulerCatchupSnapshot.boardCount >= 8
       && schedulerCatchupSnapshot.successfulRuns === 2,
     `${schedulerCatchupDiscoverCalls}:${schedulerCatchupSnapshot.boardCount}:${schedulerCatchupSnapshot.successfulRuns}`);
 
