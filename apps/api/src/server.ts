@@ -251,7 +251,7 @@ function text(
 type DownloadProductKey = 'leword' | 'naver' | 'orbit';
 type LewordDownloadKind = 'windows' | 'android' | 'mac-arm' | 'mac-intel';
 
-const LEWORD_DESKTOP_VERSION = '2.49.85';
+const LEWORD_DESKTOP_VERSION = '2.49.86';
 const LEWORD_DESKTOP_FILENAME = `LEWORD-${LEWORD_DESKTOP_VERSION}.exe`;
 const LEWORD_ANDROID_FILENAME = 'LEWORD-mobile-0.1.0.apk';
 
@@ -269,16 +269,16 @@ const DOWNLOAD_DEFAULT_FILENAMES: Record<DownloadProductKey, Record<LewordDownlo
     'mac-intel': `LEWORD-${LEWORD_DESKTOP_VERSION}-x64.dmg`,
   },
   naver: {
-    windows: 'Better-Life-Naver-Setup-2.11.14.exe',
+    windows: 'Better-Life-Naver-Setup-2.11.67.exe',
     android: 'Better-Life-Naver-mobile.apk',
-    'mac-arm': 'Better-Life-Naver-2.11.14-arm64.dmg',
-    'mac-intel': 'Better-Life-Naver-2.11.14-x64.dmg',
+    'mac-arm': 'Better-Life-Naver-2.11.67-arm64.dmg',
+    'mac-intel': 'Better-Life-Naver-2.11.67-x64.dmg',
   },
   orbit: {
-    windows: 'LEADERNAM-Orbit-3.8.112.exe',
+    windows: 'LEADERNAM-Orbit-3.8.231.exe',
     android: 'LEADERNAM-Orbit-mobile.apk',
-    'mac-arm': 'LEADERNAM-Orbit-3.8.112-arm64.dmg',
-    'mac-intel': 'LEADERNAM-Orbit-3.8.112-x64.dmg',
+    'mac-arm': 'LEADERNAM-Orbit-3.8.231-arm64.dmg',
+    'mac-intel': 'LEADERNAM-Orbit-3.8.231-x64.dmg',
   },
 };
 
@@ -2930,7 +2930,7 @@ export function createLewordApiServer(options: LewordApiServerOptions = {}): htt
       return;
     }
 
-    if (req.method === 'GET' && url.pathname === '/v1/downloads') {
+    if (req.method === 'GET' && (url.pathname === '/v1/downloads' || url.pathname === '/v1/public/downloads')) {
       json(res, 200, buildDownloadsPayload(), {
         'Cache-Control': 'no-store',
       });
