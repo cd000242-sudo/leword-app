@@ -474,6 +474,7 @@ const DIRECT_FINANCE_SIGNAL_RE = /(?:\uC8FC\uC2DD|\uC8FC\uAC00|\uC2E4\uC801|\uBC
 const DIRECT_EVENT_SIGNAL_RE = /(?:KBO|\uC62C\uC2A4\uD0C0|\uCD95\uC81C|\uACF5\uC5F0|\uCF58\uC11C\uD2B8|\uC804\uC2DC|\uD589\uC0AC|\uC5EC\uD589|\uAD00\uAD11|\uBC14\uB2E4|\uD558\uB298\uAE38|\uB80C\uD130\uCE74|\uC219\uC18C|\uD56D\uACF5|\uC5D1\uC2A4\uD3EC|\uD398\uC2A4\uD2F0\uBC8C)/iu;
 const DIRECT_COMMERCE_SIGNAL_RE = /(?:\uCD94\uCC9C|\uAC00\uACA9|\uAD6C\uB9E4|\uC1FC\uD551|\uD560\uC778|\uCFE0\uD3F0|\uB9AC\uBDF0|\uD6C4\uAE30|\uBE44\uAD50|\uCD5C\uC800\uAC00|\uC81C\uD488|\uC0C1\uD488|\uAD6C\uB9E4\uCC98|\uC5D0\uC5B4\uCEE8|\uCCAD\uC18C\uAE30|\uB80C\uD0C8|\uBCF4\uD5D8|\uCE58\uB8CC|\uD544\uD130)/u;
 const DIRECT_CONTENT_SIGNAL_RE = /(?:\uB4DC\uB77C\uB9C8|\uC601\uD654|\uBC29\uC1A1|\uC608\uB2A5|\uC624\uD2F0\uD2F0|OTT|\uC560\uB2C8|\uC6F9\uD230|\uC720\uD29C\uBE0C|\uC1FC\uCE20)/iu;
+const DIRECT_CALCULATOR_SIGNAL_RE = /(?:\uACC4\uC0B0\uAE30|\uBCF4\uD5D8\uB8CC|\uC138\uAE08|\uAE09\uC5EC|\uD1F4\uC9C1\uAE08|\uC2DC\uAE09|\uC8FC\uD734\uC218\uB2F9|\uC5F0\uB9D0\uC815\uC0B0|\uBD80\uAC00\uC138|\uC2E4\uC218\uB839\uC561|\uD658\uAE09\uC77C|\uC18C\uB4DD\uC138)/u;
 const DIRECT_POLICY_NEED_INTENTS = [
   '\uC2E0\uCCAD \uB300\uC0C1',
   '\uC2E0\uCCAD \uBC29\uBC95',
@@ -519,6 +520,18 @@ const DIRECT_CONTENT_NEED_INTENTS = [
   '\uACB0\uB9D0 \uD574\uC11D',
   '\uCFE0\uD0A4\uC601\uC0C1',
 ];
+const DIRECT_CALCULATOR_NEED_INTENTS = [
+  `${CURRENT_YEAR}`,
+  '\uD504\uB9AC\uB79C\uC11C',
+  '\uC54C\uBC14',
+  '\uC77C\uC6A9\uC9C1',
+  '\uAC1C\uC778\uC0AC\uC5C5\uC790',
+  '\uC2E4\uC218\uB839\uC561',
+  '\uC790\uB3D9\uACC4\uC0B0',
+  '\uACC4\uC0B0\uBC29\uBC95',
+  '\uC694\uC728',
+  '\uACF5\uC81C\uD56D\uBAA9',
+];
 const LIVE_ENTITY_STOPWORDS = new Set([
   '실시간',
   '검색어',
@@ -540,13 +553,15 @@ const LIVE_ENTITY_STOPWORDS = new Set([
 ]);
 const NON_PERSON_ENTITY_RE = /(로또|복권|하트시그널|나는솔로|환승연애|솔로지옥|미스터트롯|KBO|프로야구|월드컵|축구|야구|올스타전|개막전)/i;
 
-function unique(values: string[], max = Number.POSITIVE_INFINITY): string[] {
+function unique(values: string[], max = Number.POSITIVE_INFINITY, preserveSpacingVariants = false): string[] {
   const seen = new Set<string>();
   const out: string[] = [];
   for (const raw of values) {
     const value = normalizeCandidate(raw);
     if (!value) continue;
-    const key = compactGoldenKeyword(value);
+    const key = preserveSpacingVariants
+      ? value.toLowerCase().replace(/\s+/g, ' ')
+      : compactGoldenKeyword(value);
     if (!key || seen.has(key)) continue;
     seen.add(key);
     out.push(value);
@@ -608,6 +623,9 @@ function directNeedIntentsForSeed(seed: string, categoryIds: string[]): string[]
   const intents: string[] = [];
   intents.push(...getSeedSpecificIntents(clean).slice(0, 12));
 
+  if (DIRECT_CALCULATOR_SIGNAL_RE.test(clean)) {
+    intents.push(...DIRECT_CALCULATOR_NEED_INTENTS);
+  }
   if (DIRECT_POLICY_SIGNAL_RE.test(clean) || /policy|education|life_tips/.test(categoryText)) {
     intents.push(...DIRECT_POLICY_NEED_INTENTS);
   }
@@ -634,9 +652,15 @@ function buildWriterReadyNeedCandidates(seed: string, categoryIds: string[], lim
   for (const intent of directNeedIntentsForSeed(clean, categoryIds)) {
     const normalizedIntent = normalizeCandidate(intent);
     if (!normalizedIntent || clean.includes(normalizedIntent)) continue;
-    out.push(`${clean} ${normalizedIntent}`);
+    const spacedCandidate = `${clean} ${normalizedIntent}`;
+    out.push(spacedCandidate);
+    const compactIntent = normalizedIntent.replace(/\s+/g, '');
+    const compactCandidate = `${clean}${compactIntent}`;
+    if (compactIntent && compactCandidate !== spacedCandidate && !clean.includes(compactIntent)) {
+      out.push(compactCandidate);
+    }
   }
-  return unique(out.filter(isUsableCandidate), limit);
+  return unique(out.filter(isUsableCandidate), limit, true);
 }
 
 function normalizeCandidate(raw: unknown): string {
@@ -1169,11 +1193,16 @@ export function buildDirectGoldenKeywordCandidatePlan(options: DirectGoldenKeywo
     if (candidates.length >= maxCandidates * 1.25) break;
   }
 
+  const usableCandidates = candidates.filter(isUsableCandidate);
+  const finalCandidates = includeCrossCategory && !keyword
+    ? spreadCandidates(usableCandidates, maxCandidates, 160)
+    : unique(usableCandidates, maxCandidates, true);
+
   return {
     category,
     categoryIds: directCategoryIds,
     seeds: baseSeeds,
-    candidates: unique(candidates.filter(isUsableCandidate), maxCandidates),
+    candidates: finalCandidates,
   };
 }
 
@@ -1189,7 +1218,7 @@ export async function discoverDirectGoldenKeywords(
   });
   if (plan.candidates.length === 0) return [];
 
-  const maxCandidates = Math.max(80, Math.min(12000, Math.floor(options.maxCandidates || 1800)));
+  const maxCandidates = Math.max(80, Math.min(12000, Math.floor(options.maxCandidates || 3600)));
   const maxSimilarPerCluster = Math.max(
     1,
     Math.min(8, Math.floor(options.maxSimilarPerCluster || (limit > 30 ? 6 : 2))),
@@ -1220,7 +1249,7 @@ export async function discoverDirectGoldenKeywords(
     ...priorityCandidates,
     ...suggestionCandidates,
     ...plan.candidates,
-  ], measurementCandidateCap);
+  ], measurementCandidateCap, true);
   options.onProgress?.({
     phase: 'searchad-suggestions',
     candidates: candidates.length,

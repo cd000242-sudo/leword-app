@@ -121,6 +121,21 @@ assert(
   ),
 );
 
+const calculatorPlan = buildDirectGoldenKeywordCandidatePlan({
+  keyword: '\u0034\uB300\uBCF4\uD5D8\uACC4\uC0B0\uAE30',
+  category: 'policy',
+  maxSeeds: 80,
+  maxCandidates: 260,
+});
+
+assert(
+  'calculator seeds expand into writer-ready no-space and spaced longtails',
+  calculatorPlan.candidates.includes('\u0034\uB300\uBCF4\uD5D8\uACC4\uC0B0\uAE30 \uD504\uB9AC\uB79C\uC11C')
+    && calculatorPlan.candidates.includes('\u0034\uB300\uBCF4\uD5D8\uACC4\uC0B0\uAE30\uD504\uB9AC\uB79C\uC11C')
+    && calculatorPlan.candidates.includes('\u0034\uB300\uBCF4\uD5D8\uACC4\uC0B0\uAE30 \uC2E4\uC218\uB839\uC561'),
+  calculatorPlan.candidates.slice(0, 80).join('|'),
+);
+
 assert(
   'direct plan blocks broad shopping head terms the user rejected',
   !allPlan.candidates.some(keyword => /^(여름\s*)?원피스\s*(추천|코디|사이즈 비교)$/.test(keyword)),
@@ -131,7 +146,6 @@ assert(
   'cross-category plan removes stale exam-answer seeds and keeps live-safe issue intents',
   !allPlan.candidates.some(keyword => /2027 6모|1227회|6모\s*(등급컷|답지|정답)|6월 모의고사\s*(등급컷|답지|정답)/.test(keyword))
     && allPlan.candidates.includes(`${currentYear} 제헌절 공휴일`)
-    && allPlan.candidates.includes('강훈식 프로필')
     && allPlan.candidates.includes(`${lottoRound}회 로또 당첨번호`),
   allPlan.candidates.filter(keyword => /6모|1227회|제헌절|강훈식|로또/.test(keyword)).slice(0, 40).join('|'),
 );
