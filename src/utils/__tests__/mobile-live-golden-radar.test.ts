@@ -1465,6 +1465,51 @@ function thinProfileCount(items: Array<{ keyword: string }>): number {
     actionableGradeGateSnapshot.board.map((item) => `${item.keyword}:${item.grade}`).join('|'));
   fs.rmSync(actionableGradeGateBoardFile, { force: true });
 
+  const broadHeadCapBoardFile = path.join(process.cwd(), 'tmp', 'mobile-live-golden-broad-head-cap-test.json');
+  fs.writeFileSync(broadHeadCapBoardFile, JSON.stringify({
+    boardUpdatedAt: '2026-06-15T08:00:00.000Z',
+    items: [
+      ['\uC0AC\uB300\uBCF4\uD5D8\uACC4\uC0B0\uAE30', 'SSS', 99, 20010, 1318, 15.18, 'policy'],
+      ['\uC0AC\uB300\uBCF4\uD5D8\uACC4\uC0B0\uAE30 \uD504\uB9AC\uB79C\uC11C \uC2E4\uC218\uB839\uC561', 'SSS', 98, 6400, 380, 16.84, 'policy'],
+    ].map(([keyword, grade, score, totalSearchVolume, documentCount, goldenRatio, category]) => ({
+      keyword,
+      grade,
+      score,
+      totalSearchVolume,
+      pcSearchVolume: Math.round(Number(totalSearchVolume) * 0.22),
+      mobileSearchVolume: Number(totalSearchVolume) - Math.round(Number(totalSearchVolume) * 0.22),
+      documentCount,
+      goldenRatio,
+      category,
+      source: 'fixture-measured',
+      evidence: ['fixture-searchad-volume', 'fixture-naver-openapi-document-count'],
+      searchVolumeSource: 'searchad',
+      searchVolumeConfidence: 'high',
+      isSearchVolumeEstimated: false,
+      documentCountSource: 'naver-api',
+      documentCountConfidence: 'high',
+      isDocumentCountEstimated: false,
+      updatedAt: '2026-06-15T08:00:00.000Z',
+      discoveredAt: '2026-06-15T08:00:00.000Z',
+      isMeasured: true,
+    })),
+  }), 'utf8');
+  const broadHeadCapRadar = new MobileLiveGoldenRadar({
+    notificationInbox: inbox,
+    runOnStart: false,
+    boardFile: broadHeadCapBoardFile,
+    boardTarget: 2,
+    publicPreviewCount: 2,
+    now: () => new Date('2026-06-15T09:00:00.000Z'),
+  });
+  const broadHeadCapSnapshot = broadHeadCapRadar.snapshot();
+  const broadHeadGradeByKeyword = new Map(broadHeadCapSnapshot.board.map((item) => [item.keyword, item.grade]));
+  assert('broad one-word need heads are capped below SSS while compound longtails keep SSS',
+    broadHeadGradeByKeyword.get('\uC0AC\uB300\uBCF4\uD5D8\uACC4\uC0B0\uAE30') !== 'SSS'
+      && broadHeadGradeByKeyword.get('\uC0AC\uB300\uBCF4\uD5D8\uACC4\uC0B0\uAE30 \uD504\uB9AC\uB79C\uC11C \uC2E4\uC218\uB839\uC561') === 'SSS',
+    broadHeadCapSnapshot.board.map((item) => `${item.keyword}:${item.grade}`).join('|'));
+  fs.rmSync(broadHeadCapBoardFile, { force: true });
+
   const adsenseReadinessBoardFile = path.join(process.cwd(), 'tmp', 'mobile-live-golden-adsense-readiness-test.json');
   fs.writeFileSync(adsenseReadinessBoardFile, JSON.stringify({
     boardUpdatedAt: '2026-06-15T08:00:00.000Z',

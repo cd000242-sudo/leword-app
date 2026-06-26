@@ -970,11 +970,13 @@ assert('mobile live golden radar waits when document-count quota is exhausted',
     && /scheduleQuotaRetry/.test(liveGoldenRadar)
     && /nextRetryAt/.test(sharedMobileContract)
     && /measured-only golden keywords/.test(liveGoldenRadar));
-assert('mobile live golden board prefers strict 98-point measured winners and only then measured near-fallbacks',
+assert('mobile live golden board prefers measured SSS winners, then strict 98-point measured rows, then near-fallbacks',
   /isUltimateGoldenKeywordCandidate/.test(liveGoldenRadar)
     && /function isNearUltimateLiveBoardItem/.test(liveGoldenRadar)
-    && /const strictReady = sorted\.filter\(isStrictReadyLiveBoardItem\)/.test(liveGoldenRadar)
-    && /const strictSelected = selectLiveBoardItemsFromPool\(strictReady, target\)/.test(liveGoldenRadar)
+    && /const measuredSssReady = sorted[\s\S]{0,120}isMeasuredSssBoardCandidate\(item, now\)/.test(liveGoldenRadar)
+    && /const measuredSssSelected = selectLiveBoardItemsFromPool\(/.test(liveGoldenRadar)
+    && /const strictReady = sorted[\s\S]{0,160}\.filter\(isStrictReadyLiveBoardItem\)/.test(liveGoldenRadar)
+    && /const strictSelected = selectLiveBoardItemsFromPool\(/.test(liveGoldenRadar)
     && /if \(strictSelected\.length >= target\) return strictSelected/.test(liveGoldenRadar)
     && /\.filter\(isNearUltimateLiveBoardItem\)/.test(liveGoldenRadar)
     && /isStrictReadyLiveBoardItem\(item\) \|\| isNearUltimateLiveBoardItem\(item\)/.test(liveGoldenRadar)
@@ -1102,8 +1104,8 @@ assert('mobile bulk golden direct supplement keeps measured SS/S quality backfil
   /isQualityGoldenDiscoveryResult/.test(pcExecutor)
     && /isBulkGolden && isQualityGoldenDiscoveryResult/.test(pcExecutor)
     && /visibleNeed/.test(pcExecutor));
-assert('mobile bulk golden direct supplement avoids runaway 6000+ measured candidate batches',
-  /Math\.max\(1800, Math\.min\(3600/.test(pcExecutor)
+assert('mobile bulk golden direct supplement expands measured candidate batches but keeps a bounded cap',
+  /Math\.max\(2400, Math\.min\(7200/.test(pcExecutor)
     && !/Math\.max\(6000, Math\.min\(10000/.test(pcExecutor));
 assert('mobile executor wires PRO traffic to PC hunter', /huntProTrafficKeywords/.test(pcExecutor) && /runProTrafficWithPcHunter/.test(pcExecutor));
 assert('mobile executor prewarms PRO traffic from live autocomplete plus wider measured-first pool',

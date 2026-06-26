@@ -3431,7 +3431,7 @@ async function runGoldenDiscoveryWithPcMdp(
         limit: Math.max(params.targetCount, isBulkGolden ? visibleNeed + 20 : directNeed + 10),
         maxSeeds: params.mode === 'bulk' ? 1000 : 700,
         maxCandidates: params.mode === 'bulk'
-          ? Math.max(1800, Math.min(3600, Math.max(visibleNeed, directNeed) * 120))
+          ? Math.max(2400, Math.min(7200, Math.max(visibleNeed, directNeed) * 160))
           : Math.max(1200, Math.min(2200, directNeed * 160)),
         includeCrossCategory: true,
         requireCategoryMatch: false,

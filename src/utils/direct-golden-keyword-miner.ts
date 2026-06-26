@@ -532,6 +532,55 @@ const DIRECT_CALCULATOR_NEED_INTENTS = [
   '\uC694\uC728',
   '\uACF5\uC81C\uD56D\uBAA9',
 ];
+const DIRECT_POLICY_COMPOUND_NEED_INTENTS = [
+  '\uC2E0\uCCAD \uB300\uC0C1',
+  '\uC2E0\uCCAD \uBC29\uBC95',
+  '\uC790\uACA9 \uC870\uAC74',
+  '\uC9C0\uAE09\uC77C \uC870\uD68C',
+  '\uD544\uC694 \uC11C\uB958',
+  '\uC0AC\uC6A9\uCC98 \uCD94\uCC9C',
+  '\uB9C8\uAC10\uC77C \uD655\uC778',
+  '\uC18C\uB4DD\uAE30\uC900 \uACC4\uC0B0',
+];
+const DIRECT_CALCULATOR_COMPOUND_NEED_INTENTS = [
+  '\uD504\uB9AC\uB79C\uC11C \uC2E4\uC218\uB839\uC561',
+  '\uC54C\uBC14 \uC790\uB3D9\uACC4\uC0B0',
+  '\uC77C\uC6A9\uC9C1 \uACC4\uC0B0\uBC29\uBC95',
+  '\uAC1C\uC778\uC0AC\uC5C5\uC790 \uACF5\uC81C\uD56D\uBAA9',
+  '\uC694\uC728\uD45C',
+  '\uC138\uAE08 \uACF5\uC81C',
+];
+const DIRECT_EVENT_COMPOUND_NEED_INTENTS = [
+  '\uC608\uB9E4 \uC77C\uC815',
+  '\uD2F0\uCF13\uD305 \uBC29\uBC95',
+  '\uC8FC\uCC28 \uC785\uC7A5\uB8CC',
+  '\uC6B4\uC601\uC2DC\uAC04 \uC608\uC57D',
+  '\uC88C\uC11D\uBC30\uCE58\uB3C4',
+  '\uC900\uBE44\uBB3C',
+  '\uD560\uC778 \uBC29\uBC95',
+];
+const DIRECT_COMMERCE_COMPOUND_NEED_INTENTS = [
+  '\uCD5C\uC800\uAC00 \uAD6C\uB9E4\uCC98',
+  '\uD560\uC778 \uCFE0\uD3F0',
+  '\uAC00\uACA9\uBE44\uAD50 \uD6C4\uAE30',
+  '\uCD94\uCC9C \uD6C4\uAE30',
+  '\uBE44\uC6A9 \uBE44\uAD50',
+  '\uB80C\uD0C8 \uAC00\uACA9\uBE44\uAD50',
+  '\uBCF4\uD5D8 \uC801\uC6A9 \uBE44\uC6A9',
+];
+const DIRECT_FINANCE_COMPOUND_NEED_INTENTS = [
+  '\uCCAD\uC57D \uC77C\uC815',
+  '\uC2E4\uC801 \uBC1C\uD45C\uC77C',
+  '\uBC30\uB2F9\uAE08 \uAE30\uC900\uC77C',
+  '\uC218\uC218\uB8CC \uBE44\uAD50',
+  '\uC804\uB9DD \uB9AC\uC2A4\uD06C',
+];
+const DIRECT_CONTENT_COMPOUND_NEED_INTENTS = [
+  'OTT \uBCF4\uB294\uACF3',
+  '\uBC29\uC1A1\uC2DC\uAC04 \uB2E4\uC2DC\uBCF4\uAE30',
+  '\uC778\uBB3C\uAD00\uACC4\uB3C4 \uC815\uB9AC',
+  '\uACB0\uB9D0 \uD574\uC11D',
+];
 const LIVE_ENTITY_STOPWORDS = new Set([
   '실시간',
   '검색어',
@@ -658,6 +707,51 @@ function buildWriterReadyNeedCandidates(seed: string, categoryIds: string[], lim
     const compactCandidate = `${clean}${compactIntent}`;
     if (compactIntent && compactCandidate !== spacedCandidate && !clean.includes(compactIntent)) {
       out.push(compactCandidate);
+    }
+  }
+  return unique(out.filter(isUsableCandidate), limit, true);
+}
+
+function compoundNeedIntentsForSeed(seed: string, categoryIds: string[]): string[] {
+  const clean = normalizeCandidate(seed);
+  if (!clean) return [];
+  const categoryText = categoryIds.join(' ');
+  const intents: string[] = [];
+  if (DIRECT_CALCULATOR_SIGNAL_RE.test(clean)) {
+    intents.push(...DIRECT_CALCULATOR_COMPOUND_NEED_INTENTS);
+  }
+  if (DIRECT_POLICY_SIGNAL_RE.test(clean) || /policy|education|life_tips/.test(categoryText)) {
+    intents.push(...DIRECT_POLICY_COMPOUND_NEED_INTENTS);
+  }
+  if (DIRECT_FINANCE_SIGNAL_RE.test(clean) || /finance/.test(categoryText)) {
+    intents.push(...DIRECT_FINANCE_COMPOUND_NEED_INTENTS);
+  }
+  if (DIRECT_EVENT_SIGNAL_RE.test(clean) || /sports|travel|event/.test(categoryText)) {
+    intents.push(...DIRECT_EVENT_COMPOUND_NEED_INTENTS);
+  }
+  if (DIRECT_COMMERCE_SIGNAL_RE.test(clean) || /shopping|commerce|beauty|fashion|food|health|home|it/.test(categoryText)) {
+    intents.push(...DIRECT_COMMERCE_COMPOUND_NEED_INTENTS);
+  }
+  if (DIRECT_CONTENT_SIGNAL_RE.test(clean) || /drama|movie|broadcast|music|youtube|anime/.test(categoryText)) {
+    intents.push(...DIRECT_CONTENT_COMPOUND_NEED_INTENTS);
+  }
+  return unique(intents, 28);
+}
+
+function buildWriterReadyCompoundNeedCandidates(seed: string, categoryIds: string[], limit = 36): string[] {
+  const clean = normalizeCandidate(seed);
+  if (!clean) return [];
+  const out: string[] = [];
+  for (const intent of compoundNeedIntentsForSeed(clean, categoryIds)) {
+    const normalizedIntent = normalizeCandidate(intent);
+    if (!normalizedIntent) continue;
+    const compactIntent = normalizedIntent.replace(/\s+/g, '');
+    if (clean.includes(normalizedIntent) || (compactIntent && clean.includes(compactIntent))) continue;
+    const spacedCandidate = `${clean} ${normalizedIntent}`;
+    out.push(spacedCandidate);
+    if (compactIntent) {
+      const compactCandidate = `${clean}${compactIntent}`;
+      if (compactCandidate !== spacedCandidate) out.push(compactCandidate);
     }
   }
   return unique(out.filter(isUsableCandidate), limit, true);
@@ -893,6 +987,7 @@ function buildBulkAnchorCandidates(plan: DirectGoldenKeywordCandidatePlan, optio
       if (!clean.includes(intent)) out.push(`${clean} ${intent}`);
     }
     out.push(...buildWriterReadyNeedCandidates(clean, plan.categoryIds, 20));
+    out.push(...buildWriterReadyCompoundNeedCandidates(clean, plan.categoryIds, 28));
 
     for (const entity of extractLiveEntitySeeds(clean).slice(0, 4)) {
       out.push(entity);
@@ -900,6 +995,7 @@ function buildBulkAnchorCandidates(plan: DirectGoldenKeywordCandidatePlan, optio
         if (!entity.includes(intent)) out.push(`${entity} ${intent}`);
       }
       out.push(...buildWriterReadyNeedCandidates(entity, plan.categoryIds, 10));
+      out.push(...buildWriterReadyCompoundNeedCandidates(entity, plan.categoryIds, 16));
     }
 
     for (const expanded of expandSeed(clean, intents, dateHints).slice(0, 12)) {
@@ -907,7 +1003,7 @@ function buildBulkAnchorCandidates(plan: DirectGoldenKeywordCandidatePlan, optio
     }
   }
 
-  return unique(out.filter(isUsableCandidate), 900);
+  return unique(out.filter(isUsableCandidate), 1600);
 }
 
 function selectSuggestionSeeds(plan: DirectGoldenKeywordCandidatePlan, options: DirectGoldenKeywordMinerOptions): string[] {
@@ -946,6 +1042,7 @@ async function buildSearchAdSuggestionCandidates(
         if (!isUsableCandidate(keyword)) continue;
         out.push(keyword);
         out.push(...buildWriterReadyNeedCandidates(keyword, plan.categoryIds, 12));
+        out.push(...buildWriterReadyCompoundNeedCandidates(keyword, plan.categoryIds, 18));
         for (const expanded of expandSeed(keyword, intents, dateHints).slice(0, 18)) {
           out.push(expanded);
         }
@@ -975,6 +1072,7 @@ async function buildRankedSupplementCandidates(
   for (const seed of seeds) {
     out.push(seed);
     out.push(...buildWriterReadyNeedCandidates(seed, plan.categoryIds, 18));
+    out.push(...buildWriterReadyCompoundNeedCandidates(seed, plan.categoryIds, 24));
     for (const expanded of expandSeed(seed, intents, dateHints).slice(0, 18)) {
       out.push(expanded);
     }
@@ -994,6 +1092,7 @@ async function buildRankedSupplementCandidates(
           if (!isUsableCandidate(keyword)) continue;
           out.push(keyword);
           out.push(...buildWriterReadyNeedCandidates(keyword, plan.categoryIds, 12));
+          out.push(...buildWriterReadyCompoundNeedCandidates(keyword, plan.categoryIds, 16));
           for (const expanded of expandSeed(keyword, intents, dateHints).slice(0, 10)) {
             out.push(expanded);
           }
@@ -1185,11 +1284,13 @@ export function buildDirectGoldenKeywordCandidatePlan(options: DirectGoldenKeywo
       if (!clean.includes(intent)) candidates.push(`${clean} ${intent}`);
     }
     candidates.push(...buildWriterReadyNeedCandidates(clean, directCategoryIds, 18));
+    candidates.push(...buildWriterReadyCompoundNeedCandidates(clean, directCategoryIds, 24));
   }
 
   for (const seed of baseSeeds) {
     candidates.push(...expandSeed(seed, intents, dateHints));
     candidates.push(...buildWriterReadyNeedCandidates(seed, directCategoryIds, 16));
+    candidates.push(...buildWriterReadyCompoundNeedCandidates(seed, directCategoryIds, 20));
     if (candidates.length >= maxCandidates * 1.25) break;
   }
 
@@ -1218,7 +1319,7 @@ export async function discoverDirectGoldenKeywords(
   });
   if (plan.candidates.length === 0) return [];
 
-  const maxCandidates = Math.max(80, Math.min(12000, Math.floor(options.maxCandidates || 3600)));
+  const maxCandidates = Math.max(80, Math.min(12000, Math.floor(options.maxCandidates || 7200)));
   const maxSimilarPerCluster = Math.max(
     1,
     Math.min(8, Math.floor(options.maxSimilarPerCluster || (limit > 30 ? 6 : 2))),

@@ -58,6 +58,7 @@ export function hasExplicitTrustedSearchVolumeMeasurement(metric: MobileKeywordM
 }
 
 const ACTIONABLE_NEED_RE = /(신청|대상|자격|조건|방법|조회|일정|마감|서류|준비물|예매|예약|가격|비교|추천|후기|할인|쿠폰|구매|사용법|설정|해결|발급|지급일|지원금|환급|청약|등급컷|라인업|중계|주차|입장료|위치|검사|비용)/u;
+const SSS_READY_NEED_INTENT_RE = /(?:\uACC4\uC0B0\uAE30|\uACF5\uD734\uC77C|\uC785\uC7A5\uB8CC|\uC8FC\uCC28|\uC608\uC57D|\uC608\uB9E4|\uC2E0\uCCAD|\uC9C0\uAE09\uC77C|\uB300\uC0C1|\uC790\uACA9|\uC870\uAC74|\uC870\uD68C|\uC0AC\uC6A9\uCC98|\uAC00\uACA9\uBE44\uAD50|\uCD5C\uC800\uAC00|\uD560\uC778|\uCFE0\uD3F0|\uAD6C\uB9E4\uCC98|\uCD94\uCC9C|\uD6C4\uAE30|\uBE44\uC6A9|\uBCF4\uD5D8|\uC900\uBE44\uBB3C|\uC6B4\uC601\uC2DC\uAC04|\uC77C\uC815|\uB9C8\uAC10\uC77C|\uC11C\uB958|\uC2E4\uC218\uB839\uC561|\uC138\uAE08|\uD658\uAE09\uC77C|\uD504\uB9AC\uB79C\uC11C|\uC54C\uBC14|\uC77C\uC6A9\uC9C1|\uAC1C\uC778\uC0AC\uC5C5\uC790|\uC790\uB3D9\uACC4\uC0B0|\uACF5\uC81C\uD56D\uBAA9|\uD2F0\uCF13\uD305|\uC88C\uC11D\uBC30\uCE58\uB3C4|\uC694\uC728\uD45C)/u;
 const COMMERCE_RE = /(가격|비교|추천|후기|할인|쿠폰|구매|최저가|가성비|제품|상품|쇼핑|렌탈|보험|카드|대출|청약|예매|예약)/u;
 const EVERGREEN_RE = /(방법|조건|자격|서류|준비물|사용법|설정|해결|비교|추천|후기|조회|신청|발급|지급일|환급|주차|입장료|비용|검사|FAQ|체크리스트)/iu;
 const THIN_LOOKUP_RE = /(프로필|나이|키|고향|학력|인스타|출연진|몇부작|방송시간|다시보기|공식영상|하이라이트|인물관계도|결말|쿠키영상|재방송|등장인물|줄거리만|근황)/u;
@@ -517,6 +518,7 @@ export function judgeKeywordMetric(metric: MobileKeywordMetric, now: Date = new 
   const eventUtility = hasUltimateEventUtility(keyword);
   const lowValueCategory = isUltimateLowValueCategory(category);
   const broadLowValueEvent = isTooBroadLowValueEventKeyword(keyword, category);
+  const sssReadyNeed = hasRegexIntent(SSS_READY_NEED_INTENT_RE, keyword);
   const commerce = COMMERCE_RE.test(keyword);
   const shoppingConnectContext = SHOPPING_CONNECT_CONTEXT_RE.test(runtimeIntentText);
   const shoppingConnectNeed = shoppingConnectContext
@@ -543,8 +545,8 @@ export function judgeKeywordMetric(metric: MobileKeywordMetric, now: Date = new 
     );
   const actionable = !lowValueLookup
     && !broadLowValueEvent
-    && (ACTIONABLE_NEED_RE.test(keyword) || highValueNeed || videoBridgeNeed || shoppingConnectNeed)
-    && (!lowValueCategory || highValueNeed || ultimateCommerce || eventUtility || videoBridgeNeed);
+    && (ACTIONABLE_NEED_RE.test(keyword) || highValueNeed || sssReadyNeed || videoBridgeNeed || shoppingConnectNeed)
+    && (!lowValueCategory || highValueNeed || sssReadyNeed || ultimateCommerce || eventUtility || videoBridgeNeed);
   const thin = lowValueLookup || GENERIC_SINGLE_RE.test(keyword);
   const newsOnly = NEWS_ONLY_RE.test(keyword);
   const unsafe = UNSAFE_RE.test(keyword);

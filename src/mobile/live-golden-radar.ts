@@ -128,7 +128,7 @@ const LIVE_BOARD_EPISODE_LOOKUP_ABSOLUTE_MAX = 3;
 const LIVE_BOARD_CONTENT_LOOKUP_SHARE_CAP = 0.10;
 const LIVE_BOARD_CONTENT_LOOKUP_ABSOLUTE_MAX = 6;
 const LIVE_BOARD_STRICT_READY_MIN = 60;
-const LIVE_DIRECT_CANDIDATE_MAX_PER_CYCLE = 3600;
+const LIVE_DIRECT_CANDIDATE_MAX_PER_CYCLE = 7200;
 const LIVE_ISSUE_FALLBACK_DOCUMENT_LIMIT = 16;
 const LIVE_ISSUE_FALLBACK_CONCURRENCY = 2;
 const LIVE_BACKFILL_VOLUME_PASS_MAX = 120;
@@ -831,7 +831,7 @@ function uniqueKeywords(values: string[], limit = 40): string[] {
 function directCandidateBudget(maxCandidates: number, cycleLimit: number): number {
   return Math.max(
     120,
-    Math.min(maxCandidates, LIVE_DIRECT_CANDIDATE_MAX_PER_CYCLE, Math.max(480, cycleLimit * 120)),
+    Math.min(maxCandidates, LIVE_DIRECT_CANDIDATE_MAX_PER_CYCLE, Math.max(960, cycleLimit * 180)),
   );
 }
 
@@ -1506,27 +1506,32 @@ function selectLiveBoardItems<T extends MobileLiveGoldenBoardItem>(
   now: Date = new Date(),
 ): T[] {
   const target = Math.max(1, Math.floor(boardTarget));
-  const strictReady = sorted.filter(isStrictReadyLiveBoardItem);
-  const strictSelected = selectLiveBoardItemsFromPool(strictReady, target);
-  if (strictSelected.length >= target) return strictSelected;
-  const selectedIds = new Set(strictSelected.map((item) => item.id));
   const measuredSssReady = sorted
-    .filter((item) => !selectedIds.has(item.id))
     .filter((item) => isMeasuredSssBoardCandidate(item, now));
   const measuredSssSelected = selectLiveBoardItemsFromPool(
-    [...strictSelected, ...measuredSssReady],
+    measuredSssReady,
     target,
-    (item) => selectedIds.has(item.id) || isMeasuredSssBoardCandidate(item, now),
+    (item) => isMeasuredSssBoardCandidate(item, now),
   );
   if (measuredSssSelected.length >= target) return measuredSssSelected;
-  const measuredSssIds = new Set(measuredSssSelected.map((item) => item.id));
+  const selectedIds = new Set(measuredSssSelected.map((item) => item.id));
+  const strictReady = sorted
+    .filter((item) => !selectedIds.has(item.id))
+    .filter(isStrictReadyLiveBoardItem);
+  const strictSelected = selectLiveBoardItemsFromPool(
+    [...measuredSssSelected, ...strictReady],
+    target,
+    (item) => selectedIds.has(item.id) || isStrictReadyLiveBoardItem(item),
+  );
+  if (strictSelected.length >= target) return strictSelected;
+  const strictIds = new Set(strictSelected.map((item) => item.id));
   const nearReady = sorted
-    .filter((item) => !measuredSssIds.has(item.id))
+    .filter((item) => !strictIds.has(item.id))
     .filter(isNearUltimateLiveBoardItem);
   const nearSelected = selectLiveBoardItemsFromPool(
-    [...measuredSssSelected, ...nearReady],
+    [...strictSelected, ...nearReady],
     target,
-    (item) => measuredSssIds.has(item.id) || isStrictReadyLiveBoardItem(item) || isNearUltimateLiveBoardItem(item),
+    (item) => strictIds.has(item.id) || isStrictReadyLiveBoardItem(item) || isNearUltimateLiveBoardItem(item),
   );
   if (nearSelected.length >= target) return nearSelected;
 
@@ -1591,11 +1596,23 @@ function appendMeasuredPublishableFallbackItems<T extends MobileLiveGoldenBoardI
 }
 
 const SSS_READY_NEED_INTENT_RE = /(?:\uACC4\uC0B0\uAE30|\uACF5\uD734\uC77C|\uC785\uC7A5\uB8CC|\uC8FC\uCC28|\uC608\uC57D|\uC608\uB9E4|\uC2E0\uCCAD|\uC9C0\uAE09\uC77C|\uB300\uC0C1|\uC790\uACA9|\uC870\uAC74|\uC870\uD68C|\uC0AC\uC6A9\uCC98|\uAC00\uACA9\uBE44\uAD50|\uCD5C\uC800\uAC00|\uD560\uC778|\uCFE0\uD3F0|\uAD6C\uB9E4\uCC98|\uCD94\uCC9C|\uD6C4\uAE30|\uBE44\uC6A9|\uBCF4\uD5D8|\uC900\uBE44\uBB3C|\uC6B4\uC601\uC2DC\uAC04|\uC77C\uC815|\uB9C8\uAC10\uC77C|\uC11C\uB958|\uC2E4\uC218\uB839\uC561|\uC138\uAE08|\uD658\uAE09\uC77C)/u;
+const SSS_SPECIFIC_MODIFIER_RE = /(?:\uD504\uB9AC\uB79C\uC11C|\uC54C\uBC14|\uC77C\uC6A9\uC9C1|\uAC1C\uC778\uC0AC\uC5C5\uC790|\uC2E4\uC218\uB839\uC561|\uC790\uB3D9\uACC4\uC0B0|\uC694\uC728|\uACF5\uC81C|\uC608\uB9E4|\uC608\uC57D|\uD2F0\uCF13\uD305|\uC785\uC7A5\uB8CC|\uC8FC\uCC28|\uC88C\uC11D|\uC900\uBE44\uBB3C|\uD560\uC778|\uCFE0\uD3F0|\uAD6C\uB9E4\uCC98|\uCD5C\uC800\uAC00|\uAC00\uACA9\uBE44\uAD50|\uD6C4\uAE30|\uBE44\uC6A9|\uB80C\uD0C8|\uC2E0\uCCAD|\uB300\uC0C1|\uC790\uACA9|\uC870\uAC74|\uC9C0\uAE09\uC77C|\uC870\uD68C|\uC0AC\uC6A9\uCC98|\uB9C8\uAC10\uC77C|\uC11C\uB958|\uC18C\uB4DD\uAE30\uC900|\uD658\uAE09\uC77C|\uACF5\uD734\uC77C)/u;
 
 function hasSssReadyNeedIntent(keyword: string): boolean {
   const clean = normalizeKeyword(keyword);
   if (!clean) return false;
   return SSS_READY_NEED_INTENT_RE.test(clean) || SSS_READY_NEED_INTENT_RE.test(clean.replace(/\s+/g, ''));
+}
+
+function isBroadHeadSssKeyword(keyword: string): boolean {
+  const clean = normalizeKeyword(keyword);
+  if (!clean) return false;
+  const compact = clean.replace(/\s+/g, '');
+  const tokenCount = clean.split(/\s+/).filter(Boolean).length;
+  if (tokenCount >= 2) return false;
+  if (compact.length >= 9 && SSS_SPECIFIC_MODIFIER_RE.test(clean)) return false;
+  if (compact.length > 14) return false;
+  return hasSssReadyNeedIntent(clean) || hasHighValueNeedIntent(clean) || hasAdsenseNeedIntent(clean);
 }
 
 function isMeasuredSssBoardCandidate(item: MobileLiveGoldenBoardItem, now: Date): boolean {
@@ -1608,6 +1625,7 @@ function isMeasuredSssBoardCandidate(item: MobileLiveGoldenBoardItem, now: Date)
   if (!isLiveRadarUsableMetric(item, now) && !isMeasuredProExactKeywordMetric(item, now)) return false;
   if (isLottoLookupKeyword(keyword) || isLowAdsenseLookupKeyword(keyword) || isBrandSafetyNewsKeyword(keyword)) return false;
   if (volume < 1000 || docs <= 0 || docs > 5000 || ratio < 5) return false;
+  if (isBroadHeadSssKeyword(keyword)) return false;
   if (!hasSssReadyNeedIntent(keyword) && !hasHighValueNeedIntent(keyword) && !hasAdsenseNeedIntent(keyword)) return false;
   const judged = applyKeywordAiJudge(item, { now, downgradeExcluded: false });
   const ai = judged.aiJudge;
@@ -2985,6 +3003,7 @@ function liveUltimateOpportunityScore(keyword: string, volume: number, docs: num
   if (isBrandSafetyNewsKeyword(clean) || isBroadBenefitProductKeyword(clean) || isGenericAudienceOnlyKeyword(clean)) return 0;
   const actionable = hasLiveUltimateNeedIntent(clean)
     || hasHighValueNeedIntent(clean)
+    || hasSssReadyNeedIntent(clean)
     || hasRobustActionableIntent(clean)
     || isActionableGoldenKeyword(clean);
   if (!actionable) return 0;
@@ -3197,6 +3216,7 @@ function normalizeLiveMetricGrade(
   ratio: number,
 ): MobileResultGrade {
   const actionable = hasHighValueNeedIntent(keyword)
+    || hasSssReadyNeedIntent(keyword)
     || hasRobustActionableIntent(keyword)
     || isActionableGoldenKeyword(keyword)
     || SPECIFIC_LIVE_KEYWORD_HINT_RE.test(keyword);
@@ -3249,6 +3269,7 @@ function searchAdConfigFromEnv(env: Partial<EnvConfig>): NaverSearchAdConfig | n
 
 function isLottoLookupKeyword(keyword: string): boolean {
   const clean = normalizeKeyword(keyword);
+  if (/\uC2E4\uC218\uB839\uC561/u.test(clean) && !/(?:\uB85C\uB610|\uBCF5\uAD8C|\uB2F9\uCCA8)/u.test(clean)) return false;
   return ADSENSE_LOTTO_LOOKUP_RE.test(clean)
     || LIVE_LOTTERY_SIGNAL_RE.test(clean)
     || isRobustLottoKeyword(clean);
@@ -3296,6 +3317,7 @@ function hasAdsenseNeedIntent(keyword: string): boolean {
   }
   return ADSENSE_NEED_INTENT_RE.test(clean)
     || ADSENSE_NEED_INTENT_RE.test(clean.replace(/\s+/g, ''))
+    || hasSssReadyNeedIntent(clean)
     || hasHighValueNeedIntent(clean)
     || hasRobustActionableIntent(clean)
     || isActionableGoldenKeyword(clean);
@@ -3369,6 +3391,7 @@ function isStrongMeasuredNeedKeyword(keyword: string): boolean {
   if (isLottoLookupKeyword(clean) || isLowAdsenseLookupKeyword(clean) || isBrandSafetyNewsKeyword(clean)) return false;
   if (LIVE_PROMOTION_SYNTHETIC_INTENT_CHAIN_RE.test(clean)) return false;
   return hasLiveUltimateNeedIntent(clean)
+    || hasSssReadyNeedIntent(clean)
     || hasHighValueNeedIntent(clean)
     || hasRobustActionableIntent(clean)
     || hasAdsenseNeedIntent(clean)
@@ -3382,6 +3405,7 @@ function capSssForNeedIntent(grade: MobileResultGrade, keyword: string): MobileR
   if (grade !== 'SSS') return grade;
   const clean = normalizeKeyword(keyword);
   if (!clean) return grade;
+  if (isBroadHeadSssKeyword(clean)) return 'SS';
   if (hasHighValueNeedIntent(clean) || hasAdsenseNeedIntent(clean) || hasSssReadyNeedIntent(clean)) return grade;
   if (LOW_CONVERSION_LOOKUP_INTENT_RE.test(clean)) return 'SS';
   return capGradeForAdsenseIntent('SS', clean);
@@ -3706,7 +3730,7 @@ export class MobileLiveGoldenRadar {
     this.maxSeeds = Math.max(20, Math.min(1000, Math.floor(
       options.maxSeeds || Math.max(240, this.boardTarget * 8),
     )));
-    this.maxCandidates = Math.max(120, Math.min(3600, Math.floor(
+    this.maxCandidates = Math.max(120, Math.min(7200, Math.floor(
       options.maxCandidates || MOBILE_PC_PARITY_SLA.workerBudgets.liveGoldenMaxCandidates,
     )));
     this.startupCatchUpCycles = Math.max(1, Math.min(8, Math.floor(

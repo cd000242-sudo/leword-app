@@ -137,6 +137,14 @@ assert(
 );
 
 assert(
+  'calculator seeds expand into compound buyer-ready longtails before measurement',
+  calculatorPlan.candidates.includes('\u0034\uB300\uBCF4\uD5D8\uACC4\uC0B0\uAE30 \uD504\uB9AC\uB79C\uC11C \uC2E4\uC218\uB839\uC561')
+    && calculatorPlan.candidates.includes('\u0034\uB300\uBCF4\uD5D8\uACC4\uC0B0\uAE30\uD504\uB9AC\uB79C\uC11C\uC2E4\uC218\uB839\uC561')
+    && calculatorPlan.candidates.includes('\u0034\uB300\uBCF4\uD5D8\uACC4\uC0B0\uAE30 \uAC1C\uC778\uC0AC\uC5C5\uC790 \uACF5\uC81C\uD56D\uBAA9'),
+  calculatorPlan.candidates.slice(0, 120).join('|'),
+);
+
+assert(
   'direct plan blocks broad shopping head terms the user rejected',
   !allPlan.candidates.some(keyword => /^(여름\s*)?원피스\s*(추천|코디|사이즈 비교)$/.test(keyword)),
   allPlan.candidates.filter(keyword => /원피스/.test(keyword)).slice(0, 10).join('|'),
