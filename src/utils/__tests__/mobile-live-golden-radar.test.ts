@@ -837,6 +837,15 @@ function thinProfileCount(items: Array<{ keyword: string }>): number {
   assert('calendar holiday probes do not attach commerce or application tails',
     holidayOnlyProbeCandidates.every((keyword) => !/(?:가격|최저가|구매처|렌탈|보험|신청|서류|비용)/.test(keyword)),
     holidayProbeCandidates.slice(0, 80).join('|'));
+  assert('event and calendar commerce probes are rejected at SearchAd gate',
+    !__liveGoldenRadarTestInternals.isSearchAdMeasurableLiveCandidate('2026 광복절 대체공휴일 최저가 구매처', 'policy', lottoGuardNow)
+      && !__liveGoldenRadarTestInternals.isSearchAdMeasurableLiveCandidate('2026 광복절 대체공휴일 신청기간', 'policy', lottoGuardNow)
+      && !__liveGoldenRadarTestInternals.isSearchAdMeasurableLiveCandidate('1229회 로또 당첨번호 보험 적용 비용', 'life_tips', lottoGuardNow)
+      && !__liveGoldenRadarTestInternals.isSearchAdMeasurableLiveCandidate('2026 KBO 올스타전 티켓팅 일정 렌탈 가격비교', 'sports', lottoGuardNow),
+    JSON.stringify([
+      __liveGoldenRadarTestInternals.debugSearchAdMeasurableLiveCandidate('2026 광복절 대체공휴일 최저가 구매처', 'policy', lottoGuardNow),
+      __liveGoldenRadarTestInternals.debugSearchAdMeasurableLiveCandidate('2026 KBO 올스타전 티켓팅 일정 렌탈 가격비교', 'sports', lottoGuardNow),
+    ]));
 
   let capturedIssueSeeds: string[] = [];
   const liveIssueRadar = new MobileLiveGoldenRadar({
