@@ -1,3 +1,5 @@
+import { scoreGoldenKeywordVirality } from './golden-discovery-floor';
+
 export const PRO_TRAFFIC_CATEGORY_SSS_FLOOR = 30;
 export const PRO_TRAFFIC_MIN_RESULT_COUNT = PRO_TRAFFIC_CATEGORY_SSS_FLOOR;
 export const PRO_TRAFFIC_MAX_RESULT_COUNT = 250;
@@ -20,6 +22,10 @@ export interface ProTrafficFloorLike {
     estimatedCPC?: number | null;
     revenueGrade?: string | null;
   } | null;
+  category?: string | null;
+  source?: string | null;
+  intent?: string | null;
+  evidence?: string[] | null;
 }
 
 export function isProTrafficWritableKeywordText(
@@ -141,6 +147,31 @@ function effectiveGradeRank(item: ProTrafficFloorLike): number {
   return rank;
 }
 
+function proTrafficViralScore(item: ProTrafficFloorLike): number {
+  return scoreGoldenKeywordVirality({
+    keyword: item.keyword,
+    grade: item.grade || undefined,
+    score: typeof item.totalScore === 'number' ? item.totalScore : undefined,
+    searchVolume: item.searchVolume,
+    totalSearchVolume: item.searchVolume,
+    documentCount: item.documentCount,
+    goldenRatio: item.goldenRatio,
+    cpc: item.revenueEstimate?.estimatedCPC ?? null,
+    category: item.category,
+    source: item.source,
+    intent: item.intent,
+    evidence: item.evidence,
+  });
+}
+
+function proTrafficViralSortScore(item: ProTrafficFloorLike): number {
+  const viral = proTrafficViralScore(item);
+  const ratio = Math.min(60, Math.max(0, item.goldenRatio || 0));
+  const score = Math.max(0, item.totalScore || 0);
+  const purchase = Math.max(0, item.profitAnalysis?.purchaseIntentScore || 0);
+  return viral * 1.1 + score * 0.45 + ratio * 0.18 + purchase * 0.12;
+}
+
 export function selectProTrafficSssPromotionCandidates<T extends ProTrafficFloorLike>(
   rankedCandidates: T[],
   requestedCount: number,
@@ -155,8 +186,13 @@ export function selectProTrafficSssPromotionCandidates<T extends ProTrafficFloor
 
   const selected: T[] = [];
   const seen = new Set<string>();
+  const promotionPool = [...(rankedCandidates || [])].sort((a, b) => {
+    const viralDiff = proTrafficViralSortScore(b) - proTrafficViralSortScore(a);
+    if (Math.abs(viralDiff) > 0.001) return viralDiff;
+    return (b.totalScore || 0) - (a.totalScore || 0);
+  });
 
-  for (const item of rankedCandidates || []) {
+  for (const item of promotionPool) {
     if (selected.length >= target) break;
     const key = compactKeyword(item?.keyword || '');
     if (!key || seen.has(key)) continue;
@@ -185,6 +221,9 @@ export function rankProTrafficSssFloorResults<T extends ProTrafficFloorLike>(
   const sorted = [...items].sort((a, b) => {
     const gradeDiff = effectiveGradeRank(b) - effectiveGradeRank(a);
     if (gradeDiff !== 0) return gradeDiff;
+
+    const viralDiff = proTrafficViralSortScore(b) - proTrafficViralSortScore(a);
+    if (Math.abs(viralDiff) > 0.001) return viralDiff;
 
     const ratioDiff = (b.goldenRatio || 0) - (a.goldenRatio || 0);
     if (Math.abs(ratioDiff) > 0.0001) return ratioDiff;

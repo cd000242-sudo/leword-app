@@ -26,6 +26,7 @@ import {
   isActionableGoldenKeyword,
   isQualityGoldenDiscoveryResult,
   rankGoldenDiscoveryResults,
+  scoreGoldenKeywordVirality,
 } from '../utils/golden-discovery-floor';
 import type { MDPResult } from '../utils/mdp-engine';
 import { classifyKeyword } from '../utils/categories';
@@ -1137,6 +1138,29 @@ function boardScore(item: MobileLiveGoldenBoardItem): number {
   ));
   const longTail = keywordLongTailScore(item.keyword);
   const need = keywordNeedScore(item.keyword, item.intent);
+  const virality = scoreGoldenKeywordVirality({
+    keyword: item.keyword,
+    grade: item.grade,
+    score: item.score,
+    searchVolume: item.totalSearchVolume,
+    totalSearchVolume: item.totalSearchVolume,
+    documentCount: item.documentCount,
+    goldenRatio: ratio,
+    cpc: (item as { cpc?: number | null }).cpc ?? null,
+    category: item.category,
+    source: item.source,
+    intent: item.intent,
+    evidence: item.evidence,
+  });
+  const viralLift = virality >= 78
+    ? 72
+    : virality >= 65
+      ? 48
+      : virality >= 50
+        ? 26
+        : virality < 25
+          ? -54
+          : 0;
   const monsterOpportunity = volume >= 30_000 && documents !== null && documents <= 1_000 && ratio >= 20
     ? 150
     : volume >= 10_000 && documents !== null && documents <= 2_000 && ratio >= 10
@@ -1178,6 +1202,8 @@ function boardScore(item: MobileLiveGoldenBoardItem): number {
     + firstMoverScarcity
     + longTailNeedSynergy
     + monsterBonus
+    + virality * 1.35
+    + viralLift
     + exactAutocomplete
     + adsenseReadinessScore(item) * 3
     + (item.score || 0) * 0.12;
@@ -3559,6 +3585,7 @@ export const __liveGoldenRadarTestInternals = {
   isStaleOrFutureLiveKeyword,
   livePromotionPriorityBonus,
   normalizeLiveSeeds,
+  boardScore,
 };
 
 export class MobileLiveGoldenRadar {

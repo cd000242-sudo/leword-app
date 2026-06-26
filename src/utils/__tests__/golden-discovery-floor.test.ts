@@ -14,6 +14,7 @@ import {
   isQualityGoldenDiscoveryResult,
   rankGoldenDiscoveryResults,
   resolveGoldenDiscoveryTarget,
+  scoreGoldenKeywordVirality,
 } from '../golden-discovery-floor';
 
 let passed = 0;
@@ -308,6 +309,27 @@ const bulkCategoryScanLimit = getGoldenDiscoveryScanLimit(100, false, 720, { cat
 assert('bulk category scan limit is deep enough for a 100 SSS target',
   bulkCategoryScanLimit >= 8000,
   `${bulkCategoryScanLimit}`);
+
+const viralIntentPool = [
+  { keyword: '배우 김도현 프로필', grade: 'SSS', score: 99, searchVolume: 50000, documentCount: 500, goldenRatio: 100 },
+  { keyword: '1228회 로또 당첨번호', grade: 'SSS', score: 98, searchVolume: 60000, documentCount: 400, goldenRatio: 150 },
+  { keyword: '청년월세지원금 신청 대상 2026', grade: 'SSS', score: 92, searchVolume: 12000, documentCount: 340, goldenRatio: 35.29, cpc: 420 },
+  { keyword: '여름 제주 렌트카 가격비교 후기', grade: 'SSS', score: 91, searchVolume: 9000, documentCount: 290, goldenRatio: 31.03, cpc: 720 },
+];
+const viralRanked = rankGoldenDiscoveryResults(viralIntentPool, 4, false, {
+  honorRequestedLimit: true,
+  strictVisibleSssOnly: true,
+});
+assert('viral scoring ranks blog-actionable hooks above profile or lookup SSS rows',
+  viralRanked[0].keyword === '여름 제주 렌트카 가격비교 후기'
+    && viralRanked[1].keyword === '청년월세지원금 신청 대상 2026'
+    && viralRanked.findIndex(item => item.keyword === '배우 김도현 프로필') > 1
+    && viralRanked.findIndex(item => item.keyword === '1228회 로또 당첨번호') > 1,
+  viralRanked.map(item => `${item.keyword}:${scoreGoldenKeywordVirality(item)}`).join('|'));
+assert('viral score separates sellable/actionable keywords from weak lookup topics',
+  scoreGoldenKeywordVirality(viralIntentPool[2]) >= scoreGoldenKeywordVirality(viralIntentPool[0]) + 30
+    && scoreGoldenKeywordVirality(viralIntentPool[3]) >= scoreGoldenKeywordVirality(viralIntentPool[1]) + 35,
+  viralIntentPool.map(item => `${item.keyword}:${scoreGoldenKeywordVirality(item)}`).join('|'));
 
 console.log(`\n[golden-discovery-floor.test] passed: ${passed} / failed: ${failed}`);
 if (failed > 0) {

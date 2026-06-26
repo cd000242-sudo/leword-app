@@ -8,6 +8,8 @@ import {
   PRO_TRAFFIC_CATEGORY_SSS_FLOOR,
   PRO_TRAFFIC_MAX_RESULT_COUNT,
   isProTrafficWritableKeywordText,
+  rankProTrafficSssFloorResults,
+  selectProTrafficSssPromotionCandidates,
 } from '../pro-traffic-floor';
 import { GOLDEN_DISCOVERY_SSS_FLOOR } from '../golden-discovery-floor';
 
@@ -94,6 +96,32 @@ assert('PRO writable filter keeps concise profile and schedule keywords',
   isProTrafficWritableKeywordText('리센느 프로필', 'celeb')
     && isProTrafficWritableKeywordText('2026 흠뻑쇼 일정', 'celeb')
     && isProTrafficWritableKeywordText('멋진 신세계 몇부작', 'drama'));
+
+const proViralPool = [
+  { keyword: '배우 김도현 프로필', grade: 'SSS', totalScore: 99, searchVolume: 70000, documentCount: 600, goldenRatio: 116.67 },
+  { keyword: '1228회 로또 당첨번호', grade: 'SSS', totalScore: 98, searchVolume: 80000, documentCount: 400, goldenRatio: 200 },
+  { keyword: '청년월세지원금 신청 대상 2026', grade: 'SSS', totalScore: 91, searchVolume: 12000, documentCount: 340, goldenRatio: 35.29, revenueEstimate: { estimatedCPC: 420 } },
+  { keyword: '여름 제주 렌트카 가격비교 후기', grade: 'SSS', totalScore: 90, searchVolume: 9000, documentCount: 290, goldenRatio: 31.03, revenueEstimate: { estimatedCPC: 720 } },
+];
+const rankedProViral = rankProTrafficSssFloorResults(proViralPool, 30, false);
+assert('PRO floor ranking prioritizes viral monetizable hooks over weak lookup SSS rows',
+  rankedProViral.slice(0, 2).every(item => [
+    '여름 제주 렌트카 가격비교 후기',
+    '청년월세지원금 신청 대상 2026',
+  ].includes(item.keyword)),
+  rankedProViral.map(item => item.keyword).join('|'));
+const promotedProViral = selectProTrafficSssPromotionCandidates(
+  [...proViralPool].reverse(),
+  30,
+  false,
+  () => true,
+);
+assert('PRO SSS promotion scan also uses viral intent order',
+  promotedProViral.slice(0, 2).every(item => [
+    '여름 제주 렌트카 가격비교 후기',
+    '청년월세지원금 신청 대상 2026',
+  ].includes(item.keyword)),
+  promotedProViral.map(item => item.keyword).join('|'));
 
 console.log(`\n[pro-traffic-floor.test] passed: ${passed} / failed: ${failed}`);
 if (failed > 0) {
