@@ -169,6 +169,7 @@ const DEFAULT_LEADERS_PRO_ADMIN_TOKEN = 'qkrtjdgus2021645';
 const ADMIN_SETTINGS_UNLOCK_ROUTE = '/v1/admin/settings/unlock';
 const ADMIN_SITE_CONTENT_ROUTE = '/v1/admin/site-content';
 const ADMIN_DOWNLOAD_UPLOAD_ROUTE = '/v1/admin/downloads/upload';
+const ADMIN_DOWNLOAD_CHUNK_UPLOAD_ROUTE = '/v1/admin/downloads/upload-chunk';
 const ADMIN_COMMERCE_DASHBOARD_ROUTE = '/v1/admin/commerce/dashboard';
 const PUBLIC_SITE_CONTENT_ROUTE = '/v1/public/site-content';
 const PUBLIC_COMMERCE_CATALOG_ROUTE = '/v1/public/commerce/catalog';
@@ -322,6 +323,12 @@ function downloadUploadMaxBytes(): number {
   return 512 * 1024 * 1024;
 }
 
+function downloadUploadChunkMaxBytes(): number {
+  const configured = Number(process.env.LEWORD_DOWNLOAD_UPLOAD_CHUNK_MAX_BYTES || 0);
+  if (Number.isFinite(configured) && configured > 0) return Math.floor(configured);
+  return 8 * 1024 * 1024;
+}
+
 function apiDataRoot(): string {
   if (process.env.LEWORD_API_DATA_DIR) return process.env.LEWORD_API_DATA_DIR;
   if (fs.existsSync('/data')) return '/data';
@@ -421,6 +428,14 @@ function firstExistingFile(paths: Array<string | undefined | null>): string | nu
 
 function downloadUploadRecordPath(product: DownloadProductKey, kind: LewordDownloadKind): string {
   return path.join(downloadRoot(), `${product}-${kind}-upload.json`);
+}
+
+function assertInsideDownloadRoot(targetPath: string): void {
+  const root = path.resolve(downloadRoot());
+  const resolved = path.resolve(targetPath);
+  if (resolved !== root && !resolved.startsWith(root + path.sep)) {
+    throw new Error('download path escaped root');
+  }
 }
 
 function legacyDownloadUploadRecordPath(product: DownloadProductKey, kind: LewordDownloadKind): string | null {
@@ -670,6 +685,30 @@ function storedProductDownloadFilename(product: DownloadProductKey, kind: Leword
   return `${product}-${kind}-admin${ext}`;
 }
 
+function safeUploadId(value: unknown): string {
+  const id = String(value || '').trim().replace(/[^\w.-]+/g, '').slice(0, 96);
+  if (!id) throw new Error('uploadId is required');
+  return id;
+}
+
+function chunkUploadDir(product: DownloadProductKey, kind: LewordDownloadKind, uploadId: string): string {
+  const dir = path.join(downloadRoot(), '.chunks', `${product}-${kind}-${safeUploadId(uploadId)}`);
+  assertInsideDownloadRoot(dir);
+  return dir;
+}
+
+function chunkPartPath(dir: string, index: number): string {
+  const partPath = path.join(dir, `${String(index).padStart(6, '0')}.part`);
+  assertInsideDownloadRoot(partPath);
+  return partPath;
+}
+
+function writeDownloadUploadRecord(record: LewordDownloadUploadRecord): void {
+  const root = downloadRoot();
+  fs.mkdirSync(root, { recursive: true });
+  fs.writeFileSync(downloadUploadRecordPath(record.product, record.kind), `${JSON.stringify(record, null, 2)}\n`, 'utf8');
+}
+
 function parseContentDisposition(value: string): Record<string, string> {
   const out: Record<string, string> = {};
   value.split(';').slice(1).forEach((part) => {
@@ -783,7 +822,7 @@ async function handleAdminDownloadUpload(
       updatedAt: new Date().toISOString(),
       uploadedBy: String(parsed.fields.updatedBy || 'admin').slice(0, 80),
     };
-    fs.writeFileSync(downloadUploadRecordPath(product, kind), `${JSON.stringify(record, null, 2)}\n`, 'utf8');
+    writeDownloadUploadRecord(record);
     json(res, 200, {
       ok: true,
       message: `${DOWNLOAD_PRODUCT_LABELS[product]} ${kind} 업로드가 완료되었습니다.`,
@@ -797,6 +836,110 @@ async function handleAdminDownloadUpload(
   } catch (err) {
     if (err instanceof MobileApiBodyTooLargeError) {
       payloadTooLarge(res, maxUploadBytes);
+      return;
+    }
+    json(res, 400, {
+      ok: false,
+      message: err instanceof Error ? err.message : '파일 업로드에 실패했습니다.',
+    } satisfies MobileJobErrorResponse);
+  }
+}
+
+async function handleAdminDownloadChunkUpload(
+  req: http.IncomingMessage,
+  res: http.ServerResponse,
+  url: URL,
+  maxChunkBytes: number,
+): Promise<void> {
+  try {
+    const product = normalizeDownloadProduct(url.searchParams.get('product')) || 'leword';
+    const kind = normalizeDownloadKind(url.searchParams.get('kind'));
+    if (!kind) {
+      json(res, 400, { ok: false, message: '업로드 종류를 선택하세요. PC, Android APK, Mac 파일 중 하나가 필요합니다.' } satisfies MobileJobErrorResponse);
+      return;
+    }
+
+    const originalFilename = sanitizeUploadedFilename(
+      url.searchParams.get('filename') || '',
+      defaultDownloadFilename(product, kind),
+    );
+    validateDownloadUploadExtension(kind, originalFilename);
+
+    const uploadId = safeUploadId(url.searchParams.get('uploadId'));
+    const chunkIndex = Number(url.searchParams.get('chunkIndex'));
+    const totalChunks = Number(url.searchParams.get('totalChunks'));
+    if (!Number.isInteger(chunkIndex) || chunkIndex < 0) throw new Error('chunkIndex is invalid');
+    if (!Number.isInteger(totalChunks) || totalChunks < 1 || totalChunks > 10000) throw new Error('totalChunks is invalid');
+    if (chunkIndex >= totalChunks) throw new Error('chunkIndex exceeds totalChunks');
+
+    const chunk = await readRequestBuffer(req, maxChunkBytes);
+    if (!chunk.length) throw new Error('empty chunk');
+
+    const dir = chunkUploadDir(product, kind, uploadId);
+    if (chunkIndex === 0) {
+      fs.rmSync(dir, { recursive: true, force: true });
+    }
+    fs.mkdirSync(dir, { recursive: true });
+    fs.writeFileSync(chunkPartPath(dir, chunkIndex), chunk);
+
+    const receivedChunks = Array.from({ length: totalChunks }, (_, index) => fs.existsSync(chunkPartPath(dir, index))).filter(Boolean).length;
+    if (receivedChunks < totalChunks) {
+      json(res, 200, {
+        ok: true,
+        done: false,
+        product,
+        kind,
+        receivedChunks,
+        totalChunks,
+      }, {
+        'Cache-Control': 'no-store',
+      });
+      return;
+    }
+
+    const root = downloadRoot();
+    fs.mkdirSync(root, { recursive: true });
+    const storedFilename = storedProductDownloadFilename(product, kind, originalFilename);
+    const targetPath = path.join(root, storedFilename);
+    assertInsideDownloadRoot(targetPath);
+    const tmpPath = `${targetPath}.${process.pid}.${Date.now()}.tmp`;
+    fs.writeFileSync(tmpPath, Buffer.alloc(0));
+    let totalSize = 0;
+    for (let index = 0; index < totalChunks; index += 1) {
+      const partPath = chunkPartPath(dir, index);
+      const part = fs.readFileSync(partPath);
+      totalSize += part.length;
+      fs.appendFileSync(tmpPath, part);
+    }
+    fs.renameSync(tmpPath, targetPath);
+    fs.rmSync(dir, { recursive: true, force: true });
+
+    const record: LewordDownloadUploadRecord = {
+      product,
+      kind,
+      filename: originalFilename,
+      storedFilename,
+      size: totalSize,
+      updatedAt: new Date().toISOString(),
+      uploadedBy: String(url.searchParams.get('updatedBy') || 'admin').slice(0, 80),
+    };
+    writeDownloadUploadRecord(record);
+    json(res, 200, {
+      ok: true,
+      done: true,
+      message: `${DOWNLOAD_PRODUCT_LABELS[product]} ${kind} 업로드가 완료되었습니다.`,
+      product,
+      kind,
+      receivedChunks,
+      totalChunks,
+      download: downloadMeta(product, kind),
+      downloads: buildDownloadsPayload(),
+    }, {
+      'Cache-Control': 'no-store',
+    });
+  } catch (err) {
+    if (err instanceof MobileApiBodyTooLargeError) {
+      payloadTooLarge(res, maxChunkBytes);
       return;
     }
     json(res, 400, {
@@ -2889,6 +3032,7 @@ export function createLewordApiServer(options: LewordApiServerOptions = {}): htt
     : options.rateLimiter || new MobileApiRateLimiter(apiGuardrails);
   const maxBodyBytes = apiGuardrails?.maxBodyBytes || getMobileApiGuardrailOptions().maxBodyBytes;
   const maxDownloadUploadBytes = downloadUploadMaxBytes();
+  const maxDownloadUploadChunkBytes = downloadUploadChunkMaxBytes();
   const proBlueprintServices = options.proBlueprintServices;
 
   const server = http.createServer((req, res) => {
@@ -3130,6 +3274,12 @@ export function createLewordApiServer(options: LewordApiServerOptions = {}): htt
     if (req.method === 'POST' && url.pathname === ADMIN_DOWNLOAD_UPLOAD_ROUTE) {
       if (!await authorizeAdminDownloadUploadRequest(req, res, sessionAwareEntitlementVerifier)) return;
       await handleAdminDownloadUpload(req, res, maxDownloadUploadBytes);
+      return;
+    }
+
+    if (req.method === 'POST' && url.pathname === ADMIN_DOWNLOAD_CHUNK_UPLOAD_ROUTE) {
+      if (!await authorizeAdminDownloadUploadRequest(req, res, sessionAwareEntitlementVerifier)) return;
+      await handleAdminDownloadChunkUpload(req, res, url, maxDownloadUploadChunkBytes);
       return;
     }
 
