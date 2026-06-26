@@ -1384,6 +1384,7 @@ function isSearchAdMeasurableLiveCandidate(keyword: string, categoryId: string, 
   if (isMalformedLiveKeyword(clean) || isStaleOrFutureLiveKeyword(clean, now)) return false;
   if (LOW_VALUE_EVENT_TOPIC_RE.test(clean) || isLottoLookupKeyword(clean) || isLowAdsenseLookupKeyword(clean)) return false;
   if (isMismatchedLiveEventIntent(clean)) return false;
+  if (/관리급여/u.test(clean) || LIVE_MEASURED_PROBE_HEALTH_POLICY_MIX_RE.test(clean)) return false;
   if (!policyProductAction && isLowValueLiveCandidate(clean)) return false;
   if (!policyProductAction && isOverExpandedLiveCandidate(clean)) return false;
   if (isOverChainedPolicyIntent(clean)) return false;
@@ -2228,6 +2229,7 @@ function isLowValueLiveCandidate(keyword: string): boolean {
     || LIVE_NEWS_ONLY_TOPIC_RE.test(clean)
     || LOW_VALUE_EVENT_TOPIC_RE.test(clean)
     || LOW_VALUE_PERSON_COMMERCE_RE.test(clean)
+    || /관리급여/u.test(clean)
     || LOW_VALUE_SYNTHETIC_CHAIN_RE.test(clean)
     || hasTooManyCommerceProductHeads(clean)
     || (BARE_OPAQUE_EVENT_BOOKING_RE.test(clean.replace(/\s+/g, '')) && !EVENT_BOOKING_UTILITY_EXEMPT_RE.test(clean))
@@ -2499,7 +2501,7 @@ function isOverExpandedLiveCandidate(keyword: string): boolean {
   const clean = normalizeKeyword(keyword);
   if (!clean) return true;
   if (isMismatchedLiveEventIntent(clean)) return true;
-  if (LOW_VALUE_SYNTHETIC_CHAIN_RE.test(clean) || LOW_VALUE_PERSON_COMMERCE_RE.test(clean)) return true;
+  if (/관리급여/u.test(clean) || LOW_VALUE_SYNTHETIC_CHAIN_RE.test(clean) || LOW_VALUE_PERSON_COMMERCE_RE.test(clean)) return true;
   if (isOverChainedPolicyIntent(clean)) return true;
   if (LOW_VALUE_LIVE_COMPACT_CHAIN_RE.test(compactLiveCandidate(clean))) return true;
   if (hasRepeatedCompactIntentChain(clean)) return true;
@@ -3091,6 +3093,8 @@ const LIVE_MEASURED_PROBE_SPORTS_EQUIPMENT_RE = /(?:라켓|골프채|러닝화|�
 const LIVE_MEASURED_PROBE_PRODUCT_INTENT_RE = /(?:가격비교|최저가|비교|추천|후기|구매처|할인|쿠폰|스펙)/u;
 const LIVE_MEASURED_PROBE_EVENT_OR_POLICY_INTENT_RE = /(?:예약|예매|중계|라인업|경기|일정|입장료|주차|신청|지급일|자격|서류|환급|사용처|대상|조건|마감)/u;
 const LIVE_MEASURED_PROBE_GENERIC_AUDIENCE_RE = /(?:청년\s*일반\s*국민|청년일반\s*국민|일반\s*국민|아동\s*장애인|아동장애인)/u;
+const LIVE_MEASURED_PROBE_HEALTH_POLICY_MIX_RE = /(?:관리급여|소득기준|지원금|마감일|온라인\s*신청|필요\s*서류).{0,12}(?:도수치료|치아보험|임플란트|검사|예방접종|탈모치료)|(?:도수치료|치아보험|임플란트|검사|예방접종|탈모치료).{0,12}(?:관리급여|소득기준|지원금|마감일|온라인\s*신청|필요\s*서류)/u;
+const LIVE_MEASURED_PROBE_HEALTH_INTENT_RE = /(?:보험\s*적용\s*비용|검사\s*비용|치료\s*비용|실비\s*청구|주의사항|부작용)/u;
 const LIVE_MEASURED_PROBE_SPECIFIC_BASE_RE = /(?:완전자차|보험|실비|세액공제|수수료|금리|만기|반기|소득기준|가입신청|잔액조회|직접대출|대리대출|사후지급금|구직활동|사용처|지급일|면책기간|응시료|전기요금|전기세|흡입력|배터리|물걸레|문턱|소음|필터\s*교체|주차대행|가족|저소음|입문자|초보|족저근막염|실기|접수)/u;
 const LIVE_MEASURED_PROBE_TERMINAL_BASE_RE = /(?:세액공제|수수료|만기|소득기준|가입신청|지급일|사용처|잔액조회|면책기간|실비|사후지급금|구직활동|실기|접수)/u;
 
@@ -3124,6 +3128,7 @@ function isLiveMeasuredProbeCandidate(keyword: string, categoryId: string, now: 
   const clean = normalizeKeyword(keyword);
   if (!clean) return false;
   if (!LIVE_MEASURED_PROBE_SIGNAL_RE.test(clean)) return false;
+  if (LIVE_MEASURED_PROBE_HEALTH_POLICY_MIX_RE.test(clean)) return false;
   if (ultimateIntentFragmentCount(clean) > 2) return false;
   if (isGenericAudienceOnlyKeyword(clean)) return false;
   if (LIVE_MEASURED_PROBE_GENERIC_AUDIENCE_RE.test(clean)) return false;
@@ -3144,6 +3149,9 @@ function isMeasuredProbeIntentCompatible(base: string, intent: string, categoryI
   if (/(?:전기요금|전기세|소음)/u.test(cleanBase) && /(?:가격비교|최저가|구매처|할인|쿠폰|추천\s*후기|비용\s*비교)/u.test(cleanIntent)) return false;
   if (/(?:흡입력|배터리|물걸레|문턱)/u.test(cleanBase) && /(?:전기요금|전기세|소음|비용\s*비교)/u.test(cleanIntent)) return false;
   if (/저소음/u.test(cleanBase) && !LIVE_MEASURED_PROBE_PRODUCT_INTENT_RE.test(cleanIntent)) return false;
+  if (LIVE_MEASURED_PROBE_HEALTH_POLICY_MIX_RE.test(`${cleanBase} ${cleanIntent}`)) return false;
+  if (/도수치료|치료제/u.test(cleanBase) && /검사\s*비용/u.test(cleanIntent)) return false;
+  if (inferred === 'health' && !LIVE_MEASURED_PROBE_HEALTH_INTENT_RE.test(cleanIntent)) return false;
   if (/도수치료|치아보험|임플란트|검사|예방접종|탈모치료/u.test(cleanBase) && /(?:예약\s*방법|추천\s*후기)/u.test(cleanIntent)) return false;
   if (LIVE_MEASURED_PROBE_SPORTS_EQUIPMENT_RE.test(cleanBase)) {
     return LIVE_MEASURED_PROBE_PRODUCT_INTENT_RE.test(cleanIntent)
@@ -3251,10 +3259,14 @@ function buildMeasuredProbeCandidates(
     const intentKeys = normalizedCategory === 'all'
       ? uniqueKeywords([inferred, 'all'], 4)
       : uniqueKeywords([inferred, normalizedCategory], 4);
+    const scopedIntentKeys = intentKeys.filter((key) => key && key !== 'all');
+    const specificIntents = uniqueKeywords([
+      ...(inferred && inferred !== 'all' ? (LIVE_MEASURED_PROBE_INTENTS[inferred] || []) : []),
+      ...scopedIntentKeys.flatMap((key) => LIVE_MEASURED_PROBE_INTENTS[key] || []),
+    ], 18);
     const intents = uniqueKeywords([
-      ...(LIVE_MEASURED_PROBE_INTENTS[inferred] || []),
-      ...intentKeys.flatMap((key) => LIVE_MEASURED_PROBE_INTENTS[key] || []),
-      ...(normalizedCategory === 'all' ? (LIVE_MEASURED_PROBE_INTENTS.all || []) : []),
+      ...specificIntents,
+      ...(specificIntents.length === 0 ? (LIVE_MEASURED_PROBE_INTENTS.all || []) : []),
     ], 18).filter((intent) => isMeasuredProbeIntentCompatible(base, intent, inferred || categoryId));
     for (const intent of intents) {
       if (candidates.length >= candidateLimit) break;

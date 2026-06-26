@@ -743,6 +743,13 @@ function thinProfileCount(items: Array<{ keyword: string }>): number {
       && allEventCrowdedProbeCandidates.slice(0, 120).some((keyword) => /\uD504\uB9AC\uB79C\uC11C\s*\uADFC\uB85C\uC7A5\uB824\uAE08|\uC54C\uBC14\s*\uADFC\uB85C\uC7A5\uB824\uAE08|\uAC1C\uC778\uC0AC\uC5C5\uC790\s*\uADFC\uB85C\uC7A5\uB824\uAE08/.test(keyword))
       && allEventCrowdedProbeCandidates.slice(0, 140).every((keyword) => !/(?:\uD55C\uAD6D\uC0AC\uB2A5\uB825\uAC80\uC815\uC2DC\uD5D8|\uD1A0\uC775|\uCEF4\uD65C|AI\s*\uD68C\uC758\uB85D|\uCC57GPT|\uAD6D\uBBFC\uC5F0\uAE08).*\uC608\uC57D|\uC81C\uC8FC\s*\uD56D\uACF5\uAD8C.*(?:\uC720\uC2EC|eSIM)|\uC804\uAE30\uC694\uAE08\s*\uAC00\uACA9\uBE44\uAD50|\uAC80\uC0AC\s*\uAC80\uC0AC\s*\uBE44\uC6A9|\uCE58\uB8CC\uC81C\s*\uCE58\uB8CC\s*\uBE44\uC6A9/.test(keyword)),
     allEventCrowdedProbeCandidates.slice(0, 140).join('|'));
+  const allHealthPolicyMixProbeCandidates = __liveGoldenRadarTestInternals.buildBackfillCandidates('all', [
+    '\uB3C4\uC218\uCE58\uB8CC \uAD00\uB9AC\uAE09\uC5EC',
+  ], 240, lottoGuardNow);
+  assert('all measured probes keep health treatment tails separate from policy application tails',
+    allHealthPolicyMixProbeCandidates.slice(0, 160).every((keyword) => !/\uB3C4\uC218\uCE58\uB8CC.*(?:\uAD00\uB9AC\uAE09\uC5EC|\uC18C\uB4DD\uAE30\uC900|\uD544\uC694\s*\uC11C\uB958|\uB9C8\uAC10\uC77C|\uC628\uB77C\uC778\s*\uC2E0\uCCAD)/.test(keyword))
+      && allHealthPolicyMixProbeCandidates.slice(0, 160).some((keyword) => /\uB3C4\uC218\uCE58\uB8CC.*(?:\uBCF4\uD5D8\s*\uC801\uC6A9\s*\uBE44\uC6A9|\uCE58\uB8CC\s*\uBE44\uC6A9|\uC2E4\uBE44\s*\uCCAD\uAD6C)/.test(keyword)),
+    allHealthPolicyMixProbeCandidates.slice(0, 160).join('|'));
   let measuredProbeVolumeCalls = 0;
   const measuredProbeVolumeKeywords: string[] = [];
   const measuredProbeDocumentOptions: Array<{ keyword: string; scrapeOnly?: boolean }> = [];
@@ -963,10 +970,12 @@ function thinProfileCount(items: Array<{ keyword: string }>): number {
   assert('policy compound chains are rejected before SearchAd spend',
     !__liveGoldenRadarTestInternals.isSearchAdMeasurableLiveCandidate('청년미래적금 신청 소득기준 계산 서류', 'policy', lottoGuardNow)
       && !__liveGoldenRadarTestInternals.isSearchAdMeasurableLiveCandidate('도수치료 관리급여 소득기준 계산 예약', 'policy', lottoGuardNow)
+      && !__liveGoldenRadarTestInternals.isSearchAdMeasurableLiveCandidate('도수치료 관리급여 필요 서류', 'policy', lottoGuardNow)
       && __liveGoldenRadarTestInternals.isSearchAdMeasurableLiveCandidate('근로장려금 지급일 조회', 'policy', lottoGuardNow),
     JSON.stringify([
       __liveGoldenRadarTestInternals.debugSearchAdMeasurableLiveCandidate('청년미래적금 신청 소득기준 계산 서류', 'policy', lottoGuardNow),
       __liveGoldenRadarTestInternals.debugSearchAdMeasurableLiveCandidate('도수치료 관리급여 소득기준 계산 예약', 'policy', lottoGuardNow),
+      __liveGoldenRadarTestInternals.debugSearchAdMeasurableLiveCandidate('도수치료 관리급여 필요 서류', 'policy', lottoGuardNow),
     ]));
   const holidayProbeCandidates = __liveGoldenRadarTestInternals.buildMeasuredProbeCandidates('policy', [
     '2026 광복절 대체공휴일',
