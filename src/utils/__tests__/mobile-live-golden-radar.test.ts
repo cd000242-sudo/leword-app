@@ -969,11 +969,15 @@ function thinProfileCount(items: Array<{ keyword: string }>): number {
     sportsProbeCandidates.slice(0, 80).join('|'));
   assert('policy compound chains are rejected before SearchAd spend',
     !__liveGoldenRadarTestInternals.isSearchAdMeasurableLiveCandidate('청년미래적금 신청 소득기준 계산 서류', 'policy', lottoGuardNow)
+      && !__liveGoldenRadarTestInternals.isSearchAdMeasurableLiveCandidate('청년미래적금 서류 마감일 확인', 'policy', lottoGuardNow)
+      && !__liveGoldenRadarTestInternals.isSearchAdMeasurableLiveCandidate('청년미래적금 조건 소득기준 계산', 'policy', lottoGuardNow)
       && !__liveGoldenRadarTestInternals.isSearchAdMeasurableLiveCandidate('도수치료 관리급여 소득기준 계산 예약', 'policy', lottoGuardNow)
       && !__liveGoldenRadarTestInternals.isSearchAdMeasurableLiveCandidate('도수치료 관리급여 필요 서류', 'policy', lottoGuardNow)
       && __liveGoldenRadarTestInternals.isSearchAdMeasurableLiveCandidate('근로장려금 지급일 조회', 'policy', lottoGuardNow),
     JSON.stringify([
       __liveGoldenRadarTestInternals.debugSearchAdMeasurableLiveCandidate('청년미래적금 신청 소득기준 계산 서류', 'policy', lottoGuardNow),
+      __liveGoldenRadarTestInternals.debugSearchAdMeasurableLiveCandidate('청년미래적금 서류 마감일 확인', 'policy', lottoGuardNow),
+      __liveGoldenRadarTestInternals.debugSearchAdMeasurableLiveCandidate('청년미래적금 조건 소득기준 계산', 'policy', lottoGuardNow),
       __liveGoldenRadarTestInternals.debugSearchAdMeasurableLiveCandidate('도수치료 관리급여 소득기준 계산 예약', 'policy', lottoGuardNow),
       __liveGoldenRadarTestInternals.debugSearchAdMeasurableLiveCandidate('도수치료 관리급여 필요 서류', 'policy', lottoGuardNow),
     ]));

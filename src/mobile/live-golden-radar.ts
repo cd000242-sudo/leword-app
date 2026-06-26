@@ -1384,7 +1384,7 @@ function isSearchAdMeasurableLiveCandidate(keyword: string, categoryId: string, 
   if (isMalformedLiveKeyword(clean) || isStaleOrFutureLiveKeyword(clean, now)) return false;
   if (LOW_VALUE_EVENT_TOPIC_RE.test(clean) || isLottoLookupKeyword(clean) || isLowAdsenseLookupKeyword(clean)) return false;
   if (isMismatchedLiveEventIntent(clean)) return false;
-  if (/관리급여/u.test(clean) || LIVE_MEASURED_PROBE_HEALTH_POLICY_MIX_RE.test(clean)) return false;
+  if (/관리급여/u.test(clean) || LOW_VALUE_POLICY_WORD_SALAD_RE.test(clean) || LIVE_MEASURED_PROBE_HEALTH_POLICY_MIX_RE.test(clean)) return false;
   if (!policyProductAction && isLowValueLiveCandidate(clean)) return false;
   if (!policyProductAction && isOverExpandedLiveCandidate(clean)) return false;
   if (isOverChainedPolicyIntent(clean)) return false;
@@ -2230,6 +2230,7 @@ function isLowValueLiveCandidate(keyword: string): boolean {
     || LOW_VALUE_EVENT_TOPIC_RE.test(clean)
     || LOW_VALUE_PERSON_COMMERCE_RE.test(clean)
     || /관리급여/u.test(clean)
+    || LOW_VALUE_POLICY_WORD_SALAD_RE.test(clean)
     || LOW_VALUE_SYNTHETIC_CHAIN_RE.test(clean)
     || hasTooManyCommerceProductHeads(clean)
     || (BARE_OPAQUE_EVENT_BOOKING_RE.test(clean.replace(/\s+/g, '')) && !EVENT_BOOKING_UTILITY_EXEMPT_RE.test(clean))
@@ -2301,6 +2302,7 @@ const LOW_VALUE_PERSON_COMMERCE_RE = /(?:(?:\d{1,2}월\s*\d{1,2}일\s*)?[가-힣
 const LOW_VALUE_EVENT_TOPIC_RE = /(?:KBO|프로야구|올스타전|월드컵|FIFA|흠뻑쇼|신입사원\s*강회장|참교육\s*몇부작|드라마\s*참교육|로또|당첨번호|\d{3,5}\s*회|등급컷|광복절|제헌절|개천절|한글날)/iu;
 const GENERIC_BENEFIT_INTENT_RE = /^(?:지원금|보조금|환급금|장려금|바우처|수당|급여)\s*(?:신청|대상|자격|조건|지급일|조회|마감|환급|서류|사용처|지원)/u;
 const BARE_INTENT_ONLY_RE = /^(?:신청|신청방법|대상|자격|조건|지급일|조회|서류|마감|마감일|환급|방법|사용처|금액|준비서류|지원|혜택|가격|비교|추천|후기|할인|쿠폰|구매처|재고|최저가)(?:\s+(?:신청|신청방법|대상|자격|조건|지급일|조회|서류|마감|마감일|환급|방법|사용처|금액|준비서류|지원|혜택|가격|비교|추천|후기|할인|쿠폰|구매처|재고|최저가)){0,2}$/u;
+const LOW_VALUE_POLICY_WORD_SALAD_RE = /(?:서류|조건)\s*(?:마감일|소득기준\s*계산|필요\s*서류)|소득기준\s*계산.{0,8}(?:서류|조건|마감일)|마감일\s*(?:서류|조건|소득기준)/u;
 const LOW_VALUE_SYNTHETIC_CHAIN_RE = /(?:^\d{1,2}월\s*\d{1,2}일\s+|([가-힣A-Za-z0-9]{2,})\s*신청\s*\1\s*신청(?:대상|방법|자격|조건|조회|지급일|서류|문의|안내|하기|현황)?|^신청\s+[가-힣A-Za-z0-9]{2,}\s*신청(?:대상|방법|자격|조건|조회|지급일|서류|문의|안내|하기|현황)|신청\s*(?:국가)?[가-힣A-Za-z0-9]{2,}\s*신청(?:대상|방법|자격|조건|조회|지급일|서류|문의|안내|하기|현황)?|가입신청\s*(?:신청|금액)|신청\s*신청|구매처\s*(?:구매처|재고)|최저가\s*구매처\s*재고|할인\s*정보\s*(?:추천|할인|구매처|최저가|실사용)|일정\s*콘서트\s*일정|티켓팅\s*방법\s*굿즈|굿즈\s*구매\s*(?:조회|준비물|주의사항|발표|정리)|준비서류\s*(?:신청|대상|자격|조건|지급일|환급|지원|금액|조회|마감)|정리\s*운영시간|현재\s*상황\s*운영시간|정부24\s*(?:지급일|신청|조회|마감)|공식\s*확인(?:\s*경로)?|놓치기\s*쉬운\s*변경사항|변경사항|6월\s*온라인|금액\s*조회\s*(?:신청|대상|자격|지급일|환급)|마감일\s*지급일|신청기간\s*(?:대상|자격|지급일|환급|금액|지원)|내역\s*한눈에|현재\s*상황\s*(?:정리|이유)|총정리|소득기준\s*계산\s*(?:예약|후기|추천|비용|검사|증상|원인|서류)|(?:신청|가입신청).{0,10}소득기준.{0,10}(?:계산|서류|예약)|관리급여.{0,10}소득기준.{0,10}(?:계산|예약))/u;
 const NON_PRODUCT_COMMERCE_TAIL_RE = /(?:가격비교|최저가|구매처|할인\s*쿠폰|할인|쿠폰|렌탈|렌트|보험\s*적용\s*비용|비용\s*비교|추천\s*후기|실사용\s*후기)/u;
 const NON_PRODUCT_COMMERCE_BASE_RE = /(?:로또|당첨번호|당첨지역|공휴일|대체공휴일|제헌절|광복절|개천절|한글날|추석|설날|근로자의날|지원금|장려금|수당|급여|환급일|정책|KBO|프로야구|올스타전|월드컵|FIFA|입장료|주차|운영시간|티켓팅|예매|좌석배치도|라인업|하이라이트|경기일정|몇부작|등장인물|줄거리|원작|OTT|나무위키|송지호|바다하늘길|축제|공연|콘서트|전시|행사|관광|여행|공원|수목원|박람회|엑스포|페스티벌)/iu;
@@ -2501,7 +2503,7 @@ function isOverExpandedLiveCandidate(keyword: string): boolean {
   const clean = normalizeKeyword(keyword);
   if (!clean) return true;
   if (isMismatchedLiveEventIntent(clean)) return true;
-  if (/관리급여/u.test(clean) || LOW_VALUE_SYNTHETIC_CHAIN_RE.test(clean) || LOW_VALUE_PERSON_COMMERCE_RE.test(clean)) return true;
+  if (/관리급여/u.test(clean) || LOW_VALUE_POLICY_WORD_SALAD_RE.test(clean) || LOW_VALUE_SYNTHETIC_CHAIN_RE.test(clean) || LOW_VALUE_PERSON_COMMERCE_RE.test(clean)) return true;
   if (isOverChainedPolicyIntent(clean)) return true;
   if (LOW_VALUE_LIVE_COMPACT_CHAIN_RE.test(compactLiveCandidate(clean))) return true;
   if (hasRepeatedCompactIntentChain(clean)) return true;
