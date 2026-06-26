@@ -465,6 +465,27 @@ function thinProfileCount(items: Array<{ keyword: string }>): number {
     !__liveGoldenRadarTestInternals.isLiveRadarUsableKeyword('\uB18D\uC2DD\uD488\uBC14\uC6B0\uCC98', 51850, 8934, lottoGuardNow)
       && __liveGoldenRadarTestInternals.isLiveRadarUsableKeyword('\uB18D\uC2DD\uD488\uBC14\uC6B0\uCC98 \uC2E0\uCCAD \uB300\uC0C1', 12000, 640, lottoGuardNow)
       && __liveGoldenRadarTestInternals.isLiveRadarUsableKeyword('\uB18D\uC2DD\uD488\uBC14\uC6B0\uCC98 \uC9C0\uAE09\uC77C \uC870\uD68C', 8300, 520, lottoGuardNow));
+  const cacheDerivedCalculatorCandidates = __liveGoldenRadarTestInternals.buildCacheDerivedCompoundNeedSeeds(
+    '\uC0AC\uB300\uBCF4\uD5D8\uACC4\uC0B0\uAE30',
+    'policy',
+    30,
+  );
+  assert('cache-derived broad calculator seeds expand into writer-ready measured probes',
+    cacheDerivedCalculatorCandidates.some((keyword) => keyword.includes('\uD504\uB9AC\uB79C\uC11C') && keyword.includes('\uC2E4\uC218\uB839\uC561'))
+      && cacheDerivedCalculatorCandidates.some((keyword) => keyword.includes('\uC54C\uBC14') && keyword.includes('\uC790\uB3D9\uACC4\uC0B0'))
+      && cacheDerivedCalculatorCandidates.some((keyword) => keyword.includes('\uAC1C\uC778\uC0AC\uC5C5\uC790') && keyword.includes('\uACF5\uC81C\uD56D\uBAA9')),
+    cacheDerivedCalculatorCandidates.join('|'));
+  const cacheDerivedCommerceCandidates = __liveGoldenRadarTestInternals.buildCacheDerivedCompoundNeedSeeds(
+    '\uC704\uB2C9\uC2A4\uCC3D\uBB38\uD615\uC5D0\uC5B4\uCEE8',
+    'electronics',
+    30,
+  );
+  assert('cache-derived commerce seeds expand into buyer-decision probes',
+    cacheDerivedCommerceCandidates.some((keyword) => keyword.includes('\uCD5C\uC800\uAC00') && keyword.includes('\uBE44\uAD50'))
+      && cacheDerivedCommerceCandidates.some((keyword) => keyword.includes('\uD560\uC778') && keyword.includes('\uCFE0\uD3F0'))
+      && cacheDerivedCommerceCandidates.some((keyword) => keyword.includes('\uAD6C\uB9E4\uCC98') && keyword.includes('\uCD94\uCC9C'))
+      && cacheDerivedCommerceCandidates.some((keyword) => keyword.includes('\uC7A5\uB2E8\uC810')),
+    cacheDerivedCommerceCandidates.join('|'));
   const genericAudienceCandidates = __liveGoldenRadarTestInternals.buildBackfillCandidates('policy', [
     '\uCCAD\uB144\u00B7\uC77C\uBC18 \uAD6D\uBBFC',
     '\uC544\uB3D9\u00B7\uC7A5\uC560\uC778',

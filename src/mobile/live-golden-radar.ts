@@ -831,6 +831,63 @@ function uniqueKeywords(values: string[], limit = 40): string[] {
   return out;
 }
 
+const CACHE_DERIVED_CALCULATOR_RE = /(?:\uACC4\uC0B0\uAE30|\uACC4\uC0B0|\uBCF4\uD5D8\uB8CC|\uC2E4\uC218\uB839\uC561|\uC218\uB2F9|\uD1F4\uC9C1\uAE08|\uC2DC\uAE09|\uBD80\uAC00\uC138|\uC5F0\uCC28|\uC8FC\uD734|\uC0AC\uB300\uBCF4\uD5D8|4\uB300\uBCF4\uD5D8)/u;
+const CACHE_DERIVED_POLICY_RE = /(?:\uC9C0\uC6D0\uAE08|\uC7A5\uB824\uAE08|\uAE09\uC5EC|\uBC14\uC6B0\uCC98|\uC218\uB2F9|\uC815\uCC45\uC790\uAE08|\uC8FC\uAC70\uAE09\uC5EC|\uBB38\uD654\uB204\uB9AC|\uCCAD\uB144|\uC18C\uC0C1\uACF5\uC778|\uC2E4\uC5C5\uAE09\uC5EC|\uBD80\uBAA8\uAE09\uC5EC|\uC544\uB3D9\uC218\uB2F9|\uAE30\uCD08\uC5F0\uAE08|\uD658\uAE09)/u;
+const CACHE_DERIVED_COMMERCE_RE = /(?:\uAC00\uACA9\uBE44\uAD50|\uCD5C\uC800\uAC00|\uAD6C\uB9E4|\uC0AC\uC6A9\uCC98|\uCD94\uCC9C|\uD6C4\uAE30|\uCFE0\uD3F0|\uD560\uC778|\uC81C\uD488|\uCE74\uB4DC|\uB80C\uD130\uCE74|\uB80C\uD2B8\uCE74|\uC5D0\uC5B4\uCEE8|\uCCAD\uC18C\uAE30|\uC815\uB9AC\uB300)/u;
+
+const CACHE_DERIVED_CALCULATOR_INTENTS = Object.freeze([
+  '\uD504\uB9AC\uB79C\uC11C \uC2E4\uC218\uB839\uC561',
+  '\uC54C\uBC14 \uC790\uB3D9\uACC4\uC0B0',
+  '\uC77C\uC6A9\uC9C1 \uACC4\uC0B0\uBC29\uBC95',
+  '\uAC1C\uC778\uC0AC\uC5C5\uC790 \uACF5\uC81C\uD56D\uBAA9',
+  '\uC138\uAE08 \uACF5\uC81C',
+  '\uC694\uC728\uD45C',
+  '\uC5D1\uC140 \uC591\uC2DD',
+]);
+const CACHE_DERIVED_POLICY_INTENTS = Object.freeze([
+  '\uC2E0\uCCAD \uB300\uC0C1',
+  '\uC2E0\uCCAD \uBC29\uBC95',
+  '\uC790\uACA9 \uC870\uAC74',
+  '\uC9C0\uAE09\uC77C \uC870\uD68C',
+  '\uD544\uC694 \uC11C\uB958',
+  '\uC0AC\uC6A9\uCC98 \uCD94\uCC9C',
+  '\uB9C8\uAC10\uC77C \uD655\uC778',
+  '\uC18C\uB4DD\uAE30\uC900 \uACC4\uC0B0',
+]);
+const CACHE_DERIVED_COMMERCE_INTENTS = Object.freeze([
+  '\uC2E4\uC0AC\uC6A9 \uD6C4\uAE30',
+  '\uCD5C\uC800\uAC00 \uBE44\uAD50',
+  '\uD560\uC778 \uCFE0\uD3F0',
+  '\uAD6C\uB9E4\uCC98 \uCD94\uCC9C',
+  '\uC7A5\uB2E8\uC810',
+  '\uC120\uD0DD \uAC00\uC774\uB4DC',
+  '\uBE44\uC6A9 \uBE44\uAD50',
+]);
+
+function buildCacheDerivedCompoundNeedSeeds(seed: string, categoryId = 'all', limit = 36): string[] {
+  const clean = normalizeKeyword(seed);
+  if (!clean) return [];
+  const category = normalizeKeyword(categoryId);
+  const intents: string[] = [];
+  if (CACHE_DERIVED_CALCULATOR_RE.test(clean)) intents.push(...CACHE_DERIVED_CALCULATOR_INTENTS);
+  if (CACHE_DERIVED_POLICY_RE.test(clean) || /policy|education|life_tips/.test(category)) intents.push(...CACHE_DERIVED_POLICY_INTENTS);
+  if (CACHE_DERIVED_COMMERCE_RE.test(clean) || /shopping|commerce|electronics|beauty|fashion|food|home|travel/.test(category)) {
+    intents.push(...CACHE_DERIVED_COMMERCE_INTENTS);
+  }
+
+  const out: string[] = [];
+  for (const intent of uniqueKeywords(intents, 24)) {
+    if (!intent || keywordAlreadyHasIntent(clean, intent)) continue;
+    out.push(`${clean} ${intent}`);
+    const compactIntent = intent.replace(/\s+/g, '');
+    if (compactIntent && !clean.includes(compactIntent)) out.push(`${clean}${compactIntent}`);
+  }
+  return uniqueKeywords(out, limit)
+    .filter((candidate) => !isOverExpandedLiveCandidate(candidate))
+    .filter((candidate) => ultimateIntentFragmentCount(candidate) <= 4)
+    .filter((candidate) => !LOW_VALUE_SYNTHETIC_CHAIN_RE.test(candidate));
+}
+
 function directCandidateBudget(maxCandidates: number, cycleLimit: number): number {
   return Math.max(
     120,
@@ -3636,6 +3693,7 @@ function normalizeGate(value: MobileLiveGoldenRadarRunGate | boolean | undefined
 
 export const __liveGoldenRadarTestInternals = {
   buildBackfillCandidates,
+  buildCacheDerivedCompoundNeedSeeds,
   buildDateAwareLiveSeedCandidates,
   buildMeasuredProbeCandidates,
   currentLottoRound,
@@ -4138,9 +4196,10 @@ export class MobileLiveGoldenRadar {
         .filter((intent) => isUltimateIntentCompatible(clean, intent, inferredCategory))
         .map((intent) => keywordAlreadyHasIntent(clean, intent) ? clean : `${clean} ${intent}`);
     const candidates = uniqueKeywords([
+      ...buildCacheDerivedCompoundNeedSeeds(clean, inferredCategory, 36),
       ...buildUltimateNeedCandidatesForSeed(clean, inferredCategory, 14),
       ...intentCandidates,
-    ], 24)
+    ], 48)
       .filter((candidate) => isLiveRadarUsableKeyword(candidate, null, null, this.now()));
     for (const candidate of candidates) {
       if (this.cacheDerivedLiveSeeds.length >= 600) break;
