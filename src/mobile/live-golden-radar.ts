@@ -114,6 +114,9 @@ const PUBLIC_PREVIEW_ROTATION_MS = 60_000;
 const LIVE_SEED_COLLECTION_TIMEOUT_MS = 5_000;
 const LIVE_DISCOVERY_TIMEOUT_MS = 180_000;
 const LIVE_BACKFILL_TIMEOUT_MS = 60_000;
+const LIVE_BACKFILL_STAGE_TIMEOUT_MS = 95_000;
+const LIVE_GLOBAL_BACKFILL_STAGE_TIMEOUT_MS = 65_000;
+const LIVE_ISSUE_FALLBACK_TIMEOUT_MS = 45_000;
 const LIVE_SPLIT_ENRICHMENT_TIMEOUT_MS = 25_000;
 const PUBLIC_PREVIEW_MAX_AGE_MS = 48 * 60 * 60 * 1000;
 const LIVE_BOARD_MAX_AGE_MS = 7 * 24 * 60 * 60 * 1000;
@@ -135,10 +138,10 @@ const LIVE_DIRECT_CANDIDATE_MAX_PER_CYCLE = 7200;
 const LIVE_ISSUE_FALLBACK_DOCUMENT_LIMIT = 16;
 const LIVE_ISSUE_FALLBACK_CONCURRENCY = 2;
 const LIVE_BACKFILL_VOLUME_PASS_MAX = 120;
-const LIVE_BACKFILL_DOCUMENT_PASS_MAX = 72;
-const LIVE_BACKFILL_DOCUMENT_CONCURRENCY = 2;
-const LIVE_BACKFILL_DOCUMENT_SUPPLEMENT_MAX = 48;
-const LIVE_ISSUE_DOCUMENT_SUPPLEMENT_MAX = 24;
+const LIVE_BACKFILL_DOCUMENT_PASS_MAX = 42;
+const LIVE_BACKFILL_DOCUMENT_CONCURRENCY = 3;
+const LIVE_BACKFILL_DOCUMENT_SUPPLEMENT_MAX = 10;
+const LIVE_ISSUE_DOCUMENT_SUPPLEMENT_MAX = 8;
 const LIVE_BOARD_SPLIT_ENRICHMENT_LIMIT = 80;
 const LIVE_CACHE_PROMOTION_MAX_CANDIDATES = 360;
 const LIVE_CACHE_PROMOTION_BATCH_SIZE = 20;
@@ -4120,10 +4123,14 @@ export class MobileLiveGoldenRadar {
       const catchUpMode = this.sortedBoard().length < this.boardTarget;
       let qualityDirect: MDPResult[] = [];
       if (this.enableBackfill) {
-        const backfill = await this.discoverBackfill({
-          clientId: env.naverClientId,
-          clientSecret: env.naverClientSecret,
-        }, categoryId, liveSeeds, runLimit);
+        const backfill = await withTimeout(
+          this.discoverBackfill({
+            clientId: env.naverClientId,
+            clientSecret: env.naverClientSecret,
+          }, categoryId, liveSeeds, runLimit),
+          LIVE_BACKFILL_STAGE_TIMEOUT_MS,
+          [],
+        );
         if (backfill.length > 0) {
           qualityDirect = [...qualityDirect, ...backfill];
         }
@@ -4179,10 +4186,14 @@ export class MobileLiveGoldenRadar {
       if (this.enableBackfill && novelQualityCount < runLimit) {
         const globalBackfill = categoryId === 'all'
           ? []
-          : await this.discoverBackfill({
-            clientId: env.naverClientId,
-            clientSecret: env.naverClientSecret,
-          }, 'all', liveSeeds, runLimit);
+          : await withTimeout(
+            this.discoverBackfill({
+              clientId: env.naverClientId,
+              clientSecret: env.naverClientSecret,
+            }, 'all', liveSeeds, runLimit),
+            LIVE_GLOBAL_BACKFILL_STAGE_TIMEOUT_MS,
+            [],
+          );
         if (globalBackfill.length > 0) {
           qualityDirect = [...qualityDirect, ...globalBackfill];
         }
@@ -4245,10 +4256,14 @@ export class MobileLiveGoldenRadar {
       appendUniqueMdpResults(ranked, rankedBackfill, seen, runLimit);
       const rankedMetrics = ranked.map((item) => mapDirectResult(item, categoryId));
       const liveIssueFallback = rankedMetrics.length < runLimit && (this.enableBackfill || this.hasCustomLiveDocumentMeasure)
-        ? await this.discoverLiveIssueFallback({
-          clientId: env.naverClientId,
-          clientSecret: env.naverClientSecret,
-        }, categoryId, liveSeeds, runLimit)
+        ? await withTimeout(
+          this.discoverLiveIssueFallback({
+            clientId: env.naverClientId,
+            clientSecret: env.naverClientSecret,
+          }, categoryId, liveSeeds, runLimit),
+          LIVE_ISSUE_FALLBACK_TIMEOUT_MS,
+          [],
+        )
         : [];
       const resultMetrics: MobileKeywordMetric[] = [...rankedMetrics];
       const metricSeen = new Set<string>();
