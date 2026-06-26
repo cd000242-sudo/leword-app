@@ -2698,6 +2698,10 @@ const LIVE_MEASURED_PROBE_BASES: Record<string, readonly string[]> = Object.free
     '자녀장려금',
     '에너지바우처',
     '소상공인 정책자금',
+    '창문형 에어컨',
+    '제습기',
+    'KBO 올스타전',
+    '청년미래적금',
   ],
   policy: [
     '근로장려금',
@@ -2709,6 +2713,10 @@ const LIVE_MEASURED_PROBE_BASES: Record<string, readonly string[]> = Object.free
     '실업급여',
     '소상공인 정책자금',
     '여성청소년 생리용품 바우처',
+    '국민내일배움카드',
+    '청년도약계좌',
+    '전기요금 복지할인',
+    '임산부 교통비 지원',
   ],
   finance: [
     'IRP',
@@ -2719,6 +2727,8 @@ const LIVE_MEASURED_PROBE_BASES: Record<string, readonly string[]> = Object.free
     '자동차 보험',
     '여행자보험',
     'ETF',
+    '청년도약계좌',
+    '청년미래적금',
   ],
   shopping: [
     '무선 에어건',
@@ -2741,6 +2751,10 @@ const LIVE_MEASURED_PROBE_BASES: Record<string, readonly string[]> = Object.free
     '선크림',
     '레인부츠',
     '여름 샌들',
+    '장마 제습기',
+    '냉감패드',
+    '써큘레이터',
+    '무선 선풍기',
   ],
   electronics: [
     '무선 에어건',
@@ -2761,6 +2775,9 @@ const LIVE_MEASURED_PROBE_BASES: Record<string, readonly string[]> = Object.free
     '노트북',
     '태블릿',
     '아이폰',
+    '장마 제습기',
+    '써큘레이터',
+    '무선 선풍기',
   ],
   travel_domestic: [
     '제주 렌터카',
@@ -2771,6 +2788,8 @@ const LIVE_MEASURED_PROBE_BASES: Record<string, readonly string[]> = Object.free
     '서울 근교 당일치기 여행',
     '제주 항공권',
     '제주 숙소',
+    '인천공항 주차',
+    '여름휴가 숙소',
   ],
   travel_overseas: [
     '일본 유심',
@@ -2779,6 +2798,8 @@ const LIVE_MEASURED_PROBE_BASES: Record<string, readonly string[]> = Object.free
     '베트남 유심',
     '다낭 항공권',
     '대만 환전',
+    '일본 이심',
+    '베트남 eSIM',
   ],
   health: [
     '도수치료',
@@ -2787,6 +2808,8 @@ const LIVE_MEASURED_PROBE_BASES: Record<string, readonly string[]> = Object.free
     '탈모치료제',
     '비타민D 검사',
     '수면다원검사',
+    '백일해 예방접종',
+    '대상포진 예방접종',
   ],
   it: [
     'AI 영상툴',
@@ -2794,33 +2817,38 @@ const LIVE_MEASURED_PROBE_BASES: Record<string, readonly string[]> = Object.free
     '챗GPT 플러스',
     '노트북',
     '태블릿',
+    'AI 회의록',
+    'AI 자막 생성',
   ],
   education: [
     '국민내일배움카드',
     '한국사능력검정시험',
     '토익 시험',
     '컴활 1급',
+    '청년 국가기술자격 응시료',
   ],
   sports: [
     '테니스 라켓',
     '골프채',
     '러닝화',
     'KBO 올스타전',
+    '프로야구 올스타전',
+    '테니스 엘보 보호대',
   ],
 });
 
 const LIVE_MEASURED_PROBE_INTENTS: Record<string, readonly string[]> = Object.freeze({
-  all: ['가격비교', '추천', '후기', '예약', '비용', '조회', '신청 대상', '신청 방법'],
-  policy: ['신청 대상', '신청 방법', '지급일 조회', '사용처', '지원금 조건', '자격 조건'],
-  finance: ['세액공제 한도', '수수료 비교', '금리 비교', '환급 조회', '조건', '신청 방법'],
-  shopping: ['가격비교', '최저가', '추천 후기', '구매처', '할인 쿠폰'],
-  electronics: ['가격비교', '추천 후기', '최저가', '구매처', '스펙 비교'],
-  travel_domestic: ['가격비교', '예약', '추천', '후기', '주차', '입장료', '숙소 예약', '당일치기 코스'],
-  travel_overseas: ['가격비교', '예약', '추천', '후기', '비자 서류', '환전 방법', '유심 추천'],
-  health: ['보험 적용 비용', '검사 비용', '치료 비용', '후기', '주의사항'],
-  it: ['가격비교', '추천', '사용법', '구독료', '요금제 비교'],
-  education: ['신청 방법', '시험 일정', '준비물', '응시료', '합격 기준'],
-  sports: ['가격비교', '추천 후기', '최저가', '구매처', '스펙 비교', '예매 일정', '중계 일정', '라인업'],
+  all: ['가격비교', '추천 후기', '최저가 비교', '예약 방법', '비용 비교', '조회 방법', '신청 대상', '신청 방법', '필요 서류'],
+  policy: ['신청 대상', '신청 방법', '지급일 조회', '사용처 조회', '지원금 조건', '자격 조건', '필요 서류', '소득기준 계산', '마감일 확인', '온라인 신청'],
+  finance: ['세액공제 한도', '수수료 비교', '금리 비교', '환급 조회', '조건 비교', '신청 방법', '만기 수령액', '해지 불이익'],
+  shopping: ['가격비교', '최저가 비교', '추천 후기', '구매처 추천', '할인 쿠폰', '장단점', '전기요금 비교', '소음 비교', '설치 비용'],
+  electronics: ['가격비교', '추천 후기', '최저가 비교', '구매처 추천', '스펙 비교', '전기요금 비교', '소음 비교', '설치 비용', '필터 교체 비용'],
+  travel_domestic: ['가격비교', '예약 방법', '추천 후기', '주차 정보', '입장료', '숙소 예약', '당일치기 코스', '환불 규정', '픽업 장소'],
+  travel_overseas: ['가격비교', '예약 방법', '추천 후기', '비자 서류', '환전 방법', '유심 추천', 'eSIM 설정', '수하물 규정'],
+  health: ['보험 적용 비용', '검사 비용', '치료 비용', '후기', '주의사항', '실비 청구', '부작용', '예약 방법'],
+  it: ['가격비교', '추천 후기', '사용법', '구독료', '요금제 비교', '무료 대안', '업무 자동화', '템플릿'],
+  education: ['신청 방법', '시험 일정', '준비물', '응시료', '합격 기준', '접수 기간', '환불 규정'],
+  sports: ['가격비교', '추천 후기', '최저가 비교', '구매처 추천', '스펙 비교', '예매 일정', '중계 일정', '라인업'],
 });
 
 const LIVE_MEASURED_PROBE_CATEGORY_COMPAT: Record<string, readonly string[]> = Object.freeze({
@@ -3856,6 +3884,25 @@ export class MobileLiveGoldenRadar {
     return this.snapshot();
   }
 
+  private measuredSssReadyBoardCount(): number {
+    const now = this.now();
+    return this.sortedBoard()
+      .filter((item) => isMeasuredSssBoardCandidate(item, now))
+      .length;
+  }
+
+  private desiredSssReadyBoardCount(): number {
+    return resolveDirectGoldenBulkSssTarget(this.boardTarget);
+  }
+
+  private needsSssDepthRefresh(snapshot: Pick<MobileLiveGoldenRadarSnapshot, 'board' | 'boardCount'>): boolean {
+    if (snapshot.boardCount < this.boardTarget) return true;
+    const now = this.now();
+    return snapshot.board
+      .filter((item) => isMeasuredSssBoardCandidate(item, now))
+      .length < this.desiredSssReadyBoardCount();
+  }
+
   private runLimitForCurrentBoard(): number {
     const currentCount = this.sortedBoard().length;
     if (currentCount >= this.boardTarget) return this.cycleLimit;
@@ -3901,9 +3948,20 @@ export class MobileLiveGoldenRadar {
     this.lastError = undefined;
     const categoryId = this.nextCategory();
     const startedAtMs = Date.now();
-    const runLimit = this.runLimitForCurrentBoard();
-    const discoveryLimit = Math.min(180, Math.max(runLimit * 3, this.cycleLimit));
     this.refreshMeasuredCachesFromDisk(true);
+    const sssReadyBeforeRun = this.measuredSssReadyBoardCount();
+    const desiredSssReady = this.desiredSssReadyBoardCount();
+    const runLimit = sssReadyBeforeRun < desiredSssReady
+      ? Math.min(
+        120,
+        Math.max(
+          this.runLimitForCurrentBoard(),
+          Math.ceil(this.boardTarget * 0.7),
+          desiredSssReady - sssReadyBeforeRun,
+        ),
+      )
+      : this.runLimitForCurrentBoard();
+    const discoveryLimit = Math.min(360, Math.max(runLimit * 4, this.cycleLimit));
 
     try {
       const env = this.getEnvConfig();
@@ -3951,7 +4009,7 @@ export class MobileLiveGoldenRadar {
         : 0;
       const boardAfterCachePromotion = this.sortedBoard();
       const boardCountAfterCachePromotion = boardAfterCachePromotion.length;
-      const desiredBoardSssCount = resolveDirectGoldenBulkSssTarget(this.boardTarget);
+      const desiredBoardSssCount = this.desiredSssReadyBoardCount();
       const boardSssReadyAfterCachePromotion = boardAfterCachePromotion
         .filter((item) => isMeasuredSssBoardCandidate(item, this.now()))
         .length;
@@ -4175,7 +4233,7 @@ export class MobileLiveGoldenRadar {
   async runUntilTarget(maxCycles = this.startupCatchUpCycles): Promise<MobileLiveGoldenRadarSnapshot> {
     const cycleBudget = Math.max(1, Math.min(8, Math.floor(maxCycles)));
     let snapshot = this.snapshot();
-    for (let cycle = 0; cycle < cycleBudget && snapshot.boardCount < this.boardTarget; cycle += 1) {
+    for (let cycle = 0; cycle < cycleBudget && this.needsSssDepthRefresh(snapshot); cycle += 1) {
       const beforeAttempts = this.totalRuns + this.skippedRuns + this.failedRuns;
       snapshot = await this.runOnce();
       const afterAttempts = this.totalRuns + this.skippedRuns + this.failedRuns;

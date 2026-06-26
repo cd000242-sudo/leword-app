@@ -168,6 +168,67 @@ function thinProfileCount(items: Array<{ keyword: string }>): number {
       keywords: catchupSnapshot.board.map((item) => item.keyword),
     }));
 
+  const fullButWeakBoardFile = path.join(process.cwd(), 'tmp', 'mobile-live-golden-full-but-weak-depth-test.json');
+  fs.writeFileSync(fullButWeakBoardFile, JSON.stringify({
+    boardUpdatedAt: '2026-06-15T08:00:00.000Z',
+    items: Array.from({ length: 10 }, (_, index) => ({
+      keyword: `청년미래적금 ${index + 1}차 신청 대상`,
+      grade: 'S',
+      score: 66,
+      totalSearchVolume: 800 + index * 10,
+      pcSearchVolume: 160 + index,
+      mobileSearchVolume: 640 + index * 9,
+      documentCount: 900 + index * 10,
+      goldenRatio: 0.9,
+      category: 'policy',
+      source: 'fixture-measured',
+      evidence: ['fixture-searchad-volume', 'fixture-naver-openapi-document-count'],
+      searchVolumeSource: 'searchad',
+      searchVolumeConfidence: 'high',
+      isSearchVolumeEstimated: false,
+      documentCountSource: 'naver-api',
+      documentCountConfidence: 'high',
+      isDocumentCountEstimated: false,
+      updatedAt: '2026-06-15T08:00:00.000Z',
+      discoveredAt: '2026-06-15T08:00:00.000Z',
+      isMeasured: true,
+    })),
+  }), 'utf8');
+  let fullButWeakDiscoverCalls = 0;
+  const fullButWeakRadar = new MobileLiveGoldenRadar({
+    notificationInbox: inbox,
+    runOnStart: false,
+    cycleLimit: 3,
+    boardTarget: 10,
+    maxCandidates: 240,
+    boardFile: fullButWeakBoardFile,
+    categories: ['policy'],
+    getEnvConfig: () => ({
+      naverClientId: 'client',
+      naverClientSecret: 'secret',
+    }),
+    liveSeedProvider: async () => [],
+    enableBackfill: false,
+    discover: async () => {
+      fullButWeakDiscoverCalls += 1;
+      const batch = fullButWeakDiscoverCalls;
+      return [
+        floodResult(`청년미래적금 ${batch}차 신청 대상`, 0),
+        floodResult(`소상공인 정책자금 ${batch}차 신청 방법`, 1),
+        floodResult(`육아휴직급여 ${batch}차 지급일 조회`, 2),
+      ];
+    },
+  });
+  const fullButWeakSnapshot = await fullButWeakRadar.runUntilTarget(2);
+  assert('full live board keeps hunting when SSS-ready depth is below target',
+    fullButWeakDiscoverCalls === 2
+      && fullButWeakSnapshot.board.filter((item) => item.grade === 'SSS').length >= 3,
+    JSON.stringify({
+      calls: fullButWeakDiscoverCalls,
+      grades: fullButWeakSnapshot.board.map((item) => `${item.keyword}:${item.grade}`),
+    }));
+  fs.rmSync(fullButWeakBoardFile, { force: true });
+
   let backfillCatchupDirectCalls = 0;
   let backfillCatchupVolumeCalls = 0;
   const backfillCatchupRadar = new MobileLiveGoldenRadar({
