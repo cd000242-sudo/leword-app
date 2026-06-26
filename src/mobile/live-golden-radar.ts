@@ -3057,11 +3057,10 @@ function buildMeasuredProbeCandidates(
     ...normalizeLiveSeeds(liveSeeds, 80),
     ...liveSeeds.map((seed) => normalizeRobustLiveSeedBase(seed, now)).filter(Boolean),
   ], 120).flatMap((seed) => buildSeedPhraseVariants(seed));
-  const bases = uniqueKeywords([
-    ...liveBases,
-    ...categoryBases,
-    ...discoveryBases,
-  ], 180)
+  const orderedBases = normalizedCategory === 'all'
+    ? [...categoryBases, ...discoveryBases, ...liveBases]
+    : [...liveBases, ...categoryBases, ...discoveryBases];
+  const bases = uniqueKeywords(orderedBases, 180)
     .filter((base) => {
       const clean = normalizeKeyword(base);
       return clean

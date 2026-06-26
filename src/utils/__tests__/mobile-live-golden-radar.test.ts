@@ -722,6 +722,21 @@ function thinProfileCount(items: Array<{ keyword: string }>): number {
       && allPortfolioProbeCandidates.slice(0, 160).some((keyword) => /\uBB34\uC120\s*\uCCAD\uC18C\uAE30.*(?:\uAC00\uACA9\uBE44\uAD50|\uCD94\uCC9C\s*\uD6C4\uAE30)/.test(keyword))
       && allPortfolioProbeCandidates.every((keyword) => !/\uC81C\uC8FC\s*\uB80C\uD130\uCE74.*\uC9C0\uC6D0\uAE08\s*\uC870\uAC74/.test(keyword)),
     allPortfolioProbeCandidates.slice(0, 180).join('|'));
+  const allEventCrowdedProbeCandidates = __liveGoldenRadarTestInternals.buildBackfillCandidates('all', [
+    '2026 KBO \uC62C\uC2A4\uD0C0\uC804 \uC608\uB9E4',
+  ], 240, lottoGuardNow);
+  const firstPortfolioProbeIndex = allEventCrowdedProbeCandidates.findIndex((keyword) => (
+    /\uC81C\uC8FC\s*\uB80C\uD130\uCE74\s*\uAC00\uACA9\uBE44\uAD50|\uBB34\uC120\s*\uCCAD\uC18C\uAE30\s*\uAC00\uACA9\uBE44\uAD50|\uCCAD\uB144\uBBF8\uB798\uC801\uAE08\s*\uC2E0\uCCAD\s*\uB300\uC0C1/.test(keyword)
+  ));
+  const firstEventProbeIndex = allEventCrowdedProbeCandidates.findIndex((keyword) => /KBO|\uC62C\uC2A4\uD0C0\uC804/.test(keyword));
+  assert('all live golden backfill measures portfolio probes before event lookup noise',
+    firstPortfolioProbeIndex >= 0
+      && (firstEventProbeIndex === -1 || firstPortfolioProbeIndex < firstEventProbeIndex),
+    JSON.stringify({
+      firstPortfolioProbeIndex,
+      firstEventProbeIndex,
+      candidates: allEventCrowdedProbeCandidates.slice(0, 80),
+    }));
   let measuredProbeVolumeCalls = 0;
   const measuredProbeVolumeKeywords: string[] = [];
   const measuredProbeDocumentOptions: Array<{ keyword: string; scrapeOnly?: boolean }> = [];
