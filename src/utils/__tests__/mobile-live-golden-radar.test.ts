@@ -1927,6 +1927,7 @@ function thinProfileCount(items: Array<{ keyword: string }>): number {
     },
   }), 'utf8');
   let cachePromotionSplitCalls = 0;
+  let cachePromotionDiscoverCalls = 0;
   const cachePromotionMeasuredKeywords: string[] = [];
   const cachePromotionRadar = new MobileLiveGoldenRadar({
     notificationInbox: inbox,
@@ -1941,7 +1942,10 @@ function thinProfileCount(items: Array<{ keyword: string }>): number {
     }),
     liveSeedProvider: async () => [],
     enableBackfill: false,
-    discover: async () => [],
+    discover: async () => {
+      cachePromotionDiscoverCalls += 1;
+      return [];
+    },
     measureLiveSearchVolumeSeparate: async (_config, keywords, options) => {
       cachePromotionSplitCalls += 1;
       cachePromotionMeasuredKeywords.push(...keywords);
@@ -1991,6 +1995,9 @@ function thinProfileCount(items: Array<{ keyword: string }>): number {
       publicPreview: cachePromotionSnapshot.publicPreview.map((item) => item.keyword),
       lastMessage: cachePromotionSnapshot.lastMessage,
     }));
+  assert('cache promotion keeps hunting when SSS-ready board depth is still short',
+    cachePromotionDiscoverCalls === 1,
+    `${cachePromotionDiscoverCalls}:${cachePromotionSnapshot.lastMessage}`);
   assert('cache promotion skips low-volume persistent policy tails before SearchAd spend',
     !cachePromotionMeasuredKeywords.some((keyword) => keyword === '\uACE0\uC6A9\uCD09\uC9C4\uC7A5\uB824\uAE08\uC790\uACA9'),
     cachePromotionMeasuredKeywords.join('|'));

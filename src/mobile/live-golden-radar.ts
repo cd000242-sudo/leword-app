@@ -12,7 +12,10 @@ import {
 } from './contracts';
 import type { MobileNotificationInbox } from './notification-inbox';
 import { EnvironmentManager, type EnvConfig } from '../utils/environment-manager';
-import { discoverDirectGoldenKeywords } from '../utils/direct-golden-keyword-miner';
+import {
+  discoverDirectGoldenKeywords,
+  resolveDirectGoldenBulkSssTarget,
+} from '../utils/direct-golden-keyword-miner';
 import { classifyKeywordIntent, getNaverKeywordSearchVolumeSeparate } from '../utils/naver-datalab-api';
 import { getNaverAutocompleteKeywords } from '../utils/naver-autocomplete';
 import {
@@ -3888,17 +3891,24 @@ export class MobileLiveGoldenRadar {
           clientSecret: env.naverClientSecret,
         }, Math.max(runLimit, this.boardTarget - currentBoardCount))
         : 0;
-      const boardCountAfterCachePromotion = this.sortedBoard().length;
+      const boardAfterCachePromotion = this.sortedBoard();
+      const boardCountAfterCachePromotion = boardAfterCachePromotion.length;
+      const desiredBoardSssCount = resolveDirectGoldenBulkSssTarget(this.boardTarget);
+      const boardSssReadyAfterCachePromotion = boardAfterCachePromotion
+        .filter((item) => isMeasuredSssBoardCandidate(item, this.now()))
+        .length;
+      const shouldContinueAfterCachePromotion = boardSssReadyAfterCachePromotion < desiredBoardSssCount;
       if (
         catchUpModeBeforeCache
         && promotedCacheCount > 0
+        && !shouldContinueAfterCachePromotion
         && (
           boardCountAfterCachePromotion >= this.boardTarget
           || boardCountAfterCachePromotion > currentBoardCount
         )
       ) {
         this.successfulRuns += 1;
-        this.lastMessage = `cache catch-up promoted ${promotedCacheCount}; board ${boardCountAfterCachePromotion}/${this.boardTarget}`;
+        this.lastMessage = `cache catch-up promoted ${promotedCacheCount}; board ${boardCountAfterCachePromotion}/${this.boardTarget}; SSS ${boardSssReadyAfterCachePromotion}/${desiredBoardSssCount}`;
         return this.snapshot();
       }
       const liveSeeds = await this.collectLiveSeeds(categoryId);
