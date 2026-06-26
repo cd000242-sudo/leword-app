@@ -1,4 +1,7 @@
 import http from 'http';
+import fs from 'fs';
+import os from 'os';
+import path from 'path';
 import { createLewordApiServer } from '../../../apps/api/src/server';
 import type { MobileJobExecutor } from '../../mobile/job-orchestrator';
 import type { MobileKeywordResult } from '../../mobile/contracts';
@@ -92,6 +95,9 @@ const result: MobileKeywordResult = {
   });
   const rateLimitPort = await listen(rateLimitServer);
   const rateLimitBaseUrl = `http://127.0.0.1:${rateLimitPort}`;
+  const previousDownloadDir = process.env.LEWORD_DOWNLOAD_DIR;
+  const uploadDownloadDir = fs.mkdtempSync(path.join(os.tmpdir(), 'leword-admin-upload-rate-'));
+  process.env.LEWORD_DOWNLOAD_DIR = uploadDownloadDir;
 
   try {
     const first = await fetch(`${rateLimitBaseUrl}/v1/notifications`);
@@ -108,8 +114,28 @@ const result: MobileKeywordResult = {
 
     const healthAfterLimit = await fetch(`${rateLimitBaseUrl}/health`);
     assert('health remains available after client rate limit', healthAfterLimit.status === 200);
+
+    const uploadAfterLimit = await fetch(
+      `${rateLimitBaseUrl}/v1/admin/downloads/upload-chunk?product=orbit&kind=windows&filename=Orbit-Test.exe&uploadId=rate-limit-smoke&chunkIndex=0&totalChunks=1`,
+      {
+        method: 'POST',
+        headers: {
+          'Content-Type': 'application/octet-stream',
+          'X-LeadersPro-Admin-Token': 'qkrtjdgus2021645',
+        },
+        body: 'installer',
+      },
+    );
+    const uploadAfterLimitJson: any = await uploadAfterLimit.json();
+    assert('admin installer chunk upload bypasses mobile API rate limit',
+      uploadAfterLimit.status === 200
+        && uploadAfterLimitJson.ok === true
+        && uploadAfterLimitJson.done === true);
   } finally {
     await close(rateLimitServer);
+    if (previousDownloadDir === undefined) delete process.env.LEWORD_DOWNLOAD_DIR;
+    else process.env.LEWORD_DOWNLOAD_DIR = previousDownloadDir;
+    fs.rmSync(uploadDownloadDir, { recursive: true, force: true });
   }
 
   console.log('[mobile-api-guardrails.test] passed');

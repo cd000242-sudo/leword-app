@@ -981,6 +981,12 @@ function rateLimited(
   });
 }
 
+function isRateLimitExemptRoute(pathname: string): boolean {
+  return pathname === '/health'
+    || pathname === ADMIN_DOWNLOAD_UPLOAD_ROUTE
+    || pathname === ADMIN_DOWNLOAD_CHUNK_UPLOAD_ROUTE;
+}
+
 function getRequiredAuthToken(options: LewordApiServerOptions): string {
   const explicit = options.authToken;
   if (typeof explicit === 'string') return explicit.trim();
@@ -3049,7 +3055,7 @@ export function createLewordApiServer(options: LewordApiServerOptions = {}): htt
       return;
     }
 
-    if (rateLimiter && url.pathname !== '/health') {
+    if (rateLimiter && !isRateLimitExemptRoute(url.pathname)) {
       const limit = rateLimiter.check(req);
       if (!limit.ok) {
         rateLimited(res, limit);
