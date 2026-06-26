@@ -135,10 +135,10 @@ const LIVE_DIRECT_CANDIDATE_MAX_PER_CYCLE = 7200;
 const LIVE_ISSUE_FALLBACK_DOCUMENT_LIMIT = 16;
 const LIVE_ISSUE_FALLBACK_CONCURRENCY = 2;
 const LIVE_BACKFILL_VOLUME_PASS_MAX = 120;
-const LIVE_BACKFILL_DOCUMENT_PASS_MAX = 48;
-const LIVE_BACKFILL_DOCUMENT_CONCURRENCY = 1;
-const LIVE_BACKFILL_DOCUMENT_SUPPLEMENT_MAX = 24;
-const LIVE_ISSUE_DOCUMENT_SUPPLEMENT_MAX = 12;
+const LIVE_BACKFILL_DOCUMENT_PASS_MAX = 72;
+const LIVE_BACKFILL_DOCUMENT_CONCURRENCY = 2;
+const LIVE_BACKFILL_DOCUMENT_SUPPLEMENT_MAX = 48;
+const LIVE_ISSUE_DOCUMENT_SUPPLEMENT_MAX = 24;
 const LIVE_BOARD_SPLIT_ENRICHMENT_LIMIT = 80;
 const LIVE_CACHE_PROMOTION_MAX_CANDIDATES = 360;
 const LIVE_CACHE_PROMOTION_BATCH_SIZE = 20;
@@ -1666,6 +1666,7 @@ function appendMeasuredPublishableFallbackItems<T extends MobileLiveGoldenBoardI
 
 const SSS_READY_NEED_INTENT_RE = /(?:\uACC4\uC0B0\uAE30|\uACF5\uD734\uC77C|\uC785\uC7A5\uB8CC|\uC8FC\uCC28|\uC608\uC57D|\uC608\uB9E4|\uC2E0\uCCAD|\uC9C0\uAE09\uC77C|\uB300\uC0C1|\uC790\uACA9|\uC870\uAC74|\uC870\uD68C|\uC0AC\uC6A9\uCC98|\uAC00\uACA9\uBE44\uAD50|\uCD5C\uC800\uAC00|\uD560\uC778|\uCFE0\uD3F0|\uAD6C\uB9E4\uCC98|\uCD94\uCC9C|\uD6C4\uAE30|\uBE44\uC6A9|\uBCF4\uD5D8|\uC900\uBE44\uBB3C|\uC6B4\uC601\uC2DC\uAC04|\uC77C\uC815|\uB9C8\uAC10\uC77C|\uC11C\uB958|\uC2E4\uC218\uB839\uC561|\uC138\uAE08|\uD658\uAE09\uC77C)/u;
 const SSS_SPECIFIC_MODIFIER_RE = /(?:\uD504\uB9AC\uB79C\uC11C|\uC54C\uBC14|\uC77C\uC6A9\uC9C1|\uAC1C\uC778\uC0AC\uC5C5\uC790|\uC2E4\uC218\uB839\uC561|\uC790\uB3D9\uACC4\uC0B0|\uC694\uC728|\uACF5\uC81C|\uC608\uB9E4|\uC608\uC57D|\uD2F0\uCF13\uD305|\uC785\uC7A5\uB8CC|\uC8FC\uCC28|\uC88C\uC11D|\uC900\uBE44\uBB3C|\uD560\uC778|\uCFE0\uD3F0|\uAD6C\uB9E4\uCC98|\uCD5C\uC800\uAC00|\uAC00\uACA9\uBE44\uAD50|\uD6C4\uAE30|\uBE44\uC6A9|\uB80C\uD0C8|\uC2E0\uCCAD|\uB300\uC0C1|\uC790\uACA9|\uC870\uAC74|\uC9C0\uAE09\uC77C|\uC870\uD68C|\uC0AC\uC6A9\uCC98|\uB9C8\uAC10\uC77C|\uC11C\uB958|\uC18C\uB4DD\uAE30\uC900|\uD658\uAE09\uC77C|\uACF5\uD734\uC77C)/u;
+const CONCRETE_ACTION_COMPOUND_RE = /[\uAC00-\uD7A3]{2,}(?:\uC608\uC57D|\uC608\uB9E4|\uC785\uC7A5\uB8CC|\uC8FC\uCC28|\uC88C\uC11D|\uD2F0\uCF13\uD305|\uAD6C\uB9E4\uCC98|\uCD5C\uC800\uAC00|\uD560\uC778|\uCFE0\uD3F0|\uD6C4\uAE30|\uC2E0\uCCAD\uBC29\uBC95|\uC9C0\uAE09\uC77C|\uC0AC\uC6A9\uCC98|\uB9C8\uAC10\uC77C|\uC11C\uB958|\uD658\uAE09\uC77C)$/u;
 
 function hasSssReadyNeedIntent(keyword: string): boolean {
   const clean = normalizeKeyword(keyword);
@@ -1679,9 +1680,31 @@ function isBroadHeadSssKeyword(keyword: string): boolean {
   const compact = clean.replace(/\s+/g, '');
   const tokenCount = clean.split(/\s+/).filter(Boolean).length;
   if (tokenCount >= 2) return false;
+  if (compact.length >= 7 && CONCRETE_ACTION_COMPOUND_RE.test(compact)) return false;
   if (compact.length >= 9 && SSS_SPECIFIC_MODIFIER_RE.test(clean)) return false;
   if (compact.length > 14) return false;
   return hasSssReadyNeedIntent(clean) || hasHighValueNeedIntent(clean) || hasAdsenseNeedIntent(clean);
+}
+
+function isOverbroadNoEffectBoardKeyword(item: Partial<MobileKeywordMetric> & { keyword?: string }): boolean {
+  const keyword = normalizeKeyword(item.keyword);
+  if (!keyword) return true;
+  const volume = finiteNumber(item.totalSearchVolume) || 0;
+  const docs = finiteNumber(item.documentCount) || 0;
+  const longTail = keywordLongTailScore(keyword);
+  const intentFragments = ultimateIntentFragmentCount(keyword);
+  if (isBroadHeadSssKeyword(keyword)) return true;
+  if (volume >= 30_000 && longTail < 18 && intentFragments < 2) return true;
+  if (volume >= 10_000 && docs > 5_000 && longTail < 14 && intentFragments < 2) return true;
+  return false;
+}
+
+function isBlogActionableBoardMetric(item: Partial<MobileKeywordMetric> & { keyword?: string }): boolean {
+  if (isOverbroadNoEffectBoardKeyword(item)) return false;
+  const keyword = normalizeKeyword(item.keyword);
+  return ultimateIntentFragmentCount(keyword) >= 2
+    || keywordLongTailScore(keyword) >= 18
+    || SSS_SPECIFIC_MODIFIER_RE.test(keyword);
 }
 
 function isMeasuredSssBoardCandidate(item: MobileLiveGoldenBoardItem, now: Date): boolean {
@@ -1695,6 +1718,7 @@ function isMeasuredSssBoardCandidate(item: MobileLiveGoldenBoardItem, now: Date)
   if (isLottoLookupKeyword(keyword) || isLowAdsenseLookupKeyword(keyword) || isBrandSafetyNewsKeyword(keyword)) return false;
   if (volume < 1000 || docs <= 0 || docs > 5000 || ratio < 5) return false;
   if (isBroadHeadSssKeyword(keyword)) return false;
+  if (!isBlogActionableBoardMetric(item)) return false;
   if (!hasSssReadyNeedIntent(keyword) && !hasHighValueNeedIntent(keyword) && !hasAdsenseNeedIntent(keyword)) return false;
   const judged = applyKeywordAiJudge(item, { now, downgradeExcluded: false });
   const ai = judged.aiJudge;
@@ -1708,6 +1732,7 @@ function isStrictReadyLiveBoardItem(item: MobileLiveGoldenBoardItem): boolean {
     && hasTrustedSearchVolumeMeasurement(item)
     && hasTrustedDocumentCountMeasurement(item)
     && hasMeasuredPcMobileSplit(item)
+    && isBlogActionableBoardMetric(item)
     && liveBoardOpportunityScore(item) >= 98
     && !isLottoLookupKeyword(keyword)
     && !isLowAdsenseLookupKeyword(keyword)
@@ -1743,6 +1768,7 @@ function isNearUltimateLiveBoardItem(item: MobileLiveGoldenBoardItem): boolean {
     && hasTrustedSearchVolumeMeasurement(item)
     && hasTrustedDocumentCountMeasurement(item)
     && hasMeasuredPcMobileSplit(item)
+    && isBlogActionableBoardMetric(item)
     && liveBoardOpportunityScore(item) >= 75
     && !isLottoLookupKeyword(keyword)
     && !isLowAdsenseLookupKeyword(keyword)
@@ -1906,6 +1932,7 @@ function shouldUseLiveSourceSignalForGoldenBoard(
 
 function isPublishableLiveResultMetric(metric: MobileKeywordMetric, now: Date): boolean {
   const judged = applyKeywordAiJudge(metric, { now });
+  if (!isBlogActionableBoardMetric(judged)) return false;
   const maxDocumentCount = maxDocumentCountForNearUltimate(judged);
   return isUltimateGoldenKeywordCandidate(judged, {
     now,
@@ -1964,6 +1991,7 @@ function measuredProBoardFallbackRejectReason(metric: MobileLiveGoldenBoardItem,
   if (broadHead && longTail < 18) return 'broad-head-without-longtail';
   if (volume >= 30_000 && longTail < 18 && intentFragments < 2 && !productBoardSeed) return 'broad-high-volume-without-longtail';
   if (volume >= 10_000 && longTail < 14 && intentFragments < 2 && !productBoardSeed) return 'broad-mid-volume-without-longtail';
+  if (!isBlogActionableBoardMetric(metric) && !productBoardSeed) return 'not-blog-actionable-longtail';
   if (docs > 20_000 && ratio < 3) return 'broad-document-field';
   if (docs > 10_000 && longTail < 14 && ratio < 5 && !productBoardSeed) return 'broad-low-specificity';
 
@@ -3316,6 +3344,7 @@ function isMeasuredProExactKeywordMetric(
   if (!hasCompleteLiveGoldenMetrics(item)) return false;
   if (isMalformedLiveKeyword(keyword) || isStaleOrFutureLiveKeyword(keyword, now)) return false;
   if (isThinProfileIntentKeyword(keyword) || isNoisyLiveSeed(keyword) || isOverExpandedLiveCandidate(keyword)) return false;
+  if (!isBlogActionableBoardMetric(item)) return false;
   if (isUltimateLowValueLookupKeyword(keyword) || isLowValueLiveCandidate(keyword)) return false;
   if (isLottoLookupKeyword(keyword) || isLowAdsenseLookupKeyword(keyword) || isBrandSafetyNewsKeyword(keyword)) return false;
   if (volume < LIVE_CACHE_PROMOTION_MIN_VOLUME || docs <= 0 || docs > maxDocs) return false;
@@ -4246,7 +4275,10 @@ export class MobileLiveGoldenRadar {
       }
       const publishableResultMetrics = resultMetrics
         .map((metric) => applyKeywordAiJudge(metric, { now: this.now() }))
-        .filter((metric) => isPublishableLiveResultMetric(metric, this.now()));
+        .filter((metric) => (
+          isPublishableLiveResultMetric(metric, this.now())
+          || isMeasuredProBoardFallbackMetric(metric as MobileLiveGoldenBoardItem, this.now())
+        ));
       const result = resultFromMetrics(
         publishableResultMetrics,
         startedAtMs,
@@ -5380,7 +5412,7 @@ export class MobileLiveGoldenRadar {
       targetLimit,
       rejectedSamples,
     });
-    return changed;
+    return promotedCount;
   }
 
   private sortedBoard(): MobileLiveGoldenBoardItem[] {
@@ -5390,6 +5422,7 @@ export class MobileLiveGoldenRadar {
       .filter((item) => ageMsFrom(item.updatedAt, nowMs) <= LIVE_BOARD_MAX_AGE_MS)
       .filter(hasCompleteLiveGoldenMetrics)
       .filter((item) => isLiveRadarUsableMetric(item, now) || isMeasuredProExactKeywordMetric(item, now))
+      .filter(isBlogActionableBoardMetric)
       .map((item) => ({
         ...item,
         freshness: freshnessFrom(item.updatedAt, nowMs),
@@ -5418,6 +5451,7 @@ export class MobileLiveGoldenRadar {
         .filter((item) => ageMsFrom(item.updatedAt, nowMs) <= LIVE_BOARD_MAX_AGE_MS)
         .filter(hasCompleteLiveGoldenMetrics)
         .filter((item) => isLiveRadarUsableMetric(item, now) || isMeasuredProExactKeywordMetric(item, now))
+        .filter(isBlogActionableBoardMetric)
         .sort((a, b) => {
           const scoreDiff = boardSortScore(b, nowMs) - boardSortScore(a, nowMs);
           if (scoreDiff !== 0) return scoreDiff;

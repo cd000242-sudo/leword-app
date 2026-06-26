@@ -1763,14 +1763,14 @@ const result: MobileKeywordResult = {
       discoveredAt: '2026-06-15T02:50:00.000Z',
       isMeasured: true,
     }, {
-      keyword: '\uC0BC\uC131\uCC3D\uBB38\uD615\uC5D0\uC5B4\uCEE8',
+      keyword: '\uC0BC\uC131\uCC3D\uBB38\uD615\uC5D0\uC5B4\uCEE8 \uAC00\uACA9\uBE44\uAD50',
       grade: 'SS',
       score: 82,
-      pcSearchVolume: 16700,
-      mobileSearchVolume: 91100,
-      totalSearchVolume: 107800,
-      documentCount: 27446,
-      goldenRatio: 3.93,
+      pcSearchVolume: 2300,
+      mobileSearchVolume: 9700,
+      totalSearchVolume: 12000,
+      documentCount: 850,
+      goldenRatio: 14.12,
       cpc: 0,
       category: 'electronics',
       source: 'live-golden-board-fixture',
@@ -1883,7 +1883,7 @@ const result: MobileKeywordResult = {
     const shoppingCompleted = await waitForCompletedJob(intentSeparatedBaseUrl, shoppingJson.job.id);
     assert('shopping connect reuses only product-shaped live board candidates',
       shoppingCompleted.result.keywords.length === 1
-        && shoppingCompleted.result.keywords[0].keyword === '\uC0BC\uC131\uCC3D\uBB38\uD615\uC5D0\uC5B4\uCEE8'
+        && shoppingCompleted.result.keywords[0].keyword === '\uC0BC\uC131\uCC3D\uBB38\uD615\uC5D0\uC5B4\uCEE8 \uAC00\uACA9\uBE44\uAD50'
         && !shoppingCompleted.result.keywords.some((item: any) => /policy|voucher|use-place/.test(String(item.category || item.intent || item.source || ''))),
       JSON.stringify(shoppingCompleted.result));
 

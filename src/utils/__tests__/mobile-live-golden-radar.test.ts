@@ -2120,6 +2120,13 @@ function thinProfileCount(items: Array<{ keyword: string }>): number {
       source: 'persistent-keyword-cache',
       evidence: ['persistent-keyword-cache', 'measured-search-volume', 'measured-document-count'],
     },
+    '\uC8FC\uD734\uC218\uB2F9\uACC4\uC0B0\uAE30 \uC54C\uBC14 \uC790\uB3D9\uACC4\uC0B0': {
+      searchVolume: 6200,
+      documentCount: 190,
+      category: 'policy',
+      source: 'persistent-keyword-cache',
+      evidence: ['persistent-keyword-cache', 'measured-search-volume', 'measured-document-count'],
+    },
     '\uADFC\uBB34\uC2DC\uAC04\uACC4\uC0B0\uAE30': {
       searchVolume: 4490,
       documentCount: 527,
@@ -2167,7 +2174,9 @@ function thinProfileCount(items: Array<{ keyword: string }>): number {
       cachePromotionMeasuredKeywords.push(...keywords);
       assert('cache promotion uses search volume split only', options?.includeDocumentCount === false);
       return keywords
-        .filter((keyword) => keyword === '\uC8FC\uD734\uC218\uB2F9\uACC4\uC0B0\uAE30' || keyword === '\uADFC\uBB34\uC2DC\uAC04\uACC4\uC0B0\uAE30')
+        .filter((keyword) => keyword === '\uC8FC\uD734\uC218\uB2F9\uACC4\uC0B0\uAE30'
+          || keyword === '\uC8FC\uD734\uC218\uB2F9\uACC4\uC0B0\uAE30 \uC54C\uBC14 \uC790\uB3D9\uACC4\uC0B0'
+          || keyword === '\uADFC\uBB34\uC2DC\uAC04\uACC4\uC0B0\uAE30')
         .map((keyword) => keyword === '\uC8FC\uD734\uC218\uB2F9\uACC4\uC0B0\uAE30'
           ? {
             keyword,
@@ -2177,6 +2186,15 @@ function thinProfileCount(items: Array<{ keyword: string }>): number {
             competition: 'LOW',
             monthlyAveCpc: 180,
           }
+          : keyword === '\uC8FC\uD734\uC218\uB2F9\uACC4\uC0B0\uAE30 \uC54C\uBC14 \uC790\uB3D9\uACC4\uC0B0'
+            ? {
+              keyword,
+              pcSearchVolume: 1100,
+              mobileSearchVolume: 5100,
+              documentCount: null,
+              competition: 'LOW',
+              monthlyAveCpc: 260,
+            }
           : {
             keyword,
             pcSearchVolume: 820,
@@ -2188,21 +2206,22 @@ function thinProfileCount(items: Array<{ keyword: string }>): number {
     },
   });
   const cachePromotionSnapshot = await cachePromotionRadar.runOnce();
-  assert('persistent measured cache rows without provenance are promoted after SearchAd pc/mobile split',
+  assert('persistent measured cache rows without provenance promote only writer-intent longtails after SearchAd pc/mobile split',
     cachePromotionSplitCalls > 0
       && cachePromotionSnapshot.board.some((item) => (
-        item.keyword === '\uC8FC\uD734\uC218\uB2F9\uACC4\uC0B0\uAE30'
-        && item.pcSearchVolume === 16500
-        && item.mobileSearchVolume === 71100
-        && item.totalSearchVolume === 87600
-        && item.documentCount === 12230
+        item.keyword === '\uC8FC\uD734\uC218\uB2F9\uACC4\uC0B0\uAE30 \uC54C\uBC14 \uC790\uB3D9\uACC4\uC0B0'
+        && item.pcSearchVolume === 1100
+        && item.mobileSearchVolume === 5100
+        && item.totalSearchVolume === 6200
+        && item.documentCount === 190
         && item.searchVolumeSource === 'searchad'
         && item.searchVolumeConfidence === 'high'
         && item.documentCountSource === 'cache'
         && item.documentCountConfidence === 'medium'
         && item.aiJudge?.verdict === 'publish'
       ))
-      && cachePromotionSnapshot.publicPreview.some((item) => item.keyword === '\uC8FC\uD734\uC218\uB2F9\uACC4\uC0B0\uAE30')
+      && cachePromotionSnapshot.publicPreview.some((item) => item.keyword === '\uC8FC\uD734\uC218\uB2F9\uACC4\uC0B0\uAE30 \uC54C\uBC14 \uC790\uB3D9\uACC4\uC0B0')
+      && !cachePromotionSnapshot.board.some((item) => item.keyword === '\uC8FC\uD734\uC218\uB2F9\uACC4\uC0B0\uAE30')
       && !cachePromotionSnapshot.board.some((item) => item.keyword === '\uC704\uB2C9\uC2A4\uCC3D\uBB38\uD615\uC5D0\uC5B4\uCEE8'),
     JSON.stringify({
       splitCalls: cachePromotionSplitCalls,
@@ -2218,6 +2237,73 @@ function thinProfileCount(items: Array<{ keyword: string }>): number {
     !cachePromotionMeasuredKeywords.some((keyword) => keyword === '\uACE0\uC6A9\uCD09\uC9C4\uC7A5\uB824\uAE08\uC790\uACA9'),
     cachePromotionMeasuredKeywords.join('|'));
   fs.rmSync(cachePromotionFile, { force: true });
+
+  const broadNoEffectBoardFile = path.join(process.cwd(), 'tmp', 'mobile-live-golden-broad-no-effect-board-test.json');
+  fs.writeFileSync(broadNoEffectBoardFile, JSON.stringify({
+    boardUpdatedAt: '2026-06-15T08:00:00.000Z',
+    items: [{
+      keyword: '\uC0AC\uB300\uBCF4\uD5D8\uACC4\uC0B0\uAE30',
+      grade: 'SSS',
+      score: 99,
+      pcSearchVolume: 2100,
+      mobileSearchVolume: 17910,
+      totalSearchVolume: 20010,
+      documentCount: 1318,
+      goldenRatio: 15.18,
+      cpc: 100,
+      category: 'life_tips',
+      source: 'fixture-measured',
+      evidence: ['fixture-searchad-volume', 'fixture-naver-openapi-document-count'],
+      searchVolumeSource: 'searchad',
+      searchVolumeConfidence: 'high',
+      isSearchVolumeEstimated: false,
+      documentCountSource: 'naver-api',
+      documentCountConfidence: 'high',
+      isDocumentCountEstimated: false,
+      updatedAt: '2026-06-15T08:00:00.000Z',
+      discoveredAt: '2026-06-15T08:00:00.000Z',
+      isMeasured: true,
+    }, {
+      keyword: '\uC0AC\uB300\uBCF4\uD5D8\uACC4\uC0B0\uAE30 \uD504\uB9AC\uB79C\uC11C \uC2E4\uC218\uB839\uC561',
+      grade: 'SSS',
+      score: 99,
+      pcSearchVolume: 1200,
+      mobileSearchVolume: 7800,
+      totalSearchVolume: 9000,
+      documentCount: 260,
+      goldenRatio: 34.62,
+      cpc: 220,
+      category: 'life_tips',
+      source: 'fixture-measured',
+      evidence: ['fixture-searchad-volume', 'fixture-naver-openapi-document-count'],
+      searchVolumeSource: 'searchad',
+      searchVolumeConfidence: 'high',
+      isSearchVolumeEstimated: false,
+      documentCountSource: 'naver-api',
+      documentCountConfidence: 'high',
+      isDocumentCountEstimated: false,
+      updatedAt: '2026-06-15T08:00:00.000Z',
+      discoveredAt: '2026-06-15T08:00:00.000Z',
+      isMeasured: true,
+    }],
+  }), 'utf8');
+  const broadNoEffectRadar = new MobileLiveGoldenRadar({
+    notificationInbox: inbox,
+    runOnStart: false,
+    boardFile: broadNoEffectBoardFile,
+    boardTarget: 10,
+    publicPreviewCount: 5,
+    now: () => new Date('2026-06-15T09:00:00.000Z'),
+  });
+  const broadNoEffectSnapshot = broadNoEffectRadar.snapshot();
+  assert('live golden board hides broad calculator heads and keeps measured writer-intent longtails',
+    !broadNoEffectSnapshot.board.some((item) => item.keyword === '\uC0AC\uB300\uBCF4\uD5D8\uACC4\uC0B0\uAE30')
+      && broadNoEffectSnapshot.board.some((item) => (
+        item.keyword === '\uC0AC\uB300\uBCF4\uD5D8\uACC4\uC0B0\uAE30 \uD504\uB9AC\uB79C\uC11C \uC2E4\uC218\uB839\uC561'
+        && item.grade === 'SSS'
+      )),
+    JSON.stringify(broadNoEffectSnapshot.board.map((item) => `${item.keyword}:${item.grade}:${item.totalSearchVolume}:${item.documentCount}`)));
+  fs.rmSync(broadNoEffectBoardFile, { force: true });
 
   const productPromotionScore = __liveGoldenRadarTestInternals.livePromotionPriorityBonus(
     '\uC81C\uC2B5\uAE30 \uAC00\uACA9\uBE44\uAD50',
