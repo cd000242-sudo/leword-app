@@ -2344,6 +2344,7 @@ function isUltimateIntentCompatible(base: string, intent: string, categoryId: st
   const productIntent = PRODUCT_PURCHASE_INTENT_RE.test(cleanIntent);
   const productBase = PRODUCT_BASE_SIGNAL_RE.test(cleanBase);
   const travelCategory = category === 'travel_domestic' || category === 'travel_overseas';
+  const reservationIntent = /(?:예약|숙소|호텔|픽업|항공권|비자|환전|유심|eSIM)/iu.test(cleanIntent);
   if (isInvalidNonProductCommerceExpansion(`${cleanBase} ${cleanIntent}`)) return false;
 
   if (HOLIDAY_CALENDAR_BASE_RE.test(cleanBase)) {
@@ -2357,6 +2358,15 @@ function isUltimateIntentCompatible(base: string, intent: string, categoryId: st
   ) return false;
   if (POLICY_ONLY_INTENT_RE.test(cleanIntent) && !isPolicyCategory && !isPolicyBase) return false;
   if (category === 'policy' && (VENUE_TRAVEL_INTENT_RE.test(cleanIntent) || SPORTS_EVENT_INTENT_RE.test(cleanIntent))) return false;
+  if (reservationIntent && !['travel_domestic', 'travel_overseas', 'health', 'food', 'music'].includes(category)) return false;
+  if (category !== 'travel_overseas' && /(?:비자|환전|유심|eSIM)/iu.test(cleanIntent)) return false;
+  if ((category === 'travel_domestic' || /제주\s*항공권/u.test(cleanBase)) && /항공권/u.test(cleanBase) && /(?:유심|eSIM|비자|환전)/iu.test(cleanIntent)) return false;
+  if (category === 'health' && /검사/u.test(cleanBase) && /치료/u.test(cleanIntent)) return false;
+  if (category === 'health' && /치료제/u.test(cleanBase) && /치료/u.test(cleanIntent)) return false;
+  if (/실비\s*청구/u.test(cleanBase) && /(?:일정|준비물|예약|추천|후기)/u.test(cleanIntent)) return false;
+  if (/(?:전기요금|전기세|소음)/u.test(cleanBase) && /(?:가격비교|최저가|구매처|할인|쿠폰|추천\s*후기|비용\s*비교)/u.test(cleanIntent)) return false;
+  if (/(?:흡입력|배터리|물걸레|문턱)/u.test(cleanBase) && /(?:전기요금|전기세|소음|비용\s*비교)/u.test(cleanIntent)) return false;
+  if (/저소음/u.test(cleanBase) && !PRODUCT_PURCHASE_INTENT_RE.test(cleanIntent)) return false;
   if (category === 'policy' && PRODUCT_PURCHASE_INTENT_RE.test(cleanIntent) && !/비교|조회/u.test(cleanIntent)) return false;
   if (FOOD_ONLY_INTENT_RE.test(cleanIntent) && category !== 'food') return false;
   if (travelCategory && productIntent && !TRAVEL_PURCHASE_BASE_RE.test(cleanBase)) return false;
@@ -2569,6 +2579,36 @@ function keywordAlreadyHasIntent(keyword: string, intent: string): boolean {
   return markers.some((marker) => intentKey.includes(marker) && key.includes(marker));
 }
 
+function appendCompatibleIntent(base: string, intent: string): string {
+  const cleanBase = normalizeKeyword(base);
+  let cleanIntent = normalizeKeyword(intent);
+  if (!cleanBase || !cleanIntent) return '';
+  const duplicateHeads = [
+    '검사',
+    '치료',
+    '전기요금',
+    '전기세',
+    '소음',
+    '흡입력',
+    '배터리',
+    '물걸레',
+    '문턱',
+    '필터',
+    '세액공제',
+    '수수료',
+    '사용처',
+    '지급일',
+  ];
+  for (const head of duplicateHeads) {
+    if (cleanBase.includes(head)) {
+      cleanIntent = cleanIntent.replace(new RegExp(`^${head}\\s*`, 'u'), '').trim();
+    }
+  }
+  if (/치료제/u.test(cleanBase) && /^치료\s*/u.test(cleanIntent)) return '';
+  if (!cleanIntent) return cleanBase;
+  return keywordAlreadyHasIntent(cleanBase, cleanIntent) ? cleanBase : `${cleanBase} ${cleanIntent}`;
+}
+
 function ultimateNeedTemplatesForCategory(categoryId: string): string[] {
   const category = normalizeKeyword(categoryId);
   const categorySpecific = LIVE_ULTIMATE_CATEGORY_INTENTS[category];
@@ -2608,7 +2648,8 @@ function buildUltimateNeedCandidatesForSeed(seed: string, categoryId: string, li
   for (const intent of templates) {
     if (out.length >= limit) break;
     if (!isUltimateIntentCompatible(base, intent, inferred || categoryId)) continue;
-    out.push(keywordAlreadyHasIntent(base, intent) ? base : `${base} ${intent}`);
+    const candidate = appendCompatibleIntent(base, intent);
+    if (candidate) out.push(candidate);
   }
   return uniqueKeywords(out, limit)
     .filter((candidate) => hasLiveUltimateNeedIntent(candidate))
@@ -2792,43 +2833,76 @@ function buildDateAwareLiveSeedCandidates(
 const LIVE_MEASURED_PROBE_BASES: Record<string, readonly string[]> = Object.freeze({
   all: [
     '제주 렌터카',
+    '제주 렌터카 완전자차',
+    '제주 렌터카 보험',
     '무선청소기',
+    '무선청소기 흡입력',
     '로봇청소기',
+    '로봇청소기 물걸레',
     '도수치료',
+    '도수치료 실비',
     'IRP',
+    'IRP 세액공제',
     'ISA',
+    'ISA 만기',
     '근로장려금',
+    '프리랜서 근로장려금',
+    '알바 근로장려금',
     '자녀장려금',
     '에너지바우처',
+    '에너지바우처 잔액조회',
     '소상공인 정책자금',
+    '소상공인 정책자금 직접대출',
     '창문형 에어컨',
+    '창문형 에어컨 전기요금',
     '제습기',
-    'KBO 올스타전',
+    '제습기 전기요금',
     '청년미래적금',
+    '청년미래적금 가입신청',
   ],
   policy: [
     '근로장려금',
+    '프리랜서 근로장려금',
+    '알바 근로장려금',
+    '개인사업자 근로장려금',
+    '근로장려금 반기',
     '자녀장려금',
+    '자녀장려금 지급일',
     '에너지바우처',
+    '에너지바우처 잔액조회',
     '청년미래적금',
+    '청년미래적금 가입신청',
+    '청년미래적금 소득기준',
     '육아휴직급여',
+    '육아휴직급여 사후지급금',
     '부모급여',
     '실업급여',
+    '실업급여 구직활동',
     '소상공인 정책자금',
+    '소상공인 정책자금 직접대출',
+    '소상공인 정책자금 대리대출',
     '여성청소년 생리용품 바우처',
     '국민내일배움카드',
+    '국민내일배움카드 사용처',
     '청년도약계좌',
     '전기요금 복지할인',
     '임산부 교통비 지원',
   ],
   finance: [
     'IRP',
+    'IRP 세액공제',
+    'IRP 수수료',
     'ISA',
+    'ISA 만기',
+    'ISA 세액공제',
     '연금저축',
+    '연금저축 세액공제',
     '퇴직연금',
     '주택청약',
     '자동차 보험',
+    '자동차 보험 비교',
     '여행자보험',
+    '여행자보험 비교',
     'ETF',
     '청년도약계좌',
     '청년미래적금',
@@ -2847,16 +2921,27 @@ const LIVE_MEASURED_PROBE_BASES: Record<string, readonly string[]> = Object.free
     '빨래 쉰내 제거',
     '요석 제거제',
     '무선청소기',
+    '무선청소기 흡입력',
+    '무선청소기 배터리',
     '로봇청소기',
+    '로봇청소기 물걸레',
+    '로봇청소기 문턱',
     '제습기',
+    '제습기 전기요금',
+    '제습기 소음',
     '창문형 에어컨',
+    '창문형 에어컨 전기요금',
+    '창문형 에어컨 소음',
     '공기청정기 필터',
+    '공기청정기 필터 교체',
     '선크림',
     '레인부츠',
     '여름 샌들',
     '장마 제습기',
+    '장마 제습기 전기요금',
     '냉감패드',
     '써큘레이터',
+    '써큘레이터 저소음',
     '무선 선풍기',
   ],
   electronics: [
@@ -2871,27 +2956,44 @@ const LIVE_MEASURED_PROBE_BASES: Record<string, readonly string[]> = Object.free
     '로봇청소기 물걸레',
     '공기청정기 필터',
     '무선청소기',
+    '무선청소기 흡입력',
+    '무선청소기 배터리',
     '로봇청소기',
+    '로봇청소기 물걸레',
+    '로봇청소기 문턱',
     '제습기',
+    '제습기 전기요금',
+    '제습기 소음',
     '창문형 에어컨',
+    '창문형 에어컨 전기요금',
+    '창문형 에어컨 소음',
     '공기청정기 필터',
+    '공기청정기 필터 교체',
     '노트북',
     '태블릿',
     '아이폰',
     '장마 제습기',
+    '장마 제습기 전기요금',
     '써큘레이터',
+    '써큘레이터 저소음',
     '무선 선풍기',
   ],
   travel_domestic: [
     '제주 렌터카',
+    '제주 렌터카 완전자차',
+    '제주 렌터카 보험',
     '제주 렌트카',
+    '제주 렌트카 완전자차',
     '부산 렌터카',
     '강릉 숙소',
+    '강릉 숙소 가족',
     '여수 숙소',
     '서울 근교 당일치기 여행',
     '제주 항공권',
     '제주 숙소',
+    '제주 숙소 가족',
     '인천공항 주차',
+    '인천공항 주차대행',
     '여름휴가 숙소',
   ],
   travel_overseas: [
@@ -2906,8 +3008,12 @@ const LIVE_MEASURED_PROBE_BASES: Record<string, readonly string[]> = Object.free
   ],
   health: [
     '도수치료',
+    '도수치료 실비',
+    '도수치료 보험',
     '치아보험',
+    '치아보험 면책기간',
     '임플란트',
+    '임플란트 보험',
     '탈모치료제',
     '비타민D 검사',
     '수면다원검사',
@@ -2925,17 +3031,22 @@ const LIVE_MEASURED_PROBE_BASES: Record<string, readonly string[]> = Object.free
   ],
   education: [
     '국민내일배움카드',
+    '국민내일배움카드 사용처',
     '한국사능력검정시험',
+    '한국사능력검정시험 접수',
     '토익 시험',
+    '토익 시험 접수',
     '컴활 1급',
+    '컴활 1급 실기',
     '청년 국가기술자격 응시료',
   ],
   sports: [
     '테니스 라켓',
+    '테니스 라켓 입문자',
     '골프채',
+    '골프채 초보',
     '러닝화',
-    'KBO 올스타전',
-    '프로야구 올스타전',
+    '러닝화 족저근막염',
     '테니스 엘보 보호대',
   ],
 });
@@ -2975,11 +3086,13 @@ const LIVE_GOLDEN_DEFAULT_PORTFOLIO_CATEGORY_KEYS = Object.freeze([
   'sports',
 ] as const);
 
-const LIVE_MEASURED_PROBE_SIGNAL_RE = /(?:가격비교|최저가|비교|추천|후기|예약|예매|비용|보험\s*적용|세액공제|수수료|금리|신청|대상|지급일|사용처|구매처|렌터카|렌트카|항공권|숙소|호텔|청소기|에어컨|제습기|공기청정기|ISA|IRP)/iu;
+const LIVE_MEASURED_PROBE_SIGNAL_RE = /(?:가격비교|최저가|비교|추천|후기|예약|예매|비용|보험\s*적용|세액공제|수수료|금리|신청|대상|지급일|사용처|구매처|소득기준|가입신청|잔액조회|전기요금|전기세|소음|흡입력|배터리|물걸레|문턱|필터\s*교체|교체주기|완전자차|실비|면책기간|실기|접수|렌터카|렌트카|항공권|숙소|호텔|청소기|에어컨|제습기|공기청정기|ISA|IRP)/iu;
 const LIVE_MEASURED_PROBE_SPORTS_EQUIPMENT_RE = /(?:라켓|골프채|러닝화|축구화|골프공|글러브|배트|유니폼|요가매트|덤벨)/u;
 const LIVE_MEASURED_PROBE_PRODUCT_INTENT_RE = /(?:가격비교|최저가|비교|추천|후기|구매처|할인|쿠폰|스펙)/u;
 const LIVE_MEASURED_PROBE_EVENT_OR_POLICY_INTENT_RE = /(?:예약|예매|중계|라인업|경기|일정|입장료|주차|신청|지급일|자격|서류|환급|사용처|대상|조건|마감)/u;
 const LIVE_MEASURED_PROBE_GENERIC_AUDIENCE_RE = /(?:청년\s*일반\s*국민|청년일반\s*국민|일반\s*국민|아동\s*장애인|아동장애인)/u;
+const LIVE_MEASURED_PROBE_SPECIFIC_BASE_RE = /(?:완전자차|보험|실비|세액공제|수수료|금리|만기|반기|소득기준|가입신청|잔액조회|직접대출|대리대출|사후지급금|구직활동|사용처|지급일|면책기간|응시료|전기요금|전기세|흡입력|배터리|물걸레|문턱|소음|필터\s*교체|주차대행|가족|저소음|입문자|초보|족저근막염|실기|접수)/u;
+const LIVE_MEASURED_PROBE_TERMINAL_BASE_RE = /(?:세액공제|수수료|만기|소득기준|가입신청|지급일|사용처|잔액조회|면책기간|실비|사후지급금|구직활동|실기|접수)/u;
 
 function categoryAcceptsMeasuredProbe(keyword: string, categoryId: string): boolean {
   const normalizedCategory = normalizeKeyword(categoryId || 'all');
@@ -3022,11 +3135,20 @@ function isMeasuredProbeIntentCompatible(base: string, intent: string, categoryI
   const cleanBase = normalizeKeyword(base);
   const cleanIntent = normalizeKeyword(intent);
   if (!cleanBase || !cleanIntent) return false;
+  const inferred = inferLiveCategory(cleanBase, categoryId);
+  if (['policy', 'finance'].includes(inferred) && /(?:예약|예매|주차|입장료|숙소|호텔|픽업|환불\s*규정)/u.test(cleanIntent)) return false;
+  if (inferred === 'finance' && /(?:신청\s*대상|필요\s*서류|온라인\s*신청)/u.test(cleanIntent) && !/청년|청약|대출|보험/u.test(cleanBase)) return false;
+  if (/청소기/u.test(cleanBase) && /(?:전기요금|전기세|설치\s*비용)/u.test(cleanIntent)) return false;
+  if (/공기청정기\s*필터/u.test(cleanBase) && /(?:전기요금|전기세|소음|설치\s*비용)/u.test(cleanIntent)) return false;
+  if (/필터\s*교체/u.test(cleanBase) && /(?:전기요금|전기세|소음|설치\s*비용)/u.test(cleanIntent)) return false;
+  if (/(?:전기요금|전기세|소음)/u.test(cleanBase) && /(?:가격비교|최저가|구매처|할인|쿠폰|추천\s*후기|비용\s*비교)/u.test(cleanIntent)) return false;
+  if (/(?:흡입력|배터리|물걸레|문턱)/u.test(cleanBase) && /(?:전기요금|전기세|소음|비용\s*비교)/u.test(cleanIntent)) return false;
+  if (/저소음/u.test(cleanBase) && !LIVE_MEASURED_PROBE_PRODUCT_INTENT_RE.test(cleanIntent)) return false;
+  if (/도수치료|치아보험|임플란트|검사|예방접종|탈모치료/u.test(cleanBase) && /(?:예약\s*방법|추천\s*후기)/u.test(cleanIntent)) return false;
   if (LIVE_MEASURED_PROBE_SPORTS_EQUIPMENT_RE.test(cleanBase)) {
     return LIVE_MEASURED_PROBE_PRODUCT_INTENT_RE.test(cleanIntent)
       && !LIVE_MEASURED_PROBE_EVENT_OR_POLICY_INTENT_RE.test(cleanIntent);
   }
-  const inferred = inferLiveCategory(cleanBase, categoryId);
   const productLike = PRODUCT_BASE_SIGNAL_RE.test(cleanBase);
   const policyOrFinanceOrTravel = ['policy', 'finance', 'travel_domestic', 'travel_overseas', 'health'].includes(inferred);
   if (productLike && !policyOrFinanceOrTravel) {
@@ -3034,6 +3156,37 @@ function isMeasuredProbeIntentCompatible(base: string, intent: string, categoryI
       && !LIVE_MEASURED_PROBE_EVENT_OR_POLICY_INTENT_RE.test(cleanIntent);
   }
   return true;
+}
+
+function shouldMeasureProbeBaseDirectly(base: string, categoryId: string): boolean {
+  const clean = normalizeKeyword(base);
+  if (!clean) return false;
+  const fragments = ultimateIntentFragmentCount(clean);
+  if (fragments >= 2) return true;
+  if (LIVE_MEASURED_PROBE_SPECIFIC_BASE_RE.test(clean)) return true;
+  const category = inferLiveCategory(clean, categoryId);
+  if (PRODUCT_BASE_SIGNAL_RE.test(clean) || TRAVEL_PURCHASE_BASE_RE.test(clean)) return false;
+  if (LIVE_POLICY_SIGNAL_RE.test(clean) || LIVE_FINANCE_SIGNAL_RE.test(clean) || BROAD_BENEFIT_PRODUCT_RE.test(clean)) return false;
+  if (LIVE_MEASURED_PROBE_SPORTS_EQUIPMENT_RE.test(clean)) return false;
+  return fragments >= 1 && keywordLongTailScore(clean) >= 18 && category !== 'all';
+}
+
+function measuredProbeBaseSpecificityScore(base: string, categoryId: string): number {
+  const clean = normalizeKeyword(base);
+  if (!clean) return -999;
+  const category = inferLiveCategory(clean, categoryId);
+  const fragments = ultimateIntentFragmentCount(clean);
+  let score = keywordLongTailScore(clean);
+  if (LIVE_MEASURED_PROBE_SPECIFIC_BASE_RE.test(clean)) score += 120;
+  if (fragments >= 2) score += 90;
+  else if (fragments === 1) score += 35;
+  if (PRODUCT_BASE_SIGNAL_RE.test(clean) || TRAVEL_PURCHASE_BASE_RE.test(clean)) score += 8;
+  if ((LIVE_POLICY_SIGNAL_RE.test(clean) || LIVE_FINANCE_SIGNAL_RE.test(clean)) && !LIVE_MEASURED_PROBE_SPECIFIC_BASE_RE.test(clean)) score -= 35;
+  if ((PRODUCT_BASE_SIGNAL_RE.test(clean) || TRAVEL_PURCHASE_BASE_RE.test(clean)) && !LIVE_MEASURED_PROBE_SPECIFIC_BASE_RE.test(clean)) score -= 25;
+  if (LOW_VALUE_EVENT_TOPIC_RE.test(clean) || LIVE_PROMOTION_DEPRIORITY_RE.test(clean)) score -= 220;
+  if (categoryId !== 'all' && category === categoryId) score += 20;
+  if (categoryId === 'all' && LIVE_GOLDEN_DEFAULT_PORTFOLIO_CATEGORY_KEYS.includes(category as any)) score += 12;
+  return score;
 }
 
 function buildMeasuredProbeCandidates(
@@ -3061,7 +3214,9 @@ function buildMeasuredProbeCandidates(
     ? [...categoryBases, ...discoveryBases, ...liveBases]
     : [...liveBases, ...categoryBases, ...discoveryBases];
   const bases = uniqueKeywords(orderedBases, 180)
-    .filter((base) => {
+    .map((base, index) => ({ base, index }))
+    .filter((entry) => {
+      const base = entry.base;
       const clean = normalizeKeyword(base);
       return clean
         && !isLowValueLiveCandidate(clean)
@@ -3070,7 +3225,13 @@ function buildMeasuredProbeCandidates(
         && !isGenericAudienceOnlyKeyword(clean)
         && !LIVE_MEASURED_PROBE_GENERIC_AUDIENCE_RE.test(clean)
         && categoryAcceptsMeasuredProbe(clean, categoryId);
-    });
+    })
+    .sort((a, b) => (
+      measuredProbeBaseSpecificityScore(b.base, categoryId)
+      - measuredProbeBaseSpecificityScore(a.base, categoryId)
+      || a.index - b.index
+    ))
+    .map((entry) => entry.base);
   const candidates: string[] = [];
   const push = (candidate: string): void => {
     if (candidates.length >= candidateLimit) return;
@@ -3082,9 +3243,10 @@ function buildMeasuredProbeCandidates(
 
   for (const base of bases) {
     if (candidates.length >= candidateLimit) break;
-    push(base);
-    if (hasLiveUltimateNeedIntent(base) || ultimateIntentFragmentCount(base) >= 2) continue;
     const inferred = inferLiveCategory(base, categoryId);
+    if (shouldMeasureProbeBaseDirectly(base, inferred || categoryId)) push(base);
+    if (LIVE_MEASURED_PROBE_TERMINAL_BASE_RE.test(normalizeKeyword(base))) continue;
+    if (hasLiveUltimateNeedIntent(base) || ultimateIntentFragmentCount(base) >= 2) continue;
     const normalizedCategory = normalizeKeyword(categoryId || 'all') || 'all';
     const intentKeys = normalizedCategory === 'all'
       ? uniqueKeywords([inferred, 'all'], 4)
@@ -3096,7 +3258,8 @@ function buildMeasuredProbeCandidates(
     ], 18).filter((intent) => isMeasuredProbeIntentCompatible(base, intent, inferred || categoryId));
     for (const intent of intents) {
       if (candidates.length >= candidateLimit) break;
-      const candidate = keywordAlreadyHasIntent(base, intent) ? base : `${base} ${intent}`;
+      const candidate = appendCompatibleIntent(base, intent);
+      if (!candidate) continue;
       if (!isUltimateIntentCompatible(base, intent, inferred || categoryId)) continue;
       push(candidate);
     }
@@ -4402,7 +4565,8 @@ export class MobileLiveGoldenRadar {
       : getLiveSeedBackfillIntents(clean, inferredCategory)
         .slice(0, 10)
         .filter((intent) => isUltimateIntentCompatible(clean, intent, inferredCategory))
-        .map((intent) => keywordAlreadyHasIntent(clean, intent) ? clean : `${clean} ${intent}`);
+        .map((intent) => appendCompatibleIntent(clean, intent))
+        .filter(Boolean);
     const candidates = uniqueKeywords([
       ...buildCacheDerivedCompoundNeedSeeds(clean, inferredCategory, 36),
       ...buildUltimateNeedCandidatesForSeed(clean, inferredCategory, 14),

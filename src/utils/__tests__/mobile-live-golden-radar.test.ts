@@ -737,6 +737,12 @@ function thinProfileCount(items: Array<{ keyword: string }>): number {
       firstEventProbeIndex,
       candidates: allEventCrowdedProbeCandidates.slice(0, 80),
     }));
+  assert('all live golden backfill favors publishable segmented needs over broad or incompatible tails',
+    allEventCrowdedProbeCandidates.slice(0, 120).some((keyword) => /\uBB34\uC120\s*\uCCAD\uC18C\uAE30\s*\uD761\uC785\uB825/.test(keyword))
+      && allEventCrowdedProbeCandidates.slice(0, 120).some((keyword) => /\uB85C\uBD07\s*\uCCAD\uC18C\uAE30\s*\uBB3C\uAC78\uB808/.test(keyword))
+      && allEventCrowdedProbeCandidates.slice(0, 120).some((keyword) => /\uD504\uB9AC\uB79C\uC11C\s*\uADFC\uB85C\uC7A5\uB824\uAE08|\uC54C\uBC14\s*\uADFC\uB85C\uC7A5\uB824\uAE08|\uAC1C\uC778\uC0AC\uC5C5\uC790\s*\uADFC\uB85C\uC7A5\uB824\uAE08/.test(keyword))
+      && allEventCrowdedProbeCandidates.slice(0, 140).every((keyword) => !/(?:\uD55C\uAD6D\uC0AC\uB2A5\uB825\uAC80\uC815\uC2DC\uD5D8|\uD1A0\uC775|\uCEF4\uD65C|AI\s*\uD68C\uC758\uB85D|\uCC57GPT|\uAD6D\uBBFC\uC5F0\uAE08).*\uC608\uC57D|\uC81C\uC8FC\s*\uD56D\uACF5\uAD8C.*(?:\uC720\uC2EC|eSIM)|\uC804\uAE30\uC694\uAE08\s*\uAC00\uACA9\uBE44\uAD50|\uAC80\uC0AC\s*\uAC80\uC0AC\s*\uBE44\uC6A9|\uCE58\uB8CC\uC81C\s*\uCE58\uB8CC\s*\uBE44\uC6A9/.test(keyword)),
+    allEventCrowdedProbeCandidates.slice(0, 140).join('|'));
   let measuredProbeVolumeCalls = 0;
   const measuredProbeVolumeKeywords: string[] = [];
   const measuredProbeDocumentOptions: Array<{ keyword: string; scrapeOnly?: boolean }> = [];
@@ -761,7 +767,7 @@ function thinProfileCount(items: Array<{ keyword: string }>): number {
       assert('measured probe backfill keeps document count in the document pass', options?.includeDocumentCount === false);
       measuredProbeVolumeKeywords.push(...keywords);
       return keywords
-        .filter((keyword) => keyword === '\uC81C\uC8FC \uB80C\uD130\uCE74 \uAC00\uACA9\uBE44\uAD50')
+        .filter((keyword) => /\uC81C\uC8FC\s*\uB80C\uD130\uCE74.*\uAC00\uACA9\uBE44\uAD50/.test(keyword))
         .map((keyword) => ({
           keyword,
           pcSearchVolume: 540,
@@ -776,7 +782,7 @@ function thinProfileCount(items: Array<{ keyword: string }>): number {
     },
     measureLiveDocumentCount: async (keyword, options) => {
       measuredProbeDocumentOptions.push({ keyword, scrapeOnly: options?.scrapeOnly });
-      if (keyword !== '\uC81C\uC8FC \uB80C\uD130\uCE74 \uAC00\uACA9\uBE44\uAD50') return null;
+      if (!/\uC81C\uC8FC\s*\uB80C\uD130\uCE74.*\uAC00\uACA9\uBE44\uAD50/.test(keyword)) return null;
       return {
         dc: 15,
         source: 'scrape',
@@ -789,10 +795,10 @@ function thinProfileCount(items: Array<{ keyword: string }>): number {
   const measuredProbeSnapshot = await measuredProbeRadar.runOnce();
   assert('measured probe backfill publishes only after SearchAd split and measured document count are attached',
     measuredProbeVolumeCalls > 0
-      && measuredProbeVolumeKeywords.includes('\uC81C\uC8FC \uB80C\uD130\uCE74 \uAC00\uACA9\uBE44\uAD50')
-      && measuredProbeDocumentOptions.some((item) => item.keyword === '\uC81C\uC8FC \uB80C\uD130\uCE74 \uAC00\uACA9\uBE44\uAD50')
+      && measuredProbeVolumeKeywords.some((keyword) => /\uC81C\uC8FC\s*\uB80C\uD130\uCE74.*\uAC00\uACA9\uBE44\uAD50/.test(keyword))
+      && measuredProbeDocumentOptions.some((item) => /\uC81C\uC8FC\s*\uB80C\uD130\uCE74.*\uAC00\uACA9\uBE44\uAD50/.test(item.keyword))
       && measuredProbeSnapshot.board.some((item) => (
-        item.keyword === '\uC81C\uC8FC \uB80C\uD130\uCE74 \uAC00\uACA9\uBE44\uAD50'
+        /\uC81C\uC8FC\s*\uB80C\uD130\uCE74.*\uAC00\uACA9\uBE44\uAD50/.test(item.keyword)
         && item.pcSearchVolume === 540
         && item.mobileSearchVolume === 1740
         && item.documentCount === 15
@@ -857,7 +863,7 @@ function thinProfileCount(items: Array<{ keyword: string }>): number {
     measureLiveSearchVolumeSeparate: async (_config, keywords) => {
       noisyProbeVolumeKeywords.push(...keywords);
       return keywords
-        .filter((keyword) => keyword === '\uC81C\uC8FC \uB80C\uD130\uCE74 \uAC00\uACA9\uBE44\uAD50')
+        .filter((keyword) => /\uC81C\uC8FC\s*\uB80C\uD130\uCE74.*\uAC00\uACA9\uBE44\uAD50/.test(keyword))
         .map((keyword) => ({
           keyword,
           pcSearchVolume: 540,
@@ -888,11 +894,11 @@ function thinProfileCount(items: Array<{ keyword: string }>): number {
   assert('measured probe candidates outrank noisy autocomplete candidates before SearchAd spend',
     noisyAutocompleteCalls === 0
       && noisyProbeVolumeKeywords.length >= 48
-      && noisyProbeVolumeKeywords.includes('\uC81C\uC8FC \uB80C\uD130\uCE74 \uAC00\uACA9\uBE44\uAD50')
+      && noisyProbeVolumeKeywords.some((keyword) => /\uC81C\uC8FC\s*\uB80C\uD130\uCE74.*\uAC00\uACA9\uBE44\uAD50/.test(keyword))
       && noisyProbeVolumeKeywords
         .slice(0, 16)
         .every((keyword) => !noisyAutocompleteSuggestionIds.has(keyword.replace(/\s+/g, '')))
-      && noisyProbeSnapshot.board.some((item) => item.keyword === '\uC81C\uC8FC \uB80C\uD130\uCE74 \uAC00\uACA9\uBE44\uAD50'),
+      && noisyProbeSnapshot.board.some((item) => /\uC81C\uC8FC\s*\uB80C\uD130\uCE74.*\uAC00\uACA9\uBE44\uAD50/.test(item.keyword)),
     JSON.stringify({
       first: noisyProbeVolumeKeywords.slice(0, 16),
       autocompleteCalls: noisyAutocompleteCalls,
