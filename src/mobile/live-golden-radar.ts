@@ -128,7 +128,7 @@ const LIVE_BOARD_EPISODE_LOOKUP_ABSOLUTE_MAX = 3;
 const LIVE_BOARD_CONTENT_LOOKUP_SHARE_CAP = 0.10;
 const LIVE_BOARD_CONTENT_LOOKUP_ABSOLUTE_MAX = 6;
 const LIVE_BOARD_STRICT_READY_MIN = 60;
-const LIVE_DIRECT_CANDIDATE_MAX_PER_CYCLE = 1200;
+const LIVE_DIRECT_CANDIDATE_MAX_PER_CYCLE = 3600;
 const LIVE_ISSUE_FALLBACK_DOCUMENT_LIMIT = 16;
 const LIVE_ISSUE_FALLBACK_CONCURRENCY = 2;
 const LIVE_BACKFILL_VOLUME_PASS_MAX = 120;
@@ -831,7 +831,7 @@ function uniqueKeywords(values: string[], limit = 40): string[] {
 function directCandidateBudget(maxCandidates: number, cycleLimit: number): number {
   return Math.max(
     120,
-    Math.min(maxCandidates, LIVE_DIRECT_CANDIDATE_MAX_PER_CYCLE, Math.max(240, cycleLimit * 60)),
+    Math.min(maxCandidates, LIVE_DIRECT_CANDIDATE_MAX_PER_CYCLE, Math.max(480, cycleLimit * 120)),
   );
 }
 
@@ -3854,12 +3854,25 @@ export class MobileLiveGoldenRadar {
       }
 
       let novelQualityCount = qualityDirect.filter((item) => isNovelMdpResult(item, existingIdsForRun, existingClustersForRun)).length;
-      const shouldRunHeavyDirect = (!catchUpMode || !this.enableBackfill)
-        && (
-          novelQualityCount < runLimit
-          || qualityDirect.length < runLimit
-        );
-      if (shouldRunHeavyDirect && (novelQualityCount < runLimit || qualityDirect.length < runLimit)) {
+      const desiredRunSssCount = Math.max(3, Math.min(runLimit, Math.ceil(runLimit * 0.65)));
+      const novelSssCount = countSss(
+        qualityDirect.filter((item) => isNovelMdpResult(item, existingIdsForRun, existingClustersForRun)),
+      );
+      const shouldRunHeavyDirect = (
+        !catchUpMode
+        || !this.enableBackfill
+        || novelQualityCount < runLimit
+        || novelSssCount < desiredRunSssCount
+      ) && (
+        novelQualityCount < runLimit
+        || qualityDirect.length < runLimit
+        || novelSssCount < desiredRunSssCount
+      );
+      if (shouldRunHeavyDirect && (
+        novelQualityCount < runLimit
+        || qualityDirect.length < runLimit
+        || novelSssCount < desiredRunSssCount
+      )) {
         const direct = await withTimeout(this.discover({
           clientId: env.naverClientId,
           clientSecret: env.naverClientSecret,

@@ -2,7 +2,7 @@ import { classifyKeywordIntent, getNaverKeywordSearchVolumeSeparate, NaverDatala
 import { classifyKeyword } from './categories';
 import { buildCategoryFirstGoldenSeedPlan } from './category-first-golden-discovery';
 import { getCrossCategoryDiscoverySeeds, getDiscoveryCategorySeeds, matchesDiscoveryCategory, resolveDiscoveryCategoryIds } from './category-discovery-map';
-import { rankGoldenDiscoveryResults, isActionableGoldenKeyword, compactGoldenKeyword, isQualityGoldenDiscoveryResult } from './golden-discovery-floor';
+import { rankGoldenDiscoveryResults, isActionableGoldenKeyword, compactGoldenKeyword, isQualityGoldenDiscoveryResult, countSss } from './golden-discovery-floor';
 import { MDPResult, GoldenGrade } from './mdp-engine';
 import { calculateCompetitionLevel, calculatePurchaseIntent, estimateCPC } from './profit-golden-keyword-engine';
 import { generateQueryPatterns } from './pattern-generator';
@@ -49,6 +49,7 @@ type MeasuredKeywordRow = Awaited<ReturnType<typeof getNaverKeywordSearchVolumeS
 
 const DEFAULT_LIMIT = 30;
 const MIN_VOLUME = 10;
+const DIRECT_BULK_SSS_RATIO = 0.7;
 const CURRENT_YEAR = new Date().getFullYear();
 const NEXT_YEAR = CURRENT_YEAR + 1;
 const CURRENT_MONTH = new Date().getMonth() + 1;
@@ -468,6 +469,56 @@ const GLOBAL_USER_APPROVED_ANCHORS = [
 
 const BROAD_SHOPPING_COMPACT_RE = /^(봄|여름|가을|겨울|장마|최신|202\d)?(원피스|블라우스|티셔츠|샌들|가방|선크림|쿠션|립스틱|에어컨|제습기|청소기)(추천|코디|사이즈|사이즈비교|비교|후기|리뷰|가격|할인)$/;
 const ENGLISH_ONLY_RE = /^[a-z0-9\s\-_.#/&+]+$/i;
+const DIRECT_POLICY_SIGNAL_RE = /(?:\uC9C0\uC6D0\uAE08|\uBC14\uC6B0\uCC98|\uC7A5\uB824\uAE08|\uAE09\uC5EC|\uD658\uAE09|\uC138\uAE08|\uACF5\uC81C|\uCCAD\uB144|\uC18C\uC0C1\uACF5\uC778|\uB300\uCD9C|\uBCF5\uC9C0|\uC9C0\uC6D0|\uC815\uCC45)/u;
+const DIRECT_FINANCE_SIGNAL_RE = /(?:\uC8FC\uC2DD|\uC8FC\uAC00|\uC2E4\uC801|\uBC30\uB2F9|\uCCAD\uC57D|\uAE08\uB9AC|\uB300\uCD9C|\uCF54\uC778|\uBE44\uD2B8\uCF54\uC778|\uD658\uC728)/u;
+const DIRECT_EVENT_SIGNAL_RE = /(?:KBO|\uC62C\uC2A4\uD0C0|\uCD95\uC81C|\uACF5\uC5F0|\uCF58\uC11C\uD2B8|\uC804\uC2DC|\uD589\uC0AC|\uC5EC\uD589|\uAD00\uAD11|\uBC14\uB2E4|\uD558\uB298\uAE38|\uB80C\uD130\uCE74|\uC219\uC18C|\uD56D\uACF5|\uC5D1\uC2A4\uD3EC|\uD398\uC2A4\uD2F0\uBC8C)/iu;
+const DIRECT_COMMERCE_SIGNAL_RE = /(?:\uCD94\uCC9C|\uAC00\uACA9|\uAD6C\uB9E4|\uC1FC\uD551|\uD560\uC778|\uCFE0\uD3F0|\uB9AC\uBDF0|\uD6C4\uAE30|\uBE44\uAD50|\uCD5C\uC800\uAC00|\uC81C\uD488|\uC0C1\uD488|\uAD6C\uB9E4\uCC98|\uC5D0\uC5B4\uCEE8|\uCCAD\uC18C\uAE30|\uB80C\uD0C8|\uBCF4\uD5D8|\uCE58\uB8CC|\uD544\uD130)/u;
+const DIRECT_CONTENT_SIGNAL_RE = /(?:\uB4DC\uB77C\uB9C8|\uC601\uD654|\uBC29\uC1A1|\uC608\uB2A5|\uC624\uD2F0\uD2F0|OTT|\uC560\uB2C8|\uC6F9\uD230|\uC720\uD29C\uBE0C|\uC1FC\uCE20)/iu;
+const DIRECT_POLICY_NEED_INTENTS = [
+  '\uC2E0\uCCAD \uB300\uC0C1',
+  '\uC2E0\uCCAD \uBC29\uBC95',
+  '\uC790\uACA9 \uC870\uAC74',
+  '\uC9C0\uAE09\uC77C \uC870\uD68C',
+  '\uD544\uC694 \uC11C\uB958',
+  '\uC0AC\uC6A9\uCC98',
+  '\uB9C8\uAC10\uC77C',
+  '\uACC4\uC0B0\uAE30',
+];
+const DIRECT_EVENT_NEED_INTENTS = [
+  '\uC608\uB9E4 \uC77C\uC815',
+  '\uC608\uB9E4 \uBC29\uBC95',
+  '\uC8FC\uCC28 \uC785\uC7A5\uB8CC',
+  '\uC6B4\uC601\uC2DC\uAC04',
+  '\uC900\uBE44\uBB3C',
+  '\uCF54\uC2A4',
+  '\uC88C\uC11D\uBC30\uCE58\uB3C4',
+  '\uD560\uC778',
+];
+const DIRECT_COMMERCE_NEED_INTENTS = [
+  '\uAC00\uACA9\uBE44\uAD50',
+  '\uCD5C\uC800\uAC00',
+  '\uAD6C\uB9E4\uCC98',
+  '\uD560\uC778 \uCFE0\uD3F0',
+  '\uD6C4\uAE30',
+  '\uCD94\uCC9C',
+  '\uBE44\uC6A9',
+  '\uBCF4\uD5D8 \uC801\uC6A9',
+];
+const DIRECT_FINANCE_NEED_INTENTS = [
+  '\uC804\uB9DD',
+  '\uBAA9\uD45C\uAC00',
+  '\uC2E4\uC801 \uBC1C\uD45C',
+  '\uBC30\uB2F9\uAE08',
+  '\uCCAD\uC57D \uC77C\uC815',
+  '\uC218\uC218\uB8CC',
+];
+const DIRECT_CONTENT_NEED_INTENTS = [
+  '\uBC29\uC1A1\uC2DC\uAC04',
+  '\uB2E4\uC2DC\uBCF4\uAE30',
+  'OTT \uBCF4\uB294\uACF3',
+  '\uACB0\uB9D0 \uD574\uC11D',
+  '\uCFE0\uD0A4\uC601\uC0C1',
+];
 const LIVE_ENTITY_STOPWORDS = new Set([
   '실시간',
   '검색어',
@@ -531,6 +582,61 @@ function spreadCandidates(values: string[], max: number, headCount = 120): strin
   }
 
   return out;
+}
+
+export function resolveDirectGoldenBulkSssTarget(limit: number): number {
+  const requested = Math.max(1, Math.floor(Number(limit) || DEFAULT_LIMIT));
+  if (requested <= DEFAULT_LIMIT) return requested;
+  return Math.min(requested, Math.max(DEFAULT_LIMIT, Math.ceil(requested * DIRECT_BULK_SSS_RATIO)));
+}
+
+export function shouldContinueDirectGoldenSssHunt(
+  ranked: MDPResult[],
+  limit: number,
+  measuredCandidateCount: number,
+  maxCandidateCount: number,
+): boolean {
+  const requested = Math.max(1, Math.floor(Number(limit) || DEFAULT_LIMIT));
+  if (requested <= DEFAULT_LIMIT) return false;
+  if (measuredCandidateCount >= maxCandidateCount) return false;
+  return countSss(ranked) < resolveDirectGoldenBulkSssTarget(requested);
+}
+
+function directNeedIntentsForSeed(seed: string, categoryIds: string[]): string[] {
+  const clean = normalizeCandidate(seed);
+  const categoryText = categoryIds.join(' ');
+  const intents: string[] = [];
+  intents.push(...getSeedSpecificIntents(clean).slice(0, 12));
+
+  if (DIRECT_POLICY_SIGNAL_RE.test(clean) || /policy|education|life_tips/.test(categoryText)) {
+    intents.push(...DIRECT_POLICY_NEED_INTENTS);
+  }
+  if (DIRECT_FINANCE_SIGNAL_RE.test(clean) || /finance/.test(categoryText)) {
+    intents.push(...DIRECT_FINANCE_NEED_INTENTS);
+  }
+  if (DIRECT_EVENT_SIGNAL_RE.test(clean) || /sports|travel|event/.test(categoryText)) {
+    intents.push(...DIRECT_EVENT_NEED_INTENTS);
+  }
+  if (DIRECT_COMMERCE_SIGNAL_RE.test(clean) || /shopping|commerce|beauty|fashion|food|health|home|it/.test(categoryText)) {
+    intents.push(...DIRECT_COMMERCE_NEED_INTENTS);
+  }
+  if (DIRECT_CONTENT_SIGNAL_RE.test(clean) || /drama|movie|broadcast|music|youtube|anime/.test(categoryText)) {
+    intents.push(...DIRECT_CONTENT_NEED_INTENTS);
+  }
+
+  return unique(intents, 24);
+}
+
+function buildWriterReadyNeedCandidates(seed: string, categoryIds: string[], limit = 24): string[] {
+  const clean = normalizeCandidate(seed);
+  if (!clean) return [];
+  const out: string[] = [];
+  for (const intent of directNeedIntentsForSeed(clean, categoryIds)) {
+    const normalizedIntent = normalizeCandidate(intent);
+    if (!normalizedIntent || clean.includes(normalizedIntent)) continue;
+    out.push(`${clean} ${normalizedIntent}`);
+  }
+  return unique(out.filter(isUsableCandidate), limit);
 }
 
 function normalizeCandidate(raw: unknown): string {
@@ -762,12 +868,14 @@ function buildBulkAnchorCandidates(plan: DirectGoldenKeywordCandidatePlan, optio
     for (const intent of getSeedSpecificIntents(clean).slice(0, 12)) {
       if (!clean.includes(intent)) out.push(`${clean} ${intent}`);
     }
+    out.push(...buildWriterReadyNeedCandidates(clean, plan.categoryIds, 20));
 
     for (const entity of extractLiveEntitySeeds(clean).slice(0, 4)) {
       out.push(entity);
       for (const intent of getEntityIntentCandidates(entity).slice(0, 8)) {
         if (!entity.includes(intent)) out.push(`${entity} ${intent}`);
       }
+      out.push(...buildWriterReadyNeedCandidates(entity, plan.categoryIds, 10));
     }
 
     for (const expanded of expandSeed(clean, intents, dateHints).slice(0, 12)) {
@@ -813,6 +921,7 @@ async function buildSearchAdSuggestionCandidates(
         const keyword = normalizeCandidate(suggestion.keyword);
         if (!isUsableCandidate(keyword)) continue;
         out.push(keyword);
+        out.push(...buildWriterReadyNeedCandidates(keyword, plan.categoryIds, 12));
         for (const expanded of expandSeed(keyword, intents, dateHints).slice(0, 18)) {
           out.push(expanded);
         }
@@ -841,6 +950,7 @@ async function buildRankedSupplementCandidates(
 
   for (const seed of seeds) {
     out.push(seed);
+    out.push(...buildWriterReadyNeedCandidates(seed, plan.categoryIds, 18));
     for (const expanded of expandSeed(seed, intents, dateHints).slice(0, 18)) {
       out.push(expanded);
     }
@@ -859,6 +969,7 @@ async function buildRankedSupplementCandidates(
           const keyword = normalizeCandidate(suggestion.keyword);
           if (!isUsableCandidate(keyword)) continue;
           out.push(keyword);
+          out.push(...buildWriterReadyNeedCandidates(keyword, plan.categoryIds, 12));
           for (const expanded of expandSeed(keyword, intents, dateHints).slice(0, 10)) {
             out.push(expanded);
           }
@@ -1010,7 +1121,7 @@ export function buildDirectGoldenKeywordCandidatePlan(options: DirectGoldenKeywo
   const category = String(options.category || '').trim();
   const keyword = String(options.keyword || '').replace(/\s+/g, ' ').trim();
   const maxSeeds = Math.max(40, Math.min(1600, Math.floor(options.maxSeeds || 520)));
-  const maxCandidates = Math.max(80, Math.min(12000, Math.floor(options.maxCandidates || 1800)));
+  const maxCandidates = Math.max(80, Math.min(12000, Math.floor(options.maxCandidates || 6000)));
   const includeCrossCategory = options.includeCrossCategory === true;
   const categoryIds = resolveDiscoveryCategoryIds(category);
   const plan = buildCategoryFirstGoldenSeedPlan({
@@ -1049,10 +1160,12 @@ export function buildDirectGoldenKeywordCandidatePlan(options: DirectGoldenKeywo
     for (const intent of getSeedSpecificIntents(clean).slice(0, 6)) {
       if (!clean.includes(intent)) candidates.push(`${clean} ${intent}`);
     }
+    candidates.push(...buildWriterReadyNeedCandidates(clean, directCategoryIds, 18));
   }
 
   for (const seed of baseSeeds) {
     candidates.push(...expandSeed(seed, intents, dateHints));
+    candidates.push(...buildWriterReadyNeedCandidates(seed, directCategoryIds, 16));
     if (candidates.length >= maxCandidates * 1.25) break;
   }
 
@@ -1083,7 +1196,13 @@ export async function discoverDirectGoldenKeywords(
   );
   const bulkMode = limit > 30;
   const measurementCandidateCap = bulkMode
-    ? Math.min(maxCandidates, Math.max(1800, limit * 45))
+    ? Math.min(
+      maxCandidates,
+      Math.max(
+        1800,
+        Math.min(Math.floor(maxCandidates * 0.72), limit * 45),
+      ),
+    )
     : maxCandidates;
   const directPriorityCount = Math.min(
     plan.candidates.length,
@@ -1138,11 +1257,19 @@ export async function discoverDirectGoldenKeywords(
     qualityBackfillToTarget: true,
   });
 
-  if (bulkMode && ranked.length < limit && candidates.length < maxCandidates) {
+  const shouldRunSssSupplement = shouldContinueDirectGoldenSssHunt(
+    ranked,
+    limit,
+    candidates.length,
+    maxCandidates,
+  );
+  if (bulkMode && (ranked.length < limit || shouldRunSssSupplement) && candidates.length < maxCandidates) {
     const remainingCandidateSlots = maxCandidates - candidates.length;
+    const sssGap = Math.max(0, resolveDirectGoldenBulkSssTarget(limit) - countSss(ranked));
+    const visibleGap = Math.max(0, limit - ranked.length);
     const supplementLimit = Math.min(
       remainingCandidateSlots,
-      Math.max(420, (limit - ranked.length) * 60),
+      Math.max(420, visibleGap * 60, sssGap * 90, limit * 4),
     );
     const exclude = new Set(candidates.map(candidate => compactGoldenKeyword(candidate)));
     const supplementCandidates = await buildRankedSupplementCandidates(
@@ -1190,7 +1317,14 @@ export async function discoverDirectGoldenKeywords(
     }
   }
 
-  if (bulkMode && options.includeProTrafficSupplement === true && ranked.length < Math.min(limit, 50)) {
+  if (
+    bulkMode
+    && options.includeProTrafficSupplement === true
+    && (
+      ranked.length < Math.min(limit, 50)
+      || countSss(ranked) < Math.min(resolveDirectGoldenBulkSssTarget(limit), 50)
+    )
+  ) {
     try {
       const { huntProTrafficKeywords } = await import('./pro-traffic-keyword-hunter');
       const proResult = await huntProTrafficKeywords({

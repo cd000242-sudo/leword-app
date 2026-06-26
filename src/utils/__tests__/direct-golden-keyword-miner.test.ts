@@ -1,5 +1,7 @@
 import {
   buildDirectGoldenKeywordCandidatePlan,
+  resolveDirectGoldenBulkSssTarget,
+  shouldContinueDirectGoldenSssHunt,
 } from '../direct-golden-keyword-miner';
 import {
   isActionableGoldenKeyword,
@@ -90,6 +92,33 @@ assert(
   'direct plan drops english-only candidates',
   allPlan.candidates.every(keyword => /[가-힣]/.test(keyword)),
   allPlan.candidates.filter(keyword => !/[가-힣]/.test(keyword)).slice(0, 10).join('|'),
+);
+
+assert(
+  'bulk direct discovery keeps a high SSS target instead of stopping at filled slots',
+  resolveDirectGoldenBulkSssTarget(120) === 84
+    && resolveDirectGoldenBulkSssTarget(60) === 42
+    && resolveDirectGoldenBulkSssTarget(30) === 30,
+  `${resolveDirectGoldenBulkSssTarget(120)}/${resolveDirectGoldenBulkSssTarget(60)}/${resolveDirectGoldenBulkSssTarget(30)}`,
+);
+
+assert(
+  'bulk direct discovery continues hunting when visible rows are full but SSS quota is short',
+  shouldContinueDirectGoldenSssHunt(
+    Array.from({ length: 120 }, (_, i) => ({
+      keyword: `吏?먭툑 ?좎껌 ?꾨낫 ${i + 1}`,
+      grade: i < 12 ? 'SSS' : 'SS',
+      score: i < 12 ? 90 : 78,
+      searchVolume: i < 12 ? 2200 : 900,
+      documentCount: i < 12 ? 240 : 360,
+      goldenRatio: i < 12 ? 9 : 3.1,
+      intent: 'test-bulk-sss-target',
+      intentBadge: 'TEST',
+    })),
+    120,
+    2600,
+    3600,
+  ),
 );
 
 assert(

@@ -217,9 +217,9 @@ function thinProfileCount(items: Array<{ keyword: string }>): number {
     },
   });
   const backfillCatchupSnapshot = await backfillCatchupRadar.runOnce();
-  assert('live radar catch-up prioritizes measured backfill and delays heavy direct discovery',
+  assert('live radar catch-up uses measured backfill but still runs direct discovery when SSS depth is short',
     backfillCatchupVolumeCalls > 0
-      && backfillCatchupDirectCalls === 0
+      && backfillCatchupDirectCalls === 1
       && backfillCatchupSnapshot.successfulRuns === 1
       && backfillCatchupSnapshot.boardCount > 0,
     JSON.stringify({
