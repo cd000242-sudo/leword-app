@@ -1374,6 +1374,7 @@ function isSearchAdMeasurableLiveCandidate(keyword: string, categoryId: string, 
   if (tokenCount > LIVE_SEARCHAD_CANDIDATE_MAX_TOKENS) return false;
   if (tokenCount >= LIVE_SEARCHAD_CANDIDATE_MAX_TOKENS && !knownPolicyNeed && !knownFinanceBase && !knownTravelNeed) return false;
   if (isMalformedLiveKeyword(clean) || isStaleOrFutureLiveKeyword(clean, now)) return false;
+  if (LOW_VALUE_EVENT_TOPIC_RE.test(clean) || isLottoLookupKeyword(clean) || isLowAdsenseLookupKeyword(clean)) return false;
   if (isMismatchedLiveEventIntent(clean)) return false;
   if (!policyProductAction && isLowValueLiveCandidate(clean)) return false;
   if (!policyProductAction && isOverExpandedLiveCandidate(clean)) return false;

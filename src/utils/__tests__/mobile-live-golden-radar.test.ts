@@ -841,6 +841,7 @@ function thinProfileCount(items: Array<{ keyword: string }>): number {
     !__liveGoldenRadarTestInternals.isSearchAdMeasurableLiveCandidate('2026 광복절 대체공휴일 최저가 구매처', 'policy', lottoGuardNow)
       && !__liveGoldenRadarTestInternals.isSearchAdMeasurableLiveCandidate('2026 광복절 대체공휴일 신청기간', 'policy', lottoGuardNow)
       && !__liveGoldenRadarTestInternals.isSearchAdMeasurableLiveCandidate('1229회 로또 당첨번호 보험 적용 비용', 'life_tips', lottoGuardNow)
+      && !__liveGoldenRadarTestInternals.isSearchAdMeasurableLiveCandidate('2026 KBO 올스타전 티켓팅 일정', 'sports', lottoGuardNow)
       && !__liveGoldenRadarTestInternals.isSearchAdMeasurableLiveCandidate('2026 KBO 올스타전 티켓팅 일정 렌탈 가격비교', 'sports', lottoGuardNow),
     JSON.stringify([
       __liveGoldenRadarTestInternals.debugSearchAdMeasurableLiveCandidate('2026 광복절 대체공휴일 최저가 구매처', 'policy', lottoGuardNow),
