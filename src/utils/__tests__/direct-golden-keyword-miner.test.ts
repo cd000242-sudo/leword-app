@@ -81,6 +81,28 @@ assert(
   liveEntityPlan.candidates.filter(keyword => /김유정|백아진|로또|하트시그널/.test(keyword)).slice(0, 40).join('|'),
 );
 
+const invalidCommercePlan = buildDirectGoldenKeywordCandidatePlan({
+  category: '',
+  maxSeeds: 120,
+  maxCandidates: 900,
+  includeCrossCategory: true,
+  liveSeeds: [
+    '1229회 로또 당첨번호',
+    '2026 광복절 대체공휴일',
+    '2026 KBO 올스타전',
+  ],
+});
+const invalidCommerceKeywords = invalidCommercePlan.candidates.filter(keyword =>
+  /(?:로또|당첨번호|공휴일|대체공휴일|KBO|올스타전)/u.test(keyword)
+    && /(?:최저가|가격비교|구매처|렌탈|보험\s*적용\s*비용|추천\s*후기)/u.test(keyword),
+);
+
+assert(
+  'direct plan blocks non-product commerce tails before search-ad measurement',
+  invalidCommerceKeywords.length === 0,
+  invalidCommerceKeywords.slice(0, 12).join('|'),
+);
+
 const allPlan = buildDirectGoldenKeywordCandidatePlan({
   category: '',
   maxSeeds: 120,

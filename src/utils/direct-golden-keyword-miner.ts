@@ -776,9 +776,20 @@ function normalizeCandidate(raw: unknown): string {
   return value;
 }
 
+const NON_PRODUCT_COMMERCE_TAIL_RE = /(?:가격비교|최저가|구매처|할인\s*쿠폰|할인|쿠폰|렌탈|렌트|보험\s*적용\s*비용|비용\s*비교|추천\s*후기|실사용\s*후기)/u;
+const NON_PRODUCT_COMMERCE_BASE_RE = /(?:로또|당첨번호|당첨지역|공휴일|대체공휴일|제헌절|광복절|개천절|한글날|추석|설날|근로자의날|지원금|장려금|수당|급여|환급일|정책|KBO|프로야구|올스타전|월드컵|FIFA)/iu;
+
+function isInvalidNonProductCommerceCandidate(raw: string): boolean {
+  const value = normalizeCandidate(raw);
+  return Boolean(value)
+    && NON_PRODUCT_COMMERCE_TAIL_RE.test(value)
+    && NON_PRODUCT_COMMERCE_BASE_RE.test(value);
+}
+
 function isUsableCandidate(raw: string): boolean {
   const value = normalizeCandidate(raw);
   if (!value || value.length < 3 || value.length > 42) return false;
+  if (isInvalidNonProductCommerceCandidate(value)) return false;
   if (!/[가-힣]/.test(value)) return false;
   if (ENGLISH_ONLY_RE.test(value)) return false;
   if (/https?:|www\.|\.com|\.net|\.co\.kr/i.test(value)) return false;
