@@ -70,6 +70,19 @@ function thinProfileCount(items: Array<{ keyword: string }>): number {
 }
 
 (async () => {
+  assert(
+    'blocks non-product event commerce tails before measurement',
+    __liveGoldenRadarTestInternals.isInvalidNonProductCommerceExpansion('1229회 로또 당첨번호 최저가 구매처')
+      && __liveGoldenRadarTestInternals.isInvalidNonProductCommerceExpansion('2026 광복절 대체공휴일 가격비교 후기')
+      && __liveGoldenRadarTestInternals.isInvalidNonProductCommerceExpansion('2026 KBO 올스타전 티켓팅 일정 렌탈 가격비교')
+      && !__liveGoldenRadarTestInternals.isInvalidNonProductCommerceExpansion('삼성창문형에어컨 가격비교'),
+  );
+  assert(
+    'non-product commerce tails are not SearchAd candidates',
+    !__liveGoldenRadarTestInternals.isSearchAdMeasurableLiveCandidate('2026 KBO 올스타전 티켓팅 일정 최저가 구매처', 'sports')
+      && !__liveGoldenRadarTestInternals.isSearchAdMeasurableLiveCandidate('1229회 로또 당첨지역 보험 적용 비용', 'life_tips'),
+  );
+
   const cacheOnlyKeyword = '\uD14C\uC2A4\uD2B8 \uCE90\uC2DC \uC804\uC6A9 \uBB38\uC11C\uC218';
   setPersistent(cacheOnlyKeyword, {
     searchVolume: 1234,
