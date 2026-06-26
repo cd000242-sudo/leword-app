@@ -2963,6 +2963,18 @@ const LIVE_MEASURED_PROBE_CATEGORY_COMPAT: Record<string, readonly string[]> = O
   policy: [],
 });
 
+const LIVE_GOLDEN_DEFAULT_PORTFOLIO_CATEGORY_KEYS = Object.freeze([
+  'policy',
+  'shopping',
+  'electronics',
+  'travel_domestic',
+  'health',
+  'finance',
+  'education',
+  'it',
+  'sports',
+] as const);
+
 const LIVE_MEASURED_PROBE_SIGNAL_RE = /(?:가격비교|최저가|비교|추천|후기|예약|예매|비용|보험\s*적용|세액공제|수수료|금리|신청|대상|지급일|사용처|구매처|렌터카|렌트카|항공권|숙소|호텔|청소기|에어컨|제습기|공기청정기|ISA|IRP)/iu;
 const LIVE_MEASURED_PROBE_SPORTS_EQUIPMENT_RE = /(?:라켓|골프채|러닝화|축구화|골프공|글러브|배트|유니폼|요가매트|덤벨)/u;
 const LIVE_MEASURED_PROBE_PRODUCT_INTENT_RE = /(?:가격비교|최저가|비교|추천|후기|구매처|할인|쿠폰|스펙)/u;
@@ -2983,12 +2995,16 @@ function measuredProbeCategoryKeys(categoryId: string, liveSeeds: string[]): str
   const inferredSeedCategories = liveSeeds
     .map((seed) => inferLiveCategory(seed, normalizedCategory))
     .filter(Boolean);
+  const portfolioKeys = normalizedCategory === 'all'
+    ? LIVE_GOLDEN_DEFAULT_PORTFOLIO_CATEGORY_KEYS
+    : [];
   return uniqueKeywords([
     ...(normalizedCategory === 'all' ? ['all'] : []),
     normalizedCategory,
+    ...portfolioKeys,
     ...inferredSeedCategories,
     ...(LIVE_MEASURED_PROBE_CATEGORY_COMPAT[normalizedCategory] || []),
-  ], 8);
+  ], 16);
 }
 
 function isLiveMeasuredProbeCandidate(keyword: string, categoryId: string, now: Date = new Date()): boolean {
@@ -3028,7 +3044,7 @@ function buildMeasuredProbeCandidates(
 ): string[] {
   const categoryKeys = measuredProbeCategoryKeys(categoryId, liveSeeds);
   const normalizedCategory = normalizeKeyword(categoryId || 'all') || 'all';
-  const useCatalogBases = normalizedCategory !== 'all';
+  const useCatalogBases = true;
   const candidateLimit = Math.max(80, Math.min(240, Math.floor((maxSeeds || 240) * 0.6)));
   const categoryBases = useCatalogBases
     ? categoryKeys.flatMap((key) => LIVE_MEASURED_PROBE_BASES[key] || [])
@@ -3072,7 +3088,7 @@ function buildMeasuredProbeCandidates(
     const inferred = inferLiveCategory(base, categoryId);
     const normalizedCategory = normalizeKeyword(categoryId || 'all') || 'all';
     const intentKeys = normalizedCategory === 'all'
-      ? categoryKeys
+      ? uniqueKeywords([inferred, 'all'], 4)
       : uniqueKeywords([inferred, normalizedCategory], 4);
     const intents = uniqueKeywords([
       ...(LIVE_MEASURED_PROBE_INTENTS[inferred] || []),

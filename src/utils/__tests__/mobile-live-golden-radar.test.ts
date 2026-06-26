@@ -713,6 +713,15 @@ function thinProfileCount(items: Array<{ keyword: string }>): number {
     ))
       && !policyMeasuredProbeCandidates.slice(0, 10).every((keyword) => keyword === '\uC2E4\uC5C5\uAE09\uC5EC' || keyword === '\uC2E4\uC5C5\uAE09\uC5EC \uC2E0\uCCAD'),
     policyMeasuredProbeCandidates.slice(0, 80).join('|'));
+  const allPortfolioProbeCandidates = __liveGoldenRadarTestInternals.buildBackfillCandidates('all', [
+    '\uBA4B\uC9C4 \uC2E0\uC138\uACC4 \uBA87\uBD80\uC791',
+  ], 240, lottoGuardNow);
+  assert('all live golden backfill mixes portfolio writer-intent probes instead of relying only on noisy live issues',
+    allPortfolioProbeCandidates.slice(0, 140).some((keyword) => /\uC81C\uC8FC\s*\uB80C\uD130\uCE74\s*\uAC00\uACA9\uBE44\uAD50/.test(keyword))
+      && allPortfolioProbeCandidates.slice(0, 140).some((keyword) => /\uADFC\uB85C\uC7A5\uB824\uAE08.*\uC628\uB77C\uC778\s*\uC2E0\uCCAD|\uCCAD\uB144\uBBF8\uB798\uC801\uAE08.*\uC2E0\uCCAD\s*\uB300\uC0C1|\uC18C\uC0C1\uACF5\uC778\s*\uC815\uCC45\uC790\uAE08.*\uC2E0\uCCAD\s*\uB300\uC0C1/.test(keyword))
+      && allPortfolioProbeCandidates.slice(0, 160).some((keyword) => /\uBB34\uC120\s*\uCCAD\uC18C\uAE30.*(?:\uAC00\uACA9\uBE44\uAD50|\uCD94\uCC9C\s*\uD6C4\uAE30)/.test(keyword))
+      && allPortfolioProbeCandidates.every((keyword) => !/\uC81C\uC8FC\s*\uB80C\uD130\uCE74.*\uC9C0\uC6D0\uAE08\s*\uC870\uAC74/.test(keyword)),
+    allPortfolioProbeCandidates.slice(0, 180).join('|'));
   let measuredProbeVolumeCalls = 0;
   const measuredProbeVolumeKeywords: string[] = [];
   const measuredProbeDocumentOptions: Array<{ keyword: string; scrapeOnly?: boolean }> = [];
