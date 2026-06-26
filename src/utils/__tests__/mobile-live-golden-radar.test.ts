@@ -75,12 +75,15 @@ function thinProfileCount(items: Array<{ keyword: string }>): number {
     __liveGoldenRadarTestInternals.isInvalidNonProductCommerceExpansion('1229회 로또 당첨번호 최저가 구매처')
       && __liveGoldenRadarTestInternals.isInvalidNonProductCommerceExpansion('2026 광복절 대체공휴일 가격비교 후기')
       && __liveGoldenRadarTestInternals.isInvalidNonProductCommerceExpansion('2026 KBO 올스타전 티켓팅 일정 렌탈 가격비교')
+      && __liveGoldenRadarTestInternals.isInvalidNonProductCommerceExpansion('송지호 바다하늘길 주차 최저가 구매처')
+      && __liveGoldenRadarTestInternals.isInvalidNonProductCommerceExpansion('송지호 바다하늘길 입장료 렌탈 가격비교')
       && !__liveGoldenRadarTestInternals.isInvalidNonProductCommerceExpansion('삼성창문형에어컨 가격비교'),
   );
   assert(
     'non-product commerce tails are not SearchAd candidates',
     !__liveGoldenRadarTestInternals.isSearchAdMeasurableLiveCandidate('2026 KBO 올스타전 티켓팅 일정 최저가 구매처', 'sports')
-      && !__liveGoldenRadarTestInternals.isSearchAdMeasurableLiveCandidate('1229회 로또 당첨지역 보험 적용 비용', 'life_tips'),
+      && !__liveGoldenRadarTestInternals.isSearchAdMeasurableLiveCandidate('1229회 로또 당첨지역 보험 적용 비용', 'life_tips')
+      && !__liveGoldenRadarTestInternals.isSearchAdMeasurableLiveCandidate('송지호 바다하늘길 주차 가격비교 후기', 'travel_domestic'),
   );
 
   const cacheOnlyKeyword = '\uD14C\uC2A4\uD2B8 \uCE90\uC2DC \uC804\uC6A9 \uBB38\uC11C\uC218';
@@ -289,12 +292,15 @@ function thinProfileCount(items: Array<{ keyword: string }>): number {
     },
   });
   await sssShortDepthRadar.runOnce();
-  assert('SSS-short 120-board runs deep direct discovery with SearchAd suggestion expansion',
-    Number(sssShortDepthOptions?.maxCandidates) >= 3000
+  assert('SSS-short 120-board runs bounded direct discovery with SearchAd suggestion expansion',
+    Number(sssShortDepthOptions?.maxCandidates) >= 1200
+      && Number(sssShortDepthOptions?.maxCandidates) <= 2200
       && Number(sssShortDepthOptions?.limit) >= 160
       && sssShortDepthOptions?.includeSearchAdSuggestions === true
-      && Number(sssShortDepthOptions?.suggestionSeedLimit) >= 30
-      && Number(sssShortDepthOptions?.suggestionsPerSeed) >= 60,
+      && Number(sssShortDepthOptions?.suggestionSeedLimit) >= 8
+      && Number(sssShortDepthOptions?.suggestionSeedLimit) <= 16
+      && Number(sssShortDepthOptions?.suggestionsPerSeed) >= 12
+      && Number(sssShortDepthOptions?.suggestionsPerSeed) <= 30,
     JSON.stringify(sssShortDepthOptions));
   fs.rmSync(sssShortDepthBudgetFile, { force: true });
 
