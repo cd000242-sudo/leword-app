@@ -90,12 +90,13 @@ const invalidCommercePlan = buildDirectGoldenKeywordCandidatePlan({
     '1229회 로또 당첨번호',
     '2026 광복절 대체공휴일',
     '2026 KBO 올스타전',
+    '멋진 신세계 몇부작',
     '송지호 바다하늘길 주차',
     '송지호 바다하늘길 입장료',
   ],
 });
 const invalidCommerceKeywords = invalidCommercePlan.candidates.filter(keyword =>
-  /(?:로또|당첨번호|공휴일|대체공휴일|KBO|올스타전|송지호|바다하늘길|입장료|주차)/u.test(keyword)
+  /(?:로또|당첨번호|공휴일|대체공휴일|KBO|올스타전|몇부작|송지호|바다하늘길|입장료|주차)/u.test(keyword)
     && /(?:최저가|가격비교|구매처|렌탈|보험\s*적용\s*비용|추천\s*후기)/u.test(keyword),
 );
 

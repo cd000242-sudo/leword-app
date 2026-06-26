@@ -777,7 +777,7 @@ function normalizeCandidate(raw: unknown): string {
 }
 
 const NON_PRODUCT_COMMERCE_TAIL_RE = /(?:가격비교|최저가|구매처|할인\s*쿠폰|할인|쿠폰|렌탈|렌트|보험\s*적용\s*비용|비용\s*비교|추천\s*후기|실사용\s*후기)/u;
-const NON_PRODUCT_COMMERCE_BASE_RE = /(?:로또|당첨번호|당첨지역|공휴일|대체공휴일|제헌절|광복절|개천절|한글날|추석|설날|근로자의날|지원금|장려금|수당|급여|환급일|정책|KBO|프로야구|올스타전|월드컵|FIFA|입장료|주차|운영시간|티켓팅|예매|좌석배치도|라인업|하이라이트|경기일정|송지호|바다하늘길|축제|공연|콘서트|전시|행사|관광|여행|공원|수목원|박람회|엑스포|페스티벌)/iu;
+const NON_PRODUCT_COMMERCE_BASE_RE = /(?:로또|당첨번호|당첨지역|공휴일|대체공휴일|제헌절|광복절|개천절|한글날|추석|설날|근로자의날|지원금|장려금|수당|급여|환급일|정책|KBO|프로야구|올스타전|월드컵|FIFA|입장료|주차|운영시간|티켓팅|예매|좌석배치도|라인업|하이라이트|경기일정|몇부작|등장인물|줄거리|원작|OTT|나무위키|송지호|바다하늘길|축제|공연|콘서트|전시|행사|관광|여행|공원|수목원|박람회|엑스포|페스티벌)/iu;
 
 function isInvalidNonProductCommerceCandidate(raw: string): boolean {
   const value = normalizeCandidate(raw);

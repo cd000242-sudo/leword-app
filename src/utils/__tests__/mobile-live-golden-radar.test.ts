@@ -77,13 +77,15 @@ function thinProfileCount(items: Array<{ keyword: string }>): number {
       && __liveGoldenRadarTestInternals.isInvalidNonProductCommerceExpansion('2026 KBO 올스타전 티켓팅 일정 렌탈 가격비교')
       && __liveGoldenRadarTestInternals.isInvalidNonProductCommerceExpansion('송지호 바다하늘길 주차 최저가 구매처')
       && __liveGoldenRadarTestInternals.isInvalidNonProductCommerceExpansion('송지호 바다하늘길 입장료 렌탈 가격비교')
+      && __liveGoldenRadarTestInternals.isInvalidNonProductCommerceExpansion('멋진 신세계 몇부작 가격비교 후기')
       && !__liveGoldenRadarTestInternals.isInvalidNonProductCommerceExpansion('삼성창문형에어컨 가격비교'),
   );
   assert(
     'non-product commerce tails are not SearchAd candidates',
     !__liveGoldenRadarTestInternals.isSearchAdMeasurableLiveCandidate('2026 KBO 올스타전 티켓팅 일정 최저가 구매처', 'sports')
       && !__liveGoldenRadarTestInternals.isSearchAdMeasurableLiveCandidate('1229회 로또 당첨지역 보험 적용 비용', 'life_tips')
-      && !__liveGoldenRadarTestInternals.isSearchAdMeasurableLiveCandidate('송지호 바다하늘길 주차 가격비교 후기', 'travel_domestic'),
+      && !__liveGoldenRadarTestInternals.isSearchAdMeasurableLiveCandidate('송지호 바다하늘길 주차 가격비교 후기', 'travel_domestic')
+      && !__liveGoldenRadarTestInternals.isSearchAdMeasurableLiveCandidate('멋진 신세계 몇부작 최저가 구매처', 'broadcast'),
   );
 
   const cacheOnlyKeyword = '\uD14C\uC2A4\uD2B8 \uCE90\uC2DC \uC804\uC6A9 \uBB38\uC11C\uC218';
@@ -182,6 +184,37 @@ function thinProfileCount(items: Array<{ keyword: string }>): number {
       successfulRuns: catchupSnapshot.successfulRuns,
       boardCount: catchupSnapshot.boardCount,
       keywords: catchupSnapshot.board.map((item) => item.keyword),
+    }));
+
+  let stalledCatchupCalls = 0;
+  const stalledCatchupRadar = new MobileLiveGoldenRadar({
+    notificationInbox: inbox,
+    runOnStart: false,
+    cycleLimit: 3,
+    boardTarget: 10,
+    maxCandidates: 180,
+    categories: ['policy'],
+    getEnvConfig: () => ({
+      naverClientId: 'client',
+      naverClientSecret: 'secret',
+    }),
+    liveSeedProvider: async () => [],
+    enableBackfill: false,
+    discover: async () => {
+      stalledCatchupCalls += 1;
+      return [];
+    },
+  });
+  const stalledCatchupSnapshot = await stalledCatchupRadar.runUntilTarget(4);
+  assert('live radar catch-up pauses after a no-growth measured cycle',
+    stalledCatchupCalls === 1
+      && stalledCatchupSnapshot.successfulRuns === 1
+      && /no new measured publishable rows/.test(stalledCatchupSnapshot.lastMessage || ''),
+    JSON.stringify({
+      calls: stalledCatchupCalls,
+      successfulRuns: stalledCatchupSnapshot.successfulRuns,
+      boardCount: stalledCatchupSnapshot.boardCount,
+      lastMessage: stalledCatchupSnapshot.lastMessage,
     }));
 
   const fullButWeakBoardFile = path.join(process.cwd(), 'tmp', 'mobile-live-golden-full-but-weak-depth-test.json');
