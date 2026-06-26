@@ -2249,6 +2249,8 @@ const LIVE_COMMERCE_PRODUCT_HEADS = [
 ];
 const VENUE_TRAVEL_BASE_RE = /(?:바다하늘길|둘레길|해수욕장|전망대|수목원|휴양림|공원|축제|박람회|전시|관광|가볼만한곳|입장료|주차장|운영시간|렌터카|렌트카|숙소|호텔|항공권|비자|환전|유심)/u;
 const NON_PRODUCT_NEWS_BASE_RE = /(?:KBO|프로야구|올스타전|월드컵|FIFA|흠뻑쇼|콘서트|팬미팅|컴백|라인업|하이라이트|셋리스트|특검|반란|회장|후보|활약|근황|연속\s*안타|발언|논란|출전|작은\s*키|참교육|신입사원)/iu;
+const HOLIDAY_CALENDAR_BASE_RE = /(?:공휴일|대체공휴일|광복절|제헌절|개천절|한글날|현충일|추석|설날|어린이날|부처님오신날|성탄절|크리스마스|근로자의날)/u;
+const HOLIDAY_CALENDAR_ALLOWED_INTENT_RE = /(?:쉬는날|대체공휴일|연휴|택배|은행|병원|약국|학교|주식시장|관공서|운영|영업|근무|휴무|일정)/u;
 const LOW_VALUE_PERSON_COMMERCE_RE = /(?:(?:\d{1,2}월\s*\d{1,2}일\s*)?[가-힣]{2,5}(?:\s+[가-힣]{2,5})?\s*(?:활약|근황|특검|반란|회장|후보|연속\s*안타|출전|작은\s*키|발언|논란|프로필).*(?:가격|할인|쿠폰|구매처|최저가|재고|실사용|추천\s*후기)|^\d{1,2}월\s*\d{1,2}일\s+[가-힣]{2,5}(?:\s+[가-힣]{2,5})?\s*(?:가격|할인|쿠폰|구매처|최저가|재고|실사용|추천\s*후기))/u;
 const LOW_VALUE_EVENT_TOPIC_RE = /(?:KBO|프로야구|올스타전|월드컵|FIFA|흠뻑쇼|신입사원\s*강회장|참교육\s*몇부작|드라마\s*참교육|로또|당첨번호|\d{3,5}\s*회|등급컷|광복절|제헌절|개천절|한글날)/iu;
 const GENERIC_BENEFIT_INTENT_RE = /^(?:지원금|보조금|환급금|장려금|바우처|수당|급여)\s*(?:신청|대상|자격|조건|지급일|조회|마감|환급|서류|사용처|지원)/u;
@@ -2285,6 +2287,10 @@ function isUltimateIntentCompatible(base: string, intent: string, categoryId: st
   const productBase = PRODUCT_BASE_SIGNAL_RE.test(cleanBase);
   const travelCategory = category === 'travel_domestic' || category === 'travel_overseas';
 
+  if (HOLIDAY_CALENDAR_BASE_RE.test(cleanBase)) {
+    if (productIntent) return false;
+    if (!HOLIDAY_CALENDAR_ALLOWED_INTENT_RE.test(cleanIntent)) return false;
+  }
   if (
     USAGE_PLACE_INTENT_RE.test(cleanIntent)
     && POLICY_USAGE_INCOMPATIBLE_BASE_RE.test(cleanBase)

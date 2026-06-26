@@ -830,6 +830,13 @@ function thinProfileCount(items: Array<{ keyword: string }>): number {
       __liveGoldenRadarTestInternals.debugSearchAdMeasurableLiveCandidate('청년미래적금 신청 소득기준 계산 서류', 'policy', lottoGuardNow),
       __liveGoldenRadarTestInternals.debugSearchAdMeasurableLiveCandidate('도수치료 관리급여 소득기준 계산 예약', 'policy', lottoGuardNow),
     ]));
+  const holidayProbeCandidates = __liveGoldenRadarTestInternals.buildMeasuredProbeCandidates('policy', [
+    '2026 광복절 대체공휴일',
+  ], 220, lottoGuardNow);
+  const holidayOnlyProbeCandidates = holidayProbeCandidates.filter((keyword) => /광복절|공휴일/.test(keyword));
+  assert('calendar holiday probes do not attach commerce or application tails',
+    holidayOnlyProbeCandidates.every((keyword) => !/(?:가격|최저가|구매처|렌탈|보험|신청|서류|비용)/.test(keyword)),
+    holidayProbeCandidates.slice(0, 80).join('|'));
 
   let capturedIssueSeeds: string[] = [];
   const liveIssueRadar = new MobileLiveGoldenRadar({
