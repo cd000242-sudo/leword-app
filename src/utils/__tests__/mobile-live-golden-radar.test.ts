@@ -816,6 +816,20 @@ function thinProfileCount(items: Array<{ keyword: string }>): number {
       && !__liveGoldenRadarTestInternals.isLiveRadarUsableKeyword('세탁기 드럼 vs 통돌이 구매처 최저가', 6400, 710, lottoGuardNow)
       && !__liveGoldenRadarTestInternals.isLiveRadarUsableKeyword('무선청소기 vs 로봇청소기 스펙 스펙 비교', 6400, 710, lottoGuardNow)
       && __liveGoldenRadarTestInternals.isLiveRadarUsableKeyword('도수치료 보험 적용 비용', 5200, 620, lottoGuardNow));
+  const sportsProbeCandidates = __liveGoldenRadarTestInternals.buildMeasuredProbeCandidates('sports', [
+    '2026 KBO 올스타전 티켓팅 일정',
+  ], 220, lottoGuardNow);
+  assert('measured probe generation does not attach product shopping tails to non-product sports events',
+    sportsProbeCandidates.every((keyword) => !/(?:KBO|올스타전)/.test(keyword)),
+    sportsProbeCandidates.slice(0, 80).join('|'));
+  assert('policy compound chains are rejected before SearchAd spend',
+    !__liveGoldenRadarTestInternals.isSearchAdMeasurableLiveCandidate('청년미래적금 신청 소득기준 계산 서류', 'policy', lottoGuardNow)
+      && !__liveGoldenRadarTestInternals.isSearchAdMeasurableLiveCandidate('도수치료 관리급여 소득기준 계산 예약', 'policy', lottoGuardNow)
+      && __liveGoldenRadarTestInternals.isSearchAdMeasurableLiveCandidate('근로장려금 지급일 조회', 'policy', lottoGuardNow),
+    JSON.stringify([
+      __liveGoldenRadarTestInternals.debugSearchAdMeasurableLiveCandidate('청년미래적금 신청 소득기준 계산 서류', 'policy', lottoGuardNow),
+      __liveGoldenRadarTestInternals.debugSearchAdMeasurableLiveCandidate('도수치료 관리급여 소득기준 계산 예약', 'policy', lottoGuardNow),
+    ]));
 
   let capturedIssueSeeds: string[] = [];
   const liveIssueRadar = new MobileLiveGoldenRadar({
@@ -2105,7 +2119,7 @@ function thinProfileCount(items: Array<{ keyword: string }>): number {
     '\uC18C\uC0C1\uACF5\uC778\uD655\uC778\uC11C \uC9C0\uAE09\uC77C \uC0AC\uC6A9\uCC98',
     'policy',
   );
-  const strategicFallbackAccepted = __liveGoldenRadarTestInternals.isMeasuredProBoardFallbackMetric({
+  const weakStrategicFallbackRejected = !__liveGoldenRadarTestInternals.isMeasuredProBoardFallbackMetric({
     keyword: '\uC81C\uC2B5\uAE30 \uAC00\uACA9\uBE44\uAD50',
     grade: 'A',
     score: 62,
@@ -2132,14 +2146,14 @@ function thinProfileCount(items: Array<{ keyword: string }>): number {
       && policyPromotionScore > 0
       && lottoLookupPromotionScore < -300
       && syntheticIntentChainPromotionScore < -300
-      && strategicFallbackAccepted,
+      && weakStrategicFallbackRejected,
     JSON.stringify({
       productPromotionScore,
       policyPromotionScore,
       sportsLookupPromotionScore,
       lottoLookupPromotionScore,
       syntheticIntentChainPromotionScore,
-      strategicFallbackAccepted,
+      weakStrategicFallbackRejected,
     }));
 
   const preserveSplitBoardFile = path.join(process.cwd(), 'tmp', 'mobile-live-golden-preserve-split-board-test.json');
