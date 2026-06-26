@@ -891,7 +891,7 @@ function buildCacheDerivedCompoundNeedSeeds(seed: string, categoryId = 'all', li
 function directCandidateBudget(maxCandidates: number, cycleLimit: number): number {
   const requested = Math.max(1, Math.floor(Number(cycleLimit) || 1));
   const depthBudget = requested >= 60
-    ? requested * 60
+    ? requested * 42
     : requested * 30;
   return Math.max(
     120,
@@ -4017,7 +4017,7 @@ export class MobileLiveGoldenRadar {
       )
       : this.runLimitForCurrentBoard();
     const discoveryLimit = sssDepthShort
-      ? Math.min(960, Math.max(runLimit * 10, Math.ceil(this.boardTarget * 5), this.cycleLimit))
+      ? Math.min(300, Math.max(runLimit * 2, this.boardTarget, this.cycleLimit))
       : Math.min(420, Math.max(runLimit * 4, this.cycleLimit));
 
     try {
@@ -4133,10 +4133,10 @@ export class MobileLiveGoldenRadar {
           requireCategoryMatch: false,
           includeSearchAdSuggestions: !catchUpMode || sssDepthShort,
           suggestionSeedLimit: sssDepthShort
-            ? Math.min(96, Math.max(24, runLimit))
+            ? Math.min(36, Math.max(18, Math.ceil(runLimit / 2)))
             : Math.min(48, Math.max(12, runLimit)),
           suggestionsPerSeed: sssDepthShort
-            ? Math.min(100, Math.max(36, Math.ceil(runLimit * 1.4)))
+            ? Math.min(72, Math.max(36, Math.ceil(runLimit * 0.8)))
             : Math.min(60, Math.max(18, Math.ceil(runLimit * 1.5))),
           maxSimilarPerCluster: 2,
         }), LIVE_DISCOVERY_TIMEOUT_MS, []);

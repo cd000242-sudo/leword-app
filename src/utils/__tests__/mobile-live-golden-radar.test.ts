@@ -277,11 +277,11 @@ function thinProfileCount(items: Array<{ keyword: string }>): number {
   });
   await sssShortDepthRadar.runOnce();
   assert('SSS-short 120-board runs deep direct discovery with SearchAd suggestion expansion',
-    Number(sssShortDepthOptions?.maxCandidates) >= 5000
-      && Number(sssShortDepthOptions?.limit) >= 800
+    Number(sssShortDepthOptions?.maxCandidates) >= 3000
+      && Number(sssShortDepthOptions?.limit) >= 160
       && sssShortDepthOptions?.includeSearchAdSuggestions === true
-      && Number(sssShortDepthOptions?.suggestionSeedLimit) >= 80
-      && Number(sssShortDepthOptions?.suggestionsPerSeed) >= 90,
+      && Number(sssShortDepthOptions?.suggestionSeedLimit) >= 30
+      && Number(sssShortDepthOptions?.suggestionsPerSeed) >= 60,
     JSON.stringify(sssShortDepthOptions));
   fs.rmSync(sssShortDepthBudgetFile, { force: true });
 
