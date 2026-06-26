@@ -131,7 +131,7 @@ const LIVE_BOARD_EPISODE_LOOKUP_ABSOLUTE_MAX = 3;
 const LIVE_BOARD_CONTENT_LOOKUP_SHARE_CAP = 0.10;
 const LIVE_BOARD_CONTENT_LOOKUP_ABSOLUTE_MAX = 6;
 const LIVE_BOARD_STRICT_READY_MIN = 60;
-const LIVE_DIRECT_CANDIDATE_MAX_PER_CYCLE = 7200;
+const LIVE_DIRECT_CANDIDATE_MAX_PER_CYCLE = 720;
 const LIVE_ISSUE_FALLBACK_DOCUMENT_LIMIT = 16;
 const LIVE_ISSUE_FALLBACK_CONCURRENCY = 2;
 const LIVE_BACKFILL_VOLUME_PASS_MAX = 120;
@@ -891,7 +891,7 @@ function buildCacheDerivedCompoundNeedSeeds(seed: string, categoryId = 'all', li
 function directCandidateBudget(maxCandidates: number, cycleLimit: number): number {
   return Math.max(
     120,
-    Math.min(maxCandidates, LIVE_DIRECT_CANDIDATE_MAX_PER_CYCLE, Math.max(960, cycleLimit * 180)),
+    Math.min(maxCandidates, LIVE_DIRECT_CANDIDATE_MAX_PER_CYCLE, Math.max(360, cycleLimit * 8)),
   );
 }
 
