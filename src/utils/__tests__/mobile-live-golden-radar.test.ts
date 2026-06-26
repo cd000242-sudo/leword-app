@@ -229,6 +229,62 @@ function thinProfileCount(items: Array<{ keyword: string }>): number {
     }));
   fs.rmSync(fullButWeakBoardFile, { force: true });
 
+  const sssShortDepthBudgetFile = path.join(process.cwd(), 'tmp', 'mobile-live-golden-sss-short-depth-budget-test.json');
+  fs.writeFileSync(sssShortDepthBudgetFile, JSON.stringify({
+    boardUpdatedAt: '2026-06-15T08:00:00.000Z',
+    items: Array.from({ length: 120 }, (_, index) => ({
+      keyword: `정책지원금 ${index + 1}차 조회`,
+      grade: 'S',
+      score: 66,
+      totalSearchVolume: 900 + index,
+      pcSearchVolume: 180,
+      mobileSearchVolume: 720 + index,
+      documentCount: 1400 + index,
+      goldenRatio: 0.65,
+      category: 'policy',
+      source: 'fixture-measured',
+      evidence: ['fixture-searchad-volume', 'fixture-naver-openapi-document-count'],
+      searchVolumeSource: 'searchad',
+      searchVolumeConfidence: 'high',
+      isSearchVolumeEstimated: false,
+      documentCountSource: 'naver-api',
+      documentCountConfidence: 'high',
+      isDocumentCountEstimated: false,
+      updatedAt: '2026-06-15T08:00:00.000Z',
+      discoveredAt: '2026-06-15T08:00:00.000Z',
+      isMeasured: true,
+    })),
+  }), 'utf8');
+  let sssShortDepthOptions: any;
+  const sssShortDepthRadar = new MobileLiveGoldenRadar({
+    notificationInbox: inbox,
+    runOnStart: false,
+    cycleLimit: 30,
+    boardTarget: 120,
+    maxCandidates: 7200,
+    boardFile: sssShortDepthBudgetFile,
+    categories: ['policy'],
+    getEnvConfig: () => ({
+      naverClientId: 'client',
+      naverClientSecret: 'secret',
+    }),
+    liveSeedProvider: async () => [],
+    enableBackfill: false,
+    discover: async (_config, options) => {
+      sssShortDepthOptions = options;
+      return [];
+    },
+  });
+  await sssShortDepthRadar.runOnce();
+  assert('SSS-short 120-board runs deep direct discovery with SearchAd suggestion expansion',
+    Number(sssShortDepthOptions?.maxCandidates) >= 5000
+      && Number(sssShortDepthOptions?.limit) >= 800
+      && sssShortDepthOptions?.includeSearchAdSuggestions === true
+      && Number(sssShortDepthOptions?.suggestionSeedLimit) >= 80
+      && Number(sssShortDepthOptions?.suggestionsPerSeed) >= 90,
+    JSON.stringify(sssShortDepthOptions));
+  fs.rmSync(sssShortDepthBudgetFile, { force: true });
+
   let backfillCatchupDirectCalls = 0;
   let backfillCatchupVolumeCalls = 0;
   const backfillCatchupRadar = new MobileLiveGoldenRadar({
@@ -1621,6 +1677,53 @@ function thinProfileCount(items: Array<{ keyword: string }>): number {
     broadHeadGradeByKeyword.get('\uC0AC\uB300\uBCF4\uD5D8\uACC4\uC0B0\uAE30') !== 'SSS'
       && broadHeadGradeByKeyword.get('\uC0AC\uB300\uBCF4\uD5D8\uACC4\uC0B0\uAE30 \uD504\uB9AC\uB79C\uC11C \uC2E4\uC218\uB839\uC561') === 'SSS',
     broadHeadCapSnapshot.board.map((item) => `${item.keyword}:${item.grade}`).join('|'));
+  const broadHeadFallbackRejected = !__liveGoldenRadarTestInternals.isMeasuredProBoardFallbackMetric({
+    keyword: '\uC0AC\uB300\uBCF4\uD5D8\uACC4\uC0B0\uAE30',
+    grade: 'SS',
+    score: 95,
+    pcSearchVolume: 4020,
+    mobileSearchVolume: 15990,
+    totalSearchVolume: 20010,
+    documentCount: 1318,
+    goldenRatio: 15.18,
+    category: 'policy',
+    source: 'fixture-measured',
+    evidence: ['fixture-searchad-volume', 'fixture-naver-openapi-document-count'],
+    searchVolumeSource: 'searchad',
+    searchVolumeConfidence: 'high',
+    isSearchVolumeEstimated: false,
+    documentCountSource: 'naver-api',
+    documentCountConfidence: 'high',
+    isDocumentCountEstimated: false,
+    updatedAt: '2026-06-15T08:00:00.000Z',
+    discoveredAt: '2026-06-15T08:00:00.000Z',
+    isMeasured: true,
+  } as any, new Date('2026-06-15T09:00:00.000Z'));
+  const compoundLongtailFallbackAccepted = __liveGoldenRadarTestInternals.isMeasuredProBoardFallbackMetric({
+    keyword: '\uC0AC\uB300\uBCF4\uD5D8\uACC4\uC0B0\uAE30 \uD504\uB9AC\uB79C\uC11C \uC2E4\uC218\uB839\uC561',
+    grade: 'SSS',
+    score: 98,
+    pcSearchVolume: 1280,
+    mobileSearchVolume: 5120,
+    totalSearchVolume: 6400,
+    documentCount: 380,
+    goldenRatio: 16.84,
+    category: 'policy',
+    source: 'fixture-measured',
+    evidence: ['fixture-searchad-volume', 'fixture-naver-openapi-document-count'],
+    searchVolumeSource: 'searchad',
+    searchVolumeConfidence: 'high',
+    isSearchVolumeEstimated: false,
+    documentCountSource: 'naver-api',
+    documentCountConfidence: 'high',
+    isDocumentCountEstimated: false,
+    updatedAt: '2026-06-15T08:00:00.000Z',
+    discoveredAt: '2026-06-15T08:00:00.000Z',
+    isMeasured: true,
+  } as any, new Date('2026-06-15T09:00:00.000Z'));
+  assert('measured fallback rejects broad head calculators and keeps compound earning-intent longtails',
+    broadHeadFallbackRejected && compoundLongtailFallbackAccepted,
+    JSON.stringify({ broadHeadFallbackRejected, compoundLongtailFallbackAccepted }));
   fs.rmSync(broadHeadCapBoardFile, { force: true });
 
   const adsenseReadinessBoardFile = path.join(process.cwd(), 'tmp', 'mobile-live-golden-adsense-readiness-test.json');

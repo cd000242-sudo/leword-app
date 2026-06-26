@@ -131,7 +131,7 @@ const LIVE_BOARD_EPISODE_LOOKUP_ABSOLUTE_MAX = 3;
 const LIVE_BOARD_CONTENT_LOOKUP_SHARE_CAP = 0.10;
 const LIVE_BOARD_CONTENT_LOOKUP_ABSOLUTE_MAX = 6;
 const LIVE_BOARD_STRICT_READY_MIN = 60;
-const LIVE_DIRECT_CANDIDATE_MAX_PER_CYCLE = 720;
+const LIVE_DIRECT_CANDIDATE_MAX_PER_CYCLE = 7200;
 const LIVE_ISSUE_FALLBACK_DOCUMENT_LIMIT = 16;
 const LIVE_ISSUE_FALLBACK_CONCURRENCY = 2;
 const LIVE_BACKFILL_VOLUME_PASS_MAX = 120;
@@ -889,9 +889,13 @@ function buildCacheDerivedCompoundNeedSeeds(seed: string, categoryId = 'all', li
 }
 
 function directCandidateBudget(maxCandidates: number, cycleLimit: number): number {
+  const requested = Math.max(1, Math.floor(Number(cycleLimit) || 1));
+  const depthBudget = requested >= 60
+    ? requested * 60
+    : requested * 30;
   return Math.max(
     120,
-    Math.min(maxCandidates, LIVE_DIRECT_CANDIDATE_MAX_PER_CYCLE, Math.max(360, cycleLimit * 8)),
+    Math.min(maxCandidates, LIVE_DIRECT_CANDIDATE_MAX_PER_CYCLE, Math.max(720, depthBudget)),
   );
 }
 
@@ -1956,7 +1960,10 @@ function measuredProBoardFallbackRejectReason(metric: MobileLiveGoldenBoardItem,
   if (ratio < minRatio) return 'ratio-too-low';
   const longTail = keywordLongTailScore(keyword);
   const broadHead = isBroadHeadSssKeyword(keyword);
-  if (broadHead && longTail < 18 && ratio < 8) return 'broad-head-without-longtail';
+  const intentFragments = ultimateIntentFragmentCount(keyword);
+  if (broadHead && longTail < 18) return 'broad-head-without-longtail';
+  if (volume >= 30_000 && longTail < 18 && intentFragments < 2 && !productBoardSeed) return 'broad-high-volume-without-longtail';
+  if (volume >= 10_000 && longTail < 14 && intentFragments < 2 && !productBoardSeed) return 'broad-mid-volume-without-longtail';
   if (docs > 20_000 && ratio < 3) return 'broad-document-field';
   if (docs > 10_000 && longTail < 14 && ratio < 5 && !productBoardSeed) return 'broad-low-specificity';
 
@@ -3998,6 +4005,7 @@ export class MobileLiveGoldenRadar {
     this.refreshMeasuredCachesFromDisk(true);
     const sssReadyBeforeRun = this.measuredSssReadyBoardCount();
     const desiredSssReady = this.desiredSssReadyBoardCount();
+    const sssDepthShort = sssReadyBeforeRun < desiredSssReady;
     const runLimit = sssReadyBeforeRun < desiredSssReady
       ? Math.min(
         120,
@@ -4008,7 +4016,9 @@ export class MobileLiveGoldenRadar {
         ),
       )
       : this.runLimitForCurrentBoard();
-    const discoveryLimit = Math.min(360, Math.max(runLimit * 4, this.cycleLimit));
+    const discoveryLimit = sssDepthShort
+      ? Math.min(960, Math.max(runLimit * 10, Math.ceil(this.boardTarget * 5), this.cycleLimit))
+      : Math.min(420, Math.max(runLimit * 4, this.cycleLimit));
 
     try {
       const env = this.getEnvConfig();
@@ -4121,9 +4131,13 @@ export class MobileLiveGoldenRadar {
           liveSeeds,
           includeCrossCategory: runLimit > this.cycleLimit,
           requireCategoryMatch: false,
-          includeSearchAdSuggestions: !catchUpMode,
-          suggestionSeedLimit: Math.min(48, Math.max(12, runLimit)),
-          suggestionsPerSeed: Math.min(60, Math.max(18, Math.ceil(runLimit * 1.5))),
+          includeSearchAdSuggestions: !catchUpMode || sssDepthShort,
+          suggestionSeedLimit: sssDepthShort
+            ? Math.min(96, Math.max(24, runLimit))
+            : Math.min(48, Math.max(12, runLimit)),
+          suggestionsPerSeed: sssDepthShort
+            ? Math.min(100, Math.max(36, Math.ceil(runLimit * 1.4)))
+            : Math.min(60, Math.max(18, Math.ceil(runLimit * 1.5))),
           maxSimilarPerCluster: 2,
         }), LIVE_DISCOVERY_TIMEOUT_MS, []);
         const directQuality = direct.filter(isLiveRadarQualityResult);
