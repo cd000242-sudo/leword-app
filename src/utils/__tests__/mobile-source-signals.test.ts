@@ -89,6 +89,27 @@ async function run(): Promise<void> {
   assert('empty provider falls back to local defaults',
     fallback.fallbackUsed === true && fallback.realtime.length === 2 && fallback.realtime[0].keyword.length > 0);
 
+  const timeoutStart = Date.now();
+  const timedOut = await buildMobileSourceSignalSnapshot({
+    lane: 'all',
+    limit: 5,
+    timeoutMs: 25,
+    providers: {
+      realtime: async () => new Promise<any[]>(() => {}),
+      policy: async () => [],
+      issues: async () => [],
+    },
+    now: fixedNow,
+  });
+  assert('slow providers fall back quickly and still cover ZUM',
+    Date.now() - timeoutStart < 1200
+      && timedOut.fallbackUsed === true
+      && timedOut.realtime.some((item) => item.source === 'ZUM'),
+    JSON.stringify({
+      elapsedMs: Date.now() - timeoutStart,
+      realtime: timedOut.realtime.map((item) => item.source),
+    }));
+
   console.log('[mobile-source-signals] passed');
 }
 

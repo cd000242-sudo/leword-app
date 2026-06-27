@@ -131,20 +131,35 @@ assert('shows six source lanes in requested order',
     && html.indexOf('줌 <span class="lane-count"') > html.indexOf('네이트 <span class="lane-count"')
     && html.includes('정책 <span class="lane-count"')
     && html.includes('이슈 <span class="lane-count"'));
-assert('side navigation switches isolated views instead of one stacked page',
+assert('home view embeds source board instead of a separate source tab',
   html.includes('data-view-target="golden"')
-    && html.includes('data-view-target="sources"')
+    && !html.includes('data-view-target="sources"')
     && html.includes('data-view-target="features"')
     && html.includes('data-view-target="youtube"')
     && html.includes('data-view-target="downloads"')
     && html.includes('data-view-target="commerce"')
-    && html.includes('class="panel main-view" id="sources" data-view="sources"')
+    && html.includes('class="panel main-view active" id="sources" data-view="golden"')
+    && html.includes("if (id === 'sources') return 'golden'")
     && html.includes('class="panel main-view" id="lookup" data-view="lookup"')
     && html.includes('class="panel main-view" id="youtube" data-view="youtube"')
     && html.includes('class="panel main-view" id="downloads" data-view="downloads"')
     && html.includes('class="panel main-view" id="commerce" data-view="commerce"')
     && html.includes('function setActiveView')
     && html.includes("document.querySelectorAll('[data-view-target]')"));
+
+assert('home view embeds outcome cards instead of the old operations subtab',
+  html.includes('id="homeOutcomes"')
+    && html.includes('id="homeOutcomeCards"')
+    && html.includes('id="refreshHomeOutcomes"')
+    && html.includes("proOutcomes: apiUrl('/v1/mobile/pro-outcomes')")
+    && html.includes('function loadHomeOutcomes()')
+    && html.includes('function renderHomeOutcomesSnapshot')
+    && html.includes('loadHomeOutcomes().catch')
+    && !html.includes('id="ops" data-view="ops"')
+    && !html.includes('id="opsTabs"')
+    && !html.includes('data-ops-tab')
+    && !html.includes('data-ops-panel')
+    && !html.includes('id="refreshOps"'));
 
 assert('commerce tab wires editable catalog, Toss checkout, analytics, and admin sales dashboard',
   html.includes('https://js.tosspayments.com/v2/standard')
@@ -186,6 +201,8 @@ assert('mobile Pro Web chrome can collapse above the live board',
 assert('source board renders a wider always-on realtime feed',
   html.includes("endpoints.publicSources + '?limit=60'")
     && html.includes("endpoints.proSources + '?limit=60'")
+    && html.includes('apiGet(url, !!session, 6500)')
+    && html.includes('function renderSourceError')
     && html.includes('allItems.slice(0, 12)')
     && html.includes('function normalizeSourceLanes')
     && html.includes('class="signal-list"'));
@@ -284,10 +301,16 @@ assert('shopping connect renders product picks and writing angles in keyword res
 assert('operations and execution log are not exposed as user navigation tabs',
   !html.includes('data-view-target="ops"')
     && !html.includes('data-view-target="workbench"')
+    && !html.includes('id="ops" data-view="ops"')
+    && !html.includes('id="opsTabs"')
+    && !html.includes('data-ops-tab')
+    && !html.includes('data-ops-panel')
+    && !html.includes('id="refreshOps"')
+    && !html.includes('function loadOpsDashboard')
     && !html.includes('전체 Pro 기능')
     && !html.includes('노출/성과/발행/스케줄')
     && !html.includes('실행 로그</a>')
-    && html.includes("const viewIds = ['golden', 'sources', 'lookup', 'features', 'youtube', 'settings', 'downloads', 'commerce']"));
+    && html.includes("const viewIds = ['golden', 'lookup', 'features', 'youtube', 'settings', 'downloads', 'commerce']"));
 
 assert('renders dedicated result center instead of raw JSON-only output',
   html.includes('id="resultSummary"')

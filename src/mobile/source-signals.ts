@@ -52,10 +52,12 @@ interface BuildMobileSourceSignalSnapshotOptions {
   limit?: number;
   providers?: MobileSourceSignalProviders;
   now?: Date;
+  timeoutMs?: number;
 }
 
 const REALTIME_SOURCE_ORDER: RealtimeSourceName[] = ['naver', 'daum', 'nate', 'google', 'zum', 'bokjiro'];
-const REQUIRED_PUBLIC_REALTIME_LABELS = ['네이버', '다음', '네이트', 'Google'];
+const REQUIRED_PUBLIC_REALTIME_LABELS = ['네이버', '다음', '네이트', 'ZUM', 'Google'];
+const DEFAULT_SOURCE_LANE_TIMEOUT_MS = 3200;
 
 const SOURCE_LABEL: Record<string, string> = {
   naver: '네이버',
@@ -72,6 +74,11 @@ const SOURCE_LABEL: Record<string, string> = {
 function normalizeLimit(value: number | undefined): number {
   if (!Number.isFinite(value)) return 6;
   return Math.max(1, Math.min(30, Math.floor(value as number)));
+}
+
+function normalizeTimeoutMs(value: number | undefined): number {
+  if (!Number.isFinite(value)) return DEFAULT_SOURCE_LANE_TIMEOUT_MS;
+  return Math.max(250, Math.min(10_000, Math.floor(value as number)));
 }
 
 function sourceId(input: string): string {
@@ -257,7 +264,8 @@ export function fallbackSourceSignals(now = new Date()): Omit<MobileSourceSignal
       createSignal('realtime', 'rt', '여름 원피스 추천', '네이버 실시간', '계절 수요가 높습니다. 추천, 코디, 사이즈, 브랜드 비교형으로 쪼개서 검증하세요.', 95, '네이버', 'shopping', createdAt),
       createSignal('realtime', 'rt', '장마 준비물', '다음 실시간', '장마, 제습, 침수 예방처럼 구매와 생활 정보가 붙는 하위 키워드가 좋습니다.', 88, '다음', 'living', createdAt),
       createSignal('realtime', 'rt', '오늘 방송 출연진', '네이트 이슈', '방송 직후 회차, 재방송, 출연진, 결말 키워드로 빠르게 선점합니다.', 84, '네이트', 'broadcast', createdAt),
-      createSignal('realtime', 'rt', '여름휴가 숙소', 'Google Trends', '지역, 일정, 가격 조건을 붙이면 작성 가능한 키워드로 바뀝니다.', 82, 'Google', 'travel', createdAt),
+      createSignal('realtime', 'rt', '여름휴가 숙소', 'ZUM 이슈', '지역, 일정, 가격 조건을 붙이면 작성 가능한 키워드로 바뀝니다.', 82, 'ZUM', 'travel', createdAt),
+      createSignal('realtime', 'rt', '주말 가볼만한 곳', 'Google Trends', '지역, 일정, 가격 조건을 붙이면 작성 가능한 키워드로 바뀝니다.', 80, 'Google', 'travel', createdAt),
     ],
     policy: [
       createSignal('policy', 'policy', '근로장려금 지급일', '정책브리핑', '신청기간, 지급일, 대상자 확인으로 글감을 나누면 검색 의도가 명확합니다.', 98, '정책브리핑', 'policy', createdAt),
@@ -332,12 +340,20 @@ async function collectLane<T>(
   enabled: boolean,
   provider: (limit: number) => Promise<T[]>,
   limit: number,
+  timeoutMs: number,
 ): Promise<T[]> {
   if (!enabled) return [];
+  let timeoutId: ReturnType<typeof setTimeout> | undefined;
   try {
-    return await provider(limit);
+    const providerResult = provider(limit).catch(() => [] as T[]);
+    const timeoutResult = new Promise<T[]>((resolve) => {
+      timeoutId = setTimeout(() => resolve([]), timeoutMs);
+    });
+    return await Promise.race([providerResult, timeoutResult]);
   } catch {
     return [];
+  } finally {
+    if (timeoutId) clearTimeout(timeoutId);
   }
 }
 
@@ -346,6 +362,7 @@ export async function buildMobileSourceSignalSnapshot(
 ): Promise<MobileSourceSignalSnapshot> {
   const lane = options.lane || 'all';
   const limit = normalizeLimit(options.limit);
+  const timeoutMs = normalizeTimeoutMs(options.timeoutMs);
   const now = options.now || new Date();
   const createdAt = now.toISOString();
   const providers = options.providers || {};
@@ -353,9 +370,9 @@ export async function buildMobileSourceSignalSnapshot(
   const fallback = fallbackSourceSignals(now);
 
   const [realtimeRaw, policyRaw, issueRaw] = await Promise.all([
-    collectLane(lane === 'all' || lane === 'realtime', providers.realtime || defaultRealtimeProvider, limit),
-    collectLane(lane === 'all' || lane === 'policy', providers.policy || defaultPolicyProvider, limit),
-    collectLane(lane === 'all' || lane === 'issues', providers.issues || defaultIssueProvider, limit),
+    collectLane(lane === 'all' || lane === 'realtime', providers.realtime || defaultRealtimeProvider, limit, timeoutMs),
+    collectLane(lane === 'all' || lane === 'policy', providers.policy || defaultPolicyProvider, limit, timeoutMs),
+    collectLane(lane === 'all' || lane === 'issues', providers.issues || defaultIssueProvider, limit, timeoutMs),
   ]);
 
   let fallbackUsed = false;
