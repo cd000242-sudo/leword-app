@@ -1802,14 +1802,29 @@ function selectLiveBoardItems<T extends MobileLiveGoldenBoardItem>(
   if (nearSelected.length >= target) return nearSelected;
 
   const expandedSelectedIds = new Set(nearSelected.map((item) => item.id));
-  const measuredReady = sorted
+  const writerReady = sorted
     .filter((item) => !expandedSelectedIds.has(item.id))
+    .filter((item) => isMeasuredWriterReadyBoardMetric(item, now));
+  const writerReadySelected = selectLiveBoardItemsFromPool(
+    [...nearSelected, ...writerReady],
+    target,
+    (item) => expandedSelectedIds.has(item.id)
+      || isStrictReadyLiveBoardItem(item)
+      || isNearUltimateLiveBoardItem(item)
+      || isMeasuredWriterReadyBoardMetric(item, now),
+  );
+  if (writerReadySelected.length >= target) return writerReadySelected;
+
+  const writerReadySelectedIds = new Set(writerReadySelected.map((item) => item.id));
+  const measuredReady = sorted
+    .filter((item) => !writerReadySelectedIds.has(item.id))
     .filter((item) => isMeasuredProBoardItem(item, now));
   return selectLiveBoardItemsFromPool(
-    [...nearSelected, ...measuredReady],
+    [...writerReadySelected, ...measuredReady],
     target,
     (item) => isStrictReadyLiveBoardItem(item)
       || isNearUltimateLiveBoardItem(item)
+      || isMeasuredWriterReadyBoardMetric(item, now)
       || isMeasuredProBoardItem(item, now),
   );
 }
@@ -1892,6 +1907,53 @@ function hasWriterReadySpecificity(keyword: string): boolean {
     || keywordLongTailScore(clean) >= 24;
 }
 
+function hasWriterReadyOpportunityIntent(keyword: string): boolean {
+  const clean = normalizeKeyword(keyword);
+  if (!clean) return false;
+  return hasSssReadyNeedIntent(clean)
+    || hasHighValueNeedIntent(clean)
+    || hasAdsenseNeedIntent(clean)
+    || hasWriterReadySearchAdProbeIntent(clean)
+    || hasWriterReadySpecificity(clean);
+}
+
+function isMeasuredWriterReadyBoardMetric(
+  item: Partial<MobileKeywordMetric> & { keyword?: string },
+  now: Date = new Date(),
+): boolean {
+  const keyword = normalizeKeyword(item.keyword);
+  if (!keyword || !hasCompleteLiveGoldenMetrics(item)) return false;
+  const metric = { ...item, keyword } as MobileKeywordMetric;
+  if (!hasTrustedSearchVolumeMeasurement(metric) || !hasTrustedDocumentCountMeasurement(metric)) return false;
+  if (!hasMeasuredPcMobileSplit(metric)) return false;
+  if (isMalformedLiveKeyword(keyword) || isStaleOrFutureLiveKeyword(keyword, now)) return false;
+  if (isInvalidNonProductCommerceExpansion(keyword)) return false;
+  if (isThinProfileIntentKeyword(keyword) || isNoisyLiveSeed(keyword) || isOverExpandedLiveCandidate(keyword)) return false;
+  if (isLottoLookupKeyword(keyword) || isLowAdsenseLookupKeyword(keyword) || isBrandSafetyNewsKeyword(keyword)) return false;
+  if (isBroadHeadSssKeyword(keyword)) return false;
+  if (!hasWriterReadyOpportunityIntent(keyword)) return false;
+
+  const volume = finiteNumber(item.totalSearchVolume) || 0;
+  const docs = finiteNumber(item.documentCount) || 0;
+  const ratio = finiteNumber(item.goldenRatio) || (volume > 0 && docs > 0 ? volume / docs : 0);
+  const longTail = keywordLongTailScore(keyword);
+  const intentFragments = ultimateIntentFragmentCount(keyword);
+  const maxDocs = ratio >= 5
+    ? 30_000
+    : ratio >= 3
+      ? 20_000
+      : 15_000;
+  if (volume < 300 || docs <= 0 || docs > maxDocs || ratio < 1.5) return false;
+  if (longTail < 12 && intentFragments < 1 && !hasWriterReadySearchAdProbeIntent(keyword)) return false;
+  if (isOverbroadNoEffectBoardKeyword(item) && !hasWriterReadySpecificity(keyword)) return false;
+
+  const judged = applyKeywordAiJudge(metric, { now, downgradeExcluded: false });
+  const ai = judged.aiJudge;
+  if (!ai || ai.verdict === 'exclude' || ai.spamRisk === 'high') return false;
+  if (ai.needIntent === 'weak' && ratio < 5 && !hasAdsenseNeedIntent(keyword)) return false;
+  return true;
+}
+
 function isApexWriterReadyBoardMetric(item: Partial<MobileKeywordMetric> & { keyword?: string }): boolean {
   const keyword = normalizeKeyword(item.keyword);
   if (!keyword) return false;
@@ -1921,6 +1983,7 @@ function isOverbroadNoEffectBoardKeyword(item: Partial<MobileKeywordMetric> & { 
 }
 
 function isBlogActionableBoardMetric(item: Partial<MobileKeywordMetric> & { keyword?: string }): boolean {
+  if (isMeasuredWriterReadyBoardMetric(item)) return true;
   if (isOverbroadNoEffectBoardKeyword(item)) return false;
   const keyword = normalizeKeyword(item.keyword);
   if (!isApexWriterReadyBoardMetric(item)) return false;
@@ -1942,7 +2005,7 @@ function isMeasuredSssBoardCandidate(item: MobileLiveGoldenBoardItem, now: Date)
   if (isBroadHeadSssKeyword(keyword)) return false;
   if (!isApexWriterReadyBoardMetric(item)) return false;
   if (!isBlogActionableBoardMetric(item)) return false;
-  if (!hasSssReadyNeedIntent(keyword) && !hasHighValueNeedIntent(keyword) && !hasAdsenseNeedIntent(keyword)) return false;
+  if (!hasWriterReadyOpportunityIntent(keyword)) return false;
   const judged = applyKeywordAiJudge(item, { now, downgradeExcluded: false });
   const ai = judged.aiJudge;
   if (!ai || ai.verdict === 'exclude' || ai.spamRisk === 'high') return false;
@@ -2203,7 +2266,8 @@ function measuredProBoardFallbackRejectReason(metric: MobileLiveGoldenBoardItem,
     && docs > 0
     && docs <= 30_000
     && ratio >= 3;
-  if ((GRADE_RANK[metric.grade] || 0) < GRADE_RANK.S && !productBoardSeed) return `grade-too-low:${metric.grade}`;
+  const writerReadyMeasuredSeed = isMeasuredWriterReadyBoardMetric(metric, now);
+  if ((GRADE_RANK[metric.grade] || 0) < GRADE_RANK.S && !productBoardSeed && !writerReadyMeasuredSeed) return `grade-too-low:${metric.grade}`;
   const promotionBonus = livePromotionPriorityBonus(keyword, metric.category || 'all');
   const strategicMeasuredIntent = promotionBonus >= 260
     && !LIVE_PROMOTION_SYNTHETIC_INTENT_CHAIN_RE.test(keyword);
@@ -2220,10 +2284,10 @@ function measuredProBoardFallbackRejectReason(metric: MobileLiveGoldenBoardItem,
   const longTail = keywordLongTailScore(keyword);
   const broadHead = isBroadHeadSssKeyword(keyword);
   const intentFragments = ultimateIntentFragmentCount(keyword);
-  if (broadHead && longTail < 18) return 'broad-head-without-longtail';
-  if (volume >= 30_000 && longTail < 18 && intentFragments < 2 && !productBoardSeed) return 'broad-high-volume-without-longtail';
-  if (volume >= 10_000 && longTail < 14 && intentFragments < 2 && !productBoardSeed) return 'broad-mid-volume-without-longtail';
-  if (!isBlogActionableBoardMetric(metric) && !productBoardSeed) return 'not-blog-actionable-longtail';
+  if (broadHead && longTail < 18 && !writerReadyMeasuredSeed) return 'broad-head-without-longtail';
+  if (volume >= 30_000 && longTail < 18 && intentFragments < 2 && !productBoardSeed && !writerReadyMeasuredSeed) return 'broad-high-volume-without-longtail';
+  if (volume >= 10_000 && longTail < 14 && intentFragments < 2 && !productBoardSeed && !writerReadyMeasuredSeed) return 'broad-mid-volume-without-longtail';
+  if (!isBlogActionableBoardMetric(metric) && !productBoardSeed && !writerReadyMeasuredSeed) return 'not-blog-actionable-longtail';
   if (docs > 20_000 && ratio < 3) return 'broad-document-field';
   if (docs > 10_000 && longTail < 14 && ratio < 5 && !productBoardSeed) return 'broad-low-specificity';
 
@@ -2233,9 +2297,9 @@ function measuredProBoardFallbackRejectReason(metric: MobileLiveGoldenBoardItem,
   if (ai.verdict === 'exclude') return 'ai-exclude';
   if (ai.spamRisk === 'high') return 'spam-risk-high';
   if (ai.freshnessRisk === 'high' && ratio < 2) return 'freshness-risk-high';
-  if (ai.verdict === 'conditional' && ai.score < 78 && !strategicMeasuredIntent) return `conditional-low-score:${ai.score}`;
-  if (ai.score < 70 && !hasAdsenseNeedIntent(keyword) && !strategicMeasuredIntent) return `ai-score-low:${ai.score}`;
-  if (ai.needIntent === 'weak' && !hasAdsenseNeedIntent(keyword) && !strategicMeasuredIntent) return `weak-need-intent:${ai.score}`;
+  if (ai.verdict === 'conditional' && ai.score < 78 && !strategicMeasuredIntent && !writerReadyMeasuredSeed) return `conditional-low-score:${ai.score}`;
+  if (ai.score < 70 && !hasAdsenseNeedIntent(keyword) && !strategicMeasuredIntent && !writerReadyMeasuredSeed) return `ai-score-low:${ai.score}`;
+  if (ai.needIntent === 'weak' && !hasAdsenseNeedIntent(keyword) && !strategicMeasuredIntent && !writerReadyMeasuredSeed) return `weak-need-intent:${ai.score}`;
   return 'ok';
 }
 
@@ -2944,6 +3008,93 @@ function buildUltimateNeedCandidatesForSeed(seed: string, categoryId: string, li
     .filter((candidate) => hasLiveUltimateNeedIntent(candidate))
     .filter((candidate) => !isLowValueLiveCandidate(candidate))
     .filter((candidate) => !isOverExpandedLiveCandidate(candidate));
+}
+
+function writerReadyProbeIntentsForSeed(seed: string, categoryId: string): string[] {
+  const clean = normalizeKeyword(seed);
+  const category = normalizeKeyword(categoryId);
+  const out: string[] = [];
+  const push = (...items: string[]) => {
+    for (const item of items) {
+      const normalized = normalizeKeyword(item);
+      if (normalized && !out.includes(normalized)) out.push(normalized);
+    }
+  };
+
+  if (/(?:\uACC4\uC0B0\uAE30|\uBCF4\uD5D8|\uC2DC\uAE09|\uD1F4\uC9C1\uAE08|\uC8FC\uD734\uC218\uB2F9|\uC2E4\uC5C5\uAE09\uC5EC|4\uB300\uBCF4\uD5D8|\uC0AC\uB300\uBCF4\uD5D8)/u.test(clean)) {
+    push(
+      '\uC54C\uBC14',
+      '\uD504\uB9AC\uB79C\uC11C',
+      '\uC77C\uC6A9\uC9C1',
+      '\uAC1C\uC778\uC0AC\uC5C5\uC790',
+      '\uC2E4\uC218\uB839\uC561',
+      '\uC790\uB3D9\uACC4\uC0B0',
+      '\uC138\uD6C4\uACC4\uC0B0',
+    );
+  }
+  if (/(?:\uC7A5\uB824\uAE08|\uC801\uAE08|\uC9C0\uC6D0\uAE08|\uD658\uAE09|\uAE09\uC5EC|\uCCAD\uB144|\uB300\uCD9C|\uBC14\uC6B0\uCC98|\uC138\uC561\uACF5\uC81C)/u.test(clean) || category === 'policy' || category === 'finance') {
+    push(
+      '\uC2E0\uCCAD',
+      '\uB300\uC0C1',
+      '\uC790\uACA9',
+      '\uC9C0\uAE09\uC77C',
+      '\uC18C\uB4DD\uAE30\uC900',
+      '\uC870\uD68C',
+      '\uC0AC\uC6A9\uCC98',
+      '\uB9C8\uAC10\uC77C',
+    );
+  }
+  if (/(?:\uC5EC\uD589|\uBC14\uB2E4|\uD558\uB298\uAE38|\uCD95\uC81C|\uACF5\uC6D0|\uD56D\uACF5|\uD638\uD154|\uB80C\uD130\uCE74)/u.test(clean) || category === 'travel_domestic' || category === 'travel_overseas') {
+    push(
+      '\uC785\uC7A5\uB8CC',
+      '\uC608\uC57D',
+      '\uC608\uB9E4',
+      '\uC8FC\uCC28',
+      '\uC900\uBE44\uBB3C',
+      '\uAC00\uACA9\uBE44\uAD50',
+    );
+  }
+  if (/(?:\uC5D0\uC5B4\uCEE8|\uC81C\uC2B5\uAE30|\uCCAD\uC18C\uAE30|\uC138\uD0C1\uAE30|\uB0C9\uC7A5\uACE0|\uD0A4\uBCF4\uB4DC|\uC774\uC5B4\uD3F0|\uD734\uB300\uD3F0|\uC218\uB0A9\uD568|\uD544\uD130)/u.test(clean) || category === 'shopping' || category === 'electronics') {
+    push(
+      '\uAC00\uACA9\uBE44\uAD50',
+      '\uCD5C\uC800\uAC00',
+      '\uD6C4\uAE30',
+      '\uAD6C\uB9E4\uCC98',
+      '\uD560\uC778',
+      '\uC6D0\uB8F8',
+      '\uC804\uAE30\uC694\uAE08',
+    );
+  }
+  push('\uC870\uD68C', '\uBC29\uBC95', '\uD6C4\uAE30');
+  return uniqueKeywords(out, 14);
+}
+
+function buildWriterReadyProbeCandidatesForSeed(seed: string, categoryId: string, limit = 24): string[] {
+  const base = normalizeUltimateSeedBase(seed) || normalizeKeyword(seed);
+  if (!base) return [];
+  const category = inferLiveCategory(base, categoryId || 'all');
+  const baseVariants = uniqueKeywords([
+    base,
+    base.replace(/\s+/g, ''),
+  ], 4).filter((candidate) => {
+    const compactLength = candidate.replace(/\s+/g, '').length;
+    return compactLength >= 3 && compactLength <= 22;
+  });
+  const out: string[] = [];
+  for (const variant of baseVariants) {
+    for (const intent of writerReadyProbeIntentsForSeed(variant, category)) {
+      if (out.length >= limit) break;
+      const candidate = appendCompatibleIntent(variant, intent);
+      if (!candidate) continue;
+      const compactLength = candidate.replace(/\s+/g, '').length;
+      const tokenCount = candidate.split(/\s+/).filter(Boolean).length;
+      if (compactLength > LIVE_SEARCHAD_CANDIDATE_MAX_CHARS || tokenCount > LIVE_SEARCHAD_CANDIDATE_MAX_TOKENS) continue;
+      if (!hasWriterReadyOpportunityIntent(candidate)) continue;
+      if (isLowValueLiveCandidate(candidate) || isOverExpandedLiveCandidate(candidate)) continue;
+      out.push(candidate);
+    }
+  }
+  return uniqueKeywords(out, limit);
 }
 
 function buildSeedPhraseVariants(seed: string): string[] {
@@ -5798,6 +5949,7 @@ export class MobileLiveGoldenRadar {
         .map((intent) => appendCompatibleIntent(clean, intent))
         .filter(Boolean);
     const candidates = uniqueKeywords([
+      ...buildWriterReadyProbeCandidatesForSeed(clean, inferredCategory, 48),
       ...buildCacheDerivedCompoundNeedSeeds(clean, inferredCategory, 72),
       ...buildUltimateNeedCandidatesForSeed(clean, inferredCategory, 14),
       ...intentCandidates,
@@ -5845,6 +5997,7 @@ export class MobileLiveGoldenRadar {
         .map((intent) => appendCompatibleIntent(keyword, intent))
         .filter(Boolean);
       const candidates = uniqueKeywords([
+        ...buildWriterReadyProbeCandidatesForSeed(keyword, category, Math.min(48, candidateLimit)),
         ...buildCacheDerivedCompoundNeedSeeds(keyword, category, candidateLimit),
         ...buildUltimateNeedCandidatesForSeed(keyword, category, Math.min(24, candidateLimit)),
         ...intentCandidates,
