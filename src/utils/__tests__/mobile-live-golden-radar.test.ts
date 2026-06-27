@@ -2757,6 +2757,78 @@ function thinProfileCount(items: Array<{ keyword: string }>): number {
       debug: __liveGoldenRadarTestInternals.debugSearchAdMeasurableLiveCandidate(keyword, category, lottoGuardNow),
     }))));
 
+  const queueFamilyA = '\uC1A1\uC9C0\uD638 \uBC14\uB2E4\uD558\uB298\uAE38 \uC608\uC57D \uBC29\uBC95';
+  const queueFamilyB = '\uC1A1\uC9C0\uD638 \uBC14\uB2E4\uD558\uB298\uAE38 \uC8FC\uCC28';
+  const queueFamilyC = '\uC1A1\uC9C0\uD638 \uBC14\uB2E4\uD558\uB298\uAE38 \uC785\uC7A5\uB8CC';
+  const queueFamilyD = '\uC1A1\uC9C0\uD638 \uBC14\uB2E4\uD558\uB298\uAE38 \uC6B4\uC601\uC2DC\uAC04';
+  const queueDifferentFamilies = [
+    '\uBB34\uC8FC\uC218\uCC44\uD654\uD39C\uC158 \uC608\uC57D \uBC29\uBC95',
+    '\uADFC\uBB34\uC2DC\uAC04\uACC4\uC0B0\uAE30 \uC77C\uC6A9\uC9C1 \uACC4\uC0B0\uBC29\uBC95',
+    '\uCFE0\uCFE0\uC81C\uC2B5\uAE30\uB80C\uD0C8 \uAD6C\uB9E4\uCC98 \uCD94\uCC9C',
+    '\uBD80\uC0B0\uBB38\uD654\uB204\uB9AC\uCE74\uB4DC\uC0AC\uC6A9\uCC98 \uC870\uD68C',
+    '\uCCAB\uB9CC\uB0A8\uC774\uC6A9\uAD8C\uC9C0\uAE09\uC77C \uC870\uD68C',
+  ];
+  const queueFamilyProbeFile = path.join(process.cwd(), 'tmp', 'mobile-live-golden-queue-family-test.json');
+  fs.writeFileSync(queueFamilyProbeFile, JSON.stringify({
+    version: 1,
+    savedAt: '2026-06-27T00:00:00.000Z',
+    items: [
+      queueFamilyA,
+      queueFamilyB,
+      queueFamilyC,
+      queueFamilyD,
+      ...queueDifferentFamilies,
+    ].map((keyword, index) => ({
+      keyword,
+      category: index < 4 ? 'travel_domestic' : 'all',
+      source: 'fixture-family-queue',
+      priority: index < 4 ? 900 : 100,
+      firstSeenAt: `2026-06-27T00:${String(index).padStart(2, '0')}:00.000Z`,
+      attempts: 0,
+      misses: 0,
+    })),
+  }), 'utf8');
+  const queueFamilyMeasuredKeywords: string[] = [];
+  const queueFamilyRadar = new MobileLiveGoldenRadar({
+    notificationInbox: inbox,
+    runOnStart: false,
+    cycleLimit: 6,
+    boardTarget: 12,
+    maxCandidates: 180,
+    categories: ['all'],
+    probeQueueFile: queueFamilyProbeFile,
+    getEnvConfig: () => ({
+      naverClientId: 'client',
+      naverClientSecret: 'secret',
+    }),
+    liveSeedProvider: async () => [],
+    enableBackfill: true,
+    autocompleteProvider: async () => [],
+    searchAdSuggestionProvider: async () => [],
+    measureLiveSearchVolumeSeparate: async (_config, keywords) => {
+      queueFamilyMeasuredKeywords.push(...keywords);
+      return [];
+    },
+    measureLiveDocumentCount: async () => null,
+    discover: async () => [],
+  });
+  await queueFamilyRadar.runOnce();
+  const firstQueueFamilyBatch = queueFamilyMeasuredKeywords.slice(0, 6);
+  const sameRootFamily = __liveGoldenRadarTestInternals.measuredProbeQueueFamilyKey(queueFamilyA);
+  assert('measured probe execution queue round-robins root families before repeated tails',
+    firstQueueFamilyBatch.filter((keyword) => (
+      __liveGoldenRadarTestInternals.measuredProbeQueueFamilyKey(keyword) === sameRootFamily
+    )).length === 1
+      && queueDifferentFamilies.every((keyword) => firstQueueFamilyBatch.includes(keyword)),
+    JSON.stringify({
+      firstQueueFamilyBatch,
+      families: firstQueueFamilyBatch.map((keyword) => [
+        keyword,
+        __liveGoldenRadarTestInternals.measuredProbeQueueFamilyKey(keyword),
+      ]),
+    }));
+  fs.rmSync(queueFamilyProbeFile, { force: true });
+
   const measuredProbePortfolio = __liveGoldenRadarTestInternals.buildMeasuredProbeCandidates(
     'all',
     [],

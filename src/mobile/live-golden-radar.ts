@@ -3403,6 +3403,19 @@ function measuredProbeCategoryKeys(categoryId: string, liveSeeds: string[]): str
 
 const TRUSTED_WRITER_READY_MEASURED_PROBE_RE = /(?:\uC2E4\uC218\uB839\uC561|\uC790\uB3D9\uACC4\uC0B0|\uC8FC\uD734\uC218\uB2F9\s*\uACC4\uC0B0|\uACC4\uC0B0\uBC29\uBC95|\uACF5\uC81C\uD56D\uBAA9|3\.3\s*\uC138\uAE08|\uC138\uD6C4\s*\uACC4\uC0B0|4\uB300\uBCF4\uD5D8\uB8CC\s*\uC694\uC728|\uC138\uAE08\s*\uACF5\uC81C|\uC694\uC728\uD45C|\uC5D1\uC140\s*\uC591\uC2DD|\uC2E0\uCCAD\s*(?:\uB300\uC0C1|\uBC29\uBC95)|\uC790\uACA9\s*\uC870\uAC74|\uC9C0\uAE09\uC77C\s*\uC870\uD68C|\uC0AC\uC6A9\uCC98\s*\uC870\uD68C|\uC628\uB77C\uC778\s*\uC2E0\uCCAD|\uD544\uC694\s*\uC11C\uB958|\uB9C8\uAC10\uC77C\s*\uD655\uC778|\uC18C\uB4DD\uAE30\uC900\s*\uACC4\uC0B0|\uAC00\uC785\uC2E0\uCCAD|\uC794\uC561\uC870\uD68C|\uC644\uC804\uC790\uCC28|\uBA74\uCC45\uAE30\uAC04|\uC2E4\uBE44\s*\uCCAD\uAD6C|\uC138\uC561\uACF5\uC81C\s*\uD55C\uB3C4|\uC218\uC218\uB8CC\s*\uBE44\uAD50|\uAE08\uB9AC\s*\uBE44\uAD50|\uB9CC\uAE30\s*\uC218\uB839\uC561|\uD574\uC9C0\s*\uBD88\uC774\uC775)/u;
 const SEARCHAD_NEAR_SSS_PRACTICAL_INTENT_RE = /(?:\uC608\uC57D(?:\s*\uBC29\uBC95)?|\uC785\uC7A5\uB8CC|\uC8FC\uCC28|\uC6B4\uC601\uC2DC\uAC04|\uC0AC\uC6A9\uCC98\s*\uC870\uD68C|\uC9C0\uAE09\uC77C\s*\uC870\uD68C|\uD658\uAE09\uC77C|\uC2E0\uCCAD\s*(?:\uB300\uC0C1|\uBC29\uBC95)|\uC790\uACA9\s*\uC870\uAC74|\uD544\uC694\s*\uC11C\uB958|\uC2E4\uC218\uB839\uC561|\uC8FC\uD734\uC218\uB2F9\s*\uACC4\uC0B0|\uC77C\uC6A9\uC9C1\s*\uACC4\uC0B0\uBC29\uBC95|3\.3\s*\uC138\uAE08\s*\uACC4\uC0B0|\uD1F4\uC9C1\uAE08\s*\uC138\uD6C4\s*\uACC4\uC0B0|4\uB300\uBCF4\uD5D8\uB8CC\s*\uC694\uC728|\uCD5C\uC800\uAC00\s*\uBE44\uAD50|\uAD6C\uB9E4\uCC98\s*\uCD94\uCC9C|\uC6D0\uB8F8\s*\uC804\uAE30\uC694\uAE08\s*\uBE44\uAD50|\uC790\uCDE8\uBC29\s*\uC18C\uC74C\s*\uBE44\uAD50|\uC800\uC18C\uC74C\s*\uD6C4\uAE30|\uD560\uC778\s*\uCFE0\uD3F0|\uC124\uCE58\uBE44\s*\uBE44\uAD50)/u;
+const MEASURED_PROBE_QUEUE_FAMILY_STRIP_RE = /(?:\uC608\uC57D|\uBC29\uBC95|\uC704\uCE58|\uC7A5\uB2E8\uC810|\uC8FC\uCC28|\uC544\uC774\uB791\s*\uCF54\uC2A4|\uB69C\uBC85\uC774\s*\uCF54\uC2A4|\uB2F9\uC77C\uCE58\uAE30|\uC900\uBE44\uBB3C|\uC785\uC7A5\uB8CC|\uC6B4\uC601\uC2DC\uAC04|\uC0AC\uC6A9\uCC98|\uC870\uD68C|\uC2E0\uCCAD|\uB300\uC0C1|\uC790\uACA9|\uC870\uAC74|\uC9C0\uAE09\uC77C|\uD658\uAE09\uC77C|\uD544\uC694\s*\uC11C\uB958|\uC18C\uB4DD\uAE30\uC900|\uBE44\uAD50|\uCD5C\uC800\uAC00|\uAD6C\uB9E4\uCC98|\uCD94\uCC9C|\uD6C4\uAE30|\uC6D0\uB8F8|\uC804\uAE30\uC694\uAE08|\uC790\uCDE8\uBC29|\uC18C\uC74C|\uC800\uC18C\uC74C|\uC77C\uC6A9\uC9C1|\uC54C\uBC14|\uACC4\uC0B0\uBC29\uBC95|\uACC4\uC0B0|\uC2E4\uC218\uB839\uC561|\uC8FC\uD734\uC218\uB2F9|\uD1F4\uC9C1\uAE08|\uC138\uD6C4|\uC138\uAE08|\uC694\uC728|\uCFE0\uD3F0|\uD560\uC778|\uC124\uCE58\uBE44)/gu;
+
+function measuredProbeQueueFamilyKey(keyword: string): string {
+  const calculatorRoot = normalizeKeyword(keyword).match(/([0-9A-Za-z\uAC00-\uD7A3]{2,}?\uACC4\uC0B0\uAE30)/u)?.[1];
+  if (calculatorRoot) return keywordCompactId(calculatorRoot);
+  const compact = keywordCompactId(
+    normalizeKeyword(keyword)
+      .replace(SEARCHAD_NEAR_SSS_PRACTICAL_INTENT_RE, ' ')
+      .replace(MEASURED_PROBE_QUEUE_FAMILY_STRIP_RE, ' '),
+  );
+  const family = compact.length >= 4 ? compact.slice(0, 18) : liveCandidateDiversityKey(keyword);
+  return family;
+}
 
 function isTrustedWriterReadyMeasuredProbe(keyword: string, categoryId: string): boolean {
   const clean = normalizeKeyword(keyword);
@@ -4584,6 +4597,7 @@ export const __liveGoldenRadarTestInternals = {
   isSearchAdMeasurableLiveCandidate,
   isStaleOrFutureLiveKeyword,
   livePromotionPriorityBonus,
+  measuredProbeQueueFamilyKey,
   normalizeLiveMetricGrade,
   normalizeLiveSeeds,
   boardScore,
@@ -5226,22 +5240,31 @@ export class MobileLiveGoldenRadar {
         return Date.parse(a.firstSeenAt) - Date.parse(b.firstSeenAt);
       });
     const selected: LiveMeasuredProbeQueueItem[] = [];
-    const familyCounts = new Map<string, number>();
-    const pickWithFamilyCap = (cap: number): void => {
-      for (const item of sorted) {
-        if (selected.length >= limit) return;
-        if (selected.some((candidate) => keywordCompactId(candidate.keyword) === keywordCompactId(item.keyword))) continue;
-        const family = `${item.category || normalizedCategory}:${liveCandidateDiversityKey(item.keyword)}`;
-        const count = familyCounts.get(family) || 0;
-        if (count >= cap) continue;
-        familyCounts.set(family, count + 1);
-        selected.push(item);
+    const seenCompacts = new Set<string>();
+    const familyOrder: string[] = [];
+    const familyGroups = new Map<string, LiveMeasuredProbeQueueItem[]>();
+    for (const item of sorted) {
+      const compact = keywordCompactId(item.keyword);
+      if (!compact || seenCompacts.has(compact)) continue;
+      seenCompacts.add(compact);
+      const family = measuredProbeQueueFamilyKey(item.keyword);
+      if (!familyGroups.has(family)) {
+        familyGroups.set(family, []);
+        familyOrder.push(family);
       }
-    };
-    const firstPassCap = normalizedCategory === 'all' ? 4 : 3;
-    pickWithFamilyCap(firstPassCap);
-    pickWithFamilyCap(firstPassCap * 2);
-    pickWithFamilyCap(limit);
+      familyGroups.get(family)?.push(item);
+    }
+    for (let depth = 0; selected.length < limit; depth += 1) {
+      let added = false;
+      for (const family of familyOrder) {
+        if (selected.length >= limit) break;
+        const item = familyGroups.get(family)?.[depth];
+        if (!item) continue;
+        selected.push(item);
+        added = true;
+      }
+      if (!added) break;
+    }
     return selected.slice(0, limit);
   }
 
