@@ -748,7 +748,7 @@ function thinProfileCount(items: Array<{ keyword: string }>): number {
     '\uBA4B\uC9C4 \uC2E0\uC138\uACC4 \uBA87\uBD80\uC791',
   ], 240, lottoGuardNow);
   assert('all live golden backfill mixes portfolio writer-intent probes instead of relying only on noisy live issues',
-    allPortfolioProbeCandidates.slice(0, 140).some((keyword) => /\uC81C\uC8FC\s*\uB80C\uD130\uCE74\s*\uAC00\uACA9\uBE44\uAD50/.test(keyword))
+    allPortfolioProbeCandidates.slice(0, 140).some((keyword) => /\uC81C\uC8FC\s*\uB80C\uD130\uCE74(?:\s*\uC644\uC804\uC790\uCC28)?\s*\uAC00\uACA9\uBE44\uAD50/.test(keyword))
       && allPortfolioProbeCandidates.slice(0, 140).some((keyword) => /\uADFC\uB85C\uC7A5\uB824\uAE08.*\uC628\uB77C\uC778\s*\uC2E0\uCCAD|\uCCAD\uB144\uBBF8\uB798\uC801\uAE08.*\uC2E0\uCCAD\s*\uB300\uC0C1|\uC18C\uC0C1\uACF5\uC778\s*\uC815\uCC45\uC790\uAE08.*\uC2E0\uCCAD\s*\uB300\uC0C1/.test(keyword))
       && allPortfolioProbeCandidates.slice(0, 160).some((keyword) => /\uBB34\uC120\s*\uCCAD\uC18C\uAE30.*(?:\uAC00\uACA9\uBE44\uAD50|\uCD94\uCC9C\s*\uD6C4\uAE30)/.test(keyword))
       && allPortfolioProbeCandidates.every((keyword) => !/\uC81C\uC8FC\s*\uB80C\uD130\uCE74.*\uC9C0\uC6D0\uAE08\s*\uC870\uAC74/.test(keyword)),
@@ -757,7 +757,7 @@ function thinProfileCount(items: Array<{ keyword: string }>): number {
     '2026 KBO \uC62C\uC2A4\uD0C0\uC804 \uC608\uB9E4',
   ], 240, lottoGuardNow);
   const firstPortfolioProbeIndex = allEventCrowdedProbeCandidates.findIndex((keyword) => (
-    /\uC81C\uC8FC\s*\uB80C\uD130\uCE74\s*\uAC00\uACA9\uBE44\uAD50|\uBB34\uC120\s*\uCCAD\uC18C\uAE30\s*\uAC00\uACA9\uBE44\uAD50|\uCCAD\uB144\uBBF8\uB798\uC801\uAE08\s*\uC2E0\uCCAD\s*\uB300\uC0C1/.test(keyword)
+    /\uC81C\uC8FC\s*\uB80C\uD130\uCE74(?:\s*\uC644\uC804\uC790\uCC28)?\s*\uAC00\uACA9\uBE44\uAD50|\uBB34\uC120\s*\uCCAD\uC18C\uAE30\s*\uAC00\uACA9\uBE44\uAD50|\uCCAD\uB144\uBBF8\uB798\uC801\uAE08\s*\uC2E0\uCCAD\s*\uB300\uC0C1/.test(keyword)
   ));
   const firstEventProbeIndex = allEventCrowdedProbeCandidates.findIndex((keyword) => /KBO|\uC62C\uC2A4\uD0C0\uC804/.test(keyword));
   assert('all live golden backfill measures portfolio probes before event lookup noise',
@@ -2599,6 +2599,25 @@ function thinProfileCount(items: Array<{ keyword: string }>): number {
     '\uAD6D\uB9BD \uCEA0\uD551\uC7A5 \uC608\uC57D \uC0AC\uC774\uD2B8 \uC785\uC7A5\uB8CC',
     '\uC11C\uC6B8 \uADFC\uAD50 \uB2F9\uC77C\uCE58\uAE30 \uBC14\uB2E4 \uC608\uC57D',
     '\uC804\uC8FC \uD55C\uC625\uB9C8\uC744 \uB9DB\uC9D1 \uC608\uC57D',
+    '\uBD80\uC0B0 \uAC10\uCC9C\uBB38\uD654\uB9C8\uC744 \uADFC\uCC98 \uC608\uC57D \uBC29\uBC95',
+    '\uC18D\uCD08 1\uBC152\uC77C \uCF54\uC2A4 \uC608\uC57D \uBC29\uBC95',
+    '\uCEA0\uD551\uC7A5 \uC608\uC57D \uC0AC\uC774\uD2B8 \uB69C\uBC85\uC774 \uCF54\uC2A4',
+    '\uC81C\uC8FC \uB80C\uD130\uCE74 \uCD94\uCC9C \uC785\uC7A5\uB8CC',
+    '\uC81C\uC8FC \uB80C\uD130\uCE74 \uD6C4\uAE30 \uC6B4\uC601\uC2DC\uAC04',
+    '\uAC1C\uC778\uC0AC\uC5C5\uC790\uC815\uCC45\uC790\uAE08 \uBB34\uC9C1\uC790 \uC2E0\uCCAD \uC870\uAC74',
+    '제주 렌터카 숙소 예약',
+    '제주 렌터카 환불 규정',
+    '가족여행 추천지 숙소 예약',
+    '가족여행 추천지 숙소 추천',
+    '강원도 펜션 추천 축제 일정',
+    '등산 초보 코스 숙소 예약',
+    '반려견 동반 펜션 숙소 예약',
+    'ETF 세액공제 한도',
+    'ETF 개인사업자 세액공제 한도',
+    'ETF 퇴직자 신청 방법',
+    '프로바이오틱스 균수 보험 적용 비용',
+    '오메가3 순위 보험 적용 비용',
+    '전주 한옥마을 맛집 가격비교',
   ];
   assert('high-yield SearchAd spend gate rejects news-person policy tails and stacked abstract product intents',
     noEffectLiveProbeCombos.every((keyword) => (
@@ -2608,6 +2627,26 @@ function thinProfileCount(items: Array<{ keyword: string }>): number {
     noEffectLiveProbeCombos
       .filter((keyword) => __liveGoldenRadarTestInternals.isHighYieldSearchAdSpendCandidate(keyword, 'all', lottoGuardNow))
       .join('|'));
+
+  const measuredProbePortfolio = __liveGoldenRadarTestInternals.buildMeasuredProbeCandidates(
+    'all',
+    [],
+    720,
+    lottoGuardNow,
+  );
+  const measuredProbeFront = measuredProbePortfolio.slice(0, 120);
+  const jejuRentalFrontCount = measuredProbeFront.filter((keyword) => /제주\s*렌(?:터|트)카/u.test(keyword)).length;
+  assert('measured probe portfolio favors diversified writer-ready longtails over one broad root family',
+    measuredProbeFront.some((keyword) => keyword === '제주 렌터카 완전자차 가격비교')
+      && measuredProbeFront.some((keyword) => keyword === '청년미래적금 소득기준 계산')
+      && measuredProbeFront.some((keyword) => keyword === '치아보험 면책기간')
+      && jejuRentalFrontCount <= 18
+      && !measuredProbePortfolio.some((keyword) => /(?:렌터카|렌트카).{0,12}(?:숙소\s*예약|환불\s*규정)|강원도\s*펜션\s*추천\s*축제\s*일정|ETF.*(?:세액공제|신청\s*방법)|(?:프로바이오틱스|오메가3).{0,16}보험\s*적용|한옥마을\s*맛집\s*가격비교/u.test(keyword)),
+    JSON.stringify({
+      jejuRentalFrontCount,
+      front: measuredProbeFront.slice(0, 80),
+      weak: measuredProbePortfolio.filter((keyword) => /(?:렌터카|렌트카).{0,12}(?:숙소\s*예약|환불\s*규정)|강원도\s*펜션\s*추천\s*축제\s*일정|ETF.*(?:세액공제|신청\s*방법)|(?:프로바이오틱스|오메가3).{0,16}보험\s*적용|한옥마을\s*맛집\s*가격비교/u.test(keyword)),
+    }));
 
   const queuePriorityProbeFile = path.join(process.cwd(), 'tmp', 'mobile-live-golden-queue-priority-test.json');
   const queuedWriterReadyKeyword = '\uC81C\uC8FC \uB80C\uD130\uCE74 \uC644\uC804\uC790\uCC28 \uAC00\uACA9\uBE44\uAD50';

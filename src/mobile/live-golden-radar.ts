@@ -3195,6 +3195,10 @@ const LIVE_MEASURED_PROBE_DETAIL_MODIFIERS: Record<string, readonly string[]> = 
   sports: ['초보', '입문용', '여성', '어린이'],
 });
 
+const MEASURED_PROBE_STRONG_CONVERSION_INTENT_RE = /(?:가격비교|최저가|할인|쿠폰|구매처|전기요금|전기세|소음\s*비교|설치\s*비용|필터\s*교체|보험\s*적용\s*비용|치료\s*비용|검사\s*비용|실비\s*청구|세액공제\s*한도|수수료\s*비교|금리\s*비교|만기\s*수령액|해지\s*불이익|신청\s*(?:대상|방법)|지급일\s*조회|사용처\s*조회|지원금\s*조건|자격\s*조건|소득기준\s*계산|온라인\s*신청|잔액조회|가입신청|완전자차|면책기간)/u;
+const MEASURED_PROBE_WEAK_INFO_INTENT_RE = /(?:추천\s*후기|숙소\s*예약|환불\s*규정|선택\s*가이드|코스\s*후기|축제\s*일정|운영시간|입장료)$/u;
+const MEASURED_PROBE_FAMILY_STRIP_RE = /(?:가격비교|최저가\s*비교|비용\s*비교|추천\s*후기|예약\s*방법|숙소\s*예약|환불\s*규정|조회\s*방법|신청\s*(?:대상|방법)|지급일\s*조회|사용처\s*조회|지원금\s*조건|자격\s*조건|필요\s*서류|소득기준\s*계산|마감일\s*확인|온라인\s*신청|세액공제\s*한도|수수료\s*비교|금리\s*비교|만기\s*수령액|해지\s*불이익|보험\s*적용\s*비용|검사\s*비용|치료\s*비용|실비\s*청구|주의사항|부작용|전기요금\s*비교|소음\s*비교|설치\s*비용|필터\s*교체\s*비용|스펙\s*비교|구매처\s*추천|할인\s*쿠폰|장단점|가족|아이랑|뚜벅이|당일치기|주차|1인가구|원룸|자취방|장마철|저소음|소형|가성비|프리랜서|알바|개인사업자|무직자|맞벌이|한부모|대학생|퇴사자|직장인|사회초년생|퇴직자|초보|입문용|여성|어린이|처음|무료|블로거|국비지원)/gu;
+
 const LIVE_MEASURED_PROBE_CATEGORY_COMPAT: Record<string, readonly string[]> = Object.freeze({
   shopping: ['electronics', 'fashion', 'beauty', 'sports'],
   electronics: ['shopping', 'it'],
@@ -3237,6 +3241,10 @@ const PRODUCT_DEAD_END_PURCHASE_TAIL_RE = /(?:구매처\s*추천|가격\s*저소
 const PRODUCT_GENERIC_STACK_TOKEN_RE = /(?:가격비교|최저가|구매처|할인|쿠폰|가성비|추천|후기|가격|순위|비교|렌탈|저소음|설치비|설치\s*비용|1인가구|사이즈|스펙|필터|교체주기)/gu;
 const SPECIFIC_PRODUCT_BRAND_RE = /(?:위닉스|삼성|LG|엘지|다이슨|샤오미|쿠쿠|쿠첸|필립스|캐리어|파세코|신일|한일|보국|아이닉|로보락|에코백스|드리미|발뮤다|애플|아이폰|갤럭시|닌텐도|로지텍|브라운|오랄비|유닉스)/iu;
 const TRAVEL_GENERIC_BOOKING_NO_EFFECT_RE = /(?:(?:서울\s*근교|여름|커플\s*여행지|당일치기|강원도\s*펜션|전주\s*한옥마을\s*맛집|여수\s*야경\s*명소|속초\s*설악산\s*코스|강릉\s*카페거리|국립\s*캠핑장\s*예약\s*사이트).{0,16}(?:예약\s*(?:방법|사이트)?|입장료|주차|운영시간|장단점|선택\s*가이드|코스\s*후기)|(?:예약\s*(?:방법|사이트)?|입장료|주차|운영시간|장단점|선택\s*가이드|코스\s*후기).{0,16}(?:서울\s*근교|여름|커플\s*여행지|당일치기|강원도\s*펜션|전주\s*한옥마을\s*맛집|여수\s*야경\s*명소|속초\s*설악산\s*코스|강릉\s*카페거리|국립\s*캠핑장\s*예약\s*사이트)|펜션\s*매매\s*예약|당일치기\s*(?:바다|드라이브|뚜벅이|계곡|바베큐)\s*예약)/u;
+const TRAVEL_INTENT_MISMATCH_NO_EFFECT_RE = /(?:(?:렌터카|렌트카|렌탈카).{0,16}(?:입장료|운영시간|아이랑\s*코스|뚜벅이\s*코스|당일치기\s*준비물|코스\s*후기|준비물)|(?:입장료|운영시간|아이랑\s*코스|뚜벅이\s*코스|당일치기\s*준비물|코스\s*후기|준비물).{0,16}(?:렌터카|렌트카|렌탈카)|(?:감천문화마을|1박\s*2일\s*코스|다자녀\s*혜택|캠핑장\s*예약\s*사이트|펜션\s*추천|숙소\s*추천).{0,18}예약\s*방법|캠핑장\s*예약\s*사이트\s*(?:선택\s*가이드|아이랑\s*코스|뚜벅이\s*코스|코스\s*후기))/u;
+const TRAVEL_LOW_CONVERSION_STACK_RE = /(?:(?:렌터카|렌트카|렌탈카).{0,16}(?:숙소\s*예약|환불\s*규정)|(?:서울|부산|강릉|여수|속초|경주|전주|대구|인천|대전|울산|청주)\s*렌(?:터|트)카\s*(?:예약\s*방법|추천\s*후기|예약\s*후기|렌트\s*비용|주말\s*예약|당일\s*예약|공항\s*예약)|(?:가족여행\s*추천지|등산\s*초보\s*코스|강원도\s*펜션\s*추천|반려견\s*동반\s*펜션).{0,18}(?:숙소\s*(?:예약|추천)|축제\s*일정)|(?:한옥마을\s*맛집|맛집).{0,12}(?:가격비교|최저가\s*비교))/u;
+const POLICY_AUDIENCE_BASE_MISMATCH_RE = /(?:(?:개인사업자|사업자|소상공인|정책자금|대리대출|직접대출).{0,14}(?:무직자|알바|대학생|한부모|맞벌이)|(?:무직자|알바|대학생|한부모|맞벌이).{0,14}(?:개인사업자|사업자|소상공인|정책자금|대리대출|직접대출))/u;
+const FINANCE_HEALTH_INTENT_MISMATCH_RE = /(?:\bETF\b.{0,14}(?:세액공제|신청\s*방법|만기\s*수령액|해지\s*불이익)|(?:프로바이오틱스|오메가3|코엔자임Q10).{0,16}(?:보험\s*적용|실비\s*청구|치료\s*비용|검사\s*비용))/iu;
 
 function productGenericStackTokenCount(keyword: string): number {
   const hits = normalizeKeyword(keyword).match(PRODUCT_GENERIC_STACK_TOKEN_RE) || [];
@@ -3252,6 +3260,10 @@ function isSyntheticNoEffectLiveProbe(keyword: string): boolean {
     || NEWS_PERSON_OR_ROLE_POLICY_TAIL_RE.test(clean)
     || (LIVE_POLICY_SIGNAL_RE.test(clean) && POLICY_SYNTHETIC_DOUBLE_TAIL_RE.test(clean))
     || TRAVEL_GENERIC_BOOKING_NO_EFFECT_RE.test(clean)
+    || TRAVEL_INTENT_MISMATCH_NO_EFFECT_RE.test(clean)
+    || TRAVEL_LOW_CONVERSION_STACK_RE.test(clean)
+    || POLICY_AUDIENCE_BASE_MISMATCH_RE.test(clean)
+    || FINANCE_HEALTH_INTENT_MISMATCH_RE.test(clean)
     || (
       PRODUCT_BASE_SIGNAL_RE.test(clean)
       && (
@@ -3313,6 +3325,7 @@ function isMeasuredProbeIntentCompatible(base: string, intent: string, categoryI
   const cleanIntent = normalizeKeyword(intent);
   if (!cleanBase || !cleanIntent) return false;
   const inferred = inferLiveCategory(cleanBase, categoryId);
+  if (/\bETF\b/iu.test(cleanBase) && /(?:세액공제|신청\s*방법|만기\s*수령액|해지\s*불이익)/u.test(cleanIntent)) return false;
   if (['policy', 'finance'].includes(inferred) && /(?:예약|예매|주차|입장료|숙소|호텔|픽업|환불\s*규정)/u.test(cleanIntent)) return false;
   if (inferred === 'finance' && /(?:신청\s*대상|필요\s*서류|온라인\s*신청)/u.test(cleanIntent) && !/청년|청약|대출|보험/u.test(cleanBase)) return false;
   if (/청소기/u.test(cleanBase) && /(?:전기요금|전기세|설치\s*비용)/u.test(cleanIntent)) return false;
@@ -3324,6 +3337,11 @@ function isMeasuredProbeIntentCompatible(base: string, intent: string, categoryI
   if (LIVE_MEASURED_PROBE_HEALTH_POLICY_MIX_RE.test(`${cleanBase} ${cleanIntent}`)) return false;
   if (/도수치료|치료제/u.test(cleanBase) && /검사\s*비용/u.test(cleanIntent)) return false;
   if (inferred === 'health' && !LIVE_MEASURED_PROBE_HEALTH_INTENT_RE.test(cleanIntent)) return false;
+  if (
+    inferred === 'health'
+    && !LIVE_MEASURED_PROBE_HEALTH_BASE_RE.test(cleanBase)
+    && /(?:보험\s*적용|실비|치료\s*비용|검사\s*비용)/u.test(cleanIntent)
+  ) return false;
   if (/도수치료|치아보험|임플란트|검사|예방접종|탈모치료/u.test(cleanBase) && /(?:예약\s*방법|추천\s*후기)/u.test(cleanIntent)) return false;
   if (LIVE_MEASURED_PROBE_SPORTS_EQUIPMENT_RE.test(cleanBase)) {
     return LIVE_MEASURED_PROBE_PRODUCT_INTENT_RE.test(cleanIntent)
@@ -3365,6 +3383,71 @@ function buildMeasuredProbeDetailCandidates(base: string, intent: string, catego
       .filter(Boolean),
     5,
   );
+}
+
+function measuredProbeIntentPriority(intent: string, categoryId: string): number {
+  const cleanIntent = normalizeKeyword(intent);
+  const category = normalizeKeyword(categoryId || 'all') || 'all';
+  let score = 0;
+  if (MEASURED_PROBE_STRONG_CONVERSION_INTENT_RE.test(cleanIntent)) score += 100;
+  if (MEASURED_PROBE_WEAK_INFO_INTENT_RE.test(cleanIntent)) score -= 90;
+  if ((category === 'shopping' || category === 'electronics') && /(?:가격|최저가|할인|쿠폰|구매처|소음|전기요금|스펙)/u.test(cleanIntent)) score += 45;
+  if ((category === 'policy' || category === 'finance') && /(?:신청|지급일|사용처|소득기준|세액공제|수수료|금리|만기|해지|잔액조회)/u.test(cleanIntent)) score += 45;
+  if (/^추천\s*후기$/u.test(cleanIntent) && (category === 'travel_domestic' || category === 'travel_overseas')) score -= 60;
+  return score;
+}
+
+function measuredProbeFamilyKey(keyword: string): string {
+  const clean = normalizeKeyword(keyword)
+    .replace(/렌트카|렌탈카/gu, '렌터카')
+    .replace(/완전자차|보험/gu, ' ');
+  if (!clean) return '';
+  const stripped = normalizeKeyword(clean.replace(MEASURED_PROBE_FAMILY_STRIP_RE, ' '));
+  const compact = stripped
+    .replace(/\s+/g, '')
+    .replace(/[^a-z0-9가-힣]/gi, '');
+  if (/제주렌터카/u.test(compact)) return '제주렌터카';
+  return (compact || keywordClusterKey(clean)).slice(0, 18);
+}
+
+function measuredProbePreMeasurePriority(keyword: string): number {
+  const clean = normalizeKeyword(keyword);
+  if (!clean) return -999;
+  const inferred = inferLiveCategory(clean, 'all');
+  let score = preVolumeCandidateScore(clean, inferred || 'all')
+    + livePromotionPriorityBonus(clean, inferred || 'all');
+  if (MEASURED_PROBE_STRONG_CONVERSION_INTENT_RE.test(clean)) score += 160;
+  if (hasWriterReadySpecificity(clean)) score += 80;
+  if (/완전자차.{0,8}가격비교|보험.{0,8}가격비교|실비.{0,8}청구|세액공제.{0,8}한도|소득기준.{0,8}계산/u.test(clean)) score += 140;
+  if (MEASURED_PROBE_WEAK_INFO_INTENT_RE.test(clean)) score -= 120;
+  return score;
+}
+
+function diversifyMeasuredProbeCandidates(values: string[], limit: number): string[] {
+  const unique = uniqueKeywords(values, limit * 3)
+    .map((keyword, index) => ({ keyword, index }))
+    .sort((a, b) => (
+      measuredProbePreMeasurePriority(b.keyword) - measuredProbePreMeasurePriority(a.keyword)
+      || a.index - b.index
+    ))
+    .map((entry) => entry.keyword);
+  const selected: string[] = [];
+  const counts = new Map<string, number>();
+  const pushWithCap = (cap: number): void => {
+    for (const keyword of unique) {
+      if (selected.length >= limit) return;
+      if (selected.some((item) => keywordCompactId(item) === keywordCompactId(keyword))) continue;
+      const family = measuredProbeFamilyKey(keyword);
+      const count = counts.get(family) || 0;
+      if (count >= cap) continue;
+      counts.set(family, count + 1);
+      selected.push(keyword);
+    }
+  };
+  pushWithCap(8);
+  pushWithCap(14);
+  pushWithCap(limit);
+  return selected.slice(0, limit);
 }
 
 function shouldMeasureProbeBaseDirectly(base: string, categoryId: string): boolean {
@@ -3488,7 +3571,9 @@ function buildMeasuredProbeCandidates(
     const intents = uniqueKeywords([
       ...specificIntents,
       ...(specificIntents.length === 0 ? (LIVE_MEASURED_PROBE_INTENTS.all || []) : []),
-    ], 18).filter((intent) => isMeasuredProbeIntentCompatible(base, intent, inferred || categoryId));
+    ], 18)
+      .filter((intent) => isMeasuredProbeIntentCompatible(base, intent, inferred || categoryId))
+      .sort((a, b) => measuredProbeIntentPriority(b, inferred || categoryId) - measuredProbeIntentPriority(a, inferred || categoryId));
     for (const intent of intents) {
       if (candidates.length >= candidateLimit) break;
       const candidate = appendCompatibleIntent(base, intent);
@@ -3506,7 +3591,7 @@ function buildMeasuredProbeCandidates(
     }
   }
 
-  return uniqueKeywords(candidates, candidateLimit);
+  return diversifyMeasuredProbeCandidates(candidates, candidateLimit);
 }
 
 function buildBackfillCandidates(categoryId: string, liveSeeds: string[], maxSeeds: number, now: Date = new Date()): string[] {
@@ -4143,7 +4228,18 @@ function preVolumeCandidateScore(keyword: string, categoryId: string): number {
   const intentPenalty = ultimateIntentFragmentCount(clean) >= 3 ? -26 : 0;
   const sourcePenalty = isLowValueLiveSourceCategory(inferred) ? -40 : 0;
   const measuredProbeBonus = isLiveMeasuredProbeCandidate(clean, categoryId) ? 90 : 0;
-  return categoryBonus + needScore + longTailScore + measuredProbeBonus + intentPenalty + sourcePenalty;
+  const conversionIntentBonus = MEASURED_PROBE_STRONG_CONVERSION_INTENT_RE.test(clean) ? 92 : 0;
+  const weakInfoPenalty = MEASURED_PROBE_WEAK_INFO_INTENT_RE.test(clean) ? -85 : 0;
+  const familyDiversityPenalty = /(?:렌터카|렌트카|렌탈카).{0,12}(?:추천\s*후기|숙소\s*예약|환불\s*규정)/u.test(clean) ? -80 : 0;
+  return categoryBonus
+    + needScore
+    + longTailScore
+    + measuredProbeBonus
+    + conversionIntentBonus
+    + weakInfoPenalty
+    + familyDiversityPenalty
+    + intentPenalty
+    + sourcePenalty;
 }
 
 function isHighYieldSearchAdSpendCandidate(keyword: string, categoryId: string, now: Date = new Date()): boolean {
