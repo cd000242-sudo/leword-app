@@ -5036,16 +5036,21 @@ export class MobileLiveGoldenRadar {
       const backfillCategoryId = catchUpMode || sssDepthShort ? 'all' : categoryId;
       const hasRunnableProbeQueueForRun = this.runnableMeasuredProbeQueueItems(backfillCategoryId, runLimit).length > 0;
       let qualityDirect: MDPResult[] = [];
+      let queuedProbeAttemptedCount = 0;
+      let queuedProbeResultCount = 0;
       if (this.enableBackfill) {
         const queuedProbeDirect = await this.discoverQueuedProbeBackfill({
           clientId: env.naverClientId,
           clientSecret: env.naverClientSecret,
         }, backfillCategoryId, runLimit);
+        queuedProbeAttemptedCount = queuedProbeDirect.attemptedCount;
+        queuedProbeResultCount = queuedProbeDirect.results.length;
         if (queuedProbeDirect.results.length > 0) {
           qualityDirect = [...qualityDirect, ...queuedProbeDirect.results];
         }
         const shouldRunExpansionBackfill = queuedProbeDirect.attemptedCount === 0
-          || queuedProbeDirect.results.length >= Math.min(3, runLimit);
+          || queuedProbeDirect.results.length >= Math.min(3, runLimit)
+          || sssDepthShort;
         const backfill = shouldRunExpansionBackfill
           ? await withTimeout(
             this.discoverBackfill({
@@ -5068,7 +5073,10 @@ export class MobileLiveGoldenRadar {
       );
       const shouldDeferHeavyDirectToProbeQueue = this.enableBackfill
         && catchUpMode
-        && hasRunnableProbeQueueForRun;
+        && hasRunnableProbeQueueForRun
+        && !sssDepthShort
+        && queuedProbeAttemptedCount > 0
+        && queuedProbeResultCount > 0;
       const shouldRunHeavyDirect = (
         !shouldDeferHeavyDirectToProbeQueue
         && (
@@ -5515,6 +5523,90 @@ export class MobileLiveGoldenRadar {
     if (changed) this.saveMeasuredProbeQueueToFile();
   }
 
+  private updateMeasuredProbeQueueAfterSelectedItems(
+    selectedItems: LiveMeasuredProbeQueueItem[],
+    attemptedKeywords: string[],
+    volumeRows: LiveSearchVolumeRow[],
+    enrichedRows: LiveSearchVolumeRow[],
+  ): void {
+    const selectedIds = new Set(selectedItems.map((item) => keywordCompactId(item.keyword)).filter(Boolean));
+    if (selectedIds.size === 0 || this.pendingMeasuredProbeQueue.length === 0) return;
+
+    const variantOwnerIds = new Map<string, Set<string>>();
+    for (const item of selectedItems) {
+      const ownerId = keywordCompactId(item.keyword);
+      if (!ownerId) continue;
+      const variants = uniqueKeywords([
+        item.keyword,
+        ...searchAdProbeMeasurementVariants(item.keyword),
+        ...attemptedKeywords.filter((keyword) => {
+          const compact = keywordCompactId(keyword);
+          return compact === ownerId || compact.startsWith(ownerId) || ownerId.startsWith(compact);
+        }),
+      ], 12);
+      for (const variant of variants) {
+        const variantId = keywordCompactId(variant);
+        if (!variantId) continue;
+        if (!variantOwnerIds.has(variantId)) variantOwnerIds.set(variantId, new Set());
+        variantOwnerIds.get(variantId)?.add(ownerId);
+      }
+    }
+
+    const ownersForRows = (rows: LiveSearchVolumeRow[], predicate: (row: LiveSearchVolumeRow) => boolean): Set<string> => {
+      const out = new Set<string>();
+      for (const row of rows) {
+        if (!predicate(row)) continue;
+        const rowId = keywordCompactId(row.keyword);
+        const owners = rowId ? variantOwnerIds.get(rowId) : null;
+        if (!owners) continue;
+        for (const owner of owners) out.add(owner);
+      }
+      return out;
+    };
+    const volumeHitIds = ownersForRows(volumeRows, (row) => rowSearchVolume(row) > 0);
+    const completeIds = ownersForRows(enrichedRows, (row) => {
+      const volume = rowSearchVolume(row);
+      const docs = finiteNumber(row.documentCount);
+      return volume > 0 && docs !== null && docs > 0;
+    });
+
+    const stamp = this.now().toISOString();
+    let changed = false;
+    let touched = 0;
+    let removed = 0;
+    for (let index = this.pendingMeasuredProbeQueue.length - 1; index >= 0; index -= 1) {
+      const item = this.pendingMeasuredProbeQueue[index];
+      const compact = keywordCompactId(item.keyword);
+      if (!compact || !selectedIds.has(compact)) continue;
+      touched += 1;
+      if (completeIds.has(compact)) {
+        this.pendingMeasuredProbeQueue.splice(index, 1);
+        removed += 1;
+        changed = true;
+        continue;
+      }
+      item.attempts += 1;
+      item.lastTriedAt = stamp;
+      if (!volumeHitIds.has(compact)) item.misses += 1;
+      if (item.attempts >= LIVE_PROBE_QUEUE_MAX_ATTEMPTS || item.misses >= LIVE_PROBE_QUEUE_NO_RESULT_MAX) {
+        this.pendingMeasuredProbeQueue.splice(index, 1);
+        removed += 1;
+      }
+      changed = true;
+    }
+    if (changed) {
+      this.saveMeasuredProbeQueueToFile();
+      console.info('[LIVE-GOLDEN] measured probe queue advanced', {
+        selected: selectedIds.size,
+        touched,
+        removed,
+        volumeHits: volumeHitIds.size,
+        complete: completeIds.size,
+        remaining: this.pendingMeasuredProbeQueue.length,
+      });
+    }
+  }
+
   private loadMeasuredProbeQueueFromFile(): void {
     if (!this.probeQueueFile) return;
     try {
@@ -5589,6 +5681,10 @@ export class MobileLiveGoldenRadar {
     } catch (err) {
       this.lastError = (err as Error).message || String(err);
       this.lastMessage = `measured probe queue save failed: ${this.lastError}`;
+      console.warn('[LIVE-GOLDEN] measured probe queue save failed', {
+        file: this.probeQueueFile,
+        error: this.lastError,
+      });
     }
   }
 
@@ -5961,7 +6057,6 @@ export class MobileLiveGoldenRadar {
     const categoryById = new Map<string, string>();
     const candidates: string[] = [];
     const seenCandidateKeywords = new Set<string>();
-    const attemptedKeywords = queuedProbeItems.map((item) => item.keyword);
     const candidateLimit = Math.min(160, Math.max(measurementLimit, measurementLimit * 2));
     const variantsByItem = queuedProbeItems.map((item) => {
       const effectiveCategory = measuredProbeEffectiveCategory(item, categoryId || 'all');
@@ -5995,7 +6090,7 @@ export class MobileLiveGoldenRadar {
       includeDocumentCount: false,
     }, Math.min(LIVE_BACKFILL_TIMEOUT_MS, 90_000));
     const rows = await this.attachDocumentCountsToVolumeRows(volumeRows, categoryId, targetLimit);
-    this.updateMeasuredProbeQueueAfterMeasurement([...attemptedKeywords, ...candidates], volumeRows, rows);
+    this.updateMeasuredProbeQueueAfterSelectedItems(queuedProbeItems, candidates, volumeRows, rows);
 
     const seen = new Set<string>();
     const out: MDPResult[] = [];

@@ -3045,6 +3045,7 @@ function thinProfileCount(items: Array<{ keyword: string }>): number {
     discover: async () => [],
   });
   const queueVariantSnapshot = await queueVariantRadar.runOnce();
+  const queueVariantAfter = JSON.parse(fs.readFileSync(queueVariantProbeFile, 'utf8'));
   assert('spaced writer-ready queued probes are measured with compact SearchAd variants',
     queueVariantMeasuredKeywords.includes(spacedTravelProbe)
       && queueVariantMeasuredKeywords.includes(compactTravelWinner)
@@ -3060,7 +3061,58 @@ function thinProfileCount(items: Array<{ keyword: string }>): number {
       board: queueVariantSnapshot.board.map((item) => `${item.keyword}:${item.grade}:${item.pcSearchVolume}:${item.mobileSearchVolume}:${item.documentCount}`),
       lastMessage: queueVariantSnapshot.lastMessage,
     }));
+  assert('spaced writer-ready queued probe is removed after a measured variant succeeds',
+    !queueVariantAfter.items?.some((item: any) => item.keyword === spacedTravelProbe),
+    JSON.stringify(queueVariantAfter.items || []));
   fs.rmSync(queueVariantProbeFile, { force: true });
+
+  const queueMissProbeFile = path.join(process.cwd(), 'tmp', 'mobile-live-golden-queue-miss-test.json');
+  const missedTravelProbe = '\uC1A1\uC9C0\uD638 \uBC14\uB2E4\uD558\uB298\uAE38 \uC608\uC57D \uBC29\uBC95';
+  fs.writeFileSync(queueMissProbeFile, JSON.stringify({
+    version: 1,
+    savedAt: '2026-06-15T08:00:00.000Z',
+    items: [{
+      keyword: missedTravelProbe,
+      category: 'travel_domestic',
+      source: 'fixture-no-hit-queue',
+      priority: 9999,
+      firstSeenAt: '2026-06-15T07:00:00.000Z',
+      attempts: 0,
+      misses: 0,
+    }],
+  }), 'utf8');
+  const queueMissMeasuredKeywords: string[] = [];
+  const queueMissRadar = new MobileLiveGoldenRadar({
+    notificationInbox: inbox,
+    runOnStart: false,
+    cycleLimit: 4,
+    boardTarget: 10,
+    maxCandidates: 180,
+    categories: ['all'],
+    probeQueueFile: queueMissProbeFile,
+    getEnvConfig: () => ({
+      naverClientId: 'client',
+      naverClientSecret: 'secret',
+    }),
+    liveSeedProvider: async () => [],
+    enableBackfill: true,
+    autocompleteProvider: async () => [],
+    searchAdSuggestionProvider: async () => [],
+    measureLiveSearchVolumeSeparate: async (_config, keywords, options) => {
+      assert('queued miss volume pass keeps document count separated', options?.includeDocumentCount === false);
+      queueMissMeasuredKeywords.push(...keywords);
+      return [];
+    },
+    measureLiveDocumentCount: async () => null,
+    discover: async () => [],
+  });
+  await queueMissRadar.runOnce();
+  const queueMissAfter = JSON.parse(fs.readFileSync(queueMissProbeFile, 'utf8'));
+  assert('no-result queued probe is retired instead of blocking later candidates',
+    queueMissMeasuredKeywords.includes(missedTravelProbe)
+      && !queueMissAfter.items?.some((item: any) => item.keyword === missedTravelProbe),
+    JSON.stringify({ measured: queueMissMeasuredKeywords, queue: queueMissAfter.items || [] }));
+  fs.rmSync(queueMissProbeFile, { force: true });
 
   const catchUpProbeFile = path.join(process.cwd(), 'tmp', 'mobile-live-golden-catchup-queue-depth-test.json');
   const catchUpProbeKeywords = __liveGoldenRadarTestInternals
