@@ -4422,11 +4422,12 @@ export class MobileLiveGoldenRadar {
 
   private backfillMeasurementLimit(targetLimit: number): number {
     return Math.max(
-      72,
+      48,
       Math.min(
         this.maxCandidates,
+        60,
         LIVE_BACKFILL_VOLUME_PASS_MAX,
-        Math.max(targetLimit * 7, Math.floor(this.maxCandidates * 0.08)),
+        Math.max(targetLimit * 2, Math.floor(this.maxCandidates * 0.01)),
       ),
     );
   }
@@ -4544,6 +4545,7 @@ export class MobileLiveGoldenRadar {
       const existingIdsForRun = new Set(this.board.keys());
       const existingClustersForRun = new Set([...this.board.values()].map((item) => keywordClusterKey(item.keyword)).filter(Boolean));
       const catchUpMode = this.sortedBoard().length < this.boardTarget;
+      const hasRunnableProbeQueueForRun = this.runnableMeasuredProbeQueueItems(categoryId, runLimit).length > 0;
       let qualityDirect: MDPResult[] = [];
       if (this.enableBackfill) {
         const backfill = await withTimeout(
@@ -4564,11 +4566,17 @@ export class MobileLiveGoldenRadar {
       const novelSssCount = countSss(
         qualityDirect.filter((item) => isNovelMdpResult(item, existingIdsForRun, existingClustersForRun)),
       );
+      const shouldDeferHeavyDirectToProbeQueue = this.enableBackfill
+        && catchUpMode
+        && hasRunnableProbeQueueForRun;
       const shouldRunHeavyDirect = (
-        !catchUpMode
-        || !this.enableBackfill
-        || novelQualityCount < runLimit
-        || novelSssCount < desiredRunSssCount
+        !shouldDeferHeavyDirectToProbeQueue
+        && (
+          !catchUpMode
+          || !this.enableBackfill
+          || novelQualityCount < runLimit
+          || novelSssCount < desiredRunSssCount
+        )
       ) && (
         novelQualityCount < runLimit
         || qualityDirect.length < runLimit
@@ -4774,12 +4782,12 @@ export class MobileLiveGoldenRadar {
       if (snapshot.running || afterAttempts === beforeAttempts) break;
       if (this.skippedRuns > 0 && /busy|skipped/i.test(snapshot.lastMessage || '')) break;
       if (snapshot.boardCount <= beforeBoardCount && afterSssReady <= beforeSssReady) {
-        if (!this.hasRunnableMeasuredProbeQueue()) {
-          this.lastMessage = `catch-up paused: no new measured publishable rows; board ${snapshot.boardCount}/${this.boardTarget}`;
-          snapshot = this.snapshot();
-          break;
-        }
-        this.lastMessage = `catch-up continuing: measured probe queue ${this.pendingMeasuredProbeQueue.length}, board ${snapshot.boardCount}/${this.boardTarget}`;
+        const queueSuffix = this.pendingMeasuredProbeQueue.length > 0
+          ? `; probe queue ${this.pendingMeasuredProbeQueue.length} waiting for next interval`
+          : '';
+        this.lastMessage = `catch-up paused: no new measured publishable rows; board ${snapshot.boardCount}/${this.boardTarget}${queueSuffix}`;
+        snapshot = this.snapshot();
+        break;
       }
     }
     return snapshot;
@@ -5221,8 +5229,8 @@ export class MobileLiveGoldenRadar {
     if (!searchAdConfig) return [];
 
     const now = this.now();
-    const limit = Math.max(120, Math.min(420, Math.floor(targetLimit * 30)));
-    const seedLimit = Math.max(16, Math.min(42, Math.ceil(targetLimit * 2.8)));
+    const limit = Math.max(40, Math.min(120, Math.floor(targetLimit * 10)));
+    const seedLimit = Math.max(6, Math.min(10, Math.ceil(targetLimit * 0.8)));
     const catalogSeeds = measuredProbeCategoryKeys(categoryId, liveSeeds)
       .flatMap((key) => LIVE_MEASURED_PROBE_BASES[key] || [])
       .map((seed) => normalizeKeyword(seed))
@@ -5285,7 +5293,7 @@ export class MobileLiveGoldenRadar {
       });
     };
 
-    const workers = Array.from({ length: Math.min(3, seeds.length) }, async () => {
+    const workers = Array.from({ length: Math.min(1, seeds.length) }, async () => {
       while (cursor < seeds.length && scored.size < limit) {
         const seed = seeds[cursor];
         cursor += 1;
