@@ -1023,6 +1023,35 @@ function thinProfileCount(items: Array<{ keyword: string }>): number {
   assert('measured probe generation does not attach product shopping tails to non-product sports events',
     sportsProbeCandidates.every((keyword) => !/(?:KBO|올스타전)/.test(keyword)),
     sportsProbeCandidates.slice(0, 80).join('|'));
+  const productEventTailMismatchCases = [
+    ['\uB808\uC778\uBD80\uCE20 \uC21C\uC704 \uC911\uACC4 \uC77C\uC815', 'shopping'],
+    ['\uB808\uC778\uBD80\uCE20 \uC21C\uC704 \uACBD\uAE30 \uC77C\uC815', 'shopping'],
+    ['\uB808\uC778\uBD80\uCE20 \uC21C\uC704 \uC9C1\uAD00 \uC900\uBE44\uBB3C', 'shopping'],
+    ['\uB808\uC778\uBD80\uCE20 \uC21C\uC704 \uC608\uB9E4 \uC77C\uC815', 'shopping'],
+    ['\uB808\uC778\uBD80\uCE20 \uBE44\uAD50 \uD504\uB86C\uD504\uD2B8', 'shopping'],
+  ] as const;
+  assert('product shopping heads reject sports event and non-AI prompt tails',
+    productEventTailMismatchCases.every(([keyword, category]) => (
+      !__liveGoldenRadarTestInternals.isLiveRadarUsableKeyword(keyword, 2400, 180, lottoGuardNow)
+        && !__liveGoldenRadarTestInternals.isSearchAdMeasurableLiveCandidate(keyword, category, lottoGuardNow)
+        && !__liveGoldenRadarTestInternals.isHighYieldSearchAdSpendCandidate(keyword, category, lottoGuardNow)
+    )),
+    JSON.stringify(productEventTailMismatchCases.map(([keyword, category]) => ({
+      keyword,
+      category,
+      usable: __liveGoldenRadarTestInternals.isLiveRadarUsableKeyword(keyword, 2400, 180, lottoGuardNow),
+      searchAd: __liveGoldenRadarTestInternals.isSearchAdMeasurableLiveCandidate(keyword, category, lottoGuardNow),
+      spend: __liveGoldenRadarTestInternals.isHighYieldSearchAdSpendCandidate(keyword, category, lottoGuardNow),
+      debug: __liveGoldenRadarTestInternals.debugSearchAdMeasurableLiveCandidate(keyword, category, lottoGuardNow),
+    }))));
+  const productEventBackfillCandidates = __liveGoldenRadarTestInternals.buildBackfillCandidates('shopping', [
+    '\uB808\uC778\uBD80\uCE20 \uC21C\uC704',
+  ], 120, lottoGuardNow);
+  assert('shopping backfill does not create sports event tails for product rank seeds',
+    productEventBackfillCandidates.every((keyword) => (
+      !/(?:\uC911\uACC4\s*\uC77C\uC815|\uACBD\uAE30\s*\uC77C\uC815|\uC9C1\uAD00\s*\uC900\uBE44\uBB3C|\uC608\uB9E4\s*\uC77C\uC815|\uD504\uB86C\uD504\uD2B8)/u.test(keyword)
+    )),
+    productEventBackfillCandidates.slice(0, 80).join('|'));
   assert('policy compound chains are rejected before SearchAd spend',
     !__liveGoldenRadarTestInternals.isSearchAdMeasurableLiveCandidate('청년미래적금 신청 소득기준 계산 서류', 'policy', lottoGuardNow)
       && !__liveGoldenRadarTestInternals.isSearchAdMeasurableLiveCandidate('청년미래적금 서류 마감일 확인', 'policy', lottoGuardNow)
