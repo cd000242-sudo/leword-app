@@ -1872,6 +1872,9 @@ function thinProfileCount(items: Array<{ keyword: string }>): number {
     broadHeadGradeByKeyword.get('\uC0AC\uB300\uBCF4\uD5D8\uACC4\uC0B0\uAE30') !== 'SSS'
       && broadHeadGradeByKeyword.get('\uC0AC\uB300\uBCF4\uD5D8\uACC4\uC0B0\uAE30 \uD504\uB9AC\uB79C\uC11C \uC2E4\uC218\uB839\uC561') === 'SSS',
     broadHeadCapSnapshot.board.map((item) => `${item.keyword}:${item.grade}`).join('|'));
+  assert('compound writer-ready longtails outrank broad calculator heads',
+    broadHeadCapSnapshot.board[0]?.keyword === '\uC0AC\uB300\uBCF4\uD5D8\uACC4\uC0B0\uAE30 \uD504\uB9AC\uB79C\uC11C \uC2E4\uC218\uB839\uC561',
+    broadHeadCapSnapshot.board.map((item) => `${item.rank}:${item.keyword}:${item.grade}`).join('|'));
   const broadHeadFallbackRejected = !__liveGoldenRadarTestInternals.isMeasuredProBoardFallbackMetric({
     keyword: '\uC0AC\uB300\uBCF4\uD5D8\uACC4\uC0B0\uAE30',
     grade: 'SS',
@@ -2979,6 +2982,85 @@ function thinProfileCount(items: Array<{ keyword: string }>): number {
       lastMessage: queuePrioritySnapshot.lastMessage,
     }));
   fs.rmSync(queuePriorityProbeFile, { force: true });
+
+  const queueVariantProbeFile = path.join(process.cwd(), 'tmp', 'mobile-live-golden-queue-variant-test.json');
+  const spacedTravelProbe = '\uC1A1\uC9C0\uD638 \uBC14\uB2E4\uD558\uB298\uAE38 \uC608\uC57D \uBC29\uBC95';
+  const compactTravelWinner = '\uC1A1\uC9C0\uD638\uBC14\uB2E4\uD558\uB298\uAE38\uC608\uC57D';
+  fs.writeFileSync(queueVariantProbeFile, JSON.stringify({
+    version: 1,
+    savedAt: '2026-06-15T08:00:00.000Z',
+    items: [{
+      keyword: spacedTravelProbe,
+      source: 'fixture-legacy-spaced-queue',
+      priority: 9999,
+      firstSeenAt: '2026-06-15T07:00:00.000Z',
+      attempts: 0,
+      misses: 0,
+    }],
+  }), 'utf8');
+  const queueVariantMeasuredKeywords: string[] = [];
+  const queueVariantRadar = new MobileLiveGoldenRadar({
+    notificationInbox: inbox,
+    runOnStart: false,
+    cycleLimit: 4,
+    boardTarget: 10,
+    maxCandidates: 180,
+    categories: ['all'],
+    probeQueueFile: queueVariantProbeFile,
+    getEnvConfig: () => ({
+      naverClientId: 'client',
+      naverClientSecret: 'secret',
+    }),
+    liveSeedProvider: async () => [],
+    enableBackfill: true,
+    autocompleteProvider: async () => [],
+    searchAdSuggestionProvider: async () => [],
+    measureLiveSearchVolumeSeparate: async (_config, keywords, options) => {
+      assert('spaced queue variant volume pass keeps document count separated', options?.includeDocumentCount === false);
+      queueVariantMeasuredKeywords.push(...keywords);
+      return keywords
+        .filter((keyword) => keyword === compactTravelWinner)
+        .map((keyword) => ({
+          keyword,
+          pcSearchVolume: 540,
+          mobileSearchVolume: 3660,
+          documentCount: null,
+          competition: 'LOW',
+          monthlyAveCpc: 190,
+          searchVolumeSource: 'searchad',
+          searchVolumeConfidence: 'high',
+          isSearchVolumeEstimated: false,
+        }));
+    },
+    measureLiveDocumentCount: async (keyword) => (
+      keyword === compactTravelWinner
+        ? {
+          dc: 140,
+          source: 'scrape',
+          confidence: 'high',
+          isEstimated: false,
+        }
+        : null
+    ),
+    discover: async () => [],
+  });
+  const queueVariantSnapshot = await queueVariantRadar.runOnce();
+  assert('spaced writer-ready queued probes are measured with compact SearchAd variants',
+    queueVariantMeasuredKeywords.includes(spacedTravelProbe)
+      && queueVariantMeasuredKeywords.includes(compactTravelWinner)
+      && queueVariantSnapshot.board.some((item) => (
+        item.keyword === compactTravelWinner
+        && item.grade === 'SSS'
+        && item.pcSearchVolume === 540
+        && item.mobileSearchVolume === 3660
+        && item.documentCount === 140
+      )),
+    JSON.stringify({
+      measured: queueVariantMeasuredKeywords,
+      board: queueVariantSnapshot.board.map((item) => `${item.keyword}:${item.grade}:${item.pcSearchVolume}:${item.mobileSearchVolume}:${item.documentCount}`),
+      lastMessage: queueVariantSnapshot.lastMessage,
+    }));
+  fs.rmSync(queueVariantProbeFile, { force: true });
 
   const catchUpProbeFile = path.join(process.cwd(), 'tmp', 'mobile-live-golden-catchup-queue-depth-test.json');
   const catchUpProbeKeywords = __liveGoldenRadarTestInternals

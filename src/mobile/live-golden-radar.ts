@@ -854,6 +854,21 @@ function uniqueKeywords(values: string[], limit = 40): string[] {
   return out;
 }
 
+function uniqueSearchAdMeasurementKeywords(values: string[], limit = 40): string[] {
+  const seen = new Set<string>();
+  const out: string[] = [];
+  for (const raw of values) {
+    const value = normalizeKeyword(raw);
+    if (!value) continue;
+    const key = value.toLowerCase();
+    if (seen.has(key)) continue;
+    seen.add(key);
+    out.push(value);
+    if (out.length >= limit) break;
+  }
+  return out;
+}
+
 function uniqueVolumeRows(rows: LiveSearchVolumeRow[], limit = 40): LiveSearchVolumeRow[] {
   const seen = new Set<string>();
   const out: LiveSearchVolumeRow[] = [];
@@ -1404,6 +1419,10 @@ function boardScore(item: MobileLiveGoldenBoardItem): number {
     : longTail >= 18 && need >= 18 && volume >= 300
       ? 30
       : 0;
+  const broadHeadPenalty = isBroadHeadSssKeyword(item.keyword) ? -260 : 0;
+  const writerReadyLift = !isBroadHeadSssKeyword(item.keyword) && hasWriterReadySpecificity(item.keyword)
+    ? 58
+    : 0;
   const monsterBonus = volume >= 1_000 && documents !== null && documents <= 5_000 && ratio >= 5
     ? 48
     : volume >= 500 && documents !== null && documents <= 10_000 && ratio >= 3
@@ -1420,6 +1439,8 @@ function boardScore(item: MobileLiveGoldenBoardItem): number {
     + firstMoverScarcity
     + longTailNeedSynergy
     + monsterBonus
+    + broadHeadPenalty
+    + writerReadyLift
     + virality * 1.35
     + viralLift
     + exactAutocomplete
@@ -3448,6 +3469,48 @@ function measuredProbeQueueFamilyKey(keyword: string): string {
   return family;
 }
 
+function measuredProbeEffectiveCategory(item: Pick<LiveMeasuredProbeQueueItem, 'keyword' | 'category'>, fallbackCategory: string): string {
+  const fallback = normalizeKeyword(item.category) || normalizeKeyword(fallbackCategory) || 'all';
+  return inferLiveCategory(item.keyword, fallback) || fallback;
+}
+
+function measuredProbeQueueEffectiveScore(item: LiveMeasuredProbeQueueItem): number {
+  return item.priority - item.attempts * 45 - item.misses * 90;
+}
+
+const SEARCHAD_PROBE_VARIANT_TRAILING_INTENT_RE = /(?:\s+(?:\uBC29\uBC95|\uC870\uD68C|\uD655\uC778|\uC815\uB9AC|\uCD94\uCC9C|\uBE44\uAD50))$/u;
+
+function searchAdProbeMeasurementVariants(keyword: string): string[] {
+  const clean = normalizeKeyword(keyword);
+  if (!clean) return [];
+  const variants: string[] = [clean];
+  const compact = clean.replace(/\s+/g, '');
+  if (compact !== clean && /[\uAC00-\uD7A3]/u.test(clean)) variants.push(compact);
+  const trimmed = normalizeKeyword(clean.replace(SEARCHAD_PROBE_VARIANT_TRAILING_INTENT_RE, ''));
+  if (trimmed && trimmed !== clean && keywordCompactId(trimmed) !== keywordCompactId(clean)) {
+    variants.push(trimmed);
+    const trimmedCompact = trimmed.replace(/\s+/g, '');
+    if (trimmedCompact !== trimmed && /[\uAC00-\uD7A3]/u.test(trimmed)) variants.push(trimmedCompact);
+  }
+  const seen = new Set<string>();
+  const out: string[] = [];
+  for (const variant of variants) {
+    const exact = normalizeKeyword(variant);
+    if (!exact || seen.has(exact)) continue;
+    const compactLength = exact.replace(/\s+/g, '').length;
+    const tokenCount = exact.split(/\s+/).filter(Boolean).length;
+    if (
+      compactLength >= LIVE_SEARCHAD_CANDIDATE_MIN_CHARS
+      && compactLength <= LIVE_SEARCHAD_CANDIDATE_MAX_CHARS
+      && tokenCount <= LIVE_SEARCHAD_CANDIDATE_MAX_TOKENS
+    ) {
+      seen.add(exact);
+      out.push(exact);
+    }
+  }
+  return out.slice(0, 4);
+}
+
 function isTrustedWriterReadyMeasuredProbe(keyword: string, categoryId: string): boolean {
   const clean = normalizeKeyword(keyword);
   if (!clean || !TRUSTED_WRITER_READY_MEASURED_PROBE_RE.test(clean)) return false;
@@ -4766,7 +4829,7 @@ export class MobileLiveGoldenRadar {
     totalTimeoutMs: number,
   ): Promise<LiveSearchVolumeRow[]> {
     const startedAt = Date.now();
-    const candidates = uniqueKeywords(keywords, Math.max(0, keywords.length));
+    const candidates = uniqueSearchAdMeasurementKeywords(keywords, Math.max(0, keywords.length));
     const rows: LiveSearchVolumeRow[] = [];
     for (let i = 0; i < candidates.length; i += LIVE_SEARCHAD_VOLUME_BATCH_SIZE) {
       const remainingMs = Math.max(0, totalTimeoutMs - (Date.now() - startedAt));
@@ -5298,19 +5361,19 @@ export class MobileLiveGoldenRadar {
       .filter((item) => {
         const compact = keywordCompactId(item.keyword);
         if (!compact || boardIds.has(compact)) return false;
-        if (!isLiveMeasuredProbeCandidate(item.keyword, item.category || normalizedCategory, now)) return false;
-        if (!isHighYieldSearchAdSpendCandidate(item.keyword, item.category || normalizedCategory, now)) return false;
+        const effectiveCategory = measuredProbeEffectiveCategory(item, normalizedCategory);
+        if (!isLiveMeasuredProbeCandidate(item.keyword, effectiveCategory, now)) return false;
+        if (!isHighYieldSearchAdSpendCandidate(item.keyword, effectiveCategory, now)) return false;
         if (item.attempts >= LIVE_PROBE_QUEUE_MAX_ATTEMPTS) return false;
         if (item.misses >= LIVE_PROBE_QUEUE_NO_RESULT_MAX) return false;
         const lastTriedAt = Date.parse(item.lastTriedAt || '');
         if (Number.isFinite(lastTriedAt) && nowMs - lastTriedAt < LIVE_PROBE_QUEUE_RETRY_DELAY_MS) return false;
         if (normalizedCategory === 'all') return true;
-        if (item.category === normalizedCategory) return true;
+        if (effectiveCategory === normalizedCategory) return true;
         return categoryAcceptsMeasuredProbe(item.keyword, normalizedCategory);
       })
       .sort((a, b) => {
-        const scoreDiff = b.priority - b.attempts * 45 - b.misses * 90
-          - (a.priority - a.attempts * 45 - a.misses * 90);
+        const scoreDiff = measuredProbeQueueEffectiveScore(b) - measuredProbeQueueEffectiveScore(a);
         if (scoreDiff !== 0) return scoreDiff;
         return Date.parse(a.firstSeenAt) - Date.parse(b.firstSeenAt);
       });
@@ -5341,6 +5404,62 @@ export class MobileLiveGoldenRadar {
       if (!added) break;
     }
     return selected.slice(0, limit);
+  }
+
+  private priorityMeasuredProbeQueueItems(categoryId = 'all', limit = this.cycleLimit): LiveMeasuredProbeQueueItem[] {
+    const now = this.now();
+    const nowMs = now.getTime();
+    const normalizedCategory = normalizeKeyword(categoryId || 'all') || 'all';
+    const boardIds = new Set([...this.board.values()].map((item) => keywordCompactId(item.keyword)).filter(Boolean));
+    const seen = new Set<string>();
+    const eligible: LiveMeasuredProbeQueueItem[] = [];
+    for (const item of [...this.pendingMeasuredProbeQueue].sort((a, b) => {
+      const scoreDiff = measuredProbeQueueEffectiveScore(b) - measuredProbeQueueEffectiveScore(a);
+      if (scoreDiff !== 0) return scoreDiff;
+      return Date.parse(a.firstSeenAt) - Date.parse(b.firstSeenAt);
+    })) {
+      const compact = keywordCompactId(item.keyword);
+      if (!compact || seen.has(compact) || boardIds.has(compact)) continue;
+      const effectiveCategory = measuredProbeEffectiveCategory(item, normalizedCategory);
+      if (!isLiveMeasuredProbeCandidate(item.keyword, effectiveCategory, now)) continue;
+      if (!isHighYieldSearchAdSpendCandidate(item.keyword, effectiveCategory, now)) continue;
+      if (item.attempts >= LIVE_PROBE_QUEUE_MAX_ATTEMPTS || item.misses >= LIVE_PROBE_QUEUE_NO_RESULT_MAX) continue;
+      const lastTriedAt = Date.parse(item.lastTriedAt || '');
+      if (Number.isFinite(lastTriedAt) && nowMs - lastTriedAt < LIVE_PROBE_QUEUE_RETRY_DELAY_MS) continue;
+      if (
+        normalizedCategory !== 'all'
+        && effectiveCategory !== normalizedCategory
+        && !categoryAcceptsMeasuredProbe(item.keyword, normalizedCategory)
+      ) continue;
+      seen.add(compact);
+      eligible.push({
+        ...item,
+        category: effectiveCategory,
+      });
+    }
+    const selected: LiveMeasuredProbeQueueItem[] = [];
+    const familyOrder: string[] = [];
+    const familyGroups = new Map<string, LiveMeasuredProbeQueueItem[]>();
+    for (const item of eligible) {
+      const family = measuredProbeQueueFamilyKey(item.keyword);
+      if (!familyGroups.has(family)) {
+        familyGroups.set(family, []);
+        familyOrder.push(family);
+      }
+      familyGroups.get(family)?.push(item);
+    }
+    for (let depth = 0; selected.length < limit; depth += 1) {
+      let added = false;
+      for (const family of familyOrder) {
+        if (selected.length >= limit) break;
+        const item = familyGroups.get(family)?.[depth];
+        if (!item) continue;
+        selected.push(item);
+        added = true;
+      }
+      if (!added) break;
+    }
+    return selected;
   }
 
   private hasRunnableMeasuredProbeQueue(): boolean {
@@ -5449,6 +5568,10 @@ export class MobileLiveGoldenRadar {
       fs.mkdirSync(path.dirname(this.probeQueueFile), { recursive: true });
       const now = this.now();
       const filteredItems = this.pendingMeasuredProbeQueue
+        .map((item) => ({
+          ...item,
+          category: measuredProbeEffectiveCategory(item, item.category || 'all'),
+        }))
         .filter((item) => isLiveMeasuredProbeCandidate(item.keyword, item.category || 'all', now))
         .filter((item) => item.attempts < LIVE_PROBE_QUEUE_MAX_ATTEMPTS && item.misses < LIVE_PROBE_QUEUE_NO_RESULT_MAX)
         .slice(0, LIVE_PROBE_QUEUE_MAX_ITEMS);
@@ -5822,36 +5945,75 @@ export class MobileLiveGoldenRadar {
     targetLimit = this.cycleLimit,
   ): Promise<{ results: MDPResult[]; attemptedCount: number }> {
     const measurementLimit = Math.min(80, this.backfillMeasurementLimit(targetLimit));
-    const queuedProbeItems = this.runnableMeasuredProbeQueueItems(categoryId, targetLimit)
-      .slice(0, measurementLimit);
+    const prioritizedItems = this.priorityMeasuredProbeQueueItems(categoryId, measurementLimit * 2);
+    const diverseItems = this.runnableMeasuredProbeQueueItems(categoryId, targetLimit);
+    const queuedProbeItems: LiveMeasuredProbeQueueItem[] = [];
+    const queuedIds = new Set<string>();
+    for (const item of [...prioritizedItems, ...diverseItems]) {
+      if (queuedProbeItems.length >= measurementLimit) break;
+      const compact = keywordCompactId(item.keyword);
+      if (!compact || queuedIds.has(compact)) continue;
+      queuedIds.add(compact);
+      queuedProbeItems.push(item);
+    }
     if (queuedProbeItems.length === 0) return { results: [], attemptedCount: 0 };
 
-    const categoryById = new Map(
-      queuedProbeItems
-        .map((item) => [keywordCompactId(item.keyword), normalizeKeyword(item.category) || categoryId || 'all'] as const)
-        .filter(([id]) => Boolean(id)),
-    );
-    const candidates = queuedProbeItems
-      .map((item) => item.keyword)
-      .filter((keyword) => isHighYieldSearchAdSpendCandidate(
-        keyword,
-        categoryById.get(keywordCompactId(keyword)) || categoryId || 'all',
-        this.now(),
-      ));
+    const categoryById = new Map<string, string>();
+    const candidates: string[] = [];
+    const seenCandidateKeywords = new Set<string>();
+    const attemptedKeywords = queuedProbeItems.map((item) => item.keyword);
+    const candidateLimit = Math.min(160, Math.max(measurementLimit, measurementLimit * 2));
+    const variantsByItem = queuedProbeItems.map((item) => {
+      const effectiveCategory = measuredProbeEffectiveCategory(item, categoryId || 'all');
+      const originalHighYield = isHighYieldSearchAdSpendCandidate(item.keyword, effectiveCategory, this.now());
+      return {
+        effectiveCategory,
+        variants: searchAdProbeMeasurementVariants(item.keyword).filter((variant) => (
+          originalHighYield || isHighYieldSearchAdSpendCandidate(variant, effectiveCategory, this.now())
+        )),
+      };
+    }).filter((entry) => entry.variants.length > 0);
+    for (let depth = 0; candidates.length < candidateLimit; depth += 1) {
+      let added = false;
+      for (const entry of variantsByItem) {
+        if (candidates.length >= candidateLimit) break;
+        const variant = entry.variants[depth];
+        if (!variant) continue;
+        const compact = keywordCompactId(variant);
+        const exact = normalizeKeyword(variant);
+        if (!compact || !exact || seenCandidateKeywords.has(exact)) continue;
+        if (!categoryById.has(compact)) categoryById.set(compact, entry.effectiveCategory);
+        seenCandidateKeywords.add(exact);
+        candidates.push(variant);
+        added = true;
+      }
+      if (!added) break;
+    }
     if (candidates.length === 0) return { results: [], attemptedCount: 0 };
 
     const volumeRows = await this.measureLiveSearchVolumeRows(config, candidates, {
       includeDocumentCount: false,
     }, Math.min(LIVE_BACKFILL_TIMEOUT_MS, 90_000));
     const rows = await this.attachDocumentCountsToVolumeRows(volumeRows, categoryId, targetLimit);
-    this.updateMeasuredProbeQueueAfterMeasurement(candidates, volumeRows, rows);
+    this.updateMeasuredProbeQueueAfterMeasurement([...attemptedKeywords, ...candidates], volumeRows, rows);
 
     const seen = new Set<string>();
     const out: MDPResult[] = [];
+    const rejectedRows: Array<{ keyword: string; volume: number; docs: number; ratio: number; grade?: MobileResultGrade }> = [];
     for (const row of rows) {
       const rowCategory = categoryById.get(keywordCompactId(row.keyword)) || categoryId || 'all';
       const item = rowToBackfillResult(row, rowCategory);
-      if (!item) continue;
+      if (!item) {
+        const volume = rowSearchVolume(row);
+        const docs = finiteNumber(row.documentCount) || 0;
+        rejectedRows.push({
+          keyword: normalizeKeyword(row.keyword),
+          volume,
+          docs,
+          ratio: docs > 0 ? Number((volume / docs).toFixed(2)) : 0,
+        });
+        continue;
+      }
       const id = mdpResultId(item);
       if (seen.has(id)) continue;
       seen.add(id);
@@ -5866,10 +6028,13 @@ export class MobileLiveGoldenRadar {
     }
     console.info('[LIVE-GOLDEN] queued probe direct pass', {
       categoryId,
+      queuedItems: queuedProbeItems.length,
       candidates: candidates.length,
+      sample: candidates.slice(0, 8),
       volumeRows: volumeRows.length,
       rows: rows.length,
       results: out.length,
+      rejectedRows: rejectedRows.slice(0, 8),
     });
     return {
       results: rankGoldenDiscoveryResults(out, targetLimit, false, {
