@@ -3230,13 +3230,32 @@ const LIVE_MEASURED_PROBE_PORTFOLIO_ANCHOR_RE = /^(?:제주\s*렌터카|무선\s
 const HOLIDAY_POLICY_TAIL_MISMATCH_RE = /(?:(?:제헌절|광복절|개천절|한글날|현충일|삼일절|설날|추석|부처님오신날|크리스마스|공휴일|대체공휴일).{0,14}(?:신청|신청방법|신청기간|자격|대상|지급일|사용처|소득기준|서류|필요서류|마감일|온라인\s*신청|지원금|수당|급여)|(?:신청|신청방법|신청기간|자격|대상|지급일|사용처|소득기준|서류|필요서류|마감일|온라인\s*신청|지원금|수당|급여).{0,14}(?:제헌절|광복절|개천절|한글날|현충일|삼일절|설날|추석|부처님오신날|크리스마스|공휴일|대체공휴일))/u;
 const PRODUCT_RANKING_MAINTENANCE_CHAIN_RE = /(?:(?:순위|가성비|추천).{0,10}(?:필터\s*교체|교체주기|전기요금|전기세|소음\s*비교|설치\s*비용)|(?:필터\s*교체|교체주기|전기요금|전기세|소음\s*비교|설치\s*비용).{0,10}(?:순위|가성비|추천))/u;
 const GENERIC_INTENT_ONLY_PROBE_RE = /^(?:추천|가격비교|최저가|후기|비교|순위|가성비)\s+(?:필터\s*교체주기|필터\s*교체|전기요금|전기세|소음|설치\s*비용)$/u;
+const NEWS_PERSON_OR_ROLE_POLICY_TAIL_RE = /(?:(?:정책실장|장관|차관|대통령|시장|도지사|의원|후보|대표|회장|위원장|감독|선수|배우|가수|출연진|작가|PD|기자|앵커).{0,16}(?:신청\s*(?:대상|방법|조건)?|대상\s*조건|자격\s*조건|지급일\s*조회|사용처\s*(?:추천|조회)?|필요\s*서류|마감일\s*확인|지원금\s*조회)|(?:신청\s*(?:대상|방법|조건)?|대상\s*조건|자격\s*조건|지급일\s*조회|사용처\s*(?:추천|조회)?|필요\s*서류|마감일\s*확인|지원금\s*조회).{0,16}(?:정책실장|장관|차관|대통령|시장|도지사|의원|후보|대표|회장|위원장|감독|선수|배우|가수|출연진|작가|PD|기자|앵커))/u;
+const PRODUCT_ABSTRACT_STACKED_INTENT_RE = /(?:(?:가격|순위|가성비|추천|구매처|렌탈).{0,8}(?:저소음|설치비|설치\s*비용|1인가구|사이즈|필터|교체주기).{0,8}(?:후기|추천|비교|조회)|(?:저소음|설치비|설치\s*비용|1인가구|사이즈|필터|교체주기).{0,8}(?:가격|순위|가성비|추천|구매처|렌탈).{0,8}(?:후기|추천|비교|조회))/u;
+const PRODUCT_DEAD_END_PURCHASE_TAIL_RE = /(?:구매처\s*추천|가격\s*저소음\s*후기|추천\s*저소음\s*후기|가성비\s*저소음\s*후기|순위\s*저소음\s*후기|추천\s*설치비\s*비교|가격\s*설치비\s*비교)/u;
+const PRODUCT_GENERIC_STACK_TOKEN_RE = /(?:가격비교|최저가|구매처|할인|쿠폰|가성비|추천|후기|가격|순위|비교|렌탈|저소음|설치비|설치\s*비용|1인가구|사이즈|스펙|필터|교체주기)/gu;
+const SPECIFIC_PRODUCT_BRAND_RE = /(?:위닉스|삼성|LG|엘지|다이슨|샤오미|쿠쿠|쿠첸|필립스|캐리어|파세코|신일|한일|보국|아이닉|로보락|에코백스|드리미|발뮤다|애플|아이폰|갤럭시|닌텐도|로지텍|브라운|오랄비|유닉스)/iu;
+
+function productGenericStackTokenCount(keyword: string): number {
+  const hits = normalizeKeyword(keyword).match(PRODUCT_GENERIC_STACK_TOKEN_RE) || [];
+  return new Set(hits.map((hit) => hit.replace(/\s+/g, ''))).size;
+}
 
 function isSyntheticNoEffectLiveProbe(keyword: string): boolean {
   const clean = normalizeKeyword(keyword);
   if (!clean) return true;
   return HOLIDAY_POLICY_TAIL_MISMATCH_RE.test(clean)
     || PRODUCT_RANKING_MAINTENANCE_CHAIN_RE.test(clean)
-    || GENERIC_INTENT_ONLY_PROBE_RE.test(clean);
+    || GENERIC_INTENT_ONLY_PROBE_RE.test(clean)
+    || NEWS_PERSON_OR_ROLE_POLICY_TAIL_RE.test(clean)
+    || (
+      PRODUCT_BASE_SIGNAL_RE.test(clean)
+      && (
+        PRODUCT_ABSTRACT_STACKED_INTENT_RE.test(clean)
+        || (!SPECIFIC_PRODUCT_BRAND_RE.test(clean) && PRODUCT_DEAD_END_PURCHASE_TAIL_RE.test(clean))
+        || productGenericStackTokenCount(clean) >= 4
+      )
+    );
 }
 
 function categoryAcceptsMeasuredProbe(keyword: string, categoryId: string): boolean {
