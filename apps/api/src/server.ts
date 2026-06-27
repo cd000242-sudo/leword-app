@@ -37,6 +37,7 @@ import {
   type MobileWordPressPublishInput,
   type MobileWordPressSiteInput,
   type MobileSignalItem,
+  type MobileSourceSignalSnapshot,
   type MobilePushSubscriptionRequest,
   type MobileProOutcomeDeleteInput,
   type MobileProOutcomeRecordInput,
@@ -1130,6 +1131,79 @@ function fallbackDashboardSignals(): {
     policy: fallback.policy,
     issues: fallback.issues,
   };
+}
+
+const PUBLIC_SOURCE_SIGNAL_CACHE_TTL_MS = 2 * 60 * 1000;
+const PUBLIC_SOURCE_SIGNAL_FIRST_RESPONSE_TIMEOUT_MS = 3500;
+
+let publicSourceSignalCache: {
+  limit: number;
+  updatedAtMs: number;
+  snapshot: MobileSourceSignalSnapshot;
+} | null = null;
+let publicSourceSignalRefresh: Promise<MobileSourceSignalSnapshot> | null = null;
+
+function normalizePublicSourceSignalLimit(limit: number): number {
+  if (!Number.isFinite(limit) || limit <= 0) return 18;
+  return Math.min(100, Math.max(18, Math.floor(limit)));
+}
+
+function buildPublicSourceSignalFallbackSnapshot(): MobileSourceSignalSnapshot {
+  return {
+    ...fallbackSourceSignals(),
+    fallbackUsed: true,
+  };
+}
+
+function startPublicSourceSignalRefresh(limit: number): Promise<MobileSourceSignalSnapshot> {
+  if (publicSourceSignalRefresh) return publicSourceSignalRefresh;
+  const normalizedLimit = normalizePublicSourceSignalLimit(limit);
+  const refresh = buildMobileSourceSignalSnapshot({ limit: normalizedLimit })
+    .then((snapshot) => {
+      publicSourceSignalCache = {
+        limit: normalizedLimit,
+        updatedAtMs: Date.now(),
+        snapshot,
+      };
+      return snapshot;
+    })
+    .catch((error) => {
+      console.warn('[PUBLIC-SOURCE-SIGNALS] refresh failed', error?.message || error);
+      throw error;
+    })
+    .finally(() => {
+      if (publicSourceSignalRefresh === refresh) {
+        publicSourceSignalRefresh = null;
+      }
+    });
+  publicSourceSignalRefresh = refresh;
+  return refresh;
+}
+
+async function getPublicSourceSignalSnapshot(limit: number): Promise<MobileSourceSignalSnapshot> {
+  const normalizedLimit = normalizePublicSourceSignalLimit(limit);
+  const now = Date.now();
+  const cacheFresh = publicSourceSignalCache
+    && publicSourceSignalCache.limit >= normalizedLimit
+    && now - publicSourceSignalCache.updatedAtMs < PUBLIC_SOURCE_SIGNAL_CACHE_TTL_MS;
+  if (cacheFresh) return publicSourceSignalCache.snapshot;
+
+  const refresh = startPublicSourceSignalRefresh(normalizedLimit);
+  if (publicSourceSignalCache?.snapshot) {
+    return publicSourceSignalCache.snapshot;
+  }
+
+  let timer: NodeJS.Timeout | null = null;
+  try {
+    return await Promise.race([
+      refresh,
+      new Promise<MobileSourceSignalSnapshot>((resolve) => {
+        timer = setTimeout(() => resolve(buildPublicSourceSignalFallbackSnapshot()), PUBLIC_SOURCE_SIGNAL_FIRST_RESPONSE_TIMEOUT_MS);
+      }),
+    ]);
+  } finally {
+    if (timer) clearTimeout(timer);
+  }
 }
 
 function buildDashboard(
@@ -3137,11 +3211,9 @@ export function createLewordApiServer(options: LewordApiServerOptions = {}): htt
 
     if (req.method === 'GET' && url.pathname === '/v1/public/source-signals') {
       const limit = Number(url.searchParams.get('limit') || 18);
-      const snapshot = await buildMobileSourceSignalSnapshot({
-        limit: Number.isFinite(limit) ? limit : 18,
-      });
+      const snapshot = await getPublicSourceSignalSnapshot(limit);
       json(res, 200, buildPublicSourceSignalPayload(snapshot), {
-        'Cache-Control': 'no-store',
+        'Cache-Control': 'public, max-age=30, stale-while-revalidate=120',
       });
       return;
     }
