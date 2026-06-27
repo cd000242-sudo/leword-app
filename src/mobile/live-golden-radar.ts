@@ -158,7 +158,7 @@ const LIVE_BOARD_SPLIT_ENRICHMENT_LIMIT = 80;
 const LIVE_PROBE_QUEUE_FILE_NAME = 'live-golden-probe-queue.json';
 const LIVE_PROBE_QUEUE_MAX_ITEMS = 2500;
 const LIVE_PROBE_QUEUE_MAX_ATTEMPTS = 4;
-const LIVE_PROBE_QUEUE_NO_RESULT_MAX = 2;
+const LIVE_PROBE_QUEUE_NO_RESULT_MAX = 1;
 const LIVE_PROBE_QUEUE_RETRY_DELAY_MS = 4 * 60 * 60 * 1000;
 const LIVE_CACHE_PROMOTION_MAX_CANDIDATES = 24;
 const LIVE_CACHE_PROMOTION_BATCH_SIZE = 4;
@@ -3231,6 +3231,7 @@ const HOLIDAY_POLICY_TAIL_MISMATCH_RE = /(?:(?:제헌절|광복절|개천절|한
 const PRODUCT_RANKING_MAINTENANCE_CHAIN_RE = /(?:(?:순위|가성비|추천).{0,10}(?:필터\s*교체|교체주기|전기요금|전기세|소음\s*비교|설치\s*비용)|(?:필터\s*교체|교체주기|전기요금|전기세|소음\s*비교|설치\s*비용).{0,10}(?:순위|가성비|추천))/u;
 const GENERIC_INTENT_ONLY_PROBE_RE = /^(?:추천|가격비교|최저가|후기|비교|순위|가성비)\s+(?:필터\s*교체주기|필터\s*교체|전기요금|전기세|소음|설치\s*비용)$/u;
 const NEWS_PERSON_OR_ROLE_POLICY_TAIL_RE = /(?:(?:정책실장|장관|차관|대통령|시장|도지사|의원|후보|대표|회장|위원장|감독|선수|배우|가수|출연진|작가|PD|기자|앵커).{0,16}(?:신청\s*(?:대상|방법|조건)?|대상\s*조건|자격\s*조건|지급일\s*조회|사용처\s*(?:추천|조회)?|필요\s*서류|마감일\s*확인|지원금\s*조회)|(?:신청\s*(?:대상|방법|조건)?|대상\s*조건|자격\s*조건|지급일\s*조회|사용처\s*(?:추천|조회)?|필요\s*서류|마감일\s*확인|지원금\s*조회).{0,16}(?:정책실장|장관|차관|대통령|시장|도지사|의원|후보|대표|회장|위원장|감독|선수|배우|가수|출연진|작가|PD|기자|앵커))/u;
+const POLICY_SYNTHETIC_DOUBLE_TAIL_RE = /(?:(?:신청|대상|자격|조건|지급일|사용처|정부기여금|이자|갈아타기).{0,10}(?:필요\s*서류|마감일\s*확인|사용처\s*추천|신청\s*(?:대상|방법|조건)|대상\s*조건|지급일\s*조회|장단점)|(?:필요\s*서류|마감일\s*확인|사용처\s*추천|신청\s*(?:대상|방법|조건)|대상\s*조건|지급일\s*조회|장단점).{0,10}(?:신청|대상|자격|조건|지급일|사용처|정부기여금|이자|갈아타기))/u;
 const PRODUCT_ABSTRACT_STACKED_INTENT_RE = /(?:(?:가격|순위|가성비|추천|구매처|렌탈).{0,8}(?:저소음|설치비|설치\s*비용|1인가구|사이즈|필터|교체주기).{0,8}(?:후기|추천|비교|조회)|(?:저소음|설치비|설치\s*비용|1인가구|사이즈|필터|교체주기).{0,8}(?:가격|순위|가성비|추천|구매처|렌탈).{0,8}(?:후기|추천|비교|조회))/u;
 const PRODUCT_DEAD_END_PURCHASE_TAIL_RE = /(?:구매처\s*추천|가격\s*저소음\s*후기|추천\s*저소음\s*후기|가성비\s*저소음\s*후기|순위\s*저소음\s*후기|추천\s*설치비\s*비교|가격\s*설치비\s*비교)/u;
 const PRODUCT_GENERIC_STACK_TOKEN_RE = /(?:가격비교|최저가|구매처|할인|쿠폰|가성비|추천|후기|가격|순위|비교|렌탈|저소음|설치비|설치\s*비용|1인가구|사이즈|스펙|필터|교체주기)/gu;
@@ -3248,6 +3249,7 @@ function isSyntheticNoEffectLiveProbe(keyword: string): boolean {
     || PRODUCT_RANKING_MAINTENANCE_CHAIN_RE.test(clean)
     || GENERIC_INTENT_ONLY_PROBE_RE.test(clean)
     || NEWS_PERSON_OR_ROLE_POLICY_TAIL_RE.test(clean)
+    || (LIVE_POLICY_SIGNAL_RE.test(clean) && POLICY_SYNTHETIC_DOUBLE_TAIL_RE.test(clean))
     || (
       PRODUCT_BASE_SIGNAL_RE.test(clean)
       && (
@@ -5071,6 +5073,9 @@ export class MobileLiveGoldenRadar {
         if (!isLiveRadarUsableKeyword(keyword, null, null, now)) continue;
         const category = inferLiveCategory(keyword, normalizeKeyword(row?.category) || 'all');
         if (!isLiveMeasuredProbeCandidate(keyword, category || 'all', now)) continue;
+        const attempts = Math.max(0, Math.floor(finiteNumber(row?.attempts) || 0));
+        const misses = Math.max(0, Math.floor(finiteNumber(row?.misses) || 0));
+        if (attempts >= LIVE_PROBE_QUEUE_MAX_ATTEMPTS || misses >= LIVE_PROBE_QUEUE_NO_RESULT_MAX) continue;
         seen.add(compact);
         this.pendingMeasuredProbeQueue.push({
           keyword,
@@ -5079,8 +5084,8 @@ export class MobileLiveGoldenRadar {
           priority: finiteNumber(row?.priority) ?? preVolumeCandidateScore(keyword, category || 'all'),
           firstSeenAt: normalizeKeyword(row?.firstSeenAt) || this.now().toISOString(),
           lastTriedAt: normalizeKeyword(row?.lastTriedAt) || undefined,
-          attempts: Math.max(0, Math.floor(finiteNumber(row?.attempts) || 0)),
-          misses: Math.max(0, Math.floor(finiteNumber(row?.misses) || 0)),
+          attempts,
+          misses,
         });
       }
       this.pendingMeasuredProbeQueue.sort((a, b) => b.priority - a.priority || a.attempts - b.attempts);
@@ -5099,6 +5104,7 @@ export class MobileLiveGoldenRadar {
       const now = this.now();
       const filteredItems = this.pendingMeasuredProbeQueue
         .filter((item) => isLiveMeasuredProbeCandidate(item.keyword, item.category || 'all', now))
+        .filter((item) => item.attempts < LIVE_PROBE_QUEUE_MAX_ATTEMPTS && item.misses < LIVE_PROBE_QUEUE_NO_RESULT_MAX)
         .slice(0, LIVE_PROBE_QUEUE_MAX_ITEMS);
       if (filteredItems.length !== this.pendingMeasuredProbeQueue.length) {
         this.pendingMeasuredProbeQueue.splice(0, this.pendingMeasuredProbeQueue.length, ...filteredItems);

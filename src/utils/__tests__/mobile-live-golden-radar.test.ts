@@ -2590,6 +2590,10 @@ function thinProfileCount(items: Array<{ keyword: string }>): number {
     '\uB808\uC778\uBD80\uCE20 \uAC00\uC131\uBE44 \uC0AC\uC774\uC988 \uCD94\uCC9C',
     '\uB808\uC778\uBD80\uCE20 \uAC00\uACA9 \uC800\uC18C\uC74C \uD6C4\uAE30',
     '\uB0C9\uC7A5\uACE0 \uCD94\uCC9C \uC124\uCE58\uBE44 \uBE44\uAD50',
+    '\uCCAD\uB144\uBBF8\uB798\uC801\uAE08 \uC2E0\uCCAD \uD544\uC694 \uC11C\uB958',
+    '\uCCAD\uB144\uBBF8\uB798\uC801\uAE08 \uB300\uC0C1 \uB9C8\uAC10\uC77C \uD655\uC778',
+    '\uC804\uAE30\uC694\uAE08 \uBCF5\uC9C0\uD560\uC778 \uC2E0\uCCAD \uC7A5\uB2E8\uC810',
+    '\uCCAD\uB144\uB3C4\uC57D\uACC4\uC88C \uC774\uC790 \uC2E0\uCCAD \uB300\uC0C1',
   ];
   assert('high-yield SearchAd spend gate rejects news-person policy tails and stacked abstract product intents',
     noEffectLiveProbeCombos.every((keyword) => (
@@ -2603,6 +2607,7 @@ function thinProfileCount(items: Array<{ keyword: string }>): number {
   const queuePriorityProbeFile = path.join(process.cwd(), 'tmp', 'mobile-live-golden-queue-priority-test.json');
   const queuedWriterReadyKeyword = '\uC81C\uC8FC \uB80C\uD130\uCE74 \uC644\uC804\uC790\uCC28 \uAC00\uACA9\uBE44\uAD50';
   const queuedWeakSyntheticKeyword = '\uC695\uC2E4\uBB3C\uB54C\uC81C\uAC70 \uD504\uB9AC\uB79C\uC11C \uC2E0\uCCAD \uB300\uC0C1';
+  const queuedNoResultKeyword = '\uC81C\uC8FC \uB80C\uD130\uCE74 \uBCF4\uD5D8 \uAC00\uACA9\uBE44\uAD50';
   fs.writeFileSync(queuePriorityProbeFile, JSON.stringify({
     version: 1,
     savedAt: '2026-06-15T08:00:00.000Z',
@@ -2614,6 +2619,15 @@ function thinProfileCount(items: Array<{ keyword: string }>): number {
       firstSeenAt: '2026-06-15T07:00:00.000Z',
       attempts: 0,
       misses: 0,
+    }, {
+      keyword: queuedNoResultKeyword,
+      category: 'travel_domestic',
+      source: 'fixture-no-result-queue',
+      priority: 5000,
+      firstSeenAt: '2026-06-15T06:00:00.000Z',
+      lastTriedAt: '2026-06-15T06:30:00.000Z',
+      attempts: 1,
+      misses: 1,
     }, {
       keyword: queuedWriterReadyKeyword,
       category: 'travel_domestic',
@@ -2674,6 +2688,7 @@ function thinProfileCount(items: Array<{ keyword: string }>): number {
   assert('curated persistent measured probe queue is consumed without weak legacy combos',
     queuePriorityMeasuredKeywords.includes(queuedWriterReadyKeyword)
       && !queuePriorityMeasuredKeywords.includes(queuedWeakSyntheticKeyword)
+      && !queuePriorityMeasuredKeywords.includes(queuedNoResultKeyword)
       && queuePrioritySnapshot.board.some((item) => (
         item.keyword === queuedWriterReadyKeyword
         && item.grade === 'SSS'
