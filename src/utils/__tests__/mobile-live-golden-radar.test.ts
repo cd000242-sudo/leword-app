@@ -1924,6 +1924,102 @@ function thinProfileCount(items: Array<{ keyword: string }>): number {
     JSON.stringify({ broadHeadFallbackRejected, compoundLongtailFallbackAccepted }));
   fs.rmSync(broadHeadCapBoardFile, { force: true });
 
+  const referenceProbeBoardFile = path.join(process.cwd(), 'tmp', 'mobile-live-golden-reference-probe-test.json');
+  const referenceProbeQueueFile = path.join(process.cwd(), 'tmp', 'mobile-live-golden-reference-probe-queue-test.json');
+  const referenceProbeTarget = '\uC0AC\uB300\uBCF4\uD5D8\uACC4\uC0B0\uAE30 \uD504\uB9AC\uB79C\uC11C \uC2E4\uC218\uB839\uC561';
+  fs.writeFileSync(referenceProbeBoardFile, JSON.stringify({
+    boardUpdatedAt: '2026-06-15T08:00:00.000Z',
+    items: [{
+      keyword: '\uC0AC\uB300\uBCF4\uD5D8\uACC4\uC0B0\uAE30',
+      grade: 'SS',
+      score: 95,
+      totalSearchVolume: 20010,
+      pcSearchVolume: 4020,
+      mobileSearchVolume: 15990,
+      documentCount: 1318,
+      goldenRatio: 15.18,
+      category: 'policy',
+      source: 'fixture-measured-broad-head',
+      evidence: ['fixture-searchad-volume', 'fixture-naver-openapi-document-count'],
+      searchVolumeSource: 'searchad',
+      searchVolumeConfidence: 'high',
+      isSearchVolumeEstimated: false,
+      documentCountSource: 'naver-api',
+      documentCountConfidence: 'high',
+      isDocumentCountEstimated: false,
+      updatedAt: '2026-06-15T08:00:00.000Z',
+      discoveredAt: '2026-06-15T08:00:00.000Z',
+      isMeasured: true,
+    }],
+  }), 'utf8');
+  fs.rmSync(referenceProbeQueueFile, { force: true });
+  const referenceProbeMeasuredKeywords: string[] = [];
+  const referenceProbeRadar = new MobileLiveGoldenRadar({
+    notificationInbox: inbox,
+    runOnStart: false,
+    boardFile: referenceProbeBoardFile,
+    probeQueueFile: referenceProbeQueueFile,
+    boardTarget: 10,
+    cycleLimit: 4,
+    categories: ['all'],
+    enableBackfill: true,
+    now: () => new Date('2026-06-15T09:00:00.000Z'),
+    getEnvConfig: () => ({
+      naverClientId: 'client',
+      naverClientSecret: 'secret',
+      naverSearchAdAccessLicense: 'access',
+      naverSearchAdSecretKey: 'secret',
+    }),
+    liveSeedProvider: async () => [],
+    autocompleteProvider: async () => [],
+    searchAdSuggestionProvider: async () => [],
+    measureLiveSearchVolumeSeparate: async (_config, keywords, options) => {
+      assert('reference-derived probe volume pass keeps document count separated', options?.includeDocumentCount === false);
+      referenceProbeMeasuredKeywords.push(...keywords);
+      return keywords
+        .filter((keyword) => keyword === referenceProbeTarget)
+        .map((keyword) => ({
+          keyword,
+          pcSearchVolume: 1280,
+          mobileSearchVolume: 5120,
+          documentCount: null,
+          competition: 'LOW',
+          monthlyAveCpc: 320,
+          searchVolumeSource: 'searchad',
+          searchVolumeConfidence: 'high',
+          isSearchVolumeEstimated: false,
+        }));
+    },
+    measureLiveDocumentCount: async (keyword) => (
+      keyword === referenceProbeTarget
+        ? {
+          dc: 380,
+          source: 'scrape',
+          confidence: 'high',
+          isEstimated: false,
+        }
+        : null
+    ),
+    discover: async () => [],
+  });
+  const referenceProbeSnapshot = await referenceProbeRadar.runOnce();
+  assert('measured broad references are converted into writer-ready SSS probe measurements',
+    referenceProbeMeasuredKeywords.includes(referenceProbeTarget)
+      && referenceProbeSnapshot.board.some((item) => (
+        item.keyword === referenceProbeTarget
+        && item.grade === 'SSS'
+        && item.pcSearchVolume === 1280
+        && item.mobileSearchVolume === 5120
+        && item.documentCount === 380
+      )),
+    JSON.stringify({
+      measured: referenceProbeMeasuredKeywords.slice(0, 30),
+      board: referenceProbeSnapshot.board.map((item) => `${item.keyword}:${item.grade}:${item.pcSearchVolume}:${item.mobileSearchVolume}:${item.documentCount}`),
+      lastMessage: referenceProbeSnapshot.lastMessage,
+    }));
+  fs.rmSync(referenceProbeBoardFile, { force: true });
+  fs.rmSync(referenceProbeQueueFile, { force: true });
+
   const adsenseReadinessBoardFile = path.join(process.cwd(), 'tmp', 'mobile-live-golden-adsense-readiness-test.json');
   fs.writeFileSync(adsenseReadinessBoardFile, JSON.stringify({
     boardUpdatedAt: '2026-06-15T08:00:00.000Z',

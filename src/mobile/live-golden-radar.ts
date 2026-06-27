@@ -158,6 +158,10 @@ const LIVE_BACKFILL_CANDIDATE_LIMIT_MAX = 1800;
 const LIVE_MEASURED_PROBE_CANDIDATE_LIMIT_MAX = 1440;
 const LIVE_BACKFILL_MEASURED_PROBE_SHARE_ALL = 0.65;
 const LIVE_BACKFILL_MEASURED_PROBE_SHARE_CATEGORY = 0.25;
+const LIVE_REFERENCE_SSS_PROBE_MIN_VOLUME = 500;
+const LIVE_REFERENCE_SSS_PROBE_MIN_RATIO = 1.5;
+const LIVE_REFERENCE_SSS_PROBE_LIMIT = 360;
+const LIVE_REFERENCE_SSS_PROBE_PRIORITY_BOOST = 620;
 const LIVE_BOARD_SPLIT_ENRICHMENT_LIMIT = 80;
 const LIVE_SEARCHAD_VOLUME_BATCH_SIZE = 4;
 const LIVE_SEARCHAD_VOLUME_BATCH_TIMEOUT_MS = 28_000;
@@ -2291,11 +2295,26 @@ function isLiveRadarUsableMdpResult(item: MDPResult): boolean {
 function isLiveRadarQualityResult(item: MDPResult): boolean {
   if (!isLiveRadarUsableMdpResult(item)) return false;
   if (isQualityGoldenDiscoveryResult(item, { requireActionableIntent: true })) return true;
-  const specific = SPECIFIC_LIVE_KEYWORD_HINT_RE.test(normalizeKeyword(item.keyword));
-  if (!isActionableGoldenKeyword(item.keyword) && !specific) return false;
+  const keyword = normalizeKeyword(item.keyword);
+  const specific = SPECIFIC_LIVE_KEYWORD_HINT_RE.test(keyword);
+  const writerReadyNeed = !isBroadHeadSssKeyword(keyword)
+    && (
+      isStrongMeasuredNeedKeyword(keyword)
+      || hasWriterReadySearchAdProbeIntent(keyword)
+      || hasWriterReadySpecificity(keyword)
+    );
+  if (!isActionableGoldenKeyword(item.keyword) && !specific && !writerReadyNeed) return false;
   const volume = finiteNumber(item.searchVolume) || 0;
   const docs = finiteNumber(item.documentCount) || 0;
   const ratio = finiteNumber(item.goldenRatio) || (docs > 0 ? volume / docs : 0);
+  if (
+    writerReadyNeed
+    && volume >= 300
+    && docs > 0
+    && docs <= 15_000
+    && ratio >= 1.5
+    && keywordLongTailScore(keyword) >= 12
+  ) return true;
   if (specific && volume >= 500 && docs > 0 && docs <= 20_000 && ratio >= 1.5) return true;
   if (volume >= 300 && docs > 0 && docs <= 30_000 && ratio >= 2) return true;
   return volume >= 100
@@ -4551,7 +4570,11 @@ function rowToBackfillResult(
   if (volume <= 0 || docs <= 0) return null;
   if (!isLiveRadarUsableKeyword(keyword, volume, docs)) return null;
   const ratio = Number((volume / docs).toFixed(2));
-  const actionable = isActionableGoldenKeyword(keyword) || SPECIFIC_LIVE_KEYWORD_HINT_RE.test(keyword);
+  const actionable = isActionableGoldenKeyword(keyword)
+    || SPECIFIC_LIVE_KEYWORD_HINT_RE.test(keyword)
+    || isStrongMeasuredNeedKeyword(keyword)
+    || hasWriterReadySearchAdProbeIntent(keyword)
+    || hasWriterReadySpecificity(keyword);
   const score = Math.max(liveMetricScore(volume, docs, ratio, actionable), liveUltimateOpportunityScore(keyword, volume, docs, ratio));
   const grade = liveGradeFromMetrics(score, volume, docs, ratio, keyword);
   const intentInfo = typeof classifyKeywordIntent === 'function'
@@ -4976,6 +4999,7 @@ export class MobileLiveGoldenRadar {
     const categoryId = this.nextCategory();
     const startedAtMs = Date.now();
     this.refreshMeasuredCachesFromDisk(true);
+    let referenceProbeCount = 0;
     const sssReadyBeforeRun = this.measuredSssReadyBoardCount();
     const desiredSssReady = this.desiredSssReadyBoardCount();
     const sssDepthShort = sssReadyBeforeRun < desiredSssReady;
@@ -5027,6 +5051,7 @@ export class MobileLiveGoldenRadar {
       } else {
         this.clearQuotaRetryTimer();
       }
+      referenceProbeCount = this.refreshMeasuredReferenceSssProbeQueue();
 
       const shouldAttemptCachePromotion = hasSearchAdCredentials(env)
         || currentBoardCount < minimumVisibleBoard;
@@ -5060,7 +5085,10 @@ export class MobileLiveGoldenRadar {
       const liveSeeds = await this.collectLiveSeeds(categoryId);
       const directMaxCandidates = directCandidateBudget(this.maxCandidates, runLimit);
       const existingIdsForRun = new Set(this.board.keys());
-      const existingClustersForRun = new Set([...this.board.values()].map((item) => keywordClusterKey(item.keyword)).filter(Boolean));
+      const existingClustersForRun = new Set([...this.board.values()]
+        .filter((item) => !isOverbroadNoEffectBoardKeyword(item))
+        .map((item) => keywordClusterKey(item.keyword))
+        .filter(Boolean));
       const catchUpMode = this.sortedBoard().length < this.boardTarget;
       const backfillCategoryId = catchUpMode || sssDepthShort ? 'all' : categoryId;
       const hasRunnableProbeQueueForRun = this.runnableMeasuredProbeQueueItems(backfillCategoryId, runLimit).length > 0;
@@ -5180,7 +5208,7 @@ export class MobileLiveGoldenRadar {
           diversifySimilarIntents: true,
           maxSimilarPerCluster: 2,
           strictVisibleSssOnly: false,
-          requireActionableIntent: true,
+          requireActionableIntent: false,
           qualityBackfillToTarget: true,
         },
       );
@@ -5194,7 +5222,7 @@ export class MobileLiveGoldenRadar {
             diversifySimilarIntents: true,
             maxSimilarPerCluster: 2,
             strictVisibleSssOnly: false,
-            requireActionableIntent: true,
+            requireActionableIntent: false,
             qualityBackfillToTarget: true,
           },
         )
@@ -5213,7 +5241,7 @@ export class MobileLiveGoldenRadar {
           diversifySimilarIntents: true,
           maxSimilarPerCluster: 2,
           strictVisibleSssOnly: false,
-          requireActionableIntent: true,
+          requireActionableIntent: false,
           qualityBackfillToTarget: true,
         },
       );
@@ -5287,6 +5315,7 @@ export class MobileLiveGoldenRadar {
       const fallbackCount = result.keywords.filter((item) => item.source === 'mobile-live-issue-document-radar').length;
       const enrichParts = [
         promotedCacheCount > 0 ? `${promotedCacheCount} cache-promoted` : '',
+        referenceProbeCount > 0 ? `${referenceProbeCount} sss-probes-queued` : '',
         enrichedExisting > 0 ? `${enrichedExisting} split-enriched` : '',
       ].filter(Boolean);
       const enrichSuffix = enrichParts.length > 0 ? `, ${enrichParts.join(', ')}` : '';
@@ -5776,6 +5805,60 @@ export class MobileLiveGoldenRadar {
     this.queueMeasuredProbeCandidates(candidates, inferredCategory, 'cache-derived-probe', 120 + priorityBoost, false);
   }
 
+  private refreshMeasuredReferenceSssProbeQueue(): number {
+    if (!this.enableBackfill) return 0;
+    const now = this.now();
+    const references = this.measuredReferenceBoard(Math.max(240, this.boardTarget * 10))
+      .filter((item) => {
+        const keyword = normalizeKeyword(item.keyword);
+        const volume = finiteNumber(item.totalSearchVolume) || 0;
+        const docs = finiteNumber(item.documentCount) || 0;
+        const ratio = finiteNumber(item.goldenRatio) || (volume > 0 && docs > 0 ? volume / docs : 0);
+        if (!keyword || volume < LIVE_REFERENCE_SSS_PROBE_MIN_VOLUME || docs <= 0) return false;
+        if (ratio < LIVE_REFERENCE_SSS_PROBE_MIN_RATIO) return false;
+        if (isLottoLookupKeyword(keyword) || isLowAdsenseLookupKeyword(keyword) || isBrandSafetyNewsKeyword(keyword)) return false;
+        if (!isMeasuredBoardReferenceMetric(item, now)) return false;
+        return true;
+      })
+      .slice(0, LIVE_REFERENCE_SSS_PROBE_LIMIT);
+
+    let changed = 0;
+    for (const item of references) {
+      const keyword = normalizeKeyword(item.keyword);
+      const category = inferLiveCategory(keyword, item.category || 'all');
+      const volume = finiteNumber(item.totalSearchVolume) || 0;
+      const docs = finiteNumber(item.documentCount) || 0;
+      const candidateLimit = isOverbroadNoEffectBoardKeyword(item) || isBroadHeadSssKeyword(keyword)
+        ? 120
+        : 72;
+      const intentCandidates = getLiveSeedBackfillIntents(keyword, category)
+        .slice(0, 12)
+        .filter((intent) => isUltimateIntentCompatible(keyword, intent, category))
+        .map((intent) => appendCompatibleIntent(keyword, intent))
+        .filter(Boolean);
+      const candidates = uniqueKeywords([
+        ...buildCacheDerivedCompoundNeedSeeds(keyword, category, candidateLimit),
+        ...buildUltimateNeedCandidatesForSeed(keyword, category, Math.min(24, candidateLimit)),
+        ...intentCandidates,
+      ], candidateLimit)
+        .filter((candidate) => keywordCompactId(candidate) !== keywordCompactId(keyword))
+        .filter((candidate) => isLiveRadarUsableKeyword(candidate, null, null, now));
+      if (candidates.length === 0) continue;
+      const boost = LIVE_REFERENCE_SSS_PROBE_PRIORITY_BOOST
+        + this.cacheDerivedPriorityBoost(volume, docs)
+        + (isOverbroadNoEffectBoardKeyword(item) || isBroadHeadSssKeyword(keyword) ? 180 : 0);
+      changed += this.queueMeasuredProbeCandidates(
+        candidates,
+        category,
+        'measured-reference-sss-probe',
+        boost,
+        false,
+      );
+    }
+    if (changed > 0) this.saveMeasuredProbeQueueToFile();
+    return changed;
+  }
+
   private async collectLiveSeeds(categoryId: string): Promise<string[]> {
     try {
       if (this.liveSeedProvider) {
@@ -6181,7 +6264,7 @@ export class MobileLiveGoldenRadar {
         diversifySimilarIntents: true,
         maxSimilarPerCluster: 2,
         strictVisibleSssOnly: false,
-        requireActionableIntent: true,
+        requireActionableIntent: false,
         qualityBackfillToTarget: true,
       }),
       attemptedCount: candidates.length,
@@ -6376,7 +6459,7 @@ export class MobileLiveGoldenRadar {
       diversifySimilarIntents: true,
       maxSimilarPerCluster: 2,
       strictVisibleSssOnly: false,
-      requireActionableIntent: true,
+      requireActionableIntent: false,
       qualityBackfillToTarget: true,
     });
   }
