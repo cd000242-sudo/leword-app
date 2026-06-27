@@ -6466,12 +6466,10 @@ export class MobileLiveGoldenRadar {
     const candidateLimit = Math.min(240, Math.max(measurementLimit, measurementLimit * 2));
     const variantsByItem = queuedProbeItems.map((item) => {
       const effectiveCategory = measuredProbeEffectiveCategory(item, categoryId || 'all');
-      const originalHighYield = isHighYieldSearchAdSpendCandidate(item.keyword, effectiveCategory, this.now());
       return {
         effectiveCategory,
-        variants: searchAdProbeMeasurementVariants(item.keyword).filter((variant) => (
-          originalHighYield || isHighYieldSearchAdSpendCandidate(variant, effectiveCategory, this.now())
-        )),
+        variants: searchAdProbeMeasurementVariants(item.keyword)
+          .filter((variant) => isHighYieldSearchAdSpendCandidate(variant, effectiveCategory, this.now())),
       };
     }).filter((entry) => entry.variants.length > 0);
     for (let depth = 0; candidates.length < candidateLimit; depth += 1) {
