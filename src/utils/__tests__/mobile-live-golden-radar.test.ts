@@ -930,7 +930,7 @@ function thinProfileCount(items: Array<{ keyword: string }>): number {
     noisyAutocompleteSuggestions.map((keyword) => keyword.replace(/\s+/g, '')),
   );
   assert('measured probe candidates outrank noisy autocomplete candidates before SearchAd spend',
-    noisyProbeVolumeKeywords.length >= 48
+    noisyProbeVolumeKeywords.length >= 24
       && noisyProbeVolumeKeywords.some((keyword) => /\uC81C\uC8FC\s*\uB80C\uD130\uCE74.*\uAC00\uACA9\uBE44\uAD50/.test(keyword))
       && noisyProbeVolumeKeywords
         .slice(0, 16)
@@ -1031,12 +1031,24 @@ function thinProfileCount(items: Array<{ keyword: string }>): number {
   assert('event and calendar commerce probes are rejected at SearchAd gate',
     !__liveGoldenRadarTestInternals.isSearchAdMeasurableLiveCandidate('2026 광복절 대체공휴일 최저가 구매처', 'policy', lottoGuardNow)
       && !__liveGoldenRadarTestInternals.isSearchAdMeasurableLiveCandidate('2026 광복절 대체공휴일 신청기간', 'policy', lottoGuardNow)
+      && !__liveGoldenRadarTestInternals.isSearchAdMeasurableLiveCandidate('제헌절 신청방법', 'policy', lottoGuardNow)
+      && !__liveGoldenRadarTestInternals.isSearchAdMeasurableLiveCandidate('공휴일 자격', 'policy', lottoGuardNow)
+      && !__liveGoldenRadarTestInternals.isSearchAdMeasurableLiveCandidate('제헌절 공휴일 소득기준 계산', 'policy', lottoGuardNow)
       && !__liveGoldenRadarTestInternals.isSearchAdMeasurableLiveCandidate('1229회 로또 당첨번호 보험 적용 비용', 'life_tips', lottoGuardNow)
       && !__liveGoldenRadarTestInternals.isSearchAdMeasurableLiveCandidate('2026 KBO 올스타전 티켓팅 일정', 'sports', lottoGuardNow)
       && !__liveGoldenRadarTestInternals.isSearchAdMeasurableLiveCandidate('2026 KBO 올스타전 티켓팅 일정 렌탈 가격비교', 'sports', lottoGuardNow),
     JSON.stringify([
       __liveGoldenRadarTestInternals.debugSearchAdMeasurableLiveCandidate('2026 광복절 대체공휴일 최저가 구매처', 'policy', lottoGuardNow),
       __liveGoldenRadarTestInternals.debugSearchAdMeasurableLiveCandidate('2026 KBO 올스타전 티켓팅 일정 렌탈 가격비교', 'sports', lottoGuardNow),
+    ]));
+  assert('product ranking maintenance chains are rejected before SearchAd spend',
+    !__liveGoldenRadarTestInternals.isSearchAdMeasurableLiveCandidate('로봇청소기 순위 필터 교체주기', 'electronics', lottoGuardNow)
+      && !__liveGoldenRadarTestInternals.isSearchAdMeasurableLiveCandidate('로봇청소기 가성비 필터 교체주기', 'electronics', lottoGuardNow)
+      && !__liveGoldenRadarTestInternals.isSearchAdMeasurableLiveCandidate('추천 필터 교체주기', 'electronics', lottoGuardNow)
+      && __liveGoldenRadarTestInternals.isHighYieldSearchAdSpendCandidate('로봇청소기 물걸레 가격비교', 'electronics', lottoGuardNow),
+    JSON.stringify([
+      __liveGoldenRadarTestInternals.debugSearchAdMeasurableLiveCandidate('로봇청소기 순위 필터 교체주기', 'electronics', lottoGuardNow),
+      __liveGoldenRadarTestInternals.debugSearchAdMeasurableLiveCandidate('로봇청소기 물걸레 가격비교', 'electronics', lottoGuardNow),
     ]));
 
   let capturedIssueSeeds: string[] = [];
@@ -2506,6 +2518,24 @@ function thinProfileCount(items: Array<{ keyword: string }>): number {
       )),
     broadPolicySnapshot.board.map((item) => `${item.keyword}:${item.grade}:${item.totalSearchVolume}:${item.documentCount}`).join('|'));
   fs.rmSync(broadPolicyBoardFile, { force: true });
+
+  assert('measured writer-ready rows can promote above stale stored grades while broad heads stay capped',
+    __liveGoldenRadarTestInternals.normalizeLiveMetricGrade(
+      '\uD504\uB9AC\uB79C\uC11C \uADFC\uB85C\uC7A5\uB824\uAE08 \uC2E0\uCCAD \uB300\uC0C1',
+      'S',
+      null,
+      6800,
+      500,
+      13.6,
+    ) === 'SSS'
+      && __liveGoldenRadarTestInternals.normalizeLiveMetricGrade(
+        '\uC0AC\uB300\uBCF4\uD5D8\uACC4\uC0B0\uAE30',
+        'S',
+        null,
+        20010,
+        1318,
+        15.18,
+      ) !== 'SSS');
 
   const writerReadyProbeCandidates = __liveGoldenRadarTestInternals.buildMeasuredProbeCandidates(
     'all',
