@@ -2458,6 +2458,8 @@ const SPORTS_EQUIPMENT_BASE_RE = /(?:라켓|축구화|농구화|러닝화|운동
 const PRODUCT_BASE_SIGNAL_RE = /(?:아이폰|갤럭시|노트북|태블릿|청소기|에어컨|냉장고|세탁기|모니터|키보드|마우스|이어폰|헤드폰|충전기|보조배터리|선풍기|제습기|가습기|공기청정기|로봇청소기|선크림|화장품|세럼|크림|샴푸|패딩|레인부츠|장화|양산|우산|수영복|샌들|크록스|가방|신발|운동화|라켓|축구화|골프채|골프공|글러브|배트|유니폼|요가매트|덤벨|텐트|캠핑|아이스박스|텀블러|침구|매트리스|의자|책상|유심|렌터카|렌트카|항공권|숙소|호텔|상품권|쿠폰|바우처|카드|보험|대출|청약|AI\s*툴|AI\s*영상|영상툴|생성툴|자동화툴|앱|서비스)/iu;
 const TRAVEL_PURCHASE_BASE_RE = /(?:렌터카|렌트카|숙소|호텔|리조트|펜션|캠핑장|항공권|유심|이심|eSIM|환전|비자)/iu;
 const KOREAN_PRODUCT_EVENT_TAIL_MISMATCH_RE = /(?:\uC911\uACC4\s*\uC77C\uC815|\uACBD\uAE30\s*\uC77C\uC815|\uC9C1\uAD00\s*\uC900\uBE44\uBB3C|\uB77C\uC778\uC5C5|\uD558\uC774\uB77C\uC774\uD2B8|\uACBD\uAE30\s*\uACB0\uACFC|\uC608\uB9E4\s*\uC77C\uC815|\uD2F0\uCF13\uD305\s*\uC77C\uC815)/u;
+const KOREAN_PRODUCT_RANK_CONTEXT_RE = /(?:\uC21C\uC704|\uBE44\uAD50|\uAC00\uC131\uBE44|\uAC00\uACA9|\uCD94\uCC9C|\uD560\uC778|\uCFE0\uD3F0|\uAD6C\uB9E4\uCC98|\uCD5C\uC800\uAC00|\uBE0C\uB79C\uB4DC\s*\uBE44\uAD50)/u;
+const KOREAN_PRODUCT_TOOL_TAIL_MISMATCH_RE = /(?:\uC624\uB958\s*\uD574\uACB0|\uBB34\uB8CC\s*\uB300\uCCB4|\uC5C5\uB370\uC774\uD2B8|\uC124\uC815|\uAD6C\uB3C5\uB8CC|\uD15C\uD50C\uB9BF|\uC5C5\uBB34\s*\uC790\uB3D9\uD654)/u;
 const KOREAN_PROMPT_TAIL_RE = /\uD504\uB86C\uD504\uD2B8/u;
 const KOREAN_PROMPT_COMPATIBLE_BASE_RE = /(?:\bAI\b|\uCC57\s*GPT|ChatGPT|GPT|\uD074\uB85C\uB4DC|Claude|\uC0DD\uC131\s*AI|\uC0DD\uC131\uD615\s*AI|\uC774\uBBF8\uC9C0\s*\uC0DD\uC131|\uC601\uC0C1\s*\uC0DD\uC131|\uC790\uB3D9\uD654\s*\uD234)/iu;
 
@@ -2465,6 +2467,7 @@ function isProductEventOrPromptTailMismatch(keyword: string): boolean {
   const clean = normalizeKeyword(keyword);
   if (!clean || !PRODUCT_BASE_SIGNAL_RE.test(clean)) return false;
   if (KOREAN_PRODUCT_EVENT_TAIL_MISMATCH_RE.test(clean)) return true;
+  if (KOREAN_PRODUCT_RANK_CONTEXT_RE.test(clean) && KOREAN_PRODUCT_TOOL_TAIL_MISMATCH_RE.test(clean)) return true;
   if (KOREAN_PROMPT_TAIL_RE.test(clean) && !KOREAN_PROMPT_COMPATIBLE_BASE_RE.test(clean)) return true;
   return false;
 }

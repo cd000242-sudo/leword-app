@@ -1029,6 +1029,9 @@ function thinProfileCount(items: Array<{ keyword: string }>): number {
     ['\uB808\uC778\uBD80\uCE20 \uC21C\uC704 \uC9C1\uAD00 \uC900\uBE44\uBB3C', 'shopping'],
     ['\uB808\uC778\uBD80\uCE20 \uC21C\uC704 \uC608\uB9E4 \uC77C\uC815', 'shopping'],
     ['\uB808\uC778\uBD80\uCE20 \uBE44\uAD50 \uD504\uB86C\uD504\uD2B8', 'shopping'],
+    ['\uB808\uC778\uBD80\uCE20 \uBE44\uAD50 \uC624\uB958 \uD574\uACB0', 'shopping'],
+    ['\uB808\uC778\uBD80\uCE20 \uBE44\uAD50 \uBB34\uB8CC \uB300\uCCB4', 'shopping'],
+    ['\uB808\uC778\uBD80\uCE20 \uBE44\uAD50 \uC5C5\uB370\uC774\uD2B8', 'shopping'],
   ] as const;
   assert('product shopping heads reject sports event and non-AI prompt tails',
     productEventTailMismatchCases.every(([keyword, category]) => (
@@ -1049,7 +1052,7 @@ function thinProfileCount(items: Array<{ keyword: string }>): number {
   ], 120, lottoGuardNow);
   assert('shopping backfill does not create sports event tails for product rank seeds',
     productEventBackfillCandidates.every((keyword) => (
-      !/(?:\uC911\uACC4\s*\uC77C\uC815|\uACBD\uAE30\s*\uC77C\uC815|\uC9C1\uAD00\s*\uC900\uBE44\uBB3C|\uC608\uB9E4\s*\uC77C\uC815|\uD504\uB86C\uD504\uD2B8)/u.test(keyword)
+      !/(?:\uC911\uACC4\s*\uC77C\uC815|\uACBD\uAE30\s*\uC77C\uC815|\uC9C1\uAD00\s*\uC900\uBE44\uBB3C|\uC608\uB9E4\s*\uC77C\uC815|\uD504\uB86C\uD504\uD2B8|\uC624\uB958\s*\uD574\uACB0|\uBB34\uB8CC\s*\uB300\uCCB4|\uC5C5\uB370\uC774\uD2B8)/u.test(keyword)
     )),
     productEventBackfillCandidates.slice(0, 80).join('|'));
   assert('policy compound chains are rejected before SearchAd spend',
