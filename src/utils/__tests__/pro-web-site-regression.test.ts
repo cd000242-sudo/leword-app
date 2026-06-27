@@ -135,8 +135,14 @@ assert('LEWORD view removes source board from the golden tab',
     && !html.includes('id="sources" data-view="golden"')
     && !html.includes('id="refreshSources"')
     && !html.includes('id="lane-naver"')
+    && !html.includes('class="source-grid"')
+    && !html.includes("proSources: apiUrl('/v1/mobile/source-signals')")
+    && !html.includes('function loadSources')
+    && !html.includes('function renderSourceError')
+    && !html.includes('function normalizeSourceLanes')
     && !html.includes('loadSources().catch')
     && !html.includes('setInterval(loadSources')
+    && !html.includes('실시간 소스 보드')
     && html.includes("if (id === 'sources') return 'golden'")
     && html.includes('class="panel main-view" id="lookup" data-view="lookup"')
     && html.includes('class="panel main-view" id="youtube" data-view="youtube"')
@@ -196,14 +202,13 @@ assert('mobile Pro Web chrome can collapse above the live board',
     && html.includes('.shell.mobile-pro-collapsed .hero')
     && html.includes('function setMobileProChromeCollapsed')
     && html.includes("localStorage.setItem(mobileProChromeStorageKey, value)"));
-assert('source board renders a wider always-on realtime feed',
-  html.includes("endpoints.publicSources + '?limit=60'")
-    && html.includes("endpoints.proSources + '?limit=60'")
-    && html.includes('apiGet(url, !!session, 6500)')
-    && html.includes('function renderSourceError')
-    && html.includes('allItems.slice(0, 12)')
-    && html.includes('function normalizeSourceLanes')
-    && html.includes('class="signal-list"'));
+assert('public source endpoint remains only as golden preview backfill',
+  html.includes("publicSources: apiUrl('/v1/public/source-signals')")
+    && html.includes('function liveSignalBackfillItems')
+    && html.includes('payload.clientBackfill = liveSignalBackfillItems')
+    && html.includes('apiGet(endpoints.publicSources, false)')
+    && !html.includes("endpoints.proSources + '?limit=60'")
+    && !html.includes('allItems.slice(0, 12)'));
 assert('keyword lookup table separates PC and mobile',
   html.includes('<th>PC</th>') && html.includes('<th>모바일</th>') && html.includes('<th>전체</th>') && html.includes('<tbody id="keywordRows">'));
 
