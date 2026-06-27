@@ -2902,6 +2902,22 @@ function thinProfileCount(items: Array<{ keyword: string }>): number {
       debug: __liveGoldenRadarTestInternals.debugSearchAdMeasurableLiveCandidate(keyword, category, lottoGuardNow),
     }))));
 
+  assert('writer-ready SSS queue priority favors practical longtails over broad heads',
+    __liveGoldenRadarTestInternals.writerReadySssProbePriorityScore(
+      '\uD504\uB9AC\uB79C\uC11C \uADFC\uB85C\uC7A5\uB824\uAE08 \uC2E0\uCCAD \uB300\uC0C1',
+      'policy',
+    ) > __liveGoldenRadarTestInternals.writerReadySssProbePriorityScore(
+      '\uADFC\uB85C\uC7A5\uB824\uAE08',
+      'policy',
+    ) + 300
+      && __liveGoldenRadarTestInternals.writerReadySssProbePriorityScore(
+        '\uC81C\uC2B5\uAE30 \uC6D0\uB8F8 \uC804\uAE30\uC694\uAE08 \uBE44\uAD50',
+        'electronics',
+      ) > __liveGoldenRadarTestInternals.writerReadySssProbePriorityScore(
+        '\uC81C\uC2B5\uAE30',
+        'electronics',
+      ) + 300);
+
   const queueFamilyA = '\uC1A1\uC9C0\uD638 \uBC14\uB2E4\uD558\uB298\uAE38 \uC608\uC57D \uBC29\uBC95';
   const queueFamilyB = '\uC1A1\uC9C0\uD638 \uBC14\uB2E4\uD558\uB298\uAE38 \uC8FC\uCC28';
   const queueFamilyC = '\uC1A1\uC9C0\uD638 \uBC14\uB2E4\uD558\uB298\uAE38 \uC785\uC7A5\uB8CC';
@@ -3240,9 +3256,15 @@ function thinProfileCount(items: Array<{ keyword: string }>): number {
   });
   await queueMissRadar.runOnce();
   const queueMissAfter = JSON.parse(fs.readFileSync(queueMissProbeFile, 'utf8'));
-  assert('no-result queued probe is retired instead of blocking later candidates',
+  assert('no-result queued probe is retained for delayed retry without blocking later candidates',
     queueMissMeasuredKeywords.includes(missedTravelProbe)
-      && !queueMissAfter.items?.some((item: any) => item.keyword === missedTravelProbe),
+      && queueMissAfter.items?.some((item: any) => (
+        item.keyword === missedTravelProbe
+        && item.attempts === 1
+        && item.misses === 1
+        && item.lastTriedAt
+      ))
+      && (queueMissAfter.items || []).some((item: any) => item.keyword !== missedTravelProbe && item.attempts === 0),
     JSON.stringify({ measured: queueMissMeasuredKeywords, queue: queueMissAfter.items || [] }));
   fs.rmSync(queueMissProbeFile, { force: true });
 
