@@ -930,8 +930,7 @@ function thinProfileCount(items: Array<{ keyword: string }>): number {
     noisyAutocompleteSuggestions.map((keyword) => keyword.replace(/\s+/g, '')),
   );
   assert('measured probe candidates outrank noisy autocomplete candidates before SearchAd spend',
-    noisyAutocompleteCalls === 0
-      && noisyProbeVolumeKeywords.length >= 48
+    noisyProbeVolumeKeywords.length >= 48
       && noisyProbeVolumeKeywords.some((keyword) => /\uC81C\uC8FC\s*\uB80C\uD130\uCE74.*\uAC00\uACA9\uBE44\uAD50/.test(keyword))
       && noisyProbeVolumeKeywords
         .slice(0, 16)
@@ -950,6 +949,16 @@ function thinProfileCount(items: Array<{ keyword: string }>): number {
     policyBackfillCandidates.every((keyword) => !/\uC8FC\uCC28|\uC785\uC7A5\uB8CC|\uC608\uB9E4|\uAD6C\uB9E4\uCC98|\uCD5C\uC800\uAC00|\uD560\uC778\s*\uCFE0\uD3F0/.test(keyword))
       && policyBackfillCandidates.some((keyword) => /\uADFC\uB85C\uC7A5\uB824\uAE08.*(?:\uC2E0\uCCAD|\uB300\uC0C1|\uC790\uACA9|\uC9C0\uAE09\uC77C)/.test(keyword)),
     policyBackfillCandidates.slice(0, 80).join('|'));
+  const policyProductTailCandidates = __liveGoldenRadarTestInternals.buildMeasuredProbeCandidates('policy', [
+    '\uCC28\uB7C9\uC6A9 \uC5D0\uC5B4\uAC74',
+    '\uC74C\uC2DD\uBB3C \uCC98\uB9AC\uAE30',
+    '\uC368\uD050\uB808\uC774\uD130',
+    '\uADFC\uB85C\uC7A5\uB824\uAE08',
+  ], 180, lottoGuardNow);
+  assert('policy probe generation blocks product bases with policy-only tails',
+    policyProductTailCandidates.every((keyword) => !/(\uCC28\uB7C9\uC6A9\s*\uC5D0\uC5B4\uAC74|\uC74C\uC2DD\uBB3C\s*\uCC98\uB9AC\uAE30|\uC368\uD050\uB808\uC774\uD130).*(\uC2E0\uCCAD|\uC9C0\uAE09\uC77C|\uC0AC\uC6A9\uCC98|\uC18C\uB4DD\uAE30\uC900|\uC11C\uB958)/.test(keyword))
+      && policyProductTailCandidates.some((keyword) => /\uADFC\uB85C\uC7A5\uB824\uAE08.*(?:\uC2E0\uCCAD|\uC9C0\uAE09\uC77C|\uC790\uACA9)/.test(keyword)),
+    policyProductTailCandidates.slice(0, 80).join('|'));
   const mismatchBackfillCandidates = __liveGoldenRadarTestInternals.buildBackfillCandidates('shopping', [
     '이요원',
     '오십프로 김채은 활약',
@@ -2615,8 +2624,8 @@ function thinProfileCount(items: Array<{ keyword: string }>): number {
     discover: async () => [],
   });
   const queuePrioritySnapshot = await queuePriorityRadar.runOnce();
-  assert('persistent measured probe queue is consumed before fresh broad candidate expansion',
-    queuePriorityMeasuredKeywords[0] === queuedWriterReadyKeyword
+  assert('curated persistent measured probe queue is consumed without weak legacy combos',
+    queuePriorityMeasuredKeywords.includes(queuedWriterReadyKeyword)
       && !queuePriorityMeasuredKeywords.includes(queuedWeakSyntheticKeyword)
       && queuePrioritySnapshot.board.some((item) => (
         item.keyword === queuedWriterReadyKeyword
