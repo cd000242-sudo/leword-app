@@ -65,6 +65,7 @@ export interface MobileLiveGoldenRadarOptions {
   boardFile?: string;
   resultCacheFile?: string;
   keywordCacheFile?: string;
+  probeQueueFile?: string;
   maxSeeds?: number;
   maxCandidates?: number;
   startupCatchUpCycles?: number;
@@ -89,6 +90,17 @@ export interface MobileLiveGoldenRadarOptions {
 }
 
 type LiveSearchVolumeRow = Awaited<ReturnType<typeof getNaverKeywordSearchVolumeSeparate>>[number];
+
+interface LiveMeasuredProbeQueueItem {
+  keyword: string;
+  category: string;
+  source: string;
+  priority: number;
+  firstSeenAt: string;
+  lastTriedAt?: string;
+  attempts: number;
+  misses: number;
+}
 
 const DEFAULT_CATEGORIES = Object.freeze([
   'shopping',
@@ -143,6 +155,11 @@ const LIVE_BACKFILL_DOCUMENT_CONCURRENCY = 3;
 const LIVE_BACKFILL_DOCUMENT_SUPPLEMENT_MAX = 36;
 const LIVE_ISSUE_DOCUMENT_SUPPLEMENT_MAX = 8;
 const LIVE_BOARD_SPLIT_ENRICHMENT_LIMIT = 80;
+const LIVE_PROBE_QUEUE_FILE_NAME = 'live-golden-probe-queue.json';
+const LIVE_PROBE_QUEUE_MAX_ITEMS = 2500;
+const LIVE_PROBE_QUEUE_MAX_ATTEMPTS = 4;
+const LIVE_PROBE_QUEUE_NO_RESULT_MAX = 2;
+const LIVE_PROBE_QUEUE_RETRY_DELAY_MS = 4 * 60 * 60 * 1000;
 const LIVE_CACHE_PROMOTION_MAX_CANDIDATES = 360;
 const LIVE_CACHE_PROMOTION_BATCH_SIZE = 20;
 const LIVE_CACHE_PROMOTION_BATCH_TIMEOUT_MS = 35_000;
@@ -829,6 +846,19 @@ function uniqueKeywords(values: string[], limit = 40): string[] {
     if (seen.has(key)) continue;
     seen.add(key);
     out.push(value);
+    if (out.length >= limit) break;
+  }
+  return out;
+}
+
+function uniqueVolumeRows(rows: LiveSearchVolumeRow[], limit = 40): LiveSearchVolumeRow[] {
+  const seen = new Set<string>();
+  const out: LiveSearchVolumeRow[] = [];
+  for (const row of rows) {
+    const key = keywordCompactId(row?.keyword);
+    if (!key || seen.has(key)) continue;
+    seen.add(key);
+    out.push(row);
     if (out.length >= limit) break;
   }
   return out;
@@ -4222,6 +4252,7 @@ export class MobileLiveGoldenRadar {
   private readonly boardFile?: string;
   private readonly resultCacheFile?: string;
   private readonly keywordCacheFile?: string;
+  private readonly probeQueueFile?: string;
   private readonly maxSeeds: number;
   private readonly maxCandidates: number;
   private readonly startupCatchUpCycles: number;
@@ -4260,6 +4291,7 @@ export class MobileLiveGoldenRadar {
   private boardUpdatedAt?: string;
   private readonly board = new Map<string, MobileLiveGoldenBoardItem>();
   private readonly cacheDerivedLiveSeeds: string[] = [];
+  private readonly pendingMeasuredProbeQueue: LiveMeasuredProbeQueueItem[] = [];
   private lastCacheRefreshAtMs = 0;
   private lastStartedAt?: string;
   private lastFinishedAt?: string;
@@ -4286,6 +4318,12 @@ export class MobileLiveGoldenRadar {
     this.resultCacheFile = normalizeKeyword(options.resultCacheFile || '') || undefined;
     this.keywordCacheFile = normalizeKeyword(options.keywordCacheFile || '')
       || (this.resultCacheFile ? path.join(path.dirname(this.resultCacheFile), 'keyword-cache.json') : undefined);
+    this.probeQueueFile = normalizeKeyword(options.probeQueueFile || '')
+      || (
+        this.boardFile || this.keywordCacheFile || this.resultCacheFile
+          ? path.join(path.dirname((this.boardFile || this.keywordCacheFile || this.resultCacheFile) as string), LIVE_PROBE_QUEUE_FILE_NAME)
+          : undefined
+      );
     this.maxSeeds = Math.max(20, Math.min(1000, Math.floor(
       options.maxSeeds || Math.max(240, this.boardTarget * 8),
     )));
@@ -4314,6 +4352,7 @@ export class MobileLiveGoldenRadar {
     this.setTimeoutFn = options.setTimeoutFn || ((handler, delayMs) => setTimeout(handler, delayMs));
     this.clearTimeoutFn = options.clearTimeoutFn || ((handle) => clearTimeout(handle as ReturnType<typeof setTimeout>));
     this.now = options.now || (() => new Date());
+    this.loadMeasuredProbeQueueFromFile();
     this.loadBoardFromFile();
     this.loadMeasuredResultCacheFromFile();
     this.loadPersistentKeywordCacheFromFile();
@@ -4735,12 +4774,212 @@ export class MobileLiveGoldenRadar {
       if (snapshot.running || afterAttempts === beforeAttempts) break;
       if (this.skippedRuns > 0 && /busy|skipped/i.test(snapshot.lastMessage || '')) break;
       if (snapshot.boardCount <= beforeBoardCount && afterSssReady <= beforeSssReady) {
-        this.lastMessage = `catch-up paused: no new measured publishable rows; board ${snapshot.boardCount}/${this.boardTarget}`;
-        snapshot = this.snapshot();
-        break;
+        if (!this.hasRunnableMeasuredProbeQueue()) {
+          this.lastMessage = `catch-up paused: no new measured publishable rows; board ${snapshot.boardCount}/${this.boardTarget}`;
+          snapshot = this.snapshot();
+          break;
+        }
+        this.lastMessage = `catch-up continuing: measured probe queue ${this.pendingMeasuredProbeQueue.length}, board ${snapshot.boardCount}/${this.boardTarget}`;
       }
     }
     return snapshot;
+  }
+
+  private queueMeasuredProbeCandidates(
+    candidates: string[],
+    categoryId: string,
+    source: string,
+    priorityBoost = 0,
+    persist = true,
+  ): number {
+    const now = this.now();
+    const stamp = now.toISOString();
+    const existingById = new Map(
+      this.pendingMeasuredProbeQueue.map((item) => [keywordCompactId(item.keyword), item]),
+    );
+    let changed = 0;
+    for (const raw of candidates) {
+      const clean = normalizeKeyword(raw);
+      if (!clean) continue;
+      const compact = keywordCompactId(clean);
+      if (!compact) continue;
+      const inferred = inferLiveCategory(clean, categoryId || 'all');
+      if (!isLiveRadarUsableKeyword(clean, null, null, now)) continue;
+      if (!isSearchAdMeasurableLiveCandidate(clean, inferred || categoryId, now)) continue;
+      if (this.board.has(keywordId(clean))) continue;
+      const priority = Math.round(
+        preVolumeCandidateScore(clean, inferred || categoryId)
+        + priorityBoost
+        + (isLiveMeasuredProbeCandidate(clean, inferred || categoryId, now) ? 180 : 0),
+      );
+      const existing = existingById.get(compact);
+      if (existing) {
+        if (priority > existing.priority || source !== existing.source) {
+          existing.priority = Math.max(existing.priority, priority);
+          existing.source = existing.source === source ? existing.source : `${existing.source},${source}`.slice(0, 120);
+          existing.category = existing.category || inferred || categoryId || 'all';
+          changed += 1;
+        }
+        continue;
+      }
+      this.pendingMeasuredProbeQueue.push({
+        keyword: clean,
+        category: inferred || categoryId || 'all',
+        source,
+        priority,
+        firstSeenAt: stamp,
+        attempts: 0,
+        misses: 0,
+      });
+      changed += 1;
+    }
+    if (changed > 0) {
+      this.pendingMeasuredProbeQueue.sort((a, b) => b.priority - a.priority || a.attempts - b.attempts);
+      this.pendingMeasuredProbeQueue.splice(LIVE_PROBE_QUEUE_MAX_ITEMS);
+      if (persist) this.saveMeasuredProbeQueueToFile();
+    }
+    return changed;
+  }
+
+  private runnableMeasuredProbeQueueItems(categoryId = 'all', targetLimit = this.cycleLimit): LiveMeasuredProbeQueueItem[] {
+    const now = this.now();
+    const nowMs = now.getTime();
+    const normalizedCategory = normalizeKeyword(categoryId || 'all') || 'all';
+    const limit = Math.max(24, Math.min(180, targetLimit * 8));
+    const boardIds = new Set([...this.board.values()].map((item) => keywordCompactId(item.keyword)).filter(Boolean));
+    return this.pendingMeasuredProbeQueue
+      .filter((item) => {
+        const compact = keywordCompactId(item.keyword);
+        if (!compact || boardIds.has(compact)) return false;
+        if (item.attempts >= LIVE_PROBE_QUEUE_MAX_ATTEMPTS) return false;
+        if (item.misses >= LIVE_PROBE_QUEUE_NO_RESULT_MAX) return false;
+        const lastTriedAt = Date.parse(item.lastTriedAt || '');
+        if (Number.isFinite(lastTriedAt) && nowMs - lastTriedAt < LIVE_PROBE_QUEUE_RETRY_DELAY_MS) return false;
+        if (normalizedCategory === 'all') return true;
+        if (item.category === normalizedCategory) return true;
+        return categoryAcceptsMeasuredProbe(item.keyword, normalizedCategory);
+      })
+      .sort((a, b) => {
+        const scoreDiff = b.priority - b.attempts * 45 - b.misses * 90
+          - (a.priority - a.attempts * 45 - a.misses * 90);
+        if (scoreDiff !== 0) return scoreDiff;
+        return Date.parse(a.firstSeenAt) - Date.parse(b.firstSeenAt);
+      })
+      .slice(0, limit);
+  }
+
+  private hasRunnableMeasuredProbeQueue(): boolean {
+    return this.runnableMeasuredProbeQueueItems('all', this.cycleLimit).length > 0;
+  }
+
+  private pendingMeasuredProbeKeywordsForRun(categoryId: string, targetLimit: number): string[] {
+    return this.runnableMeasuredProbeQueueItems(categoryId, targetLimit).map((item) => item.keyword);
+  }
+
+  private updateMeasuredProbeQueueAfterMeasurement(
+    attemptedKeywords: string[],
+    volumeRows: LiveSearchVolumeRow[],
+    enrichedRows: LiveSearchVolumeRow[],
+  ): void {
+    const attemptedIds = new Set(attemptedKeywords.map((keyword) => keywordCompactId(keyword)).filter(Boolean));
+    if (attemptedIds.size === 0 || this.pendingMeasuredProbeQueue.length === 0) return;
+    const volumeHitIds = new Set(
+      volumeRows
+        .filter((row) => ((finiteNumber(row.pcSearchVolume) || 0) + (finiteNumber(row.mobileSearchVolume) || 0)) > 0)
+        .map((row) => keywordCompactId(row.keyword))
+        .filter(Boolean),
+    );
+    const completeIds = new Set(
+      enrichedRows
+        .filter((row) => {
+          const volume = (finiteNumber(row.pcSearchVolume) || 0) + (finiteNumber(row.mobileSearchVolume) || 0);
+          const docs = finiteNumber(row.documentCount);
+          return volume > 0 && docs !== null && docs > 0;
+        })
+        .map((row) => keywordCompactId(row.keyword))
+        .filter(Boolean),
+    );
+    const stamp = this.now().toISOString();
+    let changed = false;
+    for (let index = this.pendingMeasuredProbeQueue.length - 1; index >= 0; index -= 1) {
+      const item = this.pendingMeasuredProbeQueue[index];
+      const compact = keywordCompactId(item.keyword);
+      if (!compact || !attemptedIds.has(compact)) continue;
+      if (completeIds.has(compact)) {
+        this.pendingMeasuredProbeQueue.splice(index, 1);
+        changed = true;
+        continue;
+      }
+      item.attempts += 1;
+      item.lastTriedAt = stamp;
+      if (!volumeHitIds.has(compact)) item.misses += 1;
+      if (item.attempts >= LIVE_PROBE_QUEUE_MAX_ATTEMPTS || item.misses >= LIVE_PROBE_QUEUE_NO_RESULT_MAX) {
+        this.pendingMeasuredProbeQueue.splice(index, 1);
+      }
+      changed = true;
+    }
+    if (changed) this.saveMeasuredProbeQueueToFile();
+  }
+
+  private loadMeasuredProbeQueueFromFile(): void {
+    if (!this.probeQueueFile) return;
+    try {
+      if (!fs.existsSync(this.probeQueueFile)) return;
+      const raw = fs.readFileSync(this.probeQueueFile, 'utf8').trim();
+      if (!raw) return;
+      const parsed = JSON.parse(raw);
+      const rows = Array.isArray(parsed?.items)
+        ? parsed.items
+        : Array.isArray(parsed?.queue)
+          ? parsed.queue
+          : Array.isArray(parsed)
+            ? parsed
+            : [];
+      const now = this.now();
+      const seen = new Set<string>();
+      for (const row of rows) {
+        const keyword = normalizeKeyword(row?.keyword);
+        const compact = keywordCompactId(keyword);
+        if (!keyword || !compact || seen.has(compact)) continue;
+        if (!isLiveRadarUsableKeyword(keyword, null, null, now)) continue;
+        const category = inferLiveCategory(keyword, normalizeKeyword(row?.category) || 'all');
+        if (!isSearchAdMeasurableLiveCandidate(keyword, category || 'all', now)) continue;
+        seen.add(compact);
+        this.pendingMeasuredProbeQueue.push({
+          keyword,
+          category: category || 'all',
+          source: normalizeKeyword(row?.source) || 'persistent-probe-queue',
+          priority: finiteNumber(row?.priority) ?? preVolumeCandidateScore(keyword, category || 'all'),
+          firstSeenAt: normalizeKeyword(row?.firstSeenAt) || this.now().toISOString(),
+          lastTriedAt: normalizeKeyword(row?.lastTriedAt) || undefined,
+          attempts: Math.max(0, Math.floor(finiteNumber(row?.attempts) || 0)),
+          misses: Math.max(0, Math.floor(finiteNumber(row?.misses) || 0)),
+        });
+      }
+      this.pendingMeasuredProbeQueue.sort((a, b) => b.priority - a.priority || a.attempts - b.attempts);
+      this.pendingMeasuredProbeQueue.splice(LIVE_PROBE_QUEUE_MAX_ITEMS);
+    } catch (err) {
+      this.lastError = (err as Error).message || String(err);
+      this.lastMessage = `measured probe queue load failed: ${this.lastError}`;
+    }
+  }
+
+  private saveMeasuredProbeQueueToFile(): void {
+    if (!this.probeQueueFile) return;
+    try {
+      fs.mkdirSync(path.dirname(this.probeQueueFile), { recursive: true });
+      const payload = {
+        version: 1,
+        savedAt: this.now().toISOString(),
+        items: this.pendingMeasuredProbeQueue.slice(0, LIVE_PROBE_QUEUE_MAX_ITEMS),
+      };
+      const tmpFile = `${this.probeQueueFile}.tmp`;
+      fs.writeFileSync(tmpFile, JSON.stringify(payload, null, 2), 'utf8');
+      fs.renameSync(tmpFile, this.probeQueueFile);
+    } catch (err) {
+      this.lastError = (err as Error).message || String(err);
+      this.lastMessage = `measured probe queue save failed: ${this.lastError}`;
+    }
   }
 
   private rememberCacheDerivedLiveSeeds(keyword: string, categoryId: string): void {
@@ -4767,6 +5006,7 @@ export class MobileLiveGoldenRadar {
       if (this.cacheDerivedLiveSeeds.some((seed) => keywordCompactId(seed) === compact)) continue;
       this.cacheDerivedLiveSeeds.push(candidate);
     }
+    this.queueMeasuredProbeCandidates(candidates, inferredCategory, 'cache-derived-probe', 120, false);
   }
 
   private async collectLiveSeeds(categoryId: string): Promise<string[]> {
@@ -4976,8 +5216,7 @@ export class MobileLiveGoldenRadar {
     categoryId: string,
     liveSeeds: string[],
     targetLimit: number,
-  ): Promise<string[]> {
-    if (this.hasCustomLiveVolumeMeasure) return [];
+  ): Promise<LiveSearchVolumeRow[]> {
     const searchAdConfig = searchAdConfigFromEnv(this.getEnvConfig());
     if (!searchAdConfig) return [];
 
@@ -5003,10 +5242,15 @@ export class MobileLiveGoldenRadar {
       .slice(0, seedLimit);
     if (seeds.length === 0) return [];
 
-    const scored = new Map<string, { keyword: string; score: number; index: number }>();
+    const scored = new Map<string, { keyword: string; score: number; index: number; row: LiveSearchVolumeRow }>();
     let cursor = 0;
     let order = 0;
-    const push = (keyword: string, rowScore: number, fallbackCategory: string): void => {
+    const push = (
+      suggestion: any,
+      rowScore: number,
+      fallbackCategory: string,
+    ): void => {
+      const keyword = (suggestion as any).keyword;
       const clean = normalizeKeyword(keyword);
       if (!clean || scored.size >= limit) return;
       if (isLowValueLiveCandidate(clean) || isOverExpandedLiveCandidate(clean) || isNoisyLiveSeed(clean)) return;
@@ -5023,7 +5267,22 @@ export class MobileLiveGoldenRadar {
       const score = rowScore + preVolumeCandidateScore(clean, inferred || categoryId);
       const existing = scored.get(key);
       if (existing && existing.score >= score) return;
-      scored.set(key, { keyword: clean, score, index: order++ });
+      scored.set(key, {
+        keyword: clean,
+        score,
+        index: order++,
+        row: {
+          keyword: clean,
+          pcSearchVolume: finiteNumber((suggestion as any).pcSearchVolume) || 0,
+          mobileSearchVolume: finiteNumber((suggestion as any).mobileSearchVolume) || 0,
+          documentCount: null,
+          competition: normalizeKeyword((suggestion as any).competition) || null,
+          monthlyAveCpc: finiteNumber((suggestion as any).monthlyAveCpc),
+          searchVolumeSource: 'searchad',
+          searchVolumeConfidence: 'high',
+          isSearchVolumeEstimated: false,
+        } as LiveSearchVolumeRow,
+      });
     };
 
     const workers = Array.from({ length: Math.min(3, seeds.length) }, async () => {
@@ -5040,7 +5299,7 @@ export class MobileLiveGoldenRadar {
           const total = finiteNumber((suggestion as any).totalSearchVolume)
             ?? ((finiteNumber((suggestion as any).pcSearchVolume) || 0) + (finiteNumber((suggestion as any).mobileSearchVolume) || 0));
           if (total === null || total < 300) continue;
-          push((suggestion as any).keyword, Math.min(180, Math.log10(total + 10) * 34), fallbackCategory);
+          push(suggestion, Math.min(180, Math.log10(total + 10) * 34), fallbackCategory);
           if (scored.size >= limit) break;
         }
       }
@@ -5049,7 +5308,7 @@ export class MobileLiveGoldenRadar {
 
     return [...scored.values()]
       .sort((a, b) => b.score - a.score || a.index - b.index)
-      .map((item) => item.keyword)
+      .map((item) => item.row)
       .slice(0, limit);
   }
 
@@ -5075,11 +5334,13 @@ export class MobileLiveGoldenRadar {
         liveSeeds,
         targetLimit,
       );
-    const searchAdSuggestionCandidates = await this.discoverSearchAdSuggestionBackfillCandidates(
+    const searchAdSuggestionRows = await this.discoverSearchAdSuggestionBackfillCandidates(
       categoryId,
       liveSeeds,
       targetLimit,
     );
+    const searchAdSuggestionCandidates = searchAdSuggestionRows.map((row) => row.keyword);
+    const queuedProbeCandidates = this.pendingMeasuredProbeKeywordsForRun(categoryId, targetLimit);
     const measuredProbeCandidateIds = new Set(
       measuredProbeCandidates.map((keyword) => keywordCompactId(keyword)).filter(Boolean),
     );
@@ -5090,12 +5351,14 @@ export class MobileLiveGoldenRadar {
       searchAdSuggestionCandidates.map((keyword) => keywordCompactId(keyword)).filter(Boolean),
     );
     const candidates = uniqueKeywords([
+      ...queuedProbeCandidates,
       ...measuredProbeCandidates,
       ...searchAdSuggestionCandidates,
       ...autocompleteCandidates,
       ...buildBackfillCandidates(categoryId, liveSeeds, this.maxSeeds, this.now()),
     ], this.maxSeeds);
     if (candidates.length === 0) return [];
+    this.queueMeasuredProbeCandidates(candidates, categoryId, 'backfill-candidate', 40, false);
     const rankedCandidates = candidates
       .map((keyword, index) => ({
         keyword,
@@ -5122,17 +5385,36 @@ export class MobileLiveGoldenRadar {
     const measuredSearchAdIds = new Set(
       measuredSearchAdCandidates.map((keyword) => keywordCompactId(keyword)).filter(Boolean),
     );
+    const suggestedRowIds = new Set(
+      searchAdSuggestionRows.map((row) => keywordCompactId(row.keyword)).filter(Boolean),
+    );
     const fallbackSearchAdCandidates = rankedCandidates
       .filter((keyword) => !measuredSearchAdIds.has(keywordCompactId(keyword)))
+      .filter((keyword) => !suggestedRowIds.has(keywordCompactId(keyword)))
       .filter((keyword) => isSearchAdMeasurableLiveCandidate(keyword, categoryId, this.now()));
+    const suggestionRowsForRun = uniqueVolumeRows(searchAdSuggestionRows, measurementLimit);
     const searchAdCandidates = uniqueKeywords([
       ...measuredSearchAdCandidates,
       ...fallbackSearchAdCandidates,
+    ], Math.max(0, measurementLimit - suggestionRowsForRun.length));
+    const measuredVolumeRows = searchAdCandidates.length > 0
+      ? await withTimeout(this.measureLiveSearchVolumeSeparate(config, searchAdCandidates, {
+        includeDocumentCount: false,
+      }), LIVE_BACKFILL_TIMEOUT_MS, [])
+      : [];
+    const volumeRows = uniqueVolumeRows([
+      ...suggestionRowsForRun,
+      ...measuredVolumeRows,
     ], measurementLimit);
-    const volumeRows = await withTimeout(this.measureLiveSearchVolumeSeparate(config, searchAdCandidates, {
-      includeDocumentCount: false,
-    }), LIVE_BACKFILL_TIMEOUT_MS, []);
     const rows = await this.attachDocumentCountsToVolumeRows(volumeRows, categoryId, targetLimit);
+    this.updateMeasuredProbeQueueAfterMeasurement(
+      uniqueKeywords([
+        ...suggestionRowsForRun.map((row) => row.keyword),
+        ...searchAdCandidates,
+      ], measurementLimit * 2),
+      volumeRows,
+      rows,
+    );
     const seen = new Set<string>();
     const out: MDPResult[] = [];
     let documentCountSupplements = 0;
@@ -5308,6 +5590,7 @@ export class MobileLiveGoldenRadar {
       maxCandidates: this.maxCandidates,
       boardTarget: this.boardTarget,
       boardCount: markedBoard.length,
+      pendingProbeQueueCount: this.pendingMeasuredProbeQueue.length,
       publicPreviewCount: markedBoard.filter((item) => item.isPublicPreview).length,
       boardUpdatedAt: this.boardUpdatedAt,
       board: markedBoard,
@@ -6007,6 +6290,7 @@ export class MobileLiveGoldenRadar {
       }
       if (metrics.length > 0) {
         this.mergeBoard(metrics, { pruneAndSave: false });
+        this.saveMeasuredProbeQueueToFile();
         this.lastMessage = `loaded ${metrics.length} measured cache candidates`;
       }
     } catch (err) {
@@ -6101,6 +6385,7 @@ export class MobileLiveGoldenRadar {
           return volumeDiff;
         });
         this.mergeBoard(metrics.slice(0, Math.max(180, this.boardTarget * 12)), { pruneAndSave: false });
+        this.saveMeasuredProbeQueueToFile();
         this.lastMessage = `loaded ${metrics.length} persistent measured keyword candidates`;
       }
     } catch (err) {

@@ -247,6 +247,7 @@ export interface MobileLiveGoldenRadarSnapshot {
   maxCandidates: number;
   boardTarget: number;
   boardCount: number;
+  pendingProbeQueueCount?: number;
   publicPreviewCount: number;
   boardUpdatedAt?: string;
   board: MobileLiveGoldenBoardItem[];
