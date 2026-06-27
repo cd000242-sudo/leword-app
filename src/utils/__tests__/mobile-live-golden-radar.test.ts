@@ -2840,7 +2840,8 @@ function thinProfileCount(items: Array<{ keyword: string }>): number {
   ];
   assert('cache-derived probes turn broad measured heads into writer-ready measured longtails',
     calculatorCacheDerivedSeeds.includes('\uC0AC\uB300\uBCF4\uD5D8\uACC4\uC0B0\uAE30 \uD504\uB9AC\uB79C\uC11C \uC2E4\uC218\uB839\uC561')
-      && calculatorCacheDerivedSeeds.includes('\uC0AC\uB300\uBCF4\uD5D8\uACC4\uC0B0\uAE30 \uC54C\uBC14 \uC8FC\uD734\uC218\uB2F9 \uACC4\uC0B0')
+      && calculatorCacheDerivedSeeds.includes('\uC0AC\uB300\uBCF4\uD5D8\uACC4\uC0B0\uAE30 \uC54C\uBC14 \uC790\uB3D9\uACC4\uC0B0')
+      && !calculatorCacheDerivedSeeds.includes('\uC0AC\uB300\uBCF4\uD5D8\uACC4\uC0B0\uAE30 \uC54C\uBC14 \uC8FC\uD734\uC218\uB2F9 \uACC4\uC0B0')
       && !calculatorCacheDerivedSeeds.some((keyword) => /\uC2E0\uCCAD\s*(?:\uB300\uC0C1|\uBC29\uBC95)|\uC9C0\uAE09\uC77C\s*\uC870\uD68C/.test(keyword))
       && policyCacheDerivedSeeds.includes('\uB18D\uC2DD\uD488\uBC14\uC6B0\uCC98 \uC2E0\uCCAD \uB300\uC0C1')
       && policyCacheDerivedSeeds.includes('\uB18D\uC2DD\uD488\uBC14\uC6B0\uCC98 \uC0AC\uC6A9\uCC98 \uC870\uD68C')
@@ -2854,7 +2855,8 @@ function thinProfileCount(items: Array<{ keyword: string }>): number {
 
   const trustedWriterReadyProbeCases = [
     ['\uC0AC\uB300\uBCF4\uD5D8\uACC4\uC0B0\uAE30 \uD504\uB9AC\uB79C\uC11C \uC2E4\uC218\uB839\uC561', true],
-    ['\uC0AC\uB300\uBCF4\uD5D8\uACC4\uC0B0\uAE30 \uC54C\uBC14 \uC8FC\uD734\uC218\uB2F9 \uACC4\uC0B0', true],
+    ['\uC0AC\uB300\uBCF4\uD5D8\uACC4\uC0B0\uAE30 \uC54C\uBC14 \uC790\uB3D9\uACC4\uC0B0', true],
+    ['\uC0AC\uB300\uBCF4\uD5D8\uACC4\uC0B0\uAE30 \uC54C\uBC14 \uC8FC\uD734\uC218\uB2F9 \uACC4\uC0B0', false],
     ['\uB18D\uC2DD\uD488\uBC14\uC6B0\uCC98 \uC2E0\uCCAD \uB300\uC0C1', true],
     ['\uADFC\uBB34\uC2DC\uAC04\uACC4\uC0B0\uAE30 \uC2E0\uCCAD \uB300\uC0C1', false],
     ['\uADFC\uB85C\uC7A5\uB824\uAE08 \uC628\uB77C\uC778 \uC2E0\uCCAD', false],
