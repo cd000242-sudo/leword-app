@@ -5621,11 +5621,11 @@ export class MobileLiveGoldenRadar {
   ): Promise<string[]> {
     const now = this.now();
     const limit = Math.max(80, Math.min(360, Math.floor(targetLimit * 24)));
-    const seedLimit = Math.max(12, Math.min(36, Math.ceil(targetLimit * 2.4)));
+    const seedLimit = Math.max(20, Math.min(60, Math.ceil(targetLimit * 4)));
     const seeds = uniqueKeywords([
-      ...normalizeLiveSeeds(liveSeeds, 80),
       ...this.cacheDerivedLiveSeeds,
-    ], 260)
+      ...normalizeLiveSeeds(liveSeeds, 80),
+    ], 420)
       .map((seed) => normalizeRobustLiveSeedBase(seed, now))
       .filter(Boolean)
       .filter((seed) => !isUltimateLowValueLookupKeyword(seed))
@@ -5694,19 +5694,19 @@ export class MobileLiveGoldenRadar {
     if (!searchAdConfig) return [];
 
     const now = this.now();
-    const limit = Math.max(40, Math.min(120, Math.floor(targetLimit * 10)));
-    const seedLimit = Math.max(6, Math.min(10, Math.ceil(targetLimit * 0.8)));
+    const limit = Math.max(80, Math.min(220, Math.floor(targetLimit * 14)));
+    const seedLimit = Math.max(12, Math.min(24, Math.ceil(targetLimit * 1.6)));
     const catalogSeeds = measuredProbeCategoryKeys(categoryId, liveSeeds)
       .flatMap((key) => LIVE_MEASURED_PROBE_BASES[key] || [])
       .map((seed) => normalizeKeyword(seed))
       .filter(Boolean);
     const seeds = uniqueKeywords([
-      ...normalizeLiveSeeds(liveSeeds, 80),
       ...this.cacheDerivedLiveSeeds,
       ...catalogSeeds,
       ...catalogSeeds.map((seed) => seed.replace(/\s+/g, '')),
+      ...normalizeLiveSeeds(liveSeeds, 80),
       ...getDiscoveryCategorySeeds(categoryId, 48),
-    ], 360)
+    ], 520)
       .map((seed) => normalizeRobustLiveSeedBase(seed, now) || normalizeKeyword(seed))
       .filter(Boolean)
       .filter((seed) => !isUltimateLowValueLookupKeyword(seed))
@@ -5758,7 +5758,7 @@ export class MobileLiveGoldenRadar {
       });
     };
 
-    const workers = Array.from({ length: Math.min(1, seeds.length) }, async () => {
+    const workers = Array.from({ length: Math.min(2, seeds.length) }, async () => {
       while (cursor < seeds.length && scored.size < limit) {
         const seed = seeds[cursor];
         cursor += 1;
