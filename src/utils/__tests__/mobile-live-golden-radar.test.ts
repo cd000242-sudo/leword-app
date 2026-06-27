@@ -642,7 +642,8 @@ function thinProfileCount(items: Array<{ keyword: string }>): number {
   assert('cache-derived broad calculator seeds expand into writer-ready measured probes',
     cacheDerivedCalculatorCandidates.some((keyword) => keyword.includes('\uD504\uB9AC\uB79C\uC11C') && keyword.includes('\uC2E4\uC218\uB839\uC561'))
       && cacheDerivedCalculatorCandidates.some((keyword) => keyword.includes('\uC54C\uBC14') && keyword.includes('\uC790\uB3D9\uACC4\uC0B0'))
-      && cacheDerivedCalculatorCandidates.some((keyword) => keyword.includes('\uAC1C\uC778\uC0AC\uC5C5\uC790') && keyword.includes('\uACF5\uC81C\uD56D\uBAA9')),
+      && cacheDerivedCalculatorCandidates.some((keyword) => keyword.includes('\uC694\uC728\uD45C'))
+      && !cacheDerivedCalculatorCandidates.some((keyword) => keyword.includes('\uAC1C\uC778\uC0AC\uC5C5\uC790') && keyword.includes('\uACF5\uC81C\uD56D\uBAA9')),
     cacheDerivedCalculatorCandidates.join('|'));
   const cacheDerivedCommerceCandidates = __liveGoldenRadarTestInternals.buildCacheDerivedCompoundNeedSeeds(
     '\uC704\uB2C9\uC2A4\uCC3D\uBB38\uD615\uC5D0\uC5B4\uCEE8',
@@ -2842,6 +2843,7 @@ function thinProfileCount(items: Array<{ keyword: string }>): number {
     calculatorCacheDerivedSeeds.includes('\uC0AC\uB300\uBCF4\uD5D8\uACC4\uC0B0\uAE30 \uD504\uB9AC\uB79C\uC11C \uC2E4\uC218\uB839\uC561')
       && calculatorCacheDerivedSeeds.includes('\uC0AC\uB300\uBCF4\uD5D8\uACC4\uC0B0\uAE30 \uC54C\uBC14 \uC790\uB3D9\uACC4\uC0B0')
       && !calculatorCacheDerivedSeeds.includes('\uC0AC\uB300\uBCF4\uD5D8\uACC4\uC0B0\uAE30 \uC54C\uBC14 \uC8FC\uD734\uC218\uB2F9 \uACC4\uC0B0')
+      && !calculatorCacheDerivedSeeds.includes('\uC0AC\uB300\uBCF4\uD5D8\uACC4\uC0B0\uAE30 \uAC1C\uC778\uC0AC\uC5C5\uC790 \uACF5\uC81C\uD56D\uBAA9')
       && !calculatorCacheDerivedSeeds.some((keyword) => /\uC2E0\uCCAD\s*(?:\uB300\uC0C1|\uBC29\uBC95)|\uC9C0\uAE09\uC77C\s*\uC870\uD68C/.test(keyword))
       && policyCacheDerivedSeeds.includes('\uB18D\uC2DD\uD488\uBC14\uC6B0\uCC98 \uC2E0\uCCAD \uB300\uC0C1')
       && policyCacheDerivedSeeds.includes('\uB18D\uC2DD\uD488\uBC14\uC6B0\uCC98 \uC0AC\uC6A9\uCC98 \uC870\uD68C')
@@ -2857,6 +2859,9 @@ function thinProfileCount(items: Array<{ keyword: string }>): number {
     ['\uC0AC\uB300\uBCF4\uD5D8\uACC4\uC0B0\uAE30 \uD504\uB9AC\uB79C\uC11C \uC2E4\uC218\uB839\uC561', true],
     ['\uC0AC\uB300\uBCF4\uD5D8\uACC4\uC0B0\uAE30 \uC54C\uBC14 \uC790\uB3D9\uACC4\uC0B0', true],
     ['\uC0AC\uB300\uBCF4\uD5D8\uACC4\uC0B0\uAE30 \uC54C\uBC14 \uC8FC\uD734\uC218\uB2F9 \uACC4\uC0B0', false],
+    ['\uC0AC\uB300\uBCF4\uD5D8\uACC4\uC0B0\uAE30 \uAC1C\uC778\uC0AC\uC5C5\uC790 \uACF5\uC81C\uD56D\uBAA9', false],
+    ['\uADFC\uBB34\uC2DC\uAC04\uACC4\uC0B0\uAE30 \uC54C\uBC14 \uC8FC\uD734\uC218\uB2F9 \uACC4\uC0B0', false],
+    ['4\uB300\uBCF4\uD5D8 \uC644\uB0A9\uC99D\uBA85\uC11C 4\uB300\uBCF4\uD5D8\uB8CC \uC694\uC728 \uACC4\uC0B0', false],
     ['\uB18D\uC2DD\uD488\uBC14\uC6B0\uCC98 \uC2E0\uCCAD \uB300\uC0C1', true],
     ['\uADFC\uBB34\uC2DC\uAC04\uACC4\uC0B0\uAE30 \uC2E0\uCCAD \uB300\uC0C1', false],
     ['\uADFC\uB85C\uC7A5\uB824\uAE08 \uC628\uB77C\uC778 \uC2E0\uCCAD', false],
@@ -3304,7 +3309,7 @@ function thinProfileCount(items: Array<{ keyword: string }>): number {
     ['\uC1A1\uC9C0\uD638 \uBC14\uB2E4\uD558\uB298\uAE38 \uC608\uC57D \uBC29\uBC95', 'travel_domestic'],
     ['\uCFE0\uCFE0\uC81C\uC2B5\uAE30\uB80C\uD0C8 \uAD6C\uB9E4\uCC98 \uCD94\uCC9C', 'shopping'],
     ['\uC704\uB2C9\uC2A4\uCC3D\uBB38\uD615\uC5D0\uC5B4\uCEE8 \uAD6C\uB9E4\uCC98 \uCD94\uCC9C', 'electronics'],
-    ['\uADFC\uBB34\uC2DC\uAC04\uACC4\uC0B0\uAE30 \uC54C\uBC14 \uC8FC\uD734\uC218\uB2F9 \uACC4\uC0B0', 'policy'],
+    ['\uADFC\uBB34\uC2DC\uAC04\uACC4\uC0B0\uAE30 \uC54C\uBC14 \uC790\uB3D9\uACC4\uC0B0', 'policy'],
     ['\uCCAD\uB144\uBBF8\uB798\uC801\uAE08 \uC2E0\uCCAD \uBC29\uBC95', 'policy'],
   ];
   assert('writer-ready queued probes are eligible for live SearchAd measurement',
