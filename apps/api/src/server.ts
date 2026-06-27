@@ -2841,8 +2841,9 @@ function overlayLiveGoldenExactKeyword(
   const seed = readKeywordAnalysisSeed(params);
   const seedKey = compactServerKeyword(seed);
   if (!seedKey) return result;
-  const boardItem = (liveGoldenRadar.snapshot().board || [])
-    .find((item) => compactServerKeyword(item.keyword) === seedKey);
+  const boardItem = liveGoldenRadar.findMeasuredBoardItem(seed)
+    || (liveGoldenRadar.snapshot().board || [])
+      .find((item) => compactServerKeyword(item.keyword) === seedKey);
   if (!boardItem) return result;
 
   const exactMetric = metricFromLiveGoldenBoardItem(boardItem);

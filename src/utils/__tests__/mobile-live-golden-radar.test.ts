@@ -2400,6 +2400,91 @@ function thinProfileCount(items: Array<{ keyword: string }>): number {
     JSON.stringify(broadNoEffectSnapshot.board.map((item) => `${item.keyword}:${item.grade}:${item.totalSearchVolume}:${item.documentCount}`)));
   fs.rmSync(broadNoEffectBoardFile, { force: true });
 
+  const broadPolicyBoardFile = path.join(process.cwd(), 'tmp', 'mobile-live-golden-broad-policy-intent-test.json');
+  fs.writeFileSync(broadPolicyBoardFile, JSON.stringify({
+    boardUpdatedAt: '2026-06-15T08:00:00.000Z',
+    items: [{
+      keyword: '\uCCAD\uB144\uBBF8\uB798\uC801\uAE08 \uC2E0\uCCAD',
+      grade: 'SSS',
+      score: 99,
+      pcSearchVolume: 6400,
+      mobileSearchVolume: 35600,
+      totalSearchVolume: 42000,
+      documentCount: 400,
+      goldenRatio: 105,
+      cpc: 110,
+      category: 'policy',
+      source: 'fixture-measured',
+      evidence: ['fixture-searchad-volume', 'fixture-naver-openapi-document-count'],
+      searchVolumeSource: 'searchad',
+      searchVolumeConfidence: 'high',
+      isSearchVolumeEstimated: false,
+      documentCountSource: 'naver-api',
+      documentCountConfidence: 'high',
+      isDocumentCountEstimated: false,
+      updatedAt: '2026-06-15T08:00:00.000Z',
+      discoveredAt: '2026-06-15T08:00:00.000Z',
+      isMeasured: true,
+    }, {
+      keyword: '\uCCAD\uB144\uBBF8\uB798\uC801\uAE08 \uD504\uB9AC\uB79C\uC11C \uC2E0\uCCAD \uB300\uC0C1',
+      grade: 'SSS',
+      score: 99,
+      pcSearchVolume: 2100,
+      mobileSearchVolume: 12900,
+      totalSearchVolume: 15000,
+      documentCount: 180,
+      goldenRatio: 83.33,
+      cpc: 140,
+      category: 'policy',
+      source: 'fixture-measured',
+      evidence: ['fixture-searchad-volume', 'fixture-naver-openapi-document-count'],
+      searchVolumeSource: 'searchad',
+      searchVolumeConfidence: 'high',
+      isSearchVolumeEstimated: false,
+      documentCountSource: 'naver-api',
+      documentCountConfidence: 'high',
+      isDocumentCountEstimated: false,
+      updatedAt: '2026-06-15T08:00:00.000Z',
+      discoveredAt: '2026-06-15T08:00:00.000Z',
+      isMeasured: true,
+    }],
+  }), 'utf8');
+  const broadPolicyRadar = new MobileLiveGoldenRadar({
+    notificationInbox: inbox,
+    runOnStart: false,
+    boardFile: broadPolicyBoardFile,
+    boardTarget: 10,
+    publicPreviewCount: 5,
+    now: () => new Date('2026-06-15T09:00:00.000Z'),
+  });
+  const broadPolicySnapshot = broadPolicyRadar.snapshot();
+  assert('high-volume policy heads do not outrank writer-ready SSS longtails',
+    !broadPolicySnapshot.board.some((item) => item.keyword === '\uCCAD\uB144\uBBF8\uB798\uC801\uAE08 \uC2E0\uCCAD')
+      && broadPolicySnapshot.board.some((item) => (
+        item.keyword === '\uCCAD\uB144\uBBF8\uB798\uC801\uAE08 \uD504\uB9AC\uB79C\uC11C \uC2E0\uCCAD \uB300\uC0C1'
+        && item.grade === 'SSS'
+      )),
+    broadPolicySnapshot.board.map((item) => `${item.keyword}:${item.grade}:${item.totalSearchVolume}:${item.documentCount}`).join('|'));
+  fs.rmSync(broadPolicyBoardFile, { force: true });
+
+  const writerReadyProbeCandidates = __liveGoldenRadarTestInternals.buildMeasuredProbeCandidates(
+    'all',
+    ['\uADFC\uB85C\uC7A5\uB824\uAE08', '\uC81C\uC2B5\uAE30', '\uC81C\uC8FC \uB80C\uD130\uCE74'],
+    1000,
+    new Date('2026-06-15T09:00:00.000Z'),
+  );
+  assert('measured probe generation expands broad seeds into writer-ready detail longtails',
+    writerReadyProbeCandidates.length > 240
+      && writerReadyProbeCandidates.some((keyword) => (
+        /\uADFC\uB85C\uC7A5\uB824\uAE08.*\uD504\uB9AC\uB79C\uC11C|\uD504\uB9AC\uB79C\uC11C.*\uADFC\uB85C\uC7A5\uB824\uAE08/.test(keyword)
+        && /(?:\uC2E0\uCCAD\s*\uB300\uC0C1|\uC18C\uB4DD\uAE30\uC900\s*\uACC4\uC0B0|\uC628\uB77C\uC778\s*\uC2E0\uCCAD)/.test(keyword)
+      ))
+      && writerReadyProbeCandidates.some((keyword) => (
+        /\uC81C\uC2B5\uAE30.*\uC6D0\uB8F8|\uC6D0\uB8F8.*\uC81C\uC2B5\uAE30/.test(keyword)
+        && /(?:\uC804\uAE30\uC694\uAE08\s*\uBE44\uAD50|\uC18C\uC74C\s*\uBE44\uAD50|\uAC00\uACA9\uBE44\uAD50)/.test(keyword)
+      )),
+    writerReadyProbeCandidates.slice(0, 80).join('|'));
+
   const productPromotionScore = __liveGoldenRadarTestInternals.livePromotionPriorityBonus(
     '\uC81C\uC2B5\uAE30 \uAC00\uACA9\uBE44\uAD50',
     'electronics',

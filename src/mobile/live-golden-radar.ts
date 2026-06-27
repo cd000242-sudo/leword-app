@@ -137,10 +137,10 @@ const LIVE_BOARD_STRICT_READY_MIN = 60;
 const LIVE_DIRECT_CANDIDATE_MAX_PER_CYCLE = 7200;
 const LIVE_ISSUE_FALLBACK_DOCUMENT_LIMIT = 16;
 const LIVE_ISSUE_FALLBACK_CONCURRENCY = 2;
-const LIVE_BACKFILL_VOLUME_PASS_MAX = 120;
-const LIVE_BACKFILL_DOCUMENT_PASS_MAX = 42;
+const LIVE_BACKFILL_VOLUME_PASS_MAX = 180;
+const LIVE_BACKFILL_DOCUMENT_PASS_MAX = 84;
 const LIVE_BACKFILL_DOCUMENT_CONCURRENCY = 3;
-const LIVE_BACKFILL_DOCUMENT_SUPPLEMENT_MAX = 10;
+const LIVE_BACKFILL_DOCUMENT_SUPPLEMENT_MAX = 24;
 const LIVE_ISSUE_DOCUMENT_SUPPLEMENT_MAX = 8;
 const LIVE_BOARD_SPLIT_ENRICHMENT_LIMIT = 80;
 const LIVE_CACHE_PROMOTION_MAX_CANDIDATES = 360;
@@ -1672,6 +1672,7 @@ function appendMeasuredPublishableFallbackItems<T extends MobileLiveGoldenBoardI
 const SSS_READY_NEED_INTENT_RE = /(?:\uACC4\uC0B0\uAE30|\uACF5\uD734\uC77C|\uC785\uC7A5\uB8CC|\uC8FC\uCC28|\uC608\uC57D|\uC608\uB9E4|\uC2E0\uCCAD|\uC9C0\uAE09\uC77C|\uB300\uC0C1|\uC790\uACA9|\uC870\uAC74|\uC870\uD68C|\uC0AC\uC6A9\uCC98|\uAC00\uACA9\uBE44\uAD50|\uCD5C\uC800\uAC00|\uD560\uC778|\uCFE0\uD3F0|\uAD6C\uB9E4\uCC98|\uCD94\uCC9C|\uD6C4\uAE30|\uBE44\uC6A9|\uBCF4\uD5D8|\uC900\uBE44\uBB3C|\uC6B4\uC601\uC2DC\uAC04|\uC77C\uC815|\uB9C8\uAC10\uC77C|\uC11C\uB958|\uC2E4\uC218\uB839\uC561|\uC138\uAE08|\uD658\uAE09\uC77C)/u;
 const SSS_SPECIFIC_MODIFIER_RE = /(?:\uD504\uB9AC\uB79C\uC11C|\uC54C\uBC14|\uC77C\uC6A9\uC9C1|\uAC1C\uC778\uC0AC\uC5C5\uC790|\uC2E4\uC218\uB839\uC561|\uC790\uB3D9\uACC4\uC0B0|\uC694\uC728|\uACF5\uC81C|\uC608\uB9E4|\uC608\uC57D|\uD2F0\uCF13\uD305|\uC785\uC7A5\uB8CC|\uC8FC\uCC28|\uC88C\uC11D|\uC900\uBE44\uBB3C|\uD560\uC778|\uCFE0\uD3F0|\uAD6C\uB9E4\uCC98|\uCD5C\uC800\uAC00|\uAC00\uACA9\uBE44\uAD50|\uD6C4\uAE30|\uBE44\uC6A9|\uB80C\uD0C8|\uC2E0\uCCAD|\uB300\uC0C1|\uC790\uACA9|\uC870\uAC74|\uC9C0\uAE09\uC77C|\uC870\uD68C|\uC0AC\uC6A9\uCC98|\uB9C8\uAC10\uC77C|\uC11C\uB958|\uC18C\uB4DD\uAE30\uC900|\uD658\uAE09\uC77C|\uACF5\uD734\uC77C)/u;
 const CONCRETE_ACTION_COMPOUND_RE = /[\uAC00-\uD7A3]{2,}(?:\uC608\uC57D|\uC608\uB9E4|\uC785\uC7A5\uB8CC|\uC8FC\uCC28|\uC88C\uC11D|\uD2F0\uCF13\uD305|\uAD6C\uB9E4\uCC98|\uCD5C\uC800\uAC00|\uD560\uC778|\uCFE0\uD3F0|\uD6C4\uAE30|\uC2E0\uCCAD\uBC29\uBC95|\uC9C0\uAE09\uC77C|\uC0AC\uC6A9\uCC98|\uB9C8\uAC10\uC77C|\uC11C\uB958|\uD658\uAE09\uC77C)$/u;
+const WRITER_READY_SPECIFICITY_RE = /(?:\uD504\uB9AC\uB79C\uC11C|\uC54C\uBC14|\uC77C\uC6A9\uC9C1|\uAC1C\uC778\uC0AC\uC5C5\uC790|\uBB34\uC9C1\uC790|\uB9DE\uBC8C\uC774|\uD55C\uBD80\uBAA8|\uB300\uD559\uC0DD|\uC9C1\uC7A5\uC778|\uC0AC\uD68C\uCD08\uB144\uC0DD|\uD1F4\uC9C1\uC790|\uC2E0\uD63C\uBD80\uBD80|1\uC778\uAC00\uAD6C|\uC6D0\uB8F8|\uC790\uCDE8\uBC29|\uC7A5\uB9C8\uCCA0|\uC800\uC18C\uC74C|\uC18C\uD615|\uAC00\uC131\uBE44|\uC544\uC774\uB791|\uAC00\uC871|\uB69C\uBC85\uC774|\uB2F9\uC77C\uCE58\uAE30|\uCD08\uBCF4|\uC785\uBB38\uC6A9|\uBB34\uB8CC|\uBE14\uB85C\uAC70|\uC2E4\uBE44|\uBCF4\uD5D8|\uC644\uC804\uC790\uCC28|\uC804\uAE30\uC694\uAE08|\uC18C\uC74C|\uD544\uD130|\uAD50\uCCB4|\uBB3C\uAC78\uB808|\uD761\uC785\uB825|\uBB38\uD131|\uD658\uAE09\uC77C|\uC138\uC561\uACF5\uC81C|\uC218\uC218\uB8CC|\uC18C\uB4DD\uAE30\uC900|\uC0AC\uC6A9\uCC98|\uC9C0\uAE09\uC77C|\uC785\uC7A5\uB8CC|\uC8FC\uCC28|\uCD5C\uC800\uAC00|\uAC00\uACA9\uBE44\uAD50|\uD560\uC778|\uCFE0\uD3F0|\uAD6C\uB9E4\uCC98|\uBE44\uAD50|\uD6C4\uAE30|\uC900\uBE44\uBB3C|\uC9C1\uC811\uB300\uCD9C|\uB300\uB9AC\uB300\uCD9C|\uC794\uC561\uC870\uD68C|\uB9CC\uAE30|\uD574\uC9C0|\uBD80\uC791\uC6A9|\uC8FC\uC758\uC0AC\uD56D)/u;
 
 function hasSssReadyNeedIntent(keyword: string): boolean {
   const clean = normalizeKeyword(keyword);
@@ -1691,6 +1692,28 @@ function isBroadHeadSssKeyword(keyword: string): boolean {
   return hasSssReadyNeedIntent(clean) || hasHighValueNeedIntent(clean) || hasAdsenseNeedIntent(clean);
 }
 
+function hasWriterReadySpecificity(keyword: string): boolean {
+  const clean = normalizeKeyword(keyword);
+  if (!clean) return false;
+  return WRITER_READY_SPECIFICITY_RE.test(clean)
+    || ultimateIntentFragmentCount(clean) >= 2
+    || keywordLongTailScore(clean) >= 24;
+}
+
+function isApexWriterReadyBoardMetric(item: Partial<MobileKeywordMetric> & { keyword?: string }): boolean {
+  const keyword = normalizeKeyword(item.keyword);
+  if (!keyword) return false;
+  const volume = finiteNumber(item.totalSearchVolume) || 0;
+  const docs = finiteNumber(item.documentCount) || 0;
+  const ratio = finiteNumber(item.goldenRatio) || (volume > 0 && docs > 0 ? volume / docs : 0);
+  if (isBroadHeadSssKeyword(keyword)) return false;
+  if (!hasWriterReadySpecificity(keyword)) {
+    if (volume >= 10_000) return false;
+    if (docs >= 5_000 && ratio < 8) return false;
+  }
+  return true;
+}
+
 function isOverbroadNoEffectBoardKeyword(item: Partial<MobileKeywordMetric> & { keyword?: string }): boolean {
   const keyword = normalizeKeyword(item.keyword);
   if (!keyword) return true;
@@ -1699,7 +1722,8 @@ function isOverbroadNoEffectBoardKeyword(item: Partial<MobileKeywordMetric> & { 
   const longTail = keywordLongTailScore(keyword);
   const intentFragments = ultimateIntentFragmentCount(keyword);
   if (isBroadHeadSssKeyword(keyword)) return true;
-  if (volume >= 30_000 && longTail < 18 && intentFragments < 2) return true;
+  if (volume >= 30_000 && longTail <= 18 && intentFragments < 2 && !hasWriterReadySpecificity(keyword)) return true;
+  if (volume >= 20_000 && intentFragments < 2 && !hasWriterReadySpecificity(keyword)) return true;
   if (volume >= 10_000 && docs > 5_000 && longTail < 14 && intentFragments < 2) return true;
   return false;
 }
@@ -1707,6 +1731,7 @@ function isOverbroadNoEffectBoardKeyword(item: Partial<MobileKeywordMetric> & { 
 function isBlogActionableBoardMetric(item: Partial<MobileKeywordMetric> & { keyword?: string }): boolean {
   if (isOverbroadNoEffectBoardKeyword(item)) return false;
   const keyword = normalizeKeyword(item.keyword);
+  if (!isApexWriterReadyBoardMetric(item)) return false;
   return ultimateIntentFragmentCount(keyword) >= 2
     || keywordLongTailScore(keyword) >= 18
     || SSS_SPECIFIC_MODIFIER_RE.test(keyword);
@@ -1723,6 +1748,7 @@ function isMeasuredSssBoardCandidate(item: MobileLiveGoldenBoardItem, now: Date)
   if (isLottoLookupKeyword(keyword) || isLowAdsenseLookupKeyword(keyword) || isBrandSafetyNewsKeyword(keyword)) return false;
   if (volume < 1000 || docs <= 0 || docs > 5000 || ratio < 5) return false;
   if (isBroadHeadSssKeyword(keyword)) return false;
+  if (!isApexWriterReadyBoardMetric(item)) return false;
   if (!isBlogActionableBoardMetric(item)) return false;
   if (!hasSssReadyNeedIntent(keyword) && !hasHighValueNeedIntent(keyword) && !hasAdsenseNeedIntent(keyword)) return false;
   const judged = applyKeywordAiJudge(item, { now, downgradeExcluded: false });
@@ -3069,6 +3095,18 @@ const LIVE_MEASURED_PROBE_INTENTS: Record<string, readonly string[]> = Object.fr
   sports: ['가격비교', '추천 후기', '최저가 비교', '구매처 추천', '스펙 비교', '예매 일정', '중계 일정', '라인업'],
 });
 
+const LIVE_MEASURED_PROBE_DETAIL_MODIFIERS: Record<string, readonly string[]> = Object.freeze({
+  policy: ['프리랜서', '알바', '개인사업자', '무직자', '맞벌이', '한부모', '대학생', '퇴사자'],
+  finance: ['직장인', '개인사업자', '사회초년생', '퇴직자', '프리랜서'],
+  shopping: ['1인가구', '원룸', '자취방', '장마철', '저소음', '소형', '가성비'],
+  electronics: ['1인가구', '원룸', '자취방', '장마철', '저소음', '소형', '전기요금'],
+  travel_domestic: ['아이랑', '가족', '뚜벅이', '당일치기', '주차'],
+  travel_overseas: ['가족', '아이랑', '자유여행', '처음', '가성비'],
+  education: ['직장인', '대학생', '초보', '국비지원'],
+  it: ['개인사업자', '블로거', '초보', '무료'],
+  sports: ['초보', '입문용', '여성', '어린이'],
+});
+
 const LIVE_MEASURED_PROBE_CATEGORY_COMPAT: Record<string, readonly string[]> = Object.freeze({
   shopping: ['electronics', 'fashion', 'beauty', 'sports'],
   electronics: ['shopping', 'it'],
@@ -3095,10 +3133,12 @@ const LIVE_MEASURED_PROBE_SPORTS_EQUIPMENT_RE = /(?:라켓|골프채|러닝화|�
 const LIVE_MEASURED_PROBE_PRODUCT_INTENT_RE = /(?:가격비교|최저가|비교|추천|후기|구매처|할인|쿠폰|스펙)/u;
 const LIVE_MEASURED_PROBE_EVENT_OR_POLICY_INTENT_RE = /(?:예약|예매|중계|라인업|경기|일정|입장료|주차|신청|지급일|자격|서류|환급|사용처|대상|조건|마감)/u;
 const LIVE_MEASURED_PROBE_GENERIC_AUDIENCE_RE = /(?:청년\s*일반\s*국민|청년일반\s*국민|일반\s*국민|아동\s*장애인|아동장애인)/u;
+const LIVE_MEASURED_PROBE_HEALTH_BASE_RE = /(?:도수치료|치아보험|임플란트|검사|예방접종|탈모치료)/u;
 const LIVE_MEASURED_PROBE_HEALTH_POLICY_MIX_RE = /(?:관리급여|소득기준|지원금|마감일|온라인\s*신청|필요\s*서류).{0,12}(?:도수치료|치아보험|임플란트|검사|예방접종|탈모치료)|(?:도수치료|치아보험|임플란트|검사|예방접종|탈모치료).{0,12}(?:관리급여|소득기준|지원금|마감일|온라인\s*신청|필요\s*서류)/u;
 const LIVE_MEASURED_PROBE_HEALTH_INTENT_RE = /(?:보험\s*적용\s*비용|검사\s*비용|치료\s*비용|실비\s*청구|주의사항|부작용)/u;
 const LIVE_MEASURED_PROBE_SPECIFIC_BASE_RE = /(?:완전자차|보험|실비|세액공제|수수료|금리|만기|반기|소득기준|가입신청|잔액조회|직접대출|대리대출|사후지급금|구직활동|사용처|지급일|면책기간|응시료|전기요금|전기세|흡입력|배터리|물걸레|문턱|소음|필터\s*교체|주차대행|가족|저소음|입문자|초보|족저근막염|실기|접수)/u;
 const LIVE_MEASURED_PROBE_TERMINAL_BASE_RE = /(?:세액공제|수수료|만기|소득기준|가입신청|지급일|사용처|잔액조회|면책기간|실비|사후지급금|구직활동|실기|접수)/u;
+const LIVE_MEASURED_PROBE_PORTFOLIO_ANCHOR_RE = /^(?:제주\s*렌터카|무선\s*청소기|청년미래적금|로봇\s*청소기\s*물걸레|(?:프리랜서|알바|개인사업자)\s*근로장려금)$/u;
 
 function categoryAcceptsMeasuredProbe(keyword: string, categoryId: string): boolean {
   const normalizedCategory = normalizeKeyword(categoryId || 'all');
@@ -3112,7 +3152,13 @@ function categoryAcceptsMeasuredProbe(keyword: string, categoryId: string): bool
 function measuredProbeCategoryKeys(categoryId: string, liveSeeds: string[]): string[] {
   const normalizedCategory = normalizeKeyword(categoryId || 'all') || 'all';
   const inferredSeedCategories = liveSeeds
-    .map((seed) => inferLiveCategory(seed, normalizedCategory))
+    .flatMap((seed) => {
+      const clean = normalizeKeyword(seed);
+      return [
+        inferLiveCategory(clean, normalizedCategory),
+        LIVE_MEASURED_PROBE_HEALTH_BASE_RE.test(clean) ? 'health' : '',
+      ];
+    })
     .filter(Boolean);
   const portfolioKeys = normalizedCategory === 'all'
     ? LIVE_GOLDEN_DEFAULT_PORTFOLIO_CATEGORY_KEYS
@@ -3168,6 +3214,35 @@ function isMeasuredProbeIntentCompatible(base: string, intent: string, categoryI
   return true;
 }
 
+function measuredProbeDetailModifiersForBase(base: string, categoryId: string): string[] {
+  const clean = normalizeKeyword(base);
+  if (!clean || hasWriterReadySpecificity(clean) || ultimateIntentFragmentCount(clean) >= 2) return [];
+  const inferred = inferLiveCategory(clean, categoryId);
+  if (inferred === 'policy') {
+    if (/(?:\uC18C\uC0C1\uACF5\uC778|\uC815\uCC45\uC790\uAE08|\uC9C1\uC811\uB300\uCD9C|\uB300\uB9AC\uB300\uCD9C)/u.test(clean)) return ['개인사업자'];
+    if (/(?:\uC2E4\uC5C5\uAE09\uC5EC|\uAD6C\uC9C1\uD65C\uB3D9)/u.test(clean)) return ['퇴사자', '알바'];
+    if (/(?:\uADFC\uB85C\uC7A5\uB824\uAE08|\uC790\uB140\uC7A5\uB824\uAE08)/u.test(clean)) {
+      return ['프리랜서', '알바', '개인사업자', '무직자', '맞벌이'];
+    }
+  }
+  const modifiers = LIVE_MEASURED_PROBE_DETAIL_MODIFIERS[inferred]
+    || LIVE_MEASURED_PROBE_DETAIL_MODIFIERS[normalizeKeyword(categoryId)]
+    || [];
+  return modifiers.filter((modifier) => !keywordAlreadyHasIntent(clean, modifier)).slice(0, 5);
+}
+
+function buildMeasuredProbeDetailCandidates(base: string, intent: string, categoryId: string): string[] {
+  const cleanBase = normalizeKeyword(base);
+  const cleanIntent = normalizeKeyword(intent);
+  if (!cleanBase || !cleanIntent) return [];
+  return uniqueKeywords(
+    measuredProbeDetailModifiersForBase(cleanBase, categoryId)
+      .map((modifier) => appendCompatibleIntent(`${cleanBase} ${modifier}`, cleanIntent))
+      .filter(Boolean),
+    5,
+  );
+}
+
 function shouldMeasureProbeBaseDirectly(base: string, categoryId: string): boolean {
   const clean = normalizeKeyword(base);
   if (!clean) return false;
@@ -3188,11 +3263,14 @@ function measuredProbeBaseSpecificityScore(base: string, categoryId: string): nu
   const fragments = ultimateIntentFragmentCount(clean);
   let score = keywordLongTailScore(clean);
   if (LIVE_MEASURED_PROBE_SPECIFIC_BASE_RE.test(clean)) score += 120;
+  if (LIVE_MEASURED_PROBE_PORTFOLIO_ANCHOR_RE.test(clean)) score += 260;
+  if (WRITER_READY_SPECIFICITY_RE.test(clean)) score += 95;
   if (fragments >= 2) score += 90;
   else if (fragments === 1) score += 35;
-  if (PRODUCT_BASE_SIGNAL_RE.test(clean) || TRAVEL_PURCHASE_BASE_RE.test(clean)) score += 8;
+  if (TRAVEL_PURCHASE_BASE_RE.test(clean)) score += 90;
+  else if (PRODUCT_BASE_SIGNAL_RE.test(clean)) score += 8;
   if ((LIVE_POLICY_SIGNAL_RE.test(clean) || LIVE_FINANCE_SIGNAL_RE.test(clean)) && !LIVE_MEASURED_PROBE_SPECIFIC_BASE_RE.test(clean)) score -= 35;
-  if ((PRODUCT_BASE_SIGNAL_RE.test(clean) || TRAVEL_PURCHASE_BASE_RE.test(clean)) && !LIVE_MEASURED_PROBE_SPECIFIC_BASE_RE.test(clean)) score -= 25;
+  if (PRODUCT_BASE_SIGNAL_RE.test(clean) && !LIVE_MEASURED_PROBE_SPECIFIC_BASE_RE.test(clean)) score -= 25;
   if (LOW_VALUE_EVENT_TOPIC_RE.test(clean) || LIVE_PROMOTION_DEPRIORITY_RE.test(clean)) score -= 220;
   if (categoryId !== 'all' && category === categoryId) score += 20;
   if (categoryId === 'all' && LIVE_GOLDEN_DEFAULT_PORTFOLIO_CATEGORY_KEYS.includes(category as any)) score += 12;
@@ -3208,22 +3286,34 @@ function buildMeasuredProbeCandidates(
   const categoryKeys = measuredProbeCategoryKeys(categoryId, liveSeeds);
   const normalizedCategory = normalizeKeyword(categoryId || 'all') || 'all';
   const useCatalogBases = true;
-  const candidateLimit = Math.max(80, Math.min(240, Math.floor((maxSeeds || 240) * 0.6)));
+  const candidateLimit = Math.max(180, Math.min(720, Math.floor((maxSeeds || 240) * 0.9)));
   const categoryBases = useCatalogBases
     ? categoryKeys.flatMap((key) => LIVE_MEASURED_PROBE_BASES[key] || [])
     : [];
   const discoveryBases = useCatalogBases
-    ? categoryKeys.flatMap((key) => getDiscoveryCategorySeeds(key, 32))
+    ? categoryKeys.flatMap((key) => getDiscoveryCategorySeeds(key, 64))
     : [];
   const liveBases = uniqueKeywords([
     ...liveSeeds.map((seed) => normalizeKeyword(seed)).filter(Boolean),
-    ...normalizeLiveSeeds(liveSeeds, 80),
+    ...normalizeLiveSeeds(liveSeeds, 160),
     ...liveSeeds.map((seed) => normalizeRobustLiveSeedBase(seed, now)).filter(Boolean),
-  ], 120).flatMap((seed) => buildSeedPhraseVariants(seed));
+  ], 240).flatMap((seed) => buildSeedPhraseVariants(seed));
+  const liveBaseIds = new Set(liveBases.map((seed) => keywordCompactId(seed)).filter(Boolean));
+  const liveCategoryIds = new Set(
+    liveSeeds
+      .flatMap((seed) => {
+        const clean = normalizeKeyword(seed);
+        return [
+          inferLiveCategory(clean, normalizedCategory),
+          LIVE_MEASURED_PROBE_HEALTH_BASE_RE.test(clean) ? 'health' : '',
+        ];
+      })
+      .filter((key) => key && key !== 'all' && !LIVE_PROMOTION_LOW_VALUE_CATEGORIES.has(key)),
+  );
   const orderedBases = normalizedCategory === 'all'
     ? [...categoryBases, ...discoveryBases, ...liveBases]
     : [...liveBases, ...categoryBases, ...discoveryBases];
-  const bases = uniqueKeywords(orderedBases, 180)
+  const bases = uniqueKeywords(orderedBases, 360)
     .map((base, index) => ({ base, index }))
     .filter((entry) => {
       const base = entry.base;
@@ -3238,7 +3328,11 @@ function buildMeasuredProbeCandidates(
     })
     .sort((a, b) => (
       measuredProbeBaseSpecificityScore(b.base, categoryId)
+      + (liveBaseIds.has(keywordCompactId(b.base)) ? 260 : 0)
+      + (liveCategoryIds.has(inferLiveCategory(b.base, categoryId)) ? 220 : 0)
       - measuredProbeBaseSpecificityScore(a.base, categoryId)
+      - (liveBaseIds.has(keywordCompactId(a.base)) ? 260 : 0)
+      - (liveCategoryIds.has(inferLiveCategory(a.base, categoryId)) ? 220 : 0)
       || a.index - b.index
     ))
     .map((entry) => entry.base);
@@ -3257,6 +3351,7 @@ function buildMeasuredProbeCandidates(
     if (shouldMeasureProbeBaseDirectly(base, inferred || categoryId)) push(base);
     if (LIVE_MEASURED_PROBE_TERMINAL_BASE_RE.test(normalizeKeyword(base))) continue;
     if (hasLiveUltimateNeedIntent(base) || ultimateIntentFragmentCount(base) >= 2) continue;
+    const delayedDetailCandidates: string[] = [];
     const normalizedCategory = normalizeKeyword(categoryId || 'all') || 'all';
     const intentKeys = normalizedCategory === 'all'
       ? uniqueKeywords([inferred, 'all'], 4)
@@ -3276,6 +3371,14 @@ function buildMeasuredProbeCandidates(
       if (!candidate) continue;
       if (!isUltimateIntentCompatible(base, intent, inferred || categoryId)) continue;
       push(candidate);
+      for (const detailCandidate of buildMeasuredProbeDetailCandidates(base, intent, inferred || categoryId)) {
+        if (!isUltimateIntentCompatible(detailCandidate, intent, inferred || categoryId)) continue;
+        delayedDetailCandidates.push(detailCandidate);
+      }
+    }
+    for (const detailCandidate of uniqueKeywords(delayedDetailCandidates, 12)) {
+      if (candidates.length >= candidateLimit) break;
+      push(detailCandidate);
     }
   }
 
@@ -3296,12 +3399,35 @@ function buildBackfillCandidates(categoryId: string, liveSeeds: string[], maxSee
   const robustCandidates = buildRobustLiveSeedCandidates(categoryId, liveSeeds, maxSeeds, now);
   const inferredLiveCandidates = buildDateAwareLiveSeedCandidates(categoryId, liveSeeds, maxSeeds, now);
   const measuredProbeCandidates = buildMeasuredProbeCandidates(categoryId, liveSeeds, maxSeeds, now);
+  const normalizedCategory = normalizeKeyword(categoryId || 'all') || 'all';
+  const measuredProbeShare = normalizedCategory === 'all' ? 0.45 : 0.25;
+  const liveCategoryIds = new Set(
+    liveSeeds
+      .flatMap((seed) => {
+        const clean = normalizeKeyword(seed);
+        return [
+          inferLiveCategory(clean, normalizedCategory),
+          LIVE_MEASURED_PROBE_HEALTH_BASE_RE.test(clean) ? 'health' : '',
+        ];
+      })
+      .filter((key) => key && key !== 'all' && !LIVE_PROMOTION_LOW_VALUE_CATEGORIES.has(key)),
+  );
+  const liveCategoryMeasuredProbeCandidates = measuredProbeCandidates
+    .filter((keyword) => liveCategoryIds.has(inferLiveCategory(keyword, normalizedCategory)));
+  const measuredProbeBackfillLimit = Math.max(
+    36,
+    Math.min(Math.floor(candidateLimit * measuredProbeShare), measuredProbeCandidates.length),
+  );
+  const measuredProbeBackfillShare = uniqueKeywords([
+    ...liveCategoryMeasuredProbeCandidates,
+    ...measuredProbeCandidates,
+  ], measuredProbeBackfillLimit);
   const measuredProbeIds = new Set(measuredProbeCandidates.map((seed) => keywordCompactId(seed)).filter(Boolean));
   const needExpandedSeeds = (seeds: string[], limit: number): string[] => seeds
     .filter((seed) => !hasLiveUltimateNeedIntent(seed) && ultimateIntentFragmentCount(seed) < 2)
     .flatMap((seed) => buildUltimateNeedCandidatesForSeed(seed, categoryId, limit));
   const baseSeeds = uniqueKeywords([
-    ...measuredProbeCandidates,
+    ...measuredProbeBackfillShare,
     ...liveSeedBases,
     ...needExpandedSeeds(liveSeedBases, 8),
     ...robustCandidates,
@@ -3398,6 +3524,7 @@ function liveUltimateOpportunityScore(keyword: string, volume: number, docs: num
   else if (volume >= 80_000 && docs <= 25_000 && ratio >= 7) score = Math.max(score, 98);
   else if (volume >= 250_000 && docs <= 30_000 && ratio >= 10) score = Math.max(score, 98);
   else if (volume >= 500 && docs <= 200 && ratio >= 4) score = Math.max(score, 95);
+  if (volume >= 10_000 && !hasWriterReadySpecificity(clean)) score = Math.min(score, 84);
   return Math.max(0, Math.min(100, score));
 }
 
@@ -3562,6 +3689,22 @@ function isMeasuredProExactKeywordMetric(
   if (isLottoLookupKeyword(keyword) || isLowAdsenseLookupKeyword(keyword) || isBrandSafetyNewsKeyword(keyword)) return false;
   if (volume < LIVE_CACHE_PROMOTION_MIN_VOLUME || docs <= 0 || docs > maxDocs) return false;
   if (ratio < minRatio) return false;
+  return true;
+}
+
+function isMeasuredBoardReferenceMetric(
+  item: Partial<MobileKeywordMetric> & { keyword?: string },
+  now: Date = new Date(),
+): boolean {
+  const keyword = normalizeKeyword(item.keyword);
+  if (!keyword || item.grade === 'C') return false;
+  if (!hasCompleteLiveGoldenMetrics(item)) return false;
+  if (item.isSearchVolumeEstimated || item.isDocumentCountEstimated) return false;
+  if (isMalformedLiveKeyword(keyword) || isStaleOrFutureLiveKeyword(keyword, now)) return false;
+  if (isInvalidNonProductCommerceExpansion(keyword)) return false;
+  if (isThinProfileIntentKeyword(keyword) || isNoisyLiveSeed(keyword) || isOverExpandedLiveCandidate(keyword)) return false;
+  if (isUltimateLowValueLookupKeyword(keyword) || isLowValueLiveCandidate(keyword)) return false;
+  if (isLottoLookupKeyword(keyword) || isLowAdsenseLookupKeyword(keyword) || isBrandSafetyNewsKeyword(keyword)) return false;
   return true;
 }
 
@@ -4210,11 +4353,11 @@ export class MobileLiveGoldenRadar {
 
   private backfillMeasurementLimit(targetLimit: number): number {
     return Math.max(
-      48,
+      72,
       Math.min(
         this.maxCandidates,
         LIVE_BACKFILL_VOLUME_PASS_MAX,
-        Math.max(targetLimit * 5, Math.floor(this.maxCandidates * 0.06)),
+        Math.max(targetLimit * 7, Math.floor(this.maxCandidates * 0.08)),
       ),
     );
   }
@@ -4944,9 +5087,18 @@ export class MobileLiveGoldenRadar {
         return a.index - b.index;
       })
       .map((item) => item.keyword);
-    const searchAdCandidates = rankedCandidates
-      .filter((keyword) => isSearchAdMeasurableLiveCandidate(keyword, categoryId, this.now()))
-      .slice(0, measurementLimit);
+    const measuredSearchAdCandidates = measuredProbeCandidates
+      .filter((keyword) => isSearchAdMeasurableLiveCandidate(keyword, categoryId, this.now()));
+    const measuredSearchAdIds = new Set(
+      measuredSearchAdCandidates.map((keyword) => keywordCompactId(keyword)).filter(Boolean),
+    );
+    const fallbackSearchAdCandidates = rankedCandidates
+      .filter((keyword) => !measuredSearchAdIds.has(keywordCompactId(keyword)))
+      .filter((keyword) => isSearchAdMeasurableLiveCandidate(keyword, categoryId, this.now()));
+    const searchAdCandidates = uniqueKeywords([
+      ...measuredSearchAdCandidates,
+      ...fallbackSearchAdCandidates,
+    ], measurementLimit);
     const volumeRows = await withTimeout(this.measureLiveSearchVolumeSeparate(config, searchAdCandidates, {
       includeDocumentCount: false,
     }), LIVE_BACKFILL_TIMEOUT_MS, []);
@@ -5143,6 +5295,48 @@ export class MobileLiveGoldenRadar {
       nextCategoryId: this.categories[this.categoryIndex] || 'all',
       categories: [...this.categories],
     };
+  }
+
+  findMeasuredBoardItem(keyword: string): MobileLiveGoldenBoardItem | null {
+    const compact = keywordCompactId(keyword);
+    if (!compact) return null;
+    const now = this.now();
+    const nowMs = now.getTime();
+    return [...this.board.values()]
+      .filter((item) => keywordCompactId(item.keyword) === compact)
+      .filter((item) => ageMsFrom(item.updatedAt, nowMs) <= LIVE_BOARD_MAX_AGE_MS)
+      .filter((item) => isMeasuredBoardReferenceMetric(item, now))
+      .sort((a, b) => {
+        const scoreDiff = boardSortScore(b, nowMs) - boardSortScore(a, nowMs);
+        if (scoreDiff !== 0) return scoreDiff;
+        return Date.parse(b.updatedAt) - Date.parse(a.updatedAt);
+      })[0] || null;
+  }
+
+  private measuredReferenceBoard(limit: number = Math.max(240, this.boardTarget * 12)): MobileLiveGoldenBoardItem[] {
+    const now = this.now();
+    const nowMs = now.getTime();
+    return [...this.board.values()]
+      .filter((item) => ageMsFrom(item.updatedAt, nowMs) <= LIVE_BOARD_MAX_AGE_MS)
+      .filter((item) => isMeasuredBoardReferenceMetric(item, now))
+      .sort((a, b) => {
+        const scoreDiff = boardSortScore(b, nowMs) - boardSortScore(a, nowMs);
+        if (scoreDiff !== 0) return scoreDiff;
+        return Date.parse(b.updatedAt) - Date.parse(a.updatedAt);
+      })
+      .slice(0, limit);
+  }
+
+  private persistedBoardItems(): MobileLiveGoldenBoardItem[] {
+    const visible = this.sortedBoard();
+    const seen = new Set(visible.map((item) => item.id));
+    const references = this.measuredReferenceBoard()
+      .filter((item) => {
+        if (seen.has(item.id)) return false;
+        seen.add(item.id);
+        return true;
+      });
+    return [...visible, ...references];
   }
 
   private clearQuotaRetryTimer(): void {
@@ -5704,6 +5898,7 @@ export class MobileLiveGoldenRadar {
         && (isLiveRadarUsableMetric(item, now) || isMeasuredProExactKeywordMetric(item, now))
         && (!hasMeasuredPcMobileSplit(item) || !hasRealCpcValue(item));
       if (pendingSplitEnrichment) continue;
+      if (isMeasuredBoardReferenceMetric(item, now)) continue;
       this.board.delete(item.id);
     }
   }
@@ -5757,7 +5952,11 @@ export class MobileLiveGoldenRadar {
           ...measurementMeta,
         };
         if (!hasCompleteLiveGoldenMetrics(metric)) return;
-        if (!isLiveRadarUsableMetric(metric, this.now()) && !isMeasuredProExactKeywordMetric(metric, this.now())) return;
+        if (
+          !isLiveRadarUsableMetric(metric, this.now())
+          && !isMeasuredProExactKeywordMetric(metric, this.now())
+          && !isMeasuredBoardReferenceMetric(metric, this.now())
+        ) return;
         metrics.push(metric);
       };
 
@@ -5840,7 +6039,11 @@ export class MobileLiveGoldenRadar {
         };
         if (metric.grade === 'C') return;
         if (!hasCompleteLiveGoldenMetrics(metric)) return;
-        if (!isLiveRadarUsableMetric(metric, this.now()) && !isMeasuredProExactKeywordMetric(metric, this.now())) return;
+        if (
+          !isLiveRadarUsableMetric(metric, this.now())
+          && !isMeasuredProExactKeywordMetric(metric, this.now())
+          && !isMeasuredBoardReferenceMetric(metric, this.now())
+        ) return;
         metrics.push(metric);
       };
 
@@ -5921,6 +6124,16 @@ export class MobileLiveGoldenRadar {
             isMeasured,
             ...measurementMeta,
           }, now)
+          && !isMeasuredBoardReferenceMetric({
+            keyword,
+            grade,
+            score,
+            totalSearchVolume,
+            documentCount,
+            goldenRatio,
+            isMeasured,
+            ...measurementMeta,
+          }, now)
         ) continue;
         const id = normalizeKeyword(row?.id) || keywordId(keyword);
         const item: MobileLiveGoldenBoardItem = {
@@ -5985,7 +6198,7 @@ export class MobileLiveGoldenRadar {
         version: 1,
         boardUpdatedAt: this.boardUpdatedAt,
         savedAt: this.now().toISOString(),
-        items: this.sortedBoard(),
+        items: this.persistedBoardItems(),
       };
       const tmpFile = `${this.boardFile}.tmp`;
       fs.writeFileSync(tmpFile, JSON.stringify(payload, null, 2), 'utf8');
