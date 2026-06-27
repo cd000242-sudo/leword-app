@@ -643,7 +643,8 @@ function thinProfileCount(items: Array<{ keyword: string }>): number {
     cacheDerivedCalculatorCandidates.some((keyword) => keyword.includes('\uD504\uB9AC\uB79C\uC11C') && keyword.includes('\uC2E4\uC218\uB839\uC561'))
       && cacheDerivedCalculatorCandidates.some((keyword) => keyword.includes('\uC54C\uBC14') && keyword.includes('\uC790\uB3D9\uACC4\uC0B0'))
       && cacheDerivedCalculatorCandidates.some((keyword) => keyword.includes('\uC694\uC728\uD45C'))
-      && !cacheDerivedCalculatorCandidates.some((keyword) => keyword.includes('\uAC1C\uC778\uC0AC\uC5C5\uC790') && keyword.includes('\uACF5\uC81C\uD56D\uBAA9')),
+      && !cacheDerivedCalculatorCandidates.some((keyword) => keyword.includes('\uAC1C\uC778\uC0AC\uC5C5\uC790') && keyword.includes('\uACF5\uC81C\uD56D\uBAA9'))
+      && !cacheDerivedCalculatorCandidates.some((keyword) => keyword.includes('\uD6C4\uAE30')),
     cacheDerivedCalculatorCandidates.join('|'));
   const cacheDerivedCommerceCandidates = __liveGoldenRadarTestInternals.buildCacheDerivedCompoundNeedSeeds(
     '\uC704\uB2C9\uC2A4\uCC3D\uBB38\uD615\uC5D0\uC5B4\uCEE8',
@@ -2861,6 +2862,10 @@ function thinProfileCount(items: Array<{ keyword: string }>): number {
     ['\uC0AC\uB300\uBCF4\uD5D8\uACC4\uC0B0\uAE30 \uC54C\uBC14 \uC8FC\uD734\uC218\uB2F9 \uACC4\uC0B0', false],
     ['\uC0AC\uB300\uBCF4\uD5D8\uACC4\uC0B0\uAE30 \uAC1C\uC778\uC0AC\uC5C5\uC790 \uACF5\uC81C\uD56D\uBAA9', false],
     ['\uADFC\uBB34\uC2DC\uAC04\uACC4\uC0B0\uAE30 \uC54C\uBC14 \uC8FC\uD734\uC218\uB2F9 \uACC4\uC0B0', false],
+    ['\uADFC\uBB34\uC2DC\uAC04\uACC4\uC0B0\uAE30 \uC138\uAE08 \uACF5\uC81C', false],
+    ['\uADFC\uBB34\uC2DC\uAC04\uACC4\uC0B0\uAE30 \uC694\uC728\uD45C', false],
+    ['\uC0AC\uB300\uBCF4\uD5D8\uACC4\uC0B0\uAE30 \uD6C4\uAE30', false],
+    ['\uC2E4\uC5C5\uAE09\uC5EC\uACC4\uC0B0\uAE30 \uC2E0\uCCAD', false],
     ['4\uB300\uBCF4\uD5D8 \uC644\uB0A9\uC99D\uBA85\uC11C 4\uB300\uBCF4\uD5D8\uB8CC \uC694\uC728 \uACC4\uC0B0', false],
     ['\uB18D\uC2DD\uD488\uBC14\uC6B0\uCC98 \uC2E0\uCCAD \uB300\uC0C1', true],
     ['\uADFC\uBB34\uC2DC\uAC04\uACC4\uC0B0\uAE30 \uC2E0\uCCAD \uB300\uC0C1', false],
