@@ -767,11 +767,13 @@ export async function getNaverKeywordSearchVolumeSeparate(
         searchAdConfig.customerId = customerId.trim();
       }
 
-      for (let i = 0; i < input.length; i += 5) {
-        const batch = input.slice(i, i + 5);
+      const searchAdBatchSize = 4;
+      const searchAdBatchTimeoutMs = 30000;
+      for (let i = 0; i < input.length; i += searchAdBatchSize) {
+        const batch = input.slice(i, i + searchAdBatchSize);
         try {
           const timeoutPromise = new Promise((_, reject) =>
-            setTimeout(() => reject(new Error('검색광고 API 타임아웃 (25초 초과)')), 25000)
+            setTimeout(() => reject(new Error(`검색광고 API 타임아웃 (${Math.round(searchAdBatchTimeoutMs / 1000)}초 초과)`)), searchAdBatchTimeoutMs)
           );
           const searchAdResults = await Promise.race([
             getNaverSearchAdKeywordVolume(searchAdConfig, batch),

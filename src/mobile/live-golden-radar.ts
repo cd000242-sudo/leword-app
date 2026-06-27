@@ -155,6 +155,9 @@ const LIVE_BACKFILL_DOCUMENT_CONCURRENCY = 3;
 const LIVE_BACKFILL_DOCUMENT_SUPPLEMENT_MAX = 36;
 const LIVE_ISSUE_DOCUMENT_SUPPLEMENT_MAX = 8;
 const LIVE_BOARD_SPLIT_ENRICHMENT_LIMIT = 80;
+const LIVE_SEARCHAD_VOLUME_BATCH_SIZE = 4;
+const LIVE_SEARCHAD_VOLUME_BATCH_TIMEOUT_MS = 28_000;
+const LIVE_SEARCHAD_VOLUME_MIN_REMAINING_MS = 2_000;
 const LIVE_PROBE_QUEUE_FILE_NAME = 'live-golden-probe-queue.json';
 const LIVE_PROBE_QUEUE_MAX_ITEMS = 2500;
 const LIVE_PROBE_QUEUE_MAX_ATTEMPTS = 4;
@@ -4739,6 +4742,29 @@ export class MobileLiveGoldenRadar {
     this.lastCacheRefreshAtMs = Date.now();
   }
 
+  private async measureLiveSearchVolumeRows(
+    config: Parameters<typeof getNaverKeywordSearchVolumeSeparate>[0],
+    keywords: string[],
+    options: { includeDocumentCount?: boolean },
+    totalTimeoutMs: number,
+  ): Promise<LiveSearchVolumeRow[]> {
+    const startedAt = Date.now();
+    const candidates = uniqueKeywords(keywords, Math.max(0, keywords.length));
+    const rows: LiveSearchVolumeRow[] = [];
+    for (let i = 0; i < candidates.length; i += LIVE_SEARCHAD_VOLUME_BATCH_SIZE) {
+      const remainingMs = Math.max(0, totalTimeoutMs - (Date.now() - startedAt));
+      if (remainingMs <= LIVE_SEARCHAD_VOLUME_MIN_REMAINING_MS) break;
+      const batch = candidates.slice(i, i + LIVE_SEARCHAD_VOLUME_BATCH_SIZE);
+      const batchRows = await withTimeout(
+        this.measureLiveSearchVolumeSeparate(config, batch, options),
+        Math.min(LIVE_SEARCHAD_VOLUME_BATCH_TIMEOUT_MS, remainingMs),
+        [],
+      );
+      rows.push(...batchRows);
+    }
+    return uniqueVolumeRows(rows, candidates.length);
+  }
+
   start(): MobileLiveGoldenRadarSnapshot {
     if (this.enabled) return this.snapshot();
     this.enabled = true;
@@ -5863,9 +5889,9 @@ export class MobileLiveGoldenRadar {
       ...fallbackSearchAdCandidates,
     ], Math.max(0, measurementLimit - suggestionRowsForRun.length));
     const measuredVolumeRows = searchAdCandidates.length > 0
-      ? await withTimeout(this.measureLiveSearchVolumeSeparate(config, searchAdCandidates, {
+      ? await this.measureLiveSearchVolumeRows(config, searchAdCandidates, {
         includeDocumentCount: false,
-      }), LIVE_BACKFILL_TIMEOUT_MS, [])
+      }, LIVE_BACKFILL_TIMEOUT_MS)
       : [];
     const volumeRows = uniqueVolumeRows([
       ...suggestionRowsForRun,
@@ -5982,9 +6008,9 @@ export class MobileLiveGoldenRadar {
       seen.add(compactId);
       out.push(metric);
     };
-    const volumeRows = await withTimeout(this.measureLiveSearchVolumeSeparate(config, candidates, {
+    const volumeRows = await this.measureLiveSearchVolumeRows(config, candidates, {
       includeDocumentCount: false,
-    }), LIVE_BACKFILL_TIMEOUT_MS, []);
+    }, LIVE_BACKFILL_TIMEOUT_MS);
     let documentCountSupplements = 0;
     for (const row of volumeRows) {
       const pc = finiteNumber(row.pcSearchVolume) || 0;
@@ -6391,13 +6417,9 @@ export class MobileLiveGoldenRadar {
       .slice(0, LIVE_BOARD_SPLIT_ENRICHMENT_LIMIT);
     if (candidates.length === 0) return 0;
 
-    const rows = await withTimeout(
-      this.measureLiveSearchVolumeSeparate(config, candidates.map((item) => item.keyword), {
-        includeDocumentCount: false,
-      }),
-      LIVE_SPLIT_ENRICHMENT_TIMEOUT_MS,
-      [],
-    );
+    const rows = await this.measureLiveSearchVolumeRows(config, candidates.map((item) => item.keyword), {
+      includeDocumentCount: false,
+    }, LIVE_SPLIT_ENRICHMENT_TIMEOUT_MS);
     if (rows.length === 0) return 0;
 
     const byCompactId = new Map<string, MobileLiveGoldenBoardItem>();
@@ -6500,13 +6522,9 @@ export class MobileLiveGoldenRadar {
     const rows: Awaited<ReturnType<typeof this.measureLiveSearchVolumeSeparate>> = [];
     for (let i = 0; i < candidates.length; i += LIVE_CACHE_PROMOTION_BATCH_SIZE) {
       const batch = candidates.slice(i, i + LIVE_CACHE_PROMOTION_BATCH_SIZE);
-      const batchRows = await withTimeout(
-        this.measureLiveSearchVolumeSeparate(config, batch.map((item) => item.keyword), {
-          includeDocumentCount: false,
-        }),
-        LIVE_CACHE_PROMOTION_BATCH_TIMEOUT_MS,
-        [],
-      );
+      const batchRows = await this.measureLiveSearchVolumeRows(config, batch.map((item) => item.keyword), {
+        includeDocumentCount: false,
+      }, LIVE_CACHE_PROMOTION_BATCH_TIMEOUT_MS);
       rows.push(...batchRows);
       if (rows.length >= measurementLimit) {
         break;

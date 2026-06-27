@@ -2980,6 +2980,93 @@ function thinProfileCount(items: Array<{ keyword: string }>): number {
     }));
   fs.rmSync(queuePriorityProbeFile, { force: true });
 
+  const volumeBatchProbeFile = path.join(process.cwd(), 'tmp', 'mobile-live-golden-volume-batch-test.json');
+  const volumeBatchKeywords = [
+    '\uCCAD\uB144\uBBF8\uB798\uC801\uAE08 \uC18C\uB4DD\uAE30\uC900 \uACC4\uC0B0',
+    '\uCE58\uC544\uBCF4\uD5D8 \uBA74\uCC45\uAE30\uAC04',
+    '\uD504\uB9AC\uB79C\uC11C \uADFC\uB85C\uC7A5\uB824\uAE08 \uC18C\uB4DD\uAE30\uC900 \uACC4\uC0B0',
+    '\uB85C\uBD07\uCCAD\uC18C\uAE30 \uBB3C\uAC78\uB808 \uD544\uD130 \uAD50\uCCB4 \uBE44\uC6A9',
+    '\uC81C\uC8FC \uB80C\uD130\uCE74 \uC644\uC804\uC790\uCC28 \uAC00\uACA9\uBE44\uAD50',
+    '\uAC1C\uC778\uC0AC\uC5C5\uC790 \uC885\uD569\uC18C\uB4DD\uC138 \uC138\uC561\uACF5\uC81C \uD55C\uB3C4',
+    '\uC54C\uBC14 \uC8FC\uD734\uC218\uB2F9 \uC790\uB3D9\uACC4\uC0B0',
+    '\uC77C\uC6A9\uC9C1 4\uB300\uBCF4\uD5D8\uB8CC \uC694\uC728\uD45C',
+  ];
+  const volumeBatchWinner = volumeBatchKeywords[4];
+  fs.writeFileSync(volumeBatchProbeFile, JSON.stringify({
+    version: 1,
+    savedAt: '2026-06-15T08:00:00.000Z',
+    items: volumeBatchKeywords.map((keyword, index) => ({
+      keyword,
+      category: 'all',
+      source: 'fixture-volume-batch',
+      priority: 900 - index,
+      firstSeenAt: `2026-06-15T08:${String(index).padStart(2, '0')}:00.000Z`,
+      attempts: 0,
+      misses: 0,
+    })),
+  }), 'utf8');
+  const volumeBatchSizes: number[] = [];
+  const volumeBatchRadar = new MobileLiveGoldenRadar({
+    notificationInbox: inbox,
+    runOnStart: false,
+    cycleLimit: 8,
+    boardTarget: 12,
+    maxCandidates: 180,
+    categories: ['all'],
+    probeQueueFile: volumeBatchProbeFile,
+    getEnvConfig: () => ({
+      naverClientId: 'client',
+      naverClientSecret: 'secret',
+    }),
+    liveSeedProvider: async () => [],
+    enableBackfill: true,
+    autocompleteProvider: async () => [],
+    searchAdSuggestionProvider: async () => [],
+    measureLiveSearchVolumeSeparate: async (_config, keywords, options) => {
+      assert('batched volume pass keeps document count separated', options?.includeDocumentCount === false);
+      volumeBatchSizes.push(keywords.length);
+      if (!keywords.includes(volumeBatchWinner)) return [];
+      return [{
+        keyword: volumeBatchWinner,
+        pcSearchVolume: 900,
+        mobileSearchVolume: 3300,
+        documentCount: null,
+        competition: 'LOW',
+        monthlyAveCpc: 180,
+        searchVolumeSource: 'searchad',
+        searchVolumeConfidence: 'high',
+        isSearchVolumeEstimated: false,
+      }];
+    },
+    measureLiveDocumentCount: async (keyword) => (
+      keyword === volumeBatchWinner
+        ? {
+          dc: 160,
+          source: 'scrape',
+          confidence: 'high',
+          isEstimated: false,
+        }
+        : null
+    ),
+    discover: async () => [],
+  });
+  const volumeBatchSnapshot = await volumeBatchRadar.runOnce();
+  assert('live golden volume measurement keeps partial successes across small SearchAd batches',
+    volumeBatchSizes.length >= 2
+      && volumeBatchSizes.every((size) => size <= 4)
+      && volumeBatchSnapshot.board.some((item) => (
+        item.keyword === volumeBatchWinner
+        && item.grade === 'SSS'
+        && item.pcSearchVolume === 900
+        && item.mobileSearchVolume === 3300
+        && item.documentCount === 160
+      )),
+    JSON.stringify({
+      volumeBatchSizes,
+      board: volumeBatchSnapshot.board.map((item) => `${item.keyword}:${item.grade}:${item.pcSearchVolume}:${item.mobileSearchVolume}:${item.documentCount}`),
+    }));
+  fs.rmSync(volumeBatchProbeFile, { force: true });
+
   const productPromotionScore = __liveGoldenRadarTestInternals.livePromotionPriorityBonus(
     '\uC81C\uC2B5\uAE30 \uAC00\uACA9\uBE44\uAD50',
     'electronics',
