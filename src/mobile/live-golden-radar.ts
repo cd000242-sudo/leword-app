@@ -870,9 +870,14 @@ const CACHE_DERIVED_COMMERCE_RE = /(?:\uAC00\uACA9\uBE44\uAD50|\uCD5C\uC800\uAC0
 
 const CACHE_DERIVED_CALCULATOR_INTENTS = Object.freeze([
   '\uD504\uB9AC\uB79C\uC11C \uC2E4\uC218\uB839\uC561',
+  '\uC9C1\uC7A5\uC778 \uC2E4\uC218\uB839\uC561',
   '\uC54C\uBC14 \uC790\uB3D9\uACC4\uC0B0',
+  '\uC54C\uBC14 \uC8FC\uD734\uC218\uB2F9 \uACC4\uC0B0',
   '\uC77C\uC6A9\uC9C1 \uACC4\uC0B0\uBC29\uBC95',
   '\uAC1C\uC778\uC0AC\uC5C5\uC790 \uACF5\uC81C\uD56D\uBAA9',
+  '\uD504\uB9AC\uB79C\uC11C 3.3 \uC138\uAE08 \uACC4\uC0B0',
+  '\uD1F4\uC9C1\uAE08 \uC138\uD6C4 \uACC4\uC0B0',
+  '4\uB300\uBCF4\uD5D8\uB8CC \uC694\uC728 \uACC4\uC0B0',
   '\uC138\uAE08 \uACF5\uC81C',
   '\uC694\uC728\uD45C',
   '\uC5D1\uC140 \uC591\uC2DD',
@@ -883,7 +888,7 @@ const CACHE_DERIVED_POLICY_INTENTS = Object.freeze([
   '\uC790\uACA9 \uC870\uAC74',
   '\uC9C0\uAE09\uC77C \uC870\uD68C',
   '\uD544\uC694 \uC11C\uB958',
-  '\uC0AC\uC6A9\uCC98 \uCD94\uCC9C',
+  '\uC0AC\uC6A9\uCC98 \uC870\uD68C',
   '\uB9C8\uAC10\uC77C \uD655\uC778',
   '\uC18C\uB4DD\uAE30\uC900 \uACC4\uC0B0',
 ]);
@@ -927,6 +932,37 @@ const CACHE_DERIVED_POLICY_INTENT_RE = /(?:신청\s*(?:대상|방법)|자격\s*�
 const CACHE_DERIVED_POLICY_CONTEXT_RE = /(?:지원금|장려금|급여|바우처|수당|정책자금|문화누리|청년|소상공인|실업급여|부모급여|아동수당|기초연금|환급|구제신청|근로|자녀|국민연금|복지할인|도약계좌|미래적금)/u;
 const CACHE_DERIVED_LOCAL_PLACE_RE = /(?:가볼만한곳|카페거리|맛집|당일치기|관광|축제|수목원|전망대|해변|계곡|하늘길|바다하늘길)/u;
 const CACHE_DERIVED_PRODUCT_MAINTENANCE_INTENT_RE = /(?:전기요금\s*비교|전기세\s*비교|소음\s*비교|저소음\s*후기|필터\s*교체주기|설치비\s*비교)/u;
+const CACHE_DERIVED_TERMINAL_POLICY_TAIL_RE = /(?:\uC2E0\uCCAD\s*(?:\uB300\uC0C1|\uBC29\uBC95)|\uC790\uACA9\s*\uC870\uAC74|\uC9C0\uAE09\uC77C\s*\uC870\uD68C|\uD544\uC694\s*\uC11C\uB958|\uC0AC\uC6A9\uCC98\s*\uC870\uD68C|\uB9C8\uAC10\uC77C\s*\uD655\uC778|\uC18C\uB4DD\uAE30\uC900\s*\uACC4\uC0B0|\uC870\uAC74|\uC9C0\uAE09\uC77C|\uD658\uAE09\uC77C)$/u;
+const LOW_VALUE_POLICY_TERMINAL_BASE_RE = /(?:\uC804\uD654\uBC88\uD638|\uBB38\uC758|\uCF5C\uC13C\uD130|\uAE08\uC561\uD45C)$/u;
+const LOW_VALUE_ONLINE_SIGNUP_PROBE_RE = /\uC628\uB77C\uC778\s*\uC2E0\uCCAD/u;
+const FINANCE_USAGE_PLACE_TAIL_RE = /(?:\uC801\uAE08|\uACC4\uC88C|\uB300\uCD9C|\uBCF4\uD5D8|\uAE08\uB9AC|IRP|ISA).{0,18}\uC0AC\uC6A9\uCC98\s*\uC870\uD68C|\uC0AC\uC6A9\uCC98\s*\uC870\uD68C.{0,18}(?:\uC801\uAE08|\uACC4\uC88C|\uB300\uCD9C|\uBCF4\uD5D8|\uAE08\uB9AC|IRP|ISA)/iu;
+const DUPLICATED_POLICY_TAIL_PROBE_RE = /(\uC218\uAE09\uC790\uACA9|\uC790\uACA9|\uC2E0\uCCAD\uBC29\uBC95|\uC2E0\uCCAD|\uC9C0\uAE09\uC77C|\uC0AC\uC6A9\uCC98|\uC18C\uB4DD\uAE30\uC900)\s*\1|\uC870\uAC74\s*\uC790\uACA9\s*\uC870\uAC74/u;
+
+const CACHE_DERIVED_FORCE_PARTIAL_INTENT_RE = /(?:\uC2E0\uCCAD\s*(?:\uB300\uC0C1|\uBC29\uBC95)|\uC790\uACA9\s*\uC870\uAC74|\uC9C0\uAE09\uC77C\s*\uC870\uD68C|\uD544\uC694\s*\uC11C\uB958|\uC0AC\uC6A9\uCC98\s*\uC870\uD68C|\uC628\uB77C\uC778\s*\uC2E0\uCCAD|\uB9C8\uAC10\uC77C\s*\uD655\uC778|\uC18C\uB4DD\uAE30\uC900\s*\uACC4\uC0B0|\uD504\uB9AC\uB79C\uC11C\s*\uC2E4\uC218\uB839\uC561|\uC9C1\uC7A5\uC778\s*\uC2E4\uC218\uB839\uC561|\uC54C\uBC14\s*(?:\uC790\uB3D9\uACC4\uC0B0|\uC8FC\uD734\uC218\uB2F9\s*\uACC4\uC0B0)|\uC77C\uC6A9\uC9C1\s*\uACC4\uC0B0\uBC29\uBC95|\uAC1C\uC778\uC0AC\uC5C5\uC790\s*\uACF5\uC81C\uD56D\uBAA9|\uD504\uB9AC\uB79C\uC11C\s*3\.3\s*\uC138\uAE08\s*\uACC4\uC0B0|\uD1F4\uC9C1\uAE08\s*\uC138\uD6C4\s*\uACC4\uC0B0|4\uB300\uBCF4\uD5D8\uB8CC\s*\uC694\uC728\s*\uACC4\uC0B0|\uC138\uAE08\s*\uACF5\uC81C|\uC694\uC728\uD45C|\uC5D1\uC140\s*\uC591\uC2DD)/u;
+
+function cacheDerivedIntentToAppend(seed: string, intent: string): string {
+  const clean = normalizeKeyword(seed);
+  let cleanIntent = normalizeKeyword(intent);
+  if (!clean || !cleanIntent) return '';
+  if (!keywordAlreadyHasIntent(clean, cleanIntent)) return cleanIntent;
+  if (clean.replace(/\s+/g, '').includes(cleanIntent.replace(/\s+/g, ''))) return '';
+  if (!CACHE_DERIVED_FORCE_PARTIAL_INTENT_RE.test(cleanIntent)) return '';
+  if (/\uC2E0\uCCAD/u.test(clean) && /^\uC2E0\uCCAD\s+/u.test(cleanIntent)) {
+    cleanIntent = cleanIntent.replace(/^\uC2E0\uCCAD\s+/u, '').trim();
+  }
+  if (/\uC790\uACA9/u.test(clean) && /^\uC790\uACA9\s+/u.test(cleanIntent)) {
+    cleanIntent = cleanIntent.replace(/^\uC790\uACA9\s+/u, '').trim();
+  }
+  if (/\uC870\uAC74/u.test(clean) && /\uC870\uAC74$/u.test(cleanIntent)) return '';
+  if (/\uC9C0\uAE09\uC77C/u.test(clean) && /^\uC9C0\uAE09\uC77C\s+/u.test(cleanIntent)) {
+    cleanIntent = cleanIntent.replace(/^\uC9C0\uAE09\uC77C\s+/u, '').trim();
+  }
+  if (/\uC0AC\uC6A9\uCC98/u.test(clean) && /^\uC0AC\uC6A9\uCC98\s+/u.test(cleanIntent)) {
+    cleanIntent = cleanIntent.replace(/^\uC0AC\uC6A9\uCC98\s+/u, '').trim();
+  }
+  if (!cleanIntent || clean.replace(/\s+/g, '').includes(cleanIntent.replace(/\s+/g, ''))) return '';
+  return cleanIntent;
+}
 
 function isCacheDerivedCompoundIntentCompatible(seed: string, intent: string, categoryId: string): boolean {
   const clean = normalizeKeyword(seed);
@@ -938,6 +974,9 @@ function isCacheDerivedCompoundIntentCompatible(seed: string, intent: string, ca
     && !CACHE_DERIVED_CALCULATOR_RE.test(clean)
     && (!CACHE_DERIVED_POLICY_CONTEXT_RE.test(clean) || /(?:꿀팁|맛집|카페거리|가볼만한곳|아웃백|하이디라오|훠궈)/u.test(clean))
   ) return false;
+  if (FINANCE_USAGE_PLACE_TAIL_RE.test(`${clean} ${cleanIntent}`)) return false;
+  if (/\uC0AC\uC6A9\uCC98/u.test(clean) && !/(?:\uC0AC\uC6A9\uCC98\s*\uC870\uD68C|\uC870\uD68C)$/u.test(cleanIntent)) return false;
+  if (/(?:\uC9C0\uAE09\uC77C|\uD658\uAE09\uC77C)/u.test(clean) && /(?:\uC18C\uB4DD\uAE30\uC900|\uC790\uACA9|\uC2E0\uCCAD\s*\uB300\uC0C1|\uD544\uC694\s*\uC11C\uB958)/u.test(cleanIntent)) return false;
   if (
     /(?:구매처\s*추천|할인\s*쿠폰|최저가\s*비교|비용\s*비교)/u.test(cleanIntent)
     && (CACHE_DERIVED_LOCAL_PLACE_RE.test(clean) || /travel|food/.test(category))
@@ -969,10 +1008,14 @@ function isCacheDerivedCompoundIntentCompatible(seed: string, intent: string, ca
 function buildCacheDerivedCompoundNeedSeeds(seed: string, categoryId = 'all', limit = 36): string[] {
   const clean = normalizeKeyword(seed);
   if (!clean) return [];
+  if (CACHE_DERIVED_TERMINAL_POLICY_TAIL_RE.test(clean) || LOW_VALUE_POLICY_TERMINAL_BASE_RE.test(clean)) return [];
   const category = normalizeKeyword(categoryId);
   const intents: string[] = [];
-  if (CACHE_DERIVED_CALCULATOR_RE.test(clean)) intents.push(...CACHE_DERIVED_CALCULATOR_INTENTS);
-  if (CACHE_DERIVED_POLICY_RE.test(clean) || /policy|education|life_tips/.test(category)) {
+  const isCalculatorSeed = CACHE_DERIVED_CALCULATOR_RE.test(clean);
+  const hasPolicySeedContext = CACHE_DERIVED_POLICY_RE.test(clean) || CACHE_DERIVED_POLICY_CONTEXT_RE.test(clean);
+  const canExpandPolicySeed = hasPolicySeedContext && !CACHE_DERIVED_TERMINAL_POLICY_TAIL_RE.test(clean);
+  if (isCalculatorSeed) intents.push(...CACHE_DERIVED_CALCULATOR_INTENTS);
+  if (!isCalculatorSeed && canExpandPolicySeed) {
     intents.push(...CACHE_DERIVED_POLICY_INTENTS, ...CACHE_DERIVED_POLICY_AUDIENCE_INTENTS);
   }
   if (CACHE_DERIVED_COMMERCE_RE.test(clean) || /shopping|commerce|electronics|beauty|fashion|food|home|travel/.test(category)) {
@@ -983,10 +1026,11 @@ function buildCacheDerivedCompoundNeedSeeds(seed: string, categoryId = 'all', li
 
   const out: string[] = [];
   for (const intent of uniqueKeywords(intents, 24)) {
-    if (!intent || keywordAlreadyHasIntent(clean, intent)) continue;
+    const appendIntent = cacheDerivedIntentToAppend(clean, intent);
+    if (!appendIntent) continue;
     if (!isCacheDerivedCompoundIntentCompatible(clean, intent, category)) continue;
-    out.push(`${clean} ${intent}`);
-    const compactIntent = intent.replace(/\s+/g, '');
+    out.push(`${clean} ${appendIntent}`);
+    const compactIntent = appendIntent.replace(/\s+/g, '');
     if (compactIntent && !clean.includes(compactIntent)) out.push(`${clean}${compactIntent}`);
   }
   return uniqueKeywords(out, limit)
@@ -3215,7 +3259,7 @@ const LIVE_MEASURED_PROBE_BASES: Record<string, readonly string[]> = Object.free
 
 const LIVE_MEASURED_PROBE_INTENTS: Record<string, readonly string[]> = Object.freeze({
   all: ['가격비교', '추천 후기', '최저가 비교', '예약 방법', '비용 비교', '조회 방법', '신청 대상', '신청 방법', '필요 서류'],
-  policy: ['신청 대상', '신청 방법', '지급일 조회', '사용처 조회', '지원금 조건', '자격 조건', '필요 서류', '소득기준 계산', '마감일 확인', '온라인 신청'],
+  policy: ['신청 대상', '신청 방법', '지급일 조회', '사용처 조회', '지원금 조건', '자격 조건', '필요 서류', '소득기준 계산', '마감일 확인'],
   finance: ['세액공제 한도', '수수료 비교', '금리 비교', '환급 조회', '조건 비교', '신청 방법', '만기 수령액', '해지 불이익'],
   shopping: ['가격비교', '최저가 비교', '추천 후기', '구매처 추천', '할인 쿠폰', '장단점', '전기요금 비교', '소음 비교', '설치 비용'],
   electronics: ['가격비교', '추천 후기', '최저가 비교', '구매처 추천', '스펙 비교', '전기요금 비교', '소음 비교', '설치 비용', '필터 교체 비용'],
@@ -3291,6 +3335,8 @@ const POLICY_AUDIENCE_BASE_MISMATCH_RE = /(?:(?:개인사업자|사업자|소상
 const FINANCE_HEALTH_INTENT_MISMATCH_RE = /(?:\bETF\b.{0,14}(?:세액공제|신청\s*방법|만기\s*수령액|해지\s*불이익)|(?:프로바이오틱스|오메가3|코엔자임Q10).{0,16}(?:보험\s*적용|실비\s*청구|치료\s*비용|검사\s*비용))/iu;
 const CACHE_DERIVED_CONTEXT_MISMATCH_RE = /(?:(?:가볼만한곳|카페거리|맛집|당일치기|관광|축제|수목원|전망대|해변|계곡).{0,18}(?:구매처\s*추천|최저가\s*비교|비용\s*비교|할인\s*쿠폰|아이랑\s*코스|뚜벅이\s*코스|당일치기\s*준비물)|(?:꿀팁|아웃백|하이디라오|훠궈).{0,18}(?:신청\s*(?:대상|방법)|지급일\s*조회|소득기준|필요\s*서류)|(?:구제신청|부당해고).{0,18}(?:최저가\s*비교|구매처\s*추천|할인\s*쿠폰|비용\s*비교|선택\s*가이드|1인\s*가구\s*추천|저소음\s*후기|필터\s*교체주기|전기요금\s*비교|전기세\s*비교|소음\s*비교|설치비\s*비교)|(?:후기|레인부츠|정리함|냉장고\s*(?:수납)?정리(?:함)?).{0,18}(?:필터\s*교체주기|전기요금\s*비교|전기세\s*비교|소음\s*비교|저소음\s*후기|설치비\s*비교)|청년도약계좌.{0,12}(?:해지|중도인출|만기).{0,12}(?:신청\s*대상|지급일\s*조회))/u;
 
+const CALCULATOR_POLICY_TAIL_NO_EFFECT_RE = /(?:\uACC4\uC0B0\uAE30|\uACC4\uC0B0).{0,16}(?:\uC2E0\uCCAD\s*(?:\uB300\uC0C1|\uBC29\uBC95)|\uC790\uACA9\s*\uC870\uAC74|\uC9C0\uAE09\uC77C\s*\uC870\uD68C|\uD544\uC694\s*\uC11C\uB958|\uC0AC\uC6A9\uCC98\s*\uC870\uD68C|\uC628\uB77C\uC778\s*\uC2E0\uCCAD|\uB9C8\uAC10\uC77C\s*\uD655\uC778)/u;
+
 function productGenericStackTokenCount(keyword: string): number {
   const hits = normalizeKeyword(keyword).match(PRODUCT_GENERIC_STACK_TOKEN_RE) || [];
   return new Set(hits.map((hit) => hit.replace(/\s+/g, ''))).size;
@@ -3300,6 +3346,8 @@ function isSyntheticNoEffectLiveProbe(keyword: string): boolean {
   const clean = normalizeKeyword(keyword);
   if (!clean) return true;
   return HOLIDAY_POLICY_TAIL_MISMATCH_RE.test(clean)
+    || LOW_VALUE_ONLINE_SIGNUP_PROBE_RE.test(clean)
+    || DUPLICATED_POLICY_TAIL_PROBE_RE.test(clean)
     || PRODUCT_RANKING_MAINTENANCE_CHAIN_RE.test(clean)
     || GENERIC_INTENT_ONLY_PROBE_RE.test(clean)
     || NEWS_PERSON_OR_ROLE_POLICY_TAIL_RE.test(clean)
@@ -3310,6 +3358,7 @@ function isSyntheticNoEffectLiveProbe(keyword: string): boolean {
     || POLICY_AUDIENCE_BASE_MISMATCH_RE.test(clean)
     || FINANCE_HEALTH_INTENT_MISMATCH_RE.test(clean)
     || CACHE_DERIVED_CONTEXT_MISMATCH_RE.test(clean)
+    || CALCULATOR_POLICY_TAIL_NO_EFFECT_RE.test(clean)
     || (
       PRODUCT_BASE_SIGNAL_RE.test(clean)
       && (
@@ -3352,17 +3401,39 @@ function measuredProbeCategoryKeys(categoryId: string, liveSeeds: string[]): str
   ], 16);
 }
 
+const TRUSTED_WRITER_READY_MEASURED_PROBE_RE = /(?:\uC2E4\uC218\uB839\uC561|\uC790\uB3D9\uACC4\uC0B0|\uC8FC\uD734\uC218\uB2F9\s*\uACC4\uC0B0|\uACC4\uC0B0\uBC29\uBC95|\uACF5\uC81C\uD56D\uBAA9|3\.3\s*\uC138\uAE08|\uC138\uD6C4\s*\uACC4\uC0B0|4\uB300\uBCF4\uD5D8\uB8CC\s*\uC694\uC728|\uC138\uAE08\s*\uACF5\uC81C|\uC694\uC728\uD45C|\uC5D1\uC140\s*\uC591\uC2DD|\uC2E0\uCCAD\s*(?:\uB300\uC0C1|\uBC29\uBC95)|\uC790\uACA9\s*\uC870\uAC74|\uC9C0\uAE09\uC77C\s*\uC870\uD68C|\uC0AC\uC6A9\uCC98\s*\uC870\uD68C|\uC628\uB77C\uC778\s*\uC2E0\uCCAD|\uD544\uC694\s*\uC11C\uB958|\uB9C8\uAC10\uC77C\s*\uD655\uC778|\uC18C\uB4DD\uAE30\uC900\s*\uACC4\uC0B0|\uAC00\uC785\uC2E0\uCCAD|\uC794\uC561\uC870\uD68C|\uC644\uC804\uC790\uCC28|\uBA74\uCC45\uAE30\uAC04|\uC2E4\uBE44\s*\uCCAD\uAD6C|\uC138\uC561\uACF5\uC81C\s*\uD55C\uB3C4|\uC218\uC218\uB8CC\s*\uBE44\uAD50|\uAE08\uB9AC\s*\uBE44\uAD50|\uB9CC\uAE30\s*\uC218\uB839\uC561|\uD574\uC9C0\s*\uBD88\uC774\uC775)/u;
+
+function isTrustedWriterReadyMeasuredProbe(keyword: string, categoryId: string): boolean {
+  const clean = normalizeKeyword(keyword);
+  if (!clean || !TRUSTED_WRITER_READY_MEASURED_PROBE_RE.test(clean)) return false;
+  if (isSyntheticNoEffectLiveProbe(clean) || isWeakAutogeneratedProbeCombo(clean)) return false;
+  if (isGenericAudienceOnlyKeyword(clean) || LIVE_MEASURED_PROBE_GENERIC_AUDIENCE_RE.test(clean)) return false;
+  const inferred = inferLiveCategory(clean, categoryId || 'all');
+  const hasTrustedBase = CACHE_DERIVED_CALCULATOR_RE.test(clean)
+    || SEARCHAD_POLICY_PRODUCT_BASE_RE.test(clean)
+    || SEARCHAD_FINANCE_BASE_RE.test(clean)
+    || LIVE_MEASURED_PROBE_SPECIFIC_BASE_RE.test(clean)
+    || LIVE_POLICY_SIGNAL_RE.test(clean)
+    || LIVE_FINANCE_SIGNAL_RE.test(clean);
+  if (!hasTrustedBase) return false;
+  return keywordLongTailScore(clean) >= 18
+    || ultimateIntentFragmentCount(clean) >= 2
+    || inferred === 'policy'
+    || inferred === 'finance';
+}
+
 function isLiveMeasuredProbeCandidate(keyword: string, categoryId: string, now: Date = new Date()): boolean {
   const clean = normalizeKeyword(keyword);
   if (!clean) return false;
   if (isSyntheticNoEffectLiveProbe(clean)) return false;
   if (isWeakAutogeneratedProbeCombo(clean)) return false;
-  if (!LIVE_MEASURED_PROBE_SIGNAL_RE.test(clean)) return false;
+  const trustedWriterReady = isTrustedWriterReadyMeasuredProbe(clean, categoryId);
+  if (!trustedWriterReady && !LIVE_MEASURED_PROBE_SIGNAL_RE.test(clean)) return false;
   if (LIVE_MEASURED_PROBE_HEALTH_POLICY_MIX_RE.test(clean)) return false;
-  if (ultimateIntentFragmentCount(clean) > 2) return false;
+  if (ultimateIntentFragmentCount(clean) > (trustedWriterReady ? 3 : 2)) return false;
   if (isGenericAudienceOnlyKeyword(clean)) return false;
   if (LIVE_MEASURED_PROBE_GENERIC_AUDIENCE_RE.test(clean)) return false;
-  if (!categoryAcceptsMeasuredProbe(clean, categoryId)) return false;
+  if (!trustedWriterReady && !categoryAcceptsMeasuredProbe(clean, categoryId)) return false;
   return isSearchAdMeasurableLiveCandidate(clean, categoryId, now);
 }
 
@@ -5267,7 +5338,24 @@ export class MobileLiveGoldenRadar {
     }
   }
 
-  private rememberCacheDerivedLiveSeeds(keyword: string, categoryId: string): void {
+  private cacheDerivedPriorityBoost(volume: number | null, documents: number | null): number {
+    if (volume === null || documents === null || volume <= 0 || documents <= 0) return 0;
+    const ratio = volume / documents;
+    const volumeScore = Math.min(120, Math.round(Math.log10(volume + 1) * 22));
+    const scarcityScore = documents <= 300
+      ? 180
+      : documents <= 1_000
+        ? 140
+        : documents <= 3_000
+          ? 95
+          : documents <= 5_000
+            ? 55
+            : 0;
+    const ratioScore = Math.min(220, Math.round(ratio * 3));
+    return Math.max(0, Math.min(420, volumeScore + scarcityScore + ratioScore));
+  }
+
+  private rememberCacheDerivedLiveSeeds(keyword: string, categoryId: string, priorityBoost = 0): void {
     const clean = normalizeKeyword(keyword);
     if (!clean || isNoisyLiveSeed(clean) || isThinProfileIntentKeyword(clean) || isLowValueLiveCandidate(clean)) return;
     const inferredCategory = inferLiveCategory(clean, categoryId || 'all');
@@ -5291,7 +5379,7 @@ export class MobileLiveGoldenRadar {
       if (this.cacheDerivedLiveSeeds.some((seed) => keywordCompactId(seed) === compact)) continue;
       this.cacheDerivedLiveSeeds.push(candidate);
     }
-    this.queueMeasuredProbeCandidates(candidates, inferredCategory, 'cache-derived-probe', 120, false);
+    this.queueMeasuredProbeCandidates(candidates, inferredCategory, 'cache-derived-probe', 120 + priorityBoost, false);
   }
 
   private async collectLiveSeeds(categoryId: string): Promise<string[]> {
@@ -6613,7 +6701,6 @@ export class MobileLiveGoldenRadar {
       const pushKeyword = (key: unknown, row: any): void => {
         const keyword = normalizeKeyword(row?.keyword || key);
         if (!keyword || keyword === '__schemaVersion') return;
-        this.rememberCacheDerivedLiveSeeds(keyword, normalizeKeyword(row?.category) || 'persistent-cache');
         const measurementMeta = measurementMetadataWithPersistentDefaults(row);
         const pcSearchVolume = finiteNumber(row?.pcSearchVolume);
         const mobileSearchVolume = finiteNumber(row?.mobileSearchVolume);
@@ -6627,6 +6714,11 @@ export class MobileLiveGoldenRadar {
           ?? finiteNumber(row?.documents)
           ?? finiteNumber(row?.docs);
         if (totalSearchVolume === null || documentCount === null || documentCount <= 0) return;
+        this.rememberCacheDerivedLiveSeeds(
+          keyword,
+          normalizeKeyword(row?.category) || 'persistent-cache',
+          this.cacheDerivedPriorityBoost(totalSearchVolume, documentCount),
+        );
         const goldenRatio = finiteNumber(row?.goldenRatio)
           ?? Number((totalSearchVolume / documentCount).toFixed(2));
         const actionable = hasRobustActionableIntent(keyword)

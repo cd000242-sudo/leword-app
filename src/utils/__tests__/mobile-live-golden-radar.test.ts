@@ -2658,6 +2658,87 @@ function thinProfileCount(items: Array<{ keyword: string }>): number {
       .filter((keyword) => __liveGoldenRadarTestInternals.isHighYieldSearchAdSpendCandidate(keyword, 'all', lottoGuardNow))
       .join('|'));
 
+  const calculatorCacheDerivedSeeds = __liveGoldenRadarTestInternals.buildCacheDerivedCompoundNeedSeeds(
+    '\uC0AC\uB300\uBCF4\uD5D8\uACC4\uC0B0\uAE30',
+    'policy',
+    30,
+  );
+  const policyCacheDerivedSeeds = __liveGoldenRadarTestInternals.buildCacheDerivedCompoundNeedSeeds(
+    '\uB18D\uC2DD\uD488\uBC14\uC6B0\uCC98',
+    'policy',
+    30,
+  );
+  const alreadyAppliedPolicySeeds = __liveGoldenRadarTestInternals.buildCacheDerivedCompoundNeedSeeds(
+    '\uCCAD\uB144\uBBF8\uB798\uC801\uAE08\uC2E0\uCCAD',
+    'policy',
+    30,
+  );
+  const nonPolicyCacheDerivedSeeds = [
+    ...__liveGoldenRadarTestInternals.buildCacheDerivedCompoundNeedSeeds(
+      '1228\uD68C\uB85C\uB610\uB2F9\uCCA8\uBC88\uD638',
+      'policy',
+      30,
+    ),
+    ...__liveGoldenRadarTestInternals.buildCacheDerivedCompoundNeedSeeds(
+      '\uCC38\uAD50\uC721\uBA87\uBD80\uC791',
+      'policy',
+      30,
+    ),
+    ...__liveGoldenRadarTestInternals.buildCacheDerivedCompoundNeedSeeds(
+      '\uC544\uC6C3\uBC31\uAFC0\uD301',
+      'policy',
+      30,
+    ),
+  ];
+  const repeatedTailPolicySeeds = __liveGoldenRadarTestInternals.buildCacheDerivedCompoundNeedSeeds(
+    '\uCCAD\uB144\uBBF8\uB798\uC801\uAE08 \uC870\uAC74',
+    'policy',
+    30,
+  );
+  const terminalPolicySeeds = [
+    ...__liveGoldenRadarTestInternals.buildCacheDerivedCompoundNeedSeeds(
+      '5\uC6D4\uC5F0\uB9D0\uC815\uC0B0\uD658\uAE09\uC77C',
+      'policy',
+      30,
+    ),
+    ...__liveGoldenRadarTestInternals.buildCacheDerivedCompoundNeedSeeds(
+      '\uBB38\uD654\uB204\uB9AC\uCE74\uB4DC\uC0AC\uC6A9\uCC98',
+      'policy',
+      30,
+    ),
+  ];
+  assert('cache-derived probes turn broad measured heads into writer-ready measured longtails',
+    calculatorCacheDerivedSeeds.includes('\uC0AC\uB300\uBCF4\uD5D8\uACC4\uC0B0\uAE30 \uD504\uB9AC\uB79C\uC11C \uC2E4\uC218\uB839\uC561')
+      && calculatorCacheDerivedSeeds.includes('\uC0AC\uB300\uBCF4\uD5D8\uACC4\uC0B0\uAE30 \uC54C\uBC14 \uC8FC\uD734\uC218\uB2F9 \uACC4\uC0B0')
+      && !calculatorCacheDerivedSeeds.some((keyword) => /\uC2E0\uCCAD\s*(?:\uB300\uC0C1|\uBC29\uBC95)|\uC9C0\uAE09\uC77C\s*\uC870\uD68C/.test(keyword))
+      && policyCacheDerivedSeeds.includes('\uB18D\uC2DD\uD488\uBC14\uC6B0\uCC98 \uC2E0\uCCAD \uB300\uC0C1')
+      && policyCacheDerivedSeeds.includes('\uB18D\uC2DD\uD488\uBC14\uC6B0\uCC98 \uC0AC\uC6A9\uCC98 \uC870\uD68C')
+      && alreadyAppliedPolicySeeds.includes('\uCCAD\uB144\uBBF8\uB798\uC801\uAE08\uC2E0\uCCAD \uB300\uC0C1')
+      && alreadyAppliedPolicySeeds.includes('\uCCAD\uB144\uBBF8\uB798\uC801\uAE08\uC2E0\uCCAD \uBC29\uBC95')
+      && !alreadyAppliedPolicySeeds.includes('\uCCAD\uB144\uBBF8\uB798\uC801\uAE08\uC2E0\uCCAD \uC0AC\uC6A9\uCC98 \uC870\uD68C')
+      && nonPolicyCacheDerivedSeeds.length === 0
+      && !repeatedTailPolicySeeds.some((keyword) => /\uC870\uAC74\s*\uC790\uACA9\s*\uC870\uAC74/u.test(keyword))
+      && !terminalPolicySeeds.some((keyword) => /\uC18C\uB4DD\uAE30\uC900\s*\uACC4\uC0B0|\uC790\uACA9\s*\uC870\uAC74|\uD544\uC694\s*\uC11C\uB958/u.test(keyword)),
+    JSON.stringify({ calculatorCacheDerivedSeeds, policyCacheDerivedSeeds, alreadyAppliedPolicySeeds, nonPolicyCacheDerivedSeeds, repeatedTailPolicySeeds, terminalPolicySeeds }));
+
+  const trustedWriterReadyProbeCases = [
+    ['\uC0AC\uB300\uBCF4\uD5D8\uACC4\uC0B0\uAE30 \uD504\uB9AC\uB79C\uC11C \uC2E4\uC218\uB839\uC561', true],
+    ['\uC0AC\uB300\uBCF4\uD5D8\uACC4\uC0B0\uAE30 \uC54C\uBC14 \uC8FC\uD734\uC218\uB2F9 \uACC4\uC0B0', true],
+    ['\uB18D\uC2DD\uD488\uBC14\uC6B0\uCC98 \uC2E0\uCCAD \uB300\uC0C1', true],
+    ['\uADFC\uBB34\uC2DC\uAC04\uACC4\uC0B0\uAE30 \uC2E0\uCCAD \uB300\uC0C1', false],
+    ['\uADFC\uB85C\uC7A5\uB824\uAE08 \uC628\uB77C\uC778 \uC2E0\uCCAD', false],
+  ] as const;
+  assert('writer-ready measured probe gate allows usable policy/calculator tails and rejects calculator policy tails',
+    trustedWriterReadyProbeCases.every(([keyword, expected]) => (
+      __liveGoldenRadarTestInternals.isLiveMeasuredProbeCandidate(keyword, 'policy', lottoGuardNow) === expected
+        && __liveGoldenRadarTestInternals.isHighYieldSearchAdSpendCandidate(keyword, 'policy', lottoGuardNow) === expected
+    )),
+    JSON.stringify(trustedWriterReadyProbeCases.map(([keyword]) => ({
+      keyword,
+      probe: __liveGoldenRadarTestInternals.isLiveMeasuredProbeCandidate(keyword, 'policy', lottoGuardNow),
+      spend: __liveGoldenRadarTestInternals.isHighYieldSearchAdSpendCandidate(keyword, 'policy', lottoGuardNow),
+    }))));
+
   const measuredProbePortfolio = __liveGoldenRadarTestInternals.buildMeasuredProbeCandidates(
     'all',
     [],
