@@ -4537,15 +4537,8 @@ export class MobileLiveGoldenRadar {
         this.clearQuotaRetryTimer();
       }
 
-      const hasRunnableProbeQueueBeforeCache = this.hasRunnableMeasuredProbeQueue();
-      const shouldPrioritizeProbeQueue = this.enableBackfill
-        && hasRunnableProbeQueueBeforeCache
-        && currentBoardCount >= minimumVisibleBoard
-        && sssReadyBeforeRun < desiredSssReady;
-      const shouldAttemptCachePromotion = !shouldPrioritizeProbeQueue && (
-        hasSearchAdCredentials(env)
-        || currentBoardCount < minimumVisibleBoard
-      );
+      const shouldAttemptCachePromotion = hasSearchAdCredentials(env)
+        || currentBoardCount < minimumVisibleBoard;
       const catchUpModeBeforeCache = currentBoardCount < this.boardTarget;
       const promotedCacheCount = shouldAttemptCachePromotion
         ? await this.promotePendingMeasuredCacheWithSearchAdMetrics({
