@@ -2103,15 +2103,23 @@ function isLiveRadarUsableKeyword(
   if (!knownPolicyNeed && isBroadBenefitProductKeyword(clean)) return false;
   if (!knownPolicyNeed && isGenericAudienceOnlyKeyword(clean)) return false;
   if (LOW_VALUE_SENTENCE_SEED_RE.test(clean) || LOW_VALUE_CRISIS_NEWS_RE.test(clean) || LOW_VALUE_POLICY_FRAGMENT_RE.test(clean)) return false;
-  if (!knownPolicyNeed && !hasLiveUltimateNeedIntent(clean)) return false;
+  const writerReadyNeed = !isBroadHeadSssKeyword(clean)
+    && (
+      hasSssReadyNeedIntent(clean)
+      || hasHighValueNeedIntent(clean)
+      || hasAdsenseNeedIntent(clean)
+      || hasWriterReadySearchAdProbeIntent(clean)
+      || hasWriterReadySpecificity(clean)
+    );
+  if (!knownPolicyNeed && !hasLiveUltimateNeedIntent(clean) && !writerReadyNeed) return false;
   if (/(관련주|주가)/.test(clean) && !STOCK_MARKET_CONTEXT_RE.test(clean)) return false;
   const specific = SPECIFIC_LIVE_KEYWORD_HINT_RE.test(clean) || isRobustSpecificLiveKeyword(clean);
   if (volume !== null && volume >= BROAD_KEYWORD_VOLUME_CEILING) return false;
   if (documents !== null && documents >= BROAD_KEYWORD_DOCUMENT_CEILING) return false;
   if (volume !== null && documents !== null && volume >= 300_000 && documents >= 50_000) return false;
   if (!specific && volume !== null && volume >= 250_000) return false;
-  if (!specific && documents !== null && documents >= 30_000) return false;
-  if (!isActionableLiveKeyword(clean) && !specific) {
+  if (!specific && !writerReadyNeed && documents !== null && documents >= 30_000) return false;
+  if (!isActionableLiveKeyword(clean) && !specific && !writerReadyNeed) {
     return false;
   }
   return true;
