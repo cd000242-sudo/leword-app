@@ -3221,7 +3221,7 @@ export function createLewordApiServer(options: LewordApiServerOptions = {}): htt
       const limit = Number(url.searchParams.get('limit') || 18);
       const snapshot = await getPublicSourceSignalSnapshot(limit);
       json(res, 200, buildPublicSourceSignalPayload(snapshot), {
-        'Cache-Control': 'public, max-age=30, stale-while-revalidate=120',
+        'Cache-Control': 'no-store',
       });
       return;
     }

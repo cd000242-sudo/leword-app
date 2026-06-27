@@ -663,4 +663,15 @@ assert('public source payload includes policy and issue lanes',
   payload.lanes.find((lane) => lane.id === 'policy')?.items[0]?.categoryId === 'policy'
     && payload.lanes.find((lane) => lane.id === 'issue')?.items[0]?.categoryId === 'broadcast');
 
+const emptySourcePayload = buildPublicSourceSignalPayload({
+  updatedAt: fixed,
+  realtime: [],
+  policy: [],
+  issues: [],
+  fallbackUsed: true,
+});
+assert('public source payload keeps empty source lanes empty',
+  emptySourcePayload.lanes.every((lane) => lane.items.length === 0),
+  emptySourcePayload.lanes.map((lane) => `${lane.id}:${lane.items.length}`).join(','));
+
 console.log('[pro-web-site-regression] passed');

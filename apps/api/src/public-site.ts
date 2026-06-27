@@ -84,72 +84,22 @@ export function buildPublicLiveGoldenPayload(snapshot: MobileLiveGoldenRadarSnap
   };
 }
 
-function makeSignal(
-  kind: MobileSignalItem['kind'],
-  id: string,
-  keyword: string,
-  title: string,
-  description: string,
-  priority: number,
-  source: string,
-  categoryId?: string,
-): MobileSignalItem {
-  return {
-    kind,
-    id,
-    keyword,
-    title,
-    description,
-    priority,
-    source,
-    categoryId,
-    createdAt: new Date().toISOString(),
-  };
-}
-
-function cleanFallbackSignals(): MobileSourceSignalSnapshot {
-  const updatedAt = new Date().toISOString();
-  return {
-    updatedAt,
-    fallbackUsed: true,
-    realtime: [
-      makeSignal('realtime', 'rt-naver-season', '여름 원피스 추천', '네이버/시즌 수요', '계절 수요가 살아나는 검색어입니다. Pro에서는 정확 검색량, 문서수, 확장 후보까지 검증합니다.', 96, 'naver', 'shopping'),
-      makeSignal('realtime', 'rt-daum-rain', '장마 준비물', '다음 생활 이슈', '날씨와 생활 검색이 붙는 흐름입니다. 구매형, 비교형, 준비물형으로 빠르게 확장할 수 있습니다.', 91, 'daum', 'living'),
-      makeSignal('realtime', 'rt-google-trend', '여름휴가 숙소', 'Google Trends', '지역명, 가격, 예약 시점으로 쪼개면 초보자도 바로 작성 가능한 후보가 됩니다.', 87, 'google', 'travel'),
-      makeSignal('realtime', 'rt-nate-issue', '오늘 방송 출연진', '네이트 이슈', '방송 직후 선점하기 좋은 흐름입니다. 회차, 재방송, 출연진, 결말 키워드로 확장합니다.', 84, 'nate', 'broadcast'),
-    ],
-    policy: [
-      makeSignal('policy', 'policy-support', '소상공인 지원금 신청', '정책브리핑', '신청기간, 대상자, 지급일처럼 검색 의도가 분명한 하위 키워드로 확장합니다.', 98, 'policy-briefing', 'policy'),
-      makeSignal('policy', 'policy-youth', '청년 월세 지원 조건', '정책브리핑', '조건, 서류, 지자체 비교형 글감으로 바로 전환하기 좋은 정책 후보입니다.', 92, 'policy-briefing', 'policy'),
-      makeSignal('policy', 'policy-energy', '에너지바우처 신청', '정책브리핑', '대상자와 신청 절차가 붙어 검색 전환 가능성이 높은 정책 키워드입니다.', 88, 'policy-briefing', 'policy'),
-    ],
-    issues: [
-      makeSignal('issue', 'issue-drama', '신작 드라마 출연진', '방송 이슈', '인물, 원작, 몇부작, 결말예상처럼 빠르게 선점 가능한 방송 흐름입니다.', 94, 'entertainment-radar', 'entertainment'),
-      makeSignal('issue', 'issue-sports', '대표팀 경기 일정', '스포츠 이슈', '일정, 중계, 명단, 하이라이트 의도가 붙는 빠른 선점 후보입니다.', 89, 'sports-radar', 'sports'),
-      makeSignal('issue', 'issue-star', '스타 근황', '스타/연예 이슈', '방송 출연, 공식입장, 작품 정보로 이어지는 스타/연예 흐름입니다.', 84, 'entertainment-radar', 'entertainment'),
-    ],
-  };
-}
-
 function looksCorrupt(text: string): boolean {
   const markers = ['�', '占', '媛', '꾨', 'ㅼ', '댁', '좎', '쒕', '곗', '⑷', '留', '怨꾩', '臾몄', '濡깊'];
   return markers.some((marker) => text.includes(marker))
     || (text.match(/\?/g)?.length || 0) >= 3;
 }
 
-function cleanLane(items: MobileSignalItem[], fallback: MobileSignalItem[]): MobileSignalItem[] {
-  if (items.length === 0) return fallback;
-  const corruptCount = items.filter((item) => looksCorrupt(`${item.keyword} ${item.title} ${item.description}`)).length;
-  return corruptCount >= Math.ceil(items.length / 2) ? fallback : items;
+function cleanLane(items: MobileSignalItem[]): MobileSignalItem[] {
+  return items.filter((item) => !looksCorrupt(`${item.keyword} ${item.title} ${item.description}`));
 }
 
 export function cleanPublicSourceSignals(snapshot: MobileSourceSignalSnapshot): MobileSourceSignalSnapshot {
-  const fallback = cleanFallbackSignals();
   return {
     ...snapshot,
-    realtime: cleanLane(snapshot.realtime, fallback.realtime),
-    policy: cleanLane(snapshot.policy, fallback.policy),
-    issues: cleanLane(snapshot.issues, fallback.issues),
+    realtime: cleanLane(snapshot.realtime),
+    policy: cleanLane(snapshot.policy),
+    issues: cleanLane(snapshot.issues),
   };
 }
 
