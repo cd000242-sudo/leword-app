@@ -1510,6 +1510,14 @@ function hasRobustActionableIntent(keyword: string): boolean {
   return includesAnyTerm(keyword, ROBUST_ACTIONABLE_TERMS);
 }
 
+const WRITER_READY_SEARCHAD_PROBE_INTENT_RE = /(?:\uC608\uC57D(?:\s*\uBC29\uBC95)?|\uC2E0\uCCAD\s*(?:\uBC29\uBC95|\uB300\uC0C1)|\uC790\uACA9\s*\uC870\uAC74|\uC9C0\uAE09\uC77C\s*\uC870\uD68C|\uC0AC\uC6A9\uCC98\s*\uC870\uD68C|\uAD6C\uB9E4\uCC98\s*\uCD94\uCC9C|\uCD5C\uC800\uAC00\s*\uBE44\uAD50|\uC6D0\uB8F8\s*\uC804\uAE30\uC694\uAE08\s*\uBE44\uAD50|\uC790\uCDE8\uBC29\s*\uC18C\uC74C\s*\uBE44\uAD50|\uC8FC\uD734\uC218\uB2F9\s*\uACC4\uC0B0|4\uB300\uBCF4\uD5D8\uB8CC\s*\uC694\uC728\s*\uACC4\uC0B0|\uD1F4\uC9C1\uAE08\s*\uC138\uD6C4\s*\uACC4\uC0B0|\uC18C\uB4DD\uAE30\uC900\s*\uACC4\uC0B0|\uC628\uB77C\uC778\s*\uC2E0\uCCAD|\uD544\uC694\s*\uC11C\uB958|\uB9C8\uAC10\uC77C\s*\uD655\uC778)/u;
+
+function hasWriterReadySearchAdProbeIntent(keyword: string): boolean {
+  const clean = normalizeKeyword(keyword);
+  if (!clean) return false;
+  return WRITER_READY_SEARCHAD_PROBE_INTENT_RE.test(clean);
+}
+
 function isSearchAdMeasurableLiveCandidate(keyword: string, categoryId: string, now: Date = new Date()): boolean {
   const clean = normalizeKeyword(keyword);
   if (!clean) return false;
@@ -1523,6 +1531,7 @@ function isSearchAdMeasurableLiveCandidate(keyword: string, categoryId: string, 
   const knownPolicyProduct = SEARCHAD_POLICY_PRODUCT_BASE_RE.test(clean);
   const knownFinanceBase = SEARCHAD_FINANCE_BASE_RE.test(clean);
   const normalizedCategory = normalizeKeyword(categoryId);
+  const writerReadyProbeIntent = hasWriterReadySearchAdProbeIntent(clean);
   const knownTravelNeed = highNeedIntent
     && (
       normalizedCategory === 'travel_domestic'
@@ -1532,13 +1541,13 @@ function isSearchAdMeasurableLiveCandidate(keyword: string, categoryId: string, 
     );
   if (compactLength < LIVE_SEARCHAD_CANDIDATE_MIN_CHARS || compactLength > LIVE_SEARCHAD_CANDIDATE_MAX_CHARS) return false;
   if (tokenCount > LIVE_SEARCHAD_CANDIDATE_MAX_TOKENS) return false;
-  if (tokenCount >= LIVE_SEARCHAD_CANDIDATE_MAX_TOKENS && !knownPolicyNeed && !knownFinanceBase && !knownTravelNeed) return false;
+  if (tokenCount >= LIVE_SEARCHAD_CANDIDATE_MAX_TOKENS && !knownPolicyNeed && !knownFinanceBase && !knownTravelNeed && !writerReadyProbeIntent) return false;
   if (isMalformedLiveKeyword(clean) || isStaleOrFutureLiveKeyword(clean, now)) return false;
   if (LOW_VALUE_EVENT_TOPIC_RE.test(clean) || isLottoLookupKeyword(clean) || isLowAdsenseLookupKeyword(clean)) return false;
   if (isMismatchedLiveEventIntent(clean)) return false;
   if (/관리급여/u.test(clean) || LOW_VALUE_POLICY_WORD_SALAD_RE.test(clean) || LIVE_MEASURED_PROBE_HEALTH_POLICY_MIX_RE.test(clean)) return false;
-  if (!policyProductAction && isLowValueLiveCandidate(clean)) return false;
-  if (!policyProductAction && isOverExpandedLiveCandidate(clean)) return false;
+  if (!policyProductAction && isLowValueLiveCandidate(clean) && !writerReadyProbeIntent) return false;
+  if (!policyProductAction && isOverExpandedLiveCandidate(clean) && !writerReadyProbeIntent) return false;
   if (isOverChainedPolicyIntent(clean)) return false;
   if (isNoisyLiveSeed(clean) && !(policyProductAction || knownPolicyNeed || (highNeedIntent && (knownPolicyProduct || knownFinanceBase)))) return false;
   if (ultimateIntentFragmentCount(clean) >= 3 && !(policyProductAction || knownPolicyNeed)) return false;
@@ -1561,7 +1570,8 @@ function isSearchAdMeasurableLiveCandidate(keyword: string, categoryId: string, 
     || policyProductAction
     || knownPolicyNeed
     || hasRobustActionableIntent(clean)
-    || isActionableGoldenKeyword(clean);
+    || isActionableGoldenKeyword(clean)
+    || writerReadyProbeIntent;
 }
 
 function debugSearchAdMeasurableLiveCandidate(keyword: string, categoryId: string, now: Date = new Date()): Record<string, unknown> {
@@ -4403,7 +4413,8 @@ function isHighYieldSearchAdSpendCandidate(keyword: string, categoryId: string, 
   const category = inferLiveCategory(clean, categoryId || 'all');
   const fragments = ultimateIntentFragmentCount(clean);
   const longTail = keywordLongTailScore(clean);
-  const writerReady = hasWriterReadySpecificity(clean);
+  const writerReadyProbeIntent = hasWriterReadySearchAdProbeIntent(clean);
+  const writerReady = hasWriterReadySpecificity(clean) || writerReadyProbeIntent;
   const knownPolicyOrFinance = SEARCHAD_POLICY_PRODUCT_BASE_RE.test(clean)
     || SEARCHAD_FINANCE_BASE_RE.test(clean)
     || isKnownPolicyProductNeedKeyword(clean);
@@ -4426,6 +4437,12 @@ function isHighYieldSearchAdSpendCandidate(keyword: string, categoryId: string, 
     && fragments <= 3
     && longTail >= 12
     && score >= 135
+  ) return true;
+  if (
+    writerReadyProbeIntent
+    && fragments <= 3
+    && longTail >= 12
+    && score >= 120
   ) return true;
   return score >= 170;
 }

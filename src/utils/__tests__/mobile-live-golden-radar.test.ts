@@ -3046,6 +3046,23 @@ function thinProfileCount(items: Array<{ keyword: string }>): number {
       catchUpSuggestionCalls,
       measuredCount: new Set(catchUpMeasuredKeywords).size,
     }));
+  const writerReadyProbeSamples: Array<[string, string]> = [
+    ['\uC1A1\uC9C0\uD638 \uBC14\uB2E4\uD558\uB298\uAE38 \uC608\uC57D \uBC29\uBC95', 'travel_domestic'],
+    ['\uCFE0\uCFE0\uC81C\uC2B5\uAE30\uB80C\uD0C8 \uAD6C\uB9E4\uCC98 \uCD94\uCC9C', 'shopping'],
+    ['\uC704\uB2C9\uC2A4\uCC3D\uBB38\uD615\uC5D0\uC5B4\uCEE8 \uAD6C\uB9E4\uCC98 \uCD94\uCC9C', 'electronics'],
+    ['\uADFC\uBB34\uC2DC\uAC04\uACC4\uC0B0\uAE30 \uC54C\uBC14 \uC8FC\uD734\uC218\uB2F9 \uACC4\uC0B0', 'policy'],
+    ['\uCCAD\uB144\uBBF8\uB798\uC801\uAE08 \uC2E0\uCCAD \uBC29\uBC95', 'policy'],
+  ];
+  assert('writer-ready queued probes are eligible for live SearchAd measurement',
+    writerReadyProbeSamples.every(([keyword, category]) => (
+      __liveGoldenRadarTestInternals.isHighYieldSearchAdSpendCandidate(keyword, category, lottoGuardNow)
+    )),
+    JSON.stringify(writerReadyProbeSamples.map(([keyword, category]) => ({
+      keyword,
+      category,
+      highYield: __liveGoldenRadarTestInternals.isHighYieldSearchAdSpendCandidate(keyword, category, lottoGuardNow),
+      measurable: __liveGoldenRadarTestInternals.isSearchAdMeasurableLiveCandidate(keyword, category, lottoGuardNow),
+    }))));
   fs.rmSync(catchUpProbeFile, { force: true });
 
   const volumeBatchProbeFile = path.join(process.cwd(), 'tmp', 'mobile-live-golden-volume-batch-test.json');
