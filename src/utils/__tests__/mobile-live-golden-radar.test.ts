@@ -2986,6 +2986,13 @@ function thinProfileCount(items: Array<{ keyword: string }>): number {
   const queueVariantProbeFile = path.join(process.cwd(), 'tmp', 'mobile-live-golden-queue-variant-test.json');
   const spacedTravelProbe = '\uC1A1\uC9C0\uD638 \uBC14\uB2E4\uD558\uB298\uAE38 \uC608\uC57D \uBC29\uBC95';
   const compactTravelWinner = '\uC1A1\uC9C0\uD638\uBC14\uB2E4\uD558\uB298\uAE38\uC608\uC57D';
+  const queueVariantFillers = __liveGoldenRadarTestInternals
+    .buildMeasuredProbeCandidates('all', [], 720, lottoGuardNow)
+    .filter((keyword) => (
+      __liveGoldenRadarTestInternals.measuredProbeQueueFamilyKey(keyword)
+        !== __liveGoldenRadarTestInternals.measuredProbeQueueFamilyKey(spacedTravelProbe)
+    ))
+    .slice(0, 30);
   fs.writeFileSync(queueVariantProbeFile, JSON.stringify({
     version: 1,
     savedAt: '2026-06-15T08:00:00.000Z',
@@ -2996,7 +3003,22 @@ function thinProfileCount(items: Array<{ keyword: string }>): number {
       firstSeenAt: '2026-06-15T07:00:00.000Z',
       attempts: 0,
       misses: 0,
-    }],
+    }, {
+      keyword: compactTravelWinner,
+      source: 'fixture-legacy-compact-sibling',
+      priority: 9998,
+      firstSeenAt: '2026-06-15T07:00:01.000Z',
+      attempts: 0,
+      misses: 0,
+    }, ...queueVariantFillers.map((keyword, index) => ({
+      keyword,
+      category: __liveGoldenRadarTestInternals.inferLiveCategory(keyword, 'all'),
+      source: 'fixture-diversity-fill',
+      priority: 9900 - index,
+      firstSeenAt: `2026-06-15T07:${String(index + 2).padStart(2, '0')}:00.000Z`,
+      attempts: 0,
+      misses: 0,
+    }))],
   }), 'utf8');
   const queueVariantMeasuredKeywords: string[] = [];
   const queueVariantRadar = new MobileLiveGoldenRadar({
@@ -3062,7 +3084,7 @@ function thinProfileCount(items: Array<{ keyword: string }>): number {
       lastMessage: queueVariantSnapshot.lastMessage,
     }));
   assert('spaced writer-ready queued probe is removed after a measured variant succeeds',
-    !queueVariantAfter.items?.some((item: any) => item.keyword === spacedTravelProbe),
+    !queueVariantAfter.items?.some((item: any) => item.keyword === spacedTravelProbe || item.keyword === compactTravelWinner),
     JSON.stringify(queueVariantAfter.items || []));
   fs.rmSync(queueVariantProbeFile, { force: true });
 

@@ -154,12 +154,17 @@ const LIVE_BACKFILL_DOCUMENT_PASS_MAX = 120;
 const LIVE_BACKFILL_DOCUMENT_CONCURRENCY = 3;
 const LIVE_BACKFILL_DOCUMENT_SUPPLEMENT_MAX = 36;
 const LIVE_ISSUE_DOCUMENT_SUPPLEMENT_MAX = 8;
+const LIVE_BACKFILL_CANDIDATE_LIMIT_MAX = 1800;
+const LIVE_MEASURED_PROBE_CANDIDATE_LIMIT_MAX = 1440;
+const LIVE_BACKFILL_MEASURED_PROBE_SHARE_ALL = 0.65;
+const LIVE_BACKFILL_MEASURED_PROBE_SHARE_CATEGORY = 0.25;
 const LIVE_BOARD_SPLIT_ENRICHMENT_LIMIT = 80;
 const LIVE_SEARCHAD_VOLUME_BATCH_SIZE = 4;
 const LIVE_SEARCHAD_VOLUME_BATCH_TIMEOUT_MS = 28_000;
 const LIVE_SEARCHAD_VOLUME_MIN_REMAINING_MS = 2_000;
 const LIVE_PROBE_QUEUE_FILE_NAME = 'live-golden-probe-queue.json';
 const LIVE_PROBE_QUEUE_MAX_ITEMS = 2500;
+const LIVE_PROBE_QUEUE_FAMILY_MAX_ITEMS = 8;
 const LIVE_PROBE_QUEUE_MAX_ATTEMPTS = 4;
 const LIVE_PROBE_QUEUE_NO_RESULT_MAX = 1;
 const LIVE_PROBE_QUEUE_RETRY_DELAY_MS = 90 * 60 * 1000;
@@ -3478,6 +3483,22 @@ function measuredProbeQueueEffectiveScore(item: LiveMeasuredProbeQueueItem): num
   return item.priority - item.attempts * 45 - item.misses * 90;
 }
 
+function trimMeasuredProbeQueueFamilyFlood(
+  items: LiveMeasuredProbeQueueItem[],
+  maxPerFamily = LIVE_PROBE_QUEUE_FAMILY_MAX_ITEMS,
+): LiveMeasuredProbeQueueItem[] {
+  const counts = new Map<string, number>();
+  const trimmed: LiveMeasuredProbeQueueItem[] = [];
+  for (const item of items) {
+    const family = measuredProbeQueueFamilyKey(item.keyword);
+    const count = counts.get(family) || 0;
+    if (count >= maxPerFamily) continue;
+    counts.set(family, count + 1);
+    trimmed.push(item);
+  }
+  return trimmed;
+}
+
 const SEARCHAD_PROBE_VARIANT_TRAILING_INTENT_RE = /(?:\s+(?:\uBC29\uBC95|\uC870\uD68C|\uD655\uC778|\uC815\uB9AC|\uCD94\uCC9C|\uBE44\uAD50))$/u;
 
 function searchAdProbeMeasurementVariants(keyword: string): string[] {
@@ -3718,7 +3739,10 @@ function buildMeasuredProbeCandidates(
   const categoryKeys = measuredProbeCategoryKeys(categoryId, liveSeeds);
   const normalizedCategory = normalizeKeyword(categoryId || 'all') || 'all';
   const useCatalogBases = true;
-  const candidateLimit = Math.max(180, Math.min(720, Math.floor((maxSeeds || 240) * 0.9)));
+  const candidateLimit = Math.max(
+    180,
+    Math.min(LIVE_MEASURED_PROBE_CANDIDATE_LIMIT_MAX, Math.floor((maxSeeds || 240) * 0.9)),
+  );
   const categoryBases = useCatalogBases
     ? categoryKeys.flatMap((key) => LIVE_MEASURED_PROBE_BASES[key] || [])
     : [];
@@ -3829,12 +3853,17 @@ function buildBackfillCandidates(categoryId: string, liveSeeds: string[], maxSee
   ], 120)
     .map((seed) => normalizeLiveSeedForDate(seed, now))
     .filter(Boolean);
-  const candidateLimit = Math.max(120, Math.min(1000, Math.floor(maxSeeds || 240)));
+  const candidateLimit = Math.max(
+    120,
+    Math.min(LIVE_BACKFILL_CANDIDATE_LIMIT_MAX, Math.floor(maxSeeds || 240)),
+  );
   const robustCandidates = buildRobustLiveSeedCandidates(categoryId, liveSeeds, maxSeeds, now);
   const inferredLiveCandidates = buildDateAwareLiveSeedCandidates(categoryId, liveSeeds, maxSeeds, now);
   const measuredProbeCandidates = buildMeasuredProbeCandidates(categoryId, liveSeeds, maxSeeds, now);
   const normalizedCategory = normalizeKeyword(categoryId || 'all') || 'all';
-  const measuredProbeShare = normalizedCategory === 'all' ? 0.45 : 0.25;
+  const measuredProbeShare = normalizedCategory === 'all'
+    ? LIVE_BACKFILL_MEASURED_PROBE_SHARE_ALL
+    : LIVE_BACKFILL_MEASURED_PROBE_SHARE_CATEGORY;
   const liveCategoryIds = new Set(
     liveSeeds
       .flatMap((seed) => {
@@ -5353,7 +5382,9 @@ export class MobileLiveGoldenRadar {
     }
     if (changed > 0) {
       this.pendingMeasuredProbeQueue.sort((a, b) => b.priority - a.priority || a.attempts - b.attempts);
-      this.pendingMeasuredProbeQueue.splice(LIVE_PROBE_QUEUE_MAX_ITEMS);
+      const trimmed = trimMeasuredProbeQueueFamilyFlood(this.pendingMeasuredProbeQueue)
+        .slice(0, LIVE_PROBE_QUEUE_MAX_ITEMS);
+      this.pendingMeasuredProbeQueue.splice(0, this.pendingMeasuredProbeQueue.length, ...trimmed);
       if (persist) this.saveMeasuredProbeQueueToFile();
     }
     return changed;
@@ -5530,6 +5561,11 @@ export class MobileLiveGoldenRadar {
     enrichedRows: LiveSearchVolumeRow[],
   ): void {
     const selectedIds = new Set(selectedItems.map((item) => keywordCompactId(item.keyword)).filter(Boolean));
+    const attemptedIds = new Set(attemptedKeywords.map((keyword) => keywordCompactId(keyword)).filter(Boolean));
+    for (const item of this.pendingMeasuredProbeQueue) {
+      const compact = keywordCompactId(item.keyword);
+      if (compact && attemptedIds.has(compact)) selectedIds.add(compact);
+    }
     if (selectedIds.size === 0 || this.pendingMeasuredProbeQueue.length === 0) return;
 
     const variantOwnerIds = new Map<string, Set<string>>();
@@ -5550,6 +5586,12 @@ export class MobileLiveGoldenRadar {
         if (!variantOwnerIds.has(variantId)) variantOwnerIds.set(variantId, new Set());
         variantOwnerIds.get(variantId)?.add(ownerId);
       }
+    }
+    for (const attempted of attemptedKeywords) {
+      const attemptedId = keywordCompactId(attempted);
+      if (!attemptedId || !selectedIds.has(attemptedId)) continue;
+      if (!variantOwnerIds.has(attemptedId)) variantOwnerIds.set(attemptedId, new Set());
+      variantOwnerIds.get(attemptedId)?.add(attemptedId);
     }
 
     const ownersForRows = (rows: LiveSearchVolumeRow[], predicate: (row: LiveSearchVolumeRow) => boolean): Set<string> => {
@@ -5646,7 +5688,9 @@ export class MobileLiveGoldenRadar {
         });
       }
       this.pendingMeasuredProbeQueue.sort((a, b) => b.priority - a.priority || a.attempts - b.attempts);
-      this.pendingMeasuredProbeQueue.splice(LIVE_PROBE_QUEUE_MAX_ITEMS);
+      const trimmed = trimMeasuredProbeQueueFamilyFlood(this.pendingMeasuredProbeQueue)
+        .slice(0, LIVE_PROBE_QUEUE_MAX_ITEMS);
+      this.pendingMeasuredProbeQueue.splice(0, this.pendingMeasuredProbeQueue.length, ...trimmed);
       if (this.pendingMeasuredProbeQueue.length !== rows.length) this.saveMeasuredProbeQueueToFile();
     } catch (err) {
       this.lastError = (err as Error).message || String(err);
@@ -5666,14 +5710,14 @@ export class MobileLiveGoldenRadar {
         }))
         .filter((item) => isLiveMeasuredProbeCandidate(item.keyword, item.category || 'all', now))
         .filter((item) => item.attempts < LIVE_PROBE_QUEUE_MAX_ATTEMPTS && item.misses < LIVE_PROBE_QUEUE_NO_RESULT_MAX)
+        .sort((a, b) => b.priority - a.priority || a.attempts - b.attempts);
+      const trimmedItems = trimMeasuredProbeQueueFamilyFlood(filteredItems)
         .slice(0, LIVE_PROBE_QUEUE_MAX_ITEMS);
-      if (filteredItems.length !== this.pendingMeasuredProbeQueue.length) {
-        this.pendingMeasuredProbeQueue.splice(0, this.pendingMeasuredProbeQueue.length, ...filteredItems);
-      }
+      this.pendingMeasuredProbeQueue.splice(0, this.pendingMeasuredProbeQueue.length, ...trimmedItems);
       const payload = {
         version: 1,
         savedAt: this.now().toISOString(),
-        items: filteredItems,
+        items: trimmedItems,
       };
       const tmpFile = `${this.probeQueueFile}.tmp`;
       fs.writeFileSync(tmpFile, JSON.stringify(payload, null, 2), 'utf8');
