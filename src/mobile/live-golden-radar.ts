@@ -149,10 +149,10 @@ const LIVE_BOARD_STRICT_READY_MIN = 60;
 const LIVE_DIRECT_CANDIDATE_MAX_PER_CYCLE = 7200;
 const LIVE_ISSUE_FALLBACK_DOCUMENT_LIMIT = 16;
 const LIVE_ISSUE_FALLBACK_CONCURRENCY = 2;
-const LIVE_BACKFILL_VOLUME_PASS_MAX = 240;
-const LIVE_BACKFILL_DOCUMENT_PASS_MAX = 120;
+const LIVE_BACKFILL_VOLUME_PASS_MAX = 360;
+const LIVE_BACKFILL_DOCUMENT_PASS_MAX = 180;
 const LIVE_BACKFILL_DOCUMENT_CONCURRENCY = 3;
-const LIVE_BACKFILL_DOCUMENT_SUPPLEMENT_MAX = 36;
+const LIVE_BACKFILL_DOCUMENT_SUPPLEMENT_MAX = 60;
 const LIVE_ISSUE_DOCUMENT_SUPPLEMENT_MAX = 8;
 const LIVE_BACKFILL_CANDIDATE_LIMIT_MAX = 1800;
 const LIVE_MEASURED_PROBE_CANDIDATE_LIMIT_MAX = 1440;
@@ -160,19 +160,19 @@ const LIVE_BACKFILL_MEASURED_PROBE_SHARE_ALL = 0.65;
 const LIVE_BACKFILL_MEASURED_PROBE_SHARE_CATEGORY = 0.25;
 const LIVE_REFERENCE_SSS_PROBE_MIN_VOLUME = 500;
 const LIVE_REFERENCE_SSS_PROBE_MIN_RATIO = 1.5;
-const LIVE_REFERENCE_SSS_PROBE_LIMIT = 360;
+const LIVE_REFERENCE_SSS_PROBE_LIMIT = 720;
 const LIVE_REFERENCE_SSS_PROBE_PRIORITY_BOOST = 620;
 const LIVE_BOARD_SPLIT_ENRICHMENT_LIMIT = 80;
 const LIVE_SEARCHAD_VOLUME_BATCH_SIZE = 4;
 const LIVE_SEARCHAD_VOLUME_BATCH_TIMEOUT_MS = 28_000;
 const LIVE_SEARCHAD_VOLUME_MIN_REMAINING_MS = 2_000;
 const LIVE_PROBE_QUEUE_FILE_NAME = 'live-golden-probe-queue.json';
-const LIVE_PROBE_QUEUE_MAX_ITEMS = 2500;
-const LIVE_PROBE_QUEUE_FAMILY_MAX_ITEMS = 10;
+const LIVE_PROBE_QUEUE_MAX_ITEMS = 5000;
+const LIVE_PROBE_QUEUE_FAMILY_MAX_ITEMS = 12;
 const LIVE_PROBE_QUEUE_MAX_ATTEMPTS = 4;
 const LIVE_PROBE_QUEUE_NO_RESULT_MAX = 2;
 const LIVE_PROBE_QUEUE_RETRY_DELAY_MS = 90 * 60 * 1000;
-const LIVE_CACHE_PROMOTION_MAX_CANDIDATES = 48;
+const LIVE_CACHE_PROMOTION_MAX_CANDIDATES = 96;
 const LIVE_CACHE_PROMOTION_BATCH_SIZE = 6;
 const LIVE_CACHE_PROMOTION_BATCH_TIMEOUT_MS = 16_000;
 const LIVE_CACHE_PROMOTION_MIN_VOLUME = 100;
@@ -4572,6 +4572,13 @@ function hasSearchAdCredentials(env: Partial<EnvConfig>): boolean {
   );
 }
 
+function hasLikelyProductionSearchAdCredentials(env: Partial<EnvConfig>): boolean {
+  const accessLicense = normalizeKeyword(env.naverSearchAdAccessLicense);
+  const secretKey = normalizeKeyword(env.naverSearchAdSecretKey);
+  if (!accessLicense || !secretKey) return false;
+  return accessLicense.length >= 24 && secretKey.length >= 24;
+}
+
 function searchAdConfigFromEnv(env: Partial<EnvConfig>): NaverSearchAdConfig | null {
   const accessLicense = normalizeKeyword(env.naverSearchAdAccessLicense);
   const secretKey = normalizeKeyword(env.naverSearchAdSecretKey);
@@ -4782,6 +4789,9 @@ function preVolumeCandidateScore(keyword: string, categoryId: string): number {
   return categoryBonus
     + needScore
     + longTailScore
+    + livePromotionPriorityBonus(clean, categoryId)
+    + writerReadySssProbePriorityScore(clean, categoryId)
+    + (hasWriterReadyOpportunityIntent(clean) ? 180 : 0)
     + measuredProbeBonus
     + conversionIntentBonus
     + weakInfoPenalty
@@ -5058,6 +5068,7 @@ export class MobileLiveGoldenRadar {
   private readonly measureLiveDocumentCount: typeof measureDocumentCount;
   private readonly autocompleteProvider: typeof getNaverAutocompleteKeywords;
   private readonly searchAdSuggestionProvider: typeof getNaverSearchAdKeywordSuggestions;
+  private readonly hasCustomSearchAdSuggestionProvider: boolean;
   private readonly hasCustomLiveVolumeMeasure: boolean;
   private readonly hasCustomLiveDocumentMeasure: boolean;
   private readonly enableBackfill: boolean;
@@ -5134,6 +5145,7 @@ export class MobileLiveGoldenRadar {
     this.measureLiveDocumentCount = options.measureLiveDocumentCount || measureDocumentCount;
     this.autocompleteProvider = options.autocompleteProvider || getNaverAutocompleteKeywords;
     this.searchAdSuggestionProvider = options.searchAdSuggestionProvider || getNaverSearchAdKeywordSuggestions;
+    this.hasCustomSearchAdSuggestionProvider = Boolean(options.searchAdSuggestionProvider);
     this.hasCustomLiveVolumeMeasure = Boolean(options.measureLiveSearchVolumeSeparate);
     this.hasCustomLiveDocumentMeasure = Boolean(options.measureLiveDocumentCount);
     this.enableBackfill = options.enableBackfill !== false;
@@ -6346,12 +6358,21 @@ export class MobileLiveGoldenRadar {
     liveSeeds: string[],
     targetLimit: number,
   ): Promise<LiveSearchVolumeRow[]> {
-    const searchAdConfig = searchAdConfigFromEnv(this.getEnvConfig());
+    const env = this.getEnvConfig();
+    const searchAdConfig = searchAdConfigFromEnv(env);
     if (!searchAdConfig) return [];
+    if (!this.hasCustomSearchAdSuggestionProvider && !hasLikelyProductionSearchAdCredentials(env)) return [];
 
     const now = this.now();
-    const limit = Math.max(80, Math.min(220, Math.floor(targetLimit * 14)));
-    const seedLimit = Math.max(12, Math.min(24, Math.ceil(targetLimit * 1.6)));
+    const sssDepthMode = targetLimit >= Math.ceil(this.boardTarget * 0.5);
+    const limit = Math.max(80, Math.min(
+      sssDepthMode ? 420 : 220,
+      Math.floor(targetLimit * (sssDepthMode ? 18 : 14)),
+    ));
+    const seedLimit = Math.max(12, Math.min(
+      sssDepthMode ? 60 : 24,
+      Math.ceil(targetLimit * (sssDepthMode ? 2.4 : 1.6)),
+    ));
     const catalogSeeds = measuredProbeCategoryKeys(categoryId, liveSeeds)
       .flatMap((key) => LIVE_MEASURED_PROBE_BASES[key] || [])
       .map((seed) => normalizeKeyword(seed))
@@ -6383,6 +6404,13 @@ export class MobileLiveGoldenRadar {
       const clean = normalizeKeyword(keyword);
       if (!clean || scored.size >= limit) return;
       if (isLowValueLiveCandidate(clean) || isOverExpandedLiveCandidate(clean) || isNoisyLiveSeed(clean)) return;
+      const pc = finiteNumber((suggestion as any).pcSearchVolume) || 0;
+      const mobile = finiteNumber((suggestion as any).mobileSearchVolume) || 0;
+      const total = finiteNumber((suggestion as any).totalSearchVolume) ?? (pc + mobile);
+      const writerReady = hasWriterReadySpecificity(clean) || hasWriterReadySearchAdProbeIntent(clean);
+      const intentFragments = ultimateIntentFragmentCount(clean);
+      if (total >= 100_000 && !writerReady) return;
+      if (total >= 30_000 && intentFragments < 2 && !writerReady) return;
       const inferred = inferLiveCategory(clean, fallbackCategory || categoryId);
       if (
         categoryId !== 'all'
@@ -6393,7 +6421,13 @@ export class MobileLiveGoldenRadar {
       if (!isHighYieldSearchAdSpendCandidate(clean, inferred || categoryId, now)) return;
       const key = keywordCompactId(clean);
       if (!key) return;
-      const score = rowScore + preVolumeCandidateScore(clean, inferred || categoryId);
+      const score = rowScore
+        + preVolumeCandidateScore(clean, inferred || categoryId)
+        + livePromotionPriorityBonus(clean, inferred || categoryId)
+        + writerReadySssProbePriorityScore(clean, inferred || categoryId)
+        + (hasWriterReadyOpportunityIntent(clean) ? 180 : 0)
+        + (writerReady ? 120 : 0)
+        - (total >= 30_000 && intentFragments < 2 ? 160 : 0);
       const existing = scored.get(key);
       if (existing && existing.score >= score) return;
       scored.set(key, {
@@ -6402,8 +6436,8 @@ export class MobileLiveGoldenRadar {
         index: order++,
         row: {
           keyword: clean,
-          pcSearchVolume: finiteNumber((suggestion as any).pcSearchVolume) || 0,
-          mobileSearchVolume: finiteNumber((suggestion as any).mobileSearchVolume) || 0,
+          pcSearchVolume: pc,
+          mobileSearchVolume: mobile,
           documentCount: null,
           competition: normalizeKeyword((suggestion as any).competition) || null,
           monthlyAveCpc: finiteNumber((suggestion as any).monthlyAveCpc),
@@ -6571,6 +6605,9 @@ export class MobileLiveGoldenRadar {
     const autocompleteTargetLimit = hasMeasuredProbeCandidates
       ? Math.max(4, Math.ceil(targetLimit * 0.45))
       : targetLimit;
+    const suggestionTargetLimit = queueFirstMode
+      ? Math.max(targetLimit, Math.ceil(this.boardTarget * 0.7))
+      : targetLimit;
     const autocompleteCandidates = queueFirstMode
       ? []
       : await this.discoverAutocompleteBackfillCandidates(
@@ -6579,13 +6616,11 @@ export class MobileLiveGoldenRadar {
         liveSeeds,
         autocompleteTargetLimit,
       );
-    const searchAdSuggestionRows = queueFirstMode
-      ? []
-      : await this.discoverSearchAdSuggestionBackfillCandidates(
-        categoryId,
-        liveSeeds,
-        targetLimit,
-      );
+    const searchAdSuggestionRows = await this.discoverSearchAdSuggestionBackfillCandidates(
+      categoryId,
+      liveSeeds,
+      suggestionTargetLimit,
+    );
     const searchAdSuggestionCandidates = searchAdSuggestionRows.map((row) => row.keyword);
     const queuedProbePriorityById = new Map(
       queuedProbeItems
@@ -6630,7 +6665,7 @@ export class MobileLiveGoldenRadar {
               : 0
           )
           + (autocompleteCandidateIds.has(keywordCompactId(keyword)) ? 40 : 0)
-          + (searchAdSuggestionCandidateIds.has(keywordCompactId(keyword)) ? 80 : 0)
+          + (searchAdSuggestionCandidateIds.has(keywordCompactId(keyword)) ? 260 : 0)
           + (queuedProbeCandidateIds.has(keywordCompactId(keyword))
             ? 420 + Math.min(260, Math.max(0, queuedProbePriorityById.get(keywordCompactId(keyword)) || 0))
             : 0),

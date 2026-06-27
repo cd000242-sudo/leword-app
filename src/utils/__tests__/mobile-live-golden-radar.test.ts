@@ -3230,6 +3230,85 @@ function thinProfileCount(items: Array<{ keyword: string }>): number {
     JSON.stringify(queueVariantAfter.items || []));
   fs.rmSync(queueVariantProbeFile, { force: true });
 
+  const queueFirstSuggestionProbeFile = path.join(process.cwd(), 'tmp', 'mobile-live-golden-queue-first-suggestion-test.json');
+  const queueFirstSuggestionWinner = '\uCCAD\uB144\uBBF8\uB798\uC801\uAE08 \uAC00\uC785\uC2E0\uCCAD \uB300\uC0C1';
+  const queueFirstFillers = __liveGoldenRadarTestInternals
+    .buildMeasuredProbeCandidates('all', [], 720, lottoGuardNow)
+    .filter((keyword) => keyword !== queueFirstSuggestionWinner)
+    .slice(0, 36);
+  fs.writeFileSync(queueFirstSuggestionProbeFile, JSON.stringify({
+    version: 1,
+    savedAt: '2026-06-15T08:00:00.000Z',
+    items: queueFirstFillers.map((keyword, index) => ({
+      keyword,
+      category: __liveGoldenRadarTestInternals.inferLiveCategory(keyword, 'all'),
+      source: 'fixture-queue-first-fill',
+      priority: 9400 - index,
+      firstSeenAt: `2026-06-15T06:${String(index).padStart(2, '0')}:00.000Z`,
+      attempts: 0,
+      misses: 0,
+    })),
+  }), 'utf8');
+  let queueFirstSuggestionCalls = 0;
+  const queueFirstSuggestionRadar = new MobileLiveGoldenRadar({
+    notificationInbox: inbox,
+    runOnStart: false,
+    cycleLimit: 4,
+    boardTarget: 10,
+    maxCandidates: 180,
+    categories: ['all'],
+    probeQueueFile: queueFirstSuggestionProbeFile,
+    getEnvConfig: () => ({
+      naverClientId: 'client',
+      naverClientSecret: 'secret',
+      naverSearchAdAccessLicense: 'license',
+      naverSearchAdSecretKey: 'secret-key',
+      naverSearchAdCustomerId: 'customer',
+    }),
+    liveSeedProvider: async () => [],
+    enableBackfill: true,
+    autocompleteProvider: async () => [],
+    searchAdSuggestionProvider: async () => {
+      queueFirstSuggestionCalls += 1;
+      return [{
+        keyword: queueFirstSuggestionWinner,
+        pcSearchVolume: 1560,
+        mobileSearchVolume: 7440,
+        totalSearchVolume: 9000,
+        competition: 'LOW',
+        monthlyAveCpc: 420,
+      }];
+    },
+    measureLiveSearchVolumeSeparate: async () => [],
+    measureLiveDocumentCount: async (keyword) => (
+      keyword === queueFirstSuggestionWinner
+        ? {
+          dc: 360,
+          source: 'naver-api',
+          confidence: 'high',
+          isEstimated: false,
+        }
+        : null
+    ),
+    discover: async () => [],
+  });
+  const queueFirstSuggestionSnapshot = await queueFirstSuggestionRadar.runOnce();
+  assert('queue-first catch-up still measures SearchAd suggestion winners instead of starving behind legacy queue',
+    queueFirstSuggestionCalls > 0
+      && queueFirstSuggestionSnapshot.board.some((item) => (
+        item.keyword === queueFirstSuggestionWinner
+        && item.grade === 'SSS'
+        && item.pcSearchVolume === 1560
+        && item.mobileSearchVolume === 7440
+        && item.documentCount === 360
+      )),
+    JSON.stringify({
+      suggestionCalls: queueFirstSuggestionCalls,
+      board: queueFirstSuggestionSnapshot.board.map((item) => `${item.keyword}:${item.grade}:${item.pcSearchVolume}:${item.mobileSearchVolume}:${item.documentCount}`),
+      lastMessage: queueFirstSuggestionSnapshot.lastMessage,
+    }));
+  fs.rmSync(queueFirstSuggestionProbeFile, { force: true });
+
   const queueMissProbeFile = path.join(process.cwd(), 'tmp', 'mobile-live-golden-queue-miss-test.json');
   const missedTravelProbe = '\uC1A1\uC9C0\uD638 \uBC14\uB2E4\uD558\uB298\uAE38 \uC608\uC57D \uBC29\uBC95';
   fs.writeFileSync(queueMissProbeFile, JSON.stringify({
