@@ -2980,6 +2980,57 @@ function thinProfileCount(items: Array<{ keyword: string }>): number {
     }));
   fs.rmSync(queuePriorityProbeFile, { force: true });
 
+  const catchUpProbeFile = path.join(process.cwd(), 'tmp', 'mobile-live-golden-catchup-queue-depth-test.json');
+  const catchUpProbeKeywords = __liveGoldenRadarTestInternals
+    .buildMeasuredProbeCandidates('all', [], 720, lottoGuardNow)
+    .slice(0, 110);
+  fs.writeFileSync(catchUpProbeFile, JSON.stringify({
+    version: 1,
+    savedAt: '2026-06-15T08:00:00.000Z',
+    items: catchUpProbeKeywords.map((keyword, index) => ({
+      keyword,
+      category: __liveGoldenRadarTestInternals.inferLiveCategory(keyword, 'all'),
+      source: 'fixture-catchup-queue',
+      priority: 1000 - index,
+      firstSeenAt: `2026-06-15T08:${String(index % 60).padStart(2, '0')}:00.000Z`,
+      attempts: 0,
+      misses: 0,
+    })),
+  }), 'utf8');
+  const catchUpMeasuredKeywords: string[] = [];
+  const catchUpRadar = new MobileLiveGoldenRadar({
+    notificationInbox: inbox,
+    runOnStart: false,
+    cycleLimit: 8,
+    boardTarget: 120,
+    maxCandidates: 220,
+    categories: ['electronics'],
+    probeQueueFile: catchUpProbeFile,
+    getEnvConfig: () => ({
+      naverClientId: 'client',
+      naverClientSecret: 'secret',
+    }),
+    liveSeedProvider: async () => [],
+    enableBackfill: true,
+    autocompleteProvider: async () => [],
+    searchAdSuggestionProvider: async () => [],
+    measureLiveSearchVolumeSeparate: async (_config, keywords, options) => {
+      assert('catch-up queue volume pass keeps document count separated', options?.includeDocumentCount === false);
+      catchUpMeasuredKeywords.push(...keywords);
+      return [];
+    },
+    measureLiveDocumentCount: async () => null,
+    discover: async () => [],
+  });
+  await catchUpRadar.runOnce();
+  assert('live golden catch-up measures more than the old shallow queue cap',
+    new Set(catchUpMeasuredKeywords).size > 64,
+    JSON.stringify({
+      measuredCount: new Set(catchUpMeasuredKeywords).size,
+      firstMeasured: catchUpMeasuredKeywords.slice(0, 20),
+    }));
+  fs.rmSync(catchUpProbeFile, { force: true });
+
   const volumeBatchProbeFile = path.join(process.cwd(), 'tmp', 'mobile-live-golden-volume-batch-test.json');
   const volumeBatchKeywords = [
     '\uCCAD\uB144\uBBF8\uB798\uC801\uAE08 \uC18C\uB4DD\uAE30\uC900 \uACC4\uC0B0',

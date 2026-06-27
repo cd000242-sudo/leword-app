@@ -125,9 +125,9 @@ const DEFAULT_CATEGORIES = Object.freeze([
 const PUBLIC_PREVIEW_ROTATION_MS = 60_000;
 const LIVE_SEED_COLLECTION_TIMEOUT_MS = 5_000;
 const LIVE_DISCOVERY_TIMEOUT_MS = 80_000;
-const LIVE_BACKFILL_TIMEOUT_MS = 60_000;
-const LIVE_BACKFILL_STAGE_TIMEOUT_MS = 45_000;
-const LIVE_GLOBAL_BACKFILL_STAGE_TIMEOUT_MS = 35_000;
+const LIVE_BACKFILL_TIMEOUT_MS = 105_000;
+const LIVE_BACKFILL_STAGE_TIMEOUT_MS = 115_000;
+const LIVE_GLOBAL_BACKFILL_STAGE_TIMEOUT_MS = 95_000;
 const LIVE_ISSUE_FALLBACK_TIMEOUT_MS = 25_000;
 const LIVE_SPLIT_ENRICHMENT_TIMEOUT_MS = 25_000;
 const PUBLIC_PREVIEW_MAX_AGE_MS = 48 * 60 * 60 * 1000;
@@ -162,7 +162,7 @@ const LIVE_PROBE_QUEUE_FILE_NAME = 'live-golden-probe-queue.json';
 const LIVE_PROBE_QUEUE_MAX_ITEMS = 2500;
 const LIVE_PROBE_QUEUE_MAX_ATTEMPTS = 4;
 const LIVE_PROBE_QUEUE_NO_RESULT_MAX = 1;
-const LIVE_PROBE_QUEUE_RETRY_DELAY_MS = 4 * 60 * 60 * 1000;
+const LIVE_PROBE_QUEUE_RETRY_DELAY_MS = 90 * 60 * 1000;
 const LIVE_CACHE_PROMOTION_MAX_CANDIDATES = 48;
 const LIVE_CACHE_PROMOTION_BATCH_SIZE = 6;
 const LIVE_CACHE_PROMOTION_BATCH_TIMEOUT_MS = 16_000;
@@ -4827,13 +4827,15 @@ export class MobileLiveGoldenRadar {
   }
 
   private backfillMeasurementLimit(targetLimit: number): number {
+    const catchUpLimit = targetLimit >= Math.ceil(this.boardTarget * 0.5)
+      ? Math.max(targetLimit, Math.ceil(this.boardTarget * 1.15))
+      : targetLimit;
     return Math.max(
       24,
       Math.min(
         this.maxCandidates,
-        64,
         LIVE_BACKFILL_VOLUME_PASS_MAX,
-        Math.max(targetLimit, Math.floor(this.maxCandidates * 0.004)),
+        Math.max(catchUpLimit, Math.floor(this.maxCandidates * 0.008)),
       ),
     );
   }
@@ -4951,14 +4953,15 @@ export class MobileLiveGoldenRadar {
       const existingIdsForRun = new Set(this.board.keys());
       const existingClustersForRun = new Set([...this.board.values()].map((item) => keywordClusterKey(item.keyword)).filter(Boolean));
       const catchUpMode = this.sortedBoard().length < this.boardTarget;
-      const hasRunnableProbeQueueForRun = this.runnableMeasuredProbeQueueItems(categoryId, runLimit).length > 0;
+      const backfillCategoryId = catchUpMode || sssDepthShort ? 'all' : categoryId;
+      const hasRunnableProbeQueueForRun = this.runnableMeasuredProbeQueueItems(backfillCategoryId, runLimit).length > 0;
       let qualityDirect: MDPResult[] = [];
       if (this.enableBackfill) {
         const backfill = await withTimeout(
           this.discoverBackfill({
             clientId: env.naverClientId,
             clientSecret: env.naverClientSecret,
-          }, categoryId, liveSeeds, runLimit),
+          }, backfillCategoryId, liveSeeds, runLimit),
           LIVE_BACKFILL_STAGE_TIMEOUT_MS,
           [],
         );
@@ -5021,7 +5024,7 @@ export class MobileLiveGoldenRadar {
 
       novelQualityCount = qualityDirect.filter((item) => isNovelMdpResult(item, existingIdsForRun, existingClustersForRun)).length;
       if (this.enableBackfill && novelQualityCount < runLimit) {
-        const globalBackfill = categoryId === 'all'
+        const globalBackfill = backfillCategoryId === 'all'
           ? []
           : await withTimeout(
             this.discoverBackfill({
@@ -5821,6 +5824,11 @@ export class MobileLiveGoldenRadar {
         .map((item) => [keywordCompactId(item.keyword), item.priority] as const)
         .filter(([id]) => Boolean(id)),
     );
+    const queuedProbeCategoryById = new Map(
+      queuedProbeItems
+        .map((item) => [keywordCompactId(item.keyword), normalizeKeyword(item.category) || categoryId || 'all'] as const)
+        .filter(([id]) => Boolean(id)),
+    );
     const measuredProbeCandidateIds = new Set(
       measuredProbeCandidates.map((keyword) => keywordCompactId(keyword)).filter(Boolean),
     );
@@ -5834,10 +5842,10 @@ export class MobileLiveGoldenRadar {
       queuedProbeCandidates.map((keyword) => keywordCompactId(keyword)).filter(Boolean),
     );
     const candidates = uniqueKeywords([
+      ...queuedProbeCandidates,
       ...measuredProbeCandidates,
       ...searchAdSuggestionCandidates,
       ...autocompleteCandidates,
-      ...queuedProbeCandidates,
       ...buildBackfillCandidates(categoryId, liveSeeds, this.maxSeeds, this.now()),
     ], this.maxSeeds);
     if (candidates.length === 0) return [];
@@ -5856,7 +5864,7 @@ export class MobileLiveGoldenRadar {
           + (autocompleteCandidateIds.has(keywordCompactId(keyword)) ? 40 : 0)
           + (searchAdSuggestionCandidateIds.has(keywordCompactId(keyword)) ? 80 : 0)
           + (queuedProbeCandidateIds.has(keywordCompactId(keyword))
-            ? 160 + Math.min(120, Math.max(0, queuedProbePriorityById.get(keywordCompactId(keyword)) || 0))
+            ? 420 + Math.min(260, Math.max(0, queuedProbePriorityById.get(keywordCompactId(keyword)) || 0))
             : 0),
       }))
       .filter((item) => item.score > -100)
@@ -5866,13 +5874,16 @@ export class MobileLiveGoldenRadar {
         return a.index - b.index;
       })
       .map((item) => item.keyword);
+    const probeCategoryFor = (keyword: string): string => (
+      queuedProbeCategoryById.get(keywordCompactId(keyword)) || categoryId || 'all'
+    );
     const queuedSearchAdCandidates = queuedProbeCandidates
-      .filter((keyword) => isHighYieldSearchAdSpendCandidate(keyword, categoryId, this.now()));
+      .filter((keyword) => isHighYieldSearchAdSpendCandidate(keyword, probeCategoryFor(keyword), this.now()));
     const measuredSearchAdCandidates = uniqueKeywords([
       ...queuedSearchAdCandidates,
       ...measuredProbeCandidates,
     ], measurementLimit)
-      .filter((keyword) => isHighYieldSearchAdSpendCandidate(keyword, categoryId, this.now()));
+      .filter((keyword) => isHighYieldSearchAdSpendCandidate(keyword, probeCategoryFor(keyword), this.now()));
     const measuredSearchAdIds = new Set(
       measuredSearchAdCandidates.map((keyword) => keywordCompactId(keyword)).filter(Boolean),
     );
@@ -5882,7 +5893,7 @@ export class MobileLiveGoldenRadar {
     const fallbackSearchAdCandidates = rankedCandidates
       .filter((keyword) => !measuredSearchAdIds.has(keywordCompactId(keyword)))
       .filter((keyword) => !suggestedRowIds.has(keywordCompactId(keyword)))
-      .filter((keyword) => isHighYieldSearchAdSpendCandidate(keyword, categoryId, this.now()));
+      .filter((keyword) => isHighYieldSearchAdSpendCandidate(keyword, probeCategoryFor(keyword), this.now()));
     const suggestionRowsForRun = uniqueVolumeRows(searchAdSuggestionRows, measurementLimit);
     const searchAdCandidates = uniqueKeywords([
       ...measuredSearchAdCandidates,
