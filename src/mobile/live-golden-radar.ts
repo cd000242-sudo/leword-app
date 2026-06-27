@@ -160,9 +160,9 @@ const LIVE_PROBE_QUEUE_MAX_ITEMS = 2500;
 const LIVE_PROBE_QUEUE_MAX_ATTEMPTS = 4;
 const LIVE_PROBE_QUEUE_NO_RESULT_MAX = 1;
 const LIVE_PROBE_QUEUE_RETRY_DELAY_MS = 4 * 60 * 60 * 1000;
-const LIVE_CACHE_PROMOTION_MAX_CANDIDATES = 24;
-const LIVE_CACHE_PROMOTION_BATCH_SIZE = 4;
-const LIVE_CACHE_PROMOTION_BATCH_TIMEOUT_MS = 14_000;
+const LIVE_CACHE_PROMOTION_MAX_CANDIDATES = 48;
+const LIVE_CACHE_PROMOTION_BATCH_SIZE = 6;
+const LIVE_CACHE_PROMOTION_BATCH_TIMEOUT_MS = 16_000;
 const LIVE_CACHE_PROMOTION_MIN_VOLUME = 100;
 const LIVE_CACHE_PROMOTION_MIN_RATIO = 0.5;
 const LIVE_CACHE_PROMOTION_STRONG_NEED_MIN_RATIO = 0.08;
@@ -3236,6 +3236,7 @@ const PRODUCT_ABSTRACT_STACKED_INTENT_RE = /(?:(?:가격|순위|가성비|추천
 const PRODUCT_DEAD_END_PURCHASE_TAIL_RE = /(?:구매처\s*추천|가격\s*저소음\s*후기|추천\s*저소음\s*후기|가성비\s*저소음\s*후기|순위\s*저소음\s*후기|추천\s*설치비\s*비교|가격\s*설치비\s*비교)/u;
 const PRODUCT_GENERIC_STACK_TOKEN_RE = /(?:가격비교|최저가|구매처|할인|쿠폰|가성비|추천|후기|가격|순위|비교|렌탈|저소음|설치비|설치\s*비용|1인가구|사이즈|스펙|필터|교체주기)/gu;
 const SPECIFIC_PRODUCT_BRAND_RE = /(?:위닉스|삼성|LG|엘지|다이슨|샤오미|쿠쿠|쿠첸|필립스|캐리어|파세코|신일|한일|보국|아이닉|로보락|에코백스|드리미|발뮤다|애플|아이폰|갤럭시|닌텐도|로지텍|브라운|오랄비|유닉스)/iu;
+const TRAVEL_GENERIC_BOOKING_NO_EFFECT_RE = /(?:(?:서울\s*근교|여름|커플\s*여행지|당일치기|강원도\s*펜션|전주\s*한옥마을\s*맛집|여수\s*야경\s*명소|속초\s*설악산\s*코스|강릉\s*카페거리|국립\s*캠핑장\s*예약\s*사이트).{0,16}(?:예약\s*(?:방법|사이트)?|입장료|주차|운영시간|장단점|선택\s*가이드|코스\s*후기)|(?:예약\s*(?:방법|사이트)?|입장료|주차|운영시간|장단점|선택\s*가이드|코스\s*후기).{0,16}(?:서울\s*근교|여름|커플\s*여행지|당일치기|강원도\s*펜션|전주\s*한옥마을\s*맛집|여수\s*야경\s*명소|속초\s*설악산\s*코스|강릉\s*카페거리|국립\s*캠핑장\s*예약\s*사이트)|펜션\s*매매\s*예약|당일치기\s*(?:바다|드라이브|뚜벅이|계곡|바베큐)\s*예약)/u;
 
 function productGenericStackTokenCount(keyword: string): number {
   const hits = normalizeKeyword(keyword).match(PRODUCT_GENERIC_STACK_TOKEN_RE) || [];
@@ -3250,6 +3251,7 @@ function isSyntheticNoEffectLiveProbe(keyword: string): boolean {
     || GENERIC_INTENT_ONLY_PROBE_RE.test(clean)
     || NEWS_PERSON_OR_ROLE_POLICY_TAIL_RE.test(clean)
     || (LIVE_POLICY_SIGNAL_RE.test(clean) && POLICY_SYNTHETIC_DOUBLE_TAIL_RE.test(clean))
+    || TRAVEL_GENERIC_BOOKING_NO_EFFECT_RE.test(clean)
     || (
       PRODUCT_BASE_SIGNAL_RE.test(clean)
       && (
@@ -4539,10 +4541,10 @@ export class MobileLiveGoldenRadar {
 
   private backfillMeasurementLimit(targetLimit: number): number {
     return Math.max(
-      16,
+      24,
       Math.min(
         this.maxCandidates,
-        32,
+        64,
         LIVE_BACKFILL_VOLUME_PASS_MAX,
         Math.max(targetLimit, Math.floor(this.maxCandidates * 0.004)),
       ),
