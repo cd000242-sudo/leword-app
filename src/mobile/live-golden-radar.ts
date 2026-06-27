@@ -5801,24 +5801,32 @@ export class MobileLiveGoldenRadar {
       this.now(),
     );
     const measurementLimit = this.backfillMeasurementLimit(targetLimit);
+    const queuedProbeItems = this.runnableMeasuredProbeQueueItems(categoryId, targetLimit);
+    const queuedProbeCandidates = queuedProbeItems.map((item) => item.keyword);
+    const queueFirstMode = queuedProbeCandidates.length >= Math.min(
+      measurementLimit,
+      Math.max(24, targetLimit),
+    );
     const hasMeasuredProbeCandidates = measuredProbeCandidates.length > 0;
     const autocompleteTargetLimit = hasMeasuredProbeCandidates
       ? Math.max(4, Math.ceil(targetLimit * 0.45))
       : targetLimit;
-    const autocompleteCandidates = await this.discoverAutocompleteBackfillCandidates(
-      config,
-      categoryId,
-      liveSeeds,
-      autocompleteTargetLimit,
-    );
-    const searchAdSuggestionRows = await this.discoverSearchAdSuggestionBackfillCandidates(
-      categoryId,
-      liveSeeds,
-      targetLimit,
-    );
+    const autocompleteCandidates = queueFirstMode
+      ? []
+      : await this.discoverAutocompleteBackfillCandidates(
+        config,
+        categoryId,
+        liveSeeds,
+        autocompleteTargetLimit,
+      );
+    const searchAdSuggestionRows = queueFirstMode
+      ? []
+      : await this.discoverSearchAdSuggestionBackfillCandidates(
+        categoryId,
+        liveSeeds,
+        targetLimit,
+      );
     const searchAdSuggestionCandidates = searchAdSuggestionRows.map((row) => row.keyword);
-    const queuedProbeItems = this.runnableMeasuredProbeQueueItems(categoryId, targetLimit);
-    const queuedProbeCandidates = queuedProbeItems.map((item) => item.keyword);
     const queuedProbePriorityById = new Map(
       queuedProbeItems
         .map((item) => [keywordCompactId(item.keyword), item.priority] as const)

@@ -2998,6 +2998,8 @@ function thinProfileCount(items: Array<{ keyword: string }>): number {
     })),
   }), 'utf8');
   const catchUpMeasuredKeywords: string[] = [];
+  let catchUpAutocompleteCalls = 0;
+  let catchUpSuggestionCalls = 0;
   const catchUpRadar = new MobileLiveGoldenRadar({
     notificationInbox: inbox,
     runOnStart: false,
@@ -3012,8 +3014,14 @@ function thinProfileCount(items: Array<{ keyword: string }>): number {
     }),
     liveSeedProvider: async () => [],
     enableBackfill: true,
-    autocompleteProvider: async () => [],
-    searchAdSuggestionProvider: async () => [],
+    autocompleteProvider: async () => {
+      catchUpAutocompleteCalls += 1;
+      return [];
+    },
+    searchAdSuggestionProvider: async () => {
+      catchUpSuggestionCalls += 1;
+      return [];
+    },
     measureLiveSearchVolumeSeparate: async (_config, keywords, options) => {
       assert('catch-up queue volume pass keeps document count separated', options?.includeDocumentCount === false);
       catchUpMeasuredKeywords.push(...keywords);
@@ -3027,7 +3035,16 @@ function thinProfileCount(items: Array<{ keyword: string }>): number {
     new Set(catchUpMeasuredKeywords).size > 64,
     JSON.stringify({
       measuredCount: new Set(catchUpMeasuredKeywords).size,
+      catchUpAutocompleteCalls,
+      catchUpSuggestionCalls,
       firstMeasured: catchUpMeasuredKeywords.slice(0, 20),
+    }));
+  assert('live golden catch-up prioritizes measured queue before slow expansion providers',
+    catchUpAutocompleteCalls === 0 && catchUpSuggestionCalls === 0,
+    JSON.stringify({
+      catchUpAutocompleteCalls,
+      catchUpSuggestionCalls,
+      measuredCount: new Set(catchUpMeasuredKeywords).size,
     }));
   fs.rmSync(catchUpProbeFile, { force: true });
 
