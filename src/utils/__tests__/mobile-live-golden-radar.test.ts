@@ -655,6 +655,37 @@ function thinProfileCount(items: Array<{ keyword: string }>): number {
       && cacheDerivedCommerceCandidates.some((keyword) => keyword.includes('\uAD6C\uB9E4\uCC98') && keyword.includes('\uCD94\uCC9C'))
       && cacheDerivedCommerceCandidates.some((keyword) => keyword.includes('\uC7A5\uB2E8\uC810')),
     cacheDerivedCommerceCandidates.join('|'));
+  const cacheDerivedTravelCandidates = __liveGoldenRadarTestInternals.buildCacheDerivedCompoundNeedSeeds(
+    '\uC1A1\uC9C0\uD638 \uBC14\uB2E4\uD558\uB298\uAE38',
+    'travel_domestic',
+    60,
+  );
+  assert('cache-derived travel heads expand into visit-ready longtails',
+    cacheDerivedTravelCandidates.some((keyword) => keyword.includes('\uC785\uC7A5\uB8CC'))
+      && cacheDerivedTravelCandidates.some((keyword) => keyword.includes('\uC8FC\uCC28'))
+      && cacheDerivedTravelCandidates.some((keyword) => keyword.includes('\uC608\uC57D'))
+      && cacheDerivedTravelCandidates.some((keyword) => keyword.includes('\uC544\uC774\uB791') && keyword.includes('\uCF54\uC2A4')),
+    cacheDerivedTravelCandidates.join('|'));
+  const cacheDerivedPolicyAudienceCandidates = __liveGoldenRadarTestInternals.buildCacheDerivedCompoundNeedSeeds(
+    '\uADFC\uB85C\uC7A5\uB824\uAE08',
+    'policy',
+    60,
+  );
+  assert('cache-derived policy heads expand into audience-specific need longtails',
+    cacheDerivedPolicyAudienceCandidates.some((keyword) => keyword.includes('\uD504\uB9AC\uB79C\uC11C') && keyword.includes('\uC2E0\uCCAD') && keyword.includes('\uB300\uC0C1'))
+      && cacheDerivedPolicyAudienceCandidates.some((keyword) => keyword.includes('\uC54C\uBC14') && keyword.includes('\uC2E0\uCCAD') && keyword.includes('\uB300\uC0C1'))
+      && cacheDerivedPolicyAudienceCandidates.some((keyword) => keyword.includes('\uAC1C\uC778\uC0AC\uC5C5\uC790') && keyword.includes('\uC18C\uB4DD\uAE30\uC900')),
+    cacheDerivedPolicyAudienceCandidates.join('|'));
+  const cacheDerivedHomeProductCandidates = __liveGoldenRadarTestInternals.buildCacheDerivedCompoundNeedSeeds(
+    '\uC81C\uC2B5\uAE30',
+    'electronics',
+    60,
+  );
+  assert('cache-derived home product heads expand into buyer-context longtails',
+    cacheDerivedHomeProductCandidates.some((keyword) => keyword.includes('\uC6D0\uB8F8') && keyword.includes('\uC804\uAE30\uC694\uAE08'))
+      && cacheDerivedHomeProductCandidates.some((keyword) => keyword.includes('\uC790\uCDE8\uBC29') && keyword.includes('\uC18C\uC74C'))
+      && cacheDerivedHomeProductCandidates.some((keyword) => keyword.includes('1\uC778\uAC00\uAD6C') && keyword.includes('\uCD94\uCC9C')),
+    cacheDerivedHomeProductCandidates.join('|'));
   const genericAudienceCandidates = __liveGoldenRadarTestInternals.buildBackfillCandidates('policy', [
     '\uCCAD\uB144\u00B7\uC77C\uBC18 \uAD6D\uBBFC',
     '\uC544\uB3D9\u00B7\uC7A5\uC560\uC778',
