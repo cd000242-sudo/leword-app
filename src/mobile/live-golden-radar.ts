@@ -4974,14 +4974,25 @@ export class MobileLiveGoldenRadar {
       const hasRunnableProbeQueueForRun = this.runnableMeasuredProbeQueueItems(backfillCategoryId, runLimit).length > 0;
       let qualityDirect: MDPResult[] = [];
       if (this.enableBackfill) {
-        const backfill = await withTimeout(
-          this.discoverBackfill({
+        const queuedProbeDirect = await this.discoverQueuedProbeBackfill({
+          clientId: env.naverClientId,
+          clientSecret: env.naverClientSecret,
+        }, backfillCategoryId, runLimit);
+        if (queuedProbeDirect.results.length > 0) {
+          qualityDirect = [...qualityDirect, ...queuedProbeDirect.results];
+        }
+        const shouldRunExpansionBackfill = queuedProbeDirect.attemptedCount === 0
+          || queuedProbeDirect.results.length >= Math.min(3, runLimit);
+        const backfill = shouldRunExpansionBackfill
+          ? await withTimeout(
+            this.discoverBackfill({
             clientId: env.naverClientId,
             clientSecret: env.naverClientSecret,
-          }, backfillCategoryId, liveSeeds, runLimit),
-          LIVE_BACKFILL_STAGE_TIMEOUT_MS,
-          [],
-        );
+            }, backfillCategoryId, liveSeeds, runLimit),
+            LIVE_BACKFILL_STAGE_TIMEOUT_MS,
+            [],
+          )
+          : [];
         if (backfill.length > 0) {
           qualityDirect = [...qualityDirect, ...backfill];
         }
@@ -5803,6 +5814,74 @@ export class MobileLiveGoldenRadar {
       .sort((a, b) => b.score - a.score || a.index - b.index)
       .map((item) => item.row)
       .slice(0, limit);
+  }
+
+  private async discoverQueuedProbeBackfill(
+    config: { clientId: string; clientSecret: string },
+    categoryId: string,
+    targetLimit = this.cycleLimit,
+  ): Promise<{ results: MDPResult[]; attemptedCount: number }> {
+    const measurementLimit = Math.min(80, this.backfillMeasurementLimit(targetLimit));
+    const queuedProbeItems = this.runnableMeasuredProbeQueueItems(categoryId, targetLimit)
+      .slice(0, measurementLimit);
+    if (queuedProbeItems.length === 0) return { results: [], attemptedCount: 0 };
+
+    const categoryById = new Map(
+      queuedProbeItems
+        .map((item) => [keywordCompactId(item.keyword), normalizeKeyword(item.category) || categoryId || 'all'] as const)
+        .filter(([id]) => Boolean(id)),
+    );
+    const candidates = queuedProbeItems
+      .map((item) => item.keyword)
+      .filter((keyword) => isHighYieldSearchAdSpendCandidate(
+        keyword,
+        categoryById.get(keywordCompactId(keyword)) || categoryId || 'all',
+        this.now(),
+      ));
+    if (candidates.length === 0) return { results: [], attemptedCount: 0 };
+
+    const volumeRows = await this.measureLiveSearchVolumeRows(config, candidates, {
+      includeDocumentCount: false,
+    }, Math.min(LIVE_BACKFILL_TIMEOUT_MS, 90_000));
+    const rows = await this.attachDocumentCountsToVolumeRows(volumeRows, categoryId, targetLimit);
+    this.updateMeasuredProbeQueueAfterMeasurement(candidates, volumeRows, rows);
+
+    const seen = new Set<string>();
+    const out: MDPResult[] = [];
+    for (const row of rows) {
+      const rowCategory = categoryById.get(keywordCompactId(row.keyword)) || categoryId || 'all';
+      const item = rowToBackfillResult(row, rowCategory);
+      if (!item) continue;
+      const id = mdpResultId(item);
+      if (seen.has(id)) continue;
+      seen.add(id);
+      out.push({
+        ...item,
+        score: Math.min(100, (item.score || 0) + 6),
+        externalSources: uniqueKeywords([
+          ...(item.externalSources || []),
+          'queued-measured-probe-direct',
+        ], 8),
+      });
+    }
+    console.info('[LIVE-GOLDEN] queued probe direct pass', {
+      categoryId,
+      candidates: candidates.length,
+      volumeRows: volumeRows.length,
+      rows: rows.length,
+      results: out.length,
+    });
+    return {
+      results: rankGoldenDiscoveryResults(out, targetLimit, false, {
+        honorRequestedLimit: true,
+        diversifySimilarIntents: true,
+        maxSimilarPerCluster: 2,
+        strictVisibleSssOnly: false,
+        requireActionableIntent: true,
+        qualityBackfillToTarget: true,
+      }),
+      attemptedCount: candidates.length,
+    };
   }
 
   private async discoverBackfill(
