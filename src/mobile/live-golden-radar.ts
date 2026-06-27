@@ -137,10 +137,10 @@ const LIVE_BOARD_STRICT_READY_MIN = 60;
 const LIVE_DIRECT_CANDIDATE_MAX_PER_CYCLE = 7200;
 const LIVE_ISSUE_FALLBACK_DOCUMENT_LIMIT = 16;
 const LIVE_ISSUE_FALLBACK_CONCURRENCY = 2;
-const LIVE_BACKFILL_VOLUME_PASS_MAX = 360;
-const LIVE_BACKFILL_DOCUMENT_PASS_MAX = 160;
+const LIVE_BACKFILL_VOLUME_PASS_MAX = 240;
+const LIVE_BACKFILL_DOCUMENT_PASS_MAX = 120;
 const LIVE_BACKFILL_DOCUMENT_CONCURRENCY = 3;
-const LIVE_BACKFILL_DOCUMENT_SUPPLEMENT_MAX = 48;
+const LIVE_BACKFILL_DOCUMENT_SUPPLEMENT_MAX = 36;
 const LIVE_ISSUE_DOCUMENT_SUPPLEMENT_MAX = 8;
 const LIVE_BOARD_SPLIT_ENRICHMENT_LIMIT = 80;
 const LIVE_CACHE_PROMOTION_MAX_CANDIDATES = 360;
@@ -4761,7 +4761,7 @@ export class MobileLiveGoldenRadar {
     ], 96)
       .filter((candidate) => isLiveRadarUsableKeyword(candidate, null, null, this.now()));
     for (const candidate of candidates) {
-      if (this.cacheDerivedLiveSeeds.length >= 1800) break;
+      if (this.cacheDerivedLiveSeeds.length >= 1200) break;
       const compact = keywordCompactId(candidate);
       if (!compact) continue;
       if (this.cacheDerivedLiveSeeds.some((seed) => keywordCompactId(seed) === compact)) continue;
@@ -4833,14 +4833,14 @@ export class MobileLiveGoldenRadar {
         ...normalizeLiveSeeds(fallback, 80),
         ...fallbackSeeds.flatMap((seed) => buildUltimateNeedCandidatesForSeed(seed, categoryId, 8)),
         ...fallbackSeeds,
-      ], 720);
+      ], 540);
     } catch {
       const fallbackSeeds = getDiscoveryCategorySeeds(categoryId, 120);
       return uniqueKeywords([
         ...this.cacheDerivedLiveSeeds,
         ...fallbackSeeds.flatMap((seed) => buildUltimateNeedCandidatesForSeed(seed, categoryId, 8)),
         ...fallbackSeeds,
-      ], 480);
+      ], 360);
     }
   }
 
@@ -4907,12 +4907,12 @@ export class MobileLiveGoldenRadar {
     targetLimit: number,
   ): Promise<string[]> {
     const now = this.now();
-    const limit = Math.max(80, Math.min(480, Math.floor(targetLimit * 28)));
-    const seedLimit = Math.max(12, Math.min(60, Math.ceil(targetLimit * 3)));
+    const limit = Math.max(80, Math.min(360, Math.floor(targetLimit * 24)));
+    const seedLimit = Math.max(12, Math.min(36, Math.ceil(targetLimit * 2.4)));
     const seeds = uniqueKeywords([
       ...normalizeLiveSeeds(liveSeeds, 80),
       ...this.cacheDerivedLiveSeeds,
-    ], 360)
+    ], 260)
       .map((seed) => normalizeRobustLiveSeedBase(seed, now))
       .filter(Boolean)
       .filter((seed) => !isUltimateLowValueLookupKeyword(seed))
@@ -4982,8 +4982,8 @@ export class MobileLiveGoldenRadar {
     if (!searchAdConfig) return [];
 
     const now = this.now();
-    const limit = Math.max(120, Math.min(720, Math.floor(targetLimit * 36)));
-    const seedLimit = Math.max(16, Math.min(90, Math.ceil(targetLimit * 4)));
+    const limit = Math.max(120, Math.min(420, Math.floor(targetLimit * 30)));
+    const seedLimit = Math.max(16, Math.min(42, Math.ceil(targetLimit * 2.8)));
     const catalogSeeds = measuredProbeCategoryKeys(categoryId, liveSeeds)
       .flatMap((key) => LIVE_MEASURED_PROBE_BASES[key] || [])
       .map((seed) => normalizeKeyword(seed))
@@ -4994,7 +4994,7 @@ export class MobileLiveGoldenRadar {
       ...catalogSeeds,
       ...catalogSeeds.map((seed) => seed.replace(/\s+/g, '')),
       ...getDiscoveryCategorySeeds(categoryId, 48),
-    ], 540)
+    ], 360)
       .map((seed) => normalizeRobustLiveSeedBase(seed, now) || normalizeKeyword(seed))
       .filter(Boolean)
       .filter((seed) => !isUltimateLowValueLookupKeyword(seed))
