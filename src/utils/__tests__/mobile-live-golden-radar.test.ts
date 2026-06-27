@@ -2739,6 +2739,24 @@ function thinProfileCount(items: Array<{ keyword: string }>): number {
       spend: __liveGoldenRadarTestInternals.isHighYieldSearchAdSpendCandidate(keyword, 'policy', lottoGuardNow),
     }))));
 
+  const practicalNearSssProbeCases = [
+    ['\uC1A1\uC9C0\uD638 \uBC14\uB2E4\uD558\uB298\uAE38 \uC608\uC57D \uBC29\uBC95', 'travel_domestic'],
+    ['\uBD80\uC0B0\uBB38\uD654\uB204\uB9AC\uCE74\uB4DC\uC0AC\uC6A9\uCC98 \uC870\uD68C', 'policy'],
+    ['\uCFE0\uCFE0\uC81C\uC2B5\uAE30\uB80C\uD0C8 \uC6D0\uB8F8 \uC804\uAE30\uC694\uAE08 \uBE44\uAD50', 'electronics'],
+  ] as const;
+  assert('practical near-SSS writer intents are promoted into SearchAd spend candidates',
+    practicalNearSssProbeCases.every(([keyword, category]) => (
+      __liveGoldenRadarTestInternals.isLiveMeasuredProbeCandidate(keyword, category, lottoGuardNow)
+        && __liveGoldenRadarTestInternals.isHighYieldSearchAdSpendCandidate(keyword, category, lottoGuardNow)
+    )),
+    JSON.stringify(practicalNearSssProbeCases.map(([keyword, category]) => ({
+      keyword,
+      category,
+      probe: __liveGoldenRadarTestInternals.isLiveMeasuredProbeCandidate(keyword, category, lottoGuardNow),
+      spend: __liveGoldenRadarTestInternals.isHighYieldSearchAdSpendCandidate(keyword, category, lottoGuardNow),
+      debug: __liveGoldenRadarTestInternals.debugSearchAdMeasurableLiveCandidate(keyword, category, lottoGuardNow),
+    }))));
+
   const measuredProbePortfolio = __liveGoldenRadarTestInternals.buildMeasuredProbeCandidates(
     'all',
     [],
