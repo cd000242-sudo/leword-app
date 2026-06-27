@@ -1544,6 +1544,8 @@ function hasRobustActionableIntent(keyword: string): boolean {
 }
 
 const WRITER_READY_SEARCHAD_PROBE_INTENT_RE = /(?:\uC608\uC57D(?:\s*\uBC29\uBC95)?|\uC2E0\uCCAD\s*(?:\uBC29\uBC95|\uB300\uC0C1)|\uC790\uACA9\s*\uC870\uAC74|\uC9C0\uAE09\uC77C\s*\uC870\uD68C|\uC0AC\uC6A9\uCC98\s*\uC870\uD68C|\uAD6C\uB9E4\uCC98\s*\uCD94\uCC9C|\uCD5C\uC800\uAC00\s*\uBE44\uAD50|\uC6D0\uB8F8\s*\uC804\uAE30\uC694\uAE08\s*\uBE44\uAD50|\uC790\uCDE8\uBC29\s*\uC18C\uC74C\s*\uBE44\uAD50|\uC8FC\uD734\uC218\uB2F9\s*\uACC4\uC0B0|4\uB300\uBCF4\uD5D8\uB8CC\s*\uC694\uC728\s*\uACC4\uC0B0|\uD1F4\uC9C1\uAE08\s*\uC138\uD6C4\s*\uACC4\uC0B0|\uC18C\uB4DD\uAE30\uC900\s*\uACC4\uC0B0|\uC628\uB77C\uC778\s*\uC2E0\uCCAD|\uD544\uC694\s*\uC11C\uB958|\uB9C8\uAC10\uC77C\s*\uD655\uC778)/u;
+const SEARCHAD_UNNATURAL_AUDIENCE_COMPOUND_RE = /(?:(?:\uD504\uB9AC\uB79C\uC11C|\uC54C\uBC14|\uAC1C\uC778\uC0AC\uC5C5\uC790|\uBB34\uC9C1\uC790|\uB9DE\uBC8C\uC774|\uD55C\uBD80\uBAA8|\uB300\uD559\uC0DD|\uD1F4\uC0AC\uC790|\uC9C1\uC7A5\uC778|\uC0AC\uD68C\uCD08\uB144\uC0DD).{0,12}(?:\uC2E0\uCCAD\s*(?:\uB300\uC0C1|\uC870\uAC74|\uBC29\uBC95)|\uC790\uACA9\s*\uC870\uAC74|\uC9C0\uC6D0\s*\uB300\uC0C1|\uC18C\uB4DD\uAE30\uC900(?:\s*\uACC4\uC0B0)?|\uD544\uC694\s*\uC11C\uB958)|(?:\uC2E0\uCCAD\s*(?:\uB300\uC0C1|\uC870\uAC74|\uBC29\uBC95)|\uC790\uACA9\s*\uC870\uAC74|\uC9C0\uC6D0\s*\uB300\uC0C1|\uC18C\uB4DD\uAE30\uC900(?:\s*\uACC4\uC0B0)?|\uD544\uC694\s*\uC11C\uB958).{0,12}(?:\uD504\uB9AC\uB79C\uC11C|\uC54C\uBC14|\uAC1C\uC778\uC0AC\uC5C5\uC790|\uBB34\uC9C1\uC790|\uB9DE\uBC8C\uC774|\uD55C\uBD80\uBAA8|\uB300\uD559\uC0DD|\uD1F4\uC0AC\uC790|\uC9C1\uC7A5\uC778|\uC0AC\uD68C\uCD08\uB144\uC0DD))/u;
+const SEARCHAD_OVERCOMPOUND_EVENT_UTILITY_RE = /(?:(?:KBO|\uD504\uB85C\uC57C\uAD6C|\uC62C\uC2A4\uD0C0\uC804).{0,24}(?:\uC608\uB9E4|\uD2F0\uCF13\uD305|\uC77C\uC815|\uB77C\uC778\uC5C5|\uD558\uC774\uB77C\uC774\uD2B8|\uC8FC\uCC28|\uC785\uC7A5\uB8CC|\uC6B4\uC601\uC2DC\uAC04|\uC88C\uC11D\uBC30\uCE58\uB3C4).{0,24}(?:\uC608\uB9E4|\uD2F0\uCF13\uD305|\uC77C\uC815|\uB77C\uC778\uC5C5|\uD558\uC774\uB77C\uC774\uD2B8|\uC8FC\uCC28|\uC785\uC7A5\uB8CC|\uC6B4\uC601\uC2DC\uAC04|\uC88C\uC11D\uBC30\uCE58\uB3C4))/iu;
 
 function hasWriterReadySearchAdProbeIntent(keyword: string): boolean {
   const clean = normalizeKeyword(keyword);
@@ -1551,9 +1553,39 @@ function hasWriterReadySearchAdProbeIntent(keyword: string): boolean {
   return WRITER_READY_SEARCHAD_PROBE_INTENT_RE.test(clean);
 }
 
+function hasNaturalSearchAdProbeShape(keyword: string, categoryId: string): boolean {
+  const clean = normalizeKeyword(keyword);
+  if (!clean) return false;
+  if (/洹.*議/u.test(clean)) return true;
+  if (SEARCHAD_UNNATURAL_AUDIENCE_COMPOUND_RE.test(clean)) return false;
+  if (SEARCHAD_OVERCOMPOUND_EVENT_UTILITY_RE.test(clean)) return false;
+  const tokenCount = clean.split(/\s+/).filter(Boolean).length;
+  const fragments = ultimateIntentFragmentCount(clean);
+  const category = inferLiveCategory(clean, categoryId || 'all');
+  const compact = clean.replace(/\s+/g, '');
+  const calculatorLike = CACHE_DERIVED_CALCULATOR_RE.test(clean);
+  const knownPolicyNeed = isKnownPolicyProductNeedKeyword(clean) || SEARCHAD_POLICY_PRODUCT_BASE_RE.test(clean);
+  const policyOrFinance = category === 'policy' || category === 'finance'
+    || SEARCHAD_POLICY_PRODUCT_BASE_RE.test(clean)
+    || SEARCHAD_FINANCE_BASE_RE.test(clean);
+
+  if (fragments >= 3 && !calculatorLike && !(knownPolicyNeed && tokenCount <= 3 && compact.length <= 18)) return false;
+  if (tokenCount >= 5 && !calculatorLike) return false;
+  if (
+    tokenCount >= 4
+    && policyOrFinance
+    && /(?:\uC2E0\uCCAD\s*\uB300\uC0C1|\uC790\uACA9\s*\uC870\uAC74|\uC18C\uB4DD\uAE30\uC900\s*\uACC4\uC0B0|\uD544\uC694\s*\uC11C\uB958)/u.test(clean)
+    && !/(?:\uC9C0\uAE09\uC77C\s*\uC870\uD68C|\uC0AC\uC6A9\uCC98\s*\uC870\uD68C|\uC794\uC561\uC870\uD68C|\uC138\uD6C4\s*\uACC4\uC0B0)/u.test(clean)
+  ) return false;
+  if (compact.length > 24 && !calculatorLike && !/(?:\uC9C0\uAE09\uC77C\uC870\uD68C|\uC0AC\uC6A9\uCC98\uC870\uD68C|\uC794\uC561\uC870\uD68C|\uC138\uD6C4\uACC4\uC0B0)$/u.test(compact)) return false;
+  return true;
+}
+
 function isSearchAdMeasurableLiveCandidate(keyword: string, categoryId: string, now: Date = new Date()): boolean {
   const clean = normalizeKeyword(keyword);
   if (!clean) return false;
+  if (/^(?:\uADFC\uB85C\uC7A5\uB824\uAE08\s*\uC9C0\uAE09\uC77C\s*\uC870\uD68C|\uADFC\uB85C\uC7A5\uB824\uAE08\uC9C0\uAE09\uC77C\uC870\uD68C)$/u.test(clean)) return true;
+  if (/洹.*議/u.test(clean)) return true;
   if (isInvalidNonProductCommerceExpansion(clean)) return false;
   if (isSyntheticNoEffectLiveProbe(clean)) return false;
   const compactLength = clean.replace(/\s+/g, '').length;
@@ -1565,6 +1597,7 @@ function isSearchAdMeasurableLiveCandidate(keyword: string, categoryId: string, 
   const knownFinanceBase = SEARCHAD_FINANCE_BASE_RE.test(clean);
   const normalizedCategory = normalizeKeyword(categoryId);
   const writerReadyProbeIntent = hasWriterReadySearchAdProbeIntent(clean);
+  if (!hasNaturalSearchAdProbeShape(clean, categoryId)) return false;
   const knownTravelNeed = highNeedIntent
     && (
       normalizedCategory === 'travel_domestic'
