@@ -53,6 +53,7 @@ interface BuildMobileSourceSignalSnapshotOptions {
   providers?: MobileSourceSignalProviders;
   now?: Date;
   timeoutMs?: number;
+  useFallback?: boolean;
 }
 
 const REALTIME_SOURCE_ORDER: RealtimeSourceName[] = ['naver', 'daum', 'nate', 'google', 'zum', 'bokjiro'];
@@ -73,7 +74,7 @@ const SOURCE_LABEL: Record<string, string> = {
 
 function normalizeLimit(value: number | undefined): number {
   if (!Number.isFinite(value)) return 6;
-  return Math.max(1, Math.min(30, Math.floor(value as number)));
+  return Math.max(1, Math.min(100, Math.floor(value as number)));
 }
 
 function normalizeTimeoutMs(value: number | undefined): number {
@@ -287,7 +288,7 @@ function mergeRealtimeGroups(groups: Partial<Record<RealtimeSourceName, Realtime
   for (const source of REALTIME_SOURCE_ORDER) {
     const first = (groups[source] || [])[0];
     const keyword = String(first?.keyword || first?.text || '').trim();
-    const key = keywordKey(keyword);
+    const key = `${source}:${keywordKey(keyword)}`;
     if (first && key && !seen.has(key)) {
       selected.push({ ...first, source: first.source || source });
       seen.add(key);
@@ -307,7 +308,8 @@ function mergeRealtimeGroups(groups: Partial<Record<RealtimeSourceName, Realtime
   for (const item of rest) {
     if (selected.length >= limit) break;
     const keyword = String(item.keyword || item.text || '').trim();
-    const key = keywordKey(keyword);
+    const source = String(item.source || 'realtime').toLowerCase();
+    const key = `${source}:${keywordKey(keyword)}`;
     if (!key || seen.has(key)) continue;
     selected.push(item);
     seen.add(key);
@@ -317,9 +319,37 @@ function mergeRealtimeGroups(groups: Partial<Record<RealtimeSourceName, Realtime
 }
 
 async function defaultRealtimeProvider(limit: number): Promise<RealtimeSourceItem[]> {
-  const { getAllRealtimeKeywords } = await import('../utils/realtime-search-keywords');
-  const perSourceLimit = Math.max(3, Math.ceil(limit / 2));
-  const groups = await getAllRealtimeKeywords(perSourceLimit);
+  const {
+    getBokjiroRealtimeKeywords,
+    getDaumRealtimeKeywords,
+    getGoogleRealtimeKeywords,
+    getNateRealtimeKeywords,
+    getNaverRealtimeKeywords,
+    getZumRealtimeKeywords,
+  } = await import('../utils/realtime-search-keywords');
+  const perSourceLimit = Math.max(10, Math.ceil(limit / REALTIME_SOURCE_ORDER.length));
+  const withTimeout = async <T>(promise: Promise<T[]>, timeoutMs: number): Promise<T[]> => {
+    let timeoutId: ReturnType<typeof setTimeout> | undefined;
+    try {
+      return await Promise.race([
+        promise.catch(() => [] as T[]),
+        new Promise<T[]>((resolve) => {
+          timeoutId = setTimeout(() => resolve([]), timeoutMs);
+        }),
+      ]);
+    } finally {
+      if (timeoutId) clearTimeout(timeoutId);
+    }
+  };
+  const [naver, daum, nate, zum, google, bokjiro] = await Promise.all([
+    withTimeout(getNaverRealtimeKeywords(perSourceLimit), 8_000),
+    withTimeout(getDaumRealtimeKeywords(perSourceLimit), 8_000),
+    withTimeout(getNateRealtimeKeywords(perSourceLimit), 8_000),
+    withTimeout(getZumRealtimeKeywords(perSourceLimit), 8_000),
+    withTimeout(getGoogleRealtimeKeywords(Math.min(10, perSourceLimit)), 3_000),
+    withTimeout(getBokjiroRealtimeKeywords(perSourceLimit), 8_000),
+  ]);
+  const groups = { naver, daum, nate, zum, google, bokjiro };
   return mergeRealtimeGroups(groups, limit);
 }
 
@@ -367,6 +397,7 @@ export async function buildMobileSourceSignalSnapshot(
   const createdAt = now.toISOString();
   const providers = options.providers || {};
   const hasCustomRealtimeProvider = typeof providers.realtime === 'function';
+  const useFallback = options.useFallback !== false;
   const fallback = fallbackSourceSignals(now);
 
   const [realtimeRaw, policyRaw, issueRaw] = await Promise.all([
@@ -380,17 +411,17 @@ export async function buildMobileSourceSignalSnapshot(
   let policy = mapPolicy(policyRaw, limit, createdAt);
   let issues = mapIssues(issueRaw, limit, createdAt);
 
-  if ((lane === 'all' || lane === 'realtime') && realtime.length === 0) {
+  if ((lane === 'all' || lane === 'realtime') && realtime.length === 0 && useFallback) {
     fallbackUsed = true;
     realtime = fallback.realtime.slice(0, limit);
-  } else if ((lane === 'all' || lane === 'realtime') && !hasCustomRealtimeProvider) {
+  } else if ((lane === 'all' || lane === 'realtime') && !hasCustomRealtimeProvider && useFallback) {
     realtime = ensureRealtimeSourceCoverage(realtime, fallback.realtime, limit);
   }
-  if ((lane === 'all' || lane === 'policy') && policy.length === 0) {
+  if ((lane === 'all' || lane === 'policy') && policy.length === 0 && useFallback) {
     fallbackUsed = true;
     policy = fallback.policy.slice(0, limit);
   }
-  if ((lane === 'all' || lane === 'issues') && issues.length === 0) {
+  if ((lane === 'all' || lane === 'issues') && issues.length === 0 && useFallback) {
     fallbackUsed = true;
     issues = fallback.issues.slice(0, limit);
   }

@@ -651,8 +651,8 @@ const payload = buildPublicSourceSignalPayload(snapshot);
 assert('public source payload keeps snapshot compatibility', payload.ok === true && payload.snapshot.realtime.length === 4);
 assert('public source payload exposes six lanes', payload.lanes.length === 6, String(payload.lanes.length));
 assert('public source payload lane order is fixed', payload.lanes.map((lane) => lane.id).join(',') === 'naver,daum,nate,zum,policy,issue');
-assert('public source payload exposes ten items per home lane',
-  payload.lanes.every((lane) => lane.items.length === 10),
+assert('public source payload does not synthesize source lane items',
+  payload.lanes.every((lane) => lane.items.length === 1),
   payload.lanes.map((lane) => `${lane.id}:${lane.items.length}`).join(','));
 assert('public source payload splits portal lanes',
   payload.lanes.find((lane) => lane.id === 'naver')?.items[0]?.source === 'naver'

@@ -1555,57 +1555,7 @@ export async function getNaverRealtimeKeywords(limit: number = 10): Promise<Real
     console.error('[NAVER-REALTIME] Signal.bz 크롤링 실패:', error.message);
   }
   
-  // Signal.bz 실패 시 다음으로 폴백
-  console.log('[NAVER-REALTIME] 다음 이슈 키워드로 대체 시도...');
-  try {
-    const daumKeywords = await getDaumRealtimeKeywords(limit);
-    
-    if (daumKeywords.length > 0) {
-      console.log(`[NAVER-REALTIME] ✅ 다음 이슈 키워드 ${daumKeywords.length}개를 네이버 대체로 사용`);
-      return daumKeywords.map((kw, idx) => ({
-        ...kw,
-        rank: idx + 1,
-        source: 'naver' as const
-      }));
-    }
-  } catch (error: any) {
-    console.error('[NAVER-REALTIME] 다음 대체 실패:', error.message);
-  }
-  
-  // 다음도 실패하면 네이트로 시도
-  console.log('[NAVER-REALTIME] 네이트 실시간 검색어로 대체 시도...');
-  try {
-    const nateKeywords = await getNateRealtimeKeywords(limit);
-    
-    if (nateKeywords.length > 0) {
-      // 광고성 키워드 필터링
-      const filteredKeywords = nateKeywords.filter(kw => {
-        const lowerKeyword = kw.keyword.toLowerCase();
-        return !lowerKeyword.includes('보험') &&
-               !lowerKeyword.includes('대출') &&
-               !lowerKeyword.includes('변호사') &&
-               !lowerKeyword.includes('창업') &&
-               !lowerKeyword.includes('학원') &&
-               !lowerKeyword.includes('병원') &&
-               !lowerKeyword.includes('사주') &&
-               !lowerKeyword.includes('라식') &&
-               kw.keyword.length < 30;
-      });
-      
-      if (filteredKeywords.length > 0) {
-        console.log(`[NAVER-REALTIME] ✅ 네이트 실시간 검색어 ${filteredKeywords.length}개를 네이버 대체로 사용`);
-        return filteredKeywords.slice(0, limit).map((kw, idx) => ({
-          ...kw,
-          rank: idx + 1,
-          source: 'naver' as const
-        }));
-      }
-    }
-  } catch (error: any) {
-    console.error('[NAVER-REALTIME] 네이트 대체 실패:', error.message);
-  }
-  
-  console.log('[NAVER-REALTIME] 모든 대체 소스 실패, 빈 배열 반환');
+  console.log('[NAVER-REALTIME] Signal.bz 원본 수집 실패, 네이버 탭은 빈 배열 반환');
   return [];
 }
 
@@ -1637,21 +1587,7 @@ export async function getBokjiroRealtimeKeywords(limit: number = 20): Promise<Re
     console.error('[POLICY-BRIEFING] 크롤링 실패:', error.message);
   }
   
-  // 실패 시 ZUM 데이터 대체
-  console.log('[POLICY-BRIEFING] ZUM 데이터로 대체');
-  try {
-    const zumKeywords = await getZumRealtimeKeywords(limit);
-    if (zumKeywords && zumKeywords.length > 0) {
-      return zumKeywords.map((kw, idx) => ({
-        ...kw,
-        source: 'policy' as const,
-        rank: idx + 1
-      }));
-    }
-  } catch (e) {
-    console.error('[POLICY-BRIEFING] ZUM 대체 실패');
-  }
-  
+  console.log('[POLICY-BRIEFING] 정책 원본 수집 실패, 빈 배열 반환');
   return [];
 
 }

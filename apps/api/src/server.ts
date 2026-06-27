@@ -1149,8 +1149,12 @@ function normalizePublicSourceSignalLimit(limit: number): number {
 }
 
 function buildPublicSourceSignalFallbackSnapshot(): MobileSourceSignalSnapshot {
+  const updatedAt = new Date().toISOString();
   return {
-    ...fallbackSourceSignals(),
+    updatedAt,
+    realtime: [],
+    policy: [],
+    issues: [],
     fallbackUsed: true,
   };
 }
@@ -1158,7 +1162,11 @@ function buildPublicSourceSignalFallbackSnapshot(): MobileSourceSignalSnapshot {
 function startPublicSourceSignalRefresh(limit: number): Promise<MobileSourceSignalSnapshot> {
   if (publicSourceSignalRefresh) return publicSourceSignalRefresh;
   const normalizedLimit = normalizePublicSourceSignalLimit(limit);
-  const refresh = buildMobileSourceSignalSnapshot({ limit: normalizedLimit })
+  const refresh = buildMobileSourceSignalSnapshot({
+    limit: normalizedLimit,
+    timeoutMs: 12_000,
+    useFallback: false,
+  })
     .then((snapshot) => {
       publicSourceSignalCache = {
         limit: normalizedLimit,

@@ -181,117 +181,12 @@ function signalMatches(item: MobileSignalItem, tokens: string[]): boolean {
   return tokens.some((token) => text.includes(token));
 }
 
-interface PublicLaneFallbackSeed {
-  kind?: MobileSignalItem['kind'];
-  keyword: string;
-  title: string;
-  description: string;
-  priority: number;
-  source?: string;
-  categoryId?: string;
-}
-
-const PUBLIC_SOURCE_LANE_FALLBACKS: Record<PublicSourceLaneId, PublicLaneFallbackSeed[]> = {
-  naver: [
-    { keyword: '여름 가전 추천', title: '네이버 생활 수요', description: '계절형 구매 검색이 빠르게 올라오는 흐름입니다.', priority: 96, categoryId: 'shopping' },
-    { keyword: '장마 대비 준비물', title: '네이버 생활 포착', description: '날씨와 준비물 의도가 함께 붙는 키워드입니다.', priority: 94, categoryId: 'living' },
-    { keyword: '에어컨 전기세 절약', title: '네이버 절약 관심', description: '비용 절감형 검색 의도가 강한 생활 키워드입니다.', priority: 92, categoryId: 'living' },
-    { keyword: '제습기 추천', title: '네이버 쇼핑 수요', description: '비교, 후기, 가격형 확장이 쉬운 후보입니다.', priority: 90, categoryId: 'shopping' },
-    { keyword: '선크림 추천', title: '네이버 시즌 키워드', description: '제품 비교와 피부 타입별 글감으로 확장됩니다.', priority: 88, categoryId: 'beauty' },
-    { keyword: '레인부츠 코디', title: '네이버 패션 수요', description: '시즌 패션과 구매 전환 의도가 겹치는 흐름입니다.', priority: 86, categoryId: 'fashion' },
-    { keyword: '여름휴가 숙소', title: '네이버 여행 수요', description: '지역명, 가격, 예약 팁으로 쪼개기 좋습니다.', priority: 84, categoryId: 'travel' },
-    { keyword: '다이어트 식단', title: '네이버 건강 관심', description: '식단표, 도시락, 후기형으로 넓어지는 키워드입니다.', priority: 82, categoryId: 'health' },
-    { keyword: '청년 지원금 신청', title: '네이버 정책 관심', description: '조건, 대상, 신청기간 검색 의도가 분명합니다.', priority: 80, categoryId: 'policy' },
-    { keyword: '오늘 날씨', title: '네이버 실시간 수요', description: '지역별 생활 검색으로 확장 가능한 흐름입니다.', priority: 78, categoryId: 'weather' },
-  ],
-  daum: [
-    { keyword: '장마 준비물', title: '다음 생활 이슈', description: '날씨 이슈와 구매형 검색이 같이 붙는 흐름입니다.', priority: 95, categoryId: 'living' },
-    { keyword: '주말 영화 추천', title: '다음 문화 관심', description: 'OTT, 개봉작, 평점형 글감으로 확장됩니다.', priority: 93, categoryId: 'entertainment' },
-    { keyword: '근로장려금 지급일', title: '다음 정책 검색', description: '일정, 조건, 조회 의도가 또렷한 후보입니다.', priority: 91, categoryId: 'policy' },
-    { keyword: '전기요금 조회', title: '다음 생활 정보', description: '조회 방법과 절약 팁으로 전환하기 좋습니다.', priority: 89, categoryId: 'living' },
-    { keyword: '여름휴가 국내여행', title: '다음 여행 흐름', description: '지역 추천과 숙소 비교형으로 이어집니다.', priority: 87, categoryId: 'travel' },
-    { keyword: '모바일 운전면허증', title: '다음 행정 관심', description: '발급, 등록, 사용처 검색이 붙는 키워드입니다.', priority: 85, categoryId: 'policy' },
-    { keyword: '자동차세 납부', title: '다음 생활 세금', description: '납부기간, 조회, 카드 혜택형으로 확장됩니다.', priority: 83, categoryId: 'finance' },
-    { keyword: '건강검진 대상자 조회', title: '다음 건강 정보', description: '대상, 예약, 결과 조회 검색 의도가 뚜렷합니다.', priority: 81, categoryId: 'health' },
-    { keyword: '해외여행 준비물', title: '다음 여행 체크', description: '체크리스트와 국가별 준비물로 나누기 좋습니다.', priority: 79, categoryId: 'travel' },
-    { keyword: '반려동물 등록', title: '다음 생활 정책', description: '등록 방법, 과태료, 변경 신고 의도가 붙습니다.', priority: 77, categoryId: 'living' },
-  ],
-  nate: [
-    { keyword: '오늘 방송 출연진', title: '네이트 방송 이슈', description: '방송 직후 출연진과 재방송 검색이 올라옵니다.', priority: 95, categoryId: 'broadcast' },
-    { keyword: '신작 드라마 출연진', title: '네이트 드라마 이슈', description: '인물, 원작, 몇부작으로 빠르게 확장됩니다.', priority: 93, categoryId: 'entertainment' },
-    { keyword: '예능 재방송 시간', title: '네이트 방송 관심', description: '회차, 다시보기, 편성표 의도가 붙습니다.', priority: 91, categoryId: 'broadcast' },
-    { keyword: '스타 공식입장', title: '네이트 연예 이슈', description: '인물명과 사건 키워드가 함께 움직입니다.', priority: 89, categoryId: 'entertainment' },
-    { keyword: '스포츠 중계 일정', title: '네이트 스포츠 흐름', description: '중계 채널, 라인업, 하이라이트 검색으로 이어집니다.', priority: 87, categoryId: 'sports' },
-    { keyword: '프로야구 순위', title: '네이트 스포츠 관심', description: '경기 결과와 팀별 일정으로 확장됩니다.', priority: 85, categoryId: 'sports' },
-    { keyword: '축구 국가대표 명단', title: '네이트 스포츠 이슈', description: '선수명, 경기일정, 중계 정보가 함께 붙습니다.', priority: 83, categoryId: 'sports' },
-    { keyword: '연예인 근황', title: '네이트 스타 검색', description: '방송 출연과 작품 정보로 이어지는 후보입니다.', priority: 81, categoryId: 'entertainment' },
-    { keyword: '드라마 결말 해석', title: '네이트 콘텐츠 관심', description: '회차별 리뷰와 원작 비교형 글감에 맞습니다.', priority: 79, categoryId: 'entertainment' },
-    { keyword: '오늘의 운세', title: '네이트 생활 검색', description: '띠별, 별자리, 월간 운세로 확장됩니다.', priority: 77, categoryId: 'living' },
-  ],
-  zum: [
-    { keyword: '여름휴가 숙소', title: '줌 여행 수요', description: '가격, 지역, 예약 시점 검색이 같이 움직입니다.', priority: 94, categoryId: 'travel' },
-    { keyword: '주말 가볼만한 곳', title: '줌 생활 관심', description: '지역별 추천과 코스형 글감으로 나누기 좋습니다.', priority: 92, categoryId: 'travel' },
-    { keyword: '항공권 특가', title: '줌 여행 검색', description: '노선, 날짜, 카드 혜택 비교형으로 확장됩니다.', priority: 90, categoryId: 'travel' },
-    { keyword: '캠핑장 예약', title: '줌 레저 흐름', description: '지역명, 시설, 후기형 검색이 붙는 후보입니다.', priority: 88, categoryId: 'leisure' },
-    { keyword: '워터파크 할인', title: '줌 시즌 수요', description: '입장권, 카드, 지역형 구매 의도가 강합니다.', priority: 86, categoryId: 'leisure' },
-    { keyword: '장마철 빨래 냄새', title: '줌 생활 문제', description: '해결법, 제품, 관리 팁으로 전환하기 좋습니다.', priority: 84, categoryId: 'living' },
-    { keyword: '제습기 전기세', title: '줌 가전 비교', description: '사용시간, 전력량, 제품 비교 검색이 이어집니다.', priority: 82, categoryId: 'shopping' },
-    { keyword: '모기 퇴치 방법', title: '줌 생활 검색', description: '제품 추천과 집안 관리형 글감으로 확장됩니다.', priority: 80, categoryId: 'living' },
-    { keyword: '여름철 식중독 증상', title: '줌 건강 관심', description: '증상, 예방법, 병원 방문 기준 검색이 붙습니다.', priority: 78, categoryId: 'health' },
-    { keyword: '휴가비 지원사업', title: '줌 정책 관심', description: '대상, 신청, 사용처 검색으로 이어지는 흐름입니다.', priority: 76, categoryId: 'policy' },
-  ],
-  policy: [
-    { kind: 'policy', keyword: '소상공인 지원금 신청', title: '정책브리핑', description: '신청기간, 대상자, 지급일 검색 의도가 분명합니다.', priority: 98, source: 'policy-briefing', categoryId: 'policy' },
-    { kind: 'policy', keyword: '청년 월세 지원 조건', title: '정책브리핑', description: '조건, 서류, 지자체 비교형 글감으로 전환됩니다.', priority: 96, source: 'policy-briefing', categoryId: 'policy' },
-    { kind: 'policy', keyword: '에너지바우처 신청', title: '정책브리핑', description: '대상자와 신청 절차 검색이 꾸준히 붙습니다.', priority: 94, source: 'policy-briefing', categoryId: 'policy' },
-    { kind: 'policy', keyword: '근로장려금 지급일', title: '정책브리핑', description: '조회, 지급일, 대상 확인 의도가 강합니다.', priority: 92, source: 'policy-briefing', categoryId: 'policy' },
-    { kind: 'policy', keyword: '육아휴직 급여 신청', title: '정책브리핑', description: '신청 방법과 서류형 검색으로 확장됩니다.', priority: 90, source: 'policy-briefing', categoryId: 'policy' },
-    { kind: 'policy', keyword: '국민내일배움카드 신청', title: '정책브리핑', description: '자격, 사용처, 훈련과정 검색이 붙습니다.', priority: 88, source: 'policy-briefing', categoryId: 'policy' },
-    { kind: 'policy', keyword: '기초연금 수급자격', title: '정책브리핑', description: '나이, 소득인정액, 신청 방법으로 이어집니다.', priority: 86, source: 'policy-briefing', categoryId: 'policy' },
-    { kind: 'policy', keyword: '전기차 보조금 조회', title: '정책브리핑', description: '지역, 차종, 신청 절차 검색 의도가 또렷합니다.', priority: 84, source: 'policy-briefing', categoryId: 'policy' },
-    { kind: 'policy', keyword: '청년도약계좌 조건', title: '정책브리핑', description: '소득 기준, 납입, 은행 비교형으로 확장됩니다.', priority: 82, source: 'policy-briefing', categoryId: 'policy' },
-    { kind: 'policy', keyword: '임신출산 진료비 지원', title: '정책브리핑', description: '지원금, 사용처, 신청 절차 검색이 붙습니다.', priority: 80, source: 'policy-briefing', categoryId: 'policy' },
-  ],
-  issue: [
-    { kind: 'issue', keyword: '신작 드라마 출연진', title: '방송 이슈', description: '인물, 원작, 몇부작, 결말예상으로 확장됩니다.', priority: 95, source: 'entertainment-radar', categoryId: 'entertainment' },
-    { kind: 'issue', keyword: '대표팀 경기 일정', title: '스포츠 이슈', description: '중계, 명단, 하이라이트 의도가 같이 붙습니다.', priority: 93, source: 'sports-radar', categoryId: 'sports' },
-    { kind: 'issue', keyword: '스타 근황', title: '스타/연예 이슈', description: '방송 출연, 공식입장, 작품 정보로 이어집니다.', priority: 91, source: 'entertainment-radar', categoryId: 'entertainment' },
-    { kind: 'issue', keyword: '예능 재방송', title: '방송 이슈', description: '회차, 다시보기, 편성표 검색으로 확장됩니다.', priority: 89, source: 'broadcast-radar', categoryId: 'broadcast' },
-    { kind: 'issue', keyword: '프로야구 결과', title: '스포츠 이슈', description: '팀 순위, 하이라이트, 선발 명단 검색이 붙습니다.', priority: 87, source: 'sports-radar', categoryId: 'sports' },
-    { kind: 'issue', keyword: '영화 개봉작', title: '문화 이슈', description: '평점, 쿠키영상, 관람 후기형으로 나누기 좋습니다.', priority: 85, source: 'culture-radar', categoryId: 'culture' },
-    { kind: 'issue', keyword: '콘서트 티켓팅 일정', title: '공연 이슈', description: '예매처, 좌석, 취소표 검색 의도가 붙습니다.', priority: 83, source: 'culture-radar', categoryId: 'culture' },
-    { kind: 'issue', keyword: '축제 일정', title: '지역 이슈', description: '지역명, 주차, 먹거리 정보로 확장됩니다.', priority: 81, source: 'local-radar', categoryId: 'local' },
-    { kind: 'issue', keyword: 'OTT 신작 추천', title: '콘텐츠 이슈', description: '장르, 순위, 결말 리뷰형 검색이 붙습니다.', priority: 79, source: 'entertainment-radar', categoryId: 'entertainment' },
-    { kind: 'issue', keyword: '오늘 뉴스 속보', title: '사회 이슈', description: '핵심 정리와 관련 인물 검색으로 이어집니다.', priority: 77, source: 'news-radar', categoryId: 'news' },
-  ],
-};
-
-function publicFallbackKindForLane(laneId: PublicSourceLaneId): MobileSignalItem['kind'] {
-  if (laneId === 'policy') return 'policy';
-  if (laneId === 'issue') return 'issue';
-  return 'realtime';
-}
-
-function buildPublicLaneFallbacks(laneId: PublicSourceLaneId): MobileSignalItem[] {
-  return PUBLIC_SOURCE_LANE_FALLBACKS[laneId].map((seed, index) => makeSignal(
-    seed.kind || publicFallbackKindForLane(laneId),
-    `public-${laneId}-${index + 1}`,
-    seed.keyword,
-    seed.title,
-    seed.description,
-    seed.priority,
-    seed.source || laneId,
-    seed.categoryId || laneId,
-  ));
-}
-
 function signalUniqueKey(item: MobileSignalItem): string {
   return `${item.source || ''}|${item.keyword || ''}|${item.title || ''}`.trim().toLowerCase();
 }
 
 function fillSignalLane(
   primary: MobileSignalItem[],
-  laneId: PublicSourceLaneId,
   fallbackItems: MobileSignalItem[] = [],
 ): MobileSignalItem[] {
   const result: MobileSignalItem[] = [];
@@ -306,7 +201,6 @@ function fillSignalLane(
 
   primary.forEach(push);
   fallbackItems.forEach(push);
-  buildPublicLaneFallbacks(laneId).forEach(push);
   return result.slice(0, PUBLIC_SOURCE_LANE_LIMIT);
 }
 
@@ -318,7 +212,7 @@ function pickRealtimeSignals(
 ): MobileSignalItem[] {
   const matched = realtime.filter((item) => signalMatches(item, tokens));
   const fallbackItems = fallback && signalMatches(fallback, tokens) ? [fallback] : [];
-  return fillSignalLane(matched, laneId, fallbackItems);
+  return fillSignalLane(matched, fallbackItems);
 }
 
 export function buildPublicSourceSignalPayload(snapshot: MobileSourceSignalSnapshot): PublicSourceSignalPayload {
@@ -353,13 +247,13 @@ export function buildPublicSourceSignalPayload(snapshot: MobileSourceSignalSnaps
       id: 'policy',
       label: '정책',
       description: '정책브리핑, 지원금, 공공 알림 신호',
-      items: fillSignalLane(clean.policy || [], 'policy'),
+      items: fillSignalLane(clean.policy || []),
     },
     {
       id: 'issue',
       label: '이슈',
       description: '방송, 연예, 스포츠, 사회 이슈 신호',
-      items: fillSignalLane(clean.issues || [], 'issue'),
+      items: fillSignalLane(clean.issues || []),
     },
   ];
   return {
