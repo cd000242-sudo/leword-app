@@ -125,20 +125,18 @@ assert('live golden board exposes quality control strip',
     && html.includes('카테고리 다양성')
     && html.includes('SSS/SS 후보')
     && html.includes('Pro 잠금'));
-assert('shows six source lanes in requested order',
-  html.indexOf('네이버 <span class="lane-count"') < html.indexOf('다음 <span class="lane-count"')
-    && html.indexOf('다음 <span class="lane-count"') < html.indexOf('네이트 <span class="lane-count"')
-    && html.indexOf('줌 <span class="lane-count"') > html.indexOf('네이트 <span class="lane-count"')
-    && html.includes('정책 <span class="lane-count"')
-    && html.includes('이슈 <span class="lane-count"'));
-assert('home view embeds source board instead of a separate source tab',
+assert('LEWORD view removes source board from the golden tab',
   html.includes('data-view-target="golden"')
     && !html.includes('data-view-target="sources"')
     && html.includes('data-view-target="features"')
     && html.includes('data-view-target="youtube"')
     && html.includes('data-view-target="downloads"')
     && html.includes('data-view-target="commerce"')
-    && html.includes('class="panel main-view active" id="sources" data-view="golden"')
+    && !html.includes('id="sources" data-view="golden"')
+    && !html.includes('id="refreshSources"')
+    && !html.includes('id="lane-naver"')
+    && !html.includes('loadSources().catch')
+    && !html.includes('setInterval(loadSources')
     && html.includes("if (id === 'sources') return 'golden'")
     && html.includes('class="panel main-view" id="lookup" data-view="lookup"')
     && html.includes('class="panel main-view" id="youtube" data-view="youtube"')
