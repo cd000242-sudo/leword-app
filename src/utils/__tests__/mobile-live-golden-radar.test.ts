@@ -652,8 +652,7 @@ function thinProfileCount(items: Array<{ keyword: string }>): number {
   assert('cache-derived commerce seeds expand into buyer-decision probes',
     cacheDerivedCommerceCandidates.some((keyword) => keyword.includes('\uCD5C\uC800\uAC00') && keyword.includes('\uBE44\uAD50'))
       && cacheDerivedCommerceCandidates.some((keyword) => keyword.includes('\uD560\uC778') && keyword.includes('\uCFE0\uD3F0'))
-      && cacheDerivedCommerceCandidates.some((keyword) => keyword.includes('\uAD6C\uB9E4\uCC98') && keyword.includes('\uCD94\uCC9C'))
-      && cacheDerivedCommerceCandidates.some((keyword) => keyword.includes('\uC7A5\uB2E8\uC810')),
+      && cacheDerivedCommerceCandidates.some((keyword) => keyword.includes('\uAD6C\uB9E4\uCC98') && keyword.includes('\uCD94\uCC9C')),
     cacheDerivedCommerceCandidates.join('|'));
   const cacheDerivedTravelCandidates = __liveGoldenRadarTestInternals.buildCacheDerivedCompoundNeedSeeds(
     '\uC1A1\uC9C0\uD638 \uBC14\uB2E4\uD558\uB298\uAE38',
@@ -686,6 +685,23 @@ function thinProfileCount(items: Array<{ keyword: string }>): number {
       && cacheDerivedHomeProductCandidates.some((keyword) => keyword.includes('\uC790\uCDE8\uBC29') && keyword.includes('\uC18C\uC74C'))
       && cacheDerivedHomeProductCandidates.some((keyword) => keyword.includes('1\uC778\uAC00\uAD6C') && keyword.includes('\uCD94\uCC9C')),
     cacheDerivedHomeProductCandidates.join('|'));
+  const cacheDerivedMismatchSeeds = [
+    ['\uAC15\uB989 \uCE74\uD398\uAC70\uB9AC', 'food'],
+    ['\uAC15\uB989 \uB2F9\uC77C\uCE58\uAE30 \uB9DB\uC9D1', 'travel_domestic'],
+    ['\uB0C9\uC7A5\uACE0\uC815\uB9AC\uD568', 'home_life'],
+    ['\uC544\uC6C3\uBC31 \uAFC0\uD301', 'policy'],
+    ['\uD558\uC774\uB514\uB77C\uC624 \uAFC0\uD301', 'policy'],
+    ['\uBD80\uB2F9\uD574\uACE0\uAD6C\uC81C\uC2E0\uCCAD \uD6C4\uAE30', 'home_life'],
+    ['\uB808\uC778\uBD80\uCE20 \uD6C4\uAE30', 'home_life'],
+  ] as const;
+  const cacheDerivedMismatchCandidates = cacheDerivedMismatchSeeds.flatMap(([seed, category]) => (
+    __liveGoldenRadarTestInternals.buildCacheDerivedCompoundNeedSeeds(seed, category, 60)
+  ));
+  assert('cache-derived expansion rejects cross-context no-effect probe tails before they reach the queue',
+    cacheDerivedMismatchCandidates.every((keyword) => (
+      !/(?:(?:\uAC15\uB989|\uAC15\uC6D0\uB3C4).{0,18}(?:\uAD6C\uB9E4\uCC98\s*\uCD94\uCC9C|\uCD5C\uC800\uAC00\s*\uBE44\uAD50|\uBE44\uC6A9\s*\uBE44\uAD50|\uD560\uC778\s*\uCFE0\uD3F0|\uC544\uC774\uB791\s*\uCF54\uC2A4|\uB69C\uBC85\uC774\s*\uCF54\uC2A4|\uB2F9\uC77C\uCE58\uAE30\s*\uC900\uBE44\uBB3C)|(?:\uC544\uC6C3\uBC31|\uD558\uC774\uB514\uB77C\uC624|\uAFC0\uD301).{0,18}(?:\uC2E0\uCCAD\s*(?:\uB300\uC0C1|\uBC29\uBC95)|\uC9C0\uAE09\uC77C\s*\uC870\uD68C|\uD544\uC694\s*\uC11C\uB958)|(?:\uBD80\uB2F9\uD574\uACE0|\uAD6C\uC81C\uC2E0\uCCAD).{0,18}(?:\uAD6C\uB9E4\uCC98|\uCD5C\uC800\uAC00|\uD560\uC778|\uBE44\uC6A9|\uD544\uD130|\uC804\uAE30\uC694\uAE08|\uC18C\uC74C|\uC124\uCE58\uBE44)|(?:\uB0C9\uC7A5\uACE0\uC815\uB9AC|\uB808\uC778\uBD80\uCE20).{0,18}(?:\uC804\uAE30\uC694\uAE08\s*\uBE44\uAD50|\uC804\uAE30\uC138\s*\uBE44\uAD50|\uC18C\uC74C\s*\uBE44\uAD50|\uD544\uD130\s*\uAD50\uCCB4\uC8FC\uAE30|\uC124\uCE58\uBE44\s*\uBE44\uAD50|\uC800\uC18C\uC74C\s*\uD6C4\uAE30))/u.test(keyword)
+    )),
+    cacheDerivedMismatchCandidates.join('|'));
   const genericAudienceCandidates = __liveGoldenRadarTestInternals.buildBackfillCandidates('policy', [
     '\uCCAD\uB144\u00B7\uC77C\uBC18 \uAD6D\uBBFC',
     '\uC544\uB3D9\u00B7\uC7A5\uC560\uC778',
@@ -2602,9 +2618,23 @@ function thinProfileCount(items: Array<{ keyword: string }>): number {
     '\uBD80\uC0B0 \uAC10\uCC9C\uBB38\uD654\uB9C8\uC744 \uADFC\uCC98 \uC608\uC57D \uBC29\uBC95',
     '\uC18D\uCD08 1\uBC152\uC77C \uCF54\uC2A4 \uC608\uC57D \uBC29\uBC95',
     '\uCEA0\uD551\uC7A5 \uC608\uC57D \uC0AC\uC774\uD2B8 \uB69C\uBC85\uC774 \uCF54\uC2A4',
+    '\uAC15\uB989 \uB2F9\uC77C\uCE58\uAE30 \uB9DB\uC9D1 \uAD6C\uB9E4\uCC98 \uCD94\uCC9C',
+    '\uAC15\uB989 \uCE74\uD398\uAC70\uB9AC \uAD6C\uB9E4\uCC98 \uCD94\uCC9C',
+    '\uAC15\uC6D0\uB3C4\uC0BC\uCC99\uAC00\uBCFC\uB9CC\uD55C\uACF3 \uAD6C\uB9E4\uCC98 \uCD94\uCC9C',
     '\uC81C\uC8FC \uB80C\uD130\uCE74 \uCD94\uCC9C \uC785\uC7A5\uB8CC',
     '\uC81C\uC8FC \uB80C\uD130\uCE74 \uD6C4\uAE30 \uC6B4\uC601\uC2DC\uAC04',
     '\uAC1C\uC778\uC0AC\uC5C5\uC790\uC815\uCC45\uC790\uAE08 \uBB34\uC9C1\uC790 \uC2E0\uCCAD \uC870\uAC74',
+    '\uAC1C\uC778\uC0AC\uC5C5\uC790\uC815\uCC45\uC790\uAE08 \uD504\uB9AC\uB79C\uC11C \uC2E0\uCCAD \uB300\uC0C1',
+    '\uC544\uC6C3\uBC31 \uAFC0\uD301 \uC9C0\uAE09\uC77C \uC870\uD68C',
+    '\uD558\uC774\uB514\uB77C\uC624 \uAFC0\uD301 \uC2E0\uCCAD \uBC29\uBC95',
+    '\uBD80\uB2F9\uD574\uACE0\uAD6C\uC81C\uC2E0\uCCAD \uD6C4\uAE30 \uD544\uD130 \uAD50\uCCB4\uC8FC\uAE30',
+    '\uB808\uC778\uBD80\uCE20 \uD6C4\uAE30 \uD544\uD130 \uAD50\uCCB4\uC8FC\uAE30',
+    '\uB808\uC778\uBD80\uCE20\uD6C4\uAE30 \uC6D0\uB8F8 \uC804\uAE30\uC694\uAE08 \uBE44\uAD50',
+    '\uB0C9\uC7A5\uACE0\uC815\uB9AC \uC6D0\uB8F8 \uC804\uAE30\uC694\uAE08 \uBE44\uAD50',
+    '\uB0C9\uC7A5\uACE0\uC815\uB9AC\uD568 \uC6D0\uB8F8 \uC804\uAE30\uC694\uAE08 \uBE44\uAD50',
+    '\uB0C9\uC7A5\uACE0\uC815\uB9AC \uC790\uCDE8\uBC29 \uC18C\uC74C \uBE44\uAD50',
+    '\uCCAD\uB144\uB3C4\uC57D\uACC4\uC88C \uD574\uC9C0 \uC9C0\uAE09\uC77C \uC870\uD68C',
+    '\uCCAD\uB144\uB3C4\uC57D\uACC4\uC88C \uC911\uB3C4\uC778\uCD9C \uC2E0\uCCAD \uB300\uC0C1',
     '제주 렌터카 숙소 예약',
     '제주 렌터카 환불 규정',
     '가족여행 추천지 숙소 예약',
