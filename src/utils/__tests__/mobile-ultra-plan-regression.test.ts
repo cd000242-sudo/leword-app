@@ -954,11 +954,14 @@ assert('production compose keeps server prewarm running all day',
     && /LEWORD_MOBILE_PREWARM_LIMIT:\s*\$\{LEWORD_MOBILE_PREWARM_LIMIT:-8\}/.test(apiProductionCompose)
     && /LEWORD_MOBILE_PREWARM_ON_START:\s*\$\{LEWORD_MOBILE_PREWARM_ON_START:-true\}/.test(apiProductionCompose)
     && /LEWORD_MOBILE_PREWARM_START_DELAY_MS:\s*\$\{LEWORD_MOBILE_PREWARM_START_DELAY_MS:-300000\}/.test(apiProductionCompose)
+    && /LEWORD_MOBILE_LIVE_GOLDEN_START_DELAY_MS:\s*\$\{LEWORD_MOBILE_LIVE_GOLDEN_START_DELAY_MS:-300000\}/.test(apiProductionCompose)
     && /LEWORD_MOBILE_LIVE_GOLDEN_IGNORE_PREWARM:\s*\$\{LEWORD_MOBILE_LIVE_GOLDEN_IGNORE_PREWARM:-true\}/.test(apiProductionCompose));
 assert('mobile live golden radar is low-load and non-overlapping',
   /MobileLiveGoldenRadar/.test(liveGoldenRadar)
     && /liveGoldenCycleLimit/.test(liveGoldenRadar)
     && /liveGoldenMaxCandidates/.test(liveGoldenRadar)
+    && /LEWORD_MOBILE_LIVE_GOLDEN_START_DELAY_MS/.test(liveGoldenRadar)
+    && /defaultRunOnStartDelayMs/.test(liveGoldenRadar)
     && /shouldRun/.test(liveGoldenRadar)
     && /publishFromResult/.test(liveGoldenRadar)
     && /LEWORD_MOBILE_LIVE_GOLDEN_INTERVAL_MINUTES/.test(liveGoldenRadar));

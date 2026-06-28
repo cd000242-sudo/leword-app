@@ -7933,6 +7933,8 @@ export function createMobileLiveGoldenRadarFromEnv(
   const resultCacheFile = normalizeKeyword(process.env['LEWORD_MOBILE_CACHE_FILE'] || '');
   const keywordCacheFile = normalizeKeyword(process.env['LEWORD_MOBILE_KEYWORD_CACHE_FILE'] || '');
   const runOnStart = process.env['LEWORD_MOBILE_LIVE_GOLDEN_ON_START'] !== 'false';
+  const rawRunOnStartDelayMs = Number(process.env['LEWORD_MOBILE_LIVE_GOLDEN_START_DELAY_MS'] || 0);
+  const defaultRunOnStartDelayMs = process.env['NODE_ENV'] === 'production' ? 300_000 : undefined;
   return new MobileLiveGoldenRadar({
     notificationInbox,
     shouldRun,
@@ -7951,5 +7953,8 @@ export function createMobileLiveGoldenRadarFromEnv(
       ? startupCatchUpCycles
       : undefined,
     runOnStart,
+    runOnStartDelayMs: Number.isFinite(rawRunOnStartDelayMs) && rawRunOnStartDelayMs > 0
+      ? Math.floor(rawRunOnStartDelayMs)
+      : defaultRunOnStartDelayMs,
   });
 }
