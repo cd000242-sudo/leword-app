@@ -1038,6 +1038,18 @@ function thinProfileCount(items: Array<{ keyword: string }>): number {
   assert('measured probe generation does not attach product shopping tails to non-product sports events',
     sportsProbeCandidates.every((keyword) => !/(?:KBO|올스타전)/.test(keyword)),
     sportsProbeCandidates.slice(0, 80).join('|'));
+  const footballIssueProbeCandidates = __liveGoldenRadarTestInternals.buildMeasuredProbeCandidates('sports', [
+    '월드컵',
+    '홍명보 감독',
+  ], 220, lottoGuardNow);
+  assert('national football live issues expand into writer-ready measured probes without reopening KBO noise',
+    __liveGoldenRadarTestInternals.isSearchAdMeasurableLiveCandidate('월드컵 중계 일정', 'sports', lottoGuardNow)
+      && __liveGoldenRadarTestInternals.isLiveRadarUsableKeyword('월드컵 중계 일정', 7200, 430, lottoGuardNow)
+      && __liveGoldenRadarTestInternals.isSearchAdMeasurableLiveCandidate('홍명보 감독 대표팀 명단', 'sports', lottoGuardNow)
+      && footballIssueProbeCandidates.some((keyword) => /월드컵\s*(?:중계\s*일정|경기\s*시간|조편성|대진표)/.test(keyword))
+      && footballIssueProbeCandidates.some((keyword) => /홍명보\s*감독\s*(?:대표팀\s*명단|경기\s*시간|상대전적)/.test(keyword))
+      && footballIssueProbeCandidates.every((keyword) => !/(?:KBO|프로야구|올스타전|클라이밍\s*초보\s*중계)/.test(keyword)),
+    footballIssueProbeCandidates.slice(0, 80).join('|'));
   const productEventTailMismatchCases = [
     ['\uB808\uC778\uBD80\uCE20 \uC21C\uC704 \uC911\uACC4 \uC77C\uC815', 'shopping'],
     ['\uB808\uC778\uBD80\uCE20 \uC21C\uC704 \uACBD\uAE30 \uC77C\uC815', 'shopping'],
