@@ -6263,6 +6263,43 @@ export class MobileLiveGoldenRadar {
     }
   }
 
+  private countMeasuredProbeQueueFile(): number | null {
+    if (!this.probeQueueFile) return null;
+    try {
+      if (!fs.existsSync(this.probeQueueFile)) return 0;
+      const raw = fs.readFileSync(this.probeQueueFile, 'utf8').trim();
+      if (!raw) return 0;
+      const parsed = JSON.parse(raw);
+      const rows = Array.isArray(parsed?.items)
+        ? parsed.items
+        : Array.isArray(parsed?.queue)
+          ? parsed.queue
+          : Array.isArray(parsed)
+            ? parsed
+            : [];
+      const now = this.now();
+      const seen = new Set<string>();
+      let count = 0;
+      for (const row of rows) {
+        const keyword = normalizeKeyword(row?.keyword);
+        const compact = keywordCompactId(keyword);
+        if (!keyword || !compact || seen.has(compact)) continue;
+        if (!isLiveRadarUsableKeyword(keyword, null, null, now)) continue;
+        const category = inferLiveCategory(keyword, normalizeKeyword(row?.category) || 'all');
+        if (!isLiveMeasuredProbeCandidate(keyword, category || 'all', now)) continue;
+        if (!isHighYieldSearchAdSpendCandidate(keyword, category || 'all', now)) continue;
+        const attempts = Math.max(0, Math.floor(finiteNumber(row?.attempts) || 0));
+        const misses = Math.max(0, Math.floor(finiteNumber(row?.misses) || 0));
+        if (attempts >= LIVE_PROBE_QUEUE_MAX_ATTEMPTS || misses >= LIVE_PROBE_QUEUE_NO_RESULT_MAX) continue;
+        seen.add(compact);
+        count += 1;
+      }
+      return count;
+    } catch {
+      return null;
+    }
+  }
+
   private saveMeasuredProbeQueueToFile(): void {
     if (!this.probeQueueFile) return;
     try {
@@ -7188,6 +7225,9 @@ export class MobileLiveGoldenRadar {
       isPublicPreview: publicPreviewIds.has(item.id),
       publishDecision: evaluatePublishDecision(item),
     }));
+    const filePendingProbeQueueCount = !this.running && this.refreshBoardFileOnSnapshot
+      ? this.countMeasuredProbeQueueFile()
+      : null;
     const snapshot: MobileLiveGoldenRadarSnapshot = {
       enabled: this.enabled,
       running: this.running,
@@ -7196,7 +7236,7 @@ export class MobileLiveGoldenRadar {
       maxCandidates: this.maxCandidates,
       boardTarget: this.boardTarget,
       boardCount: markedBoard.length,
-      pendingProbeQueueCount: this.pendingMeasuredProbeQueue.length,
+      pendingProbeQueueCount: filePendingProbeQueueCount ?? this.pendingMeasuredProbeQueue.length,
       publicPreviewCount: markedBoard.filter((item) => item.isPublicPreview).length,
       boardUpdatedAt: this.boardUpdatedAt,
       board: markedBoard,
