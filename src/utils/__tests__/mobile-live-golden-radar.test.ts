@@ -1486,6 +1486,55 @@ function thinProfileCount(items: Array<{ keyword: string }>): number {
     staleSnapshot.publicPreview.map((item) => `${item.keyword}:${item.updatedAt}`).join('|'));
   fs.rmSync(staleBoardFile, { force: true });
 
+  const zeroScorePreviewBoardFile = path.join(process.cwd(), 'tmp', 'mobile-live-golden-zero-score-preview-test.json');
+  fs.writeFileSync(zeroScorePreviewBoardFile, JSON.stringify({
+    boardUpdatedAt: '2026-06-13T08:59:00.000Z',
+    items: [
+      ['송지호바다하늘길입장료', 'SSS', 98, 2530, 157, 16.11, 'travel_domestic'],
+      ['5월연말정산환급일', 'SSS', 0, 14060, 2274, 6.18, 'policy'],
+      ['내일도 출근 웹툰', 'A', 0, 43470, 3169, 13.72, 'it'],
+      ['2026근로장려금지급일', 'S', 67, 22390, 8283, 2.7, 'policy'],
+      ['송지호바다하늘길주차', 'S', 74, 770, 307, 2.51, 'travel_domestic'],
+      ['연말정산환급일', 'S', 0, 10920, 4026, 2.71, 'policy'],
+    ].map(([keyword, grade, score, totalSearchVolume, documentCount, goldenRatio, category]) => ({
+      keyword,
+      grade,
+      score,
+      totalSearchVolume,
+      pcSearchVolume: Math.max(10, Math.round(Number(totalSearchVolume) * 0.2)),
+      mobileSearchVolume: Number(totalSearchVolume) - Math.max(10, Math.round(Number(totalSearchVolume) * 0.2)),
+      documentCount,
+      goldenRatio,
+      category,
+      source: 'fixture-persistent-measured-cache',
+      evidence: ['fixture-searchad-volume', 'fixture-naver-openapi-document-count'],
+      searchVolumeSource: 'searchad',
+      searchVolumeConfidence: 'high',
+      isSearchVolumeEstimated: false,
+      documentCountSource: 'naver-api',
+      documentCountConfidence: 'high',
+      isDocumentCountEstimated: false,
+      updatedAt: '2026-06-13T08:59:00.000Z',
+      discoveredAt: '2026-06-13T08:59:00.000Z',
+      isMeasured: true,
+    })),
+  }), 'utf8');
+  const zeroScorePreviewRadar = new MobileLiveGoldenRadar({
+    notificationInbox: inbox,
+    runOnStart: false,
+    boardFile: zeroScorePreviewBoardFile,
+    boardTarget: 120,
+    publicPreviewCount: 5,
+    now: () => new Date('2026-06-13T09:00:00.000Z'),
+  });
+  const zeroScorePreviewSnapshot = zeroScorePreviewRadar.snapshot();
+  assert('free preview fills five measured rows even when persistent cache score fields are zero',
+    zeroScorePreviewSnapshot.publicPreview.length === 5
+      && zeroScorePreviewSnapshot.publicPreview.every((item) => item.rank > 1)
+      && zeroScorePreviewSnapshot.publicPreview.every((item) => item.isMeasured && item.pcSearchVolume !== null && item.mobileSearchVolume !== null),
+    zeroScorePreviewSnapshot.publicPreview.map((item) => `${item.rank}:${item.keyword}:${item.score}`).join('|'));
+  fs.rmSync(zeroScorePreviewBoardFile, { force: true });
+
   const proGapBoardFile = path.join(process.cwd(), 'tmp', 'mobile-live-golden-pro-gap-test.json');
   fs.writeFileSync(proGapBoardFile, JSON.stringify({
     boardUpdatedAt: '2026-06-13T08:50:00.000Z',

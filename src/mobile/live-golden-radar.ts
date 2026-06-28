@@ -2461,7 +2461,10 @@ function isPublicPreviewFallbackCandidate(item: MobileLiveGoldenBoardItem): bool
   if (!keyword) return false;
   if (item.grade === 'B' || item.grade === 'C') return false;
   if (!hasCompleteLiveGoldenMetrics(item)) return false;
-  if (!isLiveRadarUsableMetric(item)) return false;
+  const decision = evaluatePublishDecision(item);
+  const publishableMeasuredFallback = ['publish', 'conditional'].includes(decision.verdict)
+    && decision.score >= 80;
+  if (!isLiveRadarUsableMetric(item) && !publishableMeasuredFallback) return false;
   if (!hasMeasuredPcMobileSplit(item)) return false;
   if (!hasTrustedSearchVolumeMeasurement(item)) return false;
   if (!hasTrustedDocumentCountMeasurement(item)) return false;
