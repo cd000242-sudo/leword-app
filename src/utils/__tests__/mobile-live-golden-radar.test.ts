@@ -1080,6 +1080,20 @@ function thinProfileCount(items: Array<{ keyword: string }>): number {
         && !/(?:방송시간.{0,8}방송시간|출연진.{0,8}출연진|가격비교.{0,8}가격비교|최저가.{0,8}최저가)/u.test(keyword)
     )),
     semanticProbePortfolio.slice(0, 100).join('|'));
+  const semanticBackfillPortfolio = __liveGoldenRadarTestInternals.buildBackfillCandidates('all', [
+    '신입사원 강회장',
+    '신입사원 강회장 출연진',
+    '신입사원 강회장 방송시간',
+    '하트시그널5 공식영상',
+    '월드컵',
+    '홍명보 감독',
+  ], 420, lottoGuardNow);
+  assert('live golden backfill blocks stale broadcast and sports commerce tails before queueing',
+    semanticBackfillPortfolio.every((keyword) => (
+      !/(?:신입사원\s*강회장|하트시그널5|공식영상|출연진|방송시간|월드컵|홍명보).{0,22}(?:최저가|가격비교|구매처|렌탈|보험\s*적용|추천\s*후기)/u.test(keyword)
+        && !/(?:방송시간.{0,8}방송시간|출연진.{0,8}출연진|공식영상.{0,8}공식영상)/u.test(keyword)
+    )),
+    semanticBackfillPortfolio.slice(0, 120).join('|'));
   const productEventTailMismatchCases = [
     ['\uB808\uC778\uBD80\uCE20 \uC21C\uC704 \uC911\uACC4 \uC77C\uC815', 'shopping'],
     ['\uB808\uC778\uBD80\uCE20 \uC21C\uC704 \uACBD\uAE30 \uC77C\uC815', 'shopping'],
@@ -3217,6 +3231,73 @@ function thinProfileCount(items: Array<{ keyword: string }>): number {
       lastMessage: queuePrioritySnapshot.lastMessage,
     }));
   fs.rmSync(queuePriorityProbeFile, { force: true });
+
+  const legacyMismatchProbeFile = path.join(process.cwd(), 'tmp', 'mobile-live-golden-legacy-mismatch-queue-test.json');
+  const legacyMismatchGood = '월드컵 중계 일정';
+  const legacyMismatchBad = [
+    '신입사원 강회장 출연진 최저가 구매처',
+    '신입사원 강회장 방송시간 가격비교 후기',
+    '신입사원 강회장 방송시간 보험 적용 비용',
+    '하트시그널5 공식영상 최저가 구매처',
+    '월드컵 조편성 최저가 비교',
+  ];
+  fs.writeFileSync(legacyMismatchProbeFile, JSON.stringify({
+    version: 1,
+    savedAt: '2026-06-28T00:00:00.000Z',
+    items: [
+      ...legacyMismatchBad.map((keyword, index) => ({
+        keyword,
+        category: index === 4 ? 'sports' : 'broadcast',
+        source: 'fixture-legacy-mismatch-queue',
+        priority: 9000 - index,
+        firstSeenAt: `2026-06-28T00:0${index}:00.000Z`,
+        attempts: 0,
+        misses: 0,
+      })),
+      {
+        keyword: legacyMismatchGood,
+        category: 'sports',
+        source: 'fixture-valid-sports-queue',
+        priority: 100,
+        firstSeenAt: '2026-06-28T00:10:00.000Z',
+        attempts: 0,
+        misses: 0,
+      },
+    ],
+  }), 'utf8');
+  const legacyMismatchMeasuredKeywords: string[] = [];
+  const legacyMismatchRadar = new MobileLiveGoldenRadar({
+    notificationInbox: inbox,
+    runOnStart: false,
+    cycleLimit: 8,
+    boardTarget: 10,
+    maxCandidates: 180,
+    categories: ['all'],
+    probeQueueFile: legacyMismatchProbeFile,
+    getEnvConfig: () => ({
+      naverClientId: 'client',
+      naverClientSecret: 'secret',
+    }),
+    liveSeedProvider: async () => [],
+    enableBackfill: true,
+    autocompleteProvider: async () => [],
+    searchAdSuggestionProvider: async () => [],
+    measureLiveSearchVolumeSeparate: async (_config, keywords) => {
+      legacyMismatchMeasuredKeywords.push(...keywords);
+      return [];
+    },
+    measureLiveDocumentCount: async () => null,
+    discover: async () => [],
+  });
+  await legacyMismatchRadar.runOnce();
+  assert('legacy persistent queue cannot spend SearchAd quota on mismatched broadcast commerce tails',
+    legacyMismatchMeasuredKeywords.includes(legacyMismatchGood)
+      && legacyMismatchBad.every((keyword) => !legacyMismatchMeasuredKeywords.includes(keyword)),
+    JSON.stringify({
+      measured: legacyMismatchMeasuredKeywords,
+      bad: legacyMismatchBad,
+    }));
+  fs.rmSync(legacyMismatchProbeFile, { force: true });
 
   const queueVariantProbeFile = path.join(process.cwd(), 'tmp', 'mobile-live-golden-queue-variant-test.json');
   const spacedTravelProbe = '\uC1A1\uC9C0\uD638 \uBC14\uB2E4\uD558\uB298\uAE38 \uC608\uC57D \uBC29\uBC95';
