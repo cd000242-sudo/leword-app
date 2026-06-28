@@ -734,7 +734,7 @@ assert('production API caps browser and job concurrency for stable 24h mining',
     && /LEWORD_BROWSER_POOL_IDLE_MS/.test(puppeteerPool)
     && /LEWORD_MOBILE_MAX_CONCURRENT_JOBS:\s*\$\{LEWORD_MOBILE_MAX_CONCURRENT_JOBS:-1\}/.test(apiProductionCompose)
     && /LEWORD_BROWSER_POOL_MAX_SIZE:\s*\$\{LEWORD_BROWSER_POOL_MAX_SIZE:-1\}/.test(apiProductionCompose)
-    && /LEWORD_BROWSER_POOL_IDLE_MS:\s*\$\{LEWORD_BROWSER_POOL_IDLE_MS:-30000\}/.test(apiProductionCompose),
+    && /LEWORD_BROWSER_POOL_IDLE_MS:\s*\$\{LEWORD_BROWSER_POOL_IDLE_MS:-5000\}/.test(apiProductionCompose),
   'server-side keyword jobs must not exhaust Chromium file handles under manual + prewarm load');
 assert('mobile release workflow supports CI release path',
   /Mobile API and App Release/.test(mobileReleaseWorkflow)
@@ -969,6 +969,7 @@ assert('mobile live golden radar is low-load and non-overlapping',
     && /liveGoldenCycleLimit/.test(liveGoldenRadar)
     && /liveGoldenMaxCandidates/.test(liveGoldenRadar)
     && /LEWORD_MOBILE_LIVE_GOLDEN_READONLY/.test(liveGoldenRadar)
+    && /live golden read-only snapshot mode enabled/.test(liveGoldenRadar)
     && /refreshBoardFromFile/.test(liveGoldenRadar)
     && /LEWORD_MOBILE_LIVE_GOLDEN_START_DELAY_MS/.test(liveGoldenRadar)
     && /defaultRunOnStartDelayMs/.test(liveGoldenRadar)

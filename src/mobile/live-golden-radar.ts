@@ -5281,6 +5281,10 @@ export class MobileLiveGoldenRadar {
   start(): MobileLiveGoldenRadarSnapshot {
     if (this.enabled) return this.snapshot();
     this.enabled = true;
+    if (this.refreshBoardFileOnSnapshot) {
+      this.lastMessage = 'live golden read-only snapshot mode enabled';
+      return this.snapshot();
+    }
     this.timer = this.setIntervalFn(() => {
       const snapshot = this.snapshot();
       void (snapshot.boardCount < this.boardTarget
