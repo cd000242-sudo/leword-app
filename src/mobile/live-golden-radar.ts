@@ -1571,6 +1571,10 @@ function hasNaturalSearchAdProbeShape(keyword: string, categoryId: string): bool
   if (/洹.*議/u.test(clean)) return true;
   if (SEARCHAD_UNNATURAL_AUDIENCE_COMPOUND_RE.test(clean)) return false;
   if (SEARCHAD_OVERCOMPOUND_EVENT_UTILITY_RE.test(clean)) return false;
+  if (/(?:KBO|\uD504\uB85C\uC57C\uAD6C|\uC62C\uC2A4\uD0C0\uC804).{0,24}(?:\uD2F0\uCF13\uD305|\uC608\uB9E4).{0,24}(?:\uC77C\uC815|\uBC29\uBC95|\uC8FC\uCC28|\uC785\uC7A5\uB8CC|\uC6B4\uC601\uC2DC\uAC04|\uC88C\uC11D\uBC30\uCE58\uB3C4|\uB77C\uC778\uC5C5|\uD558\uC774\uB77C\uC774\uD2B8)/iu.test(clean)) return false;
+  if (/(?:\uAD11\uBCF5\uC808|\uC81C\uD5CC\uC808|\uAC1C\uCC9C\uC808|\uD55C\uAE00\uB0A0|\uB300\uCCB4\uACF5\uD734\uC77C|\uACF5\uD734\uC77C).{0,24}(?:\uC2E0\uCCAD|\uC2E0\uCCAD\uAE30\uAC04|\uC2E0\uCCAD\uBC29\uBC95|\uD544\uC694\uC11C\uB958|\uC900\uBE44\uBB3C)/u.test(clean)) return false;
+  if (/(?:\uC0AC\uC6A9\uCC98\s*\uC870\uD68C|\uC0AC\uC6A9\uCC98).{0,12}\uC18C\uB4DD\uAE30\uC900|\uC18C\uB4DD\uAE30\uC900.{0,12}(?:\uC0AC\uC6A9\uCC98\s*\uC870\uD68C|\uC0AC\uC6A9\uCC98)/u.test(clean)) return false;
+  if (/(\uADFC\uB85C\uC7A5\uB824\uAE08|\uC18C\uC0C1\uACF5\uC778|\uC2E4\uC5C5\uAE09\uC5EC|\uBC14\uC6B0\uCC98|\uC9C0\uC6D0\uAE08|\uC2E0\uCCAD)(?:\s*\S+){0,4}\s*\1/u.test(clean.replace(/\s+/g, ' '))) return false;
   const tokenCount = clean.split(/\s+/).filter(Boolean).length;
   const fragments = ultimateIntentFragmentCount(clean);
   const category = inferLiveCategory(clean, categoryId || 'all');

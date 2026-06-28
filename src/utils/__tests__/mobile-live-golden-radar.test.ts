@@ -1084,6 +1084,16 @@ function thinProfileCount(items: Array<{ keyword: string }>): number {
       __liveGoldenRadarTestInternals.debugSearchAdMeasurableLiveCandidate('\uC2E4\uC5C5\uAE09\uC5EC \uC2E0\uCCAD \uBC29\uBC95', 'policy', lottoGuardNow),
       __liveGoldenRadarTestInternals.debugSearchAdMeasurableLiveCandidate('\uBD80\uC0B0\uBB38\uD654\uB204\uB9AC\uCE74\uB4DC\uC0AC\uC6A9\uCC98 \uC870\uD68C', 'policy', lottoGuardNow),
     ]));
+  assert('no-effect event and repeated application probes are skipped before SearchAd spend',
+    !__liveGoldenRadarTestInternals.isSearchAdMeasurableLiveCandidate('2026 KBO \uC62C\uC2A4\uD0C0\uC804 \uD2F0\uCF13\uD305 \uC77C\uC815', 'sports', lottoGuardNow)
+      && !__liveGoldenRadarTestInternals.isSearchAdMeasurableLiveCandidate('2026 \uAD11\uBCF5\uC808 \uB300\uCCB4\uACF5\uD734\uC77C \uC2E0\uCCAD\uBC29\uBC95', 'policy', lottoGuardNow)
+      && !__liveGoldenRadarTestInternals.isSearchAdMeasurableLiveCandidate('\uB18D\uC2DD\uD488\uBC14\uC6B0\uCC98\uC0AC\uC6A9\uCC98\uC870\uD68C \uC18C\uB4DD\uAE30\uC900', 'policy', lottoGuardNow)
+      && !__liveGoldenRadarTestInternals.isSearchAdMeasurableLiveCandidate('\uADFC\uB85C\uC7A5\uB824\uAE08 \uC2E0\uCCAD \uADFC\uB85C\uC7A5\uB824\uAE08\uC2E0\uCCAD\uB300\uC0C1', 'policy', lottoGuardNow)
+      && __liveGoldenRadarTestInternals.isSearchAdMeasurableLiveCandidate('\uC81C\uC8FC \uB80C\uD130\uCE74 \uC644\uC804\uC790\uCC28 \uAC00\uACA9\uBE44\uAD50', 'travel_domestic', lottoGuardNow),
+    JSON.stringify([
+      __liveGoldenRadarTestInternals.debugSearchAdMeasurableLiveCandidate('2026 KBO \uC62C\uC2A4\uD0C0\uC804 \uD2F0\uCF13\uD305 \uC77C\uC815', 'sports', lottoGuardNow),
+      __liveGoldenRadarTestInternals.debugSearchAdMeasurableLiveCandidate('\uADFC\uB85C\uC7A5\uB824\uAE08 \uC2E0\uCCAD \uADFC\uB85C\uC7A5\uB824\uAE08\uC2E0\uCCAD\uB300\uC0C1', 'policy', lottoGuardNow),
+    ]));
   const holidayProbeCandidates = __liveGoldenRadarTestInternals.buildMeasuredProbeCandidates('policy', [
     '2026 광복절 대체공휴일',
   ], 220, lottoGuardNow);
