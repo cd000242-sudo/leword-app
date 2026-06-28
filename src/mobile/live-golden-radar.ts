@@ -6355,6 +6355,7 @@ export class MobileLiveGoldenRadar {
         .map((intent) => appendCompatibleIntent(clean, intent))
         .filter(Boolean);
     const candidates = uniqueKeywords([
+      ...(isMeasuredDirectNeedBase(clean, inferredCategory) ? [clean] : []),
       ...buildWriterReadyProbeCandidatesForSeed(clean, inferredCategory, 24),
       ...buildCacheDerivedCompoundNeedSeeds(clean, inferredCategory, 30),
       ...buildUltimateNeedCandidatesForSeed(clean, inferredCategory, 8),
@@ -6368,7 +6369,19 @@ export class MobileLiveGoldenRadar {
       if (this.cacheDerivedLiveSeeds.some((seed) => keywordCompactId(seed) === compact)) continue;
       this.cacheDerivedLiveSeeds.push(candidate);
     }
-    this.queueMeasuredProbeCandidates(candidates, inferredCategory, 'cache-derived-probe', 60 + Math.min(priorityBoost, 220), false);
+    const directQueueCandidates = uniqueKeywords(
+      candidates.filter((candidate) => isMeasuredDirectNeedBase(candidate, inferredCategory)),
+      12,
+    );
+    if (directQueueCandidates.length > 0) {
+      this.queueMeasuredProbeCandidates(
+        directQueueCandidates,
+        inferredCategory,
+        'cache-derived-probe',
+        40 + Math.min(priorityBoost, 120),
+        false,
+      );
+    }
   }
 
   private refreshMeasuredReferenceSssProbeQueue(): number {
