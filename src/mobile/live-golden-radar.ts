@@ -5958,11 +5958,18 @@ export class MobileLiveGoldenRadar {
       if (!isLiveMeasuredProbeCandidate(clean, inferred || categoryId, now)) continue;
       if (!isHighYieldSearchAdSpendCandidate(clean, inferred || categoryId, now)) continue;
       if (this.board.has(keywordId(clean))) continue;
+      const directNeedBase = isMeasuredDirectNeedBase(clean, inferred || categoryId);
+      const cacheDerivedPenalty = source === 'cache-derived-probe' && !directNeedBase
+        ? 320
+        : source === 'measured-reference-sss-probe' && !directNeedBase
+          ? 180
+          : 0;
       const priority = Math.round(
         preVolumeCandidateScore(clean, inferred || categoryId)
         + priorityBoost
         + writerReadySssProbePriorityScore(clean, inferred || categoryId)
-        + (isLiveMeasuredProbeCandidate(clean, inferred || categoryId, now) ? 180 : 0),
+        + (isLiveMeasuredProbeCandidate(clean, inferred || categoryId, now) ? 180 : 0)
+        - cacheDerivedPenalty,
       );
       const existing = existingById.get(compact);
       if (existing) {
@@ -6343,16 +6350,16 @@ export class MobileLiveGoldenRadar {
     const intentCandidates = ultimateIntentFragmentCount(clean) >= 2
       ? [clean]
       : getLiveSeedBackfillIntents(clean, inferredCategory)
-        .slice(0, 10)
+        .slice(0, 5)
         .filter((intent) => isUltimateIntentCompatible(clean, intent, inferredCategory))
         .map((intent) => appendCompatibleIntent(clean, intent))
         .filter(Boolean);
     const candidates = uniqueKeywords([
-      ...buildWriterReadyProbeCandidatesForSeed(clean, inferredCategory, 48),
-      ...buildCacheDerivedCompoundNeedSeeds(clean, inferredCategory, 72),
-      ...buildUltimateNeedCandidatesForSeed(clean, inferredCategory, 14),
+      ...buildWriterReadyProbeCandidatesForSeed(clean, inferredCategory, 24),
+      ...buildCacheDerivedCompoundNeedSeeds(clean, inferredCategory, 30),
+      ...buildUltimateNeedCandidatesForSeed(clean, inferredCategory, 8),
       ...intentCandidates,
-    ], 96)
+    ], 42)
       .filter((candidate) => isLiveRadarUsableKeyword(candidate, null, null, this.now()));
     for (const candidate of candidates) {
       if (this.cacheDerivedLiveSeeds.length >= 1200) break;
@@ -6361,7 +6368,7 @@ export class MobileLiveGoldenRadar {
       if (this.cacheDerivedLiveSeeds.some((seed) => keywordCompactId(seed) === compact)) continue;
       this.cacheDerivedLiveSeeds.push(candidate);
     }
-    this.queueMeasuredProbeCandidates(candidates, inferredCategory, 'cache-derived-probe', 120 + priorityBoost, false);
+    this.queueMeasuredProbeCandidates(candidates, inferredCategory, 'cache-derived-probe', 60 + Math.min(priorityBoost, 220), false);
   }
 
   private refreshMeasuredReferenceSssProbeQueue(): number {
@@ -6389,24 +6396,24 @@ export class MobileLiveGoldenRadar {
       const volume = finiteNumber(item.totalSearchVolume) || 0;
       const docs = finiteNumber(item.documentCount) || 0;
       const candidateLimit = isOverbroadNoEffectBoardKeyword(item) || isBroadHeadSssKeyword(keyword)
-        ? 120
-        : 72;
+        ? 54
+        : 36;
       const intentCandidates = getLiveSeedBackfillIntents(keyword, category)
-        .slice(0, 12)
+        .slice(0, 6)
         .filter((intent) => isUltimateIntentCompatible(keyword, intent, category))
         .map((intent) => appendCompatibleIntent(keyword, intent))
         .filter(Boolean);
       const candidates = uniqueKeywords([
-        ...buildWriterReadyProbeCandidatesForSeed(keyword, category, Math.min(48, candidateLimit)),
+        ...buildWriterReadyProbeCandidatesForSeed(keyword, category, Math.min(24, candidateLimit)),
         ...buildCacheDerivedCompoundNeedSeeds(keyword, category, candidateLimit),
-        ...buildUltimateNeedCandidatesForSeed(keyword, category, Math.min(24, candidateLimit)),
+        ...buildUltimateNeedCandidatesForSeed(keyword, category, Math.min(10, candidateLimit)),
         ...intentCandidates,
       ], candidateLimit)
         .filter((candidate) => keywordCompactId(candidate) !== keywordCompactId(keyword))
         .filter((candidate) => isLiveRadarUsableKeyword(candidate, null, null, now));
       if (candidates.length === 0) continue;
       const boost = LIVE_REFERENCE_SSS_PROBE_PRIORITY_BOOST
-        + this.cacheDerivedPriorityBoost(volume, docs)
+        + Math.min(this.cacheDerivedPriorityBoost(volume, docs), 240)
         + (isOverbroadNoEffectBoardKeyword(item) || isBroadHeadSssKeyword(keyword) ? 180 : 0);
       changed += this.queueMeasuredProbeCandidates(
         candidates,
