@@ -48,6 +48,8 @@ services:
     image: ${LEWORD_MOBILE_API_IMAGE:-ghcr.io/cd000242-sudo/leword-mobile-api:latest}
     restart: unless-stopped
     command: ["npm", "--prefix", "apps/api", "run", "worker:live-golden"]
+    healthcheck:
+      disable: true
     env_file:
       - .env.production
     environment:
