@@ -151,14 +151,14 @@ assert('LEWORD view removes source board from the golden tab',
     && html.includes('function setActiveView')
     && html.includes("document.querySelectorAll('[data-view-target]')"));
 
-assert('home view embeds outcome cards instead of the old operations subtab',
-  html.includes('id="homeOutcomes"')
-    && html.includes('id="homeOutcomeCards"')
-    && html.includes('id="refreshHomeOutcomes"')
-    && html.includes("proOutcomes: apiUrl('/v1/mobile/pro-outcomes')")
-    && html.includes('function loadHomeOutcomes()')
-    && html.includes('function renderHomeOutcomesSnapshot')
-    && html.includes('loadHomeOutcomes().catch')
+assert('home view starts directly with live golden board without intro or outcome cards',
+  !html.includes('LEWORD Pro Web: 서버 기반 키워드 분석')
+    && !html.includes('id="homeOutcomes"')
+    && !html.includes('id="homeOutcomeCards"')
+    && !html.includes('id="refreshHomeOutcomes"')
+    && !html.includes('function loadHomeOutcomes()')
+    && !html.includes('function renderHomeOutcomesSnapshot')
+    && !html.includes('loadHomeOutcomes().catch')
     && !html.includes('id="ops" data-view="ops"')
     && !html.includes('id="opsTabs"')
     && !html.includes('data-ops-tab')
