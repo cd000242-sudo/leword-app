@@ -1050,6 +1050,36 @@ function thinProfileCount(items: Array<{ keyword: string }>): number {
       && footballIssueProbeCandidates.some((keyword) => /홍명보\s*감독\s*(?:대표팀\s*명단|경기\s*시간|상대전적)/.test(keyword))
       && footballIssueProbeCandidates.every((keyword) => !/(?:KBO|프로야구|올스타전|클라이밍\s*초보\s*중계)/.test(keyword)),
     footballIssueProbeCandidates.slice(0, 80).join('|'));
+  const semanticMismatchProbeCases = [
+    ['신입사원 강회장 출연진 최저가 구매처', 'broadcast'],
+    ['신입사원 강회장 방송시간 가격비교 후기', 'broadcast'],
+    ['멋진 신세계 방송시간 방송시간 다시보기', 'broadcast'],
+    ['파트릭 클라위버르트 프로필 가격비교', 'sports'],
+    ['월드컵 조편성 최저가 비교', 'sports'],
+  ] as const;
+  assert('measured probe generator blocks person broadcast and live sports commerce mismatches',
+    semanticMismatchProbeCases.every(([keyword, category]) => (
+      !__liveGoldenRadarTestInternals.isSearchAdMeasurableLiveCandidate(keyword, category, lottoGuardNow)
+        && !__liveGoldenRadarTestInternals.isHighYieldSearchAdSpendCandidate(keyword, category, lottoGuardNow)
+    )),
+    JSON.stringify(semanticMismatchProbeCases.map(([keyword, category]) => ({
+      keyword,
+      category,
+      debug: __liveGoldenRadarTestInternals.debugSearchAdMeasurableLiveCandidate(keyword, category, lottoGuardNow),
+    }))));
+  const semanticProbePortfolio = __liveGoldenRadarTestInternals.buildMeasuredProbeCandidates('all', [
+    '멋진 신세계',
+    '신입사원 강회장',
+    '파트릭 클라위버르트 프로필',
+    '월드컵',
+    '홍명보 감독',
+  ], 420, lottoGuardNow);
+  assert('measured probe portfolio does not spend SearchAd calls on mismatched issue commerce tails',
+    semanticProbePortfolio.every((keyword) => (
+      !/(?:출연진|방송시간|프로필|월드컵|홍명보).{0,18}(?:가격비교|최저가|구매처|렌탈|보험\s*적용|추천\s*후기)/u.test(keyword)
+        && !/(?:방송시간.{0,8}방송시간|출연진.{0,8}출연진|가격비교.{0,8}가격비교|최저가.{0,8}최저가)/u.test(keyword)
+    )),
+    semanticProbePortfolio.slice(0, 100).join('|'));
   const productEventTailMismatchCases = [
     ['\uB808\uC778\uBD80\uCE20 \uC21C\uC704 \uC911\uACC4 \uC77C\uC815', 'shopping'],
     ['\uB808\uC778\uBD80\uCE20 \uC21C\uC704 \uACBD\uAE30 \uC77C\uC815', 'shopping'],

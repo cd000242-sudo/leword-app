@@ -1684,6 +1684,7 @@ function isSearchAdMeasurableLiveCandidate(keyword: string, categoryId: string, 
   if (!clean) return false;
   if (isBroadGenericPolicySearchAdProbe(clean)) return false;
   if (/洹.*議/u.test(clean)) return true;
+  if (isSemanticallyMismatchedMeasuredProbe(clean)) return false;
   if (isInvalidNonProductCommerceExpansion(clean)) return false;
   if (isSyntheticNoEffectLiveProbe(clean)) return false;
   const compactLength = clean.replace(/\s+/g, '').length;
@@ -2766,6 +2767,9 @@ const LOW_VALUE_SYNTHETIC_CHAIN_RE = /(?:^\d{1,2}월\s*\d{1,2}일\s+|([가-힣A-
 const NON_PRODUCT_COMMERCE_TAIL_RE = /(?:가격비교|최저가|구매처|할인\s*쿠폰|할인|쿠폰|렌탈|렌트|보험\s*적용\s*비용|비용\s*비교|추천\s*후기|실사용\s*후기)/u;
 const NON_PRODUCT_COMMERCE_BASE_RE = /(?:로또|당첨번호|당첨지역|공휴일|대체공휴일|제헌절|광복절|개천절|한글날|추석|설날|근로자의날|지원금|장려금|수당|급여|환급일|정책|KBO|프로야구|올스타전|월드컵|FIFA|입장료|주차|운영시간|티켓팅|예매|좌석배치도|라인업|하이라이트|경기일정|몇부작|등장인물|줄거리|원작|OTT|나무위키|송지호|바다하늘길|축제|공연|콘서트|전시|행사|관광|여행|공원|수목원|박람회|엑스포|페스티벌)/iu;
 const VALID_EVENT_UTILITY_TAIL_RE = /(?:예매|티켓팅|좌석|주차|입장료|운영시간|일정|라인업|중계|하이라이트)/u;
+const LIVE_MEASURED_PROBE_NEWS_PERSON_BASE_RE = /(?:프로필|인물정보|약력|나이|학력|고향|키|인스타|나무위키|가족|결혼|남편|아내|부인|군대|작품활동|필모그래피|감독|선수|배우|가수|회장|대표|후보|특검|반란|활약|근황|발언|논란|출전|작은\s*키)/u;
+const LIVE_MEASURED_PROBE_BROADCAST_BASE_RE = /(?:드라마|예능|방송|방송시간|출연진|몇부작|등장인물|인물관계도|다시보기|재방송|공식영상|시청률|참교육|신입사원\s*강회장|멋진\s*신세계)/u;
+const DUPLICATED_MEASURED_PROBE_INTENT_RE = /(?:방송시간.{0,8}방송시간|출연진.{0,8}출연진|몇부작.{0,8}몇부작|가격비교.{0,8}가격비교|최저가.{0,8}최저가|구매처.{0,8}구매처|추천\s*후기.{0,8}추천\s*후기|중계\s*일정.{0,8}중계\s*일정|경기\s*시간.{0,8}경기\s*시간)/u;
 
 const SPORTS_LIVE_EVENT_TOPIC_RE = /(?:월드컵|북중미\s*월드컵|월드컵\s*예선|FIFA|축구|축구\s*국가대표|국가대표|대표팀|A매치|홍명보|손흥민|김민재|이강인|엔트리|명단|조편성|대진표)/iu;
 const SPORTS_LIVE_EVENT_ACTION_INTENT_RE = /(?:중계|경기\s*일정|경기\s*시간|일정|시간|명단|라인업|선발|엔트리|소집|출전|예매|티켓|티켓팅|좌석|조편성|대진표|순위|결과|하이라이트|상대전적|감독|선수|최종명단|조별리그)/u;
@@ -2791,6 +2795,17 @@ function isInvalidNonProductCommerceExpansion(keyword: string): boolean {
   const onlyEventUtility = VALID_EVENT_UTILITY_TAIL_RE.test(clean)
     && !/(?:가격비교|최저가|구매처|할인|쿠폰|렌탈|렌트|보험\s*적용|비용\s*비교|추천\s*후기|실사용\s*후기)/u.test(clean);
   return !onlyEventUtility;
+}
+
+function isSemanticallyMismatchedMeasuredProbe(keyword: string): boolean {
+  const clean = normalizeKeyword(keyword);
+  if (!clean) return false;
+  const normalized = clean.replace(/\s+/g, ' ');
+  if (DUPLICATED_MEASURED_PROBE_INTENT_RE.test(normalized)) return true;
+  if (!NON_PRODUCT_COMMERCE_TAIL_RE.test(normalized)) return false;
+  if (LIVE_MEASURED_PROBE_BROADCAST_BASE_RE.test(normalized)) return true;
+  if (LIVE_MEASURED_PROBE_NEWS_PERSON_BASE_RE.test(normalized)) return true;
+  return isSportsLiveEventSeed(normalized) && !LIVE_MEASURED_PROBE_SPORTS_EQUIPMENT_RE.test(normalized);
 }
 
 const WEAK_AUTOGEN_PROBE_COMBO_RE = /(?:(?:오메가3|비타민|유산균|영양제|크림|샴푸|선크림|청소기|에어컨|제습기|공기청정기|로봇청소기|노트북|아이폰|갤럭시|모니터|키보드|마우스|이어폰|헤드폰).{0,18}(?:신청|신청\s*대상|자격|지급일|소득기준|필요\s*서류|마감일|예약\s*방법)|(?:순위|랭킹).{0,12}예약|(?:싱크대|배수구|수전|변기|방충망|도어락|인테리어|수리|교체|샤워부스|욕실|물때|곰팡이|냄새|스테인레스|진공단열재).{0,18}(?:프리랜서|알바|개인사업자|무직자|맞벌이|신청\s*대상|신청\s*조건|소득기준|지급일)|(?:근로장려금|자녀장려금|지원금|바우처|수당|급여|환급|적금|대출).{0,18}(?:최저가|구매처|할인\s*쿠폰|렌탈|가격비교\s*후기))/u;
@@ -3792,7 +3807,7 @@ const LIVE_MEASURED_PROBE_INTENTS: Record<string, readonly string[]> = Object.fr
   health: ['보험 적용 비용', '검사 비용', '치료 비용', '후기', '주의사항', '실비 청구', '부작용', '예약 방법'],
   it: ['가격비교', '추천 후기', '사용법', '구독료', '요금제 비교', '무료 대안', '업무 자동화', '템플릿'],
   education: ['신청 방법', '시험 일정', '준비물', '응시료', '합격 기준', '접수 기간', '환불 규정'],
-  sports: ['가격비교', '추천 후기', '최저가 비교', '구매처 추천', '스펙 비교'],
+  sports: ['중계 일정', '경기 시간', '대표팀 명단', '라인업', '조편성', '대진표', '상대전적', '하이라이트'],
 });
 
 const LIVE_MEASURED_PROBE_DETAIL_MODIFIERS: Record<string, readonly string[]> = Object.freeze({
@@ -3834,6 +3849,7 @@ const LIVE_GOLDEN_DEFAULT_PORTFOLIO_CATEGORY_KEYS = Object.freeze([
 
 const LIVE_MEASURED_PROBE_SIGNAL_RE = /(?:가격비교|최저가|비교|추천|후기|예약|예매|비용|보험\s*적용|세액공제|수수료|금리|신청|대상|지급일|사용처|구매처|소득기준|가입신청|잔액조회|전기요금|전기세|소음|흡입력|배터리|물걸레|문턱|필터\s*교체|교체주기|완전자차|실비|면책기간|실기|접수|렌터카|렌트카|항공권|숙소|호텔|청소기|에어컨|제습기|공기청정기|중계|경기\s*일정|경기\s*시간|명단|라인업|엔트리|조편성|대진표|상대전적|ISA|IRP)/iu;
 const LIVE_MEASURED_PROBE_SPORTS_EQUIPMENT_RE = /(?:라켓|골프채|러닝화|축구화|골프공|글러브|배트|유니폼|요가매트|덤벨)/u;
+const LIVE_MEASURED_PROBE_SPORTS_EQUIPMENT_INTENTS = ['가격비교', '추천 후기', '최저가 비교', '구매처 추천', '스펙 비교'] as const;
 const LIVE_MEASURED_PROBE_PRODUCT_INTENT_RE = /(?:가격비교|최저가|비교|추천|후기|구매처|할인|쿠폰|스펙)/u;
 const LIVE_MEASURED_PROBE_EVENT_OR_POLICY_INTENT_RE = /(?:예약|예매|중계|라인업|경기|일정|입장료|주차|신청|지급일|자격|서류|환급|사용처|대상|조건|마감)/u;
 const LIVE_MEASURED_PROBE_GENERIC_AUDIENCE_RE = /(?:청년\s*일반\s*국민|청년일반\s*국민|일반\s*국민|아동\s*장애인|아동장애인)/u;
@@ -3872,7 +3888,8 @@ function productGenericStackTokenCount(keyword: string): number {
 function isSyntheticNoEffectLiveProbe(keyword: string): boolean {
   const clean = normalizeKeyword(keyword);
   if (!clean) return true;
-  return HOLIDAY_POLICY_TAIL_MISMATCH_RE.test(clean)
+  return isSemanticallyMismatchedMeasuredProbe(clean)
+    || HOLIDAY_POLICY_TAIL_MISMATCH_RE.test(clean)
     || isProductEventOrPromptTailMismatch(clean)
     || LOW_VALUE_ONLINE_SIGNUP_PROBE_RE.test(clean)
     || DUPLICATED_POLICY_TAIL_PROBE_RE.test(clean)
@@ -3930,6 +3947,17 @@ function measuredProbeCategoryKeys(categoryId: string, liveSeeds: string[]): str
     ...inferredSeedCategories,
     ...(LIVE_MEASURED_PROBE_CATEGORY_COMPAT[normalizedCategory] || []),
   ], 16);
+}
+
+function measuredProbeIntentsForBase(base: string, key: string): readonly string[] {
+  const cleanBase = normalizeKeyword(base);
+  const normalizedKey = normalizeKeyword(key || 'all') || 'all';
+  if (normalizedKey === 'sports') {
+    if (isSportsLiveEventSeed(cleanBase)) return LIVE_MEASURED_PROBE_INTENTS.sports || [];
+    if (LIVE_MEASURED_PROBE_SPORTS_EQUIPMENT_RE.test(cleanBase)) return LIVE_MEASURED_PROBE_SPORTS_EQUIPMENT_INTENTS;
+    return [];
+  }
+  return LIVE_MEASURED_PROBE_INTENTS[normalizedKey] || [];
 }
 
 const TRUSTED_WRITER_READY_MEASURED_PROBE_RE = /(?:\uC2E4\uC218\uB839\uC561|\uC790\uB3D9\uACC4\uC0B0|\uC8FC\uD734\uC218\uB2F9\s*\uACC4\uC0B0|\uACC4\uC0B0\uBC29\uBC95|\uACF5\uC81C\uD56D\uBAA9|3\.3\s*\uC138\uAE08|\uC138\uD6C4\s*\uACC4\uC0B0|4\uB300\uBCF4\uD5D8\uB8CC\s*\uC694\uC728|\uC138\uAE08\s*\uACF5\uC81C|\uC694\uC728\uD45C|\uC5D1\uC140\s*\uC591\uC2DD|\uC2E0\uCCAD\s*(?:\uB300\uC0C1|\uBC29\uBC95)|\uC790\uACA9\s*\uC870\uAC74|\uC9C0\uAE09\uC77C\s*\uC870\uD68C|\uC0AC\uC6A9\uCC98\s*\uC870\uD68C|\uC628\uB77C\uC778\s*\uC2E0\uCCAD|\uD544\uC694\s*\uC11C\uB958|\uB9C8\uAC10\uC77C\s*\uD655\uC778|\uC18C\uB4DD\uAE30\uC900\s*\uACC4\uC0B0|\uAC00\uC785\uC2E0\uCCAD|\uC794\uC561\uC870\uD68C|\uC644\uC804\uC790\uCC28|\uBA74\uCC45\uAE30\uAC04|\uC2E4\uBE44\s*\uCCAD\uAD6C|\uC138\uC561\uACF5\uC81C\s*\uD55C\uB3C4|\uC218\uC218\uB8CC\s*\uBE44\uAD50|\uAE08\uB9AC\s*\uBE44\uAD50|\uB9CC\uAE30\s*\uC218\uB839\uC561|\uD574\uC9C0\s*\uBD88\uC774\uC775)/u;
@@ -4102,6 +4130,7 @@ function isMeasuredProbeIntentCompatible(base: string, intent: string, categoryI
   const cleanIntent = normalizeKeyword(intent);
   if (!cleanBase || !cleanIntent) return false;
   const inferred = inferLiveCategory(cleanBase, categoryId);
+  if (isSemanticallyMismatchedMeasuredProbe(`${cleanBase} ${cleanIntent}`)) return false;
   if (/\bETF\b/iu.test(cleanBase) && /(?:세액공제|신청\s*방법|만기\s*수령액|해지\s*불이익)/u.test(cleanIntent)) return false;
   if (['policy', 'finance'].includes(inferred) && /(?:예약|예매|주차|입장료|숙소|호텔|픽업|환불\s*규정)/u.test(cleanIntent)) return false;
   if (inferred === 'finance' && /(?:신청\s*대상|필요\s*서류|온라인\s*신청)/u.test(cleanIntent) && !/청년|청약|대출|보험/u.test(cleanBase)) return false;
@@ -4425,13 +4454,13 @@ function buildMeasuredProbeCandidates(
       : [];
     const specificIntents = uniqueKeywords([
       ...sportsEventIntents,
-      ...(inferred && inferred !== 'all' ? (LIVE_MEASURED_PROBE_INTENTS[inferred] || []) : []),
-      ...scopedIntentKeys.flatMap((key) => LIVE_MEASURED_PROBE_INTENTS[key] || []),
+      ...(inferred && inferred !== 'all' ? measuredProbeIntentsForBase(base, inferred) : []),
+      ...scopedIntentKeys.flatMap((key) => measuredProbeIntentsForBase(base, key)),
     ], directlyMeasuredBase ? 8 : 14);
     const intentLimit = directlyMeasuredBase ? 4 : 10;
     const intents = uniqueKeywords([
       ...specificIntents,
-      ...(specificIntents.length === 0 ? (LIVE_MEASURED_PROBE_INTENTS.all || []) : []),
+      ...(specificIntents.length === 0 && inferred !== 'sports' ? (LIVE_MEASURED_PROBE_INTENTS.all || []) : []),
     ], intentLimit)
       .filter((intent) => isMeasuredProbeIntentCompatible(base, intent, inferred || categoryId))
       .sort((a, b) => measuredProbeIntentPriority(b, inferred || categoryId) - measuredProbeIntentPriority(a, inferred || categoryId));
@@ -5965,6 +5994,12 @@ export class MobileLiveGoldenRadar {
       if (snapshot.running || afterAttempts === beforeAttempts) break;
       if (this.skippedRuns > 0 && /busy|skipped/i.test(snapshot.lastMessage || '')) break;
       if (snapshot.boardCount <= beforeBoardCount && afterSssReady <= beforeSssReady) {
+        const runnableQueueRemaining = this.runnableMeasuredProbeQueueItems('all', this.runLimitForCurrentBoard()).length;
+        if (runnableQueueRemaining > 0 && cycle + 1 < cycleBudget) {
+          this.lastMessage = `catch-up continuing: board ${snapshot.boardCount}/${this.boardTarget}; probe queue ${runnableQueueRemaining} runnable`;
+          snapshot = this.snapshot();
+          continue;
+        }
         const queueSuffix = this.pendingMeasuredProbeQueue.length > 0
           ? `; probe queue ${this.pendingMeasuredProbeQueue.length} waiting for next interval`
           : '';
