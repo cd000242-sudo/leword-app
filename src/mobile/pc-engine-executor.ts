@@ -26,6 +26,7 @@ import {
   rankKeywordExpansionCandidates,
 } from '../utils/keyword-expansion-ranker';
 import {
+  isMindmapExpansionKeywordCandidate,
   type MindmapExpansionCandidate,
   rankMindmapExpansionCandidates,
 } from '../utils/mindmap-expansion-quality';
@@ -3045,6 +3046,7 @@ function isMindmapSearchPhraseCandidate(keyword: string): boolean {
   if (/[?]{2,}/.test(clean)) return false;
   if (/[:;!?]/.test(clean)) return false;
   if (MINDMAP_ARTICLE_TITLE_QUERY_RE.test(clean)) return false;
+  if (!isMindmapExpansionKeywordCandidate(clean)) return false;
   const tokens = keywordTokens(clean);
   if (tokens.length > 5) return false;
   return SAFE_HANGUL_SEARCH_RE.test(clean);

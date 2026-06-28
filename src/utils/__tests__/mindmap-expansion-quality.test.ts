@@ -107,6 +107,27 @@ assert('mindmap keeps concise measured-search calculator candidates',
     && insuranceCalculator.includes('4\uB300\uBCF4\uD5D8 \uC694\uC728'),
   insuranceCalculator.join(', '));
 
+const hongMindmap = rankMindmapExpansionCandidates('\uD64D\uBA85\uBCF4 \uAC10\uB3C5 \uC0AC\uD1F4', [
+  { keyword: 'AEO \uB2F5\uBCC0\uD615', sources: ['ai-strategy'] },
+  { keyword: 'GEO \uADFC\uAC70\uD615', sources: ['ai-strategy'] },
+  { keyword: '\uC800\uACBD\uC7C1 \uD6C4\uD0B9 \uC81C\uBAA9', sources: ['ai-strategy'] },
+  { keyword: '\uD6C4\uD0B9 \uB871\uD14C\uC77C', sources: ['ai-strategy'] },
+  { keyword: '\uC9C8\uBB38 \uD574\uACB0 \uCF58\uD150\uCE20', sources: ['ai-strategy'] },
+  { keyword: '\uD2B8\uB798\uD53D \uC21C\uD658 \uD074\uB7EC\uC2A4\uD130', sources: ['ai-strategy'] },
+  { keyword: '\uD64D\uBA85\uBCF4 \uAC10\uB3C5 \uC0AC\uD1F4, \uC9C0\uAE08 \uBD10\uC57C \uD560 \uAC74 \uB274\uC2A4 \uC81C\uBAA9\uBCF4\uB2E4 \uAE30\uB85D\uC774 \uBC14\uAFBC \uB2E4\uC74C \uD310\uB3C4', sources: ['ai-strategy'] },
+  { keyword: '\uAC80\uC0C9\uB7C9 \uBD99\uAE30 \uC804\uC5D0 \uC7A1\uC544\uC57C \uD560 \uD64D\uBA85\uBCF4 \uAC10\uB3C5 \uC0AC\uD1F4\uC758 \uC228\uC740 \uBCC0\uC218', sources: ['ai-strategy'] },
+  { keyword: '\uD64D\uBA85\uBCF4 \uAC10\uB3C5 \uC0AC\uD1F4 \uC774\uC720', sources: ['autocomplete'] },
+  { keyword: '\uD64D\uBA85\uBCF4 \uAC10\uB3C5 \uC0AC\uD1F4 \uC5EC\uB860', sources: ['autocomplete'] },
+  { keyword: '\uB300\uD55C\uCD95\uAD6C\uD611\uD68C \uAC10\uB3C5 \uAD50\uCCB4', sources: ['naver-relkwd'] },
+], 20).map(item => item.keyword);
+assert('mindmap drops content-strategy markdown labels and article-title copy',
+  !hongMindmap.some(keyword => /AEO|GEO|\uC800\uACBD\uC7C1|\uD6C4\uD0B9|\uC9C8\uBB38 \uD574\uACB0|\uD2B8\uB798\uD53D|\uB274\uC2A4 \uC81C\uBAA9|\uAC80\uC0C9\uB7C9 \uBD99\uAE30/.test(keyword)),
+  hongMindmap.join(', '));
+assert('mindmap keeps automation-ready keyword expansions',
+  hongMindmap.includes('\uD64D\uBA85\uBCF4 \uAC10\uB3C5 \uC0AC\uD1F4 \uC774\uC720')
+    && hongMindmap.includes('\uD64D\uBA85\uBCF4 \uAC10\uB3C5 \uC0AC\uD1F4 \uC5EC\uB860'),
+  hongMindmap.join(', '));
+
 console.log(`\n[mindmap-expansion-quality.test] passed: ${passed} / failed: ${failed}`);
 if (failed > 0) {
   failures.forEach(f => console.error('  ' + f));
