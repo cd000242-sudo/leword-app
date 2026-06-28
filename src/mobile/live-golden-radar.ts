@@ -172,6 +172,7 @@ const LIVE_SEARCHAD_VOLUME_MIN_REMAINING_MS = 2_000;
 const LIVE_PROBE_QUEUE_FILE_NAME = 'live-golden-probe-queue.json';
 const LIVE_PROBE_QUEUE_MAX_ITEMS = 5000;
 const LIVE_PROBE_QUEUE_FAMILY_MAX_ITEMS = 12;
+const LIVE_PROBE_QUEUE_CATEGORY_SHARE_CAP = 0.32;
 const LIVE_PROBE_QUEUE_MAX_ATTEMPTS = 4;
 const LIVE_PROBE_QUEUE_NO_RESULT_MAX = 2;
 const LIVE_PROBE_QUEUE_RETRY_DELAY_MS = 90 * 60 * 1000;
@@ -3657,6 +3658,95 @@ const LIVE_MEASURED_PROBE_BASES: Record<string, readonly string[]> = Object.free
   ],
 });
 
+const LIVE_MEASURED_PROBE_APEX_BASES: Record<string, readonly string[]> = Object.freeze({
+  all: [
+    '\uADFC\uB85C\uC7A5\uB824\uAE08 \uBC18\uAE30 \uC9C0\uAE09\uC77C',
+    '\uC790\uB140\uC7A5\uB824\uAE08 \uC9C0\uAE09\uC77C',
+    '\uCCAD\uB144\uB3C4\uC57D\uACC4\uC88C \uAC08\uC544\uD0C0\uAE30',
+    '\uC5D0\uB108\uC9C0\uBC14\uC6B0\uCC98 \uC794\uC561\uC870\uD68C',
+    '\uBB38\uD654\uB204\uB9AC\uCE74\uB4DC \uC794\uC561\uC870\uD68C',
+    '\uB18D\uC2DD\uD488\uBC14\uC6B0\uCC98 \uC0AC\uC6A9\uCC98',
+    '\uC804\uAE30\uC694\uAE08 \uBCF5\uC9C0\uD560\uC778 \uC2E0\uCCAD',
+    '\uC2E4\uC5C5\uAE09\uC5EC \uAD6C\uC9C1\uD65C\uB3D9',
+    '\uC2E4\uC5C5\uAE09\uC5EC \uC2E4\uC218\uB839\uC561',
+    '\uD504\uB9AC\uB79C\uC11C \uC885\uD569\uC18C\uB4DD\uC138 \uD658\uAE09',
+    '\uC18C\uC0C1\uACF5\uC778 \uD3D0\uC5C5\uC9C0\uC6D0\uAE08',
+    '\uC18C\uC0C1\uACF5\uC778 \uC815\uCC45\uC790\uAE08 \uC9C1\uC811\uB300\uCD9C',
+    '\uCC3D\uBB38\uD615\uC5D0\uC5B4\uCEE8 \uC804\uAE30\uC694\uAE08',
+    '\uC774\uB3D9\uC2DD\uC5D0\uC5B4\uCEE8 \uC18C\uC74C',
+    '\uC81C\uC2B5\uAE30 \uC804\uAE30\uC694\uAE08',
+    '\uB85C\uBD07\uCCAD\uC18C\uAE30 \uBB3C\uAC78\uB808',
+    '\uB85C\uBD07\uCCAD\uC18C\uAE30 \uBB38\uD131',
+    '\uBB34\uC120\uCCAD\uC18C\uAE30 \uBC30\uD130\uB9AC',
+    '\uACF5\uAE30\uCCAD\uC815\uAE30 \uD544\uD130 \uAD50\uCCB4',
+    '\uC74C\uC2DD\uBB3C\uCC98\uB9AC\uAE30 \uB0C4\uC0C8',
+    '\uC74C\uC2DD\uBB3C\uCC98\uB9AC\uAE30 \uC804\uAE30\uC694\uAE08',
+    '\uC81C\uC8FC \uB80C\uD130\uCE74 \uC644\uC804\uC790\uCC28',
+    '\uC81C\uC8FC \uB80C\uD130\uCE74 \uBCF4\uD5D8',
+    '\uC778\uCC9C\uACF5\uD56D \uC8FC\uCC28\uB300\uD589',
+    '\uC5EC\uD589\uC790\uBCF4\uD5D8 \uBE44\uAD50',
+    'IRP \uC138\uC561\uACF5\uC81C \uD55C\uB3C4',
+    'ISA \uB9CC\uAE30 \uC218\uB839\uC561',
+    '\uC8FC\uD0DD\uCCAD\uC57D \uB0A9\uC785\uC778\uC815\uC561',
+    '\uC790\uB3D9\uCC28\uBCF4\uD5D8 \uB9C8\uC77C\uB9AC\uC9C0 \uD658\uAE09',
+    '\uB3C4\uC218\uCE58\uB8CC \uC2E4\uBE44 \uCCAD\uAD6C',
+    '\uCE58\uC544\uBCF4\uD5D8 \uBA74\uCC45\uAE30\uAC04',
+    '\uC784\uD50C\uB780\uD2B8 \uBCF4\uD5D8 \uC801\uC6A9 \uBE44\uC6A9',
+  ],
+  policy: [
+    '\uADFC\uB85C\uC7A5\uB824\uAE08 \uBC18\uAE30 \uC9C0\uAE09\uC77C',
+    '\uC790\uB140\uC7A5\uB824\uAE08 \uC9C0\uAE09\uC77C',
+    '\uCCAD\uB144\uB3C4\uC57D\uACC4\uC88C \uAC08\uC544\uD0C0\uAE30',
+    '\uC5D0\uB108\uC9C0\uBC14\uC6B0\uCC98 \uC794\uC561\uC870\uD68C',
+    '\uBB38\uD654\uB204\uB9AC\uCE74\uB4DC \uC794\uC561\uC870\uD68C',
+    '\uB18D\uC2DD\uD488\uBC14\uC6B0\uCC98 \uC0AC\uC6A9\uCC98',
+    '\uC804\uAE30\uC694\uAE08 \uBCF5\uC9C0\uD560\uC778 \uC2E0\uCCAD',
+    '\uC2E4\uC5C5\uAE09\uC5EC \uAD6C\uC9C1\uD65C\uB3D9',
+    '\uC2E4\uC5C5\uAE09\uC5EC \uC2E4\uC218\uB839\uC561',
+    '\uD504\uB9AC\uB79C\uC11C \uC885\uD569\uC18C\uB4DD\uC138 \uD658\uAE09',
+    '\uC18C\uC0C1\uACF5\uC778 \uD3D0\uC5C5\uC9C0\uC6D0\uAE08',
+    '\uC18C\uC0C1\uACF5\uC778 \uC815\uCC45\uC790\uAE08 \uC9C1\uC811\uB300\uCD9C',
+  ],
+  shopping: [
+    '\uCC3D\uBB38\uD615\uC5D0\uC5B4\uCEE8 \uC804\uAE30\uC694\uAE08',
+    '\uC774\uB3D9\uC2DD\uC5D0\uC5B4\uCEE8 \uC18C\uC74C',
+    '\uC81C\uC2B5\uAE30 \uC804\uAE30\uC694\uAE08',
+    '\uB85C\uBD07\uCCAD\uC18C\uAE30 \uBB3C\uAC78\uB808',
+    '\uB85C\uBD07\uCCAD\uC18C\uAE30 \uBB38\uD131',
+    '\uBB34\uC120\uCCAD\uC18C\uAE30 \uBC30\uD130\uB9AC',
+    '\uACF5\uAE30\uCCAD\uC815\uAE30 \uD544\uD130 \uAD50\uCCB4',
+    '\uC74C\uC2DD\uBB3C\uCC98\uB9AC\uAE30 \uB0C4\uC0C8',
+    '\uC74C\uC2DD\uBB3C\uCC98\uB9AC\uAE30 \uC804\uAE30\uC694\uAE08',
+  ],
+  electronics: [
+    '\uCC3D\uBB38\uD615\uC5D0\uC5B4\uCEE8 \uC804\uAE30\uC694\uAE08',
+    '\uC774\uB3D9\uC2DD\uC5D0\uC5B4\uCEE8 \uC18C\uC74C',
+    '\uC81C\uC2B5\uAE30 \uC804\uAE30\uC694\uAE08',
+    '\uB85C\uBD07\uCCAD\uC18C\uAE30 \uBB3C\uAC78\uB808',
+    '\uB85C\uBD07\uCCAD\uC18C\uAE30 \uBB38\uD131',
+    '\uBB34\uC120\uCCAD\uC18C\uAE30 \uBC30\uD130\uB9AC',
+    '\uACF5\uAE30\uCCAD\uC815\uAE30 \uD544\uD130 \uAD50\uCCB4',
+    '\uC74C\uC2DD\uBB3C\uCC98\uB9AC\uAE30 \uB0C4\uC0C8',
+  ],
+  travel_domestic: [
+    '\uC81C\uC8FC \uB80C\uD130\uCE74 \uC644\uC804\uC790\uCC28',
+    '\uC81C\uC8FC \uB80C\uD130\uCE74 \uBCF4\uD5D8',
+    '\uC778\uCC9C\uACF5\uD56D \uC8FC\uCC28\uB300\uD589',
+    '\uC5EC\uD589\uC790\uBCF4\uD5D8 \uBE44\uAD50',
+  ],
+  finance: [
+    'IRP \uC138\uC561\uACF5\uC81C \uD55C\uB3C4',
+    'ISA \uB9CC\uAE30 \uC218\uB839\uC561',
+    '\uC8FC\uD0DD\uCCAD\uC57D \uB0A9\uC785\uC778\uC815\uC561',
+    '\uC790\uB3D9\uCC28\uBCF4\uD5D8 \uB9C8\uC77C\uB9AC\uC9C0 \uD658\uAE09',
+  ],
+  health: [
+    '\uB3C4\uC218\uCE58\uB8CC \uC2E4\uBE44 \uCCAD\uAD6C',
+    '\uCE58\uC544\uBCF4\uD5D8 \uBA74\uCC45\uAE30\uAC04',
+    '\uC784\uD50C\uB780\uD2B8 \uBCF4\uD5D8 \uC801\uC6A9 \uBE44\uC6A9',
+  ],
+});
+
 const LIVE_MEASURED_PROBE_INTENTS: Record<string, readonly string[]> = Object.freeze({
   all: ['가격비교', '추천 후기', '최저가 비교', '예약 방법', '비용 비교', '조회 방법', '신청 대상', '신청 방법', '필요 서류'],
   policy: ['신청 대상', '신청 방법', '지급일 조회', '사용처 조회', '지원금 조건', '자격 조건', '필요 서류', '소득기준 계산', '마감일 확인'],
@@ -3847,6 +3937,63 @@ function trimMeasuredProbeQueueFamilyFlood(
     trimmed.push(item);
   }
   return trimmed;
+}
+
+function measuredProbeQueueCategoryKey(item: LiveMeasuredProbeQueueItem): string {
+  return normalizeKeyword(item.category) || inferLiveCategory(item.keyword, 'all') || 'all';
+}
+
+function selectDiverseMeasuredProbeQueueItems(
+  sorted: LiveMeasuredProbeQueueItem[],
+  limit: number,
+): LiveMeasuredProbeQueueItem[] {
+  const target = Math.max(1, Math.floor(limit));
+  const selected: LiveMeasuredProbeQueueItem[] = [];
+  const selectedCompacts = new Set<string>();
+  const familyOrder: string[] = [];
+  const familyGroups = new Map<string, LiveMeasuredProbeQueueItem[]>();
+  const categoryCounts = new Map<string, number>();
+  const maxPerCategory = Math.max(8, Math.ceil(target * LIVE_PROBE_QUEUE_CATEGORY_SHARE_CAP));
+
+  for (const item of sorted) {
+    const compact = keywordCompactId(item.keyword);
+    if (!compact || selectedCompacts.has(compact)) continue;
+    const family = measuredProbeQueueFamilyKey(item.keyword);
+    if (!familyGroups.has(family)) {
+      familyGroups.set(family, []);
+      familyOrder.push(family);
+    }
+    familyGroups.get(family)?.push(item);
+  }
+
+  const push = (item: LiveMeasuredProbeQueueItem, respectCategory: boolean): boolean => {
+    if (selected.length >= target) return false;
+    const compact = keywordCompactId(item.keyword);
+    if (!compact || selectedCompacts.has(compact)) return false;
+    const category = measuredProbeQueueCategoryKey(item);
+    if (respectCategory && (categoryCounts.get(category) || 0) >= maxPerCategory) return false;
+    selected.push(item);
+    selectedCompacts.add(compact);
+    categoryCounts.set(category, (categoryCounts.get(category) || 0) + 1);
+    return true;
+  };
+
+  const roundRobin = (respectCategory: boolean): void => {
+    for (let depth = 0; selected.length < target; depth += 1) {
+      let added = false;
+      for (const family of familyOrder) {
+        if (selected.length >= target) break;
+        const item = familyGroups.get(family)?.[depth];
+        if (!item) continue;
+        added = push(item, respectCategory) || added;
+      }
+      if (!added) break;
+    }
+  };
+
+  roundRobin(true);
+  roundRobin(false);
+  return selected.slice(0, target);
 }
 
 const SEARCHAD_PROBE_VARIANT_TRAILING_INTENT_RE = /(?:\s+(?:\uBC29\uBC95|\uC870\uD68C|\uD655\uC778|\uC815\uB9AC|\uCD94\uCC9C|\uBE44\uAD50))$/u;
@@ -4131,6 +4278,9 @@ function buildMeasuredProbeCandidates(
   const categoryBases = useCatalogBases
     ? categoryKeys.flatMap((key) => LIVE_MEASURED_PROBE_BASES[key] || [])
     : [];
+  const apexBases = useCatalogBases
+    ? categoryKeys.flatMap((key) => LIVE_MEASURED_PROBE_APEX_BASES[key] || [])
+    : [];
   const discoveryBases = useCatalogBases
     ? categoryKeys.flatMap((key) => getDiscoveryCategorySeeds(key, 64))
     : [];
@@ -4152,8 +4302,8 @@ function buildMeasuredProbeCandidates(
       .filter((key) => key && key !== 'all' && !LIVE_PROMOTION_LOW_VALUE_CATEGORIES.has(key)),
   );
   const orderedBases = normalizedCategory === 'all'
-    ? [...categoryBases, ...discoveryBases, ...liveBases]
-    : [...liveBases, ...categoryBases, ...discoveryBases];
+    ? [...apexBases, ...categoryBases, ...discoveryBases, ...liveBases]
+    : [...liveBases, ...apexBases, ...categoryBases, ...discoveryBases];
   const bases = uniqueKeywords(orderedBases, 360)
     .map((base, index) => ({ base, index }))
     .filter((entry) => {
@@ -5781,7 +5931,7 @@ export class MobileLiveGoldenRadar {
       if (existing) {
         if (priority > existing.priority || source !== existing.source) {
           existing.priority = Math.max(existing.priority, priority);
-          existing.source = existing.source === source ? existing.source : `${existing.source},${source}`.slice(0, 120);
+          existing.source = uniqueKeywords([existing.source, source], 4).join(',');
           existing.category = existing.category || inferred || categoryId || 'all';
           changed += 1;
         }
@@ -5834,33 +5984,7 @@ export class MobileLiveGoldenRadar {
         if (scoreDiff !== 0) return scoreDiff;
         return Date.parse(a.firstSeenAt) - Date.parse(b.firstSeenAt);
       });
-    const selected: LiveMeasuredProbeQueueItem[] = [];
-    const seenCompacts = new Set<string>();
-    const familyOrder: string[] = [];
-    const familyGroups = new Map<string, LiveMeasuredProbeQueueItem[]>();
-    for (const item of sorted) {
-      const compact = keywordCompactId(item.keyword);
-      if (!compact || seenCompacts.has(compact)) continue;
-      seenCompacts.add(compact);
-      const family = measuredProbeQueueFamilyKey(item.keyword);
-      if (!familyGroups.has(family)) {
-        familyGroups.set(family, []);
-        familyOrder.push(family);
-      }
-      familyGroups.get(family)?.push(item);
-    }
-    for (let depth = 0; selected.length < limit; depth += 1) {
-      let added = false;
-      for (const family of familyOrder) {
-        if (selected.length >= limit) break;
-        const item = familyGroups.get(family)?.[depth];
-        if (!item) continue;
-        selected.push(item);
-        added = true;
-      }
-      if (!added) break;
-    }
-    return selected.slice(0, limit);
+    return selectDiverseMeasuredProbeQueueItems(sorted, limit);
   }
 
   private priorityMeasuredProbeQueueItems(categoryId = 'all', limit = this.cycleLimit): LiveMeasuredProbeQueueItem[] {
@@ -5894,29 +6018,7 @@ export class MobileLiveGoldenRadar {
         category: effectiveCategory,
       });
     }
-    const selected: LiveMeasuredProbeQueueItem[] = [];
-    const familyOrder: string[] = [];
-    const familyGroups = new Map<string, LiveMeasuredProbeQueueItem[]>();
-    for (const item of eligible) {
-      const family = measuredProbeQueueFamilyKey(item.keyword);
-      if (!familyGroups.has(family)) {
-        familyGroups.set(family, []);
-        familyOrder.push(family);
-      }
-      familyGroups.get(family)?.push(item);
-    }
-    for (let depth = 0; selected.length < limit; depth += 1) {
-      let added = false;
-      for (const family of familyOrder) {
-        if (selected.length >= limit) break;
-        const item = familyGroups.get(family)?.[depth];
-        if (!item) continue;
-        selected.push(item);
-        added = true;
-      }
-      if (!added) break;
-    }
-    return selected;
+    return selectDiverseMeasuredProbeQueueItems(eligible, limit);
   }
 
   private hasRunnableMeasuredProbeQueue(): boolean {
@@ -6169,6 +6271,34 @@ export class MobileLiveGoldenRadar {
     return Math.max(0, Math.min(420, volumeScore + scarcityScore + ratioScore));
   }
 
+  private shouldExpandMeasuredCacheSeed(
+    keyword: string,
+    categoryId: string,
+    volume: number | null,
+    documents: number | null,
+  ): boolean {
+    const clean = normalizeKeyword(keyword);
+    if (!clean || volume === null || documents === null || volume <= 0 || documents <= 0) return false;
+    if (isLottoLookupKeyword(clean) || isLowAdsenseLookupKeyword(clean) || isBrandSafetyNewsKeyword(clean)) return false;
+    if (isThinProfileIntentKeyword(clean) || isLowValueLiveCandidate(clean) || isOverExpandedLiveCandidate(clean)) return false;
+    const ratio = volume / documents;
+    const category = inferLiveCategory(clean, categoryId || 'all');
+    const strategicCategory = LIVE_PROMOTION_STRATEGIC_CATEGORIES.has(category);
+    const productOrTravel = PRODUCT_BASE_SIGNAL_RE.test(clean) || VENUE_TRAVEL_BASE_RE.test(clean);
+    const writerReady = hasWriterReadySpecificity(clean)
+      || hasWriterReadySearchAdProbeIntent(clean)
+      || hasLiveUltimateNeedIntent(clean)
+      || hasRobustActionableIntent(clean)
+      || isActionableGoldenKeyword(clean);
+    if (isBroadHeadSssKeyword(clean) && !writerReady) return false;
+    if (volume >= 1_000 && documents <= 5_000 && ratio >= 5 && writerReady) return true;
+    if (volume >= 500 && documents <= 10_000 && ratio >= 2 && writerReady) return true;
+    if (strategicCategory && volume >= 500 && documents <= 20_000 && ratio >= 1.2 && writerReady) return true;
+    if (productOrTravel && volume >= 300 && documents <= 30_000 && ratio >= 0.8) return true;
+    if ((category === 'policy' || category === 'finance') && volume >= 1_000 && documents <= 30_000 && ratio >= 1.5) return true;
+    return false;
+  }
+
   private rememberCacheDerivedLiveSeeds(keyword: string, categoryId: string, priorityBoost = 0): void {
     const clean = normalizeKeyword(keyword);
     if (!clean || isNoisyLiveSeed(clean) || isThinProfileIntentKeyword(clean) || isLowValueLiveCandidate(clean)) return;
@@ -6210,6 +6340,7 @@ export class MobileLiveGoldenRadar {
         if (ratio < LIVE_REFERENCE_SSS_PROBE_MIN_RATIO) return false;
         if (isLottoLookupKeyword(keyword) || isLowAdsenseLookupKeyword(keyword) || isBrandSafetyNewsKeyword(keyword)) return false;
         if (!isMeasuredBoardReferenceMetric(item, now)) return false;
+        if (!this.shouldExpandMeasuredCacheSeed(keyword, item.category || 'all', volume, docs)) return false;
         return true;
       })
       .slice(0, LIVE_REFERENCE_SSS_PROBE_LIMIT);
@@ -7738,11 +7869,14 @@ export class MobileLiveGoldenRadar {
           ?? finiteNumber(row?.documents)
           ?? finiteNumber(row?.docs);
         if (totalSearchVolume === null || documentCount === null || documentCount <= 0) return;
-        this.rememberCacheDerivedLiveSeeds(
-          keyword,
-          normalizeKeyword(row?.category) || 'persistent-cache',
-          this.cacheDerivedPriorityBoost(totalSearchVolume, documentCount),
-        );
+        const sourceCategory = normalizeKeyword(row?.category) || 'persistent-cache';
+        if (this.shouldExpandMeasuredCacheSeed(keyword, sourceCategory, totalSearchVolume, documentCount)) {
+          this.rememberCacheDerivedLiveSeeds(
+            keyword,
+            sourceCategory,
+            this.cacheDerivedPriorityBoost(totalSearchVolume, documentCount),
+          );
+        }
         const goldenRatio = finiteNumber(row?.goldenRatio)
           ?? Number((totalSearchVolume / documentCount).toFixed(2));
         const actionable = hasRobustActionableIntent(keyword)
