@@ -1075,6 +1075,9 @@ function thinProfileCount(items: Array<{ keyword: string }>): number {
     !__liveGoldenRadarTestInternals.isSearchAdMeasurableLiveCandidate('\uC2E4\uC5C5\uAE09\uC5EC \uC2E0\uCCAD \uBC29\uBC95', 'policy', lottoGuardNow)
       && !__liveGoldenRadarTestInternals.isSearchAdMeasurableLiveCandidate('\uAD6D\uBBFC\uB0B4\uC77C\uBC30\uC6C0\uCE74\uB4DC\uC2E0\uCCAD\uBC29\uBC95', 'policy', lottoGuardNow)
       && !__liveGoldenRadarTestInternals.isSearchAdMeasurableLiveCandidate('\uADFC\uB85C\uC7A5\uB824\uAE08 \uC9C0\uAE09\uC77C \uC870\uD68C', 'policy', lottoGuardNow)
+      && !__liveGoldenRadarTestInternals.isSearchAdMeasurableLiveCandidate('\uCCAD\uB144\uB0B4\uC77C\uC800\uCD95\uACC4\uC88C \uC2E0\uCCAD \uBC29\uBC95', 'policy', lottoGuardNow)
+      && !__liveGoldenRadarTestInternals.isSearchAdMeasurableLiveCandidate('\uC18C\uC0C1\uACF5\uC778\uD3D0\uC5C5\uC9C0\uC6D0\uAE08 \uC2E0\uCCAD \uBC29\uBC95', 'policy', lottoGuardNow)
+      && !__liveGoldenRadarTestInternals.isSearchAdMeasurableLiveCandidate('\uAE30\uC800\uADC0\uBC14\uC6B0\uCC98 \uC2E0\uCCAD \uB300\uC0C1', 'policy', lottoGuardNow)
       && __liveGoldenRadarTestInternals.isSearchAdMeasurableLiveCandidate('\uBD80\uC0B0\uBB38\uD654\uB204\uB9AC\uCE74\uB4DC\uC0AC\uC6A9\uCC98 \uC870\uD68C', 'policy', lottoGuardNow)
       && __liveGoldenRadarTestInternals.isSearchAdMeasurableLiveCandidate('\uC54C\uBC14 \uADFC\uB85C\uC7A5\uB824\uAE08 \uC2E4\uC218\uB839\uC561', 'policy', lottoGuardNow),
     JSON.stringify([
@@ -2953,7 +2956,7 @@ function thinProfileCount(items: Array<{ keyword: string }>): number {
     '\uADFC\uBB34\uC2DC\uAC04\uACC4\uC0B0\uAE30 \uC77C\uC6A9\uC9C1 \uACC4\uC0B0\uBC29\uBC95',
     '\uCFE0\uCFE0\uC81C\uC2B5\uAE30\uB80C\uD0C8 \uAD6C\uB9E4\uCC98 \uCD94\uCC9C',
     '\uBD80\uC0B0\uBB38\uD654\uB204\uB9AC\uCE74\uB4DC\uC0AC\uC6A9\uCC98 \uC870\uD68C',
-    '\uCCAB\uB9CC\uB0A8\uC774\uC6A9\uAD8C\uC9C0\uAE09\uC77C \uC870\uD68C',
+    '\uCCAD\uB144\uBBF8\uB798\uC801\uAE08 \uB9CC\uAE30\uC218\uB839\uC561 \uACC4\uC0B0',
   ];
   const queueFamilyProbeFile = path.join(process.cwd(), 'tmp', 'mobile-live-golden-queue-family-test.json');
   fs.writeFileSync(queueFamilyProbeFile, JSON.stringify({
