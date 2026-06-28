@@ -1090,8 +1090,12 @@ function thinProfileCount(items: Array<{ keyword: string }>): number {
       && !__liveGoldenRadarTestInternals.isSearchAdMeasurableLiveCandidate('\uB18D\uC2DD\uD488\uBC14\uC6B0\uCC98\uC0AC\uC6A9\uCC98\uC870\uD68C \uC18C\uB4DD\uAE30\uC900', 'policy', lottoGuardNow)
       && !__liveGoldenRadarTestInternals.isSearchAdMeasurableLiveCandidate('\uADFC\uB85C\uC7A5\uB824\uAE08 \uC2E0\uCCAD \uADFC\uB85C\uC7A5\uB824\uAE08\uC2E0\uCCAD\uB300\uC0C1', 'policy', lottoGuardNow)
       && !__liveGoldenRadarTestInternals.isSearchAdMeasurableLiveCandidate('\uBB38\uD654\uB204\uB9AC\uCE74\uB4DC\uC628\uB77C\uC778\uAC00\uB9F9\uC810 \uC790\uACA9 \uC870\uAC74', 'policy', lottoGuardNow)
+      && !__liveGoldenRadarTestInternals.isSearchAdMeasurableLiveCandidate('\uBB38\uD654\uB204\uB9AC\uCE74\uB4DC\uC628\uB77C\uC778\uAC00\uB9F9\uC810 \uC2E0\uCCAD \uBC29\uBC95', 'policy', lottoGuardNow)
+      && !__liveGoldenRadarTestInternals.isSearchAdMeasurableLiveCandidate('\uBB38\uD654\uB204\uB9AC\uCE74\uB4DC\uC628\uB77C\uC778\uC1FC\uD551\uBAB0 \uC2E0\uCCAD \uB300\uC0C1', 'policy', lottoGuardNow)
       && !__liveGoldenRadarTestInternals.isSearchAdMeasurableLiveCandidate('\uC5F0\uCC28\uC218\uB2F9\uACC4\uC0B0\uAE30 4\uB300\uBCF4\uD5D8\uB8CC \uC694\uC728 \uACC4\uC0B0', 'policy', lottoGuardNow)
+      && !__liveGoldenRadarTestInternals.isSearchAdMeasurableLiveCandidate('\uC790\uC601\uC5C5\uC790\uC2E4\uC5C5\uAE09\uC5EC\uC2E0\uCCAD\uBC29\uBC95 \uC138\uD6C4\uACC4\uC0B0', 'policy', lottoGuardNow)
       && !__liveGoldenRadarTestInternals.isSearchAdMeasurableLiveCandidate('\uC2DC\uC2A4\uD15C\uC5D0\uC5B4\uCEE8\uBE44\uC6A9 \uC6D0\uB8F8 \uC804\uAE30\uC694\uAE08 \uBE44\uAD50', 'electronics', lottoGuardNow)
+      && !__liveGoldenRadarTestInternals.isSearchAdMeasurableLiveCandidate('\uBCBD\uAC78\uC774\uC5D0\uC5B4\uCEE8\uC124\uCE58\uBE44\uC6A9 \uC790\uCDE8\uBC29 \uC18C\uC74C \uBE44\uAD50', 'electronics', lottoGuardNow)
       && __liveGoldenRadarTestInternals.isSearchAdMeasurableLiveCandidate('\uC81C\uC8FC \uB80C\uD130\uCE74 \uC644\uC804\uC790\uCC28 \uAC00\uACA9\uBE44\uAD50', 'travel_domestic', lottoGuardNow),
     JSON.stringify([
       __liveGoldenRadarTestInternals.debugSearchAdMeasurableLiveCandidate('2026 KBO \uC62C\uC2A4\uD0C0\uC804 \uD2F0\uCF13\uD305 \uC77C\uC815', 'sports', lottoGuardNow),
