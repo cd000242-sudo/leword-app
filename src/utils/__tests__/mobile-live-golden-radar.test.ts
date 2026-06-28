@@ -639,6 +639,11 @@ function thinProfileCount(items: Array<{ keyword: string }>): number {
     'policy',
     30,
   );
+  const cacheDerivedPolicyCalculatorCandidates = __liveGoldenRadarTestInternals.buildCacheDerivedCompoundNeedSeeds(
+    '\uAE30\uCD08\uC5F0\uAE08\uC218\uAE09\uC790\uACA9\uBAA8\uC758\uACC4\uC0B0\uAE30',
+    'policy',
+    30,
+  );
   assert('cache-derived broad calculator seeds expand into writer-ready measured probes',
     cacheDerivedCalculatorCandidates.some((keyword) => keyword.includes('\uD504\uB9AC\uB79C\uC11C') && keyword.includes('\uC2E4\uC218\uB839\uC561'))
       && cacheDerivedCalculatorCandidates.some((keyword) => keyword.includes('\uC54C\uBC14') && keyword.includes('\uC790\uB3D9\uACC4\uC0B0'))
@@ -646,6 +651,10 @@ function thinProfileCount(items: Array<{ keyword: string }>): number {
       && !cacheDerivedCalculatorCandidates.some((keyword) => keyword.includes('\uAC1C\uC778\uC0AC\uC5C5\uC790') && keyword.includes('\uACF5\uC81C\uD56D\uBAA9'))
       && !cacheDerivedCalculatorCandidates.some((keyword) => keyword.includes('\uD6C4\uAE30')),
     cacheDerivedCalculatorCandidates.join('|'));
+  assert('cache-derived policy calculators do not generate payroll or insurance dead-end probes',
+    cacheDerivedPolicyCalculatorCandidates.length === 0
+      || cacheDerivedPolicyCalculatorCandidates.every((keyword) => !/(?:\uD504\uB9AC\uB79C\uC11C|4\uB300\uBCF4\uD5D8|\uC0AC\uB300\uBCF4\uD5D8|\uD1F4\uC9C1\uAE08|\uC8FC\uD734\uC218\uB2F9|3\.3|\uC138\uD6C4)/u.test(keyword)),
+    cacheDerivedPolicyCalculatorCandidates.join('|'));
   const cacheDerivedCommerceCandidates = __liveGoldenRadarTestInternals.buildCacheDerivedCompoundNeedSeeds(
     '\uC704\uB2C9\uC2A4\uCC3D\uBB38\uD615\uC5D0\uC5B4\uCEE8',
     'electronics',
@@ -695,13 +704,15 @@ function thinProfileCount(items: Array<{ keyword: string }>): number {
     ['\uD558\uC774\uB514\uB77C\uC624 \uAFC0\uD301', 'policy'],
     ['\uBD80\uB2F9\uD574\uACE0\uAD6C\uC81C\uC2E0\uCCAD \uD6C4\uAE30', 'home_life'],
     ['\uB808\uC778\uBD80\uCE20 \uD6C4\uAE30', 'home_life'],
+    ['\uBB38\uD654\uB204\uB9AC\uCE74\uB4DC\uC628\uB77C\uC778\uACB0\uC81C', 'policy'],
+    ['\uBB38\uD654\uB204\uB9AC\uCE74\uB4DC\uC628\uB77C\uC778\uAC00\uB9F9\uC810', 'policy'],
   ] as const;
   const cacheDerivedMismatchCandidates = cacheDerivedMismatchSeeds.flatMap(([seed, category]) => (
     __liveGoldenRadarTestInternals.buildCacheDerivedCompoundNeedSeeds(seed, category, 60)
   ));
   assert('cache-derived expansion rejects cross-context no-effect probe tails before they reach the queue',
     cacheDerivedMismatchCandidates.every((keyword) => (
-      !/(?:(?:\uAC15\uB989|\uAC15\uC6D0\uB3C4).{0,18}(?:\uAD6C\uB9E4\uCC98\s*\uCD94\uCC9C|\uCD5C\uC800\uAC00\s*\uBE44\uAD50|\uBE44\uC6A9\s*\uBE44\uAD50|\uD560\uC778\s*\uCFE0\uD3F0|\uC544\uC774\uB791\s*\uCF54\uC2A4|\uB69C\uBC85\uC774\s*\uCF54\uC2A4|\uB2F9\uC77C\uCE58\uAE30\s*\uC900\uBE44\uBB3C)|(?:\uC544\uC6C3\uBC31|\uD558\uC774\uB514\uB77C\uC624|\uAFC0\uD301).{0,18}(?:\uC2E0\uCCAD\s*(?:\uB300\uC0C1|\uBC29\uBC95)|\uC9C0\uAE09\uC77C\s*\uC870\uD68C|\uD544\uC694\s*\uC11C\uB958)|(?:\uBD80\uB2F9\uD574\uACE0|\uAD6C\uC81C\uC2E0\uCCAD).{0,18}(?:\uAD6C\uB9E4\uCC98|\uCD5C\uC800\uAC00|\uD560\uC778|\uBE44\uC6A9|\uD544\uD130|\uC804\uAE30\uC694\uAE08|\uC18C\uC74C|\uC124\uCE58\uBE44)|(?:\uB0C9\uC7A5\uACE0\uC815\uB9AC|\uB808\uC778\uBD80\uCE20).{0,18}(?:\uC804\uAE30\uC694\uAE08\s*\uBE44\uAD50|\uC804\uAE30\uC138\s*\uBE44\uAD50|\uC18C\uC74C\s*\uBE44\uAD50|\uD544\uD130\s*\uAD50\uCCB4\uC8FC\uAE30|\uC124\uCE58\uBE44\s*\uBE44\uAD50|\uC800\uC18C\uC74C\s*\uD6C4\uAE30))/u.test(keyword)
+      !/(?:(?:\uAC15\uB989|\uAC15\uC6D0\uB3C4).{0,18}(?:\uAD6C\uB9E4\uCC98\s*\uCD94\uCC9C|\uCD5C\uC800\uAC00\s*\uBE44\uAD50|\uBE44\uC6A9\s*\uBE44\uAD50|\uD560\uC778\s*\uCFE0\uD3F0|\uC544\uC774\uB791\s*\uCF54\uC2A4|\uB69C\uBC85\uC774\s*\uCF54\uC2A4|\uB2F9\uC77C\uCE58\uAE30\s*\uC900\uBE44\uBB3C)|(?:\uC544\uC6C3\uBC31|\uD558\uC774\uB514\uB77C\uC624|\uAFC0\uD301).{0,18}(?:\uC2E0\uCCAD\s*(?:\uB300\uC0C1|\uBC29\uBC95)|\uC9C0\uAE09\uC77C\s*\uC870\uD68C|\uD544\uC694\s*\uC11C\uB958)|(?:\uBD80\uB2F9\uD574\uACE0|\uAD6C\uC81C\uC2E0\uCCAD|\uBB38\uD654\uB204\uB9AC\uCE74\uB4DC\uC628\uB77C\uC778).{0,18}(?:\uAD6C\uB9E4\uCC98|\uCD5C\uC800\uAC00|\uD560\uC778|\uBE44\uC6A9|\uAC00\uACA9\uBE44\uAD50|\uC120\uD0DD\s*\uAC00\uC774\uB4DC|\uD544\uD130|\uC804\uAE30\uC694\uAE08|\uC18C\uC74C|\uC124\uCE58\uBE44)|(?:\uB0C9\uC7A5\uACE0\uC815\uB9AC|\uB808\uC778\uBD80\uCE20).{0,18}(?:\uC804\uAE30\uC694\uAE08\s*\uBE44\uAD50|\uC804\uAE30\uC138\s*\uBE44\uAD50|\uC18C\uC74C\s*\uBE44\uAD50|\uD544\uD130\s*\uAD50\uCCB4\uC8FC\uAE30|\uC124\uCE58\uBE44\s*\uBE44\uAD50|\uC800\uC18C\uC74C\s*\uD6C4\uAE30))/u.test(keyword)
     )),
     cacheDerivedMismatchCandidates.join('|'));
   const genericAudienceCandidates = __liveGoldenRadarTestInternals.buildBackfillCandidates('policy', [
@@ -1092,8 +1103,13 @@ function thinProfileCount(items: Array<{ keyword: string }>): number {
       && !__liveGoldenRadarTestInternals.isSearchAdMeasurableLiveCandidate('\uBB38\uD654\uB204\uB9AC\uCE74\uB4DC\uC628\uB77C\uC778\uAC00\uB9F9\uC810 \uC790\uACA9 \uC870\uAC74', 'policy', lottoGuardNow)
       && !__liveGoldenRadarTestInternals.isSearchAdMeasurableLiveCandidate('\uBB38\uD654\uB204\uB9AC\uCE74\uB4DC\uC628\uB77C\uC778\uAC00\uB9F9\uC810 \uC2E0\uCCAD \uBC29\uBC95', 'policy', lottoGuardNow)
       && !__liveGoldenRadarTestInternals.isSearchAdMeasurableLiveCandidate('\uBB38\uD654\uB204\uB9AC\uCE74\uB4DC\uC628\uB77C\uC778\uC1FC\uD551\uBAB0 \uC2E0\uCCAD \uB300\uC0C1', 'policy', lottoGuardNow)
+      && !__liveGoldenRadarTestInternals.isSearchAdMeasurableLiveCandidate('4\uB300\uBCF4\uD5D8\uACC4\uC0B0\uAE30 4\uB300\uBCF4\uD5D8\uB8CC \uC694\uC728 \uACC4\uC0B0', 'policy', lottoGuardNow)
+      && !__liveGoldenRadarTestInternals.isSearchAdMeasurableLiveCandidate('\uAE30\uCD08\uC5F0\uAE08\uC218\uAE09\uC790\uACA9\uBAA8\uC758\uACC4\uC0B0\uAE30 4\uB300\uBCF4\uD5D8\uB8CC \uC694\uC728 \uACC4\uC0B0', 'policy', lottoGuardNow)
       && !__liveGoldenRadarTestInternals.isSearchAdMeasurableLiveCandidate('\uC5F0\uCC28\uC218\uB2F9\uACC4\uC0B0\uAE30 4\uB300\uBCF4\uD5D8\uB8CC \uC694\uC728 \uACC4\uC0B0', 'policy', lottoGuardNow)
+      && !__liveGoldenRadarTestInternals.isSearchAdMeasurableLiveCandidate('\uC790\uC601\uC5C5\uC790 \uACE0\uC6A9\uBCF4\uD5D8 \uC2E4\uC5C5\uAE09\uC5EC \uC790\uB3D9\uACC4\uC0B0', 'policy', lottoGuardNow)
       && !__liveGoldenRadarTestInternals.isSearchAdMeasurableLiveCandidate('\uC790\uC601\uC5C5\uC790\uC2E4\uC5C5\uAE09\uC5EC\uC2E0\uCCAD\uBC29\uBC95 \uC138\uD6C4\uACC4\uC0B0', 'policy', lottoGuardNow)
+      && !__liveGoldenRadarTestInternals.isSearchAdMeasurableLiveCandidate('\uBB38\uD654\uB204\uB9AC\uCE74\uB4DC\uC628\uB77C\uC778\uACB0\uC81C \uCD5C\uC800\uAC00 \uBE44\uAD50', 'policy', lottoGuardNow)
+      && !__liveGoldenRadarTestInternals.isSearchAdMeasurableLiveCandidate('\uADFC\uB85C\uC7A5\uB824\uAE08 \uC2E0\uCCAD \uADFC\uB85C\uC7A5\uB824\uAE08\uC2E0\uCCAD\uBB38\uC758', 'policy', lottoGuardNow)
       && !__liveGoldenRadarTestInternals.isSearchAdMeasurableLiveCandidate('\uC2DC\uC2A4\uD15C\uC5D0\uC5B4\uCEE8\uBE44\uC6A9 \uC6D0\uB8F8 \uC804\uAE30\uC694\uAE08 \uBE44\uAD50', 'electronics', lottoGuardNow)
       && !__liveGoldenRadarTestInternals.isSearchAdMeasurableLiveCandidate('\uBCBD\uAC78\uC774\uC5D0\uC5B4\uCEE8\uC124\uCE58\uBE44\uC6A9 \uC790\uCDE8\uBC29 \uC18C\uC74C \uBE44\uAD50', 'electronics', lottoGuardNow)
       && __liveGoldenRadarTestInternals.isSearchAdMeasurableLiveCandidate('\uC81C\uC8FC \uB80C\uD130\uCE74 \uC644\uC804\uC790\uCC28 \uAC00\uACA9\uBE44\uAD50', 'travel_domestic', lottoGuardNow),
@@ -2898,6 +2914,9 @@ function thinProfileCount(items: Array<{ keyword: string }>): number {
     ['\uC2DC\uAE09\uACC4\uC0B0\uAE30 4\uB300\uBCF4\uD5D8\uB8CC \uC694\uC728 \uACC4\uC0B0', false],
     ['\uC0AC\uB300\uBCF4\uD5D8\uACC4\uC0B0\uAE30 \uD6C4\uAE30', false],
     ['\uC2E4\uC5C5\uAE09\uC5EC\uACC4\uC0B0\uAE30 \uC2E0\uCCAD', false],
+    ['\uAE30\uCD08\uC5F0\uAE08\uC218\uAE09\uC790\uACA9\uBAA8\uC758\uACC4\uC0B0\uAE30 4\uB300\uBCF4\uD5D8\uB8CC \uC694\uC728 \uACC4\uC0B0', false],
+    ['\uC790\uC601\uC5C5\uC790 \uACE0\uC6A9\uBCF4\uD5D8 \uC2E4\uC5C5\uAE09\uC5EC \uC790\uB3D9\uACC4\uC0B0', false],
+    ['\uBB38\uD654\uB204\uB9AC\uCE74\uB4DC\uC628\uB77C\uC778\uACB0\uC81C \uCD5C\uC800\uAC00 \uBE44\uAD50', false],
     ['4\uB300\uBCF4\uD5D8 \uC644\uB0A9\uC99D\uBA85\uC11C 4\uB300\uBCF4\uD5D8\uB8CC \uC694\uC728 \uACC4\uC0B0', false],
     ['\uB18D\uC2DD\uD488\uBC14\uC6B0\uCC98 \uC2E0\uCCAD \uB300\uC0C1', true],
     ['\uADFC\uBB34\uC2DC\uAC04\uACC4\uC0B0\uAE30 \uC2E0\uCCAD \uB300\uC0C1', false],

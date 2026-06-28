@@ -909,6 +909,54 @@ const CACHE_DERIVED_CALCULATOR_INTENTS = Object.freeze([
   '\uC694\uC728\uD45C',
   '\uC5D1\uC140 \uC591\uC2DD',
 ]);
+const CACHE_DERIVED_POLICY_CALCULATOR_CONTEXT_RE = /(?:\uADFC\uB85C\uC7A5\uB824\uAE08|\uC790\uB140\uC7A5\uB824\uAE08|\uAE30\uCD08\uC5F0\uAE08|\uC2E4\uC5C5\uAE09\uC5EC|\uACE0\uC6A9\uBCF4\uD5D8|\uBC14\uC6B0\uCC98|\uC9C0\uC6D0\uAE08|\uC7A5\uB824\uAE08|\uAE09\uC5EC|\uC218\uB2F9|\uC815\uCC45\uC790\uAE08|\uCCAD\uB144\uB3C4\uC57D|\uBBF8\uB798\uC801\uAE08|\uAD6D\uBBFC\uC5F0\uAE08)/u;
+const CACHE_DERIVED_TRUE_PAYROLL_CALCULATOR_RE = /(?:\uADFC\uBB34\uC2DC\uAC04|\uC2DC\uAE09|\uC8FC\uD734\uC218\uB2F9|\uC5F0\uCC28\uC218\uB2F9|\uC0AC\uB300\uBCF4\uD5D8|4\uB300\uBCF4\uD5D8|\uD1F4\uC9C1\uAE08|\uBD80\uAC00\uC138|\uC885\uD569\uC18C\uB4DD\uC138|\uC6D0\uCC9C\uC138)/u;
+const CACHE_DERIVED_POLICY_COMMERCE_INTENT_RE = /(?:\uCD5C\uC800\uAC00|\uAC00\uACA9\uBE44\uAD50|\uAD6C\uB9E4\uCC98|\uD560\uC778|\uCFE0\uD3F0|\uC120\uD0DD\s*\uAC00\uC774\uB4DC|\uC2E4\uC0AC\uC6A9\s*\uD6C4\uAE30|\uBE44\uC6A9\s*\uBE44\uAD50)/u;
+const CACHE_DERIVED_TRUE_COMMERCE_BASE_RE = /(?:\uB80C\uD130\uCE74|\uB80C\uD2B8\uCE74|\uC5D0\uC5B4\uCEE8|\uC81C\uC2B5\uAE30|\uCCAD\uC18C\uAE30|\uB85C\uBD07\uCCAD\uC18C\uAE30|\uC120\uD48D\uAE30|\uB0C9\uC7A5\uACE0|\uC138\uD0C1\uAE30|\uAC74\uC870\uAE30|\uC644\uC804\uC790\uCC28|\uC218\uC218\uB8CC|\uAE08\uB9AC|\uB300\uCD9C|\uBCF4\uD5D8)/u;
+
+function cacheDerivedCalculatorIntentsForSeed(seed: string): string[] {
+  const clean = normalizeKeyword(seed);
+  if (!clean) return [];
+  const isWage = /(?:\uADFC\uBB34\uC2DC\uAC04|\uC2DC\uAE09|\uC8FC\uD734\uC218\uB2F9|\uC5F0\uCC28\uC218\uB2F9)/u.test(clean);
+  const isInsurance = /(?:\uC0AC\uB300\uBCF4\uD5D8|4\uB300\uBCF4\uD5D8)/u.test(clean);
+  const isSeverance = /\uD1F4\uC9C1\uAE08/u.test(clean);
+  const isTax = /(?:\uBD80\uAC00\uC138|\uC885\uD569\uC18C\uB4DD\uC138|\uC6D0\uCC9C\uC138)/u.test(clean);
+  const isPolicyCalculator = CACHE_DERIVED_POLICY_CALCULATOR_CONTEXT_RE.test(clean)
+    && !isWage
+    && !isInsurance
+    && !isSeverance
+    && !isTax;
+
+  if (isPolicyCalculator) return [];
+  if (isInsurance) {
+    return [
+      '\uD504\uB9AC\uB79C\uC11C \uC2E4\uC218\uB839\uC561',
+      '\uC9C1\uC7A5\uC778 \uC2E4\uC218\uB839\uC561',
+      '\uC54C\uBC14 \uC790\uB3D9\uACC4\uC0B0',
+      '\uC694\uC728\uD45C',
+      '\uC5D1\uC140 \uC591\uC2DD',
+    ];
+  }
+  if (isWage) {
+    return [
+      '\uC54C\uBC14 \uC790\uB3D9\uACC4\uC0B0',
+      '\uC54C\uBC14 \uC8FC\uD734\uC218\uB2F9 \uACC4\uC0B0',
+      '\uC77C\uC6A9\uC9C1 \uACC4\uC0B0\uBC29\uBC95',
+      '\uC138\uAE08 \uACF5\uC81C',
+      '\uC5D1\uC140 \uC591\uC2DD',
+    ];
+  }
+  if (isSeverance) return ['\uD1F4\uC9C1\uAE08 \uC138\uD6C4 \uACC4\uC0B0', '\uC138\uAE08 \uACF5\uC81C', '\uC5D1\uC140 \uC591\uC2DD'];
+  if (isTax) {
+    return [
+      '\uAC1C\uC778\uC0AC\uC5C5\uC790 \uACF5\uC81C\uD56D\uBAA9',
+      '\uD504\uB9AC\uB79C\uC11C 3.3 \uC138\uAE08 \uACC4\uC0B0',
+      '\uC138\uAE08 \uACF5\uC81C',
+      '\uC5D1\uC140 \uC591\uC2DD',
+    ];
+  }
+  return CACHE_DERIVED_CALCULATOR_INTENTS.filter((intent) => !/4\uB300\uBCF4\uD5D8\uB8CC\s*\uC694\uC728\s*\uACC4\uC0B0/u.test(intent));
+}
 const CACHE_DERIVED_POLICY_INTENTS = Object.freeze([
   '\uC2E0\uCCAD \uB300\uC0C1',
   '\uC2E0\uCCAD \uBC29\uBC95',
@@ -996,6 +1044,24 @@ function isCacheDerivedCompoundIntentCompatible(seed: string, intent: string, ca
   const cleanIntent = normalizeKeyword(intent);
   const category = normalizeKeyword(categoryId || 'all') || 'all';
   if (!clean || !cleanIntent) return false;
+  const policyLikeBase = CACHE_DERIVED_POLICY_RE.test(clean)
+    || CACHE_DERIVED_POLICY_CONTEXT_RE.test(clean)
+    || CACHE_DERIVED_POLICY_CALCULATOR_CONTEXT_RE.test(clean);
+  if (
+    CACHE_DERIVED_POLICY_COMMERCE_INTENT_RE.test(cleanIntent)
+    && policyLikeBase
+    && !CACHE_DERIVED_TRUE_COMMERCE_BASE_RE.test(clean)
+  ) return false;
+  if (
+    /(?:\uBB38\uD654\uB204\uB9AC\uCE74\uB4DC\s*\uC628\uB77C\uC778|\uBB38\uD654\uB204\uB9AC\uCE74\uB4DC\uC628\uB77C\uC778)/u.test(clean)
+    && CACHE_DERIVED_POLICY_COMMERCE_INTENT_RE.test(cleanIntent)
+  ) return false;
+  if (
+    CACHE_DERIVED_POLICY_CALCULATOR_CONTEXT_RE.test(clean)
+    && CACHE_DERIVED_CALCULATOR_RE.test(clean)
+    && !CACHE_DERIVED_TRUE_PAYROLL_CALCULATOR_RE.test(clean)
+    && /(?:\uD504\uB9AC\uB79C\uC11C|\uC54C\uBC14|\uC77C\uC6A9\uC9C1|\uAC1C\uC778\uC0AC\uC5C5\uC790|\uD1F4\uC9C1\uAE08|4\uB300\uBCF4\uD5D8\uB8CC|\uC0AC\uB300\uBCF4\uD5D8\uB8CC|3\.3|\uC138\uD6C4|\uC8FC\uD734\uC218\uB2F9)/u.test(cleanIntent)
+  ) return false;
   if (
     CACHE_DERIVED_POLICY_INTENT_RE.test(cleanIntent)
     && !CACHE_DERIVED_CALCULATOR_RE.test(clean)
@@ -1041,7 +1107,7 @@ function buildCacheDerivedCompoundNeedSeeds(seed: string, categoryId = 'all', li
   const isCalculatorSeed = CACHE_DERIVED_CALCULATOR_RE.test(clean);
   const hasPolicySeedContext = CACHE_DERIVED_POLICY_RE.test(clean) || CACHE_DERIVED_POLICY_CONTEXT_RE.test(clean);
   const canExpandPolicySeed = hasPolicySeedContext && !CACHE_DERIVED_TERMINAL_POLICY_TAIL_RE.test(clean);
-  if (isCalculatorSeed) intents.push(...CACHE_DERIVED_CALCULATOR_INTENTS);
+  if (isCalculatorSeed) intents.push(...cacheDerivedCalculatorIntentsForSeed(clean));
   if (!isCalculatorSeed && canExpandPolicySeed) {
     intents.push(...CACHE_DERIVED_POLICY_INTENTS, ...CACHE_DERIVED_POLICY_AUDIENCE_INTENTS);
   }
@@ -3669,6 +3735,7 @@ const CACHE_DERIVED_CONTEXT_MISMATCH_RE = /(?:(?:가볼만한곳|카페거리|�
 const CALCULATOR_POLICY_TAIL_NO_EFFECT_RE = /(?:\uACC4\uC0B0\uAE30|\uACC4\uC0B0).{0,16}(?:\uC2E0\uCCAD\s*(?:\uB300\uC0C1|\uBC29\uBC95)|\uC790\uACA9\s*\uC870\uAC74|\uC9C0\uAE09\uC77C\s*\uC870\uD68C|\uD544\uC694\s*\uC11C\uB958|\uC0AC\uC6A9\uCC98\s*\uC870\uD68C|\uC628\uB77C\uC778\s*\uC2E0\uCCAD|\uB9C8\uAC10\uC77C\s*\uD655\uC778)/u;
 const LIVE_SEARCHAD_NO_RESULT_SHAPE_RE = /(?:(?:\uBB38\uD654\uB204\uB9AC\uCE74\uB4DC\s*\uC628\uB77C\uC778|\uBB38\uD654\uB204\uB9AC\uCE74\uB4DC\uC628\uB77C\uC778)(?:\uAC00\uB9F9\uC810|\uC1FC\uD551\uBAB0|\uACB0\uC81C).{0,10}(?:\uC790\uACA9\s*\uC870\uAC74|\uC0AC\uC6A9\uCC98\s*\uC870\uD68C)|\uC18C\uC0C1\uACF5\uC778(?:\uD3D0\uC5C5\uC9C0\uC6D0\uAE08\s*\uC2E0\uCCAD\s*\uBC29\uBC95|\uD3D0\uC5C5\uC9C0\uC6D0\uAE08|\uC815\uCC45\uC790\uAE08\uB300\uCD9C).{0,12}\uC18C\uB4DD\uAE30\uC900|\uACE0\uC6A9\uBCF4\uD5D8\s*\uC2E4\uC5C5\uAE09\uC5EC\s*\uACC4\uC0B0\uAE30.{0,16}(?:\uAC1C\uC778\uC0AC\uC5C5\uC790\s*\uACF5\uC81C\uD56D\uBAA9|\uD504\uB9AC\uB79C\uC11C\s*3\.3\s*\uC138\uAE08\s*\uACC4\uC0B0|\uC138\uD6C4\s*\uACC4\uC0B0|\uC790\uB3D9\uACC4\uC0B0)|\uC5F0\uCC28\uC218\uB2F9\s*\uACC4\uC0B0\uAE30.{0,12}(?:4\uB300\uBCF4\uD5D8\uB8CC|\uC0AC\uB300\uBCF4\uD5D8\uB8CC)\s*\uC694\uC728\s*\uACC4\uC0B0|(?:20\d{2}\s*)?\uD3C9\uC0DD\uAD50\uC721\uBC14\uC6B0\uCC98.{0,8}\uB9C8\uAC10\uC77C\s*\uD655\uC778|\uC2DC\uC2A4\uD15C\uC5D0\uC5B4\uCEE8\s*\uBE44\uC6A9.{0,16}\uC6D0\uB8F8\s*\uC804\uAE30\uC694\uAE08\s*\uBE44\uAD50)/u;
 const LIVE_SEARCHAD_NO_RESULT_SHAPE_EXTRA_RE = /(?:(?:\uBB38\uD654\uB204\uB9AC\uCE74\uB4DC\s*\uC628\uB77C\uC778|\uBB38\uD654\uB204\uB9AC\uCE74\uB4DC\uC628\uB77C\uC778)(?:\uACB0\uC81C|\uAC00\uB9F9\uC810|\uC1FC\uD551\uBAB0)?.{0,12}(?:\uC2E0\uCCAD\s*(?:\uBC29\uBC95|\uB300\uC0C1)|\uC9C0\uAE09\uC77C\s*\uC870\uD68C|\uC790\uACA9\s*\uC870\uAC74|\uC0AC\uC6A9\uCC98\s*\uC870\uD68C)|(?:\uC0AC\uB300\uBCF4\uD5D8\uACC4\uC0B0\uAE30|\uC5F0\uCC28\uC218\uB2F9\uACC4\uC0B0\uAE30|\uADFC\uB85C\uC7A5\uB824\uAE08\uACC4\uC0B0\uAE30?|\uAE30\uCD08\uC5F0\uAE08\uC218\uAE09\uC790\uACA9\uACC4\uC0B0).{0,12}(?:4\uB300\uBCF4\uD5D8\uB8CC|\uC0AC\uB300\uBCF4\uD5D8\uB8CC)\s*\uC694\uC728\s*\uACC4\uC0B0|(?:\uC2E4\uC5C5\uAE09\uC5EC\uACC4\uC0B0\uAE30|\uC790\uC601\uC5C5\uC790\uC2E4\uC5C5\uAE09\uC5EC\uC2E0\uCCAD\uBC29\uBC95).{0,16}(?:\uAC1C\uC778\uC0AC\uC5C5\uC790\s*\uACF5\uC81C\uD56D\uBAA9|\uC790\uB3D9\uACC4\uC0B0|\uC138\uD6C4\s*\uACC4\uC0B0)|(?:\uC2DC\uC2A4\uD15C\uC5D0\uC5B4\uCEE8|\uBCBD\uAC78\uC774\uC5D0\uC5B4\uCEE8)\s*\uC124\uCE58\uBE44\uC6A9.{0,16}(?:\uC6D0\uB8F8\s*\uC804\uAE30\uC694\uAE08\s*\uBE44\uAD50|\uC790\uCDE8\uBC29\s*\uC18C\uC74C\s*\uBE44\uAD50)|\uC5D0\uB108\uC9C0\uBC14\uC6B0\uCC98\s*\uC2E0\uCCAD\s*\uBC29\uBC95\s*\uBCF5\uC9C0\uB85C.{0,8}\uC18C\uB4DD\uAE30\uC900|\uAD6D\uC138\uCCAD\s*\uD648\uD14D\uC2A4\s*\uADFC\uB85C\uC7A5\uB824\uAE08.{0,8}\uB9C8\uAC10\uC77C\s*\uD655\uC778|\uC18C\uC0C1\uACF5\uC778\s*\uC9C0\uC6D0\uAE08.{0,18}(?:\uB193\uCE58\uAE30\s*\uC26C\uC6B4\s*\uBCC0\uACBD\uC0AC\uD56D|\uC18C\uB4DD\s*\uAE30\uC900\uACFC\s*\uC81C\uC678\s*\uB300\uC0C1))/u;
+const LIVE_SEARCHAD_NO_RESULT_SHAPE_LIVE_RE = /(?:(?:4\uB300\uBCF4\uD5D8\uACC4\uC0B0\uAE30|\uAE30\uCD08\uC5F0\uAE08\uC218\uAE09\uC790\uACA9(?:\uBAA8\uC758)?\uACC4\uC0B0\uAE30?|\uD1F4\uC9C1\uAE08\uC9C0\uAE09\uAE30\uC900|\uC721\uC544\uD734\uC9C1\uAE09\uC5EC\s*\uACC4\uC0B0|\uADFC\uB85C\uC7A5\uB824\uAE08\uACC4\uC0B0\uAE30).{0,16}(?:4\uB300\uBCF4\uD5D8\uB8CC|\uC0AC\uB300\uBCF4\uD5D8\uB8CC)\s*\uC694\uC728\s*\uACC4\uC0B0|(?:\uC790\uC601\uC5C5\uC790\s*)?\uACE0\uC6A9\uBCF4\uD5D8\s*\uC2E4\uC5C5\uAE09\uC5EC.{0,18}(?:\uC790\uB3D9\uACC4\uC0B0|\uC138\uD6C4\s*\uACC4\uC0B0|\uAC1C\uC778\uC0AC\uC5C5\uC790\s*\uACF5\uC81C\uD56D\uBAA9|\uC77C\uC6A9\uC9C1\s*\uACC4\uC0B0\uBC29\uBC95)|(?:\uC790\uC601\uC5C5\uC790\s*)?\uACE0\uC6A9\uBCF4\uD5D8\s*\uC2E4\uC5C5\uAE09\uC5EC.{0,10}\uB9C8\uAC10\uC77C\s*\uD655\uC778|(?:\uBB38\uD654\uB204\uB9AC\uCE74\uB4DC\s*\uC628\uB77C\uC778|\uBB38\uD654\uB204\uB9AC\uCE74\uB4DC\uC628\uB77C\uC778)(?:\uACB0\uC81C|\uAC00\uB9F9\uC810|\uC1FC\uD551\uBAB0)?.{0,14}(?:\uCD5C\uC800\uAC00\s*\uBE44\uAD50|\uC120\uD0DD\s*\uAC00\uC774\uB4DC|\uC18C\uB4DD\uAE30\uC900\s*\uACC4\uC0B0)|(?:20\d{2}\s*)?(?:\uC5D0\uB108\uC9C0\uBC14\uC6B0\uCC98|\uCCAD\uB144\uC9C0\uC6D0\uAE08|\uAD50\uC721\uAE09\uC5EC\uBC14\uC6B0\uCC98|\uC18C\uC0C1\uACF5\uC778\s*\uC9C0\uC6D0\uAE08).{0,14}\uB9C8\uAC10\uC77C\s*\uD655\uC778|\uC18C\uC0C1\uACF5\uC778\s*\uC9C0\uC6D0\uAE08.{0,18}(?:\uC628\uB77C\uC778\s*\uC2E0\uCCAD\s*\uBC29\uBC95|\uC624\uB298\s*\uD655\uC778\uD560\s*\uC81C\uC678\s*\uB300\uC0C1)|\uADFC\uB85C\uC7A5\uB824\uAE08\s*\uC2E0\uCCAD\s*\uADFC\uB85C\uC7A5\uB824\uAE08\s*\uC2E0\uCCAD(?:\uB300\uC0C1|\uBB38\uC758|\uC548\uB0B4))/u;
 
 function productGenericStackTokenCount(keyword: string): number {
   const hits = normalizeKeyword(keyword).match(PRODUCT_GENERIC_STACK_TOKEN_RE) || [];
@@ -3695,6 +3762,7 @@ function isSyntheticNoEffectLiveProbe(keyword: string): boolean {
     || CALCULATOR_POLICY_TAIL_NO_EFFECT_RE.test(clean)
     || LIVE_SEARCHAD_NO_RESULT_SHAPE_RE.test(clean)
     || LIVE_SEARCHAD_NO_RESULT_SHAPE_EXTRA_RE.test(clean)
+    || LIVE_SEARCHAD_NO_RESULT_SHAPE_LIVE_RE.test(clean)
     || (
       PRODUCT_BASE_SIGNAL_RE.test(clean)
       && (
