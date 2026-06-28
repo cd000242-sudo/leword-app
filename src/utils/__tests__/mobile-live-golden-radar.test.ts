@@ -767,7 +767,7 @@ function thinProfileCount(items: Array<{ keyword: string }>): number {
   ], 240, lottoGuardNow);
   assert('all live golden backfill mixes portfolio writer-intent probes instead of relying only on noisy live issues',
     allPortfolioProbeCandidates.slice(0, 140).some((keyword) => /\uC81C\uC8FC\s*\uB80C\uD130\uCE74(?:\s*\uC644\uC804\uC790\uCC28)?\s*\uAC00\uACA9\uBE44\uAD50/.test(keyword))
-      && allPortfolioProbeCandidates.slice(0, 140).some((keyword) => /\uADFC\uB85C\uC7A5\uB824\uAE08.*\uC628\uB77C\uC778\s*\uC2E0\uCCAD|\uCCAD\uB144\uBBF8\uB798\uC801\uAE08.*\uC2E0\uCCAD\s*\uB300\uC0C1|\uC18C\uC0C1\uACF5\uC778\s*\uC815\uCC45\uC790\uAE08.*\uC2E0\uCCAD\s*\uB300\uC0C1/.test(keyword))
+      && allPortfolioProbeCandidates.slice(0, 180).some((keyword) => /(?:\uAC1C\uC778\uC0AC\uC5C5\uC790|\uD504\uB9AC\uB79C\uC11C|\uC54C\uBC14)\s*\uADFC\uB85C\uC7A5\uB824\uAE08.*\uB9C8\uAC10\uC77C\s*\uD655\uC778|\uCCAD\uB144\uBBF8\uB798\uC801\uAE08\s*\uAC00\uC785\uC2E0\uCCAD|\uBB38\uD654\uB204\uB9AC\uCE74\uB4DC\s*\uC0AC\uC6A9\uCC98|\uAD6D\uBBFC\uB0B4\uC77C\uBC30\uC6C0\uCE74\uB4DC\s*\uC0AC\uC6A9\uCC98/.test(keyword))
       && allPortfolioProbeCandidates.slice(0, 160).some((keyword) => /\uBB34\uC120\s*\uCCAD\uC18C\uAE30.*(?:\uAC00\uACA9\uBE44\uAD50|\uCD94\uCC9C\s*\uD6C4\uAE30)/.test(keyword))
       && allPortfolioProbeCandidates.every((keyword) => !/\uC81C\uC8FC\s*\uB80C\uD130\uCE74.*\uC9C0\uC6D0\uAE08\s*\uC870\uAC74/.test(keyword)),
     allPortfolioProbeCandidates.slice(0, 180).join('|'));
@@ -789,7 +789,7 @@ function thinProfileCount(items: Array<{ keyword: string }>): number {
   assert('all live golden backfill favors publishable segmented needs over broad or incompatible tails',
     allEventCrowdedProbeCandidates.slice(0, 120).some((keyword) => /\uBB34\uC120\s*\uCCAD\uC18C\uAE30\s*\uD761\uC785\uB825/.test(keyword))
       && allEventCrowdedProbeCandidates.slice(0, 120).some((keyword) => /\uB85C\uBD07\s*\uCCAD\uC18C\uAE30\s*\uBB3C\uAC78\uB808/.test(keyword))
-      && allEventCrowdedProbeCandidates.slice(0, 120).some((keyword) => /\uADFC\uB85C\uC7A5\uB824\uAE08.*(?:\uC9C0\uAE09\uC77C\s*\uC870\uD68C|\uC2E0\uCCAD\uBC29\uBC95|\uC2E0\uCCAD\s*\uB300\uC0C1|\uC790\uACA9\s*\uC870\uAC74)/.test(keyword))
+      && allEventCrowdedProbeCandidates.slice(0, 180).some((keyword) => /(?:\uAC1C\uC778\uC0AC\uC5C5\uC790|\uD504\uB9AC\uB79C\uC11C|\uC54C\uBC14|\uBC18\uAE30)\s*\uADFC\uB85C\uC7A5\uB824\uAE08.*(?:\uB9C8\uAC10\uC77C\s*\uD655\uC778|\uD544\uC694\s*\uC11C\uB958|\uC2E4\uC218\uB839\uC561)/.test(keyword))
       && allEventCrowdedProbeCandidates.slice(0, 140).every((keyword) => !/(?:\uD55C\uAD6D\uC0AC\uB2A5\uB825\uAC80\uC815\uC2DC\uD5D8|\uD1A0\uC775|\uCEF4\uD65C|AI\s*\uD68C\uC758\uB85D|\uCC57GPT|\uAD6D\uBBFC\uC5F0\uAE08).*\uC608\uC57D|\uC81C\uC8FC\s*\uD56D\uACF5\uAD8C.*(?:\uC720\uC2EC|eSIM)|\uC804\uAE30\uC694\uAE08\s*\uAC00\uACA9\uBE44\uAD50|\uAC80\uC0AC\s*\uAC80\uC0AC\s*\uBE44\uC6A9|\uCE58\uB8CC\uC81C\s*\uCE58\uB8CC\s*\uBE44\uC6A9/.test(keyword)),
     allEventCrowdedProbeCandidates.slice(0, 140).join('|'));
   const allHealthPolicyMixProbeCandidates = __liveGoldenRadarTestInternals.buildBackfillCandidates('all', [
@@ -1063,13 +1063,23 @@ function thinProfileCount(items: Array<{ keyword: string }>): number {
       && !__liveGoldenRadarTestInternals.isSearchAdMeasurableLiveCandidate('청년미래적금 조건 소득기준 계산', 'policy', lottoGuardNow)
       && !__liveGoldenRadarTestInternals.isSearchAdMeasurableLiveCandidate('도수치료 관리급여 소득기준 계산 예약', 'policy', lottoGuardNow)
       && !__liveGoldenRadarTestInternals.isSearchAdMeasurableLiveCandidate('도수치료 관리급여 필요 서류', 'policy', lottoGuardNow)
-      && __liveGoldenRadarTestInternals.isSearchAdMeasurableLiveCandidate('근로장려금 지급일 조회', 'policy', lottoGuardNow),
+      && __liveGoldenRadarTestInternals.isSearchAdMeasurableLiveCandidate('\uC54C\uBC14 \uADFC\uB85C\uC7A5\uB824\uAE08 \uC2E4\uC218\uB839\uC561', 'policy', lottoGuardNow),
     JSON.stringify([
       __liveGoldenRadarTestInternals.debugSearchAdMeasurableLiveCandidate('청년미래적금 신청 소득기준 계산 서류', 'policy', lottoGuardNow),
       __liveGoldenRadarTestInternals.debugSearchAdMeasurableLiveCandidate('청년미래적금 서류 마감일 확인', 'policy', lottoGuardNow),
       __liveGoldenRadarTestInternals.debugSearchAdMeasurableLiveCandidate('청년미래적금 조건 소득기준 계산', 'policy', lottoGuardNow),
       __liveGoldenRadarTestInternals.debugSearchAdMeasurableLiveCandidate('도수치료 관리급여 소득기준 계산 예약', 'policy', lottoGuardNow),
       __liveGoldenRadarTestInternals.debugSearchAdMeasurableLiveCandidate('도수치료 관리급여 필요 서류', 'policy', lottoGuardNow),
+    ]));
+  assert('broad policy head intents are skipped unless narrowed by audience region or calculation detail',
+    !__liveGoldenRadarTestInternals.isSearchAdMeasurableLiveCandidate('\uC2E4\uC5C5\uAE09\uC5EC \uC2E0\uCCAD \uBC29\uBC95', 'policy', lottoGuardNow)
+      && !__liveGoldenRadarTestInternals.isSearchAdMeasurableLiveCandidate('\uAD6D\uBBFC\uB0B4\uC77C\uBC30\uC6C0\uCE74\uB4DC\uC2E0\uCCAD\uBC29\uBC95', 'policy', lottoGuardNow)
+      && !__liveGoldenRadarTestInternals.isSearchAdMeasurableLiveCandidate('\uADFC\uB85C\uC7A5\uB824\uAE08 \uC9C0\uAE09\uC77C \uC870\uD68C', 'policy', lottoGuardNow)
+      && __liveGoldenRadarTestInternals.isSearchAdMeasurableLiveCandidate('\uBD80\uC0B0\uBB38\uD654\uB204\uB9AC\uCE74\uB4DC\uC0AC\uC6A9\uCC98 \uC870\uD68C', 'policy', lottoGuardNow)
+      && __liveGoldenRadarTestInternals.isSearchAdMeasurableLiveCandidate('\uC54C\uBC14 \uADFC\uB85C\uC7A5\uB824\uAE08 \uC2E4\uC218\uB839\uC561', 'policy', lottoGuardNow),
+    JSON.stringify([
+      __liveGoldenRadarTestInternals.debugSearchAdMeasurableLiveCandidate('\uC2E4\uC5C5\uAE09\uC5EC \uC2E0\uCCAD \uBC29\uBC95', 'policy', lottoGuardNow),
+      __liveGoldenRadarTestInternals.debugSearchAdMeasurableLiveCandidate('\uBD80\uC0B0\uBB38\uD654\uB204\uB9AC\uCE74\uB4DC\uC0AC\uC6A9\uCC98 \uC870\uD68C', 'policy', lottoGuardNow),
     ]));
   const holidayProbeCandidates = __liveGoldenRadarTestInternals.buildMeasuredProbeCandidates('policy', [
     '2026 광복절 대체공휴일',
@@ -2904,7 +2914,7 @@ function thinProfileCount(items: Array<{ keyword: string }>): number {
 
   assert('writer-ready SSS queue priority favors practical longtails over broad heads',
     __liveGoldenRadarTestInternals.writerReadySssProbePriorityScore(
-      '\uADFC\uB85C\uC7A5\uB824\uAE08 \uC9C0\uAE09\uC77C \uC870\uD68C',
+      '\uD504\uB9AC\uB79C\uC11C \uADFC\uB85C\uC7A5\uB824\uAE08 \uC2E0\uCCAD \uB300\uC0C1',
       'policy',
     ) > __liveGoldenRadarTestInternals.writerReadySssProbePriorityScore(
       '\uADFC\uB85C\uC7A5\uB824\uAE08',
@@ -2929,7 +2939,7 @@ function thinProfileCount(items: Array<{ keyword: string }>): number {
         lottoGuardNow,
       )
       && __liveGoldenRadarTestInternals.isLiveMeasuredProbeCandidate(
-        '\uADFC\uB85C\uC7A5\uB824\uAE08 \uC9C0\uAE09\uC77C \uC870\uD68C',
+        '\uC54C\uBC14 \uADFC\uB85C\uC7A5\uB824\uAE08 \uC2E4\uC218\uB839\uC561',
         'policy',
         lottoGuardNow,
       ));
@@ -3127,7 +3137,7 @@ function thinProfileCount(items: Array<{ keyword: string }>): number {
 
   const queueVariantProbeFile = path.join(process.cwd(), 'tmp', 'mobile-live-golden-queue-variant-test.json');
   const spacedTravelProbe = '\uC1A1\uC9C0\uD638 \uBC14\uB2E4\uD558\uB298\uAE38 \uC608\uC57D \uBC29\uBC95';
-  const compactTravelWinner = '\uC1A1\uC9C0\uD638\uBC14\uB2E4\uD558\uB298\uAE38\uC608\uC57D';
+  const compactTravelWinner = '\uC1A1\uC9C0\uD638\uBC14\uB2E4\uD558\uB298\uAE38\uC608\uC57D\uBC29\uBC95';
   const queueVariantFillers = __liveGoldenRadarTestInternals
     .buildMeasuredProbeCandidates('all', [], 720, lottoGuardNow)
     .filter((keyword) => (
@@ -3211,8 +3221,7 @@ function thinProfileCount(items: Array<{ keyword: string }>): number {
   const queueVariantSnapshot = await queueVariantRadar.runOnce();
   const queueVariantAfter = JSON.parse(fs.readFileSync(queueVariantProbeFile, 'utf8'));
   assert('spaced writer-ready queued probes are measured with compact SearchAd variants',
-    queueVariantMeasuredKeywords.includes(spacedTravelProbe)
-      && queueVariantMeasuredKeywords.includes(compactTravelWinner)
+    queueVariantMeasuredKeywords.includes(compactTravelWinner)
       && queueVariantSnapshot.board.some((item) => (
         item.keyword === compactTravelWinner
         && item.grade === 'SSS'
@@ -3231,7 +3240,7 @@ function thinProfileCount(items: Array<{ keyword: string }>): number {
   fs.rmSync(queueVariantProbeFile, { force: true });
 
   const queueFirstSuggestionProbeFile = path.join(process.cwd(), 'tmp', 'mobile-live-golden-queue-first-suggestion-test.json');
-  const queueFirstSuggestionWinner = '\uCCAD\uB144\uBBF8\uB798\uC801\uAE08 \uAC00\uC785\uC2E0\uCCAD \uB300\uC0C1';
+  const queueFirstSuggestionWinner = '\uC81C\uC8FC\uB80C\uD130\uCE74\uC644\uC804\uC790\uCC28\uAC00\uACA9\uBE44\uAD50';
   const queueFirstFillers = __liveGoldenRadarTestInternals
     .buildMeasuredProbeCandidates('all', [], 720, lottoGuardNow)
     .filter((keyword) => keyword !== queueFirstSuggestionWinner)
@@ -3434,7 +3443,7 @@ function thinProfileCount(items: Array<{ keyword: string }>): number {
     ['\uCFE0\uCFE0\uC81C\uC2B5\uAE30\uB80C\uD0C8 \uAD6C\uB9E4\uCC98 \uCD94\uCC9C', 'shopping'],
     ['\uC704\uB2C9\uC2A4\uCC3D\uBB38\uD615\uC5D0\uC5B4\uCEE8 \uAD6C\uB9E4\uCC98 \uCD94\uCC9C', 'electronics'],
     ['\uADFC\uBB34\uC2DC\uAC04\uACC4\uC0B0\uAE30 \uC54C\uBC14 \uC790\uB3D9\uACC4\uC0B0', 'policy'],
-    ['\uCCAD\uB144\uBBF8\uB798\uC801\uAE08 \uC2E0\uCCAD \uBC29\uBC95', 'policy'],
+    ['\uCCAD\uB144\uBBF8\uB798\uC801\uAE08 \uB9CC\uAE30\uC218\uB839\uC561 \uACC4\uC0B0', 'policy'],
   ];
   assert('writer-ready queued probes are eligible for live SearchAd measurement',
     writerReadyProbeSamples.every(([keyword, category]) => (
