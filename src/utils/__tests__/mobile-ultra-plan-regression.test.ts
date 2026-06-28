@@ -970,6 +970,8 @@ assert('mobile live golden radar is low-load and non-overlapping',
     && /liveGoldenMaxCandidates/.test(liveGoldenRadar)
     && /LEWORD_MOBILE_LIVE_GOLDEN_READONLY/.test(liveGoldenRadar)
     && /live golden read-only snapshot mode enabled/.test(liveGoldenRadar)
+    && /LIVE_SNAPSHOT_CACHE_MS/.test(liveGoldenRadar)
+    && /cachedSnapshot/.test(liveGoldenRadar)
     && /refreshBoardFromFile/.test(liveGoldenRadar)
     && /LEWORD_MOBILE_LIVE_GOLDEN_START_DELAY_MS/.test(liveGoldenRadar)
     && /defaultRunOnStartDelayMs/.test(liveGoldenRadar)

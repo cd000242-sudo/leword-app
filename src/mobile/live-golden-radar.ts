@@ -134,6 +134,7 @@ const LIVE_SPLIT_ENRICHMENT_TIMEOUT_MS = 25_000;
 const PUBLIC_PREVIEW_MAX_AGE_MS = 48 * 60 * 60 * 1000;
 const LIVE_BOARD_MAX_AGE_MS = 7 * 24 * 60 * 60 * 1000;
 const LIVE_BOARD_FILE_REFRESH_MS = 30_000;
+const LIVE_SNAPSHOT_CACHE_MS = 5_000;
 const BROAD_KEYWORD_VOLUME_CEILING = 500_000;
 const BROAD_KEYWORD_DOCUMENT_CEILING = 80_000;
 const PUBLIC_PREVIEW_VOLUME_CEILING = 250_000;
@@ -5187,6 +5188,8 @@ export class MobileLiveGoldenRadar {
   private readonly pendingMeasuredProbeQueue: LiveMeasuredProbeQueueItem[] = [];
   private lastBoardFileRefreshAtMs = 0;
   private lastCacheRefreshAtMs = 0;
+  private cachedSnapshot: MobileLiveGoldenRadarSnapshot | null = null;
+  private cachedSnapshotAtMs = 0;
   private lastStartedAt?: string;
   private lastFinishedAt?: string;
   private lastError?: string;
@@ -6976,10 +6979,18 @@ export class MobileLiveGoldenRadar {
   }
 
   snapshot(): MobileLiveGoldenRadarSnapshot {
+    const nowMs = Date.now();
+    if (
+      !this.running
+      && this.refreshBoardFileOnSnapshot
+      && this.cachedSnapshot
+      && nowMs - this.cachedSnapshotAtMs < LIVE_SNAPSHOT_CACHE_MS
+    ) {
+      return this.cachedSnapshot;
+    }
     if (!this.running && this.refreshBoardFileOnSnapshot) {
       this.refreshBoardFromFile(false);
-    }
-    if (!this.running) {
+    } else if (!this.running) {
       this.refreshMeasuredCachesFromDisk(false);
     }
     const board = this.sortedBoard();
@@ -6989,7 +7000,7 @@ export class MobileLiveGoldenRadar {
       isPublicPreview: publicPreviewIds.has(item.id),
       publishDecision: evaluatePublishDecision(item),
     }));
-    return {
+    const snapshot: MobileLiveGoldenRadarSnapshot = {
       enabled: this.enabled,
       running: this.running,
       intervalMs: this.intervalMs,
@@ -7015,6 +7026,11 @@ export class MobileLiveGoldenRadar {
       nextCategoryId: this.categories[this.categoryIndex] || 'all',
       categories: [...this.categories],
     };
+    if (!this.running && this.refreshBoardFileOnSnapshot) {
+      this.cachedSnapshot = snapshot;
+      this.cachedSnapshotAtMs = Date.now();
+    }
+    return snapshot;
   }
 
   findMeasuredBoardItem(keyword: string): MobileLiveGoldenBoardItem | null {
@@ -7902,8 +7918,16 @@ export class MobileLiveGoldenRadar {
         };
         this.board.set(id, item);
       }
-      this.pruneBoard();
-      this.boardUpdatedAt = normalizeKeyword(parsed?.boardUpdatedAt) || this.sortedBoard()[0]?.updatedAt;
+      if (!this.refreshBoardFileOnSnapshot) {
+        this.pruneBoard();
+      }
+      const newestUpdatedAt = [...this.board.values()]
+        .map((item) => normalizeKeyword(item.updatedAt))
+        .filter(Boolean)
+        .sort((a, b) => Date.parse(b) - Date.parse(a))[0];
+      this.boardUpdatedAt = normalizeKeyword(parsed?.boardUpdatedAt) || newestUpdatedAt;
+      this.cachedSnapshot = null;
+      this.cachedSnapshotAtMs = 0;
       this.lastMessage = `loaded ${this.board.size} live golden board items`;
     } catch (err) {
       this.lastError = (err as Error).message || String(err);
@@ -7932,6 +7956,8 @@ export class MobileLiveGoldenRadar {
       const tmpFile = `${this.boardFile}.tmp`;
       fs.writeFileSync(tmpFile, JSON.stringify(payload, null, 2), 'utf8');
       fs.renameSync(tmpFile, this.boardFile);
+      this.cachedSnapshot = null;
+      this.cachedSnapshotAtMs = 0;
     } catch (err) {
       this.lastError = (err as Error).message || String(err);
       this.lastMessage = `live golden board save failed: ${this.lastError}`;
