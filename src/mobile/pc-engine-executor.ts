@@ -227,6 +227,7 @@ function metricFromExpansion(
     intent,
     evidence,
     isMeasured: false,
+    measurementStatus: 'unmeasured',
   };
 }
 
@@ -4630,6 +4631,10 @@ async function runMindmapExpansion(
       measureKeywordMetrics,
     );
     finalMetrics = mergePrioritizedKeywordMetrics([finalMetrics, fallback], params.targetCount);
+  }
+  const sourceOnlyMetrics = metrics.filter((metric) => !isFullyMeasuredKeyword(metric));
+  if (finalMetrics.length < params.targetCount && sourceOnlyMetrics.length > 0) {
+    finalMetrics = mergePrioritizedKeywordMetrics([finalMetrics, sourceOnlyMetrics], params.targetCount);
   }
 
   return resultFromMetrics(finalMetrics, startedAt, 'pc-engine-plus');

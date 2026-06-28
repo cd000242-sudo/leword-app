@@ -162,6 +162,7 @@ import {
   parseMobileJsonBody,
   type MobileApiGuardrailOptions,
 } from '../../../src/mobile/api-guardrails';
+import { isMindmapExpansionKeywordCandidate } from '../../../src/utils/mindmap-expansion-quality';
 
 const DEFAULT_LEWORD_LICENSE_SERVER_URL = 'https://script.google.com/macros/s/AKfycbxBOGkjVj4p-6XZ4SEFYKhW3FBmo5gt7Fv6djWhB1TljnDDmx_qlfZ4YdlJNohzIZ8NJw/exec';
 const DEFAULT_LEWORD_LICENSE_APP_ID = 'com.leword.keyword.master';
@@ -1945,8 +1946,8 @@ function isStrictMeasuredKeywordMetric(
   metric: MobileKeywordMetric,
 ): boolean {
   if (!metric || !String(metric.keyword || '').trim()) return false;
+  if (endpoint.product === 'mindmap-expansion') return isMindmapServerBoardCandidate(metric);
   if (metric.isMeasured !== true) return false;
-  if (endpoint.product === 'mindmap-expansion') return isMindmapMeasuredBoardCandidate(metric);
   if (SYNTHETIC_RESULT_MARKER_PATTERN.test(metricRuntimeMarkerText(metric))) return false;
   if (!isPositiveFiniteMetric(metric.totalSearchVolume)) return false;
   if (!isPositiveFiniteMetric(metric.documentCount)) return false;
@@ -2055,6 +2056,7 @@ function isMeasuredLiveBoardCandidate(item: MobileKeywordMetric): boolean {
 }
 
 const MINDMAP_MEASURED_SOURCE_RE = /(server-measured-mindmap-prewarm|pc-mindmap-exact-measured-seed|pc-mindmap-measured-intent-expansion|pc-mindmap-expansion-quality|pc-mindmap-ranker|pc-keyword-analysis-exact|autocomplete|naver-relkwd|naver-related|web-analysis-context)/i;
+const MINDMAP_SOURCE_ONLY_SOURCE_RE = /^(?:pc-mindmap-ranker|pc-mindmap-expansion-quality|pc-keyword-analysis-exact|autocomplete|naver-relkwd|naver-related|web-analysis-context)$/i;
 
 function isMindmapMeasuredBoardCandidate(item: MobileKeywordMetric): boolean {
   if (item.intent !== 'mindmap-expansion') return false;
@@ -2062,6 +2064,19 @@ function isMindmapMeasuredBoardCandidate(item: MobileKeywordMetric): boolean {
   if (!isPositiveFiniteMetric(item.documentCount)) return false;
   if (item.isSearchVolumeEstimated === true || item.isDocumentCountEstimated === true) return false;
   return MINDMAP_MEASURED_SOURCE_RE.test(metricRuntimeMarkerText(item));
+}
+
+function isMindmapSourceOnlyBoardCandidate(item: MobileKeywordMetric): boolean {
+  if (item.intent !== 'mindmap-expansion') return false;
+  if (item.isMeasured === true) return false;
+  if (!isMindmapExpansionKeywordCandidate(item.keyword)) return false;
+  if (item.isSearchVolumeEstimated === true || item.isDocumentCountEstimated === true) return false;
+  if (SYNTHETIC_RESULT_MARKER_PATTERN.test(metricRuntimeMarkerText(item))) return false;
+  return MINDMAP_SOURCE_ONLY_SOURCE_RE.test(String(item.source || ''));
+}
+
+function isMindmapServerBoardCandidate(item: MobileKeywordMetric): boolean {
+  return isMindmapMeasuredBoardCandidate(item) || isMindmapSourceOnlyBoardCandidate(item);
 }
 
 function productIntentText(item: MobileKeywordMetric): string {

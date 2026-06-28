@@ -1069,18 +1069,20 @@ assert('shopping connect prewarm rows are enriched with real product picks befor
     && /const sanitizedResult = sanitizeMeasuredKeywordResult\(endpoint, enrichedResult\)/.test(apiServer),
   'shopping prewarm/cache results must explain the sellable product, not only replay measured keywords');
 
-assert('API strict sanitizer keeps fully measured mindmap expansion rows',
+assert('API strict sanitizer keeps measured and trusted source-only mindmap expansion rows',
   /function isMindmapMeasuredBoardCandidate/.test(apiServer)
     && /MINDMAP_MEASURED_SOURCE_RE/.test(apiServer)
+    && /function isMindmapSourceOnlyBoardCandidate/.test(apiServer)
+    && /MINDMAP_SOURCE_ONLY_SOURCE_RE/.test(apiServer)
     && /product === 'mindmap-expansion'\) return Math\.min\(targetCount, 10\)/.test(apiServer)
-    && /endpoint\.product === 'mindmap-expansion'\) return isMindmapMeasuredBoardCandidate/.test(apiServer)
+    && /endpoint\.product === 'mindmap-expansion'\) return isMindmapServerBoardCandidate/.test(apiServer)
     && /pc-mindmap-exact-measured-seed/.test(apiServer)
     && /pc-mindmap-measured-intent-expansion/.test(apiServer)
     && /server-measured-mindmap-prewarm/.test(apiServer)
     && /function measuredMindmapCacheCandidates/.test(apiServer)
     && /product === 'mindmap-expansion'\) return \[\]/.test(apiServer)
     && /endpoint\.product === 'mindmap-expansion'[\s\S]{0,120}measuredMindmapCacheCandidates/.test(apiServer),
-  'mindmap endpoint must not sanitize exact measured seed/expansion rows down to 0');
+  'mindmap endpoint must not sanitize exact measured or trusted source-only expansion rows down to 0');
 
 const pcExecutor = read('src/mobile/pc-engine-executor.ts');
 assert('mobile executor exists', /createMobilePcEngineExecutor/.test(pcExecutor));
@@ -1091,7 +1093,8 @@ assert('mobile executor filters article-title mindmap noise and supplements thin
     && /buildInsuranceCalculatorMeasuredRoots/.test(pcExecutor)
     && /buildMindmapMeasuredQueryRoots\(normalizedSeed, 32\)/.test(pcExecutor)
     && /mindmap measured pool low/.test(pcExecutor)
-    && /mergePrioritizedKeywordMetrics\(\[finalMetrics, fallback\], params\.targetCount\)/.test(pcExecutor),
+    && /mergePrioritizedKeywordMetrics\(\[finalMetrics, fallback\], params\.targetCount\)/.test(pcExecutor)
+    && /sourceOnlyMetrics/.test(pcExecutor),
   'mindmap must measure concise query candidates instead of stopping at article-title noise');
 assert('mobile executor measures analysis and mindmap candidates with PC metrics',
   /measureKeywordMetrics\?/.test(pcExecutor)

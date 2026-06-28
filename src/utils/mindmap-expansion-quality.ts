@@ -50,6 +50,8 @@ export function isMindmapExpansionKeywordCandidate(keyword: string): boolean {
   if (CONTENT_STRATEGY_MINDMAP_RE.test(kw)) return false;
   if (SENTENCE_STYLE_MINDMAP_RE.test(kw)) return false;
   if (/[,.]\s/.test(kw)) return false;
+  if (/([^\x00-\x7F])\1{2,}/u.test(kw)) return false;
+  if (/^(?:\uBC14\uB85C\uAC00\uAE30\s*\uC774\uB3D9|\uC774\uBBF8\uC9C0|\uC0AC\uC9C4|\uB3D9\uC601\uC0C1|\uB274\uC2A4|\uBE14\uB85C\uADF8|\uCE74\uD398|\uC6F9\uD398\uC774\uC9C0)$/iu.test(kw)) return false;
   if (/ㅋ{2,}|ㅎ{2,}|ㅠ{2,}|ㅜ{2,}/.test(kw)) return false;
   if (/^(바로가기|이동|이미지|사진|동영상|뉴스|블로그|카페|홈페이지)$/i.test(kw)) return false;
   if (kw.split(/\s+/).length > 5) return false;
