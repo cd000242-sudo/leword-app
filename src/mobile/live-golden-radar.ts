@@ -81,6 +81,7 @@ export interface MobileLiveGoldenRadarOptions {
   autocompleteProvider?: typeof getNaverAutocompleteKeywords;
   searchAdSuggestionProvider?: typeof getNaverSearchAdKeywordSuggestions;
   enableBackfill?: boolean;
+  refreshBoardFileOnSnapshot?: boolean;
   shouldRun?: () => MobileLiveGoldenRadarRunGate | boolean;
   setIntervalFn?: (handler: () => void, intervalMs: number) => unknown;
   clearIntervalFn?: (handle: unknown) => void;
@@ -132,6 +133,7 @@ const LIVE_ISSUE_FALLBACK_TIMEOUT_MS = 25_000;
 const LIVE_SPLIT_ENRICHMENT_TIMEOUT_MS = 25_000;
 const PUBLIC_PREVIEW_MAX_AGE_MS = 48 * 60 * 60 * 1000;
 const LIVE_BOARD_MAX_AGE_MS = 7 * 24 * 60 * 60 * 1000;
+const LIVE_BOARD_FILE_REFRESH_MS = 30_000;
 const BROAD_KEYWORD_VOLUME_CEILING = 500_000;
 const BROAD_KEYWORD_DOCUMENT_CEILING = 80_000;
 const PUBLIC_PREVIEW_VOLUME_CEILING = 250_000;
@@ -5160,6 +5162,7 @@ export class MobileLiveGoldenRadar {
   private readonly hasCustomLiveVolumeMeasure: boolean;
   private readonly hasCustomLiveDocumentMeasure: boolean;
   private readonly enableBackfill: boolean;
+  private readonly refreshBoardFileOnSnapshot: boolean;
   private readonly shouldRun: () => MobileLiveGoldenRadarRunGate | boolean;
   private readonly setIntervalFn: (handler: () => void, intervalMs: number) => unknown;
   private readonly clearIntervalFn: (handle: unknown) => void;
@@ -5182,6 +5185,7 @@ export class MobileLiveGoldenRadar {
   private readonly board = new Map<string, MobileLiveGoldenBoardItem>();
   private readonly cacheDerivedLiveSeeds: string[] = [];
   private readonly pendingMeasuredProbeQueue: LiveMeasuredProbeQueueItem[] = [];
+  private lastBoardFileRefreshAtMs = 0;
   private lastCacheRefreshAtMs = 0;
   private lastStartedAt?: string;
   private lastFinishedAt?: string;
@@ -5237,6 +5241,7 @@ export class MobileLiveGoldenRadar {
     this.hasCustomLiveVolumeMeasure = Boolean(options.measureLiveSearchVolumeSeparate);
     this.hasCustomLiveDocumentMeasure = Boolean(options.measureLiveDocumentCount);
     this.enableBackfill = options.enableBackfill !== false;
+    this.refreshBoardFileOnSnapshot = options.refreshBoardFileOnSnapshot === true;
     this.shouldRun = options.shouldRun || (() => true);
     this.setIntervalFn = options.setIntervalFn || ((handler, intervalMs) => setInterval(handler, intervalMs));
     this.clearIntervalFn = options.clearIntervalFn || ((handle) => clearInterval(handle as ReturnType<typeof setInterval>));
@@ -6967,6 +6972,9 @@ export class MobileLiveGoldenRadar {
   }
 
   snapshot(): MobileLiveGoldenRadarSnapshot {
+    if (!this.running && this.refreshBoardFileOnSnapshot) {
+      this.refreshBoardFromFile(false);
+    }
     if (!this.running) {
       this.refreshMeasuredCachesFromDisk(false);
     }
@@ -7785,7 +7793,7 @@ export class MobileLiveGoldenRadar {
     }
   }
 
-  private loadBoardFromFile(): void {
+  private loadBoardFromFile(replaceExisting = false): void {
     if (!this.boardFile) return;
     try {
       if (!fs.existsSync(this.boardFile)) return;
@@ -7799,6 +7807,9 @@ export class MobileLiveGoldenRadar {
           : [];
       const stamp = this.now().toISOString();
       const now = this.now();
+      if (replaceExisting) {
+        this.board.clear();
+      }
       for (const row of rows) {
         const keyword = normalizeKeyword(row?.keyword);
         if (!keyword) continue;
@@ -7896,6 +7907,14 @@ export class MobileLiveGoldenRadar {
     }
   }
 
+  private refreshBoardFromFile(force = false): void {
+    if (!this.boardFile) return;
+    const nowMs = Date.now();
+    if (!force && nowMs - this.lastBoardFileRefreshAtMs < LIVE_BOARD_FILE_REFRESH_MS) return;
+    this.lastBoardFileRefreshAtMs = nowMs;
+    this.loadBoardFromFile(true);
+  }
+
   private saveBoardToFile(): void {
     if (!this.boardFile) return;
     try {
@@ -7932,12 +7951,16 @@ export function createMobileLiveGoldenRadarFromEnv(
   const boardFile = normalizeKeyword(process.env['LEWORD_MOBILE_LIVE_GOLDEN_BOARD_FILE'] || '');
   const resultCacheFile = normalizeKeyword(process.env['LEWORD_MOBILE_CACHE_FILE'] || '');
   const keywordCacheFile = normalizeKeyword(process.env['LEWORD_MOBILE_KEYWORD_CACHE_FILE'] || '');
-  const runOnStart = process.env['LEWORD_MOBILE_LIVE_GOLDEN_ON_START'] !== 'false';
+  const readOnly = process.env['LEWORD_MOBILE_LIVE_GOLDEN_READONLY'] === 'true';
+  const runOnStart = !readOnly && process.env['LEWORD_MOBILE_LIVE_GOLDEN_ON_START'] !== 'false';
   const rawRunOnStartDelayMs = Number(process.env['LEWORD_MOBILE_LIVE_GOLDEN_START_DELAY_MS'] || 0);
   const defaultRunOnStartDelayMs = process.env['NODE_ENV'] === 'production' ? 300_000 : undefined;
+  const effectiveShouldRun = readOnly
+    ? () => ({ ok: false, message: 'live golden read-only snapshot mode' })
+    : shouldRun;
   return new MobileLiveGoldenRadar({
     notificationInbox,
-    shouldRun,
+    shouldRun: effectiveShouldRun,
     intervalMs: Number.isFinite(intervalMinutes) && intervalMinutes > 0
       ? intervalMinutes * 60 * 1000
       : undefined,
@@ -7953,6 +7976,7 @@ export function createMobileLiveGoldenRadarFromEnv(
       ? startupCatchUpCycles
       : undefined,
     runOnStart,
+    refreshBoardFileOnSnapshot: readOnly,
     runOnStartDelayMs: Number.isFinite(rawRunOnStartDelayMs) && rawRunOnStartDelayMs > 0
       ? Math.floor(rawRunOnStartDelayMs)
       : defaultRunOnStartDelayMs,

@@ -13,6 +13,8 @@ function assert(name: string, condition: boolean, detail?: string): void {
   }
 }
 
+const root = path.join(__dirname, '..', '..', '..');
+
 function result(keyword: string, index: number): any {
   const searchVolume = 2200 + index * 100;
   const pcSearchVolume = Math.round(searchVolume * 0.22);
@@ -4116,6 +4118,85 @@ function thinProfileCount(items: Array<{ keyword: string }>): number {
       && schedulerCatchupSnapshot.boardCount >= 8
       && schedulerCatchupSnapshot.successfulRuns === 2,
     `${schedulerCatchupDiscoverCalls}:${schedulerCatchupSnapshot.boardCount}:${schedulerCatchupSnapshot.successfulRuns}`);
+
+  const workerSyncDir = path.join(root, 'tmp', 'live-golden-worker-sync-test');
+  fs.mkdirSync(workerSyncDir, { recursive: true });
+  const workerBoardFile = path.join(workerSyncDir, 'live-golden-board.json');
+  const workerCacheFile = path.join(workerSyncDir, 'mobile-cache.json');
+  const workerKeywordCacheFile = path.join(workerSyncDir, 'keyword-cache.json');
+  for (const filePath of [workerBoardFile, workerCacheFile, workerKeywordCacheFile]) {
+    if (fs.existsSync(filePath)) fs.unlinkSync(filePath);
+  }
+  const apiReadonlyRadar = new MobileLiveGoldenRadar({
+    notificationInbox: inbox,
+    runOnStart: false,
+    refreshBoardFileOnSnapshot: true,
+    boardFile: workerBoardFile,
+    resultCacheFile: workerCacheFile,
+    keywordCacheFile: workerKeywordCacheFile,
+    now: () => new Date('2026-06-28T03:00:00.000Z'),
+  });
+  fs.writeFileSync(workerBoardFile, JSON.stringify({
+    version: 1,
+    boardUpdatedAt: '2026-06-28T02:59:00.000Z',
+    savedAt: '2026-06-28T02:59:00.000Z',
+    items: [
+      {
+        keyword: '\uADFC\uB85C\uC7A5\uB824\uAE08 \uC9C0\uAE09\uC77C',
+        grade: 'SSS',
+        score: 98,
+        pcSearchVolume: 1200,
+        mobileSearchVolume: 6800,
+        totalSearchVolume: 8000,
+        documentCount: 320,
+        goldenRatio: 25,
+        cpc: 0,
+        category: 'policy',
+        source: 'live-golden-worker',
+        intent: 'worker-measured-need',
+        evidence: ['worker-board-file', 'measured-search-volume', 'measured-document-count'],
+        isMeasured: true,
+        documentCountSource: 'naver-api',
+        documentCountConfidence: 'high',
+        isDocumentCountEstimated: false,
+        searchVolumeSource: 'searchad',
+        searchVolumeConfidence: 'high',
+        isSearchVolumeEstimated: false,
+        updatedAt: '2026-06-28T02:59:00.000Z',
+        discoveredAt: '2026-06-28T02:59:00.000Z',
+      },
+      {
+        keyword: '\uC1A1\uC9C0\uD638\uBC14\uB2E4\uD558\uB298\uAE38 \uC785\uC7A5\uB8CC',
+        grade: 'SSS',
+        score: 98,
+        pcSearchVolume: 230,
+        mobileSearchVolume: 2300,
+        totalSearchVolume: 2530,
+        documentCount: 157,
+        goldenRatio: 16.11,
+        cpc: 0,
+        category: 'travel_domestic',
+        source: 'live-golden-worker',
+        intent: 'worker-measured-need',
+        evidence: ['worker-board-file', 'measured-search-volume', 'measured-document-count'],
+        isMeasured: true,
+        documentCountSource: 'naver-api',
+        documentCountConfidence: 'high',
+        isDocumentCountEstimated: false,
+        searchVolumeSource: 'searchad',
+        searchVolumeConfidence: 'high',
+        isSearchVolumeEstimated: false,
+        updatedAt: '2026-06-28T02:59:00.000Z',
+        discoveredAt: '2026-06-28T02:59:00.000Z',
+      },
+    ],
+  }), 'utf8');
+  const workerSyncedSnapshot = apiReadonlyRadar.snapshot();
+  assert('API snapshot reloads live golden board written by worker process',
+    workerSyncedSnapshot.boardCount === 2
+      && workerSyncedSnapshot.board.every((item) => item.source === 'live-golden-worker')
+      && workerSyncedSnapshot.board.every((item) => item.isSearchVolumeEstimated === false && item.isDocumentCountEstimated === false),
+    `${workerSyncedSnapshot.boardCount}:${workerSyncedSnapshot.board.map((item) => item.keyword).join(',')}`);
 
   const summary: MobileKeywordResult['summary'] | undefined = undefined;
   assert('type smoke remains compatible with mobile keyword result summary', summary === undefined);

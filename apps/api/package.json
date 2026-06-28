@@ -7,6 +7,7 @@
   "scripts": {
     "start": "ts-node src/server.ts",
     "start:prod": "node -r ts-node/register/transpile-only src/server.ts",
+    "worker:live-golden": "node -r ts-node/register/transpile-only src/live-golden-worker.ts",
     "deploy:gate": "node ../../scripts/mobile-api-deploy-gate.js",
     "typecheck": "tsc --noEmit"
   }

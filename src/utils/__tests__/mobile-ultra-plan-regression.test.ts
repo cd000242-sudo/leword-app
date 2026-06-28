@@ -84,6 +84,7 @@ const apiPackage = JSON.parse(read('apps/api/package.json'));
 const apiDockerfile = read('apps/api/Dockerfile');
 const apiProductionCompose = read('apps/api/docker-compose.production.yml');
 const apiReadme = read('apps/api/README.md');
+const liveGoldenWorker = read('apps/api/src/live-golden-worker.ts');
 const dockerignore = read('.dockerignore');
 const mobileReleaseWorkflow = read('.github/workflows/mobile-release.yml');
 const rootPackage = JSON.parse(read('package.json'));
@@ -694,6 +695,7 @@ const notificationInbox = read('src/mobile/notification-inbox.ts');
 const pushNotifications = read('src/mobile/push-notifications.ts');
 assert('api package exposes production start command',
   apiPackage.scripts['start:prod'] === 'node -r ts-node/register/transpile-only src/server.ts'
+    && apiPackage.scripts['worker:live-golden'] === 'node -r ts-node/register/transpile-only src/live-golden-worker.ts'
     && apiPackage.scripts['deploy:gate'] === 'node ../../scripts/mobile-api-deploy-gate.js');
 assert('api Dockerfile packages PC-grade worker runtime',
   /FROM node:22-bookworm-slim/.test(apiDockerfile)
@@ -720,6 +722,8 @@ assert('api production compose deploys CI-published GHCR image',
     && /\.env\.production/.test(apiProductionCompose)
     && /LEWORD_MOBILE_CACHE_FILE:\s*\/data\/mobile-cache\.json/.test(apiProductionCompose)
     && /leword-mobile-cache:\/data/.test(apiProductionCompose)
+    && /leword-live-golden-worker:/.test(apiProductionCompose)
+    && /worker:live-golden/.test(apiProductionCompose)
     && /health/.test(apiProductionCompose));
 assert('production API caps browser and job concurrency for stable 24h mining',
   /function positiveIntegerEnv/.test(apiServer)
@@ -954,17 +958,27 @@ assert('production compose keeps server prewarm running all day',
     && /LEWORD_MOBILE_PREWARM_LIMIT:\s*\$\{LEWORD_MOBILE_PREWARM_LIMIT:-8\}/.test(apiProductionCompose)
     && /LEWORD_MOBILE_PREWARM_ON_START:\s*\$\{LEWORD_MOBILE_PREWARM_ON_START:-true\}/.test(apiProductionCompose)
     && /LEWORD_MOBILE_PREWARM_START_DELAY_MS:\s*\$\{LEWORD_MOBILE_PREWARM_START_DELAY_MS:-300000\}/.test(apiProductionCompose)
+    && /LEWORD_MOBILE_LIVE_GOLDEN_READONLY:\s*"true"/.test(apiProductionCompose)
+    && /LEWORD_MOBILE_LIVE_GOLDEN_ON_START:\s*"false"/.test(apiProductionCompose)
+    && /LEWORD_MOBILE_LIVE_GOLDEN_INTERVAL_MINUTES:\s*\$\{LEWORD_MOBILE_LIVE_GOLDEN_API_INTERVAL_MINUTES:-1440\}/.test(apiProductionCompose)
     && /LEWORD_MOBILE_LIVE_GOLDEN_START_DELAY_MS:\s*\$\{LEWORD_MOBILE_LIVE_GOLDEN_START_DELAY_MS:-300000\}/.test(apiProductionCompose)
     && /LEWORD_MOBILE_LIVE_GOLDEN_IGNORE_PREWARM:\s*\$\{LEWORD_MOBILE_LIVE_GOLDEN_IGNORE_PREWARM:-true\}/.test(apiProductionCompose));
 assert('mobile live golden radar is low-load and non-overlapping',
   /MobileLiveGoldenRadar/.test(liveGoldenRadar)
     && /liveGoldenCycleLimit/.test(liveGoldenRadar)
     && /liveGoldenMaxCandidates/.test(liveGoldenRadar)
+    && /LEWORD_MOBILE_LIVE_GOLDEN_READONLY/.test(liveGoldenRadar)
+    && /refreshBoardFromFile/.test(liveGoldenRadar)
     && /LEWORD_MOBILE_LIVE_GOLDEN_START_DELAY_MS/.test(liveGoldenRadar)
     && /defaultRunOnStartDelayMs/.test(liveGoldenRadar)
     && /shouldRun/.test(liveGoldenRadar)
     && /publishFromResult/.test(liveGoldenRadar)
     && /LEWORD_MOBILE_LIVE_GOLDEN_INTERVAL_MINUTES/.test(liveGoldenRadar));
+assert('live golden worker runs discovery outside the HTTP API process',
+  /createMobileLiveGoldenRadarFromEnv/.test(liveGoldenWorker)
+    && /radar\.start\(\)/.test(liveGoldenWorker)
+    && /heartbeat/.test(liveGoldenWorker)
+    && /SIGTERM/.test(liveGoldenWorker));
 assert('mobile live golden radar waits when document-count quota is exhausted',
   /isNaverBlogOpenApiQuotaBlocked/.test(liveGoldenRadar)
     && /getNaverBlogOpenApiQuotaBlockedUntil/.test(liveGoldenRadar)
