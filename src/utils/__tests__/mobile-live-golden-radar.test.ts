@@ -3388,7 +3388,7 @@ function thinProfileCount(items: Array<{ keyword: string }>): number {
   const catchUpProbeFile = path.join(process.cwd(), 'tmp', 'mobile-live-golden-catchup-queue-depth-test.json');
   const catchUpProbeKeywords = __liveGoldenRadarTestInternals
     .buildMeasuredProbeCandidates('all', [], 720, lottoGuardNow)
-    .slice(0, 110);
+    .slice(0, 180);
   fs.writeFileSync(catchUpProbeFile, JSON.stringify({
     version: 1,
     savedAt: '2026-06-15T08:00:00.000Z',
@@ -3436,8 +3436,8 @@ function thinProfileCount(items: Array<{ keyword: string }>): number {
     discover: async () => [],
   });
   await catchUpRadar.runOnce();
-  assert('live golden catch-up measures more than the old shallow queue cap',
-    new Set(catchUpMeasuredKeywords).size > 64,
+  assert('live golden catch-up measures a wide SSS-depth queue instead of stalling behind broad heads',
+    new Set(catchUpMeasuredKeywords).size > 240,
     JSON.stringify({
       measuredCount: new Set(catchUpMeasuredKeywords).size,
       catchUpAutocompleteCalls,

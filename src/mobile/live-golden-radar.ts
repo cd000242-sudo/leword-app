@@ -150,9 +150,9 @@ const LIVE_DIRECT_CANDIDATE_MAX_PER_CYCLE = 7200;
 const LIVE_ISSUE_FALLBACK_DOCUMENT_LIMIT = 16;
 const LIVE_ISSUE_FALLBACK_CONCURRENCY = 2;
 const LIVE_BACKFILL_VOLUME_PASS_MAX = 360;
-const LIVE_BACKFILL_DOCUMENT_PASS_MAX = 180;
+const LIVE_BACKFILL_DOCUMENT_PASS_MAX = 240;
 const LIVE_BACKFILL_DOCUMENT_CONCURRENCY = 3;
-const LIVE_BACKFILL_DOCUMENT_SUPPLEMENT_MAX = 60;
+const LIVE_BACKFILL_DOCUMENT_SUPPLEMENT_MAX = 90;
 const LIVE_ISSUE_DOCUMENT_SUPPLEMENT_MAX = 8;
 const LIVE_BACKFILL_CANDIDATE_LIMIT_MAX = 1800;
 const LIVE_MEASURED_PROBE_CANDIDATE_LIMIT_MAX = 1440;
@@ -5264,7 +5264,7 @@ export class MobileLiveGoldenRadar {
 
   private backfillMeasurementLimit(targetLimit: number): number {
     const catchUpLimit = targetLimit >= Math.ceil(this.boardTarget * 0.5)
-      ? Math.max(targetLimit, Math.ceil(this.boardTarget * 1.15))
+      ? Math.max(targetLimit, Math.ceil(this.boardTarget * 1.8))
       : targetLimit;
     return Math.max(
       24,
@@ -5728,7 +5728,7 @@ export class MobileLiveGoldenRadar {
     const now = this.now();
     const nowMs = now.getTime();
     const normalizedCategory = normalizeKeyword(categoryId || 'all') || 'all';
-    const limit = Math.max(24, Math.min(180, targetLimit * 8));
+    const limit = Math.max(72, Math.min(720, targetLimit * 24));
     const boardIds = new Set([...this.board.values()].map((item) => keywordCompactId(item.keyword)).filter(Boolean));
     const sorted = this.pendingMeasuredProbeQueue
       .filter((item) => {
@@ -6498,7 +6498,7 @@ export class MobileLiveGoldenRadar {
     categoryId: string,
     targetLimit = this.cycleLimit,
   ): Promise<{ results: MDPResult[]; attemptedCount: number }> {
-    const measurementLimit = Math.min(120, this.backfillMeasurementLimit(targetLimit));
+    const measurementLimit = Math.min(240, this.backfillMeasurementLimit(targetLimit));
     const prioritizedItems = this.priorityMeasuredProbeQueueItems(categoryId, measurementLimit * 2);
     const diverseItems = this.runnableMeasuredProbeQueueItems(categoryId, targetLimit);
     const queuedProbeItems: LiveMeasuredProbeQueueItem[] = [];
@@ -6515,7 +6515,7 @@ export class MobileLiveGoldenRadar {
     const categoryById = new Map<string, string>();
     const candidates: string[] = [];
     const seenCandidateKeywords = new Set<string>();
-    const candidateLimit = Math.min(240, Math.max(measurementLimit, measurementLimit * 2));
+    const candidateLimit = Math.min(480, Math.max(measurementLimit, measurementLimit * 2));
     const variantsByItem = queuedProbeItems.map((item) => {
       const effectiveCategory = measuredProbeEffectiveCategory(item, categoryId || 'all');
       return {
