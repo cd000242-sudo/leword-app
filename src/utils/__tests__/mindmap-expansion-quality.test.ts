@@ -128,6 +128,22 @@ assert('mindmap keeps automation-ready keyword expansions',
     && hongMindmap.includes('\uD64D\uBA85\uBCF4 \uAC10\uB3C5 \uC0AC\uD1F4 \uC5EC\uB860'),
   hongMindmap.join(', '));
 
+const hongIssueBridge = rankMindmapExpansionCandidates('\uD64D\uBA85\uBCF4 \uAC10\uB3C5 \uC0AC\uD1F4', [
+  { keyword: '\uD64D\uBA85\uBCF4 \uAC10\uB3C5 \uB2E4\uC74C \uAC10\uB3C5 \uD6C4\uBCF4', sources: ['mindmap-issue-bridge'] },
+  { keyword: '\uD64D\uBA85\uBCF4 \uAC10\uB3C5 \uC120\uC784 \uACFC\uC815', sources: ['mindmap-issue-bridge'] },
+  { keyword: '\uB300\uD55C\uCD95\uAD6C\uD611\uD68C \uBE44\uB9AC \uC804\uB9D0', sources: ['mindmap-issue-bridge'] },
+  { keyword: '\uC774\uAC15\uC778 \uC774\uC7AC\uC131 \uD22C\uC785 \uC694\uCCAD', sources: ['mindmap-issue-bridge'] },
+  { keyword: '\uAE40\uBBFC\uC7AC \uAD50\uCCB4 \uD56D\uC758', sources: ['mindmap-issue-bridge'] },
+  { keyword: '\uD64D\uBA85\uBCF4 \uAC10\uB3C5 \uC0AC\uD1F4 \uBC29\uBC95', sources: ['autocomplete'] },
+], 10).map(item => item.keyword);
+assert('mindmap prioritizes investigative issue branches over shallow suffix-only expansion',
+  hongIssueBridge.includes('\uD64D\uBA85\uBCF4 \uAC10\uB3C5 \uB2E4\uC74C \uAC10\uB3C5 \uD6C4\uBCF4')
+    && hongIssueBridge.includes('\uD64D\uBA85\uBCF4 \uAC10\uB3C5 \uC120\uC784 \uACFC\uC815')
+    && hongIssueBridge.includes('\uB300\uD55C\uCD95\uAD6C\uD611\uD68C \uBE44\uB9AC \uC804\uB9D0')
+    && hongIssueBridge.includes('\uC774\uAC15\uC778 \uC774\uC7AC\uC131 \uD22C\uC785 \uC694\uCCAD')
+    && hongIssueBridge.includes('\uAE40\uBBFC\uC7AC \uAD50\uCCB4 \uD56D\uC758'),
+  hongIssueBridge.join(', '));
+
 console.log(`\n[mindmap-expansion-quality.test] passed: ${passed} / failed: ${failed}`);
 if (failed > 0) {
   failures.forEach(f => console.error('  ' + f));

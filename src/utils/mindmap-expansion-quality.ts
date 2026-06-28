@@ -40,6 +40,13 @@ function isConciseSharedMindmapBranch(seed: string, keyword: string): boolean {
   return seedHead === candidateHead || seedKey.startsWith(candidateHead) || candidateKey.startsWith(seedHead);
 }
 
+function isMindmapIssueBridgeCandidate(candidate: MindmapExpansionCandidate): boolean {
+  return [
+    candidate.source || '',
+    ...(candidate.sources || []),
+  ].some((source) => /mindmap-issue-(?:bridge|autocomplete|naver-relkwd)/i.test(source));
+}
+
 export function isMindmapExpansionKeywordCandidate(keyword: string): boolean {
   const kw = normalizeKeyword(keyword);
   if (kw.length < 2 || kw.length > 42) return false;
@@ -83,6 +90,13 @@ export function rankMindmapExpansionCandidates(
       score: Math.max(56, 82 - index * 2),
       reasons: ['mindmap-shared-query-branch', ...(candidate.sources || [])],
     }));
+  const issueBridgeRanked: RankedRelatedKeyword[] = normalized
+    .filter(isMindmapIssueBridgeCandidate)
+    .map((candidate, index) => ({
+      ...candidate,
+      score: Math.max(64, 90 - index * 1.5),
+      reasons: ['mindmap-issue-bridge', ...(candidate.sources || [])],
+    }));
 
   const primaryRanked = rankKeywordExpansionCandidates(seed, normalized, {
     limit: safeLimit,
@@ -93,7 +107,7 @@ export function rankMindmapExpansionCandidates(
 
   const merged: RankedRelatedKeyword[] = [];
   const mergedKeys = new Set<string>();
-  for (const item of [...aliasRanked, ...primaryRanked]) {
+  for (const item of [...issueBridgeRanked, ...aliasRanked, ...primaryRanked]) {
     const key = compactKeyword(item.keyword);
     if (!key || mergedKeys.has(key)) continue;
     mergedKeys.add(key);

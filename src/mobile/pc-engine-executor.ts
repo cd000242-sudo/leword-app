@@ -2513,6 +2513,88 @@ function contextSeedKeywords(
   return out.slice(0, Math.max(limit, 1));
 }
 
+function footballIssueCorpus(seedKeyword: string, contextKeywords?: MobileKeywordContextCandidate[]): string {
+  return [
+    seedKeyword || '',
+    ...(contextKeywords || []).slice(0, 80).map((item) => item.keyword || ''),
+  ].join(' ');
+}
+
+function looksLikeFootballCoachIssue(seedKeyword: string, contextKeywords?: MobileKeywordContextCandidate[]): boolean {
+  const corpus = footballIssueCorpus(seedKeyword, contextKeywords);
+  const compact = compactKeyword(corpus);
+  const hasFootballContext = /(?:\uCD95\uAD6C|\uAD6D\uAC00\uB300\uD45C|\uB300\uD45C\uD300|\uB300\uD55C\uCD95\uAD6C\uD611\uD68C|\uCD95\uAD6C\uD611\uD68C|KFA|\uC6D4\uB4DC\uCEF5|\uD64D\uBA85\uBCF4)/i.test(corpus);
+  const hasCoachIssue = /(?:\uAC10\uB3C5|\uC0AC\uD1F4|\uC120\uC784|\uD6C4\uC784|\uACBD\uC9C8|\uAD50\uCCB4|\uD6C4\uBCF4|\uB17C\uB780|\uCC45\uC784|\uBE44\uB9AC)/u.test(corpus);
+  const compactCoachIssue = /(?:\uAC10\uB3C5\uC0AC\uD1F4|\uAC10\uB3C5\uC120\uC784|\uB2E4\uC74C\uAC10\uB3C5|\uD6C4\uC784\uAC10\uB3C5|\uB300\uD45C\uD300\uAC10\uB3C5)/u.test(compact);
+  return (hasFootballContext && hasCoachIssue) || compactCoachIssue;
+}
+
+function extractFootballCoachSubject(seedKeyword: string, contextKeywords?: MobileKeywordContextCandidate[]): { person: string; coach: string } | null {
+  const corpus = footballIssueCorpus(seedKeyword, contextKeywords);
+  const direct = normalizeKeyword(seedKeyword).match(/([\uAC00-\uD7A3]{2,6})\s*\uAC10\uB3C5/u)
+    || corpus.match(/([\uAC00-\uD7A3]{2,6})\s*\uAC10\uB3C5/u);
+  if (direct?.[1]) {
+    const person = direct[1];
+    return { person, coach: `${person} \uAC10\uB3C5` };
+  }
+  const compact = compactKeyword(seedKeyword);
+  if (compact.includes('\uD64D\uBA85\uBCF4')) return { person: '\uD64D\uBA85\uBCF4', coach: '\uD64D\uBA85\uBCF4 \uAC10\uB3C5' };
+  return null;
+}
+
+function buildMindmapIssueBridgeRoots(
+  seedKeyword: string,
+  contextKeywords?: MobileKeywordContextCandidate[],
+  limit = 32,
+): string[] {
+  if (!looksLikeFootballCoachIssue(seedKeyword, contextKeywords)) return [];
+  const subject = extractFootballCoachSubject(seedKeyword, contextKeywords);
+  const coach = subject?.coach || normalizeKeyword(seedKeyword);
+  const person = subject?.person || coach.replace(/\s*\uAC10\uB3C5.*$/u, '').trim();
+  const corpus = footballIssueCorpus(seedKeyword, contextKeywords);
+  const includePlayerBranches = /(?:\uD64D\uBA85\uBCF4|\uB300\uD55C\uCD95\uAD6C\uD611\uD68C|\uCD95\uAD6C\uD611\uD68C|\uAD6D\uAC00\uB300\uD45C|\uB300\uD45C\uD300|\uC774\uAC15\uC778|\uC774\uC7AC\uC131|\uAE40\uBBFC\uC7AC)/u.test(corpus);
+
+  const values = [
+    `${coach} \uB2E4\uC74C \uAC10\uB3C5 \uD6C4\uBCF4`,
+    `${coach} \uD6C4\uC784 \uAC10\uB3C5 \uD6C4\uBCF4`,
+    `${coach} \uC120\uC784 \uACFC\uC815`,
+    `${coach} \uC120\uC784 \uB17C\uB780`,
+    person ? `${person} \uC0AC\uD1F4 \uC774\uC720` : '',
+    person ? `${person} \uC0AC\uD1F4 \uC785\uC7A5\uBB38` : '',
+    `\uB300\uD55C\uCD95\uAD6C\uD611\uD68C ${coach} \uC120\uC784`,
+    '\uB300\uD55C\uCD95\uAD6C\uD611\uD68C \uAC10\uB3C5 \uC120\uC784 \uACFC\uC815',
+    '\uB300\uD55C\uCD95\uAD6C\uD611\uD68C \uBE44\uB9AC \uC804\uB9D0',
+    '\uB300\uD55C\uCD95\uAD6C\uD611\uD68C \uCC45\uC784\uB860',
+    '\uB300\uD55C\uCD95\uAD6C\uD611\uD68C \uC815\uBABD\uADDC \uCC45\uC784\uB860',
+    '\uAD6D\uAC00\uB300\uD45C \uAC10\uB3C5 \uD6C4\uBCF4',
+    '\uCD95\uAD6C\uB300\uD45C\uD300 \uD6C4\uC784 \uAC10\uB3C5 \uD6C4\uBCF4',
+    '\uC6D4\uB4DC\uCEF5 \uAC10\uB3C5 \uD6C4\uBCF4',
+    '\uB300\uD45C\uD300 \uC120\uC218 \uAE30\uC6A9 \uB17C\uB780',
+    '\uCD95\uAD6C\uB300\uD45C\uD300 \uC120\uC218 \uAE30\uC6A9 \uB17C\uB780',
+    ...(includePlayerBranches ? [
+      '\uC774\uAC15\uC778 \uC774\uC7AC\uC131 \uC120\uBC1C \uB17C\uB780',
+      '\uC774\uAC15\uC778 \uC774\uC7AC\uC131 \uD22C\uC785 \uC694\uCCAD',
+      '\uC774\uC7AC\uC131 \uACB0\uC7A5 \uC774\uC720',
+      '\uAE40\uBBFC\uC7AC \uAD50\uCCB4 \uD56D\uC758',
+      '\uAE40\uBBFC\uC7AC \uAD50\uCCB4 \uC7A5\uBA74',
+    ] : []),
+  ];
+  return uniqueKeywords(values.filter(Boolean), limit);
+}
+
+function buildMindmapIssueBridgeCandidates(
+  seedKeyword: string,
+  contextKeywords: MobileKeywordContextCandidate[] | undefined,
+  limit: number,
+): LiveExpansionCandidate[] {
+  return buildMindmapIssueBridgeRoots(seedKeyword, contextKeywords, limit).map((keyword, index) => ({
+    keyword,
+    source: 'mindmap-issue-bridge',
+    sources: ['mindmap-issue-bridge'],
+    freq: Math.max(8, 18 - index),
+  }));
+}
+
 function proTrafficContextSeedKeywords(
   params: ProTrafficMobileParams,
   limit: number,
@@ -2704,6 +2786,7 @@ async function collectLiveExpansionCandidates(
   const clientId = envValue(env, 'naverClientId', 'NAVER_CLIENT_ID');
   const clientSecret = envValue(env, 'naverClientSecret', 'NAVER_CLIENT_SECRET');
   const contextCandidates = contextExpansionCandidates(seed, contextKeywords, Math.max(limit, 1));
+  const issueBridgeCandidates = buildMindmapIssueBridgeCandidates(seed, contextKeywords, Math.min(32, Math.max(12, limit)));
 
   const config = { clientId, clientSecret };
   const byKey = new Map<string, LiveExpansionCandidate>();
@@ -2733,29 +2816,47 @@ async function collectLiveExpansionCandidates(
   for (const item of contextCandidates) {
     add(item.keyword, item.source, item.monthlyVolume, item.freq, item.sources);
   }
+  for (const item of issueBridgeCandidates) {
+    add(item.keyword, item.source, item.monthlyVolume, item.freq, item.sources);
+  }
 
   if (!clientId || !clientSecret) return Array.from(byKey.values()).slice(0, Math.max(limit, 1));
 
-  const [autocomplete, related] = await Promise.all([
-    import('../utils/naver-autocomplete')
-      .then(mod => mod.getNaverAutocompleteKeywords(seed, config))
-      .catch(() => [] as string[]),
-    import('../utils/naver-datalab-api')
-      .then(mod => mod.getNaverRelatedKeywords(seed, config, { limit: Math.min(80, Math.max(20, limit)) }))
-      .catch(() => [] as Array<{ keyword?: string; searchVolume?: number; monthlyVolume?: number }>),
-  ]);
+  const liveRoots = uniqueKeywords([
+    seed,
+    ...buildMindmapIssueBridgeRoots(seed, contextKeywords, 8),
+  ], 9);
+  const liveRows = await Promise.allSettled(liveRoots.map(async (root) => {
+    const [autocomplete, related] = await Promise.all([
+      import('../utils/naver-autocomplete')
+        .then(mod => mod.getNaverAutocompleteKeywords(root, config))
+        .catch(() => [] as string[]),
+      import('../utils/naver-datalab-api')
+        .then(mod => mod.getNaverRelatedKeywords(root, config, { limit: root === seed ? Math.min(80, Math.max(20, limit)) : 30 }))
+        .catch(() => [] as Array<{ keyword?: string; searchVolume?: number; monthlyVolume?: number }>),
+    ]);
+    return { root, autocomplete, related };
+  }));
   ensureNotAborted(context);
 
-  for (const keyword of autocomplete || []) add(keyword, 'autocomplete');
-  for (const item of related || []) {
-    const row = item as any;
-    add(
-      String(row?.keyword || ''),
-      'naver-relkwd',
-      typeof row?.searchVolume === 'number'
-        ? row.searchVolume
-        : (typeof row?.monthlyVolume === 'number' ? row.monthlyVolume : undefined),
-    );
+  for (const rowResult of liveRows) {
+    if (rowResult.status !== 'fulfilled') continue;
+    const sourcePrefix = rowResult.value.root === seed ? '' : 'mindmap-issue-';
+    for (const keyword of rowResult.value.autocomplete || []) {
+      add(keyword, `${sourcePrefix}autocomplete`, undefined, rowResult.value.root === seed ? 1 : 3, [`root:${rowResult.value.root}`]);
+    }
+    for (const item of rowResult.value.related || []) {
+      const row = item as any;
+      add(
+        String(row?.keyword || ''),
+        `${sourcePrefix}naver-relkwd`,
+        typeof row?.searchVolume === 'number'
+          ? row.searchVolume
+          : (typeof row?.monthlyVolume === 'number' ? row.monthlyVolume : undefined),
+        rowResult.value.root === seed ? 1 : 3,
+        [`root:${rowResult.value.root}`],
+      );
+    }
   }
 
   const current = Array.from(byKey.values());
@@ -3069,6 +3170,7 @@ async function buildMeasuredMindmapSeedMetrics(
   const seedKey = compactKeyword(normalizedSeed);
   const primaryRoots = [
     normalizedSeed,
+    ...buildMindmapIssueBridgeRoots(normalizedSeed, contextKeywords, 24),
     ...buildMindmapMeasuredQueryRoots(normalizedSeed, 32),
     ...buildSafeMeasuredIntentRoots(normalizedSeed, 24),
     ...buildIntentQueryRoots(normalizedSeed, 8),
@@ -3077,6 +3179,7 @@ async function buildMeasuredMindmapSeedMetrics(
     .filter((seed) => compactKeyword(seed) !== seedKey)
     .flatMap((seed) => [
       seed,
+      ...buildMindmapIssueBridgeRoots(seed, contextKeywords, 8),
       ...buildMindmapMeasuredQueryRoots(seed, 8),
       ...buildSafeMeasuredIntentRoots(seed, 10),
       ...buildIntentQueryRoots(seed, 4),

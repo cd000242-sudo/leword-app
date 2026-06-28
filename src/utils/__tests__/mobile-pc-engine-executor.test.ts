@@ -190,6 +190,29 @@ async function runMindmapExpansion(): Promise<void> {
       && progress.some((message) => message.includes('pc-mindmap measured intent candidates')));
 }
 
+async function runMindmapExpansionWithInvestigativeSportsBridge(): Promise<void> {
+  const executor = createMobilePcEngineExecutor({
+    getEnvConfig: () => ({}),
+  });
+  const result = await executor(makeJob('mindmap-expansion', {
+    seedKeyword: '\uD64D\uBA85\uBCF4 \uAC10\uB3C5 \uC0AC\uD1F4',
+    targetCount: 20,
+    includeVolumeMetrics: false,
+  }), {
+    signal: new AbortController().signal,
+    progress: () => {},
+  });
+  const keywords = result.keywords.map((item) => item.keyword);
+  assert('mindmap expands football coach issue into investigative next-question branches',
+    keywords.includes('\uD64D\uBA85\uBCF4 \uAC10\uB3C5 \uB2E4\uC74C \uAC10\uB3C5 \uD6C4\uBCF4')
+      && keywords.includes('\uD64D\uBA85\uBCF4 \uAC10\uB3C5 \uC120\uC784 \uACFC\uC815')
+      && keywords.includes('\uB300\uD55C\uCD95\uAD6C\uD611\uD68C \uBE44\uB9AC \uC804\uB9D0')
+      && keywords.includes('\uC774\uAC15\uC778 \uC774\uC7AC\uC131 \uD22C\uC785 \uC694\uCCAD')
+      && keywords.includes('\uAE40\uBBFC\uC7AC \uAD50\uCCB4 \uD56D\uC758')
+      && result.keywords.some((item) => item.source === 'mindmap-issue-bridge' && item.measurementStatus === 'unmeasured'),
+    keywords.join(', '));
+}
+
 function runNaverOpenApiKeyPoolGuards(): void {
   const stateFile = path.join(process.cwd(), 'tmp', 'naver-openapi-key-pool-test.json');
   fs.rmSync(stateFile, { force: true });
@@ -1006,6 +1029,7 @@ function runFallbackRegressionGuards(): void {
   runNaverOpenApiKeyPoolGuards();
   await runKeywordAnalysis();
   await runMindmapExpansion();
+  await runMindmapExpansionWithInvestigativeSportsBridge();
   await runMindmapExpansionWithWebContext();
   await runInjectedGoldenDiscovery();
   await runInjectedGoldenQualityBackfill();
