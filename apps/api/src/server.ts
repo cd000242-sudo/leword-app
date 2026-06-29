@@ -2061,8 +2061,7 @@ const MINDMAP_SOURCE_ONLY_SOURCE_RE = /^(?:pc-mindmap-ranker|pc-mindmap-expansio
 function isMindmapMeasuredBoardCandidate(item: MobileKeywordMetric): boolean {
   if (item.intent !== 'mindmap-expansion') return false;
   const markerText = metricRuntimeMarkerText(item);
-  const trustedMeasuredExpansion = /(server-measured-mindmap-prewarm|pc-mindmap-exact-measured-seed|pc-mindmap-measured-intent-expansion|naver-relkwd|naver-related|autocomplete)/i.test(markerText);
-  if (item.grade === 'C' && !trustedMeasuredExpansion) return false;
+  if (item.grade === 'C') return false;
   if (!isPositiveFiniteMetric(item.totalSearchVolume)) return false;
   if (!isPositiveFiniteMetric(item.documentCount)) return false;
   if (item.isSearchVolumeEstimated === true || item.isDocumentCountEstimated === true) return false;

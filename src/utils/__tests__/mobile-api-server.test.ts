@@ -2283,12 +2283,10 @@ const result: MobileKeywordResult = {
     });
     const mindmapJson: any = await mindmap.json();
     const mindmapCompleted = await waitForCompletedJob(mindmapBaseUrl, mindmapJson.job.id);
-    assert('mindmap keeps fully measured exploration branches even when AI judge marks lookup intent',
-      mindmapCompleted.result.keywords.length === 1
-        && mindmapCompleted.result.keywords[0].intent === 'mindmap-expansion'
-        && mindmapCompleted.result.keywords[0].isMeasured === true
-        && mindmapCompleted.result.summary.total === 1
-        && mindmapCompleted.result.summary.measured === 1,
+    assert('mindmap hides measured exploration branches downgraded to weak lookup intent',
+      mindmapCompleted.result.keywords.length === 0
+        && mindmapCompleted.result.summary.total === 0
+        && mindmapCompleted.result.summary.measured === 0,
       JSON.stringify(mindmapCompleted.result));
   } finally {
     await close(mindmapServer);
