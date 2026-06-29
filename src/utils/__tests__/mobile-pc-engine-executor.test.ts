@@ -219,6 +219,27 @@ async function runMindmapExpansionWithInvestigativeSportsBridge(): Promise<void>
     keywords.join(', '));
 }
 
+async function runMindmapExpansionWithPolicySemanticBridge(): Promise<void> {
+  const executor = createMobilePcEngineExecutor({
+    getEnvConfig: () => ({}),
+  });
+  const result = await executor(makeJob('mindmap-expansion', {
+    seedKeyword: '\uADFC\uB85C\uC7A5\uB824\uAE08 \uC9C0\uAE09\uC77C',
+    targetCount: 20,
+    includeVolumeMetrics: false,
+  }), {
+    signal: new AbortController().signal,
+    progress: () => {},
+  });
+  const keywords = result.keywords.map((item) => item.keyword);
+  assert('mindmap expands policy keywords without duplicated suffix branches',
+    keywords.includes('\uADFC\uB85C\uC7A5\uB824\uAE08 \uC9C0\uAE09\uC77C \uB300\uC0C1')
+      && keywords.includes('\uADFC\uB85C\uC7A5\uB824\uAE08 \uC9C0\uAE09\uC77C \uC2E0\uCCAD\uBC29\uBC95')
+      && keywords.includes('\uADFC\uB85C\uC7A5\uB824\uAE08 \uC9C0\uAE09\uC77C \uD544\uC694\uC11C\uB958')
+      && !keywords.includes('\uADFC\uB85C\uC7A5\uB824\uAE08 \uC9C0\uAE09\uC77C \uC9C0\uAE09\uC77C'),
+    keywords.join(', '));
+}
+
 function runNaverOpenApiKeyPoolGuards(): void {
   const stateFile = path.join(process.cwd(), 'tmp', 'naver-openapi-key-pool-test.json');
   fs.rmSync(stateFile, { force: true });
@@ -1036,6 +1057,7 @@ function runFallbackRegressionGuards(): void {
   await runKeywordAnalysis();
   await runMindmapExpansion();
   await runMindmapExpansionWithInvestigativeSportsBridge();
+  await runMindmapExpansionWithPolicySemanticBridge();
   await runMindmapExpansionWithWebContext();
   await runInjectedGoldenDiscovery();
   await runInjectedGoldenQualityBackfill();

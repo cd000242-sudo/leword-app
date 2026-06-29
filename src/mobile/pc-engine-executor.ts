@@ -2614,6 +2614,16 @@ function buildMindmapEvidenceIssueBranches(
   return uniqueKeywords(out, limit);
 }
 
+function appendMindmapBranchSuffix(baseKeyword: string, suffix: string): string {
+  const base = normalizeKeyword(baseKeyword);
+  const cleanSuffix = normalizeKeyword(suffix);
+  if (!base || !cleanSuffix) return base || cleanSuffix;
+  const baseKey = compactKeyword(base);
+  const suffixKey = compactKeyword(cleanSuffix);
+  if (!suffixKey || baseKey.endsWith(suffixKey)) return base;
+  return `${base} ${cleanSuffix}`;
+}
+
 function buildMindmapSemanticBridgeRoots(
   seedKeyword: string,
   contextKeywords?: MobileKeywordContextCandidate[],
@@ -2655,41 +2665,41 @@ function buildMindmapSemanticBridgeRoots(
       `${entity} 후속 조치`,
     ] : []),
     ...(domains.includes('policy-benefit') ? [
-      `${seed} 대상`,
-      `${seed} 신청방법`,
-      `${seed} 지급일`,
-      `${seed} 자격조건`,
-      `${seed} 필요서류`,
-      `${seed} 조회`,
-      `${seed} 제외대상`,
-      `${seed} 지역별`,
+      appendMindmapBranchSuffix(seed, '대상'),
+      appendMindmapBranchSuffix(seed, '신청방법'),
+      appendMindmapBranchSuffix(seed, '지급일'),
+      appendMindmapBranchSuffix(seed, '자격조건'),
+      appendMindmapBranchSuffix(seed, '필요서류'),
+      appendMindmapBranchSuffix(seed, '조회'),
+      appendMindmapBranchSuffix(seed, '제외대상'),
+      appendMindmapBranchSuffix(seed, '지역별'),
     ] : []),
     ...(domains.includes('product-shopping') ? [
-      `${seed} 후기`,
-      `${seed} 가격`,
-      `${seed} 비교`,
-      `${seed} 단점`,
-      `${seed} 부작용`,
-      `${seed} 내돈내산`,
-      `${seed} 대체품`,
-      `${seed} 사용법`,
+      appendMindmapBranchSuffix(seed, '후기'),
+      appendMindmapBranchSuffix(seed, '가격'),
+      appendMindmapBranchSuffix(seed, '비교'),
+      appendMindmapBranchSuffix(seed, '단점'),
+      appendMindmapBranchSuffix(seed, '부작용'),
+      appendMindmapBranchSuffix(seed, '내돈내산'),
+      appendMindmapBranchSuffix(seed, '대체품'),
+      appendMindmapBranchSuffix(seed, '사용법'),
     ] : []),
     ...(domains.includes('entertainment') ? [
-      `${seed} 출연진`,
-      `${seed} 몇부작`,
-      `${seed} 결말`,
-      `${seed} 원작`,
-      `${seed} 촬영지`,
-      `${seed} 등장인물`,
-      `${seed} 시즌2`,
+      appendMindmapBranchSuffix(seed, '출연진'),
+      appendMindmapBranchSuffix(seed, '몇부작'),
+      appendMindmapBranchSuffix(seed, '결말'),
+      appendMindmapBranchSuffix(seed, '원작'),
+      appendMindmapBranchSuffix(seed, '촬영지'),
+      appendMindmapBranchSuffix(seed, '등장인물'),
+      appendMindmapBranchSuffix(seed, '시즌2'),
     ] : []),
     ...(domains.includes('event-schedule') ? [
-      `${seed} 일정`,
-      `${seed} 발표`,
-      `${seed} 확인방법`,
-      `${seed} 준비물`,
-      `${seed} 신청`,
-      `${seed} 결과`,
+      appendMindmapBranchSuffix(seed, '일정'),
+      appendMindmapBranchSuffix(seed, '발표'),
+      appendMindmapBranchSuffix(seed, '확인방법'),
+      appendMindmapBranchSuffix(seed, '준비물'),
+      appendMindmapBranchSuffix(seed, '신청'),
+      appendMindmapBranchSuffix(seed, '결과'),
     ] : []),
   ];
   return uniqueKeywords(values.filter(Boolean), limit)
