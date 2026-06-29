@@ -27,6 +27,9 @@ import * as path from 'path';
 import {
   countSss,
   isActionableGoldenKeyword,
+  isClassicSssMetrics,
+  isGoldenSssMetrics,
+  isWinnableSssMetrics,
   isQualityGoldenDiscoveryResult,
   rankGoldenDiscoveryResults,
   scoreGoldenKeywordVirality,
@@ -1422,14 +1425,16 @@ function keywordNeedScore(keyword: string, intent: string): number {
 }
 
 function volumeOpportunityScore(volume: number): number {
-  if (volume >= 30_000) return 64;
-  if (volume >= 10_000) return 56;
-  if (volume >= 5_000) return 48;
-  if (volume >= 2_000) return 40;
-  if (volume >= 1_000) return 32;
-  if (volume >= 500) return 22;
-  if (volume >= 300) return 14;
-  return 0;
+  // 저지수 블로거가 실제로 1페이지에 걸 수 있는 저볼륨 구간을 최상단으로 올리고,
+  // 초경쟁 고볼륨은 하위로 미는 소프트 재랭킹 곡선 (800~1,500 스위트스팟).
+  if (volume <= 0) return 0;
+  if (volume >= 10_000) return -20;
+  if (volume >= 3_000) return 8;
+  if (volume >= 1_500) return 28;
+  if (volume >= 800) return 64;
+  if (volume >= 300) return 56;
+  if (volume >= 100) return 38;
+  return 12;
 }
 
 function documentScarcityScore(documents: number | null): number {
@@ -1488,25 +1493,31 @@ function boardScore(item: MobileLiveGoldenBoardItem): number {
         : virality < 25
           ? -54
           : 0;
-  const monsterOpportunity = volume >= 30_000 && documents !== null && documents <= 1_000 && ratio >= 20
-    ? 150
-    : volume >= 10_000 && documents !== null && documents <= 2_000 && ratio >= 10
+  // 선점성의 핵심 레버는 '검색량'이 아니라 '절대 문서수(경쟁도)'.
+  // 저경쟁 + 초보자가 먹을 수 있는 볼륨 구간(저~중)에 무게를 싣고,
+  // 순수 고볼륨에 주던 메가 보너스(과거 +150)는 제거한다.
+  const monsterOpportunity = documents !== null && documents > 0 && ratio >= 2 && volume >= 300
+    ? documents <= 300 && volume <= 3_000
       ? 110
-      : volume >= 5_000 && documents !== null && documents <= 3_000 && ratio >= 5
-        ? 82
-        : volume >= 1_000 && documents !== null && documents <= 5_000 && ratio >= 5
-          ? 58
-          : volume >= 500 && documents !== null && documents <= 10_000 && ratio >= 3
-            ? 34
-            : 0;
-  const firstMoverScarcity = documents !== null && volume >= 1_000
-    ? documents <= 300
-      ? 58
-      : documents <= 1_000
-        ? 42
-        : documents <= 3_000
-          ? 26
-          : 0
+      : documents <= 800 && volume <= 5_000
+        ? 80
+        : documents <= 1_000 && volume <= 10_000
+          ? 40
+          : documents <= 2_000
+            ? 20
+            : 0
+    : 0;
+  // 선점 점수: 볼륨 전제 없이 문서수 절대값만으로 평가 (저볼륨 황금도 선점 인정).
+  const firstMoverScarcity = documents !== null && documents > 0
+    ? documents <= 150
+      ? 64
+      : documents <= 400
+        ? 48
+        : documents <= 800
+          ? 32
+          : documents <= 1_500
+            ? 16
+            : 0
     : 0;
   const longTailNeedSynergy = longTail >= 24 && need >= 18 && volume >= 500 && documents !== null && documents <= 10_000
     ? 54
@@ -1517,11 +1528,16 @@ function boardScore(item: MobileLiveGoldenBoardItem): number {
   const writerReadyLift = !isBroadHeadSssKeyword(item.keyword) && hasWriterReadySpecificity(item.keyword)
     ? 58
     : 0;
-  const monsterBonus = volume >= 1_000 && documents !== null && documents <= 5_000 && ratio >= 5
-    ? 48
-    : volume >= 500 && documents !== null && documents <= 10_000 && ratio >= 3
-      ? 24
-      : 0;
+  // 저경쟁 보너스: 고볼륨 전제를 빼고 낮은 문서수(경쟁도)에 보상.
+  const monsterBonus = documents !== null && documents > 0 && ratio >= 1.5
+    ? documents <= 500
+      ? 48
+      : documents <= 1_000
+        ? 28
+        : documents <= 2_000
+          ? 12
+          : 0
+    : 0;
   return grade
     + measured
     + volumeOpportunityScore(volume)
@@ -1978,7 +1994,11 @@ function selectMeasuredPublishableFallbackItems<T extends MobileLiveGoldenBoardI
     const compactId = keywordCompactId(item.keyword);
     if (selectedIds.has(item.id) || selectedCompactIds.has(compactId)) continue;
     if (
-      (isPublishableLiveResultMetric(item, now) || isMeasuredProBoardFallbackMetric(item, now))
+      (
+        isPublishableLiveResultMetric(item, now)
+        || isMeasuredProBoardFallbackMetric(item, now)
+        || isMeasuredProDisplayBackfillMetric(item, now)
+      )
       && hasMeasuredPcMobileSplit(item)
       && hasTrustedSearchVolumeMeasurement(item)
       && hasTrustedDocumentCountMeasurement(item)
@@ -2050,6 +2070,14 @@ function hasWriterReadyOpportunityIntent(keyword: string): boolean {
     || hasAdsenseNeedIntent(clean)
     || hasWriterReadySearchAdProbeIntent(clean)
     || hasWriterReadySpecificity(clean);
+}
+
+function isStandaloneToolHeadKeyword(keyword: string): boolean {
+  const clean = normalizeKeyword(keyword);
+  if (!clean || ultimateIntentFragmentCount(clean) >= 2) return false;
+  const compact = clean.replace(/\s+/g, '');
+  if (!/^[0-9A-Za-z\uAC00-\uD7A3]{2,}\uACC4\uC0B0\uAE30$/u.test(compact)) return false;
+  return !/(?:\uD504\uB9AC\uB79C\uC11C|\uC54C\uBC14|\uC9C1\uC7A5\uC778|\uC77C\uC6A9\uC9C1|\uAC1C\uC778\uC0AC\uC5C5\uC790|\uC2E4\uC218\uB839\uC561|\uC790\uB3D9\uACC4\uC0B0|\uC138\uD6C4|\uC694\uC728|\uC5D1\uC140|\uC591\uC2DD)/u.test(clean);
 }
 
 function isMeasuredWriterReadyBoardMetric(
@@ -2136,7 +2164,8 @@ function isMeasuredSssBoardCandidate(item: MobileLiveGoldenBoardItem, now: Date)
   if (!hasTrustedSearchVolumeMeasurement(item) || !hasTrustedDocumentCountMeasurement(item)) return false;
   if (!isLiveRadarUsableMetric(item, now) && !isMeasuredProExactKeywordMetric(item, now)) return false;
   if (isLottoLookupKeyword(keyword) || isLowAdsenseLookupKeyword(keyword) || isBrandSafetyNewsKeyword(keyword)) return false;
-  if (volume < 1000 || docs <= 0 || docs > 5000 || ratio < 5) return false;
+  // SSS 메트릭: 고볼륨 classic OR 저볼륨 winnable(문서수 ≪ 검색량). writability 게이트는 아래에서 그대로 유지.
+  if (!isGoldenSssMetrics(volume, docs, ratio)) return false;
   if (isBroadHeadSssKeyword(keyword)) return false;
   if (!isApexWriterReadyBoardMetric(item)) return false;
   if (!isBlogActionableBoardMetric(item)) return false;
@@ -4844,6 +4873,40 @@ function isMeasuredBoardReferenceMetric(
   return true;
 }
 
+function isMeasuredProDisplayBackfillMetric(
+  item: Partial<MobileKeywordMetric> & { keyword?: string },
+  now: Date = new Date(),
+): boolean {
+  const keyword = normalizeKeyword(item.keyword);
+  if (!keyword || item.grade === 'C') return false;
+  if (!hasCompleteLiveGoldenMetrics(item)) return false;
+  const metric = { ...item, keyword } as MobileKeywordMetric;
+  if (item.isSearchVolumeEstimated || item.isDocumentCountEstimated) return false;
+  if (!hasMeasuredPcMobileSplit(item)) return false;
+  if (!hasTrustedSearchVolumeMeasurement(metric) || !hasTrustedDocumentCountMeasurement(metric)) return false;
+  if (isMalformedLiveKeyword(keyword) || isStaleOrFutureLiveKeyword(keyword, now)) return false;
+  if (isInvalidNonProductCommerceExpansion(keyword)) return false;
+  if (isThinProfileIntentKeyword(keyword) || isNoisyLiveSeed(keyword) || isOverExpandedLiveCandidate(keyword)) return false;
+  if ((!isActionableSportsLiveEventKeyword(keyword) && isUltimateLowValueLookupKeyword(keyword)) || isLowValueLiveCandidate(keyword)) return false;
+  if (isLottoLookupKeyword(keyword) || isLowAdsenseLookupKeyword(keyword) || isBrandSafetyNewsKeyword(keyword)) return false;
+  if (ROBUST_EXAM_STALE_RE.test(keyword)) return false;
+  if (isSemanticallyMismatchedMeasuredProbe(keyword) || isWeakAutogeneratedProbeCombo(keyword)) return false;
+  const volume = finiteNumber(item.totalSearchVolume) || 0;
+  const docs = finiteNumber(item.documentCount) || 0;
+  const ratio = finiteNumber(item.goldenRatio) || (volume > 0 && docs > 0 ? volume / docs : 0);
+  const gradeRank = GRADE_RANK[item.grade as MobileResultGrade] || 0;
+  const ai = item.aiJudge;
+  if (isStandaloneToolHeadKeyword(keyword)) return false;
+  if (isBroadHeadSssKeyword(keyword) && !hasWriterReadySpecificity(keyword)) return false;
+  if (isOverbroadNoEffectBoardKeyword(item) && !hasWriterReadySpecificity(keyword)) return false;
+  if (ai?.verdict === 'exclude' || ai?.spamRisk === 'high') return false;
+  if (volume < 100 || docs <= 0 || docs > 30_000) return false;
+  if (ratio < 0.01) return false;
+  if (gradeRank < GRADE_RANK.A) return false;
+  return isLiveRadarUsableKeyword(keyword, volume, docs, now)
+    || isMeasuredBoardReferenceMetric(item, now);
+}
+
 function isMeasuredCacheSearchAdSplitCandidate(keyword: string, categoryId: string, now: Date): boolean {
   const clean = normalizeKeyword(keyword);
   if (!clean || isMalformedLiveKeyword(clean) || isStaleOrFutureLiveKeyword(clean, now)) return false;
@@ -4862,7 +4925,11 @@ function isMeasuredCacheSearchAdSplitCandidate(keyword: string, categoryId: stri
 
 function liveGradeFromMetrics(score: number, volume: number, docs: number, ratio: number, keyword = ''): MobileResultGrade {
   let grade: MobileResultGrade = 'C';
-  if (score >= 85 && volume >= 1000 && docs <= 5000 && ratio >= 5) grade = LIVE_SSS_GRADE;
+  // SSS: 고볼륨 classic 라우트 OR 저볼륨 winnable 라우트(문서수 ≪ 검색량).
+  if (
+    (score >= 85 && isClassicSssMetrics(volume, docs, ratio))
+    || (score >= 80 && isWinnableSssMetrics(volume, docs, ratio))
+  ) grade = LIVE_SSS_GRADE;
   else if (score >= 75 && volume >= 500 && docs <= 10000 && ratio >= 3) grade = 'SS';
   else if (score >= 65 && volume >= 300 && ratio >= 2) grade = 'S';
   else if (score >= 55 && volume >= 100) grade = 'A';
@@ -5400,6 +5467,7 @@ export const __liveGoldenRadarTestInternals = {
   isPolicyProductActionKeyword,
   isSearchAdMeasurableLiveCandidate,
   isStaleOrFutureLiveKeyword,
+  liveGradeFromMetrics,
   livePromotionPriorityBonus,
   measuredProbeQueueFamilyKey,
   normalizeLiveMetricGrade,
@@ -7907,8 +7975,12 @@ export class MobileLiveGoldenRadar {
     const sorted = [...this.board.values()]
       .filter((item) => ageMsFrom(item.updatedAt, nowMs) <= LIVE_BOARD_MAX_AGE_MS)
       .filter(hasCompleteLiveGoldenMetrics)
-      .filter((item) => isLiveRadarUsableMetric(item, now) || isMeasuredProExactKeywordMetric(item, now))
-      .filter(isBlogActionableBoardMetric)
+      .filter((item) => (
+        isLiveRadarUsableMetric(item, now)
+        || isMeasuredProExactKeywordMetric(item, now)
+        || isMeasuredProDisplayBackfillMetric(item, now)
+      ))
+      .filter((item) => isBlogActionableBoardMetric(item) || isMeasuredProDisplayBackfillMetric(item, now))
       .map((item) => ({
         ...item,
         freshness: freshnessFrom(item.updatedAt, nowMs),
@@ -7936,8 +8008,12 @@ export class MobileLiveGoldenRadar {
       const fallbackItems = [...this.board.values()]
         .filter((item) => ageMsFrom(item.updatedAt, nowMs) <= LIVE_BOARD_MAX_AGE_MS)
         .filter(hasCompleteLiveGoldenMetrics)
-        .filter((item) => isLiveRadarUsableMetric(item, now) || isMeasuredProExactKeywordMetric(item, now))
-        .filter(isBlogActionableBoardMetric)
+        .filter((item) => (
+          isLiveRadarUsableMetric(item, now)
+          || isMeasuredProExactKeywordMetric(item, now)
+          || isMeasuredProDisplayBackfillMetric(item, now)
+        ))
+        .filter((item) => isBlogActionableBoardMetric(item) || isMeasuredProDisplayBackfillMetric(item, now))
         .sort((a, b) => {
           const scoreDiff = boardSortScore(b, nowMs) - boardSortScore(a, nowMs);
           if (scoreDiff !== 0) return scoreDiff;

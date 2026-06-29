@@ -640,9 +640,24 @@ export function judgeKeywordMetric(metric: MobileKeywordMetric, now: Date = new 
 
   score = clampScore(score);
 
+  // 메트릭 기반 니즈 fallback (Phase 2): 액션 토큰이 없어도, 실측된 저경쟁
+  // (낮은 문서수 + 유효 비율) 키워드는 초보자가 실제로 1페이지에 걸 수 있는 실수요로 보고
+  // 'weak' 대신 'medium' 으로 인정한다. 토큰 정규식만으로 진짜 니즈키워드를
+  // 떨어뜨리던 문제를 보정한다. thin/lookup/unsafe/뉴스성은 fallback 대상에서 제외.
+  const metricWinnableNeed = status === 'measured'
+    && !thin
+    && !lowValueLookup
+    && !unsafe
+    && !newsOnly
+    && !broadLowValueEvent
+    && !(lowValueCategory && !highValueNeed && !ultimateCommerce && !eventUtility && !videoBridgeNeed)
+    && total !== null && total >= 100
+    && documents !== null && documents > 0 && documents <= 2_000
+    && ratio !== null && ratio >= 1.5;
+
   const needIntent: MobileKeywordAiJudge['needIntent'] = actionable
     ? 'strong'
-    : ultimateCommerce || evergreen || videoBridgeNeed
+    : ultimateCommerce || evergreen || videoBridgeNeed || metricWinnableNeed
       ? 'medium'
       : 'weak';
   const blogAngle: MobileKeywordAiJudge['blogAngle'] = unsafe

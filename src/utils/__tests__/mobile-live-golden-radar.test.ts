@@ -1578,10 +1578,18 @@ function thinProfileCount(items: Array<{ keyword: string }>): number {
   });
   const proGapSnapshot = proGapRadar.snapshot();
   const protectedProKeywords = new Set(proGapSnapshot.board.slice(0, 3).map((item) => item.keyword));
-  assert('pro board ranks monster opportunity keywords first',
-    proGapSnapshot.board[0]?.keyword === '청년미래적금 가입신청 대상'
-      && proGapSnapshot.board[1]?.keyword === '소상공인 환급금 조회 방법',
+  // 소프트 재랭킹(저볼륨·저경쟁 우선): 순수 고볼륨이 아니라 '경쟁도(문서수) + 볼륨 페널티'
+  // 블렌드로 정렬된다. 최저 경쟁(문서수 240)이 선두를 지키되, 동급 조건에서는
+  // 더 낮은 검색량이 더 높은 검색량을 앞선다.
+  const proBoardKeywords = proGapSnapshot.board.map((item) => item.keyword);
+  const idxLowerVolume = proBoardKeywords.indexOf('여성 청소년 생리용품 바우처 신청'); // 9,000
+  const idxHigherVolume = proBoardKeywords.indexOf('소상공인 환급금 조회 방법');        // 18,000
+  assert('pro board leads with lowest-competition winnable keyword',
+    proGapSnapshot.board[0]?.keyword === '청년미래적금 가입신청 대상',
     proGapSnapshot.board.map((item) => `${item.rank}:${item.keyword}`).join('|'));
+  assert('pro board soft re-ranks lower search volume above higher volume',
+    idxLowerVolume >= 0 && idxHigherVolume >= 0 && idxLowerVolume < idxHigherVolume,
+    `lowerVol(9k) idx=${idxLowerVolume} should precede higherVol(18k) idx=${idxHigherVolume}`);
   assert('free preview samples lower measured winners while hiding pro top tier',
     proGapSnapshot.publicPreview.length === 3
       && proGapSnapshot.publicPreview.every((item) => !protectedProKeywords.has(item.keyword))
@@ -3945,6 +3953,51 @@ function thinProfileCount(items: Array<{ keyword: string }>): number {
       && !strictReadySnapshot.board.some((item) => /\uBA87\uBD80\uC791|\uCD9C\uC5F0\uC9C4|\uB85C\uB610|\uB2F9\uCCA8\uBC88\uD638/.test(item.keyword)),
     strictReadySnapshot.board.map((item) => `${item.rank}:${item.keyword}:${item.pcSearchVolume}:${item.mobileSearchVolume}`).join('|'));
   fs.rmSync(strictReadyBoardFile, { force: true });
+
+  const proMeasuredDisplayBoardFile = path.join(process.cwd(), 'tmp', 'mobile-live-golden-pro-measured-display-test.json');
+  fs.writeFileSync(proMeasuredDisplayBoardFile, JSON.stringify({
+    boardUpdatedAt: '2026-06-29T08:00:00.000Z',
+    items: Array.from({ length: 130 }, (_, index) => ({
+      keyword: `\uCCAD\uB144\uC9C0\uC6D0\uAE08${index + 1} \uC2E0\uCCAD\uBC29\uBC95`,
+      grade: index < 8 ? 'SS' : 'A',
+      score: index < 8 ? 92 : 68,
+      pcSearchVolume: 180 + index,
+      mobileSearchVolume: 920 + index,
+      totalSearchVolume: 1100 + index * 2,
+      documentCount: 5000 + index * 90,
+      goldenRatio: Number(((1100 + index * 2) / (5000 + index * 90)).toFixed(2)),
+      category: 'policy',
+      source: 'persistent-keyword-cache',
+      intent: 'persistent-measured-golden-cache',
+      evidence: ['persistent-keyword-cache', 'measured-search-volume', 'measured-document-count'],
+      searchVolumeSource: 'searchad',
+      searchVolumeConfidence: 'high',
+      isSearchVolumeEstimated: false,
+      documentCountSource: 'cache',
+      documentCountConfidence: 'medium',
+      isDocumentCountEstimated: false,
+      updatedAt: '2026-06-29T08:00:00.000Z',
+      discoveredAt: '2026-06-29T08:00:00.000Z',
+      isMeasured: true,
+    })),
+  }), 'utf8');
+  const proMeasuredDisplayRadar = new MobileLiveGoldenRadar({
+    notificationInbox: inbox,
+    runOnStart: false,
+    boardFile: proMeasuredDisplayBoardFile,
+    boardTarget: 120,
+    publicPreviewCount: 5,
+    now: () => new Date('2026-06-29T09:00:00.000Z'),
+  });
+  const proMeasuredDisplaySnapshot = proMeasuredDisplayRadar.snapshot();
+  assert('pro live golden board fills to target from trusted measured display backfill without dummy estimates',
+    proMeasuredDisplaySnapshot.board.length === 120
+      && proMeasuredDisplaySnapshot.publicPreview.length === 5
+      && proMeasuredDisplaySnapshot.board.every((item) => item.isMeasured === true)
+      && proMeasuredDisplaySnapshot.board.every((item) => item.isSearchVolumeEstimated === false && item.isDocumentCountEstimated === false)
+      && proMeasuredDisplaySnapshot.board.every((item) => item.searchVolumeSource === 'searchad' && item.documentCountSource === 'cache'),
+    proMeasuredDisplaySnapshot.board.map((item) => `${item.rank}:${item.keyword}:${item.grade}:${item.totalSearchVolume}/${item.documentCount}`).join('|'));
+  fs.rmSync(proMeasuredDisplayBoardFile, { force: true });
 
   const fallbackDcBoardFile = path.join(process.cwd(), 'tmp', 'mobile-live-golden-fallback-dc-test.json');
   fs.writeFileSync(fallbackDcBoardFile, JSON.stringify({

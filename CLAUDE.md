@@ -39,7 +39,8 @@ npm run dist:win       # Windows 배포판 빌드
 
 ### 등급 시스템
 모든 기능에서 통일된 등급 사용:
-- **SSS:** 점수 85+ AND 검색량 1000+ AND 문서수 5000↓ AND 비율 5+
+- **SSS (고볼륨 classic):** 점수 85+ AND 검색량 1000+ AND 문서수 5000↓ AND 비율 5+
+- **SSS (저볼륨 winnable):** 점수 80+ AND 검색량 100~1500 AND 문서수 500↓ AND 비율 3+ — 지수 낮은 초보자가 실제로 1페이지 가능한 진짜 저경쟁(문서수 ≪ 검색량). SSoT: `golden-discovery-floor.ts`의 `isGoldenSssMetrics`(classic OR winnable). 두 라우트 모두 동일 writability 게이트(broad-head 제외/구체성) 통과 필수
 - **SS:** 점수 75+ AND 검색량 500+ AND 문서수 10000↓ AND 비율 3+
 - **S:** 점수 65+ AND 검색량 300+ AND 비율 2+
 - **A:** 점수 55+ AND 검색량 100+

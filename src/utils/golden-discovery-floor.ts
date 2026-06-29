@@ -199,12 +199,55 @@ export function scoreGoldenKeywordVirality(itemOrKeyword: GoldenDiscoveryLike | 
   return Math.max(0, Math.min(100, Math.round(score)));
 }
 
+/**
+ * 초보자 winnability 정렬 보너스: 지수 낮은 블로거가 실제로 1페이지에 걸 수 있는
+ * 저볼륨·저경쟁(문서수 ≪ 검색량)을 상위로, 대형 헤드(고볼륨)는 하위로 민다.
+ * virality 점수(게이트/UI 전반에 사용)는 건드리지 않고 '정렬'에만 적용한다.
+ */
+function goldenDiscoveryWinnabilityBonus(item: GoldenDiscoveryLike): number {
+  const volume = readSearchVolume(item);
+  const docs = readDocumentCount(item);
+  const ratio = readGoldenRatio(item) || (volume > 0 && docs > 0 ? volume / docs : 0);
+  if (docs <= 0 || ratio < 1) return volume >= 10_000 ? -30 : 0; // docs ≥ volume 은 무의미
+  let bonus = 0;
+  if (volume >= 100 && volume <= 1_500 && docs <= 500 && ratio >= 3) bonus += 40;        // winnable 스위트스팟
+  else if (volume >= 100 && volume <= 3_000 && docs <= 2_000 && ratio >= 3) bonus += 24;
+  else if (isClassicSssMetrics(volume, docs, ratio)) bonus += 8;                          // classic 저경쟁
+  if (volume >= 30_000) bonus -= 36;                                                       // 초대형 헤드
+  else if (volume >= 10_000) bonus -= 22;                                                  // 대형 헤드
+  else if (volume >= 5_000) bonus -= 8;
+  return bonus;
+}
+
 function goldenDiscoveryViralSortScore(item: GoldenDiscoveryLike): number {
   const measuredScore = readScore(item) ?? 0;
   const viralScore = scoreGoldenKeywordVirality(item);
   const ratio = Math.min(60, Math.max(0, readGoldenRatio(item)));
   const cpc = Math.min(20, Math.max(0, (readFiniteNumber(item.cpc) ?? 0) / 100));
-  return measuredScore * 0.65 + viralScore * 1.05 + ratio * 0.18 + cpc;
+  return measuredScore * 0.65 + viralScore * 1.05 + ratio * 0.18 + cpc
+    + goldenDiscoveryWinnabilityBonus(item);
+}
+
+// === SSS 메트릭 정의 (단일 진실원천) ===
+// 모든 SSS 판정(등급 라벨/board 게이트/디스커버리 floor)이 이 두 라우트를 공유한다.
+
+/** 기존 고볼륨 SSS: 검색량 1000+, 문서수 5000↓, 비율 5+. */
+export function isClassicSssMetrics(volume: number, docs: number, ratio: number): boolean {
+  return volume >= 1000 && docs > 0 && docs <= 5000 && ratio >= 5;
+}
+
+/**
+ * 초보자 winnable SSS: 저볼륨(100~1500)이라도 '문서수 ≪ 검색량'(비율 ≥ 3)인
+ * 진짜 저경쟁만 인정. docs > volume(비율 1 미만)은 볼륨 무관 의미 없음 → 탈락.
+ * 절대 경쟁 상한(docs ≤ 500)으로 초보자가 1페이지 가능한 수준만 통과.
+ */
+export function isWinnableSssMetrics(volume: number, docs: number, ratio: number): boolean {
+  return volume >= 100 && volume <= 1500 && docs > 0 && docs <= 500 && ratio >= 3;
+}
+
+/** SSS 메트릭 = classic(고볼륨) OR winnable(저볼륨 저경쟁). */
+export function isGoldenSssMetrics(volume: number, docs: number, ratio: number): boolean {
+  return isClassicSssMetrics(volume, docs, ratio) || isWinnableSssMetrics(volume, docs, ratio);
 }
 
 export function isStrictGoldenDiscoverySss(item: GoldenDiscoveryLike): boolean {
@@ -214,11 +257,10 @@ export function isStrictGoldenDiscoverySss(item: GoldenDiscoveryLike): boolean {
   const volume = readSearchVolume(item);
   const docs = readDocumentCount(item);
   const ratio = readGoldenRatio(item);
-  return (score === null || score >= 85)
-    && volume >= 1000
-    && docs > 0
-    && docs <= 5000
-    && ratio >= 5;
+  return (
+    ((score === null || score >= 85) && isClassicSssMetrics(volume, docs, ratio))
+    || ((score === null || score >= 80) && isWinnableSssMetrics(volume, docs, ratio))
+  );
 }
 
 export function isActionableGoldenDiscoverySss(item: GoldenDiscoveryLike): boolean {
