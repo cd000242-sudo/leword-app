@@ -3368,6 +3368,7 @@ const LOW_SIGNAL_MINDMAP_KEYWORD_RE = /^(?:\uD65C\uC6A9\s*\uBC29\uBC95|\uC0AC\uC
 function isUsefulMindmapMeasuredMetric(metric: MobileKeywordMetric): boolean {
   if (!isFullyMeasuredKeyword(metric)) return false;
   if (LOW_SIGNAL_MINDMAP_KEYWORD_RE.test(normalizeMindmapSearchPhrase(metric.keyword))) return false;
+  if (metric.grade === 'C') return false;
   const total = finiteNumber(metric.totalSearchVolume) ?? 0;
   const docs = finiteNumber(metric.documentCount) ?? Number.POSITIVE_INFINITY;
   const ratio = finiteNumber(metric.goldenRatio) ?? 0;
