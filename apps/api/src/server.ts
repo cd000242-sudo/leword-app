@@ -2076,7 +2076,7 @@ function isMindmapSourceOnlyBoardCandidate(item: MobileKeywordMetric): boolean {
 }
 
 function isMindmapServerBoardCandidate(item: MobileKeywordMetric): boolean {
-  return isMindmapMeasuredBoardCandidate(item) || isMindmapSourceOnlyBoardCandidate(item);
+  return isMindmapMeasuredBoardCandidate(item);
 }
 
 function productIntentText(item: MobileKeywordMetric): string {

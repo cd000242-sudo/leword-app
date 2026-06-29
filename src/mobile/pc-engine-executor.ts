@@ -4865,7 +4865,7 @@ async function runMindmapExpansion(
     finalMetrics = mergePrioritizedKeywordMetrics([finalMetrics, fallback], params.targetCount);
   }
   const sourceOnlyMetrics = metrics.filter((metric) => !isFullyMeasuredKeyword(metric));
-  if (finalMetrics.length < params.targetCount && sourceOnlyMetrics.length > 0) {
+  if (!params.includeVolumeMetrics && finalMetrics.length < params.targetCount && sourceOnlyMetrics.length > 0) {
     finalMetrics = mergePrioritizedKeywordMetrics([finalMetrics, sourceOnlyMetrics], params.targetCount);
   }
 
