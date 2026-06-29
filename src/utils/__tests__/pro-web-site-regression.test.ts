@@ -159,6 +159,7 @@ assert('home view starts directly with live golden board without intro or outcom
     && !html.includes('function loadHomeOutcomes()')
     && !html.includes('function renderHomeOutcomesSnapshot')
     && !html.includes('loadHomeOutcomes().catch')
+    && !html.includes('성과 기록')
     && !html.includes('id="ops" data-view="ops"')
     && !html.includes('id="opsTabs"')
     && !html.includes('data-ops-tab')
