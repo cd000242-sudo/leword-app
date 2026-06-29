@@ -775,6 +775,25 @@ function resultFromMetrics(
   };
 }
 
+function withKeywordResultSummary(
+  result: MobileKeywordResult,
+  keywords: MobileKeywordMetric[],
+): MobileKeywordResult {
+  return {
+    ...result,
+    keywords,
+    summary: {
+      ...result.summary,
+      total: keywords.length,
+      sss: keywords.filter((item) => item.grade === 'SSS').length,
+      measured: keywords.filter((item) => item.isMeasured).length,
+      aiJudged: keywords.filter((item) => item.aiJudge).length,
+      excludedByAiJudge: keywords.filter((item) => item.aiJudge?.verdict === 'exclude').length,
+      publishReady: keywords.filter((item) => item.aiJudge?.verdict === 'publish').length,
+    },
+  };
+}
+
 function metricGradeRank(grade: unknown): number {
   const normalized = String(grade || '').toUpperCase();
   if (normalized === 'SSS') return 5;
@@ -4870,7 +4889,12 @@ async function runMindmapExpansion(
     finalMetrics = mergePrioritizedKeywordMetrics([finalMetrics, sourceOnlyMetrics], params.targetCount);
   }
 
-  return resultFromMetrics(finalMetrics, startedAt, 'pc-engine-plus');
+  const mindmapResult = resultFromMetrics(finalMetrics, startedAt, 'pc-engine-plus');
+  if (!params.includeVolumeMetrics) return mindmapResult;
+  return withKeywordResultSummary(
+    mindmapResult,
+    mindmapResult.keywords.filter((item) => item.grade !== 'C'),
+  );
 }
 
 export function createMobilePcEngineExecutor(
