@@ -198,6 +198,12 @@ async function runMindmapExpansionWithInvestigativeSportsBridge(): Promise<void>
     seedKeyword: '\uD64D\uBA85\uBCF4 \uAC10\uB3C5 \uC0AC\uD1F4',
     targetCount: 20,
     includeVolumeMetrics: false,
+    contextKeywords: [
+      { keyword: '\uB300\uD55C\uCD95\uAD6C\uD611\uD68C \uD64D\uBA85\uBCF4 \uAC10\uB3C5 \uC120\uC784 \uB17C\uB780', source: 'live-source-context' },
+      { keyword: '\uB300\uD55C\uCD95\uAD6C\uD611\uD68C \uBE44\uB9AC \uC804\uB9D0', source: 'live-source-context' },
+      { keyword: '\uC774\uAC15\uC778 \uC774\uC7AC\uC131 \uD22C\uC785 \uC694\uCCAD \uB17C\uB780', source: 'live-source-context' },
+      { keyword: '\uAE40\uBBFC\uC7AC \uAD50\uCCB4 \uD56D\uC758 \uC7A5\uBA74', source: 'live-source-context' },
+    ],
   }), {
     signal: new AbortController().signal,
     progress: () => {},
@@ -209,7 +215,7 @@ async function runMindmapExpansionWithInvestigativeSportsBridge(): Promise<void>
       && keywords.includes('\uB300\uD55C\uCD95\uAD6C\uD611\uD68C \uBE44\uB9AC \uC804\uB9D0')
       && keywords.includes('\uC774\uAC15\uC778 \uC774\uC7AC\uC131 \uD22C\uC785 \uC694\uCCAD')
       && keywords.includes('\uAE40\uBBFC\uC7AC \uAD50\uCCB4 \uD56D\uC758')
-      && result.keywords.some((item) => item.source === 'mindmap-issue-bridge' && item.measurementStatus === 'unmeasured'),
+      && result.keywords.some((item) => item.source === 'mindmap-semantic-bridge' && item.measurementStatus === 'unmeasured'),
     keywords.join(', '));
 }
 

@@ -129,11 +129,11 @@ assert('mindmap keeps automation-ready keyword expansions',
   hongMindmap.join(', '));
 
 const hongIssueBridge = rankMindmapExpansionCandidates('\uD64D\uBA85\uBCF4 \uAC10\uB3C5 \uC0AC\uD1F4', [
-  { keyword: '\uD64D\uBA85\uBCF4 \uAC10\uB3C5 \uB2E4\uC74C \uAC10\uB3C5 \uD6C4\uBCF4', sources: ['mindmap-issue-bridge'] },
-  { keyword: '\uD64D\uBA85\uBCF4 \uAC10\uB3C5 \uC120\uC784 \uACFC\uC815', sources: ['mindmap-issue-bridge'] },
-  { keyword: '\uB300\uD55C\uCD95\uAD6C\uD611\uD68C \uBE44\uB9AC \uC804\uB9D0', sources: ['mindmap-issue-bridge'] },
-  { keyword: '\uC774\uAC15\uC778 \uC774\uC7AC\uC131 \uD22C\uC785 \uC694\uCCAD', sources: ['mindmap-issue-bridge'] },
-  { keyword: '\uAE40\uBBFC\uC7AC \uAD50\uCCB4 \uD56D\uC758', sources: ['mindmap-issue-bridge'] },
+  { keyword: '\uD64D\uBA85\uBCF4 \uAC10\uB3C5 \uB2E4\uC74C \uAC10\uB3C5 \uD6C4\uBCF4', sources: ['mindmap-semantic-bridge'] },
+  { keyword: '\uD64D\uBA85\uBCF4 \uAC10\uB3C5 \uC120\uC784 \uACFC\uC815', sources: ['mindmap-semantic-bridge'] },
+  { keyword: '\uB300\uD55C\uCD95\uAD6C\uD611\uD68C \uBE44\uB9AC \uC804\uB9D0', sources: ['mindmap-semantic-bridge'] },
+  { keyword: '\uC774\uAC15\uC778 \uC774\uC7AC\uC131 \uD22C\uC785 \uC694\uCCAD', sources: ['mindmap-semantic-bridge'] },
+  { keyword: '\uAE40\uBBFC\uC7AC \uAD50\uCCB4 \uD56D\uC758', sources: ['mindmap-semantic-bridge'] },
   { keyword: '\uD64D\uBA85\uBCF4 \uAC10\uB3C5 \uC0AC\uD1F4 \uBC29\uBC95', sources: ['autocomplete'] },
 ], 10).map(item => item.keyword);
 assert('mindmap prioritizes investigative issue branches over shallow suffix-only expansion',
@@ -143,6 +143,18 @@ assert('mindmap prioritizes investigative issue branches over shallow suffix-onl
     && hongIssueBridge.includes('\uC774\uAC15\uC778 \uC774\uC7AC\uC131 \uD22C\uC785 \uC694\uCCAD')
     && hongIssueBridge.includes('\uAE40\uBBFC\uC7AC \uAD50\uCCB4 \uD56D\uC758'),
   hongIssueBridge.join(', '));
+
+const semanticPolicyBridge = rankMindmapExpansionCandidates('\uADFC\uB85C\uC7A5\uB824\uAE08 \uC9C0\uAE09\uC77C', [
+  { keyword: '\uADFC\uB85C\uC7A5\uB824\uAE08 \uC9C0\uAE09\uC77C \uB300\uC0C1', sources: ['mindmap-semantic-bridge'] },
+  { keyword: '\uADFC\uB85C\uC7A5\uB824\uAE08 \uC9C0\uAE09\uC77C \uC2E0\uCCAD\uBC29\uBC95', sources: ['mindmap-semantic-bridge'] },
+  { keyword: '\uADFC\uB85C\uC7A5\uB824\uAE08 \uC9C0\uAE09\uC77C \uD544\uC694\uC11C\uB958', sources: ['mindmap-semantic-bridge'] },
+  { keyword: '\uADFC\uB85C\uC7A5\uB824\uAE08 \uC9C0\uAE09\uC77C \uD655\uC778\uD560 3\uAC00\uC9C0', sources: ['ai-strategy'] },
+], 10).map(item => item.keyword);
+assert('mindmap ranks semantic policy intent branches and rejects article copy',
+  semanticPolicyBridge.includes('\uADFC\uB85C\uC7A5\uB824\uAE08 \uC9C0\uAE09\uC77C \uB300\uC0C1')
+    && semanticPolicyBridge.includes('\uADFC\uB85C\uC7A5\uB824\uAE08 \uC9C0\uAE09\uC77C \uC2E0\uCCAD\uBC29\uBC95')
+    && !semanticPolicyBridge.some(keyword => /\uD655\uC778\uD560 3\uAC00\uC9C0/.test(keyword)),
+  semanticPolicyBridge.join(', '));
 
 console.log(`\n[mindmap-expansion-quality.test] passed: ${passed} / failed: ${failed}`);
 if (failed > 0) {

@@ -2055,8 +2055,8 @@ function isMeasuredLiveBoardCandidate(item: MobileKeywordMetric): boolean {
     && !SYNTHETIC_RESULT_MARKER_PATTERN.test(metricRuntimeMarkerText(item));
 }
 
-const MINDMAP_MEASURED_SOURCE_RE = /(server-measured-mindmap-prewarm|pc-mindmap-exact-measured-seed|pc-mindmap-measured-intent-expansion|pc-mindmap-expansion-quality|pc-mindmap-ranker|pc-keyword-analysis-exact|autocomplete|naver-relkwd|naver-related|web-analysis-context|mindmap-issue-bridge|mindmap-issue-autocomplete|mindmap-issue-naver-relkwd)/i;
-const MINDMAP_SOURCE_ONLY_SOURCE_RE = /^(?:pc-mindmap-ranker|pc-mindmap-expansion-quality|pc-keyword-analysis-exact|autocomplete|naver-relkwd|naver-related|web-analysis-context|mindmap-issue-bridge|mindmap-issue-autocomplete|mindmap-issue-naver-relkwd)$/i;
+const MINDMAP_MEASURED_SOURCE_RE = /(server-measured-mindmap-prewarm|pc-mindmap-exact-measured-seed|pc-mindmap-measured-intent-expansion|pc-mindmap-expansion-quality|pc-mindmap-ranker|pc-keyword-analysis-exact|autocomplete|naver-relkwd|naver-related|web-analysis-context|mindmap-issue-bridge|mindmap-issue-autocomplete|mindmap-issue-naver-relkwd|mindmap-semantic-bridge|mindmap-semantic-autocomplete|mindmap-semantic-naver-relkwd)/i;
+const MINDMAP_SOURCE_ONLY_SOURCE_RE = /^(?:pc-mindmap-ranker|pc-mindmap-expansion-quality|pc-keyword-analysis-exact|autocomplete|naver-relkwd|naver-related|web-analysis-context|mindmap-issue-bridge|mindmap-issue-autocomplete|mindmap-issue-naver-relkwd|mindmap-semantic-bridge|mindmap-semantic-autocomplete|mindmap-semantic-naver-relkwd)$/i;
 
 function isMindmapMeasuredBoardCandidate(item: MobileKeywordMetric): boolean {
   if (item.intent !== 'mindmap-expansion') return false;

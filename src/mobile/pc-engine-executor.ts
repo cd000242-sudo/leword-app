@@ -2513,84 +2513,198 @@ function contextSeedKeywords(
   return out.slice(0, Math.max(limit, 1));
 }
 
-function footballIssueCorpus(seedKeyword: string, contextKeywords?: MobileKeywordContextCandidate[]): string {
+type MindmapSemanticDomain =
+  | 'coach-transition'
+  | 'sports-coach'
+  | 'public-issue'
+  | 'policy-benefit'
+  | 'product-shopping'
+  | 'entertainment'
+  | 'event-schedule';
+
+function mindmapSemanticCorpus(seedKeyword: string, contextKeywords?: MobileKeywordContextCandidate[]): string {
   return [
     seedKeyword || '',
-    ...(contextKeywords || []).slice(0, 80).map((item) => item.keyword || ''),
+    ...(contextKeywords || []).slice(0, 80).flatMap((item) => [
+      item.keyword || '',
+      item.source || '',
+      ...(Array.isArray(item.evidence) ? item.evidence : []),
+    ]),
   ].join(' ');
 }
 
-function looksLikeFootballCoachIssue(seedKeyword: string, contextKeywords?: MobileKeywordContextCandidate[]): boolean {
-  const corpus = footballIssueCorpus(seedKeyword, contextKeywords);
-  const compact = compactKeyword(corpus);
-  const hasFootballContext = /(?:\uCD95\uAD6C|\uAD6D\uAC00\uB300\uD45C|\uB300\uD45C\uD300|\uB300\uD55C\uCD95\uAD6C\uD611\uD68C|\uCD95\uAD6C\uD611\uD68C|KFA|\uC6D4\uB4DC\uCEF5|\uD64D\uBA85\uBCF4)/i.test(corpus);
-  const hasCoachIssue = /(?:\uAC10\uB3C5|\uC0AC\uD1F4|\uC120\uC784|\uD6C4\uC784|\uACBD\uC9C8|\uAD50\uCCB4|\uD6C4\uBCF4|\uB17C\uB780|\uCC45\uC784|\uBE44\uB9AC)/u.test(corpus);
-  const compactCoachIssue = /(?:\uAC10\uB3C5\uC0AC\uD1F4|\uAC10\uB3C5\uC120\uC784|\uB2E4\uC74C\uAC10\uB3C5|\uD6C4\uC784\uAC10\uB3C5|\uB300\uD45C\uD300\uAC10\uB3C5)/u.test(compact);
-  return (hasFootballContext && hasCoachIssue) || compactCoachIssue;
-}
-
-function extractFootballCoachSubject(seedKeyword: string, contextKeywords?: MobileKeywordContextCandidate[]): { person: string; coach: string } | null {
-  const corpus = footballIssueCorpus(seedKeyword, contextKeywords);
-  const direct = normalizeKeyword(seedKeyword).match(/([\uAC00-\uD7A3]{2,6})\s*\uAC10\uB3C5/u)
-    || corpus.match(/([\uAC00-\uD7A3]{2,6})\s*\uAC10\uB3C5/u);
-  if (direct?.[1]) {
-    const person = direct[1];
-    return { person, coach: `${person} \uAC10\uB3C5` };
+function inferMindmapSubject(seedKeyword: string): { subject: string; entity: string } {
+  const seed = normalizeKeyword(seedKeyword);
+  const roleMatch = seed.match(/([\uAC00-\uD7A3]{2,8})\s*(감독|대표|회장|의원|장관|후보|선수|배우|가수|작가|교수|총장|시장|지사)/u);
+  if (roleMatch?.[1] && roleMatch?.[2]) {
+    return {
+      subject: `${roleMatch[1]} ${roleMatch[2]}`,
+      entity: roleMatch[1],
+    };
   }
-  const compact = compactKeyword(seedKeyword);
-  if (compact.includes('\uD64D\uBA85\uBCF4')) return { person: '\uD64D\uBA85\uBCF4', coach: '\uD64D\uBA85\uBCF4 \uAC10\uB3C5' };
-  return null;
+  const orgMatch = seed.match(/([\uAC00-\uD7A3A-Za-z0-9]{2,20}(?:협회|위원회|공단|공사|정부|교육청|구청|시청|도청|대학교|병원|기업|그룹|구단|연맹))/u);
+  if (orgMatch?.[1]) return { subject: orgMatch[1], entity: orgMatch[1] };
+  return { subject: seed, entity: seed.replace(/\s*(사퇴|논란|의혹|사건|전말|후보|일정|조회|신청|후기|추천).*$/u, '').trim() || seed };
 }
 
-function buildMindmapIssueBridgeRoots(
+function inferMindmapSemanticDomains(seedKeyword: string, contextKeywords?: MobileKeywordContextCandidate[]): MindmapSemanticDomain[] {
+  const corpus = mindmapSemanticCorpus(seedKeyword, contextKeywords);
+  const compact = compactKeyword(corpus);
+  const domains: MindmapSemanticDomain[] = [];
+  const add = (domain: MindmapSemanticDomain) => {
+    if (!domains.includes(domain)) domains.push(domain);
+  };
+  const hasCoachTransition = /(?:감독|사령탑)/u.test(corpus)
+    && /(?:사퇴|선임|후임|경질|교체|후보|논란|책임|전술|명단)/u.test(corpus);
+  if (hasCoachTransition) add('coach-transition');
+  if (hasCoachTransition
+    && /(?:축구|국가대표|대표팀|대한축구협회|축구협회|KFA|월드컵|A매치|선수기용)/i.test(corpus)) {
+    add('sports-coach');
+  }
+  if (/(?:사퇴|논란|의혹|비리|수사|고소|폭로|해명|입장문|책임론|징계|해임|전말|타임라인|선임|경질)/u.test(corpus)) {
+    add('public-issue');
+  }
+  if (/(?:지원금|장려금|급여|수당|환급|복지|정책|신청|지급일|대상|자격|조건|서류|청년|근로|육아|기초연금|바우처)/u.test(corpus)) {
+    add('policy-benefit');
+  }
+  if (/(?:가격|후기|추천|비교|구매|할인|제품|상품|쇼핑|쿠팡|네이버쇼핑|영양제|화장품|가전|노트북|휴대폰|아이폰|갤럭시|에어컨|공기청정기)/u.test(corpus)) {
+    add('product-shopping');
+  }
+  if (/(?:드라마|영화|예능|넷플릭스|디즈니|티빙|출연진|몇부작|결말|원작|시즌|방송|가수|아이돌|배우|웹툰|공연|콘서트)/u.test(corpus)) {
+    add('entertainment');
+  }
+  if (/(?:일정|발표|접수|예약|예매|시험|등급컷|모의고사|수능|합격|발표일|회차|당첨|추첨|대진표|경기시간|중계)/u.test(corpus)
+    || /(?:등급컷|모의고사|회차|당첨번호|경기일정|중계일정)/u.test(compact)) {
+    add('event-schedule');
+  }
+  return domains;
+}
+
+function buildMindmapEvidenceIssueBranches(
+  contextKeywords: MobileKeywordContextCandidate[] | undefined,
+  limit: number,
+): string[] {
+  const rows = (contextKeywords || []).slice(0, 80).flatMap((item) => [
+    item.keyword || '',
+    ...(Array.isArray(item.evidence) ? item.evidence : []),
+  ]).map(normalizeKeyword).filter(Boolean);
+  const out: string[] = [];
+  const push = (value: string) => {
+    const keyword = normalizeKeyword(value);
+    if (keyword) out.push(keyword);
+  };
+  for (const row of rows) {
+    const compact = compactKeyword(row);
+    if (!/(축구|대표팀|국가대표|감독|선수|교체|투입|선발|결장|출전|항의|요청|전술)/u.test(row)) continue;
+    const names = Array.from(row.matchAll(/[\uAC00-\uD7A3]{2,4}/gu))
+      .map((match) => match[0])
+      .filter((name) => !/^(?:축구|대표|국가|감독|선수|교체|투입|선발|결장|출전|항의|요청|전술|논란|협회|대한|과정|후보|다음|후임|사퇴|이유|장면)$/.test(name));
+    const uniqueNames = uniqueKeywords(names, 4);
+    if (uniqueNames.length >= 2 && /(투입|요청|선발|기용)/u.test(row)) {
+      push(`${uniqueNames[0]} ${uniqueNames[1]} 투입 요청`);
+      push(`${uniqueNames[0]} ${uniqueNames[1]} 선발 논란`);
+    }
+    for (const name of uniqueNames) {
+      if (/(교체|항의|소리|분노)/u.test(row) || compact.includes(`${compactKeyword(name)}교체`)) push(`${name} 교체 항의`);
+      if (/(결장|불참|부상|출전)/u.test(row)) push(`${name} 결장 이유`);
+      if (/(전술|포지션|기용)/u.test(row)) push(`${name} 기용 논란`);
+    }
+    if (out.length >= limit) break;
+  }
+  return uniqueKeywords(out, limit);
+}
+
+function buildMindmapSemanticBridgeRoots(
   seedKeyword: string,
   contextKeywords?: MobileKeywordContextCandidate[],
   limit = 32,
 ): string[] {
-  if (!looksLikeFootballCoachIssue(seedKeyword, contextKeywords)) return [];
-  const subject = extractFootballCoachSubject(seedKeyword, contextKeywords);
-  const coach = subject?.coach || normalizeKeyword(seedKeyword);
-  const person = subject?.person || coach.replace(/\s*\uAC10\uB3C5.*$/u, '').trim();
-  const corpus = footballIssueCorpus(seedKeyword, contextKeywords);
-  const includePlayerBranches = /(?:\uD64D\uBA85\uBCF4|\uB300\uD55C\uCD95\uAD6C\uD611\uD68C|\uCD95\uAD6C\uD611\uD68C|\uAD6D\uAC00\uB300\uD45C|\uB300\uD45C\uD300|\uC774\uAC15\uC778|\uC774\uC7AC\uC131|\uAE40\uBBFC\uC7AC)/u.test(corpus);
-
+  const seed = normalizeKeyword(seedKeyword);
+  if (!seed) return [];
+  const { subject, entity } = inferMindmapSubject(seed);
+  const domains = inferMindmapSemanticDomains(seed, contextKeywords);
+  if (domains.length === 0) return [];
   const values = [
-    `${coach} \uB2E4\uC74C \uAC10\uB3C5 \uD6C4\uBCF4`,
-    `${coach} \uD6C4\uC784 \uAC10\uB3C5 \uD6C4\uBCF4`,
-    `${coach} \uC120\uC784 \uACFC\uC815`,
-    `${coach} \uC120\uC784 \uB17C\uB780`,
-    person ? `${person} \uC0AC\uD1F4 \uC774\uC720` : '',
-    person ? `${person} \uC0AC\uD1F4 \uC785\uC7A5\uBB38` : '',
-    `\uB300\uD55C\uCD95\uAD6C\uD611\uD68C ${coach} \uC120\uC784`,
-    '\uB300\uD55C\uCD95\uAD6C\uD611\uD68C \uAC10\uB3C5 \uC120\uC784 \uACFC\uC815',
-    '\uB300\uD55C\uCD95\uAD6C\uD611\uD68C \uBE44\uB9AC \uC804\uB9D0',
-    ...(includePlayerBranches ? [
-      '\uC774\uAC15\uC778 \uC774\uC7AC\uC131 \uC120\uBC1C \uB17C\uB780',
-      '\uC774\uAC15\uC778 \uC774\uC7AC\uC131 \uD22C\uC785 \uC694\uCCAD',
-      '\uC774\uC7AC\uC131 \uACB0\uC7A5 \uC774\uC720',
-      '\uAE40\uBBFC\uC7AC \uAD50\uCCB4 \uD56D\uC758',
-      '\uAE40\uBBFC\uC7AC \uAD50\uCCB4 \uC7A5\uBA74',
+    ...(domains.includes('coach-transition') ? [
+      `${subject} 다음 감독 후보`,
+      `${subject} 후임 감독 후보`,
+      `${subject} 선임 과정`,
+      `${subject} 선임 논란`,
+      `${entity} 사퇴 이유`,
+      `${entity} 사퇴 입장문`,
+      `${subject} 전술 논란`,
+      `${subject} 선수 기용 논란`,
     ] : []),
-    '\uB300\uD55C\uCD95\uAD6C\uD611\uD68C \uCC45\uC784\uB860',
-    '\uB300\uD55C\uCD95\uAD6C\uD611\uD68C \uC815\uBABD\uADDC \uCC45\uC784\uB860',
-    '\uAD6D\uAC00\uB300\uD45C \uAC10\uB3C5 \uD6C4\uBCF4',
-    '\uCD95\uAD6C\uB300\uD45C\uD300 \uD6C4\uC784 \uAC10\uB3C5 \uD6C4\uBCF4',
-    '\uC6D4\uB4DC\uCEF5 \uAC10\uB3C5 \uD6C4\uBCF4',
-    '\uB300\uD45C\uD300 \uC120\uC218 \uAE30\uC6A9 \uB17C\uB780',
-    '\uCD95\uAD6C\uB300\uD45C\uD300 \uC120\uC218 \uAE30\uC6A9 \uB17C\uB780',
+    ...(domains.includes('sports-coach') ? [
+      `대한축구협회 ${subject} 선임`,
+      '대한축구협회 감독 선임 과정',
+      '대한축구협회 비리 전말',
+      '축구대표팀 선수 기용 논란',
+      '대한축구협회 책임론',
+      '국가대표 감독 후보',
+      '축구대표팀 후임 감독 후보',
+    ] : []),
+    ...buildMindmapEvidenceIssueBranches(contextKeywords, 12),
+    ...(domains.includes('public-issue') ? [
+      `${entity} 전말`,
+      `${entity} 타임라인`,
+      `${entity} 핵심 쟁점`,
+      `${entity} 책임론`,
+      `${entity} 해명`,
+      `${entity} 입장문`,
+      `${entity} 후속 조치`,
+    ] : []),
+    ...(domains.includes('policy-benefit') ? [
+      `${seed} 대상`,
+      `${seed} 신청방법`,
+      `${seed} 지급일`,
+      `${seed} 자격조건`,
+      `${seed} 필요서류`,
+      `${seed} 조회`,
+      `${seed} 제외대상`,
+      `${seed} 지역별`,
+    ] : []),
+    ...(domains.includes('product-shopping') ? [
+      `${seed} 후기`,
+      `${seed} 가격`,
+      `${seed} 비교`,
+      `${seed} 단점`,
+      `${seed} 부작용`,
+      `${seed} 내돈내산`,
+      `${seed} 대체품`,
+      `${seed} 사용법`,
+    ] : []),
+    ...(domains.includes('entertainment') ? [
+      `${seed} 출연진`,
+      `${seed} 몇부작`,
+      `${seed} 결말`,
+      `${seed} 원작`,
+      `${seed} 촬영지`,
+      `${seed} 등장인물`,
+      `${seed} 시즌2`,
+    ] : []),
+    ...(domains.includes('event-schedule') ? [
+      `${seed} 일정`,
+      `${seed} 발표`,
+      `${seed} 확인방법`,
+      `${seed} 준비물`,
+      `${seed} 신청`,
+      `${seed} 결과`,
+    ] : []),
   ];
-  return uniqueKeywords(values.filter(Boolean), limit);
+  return uniqueKeywords(values.filter(Boolean), limit)
+    .filter((keyword) => compactKeyword(keyword) !== compactKeyword(seed));
 }
 
-function buildMindmapIssueBridgeCandidates(
+function buildMindmapSemanticBridgeCandidates(
   seedKeyword: string,
   contextKeywords: MobileKeywordContextCandidate[] | undefined,
   limit: number,
 ): LiveExpansionCandidate[] {
-  return buildMindmapIssueBridgeRoots(seedKeyword, contextKeywords, limit).map((keyword, index) => ({
+  return buildMindmapSemanticBridgeRoots(seedKeyword, contextKeywords, limit).map((keyword, index) => ({
     keyword,
-    source: 'mindmap-issue-bridge',
-    sources: ['mindmap-issue-bridge'],
+    source: 'mindmap-semantic-bridge',
+    sources: ['mindmap-semantic-bridge'],
     freq: Math.max(8, 18 - index),
   }));
 }
@@ -2782,11 +2896,14 @@ async function collectLiveExpansionCandidates(
   env: Partial<EnvConfig>,
   context: MobileJobExecutorContext,
   contextKeywords?: MobileKeywordContextCandidate[],
+  options: { includeSemanticBridge?: boolean } = {},
 ): Promise<LiveExpansionCandidate[]> {
   const clientId = envValue(env, 'naverClientId', 'NAVER_CLIENT_ID');
   const clientSecret = envValue(env, 'naverClientSecret', 'NAVER_CLIENT_SECRET');
   const contextCandidates = contextExpansionCandidates(seed, contextKeywords, Math.max(limit, 1));
-  const issueBridgeCandidates = buildMindmapIssueBridgeCandidates(seed, contextKeywords, Math.min(32, Math.max(12, limit)));
+  const issueBridgeCandidates = options.includeSemanticBridge
+    ? buildMindmapSemanticBridgeCandidates(seed, contextKeywords, Math.min(32, Math.max(12, limit)))
+    : [];
 
   const config = { clientId, clientSecret };
   const byKey = new Map<string, LiveExpansionCandidate>();
@@ -2824,7 +2941,7 @@ async function collectLiveExpansionCandidates(
 
   const liveRoots = uniqueKeywords([
     seed,
-    ...buildMindmapIssueBridgeRoots(seed, contextKeywords, 8),
+    ...(options.includeSemanticBridge ? buildMindmapSemanticBridgeRoots(seed, contextKeywords, 8) : []),
   ], 9);
   const liveRows = await Promise.allSettled(liveRoots.map(async (root) => {
     const [autocomplete, related] = await Promise.all([
@@ -2841,7 +2958,7 @@ async function collectLiveExpansionCandidates(
 
   for (const rowResult of liveRows) {
     if (rowResult.status !== 'fulfilled') continue;
-    const sourcePrefix = rowResult.value.root === seed ? '' : 'mindmap-issue-';
+    const sourcePrefix = rowResult.value.root === seed ? '' : 'mindmap-semantic-';
     for (const keyword of rowResult.value.autocomplete || []) {
       add(keyword, `${sourcePrefix}autocomplete`, undefined, rowResult.value.root === seed ? 1 : 3, [`root:${rowResult.value.root}`]);
     }
@@ -3170,7 +3287,7 @@ async function buildMeasuredMindmapSeedMetrics(
   const seedKey = compactKeyword(normalizedSeed);
   const primaryRoots = [
     normalizedSeed,
-    ...buildMindmapIssueBridgeRoots(normalizedSeed, contextKeywords, 24),
+    ...buildMindmapSemanticBridgeRoots(normalizedSeed, contextKeywords, 24),
     ...buildMindmapMeasuredQueryRoots(normalizedSeed, 32),
     ...buildSafeMeasuredIntentRoots(normalizedSeed, 24),
     ...buildIntentQueryRoots(normalizedSeed, 8),
@@ -3179,7 +3296,7 @@ async function buildMeasuredMindmapSeedMetrics(
     .filter((seed) => compactKeyword(seed) !== seedKey)
     .flatMap((seed) => [
       seed,
-      ...buildMindmapIssueBridgeRoots(seed, contextKeywords, 8),
+      ...buildMindmapSemanticBridgeRoots(seed, contextKeywords, 8),
       ...buildMindmapMeasuredQueryRoots(seed, 8),
       ...buildSafeMeasuredIntentRoots(seed, 10),
       ...buildIntentQueryRoots(seed, 4),
@@ -4651,6 +4768,7 @@ async function runMindmapExpansion(
     getEnvConfig(),
     context,
     params.contextKeywords,
+    { includeSemanticBridge: true },
   );
   if (candidates.length === 0) {
     const aliasSeeds = buildKoreanNumericAliasRoots(params.seedKeyword, 4);
@@ -4663,6 +4781,7 @@ async function runMindmapExpansion(
           getEnvConfig(),
           context,
           params.contextKeywords,
+          { includeSemanticBridge: true },
         ).catch(() => [] as MindmapExpansionCandidate[])
       ));
       candidates = aliasRows.flat();

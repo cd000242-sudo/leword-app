@@ -44,7 +44,7 @@ function isMindmapIssueBridgeCandidate(candidate: MindmapExpansionCandidate): bo
   return [
     candidate.source || '',
     ...(candidate.sources || []),
-  ].some((source) => /mindmap-issue-(?:bridge|autocomplete|naver-relkwd)/i.test(source));
+  ].some((source) => /mindmap-(?:issue|semantic)-(?:bridge|autocomplete|naver-relkwd)/i.test(source));
 }
 
 export function isMindmapExpansionKeywordCandidate(keyword: string): boolean {
@@ -95,7 +95,7 @@ export function rankMindmapExpansionCandidates(
     .map((candidate, index) => ({
       ...candidate,
       score: Math.max(64, 90 - index * 1.5),
-      reasons: ['mindmap-issue-bridge', ...(candidate.sources || [])],
+      reasons: ['mindmap-semantic-bridge', ...(candidate.sources || [])],
     }));
 
   const primaryRanked = rankKeywordExpansionCandidates(seed, normalized, {
