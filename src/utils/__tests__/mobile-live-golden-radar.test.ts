@@ -3964,8 +3964,8 @@ function thinProfileCount(items: Array<{ keyword: string }>): number {
       pcSearchVolume: 180 + index,
       mobileSearchVolume: 920 + index,
       totalSearchVolume: 1100 + index * 2,
-      documentCount: 5000 + index * 90,
-      goldenRatio: Number(((1100 + index * 2) / (5000 + index * 90)).toFixed(2)),
+      documentCount: 240 + index * 2,
+      goldenRatio: Number(((1100 + index * 2) / (240 + index * 2)).toFixed(2)),
       category: 'policy',
       source: 'persistent-keyword-cache',
       intent: 'persistent-measured-golden-cache',
@@ -3995,7 +3995,9 @@ function thinProfileCount(items: Array<{ keyword: string }>): number {
       && proMeasuredDisplaySnapshot.publicPreview.length === 5
       && proMeasuredDisplaySnapshot.board.every((item) => item.isMeasured === true)
       && proMeasuredDisplaySnapshot.board.every((item) => item.isSearchVolumeEstimated === false && item.isDocumentCountEstimated === false)
-      && proMeasuredDisplaySnapshot.board.every((item) => item.searchVolumeSource === 'searchad' && item.documentCountSource === 'cache'),
+      && proMeasuredDisplaySnapshot.board.every((item) => item.searchVolumeSource === 'searchad' && item.documentCountSource === 'cache')
+      // 표시 하드 플로어: 모든 board 행은 문서수 < 검색량 (docs ≥ volume = 의미없음, 노출 금지)
+      && proMeasuredDisplaySnapshot.board.every((item) => (item.documentCount || 0) < (item.totalSearchVolume || 0)),
     proMeasuredDisplaySnapshot.board.map((item) => `${item.rank}:${item.keyword}:${item.grade}:${item.totalSearchVolume}/${item.documentCount}`).join('|'));
   fs.rmSync(proMeasuredDisplayBoardFile, { force: true });
 

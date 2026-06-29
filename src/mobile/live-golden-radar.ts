@@ -144,6 +144,8 @@ const PUBLIC_PREVIEW_VOLUME_CEILING = 250_000;
 const PUBLIC_PREVIEW_DOCUMENT_CEILING = 30_000;
 const PUBLIC_PREVIEW_PROFILE_INTENT_MAX = 0;
 const PUBLIC_PREVIEW_PROTECTED_TOP_COUNT = 3;
+// 표시 하드 플로어: 문서수 < 검색량(비율 ≥ 1.2). docs ≥ volume 은 어느 티어로 들어왔든 board/미리보기에서 차단.
+const LIVE_BOARD_MIN_DISPLAY_RATIO = 1.2;
 const LIVE_BOARD_CATEGORY_SHARE_CAP = 0.18;
 const LIVE_BOARD_CLUSTER_MAX = 2;
 const LIVE_BOARD_CATEGORY_ABSOLUTE_MAX = 16;
@@ -1911,6 +1913,20 @@ function hasCompleteLiveGoldenMetrics(item: {
     && documents !== null
     && volume > 0
     && documents > 0;
+}
+
+/**
+ * 표시 하드 플로어: 저장된(틀릴 수 있는) goldenRatio 대신 실측 volume/docs 로 직접 계산해
+ * "문서수 < 검색량(비율 ≥ 1.2)" 인 키워드만 board/미리보기에 노출. docs ≥ volume = 의미없음.
+ */
+function hasWinnableDisplayRatio(item: {
+  totalSearchVolume?: number | null;
+  documentCount?: number | null;
+}): boolean {
+  const volume = finiteNumber(item.totalSearchVolume) || 0;
+  const docs = finiteNumber(item.documentCount) || 0;
+  if (volume <= 0 || docs <= 0) return false;
+  return (volume / docs) >= LIVE_BOARD_MIN_DISPLAY_RATIO;
 }
 
 function boardCategoryKey(item: MobileLiveGoldenBoardItem): string {
@@ -5467,6 +5483,7 @@ export const __liveGoldenRadarTestInternals = {
   isPolicyProductActionKeyword,
   isSearchAdMeasurableLiveCandidate,
   isStaleOrFutureLiveKeyword,
+  hasWinnableDisplayRatio,
   liveGradeFromMetrics,
   livePromotionPriorityBonus,
   measuredProbeQueueFamilyKey,
@@ -7975,6 +7992,7 @@ export class MobileLiveGoldenRadar {
     const sorted = [...this.board.values()]
       .filter((item) => ageMsFrom(item.updatedAt, nowMs) <= LIVE_BOARD_MAX_AGE_MS)
       .filter(hasCompleteLiveGoldenMetrics)
+      .filter(hasWinnableDisplayRatio)
       .filter((item) => (
         isLiveRadarUsableMetric(item, now)
         || isMeasuredProExactKeywordMetric(item, now)
