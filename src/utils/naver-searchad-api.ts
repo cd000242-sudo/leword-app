@@ -6,6 +6,8 @@
 import { createHash, createHmac } from 'crypto';
 
 let lastSearchAdRequestAt = 0;
+// 429 발생 시 적응형으로 상향(상한 4s), 성공 시 완만히 회복(하한 900ms) — rate-limit 자동 완화
+let searchAdAdaptiveIntervalMs = 900;
 
 export interface NaverSearchAdConfig {
   accessLicense: string;
@@ -177,27 +179,41 @@ export async function getNaverSearchAdKeywordVolume(
         'X-Customer': customerId
       };
 
-      // 🔥 v2.28.0: Rate Limit 완화 — 600ms 간격 (분당 100 배치, 실측 OK)
-      const minIntervalMs = 900;
-      const now = Date.now();
-      lastSearchAdRequestAt = Math.max(now, lastSearchAdRequestAt + minIntervalMs);
-      const waitMs = lastSearchAdRequestAt - now;
-      if (waitMs > 0) await new Promise(resolve => setTimeout(resolve, waitMs));
-      // lastSearchAdRequestAt = Date.now(); // 중복 업데이트 제거
+      // Rate Limit: 적응형 간격 준수 + 429/5xx 지수 백오프 재시도.
+      //   429 시 청크를 통째 null 처리하면 측정 풀이 안 큰다 → 재시도로 회복.
+      let response: Response | null = null;
+      const maxAttempts = 4;
+      for (let attempt = 0; attempt < maxAttempts; attempt++) {
+        const now = Date.now();
+        lastSearchAdRequestAt = Math.max(now, lastSearchAdRequestAt + searchAdAdaptiveIntervalMs);
+        const waitMs = lastSearchAdRequestAt - now;
+        if (waitMs > 0) await new Promise(resolve => setTimeout(resolve, waitMs));
 
-      const controller = new AbortController();
-      const timeoutId = setTimeout(() => controller.abort(), 20000); // 타임아웃 20초
+        const controller = new AbortController();
+        const timeoutId = setTimeout(() => controller.abort(), 20000); // 타임아웃 20초
+        try {
+          response = await fetch(`${apiUrl}?${params.toString()}`, { method, headers, signal: controller.signal });
+        } finally {
+          clearTimeout(timeoutId);
+        }
 
-      const response = await fetch(`${apiUrl}?${params.toString()}`, {
-        method,
-        headers,
-        signal: controller.signal
-      });
-      clearTimeout(timeoutId);
+        if (response.ok) {
+          searchAdAdaptiveIntervalMs = Math.max(900, searchAdAdaptiveIntervalMs - 150); // 성공 시 완만히 회복
+          break;
+        }
+        if (response.status === 429 || response.status >= 500) {
+          searchAdAdaptiveIntervalMs = Math.min(4000, searchAdAdaptiveIntervalMs + 600); // 적응형 throttle 상향
+          const backoffMs = 1500 * Math.pow(2, attempt); // 1.5s → 3s → 6s
+          console.warn(`[NAVER-SEARCHAD] ${response.status} rate-limit, 재시도 ${attempt + 1}/${maxAttempts} (${backoffMs}ms 대기, 간격 ${searchAdAdaptiveIntervalMs}ms)`);
+          await new Promise(resolve => setTimeout(resolve, backoffMs));
+          continue;
+        }
+        break; // 429/5xx 외 4xx — 재시도 무의미
+      }
 
-      if (!response.ok) {
-        console.warn(`[NAVER-SEARCHAD] 배치 요청 실패 (${response.status}): ${chunk.join(',')}`);
-        // 실패 시 해당 청크의 키워드들은 null 처리
+      if (!response || !response.ok) {
+        console.warn(`[NAVER-SEARCHAD] 배치 요청 실패 (${response?.status ?? 'no-response'}): ${chunk.join(',')}`);
+        // 재시도 소진 후에도 실패 — 해당 청크 null 처리
         chunk.forEach(k => results.push({ keyword: k, pcSearchVolume: null, mobileSearchVolume: null, totalSearchVolume: null }));
         continue;
       }
