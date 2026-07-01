@@ -41,6 +41,9 @@ assert('keeps license key auth collapsed as optional login path',
     && html.includes('if (licenseCode) loginPayload.licenseCode = licenseCode'));
 assert('pro login shows a welcome modal and starts automatic discovery for KIN and shopping',
   html.includes('id="welcomeModal"')
+    && html.includes('class="modal welcome-modal"')
+    && html.includes('class="dialog welcome-dialog"')
+    && html.includes('class="welcome-status-grid"')
     && html.includes('function openWelcomeModal')
     && html.includes("const postLoginAutoFeatureIds = ['kin', 'shopping']")
     && html.includes('function schedulePostLoginAutoDiscovery')
