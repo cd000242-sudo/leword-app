@@ -1989,58 +1989,10 @@ function selectLiveBoardItems<T extends MobileLiveGoldenBoardItem>(
   const target = Math.max(1, Math.floor(boardTarget));
   const measuredSssReady = sorted
     .filter((item) => isMeasuredSssBoardCandidate(item, now));
-  const measuredSssSelected = selectLiveBoardItemsFromPool(
+  return selectLiveBoardItemsFromPool(
     measuredSssReady,
     target,
     (item) => isMeasuredSssBoardCandidate(item, now),
-  );
-  if (measuredSssSelected.length >= target) return measuredSssSelected;
-  const selectedIds = new Set(measuredSssSelected.map((item) => item.id));
-  const strictReady = sorted
-    .filter((item) => !selectedIds.has(item.id))
-    .filter(isStrictReadyLiveBoardItem);
-  const strictSelected = selectLiveBoardItemsFromPool(
-    [...measuredSssSelected, ...strictReady],
-    target,
-    (item) => selectedIds.has(item.id) || isStrictReadyLiveBoardItem(item),
-  );
-  if (strictSelected.length >= target) return strictSelected;
-  const strictIds = new Set(strictSelected.map((item) => item.id));
-  const nearReady = sorted
-    .filter((item) => !strictIds.has(item.id))
-    .filter(isNearUltimateLiveBoardItem);
-  const nearSelected = selectLiveBoardItemsFromPool(
-    [...strictSelected, ...nearReady],
-    target,
-    (item) => strictIds.has(item.id) || isStrictReadyLiveBoardItem(item) || isNearUltimateLiveBoardItem(item),
-  );
-  if (nearSelected.length >= target) return nearSelected;
-
-  const expandedSelectedIds = new Set(nearSelected.map((item) => item.id));
-  const writerReady = sorted
-    .filter((item) => !expandedSelectedIds.has(item.id))
-    .filter((item) => isMeasuredWriterReadyBoardMetric(item, now));
-  const writerReadySelected = selectLiveBoardItemsFromPool(
-    [...nearSelected, ...writerReady],
-    target,
-    (item) => expandedSelectedIds.has(item.id)
-      || isStrictReadyLiveBoardItem(item)
-      || isNearUltimateLiveBoardItem(item)
-      || isMeasuredWriterReadyBoardMetric(item, now),
-  );
-  if (writerReadySelected.length >= target) return writerReadySelected;
-
-  const writerReadySelectedIds = new Set(writerReadySelected.map((item) => item.id));
-  const measuredReady = sorted
-    .filter((item) => !writerReadySelectedIds.has(item.id))
-    .filter((item) => isMeasuredProBoardItem(item, now));
-  return selectLiveBoardItemsFromPool(
-    [...writerReadySelected, ...measuredReady],
-    target,
-    (item) => isStrictReadyLiveBoardItem(item)
-      || isNearUltimateLiveBoardItem(item)
-      || isMeasuredWriterReadyBoardMetric(item, now)
-      || isMeasuredProBoardItem(item, now),
   );
 }
 
@@ -2366,6 +2318,7 @@ function isMeasuredSssBoardCandidate(item: MobileLiveGoldenBoardItem, now: Date)
   const docs = finiteNumber(item.documentCount) || 0;
   const ratio = finiteNumber(item.goldenRatio) || (volume > 0 && docs > 0 ? volume / docs : 0);
   if (!keyword || !hasCompleteLiveGoldenMetrics(item)) return false;
+  if (item.grade !== 'SSS') return false;
   if (!hasTrustedSearchVolumeMeasurement(item) || !hasTrustedDocumentCountMeasurement(item)) return false;
   if (!isLiveRadarUsableMetric(item, now) && !isMeasuredProExactKeywordMetric(item, now)) return false;
   if (isLottoLookupKeyword(keyword) || isLowAdsenseLookupKeyword(keyword) || isBrandSafetyNewsKeyword(keyword)) return false;
@@ -8205,18 +8158,8 @@ export class MobileLiveGoldenRadar {
     const sorted = base
       .filter(hasWinnableDisplayRatio)
       .filter((item) => isBlogActionableBoardMetric(item) || isMeasuredProDisplayBackfillMetric(item, now));
-    const measuredDisplayFallback = base
-      .filter((item) => !hasWinnableDisplayRatio(item) || !isBlogActionableBoardMetric(item))
-      .filter((item) => isMeasuredExactDisplayFallbackMetric(item, now));
     const selected = selectLiveBoardItems(sorted, this.boardTarget, now);
-    const resilientSelected = appendMeasuredPublishableFallbackItems(selected, sorted, this.boardTarget, now);
-    const filledSelected = appendMeasuredExactDisplayFallbackItems(
-      resilientSelected,
-      measuredDisplayFallback,
-      this.boardTarget,
-      now,
-    );
-    return filledSelected
+    return selected
       .sort((a, b) => {
         const scoreDiff = boardDisplayQualitySortScore(b, now, nowMs) - boardDisplayQualitySortScore(a, now, nowMs);
         if (scoreDiff !== 0) return scoreDiff;

@@ -2602,15 +2602,16 @@ function isNaverMateDisplayQualityCandidate(item: MobileKeywordMetric): boolean 
 
 function isNaverMateMeasuredBoardCandidate(item: MobileKeywordMetric): boolean {
   if (!isNaverMateDisplayQualityCandidate(item)) return false;
+  if (item.grade !== 'SSS') return false;
   if (!isNonNegativeFiniteMetric(item.pcSearchVolume) || !isNonNegativeFiniteMetric(item.mobileSearchVolume)) return false;
   if ((item.pcSearchVolume + item.mobileSearchVolume) <= 0) return false;
   if (!isPositiveFiniteMetric(item.totalSearchVolume) || item.totalSearchVolume < 50) return false;
-  if (!isPositiveFiniteMetric(item.documentCount) || item.documentCount > 50000) return false;
+  if (!isPositiveFiniteMetric(item.documentCount) || item.documentCount > 8000) return false;
   const ratio = typeof item.goldenRatio === 'number' && Number.isFinite(item.goldenRatio)
     ? item.goldenRatio
     : item.totalSearchVolume / item.documentCount;
-  if (item.totalSearchVolume >= 50000 && ratio < 0.5) return false;
-  if (item.documentCount > 30000 && ratio < 0.2) return false;
+  if (ratio < 3) return false;
+  if (item.totalSearchVolume >= 50000 && ratio < 5) return false;
   const source = String(item.source || '');
   if (/server-measured-naver-mate-prewarm/i.test(source)) {
     const evidenceText = [

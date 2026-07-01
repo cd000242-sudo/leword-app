@@ -1951,7 +1951,7 @@ const result: MobileKeywordResult = {
         ...result,
         keywords: [{
           keyword: '\uB124\uC774\uBC84\uBA54\uC774\uD2B8\uC790\uB3D9\uC644\uC131',
-          grade: 'S',
+          grade: 'SSS',
           pcSearchVolume: 100,
           mobileSearchVolume: 900,
           totalSearchVolume: 1000,
@@ -1966,7 +1966,7 @@ const result: MobileKeywordResult = {
         }],
         summary: {
           total: 1,
-          sss: 0,
+          sss: 1,
           measured: 1,
           elapsedMs: 1,
           fromCache: false,

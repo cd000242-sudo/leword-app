@@ -689,6 +689,7 @@ assert('mobile readiness report separates code checks from external native block
     && /'external'/.test(readinessReport));
 
 const apiServer = read('apps/api/src/server.ts');
+const liveGoldenRadar = read('src/mobile/live-golden-radar.ts');
 const puppeteerPool = read('src/utils/puppeteer-pool.ts');
 const mobileEntitlements = read('src/mobile/entitlements.ts');
 const notificationInbox = read('src/mobile/notification-inbox.ts');
@@ -702,6 +703,12 @@ assert('api server keeps PRO traffic supplements SSS-only and measured',
     && /item\.grade !== 'SSS'/.test(apiServer)
     && /endpoint\.product === 'pro-traffic-hunter' && !isProTrafficMeasuredBoardCandidate/.test(apiServer)
     && /product === 'pro-traffic-hunter'\) return isProTrafficMeasuredBoardCandidate/.test(apiServer));
+assert('live golden board display is SSS-only without weak fallback fill',
+  /function selectLiveBoardItems[\s\S]{0,360}isMeasuredSssBoardCandidate/.test(liveGoldenRadar)
+    && /if \(item\.grade !== 'SSS'\) return false;/.test(liveGoldenRadar)
+    && !/const resilientSelected = appendMeasuredPublishableFallbackItems\(selected, sorted, this\.boardTarget, now\)/.test(liveGoldenRadar)
+    && !/const filledSelected = appendMeasuredExactDisplayFallbackItems/.test(liveGoldenRadar),
+  'LIVE board display must not pad paid results with A/S/SS fallback rows');
 assert('api server product defaults route LEWORD details to products page anchor',
   /href: '\/products#product-leword'/.test(apiServer)
     && !/\{ id: 'leword', name: 'LEWORD', status: 'published', href: '\/leword' \}/.test(apiServer));
@@ -893,7 +900,6 @@ const orchestrator = read('src/mobile/job-orchestrator.ts');
 const resultCache = read('src/mobile/result-cache.ts');
 const prewarmService = read('src/mobile/prewarm-service.ts');
 const prewarmScheduler = read('src/mobile/prewarm-scheduler.ts');
-const liveGoldenRadar = read('src/mobile/live-golden-radar.ts');
 assert('job orchestrator stores jobs', /class InMemoryMobileJobStore/.test(orchestrator));
 assert('job orchestrator supports subscription', /subscribe\(jobId/.test(orchestrator));
 assert('job orchestrator supports AbortController', /AbortController/.test(orchestrator));
@@ -999,17 +1005,15 @@ assert('mobile live golden radar waits when document-count quota is exhausted',
     && /scheduleQuotaRetry/.test(liveGoldenRadar)
     && /nextRetryAt/.test(sharedMobileContract)
     && /measured-only golden keywords/.test(liveGoldenRadar));
-assert('mobile live golden board prefers measured SSS winners, then strict 98-point measured rows, then near-fallbacks',
+assert('mobile live golden board displays measured SSS winners only',
   /isUltimateGoldenKeywordCandidate/.test(liveGoldenRadar)
     && /function isNearUltimateLiveBoardItem/.test(liveGoldenRadar)
     && /const measuredSssReady = sorted[\s\S]{0,120}isMeasuredSssBoardCandidate\(item, now\)/.test(liveGoldenRadar)
-    && /const measuredSssSelected = selectLiveBoardItemsFromPool\(/.test(liveGoldenRadar)
-    && /const strictReady = sorted[\s\S]{0,160}\.filter\(isStrictReadyLiveBoardItem\)/.test(liveGoldenRadar)
-    && /const strictSelected = selectLiveBoardItemsFromPool\(/.test(liveGoldenRadar)
-    && /if \(strictSelected\.length >= target\) return strictSelected/.test(liveGoldenRadar)
-    && /\.filter\(isNearUltimateLiveBoardItem\)/.test(liveGoldenRadar)
-    && /isStrictReadyLiveBoardItem\(item\) \|\| isNearUltimateLiveBoardItem\(item\)/.test(liveGoldenRadar)
-    && !/selectLiveBoardItemsFromPool\(sorted\.filter\(isNearUltimateLiveBoardItem\), target\)/.test(liveGoldenRadar)
+    && /return selectLiveBoardItemsFromPool\(/.test(liveGoldenRadar)
+    && /if \(item\.grade !== 'SSS'\) return false;/.test(liveGoldenRadar)
+    && !/const strictReady = sorted[\s\S]{0,160}\.filter\(isStrictReadyLiveBoardItem\)/.test(liveGoldenRadar)
+    && !/if \(strictSelected\.length >= target\) return strictSelected/.test(liveGoldenRadar)
+    && !/isStrictReadyLiveBoardItem\(item\) \|\| isNearUltimateLiveBoardItem\(item\)/.test(liveGoldenRadar)
     && /function isPublicPreviewCandidate[\s\S]{0,220}isStrictReadyLiveBoardItem/.test(liveGoldenRadar));
 assert('mobile live golden board carries and enforces measurement provenance',
   /MobileDocumentCountSource/.test(sharedMobileContract)
@@ -1044,6 +1048,9 @@ assert('api server keeps feature prewarm supplements separated by user intent',
     && /serverMetricGradeRank\(item\.grade\) > 0/.test(apiServer)
     && !/NAVER_MATE_SOURCE_RE\s*=\s*\/\(naver-mate\|/.test(apiServer)
     && /function isNaverMateMeasuredBoardCandidate/.test(apiServer)
+    && /item\.grade !== 'SSS'/.test(apiServer)
+    && /item\.documentCount > 8000/.test(apiServer)
+    && /ratio < 3/.test(apiServer)
     && /const isMeasuredNaverMateExplorationMetric = endpoint\.product === 'naver-mate-hunter'/.test(apiServer)
     && /const isMeasuredShoppingConnectMetric = endpoint\.product === 'shopping-connect'/.test(apiServer)
     && /&& !isMeasuredNaverMateExplorationMetric/.test(apiServer)
@@ -1175,10 +1182,13 @@ assert('mobile executor keeps Naver Mate auto discovery on utility intent signal
     && /spiderWebDepth:\s*autoDiscovery \? 0 : 1/.test(pcExecutor)
     && /naverMateMinimumUsefulCount/.test(pcExecutor));
 assert('mobile executor keeps Naver Mate measured display below broad-head document caps',
-  /maxDocumentCount = 50000/.test(pcExecutor)
-    && /docs > Math\.min\(50000, maxDocumentCount\)/.test(pcExecutor)
+  /maxDocumentCount = 8000/.test(pcExecutor)
+    && /docs > Math\.min\(8000, maxDocumentCount\)/.test(pcExecutor)
     && /total < 50/.test(pcExecutor)
-    && !/prioritizeNaverMateMeasuredMetrics\(measuredMetrics, params\.targetCount, 150000\)/.test(pcExecutor));
+    && /metric\.grade === 'SSS'/.test(pcExecutor)
+    && /ratio < 3/.test(pcExecutor)
+    && !/prioritizeNaverMateMeasuredMetrics\(measuredMetrics, params\.targetCount, 150000\)/.test(pcExecutor)
+    && !/maxDocumentCount = 50000/.test(pcExecutor));
 assert('mobile executor recovers measured PRO traffic document counts from PC hunter evidence',
   /recoverProTrafficDocumentCount/.test(pcExecutor)
     && /pc-pro-traffic-document-count-recovered/.test(pcExecutor));

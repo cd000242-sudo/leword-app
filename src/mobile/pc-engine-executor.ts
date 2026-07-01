@@ -1902,10 +1902,10 @@ function isNaverMateDisplayQualityMetric(metric: MobileKeywordMetric): boolean {
   const ratio = finiteNumber(metric.goldenRatio) ?? 0;
   if (pc === null || mobile === null || pc + mobile <= 0) return false;
   if (total < 50) return false;
-  if (docs <= 0 || docs > 50000) return false;
-  if (total >= 50000 && ratio < 0.5) return false;
-  if (docs > 30000 && ratio < 0.2) return false;
-  return metricGradeRank(metric.grade) > 0;
+  if (docs <= 0 || docs > 8000) return false;
+  if (ratio < 3) return false;
+  if (total >= 50000 && ratio < 5) return false;
+  return metric.grade === 'SSS';
 }
 
 function recoverNaverMateMeasuredMetrics(
@@ -1931,7 +1931,7 @@ function recoverNaverMateMeasuredMetrics(
       return true;
     });
   const strict = eligible
-    .filter((metric) => (finiteNumber(metric.documentCount) ?? Number.POSITIVE_INFINITY) <= 50000)
+    .filter((metric) => (finiteNumber(metric.documentCount) ?? Number.POSITIVE_INFINITY) <= 8000)
     .sort((a, b) => measuredDecisionScore(b) - measuredDecisionScore(a));
   const strictKeys = new Set(strict.map((metric) => compactKeyword(metric.keyword)).filter(Boolean));
   const measuredBroadFill = eligible
@@ -1941,7 +1941,7 @@ function recoverNaverMateMeasuredMetrics(
       const docs = finiteNumber(metric.documentCount) ?? Number.POSITIVE_INFINITY;
       const total = finiteNumber(metric.totalSearchVolume) ?? 0;
       const ratio = finiteNumber(metric.goldenRatio) ?? 0;
-      return docs <= 50000 && total >= 50 && ratio >= 0.1;
+      return docs <= 8000 && total >= 50 && ratio >= 3 && metric.grade === 'SSS';
     })
     .sort((a, b) => measuredDecisionScore(b) - measuredDecisionScore(a));
   return mergePrioritizedKeywordMetrics([strict, measuredBroadFill], targetCount);
@@ -1982,7 +1982,8 @@ function prioritizeNaverMateUtilityMeasuredMetrics(
       const docs = finiteNumber(metric.documentCount) ?? Number.POSITIVE_INFINITY;
       if (pc === null || mobile === null || pc + mobile <= 0) return false;
       if (total < 50) return false;
-      if (docs > Math.min(50000, maxDocumentCount)) return false;
+      if (docs > Math.min(8000, maxDocumentCount)) return false;
+      if ((finiteNumber(metric.goldenRatio) ?? 0) < 3) return false;
       return true;
     })
     .sort((a, b) => naverMateUtilityScore(b) - naverMateUtilityScore(a))
@@ -1992,7 +1993,7 @@ function prioritizeNaverMateUtilityMeasuredMetrics(
 function prioritizeNaverMateMeasuredMetrics(
   metrics: MobileKeywordMetric[],
   targetCount: number,
-  maxDocumentCount = 50000,
+  maxDocumentCount = 8000,
 ): MobileKeywordMetric[] {
   const strict = prioritizeMeasuredDecisionMetrics(metrics, targetCount, {
     requirePcMobileSplit: true,
