@@ -48,6 +48,11 @@ assert('pro login shows a welcome modal and starts automatic discovery for KIN a
     && html.includes("const postLoginAutoFeatureIds = ['kin', 'shopping']")
     && html.includes('function schedulePostLoginAutoDiscovery')
     && html.includes('schedulePostLoginAutoDiscovery()'));
+assert('pro web modals use one opaque premium dialog shell',
+  html.includes('rgba(4,14,20,.84)')
+    && html.includes('border-radius: 18px')
+    && html.includes('0 34px 100px rgba(2,12,18,.48)')
+    && html.includes('backdrop-filter: blur(16px) saturate(116%)'));
 assert('feature execution progress can be minimized and restored from a bottom pill',
   html.includes('id="progressMinimize"')
     && html.includes('id="progressPill"')
@@ -230,7 +235,9 @@ assert('keyword analyzer keeps raw analysis rows and shares them with mindmap ex
 
 assert('pro traffic hunter shares web analysis context with the PC engine',
   /id:\s*'pro-traffic'[\s\S]{0,520}contextKeywords:\s*buildLookupContextKeywords/.test(html)
-    && /id:\s*'pro-traffic'[\s\S]{0,520}autoDiscovery:\s*true/.test(html));
+    && /id:\s*'pro-traffic'[\s\S]{0,520}autoDiscovery:\s*true/.test(html)
+    && /id:\s*'pro-traffic'[\s\S]{0,220}defaultTargetCount:\s*60/.test(html)
+    && /id:\s*'pro-traffic'[\s\S]{0,520}targetCount:\s*options\.targetCount\s*\|\|\s*60/.test(html));
 assert('pro traffic hunter explains the server prewarmed cache path',
   html.includes('서버가 24시간 prewarm한 PRO 트래픽 후보')
     && html.includes('서버 24시간 prewarm 후보'));

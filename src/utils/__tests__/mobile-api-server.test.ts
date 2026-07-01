@@ -1629,6 +1629,110 @@ const result: MobileKeywordResult = {
 
   console.log('[mobile-api-server-pro-traffic-prewarm-cache.test] passed');
 
+  const shallowProTrafficPrewarmCache = new InMemoryMobileResultCache();
+  shallowProTrafficPrewarmCache.set('pro-traffic-hunter', {
+    qualityProfile: 'publishable-v2',
+    categoryId: 'all',
+    targetCount: 60,
+    includeSeasonal: true,
+    includeEvergreen: true,
+    includeFreshIssue: true,
+    autoDiscovery: true,
+    includeAiInference: true,
+  }, {
+    ...result,
+    keywords: Array.from({ length: 30 }, (_, index) => ({
+      keyword: `shallow prewarmed pro traffic keyword ${index + 1}`,
+      grade: 'SSS' as const,
+      pcSearchVolume: 900 + index,
+      mobileSearchVolume: 2200 + index,
+      totalSearchVolume: 3100 + index * 2,
+      documentCount: 80 + index,
+      goldenRatio: 38.75,
+      cpc: 210,
+      category: 'pro-traffic',
+      source: 'prewarm-fixture',
+      intent: 'prewarmed',
+      evidence: ['pro traffic shallow prewarm fixture'],
+      isMeasured: true,
+    })),
+    summary: {
+      total: 30,
+      sss: 30,
+      measured: 30,
+      elapsedMs: 7,
+      fromCache: false,
+      parityMode: 'pc-engine',
+    },
+  });
+  let shallowProTrafficExecutorCalls = 0;
+  const shallowProTrafficCacheServer = createLewordApiServer({
+    entitlementVerifier: null,
+    resultCache: shallowProTrafficPrewarmCache,
+    executor: async () => {
+      shallowProTrafficExecutorCalls += 1;
+      return {
+        ...result,
+        keywords: Array.from({ length: 60 }, (_, index) => ({
+          keyword: `fresh expanded pro traffic keyword ${index + 1}`,
+          grade: 'SSS' as const,
+          pcSearchVolume: 1200 + index,
+          mobileSearchVolume: 3300 + index,
+          totalSearchVolume: 4500 + index * 2,
+          documentCount: 90 + index,
+          goldenRatio: 50,
+          cpc: 210,
+          category: 'pro-traffic',
+          source: 'fresh-fixture',
+          intent: 'measured',
+          evidence: ['fresh expanded fixture'],
+          isMeasured: true,
+        })),
+        summary: {
+          total: 60,
+          sss: 60,
+          measured: 60,
+          elapsedMs: 10,
+          fromCache: false,
+          parityMode: 'pc-engine',
+        },
+      };
+    },
+  });
+  const shallowProTrafficCachePort = await listen(shallowProTrafficCacheServer);
+  const shallowProTrafficCacheBaseUrl = `http://127.0.0.1:${shallowProTrafficCachePort}`;
+
+  try {
+    const shallowProTraffic = await fetch(`${shallowProTrafficCacheBaseUrl}/v1/pro/hunt`, {
+      method: 'POST',
+      headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify({
+        categoryId: 'all',
+        targetCount: 60,
+        includeSeasonal: true,
+        includeEvergreen: true,
+        includeFreshIssue: true,
+        autoDiscovery: true,
+        includeAiInference: true,
+      }),
+    });
+    const shallowProTrafficJson: any = await shallowProTraffic.json();
+    assert('shallow 30-item pro traffic cache does not satisfy a 60-item Pro request',
+      shallowProTraffic.status === 202
+        && shallowProTrafficJson.job.state !== 'completed',
+      JSON.stringify(shallowProTrafficJson));
+    const shallowJob = await waitForCompletedJob(shallowProTrafficCacheBaseUrl, shallowProTrafficJson.job.id);
+    assert('shallow pro traffic cache triggers fresh 60-item execution',
+      shallowProTrafficExecutorCalls === 1
+        && shallowJob.result.keywords.length === 60
+        && shallowJob.result.summary.measured === 60,
+      JSON.stringify({ shallowJob, shallowProTrafficExecutorCalls }));
+  } finally {
+    await close(shallowProTrafficCacheServer);
+  }
+
+  console.log('[mobile-api-server-pro-traffic-shallow-cache.test] passed');
+
   const incompleteProTrafficCache = new InMemoryMobileResultCache();
   incompleteProTrafficCache.set('pro-traffic-hunter', {
     qualityProfile: 'publishable-v2',

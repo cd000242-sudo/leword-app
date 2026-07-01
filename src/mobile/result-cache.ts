@@ -85,7 +85,7 @@ function targetCountFromParams(params: unknown): number | null {
 function minimumCacheKeywordCount(product: MobileKeywordProduct, params: unknown): number {
   const targetCount = targetCountFromParams(params);
   if (product === 'pro-traffic-hunter' && targetCount && targetCount >= 20) {
-    return Math.min(30, Math.max(5, Math.floor(targetCount * 0.5)));
+    return Math.min(90, Math.max(30, Math.ceil(targetCount * 0.75)));
   }
   if (DAILY_PREWARM_PRODUCTS.has(product) && targetCount && targetCount >= 20) {
     return Math.min(10, Math.max(3, Math.floor(targetCount * 0.25)));

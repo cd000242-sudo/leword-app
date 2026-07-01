@@ -2835,21 +2835,23 @@ async function buildProTrafficLiveMeasuredMetrics(
   const roots = contextSeedKeywords(
     params.seedKeyword,
     params.contextKeywords,
-    Math.min(12, Math.max(6, params.targetCount)),
+    Math.min(24, Math.max(10, Math.ceil(params.targetCount / 2))),
   );
   for (const root of defaultProTrafficDiscoveryRoots(params.categoryId)) {
     if (!roots.some((item) => compactKeyword(item) === compactKeyword(root))) roots.push(root);
   }
   const selectedRoots = roots
     .filter(params.autoDiscovery === true ? isStrictAutoDiscoverySearchQuery : isLikelyMeasuredSearchQuery)
-    .slice(0, params.autoDiscovery === true ? 7 : 10);
+    .slice(0, params.autoDiscovery === true
+      ? Math.min(18, Math.max(8, Math.ceil(params.targetCount / 4)))
+      : Math.min(22, Math.max(10, Math.ceil(params.targetCount / 3))));
   if (selectedRoots.length === 0) return [];
 
   context.progress(18, `collecting ${selectedRoots.length} live autocomplete roots`);
   const candidateRows = await Promise.all(selectedRoots.map((root) =>
     collectLiveExpansionCandidates(
       root,
-      Math.min(45, Math.max(18, params.targetCount)),
+      Math.min(70, Math.max(24, Math.ceil(params.targetCount * 0.9))),
       env,
       context,
       params.contextKeywords,
@@ -2880,8 +2882,8 @@ async function buildProTrafficLiveMeasuredMetrics(
   }
   candidates.sort((a, b) => (b.freq - a.freq) || ((b.monthlyVolume || 0) - (a.monthlyVolume || 0)));
   const limit = params.autoDiscovery === true
-    ? Math.min(110, Math.max(params.targetCount * 3, 60))
-    : Math.min(180, Math.max(params.targetCount * 4, 80));
+    ? Math.min(220, Math.max(params.targetCount * 5, 120))
+    : Math.min(260, Math.max(params.targetCount * 5, 120));
   const metrics = candidates.slice(0, limit).map((item, index) => metricFromExpansion(
     item.keyword,
     Math.max(50, 92 - index * 0.15),
@@ -3731,7 +3733,7 @@ async function runProTrafficWithPcHunter(
   ensureNotAborted(context);
   const seedKeywords = proTrafficContextSeedKeywords(
     params,
-    Math.min(90, Math.max(params.targetCount * 2, 30)),
+    Math.min(180, Math.max(params.targetCount * 3, 60)),
   );
   if (seedKeywords.length > 0) {
     context.progress(14, `injecting ${seedKeywords.length} web context seeds into PC PRO hunter`);
@@ -3756,7 +3758,7 @@ async function runProTrafficWithPcHunter(
   }
   const hunterCount = params.seedKeyword
     ? params.targetCount
-    : Math.min(250, Math.max(params.targetCount * 4, 100));
+    : Math.min(250, Math.max(params.targetCount * 5, 160));
 
   const result: ProTrafficHuntResult = await huntProTrafficKeywords({
     mode: 'category',
@@ -3780,7 +3782,7 @@ async function runProTrafficWithPcHunter(
   const combinedRawMetrics = [...liveMeasuredMetrics, ...rawMetrics];
   const metrics = prioritizeProTrafficPublishableMetrics(
     combinedRawMetrics,
-    Math.min(combinedRawMetrics.length, Math.max(params.targetCount * 2, params.targetCount + 20)),
+    Math.min(combinedRawMetrics.length, Math.max(params.targetCount * 3, params.targetCount + 60)),
   );
   const measuredMetrics = measureKeywordMetrics
     ? await measureKeywordMetrics(metrics, context)
@@ -3815,8 +3817,8 @@ async function runProTrafficWithPcHunter(
       `measured PRO pool has ${finalMetrics.length}/${params.targetCount}; measuring root intent top-up`,
     );
     const rootTopUp = await buildMeasuredIntentFallbackFromSeeds(
-      uniqueKeywords([...seedKeywords, ...defaultProTrafficDiscoveryRoots(params.categoryId)], 12),
-      Math.max(params.targetCount - finalMetrics.length, Math.min(30, params.targetCount)),
+      uniqueKeywords([...seedKeywords, ...defaultProTrafficDiscoveryRoots(params.categoryId)], 24),
+      Math.max(params.targetCount - finalMetrics.length, Math.min(90, Math.max(params.targetCount, 60))),
       'pc-pro-traffic-root-intent-topup',
       'measured-pro-traffic-need',
       params.categoryId,

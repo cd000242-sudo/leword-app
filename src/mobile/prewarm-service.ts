@@ -65,7 +65,7 @@ export const DEFAULT_MOBILE_PREWARM_TARGETS: readonly MobilePrewarmTarget[] = Ob
     params: {
       ...PRO_PREWARM_BASE_PARAMS,
       categoryId: 'policy',
-      targetCount: 40,
+      targetCount: 60,
     },
   },
   {
@@ -88,7 +88,7 @@ export const DEFAULT_MOBILE_PREWARM_TARGETS: readonly MobilePrewarmTarget[] = Ob
     params: {
       ...PRO_PREWARM_BASE_PARAMS,
       categoryId: 'travel_domestic',
-      targetCount: 40,
+      targetCount: 60,
     },
   },
   {
@@ -99,7 +99,7 @@ export const DEFAULT_MOBILE_PREWARM_TARGETS: readonly MobilePrewarmTarget[] = Ob
     params: {
       ...PRO_PREWARM_BASE_PARAMS,
       categoryId: 'home_life',
-      targetCount: 35,
+      targetCount: 60,
     },
   },
   {
@@ -158,7 +158,7 @@ export const DEFAULT_MOBILE_PREWARM_TARGETS: readonly MobilePrewarmTarget[] = Ob
     params: {
       ...PRO_PREWARM_BASE_PARAMS,
       categoryId: 'electronics',
-      targetCount: 20,
+      targetCount: 60,
     },
   },
 ]);

@@ -938,7 +938,7 @@ function runFallbackRegressionGuards(): void {
       && /id:\s*'naver-mate-auto-discovery'[\s\S]{0,220}priority:\s*8/.test(prewarmServiceSource)
       && /id:\s*'policy-pro-traffic-24h'[\s\S]{0,140}priority:\s*20/.test(prewarmServiceSource)
       && /id:\s*'electronics-pro-traffic-24h'[\s\S]{0,160}priority:\s*80/.test(prewarmServiceSource)
-      && /id:\s*'electronics-pro-traffic-24h'[\s\S]{0,220}targetCount:\s*20/.test(prewarmServiceSource),
+      && /id:\s*'electronics-pro-traffic-24h'[\s\S]{0,220}targetCount:\s*60/.test(prewarmServiceSource),
     'startup prewarm must not let broad electronics queries block live/free golden boards');
   assert('default metric adapter measures volume before spending OpenAPI document quota',
     source.includes('shouldMeasureDocumentCount')

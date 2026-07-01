@@ -1813,7 +1813,7 @@ function normalizeProTrafficCacheParams(params: unknown): unknown {
     categoryId: typeof raw.categoryId === 'string' && raw.categoryId.trim()
       ? raw.categoryId.trim()
       : 'all',
-    targetCount: normalizeTargetCount(raw.targetCount, 30),
+    targetCount: normalizeTargetCount(raw.targetCount, 60),
     includeSeasonal: normalizeBooleanParam(raw.includeSeasonal, true),
     includeEvergreen: normalizeBooleanParam(raw.includeEvergreen, true),
     includeFreshIssue: normalizeBooleanParam(raw.includeFreshIssue, true),
@@ -2035,7 +2035,7 @@ function requestedFeatureTargetCount(product: MobileKeywordProduct, params: unkn
     : {};
   const requested = Number(raw.targetCount ?? raw.maxResults ?? raw.autoDiscoveryLimit);
   const fallbackByProduct: Partial<Record<MobileKeywordProduct, number>> = {
-    'pro-traffic-hunter': 30,
+    'pro-traffic-hunter': 60,
     'shopping-connect': 30,
     'kin-hidden-honey': 30,
     'naver-mate-hunter': 50,
@@ -2672,12 +2672,19 @@ function featureBoardPriority(product: MobileKeywordProduct, item: MobileKeyword
   const total = typeof item.totalSearchVolume === 'number' ? item.totalSearchVolume : 0;
   const docs = typeof item.documentCount === 'number' ? item.documentCount : Number.POSITIVE_INFINITY;
   const gradeBonus = item.grade === 'SSS' ? 5000 : item.grade === 'SS' ? 3500 : item.grade === 'S' ? 2200 : item.grade === 'A' ? 1000 : 0;
+  const proTrafficBonus = product === 'pro-traffic-hunter'
+    ? (item.grade === 'SSS' ? 4200 : item.grade === 'SS' ? 2600 : item.grade === 'S' ? 1200 : -900)
+      + (ratio >= 8 ? 1800 : ratio >= 5 ? 1200 : ratio >= 2 ? 400 : -800)
+      + (total >= 1000 ? 900 : total >= 300 ? 350 : -500)
+      + (docs <= 1000 ? 900 : docs <= 5000 ? 500 : docs > 30000 ? -1200 : 0)
+    : 0;
   const productBonus =
-    product === 'shopping-connect' && isShoppingMeasuredBoardCandidate(item) ? 3000
+    proTrafficBonus
+    || (product === 'shopping-connect' && isShoppingMeasuredBoardCandidate(item) ? 3000
       : product === 'kin-hidden-honey' && isKinMeasuredBoardCandidate(item) ? 3000
         : product === 'naver-mate-hunter' && isNaverMateMeasuredBoardCandidate(item) ? 3000
           : product === 'youtube-golden' && isYoutubeMeasuredBoardCandidate(item) ? 3000
-            : 0;
+            : 0);
   return productBonus
     + gradeBonus
     + Math.min(250, ratio) * 20
@@ -2702,7 +2709,7 @@ function measuredBoardCandidatesForFeature(
     return true;
   });
   const pool = product === 'pro-traffic-hunter'
-    ? (primary.length >= Math.min(limit, 8)
+    ? (primary.length >= Math.min(limit, 30)
       ? primary
       : [...primary, ...measured.filter((item) => !primary.includes(item))])
     : primary;

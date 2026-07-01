@@ -1133,11 +1133,11 @@ assert('mobile bulk golden direct supplement expands measured candidate batches 
     && !/Math\.max\(6000, Math\.min\(10000/.test(pcExecutor));
 assert('mobile executor wires PRO traffic to PC hunter', /huntProTrafficKeywords/.test(pcExecutor) && /runProTrafficWithPcHunter/.test(pcExecutor));
 assert('mobile executor prewarms PRO traffic from live autocomplete plus wider measured-first pool',
-  /const hunterCount = params\.seedKeyword[\s\S]{0,180}Math\.max\(params\.targetCount \* 4, 100\)/.test(pcExecutor)
+  /const hunterCount = params\.seedKeyword[\s\S]{0,180}Math\.max\(params\.targetCount \* 5, 160\)/.test(pcExecutor)
     && /buildProTrafficLiveMeasuredMetrics/.test(pcExecutor)
     && /const combinedRawMetrics = \[\.\.\.liveMeasuredMetrics, \.\.\.rawMetrics\]/.test(pcExecutor)
     && /count: hunterCount/.test(pcExecutor)
-    && /Math\.max\(params\.targetCount \* 2, params\.targetCount \+ 20\)/.test(pcExecutor)
+    && /Math\.max\(params\.targetCount \* 3, params\.targetCount \+ 60\)/.test(pcExecutor)
     && /let finalMetrics = prioritizeProTrafficPublishableMetrics/.test(pcExecutor)
     && /pc-pro-traffic-source-signal-topup/.test(pcExecutor)
     && /pc-pro-traffic-root-intent-topup/.test(pcExecutor));
