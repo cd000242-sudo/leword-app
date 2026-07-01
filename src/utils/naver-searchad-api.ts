@@ -4,6 +4,14 @@
  */
 
 import { createHash, createHmac } from 'crypto';
+import {
+  searchAdAccountId,
+  searchAdExhausted,
+  searchAdRemaining,
+  searchAdSoftCeiling,
+  recordSearchAdCall,
+} from './searchad-quota-governor';
+import { getSearchAdVolumeCached, setSearchAdVolumeCached } from './searchad-volume-cache';
 
 let lastSearchAdRequestAt = 0;
 // 429 발생 시 적응형으로 상향(상한 4s), 성공 시 완만히 회복(하한 900ms) — rate-limit 자동 완화
@@ -32,6 +40,11 @@ export interface KeywordSearchVolume {
    * memory 규칙: "추정값 fallback 가드 — *Estimated 다운스트림 전파 필수".
    */
   svEstimated?: boolean;
+  /**
+   * Phase 2: 이 값이 측정된 시각(epoch ms). 캐시에서 서빙된 경우 과거 시각, 방금 API로 측정하면 now.
+   * "N일 전 측정" 신선도 라벨용. 값 자체는 항상 실측 절대값(추정 아님).
+   */
+  measuredAtMs?: number;
 }
 
 /**
@@ -125,7 +138,7 @@ function generateSignature(
 export async function getNaverSearchAdKeywordVolume(
   config: NaverSearchAdConfig,
   keywords: string[],
-  options: { recursive?: boolean } = {}
+  options: { recursive?: boolean; forceFresh?: boolean } = {}
 ): Promise<KeywordSearchVolume[]> {
   if (!config.accessLicense || !config.secretKey) {
     throw new Error('네이버 검색광고 API 인증 정보가 필요합니다');
@@ -133,6 +146,8 @@ export async function getNaverSearchAdKeywordVolume(
 
   // 기본값: 최상위 호출에서 recursive=true (1회 한정 개별 재호출 fallback)
   const isRecursive = options.recursive !== false;
+  // Phase 1: 계정별 일일 쿼터 거버너 식별자 (다중계정 훅 — 지금은 단일계정)
+  const accountId = searchAdAccountId(config);
 
   let customerId: string;
   if (config.customerId && typeof config.customerId === 'string' && config.customerId.trim() !== '') {
@@ -149,6 +164,32 @@ export async function getNaverSearchAdKeywordVolume(
   const results: KeywordSearchVolume[] = [];
   const cleanKeywords = (keywords || []).map(k => String(k || '').trim()).filter(Boolean);
 
+  // 🗄️ Phase 2 (read-before-measure): 신선(<30일)한 캐시 볼륨은 API 없이 서빙, 미스만 측정.
+  //   네이버 월검색량은 월단위 집계 → 캐시값도 실측 절대값(UI 추정금지 규칙 준수). measuredAtMs 로 신선도 표기.
+  //   세 경로(황금보드/PRO헌터/분석기)가 모두 이 캐시를 공유 → sv 100% 동일 유지.
+  const toMeasure: string[] = [];
+  for (const kw of cleanKeywords) {
+    if (!options.forceFresh) {
+      const cached = getSearchAdVolumeCached(kw);
+      if (cached && typeof cached.total === 'number' && cached.total > 0) {
+        results.push({
+          keyword: kw,
+          pcSearchVolume: cached.pc,
+          mobileSearchVolume: cached.mo,
+          totalSearchVolume: cached.total,
+          competition: cached.comp,
+          monthlyPcQcCnt: cached.pc,
+          monthlyMobileQcCnt: cached.mo,
+          monthlyAveCpc: cached.cpc ?? null,
+          svEstimated: false,
+          measuredAtMs: cached.at,
+        });
+        continue;
+      }
+    }
+    toMeasure.push(kw);
+  }
+
   // v2.49.21: 🚨 chunkSize 10 → 5 (CRITICAL FIX).
   //   실측 (scripts/verify-v2.49.20-chunksize.ts): chunkSize 7+ 에서 keywordList=0 (API 응답 폭망).
   //   chunkSize 5: keywordList 22개 + 정확 매칭 100% / chunkSize 10: 0% 매칭 → 모든 sv=null
@@ -157,8 +198,16 @@ export async function getNaverSearchAdKeywordVolume(
   //   v2.49.18 휴리스틱 fallback 은 그대로 유지 (svEstimated 마킹). 정확 매칭 100% 보장 후
   //   사용자에게 결과 50~300건 복원 + 추정 칩으로 신뢰도 보장.
   const chunkSize = 4;
-  for (let i = 0; i < cleanKeywords.length; i += chunkSize) {
-    const chunk = cleanKeywords.slice(i, i + chunkSize);
+  for (let i = 0; i < toMeasure.length; i += chunkSize) {
+    // 🛡️ Phase 1: 일일 쿼터 소프트 상한 도달 → 남은 키워드 전부 null(측정 스킵) 후 종료 (계정 25k 절대 안 넘김)
+    if (searchAdExhausted(accountId)) {
+      console.warn(`[NAVER-SEARCHAD] 🛡️ 일일 쿼터 소프트 상한(${searchAdSoftCeiling()}) 도달 — 잔여 ${toMeasure.length - i}개 미측정(null) 처리`);
+      for (let j = i; j < toMeasure.length; j++) {
+        results.push({ keyword: toMeasure[j], pcSearchVolume: null, mobileSearchVolume: null, totalSearchVolume: null });
+      }
+      break;
+    }
+    const chunk = toMeasure.slice(i, i + chunkSize);
     const hintKeywordsValue = chunk.map(k => buildProcessedKeyword(k)).join(',');
 
     try {
@@ -182,7 +231,9 @@ export async function getNaverSearchAdKeywordVolume(
       // Rate Limit: 적응형 간격 준수 + 429/5xx 지수 백오프 재시도.
       //   429 시 청크를 통째 null 처리하면 측정 풀이 안 큰다 → 재시도로 회복.
       let response: Response | null = null;
-      const maxAttempts = 4;
+      // Phase 1: 재시도 4→2 (×4 증폭 제거). 소프트상한 pre-check가 daily-429 자체를 예방하므로
+      //   여기 도달하는 429는 대개 QPS 제한 → 짧은 백오프 재시도. 단 상한 도달 시엔 즉시 중단.
+      const maxAttempts = 2;
       for (let attempt = 0; attempt < maxAttempts; attempt++) {
         const now = Date.now();
         lastSearchAdRequestAt = Math.max(now, lastSearchAdRequestAt + searchAdAdaptiveIntervalMs);
@@ -196,6 +247,7 @@ export async function getNaverSearchAdKeywordVolume(
         } finally {
           clearTimeout(timeoutId);
         }
+        recordSearchAdCall(accountId, 1); // 실제 HTTP 호출 = 쿼터 1 소모 (실패/429 포함 — over-count safe)
 
         if (response.ok) {
           searchAdAdaptiveIntervalMs = Math.max(900, searchAdAdaptiveIntervalMs - 150); // 성공 시 완만히 회복
@@ -203,7 +255,12 @@ export async function getNaverSearchAdKeywordVolume(
         }
         if (response.status === 429 || response.status >= 500) {
           searchAdAdaptiveIntervalMs = Math.min(4000, searchAdAdaptiveIntervalMs + 600); // 적응형 throttle 상향
-          const backoffMs = 1500 * Math.pow(2, attempt); // 1.5s → 3s → 6s
+          // 이미 소프트상한 도달이면 daily-quota 429로 간주 → 재시도는 쿼터만 태움 → 즉시 중단
+          if (searchAdRemaining(accountId) <= 0) {
+            console.warn(`[NAVER-SEARCHAD] 🛡️ 429 + 소프트상한 도달 → daily-quota 판단, 재시도 중단`);
+            break;
+          }
+          const backoffMs = 1500 * Math.pow(2, attempt); // 1.5s → 3s (QPS 제한 회복)
           console.warn(`[NAVER-SEARCHAD] ${response.status} rate-limit, 재시도 ${attempt + 1}/${maxAttempts} (${backoffMs}ms 대기, 간격 ${searchAdAdaptiveIntervalMs}ms)`);
           await new Promise(resolve => setTimeout(resolve, backoffMs));
           continue;
@@ -256,6 +313,7 @@ export async function getNaverSearchAdKeywordVolume(
           //   세 path 모두 본 함수 getNaverSearchAdKeywordVolume 거침 → 휴리스틱 제거하면 100% 일치.
           //   휴리스틱이 다른 키워드 sv 빌려옴 = 본질적 mismatch 원인. 정확/포함 매칭 결과만 정직 반환.
 
+          const measuredAtMs = Date.now();
           results.push({
             keyword: requestedKw,
             pcSearchVolume: pc,
@@ -268,7 +326,10 @@ export async function getNaverSearchAdKeywordVolume(
             pcSearchVolumeLt10: isLessThanTenVolume(pcRaw),
             mobileSearchVolumeLt10: isLessThanTenVolume(moRaw),
             svEstimated: false,  // v2.49.22: 휴리스틱 제거 — 항상 실측. 필드는 인터페이스 호환성 위해 유지.
+            measuredAtMs,
           });
+          // 🗄️ Phase 2: 실측 양수 볼륨을 캐시에 기록 → 다음 실행부터 재측정 스킵 (하루 24회 재측정 제거)
+          setSearchAdVolumeCached(requestedKw, { pc, mo, total, comp: competition, cpc: aveCpc });
         } else {
           // 🔥 v2.24.0 P0-3: 매칭 실패 시 0 저장 → 캐시 영구 고착 (복구 불가). null 로 변경.
           //   0 은 "진짜 0건"이고 null 은 "데이터 없음" 의미 구분.
@@ -315,6 +376,12 @@ export async function getNaverSearchAdKeywordSuggestions(
     throw new Error('네이버 검색광고 API 인증 정보가 필요합니다');
   }
 
+  // Phase 1: 일일 쿼터 소프트 상한 도달 시 연관어 조회 스킵 (배경 발굴이 남은 쿼터를 태우지 않게)
+  const accountId = searchAdAccountId({ accessLicense, customerId: config.customerId });
+  if (searchAdExhausted(accountId)) {
+    return [];
+  }
+
   let customerId = config.customerId || '';
   if (!customerId) {
     const parts = accessLicense.split(':');
@@ -347,6 +414,7 @@ export async function getNaverSearchAdKeywordSuggestions(
     if (waitMs > 0) await new Promise(resolve => setTimeout(resolve, waitMs));
 
     const response = await fetch(`${apiUrl}?${params.toString()}`, { method, headers });
+    recordSearchAdCall(accountId, 1); // 연관어 조회도 SearchAd 쿼터 1 소모
     if (!response.ok) {
       throw new Error(`API 호출 실패: ${response.status}`);
     }

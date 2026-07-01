@@ -16,7 +16,9 @@ interface PersistentCacheEntry {
   savedAt: number; // epoch ms
 }
 
-const TTL_MS = 7 * 24 * 60 * 60 * 1000; // 🔥 v2.28.0: 24h → 7일 (키워드 인기도 안정)
+// 🔥 v2.28.0: 24h → 7일. Phase 2(2026-07): 7일 → 30일 — 네이버 월검색량은 월단위 집계라 30일 내 값은
+//   사실상 동일(실측 절대값 유지). 재측정 폭증(하루 24회) 제거 목적. [[searchad-volume-cache]] 와 병행.
+const TTL_MS = 30 * 24 * 60 * 60 * 1000;
 const WRITE_DEBOUNCE_MS = 5000;
 const CACHE_FILE_NAME = 'keyword-cache.json';
 const MAX_ENTRIES = 50_000;   // 🔥 v2.13.0 M10: 디스크 캐시 상한 (초과 시 오래된 것부터 제거)
