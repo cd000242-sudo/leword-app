@@ -1893,6 +1893,18 @@ function isNaverMateDisplayQualityMetric(metric: MobileKeywordMetric): boolean {
   if (!key) return false;
   if (isUltimateLowValueLookupKeyword(metric.keyword)) return false;
   if (NAVER_MATE_LOW_VALUE_COMPACT_RE.test(key)) return false;
+  if (!isFullyMeasuredKeyword(metric)) return false;
+  if (metric.isSearchVolumeEstimated === true || metric.isDocumentCountEstimated === true) return false;
+  const pc = finiteNumber(metric.pcSearchVolume);
+  const mobile = finiteNumber(metric.mobileSearchVolume);
+  const total = finiteNumber(metric.totalSearchVolume) ?? 0;
+  const docs = finiteNumber(metric.documentCount) ?? Number.POSITIVE_INFINITY;
+  const ratio = finiteNumber(metric.goldenRatio) ?? 0;
+  if (pc === null || mobile === null || pc + mobile <= 0) return false;
+  if (total < 50) return false;
+  if (docs <= 0 || docs > 50000) return false;
+  if (total >= 50000 && ratio < 0.5) return false;
+  if (docs > 30000 && ratio < 0.2) return false;
   return metricGradeRank(metric.grade) > 0;
 }
 
@@ -1919,7 +1931,7 @@ function recoverNaverMateMeasuredMetrics(
       return true;
     });
   const strict = eligible
-    .filter((metric) => (finiteNumber(metric.documentCount) ?? Number.POSITIVE_INFINITY) <= 150000)
+    .filter((metric) => (finiteNumber(metric.documentCount) ?? Number.POSITIVE_INFINITY) <= 50000)
     .sort((a, b) => measuredDecisionScore(b) - measuredDecisionScore(a));
   const strictKeys = new Set(strict.map((metric) => compactKeyword(metric.keyword)).filter(Boolean));
   const measuredBroadFill = eligible
@@ -1929,7 +1941,7 @@ function recoverNaverMateMeasuredMetrics(
       const docs = finiteNumber(metric.documentCount) ?? Number.POSITIVE_INFINITY;
       const total = finiteNumber(metric.totalSearchVolume) ?? 0;
       const ratio = finiteNumber(metric.goldenRatio) ?? 0;
-      return docs <= 500000 && (total >= 100 || ratio >= 0.03);
+      return docs <= 50000 && total >= 50 && ratio >= 0.1;
     })
     .sort((a, b) => measuredDecisionScore(b) - measuredDecisionScore(a));
   return mergePrioritizedKeywordMetrics([strict, measuredBroadFill], targetCount);
@@ -1969,8 +1981,8 @@ function prioritizeNaverMateUtilityMeasuredMetrics(
       const total = finiteNumber(metric.totalSearchVolume) ?? 0;
       const docs = finiteNumber(metric.documentCount) ?? Number.POSITIVE_INFINITY;
       if (pc === null || mobile === null || pc + mobile <= 0) return false;
-      if (total < 30) return false;
-      if (docs > Math.max(500000, maxDocumentCount)) return false;
+      if (total < 50) return false;
+      if (docs > Math.min(50000, maxDocumentCount)) return false;
       return true;
     })
     .sort((a, b) => naverMateUtilityScore(b) - naverMateUtilityScore(a))
@@ -1980,11 +1992,11 @@ function prioritizeNaverMateUtilityMeasuredMetrics(
 function prioritizeNaverMateMeasuredMetrics(
   metrics: MobileKeywordMetric[],
   targetCount: number,
-  maxDocumentCount = 150000,
+  maxDocumentCount = 50000,
 ): MobileKeywordMetric[] {
   const strict = prioritizeMeasuredDecisionMetrics(metrics, targetCount, {
     requirePcMobileSplit: true,
-    minTotalSearchVolume: 30,
+    minTotalSearchVolume: 50,
     maxDocumentCount,
   }).filter(isNaverMateDisplayQualityMetric);
   const utility = prioritizeNaverMateUtilityMeasuredMetrics(metrics, targetCount, maxDocumentCount);
@@ -3464,24 +3476,8 @@ function prioritizeProTrafficPublishableMetrics(
     minTotalSearchVolume: 300,
     maxDocumentCount: 8000,
     minGoldenRatio: 5,
-  }));
-  if (strict.length >= targetCount) {
-    return prioritizeFullyMeasuredMetrics(strict, targetCount);
-  }
-
-  const strictKeys = new Set(strict.map((metric) => compactKeyword(metric.keyword)).filter(Boolean));
-  const measuredPublishable = prioritizeMeasuredDecisionMetrics(
-    judged.filter((metric) => !strictKeys.has(compactKeyword(metric.keyword))),
-    Math.max(targetCount, targetCount - strict.length),
-    {
-      publishOnly: true,
-      requirePcMobileSplit: true,
-      minTotalSearchVolume: 300,
-      maxDocumentCount: 30000,
-      minGoldenRatio: 1,
-    },
-  );
-  return prioritizeFullyMeasuredMetrics([...strict, ...measuredPublishable], targetCount);
+  }) && metric.grade === 'SSS');
+  return prioritizeFullyMeasuredMetrics(strict, targetCount);
 }
 
 function isSyntheticKeywordAnalysisSource(metric: MobileKeywordMetric): boolean {
@@ -4637,7 +4633,7 @@ async function runNaverMateWithPcEngine(
     if (rootTopUpMetrics.length > 0) {
       const measuredRootTopUp = await measureKeywordMetrics(rootTopUpMetrics, context);
       measuredMetrics = [...measuredMetrics, ...measuredRootTopUp];
-      finalMetrics = prioritizeNaverMateMeasuredMetrics(measuredMetrics, params.targetCount, 150000);
+      finalMetrics = prioritizeNaverMateMeasuredMetrics(measuredMetrics, params.targetCount, 50000);
     }
   }
   if (params.includeVolumeMetrics && finalMetrics.length < Math.min(naverMateMinimumUsefulCount, 12) && roots.length > 0) {
@@ -4696,7 +4692,7 @@ async function runNaverMateWithPcEngine(
       measureKeywordMetrics,
     );
     measuredMetrics = [...measuredMetrics, ...sourceFallback];
-    finalMetrics = prioritizeNaverMateMeasuredMetrics(measuredMetrics, params.targetCount, 150000);
+    finalMetrics = prioritizeNaverMateMeasuredMetrics(measuredMetrics, params.targetCount, 50000);
   }
   const displayMetrics = params.includeVolumeMetrics
     ? finalMetrics.filter(isNaverMateDisplayQualityMetric)

@@ -697,6 +697,14 @@ assert('api package exposes production start command',
   apiPackage.scripts['start:prod'] === 'node -r ts-node/register/transpile-only src/server.ts'
     && apiPackage.scripts['worker:live-golden'] === 'node -r ts-node/register/transpile-only src/live-golden-worker.ts'
     && apiPackage.scripts['deploy:gate'] === 'node ../../scripts/mobile-api-deploy-gate.js');
+assert('api server keeps PRO traffic supplements SSS-only and measured',
+  /function isProTrafficMeasuredBoardCandidate/.test(apiServer)
+    && /item\.grade !== 'SSS'/.test(apiServer)
+    && /endpoint\.product === 'pro-traffic-hunter' && !isProTrafficMeasuredBoardCandidate/.test(apiServer)
+    && /product === 'pro-traffic-hunter'\) return isProTrafficMeasuredBoardCandidate/.test(apiServer));
+assert('api server product defaults route LEWORD details to products page anchor',
+  /href: '\/products#product-leword'/.test(apiServer)
+    && !/\{ id: 'leword', name: 'LEWORD', status: 'published', href: '\/leword' \}/.test(apiServer));
 assert('api Dockerfile packages PC-grade worker runtime',
   /FROM node:22-bookworm-slim/.test(apiDockerfile)
     && /apt-get install[\s\S]*chromium/.test(apiDockerfile)
@@ -1045,7 +1053,9 @@ assert('api server keeps feature prewarm supplements separated by user intent',
     && /product === 'shopping-connect'\s*\?\s*\['shopping-connect'\]/.test(apiServer)
     && /product === 'naver-mate-hunter'[\s\S]{0,120}\?\s*\['naver-mate-hunter'\]/.test(apiServer)
     && /product === 'naver-mate-hunter'[\s\S]{0,120}isNaverMateMeasuredBoardCandidate/.test(apiServer)
-    && /const pool = product === 'pro-traffic-hunter'/.test(apiServer),
+    && /function isProTrafficMeasuredBoardCandidate/.test(apiServer)
+    && /product === 'pro-traffic-hunter'[\s\S]{0,120}isProTrafficMeasuredBoardCandidate/.test(apiServer)
+    && /const pool = primary/.test(apiServer),
   'feature board supplement must not replay generic PRO/live board rows into Naver Mate or KIN');
 
 assert('Naver Mate prewarm seed is stable Korean text, not mojibake',
@@ -1148,7 +1158,9 @@ assert('mobile executor preserves server autoDiscovery flag for strict prewarm g
 assert('mobile executor keeps PRO strict prewarm at 98 score without near-candidate fallback',
   /minAiScore:\s*98/.test(pcExecutor)
     && /return prioritizeFullyMeasuredMetrics\(strict, targetCount\)/.test(pcExecutor)
+    && /metric\.grade === 'SSS'/.test(pcExecutor)
     && /isStrictAutoDiscoverySearchQuery/.test(pcExecutor)
+    && !/measuredPublishable/.test(pcExecutor)
     && !/minAiScore:\s*94/.test(pcExecutor));
 assert('mobile executor blocks weak PRO traffic profile and episode-count intents before final display',
   /isWeakProTrafficPublishIntent/.test(pcExecutor)
@@ -1162,6 +1174,11 @@ assert('mobile executor keeps Naver Mate auto discovery on utility intent signal
     && /isNaverMateUtilityRootCandidate/.test(pcExecutor)
     && /spiderWebDepth:\s*autoDiscovery \? 0 : 1/.test(pcExecutor)
     && /naverMateMinimumUsefulCount/.test(pcExecutor));
+assert('mobile executor keeps Naver Mate measured display below broad-head document caps',
+  /maxDocumentCount = 50000/.test(pcExecutor)
+    && /docs > Math\.min\(50000, maxDocumentCount\)/.test(pcExecutor)
+    && /total < 50/.test(pcExecutor)
+    && !/prioritizeNaverMateMeasuredMetrics\(measuredMetrics, params\.targetCount, 150000\)/.test(pcExecutor));
 assert('mobile executor recovers measured PRO traffic document counts from PC hunter evidence',
   /recoverProTrafficDocumentCount/.test(pcExecutor)
     && /pc-pro-traffic-document-count-recovered/.test(pcExecutor));

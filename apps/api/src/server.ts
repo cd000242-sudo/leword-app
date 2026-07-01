@@ -353,7 +353,7 @@ function defaultSiteContentDraft(): SiteContentDraft {
     section: 'products',
     products: [
       { id: 'naver', name: 'Better Life Naver', status: 'published', href: '/detail' },
-      { id: 'leword', name: 'LEWORD', status: 'published', href: '/leword' },
+      { id: 'leword', name: 'LEWORD', status: 'published', href: '/products#product-leword' },
       { id: 'orbit', name: 'Leaders Orbit', status: 'published', href: '/orbit' },
     ],
     chatbots: [],
@@ -1951,6 +1951,7 @@ function isStrictMeasuredKeywordMetric(
   if (SYNTHETIC_RESULT_MARKER_PATTERN.test(metricRuntimeMarkerText(metric))) return false;
   if (!isPositiveFiniteMetric(metric.totalSearchVolume)) return false;
   if (!isPositiveFiniteMetric(metric.documentCount)) return false;
+  if (endpoint.product === 'pro-traffic-hunter' && !isProTrafficMeasuredBoardCandidate(metric)) return false;
   if (endpoint.product === 'shopping-connect' && !isShoppingMeasuredBoardCandidate(metric)) return false;
   if (endpoint.product === 'naver-mate-hunter' && !isNaverMateMeasuredBoardCandidate(metric)) return false;
   if (endpoint.product === 'kin-hidden-honey' && !isKinMeasuredBoardCandidate(metric)) return false;
@@ -1972,7 +1973,16 @@ function sanitizeMeasuredKeywordResult(
   let excludedByAiJudge = 0;
   for (const metric of result.keywords) {
     const judged = applyKeywordAiJudge(metric);
-    if (!isStrictMeasuredKeywordMetric(endpoint, judged)) continue;
+    if (!isStrictMeasuredKeywordMetric(endpoint, judged)) {
+      if (judged.aiJudge?.verdict === 'exclude'
+        && metric.isMeasured === true
+        && isPositiveFiniteMetric(metric.totalSearchVolume)
+        && isPositiveFiniteMetric(metric.documentCount)
+        && !SYNTHETIC_RESULT_MARKER_PATTERN.test(metricRuntimeMarkerText(metric))) {
+        excludedByAiJudge += 1;
+      }
+      continue;
+    }
     const key = compactServerKeyword(judged.keyword);
     if (!key || seen.has(key)) continue;
     const isRequestedKeywordAnalysisMetric = endpoint.product === 'keyword-analysis'
@@ -2592,6 +2602,15 @@ function isNaverMateDisplayQualityCandidate(item: MobileKeywordMetric): boolean 
 
 function isNaverMateMeasuredBoardCandidate(item: MobileKeywordMetric): boolean {
   if (!isNaverMateDisplayQualityCandidate(item)) return false;
+  if (!isNonNegativeFiniteMetric(item.pcSearchVolume) || !isNonNegativeFiniteMetric(item.mobileSearchVolume)) return false;
+  if ((item.pcSearchVolume + item.mobileSearchVolume) <= 0) return false;
+  if (!isPositiveFiniteMetric(item.totalSearchVolume) || item.totalSearchVolume < 50) return false;
+  if (!isPositiveFiniteMetric(item.documentCount) || item.documentCount > 50000) return false;
+  const ratio = typeof item.goldenRatio === 'number' && Number.isFinite(item.goldenRatio)
+    ? item.goldenRatio
+    : item.totalSearchVolume / item.documentCount;
+  if (item.totalSearchVolume >= 50000 && ratio < 0.5) return false;
+  if (item.documentCount > 30000 && ratio < 0.2) return false;
   const source = String(item.source || '');
   if (/server-measured-naver-mate-prewarm/i.test(source)) {
     const evidenceText = [
@@ -2601,6 +2620,19 @@ function isNaverMateMeasuredBoardCandidate(item: MobileKeywordMetric): boolean {
   }
   const text = productIntentText(item);
   return NAVER_MATE_SOURCE_RE.test(text);
+}
+
+function isProTrafficMeasuredBoardCandidate(item: MobileKeywordMetric): boolean {
+  if (!isMeasuredLiveBoardCandidate(item)) return false;
+  if (item.grade !== 'SSS') return false;
+  if (!isNonNegativeFiniteMetric(item.pcSearchVolume) || !isNonNegativeFiniteMetric(item.mobileSearchVolume)) return false;
+  if ((item.pcSearchVolume + item.mobileSearchVolume) <= 0) return false;
+  if (!isPositiveFiniteMetric(item.totalSearchVolume) || item.totalSearchVolume < 300) return false;
+  if (!isPositiveFiniteMetric(item.documentCount) || item.documentCount > 8000) return false;
+  const ratio = typeof item.goldenRatio === 'number' && Number.isFinite(item.goldenRatio)
+    ? item.goldenRatio
+    : item.totalSearchVolume / item.documentCount;
+  return ratio >= 5;
 }
 
 function isYoutubeMeasuredBoardCandidate(item: MobileKeywordMetric): boolean {
@@ -2702,17 +2734,14 @@ function measuredBoardCandidatesForFeature(
   const board = liveGoldenRadar.snapshot().board || [];
   const measured = board.filter(isMeasuredLiveBoardCandidate);
   const primary = measured.filter((item) => {
+    if (product === 'pro-traffic-hunter') return isProTrafficMeasuredBoardCandidate(item);
     if (product === 'shopping-connect') return isShoppingMeasuredBoardCandidate(item);
     if (product === 'kin-hidden-honey') return isKinMeasuredBoardCandidate(item);
     if (product === 'naver-mate-hunter') return isNaverMateMeasuredBoardCandidate(item);
     if (product === 'youtube-golden') return isYoutubeMeasuredBoardCandidate(item);
     return true;
   });
-  const pool = product === 'pro-traffic-hunter'
-    ? (primary.length >= Math.min(limit, 30)
-      ? primary
-      : [...primary, ...measured.filter((item) => !primary.includes(item))])
-    : primary;
+  const pool = primary;
   const seen = new Set<string>();
   return pool
     .sort((a, b) => featureBoardPriority(product, b) - featureBoardPriority(product, a))
@@ -2748,6 +2777,7 @@ function measuredCacheCandidatesForFeature(
     for (const result of resultCache.recent(sourceProduct, 5)) {
       for (const item of result.keywords || []) {
         if (!isMeasuredLiveBoardCandidate(item)) continue;
+        if (product === 'pro-traffic-hunter' && !isProTrafficMeasuredBoardCandidate(item)) continue;
         if (product === 'shopping-connect' && !isShoppingMeasuredBoardCandidate(item)) continue;
         if (product === 'kin-hidden-honey' && !isKinMeasuredBoardCandidate(item)) continue;
         if (product === 'naver-mate-hunter' && !isNaverMateMeasuredBoardCandidate(item)) continue;
@@ -2819,6 +2849,7 @@ function supportsMeasuredPrewarmSupplement(product: MobileKeywordProduct): boole
 function minimumUsableFeatureKeywordCount(product: MobileKeywordProduct, params: unknown): number {
   if (!supportsMeasuredPrewarmSupplement(product)) return 1;
   const targetCount = requestedFeatureTargetCount(product, params);
+  if (product === 'pro-traffic-hunter') return Math.min(targetCount, 1);
   if (product === 'mindmap-expansion') return Math.min(targetCount, 10);
   if (product === 'youtube-golden') return Math.min(targetCount, 10);
   return Math.min(targetCount, 30);

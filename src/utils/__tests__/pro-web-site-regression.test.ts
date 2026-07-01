@@ -61,7 +61,9 @@ assert('feature execution progress can be minimized and restored from a bottom p
     && html.includes('function renderProgressPill')
     && html.includes('openProgress(feature.title +'));
 assert('pro login does not masquerade as API key setup',
-  html.includes("setActiveView('golden', { load: false });")
+  html.includes("const nextView = pendingViewAfterLogin || 'golden'")
+    && html.includes('pendingViewAfterLogin = null')
+    && html.includes('setActiveView(nextView, { load: false });')
     && !html.includes("setActiveView('settings', { load: false });\n        log('Pro 로그인 완료"));
 assert('api key settings are separate from Pro login credentials',
   html.includes("const userApiSettingsStorageKey = 'leword.pro.userApiSettings.v1'")
@@ -176,6 +178,17 @@ assert('home view starts directly with live golden board without intro or outcom
     && !html.includes('data-ops-tab')
     && !html.includes('data-ops-panel')
     && !html.includes('id="refreshOps"'));
+
+assert('anonymous users are gated to login before leaving the live board',
+  html.includes('let pendingViewAfterLogin = null')
+    && html.includes("next !== 'golden' && !opts.allowAnonymous && (!session || !session.accessToken)")
+    && html.includes("pendingViewAfterLogin = feature.id === 'youtube' ? 'youtube' : 'features'")
+    && html.includes("const nextView = pendingViewAfterLogin || 'golden'")
+    && html.includes("history.replaceState(null, '', '#golden')"));
+
+assert('site content defaults keep LEWORD detail inside the products page',
+  html.includes("href: '/products#product-leword'")
+    && !html.includes("{ id: 'leword', name: 'LEWORD', status: 'published', href: '/leword' }"));
 
 assert('commerce tab wires editable catalog, Toss checkout, analytics, and admin sales dashboard',
   html.includes('https://js.tosspayments.com/v2/standard')
