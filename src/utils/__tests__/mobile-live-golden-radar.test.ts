@@ -4215,6 +4215,102 @@ function thinProfileCount(items: Array<{ keyword: string }>): number {
     measuredExactFallbackSnapshot.board.map((item) => `${item.rank}:${item.keyword}:${item.grade}:${item.totalSearchVolume}/${item.documentCount}`).join('|'));
   fs.rmSync(measuredExactFallbackBoardFile, { force: true });
 
+  assert('past month volatile keywords are stale for live board',
+    __liveGoldenRadarTestInternals.isPastMonthVolatileLiveKeyword('\u0035\uC6D4\uC5F0\uB9D0\uC815\uC0B0\uD658\uAE09\uC77C', new Date('2026-07-01T09:00:00.000Z'))
+      && __liveGoldenRadarTestInternals.isStaleOrFutureLiveKeyword('\u0035\uC6D4\uC5F0\uB9D0\uC815\uC0B0\uD658\uAE09\uC77C', new Date('2026-07-01T09:00:00.000Z')),
+    '5월연말정산환급일 should not surface on July live board');
+
+  const liveBoardQualitySortFile = path.join(process.cwd(), 'tmp', 'mobile-live-golden-quality-sort-test.json');
+  fs.writeFileSync(liveBoardQualitySortFile, JSON.stringify({
+    boardUpdatedAt: '2026-07-01T08:00:00.000Z',
+    items: [
+      {
+        keyword: '\uC81C\uC8FC\uB80C\uD2B8\uCE74\uAC00\uACA9\uBE44\uAD50\uC0AC\uC774\uD2B8',
+        grade: 'A',
+        score: 71,
+        pcSearchVolume: 350,
+        mobileSearchVolume: 1010,
+        totalSearchVolume: 1360,
+        documentCount: 8534,
+        goldenRatio: 0.16,
+        category: 'travel_domestic',
+        source: 'persistent-measured-golden-cache',
+        intent: 'persistent-measured-golden-cache',
+        evidence: ['searchad-volume', 'naver-openapi-document-count'],
+        searchVolumeSource: 'searchad',
+        searchVolumeConfidence: 'high',
+        isSearchVolumeEstimated: false,
+        documentCountSource: 'naver-api',
+        documentCountConfidence: 'high',
+        isDocumentCountEstimated: false,
+        updatedAt: '2026-07-01T08:10:00.000Z',
+        discoveredAt: '2026-07-01T08:10:00.000Z',
+        isMeasured: true,
+      },
+      {
+        keyword: '\uC8FC\uD734\uC218\uB2F9\uACC4\uC0B0\uAE30\uC2DC\uD504\uD2F0 \uC54C\uBC14 \uC790\uB3D9\uACC4\uC0B0',
+        grade: 'SSS',
+        score: 98,
+        pcSearchVolume: 210,
+        mobileSearchVolume: 1040,
+        totalSearchVolume: 1250,
+        documentCount: 182,
+        goldenRatio: 6.87,
+        category: 'policy',
+        source: 'persistent-measured-golden-cache',
+        intent: 'persistent-measured-golden-cache',
+        evidence: ['searchad-volume', 'naver-openapi-document-count'],
+        searchVolumeSource: 'searchad',
+        searchVolumeConfidence: 'high',
+        isSearchVolumeEstimated: false,
+        documentCountSource: 'naver-api',
+        documentCountConfidence: 'high',
+        isDocumentCountEstimated: false,
+        updatedAt: '2026-07-01T08:00:00.000Z',
+        discoveredAt: '2026-07-01T08:00:00.000Z',
+        isMeasured: true,
+      },
+      {
+        keyword: '\u0035\uC6D4\uC5F0\uB9D0\uC815\uC0B0\uD658\uAE09\uC77C',
+        grade: 'SSS',
+        score: 98,
+        pcSearchVolume: 2860,
+        mobileSearchVolume: 11200,
+        totalSearchVolume: 14060,
+        documentCount: 2274,
+        goldenRatio: 6.18,
+        category: 'policy',
+        source: 'persistent-measured-golden-cache',
+        intent: 'persistent-measured-golden-cache',
+        evidence: ['searchad-volume', 'naver-openapi-document-count'],
+        searchVolumeSource: 'searchad',
+        searchVolumeConfidence: 'high',
+        isSearchVolumeEstimated: false,
+        documentCountSource: 'naver-api',
+        documentCountConfidence: 'high',
+        isDocumentCountEstimated: false,
+        updatedAt: '2026-07-01T08:20:00.000Z',
+        discoveredAt: '2026-07-01T08:20:00.000Z',
+        isMeasured: true,
+      },
+    ],
+  }), 'utf8');
+  const liveBoardQualitySortRadar = new MobileLiveGoldenRadar({
+    notificationInbox: inbox,
+    runOnStart: false,
+    boardFile: liveBoardQualitySortFile,
+    boardTarget: 3,
+    publicPreviewCount: 2,
+    now: () => new Date('2026-07-01T09:00:00.000Z'),
+  });
+  const liveBoardQualitySortSnapshot = liveBoardQualitySortRadar.snapshot();
+  assert('live golden board ranks proven SSS above weak exact fallback and drops stale month keywords',
+    liveBoardQualitySortSnapshot.board[0]?.keyword === '\uC8FC\uD734\uC218\uB2F9\uACC4\uC0B0\uAE30\uC2DC\uD504\uD2F0 \uC54C\uBC14 \uC790\uB3D9\uACC4\uC0B0'
+      && liveBoardQualitySortSnapshot.board.some((item) => item.keyword === '\uC81C\uC8FC\uB80C\uD2B8\uCE74\uAC00\uACA9\uBE44\uAD50\uC0AC\uC774\uD2B8')
+      && !liveBoardQualitySortSnapshot.board.some((item) => item.keyword === '\u0035\uC6D4\uC5F0\uB9D0\uC815\uC0B0\uD658\uAE09\uC77C'),
+    liveBoardQualitySortSnapshot.board.map((item) => `${item.rank}:${item.keyword}:${item.grade}:${item.goldenRatio}`).join('|'));
+  fs.rmSync(liveBoardQualitySortFile, { force: true });
+
   const fallbackDcBoardFile = path.join(process.cwd(), 'tmp', 'mobile-live-golden-fallback-dc-test.json');
   fs.writeFileSync(fallbackDcBoardFile, JSON.stringify({
     boardUpdatedAt: '2026-06-15T08:00:00.000Z',

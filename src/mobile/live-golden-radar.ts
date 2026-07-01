@@ -156,6 +156,7 @@ const LIVE_BOARD_CONTENT_LOOKUP_ABSOLUTE_MAX = 6;
 const LIVE_BOARD_STRICT_READY_MIN = 60;
 const LIVE_BOARD_MEASURED_DISPLAY_FALLBACK_RATIO = 0.10;
 const LIVE_BOARD_MEASURED_DISPLAY_CATEGORY_SHARE_CAP = 0.30;
+const LIVE_STALE_MONTH_CONTEXT_RE = /(?:지급일|환급일|신청|마감|일정|예매|예약|발표|등급컷|시험|공휴일|축제|지원금|바우처|정산|모의고사|수능)/u;
 const LIVE_DIRECT_CANDIDATE_MAX_PER_CYCLE = 7200;
 const LIVE_ISSUE_FALLBACK_DOCUMENT_LIMIT = 16;
 const LIVE_ISSUE_FALLBACK_CONCURRENCY = 2;
@@ -1584,6 +1585,31 @@ function boardSortScore(item: MobileLiveGoldenBoardItem, nowMs: number): number 
   return boardScore(item) + recency;
 }
 
+function boardDisplayQualitySortScore(item: MobileLiveGoldenBoardItem, now: Date, nowMs: number): number {
+  const volume = finiteNumber(item.totalSearchVolume) || 0;
+  const docs = finiteNumber(item.documentCount) || 0;
+  const ratio = finiteNumber(item.goldenRatio) || (volume > 0 && docs > 0 ? volume / docs : 0);
+  const gradeRank = GRADE_RANK[item.grade] || 0;
+  let tier = 0;
+  if (isMeasuredSssBoardCandidate(item, now)) tier = 7000;
+  else if (isStrictReadyLiveBoardItem(item)) tier = 6000;
+  else if (isNearUltimateLiveBoardItem(item)) tier = 5000;
+  else if (gradeRank >= GRADE_RANK.SS && volume >= 500 && docs <= 10_000 && ratio >= 3) tier = 4400;
+  else if (gradeRank >= GRADE_RANK.S && volume >= 300 && docs <= 15_000 && ratio >= 2) tier = 3600;
+  else if (volume >= 300 && docs <= 10_000 && ratio >= 1) tier = 2800;
+  else if (volume >= 100 && docs <= 20_000 && ratio >= 0.5) tier = 1800;
+  else if (volume >= 100 && docs <= 30_000 && ratio >= LIVE_BOARD_MEASURED_DISPLAY_FALLBACK_RATIO) tier = 800;
+  else tier = -800;
+
+  const weakPenalty =
+    (ratio < 0.5 ? 420 : 0)
+    + (docs > 20_000 ? 360 : 0)
+    + (gradeRank < GRADE_RANK.A ? 220 : 0)
+    + (!hasMeasuredPcMobileSplit(item) ? 900 : 0)
+    + (isStaleOrFutureLiveKeyword(item.keyword, now) ? 5000 : 0);
+  return tier + boardSortScore(item, nowMs) - weakPenalty;
+}
+
 function freshnessFrom(updatedAt: string, nowMs: number): MobileLiveGoldenFreshness {
   const ageMs = nowMs - Date.parse(updatedAt);
   if (!Number.isFinite(ageMs) || ageMs < 90 * 60 * 1000) return 'live';
@@ -1832,6 +1858,7 @@ function isStaleOrFutureLiveKeyword(keyword: string, now: Date = new Date()): bo
     const examYear = Number(futureExamSession[1]);
     if (Number.isFinite(examYear) && examYear > now.getFullYear()) return true;
   }
+  if (isPastMonthVolatileLiveKeyword(clean, now)) return true;
   if (LIVE_LOTTERY_SIGNAL_RE.test(clean) || isRobustLottoKeyword(clean)) {
     const roundMatch = clean.match(LOTTO_ROUND_RE);
     const round = roundMatch ? Number(roundMatch[1] || roundMatch[2]) : robustLottoRound(clean);
@@ -1840,6 +1867,25 @@ function isStaleOrFutureLiveKeyword(keyword: string, now: Date = new Date()): bo
     }
   }
   return false;
+}
+
+function isPastMonthVolatileLiveKeyword(keyword: string, now: Date = new Date()): boolean {
+  const clean = normalizeKeyword(keyword);
+  if (!clean || !LIVE_STALE_MONTH_CONTEXT_RE.test(clean)) return false;
+  const compact = clean.replace(/\s+/g, '');
+  const parts = getKstDateParts(now);
+  const matches = [...compact.matchAll(/(?:(20\d{2}))?(1[0-2]|[1-9])월/gu)];
+  return matches.some((match) => {
+    const year = match[1] ? Number(match[1]) : parts.year;
+    const month = Number(match[2]);
+    if (!Number.isFinite(year) || !Number.isFinite(month)) return false;
+    if (year < parts.year) return true;
+    if (year > parts.year) return true;
+    const diff = parts.month - month;
+    if (diff <= 0) return false;
+    if (/등급컷|모의고사|수능|시험/u.test(clean)) return diff >= 1;
+    return diff >= 2;
+  });
 }
 
 function isMalformedLiveKeyword(keyword: string): boolean {
@@ -2095,6 +2141,7 @@ function isMeasuredExactDisplayPromotionCandidate(
   const metric = { ...item, keyword } as MobileKeywordMetric;
   if (!hasTrustedSearchVolumeMeasurement(metric) || !hasTrustedDocumentCountMeasurement(metric)) return false;
   if (item.isSearchVolumeEstimated === true || item.isDocumentCountEstimated === true) return false;
+  if (isStaleOrFutureLiveKeyword(keyword, now)) return false;
   if (isMeasuredExactDisplayFallbackBroadHead(keyword)) return false;
   const exactNeedIntent = hasMeasuredExactDisplayFallbackNeedIntent(keyword);
   if ((isBroadHeadSssKeyword(keyword) && !exactNeedIntent) || isStandaloneToolHeadKeyword(keyword)) return false;
@@ -5629,6 +5676,7 @@ export const __liveGoldenRadarTestInternals = {
   isMeasuredExactDisplayPromotionCandidate,
   isMeasuredExactDisplayFallbackMetric,
   isSearchAdMeasurableLiveCandidate,
+  isPastMonthVolatileLiveKeyword,
   isStaleOrFutureLiveKeyword,
   hasWinnableDisplayRatio,
   liveGradeFromMetrics,
@@ -8169,6 +8217,11 @@ export class MobileLiveGoldenRadar {
       now,
     );
     return filledSelected
+      .sort((a, b) => {
+        const scoreDiff = boardDisplayQualitySortScore(b, now, nowMs) - boardDisplayQualitySortScore(a, now, nowMs);
+        if (scoreDiff !== 0) return scoreDiff;
+        return Date.parse(b.updatedAt) - Date.parse(a.updatedAt);
+      })
       .map((item, index) => ({
         ...item,
         rank: index + 1,
