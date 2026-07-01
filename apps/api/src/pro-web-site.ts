@@ -174,6 +174,13 @@ export function renderLewordProWeb(): string {
     .main { display: grid; gap: 16px; min-width: 0; }
     .main-view { display: none; }
     .main-view.active { display: block; }
+    a[data-view-target="commerce"],
+    #commerce,
+    #adminAiWorkerSettings,
+    #siteContentSettings,
+    #adminSiteContentSettings {
+      display: none !important;
+    }
     [hidden] { display: none !important; }
     .hero {
       border: 1px solid var(--line);
