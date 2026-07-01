@@ -154,6 +154,8 @@ const LIVE_BOARD_EPISODE_LOOKUP_ABSOLUTE_MAX = 3;
 const LIVE_BOARD_CONTENT_LOOKUP_SHARE_CAP = 0.10;
 const LIVE_BOARD_CONTENT_LOOKUP_ABSOLUTE_MAX = 6;
 const LIVE_BOARD_STRICT_READY_MIN = 60;
+const LIVE_BOARD_MEASURED_DISPLAY_FALLBACK_RATIO = 0.10;
+const LIVE_BOARD_MEASURED_DISPLAY_CATEGORY_SHARE_CAP = 0.30;
 const LIVE_DIRECT_CANDIDATE_MAX_PER_CYCLE = 7200;
 const LIVE_ISSUE_FALLBACK_DOCUMENT_LIMIT = 16;
 const LIVE_ISSUE_FALLBACK_CONCURRENCY = 2;
@@ -2043,6 +2045,146 @@ function appendMeasuredPublishableFallbackItems<T extends MobileLiveGoldenBoardI
     if (selectedIds.has(item.id)) continue;
     selectedIds.add(item.id);
     merged.push(item);
+  }
+  return merged;
+}
+
+function isMeasuredExactDisplayFallbackBroadHead(keyword: string): boolean {
+  const clean = normalizeKeyword(keyword);
+  if (!clean) return true;
+  if (isBroadGenericPolicySearchAdProbe(clean)) return true;
+  const compact = clean.replace(/\s+/g, '');
+  if (
+    compact.length >= 8
+    && (
+      MEASURED_EXACT_DISPLAY_FALLBACK_CONTEXT_RE.test(clean)
+      || MEASURED_EXACT_DISPLAY_FALLBACK_CONTEXT_RE.test(compact)
+    )
+  ) return false;
+  const tokenCount = clean.split(/\s+/).filter(Boolean).length;
+  return SEARCHAD_BROAD_POLICY_BASE_RE.test(clean)
+    && tokenCount <= 2
+    && /(?:\uC2E0\uCCAD|\uC870\uD68C|\uB300\uC0C1|\uC870\uAC74|\uC9C0\uAE09\uC77C|\uC0AC\uC6A9\uCC98|\uD61C\uD0DD)$/u.test(clean);
+}
+
+const MEASURED_EXACT_DISPLAY_FALLBACK_NEED_RE = /(?:\uC0AC\uC6A9\uCC98|\uC870\uD68C|\uC9C0\uAE09\uC77C|\uC815\uAE30\uC9C0\uAE09\uC77C|\uC2E0\uCCAD\uBC29\uBC95|\uC2E0\uCCAD|\uC790\uACA9|\uC870\uAC74|\uAC08\uC544\uD0C0\uAE30|\uB300\uC0C1\uC870\uD68C|\uB300\uC0C1|\uC628\uB77C\uC778|\uACB0\uC81C|\uB204\uB9AC\uC9D1|\uBE44\uC6A9|\uAC00\uACA9|\uBE44\uAD50|\uCD94\uCC9C|\uBCF4\uD5D8|\uC7A5\uB2E8\uC810|\uACC4\uC88C\uAC1C\uC124|\uBAA8\uC758\uACC4\uC0B0|\uC694\uC728|\uC644\uB0A9\uC99D\uBA85\uC11C|\uC704\uCE58|\uC8FC\uCC28|\uC785\uC7A5\uB8CC|\uC608\uC57D|\uC608\uB9E4|\uB80C\uD2B8\uCE74|\uB80C\uD130\uCE74)/u;
+const MEASURED_EXACT_DISPLAY_FALLBACK_CONTEXT_RE = /(?:\uBC14\uC6B0\uCC98|\uC7A5\uB824\uAE08|\uBB38\uD654\uB204\uB9AC\uCE74\uB4DC|\uB0B4\uC77C\uBC30\uC6C0\uCE74\uB4DC|\uCCAD\uB144\uB3C4\uC57D\uACC4\uC88C|\uADFC\uB85C\uC7A5\uB824\uAE08|\uC2E4\uC5C5\uAE09\uC5EC|\uAE30\uC800\uADC0\uBC14\uC6B0\uCC98|\uC5D0\uB108\uC9C0\uBC14\uC6B0\uCC98|\uD3C9\uC0DD\uAD50\uC721\uBC14\uC6B0\uCC98|\uB18D\uC2DD\uD488\uBC14\uC6B0\uCC98|\uC81C\uC8FC|\uB80C\uD2B8\uCE74|\uB80C\uD130\uCE74|\uC5EC\uD589\uC790\uBCF4\uD5D8|\uB85C\uBD07\uCCAD\uC18C\uAE30|\uC81C\uC2B5\uAE30|\uC5D0\uC5B4\uCEE8|\uBCF4\uD5D8|IRP|ISA)/iu;
+
+function hasMeasuredExactDisplayFallbackNeedIntent(keyword: string): boolean {
+  const clean = normalizeKeyword(keyword);
+  if (!clean) return false;
+  const compact = clean.replace(/\s+/g, '');
+  const hasNeed = MEASURED_EXACT_DISPLAY_FALLBACK_NEED_RE.test(clean)
+    || MEASURED_EXACT_DISPLAY_FALLBACK_NEED_RE.test(compact)
+    || hasRobustActionableIntent(clean)
+    || hasWriterReadySearchAdProbeIntent(clean);
+  if (!hasNeed) return false;
+  return MEASURED_EXACT_DISPLAY_FALLBACK_CONTEXT_RE.test(clean)
+    || MEASURED_EXACT_DISPLAY_FALLBACK_CONTEXT_RE.test(compact)
+    || keywordLongTailScore(clean) >= 14
+    || ultimateIntentFragmentCount(clean) >= 2;
+}
+
+function isMeasuredExactDisplayPromotionCandidate(
+  item: Partial<MobileKeywordMetric> & { keyword?: string },
+  now: Date = new Date(),
+): boolean {
+  const keyword = normalizeKeyword(item.keyword);
+  if (!keyword) return false;
+  if (!hasCompleteLiveGoldenMetrics(item)) return false;
+  const metric = { ...item, keyword } as MobileKeywordMetric;
+  if (!hasTrustedSearchVolumeMeasurement(metric) || !hasTrustedDocumentCountMeasurement(metric)) return false;
+  if (item.isSearchVolumeEstimated === true || item.isDocumentCountEstimated === true) return false;
+  if (isMeasuredExactDisplayFallbackBroadHead(keyword)) return false;
+  const exactNeedIntent = hasMeasuredExactDisplayFallbackNeedIntent(keyword);
+  if ((isBroadHeadSssKeyword(keyword) && !exactNeedIntent) || isStandaloneToolHeadKeyword(keyword)) return false;
+  if (isLottoLookupKeyword(keyword) || isLowAdsenseLookupKeyword(keyword) || isBrandSafetyNewsKeyword(keyword)) return false;
+  const volume = finiteNumber(item.totalSearchVolume) || 0;
+  const docs = finiteNumber(item.documentCount) || 0;
+  const ratio = docs > 0 ? volume / docs : 0;
+  if (volume < LIVE_CACHE_PROMOTION_MIN_VOLUME) return false;
+  const liveUsable = isLiveRadarUsableKeyword(keyword, volume, docs, now);
+  const hasWriterNeed = hasWriterReadySpecificity(keyword)
+    || hasWriterReadyOpportunityIntent(keyword)
+    || hasHighValueNeedIntent(keyword)
+    || hasAdsenseNeedIntent(keyword)
+    || isKnownPolicyProductNeedKeyword(keyword)
+    || exactNeedIntent
+    || isStrongMeasuredNeedKeyword(keyword);
+  if (!liveUsable && !hasWriterNeed) return false;
+  if (!liveUsable && volume >= 200_000) return false;
+  if (!liveUsable && docs >= BROAD_KEYWORD_DOCUMENT_CEILING && ratio < 1.5) return false;
+  if (!liveUsable && docs > 20_000 && ratio < LIVE_CACHE_PROMOTION_STRONG_NEED_MIN_RATIO) return false;
+  if (ratio < LIVE_BOARD_MEASURED_DISPLAY_FALLBACK_RATIO && !hasWriterNeed) return false;
+  const judged = applyKeywordAiJudge(metric, { now, downgradeExcluded: false });
+  const ai = judged.aiJudge;
+  if (ai?.verdict === 'exclude' || ai?.spamRisk === 'high') return false;
+  return true;
+}
+
+function isMeasuredExactDisplayFallbackMetric(
+  item: MobileLiveGoldenBoardItem,
+  now: Date = new Date(),
+): boolean {
+  if (!isMeasuredExactDisplayPromotionCandidate(item, now)) return false;
+  if (!hasMeasuredPcMobileSplit(item)) return false;
+  return true;
+}
+
+function appendMeasuredExactDisplayFallbackItems<T extends MobileLiveGoldenBoardItem>(
+  selected: T[],
+  sorted: T[],
+  boardTarget: number,
+  now: Date,
+): T[] {
+  const target = Math.max(1, Math.floor(boardTarget));
+  if (selected.length >= target) return selected;
+  const merged = [...selected];
+  const selectedIds = new Set(merged.map((item) => item.id));
+  const selectedCompactIds = new Set(merged.map((item) => keywordCompactId(item.keyword)));
+  const categoryCounts = new Map<string, number>();
+  const clusterCounts = new Map<string, number>();
+  for (const item of merged) {
+    const category = boardCategoryKey(item);
+    const cluster = publicPreviewClusterKey(item.keyword);
+    if (category) categoryCounts.set(category, (categoryCounts.get(category) || 0) + 1);
+    if (cluster) clusterCounts.set(cluster, (clusterCounts.get(cluster) || 0) + 1);
+  }
+  const maxPerCategory = Math.max(
+    maxCategoryBoardCount(target),
+    Math.ceil(target * LIVE_BOARD_MEASURED_DISPLAY_CATEGORY_SHARE_CAP),
+  );
+  const push = (item: T, options: { respectCategory?: boolean; respectCluster?: boolean } = {}): boolean => {
+    if (merged.length >= target) return false;
+    if (!isMeasuredExactDisplayFallbackMetric(item, now)) return false;
+    const compactId = keywordCompactId(item.keyword);
+    if (!compactId || selectedIds.has(item.id) || selectedCompactIds.has(compactId)) return false;
+    const category = boardCategoryKey(item);
+    const cluster = publicPreviewClusterKey(item.keyword);
+    if (options.respectCategory && category && (categoryCounts.get(category) || 0) >= maxPerCategory) return false;
+    if (options.respectCluster && cluster && (clusterCounts.get(cluster) || 0) >= LIVE_BOARD_CLUSTER_MAX) return false;
+    merged.push(item);
+    selectedIds.add(item.id);
+    selectedCompactIds.add(compactId);
+    if (category) categoryCounts.set(category, (categoryCounts.get(category) || 0) + 1);
+    if (cluster) clusterCounts.set(cluster, (clusterCounts.get(cluster) || 0) + 1);
+    return true;
+  };
+  for (const item of sorted) {
+    if (merged.length >= target) break;
+    push(item, { respectCategory: true, respectCluster: true });
+  }
+  for (const item of sorted) {
+    if (merged.length >= target) break;
+    push(item, { respectCategory: true });
+  }
+  for (const item of sorted) {
+    if (merged.length >= target) break;
+    push(item, { respectCluster: true });
+  }
+  for (const item of sorted) {
+    if (merged.length >= target) break;
+    push(item);
   }
   return merged;
 }
@@ -4842,7 +4984,9 @@ function isCachePromotionMeasurementCandidate(item: MobileKeywordMetric, now: Da
   if (volume < LIVE_CACHE_PROMOTION_MIN_VOLUME) return false;
   if (docs === null || docs <= 0 || docs > maxDocs) return false;
   if (ratio < minRatio) return false;
-  return isLiveRadarUsableMetric(item, now) || isMeasuredProExactKeywordMetric(item, now);
+  return isLiveRadarUsableMetric(item, now)
+    || isMeasuredProExactKeywordMetric(item, now)
+    || isMeasuredExactDisplayPromotionCandidate(item, now);
 }
 
 function isMeasuredProExactKeywordMetric(
@@ -5480,7 +5624,10 @@ export const __liveGoldenRadarTestInternals = {
   isLiveRadarUsableKeyword,
   isWeakAutogeneratedProbeCombo,
   isHighYieldSearchAdSpendCandidate,
+  hasMeasuredExactDisplayFallbackNeedIntent,
   isPolicyProductActionKeyword,
+  isMeasuredExactDisplayPromotionCandidate,
+  isMeasuredExactDisplayFallbackMetric,
   isSearchAdMeasurableLiveCandidate,
   isStaleOrFutureLiveKeyword,
   hasWinnableDisplayRatio,
@@ -7989,16 +8136,15 @@ export class MobileLiveGoldenRadar {
   private sortedBoard(): MobileLiveGoldenBoardItem[] {
     const now = this.now();
     const nowMs = now.getTime();
-    const sorted = [...this.board.values()]
+    const base = [...this.board.values()]
       .filter((item) => ageMsFrom(item.updatedAt, nowMs) <= LIVE_BOARD_MAX_AGE_MS)
       .filter(hasCompleteLiveGoldenMetrics)
-      .filter(hasWinnableDisplayRatio)
       .filter((item) => (
         isLiveRadarUsableMetric(item, now)
         || isMeasuredProExactKeywordMetric(item, now)
         || isMeasuredProDisplayBackfillMetric(item, now)
+        || isMeasuredExactDisplayFallbackMetric(item, now)
       ))
-      .filter((item) => isBlogActionableBoardMetric(item) || isMeasuredProDisplayBackfillMetric(item, now))
       .map((item) => ({
         ...item,
         freshness: freshnessFrom(item.updatedAt, nowMs),
@@ -8008,9 +8154,21 @@ export class MobileLiveGoldenRadar {
         if (scoreDiff !== 0) return scoreDiff;
         return Date.parse(b.updatedAt) - Date.parse(a.updatedAt);
       });
+    const sorted = base
+      .filter(hasWinnableDisplayRatio)
+      .filter((item) => isBlogActionableBoardMetric(item) || isMeasuredProDisplayBackfillMetric(item, now));
+    const measuredDisplayFallback = base
+      .filter((item) => !hasWinnableDisplayRatio(item) || !isBlogActionableBoardMetric(item))
+      .filter((item) => isMeasuredExactDisplayFallbackMetric(item, now));
     const selected = selectLiveBoardItems(sorted, this.boardTarget, now);
     const resilientSelected = appendMeasuredPublishableFallbackItems(selected, sorted, this.boardTarget, now);
-    return resilientSelected
+    const filledSelected = appendMeasuredExactDisplayFallbackItems(
+      resilientSelected,
+      measuredDisplayFallback,
+      this.boardTarget,
+      now,
+    );
+    return filledSelected
       .map((item, index) => ({
         ...item,
         rank: index + 1,

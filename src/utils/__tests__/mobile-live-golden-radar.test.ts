@@ -2085,6 +2085,105 @@ function thinProfileCount(items: Array<{ keyword: string }>): number {
   assert('measured fallback rejects broad head calculators and keeps compound earning-intent longtails',
     broadHeadFallbackRejected && compoundLongtailFallbackAccepted,
     JSON.stringify({ broadHeadFallbackRejected, compoundLongtailFallbackAccepted }));
+  const exactFallbackIntentAccepted = __liveGoldenRadarTestInternals.isMeasuredExactDisplayFallbackMetric({
+    keyword: '\uAD6D\uBBFC\uB0B4\uC77C\uBC30\uC6C0\uCE74\uB4DC\uC0AC\uC6A9\uCC98',
+    grade: 'A',
+    score: 71,
+    pcSearchVolume: 1360,
+    mobileSearchVolume: 2140,
+    totalSearchVolume: 3500,
+    documentCount: 7105,
+    goldenRatio: 0.49,
+    category: 'policy',
+    source: 'fixture-measured-exact',
+    evidence: ['fixture-searchad-volume', 'fixture-cache-document-count'],
+    searchVolumeSource: 'searchad',
+    searchVolumeConfidence: 'high',
+    isSearchVolumeEstimated: false,
+    documentCountSource: 'cache',
+    documentCountConfidence: 'medium',
+    isDocumentCountEstimated: false,
+    updatedAt: '2026-06-15T08:00:00.000Z',
+    discoveredAt: '2026-06-15T08:00:00.000Z',
+    isMeasured: true,
+  } as any, new Date('2026-06-15T09:00:00.000Z'));
+  const exactFallbackCalculatorRejected = !__liveGoldenRadarTestInternals.isMeasuredExactDisplayFallbackMetric({
+    keyword: '\uC0AC\uB300\uBCF4\uD5D8\uACC4\uC0B0\uAE30',
+    grade: 'SS',
+    score: 98,
+    pcSearchVolume: 7610,
+    mobileSearchVolume: 12400,
+    totalSearchVolume: 20010,
+    documentCount: 1318,
+    goldenRatio: 15.18,
+    category: 'insurance_safe',
+    source: 'fixture-measured-exact',
+    evidence: ['fixture-searchad-volume', 'fixture-cache-document-count'],
+    searchVolumeSource: 'searchad',
+    searchVolumeConfidence: 'high',
+    isSearchVolumeEstimated: false,
+    documentCountSource: 'cache',
+    documentCountConfidence: 'medium',
+    isDocumentCountEstimated: false,
+    updatedAt: '2026-06-15T08:00:00.000Z',
+    discoveredAt: '2026-06-15T08:00:00.000Z',
+    isMeasured: true,
+  } as any, new Date('2026-06-15T09:00:00.000Z'));
+  const exactFallbackNeedsPcMobileSplit = !__liveGoldenRadarTestInternals.isMeasuredExactDisplayFallbackMetric({
+    keyword: '\uC81C\uC8FC\uACF5\uD56D\uB80C\uD2B8\uCE74\uCD94\uCC9C',
+    grade: 'A',
+    score: 65,
+    pcSearchVolume: 0,
+    mobileSearchVolume: 0,
+    totalSearchVolume: 440,
+    documentCount: 7937,
+    goldenRatio: 0.06,
+    category: 'travel_domestic',
+    source: 'fixture-measured-exact',
+    evidence: ['fixture-searchad-volume', 'fixture-cache-document-count'],
+    searchVolumeSource: 'searchad',
+    searchVolumeConfidence: 'high',
+    isSearchVolumeEstimated: false,
+    documentCountSource: 'cache',
+    documentCountConfidence: 'medium',
+    isDocumentCountEstimated: false,
+    updatedAt: '2026-06-15T08:00:00.000Z',
+    discoveredAt: '2026-06-15T08:00:00.000Z',
+    isMeasured: true,
+  } as any, new Date('2026-06-15T09:00:00.000Z'));
+  const exactFallbackPromotionAcceptsPendingSplit = __liveGoldenRadarTestInternals.isMeasuredExactDisplayPromotionCandidate({
+    keyword: '\uC81C\uC8FC\uACF5\uD56D\uB80C\uD2B8\uCE74\uCD94\uCC9C',
+    grade: 'A',
+    score: 65,
+    pcSearchVolume: 0,
+    mobileSearchVolume: 0,
+    totalSearchVolume: 440,
+    documentCount: 7937,
+    goldenRatio: 0.06,
+    category: 'travel_domestic',
+    source: 'fixture-measured-exact',
+    evidence: ['fixture-searchad-volume', 'fixture-cache-document-count'],
+    searchVolumeSource: 'searchad',
+    searchVolumeConfidence: 'high',
+    isSearchVolumeEstimated: false,
+    documentCountSource: 'cache',
+    documentCountConfidence: 'medium',
+    isDocumentCountEstimated: false,
+    updatedAt: '2026-06-15T08:00:00.000Z',
+    discoveredAt: '2026-06-15T08:00:00.000Z',
+    isMeasured: true,
+  } as any, new Date('2026-06-15T09:00:00.000Z'));
+  assert('measured exact display fallback keeps real split rows, rejects calculator heads, and queues pending split rows',
+    exactFallbackIntentAccepted
+      && exactFallbackCalculatorRejected
+      && exactFallbackNeedsPcMobileSplit
+      && exactFallbackPromotionAcceptsPendingSplit,
+    JSON.stringify({
+      exactFallbackIntentAccepted,
+      exactFallbackCalculatorRejected,
+      exactFallbackNeedsPcMobileSplit,
+      exactFallbackPromotionAcceptsPendingSplit,
+    }));
   fs.rmSync(broadHeadCapBoardFile, { force: true });
 
   const referenceProbeBoardFile = path.join(process.cwd(), 'tmp', 'mobile-live-golden-reference-probe-test.json');
@@ -4000,6 +4099,121 @@ function thinProfileCount(items: Array<{ keyword: string }>): number {
       && proMeasuredDisplaySnapshot.board.every((item) => (item.documentCount || 0) < (item.totalSearchVolume || 0)),
     proMeasuredDisplaySnapshot.board.map((item) => `${item.rank}:${item.keyword}:${item.grade}:${item.totalSearchVolume}/${item.documentCount}`).join('|'));
   fs.rmSync(proMeasuredDisplayBoardFile, { force: true });
+
+  const measuredExactFallbackBoardFile = path.join(process.cwd(), 'tmp', 'mobile-live-golden-measured-exact-fallback-test.json');
+  const measuredExactFallbackFamilies = [
+    ['policy', '\uCCAD\uB144\uC6D4\uC138\uC9C0\uC6D0'],
+    ['policy', '\uADFC\uB85C\uC7A5\uB824\uAE08'],
+    ['policy', '\uC790\uB140\uC7A5\uB824\uAE08'],
+    ['policy', '\uC5D0\uB108\uC9C0\uBC14\uC6B0\uCC98'],
+    ['policy', '\uBB38\uD654\uB204\uB9AC\uCE74\uB4DC'],
+    ['policy', '\uC18C\uC0C1\uACF5\uC778\uC815\uCC45\uC790\uAE08'],
+    ['finance', '\uC5F0\uB9D0\uC815\uC0B0\uD658\uAE09'],
+    ['finance', '\uD504\uB9AC\uB79C\uC11C\uC885\uD569\uC18C\uB4DD\uC138'],
+    ['finance', '\uD1F4\uC9C1\uAE08\uACC4\uC0B0\uAE30'],
+    ['finance', '\uC8FC\uD734\uC218\uB2F9\uACC4\uC0B0\uAE30'],
+    ['finance', '\uC2E4\uC5C5\uAE09\uC5EC'],
+    ['life_tips', '\uC790\uB3D9\uCC28\uC138\uC5F0\uB0A9'],
+    ['life_tips', '\uAD6D\uBBFC\uB0B4\uC77C\uBC30\uC6C0\uCE74\uB4DC'],
+    ['life_tips', '\uC721\uC544\uD734\uC9C1\uAE09\uC5EC'],
+    ['life_tips', '\uC804\uAE30\uC694\uAE08\uD560\uC778'],
+    ['travel_domestic', '\uC81C\uC8FC\uB80C\uD130\uCE74'],
+    ['travel_domestic', '\uC778\uCC9C\uACF5\uD56D\uC8FC\uCC28'],
+    ['travel_domestic', '\uC5EC\uD589\uC790\uBCF4\uD5D8'],
+    ['travel_domestic', '\uC1A1\uC9C0\uD638\uBC14\uB2E4\uD558\uB298\uAE38'],
+    ['shopping', '\uC544\uC774\uD328\uB4DC\uBCF4\uD638\uD544\uB984'],
+    ['shopping', '\uAE30\uC544ev5'],
+    ['shopping', '\uB85C\uBCF4\uB77D\uCCAD\uC18C\uAE30'],
+    ['it', '\uC778\uACF5\uC9C0\uB2A5\uC774\uBBF8\uC9C0\uC0DD\uC131'],
+    ['it', '\uC720\uD29C\uBE0C\uC1FC\uCE20\uD3B8\uC9D1'],
+    ['education', '\uC0AC\uB300\uBCF4\uD5D8\uACC4\uC0B0\uAE30'],
+    ['education', '\uAD6D\uAC00\uC7A5\uD559\uAE08'],
+    ['health', '\uBCD1\uC6D0\uBE44\uD658\uAE09'],
+    ['health', '\uAC74\uAC15\uAC80\uC9C4\uB300\uC0C1'],
+    ['home', '\uC6D4\uC138\uD658\uAE09'],
+    ['home', '\uC804\uC138\uBCF4\uC99D\uBCF4\uD5D8'],
+    ['shopping', '\uAC00\uC131\uBE44\uC81C\uC2B5\uAE30'],
+    ['shopping', '\uC74C\uC2DD\uBB3C\uCC98\uB9AC\uAE30'],
+    ['shopping', '\uCC3D\uBB38\uD615\uC5D0\uC5B4\uCEE8'],
+    ['shopping', '\uC804\uAE30\uC790\uC804\uAC70'],
+    ['shopping', '\uCE98\uD551\uC758\uC790'],
+    ['shopping', '\uC544\uAE30\uCE74\uC2DC\uD2B8'],
+    ['shopping', '\uACF5\uAE30\uCCAD\uC815\uAE30\uB80C\uD0C8'],
+    ['shopping', '\uC815\uC218\uAE30\uB80C\uD0C8'],
+    ['shopping', '\uB9E4\uD2B8\uB9AC\uC2A4\uB80C\uD0C8'],
+    ['travel_domestic', '\uC5EC\uC218\uCF00\uC774\uBE14\uCE74'],
+    ['travel_domestic', '\uBD80\uC0B0\uC694\uD2B8\uD22C\uC5B4'],
+    ['travel_domestic', '\uAC15\uB989\uC219\uC18C'],
+    ['travel_domestic', '\uC81C\uC8FC\uD56D\uACF5\uAD8C'],
+    ['travel_domestic', '\uC18D\uCD08\uB300\uAC8C'],
+    ['life_tips', '\uC778\uD130\uB137\uAC00\uC785\uC0AC\uC740\uD488'],
+    ['life_tips', '\uD734\uB300\uD3F0\uC694\uAE08\uC81C\uBE44\uAD50'],
+    ['life_tips', '\uC774\uC0AC\uCCAD\uC18C\uC5C5\uCCB4'],
+    ['life_tips', '\uC790\uB3D9\uCC28\uBCF4\uD5D8\uB8CC\uACC4\uC0B0'],
+    ['it', '\uB178\uD2B8\uBD81\uAC00\uACA9\uBE44\uAD50'],
+    ['it', '\uAC8C\uC784\uBAA8\uB2C8\uD130\uCD94\uCC9C'],
+  ] as const;
+  const measuredExactFallbackTails = [
+    '\uC2E0\uCCAD \uBC29\uBC95',
+    '\uB300\uC0C1 \uC870\uAC74',
+    '\uC9C0\uAE09\uC77C \uC870\uD68C',
+    '\uC11C\uB958 \uC900\uBE44',
+    '\uC0AC\uC6A9\uCC98 \uC815\uB9AC',
+  ];
+  const measuredExactFallbackRows = measuredExactFallbackFamilies.flatMap(([category, base], familyIndex) => (
+    measuredExactFallbackTails.map((tail, tailIndex) => {
+      const index = familyIndex * measuredExactFallbackTails.length + tailIndex;
+      const totalSearchVolume = 900 + index * 13;
+      const pcSearchVolume = 180 + (index % 70);
+      const mobileSearchVolume = totalSearchVolume - pcSearchVolume;
+      const documentCount = 2200 + index * 17;
+      return {
+        keyword: `${base} ${tail}`,
+        grade: index % 4 === 0 ? 'B' : 'A',
+        score: 62 - (index % 9) * 0.2,
+        pcSearchVolume,
+        mobileSearchVolume,
+        totalSearchVolume,
+        documentCount,
+        goldenRatio: Number((totalSearchVolume / documentCount).toFixed(2)),
+        category,
+        source: 'persistent-measured-golden-cache',
+        intent: 'persistent-measured-golden-cache',
+        evidence: ['searchad-volume', 'naver-openapi-document-count'],
+        searchVolumeSource: 'searchad',
+        searchVolumeConfidence: 'high',
+        isSearchVolumeEstimated: false,
+        documentCountSource: 'naver-api',
+        documentCountConfidence: 'high',
+        isDocumentCountEstimated: false,
+        updatedAt: '2026-07-01T08:00:00.000Z',
+        discoveredAt: '2026-07-01T08:00:00.000Z',
+        isMeasured: true,
+      };
+    })
+  ));
+  fs.writeFileSync(measuredExactFallbackBoardFile, JSON.stringify({
+    boardUpdatedAt: '2026-07-01T08:00:00.000Z',
+    items: measuredExactFallbackRows,
+  }), 'utf8');
+  const measuredExactFallbackRadar = new MobileLiveGoldenRadar({
+    notificationInbox: inbox,
+    runOnStart: false,
+    boardFile: measuredExactFallbackBoardFile,
+    boardTarget: 120,
+    publicPreviewCount: 5,
+    now: () => new Date('2026-07-01T09:00:00.000Z'),
+  });
+  const measuredExactFallbackSnapshot = measuredExactFallbackRadar.snapshot();
+  assert('live golden board fills 120 from measured exact rows instead of collapsing to a dozen strict-ratio winners',
+    measuredExactFallbackSnapshot.board.length === 120
+      && measuredExactFallbackSnapshot.board.every((item) => item.isMeasured === true)
+      && measuredExactFallbackSnapshot.board.every((item) => item.searchVolumeSource === 'searchad')
+      && measuredExactFallbackSnapshot.board.every((item) => item.documentCountSource === 'naver-api')
+      && measuredExactFallbackSnapshot.board.every((item) => item.pcSearchVolume !== null && item.mobileSearchVolume !== null)
+      && measuredExactFallbackSnapshot.board.some((item) => ((item.totalSearchVolume || 0) / (item.documentCount || 1)) < 1.2),
+    measuredExactFallbackSnapshot.board.map((item) => `${item.rank}:${item.keyword}:${item.grade}:${item.totalSearchVolume}/${item.documentCount}`).join('|'));
+  fs.rmSync(measuredExactFallbackBoardFile, { force: true });
 
   const fallbackDcBoardFile = path.join(process.cwd(), 'tmp', 'mobile-live-golden-fallback-dc-test.json');
   fs.writeFileSync(fallbackDcBoardFile, JSON.stringify({

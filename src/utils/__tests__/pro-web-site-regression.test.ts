@@ -27,6 +27,9 @@ for (const [index, match] of Array.from(html.matchAll(/<script>([\s\S]*?)<\/scri
 }
 
 assert('renders LEWORD Pro Web shell', html.includes('LEWORD Pro Web'));
+assert('LEWORD Pro Web uses blue accents instead of yellow copy accents',
+  html.includes('--gold: #0EA5E9')
+    && !/#ffe|#ffd|#f8c|#f7dc|#b7f|245,197|248,194|yellow/i.test(html));
 assert('uses resilient CSS brand mark instead of a fragile logo image',
   html.includes('class="brand-mark" aria-hidden="true">L</span>')
     && !html.includes('<img class="brand-logo"'));

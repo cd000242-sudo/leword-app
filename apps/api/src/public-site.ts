@@ -236,7 +236,7 @@ export function renderLewordLanding(): string {
       --line: #2c3d59;
       --text: #f7fbff;
       --muted: #9fb1c8;
-      --gold: #f8c21b;
+      --gold: #0EA5E9;
       --lime: #9cff38;
       --green: #16c784;
       --orange: #ff7a2f;
@@ -250,7 +250,7 @@ export function renderLewordLanding(): string {
       font-family: -apple-system, BlinkMacSystemFont, "Segoe UI", sans-serif;
       background:
         radial-gradient(circle at 20% 0%, rgba(156,255,56,.12), transparent 28%),
-        radial-gradient(circle at 82% 4%, rgba(248,194,27,.16), transparent 24%),
+        radial-gradient(circle at 82% 4%, rgba(14,165,233,.16), transparent 24%),
         var(--bg);
       color: var(--text);
       letter-spacing: 0;
@@ -414,14 +414,14 @@ export function renderLewordLanding(): string {
       padding: 7px 10px;
       font-size: 12px;
     }
-    .tiny-btn.pro { border-color: rgba(248,194,27,.55); color: var(--gold); }
+    .tiny-btn.pro { border-color: rgba(14,165,233,.55); color: var(--gold); }
     .locked {
       margin-top: 10px;
-      border: 1px dashed rgba(248,194,27,.45);
+      border: 1px dashed rgba(14,165,233,.45);
       border-radius: 8px;
       padding: 14px;
       color: #dce7f6;
-      background: rgba(248,194,27,.06);
+      background: rgba(14,165,233,.06);
       font-size: 14px;
       line-height: 1.55;
     }
@@ -518,9 +518,9 @@ export function renderLewordLanding(): string {
     }
     .source-link.hot { border-color: rgba(156,255,56,.45); color: var(--lime); }
     .feature-btn {
-      border-color: rgba(248,194,27,.45);
+      border-color: rgba(14,165,233,.45);
       color: var(--gold);
-      background: rgba(248,194,27,.06);
+      background: rgba(14,165,233,.06);
     }
     .pro-strip {
       margin-top: 18px;
