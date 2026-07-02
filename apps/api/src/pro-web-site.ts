@@ -16,9 +16,11 @@ export function renderLewordProWeb(): string {
       --panel: #FFFFFF;
       --panel2: #F6FAF7;
       --panel3: #F3F8F4;
+      --surface-2: #F3F8F4;
       --line: #DCE7DF;
       --line-soft: rgba(20, 60, 35, .08);
       --text: #13241A;
+      --text-2: #294234;
       --muted: #566A5D;
       --muted2: #8AA092;
       --gold: #0EA5E9;
@@ -1078,7 +1080,13 @@ export function renderLewordProWeb(): string {
       font-size: 13px;
       line-height: 1.45;
     }
-    .progress-dialog { width: min(520px, 100%); }
+    .progress-dialog {
+      width: min(520px, 100%);
+      border: 1px solid rgba(14,165,233,.32);
+      background: linear-gradient(180deg, #FFFFFF 0%, #F4FAF6 100%);
+      color: #102217;
+      box-shadow: 0 34px 100px rgba(2,12,18,.48), 0 0 0 1px rgba(255,255,255,.78) inset;
+    }
     .progress-head { display: flex; justify-content: space-between; gap: 12px; align-items: center; margin-bottom: 10px; }
     .progress-head h2 { margin: 0; font-size: 20px; }
     .progress-percent { color: var(--gold); font-size: 22px; font-weight: 1000; }
@@ -1092,21 +1100,21 @@ export function renderLewordProWeb(): string {
       position: fixed;
       right: 18px;
       bottom: 18px;
-      z-index: 60;
+      z-index: 130;
       min-width: min(360px, calc(100vw - 36px));
-      border: 1px solid rgba(91,183,255,.5);
-      border-radius: 8px;
-      background: linear-gradient(135deg, #FFFFFF, var(--surface-2));
-      color: #fff;
-      box-shadow: 0 18px 48px rgba(0,0,0,.42);
+      border: 1px solid rgba(14,165,233,.44);
+      border-radius: 14px;
+      background: linear-gradient(180deg, #FFFFFF 0%, #F4FAF6 100%);
+      color: #102217;
+      box-shadow: 0 22px 60px rgba(2,12,18,.28), 0 0 0 1px rgba(255,255,255,.82) inset;
       padding: 12px 14px;
       text-align: left;
       cursor: pointer;
     }
     .progress-pill[hidden] { display: none; }
-    .progress-pill strong { display: flex; justify-content: space-between; gap: 12px; color: var(--gold); font-size: 14px; }
-    .progress-pill span { display: block; margin-top: 6px; color: #c9d6e6; font-size: 12px; line-height: 1.35; }
-    .progress-pill i { display: block; height: 5px; margin-top: 9px; border-radius: 999px; background: var(--surface-2); overflow: hidden; }
+    .progress-pill strong { display: flex; justify-content: space-between; gap: 12px; color: #0369a1; font-size: 14px; }
+    .progress-pill span { display: block; margin-top: 6px; color: #51675a; font-size: 12px; line-height: 1.35; }
+    .progress-pill i { display: block; height: 5px; margin-top: 9px; border-radius: 999px; background: #DDE9E1; overflow: hidden; }
     .progress-pill i b { display: block; width: 0%; height: 100%; border-radius: inherit; background: linear-gradient(90deg, var(--gold), var(--green)); }
     .login-license {
       margin-top: 12px;
@@ -2099,6 +2107,151 @@ export function renderLewordProWeb(): string {
             source: signal.source || lane.label || 'live',
           };
         });
+    }
+    function uniqueKeywords(values, limit) {
+      const seen = new Set();
+      const rows = [];
+      (Array.isArray(values) ? values : []).forEach(function(value) {
+        const keyword = normalizeText(value);
+        const key = keyword.toLowerCase().replace(/\s+/g, '');
+        if (!keyword || !key || seen.has(key)) return;
+        if (!isFreshGoldenKeywordText(keyword)) return;
+        if (keyword.length < 2 || keyword.length > 48) return;
+        seen.add(key);
+        rows.push(keyword);
+      });
+      return rows.slice(0, Math.max(0, limit || rows.length));
+    }
+    function clientFallbackSeasonTerms() {
+      const now = new Date();
+      const year = now.getFullYear();
+      const month = now.getMonth() + 1;
+      const season = month >= 6 && month <= 8
+        ? ['여름 휴가 준비물', '장마 습기 제거', '냉방비 절약', '차량용 냉장고']
+        : month >= 9 && month <= 11
+          ? ['가을 여행 준비', '추석 지원금', '환절기 건강관리', '겨울 준비']
+          : month === 12 || month <= 2
+            ? ['겨울 난방비 지원', '연말정산 준비', '방한용품 추천', '설날 교통 예매']
+            : ['봄 이사 체크리스트', '근로장려금 신청', '봄 여행 예약', '미세먼지 대책'];
+      return uniqueKeywords([
+        year + ' 지원금 신청',
+        month + '월 정부 지원금',
+        month + '월 축제 일정',
+        month + '월 여행 예약',
+        year + ' 스포츠 경기 일정',
+      ].concat(season), 16);
+    }
+    function clientFallbackRoots(seed) {
+      const cleanSeed = normalizeText(seed);
+      const roots = cleanSeed ? [cleanSeed] : [];
+      return uniqueKeywords(roots.concat(clientFallbackSeasonTerms()), 20);
+    }
+    function clientFallbackIntentKeywords(seed, featureId, limit) {
+      const roots = clientFallbackRoots(seed);
+      const variants = [];
+      roots.forEach(function(root) {
+        if (featureId === 'shopping') {
+          variants.push(root + ' 추천', root + ' 가격 비교', root + ' 후기', root + ' 구매 전 확인', root + ' 가성비');
+        } else if (featureId === 'naver-mate') {
+          variants.push(root + ' 신청방법', root + ' 조건', root + ' 조회', root + ' 일정', root + ' 준비물');
+        } else if (featureId === 'kin') {
+          variants.push(root + ' 질문', root + ' 해결방법', root + ' 주의사항', root + ' 기준', root + ' 실제 후기');
+        } else if (featureId === 'youtube') {
+          variants.push(root + ' 쇼츠', root + ' 반응', root + ' 요약', root + ' 하이라이트', root + ' 논란 정리');
+        } else {
+          variants.push(root, root + ' 이유', root + ' 일정', root + ' 방법', root + ' 정리', root + ' 전망');
+        }
+      });
+      return uniqueKeywords(variants, limit || 12);
+    }
+    function clientFallbackPublishDecision(keyword) {
+      return {
+        label: '검색 확인',
+        verdict: 'conditional',
+        score: null,
+        reasons: ['서버 실측 전이라 검색 바로가기에서 최신 문서와 수요를 먼저 확인하세요.'],
+        nextAction: '네이버 검색 결과에서 최신성, 공식 정보, 블로그 문서량을 확인',
+      };
+    }
+    function clientFallbackBoardItem(keyword, index, source) {
+      return {
+        id: 'client-fallback-' + index + '-' + keyword.toLowerCase().replace(/\s+/g, '-'),
+        rank: index + 1,
+        keyword: keyword,
+        grade: 'LIVE',
+        freshness: 'live',
+        isMeasured: false,
+        publicSearchVolumeLabel: '브라우저 검색',
+        publicDocumentCountLabel: '서버 복구 후 실측',
+        publicReason: source || '서버 미연결 · 사이트 자체 검색 후보',
+        source: 'browser-fallback',
+        publishDecision: clientFallbackPublishDecision(keyword),
+        discoveredAt: new Date().toISOString(),
+        updatedAt: new Date().toISOString(),
+      };
+    }
+    function buildClientGoldenFallbackPayload(error) {
+      const keywords = clientFallbackIntentKeywords(compactKeywordInput(), 'pro-traffic', 5);
+      const items = keywords.map(function(keyword, index) {
+        return clientFallbackBoardItem(keyword, index, '서버 미연결 · 브라우저 자체 후보');
+      });
+      return {
+        ok: true,
+        clientFallback: true,
+        error: error && error.message ? error.message : String(error || ''),
+        updatedAt: new Date().toISOString(),
+        boardTarget: 120,
+        boardCount: items.length,
+        lockedCount: 0,
+        publicPreviewCount: items.length,
+        running: false,
+        exactMetricsLocked: true,
+        previewPolicyLabel: '서버 미연결 · 브라우저 검색 후보',
+        publicPreview: items,
+      };
+    }
+    function renderClientGoldenFallback(error) {
+      const payload = buildClientGoldenFallbackPayload(error);
+      renderPublicGoldenBoard(payload);
+      qs('goldenState').textContent = '브라우저 검색';
+      qs('goldenNotice').textContent = '서버 연결이 불안정해 사이트 자체 검색 후보를 표시합니다. 검색량·문서수는 가짜로 채우지 않고, 서버 복구 후 실측값으로 교체됩니다.';
+      log('LIVE 황금키워드 서버 fallback: ' + (payload.error || 'server unavailable'));
+    }
+    function isServerUnavailableError(message) {
+      const text = String(message || '');
+      if (isAuthErrorMessage(text)) return false;
+      if (/api\s*key|API 키|필수 API|Unauthorized|Forbidden/i.test(text)) return false;
+      return /Failed to fetch|NetworkError|Load failed|HTTP 404|HTTP 50\d|timeout|ECONN|ENOTFOUND|fetch/i.test(text);
+    }
+    function renderClientFeatureFallback(feature, displayKeyword, error) {
+      if (!feature || !feature.title || !isServerUnavailableError(error && error.message)) return false;
+      const featureId = feature.id || (feature.route === endpoints.golden ? 'pro-traffic' : 'keyword-analysis');
+      const keywords = clientFallbackIntentKeywords(displayKeyword || compactKeywordInput(), featureId, 12);
+      if (!keywords.length) return false;
+      const rows = keywords.map(function(keyword, index) {
+        return '<li><strong>' + escapeHtml(keyword) + '</strong><span>서버 실측 대기 · 브라우저 검색 후보 #' + (index + 1) + '</span>' + keywordActionHtml(keyword) + '</li>';
+      });
+      const metrics = [
+        { label: '후보', value: fmt(keywords.length) },
+        { label: '실측', value: '서버 복구 후' },
+        { label: '출처', value: '브라우저 fallback' },
+        { label: '시간', value: new Date().toLocaleTimeString('ko-KR') },
+      ];
+      if (feature.id) {
+        renderToolResultPanel(feature, feature.title + ' 브라우저 검색 후보', '서버/API 연결이 불안정해 사이트 자체 후보를 먼저 보여줍니다. 검색량·문서수·SSS 등급은 가짜로 표시하지 않습니다.', metrics, rows);
+      } else {
+        renderLookupInsight(feature.title + ' 브라우저 검색 후보', '서버/API 연결이 불안정해 사이트 자체 후보를 먼저 보여줍니다. 검색량·문서수·SSS 등급은 서버 복구 후 실측됩니다.', metrics, rows);
+        qs('keywordRows').innerHTML = '<tr><td colspan="12" class="muted">서버 미연결 상태입니다. 아래 브라우저 검색 후보에서 네이버/구글 검색으로 먼저 검증하세요.</td></tr>';
+      }
+      setResult({
+        ok: false,
+        clientFallback: true,
+        error: error && error.message ? error.message : String(error || ''),
+        keywords: keywords.map(function(keyword, index) {
+          return clientFallbackBoardItem(keyword, index, '서버 미연결 · 브라우저 자체 후보');
+        }),
+      });
+      return true;
     }
     function fmt(value) {
       if (value === null || value === undefined || value === '') return '-';
@@ -4453,6 +4606,36 @@ export function renderLewordProWeb(): string {
         qs('goldenNotice').textContent = '황금키워드 보드를 불러오지 못했습니다: ' + err.message;
       }
     }
+    async function loadGoldenBoard() {
+      if (session && session.accessToken) {
+        try {
+          const payload = await apiGet(endpoints.liveGolden, true);
+          if (payload && payload.snapshot) {
+            renderProGoldenBoard(payload.snapshot);
+            log('LIVE golden Pro board refreshed: ' + ((payload.snapshot.board || []).length) + ' items');
+            return;
+          }
+        } catch (err) {
+          log('Pro board failed, trying public board: ' + err.message);
+        }
+      }
+      try {
+        const payload = await apiGet(endpoints.publicLiveGolden, false);
+        const freshPreview = filterFreshGoldenItems(payload.publicPreview || []);
+        if (freshPreview.length < 5) {
+          try {
+            const signals = await apiGet(endpoints.publicSources, false);
+            payload.clientBackfill = liveSignalBackfillItems(signals, freshPreview, 5 - freshPreview.length);
+          } catch (sourceErr) {
+            log('live source backfill failed: ' + sourceErr.message);
+          }
+        }
+        renderPublicGoldenBoard(payload);
+        log('LIVE golden public board refreshed: ' + (payload.boardCount || 0) + ' items');
+      } catch (err) {
+        renderClientGoldenFallback(err);
+      }
+    }
     async function loadHealth() {
       try {
         const health = await apiGet(endpoints.health, false);
@@ -5115,6 +5298,12 @@ export function renderLewordProWeb(): string {
           if (feature.id && !backgroundRun) renderToolLocked(feature);
           openLogin();
           failProgress(err.message);
+          return;
+        }
+        if (renderClientFeatureFallback(feature, displayKeyword, err)) {
+          if (feature && feature.id) featureRunState[feature.id] = 'completed';
+          updateProgress(100, '서버 연결 실패로 브라우저 자체 검색 후보를 표시했습니다.');
+          completeProgress('서버 복구 전까지 브라우저 검색 후보를 먼저 확인하세요.');
           return;
         }
         if (backgroundRun && feature && feature.id !== selectedToolId) {

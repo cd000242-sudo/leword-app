@@ -60,6 +60,13 @@ assert('feature execution progress can be minimized and restored from a bottom p
     && html.includes('function restoreProgress')
     && html.includes('function renderProgressPill')
     && html.includes('openProgress(feature.title +'));
+assert('progress dialog and minimized pill stay opaque on bright theme',
+  html.includes('--surface-2: #F3F8F4')
+    && html.includes('--text-2: #294234')
+    && html.includes('.progress-dialog {')
+    && html.includes('background: linear-gradient(180deg, #FFFFFF 0%, #F4FAF6 100%)')
+    && html.includes('z-index: 130')
+    && html.includes('color: #102217'));
 assert('pro login does not masquerade as API key setup',
   html.includes("const nextView = pendingViewAfterLogin || 'golden'")
     && html.includes('pendingViewAfterLogin = null')
@@ -124,6 +131,14 @@ assert('loads public and pro golden boards',
     && html.includes('function loadGoldenBoard()')
     && html.includes('renderPublicGoldenBoard')
     && html.includes('renderProGoldenBoard'));
+assert('falls back to browser-side golden keyword search when the server is unavailable',
+  html.includes('function buildClientGoldenFallbackPayload')
+    && html.includes('function renderClientGoldenFallback')
+    && html.includes('function renderClientFeatureFallback')
+    && html.includes('function isServerUnavailableError')
+    && html.includes('renderClientGoldenFallback(err)')
+    && html.includes('renderClientFeatureFallback(feature, displayKeyword, err)')
+    && html.includes('검색량·문서수는 가짜로 채우지 않고'));
 assert('client golden guard keeps regex escapes and live backfill',
   html.includes('const lotto = text.match(/(\\d{3,4})\\s*회\\s*로또|로또\\s*(\\d{3,4})\\s*회/)')
     && html.includes('2027\\s*6모')
