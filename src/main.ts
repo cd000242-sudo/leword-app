@@ -190,16 +190,12 @@ function createKeywordWindow() {
     //   이전 logic: update 발견 시 메인창 show() 스킵 → 사용자 빈 화면
     //   NSIS install 실패 환경에서 LEWORD가 영영 안 켜지는 케이스 차단
     //   새 logic: 메인창 즉시 show. update flow 는 백그라운드 + 다운로드 완료 시 dialog
-    // v2.48.6: 단, update flow 가 이미 진행 중이면 show 스킵 (race 차단)
-    //   ready-to-show 가 update-available 보다 늦게 오면 hide() 호출이 무력화되던 버그
-    //   사용자 보고: "업데이트할 때 이전 버전 열리게 하지말라니까 그러네"
     closeSplash();
     if (isUpdating()) {
-      console.log('[LEWORD] update 진행 중 — 메인창 show 스킵 (이전 버전 가시화 방지)');
-    } else {
-      keywordWindow?.show();
-      console.log('[LEWORD] 메인창 표시 완료 (update flow 는 백그라운드 진행)');
+      console.log('[LEWORD] update flow active; keep main window visible');
     }
+    keywordWindow?.show();
+    console.log('[LEWORD] 메인창 표시 완료 (update flow 는 백그라운드 진행)');
     flushPendingSecondInstance();
   });
 
@@ -1327,10 +1323,8 @@ app.whenReady().then(async () => {
 
   await updateSplashStage('라이선스 확인 중...');
   if (!(await checkLicense())) {
-    // 업데이트 진행 중이면 창 종료 흐름을 건너뜀 — updater 가 재시작 관리
     if (isUpdating()) {
-      console.log('[LEWORD] 업데이트 진행 중 — 라이선스 흐름 종료');
-      return;
+      console.log('[LEWORD] update flow active; continue normal license handling');
     }
     console.log('[LEWORD] 라이선스 인증 실패, 앱 종료');
     return;

@@ -67,6 +67,15 @@ assert('progress dialog and minimized pill stay opaque on bright theme',
     && html.includes('background: linear-gradient(180deg, #FFFFFF 0%, #F4FAF6 100%)')
     && html.includes('z-index: 130')
     && html.includes('color: #102217'));
+assert('progress dialog uses an opaque high-contrast shell and fades away after completion',
+  html.includes('#progressModal {')
+    && html.includes('rgba(238,246,240,.96)')
+    && html.includes('.modal.open.closing { opacity: 0; pointer-events: none; }')
+    && html.includes("modal.classList.add('closing')")
+    && html.includes('progressCloseTimer = setTimeout(function()')
+    && html.includes('if (pct >= 100 && !progressDone)')
+    && html.includes('closeProgress(850)')
+    && html.includes('closeProgress(1200)'));
 assert('pro login does not masquerade as API key setup',
   html.includes("const nextView = pendingViewAfterLogin || 'golden'")
     && html.includes('pendingViewAfterLogin = null')

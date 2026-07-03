@@ -772,8 +772,12 @@ export function renderLewordProWeb(): string {
         radial-gradient(520px 320px at 48% 66%, rgba(53,211,153,.12), transparent 64%),
         rgba(4,14,20,.84);
       backdrop-filter: blur(16px) saturate(116%);
+      opacity: 0;
+      visibility: hidden;
+      transition: opacity .34s ease, visibility .34s ease;
     }
-    .modal.open { display: flex; }
+    .modal.open { display: flex; opacity: 1; visibility: visible; }
+    .modal.open.closing { opacity: 0; pointer-events: none; }
     .dialog {
       width: min(460px, calc(100vw - 32px));
       border: 1px solid rgba(91,183,255,.28);
@@ -1085,16 +1089,29 @@ export function renderLewordProWeb(): string {
       border: 1px solid rgba(14,165,233,.32);
       background: linear-gradient(180deg, #FFFFFF 0%, #F4FAF6 100%);
       color: #102217;
-      box-shadow: 0 34px 100px rgba(2,12,18,.48), 0 0 0 1px rgba(255,255,255,.78) inset;
+      box-shadow: 0 34px 100px rgba(2,12,18,.54), 0 0 0 1px rgba(255,255,255,.9) inset;
+    }
+    #progressModal {
+      z-index: 145;
+      background:
+        radial-gradient(680px 380px at 52% 28%, rgba(14,165,233,.2), transparent 62%),
+        radial-gradient(520px 340px at 48% 66%, rgba(53,211,153,.18), transparent 64%),
+        rgba(238,246,240,.96);
+      backdrop-filter: blur(14px) saturate(118%);
+    }
+    #progressModal .dialog {
+      background: #FFFFFF;
+      border-color: rgba(3,105,161,.34);
+      color: #102217;
     }
     .progress-head { display: flex; justify-content: space-between; gap: 12px; align-items: center; margin-bottom: 10px; }
     .progress-head h2 { margin: 0; font-size: 20px; }
-    .progress-percent { color: var(--gold); font-size: 22px; font-weight: 1000; }
-    .progress-track { height: 12px; border: 1px solid var(--line); border-radius: 999px; background: #E3EDE6; overflow: hidden; }
-    .progress-fill { width: 0%; height: 100%; border-radius: inherit; background: linear-gradient(90deg, var(--gold), var(--green)); transition: width .22s ease; }
-    .progress-message { min-height: 22px; margin-top: 12px; color: var(--text-2); font-size: 13px; line-height: 1.5; }
+    .progress-percent { color: #0369a1; font-size: 22px; font-weight: 1000; }
+    .progress-track { height: 12px; border: 1px solid rgba(3,105,161,.22); border-radius: 999px; background: #DDE9E1; overflow: hidden; }
+    .progress-fill { width: 0%; height: 100%; border-radius: inherit; background: linear-gradient(90deg, #0ea5e9, #10b981); transition: width .22s ease; }
+    .progress-message { min-height: 22px; margin-top: 12px; color: #294234; font-size: 13px; line-height: 1.5; }
     .progress-steps { margin-top: 12px; display: grid; gap: 6px; color: var(--muted); font-size: 12px; }
-    .progress-steps span.active { color: var(--gold); font-weight: 900; }
+    .progress-steps span.active { color: #0369a1; font-weight: 900; }
     .progress-actions { display: flex; justify-content: flex-end; gap: 8px; margin-top: 16px; flex-wrap: wrap; }
     .progress-pill {
       position: fixed;
@@ -2381,6 +2398,12 @@ export function renderLewordProWeb(): string {
       if (message && qs('progressMessage')) qs('progressMessage').textContent = message;
       progressStep(pct);
       renderProgressPill();
+      if (pct >= 100 && !progressDone) {
+        progressDone = true;
+        if (qs('progressTitle')) qs('progressTitle').textContent = '발굴 완료';
+        if (qs('progressDismiss')) qs('progressDismiss').hidden = false;
+        closeProgress(900);
+      }
     }
     function renderProgressPill() {
       const pill = qs('progressPill');
@@ -2397,6 +2420,7 @@ export function renderLewordProWeb(): string {
       progressMinimized = false;
       progressTitleState = title || '실행 중';
       progressMessageState = message || '서버에 요청을 준비하고 있습니다.';
+      if (qs('progressModal')) qs('progressModal').classList.remove('closing');
       if (qs('progressTitle')) qs('progressTitle').textContent = progressTitleState;
       if (qs('progressDismiss')) qs('progressDismiss').hidden = true;
       updateProgress(4, message || '서버에 요청을 준비하고 있습니다.');
@@ -2409,10 +2433,17 @@ export function renderLewordProWeb(): string {
     }
     function closeProgress(delay) {
       const done = function() {
-        progressMinimized = false;
-        qs('progressModal').classList.remove('open');
-        qs('progressModal').setAttribute('aria-hidden', 'true');
-        renderProgressPill();
+        const modal = qs('progressModal');
+        if (modal) modal.classList.add('closing');
+        progressCloseTimer = setTimeout(function() {
+          progressMinimized = false;
+          if (modal) {
+            modal.classList.remove('open');
+            modal.classList.remove('closing');
+            modal.setAttribute('aria-hidden', 'true');
+          }
+          renderProgressPill();
+        }, 360);
       };
       if (progressCloseTimer) clearTimeout(progressCloseTimer);
       progressCloseTimer = setTimeout(done, delay == null ? 450 : delay);
@@ -2420,11 +2451,13 @@ export function renderLewordProWeb(): string {
     function minimizeProgress() {
       progressMinimized = true;
       qs('progressModal').classList.remove('open');
+      qs('progressModal').classList.remove('closing');
       qs('progressModal').setAttribute('aria-hidden', 'true');
       renderProgressPill();
     }
     function restoreProgress() {
       progressMinimized = false;
+      qs('progressModal').classList.remove('closing');
       qs('progressModal').classList.add('open');
       qs('progressModal').setAttribute('aria-hidden', 'false');
       renderProgressPill();
@@ -2438,14 +2471,14 @@ export function renderLewordProWeb(): string {
       if (qs('progressTitle')) qs('progressTitle').textContent = '발굴 완료';
       if (qs('progressDismiss')) qs('progressDismiss').hidden = false;
       updateProgress(100, message || '발굴 완료. 결과가 아래 영역에 정리되었습니다.');
-      if (!progressMinimized) closeProgress(850);
+      closeProgress(850);
     }
     function failProgress(message) {
       progressDone = true;
       if (qs('progressTitle')) qs('progressTitle').textContent = '실행 실패';
       if (qs('progressDismiss')) qs('progressDismiss').hidden = false;
       updateProgress(100, message || '실행 중 오류가 발생했습니다.');
-      if (!progressMinimized) closeProgress(1200);
+      closeProgress(1200);
     }
     function resultKpiHtml(metrics) {
       return '<div class="result-kpis">' + metrics.map(function(metric) {

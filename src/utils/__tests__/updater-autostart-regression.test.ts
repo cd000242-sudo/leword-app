@@ -57,6 +57,14 @@ assert('self-heal keeps RunOnce auto-start disabled',
     && !/reg add/i.test(selfHeal),
   'RunOnce auto-start can be registered');
 
+assert('update progress never leaves the app hidden behind the update modal',
+  /update flow active; keep main window visible/.test(main)
+    && /keywordWindow\?\.show\(\);/.test(main)
+    && /Users should be able to keep using LEWORD/.test(updater)
+    && !/show 스킵/.test(main)
+    && !/try \{ win\.hide\(\); \} catch \{\}/.test(updater),
+  'update flow can still hide or skip the main app window');
+
 console.log(`\n[updater-autostart-regression.test] passed: ${passed} / failed: ${failed}`);
 if (failed > 0) {
   failures.forEach(f => console.error('  ' + f));

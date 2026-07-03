@@ -418,11 +418,12 @@ export function showProgressWindow(version: string): BrowserWindow {
   const html = buildProgressHtml(version);
   progressWindow.loadURL(`data:text/html;charset=utf-8,${encodeURIComponent(html)}`);
 
-  // 🔥 등록된 모든 hideable 창(로그인창/메인창) 숨김
+  // Keep the main app visible while the update dialog is on top.
+  // Users should be able to keep using LEWORD if the update is slow or deferred.
   try {
     for (const win of hideableWindows) {
       if (win && !win.isDestroyed()) {
-        try { win.hide(); } catch {}
+        try { win.show(); } catch {}
       }
     }
   } catch {}
@@ -703,7 +704,7 @@ export function initAutoUpdaterEarly(): void {
     try {
       for (const win of hideableWindows) {
         if (win && !win.isDestroyed()) {
-          try { win.hide(); } catch {}
+          try { win.show(); } catch {}
         }
       }
     } catch {}
