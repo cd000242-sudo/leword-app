@@ -4581,37 +4581,6 @@ export function renderLewordProWeb(): string {
           const payload = await apiGet(endpoints.liveGolden, true);
           if (payload && payload.snapshot) {
             renderProGoldenBoard(payload.snapshot);
-            log('LIVE 황금키워드 Pro 보드 갱신: ' + ((payload.snapshot.board || []).length) + '개');
-            return;
-          }
-        } catch (err) {
-          log('Pro 보드 갱신 실패, 공개 보드로 전환: ' + err.message);
-        }
-      }
-      try {
-        const payload = await apiGet(endpoints.publicLiveGolden, false);
-        const freshPreview = filterFreshGoldenItems(payload.publicPreview || []);
-        if (freshPreview.length < 5) {
-          try {
-            const signals = await apiGet(endpoints.publicSources, false);
-            payload.clientBackfill = liveSignalBackfillItems(signals, freshPreview, 5 - freshPreview.length);
-          } catch (sourceErr) {
-            log('실시간 후보 보충 실패: ' + sourceErr.message);
-          }
-        }
-        renderPublicGoldenBoard(payload);
-        log('LIVE 황금키워드 공개 보드 갱신: ' + (payload.boardCount || 0) + '개');
-      } catch (err) {
-        qs('goldenState').textContent = '오류';
-        qs('goldenNotice').textContent = '황금키워드 보드를 불러오지 못했습니다: ' + err.message;
-      }
-    }
-    async function loadGoldenBoard() {
-      if (session && session.accessToken) {
-        try {
-          const payload = await apiGet(endpoints.liveGolden, true);
-          if (payload && payload.snapshot) {
-            renderProGoldenBoard(payload.snapshot);
             log('LIVE golden Pro board refreshed: ' + ((payload.snapshot.board || []).length) + ' items');
             return;
           }
@@ -4639,7 +4608,14 @@ export function renderLewordProWeb(): string {
     async function loadHealth() {
       try {
         const health = await apiGet(endpoints.health, false);
-        if (health.liveGolden) qs('goldenBoardCount').textContent = (health.liveGolden.boardCount || 0) + '/' + (health.liveGolden.boardTarget || 120);
+        const liveGolden = health && health.liveGolden;
+        if (
+          liveGolden
+          && Number.isFinite(Number(liveGolden.boardCount))
+          && Number.isFinite(Number(liveGolden.boardTarget))
+        ) {
+          qs('goldenBoardCount').textContent = Number(liveGolden.boardCount) + '/' + Number(liveGolden.boardTarget);
+        }
       } catch (err) {
       }
     }

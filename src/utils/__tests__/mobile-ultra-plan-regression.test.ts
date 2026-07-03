@@ -703,12 +703,13 @@ assert('api server keeps PRO traffic supplements SSS-only and measured',
     && /item\.grade !== 'SSS'/.test(apiServer)
     && /endpoint\.product === 'pro-traffic-hunter' && !isProTrafficMeasuredBoardCandidate/.test(apiServer)
     && /product === 'pro-traffic-hunter'\) return isProTrafficMeasuredBoardCandidate/.test(apiServer));
-assert('live golden board display is SSS-only without weak fallback fill',
-  /function selectLiveBoardItems[\s\S]{0,360}isMeasuredSssBoardCandidate/.test(liveGoldenRadar)
+assert('live golden board display is SSS-first with trusted publishable fallback fill',
+  /function selectLiveBoardItems[\s\S]*const measuredSssReady = sorted[\s\S]*isMeasuredSssBoardCandidate/.test(liveGoldenRadar)
     && /if \(item\.grade !== 'SSS'\) return false;/.test(liveGoldenRadar)
-    && !/const resilientSelected = appendMeasuredPublishableFallbackItems\(selected, sorted, this\.boardTarget, now\)/.test(liveGoldenRadar)
-    && !/const filledSelected = appendMeasuredExactDisplayFallbackItems/.test(liveGoldenRadar),
-  'LIVE board display must not pad paid results with A/S/SS fallback rows');
+    && /return appendMeasuredPublishableFallbackItems\(sssSelected, sorted, target, now\)/.test(liveGoldenRadar)
+    && /function selectMeasuredPublishableFallbackItems[\s\S]*hasTrustedSearchVolumeMeasurement\(item\)[\s\S]*hasTrustedDocumentCountMeasurement\(item\)/.test(liveGoldenRadar)
+    && !/appendMeasuredExactDisplayFallbackItems/.test(liveGoldenRadar),
+  'LIVE board display must keep SSS first but fill paid boards only with trusted measured publishable rows');
 assert('api server product defaults route LEWORD details to products page anchor',
   /href: '\/products#product-leword'/.test(apiServer)
     && !/\{ id: 'leword', name: 'LEWORD', status: 'published', href: '\/leword' \}/.test(apiServer));
@@ -1005,15 +1006,14 @@ assert('mobile live golden radar waits when document-count quota is exhausted',
     && /scheduleQuotaRetry/.test(liveGoldenRadar)
     && /nextRetryAt/.test(sharedMobileContract)
     && /measured-only golden keywords/.test(liveGoldenRadar));
-assert('mobile live golden board displays measured SSS winners only',
+assert('mobile live golden board displays measured SSS winners first and measured publishable fallback rows',
   /isUltimateGoldenKeywordCandidate/.test(liveGoldenRadar)
     && /function isNearUltimateLiveBoardItem/.test(liveGoldenRadar)
     && /const measuredSssReady = sorted[\s\S]{0,120}isMeasuredSssBoardCandidate\(item, now\)/.test(liveGoldenRadar)
-    && /return selectLiveBoardItemsFromPool\(/.test(liveGoldenRadar)
+    && /const sssSelected = selectLiveBoardItemsFromPool\(/.test(liveGoldenRadar)
+    && /return appendMeasuredPublishableFallbackItems\(sssSelected, sorted, target, now\)/.test(liveGoldenRadar)
     && /if \(item\.grade !== 'SSS'\) return false;/.test(liveGoldenRadar)
     && !/const strictReady = sorted[\s\S]{0,160}\.filter\(isStrictReadyLiveBoardItem\)/.test(liveGoldenRadar)
-    && !/if \(strictSelected\.length >= target\) return strictSelected/.test(liveGoldenRadar)
-    && !/isStrictReadyLiveBoardItem\(item\) \|\| isNearUltimateLiveBoardItem\(item\)/.test(liveGoldenRadar)
     && /function isPublicPreviewCandidate[\s\S]{0,220}isStrictReadyLiveBoardItem/.test(liveGoldenRadar));
 assert('mobile live golden board carries and enforces measurement provenance',
   /MobileDocumentCountSource/.test(sharedMobileContract)

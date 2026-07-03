@@ -131,6 +131,11 @@ assert('loads public and pro golden boards',
     && html.includes('function loadGoldenBoard()')
     && html.includes('renderPublicGoldenBoard')
     && html.includes('renderProGoldenBoard'));
+assert('health polling does not overwrite live board counts with missing metrics',
+  html.includes('const liveGolden = health && health.liveGolden')
+    && html.includes('Number.isFinite(Number(liveGolden.boardCount))')
+    && html.includes('Number.isFinite(Number(liveGolden.boardTarget))')
+    && !html.includes("(health.liveGolden.boardCount || 0) + '/' + (health.liveGolden.boardTarget || 120)"));
 assert('falls back to browser-side golden keyword search when the server is unavailable',
   html.includes('function buildClientGoldenFallbackPayload')
     && html.includes('function renderClientGoldenFallback')

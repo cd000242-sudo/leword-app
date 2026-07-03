@@ -1989,11 +1989,12 @@ function selectLiveBoardItems<T extends MobileLiveGoldenBoardItem>(
   const target = Math.max(1, Math.floor(boardTarget));
   const measuredSssReady = sorted
     .filter((item) => isMeasuredSssBoardCandidate(item, now));
-  return selectLiveBoardItemsFromPool(
+  const sssSelected = selectLiveBoardItemsFromPool(
     measuredSssReady,
     target,
     (item) => isMeasuredSssBoardCandidate(item, now),
   );
+  return appendMeasuredPublishableFallbackItems(sssSelected, sorted, target, now);
 }
 
 function selectMeasuredPublishableFallbackItems<T extends MobileLiveGoldenBoardItem>(
@@ -2036,12 +2037,15 @@ function appendMeasuredPublishableFallbackItems<T extends MobileLiveGoldenBoardI
   const target = Math.max(1, Math.floor(boardTarget));
   if (selected.length >= target) return selected;
   const selectedIds = new Set(selected.map((item) => item.id));
+  const selectedCompactIds = new Set(selected.map((item) => keywordCompactId(item.keyword)));
   const merged = [...selected];
   const fallback = selectMeasuredPublishableFallbackItems(sorted, target, now);
   for (const item of fallback) {
     if (merged.length >= target) break;
-    if (selectedIds.has(item.id)) continue;
+    const compactId = keywordCompactId(item.keyword);
+    if (selectedIds.has(item.id) || selectedCompactIds.has(compactId)) continue;
     selectedIds.add(item.id);
+    selectedCompactIds.add(compactId);
     merged.push(item);
   }
   return merged;
@@ -2128,64 +2132,6 @@ function isMeasuredExactDisplayFallbackMetric(
   if (!isMeasuredExactDisplayPromotionCandidate(item, now)) return false;
   if (!hasMeasuredPcMobileSplit(item)) return false;
   return true;
-}
-
-function appendMeasuredExactDisplayFallbackItems<T extends MobileLiveGoldenBoardItem>(
-  selected: T[],
-  sorted: T[],
-  boardTarget: number,
-  now: Date,
-): T[] {
-  const target = Math.max(1, Math.floor(boardTarget));
-  if (selected.length >= target) return selected;
-  const merged = [...selected];
-  const selectedIds = new Set(merged.map((item) => item.id));
-  const selectedCompactIds = new Set(merged.map((item) => keywordCompactId(item.keyword)));
-  const categoryCounts = new Map<string, number>();
-  const clusterCounts = new Map<string, number>();
-  for (const item of merged) {
-    const category = boardCategoryKey(item);
-    const cluster = publicPreviewClusterKey(item.keyword);
-    if (category) categoryCounts.set(category, (categoryCounts.get(category) || 0) + 1);
-    if (cluster) clusterCounts.set(cluster, (clusterCounts.get(cluster) || 0) + 1);
-  }
-  const maxPerCategory = Math.max(
-    maxCategoryBoardCount(target),
-    Math.ceil(target * LIVE_BOARD_MEASURED_DISPLAY_CATEGORY_SHARE_CAP),
-  );
-  const push = (item: T, options: { respectCategory?: boolean; respectCluster?: boolean } = {}): boolean => {
-    if (merged.length >= target) return false;
-    if (!isMeasuredExactDisplayFallbackMetric(item, now)) return false;
-    const compactId = keywordCompactId(item.keyword);
-    if (!compactId || selectedIds.has(item.id) || selectedCompactIds.has(compactId)) return false;
-    const category = boardCategoryKey(item);
-    const cluster = publicPreviewClusterKey(item.keyword);
-    if (options.respectCategory && category && (categoryCounts.get(category) || 0) >= maxPerCategory) return false;
-    if (options.respectCluster && cluster && (clusterCounts.get(cluster) || 0) >= LIVE_BOARD_CLUSTER_MAX) return false;
-    merged.push(item);
-    selectedIds.add(item.id);
-    selectedCompactIds.add(compactId);
-    if (category) categoryCounts.set(category, (categoryCounts.get(category) || 0) + 1);
-    if (cluster) clusterCounts.set(cluster, (clusterCounts.get(cluster) || 0) + 1);
-    return true;
-  };
-  for (const item of sorted) {
-    if (merged.length >= target) break;
-    push(item, { respectCategory: true, respectCluster: true });
-  }
-  for (const item of sorted) {
-    if (merged.length >= target) break;
-    push(item, { respectCategory: true });
-  }
-  for (const item of sorted) {
-    if (merged.length >= target) break;
-    push(item, { respectCluster: true });
-  }
-  for (const item of sorted) {
-    if (merged.length >= target) break;
-    push(item);
-  }
-  return merged;
 }
 
 const SSS_READY_NEED_INTENT_RE = /(?:\uACC4\uC0B0\uAE30|\uACF5\uD734\uC77C|\uC785\uC7A5\uB8CC|\uC8FC\uCC28|\uC608\uC57D|\uC608\uB9E4|\uC2E0\uCCAD|\uC9C0\uAE09\uC77C|\uB300\uC0C1|\uC790\uACA9|\uC870\uAC74|\uC870\uD68C|\uC0AC\uC6A9\uCC98|\uAC00\uACA9\uBE44\uAD50|\uCD5C\uC800\uAC00|\uD560\uC778|\uCFE0\uD3F0|\uAD6C\uB9E4\uCC98|\uCD94\uCC9C|\uD6C4\uAE30|\uBE44\uC6A9|\uBCF4\uD5D8|\uC900\uBE44\uBB3C|\uC6B4\uC601\uC2DC\uAC04|\uC77C\uC815|\uB9C8\uAC10\uC77C|\uC11C\uB958|\uC2E4\uC218\uB839\uC561|\uC138\uAE08|\uD658\uAE09\uC77C)/u;
@@ -8156,8 +8102,16 @@ export class MobileLiveGoldenRadar {
         return Date.parse(b.updatedAt) - Date.parse(a.updatedAt);
       });
     const sorted = base
-      .filter(hasWinnableDisplayRatio)
-      .filter((item) => isBlogActionableBoardMetric(item) || isMeasuredProDisplayBackfillMetric(item, now));
+      .filter((item) => (
+        hasWinnableDisplayRatio(item)
+        || isMeasuredProDisplayBackfillMetric(item, now)
+        || isMeasuredExactDisplayFallbackMetric(item, now)
+      ))
+      .filter((item) => (
+        isBlogActionableBoardMetric(item)
+        || isMeasuredProDisplayBackfillMetric(item, now)
+        || isMeasuredExactDisplayFallbackMetric(item, now)
+      ));
     const selected = selectLiveBoardItems(sorted, this.boardTarget, now);
     return selected
       .sort((a, b) => {
@@ -8184,8 +8138,13 @@ export class MobileLiveGoldenRadar {
           isLiveRadarUsableMetric(item, now)
           || isMeasuredProExactKeywordMetric(item, now)
           || isMeasuredProDisplayBackfillMetric(item, now)
+          || isMeasuredExactDisplayFallbackMetric(item, now)
         ))
-        .filter((item) => isBlogActionableBoardMetric(item) || isMeasuredProDisplayBackfillMetric(item, now))
+        .filter((item) => (
+          isBlogActionableBoardMetric(item)
+          || isMeasuredProDisplayBackfillMetric(item, now)
+          || isMeasuredExactDisplayFallbackMetric(item, now)
+        ))
         .sort((a, b) => {
           const scoreDiff = boardSortScore(b, nowMs) - boardSortScore(a, nowMs);
           if (scoreDiff !== 0) return scoreDiff;
