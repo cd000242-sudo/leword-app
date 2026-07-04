@@ -195,6 +195,26 @@ assert('browser-local mindmap fallback reuses current context and rejects articl
     && proWebHtml.includes('Math.min(50, candidates.length)')
     && proWebHtml.includes('검색 전 확인')
     && proWebHtml.includes('제목보다'));
+assert('live golden cards explain search intent and route shopping keywords away from the main board',
+  proWebHtml.includes('function keywordIntentGuide')
+    && proWebHtml.includes('function keywordIntentGuideHtml')
+    && proWebHtml.includes('function isShoppingIntentKeywordRow')
+    && proWebHtml.includes('function isAmbiguousCompositeKeyword')
+    && proWebHtml.includes('function shouldHideFromLiveGoldenBoard')
+    && proWebHtml.includes('function shouldHideFromMindmap')
+    && proWebHtml.includes('function filterDisplayGoldenItems')
+    && proWebHtml.includes('쇼핑커넥트 전용')
+    && proWebHtml.includes('의도 불명확')
+    && proWebHtml.includes('의미</em>')
+    && proWebHtml.includes('활용</em>')
+    && proWebHtml.includes('쇼핑커넥트로 보기')
+    && proWebHtml.includes('순위.*출시일')
+    && proWebHtml.includes('금액.*지급일')
+    && proWebHtml.includes('const freshRows = filterFreshGoldenItems(items || [])')
+    && proWebHtml.includes('제품형 또는 의도 불명확 조합 키워드는 LIVE 보드에서 숨겼습니다')
+    && proWebHtml.includes('return !shouldHideFromMindmap(row);')
+    && proWebHtml.includes('keywordIntentGuideHtml(item)')
+    && proWebHtml.includes('keywordIntentGuideHtml(row) + shoppingProductPickHtml(row)'));
 assert('keyword analyzer table stays readable on bright theme',
   proWebHtml.includes('td { color: var(--text); }')
     && proWebHtml.includes('.tiny-btn.green { border-color: rgba(53,211,153,.44); color: #047857;')
