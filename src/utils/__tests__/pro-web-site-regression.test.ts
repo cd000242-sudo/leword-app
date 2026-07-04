@@ -163,6 +163,10 @@ assert('falls back to browser-side golden keyword search when the server is unav
     && html.includes('renderClientGoldenFallback(err)')
     && html.includes('renderClientFeatureFallback(feature, displayKeyword, err)')
     && html.includes('검색량·문서수는 가짜로 채우지 않고'));
+assert('keyword lookup button is labeled as direct lookup, not server lookup',
+  proWebHtml.includes('<button class="btn primary" type="submit">조회하기</button>')
+    && proWebHtml.includes('키워드를 입력하고 조회하기를 실행하세요.')
+    && !proWebHtml.includes('<button class="btn primary" type="submit">서버 조회</button>'));
 assert('keyword analyzer and mindmap use browser-local user APIs before server jobs',
   proWebHtml.includes('function runBrowserLocalApiLookup')
     && proWebHtml.includes('function fetchBrowserSearchAdKeywordTool')
@@ -173,7 +177,10 @@ assert('keyword analyzer and mindmap use browser-local user APIs before server j
     && proWebHtml.includes('browser-local-api')
     && proWebHtml.includes('browser-local-primary')
     && proWebHtml.includes('shouldRunBrowserLocalFirst(feature, null)')
-    && proWebHtml.includes('서버 job은 건너뜁니다.')
+    && proWebHtml.includes('function runUserApiServerExecutorLookup')
+    && proWebHtml.includes('browser-cors-fallback')
+    && proWebHtml.includes('사용자 API 키를 서버 실행기로 전달해 조회합니다.')
+    && proWebHtml.includes('네이버 CORS가 막히면 사용자 API 키만 서버 실행기로 전달해 조회합니다.')
     && proWebHtml.includes('isEmptyKeywordResult(result)')
     && proWebHtml.includes('empty-job-result')
     && proWebHtml.includes('empty-direct-result')
