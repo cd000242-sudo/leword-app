@@ -179,8 +179,8 @@ assert('quality backfill keeps strict SSS candidates at the top',
     && qualityBackfilled.slice(4).every(item => ['SS', 'S'].includes(String(item.grade))),
   qualityBackfilled.map(item => `${item.keyword}:${item.grade}`).join('|'));
 
-assert('S quality allows very large document pools when volume ratio is strong',
-  isQualityGoldenDiscoveryResult({
+assert('S quality blocks oversized document pools even when volume ratio is strong',
+  !isQualityGoldenDiscoveryResult({
     keyword: '삼성전자 주가',
     grade: 'S',
     score: 86,
@@ -188,7 +188,7 @@ assert('S quality allows very large document pools when volume ratio is strong',
     documentCount: 1080381,
     goldenRatio: 35.46,
   }, { requireActionableIntent: true }),
-  'high-volume high-ratio S result should stay eligible');
+  'high-volume high-ratio S result still needs a winnable document pool');
 
 assert('profile issue intent accepts common no-space Korean search forms',
   isQualityGoldenDiscoveryResult({

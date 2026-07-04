@@ -108,4 +108,12 @@ assert.strictEqual(shoppingBuyerIntent.aiJudge?.needIntent, 'strong');
 assert.strictEqual(shoppingBuyerIntent.aiJudge?.shoppingIntent, 'high');
 assert.strictEqual(shoppingBuyerIntent.aiJudge?.adsenseValue, 'high');
 
+const redOceanReview = applyKeywordAiJudge(
+  measuredMetric('\uC81C\uC8FC \uB80C\uD130\uCE74 \uCD94\uCC9C \uD6C4\uAE30', 'travel_domestic', 240, 2270, 15000),
+  { now },
+) as any;
+assert.strictEqual(redOceanReview.aiJudge?.verdict, 'exclude');
+assert.strictEqual(redOceanReview.grade, 'C');
+assert.strictEqual(redOceanReview.aiJudge?.rejectReason, 'document-count-exceeds-search-demand');
+
 console.log('[mobile-keyword-ai-judge.test] passed');

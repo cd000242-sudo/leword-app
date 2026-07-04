@@ -439,7 +439,8 @@ function ratioSignal(ratio: number | null): number {
   if (ratio >= 15) return 18;
   if (ratio >= 5) return 14;
   if (ratio >= 2) return 6;
-  if (ratio >= 0.8) return 0;
+  if (ratio >= 1.2) return 0;
+  if (ratio >= 0.8) return -8;
   return -12;
 }
 
@@ -550,6 +551,13 @@ export function judgeKeywordMetric(metric: MobileKeywordMetric, now: Date = new 
   const thin = lowValueLookup || GENERIC_SINGLE_RE.test(keyword);
   const newsOnly = NEWS_ONLY_RE.test(keyword);
   const unsafe = UNSAFE_RE.test(keyword);
+  const redOceanMeasured = status === 'measured'
+    && total !== null
+    && total >= 100
+    && documents !== null
+    && documents > 0
+    && ratio !== null
+    && ratio < 1;
 
   let score = 46;
   const reasons: string[] = [];
@@ -625,6 +633,11 @@ export function judgeKeywordMetric(metric: MobileKeywordMetric, now: Date = new 
     score -= 44;
     rejectReason ||= 'unsafe-or-sensitive-topic';
   }
+  if (redOceanMeasured) {
+    score -= 30;
+    reasons.push('document-count-exceeds-search-demand');
+    rejectReason ||= 'document-count-exceeds-search-demand';
+  }
   if (keyword.length < 3 || keyword.length > 36) {
     score -= 10;
     reasons.push('keyword-length-risk');
@@ -694,6 +707,7 @@ export function judgeKeywordMetric(metric: MobileKeywordMetric, now: Date = new 
   const verdict: MobileKeywordAiJudge['verdict'] = unsafe
     || lowValueLookup
     || broadLowValueEvent
+    || redOceanMeasured
     || status === 'synthetic-blocked'
     || score < 45
     || (thin && !actionable)

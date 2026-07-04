@@ -144,6 +144,17 @@ assert('mindmap prioritizes investigative issue branches over shallow suffix-onl
     && hongIssueBridge.includes('\uAE40\uBBFC\uC7AC \uAD50\uCCB4 \uD56D\uC758'),
   hongIssueBridge.join(', '));
 
+const minimumWageMindmap = rankMindmapExpansionCandidates('\uCD5C\uC800\uC784\uAE08 \uACA9\uCC28 1290\uC6D0', [
+  { keyword: '\uCD5C\uC800\uC784\uAE08 \uACA9\uCC28 1290\uC6D0 \uB2E4\uC74C \uAC10\uB3C5 \uD6C4\uBCF4', sources: ['mindmap-semantic-bridge'] },
+  { keyword: '\uCD5C\uC800\uC784\uAE08 \uACA9\uCC28 1290\uC6D0 \uC801\uC6A9 \uC0AC\uC5C5\uC7A5', sources: ['mindmap-semantic-bridge'] },
+  { keyword: '\uCD5C\uC800\uC784\uAE08 \uACA9\uCC28 1290\uC6D0 \uACC4\uC0B0 \uBC29\uBC95', sources: ['mindmap-semantic-bridge'] },
+], 10).map(item => item.keyword);
+assert('mindmap semantic bridge blocks cross-topic sports drift',
+  !minimumWageMindmap.includes('\uCD5C\uC800\uC784\uAE08 \uACA9\uCC28 1290\uC6D0 \uB2E4\uC74C \uAC10\uB3C5 \uD6C4\uBCF4')
+    && minimumWageMindmap.includes('\uCD5C\uC800\uC784\uAE08 \uACA9\uCC28 1290\uC6D0 \uC801\uC6A9 \uC0AC\uC5C5\uC7A5')
+    && minimumWageMindmap.includes('\uCD5C\uC800\uC784\uAE08 \uACA9\uCC28 1290\uC6D0 \uACC4\uC0B0 \uBC29\uBC95'),
+  minimumWageMindmap.join(', '));
+
 const semanticPolicyBridge = rankMindmapExpansionCandidates('\uADFC\uB85C\uC7A5\uB824\uAE08 \uC9C0\uAE09\uC77C', [
   { keyword: '\uADFC\uB85C\uC7A5\uB824\uAE08 \uC9C0\uAE09\uC77C \uB300\uC0C1', sources: ['mindmap-semantic-bridge'] },
   { keyword: '\uADFC\uB85C\uC7A5\uB824\uAE08 \uC9C0\uAE09\uC77C \uC2E0\uCCAD\uBC29\uBC95', sources: ['mindmap-semantic-bridge'] },

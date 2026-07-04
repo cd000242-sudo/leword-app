@@ -47,6 +47,62 @@ function isMindmapIssueBridgeCandidate(candidate: MindmapExpansionCandidate): bo
   ].some((source) => /mindmap-(?:issue|semantic)-(?:bridge|autocomplete|naver-relkwd)/i.test(source));
 }
 
+const SEMANTIC_BRIDGE_GENERIC_TOKENS = new Set([
+  '다음',
+  '후보',
+  '이유',
+  '과정',
+  '전말',
+  '논란',
+  '일정',
+  '방법',
+  '대상',
+  '조건',
+  '조회',
+  '확인',
+  '신청',
+  '발표',
+  '추천',
+  '후기',
+  '비교',
+  '가격',
+  '정보',
+  '관련',
+  '정리',
+  '결과',
+  '기준',
+  '변수',
+]);
+const SEMANTIC_BRIDGE_SPORTS_RE = /(?:홍명보|축구|대한축구협회|축구협회|KFA|국가대표|대표팀|월드컵|감독|이강인|이재성|김민재|선임|사퇴|교체|투입)/iu;
+const SEMANTIC_BRIDGE_SPORTS_DRIFT_RE = /(?:축구|대한축구협회|축구협회|KFA|국가대표|대표팀|월드컵|감독|이강인|이재성|김민재|선임|사퇴|교체|투입)/iu;
+
+function semanticBridgeTokens(keyword: string): string[] {
+  return Array.from(new Set(
+    normalizeKeyword(keyword)
+      .match(/[\uAC00-\uD7A3A-Za-z0-9]{2,}/gu) || [],
+  ))
+    .map((token) => token.toLowerCase())
+    .filter((token) => token.length >= 2 && !SEMANTIC_BRIDGE_GENERIC_TOKENS.has(token));
+}
+
+function hasSemanticTokenOverlap(seed: string, keyword: string): boolean {
+  const seedTokens = new Set(semanticBridgeTokens(seed));
+  if (seedTokens.size === 0) return false;
+  return semanticBridgeTokens(keyword).some((token) => seedTokens.has(token));
+}
+
+function isSemanticBridgeCompatible(seed: string, keyword: string): boolean {
+  const normalizedSeed = normalizeKeyword(seed);
+  const normalizedKeyword = normalizeKeyword(keyword);
+  if (!normalizedSeed || !normalizedKeyword) return false;
+
+  const seedSportsContext = SEMANTIC_BRIDGE_SPORTS_RE.test(normalizedSeed);
+  const candidateSportsContext = SEMANTIC_BRIDGE_SPORTS_DRIFT_RE.test(normalizedKeyword);
+  if (candidateSportsContext && !seedSportsContext) return false;
+  if (seedSportsContext && candidateSportsContext) return true;
+  return hasSemanticTokenOverlap(normalizedSeed, normalizedKeyword);
+}
+
 export function isMindmapExpansionKeywordCandidate(keyword: string): boolean {
   const kw = normalizeKeyword(keyword);
   if (kw.length < 2 || kw.length > 42) return false;
@@ -91,7 +147,7 @@ export function rankMindmapExpansionCandidates(
       reasons: ['mindmap-shared-query-branch', ...(candidate.sources || [])],
     }));
   const issueBridgeRanked: RankedRelatedKeyword[] = normalized
-    .filter(isMindmapIssueBridgeCandidate)
+    .filter((candidate) => isMindmapIssueBridgeCandidate(candidate) && isSemanticBridgeCompatible(seed, candidate.keyword))
     .map((candidate, index) => ({
       ...candidate,
       score: Math.max(64, 90 - index * 1.5),

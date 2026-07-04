@@ -190,6 +190,11 @@ assert('browser-local keyword grades require document-volume fit before A or S',
     && proWebHtml.includes('ratio >= 0.8 && score >= 55')
     && proWebHtml.includes('docs <= 20000 && ratio >= 2')
     && !proWebHtml.includes("if (total >= 100) return 'A';"));
+assert('keyword table downgrades measured red-ocean rows before display',
+  proWebHtml.includes('function isMeasuredDemandTooCrowded')
+    && proWebHtml.includes("label: '제외 검토'")
+    && proWebHtml.includes("displayGradeForRow(row)")
+    && proWebHtml.includes("displayGrade = displayGradeForRow(row)"));
 assert('live source backfill prefers source-provided keywords before synthetic expansion',
   proWebHtml.includes('const sourceValues = []')
     && proWebHtml.includes('signal && signal.relatedKeywords')

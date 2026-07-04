@@ -292,6 +292,7 @@ export function isQualityGoldenDiscoveryResult(
   if (grade === 'S') {
     return score >= 65
       && volume >= 300
+      && docs <= 20000
       && ratio >= 2;
   }
 
