@@ -163,12 +163,17 @@ assert('falls back to browser-side golden keyword search when the server is unav
     && html.includes('renderClientGoldenFallback(err)')
     && html.includes('renderClientFeatureFallback(feature, displayKeyword, err)')
     && html.includes('검색량·문서수는 가짜로 채우지 않고'));
-assert('keyword analyzer retries empty server results with browser-local user APIs',
+assert('keyword analyzer and mindmap use browser-local user APIs before server jobs',
   proWebHtml.includes('function runBrowserLocalApiLookup')
     && proWebHtml.includes('function fetchBrowserSearchAdKeywordTool')
+    && proWebHtml.includes('function fetchBrowserSearchAdKeywordToolBatches')
     && proWebHtml.includes('function fetchBrowserNaverBlogDocumentCount')
     && proWebHtml.includes('function maybeRunBrowserLocalApiLookup')
+    && proWebHtml.includes('function shouldRunBrowserLocalFirst')
     && proWebHtml.includes('browser-local-api')
+    && proWebHtml.includes('browser-local-primary')
+    && proWebHtml.includes('shouldRunBrowserLocalFirst(feature, null)')
+    && proWebHtml.includes('서버 job은 건너뜁니다.')
     && proWebHtml.includes('isEmptyKeywordResult(result)')
     && proWebHtml.includes('empty-job-result')
     && proWebHtml.includes('empty-direct-result')
@@ -188,11 +193,15 @@ assert('keyword graph remeasures with browser-local APIs instead of drawing synt
     && !proWebHtml.includes('function trendSeed')
     && !proWebHtml.includes('Math.max(100, seed * 7)')
     && !proWebHtml.includes('Math.sin((index + seed % 11) / 3)'));
-assert('browser-local mindmap fallback reuses current context and rejects article-title copy',
+assert('browser-local mindmap expands candidates in batches and rejects article-title copy',
   proWebHtml.includes('function allowBrowserLocalCandidate')
+    && proWebHtml.includes('function buildBrowserMindmapSeedHints')
+    && proWebHtml.includes('fetchBrowserSearchAdKeywordToolBatches([keyword].concat(mindmapSeedHints), 8)')
     && proWebHtml.includes("const contextKeywords = mode === 'mindmap-expansion'")
-    && proWebHtml.includes('buildLookupContextKeywords(keyword, 120)')
-    && proWebHtml.includes('Math.min(50, candidates.length)')
+    && proWebHtml.includes('buildLookupContextKeywords(keyword, 160)')
+    && proWebHtml.includes("const targetCount = mode === 'mindmap-expansion' ? 80")
+    && proWebHtml.includes('Math.min(80, candidates.length)')
+    && proWebHtml.includes('row.totalSearchVolume !== null && row.documentCount !== null')
     && proWebHtml.includes('검색 전 확인')
     && proWebHtml.includes('제목보다'));
 assert('live golden cards explain search intent and route shopping keywords away from the main board',
