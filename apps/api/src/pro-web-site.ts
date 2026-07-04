@@ -2215,6 +2215,110 @@ export function renderLewordProWeb(): string {
       const base = topic || keyword;
       return [base + ' 추천', base + ' 후기', base + ' 가격비교', base + ' 단점', base + ' 구매 전 확인'];
     }
+    function keywordDomain(value) {
+      const text = normalizeText(value).toLowerCase();
+      if (/(지원금|장려금|급여|수당|정책|복지|신청|대상|지급일|정부|채용|인턴|연금|보험|세금|환급|최저임금|주휴수당|문화누리카드|청년도약계좌|내일배움카드)/.test(text)) return 'policy';
+      if (/(월드컵|축구|야구|kbo|감독|선수|경기|순위|일정|하이라이트|축구협회|대표팀|이강인|김민재|이재성|손흥민|홍명보)/i.test(text)) return 'sports';
+      if (/(구매|가격|최저가|할인|추천|순위|후기|비교|리뷰|쿠폰|배송|스펙|브랜드|제품|상품|가전|전자|청소기|로봇청소기|공기청정기|제습기|에어컨|냉장고|세탁기|노트북|태블릿|이어폰|마사지기|영양제|유산균|화장품|선크림|샴푸|운동화|가방|매트리스|캠핑|기저귀|카시트)/.test(text)) return 'shopping';
+      if (/(제주|서울|부산|대구|인천|광주|대전|울산|강릉|속초|여행|숙소|맛집|렌터|렌트|항공권|호텔|펜션|축제|문화누리카드사용처)/.test(text)) return 'local';
+      return 'general';
+    }
+    function keywordDomainSignals(value) {
+      const text = normalizeText(value).toLowerCase();
+      return {
+        policy: /(지원금|장려금|급여|수당|정책|복지|신청|대상|지급일|정부|채용|인턴|연금|보험|세금|환급|최저임금|주휴수당|문화누리카드|청년도약계좌|내일배움카드)/.test(text),
+        sports: /(월드컵|축구|야구|kbo|감독|선수|경기|순위|일정|하이라이트|축구협회|대표팀|이강인|김민재|이재성|손흥민|홍명보)/i.test(text),
+        shopping: /(구매|가격|최저가|할인|추천|순위|후기|비교|리뷰|쿠폰|배송|스펙|브랜드|제품|상품|가전|전자|청소기|로봇청소기|공기청정기|제습기|에어컨|냉장고|세탁기|노트북|태블릿|이어폰|마사지기|영양제|유산균|화장품|선크림|샴푸|운동화|가방|매트리스|캠핑|기저귀|카시트)/.test(text),
+        local: /(제주|서울|부산|대구|인천|광주|대전|울산|강릉|속초|여행|숙소|맛집|렌터|렌트|항공권|호텔|펜션|축제|문화누리카드사용처)/.test(text),
+      };
+    }
+    function candidateFitsSeedDomain(seed, candidate) {
+      const seedSignals = keywordDomainSignals(seed);
+      const candidateSignals = keywordDomainSignals(candidate);
+      const combined = normalizeText(seed + ' ' + candidate);
+      const isCulturalLocal = /문화누리카드/.test(combined) && candidateSignals.local;
+      const isTravelPurchase = (seedSignals.local || candidateSignals.local) && /(렌터|렌트|숙소|호텔|펜션|항공권|맛집|여행)/.test(combined);
+      if (seedSignals.policy && candidateSignals.sports && !seedSignals.sports) return false;
+      if (seedSignals.sports && candidateSignals.policy && !seedSignals.policy) return false;
+      if (seedSignals.policy && candidateSignals.shopping && !seedSignals.shopping && !isCulturalLocal) return false;
+      if (seedSignals.shopping && candidateSignals.policy && !seedSignals.policy) return false;
+      if (seedSignals.local && candidateSignals.sports && !seedSignals.sports) return false;
+      if (seedSignals.sports && candidateSignals.local && !seedSignals.local) return false;
+      if (seedSignals.local && candidateSignals.shopping && !isTravelPurchase) return false;
+      const seedDomain = keywordDomain(seed);
+      const candidateDomain = keywordDomain(candidate);
+      if (seedDomain === 'general' || candidateDomain === 'general') return true;
+      if (seedDomain === candidateDomain) return true;
+      if (seedDomain === 'policy' && candidateDomain === 'local' && /문화누리카드/.test(normalizeText(seed + ' ' + candidate))) return true;
+      if (seedDomain === 'local' && candidateDomain === 'policy' && /문화누리카드/.test(normalizeText(seed + ' ' + candidate))) return true;
+      if ((seedDomain === 'local' && candidateDomain === 'shopping' || seedDomain === 'shopping' && candidateDomain === 'local') && isTravelPurchase) return true;
+      return false;
+    }
+    function keywordYear(keyword, fallback) {
+      const matched = normalizeText(keyword).match(/20[0-9]{2}/);
+      return matched ? matched[0] : (fallback || '2026');
+    }
+    function policySearchWhy(topic, keyword) {
+      const year = keywordYear(keyword, '2026');
+      const base = topic || keyword;
+      if (/근로장려금/.test(base)) return year + '년 기준 정기/반기 신청, 심사 완료, 입금일이 서로 달라서 검색자는 “내가 대상인지, 언제 얼마가 들어오는지”를 바로 확인하려고 검색합니다.';
+      if (/자녀장려금/.test(base)) return year + '년 소득·자녀 조건과 근로장려금 동시 수급 여부가 헷갈려 대상자 확인, 지급액, 지급일 검색이 반복됩니다.';
+      if (/주휴수당/.test(base)) return '알바·일용직·단시간 근로자가 15시간 기준, 결근, 퇴사, 미지급 신고 여부를 즉시 계산해야 해서 검색량이 붙습니다.';
+      if (/최저임금/.test(base)) return '월급·실수령액·주휴수당 포함 여부가 사업주와 근로자 모두에게 돈으로 바로 연결되어 계산/격차/위반 신고 검색이 생깁니다.';
+      if (/문화누리카드/.test(base)) return '잔액은 있는데 내 지역에서 실제 결제 가능한 가맹점이 어디인지 모르는 상황이라 지역명+사용처+온라인/영화/숙소 조합 검색이 붙습니다.';
+      if (/청년인턴/.test(base)) return '모집기간, 지원자격, 급여, 정규직 전환 가능성이 기관마다 달라서 공고를 보기 전 핵심 조건을 빠르게 확인하려는 수요입니다.';
+      if (/청년도약계좌/.test(base)) return '소득구간, 정부기여금, 중도해지, 만기 수령액이 가입 판단을 좌우해 계산형/조건형 검색이 반복됩니다.';
+      if (/내일배움카드/.test(base)) return '훈련비 지원 여부와 자부담, 사용처, 재직자/실업자 조건을 확인해야 결제나 수강 신청으로 이어집니다.';
+      return '대상, 금액, 기간, 제외 조건처럼 틀리면 손해가 나는 항목이 있어 최신 기준 확인 검색이 반복됩니다.';
+    }
+    function policyCombinationIntent(topic, keyword) {
+      const base = topic || keyword;
+      if (/근로장려금/.test(base)) return '조합 의도는 “근로장려금”에 연도, 지급일, 대상자 확인, 금액 조회를 붙여 개인별 수급 가능성을 바로 판단하려는 것입니다. 제목은 지급일 하나로 시작하되 본문 첫 화면에 대상·금액·제외조건 표를 같이 둬야 합니다.';
+      if (/주휴수당/.test(base)) return '조합 의도는 근로형태와 계산 기준을 붙여 “내 근무표에서 받을 수 있나”를 판단하려는 것입니다. 계산기, 예시, 미지급 신고 순서로 연결해야 체류가 생깁니다.';
+      if (/최저임금/.test(base)) return '조합 의도는 최저임금 숫자 자체보다 월급·실수령·주휴 포함 여부로 실제 급여가 얼마나 달라지는지 확인하는 것입니다. 계산표와 위반 사례를 분리하세요.';
+      if (/문화누리카드/.test(base)) return '조합 의도는 카드 혜택 설명이 아니라 “내 지역/온라인에서 지금 쓸 수 있는 곳”을 찾는 것입니다. 지역 사용처, 잔액조회, 결제 가능 업종을 한 글 안에서 이어야 합니다.';
+      if (/청년인턴/.test(base)) return '조합 의도는 공고를 하나씩 열기 전에 지원 가능성, 급여, 접수 마감, 전환 가능성을 압축 비교하려는 것입니다. 기관별 조건표가 핵심입니다.';
+      return '조합 의도는 제도명에 대상·기간·금액·신청 행동을 붙여 내 상황에서 바로 실행 가능한지 판단하려는 것입니다. 본문은 정의보다 조건표와 예외 사례가 먼저 와야 합니다.';
+    }
+    function issueSearchWhy(topic, keyword) {
+      const base = topic || keyword;
+      if (/홍명보|축구협회|대한축구협회/.test(base)) return '검색량은 사퇴/선임 기사 자체보다 “왜 이런 결론이 났는지, 다음 감독은 누구인지, 축구협회 책임은 어디까지인지”라는 후속 의문에서 커집니다.';
+      if (/이강인|김민재|이재성|손흥민/.test(base)) return '선수명 이슈는 장면·발언·교체·전술 판단이 짧은 영상과 기사로 퍼진 뒤, 맥락을 정리하려는 검색이 뒤따릅니다.';
+      if (/KBO|올스타전|야구/.test(base)) return '예매 일정, 라인업, 중계, 티켓 가격처럼 경기 전 행동으로 이어지는 정보가 붙을 때 검색량이 커집니다.';
+      return '이슈 검색량은 사건 발생 직후보다 책임 소재, 다음 일정, 당사자 반응, 후속 결과를 확인하려는 두 번째 검색에서 커집니다.';
+    }
+    function issueCombinationIntent(topic, keyword) {
+      const base = topic || keyword;
+      if (/홍명보|축구협회|대한축구협회/.test(base)) return '조합 의도는 “홍명보 감독 사퇴”에 다음 감독 후보, 선임 과정, 축구협회 비리, 선수 교체 장면을 붙여 기사보다 한 단계 깊은 판도를 보려는 것입니다.';
+      if (/KBO|올스타전|야구/.test(base)) return '조합 의도는 경기명에 예매·라인업·중계·티켓 가격을 붙여 바로 행동 가능한 정보를 확인하려는 것입니다.';
+      return '조합 의도는 사건명에 원인·책임·다음 변수·당사자 반응을 붙여 뉴스 제목보다 한 단계 뒤의 답을 찾는 것입니다.';
+    }
+    function keywordDeepIntentProfile(row) {
+      const keyword = normalizeText(row && row.keyword);
+      const topic = readableKeywordTopic(row);
+      const text = keywordRowSearchText(row);
+      if (/(policy|지원금|급여|수당|정책|복지|신청|대상|지급일|정부|채용|인턴|장려금|최저임금|문화누리카드)/i.test(text)) {
+        return {
+          kind: 'policy',
+          label: /문화누리카드/.test(topic + keyword) ? '지역 사용처 수요' : '정책/신청형',
+          meaning: policySearchWhy(topic, keyword),
+          action: policyCombinationIntent(topic, keyword),
+          route: '정보형 글감',
+          branches: policyExpansionBranches(topic, keyword),
+        };
+      }
+      if (/(sports|월드컵|축구|야구|감독|선수|경기|순위|일정|하이라이트|축구협회|대표팀|이강인|김민재|이재성|손흥민|홍명보)/i.test(text)) {
+        return {
+          kind: 'issue',
+          label: '후속 의문형',
+          meaning: issueSearchWhy(topic, keyword),
+          action: issueCombinationIntent(topic, keyword),
+          route: '이슈 롱테일',
+          branches: issueExpansionBranches(topic, keyword),
+        };
+      }
+      return null;
+    }
     function keywordIntentGuide(row) {
       const keyword = normalizeText(row && row.keyword);
       const topic = readableKeywordTopic(row);
@@ -2239,6 +2343,8 @@ export function renderLewordProWeb(): string {
           branches: shoppingExpansionBranches(topic, keyword),
         };
       }
+      const deepProfile = keywordDeepIntentProfile(row);
+      if (deepProfile) return deepProfile;
       const text = keywordRowSearchText(row);
       if (/(policy|지원금|급여|수당|정책|복지|신청|대상|지급일|정부|채용|인턴|장려금)/i.test(text)) {
         const demandReason = modifiers.length
@@ -2409,6 +2515,10 @@ export function renderLewordProWeb(): string {
       else if (/후보|감독|축구|야구|월드컵|올스타|선수|경기|순위|일정|논란|사퇴|선임/.test(clean)) suffixes = issueSuffixes.concat(['선임과정', '다음감독', '대표팀', '명단', '부상', '교체이유']);
       else if (/청소기|가습기|노트북|모니터|카메라|이어폰|렌터카|렌트카|제품|출시|가격|구매|선풍기|에어컨|휴대폰|폰|컴퓨터|전자|가전/.test(clean) || lower.indexOf('iphone') >= 0) suffixes = shoppingSuffixes.concat(localSuffixes);
       else if (/제주|서울|부산|대구|인천|광주|대전|울산|강릉|속초|여행|숙소|맛집|렌터|렌트/.test(clean)) suffixes = localSuffixes.concat(genericSuffixes);
+      const semanticGuide = keywordIntentGuide({ keyword: clean, source: 'mindmap-seed' });
+      (semanticGuide.branches || []).forEach(function(branch) {
+        hints.push(branch);
+      });
       suffixes.forEach(function(suffix) {
         hints.push(clean + ' ' + suffix);
         hints.push(compact + suffix);
@@ -2539,6 +2649,41 @@ export function renderLewordProWeb(): string {
       row.publishDecision = browserLocalPublishDecision(row);
       return row;
     }
+    function semanticMindmapFallbackRows(seed, limit) {
+      const seedKeyword = normalizeText(seed);
+      if (!seedKeyword) return [];
+      const guide = keywordIntentGuide({ keyword: seedKeyword, source: 'mindmap-semantic-bridge' });
+      const branches = uniqueIntentBranches([].concat(
+        guide && guide.branches ? guide.branches : [],
+        buildBrowserMindmapSeedHints(seedKeyword)
+      ), limit || 30)
+        .filter(function(candidate) { return compactKeywordText(candidate) !== compactKeywordText(seedKeyword); })
+        .filter(function(candidate) { return allowBrowserLocalCandidate(seedKeyword, candidate, 'mindmap-expansion'); })
+        .filter(function(candidate) { return candidateFitsSeedDomain(seedKeyword, candidate); });
+      return branches.map(function(keyword, index) {
+        const row = {
+          id: 'semantic-mindmap-' + index + '-' + normalizeSearchAdKey(keyword),
+          rank: index + 1,
+          keyword: keyword,
+          pcSearchVolume: null,
+          mobileSearchVolume: null,
+          totalSearchVolume: null,
+          documentCount: null,
+          goldenRatio: null,
+          competitionRatio: null,
+          cpc: null,
+          grade: '-',
+          source: 'browser-semantic-mindmap',
+          sources: ['browser-semantic-mindmap'],
+          intent: '의미 확장 후보',
+          isMeasured: false,
+          measurementStatus: 'unmeasured',
+          evidence: ['mindmap-semantic-bridge'],
+        };
+        row.publishDecision = browserLocalPublishDecision(row);
+        return row;
+      });
+    }
     function hasSearchVolumeMetric(row) {
       return !!(row && (
         Number(row.totalSearchVolume || 0) > 0
@@ -2610,8 +2755,11 @@ export function renderLewordProWeb(): string {
       const clean = normalizeText(candidate);
       if (!clean) return false;
       if (mode !== 'mindmap-expansion') return true;
+      if (!candidateFitsSeedDomain(seed, clean)) return false;
       if (clean.length > 48) return false;
       if (/https?:|AEO|GEO|SEO|클릭|바로가기|제목보다|한 화면에서|검색 전 확인/i.test(clean)) return false;
+      if (/다음감독|감독 후보|축구협회|대표팀|이강인|김민재|이재성|홍명보/.test(clean) && !/(감독|축구|대표팀|축구협회|이강인|김민재|이재성|홍명보|월드컵)/.test(normalizeText(seed))) return false;
+      if (/(지원금|장려금|최저임금|주휴수당|수당|지급일|신청|대상자)/.test(clean) && /(감독|축구|대표팀|축구협회|이강인|김민재|이재성|홍명보|월드컵)/.test(normalizeText(seed))) return false;
       const seedTokens = keywordTokenList(seed);
       const candidateTokens = keywordTokenList(clean);
       if (!seedTokens.length || !candidateTokens.length) return true;
@@ -2667,7 +2815,16 @@ export function renderLewordProWeb(): string {
       (docResult.errors || []).forEach(function(message) { if (errors.indexOf(message) < 0) errors.push(message); });
       const rows = candidates.map(function(candidate, index) {
         const key = normalizeSearchAdKey(candidate);
-        return browserLocalKeywordRow(candidate, metricMap.get(key) || null, docResult.counts.has(key) ? docResult.counts.get(key) : null, index);
+        const row = browserLocalKeywordRow(candidate, metricMap.get(key) || null, docResult.counts.has(key) ? docResult.counts.get(key) : null, index);
+        if (mode === 'mindmap-expansion' && row.totalSearchVolume === null && row.documentCount === null) {
+          row.source = 'browser-semantic-mindmap';
+          row.sources = ['browser-semantic-mindmap'];
+          row.intent = '의미 확장 후보';
+          row.measurementStatus = 'unmeasured';
+          row.evidence = ['mindmap-semantic-bridge'];
+          row.publishDecision = browserLocalPublishDecision(row);
+        }
+        return row;
       }).filter(function(row) {
         if (mode === 'mindmap-expansion') return row.totalSearchVolume !== null || row.documentCount !== null || row.measurementStatus === 'unmeasured';
         return row.totalSearchVolume !== null || row.documentCount !== null;
@@ -3323,22 +3480,34 @@ export function renderLewordProWeb(): string {
     function renderMindmapLookupInsight(seed, result) {
       const target = qs('lookupInsightPanel');
       if (!target) return;
-      const rows = keywordResultRows(result).filter(function(row) {
-        return !shouldHideFromMindmap(row);
-      }).slice(0, 30);
-      const measured = rows.filter(function(row) { return row.isMeasured; }).length;
       const seedLabel = normalizeText(seed) || 'seed';
+      let rows = keywordResultRows(result).filter(function(row) {
+        return !shouldHideFromMindmap(row);
+      }).filter(function(row) {
+        return allowBrowserLocalCandidate(seedLabel, row && row.keyword || '', 'mindmap-expansion');
+      }).filter(function(row) {
+        return candidateFitsSeedDomain(seedLabel, row && row.keyword || '');
+      });
+      const seen = new Set(rows.map(function(row) { return compactKeywordText(row && row.keyword); }));
+      semanticMindmapFallbackRows(seedLabel, 30).forEach(function(row) {
+        const key = compactKeywordText(row && row.keyword);
+        if (!key || seen.has(key)) return;
+        seen.add(key);
+        rows.push(row);
+      });
+      rows = rows.slice(0, 30);
+      const measured = rows.filter(function(row) { return row.isMeasured; }).length;
       const nodes = rows.map(function(row) {
         const safe = escapeAttr(row.keyword || '');
-        return '<button class="mindmap-node" type="button" data-board-action="analyze" data-keyword="' + safe + '">'
+        return '<div class="mindmap-node" role="button" tabindex="0" data-board-action="analyze" data-keyword="' + safe + '">'
           + '<strong>' + escapeHtml(row.keyword || '-') + '</strong>'
           + '<span>전체 ' + fmt(row.totalSearchVolume) + ' · PC ' + fmt(row.pcSearchVolume) + ' · 모바일 ' + fmt(row.mobileSearchVolume) + ' · 문서 ' + fmt(row.documentCount) + ' · 등급 ' + escapeHtml(row.grade || '-') + '</span>'
           + keywordIntentGuideHtml(row)
-          + '</button>';
+          + '</div>';
       }).join('');
       target.hidden = false;
       target.innerHTML = '<h3>마인드맵 확장</h3>'
-        + '<p>자동완성/연관어 후보를 서버에서 수집한 뒤 실측 가능한 항목만 가지로 정리했습니다.</p>'
+        + '<p>서버/사용자 API/의미 확장을 합쳐 글감으로 쓸 수 있는 연관·확장 키워드를 가지로 정리했습니다. 수치가 비어 있으면 측정 필요입니다.</p>'
         + resultKpiHtml([
           { label: '가지', value: fmt(rows.length) },
           { label: '실측', value: fmt(measured) },
@@ -3347,7 +3516,7 @@ export function renderLewordProWeb(): string {
         ])
         + (rows.length
           ? '<div class="mindmap-view"><div class="mindmap-root">' + escapeHtml(seedLabel) + '</div><div class="mindmap-branches">' + nodes + '</div></div>'
-          : '<ul class="result-list"><li><span>실측 가능한 마인드맵 후보가 없습니다. API 키 상태와 네이버 자동완성/연관어 응답을 확인하세요.</span></li></ul>');
+          : '<ul class="result-list"><li><span>마인드맵 후보가 없습니다. API 키 상태와 키워드 도메인을 확인하세요.</span></li></ul>');
     }
     function renderToolWaiting(feature) {
       renderToolResultPanel(feature, feature && feature.title ? feature.title : 'Pro 도구', '자동 발굴 실행을 누르면 진행률 모달이 뜨고, 완료 후 이 영역에 후보와 실측 지표가 정리됩니다.', [], []);

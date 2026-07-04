@@ -206,12 +206,17 @@ assert('keyword graph remeasures with browser-local APIs instead of drawing synt
 assert('browser-local mindmap expands candidates in batches and rejects article-title copy',
   proWebHtml.includes('function allowBrowserLocalCandidate')
     && proWebHtml.includes('function buildBrowserMindmapSeedHints')
+    && proWebHtml.includes('function candidateFitsSeedDomain')
+    && proWebHtml.includes('function semanticMindmapFallbackRows')
     && proWebHtml.includes('fetchBrowserSearchAdKeywordToolBatches([keyword].concat(mindmapSeedHints), 8)')
     && proWebHtml.includes("const contextKeywords = mode === 'mindmap-expansion'")
     && proWebHtml.includes('buildLookupContextKeywords(keyword, 160)')
     && proWebHtml.includes("const targetCount = mode === 'mindmap-expansion' ? 80")
     && proWebHtml.includes('Math.min(80, candidates.length)')
     && proWebHtml.includes("row.totalSearchVolume !== null || row.documentCount !== null || row.measurementStatus === 'unmeasured'")
+    && proWebHtml.includes('browser-semantic-mindmap')
+    && proWebHtml.includes('seedSignals.policy && candidateSignals.sports')
+    && proWebHtml.includes('semanticMindmapFallbackRows(seedLabel, 30)')
     && proWebHtml.includes('검색 전 확인')
     && proWebHtml.includes('제목보다'));
 assert('live golden cards explain search intent and route shopping keywords away from the main board',
@@ -229,6 +234,9 @@ assert('live golden cards explain search intent and route shopping keywords away
     && proWebHtml.includes('의도 불명확')
     && proWebHtml.includes('검색량 이유</em>')
     && proWebHtml.includes('조합 의도/활용</em>')
+    && proWebHtml.includes('검색량은 사퇴/선임 기사 자체보다')
+    && proWebHtml.includes('월급·실수령액·주휴수당')
+    && proWebHtml.includes('내가 대상인지, 언제 얼마가 들어오는지')
     && proWebHtml.includes('class="intent-branches"')
     && proWebHtml.includes('class="intent-branch"')
     && proWebHtml.includes('홍명보 감독 다음 감독 후보')
