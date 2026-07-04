@@ -177,6 +177,24 @@ assert('keyword analyzer retries empty server results with browser-local user AP
     && proWebHtml.includes('X-Naver-Client-Id')
     && proWebHtml.includes('서버 결과가 비어 있어 저장된 사용자 API 키로 직접 조회합니다.')
     && proWebHtml.includes('사용자 API 키 직접 조회 결과가 비어 있습니다.'));
+assert('keyword graph remeasures with browser-local APIs instead of drawing synthetic bars',
+  proWebHtml.includes('function fetchBrowserLocalExactMetric')
+    && proWebHtml.includes('function renderMeasuredTrendGraph')
+    && proWebHtml.includes('function renderTrendGraphUnavailable')
+    && proWebHtml.includes('hasSearchVolumeMetric(row)')
+    && proWebHtml.includes('브라우저에 저장된 사용자 API 키로 직접 조회합니다.')
+    && proWebHtml.includes('가짜 30일 추정값이 아니라 현재 확보한 PC/모바일 실측값만 그래프로 표시합니다.')
+    && proWebHtml.includes('showTrendGraph(keyword).catch')
+    && !proWebHtml.includes('function trendSeed')
+    && !proWebHtml.includes('Math.max(100, seed * 7)')
+    && !proWebHtml.includes('Math.sin((index + seed % 11) / 3)'));
+assert('browser-local mindmap fallback reuses current context and rejects article-title copy',
+  proWebHtml.includes('function allowBrowserLocalCandidate')
+    && proWebHtml.includes("const contextKeywords = mode === 'mindmap-expansion'")
+    && proWebHtml.includes('buildLookupContextKeywords(keyword, 120)')
+    && proWebHtml.includes('Math.min(50, candidates.length)')
+    && proWebHtml.includes('검색 전 확인')
+    && proWebHtml.includes('제목보다'));
 assert('keyword analyzer table stays readable on bright theme',
   proWebHtml.includes('td { color: var(--text); }')
     && proWebHtml.includes('.tiny-btn.green { border-color: rgba(53,211,153,.44); color: #047857;')
