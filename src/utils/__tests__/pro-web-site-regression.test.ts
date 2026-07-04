@@ -167,7 +167,7 @@ assert('keyword lookup button is labeled as direct lookup, not server lookup',
   proWebHtml.includes('<button class="btn primary" type="submit">조회하기</button>')
     && proWebHtml.includes('키워드를 입력하고 조회하기를 실행하세요.')
     && !proWebHtml.includes('<button class="btn primary" type="submit">서버 조회</button>'));
-assert('keyword analyzer and mindmap use browser-local user APIs before server jobs',
+assert('keyword analyzer and mindmap use user API executor before browser-local fallback',
   proWebHtml.includes('function runBrowserLocalApiLookup')
     && proWebHtml.includes('function fetchBrowserSearchAdKeywordTool')
     && proWebHtml.includes('function fetchBrowserSearchAdKeywordToolBatches')
@@ -175,18 +175,21 @@ assert('keyword analyzer and mindmap use browser-local user APIs before server j
     && proWebHtml.includes('function maybeRunBrowserLocalApiLookup')
     && proWebHtml.includes('function shouldRunBrowserLocalFirst')
     && proWebHtml.includes('browser-local-api')
-    && proWebHtml.includes('browser-local-primary')
     && proWebHtml.includes('shouldRunBrowserLocalFirst(feature, null)')
     && proWebHtml.includes('function runUserApiServerExecutorLookup')
-    && proWebHtml.includes('browser-cors-fallback')
-    && proWebHtml.includes('사용자 API 키를 서버 실행기로 전달해 조회합니다.')
-    && proWebHtml.includes('네이버 CORS가 막히면 사용자 API 키만 서버 실행기로 전달해 조회합니다.')
+    && proWebHtml.includes('function runUserApiLookupFirst')
+    && proWebHtml.includes("runUserApiServerExecutorLookup(feature, seed, mode, 'user-api-primary')")
+    && proWebHtml.includes('const localResult = await runUserApiLookupFirst(feature, displayKeyword, localApiLookupModeForFeature(feature, null));')
+    && proWebHtml.includes('환경설정에 저장된 사용자 API 키를 실행 요청에만 전달해 PC/모바일 검색량과 문서수를 조회합니다.')
+    && proWebHtml.includes('사용자 API 키로 조회하기')
+    && proWebHtml.includes('사용자 API 실행 요청')
     && proWebHtml.includes('isEmptyKeywordResult(result)')
     && proWebHtml.includes('empty-job-result')
     && proWebHtml.includes('empty-direct-result')
     && proWebHtml.includes('X-API-KEY')
     && proWebHtml.includes('X-Customer')
     && proWebHtml.includes('X-Naver-Client-Id')
+    && proWebHtml.includes('apiPost(feature.route, payloadBody, { userApiCredentials: true })')
     && proWebHtml.includes('서버 결과가 비어 있어 저장된 사용자 API 키로 직접 조회합니다.')
     && proWebHtml.includes('사용자 API 키 직접 조회 결과가 비어 있습니다.'));
 assert('keyword graph remeasures with browser-local APIs instead of drawing synthetic bars',
