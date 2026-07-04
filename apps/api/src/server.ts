@@ -1932,6 +1932,20 @@ function isNonNegativeFiniteMetric(value: unknown): value is number {
   return typeof value === 'number' && Number.isFinite(value) && value >= 0;
 }
 
+function isRequestedKeywordAnalysisMetric(metric: MobileKeywordMetric): boolean {
+  return metric.intent === 'requested-keyword' || metric.source === 'pc-keyword-analysis-exact';
+}
+
+function hasSearchAdMeasuredSplit(metric: MobileKeywordMetric): boolean {
+  const evidenceText = Array.isArray(metric.evidence) ? metric.evidence.join(' ') : '';
+  return isNonNegativeFiniteMetric(metric.pcSearchVolume)
+    && isNonNegativeFiniteMetric(metric.mobileSearchVolume)
+    && (
+      metric.searchVolumeSource === 'searchad'
+      || /pc-searchad-volume|searchad/i.test(`${metric.source || ''} ${evidenceText}`)
+    );
+}
+
 function metricRuntimeMarkerText(metric: MobileKeywordMetric): string {
   return [
     metric.source,
@@ -1947,6 +1961,13 @@ function isStrictMeasuredKeywordMetric(
 ): boolean {
   if (!metric || !String(metric.keyword || '').trim()) return false;
   if (endpoint.product === 'mindmap-expansion') return isMindmapServerBoardCandidate(metric);
+  if (endpoint.product === 'keyword-analysis' && isRequestedKeywordAnalysisMetric(metric)) {
+    if (SYNTHETIC_RESULT_MARKER_PATTERN.test(metricRuntimeMarkerText(metric))) return false;
+    return (metric.isMeasured === true
+      && isNonNegativeFiniteMetric(metric.pcSearchVolume)
+      && isNonNegativeFiniteMetric(metric.mobileSearchVolume))
+      || hasSearchAdMeasuredSplit(metric);
+  }
   if (metric.isMeasured !== true) return false;
   if (SYNTHETIC_RESULT_MARKER_PATTERN.test(metricRuntimeMarkerText(metric))) return false;
   if (!isPositiveFiniteMetric(metric.totalSearchVolume)) return false;
@@ -1985,8 +2006,8 @@ function sanitizeMeasuredKeywordResult(
     }
     const key = compactServerKeyword(judged.keyword);
     if (!key || seen.has(key)) continue;
-    const isRequestedKeywordAnalysisMetric = endpoint.product === 'keyword-analysis'
-      && (judged.intent === 'requested-keyword' || judged.source === 'pc-keyword-analysis-exact');
+    const isRequestedKeywordAnalysisDisplayMetric = endpoint.product === 'keyword-analysis'
+      && isRequestedKeywordAnalysisMetric(judged);
     const isMeasuredMindmapExplorationMetric = endpoint.product === 'mindmap-expansion'
       && judged.intent === 'mindmap-expansion';
     const isMeasuredNaverMateExplorationMetric = endpoint.product === 'naver-mate-hunter'
@@ -1994,7 +2015,7 @@ function sanitizeMeasuredKeywordResult(
     const isMeasuredShoppingConnectMetric = endpoint.product === 'shopping-connect'
       && isShoppingMeasuredBoardCandidate(judged);
     if (judged.aiJudge?.verdict === 'exclude'
-      && !isRequestedKeywordAnalysisMetric
+      && !isRequestedKeywordAnalysisDisplayMetric
       && !isMeasuredMindmapExplorationMetric
       && !isMeasuredNaverMateExplorationMetric
       && !isMeasuredShoppingConnectMetric) {

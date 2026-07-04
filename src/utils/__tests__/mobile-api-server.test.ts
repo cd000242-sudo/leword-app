@@ -2208,6 +2208,66 @@ const result: MobileKeywordResult = {
     fs.rmSync(overlaySplitBoardFile, { force: true });
   }
 
+  const partialExactServer = createLewordApiServer({
+    entitlementVerifier: null,
+    resultCache: new InMemoryMobileResultCache(),
+    liveGoldenRadar: null,
+    notificationInbox: null,
+    prewarmService: null,
+    prewarmScheduler: null,
+    executor: async () => ({
+      ...result,
+      keywords: [{
+        keyword: '2026 근로장려금',
+        grade: 'S',
+        pcSearchVolume: 1200,
+        mobileSearchVolume: 8400,
+        totalSearchVolume: 9600,
+        documentCount: null,
+        goldenRatio: null,
+        cpc: 0,
+        category: 'test',
+        source: 'pc-keyword-analysis-exact',
+        intent: 'requested-keyword',
+        evidence: ['fixture exact split', 'pc-searchad-volume', 'pc-naver-openapi-document-count-unavailable'],
+        isMeasured: false,
+        searchVolumeSource: 'searchad',
+        searchVolumeConfidence: 'high',
+        documentCountSource: null,
+      }],
+      summary: {
+        total: 1,
+        sss: 0,
+        measured: 0,
+        elapsedMs: 1,
+        fromCache: false,
+        parityMode: 'pc-engine-plus',
+      },
+    }),
+  });
+  const partialExactPort = await listen(partialExactServer);
+  const partialExactBaseUrl = `http://127.0.0.1:${partialExactPort}`;
+  try {
+    const analyze = await fetch(`${partialExactBaseUrl}/v1/keywords/analyze`, {
+      method: 'POST',
+      headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify({ keyword: '2026 근로장려금', maxRelatedCount: 10 }),
+    });
+    const analyzeJson: any = await analyze.json();
+    const completed = await waitForCompletedJob(partialExactBaseUrl, analyzeJson.job.id);
+    const firstKeyword = completed.result.keywords[0];
+    assert('keyword analysis keeps SearchAd-measured exact keyword when document count is unavailable',
+      completed.result.keywords.length === 1
+        && firstKeyword.keyword === '2026 근로장려금'
+        && firstKeyword.pcSearchVolume === 1200
+        && firstKeyword.mobileSearchVolume === 8400
+        && firstKeyword.documentCount === null
+        && firstKeyword.isMeasured === false,
+      JSON.stringify(completed.result));
+  } finally {
+    await close(partialExactServer);
+  }
+
   console.log('[mobile-api-server-live-board-overlay-split.test] passed');
 
   let strictExecutorCalls = 0;
