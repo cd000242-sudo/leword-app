@@ -4863,6 +4863,7 @@ async function runMindmapExpansion(
   let finalMetrics = params.includeVolumeMetrics
     ? prioritizeMindmapMeasuredMetrics(measuredMetrics, params.targetCount)
     : measuredMetrics;
+  const sourceOnlyMetrics = metrics.filter((metric) => !isFullyMeasuredKeyword(metric));
 
   const minimumMeasuredMindmapRows = Math.min(params.targetCount, 10);
   if (params.includeVolumeMetrics && finalMetrics.length < minimumMeasuredMindmapRows) {
@@ -4881,9 +4882,8 @@ async function runMindmapExpansion(
       context,
       measureKeywordMetrics,
     );
-    finalMetrics = mergePrioritizedKeywordMetrics([finalMetrics, fallback], params.targetCount);
+    finalMetrics = mergePrioritizedKeywordMetrics([finalMetrics, fallback, sourceOnlyMetrics], params.targetCount);
   }
-  const sourceOnlyMetrics = metrics.filter((metric) => !isFullyMeasuredKeyword(metric));
   if (!params.includeVolumeMetrics && finalMetrics.length < params.targetCount && sourceOnlyMetrics.length > 0) {
     finalMetrics = mergePrioritizedKeywordMetrics([finalMetrics, sourceOnlyMetrics], params.targetCount);
   }

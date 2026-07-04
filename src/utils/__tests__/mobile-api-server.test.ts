@@ -2456,6 +2456,63 @@ const result: MobileKeywordResult = {
     await close(mindmapServer);
   }
 
+  const mindmapSourceOnlyResult: MobileKeywordResult = {
+    ...result,
+    keywords: [{
+      keyword: '홍명보 감독 다음 감독 후보',
+      grade: 'S',
+      pcSearchVolume: null,
+      mobileSearchVolume: null,
+      totalSearchVolume: null,
+      documentCount: null,
+      goldenRatio: null,
+      cpc: null,
+      category: 'sports',
+      source: 'mindmap-semantic-bridge',
+      intent: 'mindmap-expansion',
+      evidence: ['pc-mindmap-expansion-quality', 'semantic bridge'],
+      isMeasured: false,
+      measurementStatus: 'unmeasured',
+    }],
+    summary: {
+      total: 1,
+      sss: 0,
+      measured: 0,
+      elapsedMs: 1,
+      fromCache: false,
+      parityMode: 'pc-engine-plus',
+    },
+  };
+  const mindmapSourceOnlyServer = createLewordApiServer({
+    entitlementVerifier: null,
+    resultCache: null,
+    liveGoldenRadar: null,
+    prewarmService: null,
+    prewarmScheduler: null,
+    executor: async () => mindmapSourceOnlyResult,
+  });
+  const mindmapSourceOnlyPort = await listen(mindmapSourceOnlyServer);
+  const mindmapSourceOnlyBaseUrl = `http://127.0.0.1:${mindmapSourceOnlyPort}`;
+  try {
+    const sourceOnly = await fetch(`${mindmapSourceOnlyBaseUrl}/v1/mindmap/expand`, {
+      method: 'POST',
+      headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify({ seedKeyword: '홍명보 감독 사퇴', targetCount: 20, includeVolumeMetrics: true }),
+    });
+    const sourceOnlyJson: any = await sourceOnly.json();
+    const sourceOnlyCompleted = await waitForCompletedJob(mindmapSourceOnlyBaseUrl, sourceOnlyJson.job.id);
+    assert('mindmap keeps trusted source-only semantic branches as unmeasured expansion rows',
+      sourceOnlyCompleted.result.keywords.length === 1
+        && sourceOnlyCompleted.result.keywords[0].keyword === '홍명보 감독 다음 감독 후보'
+        && sourceOnlyCompleted.result.keywords[0].source === 'mindmap-semantic-bridge'
+        && sourceOnlyCompleted.result.keywords[0].measurementStatus === 'unmeasured'
+        && sourceOnlyCompleted.result.summary.total === 1
+        && sourceOnlyCompleted.result.summary.measured === 0,
+      JSON.stringify(sourceOnlyCompleted.result));
+  } finally {
+    await close(mindmapSourceOnlyServer);
+  }
+
   console.log('[mobile-api-server-strict-measured-result.test] passed');
 
   let prewarmExecutions = 0;

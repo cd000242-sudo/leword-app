@@ -325,6 +325,17 @@ export function renderLewordProWeb(): string {
     .keyword-intent.unclear { border-color: rgba(255,77,109,.26); background: rgba(255,77,109,.07); }
     .keyword-intent.policy { border-color: rgba(91,183,255,.28); background: rgba(91,183,255,.08); }
     .keyword-intent .tiny-btn { width: fit-content; min-height: 28px; padding: 5px 9px; }
+    .intent-branches { display: flex; flex-wrap: wrap; gap: 5px; margin-top: 3px; }
+    .intent-branch {
+      border: 1px solid rgba(14,165,233,.26);
+      border-radius: 999px;
+      background: rgba(14,165,233,.08);
+      color: #0369a1;
+      padding: 4px 7px;
+      font-size: 11px;
+      font-weight: 900;
+      line-height: 1.2;
+    }
     .gk-metrics { display: grid; grid-template-columns: repeat(3, 1fr); gap: 8px; }
     .gk-m { background: var(--surface-2); border: 1px solid var(--line); border-radius: 10px; padding: 9px 8px; text-align: center; }
     .gk-m.gk-hot { background: rgba(53,211,153,.10); border-color: rgba(53,211,153,.28); }
@@ -2117,50 +2128,148 @@ export function renderLewordProWeb(): string {
         return !shouldHideFromLiveGoldenBoard(item);
       });
     }
+    function uniqueIntentBranches(items, limit) {
+      const seen = new Set();
+      const out = [];
+      (items || []).forEach(function(item) {
+        const text = normalizeText(item);
+        const key = compactKeywordText(text);
+        if (!text || !key || seen.has(key)) return;
+        seen.add(key);
+        out.push(text);
+      });
+      return out.slice(0, limit || 6);
+    }
+    function readableKeywordTopic(row) {
+      const keyword = normalizeText(row && row.keyword);
+      if (!keyword) return '';
+      const compact = compactKeywordText(keyword);
+      const knownTopics = [
+        '근로장려금', '자녀장려금', '주휴수당', '최저임금', '문화누리카드', '청년인턴',
+        '청년도약계좌', '국민내일배움카드', '실업급여', '기초연금', '육아휴직급여',
+        '홍명보 감독', '대한축구협회', '월드컵', 'KBO 올스타전',
+      ];
+      for (let i = 0; i < knownTopics.length; i += 1) {
+        if (compact.indexOf(compactKeywordText(knownTopics[i])) >= 0) return knownTopics[i];
+      }
+      return keyword.replace(/\\b(202[0-9]|20[0-9]{2}|tistory|티스토리|blogspot|블로그스팟)\\b/gi, '').replace(/(신청|방법|지급일|대상|조회|계산기|후기|추천|사용처|금액|일정|후보|가격|비교|정리)+$/g, '').trim() || keyword;
+    }
+    function keywordModifiers(row) {
+      const text = keywordRowSearchText(row);
+      const modifiers = [];
+      [
+        ['2026', '2026년 기준'],
+        ['2025', '2025년 기준'],
+        ['신청', '신청 절차'],
+        ['방법', '방법 확인'],
+        ['지급일', '지급일 확인'],
+        ['금액', '금액 확인'],
+        ['대상', '대상/자격'],
+        ['조회', '조회 수요'],
+        ['계산기', '계산/시뮬레이션'],
+        ['일용직', '일용직 예외'],
+        ['사용처', '사용처 확인'],
+        ['후보', '후보 비교'],
+        ['사퇴', '사퇴 이후 변수'],
+        ['비리', '논란/전말'],
+        ['tistory', '티스토리 노출 의도'],
+      ].forEach(function(pair) {
+        if (text.indexOf(pair[0]) >= 0) modifiers.push(pair[1]);
+      });
+      return uniqueIntentBranches(modifiers, 5);
+    }
+    function policyExpansionBranches(topic, keyword) {
+      const base = topic || keyword;
+      if (/근로장려금/.test(base)) {
+        const year = (keyword.match(/202[0-9]/) || ['2026'])[0];
+        return [
+          year + ' 근로장려금 지급일',
+          year + ' 근로장려금 신청기간',
+          year + ' 근로장려금 대상자 확인',
+          year + ' 근로장려금 금액 조회',
+          year + ' 근로장려금 반기 정기 차이',
+          year + ' 근로장려금 제외대상',
+        ];
+      }
+      if (/주휴수당/.test(base)) return ['주휴수당 계산기 일용직', '주휴수당 조건 15시간', '주휴수당 미지급 신고', '주휴수당 계산법 예시', '알바 주휴수당 기준'];
+      if (/최저임금/.test(base)) return ['최저임금 월급 계산', '최저임금 주휴수당 포함', '최저임금 실수령액', '최저임금 위반 신고', '최저임금 격차 원인'];
+      if (/문화누리카드/.test(base)) return ['문화누리카드 사용처 조회', '문화누리카드 온라인 사용처', '문화누리카드 잔액조회', '문화누리카드 충전일', '문화누리카드 영화 예매'];
+      return [base + ' 대상', base + ' 신청방법', base + ' 지급일', base + ' 필요서류', base + ' 제외대상'];
+    }
+    function issueExpansionBranches(topic, keyword) {
+      const base = topic || keyword;
+      if (/홍명보|축구협회|감독/.test(keyword)) {
+        return [
+          '홍명보 감독 다음 감독 후보',
+          '홍명보 감독 선임 과정 논란',
+          '대한축구협회 비리 전말',
+          '이강인 이재성 투입 요청',
+          '김민재 교체 항의 장면',
+          '대한민국 축구대표팀 전술 문제',
+        ];
+      }
+      if (/KBO|올스타전|야구/.test(keyword)) return ['KBO 올스타전 예매 방법', 'KBO 올스타전 라인업', 'KBO 올스타전 중계', 'KBO 올스타전 일정', 'KBO 올스타전 티켓 가격'];
+      return [base + ' 이유', base + ' 이후 전망', base + ' 핵심 쟁점', base + ' 다음 일정', base + ' 반응 정리'];
+    }
+    function shoppingExpansionBranches(topic, keyword) {
+      const base = topic || keyword;
+      return [base + ' 추천', base + ' 후기', base + ' 가격비교', base + ' 단점', base + ' 구매 전 확인'];
+    }
     function keywordIntentGuide(row) {
+      const keyword = normalizeText(row && row.keyword);
+      const topic = readableKeywordTopic(row);
+      const modifiers = keywordModifiers(row);
       if (isAmbiguousCompositeKeyword(row)) {
         return {
           kind: 'unclear',
           label: '의도 불명확',
-          meaning: '단어가 여러 의도로 붙어 있어 검색자가 원하는 답이 바로 읽히지 않습니다.',
-          action: '그대로 글을 쓰지 말고 정밀분석이나 마인드맵에서 자연스러운 질문형 키워드로 다시 확장하세요.',
+          meaning: '검색량이 있어도 여러 modifier가 한 줄에 붙어 검색자가 원하는 답이 흐립니다. 조합 자체가 자연 검색어인지 먼저 분해해야 합니다.',
+          action: '핵심 주제 1개와 확인 의도 1개만 남긴 뒤 마인드맵으로 다시 확장하세요. 여러 의도를 한 제목에 다 넣으면 체류와 클릭이 동시에 약해집니다.',
           route: '검증 후 사용',
+          branches: uniqueIntentBranches([topic + ' 방법', topic + ' 대상', topic + ' 지급일', topic + ' 후기', topic + ' 비교'], 5),
         };
       }
       if (isShoppingIntentKeywordRow(row)) {
         return {
           kind: 'shopping',
           label: '쇼핑커넥트 전용',
-          meaning: '제품 추천, 비교, 후기, 구매 판단을 하려는 검색 의도입니다.',
-          action: '추가 기능의 쇼핑커넥트에서 팔릴 제품, 구매 포인트, 제목 각도까지 검증한 뒤 글감으로 쓰세요.',
+          meaning: '검색량은 구매 직전의 비교·후기·가격 확인에서 생깁니다. 단순 키워드가 아니라 팔릴 제품과 구매 불안을 같이 잡아야 합니다.',
+          action: '쇼핑커넥트에서 실제 상품 후보, 구매 전환 포인트, 후기형 제목을 먼저 고른 뒤 글을 쓰세요. LIVE 보드에서는 제품명만 보고 쓰면 전환이 약합니다.',
           route: '쇼핑커넥트로 검증',
+          branches: shoppingExpansionBranches(topic, keyword),
         };
       }
       const text = keywordRowSearchText(row);
       if (/(policy|지원금|급여|수당|정책|복지|신청|대상|지급일|정부|채용|인턴|장려금)/i.test(text)) {
+        const demandReason = modifiers.length
+          ? modifiers.join(', ') + ' 때문에 검색자가 최신 기준을 바로 확인하려는 수요입니다.'
+          : '자격, 금액, 지급일처럼 틀리면 손해가 나는 정보라 검색량이 반복적으로 붙습니다.';
         return {
           kind: 'policy',
           label: '정책/신청형',
-          meaning: '검색자는 대상, 금액, 지급일, 신청 방법처럼 바로 확인할 수 있는 답을 찾고 있습니다.',
-          action: '대상 조건, 신청 기간, 지급 금액, 필요 서류를 표로 먼저 정리하고 최신 공지 링크를 붙이세요.',
+          meaning: demandReason,
+          action: '조합 의도는 "' + (topic || keyword) + '"에 ' + (modifiers.length ? modifiers.join('·') : '대상·금액·일정') + '을 붙여 내 상황에 해당되는지 확인하려는 것입니다. 첫 화면에 대상/기간/금액/제외 조건 표를 두고, 아래로 사례형 질문을 연결하세요.',
           route: '정보형 글감',
+          branches: policyExpansionBranches(topic, keyword),
         };
       }
       if (/(sports|월드컵|축구|야구|감독|선수|경기|순위|일정|하이라이트)/i.test(text)) {
         return {
           kind: 'issue',
           label: '이슈 해설형',
-          meaning: '검색자는 현재 이슈의 이유, 다음 일정, 영향, 후속 변수를 빠르게 알고 싶어합니다.',
-          action: '뉴스 제목을 반복하지 말고 원인, 쟁점, 다음 행동을 질문형 소제목으로 나누세요.',
+          meaning: '검색량은 기사 제목 자체보다 다음에 무슨 일이 생기는지, 누가 책임지는지, 결과가 어떻게 바뀌는지에 대한 후속 궁금증에서 커집니다.',
+          action: '조합 의도는 사건명에 후보·전말·선임과정·선수 반응 같은 다음 질문을 붙여 기사보다 한 단계 뒤의 답을 찾는 것입니다. 단순 요약보다 논란의 원인과 다음 변수를 묶으세요.',
           route: '이슈 롱테일',
+          branches: issueExpansionBranches(topic, keyword),
         };
       }
       return {
         kind: 'need',
         label: '검색 의도 확인',
-        meaning: '검색자가 무엇을 확인하려는지 먼저 정의한 뒤 써야 하는 후보입니다.',
-        action: '상위 노출 글의 공통 질문을 확인하고 답변형 제목과 근거 표를 함께 구성하세요.',
+        meaning: '검색량은 키워드 자체보다 검색자가 결정을 미루는 지점에서 생깁니다. 이 키워드는 정확한 답, 비교 기준, 다음 행동 중 무엇을 원하는지 더 쪼개야 합니다.',
+        action: '마인드맵으로 확인형·비교형·문제해결형 가지를 먼저 뽑고, 실측값이 붙은 가지부터 제목 후보로 쓰세요.',
         route: '정밀 검증',
+        branches: uniqueIntentBranches([topic + ' 뜻', topic + ' 이유', topic + ' 방법', topic + ' 비교', topic + ' 주의사항'], 5),
       };
     }
     function keywordIntentGuideHtml(row) {
@@ -2168,10 +2277,17 @@ export function renderLewordProWeb(): string {
       const shoppingAction = guide.kind === 'shopping'
         ? '<button class="tiny-btn green" type="button" data-board-action="shopping" data-keyword="' + escapeAttr(row && row.keyword || '') + '">쇼핑커넥트로 보기</button>'
         : '';
+      const branches = uniqueIntentBranches(guide.branches || [], 6);
+      const branchHtml = branches.length
+        ? '<div class="intent-branches">' + branches.map(function(branch) {
+            return '<button class="intent-branch" type="button" data-board-action="mindmap" data-keyword="' + escapeAttr(branch) + '">' + escapeHtml(branch) + '</button>';
+          }).join('') + '</div>'
+        : '';
       return '<div class="keyword-intent ' + escapeAttr(guide.kind) + '">'
         + '<strong>' + escapeHtml(guide.label) + ' · ' + escapeHtml(guide.route) + '</strong>'
-        + '<span><em>의미</em> ' + escapeHtml(guide.meaning) + '</span>'
-        + '<span><em>활용</em> ' + escapeHtml(guide.action) + '</span>'
+        + '<span><em>검색량 이유</em> ' + escapeHtml(guide.meaning) + '</span>'
+        + '<span><em>조합 의도/활용</em> ' + escapeHtml(guide.action) + '</span>'
+        + branchHtml
         + shoppingAction
         + '</div>';
     }
@@ -2553,7 +2669,7 @@ export function renderLewordProWeb(): string {
         const key = normalizeSearchAdKey(candidate);
         return browserLocalKeywordRow(candidate, metricMap.get(key) || null, docResult.counts.has(key) ? docResult.counts.get(key) : null, index);
       }).filter(function(row) {
-        if (mode === 'mindmap-expansion') return row.totalSearchVolume !== null && row.documentCount !== null;
+        if (mode === 'mindmap-expansion') return row.totalSearchVolume !== null || row.documentCount !== null || row.measurementStatus === 'unmeasured';
         return row.totalSearchVolume !== null || row.documentCount !== null;
       });
       if (!rows.length) {

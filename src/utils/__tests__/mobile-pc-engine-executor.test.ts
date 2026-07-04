@@ -219,6 +219,32 @@ async function runMindmapExpansionWithInvestigativeSportsBridge(): Promise<void>
     keywords.join(', '));
 }
 
+async function runMindmapExpansionKeepsSemanticBranchesWhenMeasurementIsEmpty(): Promise<void> {
+  const executor = createMobilePcEngineExecutor({
+    getEnvConfig: () => ({}),
+    measureKeywordMetrics: async () => [],
+  });
+  const result = await executor(makeJob('mindmap-expansion', {
+    seedKeyword: '\uD64D\uBA85\uBCF4 \uAC10\uB3C5 \uC0AC\uD1F4',
+    targetCount: 20,
+    includeVolumeMetrics: true,
+    contextKeywords: [
+      { keyword: '\uB300\uD55C\uCD95\uAD6C\uD611\uD68C \uD64D\uBA85\uBCF4 \uAC10\uB3C5 \uC120\uC784 \uB17C\uB780', source: 'live-source-context' },
+      { keyword: '\uB300\uD55C\uCD95\uAD6C\uD611\uD68C \uBE44\uB9AC \uC804\uB9D0', source: 'live-source-context' },
+      { keyword: '\uC774\uAC15\uC778 \uC774\uC7AC\uC131 \uD22C\uC785 \uC694\uCCAD \uB17C\uB780', source: 'live-source-context' },
+    ],
+  }), {
+    signal: new AbortController().signal,
+    progress: () => {},
+  });
+  const keywords = result.keywords.map((item) => item.keyword);
+  assert('mindmap keeps semantic expansion branches when volume measurement returns empty',
+    keywords.includes('\uD64D\uBA85\uBCF4 \uAC10\uB3C5 \uB2E4\uC74C \uAC10\uB3C5 \uD6C4\uBCF4')
+      && keywords.includes('\uB300\uD55C\uCD95\uAD6C\uD611\uD68C \uBE44\uB9AC \uC804\uB9D0')
+      && result.keywords.some((item) => item.source === 'mindmap-semantic-bridge' && item.measurementStatus === 'unmeasured'),
+    JSON.stringify(result));
+}
+
 async function runMindmapExpansionWithPolicySemanticBridge(): Promise<void> {
   const executor = createMobilePcEngineExecutor({
     getEnvConfig: () => ({}),
@@ -1059,6 +1085,7 @@ function runFallbackRegressionGuards(): void {
   await runKeywordAnalysis();
   await runMindmapExpansion();
   await runMindmapExpansionWithInvestigativeSportsBridge();
+  await runMindmapExpansionKeepsSemanticBranchesWhenMeasurementIsEmpty();
   await runMindmapExpansionWithPolicySemanticBridge();
   await runMindmapExpansionWithWebContext();
   await runInjectedGoldenDiscovery();

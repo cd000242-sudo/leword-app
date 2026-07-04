@@ -1110,7 +1110,7 @@ assert('mobile executor filters article-title mindmap noise and supplements thin
     && /buildInsuranceCalculatorMeasuredRoots/.test(pcExecutor)
     && /buildMindmapMeasuredQueryRoots\(normalizedSeed, 32\)/.test(pcExecutor)
     && /mindmap measured pool low/.test(pcExecutor)
-    && /mergePrioritizedKeywordMetrics\(\[finalMetrics, fallback\], params\.targetCount\)/.test(pcExecutor)
+    && /mergePrioritizedKeywordMetrics\(\[finalMetrics, fallback, sourceOnlyMetrics\], params\.targetCount\)/.test(pcExecutor)
     && /sourceOnlyMetrics/.test(pcExecutor),
   'mindmap must measure concise query candidates instead of stopping at article-title noise');
 assert('mobile executor measures analysis and mindmap candidates with PC metrics',
