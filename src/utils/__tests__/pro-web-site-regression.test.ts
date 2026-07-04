@@ -2,6 +2,7 @@ import {
   buildPublicSourceSignalPayload,
   renderLewordLanding,
 } from '../../../apps/api/src/public-site';
+import { renderLewordProWeb } from '../../../apps/api/src/pro-web-site';
 import type { MobileSourceSignalSnapshot } from '../../mobile/contracts';
 import vm from 'vm';
 
@@ -13,6 +14,7 @@ function assert(name: string, condition: unknown, detail = ''): void {
 }
 
 const html = renderLewordLanding();
+const proWebHtml = renderLewordProWeb();
 
 assert('includes AdSense site verification script',
   html.includes('ca-pub-4008574892672964')
@@ -23,6 +25,14 @@ for (const [index, match] of Array.from(html.matchAll(/<script>([\s\S]*?)<\/scri
     new vm.Script(match[1], { filename: `pro-web-inline-${index}.js` });
   } catch (err) {
     assert(`inline script ${index} is syntactically valid`, false, err instanceof Error ? err.message : String(err));
+  }
+}
+
+for (const [index, match] of Array.from(proWebHtml.matchAll(/<script>([\s\S]*?)<\/script>/g)).entries()) {
+  try {
+    new vm.Script(match[1], { filename: `leword-pro-web-inline-${index}.js` });
+  } catch (err) {
+    assert(`LEWORD pro web inline script ${index} is syntactically valid`, false, err instanceof Error ? err.message : String(err));
   }
 }
 
@@ -153,6 +163,20 @@ assert('falls back to browser-side golden keyword search when the server is unav
     && html.includes('renderClientGoldenFallback(err)')
     && html.includes('renderClientFeatureFallback(feature, displayKeyword, err)')
     && html.includes('검색량·문서수는 가짜로 채우지 않고'));
+assert('keyword analyzer retries empty server results with browser-local user APIs',
+  proWebHtml.includes('function runBrowserLocalApiLookup')
+    && proWebHtml.includes('function fetchBrowserSearchAdKeywordTool')
+    && proWebHtml.includes('function fetchBrowserNaverBlogDocumentCount')
+    && proWebHtml.includes('function maybeRunBrowserLocalApiLookup')
+    && proWebHtml.includes('browser-local-api')
+    && proWebHtml.includes('isEmptyKeywordResult(result)')
+    && proWebHtml.includes('empty-job-result')
+    && proWebHtml.includes('empty-direct-result')
+    && proWebHtml.includes('X-API-KEY')
+    && proWebHtml.includes('X-Customer')
+    && proWebHtml.includes('X-Naver-Client-Id')
+    && proWebHtml.includes('서버 결과가 비어 있어 저장된 사용자 API 키로 직접 조회합니다.')
+    && proWebHtml.includes('사용자 API 키 직접 조회 결과가 비어 있습니다.'));
 assert('client golden guard keeps regex escapes and live backfill',
   html.includes('const lotto = text.match(/(\\d{3,4})\\s*회\\s*로또|로또\\s*(\\d{3,4})\\s*회/)')
     && html.includes('2027\\s*6모')
