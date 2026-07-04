@@ -177,6 +177,24 @@ assert('keyword analyzer retries empty server results with browser-local user AP
     && proWebHtml.includes('X-Naver-Client-Id')
     && proWebHtml.includes('서버 결과가 비어 있어 저장된 사용자 API 키로 직접 조회합니다.')
     && proWebHtml.includes('사용자 API 키 직접 조회 결과가 비어 있습니다.'));
+assert('keyword analyzer table stays readable on bright theme',
+  proWebHtml.includes('td { color: var(--text); }')
+    && proWebHtml.includes('.tiny-btn.green { border-color: rgba(53,211,153,.44); color: #047857;')
+    && proWebHtml.includes('.publish-decision strong')
+    && !proWebHtml.includes('td { color: #edf4ff; }'));
+assert('inline keyword scripts preserve whitespace regex escapes',
+  proWebHtml.includes('replace(/\\s+/g')
+    && !proWebHtml.includes('replace(/s+/g'));
+assert('browser-local keyword grades require document-volume fit before A or S',
+  proWebHtml.includes('function browserLocalKeywordQualityScore')
+    && proWebHtml.includes('ratio >= 0.8 && score >= 55')
+    && proWebHtml.includes('docs <= 20000 && ratio >= 2')
+    && !proWebHtml.includes("if (total >= 100) return 'A';"));
+assert('live source backfill prefers source-provided keywords before synthetic expansion',
+  proWebHtml.includes('const sourceValues = []')
+    && proWebHtml.includes('signal && signal.relatedKeywords')
+    && proWebHtml.includes('return sourceCandidates;')
+    && proWebHtml.indexOf('return sourceCandidates;') < proWebHtml.indexOf('const raw = normalizeText(signal && (signal.keyword || signal.title));'));
 assert('client golden guard keeps regex escapes and live backfill',
   html.includes('const lotto = text.match(/(\\d{3,4})\\s*회\\s*로또|로또\\s*(\\d{3,4})\\s*회/)')
     && html.includes('2027\\s*6모')
