@@ -160,6 +160,12 @@ assert('loads public and pro golden boards',
     && html.includes('function loadGoldenBoard()')
     && html.includes('renderPublicGoldenBoard')
     && html.includes('renderProGoldenBoard'));
+assert('clears stale Pro sessions instead of showing a locked public board as Pro connected',
+  proWebHtml.includes('function promptProRelogin(message)')
+    && proWebHtml.includes('saveSession(null);')
+    && proWebHtml.includes('openLogin();')
+    && proWebHtml.includes('Pro board failed; session cleared:')
+    && !proWebHtml.includes('Pro board failed, trying public board'));
 assert('health polling does not overwrite live board counts with missing metrics',
   html.includes('const liveGolden = health && health.liveGolden')
     && html.includes('Number.isFinite(Number(liveGolden.boardCount))')
