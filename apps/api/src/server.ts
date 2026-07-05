@@ -80,6 +80,7 @@ import {
   getMinimumMobileEntitlementTier,
   isMobileEntitlementAllowed,
   type MobileEntitlement,
+  type MobileEntitlementVerification,
   type MobileEntitlementTier,
   type MobileEntitlementVerifier,
 } from '../../../src/mobile/entitlements';
@@ -996,6 +997,11 @@ function getRequiredAuthToken(options: LewordApiServerOptions): string {
   return (process.env['LEWORD_MOBILE_API_TOKEN'] || '').trim();
 }
 
+function getWebSessionSigningSecret(options: LewordApiServerOptions): string {
+  return String(process.env['LEWORD_WEB_SESSION_SECRET'] || '').trim()
+    || getRequiredAuthToken(options);
+}
+
 function getBearerToken(req: http.IncomingMessage): string {
   const authorization = req.headers.authorization || '';
   const match = authorization.match(/^Bearer\s+(.+)$/i);
@@ -1400,6 +1406,82 @@ function verifyConfiguredWebLogin(body: any): {
   };
 }
 
+const WEB_SESSION_TOKEN_PREFIX = 'leword-web-v1';
+
+function base64UrlEncode(value: string | Buffer): string {
+  return Buffer.from(value)
+    .toString('base64')
+    .replace(/\+/g, '-')
+    .replace(/\//g, '_')
+    .replace(/=+$/g, '');
+}
+
+function base64UrlDecode(value: string): Buffer {
+  const normalized = value.replace(/-/g, '+').replace(/_/g, '/');
+  const padding = '='.repeat((4 - (normalized.length % 4)) % 4);
+  return Buffer.from(`${normalized}${padding}`, 'base64');
+}
+
+function normalizeWebSessionSource(value: unknown): MobileEntitlement['source'] {
+  const source = String(value || '').trim();
+  if (
+    source === 'configured-web-login'
+    || source === 'license-service'
+    || source === 'fixture'
+    || source === 'entitlement-file'
+    || source === 'env-static-token'
+  ) {
+    return source;
+  }
+  return 'configured-web-login';
+}
+
+function signWebSessionToken(secret: string, entitlement: MobileEntitlement): string {
+  if (!secret) return `web-${crypto.randomUUID()}`;
+  const payload = {
+    subjectId: entitlement.subjectId,
+    tier: entitlement.tier,
+    source: entitlement.source,
+    expiresAt: entitlement.expiresAt ?? null,
+    issuedAt: new Date().toISOString(),
+  };
+  const payloadPart = base64UrlEncode(JSON.stringify(payload));
+  const signaturePart = base64UrlEncode(
+    crypto.createHmac('sha256', secret).update(payloadPart).digest(),
+  );
+  return `${WEB_SESSION_TOKEN_PREFIX}.${payloadPart}.${signaturePart}`;
+}
+
+function verifySignedWebSessionToken(token: string, secret: string): MobileEntitlementVerification | null {
+  if (!secret || !token.startsWith(`${WEB_SESSION_TOKEN_PREFIX}.`)) return null;
+  const parts = token.split('.');
+  if (parts.length !== 3 || parts[0] !== WEB_SESSION_TOKEN_PREFIX) {
+    return { ok: false, reason: 'malformed web session token' };
+  }
+  const [, payloadPart, signaturePart] = parts;
+  const expected = crypto.createHmac('sha256', secret).update(payloadPart).digest();
+  const received = base64UrlDecode(signaturePart);
+  if (received.length !== expected.length || !crypto.timingSafeEqual(received, expected)) {
+    return { ok: false, reason: 'invalid web session signature' };
+  }
+  try {
+    const payload = JSON.parse(base64UrlDecode(payloadPart).toString('utf8')) as Record<string, unknown>;
+    const subjectId = String(payload.subjectId || '').trim();
+    if (!subjectId) return { ok: false, reason: 'web session subject missing' };
+    return {
+      ok: true,
+      entitlement: {
+        subjectId,
+        tier: normalizeLoginTier(payload.tier),
+        expiresAt: payload.expiresAt === undefined ? null : String(payload.expiresAt || '').trim() || null,
+        source: normalizeWebSessionSource(payload.source),
+      },
+    };
+  } catch {
+    return { ok: false, reason: 'web session payload invalid' };
+  }
+}
+
 function panelLoginUrl(body: any): string {
   return String(
     body?.panelServerUrl
@@ -1477,6 +1559,7 @@ async function createLoginSession(
   prewarmService: MobilePrewarmService | null,
   liveGoldenRadar: MobileLiveGoldenRadar | null,
   maxBodyBytes: number,
+  webSessionSecret: string,
 ): Promise<void> {
   try {
     const body = await parseBody(req, maxBodyBytes) as any;
@@ -1517,14 +1600,15 @@ async function createLoginSession(
     const configuredLogin = verifyConfiguredWebLogin(body);
     if (configuredLogin.ok && configuredLogin.account) {
       const account = configuredLogin.account;
-      const token = `web-${crypto.randomUUID()}`;
       const apiBaseUrl = account.apiBaseUrl || requestApiBaseUrl(req);
-      runtimeEntitlements.set(token, {
+      const entitlement: MobileEntitlement = {
         subjectId: account.userId,
         tier: account.tier,
         expiresAt: account.expiresAt ?? null,
         source: 'configured-web-login',
-      });
+      };
+      const token = signWebSessionToken(webSessionSecret, entitlement);
+      runtimeEntitlements.set(token, entitlement);
       const session: MobileAuthSession = {
         ok: true,
         accessToken: token,
@@ -1534,6 +1618,7 @@ async function createLoginSession(
         pcLinked: true,
         source: 'configured-web-login',
         linkedAt: new Date().toISOString(),
+        expiresAt: account.expiresAt ?? null,
         message: account.tier === 'admin'
           ? '관리자 계정으로 접속했습니다.'
           : '기존 사용자 계정으로 Pro 세션을 발급했습니다.',
@@ -1556,15 +1641,18 @@ async function createLoginSession(
       message: (err as Error).message || 'panel login failed',
     }));
     if (panel.ok) {
-      const token = panel.accessToken || `panel-${crypto.randomUUID()}`;
       const apiBaseUrl = panel.apiBaseUrl || requestApiBaseUrl(req);
       const tier = panel.tier || 'standard';
-      runtimeEntitlements.set(token, {
+      const entitlement: MobileEntitlement = {
         subjectId: panel.userId || userId,
         tier,
         expiresAt: panel.expiresAt ?? null,
         source: 'license-service',
-      });
+      };
+      const token = isWebSession
+        ? signWebSessionToken(webSessionSecret, entitlement)
+        : (panel.accessToken || `panel-${crypto.randomUUID()}`);
+      runtimeEntitlements.set(token, entitlement);
       const session: MobileAuthSession = {
         ok: true,
         accessToken: token,
@@ -1574,6 +1662,7 @@ async function createLoginSession(
         pcLinked: true,
         source: 'panel-server',
         linkedAt: new Date().toISOString(),
+        expiresAt: panel.expiresAt ?? null,
         message: panel.message || '패널 서버와 PC API가 연동되었습니다.',
         dashboard: buildDashboard(req, notificationInbox, prewarmService, liveGoldenRadar, apiBaseUrl),
       };
@@ -3177,12 +3266,20 @@ export function createLewordApiServer(options: LewordApiServerOptions = {}): htt
     : options.entitlementVerifier || createEnvironmentMobileEntitlementVerifier({
       staticToken: getRequiredAuthToken(options),
     });
+  const webSessionSecret = getWebSessionSigningSecret(options);
   const runtimeEntitlements = new Map<string, MobileEntitlement>();
   const sessionAwareEntitlementVerifier: MobileEntitlementVerifier | null = entitlementVerifier
     ? async (token) => {
       const runtime = runtimeEntitlements.get(token);
       if (runtime) {
         return { ok: true, entitlement: runtime };
+      }
+      const signedWebSession = verifySignedWebSessionToken(token, webSessionSecret);
+      if (signedWebSession) {
+        if (signedWebSession.ok && signedWebSession.entitlement) {
+          runtimeEntitlements.set(token, signedWebSession.entitlement);
+        }
+        return signedWebSession;
       }
       return entitlementVerifier(token);
     }
@@ -3425,7 +3522,7 @@ export function createLewordApiServer(options: LewordApiServerOptions = {}): htt
       req.method === 'POST' &&
       (url.pathname === MOBILE_AUTH_ROUTES.login || url.pathname === '/v1/web/session')
     ) {
-      await createLoginSession(req, res, entitlementVerifier, runtimeEntitlements, notificationInbox, prewarmService, liveGoldenRadar, maxBodyBytes);
+      await createLoginSession(req, res, entitlementVerifier, runtimeEntitlements, notificationInbox, prewarmService, liveGoldenRadar, maxBodyBytes, webSessionSecret);
       return;
     }
 

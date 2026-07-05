@@ -927,6 +927,7 @@ export interface MobileAuthSession {
   pcLinked: boolean;
   source: 'mobile-token' | 'panel-server' | 'configured-web-login' | 'local-dev';
   linkedAt: string;
+  expiresAt?: string | null;
   message: string;
   dashboard: MobileDashboardSnapshot;
 }

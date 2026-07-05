@@ -1245,7 +1245,7 @@ const result: MobileKeywordResult = {
     });
   });
   const panelLoginPort = await listen(panelLoginService);
-  const panelAuthServer = createLewordApiServer({ executor });
+  const panelAuthServer = createLewordApiServer({ executor, authToken: 'panel-static-token' });
   const panelAuthPort = await listen(panelAuthServer);
   const panelAuthBaseUrl = `http://127.0.0.1:${panelAuthPort}`;
   const previousPanelLoginUrl = process.env['LEWORD_MOBILE_PANEL_LOGIN_URL'];
@@ -1321,7 +1321,25 @@ const result: MobileKeywordResult = {
         && !Object.prototype.hasOwnProperty.call(panelLoginRequests[2], 'code'));
     assert('pro web login never persists the password as token',
       webLoginJson.session.accessToken !== 'panel-pass'
-        && String(webLoginJson.session.accessToken || '').startsWith('panel-'));
+        && String(webLoginJson.session.accessToken || '').startsWith('leword-web-v1.'));
+
+    const restartedPanelAuthServer = createLewordApiServer({ executor, authToken: 'panel-static-token' });
+    const restartedPanelAuthPort = await listen(restartedPanelAuthServer);
+    try {
+      const acceptedAfterRestart = await fetch(`http://127.0.0.1:${restartedPanelAuthPort}/v1/pro/hunt`, {
+        method: 'POST',
+        headers: {
+          'Content-Type': 'application/json',
+          Authorization: `Bearer ${webLoginJson.session.accessToken}`,
+        },
+        body: JSON.stringify({ categoryId: 'policy', targetCount: 30 }),
+      });
+      assert('pro web session token survives API restart without logging out',
+        acceptedAfterRestart.status === 202,
+        JSON.stringify({ status: acceptedAfterRestart.status, body: await acceptedAfterRestart.text() }));
+    } finally {
+      await close(restartedPanelAuthServer);
+    }
   } finally {
     if (previousPanelLoginUrl === undefined) {
       delete process.env['LEWORD_MOBILE_PANEL_LOGIN_URL'];
@@ -1383,7 +1401,24 @@ const result: MobileKeywordResult = {
       JSON.stringify({ status: configuredLogin.status, body: configuredLoginJson }));
     assert('configured web login issues runtime token instead of storing password',
       configuredLoginJson.session.accessToken !== 'configured-pass'
-        && String(configuredLoginJson.session.accessToken || '').startsWith('web-'));
+        && String(configuredLoginJson.session.accessToken || '').startsWith('leword-web-v1.'));
+    const restartedConfiguredAuthServer = createLewordApiServer({ executor, authToken: 'configured-static-token' });
+    const restartedConfiguredAuthPort = await listen(restartedConfiguredAuthServer);
+    try {
+      const acceptedAfterRestart = await fetch(`http://127.0.0.1:${restartedConfiguredAuthPort}/v1/pro/hunt`, {
+        method: 'POST',
+        headers: {
+          'Content-Type': 'application/json',
+          Authorization: `Bearer ${configuredLoginJson.session.accessToken}`,
+        },
+        body: JSON.stringify({ categoryId: 'policy', targetCount: 30 }),
+      });
+      assert('configured web session token survives API restart without logging out',
+        acceptedAfterRestart.status === 202,
+        JSON.stringify({ status: acceptedAfterRestart.status, body: await acceptedAfterRestart.text() }));
+    } finally {
+      await close(restartedConfiguredAuthServer);
+    }
     assert('configured web login bypasses rejected panel service', rejectingPanelLoginRequests.length === 0);
 
     const rejectedConfiguredLogin = await fetch(`${configuredAuthBaseUrl}/v1/web/session`, {
