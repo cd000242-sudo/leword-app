@@ -80,6 +80,22 @@ assert.strictEqual(isUltimateGoldenKeywordCandidate(bareProduct, {
   minGoldenRatio: 2,
 }), false);
 
+const crossDomainCollision = applyKeywordAiJudge(
+  measuredMetric('최저임금 격차 1290원 다음감독 후보', 'policy', 12800, 38200, 420),
+  { now },
+) as any;
+assert.strictEqual(crossDomainCollision.aiJudge?.verdict, 'exclude');
+assert.strictEqual(crossDomainCollision.aiJudge?.rejectReason, 'cross-domain-intent-collision');
+assert.strictEqual(crossDomainCollision.grade, 'C');
+
+const dialoguePaymentCollision = applyKeywordAiJudge(
+  measuredMetric('정례대화지급일', 'policy', 830, 2840, 2),
+  { now },
+) as any;
+assert.strictEqual(dialoguePaymentCollision.aiJudge?.verdict, 'exclude');
+assert.strictEqual(dialoguePaymentCollision.aiJudge?.rejectReason, 'over-expanded-intent-chain');
+assert.strictEqual(dialoguePaymentCollision.grade, 'C');
+
 const youtubeVideoBridge = applyKeywordAiJudge(
   {
     ...measuredMetric('\uC81C\uC2B5\uAE30\uC21C\uC704', 'youtube', 920, 4180, 640),

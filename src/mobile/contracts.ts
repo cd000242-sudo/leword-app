@@ -967,7 +967,31 @@ export interface MobilePcFeatureCatalog {
   items: MobilePcFeatureCatalogItem[];
 }
 
-export interface GoldenDiscoveryMobileParams {
+export interface MobileAgentAssistContext {
+  enabled?: boolean;
+  version?: string;
+  mode?: string;
+  featureId?: string;
+  provider?: string;
+  providerLabel?: string;
+  seedKeyword?: string | null;
+  includeAiInference?: boolean;
+  mindmapAssist?: boolean;
+  keywordResearchAssist?: boolean;
+  usageWindowHours?: number | null;
+  tasks?: string[];
+  qualityGates?: string[];
+  outputContract?: Record<string, boolean>;
+  serverVerified?: boolean;
+}
+
+export interface MobileAgentAwareParams {
+  includeAiInference?: boolean;
+  agentAssist?: MobileAgentAssistContext;
+  adminAiWorker?: MobileAgentAssistContext | null;
+}
+
+export interface GoldenDiscoveryMobileParams extends MobileAgentAwareParams {
   categoryId: string;
   mode: 'precision' | 'bulk';
   seedKeyword?: string;
@@ -975,7 +999,7 @@ export interface GoldenDiscoveryMobileParams {
   requireSssFloor: boolean;
 }
 
-export interface ProTrafficMobileParams {
+export interface ProTrafficMobileParams extends MobileAgentAwareParams {
   categoryId: string;
   targetCount: number;
   seedKeyword?: string;
@@ -986,7 +1010,7 @@ export interface ProTrafficMobileParams {
   contextKeywords?: MobileKeywordContextCandidate[];
 }
 
-export interface KeywordAnalysisMobileParams {
+export interface KeywordAnalysisMobileParams extends MobileAgentAwareParams {
   keyword: string;
   categoryId?: string;
   maxRelatedCount: number;
@@ -994,7 +1018,7 @@ export interface KeywordAnalysisMobileParams {
   contextKeywords?: MobileKeywordContextCandidate[];
 }
 
-export interface MindmapExpansionMobileParams {
+export interface MindmapExpansionMobileParams extends MobileAgentAwareParams {
   seedKeyword: string;
   depth: number;
   targetCount: number;
@@ -1014,34 +1038,34 @@ export interface MobileKeywordContextCandidate {
   isMeasured?: boolean;
 }
 
-export interface HomeBoardMobileParams {
+export interface HomeBoardMobileParams extends MobileAgentAwareParams {
   categoryId: string;
   seedKeyword?: string;
   targetCount: number;
   requireSplusFloor: boolean;
 }
 
-export interface KinHiddenHoneyMobileParams {
+export interface KinHiddenHoneyMobileParams extends MobileAgentAwareParams {
   tabType: 'popular' | 'latest' | 'trending' | 'hidden';
   targetCount: number;
   isPremiumRequest: boolean;
   contextKeywords?: MobileKeywordContextCandidate[];
 }
 
-export interface ShoppingConnectMobileParams {
+export interface ShoppingConnectMobileParams extends MobileAgentAwareParams {
   keyword: string;
   targetCount: number;
   sort: 'sim' | 'date' | 'asc' | 'dsc';
   contextKeywords?: MobileKeywordContextCandidate[];
 }
 
-export interface YoutubeGoldenMobileParams {
+export interface YoutubeGoldenMobileParams extends MobileAgentAwareParams {
   maxResults: number;
   categoryId?: string;
   crossReferenceNaver: boolean;
 }
 
-export interface NaverMateMobileParams {
+export interface NaverMateMobileParams extends MobileAgentAwareParams {
   seedKeyword: string;
   targetCount: number;
   includeAutocomplete: boolean;
@@ -1063,6 +1087,16 @@ export interface MobileKeywordResult {
     aiJudged?: number;
     excludedByAiJudge?: number;
     publishReady?: number;
+    agentFiltered?: number;
+    agentQualityProfile?: string;
+    agentAssist?: {
+      enabled: boolean;
+      product: MobileKeywordProduct;
+      featureId?: string;
+      provider?: string;
+      mode?: string;
+      tasks?: string[];
+    };
   };
 }
 

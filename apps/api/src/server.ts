@@ -2,6 +2,7 @@ import http from 'http';
 import crypto from 'crypto';
 import fs from 'fs';
 import path from 'path';
+import { execFile } from 'child_process';
 import {
   MOBILE_API_ENDPOINTS,
   MOBILE_AUTH_ROUTES,
@@ -174,6 +175,7 @@ const ADMIN_SITE_CONTENT_ROUTE = '/v1/admin/site-content';
 const ADMIN_DOWNLOAD_UPLOAD_ROUTE = '/v1/admin/downloads/upload';
 const ADMIN_DOWNLOAD_CHUNK_UPLOAD_ROUTE = '/v1/admin/downloads/upload-chunk';
 const ADMIN_COMMERCE_DASHBOARD_ROUTE = '/v1/admin/commerce/dashboard';
+const ADMIN_AI_WORKER_STATUS_ROUTE = '/v1/admin/ai-worker/status';
 const PUBLIC_SITE_CONTENT_ROUTE = '/v1/public/site-content';
 const PUBLIC_COMMERCE_CATALOG_ROUTE = '/v1/public/commerce/catalog';
 const PUBLIC_ANALYTICS_COLLECT_ROUTE = '/v1/analytics/collect';
@@ -1079,6 +1081,194 @@ async function authorizeAdminDownloadUploadRequest(
   return authorizeMobileRequest(req, res, verifier, 'admin');
 }
 
+type AdminAiWorkerProvider = 'codex' | 'claude-code' | 'api';
+
+interface AdminAiWorkerCliProbe {
+  installed: boolean;
+  loggedIn: boolean;
+  status: 'ready' | 'login-required' | 'not-installed' | 'unknown';
+  command: string;
+  version?: string;
+  detail: string;
+  checkedAt: string;
+}
+
+interface AdminAiWorkerStatusRequest {
+  selectedProvider?: unknown;
+  apiAssist?: unknown;
+}
+
+function firstConfiguredCommand(envNames: string[], fallback: string): string {
+  for (const name of envNames) {
+    const value = String(process.env[name] || '').trim();
+    if (value) return value;
+  }
+  return fallback;
+}
+
+function compactCliLine(value: string): string {
+  return String(value || '')
+    .split(/\r?\n/)
+    .map((line) => line.trim())
+    .filter(Boolean)
+    .slice(0, 3)
+    .join(' / ')
+    .slice(0, 220);
+}
+
+function runCliStatusProbe(
+  command: string,
+  args: string[],
+  timeoutMs = 3500,
+): Promise<{ ok: boolean; stdout: string; stderr: string; error: string; code: string | number | null }> {
+  return new Promise((resolve) => {
+    execFile(command, args, {
+      timeout: timeoutMs,
+      windowsHide: true,
+      env: { ...process.env, NO_COLOR: '1', CI: '1' },
+    }, (error, stdout, stderr) => {
+      const anyError = error as (NodeJS.ErrnoException & { code?: string | number }) | null;
+      resolve({
+        ok: !error,
+        stdout: String(stdout || ''),
+        stderr: String(stderr || ''),
+        error: error ? String(error.message || error) : '',
+        code: anyError?.code ?? null,
+      });
+    });
+  });
+}
+
+function cliOutputLooksLoggedOut(value: string): boolean {
+  return /(not\s+logged\s+in|not\s+authenticated|unauthenticated|login\s+required|please\s+login|sign\s+in|not\s+signed\s+in|인증|로그인.*필요|로그인.*하세요)/i.test(value);
+}
+
+function cliOutputLooksLoggedIn(value: string): boolean {
+  if (cliOutputLooksLoggedOut(value)) return false;
+  return /(logged\s+in|authenticated|signed\s+in|account|session|ready|ok|success|로그인.*완료|인증.*완료|사용\s*가능)/i.test(value);
+}
+
+async function probeAdminAiCliWorker(
+  command: string,
+  authProbeArgs: string[][],
+): Promise<AdminAiWorkerCliProbe> {
+  const checkedAt = new Date().toISOString();
+  const versionProbe = await runCliStatusProbe(command, ['--version'], 3000);
+  const versionText = compactCliLine(versionProbe.stdout || versionProbe.stderr);
+  const installError = (versionProbe.error || versionProbe.stderr || '').toLowerCase();
+  const installed = versionProbe.ok || !!versionText || !/(enoent|not recognized|not found|no such file)/i.test(installError);
+  if (!installed) {
+    return {
+      installed: false,
+      loggedIn: false,
+      status: 'not-installed',
+      command,
+      detail: `${command} CLI를 서버에서 찾지 못했습니다.`,
+      checkedAt,
+    };
+  }
+
+  for (const args of authProbeArgs) {
+    const probe = await runCliStatusProbe(command, args, 4000);
+    const output = compactCliLine(`${probe.stdout}\n${probe.stderr}\n${probe.error}`);
+    if (probe.ok && cliOutputLooksLoggedIn(output)) {
+      return {
+        installed: true,
+        loggedIn: true,
+        status: 'ready',
+        command,
+        version: versionText || undefined,
+        detail: output || `${command} 로그인 세션을 확인했습니다.`,
+        checkedAt,
+      };
+    }
+    if (cliOutputLooksLoggedOut(output)) {
+      return {
+        installed: true,
+        loggedIn: false,
+        status: 'login-required',
+        command,
+        version: versionText || undefined,
+        detail: output || `${command} 로그인 세션이 필요합니다.`,
+        checkedAt,
+      };
+    }
+  }
+
+  return {
+    installed: true,
+    loggedIn: false,
+    status: 'unknown',
+    command,
+    version: versionText || undefined,
+    detail: versionText
+      ? `${command} CLI 설치는 확인했지만 로그인 상태를 판정하지 못했습니다. 서버 콘솔에서 로그인 상태를 확인하세요.`
+      : `${command} CLI 응답을 확인했지만 상태 출력이 비어 있습니다.`,
+    checkedAt,
+  };
+}
+
+function sanitizeAdminAiProvider(value: unknown): AdminAiWorkerProvider {
+  if (value === 'claude-code' || value === 'api' || value === 'codex') return value;
+  return 'codex';
+}
+
+function booleanField(source: unknown, key: string): boolean {
+  return !!(source && typeof source === 'object' && (source as Record<string, unknown>)[key] === true);
+}
+
+async function buildAdminAiWorkerStatus(body: AdminAiWorkerStatusRequest) {
+  const selectedProvider = sanitizeAdminAiProvider(body?.selectedProvider);
+  const apiAssistInput = body && typeof body.apiAssist === 'object' ? body.apiAssist : {};
+  const apiAssist = {
+    anthropic: booleanField(apiAssistInput, 'anthropic') || !!process.env['ANTHROPIC_API_KEY'] || !!process.env['CLAUDE_API_KEY'],
+    manus: booleanField(apiAssistInput, 'manus') || !!process.env['MANUS_API_KEY'],
+    openai: booleanField(apiAssistInput, 'openai') || !!process.env['OPENAI_API_KEY'],
+  };
+  const codexCommand = firstConfiguredCommand(['LEWORD_CODEX_CLI', 'CODEX_CLI_PATH'], 'codex');
+  const claudeCommand = firstConfiguredCommand(['LEWORD_CLAUDE_CODE_CLI', 'LEWORD_CLAUDE_CLI', 'CLAUDE_CODE_CLI_PATH'], 'claude');
+  const [codex, claudeCode] = await Promise.all([
+    probeAdminAiCliWorker(codexCommand, [['auth', 'status'], ['login', 'status'], ['status']]),
+    probeAdminAiCliWorker(claudeCommand, [['status', '--json'], ['doctor'], ['status']]),
+  ]);
+  const apiCount = [apiAssist.anthropic, apiAssist.manus, apiAssist.openai].filter(Boolean).length;
+  const ready = {
+    codex: codex.loggedIn === true,
+    claudeCode: claudeCode.loggedIn === true,
+    api: apiCount > 0,
+  };
+  return {
+    ok: true,
+    selectedProvider,
+    checkedAt: new Date().toISOString(),
+    workers: { codex, claudeCode },
+    apiAssist: { ...apiAssist, count: apiCount },
+    ready: {
+      ...ready,
+      selected: selectedProvider === 'api'
+        ? ready.api
+        : selectedProvider === 'claude-code'
+          ? ready.claudeCode
+          : ready.codex,
+    },
+  };
+}
+
+async function handleAdminAiWorkerStatus(
+  req: http.IncomingMessage,
+  res: http.ServerResponse,
+  maxBodyBytes: number,
+): Promise<void> {
+  try {
+    const body = req.method === 'POST'
+      ? await parseBody(req, maxBodyBytes) as AdminAiWorkerStatusRequest
+      : {};
+    json(res, 200, await buildAdminAiWorkerStatus(body), { 'Cache-Control': 'no-store' });
+  } catch (err) {
+    handleBodyError(res, err, maxBodyBytes);
+  }
+}
+
 function jobLinks(jobId: string): MobileJobCreateResponse['links'] {
   return {
     self: MOBILE_JOB_ROUTES.self.replace(':jobId', jobId),
@@ -1890,6 +2080,47 @@ function normalizeTargetCount(value: unknown, fallback: number): number {
   return Math.max(1, Math.min(250, Math.floor(parsed)));
 }
 
+function normalizeStringListParam(value: unknown, limit: number): string[] {
+  if (!Array.isArray(value)) return [];
+  const out: string[] = [];
+  for (const item of value) {
+    const clean = String(item || '').replace(/\s+/g, ' ').trim();
+    if (!clean || out.includes(clean)) continue;
+    out.push(clean);
+    if (out.length >= limit) break;
+  }
+  return out;
+}
+
+function normalizeAgentAssistCacheParam(value: unknown): unknown {
+  if (!value || typeof value !== 'object' || Array.isArray(value)) return undefined;
+  const raw = value as Record<string, unknown>;
+  if (raw.enabled === false) return { enabled: false };
+  return {
+    enabled: true,
+    version: String(raw.version || 'web-agent-assist-v1').replace(/\s+/g, ' ').trim(),
+    mode: String(raw.mode || 'server-default-worker').replace(/\s+/g, ' ').trim(),
+    featureId: String(raw.featureId || '').replace(/\s+/g, ' ').trim(),
+    provider: String(raw.provider || 'server-auto').replace(/\s+/g, ' ').trim(),
+    includeAiInference: raw.includeAiInference !== false,
+    mindmapAssist: raw.mindmapAssist !== false,
+    keywordResearchAssist: raw.keywordResearchAssist !== false,
+    tasks: normalizeStringListParam(raw.tasks, 16),
+  };
+}
+
+function withAgentAssistCacheParams(
+  raw: Record<string, unknown>,
+  normalized: Record<string, unknown>,
+): Record<string, unknown> {
+  const agentAssist = normalizeAgentAssistCacheParam(raw.agentAssist);
+  if (agentAssist) normalized.agentAssist = agentAssist;
+  if ('includeAiInference' in raw) {
+    normalized.includeAiInference = normalizeBooleanParam(raw.includeAiInference, true);
+  }
+  return normalized;
+}
+
 function normalizeProTrafficCacheParams(params: unknown): unknown {
   const raw = params && typeof params === 'object' && !Array.isArray(params)
     ? params as Record<string, unknown>
@@ -1913,7 +2144,7 @@ function normalizeProTrafficCacheParams(params: unknown): unknown {
     normalized.seedKeyword = seedKeyword;
     if (raw.apiCredentials) normalized.apiCredentials = raw.apiCredentials;
   }
-  return normalized;
+  return withAgentAssistCacheParams(raw, normalized);
 }
 
 function normalizeMobileJobCacheParams(product: MobileKeywordProduct, params: unknown): unknown {
@@ -1929,8 +2160,9 @@ function normalizeMobileJobCacheParams(product: MobileKeywordProduct, params: un
     const raw = params && typeof params === 'object' && !Array.isArray(params)
       ? params as Record<string, unknown>
       : {};
+    const { agentAssist: _agentAssist, adminAiWorker: _adminAiWorker, ...rest } = raw;
     return {
-      ...raw,
+      ...withAgentAssistCacheParams(raw, rest),
       qualityProfile: 'intent-separated-v3',
     };
   }
@@ -3529,6 +3761,12 @@ export function createLewordApiServer(options: LewordApiServerOptions = {}): htt
     if (req.method === 'POST' && url.pathname === ADMIN_SETTINGS_UNLOCK_ROUTE) {
       if (!await authorizeMobileRequest(req, res, sessionAwareEntitlementVerifier, 'admin')) return;
       await unlockAdminSettings(req, res, maxBodyBytes);
+      return;
+    }
+
+    if ((req.method === 'GET' || req.method === 'POST') && url.pathname === ADMIN_AI_WORKER_STATUS_ROUTE) {
+      if (!await authorizeMobileRequest(req, res, sessionAwareEntitlementVerifier, 'admin')) return;
+      await handleAdminAiWorkerStatus(req, res, maxBodyBytes);
       return;
     }
 

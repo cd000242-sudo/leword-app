@@ -292,7 +292,7 @@ export function renderLewordProWeb(): string {
     .golden-list { display: flex; flex-direction: column; gap: 10px; }
     .golden-row {
       display: grid;
-      grid-template-columns: minmax(220px, .85fr) minmax(360px, 1.45fr) minmax(230px, .7fr);
+      grid-template-columns: minmax(0, 1fr) minmax(230px, .42fr);
       gap: 12px;
       align-items: start;
       border: 1px solid var(--line);
@@ -305,7 +305,7 @@ export function renderLewordProWeb(): string {
     .golden-row:hover { transform: translateY(-1px); box-shadow: var(--shadow); border-color: var(--green); }
     .gk-main,
     .gk-side { display: flex; flex-direction: column; gap: 9px; min-width: 0; }
-    .gk-why { min-width: 0; }
+    .gk-why { grid-column: 1 / -1; min-width: 0; }
     .gk-top { display: flex; align-items: center; gap: 7px; }
     .gk-cat { font-size: 11px; font-weight: 700; color: var(--muted); background: var(--surface-2); border: 1px solid var(--line); padding: 3px 9px; border-radius: 7px; }
     .gk-rank { margin-left: auto; font-size: 12px; font-weight: 1000; color: var(--green); }
@@ -331,6 +331,57 @@ export function renderLewordProWeb(): string {
     .keyword-intent.local { border-color: rgba(45,212,191,.34); background: rgba(45,212,191,.09); }
     .keyword-intent.ad-risk { border-color: rgba(255,77,109,.28); background: rgba(255,77,109,.08); }
     .keyword-intent .tiny-btn { width: fit-content; min-height: 28px; padding: 5px 9px; }
+    .keyword-main-cell { display: grid; gap: 7px; min-width: 0; }
+    .keyword-main-cell strong { overflow-wrap: anywhere; }
+    .keyword-mini-branches { display: flex; flex-wrap: wrap; gap: 5px; margin-top: 2px; }
+    .keyword-mini-branch {
+      border: 1px solid rgba(14,165,233,.24);
+      border-radius: 999px;
+      background: #F0F9FF;
+      color: #075985;
+      padding: 4px 8px;
+      font-size: 11px;
+      font-weight: 900;
+      line-height: 1.2;
+    }
+    .keyword-detail-list { display: grid; gap: 10px; }
+    .keyword-detail-card {
+      border: 1px solid rgba(14,165,233,.22);
+      border-radius: 8px;
+      background: #FFFFFF;
+      padding: 12px;
+    }
+    .keyword-detail-head {
+      display: flex;
+      justify-content: space-between;
+      gap: 12px;
+      flex-wrap: wrap;
+      align-items: start;
+      margin-bottom: 8px;
+    }
+    .keyword-detail-head strong { color: var(--text); font-size: 16px; overflow-wrap: anywhere; }
+    .keyword-detail-meta { color: var(--muted); font-size: 12px; font-weight: 800; }
+    .keyword-detail-card .keyword-intent { margin-top: 8px; }
+    .keyword-expansion-table {
+      width: 100%;
+      border-collapse: collapse;
+      margin-top: 10px;
+      overflow: hidden;
+      border-radius: 8px;
+      border: 1px solid var(--line-soft);
+      font-size: 12px;
+    }
+    .keyword-expansion-table th,
+    .keyword-expansion-table td {
+      border-bottom: 1px solid var(--line-soft);
+      padding: 8px;
+      text-align: left;
+      vertical-align: top;
+      color: var(--text);
+    }
+    .keyword-expansion-table th { background: #F0F9FF; color: #075985; font-weight: 1000; }
+    .keyword-expansion-table tr:last-child td { border-bottom: 0; }
+    .keyword-expansion-table button { min-height: 28px; }
     .intent-branches { display: flex; flex-wrap: wrap; gap: 5px; margin-top: 3px; }
     .intent-branch {
       border: 1px solid rgba(14,165,233,.26);
@@ -1419,7 +1470,6 @@ export function renderLewordProWeb(): string {
             </select>
             <button class="btn primary" type="submit">조회하기</button>
           </form>
-          <div class="tool-result-panel" id="lookupInsightPanel" hidden></div>
           <div class="table-wrap">
             <table>
               <thead>
@@ -1443,6 +1493,7 @@ export function renderLewordProWeb(): string {
               </tbody>
             </table>
           </div>
+          <div class="tool-result-panel" id="lookupInsightPanel" hidden></div>
         </section>
 
         <section class="panel main-view" id="features" data-view="features">
@@ -1941,6 +1992,7 @@ export function renderLewordProWeb(): string {
       health: apiUrl('/health'),
       session: apiUrl('/v1/web/session'),
       adminSettingsUnlock: apiUrl('/v1/admin/settings/unlock'),
+      adminAiWorkerStatus: apiUrl('/v1/admin/ai-worker/status'),
       adminSiteContent: apiUrl('/v1/admin/site-content'),
       adminCommerceDashboard: apiUrl('/v1/admin/commerce/dashboard'),
       publicSiteContent: apiUrl('/v1/public/site-content'),
@@ -2186,11 +2238,90 @@ export function renderLewordProWeb(): string {
       const infoEscape = /(방법|팁|시기|주의사항|후기|준비물|보험 차이|완전자차|취소 규정)/.test(text);
       return commercialCore && directAction && !infoEscape;
     }
+    function hasTrafficNeedIntent(row) {
+      const text = keywordRowSearchText(row);
+      const keyword = normalizeText(row && row.keyword);
+      return /(신청|대상|자격|조건|지급일|입금일|조회|계산기|서류|마감|환급|사용처|예약 방법|예약 시기|취소|보험|완전자차|비교|후기|주의사항|예매|라인업|중계|일정|후보|전망|전말|이유|논란|반응|정리|방법|가격비교|실수령액|위반|신고|공식 확인|변경사항)/.test(text + ' ' + keyword);
+    }
+    function hasSearchDemandEdge(row) {
+      const total = rowNumber(row, 'totalSearchVolume');
+      const docs = rowNumber(row, 'documentCount');
+      const ratio = rowGoldenRatio(row);
+      if (total === null) return false;
+      if (docs === null) return total >= 500;
+      if (docs <= 0) return total >= 300;
+      if (total >= 1000 && docs <= 12000 && ratio !== null && ratio >= 1.5) return true;
+      if (total >= 300 && docs <= 5000 && ratio !== null && ratio >= 1.2) return true;
+      return total >= 100 && docs <= 1000 && ratio !== null && ratio >= 1;
+    }
+    function isCrossDomainNonsenseKeyword(rowOrText) {
+      const text = typeof rowOrText === 'string' ? normalizeText(rowOrText) : keywordRowSearchText(rowOrText);
+      if (!text) return false;
+      const compact = compactKeywordText(text);
+      const signals = keywordDomainSignals(text);
+      const culturalLocal = /문화누리카드/.test(text) && signals.local;
+      const travelPurchase = signals.local && /(렌터|렌트|숙소|호텔|펜션|항공권|예약|가격|비교|후기|취소|보험)/.test(text);
+      if (/(최저임금|주휴수당|근로장려금|자녀장려금|지원금|수당|급여|정책|복지).*(감독|감독후보|축구|월드컵|kbo|야구|선수)|(?:감독|축구|월드컵|kbo|야구|선수).*(최저임금|주휴수당|근로장려금|지원금|수당|급여|정책)/i.test(compact)) return true;
+      if (signals.policy && signals.sports) return true;
+      if (signals.policy && signals.shopping && !culturalLocal) return true;
+      if (signals.local && signals.sports) return true;
+      if (signals.shopping && signals.sports) return true;
+      if (signals.local && signals.shopping && !travelPurchase) return true;
+      return false;
+    }
+    function isLowTrafficCaptureKeyword(row) {
+      if (!row || !normalizeText(row.keyword)) return true;
+      const keyword = normalizeText(row.keyword);
+      if (isCrossDomainNonsenseKeyword(row)) return true;
+      if (/(프로필|몇부작|출연진|인물관계도|공식영상|로또|당첨번호|등급컷|시청률|재방송|다시보기|근황)/.test(keyword)) return true;
+      if (isAdDominatedKeywordRow(row)) return true;
+      const decision = row && row.aiJudge;
+      if (decision && decision.verdict === 'exclude') return true;
+      if ((row.grade === 'SSS' || row.grade === 'SS') && ((decision && decision.verdict === 'publish') || hasTrafficNeedIntent(row))) return false;
+      const measuredCrowded = isMeasuredDemandTooCrowded(row);
+      if (measuredCrowded && !hasTrafficNeedIntent(row)) return true;
+      if (!hasTrafficNeedIntent(row) && !hasSearchDemandEdge(row)) return true;
+      return false;
+    }
+    function liveNeedScore(row) {
+      if (!row) return 0;
+      if (isCrossDomainNonsenseKeyword(row) || isAmbiguousCompositeKeyword(row)) return -100;
+      if (isShoppingIntentKeywordRow(row)) return -60;
+      if (isAdDominatedKeywordRow(row)) return -50;
+      const total = rowNumber(row, 'totalSearchVolume') || 0;
+      const docs = rowNumber(row, 'documentCount');
+      const ratio = rowGoldenRatio(row) || 0;
+      const judge = row && row.aiJudge;
+      let score = 0;
+      if (total >= 30000) score += 22;
+      else if (total >= 10000) score += 18;
+      else if (total >= 3000) score += 14;
+      else if (total >= 1000) score += 10;
+      else if (total >= 300) score += 6;
+      if (docs !== null) {
+        if (docs <= 300) score += 22;
+        else if (docs <= 1000) score += 18;
+        else if (docs <= 5000) score += 11;
+        else if (docs <= 12000) score += 4;
+        else score -= 12;
+      }
+      if (ratio >= 20) score += 24;
+      else if (ratio >= 10) score += 18;
+      else if (ratio >= 5) score += 12;
+      else if (ratio >= 2) score += 7;
+      else if (ratio > 0 && ratio < 1) score -= 16;
+      if (hasTrafficNeedIntent(row)) score += 20;
+      if (judge && judge.verdict === 'publish') score += 18;
+      if (judge && judge.needIntent === 'strong') score += 10;
+      if (/live|realtime|source|measured|golden/i.test(normalizeText(row && row.source))) score += 5;
+      return score;
+    }
     function isAmbiguousCompositeKeyword(row) {
       const raw = normalizeText(row && row.keyword);
       const keyword = compactKeywordText(raw);
       if (!keyword) return false;
-      if (/(순위.*출시일|출시일.*순위|금액.*지급일|지급일.*금액|정례대화.*금액|금액.*정례대화|방법.*주의사항|주의사항.*정리|가격.*출시일|후기.*출시일|추천.*출시일|후보.*금액|격차.*후보)/.test(keyword)) return true;
+      if (isCrossDomainNonsenseKeyword(row)) return true;
+      if (/(순위.*출시일|출시일.*순위|금액.*지급일|지급일.*금액|정례대화.*(?:지급일|금액|대상|신청|수당)|(?:지급일|금액|대상|신청|수당).*정례대화|방법.*주의사항|주의사항.*정리|가격.*출시일|후기.*출시일|추천.*출시일|후보.*금액|격차.*후보)/.test(keyword)) return true;
       const markers = ['방법', '조회', '주의사항', '정리', '가격', '후기', '추천', '순위', '출시일', '금액', '지급일', '신청', '대상', '후보', '일정', '비교', '원룸'];
       const markerCount = markers.reduce(function(count, marker) {
         return count + (keyword.indexOf(marker) >= 0 ? 1 : 0);
@@ -2199,7 +2330,7 @@ export function renderLewordProWeb(): string {
       return markerCount >= 3 && (hasNoReadableSpacing || keyword.length >= 17);
     }
     function shouldHideFromLiveGoldenBoard(row) {
-      return isAmbiguousCompositeKeyword(row) || isShoppingIntentKeywordRow(row) || isAdDominatedKeywordRow(row);
+      return isAmbiguousCompositeKeyword(row) || isShoppingIntentKeywordRow(row) || isAdDominatedKeywordRow(row) || isLowTrafficCaptureKeyword(row);
     }
     function shouldHideFromMindmap(row) {
       return isAmbiguousCompositeKeyword(row) || isShoppingIntentKeywordRow(row);
@@ -2207,7 +2338,7 @@ export function renderLewordProWeb(): string {
     function filterDisplayGoldenItems(items) {
       return filterFreshGoldenItems(items || []).filter(function(item) {
         return !shouldHideFromLiveGoldenBoard(item);
-      });
+      }).sort(function(a, b) { return liveNeedScore(b) - liveNeedScore(a); });
     }
     function uniqueIntentBranches(items, limit) {
       const seen = new Set();
@@ -2220,6 +2351,12 @@ export function renderLewordProWeb(): string {
         out.push(text);
       });
       return out.slice(0, limit || 6);
+    }
+    function domainSafeIntentBranches(seed, items, limit) {
+      return uniqueIntentBranches(items, limit || 10)
+        .filter(function(item) { return candidateFitsSeedDomain(seed, item); })
+        .filter(function(item) { return !isCrossDomainNonsenseKeyword(seed + ' ' + item); })
+        .slice(0, limit || 10);
     }
     function readableKeywordTopic(row) {
       const keyword = normalizeText(row && row.keyword);
@@ -2288,19 +2425,19 @@ export function renderLewordProWeb(): string {
         push(base + ' 주의사항');
         push('제주 렌터카 완전자차 보험');
         push('제주공항 렌터카 예약');
-        return uniqueIntentBranches(out, 10);
+        return domainSafeIntentBranches(clean, out, 10);
       }
       if (/(렌터카|렌트카|숙소|호텔|펜션|항공권|여행|맛집|축제)/.test(clean)) {
         ['사이트', '방법', '팁', '시기', '비교', '후기', '주의사항'].forEach(function(suffix) { push(clean + ' ' + suffix); });
       } else if (/(지원금|장려금|수당|급여|환급|신청|정책|근로장려금|최저임금)/.test(clean)) {
         const base = clean.replace(/\s+(방법|대상|지급일|금액|서류|신청)$/g, '');
         ['신청 방법', '대상', '지급일', '금액', '필요 서류', '조회', '주의사항'].forEach(function(suffix) { push(base + ' ' + suffix); });
-      } else if (/(감독|축구|야구|월드컵|KBO|선수|경기|순위|일정)/i.test(clean)) {
+      } else if (/(감독|축구|야구|월드컵|KBO|선수|경기|하이라이트|축구협회|대표팀|홍명보)/i.test(clean)) {
         ['이유', '후보', '반응', '일정', '순위', '전망', '논란 정리'].forEach(function(suffix) { push(clean + ' ' + suffix); });
       } else if (compact.length >= 4) {
         ['이유', '방법', '비교', '후기', '주의사항'].forEach(function(suffix) { push(clean + ' ' + suffix); });
       }
-      return uniqueIntentBranches(out, 10);
+      return domainSafeIntentBranches(clean, out, 10);
     }
     function localExpansionBranches(topic, keyword) {
       const base = normalizeText(topic || keyword);
@@ -2332,47 +2469,47 @@ export function renderLewordProWeb(): string {
       const base = topic || keyword;
       if (/근로장려금/.test(base)) {
         const year = (keyword.match(/202[0-9]/) || ['2026'])[0];
-        return [
+        return domainSafeIntentBranches(base, [
           year + ' 근로장려금 지급일',
           year + ' 근로장려금 신청기간',
           year + ' 근로장려금 대상자 확인',
           year + ' 근로장려금 금액 조회',
           year + ' 근로장려금 반기 정기 차이',
           year + ' 근로장려금 제외대상',
-        ];
+        ], 6);
       }
-      if (/주휴수당/.test(base)) return ['주휴수당 계산기 일용직', '주휴수당 조건 15시간', '주휴수당 미지급 신고', '주휴수당 계산법 예시', '알바 주휴수당 기준'];
-      if (/최저임금/.test(base)) return ['최저임금 월급 계산', '최저임금 주휴수당 포함', '최저임금 실수령액', '최저임금 위반 신고', '최저임금 격차 원인'];
-      if (/문화누리카드/.test(base)) return ['문화누리카드 사용처 조회', '문화누리카드 온라인 사용처', '문화누리카드 잔액조회', '문화누리카드 충전일', '문화누리카드 영화 예매'];
-      return [base + ' 대상', base + ' 신청방법', base + ' 지급일', base + ' 필요서류', base + ' 제외대상'];
+      if (/주휴수당/.test(base)) return domainSafeIntentBranches(base, ['주휴수당 계산기 일용직', '주휴수당 조건 15시간', '주휴수당 미지급 신고', '주휴수당 계산법 예시', '알바 주휴수당 기준'], 5);
+      if (/최저임금/.test(base)) return domainSafeIntentBranches(base, ['최저임금 월급 계산', '최저임금 주휴수당 포함', '최저임금 실수령액', '최저임금 위반 신고', '최저임금 격차 원인'], 5);
+      if (/문화누리카드/.test(base)) return domainSafeIntentBranches(base, ['문화누리카드 사용처 조회', '문화누리카드 온라인 사용처', '문화누리카드 잔액조회', '문화누리카드 충전일', '문화누리카드 영화 예매'], 5);
+      return domainSafeIntentBranches(base, [base + ' 대상', base + ' 신청방법', base + ' 지급일', base + ' 필요서류', base + ' 제외대상'], 5);
     }
     function issueExpansionBranches(topic, keyword) {
       const base = topic || keyword;
-      if (/홍명보|축구협회|감독/.test(keyword)) {
-        return [
+      if (/홍명보|축구협회|감독/.test(keyword) && !isCrossDomainNonsenseKeyword(base + ' ' + keyword)) {
+        return domainSafeIntentBranches(base, [
           '홍명보 감독 다음 감독 후보',
           '홍명보 감독 선임 과정 논란',
           '대한축구협회 비리 전말',
           '이강인 이재성 투입 요청',
           '김민재 교체 항의 장면',
           '대한민국 축구대표팀 전술 문제',
-        ];
+        ], 6);
       }
-      if (/KBO|올스타전|야구/.test(keyword)) return ['KBO 올스타전 예매 방법', 'KBO 올스타전 라인업', 'KBO 올스타전 중계', 'KBO 올스타전 일정', 'KBO 올스타전 티켓 가격'];
-      return [base + ' 이유', base + ' 이후 전망', base + ' 핵심 쟁점', base + ' 다음 일정', base + ' 반응 정리'];
+      if (/KBO|올스타전|야구/.test(keyword)) return domainSafeIntentBranches(base, ['KBO 올스타전 예매 방법', 'KBO 올스타전 라인업', 'KBO 올스타전 중계', 'KBO 올스타전 일정', 'KBO 올스타전 티켓 가격'], 5);
+      return domainSafeIntentBranches(base, [base + ' 이유', base + ' 이후 전망', base + ' 핵심 쟁점', base + ' 다음 일정', base + ' 반응 정리'], 5);
     }
     function shoppingExpansionBranches(topic, keyword) {
       const base = topic || keyword;
-      return [base + ' 추천', base + ' 후기', base + ' 가격비교', base + ' 단점', base + ' 구매 전 확인'];
+      return domainSafeIntentBranches(base, [base + ' 추천', base + ' 후기', base + ' 가격비교', base + ' 단점', base + ' 구매 전 확인'], 5);
     }
     function keywordDomain(value) {
       const text = normalizeText(value).toLowerCase();
       if (/(제주|서울|부산|대구|인천|광주|대전|울산|강릉|속초|여행|숙소|호텔|펜션|항공권|렌터카|렌트카|맛집|축제|문화누리카드\s*사용처)/.test(text)) return 'local';
       if (/(지원금|장려금|수당|급여|환급|신청|정책|근로장려금|최저임금|주휴수당|문화누리카드|청년인턴|청년청약|실업급여)/.test(text)) return 'policy';
-      if (/(감독|축구|야구|월드컵|kbo|선수|경기|순위|일정|홍명보|김민재|이강인|이재성)/i.test(text)) return 'sports';
+      if (/(감독|축구|야구|월드컵|kbo|선수|경기|하이라이트|축구협회|대표팀|홍명보|김민재|이강인|이재성)/i.test(text)) return 'sports';
       if (/(로봇청소기|청소기|공기청정기|제습기|에어컨|냉장고|노트북|아이폰|갤럭시|가격|추천|후기|구매|할인|최저가|제품|상품)/.test(text) && !/(지원금|장려금|수당|정책)/.test(text)) return 'shopping';
       if (/(지원금|장려금|급여|수당|정책|복지|신청|대상|지급일|정부|채용|인턴|연금|보험|세금|환급|최저임금|주휴수당|문화누리카드|청년도약계좌|내일배움카드)/.test(text)) return 'policy';
-      if (/(월드컵|축구|야구|kbo|감독|선수|경기|순위|일정|하이라이트|축구협회|대표팀|이강인|김민재|이재성|손흥민|홍명보)/i.test(text)) return 'sports';
+      if (/(월드컵|축구|야구|kbo|감독|선수|경기|하이라이트|축구협회|대표팀|이강인|김민재|이재성|손흥민|홍명보)/i.test(text)) return 'sports';
       if (/(구매|가격|최저가|할인|추천|순위|후기|비교|리뷰|쿠폰|배송|스펙|브랜드|제품|상품|가전|전자|청소기|로봇청소기|공기청정기|제습기|에어컨|냉장고|세탁기|노트북|태블릿|이어폰|마사지기|영양제|유산균|화장품|선크림|샴푸|운동화|가방|매트리스|캠핑|기저귀|카시트)/.test(text)) return 'shopping';
       if (/(제주|서울|부산|대구|인천|광주|대전|울산|강릉|속초|여행|숙소|맛집|렌터|렌트|항공권|호텔|펜션|축제|문화누리카드사용처)/.test(text)) return 'local';
       return 'general';
@@ -2381,7 +2518,7 @@ export function renderLewordProWeb(): string {
       const text = normalizeText(value).toLowerCase();
       return {
         policy: /(지원금|장려금|급여|수당|정책|복지|신청|대상|지급일|정부|채용|인턴|연금|보험|세금|환급|최저임금|주휴수당|문화누리카드|청년도약계좌|내일배움카드)/.test(text),
-        sports: /(월드컵|축구|야구|kbo|감독|선수|경기|순위|일정|하이라이트|축구협회|대표팀|이강인|김민재|이재성|손흥민|홍명보)/i.test(text),
+        sports: /(월드컵|축구|야구|kbo|감독|선수|경기|하이라이트|축구협회|대표팀|이강인|김민재|이재성|손흥민|홍명보)/i.test(text),
         shopping: /(구매|가격|최저가|할인|추천|순위|후기|비교|리뷰|쿠폰|배송|스펙|브랜드|제품|상품|가전|전자|청소기|로봇청소기|공기청정기|제습기|에어컨|냉장고|세탁기|노트북|태블릿|이어폰|마사지기|영양제|유산균|화장품|선크림|샴푸|운동화|가방|매트리스|캠핑|기저귀|카시트)/.test(text),
         local: /(제주|서울|부산|대구|인천|광주|대전|울산|강릉|속초|여행|숙소|맛집|렌터|렌트|항공권|호텔|펜션|축제|문화누리카드사용처)/.test(text),
       };
@@ -2392,6 +2529,7 @@ export function renderLewordProWeb(): string {
       const combined = normalizeText(seed + ' ' + candidate);
       const isCulturalLocal = /문화누리카드/.test(combined) && candidateSignals.local;
       const isTravelPurchase = (seedSignals.local || candidateSignals.local) && /(렌터|렌트|숙소|호텔|펜션|항공권|맛집|여행)/.test(combined);
+      if (isCrossDomainNonsenseKeyword(combined)) return false;
       if (seedSignals.policy && candidateSignals.sports && !seedSignals.sports) return false;
       if (seedSignals.sports && candidateSignals.policy && !seedSignals.policy) return false;
       if (seedSignals.policy && candidateSignals.shopping && !seedSignals.shopping && !isCulturalLocal) return false;
@@ -2461,7 +2599,7 @@ export function renderLewordProWeb(): string {
           branches: policyExpansionBranches(topic, keyword),
         };
       }
-      if (/(sports|월드컵|축구|야구|감독|선수|경기|순위|일정|하이라이트|축구협회|대표팀|이강인|김민재|이재성|손흥민|홍명보)/i.test(text)) {
+      if (/(sports|월드컵|축구|야구|감독|선수|경기|하이라이트|축구협회|대표팀|이강인|김민재|이재성|손흥민|홍명보)/i.test(text)) {
         return {
           kind: 'issue',
           label: '후속 의문형',
@@ -2488,13 +2626,21 @@ export function renderLewordProWeb(): string {
       const topic = readableKeywordTopic(row);
       const modifiers = keywordModifiers(row);
       if (isAmbiguousCompositeKeyword(row)) {
+        const compact = compactKeywordText(keyword);
+        const dialoguePaymentCollision = /정례대화.*(?:지급일|금액|대상|신청|수당)|(?:지급일|금액|대상|신청|수당).*정례대화/.test(compact);
         return {
           kind: 'unclear',
-          label: '의도 불명확',
-          meaning: '검색량이 있어도 여러 modifier가 한 줄에 붙어 검색자가 원하는 답이 흐립니다. 조합 자체가 자연 검색어인지 먼저 분해해야 합니다.',
-          action: '핵심 주제 1개와 확인 의도 1개만 남긴 뒤 마인드맵으로 다시 확장하세요. 여러 의도를 한 제목에 다 넣으면 체류와 클릭이 동시에 약해집니다.',
+          label: dialoguePaymentCollision ? '억지 조합 제외' : '의도 불명확',
+          meaning: dialoguePaymentCollision
+            ? '“정례대화”는 회담·외교·정치 이슈형 단어이고 “지급일”은 지원금·급여·정책형 행동어입니다. 두 의도가 붙으면 검색량이 있어도 검색자가 원하는 답을 특정할 수 없어 황금키워드로 쓰기 어렵습니다.'
+            : '검색량이 있어도 여러 modifier가 한 줄에 붙어 검색자가 원하는 답이 흐립니다. 조합 자체가 자연 검색어인지 먼저 분해해야 합니다.',
+          action: dialoguePaymentCollision
+            ? '정례대화 쪽은 “정례대화 결과, 의제, 합의문, 다음 일정, 관련주”처럼 이슈 후속 질문으로 다시 확장하고, 지급일 쪽은 실제 제도명과 붙여 별도 검증하세요.'
+            : '핵심 주제 1개와 확인 의도 1개만 남긴 뒤 마인드맵으로 다시 확장하세요. 여러 의도를 한 제목에 다 넣으면 체류와 클릭이 동시에 약해집니다.',
           route: '검증 후 사용',
-          branches: uniqueIntentBranches([topic + ' 방법', topic + ' 대상', topic + ' 지급일', topic + ' 후기', topic + ' 비교'], 5),
+          branches: dialoguePaymentCollision
+            ? uniqueIntentBranches(['정례대화 결과', '정례대화 의제', '정례대화 합의문', '정례대화 다음 일정', '정례대화 관련주'], 5)
+            : uniqueIntentBranches([topic + ' 방법', topic + ' 대상', topic + ' 지급일', topic + ' 후기', topic + ' 비교'], 5),
         };
       }
       if (isAdDominatedKeywordRow(row)) {
@@ -2533,7 +2679,7 @@ export function renderLewordProWeb(): string {
           branches: policyExpansionBranches(topic, keyword),
         };
       }
-      if (/(sports|월드컵|축구|야구|감독|선수|경기|순위|일정|하이라이트)/i.test(text)) {
+      if (/(sports|월드컵|축구|야구|감독|선수|경기|하이라이트|축구협회|대표팀|홍명보)/i.test(text)) {
         return {
           kind: 'issue',
           label: '이슈 해설형',
@@ -2552,8 +2698,62 @@ export function renderLewordProWeb(): string {
         branches: uniqueIntentBranches([topic + ' 뜻', topic + ' 이유', topic + ' 방법', topic + ' 비교', topic + ' 주의사항'], 5),
       };
     }
+    function intentMetricNumber(row, key) {
+      const n = Number(row && row[key]);
+      return Number.isFinite(n) ? n : null;
+    }
+    function measuredIntentEvidence(row) {
+      const total = intentMetricNumber(row, 'totalSearchVolume');
+      const pc = intentMetricNumber(row, 'pcSearchVolume');
+      const mobile = intentMetricNumber(row, 'mobileSearchVolume');
+      const docs = intentMetricNumber(row, 'documentCount');
+      const ratio = intentMetricNumber(row, 'goldenRatio');
+      const parts = [];
+      if (total !== null) parts.push('실측 검색량 ' + fmt(total));
+      if (pc !== null || mobile !== null) parts.push('PC ' + fmt(pc || 0) + ' / 모바일 ' + fmt(mobile || 0));
+      if (docs !== null) parts.push('문서수 ' + fmt(docs));
+      if (ratio !== null) parts.push('황금비 ' + fmt(ratio));
+      if (!parts.length) return '';
+      return parts.join(' · ') + ' 기준으로 수요와 공급 간격을 먼저 봅니다.';
+    }
+    function aiJudgeIntentEvidence(row) {
+      const judge = row && row.aiJudge;
+      if (!judge || typeof judge !== 'object') return '';
+      const verdict = judge.verdict === 'publish' ? '발행 추천' : judge.verdict === 'conditional' ? '조건부' : '제외';
+      const score = Number.isFinite(Number(judge.score)) ? '점수 ' + Math.round(Number(judge.score)) : '';
+      const reasons = Array.isArray(judge.reasons) ? judge.reasons.map(normalizeText).filter(Boolean).slice(0, 2).join(' · ') : '';
+      return [verdict, score, reasons].filter(Boolean).join(' · ');
+    }
+    function sourceIntentEvidence(row) {
+      const evidence = Array.isArray(row && row.evidence) ? row.evidence.map(normalizeText).filter(Boolean).slice(0, 2) : [];
+      const source = normalizeText(row && row.source);
+      const category = normalizeText(row && row.category);
+      const pieces = [];
+      if (source && !/persistent-measured-golden-cache/i.test(source)) pieces.push('소스 ' + source);
+      if (category) pieces.push('분류 ' + category);
+      if (evidence.length) pieces.push(evidence.join(' · '));
+      return pieces.join(' · ');
+    }
+    function enrichKeywordIntentGuide(row, guide) {
+      const metric = measuredIntentEvidence(row);
+      const ai = aiJudgeIntentEvidence(row);
+      const source = sourceIntentEvidence(row);
+      const meaningPieces = [guide.meaning, metric, source ? '수집 근거: ' + source : ''].filter(Boolean);
+      const actionPieces = [guide.action];
+      if (ai) actionPieces.push('판정 근거: ' + ai + '.');
+      if (guide.kind === 'ad-risk') {
+        actionPieces.push('광고형 원키워드는 상단 클릭을 빼앗기기 쉬우니 자동완성 가지 중 정보형·주의사항·비교형만 골라 다시 검증하세요.');
+      }
+      if (guide.kind === 'shopping') {
+        actionPieces.push('제품명만 쓰지 말고 구매 불안, 실제 사용 상황, 대체 제품 비교까지 연결해야 전환 가능성이 생깁니다.');
+      }
+      return Object.assign({}, guide, {
+        meaning: meaningPieces.join(' '),
+        action: actionPieces.join(' '),
+      });
+    }
     function keywordIntentGuideHtml(row) {
-      const guide = keywordIntentGuide(row);
+      const guide = enrichKeywordIntentGuide(row, keywordIntentGuide(row));
       const shoppingAction = guide.kind === 'shopping'
         ? '<button class="tiny-btn green" type="button" data-board-action="shopping" data-keyword="' + escapeAttr(row && row.keyword || '') + '">쇼핑커넥트로 보기</button>'
         : '';
@@ -2570,6 +2770,95 @@ export function renderLewordProWeb(): string {
         + branchHtml
         + shoppingAction
         + '</div>';
+    }
+    function keywordAutocompleteCandidates(row, limit) {
+      const keyword = normalizeText(row && row.keyword);
+      const guide = keywordIntentGuide(row);
+      const candidates = uniqueIntentBranches([].concat(
+        naverAutocompleteLikeBranches(keyword),
+        guide && guide.branches ? guide.branches : []
+      ).filter(function(branch) {
+        return candidateFitsSeedDomain(keyword, branch) && compactKeywordText(branch) !== compactKeywordText(keyword);
+      }), limit || 8);
+      return candidates;
+    }
+    function keywordMiniBranchesHtml(row) {
+      const branches = keywordAutocompleteCandidates(row, 5);
+      if (!branches.length) return '';
+      return '<div class="keyword-mini-branches">' + branches.map(function(branch) {
+        return '<button class="keyword-mini-branch" type="button" data-board-action="analyze" data-keyword="' + escapeAttr(branch) + '">' + escapeHtml(branch) + '</button>';
+      }).join('') + '</div>';
+    }
+    function keywordCompactCellHtml(row) {
+      return '<div class="keyword-main-cell"><strong>' + escapeHtml(row && row.keyword || '-') + '</strong>' + keywordMiniBranchesHtml(row) + '</div>';
+    }
+    function keywordExpansionTableHtml(seed, row, allRows) {
+      const sourceRows = Array.isArray(allRows) ? allRows : [];
+      const byKey = new Map();
+      sourceRows.forEach(function(item) {
+        const key = compactKeywordText(item && item.keyword);
+        if (key && !byKey.has(key)) byKey.set(key, item);
+      });
+      const branches = keywordAutocompleteCandidates(row, 8);
+      if (!branches.length) return '<div class="mindmap-empty">자동완성 확장 후보가 없습니다. 원 키워드를 더 구체화해서 다시 조회하세요.</div>';
+      return '<table class="keyword-expansion-table"><thead><tr><th>자동완성/확장 키워드</th><th>PC</th><th>모바일</th><th>전체</th><th>문서수</th><th>경쟁비</th><th>측정</th><th>실행</th></tr></thead><tbody>'
+        + branches.map(function(branch) {
+          const measured = byKey.get(compactKeywordText(branch));
+          return '<tr>'
+            + '<td><strong>' + escapeHtml(branch) + '</strong></td>'
+            + '<td>' + (measured ? fmtMeasuredMetric(measured, 'pcSearchVolume') : '-') + '</td>'
+            + '<td>' + (measured ? fmtMeasuredMetric(measured, 'mobileSearchVolume') : '-') + '</td>'
+            + '<td>' + (measured ? fmtMeasuredMetric(measured, 'totalSearchVolume') : '-') + '</td>'
+            + '<td>' + (measured ? fmtMeasuredMetric(measured, 'documentCount') : '-') + '</td>'
+            + '<td>' + (measured ? fmtMeasuredMetric(measured, 'goldenRatio') : '-') + '</td>'
+            + '<td>' + (measured && hasMeasuredKeywordMetrics(measured) ? '실측' : '측정 필요') + '</td>'
+            + '<td><button class="tiny-btn blue" type="button" data-board-action="analyze" data-keyword="' + escapeAttr(branch) + '">조회</button></td>'
+            + '</tr>';
+        }).join('')
+        + '</tbody></table>';
+    }
+    function keywordDetailCardHtml(seed, row, index, allRows) {
+      const keyword = normalizeText(row && row.keyword) || seed;
+      const displayGrade = displayGradeForRow(row);
+      return '<div class="keyword-detail-card">'
+        + '<div class="keyword-detail-head">'
+        + '<strong>' + fmt(index + 1) + '. ' + escapeHtml(keyword) + '</strong>'
+        + '<span class="keyword-detail-meta">전체 ' + fmt(row && row.totalSearchVolume) + ' · 문서 ' + fmt(row && row.documentCount) + ' · 등급 ' + escapeHtml(displayGrade) + '</span>'
+        + '</div>'
+        + keywordIntentGuideHtml(row)
+        + keywordExpansionTableHtml(seed, row, allRows)
+        + '</div>';
+    }
+    function renderKeywordAnalysisInsight(result, rows) {
+      const target = qs('lookupInsightPanel');
+      if (!target) return;
+      const list = Array.isArray(rows) ? rows.filter(function(row) { return row && normalizeText(row.keyword); }) : [];
+      if (!list.length) {
+        target.hidden = true;
+        target.innerHTML = '';
+        return;
+      }
+      const seed = normalizeText(result && (result.keyword || result.seedKeyword)) || compactKeywordInput();
+      const exact = list.find(function(row) { return compactKeywordText(row && row.keyword) === compactKeywordText(seed); }) || list[0];
+      const detailRows = uniqueKeywords([exact.keyword].concat(keywordAutocompleteCandidates(exact, 8)), 9).map(function(keyword) {
+        return list.find(function(row) { return compactKeywordText(row && row.keyword) === compactKeywordText(keyword); }) || {
+          keyword: keyword,
+          source: 'autocomplete-expansion',
+          measurementStatus: 'unmeasured',
+        };
+      });
+      target.hidden = false;
+      target.innerHTML = '<h3>정밀 분석 해석과 자동완성 확장</h3>'
+        + '<p>표에서는 실측값을 빠르게 보고, 아래에서는 이 키워드가 왜 뜨는지와 바로 확장할 자동완성 후보를 같이 확인합니다.</p>'
+        + resultKpiHtml([
+          { label: '분석 키워드', value: fmt(list.length) },
+          { label: '실측 완료', value: fmt(list.filter(hasMeasuredKeywordMetrics).length) },
+          { label: '확장 후보', value: fmt(detailRows.length) },
+          { label: '시간', value: new Date().toLocaleTimeString('ko-KR') },
+        ])
+        + '<div class="keyword-detail-list">' + detailRows.slice(0, 5).map(function(row, index) {
+          return keywordDetailCardHtml(seed, row, index, list);
+        }).join('') + '</div>';
     }
     function isEmptyKeywordResult(result) {
       return !!(result && Array.isArray(result.keywords) && !keywordResultRows(result).length);
@@ -3026,6 +3315,7 @@ export function renderLewordProWeb(): string {
           measured: sorted.filter(function(row) { return row.isMeasured; }).length,
           sss: sorted.filter(function(row) { return row.grade === 'SSS'; }).length,
           elapsedMs: 0,
+          agentAssist: agentAssistRequestPayload(feature.route, { keyword: keyword, seedKeyword: keyword }),
         },
       };
     }
@@ -3989,6 +4279,15 @@ export function renderLewordProWeb(): string {
         + '</div>';
     }
     function publishDecisionFor(row) {
+      if (isCrossDomainNonsenseKeyword(row)) {
+        return {
+          label: '의도 충돌',
+          verdict: 'exclude',
+          score: 0,
+          reasons: ['정책·스포츠·쇼핑·지역 의도가 한 키워드에 섞여 검색자가 원하는 답이 깨집니다.'],
+          nextAction: '원 주제 하나만 남기고 자동완성/마인드맵으로 다시 확장하세요.',
+        };
+      }
       if (isAmbiguousCompositeKeyword(row)) {
         return {
           label: '의도 불명확',
@@ -4014,6 +4313,15 @@ export function renderLewordProWeb(): string {
           score: browserLocalKeywordQualityScore(row && row.totalSearchVolume, row && row.documentCount),
           reasons: ['상단이 광고·예약 플랫폼에 장악되기 쉬운 구매형 SERP라 블로그 외부유입 수익 키워드로는 우선순위를 낮춥니다.'],
           nextAction: '마인드맵에서 보험, 주의사항, 예약 시기, 비교 기준처럼 광고가 덜한 정보형 롱테일로 재확장하세요.',
+        };
+      }
+      if (isLowTrafficCaptureKeyword(row)) {
+        return {
+          label: '트래픽 약함',
+          verdict: 'exclude',
+          score: liveNeedScore(row),
+          reasons: ['검색량만 있거나 조합이 넓어서 블로그가 클릭을 가져올 명확한 니즈가 약합니다.'],
+          nextAction: '신청/대상/지급일/비교/주의사항/후속 의문처럼 행동 의도가 드러나는 롱테일로 다시 검증하세요.',
         };
       }
       if (isMeasuredDemandTooCrowded(row)) {
@@ -4050,6 +4358,7 @@ export function renderLewordProWeb(): string {
     function displayGradeForRow(row) {
       if (isAmbiguousCompositeKeyword(row)) return 'C';
       if (isAdDominatedKeywordRow(row)) return 'C';
+      if (isLowTrafficCaptureKeyword(row)) return 'C';
       return isMeasuredDemandTooCrowded(row) ? 'C' : ((row && row.grade) || '-');
     }
     function publishDecisionReason(decision) {
@@ -4533,6 +4842,8 @@ export function renderLewordProWeb(): string {
         provider: 'codex',
         codexCliLoggedIn: false,
         claudeCodeCliLoggedIn: false,
+        lastServerStatus: null,
+        lastCheckedAt: '',
         fiveHourWindow: true,
         mindmapAssist: true,
         keywordResearchAssist: true,
@@ -4547,6 +4858,8 @@ export function renderLewordProWeb(): string {
           provider: provider,
           codexCliLoggedIn: raw.codexCliLoggedIn === true,
           claudeCodeCliLoggedIn: raw.claudeCodeCliLoggedIn === true,
+          lastServerStatus: raw.lastServerStatus && typeof raw.lastServerStatus === 'object' ? raw.lastServerStatus : null,
+          lastCheckedAt: typeof raw.lastCheckedAt === 'string' ? raw.lastCheckedAt : '',
           fiveHourWindow: raw.fiveHourWindow !== false,
           mindmapAssist: raw.mindmapAssist !== false,
           keywordResearchAssist: raw.keywordResearchAssist !== false,
@@ -4559,23 +4872,51 @@ export function renderLewordProWeb(): string {
     function writeAdminAiWorkerSettings(settings) {
       localStorage.setItem(adminAiWorkerSettingsStorageKey, JSON.stringify(settings || defaultAdminAiWorkerSettings()));
     }
+    function adminAiWorkerServerWorker(settings, key) {
+      const status = settings && settings.lastServerStatus;
+      return status && status.workers && status.workers[key] ? status.workers[key] : null;
+    }
     function adminAiWorkerReadyState(settings) {
       const apiSettings = readUserApiSettings();
       if (settings.provider === 'api') {
-        const count = ['anthropicApiKey', 'manusApiKey', 'openaiApiKey'].filter(function(key) { return !!apiSettings[key]; }).length;
-        return { ready: count > 0, status: count > 0 ? 'ready' : 'missing', detail: count > 0 ? 'AI API 키 ' + count + '개 저장됨' : 'Claude/OpenAI/Manus API 키 중 하나 이상 필요' };
+        const serverApi = settings.lastServerStatus && settings.lastServerStatus.apiAssist;
+        const count = serverApi && Number.isFinite(Number(serverApi.count))
+          ? Number(serverApi.count)
+          : ['anthropicApiKey', 'manusApiKey', 'openaiApiKey'].filter(function(key) { return !!apiSettings[key]; }).length;
+        return { ready: count > 0, status: count > 0 ? 'ready' : 'missing', detail: count > 0 ? 'AI API 키 ' + count + '개 사용 가능' : 'Claude/OpenAI/Manus API 키 중 하나 이상 필요' };
       }
       if (settings.provider === 'claude-code') {
-        return { ready: !!settings.claudeCodeCliLoggedIn, status: settings.claudeCodeCliLoggedIn ? 'ready' : 'missing', detail: settings.claudeCodeCliLoggedIn ? 'Claude Code 서버 로그인 확인됨' : 'Claude Code 서버 로그인 확인 필요' };
+        const worker = adminAiWorkerServerWorker(settings, 'claudeCode');
+        if (worker) {
+          const ready = worker.loggedIn === true;
+          return {
+            ready: ready,
+            status: ready ? 'ready' : 'missing',
+            detail: ready ? 'Claude Code 서버 로그인 확인됨' : (worker.detail || 'Claude Code 서버 로그인 확인 필요'),
+          };
+        }
+        return { ready: !!settings.claudeCodeCliLoggedIn, status: settings.claudeCodeCliLoggedIn ? 'ready' : 'missing', detail: settings.claudeCodeCliLoggedIn ? 'Claude Code 서버 로그인 확인됨' : 'Claude Code 서버 상태 확인 필요' };
       }
-      return { ready: !!settings.codexCliLoggedIn, status: settings.codexCliLoggedIn ? 'ready' : 'missing', detail: settings.codexCliLoggedIn ? 'Codex 서버 로그인 확인됨' : 'Codex 서버 로그인 확인 필요' };
+      const worker = adminAiWorkerServerWorker(settings, 'codex');
+      if (worker) {
+        const ready = worker.loggedIn === true;
+        return {
+          ready: ready,
+          status: ready ? 'ready' : 'missing',
+          detail: ready ? 'Codex 서버 로그인 확인됨' : (worker.detail || 'Codex 서버 로그인 확인 필요'),
+        };
+      }
+      return { ready: !!settings.codexCliLoggedIn, status: settings.codexCliLoggedIn ? 'ready' : 'missing', detail: settings.codexCliLoggedIn ? 'Codex 서버 로그인 확인됨' : 'Codex 서버 상태 확인 필요' };
     }
     function collectAdminAiWorkerSettings() {
       const selected = document.querySelector('input[name="adminAiWorkerProvider"]:checked');
+      const previous = readAdminAiWorkerSettings();
       return {
         provider: selected ? selected.value : 'codex',
         codexCliLoggedIn: !!(qs('codexCliLoggedIn') && qs('codexCliLoggedIn').checked),
         claudeCodeCliLoggedIn: !!(qs('claudeCodeCliLoggedIn') && qs('claudeCodeCliLoggedIn').checked),
+        lastServerStatus: previous.lastServerStatus || null,
+        lastCheckedAt: previous.lastCheckedAt || '',
         fiveHourWindow: !!(qs('adminAiFiveHourWindow') && qs('adminAiFiveHourWindow').checked),
         mindmapAssist: !!(qs('adminAiMindmapAssist') && qs('adminAiMindmapAssist').checked),
         keywordResearchAssist: !!(qs('adminAiKeywordResearchAssist') && qs('adminAiKeywordResearchAssist').checked),
@@ -4592,6 +4933,23 @@ export function renderLewordProWeb(): string {
       target.innerHTML =
         '<div class="settings-check ' + adminStatus + '"><strong>관리자 권한 · ' + (isAdminSession() ? '확인됨' : '잠김') + '</strong><span>' + (isAdminSession() ? 'admin 세션에서만 작업자 선택이 저장됩니다.' : '관리자 계정으로 Pro 로그인해야 설정할 수 있습니다.') + '</span></div>'
         + '<div class="settings-check ' + state.status + '"><strong>' + escapeHtml(adminAiWorkerProviderLabel(settings.provider)) + ' · ' + (state.ready ? '사용 준비' : '확인 필요') + '</strong><span>' + escapeHtml(state.detail) + '</span></div>';
+      const codexWorker = adminAiWorkerServerWorker(settings, 'codex');
+      const claudeWorker = adminAiWorkerServerWorker(settings, 'claudeCode');
+      if (codexWorker || claudeWorker) {
+        [
+          ['Codex CLI', codexWorker],
+          ['Claude Code CLI', claudeWorker],
+        ].forEach(function(pair) {
+          const worker = pair[1];
+          if (!worker) return;
+          const ready = worker.loggedIn === true;
+          const status = ready ? 'ready' : 'missing';
+          const detail = worker.detail || (worker.installed ? '설치됨 · 로그인 상태 확인 필요' : '서버에서 CLI를 찾지 못했습니다.');
+          target.insertAdjacentHTML('beforeend',
+            '<div class="settings-check ' + status + '"><strong>' + escapeHtml(pair[0]) + ' · ' + (ready ? '로그인 확인' : '확인 필요') + '</strong><span>' + escapeHtml(detail) + '</span></div>'
+          );
+        });
+      }
       target.insertAdjacentHTML('beforeend', passwordStatusHtml);
     }
     function renderAdminAiWorkerStatusMessage(settings) {
@@ -4666,11 +5024,163 @@ export function renderLewordProWeb(): string {
         provider: settings.provider,
         providerLabel: adminAiWorkerProviderLabel(settings.provider),
         ready: state.ready,
+        serverVerified: !!settings.lastServerStatus,
+        checkedAt: settings.lastCheckedAt || null,
+        workers: settings.lastServerStatus && settings.lastServerStatus.workers ? {
+          codex: {
+            installed: !!(settings.lastServerStatus.workers.codex && settings.lastServerStatus.workers.codex.installed),
+            loggedIn: !!(settings.lastServerStatus.workers.codex && settings.lastServerStatus.workers.codex.loggedIn),
+            status: settings.lastServerStatus.workers.codex && settings.lastServerStatus.workers.codex.status,
+          },
+          claudeCode: {
+            installed: !!(settings.lastServerStatus.workers.claudeCode && settings.lastServerStatus.workers.claudeCode.installed),
+            loggedIn: !!(settings.lastServerStatus.workers.claudeCode && settings.lastServerStatus.workers.claudeCode.loggedIn),
+            status: settings.lastServerStatus.workers.claudeCode && settings.lastServerStatus.workers.claudeCode.status,
+          },
+        } : null,
         codexCliLoggedIn: settings.codexCliLoggedIn,
         claudeCodeCliLoggedIn: settings.claudeCodeCliLoggedIn,
         usageWindowHours: settings.fiveHourWindow === false ? null : 5,
         mindmapAssist: settings.mindmapAssist !== false,
         keywordResearchAssist: settings.keywordResearchAssist !== false,
+      };
+    }
+    function agentAssistFeatureId(url) {
+      const pairs = [
+        [endpoints.keywordAnalysis, 'keyword-analysis'],
+        [endpoints.mindmap, 'mindmap-expansion'],
+        [endpoints.golden, 'golden-discovery'],
+        [endpoints.proTraffic, 'pro-traffic-hunter'],
+        [endpoints.adsense, 'adsense-keyword-hunter'],
+        [endpoints.shoppingConnect, 'shopping-connect'],
+        [endpoints.youtubeGolden, 'youtube-golden'],
+        [endpoints.naverMate, 'naver-mate-hunter'],
+        [endpoints.kin, 'kin-hidden-honey'],
+        [endpoints.blueprint, 'pro-blueprint'],
+        [endpoints.blueprintDraft, 'pro-blueprint-draft'],
+        [endpoints.revenue, 'pro-revenue'],
+        [endpoints.portfolioRevenue, 'portfolio-revenue'],
+        [endpoints.categoryRpm, 'category-rpm'],
+        [endpoints.liveGoldenRun, 'live-golden-run'],
+        [endpoints.prewarmRun, 'prewarm-run'],
+        [endpoints.rankTrackingRun, 'rank-tracking-run'],
+        [endpoints.rankTrackingManual, 'rank-tracking-manual'],
+        [endpoints.keywordGroups, 'keyword-groups'],
+        [endpoints.keywordExport, 'keyword-export'],
+      ];
+      for (const pair of pairs) {
+        if (url === pair[0]) return pair[1];
+      }
+      return '';
+    }
+    function agentAssistSeedKeyword(payload) {
+      const candidates = [
+        payload && payload.keyword,
+        payload && payload.seedKeyword,
+        payload && payload.query,
+        payload && payload.q,
+        compactKeywordInput(),
+      ];
+      for (const value of candidates) {
+        const clean = normalizeText(value);
+        if (clean) return clean.slice(0, 80);
+      }
+      return '';
+    }
+    function agentAssistTasksForFeature(featureId) {
+      const common = [
+        'reject-nonsense-composite',
+        'explain-real-search-demand',
+        'validate-golden-keyword-fit',
+        'remove-ad-dominated-low-value-keywords',
+      ];
+      if (featureId === 'mindmap-expansion') {
+        return common.concat([
+          'expand-autocomplete-keywords',
+          'build-follow-up-question-clusters',
+          'measure-expanded-keyword-demand',
+        ]);
+      }
+      if (featureId === 'keyword-analysis') {
+        return common.concat([
+          'attach-autocomplete-keywords',
+          'explain-combination-intent',
+          'compare-pc-mobile-demand',
+        ]);
+      }
+      if (featureId === 'shopping-connect') {
+        return common.concat([
+          'pick-sellable-products',
+          'explain-product-purchase-trigger',
+          'reject-non-commercial-news-keywords',
+        ]);
+      }
+      if (featureId === 'naver-mate-hunter') {
+        return common.concat([
+          'expand-naver-autocomplete',
+          'reject-too-broad-head-terms',
+          'rank-naver-friendly-longtails',
+        ]);
+      }
+      if (featureId === 'kin-hidden-honey') {
+        return common.concat([
+          'detect-question-intent',
+          'rank-answerable-information-needs',
+          'reject-generic-qna-keywords',
+        ]);
+      }
+      if (featureId === 'youtube-golden') {
+        return common.concat([
+          'cross-check-video-trend-to-blog-demand',
+          'detect-shorts-to-search-bridge',
+          'reject-view-only-keywords',
+        ]);
+      }
+      return common.concat([
+        'rank-actionable-traffic-keywords',
+        'explain-ranking-reason',
+        'build-publishable-longtail-angle',
+      ]);
+    }
+    function agentAssistRequestPayload(url, payload) {
+      const featureId = agentAssistFeatureId(url);
+      if (!featureId) return null;
+      const adminWorker = adminAiWorkerRequestPayload();
+      const settings = readAdminAiWorkerSettings();
+      const provider = adminWorker && adminWorker.provider ? adminWorker.provider : 'server-auto';
+      const providerLabel = adminWorker && adminWorker.providerLabel ? adminWorker.providerLabel : '서버 에이전트 자동 선택';
+      return {
+        enabled: true,
+        version: 'web-agent-assist-v1',
+        mode: adminWorker ? 'admin-configured-worker' : 'server-default-worker',
+        featureId,
+        provider,
+        providerLabel,
+        seedKeyword: agentAssistSeedKeyword(payload) || null,
+        includeAiInference: true,
+        mindmapAssist: adminWorker ? adminWorker.mindmapAssist !== false : true,
+        keywordResearchAssist: adminWorker ? adminWorker.keywordResearchAssist !== false : true,
+        usageWindowHours: adminWorker && adminWorker.usageWindowHours ? adminWorker.usageWindowHours : null,
+        tasks: agentAssistTasksForFeature(featureId),
+        qualityGates: [
+          '실측 검색량과 문서수 없는 더미 결과 금지',
+          '검색량 급증 원인 설명',
+          '키워드 조합 의도와 사용자 니즈 검증',
+          '자동완성/연관/마인드맵 확장 후보 동시 제공',
+          '광고가 트래픽을 잠식하는 키워드 감점',
+        ],
+        outputContract: {
+          explainWhyTrending: true,
+          includeIntentRationale: true,
+          includeAutocompleteExpansion: true,
+          includeMeasuredMetrics: true,
+          rejectLowValueComposite: true,
+        },
+        serverVerified: adminWorker ? adminWorker.serverVerified === true : false,
+        adminPreference: adminWorker ? null : {
+          provider: settings.provider,
+          fiveHourWindow: settings.fiveHourWindow !== false,
+        },
       };
     }
     async function saveAdminAiWorkerSettings() {
@@ -4709,23 +5219,43 @@ export function renderLewordProWeb(): string {
       }
       openProgress('관리자 AI 작업자 연동상태 확인', 'Codex/Claude Code 로그인 확인값과 선택 작업자를 점검합니다.');
       try {
-        const settings = readAdminAiWorkerSettings();
-        const state = adminAiWorkerReadyState(settings);
-        updateProgress(55, adminAiWorkerProviderLabel(settings.provider) + ' 선택 상태를 확인합니다.');
-        renderAdminAiWorkerStatusMessage(settings);
+        const settings = collectAdminAiWorkerSettings();
+        const apiSettings = readUserApiSettings();
+        updateProgress(25, '서버에서 Codex/Claude Code CLI 설치와 로그인 상태를 확인합니다.');
+        const status = await apiPost(endpoints.adminAiWorkerStatus, {
+          selectedProvider: settings.provider,
+          apiAssist: {
+            anthropic: !!apiSettings.anthropicApiKey,
+            manus: !!apiSettings.manusApiKey,
+            openai: !!apiSettings.openaiApiKey,
+          },
+        });
+        updateProgress(75, '관리자 작업자 연동 결과를 화면에 반영합니다.');
+        const next = Object.assign({}, settings, {
+          codexCliLoggedIn: !!(status.workers && status.workers.codex && status.workers.codex.loggedIn),
+          claudeCodeCliLoggedIn: !!(status.workers && status.workers.claudeCode && status.workers.claudeCode.loggedIn),
+          lastServerStatus: status,
+          lastCheckedAt: status.checkedAt || new Date().toISOString(),
+        });
+        writeAdminAiWorkerSettings(next);
+        hydrateAdminAiWorkerSettingsForm();
+        hydrateAdminSiteContentSettings();
+        const state = adminAiWorkerReadyState(next);
+        renderAdminAiWorkerStatusMessage(next);
         setResult({
           adminAiWorker: {
             ok: state.ready,
-            storage: 'browser-local-admin-only',
-            provider: settings.provider,
-            providerLabel: adminAiWorkerProviderLabel(settings.provider),
-            codexCliLoggedIn: settings.codexCliLoggedIn,
-            claudeCodeCliLoggedIn: settings.claudeCodeCliLoggedIn,
+            storage: 'server-verified-admin',
+            provider: next.provider,
+            providerLabel: adminAiWorkerProviderLabel(next.provider),
+            codexCliLoggedIn: next.codexCliLoggedIn,
+            claudeCodeCliLoggedIn: next.claudeCodeCliLoggedIn,
             status: state.status,
             detail: state.detail,
+            serverStatus: status,
           },
         });
-        log('관리자 AI 작업자 확인: ' + adminAiWorkerProviderLabel(settings.provider) + '=' + state.status);
+        log('관리자 AI 작업자 확인: ' + adminAiWorkerProviderLabel(next.provider) + '=' + state.status);
         completeProgress(state.ready ? '관리자 AI 작업자 사용 준비가 확인되었습니다.' : state.detail);
       } catch (err) {
         qs('adminAiWorkerMessage').textContent = err.message;
@@ -5230,6 +5760,11 @@ export function renderLewordProWeb(): string {
           payload.contextKeywords = buildLookupContextKeywords(seed, url === endpoints.mindmap ? 100 : 60);
         }
         payload.engineVersion = 'web-electron-parity-20260616';
+      }
+      const agentAssist = agentAssistRequestPayload(url, payload);
+      if (agentAssist) {
+        payload.includeAiInference = payload.includeAiInference !== false;
+        payload.agentAssist = agentAssist;
       }
       if (url !== endpoints.session) {
         const adminAiWorker = adminAiWorkerRequestPayload();
@@ -6000,12 +6535,13 @@ export function renderLewordProWeb(): string {
       const rows = keywordResultRows(result);
       if (!rows.length) {
         qs('keywordRows').innerHTML = '<tr><td colspan="12" class="muted">서버 결과가 비어 있습니다. API 키 상태 또는 소스 장애를 확인하세요.</td></tr>';
+        renderKeywordAnalysisInsight(result, rows);
         return;
       }
       qs('keywordRows').innerHTML = rows.slice(0, 80).map(function(row) {
         const displayGrade = displayGradeForRow(row);
         return '<tr>'
-          + '<td><strong>' + escapeHtml(row.keyword) + '</strong>' + keywordIntentGuideHtml(row) + shoppingProductPickHtml(row) + '</td>'
+          + '<td>' + keywordCompactCellHtml(row) + shoppingProductPickHtml(row) + '</td>'
           + '<td>' + fmt(row.pcSearchVolume) + '</td>'
           + '<td>' + fmt(row.mobileSearchVolume) + '</td>'
           + '<td>' + volumeBarHtml(row.totalSearchVolume) + '</td>'
@@ -6019,6 +6555,7 @@ export function renderLewordProWeb(): string {
           + '<td>' + keywordActionHtml(row.keyword || '') + '</td>'
           + '</tr>';
       }).join('');
+      renderKeywordAnalysisInsight(result, rows);
     }
     function setGoldenSummary(boardCount, boardTarget, visibleCount, lockedCount, running, updatedAt, policy) {
       const target = boardTarget || 120;
@@ -6064,13 +6601,11 @@ export function renderLewordProWeb(): string {
     function renderGoldenRows(items, exact, target) {
       const limit = exact ? Math.max(60, Math.min(120, Number(target) || 120)) : 5;
       const freshRows = filterFreshGoldenItems(items || []);
-      const rows = freshRows.filter(function(item) {
-        return !shouldHideFromLiveGoldenBoard(item);
-      }).slice(0, limit);
+      const rows = filterDisplayGoldenItems(items || []).slice(0, limit);
       if (!rows.length) {
         qs('goldenBoardList').innerHTML = '';
         qs('goldenNotice').textContent = freshRows.length
-          ? '제품형 또는 의도 불명확 조합 키워드는 LIVE 보드에서 숨겼습니다. 제품 키워드는 추가 기능의 쇼핑커넥트에서 확인하세요.'
+          ? '제품형, 광고 장악형, 의도 충돌형, 트래픽 확보 가능성이 약한 키워드는 LIVE 보드에서 숨겼습니다. 제품 키워드는 추가 기능의 쇼핑커넥트에서 확인하세요.'
           : '서버가 황금키워드 후보를 검증하는 중입니다.';
         return;
       }
@@ -6094,7 +6629,6 @@ export function renderLewordProWeb(): string {
           + '<div class="gk-sub">' + sub + '</div>'
           + publishDecisionInline(item)
           + '</div>'
-          + '<div class="gk-why">' + keywordIntentGuideHtml(item) + '</div>'
           + '<div class="gk-side">'
           + '<div class="gk-metrics">'
           +   '<div class="gk-m"><div class="gk-ml">검색량</div><div class="gk-mv">' + searchVolume + '</div></div>'
@@ -6103,6 +6637,7 @@ export function renderLewordProWeb(): string {
           + '</div>'
           + '<div class="golden-actions">' + keywordActionHtml(item.keyword || '') + '</div>'
           + '</div>'
+          + '<div class="gk-why">' + keywordIntentGuideHtml(item) + '</div>'
           + '</article>';
       }).join('');
     }

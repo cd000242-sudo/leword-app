@@ -674,6 +674,117 @@ async function runInjectedProTraffic(): Promise<void> {
   assert('pro target uses PC adapter fixture', progress.includes('fixture pro adapter'));
 }
 
+async function runAgentAssistQualityGate(): Promise<void> {
+  const started = new Date().toISOString();
+  const metrics: MobileKeywordMetric[] = [
+    {
+      keyword: '최저임금 격차 1290원 다음감독 후보',
+      grade: 'SSS',
+      pcSearchVolume: 9000,
+      mobileSearchVolume: 21000,
+      totalSearchVolume: 30000,
+      documentCount: 120,
+      goldenRatio: 250,
+      cpc: 0,
+      category: 'policy',
+      source: 'fixture-agent-quality',
+      intent: 'cross-domain-fixture',
+      evidence: ['fixture-searchad-volume', 'fixture-naver-blog-document-count'],
+      isMeasured: true,
+    },
+    {
+      keyword: '국산로봇청소기순위 원룸 출시일',
+      grade: 'SSS',
+      pcSearchVolume: 720,
+      mobileSearchVolume: 950,
+      totalSearchVolume: 1670,
+      documentCount: 10,
+      goldenRatio: 167,
+      cpc: 0,
+      category: 'electronics',
+      source: 'fixture-agent-quality',
+      intent: 'product-in-pro-traffic-fixture',
+      evidence: ['fixture-searchad-volume', 'fixture-naver-blog-document-count'],
+      isMeasured: true,
+    },
+    {
+      keyword: '2026 근로장려금 지급일 대상자 확인',
+      grade: 'SSS',
+      pcSearchVolume: 4500,
+      mobileSearchVolume: 18500,
+      totalSearchVolume: 23000,
+      documentCount: 410,
+      goldenRatio: 56.1,
+      cpc: 0,
+      category: 'policy',
+      source: 'fixture-agent-quality',
+      intent: 'policy-need',
+      evidence: ['fixture-searchad-volume', 'fixture-naver-blog-document-count'],
+      isMeasured: true,
+    },
+    {
+      keyword: '제주 렌터카 예약 보험 비교',
+      grade: 'SSS',
+      pcSearchVolume: 1200,
+      mobileSearchVolume: 5600,
+      totalSearchVolume: 6800,
+      documentCount: 180,
+      goldenRatio: 37.78,
+      cpc: 0,
+      category: 'travel_domestic',
+      source: 'fixture-agent-quality',
+      intent: 'travel-booking-need',
+      evidence: ['fixture-searchad-volume', 'fixture-naver-blog-document-count'],
+      isMeasured: true,
+    },
+  ];
+  const executor = createMobilePcEngineExecutor({
+    runProTraffic: async (_params, context) => {
+      context.progress(55, 'fixture agent quality adapter');
+      return {
+        keywords: metrics,
+        summary: {
+          total: metrics.length,
+          sss: metrics.length,
+          measured: metrics.length,
+          elapsedMs: Date.now() - Date.parse(started),
+          fromCache: false,
+          parityMode: 'pc-engine-plus',
+        },
+      };
+    },
+  });
+  const result = await executor(makeJob('pro-traffic-hunter', {
+    categoryId: 'policy',
+    targetCount: 30,
+    includeSeasonal: true,
+    includeEvergreen: true,
+    includeFreshIssue: true,
+    agentAssist: {
+      enabled: true,
+      provider: 'codex',
+      featureId: 'pro-traffic-hunter',
+      tasks: ['reject-cross-domain-nonsense', 'rerank-measured-need-keywords'],
+    },
+  }), {
+    signal: new AbortController().signal,
+    progress: () => {},
+  });
+  const keywords = result.keywords.map((item) => item.keyword);
+  assert('agent assist quality gate removes cross-domain and misplaced product keywords',
+    !keywords.includes('최저임금 격차 1290원 다음감독 후보')
+      && !keywords.includes('국산로봇청소기순위 원룸 출시일')
+      && keywords.includes('2026 근로장려금 지급일 대상자 확인')
+      && keywords.includes('제주 렌터카 예약 보험 비교'),
+    keywords.join('|'));
+  assert('agent assist quality gate reports actual filtering and evidence tag',
+    (result.summary.agentFiltered || 0) >= 2
+      && result.summary.agentQualityProfile === 'measured-need-ratio-intent-gate-v2'
+      && result.summary.agentAssist?.provider === 'codex'
+      && result.keywords.every((item) => item.evidence.includes('agent-assist:codex')),
+    JSON.stringify(result.summary));
+}
+
 async function runHomeBoardDefaultAdapter(): Promise<void> {
   const executor = createMobilePcEngineExecutor();
   const progress: string[] = [];
@@ -1091,6 +1202,7 @@ function runFallbackRegressionGuards(): void {
   await runInjectedGoldenDiscovery();
   await runInjectedGoldenQualityBackfill();
   await runInjectedProTraffic();
+  await runAgentAssistQualityGate();
   await runHomeBoardDefaultAdapter();
   await runInjectedKinHiddenHoney();
   await runInjectedShoppingConnect();

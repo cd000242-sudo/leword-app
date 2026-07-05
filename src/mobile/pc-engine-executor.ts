@@ -1,6 +1,8 @@
 import {
   type GoldenDiscoveryMobileParams,
   type HomeBoardMobileParams,
+  type MobileAgentAssistContext,
+  type MobileAgentAwareParams,
   type KeywordAnalysisMobileParams,
   type KinHiddenHoneyMobileParams,
   type MindmapExpansionMobileParams,
@@ -164,6 +166,53 @@ function clampInt(value: unknown, fallback: number, min: number, max: number): n
 
 function normalizeKeyword(value: unknown): string {
   return String(value || '').replace(/\s+/g, ' ').trim();
+}
+
+function normalizeStringList(value: unknown, limit: number): string[] {
+  if (!Array.isArray(value)) return [];
+  const out: string[] = [];
+  for (const item of value) {
+    const clean = normalizeKeyword(item);
+    if (!clean || out.includes(clean)) continue;
+    out.push(clean);
+    if (out.length >= limit) break;
+  }
+  return out;
+}
+
+function normalizeAgentAssistContext(value: unknown): MobileAgentAssistContext | undefined {
+  if (!value || typeof value !== 'object' || Array.isArray(value)) return undefined;
+  const raw = value as Record<string, unknown>;
+  const enabled = raw.enabled !== false;
+  if (!enabled) return { enabled: false };
+  const usageWindowHours = Number(raw.usageWindowHours);
+  return {
+    enabled: true,
+    version: normalizeKeyword(raw.version) || 'web-agent-assist-v1',
+    mode: normalizeKeyword(raw.mode) || 'server-default-worker',
+    featureId: normalizeKeyword(raw.featureId) || undefined,
+    provider: normalizeKeyword(raw.provider) || 'server-auto',
+    providerLabel: normalizeKeyword(raw.providerLabel) || undefined,
+    seedKeyword: normalizeKeyword(raw.seedKeyword) || null,
+    includeAiInference: raw.includeAiInference !== false,
+    mindmapAssist: raw.mindmapAssist !== false,
+    keywordResearchAssist: raw.keywordResearchAssist !== false,
+    usageWindowHours: Number.isFinite(usageWindowHours) && usageWindowHours > 0 ? usageWindowHours : null,
+    tasks: normalizeStringList(raw.tasks, 16),
+    qualityGates: normalizeStringList(raw.qualityGates, 12),
+    outputContract: raw.outputContract && typeof raw.outputContract === 'object' && !Array.isArray(raw.outputContract)
+      ? Object.fromEntries(Object.entries(raw.outputContract as Record<string, unknown>).map(([key, val]) => [key, val === true]))
+      : undefined,
+    serverVerified: raw.serverVerified === true,
+  };
+}
+
+function copyAgentAwareParams(payload: Partial<MobileAgentAwareParams>): MobileAgentAwareParams {
+  return {
+    includeAiInference: payload.includeAiInference !== false,
+    agentAssist: normalizeAgentAssistContext(payload.agentAssist),
+    adminAiWorker: normalizeAgentAssistContext(payload.adminAiWorker) || null,
+  };
 }
 
 function compactKeyword(value: string): string {
@@ -790,6 +839,226 @@ function withKeywordResultSummary(
       aiJudged: keywords.filter((item) => item.aiJudge).length,
       excludedByAiJudge: keywords.filter((item) => item.aiJudge?.verdict === 'exclude').length,
       publishReady: keywords.filter((item) => item.aiJudge?.verdict === 'publish').length,
+    },
+  };
+}
+
+const AGENT_QUALITY_PRODUCTS = new Set<MobileKeywordProduct>([
+  'golden-discovery',
+  'pro-traffic-hunter',
+  'keyword-analysis',
+  'mindmap-expansion',
+  'kin-hidden-honey',
+  'shopping-connect',
+  'youtube-golden',
+  'naver-mate-hunter',
+]);
+
+const AGENT_CROSS_DOMAIN_GROUPS: readonly RegExp[] = [
+  /(근로장려금|자녀장려금|최저임금|주휴수당|청년인턴|지원금|수당|정책|복지|지급일|신청).*(감독|축구|월드컵|KBO|올스타전|선수|대표팀|홍명보|이강인|김민재|이재성)/u,
+  /(감독|축구|월드컵|KBO|올스타전|선수|대표팀|홍명보|이강인|김민재|이재성).*(근로장려금|자녀장려금|최저임금|주휴수당|청년인턴|지원금|수당|정책|복지|지급일|신청)/u,
+  /(렌터카|숙소|항공권|여행|맛집|카드사용처|문화누리카드).*(감독|축구|월드컵|KBO|선수|대표팀|홍명보)/u,
+  /(감독|축구|월드컵|KBO|선수|대표팀|홍명보).*(렌터카|숙소|항공권|여행|맛집|카드사용처|문화누리카드)/u,
+  /(청소기|로봇청소기|에어컨|노트북|아이폰|갤럭시|가습기|제습기|냉장고|세탁기).*(지급일|지원금|정책|근로장려금|주휴수당|최저임금|정례대화)/u,
+  /(지급일|지원금|정책|근로장려금|주휴수당|최저임금|정례대화).*(청소기|로봇청소기|에어컨|노트북|아이폰|갤럭시|가습기|제습기|냉장고|세탁기)/u,
+];
+
+const AGENT_SHOPPING_TOPIC_RE = /(가격|최저가|구매|구매처|재고|할인|쿠폰|추천|순위|후기|비교|리뷰|스펙|청소기|로봇청소기|에어컨|노트북|아이폰|갤럭시|가습기|제습기|냉장고|세탁기|기저귀|카시트|영양제|유산균|화장품|선크림|캠핑)/u;
+const AGENT_TRAVEL_BOOKING_RE = /(렌터카|렌트카|숙소|호텔|펜션|항공권|여행|예약|입장권|티켓|축제|문화누리카드\s*사용처)/u;
+const AGENT_NEED_MODIFIER_RE = /(신청|대상|자격|조건|지급일|금액|조회|계산|계산기|일정|예매|예약|방법|후기|비교|사용처|잔액|기간|마감|발표|후보|전망|이유|논란|전말|선임|교체|중계|라인업|티켓|보험|취소|픽업|가격비교|서류|제외|주의사항)/u;
+const AGENT_NOISE_CHAIN_RE = /(방법주의사항정리|가격후기추천|지급일금액대상|신청대상조건|금액조회신청|대상자격지급일|정례대화(지급일|금액|대상|신청|수당)|프로필|인물프로필)/u;
+
+function metricTextForAgent(metric: MobileKeywordMetric): string {
+  return [
+    metric.keyword,
+    metric.category,
+    metric.intent,
+    metric.source,
+    ...(Array.isArray(metric.evidence) ? metric.evidence : []),
+  ].map((item) => normalizeKeyword(item)).filter(Boolean).join(' ');
+}
+
+function isAgentExactRequestedKeyword(
+  metric: MobileKeywordMetric,
+  params: MobileAgentAwareParams,
+  product: MobileKeywordProduct,
+): boolean {
+  if (product !== 'keyword-analysis') return false;
+  const keyword = normalizeKeyword((params as Partial<KeywordAnalysisMobileParams>).keyword);
+  return !!keyword && compactKeyword(metric.keyword) === compactKeyword(keyword);
+}
+
+function agentRejectReasonForMetric(
+  metric: MobileKeywordMetric,
+  product: MobileKeywordProduct,
+): string | null {
+  const keyword = normalizeKeyword(metric.keyword);
+  const compact = compactKeyword(keyword);
+  if (!compact) return 'empty-keyword';
+  if (metric.aiJudge?.verdict === 'exclude') return metric.aiJudge.rejectReason || 'ai-judge-excluded';
+  if (metric.publishDecision?.verdict === 'exclude') return 'publish-decision-excluded';
+  if (isUltimateLowValueLookupKeyword(keyword)) return 'low-value-lookup';
+  if (AGENT_NOISE_CHAIN_RE.test(compact)) return 'template-chain-noise';
+  const text = metricTextForAgent(metric);
+  if (AGENT_CROSS_DOMAIN_GROUPS.some((pattern) => pattern.test(text) || pattern.test(compact))) {
+    return 'cross-domain-intent-collision';
+  }
+  const shoppingTopic = AGENT_SHOPPING_TOPIC_RE.test(text);
+  const travelBooking = AGENT_TRAVEL_BOOKING_RE.test(text);
+  if (shoppingTopic && !travelBooking && product !== 'shopping-connect' && product !== 'youtube-golden') {
+    return 'shopping-topic-belongs-to-shopping-connect';
+  }
+  const total = finiteNumber(metric.totalSearchVolume);
+  const docs = finiteNumber(metric.documentCount);
+  const ratio = finiteNumber(metric.goldenRatio)
+    ?? (total !== null && docs !== null && docs > 0 ? total / docs : null);
+  if (total !== null && docs !== null && total > 0 && docs > total * 20 && (ratio === null || ratio < 1)) {
+    return 'document-count-overwhelms-demand';
+  }
+  return null;
+}
+
+function agentQualityScore(metric: MobileKeywordMetric, product: MobileKeywordProduct): number {
+  const total = finiteNumber(metric.totalSearchVolume) ?? 0;
+  const docs = finiteNumber(metric.documentCount) ?? 0;
+  const ratio = finiteNumber(metric.goldenRatio) ?? 0;
+  const judgeScore = finiteNumber(metric.aiJudge?.score) ?? 0;
+  const decisionScore = finiteNumber(metric.publishDecision?.score) ?? 0;
+  const measuredBoost = isFullyMeasuredKeyword(metric) ? 500000 : metric.isMeasured ? 150000 : 0;
+  const sssBoost = metric.grade === 'SSS' ? 200000 : metric.grade === 'SS' ? 90000 : metric.grade === 'S' ? 30000 : 0;
+  const intentBoost = AGENT_NEED_MODIFIER_RE.test(metric.keyword) ? 35000 : 0;
+  const publishBoost = metric.aiJudge?.verdict === 'publish' ? 80000 : metric.aiJudge?.verdict === 'conditional' ? 20000 : 0;
+  const productBoost = product === 'shopping-connect' && AGENT_SHOPPING_TOPIC_RE.test(metricTextForAgent(metric)) ? 25000 : 0;
+  const redOceanPenalty = total > 0 && docs > total * 12 ? Math.min(160000, docs / 2) : 0;
+  return measuredBoost
+    + sssBoost
+    + publishBoost
+    + productBoost
+    + intentBoost
+    + judgeScore * 1200
+    + decisionScore * 650
+    + Math.min(500, ratio) * 700
+    + Math.min(100000, total) / 2
+    - Math.min(200000, docs) / 20
+    - redOceanPenalty;
+}
+
+function targetCountFromAgentParams(params: MobileAgentAwareParams, current: number): number {
+  const candidates = [
+    (params as Partial<GoldenDiscoveryMobileParams>).targetCount,
+    (params as Partial<ProTrafficMobileParams>).targetCount,
+    (params as Partial<MindmapExpansionMobileParams>).targetCount,
+    (params as Partial<KinHiddenHoneyMobileParams>).targetCount,
+    (params as Partial<NaverMateMobileParams>).targetCount,
+    (params as Partial<ShoppingConnectMobileParams>).targetCount,
+    (params as Partial<YoutubeGoldenMobileParams>).maxResults,
+    (params as Partial<KeywordAnalysisMobileParams>).maxRelatedCount,
+  ];
+  const explicit = candidates.map((value) => finiteNumber(value)).find((value): value is number => value !== null && value > 0);
+  return explicit ? Math.max(current, Math.floor(explicit) + (params && 'keyword' in params ? 1 : 0)) : current;
+}
+
+function applyAgentQualityGate(
+  result: MobileKeywordResult,
+  params: MobileAgentAwareParams,
+  product: MobileKeywordProduct,
+): MobileKeywordResult {
+  if (!AGENT_QUALITY_PRODUCTS.has(product) || result.keywords.length === 0) return result;
+  const hasAgentAssist = params.agentAssist && params.agentAssist.enabled !== false;
+  const alwaysGateProducts = product === 'pro-traffic-hunter'
+    || product === 'shopping-connect'
+    || product === 'naver-mate-hunter';
+  if (!hasAgentAssist && !alwaysGateProducts) return result;
+
+  const judged = attachKeywordAiJudges(attachPublishDecisions(result.keywords), {
+    downgradeExcluded: false,
+  });
+  const seen = new Set<string>();
+  const kept: MobileKeywordMetric[] = [];
+  const relaxed: MobileKeywordMetric[] = [];
+  let rejected = 0;
+
+  for (const metric of judged) {
+    const key = compactKeyword(metric.keyword);
+    if (!key || seen.has(key)) continue;
+    seen.add(key);
+    const exact = isAgentExactRequestedKeyword(metric, params, product);
+    const rejectReason = exact ? null : agentRejectReasonForMetric(metric, product);
+    if (rejectReason) {
+      rejected += 1;
+      continue;
+    }
+    if (exact) {
+      kept.push(metric);
+      continue;
+    }
+    const total = finiteNumber(metric.totalSearchVolume) ?? 0;
+    const docs = finiteNumber(metric.documentCount) ?? 0;
+    const ratio = finiteNumber(metric.goldenRatio) ?? 0;
+    const hasNeedModifier = AGENT_NEED_MODIFIER_RE.test(metric.keyword);
+    const measuredEnough = isFullyMeasuredKeyword(metric) && total >= 30 && docs > 0;
+    const hasEdge = metric.grade === 'SSS'
+      || (metric.grade === 'SS' && ratio >= 2)
+      || (total >= 300 && ratio >= 1.5)
+      || (hasNeedModifier && total >= 100 && docs <= 50000);
+    if (measuredEnough && hasEdge) {
+      kept.push(metric);
+    } else {
+      relaxed.push(metric);
+    }
+  }
+
+  const targetCount = targetCountFromAgentParams(params, result.keywords.length);
+  const ordered = [...kept].sort((a, b) => agentQualityScore(b, product) - agentQualityScore(a, product));
+  const minRows = product === 'keyword-analysis' ? 1 : Math.min(10, targetCount);
+  const fallback = ordered.length >= minRows
+    ? ordered
+    : mergePrioritizedKeywordMetrics([
+      ordered,
+      relaxed
+        .filter((metric) => metric.aiJudge?.verdict !== 'exclude')
+        .sort((a, b) => agentQualityScore(b, product) - agentQualityScore(a, product)),
+    ], targetCount);
+  const summarized = withKeywordResultSummary(result, fallback.slice(0, targetCount));
+  return {
+    ...summarized,
+    summary: {
+      ...summarized.summary,
+      agentFiltered: rejected,
+      agentQualityProfile: 'measured-need-ratio-intent-gate-v2',
+    },
+  };
+}
+
+function withAgentAssistSummary(
+  result: MobileKeywordResult,
+  params: MobileAgentAwareParams,
+  product: MobileKeywordProduct,
+): MobileKeywordResult {
+  const qualityResult = applyAgentQualityGate(result, params, product);
+  const agent = params.agentAssist && params.agentAssist.enabled !== false
+    ? params.agentAssist
+    : undefined;
+  if (!agent) return qualityResult;
+  const tasks = normalizeStringList(agent.tasks, 16);
+  const provider = normalizeKeyword(agent.provider) || 'server-auto';
+  const tag = `agent-assist:${provider}`;
+  return {
+    ...qualityResult,
+    keywords: qualityResult.keywords.map((item) => ({
+      ...item,
+      evidence: normalizeStringList([...(item.evidence || []), tag], 18),
+    })),
+    summary: {
+      ...qualityResult.summary,
+      agentAssist: {
+        enabled: true,
+        product,
+        featureId: normalizeKeyword(agent.featureId) || product,
+        provider,
+        mode: normalizeKeyword(agent.mode) || 'server-default-worker',
+        tasks,
+      },
     },
   };
 }
@@ -2279,6 +2548,7 @@ function asGoldenParams(params: unknown): GoldenDiscoveryMobileParams {
   const floor = mode === 'bulk' ? 60 : 30;
   const targetCount = clampInt(payload.targetCount, floor, floor, 250);
   return {
+    ...copyAgentAwareParams(payload),
     categoryId: normalizeKeyword(payload.categoryId) || 'all',
     mode,
     seedKeyword: payload.seedKeyword ? normalizeKeyword(payload.seedKeyword) : undefined,
@@ -2290,6 +2560,7 @@ function asGoldenParams(params: unknown): GoldenDiscoveryMobileParams {
 function asProTrafficParams(params: unknown): ProTrafficMobileParams {
   const payload = (params || {}) as Partial<ProTrafficMobileParams>;
   return {
+    ...copyAgentAwareParams(payload),
     categoryId: normalizeKeyword(payload.categoryId) || 'all',
     targetCount: clampInt(payload.targetCount, 30, 1, 250),
     seedKeyword: payload.seedKeyword ? normalizeKeyword(payload.seedKeyword) : undefined,
@@ -2304,6 +2575,7 @@ function asProTrafficParams(params: unknown): ProTrafficMobileParams {
 function asHomeBoardParams(params: unknown): HomeBoardMobileParams {
   const payload = (params || {}) as Partial<HomeBoardMobileParams>;
   return {
+    ...copyAgentAwareParams(payload),
     categoryId: normalizeKeyword(payload.categoryId) || 'general',
     seedKeyword: payload.seedKeyword ? normalizeKeyword(payload.seedKeyword) : undefined,
     targetCount: clampInt(payload.targetCount, HOME_HUNTER_MIN_SPLUS_RESULTS, HOME_HUNTER_MIN_SPLUS_RESULTS, 250),
@@ -2317,6 +2589,7 @@ function asKinHiddenHoneyParams(params: unknown): KinHiddenHoneyMobileParams {
     ? payload.tabType
     : 'popular';
   return {
+    ...copyAgentAwareParams(payload),
     tabType: tab,
     targetCount: clampInt(payload.targetCount, 15, 1, 100),
     isPremiumRequest: payload.isPremiumRequest === true || tab === 'trending' || tab === 'hidden',
@@ -2330,6 +2603,7 @@ function asShoppingConnectParams(params: unknown): ShoppingConnectMobileParams {
     ? payload.sort
     : 'sim';
   return {
+    ...copyAgentAwareParams(payload),
     keyword: normalizeKeyword(payload.keyword),
     targetCount: clampInt(payload.targetCount, 30, 30, 80),
     sort,
@@ -2340,6 +2614,7 @@ function asShoppingConnectParams(params: unknown): ShoppingConnectMobileParams {
 function asYoutubeGoldenParams(params: unknown): YoutubeGoldenMobileParams {
   const payload = (params || {}) as Partial<YoutubeGoldenMobileParams>;
   return {
+    ...copyAgentAwareParams(payload),
     maxResults: clampInt(payload.maxResults, 50, 10, 100),
     categoryId: payload.categoryId ? normalizeKeyword(payload.categoryId) : undefined,
     crossReferenceNaver: payload.crossReferenceNaver !== false,
@@ -2349,6 +2624,7 @@ function asYoutubeGoldenParams(params: unknown): YoutubeGoldenMobileParams {
 function asNaverMateParams(params: unknown): NaverMateMobileParams {
   const payload = (params || {}) as Partial<NaverMateMobileParams>;
   return {
+    ...copyAgentAwareParams(payload),
     seedKeyword: normalizeKeyword(payload.seedKeyword),
     targetCount: clampInt(payload.targetCount, 50, 1, 120),
     includeAutocomplete: payload.includeAutocomplete !== false,
@@ -2362,6 +2638,7 @@ function asNaverMateParams(params: unknown): NaverMateMobileParams {
 function asKeywordAnalysisParams(params: unknown): KeywordAnalysisMobileParams {
   const payload = (params || {}) as Partial<KeywordAnalysisMobileParams>;
   return {
+    ...copyAgentAwareParams(payload),
     keyword: normalizeKeyword(payload.keyword),
     categoryId: payload.categoryId ? normalizeKeyword(payload.categoryId) : undefined,
     maxRelatedCount: clampInt(payload.maxRelatedCount, 10, 1, 250),
@@ -2385,6 +2662,7 @@ function defaultSeedForHomeCategory(categoryId: string): string {
 function asMindmapParams(params: unknown): MindmapExpansionMobileParams {
   const payload = (params || {}) as Partial<MindmapExpansionMobileParams>;
   return {
+    ...copyAgentAwareParams(payload),
     seedKeyword: normalizeKeyword(payload.seedKeyword),
     depth: clampInt(payload.depth, 1, 1, 3),
     targetCount: clampInt(payload.targetCount, 50, 1, 250),
@@ -4909,51 +5187,64 @@ export function createMobilePcEngineExecutor(
       || createDefaultKeywordMetricsAdapter(getJobEnvConfig);
 
     switch (job.product) {
-      case 'keyword-analysis':
-        return runKeywordAnalysis(job, context, jobMeasureKeywordMetrics, getJobEnvConfig);
-      case 'mindmap-expansion':
-        return runMindmapExpansion(job, context, jobMeasureKeywordMetrics, getJobEnvConfig);
+      case 'keyword-analysis': {
+        const params = asKeywordAnalysisParams(job.params);
+        const result = await runKeywordAnalysis(job, context, jobMeasureKeywordMetrics, getJobEnvConfig);
+        return withAgentAssistSummary(result, params, job.product);
+      }
+      case 'mindmap-expansion': {
+        const params = asMindmapParams(job.params);
+        const result = await runMindmapExpansion(job, context, jobMeasureKeywordMetrics, getJobEnvConfig);
+        return withAgentAssistSummary(result, params, job.product);
+      }
       case 'golden-discovery': {
         const params = asGoldenParams(job.params);
         const adapter = options.runGoldenDiscovery
           || ((payload, ctx) => runGoldenDiscoveryWithPcMdp(payload, ctx, getJobEnvConfig));
         const result = await adapter(params, context);
-        return normalizeGoldenDiscoveryResult(result, params.targetCount);
+        return withAgentAssistSummary(normalizeGoldenDiscoveryResult(result, params.targetCount), params, job.product);
       }
       case 'pro-traffic-hunter': {
         const params = asProTrafficParams(job.params);
         const adapter = options.runProTraffic
           || ((payload, ctx) => runProTrafficWithPcHunter(payload, ctx, jobMeasureKeywordMetrics));
-        return adapter(params, context);
+        const result = await adapter(params, context);
+        return withAgentAssistSummary(result, params, job.product);
       }
       case 'home-board-hunter': {
         const params = asHomeBoardParams(job.params);
         const adapter = options.runHomeBoard
           || ((payload, ctx) => runHomeBoardWithPcPlanner(payload, ctx, jobMeasureKeywordMetrics));
-        return adapter(params, context);
+        const result = await adapter(params, context);
+        return withAgentAssistSummary(result, params, job.product);
       }
       case 'kin-hidden-honey': {
         const params = asKinHiddenHoneyParams(job.params);
-        if (options.runKinHiddenHoney) return options.runKinHiddenHoney(params, context);
-        return runKinHiddenHoneyWithPcHunter(params, context, jobMeasureKeywordMetrics);
+        const result = options.runKinHiddenHoney
+          ? await options.runKinHiddenHoney(params, context)
+          : await runKinHiddenHoneyWithPcHunter(params, context, jobMeasureKeywordMetrics);
+        return withAgentAssistSummary(result, params, job.product);
       }
       case 'shopping-connect': {
         const params = asShoppingConnectParams(job.params);
         const adapter = options.runShoppingConnect
           || ((payload, ctx) => runShoppingConnectWithPcEngine(payload, ctx, jobMeasureKeywordMetrics));
-        return adapter(params, context);
+        const result = await adapter(params, context);
+        return withAgentAssistSummary(result, params, job.product);
       }
       case 'youtube-golden': {
         const params = asYoutubeGoldenParams(job.params);
         const adapter = options.runYoutubeGolden
           || ((payload, ctx) => runYoutubeGoldenWithPcEngine(payload, ctx, getJobEnvConfig, jobMeasureKeywordMetrics));
-        return adapter(params, context);
+        const result = await adapter(params, context);
+        return withAgentAssistSummary(result, params, job.product);
       }
       case 'naver-mate-hunter': {
         const params = asNaverMateParams(job.params);
         const adapter = options.runNaverMate
           || ((payload, ctx) => runNaverMateWithPcEngine(payload, ctx, jobMeasureKeywordMetrics, getJobEnvConfig));
-        return adapter(params, context);
+        const result = await adapter(params, context);
+        return withAgentAssistSummary(result, params, job.product);
       }
       default:
         throw new Error(`unsupported mobile product: ${job.product}`);

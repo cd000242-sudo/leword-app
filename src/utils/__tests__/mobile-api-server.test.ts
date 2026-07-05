@@ -121,6 +121,39 @@ const result: MobileKeywordResult = {
         && Array.isArray(healthJson.runtime?.checks)
         && healthJson.runtime.checks.some((item: any) => item.name === 'Naver SearchAd credentials configured'));
 
+    const previousCodexCli = process.env.LEWORD_CODEX_CLI;
+    const previousClaudeCli = process.env.LEWORD_CLAUDE_CODE_CLI;
+    process.env.LEWORD_CODEX_CLI = path.join(os.tmpdir(), 'missing-leword-codex-cli-for-test');
+    process.env.LEWORD_CLAUDE_CODE_CLI = path.join(os.tmpdir(), 'missing-leword-claude-cli-for-test');
+    try {
+      const adminAiStatus = await fetch(`${baseUrl}/v1/admin/ai-worker/status`, {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({
+          selectedProvider: 'api',
+          apiAssist: { openai: true },
+        }),
+      });
+      const adminAiStatusJson: any = await adminAiStatus.json();
+      assert('admin AI worker status route responds',
+        adminAiStatus.ok
+          && adminAiStatusJson.ok === true
+          && adminAiStatusJson.selectedProvider === 'api');
+      assert('admin AI worker status reports API assist without exposing keys',
+        adminAiStatusJson.ready?.api === true
+          && adminAiStatusJson.apiAssist?.count === 1
+          && adminAiStatusJson.apiAssist?.openai === true
+          && !JSON.stringify(adminAiStatusJson).includes('sk-'));
+      assert('admin AI worker status probes server CLIs',
+        adminAiStatusJson.workers?.codex?.status === 'not-installed'
+          && adminAiStatusJson.workers?.claudeCode?.status === 'not-installed');
+    } finally {
+      if (previousCodexCli === undefined) delete process.env.LEWORD_CODEX_CLI;
+      else process.env.LEWORD_CODEX_CLI = previousCodexCli;
+      if (previousClaudeCli === undefined) delete process.env.LEWORD_CLAUDE_CODE_CLI;
+      else process.env.LEWORD_CLAUDE_CODE_CLI = previousClaudeCli;
+    }
+
     const apiStatus = await fetch(`${baseUrl}/v1/mobile/api-status`);
     const apiStatusJson: any = await apiStatus.json();
     assert('mobile api status route works', apiStatus.status === 200 && apiStatusJson.ok === true);
