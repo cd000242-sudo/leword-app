@@ -96,6 +96,14 @@ assert.strictEqual(dialoguePaymentCollision.aiJudge?.verdict, 'exclude');
 assert.strictEqual(dialoguePaymentCollision.aiJudge?.rejectReason, 'over-expanded-intent-chain');
 assert.strictEqual(dialoguePaymentCollision.grade, 'C');
 
+const articleTitleSource = applyKeywordAiJudge(
+  measuredMetric('보도참고자료 고유가 피해지원금 신청·지급 마감 결과 7.3.', 'policy', 1200, 3200, 11),
+  { now },
+) as any;
+assert.strictEqual(articleTitleSource.aiJudge?.verdict, 'exclude');
+assert.strictEqual(articleTitleSource.aiJudge?.rejectReason, 'article-title-not-keyword');
+assert.strictEqual(articleTitleSource.grade, 'C');
+
 const youtubeVideoBridge = applyKeywordAiJudge(
   {
     ...measuredMetric('\uC81C\uC2B5\uAE30\uC21C\uC704', 'youtube', 920, 4180, 640),

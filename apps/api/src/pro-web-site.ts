@@ -344,6 +344,88 @@ export function renderLewordProWeb(): string {
       font-weight: 900;
       line-height: 1.2;
     }
+    .keyword-analysis-table-cell { padding: 0 !important; background: transparent !important; }
+    .keyword-analysis-stack { display: grid; gap: 14px; }
+    .keyword-analysis-card {
+      border: 1px solid rgba(16,185,129,.28);
+      border-radius: 8px;
+      background: #FFFFFF;
+      padding: 16px;
+      display: grid;
+      gap: 12px;
+      box-shadow: 0 16px 38px rgba(15,42,29,.06);
+    }
+    .keyword-analysis-head {
+      display: flex;
+      gap: 12px;
+      align-items: flex-start;
+      justify-content: space-between;
+      flex-wrap: wrap;
+    }
+    .keyword-analysis-title {
+      color: var(--text);
+      font-size: 20px;
+      font-weight: 1000;
+      line-height: 1.35;
+      overflow-wrap: anywhere;
+    }
+    .keyword-analysis-meta { margin-top: 4px; color: var(--muted); font-size: 13px; }
+    .keyword-analysis-guide {
+      border: 1px solid rgba(14,165,233,.22);
+      border-radius: 8px;
+      background: #EFF8FF;
+      color: #17324D;
+      padding: 13px;
+      font-size: 14px;
+      line-height: 1.65;
+    }
+    .keyword-analysis-guide strong {
+      display: block;
+      color: #0369A1;
+      font-size: 14px;
+      font-weight: 1000;
+      margin-bottom: 4px;
+    }
+    .keyword-analysis-related { display: grid; gap: 8px; }
+    .keyword-analysis-related strong { color: #065F46; font-size: 14px; }
+    .keyword-analysis-related-chips { display: flex; flex-wrap: wrap; gap: 7px; }
+    .keyword-analysis-chip {
+      border: 1px solid rgba(14,165,233,.28);
+      border-radius: 999px;
+      background: #F0F9FF;
+      color: #075985;
+      padding: 6px 10px;
+      font-size: 13px;
+      font-weight: 1000;
+      line-height: 1.2;
+    }
+    .keyword-analysis-metrics {
+      display: grid;
+      grid-template-columns: repeat(6, minmax(0, 1fr));
+      gap: 8px;
+    }
+    .keyword-analysis-metric {
+      border: 1px solid var(--line-soft);
+      border-radius: 8px;
+      background: #F6FBF7;
+      padding: 10px;
+      min-height: 70px;
+    }
+    .keyword-analysis-metric span {
+      display: block;
+      color: var(--muted);
+      font-size: 12px;
+      font-weight: 800;
+    }
+    .keyword-analysis-metric strong {
+      display: block;
+      margin-top: 5px;
+      color: var(--text);
+      font-size: 18px;
+      font-weight: 1000;
+      overflow-wrap: anywhere;
+    }
+    .keyword-analysis-actions { display: flex; flex-wrap: wrap; gap: 6px; }
     .keyword-detail-list { display: grid; gap: 10px; }
     .keyword-detail-card {
       border: 1px solid rgba(14,165,233,.22);
@@ -1370,7 +1452,7 @@ export function renderLewordProWeb(): string {
       .feature-grid, .ops-grid { grid-template-columns: repeat(2, minmax(0, 1fr)); }
     }
     @media (max-width: 820px) {
-      .metrics, .workbench, .lookup-row, .golden-stats, .ops-grid, .tool-tabs, .tool-form, .tool-detail-grid, .catalog-strip, .catalog-list, .download-grid, .settings-grid, .settings-checklist, .admin-ai-provider-grid, .agent-window-options, .admin-content-tools, .api-issue-grid, .mindmap-view, .mindmap-branches, .mindmap-row { grid-template-columns: 1fr; }
+      .metrics, .workbench, .lookup-row, .golden-stats, .ops-grid, .tool-tabs, .tool-form, .tool-detail-grid, .catalog-strip, .catalog-list, .download-grid, .settings-grid, .settings-checklist, .admin-ai-provider-grid, .agent-window-options, .admin-content-tools, .api-issue-grid, .mindmap-view, .mindmap-branches, .mindmap-row, .keyword-analysis-metrics { grid-template-columns: 1fr; }
       .quick-feature-dock { grid-template-columns: repeat(2, minmax(0, 1fr)); }
       .quality-strip { grid-template-columns: 1fr 1fr; }
       .result-toolbar { grid-template-columns: 1fr; }
@@ -2202,11 +2284,25 @@ export function renderLewordProWeb(): string {
     }
     function keywordResultRows(result) {
       return (Array.isArray(result && result.keywords) ? result.keywords : []).filter(function(item) {
-        return item && normalizeText(item.keyword);
+        return item && normalizeText(item.keyword) && !isArticleTitleLikeKeyword(item.keyword);
       });
     }
     function compactKeywordText(value) {
       return normalizeText(value).toLowerCase().replace(/\\s+/g, '');
+    }
+    function isArticleTitleLikeKeyword(value) {
+      const text = normalizeText(value);
+      const compact = compactKeywordText(text);
+      if (!text || !compact) return true;
+      if (/(보도참고자료|보도자료|브리핑|해명자료|설명자료|첨부파일|공고문|입장문)/u.test(text)) return true;
+      if (/(마감\\s*결과|결과\\s*\\d{1,2}\\.\\d{1,2}|고유가\\s*피해지원금\\s*신청.*지급\\s*마감)/u.test(text)) return true;
+      if (/고유가피해지원금신청지급마감결과/u.test(compact)) return true;
+      const wordCount = (text.match(/\\s+/g) || []).length + 1;
+      const hasUsefulModifier = /(방법|대상|자격|조건|지급일|잔액|사용처|가맹점|온라인|조회|신청|예약|예매|비교|후기|가격|보험|일정|후보|전망|계산기|마감일|서류|주의사항)/u.test(text);
+      if (/[.!?。]$/u.test(text) && text.length > 16) return true;
+      if (wordCount >= 6 && !hasUsefulModifier) return true;
+      if (compact.length > 34 && !hasUsefulModifier) return true;
+      return false;
     }
     function keywordRowSearchText(row) {
       return [
@@ -2330,10 +2426,10 @@ export function renderLewordProWeb(): string {
       return markerCount >= 3 && (hasNoReadableSpacing || keyword.length >= 17);
     }
     function shouldHideFromLiveGoldenBoard(row) {
-      return isAmbiguousCompositeKeyword(row) || isShoppingIntentKeywordRow(row) || isAdDominatedKeywordRow(row) || isLowTrafficCaptureKeyword(row);
+      return isArticleTitleLikeKeyword(row && row.keyword) || isAmbiguousCompositeKeyword(row) || isShoppingIntentKeywordRow(row) || isAdDominatedKeywordRow(row) || isLowTrafficCaptureKeyword(row);
     }
     function shouldHideFromMindmap(row) {
-      return isAmbiguousCompositeKeyword(row) || isShoppingIntentKeywordRow(row);
+      return isArticleTitleLikeKeyword(row && row.keyword) || isAmbiguousCompositeKeyword(row) || isShoppingIntentKeywordRow(row);
     }
     function filterDisplayGoldenItems(items) {
       return filterFreshGoldenItems(items || []).filter(function(item) {
@@ -4408,6 +4504,94 @@ export function renderLewordProWeb(): string {
       const n = Math.max(0, Number(value || 0));
       const pct = Math.max(5, Math.min(100, Math.round((Math.log10(n + 10) / 6) * 100)));
       return '<div class="volume-cell"><strong>' + fmt(n) + '</strong><span><i style="width:' + pct + '%"></i></span></div>';
+    }
+    function keywordAnalysisMetricHtml(label, value) {
+      return '<div class="keyword-analysis-metric"><span>' + escapeHtml(label) + '</span><strong>' + escapeHtml(value == null || value === '' ? '-' : String(value)) + '</strong></div>';
+    }
+    function naturalRelatedKeywords(row, limit) {
+      const keyword = normalizeText(row && row.keyword);
+      const compact = compactKeywordText(keyword);
+      const guide = keywordIntentGuide(row);
+      let seeds = [];
+      if (/문화누리카드/u.test(keyword) || /문화누리카드/u.test(compact)) {
+        seeds = [
+          '문화누리카드 잔액조회',
+          '문화누리카드 온라인 사용처',
+          '문화누리카드 가맹점',
+          '문화누리카드 사용처 조회',
+          '문화누리카드 충전일',
+          '문화누리카드 영화 예매',
+          '문화누리카드 숙박 사용처',
+          '문화누리카드 오프라인 사용처',
+          '문화누리카드 네이버페이',
+          '문화누리카드 본인충전금 환불',
+        ];
+      } else if (/제주\\s*렌터카|제주렌터카|렌터카/u.test(keyword)) {
+        seeds = [
+          '제주 렌터카 예약',
+          '제주 렌터카 예약 사이트',
+          '제주 렌터카 예약 방법',
+          '제주 렌터카 예약 팁',
+          '제주 렌터카 예약 시기',
+          '제주 렌터카 보험 비교',
+          '제주 렌터카 완전자차',
+          '제주 렌터카 가격비교',
+        ];
+      } else if (/근로장려금/u.test(keyword)) {
+        seeds = [
+          '근로장려금 지급일',
+          '근로장려금 신청',
+          '근로장려금 대상자 확인',
+          '근로장려금 금액 조회',
+          '근로장려금 반기 지급일',
+          '근로장려금 심사결과',
+          '근로장려금 신청방법',
+          '근로장려금 자격요건',
+        ];
+      } else {
+        seeds = [].concat(
+          naverAutocompleteLikeBranches(keyword),
+          guide && guide.branches ? guide.branches : []
+        );
+      }
+      return uniqueIntentBranches(seeds, limit || 10)
+        .filter(function(item) { return compactKeywordText(item) !== compact; })
+        .slice(0, limit || 10);
+    }
+    function keywordAnalysisCardHtml(row, index) {
+      const keyword = normalizeText(row && row.keyword) || '-';
+      const grade = displayGradeForRow(row);
+      const guide = enrichKeywordIntentGuide(row, keywordIntentGuide(row));
+      const related = naturalRelatedKeywords(row, 10);
+      const relatedHtml = related.length
+        ? '<div class="keyword-analysis-related"><strong>자연 연관키워드</strong><div class="keyword-analysis-related-chips">'
+          + related.map(function(branch) {
+              return '<button class="keyword-analysis-chip" type="button" data-board-action="analyze" data-keyword="' + escapeAttr(branch) + '">' + escapeHtml(branch) + '</button>';
+            }).join('')
+          + '</div></div>'
+        : '';
+      const meta = [
+        row && row.category ? row.category : '',
+        row && row.source ? row.source : '',
+      ].map(normalizeText).filter(Boolean).join(' · ');
+      return '<article class="keyword-analysis-card">'
+        + '<div class="keyword-analysis-head"><div><div class="keyword-analysis-title">' + escapeHtml((index + 1) + '. ' + keyword) + '</div>'
+        + (meta ? '<div class="keyword-analysis-meta">' + escapeHtml(meta) + '</div>' : '')
+        + '</div><span class="grade ' + escapeHtml(grade) + '">' + escapeHtml(grade) + '</span></div>'
+        + '<div class="keyword-analysis-guide"><strong>왜 검색량이 붙는가</strong>' + escapeHtml(guide.meaning || '검색자가 지금 확인해야 하는 대상, 금액, 일정, 조건을 빠르게 비교하려는 수요입니다.') + '</div>'
+        + '<div class="keyword-analysis-guide"><strong>조합 의도/활용</strong>' + escapeHtml(guide.action || '바로 답을 주는 표와 최신 확인 경로를 먼저 배치하고, 아래에 연관 질문을 이어 붙이세요.') + '</div>'
+        + relatedHtml
+        + '<div class="keyword-analysis-metrics">'
+        + keywordAnalysisMetricHtml('PC', fmt(row && row.pcSearchVolume))
+        + keywordAnalysisMetricHtml('모바일', fmt(row && row.mobileSearchVolume))
+        + keywordAnalysisMetricHtml('전체', fmt(row && row.totalSearchVolume))
+        + keywordAnalysisMetricHtml('문서수', fmt(row && row.documentCount))
+        + keywordAnalysisMetricHtml('경쟁비', fmt(rowGoldenRatio(row)))
+        + keywordAnalysisMetricHtml('CPC', fmt(row && row.cpc))
+        + '</div>'
+        + '<div class="keyword-analysis-actions">' + keywordActionHtml(keyword) + '</div>'
+        + shoppingProductPickHtml(row)
+        + '</article>';
     }
     function findKeywordMetric(keyword) {
       const key = normalizeText(keyword);
@@ -6538,23 +6722,9 @@ export function renderLewordProWeb(): string {
         renderKeywordAnalysisInsight(result, rows);
         return;
       }
-      qs('keywordRows').innerHTML = rows.slice(0, 80).map(function(row) {
-        const displayGrade = displayGradeForRow(row);
-        return '<tr>'
-          + '<td>' + keywordCompactCellHtml(row) + shoppingProductPickHtml(row) + '</td>'
-          + '<td>' + fmt(row.pcSearchVolume) + '</td>'
-          + '<td>' + fmt(row.mobileSearchVolume) + '</td>'
-          + '<td>' + volumeBarHtml(row.totalSearchVolume) + '</td>'
-          + '<td>' + fmt(row.documentCount) + '</td>'
-          + '<td>' + fmt(row.goldenRatio) + '</td>'
-          + '<td>' + fmt(row.cpc) + '</td>'
-          + '<td>' + publishDecisionHtml(row) + '</td>'
-          + '<td><span class="grade ' + escapeHtml(displayGrade) + '">' + escapeHtml(displayGrade) + '</span></td>'
-          + '<td>' + escapeHtml(row.source || '-') + '</td>'
-          + '<td>' + (row.isMeasured ? '실측' : '측정 필요') + '</td>'
-          + '<td>' + keywordActionHtml(row.keyword || '') + '</td>'
-          + '</tr>';
-      }).join('');
+      qs('keywordRows').innerHTML = '<tr><td colspan="12" class="keyword-analysis-table-cell"><div class="keyword-analysis-stack">'
+        + rows.slice(0, 80).map(function(row, index) { return keywordAnalysisCardHtml(row, index); }).join('')
+        + '</div></td></tr>';
       renderKeywordAnalysisInsight(result, rows);
     }
     function setGoldenSummary(boardCount, boardTarget, visibleCount, lockedCount, running, updatedAt, policy) {

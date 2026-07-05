@@ -6,6 +6,8 @@ import type {
   MobileResultGrade,
 } from './contracts';
 
+const ARTICLE_TITLE_KEYWORD_RE = /(보도참고자료|보도자료|브리핑|해명자료|설명자료|첨부파일|공고문|입장문|마감\s*결과|결과\s*\d{1,2}\.\d{1,2}|고유가\s*피해지원금\s*신청.*지급\s*마감)/u;
+
 function normalizeText(value: unknown): string {
   return String(value || '').replace(/\s+/g, ' ').trim();
 }
@@ -496,7 +498,9 @@ export function isUltimateLowValueLookupKeyword(keyword: string): boolean {
   const nonLotterySettlementNeed = /\uC2E4\uC218\uB839\uC561/u.test(clean)
     && !/(?:\uB85C\uB610|\uBCF5\uAD8C|\uB2F9\uCCA8)/u.test(clean);
   return !!clean && (
-    THIN_LOOKUP_RE.test(clean)
+    ARTICLE_TITLE_KEYWORD_RE.test(clean)
+    || ARTICLE_TITLE_KEYWORD_RE.test(compactText(clean))
+    || THIN_LOOKUP_RE.test(clean)
     || NEWS_ONLY_RE.test(clean)
     || LOW_DIFFERENTIATION_EVENT_RE.test(clean)
     || hasOverExpandedIntentChain(clean)
@@ -548,6 +552,7 @@ export function judgeKeywordMetric(metric: MobileKeywordMetric, now: Date = new 
   ].join(' ');
   const overExpandedIntentChain = hasOverExpandedIntentChain(keyword);
   const lowValueLookup = isUltimateLowValueLookupKeyword(keyword);
+  const articleTitleLike = ARTICLE_TITLE_KEYWORD_RE.test(keyword) || ARTICLE_TITLE_KEYWORD_RE.test(compactText(keyword));
   const highValueNeed = hasUltimateHighValueNeedIntent(keyword);
   const actionModifier = hasUltimateActionModifier(keyword);
   const eventUtility = hasUltimateEventUtility(keyword);
@@ -653,6 +658,11 @@ export function judgeKeywordMetric(metric: MobileKeywordMetric, now: Date = new 
   if (evergreen) {
     score += 7;
     reasons.push('evergreen-blog-angle');
+  }
+  if (articleTitleLike) {
+    score -= 70;
+    rejectReason ||= 'article-title-not-keyword';
+    reasons.push('article-title-not-keyword');
   }
   if (thin) {
     score -= lowValueLookup ? 52 : 30;

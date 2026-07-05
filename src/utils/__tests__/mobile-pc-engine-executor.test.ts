@@ -678,6 +678,21 @@ async function runAgentAssistQualityGate(): Promise<void> {
   const started = new Date().toISOString();
   const metrics: MobileKeywordMetric[] = [
     {
+      keyword: '보도참고자료 고유가 피해지원금 신청·지급 마감 결과 7.3.',
+      grade: 'SSS',
+      pcSearchVolume: 1200,
+      mobileSearchVolume: 3200,
+      totalSearchVolume: 4400,
+      documentCount: 11,
+      goldenRatio: 400,
+      cpc: 0,
+      category: 'policy',
+      source: 'fixture-agent-quality',
+      intent: 'article-title-fixture',
+      evidence: ['fixture-searchad-volume', 'fixture-naver-blog-document-count'],
+      isMeasured: true,
+    },
+    {
       keyword: '최저임금 격차 1290원 다음감독 후보',
       grade: 'SSS',
       pcSearchVolume: 9000,
@@ -771,6 +786,9 @@ async function runAgentAssistQualityGate(): Promise<void> {
     progress: () => {},
   });
   const keywords = result.keywords.map((item) => item.keyword);
+  assert('agent assist quality gate removes article-title shaped source rows',
+    !keywords.includes('보도참고자료 고유가 피해지원금 신청·지급 마감 결과 7.3.'),
+    keywords.join('|'));
   assert('agent assist quality gate removes cross-domain and misplaced product keywords',
     !keywords.includes('최저임금 격차 1290원 다음감독 후보')
       && !keywords.includes('국산로봇청소기순위 원룸 출시일')

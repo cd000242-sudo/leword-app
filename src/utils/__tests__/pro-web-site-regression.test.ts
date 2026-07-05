@@ -37,6 +37,16 @@ for (const [index, match] of Array.from(proWebHtml.matchAll(/<script>([\s\S]*?)<
 }
 
 assert('renders LEWORD Pro Web shell', html.includes('LEWORD Pro Web'));
+assert('LEWORD analyzer blocks article-title strings and renders wide analysis cards',
+  proWebHtml.includes('function isArticleTitleLikeKeyword')
+    && proWebHtml.includes('보도참고자료')
+    && proWebHtml.includes('keyword-analysis-card')
+    && proWebHtml.includes('keyword-analysis-related')
+    && proWebHtml.includes('자연 연관키워드'));
+assert('LEWORD analyzer gives natural Naver-style cultural card expansions',
+  proWebHtml.includes('문화누리카드 잔액조회')
+    && proWebHtml.includes('문화누리카드 온라인 사용처')
+    && proWebHtml.includes('문화누리카드 가맹점'));
 assert('LEWORD Pro Web uses blue accents instead of yellow copy accents',
   html.includes('--gold: #0EA5E9')
     && !/#ffe|#ffd|#f8c|#f7dc|#b7f|245,197|248,194|yellow/i.test(html));
@@ -279,12 +289,16 @@ assert('live golden cards explain search intent and route shopping keywords away
     && proWebHtml.includes('const freshRows = filterFreshGoldenItems(items || [])')
     && proWebHtml.includes('제품형, 광고 장악형, 의도 충돌형, 트래픽 확보 가능성이 약한 키워드는 LIVE 보드에서 숨겼습니다')
     && proWebHtml.includes('return !shouldHideFromMindmap(row);')
-    && proWebHtml.includes('keywordIntentGuideHtml(item)')
-    && proWebHtml.includes('function keywordCompactCellHtml')
+    && proWebHtml.includes('function keywordAnalysisCardHtml')
+    && proWebHtml.includes('keyword-analysis-card')
+    && proWebHtml.includes('keyword-analysis-title')
+    && proWebHtml.includes('keyword-analysis-metrics')
+    && proWebHtml.includes('function naturalRelatedKeywords')
+    && proWebHtml.includes('data-board-action="analyze"')
     && proWebHtml.includes('function renderKeywordAnalysisInsight')
     && proWebHtml.includes('class="keyword-expansion-table"')
     && proWebHtml.includes('정밀 분석 해석과 자동완성 확장')
-    && proWebHtml.includes('keywordCompactCellHtml(row) + shoppingProductPickHtml(row)'));
+    && proWebHtml.includes('keywordAnalysisCardHtml(row, index)'));
 assert('live golden board renders as one vertical list instead of cramped card columns',
   proWebHtml.includes('.golden-list { display: flex; flex-direction: column; gap: 10px; }')
     && proWebHtml.includes('grid-template-columns: minmax(0, 1fr) minmax(230px, .42fr);')

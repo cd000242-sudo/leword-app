@@ -866,7 +866,7 @@ const AGENT_CROSS_DOMAIN_GROUPS: readonly RegExp[] = [
 const AGENT_SHOPPING_TOPIC_RE = /(가격|최저가|구매|구매처|재고|할인|쿠폰|추천|순위|후기|비교|리뷰|스펙|청소기|로봇청소기|에어컨|노트북|아이폰|갤럭시|가습기|제습기|냉장고|세탁기|기저귀|카시트|영양제|유산균|화장품|선크림|캠핑)/u;
 const AGENT_TRAVEL_BOOKING_RE = /(렌터카|렌트카|숙소|호텔|펜션|항공권|여행|예약|입장권|티켓|축제|문화누리카드\s*사용처)/u;
 const AGENT_NEED_MODIFIER_RE = /(신청|대상|자격|조건|지급일|금액|조회|계산|계산기|일정|예매|예약|방법|후기|비교|사용처|잔액|기간|마감|발표|후보|전망|이유|논란|전말|선임|교체|중계|라인업|티켓|보험|취소|픽업|가격비교|서류|제외|주의사항)/u;
-const AGENT_NOISE_CHAIN_RE = /(방법주의사항정리|가격후기추천|지급일금액대상|신청대상조건|금액조회신청|대상자격지급일|정례대화(지급일|금액|대상|신청|수당)|프로필|인물프로필)/u;
+const AGENT_NOISE_CHAIN_RE = /(방법주의사항정리|가격후기추천|지급일금액대상|신청대상조건|금액조회신청|대상자격지급일|정례대화(지급일|금액|대상|신청|수당)|프로필|인물프로필|보도참고자료|보도자료|마감결과|고유가피해지원금신청지급마감결과)/u;
 
 function metricTextForAgent(metric: MobileKeywordMetric): string {
   return [
@@ -898,6 +898,10 @@ function agentRejectReasonForMetric(
   if (metric.aiJudge?.verdict === 'exclude') return metric.aiJudge.rejectReason || 'ai-judge-excluded';
   if (metric.publishDecision?.verdict === 'exclude') return 'publish-decision-excluded';
   if (isUltimateLowValueLookupKeyword(keyword)) return 'low-value-lookup';
+  if (/(보도참고자료|보도자료|브리핑|해명자료|설명자료|첨부파일|공고문|입장문|마감\s*결과|결과\s*\d{1,2}\.\d{1,2})/u.test(keyword)
+    || /고유가피해지원금신청지급마감결과/u.test(compact)) {
+    return 'article-title-not-keyword';
+  }
   if (AGENT_NOISE_CHAIN_RE.test(compact)) return 'template-chain-noise';
   const text = metricTextForAgent(metric);
   if (AGENT_CROSS_DOMAIN_GROUPS.some((pattern) => pattern.test(text) || pattern.test(compact))) {
