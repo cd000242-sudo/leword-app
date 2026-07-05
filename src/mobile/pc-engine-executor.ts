@@ -200,6 +200,14 @@ function normalizeAgentAssistContext(value: unknown): MobileAgentAssistContext |
     usageWindowHours: Number.isFinite(usageWindowHours) && usageWindowHours > 0 ? usageWindowHours : null,
     tasks: normalizeStringList(raw.tasks, 16),
     qualityGates: normalizeStringList(raw.qualityGates, 12),
+    mission: normalizeKeyword(raw.mission) || undefined,
+    mustFind: normalizeStringList(raw.mustFind, 16),
+    rejectIf: normalizeStringList(raw.rejectIf, 16),
+    rankingRubric: normalizeStringList(raw.rankingRubric, 16),
+    researchChecklist: normalizeStringList(raw.researchChecklist, 16),
+    hunterCharter: raw.hunterCharter && typeof raw.hunterCharter === 'object' && !Array.isArray(raw.hunterCharter)
+      ? raw.hunterCharter as Record<string, unknown>
+      : undefined,
     outputContract: raw.outputContract && typeof raw.outputContract === 'object' && !Array.isArray(raw.outputContract)
       ? Object.fromEntries(Object.entries(raw.outputContract as Record<string, unknown>).map(([key, val]) => [key, val === true]))
       : undefined,
@@ -866,6 +874,8 @@ const AGENT_CROSS_DOMAIN_GROUPS: readonly RegExp[] = [
 const AGENT_SHOPPING_TOPIC_RE = /(가격|최저가|구매|구매처|재고|할인|쿠폰|추천|순위|후기|비교|리뷰|스펙|청소기|로봇청소기|에어컨|노트북|아이폰|갤럭시|가습기|제습기|냉장고|세탁기|기저귀|카시트|영양제|유산균|화장품|선크림|캠핑)/u;
 const AGENT_TRAVEL_BOOKING_RE = /(렌터카|렌트카|숙소|호텔|펜션|항공권|여행|예약|입장권|티켓|축제|문화누리카드\s*사용처)/u;
 const AGENT_NEED_MODIFIER_RE = /(신청|대상|자격|조건|지급일|금액|조회|계산|계산기|일정|예매|예약|방법|후기|비교|사용처|잔액|기간|마감|발표|후보|전망|이유|논란|전말|선임|교체|중계|라인업|티켓|보험|취소|픽업|가격비교|서류|제외|주의사항)/u;
+const AGENT_HIDDEN_MONETIZABLE_NEED_RE = /(잔액조회|온라인\s*사용처|오프라인\s*사용처|지역별\s*사용처|가맹점|본인충전금|제외대상|누락|이의신청|입금일|환급일|지급일|마감일|신청기간|대상자\s*확인|서류|준비물|오류|안됨|가능\s*여부|취소\s*수수료|완전자차|자차보험|보험\s*비교|공항\s*픽업|가격비교|최저가|주의사항|실수|체크리스트|차이|비교|후기|사용처\s*조회|다음\s*감독|감독\s*후보|선임\s*과정|협회\s*비리|전말|변수|경우의\s*수|반응\s*정리|후속\s*일정)/u;
+const AGENT_BEGINNER_TOPIC_RE = /(문화누리카드|근로장려금|자녀장려금|주휴수당|최저임금|청년|지원금|환급|세금|정책|복지|보험|카드|대출|청약|렌터카|렌트카|숙소|호텔|항공권|여행|제주|가전|청소기|에어컨|제습기|노트북|유튜브|쇼츠|지식인|네이버|가맹점|사용처|감독|축구협회|대표팀|월드컵|KBO|야구)/u;
 const AGENT_NOISE_CHAIN_RE = /(방법주의사항정리|가격후기추천|지급일금액대상|신청대상조건|금액조회신청|대상자격지급일|정례대화(지급일|금액|대상|신청|수당)|프로필|인물프로필|보도참고자료|보도자료|마감결과|고유가피해지원금신청지급마감결과)/u;
 
 function metricTextForAgent(metric: MobileKeywordMetric): string {
@@ -876,6 +886,24 @@ function metricTextForAgent(metric: MobileKeywordMetric): string {
     metric.source,
     ...(Array.isArray(metric.evidence) ? metric.evidence : []),
   ].map((item) => normalizeKeyword(item)).filter(Boolean).join(' ');
+}
+
+function isAgentBeginnerMonetizableNeed(metric: MobileKeywordMetric, product: MobileKeywordProduct): boolean {
+  const keyword = normalizeKeyword(metric.keyword);
+  if (!keyword || AGENT_NOISE_CHAIN_RE.test(compactKeyword(keyword))) return false;
+  if (isUltimateLowValueLookupKeyword(keyword)) return false;
+  const text = metricTextForAgent(metric);
+  const hasNeed = AGENT_NEED_MODIFIER_RE.test(keyword) || AGENT_HIDDEN_MONETIZABLE_NEED_RE.test(keyword);
+  const hiddenLongtail = AGENT_HIDDEN_MONETIZABLE_NEED_RE.test(keyword)
+    || (hasNeed && keyword.replace(/\s+/g, '').length >= 7);
+  const topic = AGENT_BEGINNER_TOPIC_RE.test(text)
+    || AGENT_SHOPPING_TOPIC_RE.test(text)
+    || AGENT_TRAVEL_BOOKING_RE.test(text);
+  const shoppingAllowed = product === 'shopping-connect'
+    || product === 'youtube-golden'
+    || !AGENT_SHOPPING_TOPIC_RE.test(text)
+    || AGENT_TRAVEL_BOOKING_RE.test(text);
+  return hasNeed && hiddenLongtail && topic && shoppingAllowed;
 }
 
 function isAgentExactRequestedKeyword(
@@ -912,6 +940,14 @@ function agentRejectReasonForMetric(
   if (shoppingTopic && !travelBooking && product !== 'shopping-connect' && product !== 'youtube-golden') {
     return 'shopping-topic-belongs-to-shopping-connect';
   }
+  const strictHunterProduct = product === 'golden-discovery'
+    || product === 'pro-traffic-hunter'
+    || product === 'naver-mate-hunter'
+    || product === 'kin-hidden-honey'
+    || product === 'shopping-connect';
+  if (strictHunterProduct && !isAgentBeginnerMonetizableNeed(metric, product)) {
+    return 'missing-beginner-monetizable-hidden-need';
+  }
   const total = finiteNumber(metric.totalSearchVolume);
   const docs = finiteNumber(metric.documentCount);
   const ratio = finiteNumber(metric.goldenRatio)
@@ -931,6 +967,7 @@ function agentQualityScore(metric: MobileKeywordMetric, product: MobileKeywordPr
   const measuredBoost = isFullyMeasuredKeyword(metric) ? 500000 : metric.isMeasured ? 150000 : 0;
   const sssBoost = metric.grade === 'SSS' ? 200000 : metric.grade === 'SS' ? 90000 : metric.grade === 'S' ? 30000 : 0;
   const intentBoost = AGENT_NEED_MODIFIER_RE.test(metric.keyword) ? 35000 : 0;
+  const hunterCharterBoost = isAgentBeginnerMonetizableNeed(metric, product) ? 140000 : -45000;
   const publishBoost = metric.aiJudge?.verdict === 'publish' ? 80000 : metric.aiJudge?.verdict === 'conditional' ? 20000 : 0;
   const productBoost = product === 'shopping-connect' && AGENT_SHOPPING_TOPIC_RE.test(metricTextForAgent(metric)) ? 25000 : 0;
   const redOceanPenalty = total > 0 && docs > total * 12 ? Math.min(160000, docs / 2) : 0;
@@ -939,6 +976,7 @@ function agentQualityScore(metric: MobileKeywordMetric, product: MobileKeywordPr
     + publishBoost
     + productBoost
     + intentBoost
+    + hunterCharterBoost
     + judgeScore * 1200
     + decisionScore * 650
     + Math.min(500, ratio) * 700
@@ -1000,12 +1038,13 @@ function applyAgentQualityGate(
     const docs = finiteNumber(metric.documentCount) ?? 0;
     const ratio = finiteNumber(metric.goldenRatio) ?? 0;
     const hasNeedModifier = AGENT_NEED_MODIFIER_RE.test(metric.keyword);
+    const hasHunterNeed = isAgentBeginnerMonetizableNeed(metric, product);
     const measuredEnough = isFullyMeasuredKeyword(metric) && total >= 30 && docs > 0;
     const hasEdge = metric.grade === 'SSS'
       || (metric.grade === 'SS' && ratio >= 2)
       || (total >= 300 && ratio >= 1.5)
       || (hasNeedModifier && total >= 100 && docs <= 50000);
-    if (measuredEnough && hasEdge) {
+    if (measuredEnough && hasEdge && (hasHunterNeed || product === 'keyword-analysis' || product === 'mindmap-expansion' || product === 'youtube-golden')) {
       kept.push(metric);
     } else {
       relaxed.push(metric);

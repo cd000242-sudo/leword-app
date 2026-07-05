@@ -981,6 +981,12 @@ export interface MobileAgentAssistContext {
   usageWindowHours?: number | null;
   tasks?: string[];
   qualityGates?: string[];
+  mission?: string;
+  mustFind?: string[];
+  rejectIf?: string[];
+  rankingRubric?: string[];
+  researchChecklist?: string[];
+  hunterCharter?: Record<string, unknown>;
   outputContract?: Record<string, boolean>;
   serverVerified?: boolean;
 }

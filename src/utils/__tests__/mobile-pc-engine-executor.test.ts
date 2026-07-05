@@ -39,11 +39,13 @@ function makeJob(product: any, params: any): MobileJobEnvelope<any, MobileKeywor
 function makeSssMetric(index: number, prefix = '모바일 검증 키워드'): MobileKeywordMetric {
   const searchVolume = 1000 + index * 10;
   const documentCount = 100 + index;
+  const pcSearchVolume = Math.floor(searchVolume * 0.28);
+  const mobileSearchVolume = searchVolume - pcSearchVolume;
   return {
-    keyword: `${prefix} ${index}`,
+    keyword: `문화누리카드 잔액조회 ${index}`,
     grade: 'SSS',
-    pcSearchVolume: null,
-    mobileSearchVolume: null,
+    pcSearchVolume,
+    mobileSearchVolume,
     totalSearchVolume: searchVolume,
     documentCount,
     goldenRatio: Number((searchVolume / documentCount).toFixed(2)),
@@ -51,7 +53,7 @@ function makeSssMetric(index: number, prefix = '모바일 검증 키워드'): Mo
     category: 'policy',
     source: 'fixture-pc-engine',
     intent: 'test',
-    evidence: ['pc-engine-fixture'],
+    evidence: ['pc-engine-fixture', 'fixture-searchad-volume', 'fixture-naver-blog-document-count'],
     isMeasured: true,
   };
 }

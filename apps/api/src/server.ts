@@ -2106,6 +2106,18 @@ function normalizeAgentAssistCacheParam(value: unknown): unknown {
     mindmapAssist: raw.mindmapAssist !== false,
     keywordResearchAssist: raw.keywordResearchAssist !== false,
     tasks: normalizeStringListParam(raw.tasks, 16),
+    mission: String(raw.mission || '').replace(/\s+/g, ' ').trim() || undefined,
+    mustFind: normalizeStringListParam(raw.mustFind, 16),
+    rejectIf: normalizeStringListParam(raw.rejectIf, 16),
+    rankingRubric: normalizeStringListParam(raw.rankingRubric, 16),
+    researchChecklist: normalizeStringListParam(raw.researchChecklist, 16),
+    hunterCharter: raw.hunterCharter && typeof raw.hunterCharter === 'object' && !Array.isArray(raw.hunterCharter)
+      ? raw.hunterCharter
+      : undefined,
+    qualityGates: normalizeStringListParam(raw.qualityGates, 12),
+    outputContract: raw.outputContract && typeof raw.outputContract === 'object' && !Array.isArray(raw.outputContract)
+      ? raw.outputContract
+      : undefined,
   };
 }
 

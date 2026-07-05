@@ -104,6 +104,71 @@ assert.strictEqual(articleTitleSource.aiJudge?.verdict, 'exclude');
 assert.strictEqual(articleTitleSource.aiJudge?.rejectReason, 'article-title-not-keyword');
 assert.strictEqual(articleTitleSource.grade, 'C');
 
+const cultureCardBalance = applyKeywordAiJudge(
+  {
+    ...measuredMetric('문화누리카드 잔액조회', 'policy', 640, 2000, 229),
+    source: 'persistent-measured-golden-cache',
+    intent: 'local-benefit-usage-need',
+    evidence: ['naver-autocomplete', 'beginner-monetizable-need'],
+  },
+  { now },
+) as any;
+assert.strictEqual(cultureCardBalance.aiJudge?.verdict, 'publish');
+assert.ok(cultureCardBalance.aiJudge?.reasons.includes('beginner-monetizable-hidden-need'));
+assert.ok(isUltimateGoldenKeywordCandidate(cultureCardBalance, {
+  now,
+  requirePcMobileSplit: true,
+  requireMeasurementProvenance: true,
+  minAiScore: 78,
+  minTotalSearchVolume: 300,
+  maxDocumentCount: 15000,
+  minGoldenRatio: 2,
+}));
+
+const jejuRentalInsurance = applyKeywordAiJudge(
+  {
+    ...measuredMetric('제주 렌터카 완전자차 보험 비교', 'travel_domestic', 1510, 8240, 420),
+    source: 'persistent-measured-golden-cache',
+    intent: 'travel-booking-risk-comparison',
+    evidence: ['naver-autocomplete', 'summer-travel-demand'],
+  },
+  { now },
+) as any;
+assert.strictEqual(jejuRentalInsurance.aiJudge?.verdict, 'publish');
+assert.ok(isUltimateGoldenKeywordCandidate(jejuRentalInsurance, {
+  now,
+  requirePcMobileSplit: true,
+  requireMeasurementProvenance: true,
+  minAiScore: 78,
+  minTotalSearchVolume: 300,
+  maxDocumentCount: 15000,
+  minGoldenRatio: 2,
+}));
+
+const hongCoachHeadNews = applyKeywordAiJudge(
+  {
+    ...measuredMetric('홍명보 감독 사퇴', 'sports', 8000, 32000, 900),
+    source: 'persistent-measured-golden-cache',
+    intent: 'headline-news-only',
+    evidence: ['live-golden'],
+  },
+  { now },
+) as any;
+assert.strictEqual(hongCoachHeadNews.aiJudge?.verdict, 'exclude');
+assert.strictEqual(hongCoachHeadNews.grade, 'C');
+
+const hongCoachFollowup = applyKeywordAiJudge(
+  {
+    ...measuredMetric('홍명보 감독 다음 감독 후보', 'sports', 2100, 18400, 860),
+    source: 'persistent-measured-golden-cache',
+    intent: 'sports-follow-up-question',
+    evidence: ['live-golden', 'follow-up-intent'],
+  },
+  { now },
+) as any;
+assert.strictEqual(hongCoachFollowup.aiJudge?.verdict, 'publish');
+assert.ok(hongCoachFollowup.aiJudge?.reasons.includes('beginner-monetizable-hidden-need'));
+
 const youtubeVideoBridge = applyKeywordAiJudge(
   {
     ...measuredMetric('\uC81C\uC2B5\uAE30\uC21C\uC704', 'youtube', 920, 4180, 640),

@@ -75,6 +75,10 @@ const EVENT_BOOKING_UTILITY_EXEMPT_RE = /(?:\uD56D\uACF5\uAD8C|\uC219\uC18C|\uD6
 const GENERIC_BENEFIT_INTENT_RE = /^(?:지원금|보조금|환급금|장려금|바우처|수당|급여)\s*(?:신청|대상|자격|조건|지급일|조회|마감|환급|서류|사용처|지원)/u;
 const BARE_INTENT_ONLY_RE = /^(?:신청|신청방법|대상|자격|조건|지급일|조회|서류|마감|마감일|환급|방법|사용처|금액|준비서류|지원|혜택|가격|비교|추천|후기|할인|쿠폰|구매처|재고|최저가)(?:\s+(?:신청|신청방법|대상|자격|조건|지급일|조회|서류|마감|마감일|환급|방법|사용처|금액|준비서류|지원|혜택|가격|비교|추천|후기|할인|쿠폰|구매처|재고|최저가)){0,2}$/u;
 const TRAFFIC_CAPTURE_NEED_RE = /(신청|대상|자격|조건|지급일|입금일|조회|계산기|서류|마감|환급|사용처|예약\s*방법|예약\s*시기|취소|보험|완전자차|비교|후기|주의사항|예매|라인업|중계|일정|후보|전망|전말|이유|논란|반응|정리|방법|가격비교|실수령액|위반|신고|공식\s*확인|변경사항)/u;
+const BEGINNER_MONETIZABLE_NEED_RE = /(신청|대상|자격|조건|지급일|입금일|금액|실수령액|조회|계산기|서류|마감|환급|사용처|잔액|가맹점|온라인|오프라인|지역별|예약|예매|가격|가격비교|비교|추천|후기|할인|쿠폰|구매처|최저가|보험|완전자차|취소|수수료|픽업|오류|안됨|해결|가능|주의사항|체크리스트|차이|제외|누락|이의신청|변경사항|후보|전망|전말|선임|교체|경우의\s*수|라인업|중계)/u;
+const HIDDEN_LONGTAIL_SIGNAL_RE = /(잔액조회|온라인\s*사용처|오프라인\s*사용처|지역별\s*사용처|가맹점|본인충전금|제외대상|누락|이의신청|입금일|환급일|지급일|마감일|신청기간|대상자\s*확인|서류|준비물|오류|안됨|가능\s*여부|취소\s*수수료|완전자차|자차보험|보험\s*비교|공항\s*픽업|가격비교|최저가|주의사항|실수|체크리스트|차이|비교|후기|사용처\s*조회|다음\s*감독|감독\s*후보|선임\s*과정|협회\s*비리|전말|변수|경우의\s*수|반응\s*정리|후속\s*일정)/u;
+const BEGINNER_MONETIZATION_TOPIC_RE = /(문화누리카드|근로장려금|자녀장려금|주휴수당|최저임금|청년|지원금|환급|세금|정책|복지|보험|카드|대출|청약|렌터카|렌트카|숙소|호텔|항공권|여행|제주|가전|청소기|에어컨|제습기|노트북|유튜브|쇼츠|지식인|네이버|가맹점|사용처|감독|축구협회|대표팀|월드컵|KBO|야구)/u;
+const STRICT_HUNTER_CONTEXT_RE = /(golden|live-golden|pro-traffic|naver-mate|shopping-connect|kin-hidden|youtube-golden|server-measured|prewarm|persistent-measured)/i;
 
 function keywordDomainSignalsForJudge(value: unknown) {
   const text = normalizeText(value);
@@ -493,6 +497,34 @@ function hasOverExpandedIntentChain(keyword: string): boolean {
   return hasRegexIntent(OVER_EXPANDED_INTENT_CHAIN_RE, keyword);
 }
 
+function hasBeginnerMonetizableHiddenNeedKeyword(keyword: string, category = '', context = ''): boolean {
+  const clean = normalizeText(keyword);
+  if (!clean) return false;
+  if (GENERIC_SINGLE_RE.test(clean) || ARTICLE_TITLE_KEYWORD_RE.test(clean) || ARTICLE_TITLE_KEYWORD_RE.test(compactText(clean))) {
+    return false;
+  }
+  if (hasOverExpandedIntentChain(clean) || isCrossDomainNonsenseKeywordForJudge(clean, `${category} ${context}`)) {
+    return false;
+  }
+  if (THIN_LOOKUP_RE.test(clean) || UNSAFE_RE.test(clean)) return false;
+
+  const corpus = normalizeText(`${clean} ${category} ${context}`);
+  const domain = keywordDomainSignalsForJudge(corpus);
+  const hasClearNeed = hasRegexIntent(BEGINNER_MONETIZABLE_NEED_RE, clean)
+    || hasRegexIntent(TRAFFIC_CAPTURE_NEED_RE, clean)
+    || hasRegexIntent(SSS_READY_NEED_INTENT_RE, clean);
+  const hasHiddenLongtail = hasRegexIntent(HIDDEN_LONGTAIL_SIGNAL_RE, clean)
+    || (hasClearNeed && clean.replace(/\s+/g, '').length >= 7 && /[가-힣]{2,}/u.test(clean));
+  const hasMonetizableTopic = BEGINNER_MONETIZATION_TOPIC_RE.test(corpus)
+    || COMMERCE_RE.test(corpus)
+    || domain.policy
+    || domain.shopping
+    || domain.local
+    || (domain.sports && hasRegexIntent(TRAFFIC_CAPTURE_NEED_RE, clean));
+
+  return hasClearNeed && hasHiddenLongtail && hasMonetizableTopic;
+}
+
 export function isUltimateLowValueLookupKeyword(keyword: string): boolean {
   const clean = normalizeText(keyword);
   const nonLotterySettlementNeed = /\uC2E4\uC218\uB839\uC561/u.test(clean)
@@ -561,6 +593,8 @@ export function judgeKeywordMetric(metric: MobileKeywordMetric, now: Date = new 
   const sssReadyNeed = hasRegexIntent(SSS_READY_NEED_INTENT_RE, keyword);
   const trafficCaptureNeed = hasRegexIntent(TRAFFIC_CAPTURE_NEED_RE, keyword);
   const crossDomainNonsense = isCrossDomainNonsenseKeywordForJudge(keyword, runtimeIntentText);
+  const strictHunterContext = STRICT_HUNTER_CONTEXT_RE.test(runtimeIntentText);
+  const beginnerHiddenNeed = hasBeginnerMonetizableHiddenNeedKeyword(keyword, category, runtimeIntentText);
   const commerce = COMMERCE_RE.test(keyword);
   const shoppingConnectContext = SHOPPING_CONNECT_CONTEXT_RE.test(runtimeIntentText);
   const shoppingConnectNeed = shoppingConnectContext
@@ -588,8 +622,8 @@ export function judgeKeywordMetric(metric: MobileKeywordMetric, now: Date = new 
   const actionable = !lowValueLookup
     && !broadLowValueEvent
     && !crossDomainNonsense
-    && (ACTIONABLE_NEED_RE.test(keyword) || trafficCaptureNeed || highValueNeed || sssReadyNeed || videoBridgeNeed || shoppingConnectNeed)
-    && (!lowValueCategory || highValueNeed || sssReadyNeed || ultimateCommerce || eventUtility || videoBridgeNeed);
+    && (ACTIONABLE_NEED_RE.test(keyword) || trafficCaptureNeed || highValueNeed || sssReadyNeed || videoBridgeNeed || shoppingConnectNeed || beginnerHiddenNeed)
+    && (!lowValueCategory || highValueNeed || sssReadyNeed || ultimateCommerce || eventUtility || videoBridgeNeed || trafficCaptureNeed || beginnerHiddenNeed);
   const thin = lowValueLookup || GENERIC_SINGLE_RE.test(keyword);
   const newsOnly = NEWS_ONLY_RE.test(keyword);
   const unsafe = UNSAFE_RE.test(keyword);
@@ -639,6 +673,13 @@ export function judgeKeywordMetric(metric: MobileKeywordMetric, now: Date = new 
     score += 8;
     reasons.push('traffic-capture-need-intent');
   }
+  if (beginnerHiddenNeed) {
+    score += 14;
+    reasons.push('beginner-monetizable-hidden-need');
+  } else if (strictHunterContext && !shoppingConnectNeed && !videoBridgeNeed && !eventUtility) {
+    score -= 16;
+    reasons.push('hunter-charter-missing-hidden-monetizable-need');
+  }
   if (highValueNeed) {
     score += 8;
     reasons.push('ultimate-high-value-need-intent');
@@ -672,7 +713,7 @@ export function judgeKeywordMetric(metric: MobileKeywordMetric, now: Date = new 
     score -= 26;
     rejectReason ||= 'news-headline-only-risk';
   }
-  if (lowValueCategory && !highValueNeed && !ultimateCommerce && !eventUtility && !videoBridgeNeed) {
+  if (lowValueCategory && !highValueNeed && !ultimateCommerce && !eventUtility && !videoBridgeNeed && !trafficCaptureNeed && !beginnerHiddenNeed) {
     score -= 24;
     rejectReason ||= 'low-value-entertainment-or-sports-intent';
   }
@@ -720,7 +761,7 @@ export function judgeKeywordMetric(metric: MobileKeywordMetric, now: Date = new 
     && !newsOnly
     && !crossDomainNonsense
     && !broadLowValueEvent
-    && !(lowValueCategory && !highValueNeed && !ultimateCommerce && !eventUtility && !videoBridgeNeed)
+    && !(lowValueCategory && !highValueNeed && !ultimateCommerce && !eventUtility && !videoBridgeNeed && !trafficCaptureNeed && !beginnerHiddenNeed)
     && total !== null && total >= 100
     && documents !== null && documents > 0 && documents <= 2_000
     && ratio !== null && ratio >= 1.5;
@@ -745,7 +786,7 @@ export function judgeKeywordMetric(metric: MobileKeywordMetric, now: Date = new 
   const adsenseValue: MobileKeywordAiJudge['adsenseValue'] = score >= 78
     && !lowValueLookup
     && !newsOnly
-    && (highValueNeed || ultimateCommerce || videoBridgeNeed)
+    && (highValueNeed || ultimateCommerce || videoBridgeNeed || beginnerHiddenNeed)
     ? 'high'
     : score >= 58
       ? 'medium'
@@ -770,7 +811,7 @@ export function judgeKeywordMetric(metric: MobileKeywordMetric, now: Date = new 
     || score < 45
     || (thin && !actionable)
     || (newsOnly && !ultimateCommerce)
-    || (lowValueCategory && !highValueNeed && !ultimateCommerce && !eventUtility && !videoBridgeNeed)
+    || (lowValueCategory && !highValueNeed && !ultimateCommerce && !eventUtility && !videoBridgeNeed && !trafficCaptureNeed && !beginnerHiddenNeed)
     ? 'exclude'
     : score >= 72 && status === 'measured' && needIntent !== 'weak'
       ? 'publish'
@@ -879,16 +920,25 @@ export function isUltimateGoldenKeywordCandidate(
   if (isUltimateLowValueLookupKeyword(keyword)) return false;
 
   const category = normalizeText(metric.category);
+  const runtimeIntentText = [
+    metric.source,
+    metric.intent,
+    metric.category,
+    ...(Array.isArray(metric.evidence) ? metric.evidence : []),
+  ].join(' ');
   const highValueNeed = hasUltimateHighValueNeedIntent(keyword);
   const actionModifier = hasUltimateActionModifier(keyword);
+  const trafficCaptureNeed = hasRegexIntent(TRAFFIC_CAPTURE_NEED_RE, keyword);
+  const beginnerHiddenNeed = hasBeginnerMonetizableHiddenNeedKeyword(keyword, category, runtimeIntentText);
   const eventUtility = hasUltimateEventUtility(keyword);
   const lowValueCategory = isUltimateLowValueCategory(category);
   if (isTooBroadLowValueEventKeyword(keyword, category)) return false;
   const commerce = COMMERCE_RE.test(keyword) && (!lowValueCategory || highValueNeed || eventUtility);
   const scarceBareNeed = highValueNeed && documents <= 15000 && ratio >= 3;
-  if (!highValueNeed && !commerce) return false;
-  if (!actionModifier && !commerce && !scarceBareNeed) return false;
-  if (lowValueCategory && !highValueNeed && !commerce && !eventUtility) return false;
+  if (!beginnerHiddenNeed && !commerce && !scarceBareNeed) return false;
+  if (!highValueNeed && !commerce && !(beginnerHiddenNeed && trafficCaptureNeed)) return false;
+  if (!actionModifier && !commerce && !scarceBareNeed && !beginnerHiddenNeed) return false;
+  if (lowValueCategory && !highValueNeed && !commerce && !eventUtility && !beginnerHiddenNeed && !trafficCaptureNeed) return false;
 
   const judge = metric.aiJudge ?? judgeKeywordMetric(metric, options.now);
   if (judge.verdict !== 'publish') return false;

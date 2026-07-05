@@ -5276,6 +5276,7 @@ export function renderLewordProWeb(): string {
         'reject-nonsense-composite',
         'explain-real-search-demand',
         'validate-golden-keyword-fit',
+        'find-beginner-monetizable-hidden-needs',
         'remove-ad-dominated-low-value-keywords',
       ];
       if (featureId === 'mindmap-expansion') {
@@ -5326,6 +5327,43 @@ export function renderLewordProWeb(): string {
         'build-publishable-longtail-angle',
       ]);
     }
+    function agentAssistHunterCharter(featureId) {
+      const shoppingMode = featureId === 'shopping-connect';
+      const naverMode = featureId === 'naver-mate-hunter' || featureId === 'keyword-analysis' || featureId === 'mindmap-expansion';
+      return {
+        mission: '초보 블로거도 글로 풀어 수익화할 수 있고, 일반 실시간 검색어 보드에서 놓치는 숨은 니즈 롱테일 황금키워드만 선별합니다.',
+        mustFind: [
+          '실측 검색량은 충분하지만 문서수와 직접 경쟁이 낮은 키워드',
+          '신청/대상/지급일/잔액/사용처/비교/예약/취소/후보/전말처럼 검색자가 다음 행동을 하려는 키워드',
+          '지금 왜 검색량이 붙는지 계절, 정책 일정, 가격 변동, 사건 후속 의문으로 설명 가능한 키워드',
+          '초보자가 표, 체크리스트, 비교표, Q&A, 구매 기준 글로 바로 작성할 수 있는 키워드',
+          shoppingMode ? '키워드 뒤에 실제 판매 가능 제품과 구매 트리거가 이어지는 키워드' : '광고보다 블로그 답변이 클릭될 여지가 있는 정보형/판단형 키워드',
+          naverMode ? '네이버 자동완성/연관검색어와 자연스럽게 이어지는 확장 키워드' : '원 키워드에서 독자의 후속 의문으로 이어지는 확장 키워드',
+        ],
+        rejectIf: [
+          '보도자료·기사 제목·브리핑 문장을 그대로 붙인 후보',
+          '프로필, 출연진, 몇부작, 다시보기, 공식영상처럼 수익화 의도가 약한 조회형 후보',
+          '검색량만 크고 광고/브랜드/대형 매체가 클릭을 대부분 가져가는 헤드 키워드',
+          '정례대화지급일처럼 서로 다른 도메인을 억지로 붙인 조합',
+          '상품 키워드가 쇼핑커넥트가 아닌 탭에 섞이는 경우',
+          '자동완성/연관어 근거 없이 접미사만 붙인 기계식 확장어',
+        ],
+        rankingRubric: [
+          '1순위: 검색량 대비 문서수가 낮고 SSS/SS 조건을 만족하는 실측 키워드',
+          '2순위: 검색자의 불안, 궁금증, 비교 기준, 구매 기준이 제목에 바로 담기는 키워드',
+          '3순위: 오늘/이번주 이슈나 계절성 때문에 검색량이 붙는 이유가 명확한 키워드',
+          '4순위: 초보자가 30분 안에 표·체크리스트·FAQ 형태로 발행 가능한 키워드',
+          '감점: 광고 과다, 대형 포털/뉴스 독식, 문서수 과다, 의미 불명 조합, 단순 대형 이슈어',
+        ],
+        researchChecklist: [
+          '왜 지금 검색량이 늘었는지 원인을 먼저 설명',
+          '검색자가 실제로 해결하려는 질문과 다음 행동을 분리',
+          '자동완성/연관/후속 의문 키워드를 실측 가능한 후보로 제시',
+          '블로그 글 제목으로 쓸 수 있는 조합 의도를 한 줄로 제시',
+          '실측값이 없으면 SSS처럼 표시하지 말고 측정 필요로 분리',
+        ],
+      };
+    }
     function agentAssistRequestPayload(url, payload) {
       const featureId = agentAssistFeatureId(url);
       if (!featureId) return null;
@@ -5333,6 +5371,7 @@ export function renderLewordProWeb(): string {
       const settings = readAdminAiWorkerSettings();
       const provider = adminWorker && adminWorker.provider ? adminWorker.provider : 'server-auto';
       const providerLabel = adminWorker && adminWorker.providerLabel ? adminWorker.providerLabel : '서버 에이전트 자동 선택';
+      const charter = agentAssistHunterCharter(featureId);
       return {
         enabled: true,
         version: 'web-agent-assist-v1',
@@ -5341,23 +5380,32 @@ export function renderLewordProWeb(): string {
         provider,
         providerLabel,
         seedKeyword: agentAssistSeedKeyword(payload) || null,
+        mission: charter.mission,
         includeAiInference: true,
         mindmapAssist: adminWorker ? adminWorker.mindmapAssist !== false : true,
         keywordResearchAssist: adminWorker ? adminWorker.keywordResearchAssist !== false : true,
         usageWindowHours: adminWorker && adminWorker.usageWindowHours ? adminWorker.usageWindowHours : null,
         tasks: agentAssistTasksForFeature(featureId),
+        mustFind: charter.mustFind,
+        rejectIf: charter.rejectIf,
+        rankingRubric: charter.rankingRubric,
+        researchChecklist: charter.researchChecklist,
+        hunterCharter: charter,
         qualityGates: [
           '실측 검색량과 문서수 없는 더미 결과 금지',
           '검색량 급증 원인 설명',
           '키워드 조합 의도와 사용자 니즈 검증',
           '자동완성/연관/마인드맵 확장 후보 동시 제공',
           '광고가 트래픽을 잠식하는 키워드 감점',
+          '초보자가 글로 풀 수 없는 대형/모호 키워드 탈락',
         ],
         outputContract: {
           explainWhyTrending: true,
           includeIntentRationale: true,
           includeAutocompleteExpansion: true,
           includeMeasuredMetrics: true,
+          includeBeginnerPublishingAngle: true,
+          includeMonetizationRoute: true,
           rejectLowValueComposite: true,
         },
         serverVerified: adminWorker ? adminWorker.serverVerified === true : false,
