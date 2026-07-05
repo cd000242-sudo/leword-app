@@ -197,6 +197,39 @@ assert.strictEqual(shoppingBuyerIntent.aiJudge?.needIntent, 'strong');
 assert.strictEqual(shoppingBuyerIntent.aiJudge?.shoppingIntent, 'high');
 assert.strictEqual(shoppingBuyerIntent.aiJudge?.adsenseValue, 'high');
 
+const productLookupNoise = applyKeywordAiJudge(
+  {
+    ...measuredMetric('\uCC28\uB7C9\uC6A9\uCCAD\uC18C\uAE30\uCD94\uCC9C\uC870\uD68C', 'electronics', 1200, 5400, 25),
+    source: 'server-measured-shopping-connect-prewarm',
+    intent: 'commerce-entry-measured-need',
+    evidence: ['server-24h-measured-prewarm', 'pc-shopping-connect'],
+  },
+  { now },
+) as any;
+assert.strictEqual(productLookupNoise.aiJudge?.verdict, 'exclude');
+assert.strictEqual(productLookupNoise.aiJudge?.rejectReason, 'synthetic-no-effect-keyword-combo');
+assert.strictEqual(isUltimateGoldenKeywordCandidate(productLookupNoise, {
+  now,
+  requirePcMobileSplit: true,
+  requireMeasurementProvenance: true,
+  minAiScore: 78,
+  minTotalSearchVolume: 300,
+  maxDocumentCount: 15000,
+  minGoldenRatio: 2,
+}), false);
+
+const temporalProductNoise = applyKeywordAiJudge(
+  {
+    ...measuredMetric('\uC774\uBC88\uC8FC\uCC28\uB7C9\uC6A9\uCCAD\uC18C\uAE30 \uC804\uAE30\uC694\uAE08', 'electronics', 900, 3100, 12),
+    source: 'server-measured-shopping-connect-prewarm',
+    intent: 'commerce-entry-measured-need',
+    evidence: ['server-24h-measured-prewarm', 'pc-shopping-connect'],
+  },
+  { now },
+) as any;
+assert.strictEqual(temporalProductNoise.aiJudge?.verdict, 'exclude');
+assert.strictEqual(temporalProductNoise.aiJudge?.rejectReason, 'synthetic-no-effect-keyword-combo');
+
 const redOceanReview = applyKeywordAiJudge(
   measuredMetric('\uC81C\uC8FC \uB80C\uD130\uCE74 \uCD94\uCC9C \uD6C4\uAE30', 'travel_domestic', 240, 2270, 15000),
   { now },

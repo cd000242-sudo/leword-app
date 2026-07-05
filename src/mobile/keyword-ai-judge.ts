@@ -79,6 +79,18 @@ const BEGINNER_MONETIZABLE_NEED_RE = /(신청|대상|자격|조건|지급일|입
 const HIDDEN_LONGTAIL_SIGNAL_RE = /(잔액조회|온라인\s*사용처|오프라인\s*사용처|지역별\s*사용처|가맹점|본인충전금|제외대상|누락|이의신청|입금일|환급일|지급일|마감일|신청기간|대상자\s*확인|서류|준비물|오류|안됨|가능\s*여부|취소\s*수수료|완전자차|자차보험|보험\s*비교|공항\s*픽업|가격비교|최저가|주의사항|실수|체크리스트|차이|비교|후기|사용처\s*조회|다음\s*감독|감독\s*후보|선임\s*과정|협회\s*비리|전말|변수|경우의\s*수|반응\s*정리|후속\s*일정)/u;
 const BEGINNER_MONETIZATION_TOPIC_RE = /(문화누리카드|근로장려금|자녀장려금|주휴수당|최저임금|청년|지원금|환급|세금|정책|복지|보험|카드|대출|청약|렌터카|렌트카|숙소|호텔|항공권|여행|제주|가전|청소기|에어컨|제습기|노트북|유튜브|쇼츠|지식인|네이버|가맹점|사용처|감독|축구협회|대표팀|월드컵|KBO|야구)/u;
 const STRICT_HUNTER_CONTEXT_RE = /(golden|live-golden|pro-traffic|naver-mate|shopping-connect|kin-hidden|youtube-golden|server-measured|prewarm|persistent-measured)/i;
+const SYNTHETIC_PRODUCT_BASE_RE = /(?:차량용\s*청소기|무선\s*청소기|핸디\s*청소기|로봇\s*청소기|청소기|가방|신발|운동화|레인부츠|선크림|화장품|세럼|크림|샴푸|노트북|태블릿|키보드|마우스|이어폰|헤드폰|충전기|보조배터리|텐트|텀블러)/u;
+const SYNTHETIC_PRODUCT_POLICY_TAIL_RE = /(?:신청|대상|자격|지급일|서류|지원금|사용처|잔액조회|환급|실수령액|소득기준)/u;
+
+function isSyntheticNoEffectKeywordForJudge(keyword: string): boolean {
+  const compact = compactText(keyword);
+  if (!compact || !SYNTHETIC_PRODUCT_BASE_RE.test(compact)) return false;
+  if (/^(?:이번주|이번달|오늘|요즘|실시간)/u.test(compact)) return true;
+  if (/(?:추천|후기|비교|가격)?조회(?:원룸|자취방|후기|추천)?$/u.test(compact)) return true;
+  if (SYNTHETIC_PRODUCT_POLICY_TAIL_RE.test(compact)) return true;
+  if (/(?:차량용\s*청소기|무선\s*청소기|핸디\s*청소기|청소기).*(?:전기요금|전기세|설치비)/u.test(compact)) return true;
+  return false;
+}
 
 function keywordDomainSignalsForJudge(value: unknown) {
   const text = normalizeText(value);
@@ -593,6 +605,7 @@ export function judgeKeywordMetric(metric: MobileKeywordMetric, now: Date = new 
   const sssReadyNeed = hasRegexIntent(SSS_READY_NEED_INTENT_RE, keyword);
   const trafficCaptureNeed = hasRegexIntent(TRAFFIC_CAPTURE_NEED_RE, keyword);
   const crossDomainNonsense = isCrossDomainNonsenseKeywordForJudge(keyword, runtimeIntentText);
+  const syntheticNoEffect = isSyntheticNoEffectKeywordForJudge(keyword);
   const strictHunterContext = STRICT_HUNTER_CONTEXT_RE.test(runtimeIntentText);
   const beginnerHiddenNeed = hasBeginnerMonetizableHiddenNeedKeyword(keyword, category, runtimeIntentText);
   const commerce = COMMERCE_RE.test(keyword);
@@ -622,6 +635,7 @@ export function judgeKeywordMetric(metric: MobileKeywordMetric, now: Date = new 
   const actionable = !lowValueLookup
     && !broadLowValueEvent
     && !crossDomainNonsense
+    && !syntheticNoEffect
     && (ACTIONABLE_NEED_RE.test(keyword) || trafficCaptureNeed || highValueNeed || sssReadyNeed || videoBridgeNeed || shoppingConnectNeed || beginnerHiddenNeed)
     && (!lowValueCategory || highValueNeed || sssReadyNeed || ultimateCommerce || eventUtility || videoBridgeNeed || trafficCaptureNeed || beginnerHiddenNeed);
   const thin = lowValueLookup || GENERIC_SINGLE_RE.test(keyword);
@@ -730,6 +744,11 @@ export function judgeKeywordMetric(metric: MobileKeywordMetric, now: Date = new 
     rejectReason ||= 'cross-domain-intent-collision';
     reasons.push('cross-domain-intent-collision');
   }
+  if (syntheticNoEffect) {
+    score -= 62;
+    rejectReason ||= 'synthetic-no-effect-keyword-combo';
+    reasons.push('synthetic-no-effect-keyword-combo');
+  }
   if (redOceanMeasured) {
     score -= 30;
     reasons.push('document-count-exceeds-search-demand');
@@ -806,6 +825,7 @@ export function judgeKeywordMetric(metric: MobileKeywordMetric, now: Date = new 
     || lowValueLookup
     || broadLowValueEvent
     || crossDomainNonsense
+    || syntheticNoEffect
     || redOceanMeasured
     || status === 'synthetic-blocked'
     || score < 45
@@ -918,6 +938,7 @@ export function isUltimateGoldenKeywordCandidate(
   if (ratio < (options.minGoldenRatio ?? 3)) return false;
 
   if (isUltimateLowValueLookupKeyword(keyword)) return false;
+  if (isSyntheticNoEffectKeywordForJudge(keyword)) return false;
 
   const category = normalizeText(metric.category);
   const runtimeIntentText = [
