@@ -2038,15 +2038,33 @@ function appendMeasuredPublishableFallbackItems<T extends MobileLiveGoldenBoardI
   if (selected.length >= target) return selected;
   const selectedIds = new Set(selected.map((item) => item.id));
   const selectedCompactIds = new Set(selected.map((item) => keywordCompactId(item.keyword)));
+  const clusterCounts = new Map<string, number>();
+  for (const item of selected) {
+    const cluster = publicPreviewClusterKey(item.keyword);
+    if (cluster) clusterCounts.set(cluster, (clusterCounts.get(cluster) || 0) + 1);
+  }
   const merged = [...selected];
   const fallback = selectMeasuredPublishableFallbackItems(sorted, target, now);
   for (const item of fallback) {
     if (merged.length >= target) break;
     const compactId = keywordCompactId(item.keyword);
+    const cluster = publicPreviewClusterKey(item.keyword);
     if (selectedIds.has(item.id) || selectedCompactIds.has(compactId)) continue;
+    if (cluster && (clusterCounts.get(cluster) || 0) >= LIVE_BOARD_CLUSTER_MAX) continue;
     selectedIds.add(item.id);
     selectedCompactIds.add(compactId);
+    if (cluster) clusterCounts.set(cluster, (clusterCounts.get(cluster) || 0) + 1);
     merged.push(item);
+  }
+  if (target >= LIVE_BOARD_STRICT_READY_MIN) {
+    for (const item of fallback) {
+      if (merged.length >= target) break;
+      const compactId = keywordCompactId(item.keyword);
+      if (selectedIds.has(item.id) || selectedCompactIds.has(compactId)) continue;
+      selectedIds.add(item.id);
+      selectedCompactIds.add(compactId);
+      merged.push(item);
+    }
   }
   return merged;
 }
@@ -2406,7 +2424,7 @@ function selectLiveBoardItemsFromPool<T extends MobileLiveGoldenBoardItem>(
 
   for (const item of sorted) {
     if (selected.length >= target) break;
-    push(item, { respectCategory: true });
+    push(item, { respectCluster: true });
   }
 
   for (const item of sorted) {
@@ -2607,6 +2625,199 @@ function isPublicPreviewFallbackCandidate(item: MobileLiveGoldenBoardItem): bool
   if (item.documentCount !== null && item.documentCount >= PUBLIC_PREVIEW_DOCUMENT_CEILING) return false;
   if (item.goldenRatio !== null && item.goldenRatio < 1.2) return false;
   return true;
+}
+
+function publicPreviewSearchText(item: MobileLiveGoldenBoardItem): string {
+  return [
+    item.keyword,
+    item.category,
+    item.source,
+    item.intent,
+    item.publicReason,
+    item.aiJudge?.reasons?.join(' '),
+    item.publishDecision?.reasons?.join(' '),
+  ]
+    .map((value) => normalizeKeyword(value))
+    .filter(Boolean)
+    .join(' ')
+    .toLowerCase();
+}
+
+function compactPublicPreviewKeyword(item: MobileLiveGoldenBoardItem): string {
+  return normalizeKeyword(item.keyword)
+    .toLowerCase()
+    .replace(/\s+/g, '');
+}
+
+const PUBLIC_PREVIEW_PRODUCT_CATEGORY_RE = /^(?:shopping|electronics|fashion|beauty)$/i;
+const PUBLIC_PREVIEW_PRODUCT_HEAD_RE = /(?:\uC81C\uC2B5\uAE30|\uCCAD\uC18C\uAE30|\uACF5\uAE30\uCCAD\uC815\uAE30|\uC5D0\uC5B4\uCEE8|\uB85C\uBD07\uCCAD\uC18C\uAE30|\uB178\uD2B8\uBD81|\uC544\uC774\uD3F0|\uAC24\uB7ED\uC2DC|\uC774\uC5B4\uD3F0|\uD0A4\uBCF4\uB4DC|\uB8E8\uD14C\uC778|\uC601\uC591\uC81C|\uC720\uC0B0\uADE0|\uC138\uB7FC|\uD06C\uB9BC|\uC120\uD06C\uB9BC)/u;
+const PUBLIC_PREVIEW_PURCHASE_TAIL_RE = /(?:\uAD6C\uB9E4\uCC98|\uCD5C\uC800\uAC00|\uD560\uC778|\uCFE0\uD3F0|\uC7AC\uACE0|\uAC00\uACA9\uBE44\uAD50|\uB80C\uD0C8|\uB80C\uD2B8|\uC2A4\uD399|\uC21C\uC704|\uAC00\uC131\uBE44)/u;
+const PUBLIC_PREVIEW_AD_CORE_RE = /(?:\uB80C\uD130\uCE74|\uB80C\uD2B8\uCE74|\uC219\uC18C|\uD638\uD154|\uD56D\uACF5\uAD8C|\uBCF4\uD5D8|\uB300\uCD9C|\uCE74\uB4DC|\uC815\uC218\uAE30|\uC774\uC0AC|\uACB0\uD63C\uC815\uBCF4|\uB0B4\uAD6C\uC81C|\uC5EC\uD589\uC0AC)/u;
+const PUBLIC_PREVIEW_DIRECT_ACTION_RE = /(?:\uC608\uC57D|\uAC00\uACA9|\uBE44\uAD50|\uCD94\uCC9C|\uD560\uC778|\uCFE0\uD3F0|\uACAC\uC801|\uAD6C\uB9E4|\uC2E0\uCCAD)/u;
+const PUBLIC_PREVIEW_INFO_ESCAPE_RE = /(?:\uBC29\uBC95|\uC8FC\uC758\uC0AC\uD56D|\uCDE8\uC18C|\uADDC\uC815|\uBCF4\uD5D8\s*\uCC28\uC774|\uC608\uC57D\s*\uC2DC\uAE30|\uC120\uD0DD\s*\uAE30\uC900|\uD53D\uC5C5|\uBB38\uC81C|\uC624\uB958|\uACC4\uC0B0\uAE30)/u;
+const PUBLIC_PREVIEW_NEED_INTENT_RE = /(?:\uC2E0\uCCAD|\uB300\uC0C1|\uC790\uACA9|\uC870\uAC74|\uC9C0\uAE09\uC77C|\uC0AC\uC6A9\uCC98|\uC794\uC561|\uC870\uD68C|\uBC29\uBC95|\uAE08\uC561|\uB9C8\uAC10|\uACC4\uC0B0|\uACC4\uC0B0\uAE30|\uC8FC\uCC28|\uC785\uC7A5\uB8CC|\uC6B4\uC601\uC2DC\uAC04|\uC77C\uC815|\uD6C4\uBCF4|\uB77C\uC778\uC5C5|\uC911\uACC4|\uC608\uC57D|\uC608\uB9E4|\uCDE8\uC18C|\uADDC\uC815|\uBE44\uC6A9|\uBCF4\uD5D8|\uBC1C\uD45C|\uACB0\uACFC|\uB4F1\uAE09\uCEF7|\uB2F9\uCCA8\uBC88\uD638|\uAC00\uACA9|\uBE44\uAD50|\uC8FC\uC758\uC0AC\uD56D|\uC6D0\uC778|\uC774\uC720|\uC804\uB9DD|\uC218\uD61C\uC8FC|\uAD00\uB828\uC8FC|\uC0AC\uD1F4|\uACBD\uC9C8|\uC120\uC784|\uBA85\uB2E8|\uACBD\uAE30|\uC21C\uC704)/u;
+const PUBLIC_PREVIEW_MULTI_INTENT_TERMS = [
+  '\uC2E0\uCCAD',
+  '\uB300\uC0C1',
+  '\uC790\uACA9',
+  '\uC870\uAC74',
+  '\uC9C0\uAE09\uC77C',
+  '\uC0AC\uC6A9\uCC98',
+  '\uC870\uD68C',
+  '\uBC29\uBC95',
+  '\uAE08\uC561',
+  '\uB9C8\uAC10',
+  '\uAC00\uACA9',
+  '\uC608\uC57D',
+  '\uAD6C\uB9E4\uCC98',
+  '\uCD94\uCC9C',
+  '\uD6C4\uAE30',
+  '\uC785\uC7A5\uB8CC',
+  '\uC8FC\uCC28',
+];
+
+function isPublicPreviewProductOrShoppingKeyword(item: MobileLiveGoldenBoardItem): boolean {
+  const category = boardCategoryKey(item);
+  const text = publicPreviewSearchText(item);
+  const compact = compactPublicPreviewKeyword(item);
+  if (PUBLIC_PREVIEW_PRODUCT_CATEGORY_RE.test(category)) return true;
+  if (/commerce|shopping|product|sellable|store|buying/i.test(text)) return true;
+  return PUBLIC_PREVIEW_PRODUCT_HEAD_RE.test(compact) && PUBLIC_PREVIEW_PURCHASE_TAIL_RE.test(compact);
+}
+
+function isPublicPreviewAdDominatedKeyword(item: MobileLiveGoldenBoardItem): boolean {
+  const compact = compactPublicPreviewKeyword(item);
+  if (!compact) return false;
+  return PUBLIC_PREVIEW_AD_CORE_RE.test(compact)
+    && PUBLIC_PREVIEW_DIRECT_ACTION_RE.test(compact)
+    && !PUBLIC_PREVIEW_INFO_ESCAPE_RE.test(compact);
+}
+
+function isPublicPreviewOpaqueIntentChain(item: MobileLiveGoldenBoardItem): boolean {
+  const raw = normalizeKeyword(item.keyword);
+  const compact = compactPublicPreviewKeyword(item);
+  if (!compact || raw.includes(' ')) return false;
+  if (/(?:\uC9C0\uAE09\uC77C.*\uC0AC\uC6A9\uCC98|\uC0AC\uC6A9\uCC98.*\uC9C0\uAE09\uC77C|\uC9C0\uAE09\uC77C.*\uC2E0\uCCAD|\uC2E0\uCCAD.*\uC9C0\uAE09\uC77C|\uAE08\uC561.*\uC0AC\uC6A9\uCC98|\uC0AC\uC6A9\uCC98.*\uAE08\uC561|\uB300\uC0C1.*\uC9C0\uAE09\uC77C|\uC790\uACA9.*\uC9C0\uAE09\uC77C)/u.test(compact)) return true;
+  const hits = PUBLIC_PREVIEW_MULTI_INTENT_TERMS.reduce(
+    (count, term) => count + (compact.includes(term) ? 1 : 0),
+    0,
+  );
+  return compact.length >= 12 && hits >= 2;
+}
+
+function isHumanVisiblePublicPreviewCandidate(item: MobileLiveGoldenBoardItem): boolean {
+  if (!isPublicPreviewFallbackCandidate(item)) return false;
+  const compact = compactPublicPreviewKeyword(item);
+  if (compact.length < 4) return false;
+  if (!PUBLIC_PREVIEW_NEED_INTENT_RE.test(compact)) return false;
+  if (isPublicPreviewProductOrShoppingKeyword(item)) return false;
+  if (isPublicPreviewAdDominatedKeyword(item)) return false;
+  if (isPublicPreviewOpaqueIntentChain(item)) return false;
+  return true;
+}
+
+function isSafePublicPreviewBackfillCandidate(item: MobileLiveGoldenBoardItem): boolean {
+  if (!isPublicPreviewFallbackCandidate(item)) return false;
+  const compact = compactPublicPreviewKeyword(item);
+  if (compact.length < 4) return false;
+  if (isPublicPreviewProductOrShoppingKeyword(item)) return false;
+  if (isPublicPreviewAdDominatedKeyword(item)) return false;
+  if (isPublicPreviewOpaqueIntentChain(item)) return false;
+  return true;
+}
+
+function publicPreviewLane(item: MobileLiveGoldenBoardItem): string {
+  const text = publicPreviewSearchText(item);
+  const compact = compactPublicPreviewKeyword(item);
+  const category = boardCategoryKey(item);
+  if (/(sports|sport|kbo|fifa|worldcup)/i.test(text) || /(?:\uCD95\uAD6C|\uC57C\uAD6C|KBO|\uC6D4\uB4DC\uCEF5|FIFA|\uD64D\uBA85\uBCF4|\uC190\uD765\uBBFC|\uC774\uAC15\uC778|\uAE40\uBBFC\uC7AC|\uAC10\uB3C5|\uC120\uC218)/u.test(compact)) return 'sports';
+  if (/(entertainment|broadcast|music|movie|drama)/i.test(text) || /(?:\uB4DC\uB77C\uB9C8|\uBC29\uC1A1|\uC601\uD654|\uBC30\uC6B0|\uAC00\uC218|\uCF58\uC11C\uD2B8|\uACF5\uC5F0|\uD32C\uBBF8\uD305|\uC608\uB2A5)/u.test(compact)) return 'entertainment';
+  if (/(education|school)/i.test(text) || /(?:\uC218\uB2A5|\uBAA8\uC758\uACE0\uC0AC|\uB4F1\uAE09\uCEF7|\uC790\uACA9\uC99D|\uC2DC\uD5D8|\uD559\uAD50|\uC785\uC2DC|\uAD50\uC721)/u.test(compact)) return 'education';
+  if (/(finance|stock|coin)/i.test(text) || /(?:\uC8FC\uC2DD|\uCF54\uC778|\uAE08\uB9AC|\uCCAD\uC57D|\uD658\uC728|\uC138\uAE08|\uC5F0\uAE08|\uC218\uD61C\uC8FC|\uAD00\uB828\uC8FC)/u.test(compact)) return 'finance';
+  if (/(tech|it|ai)/i.test(text) || /(?:AI|GPT|\uCC57GPT|\uD14C\uD06C|\uC571|\uC18C\uD504\uD2B8\uC6E8\uC5B4|\uBCF4\uC548)/iu.test(compact)) return 'tech';
+  if (/(health|medical)/i.test(text) || /(?:\uAC74\uAC15|\uC99D\uC0C1|\uBCD1\uC6D0|\uCE58\uB8CC|\uAC80\uC0AC|\uBCF4\uD5D8\uC801\uC6A9|\uC2E4\uBE44)/u.test(compact)) return 'health';
+  if (category === 'policy' || /(?:\uC9C0\uC6D0\uAE08|\uC7A5\uB824\uAE08|\uC218\uB2F9|\uAE09\uC5EC|\uBC14\uC6B0\uCC98|\uBB38\uD654\uB204\uB9AC\uCE74\uB4DC|\uC815\uBD80|\uC2E0\uCCAD|\uC9C0\uAE09\uC77C|\uC0AC\uC6A9\uCC98)/u.test(compact)) return 'policy';
+  if (category.includes('travel') || /(?:\uC81C\uC8FC|\uC1A1\uC9C0\uD638|\uBC14\uB2E4\uD558\uB298\uAE38|\uC5EC\uD589|\uCD95\uC81C|\uC785\uC7A5\uB8CC|\uC8FC\uCC28|\uAC00\uBCFC\uB9CC\uD55C\uACF3)/u.test(compact)) return 'travel';
+  if (category) return category;
+  return 'general';
+}
+
+function publicPreviewQualityScore(item: MobileLiveGoldenBoardItem): number {
+  const volume = finiteNumber(item.totalSearchVolume) || 0;
+  const docs = finiteNumber(item.documentCount);
+  const ratio = finiteNumber(item.goldenRatio) || 0;
+  const decision = item.publishDecision || evaluatePublishDecision(item);
+  let score = boardScore(item);
+  if (volume >= 3000) score += 18;
+  else if (volume >= 1000) score += 12;
+  else if (volume >= 300) score += 8;
+  if (docs !== null && docs <= 1000) score += 18;
+  else if (docs !== null && docs <= 5000) score += 10;
+  else if (docs !== null && docs > 12000) score -= 20;
+  if (ratio >= 10) score += 18;
+  else if (ratio >= 5) score += 12;
+  else if (ratio < 2) score -= 10;
+  if (decision.verdict === 'publish') score += 16;
+  if (item.grade === 'SSS') score += 14;
+  if (item.grade === 'SS') score += 8;
+  return score;
+}
+
+function balancePublicPreviewCandidates(
+  candidates: MobileLiveGoldenBoardItem[],
+  count: number,
+): MobileLiveGoldenBoardItem[] {
+  const sorted = [...candidates].sort((a, b) => publicPreviewQualityScore(b) - publicPreviewQualityScore(a));
+  const buckets = new Map<string, MobileLiveGoldenBoardItem[]>();
+  for (const item of sorted) {
+    const lane = publicPreviewLane(item);
+    buckets.set(lane, [...(buckets.get(lane) || []), item]);
+  }
+  const lanes = [...buckets.keys()].sort((a, b) => {
+    const left = buckets.get(a)?.[0];
+    const right = buckets.get(b)?.[0];
+    return publicPreviewQualityScore(right as MobileLiveGoldenBoardItem) - publicPreviewQualityScore(left as MobileLiveGoldenBoardItem);
+  });
+  const selected: MobileLiveGoldenBoardItem[] = [];
+  const laneCounts = new Map<string, number>();
+  const clusterCounts = new Map<string, number>();
+  const policyTravelLanes = new Set(['policy', 'travel']);
+  const policyTravelLimit = Math.max(1, Math.floor(count * 0.5));
+  const maxPerLane = Math.max(1, Math.ceil(count * 0.4));
+  const pushCandidate = (item: MobileLiveGoldenBoardItem, strict: boolean): boolean => {
+    if (selected.some((entry) => entry.id === item.id)) return false;
+    const lane = publicPreviewLane(item);
+    const cluster = publicPreviewClusterKey(item.keyword);
+    const laneCount = laneCounts.get(lane) || 0;
+    const broadCount = selected.filter((entry) => policyTravelLanes.has(publicPreviewLane(entry))).length;
+    if (strict && laneCount >= maxPerLane) return false;
+    if (strict && policyTravelLanes.has(lane) && broadCount >= policyTravelLimit) return false;
+    if (strict && cluster && (clusterCounts.get(cluster) || 0) >= 1) return false;
+    selected.push(item);
+    laneCounts.set(lane, laneCount + 1);
+    if (cluster) clusterCounts.set(cluster, (clusterCounts.get(cluster) || 0) + 1);
+    return true;
+  };
+  let moved = true;
+  while (selected.length < count && moved) {
+    moved = false;
+    for (const lane of lanes) {
+      const bucket = buckets.get(lane) || [];
+      while (bucket.length > 0) {
+        const next = bucket.shift();
+        if (next && pushCandidate(next, true)) {
+          moved = true;
+          break;
+        }
+      }
+      if (selected.length >= count) break;
+    }
+  }
+  for (const item of sorted) {
+    if (selected.length >= count) break;
+    pushCandidate(item, false);
+  }
+  return selected.slice(0, count);
 }
 
 function inferLiveCategoryByRobustRules(keyword: string): string | null {
@@ -5577,6 +5788,10 @@ export const __liveGoldenRadarTestInternals = {
   isMeasuredExactDisplayPromotionCandidate,
   isMeasuredExactDisplayFallbackMetric,
   isSearchAdMeasurableLiveCandidate,
+  isHumanVisiblePublicPreviewCandidate,
+  isSafePublicPreviewBackfillCandidate,
+  publicPreviewLane,
+  balancePublicPreviewCandidates,
   isPastMonthVolatileLiveKeyword,
   isStaleOrFutureLiveKeyword,
   hasWinnableDisplayRatio,
@@ -7665,7 +7880,27 @@ export class MobileLiveGoldenRadar {
     pushSource(warmMetricSource);
     pushSource(warmFallback);
     pushSource(protectedBackfill);
-    const source = [...sourceMap.values()];
+    let source = [...sourceMap.values()].filter(isHumanVisiblePublicPreviewCandidate);
+    if (source.length < count) {
+      for (const item of freeBoard) {
+        if (sourceMap.has(item.id)) continue;
+        if (!isHumanVisiblePublicPreviewCandidate(item)) continue;
+        sourceMap.set(item.id, item);
+      }
+      source = [...sourceMap.values()].filter(isHumanVisiblePublicPreviewCandidate);
+    }
+    if (source.length < count) {
+      const safeBackfillMap = new Map<string, MobileLiveGoldenBoardItem>(source.map((item) => [item.id, item]));
+      for (const item of [...sourceMap.values(), ...freeBoard]) {
+        if (safeBackfillMap.has(item.id)) continue;
+        if (!isSafePublicPreviewBackfillCandidate(item)) continue;
+        safeBackfillMap.set(item.id, item);
+      }
+      source = [...safeBackfillMap.values()];
+    }
+    if (source.length >= count) {
+      return balancePublicPreviewCandidates(source, count);
+    }
 
     const lowerRecent = [...source]
       .sort((a, b) => Date.parse(b.updatedAt) - Date.parse(a.updatedAt))

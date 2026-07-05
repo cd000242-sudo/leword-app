@@ -67,11 +67,78 @@ function floodResult(keyword: string, index: number, profile = false): any {
   };
 }
 
+function previewBoardItem(keyword: string, category: string, index: number): any {
+  const totalSearchVolume = 2400 + index * 300;
+  const pcSearchVolume = Math.round(totalSearchVolume * 0.22);
+  return {
+    id: `preview-${index}`,
+    rank: index + 1,
+    keyword,
+    grade: 'SSS',
+    score: 92 - index,
+    pcSearchVolume,
+    mobileSearchVolume: totalSearchVolume - pcSearchVolume,
+    totalSearchVolume,
+    documentCount: 120 + index * 20,
+    goldenRatio: 15 + index,
+    cpc: 80,
+    category,
+    source: 'persistent-measured-golden-cache',
+    intent: 'measured_need',
+    evidence: ['test'],
+    isMeasured: true,
+    searchVolumeSource: 'searchad',
+    searchVolumeConfidence: 'high',
+    isSearchVolumeEstimated: false,
+    documentCountSource: 'naver-api',
+    documentCountConfidence: 'high',
+    isDocumentCountEstimated: false,
+    discoveredAt: '2026-07-05T00:00:00.000Z',
+    updatedAt: '2026-07-05T00:00:00.000Z',
+    freshness: 'live',
+    isPublicPreview: false,
+    publicSearchVolumeLabel: '2k-5k',
+    publicDocumentCountLabel: '100-299',
+    publicReason: '실측 검색량과 문서수가 있습니다.',
+  };
+}
+
 function thinProfileCount(items: Array<{ keyword: string }>): number {
   return items.filter((item) => /(프로필|인물정보|약력|나이|인스타)$/.test(item.keyword.replace(/\s+/g, ''))).length;
 }
 
 (async () => {
+  const previewCandidates = [
+    previewBoardItem('\uC81C\uC8FC \uB80C\uD130\uCE74 \uBCF4\uD5D8 \uCC28\uC774', 'travel_domestic', 0),
+    previewBoardItem('\uBB38\uD654\uB204\uB9AC\uCE74\uB4DC \uC794\uC561\uC870\uD68C', 'policy', 1),
+    previewBoardItem('\uC6D4\uB4DC\uCEF5 \uC911\uACC4 \uC77C\uC815', 'sports', 2),
+    previewBoardItem('\uB3C4\uC218\uCE58\uB8CC \uBCF4\uD5D8 \uC801\uC6A9 \uBE44\uC6A9', 'health', 3),
+    previewBoardItem('\uD55C\uAD6D\uC0AC \uC790\uACA9\uC99D \uC811\uC218\uC77C\uC815', 'education', 4),
+    previewBoardItem('\uCCAD\uB144\uBBF8\uB798\uC801\uAE08 \uC9C0\uAE09\uC77C', 'finance', 5),
+  ];
+  assert(
+    'public preview blocks product, direct ads, and opaque intent chains',
+    __liveGoldenRadarTestInternals.isHumanVisiblePublicPreviewCandidate(previewCandidates[0])
+      && !__liveGoldenRadarTestInternals.isHumanVisiblePublicPreviewCandidate(
+        previewBoardItem('\uCFE0\uCFE0\uC81C\uC2B5\uAE30\uB80C\uD0C8\uAD6C\uB9E4\uCC98\uC790\uCDE8\uBC29\uC18C\uC74C', 'shopping', 10),
+      )
+      && !__liveGoldenRadarTestInternals.isHumanVisiblePublicPreviewCandidate(
+        previewBoardItem('\uC81C\uC8FC\uB80C\uD130\uCE74\uC608\uC57D', 'travel_domestic', 11),
+      )
+      && !__liveGoldenRadarTestInternals.isHumanVisiblePublicPreviewCandidate(
+        previewBoardItem('\uC815\uB840\uB300\uD654\uC9C0\uAE09\uC77C\uC0AC\uC6A9\uCC98', 'policy', 12),
+      ),
+  );
+  const balancedPreview = __liveGoldenRadarTestInternals.balancePublicPreviewCandidates(previewCandidates, 5);
+  const policyTravelCount = balancedPreview.filter(
+    (item: any) => ['policy', 'travel'].includes(__liveGoldenRadarTestInternals.publicPreviewLane(item)),
+  ).length;
+  assert(
+    'public preview balances policy/travel with other live domains',
+    balancedPreview.length === 5 && policyTravelCount <= 2,
+    balancedPreview.map((item: any) => `${__liveGoldenRadarTestInternals.publicPreviewLane(item)}:${item.keyword}`).join('|'),
+  );
+
   assert(
     'blocks non-product event commerce tails before measurement',
     __liveGoldenRadarTestInternals.isInvalidNonProductCommerceExpansion('1229회 로또 당첨번호 최저가 구매처')
@@ -1490,6 +1557,7 @@ function thinProfileCount(items: Array<{ keyword: string }>): number {
   fs.writeFileSync(zeroScorePreviewBoardFile, JSON.stringify({
     boardUpdatedAt: '2026-06-13T08:59:00.000Z',
     items: [
+      ['월드컵 중계 일정', 'S', 65, 8600, 1200, 7.16, 'sports'],
       ['송지호바다하늘길입장료', 'SSS', 98, 2530, 157, 16.11, 'travel_domestic'],
       ['5월연말정산환급일', 'SSS', 0, 14060, 2274, 6.18, 'policy'],
       ['내일도 출근 웹툰', 'A', 0, 43470, 3169, 13.72, 'it'],
@@ -1539,6 +1607,7 @@ function thinProfileCount(items: Array<{ keyword: string }>): number {
   fs.writeFileSync(proGapBoardFile, JSON.stringify({
     boardUpdatedAt: '2026-06-13T08:50:00.000Z',
     items: [
+      ['공휴일 병원 진료 조회', 'SS', 93, 3600, 520, 6.9, 'health'],
       ['청년미래적금 가입신청 대상', 'SSS', 99, 32000, 240, 133.3, 'policy'],
       ['소상공인 환급금 조회 방법', 'SSS', 98, 18000, 420, 42.8, 'policy'],
       ['근로장려금 지급일 조회', 'SSS', 97, 12000, 780, 15.3, 'policy'],
@@ -1546,6 +1615,8 @@ function thinProfileCount(items: Array<{ keyword: string }>): number {
       ['AI 영상툴 가격비교', 'SS', 95, 6200, 520, 11.9, 'it'],
       ['제주 렌터카 가격비교', 'SS', 94, 4200, 560, 7.5, 'travel_domestic'],
       ['여름휴가 준비물 체크리스트', 'SS', 94, 2400, 420, 5.7, 'travel_domestic'],
+      ['한국사 자격증 접수일정', 'S', 61, 1800, 520, 3.46, 'education'],
+      ['공연 티켓 예매 일정', 'S', 60, 1600, 500, 3.2, 'entertainment'],
     ].map(([keyword, grade, score, totalSearchVolume, documentCount, goldenRatio, category]) => ({
       keyword,
       grade,
@@ -1608,7 +1679,9 @@ function thinProfileCount(items: Array<{ keyword: string }>): number {
       ['여름 휴가 준비물 체크리스트', 'SS', 95, 5200, 720, 7.2, 'travel_domestic'],
       ['공휴일 병원 진료 조회', 'SS', 94, 4600, 680, 6.8, 'health'],
       ['자격증 접수 마감일', 'SS', 94, 4400, 640, 6.9, 'education'],
-      ['무선청소기 가격비교', 'SS', 94, 4200, 620, 6.8, 'electronics'],
+      ['월드컵 중계 일정', 'SS', 94, 4200, 620, 6.8, 'sports'],
+      ['전기요금 환급 조회 방법', 'SS', 93, 3900, 610, 6.4, 'finance'],
+      ['공연 티켓 예매 일정', 'SS', 92, 3600, 590, 6.1, 'entertainment'],
     ].map(([keyword, grade, score, totalSearchVolume, documentCount, goldenRatio, category], index) => ({
       keyword,
       grade,
@@ -1640,28 +1713,42 @@ function thinProfileCount(items: Array<{ keyword: string }>): number {
     now: () => new Date('2026-06-13T09:00:00.000Z'),
   });
   const previewLeakSnapshot = previewLeakRadar.snapshot();
+  const protectedPreviewLeakKeywords = new Set(
+    previewLeakSnapshot.board.slice(0, 3).map((item) => item.keyword),
+  );
   assert('free preview shows measured lower winners without leaking the pro head',
     previewLeakSnapshot.publicPreview.length === 5
-      && previewLeakSnapshot.publicPreview.every((item) => item.rank > 3)
       && previewLeakSnapshot.publicPreview.every((item) => item.isMeasured && item.searchVolumeSource === 'searchad' && item.documentCountSource === 'naver-api')
-      && previewLeakSnapshot.publicPreview.every((item) => !['청년미래적금 신청 대상', '소상공인 환급금 조회 방법', '근로장려금 지급일 조회'].includes(item.keyword)),
+      && previewLeakSnapshot.publicPreview.every((item) => !protectedPreviewLeakKeywords.has(item.keyword)),
     previewLeakSnapshot.publicPreview.map((item) => `${item.rank}:${item.keyword}`).join('|'));
   fs.rmSync(previewLeakBoardFile, { force: true });
 
   const movingPreviewBoardFile = path.join(process.cwd(), 'tmp', 'mobile-live-golden-moving-preview-test.json');
-  const movingCategories = ['policy', 'travel_domestic', 'education', 'health', 'electronics', 'it'];
+  const movingRows = [
+    ['청년미래적금 신청 대상', 'SSS', 99, 42000, 300, 140, 'policy'],
+    ['소상공인 환급금 조회 방법', 'SSS', 98, 36000, 420, 85, 'policy'],
+    ['근로장려금 지급일 조회', 'SSS', 97, 28000, 700, 40, 'policy'],
+    ['월드컵 중계 일정', 'SSS', 96, 9600, 780, 12.3, 'sports'],
+    ['홍명보 감독 후보', 'SS', 95, 8600, 760, 11.3, 'sports'],
+    ['공휴일 병원 진료 조회', 'SS', 94, 7200, 680, 10.5, 'health'],
+    ['한국사 자격증 접수일정', 'SS', 94, 6400, 660, 9.7, 'education'],
+    ['문화누리카드 잔액조회', 'SS', 93, 5400, 620, 8.7, 'policy'],
+    ['전기요금 환급 조회 방법', 'SS', 93, 4600, 590, 7.8, 'finance'],
+    ['공연 티켓 예매 일정', 'SS', 92, 4200, 560, 7.5, 'entertainment'],
+    ['여름휴가 준비물 체크리스트', 'S', 91, 3600, 540, 6.6, 'life_tips'],
+  ];
   fs.writeFileSync(movingPreviewBoardFile, JSON.stringify({
     boardUpdatedAt: '2026-06-13T08:59:00.000Z',
-    items: Array.from({ length: 23 }, (_, index) => ({
-      keyword: `정책지원금 ${index + 1} 신청 방법`,
-      grade: index < 12 ? 'SSS' : 'SS',
-      score: 99 - index * 0.1,
-      totalSearchVolume: 12000 - index * 180,
-      pcSearchVolume: Math.round((12000 - index * 180) * 0.2),
-      mobileSearchVolume: (12000 - index * 180) - Math.round((12000 - index * 180) * 0.2),
-      documentCount: 500 + index * 70,
-      goldenRatio: 180 - index * 6,
-      category: movingCategories[index % movingCategories.length],
+    items: movingRows.map(([keyword, grade, score, totalSearchVolume, documentCount, goldenRatio, category]) => ({
+      keyword,
+      grade,
+      score,
+      totalSearchVolume,
+      pcSearchVolume: Math.round(Number(totalSearchVolume) * 0.2),
+      mobileSearchVolume: Number(totalSearchVolume) - Math.round(Number(totalSearchVolume) * 0.2),
+      documentCount,
+      goldenRatio,
+      category,
       source: 'fixture-measured',
       evidence: ['fixture-searchad-volume', 'fixture-naver-openapi-document-count'],
       searchVolumeSource: 'searchad',
@@ -1770,13 +1857,13 @@ function thinProfileCount(items: Array<{ keyword: string }>): number {
     ['\uADFC\uB85C\uC7A5\uB824\uAE08 \uC9C0\uAE09\uC77C \uC870\uD68C', 'SSS', 98, 26000, 360, 72, 'policy'],
     ['\uC7A5\uB9C8 \uC900\uBE44\uBB3C \uCCB4\uD06C\uB9AC\uC2A4\uD2B8', 'SS', 96, 12000, 700, 17, 'life_tips'],
     ['\uC18C\uC0C1\uACF5\uC778 \uD658\uAE09\uAE08 \uC870\uD68C \uBC29\uBC95', 'SS', 96, 9000, 650, 13, 'policy'],
-    ['\uC544\uC774\uD3F015 \uCD9C\uC2DC \uAC00\uACA9\uBE44\uAD50', 'SS', 95, 3900, 760, 5.1, 'electronics'],
+    ['\uC6D4\uB4DC\uCEF5 \uC911\uACC4 \uC77C\uC815', 'SS', 95, 3900, 760, 5.1, 'sports'],
     ['\uC815\uBD80\uC9C0\uC6D0\uAE08 \uC2E0\uCCAD \uC11C\uB958', 'SS', 95, 3500, 640, 5.5, 'policy'],
     ['AI \uC601\uC0C1\uD234 \uAC00\uACA9\uBE44\uAD50', 'SS', 95, 3400, 560, 6.1, 'it'],
-    ['\uC81C\uC8FC \uB80C\uD130\uCE74 \uAC00\uACA9\uBE44\uAD50', 'SS', 94, 3200, 520, 6.1, 'travel_domestic'],
+    ['\uD55C\uAD6D\uC0AC \uC790\uACA9\uC99D \uC811\uC218\uC77C\uC815', 'SS', 94, 3200, 520, 6.1, 'education'],
     ['\uB3C4\uC218\uCE58\uB8CC \uBCF4\uD5D8 \uC801\uC6A9 \uBE44\uC6A9', 'SS', 95, 5200, 620, 8.4, 'health'],
-    ['\uBB34\uC120\uCCAD\uC18C\uAE30 \uAC00\uACA9\uBE44\uAD50', 'SS', 94, 3600, 600, 6, 'electronics'],
-    ['\uC5D0\uC5B4\uCEE8 \uCCAD\uC18C \uBE44\uC6A9 \uBE44\uAD50', 'SS', 94, 3100, 500, 6.2, 'home_life'],
+    ['\uC804\uAE30\uC694\uAE08 \uD658\uAE09 \uC870\uD68C \uBC29\uBC95', 'SS', 94, 3600, 600, 6, 'finance'],
+    ['\uACF5\uC5F0 \uD2F0\uCF13 \uC608\uB9E4 \uC77C\uC815', 'SS', 94, 3100, 500, 6.2, 'entertainment'],
     ['\uACF5\uD734\uC77C \uBCD1\uC6D0 \uC9C4\uB8CC \uC870\uD68C', 'SS', 94, 3000, 480, 6.25, 'health'],
   ];
   fs.writeFileSync(semanticClusterBoardFile, JSON.stringify({
@@ -4057,10 +4144,97 @@ function thinProfileCount(items: Array<{ keyword: string }>): number {
   fs.rmSync(strictReadyBoardFile, { force: true });
 
   const proMeasuredDisplayBoardFile = path.join(process.cwd(), 'tmp', 'mobile-live-golden-pro-measured-display-test.json');
+  const proMeasuredDisplayRows = [
+    ['policy', ['문화누리카드 잔액조회', '에너지바우처 잔액조회', '근로장려금 지급일', '자녀장려금 신청대상', '청년미래적금 소득기준', '소상공인 전기요금 감면', '육아휴직급여 지급일', '부모급여 신청방법', '기초연금 수급자격', '국민내일배움카드 신청', '청년월세지원 신청', '한부모가정 지원금', '장애인활동지원 신청', '농식품바우처 사용처', '교육급여 바우처 신청']],
+    ['finance', ['연말정산 환급일', '퇴직금 계산기 세후', '주휴수당 계산기 알바', '실업급여 계산기', 'ISA 만기 해지', 'IRP 퇴직연금 수령', '청년도약계좌 만기', '자동차세 연납 환급', '종합소득세 환급 조회', '프리랜서 세금 신고', '신용점수 조회', '카드포인트 통합조회', '건강보험료 환급금', '국민연금 예상수령액', '전기요금 계산기']],
+    ['health', ['도수치료 실비 청구', '대상포진 예방접종 가격', '독감 무료접종 대상', '공휴일 문여는 병원', '야간진료 소아과', '건강검진 대상자 조회', '임플란트 보험 적용', '백내장 수술 실비', 'A형 독감 격리기간', '수족구 등원 기준', '응급실 진료비', '국가암검진 대상자', '산정특례 등록', '치아보험 면책기간', '간병비 보험 청구']],
+    ['education', ['한국사 시험 접수일', '컴활 시험 일정', '수능 원서접수 준비물', '국가장학금 신청기간', '초등돌봄 신청방법', '검정고시 합격자 발표', '토익 접수 마감', '운전면허 적성검사', '학자금대출 상환', '늘봄학교 신청', '유치원 입소대기', '자격증 접수 마감일', '모의고사 등급컷', '고교학점제 선택과목', '대학원 장학금 신청']],
+    ['sports', ['월드컵 중계 일정', 'KBO 올스타전 예매', '한국 축구 감독 후보', '손흥민 경기 일정', '이강인 출전 시간', '김민재 교체 이유', '토트넘 프리시즌 일정', '국가대표 명단 발표', '야구 우천취소 기준', '올림픽 예선 중계', '아시안컵 조편성', '프로야구 순위 경우의수', '배구 국가대표 일정', '농구 대표팀 명단', '축구 티켓 예매']],
+    ['entertainment', ['콘서트 티켓팅 일정', '팬미팅 예매 방법', '드라마 결말 해석', '영화 쿠키영상', '방송 다시보기 시간', '트로트 콘서트 예매', '아이돌 컴백 일정', '음악방송 투표 방법', '예능 출연진 정리', '넷플릭스 공개시간', '웹툰 휴재 일정', '배우 공식입장', '가요대전 라인업', '영화 무대인사 일정', 'OTT 요금제 비교']],
+    ['travel_domestic', ['송지호 바다하늘길 입장료', '제주 렌터카 보험 차이', '지역 축제 주차장', '여름휴가 준비물', '인천공항 주차 예약', '강릉 숙소 체크인', '속초 해수욕장 개장일', '한강 수영장 예약', '고속버스 예매 취소', 'KTX 환불 수수료', '물놀이장 운영시간', '휴게소 맛집 위치', '캠핑장 예약 오픈', '여행자보험 청구방법', '공항버스 첫차시간']],
+    ['life_tips', ['사대보험 계산기', '알바 근무시간 계산', '종량제 봉투 가격', '폐가전 무상수거 신청', '여권 재발급 준비물', '주민등록증 재발급', '자동차 검사 예약', '전입신고 확정일자', '우체국 등기 조회', '택배 파업 지역', '장마 기간 예상', '벌레 물림 대처', '냉방병 증상', '수도요금 조회', '탄소중립포인트 신청']],
+    ['tech', ['GPT 이미지 생성', '카카오톡 백업 복원', '윈도우 업데이트 오류', 'PASS 인증서 발급', '모바일 신분증 발급', '네이버 인증서 갱신', '유튜브 쇼츠 수익 조건', '구글 애드센스 지급일', '블로그스팟 애드센스 승인', '쿠팡파트너스 링크 생성', '갤럭시 업데이트 일정', '아이폰 iOS 업데이트 방법', '프린터 드라이버 설치', '와이파이 비밀번호 찾기', '공공와이파이 연결']],
+  ].flatMap(([category, keywords]) => (keywords as string[]).map((keyword) => ({ category: category as string, keyword }))).concat([
+    { category: 'policy', keyword: '다자녀 전기요금 할인' },
+    { category: 'policy', keyword: '임산부 교통비 신청' },
+    { category: 'policy', keyword: '청년 교통비 지원' },
+    { category: 'policy', keyword: '소상공인 이자 환급' },
+    { category: 'policy', keyword: '취업성공수당 지급일' },
+    { category: 'finance', keyword: '청약통장 해지 불이익' },
+    { category: 'finance', keyword: '전세보증보험 반환' },
+    { category: 'finance', keyword: '월세 세액공제 조건' },
+    { category: 'finance', keyword: '현금영수증 조회' },
+    { category: 'finance', keyword: '자동차보험 환급 조회' },
+    { category: 'health', keyword: '비대면 진료 처방전' },
+    { category: 'health', keyword: '야간 약국 찾기' },
+    { category: 'health', keyword: '어린이 해열제 교차복용' },
+    { category: 'health', keyword: '코로나 격리 권고기간' },
+    { category: 'health', keyword: '독감검사 실비 청구' },
+    { category: 'education', keyword: '내신 등급 계산기' },
+    { category: 'education', keyword: '검정고시 접수 준비물' },
+    { category: 'education', keyword: '방과후학교 신청 기간' },
+    { category: 'education', keyword: '학원비 환불 규정' },
+    { category: 'education', keyword: '토익 성적 발표일' },
+    { category: 'sports', keyword: '축구 대표팀 감독 선임' },
+    { category: 'sports', keyword: '월드컵 예선 순위' },
+    { category: 'sports', keyword: 'KBO 우천취소 환불' },
+    { category: 'sports', keyword: '야구 올스타 투표 방법' },
+    { category: 'sports', keyword: '손흥민 프리시즌 중계' },
+    { category: 'entertainment', keyword: '콘서트 선예매 인증' },
+    { category: 'entertainment', keyword: '팬클럽 선예매 방법' },
+    { category: 'entertainment', keyword: '영화 시사회 응모' },
+    { category: 'entertainment', keyword: '드라마 원작 결말' },
+    { category: 'entertainment', keyword: 'OTT 동시접속 제한' },
+    { category: 'travel_domestic', keyword: '제주 렌터카 예약 시기' },
+    { category: 'travel_domestic', keyword: '국내선 수하물 규정' },
+    { category: 'travel_domestic', keyword: '해수욕장 개장 시간' },
+    { category: 'travel_domestic', keyword: '캠핑장 취소 수수료' },
+    { category: 'travel_domestic', keyword: '고속도로 통행료 조회' },
+    { category: 'life_tips', keyword: '쓰레기 배출요일 조회' },
+    { category: 'life_tips', keyword: '대형폐기물 스티커 가격' },
+    { category: 'life_tips', keyword: '전기차 충전요금 조회' },
+    { category: 'life_tips', keyword: '민방위 사이버교육 일정' },
+    { category: 'life_tips', keyword: '여권사진 규정' },
+    { category: 'tech', keyword: '챗GPT 이미지 제한' },
+    { category: 'tech', keyword: '구글 계정 복구 방법' },
+    { category: 'tech', keyword: '카카오톡 채팅방 복구' },
+    { category: 'tech', keyword: '윈도우 블루스크린 해결' },
+    { category: 'tech', keyword: '애드센스 PIN 재발송' },
+    { category: 'jobs', keyword: '실업급여 구직활동 인정' },
+    { category: 'jobs', keyword: '국민취업지원제도 수당' },
+    { category: 'jobs', keyword: '내일배움카드 출석률' },
+    { category: 'jobs', keyword: '알바 퇴직금 조건' },
+    { category: 'jobs', keyword: '주휴수당 미지급 신고' },
+    { category: 'real_estate', keyword: '전세사기 피해자 신청' },
+    { category: 'real_estate', keyword: '청년 전세대출 조건' },
+    { category: 'real_estate', keyword: '월세 환급 신청 방법' },
+    { category: 'real_estate', keyword: '임대차계약 신고 과태료' },
+    { category: 'real_estate', keyword: '아파트 관리비 조회' },
+    { category: 'weather', keyword: '장마 시작일 예상' },
+    { category: 'weather', keyword: '태풍 경로 실시간' },
+    { category: 'weather', keyword: '폭염주의보 기준' },
+    { category: 'weather', keyword: '미세먼지 예보 확인' },
+    { category: 'weather', keyword: '호우경보 대피요령' },
+    { category: 'auto', keyword: '자동차세 환급 신청' },
+    { category: 'auto', keyword: '운전면허 갱신 준비물' },
+    { category: 'auto', keyword: '하이패스 미납 조회' },
+    { category: 'auto', keyword: '차량검사 과태료' },
+    { category: 'auto', keyword: '자동차보험 마일리지 환급' },
+    { category: 'food', keyword: '배달앱 쿠폰 사용법' },
+    { category: 'food', keyword: '복날 삼계탕 예약' },
+    { category: 'food', keyword: '급식 식단표 조회' },
+    { category: 'food', keyword: '냉장고 냄새 제거 방법' },
+    { category: 'food', keyword: '식중독 증상 대처' },
+    { category: 'law', keyword: '내용증명 보내는 법' },
+    { category: 'law', keyword: '임금체불 신고 방법' },
+    { category: 'law', keyword: '소액심판 청구 방법' },
+    { category: 'law', keyword: '교통사고 합의금 기준' },
+    { category: 'law', keyword: '전세보증금 반환소송' },
+  ]);
   fs.writeFileSync(proMeasuredDisplayBoardFile, JSON.stringify({
     boardUpdatedAt: '2026-06-29T08:00:00.000Z',
-    items: Array.from({ length: 130 }, (_, index) => ({
-      keyword: `\uCCAD\uB144\uC9C0\uC6D0\uAE08${index + 1} \uC2E0\uCCAD\uBC29\uBC95`,
+    items: proMeasuredDisplayRows.map(({ keyword, category }, index) => ({
+      keyword,
       grade: index < 8 ? 'SS' : 'A',
       score: index < 8 ? 92 : 68,
       pcSearchVolume: 180 + index,
@@ -4068,7 +4242,7 @@ function thinProfileCount(items: Array<{ keyword: string }>): number {
       totalSearchVolume: 1100 + index * 2,
       documentCount: 240 + index * 2,
       goldenRatio: Number(((1100 + index * 2) / (240 + index * 2)).toFixed(2)),
-      category: 'policy',
+      category,
       source: 'persistent-keyword-cache',
       intent: 'persistent-measured-golden-cache',
       evidence: ['persistent-keyword-cache', 'measured-search-volume', 'measured-document-count'],
