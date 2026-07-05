@@ -252,7 +252,9 @@ assert('live golden cards explain search intent and route shopping keywords away
     && proWebHtml.includes('function isCrossDomainNonsenseKeyword')
     && proWebHtml.includes('function hasTrafficNeedIntent')
     && proWebHtml.includes('function liveNeedScore')
-    && proWebHtml.includes("sort(function(a, b) { return liveNeedScore(b) - liveNeedScore(a); })")
+    && proWebHtml.includes('function goldenDisplayLane')
+    && proWebHtml.includes('function balanceGoldenDisplayItems')
+    && proWebHtml.includes('return balanceGoldenDisplayItems(publishableRows);')
     && proWebHtml.includes('최저임금|주휴수당|근로장려금')
     && proWebHtml.includes('광고 장악 제외')
     && proWebHtml.includes('광고 장악 주의')
@@ -303,6 +305,8 @@ assert('live golden cards explain search intent and route shopping keywords away
     && proWebHtml.includes('function renderKeywordAnalysisInsight')
     && proWebHtml.includes('class="keyword-expansion-table"')
     && proWebHtml.includes('정밀 분석 해석과 자동완성 확장')
+    && proWebHtml.includes('정책·여행에 편향되지 않고')
+    && proWebHtml.includes('특정 카테고리로 몰리면 스포츠/연예/생활/교육/테크/금융 후보를 재탐색')
     && proWebHtml.includes('keywordAnalysisCardHtml(row, index)'));
 assert('live golden board renders as one vertical list instead of cramped card columns',
   proWebHtml.includes('.golden-list { display: flex; flex-direction: column; gap: 10px; }')
