@@ -4167,7 +4167,8 @@ export function renderLewordProWeb(): string {
       };
     }
     function buildClientGoldenFallbackPayload(error) {
-      const keywords = clientFallbackIntentKeywords(compactKeywordInput(), 'pro-traffic', 5);
+      const proMode = hasActiveProSession();
+      const keywords = clientFallbackIntentKeywords(compactKeywordInput(), 'pro-traffic', proMode ? 30 : 5);
       const items = keywords.map(function(keyword, index) {
         return clientFallbackBoardItem(keyword, index, '서버 미연결 · 브라우저 자체 후보');
       });
@@ -4188,16 +4189,25 @@ export function renderLewordProWeb(): string {
     }
     function renderClientGoldenFallback(error) {
       const payload = buildClientGoldenFallbackPayload(error);
-      renderPublicGoldenBoard(payload);
+      if (hasActiveProSession()) {
+        const items = payload.publicPreview || [];
+        setGoldenSummary(120, 120, items.length, 0, false, payload.updatedAt, isOfflineProSession() ? '오프라인 Pro 후보' : 'Pro 브라우저 후보');
+        qs('goldenNotice').textContent = '서버가 꺼져 있어 Pro 세션을 로컬로 유지하고 사이트 자체 후보를 표시합니다. 검색량·문서수는 가짜로 채우지 않으며, 사용자 API 키 조회가 가능한 기능은 직접 실측으로 전환됩니다.';
+        renderGoldenQuality(items, true, 120, 0);
+        renderGoldenRows(items, true, items.length);
+      } else {
+        renderPublicGoldenBoard(payload);
+      }
       qs('goldenState').textContent = '브라우저 검색';
-      qs('goldenNotice').textContent = '서버 연결이 불안정해 사이트 자체 검색 후보를 표시합니다. 검색량·문서수는 가짜로 채우지 않고, 서버 복구 후 실측값으로 교체됩니다.';
+      if (!hasActiveProSession()) qs('goldenNotice').textContent = '서버 연결이 불안정해 사이트 자체 검색 후보를 표시합니다. 검색량·문서수는 가짜로 채우지 않고, 서버 복구 후 실측값으로 교체됩니다.';
       log('LIVE 황금키워드 서버 fallback: ' + (payload.error || 'server unavailable'));
     }
     function isServerUnavailableError(message) {
       const text = String(message || '');
+      if (/로그인 API 서버에 연결할 수 없습니다|API 서버에 연결할 수 없습니다|연결할 수 없습니다|서버 전원|도메인 연결|배포 연결|오프라인 Pro 세션|로컬\\/사용자 API 폴백/i.test(text)) return true;
       if (isAuthErrorMessage(text)) return false;
       if (/api\\s*key|API 키|필수 API|Unauthorized|Forbidden/i.test(text)) return false;
-      return /Failed to fetch|NetworkError|Load failed|HTTP 404|HTTP 50\d|timeout|ECONN|ENOTFOUND|fetch/i.test(text);
+      return /Failed to fetch|NetworkError|Load failed|HTTP 404|HTTP 50\d|timeout|ECONN|ENOTFOUND|fetch|연결할 수 없습니다|서버 전원|도메인 연결|배포 연결|오프라인 Pro 세션|로컬\\/사용자 API 폴백/i.test(text);
     }
     function renderClientFeatureFallback(feature, displayKeyword, error) {
       if (!feature || !feature.title || !isServerUnavailableError(error && error.message)) return false;
@@ -5384,7 +5394,8 @@ export function renderLewordProWeb(): string {
     function headers(options) {
       const opts = options || {};
       const out = { 'Content-Type': 'application/json' };
-      if (session && session.accessToken) out.Authorization = 'Bearer ' + session.accessToken;
+      if (session && session.accessToken && !isOfflineProSession()) out.Authorization = 'Bearer ' + session.accessToken;
+      if (isOfflineProSession()) out['X-Leword-Offline-Pro'] = '1';
       if (opts.userApiCredentials) {
         const credentialHeader = encodeUserApiCredentialsHeader();
         if (credentialHeader) out['X-Leword-User-Api-Credentials'] = credentialHeader;
@@ -5401,6 +5412,31 @@ export function renderLewordProWeb(): string {
     }
     function hasActiveProSession() {
       return !!(session && session.accessToken);
+    }
+    function isOfflineProSession() {
+      return !!(session && session.accessToken && session.offlinePro === true);
+    }
+    function offlineSessionToken() {
+      try {
+        const bytes = new Uint32Array(3);
+        crypto.getRandomValues(bytes);
+        return 'offline-pro-' + Array.from(bytes).map(function(value) { return value.toString(36); }).join('-');
+      } catch (err) {
+        return 'offline-pro-' + Date.now().toString(36);
+      }
+    }
+    function createOfflineProSession(userId, reason) {
+      const now = Date.now();
+      return {
+        accessToken: offlineSessionToken(),
+        userId: userId || 'offline-user',
+        tier: 'offline-pro',
+        offlinePro: true,
+        source: 'browser-local-fallback',
+        reason: String(reason || 'server-unavailable').slice(0, 240),
+        issuedAt: new Date(now).toISOString(),
+        expiresAt: new Date(now + 1000 * 60 * 60 * 24).toISOString(),
+      };
     }
     function saveSession(value) {
       session = value && value.accessToken ? value : null;
@@ -5428,6 +5464,7 @@ export function renderLewordProWeb(): string {
     }
     async function validateRestoredSession() {
       if (!hasActiveProSession()) return true;
+      if (isOfflineProSession()) return true;
       try {
         await apiGet(endpoints.apiStatus, true, 8000);
         return true;
@@ -6356,7 +6393,9 @@ export function renderLewordProWeb(): string {
     function openWelcomeModal(tier) {
       const label = tier || (session && session.tier) || 'Pro';
       if (qs('welcomeMessage')) {
-        qs('welcomeMessage').textContent = label + ' 세션이 연결되었습니다. 지식인 황금키워드와 쇼핑커넥트는 서버가 자동으로 분석을 시작합니다.';
+        qs('welcomeMessage').textContent = isOfflineProSession()
+          ? '오프라인 Pro 세션이 연결되었습니다. 서버 복구 전까지 저장된 사용자 API 키와 브라우저 폴백으로 가능한 기능을 먼저 실행합니다.'
+          : label + ' 세션이 연결되었습니다. 지식인 황금키워드와 쇼핑커넥트는 서버가 자동으로 분석을 시작합니다.';
       }
       qs('welcomeModal').classList.add('open');
       qs('welcomeModal').setAttribute('aria-hidden', 'false');
@@ -6441,6 +6480,7 @@ export function renderLewordProWeb(): string {
         const res = await fetch(url, { cache: 'no-store', headers: authed ? headers() : undefined, signal: controller ? controller.signal : undefined });
         const payload = await res.json().catch(function() { return {}; });
         if (authed && (res.status === 401 || res.status === 403)) {
+          if (isOfflineProSession()) throw new Error(offlineServerAuthError(url));
           saveSession(null);
           throw new Error(formatApiError(url, res.status, payload));
         }
@@ -6474,6 +6514,9 @@ export function renderLewordProWeb(): string {
         return '로그인 API 서버에 연결할 수 없습니다. 아이디/비밀번호 문제가 아니라 서버 전원, 도메인, SSL 또는 배포 연결이 끊긴 상태입니다. 잠시 후 다시 시도하세요. (' + origin + path + ')';
       }
       return 'API 서버에 연결할 수 없습니다. 서버 상태 또는 도메인 연결을 확인한 뒤 다시 실행하세요. (' + origin + path + ')';
+    }
+    function offlineServerAuthError(url) {
+      return '오프라인 Pro 세션입니다. 서버 인증이 필요한 기능은 로컬/사용자 API 폴백으로 실행합니다. (' + routePath(url) + ')';
     }
     function formatApiError(url, status, payload) {
       const message = payload && (payload.message || payload.error) ? String(payload.message || payload.error) : '';
@@ -6515,6 +6558,7 @@ export function renderLewordProWeb(): string {
       }
       const payload = await res.json().catch(function() { return {}; });
       if (url !== endpoints.session && (res.status === 401 || res.status === 403)) {
+        if (isOfflineProSession()) throw new Error(offlineServerAuthError(url));
         saveSession(null);
         throw new Error(formatApiError(url, res.status, payload));
       }
@@ -7448,7 +7492,7 @@ export function renderLewordProWeb(): string {
           log('LIVE golden Pro snapshot missing; showing unlocked fallback while keeping Pro session.');
         } catch (err) {
           const message = err && err.message ? err.message : '';
-          if (!isAuthErrorMessage(message)) {
+          if (!isAuthErrorMessage(message) || isOfflineProSession()) {
             proSnapshotFallback = true;
             log('LIVE golden Pro snapshot fallback: ' + (message || 'unknown'));
           } else {
@@ -7457,6 +7501,7 @@ export function renderLewordProWeb(): string {
         }
       }
       if (proSnapshotFallback && hasActiveProSession()) {
+        let authenticatedPublicError = '';
         try {
           const publicPayload = await apiGet(endpoints.publicLiveGolden, true);
           const publicSnapshot = normalizeProGoldenSnapshot(publicPayload);
@@ -7466,7 +7511,12 @@ export function renderLewordProWeb(): string {
             return;
           }
         } catch (authPublicErr) {
-          log('LIVE golden authenticated public fallback failed: ' + (authPublicErr && authPublicErr.message ? authPublicErr.message : 'unknown'));
+          authenticatedPublicError = authPublicErr && authPublicErr.message ? authPublicErr.message : 'unknown';
+          log('LIVE golden authenticated public fallback failed: ' + authenticatedPublicError);
+        }
+        if (isOfflineProSession() || isServerUnavailableError(authenticatedPublicError)) {
+          renderClientGoldenFallback(new Error(authenticatedPublicError || 'offline pro fallback'));
+          return;
         }
         promptProRelogin('Pro 세션 인증을 다시 확인해야 합니다. 다시 로그인하면 잠긴 120개 보드가 바로 열립니다.');
         return;
@@ -8186,7 +8236,7 @@ export function renderLewordProWeb(): string {
         if (feature && feature.id) featureRunState[feature.id] = 'failed';
         log(feature.title + ' 실패: ' + err.message);
         setResult({ error: err.message });
-        if (isAuthErrorMessage(err.message)) {
+        if (isAuthErrorMessage(err.message) && !isOfflineProSession()) {
           saveSession(null);
           if (feature.id && !backgroundRun) renderToolLocked(feature);
           openLogin();
@@ -8329,7 +8379,32 @@ export function renderLewordProWeb(): string {
         loadCommerceDashboard(selectedCommercePeriod).catch(function() {});
         schedulePostLoginAutoDiscovery();
       } catch (err) {
-        qs('loginMessage').textContent = err.message;
+        const message = err && err.message ? err.message : String(err);
+        if (userId && password && isServerUnavailableError(message)) {
+          rememberProLoginUserId(userId);
+          saveSession(createOfflineProSession(userId, message));
+          clearLoginCredentialAutofillFromApiSettings(false);
+          postLoginAutoRunStarted = false;
+          postLoginAutoFeatureIds.forEach(function(id) {
+            delete featureResultCache[id];
+            delete featureRunState[id];
+          });
+          qs('loginMessage').textContent = '서버 미연결 상태라 오프라인 Pro 세션으로 접속합니다.';
+          closeLogin();
+          openWelcomeModal('오프라인 Pro');
+          hydrateNaverApiSettingsForm();
+          const nextView = pendingViewAfterLogin || 'golden';
+          pendingViewAfterLogin = null;
+          setActiveView(nextView, { load: false });
+          log('오프라인 Pro 로그인 폴백: ' + message);
+          await Promise.all([
+            loadGoldenBoard().catch(function(boardErr) { log('오프라인 Pro 보드 폴백 실패: ' + boardErr.message); }),
+            refreshFeatureStatus().catch(function(statusErr) { log('오프라인 Pro 기능 상태 확인 보류: ' + statusErr.message); }),
+          ]);
+          schedulePostLoginAutoDiscovery();
+          return;
+        }
+        qs('loginMessage').textContent = message;
       }
     });
     qs('lookupForm').addEventListener('submit', function(event) {

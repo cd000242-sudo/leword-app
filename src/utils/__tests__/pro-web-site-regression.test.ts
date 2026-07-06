@@ -142,6 +142,15 @@ assert('pro login network failures explain API connectivity instead of raw fetch
     && proWebHtml.includes('로그인 API 서버에 연결할 수 없습니다.')
     && proWebHtml.includes('아이디/비밀번호 문제가 아니라 서버 전원, 도메인, SSL 또는 배포 연결이 끊긴 상태입니다.')
     && proWebHtml.includes('if (isFetchNetworkError(err)) throw new Error(formatNetworkError(url, err));'));
+assert('server-down Pro login opens an offline local Pro session instead of blocking features',
+  proWebHtml.includes('function createOfflineProSession')
+    && proWebHtml.includes('function isOfflineProSession')
+    && proWebHtml.includes('오프라인 Pro 세션이 연결되었습니다.')
+    && proWebHtml.includes('서버 미연결 상태라 오프라인 Pro 세션으로 접속합니다.')
+    && proWebHtml.includes('saveSession(createOfflineProSession(userId, message))')
+    && proWebHtml.includes("if (session && session.accessToken && !isOfflineProSession()) out.Authorization = 'Bearer ' + session.accessToken")
+    && proWebHtml.includes("if (isOfflineProSession()) out['X-Leword-Offline-Pro'] = '1'")
+    && proWebHtml.includes('if (isAuthErrorMessage(err.message) && !isOfflineProSession())'));
 assert('settings exposes a clean API issue modal and integration status check',
   html.includes('id="openApiIssueModal"')
     && html.includes('API 키 발급 모음')
@@ -184,7 +193,9 @@ assert('falls back to browser-side golden keyword search when the server is unav
     && html.includes('function isServerUnavailableError')
     && html.includes('renderClientGoldenFallback(err)')
     && html.includes('renderClientFeatureFallback(feature, displayKeyword, err)')
-    && html.includes('검색량·문서수는 가짜로 채우지 않고'));
+    && html.includes('검색량·문서수는 가짜로 채우지 않고')
+    && html.includes('오프라인 Pro 후보')
+    && html.includes('서버가 꺼져 있어 Pro 세션을 로컬로 유지하고 사이트 자체 후보를 표시합니다.'));
 assert('keyword lookup button is labeled as direct lookup, not server lookup',
   proWebHtml.includes('<button class="btn primary" type="submit">조회하기</button>')
     && proWebHtml.includes('키워드를 입력하고 조회하기를 실행하세요.')
