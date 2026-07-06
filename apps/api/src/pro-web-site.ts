@@ -7206,7 +7206,7 @@ export function renderLewordProWeb(): string {
     }
     function renderPublicGoldenBoard(payload, options) {
       const opts = options || {};
-      const proFallback = !!opts.proFallback;
+      const proFallback = !!opts.proFallback || hasActiveProSession();
       const primary = filterDisplayGoldenItems(payload.publicPreview || []);
       const backfill = filterDisplayGoldenItems(payload.clientBackfill || []);
       const items = primary.concat(backfill).slice(0, 5);
@@ -7228,8 +7228,27 @@ export function renderLewordProWeb(): string {
       renderGoldenQuality(items, false, payload.boardCount, lockedCount);
       renderGoldenRows(items, false, payload.boardTarget);
     }
+    function normalizeProGoldenSnapshot(payload) {
+      if (!payload || typeof payload !== 'object') return null;
+      const snapshot = payload.snapshot || payload.result || payload;
+      if (!snapshot || typeof snapshot !== 'object') return null;
+      if (Array.isArray(snapshot.board)) return snapshot;
+      if (Array.isArray(snapshot.items)) {
+        return Object.assign({}, snapshot, {
+          board: snapshot.items,
+          boardCount: snapshot.boardCount || snapshot.items.length,
+        });
+      }
+      if (Array.isArray(snapshot.keywords)) {
+        return Object.assign({}, snapshot, {
+          board: snapshot.keywords,
+          boardCount: snapshot.boardCount || snapshot.keywords.length,
+        });
+      }
+      return null;
+    }
     function renderProGoldenBoard(snapshot) {
-      const items = filterDisplayGoldenItems((snapshot && snapshot.board) || []);
+      const items = filterDisplayGoldenItems((snapshot && (snapshot.board || snapshot.items || snapshot.keywords || snapshot.publicPreview)) || []);
       setGoldenSummary(
         snapshot.boardCount || items.length,
         snapshot.boardTarget || 120,
@@ -7248,11 +7267,14 @@ export function renderLewordProWeb(): string {
       if (hasActiveProSession()) {
         try {
           const payload = await apiGet(endpoints.liveGolden, true);
-          if (payload && payload.snapshot) {
-            renderProGoldenBoard(payload.snapshot);
-            log('LIVE golden Pro board refreshed: ' + ((payload.snapshot.board || []).length) + ' items');
+          const snapshot = normalizeProGoldenSnapshot(payload);
+          if (snapshot) {
+            renderProGoldenBoard(snapshot);
+            log('LIVE golden Pro board refreshed: ' + ((snapshot.board || []).length) + ' items');
             return;
           }
+          proSnapshotFallback = true;
+          log('LIVE golden Pro snapshot missing; showing unlocked fallback while keeping Pro session.');
         } catch (err) {
           const message = err && err.message ? err.message : '';
           if (!isAuthErrorMessage(message)) {
