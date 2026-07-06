@@ -803,6 +803,17 @@ async function runAgentAssistQualityGate(): Promise<void> {
       && result.summary.agentAssist?.provider === 'codex'
       && result.keywords.every((item) => item.evidence.includes('agent-assist:codex')),
     JSON.stringify(result.summary));
+  assert('agent assist attaches inferred search reason and expansion contract',
+    result.keywords.length > 0
+      && result.keywords.every((item) => item.agentInsight
+        && item.agentInsight.generatedBy === 'agent-assist:codex'
+        && typeof item.agentInsight.searchVolumeReason === 'string'
+        && item.agentInsight.searchVolumeReason.length > 10
+        && typeof item.agentInsight.combinationIntent === 'string'
+        && item.agentInsight.combinationIntent.length > 10
+        && Array.isArray(item.agentInsight.expandedKeywords)
+        && item.agentInsight.expandedKeywords.length > 0),
+    JSON.stringify(result.keywords.map((item) => item.agentInsight)));
 }
 
 async function runHomeBoardDefaultAdapter(): Promise<void> {

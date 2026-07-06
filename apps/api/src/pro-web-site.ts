@@ -2803,10 +2803,266 @@ export function renderLewordProWeb(): string {
       }
       return null;
     }
+    function agentObjectCandidates(row) {
+      return [
+        row,
+        row && row.agentInsight,
+        row && row.agentInference,
+        row && row.aiInsight,
+        row && row.aiInference,
+        row && row.keywordInsight,
+        row && row.intentInsight,
+        row && row.winnability,
+        row && row.publishDecision,
+        row && row.raw,
+        row && row.meta,
+      ].filter(function(item) { return item && typeof item === 'object'; });
+    }
+    function agentTextValue(row, keys) {
+      const containers = agentObjectCandidates(row);
+      for (let i = 0; i < containers.length; i += 1) {
+        for (let j = 0; j < keys.length; j += 1) {
+          const value = containers[i][keys[j]];
+          if (typeof value === 'string' && normalizeText(value)) return normalizeText(value);
+        }
+      }
+      return '';
+    }
+    function agentListValue(row, keys) {
+      const out = [];
+      const push = function(value) {
+        if (Array.isArray(value)) {
+          value.forEach(push);
+          return;
+        }
+        if (value && typeof value === 'object') {
+          push(value.keyword || value.query || value.text || value.title || value.name);
+          return;
+        }
+        const clean = normalizeText(value);
+        if (clean) out.push(clean);
+      };
+      const containers = agentObjectCandidates(row);
+      containers.forEach(function(item) {
+        keys.forEach(function(key) { push(item[key]); });
+      });
+      return uniqueIntentBranches(out, 18);
+    }
+    function agentReadableSubject(row) {
+      const keyword = normalizeText(row && row.keyword);
+      const provided = agentTextValue(row, ['topic', 'subject', 'coreTopic', 'entity', 'rootKeyword']);
+      if (provided) return provided;
+      const compact = compactKeywordText(keyword);
+      const known = [
+        ['송지호바다하늘길', '송지호 바다하늘길'],
+        ['문화누리카드', '문화누리카드'],
+        ['근로장려금', '근로장려금'],
+        ['자녀장려금', '자녀장려금'],
+        ['주휴수당', '주휴수당'],
+        ['최저임금', '최저임금'],
+        ['홍명보', '홍명보 감독'],
+        ['대한축구협회', '대한축구협회'],
+        ['제주렌터카', '제주 렌터카'],
+        ['제주렌트카', '제주 렌터카'],
+        ['KBO올스타전', 'KBO 올스타전'],
+      ];
+      for (let i = 0; i < known.length; i += 1) {
+        if (compact.indexOf(compactKeywordText(known[i][0])) >= 0) return known[i][1];
+      }
+      return keyword
+        .replace(/\\b(202[0-9]|20[0-9]{2}|tistory|티스토리|blogspot)\\b/gi, '')
+        .replace(/(사용처|지급일|신청방법|신청|대상자|대상|조회|잔액조회|금액|계산기|입장료|예약방법|예약|사이트|비교|후기|주의사항|방법|이유|전망|후보|일정|정리)+$/g, '')
+        .trim() || keyword;
+    }
+    function agentSemanticDomain(row) {
+      const text = keywordRowSearchText(row) + ' ' + normalizeText(row && row.keyword);
+      if (isCrossDomainNonsenseKeyword(row) || isAmbiguousCompositeKeyword(row)) return 'unclear';
+      if (/정례대화/.test(text) && /(지급일|금액|대상|신청|수당)/.test(text)) return 'unclear';
+      if (isShoppingIntentKeywordRow(row)) return 'shopping';
+      if (/문화누리카드/.test(text) && /(사용처|가맹점|온라인|잔액|충전|영화|숙박)/.test(text)) return 'policy-local';
+      return keywordDomain(text);
+    }
+    function agentSeasonContext() {
+      const month = new Date().getMonth() + 1;
+      if (month >= 7 && month <= 8) return '여름휴가와 방학 성수기';
+      if (month >= 9 && month <= 10) return '가을 여행과 추석 준비 시기';
+      if (month === 12 || month <= 2) return '연말정산·겨울방학·난방비 확인 시기';
+      if (month >= 3 && month <= 5) return '신학기·봄나들이·지원금 신청 시기';
+      return '월초 일정과 생활비 확인 시기';
+    }
+    function agentMeasuredContext(row) {
+      const total = intentMetricNumber(row, 'totalSearchVolume');
+      const pc = intentMetricNumber(row, 'pcSearchVolume');
+      const mobile = intentMetricNumber(row, 'mobileSearchVolume');
+      const docs = intentMetricNumber(row, 'documentCount');
+      const parts = [];
+      if (total !== null) parts.push('검색량 ' + fmt(total));
+      if (pc !== null || mobile !== null) parts.push('PC ' + fmt(pc || 0) + '/모바일 ' + fmt(mobile || 0));
+      if (docs !== null) parts.push('문서수 ' + fmt(docs));
+      return parts.length ? parts.join(' · ') + ' 실측을 기준으로 봅니다.' : '';
+    }
+    function agentInferredBranches(row, subject, domain) {
+      const keyword = normalizeText(row && row.keyword);
+      const provided = agentListValue(row, [
+        'autocompleteKeywords',
+        'autocomplete',
+        'relatedKeywords',
+        'expandedKeywords',
+        'expansionKeywords',
+        'mindmapKeywords',
+        'followUpKeywords',
+        'questionKeywords',
+        'clusterKeywords',
+        'branches',
+        'suggestions',
+      ]);
+      const seed = subject || keyword;
+      const out = [];
+      const push = function(value) {
+        const clean = normalizeText(value);
+        if (!clean) return;
+        if (/AEO|GEO|SEO|클릭|바로가기|제목보다|한 화면에서/i.test(clean)) return;
+        if (compactKeywordText(clean) === compactKeywordText(keyword)) return;
+        out.push(clean);
+      };
+      provided.forEach(push);
+      if (/송지호|바다하늘길/.test(seed + keyword)) {
+        [
+          '송지호 바다하늘길 입장료',
+          '송지호 바다하늘길 주차',
+          '송지호 바다하늘길 위치',
+          '송지호 바다하늘길 운영시간',
+          '송지호 바다하늘길 둘레길 코스',
+          '송지호 해수욕장 바다하늘길',
+          '고성 송지호 바다하늘길',
+        ].forEach(push);
+      } else if (/문화누리카드/.test(seed + keyword)) {
+        [
+          '문화누리카드 잔액조회',
+          '문화누리카드 온라인 사용처',
+          '문화누리카드 가맹점',
+          '문화누리카드 사용처 조회',
+          '문화누리카드 충전일',
+          '문화누리카드 영화 예매',
+          '문화누리카드 숙박 사용처',
+          '문화누리카드 오프라인 사용처',
+        ].forEach(push);
+      } else if (/제주/.test(seed + keyword) && /(렌터카|렌트카|렌터|렌트)/.test(seed + keyword)) {
+        [
+          '제주 렌터카 예약 사이트',
+          '제주 렌터카 예약 방법',
+          '제주 렌터카 예약 팁',
+          '제주 렌터카 예약 시기',
+          '제주 렌터카 보험 비교',
+          '제주 렌터카 완전자차',
+          '제주공항 렌터카 예약',
+        ].forEach(push);
+      } else if (/근로장려금/.test(seed + keyword)) {
+        const year = keywordYear(keyword, String(new Date().getFullYear()));
+        [
+          year + ' 근로장려금 지급일',
+          year + ' 근로장려금 대상자 확인',
+          year + ' 근로장려금 금액 조회',
+          year + ' 근로장려금 심사결과',
+          year + ' 근로장려금 반기 정기 차이',
+        ].forEach(push);
+      } else if (/최저임금/.test(seed + keyword)) {
+        ['최저임금 월급 계산', '최저임금 주휴수당 포함', '최저임금 실수령액', '최저임금 위반 신고', '최저임금 격차 원인'].forEach(push);
+      } else if (/주휴수당/.test(seed + keyword)) {
+        ['주휴수당 계산기', '주휴수당 조건 15시간', '주휴수당 미지급 신고', '알바 주휴수당 기준', '주휴수당 계산법 예시'].forEach(push);
+      } else if (/홍명보|축구협회|월드컵|대표팀|이강인|김민재|이재성/.test(seed + keyword)) {
+        [
+          '홍명보 감독 다음 감독 후보',
+          '홍명보 감독 선임 과정 논란',
+          '대한축구협회 비리 전말',
+          '이강인 이재성 투입 요청',
+          '김민재 교체 항의 장면',
+          '대한민국 축구대표팀 전술 문제',
+        ].forEach(push);
+      } else if (domain === 'shopping') {
+        ['구매 전 확인', '실사용 후기', '가격비교', '단점', '대체 제품 비교'].forEach(function(tail) { push(seed + ' ' + tail); });
+      } else if (domain === 'local' || domain === 'policy-local') {
+        ['위치', '운영시간', '주차', '예약 방법', '후기', '주의사항'].forEach(function(tail) { push(seed + ' ' + tail); });
+      } else if (domain === 'policy') {
+        ['대상', '신청방법', '지급일', '금액', '필요서류', '제외대상'].forEach(function(tail) { push(seed + ' ' + tail); });
+      } else if (domain === 'sports') {
+        ['이유', '후보', '반응', '일정', '전망', '논란 정리'].forEach(function(tail) { push(seed + ' ' + tail); });
+      } else {
+        ['뜻', '검색 이유', '확인 방법', '비교 기준', '주의사항'].forEach(function(tail) { push(seed + ' ' + tail); });
+      }
+      return domainSafeIntentBranches(keyword || seed, out, 10);
+    }
+    function agentInferredSearchReason(row, subject, domain) {
+      const keyword = normalizeText(row && row.keyword);
+      const provided = agentTextValue(row, ['searchVolumeReason', 'searchReason', 'whyTrending', 'demandReason', 'reason', 'meaning']);
+      if (provided) return provided;
+      const text = normalizeText(subject + ' ' + keyword + ' ' + keywordRowSearchText(row));
+      if (domain === 'unclear') return '"' + keyword + '"는 정책 지급어와 서로 다른 의도의 단어가 붙은 충돌형 후보입니다. 실제 이슈명인지, 기사 제목 조각이 붙은 것인지 먼저 소스 원문을 확인하고 원 키워드로 쓰지 않는 것이 안전합니다.';
+      if (/송지호|바다하늘길/.test(text)) return '송지호 바다하늘길은 강원 고성 송지호와 해변 산책 동선을 찾는 방문형 키워드입니다. 검색량은 장소 자체가 아니라 입장료, 주차, 운영시간, 해수욕장·둘레길과 함께 갈 수 있는지 확인하려는 여행 전 체크 수요에서 생깁니다.';
+      if (/문화누리카드/.test(text)) return '문화누리카드는 지급·충전 시점보다 실제로 어디서 쓸 수 있는지가 검색의 핵심입니다. 잔액, 온라인 사용처, 지역 가맹점, 영화·숙박 결제 가능 여부를 한 번에 확인하려는 수요가 붙습니다.';
+      if (/제주/.test(text) && /(렌터카|렌트카|렌터|렌트)/.test(text)) return agentSeasonContext() + '라 제주 항공권·숙소를 잡은 사람들이 공항 이동, 완전자차 보험, 차량 등급, 픽업 위치, 취소 규정을 비교하려고 검색합니다. 광고가 강한 예약어는 정보형 체크리스트로 풀어야 합니다.';
+      if (/근로장려금|자녀장려금/.test(text)) return '장려금 키워드는 신청 기간, 심사 결과, 지급일, 금액 확인처럼 개인별로 바로 확인해야 하는 정보가 몰릴 때 검색량이 붙습니다. 제도 설명보다 “내가 대상인지, 언제 얼마가 들어오는지”가 핵심입니다.';
+      if (/최저임금|주휴수당/.test(text)) return '임금 키워드는 발표 숫자보다 월급·실수령액·주휴수당 포함 여부가 실제 생활비와 바로 연결될 때 검색이 늘어납니다. 계산표와 위반 사례, 신고 기준을 같이 봐야 합니다.';
+      if (/홍명보|축구협회|월드컵|대표팀|이강인|김민재|이재성/.test(text)) return '축구 이슈는 기사 제목보다 이후 책임 소재, 다음 감독 후보, 선임 과정, 선수 기용 논란처럼 사람들이 다음에 확인하고 싶은 질문에서 검색량이 커집니다. 결과 요약보다 맥락과 다음 변수를 잡아야 합니다.';
+      if (/KBO|올스타전|야구/.test(text)) return '스포츠 일정 키워드는 예매, 라인업, 중계, 티켓 가격처럼 경기 전 행동으로 이어지는 정보가 붙을 때 검색량이 올라갑니다.';
+      if (domain === 'shopping') return '제품형 키워드는 가격과 후기만으로는 약합니다. 검색량은 구매 직전 불안, 대체 제품 비교, 실제 사용 장면, 단점 확인이 겹칠 때 생기므로 쇼핑커넥트에서 전환 가능한 제품까지 붙여야 합니다.';
+      if (domain === 'local') return '지역·방문 키워드는 비용, 위치, 운영시간, 주차, 후기처럼 현장에서 실패하지 않기 위한 확인 검색입니다. 최신 일정과 실제 이동 동선을 함께 설명해야 합니다.';
+      if (domain === 'policy') return '정책 키워드는 대상, 신청 기간, 지급일, 금액, 제외 조건처럼 놓치면 손해가 나는 확인 항목이 있을 때 반복 검색됩니다. 최신 기준과 예외 조건을 먼저 제시해야 합니다.';
+      return '검색량은 단어 자체보다 검색자가 지금 해결해야 할 의사결정에서 생깁니다. 이 후보는 소스 맥락, 최신 시점, 비교 기준, 다음 행동을 분리해 글감으로 검증해야 합니다.';
+    }
+    function agentInferredAction(row, subject, domain) {
+      const provided = agentTextValue(row, ['combinationIntent', 'usageIntent', 'publishingAngle', 'action', 'nextAction', 'writeRecommendation']);
+      if (provided) return provided;
+      const keyword = normalizeText(row && row.keyword);
+      const metric = agentMeasuredContext(row);
+      if (domain === 'unclear') return '원문 소스와 자동완성 응답을 다시 확인한 뒤 의미가 분명한 키워드만 남기세요. 지급일·금액·대상 같은 정책 행동어는 실제 제도명과 붙어야 발행 가치가 있습니다.';
+      if (domain === 'shopping') return '메인 황금보드에서는 제외하고 쇼핑커넥트에서 제품 후보, 구매 트리거, 실사용 단점, 대체 제품 비교까지 붙여 전환형 글감으로 판단하세요.';
+      if (/송지호|바다하늘길/.test(subject + keyword)) return '첫 문단에서 송지호 바다하늘길이 무엇인지 설명하고, 입장료·주차·운영시간·해수욕장 연계 동선을 표로 정리하세요. 마지막에는 당일 코스와 비 오는 날 대안까지 붙이면 체류가 생깁니다.';
+      if (/문화누리카드/.test(subject + keyword)) return '사용처를 나열하기보다 잔액조회, 온라인 사용처, 지역 가맹점, 결제 가능 업종을 표로 묶으세요. 검색자는 “지금 내 카드로 결제 가능한 곳”을 확인하려고 들어옵니다.';
+      if (/제주/.test(subject + keyword) && /(렌터카|렌트카)/.test(subject + keyword)) return '광고 예약 페이지와 정면 승부하지 말고 완전자차, 공항 픽업, 취소 규정, 성수기 가격 차이, 차량 등급 선택 기준으로 정보형 롱테일을 만드세요.';
+      if (domain === 'policy') return '본문 첫 화면에 대상·기간·금액·제외 조건 표를 두고, 아래에는 자주 틀리는 사례와 공식 확인 경로를 붙이세요. ' + metric;
+      if (domain === 'sports') return '단순 뉴스 요약이 아니라 원인, 책임 소재, 다음 후보, 일정, 당사자 반응을 묶어 후속 질문형 글로 구성하세요. ' + metric;
+      if (domain === 'local') return '방문 전 체크리스트형으로 위치, 비용, 시간, 예약 가능 여부, 후기, 대안을 한 화면에 보여주세요. ' + metric;
+      return '제목은 원 키워드만 반복하지 말고 검색자가 해결하려는 불안, 비교 기준, 다음 행동을 포함한 롱테일로 확장하세요. ' + metric;
+    }
+    function agentInferredKeywordGuide(row) {
+      const keyword = normalizeText(row && row.keyword);
+      if (!keyword) return null;
+      const domain = agentSemanticDomain(row);
+      const subject = agentReadableSubject(row);
+      const labelMap = {
+        unclear: '의도 충돌 후보',
+        shopping: '쇼핑커넥트 전용',
+        'policy-local': '지역 사용처·정책 니즈',
+        policy: '정책/신청형 니즈',
+        local: '방문/예약형 니즈',
+        sports: '후속 이슈형 니즈',
+        general: '검색 의도 추론',
+      };
+      const routeMap = {
+        unclear: '재검증 필요',
+        shopping: '쇼핑커넥트로 분리',
+        'policy-local': '사용처 확인 루트',
+        policy: '정보형 글감',
+        local: '방문 체크리스트',
+        sports: '이슈 맥락 루트',
+        general: '추론 보강 루트',
+      };
+      return {
+        kind: domain === 'unclear' ? 'unclear' : domain === 'shopping' ? 'shopping' : domain === 'sports' ? 'issue' : domain,
+        label: agentTextValue(row, ['intentLabel', 'label']) || labelMap[domain] || labelMap.general,
+        route: agentTextValue(row, ['route', 'monetizationRoute']) || routeMap[domain] || routeMap.general,
+        meaning: agentInferredSearchReason(row, subject, domain),
+        action: agentInferredAction(row, subject, domain),
+        branches: agentInferredBranches(row, subject, domain),
+      };
+    }
     function keywordIntentGuide(row) {
       const keyword = normalizeText(row && row.keyword);
       const topic = readableKeywordTopic(row);
       const modifiers = keywordModifiers(row);
+      const agentGuide = agentInferredKeywordGuide(row);
+      if (agentGuide) return agentGuide;
       if (isAmbiguousCompositeKeyword(row)) {
         const compact = compactKeywordText(keyword);
         const dialoguePaymentCollision = /정례대화.*(?:지급일|금액|대상|신청|수당)|(?:지급일|금액|대상|신청|수당).*정례대화/.test(compact);
@@ -4219,6 +4475,8 @@ export function renderLewordProWeb(): string {
       return mindmapSharesCore(seed, candidate) || candidateDomain === seedDomain || candidateDomain === 'general';
     }
     function mindmapSearchReason(seed, keyword) {
+      const inferred = agentInferredKeywordGuide({ keyword: keyword, seedKeyword: seed, source: 'mindmap-agent-inference' });
+      if (inferred && inferred.meaning) return inferred.meaning;
       const text = normalizeText(seed + ' ' + keyword);
       if (/(제주).*(렌터카|렌트카)/.test(text)) {
         return '여름휴가와 방학 성수기에는 제주 이동 동선, 공항 픽업, 보험 포함 여부, 차량 등급, 예약 취소 규정까지 한 번에 비교하려는 수요가 붙습니다. 광고형 예약 버튼보다 실제 예약 전 체크리스트와 가격 차이를 정리한 글이 체류 시간을 만들기 좋습니다.';
@@ -4238,6 +4496,8 @@ export function renderLewordProWeb(): string {
       return '검색량은 단어 자체보다 검색자가 지금 결정을 못 내리는 지점에서 생깁니다. 최신 시점, 비교 기준, 다음 행동, 예외 조건을 분리해서 설명하면 검색 의도와 체류 시간이 함께 살아납니다.';
     }
     function mindmapCombinationIntent(seed, keyword) {
+      const inferred = agentInferredKeywordGuide({ keyword: keyword, seedKeyword: seed, source: 'mindmap-agent-inference' });
+      if (inferred && inferred.action) return inferred.action;
       const text = normalizeText(seed + ' ' + keyword);
       if (/(제주).*(렌터카|렌트카)/.test(text)) {
         return '광고가 강한 예약 키워드는 그대로 쓰기보다 보험 차이, 예약 시기, 공항 픽업, 취소 규정, 차량 등급 비교처럼 정보형 롱테일로 확장해야 합니다.';
@@ -4252,6 +4512,8 @@ export function renderLewordProWeb(): string {
     }
     function mindmapIssueLongtailBranches(seed, row) {
       const keyword = normalizeText(row && row.keyword || seed);
+      const inferred = agentInferredKeywordGuide(Object.assign({}, row || {}, { keyword: keyword, seedKeyword: seed, source: 'mindmap-agent-inference' }));
+      if (inferred && inferred.branches && inferred.branches.length) return inferred.branches;
       const text = normalizeText(seed + ' ' + keyword);
       if (/(홍명보|축구|월드컵|감독)/.test(text)) {
         return [
@@ -4598,48 +4860,11 @@ export function renderLewordProWeb(): string {
       const keyword = normalizeText(row && row.keyword);
       const compact = compactKeywordText(keyword);
       const guide = keywordIntentGuide(row);
-      let seeds = [];
-      if (/문화누리카드/u.test(keyword) || /문화누리카드/u.test(compact)) {
-        seeds = [
-          '문화누리카드 잔액조회',
-          '문화누리카드 온라인 사용처',
-          '문화누리카드 가맹점',
-          '문화누리카드 사용처 조회',
-          '문화누리카드 충전일',
-          '문화누리카드 영화 예매',
-          '문화누리카드 숙박 사용처',
-          '문화누리카드 오프라인 사용처',
-          '문화누리카드 네이버페이',
-          '문화누리카드 본인충전금 환불',
-        ];
-      } else if (/제주\\s*렌터카|제주렌터카|렌터카/u.test(keyword)) {
-        seeds = [
-          '제주 렌터카 예약',
-          '제주 렌터카 예약 사이트',
-          '제주 렌터카 예약 방법',
-          '제주 렌터카 예약 팁',
-          '제주 렌터카 예약 시기',
-          '제주 렌터카 보험 비교',
-          '제주 렌터카 완전자차',
-          '제주 렌터카 가격비교',
-        ];
-      } else if (/근로장려금/u.test(keyword)) {
-        seeds = [
-          '근로장려금 지급일',
-          '근로장려금 신청',
-          '근로장려금 대상자 확인',
-          '근로장려금 금액 조회',
-          '근로장려금 반기 지급일',
-          '근로장려금 심사결과',
-          '근로장려금 신청방법',
-          '근로장려금 자격요건',
-        ];
-      } else {
-        seeds = [].concat(
-          naverAutocompleteLikeBranches(keyword),
-          guide && guide.branches ? guide.branches : []
-        );
-      }
+      const seeds = [].concat(
+        agentListValue(row, ['autocompleteKeywords', 'autocomplete', 'relatedKeywords', 'expandedKeywords', 'expansionKeywords', 'mindmapKeywords', 'followUpKeywords', 'clusterKeywords', 'branches']),
+        naverAutocompleteLikeBranches(keyword),
+        guide && guide.branches ? guide.branches : []
+      );
       return uniqueIntentBranches(seeds, limit || 10)
         .filter(function(item) { return compactKeywordText(item) !== compact; })
         .slice(0, limit || 10);
@@ -5497,6 +5722,18 @@ export function renderLewordProWeb(): string {
           includeBeginnerPublishingAngle: true,
           includeMonetizationRoute: true,
           rejectLowValueComposite: true,
+          outputFields: [
+            'searchVolumeReason',
+            'combinationIntent',
+            'autocompleteKeywords',
+            'relatedKeywords',
+            'expandedKeywords',
+            'subject',
+            'label',
+            'route',
+            'warning',
+          ],
+          explanationStyle: 'source-grounded-agent-inference',
         },
         serverVerified: adminWorker ? adminWorker.serverVerified === true : false,
         adminPreference: adminWorker ? null : {

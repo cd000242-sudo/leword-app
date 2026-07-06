@@ -2,6 +2,7 @@ import {
   type GoldenDiscoveryMobileParams,
   type HomeBoardMobileParams,
   type MobileAgentAssistContext,
+  type MobileKeywordAgentInsight,
   type MobileAgentAwareParams,
   type KeywordAnalysisMobileParams,
   type KinHiddenHoneyMobileParams,
@@ -209,7 +210,10 @@ function normalizeAgentAssistContext(value: unknown): MobileAgentAssistContext |
       ? raw.hunterCharter as Record<string, unknown>
       : undefined,
     outputContract: raw.outputContract && typeof raw.outputContract === 'object' && !Array.isArray(raw.outputContract)
-      ? Object.fromEntries(Object.entries(raw.outputContract as Record<string, unknown>).map(([key, val]) => [key, val === true]))
+      ? Object.fromEntries(Object.entries(raw.outputContract as Record<string, unknown>).map(([key, val]) => [
+        key,
+        Array.isArray(val) ? normalizeStringList(val, 24) : val === true,
+      ]))
       : undefined,
     serverVerified: raw.serverVerified === true,
   };
@@ -1000,6 +1004,332 @@ function targetCountFromAgentParams(params: MobileAgentAwareParams, current: num
   return explicit ? Math.max(current, Math.floor(explicit) + (params && 'keyword' in params ? 1 : 0)) : current;
 }
 
+type AgentInsightDomain =
+  | 'policy'
+  | 'travel'
+  | 'shopping'
+  | 'sports'
+  | 'entertainment'
+  | 'youtube'
+  | 'kin'
+  | 'local'
+  | 'general'
+  | 'unclear';
+
+function agentInsightObjects(metric: MobileKeywordMetric): Record<string, unknown>[] {
+  return [
+    metric.agentInsight,
+    (metric as any).aiInsight,
+    (metric as any).aiInference,
+    (metric as any).keywordInsight,
+    (metric as any).intentInsight,
+    metric.aiJudge,
+    metric.publishDecision,
+  ].filter((value): value is Record<string, unknown> => !!value && typeof value === 'object' && !Array.isArray(value));
+}
+
+function agentInsightString(metric: MobileKeywordMetric, keys: string[]): string {
+  for (const object of agentInsightObjects(metric)) {
+    for (const key of keys) {
+      const value = object[key];
+      const clean = normalizeKeyword(value);
+      if (clean) return clean;
+    }
+  }
+  return '';
+}
+
+function agentInsightStringList(metric: MobileKeywordMetric, keys: string[], limit: number): string[] {
+  const values: string[] = [];
+  for (const object of agentInsightObjects(metric)) {
+    for (const key of keys) {
+      const value = object[key];
+      if (Array.isArray(value)) {
+        values.push(...value.map((item) => normalizeKeyword(item)).filter(Boolean));
+      } else {
+        const clean = normalizeKeyword(value);
+        if (clean && /[,|]/.test(clean)) {
+          values.push(...clean.split(/[|,]/).map((item) => normalizeKeyword(item)).filter(Boolean));
+        } else if (clean) {
+          values.push(clean);
+        }
+      }
+    }
+  }
+  return uniqueKeywords(values, limit);
+}
+
+function agentInsightSubject(metric: MobileKeywordMetric): string {
+  const explicit = agentInsightString(metric, ['subject', 'entity', 'topic', 'coreKeyword', 'rootKeyword']);
+  if (explicit) return explicit;
+  const stripped = stripKnownIntent(metric.keyword);
+  return normalizeKeyword(stripped) || normalizeKeyword(metric.keyword);
+}
+
+function agentInsightDomain(metric: MobileKeywordMetric, product: MobileKeywordProduct): AgentInsightDomain {
+  const keyword = normalizeKeyword(metric.keyword);
+  const text = metricTextForAgent(metric);
+  const compact = compactKeyword(`${keyword} ${text}`);
+  if (!keyword || AGENT_NOISE_CHAIN_RE.test(compact)) return 'unclear';
+  if (/정례대화/.test(keyword) && /(지급일|신청|금액|대상|수당|계산)/.test(keyword)) return 'unclear';
+  if (product === 'shopping-connect' || AGENT_SHOPPING_TOPIC_RE.test(text)) return 'shopping';
+  if (product === 'youtube-golden' || /(유튜브|쇼츠|영상|채널|조회수)/u.test(text)) return 'youtube';
+  if (product === 'kin-hidden-honey' || /(지식인|질문|답변|Q&A|qna|kin)/i.test(text)) return 'kin';
+  if (AGENT_TRAVEL_BOOKING_RE.test(text) || /(제주|렌터카|렌트카|숙소|호텔|입장료|여행|축제|바다|하늘길|관광)/u.test(text)) return 'travel';
+  if (/(감독|축구|월드컵|KBO|야구|대표팀|선수|라인업|경기|중계|협회)/u.test(text)) return 'sports';
+  if (/(드라마|예능|영화|출연진|몇부작|결말|방송|연예|가수|배우|공연)/u.test(text)) return 'entertainment';
+  if (/(지원금|장려금|수당|급여|정책|복지|신청|지급일|대상|자격|서류|환급|세금|문화누리카드|가맹점|사용처)/u.test(text)) return 'policy';
+  if (/(병원|맛집|지역|주소|주차|예약|운영시간|위치|근처)/u.test(text)) return 'local';
+  return 'general';
+}
+
+function agentInsightMeasuredContext(metric: MobileKeywordMetric): string {
+  const total = finiteNumber(metric.totalSearchVolume);
+  const pc = finiteNumber(metric.pcSearchVolume);
+  const mobile = finiteNumber(metric.mobileSearchVolume);
+  const docs = finiteNumber(metric.documentCount);
+  const ratio = finiteNumber(metric.goldenRatio);
+  const parts: string[] = [];
+  if (total !== null && total > 0) parts.push(`월 검색량 ${total.toLocaleString('ko-KR')}`);
+  if (pc !== null && mobile !== null && pc + mobile > 0) parts.push(`PC ${pc.toLocaleString('ko-KR')} / 모바일 ${mobile.toLocaleString('ko-KR')}`);
+  if (docs !== null && docs > 0) parts.push(`문서수 ${docs.toLocaleString('ko-KR')}`);
+  if (ratio !== null && ratio > 0) parts.push(`수요/문서 비율 ${Number(ratio.toFixed(2)).toLocaleString('ko-KR')}`);
+  return parts.length ? `현재 실측은 ${parts.join(', ')}입니다.` : '아직 PC/모바일·문서수 실측이 모두 채워지지 않아 측정값을 먼저 확인해야 합니다.';
+}
+
+function agentInsightExpansionCandidates(
+  metric: MobileKeywordMetric,
+  params: MobileAgentAwareParams,
+  product: MobileKeywordProduct,
+  domain: AgentInsightDomain,
+  limit: number,
+): string[] {
+  const keyword = normalizeKeyword(metric.keyword);
+  const subject = agentInsightSubject(metric);
+  const contextKeywords = (params as { contextKeywords?: MobileKeywordContextCandidate[] }).contextKeywords;
+  const provided = agentInsightStringList(metric, [
+    'autocompleteKeywords',
+    'autocomplete',
+    'relatedKeywords',
+    'expandedKeywords',
+    'expansionKeywords',
+    'mindmapKeywords',
+    'followUpKeywords',
+    'questionKeywords',
+    'clusterKeywords',
+    'branches',
+    'suggestions',
+  ], Math.max(limit * 2, 20));
+  const context = contextExpansionCandidates(keyword, contextKeywords, Math.max(limit * 2, 20)).map((item) => item.keyword);
+  const semantic = buildMindmapSemanticBridgeRoots(subject || keyword, contextKeywords, Math.max(limit, 16));
+  const measured = [
+    ...buildNaverMateMeasuredQueryRoots(subject || keyword, Math.max(limit, 16)),
+    ...buildSafeMeasuredIntentRoots(subject || keyword, Math.max(limit, 16)),
+    ...buildMindmapMeasuredQueryRoots(subject || keyword, Math.min(Math.max(limit, 8), 16)),
+  ];
+  const domainSeeds: string[] = [];
+  if (domain === 'policy') {
+    domainSeeds.push(
+      `${subject} 대상`,
+      `${subject} 신청방법`,
+      `${subject} 지급일`,
+      `${subject} 제외대상`,
+      `${subject} 필요서류`,
+      `${subject} 이의신청`,
+    );
+  } else if (domain === 'travel') {
+    domainSeeds.push(
+      `${subject} 입장료`,
+      `${subject} 예약`,
+      `${subject} 주차`,
+      `${subject} 운영시간`,
+      `${subject} 후기`,
+      `${subject} 근처 맛집`,
+    );
+  } else if (domain === 'shopping') {
+    domainSeeds.push(
+      `${subject} 후기`,
+      `${subject} 가격비교`,
+      `${subject} 단점`,
+      `${subject} 대체품`,
+      `${subject} 구매 전 확인`,
+      `${subject} 추천`,
+    );
+  } else if (domain === 'sports') {
+    domainSeeds.push(
+      `${subject} 다음 일정`,
+      `${subject} 후보`,
+      `${subject} 선임 과정`,
+      `${subject} 논란 정리`,
+      `${subject} 반응`,
+      `${subject} 경우의 수`,
+    );
+  } else if (domain === 'kin') {
+    domainSeeds.push(
+      `${subject} 해결방법`,
+      `${subject} 원인`,
+      `${subject} 안됨`,
+      `${subject} 차이`,
+      `${subject} 비용`,
+      `${subject} 주의사항`,
+    );
+  }
+  return uniqueKeywords([
+    ...provided,
+    ...context,
+    ...semantic,
+    ...measured,
+    ...domainSeeds,
+  ], Math.max(limit * 3, 24))
+    .filter((item) => {
+      const clean = normalizeKeyword(item);
+      if (!clean || compactKeyword(clean) === compactKeyword(keyword)) return false;
+      if (clean.length > 46) return false;
+      if (AGENT_NOISE_CHAIN_RE.test(compactKeyword(clean))) return false;
+      return isLikelyMeasuredSearchQuery(clean) || clean.length <= 22;
+    })
+    .slice(0, limit);
+}
+
+function agentInsightSearchReason(
+  metric: MobileKeywordMetric,
+  domain: AgentInsightDomain,
+  subject: string,
+): string {
+  const provided = agentInsightString(metric, [
+    'searchVolumeReason',
+    'searchReason',
+    'whyTrending',
+    'demandReason',
+    'volumeReason',
+    'meaning',
+    'reason',
+  ]);
+  if (provided) return provided;
+  const context = agentInsightMeasuredContext(metric);
+  if (domain === 'unclear') {
+    return `${subject}은 서로 다른 의도가 섞인 조합일 수 있어 소스 원문과 자동완성 응답을 먼저 재확인해야 합니다. ${context}`;
+  }
+  if (domain === 'policy') {
+    return `${subject}은 대상·금액·지급일·신청 방법을 놓치면 손해가 생기는 확인형 수요라 검색이 붙습니다. ${context}`;
+  }
+  if (domain === 'travel') {
+    return `${subject}은 방문 전 비용·예약·주차·운영시간·후기 같은 실패 회피 정보가 필요해지는 시점에 검색량이 올라갑니다. ${context}`;
+  }
+  if (domain === 'shopping') {
+    return `${subject}은 구매 직전 가격·후기·단점·대체품을 비교하려는 전환형 수요가 생기는 키워드입니다. ${context}`;
+  }
+  if (domain === 'sports') {
+    return `${subject}은 경기 결과 이후 다음 일정, 후보, 책임 소재, 반응을 확인하려는 후속 검색 수요가 붙는 키워드입니다. ${context}`;
+  }
+  if (domain === 'entertainment') {
+    return `${subject}은 방송·출연·결말·공개 일정처럼 바로 확인하고 싶은 정보형 수요가 짧은 시간에 몰리는 키워드입니다. ${context}`;
+  }
+  if (domain === 'youtube') {
+    return `${subject}은 급상승 영상의 원인과 관련 검색어를 네이버 수요로 다시 검증할 수 있는 키워드입니다. ${context}`;
+  }
+  if (domain === 'kin') {
+    return `${subject}은 사용자가 지금 막 막힌 문제를 해결하려는 질문형 수요라 답변형 글로 전환하기 좋습니다. ${context}`;
+  }
+  if (domain === 'local') {
+    return `${subject}은 위치·가격·예약·운영시간처럼 실제 행동 직전 확인이 필요한 지역형 수요에서 검색량이 생깁니다. ${context}`;
+  }
+  return `${subject}은 검색자가 지금 확인해야 할 기준이나 다음 행동을 찾는 정보형 수요가 있는 키워드입니다. ${context}`;
+}
+
+function agentInsightCombinationIntent(
+  metric: MobileKeywordMetric,
+  domain: AgentInsightDomain,
+  subject: string,
+  expansions: string[],
+): string {
+  const provided = agentInsightString(metric, [
+    'combinationIntent',
+    'usageIntent',
+    'publishingAngle',
+    'action',
+    'nextAction',
+    'writeRecommendation',
+  ]);
+  if (provided) return provided;
+  const next = expansions.slice(0, 4).join(', ');
+  if (domain === 'unclear') {
+    return '바로 발행하지 말고 원 키워드가 어떤 사건·상품·정책을 가리키는지 먼저 분리한 뒤, 실측되는 확장어만 남기세요.';
+  }
+  if (domain === 'shopping') {
+    return `${subject} 단독 소개보다 가격비교·후기·단점·대체품을 묶어 구매 판단표로 쓰세요${next ? `: ${next}` : ''}.`;
+  }
+  if (domain === 'travel') {
+    return `${subject}의 입장료·예약·주차·운영시간을 한 화면에서 비교하고, 방문 전 체크리스트형 제목으로 확장하세요${next ? `: ${next}` : ''}.`;
+  }
+  if (domain === 'policy') {
+    return `${subject}의 대상·지급일·신청방법·제외대상을 표로 먼저 정리하고 최신 공식 링크를 붙이면 체류형 글이 됩니다${next ? `: ${next}` : ''}.`;
+  }
+  if (domain === 'sports') {
+    return `${subject}의 원인·다음 후보·반응·일정 변수를 분리해 후속 검색으로 이어지는 클러스터를 만드세요${next ? `: ${next}` : ''}.`;
+  }
+  return `${subject}에서 검색자가 다음으로 확인할 질문을 자동완성 후보와 함께 묶어 답변형 소제목으로 확장하세요${next ? `: ${next}` : ''}.`;
+}
+
+function buildMetricAgentInsight(
+  metric: MobileKeywordMetric,
+  params: MobileAgentAwareParams,
+  product: MobileKeywordProduct,
+  agent?: MobileAgentAssistContext,
+): MobileKeywordAgentInsight {
+  const domain = agentInsightDomain(metric, product);
+  const subject = agentInsightSubject(metric);
+  const expansions = agentInsightExpansionCandidates(metric, params, product, domain, 12);
+  const label = agentInsightString(metric, ['label', 'intentLabel', 'routeLabel'])
+    || (domain === 'policy' ? '정책/신청형 수요'
+      : domain === 'travel' ? '여행/방문 전 확인'
+        : domain === 'shopping' ? '구매 전환형 수요'
+          : domain === 'sports' ? '후속 이슈형 수요'
+            : domain === 'kin' ? '질문 해결형 수요'
+              : domain === 'unclear' ? '의도 재확인 필요'
+                : '검색 의도 분석');
+  const route = agentInsightString(metric, ['route', 'monetizationRoute'])
+    || (domain === 'shopping' ? 'shopping-connect'
+      : domain === 'kin' ? 'kin-answer'
+        : domain === 'youtube' ? 'youtube-to-blog'
+          : 'blog-seo');
+  return {
+    label,
+    route,
+    subject,
+    searchVolumeReason: agentInsightSearchReason(metric, domain, subject),
+    combinationIntent: agentInsightCombinationIntent(metric, domain, subject, expansions),
+    autocompleteKeywords: expansions.slice(0, 8),
+    relatedKeywords: uniqueKeywords([
+      ...agentInsightStringList(metric, ['relatedKeywords', 'clusterKeywords', 'followUpKeywords'], 12),
+      ...expansions.slice(0, 8),
+    ], 12),
+    expandedKeywords: expansions,
+    sourceSummary: agentInsightString(metric, ['sourceSummary', 'source', 'evidenceSummary'])
+      || `${metric.source || product} · ${metric.intent || 'keyword-intent'} · ${metric.isMeasured ? '실측 포함' : '측정 필요'}`,
+    warning: domain === 'unclear' ? '문맥 충돌 가능성이 있어 발행 전 원 소스 확인이 필요합니다.' : undefined,
+    generatedBy: agent && agent.enabled !== false
+      ? `agent-assist:${normalizeKeyword(agent.provider) || 'server-auto'}`
+      : 'server-semantic-agent',
+  };
+}
+
+function attachAgentInferredInsights(
+  keywords: MobileKeywordMetric[],
+  params: MobileAgentAwareParams,
+  product: MobileKeywordProduct,
+  agent?: MobileAgentAssistContext,
+): MobileKeywordMetric[] {
+  if (!AGENT_QUALITY_PRODUCTS.has(product)) return keywords;
+  return keywords.map((metric) => ({
+    ...metric,
+    agentInsight: {
+      ...(metric.agentInsight || {}),
+      ...buildMetricAgentInsight(metric, params, product, agent),
+    },
+  }));
+}
+
 function applyAgentQualityGate(
   result: MobileKeywordResult,
   params: MobileAgentAwareParams,
@@ -1082,18 +1412,20 @@ function withAgentAssistSummary(
   const agent = params.agentAssist && params.agentAssist.enabled !== false
     ? params.agentAssist
     : undefined;
-  if (!agent) return qualityResult;
+  const insightKeywords = attachAgentInferredInsights(qualityResult.keywords, params, product, agent);
+  const insightResult = withKeywordResultSummary(qualityResult, insightKeywords);
+  if (!agent) return insightResult;
   const tasks = normalizeStringList(agent.tasks, 16);
   const provider = normalizeKeyword(agent.provider) || 'server-auto';
   const tag = `agent-assist:${provider}`;
   return {
-    ...qualityResult,
-    keywords: qualityResult.keywords.map((item) => ({
+    ...insightResult,
+    keywords: insightResult.keywords.map((item) => ({
       ...item,
       evidence: normalizeStringList([...(item.evidence || []), tag], 18),
     })),
     summary: {
-      ...qualityResult.summary,
+      ...insightResult.summary,
       agentAssist: {
         enabled: true,
         product,

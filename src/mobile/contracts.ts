@@ -101,6 +101,20 @@ export interface MobileShoppingProductPick {
   caution?: string;
 }
 
+export interface MobileKeywordAgentInsight {
+  label?: string;
+  route?: string;
+  subject?: string;
+  searchVolumeReason?: string;
+  combinationIntent?: string;
+  autocompleteKeywords?: string[];
+  relatedKeywords?: string[];
+  expandedKeywords?: string[];
+  sourceSummary?: string;
+  warning?: string;
+  generatedBy?: string;
+}
+
 export interface MobileKeywordMetric {
   keyword: string;
   grade: MobileResultGrade;
@@ -127,6 +141,7 @@ export interface MobileKeywordMetric {
   rejectReason?: string;
   publishDecision?: MobilePublishDecision;
   shoppingProductPick?: MobileShoppingProductPick;
+  agentInsight?: MobileKeywordAgentInsight;
 }
 
 export interface MobileJobEnvelope<TParams, TResult> {
@@ -987,7 +1002,7 @@ export interface MobileAgentAssistContext {
   rankingRubric?: string[];
   researchChecklist?: string[];
   hunterCharter?: Record<string, unknown>;
-  outputContract?: Record<string, boolean>;
+  outputContract?: Record<string, unknown>;
   serverVerified?: boolean;
 }
 
