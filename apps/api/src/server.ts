@@ -1072,6 +1072,25 @@ async function authorizeMobileRequest(
   return true;
 }
 
+async function verifyOptionalMobileRequest(
+  req: http.IncomingMessage,
+  verifier: MobileEntitlementVerifier | null,
+  requiredTier: MobileEntitlementTier,
+): Promise<MobileEntitlementVerification | null> {
+  if (!verifier) return null;
+  const token = getBearerToken(req);
+  if (!token) return null;
+
+  try {
+    const verification = await verifier(token);
+    if (!verification.ok || !verification.entitlement) return null;
+    if (!isMobileEntitlementAllowed(verification.entitlement, requiredTier)) return null;
+    return verification;
+  } catch {
+    return null;
+  }
+}
+
 async function authorizeAdminDownloadUploadRequest(
   req: http.IncomingMessage,
   res: http.ServerResponse,
@@ -3629,7 +3648,22 @@ export function createLewordApiServer(options: LewordApiServerOptions = {}): htt
     }
 
     if (req.method === 'GET' && url.pathname === '/v1/public/live-golden') {
-      json(res, 200, buildPublicLiveGoldenPayload(liveGoldenRadar?.snapshot() || null), {
+      const snapshot = liveGoldenRadar?.snapshot() || null;
+      const publicPayload = buildPublicLiveGoldenPayload(snapshot);
+      const proVerification = await verifyOptionalMobileRequest(req, sessionAwareEntitlementVerifier, 'standard');
+      const boardItems = snapshot?.board || [];
+      const payload = proVerification && snapshot
+        ? {
+            ...publicPayload,
+            exactMetricsLocked: false,
+            lockedCount: 0,
+            publicPreviewCount: boardItems.length,
+            publicPreview: boardItems,
+            proSnapshot: snapshot,
+            snapshot,
+          }
+        : publicPayload;
+      json(res, 200, payload, {
         'Cache-Control': 'no-store',
       });
       return;
