@@ -5276,8 +5276,11 @@ export function renderLewordProWeb(): string {
       }
       return true;
     }
+    function hasActiveProSession() {
+      return !!(session && session.accessToken);
+    }
     function saveSession(value) {
-      session = value;
+      session = value && value.accessToken ? value : null;
       if (session) {
         if (session.userId) rememberProLoginUserId(session.userId);
         localStorage.setItem('leword.pro.session', JSON.stringify(session));
@@ -5302,9 +5305,10 @@ export function renderLewordProWeb(): string {
     }
     function renderSession() {
       if (session && session.userId) rememberProLoginUserId(session.userId);
-      qs('loginOpen').textContent = session ? 'Pro 접속중' : 'Pro 로그인';
+      const active = hasActiveProSession();
+      qs('loginOpen').textContent = active ? 'Pro 접속중' : 'Pro 로그인';
       const shell = qs('proShell');
-      if (shell) shell.classList.toggle('public-preview-mode', !(session && session.accessToken));
+      if (shell) shell.classList.toggle('public-preview-mode', !active);
       hydrateAdminAiWorkerSettingsForm();
       hydrateAdminSiteContentSettings();
     }
@@ -7241,7 +7245,7 @@ export function renderLewordProWeb(): string {
     }
     async function loadGoldenBoard() {
       let proSnapshotFallback = false;
-      if (session && session.accessToken) {
+      if (hasActiveProSession()) {
         try {
           const payload = await apiGet(endpoints.liveGolden, true);
           if (payload && payload.snapshot) {
@@ -7270,7 +7274,7 @@ export function renderLewordProWeb(): string {
             log('live source backfill failed: ' + sourceErr.message);
           }
         }
-        renderPublicGoldenBoard(payload, { proFallback: proSnapshotFallback && !!(session && session.accessToken) });
+        renderPublicGoldenBoard(payload, { proFallback: proSnapshotFallback && hasActiveProSession() });
         log('LIVE golden public board refreshed: ' + (payload.boardCount || 0) + ' items');
       } catch (err) {
         renderClientGoldenFallback(err);
