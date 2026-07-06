@@ -816,6 +816,107 @@ async function runAgentAssistQualityGate(): Promise<void> {
     JSON.stringify(result.keywords.map((item) => item.agentInsight)));
 }
 
+async function runExternalAgentInsightInference(): Promise<void> {
+  const previousFetch = (globalThis as any).fetch;
+  (globalThis as any).fetch = async (url: string, init: { body?: string }) => {
+    assert('external agent insight uses OpenAI endpoint when only OpenAI key exists',
+      String(url).includes('api.openai.com/v1/chat/completions'));
+    const body = JSON.parse(String(init.body || '{}'));
+    assert('external agent prompt asks for JSON object response',
+      body.response_format?.type === 'json_object');
+    return {
+      ok: true,
+      status: 200,
+      statusText: 'OK',
+      json: async () => ({
+        choices: [{
+          message: {
+            content: JSON.stringify({
+              items: [{
+                index: 0,
+                keyword: '송지호바다하늘길입장료',
+                subject: '송지호 바다하늘길',
+                searchVolumeReason: '강원 고성 송지호 바다하늘길을 여름 여행 코스로 확인하면서 입장료와 주차, 운영시간을 한 번에 보려는 방문 전 검색 수요입니다.',
+                combinationIntent: '입장료, 주차, 운영시간, 둘레길 코스를 표로 묶어 방문 전 체크리스트 글로 작성합니다.',
+                autocompleteKeywords: ['송지호 바다하늘길 입장료', '송지호 바다하늘길 주차', '송지호 바다하늘길 운영시간'],
+                relatedKeywords: ['송지호 해수욕장', '고성 송지호 둘레길'],
+                expandedKeywords: ['송지호 바다하늘길 입장료', '송지호 바다하늘길 주차', '송지호 바다하늘길 운영시간', '고성 송지호 바다하늘길 후기'],
+                label: '여행/방문 전 확인',
+                route: 'blog-seo',
+              }],
+            }),
+          },
+        }],
+      }),
+      text: async () => '',
+    };
+  };
+  try {
+    const executor = createMobilePcEngineExecutor({
+      getEnvConfig: () => ({ openaiApiKey: 'sk-test-external-agent' }),
+      runProTraffic: async () => ({
+        keywords: [{
+          keyword: '송지호바다하늘길입장료',
+          grade: 'SSS',
+          score: 91,
+          pcSearchVolume: 450,
+          mobileSearchVolume: 2060,
+          totalSearchVolume: 2510,
+          documentCount: 157,
+          goldenRatio: 15.99,
+          cpc: 0,
+          category: 'travel_domestic',
+          source: 'fixture',
+          intent: 'measured-need',
+          evidence: ['naver-autocomplete'],
+          isMeasured: true,
+        }],
+        summary: {
+          total: 1,
+          sss: 1,
+          measured: 1,
+          elapsedMs: 1,
+          fromCache: false,
+          parityMode: 'pc-engine-plus',
+        },
+      }),
+    });
+    const result = await executor(makeJob('pro-traffic-hunter', {
+      categoryId: 'travel_domestic',
+      targetCount: 1,
+      includeSeasonal: true,
+      includeEvergreen: true,
+      includeFreshIssue: true,
+      agentAssist: {
+        enabled: true,
+        provider: 'codex',
+        featureId: 'pro-traffic-hunter',
+        includeAiInference: true,
+        forceExternalInference: true,
+        externalAi: true,
+        maxAgentRows: 1,
+      },
+    }), {
+      signal: new AbortController().signal,
+      progress: () => {},
+    });
+    const insight = result.keywords[0]?.agentInsight;
+    const externalSummary = result.summary as typeof result.summary & {
+      agentInsightExternalProvider?: string;
+      agentInsightExternalCount?: number;
+    };
+    assert('external agent insight overrides rule fallback fields',
+      insight?.generatedBy === 'external-agent:openai'
+        && insight.searchVolumeReason?.includes('강원 고성 송지호 바다하늘길')
+        && insight.autocompleteKeywords?.includes('송지호 바다하늘길 주차')
+        && externalSummary.agentInsightExternalProvider === 'openai'
+        && externalSummary.agentInsightExternalCount === 1,
+      JSON.stringify({ insight, summary: result.summary }));
+  } finally {
+    (globalThis as any).fetch = previousFetch;
+  }
+}
+
 async function runHomeBoardDefaultAdapter(): Promise<void> {
   const executor = createMobilePcEngineExecutor();
   const progress: string[] = [];
@@ -1234,6 +1335,7 @@ function runFallbackRegressionGuards(): void {
   await runInjectedGoldenQualityBackfill();
   await runInjectedProTraffic();
   await runAgentAssistQualityGate();
+  await runExternalAgentInsightInference();
   await runHomeBoardDefaultAdapter();
   await runInjectedKinHiddenHoney();
   await runInjectedShoppingConnect();

@@ -196,6 +196,9 @@ function normalizeAgentAssistContext(value: unknown): MobileAgentAssistContext |
     providerLabel: normalizeKeyword(raw.providerLabel) || undefined,
     seedKeyword: normalizeKeyword(raw.seedKeyword) || null,
     includeAiInference: raw.includeAiInference !== false,
+    forceExternalInference: raw.forceExternalInference === true,
+    externalAi: raw.externalAi === true,
+    maxAgentRows: clampInt(raw.maxAgentRows, 20, 1, 40),
     mindmapAssist: raw.mindmapAssist !== false,
     keywordResearchAssist: raw.keywordResearchAssist !== false,
     usageWindowHours: Number.isFinite(usageWindowHours) && usageWindowHours > 0 ? usageWindowHours : null,
@@ -876,9 +879,9 @@ const AGENT_CROSS_DOMAIN_GROUPS: readonly RegExp[] = [
 ];
 
 const AGENT_SHOPPING_TOPIC_RE = /(가격|최저가|구매|구매처|재고|할인|쿠폰|추천|순위|후기|비교|리뷰|스펙|청소기|로봇청소기|에어컨|노트북|아이폰|갤럭시|가습기|제습기|냉장고|세탁기|기저귀|카시트|영양제|유산균|화장품|선크림|캠핑)/u;
-const AGENT_TRAVEL_BOOKING_RE = /(렌터카|렌트카|숙소|호텔|펜션|항공권|여행|예약|입장권|티켓|축제|문화누리카드\s*사용처)/u;
-const AGENT_NEED_MODIFIER_RE = /(신청|대상|자격|조건|지급일|금액|조회|계산|계산기|일정|예매|예약|방법|후기|비교|사용처|잔액|기간|마감|발표|후보|전망|이유|논란|전말|선임|교체|중계|라인업|티켓|보험|취소|픽업|가격비교|서류|제외|주의사항)/u;
-const AGENT_HIDDEN_MONETIZABLE_NEED_RE = /(잔액조회|온라인\s*사용처|오프라인\s*사용처|지역별\s*사용처|가맹점|본인충전금|제외대상|누락|이의신청|입금일|환급일|지급일|마감일|신청기간|대상자\s*확인|서류|준비물|오류|안됨|가능\s*여부|취소\s*수수료|완전자차|자차보험|보험\s*비교|공항\s*픽업|가격비교|최저가|주의사항|실수|체크리스트|차이|비교|후기|사용처\s*조회|다음\s*감독|감독\s*후보|선임\s*과정|협회\s*비리|전말|변수|경우의\s*수|반응\s*정리|후속\s*일정)/u;
+const AGENT_TRAVEL_BOOKING_RE = /(렌터카|렌트카|숙소|호텔|펜션|항공권|여행|예약|입장권|입장료|운영시간|주차|티켓|축제|문화누리카드\s*사용처)/u;
+const AGENT_NEED_MODIFIER_RE = /(신청|대상|자격|조건|지급일|금액|조회|계산|계산기|일정|예매|예약|방법|후기|비교|사용처|잔액|기간|마감|발표|후보|전망|이유|논란|전말|선임|교체|중계|라인업|티켓|입장료|운영시간|주차|보험|취소|픽업|가격비교|서류|제외|주의사항)/u;
+const AGENT_HIDDEN_MONETIZABLE_NEED_RE = /(잔액조회|온라인\s*사용처|오프라인\s*사용처|지역별\s*사용처|가맹점|본인충전금|제외대상|누락|이의신청|입금일|환급일|지급일|마감일|신청기간|대상자\s*확인|서류|준비물|오류|안됨|가능\s*여부|취소\s*수수료|완전자차|자차보험|보험\s*비교|공항\s*픽업|입장료|운영시간|주차|가격비교|최저가|주의사항|실수|체크리스트|차이|비교|후기|사용처\s*조회|다음\s*감독|감독\s*후보|선임\s*과정|협회\s*비리|전말|변수|경우의\s*수|반응\s*정리|후속\s*일정)/u;
 const AGENT_BEGINNER_TOPIC_RE = /(문화누리카드|근로장려금|자녀장려금|주휴수당|최저임금|청년|지원금|환급|세금|정책|복지|보험|카드|대출|청약|렌터카|렌트카|숙소|호텔|항공권|여행|제주|가전|청소기|에어컨|제습기|노트북|유튜브|쇼츠|지식인|네이버|가맹점|사용처|감독|축구협회|대표팀|월드컵|KBO|야구)/u;
 const AGENT_NOISE_CHAIN_RE = /(방법주의사항정리|가격후기추천|지급일금액대상|신청대상조건|금액조회신청|대상자격지급일|정례대화(지급일|금액|대상|신청|수당)|프로필|인물프로필|보도참고자료|보도자료|마감결과|고유가피해지원금신청지급마감결과)/u;
 
@@ -1330,6 +1333,297 @@ function attachAgentInferredInsights(
   }));
 }
 
+type ExternalAgentInsightItem = Partial<MobileKeywordAgentInsight> & {
+  index?: number;
+  keyword?: string;
+  originalKeyword?: string;
+};
+
+type ExternalAgentInsightResponse = {
+  provider: 'anthropic' | 'openai';
+  items: ExternalAgentInsightItem[];
+};
+
+function shouldUseExternalAgentInsight(
+  agent: MobileAgentAssistContext | undefined,
+  env: Partial<EnvConfig>,
+): boolean {
+  if (!agent || agent.enabled === false || agent.includeAiInference === false) return false;
+  if (process.env['LEWORD_AGENT_EXTERNAL_INFERENCE'] === '0') return false;
+  if (process.env['NODE_ENV'] === 'test' && agent.forceExternalInference !== true && agent.externalAi !== true) return false;
+  if (agent.forceExternalInference !== true && agent.externalAi !== true) return false;
+  const anthropicKey = envValue(env, 'anthropicApiKey', 'ANTHROPIC_API_KEY', 'CLAUDE_API_KEY');
+  const openAiKey = envValue(env, 'openaiApiKey', 'OPENAI_API_KEY');
+  return anthropicKey.startsWith('sk-ant-') || openAiKey.startsWith('sk-');
+}
+
+function externalAgentInsightList(value: unknown, limit: number): string[] {
+  const raw = Array.isArray(value)
+    ? value
+    : typeof value === 'string'
+      ? value.split(/[,\n|]/)
+      : [];
+  return uniqueKeywords(raw.map((item) => normalizeKeyword(item)).filter(Boolean), limit)
+    .filter((item) => item.length <= 48 && !/AEO|GEO|SEO|제목보다|한 화면에서/i.test(item));
+}
+
+function extractJsonObject(text: string): Record<string, unknown> {
+  const clean = text.trim();
+  if (!clean) return {};
+  try {
+    return JSON.parse(clean) as Record<string, unknown>;
+  } catch {
+    const first = clean.indexOf('{');
+    const last = clean.lastIndexOf('}');
+    if (first >= 0 && last > first) {
+      try {
+        return JSON.parse(clean.slice(first, last + 1)) as Record<string, unknown>;
+      } catch {
+        return {};
+      }
+    }
+    return {};
+  }
+}
+
+async function fetchJsonWithTimeout(
+  url: string,
+  init: RequestInit,
+  timeoutMs: number,
+): Promise<Record<string, unknown>> {
+  const controller = new AbortController();
+  const timer = setTimeout(() => controller.abort(), timeoutMs);
+  try {
+    const response = await fetch(url, { ...init, signal: controller.signal });
+    if (!response.ok) {
+      let detail = '';
+      try {
+        detail = (await response.text()).slice(0, 240);
+      } catch {
+        detail = '';
+      }
+      throw new Error(`${response.status} ${response.statusText}${detail ? ` ${detail}` : ''}`);
+    }
+    return await response.json() as Record<string, unknown>;
+  } finally {
+    clearTimeout(timer);
+  }
+}
+
+function buildExternalAgentInsightPrompt(
+  result: MobileKeywordResult,
+  params: MobileAgentAwareParams,
+  product: MobileKeywordProduct,
+  agent: MobileAgentAssistContext,
+): string {
+  const contextKeywords = normalizeStringList(
+    ((params as { contextKeywords?: MobileKeywordContextCandidate[] }).contextKeywords || [])
+      .map((item) => item.keyword),
+    30,
+  );
+  const rows = result.keywords.map((metric, index) => ({
+    index,
+    keyword: metric.keyword,
+    grade: metric.grade,
+    category: metric.category,
+    source: metric.source,
+    intent: metric.intent,
+    pcSearchVolume: metric.pcSearchVolume,
+    mobileSearchVolume: metric.mobileSearchVolume,
+    totalSearchVolume: metric.totalSearchVolume,
+    documentCount: metric.documentCount,
+    goldenRatio: metric.goldenRatio,
+    evidence: normalizeStringList(metric.evidence, 8),
+    currentInsight: metric.agentInsight || null,
+  }));
+  return JSON.stringify({
+    role: 'LEWORD keyword research agent',
+    product,
+    featureId: agent.featureId || product,
+    seedKeyword: agent.seedKeyword || null,
+    mission: agent.mission || '실측 키워드를 사람이 이해할 수 있는 수익형 검색 의도와 확장키워드로 해석합니다.',
+    mustFind: agent.mustFind || [],
+    rejectIf: agent.rejectIf || [],
+    researchChecklist: agent.researchChecklist || [],
+    contextKeywords,
+    rows,
+    requiredOutput: {
+      items: [{
+        index: 0,
+        keyword: '원본 키워드',
+        subject: '키워드가 실제로 가리키는 대상/사건/상품/장소',
+        searchVolumeReason: '왜 지금 검색량이 붙는지. 계절/일정/뉴스/정책/구매상황/현장 맥락을 근거로 1~2문장',
+        combinationIntent: '블로거가 어떤 각도로 글을 써야 하는지. 제목 접미사 나열 금지',
+        autocompleteKeywords: ['네이버 자동완성처럼 짧고 실제 검색 가능한 확장어 5~8개'],
+        relatedKeywords: ['자연스럽게 같이 확인할 연관 검색어 4~8개'],
+        expandedKeywords: ['마인드맵용 후속 의문/비교/방법/주의사항 키워드 6~12개'],
+        label: '의도 라벨',
+        route: 'blog-seo | shopping-connect | kin-answer | youtube-to-blog',
+        warning: '억지 조합/광고 잠식/대형 헤드어면 경고. 정상 후보면 빈 문자열',
+      }],
+    },
+    hardRules: [
+      '반드시 JSON 객체만 반환합니다.',
+      '검색량과 문서수 숫자는 절대 새로 만들지 말고 원본 row 값만 전제로 해석합니다.',
+      '접미사만 붙인 기계식 확장어 금지. 실제 검색자가 이어서 칠 법한 짧은 검색어만 제시합니다.',
+      '키워드 의미가 불명확하면 그대로 미화하지 말고 warning에 이유를 씁니다.',
+      '정책/여행 편향을 만들지 말고 row의 실제 주제별로 다르게 판단합니다.',
+      '쇼핑 제품 키워드는 shopping-connect route로 보내고, 일반 황금보드에서는 제품 판매 글로 억지 연결하지 않습니다.',
+    ],
+  });
+}
+
+async function callExternalAgentInsightModel(
+  env: Partial<EnvConfig>,
+  prompt: string,
+): Promise<ExternalAgentInsightResponse> {
+  const anthropicKey = envValue(env, 'anthropicApiKey', 'ANTHROPIC_API_KEY', 'CLAUDE_API_KEY');
+  if (anthropicKey.startsWith('sk-ant-')) {
+    const model = normalizeKeyword(process.env['LEWORD_AGENT_CLAUDE_MODEL']) || 'claude-sonnet-4-6';
+    const data = await fetchJsonWithTimeout('https://api.anthropic.com/v1/messages', {
+      method: 'POST',
+      headers: {
+        'content-type': 'application/json',
+        'x-api-key': anthropicKey,
+        'anthropic-version': '2023-06-01',
+      },
+      body: JSON.stringify({
+        model,
+        max_tokens: 4096,
+        temperature: 0.2,
+        system: '너는 한국 검색 의도와 네이버 자동완성 흐름을 읽는 LEWORD 키워드 리서치 에이전트다. 근거 없는 수치 생성과 기계식 접미사를 금지한다.',
+        messages: [{ role: 'user', content: prompt }],
+      }),
+    }, 18000);
+    const text = Array.isArray(data.content)
+      ? data.content.map((part) => typeof part === 'object' && part ? normalizeKeyword((part as Record<string, unknown>).text) : '').join('\n')
+      : '';
+    const parsed = extractJsonObject(text);
+    const items = Array.isArray(parsed.items) ? parsed.items as ExternalAgentInsightItem[] : [];
+    return { provider: 'anthropic', items };
+  }
+
+  const openAiKey = envValue(env, 'openaiApiKey', 'OPENAI_API_KEY');
+  if (!openAiKey.startsWith('sk-')) return { provider: 'openai', items: [] };
+  const model = normalizeKeyword(process.env['LEWORD_AGENT_OPENAI_MODEL']) || 'gpt-4o-mini';
+  const data = await fetchJsonWithTimeout('https://api.openai.com/v1/chat/completions', {
+    method: 'POST',
+    headers: {
+      'content-type': 'application/json',
+      authorization: `Bearer ${openAiKey}`,
+    },
+    body: JSON.stringify({
+      model,
+      temperature: 0.2,
+      response_format: { type: 'json_object' },
+      messages: [
+        {
+          role: 'system',
+          content: '너는 한국 검색 의도와 네이버 자동완성 흐름을 읽는 LEWORD 키워드 리서치 에이전트다. 근거 없는 수치 생성과 기계식 접미사를 금지한다.',
+        },
+        { role: 'user', content: prompt },
+      ],
+    }),
+  }, 18000);
+  const content = normalizeKeyword(
+    (((data.choices as unknown[]) || [])[0] as Record<string, unknown> | undefined)?.message
+      && ((((data.choices as unknown[]) || [])[0] as Record<string, unknown>).message as Record<string, unknown>).content,
+  );
+  const parsed = extractJsonObject(content);
+  const items = Array.isArray(parsed.items) ? parsed.items as ExternalAgentInsightItem[] : [];
+  return { provider: 'openai', items };
+}
+
+function mergeExternalAgentInsightItem(
+  metric: MobileKeywordMetric,
+  item: ExternalAgentInsightItem,
+  provider: string,
+): MobileKeywordMetric {
+  const current = metric.agentInsight || {};
+  const merged: MobileKeywordAgentInsight = { ...current };
+  const stringKeys: Array<keyof MobileKeywordAgentInsight> = [
+    'label',
+    'route',
+    'subject',
+    'searchVolumeReason',
+    'combinationIntent',
+    'sourceSummary',
+    'warning',
+  ];
+  for (const key of stringKeys) {
+    const value = normalizeKeyword(item[key]);
+    if (value) (merged as Record<string, unknown>)[key] = value;
+  }
+  const autocompleteKeywords = externalAgentInsightList(item.autocompleteKeywords, 10);
+  const relatedKeywords = externalAgentInsightList(item.relatedKeywords, 12);
+  const expandedKeywords = externalAgentInsightList(item.expandedKeywords, 14);
+  if (autocompleteKeywords.length) merged.autocompleteKeywords = autocompleteKeywords;
+  if (relatedKeywords.length) merged.relatedKeywords = relatedKeywords;
+  if (expandedKeywords.length) merged.expandedKeywords = expandedKeywords;
+  if (!merged.relatedKeywords?.length && autocompleteKeywords.length) merged.relatedKeywords = autocompleteKeywords.slice(0, 8);
+  if (!merged.expandedKeywords?.length) {
+    merged.expandedKeywords = uniqueKeywords([
+      ...autocompleteKeywords,
+      ...relatedKeywords,
+      ...(current.expandedKeywords || []),
+    ], 14);
+  }
+  merged.generatedBy = `external-agent:${provider}`;
+  return {
+    ...metric,
+    agentInsight: merged,
+    evidence: normalizeStringList([...(metric.evidence || []), `external-agent:${provider}`], 18),
+  };
+}
+
+async function withExternalAgentInsight(
+  result: MobileKeywordResult,
+  params: MobileAgentAwareParams,
+  product: MobileKeywordProduct,
+  agent: MobileAgentAssistContext | undefined,
+  env: Partial<EnvConfig>,
+): Promise<MobileKeywordResult> {
+  if (!shouldUseExternalAgentInsight(agent, env) || result.keywords.length === 0 || !agent) return result;
+  const maxRows = clampInt(agent.maxAgentRows, 20, 1, 40);
+  const sliced = withKeywordResultSummary(result, result.keywords.slice(0, maxRows));
+  try {
+    const prompt = buildExternalAgentInsightPrompt(sliced, params, product, agent);
+    const response = await callExternalAgentInsightModel(env, prompt);
+    if (!response.items.length) return result;
+    const byKeyword = new Map<string, ExternalAgentInsightItem>();
+    const byIndex = new Map<number, ExternalAgentInsightItem>();
+    for (const item of response.items) {
+      const key = compactKeyword(normalizeKeyword(item.keyword || item.originalKeyword || ''));
+      if (key) byKeyword.set(key, item);
+      if (Number.isInteger(item.index)) byIndex.set(Number(item.index), item);
+    }
+    let mergedCount = 0;
+    const keywords = result.keywords.map((metric, index) => {
+      const item = byKeyword.get(compactKeyword(metric.keyword)) || byIndex.get(index);
+      if (!item) return metric;
+      mergedCount += 1;
+      return mergeExternalAgentInsightItem(metric, item, response.provider);
+    });
+    const summarized = withKeywordResultSummary(result, keywords);
+    return {
+      ...summarized,
+      summary: {
+        ...summarized.summary,
+        agentInsightExternalProvider: response.provider,
+        agentInsightExternalCount: mergedCount,
+      },
+    };
+  } catch (error) {
+    return {
+      ...result,
+      summary: {
+        ...result.summary,
+        agentInsightExternalError: normalizeKeyword((error as Error).message).slice(0, 180),
+      },
+    };
+  }
+}
+
 function applyAgentQualityGate(
   result: MobileKeywordResult,
   params: MobileAgentAwareParams,
@@ -1403,17 +1697,24 @@ function applyAgentQualityGate(
   };
 }
 
-function withAgentAssistSummary(
+async function withAgentAssistSummary(
   result: MobileKeywordResult,
   params: MobileAgentAwareParams,
   product: MobileKeywordProduct,
-): MobileKeywordResult {
+  env: Partial<EnvConfig>,
+): Promise<MobileKeywordResult> {
   const qualityResult = applyAgentQualityGate(result, params, product);
   const agent = params.agentAssist && params.agentAssist.enabled !== false
     ? params.agentAssist
     : undefined;
   const insightKeywords = attachAgentInferredInsights(qualityResult.keywords, params, product, agent);
-  const insightResult = withKeywordResultSummary(qualityResult, insightKeywords);
+  const insightResult = await withExternalAgentInsight(
+    withKeywordResultSummary(qualityResult, insightKeywords),
+    params,
+    product,
+    agent,
+    env,
+  );
   if (!agent) return insightResult;
   const tasks = normalizeStringList(agent.tasks, 16);
   const provider = normalizeKeyword(agent.provider) || 'server-auto';
@@ -5565,61 +5866,61 @@ export function createMobilePcEngineExecutor(
       case 'keyword-analysis': {
         const params = asKeywordAnalysisParams(job.params);
         const result = await runKeywordAnalysis(job, context, jobMeasureKeywordMetrics, getJobEnvConfig);
-        return withAgentAssistSummary(result, params, job.product);
+        return await withAgentAssistSummary(result, params, job.product, getJobEnvConfig());
       }
       case 'mindmap-expansion': {
         const params = asMindmapParams(job.params);
         const result = await runMindmapExpansion(job, context, jobMeasureKeywordMetrics, getJobEnvConfig);
-        return withAgentAssistSummary(result, params, job.product);
+        return await withAgentAssistSummary(result, params, job.product, getJobEnvConfig());
       }
       case 'golden-discovery': {
         const params = asGoldenParams(job.params);
         const adapter = options.runGoldenDiscovery
           || ((payload, ctx) => runGoldenDiscoveryWithPcMdp(payload, ctx, getJobEnvConfig));
         const result = await adapter(params, context);
-        return withAgentAssistSummary(normalizeGoldenDiscoveryResult(result, params.targetCount), params, job.product);
+        return await withAgentAssistSummary(normalizeGoldenDiscoveryResult(result, params.targetCount), params, job.product, getJobEnvConfig());
       }
       case 'pro-traffic-hunter': {
         const params = asProTrafficParams(job.params);
         const adapter = options.runProTraffic
           || ((payload, ctx) => runProTrafficWithPcHunter(payload, ctx, jobMeasureKeywordMetrics));
         const result = await adapter(params, context);
-        return withAgentAssistSummary(result, params, job.product);
+        return await withAgentAssistSummary(result, params, job.product, getJobEnvConfig());
       }
       case 'home-board-hunter': {
         const params = asHomeBoardParams(job.params);
         const adapter = options.runHomeBoard
           || ((payload, ctx) => runHomeBoardWithPcPlanner(payload, ctx, jobMeasureKeywordMetrics));
         const result = await adapter(params, context);
-        return withAgentAssistSummary(result, params, job.product);
+        return await withAgentAssistSummary(result, params, job.product, getJobEnvConfig());
       }
       case 'kin-hidden-honey': {
         const params = asKinHiddenHoneyParams(job.params);
         const result = options.runKinHiddenHoney
           ? await options.runKinHiddenHoney(params, context)
           : await runKinHiddenHoneyWithPcHunter(params, context, jobMeasureKeywordMetrics);
-        return withAgentAssistSummary(result, params, job.product);
+        return await withAgentAssistSummary(result, params, job.product, getJobEnvConfig());
       }
       case 'shopping-connect': {
         const params = asShoppingConnectParams(job.params);
         const adapter = options.runShoppingConnect
           || ((payload, ctx) => runShoppingConnectWithPcEngine(payload, ctx, jobMeasureKeywordMetrics));
         const result = await adapter(params, context);
-        return withAgentAssistSummary(result, params, job.product);
+        return await withAgentAssistSummary(result, params, job.product, getJobEnvConfig());
       }
       case 'youtube-golden': {
         const params = asYoutubeGoldenParams(job.params);
         const adapter = options.runYoutubeGolden
           || ((payload, ctx) => runYoutubeGoldenWithPcEngine(payload, ctx, getJobEnvConfig, jobMeasureKeywordMetrics));
         const result = await adapter(params, context);
-        return withAgentAssistSummary(result, params, job.product);
+        return await withAgentAssistSummary(result, params, job.product, getJobEnvConfig());
       }
       case 'naver-mate-hunter': {
         const params = asNaverMateParams(job.params);
         const adapter = options.runNaverMate
           || ((payload, ctx) => runNaverMateWithPcEngine(payload, ctx, jobMeasureKeywordMetrics, getJobEnvConfig));
         const result = await adapter(params, context);
-        return withAgentAssistSummary(result, params, job.product);
+        return await withAgentAssistSummary(result, params, job.product, getJobEnvConfig());
       }
       default:
         throw new Error(`unsupported mobile product: ${job.product}`);

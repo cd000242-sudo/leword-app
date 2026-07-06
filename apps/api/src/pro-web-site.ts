@@ -2926,6 +2926,9 @@ export function renderLewordProWeb(): string {
         out.push(clean);
       };
       provided.forEach(push);
+      if (out.length >= 4) {
+        return domainSafeIntentBranches(keyword || seed, out, 10);
+      }
       if (/송지호|바다하늘길/.test(seed + keyword)) {
         [
           '송지호 바다하늘길 입장료',
@@ -5697,6 +5700,9 @@ export function renderLewordProWeb(): string {
         seedKeyword: agentAssistSeedKeyword(payload) || null,
         mission: charter.mission,
         includeAiInference: true,
+        forceExternalInference: true,
+        externalAi: true,
+        maxAgentRows: featureId === 'pro-traffic-hunter' ? 30 : featureId === 'naver-mate-hunter' ? 30 : 20,
         mindmapAssist: adminWorker ? adminWorker.mindmapAssist !== false : true,
         keywordResearchAssist: adminWorker ? adminWorker.keywordResearchAssist !== false : true,
         usageWindowHours: adminWorker && adminWorker.usageWindowHours ? adminWorker.usageWindowHours : null,

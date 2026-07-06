@@ -991,6 +991,9 @@ export interface MobileAgentAssistContext {
   providerLabel?: string;
   seedKeyword?: string | null;
   includeAiInference?: boolean;
+  forceExternalInference?: boolean;
+  externalAi?: boolean;
+  maxAgentRows?: number;
   mindmapAssist?: boolean;
   keywordResearchAssist?: boolean;
   usageWindowHours?: number | null;
@@ -1110,6 +1113,9 @@ export interface MobileKeywordResult {
     publishReady?: number;
     agentFiltered?: number;
     agentQualityProfile?: string;
+    agentInsightExternalProvider?: string;
+    agentInsightExternalCount?: number;
+    agentInsightExternalError?: string;
     agentAssist?: {
       enabled: boolean;
       product: MobileKeywordProduct;
