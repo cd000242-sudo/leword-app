@@ -6448,6 +6448,7 @@ export function renderLewordProWeb(): string {
         return payload;
       } catch (err) {
         if (err && err.name === 'AbortError') throw new Error('응답이 지연되어 기본 보드를 먼저 표시합니다.');
+        if (isFetchNetworkError(err)) throw new Error(formatNetworkError(url, err));
         throw err;
       } finally {
         if (timeoutId) clearTimeout(timeoutId);
@@ -6456,6 +6457,23 @@ export function renderLewordProWeb(): string {
     function routePath(url) {
       try { return new URL(url, location.href).pathname; }
       catch { return String(url || '-'); }
+    }
+    function apiOriginLabel(url) {
+      try { return new URL(url, location.href).origin; }
+      catch { return apiBase || location.origin || '-'; }
+    }
+    function isFetchNetworkError(err) {
+      const name = String(err && err.name || '');
+      const message = String(err && err.message || err || '');
+      return name === 'TypeError' || /Failed to fetch|NetworkError|Load failed|ECONN|ENOTFOUND|ERR_CONNECTION|fetch/i.test(message);
+    }
+    function formatNetworkError(url, err) {
+      const origin = apiOriginLabel(url);
+      const path = routePath(url);
+      if (url === endpoints.session) {
+        return '로그인 API 서버에 연결할 수 없습니다. 아이디/비밀번호 문제가 아니라 서버 전원, 도메인, SSL 또는 배포 연결이 끊긴 상태입니다. 잠시 후 다시 시도하세요. (' + origin + path + ')';
+      }
+      return 'API 서버에 연결할 수 없습니다. 서버 상태 또는 도메인 연결을 확인한 뒤 다시 실행하세요. (' + origin + path + ')';
     }
     function formatApiError(url, status, payload) {
       const message = payload && (payload.message || payload.error) ? String(payload.message || payload.error) : '';
@@ -6488,7 +6506,13 @@ export function renderLewordProWeb(): string {
     }
     async function apiPost(url, body, options) {
       const requestHeaders = url === endpoints.session ? { 'Content-Type': 'application/json' } : headers(options);
-      const res = await fetch(url, { method: 'POST', headers: requestHeaders, body: JSON.stringify(withKeywordContextPayload(url, body || {})) });
+      let res;
+      try {
+        res = await fetch(url, { method: 'POST', headers: requestHeaders, body: JSON.stringify(withKeywordContextPayload(url, body || {})) });
+      } catch (err) {
+        if (isFetchNetworkError(err)) throw new Error(formatNetworkError(url, err));
+        throw err;
+      }
       const payload = await res.json().catch(function() { return {}; });
       if (url !== endpoints.session && (res.status === 401 || res.status === 403)) {
         saveSession(null);

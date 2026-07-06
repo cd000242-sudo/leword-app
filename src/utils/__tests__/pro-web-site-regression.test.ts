@@ -136,6 +136,12 @@ assert('api key settings are separate from Pro login credentials',
     && html.includes('function clearLoginCredentialAutofillFromApiSettings')
     && html.includes('readUserApiSettings();\n        clearLoginCredentialAutofillFromApiSettings(false);')
     && html.includes('Pro 로그인 아이디/비밀번호가 API 키 칸에 자동 입력되어 제거했습니다.'));
+assert('pro login network failures explain API connectivity instead of raw fetch errors',
+  proWebHtml.includes('function isFetchNetworkError')
+    && proWebHtml.includes('function formatNetworkError')
+    && proWebHtml.includes('로그인 API 서버에 연결할 수 없습니다.')
+    && proWebHtml.includes('아이디/비밀번호 문제가 아니라 서버 전원, 도메인, SSL 또는 배포 연결이 끊긴 상태입니다.')
+    && proWebHtml.includes('if (isFetchNetworkError(err)) throw new Error(formatNetworkError(url, err));'));
 assert('settings exposes a clean API issue modal and integration status check',
   html.includes('id="openApiIssueModal"')
     && html.includes('API 키 발급 모음')
