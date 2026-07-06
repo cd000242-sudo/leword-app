@@ -261,9 +261,11 @@ async function runMindmapExpansionWithPolicySemanticBridge(): Promise<void> {
   });
   const keywords = result.keywords.map((item) => item.keyword);
   assert('mindmap expands policy keywords without duplicated suffix branches',
-    keywords.includes('\uADFC\uB85C\uC7A5\uB824\uAE08 \uC9C0\uAE09\uC77C \uB300\uC0C1')
-      && keywords.includes('\uADFC\uB85C\uC7A5\uB824\uAE08 \uC9C0\uAE09\uC77C \uC2E0\uCCAD\uBC29\uBC95')
-      && keywords.includes('\uADFC\uB85C\uC7A5\uB824\uAE08 \uC9C0\uAE09\uC77C \uD544\uC694\uC11C\uB958')
+    keywords.includes('\uADFC\uB85C\uC7A5\uB824\uAE08 \uB300\uC0C1')
+      && keywords.includes('\uADFC\uB85C\uC7A5\uB824\uAE08 \uC2E0\uCCAD\uBC29\uBC95')
+      && keywords.includes('\uADFC\uB85C\uC7A5\uB824\uAE08 \uD544\uC694\uC11C\uB958')
+      && !keywords.includes('\uADFC\uB85C\uC7A5\uB824\uAE08 \uC9C0\uAE09\uC77C \uB300\uC0C1')
+      && !keywords.includes('\uADFC\uB85C\uC7A5\uB824\uAE08 \uC9C0\uAE09\uC77C \uC2E0\uCCAD\uBC29\uBC95')
       && !keywords.includes('\uADFC\uB85C\uC7A5\uB824\uAE08 \uC9C0\uAE09\uC77C \uC9C0\uAE09\uC77C'),
     keywords.join(', '));
 }

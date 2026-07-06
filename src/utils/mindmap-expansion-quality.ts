@@ -75,6 +75,47 @@ const SEMANTIC_BRIDGE_GENERIC_TOKENS = new Set([
 ]);
 const SEMANTIC_BRIDGE_SPORTS_RE = /(?:홍명보|축구|대한축구협회|축구협회|KFA|국가대표|대표팀|월드컵|감독|이강인|이재성|김민재|선임|사퇴|교체|투입)/iu;
 const SEMANTIC_BRIDGE_SPORTS_DRIFT_RE = /(?:축구|대한축구협회|축구협회|KFA|국가대표|대표팀|월드컵|감독|이강인|이재성|김민재|선임|사퇴|교체|투입)/iu;
+const MINDMAP_TERMINAL_INTENTS = [
+  '신청방법', '신청 방법', '신청자격', '지급일', '지급 일', '금액', '지원금액',
+  '필요서류', '대상', '대상자', '자격', '조건', '조회', '확인', '제외대상', '제외 대상',
+  '사용처', '가맹점', '잔액', '잔액조회', '온라인', '오프라인', '입장료', '예약',
+  '주차', '운영시간', '후기', '가격', '비교', '추천', '방법', '주의사항',
+];
+
+function stripTerminalIntent(keyword: string): string {
+  let out = normalizeKeyword(keyword);
+  const intents = [...MINDMAP_TERMINAL_INTENTS].sort((a, b) => compactKeyword(b).length - compactKeyword(a).length);
+  for (let pass = 0; pass < 4; pass += 1) {
+    const before = out;
+    for (const intent of intents) {
+      const pattern = new RegExp(`\\s*${intent.replace(/[.*+?^${}()|[\]\\]/g, '\\$&').replace(/\s+/g, '\\s*')}$`, 'iu');
+      out = out.replace(pattern, '').trim();
+    }
+    if (out === before) break;
+  }
+  return out || normalizeKeyword(keyword);
+}
+
+function hasDuplicatedIntentChain(seed: string, keyword: string): boolean {
+  const seedKey = compactKeyword(seed);
+  const rootKey = compactKeyword(stripTerminalIntent(seed));
+  const keywordKey = compactKeyword(keyword);
+  if (!seedKey || !rootKey || !keywordKey || keywordKey === seedKey || keywordKey === rootKey) return false;
+  if (seedKey !== rootKey && keywordKey.startsWith(seedKey)) return true;
+  if (!keywordKey.startsWith(rootKey)) return false;
+  let tailKey = keywordKey.slice(rootKey.length);
+  let hits = 0;
+  const intentKeys = Array.from(new Set(MINDMAP_TERMINAL_INTENTS.map(compactKeyword).filter(Boolean)))
+    .sort((a, b) => b.length - a.length);
+  for (const intentKey of intentKeys) {
+    if (intentKey && tailKey.includes(intentKey)) {
+      hits += 1;
+      tailKey = tailKey.replace(intentKey, '');
+    }
+    if (hits >= 2) return true;
+  }
+  return false;
+}
 
 function semanticBridgeTokens(keyword: string): string[] {
   return Array.from(new Set(
@@ -135,6 +176,7 @@ export function rankMindmapExpansionCandidates(
     const key = compactKeyword(keyword);
     if (!keyword || !key || seen.has(key)) continue;
     if (!isMindmapExpansionKeywordCandidate(keyword)) continue;
+    if (hasDuplicatedIntentChain(seed, keyword)) continue;
     seen.add(key);
     normalized.push({ ...candidate, keyword });
   }

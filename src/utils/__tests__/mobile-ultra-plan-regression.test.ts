@@ -1108,7 +1108,9 @@ assert('mobile executor uses PC mindmap quality gate', /rankMindmapExpansionCand
 assert('mobile executor filters article-title mindmap noise and supplements thin measured pools',
   /MINDMAP_ARTICLE_TITLE_QUERY_RE/.test(pcExecutor)
     && /buildInsuranceCalculatorMeasuredRoots/.test(pcExecutor)
-    && /buildMindmapMeasuredQueryRoots\(normalizedSeed, 32\)/.test(pcExecutor)
+    && /const normalizedRoot = stripKnownIntent\(normalizedSeed\)/.test(pcExecutor)
+    && /buildMindmapMeasuredQueryRoots\(normalizedRoot, 32\)/.test(pcExecutor)
+    && /hasDuplicatedKnownIntentChain/.test(pcExecutor)
     && /mindmap measured pool low/.test(pcExecutor)
     && /mergePrioritizedKeywordMetrics\(\[finalMetrics, fallback, sourceOnlyMetrics\], params\.targetCount\)/.test(pcExecutor)
     && /sourceOnlyMetrics/.test(pcExecutor),

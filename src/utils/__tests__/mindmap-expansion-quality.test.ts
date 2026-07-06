@@ -156,14 +156,19 @@ assert('mindmap semantic bridge blocks cross-topic sports drift',
   minimumWageMindmap.join(', '));
 
 const semanticPolicyBridge = rankMindmapExpansionCandidates('\uADFC\uB85C\uC7A5\uB824\uAE08 \uC9C0\uAE09\uC77C', [
+  { keyword: '\uADFC\uB85C\uC7A5\uB824\uAE08 \uB300\uC0C1', sources: ['mindmap-semantic-bridge'] },
+  { keyword: '\uADFC\uB85C\uC7A5\uB824\uAE08 \uC2E0\uCCAD\uBC29\uBC95', sources: ['mindmap-semantic-bridge'] },
+  { keyword: '\uADFC\uB85C\uC7A5\uB824\uAE08 \uD544\uC694\uC11C\uB958', sources: ['mindmap-semantic-bridge'] },
   { keyword: '\uADFC\uB85C\uC7A5\uB824\uAE08 \uC9C0\uAE09\uC77C \uB300\uC0C1', sources: ['mindmap-semantic-bridge'] },
   { keyword: '\uADFC\uB85C\uC7A5\uB824\uAE08 \uC9C0\uAE09\uC77C \uC2E0\uCCAD\uBC29\uBC95', sources: ['mindmap-semantic-bridge'] },
   { keyword: '\uADFC\uB85C\uC7A5\uB824\uAE08 \uC9C0\uAE09\uC77C \uD544\uC694\uC11C\uB958', sources: ['mindmap-semantic-bridge'] },
   { keyword: '\uADFC\uB85C\uC7A5\uB824\uAE08 \uC9C0\uAE09\uC77C \uD655\uC778\uD560 3\uAC00\uC9C0', sources: ['ai-strategy'] },
 ], 10).map(item => item.keyword);
 assert('mindmap ranks semantic policy intent branches and rejects article copy',
-  semanticPolicyBridge.includes('\uADFC\uB85C\uC7A5\uB824\uAE08 \uC9C0\uAE09\uC77C \uB300\uC0C1')
-    && semanticPolicyBridge.includes('\uADFC\uB85C\uC7A5\uB824\uAE08 \uC9C0\uAE09\uC77C \uC2E0\uCCAD\uBC29\uBC95')
+  semanticPolicyBridge.includes('\uADFC\uB85C\uC7A5\uB824\uAE08 \uB300\uC0C1')
+    && semanticPolicyBridge.includes('\uADFC\uB85C\uC7A5\uB824\uAE08 \uC2E0\uCCAD\uBC29\uBC95')
+    && !semanticPolicyBridge.includes('\uADFC\uB85C\uC7A5\uB824\uAE08 \uC9C0\uAE09\uC77C \uB300\uC0C1')
+    && !semanticPolicyBridge.includes('\uADFC\uB85C\uC7A5\uB824\uAE08 \uC9C0\uAE09\uC77C \uC2E0\uCCAD\uBC29\uBC95')
     && !semanticPolicyBridge.some(keyword => /\uD655\uC778\uD560 3\uAC00\uC9C0/.test(keyword)),
   semanticPolicyBridge.join(', '));
 

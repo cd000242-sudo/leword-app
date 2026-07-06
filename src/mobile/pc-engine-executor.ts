@@ -1133,48 +1133,48 @@ function agentInsightExpansionCandidates(
   const domainSeeds: string[] = [];
   if (domain === 'policy') {
     domainSeeds.push(
-      `${subject} 대상`,
-      `${subject} 신청방법`,
-      `${subject} 지급일`,
-      `${subject} 제외대상`,
-      `${subject} 필요서류`,
-      `${subject} 이의신청`,
+      appendMindmapBranchSuffix(subject, '대상'),
+      appendMindmapBranchSuffix(subject, '신청방법'),
+      appendMindmapBranchSuffix(subject, '지급일'),
+      appendMindmapBranchSuffix(subject, '제외대상'),
+      appendMindmapBranchSuffix(subject, '필요서류'),
+      appendMindmapBranchSuffix(subject, '이의신청'),
     );
   } else if (domain === 'travel') {
     domainSeeds.push(
-      `${subject} 입장료`,
-      `${subject} 예약`,
-      `${subject} 주차`,
-      `${subject} 운영시간`,
-      `${subject} 후기`,
-      `${subject} 근처 맛집`,
+      appendMindmapBranchSuffix(subject, '입장료'),
+      appendMindmapBranchSuffix(subject, '예약'),
+      appendMindmapBranchSuffix(subject, '주차'),
+      appendMindmapBranchSuffix(subject, '운영시간'),
+      appendMindmapBranchSuffix(subject, '후기'),
+      appendMindmapBranchSuffix(subject, '근처 맛집'),
     );
   } else if (domain === 'shopping') {
     domainSeeds.push(
-      `${subject} 후기`,
-      `${subject} 가격비교`,
-      `${subject} 단점`,
-      `${subject} 대체품`,
-      `${subject} 구매 전 확인`,
-      `${subject} 추천`,
+      appendMindmapBranchSuffix(subject, '후기'),
+      appendMindmapBranchSuffix(subject, '가격비교'),
+      appendMindmapBranchSuffix(subject, '단점'),
+      appendMindmapBranchSuffix(subject, '대체품'),
+      appendMindmapBranchSuffix(subject, '구매 전 확인'),
+      appendMindmapBranchSuffix(subject, '추천'),
     );
   } else if (domain === 'sports') {
     domainSeeds.push(
-      `${subject} 다음 일정`,
-      `${subject} 후보`,
-      `${subject} 선임 과정`,
-      `${subject} 논란 정리`,
-      `${subject} 반응`,
-      `${subject} 경우의 수`,
+      appendMindmapBranchSuffix(subject, '다음 일정'),
+      appendMindmapBranchSuffix(subject, '후보'),
+      appendMindmapBranchSuffix(subject, '선임 과정'),
+      appendMindmapBranchSuffix(subject, '논란 정리'),
+      appendMindmapBranchSuffix(subject, '반응'),
+      appendMindmapBranchSuffix(subject, '경우의 수'),
     );
   } else if (domain === 'kin') {
     domainSeeds.push(
-      `${subject} 해결방법`,
-      `${subject} 원인`,
-      `${subject} 안됨`,
-      `${subject} 차이`,
-      `${subject} 비용`,
-      `${subject} 주의사항`,
+      appendMindmapBranchSuffix(subject, '해결방법'),
+      appendMindmapBranchSuffix(subject, '원인'),
+      appendMindmapBranchSuffix(subject, '안됨'),
+      appendMindmapBranchSuffix(subject, '차이'),
+      appendMindmapBranchSuffix(subject, '비용'),
+      appendMindmapBranchSuffix(subject, '주의사항'),
     );
   }
   return uniqueKeywords([
@@ -1187,6 +1187,7 @@ function agentInsightExpansionCandidates(
     .filter((item) => {
       const clean = normalizeKeyword(item);
       if (!clean || compactKeyword(clean) === compactKeyword(keyword)) return false;
+      if (hasDuplicatedKnownIntentChain(keyword, clean)) return false;
       if (clean.length > 46) return false;
       if (AGENT_NOISE_CHAIN_RE.test(compactKeyword(clean))) return false;
       return isLikelyMeasuredSearchQuery(clean) || clean.length <= 22;
@@ -2073,11 +2074,15 @@ function buildInsuranceCalculatorMeasuredRoots(keyword: string, limit = 24): str
 }
 
 function buildMindmapMeasuredQueryRoots(keyword: string, limit = 32): string[] {
-  return uniqueKeywords([
-    ...buildInsuranceCalculatorMeasuredRoots(keyword, limit),
-    ...buildKoreanNumericAliasRoots(keyword, 8),
-    ...buildSpacingIntentAliasRoots(keyword, 8),
-  ], limit);
+  const normalized = normalizeKeyword(keyword).replace(/\s+/g, ' ').trim();
+  const root = stripKnownIntent(normalized);
+  const seeds = uniqueKeywords([normalized, root], 2);
+  return uniqueKeywords(seeds.flatMap((seed) => [
+    seed,
+    ...buildInsuranceCalculatorMeasuredRoots(seed, limit),
+    ...buildKoreanNumericAliasRoots(seed, 8),
+    ...buildSpacingIntentAliasRoots(seed, 8),
+  ]), limit);
 }
 
 function buildSpacingIntentAliasRoots(keyword: string, limit = 12): string[] {
@@ -3132,19 +3137,59 @@ function mergeCoverageMetrics(
   return out;
 }
 
-function stripKnownIntent(seed: string): string {
-  let out = normalizeKeyword(seed);
-  const trailing = [
+const KNOWN_INTENT_SUFFIXES = [
     '신청방법', '신청 방법', '신청자격', '자격', '대상', '혜택', '서류', '기간', '마감', '조회', '확인',
+    '지급일', '지급 일', '금액', '지원금액', '필요서류', '온라인 신청', '정부24 신청', '결과 조회',
+    '선정 기준', '소득 기준', '중복 지원', '제외 대상', '제외대상', '대상자', '신청기간', '신청 기간',
+    '마감일', '이의신청', '사용처', '가맹점', '잔액', '잔액조회', '온라인', '오프라인',
     '피해 확인', '피해 조회', '보상', '대처', '예방법', '해결', '방법', '후기', '가격', '추천',
     '비교', '순위', '사용법', '주의사항', '전기세', '전기요금', '용량', '청소', '렌탈', '할인',
     '구매처', '가성비', '소음', '설치', '조건', '총정리', '리뷰', '최신', '오늘', '이번주',
     '체크리스트', '필터 교체',
   ];
-  for (const intent of trailing) {
-    out = out.replace(new RegExp(`\\s*${intent.replace(/\s+/g, '\\s*')}$`, 'i'), '').trim();
+
+function escapeRegExpLiteral(value: string): string {
+  return value.replace(/[.*+?^${}()|[\]\\]/g, '\\$&');
+}
+
+function stripKnownIntent(seed: string): string {
+  let out = normalizeKeyword(seed);
+  const intents = [...KNOWN_INTENT_SUFFIXES]
+    .sort((a, b) => compactKeyword(b).length - compactKeyword(a).length);
+  for (let pass = 0; pass < 4; pass += 1) {
+    const before = out;
+    for (const intent of intents) {
+      const pattern = new RegExp(`\\s*${escapeRegExpLiteral(intent).replace(/\s+/g, '\\s*')}$`, 'iu');
+      out = out.replace(pattern, '').trim();
+    }
+    if (out === before) break;
   }
   return out || normalizeKeyword(seed);
+}
+
+function hasDuplicatedKnownIntentChain(seedKeyword: string, candidateKeyword: string): boolean {
+  const seed = normalizeKeyword(seedKeyword);
+  const candidate = normalizeKeyword(candidateKeyword);
+  const root = stripKnownIntent(seed);
+  const seedKey = compactKeyword(seed);
+  const rootKey = compactKeyword(root);
+  const candidateKey = compactKeyword(candidate);
+  if (!seedKey || !rootKey || !candidateKey || candidateKey === seedKey || candidateKey === rootKey) return false;
+  if (seedKey !== rootKey && candidateKey.startsWith(seedKey)) return true;
+  if (!candidateKey.startsWith(rootKey)) return false;
+  let tailKey = candidateKey.slice(rootKey.length);
+  if (!tailKey) return false;
+  let hits = 0;
+  const intentKeys = Array.from(new Set(KNOWN_INTENT_SUFFIXES.map(compactKeyword).filter(Boolean)))
+    .sort((a, b) => b.length - a.length);
+  for (const intentKey of intentKeys) {
+    if (intentKey && tailKey.includes(intentKey)) {
+      hits += 1;
+      tailKey = tailKey.replace(intentKey, '');
+    }
+    if (hits >= 2) return true;
+  }
+  return false;
 }
 
 function inferCleanIntentDomain(seed: string): 'policy' | 'incident' | 'entertainment' | 'commerce' | 'generic' {
@@ -3520,7 +3565,8 @@ function mindmapSemanticCorpus(seedKeyword: string, contextKeywords?: MobileKeyw
 }
 
 function inferMindmapSubject(seedKeyword: string): { subject: string; entity: string } {
-  const seed = normalizeKeyword(seedKeyword);
+  const original = normalizeKeyword(seedKeyword);
+  const seed = stripKnownIntent(original);
   const roleMatch = seed.match(/([\uAC00-\uD7A3]{2,8})\s*(감독|대표|회장|의원|장관|후보|선수|배우|가수|작가|교수|총장|시장|지사)/u);
   if (roleMatch?.[1] && roleMatch?.[2]) {
     return {
@@ -3530,7 +3576,10 @@ function inferMindmapSubject(seedKeyword: string): { subject: string; entity: st
   }
   const orgMatch = seed.match(/([\uAC00-\uD7A3A-Za-z0-9]{2,20}(?:협회|위원회|공단|공사|정부|교육청|구청|시청|도청|대학교|병원|기업|그룹|구단|연맹))/u);
   if (orgMatch?.[1]) return { subject: orgMatch[1], entity: orgMatch[1] };
-  return { subject: seed, entity: seed.replace(/\s*(사퇴|논란|의혹|사건|전말|후보|일정|조회|신청|후기|추천).*$/u, '').trim() || seed };
+  return {
+    subject: seed || original,
+    entity: seed.replace(/\s*(사퇴|논란|의혹|사건|전말|후보|일정|조회|신청|후기|추천).*$/u, '').trim() || seed || original,
+  };
 }
 
 function inferMindmapSemanticDomains(seedKeyword: string, contextKeywords?: MobileKeywordContextCandidate[]): MindmapSemanticDomain[] {
@@ -3601,7 +3650,7 @@ function buildMindmapEvidenceIssueBranches(
 }
 
 function appendMindmapBranchSuffix(baseKeyword: string, suffix: string): string {
-  const base = normalizeKeyword(baseKeyword);
+  const base = stripKnownIntent(baseKeyword);
   const cleanSuffix = normalizeKeyword(suffix);
   if (!base || !cleanSuffix) return base || cleanSuffix;
   const baseKey = compactKeyword(base);
@@ -3615,7 +3664,8 @@ function buildMindmapSemanticBridgeRoots(
   contextKeywords?: MobileKeywordContextCandidate[],
   limit = 32,
 ): string[] {
-  const seed = normalizeKeyword(seedKeyword);
+  const rawSeed = normalizeKeyword(seedKeyword);
+  const seed = stripKnownIntent(rawSeed);
   if (!seed) return [];
   const { subject, entity } = inferMindmapSubject(seed);
   const domains = inferMindmapSemanticDomains(seed, contextKeywords);
@@ -3689,7 +3739,9 @@ function buildMindmapSemanticBridgeRoots(
     ] : []),
   ];
   return uniqueKeywords(values.filter(Boolean), limit)
-    .filter((keyword) => compactKeyword(keyword) !== compactKeyword(seed));
+    .filter((keyword) => compactKeyword(keyword) !== compactKeyword(seed))
+    .filter((keyword) => compactKeyword(keyword) !== compactKeyword(rawSeed))
+    .filter((keyword) => !hasDuplicatedKnownIntentChain(rawSeed, keyword));
 }
 
 function buildMindmapSemanticBridgeCandidates(
@@ -4282,22 +4334,25 @@ async function buildMeasuredMindmapSeedMetrics(
     Math.min(8, Math.max(2, targetCount)),
   );
   const normalizedSeed = normalizeKeyword(seedKeyword).replace(/\s+/g, ' ').trim();
+  const normalizedRoot = stripKnownIntent(normalizedSeed);
   const seedKey = compactKeyword(normalizedSeed);
   const primaryRoots = [
     normalizedSeed,
-    ...buildMindmapSemanticBridgeRoots(normalizedSeed, contextKeywords, 24),
-    ...buildMindmapMeasuredQueryRoots(normalizedSeed, 32),
-    ...buildSafeMeasuredIntentRoots(normalizedSeed, 24),
-    ...buildIntentQueryRoots(normalizedSeed, 8),
+    normalizedRoot,
+    ...buildMindmapSemanticBridgeRoots(normalizedRoot, contextKeywords, 24),
+    ...buildMindmapMeasuredQueryRoots(normalizedRoot, 32),
+    ...buildSafeMeasuredIntentRoots(normalizedRoot, 24),
+    ...buildIntentQueryRoots(normalizedRoot, 8),
   ];
   const contextRoots = seedList
     .filter((seed) => compactKeyword(seed) !== seedKey)
     .flatMap((seed) => [
       seed,
-      ...buildMindmapSemanticBridgeRoots(seed, contextKeywords, 8),
-      ...buildMindmapMeasuredQueryRoots(seed, 8),
-      ...buildSafeMeasuredIntentRoots(seed, 10),
-      ...buildIntentQueryRoots(seed, 4),
+      stripKnownIntent(seed),
+      ...buildMindmapSemanticBridgeRoots(stripKnownIntent(seed), contextKeywords, 8),
+      ...buildMindmapMeasuredQueryRoots(stripKnownIntent(seed), 8),
+      ...buildSafeMeasuredIntentRoots(stripKnownIntent(seed), 10),
+      ...buildIntentQueryRoots(stripKnownIntent(seed), 4),
     ]);
   const roots = uniqueKeywords(
     [
@@ -5745,8 +5800,9 @@ async function runMindmapExpansion(
   context.progress(10, 'normalizing mindmap expansion request');
   ensureNotAborted(context);
 
+  const expansionSeedKeyword = stripKnownIntent(params.seedKeyword) || params.seedKeyword;
   let candidates: MindmapExpansionCandidate[] = await collectLiveExpansionCandidates(
-    params.seedKeyword,
+    expansionSeedKeyword,
     Math.max(params.targetCount * 3, 60),
     getEnvConfig(),
     context,
@@ -5754,7 +5810,7 @@ async function runMindmapExpansion(
     { includeSemanticBridge: true },
   );
   if (candidates.length === 0) {
-    const aliasSeeds = buildKoreanNumericAliasRoots(params.seedKeyword, 4);
+    const aliasSeeds = buildKoreanNumericAliasRoots(expansionSeedKeyword, 4);
     if (aliasSeeds.length > 0) {
       context.progress(42, `collecting mindmap numeric alias candidates: ${aliasSeeds.join(', ')}`);
       const aliasRows = await Promise.all(aliasSeeds.map((alias) =>
@@ -5788,7 +5844,7 @@ async function runMindmapExpansion(
   ensureNotAborted(context);
 
   const ranked = rankMindmapExpansionCandidates(
-    params.seedKeyword,
+    expansionSeedKeyword,
     candidates,
     params.targetCount,
   );
