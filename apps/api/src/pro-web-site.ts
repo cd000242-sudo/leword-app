@@ -4038,7 +4038,7 @@ export function renderLewordProWeb(): string {
         }
         return row;
       }).filter(function(row) {
-        if (mode === 'mindmap-expansion') return row.totalSearchVolume !== null || row.documentCount !== null || row.measurementStatus === 'unmeasured';
+        if (mode === 'mindmap-expansion') return row.totalSearchVolume !== null || row.documentCount !== null;
         return row.totalSearchVolume !== null || row.documentCount !== null;
       });
       if (!rows.length) {
@@ -4127,6 +4127,14 @@ export function renderLewordProWeb(): string {
         completeProgress('브라우저 로컬 API 실측 결과를 표시했습니다.');
         return result;
       } catch (err) {
+        if ((mode === 'mindmap-expansion' || mode === 'keyword-analysis') && session && session.accessToken && reason !== 'server-executor-fallback') {
+          try {
+            log('browser local API failed; retrying through server executor: ' + (err.message || String(err)));
+            return await runUserApiServerExecutorLookup(feature, seed, mode, 'browser-local-failure-fallback');
+          } catch (fallbackErr) {
+            err = fallbackErr;
+          }
+        }
         if (reason === 'browser-local-primary' && isServerUnavailableError(err.message || String(err))) {
           try {
             return await runUserApiServerExecutorLookup(feature, seed, mode, 'browser-cors-fallback');
