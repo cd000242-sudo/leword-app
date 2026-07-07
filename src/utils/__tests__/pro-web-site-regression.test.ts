@@ -144,6 +144,9 @@ assert('pro login network failures explain API connectivity instead of raw fetch
     && proWebHtml.includes('if (isFetchNetworkError(err)) throw new Error(formatNetworkError(url, err));'));
 assert('pro login raw browser fetch errors are allowed to open offline Pro',
   proWebHtml.includes('function shouldUseOfflineProLoginFallback')
+    && proWebHtml.includes('function isLoginApiConnectivityError')
+    && proWebHtml.includes('if (isLoginApiConnectivityError(message)) return true;')
+    && proWebHtml.includes('/v1\\/web\\/session')
     && proWebHtml.includes('shouldUseOfflineProLoginFallback(userId, password, err)')
     && proWebHtml.includes('Failed to connect|Could not connect|ERR_NAME_NOT_RESOLVED|ERR_CONNECTION_REFUSED')
     && proWebHtml.includes('TypeError|NetworkError'));

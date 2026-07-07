@@ -4320,10 +4320,16 @@ export function renderLewordProWeb(): string {
       if (/api\\s*key|API 키|필수 API|Unauthorized|Forbidden/i.test(text)) return false;
       return /Failed to fetch|NetworkError|Load failed|HTTP 404|HTTP 50\d|timeout|ECONN|ENOTFOUND|fetch|연결할 수 없습니다|서버 전원|도메인 연결|배포 연결|오프라인 Pro 세션|로컬\\/사용자 API 폴백/i.test(text);
     }
+    function isLoginApiConnectivityError(message) {
+      const text = String(message || '');
+      if (/Unauthorized|Forbidden|HTTP\\s*40[13]|401|403|아이디|비밀번호|password|invalid credentials/i.test(text)) return false;
+      return /로그인\\s*API\\s*서버|API\\s*서버.*연결|서버\\s*전원|도메인|SSL|배포\\s*연결|141\\.164\\.59\\.17|sslip\\.io|\\/v1\\/web\\/session|Failed to fetch|NetworkError|Load failed|Failed to connect|Could not connect|ERR_CONNECTION|ECONN|ENOTFOUND|ETIMEDOUT|timeout|fetch/i.test(text);
+    }
     function shouldUseOfflineProLoginFallback(userId, password, error) {
       if (!normalizeText(userId) || !normalizeText(password)) return false;
       const name = String(error && error.name || '');
       const message = String(error && error.message ? error.message : error || '');
+      if (isLoginApiConnectivityError(message)) return true;
       if (isServerUnavailableError(message)) return true;
       return /TypeError|NetworkError/i.test(name)
         || /Failed to fetch|NetworkError|Load failed|Failed to connect|Could not connect|ERR_NAME_NOT_RESOLVED|ERR_CONNECTION_REFUSED|ERR_CONNECTION_CLOSED|ERR_CONNECTION_RESET|ERR_SSL|ECONN|ENOTFOUND|ETIMEDOUT|timeout|fetch/i.test(message);
