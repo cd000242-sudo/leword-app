@@ -4223,6 +4223,26 @@ export function renderLewordProWeb(): string {
       const variants = [];
       roots.forEach(function(root) {
         variants.push(root);
+      });
+      const tailsByRoot = roots.map(function(root) {
+        return clientFallbackTailsForRoot(root, featureId);
+      });
+      const maxTailCount = tailsByRoot.reduce(function(max, tails) {
+        return Math.max(max, tails.length);
+      }, 0);
+      for (let tailIndex = 0; tailIndex < maxTailCount; tailIndex += 1) {
+        roots.forEach(function(root, rootIndex) {
+          const tail = tailsByRoot[rootIndex][tailIndex];
+          if (tail) variants.push(appendMindmapTail(root, tail));
+        });
+      }
+      return uniqueKeywords(variants, limit || 12);
+    }
+    function clientFallbackSeedExpansionKeywords(seed, featureId, limit) {
+      const roots = clientFallbackRoots(seed);
+      const variants = [];
+      roots.forEach(function(root) {
+        variants.push(root);
         clientFallbackTailsForRoot(root, featureId).forEach(function(tail) {
           variants.push(appendMindmapTail(root, tail));
         });
@@ -4259,7 +4279,7 @@ export function renderLewordProWeb(): string {
     function buildClientGoldenFallbackPayload(error) {
       const proMode = hasActiveProSession();
       const target = proMode ? 120 : 5;
-      const keywords = clientFallbackIntentKeywords(compactKeywordInput(), 'pro-traffic', target);
+      const keywords = clientFallbackIntentKeywords('', 'pro-traffic', target);
       const items = keywords.map(function(keyword, index) {
         return clientFallbackBoardItem(keyword, index, '서버 미연결 · 브라우저 자체 후보');
       });
@@ -4311,7 +4331,7 @@ export function renderLewordProWeb(): string {
     function renderClientFeatureFallback(feature, displayKeyword, error) {
       if (!feature || !feature.title || !isServerUnavailableError(error && error.message)) return false;
       const featureId = feature.id || (feature.route === endpoints.golden ? 'pro-traffic' : 'keyword-analysis');
-      const keywords = clientFallbackIntentKeywords(displayKeyword || compactKeywordInput(), featureId, 12);
+      const keywords = clientFallbackSeedExpansionKeywords(displayKeyword || compactKeywordInput(), featureId, 12);
       if (!keywords.length) return false;
       const rows = keywords.map(function(keyword, index) {
         return '<li><strong>' + escapeHtml(keyword) + '</strong><span>서버 실측 대기 · 브라우저 검색 후보 #' + (index + 1) + '</span>' + keywordActionHtml(keyword) + '</li>';

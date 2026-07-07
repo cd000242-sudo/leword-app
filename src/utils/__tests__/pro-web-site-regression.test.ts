@@ -201,6 +201,12 @@ assert('falls back to browser-side golden keyword search when the server is unav
     && html.includes('검색량·문서수는 가짜로 채우지 않고')
     && html.includes('오프라인 Pro 후보')
     && html.includes('서버가 꺼져 있어 Pro 세션을 로컬로 유지하고 사이트 자체 후보를 표시합니다.'));
+assert('golden board browser fallback is not just one seed keyword expansion chain',
+  proWebHtml.includes("const keywords = clientFallbackIntentKeywords('', 'pro-traffic', target)")
+    && proWebHtml.includes('function clientFallbackSeedExpansionKeywords')
+    && proWebHtml.includes('for (let tailIndex = 0; tailIndex < maxTailCount; tailIndex += 1)')
+    && proWebHtml.includes('clientFallbackSeedExpansionKeywords(displayKeyword || compactKeywordInput(), featureId, 12)')
+    && !proWebHtml.includes("const keywords = clientFallbackIntentKeywords(compactKeywordInput(), 'pro-traffic', target)"));
 assert('keyword lookup button is labeled as direct lookup, not server lookup',
   proWebHtml.includes('<button class="btn primary" type="submit">조회하기</button>')
     && proWebHtml.includes('키워드를 입력하고 조회하기를 실행하세요.')
