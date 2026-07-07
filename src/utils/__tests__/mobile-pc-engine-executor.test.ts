@@ -55,6 +55,13 @@ function makeSssMetric(index: number, prefix = '모바일 검증 키워드'): Mo
     intent: 'test',
     evidence: ['pc-engine-fixture', 'fixture-searchad-volume', 'fixture-naver-blog-document-count'],
     isMeasured: true,
+    searchVolumeSource: 'searchad',
+    searchVolumeConfidence: 'high',
+    isSearchVolumeEstimated: false,
+    documentCountSource: 'naver-api',
+    documentCountConfidence: 'high',
+    isDocumentCountEstimated: false,
+    measurementStatus: 'measured',
   };
 }
 
@@ -94,6 +101,13 @@ async function measureFixtureMetrics(metrics: MobileKeywordMetric[]): Promise<Mo
         'fixture-naver-blog-document-count',
       ],
       isMeasured: true,
+      searchVolumeSource: 'searchad',
+      searchVolumeConfidence: 'high',
+      isSearchVolumeEstimated: false,
+      documentCountSource: 'naver-api',
+      documentCountConfidence: 'high',
+      isDocumentCountEstimated: false,
+      measurementStatus: 'measured',
     };
   });
 }

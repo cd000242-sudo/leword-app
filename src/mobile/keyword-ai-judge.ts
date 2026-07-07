@@ -25,8 +25,9 @@ export function hasTrustedDocumentCountMeasurement(metric: MobileKeywordMetric):
   const source = normalizeText(metric.documentCountSource).toLowerCase();
   const confidence = normalizeText(metric.documentCountConfidence).toLowerCase();
   if (metric.isDocumentCountEstimated === true || (metric as any).dcEstimated === true) return false;
-  if (source === 'fallback') return false;
-  if (confidence === 'low') return false;
+  if (!source || source === 'unknown' || source === 'none') return false;
+  if (source === 'fallback' || source === 'cache' || source.includes('cache')) return false;
+  if (!confidence || confidence === 'low') return false;
   return true;
 }
 
@@ -34,8 +35,9 @@ export function hasTrustedSearchVolumeMeasurement(metric: MobileKeywordMetric): 
   const source = normalizeText(metric.searchVolumeSource).toLowerCase();
   const confidence = normalizeText(metric.searchVolumeConfidence).toLowerCase();
   if (metric.isSearchVolumeEstimated === true || (metric as any).svEstimated === true) return false;
-  if (source === 'fallback') return false;
-  if (confidence === 'low') return false;
+  if (!source || source === 'unknown' || source === 'none') return false;
+  if (source === 'fallback' || source.includes('cache')) return false;
+  if (!confidence || confidence === 'low') return false;
   return true;
 }
 
@@ -436,20 +438,43 @@ export function keywordMeasurementStatus(metric: MobileKeywordMetric): MobileKey
     ...(Array.isArray(metric.evidence) ? metric.evidence : []),
   ].join(' ');
   if (SYNTHETIC_MARKER_RE.test(markerText)) return 'synthetic-blocked';
-  if (!hasTrustedSearchVolumeMeasurement(metric) || !hasTrustedDocumentCountMeasurement(metric)) {
-    return 'synthetic-blocked';
-  }
-
   const total = finiteNumber(metric.totalSearchVolume);
   const documents = finiteNumber(metric.documentCount);
   const pc = finiteNumber(metric.pcSearchVolume);
   const mobile = finiteNumber(metric.mobileSearchVolume);
+  const searchSource = normalizeText(metric.searchVolumeSource).toLowerCase();
+  const documentSource = normalizeText(metric.documentCountSource).toLowerCase();
+  const trustedSearch = hasTrustedSearchVolumeMeasurement(metric);
+  const trustedDocument = hasTrustedDocumentCountMeasurement(metric);
+  if (
+    metric.isSearchVolumeEstimated === true
+    || (metric as any).svEstimated === true
+    || metric.isDocumentCountEstimated === true
+    || (metric as any).dcEstimated === true
+    || searchSource === 'fallback'
+    || searchSource.includes('cache')
+    || documentSource === 'fallback'
+    || documentSource === 'cache'
+    || documentSource.includes('cache')
+  ) {
+    return 'synthetic-blocked';
+  }
 
-  if (metric.isMeasured === true && total !== null && total > 0 && documents !== null && documents > 0) {
+  if (
+    trustedSearch
+    && trustedDocument
+    && metric.isMeasured === true
+    && total !== null
+    && total > 0
+    && documents !== null
+    && documents > 0
+  ) {
     return 'measured';
   }
   if (
-    metric.isMeasured === true
+    trustedSearch
+    || trustedDocument
+    || metric.isMeasured === true
     || (total !== null && total > 0)
     || (documents !== null && documents > 0)
     || (pc !== null && pc > 0)

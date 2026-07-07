@@ -856,14 +856,6 @@ function measurementMetadataFromDocumentCount(measurement: DcMeasurement): Parti
 
 function measurementMetadataWithPersistentDefaults(row: any): Partial<MobileKeywordMetric> {
   const meta = measurementMetadataFromRow(row);
-  const documentCount = finiteNumber(row?.documentCount)
-    ?? finiteNumber(row?.documents)
-    ?? finiteNumber(row?.docs);
-  if (documentCount !== null && documentCount > 0 && !meta.documentCountSource) {
-    meta.documentCountSource = 'cache';
-    meta.documentCountConfidence = 'medium';
-    meta.isDocumentCountEstimated = false;
-  }
   return meta;
 }
 
@@ -1034,6 +1026,8 @@ const PRODUCT_PURCHASE_TERMINAL_BASE_RE = /(?:\uAD6C\uB9E4\uCC98|\uCD5C\uC800\uA
 const PRODUCT_CONTEXT_AFTER_PURCHASE_TAIL_RE = /(?:\uC6D0\uB8F8|\uC790\uCDE8\uBC29|\uC804\uAE30\uC694\uAE08|\uC18C\uC74C|\uC800\uC18C\uC74C|\uD544\uD130|\uC124\uCE58\uBE44|\uC2A4\uD399|\uCD9C\uC2DC\uC77C|\uBC1C\uB9E4\uC77C)/u;
 const TERMINAL_INTENT_CHAIN_MISMATCH_RE = /(?:(?:\uC0AC\uC6A9\uCC98|\uAC00\uB9F9\uC810|\uC794\uC561\uC870\uD68C).{0,10}(?:\uC9C0\uAE09\uC77C|\uB9C8\uAC10\uC77C|\uC18C\uB4DD\uAE30\uC900|\uC2E0\uCCAD\s*(?:\uBC29\uBC95|\uB300\uC0C1)|\uC81C\uC678\s*\uB300\uC0C1|\uD544\uC694\s*\uC11C\uB958)|(?:\uAD6C\uB9E4\uCC98|\uCD5C\uC800\uAC00|\uD560\uC778|\uCFE0\uD3F0|\uAC00\uACA9\uBE44\uAD50|\uBE44\uC6A9\uBE44\uAD50).{0,12}(?:\uC6D0\uB8F8|\uC790\uCDE8\uBC29|\uC804\uAE30\uC694\uAE08|\uC18C\uC74C|\uC800\uC18C\uC74C|\uC124\uCE58\uBE44|\uD544\uD130|\uC2A4\uD399|\uCD9C\uC2DC\uC77C|\uBC1C\uB9E4\uC77C))/u;
 const PRODUCT_HOUSING_CONTEXT_CHAIN_RE = /(?:(?:\uC6D0\uB8F8|\uC790\uCDE8\uBC29).{0,12}(?:\uCD9C\uC2DC\uC77C|\uBC1C\uB9E4\uC77C).{0,10}(?:\uBE44\uC6A9|\uAC00\uACA9|\uAD6C\uB9E4\uCC98|\uCD5C\uC800\uAC00|\uD560\uC778|\uCFE0\uD3F0)|(?:\uC5D0\uC5B4\uCEE8|\uC81C\uC2B5\uAE30|\uACF5\uAE30\uCCAD\uC815\uAE30|\uCCAD\uC18C\uAE30|\uB85C\uBD07\uCCAD\uC18C\uAE30|\uB178\uD2B8\uBD81|\uBAA8\uB2C8\uD130|\uC544\uC774\uD3F0|\uAC24\uB7ED\uC2DC|\uB0C9\uC7A5\uACE0|\uC138\uD0C1\uAE30|\uAC74\uC870\uAE30|\uC120\uD48D\uAE30|\uC11C\uD058\uB808\uC774\uD130)(?=.*(?:\uC6D0\uB8F8|\uC790\uCDE8\uBC29))(?=.*(?:\uC18C\uC74C|\uC800\uC18C\uC74C))(?=.*(?:\uAD6C\uB9E4\uCC98|\uCD5C\uC800\uAC00|\uD560\uC778|\uCFE0\uD3F0|\uAC00\uACA9|\uBE44\uC6A9|\uC124\uCE58\uBE44|\uC804\uAE30\uC694\uAE08|\uC804\uAE30\uC138|\uCD9C\uC2DC\uC77C|\uBC1C\uB9E4\uC77C))|(?:\uC5D0\uC5B4\uCEE8|\uC81C\uC2B5\uAE30|\uACF5\uAE30\uCCAD\uC815\uAE30|\uCCAD\uC18C\uAE30|\uB85C\uBD07\uCCAD\uC18C\uAE30|\uB178\uD2B8\uBD81|\uB0C9\uC7A5\uACE0)(?=.*(?:\uC6D0\uB8F8|\uC790\uCDE8\uBC29))(?=.*(?:\uCD9C\uC2DC\uC77C|\uBC1C\uB9E4\uC77C))|(?:\uC5D0\uC5B4\uCEE8|\uC81C\uC2B5\uAE30|\uACF5\uAE30\uCCAD\uC815\uAE30|\uCCAD\uC18C\uAE30|\uB85C\uBD07\uCCAD\uC18C\uAE30|\uB178\uD2B8\uBD81|\uB0C9\uC7A5\uACE0)(?=.*(?:\uC18C\uC74C|\uC800\uC18C\uC74C))(?=.*(?:\uC6D0\uB8F8.*\uC790\uCDE8\uBC29|\uC790\uCDE8\uBC29.*\uC6D0\uB8F8)))/u;
+const PHONE_PRODUCT_BASE_RE = /(?:\uC544\uC774\uD3F0|\uAC24\uB7ED\uC2DC|\uD734\uB300\uD3F0|\uC2A4\uB9C8\uD2B8\uD3F0|\biPhone\b|\bGalaxy\b)/iu;
+const PHONE_HOUSING_CONTEXT_MISMATCH_RE = /(?:(?:\uC544\uC774\uD3F0|\uAC24\uB7ED\uC2DC|\uD734\uB300\uD3F0|\uC2A4\uB9C8\uD2B8\uD3F0|\biPhone\b|\bGalaxy\b).{0,14}(?:\uC6D0\uB8F8|\uC790\uCDE8\uBC29|1\uC778\uAC00\uAD6C|\uC18C\uD615|\uC800\uC18C\uC74C|\uC18C\uC74C|\uC804\uAE30\uC694\uAE08|\uC804\uAE30\uC138|\uC124\uCE58\uBE44|\uD544\uD130|\uAD50\uCCB4\uC8FC\uAE30).{0,14}(?:\uAD6C\uB9E4\uCC98|\uCD5C\uC800\uAC00|\uAC00\uACA9|\uCD94\uCC9C|\uD6C4\uAE30|\uBE44\uAD50|\uD560\uC778|\uCFE0\uD3F0|\uCD9C\uC2DC\uC77C|\uBC1C\uB9E4\uC77C|\uC2A4\uD399)|(?:\uC6D0\uB8F8|\uC790\uCDE8\uBC29|1\uC778\uAC00\uAD6C|\uC18C\uD615|\uC800\uC18C\uC74C|\uC18C\uC74C|\uC804\uAE30\uC694\uAE08|\uC804\uAE30\uC138|\uC124\uCE58\uBE44|\uD544\uD130|\uAD50\uCCB4\uC8FC\uAE30).{0,14}(?:\uC544\uC774\uD3F0|\uAC24\uB7ED\uC2DC|\uD734\uB300\uD3F0|\uC2A4\uB9C8\uD2B8\uD3F0|\biPhone\b|\bGalaxy\b).{0,14}(?:\uAD6C\uB9E4\uCC98|\uCD5C\uC800\uAC00|\uAC00\uACA9|\uCD94\uCC9C|\uD6C4\uAE30|\uBE44\uAD50|\uD560\uC778|\uCFE0\uD3F0|\uCD9C\uC2DC\uC77C|\uBC1C\uB9E4\uC77C|\uC2A4\uD399))/iu;
 const HOUSING_PRODUCT_CONTEXT_MISMATCH_RE = new RegExp(
   `(?:${HOUSING_REAL_ESTATE_CONTEXT_RE.source}.{0,18}${HOUSING_PRODUCT_LAUNCH_OR_APPLIANCE_TAIL_RE.source}|${HOUSING_PRODUCT_LAUNCH_OR_APPLIANCE_TAIL_RE.source}.{0,18}${HOUSING_REAL_ESTATE_CONTEXT_RE.source})`,
   'u',
@@ -4306,6 +4300,7 @@ function isSyntheticNoEffectLiveProbe(keyword: string): boolean {
     || CACHE_DERIVED_CONTEXT_MISMATCH_RE.test(clean)
     || HOUSING_PRODUCT_CONTEXT_MISMATCH_RE.test(clean)
     || PRODUCT_HOUSING_CONTEXT_CHAIN_RE.test(clean)
+    || PHONE_HOUSING_CONTEXT_MISMATCH_RE.test(clean)
     || TERMINAL_INTENT_CHAIN_MISMATCH_RE.test(clean)
     || CALCULATOR_POLICY_TAIL_NO_EFFECT_RE.test(clean)
     || LIVE_SEARCHAD_NO_RESULT_SHAPE_RE.test(clean)
@@ -4587,7 +4582,11 @@ function measuredProbeDetailModifiersForBase(base: string, categoryId: string): 
   const modifiers = LIVE_MEASURED_PROBE_DETAIL_MODIFIERS[inferred]
     || LIVE_MEASURED_PROBE_DETAIL_MODIFIERS[normalizeKeyword(categoryId)]
     || [];
-  return modifiers.filter((modifier) => !keywordAlreadyHasIntent(clean, modifier)).slice(0, 5);
+  return modifiers
+    .filter((modifier) => !PHONE_PRODUCT_BASE_RE.test(clean) || !HOUSING_REAL_ESTATE_CONTEXT_RE.test(modifier))
+    .filter((modifier) => !PHONE_PRODUCT_BASE_RE.test(clean) || !/(?:1\uC778\uAC00\uAD6C|\uC18C\uD615|\uC800\uC18C\uC74C|\uC18C\uC74C|\uC804\uAE30\uC694\uAE08|\uC804\uAE30\uC138|\uC124\uCE58\uBE44|\uD544\uD130|\uAD50\uCCB4\uC8FC\uAE30)/u.test(modifier))
+    .filter((modifier) => !keywordAlreadyHasIntent(clean, modifier))
+    .slice(0, 5);
 }
 
 function buildMeasuredProbeDetailCandidates(base: string, intent: string, categoryId: string): string[] {
@@ -8284,6 +8283,7 @@ export class MobileLiveGoldenRadar {
       const measuredVolume = (pc || 0) + (mobile || 0);
       const docs = finiteNumber(item.documentCount);
       if (pc === null || mobile === null || measuredVolume <= 0 || docs === null || docs <= 0) continue;
+      if (!hasTrustedDocumentCountMeasurement(item)) continue;
       const ratio = Number((measuredVolume / docs).toFixed(2));
       const opportunityScore = liveUltimateOpportunityScore(item.keyword, measuredVolume, docs, ratio);
       const grade = normalizeLiveMetricGrade(
@@ -8307,8 +8307,8 @@ export class MobileLiveGoldenRadar {
         searchVolumeSource: 'searchad',
         searchVolumeConfidence: 'high',
         isSearchVolumeEstimated: (row as any).svEstimated === true,
-        documentCountSource: item.documentCountSource || 'cache',
-        documentCountConfidence: item.documentCountConfidence || 'medium',
+        documentCountSource: item.documentCountSource,
+        documentCountConfidence: item.documentCountConfidence,
         isDocumentCountEstimated: item.isDocumentCountEstimated === true,
         updatedAt: stamp,
         freshness: 'live',
@@ -8321,7 +8321,6 @@ export class MobileLiveGoldenRadar {
         publicDocumentCountLabel: formatRange(docs, 'document'),
       };
       const judged = applyKeywordAiJudge(promoted, { now: this.now() });
-      this.board.set(item.id, judged);
       const now = this.now();
       const publishable = isPublishableLiveResultMetric(judged, now) || isMeasuredProBoardItem(judged, now);
       const fallbackReason = measuredProBoardFallbackRejectReason(judged, now);

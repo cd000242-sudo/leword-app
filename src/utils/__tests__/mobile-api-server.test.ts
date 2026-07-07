@@ -87,6 +87,16 @@ const result: MobileKeywordResult = {
   },
 };
 
+const measuredFixtureMeta = {
+  searchVolumeSource: 'searchad',
+  searchVolumeConfidence: 'high',
+  isSearchVolumeEstimated: false,
+  documentCountSource: 'naver-api',
+  documentCountConfidence: 'high',
+  isDocumentCountEstimated: false,
+  measurementStatus: 'measured' as const,
+} as const;
+
 (async () => {
   const executor: MobileJobExecutor = async (_job, ctx) => {
     ctx.progress(15, 'streaming mobile progress');
@@ -1640,6 +1650,7 @@ const result: MobileKeywordResult = {
       intent: 'prewarmed',
       evidence: ['pro traffic prewarm fixture'],
       isMeasured: true,
+      ...measuredFixtureMeta,
     })),
     summary: {
       total: 30,
@@ -1723,6 +1734,7 @@ const result: MobileKeywordResult = {
       intent: 'prewarmed',
       evidence: ['pro traffic shallow prewarm fixture'],
       isMeasured: true,
+      ...measuredFixtureMeta,
     })),
     summary: {
       total: 30,
@@ -1755,6 +1767,7 @@ const result: MobileKeywordResult = {
           intent: 'measured',
           evidence: ['fresh expanded fixture'],
           isMeasured: true,
+          ...measuredFixtureMeta,
         })),
         summary: {
           total: 60,
@@ -1859,6 +1872,7 @@ const result: MobileKeywordResult = {
           intent: 'measured',
           evidence: ['fresh measured fixture'],
           isMeasured: true,
+          ...measuredFixtureMeta,
         }],
         summary: {
           total: 1,
@@ -2031,6 +2045,7 @@ const result: MobileKeywordResult = {
           intent: 'naver-mate',
           evidence: ['pc-naver-autocomplete'],
           isMeasured: true,
+          ...measuredFixtureMeta,
         }],
         summary: {
           total: 1,
@@ -2615,6 +2630,7 @@ const result: MobileKeywordResult = {
           intent: '예열',
           evidence: ['prewarm fixture'],
           isMeasured: true,
+          ...measuredFixtureMeta,
         }],
         summary: {
           total: 1,

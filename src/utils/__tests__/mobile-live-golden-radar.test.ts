@@ -778,6 +778,17 @@ function thinProfileCount(items: Array<{ keyword: string }>): number {
       && __liveGoldenRadarTestInternals.isSyntheticNoEffectLiveProbe('\uB178\uD2B8\uBD81\uC790\uCDE8\uBC29\uCD5C\uC800\uAC00\uC124\uCE58\uBE44')
       && !__liveGoldenRadarTestInternals.isSyntheticNoEffectLiveProbe('\uC6D0\uB8F8 \uAD00\uB9AC\uBE44 \uACC4\uC0B0'),
     'housing/product mismatch');
+  const phoneProductProbeCandidates = __liveGoldenRadarTestInternals.buildMeasuredProbeCandidates('electronics', [
+    '\uC544\uC774\uD3F0',
+    '\uAC24\uB7ED\uC2DC',
+  ], 120, lottoGuardNow);
+  assert('phone product probes do not attach housing/living-appliance modifiers',
+    phoneProductProbeCandidates
+      .filter((keyword) => /(?:\uC544\uC774\uD3F0|\uAC24\uB7ED\uC2DC)/u.test(keyword))
+      .every((keyword) => !/(?:\uC790\uCDE8\uBC29|\uC6D0\uB8F8|1\uC778\uAC00\uAD6C|\uC800\uC18C\uC74C|\uC18C\uC74C|\uC804\uAE30\uC694\uAE08|\uC804\uAE30\uC138|\uC124\uCE58\uBE44|\uD544\uD130|\uAD50\uCCB4\uC8FC\uAE30)/u.test(keyword))
+      && __liveGoldenRadarTestInternals.isSyntheticNoEffectLiveProbe('\uC544\uC774\uD3F0\uC790\uCDE8\uBC29\uAD6C\uB9E4\uCC98')
+      && __liveGoldenRadarTestInternals.isSyntheticNoEffectLiveProbe('\uAC24\uB7ED\uC2DC\uC6D0\uB8F8\uC804\uAE30\uC694\uAE08\uBE44\uAD50'),
+    phoneProductProbeCandidates.join('|'));
   const terminalPolicyCandidates = __liveGoldenRadarTestInternals.buildCacheDerivedCompoundNeedSeeds(
     '\uBB38\uD654\uB204\uB9AC\uCE74\uB4DC\uC0AC\uC6A9\uCC98',
     'policy',
@@ -1574,6 +1585,12 @@ function thinProfileCount(items: Array<{ keyword: string }>): number {
         documentCount: 300,
         goldenRatio: 12.67,
         category: 'it',
+        searchVolumeSource: 'searchad',
+        searchVolumeConfidence: 'high',
+        isSearchVolumeEstimated: false,
+        documentCountSource: 'naver-api',
+        documentCountConfidence: 'high',
+        isDocumentCountEstimated: false,
         updatedAt: '2026-06-13T08:20:00.000Z',
         discoveredAt: '2026-06-13T08:20:00.000Z',
         isMeasured: true,
@@ -2225,12 +2242,12 @@ function thinProfileCount(items: Array<{ keyword: string }>): number {
     goldenRatio: 3.89,
     category: 'policy',
     source: 'fixture-measured-exact',
-    evidence: ['fixture-searchad-volume', 'fixture-cache-document-count'],
+    evidence: ['fixture-searchad-volume', 'fixture-naver-openapi-document-count'],
     searchVolumeSource: 'searchad',
     searchVolumeConfidence: 'high',
     isSearchVolumeEstimated: false,
-    documentCountSource: 'cache',
-    documentCountConfidence: 'medium',
+    documentCountSource: 'naver-api',
+    documentCountConfidence: 'high',
     isDocumentCountEstimated: false,
     updatedAt: '2026-06-15T08:00:00.000Z',
     discoveredAt: '2026-06-15T08:00:00.000Z',
@@ -2247,12 +2264,12 @@ function thinProfileCount(items: Array<{ keyword: string }>): number {
     goldenRatio: 15.18,
     category: 'insurance_safe',
     source: 'fixture-measured-exact',
-    evidence: ['fixture-searchad-volume', 'fixture-cache-document-count'],
+    evidence: ['fixture-searchad-volume', 'fixture-naver-openapi-document-count'],
     searchVolumeSource: 'searchad',
     searchVolumeConfidence: 'high',
     isSearchVolumeEstimated: false,
-    documentCountSource: 'cache',
-    documentCountConfidence: 'medium',
+    documentCountSource: 'naver-api',
+    documentCountConfidence: 'high',
     isDocumentCountEstimated: false,
     updatedAt: '2026-06-15T08:00:00.000Z',
     discoveredAt: '2026-06-15T08:00:00.000Z',
@@ -2269,12 +2286,12 @@ function thinProfileCount(items: Array<{ keyword: string }>): number {
     goldenRatio: 3.67,
     category: 'travel_domestic',
     source: 'fixture-measured-exact',
-    evidence: ['fixture-searchad-volume', 'fixture-cache-document-count'],
+    evidence: ['fixture-searchad-volume', 'fixture-naver-openapi-document-count'],
     searchVolumeSource: 'searchad',
     searchVolumeConfidence: 'high',
     isSearchVolumeEstimated: false,
-    documentCountSource: 'cache',
-    documentCountConfidence: 'medium',
+    documentCountSource: 'naver-api',
+    documentCountConfidence: 'high',
     isDocumentCountEstimated: false,
     updatedAt: '2026-06-15T08:00:00.000Z',
     discoveredAt: '2026-06-15T08:00:00.000Z',
@@ -2291,12 +2308,12 @@ function thinProfileCount(items: Array<{ keyword: string }>): number {
     goldenRatio: 3.67,
     category: 'travel_domestic',
     source: 'fixture-measured-exact',
-    evidence: ['fixture-searchad-volume', 'fixture-cache-document-count'],
+    evidence: ['fixture-searchad-volume', 'fixture-naver-openapi-document-count'],
     searchVolumeSource: 'searchad',
     searchVolumeConfidence: 'high',
     isSearchVolumeEstimated: false,
-    documentCountSource: 'cache',
-    documentCountConfidence: 'medium',
+    documentCountSource: 'naver-api',
+    documentCountConfidence: 'high',
     isDocumentCountEstimated: false,
     updatedAt: '2026-06-15T08:00:00.000Z',
     discoveredAt: '2026-06-15T08:00:00.000Z',
@@ -2891,21 +2908,14 @@ function thinProfileCount(items: Array<{ keyword: string }>): number {
     },
   });
   const cachePromotionSnapshot = await cachePromotionRadar.runOnce();
-  assert('persistent measured cache rows without provenance promote only writer-intent longtails after SearchAd pc/mobile split',
+  assert('persistent measured cache rows without document provenance are measured but not promoted as visible exact rows',
     cachePromotionSplitCalls > 0
-      && cachePromotionSnapshot.board.some((item) => (
+      && cachePromotionMeasuredKeywords.some((keyword) => keyword === '\uC8FC\uD734\uC218\uB2F9\uACC4\uC0B0\uAE30 \uC54C\uBC14 \uC790\uB3D9\uACC4\uC0B0')
+      && !cachePromotionSnapshot.board.some((item) => (
         item.keyword === '\uC8FC\uD734\uC218\uB2F9\uACC4\uC0B0\uAE30 \uC54C\uBC14 \uC790\uB3D9\uACC4\uC0B0'
-        && item.pcSearchVolume === 1100
-        && item.mobileSearchVolume === 5100
-        && item.totalSearchVolume === 6200
-        && item.documentCount === 190
         && item.searchVolumeSource === 'searchad'
-        && item.searchVolumeConfidence === 'high'
-        && item.documentCountSource === 'cache'
-        && item.documentCountConfidence === 'medium'
-        && item.aiJudge?.verdict === 'publish'
       ))
-      && cachePromotionSnapshot.publicPreview.some((item) => item.keyword === '\uC8FC\uD734\uC218\uB2F9\uACC4\uC0B0\uAE30 \uC54C\uBC14 \uC790\uB3D9\uACC4\uC0B0')
+      && !cachePromotionSnapshot.publicPreview.some((item) => item.keyword === '\uC8FC\uD734\uC218\uB2F9\uACC4\uC0B0\uAE30 \uC54C\uBC14 \uC790\uB3D9\uACC4\uC0B0')
       && !cachePromotionSnapshot.board.some((item) => item.keyword === '\uC8FC\uD734\uC218\uB2F9\uACC4\uC0B0\uAE30')
       && !cachePromotionSnapshot.board.some((item) => item.keyword === '\uC704\uB2C9\uC2A4\uCC3D\uBB38\uD615\uC5D0\uC5B4\uCEE8'),
     JSON.stringify({
@@ -4291,8 +4301,8 @@ function thinProfileCount(items: Array<{ keyword: string }>): number {
       searchVolumeSource: 'searchad',
       searchVolumeConfidence: 'high',
       isSearchVolumeEstimated: false,
-      documentCountSource: 'cache',
-      documentCountConfidence: 'medium',
+      documentCountSource: 'naver-api',
+      documentCountConfidence: 'high',
       isDocumentCountEstimated: false,
       updatedAt: '2026-06-29T08:00:00.000Z',
       discoveredAt: '2026-06-29T08:00:00.000Z',
@@ -4313,7 +4323,7 @@ function thinProfileCount(items: Array<{ keyword: string }>): number {
       && proMeasuredDisplaySnapshot.publicPreview.length === 5
       && proMeasuredDisplaySnapshot.board.every((item) => item.isMeasured === true)
       && proMeasuredDisplaySnapshot.board.every((item) => item.isSearchVolumeEstimated === false && item.isDocumentCountEstimated === false)
-      && proMeasuredDisplaySnapshot.board.every((item) => item.searchVolumeSource === 'searchad' && item.documentCountSource === 'cache')
+      && proMeasuredDisplaySnapshot.board.every((item) => item.searchVolumeSource === 'searchad' && item.documentCountSource === 'naver-api')
       // 표시 하드 플로어: 모든 board 행은 문서수 < 검색량 (docs ≥ volume = 의미없음, 노출 금지)
       && proMeasuredDisplaySnapshot.board.every((item) => (item.documentCount || 0) < (item.totalSearchVolume || 0)),
     proMeasuredDisplaySnapshot.board.map((item) => `${item.rank}:${item.keyword}:${item.grade}:${item.totalSearchVolume}/${item.documentCount}`).join('|'));
