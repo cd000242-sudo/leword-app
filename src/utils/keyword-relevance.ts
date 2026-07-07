@@ -166,6 +166,8 @@ const HOUSING_CONTEXT_RE = /(?:\uC6D0\uB8F8|\uC6D4\uC138|\uC804\uC138|\uBCF4\uC9
 const PRODUCT_LAUNCH_CONTEXT_RE = /(?:\uCD9C\uC2DC\uC77C|\uBC1C\uB9E4\uC77C|\uC0AC\uC804\uC608\uC57D|\uACF5\uC2DD\uC601\uC0C1|\uC2A4\uD399|\uCD9C\uC2DC|\uACF5\uAC1C\uC77C)/;
 const APPLIANCE_PURCHASE_TAIL_RE = /(?:\uCD5C\uC800\uAC00|\uAD6C\uB9E4\uCC98|\uD560\uC778|\uCFE0\uD3F0|\uC124\uCE58\uBE44|\uC800\uC18C\uC74C|\uD544\uD130|\uC2A4\uD399)/;
 const APPLIANCE_BASE_RE = /(?:\uC5D0\uC5B4\uCEE8|\uC81C\uC2B5\uAE30|\uACF5\uAE30\uCCAD\uC815\uAE30|\uCCAD\uC18C\uAE30|\uB85C\uBD07\uCCAD\uC18C\uAE30|\uC120\uD48D\uAE30|\uB0C9\uC7A5\uACE0|\uC138\uD0C1\uAE30|\uAC74\uC870\uAE30)/;
+const TERMINAL_POLICY_CHAIN_RE = /(?:\uC0AC\uC6A9\uCC98|\uAC00\uB9F9\uC810|\uC794\uC561\uC870\uD68C).{0,10}(?:\uC9C0\uAE09\uC77C|\uB9C8\uAC10\uC77C|\uC18C\uB4DD\uAE30\uC900|\uC2E0\uCCAD\s*(?:\uBC29\uBC95|\uB300\uC0C1)|\uC81C\uC678\s*\uB300\uC0C1|\uD544\uC694\s*\uC11C\uB958)/;
+const TERMINAL_PRODUCT_CHAIN_RE = /(?:\uAD6C\uB9E4\uCC98|\uCD5C\uC800\uAC00|\uD560\uC778|\uCFE0\uD3F0|\uAC00\uACA9\uBE44\uAD50|\uBE44\uC6A9\uBE44\uAD50).{0,12}(?:\uC6D0\uB8F8|\uC790\uCDE8\uBC29|\uC804\uAE30\uC694\uAE08|\uC18C\uC74C|\uC800\uC18C\uC74C|\uC124\uCE58\uBE44|\uD544\uD130|\uC2A4\uD399|\uCD9C\uC2DC\uC77C|\uBC1C\uB9E4\uC77C)/;
 
 function looksLikeShortKoreanName(value: string): boolean {
   const normalized = normalizeCandidateKeyword(value);
@@ -204,6 +206,13 @@ function isAwkwardHousingProductCandidate(seed: string, keyword: string): boolea
   return false;
 }
 
+function isAwkwardTerminalIntentChain(seed: string, keyword: string): boolean {
+  const normalizedSeed = normalizeCandidateKeyword(seed);
+  const normalizedKeyword = normalizeCandidateKeyword(keyword);
+  const combined = `${normalizedSeed} ${normalizedKeyword}`;
+  return TERMINAL_POLICY_CHAIN_RE.test(combined) || TERMINAL_PRODUCT_CHAIN_RE.test(combined);
+}
+
 function bestSourceWeight(sources: string[]): number {
   let best = 0;
   for (const source of sources) best = Math.max(best, SOURCE_WEIGHT[source] || 0);
@@ -225,6 +234,7 @@ export function scoreKeywordRelevance(seed: string, candidate: RelatedCandidateI
   if (isBadCandidate(keyword)) return null;
   if (isAwkwardPersonCommercialCandidate(seed, keyword)) return null;
   if (isAwkwardHousingProductCandidate(seed, keyword)) return null;
+  if (isAwkwardTerminalIntentChain(seed, keyword)) return null;
 
   const seedCompact = compact(seed);
   const keywordCompact = compact(keyword);

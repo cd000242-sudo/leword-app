@@ -778,6 +778,22 @@ function thinProfileCount(items: Array<{ keyword: string }>): number {
       && __liveGoldenRadarTestInternals.isSyntheticNoEffectLiveProbe('\uB178\uD2B8\uBD81\uC790\uCDE8\uBC29\uCD5C\uC800\uAC00\uC124\uCE58\uBE44')
       && !__liveGoldenRadarTestInternals.isSyntheticNoEffectLiveProbe('\uC6D0\uB8F8 \uAD00\uB9AC\uBE44 \uACC4\uC0B0'),
     'housing/product mismatch');
+  const terminalPolicyCandidates = __liveGoldenRadarTestInternals.buildCacheDerivedCompoundNeedSeeds(
+    '\uBB38\uD654\uB204\uB9AC\uCE74\uB4DC\uC0AC\uC6A9\uCC98',
+    'policy',
+    60,
+  );
+  const terminalCommerceCandidates = __liveGoldenRadarTestInternals.buildCacheDerivedCompoundNeedSeeds(
+    '\uCFE0\uCFE0\uC81C\uC2B5\uAE30\uB80C\uD0C8\uAD6C\uB9E4\uCC98',
+    'electronics',
+    60,
+  );
+  assert('live worker semantic filter rejects terminal-intent tail chains',
+    terminalPolicyCandidates.every((keyword) => !/(?:\uC9C0\uAE09\uC77C|\uB9C8\uAC10\uC77C|\uC18C\uB4DD\uAE30\uC900|\uC2E0\uCCAD\s*(?:\uBC29\uBC95|\uB300\uC0C1)|\uC81C\uC678\s*\uB300\uC0C1|\uD544\uC694\s*\uC11C\uB958)/u.test(keyword))
+      && terminalCommerceCandidates.every((keyword) => !/(?:\uC6D0\uB8F8|\uC790\uCDE8\uBC29|\uC804\uAE30\uC694\uAE08|\uC18C\uC74C|\uC800\uC18C\uC74C|\uC124\uCE58\uBE44|\uD544\uD130|\uC2A4\uD399|\uCD9C\uC2DC\uC77C|\uBC1C\uB9E4\uC77C)/u.test(keyword))
+      && __liveGoldenRadarTestInternals.isSyntheticNoEffectLiveProbe('\uBB38\uD654\uB204\uB9AC\uCE74\uB4DC\uC0AC\uC6A9\uCC98\uC9C0\uAE09\uC77C')
+      && __liveGoldenRadarTestInternals.isSyntheticNoEffectLiveProbe('\uCFE0\uCFE0\uC81C\uC2B5\uAE30\uB80C\uD0C8\uAD6C\uB9E4\uCC98\uC790\uCDE8\uBC29\uC18C\uC74C'),
+    [...terminalPolicyCandidates, ...terminalCommerceCandidates].join('|'));
   const cacheDerivedMismatchSeeds = [
     ['\uAC15\uB989 \uCE74\uD398\uAC70\uB9AC', 'food'],
     ['\uAC15\uB989 \uB2F9\uC77C\uCE58\uAE30 \uB9DB\uC9D1', 'travel_domestic'],

@@ -101,6 +101,28 @@ assert('drops housing launch/product hybrids and keeps housing decision keywords
     && !housing.some(keyword => /(?:\uCD9C\uC2DC\uC77C|\uACF5\uC2DD\uC601\uC0C1|\uCD5C\uC800\uAC00|\uC124\uCE58\uBE44)/u.test(keyword)),
   housing.join(', '));
 
+const terminalPolicy = rankRelatedKeywordCandidates('\uBB38\uD654\uB204\uB9AC\uCE74\uB4DC\uC0AC\uC6A9\uCC98', [
+  { keyword: '\uBB38\uD654\uB204\uB9AC\uCE74\uB4DC \uC0AC\uC6A9\uCC98 \uC870\uD68C', sources: ['naver-relkwd'], monthlyVolume: 2200 },
+  { keyword: '\uBB38\uD654\uB204\uB9AC\uCE74\uB4DC\uC0AC\uC6A9\uCC98\uC9C0\uAE09\uC77C', sources: ['mindmap'] },
+  { keyword: '\uBB38\uD654\uB204\uB9AC\uCE74\uB4DC\uC0AC\uC6A9\uCC98 \uC18C\uB4DD\uAE30\uC900', sources: ['naver-suffix'] },
+  { keyword: '\uBB38\uD654\uB204\uB9AC\uCE74\uB4DC \uC0AC\uC6A9\uCC98 \uC628\uB77C\uC778', sources: ['autocomplete'] },
+], { minScore: 10, limit: 10 }).map(item => item.keyword);
+assert('drops terminal policy intent chains and keeps usage-place queries',
+  terminalPolicy.includes('\uBB38\uD654\uB204\uB9AC\uCE74\uB4DC \uC0AC\uC6A9\uCC98 \uC870\uD68C')
+    && terminalPolicy.includes('\uBB38\uD654\uB204\uB9AC\uCE74\uB4DC \uC0AC\uC6A9\uCC98 \uC628\uB77C\uC778')
+    && !terminalPolicy.some(keyword => /(?:\uC9C0\uAE09\uC77C|\uC18C\uB4DD\uAE30\uC900)/u.test(keyword)),
+  terminalPolicy.join(', '));
+
+const terminalProduct = rankRelatedKeywordCandidates('\uCFE0\uCFE0\uC81C\uC2B5\uAE30\uB80C\uD0C8\uAD6C\uB9E4\uCC98', [
+  { keyword: '\uCFE0\uCFE0\uC81C\uC2B5\uAE30\uB80C\uD0C8 \uAD6C\uB9E4\uCC98 \uD6C4\uAE30', sources: ['autocomplete'] },
+  { keyword: '\uCFE0\uCFE0\uC81C\uC2B5\uAE30\uB80C\uD0C8\uAD6C\uB9E4\uCC98\uC790\uCDE8\uBC29\uC18C\uC74C', sources: ['mindmap'] },
+  { keyword: '\uCFE0\uCFE0\uC81C\uC2B5\uAE30\uB80C\uD0C8\uAD6C\uB9E4\uCC98 \uC6D0\uB8F8 \uC804\uAE30\uC694\uAE08', sources: ['naver-suffix'] },
+], { minScore: 10, limit: 10 }).map(item => item.keyword);
+assert('drops terminal product purchase-context chains',
+  terminalProduct.includes('\uCFE0\uCFE0\uC81C\uC2B5\uAE30\uB80C\uD0C8 \uAD6C\uB9E4\uCC98 \uD6C4\uAE30')
+    && !terminalProduct.some(keyword => /(?:\uC790\uCDE8\uBC29|\uC6D0\uB8F8|\uC804\uAE30\uC694\uAE08|\uC18C\uC74C)/u.test(keyword)),
+  terminalProduct.join(', '));
+
 console.log(`\n[keyword-relevance-regression.test] passed: ${passed} / failed: ${failed}`);
 if (failed > 0) {
   failures.forEach(f => console.error('  ' + f));

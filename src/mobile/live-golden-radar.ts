@@ -1028,10 +1028,34 @@ const CACHE_DERIVED_TRAVEL_BASE_RE = /(?:\uD558\uB298\uAE38|\uBC14\uB2E4\uD558\u
 const CACHE_DERIVED_HOME_PRODUCT_RE = /(?:\uC5D0\uC5B4\uCEE8|\uC81C\uC2B5\uAE30|\uACF5\uAE30\uCCAD\uC815\uAE30|\uCCAD\uC18C\uAE30|\uB85C\uBD07\uCCAD\uC18C\uAE30|\uC120\uD48D\uAE30|\uC11C\uD058\uB808\uC774\uD130|\uB0C9\uC7A5\uACE0|\uC138\uD0C1\uAE30|\uAC74\uC870\uAE30)/u;
 const HOUSING_REAL_ESTATE_CONTEXT_RE = /(?:\uC6D0\uB8F8|\uC6D4\uC138|\uC804\uC138|\uBCF4\uC99D\uAE08|\uAD00\uB9AC\uBE44|\uC624\uD53C\uC2A4\uD154|\uC790\uCDE8\uBC29|\uC784\uB300\uCC28|\uC784\uB300\uC778|\uC784\uCC28\uC778|\uC804\uC785\uC2E0\uACE0|\uD655\uC815\uC77C\uC790|\uC8FC\uD0DD\uCCAD\uC57D|\uC544\uD30C\uD2B8|\uBD80\uB3D9\uC0B0|\uC785\uC8FC|\uC774\uC0AC)/u;
 const HOUSING_PRODUCT_LAUNCH_OR_APPLIANCE_TAIL_RE = /(?:\uCD9C\uC2DC\uC77C|\uBC1C\uB9E4\uC77C|\uC0AC\uC804\uC608\uC57D|\uACF5\uC2DD\uC601\uC0C1|\uC2A4\uD399|\uD544\uD130\s*\uAD50\uCCB4\uC8FC\uAE30|\uC800\uC18C\uC74C\s*\uD6C4\uAE30|\uC124\uCE58\uBE44\s*\uBE44\uAD50|\uCD5C\uC800\uAC00\s*\uBE44\uAD50|\uCD5C\uC800\uAC00.{0,8}\uC124\uCE58\uBE44|\uC124\uCE58\uBE44.{0,8}\uCD5C\uC800\uAC00|\uAD6C\uB9E4\uCC98\s*\uCD94\uCC9C|\uD560\uC778\s*\uCFE0\uD3F0)/u;
+const POLICY_TERMINAL_INTENT_BASE_RE = /(?:\uC0AC\uC6A9\uCC98|\uAC00\uB9F9\uC810|\uC794\uC561\uC870\uD68C|\uC2E0\uCCAD\uBC29\uBC95|\uC2E0\uCCAD\uB300\uC0C1|\uC9C0\uAE09\uC77C|\uB9C8\uAC10\uC77C|\uC18C\uB4DD\uAE30\uC900|\uC81C\uC678\uB300\uC0C1|\uD544\uC694\uC11C\uB958)$/u;
+const POLICY_DIFFERENT_TERMINAL_INTENT_RE = /(?:\uC0AC\uC6A9\uCC98|\uAC00\uB9F9\uC810|\uC794\uC561\uC870\uD68C|\uC2E0\uCCAD\s*(?:\uBC29\uBC95|\uB300\uC0C1)|\uC9C0\uAE09\uC77C|\uB9C8\uAC10\uC77C|\uC18C\uB4DD\uAE30\uC900|\uC81C\uC678\s*\uB300\uC0C1|\uD544\uC694\s*\uC11C\uB958)/u;
+const PRODUCT_PURCHASE_TERMINAL_BASE_RE = /(?:\uAD6C\uB9E4\uCC98|\uCD5C\uC800\uAC00|\uD560\uC778|\uCFE0\uD3F0|\uAC00\uACA9\uBE44\uAD50|\uBE44\uC6A9\uBE44\uAD50)$/u;
+const PRODUCT_CONTEXT_AFTER_PURCHASE_TAIL_RE = /(?:\uC6D0\uB8F8|\uC790\uCDE8\uBC29|\uC804\uAE30\uC694\uAE08|\uC18C\uC74C|\uC800\uC18C\uC74C|\uD544\uD130|\uC124\uCE58\uBE44|\uC2A4\uD399|\uCD9C\uC2DC\uC77C|\uBC1C\uB9E4\uC77C)/u;
+const TERMINAL_INTENT_CHAIN_MISMATCH_RE = /(?:(?:\uC0AC\uC6A9\uCC98|\uAC00\uB9F9\uC810|\uC794\uC561\uC870\uD68C).{0,10}(?:\uC9C0\uAE09\uC77C|\uB9C8\uAC10\uC77C|\uC18C\uB4DD\uAE30\uC900|\uC2E0\uCCAD\s*(?:\uBC29\uBC95|\uB300\uC0C1)|\uC81C\uC678\s*\uB300\uC0C1|\uD544\uC694\s*\uC11C\uB958)|(?:\uAD6C\uB9E4\uCC98|\uCD5C\uC800\uAC00|\uD560\uC778|\uCFE0\uD3F0|\uAC00\uACA9\uBE44\uAD50|\uBE44\uC6A9\uBE44\uAD50).{0,12}(?:\uC6D0\uB8F8|\uC790\uCDE8\uBC29|\uC804\uAE30\uC694\uAE08|\uC18C\uC74C|\uC800\uC18C\uC74C|\uC124\uCE58\uBE44|\uD544\uD130|\uC2A4\uD399|\uCD9C\uC2DC\uC77C|\uBC1C\uB9E4\uC77C))/u;
 const HOUSING_PRODUCT_CONTEXT_MISMATCH_RE = new RegExp(
   `(?:${HOUSING_REAL_ESTATE_CONTEXT_RE.source}.{0,18}${HOUSING_PRODUCT_LAUNCH_OR_APPLIANCE_TAIL_RE.source}|${HOUSING_PRODUCT_LAUNCH_OR_APPLIANCE_TAIL_RE.source}.{0,18}${HOUSING_REAL_ESTATE_CONTEXT_RE.source})`,
   'u',
 );
+
+function hasTerminalIntentConflict(base: string, intent: string): boolean {
+  const cleanBase = normalizeKeyword(base);
+  const cleanIntent = normalizeKeyword(intent);
+  if (!cleanBase || !cleanIntent) return false;
+  const baseCompact = cleanBase.replace(/\s+/g, '');
+  const intentCompact = cleanIntent.replace(/\s+/g, '');
+  if (
+    POLICY_TERMINAL_INTENT_BASE_RE.test(baseCompact)
+    && POLICY_DIFFERENT_TERMINAL_INTENT_RE.test(cleanIntent)
+    && !baseCompact.includes(intentCompact)
+  ) return true;
+  if (
+    PRODUCT_PURCHASE_TERMINAL_BASE_RE.test(baseCompact)
+    && PRODUCT_CONTEXT_AFTER_PURCHASE_TAIL_RE.test(cleanIntent)
+    && !baseCompact.includes(intentCompact)
+  ) return true;
+  return false;
+}
 const CACHE_DERIVED_ORGANIZER_NOT_APPLIANCE_RE = /(?:냉장고\s*(?:수납)?정리(?:함)?|수납\s*정리함|정리함)/u;
 const CACHE_DERIVED_POLICY_INTENT_RE = /(?:신청\s*(?:대상|방법)|자격\s*조건|지급일\s*조회|필요\s*서류|사용처\s*추천|마감일\s*확인|소득기준\s*계산|프리랜서|알바|무직자|맞벌이|개인사업자)/u;
 const CACHE_DERIVED_POLICY_CONTEXT_RE = /(?:지원금|장려금|급여|바우처|수당|정책자금|문화누리|청년|소상공인|실업급여|부모급여|아동수당|기초연금|환급|구제신청|근로|자녀|국민연금|복지할인|도약계좌|미래적금)/u;
@@ -1081,6 +1105,7 @@ function isCacheDerivedCompoundIntentCompatible(seed: string, intent: string, ca
     HOUSING_REAL_ESTATE_CONTEXT_RE.test(clean)
     && HOUSING_PRODUCT_LAUNCH_OR_APPLIANCE_TAIL_RE.test(cleanIntent)
   ) return false;
+  if (hasTerminalIntentConflict(clean, cleanIntent)) return false;
   if (
     CACHE_DERIVED_POLICY_COMMERCE_INTENT_RE.test(cleanIntent)
     && policyLikeBase
@@ -4277,6 +4302,7 @@ function isSyntheticNoEffectLiveProbe(keyword: string): boolean {
     || FINANCE_HEALTH_INTENT_MISMATCH_RE.test(clean)
     || CACHE_DERIVED_CONTEXT_MISMATCH_RE.test(clean)
     || HOUSING_PRODUCT_CONTEXT_MISMATCH_RE.test(clean)
+    || TERMINAL_INTENT_CHAIN_MISMATCH_RE.test(clean)
     || CALCULATOR_POLICY_TAIL_NO_EFFECT_RE.test(clean)
     || LIVE_SEARCHAD_NO_RESULT_SHAPE_RE.test(clean)
     || LIVE_SEARCHAD_NO_RESULT_SHAPE_EXTRA_RE.test(clean)
@@ -4505,6 +4531,7 @@ function isMeasuredProbeIntentCompatible(base: string, intent: string, categoryI
   if (!cleanBase || !cleanIntent) return false;
   const inferred = inferLiveCategory(cleanBase, categoryId);
   if (isSemanticallyMismatchedMeasuredProbe(`${cleanBase} ${cleanIntent}`)) return false;
+  if (hasTerminalIntentConflict(cleanBase, cleanIntent)) return false;
   if (
     HOUSING_REAL_ESTATE_CONTEXT_RE.test(cleanBase)
     && HOUSING_PRODUCT_LAUNCH_OR_APPLIANCE_TAIL_RE.test(cleanIntent)
