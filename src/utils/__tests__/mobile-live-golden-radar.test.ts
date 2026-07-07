@@ -765,6 +765,19 @@ function thinProfileCount(items: Array<{ keyword: string }>): number {
       && cacheDerivedHomeProductCandidates.some((keyword) => keyword.includes('\uC790\uCDE8\uBC29') && keyword.includes('\uC18C\uC74C'))
       && cacheDerivedHomeProductCandidates.some((keyword) => keyword.includes('1\uC778\uAC00\uAD6C') && keyword.includes('\uCD94\uCC9C')),
     cacheDerivedHomeProductCandidates.join('|'));
+  const cacheDerivedHousingCandidates = __liveGoldenRadarTestInternals.buildCacheDerivedCompoundNeedSeeds(
+    '\uC6D0\uB8F8',
+    'home_life',
+    60,
+  );
+  assert('cache-derived housing heads do not expand as appliance or launch probes',
+    cacheDerivedHousingCandidates.every((keyword) => !/(?:\uCD9C\uC2DC\uC77C|\uBC1C\uB9E4\uC77C|\uC0AC\uC804\uC608\uC57D|\uACF5\uC2DD\uC601\uC0C1|\uC2A4\uD399|\uCD5C\uC800\uAC00|\uAD6C\uB9E4\uCC98|\uD560\uC778|\uCFE0\uD3F0|\uC124\uCE58\uBE44|\uC800\uC18C\uC74C|\uD544\uD130)/u.test(keyword)),
+    cacheDerivedHousingCandidates.join('|'));
+  assert('live worker semantic filter rejects housing/product launch hybrids',
+    __liveGoldenRadarTestInternals.isSyntheticNoEffectLiveProbe('\uC6D0\uB8F8\uCD9C\uC2DC\uC77C\uBE44\uC6A9')
+      && __liveGoldenRadarTestInternals.isSyntheticNoEffectLiveProbe('\uB178\uD2B8\uBD81\uC790\uCDE8\uBC29\uCD5C\uC800\uAC00\uC124\uCE58\uBE44')
+      && !__liveGoldenRadarTestInternals.isSyntheticNoEffectLiveProbe('\uC6D0\uB8F8 \uAD00\uB9AC\uBE44 \uACC4\uC0B0'),
+    'housing/product mismatch');
   const cacheDerivedMismatchSeeds = [
     ['\uAC15\uB989 \uCE74\uD398\uAC70\uB9AC', 'food'],
     ['\uAC15\uB989 \uB2F9\uC77C\uCE58\uAE30 \uB9DB\uC9D1', 'travel_domestic'],

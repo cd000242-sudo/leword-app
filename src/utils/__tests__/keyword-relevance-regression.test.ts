@@ -88,6 +88,19 @@ assert('drops awkward person family-commerce keywords',
     && !person.some(keyword => /장윤기.*(부모|일정).*(가격|추천|비교|후기|방법)/.test(keyword)),
   person.join(', '));
 
+const housing = rankRelatedKeywordCandidates('\uC6D0\uB8F8', [
+  { keyword: '\uC6D0\uB8F8 \uCD9C\uC2DC\uC77C \uBE44\uC6A9', sources: ['mindmap'] },
+  { keyword: '\uC6D0\uB8F8 \uACF5\uC2DD\uC601\uC0C1', sources: ['naver-suffix'] },
+  { keyword: '\uB178\uD2B8\uBD81\uC790\uCDE8\uBC29\uCD5C\uC800\uAC00\uC124\uCE58\uBE44', sources: ['title-extract'] },
+  { keyword: '\uC6D0\uB8F8 \uAD00\uB9AC\uBE44 \uACC4\uC0B0', sources: ['naver-relkwd'], monthlyVolume: 2400 },
+  { keyword: '\uC6D0\uB8F8 \uBCF4\uC99D\uAE08 \uC8FC\uC758\uC0AC\uD56D', sources: ['autocomplete'] },
+], { minScore: 10, limit: 10 }).map(item => item.keyword);
+assert('drops housing launch/product hybrids and keeps housing decision keywords',
+  housing.includes('\uC6D0\uB8F8 \uAD00\uB9AC\uBE44 \uACC4\uC0B0')
+    && housing.includes('\uC6D0\uB8F8 \uBCF4\uC99D\uAE08 \uC8FC\uC758\uC0AC\uD56D')
+    && !housing.some(keyword => /(?:\uCD9C\uC2DC\uC77C|\uACF5\uC2DD\uC601\uC0C1|\uCD5C\uC800\uAC00|\uC124\uCE58\uBE44)/u.test(keyword)),
+  housing.join(', '));
+
 console.log(`\n[keyword-relevance-regression.test] passed: ${passed} / failed: ${failed}`);
 if (failed > 0) {
   failures.forEach(f => console.error('  ' + f));

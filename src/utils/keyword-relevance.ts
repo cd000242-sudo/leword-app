@@ -162,6 +162,11 @@ const PERSON_CONTEXT_RE = /(나이|부모|가족|아버지|어머니|엄마|아�
 const PERSON_BAD_INTENT_RE = /(가격|비용|견적|시세|추천|비교|순위|랭킹|할인|쿠폰|구매|구입|리뷰|후기|방법|사용법|장단점|종류)/;
 const NON_PERSON_SINGLE_TOKEN_RE = /(제네시스|카니발|아반떼|쏘렌토|아이오닉|그랜저|임플란트|에어컨|냉장고|세탁기|청소기|제습기|영양제|비타민|유산균|오메가|노트북|운동화|향수|화장품|지원금|보조금|대출|보험|부동산|아파트|청약)/;
 
+const HOUSING_CONTEXT_RE = /(?:\uC6D0\uB8F8|\uC6D4\uC138|\uC804\uC138|\uBCF4\uC99D\uAE08|\uAD00\uB9AC\uBE44|\uC624\uD53C\uC2A4\uD154|\uC790\uCDE8\uBC29|\uC784\uB300\uCC28|\uC804\uC785\uC2E0\uACE0|\uD655\uC815\uC77C\uC790|\uC785\uC8FC|\uC774\uC0AC|\uBD80\uB3D9\uC0B0)/;
+const PRODUCT_LAUNCH_CONTEXT_RE = /(?:\uCD9C\uC2DC\uC77C|\uBC1C\uB9E4\uC77C|\uC0AC\uC804\uC608\uC57D|\uACF5\uC2DD\uC601\uC0C1|\uC2A4\uD399|\uCD9C\uC2DC|\uACF5\uAC1C\uC77C)/;
+const APPLIANCE_PURCHASE_TAIL_RE = /(?:\uCD5C\uC800\uAC00|\uAD6C\uB9E4\uCC98|\uD560\uC778|\uCFE0\uD3F0|\uC124\uCE58\uBE44|\uC800\uC18C\uC74C|\uD544\uD130|\uC2A4\uD399)/;
+const APPLIANCE_BASE_RE = /(?:\uC5D0\uC5B4\uCEE8|\uC81C\uC2B5\uAE30|\uACF5\uAE30\uCCAD\uC815\uAE30|\uCCAD\uC18C\uAE30|\uB85C\uBD07\uCCAD\uC18C\uAE30|\uC120\uD48D\uAE30|\uB0C9\uC7A5\uACE0|\uC138\uD0C1\uAE30|\uAC74\uC870\uAE30)/;
+
 function looksLikeShortKoreanName(value: string): boolean {
   const normalized = normalizeCandidateKeyword(value);
   return /^[가-힣]{2,8}$/.test(normalized)
@@ -189,6 +194,16 @@ function isAwkwardPersonCommercialCandidate(seed: string, keyword: string): bool
   return PERSON_BAD_INTENT_RE.test(tail) && tail.length <= 8;
 }
 
+function isAwkwardHousingProductCandidate(seed: string, keyword: string): boolean {
+  const normalizedSeed = normalizeCandidateKeyword(seed);
+  const normalizedKeyword = normalizeCandidateKeyword(keyword);
+  const combined = `${normalizedSeed} ${normalizedKeyword}`;
+  if (!HOUSING_CONTEXT_RE.test(combined)) return false;
+  if (PRODUCT_LAUNCH_CONTEXT_RE.test(combined)) return true;
+  if (APPLIANCE_PURCHASE_TAIL_RE.test(normalizedKeyword) && !APPLIANCE_BASE_RE.test(normalizedSeed)) return true;
+  return false;
+}
+
 function bestSourceWeight(sources: string[]): number {
   let best = 0;
   for (const source of sources) best = Math.max(best, SOURCE_WEIGHT[source] || 0);
@@ -209,6 +224,7 @@ export function scoreKeywordRelevance(seed: string, candidate: RelatedCandidateI
   const keyword = normalizeCandidateKeyword(candidate.keyword);
   if (isBadCandidate(keyword)) return null;
   if (isAwkwardPersonCommercialCandidate(seed, keyword)) return null;
+  if (isAwkwardHousingProductCandidate(seed, keyword)) return null;
 
   const seedCompact = compact(seed);
   const keywordCompact = compact(keyword);

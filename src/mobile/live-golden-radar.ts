@@ -1026,6 +1026,12 @@ const CACHE_DERIVED_HOME_PRODUCT_INTENTS = Object.freeze([
 ]);
 const CACHE_DERIVED_TRAVEL_BASE_RE = /(?:\uD558\uB298\uAE38|\uBC14\uB2E4\uD558\uB298\uAE38|\uACC4\uACE1|\uCEA0\uD551\uC7A5|\uB9AC\uC870\uD2B8|\uB80C\uD130\uCE74|\uAD00\uAD11|\uCD95\uC81C|\uC218\uBAA9\uC6D0|\uC804\uB9DD\uB300|\uD574\uBCC0)/u;
 const CACHE_DERIVED_HOME_PRODUCT_RE = /(?:\uC5D0\uC5B4\uCEE8|\uC81C\uC2B5\uAE30|\uACF5\uAE30\uCCAD\uC815\uAE30|\uCCAD\uC18C\uAE30|\uB85C\uBD07\uCCAD\uC18C\uAE30|\uC120\uD48D\uAE30|\uC11C\uD058\uB808\uC774\uD130|\uB0C9\uC7A5\uACE0|\uC138\uD0C1\uAE30|\uAC74\uC870\uAE30)/u;
+const HOUSING_REAL_ESTATE_CONTEXT_RE = /(?:\uC6D0\uB8F8|\uC6D4\uC138|\uC804\uC138|\uBCF4\uC99D\uAE08|\uAD00\uB9AC\uBE44|\uC624\uD53C\uC2A4\uD154|\uC790\uCDE8\uBC29|\uC784\uB300\uCC28|\uC784\uB300\uC778|\uC784\uCC28\uC778|\uC804\uC785\uC2E0\uACE0|\uD655\uC815\uC77C\uC790|\uC8FC\uD0DD\uCCAD\uC57D|\uC544\uD30C\uD2B8|\uBD80\uB3D9\uC0B0|\uC785\uC8FC|\uC774\uC0AC)/u;
+const HOUSING_PRODUCT_LAUNCH_OR_APPLIANCE_TAIL_RE = /(?:\uCD9C\uC2DC\uC77C|\uBC1C\uB9E4\uC77C|\uC0AC\uC804\uC608\uC57D|\uACF5\uC2DD\uC601\uC0C1|\uC2A4\uD399|\uD544\uD130\s*\uAD50\uCCB4\uC8FC\uAE30|\uC800\uC18C\uC74C\s*\uD6C4\uAE30|\uC124\uCE58\uBE44\s*\uBE44\uAD50|\uCD5C\uC800\uAC00\s*\uBE44\uAD50|\uCD5C\uC800\uAC00.{0,8}\uC124\uCE58\uBE44|\uC124\uCE58\uBE44.{0,8}\uCD5C\uC800\uAC00|\uAD6C\uB9E4\uCC98\s*\uCD94\uCC9C|\uD560\uC778\s*\uCFE0\uD3F0)/u;
+const HOUSING_PRODUCT_CONTEXT_MISMATCH_RE = new RegExp(
+  `(?:${HOUSING_REAL_ESTATE_CONTEXT_RE.source}.{0,18}${HOUSING_PRODUCT_LAUNCH_OR_APPLIANCE_TAIL_RE.source}|${HOUSING_PRODUCT_LAUNCH_OR_APPLIANCE_TAIL_RE.source}.{0,18}${HOUSING_REAL_ESTATE_CONTEXT_RE.source})`,
+  'u',
+);
 const CACHE_DERIVED_ORGANIZER_NOT_APPLIANCE_RE = /(?:냉장고\s*(?:수납)?정리(?:함)?|수납\s*정리함|정리함)/u;
 const CACHE_DERIVED_POLICY_INTENT_RE = /(?:신청\s*(?:대상|방법)|자격\s*조건|지급일\s*조회|필요\s*서류|사용처\s*추천|마감일\s*확인|소득기준\s*계산|프리랜서|알바|무직자|맞벌이|개인사업자)/u;
 const CACHE_DERIVED_POLICY_CONTEXT_RE = /(?:지원금|장려금|급여|바우처|수당|정책자금|문화누리|청년|소상공인|실업급여|부모급여|아동수당|기초연금|환급|구제신청|근로|자녀|국민연금|복지할인|도약계좌|미래적금)/u;
@@ -1071,6 +1077,10 @@ function isCacheDerivedCompoundIntentCompatible(seed: string, intent: string, ca
   const policyLikeBase = CACHE_DERIVED_POLICY_RE.test(clean)
     || CACHE_DERIVED_POLICY_CONTEXT_RE.test(clean)
     || CACHE_DERIVED_POLICY_CALCULATOR_CONTEXT_RE.test(clean);
+  if (
+    HOUSING_REAL_ESTATE_CONTEXT_RE.test(clean)
+    && HOUSING_PRODUCT_LAUNCH_OR_APPLIANCE_TAIL_RE.test(cleanIntent)
+  ) return false;
   if (
     CACHE_DERIVED_POLICY_COMMERCE_INTENT_RE.test(cleanIntent)
     && policyLikeBase
@@ -1139,7 +1149,7 @@ function buildCacheDerivedCompoundNeedSeeds(seed: string, categoryId = 'all', li
     intents.push(...CACHE_DERIVED_COMMERCE_INTENTS);
   }
   if (CACHE_DERIVED_TRAVEL_BASE_RE.test(clean) || /travel/.test(category)) intents.push(...CACHE_DERIVED_TRAVEL_INTENTS);
-  if (CACHE_DERIVED_HOME_PRODUCT_RE.test(clean) || /shopping|electronics|home/.test(category)) intents.push(...CACHE_DERIVED_HOME_PRODUCT_INTENTS);
+  if (CACHE_DERIVED_HOME_PRODUCT_RE.test(clean) || /shopping|electronics/.test(category)) intents.push(...CACHE_DERIVED_HOME_PRODUCT_INTENTS);
 
   const out: string[] = [];
   for (const intent of uniqueKeywords(intents, 24)) {
@@ -4266,6 +4276,7 @@ function isSyntheticNoEffectLiveProbe(keyword: string): boolean {
     || POLICY_AUDIENCE_BASE_MISMATCH_RE.test(clean)
     || FINANCE_HEALTH_INTENT_MISMATCH_RE.test(clean)
     || CACHE_DERIVED_CONTEXT_MISMATCH_RE.test(clean)
+    || HOUSING_PRODUCT_CONTEXT_MISMATCH_RE.test(clean)
     || CALCULATOR_POLICY_TAIL_NO_EFFECT_RE.test(clean)
     || LIVE_SEARCHAD_NO_RESULT_SHAPE_RE.test(clean)
     || LIVE_SEARCHAD_NO_RESULT_SHAPE_EXTRA_RE.test(clean)
@@ -4494,6 +4505,10 @@ function isMeasuredProbeIntentCompatible(base: string, intent: string, categoryI
   if (!cleanBase || !cleanIntent) return false;
   const inferred = inferLiveCategory(cleanBase, categoryId);
   if (isSemanticallyMismatchedMeasuredProbe(`${cleanBase} ${cleanIntent}`)) return false;
+  if (
+    HOUSING_REAL_ESTATE_CONTEXT_RE.test(cleanBase)
+    && HOUSING_PRODUCT_LAUNCH_OR_APPLIANCE_TAIL_RE.test(cleanIntent)
+  ) return false;
   if (/\bETF\b/iu.test(cleanBase) && /(?:세액공제|신청\s*방법|만기\s*수령액|해지\s*불이익)/u.test(cleanIntent)) return false;
   if (['policy', 'finance'].includes(inferred) && /(?:예약|예매|주차|입장료|숙소|호텔|픽업|환불\s*규정)/u.test(cleanIntent)) return false;
   if (inferred === 'finance' && /(?:신청\s*대상|필요\s*서류|온라인\s*신청)/u.test(cleanIntent) && !/청년|청약|대출|보험/u.test(cleanBase)) return false;
@@ -5778,6 +5793,8 @@ export const __liveGoldenRadarTestInternals = {
   inferLiveCategory,
   isKnownPolicyProductNeedKeyword,
   isInvalidNonProductCommerceExpansion,
+  isSyntheticNoEffectLiveProbe,
+  isMeasuredProbeIntentCompatible,
   isMeasuredProBoardFallbackMetric,
   isLiveMeasuredProbeCandidate,
   isLiveRadarUsableKeyword,
