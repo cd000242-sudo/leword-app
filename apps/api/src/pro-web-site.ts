@@ -2563,6 +2563,9 @@ export function renderLewordProWeb(): string {
       return markerCount >= 3 && (hasNoReadableSpacing || keyword.length >= 17);
     }
     function shouldHideFromLiveGoldenBoard(row) {
+      if (row && row.source === 'browser-fallback') {
+        return isArticleTitleLikeKeyword(row && row.keyword) || isAmbiguousCompositeKeyword(row) || isShoppingIntentKeywordRow(row) || isAdDominatedKeywordRow(row);
+      }
       return isArticleTitleLikeKeyword(row && row.keyword) || isAmbiguousCompositeKeyword(row) || isShoppingIntentKeywordRow(row) || isAdDominatedKeywordRow(row) || isLowTrafficCaptureKeyword(row);
     }
     function shouldHideFromMindmap(row) {
@@ -4103,40 +4106,126 @@ export function renderLewordProWeb(): string {
       const year = now.getFullYear();
       const month = now.getMonth() + 1;
       const season = month >= 6 && month <= 8
-        ? ['여름 휴가 준비물', '장마 습기 제거', '냉방비 절약', '차량용 냉장고']
+        ? ['여름 휴가 준비물', '장마 습기 제거', '냉방비 절약', '폭염 대책', '휴가철 교통', '여름 축제']
         : month >= 9 && month <= 11
-          ? ['가을 여행 준비', '추석 지원금', '환절기 건강관리', '겨울 준비']
+          ? ['가을 여행 준비', '추석 지원금', '환절기 건강관리', '겨울 준비', '단풍 여행', '추석 교통']
           : month === 12 || month <= 2
-            ? ['겨울 난방비 지원', '연말정산 준비', '방한용품 추천', '설날 교통 예매']
-            : ['봄 이사 체크리스트', '근로장려금 신청', '봄 여행 예약', '미세먼지 대책'];
+            ? ['겨울 난방비 지원', '연말정산 준비', '방한용품 추천', '설날 교통 예매', '독감 예방접종', '겨울 여행']
+            : ['봄 이사 체크리스트', '근로장려금 신청', '봄 여행 예약', '미세먼지 대책', '봄 축제', '채용 공고'];
       return uniqueKeywords([
         year + ' 지원금 신청',
+        year + ' 근로장려금 지급일',
+        year + ' 자녀장려금 지급일',
+        year + ' 최저임금 계산기',
+        year + ' 청년 지원금',
         month + '월 정부 지원금',
         month + '월 축제 일정',
         month + '월 여행 예약',
         year + ' 스포츠 경기 일정',
-      ].concat(season), 16);
+        year + ' 축구 대표팀 일정',
+        year + ' KBO 올스타전',
+      ].concat(season), 32);
+    }
+    function clientFallbackRootPool(seed) {
+      const cleanSeed = normalizeText(seed);
+      const policyRoots = [
+        '근로장려금 지급일',
+        '자녀장려금 대상자',
+        '주휴수당 계산기',
+        '최저임금 월급 계산',
+        '문화누리카드 잔액조회',
+        '청년도약계좌 조건',
+        '국민내일배움카드 신청',
+        '실업급여 수급 조건',
+        '기초연금 수급자격',
+        '육아휴직급여 신청',
+      ];
+      const issueRoots = [
+        '홍명보 감독 다음 감독 후보',
+        '대한축구협회 선임 과정 논란',
+        '월드컵 예선 일정',
+        'KBO 올스타전 예매',
+        '프로야구 중계 일정',
+        '축구 대표팀 명단',
+        '이강인 경기 일정',
+        '김민재 이적설',
+      ];
+      const localRoots = [
+        '송지호 바다하늘길 입장료',
+        '제주 렌터카 보험 비교',
+        '제주 렌터카 예약 시기',
+        '부산 문화누리카드 사용처',
+        '강릉 여행 주차장',
+        '속초 해수욕장 주차',
+        '여름 축제 일정',
+        '장마철 실내 여행지',
+      ];
+      const lifeRoots = [
+        '냉방비 절약 방법',
+        '폭염 건강관리',
+        '장마 습기 제거 방법',
+        '에어컨 전기세 계산',
+        '여름철 식중독 증상',
+        '자동차 침수 보험',
+        '휴가철 교통 정체',
+        '전기요금 누진세 계산',
+      ];
+      const financeRoots = [
+        '청약통장 납입 인정액',
+        '전세대출 금리 비교',
+        '소상공인 정책자금 신청',
+        '종합소득세 환급 조회',
+        '건강보험료 환급금 조회',
+        '국민연금 예상수령액',
+      ];
+      const educationRoots = [
+        '국가장학금 신청 기간',
+        '내일배움카드 사용처',
+        '공무원 시험 일정',
+        '자격증 시험 접수',
+        '대학 장학금 신청',
+      ];
+      return uniqueKeywords([cleanSeed].concat(
+        clientFallbackSeasonTerms(),
+        policyRoots,
+        issueRoots,
+        localRoots,
+        lifeRoots,
+        financeRoots,
+        educationRoots
+      ), 64);
     }
     function clientFallbackRoots(seed) {
-      const cleanSeed = normalizeText(seed);
-      const roots = cleanSeed ? [cleanSeed] : [];
-      return uniqueKeywords(roots.concat(clientFallbackSeasonTerms()), 20);
+      return clientFallbackRootPool(seed);
+    }
+    function clientFallbackTailsForRoot(root, featureId) {
+      const text = normalizeText(root);
+      if (featureId === 'shopping') return ['추천', '가격 비교', '후기', '구매 전 확인', '가성비', '단점'];
+      if (featureId === 'naver-mate') return ['자동완성', '연관검색어', '블로그 글감', '검색량 확인', '문서수 비교'];
+      if (featureId === 'kin') return ['질문', '해결방법', '주의사항', '기준', '실제 후기', '답변 예시'];
+      if (featureId === 'youtube') return ['쇼츠', '반응', '요약', '하이라이트', '논란 정리', '댓글 반응'];
+      if (/지원금|장려금|수당|급여|연금|보험|정책|카드|세금|환급|청년|장학금|대출|청약/.test(text)) {
+        return ['대상', '신청 방법', '지급일', '금액', '조회', '제외대상', '필요 서류'];
+      }
+      if (/감독|축구|야구|KBO|월드컵|대표팀|선수|이강인|김민재|올스타전/.test(text)) {
+        return ['이유', '일정', '후보', '반응', '전망', '논란 정리', '중계'];
+      }
+      if (/제주|송지호|강릉|속초|부산|여행|축제|해수욕장|렌터카|렌트카|주차/.test(text)) {
+        return ['입장료', '주차', '위치', '운영시간', '예약 방법', '후기', '주의사항'];
+      }
+      if (/폭염|장마|냉방비|전기요금|에어컨|건강|식중독|침수|교통/.test(text)) {
+        return ['원인', '대처 방법', '주의사항', '지원금', '비교', '체크리스트'];
+      }
+      return ['이유', '방법', '정리', '비교', '주의사항', '전망'];
     }
     function clientFallbackIntentKeywords(seed, featureId, limit) {
       const roots = clientFallbackRoots(seed);
       const variants = [];
       roots.forEach(function(root) {
-        if (featureId === 'shopping') {
-          variants.push(root + ' 추천', root + ' 가격 비교', root + ' 후기', root + ' 구매 전 확인', root + ' 가성비');
-        } else if (featureId === 'naver-mate') {
-          variants.push(root + ' 신청방법', root + ' 조건', root + ' 조회', root + ' 일정', root + ' 준비물');
-        } else if (featureId === 'kin') {
-          variants.push(root + ' 질문', root + ' 해결방법', root + ' 주의사항', root + ' 기준', root + ' 실제 후기');
-        } else if (featureId === 'youtube') {
-          variants.push(root + ' 쇼츠', root + ' 반응', root + ' 요약', root + ' 하이라이트', root + ' 논란 정리');
-        } else {
-          variants.push(root, root + ' 이유', root + ' 일정', root + ' 방법', root + ' 정리', root + ' 전망');
-        }
+        variants.push(root);
+        clientFallbackTailsForRoot(root, featureId).forEach(function(tail) {
+          variants.push(appendMindmapTail(root, tail));
+        });
       });
       return uniqueKeywords(variants, limit || 12);
     }
@@ -4154,12 +4243,13 @@ export function renderLewordProWeb(): string {
         id: 'client-fallback-' + index + '-' + keyword.toLowerCase().replace(/\\s+/g, '-'),
         rank: index + 1,
         keyword: keyword,
-        grade: 'LIVE',
+        grade: '검증',
         freshness: 'live',
         isMeasured: false,
         publicSearchVolumeLabel: '브라우저 검색',
         publicDocumentCountLabel: '서버 복구 후 실측',
         publicReason: source || '서버 미연결 · 사이트 자체 검색 후보',
+        category: goldenDisplayLane({ keyword: keyword, source: source || 'browser-fallback' }),
         source: 'browser-fallback',
         publishDecision: clientFallbackPublishDecision(keyword),
         discoveredAt: new Date().toISOString(),
@@ -4168,7 +4258,8 @@ export function renderLewordProWeb(): string {
     }
     function buildClientGoldenFallbackPayload(error) {
       const proMode = hasActiveProSession();
-      const keywords = clientFallbackIntentKeywords(compactKeywordInput(), 'pro-traffic', proMode ? 30 : 5);
+      const target = proMode ? 120 : 5;
+      const keywords = clientFallbackIntentKeywords(compactKeywordInput(), 'pro-traffic', target);
       const items = keywords.map(function(keyword, index) {
         return clientFallbackBoardItem(keyword, index, '서버 미연결 · 브라우저 자체 후보');
       });
@@ -4178,7 +4269,7 @@ export function renderLewordProWeb(): string {
         error: error && error.message ? error.message : String(error || ''),
         updatedAt: new Date().toISOString(),
         boardTarget: 120,
-        boardCount: items.length,
+        boardCount: proMode ? 120 : items.length,
         lockedCount: 0,
         publicPreviewCount: items.length,
         running: false,
@@ -4936,6 +5027,7 @@ export function renderLewordProWeb(): string {
       return !!(row && row.isMeasured !== false && total !== null && total >= 100 && docs !== null && docs > total && ratio !== null && ratio < 1);
     }
     function displayGradeForRow(row) {
+      if (row && row.source === 'browser-fallback' && row.isMeasured === false) return row.grade || '검증';
       if (isAmbiguousCompositeKeyword(row)) return 'C';
       if (isAdDominatedKeywordRow(row)) return 'C';
       if (isLowTrafficCaptureKeyword(row)) return 'C';
@@ -7380,9 +7472,10 @@ export function renderLewordProWeb(): string {
       }
       qs('goldenBoardList').innerHTML = rows.map(function(item) {
         const grade = escapeHtml(displayGradeForRow(item) || '');
-        const searchVolume = exact ? fmt(item.totalSearchVolume) : escapeHtml(item.publicSearchVolumeLabel || '-');
-        const documents = exact ? fmt(item.documentCount) : escapeHtml(item.publicDocumentCountLabel || '-');
-        const ratio = exact ? fmt(item.goldenRatio) : '🔒';
+        const measured = item && item.isMeasured !== false;
+        const searchVolume = exact && measured ? fmt(item.totalSearchVolume) : escapeHtml(item.publicSearchVolumeLabel || '실측 대기');
+        const documents = exact && measured ? fmt(item.documentCount) : escapeHtml(item.publicDocumentCountLabel || '실측 대기');
+        const ratio = exact && measured ? fmt(item.goldenRatio) : (exact ? '실측 대기' : '🔒');
         const sub = exact
           ? escapeHtml(item.intent || item.source || '실측 검색량과 문서수가 있습니다.')
           : escapeHtml(item.publicReason || '실측 후보');
