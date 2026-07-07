@@ -136,7 +136,8 @@ assert('api key settings are separate from Pro login credentials',
     && html.includes("saveSession(Object.assign({}, payload.session, { userId: payload.session.userId || userId }))")
     && html.includes("const requestHeaders = url === endpoints.session ? { 'Content-Type': 'application/json' } : headers(options);")
     && html.includes("const licenseCode = loginLicenseCodeForSubmit();")
-    && html.includes("saveSession(null);\n        const loginPayload = { userId: userId, password: password };")
+    && html.includes("const loginPayload = { userId: userId, password: password };")
+    && !html.includes("saveSession(null);\n        const loginPayload = { userId: userId, password: password };")
     && html.includes('아이디 또는 비밀번호가 맞지 않습니다. 자동완성 값이 들어갔다면 지우고 다시 입력하세요.')
     && html.includes('data-api-key-input="true"')
     && html.includes('autocomplete="off" readonly data-lpignore="true"')
@@ -190,11 +191,19 @@ assert('loads public and pro golden boards',
     && html.includes('function loadGoldenBoard()')
     && html.includes('renderPublicGoldenBoard')
     && html.includes('renderProGoldenBoard'));
-assert('clears stale Pro sessions instead of showing a locked public board as Pro connected',
+assert('keeps Pro sessions during transient auth failures and retries remembered credentials',
   proWebHtml.includes('function promptProRelogin(message)')
-    && proWebHtml.includes('saveSession(null);')
+    && proWebHtml.includes('function markProSessionAuthPending(message)')
+    && proWebHtml.includes('session.authPending = true;')
+    && proWebHtml.includes('session.lastAuthError')
+    && proWebHtml.includes('function refreshProSessionFromRememberedCredentials(reason)')
+    && proWebHtml.includes("refreshProSessionFromRememberedCredentials('restored-session-validation')")
+    && proWebHtml.includes("refreshProSessionFromRememberedCredentials('live-golden-snapshot')")
+    && proWebHtml.includes("refreshProSessionFromRememberedCredentials('feature-run')")
+    && proWebHtml.includes("Object.assign({}, ui, { authRetry: true })")
     && proWebHtml.includes('openLogin();')
-    && proWebHtml.includes('Pro board failed; session cleared:')
+    && proWebHtml.includes('Pro session needs re-auth but was kept locally:')
+    && !proWebHtml.includes('Pro board failed; session cleared:')
     && !proWebHtml.includes('Pro board failed, trying public board'));
 assert('health polling does not overwrite live board counts with missing metrics',
   html.includes('const liveGolden = health && health.liveGolden')

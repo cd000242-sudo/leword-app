@@ -2214,6 +2214,7 @@ export function renderLewordProWeb(): string {
     const featureResultCache = {};
     const featureRunState = {};
     let postLoginAutoRunStarted = false;
+    let proSessionRefreshPromise = null;
     let progressCloseTimer = null;
     let progressMinimized = false;
     let progressDone = false;
@@ -5834,6 +5835,7 @@ export function renderLewordProWeb(): string {
       } catch (err) {
         const message = err && err.message ? err.message : '';
         if (isAuthErrorMessage(message)) {
+          if (await refreshProSessionFromRememberedCredentials('restored-session-validation')) return true;
           promptProRelogin('Pro 세션이 만료되었습니다. 다시 로그인하면 전체 황금키워드 보드가 표시됩니다.');
           return false;
         }
@@ -6748,10 +6750,19 @@ export function renderLewordProWeb(): string {
     }
     function promptProRelogin(message) {
       const safeMessage = message || 'Pro 로그인 세션이 만료되었습니다. 다시 로그인하세요.';
-      saveSession(null);
+      markProSessionAuthPending(safeMessage);
       openLogin();
       if (qs('loginMessage')) qs('loginMessage').textContent = safeMessage;
-      log('Pro board failed; session cleared: ' + safeMessage);
+      log('Pro session needs re-auth but was kept locally: ' + safeMessage);
+    }
+    function markProSessionAuthPending(message) {
+      if (!session || !session.accessToken) return;
+      session.authPending = true;
+      session.lastAuthError = String(message || '').slice(0, 240);
+      try {
+        localStorage.setItem('leword.pro.session', JSON.stringify(session));
+      } catch (err) {}
+      renderSession();
     }
     function closeLogin() {
       qs('loginModal').classList.remove('open');
@@ -6854,7 +6865,7 @@ export function renderLewordProWeb(): string {
         const payload = await res.json().catch(function() { return {}; });
         if (authed && (res.status === 401 || res.status === 403)) {
           if (isOfflineProSession()) throw new Error(offlineServerAuthError(url));
-          saveSession(null);
+          markProSessionAuthPending(formatApiError(url, res.status, payload));
           throw new Error(formatApiError(url, res.status, payload));
         }
         if (!res.ok) throw new Error(formatApiError(url, res.status, payload));
@@ -6932,7 +6943,7 @@ export function renderLewordProWeb(): string {
       const payload = await res.json().catch(function() { return {}; });
       if (url !== endpoints.session && (res.status === 401 || res.status === 403)) {
         if (isOfflineProSession()) throw new Error(offlineServerAuthError(url));
-        saveSession(null);
+        markProSessionAuthPending(formatApiError(url, res.status, payload));
         throw new Error(formatApiError(url, res.status, payload));
       }
       if (!res.ok) throw new Error(formatApiError(url, res.status, payload));
@@ -7354,6 +7365,30 @@ export function renderLewordProWeb(): string {
     function persistCurrentProLoginRememberChoice(userId, password) {
       const checkbox = qs('proLoginRemember');
       writeRememberedProLoginCredentials(userId, password, !!(checkbox && checkbox.checked));
+    }
+    async function refreshProSessionFromRememberedCredentials(reason) {
+      if (proSessionRefreshPromise) return proSessionRefreshPromise;
+      const saved = readRememberedProLoginCredentials();
+      if (!saved || !saved.userId || !saved.password) return false;
+      proSessionRefreshPromise = (async function() {
+        try {
+          const payload = await apiPost(endpoints.session, {
+            userId: saved.userId,
+            password: saved.password,
+          });
+          if (!payload || !payload.session || !payload.session.accessToken) return false;
+          saveSession(Object.assign({}, payload.session, { userId: payload.session.userId || saved.userId }));
+          rememberProLoginUserId(saved.userId);
+          log('Pro session silently refreshed: ' + (reason || 'auth-retry'));
+          return true;
+        } catch (err) {
+          log('Pro session silent refresh failed: ' + ((err && err.message) || err || 'unknown'));
+          return false;
+        } finally {
+          proSessionRefreshPromise = null;
+        }
+      })();
+      return proSessionRefreshPromise;
     }
     function proLoginInputIds() {
       return ['proLoginAccountId', 'proLoginAccountPassword'];
@@ -7925,7 +7960,10 @@ export function renderLewordProWeb(): string {
             proSnapshotFallback = true;
             log('LIVE golden Pro snapshot fallback: ' + (message || 'unknown'));
           } else {
-            promptProRelogin(message || 'Pro 보드 권한을 확인할 수 없습니다. 다시 로그인하세요.');
+            if (await refreshProSessionFromRememberedCredentials('live-golden-snapshot')) return loadGoldenBoard();
+            proSnapshotFallback = true;
+            markProSessionAuthPending(message || 'Pro board auth needs recheck.');
+            log('LIVE golden Pro auth pending; keeping local Pro session.');
           }
         }
       }
@@ -7947,7 +7985,14 @@ export function renderLewordProWeb(): string {
           renderClientGoldenFallback(new Error(authenticatedPublicError || 'offline pro fallback'));
           return;
         }
-        promptProRelogin('Pro 세션 인증을 다시 확인해야 합니다. 다시 로그인하면 잠긴 120개 보드가 바로 열립니다.');
+        if (isAuthErrorMessage(authenticatedPublicError)) {
+          if (await refreshProSessionFromRememberedCredentials('live-golden-authenticated-public')) return loadGoldenBoard();
+          markProSessionAuthPending(authenticatedPublicError);
+          renderClientGoldenFallback(new Error(authenticatedPublicError || 'auth pending pro fallback'));
+          return;
+        }
+        markProSessionAuthPending('Pro board snapshot needs recheck.');
+        renderClientGoldenFallback(new Error(authenticatedPublicError || 'pro snapshot fallback'));
         return;
       }
       try {
@@ -8666,10 +8711,11 @@ export function renderLewordProWeb(): string {
         log(feature.title + ' 실패: ' + err.message);
         setResult({ error: err.message });
         if (isAuthErrorMessage(err.message) && !isOfflineProSession()) {
-          saveSession(null);
-          if (feature.id && !backgroundRun) renderToolLocked(feature);
-          openLogin();
-          failProgress(err.message);
+          if (!ui.authRetry && await refreshProSessionFromRememberedCredentials('feature-run')) {
+            return runFeature(feature, options, Object.assign({}, ui, { authRetry: true }));
+          }
+          markProSessionAuthPending(err.message);
+          failProgress('Pro auth is being rechecked. Your login state was kept.');
           return;
         }
         const localErrorResult = await maybeRunBrowserLocalApiLookup(feature, displayKeyword, null, 'server-error');
@@ -8795,7 +8841,6 @@ export function renderLewordProWeb(): string {
       const licenseCode = loginLicenseCodeForSubmit();
       qs('loginMessage').textContent = '로그인 중...';
       try {
-        saveSession(null);
         const loginPayload = { userId: userId, password: password };
         if (licenseCode) loginPayload.licenseCode = licenseCode;
         const payload = await apiPost(endpoints.session, loginPayload);
