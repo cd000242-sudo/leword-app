@@ -142,6 +142,11 @@ assert('pro login network failures explain API connectivity instead of raw fetch
     && proWebHtml.includes('로그인 API 서버에 연결할 수 없습니다.')
     && proWebHtml.includes('아이디/비밀번호 문제가 아니라 서버 전원, 도메인, SSL 또는 배포 연결이 끊긴 상태입니다.')
     && proWebHtml.includes('if (isFetchNetworkError(err)) throw new Error(formatNetworkError(url, err));'));
+assert('pro login raw browser fetch errors are allowed to open offline Pro',
+  proWebHtml.includes('function shouldUseOfflineProLoginFallback')
+    && proWebHtml.includes('shouldUseOfflineProLoginFallback(userId, password, err)')
+    && proWebHtml.includes('Failed to connect|Could not connect|ERR_NAME_NOT_RESOLVED|ERR_CONNECTION_REFUSED')
+    && proWebHtml.includes('TypeError|NetworkError'));
 assert('server-down Pro login opens an offline local Pro session instead of blocking features',
   proWebHtml.includes('function createOfflineProSession')
     && proWebHtml.includes('function isOfflineProSession')

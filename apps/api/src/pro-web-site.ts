@@ -4300,6 +4300,14 @@ export function renderLewordProWeb(): string {
       if (/api\\s*key|API 키|필수 API|Unauthorized|Forbidden/i.test(text)) return false;
       return /Failed to fetch|NetworkError|Load failed|HTTP 404|HTTP 50\d|timeout|ECONN|ENOTFOUND|fetch|연결할 수 없습니다|서버 전원|도메인 연결|배포 연결|오프라인 Pro 세션|로컬\\/사용자 API 폴백/i.test(text);
     }
+    function shouldUseOfflineProLoginFallback(userId, password, error) {
+      if (!normalizeText(userId) || !normalizeText(password)) return false;
+      const name = String(error && error.name || '');
+      const message = String(error && error.message ? error.message : error || '');
+      if (isServerUnavailableError(message)) return true;
+      return /TypeError|NetworkError/i.test(name)
+        || /Failed to fetch|NetworkError|Load failed|Failed to connect|Could not connect|ERR_NAME_NOT_RESOLVED|ERR_CONNECTION_REFUSED|ERR_CONNECTION_CLOSED|ERR_CONNECTION_RESET|ERR_SSL|ECONN|ENOTFOUND|ETIMEDOUT|timeout|fetch/i.test(message);
+    }
     function renderClientFeatureFallback(feature, displayKeyword, error) {
       if (!feature || !feature.title || !isServerUnavailableError(error && error.message)) return false;
       const featureId = feature.id || (feature.route === endpoints.golden ? 'pro-traffic' : 'keyword-analysis');
@@ -8473,7 +8481,7 @@ export function renderLewordProWeb(): string {
         schedulePostLoginAutoDiscovery();
       } catch (err) {
         const message = err && err.message ? err.message : String(err);
-        if (userId && password && isServerUnavailableError(message)) {
+        if (shouldUseOfflineProLoginFallback(userId, password, err)) {
           rememberProLoginUserId(userId);
           saveSession(createOfflineProSession(userId, message));
           clearLoginCredentialAutofillFromApiSettings(false);
