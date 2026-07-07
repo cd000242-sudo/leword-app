@@ -273,6 +273,13 @@ assert('browser-local mindmap expands candidates in batches and rejects article-
     && proWebHtml.includes('semanticMindmapFallbackRows(seedLabel, 30)')
     && proWebHtml.includes('검색 전 확인')
     && proWebHtml.includes('제목보다'));
+assert('browser-local mindmap blocks terminal and product-housing word-salad chains',
+  proWebHtml.includes('function isAwkwardMindmapCompound')
+    && proWebHtml.includes('TERMINAL_POLICY_CHAIN_RE')
+    && proWebHtml.includes('PRODUCT_HOUSING_CONTEXT_CHAIN_RE')
+    && proWebHtml.includes('if (isAwkwardMindmapCompound(seed, clean)) return false;')
+    && proWebHtml.includes('if (isAwkwardMindmapCompound(seed, candidate)) return true;')
+    && proWebHtml.includes('return semanticMindmapCandidateAllowed(clean, candidate) && !isDuplicatedMindmapIntentChain(clean, candidate)'));
 assert('live golden cards explain search intent and route shopping keywords away from the main board',
   proWebHtml.includes('function keywordIntentGuide')
     && proWebHtml.includes('function keywordIntentGuideHtml')

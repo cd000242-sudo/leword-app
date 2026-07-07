@@ -2393,11 +2393,23 @@ export function renderLewordProWeb(): string {
     const HOUSING_KEYWORD_RE = /(원룸|월세|전세|보증금|관리비|전입신고|오피스텔|자취방|방구하기|입주|이사|임대차|임대|임차|부동산|계약갱신|월세방|전세방)/;
     const PRODUCT_LAUNCH_INTENT_RE = /(출시일|발매일|출고일|공개일|사전예약|예약구매|런칭|론칭|스펙|공식영상)/;
     const PRODUCT_LAUNCH_INTENT_G = /(출시일|발매일|출고일|공개일|사전예약|예약구매|런칭|론칭|스펙|공식영상)/g;
+    const TERMINAL_POLICY_CHAIN_RE = /(?:사용처|가맹점|잔액조회).{0,10}(?:지급일|마감일|소득기준|신청\s*(?:방법|대상)|제외\s*대상|필요\s*서류)|(?:지급일|마감일|소득기준|신청\s*(?:방법|대상)|제외\s*대상|필요\s*서류).{0,10}(?:사용처|가맹점|잔액조회)/;
+    const PRODUCT_HOUSING_CONTEXT_CHAIN_RE = /(?:(?:원룸|자취방).{0,12}(?:출시일|발매일).{0,10}(?:비용|가격|구매처|최저가|할인|쿠폰)|(?:에어컨|제습기|공기청정기|청소기|로봇청소기|노트북|모니터|아이폰|갤럭시|냉장고|세탁기|건조기|선풍기|서큘레이터)(?=.*(?:원룸|자취방))(?=.*(?:소음|저소음))(?=.*(?:구매처|최저가|할인|쿠폰|가격|비용|설치비|전기요금|전기세|출시일|발매일))|(?:에어컨|제습기|공기청정기|청소기|로봇청소기|노트북|냉장고)(?=.*(?:원룸|자취방))(?=.*(?:출시일|발매일))|(?:에어컨|제습기|공기청정기|청소기|로봇청소기|노트북|냉장고)(?=.*(?:소음|저소음))(?=.*(?:원룸.*자취방|자취방.*원룸)))/;
     function isHousingKeywordText(value) {
       return HOUSING_KEYWORD_RE.test(normalizeText(value));
     }
     function hasProductLaunchIntent(value) {
       return PRODUCT_LAUNCH_INTENT_RE.test(normalizeText(value));
+    }
+    function isAwkwardMindmapCompound(seed, candidate) {
+      const cleanSeed = normalizeText(seed);
+      const cleanCandidate = normalizeText(candidate);
+      const combined = normalizeText(cleanSeed + ' ' + cleanCandidate);
+      const compact = compactKeywordText(combined);
+      return TERMINAL_POLICY_CHAIN_RE.test(combined)
+        || TERMINAL_POLICY_CHAIN_RE.test(compact)
+        || PRODUCT_HOUSING_CONTEXT_CHAIN_RE.test(combined)
+        || PRODUCT_HOUSING_CONTEXT_CHAIN_RE.test(compact);
     }
     function semanticMindmapDomain(value) {
       const text = normalizeText(value).toLowerCase();
@@ -2425,6 +2437,7 @@ export function renderLewordProWeb(): string {
       const seedDomain = semanticMindmapDomain(seed);
       let clean = normalizeText(candidate);
       if (!clean) return '';
+      if (isAwkwardMindmapCompound(seed, clean)) return '';
       if (seedDomain === 'housing' || isHousingKeywordText(clean)) {
         const hadLaunchIntent = hasProductLaunchIntent(seed + ' ' + candidate);
         clean = normalizeText(clean.replace(PRODUCT_LAUNCH_INTENT_G, ' '));
@@ -2433,11 +2446,13 @@ export function renderLewordProWeb(): string {
         if (/원룸/.test(base) && /(비용|가격|금액|월세|보증금|관리비)/.test(seed + ' ' + candidate) && compactKeywordText(clean) === '원룸') clean = '원룸 비용';
         if (hadLaunchIntent) clean = base;
       }
+      if (isAwkwardMindmapCompound(seed, clean)) return '';
       return normalizeText(clean);
     }
     function semanticMindmapCandidateAllowed(seed, candidate) {
       const clean = normalizeText(candidate);
       if (!clean) return false;
+      if (isAwkwardMindmapCompound(seed, clean)) return false;
       const seedDomain = semanticMindmapDomain(seed);
       const candidateDomain = semanticMindmapDomain(clean);
       const compact = compactKeywordText(clean);
@@ -2481,6 +2496,7 @@ export function renderLewordProWeb(): string {
       return ['이유', '방법', '후기', '추천', '정리', '비교', '조회', '주의사항', '전망'];
     }
     function isDuplicatedMindmapIntentChain(seed, candidate) {
+      if (isAwkwardMindmapCompound(seed, candidate)) return true;
       const seedKey = compactKeywordText(seed);
       const rootKey = compactKeywordText(semanticMindmapSeedRoot(seed));
       const candidateKey = compactKeywordText(candidate);
@@ -2677,7 +2693,9 @@ export function renderLewordProWeb(): string {
       return isArticleTitleLikeKeyword(row && row.keyword) || isAmbiguousCompositeKeyword(row) || isShoppingIntentKeywordRow(row) || isAdDominatedKeywordRow(row) || isLowTrafficCaptureKeyword(row);
     }
     function shouldHideFromMindmap(row) {
-      return isArticleTitleLikeKeyword(row && row.keyword) || isAmbiguousCompositeKeyword(row) || isShoppingIntentKeywordRow(row);
+      const keyword = row && row.keyword;
+      const seed = row && (row.seedKeyword || row.baseKeyword || row.requestedKeyword || row.rootKeyword || row.sourceKeyword);
+      return isArticleTitleLikeKeyword(keyword) || isAmbiguousCompositeKeyword(row) || isShoppingIntentKeywordRow(row) || isAwkwardMindmapCompound(seed || '', keyword || '');
     }
     function filterDisplayGoldenItems(items) {
       const publishableRows = filterFreshGoldenItems(items || []).filter(function(item) {
@@ -3698,7 +3716,7 @@ export function renderLewordProWeb(): string {
       return uniqueKeywords(hints.map(function(candidate) {
         return repairMindmapCandidate(clean, candidate);
       }), 36).filter(function(candidate) {
-        return !isDuplicatedMindmapIntentChain(clean, candidate) && allowBrowserLocalCandidate(clean, candidate, 'mindmap-expansion');
+        return semanticMindmapCandidateAllowed(clean, candidate) && !isDuplicatedMindmapIntentChain(clean, candidate) && allowBrowserLocalCandidate(clean, candidate, 'mindmap-expansion');
       });
     }
     async function fetchBrowserNaverBlogDocumentCount(keyword) {
@@ -3922,6 +3940,7 @@ export function renderLewordProWeb(): string {
       const clean = normalizeText(candidate);
       if (!clean) return false;
       if (mode !== 'mindmap-expansion') return true;
+      if (isAwkwardMindmapCompound(seed, clean)) return false;
       if (!semanticMindmapCandidateAllowed(seed, clean)) return false;
       if (isDuplicatedMindmapIntentChain(seed, clean)) return false;
       if (!candidateFitsSeedDomain(seed, clean)) return false;

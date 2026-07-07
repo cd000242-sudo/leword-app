@@ -123,6 +123,35 @@ assert('drops terminal product purchase-context chains',
     && !terminalProduct.some(keyword => /(?:\uC790\uCDE8\uBC29|\uC6D0\uB8F8|\uC804\uAE30\uC694\uAE08|\uC18C\uC74C)/u.test(keyword)),
   terminalProduct.join(', '));
 
+const productHousingOverchain = rankRelatedKeywordCandidates('\uC81C\uC2B5\uAE30\uB80C\uD0C8\uC790\uCDE8\uBC29\uC18C\uC74C', [
+  { keyword: '\uC81C\uC2B5\uAE30\uB80C\uD0C8\uC790\uCDE8\uBC29\uC18C\uC74C \uAD6C\uB9E4\uCC98', sources: ['mindmap'] },
+  { keyword: '\uC81C\uC2B5\uAE30\uB80C\uD0C8\uC790\uCDE8\uBC29\uC18C\uC74C \uC6D0\uB8F8', sources: ['naver-suffix'] },
+  { keyword: '\uC81C\uC2B5\uAE30 \uC790\uCDE8\uBC29 \uC18C\uC74C \uD6C4\uAE30', sources: ['autocomplete'] },
+  { keyword: '\uC81C\uC2B5\uAE30 \uC790\uCDE8\uBC29 \uC18C\uC74C \uBE44\uAD50', sources: ['autocomplete'] },
+], { minScore: 10, limit: 10 }).map(item => item.keyword);
+assert('drops over-chained home product housing tails while keeping useful sound-intent variants',
+  !productHousingOverchain.some(keyword => /(?:\uAD6C\uB9E4\uCC98|\uC6D0\uB8F8)$/u.test(keyword)),
+  productHousingOverchain.join(', '));
+
+const productHousingUseful = rankRelatedKeywordCandidates('\uC81C\uC2B5\uAE30', [
+  { keyword: '\uC81C\uC2B5\uAE30 \uC790\uCDE8\uBC29 \uC18C\uC74C \uD6C4\uAE30', sources: ['autocomplete'] },
+  { keyword: '\uC81C\uC2B5\uAE30 \uC790\uCDE8\uBC29 \uC18C\uC74C \uBE44\uAD50', sources: ['autocomplete'] },
+], { minScore: 10, limit: 10 }).map(item => item.keyword);
+assert('keeps useful short home product housing sound variants',
+  productHousingUseful.includes('\uC81C\uC2B5\uAE30 \uC790\uCDE8\uBC29 \uC18C\uC74C \uD6C4\uAE30')
+    && productHousingUseful.includes('\uC81C\uC2B5\uAE30 \uC790\uCDE8\uBC29 \uC18C\uC74C \uBE44\uAD50'),
+  productHousingUseful.join(', '));
+
+const housingLaunchOverchain = rankRelatedKeywordCandidates('\uC6D0\uB8F8', [
+  { keyword: '\uC6D0\uB8F8\uCD9C\uC2DC\uC77C\uBE44\uC6A9', sources: ['mindmap'] },
+  { keyword: '\uC6D0\uB8F8 \uC785\uC8FC \uBE44\uC6A9', sources: ['autocomplete'] },
+  { keyword: '\uC6D0\uB8F8 \uAD00\uB9AC\uBE44 \uACC4\uC0B0', sources: ['autocomplete'] },
+], { minScore: 10, limit: 10 }).map(item => item.keyword);
+assert('drops impossible housing launch-cost chains',
+  housingLaunchOverchain.includes('\uC6D0\uB8F8 \uAD00\uB9AC\uBE44 \uACC4\uC0B0')
+    && !housingLaunchOverchain.some(keyword => /\uCD9C\uC2DC\uC77C/u.test(keyword)),
+  housingLaunchOverchain.join(', '));
+
 console.log(`\n[keyword-relevance-regression.test] passed: ${passed} / failed: ${failed}`);
 if (failed > 0) {
   failures.forEach(f => console.error('  ' + f));

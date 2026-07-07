@@ -794,6 +794,19 @@ function thinProfileCount(items: Array<{ keyword: string }>): number {
       && __liveGoldenRadarTestInternals.isSyntheticNoEffectLiveProbe('\uBB38\uD654\uB204\uB9AC\uCE74\uB4DC\uC0AC\uC6A9\uCC98\uC9C0\uAE09\uC77C')
       && __liveGoldenRadarTestInternals.isSyntheticNoEffectLiveProbe('\uCFE0\uCFE0\uC81C\uC2B5\uAE30\uB80C\uD0C8\uAD6C\uB9E4\uCC98\uC790\uCDE8\uBC29\uC18C\uC74C'),
     [...terminalPolicyCandidates, ...terminalCommerceCandidates].join('|'));
+  const noisyHomeProductCandidates = __liveGoldenRadarTestInternals.buildCacheDerivedCompoundNeedSeeds(
+    '\uC81C\uC2B5\uAE30\uB80C\uD0C8\uC790\uCDE8\uBC29\uC18C\uC74C',
+    'electronics',
+    60,
+  );
+  assert('live worker rejects over-chained home product housing probes without killing valid short probes',
+    noisyHomeProductCandidates.every((keyword) => !/(?:\uAD6C\uB9E4\uCC98|\uCD5C\uC800\uAC00|\uC6D0\uB8F8|\uC804\uAE30\uC694\uAE08|\uCD9C\uC2DC\uC77C|\uBC1C\uB9E4\uC77C)/u.test(keyword))
+      && __liveGoldenRadarTestInternals.isSyntheticNoEffectLiveProbe('\uC81C\uC2B5\uAE30\uB80C\uD0C8\uC790\uCDE8\uBC29\uC18C\uC74C \uAD6C\uB9E4\uCC98')
+      && __liveGoldenRadarTestInternals.isSyntheticNoEffectLiveProbe('\uC81C\uC2B5\uAE30\uB80C\uD0C8\uC790\uCDE8\uBC29\uC18C\uC74C \uC6D0\uB8F8')
+      && __liveGoldenRadarTestInternals.isSyntheticNoEffectLiveProbe('\uC81C\uC2B5\uAE30\uB80C\uD0C8\uC790\uCDE8\uBC29\uC18C\uC74C \uC804\uAE30\uC694\uAE08')
+      && !__liveGoldenRadarTestInternals.isSyntheticNoEffectLiveProbe('\uC81C\uC2B5\uAE30 \uC790\uCDE8\uBC29 \uC18C\uC74C')
+      && !__liveGoldenRadarTestInternals.isSyntheticNoEffectLiveProbe('\uC81C\uC2B5\uAE30 \uC6D0\uB8F8 \uC804\uAE30\uC694\uAE08'),
+    noisyHomeProductCandidates.join('|'));
   const cacheDerivedMismatchSeeds = [
     ['\uAC15\uB989 \uCE74\uD398\uAC70\uB9AC', 'food'],
     ['\uAC15\uB989 \uB2F9\uC77C\uCE58\uAE30 \uB9DB\uC9D1', 'travel_domestic'],
