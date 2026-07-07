@@ -191,6 +191,10 @@ assert('loads public and pro golden boards',
     && html.includes('function loadGoldenBoard()')
     && html.includes('renderPublicGoldenBoard')
     && html.includes('renderProGoldenBoard'));
+assert('pro golden board does not truncate full boards after the strict display filter',
+  proWebHtml.includes('const sourceRows = exact ? (Array.isArray(items) ? items : []) : filterDisplayGoldenItems(items || []);')
+    && proWebHtml.includes('if (strict.length >= target || strict.length === raw.length)')
+    && proWebHtml.includes('const filled = balanced.slice();'));
 assert('keeps Pro sessions during transient auth failures and retries remembered credentials',
   proWebHtml.includes('function promptProRelogin(message)')
     && proWebHtml.includes('function markProSessionAuthPending(message)')
