@@ -504,6 +504,18 @@ assert('keyword analyzer keeps raw analysis rows and shares them with mindmap ex
     && html.includes("payload.engineVersion = 'web-electron-parity-20260616'")
     && html.includes('const rows = keywordResultRows(result);')
     && !html.includes('const rows = filterFreshGoldenItems(Array.isArray(result && result.keywords) ? result.keywords : []);'));
+assert('mindmap semantic guard blocks housing launch-date nonsense and keeps measured-only metrics',
+  proWebHtml.includes('HOUSING_KEYWORD_RE')
+    && proWebHtml.includes('PRODUCT_LAUNCH_INTENT_G')
+    && proWebHtml.includes('function semanticMindmapCandidateAllowed')
+    && proWebHtml.includes('function repairMindmapCandidate')
+    && proWebHtml.includes("if (hadLaunchIntent) clean = base;")
+    && proWebHtml.includes('원룸/월세/전세/보증금/관리비 같은 주거 키워드에 출시일/발매일/사전예약/공식영상/스펙을 붙인 조합')
+    && proWebHtml.includes('아직 실측되지 않은 확장 후보입니다. 조회하기를 실행하면 PC/모바일/문서수/경쟁비를 채웁니다.'));
+assert('mindmap and keyword analyzer retry server executor when browser API yields zero measured rows',
+  proWebHtml.includes('browser local API produced zero measured rows; retrying through server executor')
+    && proWebHtml.includes("return await runUserApiServerExecutorLookup(feature, seed, mode, 'browser-zero-measured-fallback')")
+    && proWebHtml.includes('마인드맵 후보의 PC/모바일 검색량을 추가 실측하고 있습니다.'));
 
 assert('pro traffic hunter shares web analysis context with the PC engine',
   /id:\s*'pro-traffic'[\s\S]{0,520}contextKeywords:\s*buildLookupContextKeywords/.test(html)

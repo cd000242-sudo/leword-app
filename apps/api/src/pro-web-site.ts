@@ -2339,7 +2339,8 @@ export function renderLewordProWeb(): string {
       '제외 대상', '제외대상', '조회 방법', '조회', '계산기', '사용처', '온라인 사용처',
       '오프라인 사용처', '가맹점', '잔액 조회', '잔액조회', '잔액', '입장료', '운영 시간',
       '운영시간', '소요 시간', '소요시간', '주차', '위치', '예약 방법', '예약', '비용',
-      '가격', '후기', '비교', '추천', '주의사항', '주의 사항', '방법', '뜻',
+      '가격', '출시일', '발매일', '출고일', '공개일', '사전예약', '예약구매',
+      '후기', '비교', '추천', '주의사항', '주의 사항', '방법', '뜻',
     ];
     function escapeRegExp(value) {
       const specials = '\\\\^$.*+?()[]{}|';
@@ -2389,8 +2390,69 @@ export function renderLewordProWeb(): string {
       const root = stripMindmapIntentTail(clean);
       return compactKeywordText(root).length >= 2 ? root : clean;
     }
+    const HOUSING_KEYWORD_RE = /(원룸|월세|전세|보증금|관리비|전입신고|오피스텔|자취방|방구하기|입주|이사|임대차|임대|임차|부동산|계약갱신|월세방|전세방)/;
+    const PRODUCT_LAUNCH_INTENT_RE = /(출시일|발매일|출고일|공개일|사전예약|예약구매|런칭|론칭|스펙|공식영상)/;
+    const PRODUCT_LAUNCH_INTENT_G = /(출시일|발매일|출고일|공개일|사전예약|예약구매|런칭|론칭|스펙|공식영상)/g;
+    function isHousingKeywordText(value) {
+      return HOUSING_KEYWORD_RE.test(normalizeText(value));
+    }
+    function hasProductLaunchIntent(value) {
+      return PRODUCT_LAUNCH_INTENT_RE.test(normalizeText(value));
+    }
+    function semanticMindmapDomain(value) {
+      const text = normalizeText(value).toLowerCase();
+      if (isHousingKeywordText(text)) return 'housing';
+      if (/(송지호|바다하늘길|해수욕장|둘레길|제주|서울|부산|대구|인천|광주|대전|울산|강릉|속초|여행|숙소|호텔|펜션|항공권|렌터카|렌트카|맛집|축제|문화누리카드\s*사용처)/.test(text)) return 'local';
+      if (/(지원금|장려금|수당|급여|환급|신청|정책|근로장려금|최저임금|주휴수당|문화누리카드|청년인턴|청년청약|실업급여)/.test(text)) return 'policy';
+      if (/(감독|축구|야구|월드컵|kbo|선수|경기|하이라이트|축구협회|대표팀|홍명보|김민재|이강인|이재성)/i.test(text)) return 'sports';
+      if (/(로봇청소기|청소기|공기청정기|제습기|에어컨|냉장고|노트북|아이폰|갤럭시|가격|추천|후기|구매|할인|최저가|제품|상품)/.test(text) && !/(지원금|장려금|수당|정책)/.test(text)) return 'shopping';
+      return 'general';
+    }
+    function semanticMindmapSeedRoot(value) {
+      const clean = normalizeText(value);
+      if (!clean) return '';
+      if (isHousingKeywordText(clean)) {
+        const withoutLaunch = normalizeText(clean.replace(PRODUCT_LAUNCH_INTENT_G, ' '));
+        const root = mindmapSeedRoot(withoutLaunch);
+        if (/원룸/.test(clean) && /(비용|가격|금액|월세|보증금|관리비)/.test(clean)) return '원룸 비용';
+        if (/원룸/.test(clean) && /(입주|이사)/.test(clean)) return '원룸 입주';
+        if (/오피스텔/.test(clean) && /(비용|가격|금액|월세|보증금|관리비)/.test(clean)) return '오피스텔 비용';
+        return compactKeywordText(root).length >= 2 ? root : (/(오피스텔)/.test(clean) ? '오피스텔' : '원룸');
+      }
+      return mindmapSeedRoot(clean);
+    }
+    function repairMindmapCandidate(seed, candidate) {
+      const seedDomain = semanticMindmapDomain(seed);
+      let clean = normalizeText(candidate);
+      if (!clean) return '';
+      if (seedDomain === 'housing' || isHousingKeywordText(clean)) {
+        const hadLaunchIntent = hasProductLaunchIntent(seed + ' ' + candidate);
+        clean = normalizeText(clean.replace(PRODUCT_LAUNCH_INTENT_G, ' '));
+        const base = semanticMindmapSeedRoot(seed || clean);
+        if (!isHousingKeywordText(clean)) clean = appendMindmapTail(base, clean);
+        if (/원룸/.test(base) && /(비용|가격|금액|월세|보증금|관리비)/.test(seed + ' ' + candidate) && compactKeywordText(clean) === '원룸') clean = '원룸 비용';
+        if (hadLaunchIntent) clean = base;
+      }
+      return normalizeText(clean);
+    }
+    function semanticMindmapCandidateAllowed(seed, candidate) {
+      const clean = normalizeText(candidate);
+      if (!clean) return false;
+      const seedDomain = semanticMindmapDomain(seed);
+      const candidateDomain = semanticMindmapDomain(clean);
+      const compact = compactKeywordText(clean);
+      if (seedDomain === 'housing') {
+        if (hasProductLaunchIntent(clean)) return false;
+        if (!isHousingKeywordText(clean)) return false;
+        if (/(출시일|발매일|출고일|공개일|사전예약|예약구매)/.test(compact)) return false;
+      }
+      if (candidateDomain === 'housing' && seedDomain !== 'housing' && seedDomain !== 'general') return false;
+      if (seedDomain !== 'general' && candidateDomain !== 'general' && seedDomain !== candidateDomain) return false;
+      if (/(신청방법|신청|지급일|금액|대상|조건|필요서류|조회|계산기)(신청방법|신청|지급일|금액|대상|조건|필요서류|조회|계산기)/.test(compact)) return false;
+      return true;
+    }
     function appendMindmapTail(rootValue, tailValue) {
-      const root = mindmapSeedRoot(rootValue);
+      const root = semanticMindmapSeedRoot(rootValue);
       const tail = normalizeText(tailValue);
       if (!root || !tail) return '';
       const rootKey = compactKeywordText(root);
@@ -2407,6 +2469,9 @@ export function renderLewordProWeb(): string {
       if (/후보|감독|축구|야구|월드컵|올스타|선수|경기|순위|일정|논란|사퇴|선임/.test(text)) {
         return ['이유', '후보', '선임 과정', '반응', '일정', '전망', '논란 정리', '다음 일정', '핵심 쟁점'];
       }
+      if (isHousingKeywordText(text)) {
+        return ['월세', '보증금', '관리비', '입주 비용', '전입신고', '계약 전 확인', '이사 비용', '주의사항'];
+      }
       if (/청소기|가습기|노트북|모니터|카메라|이어폰|렌터카|렌트카|제품|출시|가격|구매|선풍기|에어컨|휴대폰|폰|컴퓨터|전자|가전/.test(text) || lower.indexOf('iphone') >= 0) {
         return ['추천', '후기', '가격 비교', '비교', '단점', '장점', '사용법', '최저가', '구매 전 확인'];
       }
@@ -2417,7 +2482,7 @@ export function renderLewordProWeb(): string {
     }
     function isDuplicatedMindmapIntentChain(seed, candidate) {
       const seedKey = compactKeywordText(seed);
-      const rootKey = compactKeywordText(mindmapSeedRoot(seed));
+      const rootKey = compactKeywordText(semanticMindmapSeedRoot(seed));
       const candidateKey = compactKeywordText(candidate);
       if (!candidateKey) return true;
       if (seedKey && rootKey && seedKey !== rootKey && candidateKey.indexOf(seedKey) === 0 && candidateKey !== seedKey) return true;
@@ -2634,6 +2699,8 @@ export function renderLewordProWeb(): string {
     }
     function domainSafeIntentBranches(seed, items, limit) {
       return uniqueIntentBranches(items, limit || 10)
+        .map(function(item) { return repairMindmapCandidate(seed, item); })
+        .filter(function(item) { return semanticMindmapCandidateAllowed(seed, item); })
         .filter(function(item) { return candidateFitsSeedDomain(seed, item); })
         .filter(function(item) { return !isCrossDomainNonsenseKeyword(seed + ' ' + item); })
         .slice(0, limit || 10);
@@ -2645,6 +2712,7 @@ export function renderLewordProWeb(): string {
       const knownTopics = [
         '송지호 바다하늘길', '송지호 해수욕장', '송지호 둘레길', '송지호',
         '제주 렌터카 예약', '제주 렌터카', '렌터카 예약', '제주 여행', '제주 항공권', '제주 숙소',
+        '원룸 비용', '원룸 월세', '원룸 보증금', '원룸 관리비', '원룸 입주', '오피스텔 비용',
         '근로장려금', '자녀장려금', '주휴수당', '최저임금', '문화누리카드', '청년인턴',
         '청년도약계좌', '국민내일배움카드', '실업급여', '기초연금', '육아휴직급여',
         '홍명보 감독', '대한축구협회', '월드컵', 'KBO 올스타전',
@@ -2712,6 +2780,37 @@ export function renderLewordProWeb(): string {
         ],
       };
     }
+    function housingKeywordBase(topic, keyword) {
+      const text = normalizeText((topic || '') + ' ' + (keyword || ''));
+      if (/오피스텔/.test(text)) return '오피스텔';
+      if (/전세/.test(text) && !/원룸/.test(text)) return '전세';
+      return '원룸';
+    }
+    function housingExpansionBranches(topic, keyword) {
+      const base = housingKeywordBase(topic, keyword);
+      const text = normalizeText((topic || '') + ' ' + (keyword || ''));
+      const branches = [];
+      const push = function(value) {
+        const clean = normalizeText(value);
+        if (clean) branches.push(clean);
+      };
+      if (/(비용|월세|보증금|관리비|금액|가격)/.test(text)) {
+        [base + ' 월세', base + ' 보증금', base + ' 관리비', base + ' 입주 비용', base + ' 계약 전 확인', base + ' 이사 비용', base + ' 전입신고', base + ' 구할 때 주의사항'].forEach(push);
+      } else if (/(입주|이사)/.test(text)) {
+        [base + ' 입주 비용', base + ' 이사 비용', base + ' 관리비', base + ' 전입신고', base + ' 계약 전 확인', base + ' 보증금', base + ' 월세', base + ' 하자 체크'].forEach(push);
+      } else {
+        [base + ' 월세', base + ' 보증금', base + ' 관리비', base + ' 계약 전 확인', base + ' 전입신고', base + ' 이사 비용', base + ' 하자 체크', base + ' 계약서 확인'].forEach(push);
+      }
+      return domainSafeIntentBranches(topic || keyword || base, branches, 10);
+    }
+    function housingSearchWhy(topic, keyword) {
+      const base = housingKeywordBase(topic, keyword);
+      return base + ' 키워드는 출시일처럼 제품을 기다리는 검색이 아니라 이사·입주·월세 계약을 앞둔 사람이 실제로 얼마가 필요한지, 보증금·관리비·전입신고·계약 전 확인사항을 비교하려는 생활형 수요입니다. 검색 이유는 “지금 계약해도 되는지”와 “첫 달 비용이 얼마인지”를 바로 판단하려는 데 있습니다.';
+    }
+    function housingCombinationIntent(topic, keyword) {
+      const base = housingKeywordBase(topic, keyword);
+      return base + ' 본문은 단어 꼬리 조합이 아니라 보증금, 월세, 관리비, 중개보수, 이사비, 전입신고, 하자 체크를 한 화면에서 비교하게 만들어야 합니다. 제목은 비용·계약 전 확인·입주 준비처럼 실제 행동 기준으로 잡고, 제품 출시일·발매일류 표현은 제외하세요.';
+    }
     function naverAutocompleteLikeBranches(seed) {
       const clean = normalizeText(seed);
       if (!clean) return [];
@@ -2724,6 +2823,10 @@ export function renderLewordProWeb(): string {
       const songjihoProfile = songjihoSeaSkyPathProfile(clean, clean);
       if (songjihoProfile) {
         songjihoProfile.branches.forEach(push);
+        return domainSafeIntentBranches(clean, out, 10);
+      }
+      if (isHousingKeywordText(clean)) {
+        housingExpansionBranches(clean, clean).forEach(push);
         return domainSafeIntentBranches(clean, out, 10);
       }
       if (/제주/.test(clean) && /(렌터카|렌트카|렌터|렌트)/.test(clean)) {
@@ -2831,6 +2934,7 @@ export function renderLewordProWeb(): string {
     }
     function keywordDomain(value) {
       const text = normalizeText(value).toLowerCase();
+      if (isHousingKeywordText(text)) return 'housing';
       if (/(송지호|바다하늘길|해수욕장|둘레길|제주|서울|부산|대구|인천|광주|대전|울산|강릉|속초|여행|숙소|호텔|펜션|항공권|렌터카|렌트카|맛집|축제|문화누리카드\s*사용처)/.test(text)) return 'local';
       if (/(지원금|장려금|수당|급여|환급|신청|정책|근로장려금|최저임금|주휴수당|문화누리카드|청년인턴|청년청약|실업급여)/.test(text)) return 'policy';
       if (/(감독|축구|야구|월드컵|kbo|선수|경기|하이라이트|축구협회|대표팀|홍명보|김민재|이강인|이재성)/i.test(text)) return 'sports';
@@ -2844,6 +2948,7 @@ export function renderLewordProWeb(): string {
     function keywordDomainSignals(value) {
       const text = normalizeText(value).toLowerCase();
       return {
+        housing: isHousingKeywordText(text),
         policy: /(지원금|장려금|급여|수당|정책|복지|신청|대상|지급일|정부|채용|인턴|연금|보험|세금|환급|최저임금|주휴수당|문화누리카드|청년도약계좌|내일배움카드)/.test(text),
         sports: /(월드컵|축구|야구|kbo|감독|선수|경기|하이라이트|축구협회|대표팀|이강인|김민재|이재성|손흥민|홍명보)/i.test(text),
         shopping: /(구매|가격|최저가|할인|추천|순위|후기|비교|리뷰|쿠폰|배송|스펙|브랜드|제품|상품|가전|전자|청소기|로봇청소기|공기청정기|제습기|에어컨|냉장고|세탁기|노트북|태블릿|이어폰|마사지기|영양제|유산균|화장품|선크림|샴푸|운동화|가방|매트리스|캠핑|기저귀|카시트)/.test(text),
@@ -2857,6 +2962,9 @@ export function renderLewordProWeb(): string {
       const isCulturalLocal = /문화누리카드/.test(combined) && candidateSignals.local;
       const isTravelPurchase = (seedSignals.local || candidateSignals.local) && /(렌터|렌트|숙소|호텔|펜션|항공권|맛집|여행)/.test(combined);
       if (isCrossDomainNonsenseKeyword(combined)) return false;
+      if (seedSignals.housing && hasProductLaunchIntent(candidate)) return false;
+      if (seedSignals.housing && !candidateSignals.housing) return false;
+      if (candidateSignals.housing && !seedSignals.housing) return false;
       if (seedSignals.policy && candidateSignals.sports && !seedSignals.sports) return false;
       if (seedSignals.sports && candidateSignals.policy && !seedSignals.policy) return false;
       if (seedSignals.policy && candidateSignals.shopping && !seedSignals.shopping && !isCulturalLocal) return false;
@@ -2916,6 +3024,16 @@ export function renderLewordProWeb(): string {
       const keyword = normalizeText(row && row.keyword);
       const topic = readableKeywordTopic(row);
       const text = keywordRowSearchText(row);
+      if (isHousingKeywordText(keyword + ' ' + text + ' ' + topic)) {
+        return {
+          kind: 'housing',
+          label: '주거/입주 비용 니즈',
+          meaning: housingSearchWhy(topic, keyword),
+          action: housingCombinationIntent(topic, keyword),
+          route: '계약 전 체크리스트',
+          branches: housingExpansionBranches(topic, keyword),
+        };
+      }
       if (/(policy|지원금|급여|수당|정책|복지|신청|대상|지급일|정부|채용|인턴|장려금|최저임금|문화누리카드)/i.test(text)) {
         return {
           kind: 'policy',
@@ -3023,6 +3141,7 @@ export function renderLewordProWeb(): string {
       const text = keywordRowSearchText(row) + ' ' + normalizeText(row && row.keyword);
       if (isCrossDomainNonsenseKeyword(row) || isAmbiguousCompositeKeyword(row)) return 'unclear';
       if (/정례대화/.test(text) && /(지급일|금액|대상|신청|수당)/.test(text)) return 'unclear';
+      if (isHousingKeywordText(text)) return 'housing';
       if (isShoppingIntentKeywordRow(row)) return 'shopping';
       if (/문화누리카드/.test(text) && /(사용처|가맹점|온라인|잔액|충전|영화|숙박)/.test(text)) return 'policy-local';
       return keywordDomain(text);
@@ -3061,11 +3180,12 @@ export function renderLewordProWeb(): string {
         'branches',
         'suggestions',
       ]);
-      const seed = mindmapSeedRoot(subject || keyword);
+      const seed = semanticMindmapSeedRoot(subject || keyword);
       const out = [];
       const push = function(value) {
-        const clean = normalizeText(value);
+        const clean = repairMindmapCandidate(keyword || seed, value);
         if (!clean) return;
+        if (!semanticMindmapCandidateAllowed(keyword || seed, clean)) return;
         if (/AEO|GEO|SEO|클릭|바로가기|제목보다|한 화면에서/i.test(clean)) return;
         if (compactKeywordText(clean) === compactKeywordText(keyword)) return;
         if (isDuplicatedMindmapIntentChain(keyword || seed, clean)) return;
@@ -3085,6 +3205,8 @@ export function renderLewordProWeb(): string {
           '송지호 해수욕장 바다하늘길',
           '고성 송지호 바다하늘길',
         ].forEach(push);
+      } else if (domain === 'housing' || isHousingKeywordText(seed + ' ' + keyword)) {
+        housingExpansionBranches(seed, keyword).forEach(push);
       } else if (/문화누리카드/.test(seed + keyword)) {
         [
           '문화누리카드 잔액조회',
@@ -3148,6 +3270,7 @@ export function renderLewordProWeb(): string {
       const text = normalizeText(subject + ' ' + keyword + ' ' + keywordRowSearchText(row));
       if (domain === 'unclear') return '"' + keyword + '"는 정책 지급어와 서로 다른 의도의 단어가 붙은 충돌형 후보입니다. 실제 이슈명인지, 기사 제목 조각이 붙은 것인지 먼저 소스 원문을 확인하고 원 키워드로 쓰지 않는 것이 안전합니다.';
       if (/송지호|바다하늘길/.test(text)) return '송지호 바다하늘길은 강원 고성 송지호와 해변 산책 동선을 찾는 방문형 키워드입니다. 검색량은 장소 자체가 아니라 입장료, 주차, 운영시간, 해수욕장·둘레길과 함께 갈 수 있는지 확인하려는 여행 전 체크 수요에서 생깁니다.';
+      if (domain === 'housing' || isHousingKeywordText(text)) return housingSearchWhy(subject, keyword);
       if (/문화누리카드/.test(text)) return '문화누리카드는 지급·충전 시점보다 실제로 어디서 쓸 수 있는지가 검색의 핵심입니다. 잔액, 온라인 사용처, 지역 가맹점, 영화·숙박 결제 가능 여부를 한 번에 확인하려는 수요가 붙습니다.';
       if (/제주/.test(text) && /(렌터카|렌트카|렌터|렌트)/.test(text)) return agentSeasonContext() + '라 제주 항공권·숙소를 잡은 사람들이 공항 이동, 완전자차 보험, 차량 등급, 픽업 위치, 취소 규정을 비교하려고 검색합니다. 광고가 강한 예약어는 정보형 체크리스트로 풀어야 합니다.';
       if (/근로장려금|자녀장려금/.test(text)) return '장려금 키워드는 신청 기간, 심사 결과, 지급일, 금액 확인처럼 개인별로 바로 확인해야 하는 정보가 몰릴 때 검색량이 붙습니다. 제도 설명보다 “내가 대상인지, 언제 얼마가 들어오는지”가 핵심입니다.';
@@ -3165,6 +3288,7 @@ export function renderLewordProWeb(): string {
       const keyword = normalizeText(row && row.keyword);
       const metric = agentMeasuredContext(row);
       if (domain === 'unclear') return '원문 소스와 자동완성 응답을 다시 확인한 뒤 의미가 분명한 키워드만 남기세요. 지급일·금액·대상 같은 정책 행동어는 실제 제도명과 붙어야 발행 가치가 있습니다.';
+      if (domain === 'housing' || isHousingKeywordText(subject + ' ' + keyword)) return housingCombinationIntent(subject, keyword) + ' ' + metric;
       if (domain === 'shopping') return '메인 황금보드에서는 제외하고 쇼핑커넥트에서 제품 후보, 구매 트리거, 실사용 단점, 대체 제품 비교까지 붙여 전환형 글감으로 판단하세요.';
       if (/송지호|바다하늘길/.test(subject + keyword)) return '첫 문단에서 송지호 바다하늘길이 무엇인지 설명하고, 입장료·주차·운영시간·해수욕장 연계 동선을 표로 정리하세요. 마지막에는 당일 코스와 비 오는 날 대안까지 붙이면 체류가 생깁니다.';
       if (/문화누리카드/.test(subject + keyword)) return '사용처를 나열하기보다 잔액조회, 온라인 사용처, 지역 가맹점, 결제 가능 업종을 표로 묶으세요. 검색자는 “지금 내 카드로 결제 가능한 곳”을 확인하려고 들어옵니다.';
@@ -3182,6 +3306,7 @@ export function renderLewordProWeb(): string {
       const labelMap = {
         unclear: '의도 충돌 후보',
         shopping: '쇼핑커넥트 전용',
+        housing: '주거/입주 비용 니즈',
         'policy-local': '지역 사용처·정책 니즈',
         policy: '정책/신청형 니즈',
         local: '방문/예약형 니즈',
@@ -3191,6 +3316,7 @@ export function renderLewordProWeb(): string {
       const routeMap = {
         unclear: '재검증 필요',
         shopping: '쇼핑커넥트로 분리',
+        housing: '계약 전 체크리스트',
         'policy-local': '사용처 확인 루트',
         policy: '정보형 글감',
         local: '방문 체크리스트',
@@ -3556,7 +3682,7 @@ export function renderLewordProWeb(): string {
     function buildBrowserMindmapSeedHints(seed) {
       const clean = normalizeText(seed);
       if (!clean) return [];
-      const root = mindmapSeedRoot(clean);
+      const root = semanticMindmapSeedRoot(clean);
       const compactRoot = root.replace(/\\s+/g, '');
       const hints = [clean, root, compactRoot];
       naverAutocompleteLikeBranches(root).forEach(function(branch) {
@@ -3569,7 +3695,9 @@ export function renderLewordProWeb(): string {
       mindmapTailSetForSeed(clean + ' ' + root).forEach(function(suffix) {
         hints.push(appendMindmapTail(root, suffix));
       });
-      return uniqueKeywords(hints, 36).filter(function(candidate) {
+      return uniqueKeywords(hints.map(function(candidate) {
+        return repairMindmapCandidate(clean, candidate);
+      }), 36).filter(function(candidate) {
         return !isDuplicatedMindmapIntentChain(clean, candidate) && allowBrowserLocalCandidate(clean, candidate, 'mindmap-expansion');
       });
     }
@@ -3693,7 +3821,9 @@ export function renderLewordProWeb(): string {
       const branches = uniqueIntentBranches([].concat(
         guide && guide.branches ? guide.branches : [],
         buildBrowserMindmapSeedHints(seedKeyword)
-      ), limit || 30)
+      ).map(function(candidate) {
+        return repairMindmapCandidate(seedKeyword, candidate);
+      }), limit || 30)
         .filter(function(candidate) { return compactKeywordText(candidate) !== compactKeywordText(seedKeyword); })
         .filter(function(candidate) { return allowBrowserLocalCandidate(seedKeyword, candidate, 'mindmap-expansion'); })
         .filter(function(candidate) { return candidateFitsSeedDomain(seedKeyword, candidate); });
@@ -3792,6 +3922,7 @@ export function renderLewordProWeb(): string {
       const clean = normalizeText(candidate);
       if (!clean) return false;
       if (mode !== 'mindmap-expansion') return true;
+      if (!semanticMindmapCandidateAllowed(seed, clean)) return false;
       if (isDuplicatedMindmapIntentChain(seed, clean)) return false;
       if (!candidateFitsSeedDomain(seed, clean)) return false;
       if (clean.length > 48) return false;
@@ -3840,7 +3971,10 @@ export function renderLewordProWeb(): string {
         ? buildLookupContextKeywords(keyword, 160).map(function(item) { return item && item.keyword; }).filter(Boolean)
         : [];
       const candidateLimit = mode === 'mindmap-expansion' ? targetCount * 3 : targetCount;
-      const candidates = uniqueKeywords([keyword].concat(related, mindmapSeedHints, contextKeywords), candidateLimit)
+      const rawCandidates = [keyword].concat(related, mindmapSeedHints, contextKeywords).map(function(candidate) {
+        return mode === 'mindmap-expansion' ? repairMindmapCandidate(keyword, candidate) : candidate;
+      });
+      const candidates = uniqueKeywords(rawCandidates, candidateLimit)
         .filter(function(candidate) { return allowBrowserLocalCandidate(keyword, candidate, mode); })
         .slice(0, candidateLimit);
       if (!candidates.length) throw new Error('브라우저 로컬 API 후보가 비어 있습니다.');
@@ -3960,6 +4094,14 @@ export function renderLewordProWeb(): string {
         : '서버 결과가 비어 있어 저장된 사용자 API 키로 직접 조회합니다.');
       try {
         const result = await buildBrowserLocalApiKeywordResult(feature, seed, mode);
+        const measuredCount = result && result.summary && result.summary.measured != null
+          ? Number(result.summary.measured)
+          : (Array.isArray(result && result.keywords) ? result.keywords.filter(function(row) { return row && row.isMeasured; }).length : 0);
+        const browserErrors = result && result.diagnostics && Array.isArray(result.diagnostics.errors) ? result.diagnostics.errors : [];
+        if ((mode === 'mindmap-expansion' || mode === 'keyword-analysis') && measuredCount === 0 && browserErrors.length && session && session.accessToken && reason !== 'server-executor-fallback') {
+          log('browser local API produced zero measured rows; retrying through server executor: ' + browserErrors.join(' / '));
+          return await runUserApiServerExecutorLookup(feature, seed, mode, 'browser-zero-measured-fallback');
+        }
         renderFeatureResult(feature, result);
         setResult(result);
         log('browser local API lookup completed: ' + result.keywords.length + ' rows' + (reason ? ' / ' + reason : ''));
@@ -4733,6 +4875,7 @@ export function renderLewordProWeb(): string {
     }
     function plainKeywordDomain(value) {
       const text = normalizeText(value);
+      if (isHousingKeywordText(text)) return 'housing';
       if (/(제주|렌터카|렌트카|숙소|호텔|펜션|항공권|여행|맛집|축제|문화누리카드|부산|서울|강릉|여수)/.test(text)) return 'local';
       if (/(근로장려금|자녀장려금|장려금|최저임금|주휴수당|지원금|수당|급여|지급일|신청|대상자|정책|청년|실업급여)/.test(text)) return 'policy';
       if (/(홍명보|축구|월드컵|감독|대한축구협회|이강인|김민재|이재성|KBO|올스타전|야구|선수|경기|순위)/i.test(text)) return 'sports';
@@ -4741,7 +4884,7 @@ export function renderLewordProWeb(): string {
     }
     function mindmapSharesCore(seed, candidate) {
       const seedKey = compactKeywordText(seed);
-      const rootKey = compactKeywordText(mindmapSeedRoot(seed));
+      const rootKey = compactKeywordText(semanticMindmapSeedRoot(seed));
       const candidateKey = compactKeywordText(candidate);
       if (!seedKey || !candidateKey) return false;
       if (rootKey && (candidateKey.indexOf(rootKey) >= 0 || rootKey.indexOf(candidateKey) >= 0)) return true;
@@ -4756,6 +4899,7 @@ export function renderLewordProWeb(): string {
     }
     function mindmapCandidateAllowed(seed, candidate) {
       if (!normalizeText(candidate)) return false;
+      if (!semanticMindmapCandidateAllowed(seed, candidate)) return false;
       if (isDuplicatedMindmapIntentChain(seed, candidate)) return false;
       const seedDomain = plainKeywordDomain(seed);
       const candidateDomain = plainKeywordDomain(candidate);
@@ -4768,6 +4912,9 @@ export function renderLewordProWeb(): string {
       const inferred = agentInferredKeywordGuide({ keyword: keyword, seedKeyword: seed, source: 'mindmap-agent-inference' });
       if (inferred && inferred.meaning) return inferred.meaning;
       const text = normalizeText(seed + ' ' + keyword);
+      if (isHousingKeywordText(text)) {
+        return housingSearchWhy(seed, keyword);
+      }
       if (/(제주).*(렌터카|렌트카)/.test(text)) {
         return '여름휴가와 방학 성수기에는 제주 이동 동선, 공항 픽업, 보험 포함 여부, 차량 등급, 예약 취소 규정까지 한 번에 비교하려는 수요가 붙습니다. 광고형 예약 버튼보다 실제 예약 전 체크리스트와 가격 차이를 정리한 글이 체류 시간을 만들기 좋습니다.';
       }
@@ -4789,6 +4936,9 @@ export function renderLewordProWeb(): string {
       const inferred = agentInferredKeywordGuide({ keyword: keyword, seedKeyword: seed, source: 'mindmap-agent-inference' });
       if (inferred && inferred.action) return inferred.action;
       const text = normalizeText(seed + ' ' + keyword);
+      if (isHousingKeywordText(text)) {
+        return housingCombinationIntent(seed, keyword);
+      }
       if (/(제주).*(렌터카|렌트카)/.test(text)) {
         return '광고가 강한 예약 키워드는 그대로 쓰기보다 보험 차이, 예약 시기, 공항 픽업, 취소 규정, 차량 등급 비교처럼 정보형 롱테일로 확장해야 합니다.';
       }
@@ -4801,12 +4951,12 @@ export function renderLewordProWeb(): string {
       return '핵심 키워드에 이유, 방법, 비교, 주의사항, 이후 전망을 붙여 단순 단어 검색을 실제 글 제목과 목차로 바꾸는 확장 의도입니다.';
     }
     function naturalMindmapTailBranches(seed, keyword, limit) {
-      const base = mindmapSeedRoot(keyword || seed);
+      const base = semanticMindmapSeedRoot(keyword || seed);
       const source = normalizeText(seed + ' ' + keyword + ' ' + base);
       return uniqueIntentBranches(mindmapTailSetForSeed(source).map(function(tail) {
-        return appendMindmapTail(base, tail);
+        return repairMindmapCandidate(seed, appendMindmapTail(base, tail));
       }), limit || 8).filter(function(branch) {
-        return branch && !isDuplicatedMindmapIntentChain(seed, branch) && compactKeywordText(branch) !== compactKeywordText(seed);
+        return branch && mindmapCandidateAllowed(seed, branch) && !isDuplicatedMindmapIntentChain(seed, branch) && compactKeywordText(branch) !== compactKeywordText(seed);
       });
     }
     function mindmapIssueLongtailBranches(seed, row) {
@@ -4848,6 +4998,9 @@ export function renderLewordProWeb(): string {
       if (/(최저임금|주휴수당)/.test(text)) {
         return ['최저임금 월급 계산', '최저임금 주휴수당 포함', '주휴수당 계산기 15시간', '최저임금 실수령액', '최저임금 위반 신고'];
       }
+      if (isHousingKeywordText(text)) {
+        return housingExpansionBranches(seed, keyword);
+      }
       return naturalMindmapTailBranches(seed, keyword, 6);
     }
     function mindmapExpansionBranches(seed, row) {
@@ -4858,7 +5011,9 @@ export function renderLewordProWeb(): string {
         guide && guide.branches ? guide.branches : [],
         naturalMindmapTailBranches(seed, keyword, 8),
         mindmapIssueLongtailBranches(seed, row)
-      ).filter(function(branch) {
+      ).map(function(branch) {
+        return repairMindmapCandidate(seed, branch);
+      }).filter(function(branch) {
         return mindmapCandidateAllowed(seed, branch) && compactKeywordText(branch) !== compactKeywordText(seed);
       }), 8);
     }
@@ -4900,12 +5055,16 @@ export function renderLewordProWeb(): string {
         + '</div>';
     }
     function renderMindmapKeywordRows(result) {
-      const rows = keywordResultRows(result).filter(function(row) { return !shouldHideFromMindmap(row); }).slice(0, 80);
+      const initialSeed = normalizeText(result && (result.keyword || result.seedKeyword)) || compactKeywordInput();
+      const seed = semanticMindmapSeedRoot(initialSeed) || initialSeed;
+      const rows = keywordResultRows(result).map(function(row) {
+        const fixedKeyword = repairMindmapCandidate(seed, row && row.keyword);
+        return fixedKeyword ? Object.assign({}, row, { keyword: fixedKeyword }) : row;
+      }).filter(function(row) { return !shouldHideFromMindmap(row); }).slice(0, 80);
       if (!rows.length) {
         qs('keywordRows').innerHTML = '<tr><td colspan="12" class="muted">마인드맵 후보가 비어 있습니다. API 키 상태 또는 검색어를 확인하세요.</td></tr>';
         return;
       }
-      const seed = normalizeText(result && (result.keyword || result.seedKeyword)) || compactKeywordInput();
       qs('keywordRows').innerHTML = rows.map(function(row) {
         const displayGrade = hasMeasuredKeywordMetrics(row) ? displayGradeForRow(row) : '측정 필요';
         const branches = mindmapExpansionBranches(seed, row).slice(0, 5);
@@ -4933,8 +5092,12 @@ export function renderLewordProWeb(): string {
     function renderMindmapLookupInsight(seed, result) {
       const target = qs('lookupInsightPanel');
       if (!target) return;
-      const seedLabel = normalizeText(seed) || 'seed';
-      let rows = keywordResultRows(result).filter(function(row) {
+      const rawSeedLabel = normalizeText(seed) || 'seed';
+      const seedLabel = semanticMindmapSeedRoot(rawSeedLabel) || rawSeedLabel;
+      let rows = keywordResultRows(result).map(function(row) {
+        const fixedKeyword = repairMindmapCandidate(seedLabel, row && row.keyword);
+        return fixedKeyword ? Object.assign({}, row, { keyword: fixedKeyword }) : row;
+      }).filter(function(row) {
         return !shouldHideFromMindmap(row);
       }).filter(function(row) {
         return allowBrowserLocalCandidate(seedLabel, row && row.keyword || '', 'mindmap-expansion');
@@ -5170,7 +5333,11 @@ export function renderLewordProWeb(): string {
         naverAutocompleteLikeBranches(keyword),
         guide && guide.branches ? guide.branches : []
       );
-      return uniqueIntentBranches(seeds, limit || 10)
+      return uniqueIntentBranches(seeds.map(function(item) {
+        return repairMindmapCandidate(keyword, item);
+      }), limit || 10)
+        .filter(function(item) { return semanticMindmapCandidateAllowed(keyword, item); })
+        .filter(function(item) { return candidateFitsSeedDomain(keyword, item); })
         .filter(function(item) { return compactKeywordText(item) !== compact; })
         .slice(0, limit || 10);
     }
@@ -6010,6 +6177,8 @@ export function renderLewordProWeb(): string {
           '정례대화지급일처럼 서로 다른 도메인을 억지로 붙인 조합',
           '상품 키워드가 쇼핑커넥트가 아닌 탭에 섞이는 경우',
           '자동완성/연관어 근거 없이 접미사만 붙인 기계식 확장어',
+          '원룸/월세/전세/보증금/관리비 같은 주거 키워드에 출시일/발매일/사전예약/공식영상/스펙을 붙인 조합',
+          '원 키워드가 뜻/비용/신청방법/지급일처럼 이미 의도 꼬리를 가진 경우 같은 꼬리를 중복으로 이어 붙인 조합',
           '한 사이클 결과가 정책/여행/지원금/렌터카류로 과반 편중되고 다른 도메인 검토 근거가 없는 경우',
         ],
         rankingRubric: [
@@ -6019,6 +6188,7 @@ export function renderLewordProWeb(): string {
           '4순위: 초보자가 30분 안에 표·체크리스트·FAQ 형태로 발행 가능한 키워드',
           '동점권에서는 같은 카테고리 반복보다 다른 도메인의 숨은 니즈 키워드를 우선 노출',
           '감점: 광고 과다, 대형 포털/뉴스 독식, 문서수 과다, 의미 불명 조합, 단순 대형 이슈어',
+          '마인드맵/정밀분석 확장어는 실제 자동완성처럼 사람이 검색할 자연어만 남기고, 단어 꼬리 조립 후보는 제외',
         ],
         researchChecklist: [
           '왜 지금 검색량이 늘었는지 원인을 먼저 설명',
