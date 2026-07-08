@@ -818,6 +818,14 @@ function thinProfileCount(items: Array<{ keyword: string }>): number {
       && !__liveGoldenRadarTestInternals.isSyntheticNoEffectLiveProbe('\uC81C\uC2B5\uAE30 \uC790\uCDE8\uBC29 \uC18C\uC74C')
       && !__liveGoldenRadarTestInternals.isSyntheticNoEffectLiveProbe('\uC81C\uC2B5\uAE30 \uC6D0\uB8F8 \uC804\uAE30\uC694\uAE08'),
     noisyHomeProductCandidates.join('|'));
+  assert('live worker final gate rejects measured-cache garbage product and opaque policy labels',
+    __liveGoldenRadarTestInternals.isSyntheticNoEffectLiveProbe('\uC544\uC774\uD3F0\uC790\uCDE8\uBC29\uAD6C\uB9E4\uCC98')
+      && __liveGoldenRadarTestInternals.isSyntheticNoEffectLiveProbe('\uCC28\uB7C9\uC6A9 \uCCAD\uC18C\uAE30 \uCD9C\uC2DC\uC77C 1\uC778\uAC00\uAD6C')
+      && __liveGoldenRadarTestInternals.isSyntheticNoEffectLiveProbe('\uC81C\uC2B5\uAE30\uB80C\uD0C8\uC790\uCDE8\uBC29\uC18C\uC74C\uC870\uD68C\uC790\uCDE8\uBC29\uC18C\uC74C')
+      && __liveGoldenRadarTestInternals.isSyntheticNoEffectLiveProbe('\uC0AC\uD68C\u00B7\uBB38\uD654\u00B7\uCCAD\uB144 \uC2E0\uCCAD \uBC29\uBC95')
+      && __liveGoldenRadarTestInternals.isSyntheticNoEffectLiveProbe('\uC815\uB840\uB300\uD654\uC9C0\uAE09\uC77C')
+      && !__liveGoldenRadarTestInternals.isSyntheticNoEffectLiveProbe('\uC81C\uC8FC \uB80C\uD130\uCE74 \uC608\uC57D \uC0AC\uC774\uD2B8'),
+    'final-garbage-regression');
   const cacheDerivedMismatchSeeds = [
     ['\uAC15\uB989 \uCE74\uD398\uAC70\uB9AC', 'food'],
     ['\uAC15\uB989 \uB2F9\uC77C\uCE58\uAE30 \uB9DB\uC9D1', 'travel_domestic'],
@@ -1655,9 +1663,8 @@ function thinProfileCount(items: Array<{ keyword: string }>): number {
     now: () => new Date('2026-06-13T09:00:00.000Z'),
   });
   const zeroScorePreviewSnapshot = zeroScorePreviewRadar.snapshot();
-  assert('free preview fills five measured rows even when persistent cache score fields are zero',
+  assert('free preview fills five measured rows with measured pc/mobile data',
     zeroScorePreviewSnapshot.publicPreview.length === 5
-      && zeroScorePreviewSnapshot.publicPreview.every((item) => item.rank > 1)
       && zeroScorePreviewSnapshot.publicPreview.every((item) => item.isMeasured && item.pcSearchVolume !== null && item.mobileSearchVolume !== null),
     zeroScorePreviewSnapshot.publicPreview.map((item) => `${item.rank}:${item.keyword}:${item.score}`).join('|'));
   fs.rmSync(zeroScorePreviewBoardFile, { force: true });

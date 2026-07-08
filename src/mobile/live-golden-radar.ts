@@ -194,6 +194,7 @@ const LIVE_CACHE_PROMOTION_STRONG_NEED_DOCUMENT_CEILING = 80_000;
 const LIVE_SEARCHAD_CANDIDATE_MIN_CHARS = 3;
 const LIVE_SEARCHAD_CANDIDATE_MAX_CHARS = 30;
 const LIVE_SEARCHAD_CANDIDATE_MAX_TOKENS = 5;
+const LIVE_BOARD_MIN_VISIBLE_GRADE_RANK = 2;
 const LIVE_QUOTA_RETRY_BUFFER_MS = 5_000;
 const LIVE_QUOTA_RETRY_MIN_DELAY_MS = 1_000;
 const NEWS_HEADLINE_FRAGMENT_RE = /(?:\uBD80\uCE5C\uC0C1|\uC0AC\uACFC|\uAD6C\uC18D\uC601\uC7A5|\uD610\uC758|\uC870\uC0AC|\uB17C\uB780|\uC911\uB2E8|\uC778\uC99D|\uC9C0\uC5F0|\uBC15\uC218|\uC120\uC218\uB4E4|\uBC29\uBB38|\uC2AC\uD514|\uD574\uBA85|\uBC1C\uC5B8|\uC120\uACE0|\uCCB4\uD3EC|\uC555\uC218\uC218\uC0C9|\uC0AC\uB9DD|\uBCC4\uC138|\uACB0\uBCC4|\uC5F4\uC560|\uD63C\uC778)/u;
@@ -2047,6 +2048,7 @@ function selectMeasuredPublishableFallbackItems<T extends MobileLiveGoldenBoardI
         isPublishableLiveResultMetric(item, now)
         || isMeasuredProBoardFallbackMetric(item, now)
         || isMeasuredProDisplayBackfillMetric(item, now)
+        || isMeasuredExactDisplayFallbackMetric(item, now)
       )
       && hasMeasuredPcMobileSplit(item)
       && hasTrustedSearchVolumeMeasurement(item)
@@ -2071,31 +2073,47 @@ function appendMeasuredPublishableFallbackItems<T extends MobileLiveGoldenBoardI
   const selectedIds = new Set(selected.map((item) => item.id));
   const selectedCompactIds = new Set(selected.map((item) => keywordCompactId(item.keyword)));
   const clusterCounts = new Map<string, number>();
+  const categoryCounts = new Map<string, number>();
+  const maxPerCategory = maxCategoryBoardCount(target);
   for (const item of selected) {
     const cluster = publicPreviewClusterKey(item.keyword);
     if (cluster) clusterCounts.set(cluster, (clusterCounts.get(cluster) || 0) + 1);
+    const category = boardCategoryKey(item);
+    if (category) categoryCounts.set(category, (categoryCounts.get(category) || 0) + 1);
   }
   const merged = [...selected];
-  const fallback = selectMeasuredPublishableFallbackItems(sorted, target, now);
-  for (const item of fallback) {
-    if (merged.length >= target) break;
+  const fallbackPoolTarget = Math.min(
+    sorted.length,
+    Math.max(target * 4, target + LIVE_BOARD_CLUSTER_MAX * 8),
+  );
+  const fallback = selectMeasuredPublishableFallbackItems(sorted, fallbackPoolTarget, now);
+  const pushFallback = (item: T, options: { respectCluster?: boolean; respectCategory?: boolean } = {}): boolean => {
+    if (merged.length >= target) return false;
     const compactId = keywordCompactId(item.keyword);
     const cluster = publicPreviewClusterKey(item.keyword);
-    if (selectedIds.has(item.id) || selectedCompactIds.has(compactId)) continue;
-    if (cluster && (clusterCounts.get(cluster) || 0) >= LIVE_BOARD_CLUSTER_MAX) continue;
+    const category = boardCategoryKey(item);
+    if (selectedIds.has(item.id) || selectedCompactIds.has(compactId)) return false;
+    if (options.respectCategory && category && (categoryCounts.get(category) || 0) >= maxPerCategory) return false;
+    if (options.respectCluster && cluster && (clusterCounts.get(cluster) || 0) >= LIVE_BOARD_CLUSTER_MAX) return false;
     selectedIds.add(item.id);
     selectedCompactIds.add(compactId);
     if (cluster) clusterCounts.set(cluster, (clusterCounts.get(cluster) || 0) + 1);
+    if (category) categoryCounts.set(category, (categoryCounts.get(category) || 0) + 1);
     merged.push(item);
+    return true;
+  };
+  for (const item of fallback) {
+    if (merged.length >= target) break;
+    pushFallback(item, { respectCategory: true, respectCluster: true });
+  }
+  for (const item of fallback) {
+    if (merged.length >= target) break;
+    pushFallback(item, { respectCategory: true });
   }
   if (target >= LIVE_BOARD_STRICT_READY_MIN) {
     for (const item of fallback) {
       if (merged.length >= target) break;
-      const compactId = keywordCompactId(item.keyword);
-      if (selectedIds.has(item.id) || selectedCompactIds.has(compactId)) continue;
-      selectedIds.add(item.id);
-      selectedCompactIds.add(compactId);
-      merged.push(item);
+      pushFallback(item);
     }
   }
   return merged;
@@ -2171,7 +2189,8 @@ function isMeasuredExactDisplayPromotionCandidate(
   if (ratio < LIVE_BOARD_MEASURED_DISPLAY_FALLBACK_RATIO && !hasWriterNeed) return false;
   const judged = applyKeywordAiJudge(metric, { now, downgradeExcluded: false });
   const ai = judged.aiJudge;
-  if (ai?.verdict === 'exclude' || ai?.spamRisk === 'high') return false;
+  if (ai?.spamRisk === 'high') return false;
+  if (ai?.verdict === 'exclude' && ai.rejectReason !== 'document-count-exceeds-search-demand') return false;
   return true;
 }
 
@@ -2254,6 +2273,8 @@ function isMeasuredWriterReadyBoardMetric(
   const ratio = finiteNumber(item.goldenRatio) || (volume > 0 && docs > 0 ? volume / docs : 0);
   const longTail = keywordLongTailScore(keyword);
   const intentFragments = ultimateIntentFragmentCount(keyword);
+  const writerReadySpecificity = hasWriterReadySpecificity(keyword)
+    || isTrustedPolicyAudienceWriterReadyKeyword(keyword, normalizeKeyword((item as any).category) || 'all');
   const maxDocs = ratio >= 5
     ? 30_000
     : ratio >= 3
@@ -2261,7 +2282,7 @@ function isMeasuredWriterReadyBoardMetric(
       : 15_000;
   if (volume < 300 || docs <= 0 || docs > maxDocs || ratio < 1.5) return false;
   if (longTail < 12 && intentFragments < 1 && !hasWriterReadySearchAdProbeIntent(keyword)) return false;
-  if (isOverbroadNoEffectBoardKeyword(item) && !hasWriterReadySpecificity(keyword)) return false;
+  if (isOverbroadNoEffectBoardKeyword(item) && !writerReadySpecificity) return false;
 
   const judged = applyKeywordAiJudge(metric, { now, downgradeExcluded: false });
   const ai = judged.aiJudge;
@@ -2626,6 +2647,73 @@ function measuredProBoardFallbackRejectReason(metric: MobileLiveGoldenBoardItem,
 
 function isMeasuredProBoardFallbackMetric(metric: MobileLiveGoldenBoardItem, now: Date): boolean {
   return measuredProBoardFallbackRejectReason(metric, now) === 'ok';
+}
+
+function isFinalVisibleLiveBoardMetric(
+  item: MobileKeywordMetric | MobileLiveGoldenBoardItem,
+  now: Date,
+): boolean {
+  const keyword = normalizeKeyword(item.keyword);
+  if (!keyword) return false;
+  const metric = { ...item, keyword } as MobileLiveGoldenBoardItem;
+  const trustedPolicyAudienceWriter = isTrustedPolicyAudienceWriterReadyKeyword(
+    keyword,
+    normalizeKeyword(metric.category) || 'all',
+  );
+  const writerReadySpecificity = hasWriterReadySpecificity(keyword) || trustedPolicyAudienceWriter;
+  if (!hasCompleteLiveGoldenMetrics(metric)) return false;
+  if (!hasMeasuredPcMobileSplit(metric)) return false;
+  if (!hasTrustedSearchVolumeMeasurement(metric)) return false;
+  if (!hasTrustedDocumentCountMeasurement(metric)) return false;
+  if (metric.isSearchVolumeEstimated || metric.isDocumentCountEstimated) return false;
+  const exactMeasuredDisplayFallback = isMeasuredExactDisplayFallbackMetric(metric, now);
+  if (
+    (GRADE_RANK[metric.grade] || 0) < LIVE_BOARD_MIN_VISIBLE_GRADE_RANK
+    && !exactMeasuredDisplayFallback
+  ) return false;
+  if (
+    isSyntheticNoEffectLiveProbe(keyword)
+    || (isWeakAutogeneratedProbeCombo(keyword) && !trustedPolicyAudienceWriter && !exactMeasuredDisplayFallback)
+    || isSemanticallyMismatchedMeasuredProbe(keyword)
+    || isMalformedLiveKeyword(keyword)
+    || isStaleOrFutureLiveKeyword(keyword, now)
+  ) return false;
+  if (isBroadHeadSssKeyword(keyword) && !writerReadySpecificity) return false;
+  if (isOverbroadNoEffectBoardKeyword(metric) && !writerReadySpecificity) return false;
+
+  const volume = finiteNumber(metric.totalSearchVolume);
+  const docs = finiteNumber(metric.documentCount);
+  if (volume === null || volume <= 0 || docs === null || docs <= 0) return false;
+  const ratio = finiteNumber(metric.goldenRatio) ?? Number((volume / docs).toFixed(2));
+  if (ratio < 0.5 && !exactMeasuredDisplayFallback) return false;
+
+  const judged = applyKeywordAiJudge(metric, { now, downgradeExcluded: false }) as MobileLiveGoldenBoardItem;
+  const ai = judged.aiJudge;
+  if (!ai || ai.spamRisk === 'high') return false;
+  if (
+    ai.verdict === 'exclude'
+    && !(exactMeasuredDisplayFallback && ai.rejectReason === 'document-count-exceeds-search-demand')
+  ) return false;
+  if (
+    ai.score < 70
+    && !hasAdsenseNeedIntent(keyword)
+    && !isMeasuredProExactKeywordMetric(metric, now)
+    && !exactMeasuredDisplayFallback
+  ) return false;
+
+  const decision = metric.publishDecision || evaluatePublishDecision(judged);
+  if (
+    decision.verdict === 'exclude'
+    && !isMeasuredProExactKeywordMetric(metric, now)
+    && !exactMeasuredDisplayFallback
+  ) return false;
+
+  return isLiveRadarUsableMetric(metric, now)
+    || isMeasuredWriterReadyBoardMetric(metric, now)
+    || isMeasuredProExactKeywordMetric(metric, now)
+    || isMeasuredProDisplayBackfillMetric(metric, now)
+    || exactMeasuredDisplayFallback
+    || isMeasuredProBoardFallbackMetric(metric, now);
 }
 
 function isPublicPreviewCandidate(item: MobileLiveGoldenBoardItem): boolean {
@@ -3207,6 +3295,7 @@ const SYNTHETIC_POLICY_AUDIENCE_TAIL_RE = /(?:프리랜서|알바|개인사업�
 const CERTIFICATE_PAYROLL_MISMATCH_RE = /(?:\uC644\uB0A9\uC99D\uBA85\uC11C).{0,18}(?:\uC77C\uC6A9\uC9C1|\uD504\uB9AC\uB79C\uC11C|\uC9C1\uC7A5\uC778|\uC2E4\uC218\uB839\uC561|\uACF5\uC81C\uD56D\uBAA9|3\.3\s*\uC138\uAE08|\uC138\uD6C4\s*\uACC4\uC0B0|\uC8FC\uD734\uC218\uB2F9|4\uB300\uBCF4\uD5D8\uB8CC|\uC0AC\uB300\uBCF4\uD5D8\uB8CC|\uC694\uC728\s*\uACC4\uC0B0)|(?:\uC77C\uC6A9\uC9C1|\uD504\uB9AC\uB79C\uC11C|\uC9C1\uC7A5\uC778|\uC2E4\uC218\uB839\uC561|\uACF5\uC81C\uD56D\uBAA9|3\.3\s*\uC138\uAE08|\uC138\uD6C4\s*\uACC4\uC0B0|\uC8FC\uD734\uC218\uB2F9|4\uB300\uBCF4\uD5D8\uB8CC|\uC0AC\uB300\uBCF4\uD5D8\uB8CC|\uC694\uC728\s*\uACC4\uC0B0).{0,18}(?:\uC644\uB0A9\uC99D\uBA85\uC11C)/u;
 const CALCULATOR_INTENT_MISMATCH_RE = /(?:\uADFC\uBB34\uC2DC\uAC04\uACC4\uC0B0\uAE30|\uC2DC\uAE09\uACC4\uC0B0\uAE30).{0,18}(?:\uC8FC\uD734\uC218\uB2F9|\uD1F4\uC9C1\uAE08|4\uB300\uBCF4\uD5D8|\uC0AC\uB300\uBCF4\uD5D8|\uD504\uB9AC\uB79C\uC11C|\uAC1C\uC778\uC0AC\uC5C5\uC790|\uC2E4\uC218\uB839\uC561|\uACF5\uC81C\uD56D\uBAA9|\uC138\uAE08|\uC694\uC728\uD45C)|(?:\uC8FC\uD734\uC218\uB2F9\uACC4\uC0B0\uAE30).{0,18}(?:\uC2E0\uCCAD|\uB300\uC0C1|\uC790\uACA9|\uC9C0\uAE09\uC77C|\uB9C8\uAC10\uC77C|\uC18C\uB4DD\uAE30\uC900|\uD1F4\uC9C1\uAE08|4\uB300\uBCF4\uD5D8|\uC0AC\uB300\uBCF4\uD5D8|\uD504\uB9AC\uB79C\uC11C|\uAC1C\uC778\uC0AC\uC5C5\uC790)|(?:\uD1F4\uC9C1\uAE08\uACC4\uC0B0\uAE30).{0,18}(?:4\uB300\uBCF4\uD5D8|\uC0AC\uB300\uBCF4\uD5D8|\uC8FC\uD734\uC218\uB2F9|\uC2E0\uCCAD|\uB300\uC0C1|\uB9C8\uAC10\uC77C|\uAC1C\uC778\uC0AC\uC5C5\uC790|\uD504\uB9AC\uB79C\uC11C)|(?:\uC0AC\uB300\uBCF4\uD5D8\uACC4\uC0B0\uAE30|4\uB300\uBCF4\uD5D8\uACC4\uC0B0\uAE30).{0,18}(?:\uD1F4\uC9C1\uAE08|\uC8FC\uD734\uC218\uB2F9|\uB9C8\uAC10\uC77C|\uAC1C\uC778\uC0AC\uC5C5\uC790\s*\uACF5\uC81C\uD56D\uBAA9)|(?:\uC2E4\uC5C5\uAE09\uC5EC\uACC4\uC0B0\uAE30).{0,18}(?:\uC2E0\uCCAD|\uB300\uC0C1|\uC790\uACA9|\uC8FC\uD734\uC218\uB2F9|\uD1F4\uC9C1\uAE08|4\uB300\uBCF4\uD5D8|\uC0AC\uB300\uBCF4\uD5D8|\uB9C8\uAC10\uC77C)/u;
 const CALCULATOR_LOW_INTENT_RE = /(?:\uACC4\uC0B0\uAE30).{0,18}(?:\uD6C4\uAE30)/u;
+const CALCULATOR_BARE_SIGNUP_TAIL_RE = /\uACC4\uC0B0\uAE30\s*\uC2E0\uCCAD$/u;
 const ALLOWED_POLICY_AUDIENCE_NEED_RE = /(?:(?:프리랜서|알바|개인사업자|무직자).{0,10}(?:근로장려금|자녀장려금|실업급여)|(?:근로장려금|자녀장려금|실업급여).{0,10}(?:프리랜서|알바|개인사업자|무직자)|(?:개인사업자).{0,10}(?:소상공인(?:대출|정책자금|지원금)?|정책자금|직접대출|대리대출)|(?:소상공인(?:대출|정책자금|지원금)?|정책자금|직접대출|대리대출).{0,10}(?:개인사업자))/u;
 const POLICY_OVERCOMPOUND_PROBE_RE = /(?:소득기준\s*계산.{0,16}(?:신청|대상|자격|지급일|지원금|바우처|장려금|급여|수당)|(?:신청|대상|자격|지급일|지원금|바우처|장려금|급여|수당).{0,16}소득기준\s*계산|(?:개인사업자|프리랜서|알바|무직자|맞벌이).{0,16}소득기준\s*계산|소득기준\s*계산.{0,16}(?:개인사업자|프리랜서|알바|무직자|맞벌이))/u;
 const NON_POLICY_BASE_WITH_POLICY_TAIL_RE = /(?:물때|곰팡이|냄새|청소|제거|샤워부스|스테인레스|진공단열재|싱크대|배수구|수전|변기|방충망|도어락|인테리어|수리|교체|펜션|숙소|렌터카|렌트카|에어컨|청소기|공기청정기|제습기|오메가3|비타민|유산균|영양제).{0,24}(?:신청\s*(?:대상|조건|방법)|자격\s*조건|지원\s*대상|소득기준(?:\s*계산)?|지급일\s*조회|필요\s*서류|마감일)/u;
@@ -3222,8 +3311,16 @@ function hasSyntheticPolicyAudienceMismatch(keyword: string): boolean {
   return !ALLOWED_POLICY_AUDIENCE_NEED_RE.test(clean);
 }
 
+const TRUSTED_POLICY_WEAK_FALSE_POSITIVE_RE = /(?:\uCCAD\uB144\uBBF8\uB798\uC801\uAE08.{0,12}(?:\uD504\uB9AC\uB79C\uC11C|\uC54C\uBC14).{0,12}\uC9C0\uAE09\uC77C\s*\uC870\uD68C|(?:\uADFC\uB85C\uC7A5\uB824\uAE08|\uC790\uB140\uC7A5\uB824\uAE08)\s*\uC18C\uB4DD\uAE30\uC900\s*\uACC4\uC0B0)/u;
+const TRUSTED_POLICY_WEAK_STILL_BAD_RE = /(?:\uCCAD\uB144\uC9C0\uC6D0\uAE08\s*\uB300\uC0C1\s*\uC18C\uB4DD\uAE30\uC900\s*\uACC4\uC0B0|\uC18C\uC0C1\uACF5\uC778\uB300\uCD9C.{0,12}(?:\uC54C\uBC14|\uD504\uB9AC\uB79C\uC11C|\uBB34\uC9C1\uC790).{0,12}\uC2E0\uCCAD|\uADFC\uB85C\uC7A5\uB824\uAE08\uB300\uC0C1.{0,16}\uC18C\uB4DD\uAE30\uC900\s*\uACC4\uC0B0)/u;
+
 function isWeakAutogeneratedProbeCombo(keyword: string): boolean {
   const clean = normalizeKeyword(keyword);
+  if (
+    clean
+    && TRUSTED_POLICY_WEAK_FALSE_POSITIVE_RE.test(clean)
+    && !TRUSTED_POLICY_WEAK_STILL_BAD_RE.test(clean)
+  ) return false;
   return Boolean(clean && (
     WEAK_AUTOGEN_PROBE_COMBO_RE.test(clean)
     || SYNTHETIC_PRODUCT_NO_EFFECT_COMBO_RE.test(clean)
@@ -4274,6 +4371,30 @@ const CALCULATOR_POLICY_TAIL_NO_EFFECT_RE = /(?:\uACC4\uC0B0\uAE30|\uACC4\uC0B0)
 const LIVE_SEARCHAD_NO_RESULT_SHAPE_RE = /(?:(?:\uBB38\uD654\uB204\uB9AC\uCE74\uB4DC\s*\uC628\uB77C\uC778|\uBB38\uD654\uB204\uB9AC\uCE74\uB4DC\uC628\uB77C\uC778)(?:\uAC00\uB9F9\uC810|\uC1FC\uD551\uBAB0|\uACB0\uC81C).{0,10}(?:\uC790\uACA9\s*\uC870\uAC74|\uC0AC\uC6A9\uCC98\s*\uC870\uD68C)|\uC18C\uC0C1\uACF5\uC778(?:\uD3D0\uC5C5\uC9C0\uC6D0\uAE08\s*\uC2E0\uCCAD\s*\uBC29\uBC95|\uD3D0\uC5C5\uC9C0\uC6D0\uAE08|\uC815\uCC45\uC790\uAE08\uB300\uCD9C).{0,12}\uC18C\uB4DD\uAE30\uC900|\uACE0\uC6A9\uBCF4\uD5D8\s*\uC2E4\uC5C5\uAE09\uC5EC\s*\uACC4\uC0B0\uAE30.{0,16}(?:\uAC1C\uC778\uC0AC\uC5C5\uC790\s*\uACF5\uC81C\uD56D\uBAA9|\uD504\uB9AC\uB79C\uC11C\s*3\.3\s*\uC138\uAE08\s*\uACC4\uC0B0|\uC138\uD6C4\s*\uACC4\uC0B0|\uC790\uB3D9\uACC4\uC0B0)|\uC5F0\uCC28\uC218\uB2F9\s*\uACC4\uC0B0\uAE30.{0,12}(?:4\uB300\uBCF4\uD5D8\uB8CC|\uC0AC\uB300\uBCF4\uD5D8\uB8CC)\s*\uC694\uC728\s*\uACC4\uC0B0|(?:20\d{2}\s*)?\uD3C9\uC0DD\uAD50\uC721\uBC14\uC6B0\uCC98.{0,8}\uB9C8\uAC10\uC77C\s*\uD655\uC778|\uC2DC\uC2A4\uD15C\uC5D0\uC5B4\uCEE8\s*\uBE44\uC6A9.{0,16}\uC6D0\uB8F8\s*\uC804\uAE30\uC694\uAE08\s*\uBE44\uAD50)/u;
 const LIVE_SEARCHAD_NO_RESULT_SHAPE_EXTRA_RE = /(?:(?:\uBB38\uD654\uB204\uB9AC\uCE74\uB4DC\s*\uC628\uB77C\uC778|\uBB38\uD654\uB204\uB9AC\uCE74\uB4DC\uC628\uB77C\uC778)(?:\uACB0\uC81C|\uAC00\uB9F9\uC810|\uC1FC\uD551\uBAB0)?.{0,12}(?:\uC2E0\uCCAD\s*(?:\uBC29\uBC95|\uB300\uC0C1)|\uC9C0\uAE09\uC77C\s*\uC870\uD68C|\uC790\uACA9\s*\uC870\uAC74|\uC0AC\uC6A9\uCC98\s*\uC870\uD68C)|(?:\uC0AC\uB300\uBCF4\uD5D8\uACC4\uC0B0\uAE30|\uC5F0\uCC28\uC218\uB2F9\uACC4\uC0B0\uAE30|\uADFC\uB85C\uC7A5\uB824\uAE08\uACC4\uC0B0\uAE30?|\uAE30\uCD08\uC5F0\uAE08\uC218\uAE09\uC790\uACA9\uACC4\uC0B0).{0,12}(?:4\uB300\uBCF4\uD5D8\uB8CC|\uC0AC\uB300\uBCF4\uD5D8\uB8CC)\s*\uC694\uC728\s*\uACC4\uC0B0|(?:\uC2E4\uC5C5\uAE09\uC5EC\uACC4\uC0B0\uAE30|\uC790\uC601\uC5C5\uC790\uC2E4\uC5C5\uAE09\uC5EC\uC2E0\uCCAD\uBC29\uBC95).{0,16}(?:\uAC1C\uC778\uC0AC\uC5C5\uC790\s*\uACF5\uC81C\uD56D\uBAA9|\uC790\uB3D9\uACC4\uC0B0|\uC138\uD6C4\s*\uACC4\uC0B0)|(?:\uC2DC\uC2A4\uD15C\uC5D0\uC5B4\uCEE8|\uBCBD\uAC78\uC774\uC5D0\uC5B4\uCEE8)\s*\uC124\uCE58\uBE44\uC6A9.{0,16}(?:\uC6D0\uB8F8\s*\uC804\uAE30\uC694\uAE08\s*\uBE44\uAD50|\uC790\uCDE8\uBC29\s*\uC18C\uC74C\s*\uBE44\uAD50)|\uC5D0\uB108\uC9C0\uBC14\uC6B0\uCC98\s*\uC2E0\uCCAD\s*\uBC29\uBC95\s*\uBCF5\uC9C0\uB85C.{0,8}\uC18C\uB4DD\uAE30\uC900|\uAD6D\uC138\uCCAD\s*\uD648\uD14D\uC2A4\s*\uADFC\uB85C\uC7A5\uB824\uAE08.{0,8}\uB9C8\uAC10\uC77C\s*\uD655\uC778|\uC18C\uC0C1\uACF5\uC778\s*\uC9C0\uC6D0\uAE08.{0,18}(?:\uB193\uCE58\uAE30\s*\uC26C\uC6B4\s*\uBCC0\uACBD\uC0AC\uD56D|\uC18C\uB4DD\s*\uAE30\uC900\uACFC\s*\uC81C\uC678\s*\uB300\uC0C1))/u;
 const LIVE_SEARCHAD_NO_RESULT_SHAPE_LIVE_RE = /(?:(?:4\uB300\uBCF4\uD5D8\uACC4\uC0B0\uAE30|\uAE30\uCD08\uC5F0\uAE08\uC218\uAE09\uC790\uACA9(?:\uBAA8\uC758)?\uACC4\uC0B0\uAE30?|\uD1F4\uC9C1\uAE08\uC9C0\uAE09\uAE30\uC900|\uC721\uC544\uD734\uC9C1\uAE09\uC5EC\s*\uACC4\uC0B0|\uADFC\uB85C\uC7A5\uB824\uAE08\uACC4\uC0B0\uAE30).{0,16}(?:4\uB300\uBCF4\uD5D8\uB8CC|\uC0AC\uB300\uBCF4\uD5D8\uB8CC)\s*\uC694\uC728\s*\uACC4\uC0B0|(?:\uC790\uC601\uC5C5\uC790\s*)?\uACE0\uC6A9\uBCF4\uD5D8\s*\uC2E4\uC5C5\uAE09\uC5EC.{0,18}(?:\uC790\uB3D9\uACC4\uC0B0|\uC138\uD6C4\s*\uACC4\uC0B0|\uAC1C\uC778\uC0AC\uC5C5\uC790\s*\uACF5\uC81C\uD56D\uBAA9|\uC77C\uC6A9\uC9C1\s*\uACC4\uC0B0\uBC29\uBC95)|(?:\uC790\uC601\uC5C5\uC790\s*)?\uACE0\uC6A9\uBCF4\uD5D8\s*\uC2E4\uC5C5\uAE09\uC5EC.{0,10}\uB9C8\uAC10\uC77C\s*\uD655\uC778|(?:\uBB38\uD654\uB204\uB9AC\uCE74\uB4DC\s*\uC628\uB77C\uC778|\uBB38\uD654\uB204\uB9AC\uCE74\uB4DC\uC628\uB77C\uC778)(?:\uACB0\uC81C|\uAC00\uB9F9\uC810|\uC1FC\uD551\uBAB0)?.{0,14}(?:\uCD5C\uC800\uAC00\s*\uBE44\uAD50|\uC120\uD0DD\s*\uAC00\uC774\uB4DC|\uC18C\uB4DD\uAE30\uC900\s*\uACC4\uC0B0)|(?:20\d{2}\s*)?(?:\uC5D0\uB108\uC9C0\uBC14\uC6B0\uCC98|\uCCAD\uB144\uC9C0\uC6D0\uAE08|\uAD50\uC721\uAE09\uC5EC\uBC14\uC6B0\uCC98|\uC18C\uC0C1\uACF5\uC778\s*\uC9C0\uC6D0\uAE08).{0,14}\uB9C8\uAC10\uC77C\s*\uD655\uC778|\uC18C\uC0C1\uACF5\uC778\s*\uC9C0\uC6D0\uAE08.{0,18}(?:\uC628\uB77C\uC778\s*\uC2E0\uCCAD\s*\uBC29\uBC95|\uC624\uB298\s*\uD655\uC778\uD560\s*\uC81C\uC678\s*\uB300\uC0C1)|\uADFC\uB85C\uC7A5\uB824\uAE08\s*\uC2E0\uCCAD\s*\uADFC\uB85C\uC7A5\uB824\uAE08\s*\uC2E0\uCCAD(?:\uB300\uC0C1|\uBB38\uC758|\uC548\uB0B4))/u;
+const LIVE_FINAL_PRODUCT_CONTEXT_NOISE_RE = /(?:(?:\uC544\uC774\uD3F0|\uAC24\uB7ED\uC2DC|\uB178\uD2B8\uBD81).{0,12}(?:\uC790\uCDE8\uBC29|\uC6D0\uB8F8|1\uC778\uAC00\uAD6C).{0,12}(?:\uAD6C\uB9E4\uCC98|\uCD5C\uC800\uAC00|\uC18C\uC74C|\uC804\uAE30\uC694\uAE08|\uC124\uCE58\uBE44)|(?:\uCC28\uB7C9\uC6A9\s*\uCCAD\uC18C\uAE30|\uBB34\uC120\s*\uCCAD\uC18C\uAE30|\uCCAD\uC18C\uAE30|\uC81C\uC2B5\uAE30|\uACF5\uAE30\uCCAD\uC815\uAE30).{0,14}(?:\uCD9C\uC2DC\uC77C|\uBC1C\uB9E4\uC77C).{0,14}(?:1\uC778\uAC00\uAD6C|\uC790\uCDE8\uBC29|\uC6D0\uB8F8|\uAD6C\uB9E4\uCC98|\uC870\uD68C)|(?:\uC81C\uC2B5\uAE30|\uACF5\uAE30\uCCAD\uC815\uAE30|\uCCAD\uC18C\uAE30).{0,18}(?:\uC790\uCDE8\uBC29\s*\uC18C\uC74C|\uC6D0\uB8F8\s*\uC804\uAE30\uC694\uAE08).{0,18}(?:\uC870\uD68C|\uAD6C\uB9E4\uCC98|\uCD5C\uC800\uAC00|\uCD9C\uC2DC\uC77C|\uBE44\uC6A9)|(?:\uACF5\uAE30\uCCAD\uC815\uAE30|\uCCAD\uC18C\uAE30|\uC81C\uC2B5\uAE30).{0,10}(?:\uC21C\uC704|\uAD6C\uB9E4\uCC98).{0,10}(?:\uBE44\uC6A9|\uBC29\uBC95|\uC870\uD68C|\uCD9C\uC2DC\uC77C))/u;
+const LIVE_FINAL_OPAQUE_POLICY_LABEL_RE = /(?:\uC0AC\uD68C[^\uAC00-\uD7A3]{0,3}\uBB38\uD654[^\uAC00-\uD7A3]{0,3}\uCCAD\uB144.{0,8}\uC2E0\uCCAD\s*\uBC29\uBC95|\uC815\uB840\uB300\uD654.{0,8}(?:\uC2E0\uCCAD|\uC9C0\uAE09\uC77C|\uC0AC\uC6A9\uCC98|\uAE08\uC561))/u;
+const TRUSTED_POLICY_AUDIENCE_BASE_RE = /(?:\uCCAD\uB144\uBBF8\uB798\uC801\uAE08|\uADFC\uB85C\uC7A5\uB824\uAE08|\uC790\uB140\uC7A5\uB824\uAE08|\uBB38\uD654\uB204\uB9AC\uCE74\uB4DC|\uB18D\uC2DD\uD488\uBC14\uC6B0\uCC98|\uC5D0\uB108\uC9C0\uBC14\uC6B0\uCC98|\uC18C\uC0C1\uACF5\uC778\s*\uC9C0\uC6D0\uAE08|\uCCAD\uB144\uC9C0\uC6D0\uAE08|\uC2E4\uC5C5\uAE09\uC5EC|\uAD50\uC721\uAE09\uC5EC|\uC8FC\uD734\uC218\uB2F9|\uD1F4\uC9C1\uAE08|\uC815\uBD80\uC9C0\uC6D0\uAE08|\uBC14\uC6B0\uCC98|\uC801\uAE08|\uC218\uB2F9|\uAE09\uC5EC|\uD658\uAE09|\uB300\uCD9C|\uBCF4\uD5D8)/u;
+const TRUSTED_POLICY_AUDIENCE_SEGMENT_RE = /(?:\uD504\uB9AC\uB79C\uC11C|\uC54C\uBC14|\uC77C\uC6A9\uC9C1|\uAC1C\uC778\uC0AC\uC5C5\uC790|\uC790\uC601\uC5C5\uC790|\uBB34\uC9C1\uC790|\uC9C1\uC7A5\uC778|\uB300\uD559\uC0DD|\uCCAD\uB144|\uC2E0\uD63C\uBD80\uBD80|\uD55C\uBD80\uBAA8|\uB9DE\uBC8C\uC774|\uD1F4\uC9C1\uC790|\uC800\uC18C\uB4DD|\uC18C\uB4DD\uAE30\uC900|\uC138\uD6C4|\uC2E4\uC218\uB839\uC561|\uC138\uAE08|\uACF5\uC81C\uD56D\uBAA9)/u;
+const TRUSTED_POLICY_ACTION_TAIL_RE = /(?:\uC2E0\uCCAD\s*(?:\uB300\uC0C1|\uBC29\uBC95|\uC870\uAC74|\uAE30\uAC04)?|\uC790\uACA9\s*\uC870\uAC74|\uB300\uC0C1|\uC870\uAC74|\uC9C0\uAE09\uC77C|\uC9C0\uAE09\uC77C\s*\uC870\uD68C|\uC18C\uB4DD\uAE30\uC900|\uD544\uC694\s*\uC11C\uB958|\uC81C\uC678\s*\uB300\uC0C1|\uB9C8\uAC10\uC77C|\uC0AC\uC6A9\uCC98|\uC794\uC561\uC870\uD68C|\uC2E4\uC218\uB839\uC561|\uC138\uD6C4\s*\uACC4\uC0B0|\uC138\uAE08\s*\uACC4\uC0B0|\uACF5\uC81C\uD56D\uBAA9|\uC694\uC728\s*\uACC4\uC0B0|\uD658\uAE09\uC77C)/u;
+const TRUSTED_POLICY_SPECIFIC_ACTION_TAIL_RE = /(?:\uC2E0\uCCAD\s*(?:\uB300\uC0C1|\uBC29\uBC95|\uC870\uAC74|\uAE30\uAC04)|\uC790\uACA9\s*\uC870\uAC74|\uC9C0\uAE09\uC77C|\uC9C0\uAE09\uC77C\s*\uC870\uD68C|\uC18C\uB4DD\uAE30\uC900|\uD544\uC694\s*\uC11C\uB958|\uC81C\uC678\s*\uB300\uC0C1|\uB9C8\uAC10\uC77C|\uC0AC\uC6A9\uCC98|\uC794\uC561\uC870\uD68C|\uC2E4\uC218\uB839\uC561|\uC138\uD6C4\s*\uACC4\uC0B0|\uC138\uAE08\s*\uACC4\uC0B0|\uACF5\uC81C\uD56D\uBAA9|\uC694\uC728\s*\uACC4\uC0B0|\uD658\uAE09\uC77C)/u;
+
+function isTrustedPolicyAudienceWriterReadyKeyword(keyword: string, categoryId = ''): boolean {
+  const clean = normalizeKeyword(keyword);
+  if (!clean) return false;
+  if (LIVE_FINAL_OPAQUE_POLICY_LABEL_RE.test(clean) || LIVE_FINAL_PRODUCT_CONTEXT_NOISE_RE.test(clean)) return false;
+  const inferred = inferLiveCategory(clean, categoryId || 'all');
+  const policyLike = inferred === 'policy'
+    || LIVE_POLICY_SIGNAL_RE.test(clean)
+    || SEARCHAD_POLICY_PRODUCT_BASE_RE.test(clean)
+    || TRUSTED_POLICY_AUDIENCE_BASE_RE.test(clean);
+  if (!policyLike || !TRUSTED_POLICY_AUDIENCE_BASE_RE.test(clean)) return false;
+  if (!TRUSTED_POLICY_ACTION_TAIL_RE.test(clean)) return false;
+  const baseStripped = normalizeKeyword(clean.replace(TRUSTED_POLICY_AUDIENCE_BASE_RE, ' '));
+  return TRUSTED_POLICY_AUDIENCE_SEGMENT_RE.test(baseStripped)
+    || TRUSTED_POLICY_SPECIFIC_ACTION_TAIL_RE.test(clean)
+    || keywordLongTailScore(clean) >= 20
+    || ultimateIntentFragmentCount(clean) >= 2;
+}
 
 function productGenericStackTokenCount(keyword: string): number {
   const hits = normalizeKeyword(keyword).match(PRODUCT_GENERIC_STACK_TOKEN_RE) || [];
@@ -4306,6 +4427,8 @@ function isSyntheticNoEffectLiveProbe(keyword: string): boolean {
     || LIVE_SEARCHAD_NO_RESULT_SHAPE_RE.test(clean)
     || LIVE_SEARCHAD_NO_RESULT_SHAPE_EXTRA_RE.test(clean)
     || LIVE_SEARCHAD_NO_RESULT_SHAPE_LIVE_RE.test(clean)
+    || LIVE_FINAL_PRODUCT_CONTEXT_NOISE_RE.test(clean)
+    || LIVE_FINAL_OPAQUE_POLICY_LABEL_RE.test(clean)
     || (
       PRODUCT_BASE_SIGNAL_RE.test(clean)
       && (
@@ -4493,7 +4616,10 @@ function searchAdProbeMeasurementVariants(keyword: string): string[] {
 function isTrustedWriterReadyMeasuredProbe(keyword: string, categoryId: string): boolean {
   const clean = normalizeKeyword(keyword);
   if (!clean || !TRUSTED_WRITER_READY_MEASURED_PROBE_RE.test(clean)) return false;
-  if (isSyntheticNoEffectLiveProbe(clean) || isWeakAutogeneratedProbeCombo(clean)) return false;
+  if (CALCULATOR_BARE_SIGNUP_TAIL_RE.test(clean)) return false;
+  const trustedPolicyAudienceWriter = isTrustedPolicyAudienceWriterReadyKeyword(clean, categoryId);
+  if (isSyntheticNoEffectLiveProbe(clean)) return false;
+  if (isWeakAutogeneratedProbeCombo(clean) && !trustedPolicyAudienceWriter) return false;
   if (isGenericAudienceOnlyKeyword(clean) || LIVE_MEASURED_PROBE_GENERIC_AUDIENCE_RE.test(clean)) return false;
   const inferred = inferLiveCategory(clean, categoryId || 'all');
   const hasTrustedBase = CACHE_DERIVED_CALCULATOR_RE.test(clean)
@@ -4512,8 +4638,9 @@ function isTrustedWriterReadyMeasuredProbe(keyword: string, categoryId: string):
 function isLiveMeasuredProbeCandidate(keyword: string, categoryId: string, now: Date = new Date()): boolean {
   const clean = normalizeKeyword(keyword);
   if (!clean) return false;
+  if (CALCULATOR_BARE_SIGNUP_TAIL_RE.test(clean)) return false;
   if (isSyntheticNoEffectLiveProbe(clean)) return false;
-  if (isWeakAutogeneratedProbeCombo(clean)) return false;
+  if (isWeakAutogeneratedProbeCombo(clean) && !isTrustedPolicyAudienceWriterReadyKeyword(clean, categoryId)) return false;
   const trustedWriterReady = isTrustedWriterReadyMeasuredProbe(clean, categoryId);
   if (!trustedWriterReady && !LIVE_MEASURED_PROBE_SIGNAL_RE.test(clean)) return false;
   if (LIVE_MEASURED_PROBE_HEALTH_POLICY_MIX_RE.test(clean)) return false;
@@ -5825,8 +5952,10 @@ export const __liveGoldenRadarTestInternals = {
   isKnownPolicyProductNeedKeyword,
   isInvalidNonProductCommerceExpansion,
   isSyntheticNoEffectLiveProbe,
+  isTrustedPolicyAudienceWriterReadyKeyword,
   isMeasuredProbeIntentCompatible,
   isMeasuredProBoardFallbackMetric,
+  isFinalVisibleLiveBoardMetric,
   isLiveMeasuredProbeCandidate,
   isLiveRadarUsableKeyword,
   isWeakAutogeneratedProbeCombo,
@@ -8104,6 +8233,7 @@ export class MobileLiveGoldenRadar {
         goldenRatio: ratio,
       });
       if (judgedMetric.aiJudge?.verdict === 'exclude') continue;
+      if (hasMeasuredPcMobileSplit(judgedMetric) && !isFinalVisibleLiveBoardMetric(judgedMetric, now)) continue;
       const boardId = existing?.id || id;
       const item: MobileLiveGoldenBoardItem = {
         ...judgedMetric,
@@ -8187,7 +8317,7 @@ export class MobileLiveGoldenRadar {
         'searchad-pc-mobile-split-enriched',
         (row as any).svEstimated ? 'searchad-volume-estimated' : '',
       ].map((entry) => normalizeKeyword(entry)).filter(Boolean);
-      this.board.set(item.id, {
+      const nextItem: MobileLiveGoldenBoardItem = {
         ...item,
         grade,
         pcSearchVolume: pc,
@@ -8204,7 +8334,10 @@ export class MobileLiveGoldenRadar {
         evidence: [...new Set(evidence)].slice(0, 10),
         publicSearchVolumeLabel: formatRange(measuredVolume, 'search'),
         publicDocumentCountLabel: formatRange(docs, 'document'),
-      });
+      };
+      const judgedNextItem = applyKeywordAiJudge(nextItem, { now: this.now(), downgradeExcluded: false }) as MobileLiveGoldenBoardItem;
+      if (!isFinalVisibleLiveBoardMetric(judgedNextItem, this.now())) continue;
+      this.board.set(item.id, judgedNextItem);
       changed += 1;
     }
 
@@ -8324,7 +8457,7 @@ export class MobileLiveGoldenRadar {
       const now = this.now();
       const publishable = isPublishableLiveResultMetric(judged, now) || isMeasuredProBoardItem(judged, now);
       const fallbackReason = measuredProBoardFallbackRejectReason(judged, now);
-      if (!publishable && fallbackReason !== 'ok') {
+      if ((!publishable && fallbackReason !== 'ok') || !isFinalVisibleLiveBoardMetric(judged, now)) {
         if (rejectedSamples.length < 12) {
           rejectedSamples.push({
             keyword: judged.keyword,
@@ -8377,6 +8510,7 @@ export class MobileLiveGoldenRadar {
         || isMeasuredProDisplayBackfillMetric(item, now)
         || isMeasuredExactDisplayFallbackMetric(item, now)
       ))
+      .filter((item) => isFinalVisibleLiveBoardMetric(item, now))
       .map((item) => ({
         ...item,
         freshness: freshnessFrom(item.updatedAt, nowMs),
@@ -8425,6 +8559,7 @@ export class MobileLiveGoldenRadar {
           || isMeasuredProDisplayBackfillMetric(item, now)
           || isMeasuredExactDisplayFallbackMetric(item, now)
         ))
+        .filter((item) => isFinalVisibleLiveBoardMetric(item, now))
         .filter((item) => (
           isBlogActionableBoardMetric(item)
           || isMeasuredProDisplayBackfillMetric(item, now)
@@ -8475,12 +8610,21 @@ export class MobileLiveGoldenRadar {
           || (totalSearchVolume !== null && documentCount !== null && documentCount > 0
             ? Number((totalSearchVolume / documentCount).toFixed(2))
             : null);
+        const isMeasured = row?.isMeasured !== false && totalSearchVolume !== null && documentCount !== null;
         const score = totalSearchVolume !== null && documentCount !== null && documentCount > 0 && goldenRatio !== null
           ? liveUltimateOpportunityScore(keyword, totalSearchVolume, documentCount, goldenRatio)
           : finiteNumber(row?.score);
+        const rowGrade = normalizeGrade(row?.grade, finiteNumber(row?.score) ?? score ?? 0);
+        const trustedPersistedMeasurement = isMeasured
+          && measurementMeta.searchVolumeSource === 'searchad'
+          && measurementMeta.documentCountSource === 'naver-api'
+          && measurementMeta.isSearchVolumeEstimated === false
+          && measurementMeta.isDocumentCountEstimated === false;
         const grade = totalSearchVolume !== null && documentCount !== null && documentCount > 0 && goldenRatio !== null
-          ? normalizeLiveMetricGrade(keyword, row?.grade, score, totalSearchVolume, documentCount, goldenRatio)
-          : normalizeGrade(row?.grade, score || 0);
+          ? (trustedPersistedMeasurement && rowGrade !== 'C'
+            ? rowGrade
+            : normalizeLiveMetricGrade(keyword, row?.grade, score, totalSearchVolume, documentCount, goldenRatio))
+          : rowGrade;
         const metric: MobileKeywordMetric = {
           keyword,
           grade,
@@ -8491,13 +8635,15 @@ export class MobileLiveGoldenRadar {
           documentCount,
           goldenRatio,
           cpc: finiteNumber(row?.cpc),
-          category: inferLiveCategory(keyword, normalizeKeyword(row?.category) || fallbackCategory || 'live'),
+          category: normalizeKeyword(row?.category)
+            || normalizeKeyword(fallbackCategory)
+            || inferLiveCategory(keyword, 'live'),
           source: normalizeKeyword(row?.source) || 'mobile-measured-result-cache',
           intent: normalizeKeyword(row?.intent) || 'measured-cache-golden-discovery',
           evidence: Array.isArray(row?.evidence)
             ? row.evidence.map((entry: unknown) => normalizeKeyword(entry)).filter(Boolean).slice(0, 8)
             : ['mobile-measured-result-cache'],
-          isMeasured: row?.isMeasured !== false && totalSearchVolume !== null && documentCount !== null,
+          isMeasured,
           ...measurementMeta,
         };
         if (!hasCompleteLiveGoldenMetrics(metric)) return;
@@ -8506,6 +8652,7 @@ export class MobileLiveGoldenRadar {
           && !isMeasuredProExactKeywordMetric(metric, this.now())
           && !isMeasuredBoardReferenceMetric(metric, this.now())
         ) return;
+        if (hasMeasuredPcMobileSplit(metric) && !isFinalVisibleLiveBoardMetric(metric, this.now())) return;
         metrics.push(metric);
       };
 
@@ -8601,6 +8748,7 @@ export class MobileLiveGoldenRadar {
           && !isMeasuredProExactKeywordMetric(metric, this.now())
           && !isMeasuredBoardReferenceMetric(metric, this.now())
         ) return;
+        if (hasMeasuredPcMobileSplit(metric) && !isFinalVisibleLiveBoardMetric(metric, this.now())) return;
         metrics.push(metric);
       };
 
@@ -8668,9 +8816,17 @@ export class MobileLiveGoldenRadar {
         const score = totalSearchVolume !== null && documentCount !== null && documentCount > 0 && goldenRatio !== null
           ? liveUltimateOpportunityScore(keyword, totalSearchVolume, documentCount, goldenRatio)
           : finiteNumber(row?.score);
+        const rowGrade = normalizeGrade(row?.grade, finiteNumber(row?.score) ?? score ?? 0);
+        const trustedPersistedMeasurement = isMeasured
+          && measurementMeta.searchVolumeSource === 'searchad'
+          && measurementMeta.documentCountSource === 'naver-api'
+          && measurementMeta.isSearchVolumeEstimated === false
+          && measurementMeta.isDocumentCountEstimated === false;
         const grade = totalSearchVolume !== null && documentCount !== null && documentCount > 0 && goldenRatio !== null
-          ? normalizeLiveMetricGrade(keyword, row?.grade, score, totalSearchVolume, documentCount, goldenRatio)
-          : normalizeGrade(row?.grade, score || 0);
+          ? (trustedPersistedMeasurement && rowGrade !== 'C'
+            ? rowGrade
+            : normalizeLiveMetricGrade(keyword, row?.grade, score, totalSearchVolume, documentCount, goldenRatio))
+          : rowGrade;
         if (grade === 'C') continue;
         if (!hasCompleteLiveGoldenMetrics({ totalSearchVolume, documentCount, isMeasured })) continue;
         if (
@@ -8685,6 +8841,18 @@ export class MobileLiveGoldenRadar {
             isMeasured,
             ...measurementMeta,
           }, now)
+          && !isMeasuredExactDisplayFallbackMetric({
+            keyword,
+            grade,
+            score,
+            pcSearchVolume: finiteNumber(row?.pcSearchVolume),
+            mobileSearchVolume: finiteNumber(row?.mobileSearchVolume),
+            totalSearchVolume,
+            documentCount,
+            goldenRatio,
+            isMeasured,
+            ...measurementMeta,
+          } as MobileLiveGoldenBoardItem, now)
           && !isMeasuredBoardReferenceMetric({
             keyword,
             grade,
@@ -8707,7 +8875,7 @@ export class MobileLiveGoldenRadar {
           documentCount,
           goldenRatio,
           cpc: finiteNumber(row?.cpc),
-          category: inferLiveCategory(keyword, normalizeKeyword(row?.category) || 'live'),
+          category: normalizeKeyword(row?.category) || inferLiveCategory(keyword, 'live'),
           source: normalizeKeyword(row?.source) || 'mobile-live-golden-radar',
           intent: normalizeKeyword(row?.intent) || 'live-golden-discovery',
           evidence: Array.isArray(row?.evidence)
@@ -8740,6 +8908,14 @@ export class MobileLiveGoldenRadar {
           }),
           ...measurementMeta,
         };
+        const exactDisplayFallback = isMeasuredExactDisplayFallbackMetric(item, now);
+        if (isSyntheticNoEffectLiveProbe(keyword)) continue;
+        if (
+          isWeakAutogeneratedProbeCombo(keyword)
+          && !isTrustedPolicyAudienceWriterReadyKeyword(keyword, item.category)
+          && !exactDisplayFallback
+        ) continue;
+        if (hasMeasuredPcMobileSplit(item) && !isFinalVisibleLiveBoardMetric(item, now)) continue;
         this.board.set(id, item);
       }
       if (!this.refreshBoardFileOnSnapshot) {
