@@ -1,3 +1,27 @@
+// 전환 추적 ID (env 주입; 없으면 스크립트 생략, lwTrack 은 no-op 가드로 항상 안전)
+const GA4_ID = process.env['LEWORD_GA4_ID'] || '';
+const META_PIXEL_ID = process.env['LEWORD_META_PIXEL_ID'] || '';
+
+/**
+ * GA4 + Meta Pixel(선택) + UTM 캡처 + window.lwTrack 헬퍼 + 결제완료 자동 purchase 전환.
+ * 광고 성과 계측의 토대 — 어느 유입이 Pro 결제로 이어졌는지 attribution.
+ */
+function renderAnalyticsHead(): string {
+  const ga = GA4_ID
+    ? '<script async src="https://www.googletagmanager.com/gtag/js?id=' + GA4_ID + '"></script>'
+      + '<script>window.dataLayer=window.dataLayer||[];function gtag(){dataLayer.push(arguments)}gtag("js",new Date());gtag("config","' + GA4_ID + '");</script>'
+    : '';
+  const pixel = META_PIXEL_ID
+    ? '<script>!function(f,b,e,v,n,t,s){if(f.fbq)return;n=f.fbq=function(){n.callMethod?n.callMethod.apply(n,arguments):n.queue.push(arguments)};if(!f._fbq)f._fbq=n;n.push=n;n.loaded=!0;n.version="2.0";n.queue=[];t=b.createElement(e);t.async=!0;t.src=v;s=b.getElementsByTagName(e)[0];s.parentNode.insertBefore(t,s)}(window,document,"script","https://connect.facebook.net/en_US/fbevents.js");fbq("init","' + META_PIXEL_ID + '");fbq("track","PageView");</script>'
+    : '';
+  const helper = '<script>(function(){'
+    + 'try{var p=new URLSearchParams(location.search);var u={};["utm_source","utm_medium","utm_campaign","utm_term","utm_content"].forEach(function(k){var v=p.get(k);if(v)u[k]=v});if(Object.keys(u).length){u.landedAt=Date.now();localStorage.setItem("leword.utm",JSON.stringify(u))}}catch(e){}'
+    + 'window.lwTrack=function(name,params){try{var u={};try{u=JSON.parse(localStorage.getItem("leword.utm")||"{}")}catch(e){}var m=Object.assign({},u,params||{});if(window.gtag)gtag("event",name,m);if(window.fbq){var fm={begin_checkout:"InitiateCheckout",purchase:"Purchase",sign_up:"CompleteRegistration",view_board:"ViewContent",pro_login:"Lead"};fbq("track",fm[name]||"CustomizeProduct",m)}}catch(e){}};'
+    + 'try{if(/\\/checkout\\/success/.test(location.pathname)){var oid=new URLSearchParams(location.search).get("orderId")||"";window.lwTrack("purchase",{transaction_id:oid})}}catch(e){}'
+    + '})();</script>';
+  return ga + pixel + helper;
+}
+
 export function renderLewordProWeb(): string {
   return `<!doctype html>
 <html lang="ko">
@@ -8,6 +32,7 @@ export function renderLewordProWeb(): string {
   <meta name="description" content="LEWORD Pro Web - 서버 기반 실시간 키워드 분석" />
   <script async src="https://pagead2.googlesyndication.com/pagead/js/adsbygoogle.js?client=ca-pub-4008574892672964" crossorigin="anonymous"></script>
   <script src="https://js.tosspayments.com/v2/standard"></script>
+  ${renderAnalyticsHead()}
   <style>
     :root {
       color-scheme: light;
@@ -7076,6 +7101,7 @@ export function renderLewordProWeb(): string {
           orderId: order.orderId,
           amount: order.amount,
         }).catch(function() {});
+        try { if (window.lwTrack) window.lwTrack('begin_checkout', { value: order.amount, currency: order.currency || 'KRW', transaction_id: order.orderId }); } catch (e) {}
         const tossPayments = window.TossPayments(toss.clientKey);
         const payment = tossPayments.payment({ customerKey: order.customerKey });
         await payment.requestPayment({
@@ -7877,6 +7903,7 @@ export function renderLewordProWeb(): string {
     }
     function renderPublicGoldenBoard(payload, options) {
       const opts = options || {};
+      try { if (window.lwTrack && !window.__lwBoardTracked) { window.__lwBoardTracked = true; window.lwTrack('view_board', { tier: hasActiveProSession() ? 'pro' : 'free' }); } } catch (e) {}
       const proFallback = !!opts.proFallback || hasActiveProSession();
       const primary = filterDisplayGoldenItems(payload.publicPreview || []);
       const backfill = filterDisplayGoldenItems(payload.clientBackfill || []);
