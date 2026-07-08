@@ -8152,7 +8152,17 @@ export class MobileLiveGoldenRadar {
       if (!normalizedKeyword || keyword.grade === 'C') continue;
       if (!hasCompleteLiveGoldenMetrics(keyword)) continue;
       const normalizedMetric = { ...keyword, keyword: normalizedKeyword };
-      if (!isLiveRadarUsableMetric(normalizedMetric, now) && !isMeasuredProExactKeywordMetric(normalizedMetric, now)) continue;
+      const exactMeasuredDisplayFallbackInput = isMeasuredExactDisplayFallbackMetric(
+        normalizedMetric as MobileLiveGoldenBoardItem,
+        now,
+      );
+      const measuredBoardReferenceInput = isMeasuredBoardReferenceMetric(normalizedMetric, now);
+      if (
+        !isLiveRadarUsableMetric(normalizedMetric, now)
+        && !isMeasuredProExactKeywordMetric(normalizedMetric, now)
+        && !exactMeasuredDisplayFallbackInput
+        && !measuredBoardReferenceInput
+      ) continue;
       const id = keywordId(normalizedKeyword);
       const compactId = keywordCompactId(normalizedKeyword);
       const existing = this.board.get(id)
@@ -8221,8 +8231,18 @@ export class MobileLiveGoldenRadar {
         documentCountConfidence,
         isDocumentCountEstimated,
       };
+      const exactMeasuredDisplayFallbackMetric = isMeasuredExactDisplayFallbackMetric({
+        ...metric,
+        keyword: normalizedKeyword,
+        totalSearchVolume: volume ?? keyword.totalSearchVolume,
+        documentCount: docs ?? keyword.documentCount,
+        goldenRatio: ratio ?? keyword.goldenRatio,
+      } as MobileLiveGoldenBoardItem, now);
+      const incomingGrade = normalizeGrade(keyword.grade, opportunityScore ?? finiteNumber(keyword.score) ?? 0);
       const grade = volume !== null && docs !== null && docs > 0 && ratio !== null
-        ? normalizeLiveMetricGrade(normalizedKeyword, keyword.grade, opportunityScore, volume, docs, ratio)
+        ? (exactMeasuredDisplayFallbackMetric && incomingGrade !== 'C'
+          ? incomingGrade
+          : normalizeLiveMetricGrade(normalizedKeyword, keyword.grade, opportunityScore, volume, docs, ratio))
         : keyword.grade;
       if (grade === 'C') continue;
       const judgedMetric = applyKeywordAiJudge({
@@ -8232,7 +8252,10 @@ export class MobileLiveGoldenRadar {
         score: opportunityScore ?? finiteNumber(keyword.score),
         goldenRatio: ratio,
       });
-      if (judgedMetric.aiJudge?.verdict === 'exclude') continue;
+      if (
+        judgedMetric.aiJudge?.verdict === 'exclude'
+        && !(exactMeasuredDisplayFallbackMetric && judgedMetric.aiJudge.rejectReason === 'document-count-exceeds-search-demand')
+      ) continue;
       if (hasMeasuredPcMobileSplit(judgedMetric) && !isFinalVisibleLiveBoardMetric(judgedMetric, now)) continue;
       const boardId = existing?.id || id;
       const item: MobileLiveGoldenBoardItem = {
@@ -8650,6 +8673,7 @@ export class MobileLiveGoldenRadar {
         if (
           !isLiveRadarUsableMetric(metric, this.now())
           && !isMeasuredProExactKeywordMetric(metric, this.now())
+          && !isMeasuredExactDisplayFallbackMetric(metric as MobileLiveGoldenBoardItem, this.now())
           && !isMeasuredBoardReferenceMetric(metric, this.now())
         ) return;
         if (hasMeasuredPcMobileSplit(metric) && !isFinalVisibleLiveBoardMetric(metric, this.now())) return;
@@ -8721,7 +8745,14 @@ export class MobileLiveGoldenRadar {
           || SPECIFIC_LIVE_KEYWORD_HINT_RE.test(keyword);
         const computedScore = liveMetricScore(totalSearchVolume, documentCount, goldenRatio, actionable);
         const score = Math.max(computedScore, liveUltimateOpportunityScore(keyword, totalSearchVolume, documentCount, goldenRatio));
-        const grade = normalizeLiveMetricGrade(keyword, row?.grade, score, totalSearchVolume, documentCount, goldenRatio);
+        const rowGrade = normalizeGrade(row?.grade, finiteNumber(row?.score) ?? score);
+        const trustedPersistedMeasurement = measurementMeta.searchVolumeSource === 'searchad'
+          && measurementMeta.documentCountSource === 'naver-api'
+          && measurementMeta.isSearchVolumeEstimated === false
+          && measurementMeta.isDocumentCountEstimated === false;
+        const grade = trustedPersistedMeasurement && rowGrade !== 'C'
+          ? rowGrade
+          : normalizeLiveMetricGrade(keyword, row?.grade, score, totalSearchVolume, documentCount, goldenRatio);
         const metric: MobileKeywordMetric = {
           keyword,
           grade,
@@ -8746,6 +8777,7 @@ export class MobileLiveGoldenRadar {
         if (
           !isLiveRadarUsableMetric(metric, this.now())
           && !isMeasuredProExactKeywordMetric(metric, this.now())
+          && !isMeasuredExactDisplayFallbackMetric(metric as MobileLiveGoldenBoardItem, this.now())
           && !isMeasuredBoardReferenceMetric(metric, this.now())
         ) return;
         if (hasMeasuredPcMobileSplit(metric) && !isFinalVisibleLiveBoardMetric(metric, this.now())) return;

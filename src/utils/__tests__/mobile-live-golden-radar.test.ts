@@ -4451,6 +4451,29 @@ function thinProfileCount(items: Array<{ keyword: string }>): number {
     measuredExactFallbackSnapshot.board.map((item) => `${item.rank}:${item.keyword}:${item.grade}:${item.totalSearchVolume}/${item.documentCount}`).join('|'));
   fs.rmSync(measuredExactFallbackBoardFile, { force: true });
 
+  const measuredExactFallbackKeywordCacheFile = path.join(process.cwd(), 'tmp', 'mobile-live-golden-measured-exact-keyword-cache-test.json');
+  fs.writeFileSync(measuredExactFallbackKeywordCacheFile, JSON.stringify({
+    __schemaVersion: 'persistent-measured-cache-fixture',
+    items: measuredExactFallbackRows,
+  }), 'utf8');
+  const measuredExactFallbackKeywordCacheRadar = new MobileLiveGoldenRadar({
+    notificationInbox: inbox,
+    runOnStart: false,
+    keywordCacheFile: measuredExactFallbackKeywordCacheFile,
+    boardTarget: 120,
+    publicPreviewCount: 5,
+    now: () => new Date('2026-07-01T09:00:00.000Z'),
+  });
+  const measuredExactFallbackKeywordCacheSnapshot = measuredExactFallbackKeywordCacheRadar.snapshot();
+  assert('persistent measured keyword cache fills 120 from exact measured rows',
+    measuredExactFallbackKeywordCacheSnapshot.board.length === 120
+      && measuredExactFallbackKeywordCacheSnapshot.board.every((item) => item.isMeasured === true)
+      && measuredExactFallbackKeywordCacheSnapshot.board.every((item) => item.searchVolumeSource === 'searchad')
+      && measuredExactFallbackKeywordCacheSnapshot.board.every((item) => item.documentCountSource === 'naver-api')
+      && measuredExactFallbackKeywordCacheSnapshot.board.every((item) => item.pcSearchVolume !== null && item.mobileSearchVolume !== null),
+    measuredExactFallbackKeywordCacheSnapshot.board.map((item) => `${item.rank}:${item.keyword}:${item.grade}:${item.totalSearchVolume}/${item.documentCount}`).join('|'));
+  fs.rmSync(measuredExactFallbackKeywordCacheFile, { force: true });
+
   assert('past month volatile keywords are stale for live board',
     __liveGoldenRadarTestInternals.isPastMonthVolatileLiveKeyword('\u0035\uC6D4\uC5F0\uB9D0\uC815\uC0B0\uD658\uAE09\uC77C', new Date('2026-07-01T09:00:00.000Z'))
       && __liveGoldenRadarTestInternals.isStaleOrFutureLiveKeyword('\u0035\uC6D4\uC5F0\uB9D0\uC815\uC0B0\uD658\uAE09\uC77C', new Date('2026-07-01T09:00:00.000Z')),
