@@ -865,6 +865,28 @@ function thinProfileCount(items: Array<{ keyword: string }>): number {
         grade: 'C',
       } as any, lottoGuardNow),
     'final-visible-measured-cache-gate');
+  assert('measured board reference gate rejects semantic collisions before persistence',
+    !__liveGoldenRadarTestInternals.isMeasuredBoardReferenceMetric({
+      ...measuredFinalGateBase,
+      keyword: '\uC544\uC774\uD3F0\uC790\uCDE8\uBC29\uAD6C\uB9E4\uCC98',
+      grade: 'SSS',
+    } as any, lottoGuardNow)
+      && !__liveGoldenRadarTestInternals.isMeasuredBoardReferenceMetric({
+        ...measuredFinalGateBase,
+        keyword: '\uB178\uD2B8\uBD81\uC804\uAE30\uC694\uAE08\uBE44\uAD50',
+        grade: 'SS',
+      } as any, lottoGuardNow)
+      && !__liveGoldenRadarTestInternals.isMeasuredBoardReferenceMetric({
+        ...measuredFinalGateBase,
+        keyword: '\uC815\uCCAD\uB798\uC758\uCD1D\uCC38\uC11D\uC9C0\uAE09\uC77C',
+        grade: 'S',
+      } as any, lottoGuardNow)
+      && !__liveGoldenRadarTestInternals.isMeasuredBoardReferenceMetric({
+        ...measuredFinalGateBase,
+        keyword: '\uC81C\uC8FC\uB80C\uD130\uCE74\uC608\uC57D\uC0AC\uC774\uD2B8',
+        grade: 'C',
+      } as any, lottoGuardNow),
+    'measured-reference-persistence-gate');
   const cacheDerivedMismatchSeeds = [
     ['\uAC15\uB989 \uCE74\uD398\uAC70\uB9AC', 'food'],
     ['\uAC15\uB989 \uB2F9\uC77C\uCE58\uAE30 \uB9DB\uC9D1', 'travel_domestic'],
