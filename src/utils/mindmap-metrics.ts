@@ -1,3 +1,5 @@
+import { classifyGradeByMetrics } from './grade';
+
 export type MindmapMetricGrade = 'SSS' | 'SS' | 'S' | 'A' | 'B' | 'C';
 
 export interface RawMindmapMetric {
@@ -61,13 +63,10 @@ export function calculateMindmapMetricGrade(
   documentCount: number,
   ratio: number,
 ): MindmapMetricGrade {
-  if (searchVolume <= 0 || documentCount <= 0 || !Number.isFinite(ratio) || ratio <= 0) return 'C';
-  if (searchVolume >= 1000 && documentCount > 0 && documentCount <= 5000 && ratio >= 5) return 'SSS';
-  if (searchVolume >= 500 && documentCount > 0 && documentCount <= 10000 && ratio >= 3) return 'SS';
-  if (searchVolume >= 300 && documentCount <= 15000 && ratio >= 2) return 'S';
-  if (searchVolume >= 100 && documentCount <= 30000) return 'A';
-  if (searchVolume >= 30 && documentCount <= 80000) return 'B';
-  return 'C';
+  // 등급 SSoT(./grade) 위임: SSS 는 classic OR winnable(저볼륨 문서수≪검색량)로 통일.
+  // classifyGradeByMetrics 는 'D' 를 내지 않지만(하한 'C'), 타입 정합 위해 방어적 클램프.
+  const g = classifyGradeByMetrics(searchVolume, documentCount, ratio);
+  return g === 'D' ? 'C' : g;
 }
 
 function readNumber(value: unknown): number | null {
