@@ -1,3 +1,31 @@
+# 계획: C1 등급 SSoT 단일화 ✅ 완료 (끝판왕 프로그램 1단계)
+
+> 작성일: 2026-07-09 · 상태: **완료** (verify:all exit 0, 모든 테스트 통과)
+> 브랜치 refactor/grade-ssot · 마스터플랜 메모리 project_kkeutpanwang_program
+
+## 요구사항
+회귀 근본원인 = 등급 정의 4곳(mdp/floor/radar/mindmap)+~29 인라인 파편화. 단일 SSoT `src/utils/grade.ts`로 통일 → 회귀 정지 + 저볼륨 winnable을 SSS 정본화. **모든 테스트 통과**로 완료.
+
+## 완료 내역 (커밋 순)
+- **624d05e4** slice1: grade.ts SSoT + floor 3함수 위임(무동작변경) + 특성화 오라클 66/66.
+- **f6fa647e** slice2-3: mdp calculateGrade → classifyGrade(SSS classic→classic OR winnable) · radar normalizeGrade → normalizeStoredGrade(점수-only 가짜 SSS 차단, D→C 클램프).
+- **764069df** slice4a: mindmap calculateMindmapMetricGrade → classifyGradeByMetrics(winnable SSS 통일).
+- **32d39ce6** slice4b: direct-golden gradeFromMetrics → classifyGrade · pc-engine normalizeGrade → normalizeStoredGrade.
+
+## 인라인 감사 결론 (Explore 팬아웃 판정)
+- **위임한 진짜 중복 6곳**: mdp/radar/mindmap/floor(slice1) + direct-golden/pc-engine(slice4b). 임계값이 SSoT와 완전 일치하던 사다리.
+- **의도적으로 남긴 사이트**: pro-traffic `determineGrade`·ultimate `targetGradeU`·pro-traffic `targetGradeM`(profit/monetization **blended 점수** 기반 — SSoT raw-score 임계값과 의미 불일치, 위임 시 미스캘리브레이션 + 'SSS 대량 보장' 회귀), `computePremiumGrade`(카테고리별)·rich-feed `calculateGrade`·profit-engine(도메인 고유 지표 래더). 등급 **소비** 코드(비교/필터/카운트)는 대상 아님.
+
+## 최종 검증 (2026-07-09)
+verify:all exit 0 — build+lint:sss+sanity+verify:mobile+health:sanity 전부 그린.
+핵심 밴드 회귀 없음: golden-category-sss-100run 1102/0 · pro-traffic-sss-100run 513/0 · home-hunter-splus-floor 414/0 · mindmap-metrics-regression 10/0 · grade-characterization 66/0 · health:sanity 22/0.
+
+## 범위 밖(다음 /plan): C2 SERP · C4 win-predictor · C3 추정치 · C5 LLM · 파리티.
+
+---
+
+## 이전 계획
+
 # LEWORD 모바일 PC 기능 완전 연동 계획
 
 > 작성일: 2026-06-06
