@@ -47,6 +47,15 @@ assert('LEWORD analyzer gives natural Naver-style cultural card expansions',
   proWebHtml.includes('문화누리카드 잔액조회')
     && proWebHtml.includes('문화누리카드 온라인 사용처')
     && proWebHtml.includes('문화누리카드 가맹점'));
+assert('mindmap seed intent agent normalizes awkward prefixes before tail expansion',
+  proWebHtml.includes('function inferMindmapSeedIntentAgent')
+    && proWebHtml.includes('function normalizeMindmapSeedPhrase')
+    && proWebHtml.includes('특허')
+    && proWebHtml.includes('육아휴직 급여')
+    && proWebHtml.includes('급여 조건')
+    && proWebHtml.includes('사업주 거부')
+    && proWebHtml.includes('normalizeMindmapSeedPhrase(candidate)')
+    && proWebHtml.includes('const profile = inferMindmapSeedIntentAgent(clean);'));
 assert('LEWORD Pro Web uses blue accents instead of yellow copy accents',
   html.includes('--gold: #0EA5E9')
     && !/#ffe|#ffd|#f8c|#f7dc|#b7f|245,197|248,194|yellow/i.test(html));

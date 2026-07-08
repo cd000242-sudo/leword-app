@@ -2385,11 +2385,125 @@ export function renderLewordProWeb(): string {
       }
       return normalizeText(root) || original;
     }
+    function normalizeMindmapSeedPhrase(value) {
+      let text = normalizeText(value);
+      if (!text) return '';
+      text = text
+        .replace(/^(?:선택한\s*)?(?:실시간\s*)?키워드(?:에서|의)?\s*/u, '')
+        .replace(/^(?:검색자가\s*)?(?:바로\s*)?(?:이어(?:서)?\s*)?(?:칠|찾을)\s*만한\s*/u, '')
+        .replace(/^(?:특히|특허|특정)?\s*기간(?:에는|은|에)?\s*/u, '')
+        .replace(/^(?:지금|오늘|이번|최근)\s+(?!(?:근로장려금|자녀장려금|지원금|최저임금|주휴수당))/u, '')
+        .replace(/(?:확장\s*)?키워드(?:입니다)?$/u, '')
+        .replace(/(?:검색\s*)?(?:후보|의문|카드)$/u, '');
+      return normalizeText(text);
+    }
     function mindmapSeedRoot(value) {
-      const clean = normalizeText(value);
+      const clean = normalizeMindmapSeedPhrase(value);
       if (!clean) return '';
       const root = stripMindmapIntentTail(clean);
       return compactKeywordText(root).length >= 2 ? root : clean;
+    }
+    function keywordYearFromText(value, fallback) {
+      const matched = normalizeText(value).match(/20[0-9]{2}/);
+      return matched ? matched[0] : (fallback || '2026');
+    }
+    function combineMindmapRootTail(rootValue, tailValue) {
+      const root = normalizeText(rootValue);
+      const tail = normalizeText(tailValue);
+      if (!root || !tail) return '';
+      const rootKey = compactKeywordText(root);
+      const tailKey = compactKeywordText(tail);
+      if (!tailKey || rootKey.endsWith(tailKey)) return root;
+      return normalizeText(root + ' ' + tail);
+    }
+    function inferMindmapSeedIntentAgent(value) {
+      const clean = normalizeMindmapSeedPhrase(value);
+      const fallbackRoot = mindmapSeedRoot(clean);
+      const text = normalizeText(clean + ' ' + fallbackRoot);
+      const compact = compactKeywordText(text);
+      const year = keywordYearFromText(text, '2026');
+      let root = fallbackRoot || clean;
+      let domain = 'general';
+      let tails = [];
+      let branches = [];
+      const setBranches = function(items) {
+        branches = uniqueIntentBranches((items || []).map(function(item) {
+          return normalizeText(item);
+        }).filter(Boolean), 12);
+      };
+      if (/육아휴직|육아기근로시간|출산휴가|배우자출산휴가|부모급여|아동수당/.test(text)) {
+        domain = 'policy';
+        root = /육아휴직/.test(text) ? (/급여/.test(text) ? '육아휴직 급여' : '육아휴직') : root;
+        if (/육아기근로시간/.test(text)) root = '육아기 근로시간 단축';
+        if (/출산휴가/.test(text) && !/배우자/.test(text)) root = '출산휴가';
+        if (/배우자출산휴가/.test(text)) root = '배우자 출산휴가';
+        if (/부모급여/.test(text)) root = '부모급여';
+        if (/아동수당/.test(text)) root = '아동수당';
+        tails = ['대상', '신청방법', '급여 조건', '기간', '필요서류', '지급일', '사후지급금', '사업주 거부'];
+        setBranches([
+          combineMindmapRootTail(root, '대상'),
+          combineMindmapRootTail(root, '신청방법'),
+          combineMindmapRootTail(root, '급여 조건'),
+          combineMindmapRootTail(root, '기간'),
+          combineMindmapRootTail(root, '필요서류'),
+          combineMindmapRootTail(root, '지급일'),
+          combineMindmapRootTail(root, '사후지급금'),
+          combineMindmapRootTail(root, '사업주 거부'),
+        ]);
+      } else if (/근로장려금|자녀장려금/.test(text)) {
+        domain = 'policy';
+        root = year + ' ' + (/자녀장려금/.test(text) ? '자녀장려금' : '근로장려금');
+        tails = ['지급일', '신청기간', '대상자 확인', '금액 조회', '심사결과', '반기 정기 차이', '누락 이의신청'];
+        setBranches(tails.map(function(tail) { return combineMindmapRootTail(root, tail); }));
+      } else if (/문화누리카드/.test(text)) {
+        domain = 'policy-local';
+        root = '문화누리카드';
+        setBranches(['문화누리카드 잔액조회', '문화누리카드 온라인 사용처', '문화누리카드 가맹점', '문화누리카드 사용처 조회', '문화누리카드 충전일', '문화누리카드 영화 예매', '문화누리카드 숙박 사용처']);
+        tails = branches.map(function(item) { return item.replace(/^문화누리카드\s*/u, ''); });
+      } else if (/송지호|바다하늘길/.test(text)) {
+        domain = 'local';
+        root = '송지호 바다하늘길';
+        setBranches(['송지호 바다하늘길 입장료', '송지호 바다하늘길 주차', '송지호 바다하늘길 위치', '송지호 바다하늘길 운영시간', '송지호 바다하늘길 소요시간', '송지호 해수욕장 바다하늘길', '고성 송지호 바다하늘길', '송지호 둘레길 코스']);
+        tails = branches.map(function(item) { return item.replace(/^송지호\s*바다하늘길\s*/u, ''); });
+      } else if (/제주/.test(text) && /(렌터카|렌트카|렌터|렌트)/.test(text)) {
+        domain = 'local';
+        root = '제주 렌터카 예약';
+        setBranches(['제주 렌터카 예약 사이트', '제주 렌터카 예약 방법', '제주 렌터카 예약 시기', '제주 렌터카 보험 비교', '제주 렌터카 완전자차', '제주공항 렌터카 예약', '제주 렌터카 취소 수수료']);
+        tails = branches.map(function(item) { return item.replace(/^제주\s*렌터카\s*예약\s*/u, ''); });
+      } else if (/홍명보|축구협회|대한축구협회|월드컵|대표팀|이강인|김민재|이재성/.test(text)) {
+        domain = 'sports';
+        root = /축구협회|대한축구협회/.test(text) ? '대한축구협회' : /홍명보/.test(text) ? '홍명보 감독' : '대한민국 축구대표팀';
+        setBranches(['홍명보 감독 다음 감독 후보', '홍명보 감독 선임 과정 논란', '대한축구협회 비리 전말', '이강인 이재성 투입 요청', '김민재 교체 항의 장면', '대한민국 축구대표팀 전술 문제']);
+        tails = ['다음 감독 후보', '선임 과정 논란', '축구협회 비리 전말', '선수 기용 논란', '전술 문제', '월드컵 예선 경우의 수'];
+      } else if (isHousingKeywordText(text)) {
+        domain = 'housing';
+        root = mindmapSeedRoot(text);
+        if (/원룸/.test(text) && /(비용|가격|금액|월세|보증금|관리비)/.test(text)) root = '원룸 비용';
+        if (/원룸/.test(text) && /(입주|이사)/.test(text)) root = '원룸 입주';
+        if (/오피스텔/.test(text) && /(비용|가격|금액|월세|보증금|관리비)/.test(text)) root = '오피스텔 비용';
+        tails = ['월세', '보증금', '관리비', '입주 비용', '전입신고', '계약 전 확인', '이사 비용', '주의사항'];
+        setBranches(tails.map(function(tail) { return combineMindmapRootTail(root, tail); }));
+      } else if (/지원금|장려금|수당|급여|환급|신청|정책|최저임금|주휴수당|청년|내일배움카드|청년도약계좌|실업급여|기초연금/.test(text)) {
+        domain = 'policy';
+        root = fallbackRoot || clean;
+        tails = ['대상', '신청방법', '지급일', '금액', '필요서류', '조회', '제외대상', '주의사항'];
+        setBranches(tails.map(function(tail) { return combineMindmapRootTail(root, tail); }));
+      } else if (/로봇청소기|청소기|공기청정기|제습기|에어컨|냉장고|노트북|아이폰|갤럭시|가격|추천|후기|구매|할인|최저가|제품|상품/.test(text) && !/(지원금|장려금|수당|정책)/.test(text)) {
+        domain = 'shopping';
+        root = fallbackRoot || clean;
+        tails = ['실사용 후기', '가격 비교', '단점', '대체 제품 비교', '구매 전 확인'];
+        setBranches(tails.map(function(tail) { return combineMindmapRootTail(root, tail); }));
+      } else {
+        tails = ['뜻', '검색 이유', '확인 방법', '비교 기준', '주의사항'];
+        setBranches(tails.map(function(tail) { return combineMindmapRootTail(root, tail); }));
+      }
+      return {
+        seed: clean,
+        root: normalizeText(root),
+        domain: domain,
+        tails: uniqueIntentBranches(tails, 12),
+        branches: uniqueIntentBranches(branches, 12),
+      };
     }
     const HOUSING_KEYWORD_RE = /(원룸|월세|전세|보증금|관리비|전입신고|오피스텔|자취방|방구하기|입주|이사|임대차|임대|임차|부동산|계약갱신|월세방|전세방)/;
     const PRODUCT_LAUNCH_INTENT_RE = /(출시일|발매일|출고일|공개일|사전예약|예약구매|런칭|론칭|스펙|공식영상)/;
@@ -2413,7 +2527,9 @@ export function renderLewordProWeb(): string {
         || PRODUCT_HOUSING_CONTEXT_CHAIN_RE.test(compact);
     }
     function semanticMindmapDomain(value) {
-      const text = normalizeText(value).toLowerCase();
+      const text = normalizeMindmapSeedPhrase(value).toLowerCase();
+      const profile = inferMindmapSeedIntentAgent(text);
+      if (profile && profile.domain && profile.domain !== 'general') return profile.domain === 'policy-local' ? 'local' : profile.domain;
       if (isHousingKeywordText(text)) return 'housing';
       if (/(송지호|바다하늘길|해수욕장|둘레길|제주|서울|부산|대구|인천|광주|대전|울산|강릉|속초|여행|숙소|호텔|펜션|항공권|렌터카|렌트카|맛집|축제|문화누리카드\s*사용처)/.test(text)) return 'local';
       if (/(지원금|장려금|수당|급여|환급|신청|정책|근로장려금|최저임금|주휴수당|문화누리카드|청년인턴|청년청약|실업급여)/.test(text)) return 'policy';
@@ -2422,8 +2538,10 @@ export function renderLewordProWeb(): string {
       return 'general';
     }
     function semanticMindmapSeedRoot(value) {
-      const clean = normalizeText(value);
+      const clean = normalizeMindmapSeedPhrase(value);
       if (!clean) return '';
+      const profile = inferMindmapSeedIntentAgent(clean);
+      if (profile && profile.root && compactKeywordText(profile.root).length >= 2) return profile.root;
       if (isHousingKeywordText(clean)) {
         const withoutLaunch = normalizeText(clean.replace(PRODUCT_LAUNCH_INTENT_G, ' '));
         const root = mindmapSeedRoot(withoutLaunch);
@@ -2436,7 +2554,7 @@ export function renderLewordProWeb(): string {
     }
     function repairMindmapCandidate(seed, candidate) {
       const seedDomain = semanticMindmapDomain(seed);
-      let clean = normalizeText(candidate);
+      let clean = normalizeMindmapSeedPhrase(candidate);
       if (!clean) return '';
       if (isAwkwardMindmapCompound(seed, clean)) return '';
       if (seedDomain === 'housing' || isHousingKeywordText(clean)) {
@@ -2451,7 +2569,7 @@ export function renderLewordProWeb(): string {
       return normalizeText(clean);
     }
     function semanticMindmapCandidateAllowed(seed, candidate) {
-      const clean = normalizeText(candidate);
+      const clean = normalizeMindmapSeedPhrase(candidate);
       if (!clean) return false;
       if (isAwkwardMindmapCompound(seed, clean)) return false;
       const seedDomain = semanticMindmapDomain(seed);
@@ -2468,7 +2586,8 @@ export function renderLewordProWeb(): string {
       return true;
     }
     function appendMindmapTail(rootValue, tailValue) {
-      const root = semanticMindmapSeedRoot(rootValue);
+      const profile = inferMindmapSeedIntentAgent(rootValue);
+      const root = (profile && profile.root) || semanticMindmapSeedRoot(rootValue);
       const tail = normalizeText(tailValue);
       if (!root || !tail) return '';
       const rootKey = compactKeywordText(root);
@@ -2477,7 +2596,9 @@ export function renderLewordProWeb(): string {
       return normalizeText(root + ' ' + tail);
     }
     function mindmapTailSetForSeed(seed) {
-      const text = normalizeText(seed);
+      const profile = inferMindmapSeedIntentAgent(seed);
+      if (profile && profile.tails && profile.tails.length && profile.domain !== 'general') return profile.tails;
+      const text = normalizeMindmapSeedPhrase(seed);
       const lower = text.toLowerCase();
       if (/지원|정책|급여|환급|장려금|보조금|신청|세금|청년|정부|최저임금|임금|연금|보험|대출|문화누리카드/.test(text)) {
         return ['대상', '신청 방법', '조건', '금액', '지급일', '필요 서류', '조회', '제외대상', '주의사항'];
@@ -2831,7 +2952,7 @@ export function renderLewordProWeb(): string {
       return base + ' 본문은 단어 꼬리 조합이 아니라 보증금, 월세, 관리비, 중개보수, 이사비, 전입신고, 하자 체크를 한 화면에서 비교하게 만들어야 합니다. 제목은 비용·계약 전 확인·입주 준비처럼 실제 행동 기준으로 잡고, 제품 출시일·발매일류 표현은 제외하세요.';
     }
     function naverAutocompleteLikeBranches(seed) {
-      const clean = normalizeText(seed);
+      const clean = normalizeMindmapSeedPhrase(seed);
       if (!clean) return [];
       const compact = compactKeywordText(clean);
       const out = [];
@@ -2839,6 +2960,11 @@ export function renderLewordProWeb(): string {
         const text = normalizeText(value);
         if (text) out.push(text);
       };
+      const profile = inferMindmapSeedIntentAgent(clean);
+      if (profile && profile.branches && profile.branches.length && profile.domain !== 'general') {
+        profile.branches.forEach(push);
+        return domainSafeIntentBranches(profile.root || clean, out, 10);
+      }
       const songjihoProfile = songjihoSeaSkyPathProfile(clean, clean);
       if (songjihoProfile) {
         songjihoProfile.branches.forEach(push);
@@ -2909,6 +3035,10 @@ export function renderLewordProWeb(): string {
       return '조합 의도는 방문·예약 전에 확인해야 할 비용, 위치, 시간, 후기를 한 번에 비교하게 만드는 것입니다. 광고형 키워드는 피하고 정보형 확인 키워드로 재확장하세요.';
     }
     function policyExpansionBranches(topic, keyword) {
+      const profile = inferMindmapSeedIntentAgent(topic || keyword);
+      if (profile && profile.domain && /policy/.test(profile.domain) && profile.branches && profile.branches.length) {
+        return domainSafeIntentBranches(profile.root || topic || keyword, profile.branches, 8);
+      }
       const base = mindmapSeedRoot(topic || keyword);
       if (/근로장려금/.test(base)) {
         const year = (String(keyword || '').match(/202[0-9]/) || ['2026'])[0];
@@ -2929,6 +3059,10 @@ export function renderLewordProWeb(): string {
       }), 5);
     }
     function issueExpansionBranches(topic, keyword) {
+      const profile = inferMindmapSeedIntentAgent(topic || keyword);
+      if (profile && profile.domain === 'sports' && profile.branches && profile.branches.length) {
+        return domainSafeIntentBranches(profile.root || topic || keyword, profile.branches, 8);
+      }
       const base = mindmapSeedRoot(topic || keyword);
       if (/홍명보|축구협회|감독/.test(keyword) && !isCrossDomainNonsenseKeyword(base + ' ' + keyword)) {
         return domainSafeIntentBranches(base, [
@@ -2946,7 +3080,11 @@ export function renderLewordProWeb(): string {
       }), 5);
     }
     function shoppingExpansionBranches(topic, keyword) {
-      const base = mindmapSeedRoot(topic || keyword);
+      const profile = inferMindmapSeedIntentAgent(topic || keyword);
+      const base = (profile && profile.root) || mindmapSeedRoot(topic || keyword);
+      if (profile && profile.domain === 'shopping' && profile.branches && profile.branches.length) {
+        return domainSafeIntentBranches(base, profile.branches, 8);
+      }
       return domainSafeIntentBranches(base, ['추천', '후기', '가격 비교', '단점', '구매 전 확인'].map(function(tail) {
         return appendMindmapTail(base, tail);
       }), 5);
@@ -3011,6 +3149,7 @@ export function renderLewordProWeb(): string {
       if (/자녀장려금/.test(base)) return year + '년 소득·자녀 조건과 근로장려금 동시 수급 여부가 헷갈려 대상자 확인, 지급액, 지급일 검색이 반복됩니다.';
       if (/주휴수당/.test(base)) return '알바·일용직·단시간 근로자가 15시간 기준, 결근, 퇴사, 미지급 신고 여부를 즉시 계산해야 해서 검색량이 붙습니다.';
       if (/최저임금/.test(base)) return '월급·실수령액·주휴수당 포함 여부가 사업주와 근로자 모두에게 돈으로 바로 연결되어 계산/격차/위반 신고 검색이 생깁니다.';
+      if (/육아휴직|육아기근로시간|출산휴가|부모급여|아동수당/.test(base)) return '근로자와 보호자가 대상, 기간, 급여 조건, 신청서류, 사후지급금, 사업주 거부 대응을 한 번에 확인해야 해서 검색량이 붙습니다. 제도 설명보다 내 상황에 바로 적용되는 조건과 지급 흐름이 핵심입니다.';
       if (/문화누리카드/.test(base)) return '잔액은 있는데 내 지역에서 실제 결제 가능한 가맹점이 어디인지 모르는 상황이라 지역명+사용처+온라인/영화/숙소 조합 검색이 붙습니다.';
       if (/청년인턴/.test(base)) return '모집기간, 지원자격, 급여, 정규직 전환 가능성이 기관마다 달라서 공고를 보기 전 핵심 조건을 빠르게 확인하려는 수요입니다.';
       if (/청년도약계좌/.test(base)) return '소득구간, 정부기여금, 중도해지, 만기 수령액이 가입 판단을 좌우해 계산형/조건형 검색이 반복됩니다.';
@@ -3022,6 +3161,7 @@ export function renderLewordProWeb(): string {
       if (/근로장려금/.test(base)) return '조합 의도는 “근로장려금”에 연도, 지급일, 대상자 확인, 금액 조회를 붙여 개인별 수급 가능성을 바로 판단하려는 것입니다. 제목은 지급일 하나로 시작하되 본문 첫 화면에 대상·금액·제외조건 표를 같이 둬야 합니다.';
       if (/주휴수당/.test(base)) return '조합 의도는 근로형태와 계산 기준을 붙여 “내 근무표에서 받을 수 있나”를 판단하려는 것입니다. 계산기, 예시, 미지급 신고 순서로 연결해야 체류가 생깁니다.';
       if (/최저임금/.test(base)) return '조합 의도는 최저임금 숫자 자체보다 월급·실수령·주휴 포함 여부로 실제 급여가 얼마나 달라지는지 확인하는 것입니다. 계산표와 위반 사례를 분리하세요.';
+      if (/육아휴직|육아기근로시간|출산휴가|부모급여|아동수당/.test(base)) return '조합 의도는 제도명에 대상, 신청방법, 급여 조건, 기간, 필요서류, 지급일, 회사 거부 대응을 붙여 “내가 지금 신청 가능한지”를 판단하려는 것입니다. 첫 화면은 대상/조건/지급 흐름 표, 그 아래는 사례형 질문으로 이어가야 합니다.';
       if (/문화누리카드/.test(base)) return '조합 의도는 카드 혜택 설명이 아니라 “내 지역/온라인에서 지금 쓸 수 있는 곳”을 찾는 것입니다. 지역 사용처, 잔액조회, 결제 가능 업종을 한 글 안에서 이어야 합니다.';
       if (/청년인턴/.test(base)) return '조합 의도는 공고를 하나씩 열기 전에 지원 가능성, 급여, 접수 마감, 전환 가능성을 압축 비교하려는 것입니다. 기관별 조건표가 핵심입니다.';
       return '조합 의도는 제도명에 대상·기간·금액·신청 행동을 붙여 내 상황에서 바로 실행 가능한지 판단하려는 것입니다. 본문은 정의보다 조건표와 예외 사례가 먼저 와야 합니다.';
@@ -3131,9 +3271,11 @@ export function renderLewordProWeb(): string {
       return uniqueIntentBranches(out, 18);
     }
     function agentReadableSubject(row) {
-      const keyword = normalizeText(row && row.keyword);
+      const keyword = normalizeMindmapSeedPhrase(row && row.keyword);
       const provided = agentTextValue(row, ['topic', 'subject', 'coreTopic', 'entity', 'rootKeyword']);
       if (provided) return provided;
+      const profile = inferMindmapSeedIntentAgent(keyword);
+      if (profile && profile.root && profile.domain !== 'general') return profile.root;
       const compact = compactKeywordText(keyword);
       const known = [
         ['송지호바다하늘길', '송지호 바다하늘길'],
@@ -3157,9 +3299,11 @@ export function renderLewordProWeb(): string {
         .trim() || keyword;
     }
     function agentSemanticDomain(row) {
-      const text = keywordRowSearchText(row) + ' ' + normalizeText(row && row.keyword);
+      const text = keywordRowSearchText(row) + ' ' + normalizeMindmapSeedPhrase(row && row.keyword);
       if (isCrossDomainNonsenseKeyword(row) || isAmbiguousCompositeKeyword(row)) return 'unclear';
       if (/정례대화/.test(text) && /(지급일|금액|대상|신청|수당)/.test(text)) return 'unclear';
+      const profile = inferMindmapSeedIntentAgent(text);
+      if (profile && profile.domain && profile.domain !== 'general') return profile.domain;
       if (isHousingKeywordText(text)) return 'housing';
       if (isShoppingIntentKeywordRow(row)) return 'shopping';
       if (/문화누리카드/.test(text) && /(사용처|가맹점|온라인|잔액|충전|영화|숙박)/.test(text)) return 'policy-local';
@@ -3288,6 +3432,7 @@ export function renderLewordProWeb(): string {
       if (provided) return provided;
       const text = normalizeText(subject + ' ' + keyword + ' ' + keywordRowSearchText(row));
       if (domain === 'unclear') return '"' + keyword + '"는 정책 지급어와 서로 다른 의도의 단어가 붙은 충돌형 후보입니다. 실제 이슈명인지, 기사 제목 조각이 붙은 것인지 먼저 소스 원문을 확인하고 원 키워드로 쓰지 않는 것이 안전합니다.';
+      if (/육아휴직|육아기근로시간|출산휴가|부모급여|아동수당/.test(text)) return '이 키워드는 회사·근로자·보호자가 대상, 기간, 급여 조건, 신청 서류, 사후지급 여부를 동시에 확인해야 하는 제도형 검색입니다. 검색량은 “지금 내 상황에서 신청 가능한가, 얼마를 언제 받나, 회사가 거부하면 어떻게 하나”라는 실제 행동 질문에서 붙습니다.';
       if (/송지호|바다하늘길/.test(text)) return '송지호 바다하늘길은 강원 고성 송지호와 해변 산책 동선을 찾는 방문형 키워드입니다. 검색량은 장소 자체가 아니라 입장료, 주차, 운영시간, 해수욕장·둘레길과 함께 갈 수 있는지 확인하려는 여행 전 체크 수요에서 생깁니다.';
       if (domain === 'housing' || isHousingKeywordText(text)) return housingSearchWhy(subject, keyword);
       if (/문화누리카드/.test(text)) return '문화누리카드는 지급·충전 시점보다 실제로 어디서 쓸 수 있는지가 검색의 핵심입니다. 잔액, 온라인 사용처, 지역 가맹점, 영화·숙박 결제 가능 여부를 한 번에 확인하려는 수요가 붙습니다.';
@@ -3307,6 +3452,7 @@ export function renderLewordProWeb(): string {
       const keyword = normalizeText(row && row.keyword);
       const metric = agentMeasuredContext(row);
       if (domain === 'unclear') return '원문 소스와 자동완성 응답을 다시 확인한 뒤 의미가 분명한 키워드만 남기세요. 지급일·금액·대상 같은 정책 행동어는 실제 제도명과 붙어야 발행 가치가 있습니다.';
+      if (/육아휴직|육아기근로시간|출산휴가|부모급여|아동수당/.test(subject + ' ' + keyword)) return '본문 첫 화면에 대상, 신청방법, 급여 조건, 기간, 필요서류, 지급일, 사후지급금, 회사 거부 대응을 표로 나누세요. 키워드를 억지로 이어 붙이지 말고 사용자가 실제로 다음에 확인할 질문을 소제목으로 분리해야 합니다. ' + metric;
       if (domain === 'housing' || isHousingKeywordText(subject + ' ' + keyword)) return housingCombinationIntent(subject, keyword) + ' ' + metric;
       if (domain === 'shopping') return '메인 황금보드에서는 제외하고 쇼핑커넥트에서 제품 후보, 구매 트리거, 실사용 단점, 대체 제품 비교까지 붙여 전환형 글감으로 판단하세요.';
       if (/송지호|바다하늘길/.test(subject + keyword)) return '첫 문단에서 송지호 바다하늘길이 무엇인지 설명하고, 입장료·주차·운영시간·해수욕장 연계 동선을 표로 정리하세요. 마지막에는 당일 코스와 비 오는 날 대안까지 붙이면 체류가 생깁니다.';
