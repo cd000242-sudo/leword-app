@@ -824,6 +824,7 @@ function thinProfileCount(items: Array<{ keyword: string }>): number {
       && __liveGoldenRadarTestInternals.isSyntheticNoEffectLiveProbe('\uC81C\uC2B5\uAE30\uB80C\uD0C8\uC790\uCDE8\uBC29\uC18C\uC74C\uC870\uD68C\uC790\uCDE8\uBC29\uC18C\uC74C')
       && __liveGoldenRadarTestInternals.isSyntheticNoEffectLiveProbe('\uC0AC\uD68C\u00B7\uBB38\uD654\u00B7\uCCAD\uB144 \uC2E0\uCCAD \uBC29\uBC95')
       && __liveGoldenRadarTestInternals.isSyntheticNoEffectLiveProbe('\uC815\uB840\uB300\uD654\uC9C0\uAE09\uC77C')
+      && __liveGoldenRadarTestInternals.isSyntheticNoEffectLiveProbe('\uC0DD\uB300\uC0C1\uC73C\uB85C\uC2DC\uD589\uB9C8\uAC10\uC77C')
       && !__liveGoldenRadarTestInternals.isSyntheticNoEffectLiveProbe('\uC81C\uC8FC \uB80C\uD130\uCE74 \uC608\uC57D \uC0AC\uC774\uD2B8'),
     'final-garbage-regression');
   const cacheDerivedMismatchSeeds = [
