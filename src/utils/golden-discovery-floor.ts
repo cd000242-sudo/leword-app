@@ -1,4 +1,5 @@
 import type { GoldenGrade } from './mdp-engine';
+import { isClassicSss, isWinnableSss, isGoldenSss } from './grade';
 
 export const GOLDEN_DISCOVERY_SSS_FLOOR = 30;
 
@@ -231,23 +232,18 @@ function goldenDiscoveryViralSortScore(item: GoldenDiscoveryLike): number {
 // === SSS 메트릭 정의 (단일 진실원천) ===
 // 모든 SSS 판정(등급 라벨/board 게이트/디스커버리 floor)이 이 두 라우트를 공유한다.
 
-/** 기존 고볼륨 SSS: 검색량 1000+, 문서수 5000↓, 비율 5+. */
+// 등급 지표 판정 SSoT는 ./grade 로 이관(C1). 아래는 하위호환 별칭(동작 동일).
+/** @see grade.isClassicSss — 고볼륨 저경쟁 SSS 지표. */
 export function isClassicSssMetrics(volume: number, docs: number, ratio: number): boolean {
-  return volume >= 1000 && docs > 0 && docs <= 5000 && ratio >= 5;
+  return isClassicSss(volume, docs, ratio);
 }
-
-/**
- * 초보자 winnable SSS: 저볼륨(100~1500)이라도 '문서수 ≪ 검색량'(비율 ≥ 3)인
- * 진짜 저경쟁만 인정. docs > volume(비율 1 미만)은 볼륨 무관 의미 없음 → 탈락.
- * 절대 경쟁 상한(docs ≤ 500)으로 초보자가 1페이지 가능한 수준만 통과.
- */
+/** @see grade.isWinnableSss — 저볼륨 문서수≪검색량 SSS 지표. */
 export function isWinnableSssMetrics(volume: number, docs: number, ratio: number): boolean {
-  return volume >= 100 && volume <= 1500 && docs > 0 && docs <= 500 && ratio >= 3;
+  return isWinnableSss(volume, docs, ratio);
 }
-
-/** SSS 메트릭 = classic(고볼륨) OR winnable(저볼륨 저경쟁). */
+/** @see grade.isGoldenSss — SSS 지표 = classic OR winnable. */
 export function isGoldenSssMetrics(volume: number, docs: number, ratio: number): boolean {
-  return isClassicSssMetrics(volume, docs, ratio) || isWinnableSssMetrics(volume, docs, ratio);
+  return isGoldenSss(volume, docs, ratio);
 }
 
 export function isStrictGoldenDiscoverySss(item: GoldenDiscoveryLike): boolean {
