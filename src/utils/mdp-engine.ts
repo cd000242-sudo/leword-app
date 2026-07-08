@@ -4,6 +4,7 @@ import { classifyKeywordIntent, getNaverKeywordSearchVolumeSeparate, getNaverSer
 import { getNaverAutocompleteKeywords } from './naver-autocomplete';
 import { estimateCPC, calculatePurchaseIntent, calculateCompetitionLevel, CATEGORY_CPC_DATABASE } from './profit-golden-keyword-engine';
 import { classifyKeyword, isKeywordMatchingCategory } from './categories';
+import { classifyGrade } from './grade';
 import { assessGoldenKeywordPrecision } from './golden-keyword-precision';
 
 /**
@@ -563,22 +564,12 @@ export class MDPEngine {
     /**
      * v3.0: 다중 게이트 등급 판정
      */
+    // 등급 배정 SSoT는 ./grade.classifyGrade (C1 단일화). serpDifficulty 는 기존에도 미사용(SSoT에 미포함).
+    // SSS = classic OR winnable — 이전 classic-only 대비 저볼륨 winnable(문서수≪검색량)이 정본 SSS로 승격.
     private calculateGrade(
-        score: number, volume: number, docCount: number, ratio: number, serpDifficulty: number
+        score: number, volume: number, docCount: number, ratio: number, _serpDifficulty: number
     ): GoldenGrade {
-        // SSS: 점수 85+ AND 검색량 1000+ AND 문서수 5000 이하 AND 비율 5+
-        if (score >= 85 && volume >= 1000 && docCount <= 5000 && ratio >= 5) return 'SSS';
-        // SS: 점수 75+ AND 검색량 500+ AND 문서수 10000 이하 AND 비율 3+
-        if (score >= 75 && volume >= 500 && docCount <= 10000 && ratio >= 3) return 'SS';
-        // S: 점수 65+ AND 검색량 300+ AND 비율 2+
-        if (score >= 65 && volume >= 300 && ratio >= 2) return 'S';
-        // A: 점수 55+ AND 검색량 100+
-        if (score >= 55 && volume >= 100) return 'A';
-        // B: 점수 45+
-        if (score >= 45) return 'B';
-        // C: 점수 30+
-        if (score >= 30) return 'C';
-        return 'D';
+        return classifyGrade({ score, volume, docs: docCount, ratio });
     }
 
     /**

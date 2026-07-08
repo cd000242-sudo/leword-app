@@ -34,6 +34,7 @@ import {
   rankGoldenDiscoveryResults,
   scoreGoldenKeywordVirality,
 } from '../utils/golden-discovery-floor';
+import { normalizeStoredGrade } from '../utils/grade';
 import type { MDPResult } from '../utils/mdp-engine';
 import { classifyKeyword } from '../utils/categories';
 import { getDiscoveryCategorySeeds } from '../utils/category-discovery-map';
@@ -780,14 +781,10 @@ const GRADE_RANK: Record<MobileResultGrade, number> = {
 const LIVE_SSS_GRADE: MobileResultGrade = 'SSS';
 
 function normalizeGrade(value: unknown, score = 0): MobileResultGrade {
-  const grade = String(value || '').toUpperCase().replace(/[^A-Z]/g, '');
-  if (grade === 'SSS' || grade === 'SS' || grade === 'S' || grade === 'A' || grade === 'B') return grade;
-  if (score >= 85) return 'SSS';
-  if (score >= 75) return 'SS';
-  if (score >= 65) return 'S';
-  if (score >= 55) return 'A';
-  if (score >= 45) return 'B';
-  return 'C';
+  // 등급 SSoT(../utils/grade) 위임: 지표 미확인 점수-only 는 SSS/SS 로 승격 금지(최대 S)
+  // → 기존 '점수 85→SSS' 가짜 SSS 누수 차단. MobileResultGrade 에 'D' 가 없어 D→C 클램프.
+  const g = normalizeStoredGrade(value, score);
+  return g === 'D' ? 'C' : g;
 }
 
 function finiteNumber(value: unknown): number | null {
