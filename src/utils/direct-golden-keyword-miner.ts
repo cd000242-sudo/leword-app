@@ -4,6 +4,7 @@ import { buildCategoryFirstGoldenSeedPlan } from './category-first-golden-discov
 import { getCrossCategoryDiscoverySeeds, getDiscoveryCategorySeeds, matchesDiscoveryCategory, resolveDiscoveryCategoryIds } from './category-discovery-map';
 import { rankGoldenDiscoveryResults, isActionableGoldenKeyword, compactGoldenKeyword, isQualityGoldenDiscoveryResult, countSss } from './golden-discovery-floor';
 import { MDPResult, GoldenGrade } from './mdp-engine';
+import { classifyGrade } from './grade';
 import { calculateCompetitionLevel, calculatePurchaseIntent, estimateCPC } from './profit-golden-keyword-engine';
 import { generateQueryPatterns } from './pattern-generator';
 import { splitKeywordSemantically } from './semantic-splitter';
@@ -1149,13 +1150,8 @@ function calculateMetricScore(volume: number, docs: number, ratio: number, actio
 }
 
 function gradeFromMetrics(score: number, volume: number, docs: number, ratio: number): GoldenGrade {
-  if (score >= 85 && volume >= 1000 && docs > 0 && docs <= 5000 && ratio >= 5) return 'SSS';
-  if (score >= 75 && volume >= 500 && docs > 0 && docs <= 10000 && ratio >= 3) return 'SS';
-  if (score >= 65 && volume >= 300 && docs > 0 && ratio >= 2) return 'S';
-  if (score >= 55 && volume >= 100) return 'A';
-  if (score >= 45) return 'B';
-  if (score >= 30) return 'C';
-  return 'D';
+  // 등급 SSoT(./grade) 위임 — SSS 는 classic OR winnable(저볼륨 문서수≪검색량)로 통일.
+  return classifyGrade({ score, volume, docs, ratio });
 }
 
 function mapMeasuredRowToMdpResult(row: MeasuredKeywordRow, category: string, categoryIds: string[]): MDPResult | null {

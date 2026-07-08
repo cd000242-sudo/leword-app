@@ -65,6 +65,7 @@ import {
 import {
   calculateMindmapMetricGrade,
 } from '../utils/mindmap-metrics';
+import { normalizeStoredGrade } from '../utils/grade';
 import {
   countSss,
   isQualityGoldenDiscoveryResult,
@@ -257,16 +258,10 @@ function measuredGrade(
 }
 
 function normalizeGrade(value: unknown, fallbackScore = 0): MobileResultGrade {
-  const grade = String(value || '').toUpperCase().replace(/[^A-Z]/g, '');
-  if (grade === 'SSS' || grade === 'SS' || grade === 'S' || grade === 'A' || grade === 'B') {
-    return grade;
-  }
-  if (fallbackScore >= 85) return 'SSS';
-  if (fallbackScore >= 75) return 'SS';
-  if (fallbackScore >= 65) return 'S';
-  if (fallbackScore >= 55) return 'A';
-  if (fallbackScore >= 45) return 'B';
-  return 'C';
+  // 등급 SSoT(../utils/grade) 위임 — 지표 미확인 점수-only 는 SSS/SS 승격 금지(최대 S).
+  // 기존 '점수 85→SSS' 가짜 SSS 누수 차단. MobileResultGrade 에 'D' 가 없어 D→C 클램프.
+  const g = normalizeStoredGrade(value, fallbackScore);
+  return g === 'D' ? 'C' : g;
 }
 
 function metricFromExpansion(
