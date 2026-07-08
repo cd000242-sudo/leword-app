@@ -3,6 +3,8 @@ import crypto from 'crypto';
 import fs from 'fs';
 import path from 'path';
 import { execFile } from 'child_process';
+import { getGuide, listPublishedGuides, sanitizeSlug } from './guide-store';
+import { renderGuidePage, renderGuideIndex, renderSitemap, renderRobots } from './guide-site';
 import {
   MOBILE_API_ENDPOINTS,
   MOBILE_AUTH_ROUTES,
@@ -3587,6 +3589,31 @@ export function createLewordApiServer(options: LewordApiServerOptions = {}): htt
       text(res, 200, ADSENSE_ADS_TXT, {
         'Cache-Control': 'public, max-age=3600',
       });
+      return;
+    }
+
+    // === LEWORD 가이드(고CPC SEO 콘텐츠) 페이지 — 서버렌더 정적 HTML, 애드센스 수익 ===
+    if (req.method === 'GET' && url.pathname === '/robots.txt') {
+      text(res, 200, renderRobots(), { 'Cache-Control': 'public, max-age=3600' });
+      return;
+    }
+    if (req.method === 'GET' && url.pathname === '/sitemap.xml') {
+      res.writeHead(200, { 'Content-Type': 'application/xml; charset=utf-8', 'Cache-Control': 'public, max-age=1800' });
+      res.end(renderSitemap(listPublishedGuides()));
+      return;
+    }
+    if (req.method === 'GET' && (url.pathname === '/leword/guide' || url.pathname === '/leword/guide/')) {
+      html(res, 200, renderGuideIndex(listPublishedGuides()), { 'Cache-Control': 'public, max-age=600' });
+      return;
+    }
+    const guideMatch = url.pathname.match(/^\/leword\/guide\/([^/]+)\/?$/);
+    if (req.method === 'GET' && guideMatch) {
+      const article = getGuide(sanitizeSlug(decodeURIComponent(guideMatch[1])));
+      if (!article || article.status !== 'published') {
+        notFound(res, 'guide not found');
+        return;
+      }
+      html(res, 200, renderGuidePage(article), { 'Cache-Control': 'public, max-age=600' });
       return;
     }
 
