@@ -825,8 +825,46 @@ function thinProfileCount(items: Array<{ keyword: string }>): number {
       && __liveGoldenRadarTestInternals.isSyntheticNoEffectLiveProbe('\uC0AC\uD68C\u00B7\uBB38\uD654\u00B7\uCCAD\uB144 \uC2E0\uCCAD \uBC29\uBC95')
       && __liveGoldenRadarTestInternals.isSyntheticNoEffectLiveProbe('\uC815\uB840\uB300\uD654\uC9C0\uAE09\uC77C')
       && __liveGoldenRadarTestInternals.isSyntheticNoEffectLiveProbe('\uC0DD\uB300\uC0C1\uC73C\uB85C\uC2DC\uD589\uB9C8\uAC10\uC77C')
+      && __liveGoldenRadarTestInternals.isSyntheticNoEffectLiveProbe('\uC1A1\uC9C0\uD638\uBC14\uB2E4\uD558\uB298\uAE38\uC7A5\uB2E8\uC810\uC608\uC57D\uC8FC\uCC28')
+      && __liveGoldenRadarTestInternals.isSyntheticNoEffectLiveProbe('\uC815\uCCAD\uB798\uC758\uCD1D\uCC38\uC11D\uC9C0\uAE09\uC77C')
+      && __liveGoldenRadarTestInternals.isSyntheticNoEffectLiveProbe('\uB85C\uBD07\uCCAD\uC18C\uAE30\uC6D0\uB8F8\uCD5C\uC800\uAC00\uD560\uC778')
+      && __liveGoldenRadarTestInternals.isSyntheticNoEffectLiveProbe('\uB178\uD2B8\uBD81\uC804\uAE30\uC694\uAE08\uBE44\uAD50')
+      && __liveGoldenRadarTestInternals.isSyntheticNoEffectLiveProbe('\uB8E8\uD14C\uC778\uC21C\uC704\uAC80\uC0AC\uBE44\uC6A9')
+      && !__liveGoldenRadarTestInternals.isSyntheticNoEffectLiveProbe('\uC1A1\uC9C0\uD638\uBC14\uB2E4\uD558\uB298\uAE38\uC785\uC7A5\uB8CC')
       && !__liveGoldenRadarTestInternals.isSyntheticNoEffectLiveProbe('\uC81C\uC8FC \uB80C\uD130\uCE74 \uC608\uC57D \uC0AC\uC774\uD2B8'),
     'final-garbage-regression');
+  const measuredFinalGateBase = {
+    score: 96,
+    pcSearchVolume: 1200,
+    mobileSearchVolume: 8800,
+    totalSearchVolume: 10000,
+    documentCount: 120,
+    goldenRatio: 83.33,
+    category: 'policy',
+    source: 'persistent-measured-golden-cache',
+    evidence: ['searchad-volume', 'naver-openapi-document-count'],
+    searchVolumeSource: 'searchad',
+    searchVolumeConfidence: 'high',
+    isSearchVolumeEstimated: false,
+    documentCountSource: 'naver-api',
+    documentCountConfidence: 'high',
+    isDocumentCountEstimated: false,
+    updatedAt: '2026-07-01T08:00:00.000Z',
+    discoveredAt: '2026-07-01T08:00:00.000Z',
+    isMeasured: true,
+  };
+  assert('final visible gate rejects measured cache semantic collisions and low grades even with complete metrics',
+    !__liveGoldenRadarTestInternals.isFinalVisibleLiveBoardMetric({
+      ...measuredFinalGateBase,
+      keyword: '\uC544\uC774\uD3F0\uC790\uCDE8\uBC29\uAD6C\uB9E4\uCC98',
+      grade: 'SSS',
+    } as any, lottoGuardNow)
+      && !__liveGoldenRadarTestInternals.isFinalVisibleLiveBoardMetric({
+        ...measuredFinalGateBase,
+        keyword: '\uC81C\uC8FC\uB80C\uD130\uCE74\uC608\uC57D\uC0AC\uC774\uD2B8',
+        grade: 'C',
+      } as any, lottoGuardNow),
+    'final-visible-measured-cache-gate');
   const cacheDerivedMismatchSeeds = [
     ['\uAC15\uB989 \uCE74\uD398\uAC70\uB9AC', 'food'],
     ['\uAC15\uB989 \uB2F9\uC77C\uCE58\uAE30 \uB9DB\uC9D1', 'travel_domestic'],
@@ -4406,7 +4444,7 @@ function thinProfileCount(items: Array<{ keyword: string }>): number {
       const documentCount = 2200 + index * 17;
       return {
         keyword: `${base} ${tail}`,
-        grade: index % 4 === 0 ? 'B' : 'A',
+        grade: 'A',
         score: 62 - (index % 9) * 0.2,
         pcSearchVolume,
         mobileSearchVolume,
@@ -4466,8 +4504,8 @@ function thinProfileCount(items: Array<{ keyword: string }>): number {
     now: () => new Date('2026-07-01T09:00:00.000Z'),
   });
   const measuredExactFallbackKeywordCacheSnapshot = measuredExactFallbackKeywordCacheRadar.snapshot();
-  assert('persistent measured keyword cache fills 120 from exact measured rows',
-    measuredExactFallbackKeywordCacheSnapshot.board.length === 120
+  assert('persistent measured keyword cache does not force-fill rows that fail the final quality gate',
+    measuredExactFallbackKeywordCacheSnapshot.board.length <= 120
       && measuredExactFallbackKeywordCacheSnapshot.board.every((item) => item.isMeasured === true)
       && measuredExactFallbackKeywordCacheSnapshot.board.every((item) => item.searchVolumeSource === 'searchad')
       && measuredExactFallbackKeywordCacheSnapshot.board.every((item) => item.documentCountSource === 'naver-api')
