@@ -466,6 +466,79 @@ function thinProfileCount(items: Array<{ keyword: string }>): number {
       && !__liveGoldenRadarTestInternals.isSearchAdMeasurableLiveCandidate('정청래 의총 참석 지급일', 'policy'),
     'usable/measurable gates must reject');
 
+  // 실수요 증명 게이트 회귀(승인 2026-07-09): 프로브/캐시 출신 board 행을 자동완성 실측으로
+  // 검증 — 무흔적(유령 검색량) 행은 사이클에서 제거, echo/extension 흔적 행은 유지.
+  const realDemandBoardFile = path.join(process.cwd(), 'tmp', 'mobile-live-golden-real-demand-test.json');
+  const realDemandCacheFile = realDemandBoardFile.replace(/\.json$/, '') + '-realdemand.json';
+  fs.rmSync(realDemandBoardFile, { force: true });
+  fs.rmSync(realDemandCacheFile, { force: true });
+  const realDemandStamp = new Date().toISOString();
+  const realDemandRow = (keyword: string, index: number) => ({
+    keyword,
+    grade: 'S',
+    score: 70,
+    totalSearchVolume: 1400 + index * 10,
+    pcSearchVolume: 280 + index,
+    mobileSearchVolume: 1120 + index * 9,
+    documentCount: 600 + index * 10,
+    goldenRatio: 2.3,
+    category: 'policy',
+    source: 'persistent-measured-golden-cache',
+    intent: 'persistent-measured-golden-cache',
+    evidence: ['persistent-keyword-cache', 'measured-search-volume'],
+    searchVolumeSource: 'searchad',
+    searchVolumeConfidence: 'high',
+    isSearchVolumeEstimated: false,
+    documentCountSource: 'naver-api',
+    documentCountConfidence: 'high',
+    isDocumentCountEstimated: false,
+    updatedAt: realDemandStamp,
+    discoveredAt: realDemandStamp,
+    isMeasured: true,
+  });
+  fs.writeFileSync(realDemandBoardFile, JSON.stringify({
+    boardUpdatedAt: realDemandStamp,
+    items: [
+      realDemandRow('청년미래적금 200차 신청 대상', 0),
+      realDemandRow('청년미래적금 201차 필요 서류', 1),
+    ],
+  }), 'utf8');
+  const realDemandProbeCalls: string[] = [];
+  const realDemandRadar = new MobileLiveGoldenRadar({
+    notificationInbox: inbox,
+    runOnStart: false,
+    cycleLimit: 1,
+    boardTarget: 10,
+    maxCandidates: 60,
+    boardFile: realDemandBoardFile,
+    categories: ['policy'],
+    getEnvConfig: () => ({ naverClientId: 'client', naverClientSecret: 'secret' }),
+    liveSeedProvider: async () => [],
+    enableBackfill: false,
+    discover: async () => [],
+    realDemandProbe: async (query: string) => {
+      realDemandProbeCalls.push(query);
+      if (query.includes('200차')) {
+        return { ok: true, suggestions: ['청년미래적금 200차 신청 대상 조건'] };
+      }
+      return { ok: true, suggestions: ['청년미래적금'] };
+    },
+  });
+  const realDemandSnapshot = await realDemandRadar.runOnce();
+  assert('real-demand gate removes autocomplete-ghost cache rows and keeps proven rows',
+    realDemandProbeCalls.length >= 2
+      && realDemandSnapshot.board.some((item) => item.keyword === '청년미래적금 200차 신청 대상')
+      && !realDemandSnapshot.board.some((item) => item.keyword === '청년미래적금 201차 필요 서류'),
+    JSON.stringify({
+      probes: realDemandProbeCalls,
+      keywords: realDemandSnapshot.board.map((item) => item.keyword),
+      lastMessage: realDemandSnapshot.lastMessage,
+    }));
+  assert('real-demand verdicts persist next to the board file',
+    fs.existsSync(realDemandCacheFile));
+  fs.rmSync(realDemandBoardFile, { force: true });
+  fs.rmSync(realDemandCacheFile, { force: true });
+
   // ingest 경로 회귀: 데스크톱 push → inbox 파일(쓰기 소유 분리) → read-only 스냅샷 병합.
   // 추정 플래그 행은 거부, 미지의(추정치성) 필드는 부활 금지, board 파일은 워커 소유라 미작성.
   const ingestBoardFile = path.join(process.cwd(), 'tmp', 'mobile-live-golden-ingest-board-test.json');

@@ -382,3 +382,64 @@ export async function getNaverAutocompleteKeywords(
     return [];
   }
 }
+
+/**
+ * 실수요 검증용 경량 자동완성 프로브 (키워드당 2 호출: PC+모바일).
+ *
+ * 기존 getNaverAutocompleteKeywords 는 자모/접미사 확장까지 키워드당 20~30회 호출하는
+ * 수집기라 검증 용도로 부적합하고, 내부에서 오류를 삼켜 "장애"와 "제안 없음(유령)"을
+ * 구분할 수 없다. 이 프로브는 실패 여부(ok)를 보존한다 — ok=false 면 판정 보류해야 한다.
+ */
+export interface NaverAutocompleteEchoProbe {
+  ok: boolean;
+  suggestions: string[];
+}
+
+function parseAutocompleteEchoItems(data: unknown): string[] {
+  const results: string[] = [];
+  const items = (data as { items?: unknown[] } | null)?.items;
+  if (!Array.isArray(items)) return results;
+  for (const itemGroup of items) {
+    if (!Array.isArray(itemGroup)) continue;
+    for (const item of itemGroup) {
+      if (Array.isArray(item) && item[0]) {
+        const kw = String(item[0]).trim();
+        if (kw.length >= 2) results.push(kw);
+      } else if (typeof item === 'string' && item.length >= 2) {
+        results.push(item);
+      }
+    }
+  }
+  return results;
+}
+
+export async function probeNaverAutocompleteSuggestions(query: string): Promise<NaverAutocompleteEchoProbe> {
+  const clean = String(query || '').replace(/\s+/g, ' ').trim();
+  if (!clean) return { ok: true, suggestions: [] };
+  const attempts = await Promise.allSettled([
+    axios.get('https://ac.search.naver.com/nx/ac', {
+      params: { q: clean, con: 1, frm: 'nv', ans: 2, r_format: 'json', r_enc: 'UTF-8', r_unicode: 0, t_koreng: 1, run: 2, rev: 4, q_enc: 'UTF-8' },
+      headers: { 'User-Agent': getRandomUA(), 'Accept': 'application/json', 'Referer': 'https://search.naver.com/' },
+      timeout: CONFIG.TIMEOUT,
+    }).then((response) => parseAutocompleteEchoItems(response.data)),
+    axios.get('https://mac.search.naver.com/mobile/ac', {
+      params: { q: clean, st: 1, frm: 'mobile_nv', r_format: 'json', _callback: '' },
+      headers: { 'User-Agent': getRandomUA(true), 'Accept': 'application/json' },
+      timeout: CONFIG.TIMEOUT,
+    }).then((response) => parseAutocompleteEchoItems(response.data)),
+  ]);
+  const fulfilled = attempts.filter(
+    (attempt): attempt is PromiseFulfilledResult<string[]> => attempt.status === 'fulfilled',
+  );
+  const seen = new Set<string>();
+  const suggestions: string[] = [];
+  for (const attempt of fulfilled) {
+    for (const kw of attempt.value) {
+      const key = kw.toLowerCase().replace(/\s+/g, '');
+      if (!key || seen.has(key)) continue;
+      seen.add(key);
+      suggestions.push(kw);
+    }
+  }
+  return { ok: fulfilled.length > 0, suggestions };
+}

@@ -17,7 +17,7 @@ import {
   resolveDirectGoldenBulkSssTarget,
 } from '../utils/direct-golden-keyword-miner';
 import { classifyKeywordIntent, getNaverKeywordSearchVolumeSeparate } from '../utils/naver-datalab-api';
-import { getNaverAutocompleteKeywords } from '../utils/naver-autocomplete';
+import { getNaverAutocompleteKeywords, probeNaverAutocompleteSuggestions } from '../utils/naver-autocomplete';
 import {
   getNaverSearchAdKeywordSuggestions,
   type NaverSearchAdConfig,
@@ -36,6 +36,7 @@ import {
 } from '../utils/golden-discovery-floor';
 import { normalizeStoredGrade } from '../utils/grade';
 import { verifyKeywordValue } from '../utils/pro-hunter-v12/keyword-value-verifier';
+import { RealDemandVerifier, type RealDemandVerifierOptions } from './real-demand-verifier';
 import type { MDPResult } from '../utils/mdp-engine';
 import { classifyKeyword } from '../utils/categories';
 import { getDiscoveryCategorySeeds } from '../utils/category-discovery-map';
@@ -69,6 +70,8 @@ export interface MobileLiveGoldenRadarOptions {
   publicPreviewCount?: number;
   boardFile?: string;
   ingestFile?: string;
+  realDemandCacheFile?: string;
+  realDemandProbe?: RealDemandVerifierOptions['probe'];
   resultCacheFile?: string;
   keywordCacheFile?: string;
   probeQueueFile?: string;
@@ -141,6 +144,18 @@ const PUBLIC_PREVIEW_MAX_AGE_MS = 48 * 60 * 60 * 1000;
 const LIVE_BOARD_MAX_AGE_MS = 7 * 24 * 60 * 60 * 1000;
 const LIVE_BOARD_FILE_REFRESH_MS = 30_000;
 const LIVE_INGEST_MAX_ROWS = 360;
+const LIVE_REAL_DEMAND_BUDGET_PER_CYCLE = 30;
+// 실수요 검증 대상: 서버가 제조·승격한 프로브/캐시 출신 행만. 데스크톱 ingest·실시간 소스
+// 발굴 행은 실제 검색 데이터에서 나온 것이라 제외한다.
+const SYNTHETIC_PROBE_PROVENANCE_RE = /(?:persistent-measured-golden-cache|persistent-keyword-cache|measured-probe|measured-search-volume)/i;
+
+function hasSyntheticProbeProvenance(item: MobileLiveGoldenBoardItem): boolean {
+  const text = [item.source, item.intent]
+    .concat(Array.isArray(item.evidence) ? item.evidence : [])
+    .map((value) => normalizeKeyword(value))
+    .join(' ');
+  return SYNTHETIC_PROBE_PROVENANCE_RE.test(text);
+}
 const LIVE_SNAPSHOT_CACHE_MS = 5_000;
 const BROAD_KEYWORD_VOLUME_CEILING = 500_000;
 const BROAD_KEYWORD_DOCUMENT_CEILING = 80_000;
@@ -5935,6 +5950,10 @@ export class MobileLiveGoldenRadar {
   private readonly publicPreviewCount: number;
   private readonly boardFile?: string;
   private readonly ingestFile?: string;
+  private readonly realDemandVerifier: RealDemandVerifier;
+  // 실수요 검증은 프로브가 명시 주입된 경우에만 동작(opt-in) — 프로덕션 factory 가 실프로브를
+  // 주입하고, 테스트·임베디드 생성은 네트워크를 건드리지 않는다.
+  private readonly realDemandEnabled: boolean;
   private readonly resultCacheFile?: string;
   private readonly keywordCacheFile?: string;
   private readonly probeQueueFile?: string;
@@ -6007,6 +6026,13 @@ export class MobileLiveGoldenRadar {
     this.boardFile = normalizeKeyword(options.boardFile || '') || undefined;
     this.ingestFile = normalizeKeyword(options.ingestFile || '')
       || (this.boardFile ? this.boardFile.replace(/\.json$/i, '') + '-ingest.json' : undefined);
+    this.realDemandEnabled = typeof options.realDemandProbe === 'function';
+    this.realDemandVerifier = new RealDemandVerifier({
+      probe: options.realDemandProbe,
+      cacheFile: normalizeKeyword(options.realDemandCacheFile || '')
+        || (this.boardFile ? this.boardFile.replace(/\.json$/i, '') + '-realdemand.json' : undefined),
+      now: options.now,
+    });
     this.resultCacheFile = normalizeKeyword(options.resultCacheFile || '') || undefined;
     this.keywordCacheFile = normalizeKeyword(options.keywordCacheFile || '')
       || (this.resultCacheFile ? path.join(path.dirname(this.resultCacheFile), 'keyword-cache.json') : undefined);
@@ -6491,6 +6517,13 @@ export class MobileLiveGoldenRadar {
           clientSecret: env.naverClientSecret,
         })
         : 0;
+      // 실수요 증명 게이트: 프로브/캐시 출신 행을 자동완성 실측으로 검증, 무흔적(유령) 제거.
+      let realDemandRemoved = 0;
+      try {
+        realDemandRemoved = await this.enforceRealDemandOnBoard();
+      } catch (err) {
+        console.warn('[LIVE-GOLDEN] 실수요 검증 스킵(발굴은 정상):', (err as Error)?.message || err);
+      }
       const published = this.notificationInbox?.publishFromResult({
         product: 'golden-discovery',
         kind: 'live-golden',
@@ -6507,6 +6540,7 @@ export class MobileLiveGoldenRadar {
         promotedCacheCount > 0 ? `${promotedCacheCount} cache-promoted` : '',
         referenceProbeCount > 0 ? `${referenceProbeCount} sss-probes-queued` : '',
         enrichedExisting > 0 ? `${enrichedExisting} split-enriched` : '',
+        realDemandRemoved > 0 ? `${realDemandRemoved} ghost-removed` : '',
       ].filter(Boolean);
       const enrichSuffix = enrichParts.length > 0 ? `, ${enrichParts.join(', ')}` : '';
       this.lastMessage = fallbackCount > 0
@@ -8321,9 +8355,36 @@ export class MobileLiveGoldenRadar {
       return 0;
     }
 
+    // 실수요 미증명(자동완성 무흔적) 후보는 SearchAd 측정 전에 제외 — 유령 검색량 재유입 차단.
+    let promotionCandidates = candidates;
+    if (this.realDemandEnabled) {
+      try {
+        const demandVerdicts = await this.realDemandVerifier.verify(
+          candidates.map((item) => item.keyword),
+          LIVE_REAL_DEMAND_BUDGET_PER_CYCLE,
+        );
+        promotionCandidates = candidates.filter((item) => {
+          const key = normalizeKeyword(item.keyword).toLowerCase().replace(/\s+/g, '');
+          return demandVerdicts.get(key) !== 'fake';
+        });
+        if (promotionCandidates.length < candidates.length) {
+          console.log(`[LIVE-GOLDEN] 실수요 미증명 승격 제외: ${candidates.length - promotionCandidates.length}개`);
+        }
+      } catch (err) {
+        console.warn('[LIVE-GOLDEN] 실수요 검증 스킵(승격은 정상):', (err as Error)?.message || err);
+      }
+    }
+    if (promotionCandidates.length === 0) {
+      console.info('[LIVE-GOLDEN] cache promotion skipped: no real-demand candidates', {
+        candidates: candidates.length,
+        targetLimit,
+      });
+      return 0;
+    }
+
     const rows: Awaited<ReturnType<typeof this.measureLiveSearchVolumeSeparate>> = [];
-    for (let i = 0; i < candidates.length; i += LIVE_CACHE_PROMOTION_BATCH_SIZE) {
-      const batch = candidates.slice(i, i + LIVE_CACHE_PROMOTION_BATCH_SIZE);
+    for (let i = 0; i < promotionCandidates.length; i += LIVE_CACHE_PROMOTION_BATCH_SIZE) {
+      const batch = promotionCandidates.slice(i, i + LIVE_CACHE_PROMOTION_BATCH_SIZE);
       const batchRows = await this.measureLiveSearchVolumeRows(config, batch.map((item) => item.keyword), {
         includeDocumentCount: false,
       }, LIVE_CACHE_PROMOTION_BATCH_TIMEOUT_MS);
@@ -8334,15 +8395,15 @@ export class MobileLiveGoldenRadar {
     }
     if (rows.length === 0) {
       console.info('[LIVE-GOLDEN] cache promotion skipped: no SearchAd rows', {
-        candidates: candidates.length,
+        candidates: promotionCandidates.length,
         targetLimit,
-        sample: candidates.slice(0, 8).map((item) => item.keyword),
+        sample: promotionCandidates.slice(0, 8).map((item) => item.keyword),
       });
       return 0;
     }
 
     const byCompactId = new Map<string, MobileLiveGoldenBoardItem>();
-    for (const item of candidates) {
+    for (const item of promotionCandidates) {
       const compactId = keywordCompactId(item.keyword);
       if (compactId) byCompactId.set(compactId, item);
     }
@@ -8942,6 +9003,40 @@ export class MobileLiveGoldenRadar {
     }
   }
 
+  // 실수요 증명 게이트(승인 2026-07-09): 프로브/캐시 출신 board 행을 자동완성 실측으로 검증해
+  // 무흔적(유령 검색량) 행을 제거한다. 판정은 파일 캐시로 영속화, 사이클당 예산으로 429 회피,
+  // 프로브 왕복 실패(unknown)는 절대 삭제 근거로 쓰지 않는다.
+  private async enforceRealDemandOnBoard(): Promise<number> {
+    if (!this.realDemandEnabled) return 0;
+    const targets = [...this.board.values()]
+      .filter((item) => hasSyntheticProbeProvenance(item))
+      .filter((item) => {
+        const verdict = this.realDemandVerifier.verdictFor(item.keyword);
+        return !verdict || verdict.result === 'fake';
+      });
+    if (targets.length === 0) return 0;
+    const verdicts = await this.realDemandVerifier.verify(
+      targets.map((item) => item.keyword),
+      LIVE_REAL_DEMAND_BUDGET_PER_CYCLE,
+    );
+    let removed = 0;
+    for (const item of targets) {
+      const key = normalizeKeyword(item.keyword).toLowerCase().replace(/\s+/g, '');
+      if (verdicts.get(key) === 'fake') {
+        this.board.delete(item.id);
+        removed += 1;
+      }
+    }
+    if (removed > 0) {
+      this.pruneBoard();
+      this.saveBoardToFile();
+      this.cachedSnapshot = null;
+      this.cachedSnapshotAtMs = 0;
+      console.log(`[LIVE-GOLDEN] 실수요 미증명(자동완성 무흔적) 제거: ${removed}개`);
+    }
+    return removed;
+  }
+
   private refreshBoardFromFile(force = false): void {
     if (!this.boardFile) return;
     const nowMs = Date.now();
@@ -8987,6 +9082,7 @@ export function createMobileLiveGoldenRadarFromEnv(
   const publicPreviewCount = Number(process.env['LEWORD_PUBLIC_GOLDEN_PREVIEW_COUNT'] || 0);
   const boardFile = normalizeKeyword(process.env['LEWORD_MOBILE_LIVE_GOLDEN_BOARD_FILE'] || '');
   const ingestFile = normalizeKeyword(process.env['LEWORD_MOBILE_LIVE_GOLDEN_INGEST_FILE'] || '');
+  const realDemandCacheFile = normalizeKeyword(process.env['LEWORD_MOBILE_LIVE_GOLDEN_REALDEMAND_FILE'] || '');
   const resultCacheFile = normalizeKeyword(process.env['LEWORD_MOBILE_CACHE_FILE'] || '');
   const keywordCacheFile = normalizeKeyword(process.env['LEWORD_MOBILE_KEYWORD_CACHE_FILE'] || '');
   const readOnly = process.env['LEWORD_MOBILE_LIVE_GOLDEN_READONLY'] === 'true';
@@ -9007,6 +9103,11 @@ export function createMobileLiveGoldenRadarFromEnv(
     publicPreviewCount: Number.isFinite(publicPreviewCount) && publicPreviewCount > 0 ? publicPreviewCount : undefined,
     boardFile: boardFile || undefined,
     ingestFile: ingestFile || undefined,
+    realDemandCacheFile: realDemandCacheFile || undefined,
+    // 실수요 증명 게이트(opt-in): env 로 끄지 않는 한 프로덕션은 실프로브로 검증한다.
+    realDemandProbe: process.env['LEWORD_MOBILE_LIVE_GOLDEN_REALDEMAND'] === 'false'
+      ? undefined
+      : probeNaverAutocompleteSuggestions,
     resultCacheFile: resultCacheFile || undefined,
     keywordCacheFile: keywordCacheFile || undefined,
     maxSeeds: Number.isFinite(maxSeeds) && maxSeeds > 0 ? maxSeeds : undefined,
