@@ -1054,5 +1054,9 @@ assert('display-grade C rows are blocked from golden board render paths',
     && /proGoldenBoardItems[\s\S]{0,600}\.filter\(function\(item\) \{ return displayGradeForRow\(item\) !== 'C'; \}\)/.test(proWebHtml));
 assert('preview policy label is honest (no lower-five wording)',
   proWebHtml.includes('실측 검증 5선 공개') && !proWebHtml.includes('하위 5개 공개'));
+assert('search-volume reason is keyword-semantic, not category boilerplate only',
+  proWebHtml.includes('function keywordSemanticMeaning')
+    && proWebHtml.includes('KEYWORD_NEED_TOKENS')
+    && /const semantic = \['policy', 'issue', 'need'\]\.indexOf\(guide\.kind\) >= 0 \? keywordSemanticMeaning\(row\) : '';/.test(proWebHtml));
 
 console.log('[pro-web-site-regression] passed');

@@ -2783,6 +2783,102 @@ export function renderLewordProWeb(): string {
       });
       return uniqueIntentBranches(modifiers, 5);
     }
+    // 키워드 토큰 → 검색자가 확인하려는 것(의미 단위). 긴 토큰 우선 매칭 + 매칭 구간 마스킹으로
+    // 중복 해석 방지('환급일'이 '환급'·'일정'으로 이중 매칭되지 않게). 전부 키워드 자체에서 파생된
+    // 매칭 사실만 사용한다 — 카테고리 보일러플레이트 대체용.
+    const KEYWORD_NEED_TOKENS = [
+      ['신청방법', '어떻게 신청하는지(절차)'],
+      ['신청기간', '언제까지 신청할 수 있는지(기간)'],
+      ['제외대상', '어떤 경우에 제외되는지'],
+      ['필요서류', '무엇을 준비해야 하는지(필요 서류)'],
+      ['운영시간', '언제 여는지(운영시간)'],
+      ['주의사항', '조심해야 할 점'],
+      ['환급일', '환급금이 언제 들어오는지(환급 시점)'],
+      ['지급일', '언제 지급되는지(지급 시점)'],
+      ['계산기', '내 경우 얼마인지 바로 계산하는 방법'],
+      ['최저가', '어디가 가장 싼지'],
+      ['사용처', '어디서 쓸 수 있는지'],
+      ['가맹점', '쓸 수 있는 매장이 어디인지'],
+      ['입장료', '입장료가 얼마인지'],
+      ['준비물', '무엇을 챙겨야 하는지'],
+      ['티켓팅', '티켓팅 시점과 요령'],
+      ['대상자', '본인이 대상에 해당하는지(자격)'],
+      ['부작용', '부작용과 주의점'],
+      ['환급', '얼마를 돌려받는지(환급금)'],
+      ['신청', '어떻게 신청하는지(절차)'],
+      ['대상', '본인이 대상에 해당하는지(자격)'],
+      ['자격', '자격 요건을 충족하는지'],
+      ['조건', '적용 조건이 무엇인지'],
+      ['제외', '어떤 경우에 제외되는지'],
+      ['서류', '무엇을 준비해야 하는지(필요 서류)'],
+      ['금액', '금액이 얼마인지'],
+      ['얼마', '얼마인지'],
+      ['조회', '내 내역·상태를 바로 확인하는 방법'],
+      ['후기', '먼저 해본 사람의 실제 경험'],
+      ['비교', '어떤 선택이 나은지 비교 기준'],
+      ['차이', '무엇이 다른지'],
+      ['추천', '고르기 좋은 후보'],
+      ['가격', '가격이 얼마인지'],
+      ['비용', '비용이 얼마나 드는지'],
+      ['예매', '언제 어떻게 예매하는지'],
+      ['예약', '예약 방법과 시점'],
+      ['일정', '일정이 언제인지'],
+      ['날짜', '날짜가 언제인지'],
+      ['마감', '마감이 언제인지'],
+      ['주차', '주차가 되는지'],
+      ['위치', '어디에 있는지'],
+      ['잔액', '잔액을 확인하는 방법'],
+      ['해지', '해지 방법과 불이익'],
+      ['방법', '구체적인 방법'],
+      ['이유', '왜 그런지(원인)'],
+      ['뜻', '무슨 뜻인지'],
+    ];
+    function koreanJosa(word, withFinal, withoutFinal) {
+      // 괄호 보충어는 조사 판정에서 제외 — "…해당하는지(자격)" 는 '지' 기준으로 '를'.
+      const clean = normalizeText(word).replace(/\\([^)]*\\)/g, '').replace(/[)\\]”"']+$/, '').trim();
+      const last = clean.charCodeAt(clean.length - 1);
+      if (last >= 0xac00 && last <= 0xd7a3) return (last - 0xac00) % 28 > 0 ? withFinal : withoutFinal;
+      return withFinal;
+    }
+    function keywordSemanticMeaning(row) {
+      const keyword = normalizeText(row && row.keyword);
+      if (!keyword) return '';
+      let compact = compactKeywordText(keyword);
+      const topic = readableKeywordTopic(row);
+      const needs = [];
+      const matchedTokens = [];
+      KEYWORD_NEED_TOKENS.forEach(function(pair) {
+        const idx = compact.indexOf(pair[0]);
+        if (idx < 0 || needs.indexOf(pair[1]) >= 0) return;
+        needs.push(pair[1]);
+        matchedTokens.push(pair[0]);
+        compact = compact.slice(0, idx) + '■'.repeat(pair[0].length) + compact.slice(idx + pair[0].length);
+      });
+      if (!needs.length) return '';
+      // 토픽 라벨 꼬리의 의도 토큰을 반복 제거해 "…신청"에 대해 어떻게 신청하는지…" 식 중복을 방지.
+      let topicLabel = normalizeText(topic);
+      let strippedTail = true;
+      while (strippedTail && topicLabel) {
+        strippedTail = false;
+        KEYWORD_NEED_TOKENS.forEach(function(pair) {
+          const tailRe = new RegExp(pair[0] + '\\s*$');
+          if (tailRe.test(topicLabel)) {
+            topicLabel = topicLabel.replace(tailRe, '').trim();
+            strippedTail = true;
+          }
+        });
+      }
+      const hasDistinctTopic = topicLabel
+        && compactKeywordText(topicLabel) !== compactKeywordText(keyword)
+        && matchedTokens.every(function(token) { return compactKeywordText(topicLabel).indexOf(token) < 0; });
+      const subject = hasDistinctTopic ? '“' + topicLabel + '”에 대해 ' : '';
+      const needList = needs.slice(0, 3);
+      const lastNeed = needList[needList.length - 1];
+      return '“' + keyword + '”' + koreanJosa(keyword, '은', '는') + ' ' + subject + needList.join(', ')
+        + koreanJosa(lastNeed, '을', '를')
+        + (needList.length > 1 ? ' 한 번에 확인하려는 검색입니다.' : ' 확인하려는 검색입니다.')
+        + ' 답이 시점과 개인 조건에 따라 달라지는 질문이라 필요한 순간마다 같은 검색이 반복됩니다.';
+    }
     function currentSeasonLabel() {
       const month = new Date().getMonth() + 1;
       if (month >= 7 && month <= 8) return '여름휴가/방학 성수기';
@@ -3488,7 +3584,10 @@ export function renderLewordProWeb(): string {
       const metric = measuredIntentEvidence(row);
       const ai = aiJudgeIntentEvidence(row);
       const source = sourceIntentEvidence(row);
-      const meaningPieces = [guide.meaning, metric, source ? '수집 근거: ' + source : ''].filter(Boolean);
+      // 정보형 가이드(policy/issue/need)는 카테고리 보일러플레이트 대신 키워드 자체를 해석한
+      // 의미 설명으로 대체 — "이 키워드가 무엇을 확인하려는 검색인지"를 먼저 말한다.
+      const semantic = ['policy', 'issue', 'need'].indexOf(guide.kind) >= 0 ? keywordSemanticMeaning(row) : '';
+      const meaningPieces = [semantic || guide.meaning, metric, source ? '수집 근거: ' + source : ''].filter(Boolean);
       const actionPieces = [guide.action];
       if (ai) actionPieces.push('판정 근거: ' + ai + '.');
       if (guide.kind === 'ad-risk') {
