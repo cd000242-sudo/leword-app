@@ -452,6 +452,20 @@ function thinProfileCount(items: Array<{ keyword: string }>): number {
     extraFieldsSnapshot.board.map((item) => item.keyword).join('|'));
   fs.rmSync(extraFieldsBoardFile, { force: true });
 
+  // 정치 이벤트 × 정책 수급 tail 의미충돌 자동조합('정청래의총참석지급일' 계열) 회귀:
+  // SearchAd 유령 검색량으로 SSS 지표가 붙어도 발굴 후보·usable·보드 전부 차단.
+  assert('political-event x benefit-tail synthetic combos are semantically mismatched',
+    __liveGoldenRadarTestInternals.isSemanticallyMismatchedMeasuredProbe('정청래의총참석지급일')
+      && __liveGoldenRadarTestInternals.isSemanticallyMismatchedMeasuredProbe('정청래 의총 참석 신청 방법')
+      && __liveGoldenRadarTestInternals.isSemanticallyMismatchedMeasuredProbe('전당대회 지원금 사용처')
+      && !__liveGoldenRadarTestInternals.isSemanticallyMismatchedMeasuredProbe('청년미래적금 지급일 조회')
+      && !__liveGoldenRadarTestInternals.isSemanticallyMismatchedMeasuredProbe('근로장려금 신청 방법')
+      && !__liveGoldenRadarTestInternals.isSemanticallyMismatchedMeasuredProbe('탄핵 표결 일정'));
+  assert('political benefit-tail combos are not usable board keywords even with golden metrics',
+    !__liveGoldenRadarTestInternals.isLiveRadarUsableKeyword('정청래의총참석지급일', 4700, 2, new Date())
+      && !__liveGoldenRadarTestInternals.isSearchAdMeasurableLiveCandidate('정청래 의총 참석 지급일', 'policy'),
+    'usable/measurable gates must reject');
+
   // ingest 경로 회귀: 데스크톱 push → inbox 파일(쓰기 소유 분리) → read-only 스냅샷 병합.
   // 추정 플래그 행은 거부, 미지의(추정치성) 필드는 부활 금지, board 파일은 워커 소유라 미작성.
   const ingestBoardFile = path.join(process.cwd(), 'tmp', 'mobile-live-golden-ingest-board-test.json');
