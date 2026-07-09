@@ -61,6 +61,16 @@ assert('MDPResult.valueGrade? 선언', /valueGrade\?\s*:/.test(mdp));
 assert('isKilled 로 발굴 결과를 filter 하지 않음',
   !/\.filter\([^)]*valueGate[^)]*isKilled/.test(disc) && !/isKilled\s*\)\s*continue/.test(disc));
 
+// ── C4 slice2: vacancy-detector 상위N 승격(axios → chrome 불필요, 신뢰 실측만 부가) ──
+assert('enrichKeywordsWithVacancy import',
+  /import\s*\{[^}]*enrichKeywordsWithVacancy[^}]*\}\s*from\s*'[^']*vacancy-enricher'/.test(disc));
+assert('vacancy 는 chrome 가드 없이(axios) quickPreview만 제외',
+  /if\s*\(\s*!quickPreview[\s\S]{0,120}enrichKeywordsWithVacancy/.test(disc)
+  || /enrichKeywordsWithVacancy\(/.test(disc));
+assert('vacancy 신뢰 실측(isVacancyReliable)일 때만 부가',
+  /isVacancyReliable\(vac\)/.test(disc));
+assert('MDPResult.vacancySlots? 선언', /vacancySlots\?\s*:/.test(mdp));
+
 // ── 24/7 워커(live-golden-radar)엔 puppeteer 미연결(부하 회피) ──
 const radar = fs.readFileSync(path.join(__dirname, '..', '..', 'mobile', 'live-golden-radar.ts'), 'utf8');
 assert('24/7 워커에 analyzeSmartBlocks 미연결', !/analyzeSmartBlocks/.test(radar));

@@ -31,6 +31,8 @@ import { analyzeSmartBlocks } from '../../utils/pro-hunter-v12/smartblock-parser
 import { enrichKeywordsWithDeepSerp, applySerpDifficulty } from '../../utils/pro-hunter-v12/deep-serp-enricher';
 import type { SerpDifficultySignal } from '../../utils/pro-hunter-v12/serp-difficulty-adapter';
 import { verifyKeywordValue } from '../../utils/pro-hunter-v12/keyword-value-verifier';
+import { enrichKeywordsWithVacancy, isVacancyReliable } from '../../utils/pro-hunter-v12/vacancy-enricher';
+import type { VacancyResult } from '../../utils/pro-hunter-v12/vacancy-detector';
 
 // v4.0: 외부 신호 캐시 (앱 lifetime, 30분 TTL)
 let _v4SignalCache: { map: Map<string, ExternalSignals>; expiresAt: number } | null = null;
@@ -946,6 +948,27 @@ export function setupKeywordDiscoveryHandlers(): void {
               console.warn('[KEYWORD-MASTER] 실측 SERP 심층분석 스킵(발굴은 정상):', (err as Error)?.message || err);
             }
 
+            // C4 slice 2: 상위 골든 후보에 빈집(vacancy) 분석 주입(axios 기반 → chrome 불필요, 브라우저
+            // 미활성에도 동작). quickPreview면 스킵. 실패는 unreliable 폴백 + 블록 try/catch로 발굴 무회귀.
+            // 표시용 부가필드만(vacancySlots/action) — 코어 등급/score/필터 미변경.
+            let vacancyMap: Map<string, VacancyResult> = new Map();
+            try {
+              if (!quickPreview && rankedKeywords.length > 0 && !checkAbort()) {
+                const VACANCY_TOP_N = 10;
+                const topKeywords = (rankedKeywords as MDPResult[])
+                  .slice(0, VACANCY_TOP_N)
+                  .map((r) => r.keyword);
+                vacancyMap = await enrichKeywordsWithVacancy(topKeywords, {
+                  topN: VACANCY_TOP_N,
+                  concurrency: 3,
+                }).catch(() => new Map<string, VacancyResult>());
+                const reliableCount = Array.from(vacancyMap.values()).filter(isVacancyReliable).length;
+                console.log(`[KEYWORD-MASTER] 빈집 분석: 상위 ${topKeywords.length}개 중 ${reliableCount}개 실측`);
+              }
+            } catch (err) {
+              console.warn('[KEYWORD-MASTER] 빈집 분석 스킵(발굴은 정상):', (err as Error)?.message || err);
+            }
+
             const finalSssCount = countSss(rankedKeywords as any[]);
             const finalQualityBackfillCount = Math.max(0, rankedKeywords.length - finalSssCount);
             console.log(`[KEYWORD-MASTER] MDP 발굴 완료: 후보 ${totalAdded}개 → 노출 ${rankedKeywords.length}개, SSS ${finalSssCount}개, 품질보충 ${finalQualityBackfillCount}개, 보충 ${crossCategorySupplementCount}개, 실측보강 ${directMeasuredSupplementCount}개`);
@@ -979,12 +1002,18 @@ export function setupKeywordDiscoveryHandlers(): void {
                   documentCount: item.documentCount,
                   mode: 'lenient',
                 });
+                // C4 slice2: 빈집 신호(신뢰 실측일 때만). 미측정/실패는 부가 안 함(중립).
+                const vac = vacancyMap.get(item.keyword);
+                const vacFields = isVacancyReliable(vac)
+                  ? { vacancySlots: vac!.vacancySlots, vacancyReliable: true, vacancyAction: vac!.suggestedAction }
+                  : {};
                 const withValue: MDPResult = {
                   ...item,
                   valueGrade: valueGate.valueGrade,
                   valueQualityScore: valueGate.qualityScore,
                   valueVerified: valueGate.valuable,
                   valueSummary: valueGate.summary,
+                  ...vacFields,
                 };
                 // C2: 실측 SERP 부가필드(측정된 상위 후보만). 코어 등급/score 미변경(불변 새 객체).
                 const serp = serpMap.get(item.keyword);

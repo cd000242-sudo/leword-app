@@ -43,6 +43,10 @@ export interface MDPResult {
     valueQualityScore?: number;
     valueVerified?: boolean;
     valueSummary?: string;
+    // C4 slice2: vacancy-detector 빈집분석(상위 후보, 브라우저 불필요 axios). 미측정이면 undefined
+    vacancySlots?: number;
+    vacancyReliable?: boolean;
+    vacancyAction?: string;
     // Phase 3: Monetization
     cvi?: number;
     cpc?: number;
