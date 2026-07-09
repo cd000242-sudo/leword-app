@@ -289,7 +289,7 @@ assert('MDP category discovery reports progress and filters category before SERP
     && /checkedSignals\s*<\s*maxCheckedSignals/.test(mdpEngine)
     && /private\s+reportProgress\(options:\s*MDPDiscoverOptions,\s*progress:\s*MDPDiscoverProgress\)/.test(mdpEngine)
     && /phase:\s*'batch'/.test(mdpEngine)
-    && /const\s+detectedCategory\s*=\s*classifyKeyword\(sig\.keyword\)\.primary;[\s\S]{0,320}const\s+categoryMatched\s*=[\s\S]{0,260}if\s*\(!categoryMatched\s*&&\s*!includeMeasuredFallback\)[\s\S]{0,420}const\s+serpSignal\s*=\s*fastPreview[\s\S]{0,320}await\s+getNaverSerpSignal/.test(mdpEngine),
+    && /const\s+detectedCategory\s*=\s*classifyKeyword\(sig\.keyword\)\.primary;[\s\S]{0,320}const\s+categoryMatched\s*=[\s\S]{0,260}if\s*\(!categoryMatched\s*&&\s*!includeMeasuredFallback\)[\s\S]{0,420}const\s+serpSignal\s*=\s*this\.getNeutralSerpSignal\(\)/.test(mdpEngine),
   'MDP progress callback or category-before-SERP optimization is missing');
 
 assert('MDP quick preview trims pattern batches and skips slow SERP detail',

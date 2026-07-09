@@ -1,6 +1,6 @@
 import { splitKeywordSemantically } from './semantic-splitter';
 import { generateQueryPatterns } from './pattern-generator';
-import { classifyKeywordIntent, getNaverKeywordSearchVolumeSeparate, getNaverSerpSignal } from './naver-datalab-api';
+import { classifyKeywordIntent, getNaverKeywordSearchVolumeSeparate } from './naver-datalab-api';
 import { getNaverAutocompleteKeywords } from './naver-autocomplete';
 import { estimateCPC, calculatePurchaseIntent, calculateCompetitionLevel, CATEGORY_CPC_DATABASE } from './profit-golden-keyword-engine';
 import { classifyKeyword, isKeywordMatchingCategory } from './categories';
@@ -186,7 +186,11 @@ export class MDPEngine {
         return compact.length >= 2 && /[\uac00-\ud7a3]/.test(compact);
     }
 
-    private getFastPreviewSerpSignal() {
+    // C2: 대량 발굴 경로의 SERP 신호. 문자열매칭(getNaverSerpSignal)은 현대 네이버(JS 렌더)에서
+    // 마크업이 없어 신호를 못 잡고 catch 시 '경쟁 없음' 편향까지 유발 → 대량 경로에서 제거.
+    // 대량 경로는 실측 문서수 기반 경쟁도만 신뢰하고 SERP 블록 난이도는 중립(5/10)으로 둔다.
+    // 진짜 SERP 난이도는 상위 후보 puppeteer 심층분석(analyzeSmartBlocks)에서 별도 주입 (C2 phase 2).
+    private getNeutralSerpSignal() {
         return {
             hasSmartBlock: false,
             hasViewSection: true,
@@ -362,10 +366,9 @@ export class MDPEngine {
                             continue;
                         }
 
-                        // Phase 2 Upgrade: SERP 신호 분석
-                        const serpSignal = fastPreview
-                            ? this.getFastPreviewSerpSignal()
-                            : await getNaverSerpSignal(sig.keyword);
+                        // C2: SERP 신호 = 중립(대량 경로는 실측 문서수만 신뢰). 죽은 문자열매칭 네트워크
+                        // 호출(getNaverSerpSignal) 제거 → fastPreview 분기 불필요, 네트워크/편향 제거.
+                        const serpSignal = this.getNeutralSerpSignal();
                         const categoryCPC = estimateCPC(sig.keyword, detectedCategory);
                         const purchaseIntent = calculatePurchaseIntent(sig.keyword);
                         const competitionLvl = calculateCompetitionLevel(docCount, totalVolume);
@@ -389,13 +392,12 @@ export class MDPEngine {
                             goldenRatio >= 1 ? 15 + (goldenRatio - 1) * 20 :
                             goldenRatio * 15);
 
-                        // 2. 경쟁도 점수 (25%) — SERP 난이도 + 문서수 기반
-                        const serpDifficulty = serpSignal.difficultyScore ?? 50;
-                        const serpPenalty = serpSignal.hasSmartBlock ? 10 : 0;
-                        const influencerPenalty = serpSignal.hasInfluencer ? 15 : 0;
-                        const rawCompetitionScore = 100 - serpDifficulty - serpPenalty - influencerPenalty;
+                        // 2. 경쟁도 점수 (25%) — 실측 문서수 기반. SERP 문자열매칭 신호는 현대 네이버에서
+                        //    죽어 제거(C2). 중립 SERP 난이도(5/10)를 기준선으로 실측 문서수 페널티만 반영.
+                        //    (진짜 SERP 블록 난이도는 상위 후보 puppeteer 심층분석에서 별도 주입)
+                        const serpDifficulty = serpSignal.difficultyScore ?? 5;
                         const docPenalty = docCount > 50000 ? 30 : docCount > 20000 ? 20 : docCount > 10000 ? 10 : docCount > 5000 ? 5 : 0;
-                        const competitionScore = Math.max(0, Math.min(100, rawCompetitionScore - docPenalty));
+                        const competitionScore = Math.max(0, Math.min(100, 100 - serpDifficulty - docPenalty));
 
                         // 3. 수익성 점수 (25%) — CPC × 구매의도
                         const cpcScore = Math.min(100, categoryCPC >= 2000 ? 100 :
