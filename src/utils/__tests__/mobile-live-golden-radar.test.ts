@@ -357,11 +357,11 @@ function thinProfileCount(items: Array<{ keyword: string }>): number {
       keyword: '청년미래적금 99차 신청 대상',
       grade: 'S',
       score: 66,
-      totalSearchVolume: 810,
-      pcSearchVolume: 161,
-      mobileSearchVolume: 649,
-      documentCount: 910,
-      goldenRatio: 0.89,
+      totalSearchVolume: 1210,
+      pcSearchVolume: 242,
+      mobileSearchVolume: 968,
+      documentCount: 610,
+      goldenRatio: 1.98,
       category: 'policy',
       source: 'fixture-measured',
       evidence: ['fixture-searchad-volume', 'fixture-naver-openapi-document-count'],
@@ -384,6 +384,28 @@ function thinProfileCount(items: Array<{ keyword: string }>): number {
       winnable: true,
       expectedRank: 2,
       expectedMonthlyTraffic: 1200,
+    }, {
+      // 비율 역전(docs ≫ volume) — 실측·니즈 의도(환급일/대상)여도 board 표시 금지 회귀
+      keyword: '연말정산 환급일 대상 99차 확인',
+      grade: 'S',
+      score: 66,
+      totalSearchVolume: 450,
+      pcSearchVolume: 40,
+      mobileSearchVolume: 410,
+      documentCount: 1870,
+      goldenRatio: 0.24,
+      category: 'policy',
+      source: 'fixture-measured',
+      evidence: ['fixture-searchad-volume', 'fixture-naver-openapi-document-count'],
+      searchVolumeSource: 'searchad',
+      searchVolumeConfidence: 'high',
+      isSearchVolumeEstimated: false,
+      documentCountSource: 'naver-api',
+      documentCountConfidence: 'high',
+      isDocumentCountEstimated: false,
+      updatedAt: extraFieldsStamp,
+      discoveredAt: extraFieldsStamp,
+      isMeasured: true,
     }],
   }), 'utf8');
   const extraFieldsRadar = new MobileLiveGoldenRadar({
@@ -425,6 +447,9 @@ function thinProfileCount(items: Array<{ keyword: string }>): number {
       && typeof extraItem.valueSummary === 'string'
       && extraItem.valueSummary.length > 0,
     JSON.stringify({ valueGrade: extraItem?.valueGrade, valueSummary: extraItem?.valueSummary }));
+  assert('ratio-inverted (docs >= volume) measured rows never reach the served board',
+    !extraFieldsSnapshot.board.some((item) => item.keyword === '연말정산 환급일 대상 99차 확인'),
+    extraFieldsSnapshot.board.map((item) => item.keyword).join('|'));
   fs.rmSync(extraFieldsBoardFile, { force: true });
 
   // ingest 경로 회귀: 데스크톱 push → inbox 파일(쓰기 소유 분리) → read-only 스냅샷 병합.
@@ -4600,13 +4625,11 @@ function thinProfileCount(items: Array<{ keyword: string }>): number {
     now: () => new Date('2026-07-01T09:00:00.000Z'),
   });
   const measuredExactFallbackSnapshot = measuredExactFallbackRadar.snapshot();
-  assert('live golden board fills 120 from measured exact rows instead of collapsing to a dozen strict-ratio winners',
-    measuredExactFallbackSnapshot.board.length === 120
-      && measuredExactFallbackSnapshot.board.every((item) => item.isMeasured === true)
-      && measuredExactFallbackSnapshot.board.every((item) => item.searchVolumeSource === 'searchad')
-      && measuredExactFallbackSnapshot.board.every((item) => item.documentCountSource === 'naver-api')
-      && measuredExactFallbackSnapshot.board.every((item) => item.pcSearchVolume !== null && item.mobileSearchVolume !== null)
-      && measuredExactFallbackSnapshot.board.some((item) => ((item.totalSearchVolume || 0) / (item.documentCount || 1)) < 1.2),
+  // 정책 갱신(2026-07-09): 비율 역전(docs ≫ volume) 행은 실측이어도 황금 기준 미달 —
+  // 보드를 덜 채우더라도 백필로 노출하지 않는다(부족분은 desktop ingest 공급으로 해결).
+  assert('ratio-inverted measured cache rows never fill the live board (golden ratio hard floor)',
+    measuredExactFallbackSnapshot.board.length === 0
+      && !measuredExactFallbackSnapshot.board.some((item) => ((item.totalSearchVolume || 0) / (item.documentCount || 1)) < 1.2),
     measuredExactFallbackSnapshot.board.map((item) => `${item.rank}:${item.keyword}:${item.grade}:${item.totalSearchVolume}/${item.documentCount}`).join('|'));
   fs.rmSync(measuredExactFallbackBoardFile, { force: true });
 
@@ -4699,9 +4722,10 @@ function thinProfileCount(items: Array<{ keyword: string }>): number {
     now: () => new Date('2026-07-01T09:00:00.000Z'),
   });
   const liveBoardQualitySortSnapshot = liveBoardQualitySortRadar.snapshot();
-  assert('live golden board ranks proven SSS above weak exact fallback and drops stale month keywords',
+  // 정책 갱신(2026-07-09): 비율 역전 약한 폴백 행(비율 0.16)은 순위 강등이 아니라 board 노출 자체가 금지된다.
+  assert('live golden board keeps proven SSS, blocks ratio-inverted fallback, drops stale month keywords',
     liveBoardQualitySortSnapshot.board[0]?.keyword === '\uC8FC\uD734\uC218\uB2F9\uACC4\uC0B0\uAE30\uC2DC\uD504\uD2F0 \uC54C\uBC14 \uC790\uB3D9\uACC4\uC0B0'
-      && liveBoardQualitySortSnapshot.board.some((item) => item.keyword === '\uC81C\uC8FC\uB80C\uD2B8\uCE74\uAC00\uACA9\uBE44\uAD50\uC0AC\uC774\uD2B8')
+      && !liveBoardQualitySortSnapshot.board.some((item) => item.keyword === '\uC81C\uC8FC\uB80C\uD2B8\uCE74\uAC00\uACA9\uBE44\uAD50\uC0AC\uC774\uD2B8')
       && !liveBoardQualitySortSnapshot.board.some((item) => item.keyword === '\u0035\uC6D4\uC5F0\uB9D0\uC815\uC0B0\uD658\uAE09\uC77C'),
     liveBoardQualitySortSnapshot.board.map((item) => `${item.rank}:${item.keyword}:${item.grade}:${item.goldenRatio}`).join('|'));
   fs.rmSync(liveBoardQualitySortFile, { force: true });

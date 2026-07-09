@@ -2174,7 +2174,8 @@ function isMeasuredExactDisplayPromotionCandidate(
   if (!liveUsable && volume >= 200_000) return false;
   if (!liveUsable && docs >= BROAD_KEYWORD_DOCUMENT_CEILING && ratio < 1.5) return false;
   if (!liveUsable && docs > 20_000 && ratio < LIVE_CACHE_PROMOTION_STRONG_NEED_MIN_RATIO) return false;
-  if (ratio < LIVE_BOARD_MEASURED_DISPLAY_FALLBACK_RATIO && !hasWriterNeed) return false;
+  // 니즈 의도(hasWriterNeed)가 있어도 비율 역전(docs ≥ volume)은 황금 기준 미달 — 무조건 차단.
+  if (ratio < LIVE_BOARD_MIN_DISPLAY_RATIO) return false;
   const judged = applyKeywordAiJudge(metric, { now, downgradeExcluded: false });
   const ai = judged.aiJudge;
   if (ai?.verdict === 'exclude' || ai?.spamRisk === 'high') return false;
@@ -5274,7 +5275,9 @@ function isMeasuredProDisplayBackfillMetric(
   if (isOverbroadNoEffectBoardKeyword(item) && !hasWriterReadySpecificity(keyword)) return false;
   if (ai?.verdict === 'exclude' || ai?.spamRisk === 'high') return false;
   if (volume < 100 || docs <= 0 || docs > 30_000) return false;
-  if (ratio < 0.01) return false;
+  // 표시 하드 플로어와 동일 기준: 문서수 ≥ 검색량(비율 역전)은 실측이어도 황금이 아니다.
+  // 백필로도 board 에 올리지 않는다 — 웹 정직화 레이어가 C 로 강등하던 행들의 서버측 근절.
+  if (ratio < LIVE_BOARD_MIN_DISPLAY_RATIO) return false;
   if (gradeRank < GRADE_RANK.A) return false;
   return isLiveRadarUsableKeyword(keyword, volume, docs, now)
     || isMeasuredBoardReferenceMetric(item, now);
