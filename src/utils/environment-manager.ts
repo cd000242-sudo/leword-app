@@ -223,6 +223,14 @@ export class EnvironmentManager {
         }
       }
 
+      // C4 web ingest: live-board-uploader 는 process.env 를 읽으므로(운영자 전용 옵트인),
+      // .env 파일에만 있는 ingest 설정을 화이트리스트로 주입한다. 이미 설정된 값은 덮지 않는다.
+      for (const ingestKey of ['LEWORD_LIVE_GOLDEN_INGEST_URL', 'LEWORD_LIVE_GOLDEN_INGEST_TOKEN']) {
+        if (envFileConfig[ingestKey] && !process.env[ingestKey]) {
+          process.env[ingestKey] = envFileConfig[ingestKey];
+        }
+      }
+
       // 2. 환경변수에서 로드 (process.env 직접 확인)
       // Electron 앱에서 환경변수가 제대로 로드되지 않을 수 있으므로 더 자세한 로그
       const naverClientIdFromEnv = process.env['NAVER_CLIENT_ID'];

@@ -17,7 +17,8 @@
 - **Desktop→Server ingest (대량·안정 공급)** ✅ (승인 후 구현): ① radar.ingestBoard — 실측 출처·비추정 명시 행만 수용, board 파일/inbox 공용 복원 경로(boardItemFromPersistedRow)로 SSoT 재검증. ② 쓰기 소유 분리: ingest 는 `{boardFile}-ingest.json` inbox 에만 기록(워커가 board 파일 소유, API readonly 5초 새로고침과 충돌 없음), loadBoardFromFile 이 board+inbox 병합(신선한 쪽 우선, board 파일 없어도 inbox 병합). ③ POST /v1/live-golden/ingest — `LEWORD_LIVE_GOLDEN_INGEST_TOKEN` 미설정=503(기능 꺼짐), 상수시간 비교, 512KB 한도. ④ 데스크톱 push: live-board-uploader(env URL+TOKEN 둘 다 있어야 동작 — 일반 배포판 무동작), MDP 발굴 완료 후 fire-and-forget, SearchAd 분리검색량+실측 문서수 행만(direct-golden miner 에 pc/mobile passthrough 추가, MDPResult 에 optional 선언). ⑤ 프리뷰 품질: publicPreviewQualityScore 에 valueGrade S+/S 가점·C 감점·winnable false 강등, 라벨 "하위 5개 공개"→"실측 검증 5선 공개" 정직화. 서버측 vacancy/brief 생산 없이도 데스크톱 push 로 C4 배지 필드가 웹에 도달.
 
 ## 다음 착수
-1. **배포 (Codex 담당)**: Vultr 재배포로 이번 커밋 + 429 백오프(ed4b12ec) 반영. 서버 `.env.production` 에 `LEWORD_LIVE_GOLDEN_INGEST_TOKEN` 추가(강한 랜덤), 운영자 PC 에 `LEWORD_LIVE_GOLDEN_INGEST_URL=https://<api>/v1/live-golden/ingest` + 동일 TOKEN 설정 후 데스크톱 발굴 1회 실행 → 웹 보드에 반영 확인.
+1. ~~배포~~ ✅ (2026-07-09 Codex 완료): Vultr 재배포(f2602954) + ingest 토큰 설정 + 검증 a~f 전부 통과. 운영자 PC `%APPDATA%\blogger-gpt-cli\.env` 에 ingest URL/TOKEN 설정 완료(`https://141.164.59.17.sslip.io/v1/live-golden/ingest`), 이 PC→서버 인증 왕복 200 ok 확인. **주의**: EnvironmentManager 는 .env 를 process.env 로 주입하지 않아 ingest 2키 화이트리스트 주입 추가. **함정 기록**: `src/utils/*.js` 에 2025-11 낡은 in-place 컴파일 산출물이 남아 있어 ts-node require 시 .ts 대신 stale .js 가 로드될 수 있음(environment-manager 에서 실제 발생, dist 는 정상) — 정리 후보.
+   - **남은 마지막 단계**: 데스크톱 앱을 이 레포에서 `npm run start` 로 실행(설치본엔 업로더 코드 없음) → 황금키워드 발굴 1회 → `[LIVE-BOARD-UPLOAD] N개 전송, 서버 수용 M개` 로그 확인 → 웹 보드 채움 확인.
 2. **서버측 vacancy/brief/serp 자체 생산(선택)**: 데스크톱 push 로 대체 공급되므로 우선순위 하락. 워커 배선 시 Vultr IP 429 리스크(brief 는 chrome 필요) 재평가 후 결정.
 3. **win-predictor(미래)**: 블로그 등록 UX(user-profile measureBlog) 선행 → 등록 사용자에게만 개인화 예측, UI 미노출 원칙(내부 정렬 보조 정도).
 4. 마스터플랜 순서: C3(추정치 실측/라벨) → C5(상위후보 실LLM) → 파리티.
