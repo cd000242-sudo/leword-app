@@ -255,6 +255,8 @@ export interface MobileLiveGoldenBoardItem extends MobileKeywordMetric {
   // 보드 레인 태그: 'traffic-surge' = 실시간 급등 레인(트렌딩 헤드의 자동완성 실수요 확장 →
   // 실측 → 기회지수). 정보형 레인과 게이트 철학이 다른 별도 상품 — 표시 분류용.
   lane?: string;
+  // 관측 사실: 우리 자동완성 스냅샷 기준 최근(48h) 신규 진입 제안어 — 급등 레인 전용 태그
+  surgeNewEntry?: boolean;
   // C2/C4 표시용 실측 부가필드(desktop keyword-discovery와 동일 이름) — 코어 등급/score/필터와 무관.
   // 예상순위/트래픽/수익 같은 추정치는 이 계약에 싣지 않는다(추정치 UI 노출 금지).
   valueGrade?: 'S+' | 'S' | 'A' | 'B' | 'C';

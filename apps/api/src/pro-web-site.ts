@@ -8012,6 +8012,12 @@ export function renderLewordProWeb(): string {
     function goldenMeasuredFlagsHtml(item, exact) {
       if (!exact || !item) return '';
       const flags = [];
+      if (item.lane === 'traffic-surge') {
+        flags.push('<span class="gk-flag warn" title="트렌딩 헤드의 자동완성 실수요 확장 · 기회지수(실측 검색량/문서수) 게이트 통과">🔥 실시간 급등</span>');
+        if (item.surgeNewEntry === true) {
+          flags.push('<span class="gk-flag good" title="우리 자동완성 스냅샷 기준 최근 48시간 내 처음 등장한 제안어 — 수요가 막 형성되는 단계">🆕 자동완성 신규 진입</span>');
+        }
+      }
       if (item.valueGrade) {
         const tone = item.valueGrade === 'S+' || item.valueGrade === 'S' ? 'good' : item.valueGrade === 'C' ? 'warn' : 'info';
         flags.push('<span class="gk-flag ' + tone + '" title="' + escapeHtml(item.valueSummary || '12게이트 가치검증 통과율 기반') + '">가치게이트 ' + escapeHtml(item.valueGrade) + '</span>');

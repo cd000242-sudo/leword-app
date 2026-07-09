@@ -574,10 +574,15 @@ function thinProfileCount(items: Array<{ keyword: string }>): number {
   fs.rmSync(surgeBoardFile, { force: true });
   fs.rmSync(surgeBoardFile.replace(/\.json$/, '') + '-ingest.json', { force: true });
   fs.rmSync(surgeBoardFile.replace(/\.json$/, '') + '-realdemand.json', { force: true });
+  fs.rmSync(surgeBoardFile.replace(/\.json$/, '') + '-surge-seen.json', { force: true });
+  let surgeCycle = 1;
+  const surgeProbeQueries: string[] = [];
   const surgeMeasured = new Map([
     ['김부장 기본정보', { pc: 293984, mobile: 1175936, dc: 5189 }],
     ['김부장 등장인물', { pc: 204480, mobile: 817920, dc: 7510 }],
     ['김부장 시청률', { pc: 800, mobile: 1400, dc: 900 }],
+    ['김부장 결말 해석', { pc: 24000, mobile: 96000, dc: 640 }],
+    ['김부장 결말 해석 원작 차이', { pc: 3000, mobile: 12000, dc: 55 }],
   ]);
   const surgeRadar = new MobileLiveGoldenRadar({
     notificationInbox: inbox,
@@ -592,8 +597,14 @@ function thinProfileCount(items: Array<{ keyword: string }>): number {
     enableBackfill: false,
     discover: async () => [],
     realDemandProbe: async (query: string) => {
+      surgeProbeQueries.push(query);
       if (query === '김부장') {
-        return { ok: true, suggestions: ['김부장 기본정보', '김부장 등장인물', '김부장 시청률'] };
+        return surgeCycle === 1
+          ? { ok: true, suggestions: ['김부장 기본정보', '김부장 등장인물', '김부장 시청률'] }
+          : { ok: true, suggestions: ['김부장 기본정보', '김부장 등장인물', '김부장 시청률', '김부장 결말 해석'] };
+      }
+      if (query === '김부장 결말 해석') {
+        return { ok: true, suggestions: ['김부장 결말 해석 원작 차이'] };
       }
       return { ok: true, suggestions: [query] };
     },
@@ -623,6 +634,25 @@ function thinProfileCount(items: Array<{ keyword: string }>): number {
       lastMessage: surgeSnapshot.lastMessage,
       rows: surgeSnapshot.board.map((item) => `${item.keyword}:${item.lane || ''}:${item.grade}:${item.goldenRatio}`),
     }));
+  // 콜드스타트: 첫 사이클은 기준선 수집만 — 신규 진입 태그가 없어야 한다.
+  assert('surge cold-start cycle records a baseline without new-entry tags',
+    surgeRows.every((item) => item.surgeNewEntry !== true),
+    JSON.stringify(surgeRows.map((item) => `${item.keyword}:${item.surgeNewEntry || false}`)));
+
+  // 2사이클: '김부장 결말 해석'이 자동완성에 신규 진입 → fresh 감지 → 2차 확장까지 수확 + 🆕 태깅.
+  surgeCycle = 2;
+  const surgeSnapshot2 = await surgeRadar.runOnce();
+  const surgeRows2 = surgeSnapshot2.board.filter((item) => item.lane === 'traffic-surge');
+  assert('newly emerged autocomplete suggestions are detected, second-level expanded, and tagged',
+    surgeRows2.some((item) => item.keyword === '김부장 결말 해석' && item.surgeNewEntry === true)
+      && surgeRows2.some((item) => item.keyword === '김부장 결말 해석 원작 차이' && item.surgeNewEntry === true)
+      && surgeRows2.some((item) => item.keyword === '김부장 기본정보' && item.surgeNewEntry !== true)
+      && surgeProbeQueries.includes('김부장 결말 해석'),
+    JSON.stringify({
+      probes: surgeProbeQueries,
+      rows: surgeRows2.map((item) => `${item.keyword}:${item.surgeNewEntry || false}`),
+    }));
+
   const surgeReloadRadar = new MobileLiveGoldenRadar({
     notificationInbox: inbox,
     runOnStart: false,
@@ -637,11 +667,13 @@ function thinProfileCount(items: Array<{ keyword: string }>): number {
     enableBackfill: false,
     discover: async () => [],
   });
-  assert('traffic-surge rows survive the board file round-trip with the lane tag',
-    surgeReloadRadar.snapshot().board.some((item) => item.lane === 'traffic-surge' && item.keyword === '김부장 기본정보'),
-    surgeReloadRadar.snapshot().board.map((item) => `${item.keyword}:${item.lane || ''}`).join('|'));
+  assert('traffic-surge rows survive the board file round-trip with lane and new-entry tags',
+    surgeReloadRadar.snapshot().board.some((item) => item.lane === 'traffic-surge' && item.keyword === '김부장 기본정보')
+      && surgeReloadRadar.snapshot().board.some((item) => item.keyword === '김부장 결말 해석' && item.surgeNewEntry === true),
+    surgeReloadRadar.snapshot().board.map((item) => `${item.keyword}:${item.lane || ''}:${item.surgeNewEntry || false}`).join('|'));
   fs.rmSync(surgeBoardFile, { force: true });
   fs.rmSync(surgeBoardFile.replace(/\.json$/, '') + '-realdemand.json', { force: true });
+  fs.rmSync(surgeBoardFile.replace(/\.json$/, '') + '-surge-seen.json', { force: true });
 
   // ingest 경로 회귀: 데스크톱 push → inbox 파일(쓰기 소유 분리) → read-only 스냅샷 병합.
   // 추정 플래그 행은 거부, 미지의(추정치성) 필드는 부활 금지, board 파일은 워커 소유라 미작성.

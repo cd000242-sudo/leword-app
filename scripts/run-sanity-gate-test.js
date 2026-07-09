@@ -99,6 +99,7 @@ const testFiles = [
     path.join(__dirname, '..', 'src', 'utils', '__tests__', 'content-brief-enricher.test.ts'),
     path.join(__dirname, '..', 'src', 'utils', '__tests__', 'live-board-uploader.test.ts'),
     path.join(__dirname, '..', 'src', 'utils', '__tests__', 'real-demand-verifier.test.ts'),
+    path.join(__dirname, '..', 'src', 'utils', '__tests__', 'surge-emergence-tracker.test.ts'),
 ];
 
 for (const testFile of testFiles) {

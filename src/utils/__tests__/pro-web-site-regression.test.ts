@@ -1063,6 +1063,10 @@ assert('golden board exposes the traffic-surge lane tab with opportunity-index s
   proWebHtml.includes("'traffic-surge': '🔥 실시간 급등'")
     && proWebHtml.includes("if (item && item.lane === 'traffic-surge') return 'traffic-surge';")
     && proWebHtml.includes("if (goldenCategoryFilter === 'traffic-surge') {"));
+assert('traffic-surge rows render lane and new-entry fact badges',
+  proWebHtml.includes('🔥 실시간 급등</span>')
+    && proWebHtml.includes('🆕 자동완성 신규 진입')
+    && proWebHtml.includes("item.surgeNewEntry === true"));
 assert('search-volume reason is keyword-semantic, not category boilerplate only',
   proWebHtml.includes('function keywordSemanticMeaning')
     && proWebHtml.includes('KEYWORD_NEED_TOKENS')

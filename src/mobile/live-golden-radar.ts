@@ -37,6 +37,7 @@ import {
 import { normalizeStoredGrade } from '../utils/grade';
 import { verifyKeywordValue } from '../utils/pro-hunter-v12/keyword-value-verifier';
 import { RealDemandVerifier, type RealDemandVerifierOptions } from './real-demand-verifier';
+import { SurgeEmergenceTracker } from './surge-emergence-tracker';
 import type { MDPResult } from '../utils/mdp-engine';
 import { classifyKeyword } from '../utils/categories';
 import { getDiscoveryCategorySeeds } from '../utils/category-discovery-map';
@@ -155,6 +156,7 @@ const SURGE_MAX_DOCUMENTS = 30_000;
 const SURGE_MIN_RATIO = 10;
 const SURGE_HEADS_PER_CYCLE = 8;
 const SURGE_CANDIDATES_PER_CYCLE = 40;
+const SURGE_SECOND_LEVEL_PROBES = 3;
 const SURGE_UNSAFE_RE = /(?:사망|숨진|숨져|자살|극단적\s*선택|부고|별세|살인|살해|성폭행|성추행|성범죄|마약|음란|야동|시신|참사|유서|시체)/u;
 
 function isTrafficSurgeBoardMetric(
@@ -5986,6 +5988,7 @@ export class MobileLiveGoldenRadar {
   private readonly autocompleteEchoProbe?: RealDemandVerifierOptions['probe'];
   // 급등 레인용 원시 트렌딩 헤드 — 정보형 시드 필터(isStrongLiveIssueSeed) 이전 원문 보존
   private lastRawLiveSeeds: string[] = [];
+  private readonly surgeEmergence: SurgeEmergenceTracker;
   // 실수요 검증은 프로브가 명시 주입된 경우에만 동작(opt-in) — 프로덕션 factory 가 실프로브를
   // 주입하고, 테스트·임베디드 생성은 네트워크를 건드리지 않는다.
   private readonly realDemandEnabled: boolean;
@@ -6067,6 +6070,10 @@ export class MobileLiveGoldenRadar {
       probe: options.realDemandProbe,
       cacheFile: normalizeKeyword(options.realDemandCacheFile || '')
         || (this.boardFile ? this.boardFile.replace(/\.json$/i, '') + '-realdemand.json' : undefined),
+      now: options.now,
+    });
+    this.surgeEmergence = new SurgeEmergenceTracker({
+      file: this.boardFile ? this.boardFile.replace(/\.json$/i, '') + '-surge-seen.json' : undefined,
       now: options.now,
     });
     this.resultCacheFile = normalizeKeyword(options.resultCacheFile || '') || undefined;
@@ -8984,6 +8991,7 @@ export class MobileLiveGoldenRadar {
       ...measurementMeta,
       ...liveMeasuredExtraFields(row),
       ...(surgeLane ? { lane: TRAFFIC_SURGE_LANE } : {}),
+      ...(surgeLane && row?.surgeNewEntry === true ? { surgeNewEntry: true } : {}),
     };
   }
 
@@ -9090,27 +9098,49 @@ export class MobileLiveGoldenRadar {
       .slice(0, SURGE_HEADS_PER_CYCLE);
     if (heads.length === 0) return 0;
     const candidates = new Map<string, string>();
-    for (const head of heads) {
-      if (candidates.size >= SURGE_CANDIDATES_PER_CYCLE) break;
+    const observedSuggestions: string[] = [];
+    const collectFrom = async (query: string): Promise<void> => {
       try {
-        const probe = await this.autocompleteEchoProbe(head);
-        if (!probe || probe.ok !== true) continue;
+        const probe = await this.autocompleteEchoProbe!(query);
+        if (!probe || probe.ok !== true) return;
         for (const suggestion of Array.isArray(probe.suggestions) ? probe.suggestions : []) {
           const clean = normalizeKeyword(suggestion);
           const compact = clean.toLowerCase().replace(/\s+/g, '');
-          if (!clean || compact.length < 4 || candidates.has(compact)) continue;
+          if (!clean || compact.length < 4) continue;
           if (isMalformedLiveKeyword(clean) || SURGE_UNSAFE_RE.test(clean)) continue;
-          candidates.set(compact, clean);
-          if (candidates.size >= SURGE_CANDIDATES_PER_CYCLE) break;
+          observedSuggestions.push(clean);
+          if (!candidates.has(compact) && candidates.size < SURGE_CANDIDATES_PER_CYCLE) {
+            candidates.set(compact, clean);
+          }
         }
       } catch {
         // 헤드 하나의 확장 실패는 무시 — 급등 레인 실패가 발굴을 막으면 안 된다.
       }
+    };
+    for (const head of heads) {
+      if (candidates.size >= SURGE_CANDIDATES_PER_CYCLE) break;
+      await collectFrom(head);
+    }
+    // Phase 2: 자동완성 신규 진입 감지 — 이전 스냅샷에 없던 제안어(fresh)를 우선 측정하고,
+    // 신규 진입 상위 몇 개는 2차 확장해 경쟁 툴 리스트에 오르기 전 롱테일을 선점한다.
+    // 콜드스타트(첫 관측)는 기준선 수집만 하고 fresh 를 만들지 않는다.
+    const firstPassCount = observedSuggestions.length;
+    const { fresh } = this.surgeEmergence.observe(observedSuggestions);
+    for (const freshKeyword of fresh.slice(0, SURGE_SECOND_LEVEL_PROBES)) {
+      if (candidates.size >= SURGE_CANDIDATES_PER_CYCLE) break;
+      await collectFrom(freshKeyword);
+    }
+    if (observedSuggestions.length > firstPassCount) {
+      this.surgeEmergence.observe(observedSuggestions.slice(firstPassCount));
     }
     if (candidates.size === 0) return 0;
+    const freshCompacts = new Set(fresh.map((kw) => kw.toLowerCase().replace(/\s+/g, '')));
+    const orderedCandidates = [...candidates.entries()]
+      .sort((a, b) => Number(freshCompacts.has(b[0])) - Number(freshCompacts.has(a[0])))
+      .map(([, keyword]) => keyword);
     const rows = await this.measureLiveSearchVolumeRows(
       config,
-      [...candidates.values()],
+      orderedCandidates,
       { includeDocumentCount: true },
       LIVE_SPLIT_ENRICHMENT_TIMEOUT_MS,
     );
@@ -9160,6 +9190,8 @@ export class MobileLiveGoldenRadar {
         publicDocumentCountLabel: formatRange(docs, 'document'),
         publicReason: '실시간 급등 · 자동완성 실수요 · 문서 공급 공백',
         lane: TRAFFIC_SURGE_LANE,
+        // 관측 사실: 우리 스냅샷 기준 자동완성에 최근(48h) 처음 등장한 제안어
+        ...(this.surgeEmergence.isRecentNewEntry(keyword) ? { surgeNewEntry: true } : {}),
       };
       if (!isTrafficSurgeBoardMetric(candidate, now)) continue;
       const existing = this.board.get(candidate.id);
