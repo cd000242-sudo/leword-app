@@ -1,4 +1,26 @@
-# 계획: C1 등급 SSoT 단일화 ✅ 완료 (끝판왕 프로그램 1단계)
+# 끝판왕 프로그램 진행 상태 (2026-07-09 세션 체크포인트)
+
+> 마스터플랜 메모리: **project_kkeutpanwang_program** (C1~C5 뿌리결함 + 실행순서)
+> 브랜치 스택(로컬, 미머지·미푸시): `refactor/grade-ssot`(C1) ← `feat/c2-serp-signal-revival`(C2+C4). 현재 브랜치 = 후자.
+> 매 슬라이스 verify:all exit 0. 다음 세션은 아래 "다음 착수"부터.
+
+## 완료
+- **C1 등급 SSoT 단일화** ✅ — grade.ts 단일 엔진, 진짜 중복 6곳(mdp/radar/mindmap/floor/direct-golden/pc-engine) 위임. 커밋 624d05e4→0cca805c.
+- **C2 SERP 신호 부활** ✅ — phase1(죽은 문자열매칭 제거+정직화 8bcbdb16), phase2a/2b(실측 SERP 어댑터+상위N puppeteer 심층 82711e09/83947264), on-demand 배선+graceful-degrade 3중방어(0a71c5d4).
+- **C4 slice1** ✅ — keyword-value-verifier 메인 승격(표시용, isKilled 비필터). 7f32e582.
+
+## 다음 착수 (C4 잔여 → 이후 C3/C5/파리티)
+1. **C4 slice2 — vacancy-detector**: analyzeVacancy(키워드만·axios). keyword-discovery 반환 map(C2가 뚫어둔 상위10 enrich 슬롯)에 얹기. 표시필드로 부가, isKilled/vacancy 필터 미적용(SSS 대량보장 회귀방지). 특성화 테스트 신설.
+2. **C4 slice3 — win-predictor + serp-content-analyzer 세트**: 최난도. 병목=개인화 blogIndex(user-profile.json 등록의존, 발굴시점 미가용) + 본문크롤(fetchSerpTop10 puppeteer, deep-serp와 별개=2배). **설계결정 필요**: 예측을 등록 사용자만? 미등록 중립? smartblockScore는 C2 serp.opportunityScore 재사용.
+3. **web 이식**: pro-web-site.ts renderGoldenRows gk-metrics(7867)에 winnable/valueGrade 노출. 서버 payload엔 이미 실림.
+4. 이후 마스터플랜 순서: C3(추정치 실측/라벨) → C5(상위후보 실LLM) → 파리티.
+
+## 신규 특성화 오라클(전부 sanity 게이트 등록됨)
+grade-characterization 66/0, serp-difficulty-adapter 21/0, deep-serp-enricher 18/0, serp-deep-wiring-regression 17/0, keyword-value-verifier 26/0.
+
+---
+
+# (참고) C1 등급 SSoT 단일화 상세 — ✅ 완료
 
 > 작성일: 2026-07-09 · 상태: **완료** (verify:all exit 0, 모든 테스트 통과)
 > 브랜치 refactor/grade-ssot · 마스터플랜 메모리 project_kkeutpanwang_program
