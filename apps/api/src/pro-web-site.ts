@@ -7811,7 +7811,7 @@ export function renderLewordProWeb(): string {
       qs('goldenLockedCount').textContent = String(lockedCount || 0);
       qs('goldenState').textContent = running ? '발굴중' : '대기';
       qs('goldenProgress').style.width = pct + '%';
-      qs('goldenPolicy').textContent = policy || '하위 5개 공개';
+      qs('goldenPolicy').textContent = policy || '실측 검증 5선 공개';
       qs('goldenUpdated').textContent = updatedAt ? '최근 갱신 ' + fmtTime(updatedAt) : '업데이트 대기';
     }
     function isThinProfileKeywordText(keyword) {
@@ -7836,7 +7836,7 @@ export function renderLewordProWeb(): string {
       qs('goldenQualityStrip').innerHTML = [
         exact
           ? qualityPill('실측률', fmt(measured) + '/' + fmt(visible), 'PC·모바일·문서수 기준', measured >= visible ? 'good' : 'warn')
-          : qualityPill('무료 미리보기', fmt(visible) + '개', '하위 후보만 노출', 'warn'),
+          : qualityPill('무료 미리보기', fmt(visible) + '개', '실측 통과 후보만 노출', 'warn'),
         qualityPill('프로필 누출', fmt(profileLeak), profileLeak === 0 ? '차단 정상' : '검토 필요', profileLeak === 0 ? 'good' : 'warn'),
         qualityPill('카테고리 다양성', fmt(categories.size), '도배 방지 캡 적용', categories.size >= Math.min(4, visible) ? 'good' : 'warn'),
         exact
@@ -7930,7 +7930,7 @@ export function renderLewordProWeb(): string {
         lockedCount,
         payload.running,
         payload.updatedAt,
-        payload.previewPolicyLabel || '하위 5개 공개'
+        payload.previewPolicyLabel || '실측 검증 5선 공개'
       );
       qs('goldenNotice').textContent = '무료 맛보기는 실측 통과 후보 5개만 보여줍니다. 더 많은 황금키워드와 정확 검색량·문서수·황금비율은 Pro 로그인 후 확인하세요.';
       if (proFallback) {

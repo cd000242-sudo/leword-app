@@ -27,6 +27,10 @@ export interface MDPResult {
     documentCount: number;
     goldenRatio: number;
     score: number;
+    // 실측 분리 검색량(SearchAd PC/모바일) — 존재하면 searchVolume 이 실측임을 뜻하는 provenance.
+    // 라다 mapDirectResult·서버 ingest 가 실측 판정에 사용. 추정 경로는 채우지 않는다.
+    pcSearchVolume?: number | null;
+    mobileSearchVolume?: number | null;
     // Phase 2: SERP Signals
     hasSmartBlock?: boolean;
     hasViewSection?: boolean;

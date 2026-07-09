@@ -1184,6 +1184,8 @@ function mapMeasuredRowToMdpResult(row: MeasuredKeywordRow, category: string, ca
     documentCount: docs,
     goldenRatio: Number(ratio.toFixed(2)),
     score,
+    pcSearchVolume: typeof row.pcSearchVolume === 'number' && Number.isFinite(row.pcSearchVolume) ? row.pcSearchVolume : null,
+    mobileSearchVolume: typeof row.mobileSearchVolume === 'number' && Number.isFinite(row.mobileSearchVolume) ? row.mobileSearchVolume : null,
     hasSmartBlock: false,
     hasViewSection: true,
     hasInfluencer: false,

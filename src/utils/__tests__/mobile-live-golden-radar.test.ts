@@ -427,6 +427,102 @@ function thinProfileCount(items: Array<{ keyword: string }>): number {
     JSON.stringify({ valueGrade: extraItem?.valueGrade, valueSummary: extraItem?.valueSummary }));
   fs.rmSync(extraFieldsBoardFile, { force: true });
 
+  // ingest 경로 회귀: 데스크톱 push → inbox 파일(쓰기 소유 분리) → read-only 스냅샷 병합.
+  // 추정 플래그 행은 거부, 미지의(추정치성) 필드는 부활 금지, board 파일은 워커 소유라 미작성.
+  const ingestBoardFile = path.join(process.cwd(), 'tmp', 'mobile-live-golden-ingest-board-test.json');
+  const ingestInboxFile = ingestBoardFile.replace(/\.json$/, '') + '-ingest.json';
+  fs.rmSync(ingestBoardFile, { force: true });
+  fs.rmSync(ingestInboxFile, { force: true });
+  const ingestWriter = new MobileLiveGoldenRadar({
+    notificationInbox: inbox,
+    runOnStart: false,
+    cycleLimit: 1,
+    boardTarget: 10,
+    maxCandidates: 60,
+    boardFile: ingestBoardFile,
+    categories: ['policy'],
+    getEnvConfig: () => ({ naverClientId: 'client', naverClientSecret: 'secret' }),
+    liveSeedProvider: async () => [],
+    enableBackfill: false,
+    discover: async () => [],
+  });
+  const ingestResult = ingestWriter.ingestBoard([
+    {
+      keyword: '청년미래적금 100차 신청 대상',
+      grade: 'S',
+      score: 70,
+      pcSearchVolume: 320,
+      mobileSearchVolume: 1080,
+      totalSearchVolume: 1400,
+      documentCount: 700,
+      goldenRatio: 2,
+      category: 'policy',
+      intent: 'live-golden',
+      searchVolumeSource: 'searchad',
+      searchVolumeConfidence: 'high',
+      isSearchVolumeEstimated: false,
+      documentCountSource: 'naver-api',
+      documentCountConfidence: 'high',
+      isDocumentCountEstimated: false,
+      isMeasured: true,
+      serpMeasured: true,
+      winnable: true,
+      vacancyReliable: true,
+      vacancySlots: 2,
+      expectedRank: 1,
+    },
+    {
+      keyword: '소상공인 정책자금 101차 신청 방법',
+      grade: 'S',
+      score: 70,
+      pcSearchVolume: 300,
+      mobileSearchVolume: 900,
+      totalSearchVolume: 1200,
+      documentCount: 600,
+      searchVolumeSource: 'searchad',
+      isSearchVolumeEstimated: true,
+      documentCountSource: 'naver-api',
+      isDocumentCountEstimated: false,
+    },
+    { keyword: '' },
+  ]);
+  assert('ingest accepts only measured non-estimated rows',
+    ingestResult.received === 3 && ingestResult.accepted === 1 && ingestResult.persisted === true,
+    JSON.stringify(ingestResult));
+  assert('ingest writes inbox file, not the worker-owned board file',
+    fs.existsSync(ingestInboxFile) && !fs.existsSync(ingestBoardFile));
+
+  const ingestReader = new MobileLiveGoldenRadar({
+    notificationInbox: inbox,
+    runOnStart: false,
+    cycleLimit: 1,
+    boardTarget: 10,
+    maxCandidates: 60,
+    boardFile: ingestBoardFile,
+    refreshBoardFileOnSnapshot: true,
+    categories: ['policy'],
+    getEnvConfig: () => ({ naverClientId: 'client', naverClientSecret: 'secret' }),
+    liveSeedProvider: async () => [],
+    enableBackfill: false,
+    discover: async () => [],
+  });
+  const ingestReaderSnapshot = ingestReader.snapshot();
+  const ingestedItem = ingestReaderSnapshot.board.find((item) => item.keyword === '청년미래적금 100차 신청 대상');
+  assert('ingested row reaches read-only snapshot through inbox merge with measured extras',
+    !!ingestedItem
+      && ingestedItem.serpMeasured === true
+      && ingestedItem.winnable === true
+      && ingestedItem.vacancyReliable === true
+      && ingestedItem.vacancySlots === 2,
+    JSON.stringify({
+      boardCount: ingestReaderSnapshot.boardCount,
+      keywords: ingestReaderSnapshot.board.map((item) => item.keyword),
+    }));
+  assert('ingest does not revive unknown estimate-like fields',
+    !!ingestedItem && !('expectedRank' in ingestedItem),
+    JSON.stringify(ingestedItem));
+  fs.rmSync(ingestInboxFile, { force: true });
+
   const sssShortDepthBudgetFile = path.join(process.cwd(), 'tmp', 'mobile-live-golden-sss-short-depth-budget-test.json');
   fs.writeFileSync(sssShortDepthBudgetFile, JSON.stringify({
     boardUpdatedAt: '2026-06-15T08:00:00.000Z',

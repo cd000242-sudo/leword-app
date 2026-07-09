@@ -2949,6 +2949,95 @@ const result: MobileKeywordResult = {
 
   console.log('[mobile-api-server-live-golden.test] passed');
 
+  // ingest 라우트: 토큰 미설정=기능 꺼짐(503), 오토큰=401, 정상 push 는 SSoT 재검증 후 스냅샷 반영.
+  const ingestRadar = new MobileLiveGoldenRadar({
+    notificationInbox: liveInbox,
+    runOnStart: false,
+    cycleLimit: 1,
+    boardTarget: 10,
+    maxCandidates: 60,
+    categories: ['policy'],
+    getEnvConfig: () => ({ naverClientId: 'client', naverClientSecret: 'secret' }),
+    liveSeedProvider: async () => [],
+    enableBackfill: false,
+    discover: async () => [],
+  });
+  const savedIngestToken = process.env['LEWORD_LIVE_GOLDEN_INGEST_TOKEN'];
+  delete process.env['LEWORD_LIVE_GOLDEN_INGEST_TOKEN'];
+  const ingestServer = createLewordApiServer({
+    entitlementVerifier: null,
+    liveGoldenRadar: ingestRadar,
+    notificationInbox: liveInbox,
+    prewarmService: null,
+    prewarmScheduler: null,
+  });
+  const ingestPort = await listen(ingestServer);
+  const ingestBaseUrl = `http://127.0.0.1:${ingestPort}`;
+  try {
+    const ingestRow = {
+      keyword: '청년미래적금 200차 신청 대상',
+      grade: 'S',
+      score: 72,
+      pcSearchVolume: 320,
+      mobileSearchVolume: 1080,
+      totalSearchVolume: 1400,
+      documentCount: 700,
+      goldenRatio: 2,
+      category: 'policy',
+      intent: 'live-golden',
+      searchVolumeSource: 'searchad',
+      searchVolumeConfidence: 'high',
+      isSearchVolumeEstimated: false,
+      documentCountSource: 'naver-api',
+      documentCountConfidence: 'high',
+      isDocumentCountEstimated: false,
+      isMeasured: true,
+      serpMeasured: true,
+      winnable: true,
+    };
+    const disabled = await fetch(`${ingestBaseUrl}${MOBILE_LIVE_GOLDEN_ROUTES.ingest}`, {
+      method: 'POST',
+      headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify({ items: [ingestRow] }),
+    });
+    assert('ingest is disabled without configured token', disabled.status === 503, String(disabled.status));
+
+    process.env['LEWORD_LIVE_GOLDEN_INGEST_TOKEN'] = 'ingest-secret';
+    const unauthorized = await fetch(`${ingestBaseUrl}${MOBILE_LIVE_GOLDEN_ROUTES.ingest}`, {
+      method: 'POST',
+      headers: { 'Content-Type': 'application/json', Authorization: 'Bearer wrong-token' },
+      body: JSON.stringify({ items: [ingestRow] }),
+    });
+    assert('ingest rejects a wrong token', unauthorized.status === 401, String(unauthorized.status));
+
+    const acceptedRes = await fetch(`${ingestBaseUrl}${MOBILE_LIVE_GOLDEN_ROUTES.ingest}`, {
+      method: 'POST',
+      headers: { 'Content-Type': 'application/json', Authorization: 'Bearer ingest-secret' },
+      body: JSON.stringify({ source: 'api-test-desktop', items: [ingestRow, { keyword: '' }] }),
+    });
+    const acceptedJson: any = await acceptedRes.json();
+    assert('ingest accepts a measured desktop row',
+      acceptedRes.status === 200 && acceptedJson.ok === true && acceptedJson.accepted === 1,
+      JSON.stringify(acceptedJson));
+
+    const ingestSnapshotRes = await fetch(`${ingestBaseUrl}${MOBILE_LIVE_GOLDEN_ROUTES.snapshot}`);
+    const ingestSnapshotJson: any = await ingestSnapshotRes.json();
+    const ingestedBoardItem = (ingestSnapshotJson.snapshot?.board || [])
+      .find((item: any) => item.keyword === '청년미래적금 200차 신청 대상');
+    assert('ingested row appears in the live snapshot with measured extras',
+      !!ingestedBoardItem
+        && ingestedBoardItem.serpMeasured === true
+        && ingestedBoardItem.winnable === true
+        && ingestedBoardItem.source === 'api-test-desktop',
+      JSON.stringify(ingestedBoardItem || ingestSnapshotJson.snapshot?.boardCount));
+  } finally {
+    await close(ingestServer);
+    if (savedIngestToken === undefined) delete process.env['LEWORD_LIVE_GOLDEN_INGEST_TOKEN'];
+    else process.env['LEWORD_LIVE_GOLDEN_INGEST_TOKEN'] = savedIngestToken;
+  }
+
+  console.log('[mobile-api-server-live-golden-ingest.test] passed');
+
   const persistentCacheFile = path.join(os.tmpdir(), `leword-mobile-cache-${Date.now()}.json`);
   const persistentCache = new InMemoryMobileResultCache({
     persistenceFile: persistentCacheFile,

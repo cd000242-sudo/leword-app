@@ -14,10 +14,13 @@
   - **win-predictor는 미승격**(예상순위/트래픽 추정치=UI금지 규칙 위반). wiring-regression으로 고정.
 - **C4 web 이식** ✅ — pro-web-site renderGoldenRows에 Pro(exact) 조건부 실측 배지(가치게이트/실측 SERP 진입/빈집/권장분량). **이전 체크포인트의 "서버 payload엔 이미 실림"은 오판**: ① 라다(direct-golden-keyword-miner) 발굴은 C2/C4 필드 미생산, ② API 컨테이너 loadBoardFromFile이 명시 필드만 복원해 부가필드 소실. 조치: contracts에 실측 부가필드 optional 추가 + loadBoardFromFile 화이트리스트 보존(추정치 필드 부활 차단) + snapshot() 시점 valueGrade 순수 계산(실측·비추정 행만) → valueGrade는 배포 즉시 실동작. 회귀: mobile-live-golden-radar.test에 왕복보존/부활차단/valueGrade 3 assert.
 
+- **Desktop→Server ingest (대량·안정 공급)** ✅ (승인 후 구현): ① radar.ingestBoard — 실측 출처·비추정 명시 행만 수용, board 파일/inbox 공용 복원 경로(boardItemFromPersistedRow)로 SSoT 재검증. ② 쓰기 소유 분리: ingest 는 `{boardFile}-ingest.json` inbox 에만 기록(워커가 board 파일 소유, API readonly 5초 새로고침과 충돌 없음), loadBoardFromFile 이 board+inbox 병합(신선한 쪽 우선, board 파일 없어도 inbox 병합). ③ POST /v1/live-golden/ingest — `LEWORD_LIVE_GOLDEN_INGEST_TOKEN` 미설정=503(기능 꺼짐), 상수시간 비교, 512KB 한도. ④ 데스크톱 push: live-board-uploader(env URL+TOKEN 둘 다 있어야 동작 — 일반 배포판 무동작), MDP 발굴 완료 후 fire-and-forget, SearchAd 분리검색량+실측 문서수 행만(direct-golden miner 에 pc/mobile passthrough 추가, MDPResult 에 optional 선언). ⑤ 프리뷰 품질: publicPreviewQualityScore 에 valueGrade S+/S 가점·C 감점·winnable false 강등, 라벨 "하위 5개 공개"→"실측 검증 5선 공개" 정직화. 서버측 vacancy/brief 생산 없이도 데스크톱 push 로 C4 배지 필드가 웹에 도달.
+
 ## 다음 착수
-1. **서버측 vacancy/brief/serp 생산 결정(사용자 승인 필요)**: winnable/vacancySlots/briefRecommendedWords 배지는 배관·렌더러 완료 but 서버 워커가 해당 신호를 생산하지 않아 미노출. 워커(라다) 사이클에 enricher 배선 시 Vultr IP發 네이버 요청 부하·429 리스크(brief는 chrome 필요) → 비용/차단 리스크 결정 후 착수.
-2. **win-predictor(미래)**: 블로그 등록 UX(user-profile measureBlog) 선행 → 등록 사용자에게만 개인화 예측, UI 미노출 원칙(내부 정렬 보조 정도).
-3. 마스터플랜 순서: C3(추정치 실측/라벨) → C5(상위후보 실LLM) → 파리티.
+1. **배포 (Codex 담당)**: Vultr 재배포로 이번 커밋 + 429 백오프(ed4b12ec) 반영. 서버 `.env.production` 에 `LEWORD_LIVE_GOLDEN_INGEST_TOKEN` 추가(강한 랜덤), 운영자 PC 에 `LEWORD_LIVE_GOLDEN_INGEST_URL=https://<api>/v1/live-golden/ingest` + 동일 TOKEN 설정 후 데스크톱 발굴 1회 실행 → 웹 보드에 반영 확인.
+2. **서버측 vacancy/brief/serp 자체 생산(선택)**: 데스크톱 push 로 대체 공급되므로 우선순위 하락. 워커 배선 시 Vultr IP 429 리스크(brief 는 chrome 필요) 재평가 후 결정.
+3. **win-predictor(미래)**: 블로그 등록 UX(user-profile measureBlog) 선행 → 등록 사용자에게만 개인화 예측, UI 미노출 원칙(내부 정렬 보조 정도).
+4. 마스터플랜 순서: C3(추정치 실측/라벨) → C5(상위후보 실LLM) → 파리티.
 
 ## UI 노출 시 주의 (feedback_no_estimates_in_ui)
 승격된 부가필드 중 **실측·사실만 노출 가능**: valueGrade(게이트 통과율), vacancySlots(실측 빈슬롯), briefRecommendedWords/briefMustInclude(경쟁사 실측), winnable(블록 실측). **추정치(예상순위/트래픽/수익/친화도점수) 노출 금지.**

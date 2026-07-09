@@ -68,6 +68,7 @@ export interface MobileLiveGoldenRadarOptions {
   boardTarget?: number;
   publicPreviewCount?: number;
   boardFile?: string;
+  ingestFile?: string;
   resultCacheFile?: string;
   keywordCacheFile?: string;
   probeQueueFile?: string;
@@ -139,6 +140,7 @@ const LIVE_SPLIT_ENRICHMENT_TIMEOUT_MS = 25_000;
 const PUBLIC_PREVIEW_MAX_AGE_MS = 48 * 60 * 60 * 1000;
 const LIVE_BOARD_MAX_AGE_MS = 7 * 24 * 60 * 60 * 1000;
 const LIVE_BOARD_FILE_REFRESH_MS = 30_000;
+const LIVE_INGEST_MAX_ROWS = 360;
 const LIVE_SNAPSHOT_CACHE_MS = 5_000;
 const BROAD_KEYWORD_VOLUME_CEILING = 500_000;
 const BROAD_KEYWORD_DOCUMENT_CEILING = 80_000;
@@ -2796,6 +2798,13 @@ function publicPreviewQualityScore(item: MobileLiveGoldenBoardItem): number {
   if (decision.verdict === 'publish') score += 16;
   if (item.grade === 'SSS') score += 14;
   if (item.grade === 'SS') score += 8;
+  // C4 신호 반영(순수 계산·실측 사실만): 무료 미리보기는 사이트 첫인상이라 진입 불가 실측
+  // 키워드를 강등하고 가치게이트 상위를 우대한다. 추정치는 사용하지 않는다.
+  const gate = liveValueGateFields(item);
+  if (gate.valueGrade === 'S+' || gate.valueGrade === 'S') score += 12;
+  else if (gate.valueGrade === 'C') score -= 18;
+  if (item.serpMeasured === true && item.winnable === false) score -= 24;
+  else if (item.serpMeasured === true && item.winnable === true) score += 10;
   return score;
 }
 
@@ -5911,6 +5920,7 @@ export class MobileLiveGoldenRadar {
   private readonly boardTarget: number;
   private readonly publicPreviewCount: number;
   private readonly boardFile?: string;
+  private readonly ingestFile?: string;
   private readonly resultCacheFile?: string;
   private readonly keywordCacheFile?: string;
   private readonly probeQueueFile?: string;
@@ -5981,6 +5991,8 @@ export class MobileLiveGoldenRadar {
     )));
     this.publicPreviewCount = Math.max(1, Math.min(10, Math.floor(options.publicPreviewCount || 5)));
     this.boardFile = normalizeKeyword(options.boardFile || '') || undefined;
+    this.ingestFile = normalizeKeyword(options.ingestFile || '')
+      || (this.boardFile ? this.boardFile.replace(/\.json$/i, '') + '-ingest.json' : undefined);
     this.resultCacheFile = normalizeKeyword(options.resultCacheFile || '') || undefined;
     this.keywordCacheFile = normalizeKeyword(options.keywordCacheFile || '')
       || (this.resultCacheFile ? path.join(path.dirname(this.resultCacheFile), 'keyword-cache.json') : undefined);
@@ -8691,10 +8703,11 @@ export class MobileLiveGoldenRadar {
   private loadBoardFromFile(replaceExisting = false): void {
     if (!this.boardFile) return;
     try {
-      if (!fs.existsSync(this.boardFile)) return;
-      const raw = fs.readFileSync(this.boardFile, 'utf8').trim();
-      if (!raw) return;
-      const parsed = JSON.parse(raw);
+      // board 파일이 아직 없어도 ingest inbox 는 병합해야 한다(워커 첫 저장 전 데스크톱 push 케이스).
+      const raw = fs.existsSync(this.boardFile) ? fs.readFileSync(this.boardFile, 'utf8').trim() : '';
+      const hasIngestRows = this.ingestFile ? fs.existsSync(this.ingestFile) : false;
+      if (!raw && !hasIngestRows) return;
+      const parsed = raw ? JSON.parse(raw) : {};
       const rows = Array.isArray(parsed?.items)
         ? parsed.items
         : Array.isArray(parsed?.board)
@@ -8706,93 +8719,18 @@ export class MobileLiveGoldenRadar {
         this.board.clear();
       }
       for (const row of rows) {
-        const keyword = normalizeKeyword(row?.keyword);
-        if (!keyword) continue;
-        const measurementMeta = measurementMetadataWithPersistentDefaults(row);
-        const totalSearchVolume = finiteNumber(row?.totalSearchVolume);
-        const documentCount = finiteNumber(row?.documentCount);
-        const isMeasured = Boolean(row?.isMeasured) || (totalSearchVolume !== null && documentCount !== null);
-        const goldenRatio = finiteNumber(row?.goldenRatio)
-          || (totalSearchVolume !== null && documentCount !== null && documentCount > 0
-            ? Number((totalSearchVolume / documentCount).toFixed(2))
-            : null);
-        const score = totalSearchVolume !== null && documentCount !== null && documentCount > 0 && goldenRatio !== null
-          ? liveUltimateOpportunityScore(keyword, totalSearchVolume, documentCount, goldenRatio)
-          : finiteNumber(row?.score);
-        const grade = totalSearchVolume !== null && documentCount !== null && documentCount > 0 && goldenRatio !== null
-          ? normalizeLiveMetricGrade(keyword, row?.grade, score, totalSearchVolume, documentCount, goldenRatio)
-          : normalizeGrade(row?.grade, score || 0);
-        if (grade === 'C') continue;
-        if (!hasCompleteLiveGoldenMetrics({ totalSearchVolume, documentCount, isMeasured })) continue;
-        if (
-          !isLiveRadarUsableKeyword(keyword, totalSearchVolume, documentCount, now)
-          && !isMeasuredProExactKeywordMetric({
-            keyword,
-            grade,
-            score,
-            totalSearchVolume,
-            documentCount,
-            goldenRatio,
-            isMeasured,
-            ...measurementMeta,
-          }, now)
-          && !isMeasuredBoardReferenceMetric({
-            keyword,
-            grade,
-            score,
-            totalSearchVolume,
-            documentCount,
-            goldenRatio,
-            isMeasured,
-            ...measurementMeta,
-          }, now)
-        ) continue;
-        const id = normalizeKeyword(row?.id) || keywordId(keyword);
-        const item: MobileLiveGoldenBoardItem = {
-          keyword,
-          grade,
-          score,
-          pcSearchVolume: finiteNumber(row?.pcSearchVolume),
-          mobileSearchVolume: finiteNumber(row?.mobileSearchVolume),
-          totalSearchVolume,
-          documentCount,
-          goldenRatio,
-          cpc: finiteNumber(row?.cpc),
-          category: inferLiveCategory(keyword, normalizeKeyword(row?.category) || 'live'),
-          source: normalizeKeyword(row?.source) || 'mobile-live-golden-radar',
-          intent: normalizeKeyword(row?.intent) || 'live-golden-discovery',
-          evidence: Array.isArray(row?.evidence)
-            ? row.evidence.map((entry: unknown) => normalizeKeyword(entry)).filter(Boolean).slice(0, 8)
-            : [],
-          isMeasured,
-          id,
-          rank: finiteNumber(row?.rank) || 0,
-          discoveredAt: normalizeKeyword(row?.discoveredAt) || normalizeKeyword(row?.updatedAt) || stamp,
-          updatedAt: normalizeKeyword(row?.updatedAt) || normalizeKeyword(row?.discoveredAt) || stamp,
-          freshness: 'warm',
-          isPublicPreview: false,
-          publicSearchVolumeLabel: normalizeKeyword(row?.publicSearchVolumeLabel) || formatRange(totalSearchVolume, 'search'),
-          publicDocumentCountLabel: normalizeKeyword(row?.publicDocumentCountLabel) || formatRange(documentCount, 'document'),
-          publicReason: normalizeKeyword(row?.publicReason) || publicReason({
-            keyword,
-            grade,
-            score,
-            pcSearchVolume: finiteNumber(row?.pcSearchVolume),
-            mobileSearchVolume: finiteNumber(row?.mobileSearchVolume),
-            totalSearchVolume,
-            documentCount,
-            goldenRatio,
-            cpc: finiteNumber(row?.cpc),
-            category: normalizeKeyword(row?.category) || 'live',
-            source: normalizeKeyword(row?.source) || 'mobile-live-golden-radar',
-            intent: normalizeKeyword(row?.intent) || 'live-golden-discovery',
-            evidence: [],
-            isMeasured,
-          }),
-          ...measurementMeta,
-          ...liveMeasuredExtraFields(row),
-        };
-        this.board.set(id, item);
+        const item = this.boardItemFromPersistedRow(row, stamp, now);
+        if (!item) continue;
+        this.board.set(item.id, item);
+      }
+      // 데스크톱 ingest inbox 병합 — inbox 는 API 컨테이너가 쓰고 board 파일은 워커가 쓴다(쓰기 소유 분리).
+      // 동일 키워드는 더 최신 갱신본을 유지한다.
+      for (const row of this.readIngestRows()) {
+        const item = this.boardItemFromPersistedRow(row, stamp, now);
+        if (!item) continue;
+        const existing = this.board.get(item.id);
+        if (existing && Date.parse(existing.updatedAt || '') >= Date.parse(item.updatedAt || '')) continue;
+        this.board.set(item.id, item);
       }
       if (!this.refreshBoardFileOnSnapshot) {
         this.pruneBoard();
@@ -8808,6 +8746,185 @@ export class MobileLiveGoldenRadar {
     } catch (err) {
       this.lastError = (err as Error).message || String(err);
       this.lastMessage = `live golden board load failed: ${this.lastError}`;
+    }
+  }
+
+  // board 파일/ingest inbox 공용 행 복원 — 명시 필드 + 실측 부가필드 화이트리스트만 통과(추정치 부활 차단).
+  private boardItemFromPersistedRow(row: any, stamp: string, now: Date): MobileLiveGoldenBoardItem | null {
+    const keyword = normalizeKeyword(row?.keyword);
+    if (!keyword) return null;
+    const measurementMeta = measurementMetadataWithPersistentDefaults(row);
+    const totalSearchVolume = finiteNumber(row?.totalSearchVolume);
+    const documentCount = finiteNumber(row?.documentCount);
+    const isMeasured = Boolean(row?.isMeasured) || (totalSearchVolume !== null && documentCount !== null);
+    const goldenRatio = finiteNumber(row?.goldenRatio)
+      || (totalSearchVolume !== null && documentCount !== null && documentCount > 0
+        ? Number((totalSearchVolume / documentCount).toFixed(2))
+        : null);
+    const score = totalSearchVolume !== null && documentCount !== null && documentCount > 0 && goldenRatio !== null
+      ? liveUltimateOpportunityScore(keyword, totalSearchVolume, documentCount, goldenRatio)
+      : finiteNumber(row?.score);
+    const grade = totalSearchVolume !== null && documentCount !== null && documentCount > 0 && goldenRatio !== null
+      ? normalizeLiveMetricGrade(keyword, row?.grade, score, totalSearchVolume, documentCount, goldenRatio)
+      : normalizeGrade(row?.grade, score || 0);
+    if (grade === 'C') return null;
+    if (!hasCompleteLiveGoldenMetrics({ totalSearchVolume, documentCount, isMeasured })) return null;
+    if (
+      !isLiveRadarUsableKeyword(keyword, totalSearchVolume, documentCount, now)
+      && !isMeasuredProExactKeywordMetric({
+        keyword,
+        grade,
+        score,
+        totalSearchVolume,
+        documentCount,
+        goldenRatio,
+        isMeasured,
+        ...measurementMeta,
+      }, now)
+      && !isMeasuredBoardReferenceMetric({
+        keyword,
+        grade,
+        score,
+        totalSearchVolume,
+        documentCount,
+        goldenRatio,
+        isMeasured,
+        ...measurementMeta,
+      }, now)
+    ) return null;
+    const id = normalizeKeyword(row?.id) || keywordId(keyword);
+    return {
+      keyword,
+      grade,
+      score,
+      pcSearchVolume: finiteNumber(row?.pcSearchVolume),
+      mobileSearchVolume: finiteNumber(row?.mobileSearchVolume),
+      totalSearchVolume,
+      documentCount,
+      goldenRatio,
+      cpc: finiteNumber(row?.cpc),
+      category: inferLiveCategory(keyword, normalizeKeyword(row?.category) || 'live'),
+      source: normalizeKeyword(row?.source) || 'mobile-live-golden-radar',
+      intent: normalizeKeyword(row?.intent) || 'live-golden-discovery',
+      evidence: Array.isArray(row?.evidence)
+        ? row.evidence.map((entry: unknown) => normalizeKeyword(entry)).filter(Boolean).slice(0, 8)
+        : [],
+      isMeasured,
+      id,
+      rank: finiteNumber(row?.rank) || 0,
+      discoveredAt: normalizeKeyword(row?.discoveredAt) || normalizeKeyword(row?.updatedAt) || stamp,
+      updatedAt: normalizeKeyword(row?.updatedAt) || normalizeKeyword(row?.discoveredAt) || stamp,
+      freshness: 'warm',
+      isPublicPreview: false,
+      publicSearchVolumeLabel: normalizeKeyword(row?.publicSearchVolumeLabel) || formatRange(totalSearchVolume, 'search'),
+      publicDocumentCountLabel: normalizeKeyword(row?.publicDocumentCountLabel) || formatRange(documentCount, 'document'),
+      publicReason: normalizeKeyword(row?.publicReason) || publicReason({
+        keyword,
+        grade,
+        score,
+        pcSearchVolume: finiteNumber(row?.pcSearchVolume),
+        mobileSearchVolume: finiteNumber(row?.mobileSearchVolume),
+        totalSearchVolume,
+        documentCount,
+        goldenRatio,
+        cpc: finiteNumber(row?.cpc),
+        category: normalizeKeyword(row?.category) || 'live',
+        source: normalizeKeyword(row?.source) || 'mobile-live-golden-radar',
+        intent: normalizeKeyword(row?.intent) || 'live-golden-discovery',
+        evidence: [],
+        isMeasured,
+      }),
+      ...measurementMeta,
+      ...liveMeasuredExtraFields(row),
+    };
+  }
+
+  // 데스크톱 발굴 결과 수신(C4 web 이식). 시스템 경계라 클라이언트 신고값을 신뢰하지 않는다:
+  // 실측 출처·비추정 플래그가 명시된 행만 수용하고, board 파일/ingest 공용 복원 경로(SSoT 등급
+  // 재계산 + usable 게이트)를 다시 태운다. board 파일은 워커 소유라 여기서 저장하지 않고,
+  // inbox 파일에만 기록한다(loadBoardFromFile 이 양쪽을 병합).
+  ingestBoard(rows: unknown[], context: { source?: string } = {}): {
+    received: number;
+    accepted: number;
+    boardCount: number;
+    persisted: boolean;
+  } {
+    const list = Array.isArray(rows) ? rows.slice(0, LIVE_INGEST_MAX_ROWS) : [];
+    const stamp = this.now().toISOString();
+    const now = this.now();
+    const source = normalizeKeyword(context.source) || 'desktop-golden-ingest';
+    const accepted: MobileLiveGoldenBoardItem[] = [];
+    for (const raw of list) {
+      const row = (raw && typeof raw === 'object' ? raw : {}) as Record<string, unknown>;
+      const meta = measurementMetadataFromRow(row);
+      if (meta.isSearchVolumeEstimated !== false || meta.isDocumentCountEstimated !== false) continue;
+      const item = this.boardItemFromPersistedRow({
+        ...row,
+        id: undefined,
+        rank: undefined,
+        source,
+        totalSearchVolume: finiteNumber(row['totalSearchVolume']) ?? finiteNumber(row['searchVolume']),
+        discoveredAt: normalizeKeyword(row['discoveredAt']) || stamp,
+        updatedAt: stamp,
+        isMeasured: true,
+      }, stamp, now);
+      if (!item) continue;
+      if (!hasTrustedSearchVolumeMeasurement(item) || !hasTrustedDocumentCountMeasurement(item)) continue;
+      accepted.push(item);
+    }
+    if (accepted.length === 0) {
+      return { received: list.length, accepted: 0, boardCount: this.board.size, persisted: false };
+    }
+    const persisted = this.persistIngestRows(accepted);
+    for (const item of accepted) {
+      const existing = this.board.get(item.id);
+      this.board.set(item.id, existing ? { ...item, rank: existing.rank, discoveredAt: existing.discoveredAt } : item);
+    }
+    this.cachedSnapshot = null;
+    this.cachedSnapshotAtMs = 0;
+    this.lastMessage = `ingested ${accepted.length}/${list.length} desktop golden candidates`;
+    return { received: list.length, accepted: accepted.length, boardCount: this.board.size, persisted };
+  }
+
+  private readIngestRows(): unknown[] {
+    if (!this.ingestFile) return [];
+    try {
+      if (!fs.existsSync(this.ingestFile)) return [];
+      const raw = fs.readFileSync(this.ingestFile, 'utf8').trim();
+      if (!raw) return [];
+      const parsed = JSON.parse(raw);
+      return Array.isArray(parsed?.items) ? parsed.items : [];
+    } catch {
+      return [];
+    }
+  }
+
+  private persistIngestRows(items: MobileLiveGoldenBoardItem[]): boolean {
+    if (!this.ingestFile) return false;
+    try {
+      const merged = new Map<string, { updatedAt?: string }>();
+      for (const row of this.readIngestRows()) {
+        const key = normalizeKeyword((row as { keyword?: unknown })?.keyword).toLowerCase();
+        if (key) merged.set(key, row as { updatedAt?: string });
+      }
+      for (const item of items) {
+        merged.set(item.keyword.toLowerCase(), item);
+      }
+      const nowMs = this.now().getTime();
+      const rows = [...merged.values()]
+        .filter((row) => ageMsFrom(normalizeKeyword(row?.updatedAt), nowMs) <= LIVE_BOARD_MAX_AGE_MS)
+        .sort((a, b) => Date.parse(normalizeKeyword(b?.updatedAt)) - Date.parse(normalizeKeyword(a?.updatedAt)))
+        .slice(0, LIVE_INGEST_MAX_ROWS);
+      fs.mkdirSync(path.dirname(this.ingestFile), { recursive: true });
+      const payload = { version: 1, savedAt: this.now().toISOString(), items: rows };
+      const tmpFile = `${this.ingestFile}.tmp`;
+      fs.writeFileSync(tmpFile, JSON.stringify(payload, null, 2), 'utf8');
+      fs.renameSync(tmpFile, this.ingestFile);
+      return true;
+    } catch (err) {
+      this.lastError = (err as Error).message || String(err);
+      this.lastMessage = `live golden ingest save failed: ${this.lastError}`;
+      return false;
     }
   }
 
@@ -8855,6 +8972,7 @@ export function createMobileLiveGoldenRadarFromEnv(
   const boardTarget = Number(process.env['LEWORD_MOBILE_LIVE_GOLDEN_BOARD_TARGET'] || 0);
   const publicPreviewCount = Number(process.env['LEWORD_PUBLIC_GOLDEN_PREVIEW_COUNT'] || 0);
   const boardFile = normalizeKeyword(process.env['LEWORD_MOBILE_LIVE_GOLDEN_BOARD_FILE'] || '');
+  const ingestFile = normalizeKeyword(process.env['LEWORD_MOBILE_LIVE_GOLDEN_INGEST_FILE'] || '');
   const resultCacheFile = normalizeKeyword(process.env['LEWORD_MOBILE_CACHE_FILE'] || '');
   const keywordCacheFile = normalizeKeyword(process.env['LEWORD_MOBILE_KEYWORD_CACHE_FILE'] || '');
   const readOnly = process.env['LEWORD_MOBILE_LIVE_GOLDEN_READONLY'] === 'true';
@@ -8874,6 +8992,7 @@ export function createMobileLiveGoldenRadarFromEnv(
     boardTarget: Number.isFinite(boardTarget) && boardTarget > 0 ? boardTarget : undefined,
     publicPreviewCount: Number.isFinite(publicPreviewCount) && publicPreviewCount > 0 ? publicPreviewCount : undefined,
     boardFile: boardFile || undefined,
+    ingestFile: ingestFile || undefined,
     resultCacheFile: resultCacheFile || undefined,
     keywordCacheFile: keywordCacheFile || undefined,
     maxSeeds: Number.isFinite(maxSeeds) && maxSeeds > 0 ? maxSeeds : undefined,

@@ -35,6 +35,7 @@ import { enrichKeywordsWithVacancy, isVacancyReliable } from '../../utils/pro-hu
 import type { VacancyResult } from '../../utils/pro-hunter-v12/vacancy-detector';
 import { enrichKeywordsWithContentBrief, isContentBriefReliable } from '../../utils/pro-hunter-v12/content-brief-enricher';
 import type { SerpAnalysis } from '../../utils/pro-hunter-v12/serp-content-analyzer';
+import { uploadGoldenBoardCandidates } from '../../utils/live-board-uploader';
 
 // v4.0: 외부 신호 캐시 (앱 lifetime, 30분 TTL)
 let _v4SignalCache: { map: Map<string, ExternalSignals>; expiresAt: number } | null = null;
@@ -1011,58 +1012,67 @@ export function setupKeywordDiscoveryHandlers(): void {
               true,
             );
 
+            const enrichedKeywords = (rankedKeywords as MDPResult[]).map((item) => {
+              // C4: keyword-value-verifier 순수 가치검증(무비용, 전 항목) — 표시용 부가필드만.
+              // 코어 등급/score/필터 미변경(isKilled 를 랭킹에서 제외하지 않음 — 표시 슬라이스).
+              const valueGate = verifyKeywordValue({
+                keyword: item.keyword,
+                searchVolume: item.searchVolume,
+                documentCount: item.documentCount,
+                mode: 'lenient',
+              });
+              // C4 slice2: 빈집 신호(신뢰 실측일 때만). 미측정/실패는 부가 안 함(중립).
+              const vac = vacancyMap.get(item.keyword);
+              const vacFields = isVacancyReliable(vac)
+                ? { vacancySlots: vac!.vacancySlots, vacancyReliable: true, vacancyAction: vac!.suggestedAction }
+                : {};
+              // C4 slice3: 실측 콘텐츠 브리핑(경쟁사 본문 수집된 상위 소수만). 실측 사실만 부가.
+              const brief = briefMap.get(item.keyword);
+              const briefFields = isContentBriefReliable(brief)
+                ? {
+                    briefRecommendedWords: brief!.recommendedWordCount,
+                    briefAvgImages: Math.round(brief!.avgImageCount),
+                    briefMustInclude: brief!.mustIncludeTerms,
+                    briefCompetitorTitles: brief!.competitorTitles,
+                    briefMeasured: true,
+                  }
+                : {};
+              const withValue: MDPResult = {
+                ...item,
+                valueGrade: valueGate.valueGrade,
+                valueQualityScore: valueGate.qualityScore,
+                valueVerified: valueGate.valuable,
+                valueSummary: valueGate.summary,
+                ...vacFields,
+                ...briefFields,
+              };
+              // C2: 실측 SERP 부가필드(측정된 상위 후보만). 코어 등급/score 미변경(불변 새 객체).
+              const serp = serpMap.get(item.keyword);
+              if (!serp || !serp.measured) return withValue;
+              return {
+                ...withValue,
+                winnable: applySerpDifficulty(item, serp, 0).winnable,
+                blogFriendly: serp.blogFriendly,
+                shoppingDominant: serp.shoppingDominant,
+                opportunityScore: serp.opportunityScore,
+                difficultyScore: serp.difficultyScore,
+                hasSmartBlock: serp.hasSmartBlock,
+                hasViewSection: serp.hasViewSection,
+                hasInfluencer: serp.hasInfluencer,
+                serpMeasured: true,
+              };
+            });
+
+            // C4 web 이식: 운영자 머신(ingest env 설정 시)에서만 서버 LIVE 보드로 push.
+            // fire-and-forget — 실패해도 발굴 결과 무영향. quickPreview 부분 결과는 전송 안 함.
+            if (!quickPreview) {
+              void uploadGoldenBoardCandidates(enrichedKeywords, { source: 'desktop-mdp-discovery' })
+                .catch(() => undefined);
+            }
+
             return {
               success: true,
-              keywords: (rankedKeywords as MDPResult[]).map((item) => {
-                // C4: keyword-value-verifier 순수 가치검증(무비용, 전 항목) — 표시용 부가필드만.
-                // 코어 등급/score/필터 미변경(isKilled 를 랭킹에서 제외하지 않음 — 표시 슬라이스).
-                const valueGate = verifyKeywordValue({
-                  keyword: item.keyword,
-                  searchVolume: item.searchVolume,
-                  documentCount: item.documentCount,
-                  mode: 'lenient',
-                });
-                // C4 slice2: 빈집 신호(신뢰 실측일 때만). 미측정/실패는 부가 안 함(중립).
-                const vac = vacancyMap.get(item.keyword);
-                const vacFields = isVacancyReliable(vac)
-                  ? { vacancySlots: vac!.vacancySlots, vacancyReliable: true, vacancyAction: vac!.suggestedAction }
-                  : {};
-                // C4 slice3: 실측 콘텐츠 브리핑(경쟁사 본문 수집된 상위 소수만). 실측 사실만 부가.
-                const brief = briefMap.get(item.keyword);
-                const briefFields = isContentBriefReliable(brief)
-                  ? {
-                      briefRecommendedWords: brief!.recommendedWordCount,
-                      briefAvgImages: Math.round(brief!.avgImageCount),
-                      briefMustInclude: brief!.mustIncludeTerms,
-                      briefCompetitorTitles: brief!.competitorTitles,
-                      briefMeasured: true,
-                    }
-                  : {};
-                const withValue: MDPResult = {
-                  ...item,
-                  valueGrade: valueGate.valueGrade,
-                  valueQualityScore: valueGate.qualityScore,
-                  valueVerified: valueGate.valuable,
-                  valueSummary: valueGate.summary,
-                  ...vacFields,
-                  ...briefFields,
-                };
-                // C2: 실측 SERP 부가필드(측정된 상위 후보만). 코어 등급/score 미변경(불변 새 객체).
-                const serp = serpMap.get(item.keyword);
-                if (!serp || !serp.measured) return withValue;
-                return {
-                  ...withValue,
-                  winnable: applySerpDifficulty(item, serp, 0).winnable,
-                  blogFriendly: serp.blogFriendly,
-                  shoppingDominant: serp.shoppingDominant,
-                  opportunityScore: serp.opportunityScore,
-                  difficultyScore: serp.difficultyScore,
-                  hasSmartBlock: serp.hasSmartBlock,
-                  hasViewSection: serp.hasViewSection,
-                  hasInfluencer: serp.hasInfluencer,
-                  serpMeasured: true,
-                };
-              }),
+              keywords: enrichedKeywords,
               total: rankedKeywords.length,
               candidatesScanned: totalAdded,
               sssCount: finalSssCount,

@@ -1257,6 +1257,7 @@ export const MOBILE_PREWARM_ROUTES = Object.freeze({
 export const MOBILE_LIVE_GOLDEN_ROUTES = Object.freeze({
   snapshot: '/v1/live-golden/snapshot',
   run: '/v1/live-golden/run',
+  ingest: '/v1/live-golden/ingest',
 });
 
 export const MOBILE_NOTIFICATION_ROUTES = Object.freeze({

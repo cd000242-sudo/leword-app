@@ -170,6 +170,7 @@ const DEFAULT_LEWORD_LICENSE_SERVER_URL = 'https://script.google.com/macros/s/AK
 const DEFAULT_LEWORD_LICENSE_APP_ID = 'com.leword.keyword.master';
 const ADSENSE_ADS_TXT = 'google.com, pub-4008574892672964, DIRECT, f08c47fec0942fa0\n';
 const DEFAULT_LEADERS_PRO_ADMIN_TOKEN = 'qkrtjdgus2021645';
+const LIVE_GOLDEN_INGEST_MAX_BODY_BYTES = 512 * 1024;
 const ADMIN_SETTINGS_UNLOCK_ROUTE = '/v1/admin/settings/unlock';
 const ADMIN_SITE_CONTENT_ROUTE = '/v1/admin/site-content';
 const ADMIN_DOWNLOAD_UPLOAD_ROUTE = '/v1/admin/downloads/upload';
@@ -4375,6 +4376,36 @@ export function createLewordApiServer(options: LewordApiServerOptions = {}): htt
         json(res, 202, { ok: true, snapshot, cycles });
       } catch (err) {
         handleBodyError(res, err, maxBodyBytes);
+      }
+      return;
+    }
+
+    if (req.method === 'POST' && url.pathname === MOBILE_LIVE_GOLDEN_ROUTES.ingest) {
+      // 데스크톱(운영자) 발굴 결과 수신 — 전용 토큰이 env 에 없으면 기능 자체가 꺼진 상태.
+      const expectedIngestToken = String(process.env['LEWORD_LIVE_GOLDEN_INGEST_TOKEN'] || '').trim();
+      if (!expectedIngestToken) {
+        json(res, 503, { ok: false, message: 'live golden ingest disabled' } satisfies MobileJobErrorResponse);
+        return;
+      }
+      const receivedIngestToken = getBearerToken(req) || getHeaderValue(req, 'x-leword-ingest-token');
+      if (!receivedIngestToken || !stringEqualsConstantTime(receivedIngestToken, expectedIngestToken)) {
+        json(res, 401, { ok: false, message: 'live golden ingest unauthorized' } satisfies MobileJobErrorResponse);
+        return;
+      }
+      if (!liveGoldenRadar) {
+        json(res, 503, { ok: false, message: 'mobile live golden radar disabled' } satisfies MobileJobErrorResponse);
+        return;
+      }
+      try {
+        const ingestBodyLimit = Math.max(maxBodyBytes, LIVE_GOLDEN_INGEST_MAX_BODY_BYTES);
+        const body = await parseBody(req, ingestBodyLimit) as { items?: unknown; source?: unknown };
+        const items = Array.isArray(body?.items) ? body.items : [];
+        const result = liveGoldenRadar.ingestBoard(items, {
+          source: typeof body?.source === 'string' ? body.source : undefined,
+        });
+        json(res, 200, { ok: true, ...result });
+      } catch (err) {
+        handleBodyError(res, err, LIVE_GOLDEN_INGEST_MAX_BODY_BYTES);
       }
       return;
     }

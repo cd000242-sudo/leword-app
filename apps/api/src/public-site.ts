@@ -75,7 +75,7 @@ export function buildPublicLiveGoldenPayload(snapshot: MobileLiveGoldenRadarSnap
     measurementSourceLabel: 'Naver SearchAd + Naver Blog Search',
     previewPolicy,
     previewPolicyLabel: previewPolicy === 'lower-five'
-      ? '하위 5개 공개'
+      ? '실측 검증 5선 공개'
       : '초기 보드 빌드업 중',
     statusMessage: snapshot?.lastError
       ? '최근 회차에서 일부 소스 연결이 지연되었습니다.'
@@ -582,7 +582,7 @@ export function renderLewordLanding(): string {
         <div>
           <div class="eyebrow">24H LIVE KEYWORD RADAR</div>
           <h1>앱을 꺼도 서버가 계속 찾는 황금키워드 보드</h1>
-          <p class="lead">실시간 검색어, 정책브리핑, 스타·연예·방송·스포츠 이슈를 먼저 감지하고, 검색량과 문서수를 실측한 후보만 120개 보드에 채웁니다. 공개 화면은 하위 5개 맛보기만 보여주고, 원본 순위와 정확 수치는 Pro에서 보호합니다.</p>
+          <p class="lead">실시간 검색어, 정책브리핑, 스타·연예·방송·스포츠 이슈를 먼저 감지하고, 검색량과 문서수를 실측한 후보만 120개 보드에 채웁니다. 공개 화면은 실측 검증을 통과한 5개 맛보기만 보여주고, 원본 순위와 정확 수치는 Pro에서 보호합니다.</p>
           <div class="hero-actions">
             <a class="primary" href="#golden">LIVE 보드 보기</a>
             <a class="secondary" href="#signals">오늘 이슈 보기</a>
@@ -598,7 +598,7 @@ export function renderLewordLanding(): string {
       <section id="golden" class="live-board">
         <div class="section-title">
           <h2>LIVE 황금키워드 맛보기</h2>
-          <span class="pill" id="previewPolicy">하위 5개 공개</span>
+          <span class="pill" id="previewPolicy">실측 검증 5선 공개</span>
         </div>
         <div class="progress"><div id="boardProgress"></div></div>
         <div class="board-meta">
@@ -810,7 +810,7 @@ export function renderLewordLanding(): string {
         document.getElementById('boardProgress').style.width = pct + '%';
         document.getElementById('boardCount').textContent = '현재 ' + payload.boardCount + ' / ' + payload.boardTarget + '개 검증';
         document.getElementById('boardUpdated').textContent = '최근 갱신 ' + fmtTime(payload.updatedAt);
-        document.getElementById('previewPolicy').textContent = payload.previewPolicyLabel || '하위 5개 공개';
+        document.getElementById('previewPolicy').textContent = payload.previewPolicyLabel || '실측 검증 5선 공개';
         document.getElementById('lockedNotice').textContent = '더미가 아니라 ' + payload.measurementSourceLabel + ' 실측 기반입니다. 공개 화면은 범위만 표시하고 정확 수치는 Pro에서만 공개됩니다.';
         renderKeywords(payload);
       } catch {
