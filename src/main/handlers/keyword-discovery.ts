@@ -26,6 +26,10 @@ import { createGoldenSssTargetTracker, countSss, getGoldenDiscoveryScanLimit, is
 import { buildCategoryFirstGoldenSeedPlan } from '../../utils/category-first-golden-discovery';
 import { buildFreshIssueGoldenSeeds } from '../../utils/fresh-issue-golden-seeds';
 import { discoverDirectGoldenKeywords } from '../../utils/direct-golden-keyword-miner';
+import { isChromeAvailable } from '../../utils/chrome-finder';
+import { analyzeSmartBlocks } from '../../utils/pro-hunter-v12/smartblock-parser';
+import { enrichKeywordsWithDeepSerp, applySerpDifficulty } from '../../utils/pro-hunter-v12/deep-serp-enricher';
+import type { SerpDifficultySignal } from '../../utils/pro-hunter-v12/serp-difficulty-adapter';
 
 // v4.0: 외부 신호 캐시 (앱 lifetime, 30분 TTL)
 let _v4SignalCache: { map: Map<string, ExternalSignals>; expiresAt: number } | null = null;
@@ -918,6 +922,29 @@ export function setupKeywordDiscoveryHandlers(): void {
                 qualityBackfillToTarget: true,
               },
             );
+            // C2 phase 2: 상위 골든 후보에만 실측 SERP 심층분석 주입(opt-in, graceful-degrade).
+            // chrome 미설치/미가용이거나 quickPreview면 완전 스킵 → 발굴 결과 무회귀. 코어 등급/score는
+            // 건드리지 않고 winnable/실측 SERP 부가필드만 반환 payload에 덧붙인다(불변 매핑). 3중 방어:
+            // isChromeAvailable pre-flight → enricher worker try/catch → 아래 블록 try/catch → 발굴 본류 안 막음.
+            let serpMap: Map<string, SerpDifficultySignal> = new Map();
+            try {
+              if (!quickPreview && rankedKeywords.length > 0 && isChromeAvailable() && !checkAbort()) {
+                const DEEP_SERP_TOP_N = 10;
+                const topKeywords = (rankedKeywords as MDPResult[])
+                  .slice(0, DEEP_SERP_TOP_N)
+                  .map((r) => r.keyword);
+                serpMap = await enrichKeywordsWithDeepSerp(topKeywords, {
+                  topN: DEEP_SERP_TOP_N,
+                  concurrency: 2,
+                  analyzer: analyzeSmartBlocks,
+                }).catch(() => new Map<string, SerpDifficultySignal>());
+                const measuredCount = Array.from(serpMap.values()).filter((s) => s.measured).length;
+                console.log(`[KEYWORD-MASTER] 실측 SERP 심층분석: 상위 ${topKeywords.length}개 중 ${measuredCount}개 측정`);
+              }
+            } catch (err) {
+              console.warn('[KEYWORD-MASTER] 실측 SERP 심층분석 스킵(발굴은 정상):', (err as Error)?.message || err);
+            }
+
             const finalSssCount = countSss(rankedKeywords as any[]);
             const finalQualityBackfillCount = Math.max(0, rankedKeywords.length - finalSssCount);
             console.log(`[KEYWORD-MASTER] MDP 발굴 완료: 후보 ${totalAdded}개 → 노출 ${rankedKeywords.length}개, SSS ${finalSssCount}개, 품질보충 ${finalQualityBackfillCount}개, 보충 ${crossCategorySupplementCount}개, 실측보강 ${directMeasuredSupplementCount}개`);
@@ -942,7 +969,23 @@ export function setupKeywordDiscoveryHandlers(): void {
 
             return {
               success: true,
-              keywords: rankedKeywords,
+              keywords: (rankedKeywords as MDPResult[]).map((item) => {
+                const serp = serpMap.get(item.keyword);
+                if (!serp || !serp.measured) return item;
+                // 코어 등급/score 미변경 — 실측 SERP 부가필드만 덧붙임(불변 새 객체).
+                return {
+                  ...item,
+                  winnable: applySerpDifficulty(item, serp, 0).winnable,
+                  blogFriendly: serp.blogFriendly,
+                  shoppingDominant: serp.shoppingDominant,
+                  opportunityScore: serp.opportunityScore,
+                  difficultyScore: serp.difficultyScore,
+                  hasSmartBlock: serp.hasSmartBlock,
+                  hasViewSection: serp.hasViewSection,
+                  hasInfluencer: serp.hasInfluencer,
+                  serpMeasured: true,
+                };
+              }),
               total: rankedKeywords.length,
               candidatesScanned: totalAdded,
               sssCount: finalSssCount,

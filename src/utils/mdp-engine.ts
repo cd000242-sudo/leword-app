@@ -32,6 +32,12 @@ export interface MDPResult {
     hasViewSection?: boolean;
     hasInfluencer?: boolean;
     difficultyScore?: number;
+    // C2 phase 2: 상위 후보 실측 SERP 심층분석(브라우저 가용 시에만 채워짐, 무측정이면 undefined)
+    winnable?: boolean;
+    blogFriendly?: boolean;
+    shoppingDominant?: boolean;
+    opportunityScore?: number;
+    serpMeasured?: boolean;
     // Phase 3: Monetization
     cvi?: number;
     cpc?: number;
