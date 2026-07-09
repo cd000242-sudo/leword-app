@@ -1044,4 +1044,15 @@ assert('public source payload keeps empty source lanes empty',
   emptySourcePayload.lanes.every((lane) => lane.items.length === 0),
   emptySourcePayload.lanes.map((lane) => `${lane.id}:${lane.items.length}`).join(','));
 
+assert('LEWORD pro web renders measured extra-field flags (C4 web port)',
+  proWebHtml.includes('function goldenMeasuredFlagsHtml')
+    && proWebHtml.includes('gk-flags')
+    && proWebHtml.includes('가치게이트')
+    && proWebHtml.includes('실측 SERP 진입'));
+assert('display-grade C rows are blocked from golden board render paths',
+  /filterFreshGoldenItems\(items \|\| \[\]\)\.filter\(function\(item\) \{\s*return !shouldHideFromLiveGoldenBoard\(item\) && displayGradeForRow\(item\) !== 'C';/.test(proWebHtml)
+    && /proGoldenBoardItems[\s\S]{0,600}\.filter\(function\(item\) \{ return displayGradeForRow\(item\) !== 'C'; \}\)/.test(proWebHtml));
+assert('preview policy label is honest (no lower-five wording)',
+  proWebHtml.includes('실측 검증 5선 공개') && !proWebHtml.includes('하위 5개 공개'));
+
 console.log('[pro-web-site-regression] passed');

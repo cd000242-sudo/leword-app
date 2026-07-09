@@ -2714,7 +2714,7 @@ export function renderLewordProWeb(): string {
     }
     function filterDisplayGoldenItems(items) {
       const publishableRows = filterFreshGoldenItems(items || []).filter(function(item) {
-        return !shouldHideFromLiveGoldenBoard(item);
+        return !shouldHideFromLiveGoldenBoard(item) && displayGradeForRow(item) !== 'C';
       });
       return balanceGoldenDisplayItems(publishableRows);
     }
@@ -7960,7 +7960,10 @@ export function renderLewordProWeb(): string {
       return null;
     }
     function proGoldenBoardItems(snapshot) {
-      const raw = (snapshot && (snapshot.board || snapshot.items || snapshot.keywords || snapshot.publicPreview)) || [];
+      // 표시 정직화(displayGradeForRow)가 C 로 강등하는 행(비율 역전·트래픽 포착 약함 등)은
+      // 보드 채움 백필로도 노출하지 않는다 — C 는 황금키워드 기준 미달.
+      const raw = ((snapshot && (snapshot.board || snapshot.items || snapshot.keywords || snapshot.publicPreview)) || [])
+        .filter(function(item) { return displayGradeForRow(item) !== 'C'; });
       const target = Number(snapshot && snapshot.boardTarget) || 120;
       const strict = filterDisplayGoldenItems(raw);
       if (strict.length >= target || strict.length === raw.length) {
