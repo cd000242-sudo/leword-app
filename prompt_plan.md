@@ -5,18 +5,24 @@
 > 매 슬라이스 verify:all exit 0. 다음 세션은 아래 "다음 착수"부터.
 
 ## 완료
-- **C1 등급 SSoT 단일화** ✅ — grade.ts 단일 엔진, 진짜 중복 6곳(mdp/radar/mindmap/floor/direct-golden/pc-engine) 위임. 커밋 624d05e4→0cca805c.
+- **C1 등급 SSoT 단일화** ✅ — grade.ts 단일 엔진, 진짜 중복 6곳(mdp/radar/mindmap/floor/direct-golden/pc-engine) 위임. 624d05e4→0cca805c.
 - **C2 SERP 신호 부활** ✅ — phase1(죽은 문자열매칭 제거+정직화 8bcbdb16), phase2a/2b(실측 SERP 어댑터+상위N puppeteer 심층 82711e09/83947264), on-demand 배선+graceful-degrade 3중방어(0a71c5d4).
-- **C4 slice1** ✅ — keyword-value-verifier 메인 승격(표시용, isKilled 비필터). 7f32e582.
+- **C4 엔진 승격** ✅ (3종, keyword-discovery 반환 map에 표시용 부가필드 불변주석, 코어 등급/score/필터 미변경):
+  - slice1 keyword-value-verifier(순수, 전항목 valueGrade/qualityScore) 7f32e582
+  - slice2 vacancy-detector(axios, chrome불필요, 상위10 vacancySlots) ee67b0f5
+  - slice3 serp-content-analyzer(puppeteer 본문크롤, 상위3 실측 브리핑) f42c693e
+  - **win-predictor는 미승격**(예상순위/트래픽 추정치=UI금지 규칙 위반). wiring-regression으로 고정.
 
-## 다음 착수 (C4 잔여 → 이후 C3/C5/파리티)
-1. **C4 slice2 — vacancy-detector**: analyzeVacancy(키워드만·axios). keyword-discovery 반환 map(C2가 뚫어둔 상위10 enrich 슬롯)에 얹기. 표시필드로 부가, isKilled/vacancy 필터 미적용(SSS 대량보장 회귀방지). 특성화 테스트 신설.
-2. **C4 slice3 — win-predictor + serp-content-analyzer 세트**: 최난도. 병목=개인화 blogIndex(user-profile.json 등록의존, 발굴시점 미가용) + 본문크롤(fetchSerpTop10 puppeteer, deep-serp와 별개=2배). **설계결정 필요**: 예측을 등록 사용자만? 미등록 중립? smartblockScore는 C2 serp.opportunityScore 재사용.
-3. **web 이식**: pro-web-site.ts renderGoldenRows gk-metrics(7867)에 winnable/valueGrade 노출. 서버 payload엔 이미 실림.
-4. 이후 마스터플랜 순서: C3(추정치 실측/라벨) → C5(상위후보 실LLM) → 파리티.
+## 다음 착수
+1. **web 이식**: apps/api pro-web-site.ts renderGoldenRows(7833) gk-metrics(7867)에 winnable/valueGrade/vacancySlots/briefRecommendedWords 노출(serpMeasured/vacancyReliable/briefMeasured true인 행만 조건부). 서버 payload엔 이미 실림 → web은 렌더러 추가 수준. **(주의: 예상순위/트래픽/수익 같은 추정치는 절대 노출 금지 — 실측·매칭사실만)**
+2. **win-predictor(미래)**: 블로그 등록 UX(user-profile measureBlog) 선행 → 등록 사용자에게만 개인화 예측, UI 미노출 원칙(내부 정렬 보조 정도).
+3. 마스터플랜 순서: C3(추정치 실측/라벨) → C5(상위후보 실LLM) → 파리티.
+
+## UI 노출 시 주의 (feedback_no_estimates_in_ui)
+승격된 부가필드 중 **실측·사실만 노출 가능**: valueGrade(게이트 통과율), vacancySlots(실측 빈슬롯), briefRecommendedWords/briefMustInclude(경쟁사 실측), winnable(블록 실측). **추정치(예상순위/트래픽/수익/친화도점수) 노출 금지.**
 
 ## 신규 특성화 오라클(전부 sanity 게이트 등록됨)
-grade-characterization 66/0, serp-difficulty-adapter 21/0, deep-serp-enricher 18/0, serp-deep-wiring-regression 17/0, keyword-value-verifier 26/0.
+grade-characterization 66/0, serp-difficulty-adapter 21/0, deep-serp-enricher 18/0, serp-deep-wiring-regression 26/0, keyword-value-verifier 26/0, vacancy-enricher 14/0, content-brief-enricher 13/0.
 
 ---
 
