@@ -12,9 +12,10 @@
   - slice2 vacancy-detector(axios, chrome불필요, 상위10 vacancySlots) ee67b0f5
   - slice3 serp-content-analyzer(puppeteer 본문크롤, 상위3 실측 브리핑) f42c693e
   - **win-predictor는 미승격**(예상순위/트래픽 추정치=UI금지 규칙 위반). wiring-regression으로 고정.
+- **C4 web 이식** ✅ — pro-web-site renderGoldenRows에 Pro(exact) 조건부 실측 배지(가치게이트/실측 SERP 진입/빈집/권장분량). **이전 체크포인트의 "서버 payload엔 이미 실림"은 오판**: ① 라다(direct-golden-keyword-miner) 발굴은 C2/C4 필드 미생산, ② API 컨테이너 loadBoardFromFile이 명시 필드만 복원해 부가필드 소실. 조치: contracts에 실측 부가필드 optional 추가 + loadBoardFromFile 화이트리스트 보존(추정치 필드 부활 차단) + snapshot() 시점 valueGrade 순수 계산(실측·비추정 행만) → valueGrade는 배포 즉시 실동작. 회귀: mobile-live-golden-radar.test에 왕복보존/부활차단/valueGrade 3 assert.
 
 ## 다음 착수
-1. **web 이식**: apps/api pro-web-site.ts renderGoldenRows(7833) gk-metrics(7867)에 winnable/valueGrade/vacancySlots/briefRecommendedWords 노출(serpMeasured/vacancyReliable/briefMeasured true인 행만 조건부). 서버 payload엔 이미 실림 → web은 렌더러 추가 수준. **(주의: 예상순위/트래픽/수익 같은 추정치는 절대 노출 금지 — 실측·매칭사실만)**
+1. **서버측 vacancy/brief/serp 생산 결정(사용자 승인 필요)**: winnable/vacancySlots/briefRecommendedWords 배지는 배관·렌더러 완료 but 서버 워커가 해당 신호를 생산하지 않아 미노출. 워커(라다) 사이클에 enricher 배선 시 Vultr IP發 네이버 요청 부하·429 리스크(brief는 chrome 필요) → 비용/차단 리스크 결정 후 착수.
 2. **win-predictor(미래)**: 블로그 등록 UX(user-profile measureBlog) 선행 → 등록 사용자에게만 개인화 예측, UI 미노출 원칙(내부 정렬 보조 정도).
 3. 마스터플랜 순서: C3(추정치 실측/라벨) → C5(상위후보 실LLM) → 파리티.
 

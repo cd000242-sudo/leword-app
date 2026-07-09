@@ -347,6 +347,86 @@ function thinProfileCount(items: Array<{ keyword: string }>): number {
     }));
   fs.rmSync(fullButWeakBoardFile, { force: true });
 
+  // C2/C4 web 이식 회귀: 실측 부가필드는 board 파일 왕복에서 보존, 미지의(추정치성) 필드는 부활 금지,
+  // 스냅샷은 실측 행에 순수 value gate 등급을 계산한다.
+  const extraFieldsBoardFile = path.join(process.cwd(), 'tmp', 'mobile-live-golden-measured-extra-fields-test.json');
+  const extraFieldsStamp = new Date().toISOString();
+  fs.writeFileSync(extraFieldsBoardFile, JSON.stringify({
+    boardUpdatedAt: extraFieldsStamp,
+    items: [{
+      keyword: '청년미래적금 99차 신청 대상',
+      grade: 'S',
+      score: 66,
+      totalSearchVolume: 810,
+      pcSearchVolume: 161,
+      mobileSearchVolume: 649,
+      documentCount: 910,
+      goldenRatio: 0.89,
+      category: 'policy',
+      source: 'fixture-measured',
+      evidence: ['fixture-searchad-volume', 'fixture-naver-openapi-document-count'],
+      searchVolumeSource: 'searchad',
+      searchVolumeConfidence: 'high',
+      isSearchVolumeEstimated: false,
+      documentCountSource: 'naver-api',
+      documentCountConfidence: 'high',
+      isDocumentCountEstimated: false,
+      updatedAt: extraFieldsStamp,
+      discoveredAt: extraFieldsStamp,
+      isMeasured: true,
+      vacancyReliable: true,
+      vacancySlots: 3,
+      vacancyAction: '지금 작성',
+      briefMeasured: true,
+      briefRecommendedWords: 1800,
+      briefMustInclude: ['신청 대상', '지급일'],
+      serpMeasured: true,
+      winnable: true,
+      expectedRank: 2,
+      expectedMonthlyTraffic: 1200,
+    }],
+  }), 'utf8');
+  const extraFieldsRadar = new MobileLiveGoldenRadar({
+    notificationInbox: inbox,
+    runOnStart: false,
+    cycleLimit: 1,
+    boardTarget: 10,
+    maxCandidates: 60,
+    boardFile: extraFieldsBoardFile,
+    categories: ['policy'],
+    getEnvConfig: () => ({
+      naverClientId: 'client',
+      naverClientSecret: 'secret',
+    }),
+    liveSeedProvider: async () => [],
+    enableBackfill: false,
+    discover: async () => [],
+  });
+  const extraFieldsSnapshot = extraFieldsRadar.snapshot();
+  const extraItem = extraFieldsSnapshot.board.find((item) => item.keyword === '청년미래적금 99차 신청 대상');
+  assert('C2/C4 measured extra fields survive board file round-trip',
+    !!extraItem
+      && extraItem.vacancyReliable === true
+      && extraItem.vacancySlots === 3
+      && extraItem.vacancyAction === '지금 작성'
+      && extraItem.briefMeasured === true
+      && extraItem.briefRecommendedWords === 1800
+      && Array.isArray(extraItem.briefMustInclude)
+      && extraItem.briefMustInclude.length === 2
+      && extraItem.serpMeasured === true
+      && extraItem.winnable === true,
+    JSON.stringify(extraItem));
+  assert('estimate-like unknown fields do not revive through the whitelist',
+    !!extraItem && !('expectedRank' in extraItem) && !('expectedMonthlyTraffic' in extraItem),
+    JSON.stringify(extraItem));
+  assert('snapshot computes pure value gate grade for measured rows',
+    !!extraItem
+      && ['S+', 'S', 'A', 'B', 'C'].includes(String(extraItem.valueGrade))
+      && typeof extraItem.valueSummary === 'string'
+      && extraItem.valueSummary.length > 0,
+    JSON.stringify({ valueGrade: extraItem?.valueGrade, valueSummary: extraItem?.valueSummary }));
+  fs.rmSync(extraFieldsBoardFile, { force: true });
+
   const sssShortDepthBudgetFile = path.join(process.cwd(), 'tmp', 'mobile-live-golden-sss-short-depth-budget-test.json');
   fs.writeFileSync(sssShortDepthBudgetFile, JSON.stringify({
     boardUpdatedAt: '2026-06-15T08:00:00.000Z',

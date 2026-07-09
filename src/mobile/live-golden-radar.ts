@@ -35,6 +35,7 @@ import {
   scoreGoldenKeywordVirality,
 } from '../utils/golden-discovery-floor';
 import { normalizeStoredGrade } from '../utils/grade';
+import { verifyKeywordValue } from '../utils/pro-hunter-v12/keyword-value-verifier';
 import type { MDPResult } from '../utils/mdp-engine';
 import { classifyKeyword } from '../utils/categories';
 import { getDiscoveryCategorySeeds } from '../utils/category-discovery-map';
@@ -5787,6 +5788,57 @@ function mapDirectResult(result: MDPResult, categoryId: string): MobileKeywordMe
   };
 }
 
+// C4 keyword-value-verifier(순수·무네트워크)를 스냅샷 시점에 계산 — 실측 검색량·문서수가 있는
+// 항목만(추정치 입력이면 게이트 사실성이 깨지므로 스킵). 표시용 부가필드로 코어 등급/score 미변경.
+function liveValueGateFields(
+  item: MobileLiveGoldenBoardItem,
+): Pick<MobileLiveGoldenBoardItem, 'valueGrade' | 'valueSummary'> {
+  const searchVolume = finiteNumber(item.totalSearchVolume);
+  const documentCount = finiteNumber(item.documentCount);
+  if (
+    item.isMeasured === false
+    || searchVolume === null
+    || documentCount === null
+    || item.isSearchVolumeEstimated === true
+    || item.isDocumentCountEstimated === true
+  ) {
+    return {};
+  }
+  const gate = verifyKeywordValue({
+    keyword: item.keyword,
+    searchVolume,
+    documentCount,
+    mode: 'lenient',
+  });
+  return { valueGrade: gate.valueGrade, valueSummary: gate.summary };
+}
+
+// 워커가 저장한 C2/C4 실측 부가필드를 파일 복원 시 보존. 신뢰 플래그가 참일 때만 화이트리스트로
+// 통과시켜 추정치 필드가 파일을 타고 부활하는 것을 차단(추정치 UI 노출 금지).
+function liveMeasuredExtraFields(row: unknown): Partial<MobileLiveGoldenBoardItem> {
+  const source = (row && typeof row === 'object' ? row : {}) as Record<string, unknown>;
+  const vacancySlots = Number(source['vacancySlots']);
+  const vacancyAction = normalizeKeyword(source['vacancyAction']);
+  const vacancyFields = source['vacancyReliable'] === true && Number.isFinite(vacancySlots) && vacancySlots >= 0
+    ? { vacancySlots, vacancyReliable: true as const, ...(vacancyAction ? { vacancyAction } : {}) }
+    : {};
+  const briefRecommendedWords = Number(source['briefRecommendedWords']);
+  const briefMustInclude = Array.isArray(source['briefMustInclude'])
+    ? (source['briefMustInclude'] as unknown[]).map((term) => normalizeKeyword(term)).filter(Boolean).slice(0, 8)
+    : [];
+  const briefFields = source['briefMeasured'] === true && Number.isFinite(briefRecommendedWords) && briefRecommendedWords > 0
+    ? {
+      briefRecommendedWords,
+      briefMeasured: true as const,
+      ...(briefMustInclude.length ? { briefMustInclude } : {}),
+    }
+    : {};
+  const serpFields = source['serpMeasured'] === true && typeof source['winnable'] === 'boolean'
+    ? { serpMeasured: true as const, winnable: source['winnable'] as boolean }
+    : {};
+  return { ...vacancyFields, ...briefFields, ...serpFields };
+}
+
 function resultFromMetrics(
   keywords: MobileKeywordMetric[],
   startedAtMs: number,
@@ -7765,6 +7817,7 @@ export class MobileLiveGoldenRadar {
     const publicPreviewIds = new Set(this.selectPublicPreview(board).map((item) => item.id));
     const markedBoard = board.map((item) => applyKeywordAiJudge({
       ...item,
+      ...liveValueGateFields(item),
       isPublicPreview: publicPreviewIds.has(item.id),
       publishDecision: evaluatePublishDecision(item),
     }));
@@ -8737,6 +8790,7 @@ export class MobileLiveGoldenRadar {
             isMeasured,
           }),
           ...measurementMeta,
+          ...liveMeasuredExtraFields(row),
         };
         this.board.set(id, item);
       }

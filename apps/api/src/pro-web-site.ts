@@ -476,6 +476,20 @@ export function renderLewordProWeb(): string {
       line-height: 1.2;
     }
     .gk-metrics { display: grid; grid-template-columns: repeat(3, 1fr); gap: 8px; }
+    .gk-flags { display: flex; flex-wrap: wrap; gap: 5px; margin-top: 7px; }
+    .gk-flag {
+      border: 1px solid var(--line);
+      border-radius: 999px;
+      background: var(--surface-2);
+      color: var(--muted);
+      padding: 4px 8px;
+      font-size: 11px;
+      font-weight: 900;
+      line-height: 1.2;
+    }
+    .gk-flag.good { border-color: rgba(53,211,153,.34); background: rgba(53,211,153,.09); color: #047857; }
+    .gk-flag.info { border-color: rgba(14,165,233,.3); background: rgba(14,165,233,.08); color: #0369a1; }
+    .gk-flag.warn { border-color: rgba(249,115,22,.3); background: rgba(249,115,22,.08); color: #c2410c; }
     .gk-m { background: var(--surface-2); border: 1px solid var(--line); border-radius: 10px; padding: 9px 8px; text-align: center; }
     .gk-m.gk-hot { background: rgba(53,211,153,.10); border-color: rgba(53,211,153,.28); }
     .gk-ml { font-size: 10.5px; color: var(--muted2); }
@@ -7830,6 +7844,32 @@ export function renderLewordProWeb(): string {
           : qualityPill(lockCount > 0 ? 'Pro 잠금' : 'Pro 공개', fmt(lockCount), lockCount > 0 ? '상위 보드 보호' : '세션 잠금 해제', lockCount > 0 ? 'warn' : 'good'),
       ].join('');
     }
+    function goldenMeasuredFlagsHtml(item, exact) {
+      if (!exact || !item) return '';
+      const flags = [];
+      if (item.valueGrade) {
+        const tone = item.valueGrade === 'S+' || item.valueGrade === 'S' ? 'good' : item.valueGrade === 'C' ? 'warn' : 'info';
+        flags.push('<span class="gk-flag ' + tone + '" title="' + escapeHtml(item.valueSummary || '12게이트 가치검증 통과율 기반') + '">가치게이트 ' + escapeHtml(item.valueGrade) + '</span>');
+      }
+      if (item.serpMeasured === true && typeof item.winnable === 'boolean') {
+        flags.push(item.winnable
+          ? '<span class="gk-flag good" title="네이버 검색결과 상위 블록 실측 기준">실측 SERP 진입 가능</span>'
+          : '<span class="gk-flag warn" title="네이버 검색결과 상위 블록 실측 기준">실측 SERP 진입 어려움</span>');
+      }
+      if (item.vacancyReliable === true && Number.isFinite(Number(item.vacancySlots))) {
+        const slots = Number(item.vacancySlots);
+        flags.push('<span class="gk-flag ' + (slots > 0 ? 'good' : 'info') + '" title="' + escapeHtml(item.vacancyAction || '상위 10개 노출 슬롯 실측') + '">'
+          + (slots > 0 ? '상위10 빈집 ' + fmt(slots) + '칸' : '상위10 빈집 없음') + '</span>');
+      }
+      if (item.briefMeasured === true && Number(item.briefRecommendedWords) > 0) {
+        const mustInclude = Array.isArray(item.briefMustInclude) && item.briefMustInclude.length
+          ? '필수 포함: ' + item.briefMustInclude.slice(0, 8).join(', ')
+          : '경쟁 상위글 본문 실측 기준';
+        flags.push('<span class="gk-flag info" title="' + escapeHtml(mustInclude) + '">권장 분량 ' + fmt(Number(item.briefRecommendedWords)) + '자·경쟁 실측</span>');
+      }
+      if (!flags.length) return '';
+      return '<div class="gk-flags">' + flags.join('') + '</div>';
+    }
     function renderGoldenRows(items, exact, target) {
       const limit = exact ? Math.max(60, Math.min(120, Number(target) || 120)) : 5;
       const freshRows = filterFreshGoldenItems(items || []);
@@ -7861,6 +7901,7 @@ export function renderLewordProWeb(): string {
           + '</div>'
           + '<div class="gk-kw">' + escapeHtml(item.keyword || '-') + '</div>'
           + '<div class="gk-sub">' + sub + '</div>'
+          + goldenMeasuredFlagsHtml(item, exact)
           + publishDecisionInline(item)
           + '</div>'
           + '<div class="gk-side">'

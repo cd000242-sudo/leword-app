@@ -252,6 +252,18 @@ export interface MobileLiveGoldenBoardItem extends MobileKeywordMetric {
   publicSearchVolumeLabel: string;
   publicDocumentCountLabel: string;
   publicReason: string;
+  // C2/C4 표시용 실측 부가필드(desktop keyword-discovery와 동일 이름) — 코어 등급/score/필터와 무관.
+  // 예상순위/트래픽/수익 같은 추정치는 이 계약에 싣지 않는다(추정치 UI 노출 금지).
+  valueGrade?: 'S+' | 'S' | 'A' | 'B' | 'C';
+  valueSummary?: string;
+  vacancySlots?: number;
+  vacancyReliable?: boolean;
+  vacancyAction?: string;
+  briefRecommendedWords?: number;
+  briefMustInclude?: string[];
+  briefMeasured?: boolean;
+  winnable?: boolean;
+  serpMeasured?: boolean;
 }
 
 export interface MobileLiveGoldenRadarSnapshot {
