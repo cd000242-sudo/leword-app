@@ -539,6 +539,110 @@ function thinProfileCount(items: Array<{ keyword: string }>): number {
   fs.rmSync(realDemandBoardFile, { force: true });
   fs.rmSync(realDemandCacheFile, { force: true });
 
+  // 실시간 급등 레인 회귀(승인 2026-07-09): 트렌딩 헤드 → 자동완성 실수요 확장 → 실측 →
+  // 기회지수 게이트 → lane 태깅. 정보형 게이트(프로필/lookup/50만 상한)가 급등 상품을 죽이지
+  // 않고, 기회지수 미달(비율<10)·저수요(sv<3000) 후보는 레인에 오르지 못한다.
+  assert('traffic-surge gate accepts competitor-class rows and rejects weak ones',
+    __liveGoldenRadarTestInternals.isTrafficSurgeBoardMetric({
+      keyword: '김부장 기본정보', lane: 'traffic-surge',
+      totalSearchVolume: 1469920, documentCount: 5189,
+      isSearchVolumeEstimated: false, isDocumentCountEstimated: false,
+    }, new Date())
+      && __liveGoldenRadarTestInternals.isTrafficSurgeBoardMetric({
+        keyword: '노시환 하지원 열애설', lane: 'traffic-surge',
+        totalSearchVolume: 24430, documentCount: 129,
+        isSearchVolumeEstimated: false, isDocumentCountEstimated: false,
+      }, new Date())
+      && !__liveGoldenRadarTestInternals.isTrafficSurgeBoardMetric({
+        keyword: '기회지수 미달 키워드', lane: 'traffic-surge',
+        totalSearchVolume: 24000, documentCount: 12000,
+        isSearchVolumeEstimated: false, isDocumentCountEstimated: false,
+      }, new Date())
+      && !__liveGoldenRadarTestInternals.isTrafficSurgeBoardMetric({
+        keyword: '연예인 자살 소식', lane: 'traffic-surge',
+        totalSearchVolume: 90000, documentCount: 100,
+        isSearchVolumeEstimated: false, isDocumentCountEstimated: false,
+      }, new Date())
+      && !__liveGoldenRadarTestInternals.isTrafficSurgeBoardMetric({
+        keyword: '김부장 기본정보',
+        totalSearchVolume: 1469920, documentCount: 5189,
+        isSearchVolumeEstimated: false, isDocumentCountEstimated: false,
+      }, new Date()),
+    'surge gate contract');
+
+  const surgeBoardFile = path.join(process.cwd(), 'tmp', 'mobile-live-golden-surge-test.json');
+  fs.rmSync(surgeBoardFile, { force: true });
+  fs.rmSync(surgeBoardFile.replace(/\.json$/, '') + '-ingest.json', { force: true });
+  fs.rmSync(surgeBoardFile.replace(/\.json$/, '') + '-realdemand.json', { force: true });
+  const surgeMeasured = new Map([
+    ['김부장 기본정보', { pc: 293984, mobile: 1175936, dc: 5189 }],
+    ['김부장 등장인물', { pc: 204480, mobile: 817920, dc: 7510 }],
+    ['김부장 시청률', { pc: 800, mobile: 1400, dc: 900 }],
+  ]);
+  const surgeRadar = new MobileLiveGoldenRadar({
+    notificationInbox: inbox,
+    runOnStart: false,
+    cycleLimit: 1,
+    boardTarget: 10,
+    maxCandidates: 60,
+    boardFile: surgeBoardFile,
+    categories: ['policy'],
+    getEnvConfig: () => ({ naverClientId: 'client', naverClientSecret: 'secret' }),
+    liveSeedProvider: async () => ['김부장'],
+    enableBackfill: false,
+    discover: async () => [],
+    realDemandProbe: async (query: string) => {
+      if (query === '김부장') {
+        return { ok: true, suggestions: ['김부장 기본정보', '김부장 등장인물', '김부장 시청률'] };
+      }
+      return { ok: true, suggestions: [query] };
+    },
+    measureLiveSearchVolumeSeparate: (async (_config: unknown, keywords: string[]) => (
+      keywords
+        .filter((keyword) => surgeMeasured.has(keyword))
+        .map((keyword) => {
+          const m = surgeMeasured.get(keyword)!;
+          return {
+            keyword,
+            pcSearchVolume: m.pc,
+            mobileSearchVolume: m.mobile,
+            documentCount: m.dc,
+            competition: null,
+            monthlyAveCpc: null,
+          };
+        })
+    )) as never,
+  });
+  const surgeSnapshot = await surgeRadar.runOnce();
+  const surgeRows = surgeSnapshot.board.filter((item) => item.lane === 'traffic-surge');
+  assert('traffic-surge lane reaches the board with real-user phrasings and survives info-lane gates',
+    surgeRows.some((item) => item.keyword === '김부장 기본정보' && item.grade !== 'C')
+      && surgeRows.some((item) => item.keyword === '김부장 등장인물')
+      && !surgeSnapshot.board.some((item) => item.keyword === '김부장 시청률'),
+    JSON.stringify({
+      lastMessage: surgeSnapshot.lastMessage,
+      rows: surgeSnapshot.board.map((item) => `${item.keyword}:${item.lane || ''}:${item.grade}:${item.goldenRatio}`),
+    }));
+  const surgeReloadRadar = new MobileLiveGoldenRadar({
+    notificationInbox: inbox,
+    runOnStart: false,
+    cycleLimit: 1,
+    boardTarget: 10,
+    maxCandidates: 60,
+    boardFile: surgeBoardFile,
+    refreshBoardFileOnSnapshot: true,
+    categories: ['policy'],
+    getEnvConfig: () => ({ naverClientId: 'client', naverClientSecret: 'secret' }),
+    liveSeedProvider: async () => [],
+    enableBackfill: false,
+    discover: async () => [],
+  });
+  assert('traffic-surge rows survive the board file round-trip with the lane tag',
+    surgeReloadRadar.snapshot().board.some((item) => item.lane === 'traffic-surge' && item.keyword === '김부장 기본정보'),
+    surgeReloadRadar.snapshot().board.map((item) => `${item.keyword}:${item.lane || ''}`).join('|'));
+  fs.rmSync(surgeBoardFile, { force: true });
+  fs.rmSync(surgeBoardFile.replace(/\.json$/, '') + '-realdemand.json', { force: true });
+
   // ingest 경로 회귀: 데스크톱 push → inbox 파일(쓰기 소유 분리) → read-only 스냅샷 병합.
   // 추정 플래그 행은 거부, 미지의(추정치성) 필드는 부활 금지, board 파일은 워커 소유라 미작성.
   const ingestBoardFile = path.join(process.cwd(), 'tmp', 'mobile-live-golden-ingest-board-test.json');

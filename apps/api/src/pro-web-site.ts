@@ -5423,6 +5423,8 @@ export function renderLewordProWeb(): string {
       return !!(row && row.isMeasured !== false && total !== null && total >= 100 && docs !== null && docs > total && ratio !== null && ratio < 1);
     }
     function displayGradeForRow(row) {
+      // 급등 레인은 서버 기회지수 게이트를 통과한 트래픽 상품 — 정보형 정직화 강등을 적용하지 않는다.
+      if (row && row.lane === 'traffic-surge') return (row && row.grade) || '-';
       if (row && row.source === 'browser-fallback' && row.isMeasured === false) return row.grade || '검증';
       if (isAmbiguousCompositeKeyword(row)) return 'C';
       if (isAdDominatedKeywordRow(row)) return 'C';
@@ -7961,6 +7963,7 @@ export function renderLewordProWeb(): string {
     // 카테고리 탭: 보드를 카테고리/주제별로 나눠 보는 표시 필터(Pro 전용). 데이터는 서버가 준
     // category 필드 그대로 사용 — 표시용 분류일 뿐 순위·등급에 영향 없음.
     const GOLDEN_CATEGORY_LABELS = {
+      'traffic-surge': '🔥 실시간 급등',
       policy: '정책/지원금', finance: '재테크/금융', health: '건강', life_tips: '생활꿀팁',
       it: 'IT', ai_tool: 'AI도구', game: '게임', shopping: '쇼핑', electronics: '가전/전자',
       home_life: '리빙/생활', fashion: '패션', beauty: '뷰티', food: '맛집/음식', recipe: '레시피',
@@ -7971,6 +7974,7 @@ export function renderLewordProWeb(): string {
     let goldenCategoryFilter = '';
     let lastGoldenRowsArgs = null;
     function goldenCategoryKeyOf(item) {
+      if (item && item.lane === 'traffic-surge') return 'traffic-surge';
       return normalizeText(item && (item.category || item.categoryName) || '').toLowerCase() || 'live';
     }
     function goldenCategoryLabelOf(key) {
@@ -7989,7 +7993,12 @@ export function renderLewordProWeb(): string {
         const key = goldenCategoryKeyOf(item);
         counts.set(key, (counts.get(key) || 0) + 1);
       });
-      const ordered = Array.from(counts.entries()).sort(function(a, b) { return b[1] - a[1]; });
+      // 급등 레인은 항상 첫 탭(전체 다음) — 시의성이 생명인 상품이라 노출 우선.
+      const ordered = Array.from(counts.entries()).sort(function(a, b) {
+        if (a[0] === 'traffic-surge') return -1;
+        if (b[0] === 'traffic-surge') return 1;
+        return b[1] - a[1];
+      });
       if (goldenCategoryFilter && !counts.has(goldenCategoryFilter)) goldenCategoryFilter = '';
       tabs.style.display = 'flex';
       tabs.innerHTML = [
@@ -8032,9 +8041,15 @@ export function renderLewordProWeb(): string {
       const freshRows = filterFreshGoldenItems(items || []);
       const sourceRows = exact ? (Array.isArray(items) ? items : []) : filterDisplayGoldenItems(items || []);
       renderGoldenCategoryTabs(sourceRows, exact);
-      const filteredRows = exact && goldenCategoryFilter
+      let filteredRows = exact && goldenCategoryFilter
         ? sourceRows.filter(function(item) { return goldenCategoryKeyOf(item) === goldenCategoryFilter; })
         : sourceRows;
+      if (goldenCategoryFilter === 'traffic-surge') {
+        // 급등 레인은 기회지수(실측 검색량/문서수) 내림차순 — 경쟁 공백이 큰 순.
+        filteredRows = filteredRows.slice().sort(function(a, b) {
+          return (Number(b && b.goldenRatio) || 0) - (Number(a && a.goldenRatio) || 0);
+        });
+      }
       const rows = filteredRows.slice(0, limit);
       if (!rows.length) {
         qs('goldenBoardList').innerHTML = '';

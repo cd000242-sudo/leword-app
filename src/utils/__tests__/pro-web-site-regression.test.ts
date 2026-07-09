@@ -1059,6 +1059,10 @@ assert('golden board renders category tabs with counts and click filter',
     && proWebHtml.includes('function renderGoldenCategoryTabs')
     && proWebHtml.includes('data-golden-category')
     && proWebHtml.includes('GOLDEN_CATEGORY_LABELS'));
+assert('golden board exposes the traffic-surge lane tab with opportunity-index sorting',
+  proWebHtml.includes("'traffic-surge': '🔥 실시간 급등'")
+    && proWebHtml.includes("if (item && item.lane === 'traffic-surge') return 'traffic-surge';")
+    && proWebHtml.includes("if (goldenCategoryFilter === 'traffic-surge') {"));
 assert('search-volume reason is keyword-semantic, not category boilerplate only',
   proWebHtml.includes('function keywordSemanticMeaning')
     && proWebHtml.includes('KEYWORD_NEED_TOKENS')
