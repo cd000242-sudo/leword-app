@@ -19,6 +19,7 @@
 ## 다음 착수
 1. ~~배포~~ ✅ (2026-07-09 Codex 완료): Vultr 재배포(f2602954) + ingest 토큰 설정 + 검증 a~f 전부 통과. 운영자 PC `%APPDATA%\blogger-gpt-cli\.env` 에 ingest URL/TOKEN 설정 완료(`https://141.164.59.17.sslip.io/v1/live-golden/ingest`), 이 PC→서버 인증 왕복 200 ok 확인. **주의**: EnvironmentManager 는 .env 를 process.env 로 주입하지 않아 ingest 2키 화이트리스트 주입 추가. **함정 기록**: `src/utils/*.js` 에 2025-11 낡은 in-place 컴파일 산출물이 남아 있어 ts-node require 시 .ts 대신 stale .js 가 로드될 수 있음(environment-manager 에서 실제 발생, dist 는 정상) — 정리 후보.
    - **남은 마지막 단계**: 데스크톱 앱을 이 레포에서 `npm run start` 로 실행(설치본엔 업로더 코드 없음) → 황금키워드 발굴 1회 → `[LIVE-BOARD-UPLOAD] N개 전송, 서버 수용 M개` 로그 확인 → 웹 보드 채움 확인.
+1-b. **재배포 대기(5d24a094)**: 라이브 보드 품질 3종 미반영 상태 — ① 카테고리 탭(4e8a4269) ② 정치이벤트×수급tail 의미충돌 차단(341cde98) ③ **실수요 증명 게이트**(5d24a094, 승인됨): 프로브/캐시 출신 행을 자동완성 실측(echo/extension)으로 검증해 유령('단백질보충제순위준비물' 류) 제거·승격 차단. opt-in — factory 만 실프로브 주입, env LEWORD_MOBILE_LIVE_GOLDEN_REALDEMAND=false 로 비활성. Codex 에 "main pull 후 재빌드·재기동, env 변경 없음" 전달. 배포 후 워커 사이클마다 'N ghost-removed' 로그로 기존 보드 청소 진행 확인.
 2. **서버측 vacancy/brief/serp 자체 생산(선택)**: 데스크톱 push 로 대체 공급되므로 우선순위 하락. 워커 배선 시 Vultr IP 429 리스크(brief 는 chrome 필요) 재평가 후 결정.
 3. **win-predictor(미래)**: 블로그 등록 UX(user-profile measureBlog) 선행 → 등록 사용자에게만 개인화 예측, UI 미노출 원칙(내부 정렬 보조 정도).
 4. 마스터플랜 순서: C3(추정치 실측/라벨) → C5(상위후보 실LLM) → 파리티.
