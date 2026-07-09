@@ -33,6 +33,8 @@ import type { SerpDifficultySignal } from '../../utils/pro-hunter-v12/serp-diffi
 import { verifyKeywordValue } from '../../utils/pro-hunter-v12/keyword-value-verifier';
 import { enrichKeywordsWithVacancy, isVacancyReliable } from '../../utils/pro-hunter-v12/vacancy-enricher';
 import type { VacancyResult } from '../../utils/pro-hunter-v12/vacancy-detector';
+import { enrichKeywordsWithContentBrief, isContentBriefReliable } from '../../utils/pro-hunter-v12/content-brief-enricher';
+import type { SerpAnalysis } from '../../utils/pro-hunter-v12/serp-content-analyzer';
 
 // v4.0: 외부 신호 캐시 (앱 lifetime, 30분 TTL)
 let _v4SignalCache: { map: Map<string, ExternalSignals>; expiresAt: number } | null = null;
@@ -969,6 +971,24 @@ export function setupKeywordDiscoveryHandlers(): void {
               console.warn('[KEYWORD-MASTER] 빈집 분석 스킵(발굴은 정상):', (err as Error)?.message || err);
             }
 
+            // C4 slice 3: 상위 소수 후보에 실측 콘텐츠 브리핑 주입(경쟁사 상위10 본문크롤 → 권장 글자수/
+            // 필수 이미지/must-include 키워드/경쟁사 제목 = 전부 실측 사실, 추정치 아님). 본문크롤이 비싸
+            // topN 3 + chrome 가드 + quickPreview 스킵. win-predictor 예측치는 '추정치 UI 금지'라 미승격.
+            let briefMap: Map<string, SerpAnalysis> = new Map();
+            try {
+              if (!quickPreview && rankedKeywords.length > 0 && isChromeAvailable() && !checkAbort()) {
+                const BRIEF_TOP_N = 3;
+                const topKeywords = (rankedKeywords as MDPResult[])
+                  .slice(0, BRIEF_TOP_N)
+                  .map((r) => r.keyword);
+                briefMap = await enrichKeywordsWithContentBrief(topKeywords, { topN: BRIEF_TOP_N, concurrency: 1 })
+                  .catch(() => new Map<string, SerpAnalysis>());
+                console.log(`[KEYWORD-MASTER] 실측 콘텐츠 브리핑: 상위 ${topKeywords.length}개 중 ${briefMap.size}개`);
+              }
+            } catch (err) {
+              console.warn('[KEYWORD-MASTER] 콘텐츠 브리핑 스킵(발굴은 정상):', (err as Error)?.message || err);
+            }
+
             const finalSssCount = countSss(rankedKeywords as any[]);
             const finalQualityBackfillCount = Math.max(0, rankedKeywords.length - finalSssCount);
             console.log(`[KEYWORD-MASTER] MDP 발굴 완료: 후보 ${totalAdded}개 → 노출 ${rankedKeywords.length}개, SSS ${finalSssCount}개, 품질보충 ${finalQualityBackfillCount}개, 보충 ${crossCategorySupplementCount}개, 실측보강 ${directMeasuredSupplementCount}개`);
@@ -1007,6 +1027,17 @@ export function setupKeywordDiscoveryHandlers(): void {
                 const vacFields = isVacancyReliable(vac)
                   ? { vacancySlots: vac!.vacancySlots, vacancyReliable: true, vacancyAction: vac!.suggestedAction }
                   : {};
+                // C4 slice3: 실측 콘텐츠 브리핑(경쟁사 본문 수집된 상위 소수만). 실측 사실만 부가.
+                const brief = briefMap.get(item.keyword);
+                const briefFields = isContentBriefReliable(brief)
+                  ? {
+                      briefRecommendedWords: brief!.recommendedWordCount,
+                      briefAvgImages: Math.round(brief!.avgImageCount),
+                      briefMustInclude: brief!.mustIncludeTerms,
+                      briefCompetitorTitles: brief!.competitorTitles,
+                      briefMeasured: true,
+                    }
+                  : {};
                 const withValue: MDPResult = {
                   ...item,
                   valueGrade: valueGate.valueGrade,
@@ -1014,6 +1045,7 @@ export function setupKeywordDiscoveryHandlers(): void {
                   valueVerified: valueGate.valuable,
                   valueSummary: valueGate.summary,
                   ...vacFields,
+                  ...briefFields,
                 };
                 // C2: 실측 SERP 부가필드(측정된 상위 후보만). 코어 등급/score 미변경(불변 새 객체).
                 const serp = serpMap.get(item.keyword);

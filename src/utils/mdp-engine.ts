@@ -47,6 +47,12 @@ export interface MDPResult {
     vacancySlots?: number;
     vacancyReliable?: boolean;
     vacancyAction?: string;
+    // C4 slice3: serp-content-analyzer 실측 콘텐츠 브리핑(상위 소수, puppeteer 본문크롤). 실측 사실만(추정치 아님)
+    briefRecommendedWords?: number;
+    briefAvgImages?: number;
+    briefMustInclude?: string[];
+    briefCompetitorTitles?: string[];
+    briefMeasured?: boolean;
     // Phase 3: Monetization
     cvi?: number;
     cpc?: number;

@@ -96,6 +96,7 @@ const testFiles = [
     path.join(__dirname, '..', 'src', 'utils', '__tests__', 'serp-deep-wiring-regression.test.ts'),
     path.join(__dirname, '..', 'src', 'utils', '__tests__', 'keyword-value-verifier.test.ts'),
     path.join(__dirname, '..', 'src', 'utils', '__tests__', 'vacancy-enricher.test.ts'),
+    path.join(__dirname, '..', 'src', 'utils', '__tests__', 'content-brief-enricher.test.ts'),
 ];
 
 for (const testFile of testFiles) {

@@ -71,6 +71,18 @@ assert('vacancy 신뢰 실측(isVacancyReliable)일 때만 부가',
   /isVacancyReliable\(vac\)/.test(disc));
 assert('MDPResult.vacancySlots? 선언', /vacancySlots\?\s*:/.test(mdp));
 
+// ── C4 slice3: serp-content-analyzer 실측 콘텐츠 브리핑(chrome 가드, 실측 사실만) ──
+assert('enrichKeywordsWithContentBrief import',
+  /import\s*\{[^}]*enrichKeywordsWithContentBrief[^}]*\}\s*from\s*'[^']*content-brief-enricher'/.test(disc));
+assert('브리핑은 chrome 가드(puppeteer 본문크롤)',
+  /if\s*\(\s*!quickPreview[\s\S]{0,150}isChromeAvailable\(\)[\s\S]{0,500}enrichKeywordsWithContentBrief/.test(disc));
+assert('브리핑 신뢰 실측일 때만 부가', /isContentBriefReliable\(brief\)/.test(disc));
+assert('MDPResult.briefRecommendedWords? 선언', /briefRecommendedWords\?\s*:/.test(mdp));
+// win-predictor(예상순위/트래픽 추정치)는 발굴 배선에 미승격(추정치 UI 금지 규칙).
+// 주석 언급은 무방 — 실제 import/호출(predictWin())이 없어야 한다.
+assert('win-predictor(predictWin) 은 발굴에 미배선(추정치 UI 금지)',
+  !/import[^;]*win-predictor/.test(disc) && !/predictWin\s*\(/.test(disc));
+
 // ── 24/7 워커(live-golden-radar)엔 puppeteer 미연결(부하 회피) ──
 const radar = fs.readFileSync(path.join(__dirname, '..', '..', 'mobile', 'live-golden-radar.ts'), 'utf8');
 assert('24/7 워커에 analyzeSmartBlocks 미연결', !/analyzeSmartBlocks/.test(radar));
