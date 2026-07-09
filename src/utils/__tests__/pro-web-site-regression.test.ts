@@ -1054,6 +1054,11 @@ assert('display-grade C rows are blocked from golden board render paths',
     && /proGoldenBoardItems[\s\S]{0,600}\.filter\(function\(item\) \{ return displayGradeForRow\(item\) !== 'C'; \}\)/.test(proWebHtml));
 assert('preview policy label is honest (no lower-five wording)',
   proWebHtml.includes('실측 검증 5선 공개') && !proWebHtml.includes('하위 5개 공개'));
+assert('golden board renders category tabs with counts and click filter',
+  proWebHtml.includes('id="goldenCategoryTabs"')
+    && proWebHtml.includes('function renderGoldenCategoryTabs')
+    && proWebHtml.includes('data-golden-category')
+    && proWebHtml.includes('GOLDEN_CATEGORY_LABELS'));
 assert('search-volume reason is keyword-semantic, not category boilerplate only',
   proWebHtml.includes('function keywordSemanticMeaning')
     && proWebHtml.includes('KEYWORD_NEED_TOKENS')

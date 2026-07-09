@@ -476,6 +476,20 @@ export function renderLewordProWeb(): string {
       line-height: 1.2;
     }
     .gk-metrics { display: grid; grid-template-columns: repeat(3, 1fr); gap: 8px; }
+    .golden-category-tabs { display: flex; flex-wrap: wrap; gap: 6px; margin-top: 10px; }
+    .golden-cat-tab {
+      min-height: 30px;
+      border: 1px solid var(--line);
+      border-radius: 999px;
+      background: var(--surface-2);
+      color: var(--muted);
+      padding: 5px 11px;
+      font-size: 12px;
+      font-weight: 900;
+      cursor: pointer;
+    }
+    .golden-cat-tab small { font-weight: 800; opacity: 0.72; margin-left: 3px; }
+    .golden-cat-tab.active { border-color: rgba(14,165,233,.5); background: rgba(14,165,233,.10); color: #0369a1; }
     .gk-flags { display: flex; flex-wrap: wrap; gap: 5px; margin-top: 7px; }
     .gk-flag {
       border: 1px solid var(--line);
@@ -1581,6 +1595,7 @@ export function renderLewordProWeb(): string {
           <div class="quality-strip" id="goldenQualityStrip"></div>
           <div id="goldenNotice" class="locked">황금키워드 보드를 불러오는 중입니다.</div>
           <button class="btn primary public-preview-cta" type="button" id="goldenMoreLogin">더 많은 황금키워드 보러가기</button>
+          <div class="golden-category-tabs" id="goldenCategoryTabs" style="display:none;"></div>
           <div class="golden-list" id="goldenBoardList" style="margin-top:10px;"></div>
         </section>
 
@@ -7943,6 +7958,48 @@ export function renderLewordProWeb(): string {
           : qualityPill(lockCount > 0 ? 'Pro 잠금' : 'Pro 공개', fmt(lockCount), lockCount > 0 ? '상위 보드 보호' : '세션 잠금 해제', lockCount > 0 ? 'warn' : 'good'),
       ].join('');
     }
+    // 카테고리 탭: 보드를 카테고리/주제별로 나눠 보는 표시 필터(Pro 전용). 데이터는 서버가 준
+    // category 필드 그대로 사용 — 표시용 분류일 뿐 순위·등급에 영향 없음.
+    const GOLDEN_CATEGORY_LABELS = {
+      policy: '정책/지원금', finance: '재테크/금융', health: '건강', life_tips: '생활꿀팁',
+      it: 'IT', ai_tool: 'AI도구', game: '게임', shopping: '쇼핑', electronics: '가전/전자',
+      home_life: '리빙/생활', fashion: '패션', beauty: '뷰티', food: '맛집/음식', recipe: '레시피',
+      travel_domestic: '국내여행', travel_overseas: '해외여행', sports: '스포츠', celebrity: '연예',
+      broadcast: '방송', education: '교육', parenting: '육아', pet: '반려동물',
+      live_issue: '실시간이슈', live: '실시간', all: '종합',
+    };
+    let goldenCategoryFilter = '';
+    let lastGoldenRowsArgs = null;
+    function goldenCategoryKeyOf(item) {
+      return normalizeText(item && (item.category || item.categoryName) || '').toLowerCase() || 'live';
+    }
+    function goldenCategoryLabelOf(key) {
+      return GOLDEN_CATEGORY_LABELS[key] || key;
+    }
+    function renderGoldenCategoryTabs(rows, exact) {
+      const tabs = qs('goldenCategoryTabs');
+      if (!tabs) return;
+      if (!exact || !rows.length) {
+        tabs.style.display = 'none';
+        tabs.innerHTML = '';
+        return;
+      }
+      const counts = new Map();
+      rows.forEach(function(item) {
+        const key = goldenCategoryKeyOf(item);
+        counts.set(key, (counts.get(key) || 0) + 1);
+      });
+      const ordered = Array.from(counts.entries()).sort(function(a, b) { return b[1] - a[1]; });
+      if (goldenCategoryFilter && !counts.has(goldenCategoryFilter)) goldenCategoryFilter = '';
+      tabs.style.display = 'flex';
+      tabs.innerHTML = [
+        '<button class="golden-cat-tab' + (goldenCategoryFilter ? '' : ' active') + '" type="button" data-golden-category="">전체<small>' + fmt(rows.length) + '</small></button>',
+      ].concat(ordered.map(function(entry) {
+        const active = goldenCategoryFilter === entry[0] ? ' active' : '';
+        return '<button class="golden-cat-tab' + active + '" type="button" data-golden-category="' + escapeAttr(entry[0]) + '">'
+          + escapeHtml(goldenCategoryLabelOf(entry[0])) + '<small>' + fmt(entry[1]) + '</small></button>';
+      })).join('');
+    }
     function goldenMeasuredFlagsHtml(item, exact) {
       if (!exact || !item) return '';
       const flags = [];
@@ -7970,10 +8027,15 @@ export function renderLewordProWeb(): string {
       return '<div class="gk-flags">' + flags.join('') + '</div>';
     }
     function renderGoldenRows(items, exact, target) {
+      lastGoldenRowsArgs = { items: items, exact: exact, target: target };
       const limit = exact ? Math.max(60, Math.min(120, Number(target) || 120)) : 5;
       const freshRows = filterFreshGoldenItems(items || []);
       const sourceRows = exact ? (Array.isArray(items) ? items : []) : filterDisplayGoldenItems(items || []);
-      const rows = sourceRows.slice(0, limit);
+      renderGoldenCategoryTabs(sourceRows, exact);
+      const filteredRows = exact && goldenCategoryFilter
+        ? sourceRows.filter(function(item) { return goldenCategoryKeyOf(item) === goldenCategoryFilter; })
+        : sourceRows;
+      const rows = filteredRows.slice(0, limit);
       if (!rows.length) {
         qs('goldenBoardList').innerHTML = '';
         qs('goldenNotice').textContent = freshRows.length
@@ -9225,6 +9287,14 @@ export function renderLewordProWeb(): string {
       const target = event.target.closest('[data-catalog-run]');
       if (!target) return;
       runCatalogItem(target.getAttribute('data-catalog-run'));
+    });
+    document.addEventListener('click', function(event) {
+      const tab = event.target.closest('[data-golden-category]');
+      if (!tab) return;
+      goldenCategoryFilter = tab.getAttribute('data-golden-category') || '';
+      if (lastGoldenRowsArgs) {
+        renderGoldenRows(lastGoldenRowsArgs.items, lastGoldenRowsArgs.exact, lastGoldenRowsArgs.target);
+      }
     });
     document.addEventListener('click', function(event) {
       const target = event.target.closest('[data-board-action]');
