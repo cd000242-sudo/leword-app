@@ -90,6 +90,8 @@ const testFiles = [
     path.join(__dirname, '..', 'src', 'utils', '__tests__', 'mobile-pc-feature-catalog.test.ts'),
     path.join(__dirname, '..', 'src', 'utils', '__tests__', 'pro-web-site-regression.test.ts'),
     path.join(__dirname, '..', 'src', 'utils', '__tests__', 'mobile-source-signals.test.ts'),
+    path.join(__dirname, '..', 'src', 'utils', '__tests__', 'grade-characterization.test.ts'),
+    path.join(__dirname, '..', 'src', 'utils', '__tests__', 'serp-difficulty-adapter.test.ts'),
 ];
 
 for (const testFile of testFiles) {
