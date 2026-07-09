@@ -38,6 +38,11 @@ export interface MDPResult {
     shoppingDominant?: boolean;
     opportunityScore?: number;
     serpMeasured?: boolean;
+    // C4: keyword-value-verifier 순수 가치검증(표시용 부가 — 코어 등급/필터와 무관)
+    valueGrade?: 'S+' | 'S' | 'A' | 'B' | 'C';
+    valueQualityScore?: number;
+    valueVerified?: boolean;
+    valueSummary?: string;
     // Phase 3: Monetization
     cvi?: number;
     cpc?: number;

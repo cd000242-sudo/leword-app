@@ -30,6 +30,7 @@ import { isChromeAvailable } from '../../utils/chrome-finder';
 import { analyzeSmartBlocks } from '../../utils/pro-hunter-v12/smartblock-parser';
 import { enrichKeywordsWithDeepSerp, applySerpDifficulty } from '../../utils/pro-hunter-v12/deep-serp-enricher';
 import type { SerpDifficultySignal } from '../../utils/pro-hunter-v12/serp-difficulty-adapter';
+import { verifyKeywordValue } from '../../utils/pro-hunter-v12/keyword-value-verifier';
 
 // v4.0: 외부 신호 캐시 (앱 lifetime, 30분 TTL)
 let _v4SignalCache: { map: Map<string, ExternalSignals>; expiresAt: number } | null = null;
@@ -970,11 +971,26 @@ export function setupKeywordDiscoveryHandlers(): void {
             return {
               success: true,
               keywords: (rankedKeywords as MDPResult[]).map((item) => {
-                const serp = serpMap.get(item.keyword);
-                if (!serp || !serp.measured) return item;
-                // 코어 등급/score 미변경 — 실측 SERP 부가필드만 덧붙임(불변 새 객체).
-                return {
+                // C4: keyword-value-verifier 순수 가치검증(무비용, 전 항목) — 표시용 부가필드만.
+                // 코어 등급/score/필터 미변경(isKilled 를 랭킹에서 제외하지 않음 — 표시 슬라이스).
+                const valueGate = verifyKeywordValue({
+                  keyword: item.keyword,
+                  searchVolume: item.searchVolume,
+                  documentCount: item.documentCount,
+                  mode: 'lenient',
+                });
+                const withValue: MDPResult = {
                   ...item,
+                  valueGrade: valueGate.valueGrade,
+                  valueQualityScore: valueGate.qualityScore,
+                  valueVerified: valueGate.valuable,
+                  valueSummary: valueGate.summary,
+                };
+                // C2: 실측 SERP 부가필드(측정된 상위 후보만). 코어 등급/score 미변경(불변 새 객체).
+                const serp = serpMap.get(item.keyword);
+                if (!serp || !serp.measured) return withValue;
+                return {
+                  ...withValue,
                   winnable: applySerpDifficulty(item, serp, 0).winnable,
                   blogFriendly: serp.blogFriendly,
                   shoppingDominant: serp.shoppingDominant,

@@ -52,6 +52,15 @@ assert('grade/score 를 serpAdjusted 로 재산정하지 않음',
 assert('MDPResult.winnable? 선언', /winnable\?\s*:\s*boolean/.test(mdp));
 assert('MDPResult.serpMeasured? 선언', /serpMeasured\?\s*:\s*boolean/.test(mdp));
 
+// ── C4: keyword-value-verifier 메인 승격(표시용·비필터·무비용) ──
+assert('verifyKeywordValue import', /import\s*\{\s*verifyKeywordValue\s*\}\s*from\s*'[^']*keyword-value-verifier'/.test(disc));
+assert('발굴 배선은 lenient 모드', /verifyKeywordValue\(\{[\s\S]{0,300}mode:\s*'lenient'/.test(disc));
+assert('valueGrade 부가필드 주석', /valueGrade:\s*valueGate\.valueGrade/.test(disc));
+assert('MDPResult.valueGrade? 선언', /valueGrade\?\s*:/.test(mdp));
+// isKilled 를 랭킹 필터로 쓰지 않음(표시 슬라이스 — 결과 수 급감 방지)
+assert('isKilled 로 발굴 결과를 filter 하지 않음',
+  !/\.filter\([^)]*valueGate[^)]*isKilled/.test(disc) && !/isKilled\s*\)\s*continue/.test(disc));
+
 // ── 24/7 워커(live-golden-radar)엔 puppeteer 미연결(부하 회피) ──
 const radar = fs.readFileSync(path.join(__dirname, '..', '..', 'mobile', 'live-golden-radar.ts'), 'utf8');
 assert('24/7 워커에 analyzeSmartBlocks 미연결', !/analyzeSmartBlocks/.test(radar));
