@@ -1,6 +1,7 @@
 interface BrowserPoolConfig {
   maxSize?: number;
   idleTimeout?: number;
+  maxLeaseMs?: number;
   headless?: boolean;
 }
 
@@ -281,6 +282,8 @@ class BrowserInstance {
   pages: Set<any> = new Set();
   lastUsed: number;
   inUse: boolean = false;
+  releasing: boolean = false;
+  leaseStartedAt: number | null = null;
 
   constructor(browser: any) {
     this.browser = browser;
@@ -323,8 +326,27 @@ class BrowserInstance {
     ]);
   }
 
+  markAcquired(): void {
+    this.inUse = true;
+    this.lastUsed = Date.now();
+    this.leaseStartedAt = this.lastUsed;
+  }
+
+  markReleased(): void {
+    this.inUse = false;
+    this.lastUsed = Date.now();
+    this.leaseStartedAt = null;
+  }
+
   isIdle(timeout: number): boolean {
-    return !this.inUse && Date.now() - this.lastUsed > timeout;
+    return !this.inUse && !this.releasing && Date.now() - this.lastUsed > timeout;
+  }
+
+  isLeaseExpired(timeout: number): boolean {
+    return timeout > 0
+      && this.inUse
+      && this.leaseStartedAt !== null
+      && Date.now() - this.leaseStartedAt > timeout;
   }
 }
 
@@ -332,33 +354,41 @@ export class PuppeteerPool {
   private pool: BrowserInstance[] = [];
   private maxSize: number;
   private idleTimeout: number;
+  private maxLeaseMs: number;
   private headless: boolean;
   private engine: { engine: BrowserEngine; chromium: any } | null = null;
   private cleanupInterval: NodeJS.Timeout | null = null;
   private waiters: Array<{ resolve: (b: any) => void; reject: (e: any) => void; timer: NodeJS.Timeout }> = [];
   private acquireTimeoutMs: number = 60000;
+  private pendingCreates = 0;
 
   constructor(config: BrowserPoolConfig = {}) {
     this.maxSize = config.maxSize || 3;
     this.idleTimeout = config.idleTimeout || 60000;
+    this.maxLeaseMs = Number.isFinite(config.maxLeaseMs) && Number(config.maxLeaseMs) > 0
+      ? Math.floor(Number(config.maxLeaseMs))
+      : 0;
     this.headless = config.headless !== false;
     this.startCleanup();
   }
 
   async acquire(): Promise<any> {
-    const instance = this.pool.find(b => !b.inUse && b.browser && b.browser.isConnected());
+    const instance = this.pool.find(b => !b.inUse && !b.releasing && b.browser && b.browser.isConnected());
     if (instance) {
-      instance.inUse = true;
-      instance.lastUsed = Date.now();
+      instance.markAcquired();
       return instance.browser;
     }
 
-    if (this.pool.length < this.maxSize) {
-      const created = await this.createBrowser();
-      this.pool.push(created);
-      created.inUse = true;
-      created.lastUsed = Date.now();
-      return created.browser;
+    if (this.pool.length + this.pendingCreates < this.maxSize) {
+      this.pendingCreates += 1;
+      try {
+        const created = await this.createBrowser();
+        this.pool.push(created);
+        created.markAcquired();
+        return created.browser;
+      } finally {
+        this.pendingCreates = Math.max(0, this.pendingCreates - 1);
+      }
     }
 
     return new Promise<any>((resolve, reject) => {
@@ -374,19 +404,20 @@ export class PuppeteerPool {
 
   release(browser: any): void {
     const instance = this.pool.find(b => b.browser === browser);
-    if (instance) {
-      if (instance.pages.size > 0) instance.closeAllPages().catch(() => {});
-      instance.inUse = false;
-      instance.lastUsed = Date.now();
-    }
-
-    const waiter = this.waiters.shift();
-    if (waiter && instance) {
-      clearTimeout(waiter.timer);
-      instance.inUse = true;
-      instance.lastUsed = Date.now();
-      waiter.resolve(instance.browser);
-    }
+    if (!instance || instance.releasing) return;
+    instance.releasing = true;
+    instance.markReleased();
+    void instance.closeAllPages()
+      .catch((error) => console.warn('[BROWSER-POOL] release page cleanup failed:', error))
+      .finally(() => {
+        instance.releasing = false;
+        if (!this.pool.includes(instance) || !instance.browser?.isConnected()) return;
+        const waiter = this.waiters.shift();
+        if (!waiter) return;
+        clearTimeout(waiter.timer);
+        instance.markAcquired();
+        waiter.resolve(instance.browser);
+      });
   }
 
   async acquireWithStealth(): Promise<{ browser: any; page: any }> {
@@ -454,9 +485,18 @@ export class PuppeteerPool {
 
   private async cleanup(): Promise<void> {
     const toRemove: BrowserInstance[] = [];
+    let staleLeaseCount = 0;
     for (const instance of this.pool) {
       if (!instance.inUse && instance.isIdle(this.idleTimeout)) toRemove.push(instance);
       else if (!instance.browser || !instance.browser.isConnected()) toRemove.push(instance);
+      else if (instance.isLeaseExpired(this.maxLeaseMs)) {
+        staleLeaseCount += 1;
+        toRemove.push(instance);
+      }
+    }
+
+    if (staleLeaseCount > 0) {
+      console.warn(`[BROWSER-POOL] force-closing ${staleLeaseCount} stale lease(s) after ${this.maxLeaseMs}ms`);
     }
 
     for (const instance of toRemove) {
@@ -467,6 +507,14 @@ export class PuppeteerPool {
       }
       const index = this.pool.indexOf(instance);
       if (index > -1) this.pool.splice(index, 1);
+    }
+
+    if (staleLeaseCount > 0) {
+      const waiters = this.waiters.splice(0);
+      for (const waiter of waiters) {
+        clearTimeout(waiter.timer);
+        waiter.reject(new Error('[BROWSER-POOL] stale lease recycled; retry the request'));
+      }
     }
   }
 
@@ -479,10 +527,10 @@ export class PuppeteerPool {
   }
 
   async closeIdle(): Promise<void> {
-    const toClose = this.pool.filter(b => !b.inUse);
+    const toClose = this.pool.filter(b => !b.inUse && !b.releasing);
     if (toClose.length === 0) return;
     await Promise.allSettled(toClose.map(b => b.close()));
-    this.pool = this.pool.filter(b => b.inUse);
+    this.pool = this.pool.filter(b => b.inUse || b.releasing);
   }
 
   async destroy(): Promise<void> {
@@ -565,12 +613,16 @@ export async function destroyCompatibleBrowserLaunches(): Promise<void> {
 function buildPoolConfig(): BrowserPoolConfig {
   const envMaxSize = Number.parseInt(process.env.LEWORD_BROWSER_POOL_MAX_SIZE || '', 10);
   const envIdleTimeout = Number.parseInt(process.env.LEWORD_BROWSER_POOL_IDLE_MS || '', 10);
+  const envMaxLeaseMs = Number.parseInt(process.env.LEWORD_BROWSER_POOL_MAX_LEASE_MS || '', 10);
   if (Number.isFinite(envMaxSize) && envMaxSize > 0) {
     return {
       maxSize: Math.max(1, Math.min(8, envMaxSize)),
       idleTimeout: Number.isFinite(envIdleTimeout) && envIdleTimeout >= 5000
         ? envIdleTimeout
         : 30000,
+      maxLeaseMs: Number.isFinite(envMaxLeaseMs) && envMaxLeaseMs >= 60000
+        ? envMaxLeaseMs
+        : 0,
       headless: true,
     };
   }

@@ -17,6 +17,7 @@ const testFiles = [
     path.join(__dirname, '..', 'src', 'utils', '__tests__', 'policy-briefing.test.ts'),
     path.join(__dirname, '..', 'src', 'utils', '__tests__', 'updater-autostart-regression.test.ts'),
     path.join(__dirname, '..', 'src', 'utils', '__tests__', 'browser-process-regression.test.ts'),
+    path.join(__dirname, '..', 'src', 'utils', '__tests__', 'puppeteer-pool-runtime.test.ts'),
     path.join(__dirname, '..', 'src', 'utils', '__tests__', 'rank-url-normalizer.test.ts'),
     path.join(__dirname, '..', 'src', 'utils', '__tests__', 'background-worker-toggle-regression.test.ts'),
     path.join(__dirname, '..', 'src', 'utils', '__tests__', 'realtime-strength.test.ts'),
