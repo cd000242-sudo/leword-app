@@ -100,6 +100,9 @@ const testFiles = [
     path.join(__dirname, '..', 'src', 'utils', '__tests__', 'live-board-uploader.test.ts'),
     path.join(__dirname, '..', 'src', 'utils', '__tests__', 'real-demand-verifier.test.ts'),
     path.join(__dirname, '..', 'src', 'utils', '__tests__', 'surge-emergence-tracker.test.ts'),
+    path.join(__dirname, '..', 'src', 'utils', '__tests__', 'live-golden-worker-health.test.ts'),
+    path.join(__dirname, '..', 'src', 'utils', '__tests__', 'live-golden-category-policy.test.ts'),
+    path.join(__dirname, '..', 'src', 'utils', '__tests__', 'live-golden-supply-report.test.ts'),
 ];
 
 for (const testFile of testFiles) {

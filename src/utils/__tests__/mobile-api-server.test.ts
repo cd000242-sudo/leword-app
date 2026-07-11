@@ -120,6 +120,18 @@ const result: MobileKeywordResult = {
       healthJson.runtime?.mode === 'production-api-worker'
         && Array.isArray(healthJson.runtime?.checks)
         && healthJson.runtime.checks.some((item: any) => item.name === 'Naver SearchAd credentials configured'));
+    assert('health exposes live golden worker heartbeat freshness',
+      typeof healthJson.liveGolden?.worker?.available === 'boolean'
+        && typeof healthJson.liveGolden?.worker?.healthy === 'boolean'
+        && typeof healthJson.liveGolden?.worker?.stale === 'boolean'
+        && typeof healthJson.liveGolden?.worker?.reason === 'string',
+      JSON.stringify(healthJson.liveGolden));
+    assert('health exposes automated live golden supply gate without claiming human-review superiority',
+      ['pass', 'fail'].includes(healthJson.liveGolden?.supply?.automatedSupplyGate)
+        && ['pass', 'fail', 'pending-human-review'].includes(healthJson.liveGolden?.supply?.superiorityGate)
+        && Array.isArray(healthJson.liveGolden?.supply?.categories)
+        && healthJson.liveGolden.supply.categories.length === 12,
+      JSON.stringify(healthJson.liveGolden?.supply));
 
     const previousCodexCli = process.env.LEWORD_CODEX_CLI;
     const previousClaudeCli = process.env.LEWORD_CLAUDE_CODE_CLI;

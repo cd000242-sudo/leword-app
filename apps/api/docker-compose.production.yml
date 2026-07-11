@@ -13,6 +13,7 @@ services:
       LEWORD_MOBILE_CACHE_FILE: /data/mobile-cache.json
       LEWORD_MOBILE_KEYWORD_CACHE_FILE: /data/keyword-cache.json
       LEWORD_MOBILE_LIVE_GOLDEN_BOARD_FILE: /data/live-golden-board.json
+      LEWORD_MOBILE_LIVE_GOLDEN_HEARTBEAT_FILE: /data/live-golden-worker-heartbeat.json
       LEWORD_MOBILE_LIVE_GOLDEN_ENABLED: "true"
       LEWORD_MOBILE_LIVE_GOLDEN_READONLY: "true"
       LEWORD_MOBILE_LIVE_GOLDEN_ON_START: "false"
@@ -36,9 +37,9 @@ services:
     healthcheck:
       test:
         - CMD
-        - node
-        - -e
-        - "const port=process.env.LEWORD_API_PORT||34983; fetch('http://127.0.0.1:'+port+'/health').then((r)=>process.exit(r.ok?0:1)).catch(()=>process.exit(1))"
+        - curl
+        - -fsS
+        - http://127.0.0.1:34983/health
       interval: 30s
       timeout: 5s
       start_period: 20s
@@ -49,7 +50,13 @@ services:
     restart: unless-stopped
     command: ["npm", "--prefix", "apps/api", "run", "worker:live-golden"]
     healthcheck:
-      disable: true
+      test:
+        - CMD-SHELL
+        - "test -s /data/live-golden-worker-heartbeat.json && find /data/live-golden-worker-heartbeat.json -mmin -3 -print -quit | grep -q ."
+      interval: 60s
+      timeout: 5s
+      start_period: 30s
+      retries: 3
     env_file:
       - .env.production
     environment:
@@ -58,6 +65,7 @@ services:
       LEWORD_MOBILE_CACHE_FILE: /data/mobile-cache.json
       LEWORD_MOBILE_KEYWORD_CACHE_FILE: /data/keyword-cache.json
       LEWORD_MOBILE_LIVE_GOLDEN_BOARD_FILE: /data/live-golden-board.json
+      LEWORD_MOBILE_LIVE_GOLDEN_HEARTBEAT_FILE: /data/live-golden-worker-heartbeat.json
       LEWORD_MOBILE_LIVE_GOLDEN_ENABLED: "true"
       LEWORD_MOBILE_LIVE_GOLDEN_ON_START: "true"
       LEWORD_MOBILE_LIVE_GOLDEN_IGNORE_PREWARM: "true"

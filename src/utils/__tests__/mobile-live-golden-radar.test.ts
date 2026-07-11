@@ -213,7 +213,10 @@ function thinProfileCount(items: Array<{ keyword: string }>): number {
   assert('live radar publishes live notification kind',
     notifications.items.every((item) => item.kind === 'live-golden'),
     JSON.stringify(notifications.items));
-  assert('live radar rotates next category', snapshot.nextCategoryId === 'policy');
+  assert('live radar exposes a deterministic next category from the approved candidate set',
+    ['celebrity', 'policy'].includes(snapshot.nextCategoryId)
+      && snapshot.categoryStats?.celebrity?.scans === 1,
+    `${snapshot.nextCategoryId}:${JSON.stringify(snapshot.categoryStats)}`);
   assert('live radar filters thin person profile keyword',
     !snapshot.board.some((item) => item.keyword === '리센느 프로필'),
     snapshot.board.map((item) => item.keyword).join('|'));
@@ -5107,6 +5110,110 @@ function thinProfileCount(items: Array<{ keyword: string }>): number {
   const skipped = await skippedRadar.runOnce();
   assert('live radar skips while server is busy',
     skipped.skippedRuns === 1 && skippedDiscoverCalls === 0 && /busy/.test(skipped.lastMessage || ''));
+
+  let deficitScheduledCategory = '';
+  const deficitSchedulerBoardFile = path.join(process.cwd(), 'tmp', 'mobile-live-golden-deficit-scheduler-test.json');
+  fs.mkdirSync(path.dirname(deficitSchedulerBoardFile), { recursive: true });
+  fs.writeFileSync(deficitSchedulerBoardFile, JSON.stringify({
+    boardUpdatedAt: '2026-07-05T00:00:00.000Z',
+    items: [
+      '청년미래적금 가입신청 대상',
+      '근로장려금 지급일 조회',
+      '문화누리카드 사용처 조회',
+      '에너지바우처 잔액조회',
+    ].map((keyword, index) => previewBoardItem(keyword, 'policy', index)),
+  }), 'utf8');
+  const deficitScheduledRadar = new MobileLiveGoldenRadar({
+    notificationInbox: inbox,
+    runOnStart: false,
+    boardFile: deficitSchedulerBoardFile,
+    boardTarget: 10,
+    categories: ['policy', 'education', 'car'],
+    getEnvConfig: () => ({
+      naverClientId: 'category-scheduler-client',
+      naverClientSecret: 'category-scheduler-secret',
+    }),
+    liveSeedProvider: async () => [],
+    enableBackfill: false,
+    now: () => new Date('2026-07-05T00:01:00.000Z'),
+    discover: async (_config, options) => {
+      deficitScheduledCategory = String(options.category || '');
+      return [];
+    },
+  });
+  const deficitScheduledSnapshot = await deficitScheduledRadar.runOnce();
+  assert('live radar uses deficit category policy instead of fixed round robin order',
+    deficitScheduledCategory === 'education'
+      && deficitScheduledSnapshot.categoryStats?.education?.scans === 1
+      && deficitScheduledSnapshot.categoryStats.education.published === 0,
+    `${deficitScheduledCategory}:${JSON.stringify(deficitScheduledSnapshot.categoryStats)}`);
+  fs.rmSync(deficitSchedulerBoardFile, { force: true });
+
+  let searchAdQuotaNowMs = Date.parse('2026-07-11T10:00:00.000Z');
+  const searchAdQuotaResetAtMs = Date.parse('2026-07-11T15:00:00.000Z');
+  let searchAdQuotaRetryDelay = 0;
+  let searchAdQuotaRetryHandler: (() => void) | null = null;
+  let searchAdQuotaIntervalHandler: (() => void) | null = null;
+  let searchAdQuotaDiscoverCalls = 0;
+  const searchAdQuotaRadar = new MobileLiveGoldenRadar({
+    notificationInbox: inbox,
+    runOnStart: false,
+    intervalMs: 180_000,
+    getEnvConfig: () => ({
+      naverClientId: 'searchad-quota-client',
+      naverClientSecret: 'searchad-quota-secret',
+      naverSearchAdAccessLicense: 'searchad-access-license',
+      naverSearchAdSecretKey: 'searchad-secret-key',
+      naverSearchAdCustomerId: '1234567',
+    }),
+    liveSeedProvider: async () => [],
+    enableBackfill: false,
+    searchAdQuotaState: () => ({
+      exhausted: true,
+      calls: 22_000,
+      remaining: 0,
+      softCeiling: 22_000,
+      resetAtMs: searchAdQuotaResetAtMs,
+    }),
+    setIntervalFn: (handler) => {
+      searchAdQuotaIntervalHandler = handler;
+      return 'searchad-quota-interval';
+    },
+    clearIntervalFn: () => undefined,
+    setTimeoutFn: (handler, delayMs) => {
+      searchAdQuotaRetryHandler = handler;
+      searchAdQuotaRetryDelay = delayMs;
+      return 'searchad-quota-timeout';
+    },
+    clearTimeoutFn: () => undefined,
+    now: () => new Date(searchAdQuotaNowMs),
+    discover: async () => {
+      searchAdQuotaDiscoverCalls += 1;
+      return [];
+    },
+  });
+  searchAdQuotaRadar.start();
+  const searchAdQuotaSkipped = await searchAdQuotaRadar.runUntilTarget(8);
+  assert('live radar circuit-breaks all catch-up work at the SearchAd soft ceiling',
+    searchAdQuotaSkipped.skippedRuns === 1
+      && searchAdQuotaDiscoverCalls === 0
+      && searchAdQuotaSkipped.searchAdQuota?.exhausted === true
+      && searchAdQuotaSkipped.searchAdQuota.calls === 22_000
+      && /SearchAd daily soft ceiling/.test(searchAdQuotaSkipped.lastMessage || ''),
+    JSON.stringify(searchAdQuotaSkipped));
+  assert('SearchAd circuit breaker sleeps until the next KST reset instead of polling every interval',
+    searchAdQuotaRetryDelay >= searchAdQuotaResetAtMs - searchAdQuotaNowMs
+      && /2026-07-11T15:00:00/.test(searchAdQuotaSkipped.nextRetryAt || ''),
+    `${searchAdQuotaRetryDelay}:${searchAdQuotaSkipped.nextRetryAt}`);
+  searchAdQuotaIntervalHandler?.();
+  await new Promise((resolve) => setTimeout(resolve, 25));
+  assert('scheduled worker interval stays idle while SearchAd quota sleep is active',
+    searchAdQuotaDiscoverCalls === 0 && searchAdQuotaSkipped.skippedRuns === 1,
+    `${searchAdQuotaDiscoverCalls}:${searchAdQuotaSkipped.skippedRuns}`);
+  searchAdQuotaNowMs = searchAdQuotaResetAtMs + 1_000;
+  searchAdQuotaRetryHandler?.();
+  await new Promise((resolve) => setTimeout(resolve, 25));
+  searchAdQuotaRadar.stop();
 
   let quotaRetryNowMs = Date.parse('2026-06-21T10:00:00.000Z');
   let quotaRetryHandler: (() => void) | null = null;

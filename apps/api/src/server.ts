@@ -72,6 +72,11 @@ import {
   createMobileLiveGoldenRadarFromEnv,
   type MobileLiveGoldenRadar,
 } from '../../../src/mobile/live-golden-radar';
+import {
+  readLiveGoldenWorkerHealth,
+  resolveLiveGoldenWorkerHeartbeatFile,
+} from '../../../src/mobile/live-golden-worker-health';
+import { buildLiveGoldenSupplyReport } from '../../../src/mobile/live-golden-supply-report';
 import { InMemoryMobileResultCache } from '../../../src/mobile/result-cache';
 import {
   applyKeywordAiJudge,
@@ -200,6 +205,7 @@ export interface LewordApiServerOptions {
   prewarmService?: MobilePrewarmService | null;
   prewarmScheduler?: MobilePrewarmScheduler | null;
   liveGoldenRadar?: MobileLiveGoldenRadar | null;
+  liveGoldenWorkerHeartbeatFile?: string;
   authToken?: string | null;
   entitlementVerifier?: MobileEntitlementVerifier | null;
   apiGuardrails?: Partial<MobileApiGuardrailOptions> | null;
@@ -3525,6 +3531,8 @@ export function createLewordApiServer(options: LewordApiServerOptions = {}): htt
       }
       return { ok: true };
     });
+  const liveGoldenWorkerHeartbeatFile = options.liveGoldenWorkerHeartbeatFile
+    || resolveLiveGoldenWorkerHeartbeatFile();
   const entitlementVerifier = options.entitlementVerifier === null
     ? null
     : options.entitlementVerifier || createEnvironmentMobileEntitlementVerifier({
@@ -3753,6 +3761,9 @@ export function createLewordApiServer(options: LewordApiServerOptions = {}): htt
     }
 
     if (req.method === 'GET' && url.pathname === '/health') {
+      const liveGoldenSnapshot = liveGoldenRadar?.snapshot() || null;
+      const liveGoldenWorker = readLiveGoldenWorkerHealth(liveGoldenWorkerHeartbeatFile);
+      const liveGoldenSupply = buildLiveGoldenSupplyReport(liveGoldenSnapshot?.board || []);
       json(res, 200, {
         ok: true,
         service: 'leword-api',
@@ -3785,6 +3796,13 @@ export function createLewordApiServer(options: LewordApiServerOptions = {}): htt
         },
         liveGolden: {
           enabled: !!liveGoldenRadar,
+          boardCount: liveGoldenSnapshot?.boardCount || 0,
+          boardTarget: liveGoldenSnapshot?.boardTarget || 0,
+          boardUpdatedAt: liveGoldenSnapshot?.boardUpdatedAt,
+          pendingProbeQueueCount: liveGoldenSnapshot?.pendingProbeQueueCount || 0,
+          searchAdQuota: liveGoldenSnapshot?.searchAdQuota,
+          worker: liveGoldenWorker,
+          supply: liveGoldenSupply,
         },
         runtime: getMobileRuntimeReadiness(),
       });

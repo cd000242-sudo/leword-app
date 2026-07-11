@@ -14,6 +14,7 @@ RUN apt-get update \
     && apt-get install -y --no-install-recommends \
       ca-certificates \
       chromium \
+      curl \
       fonts-noto-cjk \
     && rm -rf /var/lib/apt/lists/*
 
@@ -31,6 +32,6 @@ RUN node -e "const fs=require('fs'); const dir='node_modules/electron'; fs.mkdir
 EXPOSE 34983
 
 HEALTHCHECK --interval=30s --timeout=5s --start-period=20s --retries=3 \
-  CMD node -e "const port=process.env.LEWORD_API_PORT||34983; fetch('http://127.0.0.1:'+port+'/health').then((r)=>process.exit(r.ok?0:1)).catch(()=>process.exit(1))"
+  CMD curl -fsS http://127.0.0.1:34983/health >/dev/null || exit 1
 
 CMD ["npm", "--prefix", "apps/api", "run", "start:prod"]

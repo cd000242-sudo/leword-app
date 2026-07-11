@@ -22,6 +22,15 @@ import {
   getNaverSearchAdKeywordSuggestions,
   type NaverSearchAdConfig,
 } from '../utils/naver-searchad-api';
+import {
+  searchAdAccountId,
+  searchAdCallsToday,
+  searchAdDailyLimit,
+  searchAdExhausted,
+  searchAdNextResetAtMs,
+  searchAdRemaining,
+  searchAdSoftCeiling,
+} from '../utils/searchad-quota-governor';
 import * as fs from 'fs';
 import * as path from 'path';
 import {
@@ -55,10 +64,25 @@ import {
   isUltimateGoldenKeywordCandidate,
   isUltimateLowValueLookupKeyword,
 } from './keyword-ai-judge';
+import {
+  LIVE_GOLDEN_DEFAULT_DISCOVERY_IDS,
+  liveGoldenPolicyKeyForDiscoveryId,
+  selectNextLiveGoldenDiscoveryCategory,
+  type LiveGoldenCategoryRunStats,
+} from './live-golden-category-policy';
 
 export interface MobileLiveGoldenRadarRunGate {
   ok: boolean;
   message?: string;
+}
+
+interface LiveSearchAdQuotaState {
+  exhausted: boolean;
+  calls: number;
+  remaining: number;
+  softCeiling: number;
+  dailyLimit?: number;
+  resetAtMs: number;
 }
 
 export interface MobileLiveGoldenRadarOptions {
@@ -90,6 +114,7 @@ export interface MobileLiveGoldenRadarOptions {
   measureLiveDocumentCount?: typeof measureDocumentCount;
   autocompleteProvider?: typeof getNaverAutocompleteKeywords;
   searchAdSuggestionProvider?: typeof getNaverSearchAdKeywordSuggestions;
+  searchAdQuotaState?: (config: NaverSearchAdConfig, nowMs: number) => LiveSearchAdQuotaState;
   enableBackfill?: boolean;
   refreshBoardFileOnSnapshot?: boolean;
   shouldRun?: () => MobileLiveGoldenRadarRunGate | boolean;
@@ -113,25 +138,7 @@ interface LiveMeasuredProbeQueueItem {
   misses: number;
 }
 
-const DEFAULT_CATEGORIES = Object.freeze([
-  'shopping',
-  'electronics',
-  'home_life',
-  'travel_domestic',
-  'food',
-  'beauty',
-  'fashion',
-  'policy',
-  'finance',
-  'health',
-  'life_tips',
-  'it',
-  'ai_tool',
-  'recipe',
-  'travel_overseas',
-  'game',
-  'all',
-]);
+const DEFAULT_CATEGORIES = LIVE_GOLDEN_DEFAULT_DISCOVERY_IDS;
 
 const PUBLIC_PREVIEW_ROTATION_MS = 60_000;
 const LIVE_SEED_COLLECTION_TIMEOUT_MS = 5_000;
@@ -6009,6 +6016,7 @@ export class MobileLiveGoldenRadar {
   private readonly measureLiveDocumentCount: typeof measureDocumentCount;
   private readonly autocompleteProvider: typeof getNaverAutocompleteKeywords;
   private readonly searchAdSuggestionProvider: typeof getNaverSearchAdKeywordSuggestions;
+  private readonly searchAdQuotaState: (config: NaverSearchAdConfig, nowMs: number) => LiveSearchAdQuotaState;
   private readonly hasCustomSearchAdSuggestionProvider: boolean;
   private readonly hasCustomLiveVolumeMeasure: boolean;
   private readonly hasCustomLiveDocumentMeasure: boolean;
@@ -6024,9 +6032,11 @@ export class MobileLiveGoldenRadar {
   private startTimer: unknown = null;
   private quotaRetryTimer: unknown = null;
   private quotaRetryAtMs: number | null = null;
+  private searchAdSleepUntilMs: number | null = null;
   private enabled = false;
   private running = false;
   private categoryIndex = 0;
+  private readonly categoryStats = new Map<string, Required<Omit<LiveGoldenCategoryRunStats, 'userDemandWeight' | 'quotaCostWeight'>>>();
   private totalRuns = 0;
   private successfulRuns = 0;
   private skippedRuns = 0;
@@ -6044,6 +6054,7 @@ export class MobileLiveGoldenRadar {
   private lastFinishedAt?: string;
   private lastError?: string;
   private lastMessage?: string;
+  private lastSearchAdQuota?: MobileLiveGoldenRadarSnapshot['searchAdQuota'];
   private documentQuotaBlockedForRun = false;
 
   constructor(options: MobileLiveGoldenRadarOptions = {}) {
@@ -6104,6 +6115,17 @@ export class MobileLiveGoldenRadar {
     this.measureLiveDocumentCount = options.measureLiveDocumentCount || measureDocumentCount;
     this.autocompleteProvider = options.autocompleteProvider || getNaverAutocompleteKeywords;
     this.searchAdSuggestionProvider = options.searchAdSuggestionProvider || getNaverSearchAdKeywordSuggestions;
+    this.searchAdQuotaState = options.searchAdQuotaState || ((config, nowMs) => {
+      const accountId = searchAdAccountId(config);
+      return {
+        exhausted: searchAdExhausted(accountId),
+        calls: searchAdCallsToday(accountId),
+        remaining: searchAdRemaining(accountId),
+        softCeiling: searchAdSoftCeiling(),
+        dailyLimit: searchAdDailyLimit(),
+        resetAtMs: searchAdNextResetAtMs(nowMs),
+      };
+    });
     this.hasCustomSearchAdSuggestionProvider = Boolean(options.searchAdSuggestionProvider);
     this.hasCustomLiveVolumeMeasure = Boolean(options.measureLiveSearchVolumeSeparate);
     this.hasCustomLiveDocumentMeasure = Boolean(options.measureLiveDocumentCount);
@@ -6160,6 +6182,7 @@ export class MobileLiveGoldenRadar {
       return this.snapshot();
     }
     this.timer = this.setIntervalFn(() => {
+      if (this.searchAdSleepUntilMs && this.now().getTime() < this.searchAdSleepUntilMs) return;
       const snapshot = this.snapshot();
       void (snapshot.boardCount < this.boardTarget
         ? this.runUntilTarget(this.startupCatchUpCycles)
@@ -6244,6 +6267,9 @@ export class MobileLiveGoldenRadar {
 
   async runOnce(): Promise<MobileLiveGoldenRadarSnapshot> {
     if (this.running) return this.snapshot();
+    if (this.searchAdSleepUntilMs && this.now().getTime() < this.searchAdSleepUntilMs) {
+      return this.snapshot();
+    }
     const gate = normalizeGate(this.shouldRun());
     if (!gate.ok) {
       this.skippedRuns += 1;
@@ -6255,7 +6281,8 @@ export class MobileLiveGoldenRadar {
     this.totalRuns += 1;
     this.lastStartedAt = this.now().toISOString();
     this.lastError = undefined;
-    const categoryId = this.nextCategory();
+    let categoryId = 'all';
+    let categoryScanStarted = false;
     const startedAtMs = Date.now();
     this.refreshMeasuredCachesFromDisk(true);
     let referenceProbeCount = 0;
@@ -6280,6 +6307,31 @@ export class MobileLiveGoldenRadar {
       const env = this.getEnvConfig();
       if (!env.naverClientId || !env.naverClientSecret) {
         throw new Error('Naver Open API config missing');
+      }
+      const searchAdConfig = searchAdConfigFromEnv(env);
+      if (searchAdConfig) {
+        const quota = this.searchAdQuotaState(searchAdConfig, this.now().getTime());
+        this.lastSearchAdQuota = {
+          exhausted: quota.exhausted,
+          calls: quota.calls,
+          remaining: quota.remaining,
+          softCeiling: quota.softCeiling,
+          dailyLimit: quota.dailyLimit,
+          resetAt: new Date(quota.resetAtMs).toISOString(),
+        };
+        if (quota.exhausted) {
+          this.skippedRuns += 1;
+          this.lastMessage = `SearchAd daily soft ceiling reached (${quota.calls}/${quota.softCeiling}); worker sleeping until KST reset${formatKstRetryAt(quota.resetAtMs)}`;
+          this.scheduleQuotaRetry(quota.resetAtMs, false);
+          this.running = false;
+          this.lastFinishedAt = this.now().toISOString();
+          return this.snapshot();
+        }
+        if (this.searchAdSleepUntilMs !== null) {
+          this.clearQuotaRetryTimer();
+        }
+      } else {
+        this.lastSearchAdQuota = undefined;
       }
       const documentQuotaBlocked = isNaverBlogOpenApiQuotaBlocked({
         clientId: env.naverClientId,
@@ -6341,6 +6393,8 @@ export class MobileLiveGoldenRadar {
         this.lastMessage = `cache catch-up promoted ${promotedCacheCount}; board ${boardCountAfterCachePromotion}/${this.boardTarget}; SSS ${boardSssReadyAfterCachePromotion}/${desiredBoardSssCount}`;
         return this.snapshot();
       }
+      categoryId = this.nextCategory();
+      categoryScanStarted = true;
       const liveSeeds = await this.collectLiveSeeds(categoryId);
       const directMaxCandidates = directCandidateBudget(this.maxCandidates, runLimit);
       const existingIdsForRun = new Set(this.board.keys());
@@ -6553,7 +6607,9 @@ export class MobileLiveGoldenRadar {
         publishableResultMetrics,
         startedAtMs,
       );
+      const boardCountBeforeMerge = this.sortedBoard().length;
       this.mergeBoard(result.keywords);
+      const verifiedAdded = Math.max(0, this.sortedBoard().length - boardCountBeforeMerge);
       const enrichedExisting = hasSearchAdCredentials(env)
         ? await this.enrichExistingBoardSearchAdMetrics({
           clientId: env.naverClientId,
@@ -6588,6 +6644,7 @@ export class MobileLiveGoldenRadar {
 
       this.publishedCount += published.length;
       this.successfulRuns += 1;
+      this.recordCategoryOutcome(categoryId, verifiedAdded, false);
       const fallbackCount = result.keywords.filter((item) => item.source === 'mobile-live-issue-document-radar').length;
       const enrichParts = [
         promotedCacheCount > 0 ? `${promotedCacheCount} cache-promoted` : '',
@@ -6602,6 +6659,7 @@ export class MobileLiveGoldenRadar {
         : `${categoryId} ${result.summary.total} found, ${published.length} published${enrichSuffix}`;
     } catch (err) {
       this.failedRuns += 1;
+      if (categoryScanStarted) this.recordCategoryOutcome(categoryId, 0, true);
       this.lastError = (err as Error).message || String(err);
       this.lastMessage = this.lastError;
     } finally {
@@ -6624,6 +6682,7 @@ export class MobileLiveGoldenRadar {
       const afterAttempts = this.totalRuns + this.skippedRuns + this.failedRuns;
       const afterSssReady = snapshot.board.filter((item) => isMeasuredSssBoardCandidate(item, this.now())).length;
       if (snapshot.running || afterAttempts === beforeAttempts) break;
+      if (snapshot.searchAdQuota?.exhausted) break;
       if (this.skippedRuns > 0 && /busy|skipped/i.test(snapshot.lastMessage || '')) break;
       if (snapshot.boardCount <= beforeBoardCount && afterSssReady <= beforeSssReady) {
         const runnableQueueRemaining = this.runnableMeasuredProbeQueueItems('all', this.runLimitForCurrentBoard()).length;
@@ -7962,9 +8021,11 @@ export class MobileLiveGoldenRadar {
       lastStartedAt: this.lastStartedAt,
       lastFinishedAt: this.lastFinishedAt,
       nextRetryAt: this.quotaRetryAtMs ? new Date(this.quotaRetryAtMs).toISOString() : undefined,
+      searchAdQuota: this.lastSearchAdQuota,
+      categoryStats: this.categoryStatsSnapshot(),
       lastError: this.lastError,
       lastMessage: this.lastMessage,
-      nextCategoryId: this.categories[this.categoryIndex] || 'all',
+      nextCategoryId: this.selectNextCategory(),
       categories: [...this.categories],
     };
     if (!this.running && this.refreshBoardFileOnSnapshot) {
@@ -8022,16 +8083,22 @@ export class MobileLiveGoldenRadar {
       this.quotaRetryTimer = null;
     }
     this.quotaRetryAtMs = null;
+    this.searchAdSleepUntilMs = null;
   }
 
-  private scheduleQuotaRetry(retryAtMs: number | null): void {
+  private scheduleQuotaRetry(retryAtMs: number | null, capAtInterval = true): void {
     if (!retryAtMs || !this.enabled) return;
-    const delayMs = liveQuotaRetryDelayMs(retryAtMs, this.now().getTime(), this.intervalMs);
+    const nowMs = this.now().getTime();
+    const delayMs = capAtInterval
+      ? liveQuotaRetryDelayMs(retryAtMs, nowMs, this.intervalMs)
+      : Math.max(LIVE_QUOTA_RETRY_MIN_DELAY_MS, Math.floor(retryAtMs - nowMs + LIVE_QUOTA_RETRY_BUFFER_MS));
     this.clearQuotaRetryTimer();
     this.quotaRetryAtMs = retryAtMs;
+    this.searchAdSleepUntilMs = capAtInterval ? null : retryAtMs;
     this.quotaRetryTimer = this.setTimeoutFn(() => {
       this.quotaRetryTimer = null;
       this.quotaRetryAtMs = null;
+      this.searchAdSleepUntilMs = null;
       if (!this.enabled) return;
       const snapshot = this.snapshot();
       void (snapshot.boardCount < this.boardTarget
@@ -8173,9 +8240,68 @@ export class MobileLiveGoldenRadar {
   }
 
   private nextCategory(): string {
-    const categoryId = this.categories[this.categoryIndex] || 'all';
-    this.categoryIndex = (this.categoryIndex + 1) % Math.max(1, this.categories.length);
-    return categoryId;
+    const selected = this.selectNextCategory();
+    const selectedIndex = this.categories.indexOf(selected);
+    this.categoryIndex = selectedIndex >= 0
+      ? (selectedIndex + 1) % Math.max(1, this.categories.length)
+      : (this.categoryIndex + 1) % Math.max(1, this.categories.length);
+    const current = this.categoryStats.get(selected) || {
+      scans: 0,
+      published: 0,
+      failures: 0,
+      lastScannedAtMs: 0,
+    };
+    current.scans += 1;
+    current.lastScannedAtMs = this.now().getTime();
+    this.categoryStats.set(selected, current);
+    return selected;
+  }
+
+  private selectNextCategory(): string {
+    const visibleBoard = this.sortedBoard();
+    const verifiedCounts: Record<string, number> = {};
+    for (const item of visibleBoard) {
+      const key = liveGoldenPolicyKeyForDiscoveryId(item.category);
+      verifiedCounts[key] = (verifiedCounts[key] || 0) + 1;
+    }
+    const stats: Record<string, LiveGoldenCategoryRunStats> = {};
+    for (const [categoryId, value] of this.categoryStats.entries()) {
+      stats[categoryId] = { ...value };
+    }
+    return selectNextLiveGoldenDiscoveryCategory({
+      candidates: this.categories,
+      boardCount: visibleBoard.length,
+      verifiedCounts,
+      stats,
+      nowMs: this.now().getTime(),
+      cursor: this.categoryIndex,
+    }).discoveryId;
+  }
+
+  private recordCategoryOutcome(categoryId: string, published: number, failed: boolean): void {
+    const current = this.categoryStats.get(categoryId);
+    if (!current) return;
+    current.published += Math.max(0, Math.floor(published));
+    if (failed) current.failures += 1;
+    this.categoryStats.set(categoryId, current);
+  }
+
+  private categoryStatsSnapshot(): NonNullable<MobileLiveGoldenRadarSnapshot['categoryStats']> {
+    const out: NonNullable<MobileLiveGoldenRadarSnapshot['categoryStats']> = {};
+    for (const [categoryId, value] of this.categoryStats.entries()) {
+      out[categoryId] = {
+        scans: value.scans,
+        published: value.published,
+        failures: value.failures,
+        yieldRate: value.scans > 0
+          ? Math.round((value.published / value.scans) * 10_000) / 10_000
+          : 0,
+        lastScannedAt: value.lastScannedAtMs > 0
+          ? new Date(value.lastScannedAtMs).toISOString()
+          : undefined,
+      };
+    }
+    return out;
   }
 
   private mergeBoard(

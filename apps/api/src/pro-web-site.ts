@@ -4630,12 +4630,12 @@ export function renderLewordProWeb(): string {
         error: error && error.message ? error.message : String(error || ''),
         updatedAt: new Date().toISOString(),
         boardTarget: 120,
-        boardCount: proMode ? 120 : items.length,
+        boardCount: 0,
         lockedCount: 0,
         publicPreviewCount: items.length,
         running: false,
         exactMetricsLocked: true,
-        previewPolicyLabel: '서버 미연결 · 브라우저 검색 후보',
+        previewPolicyLabel: '서버 미연결 · 미검증 참고 후보',
         publicPreview: items,
       };
     }
@@ -4643,14 +4643,17 @@ export function renderLewordProWeb(): string {
       const payload = buildClientGoldenFallbackPayload(error);
       if (hasActiveProSession()) {
         const items = payload.publicPreview || [];
-        setGoldenSummary(120, 120, items.length, 0, false, payload.updatedAt, isOfflineProSession() ? '오프라인 Pro 후보' : 'Pro 브라우저 후보');
-        qs('goldenNotice').textContent = '서버가 꺼져 있어 Pro 세션을 로컬로 유지하고 사이트 자체 후보를 표시합니다. 검색량·문서수는 가짜로 채우지 않으며, 사용자 API 키 조회가 가능한 기능은 직접 실측으로 전환됩니다.';
-        renderGoldenQuality(items, true, 120, 0);
+        const fallbackPolicy = isOfflineProSession()
+          ? '오프라인 Pro 후보 · 미검증 참고 후보'
+          : 'Pro 브라우저 후보 · 미검증 참고 후보';
+        setGoldenSummary(0, payload.boardTarget, items.length, 0, false, payload.updatedAt, fallbackPolicy);
+        qs('goldenNotice').textContent = '서버가 꺼져 있어 Pro 세션을 로컬로 유지하고 사이트 자체 후보를 표시합니다. 단, 아래 목록은 황금키워드가 아닌 미검증 참고 후보입니다. 검색량·문서수는 가짜로 채우지 않으며, 사용자 API 키 조회가 가능한 기능은 직접 실측으로 전환됩니다.';
+        renderGoldenQuality(items, false, 0, 0);
         renderGoldenRows(items, true, items.length);
       } else {
         renderPublicGoldenBoard(payload);
       }
-      qs('goldenState').textContent = '브라우저 검색';
+      qs('goldenState').textContent = '미검증 참고';
       if (!hasActiveProSession()) qs('goldenNotice').textContent = '서버 연결이 불안정해 사이트 자체 검색 후보를 표시합니다. 검색량·문서수는 가짜로 채우지 않고, 서버 복구 후 실측값으로 교체됩니다.';
       log('LIVE 황금키워드 서버 fallback: ' + (payload.error || 'server unavailable'));
     }

@@ -292,6 +292,21 @@ export interface MobileLiveGoldenRadarSnapshot {
   lastStartedAt?: string;
   lastFinishedAt?: string;
   nextRetryAt?: string;
+  searchAdQuota?: {
+    exhausted: boolean;
+    calls: number;
+    remaining: number;
+    softCeiling: number;
+    dailyLimit?: number;
+    resetAt: string;
+  };
+  categoryStats?: Record<string, {
+    scans: number;
+    published: number;
+    failures: number;
+    yieldRate: number;
+    lastScannedAt?: string;
+  }>;
   lastError?: string;
   lastMessage?: string;
   nextCategoryId: string;

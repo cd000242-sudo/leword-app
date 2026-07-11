@@ -740,7 +740,9 @@ assert('api production compose deploys CI-published GHCR image',
     && /leword-mobile-cache:\/data/.test(apiProductionCompose)
     && /leword-live-golden-worker:/.test(apiProductionCompose)
     && /worker:live-golden/.test(apiProductionCompose)
-    && /healthcheck:\s*\n\s*disable:\s*true/.test(apiProductionCompose)
+    && /LEWORD_MOBILE_LIVE_GOLDEN_HEARTBEAT_FILE:\s*\/data\/live-golden-worker-heartbeat\.json/.test(apiProductionCompose)
+    && /healthcheck:[\s\S]*live-golden-worker-heartbeat\.json/.test(apiProductionCompose)
+    && !/healthcheck:\s*\n\s*disable:\s*true/.test(apiProductionCompose)
     && /health/.test(apiProductionCompose));
 assert('production API caps browser and job concurrency for stable 24h mining',
   /function positiveIntegerEnv/.test(apiServer)

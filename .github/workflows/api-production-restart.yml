@@ -84,9 +84,19 @@ jobs:
           GHCR_USER="${GHCR_USER:-cd000242-sudo}"
           if [ -n "$SSH_KEY" ]; then
             ssh_cmd=(ssh -i ~/.ssh/leword_prod)
+            scp_cmd=(scp -i ~/.ssh/leword_prod)
           else
             ssh_cmd=(sshpass -e ssh)
+            scp_cmd=(sshpass -e scp)
           fi
+          remote_compose_path="${REMOTE_PATH%/}/${COMPOSE_FILE}"
+          remote_compose_dir="${remote_compose_path%/*}"
+          "${ssh_cmd[@]}" -p "$SSH_PORT" -o StrictHostKeyChecking=yes "${SSH_USER}@${SSH_HOST}" \
+            "mkdir -p ${remote_compose_dir@Q}"
+          "${scp_cmd[@]}" -P "$SSH_PORT" -o StrictHostKeyChecking=yes \
+            "$COMPOSE_FILE" "${SSH_USER}@${SSH_HOST}:${remote_compose_path}.next"
+          "${ssh_cmd[@]}" -p "$SSH_PORT" -o StrictHostKeyChecking=yes "${SSH_USER}@${SSH_HOST}" \
+            "mv ${remote_compose_path@Q}.next ${remote_compose_path@Q}"
           "${ssh_cmd[@]}" -p "$SSH_PORT" -o StrictHostKeyChecking=yes "${SSH_USER}@${SSH_HOST}" \
             "REMOTE_PATH=${REMOTE_PATH@Q} COMPOSE_FILE=${COMPOSE_FILE@Q} LEWORD_MOBILE_API_IMAGE=${IMAGE@Q} LEWORD_API_BIND_PORT=${BIND_PORT@Q} GHCR_USER=${GHCR_USER@Q} GHCR_TOKEN=${GHCR_TOKEN@Q} bash -s" <<'REMOTE'
           set -euo pipefail
@@ -103,16 +113,18 @@ jobs:
             exit 1
           fi
           export LEWORD_MOBILE_API_IMAGE LEWORD_API_BIND_PORT
-          "${compose[@]}" -f "$COMPOSE_FILE" pull leword-api
-          "${compose[@]}" -f "$COMPOSE_FILE" up -d leword-api
-          "${compose[@]}" -f "$COMPOSE_FILE" ps leword-api
+          "${compose[@]}" -f "$COMPOSE_FILE" pull leword-api leword-live-golden-worker
+          "${compose[@]}" -f "$COMPOSE_FILE" up -d leword-api leword-live-golden-worker
+          "${compose[@]}" -f "$COMPOSE_FILE" ps leword-api leword-live-golden-worker
           health_url="http://127.0.0.1:${LEWORD_API_BIND_PORT:-34983}/health"
           for attempt in $(seq 1 30); do
-            if command -v curl >/dev/null 2>&1 && curl -fsS "$health_url"; then
+            worker_id="$("${compose[@]}" -f "$COMPOSE_FILE" ps -q leword-live-golden-worker)"
+            worker_health="$(docker inspect --format '{{if .State.Health}}{{.State.Health.Status}}{{else}}missing{{end}}' "$worker_id" 2>/dev/null || true)"
+            if command -v curl >/dev/null 2>&1 && curl -fsS "$health_url" && [ "$worker_health" = "healthy" ]; then
               exit 0
             fi
             sleep 2
           done
-          "${compose[@]}" -f "$COMPOSE_FILE" logs --tail=160 leword-api
+          "${compose[@]}" -f "$COMPOSE_FILE" logs --tail=160 leword-api leword-live-golden-worker
           exit 1
           REMOTE

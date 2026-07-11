@@ -47,6 +47,20 @@ function kstDate(): string {
   return new Date(Date.now() + 9 * 60 * 60 * 1000).toISOString().slice(0, 10);
 }
 
+/** 현재 시각 다음의 KST 자정. 배경 워커가 소프트 상한 도달 후 폴링하지 않고 잠들 때 사용한다. */
+export function searchAdNextResetAtMs(nowMs = Date.now()): number {
+  const kst = new Date(nowMs + 9 * 60 * 60 * 1000);
+  return Date.UTC(
+    kst.getUTCFullYear(),
+    kst.getUTCMonth(),
+    kst.getUTCDate() + 1,
+    0,
+    0,
+    0,
+    0,
+  ) - 9 * 60 * 60 * 1000;
+}
+
 /** 설정에서 계정 식별자(해시) 도출 — customerId 우선, 없으면 accessLicense 앞부분 */
 export function searchAdAccountId(cfg: { customerId?: string; accessLicense?: string }): string {
   const raw =
@@ -83,6 +97,15 @@ function ensure(): DayState {
   return state;
 }
 
+function mergeLatestDiskState(current: DayState): DayState {
+  const disk = readDisk();
+  if (!disk || disk.date !== current.date) return current;
+  for (const [accountId, calls] of Object.entries(disk.byAccount)) {
+    current.byAccount[accountId] = Math.max(current.byAccount[accountId] || 0, calls || 0);
+  }
+  return current;
+}
+
 function save(): void {
   if (!state) return;
   try {
@@ -100,7 +123,7 @@ function save(): void {
 
 /** 오늘(KST) 해당 계정의 SearchAd 호출 수 */
 export function searchAdCallsToday(accountId = 'default'): number {
-  return ensure().byAccount[accountId] || 0;
+  return mergeLatestDiskState(ensure()).byAccount[accountId] || 0;
 }
 
 /** 소프트 상한까지 남은 호출 수 */

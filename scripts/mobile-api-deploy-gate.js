@@ -116,8 +116,10 @@ function collectMobileApiDeployGate() {
         && /LEWORD_PROD_SSH_PASSWORD/.test(restartWorkflow)
         && /sshpass/.test(restartWorkflow)
         && /docker compose/.test(restartWorkflow)
-        && /pull leword-api/.test(restartWorkflow)
-        && /up -d leword-api/.test(restartWorkflow)
+        && /scp_cmd=/.test(restartWorkflow)
+        && /pull leword-api leword-live-golden-worker/.test(restartWorkflow)
+        && /up -d leword-api leword-live-golden-worker/.test(restartWorkflow)
+        && /ps -q leword-live-golden-worker/.test(restartWorkflow)
         && /\/health/.test(restartWorkflow),
       '.github/workflows/api-production-restart.yml'),
     check('Docker ignore protects release credentials',

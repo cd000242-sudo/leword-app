@@ -1,9 +1,15 @@
 import { MobileNotificationInbox } from '../../../src/mobile/notification-inbox';
 import { createMobileLiveGoldenRadarFromEnv } from '../../../src/mobile/live-golden-radar';
+import {
+  resolveLiveGoldenWorkerHeartbeatFile,
+  writeLiveGoldenWorkerHeartbeat,
+} from '../../../src/mobile/live-golden-worker-health';
 
 const LOG_INTERVAL_MS = 60_000;
 
 function main(): void {
+  const startedAt = new Date().toISOString();
+  const heartbeatFile = resolveLiveGoldenWorkerHeartbeatFile();
   const notificationInbox = new MobileNotificationInbox();
   const radar = createMobileLiveGoldenRadarFromEnv(notificationInbox, () => ({ ok: true }));
   if (!radar) {
@@ -12,6 +18,28 @@ function main(): void {
   }
 
   const started = radar.start();
+  const writeHeartbeat = (status: 'running' | 'stopped' | 'error', snapshot = radar.snapshot()): void => {
+    try {
+      writeLiveGoldenWorkerHeartbeat(heartbeatFile, {
+        status,
+        pid: process.pid,
+        startedAt,
+        updatedAt: new Date().toISOString(),
+        boardCount: snapshot.boardCount,
+        boardTarget: snapshot.boardTarget,
+        pendingProbeQueueCount: snapshot.pendingProbeQueueCount,
+        totalRuns: snapshot.totalRuns,
+        successfulRuns: snapshot.successfulRuns,
+        failedRuns: snapshot.failedRuns,
+        searchAdQuotaExhausted: snapshot.searchAdQuota?.exhausted,
+        nextRetryAt: snapshot.nextRetryAt,
+        lastMessage: snapshot.lastMessage,
+      });
+    } catch (err) {
+      console.error('[LIVE-GOLDEN-WORKER] heartbeat write failed', (err as Error).message || String(err));
+    }
+  };
+  writeHeartbeat('running', started);
   console.log('[LIVE-GOLDEN-WORKER] started', {
     boardCount: started.boardCount,
     boardTarget: started.boardTarget,
@@ -22,6 +50,7 @@ function main(): void {
 
   const logTimer = setInterval(() => {
     const snapshot = radar.snapshot();
+    writeHeartbeat('running', snapshot);
     console.log('[LIVE-GOLDEN-WORKER] heartbeat', {
       running: snapshot.running,
       boardCount: snapshot.boardCount,
@@ -37,6 +66,7 @@ function main(): void {
   const shutdown = (signal: string) => {
     clearInterval(logTimer);
     const snapshot = radar.stop();
+    writeHeartbeat('stopped', snapshot);
     console.log('[LIVE-GOLDEN-WORKER] stopped', {
       signal,
       boardCount: snapshot.boardCount,
