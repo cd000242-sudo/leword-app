@@ -6322,6 +6322,10 @@ export class MobileLiveGoldenRadar {
         if (quota.exhausted) {
           this.skippedRuns += 1;
           this.lastMessage = `SearchAd daily soft ceiling reached (${quota.calls}/${quota.softCeiling}); worker sleeping until KST reset${formatKstRetryAt(quota.resetAtMs)}`;
+          // SearchAd 호출은 중단하되, 시작 시 영속 캐시에서 복원한 실측·신뢰 가능 재고는
+          // 공유 보드에 반영한다. 추가 측정 없이 API 읽기 전용 프로세스가 같은 Verified 재고를 본다.
+          this.pruneBoard();
+          this.saveBoardToFile();
           this.scheduleQuotaRetry(quota.resetAtMs, false);
           this.running = false;
           this.lastFinishedAt = this.now().toISOString();

@@ -5155,10 +5155,17 @@ function thinProfileCount(items: Array<{ keyword: string }>): number {
   let searchAdQuotaRetryHandler: (() => void) | null = null;
   let searchAdQuotaIntervalHandler: (() => void) | null = null;
   let searchAdQuotaDiscoverCalls = 0;
+  const searchAdQuotaBoardFile = path.join(process.cwd(), 'tmp', 'mobile-live-golden-searchad-quota-board-test.json');
+  fs.mkdirSync(path.dirname(searchAdQuotaBoardFile), { recursive: true });
+  fs.writeFileSync(searchAdQuotaBoardFile, JSON.stringify({
+    boardUpdatedAt: '2026-07-11T09:59:00.000Z',
+    items: [previewBoardItem('청년미래적금 가입신청 대상', 'policy', 0)],
+  }), 'utf8');
   const searchAdQuotaRadar = new MobileLiveGoldenRadar({
     notificationInbox: inbox,
     runOnStart: false,
     intervalMs: 180_000,
+    boardFile: searchAdQuotaBoardFile,
     getEnvConfig: () => ({
       naverClientId: 'searchad-quota-client',
       naverClientSecret: 'searchad-quota-secret',
@@ -5205,6 +5212,12 @@ function thinProfileCount(items: Array<{ keyword: string }>): number {
     searchAdQuotaRetryDelay >= searchAdQuotaResetAtMs - searchAdQuotaNowMs
       && /2026-07-11T15:00:00/.test(searchAdQuotaSkipped.nextRetryAt || ''),
     `${searchAdQuotaRetryDelay}:${searchAdQuotaSkipped.nextRetryAt}`);
+  const quotaPersistedBoard = JSON.parse(fs.readFileSync(searchAdQuotaBoardFile, 'utf8'));
+  assert('SearchAd sleep still publishes already measured trusted inventory to the shared board file',
+    typeof quotaPersistedBoard.savedAt === 'string'
+      && Array.isArray(quotaPersistedBoard.items)
+      && quotaPersistedBoard.items.length >= 1,
+    JSON.stringify(quotaPersistedBoard));
   searchAdQuotaIntervalHandler?.();
   await new Promise((resolve) => setTimeout(resolve, 25));
   assert('scheduled worker interval stays idle while SearchAd quota sleep is active',
@@ -5214,6 +5227,7 @@ function thinProfileCount(items: Array<{ keyword: string }>): number {
   searchAdQuotaRetryHandler?.();
   await new Promise((resolve) => setTimeout(resolve, 25));
   searchAdQuotaRadar.stop();
+  fs.rmSync(searchAdQuotaBoardFile, { force: true });
 
   let quotaRetryNowMs = Date.parse('2026-06-21T10:00:00.000Z');
   let quotaRetryHandler: (() => void) | null = null;
