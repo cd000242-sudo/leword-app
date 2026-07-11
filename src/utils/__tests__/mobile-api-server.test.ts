@@ -70,6 +70,9 @@ async function waitForCompletedJob(baseUrl: string, jobId: string): Promise<any>
     if (readJson.job?.state === 'completed') {
       return readJson.job;
     }
+    if (readJson.job?.state === 'failed' || readJson.job?.state === 'cancelled') {
+      throw new Error(`job ${readJson.job.state}: ${JSON.stringify(readJson.job)}`);
+    }
     await new Promise((resolve) => setTimeout(resolve, 25));
   }
   throw new Error(`job did not complete: ${jobId}`);

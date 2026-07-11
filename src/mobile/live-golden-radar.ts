@@ -5094,8 +5094,12 @@ function liveMetricScore(volume: number, docs: number, ratio: number, actionable
 function liveUltimateOpportunityScore(keyword: string, volume: number, docs: number, ratio: number): number {
   const clean = normalizeKeyword(keyword);
   if (!clean || volume <= 0 || docs <= 0 || ratio <= 0) return 0;
-  if (isLowValueLiveCandidate(clean) || isLottoLookupKeyword(clean) || isLowAdsenseLookupKeyword(clean)) return 0;
-  if (isBrandSafetyNewsKeyword(clean) || isBroadBenefitProductKeyword(clean) || isGenericAudienceOnlyKeyword(clean)) return 0;
+  if ((isLowValueLiveCandidate(clean) && !hasWriterReadySpecificity(clean))
+    || isLottoLookupKeyword(clean)
+    || isLowAdsenseLookupKeyword(clean)) return 0;
+  if (isBrandSafetyNewsKeyword(clean)) return 0;
+  if (isBroadBenefitProductKeyword(clean) && !hasWriterReadySpecificity(clean)) return 0;
+  if (isGenericAudienceOnlyKeyword(clean) && !hasWriterReadySpecificity(clean)) return 0;
   const actionable = hasLiveUltimateNeedIntent(clean)
     || hasHighValueNeedIntent(clean)
     || hasSssReadyNeedIntent(clean)
@@ -5869,6 +5873,7 @@ function mapDirectResult(result: MDPResult, categoryId: string): MobileKeywordMe
 // 항목만(추정치 입력이면 게이트 사실성이 깨지므로 스킵). 표시용 부가필드로 코어 등급/score 미변경.
 function liveValueGateFields(
   item: MobileLiveGoldenBoardItem,
+  now: Date = new Date(),
 ): Pick<MobileLiveGoldenBoardItem, 'valueGrade' | 'valueSummary'> {
   const searchVolume = finiteNumber(item.totalSearchVolume);
   const documentCount = finiteNumber(item.documentCount);
@@ -5887,7 +5892,32 @@ function liveValueGateFields(
     documentCount,
     mode: 'lenient',
   });
+  const productSpecificKeyword = isPublicPreviewProductOrShoppingKeyword(item);
+  const safeCompactIntentOverride = !['S+', 'S', 'A'].includes(gate.valueGrade)
+    && (gate.gates.notPersonDependent.passed || productSpecificKeyword)
+    && gate.gates.ymylSafe.passed
+    && isMeasuredWriterReadyBoardMetric(item, now)
+    && liveBoardOpportunityScore(item) > 0;
+  if (safeCompactIntentOverride) {
+    return {
+      valueGrade: 'A',
+      valueSummary: '실측 행동의도·안전·검색량·문서수 교차검증 통과',
+    };
+  }
   return { valueGrade: gate.valueGrade, valueSummary: gate.summary };
+}
+
+function isLiveGoldenQualityConsistent(item: MobileLiveGoldenBoardItem, now: Date): boolean {
+  const valueGrade = liveValueGateFields(item, now).valueGrade;
+  if (!valueGrade || !['S+', 'S', 'A'].includes(valueGrade)) return false;
+  return evaluatePublishDecision(item).verdict === 'publish'
+    && resolvedLiveBoardScore(item) > 0;
+}
+
+function resolvedLiveBoardScore(item: MobileLiveGoldenBoardItem): number {
+  const current = finiteNumber(item.score);
+  if (current !== null && current > 0) return current;
+  return liveBoardOpportunityScore(item);
 }
 
 // 워커가 저장한 C2/C4 실측 부가필드를 파일 복원 시 보존. 신뢰 플래그가 참일 때만 화이트리스트로
@@ -7997,7 +8027,7 @@ export class MobileLiveGoldenRadar {
     // 급등 레인은 규칙판정 exclude 로 등급을 강등하지 않는다(판정 정보는 유지) — 트래픽 상품.
     const markedBoard = board.map((item) => applyKeywordAiJudge({
       ...item,
-      ...liveValueGateFields(item),
+      ...liveValueGateFields(item, this.now()),
       isPublicPreview: publicPreviewIds.has(item.id),
       publishDecision: evaluatePublishDecision(item),
     }, { downgradeExcluded: normalizeKeyword(item.lane) !== TRAFFIC_SURGE_LANE }));
@@ -8732,7 +8762,8 @@ export class MobileLiveGoldenRadar {
         || isMeasuredProDisplayBackfillMetric(item, now)
         || isMeasuredExactDisplayFallbackMetric(item, now)
         || isTrafficSurgeBoardMetric(item, now)
-      ));
+      ))
+      .filter((item) => isTrafficSurgeBoardMetric(item, now) || isLiveGoldenQualityConsistent(item, now));
     const selected = selectLiveBoardItems(sorted, this.boardTarget, now);
     return selected
       .sort((a, b) => {
@@ -8742,6 +8773,7 @@ export class MobileLiveGoldenRadar {
       })
       .map((item, index) => ({
         ...item,
+        score: resolvedLiveBoardScore(item),
         rank: index + 1,
       }));
   }

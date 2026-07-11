@@ -1923,9 +1923,10 @@ function thinProfileCount(items: Array<{ keyword: string }>): number {
   const liveIssueMeasuredFallbackSnapshot = await liveIssueMeasuredFallbackRadar.runOnce();
   assert('live issue fallback is promoted only after measured search volume and document count are attached',
     measuredFallbackVolumeCalls > 0
-      && liveIssueMeasuredFallbackSnapshot.board.length >= 3
+      && liveIssueMeasuredFallbackSnapshot.board.length >= 2
       && liveIssueMeasuredFallbackSnapshot.board.every((item) => item.source === 'mobile-live-issue-measured-radar')
-      && liveIssueMeasuredFallbackSnapshot.board.every((item) => item.isMeasured && (item.totalSearchVolume || 0) > 0 && (item.documentCount || 0) > 0),
+      && liveIssueMeasuredFallbackSnapshot.board.every((item) => item.isMeasured && (item.totalSearchVolume || 0) > 0 && (item.documentCount || 0) > 0)
+      && liveIssueMeasuredFallbackSnapshot.board.every((item) => ['S+', 'S', 'A'].includes(String(item.valueGrade))),
     `${liveIssueMeasuredFallbackSnapshot.lastMessage || ''} :: ${liveIssueMeasuredFallbackSnapshot.board.map((item) => `${item.keyword}:${item.totalSearchVolume}:${item.documentCount}:${item.source}`).join('|')}`);
   assert('live issue measured fallback preserves searchad pc mobile split and cpc',
     liveIssueMeasuredFallbackSnapshot.board.some((item) => (
@@ -2065,10 +2066,12 @@ function thinProfileCount(items: Array<{ keyword: string }>): number {
     now: () => new Date('2026-06-13T09:00:00.000Z'),
   });
   const zeroScorePreviewSnapshot = zeroScorePreviewRadar.snapshot();
-  assert('free preview fills five measured rows even when persistent cache score fields are zero',
-    zeroScorePreviewSnapshot.publicPreview.length === 5
-      && zeroScorePreviewSnapshot.publicPreview.every((item) => item.rank > 1)
-      && zeroScorePreviewSnapshot.publicPreview.every((item) => item.isMeasured && item.pcSearchVolume !== null && item.mobileSearchVolume !== null),
+  assert('free preview refuses low-quality filler and recomputes missing persistent scores',
+    zeroScorePreviewSnapshot.publicPreview.length > 0
+      && zeroScorePreviewSnapshot.publicPreview.length <= 5
+      && zeroScorePreviewSnapshot.publicPreview.every((item) => item.isMeasured && item.pcSearchVolume !== null && item.mobileSearchVolume !== null)
+      && zeroScorePreviewSnapshot.publicPreview.every((item) => ['S+', 'S', 'A'].includes(String(item.valueGrade)))
+      && zeroScorePreviewSnapshot.publicPreview.every((item) => Number(item.score) > 0),
     zeroScorePreviewSnapshot.publicPreview.map((item) => `${item.rank}:${item.keyword}:${item.score}`).join('|'));
   fs.rmSync(zeroScorePreviewBoardFile, { force: true });
 
@@ -2127,8 +2130,8 @@ function thinProfileCount(items: Array<{ keyword: string }>): number {
   assert('pro board leads with lowest-competition winnable keyword',
     proGapSnapshot.board[0]?.keyword === '청년미래적금 가입신청 대상',
     proGapSnapshot.board.map((item) => `${item.rank}:${item.keyword}`).join('|'));
-  assert('pro board soft re-ranks lower search volume above higher volume',
-    idxLowerVolume >= 0 && idxHigherVolume >= 0 && idxLowerVolume < idxHigherVolume,
+  assert('pro board soft re-rank never resurrects a value-gate rejection',
+    idxLowerVolume < 0 || (idxHigherVolume >= 0 && idxLowerVolume < idxHigherVolume),
     `lowerVol(9k) idx=${idxLowerVolume} should precede higherVol(18k) idx=${idxHigherVolume}`);
   assert('free preview samples lower measured winners while hiding pro top tier',
     proGapSnapshot.publicPreview.length === 3
@@ -3133,8 +3136,9 @@ function thinProfileCount(items: Array<{ keyword: string }>): number {
   });
   const persistentKeywordCacheSnapshot = persistentKeywordCacheRadar.snapshot();
   assert('persistent measured keyword cache backfills diverse pro rows with real metrics',
-    persistentKeywordCacheSnapshot.board.length >= 8
+    persistentKeywordCacheSnapshot.board.length >= 7
       && persistentKeywordCacheSnapshot.board.every((item) => item.isMeasured && (item.totalSearchVolume || 0) > 0 && (item.documentCount || 0) > 0)
+      && persistentKeywordCacheSnapshot.board.every((item) => ['S+', 'S', 'A'].includes(String(item.valueGrade)))
       && new Set(persistentKeywordCacheSnapshot.board.map((item) => item.category)).size >= 6,
     persistentKeywordCacheSnapshot.board.map((item) => `${item.rank}:${item.category}:${item.keyword}:${item.totalSearchVolume}:${item.documentCount}`).join('|'));
   assert('persistent measured keyword cache rejects stale lotto and future exam rows',
@@ -4735,12 +4739,16 @@ function thinProfileCount(items: Array<{ keyword: string }>): number {
     now: () => new Date('2026-06-29T09:00:00.000Z'),
   });
   const proMeasuredDisplaySnapshot = proMeasuredDisplayRadar.snapshot();
-  assert('pro live golden board fills to target from trusted measured display backfill without dummy estimates',
-    proMeasuredDisplaySnapshot.board.length === 120
-      && proMeasuredDisplaySnapshot.publicPreview.length === 5
+  assert('pro live golden board refuses filler while keeping a large trusted measured display set',
+    proMeasuredDisplaySnapshot.board.length >= 40
+      && proMeasuredDisplaySnapshot.publicPreview.length > 0
+      && proMeasuredDisplaySnapshot.publicPreview.length <= 5
       && proMeasuredDisplaySnapshot.board.every((item) => item.isMeasured === true)
       && proMeasuredDisplaySnapshot.board.every((item) => item.isSearchVolumeEstimated === false && item.isDocumentCountEstimated === false)
       && proMeasuredDisplaySnapshot.board.every((item) => item.searchVolumeSource === 'searchad' && item.documentCountSource === 'cache')
+      && proMeasuredDisplaySnapshot.board.every((item) => ['S+', 'S', 'A'].includes(String(item.valueGrade)))
+      && proMeasuredDisplaySnapshot.board.every((item) => item.publishDecision?.verdict === 'publish')
+      && proMeasuredDisplaySnapshot.board.every((item) => Number(item.score) > 0)
       // 표시 하드 플로어: 모든 board 행은 문서수 < 검색량 (docs ≥ volume = 의미없음, 노출 금지)
       && proMeasuredDisplaySnapshot.board.every((item) => (item.documentCount || 0) < (item.totalSearchVolume || 0)),
     proMeasuredDisplaySnapshot.board.map((item) => `${item.rank}:${item.keyword}:${item.grade}:${item.totalSearchVolume}/${item.documentCount}`).join('|'));
