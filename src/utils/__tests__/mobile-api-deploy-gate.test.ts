@@ -48,6 +48,9 @@ assert('production reserves SearchAd quota for live golden supply instead of let
   /leword-api:[\s\S]*LEWORD_SEARCHAD_SOFT_CEILING:\s*\$\{LEWORD_SEARCHAD_API_SOFT_CEILING:-10000\}/.test(productionCompose)
     && /leword-live-golden-worker:[\s\S]*LEWORD_SEARCHAD_SOFT_CEILING:\s*\$\{LEWORD_SEARCHAD_WORKER_SOFT_CEILING:-22000\}/.test(productionCompose),
   'API prewarm must stop at 10k so the shared worker can use the remaining 12k measured calls');
+assert('live golden worker retries below target on the twelve-minute product SLA cadence',
+  /leword-live-golden-worker:[\s\S]*LEWORD_MOBILE_LIVE_GOLDEN_INTERVAL_MINUTES:\s*\$\{LEWORD_MOBILE_LIVE_GOLDEN_WORKER_INTERVAL_MINUTES:-12\}/.test(productionCompose),
+  'hourly retries delay category coverage after KST quota reset');
 assert('API release workflow publishes image to GHCR',
   report.checks.some((item: any) => item.name === 'CI workflow publishes API image to GHCR' && item.ok));
 assert('API production restart workflow is wired',
