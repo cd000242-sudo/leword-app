@@ -52,6 +52,18 @@ async function run(): Promise<void> {
     accessLicense: 'primary-access-license-value',
     secretKey: 'primary-secret-key-value',
   };
+  const callsBeforeImpossibleExactHint = customers.length;
+  const impossibleExactHint = await getNaverSearchAdKeywordVolume(
+    primary,
+    ['농식품바우처신청하는곳은소득기준'],
+    { forceFresh: true, recursive: false },
+  );
+  assert('keywords truncated by the SearchAd 15-character hint limit never spend quota',
+    customers.length === callsBeforeImpossibleExactHint
+      && impossibleExactHint.length === 1
+      && impossibleExactHint[0]?.totalSearchVolume === null,
+    JSON.stringify({ customers, impossibleExactHint }));
+
   const rows = await getNaverSearchAdKeywordVolume(
     primary,
     Array.from({ length: 9 }, (_, index) => `poolkeyword${index + 1}`),

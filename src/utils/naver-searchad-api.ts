@@ -98,7 +98,7 @@ const isLessThanTenVolume = (value: number | string | null | undefined): boolean
 /**
  * API 요청을 위한 키워드 전처리
  */
-const buildProcessedKeyword = (cleanKeyword: string): string => {
+const buildUntruncatedProcessedKeyword = (cleanKeyword: string): string => {
   // 🔥 중요: Naver SearchAd는 공백을 포함한 키워드를 합성어로 처리.
   // 공백을 +로 대체하면 "곰팡이+제거" 형태가 되어 검색량 0 반환됨.
   // 공백을 제거해 단일 토큰으로 전송 → 연관 키워드 목록이 정상 반환됨.
@@ -112,11 +112,18 @@ const buildProcessedKeyword = (cleanKeyword: string): string => {
   if (!processedKeyword || processedKeyword.length === 0) {
     processedKeyword = cleanKeyword.trim();
   }
-  if (processedKeyword.length > 15) {
-    processedKeyword = processedKeyword.substring(0, 15).trim();
-  }
   return processedKeyword;
 };
+
+const buildProcessedKeyword = (cleanKeyword: string): string => (
+  buildUntruncatedProcessedKeyword(cleanKeyword).substring(0, 15).trim()
+);
+
+function preservesExactSearchAdHint(cleanKeyword: string): boolean {
+  const requested = cleanKeyword.toLowerCase().replace(/[\s+]+/g, '');
+  const processed = buildUntruncatedProcessedKeyword(cleanKeyword).toLowerCase();
+  return Boolean(processed) && processed.length <= 15 && processed === requested;
+}
 
 /**
  * 네이버 검색광고 API 서명 생성
@@ -184,6 +191,10 @@ export async function getNaverSearchAdKeywordVolume(
         });
         continue;
       }
+    }
+    if (!preservesExactSearchAdHint(kw)) {
+      results.push({ keyword: kw, pcSearchVolume: null, mobileSearchVolume: null, totalSearchVolume: null });
+      continue;
     }
     toMeasure.push(kw);
   }
