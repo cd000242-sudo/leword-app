@@ -28,6 +28,7 @@ function row(
   mobileSearchVolume: number,
   documentCount: number,
   category: string,
+  extraEvidence: string[] = [],
 ): Record<string, unknown> {
   const totalSearchVolume = pcSearchVolume + mobileSearchVolume;
   return {
@@ -43,7 +44,7 @@ function row(
     category,
     source: 'persistent-keyword-cache',
     intent: 'persistent-measured-golden-cache',
-    evidence: ['persistent-keyword-cache', 'measured-search-volume', 'measured-document-count'],
+    evidence: ['persistent-keyword-cache', 'measured-search-volume', 'measured-document-count', ...extraEvidence],
     isMeasured: true,
     searchVolumeSource: 'searchad',
     searchVolumeConfidence: 'high',
@@ -63,7 +64,15 @@ fs.writeFileSync(boardFile, JSON.stringify({
   items: [
     row('송지호바다하늘길입장료', 'SSS', 98, 240, 2270, 157, 'travel_domestic'),
     row('제주 렌트카 예약', 'SSS', 95, 250, 600, 15, 'travel_domestic'),
+    row('제주 렌터카 예약', 'SSS', 94, 240, 590, 16, 'travel_domestic'),
     row('청년미래적금지급일', 'SSS', 98, 5000, 28800, 599, 'policy'),
+    row('갤럭시 S27 출시일 스펙', 'SSS', 98, 1400, 8200, 470, 'electronics', ['autocomplete-exact-measured']),
+    row('근로장려금신청tistory', 'SSS', 98, 1200, 7200, 450, 'policy'),
+    row('제습기순위최저가조회', 'SSS', 98, 1100, 6100, 430, 'shopping'),
+    row('공기청정기 순위 구매처', 'SSS', 98, 900, 5200, 380, 'shopping'),
+    row('무선 청소기 출시일 스펙', 'SSS', 98, 850, 4900, 360, 'shopping'),
+    row('쿠쿠제습기렌탈구매처비용', 'SSS', 98, 820, 4700, 350, 'shopping'),
+    row('문화누리카드사용처후기', 'SSS', 98, 1300, 7800, 460, 'policy'),
     row('문화누리카드사용처킥보드', 'S', 95, 250, 600, 141, 'policy'),
     row('SK하이닉스 나스닥 상장일', 'S', 0, 2400, 15460, 2594, 'finance'),
     row('내일도 출근 웹툰', 'A', 0, 6500, 67300, 3169, 'persistent-cache'),
@@ -81,8 +90,18 @@ try {
   });
   const snapshot = radar.snapshot();
   const keywords = new Set(snapshot.board.map((item) => item.keyword));
-  const required = ['송지호바다하늘길입장료', '제주 렌트카 예약', '청년미래적금지급일'];
-  const blocked = ['문화누리카드사용처킥보드', 'SK하이닉스 나스닥 상장일', '내일도 출근 웹툰'];
+  const required = ['송지호바다하늘길입장료', '제주 렌트카 예약', '청년미래적금지급일', '갤럭시 S27 출시일 스펙'];
+  const blocked = [
+    '근로장려금신청tistory',
+    '제습기순위최저가조회',
+    '공기청정기 순위 구매처',
+    '무선 청소기 출시일 스펙',
+    '쿠쿠제습기렌탈구매처비용',
+    '문화누리카드사용처후기',
+    '문화누리카드사용처킥보드',
+    'SK하이닉스 나스닥 상장일',
+    '내일도 출근 웹툰',
+  ];
 
   assert(
     'compact Korean action-intent keywords survive the strict value gate',
@@ -92,6 +111,11 @@ try {
   assert(
     'ambiguous, brand-news, and entertainment lookup rows stay off the golden board',
     blocked.every((keyword) => !keywords.has(keyword)),
+    snapshot.board.map((item) => item.keyword).join('|'),
+  );
+  assert(
+    'orthographic variants collapse to one semantic keyword family',
+    snapshot.board.filter((item) => /\uC81C\uC8FC\s*\uB80C(?:\uD2B8|\uD130)\uCE74\s*\uC608\uC57D/u.test(item.keyword)).length === 1,
     snapshot.board.map((item) => item.keyword).join('|'),
   );
   assert(

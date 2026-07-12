@@ -1289,6 +1289,13 @@ function keywordCompactId(keyword: string): string {
     .slice(0, 80) || keywordId(keyword);
 }
 
+// 공개 황금보드에서는 맞춤법/표기 흔들림으로 같은 검색의도가 두 칸을 차지하지 않게 한다.
+// 수집 캐시의 원본 키는 보존하고, 최종 보드 선택에서만 좁은 범위의 동의 표기를 합친다.
+function goldenBoardSemanticId(keyword: string): string {
+  return keywordCompactId(keyword)
+    .replace(/렌트카/gu, '렌터카');
+}
+
 function formatRange(value: number | null, kind: 'search' | 'document'): string {
   if (value === null || !Number.isFinite(value)) return 'checking';
   if (value < 20) return kind === 'search' ? 'under 20' : 'under 20';
@@ -1989,6 +1996,27 @@ function isMalformedLiveKeyword(keyword: string): boolean {
   return false;
 }
 
+const LIVE_KEYWORD_PLATFORM_RESIDUE_RE = /(?:https?:\/\/|www\.|\.(?:com|net|org|kr)(?:\/|$)|[가-힣0-9](?:tistory|blogspot|wordpress|velog|medium)$)/iu;
+const LIVE_KEYWORD_SUSPICIOUS_INTENT_CHAIN_RE = /(?:순위.{0,8}(?:최저가|구매처|조회)|(?:최저가|구매처|조회).{0,8}순위|최저가.{0,8}조회|조회.{0,8}최저가|사용처.{0,8}후기|후기.{0,8}사용처|출시일.{0,8}스펙|스펙.{0,8}출시일|렌탈.{0,8}구매처.{0,8}비용|렌탈.{0,8}비용.{0,8}구매처)/u;
+
+function hasExactNaturalDemandEvidence(item: Pick<MobileLiveGoldenBoardItem, 'evidence'>): boolean {
+  return (item.evidence || []).some((value) => (
+    /(?:autocomplete-exact-measured|real-demand-(?:echo|extension|verified)|related-keyword-exact)/iu
+      .test(normalizeKeyword(value))
+  ));
+}
+
+function isHumanNaturalGoldenMetric(item: MobileLiveGoldenBoardItem): boolean {
+  const clean = normalizeKeyword(item.keyword);
+  if (!clean || isMalformedLiveKeyword(clean)) return false;
+  if (LIVE_KEYWORD_PLATFORM_RESIDUE_RE.test(clean)) return false;
+  if (
+    LIVE_KEYWORD_SUSPICIOUS_INTENT_CHAIN_RE.test(clean.replace(/\s+/gu, ''))
+    && !hasExactNaturalDemandEvidence(item)
+  ) return false;
+  return true;
+}
+
 function isActionableLiveKeyword(keyword: string): boolean {
   const clean = normalizeKeyword(keyword);
   if (isLowValueLiveCandidate(clean)) return false;
@@ -2100,7 +2128,7 @@ function selectMeasuredPublishableFallbackItems<T extends MobileLiveGoldenBoardI
   const selectedCompactIds = new Set<string>();
   for (const item of sorted) {
     if (selected.length >= target) break;
-    const compactId = keywordCompactId(item.keyword);
+    const compactId = goldenBoardSemanticId(item.keyword);
     if (selectedIds.has(item.id) || selectedCompactIds.has(compactId)) continue;
     if (
       (
@@ -2112,6 +2140,7 @@ function selectMeasuredPublishableFallbackItems<T extends MobileLiveGoldenBoardI
       && hasMeasuredPcMobileSplit(item)
       && hasTrustedSearchVolumeMeasurement(item)
       && hasTrustedDocumentCountMeasurement(item)
+      && isHumanNaturalGoldenMetric(item)
     ) {
       selected.push(item);
       selectedIds.add(item.id);
@@ -2130,7 +2159,7 @@ function appendMeasuredPublishableFallbackItems<T extends MobileLiveGoldenBoardI
   const target = Math.max(1, Math.floor(boardTarget));
   if (selected.length >= target) return selected;
   const selectedIds = new Set(selected.map((item) => item.id));
-  const selectedCompactIds = new Set(selected.map((item) => keywordCompactId(item.keyword)));
+  const selectedCompactIds = new Set(selected.map((item) => goldenBoardSemanticId(item.keyword)));
   const clusterCounts = new Map<string, number>();
   for (const item of selected) {
     const cluster = publicPreviewClusterKey(item.keyword);
@@ -2140,7 +2169,7 @@ function appendMeasuredPublishableFallbackItems<T extends MobileLiveGoldenBoardI
   const fallback = selectMeasuredPublishableFallbackItems(sorted, target, now);
   for (const item of fallback) {
     if (merged.length >= target) break;
-    const compactId = keywordCompactId(item.keyword);
+    const compactId = goldenBoardSemanticId(item.keyword);
     const cluster = publicPreviewClusterKey(item.keyword);
     if (selectedIds.has(item.id) || selectedCompactIds.has(compactId)) continue;
     if (cluster && (clusterCounts.get(cluster) || 0) >= LIVE_BOARD_CLUSTER_MAX) continue;
@@ -2152,7 +2181,7 @@ function appendMeasuredPublishableFallbackItems<T extends MobileLiveGoldenBoardI
   if (target >= LIVE_BOARD_STRICT_READY_MIN) {
     for (const item of fallback) {
       if (merged.length >= target) break;
-      const compactId = keywordCompactId(item.keyword);
+      const compactId = goldenBoardSemanticId(item.keyword);
       if (selectedIds.has(item.id) || selectedCompactIds.has(compactId)) continue;
       selectedIds.add(item.id);
       selectedCompactIds.add(compactId);
@@ -2474,9 +2503,10 @@ function selectLiveBoardItemsFromPool<T extends MobileLiveGoldenBoardItem>(
 
   const push = (item: T, options: { respectCategory?: boolean; respectCluster?: boolean } = {}): boolean => {
     if (selected.length >= target || selectedIds.has(item.id)) return false;
-    const compactId = keywordCompactId(item.keyword);
+    const compactId = goldenBoardSemanticId(item.keyword);
     if (selectedCompactIds.has(compactId)) return false;
     if (!hasCompleteLiveGoldenMetrics(item)) return false;
+    if (!isHumanNaturalGoldenMetric(item)) return false;
     if (!isEligible(item)) return false;
     const isProfileIntent = isThinProfileIntentKeyword(item.keyword);
     if (isProfileIntent && profileCount >= maxProfileCount) return false;
@@ -5908,6 +5938,7 @@ function liveValueGateFields(
 }
 
 function isLiveGoldenQualityConsistent(item: MobileLiveGoldenBoardItem, now: Date): boolean {
+  if (!isHumanNaturalGoldenMetric(item)) return false;
   const valueGrade = liveValueGateFields(item, now).valueGrade;
   if (!valueGrade || !['S+', 'S', 'A'].includes(valueGrade)) return false;
   return evaluatePublishDecision(item).verdict === 'publish'
