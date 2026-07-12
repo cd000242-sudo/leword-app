@@ -48,6 +48,10 @@ assert('production reserves SearchAd quota for live golden supply instead of let
   /leword-api:[\s\S]*LEWORD_SEARCHAD_SOFT_CEILING:\s*\$\{LEWORD_SEARCHAD_API_SOFT_CEILING:-10000\}/.test(productionCompose)
     && /leword-live-golden-worker:[\s\S]*LEWORD_SEARCHAD_SOFT_CEILING:\s*\$\{LEWORD_SEARCHAD_WORKER_SOFT_CEILING:-22000\}/.test(productionCompose),
   'API prewarm must stop at 10k so the shared worker can use the remaining 12k measured calls');
+assert('production reads additional SearchAd credentials from the shared secret file instead of container metadata',
+  (productionCompose.match(/LEWORD_SEARCHAD_ACCOUNTS_FILE:\s*\/data\/searchad-accounts\.json/g) || []).length === 2
+    && !/LEWORD_SEARCHAD_ACCOUNTS_B64:/.test(productionCompose),
+  'both API and worker must share the secret file path without exposing credential material in docker inspect');
 assert('live golden worker retries below target on the twelve-minute product SLA cadence',
   /leword-live-golden-worker:[\s\S]*LEWORD_MOBILE_LIVE_GOLDEN_INTERVAL_MINUTES:\s*\$\{LEWORD_MOBILE_LIVE_GOLDEN_WORKER_INTERVAL_MINUTES:-12\}/.test(productionCompose),
   'hourly retries delay category coverage after KST quota reset');

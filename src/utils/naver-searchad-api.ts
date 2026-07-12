@@ -11,6 +11,10 @@ import {
   searchAdSoftCeiling,
   recordSearchAdCall,
 } from './searchad-quota-governor';
+import {
+  buildSearchAdAccountPool,
+  selectSearchAdAccount,
+} from './searchad-account-pool';
 import { getSearchAdVolumeCached, setSearchAdVolumeCached } from './searchad-volume-cache';
 
 let lastSearchAdRequestAt = 0;
@@ -129,6 +133,14 @@ function generateSignature(
     .digest('base64');
 }
 
+function resolveSearchAdCustomerId(config: NaverSearchAdConfig): string {
+  const explicit = String(config.customerId || '').trim();
+  if (explicit) return explicit;
+  const parts = config.accessLicense.split(':');
+  if (parts.length > 1 && String(parts[0] || '').trim()) return String(parts[0]).trim();
+  return config.accessLicense.substring(0, Math.min(10, config.accessLicense.length));
+}
+
 /**
  * 여러 키워드의 검색량을 한꺼번에 또는 순차적으로 조회
  */
@@ -144,22 +156,8 @@ export async function getNaverSearchAdKeywordVolume(
     throw new Error('네이버 검색광고 API 인증 정보가 필요합니다');
   }
 
-  // 기본값: 최상위 호출에서 recursive=true (1회 한정 개별 재호출 fallback)
-  const isRecursive = options.recursive !== false;
-  // Phase 1: 계정별 일일 쿼터 거버너 식별자 (다중계정 훅 — 지금은 단일계정)
-  const accountId = searchAdAccountId(config);
-
-  let customerId: string;
-  if (config.customerId && typeof config.customerId === 'string' && config.customerId.trim() !== '') {
-    customerId = config.customerId.trim();
-  } else {
-    const parts = config.accessLicense.split(':');
-    if (parts.length > 1 && parts[0] && typeof parts[0] === 'string' && parts[0].trim() !== '') {
-      customerId = parts[0].trim();
-    } else {
-      customerId = config.accessLicense.substring(0, Math.min(10, config.accessLicense.length));
-    }
-  }
+  // Phase 1C: 계정별 일일 쿼터를 보존하면서 가용 계정 풀에서 배치별로 선택한다.
+  const accountPool = buildSearchAdAccountPool(config);
 
   const results: KeywordSearchVolume[] = [];
   const cleanKeywords = (keywords || []).map(k => String(k || '').trim()).filter(Boolean);
@@ -200,13 +198,16 @@ export async function getNaverSearchAdKeywordVolume(
   const chunkSize = 4;
   for (let i = 0; i < toMeasure.length; i += chunkSize) {
     // 🛡️ Phase 1: 일일 쿼터 소프트 상한 도달 → 남은 키워드 전부 null(측정 스킵) 후 종료 (계정 25k 절대 안 넘김)
-    if (searchAdExhausted(accountId)) {
+    const activeConfig = selectSearchAdAccount(accountPool);
+    if (!activeConfig) {
       console.warn(`[NAVER-SEARCHAD] 🛡️ 일일 쿼터 소프트 상한(${searchAdSoftCeiling()}) 도달 — 잔여 ${toMeasure.length - i}개 미측정(null) 처리`);
       for (let j = i; j < toMeasure.length; j++) {
         results.push({ keyword: toMeasure[j], pcSearchVolume: null, mobileSearchVolume: null, totalSearchVolume: null });
       }
       break;
     }
+    const accountId = searchAdAccountId(activeConfig);
+    const customerId = resolveSearchAdCustomerId(activeConfig);
     const chunk = toMeasure.slice(i, i + chunkSize);
     const hintKeywordsValue = chunk.map(k => buildProcessedKeyword(k)).join(',');
 
@@ -220,10 +221,10 @@ export async function getNaverSearchAdKeywordVolume(
       params.append('hintKeywords', hintKeywordsValue);
       params.append('showDetail', '1');
 
-      const signature = generateSignature(method, uri, timestamp, config.secretKey);
+      const signature = generateSignature(method, uri, timestamp, activeConfig.secretKey);
       const headers: Record<string, string> = {
         'X-Timestamp': timestamp,
-        'X-API-KEY': config.accessLicense,
+        'X-API-KEY': activeConfig.accessLicense,
         'X-Signature': signature,
         'X-Customer': customerId
       };
@@ -369,24 +370,21 @@ export async function getNaverSearchAdKeywordSuggestions(
   seedKeyword: string,
   limit: number = 200
 ): Promise<KeywordSuggestion[]> {
-  const accessLicense = config.accessLicense ?? '';
-  const secretKey = config.secretKey ?? '';
+  const activeConfig = selectSearchAdAccount(buildSearchAdAccountPool(config));
+  const accessLicense = activeConfig?.accessLicense ?? '';
+  const secretKey = activeConfig?.secretKey ?? '';
 
   if (!accessLicense || !secretKey) {
     throw new Error('네이버 검색광고 API 인증 정보가 필요합니다');
   }
 
   // Phase 1: 일일 쿼터 소프트 상한 도달 시 연관어 조회 스킵 (배경 발굴이 남은 쿼터를 태우지 않게)
-  const accountId = searchAdAccountId({ accessLicense, customerId: config.customerId });
+  const accountId = searchAdAccountId({ accessLicense, customerId: activeConfig?.customerId });
   if (searchAdExhausted(accountId)) {
     return [];
   }
 
-  let customerId = config.customerId || '';
-  if (!customerId) {
-    const parts = accessLicense.split(':');
-    customerId = parts.length > 1 ? parts[0] : accessLicense.substring(0, 10);
-  }
+  const customerId = resolveSearchAdCustomerId(activeConfig!);
 
   const method = 'GET';
   const uri = '/keywordstool';

@@ -299,6 +299,14 @@ export interface MobileLiveGoldenRadarSnapshot {
     softCeiling: number;
     dailyLimit?: number;
     resetAt: string;
+    accountCount?: number;
+    availableAccountCount?: number;
+    accounts?: Array<{
+      customerIdMasked: string;
+      calls: number;
+      remaining: number;
+      exhausted: boolean;
+    }>;
   };
   categoryStats?: Record<string, {
     scans: number;

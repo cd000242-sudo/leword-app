@@ -23,14 +23,12 @@ import {
   type NaverSearchAdConfig,
 } from '../utils/naver-searchad-api';
 import {
-  searchAdAccountId,
-  searchAdCallsToday,
-  searchAdDailyLimit,
-  searchAdExhausted,
   searchAdNextResetAtMs,
-  searchAdRemaining,
-  searchAdSoftCeiling,
 } from '../utils/searchad-quota-governor';
+import {
+  buildSearchAdAccountPool,
+  summarizeSearchAdAccountPool,
+} from '../utils/searchad-account-pool';
 import * as fs from 'fs';
 import * as path from 'path';
 import {
@@ -83,6 +81,14 @@ interface LiveSearchAdQuotaState {
   softCeiling: number;
   dailyLimit?: number;
   resetAtMs: number;
+  accountCount?: number;
+  availableAccountCount?: number;
+  accounts?: Array<{
+    customerIdMasked: string;
+    calls: number;
+    remaining: number;
+    exhausted: boolean;
+  }>;
 }
 
 export interface MobileLiveGoldenRadarOptions {
@@ -6181,14 +6187,22 @@ export class MobileLiveGoldenRadar {
     this.autocompleteProvider = options.autocompleteProvider || getNaverAutocompleteKeywords;
     this.searchAdSuggestionProvider = options.searchAdSuggestionProvider || getNaverSearchAdKeywordSuggestions;
     this.searchAdQuotaState = options.searchAdQuotaState || ((config, nowMs) => {
-      const accountId = searchAdAccountId(config);
+      const summary = summarizeSearchAdAccountPool(buildSearchAdAccountPool(config));
       return {
-        exhausted: searchAdExhausted(accountId),
-        calls: searchAdCallsToday(accountId),
-        remaining: searchAdRemaining(accountId),
-        softCeiling: searchAdSoftCeiling(),
-        dailyLimit: searchAdDailyLimit(),
+        exhausted: summary.exhausted,
+        calls: summary.calls,
+        remaining: summary.remaining,
+        softCeiling: summary.softCeiling,
+        dailyLimit: summary.dailyLimit,
         resetAtMs: searchAdNextResetAtMs(nowMs),
+        accountCount: summary.accountCount,
+        availableAccountCount: summary.availableAccountCount,
+        accounts: summary.accounts.map((item) => ({
+          customerIdMasked: item.customerIdMasked,
+          calls: item.calls,
+          remaining: item.remaining,
+          exhausted: item.exhausted,
+        })),
       };
     });
     this.hasCustomSearchAdSuggestionProvider = Boolean(options.searchAdSuggestionProvider);
@@ -6383,6 +6397,9 @@ export class MobileLiveGoldenRadar {
           softCeiling: quota.softCeiling,
           dailyLimit: quota.dailyLimit,
           resetAt: new Date(quota.resetAtMs).toISOString(),
+          accountCount: quota.accountCount,
+          availableAccountCount: quota.availableAccountCount,
+          accounts: quota.accounts,
         };
         if (quota.exhausted) {
           this.skippedRuns += 1;

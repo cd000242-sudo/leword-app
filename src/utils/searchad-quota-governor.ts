@@ -22,6 +22,9 @@ const DAILY_LIMIT = Number(process.env['LEWORD_SEARCHAD_DAILY_LIMIT']) || 25000;
 // 소프트 상한: 배경 소비자는 여기서 멈춘다 (25k 계정 한도까지 3k 여유 = 온디맨드/레이스 버퍼)
 const SOFT_CEILING = Number(process.env['LEWORD_SEARCHAD_SOFT_CEILING']) || 22000;
 const SCHEMA = 'searchad-quota-v1';
+const QUOTA_LOCK_STALE_MS = 5_000;
+const QUOTA_LOCK_WAIT_MS = 10_000;
+const QUOTA_LOCK_RETRY_MS = 5;
 
 interface DayState {
   date: string; // KST YYYY-MM-DD
@@ -29,6 +32,7 @@ interface DayState {
 }
 
 let state: DayState | null = null;
+const quotaLockWaitBuffer = new Int32Array(new SharedArrayBuffer(4));
 
 function stateFile(): string {
   const explicit = process.env['LEWORD_SEARCHAD_QUOTA_STATE_FILE'];
@@ -40,6 +44,63 @@ function stateFile(): string {
     (fs.existsSync('/data') ? '/data' : '') ||
     path.join(os.tmpdir(), 'leword');
   return path.join(dataDir, 'searchad-quota-state.json');
+}
+
+function sleepSync(ms: number): void {
+  Atomics.wait(quotaLockWaitBuffer, 0, 0, ms);
+}
+
+function withQuotaFileLock<T>(action: () => T): T {
+  const file = stateFile();
+  const lockFile = `${file}.lock`;
+  fs.mkdirSync(path.dirname(file), { recursive: true });
+  const startedAt = Date.now();
+  let lockFd: number | null = null;
+  while (lockFd === null) {
+    try {
+      lockFd = fs.openSync(lockFile, 'wx');
+    } catch (error: any) {
+      const code = String(error?.code || '');
+      if (!['EEXIST', 'EPERM', 'EBUSY', 'EACCES'].includes(code)) throw error;
+      if (code === 'EEXIST') {
+        try {
+          const ageMs = Date.now() - fs.statSync(lockFile).mtimeMs;
+          if (ageMs > QUOTA_LOCK_STALE_MS) {
+            fs.unlinkSync(lockFile);
+            continue;
+          }
+        } catch (statError: any) {
+          if (!['ENOENT', 'EPERM', 'EBUSY', 'EACCES'].includes(String(statError?.code || ''))) {
+            throw statError;
+          }
+        }
+      }
+      if (Date.now() - startedAt >= QUOTA_LOCK_WAIT_MS) {
+        throw new Error('SearchAd quota lock timeout');
+      }
+      sleepSync(QUOTA_LOCK_RETRY_MS);
+    }
+  }
+  try {
+    return action();
+  } finally {
+    try { fs.closeSync(lockFd); } catch { /* already closed */ }
+    try { fs.unlinkSync(lockFile); } catch { /* stale cleanup handles leftovers */ }
+  }
+}
+
+function replaceFileAtomically(tmpFile: string, file: string): void {
+  for (let attempt = 0; attempt < 100; attempt += 1) {
+    try {
+      fs.renameSync(tmpFile, file);
+      return;
+    } catch (error: any) {
+      if (!['EPERM', 'EBUSY', 'EACCES'].includes(String(error?.code || '')) || attempt === 99) {
+        throw error;
+      }
+      sleepSync(QUOTA_LOCK_RETRY_MS);
+    }
+  }
 }
 
 /** KST(+9) 기준 오늘 날짜 문자열 — Naver 일일 쿼터 리셋(자정 KST)과 정렬 */
@@ -92,7 +153,6 @@ function ensure(): DayState {
   if (state.date !== today) {
     // 날짜 롤오버 → 카운터 리셋
     state = { date: today, byAccount: {} };
-    save();
   }
   return state;
 }
@@ -108,17 +168,15 @@ function mergeLatestDiskState(current: DayState): DayState {
 
 function save(): void {
   if (!state) return;
-  try {
-    const file = stateFile();
-    fs.mkdirSync(path.dirname(file), { recursive: true });
-    fs.writeFileSync(
-      file,
-      JSON.stringify({ schemaVersion: SCHEMA, date: state.date, byAccount: state.byAccount }),
-      'utf8',
-    );
-  } catch {
-    // 영속 실패해도 인메모리 카운트로 동작
-  }
+  const file = stateFile();
+  fs.mkdirSync(path.dirname(file), { recursive: true });
+  const tmpFile = `${file}.${process.pid}.tmp`;
+  fs.writeFileSync(
+    tmpFile,
+    JSON.stringify({ schemaVersion: SCHEMA, date: state.date, byAccount: state.byAccount }),
+    'utf8',
+  );
+  replaceFileAtomically(tmpFile, file);
 }
 
 /** 오늘(KST) 해당 계정의 SearchAd 호출 수 */
@@ -136,16 +194,15 @@ export function searchAdExhausted(accountId = 'default', ceiling = SOFT_CEILING)
   return searchAdCallsToday(accountId) >= ceiling;
 }
 
-/** 호출 1회(이상) 기록. 크로스-프로세스 레이스 시 디스크값과 max 머지(over-count safe). */
+/** 호출 1회(이상) 기록. 공유 파일 잠금 안에서 최신값을 더해 크로스-프로세스 유실을 막는다. */
 export function recordSearchAdCall(accountId = 'default', n = 1): void {
-  const s = ensure();
-  const disk = readDisk();
-  if (disk && disk.date === s.date) {
-    // 다른 컨테이너가 올린 값과 합류 (더 큰 쪽 채택 = under-count 방지)
-    s.byAccount[accountId] = Math.max(s.byAccount[accountId] || 0, disk.byAccount[accountId] || 0);
-  }
-  s.byAccount[accountId] = (s.byAccount[accountId] || 0) + Math.max(1, n);
-  save();
+  withQuotaFileLock(() => {
+    const today = kstDate();
+    const disk = readDisk();
+    state = disk && disk.date === today ? disk : { date: today, byAccount: {} };
+    state.byAccount[accountId] = (state.byAccount[accountId] || 0) + Math.max(1, n);
+    save();
+  });
 }
 
 export function searchAdSoftCeiling(): number {
