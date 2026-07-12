@@ -148,11 +148,7 @@ const DEFAULT_CATEGORIES = LIVE_GOLDEN_DEFAULT_DISCOVERY_IDS;
 
 const PUBLIC_PREVIEW_ROTATION_MS = 60_000;
 const LIVE_SEED_COLLECTION_TIMEOUT_MS = 5_000;
-const LIVE_DISCOVERY_TIMEOUT_MS = 80_000;
 const LIVE_BACKFILL_TIMEOUT_MS = 105_000;
-const LIVE_BACKFILL_STAGE_TIMEOUT_MS = 115_000;
-const LIVE_GLOBAL_BACKFILL_STAGE_TIMEOUT_MS = 95_000;
-const LIVE_ISSUE_FALLBACK_TIMEOUT_MS = 25_000;
 const LIVE_SPLIT_ENRICHMENT_TIMEOUT_MS = 25_000;
 const PUBLIC_PREVIEW_MAX_AGE_MS = 48 * 60 * 60 * 1000;
 const LIVE_BOARD_MAX_AGE_MS = 7 * 24 * 60 * 60 * 1000;
@@ -239,7 +235,6 @@ const LIVE_REFERENCE_SSS_PROBE_LIMIT = 720;
 const LIVE_REFERENCE_SSS_PROBE_PRIORITY_BOOST = 620;
 const LIVE_BOARD_SPLIT_ENRICHMENT_LIMIT = 80;
 const LIVE_SEARCHAD_VOLUME_BATCH_SIZE = 4;
-const LIVE_SEARCHAD_VOLUME_BATCH_TIMEOUT_MS = 28_000;
 const LIVE_SEARCHAD_VOLUME_MIN_REMAINING_MS = 2_000;
 const LIVE_PROBE_QUEUE_FILE_NAME = 'live-golden-probe-queue.json';
 const LIVE_PROBE_QUEUE_MAX_ITEMS = 5000;
@@ -6243,11 +6238,9 @@ export class MobileLiveGoldenRadar {
       const remainingMs = Math.max(0, totalTimeoutMs - (Date.now() - startedAt));
       if (remainingMs <= LIVE_SEARCHAD_VOLUME_MIN_REMAINING_MS) break;
       const batch = candidates.slice(i, i + LIVE_SEARCHAD_VOLUME_BATCH_SIZE);
-      const batchRows = await withTimeout(
-        this.measureLiveSearchVolumeSeparate(config, batch, options),
-        Math.min(LIVE_SEARCHAD_VOLUME_BATCH_TIMEOUT_MS, remainingMs),
-        [],
-      );
+      // The underlying SearchAd client owns its finite fetch timeout. Await it so
+      // runOnce cannot release while quota-spending work is still alive.
+      const batchRows = await this.measureLiveSearchVolumeSeparate(config, batch, options);
       rows.push(...batchRows);
     }
     return uniqueVolumeRows(rows, candidates.length);
@@ -6482,7 +6475,10 @@ export class MobileLiveGoldenRadar {
       categoryId = this.nextCategory();
       categoryScanStarted = true;
       const liveSeeds = await this.collectLiveSeeds(categoryId);
-      const directMaxCandidates = directCandidateBudget(this.maxCandidates, runLimit);
+      const directMaxCandidates = Math.min(
+        120,
+        directCandidateBudget(this.maxCandidates, runLimit),
+      );
       const existingIdsForRun = new Set(this.board.keys());
       const existingClustersForRun = new Set([...this.board.values()]
         .filter((item) => !isOverbroadNoEffectBoardKeyword(item))
@@ -6493,14 +6489,12 @@ export class MobileLiveGoldenRadar {
       const hasRunnableProbeQueueForRun = this.runnableMeasuredProbeQueueItems(backfillCategoryId, runLimit).length > 0;
       let qualityDirect: MDPResult[] = [];
       let queuedProbeAttemptedCount = 0;
-      let queuedProbeResultCount = 0;
       if (this.enableBackfill) {
         const queuedProbeDirect = await this.discoverQueuedProbeBackfill({
           clientId: env.naverClientId,
           clientSecret: env.naverClientSecret,
         }, backfillCategoryId, runLimit);
         queuedProbeAttemptedCount = queuedProbeDirect.attemptedCount;
-        queuedProbeResultCount = queuedProbeDirect.results.length;
         if (queuedProbeDirect.results.length > 0) {
           qualityDirect = [...qualityDirect, ...queuedProbeDirect.results];
         }
@@ -6508,14 +6502,10 @@ export class MobileLiveGoldenRadar {
           || queuedProbeDirect.results.length >= Math.min(3, runLimit)
           || sssDepthShort;
         const backfill = shouldRunExpansionBackfill
-          ? await withTimeout(
-            this.discoverBackfill({
+          ? await this.discoverBackfill({
             clientId: env.naverClientId,
             clientSecret: env.naverClientSecret,
-            }, backfillCategoryId, liveSeeds, runLimit),
-            LIVE_BACKFILL_STAGE_TIMEOUT_MS,
-            [],
-          )
+            }, backfillCategoryId, liveSeeds, runLimit)
           : [];
         if (backfill.length > 0) {
           qualityDirect = [...qualityDirect, ...backfill];
@@ -6530,9 +6520,7 @@ export class MobileLiveGoldenRadar {
       const shouldDeferHeavyDirectToProbeQueue = this.enableBackfill
         && catchUpMode
         && hasRunnableProbeQueueForRun
-        && !sssDepthShort
-        && queuedProbeAttemptedCount > 0
-        && queuedProbeResultCount > 0;
+        && queuedProbeAttemptedCount > 0;
       const shouldRunHeavyDirect = (
         !shouldDeferHeavyDirectToProbeQueue
         && (
@@ -6551,7 +6539,10 @@ export class MobileLiveGoldenRadar {
         || qualityDirect.length < runLimit
         || novelSssCount < desiredRunSssCount
       )) {
-        const direct = await withTimeout(this.discover({
+        // Quota-spending discovery must settle before runOnce releases its running lock.
+        // A fallback-only timeout leaves the underlying SearchAd work alive and allows
+        // later cycles to stack orphaned miners.
+        const direct = await this.discover({
           clientId: env.naverClientId,
           clientSecret: env.naverClientSecret,
         }, {
@@ -6562,7 +6553,9 @@ export class MobileLiveGoldenRadar {
           liveSeeds,
           includeCrossCategory: runLimit > this.cycleLimit,
           requireCategoryMatch: false,
-          includeSearchAdSuggestions: !catchUpMode || sssDepthShort,
+          // Backfill already owns the SearchAd suggestion lane. Repeating it inside
+          // the heavy direct miner spends quota on the same seed families twice.
+          includeSearchAdSuggestions: false,
           suggestionSeedLimit: sssDepthShort
             ? Math.min(16, Math.max(8, Math.ceil(runLimit / 8)))
             : Math.min(48, Math.max(12, runLimit)),
@@ -6570,7 +6563,7 @@ export class MobileLiveGoldenRadar {
             ? Math.min(30, Math.max(12, Math.ceil(runLimit * 0.25)))
             : Math.min(60, Math.max(18, Math.ceil(runLimit * 1.5))),
           maxSimilarPerCluster: 2,
-        }), LIVE_DISCOVERY_TIMEOUT_MS, []);
+        });
         const directQuality = direct.filter(isLiveRadarQualityResult);
         if (directQuality.length > 0) {
           qualityDirect = [...qualityDirect, ...directQuality];
@@ -6581,14 +6574,10 @@ export class MobileLiveGoldenRadar {
       if (this.enableBackfill && novelQualityCount < runLimit) {
         const globalBackfill = backfillCategoryId === 'all'
           ? []
-          : await withTimeout(
-            this.discoverBackfill({
+          : await this.discoverBackfill({
               clientId: env.naverClientId,
               clientSecret: env.naverClientSecret,
-            }, 'all', liveSeeds, runLimit),
-            LIVE_GLOBAL_BACKFILL_STAGE_TIMEOUT_MS,
-            [],
-          );
+            }, 'all', liveSeeds, runLimit);
         if (globalBackfill.length > 0) {
           qualityDirect = [...qualityDirect, ...globalBackfill];
         }
@@ -6651,14 +6640,10 @@ export class MobileLiveGoldenRadar {
       appendUniqueMdpResults(ranked, rankedBackfill, seen, runLimit);
       const rankedMetrics = ranked.map((item) => mapDirectResult(item, categoryId));
       const liveIssueFallback = rankedMetrics.length < runLimit && (this.enableBackfill || this.hasCustomLiveDocumentMeasure)
-        ? await withTimeout(
-          this.discoverLiveIssueFallback({
+        ? await this.discoverLiveIssueFallback({
             clientId: env.naverClientId,
             clientSecret: env.naverClientSecret,
-          }, categoryId, liveSeeds, runLimit),
-          LIVE_ISSUE_FALLBACK_TIMEOUT_MS,
-          [],
-        )
+          }, categoryId, liveSeeds, runLimit)
         : [];
       const resultMetrics: MobileKeywordMetric[] = [...rankedMetrics];
       const metricSeen = new Set<string>();
@@ -7522,7 +7507,10 @@ export class MobileLiveGoldenRadar {
         cursor += 1;
         const seedCategory = inferLiveCategory(seed, categoryId);
         const suggestions = await withTimeout(
-          this.autocompleteProvider(seed, config).catch(() => [] as string[]),
+          this.autocompleteProvider(seed, {
+            ...config,
+            skipSearchAdRelated: true,
+          }).catch(() => [] as string[]),
           8000,
           [],
         );
@@ -7636,11 +7624,8 @@ export class MobileLiveGoldenRadar {
         const seed = seeds[cursor];
         cursor += 1;
         const fallbackCategory = inferLiveCategory(seed, categoryId);
-        const suggestions = await withTimeout(
-          this.searchAdSuggestionProvider(searchAdConfig, seed, 80).catch(() => []),
-          10_000,
-          [],
-        );
+        const suggestions = await this.searchAdSuggestionProvider(searchAdConfig, seed, 80)
+          .catch(() => []);
         for (const suggestion of suggestions) {
           const total = finiteNumber((suggestion as any).totalSearchVolume)
             ?? ((finiteNumber((suggestion as any).pcSearchVolume) || 0) + (finiteNumber((suggestion as any).mobileSearchVolume) || 0));
@@ -7663,7 +7648,7 @@ export class MobileLiveGoldenRadar {
     categoryId: string,
     targetLimit = this.cycleLimit,
   ): Promise<{ results: MDPResult[]; attemptedCount: number }> {
-    const measurementLimit = Math.min(240, this.backfillMeasurementLimit(targetLimit));
+    const measurementLimit = Math.min(40, this.backfillMeasurementLimit(targetLimit));
     const prioritizedItems = this.priorityMeasuredProbeQueueItems(categoryId, measurementLimit * 2);
     const diverseItems = this.runnableMeasuredProbeQueueItems(categoryId, targetLimit);
     const queuedProbeItems: LiveMeasuredProbeQueueItem[] = [];
@@ -7680,7 +7665,7 @@ export class MobileLiveGoldenRadar {
     const categoryById = new Map<string, string>();
     const candidates: string[] = [];
     const seenCandidateKeywords = new Set<string>();
-    const candidateLimit = Math.min(480, Math.max(measurementLimit, measurementLimit * 2));
+    const candidateLimit = measurementLimit;
     const variantsByItem = queuedProbeItems.map((item) => {
       const effectiveCategory = measuredProbeEffectiveCategory(item, categoryId || 'all');
       return {
@@ -7777,7 +7762,7 @@ export class MobileLiveGoldenRadar {
       this.maxSeeds,
       this.now(),
     );
-    const measurementLimit = this.backfillMeasurementLimit(targetLimit);
+    const measurementLimit = Math.min(40, this.backfillMeasurementLimit(targetLimit));
     const queuedProbeItems = this.runnableMeasuredProbeQueueItems(categoryId, targetLimit);
     const queuedProbeCandidates = queuedProbeItems.map((item) => item.keyword);
     const queueFirstMode = queuedProbeCandidates.length >= Math.min(
@@ -7995,7 +7980,7 @@ export class MobileLiveGoldenRadar {
         return true;
       })
       .filter((keyword) => isHighYieldSearchAdSpendCandidate(keyword, categoryId, this.now()))
-      .slice(0, Math.max(LIVE_ISSUE_FALLBACK_DOCUMENT_LIMIT, targetLimit * 2));
+      .slice(0, Math.min(40, Math.max(LIVE_ISSUE_FALLBACK_DOCUMENT_LIMIT, targetLimit * 2)));
 
     const seen = new Set<string>();
     const out: MobileKeywordMetric[] = [];

@@ -821,11 +821,11 @@ function thinProfileCount(items: Array<{ keyword: string }>): number {
     },
   });
   await sssShortDepthRadar.runOnce();
-  assert('SSS-short 120-board runs bounded direct discovery with SearchAd suggestion expansion',
-    Number(sssShortDepthOptions?.maxCandidates) >= 1200
-      && Number(sssShortDepthOptions?.maxCandidates) <= 2200
+  assert('SSS-short 120-board keeps depth ranking but hard-caps quota-spending direct measurement',
+    Number(sssShortDepthOptions?.maxCandidates) > 0
+      && Number(sssShortDepthOptions?.maxCandidates) <= 120
       && Number(sssShortDepthOptions?.limit) >= 160
-      && sssShortDepthOptions?.includeSearchAdSuggestions === true
+      && sssShortDepthOptions?.includeSearchAdSuggestions === false
       && Number(sssShortDepthOptions?.suggestionSeedLimit) >= 8
       && Number(sssShortDepthOptions?.suggestionSeedLimit) <= 16
       && Number(sssShortDepthOptions?.suggestionsPerSeed) >= 12
@@ -4076,7 +4076,7 @@ function thinProfileCount(items: Array<{ keyword: string }>): number {
       assert('spaced queue variant volume pass keeps document count separated', options?.includeDocumentCount === false);
       queueVariantMeasuredKeywords.push(...keywords);
       return keywords
-        .filter((keyword) => keyword === compactTravelWinner)
+        .filter((keyword) => keyword === spacedTravelProbe)
         .map((keyword) => ({
           keyword,
           pcSearchVolume: 540,
@@ -4090,7 +4090,7 @@ function thinProfileCount(items: Array<{ keyword: string }>): number {
         }));
     },
     measureLiveDocumentCount: async (keyword) => (
-      keyword === compactTravelWinner
+      keyword === spacedTravelProbe
         ? {
           dc: 140,
           source: 'scrape',
@@ -4103,10 +4103,11 @@ function thinProfileCount(items: Array<{ keyword: string }>): number {
   });
   const queueVariantSnapshot = await queueVariantRadar.runOnce();
   const queueVariantAfter = JSON.parse(fs.readFileSync(queueVariantProbeFile, 'utf8'));
-  assert('spaced writer-ready queued probes are measured with compact SearchAd variants',
-    queueVariantMeasuredKeywords.includes(compactTravelWinner)
+  assert('spaced writer-ready queued probes preserve display text while SearchAd normalizes exact matching',
+    queueVariantMeasuredKeywords.includes(spacedTravelProbe)
+      && queueVariantMeasuredKeywords.length <= 80
       && queueVariantSnapshot.board.some((item) => (
-        item.keyword === compactTravelWinner
+        item.keyword === spacedTravelProbe
         && item.grade === 'SSS'
         && item.pcSearchVolume === 540
         && item.mobileSearchVolume === 3660
@@ -4306,8 +4307,9 @@ function thinProfileCount(items: Array<{ keyword: string }>): number {
     discover: async () => [],
   });
   await catchUpRadar.runOnce();
-  assert('live golden catch-up measures a wide SSS-depth queue instead of stalling behind broad heads',
-    new Set(catchUpMeasuredKeywords).size > 240,
+  assert('live golden catch-up advances the SSS-depth queue within the per-cycle SearchAd budget',
+    new Set(catchUpMeasuredKeywords).size > 0
+      && new Set(catchUpMeasuredKeywords).size <= 80,
     JSON.stringify({
       measuredCount: new Set(catchUpMeasuredKeywords).size,
       catchUpAutocompleteCalls,

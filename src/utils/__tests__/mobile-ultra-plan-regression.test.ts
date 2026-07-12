@@ -690,6 +690,8 @@ assert('mobile readiness report separates code checks from external native block
 
 const apiServer = read('apps/api/src/server.ts');
 const liveGoldenRadar = read('src/mobile/live-golden-radar.ts');
+const naverDatalabApi = read('src/utils/naver-datalab-api.ts');
+const naverAutocomplete = read('src/utils/naver-autocomplete.ts');
 const puppeteerPool = read('src/utils/puppeteer-pool.ts');
 const mobileEntitlements = read('src/mobile/entitlements.ts');
 const notificationInbox = read('src/mobile/notification-inbox.ts');
@@ -710,6 +712,21 @@ assert('live golden board display is SSS-first with trusted publishable fallback
     && /function selectMeasuredPublishableFallbackItems[\s\S]*hasTrustedSearchVolumeMeasurement\(item\)[\s\S]*hasTrustedDocumentCountMeasurement\(item\)/.test(liveGoldenRadar)
     && !/appendMeasuredExactDisplayFallbackItems/.test(liveGoldenRadar),
   'LIVE board display must keep SSS first but fill paid boards only with trusted measured publishable rows');
+assert('live golden heavy discovery cannot outlive a cycle or spend an unbounded SearchAd budget',
+  /const directMaxCandidates = Math\.min\(\s*120,\s*directCandidateBudget/.test(liveGoldenRadar)
+    && /const direct = await this\.discover\(/.test(liveGoldenRadar)
+    && !/withTimeout\(this\.discover\(/.test(liveGoldenRadar)
+    && /includeSearchAdSuggestions:\s*false/.test(liveGoldenRadar)
+    && /const measurementLimit = Math\.min\(40, this\.backfillMeasurementLimit\(targetLimit\)\)/.test(liveGoldenRadar)
+    && /const candidateLimit = measurementLimit;/.test(liveGoldenRadar)
+    && !/withTimeout\(\s*this\.discoverBackfill\(/.test(liveGoldenRadar)
+    && !/withTimeout\(\s*this\.discoverLiveIssueFallback\(/.test(liveGoldenRadar)
+    && !/withTimeout\(\s*this\.searchAdSuggestionProvider\(/.test(liveGoldenRadar)
+    && !/withTimeout\(\s*this\.measureLiveSearchVolumeSeparate\(/.test(liveGoldenRadar)
+    && !/Promise\.race\(\[\s*getNaverSearchAdKeywordVolume/.test(naverDatalabApi)
+    && /skipSearchAdRelated\?: boolean/.test(naverAutocomplete)
+    && /skipSearchAdRelated:\s*true/.test(liveGoldenRadar),
+  'quota-spending work must finish before runOnce releases its running lock');
 assert('api server product defaults route LEWORD details to products page anchor',
   /href: '\/products#product-leword'/.test(apiServer)
     && !/\{ id: 'leword', name: 'LEWORD', status: 'published', href: '\/leword' \}/.test(apiServer));
@@ -971,9 +988,10 @@ assert('mobile prewarm scheduler waits when document-count quota is exhausted',
     && /nextRetryAt/.test(prewarmScheduler)
     && /measured-only keyword data/.test(prewarmScheduler)
     && /skippedRuns/.test(prewarmScheduler));
-assert('production compose keeps server prewarm running all day',
-  /LEWORD_MOBILE_PREWARM_INTERVAL_MINUTES:\s*\$\{LEWORD_MOBILE_PREWARM_INTERVAL_MINUTES:-60\}/.test(apiProductionCompose)
-    && /LEWORD_MOBILE_PREWARM_LIMIT:\s*\$\{LEWORD_MOBILE_PREWARM_LIMIT:-8\}/.test(apiProductionCompose)
+assert('production compose keeps server prewarm budgeted behind live golden supply',
+  /LEWORD_MOBILE_PREWARM_INTERVAL_MINUTES:\s*\$\{LEWORD_MOBILE_PREWARM_INTERVAL_MINUTES:-360\}/.test(apiProductionCompose)
+    && /LEWORD_MOBILE_PREWARM_LIMIT:\s*\$\{LEWORD_MOBILE_PREWARM_LIMIT:-2\}/.test(apiProductionCompose)
+    && /LEWORD_MOBILE_PREWARM_CONCURRENCY:\s*\$\{LEWORD_MOBILE_PREWARM_CONCURRENCY:-1\}/.test(apiProductionCompose)
     && /LEWORD_MOBILE_PREWARM_ON_START:\s*\$\{LEWORD_MOBILE_PREWARM_ON_START:-true\}/.test(apiProductionCompose)
     && /LEWORD_MOBILE_PREWARM_START_DELAY_MS:\s*\$\{LEWORD_MOBILE_PREWARM_START_DELAY_MS:-300000\}/.test(apiProductionCompose)
     && /LEWORD_MOBILE_LIVE_GOLDEN_READONLY:\s*"true"/.test(apiProductionCompose)

@@ -15,6 +15,7 @@ import { rankKeywordExpansionCandidates } from './keyword-expansion-ranker';
 export interface NaverApiConfig {
   clientId: string;
   clientSecret: string;
+  skipSearchAdRelated?: boolean;
 }
 
 // API 설정
@@ -228,7 +229,7 @@ async function fetchShoppingAutocomplete(query: string): Promise<string[]> {
  *  - 신규: 5중 폴백 (검색광고 RelKwdStat + 다음 + 구글 + SmartBlock)
  *  - search.naver.com는 SmartBlock 추출에서 시도되며, lst_related는 4월30일부터 0건 예상
  */
-async function fetchRelatedKeywords(query: string): Promise<string[]> {
+async function fetchRelatedKeywords(query: string, skipSearchAd = false): Promise<string[]> {
   try {
     const { fetchRelatedKeywordsMulti } = await import('./related-keyword-fallback');
     const { EnvironmentManager } = await import('./environment-manager');
@@ -237,7 +238,7 @@ async function fetchRelatedKeywords(query: string): Promise<string[]> {
       naverSearchAdAccessLicense: env.naverSearchAdAccessLicense,
       naverSearchAdSecretKey: env.naverSearchAdSecretKey,
       naverSearchAdCustomerId: env.naverSearchAdCustomerId,
-    });
+    }, { skipSearchAd });
     return results.slice(0, 30).map(r => r.keyword);
   } catch (err: any) {
     console.warn(`[FALLBACK] fetchRelatedKeywords 폴백 실패: ${err?.message}`);
@@ -279,7 +280,7 @@ export async function getNaverAutocompleteKeywords(
       fetchPCAutocomplete(baseKeyword),
       fetchMobileAutocomplete(baseKeyword),
       fetchShoppingAutocomplete(baseKeyword),
-      fetchRelatedKeywords(baseKeyword)
+      fetchRelatedKeywords(baseKeyword, config.skipSearchAdRelated === true)
     ]);
     
     // 결과 수집

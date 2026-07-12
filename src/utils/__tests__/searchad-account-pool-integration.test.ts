@@ -46,12 +46,25 @@ const originalFetch = global.fetch;
 };
 
 async function run(): Promise<void> {
-  const { getNaverSearchAdKeywordVolume } = require('../naver-searchad-api');
+  const {
+    getNaverSearchAdKeywordSuggestions,
+    getNaverSearchAdKeywordVolume,
+  } = require('../naver-searchad-api');
   const primary = {
     customerId: '1000001',
     accessLicense: 'primary-access-license-value',
     secretKey: 'primary-secret-key-value',
   };
+  const callsBeforeImpossibleSuggestionHint = customers.length;
+  const impossibleSuggestions = await getNaverSearchAdKeywordSuggestions(
+    primary,
+    '문화누리카드온라인가맹점 신청 방법 상세 안내',
+    20,
+  );
+  assert('suggestion seeds truncated by the SearchAd 15-character hint limit never spend quota',
+    customers.length === callsBeforeImpossibleSuggestionHint
+      && impossibleSuggestions.length === 0,
+    JSON.stringify({ customers, impossibleSuggestions }));
   const callsBeforeImpossibleExactHint = customers.length;
   const impossibleExactHint = await getNaverSearchAdKeywordVolume(
     primary,

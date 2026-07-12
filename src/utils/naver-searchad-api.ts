@@ -381,6 +381,11 @@ export async function getNaverSearchAdKeywordSuggestions(
   seedKeyword: string,
   limit: number = 200
 ): Promise<KeywordSuggestion[]> {
+  // SearchAd hintKeywords is limited to 15 characters. A truncated seed returns
+  // suggestions for a different keyword and spends quota on unusable evidence.
+  if (!preservesExactSearchAdHint(seedKeyword)) {
+    return [];
+  }
   const activeConfig = selectSearchAdAccount(buildSearchAdAccountPool(config));
   const accessLicense = activeConfig?.accessLicense ?? '';
   const secretKey = activeConfig?.secretKey ?? '';

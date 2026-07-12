@@ -768,17 +768,12 @@ export async function getNaverKeywordSearchVolumeSeparate(
       }
 
       const searchAdBatchSize = 4;
-      const searchAdBatchTimeoutMs = 30000;
       for (let i = 0; i < input.length; i += searchAdBatchSize) {
         const batch = input.slice(i, i + searchAdBatchSize);
         try {
-          const timeoutPromise = new Promise((_, reject) =>
-            setTimeout(() => reject(new Error(`검색광고 API 타임아웃 (${Math.round(searchAdBatchTimeoutMs / 1000)}초 초과)`)), searchAdBatchTimeoutMs)
-          );
-          const searchAdResults = await Promise.race([
-            getNaverSearchAdKeywordVolume(searchAdConfig, batch),
-            timeoutPromise
-          ]) as any[];
+          // The SearchAd client aborts each HTTP attempt itself. Await the batch
+          // instead of racing a fallback timer that leaves quota work orphaned.
+          const searchAdResults = await getNaverSearchAdKeywordVolume(searchAdConfig, batch) as any[];
 
           for (let j = 0; j < batch.length; j++) {
             const idx = i + j;
