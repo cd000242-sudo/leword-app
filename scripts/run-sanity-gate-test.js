@@ -105,6 +105,7 @@ const testFiles = [
     path.join(__dirname, '..', 'src', 'utils', '__tests__', 'searchad-account-pool.test.ts'),
     path.join(__dirname, '..', 'src', 'utils', '__tests__', 'searchad-account-pool-integration.test.ts'),
     path.join(__dirname, '..', 'src', 'utils', '__tests__', 'searchad-quota-concurrency.test.ts'),
+    path.join(__dirname, '..', 'src', 'utils', '__tests__', 'live-golden-searchad-pool-health.test.ts'),
     path.join(__dirname, '..', 'src', 'utils', '__tests__', 'live-golden-category-policy.test.ts'),
     path.join(__dirname, '..', 'src', 'utils', '__tests__', 'live-golden-supply-report.test.ts'),
     path.join(__dirname, '..', 'src', 'utils', '__tests__', 'live-golden-quality-consistency.test.ts'),

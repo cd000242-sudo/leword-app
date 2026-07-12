@@ -8074,6 +8074,25 @@ export class MobileLiveGoldenRadar {
     } else if (!this.running) {
       this.refreshMeasuredCachesFromDisk(false);
     }
+    if (!this.running) {
+      const searchAdConfig = searchAdConfigFromEnv(this.getEnvConfig());
+      if (searchAdConfig) {
+        const quota = this.searchAdQuotaState(searchAdConfig, this.now().getTime());
+        this.lastSearchAdQuota = {
+          exhausted: quota.exhausted,
+          calls: quota.calls,
+          remaining: quota.remaining,
+          softCeiling: quota.softCeiling,
+          dailyLimit: quota.dailyLimit,
+          resetAt: new Date(quota.resetAtMs).toISOString(),
+          accountCount: quota.accountCount,
+          availableAccountCount: quota.availableAccountCount,
+          accounts: quota.accounts,
+        };
+      } else {
+        this.lastSearchAdQuota = undefined;
+      }
+    }
     const board = this.sortedBoard();
     const publicPreviewIds = new Set(this.selectPublicPreview(board).map((item) => item.id));
     // 급등 레인은 규칙판정 exclude 로 등급을 강등하지 않는다(판정 정보는 유지) — 트래픽 상품.
