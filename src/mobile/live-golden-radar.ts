@@ -1991,6 +1991,9 @@ function isMalformedLiveKeyword(keyword: string): boolean {
   const clean = normalizeKeyword(keyword);
   if (!clean) return true;
   const compact = clean.replace(/\s+/g, '');
+  if (/^(?:혹시나|다만|그런데|하지만|그리고|참고로)/u.test(clean)) return true;
+  if (/(?:하는곳은|되는곳은|받는곳은|쓸수있는곳은|누구일까요|무엇일까요|어디일까요|언제일까요|어떻게해야할까요)$/u.test(compact)) return true;
+  if (/(?:해봐야|확인해야|신청해야)(?:합니다|됩니다|해요)$/u.test(compact)) return true;
   if (/^[가-힣]+[0-9]+[가-힣0-9]+$/.test(compact) && !/\s/.test(clean)) return true;
   if (/^[a-z0-9\s_-]+$/i.test(clean) && !/[가-힣]/.test(clean)) return true;
   return false;
@@ -6108,6 +6111,7 @@ export class MobileLiveGoldenRadar {
   private readonly cacheDerivedLiveSeeds: string[] = [];
   private readonly pendingMeasuredProbeQueue: LiveMeasuredProbeQueueItem[] = [];
   private lastBoardFileRefreshAtMs = 0;
+  private lastBoardFilesFingerprint = '';
   private lastCacheRefreshAtMs = 0;
   private cachedSnapshot: MobileLiveGoldenRadarSnapshot | null = null;
   private cachedSnapshotAtMs = 0;
@@ -9044,7 +9048,10 @@ export class MobileLiveGoldenRadar {
       // board 파일이 아직 없어도 ingest inbox 는 병합해야 한다(워커 첫 저장 전 데스크톱 push 케이스).
       const raw = fs.existsSync(this.boardFile) ? fs.readFileSync(this.boardFile, 'utf8').trim() : '';
       const hasIngestRows = this.ingestFile ? fs.existsSync(this.ingestFile) : false;
-      if (!raw && !hasIngestRows) return;
+      if (!raw && !hasIngestRows) {
+        this.lastBoardFilesFingerprint = this.boardFilesFingerprint();
+        return;
+      }
       const parsed = raw ? JSON.parse(raw) : {};
       const rows = Array.isArray(parsed?.items)
         ? parsed.items
@@ -9081,6 +9088,7 @@ export class MobileLiveGoldenRadar {
       this.cachedSnapshot = null;
       this.cachedSnapshotAtMs = 0;
       this.lastMessage = `loaded ${this.board.size} live golden board items`;
+      this.lastBoardFilesFingerprint = this.boardFilesFingerprint();
     } catch (err) {
       this.lastError = (err as Error).message || String(err);
       this.lastMessage = `live golden board load failed: ${this.lastError}`;
@@ -9440,7 +9448,23 @@ export class MobileLiveGoldenRadar {
     const nowMs = Date.now();
     if (!force && nowMs - this.lastBoardFileRefreshAtMs < LIVE_BOARD_FILE_REFRESH_MS) return;
     this.lastBoardFileRefreshAtMs = nowMs;
+    const fingerprint = this.boardFilesFingerprint();
+    if (!force && fingerprint === this.lastBoardFilesFingerprint) return;
     this.loadBoardFromFile(true);
+  }
+
+  private boardFilesFingerprint(): string {
+    return [this.boardFile, this.ingestFile]
+      .filter((filePath): filePath is string => Boolean(filePath))
+      .map((filePath) => {
+        try {
+          const stat = fs.statSync(filePath);
+          return `${filePath}:${stat.size}:${stat.mtimeMs}`;
+        } catch {
+          return `${filePath}:missing`;
+        }
+      })
+      .join('|');
   }
 
   private saveBoardToFile(): void {

@@ -44,6 +44,10 @@ assert('live golden worker has a real shared-volume heartbeat healthcheck',
     && /leword-live-golden-worker:[\s\S]*healthcheck:[\s\S]*live-golden-worker-heartbeat\.json/.test(productionCompose)
     && !/leword-live-golden-worker:[\s\S]*healthcheck:\s*\n\s*disable:\s*true/.test(productionCompose),
   'worker liveness must not be disabled in production');
+assert('production reserves SearchAd quota for live golden supply instead of letting API prewarm consume it all',
+  /leword-api:[\s\S]*LEWORD_SEARCHAD_SOFT_CEILING:\s*\$\{LEWORD_SEARCHAD_API_SOFT_CEILING:-10000\}/.test(productionCompose)
+    && /leword-live-golden-worker:[\s\S]*LEWORD_SEARCHAD_SOFT_CEILING:\s*\$\{LEWORD_SEARCHAD_WORKER_SOFT_CEILING:-22000\}/.test(productionCompose),
+  'API prewarm must stop at 10k so the shared worker can use the remaining 12k measured calls');
 assert('API release workflow publishes image to GHCR',
   report.checks.some((item: any) => item.name === 'CI workflow publishes API image to GHCR' && item.ok));
 assert('API production restart workflow is wired',

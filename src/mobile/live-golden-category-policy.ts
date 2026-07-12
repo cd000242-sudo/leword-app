@@ -175,6 +175,8 @@ export function selectNextLiveGoldenDiscoveryCategory(
   });
 
   ranked.sort((a, b) => {
+    const deficitDelta = b.deficit - a.deficit;
+    if (deficitDelta !== 0) return deficitDelta;
     const scoreDelta = b.score - a.score;
     if (Math.abs(scoreDelta) > 1e-9) return scoreDelta;
     if (a.cursorDistance !== b.cursorDistance) return a.cursorDistance - b.cursorDistance;

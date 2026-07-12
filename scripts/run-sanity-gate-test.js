@@ -105,6 +105,7 @@ const testFiles = [
     path.join(__dirname, '..', 'src', 'utils', '__tests__', 'live-golden-category-policy.test.ts'),
     path.join(__dirname, '..', 'src', 'utils', '__tests__', 'live-golden-supply-report.test.ts'),
     path.join(__dirname, '..', 'src', 'utils', '__tests__', 'live-golden-quality-consistency.test.ts'),
+    path.join(__dirname, '..', 'src', 'utils', '__tests__', 'live-golden-readonly-snapshot-cache.test.ts'),
 ];
 
 for (const testFile of testFiles) {

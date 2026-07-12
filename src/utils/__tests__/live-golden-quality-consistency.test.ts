@@ -1,6 +1,6 @@
 import * as fs from 'fs';
 import * as path from 'path';
-import { MobileLiveGoldenRadar } from '../../mobile/live-golden-radar';
+import { MobileLiveGoldenRadar, __liveGoldenRadarTestInternals } from '../../mobile/live-golden-radar';
 import { MobileNotificationInbox } from '../../mobile/notification-inbox';
 
 let passed = 0;
@@ -73,6 +73,7 @@ fs.writeFileSync(boardFile, JSON.stringify({
     row('무선 청소기 출시일 스펙', 'SSS', 98, 850, 4900, 360, 'shopping'),
     row('쿠쿠제습기렌탈구매처비용', 'SSS', 98, 820, 4700, 350, 'shopping'),
     row('문화누리카드사용처후기', 'SSS', 98, 1300, 7800, 460, 'policy'),
+    row('농식품바우처신청하는곳은', 'SSS', 98, 900, 5400, 390, 'policy'),
     row('문화누리카드사용처킥보드', 'S', 95, 250, 600, 141, 'policy'),
     row('SK하이닉스 나스닥 상장일', 'S', 0, 2400, 15460, 2594, 'finance'),
     row('내일도 출근 웹툰', 'A', 0, 6500, 67300, 3169, 'persistent-cache'),
@@ -80,6 +81,10 @@ fs.writeFileSync(boardFile, JSON.stringify({
 }, null, 2), 'utf8');
 
 try {
+  assert(
+    'sentence-fragment candidates are rejected before SearchAd measurement spend',
+    !__liveGoldenRadarTestInternals.isSearchAdMeasurableLiveCandidate('농식품바우처신청하는곳은', 'policy', now),
+  );
   const radar = new MobileLiveGoldenRadar({
     notificationInbox: new MobileNotificationInbox(),
     boardFile,
@@ -98,6 +103,7 @@ try {
     '무선 청소기 출시일 스펙',
     '쿠쿠제습기렌탈구매처비용',
     '문화누리카드사용처후기',
+    '농식품바우처신청하는곳은',
     '문화누리카드사용처킥보드',
     'SK하이닉스 나스닥 상장일',
     '내일도 출근 웹툰',

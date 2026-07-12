@@ -62,6 +62,25 @@ assert('deficit scheduler refuses policy dominance even when policy yield is hig
     && deficitChoice.reasons.includes('category-deficit'),
   JSON.stringify(deficitChoice));
 
+const strictDeficitChoice = selectNextLiveGoldenDiscoveryCategory({
+  candidates: ['finance', 'health'],
+  boardCount: 7,
+  verifiedCounts: {
+    finance_insurance: 1,
+    health: 0,
+  },
+  stats: {
+    finance: { scans: 20, published: 20, lastScannedAtMs: 1 },
+    health: { scans: 1, published: 0, lastScannedAtMs: 999_999_999 },
+  },
+  nowMs: 1_000_000_000,
+  cursor: 0,
+});
+assert('larger verified deficit is a hard priority over recent yield and staleness bonuses',
+  strictDeficitChoice.discoveryId === 'health'
+    && strictDeficitChoice.deficit === 4,
+  JSON.stringify(strictDeficitChoice));
+
 const staleChoice = selectNextLiveGoldenDiscoveryCategory({
   candidates: ['education', 'car'],
   boardCount: 8,
