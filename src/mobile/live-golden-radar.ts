@@ -6486,7 +6486,6 @@ export class MobileLiveGoldenRadar {
         .filter(Boolean));
       const catchUpMode = this.sortedBoard().length < this.boardTarget;
       const backfillCategoryId = catchUpMode || sssDepthShort ? 'all' : categoryId;
-      const hasRunnableProbeQueueForRun = this.runnableMeasuredProbeQueueItems(backfillCategoryId, runLimit).length > 0;
       let qualityDirect: MDPResult[] = [];
       let queuedProbeAttemptedCount = 0;
       if (this.enableBackfill) {
@@ -6517,19 +6516,10 @@ export class MobileLiveGoldenRadar {
       const novelSssCount = countSss(
         qualityDirect.filter((item) => isNovelMdpResult(item, existingIdsForRun, existingClustersForRun)),
       );
-      const shouldDeferHeavyDirectToProbeQueue = this.enableBackfill
-        && catchUpMode
-        && hasRunnableProbeQueueForRun
-        && queuedProbeAttemptedCount > 0;
+      // A queued probe attempt is not a usable result. When the bounded queue
+      // produces no publishable depth, continue to the separately capped direct
+      // miner instead of letting a low-yield backlog starve new supply forever.
       const shouldRunHeavyDirect = (
-        !shouldDeferHeavyDirectToProbeQueue
-        && (
-          !catchUpMode
-          || !this.enableBackfill
-          || novelQualityCount < runLimit
-          || novelSssCount < desiredRunSssCount
-        )
-      ) && (
         novelQualityCount < runLimit
         || qualityDirect.length < runLimit
         || novelSssCount < desiredRunSssCount

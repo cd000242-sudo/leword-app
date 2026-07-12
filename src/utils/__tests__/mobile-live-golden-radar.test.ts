@@ -4276,6 +4276,8 @@ function thinProfileCount(items: Array<{ keyword: string }>): number {
   const catchUpMeasuredKeywords: string[] = [];
   let catchUpAutocompleteCalls = 0;
   let catchUpSuggestionCalls = 0;
+  let catchUpDirectCalls = 0;
+  let catchUpDirectMaxCandidates = 0;
   const catchUpRadar = new MobileLiveGoldenRadar({
     notificationInbox: inbox,
     runOnStart: false,
@@ -4304,7 +4306,11 @@ function thinProfileCount(items: Array<{ keyword: string }>): number {
       return [];
     },
     measureLiveDocumentCount: async () => null,
-    discover: async () => [],
+    discover: async (_config, options) => {
+      catchUpDirectCalls += 1;
+      catchUpDirectMaxCandidates = Number(options?.maxCandidates || 0);
+      return [];
+    },
   });
   await catchUpRadar.runOnce();
   assert('live golden catch-up advances the SSS-depth queue within the per-cycle SearchAd budget',
@@ -4316,11 +4322,17 @@ function thinProfileCount(items: Array<{ keyword: string }>): number {
       catchUpSuggestionCalls,
       firstMeasured: catchUpMeasuredKeywords.slice(0, 20),
     }));
-  assert('live golden catch-up prioritizes measured queue before slow expansion providers',
-    catchUpAutocompleteCalls === 0 && catchUpSuggestionCalls === 0,
+  assert('zero-yield measured queue falls through to bounded direct discovery instead of starving supply',
+    catchUpAutocompleteCalls === 0
+      && catchUpSuggestionCalls === 0
+      && catchUpDirectCalls === 1
+      && catchUpDirectMaxCandidates > 0
+      && catchUpDirectMaxCandidates <= 120,
     JSON.stringify({
       catchUpAutocompleteCalls,
       catchUpSuggestionCalls,
+      catchUpDirectCalls,
+      catchUpDirectMaxCandidates,
       measuredCount: new Set(catchUpMeasuredKeywords).size,
     }));
   const writerReadyProbeSamples: Array<[string, string]> = [

@@ -716,6 +716,7 @@ assert('live golden heavy discovery cannot outlive a cycle or spend an unbounded
   /const directMaxCandidates = Math\.min\(\s*120,\s*directCandidateBudget/.test(liveGoldenRadar)
     && /const direct = await this\.discover\(/.test(liveGoldenRadar)
     && !/withTimeout\(this\.discover\(/.test(liveGoldenRadar)
+    && !/shouldDeferHeavyDirectToProbeQueue/.test(liveGoldenRadar)
     && /includeSearchAdSuggestions:\s*false/.test(liveGoldenRadar)
     && /const measurementLimit = Math\.min\(40, this\.backfillMeasurementLimit\(targetLimit\)\)/.test(liveGoldenRadar)
     && /const candidateLimit = measurementLimit;/.test(liveGoldenRadar)
