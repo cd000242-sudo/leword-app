@@ -45,9 +45,10 @@ assert('live golden worker has a real shared-volume heartbeat healthcheck',
     && !/leword-live-golden-worker:[\s\S]*healthcheck:\s*\n\s*disable:\s*true/.test(productionCompose),
   'worker liveness must not be disabled in production');
 assert('production reserves SearchAd quota for live golden supply instead of letting API prewarm consume it all',
-  /leword-api:[\s\S]*LEWORD_SEARCHAD_SOFT_CEILING:\s*\$\{LEWORD_SEARCHAD_API_SOFT_CEILING:-1500\}/.test(productionCompose)
+  /leword-api:[\s\S]*LEWORD_SEARCHAD_SOFT_CEILING:\s*\$\{LEWORD_SEARCHAD_WORKER_SOFT_CEILING:-22000\}/.test(productionCompose)
+    && /leword-api:[\s\S]*LEWORD_MOBILE_PREWARM_SEARCHAD_SOFT_CEILING:\s*\$\{LEWORD_MOBILE_PREWARM_SEARCHAD_SOFT_CEILING:-1500\}/.test(productionCompose)
     && /leword-live-golden-worker:[\s\S]*LEWORD_SEARCHAD_SOFT_CEILING:\s*\$\{LEWORD_SEARCHAD_WORKER_SOFT_CEILING:-22000\}/.test(productionCompose),
-  'API prewarm must stop at 1.5k so the shared worker can use the remaining 20.5k measured calls');
+  'API health must expose the worker budget while the prewarm-only gate stops at 1.5k');
 assert('production prewarm is low-frequency and single-flight while live golden supply is below target',
   /leword-api:[\s\S]*LEWORD_MOBILE_PREWARM_INTERVAL_MINUTES:\s*\$\{LEWORD_MOBILE_PREWARM_INTERVAL_MINUTES:-360\}/.test(productionCompose)
     && /leword-api:[\s\S]*LEWORD_MOBILE_PREWARM_LIMIT:\s*\$\{LEWORD_MOBILE_PREWARM_LIMIT:-2\}/.test(productionCompose)

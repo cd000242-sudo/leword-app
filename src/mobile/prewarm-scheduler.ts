@@ -5,6 +5,11 @@ import {
   getNaverBlogOpenApiCredentials,
   isNaverBlogOpenApiQuotaBlocked,
 } from '../utils/naver-blog-api';
+import {
+  buildSearchAdAccountPool,
+  summarizeSearchAdAccountPool,
+} from '../utils/searchad-account-pool';
+import { searchAdNextResetAtMs } from '../utils/searchad-quota-governor';
 
 export interface MobilePrewarmSchedulerService {
   runOnce(limit?: number): Promise<MobilePrewarmSnapshot>;
@@ -245,6 +250,60 @@ function naverOpenApiDocumentQuotaGate(): MobilePrewarmSchedulerRunGate {
   return { ok: true };
 }
 
+function searchAdPrewarmQuotaGate(): MobilePrewarmSchedulerRunGate {
+  const env = process.env;
+  const accessLicense = String(
+    env['NAVER_SEARCH_AD_ACCESS_LICENSE']
+      || env['NAVER_SEARCHAD_ACCESS_LICENSE']
+      || env['naverSearchAdAccessLicense']
+      || '',
+  ).trim();
+  const secretKey = String(
+    env['NAVER_SEARCH_AD_SECRET_KEY']
+      || env['NAVER_SEARCHAD_SECRET_KEY']
+      || env['naverSearchAdSecretKey']
+      || '',
+  ).trim();
+  const customerId = String(
+    env['NAVER_SEARCH_AD_CUSTOMER_ID']
+      || env['NAVER_SEARCHAD_CUSTOMER_ID']
+      || env['naverSearchAdCustomerId']
+      || '',
+  ).trim();
+  if (!accessLicense || !secretKey) {
+    return {
+      ok: false,
+      reason: 'SearchAd credentials missing; prewarm waits for measured keyword data',
+    };
+  }
+  const configuredCeiling = Number(env['LEWORD_MOBILE_PREWARM_SEARCHAD_SOFT_CEILING'] || 1500);
+  const softCeiling = Number.isFinite(configuredCeiling) && configuredCeiling > 0
+    ? Math.floor(configuredCeiling)
+    : 1500;
+  const primary = customerId
+    ? { accessLicense, secretKey, customerId }
+    : { accessLicense, secretKey };
+  const summary = summarizeSearchAdAccountPool(
+    buildSearchAdAccountPool(primary),
+    { softCeiling },
+  );
+  if (summary.exhausted) {
+    const retryAtMs = searchAdNextResetAtMs();
+    return {
+      ok: false,
+      reason: `SearchAd prewarm soft ceiling reached; worker quota remains reserved${formatKstRetryAt(retryAtMs)}`,
+      retryAtMs,
+    };
+  }
+  return { ok: true };
+}
+
+function productionPrewarmQuotaGate(): MobilePrewarmSchedulerRunGate {
+  const documentGate = naverOpenApiDocumentQuotaGate();
+  if (!documentGate.ok) return documentGate;
+  return searchAdPrewarmQuotaGate();
+}
+
 export function createMobilePrewarmSchedulerFromEnv(
   service: MobilePrewarmService,
 ): MobilePrewarmScheduler | null {
@@ -258,7 +317,7 @@ export function createMobilePrewarmSchedulerFromEnv(
     intervalMs: Math.max(1, rawMinutes) * 60 * 1000,
     limit: Number.isFinite(rawLimit) && rawLimit > 0 ? Math.floor(rawLimit) : undefined,
     runOnStart,
-    shouldRun: naverOpenApiDocumentQuotaGate,
+    shouldRun: productionPrewarmQuotaGate,
     startupDelayMs: Number.isFinite(rawStartupDelayMs) && rawStartupDelayMs > 0
       ? Math.floor(rawStartupDelayMs)
       : 0,

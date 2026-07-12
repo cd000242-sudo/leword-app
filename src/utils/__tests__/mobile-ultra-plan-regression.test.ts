@@ -988,10 +988,16 @@ assert('mobile prewarm scheduler waits when document-count quota is exhausted',
     && /nextRetryAt/.test(prewarmScheduler)
     && /measured-only keyword data/.test(prewarmScheduler)
     && /skippedRuns/.test(prewarmScheduler));
+assert('mobile prewarm has a dedicated SearchAd budget without corrupting worker availability health',
+  /LEWORD_MOBILE_PREWARM_SEARCHAD_SOFT_CEILING/.test(prewarmScheduler)
+    && /summarizeSearchAdAccountPool/.test(prewarmScheduler)
+    && /searchAdNextResetAtMs/.test(prewarmScheduler)
+    && /SearchAd prewarm soft ceiling reached/.test(prewarmScheduler));
 assert('production compose keeps server prewarm budgeted behind live golden supply',
   /LEWORD_MOBILE_PREWARM_INTERVAL_MINUTES:\s*\$\{LEWORD_MOBILE_PREWARM_INTERVAL_MINUTES:-360\}/.test(apiProductionCompose)
     && /LEWORD_MOBILE_PREWARM_LIMIT:\s*\$\{LEWORD_MOBILE_PREWARM_LIMIT:-2\}/.test(apiProductionCompose)
     && /LEWORD_MOBILE_PREWARM_CONCURRENCY:\s*\$\{LEWORD_MOBILE_PREWARM_CONCURRENCY:-1\}/.test(apiProductionCompose)
+    && /LEWORD_MOBILE_PREWARM_SEARCHAD_SOFT_CEILING:\s*\$\{LEWORD_MOBILE_PREWARM_SEARCHAD_SOFT_CEILING:-1500\}/.test(apiProductionCompose)
     && /LEWORD_MOBILE_PREWARM_ON_START:\s*\$\{LEWORD_MOBILE_PREWARM_ON_START:-true\}/.test(apiProductionCompose)
     && /LEWORD_MOBILE_PREWARM_START_DELAY_MS:\s*\$\{LEWORD_MOBILE_PREWARM_START_DELAY_MS:-300000\}/.test(apiProductionCompose)
     && /LEWORD_MOBILE_LIVE_GOLDEN_READONLY:\s*"true"/.test(apiProductionCompose)
