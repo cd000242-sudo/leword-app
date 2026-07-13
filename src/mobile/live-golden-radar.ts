@@ -6524,9 +6524,10 @@ export class MobileLiveGoldenRadar {
         if (queuedProbeDirect.results.length > 0) {
           qualityDirect = [...qualityDirect, ...queuedProbeDirect.results];
         }
+        // The queue is the per-run SearchAd canary. Once it spent quota, do not
+        // open another discovery lane in the same run, regardless of yield.
         const shouldRunExpansionBackfill = queuedProbeDirect.attemptedCount === 0
-          || queuedProbeDirect.results.length >= Math.min(3, runLimit)
-          || sssDepthShort;
+          && this.searchAdMeasurementBudgetRemaining > 0;
         const backfill = shouldRunExpansionBackfill
           ? await this.discoverBackfill({
             clientId: env.naverClientId,
@@ -6543,10 +6544,11 @@ export class MobileLiveGoldenRadar {
       const novelSssCount = countSss(
         qualityDirect.filter((item) => isNovelMdpResult(item, existingIdsForRun, existingClustersForRun)),
       );
-      // A queued probe attempt is not a usable result. When the bounded queue
-      // produces no publishable depth, continue to the separately capped direct
-      // miner instead of letting a low-yield backlog starve new supply forever.
-      const shouldRunHeavyDirect = (
+      // Heavy direct discovery is an alternative to an empty queue, never a
+      // second quota lane after the bounded queue canary has already run.
+      const shouldRunHeavyDirect = queuedProbeAttemptedCount === 0
+        && this.searchAdMeasurementBudgetRemaining > 0
+        && (
         novelQualityCount < runLimit
         || qualityDirect.length < runLimit
         || novelSssCount < desiredRunSssCount
@@ -6566,7 +6568,7 @@ export class MobileLiveGoldenRadar {
           category: categoryId,
           limit: discoveryLimit,
           maxSeeds: this.maxSeeds,
-          maxCandidates: directMaxCandidates,
+          maxCandidates: Math.min(directMaxCandidates, this.searchAdMeasurementBudgetRemaining),
           liveSeeds,
           includeCrossCategory: false,
           requireCategoryMatch: categoryId !== 'all',
@@ -6588,7 +6590,13 @@ export class MobileLiveGoldenRadar {
       }
 
       novelQualityCount = qualityDirect.filter((item) => isNovelMdpResult(item, existingIdsForRun, existingClustersForRun)).length;
-      if (this.enableBackfill && novelQualityCount < runLimit) {
+      if (
+        this.enableBackfill
+        && !catchUpModeBeforeCache
+        && queuedProbeAttemptedCount === 0
+        && this.searchAdMeasurementBudgetRemaining > 0
+        && novelQualityCount < runLimit
+      ) {
         const globalBackfill = backfillCategoryId === 'all'
           ? []
           : await this.discoverBackfill({
@@ -7803,11 +7811,15 @@ export class MobileLiveGoldenRadar {
         liveSeeds,
         autocompleteTargetLimit,
       );
-    const searchAdSuggestionRows = await this.discoverSearchAdSuggestionBackfillCandidates(
-      categoryId,
-      liveSeeds,
-      suggestionTargetLimit,
-    );
+    // Category recovery must not fan out into the SearchAd suggestion lane.
+    // Exact measurement below remains bounded by the shared per-run budget.
+    const searchAdSuggestionRows = categoryId === 'all'
+      ? await this.discoverSearchAdSuggestionBackfillCandidates(
+        categoryId,
+        liveSeeds,
+        suggestionTargetLimit,
+      )
+      : [];
     const searchAdSuggestionCandidates = searchAdSuggestionRows.map((row) => row.keyword);
     const queuedProbePriorityById = new Map(
       queuedProbeItems

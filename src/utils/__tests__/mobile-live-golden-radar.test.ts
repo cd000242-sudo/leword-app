@@ -882,9 +882,9 @@ function thinProfileCount(items: Array<{ keyword: string }>): number {
     },
   });
   const backfillCatchupSnapshot = await backfillCatchupRadar.runOnce();
-  assert('live radar catch-up uses measured backfill but still runs direct discovery when SSS depth is short',
+  assert('live radar catch-up publishes measured backfill without opening a second direct SearchAd lane',
     backfillCatchupVolumeCalls > 0
-      && backfillCatchupDirectCalls === 1
+      && backfillCatchupDirectCalls === 0
       && backfillCatchupSnapshot.successfulRuns === 1
       && backfillCatchupSnapshot.boardCount > 0,
     JSON.stringify({
@@ -4186,15 +4186,10 @@ function thinProfileCount(items: Array<{ keyword: string }>): number {
     discover: async () => [],
   });
   const queueFirstSuggestionSnapshot = await queueFirstSuggestionRadar.runOnce();
-  assert('queue-first catch-up still measures SearchAd suggestion winners instead of starving behind legacy queue',
-    queueFirstSuggestionCalls > 0
-      && queueFirstSuggestionSnapshot.board.some((item) => (
-        item.keyword === queueFirstSuggestionWinner
-        && item.grade === 'SSS'
-        && item.pcSearchVolume === 1560
-        && item.mobileSearchVolume === 7440
-        && item.documentCount === 360
-      )),
+  assert('queue-first catch-up stops before SearchAd suggestions after a zero-yield canary',
+    queueFirstSuggestionCalls === 0
+      && queueFirstSuggestionSnapshot.board.length === 0
+      && /zero-yield cooldown/i.test(queueFirstSuggestionSnapshot.lastMessage || ''),
     JSON.stringify({
       suggestionCalls: queueFirstSuggestionCalls,
       board: queueFirstSuggestionSnapshot.board.map((item) => `${item.keyword}:${item.grade}:${item.pcSearchVolume}:${item.mobileSearchVolume}:${item.documentCount}`),
@@ -4244,7 +4239,7 @@ function thinProfileCount(items: Array<{ keyword: string }>): number {
   });
   await queueMissRadar.runOnce();
   const queueMissAfter = JSON.parse(fs.readFileSync(queueMissProbeFile, 'utf8'));
-  assert('no-result queued probe is retained for delayed retry without blocking later candidates',
+  assert('no-result queued probe is retained for delayed retry without same-run candidate fanout',
     queueMissMeasuredKeywords.includes(missedTravelProbe)
       && queueMissAfter.items?.some((item: any) => (
         item.keyword === missedTravelProbe
@@ -4252,7 +4247,7 @@ function thinProfileCount(items: Array<{ keyword: string }>): number {
         && item.misses === 1
         && item.lastTriedAt
       ))
-      && (queueMissAfter.items || []).some((item: any) => item.keyword !== missedTravelProbe && item.attempts === 0),
+      && (queueMissAfter.items || []).every((item: any) => item.keyword === missedTravelProbe),
     JSON.stringify({ measured: queueMissMeasuredKeywords, queue: queueMissAfter.items || [] }));
   fs.rmSync(queueMissProbeFile, { force: true });
 
@@ -4324,12 +4319,11 @@ function thinProfileCount(items: Array<{ keyword: string }>): number {
       catchUpSuggestionCalls,
       firstMeasured: catchUpMeasuredKeywords.slice(0, 20),
     }));
-  assert('zero-yield measured queue falls through to bounded direct discovery instead of starving supply',
+  assert('zero-yield measured queue stops before expansion and heavy direct can multiply SearchAd spend',
     catchUpAutocompleteCalls === 0
       && catchUpSuggestionCalls === 0
-      && catchUpDirectCalls === 1
-      && catchUpDirectMaxCandidates > 0
-      && catchUpDirectMaxCandidates <= 120,
+      && catchUpDirectCalls === 0
+      && catchUpDirectMaxCandidates === 0,
     JSON.stringify({
       catchUpAutocompleteCalls,
       catchUpSuggestionCalls,
