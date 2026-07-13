@@ -2980,7 +2980,12 @@ const result: MobileKeywordResult = {
   const savedIngestToken = process.env['LEWORD_LIVE_GOLDEN_INGEST_TOKEN'];
   delete process.env['LEWORD_LIVE_GOLDEN_INGEST_TOKEN'];
   const ingestServer = createLewordApiServer({
-    entitlementVerifier: null,
+    entitlementVerifier: async (token) => token === 'mobile-secret'
+      ? {
+          ok: true,
+          entitlement: { subjectId: 'mobile-user', tier: 'admin', source: 'fixture' },
+        }
+      : { ok: false, reason: 'fixture rejected' },
     liveGoldenRadar: ingestRadar,
     notificationInbox: liveInbox,
     prewarmService: null,
@@ -3035,7 +3040,9 @@ const result: MobileKeywordResult = {
       acceptedRes.status === 200 && acceptedJson.ok === true && acceptedJson.accepted === 1,
       JSON.stringify(acceptedJson));
 
-    const ingestSnapshotRes = await fetch(`${ingestBaseUrl}${MOBILE_LIVE_GOLDEN_ROUTES.snapshot}`);
+    const ingestSnapshotRes = await fetch(`${ingestBaseUrl}${MOBILE_LIVE_GOLDEN_ROUTES.snapshot}`, {
+      headers: { Authorization: 'Bearer ingest-secret' },
+    });
     const ingestSnapshotJson: any = await ingestSnapshotRes.json();
     const ingestedBoardItem = (ingestSnapshotJson.snapshot?.board || [])
       .find((item: any) => item.keyword === '청년미래적금 200차 신청 대상');
@@ -3045,6 +3052,15 @@ const result: MobileKeywordResult = {
         && ingestedBoardItem.winnable === true
         && ingestedBoardItem.source === 'api-test-desktop',
       JSON.stringify(ingestedBoardItem || ingestSnapshotJson.snapshot?.boardCount));
+
+    const forbiddenRun = await fetch(`${ingestBaseUrl}${MOBILE_LIVE_GOLDEN_ROUTES.run}`, {
+      method: 'POST',
+      headers: { 'Content-Type': 'application/json', Authorization: 'Bearer ingest-secret' },
+      body: JSON.stringify({ cycles: 1 }),
+    });
+    assert('ingest token remains read-only for live golden execution',
+      forbiddenRun.status === 401,
+      String(forbiddenRun.status));
   } finally {
     await close(ingestServer);
     if (savedIngestToken === undefined) delete process.env['LEWORD_LIVE_GOLDEN_INGEST_TOKEN'];

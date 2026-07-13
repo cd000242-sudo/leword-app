@@ -8,6 +8,7 @@
  */
 
 import {
+  liveBoardSnapshotTarget,
   liveBoardUploadTarget,
   uploadGoldenBoardCandidates,
   uploadRowFromDiscoveryResult,
@@ -29,10 +30,15 @@ async function run(): Promise<void> {
     const unconfigured = await uploadGoldenBoardCandidates([{ keyword: 'x' }]);
     assert('upload is a no-op without env', unconfigured === null);
 
-    process.env['LEWORD_LIVE_GOLDEN_INGEST_URL'] = 'http://127.0.0.1:9/ingest';
+    process.env['LEWORD_LIVE_GOLDEN_INGEST_URL'] = 'http://127.0.0.1:9/v1/live-golden/ingest';
     process.env['LEWORD_LIVE_GOLDEN_INGEST_TOKEN'] = 'test-token';
     const target = liveBoardUploadTarget();
     assert('target resolves with env', !!target && target.token === 'test-token');
+    const snapshotTarget = liveBoardSnapshotTarget();
+    assert('snapshot target reuses the operator token without a run route',
+      snapshotTarget?.url === 'http://127.0.0.1:9/v1/live-golden/snapshot'
+        && snapshotTarget.token === 'test-token',
+      JSON.stringify(snapshotTarget));
 
     const measured = uploadRowFromDiscoveryResult({
       keyword: '청년 전세자금 대출 조건',
@@ -109,7 +115,7 @@ async function run(): Promise<void> {
         && !('briefRecommendedWords' in unreliableExtras),
       JSON.stringify(unreliableExtras));
 
-    console.log('[live-board-uploader.test] passed: 8 / failed: 0');
+    console.log('[live-board-uploader.test] passed: 9 / failed: 0');
   } finally {
     if (savedUrl === undefined) delete process.env['LEWORD_LIVE_GOLDEN_INGEST_URL'];
     else process.env['LEWORD_LIVE_GOLDEN_INGEST_URL'] = savedUrl;

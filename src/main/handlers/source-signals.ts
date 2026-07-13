@@ -29,7 +29,8 @@ import { fetchMusinsaRanking, extractMusinsaKeywords } from '../../utils/sources
 // kream/namuwiki: 서버 차단·SPA 변경으로 제거됨
 import { pullAllSeedKeywords, computeKeywordSignals, clearAggregatorCache } from '../../utils/sources/signal-aggregator';
 import { buildPublicGoldenFeed, clearFeedCache } from '../../utils/sources/public-golden-feed';
-import { getCachedRichFeed, clearRichFeedCache, RichKeywordRow, setUserWhitelist, getUserWhitelist } from '../../utils/sources/rich-feed-builder';
+import { clearRichFeedCache, RichKeywordRow, setUserWhitelist, getUserWhitelist } from '../../utils/sources/rich-feed-builder';
+import { fetchLiveGoldenBoardSnapshot } from '../../utils/live-board-uploader';
 import { loadBloggerProfile, saveBloggerProfile, deleteBloggerProfile, BLOGGER_CATEGORIES, BloggerProfile } from '../../utils/blogger-profile';
 import { runHealthCheck, refreshHealthReport, getCachedReport, getQuickStatus } from '../../utils/sources/health-checker';
 import { getRegistry, getAllStates, unblockSource, unblockAll, callAllSources } from '../../utils/sources/source-registry';
@@ -51,68 +52,53 @@ type MindmapContextKeywordInput = string | {
     source?: string;
 };
 
-async function collectDirectGoldenLiveSeeds(env: any, maxResults: number = 120): Promise<string[]> {
-    const out: string[] = [];
-    const push = (value: any) => {
-        const text = String(value || '').replace(/\s+/g, ' ').trim();
-        if (!text || text.length < 2 || text.length > 40) return;
-        if (!/[가-힣]/.test(text)) return;
-        const key = text.toLowerCase().replace(/\s+/g, '');
-        if (out.some(item => item.toLowerCase().replace(/\s+/g, '') === key)) return;
-        out.push(text);
-    };
-    const withTimeout = async <T>(promise: Promise<T>, ms: number, fallback: T): Promise<T> => Promise.race([
-        promise,
-        new Promise<T>(resolve => setTimeout(() => resolve(fallback), ms)),
-    ]);
+function richRowsFromLiveGoldenSnapshot(snapshot: any): RichKeywordRow[] {
+    const board = Array.isArray(snapshot?.board) ? snapshot.board : [];
+    return board.map((item: any, idx: number): RichKeywordRow => {
+        const evidence = Array.isArray(item.evidence) ? item.evidence : [];
+        const sources = Array.from(new Set([
+            item.source,
+            ...evidence,
+            'server-live-golden',
+        ].map(value => String(value || '').trim()).filter(Boolean)));
+        const freshness = item.freshness === 'live'
+            ? 'BURNING'
+            : item.freshness === 'warm'
+                ? 'RISING'
+                : 'STABLE';
+        return {
+            rank: Number(item.rank) || idx + 1,
+            keyword: String(item.keyword || '').trim(),
+            category: String(item.category || item.intent || '기타'),
+            categoryId: String(item.category || ''),
+            categoryIcon: '🏆',
+            grade: String(item.grade || '') as RichKeywordRow['grade'],
+            searchVolume: Number(item.totalSearchVolume) || 0,
+            documentCount: Number(item.documentCount) || 0,
+            goldenRatio: Number(item.goldenRatio) || 0,
+            cpc: typeof item.cpc === 'number' ? item.cpc : null,
+            freshness,
+            sources,
+            sourceCount: sources.length,
+            purchaseIntent: 0,
+            isBlueOcean: item.winnable === true,
+            dcEstimated: item.isDocumentCountEstimated === true,
+            svEstimated: item.isSearchVolumeEstimated === true,
+        };
+    }).filter((row: RichKeywordRow) => row.keyword.length > 0);
+}
 
-    await Promise.all([
-        (async () => {
-            try {
-                const { getNaverRealtimeKeywords } = await import('../../utils/realtime-search-keywords');
-                const items = await withTimeout(getNaverRealtimeKeywords(Math.min(40, maxResults)), 5000, [] as any[]);
-                items.map((item: any) => item.keyword).forEach(push);
-            } catch {}
-        })(),
-        (async () => {
-            try {
-                const ent = await import('../../utils/entertainment-news-aggregator');
-                const items = await withTimeout(ent.fetchEntertainmentAggregate({ maxMinutesAgo: 720, limitPerSource: 24 }), 5000, [] as any[]);
-                items.slice(0, Math.min(60, maxResults)).flatMap((item: any) => [item.title, item.keyword, `${item.title || ''} ${item.category || ''}`]).forEach(push);
-            } catch {}
-        })(),
-        (async () => {
-            try {
-                const { getNaverNewsRankingKeywords } = await import('../../utils/sources/naver-news-ranking');
-                const items = await withTimeout(getNaverNewsRankingKeywords(), 5000, [] as any[]);
-                items.slice(0, Math.min(40, maxResults)).map((item: any) => item.keyword).forEach(push);
-            } catch {}
-        })(),
-        (async () => {
-            try {
-                const policy = await import('../../utils/policy-briefing-api');
-                const items = await withTimeout(policy.getPolicyBriefingKeywords(Math.min(24, maxResults)), 5000, [] as any[]);
-                items.slice(0, 16).flatMap((item: any) => [
-                    item.keyword,
-                    ...(policy.expandPolicyDiscoverySeeds ? policy.expandPolicyDiscoverySeeds(item.keyword, 3) : []),
-                ]).forEach(push);
-            } catch {}
-        })(),
-        (async () => {
-            try {
-                const youtubeApiKey = env?.youtubeApiKey || process.env['YOUTUBE_API_KEY'] || '';
-                if (!youtubeApiKey) return;
-                const { getYouTubeTrendKeywords } = await import('../../utils/youtube-data-api');
-                const items = await withTimeout(
-                    getYouTubeTrendKeywords({ apiKey: youtubeApiKey, maxResults: Math.min(70, maxResults) }),
-                    7000,
-                    [] as any[],
-                );
-                items.slice(0, Math.min(70, maxResults)).map((item: any) => item.keyword).forEach(push);
-            } catch {}
-        })(),
-    ]);
-    return out.slice(0, maxResults);
+function summarizeRichRows(rows: RichKeywordRow[]): {
+    byCategory: Record<string, number>;
+    bySource: Record<string, number>;
+} {
+    const byCategory: Record<string, number> = {};
+    const bySource: Record<string, number> = {};
+    for (const row of rows) {
+        byCategory[row.category] = (byCategory[row.category] || 0) + 1;
+        for (const source of row.sources) bySource[source] = (bySource[source] || 0) + 1;
+    }
+    return { byCategory, bySource };
 }
 
 function pro<T>(handler: () => Promise<T>): Promise<T | { error: string; requiresUnlimited: true }> {
@@ -359,96 +345,29 @@ export function setupSourceSignalHandlers(): void {
     });
 
     // ========== Rich Golden Feed (메인 핵심) ==========
-    ipcMain.handle('get-rich-golden-feed', async (event, options?: { force?: boolean; tier?: 'lite' | 'pro'; limit?: number; aiAugmentation?: 'none' | 'claude'; discoveryMode?: 'balanced' | 'bulk' }) => {
+    ipcMain.handle('get-rich-golden-feed', async () => {
         try {
             const isPro = checkProTierAllowed().allowed;
-            const tier: 'lite' | 'pro' = isPro ? (options?.tier === 'lite' ? 'lite' : 'pro') : 'lite';
-            const discoveryMode = options?.discoveryMode === 'bulk' ? 'bulk' : 'balanced';
-            // v2.43.17: 대량 발굴 — pro 300 → 600, lite 200 → 400 (사용자 요청 "키워드 대량 발굴")
-            const limit = options?.limit || (discoveryMode === 'bulk' ? (tier === 'pro' ? 1200 : 700) : (tier === 'pro' ? 600 : 400));
-            const aiAugmentation = options?.aiAugmentation || 'none';
-
-            const onProgress = (payload: { step: string; percent: number; message: string }) => {
-                try { event.sender.send('rich-feed-progress', payload); } catch {}
+            const snapshot = await fetchLiveGoldenBoardSnapshot();
+            const rows = richRowsFromLiveGoldenSnapshot(snapshot);
+            const summary = summarizeRichRows(rows);
+            return {
+                success: true,
+                timestamp: snapshot.boardUpdatedAt || Date.now(),
+                total: rows.length,
+                tier: isPro ? 'pro' : 'lite',
+                rows,
+                ...summary,
+                isPro,
+                serverBoard: {
+                    boardCount: snapshot.boardCount,
+                    boardTarget: snapshot.boardTarget,
+                    running: snapshot.running,
+                    nextRetryAt: snapshot.nextRetryAt,
+                },
             };
-
-            // v2.42.14: aiAugmentation='claude' 시 force=true 강제 (캐시 우회 — 매번 새 Claude 호출)
-            const force = aiAugmentation === 'claude' || discoveryMode === 'bulk' ? true : (options?.force === true);
-            if (discoveryMode === 'balanced' && aiAugmentation === 'none') {
-                const { EnvironmentManager } = await import('../../utils/environment-manager');
-                const env = EnvironmentManager.getInstance().getConfig();
-                const clientId = env.naverClientId || process.env['NAVER_CLIENT_ID'] || '';
-                const clientSecret = env.naverClientSecret || process.env['NAVER_CLIENT_SECRET'] || '';
-                if (clientId && clientSecret) {
-                    const { discoverDirectGoldenKeywords } = await import('../../utils/direct-golden-keyword-miner');
-                    const liveSeeds = await collectDirectGoldenLiveSeeds(env, 120);
-                    onProgress({ step: 'direct-seed', percent: 26, message: `direct golden live seeds ${liveSeeds.length} ready` });
-                    const directRows = await discoverDirectGoldenKeywords(
-                        { clientId, clientSecret },
-                        {
-                            category: '전체',
-                            limit: 30,
-                            maxSeeds: 700,
-                            maxCandidates: 900,
-                            liveSeeds,
-                            includeCrossCategory: true,
-                            requireCategoryMatch: false,
-                            onProgress: (p: any) => {
-                                const phasePercent: Record<string, number> = {
-                                    'candidate-plan': 32,
-                                    'searchad-suggestions': 42,
-                                    measure: 72,
-                                    rank: 92,
-                                };
-                                const pct = phasePercent[p.phase] || 50;
-                                onProgress({
-                                    step: `direct-${p.phase || 'run'}`,
-                                    percent: pct,
-                                    message: `direct golden ${p.phase || 'run'} - candidates ${p.candidates || 0}, measured ${p.measured || 0}, yielded ${p.yielded || 0}`,
-                                });
-                            },
-                        },
-                    );
-                    const rows = directRows.map((row: any, idx: number): RichKeywordRow => ({
-                        rank: idx + 1,
-                        keyword: row.keyword,
-                        category: row.intent || 'direct',
-                        categoryId: 'direct-golden',
-                        categoryIcon: '🏆',
-                        grade: (row.grade || '') as RichKeywordRow['grade'],
-                        searchVolume: row.searchVolume || 0,
-                        documentCount: row.documentCount || 0,
-                        goldenRatio: row.goldenRatio || 0,
-                        cpc: typeof row.cpc === 'number' ? row.cpc : null,
-                        freshness: 'RISING',
-                        sources: Array.from(new Set([...(row.externalSources || []), 'direct-golden-miner'])),
-                        sourceCount: Math.max(1, (row.externalSources || []).length + 1),
-                        purchaseIntent: row.purchaseIntentScore || 0,
-                        isBlueOcean: row.isBlueOcean === true,
-                    }));
-                    onProgress({ step: 'done', percent: 100, message: `direct golden complete — ${rows.length} rows` });
-                    const byCategory: Record<string, number> = {};
-                    const bySource: Record<string, number> = {};
-                    for (const row of rows) {
-                        byCategory[row.category] = (byCategory[row.category] || 0) + 1;
-                        for (const src of row.sources) bySource[src] = (bySource[src] || 0) + 1;
-                    }
-                    return {
-                        success: true,
-                        timestamp: Date.now(),
-                        total: rows.length,
-                        tier,
-                        rows,
-                        byCategory,
-                        bySource,
-                        isPro,
-                    };
-                }
-            }
-            const result = await getCachedRichFeed(force, { tier, limit, aiAugmentation, discoveryMode }, onProgress);
-            return { success: true, ...result, isPro };
         } catch (e: any) {
-            console.error('[rich-feed] 실패:', e);
+            console.error('[rich-feed] 서버 보드 조회 실패:', e);
             return { success: false, error: e.message };
         }
     });
@@ -1076,10 +995,10 @@ export function setupSourceSignalHandlers(): void {
     });
 
     // ========== 내보내기 (CSV / JSON / 클립보드) ==========
-    ipcMain.handle('rich-feed-export', async (_e, format: 'csv' | 'json' | 'clipboard', options?: any) => {
+    ipcMain.handle('rich-feed-export', async (_e, format: 'csv' | 'json' | 'clipboard') => {
         try {
-            const result = await getCachedRichFeed(false, options || {});
-            const rows = result.rows;
+            const snapshot = await fetchLiveGoldenBoardSnapshot();
+            const rows = richRowsFromLiveGoldenSnapshot(snapshot);
 
             if (format === 'json') {
                 return { success: true, format, content: JSON.stringify(rows, null, 2) };

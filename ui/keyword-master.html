@@ -730,26 +730,17 @@
         <div>
           <h2 style="margin:0; font-size:28px; font-weight:800; color:#f1f5f9; display:flex; align-items:center; gap:12px;">
             <span style="font-size:36px;">⭐</span>
-            오늘의 황금키워드 발굴
+            서버 황금키워드 보드
             <span id="rfTierBadge" style="font-size:11px; padding:4px 12px; background:linear-gradient(135deg,#10b981,#059669); color:white; border-radius:20px; font-weight:700;">LITE</span>
           </h2>
           <p style="margin:6px 0 0; color:#94a3b8; font-size:13px;">
-            17개 데이터 소스 교차검증 → 검색량·문서수 실측 → 등급·신선도·소스출처를 한눈에
-            <span style="color:#64748b;"> · 다른 도구에서는 며칠 걸리는 발굴을 즉시</span>
+            서버가 24시간 발굴·검증한 결과를 그대로 표시합니다.
+            <span style="color:#64748b;"> · 이 화면에서는 별도 발굴이나 API 측정을 실행하지 않습니다.</span>
           </p>
         </div>
         <div style="display:flex; gap:8px; align-items:center; flex-wrap:wrap;">
           <span id="rfStatus" style="font-size:11px; color:#64748b;">대기 중...</span>
-          <!-- v2.42.14: Claude AI 보강 옵션 -->
-          <label style="display:flex; align-items:center; gap:5px; font-size:11px; color:rgba(255,255,255,0.85); padding:6px 10px; border-radius:8px; border:1px solid rgba(251,191,36,0.4); background:rgba(251,191,36,0.08); cursor:pointer;" title="Claude AI가 SSS급 키워드 50개 추천 → Naver 실측 → 관대 게이트(writable + ratio≥1) 통과만 추가. 약 $0.05 + 5~15초 추가 소요.">
-            <input type="checkbox" id="rfUseClaude" style="accent-color:#fbbf24;">
-            🧠 Claude 보강 <span style="color:rgba(255,255,255,0.55); font-size:10px;">($0.05/회)</span>
-          </label>
-          <select id="rfDiscoveryMode" title="정밀: SSR/SSS 30개 이상 우선 / 대량: 시즌성+에버그린+황금 후보를 넓게 발굴" style="padding:10px 12px; border:none; border-radius:10px; background:#111827; color:#e5e7eb; font-weight:800; font-size:12px; cursor:pointer; outline:none;">
-            <option value="balanced">정밀</option>
-            <option value="bulk">대량</option>
-          </select>
-          <button onclick="refreshRichFeed(true)" title="자동 발굴 결과를 즉시 다시 갱신합니다." style="padding:10px 18px; border:none; border-radius:10px; background:linear-gradient(135deg,#f59e0b,#ef4444); color:white; font-weight:700; font-size:13px; cursor:pointer;">⚡ 즉시 갱신</button>
+          <button onclick="refreshRichFeed(true)" title="서버의 최신 황금키워드 보드를 다시 불러옵니다." style="padding:10px 18px; border:none; border-radius:10px; background:linear-gradient(135deg,#f59e0b,#ef4444); color:white; font-weight:700; font-size:13px; cursor:pointer;">🔄 서버 보드 새로고침</button>
           <button onclick="openBloggerProfileModal()" title="내 블로그 프로필 — 카테고리/경험/방문자 입력 (모든 발굴에 자동 적용)" style="padding:10px 14px; border:none; border-radius:10px; background:linear-gradient(135deg,#06b6d4,#3b82f6); color:white; font-weight:700; font-size:12px; cursor:pointer;">👤 내 블로그</button>
           <button id="rfSemanticBtn" onclick="openSemanticModal()" title="🧠 의미 분류 — KoSBERT 임베딩 모델로 키워드 의미 검증 (최초 ~110MB 다운로드, 이후 캐시)" style="padding:10px 14px; border:none; border-radius:10px; background:linear-gradient(135deg,#8b5cf6,#ec4899); color:white; font-weight:700; font-size:12px; cursor:pointer;">🧠 의미 분류</button>
           <button onclick="rfExport('csv')" title="엑셀(.xlsx 호환 CSV)로 다운로드" style="padding:10px 14px; border:none; border-radius:10px; background:#10b981; color:white; font-weight:700; font-size:12px; cursor:pointer;">📥 엑셀다운</button>
@@ -826,7 +817,7 @@
             </tr>
           </thead>
           <tbody id="rfTbody">
-            <tr><td colspan="10" style="padding:60px; text-align:center; color:#64748b;">⚡ 앱 시작 후 자동으로 라이브 발굴을 시작합니다.<br><span style="font-size:11px;">17개 데이터 소스에서 시드 수집 → 검색량·문서수 실측까지 약 30~60초 소요</span></td></tr>
+            <tr><td colspan="10" style="padding:60px; text-align:center; color:#64748b;">서버의 24시간 황금키워드 보드를 불러오는 중입니다.</td></tr>
           </tbody>
         </table>
         <!-- 🔥 v2.31.0: 오늘의 TOP 5 큐레이션 -->
@@ -923,49 +914,22 @@
       async function refreshRichFeed(force) {
         if (window.__rfRefreshRunning) {
           const status = document.getElementById('rfStatus');
-          if (status) status.textContent = '⏳ 이미 발굴 중...';
+          if (status) status.textContent = '⏳ 서버 보드 조회 중...';
           return;
         }
         window.__rfRefreshRunning = true;
         try {
-        // v2.43.25 (사이클#2): 발굴 시작 시 프로필 없으면 온보딩 모달 자동 표시
-        try {
-          const pr = await window.electronAPI.invoke('blogger-profile-get');
-          if (!pr?.profile && force) {
-            window.openBloggerProfileModal?.();
-            return;
-          }
-        } catch {}
-
         const tbody = document.getElementById('rfTbody');
         const status = document.getElementById('rfStatus');
         const progressBox = document.getElementById('rfProgressBox');
-        const progressLog = document.getElementById('rfProgressLog');
-        status.textContent = '⏳ 발굴 중... (30~60초)';
-        // 진행바 초기화 + 표시
-        if (progressBox) progressBox.style.display = 'block';
-        if (progressLog) progressLog.innerHTML = '';
-        // 🔥 v2.32.1: 새 발굴 시작 시 역행 가드 리셋 (이전 100% 상태에서 내려가지 않도록 0 으로)
-        window.__rfLastPercent = 0;
-        const pbar = document.getElementById('rfProgressBar');
-        const ppct = document.getElementById('rfProgressPct');
-        const pmsg = document.getElementById('rfProgressMsg');
-        if (pbar) pbar.style.width = '0%';
-        if (ppct) ppct.textContent = '0%';
-        if (pmsg) pmsg.textContent = '시작 중...';
-
-        tbody.innerHTML = '<tr><td colspan="10" style="padding:40px; text-align:center; color:#fbbf24;">🔍 자동 라이브 발굴 진행 중 — 상단 진행바 확인</td></tr>';
+        status.textContent = '⏳ 서버 보드 조회 중...';
+        if (progressBox) progressBox.style.display = 'none';
+        tbody.innerHTML = '<tr><td colspan="10" style="padding:40px; text-align:center; color:#fbbf24;">서버의 최신 황금키워드 보드를 불러오는 중입니다.</td></tr>';
         try {
           if (!window.electronAPI) throw new Error('electronAPI 미초기화');
-          const useClaude = !!document.getElementById('rfUseClaude')?.checked;
-          const discoveryMode = document.getElementById('rfDiscoveryMode')?.value === 'bulk' ? 'bulk' : 'balanced';
-          const r = await window.electronAPI.invoke('get-rich-golden-feed', {
-            force: !!force,
-            aiAugmentation: useClaude ? 'claude' : 'none',
-            discoveryMode
-          });
+          const r = await window.electronAPI.invoke('get-rich-golden-feed');
           if (!r || !r.success) {
-            tbody.innerHTML = '<tr><td colspan="10" style="padding:40px; text-align:center; color:#fca5a5;">발굴 실패: ' + (r && r.error || '알 수 없음') + '</td></tr>';
+            tbody.innerHTML = '<tr><td colspan="10" style="padding:40px; text-align:center; color:#fca5a5;">서버 보드 조회 실패: ' + (r && r.error || '알 수 없음') + '</td></tr>';
             return;
           }
           const excluded = rfGetExcluded();
@@ -986,7 +950,9 @@
           const excludedCount = (r.rows || []).length - rfAllRows.length;
           document.getElementById('rfTotal').textContent = rfAllRows.length + (excludedCount > 0 ? ` (${excludedCount}개 제외됨)` : '');
           document.getElementById('rfTierBadge').textContent = (r.tier === 'pro') ? '💎 PRO' : 'LITE';
-          status.textContent = '✅ ' + new Date(r.timestamp).toLocaleTimeString('ko-KR') + ' 갱신';
+          const boardMeta = r.serverBoard || {};
+          status.textContent = '✅ 서버 보드 ' + new Date(r.timestamp).toLocaleTimeString('ko-KR')
+            + ' · ' + (boardMeta.boardCount ?? rfAllRows.length) + '/' + (boardMeta.boardTarget ?? '-') + '개';
           renderRichFeedTabs(r.byCategory || {});
           // 🔥 v2.31.0: 오늘의 TOP 큐레이션 (SSR 우선, 없으면 SSS/SS 중 글쓰기 친화 후보)
           rfRenderTopPicks(rfAllRows);
@@ -994,8 +960,7 @@
           rfCurrentPage = 1;
           rfRenderCurrentPage();
           updatePublicFeedHealth();
-          // 완료 후 2초 뒤 진행바 숨기기
-          setTimeout(() => { if (progressBox) progressBox.style.display = 'none'; }, 2000);
+          if (progressBox) progressBox.style.display = 'none';
         } catch (e) {
           tbody.innerHTML = '<tr><td colspan="10" style="padding:40px; text-align:center; color:#fca5a5;">' + (e && e.message || e) + '</td></tr>';
           if (progressBox) progressBox.style.display = 'none';
@@ -1009,7 +974,7 @@
         if (window.__rfAutoLiveStarted) return;
         window.__rfAutoLiveStarted = true;
         const status = document.getElementById('rfStatus');
-        if (status) status.textContent = '⚡ 자동 발굴 준비 중...';
+        if (status) status.textContent = '서버 보드 연결 중...';
         setTimeout(() => refreshRichFeed(false), 900);
         if (window.__rfAutoLiveTimer) clearInterval(window.__rfAutoLiveTimer);
         window.__rfAutoLiveTimer = setInterval(() => {

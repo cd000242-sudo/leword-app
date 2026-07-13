@@ -21,11 +21,46 @@ export interface LiveBoardUploadTarget {
     token: string;
 }
 
+export interface LiveBoardSnapshotTarget {
+    url: string;
+    token: string;
+}
+
 export function liveBoardUploadTarget(): LiveBoardUploadTarget | null {
     const url = String(process.env['LEWORD_LIVE_GOLDEN_INGEST_URL'] || '').trim();
     const token = String(process.env['LEWORD_LIVE_GOLDEN_INGEST_TOKEN'] || '').trim();
     if (!url || !token) return null;
     return { url, token };
+}
+
+export function liveBoardSnapshotTarget(): LiveBoardSnapshotTarget | null {
+    const uploadTarget = liveBoardUploadTarget();
+    if (!uploadTarget) return null;
+    try {
+        const url = new URL(uploadTarget.url);
+        if (!/\/v1\/live-golden\/ingest\/?$/.test(url.pathname)) return null;
+        url.pathname = url.pathname.replace(/\/ingest\/?$/, '/snapshot');
+        url.search = '';
+        url.hash = '';
+        return { url: url.toString(), token: uploadTarget.token };
+    } catch {
+        return null;
+    }
+}
+
+export async function fetchLiveGoldenBoardSnapshot(): Promise<any> {
+    const target = liveBoardSnapshotTarget();
+    if (!target) {
+        throw new Error('서버 황금키워드 보드 연결이 설정되지 않았습니다.');
+    }
+    const response = await axios.get(target.url, {
+        timeout: UPLOAD_TIMEOUT_MS,
+        headers: { Authorization: `Bearer ${target.token}` },
+    });
+    if (!response?.data?.ok || !response?.data?.snapshot) {
+        throw new Error('서버 황금키워드 보드 응답이 올바르지 않습니다.');
+    }
+    return response.data.snapshot;
 }
 
 function toFinite(value: unknown): number | null {

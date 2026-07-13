@@ -1022,6 +1022,12 @@ function getHeaderValue(req: http.IncomingMessage, name: string): string {
   return Array.isArray(value) ? String(value[0] || '').trim() : String(value || '').trim();
 }
 
+function isLiveGoldenIngestRequestAuthorized(req: http.IncomingMessage): boolean {
+  const expected = String(process.env['LEWORD_LIVE_GOLDEN_INGEST_TOKEN'] || '').trim();
+  const received = getBearerToken(req) || getHeaderValue(req, 'x-leword-ingest-token');
+  return !!expected && !!received && stringEqualsConstantTime(received, expected);
+}
+
 function configuredLeadersProAdminToken(): string {
   return String(
     process.env['LEADERS_PRO_ADMIN_TOKEN']
@@ -4367,7 +4373,10 @@ export function createLewordApiServer(options: LewordApiServerOptions = {}): htt
     }
 
     if (req.method === 'GET' && url.pathname === MOBILE_LIVE_GOLDEN_ROUTES.snapshot) {
-      if (!await authorizeMobileRequest(req, res, sessionAwareEntitlementVerifier, 'standard')) return;
+      if (
+        !isLiveGoldenIngestRequestAuthorized(req)
+        && !await authorizeMobileRequest(req, res, sessionAwareEntitlementVerifier, 'standard')
+      ) return;
       if (!liveGoldenRadar) {
         json(res, 503, { ok: false, message: 'mobile live golden radar disabled' } satisfies MobileJobErrorResponse);
         return;
@@ -4405,8 +4414,7 @@ export function createLewordApiServer(options: LewordApiServerOptions = {}): htt
         json(res, 503, { ok: false, message: 'live golden ingest disabled' } satisfies MobileJobErrorResponse);
         return;
       }
-      const receivedIngestToken = getBearerToken(req) || getHeaderValue(req, 'x-leword-ingest-token');
-      if (!receivedIngestToken || !stringEqualsConstantTime(receivedIngestToken, expectedIngestToken)) {
+      if (!isLiveGoldenIngestRequestAuthorized(req)) {
         json(res, 401, { ok: false, message: 'live golden ingest unauthorized' } satisfies MobileJobErrorResponse);
         return;
       }

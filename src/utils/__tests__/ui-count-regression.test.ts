@@ -20,6 +20,7 @@ const keywordExpansionSearchBlock = html.match(/window\.handleKeywordExpansionSe
 const categoryGoldenDiscoveryBlock = html.match(/window\.startKeywordDiscovery\s*=\s*async function[\s\S]*?window\.stopKeywordDiscovery/)?.[0] || '';
 const proTrafficCountSelect = html.match(/<select id="proTrafficCount"[\s\S]*?<\/select>/)?.[0] || '';
 const sourceSignals = fs.readFileSync(path.join(__dirname, '..', '..', 'main', 'handlers', 'source-signals.ts'), 'utf8');
+const apiServer = fs.readFileSync(path.join(__dirname, '..', '..', '..', 'apps', 'api', 'src', 'server.ts'), 'utf8');
 const premiumHunting = fs.readFileSync(path.join(__dirname, '..', '..', 'main', 'handlers', 'premium-hunting.ts'), 'utf8');
 const configUtility = fs.readFileSync(path.join(__dirname, '..', '..', 'main', 'handlers', 'config-utility.ts'), 'utf8');
 const keywordAnalysis = fs.readFileSync(path.join(__dirname, '..', '..', 'main', 'handlers', 'keyword-analysis.ts'), 'utf8');
@@ -31,6 +32,7 @@ const mdpEngine = fs.readFileSync(path.join(__dirname, '..', 'mdp-engine.ts'), '
 const richFeedBuilder = fs.readFileSync(path.join(__dirname, '..', 'sources', 'rich-feed-builder.ts'), 'utf8');
 const richFeedSectionBlock = html.match(/<div id="richFeedSection"[\s\S]*?<script>/)?.[0] || '';
 const richFeedRefreshBlock = html.match(/async function refreshRichFeed[\s\S]*?function renderRichFeedTabs/)?.[0] || '';
+const richFeedIpcBlock = sourceSignals.match(/ipcMain\.handle\('get-rich-golden-feed'[\s\S]*?ipcMain\.handle\('rich-feed-clear-cache'/)?.[0] || '';
 const richFeedTableBlock = html.match(/function renderRichFeedTable[\s\S]*?window\.rfReportInaccurate/)?.[0] || '';
 const richFeedTopPicksBlock = html.match(/window\.rfRenderTopPicks[\s\S]*?const RF_EXCLUDE_KEY/)?.[0] || '';
 
@@ -42,13 +44,13 @@ assert('keyword analyzer JS fallback defaults to 10',
   /const\s+limitValue\s*=\s*limitRadio\?\.value\s*\|\|\s*'10'/.test(html),
   'limitValue fallback is not 10');
 
-assert('rich golden feed auto-starts live discovery without a manual click',
+assert('rich golden feed auto-loads the server board without a manual click',
   /function\s+startRichFeedAutoLive\(\)/.test(html)
     && /document\.addEventListener\('DOMContentLoaded',\s*startRichFeedAutoLive,\s*\{\s*once:\s*true\s*\}\)/.test(html)
     && /setTimeout\(\(\)\s*=>\s*refreshRichFeed\(false\),\s*900\)/.test(html)
     && /setInterval\(\(\)\s*=>\s*\{[\s\S]{0,120}refreshRichFeed\(false\)/.test(html)
     && /window\.__rfRefreshRunning/.test(richFeedRefreshBlock),
-  'rich feed can still sit idle until the user presses the start button');
+  'rich feed can still sit idle until the user presses refresh');
 
 assert('rich golden feed table removes CPC from the visible UI',
   !/>CPC<\/th>/.test(richFeedSectionBlock)
@@ -110,14 +112,19 @@ assert('rich feed injects realtime news policy and youtube seeds before measurem
     && /getYouTubeTrendKeywords/.test(richFeedBuilder),
   'rich feed can still miss live issue/news/policy/youtube seeds before measuring golden candidates');
 
-assert('rich feed balanced IPC uses direct golden miner instead of three-row rich fallback',
-  /collectDirectGoldenLiveSeeds/.test(sourceSignals)
-    && /discoverDirectGoldenKeywords/.test(sourceSignals)
-    && /discoveryMode\s*===\s*'balanced'[\s\S]{0,80}aiAugmentation\s*===\s*'none'/.test(sourceSignals)
-    && /maxCandidates:\s*900/.test(sourceSignals)
-    && /limit:\s*30/.test(sourceSignals)
-    && /direct-golden-miner/.test(sourceSignals),
-  'balanced rich feed IPC can still route through the underfilled rich-feed builder first');
+assert('desktop golden feed only reads the 24-hour server snapshot',
+  /fetchLiveGoldenBoardSnapshot/.test(richFeedIpcBlock)
+    && /snapshot\.board/.test(richFeedIpcBlock)
+    && !/discoverDirectGoldenKeywords|getCachedRichFeed|collectDirectGoldenLiveSeeds/.test(richFeedIpcBlock)
+    && !/rfUseClaude|rfDiscoveryMode|blogger-profile-get/.test(richFeedRefreshBlock)
+    && /서버 보드/.test(richFeedRefreshBlock),
+  'desktop refresh can still start a local discovery or AI augmentation run');
+
+assert('operator ingest credentials can read but never run the live golden board',
+  /isLiveGoldenIngestRequestAuthorized/.test(apiServer)
+    && /GET[\s\S]{0,180}MOBILE_LIVE_GOLDEN_ROUTES\.snapshot[\s\S]{0,420}isLiveGoldenIngestRequestAuthorized/.test(apiServer)
+    && !/POST[\s\S]{0,180}MOBILE_LIVE_GOLDEN_ROUTES\.run[\s\S]{0,420}isLiveGoldenIngestRequestAuthorized/.test(apiServer),
+  'desktop operator token cannot read the snapshot safely or can trigger a server run');
 
 assert('keyword lookup and category auto golden discovery have separate buttons and actions',
   /id="keywordLookupBtn"[\s\S]{0,220}onclick="startKeywordLookupFromInput\(\)"/.test(html)
