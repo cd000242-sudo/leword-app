@@ -713,11 +713,17 @@ assert('live golden board display is SSS-first with trusted publishable fallback
     && !/appendMeasuredExactDisplayFallbackItems/.test(liveGoldenRadar),
   'LIVE board display must keep SSS first but fill paid boards only with trusted measured publishable rows');
 assert('live golden heavy discovery cannot outlive a cycle or spend an unbounded SearchAd budget',
-  /const directMaxCandidates = Math\.min\(\s*120,\s*directCandidateBudget/.test(liveGoldenRadar)
+  /const LIVE_SEARCHAD_MEASUREMENT_BUDGET_PER_RUN = 40/.test(liveGoldenRadar)
+    && /const directMaxCandidates = Math\.min\(\s*LIVE_SEARCHAD_MEASUREMENT_BUDGET_PER_RUN,\s*directCandidateBudget/.test(liveGoldenRadar)
+    && /searchAdMeasurementBudgetRemaining - batch\.length/.test(liveGoldenRadar)
     && /const direct = await this\.discover\(/.test(liveGoldenRadar)
     && !/withTimeout\(this\.discover\(/.test(liveGoldenRadar)
     && !/shouldDeferHeavyDirectToProbeQueue/.test(liveGoldenRadar)
     && /includeSearchAdSuggestions:\s*false/.test(liveGoldenRadar)
+    && /includeCrossCategory:\s*false/.test(liveGoldenRadar)
+    && /const backfillCategoryId = categoryId/.test(liveGoldenRadar)
+    && /zero-yield cooldown active/.test(liveGoldenRadar)
+    && /LIVE_ZERO_YIELD_COOLDOWN_MS/.test(liveGoldenRadar)
     && /const measurementLimit = Math\.min\(40, this\.backfillMeasurementLimit\(targetLimit\)\)/.test(liveGoldenRadar)
     && /const candidateLimit = measurementLimit;/.test(liveGoldenRadar)
     && !/withTimeout\(\s*this\.discoverBackfill\(/.test(liveGoldenRadar)

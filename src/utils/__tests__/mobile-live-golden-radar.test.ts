@@ -4312,12 +4312,14 @@ function thinProfileCount(items: Array<{ keyword: string }>): number {
       return [];
     },
   });
-  await catchUpRadar.runOnce();
+  const catchUpSnapshot = await catchUpRadar.runUntilTarget(4);
   assert('live golden catch-up advances the SSS-depth queue within the per-cycle SearchAd budget',
     new Set(catchUpMeasuredKeywords).size > 0
-      && new Set(catchUpMeasuredKeywords).size <= 80,
+      && new Set(catchUpMeasuredKeywords).size <= 40
+      && catchUpSnapshot.successfulRuns === 1,
     JSON.stringify({
       measuredCount: new Set(catchUpMeasuredKeywords).size,
+      successfulRuns: catchUpSnapshot.successfulRuns,
       catchUpAutocompleteCalls,
       catchUpSuggestionCalls,
       firstMeasured: catchUpMeasuredKeywords.slice(0, 20),
@@ -4334,6 +4336,22 @@ function thinProfileCount(items: Array<{ keyword: string }>): number {
       catchUpDirectCalls,
       catchUpDirectMaxCandidates,
       measuredCount: new Set(catchUpMeasuredKeywords).size,
+    }));
+  const catchUpCallsAfterZeroYield = catchUpMeasuredKeywords.length;
+  const catchUpDirectCallsAfterZeroYield = catchUpDirectCalls;
+  const catchUpCooldownSnapshot = await catchUpRadar.runOnce();
+  assert('zero-yield SearchAd cycle enters cooldown before another interval can burn quota',
+    catchUpMeasuredKeywords.length === catchUpCallsAfterZeroYield
+      && catchUpDirectCalls === catchUpDirectCallsAfterZeroYield
+      && /zero-yield cooldown/i.test(catchUpCooldownSnapshot.lastMessage || '')
+      && Boolean(catchUpCooldownSnapshot.nextRetryAt),
+    JSON.stringify({
+      measuredBefore: catchUpCallsAfterZeroYield,
+      measuredAfter: catchUpMeasuredKeywords.length,
+      directBefore: catchUpDirectCallsAfterZeroYield,
+      directAfter: catchUpDirectCalls,
+      lastMessage: catchUpCooldownSnapshot.lastMessage,
+      nextRetryAt: catchUpCooldownSnapshot.nextRetryAt,
     }));
   const writerReadyProbeSamples: Array<[string, string]> = [
     ['\uC1A1\uC9C0\uD638 \uBC14\uB2E4\uD558\uB298\uAE38 \uC608\uC57D \uBC29\uBC95', 'travel_domestic'],
