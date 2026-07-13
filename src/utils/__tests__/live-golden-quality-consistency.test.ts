@@ -95,8 +95,9 @@ try {
   });
   const snapshot = radar.snapshot();
   const keywords = new Set(snapshot.board.map((item) => item.keyword));
-  const required = ['송지호바다하늘길입장료', '제주 렌트카 예약', '청년미래적금지급일', '갤럭시 S27 출시일 스펙'];
+  const required = ['송지호바다하늘길입장료', '제주 렌트카 예약', '갤럭시 S27 출시일 스펙'];
   const blocked = [
+    '청년미래적금지급일',
     '근로장려금신청tistory',
     '제습기순위최저가조회',
     '공기청정기 순위 구매처',

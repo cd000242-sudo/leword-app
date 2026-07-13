@@ -5535,6 +5535,45 @@ function thinProfileCount(items: Array<{ keyword: string }>): number {
       && workerSyncedSnapshot.board.every((item) => item.isSearchVolumeEstimated === false && item.isDocumentCountEstimated === false),
     `${workerSyncedSnapshot.boardCount}:${workerSyncedSnapshot.board.map((item) => item.keyword).join(',')}`);
 
+  const naturalQuality = (__liveGoldenRadarTestInternals as any).isHumanNaturalGoldenMetric;
+  const measuredQualityRow = (keyword: string, evidence: string[] = []) => ({
+    keyword,
+    evidence,
+  });
+  const knownProductionFalsePositives = [
+    '\uC1A1\uC9C0\uD638\uBC14\uB2E4\uD558\uB298\uAE38\uC7A5\uB2E8\uC810\uC608\uC57D\uBC29\uBC95',
+    '\uC0AC\uB300\uBCF4\uD5D8\uACC4\uC0B0\uAE30\uC54C\uBC14\uC5D1\uC140\uC591\uC2DD',
+    '\uCCAD\uB144\uBBF8\uB798\uC801\uAE08\uC9C0\uAE09\uC77C',
+    'ISA\uD1F4\uC9C1\uC790\uC2E0\uCCAD\uBC29\uBC95',
+    '\uC5F0\uAE08\uC800\uCD95\uD1F4\uC9C1\uC790\uC2E0\uCCAD\uBC29\uBC95',
+  ];
+  assert('human-natural quality gate rejects known production intent conflicts and stacked fragments',
+    typeof naturalQuality === 'function'
+      && knownProductionFalsePositives.every((keyword) => !naturalQuality(measuredQualityRow(keyword))),
+    knownProductionFalsePositives.join('|'));
+  assert('human-natural quality gate preserves natural measured search needs',
+    typeof naturalQuality === 'function'
+      && [
+        '\uC1A1\uC9C0\uD638\uBC14\uB2E4\uD558\uB298\uAE38\uC785\uC7A5\uB8CC',
+        '\uC0AC\uB300\uBCF4\uD5D8\uACC4\uC0B0\uAE30\uD504\uB9AC\uB79C\uC11C',
+        '\uD3C9\uC0DD\uAD50\uC721\uBC14\uC6B0\uCC98\uC0AC\uC6A9\uCC98\uC870\uD68C',
+        '\uC5D0\uB108\uC9C0\uBC14\uC6B0\uCC98\uC794\uC561\uC870\uD68C',
+        '\uC81C\uC8FC \uB80C\uD130\uCE74 \uAC00\uACA9\uBE44\uAD50',
+      ].every((keyword) => naturalQuality(measuredQualityRow(keyword))),
+    'natural measured search needs were over-filtered');
+  const semanticClusterKey = (__liveGoldenRadarTestInternals as any).publicPreviewClusterKey;
+  assert('semantic clustering merges rentcar spelling variants and terminal intents',
+    typeof semanticClusterKey === 'function'
+      && semanticClusterKey('\uC81C\uC8FC \uB80C\uD130\uCE74 \uAC00\uACA9\uBE44\uAD50')
+        === semanticClusterKey('\uC81C\uC8FC \uB80C\uD2B8\uCE74 \uC608\uC57D'),
+    '제주 렌터카 가격비교 and 제주 렌트카 예약 must share one cluster');
+  const semanticBoardId = (__liveGoldenRadarTestInternals as any).goldenBoardSemanticId;
+  assert('board identity removes duplicate rentcar spelling and terminal-intent variants',
+    typeof semanticBoardId === 'function'
+      && semanticBoardId('\uC81C\uC8FC \uB80C\uD130\uCE74 \uAC00\uACA9\uBE44\uAD50')
+        === semanticBoardId('\uC81C\uC8FC \uB80C\uD2B8\uCE74 \uC608\uC57D'),
+    'duplicate rentcar rows must occupy one board slot');
+
   const summary: MobileKeywordResult['summary'] | undefined = undefined;
   assert('type smoke remains compatible with mobile keyword result summary', summary === undefined);
 

@@ -1295,8 +1295,9 @@ function keywordCompactId(keyword: string): string {
 // 공개 황금보드에서는 맞춤법/표기 흔들림으로 같은 검색의도가 두 칸을 차지하지 않게 한다.
 // 수집 캐시의 원본 키는 보존하고, 최종 보드 선택에서만 좁은 범위의 동의 표기를 합친다.
 function goldenBoardSemanticId(keyword: string): string {
-  return keywordCompactId(keyword)
+  const compact = keywordCompactId(keyword)
     .replace(/렌트카/gu, '렌터카');
+  return compact.replace(/(렌터카)(?:가격비교|예약)$/u, '$1');
 }
 
 function formatRange(value: number | null, kind: 'search' | 'document'): string {
@@ -1319,6 +1320,7 @@ function keywordClusterKey(keyword: string): string {
     .toLowerCase()
     .replace(/\s+/g, '')
     .replace(/[^a-z0-9\uAC00-\uD7A3]/g, '')
+    .replace(/렌트카/gu, '렌터카')
     .replace(/^(\d{4})(\d{1,2}\uBAA8)/u, '$2');
   if (!compact) return '';
 
@@ -1384,7 +1386,7 @@ function publicPreviewClusterKey(keyword: string): string {
   if (/프로야구|KBO|야구|올스타|중계|경기/.test(clean)) return 'baseball';
   if (/흠뻑쇼|콘서트|팬미팅|컴백/.test(clean)) return 'concert';
   if (/공휴일|지원금|장려금|바우처|정책|환급/.test(clean)) return 'policy';
-  return keywordClusterKey(clean);
+  return keywordClusterKey(goldenBoardSemanticId(clean));
 }
 
 function normalizeLiveSeedText(value: unknown): string {
@@ -2004,6 +2006,11 @@ function isMalformedLiveKeyword(keyword: string): boolean {
 
 const LIVE_KEYWORD_PLATFORM_RESIDUE_RE = /(?:https?:\/\/|www\.|\.(?:com|net|org|kr)(?:\/|$)|[가-힣0-9](?:tistory|blogspot|wordpress|velog|medium)$)/iu;
 const LIVE_KEYWORD_SUSPICIOUS_INTENT_CHAIN_RE = /(?:순위.{0,8}(?:최저가|구매처|조회)|(?:최저가|구매처|조회).{0,8}순위|최저가.{0,8}조회|조회.{0,8}최저가|사용처.{0,8}후기|후기.{0,8}사용처|출시일.{0,8}스펙|스펙.{0,8}출시일|렌탈.{0,8}구매처.{0,8}비용|렌탈.{0,8}비용.{0,8}구매처)/u;
+const LIVE_KEYWORD_INTENT_FRAGMENTS = ['장단점', '예약', '방법', '신청', '조회', '가격비교', '추천', '후기', '사용처'];
+const LIVE_KEYWORD_CALCULATOR_FORMAT_CHAIN_RE = /계산기.*(?:엑셀(?:양식|서식)?|양식|서식)/u;
+const LIVE_KEYWORD_FINANCIAL_AUDIENCE_MISMATCH_RE = /(?:ISA|연금저축).*퇴직자.*(?:신청|가입)/iu;
+const LIVE_KEYWORD_AMBIGUOUS_SAVINGS_PAYOUT_RE = /(?:적금|예금).*지급일/u;
+const LIVE_KEYWORD_SAVINGS_PAYOUT_CONTEXT_RE = /(?:이자|만기|해지)/u;
 
 function hasExactNaturalDemandEvidence(item: Pick<MobileLiveGoldenBoardItem, 'evidence'>): boolean {
   return (item.evidence || []).some((value) => (
@@ -2016,8 +2023,20 @@ function isHumanNaturalGoldenMetric(item: MobileLiveGoldenBoardItem): boolean {
   const clean = normalizeKeyword(item.keyword);
   if (!clean || isMalformedLiveKeyword(clean)) return false;
   if (LIVE_KEYWORD_PLATFORM_RESIDUE_RE.test(clean)) return false;
+  const compact = clean.replace(/\s+/gu, '');
+  const intentFragmentCount = LIVE_KEYWORD_INTENT_FRAGMENTS.reduce(
+    (count, fragment) => count + (compact.includes(fragment) ? 1 : 0),
+    0,
+  );
+  if (intentFragmentCount >= 3 && !hasExactNaturalDemandEvidence(item)) return false;
+  if (LIVE_KEYWORD_CALCULATOR_FORMAT_CHAIN_RE.test(compact)) return false;
+  if (LIVE_KEYWORD_FINANCIAL_AUDIENCE_MISMATCH_RE.test(compact)) return false;
   if (
-    LIVE_KEYWORD_SUSPICIOUS_INTENT_CHAIN_RE.test(clean.replace(/\s+/gu, ''))
+    LIVE_KEYWORD_AMBIGUOUS_SAVINGS_PAYOUT_RE.test(compact)
+    && !LIVE_KEYWORD_SAVINGS_PAYOUT_CONTEXT_RE.test(compact)
+  ) return false;
+  if (
+    LIVE_KEYWORD_SUSPICIOUS_INTENT_CHAIN_RE.test(compact)
     && !hasExactNaturalDemandEvidence(item)
   ) return false;
   return true;
@@ -6044,7 +6063,10 @@ export const __liveGoldenRadarTestInternals = {
   isSearchAdMeasurableLiveCandidate,
   isHumanVisiblePublicPreviewCandidate,
   isSafePublicPreviewBackfillCandidate,
+  isHumanNaturalGoldenMetric,
+  goldenBoardSemanticId,
   publicPreviewLane,
+  publicPreviewClusterKey,
   balancePublicPreviewCandidates,
   isPastMonthVolatileLiveKeyword,
   isStaleOrFutureLiveKeyword,

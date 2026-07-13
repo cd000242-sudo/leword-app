@@ -76,7 +76,7 @@ try {
 
   writeBoard([
     row('송지호바다하늘길입장료', 'travel_domestic'),
-    row('청년미래적금지급일', 'policy'),
+    row('에너지바우처잔액조회', 'policy'),
   ]);
   const future = new Date(wallClockMs + 60_000);
   fs.utimesSync(boardFile, future, future);
@@ -84,7 +84,7 @@ try {
   const refreshed = radar.snapshot();
   assert('changed worker board file is reloaded on the next read-only snapshot',
     boardReads === initialReads + 1
-      && refreshed.board.some((item) => item.keyword === '청년미래적금지급일'),
+      && refreshed.board.some((item) => item.keyword === '에너지바우처잔액조회'),
     `${initialReads}:${boardReads}:${refreshed.board.map((item) => item.keyword).join('|')}`);
 } finally {
   (mutableFs as any).readFileSync = originalReadFileSync;
