@@ -31,6 +31,7 @@ import { pullAllSeedKeywords, computeKeywordSignals, clearAggregatorCache } from
 import { buildPublicGoldenFeed, clearFeedCache } from '../../utils/sources/public-golden-feed';
 import { clearRichFeedCache, RichKeywordRow, setUserWhitelist, getUserWhitelist } from '../../utils/sources/rich-feed-builder';
 import { fetchLiveGoldenBoardSnapshot } from '../../utils/live-board-uploader';
+import { EnvironmentManager } from '../../utils/environment-manager';
 import { loadBloggerProfile, saveBloggerProfile, deleteBloggerProfile, BLOGGER_CATEGORIES, BloggerProfile } from '../../utils/blogger-profile';
 import { runHealthCheck, refreshHealthReport, getCachedReport, getQuickStatus } from '../../utils/sources/health-checker';
 import { getRegistry, getAllStates, unblockSource, unblockAll, callAllSources } from '../../utils/sources/source-registry';
@@ -348,6 +349,10 @@ export function setupSourceSignalHandlers(): void {
     ipcMain.handle('get-rich-golden-feed', async () => {
         try {
             const isPro = checkProTierAllowed().allowed;
+            // This feed loads immediately after the window opens. Ensure the
+            // operator-only snapshot URL/token have been hydrated from .env
+            // before the read-only client checks process.env.
+            EnvironmentManager.getInstance();
             const snapshot = await fetchLiveGoldenBoardSnapshot();
             const rows = richRowsFromLiveGoldenSnapshot(snapshot);
             const summary = summarizeRichRows(rows);
@@ -997,6 +1002,7 @@ export function setupSourceSignalHandlers(): void {
     // ========== 내보내기 (CSV / JSON / 클립보드) ==========
     ipcMain.handle('rich-feed-export', async (_e, format: 'csv' | 'json' | 'clipboard') => {
         try {
+            EnvironmentManager.getInstance();
             const snapshot = await fetchLiveGoldenBoardSnapshot();
             const rows = richRowsFromLiveGoldenSnapshot(snapshot);
 

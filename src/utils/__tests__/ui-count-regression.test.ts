@@ -114,6 +114,7 @@ assert('rich feed injects realtime news policy and youtube seeds before measurem
 
 assert('desktop golden feed only reads the 24-hour server snapshot',
   /fetchLiveGoldenBoardSnapshot/.test(richFeedIpcBlock)
+    && /EnvironmentManager\.getInstance\(\)[\s\S]{0,240}fetchLiveGoldenBoardSnapshot/.test(richFeedIpcBlock)
     && /snapshot\.board/.test(richFeedIpcBlock)
     && !/discoverDirectGoldenKeywords|getCachedRichFeed|collectDirectGoldenLiveSeeds/.test(richFeedIpcBlock)
     && !/rfUseClaude|rfDiscoveryMode|blogger-profile-get/.test(richFeedRefreshBlock)
