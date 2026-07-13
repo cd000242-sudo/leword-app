@@ -1344,6 +1344,9 @@ function thinProfileCount(items: Array<{ keyword: string }>): number {
   const allHealthPolicyMixProbeCandidates = __liveGoldenRadarTestInternals.buildBackfillCandidates('all', [
     '\uB3C4\uC218\uCE58\uB8CC \uAD00\uB9AC\uAE09\uC5EC',
   ], 240, lottoGuardNow);
+  assert('selected health recovery rejects category-fallback calculator noise',
+    __liveGoldenRadarTestInternals.categoryAcceptsMeasuredProbe('\uADFC\uBB34\uC2DC\uAC04\uACC4\uC0B0\uAE30 \uC790\uB3D9\uACC4\uC0B0', 'health') === false
+      && __liveGoldenRadarTestInternals.categoryAcceptsMeasuredProbe('\uBE44\uD0C0\uBBFCD \uAC80\uC0AC \uBE44\uC6A9', 'health') === true);
   assert('all measured probes keep health treatment tails separate from policy application tails',
     allHealthPolicyMixProbeCandidates.slice(0, 160).every((keyword) => !/\uB3C4\uC218\uCE58\uB8CC.*(?:\uAD00\uB9AC\uAE09\uC5EC|\uC18C\uB4DD\uAE30\uC900|\uD544\uC694\s*\uC11C\uB958|\uB9C8\uAC10\uC77C|\uC628\uB77C\uC778\s*\uC2E0\uCCAD)/.test(keyword))
       && allHealthPolicyMixProbeCandidates.slice(0, 160).some((keyword) => /\uB3C4\uC218\uCE58\uB8CC.*(?:\uBCF4\uD5D8\s*\uC801\uC6A9\s*\uBE44\uC6A9|\uCE58\uB8CC\s*\uBE44\uC6A9|\uC2E4\uBE44\s*\uCCAD\uAD6C)/.test(keyword)),

@@ -9,6 +9,7 @@ import { rankRelatedKeywordCandidates } from './keyword-relevance';
 import {
   isNaverBlogOpenApiQuotaBlocked,
   isNaverBlogOpenApiQuotaExceededText,
+  isNaverBlogOpenApiRateLimitedText,
   markNaverBlogOpenApiQuotaBlocked,
   selectNaverBlogOpenApiCredential,
 } from './naver-blog-api';
@@ -837,7 +838,10 @@ export async function getNaverKeywordSearchVolumeSeparate(
     //         (2) API 재시도 1회 (400ms backoff)
     //         (3) scrapeFallback 에 sanity check — sv/dc>100 && dc<1000 면 거부 (바디 단락 N건 오매칭 방어)
     //         (4) scrapeFallback 값은 캐시 저장 금지 — API 성공 값만 재사용
-    const CONCURRENCY = 3;
+    // The combined SearchAd/OpenAPI path previously sent three document calls
+    // concurrently and mislabeled OpenAPI 012 speed limits as quota exhaustion.
+    // Serialize exact document lookup so later categories are not blacked out.
+    const CONCURRENCY = 1;
     const API_TIMEOUT_MS = 3500;
     const SCRAPE_TIMEOUT_MS = 1800;
 
@@ -898,7 +902,9 @@ export async function getNaverKeywordSearchVolumeSeparate(
           return typeof totalRaw === 'number' ? totalRaw : (typeof totalRaw === 'string' ? parseInt(totalRaw, 10) : null);
         }
         const errorText = await response.text().catch(() => '');
-        if (response.status === 429 || isNaverBlogOpenApiQuotaExceededText(errorText)) {
+        if (response.status === 429 && isNaverBlogOpenApiRateLimitedText(errorText)) {
+          await new Promise(r => setTimeout(r, 2_500));
+        } else if (response.status === 429 || isNaverBlogOpenApiQuotaExceededText(errorText)) {
           markNaverBlogOpenApiQuotaBlocked(credential);
         }
         return null;
@@ -967,7 +973,7 @@ export async function getNaverKeywordSearchVolumeSeparate(
               });
             }
           }
-          await new Promise(r => setTimeout(r, 180));
+          await new Promise(r => setTimeout(r, 350));
         }
       })());
     }

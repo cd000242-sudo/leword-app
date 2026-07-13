@@ -21,6 +21,7 @@ export interface DirectGoldenKeywordMinerOptions {
   requireCategoryMatch?: boolean;
   includeSearchAdSuggestions?: boolean;
   includeProTrafficSupplement?: boolean;
+  strictVisibleSssOnly?: boolean;
   suggestionSeedLimit?: number;
   suggestionsPerSeed?: number;
   maxSimilarPerCluster?: number;
@@ -57,6 +58,7 @@ const CURRENT_MONTH = new Date().getMonth() + 1;
 const LOTTO_FIRST_DRAW_AT_KST_MS = Date.UTC(2002, 11, 7, 11, 35, 0);
 const LOTTO_DRAW_INTERVAL_MS = 7 * 24 * 60 * 60 * 1000;
 const VOLATILE_EXAM_ANSWER_RE = /(?:\d{4}\s*)?(?:6모|9모|모의고사|모평|수능|기출).{0,10}(?:등급컷|답지|정답|해설)|(?:등급컷|답지|정답|해설).{0,10}(?:6모|9모|모의고사|모평|수능|기출)/;
+const WRITER_READY_CORE_ANCHOR_RE = /(?:세액공제|만기\s*수령액|실비\s*청구|면책기간|대상자\s*조회|검사\s*비용|예방접종\s*가격|가격비교|사용법|배터리\s*교체|오류\s*해결|비용\s*견적|확정일자|설치\s*비용|시공\s*비용|교체\s*비용|검사\s*예약|교체\s*주기|가입\s*조건|신고\s*방법|발급\s*방법|입소대기\s*신청|바우처\s*신청|건강검진\s*시기|수당\s*지급일|황금레시피|\d인분\s*레시피|보관법|삶는\s*시간|만드는법|물걸레\s*비교|전기요금)/u;
 
 function currentLottoRound(now: Date = new Date()): number {
   const nowMs = now.getTime();
@@ -358,6 +360,11 @@ const ISSUE_BASES_BY_CATEGORY_ID: Record<string, string[]> = {
     `${CURRENT_YEAR} 국가장학금`,
   ],
   finance: [
+    'IRP 세액공제',
+    'ISA 만기 수령액',
+    '자동차보험 갱신',
+    '실손보험 청구',
+    '정기예금 금리',
     '삼성전자',
     '엔비디아',
     '테슬라',
@@ -366,6 +373,9 @@ const ISSUE_BASES_BY_CATEGORY_ID: Record<string, string[]> = {
     `${CURRENT_YEAR} 청년도약계좌`,
   ],
   travel_domestic: [
+    '제주 렌터카 완전자차 가격비교',
+    '인천공항 주차대행 예약',
+    '여권 재발급 방법',
     '송지호 바다하늘길',
     `${CURRENT_YEAR} 여름 축제`,
     `${CURRENT_YEAR} 제주 장마`,
@@ -376,6 +386,70 @@ const ISSUE_BASES_BY_CATEGORY_ID: Record<string, string[]> = {
     `${CURRENT_YEAR} 롤드컵`,
     `${CURRENT_YEAR} 메이플 쇼케이스`,
     `${CURRENT_YEAR} 로스트아크`,
+  ],
+  health: [
+    '도수치료 실비 청구',
+    '치아보험 면책기간',
+    '건강검진 대상자 조회',
+    '수면다원검사 비용',
+    '비타민D 검사 비용',
+    '대상포진 예방접종 가격',
+  ],
+  it: [
+    'ChatGPT 가격',
+    'AI 회의록 사용법',
+    '노트북 배터리 교체',
+    '아이폰 배터리 교체 비용',
+    '윈도우 업데이트 오류 해결',
+  ],
+  home_life: [
+    '이사 비용 견적',
+    '전입신고 확정일자',
+    '시스템에어컨 설치 비용',
+    '층간소음 매트 시공 비용',
+    '보일러 교체 비용',
+  ],
+  car: [
+    '자동차 검사 예약',
+    '자동차보험 갱신',
+    '엔진오일 교체 주기',
+    '타이어 교체 비용',
+    '중고차 이전 비용',
+  ],
+  realestate: [
+    '전세보증보험 가입 조건',
+    '아파트 취득세 계산',
+    '주택청약 소득공제',
+    '전월세 신고 방법',
+    '등기부등본 발급 방법',
+  ],
+  parenting: [
+    '육아휴직급여 신청',
+    '어린이집 입소대기 신청',
+    '기저귀 바우처 신청',
+    '영유아 건강검진 시기',
+    '아동수당 지급일',
+  ],
+  recipe: [
+    '두부조림 황금레시피',
+    '김치찌개 2인분 레시피',
+    '닭가슴살 보관법',
+    '계란 삶는 시간',
+    '잡채 불지 않게 만드는법',
+  ],
+  shopping: [
+    '로봇청소기 물걸레 비교',
+    '무선청소기 배터리 교체',
+    '제습기 전기요금',
+    '창문형 에어컨 설치 비용',
+    '공기청정기 필터 교체 비용',
+  ],
+  electronics: [
+    '로봇청소기 물걸레 비교',
+    '무선청소기 배터리 교체',
+    '제습기 전기요금',
+    '창문형 에어컨 설치 비용',
+    '공기청정기 필터 교체 비용',
   ],
 };
 
@@ -473,7 +547,7 @@ const ENGLISH_ONLY_RE = /^[a-z0-9\s\-_.#/&+]+$/i;
 const DIRECT_POLICY_SIGNAL_RE = /(?:\uC9C0\uC6D0\uAE08|\uBC14\uC6B0\uCC98|\uC7A5\uB824\uAE08|\uAE09\uC5EC|\uD658\uAE09|\uC138\uAE08|\uACF5\uC81C|\uCCAD\uB144|\uC18C\uC0C1\uACF5\uC778|\uB300\uCD9C|\uBCF5\uC9C0|\uC9C0\uC6D0|\uC815\uCC45)/u;
 const DIRECT_FINANCE_SIGNAL_RE = /(?:\uC8FC\uC2DD|\uC8FC\uAC00|\uC2E4\uC801|\uBC30\uB2F9|\uCCAD\uC57D|\uAE08\uB9AC|\uB300\uCD9C|\uCF54\uC778|\uBE44\uD2B8\uCF54\uC778|\uD658\uC728)/u;
 const DIRECT_EVENT_SIGNAL_RE = /(?:KBO|\uC62C\uC2A4\uD0C0|\uCD95\uC81C|\uACF5\uC5F0|\uCF58\uC11C\uD2B8|\uC804\uC2DC|\uD589\uC0AC|\uC5EC\uD589|\uAD00\uAD11|\uBC14\uB2E4|\uD558\uB298\uAE38|\uB80C\uD130\uCE74|\uC219\uC18C|\uD56D\uACF5|\uC5D1\uC2A4\uD3EC|\uD398\uC2A4\uD2F0\uBC8C)/iu;
-const DIRECT_COMMERCE_SIGNAL_RE = /(?:\uCD94\uCC9C|\uAC00\uACA9|\uAD6C\uB9E4|\uC1FC\uD551|\uD560\uC778|\uCFE0\uD3F0|\uB9AC\uBDF0|\uD6C4\uAE30|\uBE44\uAD50|\uCD5C\uC800\uAC00|\uC81C\uD488|\uC0C1\uD488|\uAD6C\uB9E4\uCC98|\uC5D0\uC5B4\uCEE8|\uCCAD\uC18C\uAE30|\uB80C\uD0C8|\uBCF4\uD5D8|\uCE58\uB8CC|\uD544\uD130)/u;
+const DIRECT_COMMERCE_SIGNAL_RE = /(?:\uCD94\uCC9C|\uAC00\uACA9|\uAD6C\uB9E4|\uC1FC\uD551|\uD560\uC778|\uCFE0\uD3F0|\uB9AC\uBDF0|\uD6C4\uAE30|\uBE44\uAD50|\uCD5C\uC800\uAC00|\uC81C\uD488|\uC0C1\uD488|\uAD6C\uB9E4\uCC98|\uC5D0\uC5B4\uCEE8|\uCCAD\uC18C\uAE30|\uB80C\uD0C8|\uD544\uD130)/u;
 const DIRECT_CONTENT_SIGNAL_RE = /(?:\uB4DC\uB77C\uB9C8|\uC601\uD654|\uBC29\uC1A1|\uC608\uB2A5|\uC624\uD2F0\uD2F0|OTT|\uC560\uB2C8|\uC6F9\uD230|\uC720\uD29C\uBE0C|\uC1FC\uCE20)/iu;
 const DIRECT_CALCULATOR_SIGNAL_RE = /(?:\uACC4\uC0B0\uAE30|\uBCF4\uD5D8\uB8CC|\uC138\uAE08|\uAE09\uC5EC|\uD1F4\uC9C1\uAE08|\uC2DC\uAE09|\uC8FC\uD734\uC218\uB2F9|\uC5F0\uB9D0\uC815\uC0B0|\uBD80\uAC00\uC138|\uC2E4\uC218\uB839\uC561|\uD658\uAE09\uC77C|\uC18C\uB4DD\uC138)/u;
 const DIRECT_POLICY_NEED_INTENTS = [
@@ -670,6 +744,8 @@ export function shouldContinueDirectGoldenSssHunt(
 function directNeedIntentsForSeed(seed: string, categoryIds: string[]): string[] {
   const clean = normalizeCandidate(seed);
   const categoryText = categoryIds.join(' ');
+  const categoryAllowsCommerce = categoryIds.length === 0
+    || categoryIds.some((id) => /shopping|commerce|beauty|fashion|electronics|kitchen/.test(id));
   const intents: string[] = [];
   intents.push(...getSeedSpecificIntents(clean).slice(0, 12));
 
@@ -685,7 +761,7 @@ function directNeedIntentsForSeed(seed: string, categoryIds: string[]): string[]
   if (DIRECT_EVENT_SIGNAL_RE.test(clean) || /sports|travel|event/.test(categoryText)) {
     intents.push(...DIRECT_EVENT_NEED_INTENTS);
   }
-  if (DIRECT_COMMERCE_SIGNAL_RE.test(clean) || /shopping|commerce|beauty|fashion|food|health|home|it/.test(categoryText)) {
+  if (categoryAllowsCommerce && DIRECT_COMMERCE_SIGNAL_RE.test(clean)) {
     intents.push(...DIRECT_COMMERCE_NEED_INTENTS);
   }
   if (DIRECT_CONTENT_SIGNAL_RE.test(clean) || /drama|movie|broadcast|music|youtube|anime/.test(categoryText)) {
@@ -717,6 +793,8 @@ function compoundNeedIntentsForSeed(seed: string, categoryIds: string[]): string
   const clean = normalizeCandidate(seed);
   if (!clean) return [];
   const categoryText = categoryIds.join(' ');
+  const categoryAllowsCommerce = categoryIds.length === 0
+    || categoryIds.some((id) => /shopping|commerce|beauty|fashion|electronics|kitchen/.test(id));
   const intents: string[] = [];
   if (DIRECT_CALCULATOR_SIGNAL_RE.test(clean)) {
     intents.push(...DIRECT_CALCULATOR_COMPOUND_NEED_INTENTS);
@@ -730,7 +808,7 @@ function compoundNeedIntentsForSeed(seed: string, categoryIds: string[]): string
   if (DIRECT_EVENT_SIGNAL_RE.test(clean) || /sports|travel|event/.test(categoryText)) {
     intents.push(...DIRECT_EVENT_COMPOUND_NEED_INTENTS);
   }
-  if (DIRECT_COMMERCE_SIGNAL_RE.test(clean) || /shopping|commerce|beauty|fashion|food|health|home|it/.test(categoryText)) {
+  if (categoryAllowsCommerce && DIRECT_COMMERCE_SIGNAL_RE.test(clean)) {
     intents.push(...DIRECT_COMMERCE_COMPOUND_NEED_INTENTS);
   }
   if (DIRECT_CONTENT_SIGNAL_RE.test(clean) || /drama|movie|broadcast|music|youtube|anime/.test(categoryText)) {
@@ -819,7 +897,16 @@ function getDirectIntents(categoryIds: string[]): string[] {
   for (const id of categoryIds) {
     intents.push(...(CATEGORY_DIRECT_INTENTS[id] || []));
   }
-  return unique([...intents, ...COMMON_DIRECT_INTENTS], 24);
+  return unique(intents.length > 0 ? intents : COMMON_DIRECT_INTENTS, 24);
+}
+
+function isDirectCategoryIntentResidue(candidate: string, categoryIds: string[]): boolean {
+  const categorySet = new Set(categoryIds);
+  if (categorySet.has('health') || categorySet.has('hospital')) {
+    return /(?:\uB80C\uD0C8|\uCD5C\uC800\uAC00|\uAD6C\uB9E4\uCC98|\uD560\uC778\s*\uCFE0\uD3F0|\uC2E0\uCCAD\s*(?:\uBC29\uBC95|\uB300\uC0C1)?|\uC790\uACA9\s*\uC870\uAC74|\uB9C8\uAC10\uC77C)/u.test(candidate)
+      && !/(?:\uAC74\uAC15\uAC80\uC9C4\s*\uB300\uC0C1\uC790\s*\uC870\uD68C)/u.test(candidate);
+  }
+  return false;
 }
 
 function getSeedSpecificIntents(seed: string): string[] {
@@ -1263,15 +1350,24 @@ export function buildDirectGoldenKeywordCandidatePlan(options: DirectGoldenKeywo
     liveSeeds: options.liveSeeds || [],
   });
   const directCategoryIds = plan.categoryIds.length > 0 ? plan.categoryIds : categoryIds;
+  const allowLiveEntityExpansion = includeCrossCategory || directCategoryIds.some((id) => (
+    ['celeb', 'broadcast', 'drama', 'movie', 'music', 'sports', 'anime'].includes(id)
+  ));
   const intents = getDirectIntents(directCategoryIds);
   const dateHints = getKoreanDateHints();
   const liveSeedValues = options.liveSeeds || [];
   const leadingLiveSeeds = liveSeedValues.slice(0, includeCrossCategory ? 24 : liveSeedValues.length);
   const trailingLiveSeeds = includeCrossCategory ? liveSeedValues.slice(24) : [];
+  const issueBases = getIssueBases(directCategoryIds, includeCrossCategory);
+  const writerReadyIssueBaseIds = new Set(
+    issueBases
+      .filter((seed) => isActionableGoldenKeyword(seed) || WRITER_READY_CORE_ANCHOR_RE.test(seed))
+      .map((seed) => compactGoldenKeyword(seed)),
+  );
   const baseSeeds = unique([
     keyword,
     ...leadingLiveSeeds,
-    ...getIssueBases(directCategoryIds, includeCrossCategory),
+    ...issueBases,
     ...trailingLiveSeeds,
     ...plan.seeds,
     ...getDiscoveryCategorySeeds(category, Math.min(360, maxSeeds)),
@@ -1283,10 +1379,13 @@ export function buildDirectGoldenKeywordCandidatePlan(options: DirectGoldenKeywo
     const clean = normalizeCandidate(seed);
     if (!clean) continue;
     candidates.push(clean);
-    for (const entity of extractLiveEntitySeeds(clean)) {
-      candidates.push(entity);
-      for (const intent of unique(getEntityIntentCandidates(entity), 8).slice(0, 5)) {
-        if (!entity.includes(intent)) candidates.push(`${entity} ${intent}`);
+    if (writerReadyIssueBaseIds.has(compactGoldenKeyword(clean))) continue;
+    if (allowLiveEntityExpansion) {
+      for (const entity of extractLiveEntitySeeds(clean)) {
+        candidates.push(entity);
+        for (const intent of unique(getEntityIntentCandidates(entity), 8).slice(0, 5)) {
+          if (!entity.includes(intent)) candidates.push(`${entity} ${intent}`);
+        }
       }
     }
     for (const intent of getSeedSpecificIntents(clean).slice(0, 6)) {
@@ -1297,15 +1396,26 @@ export function buildDirectGoldenKeywordCandidatePlan(options: DirectGoldenKeywo
   }
 
   for (const seed of baseSeeds) {
+    if (writerReadyIssueBaseIds.has(compactGoldenKeyword(seed))) continue;
     candidates.push(...expandSeed(seed, intents, dateHints));
     candidates.push(...buildWriterReadyNeedCandidates(seed, directCategoryIds, 16));
     candidates.push(...buildWriterReadyCompoundNeedCandidates(seed, directCategoryIds, 20));
     if (candidates.length >= maxCandidates * 1.25) break;
   }
 
-  const usableCandidates = candidates.filter(isUsableCandidate);
-  const finalCandidates = includeCrossCategory && !keyword
-    ? spreadCandidates(usableCandidates, maxCandidates, 160)
+  const usableCandidates = candidates
+    .filter(isUsableCandidate)
+    .filter((candidate) => !isDirectCategoryIntentResidue(candidate, directCategoryIds))
+    .filter((candidate) => (
+      allowLiveEntityExpansion
+      || !/(?:\uD504\uB85C\uD544|\uB098\uC774|\uADFC\uD669|\uACF5\uC2DD\uC785\uC7A5|\uC778\uC2A4\uD0C0)/u.test(candidate)
+    ));
+  const finalCandidates = !keyword
+    ? spreadCandidates(
+      usableCandidates,
+      maxCandidates,
+      includeCrossCategory ? 160 : Math.min(24, Math.max(8, Math.floor(maxCandidates * 0.2))),
+    )
     : unique(usableCandidates, maxCandidates, true);
 
   return {
@@ -1334,6 +1444,7 @@ export async function discoverDirectGoldenKeywords(
     Math.min(8, Math.floor(options.maxSimilarPerCluster || (limit > 30 ? 6 : 2))),
   );
   const bulkMode = limit > 30;
+  const strictVisibleSssOnly = options.strictVisibleSssOnly !== false;
   const measurementCandidateCap = bulkMode
     ? Math.min(
       maxCandidates,
@@ -1391,7 +1502,7 @@ export async function discoverDirectGoldenKeywords(
     honorRequestedLimit: false,
     diversifySimilarIntents: true,
     maxSimilarPerCluster,
-    strictVisibleSssOnly: true,
+    strictVisibleSssOnly,
     requireActionableIntent: true,
     qualityBackfillToTarget: true,
   });
@@ -1443,7 +1554,7 @@ export async function discoverDirectGoldenKeywords(
         honorRequestedLimit: false,
         diversifySimilarIntents: true,
         maxSimilarPerCluster,
-        strictVisibleSssOnly: true,
+        strictVisibleSssOnly,
         requireActionableIntent: true,
         qualityBackfillToTarget: true,
       });
@@ -1511,7 +1622,7 @@ export async function discoverDirectGoldenKeywords(
       honorRequestedLimit: false,
       diversifySimilarIntents: true,
       maxSimilarPerCluster: Math.min(10, maxSimilarPerCluster + 2),
-      strictVisibleSssOnly: true,
+      strictVisibleSssOnly,
       requireActionableIntent: true,
       qualityBackfillToTarget: true,
     });

@@ -1096,6 +1096,7 @@ async function runInjectedNaverMate(): Promise<void> {
 function runFallbackRegressionGuards(): void {
   const source = fs.readFileSync(path.join(__dirname, '..', '..', 'mobile', 'pc-engine-executor.ts'), 'utf8');
   const naverBlogApiSource = fs.readFileSync(path.join(__dirname, '..', 'naver-blog-api.ts'), 'utf8');
+  const naverDatalabSource = fs.readFileSync(path.join(__dirname, '..', 'naver-datalab-api.ts'), 'utf8');
   const liveGoldenSource = fs.readFileSync(path.join(__dirname, '..', '..', 'mobile', 'live-golden-radar.ts'), 'utf8');
   const proTrafficSource = fs.readFileSync(path.join(__dirname, '..', 'pro-traffic-keyword-hunter.ts'), 'utf8');
   const naverAutocompleteSource = fs.readFileSync(path.join(__dirname, '..', 'naver-autocomplete.ts'), 'utf8');
@@ -1319,6 +1320,11 @@ function runFallbackRegressionGuards(): void {
       && naverBlogApiSource.includes('NAVER_BLOG_OPENAPI_RATE_LIMIT_BACKOFF_MS')
       && naverBlogApiSource.includes('markNaverBlogOpenApiRateLimited()'),
     'OpenAPI 012 should pause briefly instead of blocking the key until reset');
+  assert('combined SearchAd/OpenAPI measurement serializes document lookup and preserves rate-limit recovery',
+    naverDatalabSource.includes('const CONCURRENCY = 1')
+      && naverDatalabSource.includes('isNaverBlogOpenApiRateLimitedText(errorText)')
+      && naverDatalabSource.includes('await new Promise(r => setTimeout(r, 350))'),
+    'direct golden measurement must not turn OpenAPI 012 into a five-minute all-category document blackout');
   assert('Naver OpenAPI logs do not expose client secret fragments',
     !/Client Secret:\s*\$\{/.test(naverBlogApiSource)
       && !/clientSecret\.substring/.test(naverBlogApiSource),

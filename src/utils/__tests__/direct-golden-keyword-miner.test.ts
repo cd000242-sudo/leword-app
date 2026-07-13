@@ -63,6 +63,62 @@ assert(
   sportsPlan.candidates.slice(0, 80).join('|'),
 );
 
+const boundedHealthPlan = buildDirectGoldenKeywordCandidatePlan({
+  category: 'health',
+  maxSeeds: 220,
+  maxCandidates: 80,
+  includeCrossCategory: false,
+});
+const boundedHealthFamilies = new Set(
+  boundedHealthPlan.candidates.slice(0, 80).map((keyword) => (
+    ['멀티비타민', '도수치료', '치아보험', '임플란트', '비타민D', '수면다원검사', '예방접종']
+      .find((base) => keyword.includes(base)) || ''
+  )).filter(Boolean),
+);
+assert(
+  'bounded core-category plan spreads measurement across base families',
+  boundedHealthFamilies.size >= 4,
+  JSON.stringify([...boundedHealthFamilies]),
+);
+assert(
+  'non-entertainment seeds never receive person-profile residue',
+  boundedHealthPlan.candidates.slice(0, 80).every((keyword) => (
+    !/(?:멀티비타민|도수치료|치아보험|임플란트|비타민D).*(?:프로필|나이|근황|공식입장|인스타)/.test(keyword)
+  )),
+  boundedHealthPlan.candidates.slice(0, 40).join('|'),
+);
+assert(
+  'health seeds do not receive policy or product-commerce residue',
+  boundedHealthPlan.candidates.slice(0, 80).every((keyword) => (
+    !/(?:멀티비타민|도수치료|치아보험|임플란트|비타민D).*(?:신청방법|신청대상|자격|마감|렌탈|최저가|구매처|할인쿠폰)/.test(keyword)
+  )),
+  boundedHealthPlan.candidates.slice(0, 50).join('|'),
+);
+const boundedTravelPlan = buildDirectGoldenKeywordCandidatePlan({
+  category: 'travel_domestic',
+  maxSeeds: 220,
+  maxCandidates: 80,
+  includeCrossCategory: false,
+});
+assert(
+  'writer-ready curated anchors are measured as real queries without stacked foreign intents',
+  boundedTravelPlan.candidates.includes('제주 렌터카 완전자차 가격비교')
+    && boundedTravelPlan.candidates.every((keyword) => !/(?:제주 렌터카 완전자차 가격비교|여권 재발급 방법).*(?:예매 일정|주차 입장료|운영시간|준비물)/.test(keyword)),
+  boundedTravelPlan.candidates.slice(0, 30).join('|'),
+);
+const boundedFinancePlan = buildDirectGoldenKeywordCandidatePlan({
+  category: 'finance',
+  maxSeeds: 220,
+  maxCandidates: 80,
+  includeCrossCategory: false,
+});
+assert(
+  'finance utility anchors do not receive stock-market residue',
+  boundedFinancePlan.candidates.includes('ISA 만기 수령액')
+    && boundedFinancePlan.candidates.every((keyword) => !/ISA 만기 수령액.*(?:목표가|실적 발표|배당금|청약 일정)/.test(keyword)),
+  boundedFinancePlan.candidates.slice(0, 30).join('|'),
+);
+
 const liveEntityPlan = buildDirectGoldenKeywordCandidatePlan({
   category: '',
   maxSeeds: 120,

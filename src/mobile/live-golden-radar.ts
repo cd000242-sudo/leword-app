@@ -4431,7 +4431,16 @@ function isSyntheticNoEffectLiveProbe(keyword: string): boolean {
 function categoryAcceptsMeasuredProbe(keyword: string, categoryId: string): boolean {
   const normalizedCategory = normalizeKeyword(categoryId || 'all');
   if (!normalizedCategory || normalizedCategory === 'all') return true;
-  const inferred = inferLiveCategory(keyword, normalizedCategory);
+  const compact = keywordCompactId(keyword);
+  const hasSelectedCategoryBase = (LIVE_MEASURED_PROBE_BASES[normalizedCategory] || [])
+    .some((base) => {
+      const baseCompact = keywordCompactId(base);
+      return baseCompact.length >= 3 && compact.includes(baseCompact);
+    });
+  if (hasSelectedCategoryBase) return true;
+  // Never let the requested category act as the inference fallback here. That
+  // circular fallback mislabeled generic policy calculators as health supply.
+  const inferred = inferLiveCategory(keyword, 'all');
   if (inferred === normalizedCategory) return true;
   const compatible = LIVE_MEASURED_PROBE_CATEGORY_COMPAT[normalizedCategory] || [];
   return compatible.includes(inferred);
@@ -6011,6 +6020,7 @@ export const __liveGoldenRadarTestInternals = {
   buildCacheDerivedCompoundNeedSeeds,
   buildDateAwareLiveSeedCandidates,
   buildMeasuredProbeCandidates,
+  categoryAcceptsMeasuredProbe,
   currentLottoRound,
   debugSearchAdMeasurableLiveCandidate,
   getLiveSeedBackfillIntents,
