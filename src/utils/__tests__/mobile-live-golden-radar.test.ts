@@ -4666,6 +4666,87 @@ function thinProfileCount(items: Array<{ keyword: string }>): number {
       residualDirectMaxCandidates,
     }));
   fs.rmSync(residualQueueFile, { force: true });
+
+  const coreSuggestionQueueFile = path.join(process.cwd(), 'tmp', 'mobile-live-golden-core-suggestion-test.json');
+  fs.writeFileSync(coreSuggestionQueueFile, JSON.stringify({
+    version: 1,
+    savedAt: '2026-07-14T07:00:00.000Z',
+    items: [{
+      keyword: '강아지 미용 비용',
+      category: 'pet_dog',
+      source: 'fixture-core-suggestion-canary',
+      priority: 1000,
+      firstSeenAt: '2026-07-14T07:00:00.000Z',
+      attempts: 0,
+      misses: 0,
+    }],
+  }), 'utf8');
+  const coreSuggestionSeeds: string[] = [];
+  let coreSuggestionDirectCalls = 0;
+  const coreSuggestionRadar = new MobileLiveGoldenRadar({
+    notificationInbox: inbox,
+    runOnStart: false,
+    cycleLimit: 8,
+    boardTarget: 120,
+    maxCandidates: 220,
+    categories: ['pet_dog'],
+    probeQueueFile: coreSuggestionQueueFile,
+    getEnvConfig: () => ({
+      naverClientId: 'client',
+      naverClientSecret: 'secret',
+      naverSearchAdAccessLicense: 'license',
+      naverSearchAdSecretKey: 'secret-key',
+      naverSearchAdCustomerId: 'customer',
+    }),
+    liveSeedProvider: async () => [],
+    enableBackfill: true,
+    autocompleteProvider: async () => [],
+    searchAdSuggestionProvider: async (_config, seed) => {
+      coreSuggestionSeeds.push(seed);
+      return [{
+        keyword: '반려견 보험 비교',
+        pcSearchVolume: 700,
+        mobileSearchVolume: 2300,
+        totalSearchVolume: 3000,
+        competition: 'LOW',
+        monthlyAveCpc: 340,
+      }, {
+        keyword: '반려견 보험 공식입장',
+        pcSearchVolume: 12000,
+        mobileSearchVolume: 48000,
+        totalSearchVolume: 60000,
+        competition: 'LOW',
+        monthlyAveCpc: 90,
+      }];
+    },
+    measureLiveSearchVolumeSeparate: async () => [],
+    measureLiveDocumentCount: async (keyword) => (
+      keyword === '반려견 보험 비교'
+        ? { dc: 120, source: 'naver-api', confidence: 'high', isEstimated: false }
+        : null
+    ),
+    discover: async () => {
+      coreSuggestionDirectCalls += 1;
+      return [];
+    },
+  });
+  const coreSuggestionSnapshot = await coreSuggestionRadar.runOnce();
+  assert('core recovery uses bounded SearchAd anchors and rejects news residue before publication',
+    coreSuggestionSeeds.length > 0
+      && coreSuggestionSeeds.length <= 4
+      && coreSuggestionSeeds.some((seed) => /강아지/u.test(seed))
+      && coreSuggestionDirectCalls === 0
+      && coreSuggestionSnapshot.board.some((item) => (
+        item.keyword === '반려견 보험 비교'
+        && item.grade === 'SSS'
+      ))
+      && !coreSuggestionSnapshot.board.some((item) => /공식입장/u.test(item.keyword)),
+    JSON.stringify({
+      seeds: coreSuggestionSeeds,
+      directCalls: coreSuggestionDirectCalls,
+      board: coreSuggestionSnapshot.board.map((item) => `${item.keyword}:${item.grade}:${item.goldenRatio}`),
+    }));
+  fs.rmSync(coreSuggestionQueueFile, { force: true });
   const writerReadyProbeSamples: Array<[string, string]> = [
     ['\uC1A1\uC9C0\uD638 \uBC14\uB2E4\uD558\uB298\uAE38 \uC608\uC57D \uBC29\uBC95', 'travel_domestic'],
     ['\uCFE0\uCFE0\uC81C\uC2B5\uAE30\uB80C\uD0C8 \uAD6C\uB9E4\uCC98 \uCD94\uCC9C', 'shopping'],

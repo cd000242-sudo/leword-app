@@ -4525,6 +4525,20 @@ const LIVE_CURATED_CORE_MEASURED_PROBES: Record<string, readonly string[]> = Obj
   ],
 });
 
+const LIVE_CURATED_CORE_SEARCHAD_SEEDS: Record<string, readonly string[]> = Object.freeze({
+  car: ['자동차보험', '자동차 검사', '엔진오일', '타이어 교체'],
+  car_maintain: ['엔진오일', '타이어 교체', '자동차 배터리', '자동차 정비'],
+  realestate: ['전세보증보험', '주택청약 납입인정액', '부동산 중개수수료', '전월세 신고'],
+  home_life: ['이사 견적', '입주청소', '에어컨 이전설치', '보일러 교체'],
+  interior: ['도배 장판', '욕실 리모델링', '샷시 교체', '중문 설치'],
+  pet_dog: ['강아지 예방접종', '강아지 보험', '강아지 미용', '강아지 슬개골'],
+  pet_cat: ['고양이 중성화', '고양이 예방접종', '고양이 보험', '고양이 건강검진'],
+  food: ['다이어트 도시락', '밀키트', '샐러드 정기배송', '반찬 정기배송'],
+  recipe: ['저당 도시락', '고단백 도시락', '이유식 식단', '당뇨 식단'],
+  fashion: ['러닝화', '선크림', '향수', '탈모 샴푸'],
+  beauty: ['선크림', '수분크림', '쿠션 파운데이션', '여드름 화장품'],
+});
+
 const LIVE_CURATED_CORE_MEASURED_PROBE_IDS = new Set(
   Object.values(LIVE_CURATED_CORE_MEASURED_PROBES)
     .flat()
@@ -7915,6 +7929,11 @@ export class MobileLiveGoldenRadar {
     categoryId: string,
     liveSeeds: string[],
     targetLimit: number,
+    options: {
+      curatedSeedsOnly?: boolean;
+      maxSeedQueries?: number;
+      maxRows?: number;
+    } = {},
   ): Promise<LiveSearchVolumeRow[]> {
     const env = this.getEnvConfig();
     const searchAdConfig = searchAdConfigFromEnv(env);
@@ -7923,25 +7942,37 @@ export class MobileLiveGoldenRadar {
 
     const now = this.now();
     const sssDepthMode = targetLimit >= Math.ceil(this.boardTarget * 0.5);
-    const limit = Math.max(80, Math.min(
+    const configuredMaxRows = Number.isFinite(options.maxRows)
+      ? Math.max(1, Math.floor(options.maxRows as number))
+      : null;
+    const limit = configuredMaxRows ?? Math.max(80, Math.min(
       sssDepthMode ? 420 : 220,
       Math.floor(targetLimit * (sssDepthMode ? 18 : 14)),
     ));
-    const seedLimit = Math.max(12, Math.min(
+    const configuredSeedLimit = Number.isFinite(options.maxSeedQueries)
+      ? Math.max(1, Math.floor(options.maxSeedQueries as number))
+      : null;
+    const seedLimit = configuredSeedLimit ?? Math.max(12, Math.min(
       sssDepthMode ? 60 : 24,
       Math.ceil(targetLimit * (sssDepthMode ? 2.4 : 1.6)),
     ));
+    const curatedSearchAdSeeds = (LIVE_CURATED_CORE_SEARCHAD_SEEDS[categoryId] || [])
+      .map((seed) => normalizeKeyword(seed))
+      .filter(Boolean);
     const catalogSeeds = measuredProbeCategoryKeys(categoryId, liveSeeds)
       .flatMap((key) => LIVE_MEASURED_PROBE_BASES[key] || [])
       .map((seed) => normalizeKeyword(seed))
       .filter(Boolean);
-    const seeds = uniqueKeywords([
-      ...this.cacheDerivedLiveSeeds,
-      ...catalogSeeds,
-      ...catalogSeeds.map((seed) => seed.replace(/\s+/g, '')),
-      ...normalizeLiveSeeds(liveSeeds, 80),
-      ...getDiscoveryCategorySeeds(categoryId, 48),
-    ], 520)
+    const seeds = uniqueKeywords(options.curatedSeedsOnly
+      ? curatedSearchAdSeeds
+      : [
+        ...curatedSearchAdSeeds,
+        ...this.cacheDerivedLiveSeeds,
+        ...catalogSeeds,
+        ...catalogSeeds.map((seed) => seed.replace(/\s+/g, '')),
+        ...normalizeLiveSeeds(liveSeeds, 80),
+        ...getDiscoveryCategorySeeds(categoryId, 48),
+      ], 520)
       .map((seed) => normalizeRobustLiveSeedBase(seed, now) || normalizeKeyword(seed))
       .filter(Boolean)
       .filter((seed) => !isUltimateLowValueLookupKeyword(seed))
@@ -7962,6 +7993,11 @@ export class MobileLiveGoldenRadar {
       const clean = normalizeKeyword(keyword);
       if (!clean || scored.size >= limit) return;
       if (isLowValueLiveCandidate(clean) || isOverExpandedLiveCandidate(clean) || isNoisyLiveSeed(clean)) return;
+      if (
+        LIVE_PROMOTION_DEPRIORITY_RE.test(clean)
+        || isBrandSafetyNewsKeyword(clean)
+        || /(?:인스타|인스타그램|틱톡|유튜브\s*쇼츠|프로필|공식입장|근황)/iu.test(clean)
+      ) return;
       const pc = finiteNumber((suggestion as any).pcSearchVolume) || 0;
       const mobile = finiteNumber((suggestion as any).mobileSearchVolume) || 0;
       const total = finiteNumber((suggestion as any).totalSearchVolume) ?? (pc + mobile);
@@ -7973,6 +8009,7 @@ export class MobileLiveGoldenRadar {
       if (
         categoryId !== 'all'
         && inferred !== categoryId
+        && !isCuratedCoreMeasuredProbe(clean)
         && !categoryAcceptsMeasuredProbe(clean, categoryId)
       ) return;
       if (!isLiveRadarUsableKeyword(clean, null, null, now)) return;
@@ -8154,7 +8191,12 @@ export class MobileLiveGoldenRadar {
       this.maxSeeds,
       this.now(),
     );
-    const measurementLimit = Math.min(40, this.backfillMeasurementLimit(targetLimit));
+    const measurementLimit = Math.min(
+      40,
+      this.backfillMeasurementLimit(targetLimit),
+      Math.max(0, this.searchAdMeasurementBudgetRemaining),
+    );
+    if (measurementLimit <= 0) return [];
     const queuedProbeItems = measuredProbeOnly
       ? []
       : this.runnableMeasuredProbeQueueItems(categoryId, targetLimit);
@@ -8180,13 +8222,27 @@ export class MobileLiveGoldenRadar {
       );
     // Category recovery must not fan out into the SearchAd suggestion lane.
     // Exact measurement below remains bounded by the shared per-run budget.
-    const searchAdSuggestionRows = !measuredProbeOnly && categoryId === 'all'
-      ? await this.discoverSearchAdSuggestionBackfillCandidates(
-        categoryId,
-        liveSeeds,
-        suggestionTargetLimit,
-      )
-      : [];
+    const hasCuratedCoreSearchAdSeeds = (LIVE_CURATED_CORE_SEARCHAD_SEEDS[categoryId] || []).length > 0;
+    const searchAdSuggestionRows = categoryId === 'all'
+      ? (!measuredProbeOnly
+        ? await this.discoverSearchAdSuggestionBackfillCandidates(
+          categoryId,
+          liveSeeds,
+          suggestionTargetLimit,
+        )
+        : [])
+      : (measuredProbeOnly && hasCuratedCoreSearchAdSeeds
+        ? await this.discoverSearchAdSuggestionBackfillCandidates(
+          categoryId,
+          liveSeeds,
+          suggestionTargetLimit,
+          {
+            curatedSeedsOnly: true,
+            maxSeedQueries: 4,
+            maxRows: measurementLimit,
+          },
+        )
+        : []);
     const searchAdSuggestionCandidates = searchAdSuggestionRows.map((row) => row.keyword);
     const queuedProbePriorityById = new Map(
       queuedProbeItems
@@ -8268,6 +8324,10 @@ export class MobileLiveGoldenRadar {
       .filter((keyword) => !suggestedRowIds.has(keywordCompactId(keyword)))
       .filter((keyword) => isHighYieldSearchAdSpendCandidate(keyword, probeCategoryFor(keyword), this.now()));
     const suggestionRowsForRun = uniqueVolumeRows(searchAdSuggestionRows, measurementLimit);
+    this.searchAdMeasurementBudgetRemaining = Math.max(
+      0,
+      this.searchAdMeasurementBudgetRemaining - suggestionRowsForRun.length,
+    );
     const searchAdCandidates = uniqueKeywords([
       ...measuredSearchAdCandidates,
       ...fallbackSearchAdCandidates,
