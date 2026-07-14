@@ -69,7 +69,10 @@ import {
   selectNextLiveGoldenDiscoveryCategory,
   type LiveGoldenCategoryRunStats,
 } from './live-golden-category-policy';
-import { isTrustedLiveGoldenSupplyRow } from './live-golden-supply-report';
+import {
+  buildLiveGoldenSupplyReport,
+  isTrustedLiveGoldenSupplyRow,
+} from './live-golden-supply-report';
 
 export interface MobileLiveGoldenRadarRunGate {
   ok: boolean;
@@ -6692,7 +6695,18 @@ export class MobileLiveGoldenRadar {
     return resolveDirectGoldenBulkSssTarget(this.boardTarget);
   }
 
+  private automatedSupplyGatePassing(board: readonly MobileLiveGoldenBoardItem[]): boolean {
+    return buildLiveGoldenSupplyReport(board, {
+      nowMs: this.now().getTime(),
+    }).automatedSupplyGate === 'pass';
+  }
+
   private needsSssDepthRefresh(snapshot: Pick<MobileLiveGoldenRadarSnapshot, 'board' | 'boardCount'>): boolean {
+    // Board size/SSS depth alone is not the Phase 2 gate. Keep catch-up
+    // running while category coverage, share, completeness, or trust is
+    // still failing; otherwise a full-looking board can strand the worker in
+    // a policy-heavy portfolio forever.
+    if (!this.automatedSupplyGatePassing(snapshot.board)) return true;
     if (snapshot.boardCount < this.boardTarget) return true;
     const now = this.now();
     return snapshot.board
@@ -6867,6 +6881,7 @@ export class MobileLiveGoldenRadar {
         catchUpModeBeforeCache
         && promotedCacheCount > 0
         && !shouldContinueAfterCachePromotion
+        && this.automatedSupplyGatePassing(boardAfterCachePromotion)
         && (
           boardCountAfterCachePromotion >= this.boardTarget
           || boardCountAfterCachePromotion > currentBoardCount

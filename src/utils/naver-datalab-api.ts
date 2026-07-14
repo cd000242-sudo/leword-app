@@ -842,6 +842,11 @@ export async function getNaverKeywordSearchVolumeSeparate(
     // concurrently and mislabeled OpenAPI 012 speed limits as quota exhaustion.
     // Serialize exact document lookup so later categories are not blacked out.
     const CONCURRENCY = 1;
+    // When the Open API quota is already blocked, workers only use the
+    // read-only scraper fallback below. A small parallelism bump keeps a
+    // 900-candidate desktop recovery from taking hours, while the normal API
+    // path remains strictly serialized to avoid rate limits.
+    const scrapeOnlyConcurrency = isNaverBlogOpenApiQuotaBlocked(config) ? 3 : CONCURRENCY;
     const API_TIMEOUT_MS = 3500;
     const SCRAPE_TIMEOUT_MS = 1800;
 
@@ -924,15 +929,29 @@ export async function getNaverKeywordSearchVolumeSeparate(
 
     let cursor = 0;
     const workers: Promise<void>[] = [];
-    for (let w = 0; w < CONCURRENCY; w++) {
+    for (let w = 0; w < scrapeOnlyConcurrency; w++) {
       workers.push((async () => {
         while (true) {
           const idx = cursor++;
           if (idx >= input.length) return;
           // 🔥 v2.27.4: 영구 캐시 HIT 이면 API 건너뛰기
           if (results[idx].documentCount !== null) continue;
-          if (isNaverBlogOpenApiQuotaBlocked(config)) return;
           const originalKeyword = input[idx];
+          // A blog Open API quota block must not turn every SearchAd-measured
+          // row into an unmeasured null.  The scraper fallback below is a
+          // read-only document-count measurement and is already the guarded
+          // fallback used after an individual API failure.  Continue through
+          // that path while the quota marker is active instead of returning
+          // from the worker before it has attempted the keyword.
+          if (isNaverBlogOpenApiQuotaBlocked(config)) {
+            const scraped = await scrapeFallback(originalKeyword);
+            if (scraped !== null && scraped > 0) {
+              const sv = (results[idx].pcSearchVolume || 0) + (results[idx].mobileSearchVolume || 0);
+              const suspiciousRatio = sv > 0 && scraped < 1000 && (sv / scraped) > 100;
+              if (!suspiciousRatio) results[idx].documentCount = scraped;
+            }
+            continue;
+          }
           let dc = await fetchApiWithRetry(originalKeyword);
           const fromApi = dc !== null;
           if (dc === null) {
