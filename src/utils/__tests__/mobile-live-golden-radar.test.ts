@@ -4672,8 +4672,8 @@ function thinProfileCount(items: Array<{ keyword: string }>): number {
     version: 1,
     savedAt: '2026-07-14T07:00:00.000Z',
     items: [{
-      keyword: '강아지 미용 비용',
-      category: 'pet_dog',
+      keyword: '자동차 광택 비용',
+      category: 'car',
       source: 'fixture-core-suggestion-canary',
       priority: 1000,
       firstSeenAt: '2026-07-14T07:00:00.000Z',
@@ -4689,7 +4689,7 @@ function thinProfileCount(items: Array<{ keyword: string }>): number {
     cycleLimit: 8,
     boardTarget: 120,
     maxCandidates: 220,
-    categories: ['pet_dog'],
+    categories: ['car'],
     probeQueueFile: coreSuggestionQueueFile,
     getEnvConfig: () => ({
       naverClientId: 'client',
@@ -4704,14 +4704,14 @@ function thinProfileCount(items: Array<{ keyword: string }>): number {
     searchAdSuggestionProvider: async (_config, seed) => {
       coreSuggestionSeeds.push(seed);
       return [{
-        keyword: '반려견 보험 비교',
+        keyword: '엔진오일교환비용',
         pcSearchVolume: 700,
         mobileSearchVolume: 2300,
         totalSearchVolume: 3000,
         competition: 'LOW',
         monthlyAveCpc: 340,
       }, {
-        keyword: '반려견 보험 공식입장',
+        keyword: '자동차보험 공식입장',
         pcSearchVolume: 12000,
         mobileSearchVolume: 48000,
         totalSearchVolume: 60000,
@@ -4721,7 +4721,7 @@ function thinProfileCount(items: Array<{ keyword: string }>): number {
     },
     measureLiveSearchVolumeSeparate: async () => [],
     measureLiveDocumentCount: async (keyword) => (
-      keyword === '반려견 보험 비교'
+      keyword === '엔진오일교환비용'
         ? { dc: 120, source: 'naver-api', confidence: 'high', isEstimated: false }
         : null
     ),
@@ -4734,10 +4734,10 @@ function thinProfileCount(items: Array<{ keyword: string }>): number {
   assert('core recovery uses bounded SearchAd anchors and rejects news residue before publication',
     coreSuggestionSeeds.length > 0
       && coreSuggestionSeeds.length <= 4
-      && coreSuggestionSeeds.some((seed) => /강아지/u.test(seed))
+      && coreSuggestionSeeds.some((seed) => /자동차/u.test(seed))
       && coreSuggestionDirectCalls === 0
       && coreSuggestionSnapshot.board.some((item) => (
-        item.keyword === '반려견 보험 비교'
+        item.keyword === '엔진오일교환비용'
         && item.grade === 'SSS'
       ))
       && !coreSuggestionSnapshot.board.some((item) => /공식입장/u.test(item.keyword)),

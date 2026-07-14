@@ -2346,7 +2346,7 @@ function isBroadHeadSssKeyword(keyword: string): boolean {
   const tokenCount = clean.split(/\s+/).filter(Boolean).length;
   if (tokenCount >= 2) return false;
   if (compact.length >= 7 && CONCRETE_ACTION_COMPOUND_RE.test(compact)) return false;
-  if (compact.length >= 9 && SSS_SPECIFIC_MODIFIER_RE.test(clean)) return false;
+  if (compact.length >= 7 && SSS_SPECIFIC_MODIFIER_RE.test(clean)) return false;
   if (compact.length > 14) return false;
   return hasSssReadyNeedIntent(clean) || hasHighValueNeedIntent(clean) || hasAdsenseNeedIntent(clean);
 }
@@ -7035,12 +7035,30 @@ export class MobileLiveGoldenRadar {
         metricSeen.add(`compact:${compactId}`);
         resultMetrics.push(metric);
       }
-      const publishableResultMetrics = resultMetrics
-        .map((metric) => applyKeywordAiJudge(metric, { now: this.now() }))
+      const judgedResultMetrics = resultMetrics
+        .map((metric) => applyKeywordAiJudge(metric, { now: this.now() }));
+      const publishableResultMetrics = judgedResultMetrics
         .filter((metric) => (
           isPublishableLiveResultMetric(metric, this.now())
           || isMeasuredProBoardFallbackMetric(metric as MobileLiveGoldenBoardItem, this.now())
         ));
+      if (
+        catchUpModeBeforeCache
+        && (LIVE_CURATED_CORE_SEARCHAD_SEEDS[backfillCategoryId] || []).length > 0
+        && judgedResultMetrics.length > 0
+      ) {
+        console.info('[LIVE-GOLDEN] curated SearchAd publish gate', {
+          categoryId: backfillCategoryId,
+          evaluated: judgedResultMetrics.slice(0, 12).map((metric) => ({
+            keyword: metric.keyword,
+            grade: metric.grade,
+            aiScore: metric.aiJudge?.score ?? null,
+            aiVerdict: metric.aiJudge?.verdict ?? null,
+            reason: measuredProBoardFallbackRejectReason(metric as MobileLiveGoldenBoardItem, this.now()),
+          })),
+          published: publishableResultMetrics.map((metric) => metric.keyword),
+        });
+      }
       const result = resultFromMetrics(
         publishableResultMetrics,
         startedAtMs,
@@ -7982,6 +8000,7 @@ export class MobileLiveGoldenRadar {
     if (seeds.length === 0) return [];
 
     const scored = new Map<string, { keyword: string; score: number; index: number; row: LiveSearchVolumeRow }>();
+    const rejectedSamples: Array<{ keyword: string; reason: string }> = [];
     let cursor = 0;
     let order = 0;
     const push = (
@@ -7991,29 +8010,64 @@ export class MobileLiveGoldenRadar {
     ): void => {
       const keyword = (suggestion as any).keyword;
       const clean = normalizeKeyword(keyword);
+      const reject = (reason: string): void => {
+        if (options.curatedSeedsOnly && clean && rejectedSamples.length < 16) {
+          rejectedSamples.push({ keyword: clean, reason });
+        }
+      };
       if (!clean || scored.size >= limit) return;
-      if (isLowValueLiveCandidate(clean) || isOverExpandedLiveCandidate(clean) || isNoisyLiveSeed(clean)) return;
+      if (isLowValueLiveCandidate(clean) || isOverExpandedLiveCandidate(clean) || isNoisyLiveSeed(clean)) {
+        reject('low-value-or-noisy');
+        return;
+      }
       if (
         LIVE_PROMOTION_DEPRIORITY_RE.test(clean)
         || isBrandSafetyNewsKeyword(clean)
         || /(?:인스타|인스타그램|틱톡|유튜브\s*쇼츠|프로필|공식입장|근황)/iu.test(clean)
-      ) return;
+      ) {
+        reject('residue-or-brand-safety');
+        return;
+      }
       const pc = finiteNumber((suggestion as any).pcSearchVolume) || 0;
       const mobile = finiteNumber((suggestion as any).mobileSearchVolume) || 0;
       const total = finiteNumber((suggestion as any).totalSearchVolume) ?? (pc + mobile);
       const writerReady = hasWriterReadySpecificity(clean) || hasWriterReadySearchAdProbeIntent(clean);
       const intentFragments = ultimateIntentFragmentCount(clean);
-      if (total >= 100_000 && !writerReady) return;
-      if (total >= 30_000 && intentFragments < 2 && !writerReady) return;
+      if (total >= 100_000 && !writerReady) {
+        reject('broad-volume-100k');
+        return;
+      }
+      if (total >= 30_000 && intentFragments < 2 && !writerReady) {
+        reject('broad-volume-30k');
+        return;
+      }
       const inferred = inferLiveCategory(clean, fallbackCategory || categoryId);
+      const sameCorePolicy = options.curatedSeedsOnly === true
+        && liveGoldenPolicyKeyForDiscoveryId(inferred) === liveGoldenPolicyKeyForDiscoveryId(categoryId);
       if (
         categoryId !== 'all'
         && inferred !== categoryId
         && !isCuratedCoreMeasuredProbe(clean)
         && !categoryAcceptsMeasuredProbe(clean, categoryId)
-      ) return;
-      if (!isLiveRadarUsableKeyword(clean, null, null, now)) return;
-      if (!isHighYieldSearchAdSpendCandidate(clean, inferred || categoryId, now)) return;
+        && !sameCorePolicy
+      ) {
+        reject('category-mismatch');
+        return;
+      }
+      if (!isLiveRadarUsableKeyword(clean, null, null, now)) {
+        reject('not-live-radar-usable');
+        return;
+      }
+      const inferredCategory = inferred || categoryId;
+      const isCuratedAnchorSuggestion = options.curatedSeedsOnly === true
+        && isSearchAdMeasurableLiveCandidate(clean, inferredCategory, now);
+      if (
+        !isHighYieldSearchAdSpendCandidate(clean, inferredCategory, now)
+        && !isCuratedAnchorSuggestion
+      ) {
+        reject('not-high-yield-or-curated-measurable');
+        return;
+      }
       const key = keywordCompactId(clean);
       if (!key) return;
       const score = rowScore
@@ -8043,6 +8097,7 @@ export class MobileLiveGoldenRadar {
       });
     };
 
+    let providerSuggestionCount = 0;
     const workers = Array.from({ length: Math.min(2, seeds.length) }, async () => {
       while (cursor < seeds.length && scored.size < limit) {
         const seed = seeds[cursor];
@@ -8050,6 +8105,7 @@ export class MobileLiveGoldenRadar {
         const fallbackCategory = inferLiveCategory(seed, categoryId);
         const suggestions = await this.searchAdSuggestionProvider(searchAdConfig, seed, 80)
           .catch(() => []);
+        providerSuggestionCount += suggestions.length;
         for (const suggestion of suggestions) {
           const total = finiteNumber((suggestion as any).totalSearchVolume)
             ?? ((finiteNumber((suggestion as any).pcSearchVolume) || 0) + (finiteNumber((suggestion as any).mobileSearchVolume) || 0));
@@ -8061,10 +8117,21 @@ export class MobileLiveGoldenRadar {
     });
     await Promise.all(workers);
 
-    return [...scored.values()]
+    const selectedRows = [...scored.values()]
       .sort((a, b) => b.score - a.score || a.index - b.index)
       .map((item) => item.row)
       .slice(0, limit);
+    if (options.curatedSeedsOnly) {
+      console.info('[LIVE-GOLDEN] curated SearchAd anchors', {
+        categoryId,
+        seeds,
+        providerSuggestions: providerSuggestionCount,
+        accepted: selectedRows.length,
+        sample: selectedRows.slice(0, 8).map((row) => row.keyword),
+        rejectedSamples,
+      });
+    }
+    return selectedRows;
   }
 
   private async discoverQueuedProbeBackfill(
@@ -8352,6 +8419,13 @@ export class MobileLiveGoldenRadar {
     );
     const seen = new Set<string>();
     const out: MDPResult[] = [];
+    const rejectedMeasuredRows: Array<{
+      keyword: string;
+      volume: number;
+      docs: number;
+      ratio: number;
+      reason: string;
+    }> = [];
     let documentCountSupplements = 0;
     for (const row of rows) {
       const pc = finiteNumber(row.pcSearchVolume) || 0;
@@ -8378,7 +8452,17 @@ export class MobileLiveGoldenRadar {
         }
       }
       const item = rowToBackfillResult(enrichedRow, categoryId);
-      if (!item) continue;
+      if (!item) {
+        const docs = finiteNumber(enrichedRow.documentCount) || 0;
+        rejectedMeasuredRows.push({
+          keyword: normalizeKeyword(enrichedRow.keyword),
+          volume,
+          docs,
+          ratio: docs > 0 ? Number((volume / docs).toFixed(2)) : 0,
+          reason: 'row-to-backfill-rejected',
+        });
+        continue;
+      }
       const isAutocompleteExact = autocompleteCandidateIds.has(keywordCompactId(enrichedRow.keyword));
       const prioritizedItem = isAutocompleteExact
         ? {
@@ -8395,6 +8479,22 @@ export class MobileLiveGoldenRadar {
       if (seen.has(id)) continue;
       seen.add(id);
       out.push(prioritizedItem);
+    }
+    if (measuredProbeOnly && hasCuratedCoreSearchAdSeeds) {
+      console.info('[LIVE-GOLDEN] curated SearchAd measurement', {
+        categoryId,
+        suggestionRows: suggestionRowsForRun.length,
+        attachedRows: rows.length,
+        backfillResults: out.length,
+        results: out.slice(0, 8).map((item) => ({
+          keyword: item.keyword,
+          grade: item.grade,
+          volume: item.searchVolume,
+          docs: item.documentCount,
+          ratio: item.goldenRatio,
+        })),
+        rejectedMeasuredRows: rejectedMeasuredRows.slice(0, 8),
+      });
     }
     return rankGoldenDiscoveryResults(out, targetLimit, false, {
       honorRequestedLimit: true,
