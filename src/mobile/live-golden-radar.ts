@@ -63,6 +63,7 @@ import {
   isUltimateLowValueLookupKeyword,
 } from './keyword-ai-judge';
 import {
+  LIVE_GOLDEN_CORE_CATEGORY_POLICIES,
   LIVE_GOLDEN_DEFAULT_DISCOVERY_IDS,
   liveGoldenPolicyKeyForDiscoveryId,
   selectNextLiveGoldenDiscoveryCategory,
@@ -245,6 +246,7 @@ const LIVE_PROBE_QUEUE_MAX_ATTEMPTS = 4;
 const LIVE_PROBE_QUEUE_NO_RESULT_MAX = 2;
 const LIVE_PROBE_QUEUE_RETRY_DELAY_MS = 90 * 60 * 1000;
 const LIVE_CACHE_PROMOTION_MAX_CANDIDATES = 96;
+const LIVE_CACHE_PROMOTION_BUDGET_PER_RUN = 24;
 const LIVE_CACHE_PROMOTION_BATCH_SIZE = 6;
 const LIVE_CACHE_PROMOTION_BATCH_TIMEOUT_MS = 16_000;
 const LIVE_CACHE_PROMOTION_MIN_VOLUME = 100;
@@ -2004,13 +2006,17 @@ function isMalformedLiveKeyword(keyword: string): boolean {
   return false;
 }
 
-const LIVE_KEYWORD_PLATFORM_RESIDUE_RE = /(?:https?:\/\/|www\.|\.(?:com|net|org|kr)(?:\/|$)|[가-힣0-9](?:tistory|blogspot|wordpress|velog|medium)$)/iu;
-const LIVE_KEYWORD_SUSPICIOUS_INTENT_CHAIN_RE = /(?:순위.{0,8}(?:최저가|구매처|조회)|(?:최저가|구매처|조회).{0,8}순위|최저가.{0,8}조회|조회.{0,8}최저가|사용처.{0,8}후기|후기.{0,8}사용처|출시일.{0,8}스펙|스펙.{0,8}출시일|렌탈.{0,8}구매처.{0,8}비용|렌탈.{0,8}비용.{0,8}구매처)/u;
-const LIVE_KEYWORD_INTENT_FRAGMENTS = ['장단점', '예약', '방법', '신청', '조회', '가격비교', '추천', '후기', '사용처'];
+const LIVE_KEYWORD_PLATFORM_RESIDUE_RE = /(?:https?:\/\/|www\.|\.(?:com|net|org|kr)(?:\/|$)|[가-힣0-9](?:tistory|blogspot|wordpress|velog|medium|dcinside|디시)$)/iu;
+const LIVE_KEYWORD_SUSPICIOUS_INTENT_CHAIN_RE = /(?:순위.{0,8}(?:최저가|구매처|조회)|(?:최저가|구매처|조회).{0,8}순위|최저가.{0,8}조회|조회.{0,8}최저가|추천.{0,3}조회|사용처.{0,8}후기|후기.{0,8}사용처|출시일.{0,8}스펙|스펙.{0,8}출시일|렌탈.{0,8}구매처.{0,8}비용|렌탈.{0,8}비용.{0,8}구매처)/u;
+const LIVE_KEYWORD_INTENT_FRAGMENTS = ['장단점', '예약', '방법', '신청', '조회', '가격비교', '추천', '후기', '사용처', '주차'];
 const LIVE_KEYWORD_CALCULATOR_FORMAT_CHAIN_RE = /계산기.*(?:엑셀(?:양식|서식)?|양식|서식)/u;
 const LIVE_KEYWORD_FINANCIAL_AUDIENCE_MISMATCH_RE = /(?:ISA|연금저축).*퇴직자.*(?:신청|가입)/iu;
 const LIVE_KEYWORD_AMBIGUOUS_SAVINGS_PAYOUT_RE = /(?:적금|예금).*지급일/u;
 const LIVE_KEYWORD_SAVINGS_PAYOUT_CONTEXT_RE = /(?:이자|만기|해지)/u;
+const LIVE_KEYWORD_CACHE_SEMANTIC_MISMATCH_RE = /(?:테슬라|엔비디아|삼성전자|애플|송지호).*소득기준(?:계산)?|청년들이공연예술.*(?:지급일|대상)|폭염취약.*마감일|(?:바다하늘길|둘레길|해수욕장|공원).*(?:좌석배치도|장단점.*예약|주차.*뚜벅이|입장료.*(?:예약|준비물)|경비.*예약방법)|(?:오사카|도쿄|후쿠오카).*항공권.*eSIM|제습기렌탈.*자취방소음.*조회|(?:루테인|영양제).*순위.*검사비용|(?:아이폰|갤럭시).*자취방.*(?:구매처|조회)/iu;
+const LIVE_KEYWORD_REPEATED_NEED_FRAGMENT_RE = /(?:자취방소음).*(?:자취방소음)|(?:사용처조회).*(?:사용처조회)|(?:가격비교).*(?:가격비교)/u;
+const LIVE_KEYWORD_PERSON_POLICY_CALC_RE = /^[가-힣]{2,4}소득기준계산$/u;
+const LIVE_KEYWORD_PERSON_POLICY_CALC_EXEMPT_RE = /^(?:가구|청년|근로|사업|중위|자녀)소득기준계산$/u;
 
 function hasExactNaturalDemandEvidence(item: Pick<MobileLiveGoldenBoardItem, 'evidence'>): boolean {
   return (item.evidence || []).some((value) => (
@@ -2031,6 +2037,12 @@ function isHumanNaturalGoldenMetric(item: MobileLiveGoldenBoardItem): boolean {
   if (intentFragmentCount >= 3 && !hasExactNaturalDemandEvidence(item)) return false;
   if (LIVE_KEYWORD_CALCULATOR_FORMAT_CHAIN_RE.test(compact)) return false;
   if (LIVE_KEYWORD_FINANCIAL_AUDIENCE_MISMATCH_RE.test(compact)) return false;
+  if (LIVE_KEYWORD_CACHE_SEMANTIC_MISMATCH_RE.test(compact)) return false;
+  if (LIVE_KEYWORD_REPEATED_NEED_FRAGMENT_RE.test(compact)) return false;
+  if (
+    LIVE_KEYWORD_PERSON_POLICY_CALC_RE.test(compact)
+    && !LIVE_KEYWORD_PERSON_POLICY_CALC_EXEMPT_RE.test(compact)
+  ) return false;
   if (
     LIVE_KEYWORD_AMBIGUOUS_SAVINGS_PAYOUT_RE.test(compact)
     && !LIVE_KEYWORD_SAVINGS_PAYOUT_CONTEXT_RE.test(compact)
@@ -2744,6 +2756,24 @@ function measuredProBoardFallbackRejectReason(metric: MobileLiveGoldenBoardItem,
 
 function isMeasuredProBoardFallbackMetric(metric: MobileLiveGoldenBoardItem, now: Date): boolean {
   return measuredProBoardFallbackRejectReason(metric, now) === 'ok';
+}
+
+function isCacheSplitPromotionPreflightCandidate(item: MobileLiveGoldenBoardItem, now: Date): boolean {
+  const totalSearchVolume = finiteNumber(item.totalSearchVolume) || 0;
+  const documentCount = finiteNumber(item.documentCount) || 0;
+  if (totalSearchVolume <= 0 || documentCount <= 0) return false;
+  const pcSearchVolume = Math.max(1, Math.round(totalSearchVolume * 0.2));
+  const simulatedSplit: MobileLiveGoldenBoardItem = {
+    ...item,
+    pcSearchVolume,
+    mobileSearchVolume: Math.max(0, totalSearchVolume - pcSearchVolume),
+    searchVolumeSource: 'searchad',
+    searchVolumeConfidence: 'high',
+    isSearchVolumeEstimated: false,
+    updatedAt: now.toISOString(),
+  };
+  return isPublishableLiveResultMetric(simulatedSplit, now)
+    || isMeasuredProBoardFallbackMetric(simulatedSplit, now);
 }
 
 function isPublicPreviewCandidate(item: MobileLiveGoldenBoardItem): boolean {
@@ -4524,6 +4554,14 @@ function measuredProbeQueueEffectiveScore(item: LiveMeasuredProbeQueueItem): num
   return item.priority - item.attempts * 45 - item.misses * 90;
 }
 
+function mergeMeasuredProbeSources(existingSource: string, incomingSource: string, limit = 4): string {
+  const sources = [existingSource, incomingSource]
+    .flatMap((value) => String(value || '').split(','))
+    .map((value) => normalizeKeyword(value))
+    .filter(Boolean);
+  return [...new Set(sources)].slice(0, Math.max(1, Math.floor(limit))).join(',');
+}
+
 function trimMeasuredProbeQueueFamilyFlood(
   items: LiveMeasuredProbeQueueItem[],
   maxPerFamily = LIVE_PROBE_QUEUE_FAMILY_MAX_ITEMS,
@@ -5314,6 +5352,93 @@ function splitEnrichmentPriorityScore(item: MobileKeywordMetric, nowMs: number):
     + freshness;
 }
 
+function verifiedCachePromotionBoardItems(currentBoard: MobileLiveGoldenBoardItem[]): MobileLiveGoldenBoardItem[] {
+  return currentBoard.filter((item) => (
+    hasMeasuredPcMobileSplit(item)
+    && hasTrustedSearchVolumeMeasurement(item)
+    && hasTrustedDocumentCountMeasurement(item)
+  ));
+}
+
+function cachePromotionPolicyCounts(items: MobileLiveGoldenBoardItem[]): Map<string, number> {
+  const corePolicyKeys = new Set(LIVE_GOLDEN_CORE_CATEGORY_POLICIES.map((item) => item.key));
+  const counts = new Map<string, number>();
+  for (const item of items) {
+    const policyKey = liveGoldenPolicyKeyForDiscoveryId(item.category);
+    if (!corePolicyKeys.has(policyKey)) continue;
+    counts.set(policyKey, (counts.get(policyKey) || 0) + 1);
+  }
+  return counts;
+}
+
+function cachePromotionPolicyGroups<T extends MobileKeywordMetric>(sortedCandidates: T[]): Map<string, T[]> {
+  const corePolicyKeys = new Set(LIVE_GOLDEN_CORE_CATEGORY_POLICIES.map((item) => item.key));
+  const groups = new Map<string, T[]>();
+  for (const item of sortedCandidates) {
+    const policyKey = liveGoldenPolicyKeyForDiscoveryId(item.category);
+    if (!corePolicyKeys.has(policyKey)) continue;
+    if (!groups.has(policyKey)) groups.set(policyKey, []);
+    groups.get(policyKey)?.push(item);
+  }
+  return groups;
+}
+
+function takeNextSemanticCacheCandidate<T extends MobileKeywordMetric>(
+  group: T[],
+  selectedSemanticIds: Set<string>,
+): T | undefined {
+  while (group.length > 0) {
+    const candidate = group.shift();
+    if (!candidate) return undefined;
+    const semanticId = goldenBoardSemanticId(candidate.keyword);
+    if (!semanticId || selectedSemanticIds.has(semanticId)) continue;
+    selectedSemanticIds.add(semanticId);
+    return candidate;
+  }
+  return undefined;
+}
+
+function selectDeficitBalancedCachePromotionCandidates<T extends MobileKeywordMetric>(
+  sortedCandidates: T[],
+  currentBoard: MobileLiveGoldenBoardItem[],
+  limit: number,
+): T[] {
+  const target = Math.max(0, Math.floor(limit));
+  if (target === 0 || sortedCandidates.length === 0) return [];
+  const verifiedCurrentBoard = verifiedCachePromotionBoardItems(currentBoard);
+  const currentCounts = cachePromotionPolicyCounts(verifiedCurrentBoard);
+  const groups = cachePromotionPolicyGroups(sortedCandidates);
+  const selected: T[] = [];
+  const selectedCounts = new Map<string, number>();
+  const selectedSemanticIds = new Set(
+    verifiedCurrentBoard.map((item) => goldenBoardSemanticId(item.keyword)).filter(Boolean),
+  );
+  const projectedBoardSize = Math.max(1, verifiedCurrentBoard.length + target);
+  const maximumProjectedPerPolicy = Math.max(1, Math.floor(projectedBoardSize * 0.18));
+
+  while (selected.length < target) {
+    let added = false;
+    const policyOrder = [...groups.keys()].sort((a, b) => {
+      const projectedA = (currentCounts.get(a) || 0) + (selectedCounts.get(a) || 0);
+      const projectedB = (currentCounts.get(b) || 0) + (selectedCounts.get(b) || 0);
+      if (projectedA !== projectedB) return projectedA - projectedB;
+      return a.localeCompare(b);
+    });
+    for (const policyKey of policyOrder) {
+      if (selected.length >= target) break;
+      const projectedCount = (currentCounts.get(policyKey) || 0) + (selectedCounts.get(policyKey) || 0);
+      if (projectedCount >= maximumProjectedPerPolicy) continue;
+      const next = takeNextSemanticCacheCandidate(groups.get(policyKey) || [], selectedSemanticIds);
+      if (!next) continue;
+      selected.push(next);
+      selectedCounts.set(policyKey, (selectedCounts.get(policyKey) || 0) + 1);
+      added = true;
+    }
+    if (!added) break;
+  }
+  return selected;
+}
+
 function isCachePromotionMeasurementCandidate(item: MobileKeywordMetric, now: Date): boolean {
   const volume = finiteNumber(item.totalSearchVolume) || 0;
   const docs = finiteNumber(item.documentCount);
@@ -6073,9 +6198,11 @@ export const __liveGoldenRadarTestInternals = {
   hasWinnableDisplayRatio,
   liveGradeFromMetrics,
   livePromotionPriorityBonus,
+  mergeMeasuredProbeSources,
   measuredProbeQueueFamilyKey,
   normalizeLiveMetricGrade,
   normalizeLiveSeeds,
+  selectDeficitBalancedCachePromotionCandidates,
   boardScore,
   writerReadySssProbePriorityScore,
 };
@@ -6494,18 +6621,14 @@ export class MobileLiveGoldenRadar {
       referenceProbeCount = this.refreshMeasuredReferenceSssProbeQueue();
 
       const catchUpModeBeforeCache = currentBoardCount < this.boardTarget;
-      // A visible but underfilled board must recover from deficit categories, not
-      // repeatedly remeasure the same global persistent-cache backlog. Cache
-      // promotion remains available for cold-start visibility and full-board
-      // maintenance only.
-      const shouldAttemptCachePromotion = currentBoardCount < minimumVisibleBoard
-        || !catchUpModeBeforeCache;
-      const promotedCacheCount = shouldAttemptCachePromotion
-        ? await this.promotePendingMeasuredCacheWithSearchAdMetrics({
-          clientId: env.naverClientId,
-          clientSecret: env.naverClientSecret,
-        }, Math.max(runLimit, this.boardTarget - currentBoardCount))
-        : 0;
+      // Splitless persistent-cache rows already paid the expensive total-volume
+      // and document-count measurement cost. Use that trusted inventory during
+      // underfill too, but select it by core-policy deficit and preserve part of
+      // the per-run budget for genuinely new discovery.
+      const promotedCacheCount = await this.promotePendingMeasuredCacheWithSearchAdMetrics({
+        clientId: env.naverClientId,
+        clientSecret: env.naverClientSecret,
+      }, Math.max(runLimit, this.boardTarget - currentBoardCount));
       const boardAfterCachePromotion = this.sortedBoard();
       const boardCountAfterCachePromotion = boardAfterCachePromotion.length;
       const desiredBoardSssCount = this.desiredSssReadyBoardCount();
@@ -6871,9 +6994,10 @@ export class MobileLiveGoldenRadar {
       );
       const existing = existingById.get(compact);
       if (existing) {
-        if (priority > existing.priority || source !== existing.source) {
+        const mergedSource = mergeMeasuredProbeSources(existing.source, source);
+        if (priority > existing.priority || mergedSource !== existing.source) {
           existing.priority = Math.max(existing.priority, priority);
-          existing.source = uniqueKeywords([existing.source, source], 4).join(',');
+          existing.source = mergedSource;
           existing.category = existing.category || inferred || categoryId || 'all';
           changed += 1;
         }
@@ -7127,6 +7251,7 @@ export class MobileLiveGoldenRadar {
             : [];
       const now = this.now();
       const seen = new Set<string>();
+      let normalizedSourceChanged = false;
       for (const row of rows) {
         const keyword = normalizeKeyword(row?.keyword);
         const compact = keywordCompactId(keyword);
@@ -7139,10 +7264,12 @@ export class MobileLiveGoldenRadar {
         const misses = Math.max(0, Math.floor(finiteNumber(row?.misses) || 0));
         if (attempts >= LIVE_PROBE_QUEUE_MAX_ATTEMPTS || misses >= LIVE_PROBE_QUEUE_NO_RESULT_MAX) continue;
         seen.add(compact);
+        const source = mergeMeasuredProbeSources('', normalizeKeyword(row?.source) || 'persistent-probe-queue');
+        normalizedSourceChanged = normalizedSourceChanged || source !== normalizeKeyword(row?.source);
         this.pendingMeasuredProbeQueue.push({
           keyword,
           category: category || 'all',
-          source: normalizeKeyword(row?.source) || 'persistent-probe-queue',
+          source,
           priority: finiteNumber(row?.priority) ?? preVolumeCandidateScore(keyword, category || 'all'),
           firstSeenAt: normalizeKeyword(row?.firstSeenAt) || this.now().toISOString(),
           lastTriedAt: normalizeKeyword(row?.lastTriedAt) || undefined,
@@ -7154,7 +7281,9 @@ export class MobileLiveGoldenRadar {
       const trimmed = trimMeasuredProbeQueueFamilyFlood(this.pendingMeasuredProbeQueue)
         .slice(0, LIVE_PROBE_QUEUE_MAX_ITEMS);
       this.pendingMeasuredProbeQueue.splice(0, this.pendingMeasuredProbeQueue.length, ...trimmed);
-      if (this.pendingMeasuredProbeQueue.length !== rows.length) this.saveMeasuredProbeQueueToFile();
+      if (this.pendingMeasuredProbeQueue.length !== rows.length || normalizedSourceChanged) {
+        this.saveMeasuredProbeQueueToFile();
+      }
     } catch (err) {
       this.lastError = (err as Error).message || String(err);
       this.lastMessage = `measured probe queue load failed: ${this.lastError}`;
@@ -8683,20 +8812,32 @@ export class MobileLiveGoldenRadar {
       LIVE_CACHE_PROMOTION_MAX_CANDIDATES,
       Math.max(5, Math.floor(targetLimit * 4)),
     );
-    const candidates = [...this.board.values()]
+    const spendLimit = Math.min(
+      measurementLimit,
+      LIVE_CACHE_PROMOTION_BUDGET_PER_RUN,
+      Math.max(0, this.searchAdMeasurementBudgetRemaining),
+    );
+    const rankedCandidates = [...this.board.values()]
       .filter((item) => ageMsFrom(item.updatedAt, nowMs) <= LIVE_BOARD_MAX_AGE_MS)
       .filter((item) => hasCompleteLiveGoldenMetrics(item))
       .filter((item) => isCachePromotionMeasurementCandidate(item, now))
       .filter((item) => !hasMeasuredPcMobileSplit(item))
       .filter((item) => isMeasuredCacheSearchAdSplitCandidate(item.keyword, item.category || 'all', now))
+      .filter((item) => isHumanNaturalGoldenMetric(item))
+      .filter((item) => isCacheSplitPromotionPreflightCandidate(item, now))
       .filter((item) => !LIVE_PROMOTION_SYNTHETIC_INTENT_CHAIN_RE.test(normalizeKeyword(item.keyword)))
       .filter((item) => livePromotionPriorityBonus(item.keyword, item.category || 'all') > -300)
-      .sort((a, b) => splitEnrichmentPriorityScore(b, nowMs) - splitEnrichmentPriorityScore(a, nowMs))
-      .slice(0, measurementLimit);
+      .sort((a, b) => splitEnrichmentPriorityScore(b, nowMs) - splitEnrichmentPriorityScore(a, nowMs));
+    const candidates = selectDeficitBalancedCachePromotionCandidates(
+      rankedCandidates,
+      this.sortedBoard(),
+      spendLimit,
+    );
     if (candidates.length === 0) {
       console.info('[LIVE-GOLDEN] cache promotion skipped: no candidates', {
         boardSize: this.board.size,
         targetLimit,
+        spendLimit,
       });
       return 0;
     }
@@ -8735,7 +8876,7 @@ export class MobileLiveGoldenRadar {
         includeDocumentCount: false,
       }, LIVE_CACHE_PROMOTION_BATCH_TIMEOUT_MS);
       rows.push(...batchRows);
-      if (rows.length >= measurementLimit) {
+      if (rows.length >= spendLimit) {
         break;
       }
     }
@@ -9118,7 +9259,10 @@ export class MobileLiveGoldenRadar {
           if (ratioDiff !== 0) return ratioDiff;
           return volumeDiff;
         });
-        this.mergeBoard(metrics.slice(0, Math.max(180, this.boardTarget * 12)), { pruneAndSave: false });
+        // Keep enough splitless measured inventory for all 12 core policies.
+        // The previous global top-180 pool discarded low-volume deficit
+        // categories before the balanced split-enrichment selector could see them.
+        this.mergeBoard(metrics.slice(0, Math.max(720, this.boardTarget * 24)), { pruneAndSave: false });
         this.saveMeasuredProbeQueueToFile();
         this.lastMessage = `loaded ${metrics.length} persistent measured keyword candidates`;
       }

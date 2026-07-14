@@ -5,6 +5,7 @@ import { markNaverBlogOpenApiQuotaBlocked } from '../naver-blog-api';
 import { measureDocumentCount } from '../measure-dc';
 import { setPersistent } from '../persistent-keyword-cache';
 import * as fs from 'fs';
+import * as os from 'os';
 import * as path from 'path';
 
 function assert(name: string, condition: boolean, detail?: string): void {
@@ -108,6 +109,54 @@ function thinProfileCount(items: Array<{ keyword: string }>): number {
 }
 
 (async () => {
+  const recoveryCategories = [
+    'policy',
+    'finance',
+    'health',
+    'education',
+    'it',
+    'home_life',
+    'travel_domestic',
+    'car',
+    'realestate',
+    'pet_dog',
+    'food',
+    'shopping',
+  ];
+  const recoveryCandidates = recoveryCategories.flatMap((category, categoryIndex) => (
+    Array.from({ length: 10 }, (_, index) => ({
+      ...previewBoardItem(`${category} recovery ${index}`, category, categoryIndex * 10 + index),
+      pcSearchVolume: null,
+      mobileSearchVolume: null,
+    }))
+  ));
+  const recoveryCurrentBoard = Array.from({ length: 10 }, (_, index) => (
+    previewBoardItem(`policy verified ${index}`, 'policy', 200 + index)
+  ));
+  const recoverySelection = (__liveGoldenRadarTestInternals as any)
+    .selectDeficitBalancedCachePromotionCandidates(
+      recoveryCandidates,
+      recoveryCurrentBoard,
+      40,
+    );
+  const recoveryCounts = new Map<string, number>();
+  for (const item of recoverySelection) {
+    recoveryCounts.set(item.category, (recoveryCounts.get(item.category) || 0) + 1);
+  }
+  assert('cache promotion spends split measurements across Phase 2 deficit categories',
+    recoverySelection.length === 40
+      && recoveryCounts.size >= 10
+      && Math.max(...recoveryCounts.values()) <= Math.ceil(40 * 0.18),
+    JSON.stringify(Object.fromEntries(recoveryCounts)));
+
+  const compactedProbeSources = (__liveGoldenRadarTestInternals as any).mergeMeasuredProbeSources(
+    'cache-derived-probe,measured-reference-sss-probe,cache-derived-probe',
+    'measured-reference-sss-probe',
+  );
+  assert('measured probe source provenance remains atomic and bounded',
+    compactedProbeSources === 'cache-derived-probe,measured-reference-sss-probe',
+    compactedProbeSources);
+
   const previewCandidates = [
     previewBoardItem('\uC81C\uC8FC \uB80C\uD130\uCE74 \uBCF4\uD5D8 \uCC28\uC774', 'travel_domestic', 0),
     previewBoardItem('\uBB38\uD654\uB204\uB9AC\uCE74\uB4DC \uC794\uC561\uC870\uD68C', 'policy', 1),
@@ -3229,6 +3278,72 @@ function thinProfileCount(items: Array<{ keyword: string }>): number {
     splitEnrichmentSnapshot.board.map((item) => `${item.keyword}:${item.pcSearchVolume}:${item.mobileSearchVolume}:${item.documentCount}:${item.cpc}`).join('|'));
   fs.rmSync(splitEnrichmentCacheFile, { force: true });
 
+  const underfilledCacheDir = fs.mkdtempSync(path.join(os.tmpdir(), 'leword-phase1d-cache-'));
+  const underfilledBoardFile = path.join(underfilledCacheDir, 'live-golden-board.json');
+  const underfilledKeywordCacheFile = path.join(underfilledCacheDir, 'keyword-cache.json');
+  const underfilledProbeQueueFile = path.join(underfilledCacheDir, 'live-golden-probe-queue.json');
+  const underfilledVisibleItem = {
+    ...previewBoardItem('제주 렌터카 완전자차 가격비교', 'travel_domestic', 0),
+    discoveredAt: '2026-07-14T00:00:00.000Z',
+    updatedAt: '2026-07-14T00:00:00.000Z',
+  };
+  fs.writeFileSync(underfilledBoardFile, JSON.stringify({
+    boardUpdatedAt: '2026-07-14T00:00:00.000Z',
+    items: [underfilledVisibleItem],
+  }), 'utf8');
+  fs.writeFileSync(underfilledKeywordCacheFile, JSON.stringify({
+    __schemaVersion: 'phase1d-underfilled-cache',
+    '청년미래적금 가입신청 대상': {
+      searchVolume: 26000,
+      documentCount: 360,
+      category: 'finance',
+      documentCountSource: 'naver-api',
+      documentCountConfidence: 'high',
+      isDocumentCountEstimated: false,
+    },
+  }), 'utf8');
+  const underfilledMeasuredKeywords: string[] = [];
+  const underfilledCacheRadar = new MobileLiveGoldenRadar({
+    notificationInbox: inbox,
+    runOnStart: false,
+    boardFile: underfilledBoardFile,
+    keywordCacheFile: underfilledKeywordCacheFile,
+    probeQueueFile: underfilledProbeQueueFile,
+    boardTarget: 60,
+    publicPreviewCount: 1,
+    categories: ['health'],
+    now: () => new Date('2026-07-14T01:00:00.000Z'),
+    getEnvConfig: () => ({
+      naverClientId: 'client',
+      naverClientSecret: 'secret',
+    }),
+    liveSeedProvider: async () => [],
+    enableBackfill: false,
+    discover: async () => [],
+    measureLiveSearchVolumeSeparate: async (_config, keywords, options) => {
+      assert('underfilled cache recovery spends only split measurement', options?.includeDocumentCount === false);
+      underfilledMeasuredKeywords.push(...keywords);
+      return keywords.map((keyword) => ({
+        keyword,
+        pcSearchVolume: 4200,
+        mobileSearchVolume: 21800,
+        documentCount: null,
+        competition: 'LOW',
+        monthlyAveCpc: 740,
+      }));
+    },
+  });
+  const underfilledCacheSnapshot = await underfilledCacheRadar.runOnce();
+  assert('visible but underfilled board promotes trusted persistent cache toward Phase 2 entry',
+    underfilledMeasuredKeywords.includes('청년미래적금 가입신청 대상')
+      && underfilledCacheSnapshot.board.some((item) => (
+        item.keyword === '청년미래적금 가입신청 대상'
+        && item.pcSearchVolume === 4200
+        && item.mobileSearchVolume === 21800
+      )),
+    JSON.stringify({ measured: underfilledMeasuredKeywords, board: underfilledCacheSnapshot.board.map((item) => item.keyword) }));
+  fs.rmSync(underfilledCacheDir, { recursive: true, force: true });
+
   const cachePromotionFile = path.join(process.cwd(), 'tmp', 'mobile-live-golden-cache-promotion-test.json');
   fs.writeFileSync(cachePromotionFile, JSON.stringify({
     __schemaVersion: 'server-cache-no-provenance-fixture',
@@ -3354,6 +3469,11 @@ function thinProfileCount(items: Array<{ keyword: string }>): number {
     `${cachePromotionDiscoverCalls}:${cachePromotionSnapshot.lastMessage}`);
   assert('cache promotion skips low-volume persistent policy tails before SearchAd spend',
     !cachePromotionMeasuredKeywords.some((keyword) => keyword === '\uACE0\uC6A9\uCD09\uC9C4\uC7A5\uB824\uAE08\uC790\uACA9'),
+    cachePromotionMeasuredKeywords.join('|'));
+  assert('cache promotion preflight skips rows guaranteed to fail the publishable longtail gate',
+    !cachePromotionMeasuredKeywords.includes('\uC8FC\uD734\uC218\uB2F9\uACC4\uC0B0\uAE30')
+      && !cachePromotionMeasuredKeywords.includes('\uADFC\uBB34\uC2DC\uAC04\uACC4\uC0B0\uAE30')
+      && cachePromotionMeasuredKeywords.includes('\uC8FC\uD734\uC218\uB2F9\uACC4\uC0B0\uAE30 \uC54C\uBC14 \uC790\uB3D9\uACC4\uC0B0'),
     cachePromotionMeasuredKeywords.join('|'));
   fs.rmSync(cachePromotionFile, { force: true });
 
@@ -5546,6 +5666,25 @@ function thinProfileCount(items: Array<{ keyword: string }>): number {
     '\uCCAD\uB144\uBBF8\uB798\uC801\uAE08\uC9C0\uAE09\uC77C',
     'ISA\uD1F4\uC9C1\uC790\uC2E0\uCCAD\uBC29\uBC95',
     '\uC5F0\uAE08\uC800\uCD95\uD1F4\uC9C1\uC790\uC2E0\uCCAD\uBC29\uBC95',
+    '\uD14C\uC2AC\uB77C\uC18C\uB4DD\uAE30\uC900\uACC4\uC0B0',
+    '\uBB38\uD654\uB204\uB9AC\uCE74\uB4DC\uC0AC\uC6A9\uCC98\uB514\uC2DC',
+    '\uCCAD\uB144\uB4E4\uC774\uACF5\uC5F0\uC608\uC220\uC9C0\uAE09\uC77C\uB300\uC0C1',
+    '\uC1A1\uC9C0\uD638\uBC14\uB2E4\uD558\uB298\uAE38\uC8FC\uCC28\uC88C\uC11D\uBC30\uCE58\uB3C4',
+    '\uC81C\uC2B5\uAE30\uB80C\uD0C8\uC790\uCDE8\uBC29\uC18C\uC74C\uC870\uD68C\uC790\uCDE8\uBC29\uC18C\uC74C',
+    '\uB8E8\uD14C\uC778\uC21C\uC704\uAC80\uC0AC\uBE44\uC6A9',
+    '\uC544\uC774\uD3F0\uC790\uCDE8\uBC29\uAD6C\uB9E4\uCC98\uC870\uD68C',
+    '\uC1A1\uC9C0\uD638\uBC14\uB2E4\uD558\uB298\uAE38\uC7A5\uB2E8\uC810\uC608\uC57D\uC8FC\uCC28',
+    '\uD3ED\uC5FC\uCDE8\uC57D\uB300\uC0C1\uC790\uBCC4\uC704\uD5D8\uC694\uC778\uB9C8\uAC10\uC77C',
+    '\uC1A1\uC9C0\uD638\uC18C\uB4DD\uAE30\uC900\uACC4\uC0B0',
+    '\uC1A1\uC9C0\uD638\uBC14\uB2E4\uD558\uB298\uAE38\uC7A5\uB2E8\uC810\uC608\uC57D',
+    '\uC81C\uC2B5\uAE30\uB80C\uD0C8\uC790\uCDE8\uBC29\uC18C\uC74C\uC870\uD68C',
+    '\uCC28\uB7C9\uC6A9\uB0C9\uC7A5\uACE0\uCD94\uCC9C\uC870\uD68C',
+    '\uC1A1\uC9C0\uD638\uBC14\uB2E4\uD558\uB298\uAE38\uC8FC\uCC28\uB69C\uBC85\uC774\uC608\uC57D',
+    '\uC1A1\uC9C0\uD638\uBC14\uB2E4\uD558\uB298\uAE38\uC785\uC7A5\uB8CC\uC544\uC774\uB791\uC608\uC57D',
+    '\uAC15\uD6C8\uC2DD\uC18C\uB4DD\uAE30\uC900\uACC4\uC0B0',
+    '\uC624\uC0AC\uCE74\uD56D\uACF5\uAD8CeSIM\uC124\uC815\uC120\uD0DD\uAC00\uC774\uB4DC',
+    '\uC1A1\uC9C0\uD638\uBC14\uB2E4\uD558\uB298\uAE38\uACBD\uBE44\uC608\uC57D\uBC29\uBC95',
+    '\uC1A1\uC9C0\uD638\uBC14\uB2E4\uD558\uB298\uAE38\uC785\uC7A5\uB8CC\uC900\uBE44\uBB3C',
   ];
   assert('human-natural quality gate rejects known production intent conflicts and stacked fragments',
     typeof naturalQuality === 'function'
