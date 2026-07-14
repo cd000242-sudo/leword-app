@@ -3233,6 +3233,10 @@ function thinProfileCount(items: Array<{ keyword: string }>): number {
     liveSeedProvider: async () => [],
     enableBackfill: false,
     discover: async () => [],
+    realDemandProbe: async () => ({
+      ok: true,
+      suggestions: ['청년미래적금'],
+    }),
     measureLiveSearchVolumeSeparate: async (_config, keywords, options) => {
       splitEnrichmentCalls += 1;
       assert('split enrichment does not spend document-count quota', options?.includeDocumentCount === false);
@@ -3259,7 +3263,7 @@ function thinProfileCount(items: Array<{ keyword: string }>): number {
     },
   });
   const splitEnrichmentSnapshot = await splitEnrichmentRadar.runOnce();
-  assert('persistent board rows are enriched with real searchad pc mobile split without estimated documents',
+  assert('trusted cache reaches real searchad split without autocomplete echo or estimated documents',
     splitEnrichmentCalls > 0
       && splitEnrichmentSnapshot.board.some((item) => (
         item.keyword === '\uCCAD\uB144\uBBF8\uB798\uC801\uAE08 \uAC00\uC785\uC2E0\uCCAD \uB300\uC0C1'

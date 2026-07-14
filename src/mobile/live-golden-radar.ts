@@ -2776,6 +2776,22 @@ function isCacheSplitPromotionPreflightCandidate(item: MobileLiveGoldenBoardItem
     || isMeasuredProBoardFallbackMetric(simulatedSplit, now);
 }
 
+function hasTrustedCacheMeasurementForSplitPromotion(item: MobileLiveGoldenBoardItem): boolean {
+  return (finiteNumber(item.totalSearchVolume) || 0) > 0
+    && (finiteNumber(item.documentCount) || 0) > 0
+    && item.isSearchVolumeEstimated !== true
+    && item.isDocumentCountEstimated !== true
+    && hasTrustedSearchVolumeMeasurement(item)
+    && hasTrustedDocumentCountMeasurement(item);
+}
+
+function hasVerifiedCacheSplitDemandProof(item: MobileLiveGoldenBoardItem): boolean {
+  const evidence = Array.isArray(item.evidence) ? item.evidence : [];
+  return evidence.includes('persistent-cache-split-promoted')
+    && hasMeasuredPcMobileSplit(item)
+    && hasTrustedCacheMeasurementForSplitPromotion(item);
+}
+
 function isPublicPreviewCandidate(item: MobileLiveGoldenBoardItem): boolean {
   if (!isLiveRadarUsableMetric(item)) return false;
   if (!isStrictReadyLiveBoardItem(item)) return false;
@@ -8842,15 +8858,21 @@ export class MobileLiveGoldenRadar {
       return 0;
     }
 
-    // 실수요 미증명(자동완성 무흔적) 후보는 SearchAd 측정 전에 제외 — 유령 검색량 재유입 차단.
+    // A trusted cached total-volume/document pair is stronger evidence than an
+    // autocomplete echo. Let those rows reach the bounded SearchAd split probe;
+    // weaker rows still need the real-demand verifier before spending quota.
     let promotionCandidates = candidates;
     if (this.realDemandEnabled) {
       try {
+        const demandCheckCandidates = candidates.filter(
+          (item) => !hasTrustedCacheMeasurementForSplitPromotion(item),
+        );
         const demandVerdicts = await this.realDemandVerifier.verify(
-          candidates.map((item) => item.keyword),
+          demandCheckCandidates.map((item) => item.keyword),
           LIVE_REAL_DEMAND_BUDGET_PER_CYCLE,
         );
         promotionCandidates = candidates.filter((item) => {
+          if (hasTrustedCacheMeasurementForSplitPromotion(item)) return true;
           const key = normalizeKeyword(item.keyword).toLowerCase().replace(/\s+/g, '');
           return demandVerdicts.get(key) !== 'fake';
         });
@@ -9646,6 +9668,7 @@ export class MobileLiveGoldenRadar {
     if (!this.realDemandEnabled) return 0;
     const targets = [...this.board.values()]
       .filter((item) => hasSyntheticProbeProvenance(item))
+      .filter((item) => !hasVerifiedCacheSplitDemandProof(item))
       .filter((item) => {
         const verdict = this.realDemandVerifier.verdictFor(item.keyword);
         return !verdict || verdict.result === 'fake';
