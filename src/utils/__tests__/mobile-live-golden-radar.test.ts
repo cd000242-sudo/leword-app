@@ -4672,8 +4672,8 @@ function thinProfileCount(items: Array<{ keyword: string }>): number {
     version: 1,
     savedAt: '2026-07-14T07:00:00.000Z',
     items: [{
-      keyword: '자동차 광택 비용',
-      category: 'car',
+      keyword: '근무시간계산기 알바 자동계산 전망',
+      category: 'home_life',
       source: 'fixture-core-suggestion-canary',
       priority: 1000,
       firstSeenAt: '2026-07-14T07:00:00.000Z',
@@ -4689,7 +4689,7 @@ function thinProfileCount(items: Array<{ keyword: string }>): number {
     cycleLimit: 8,
     boardTarget: 120,
     maxCandidates: 220,
-    categories: ['car'],
+    categories: ['home_life'],
     probeQueueFile: coreSuggestionQueueFile,
     getEnvConfig: () => ({
       naverClientId: 'client',
@@ -4704,14 +4704,14 @@ function thinProfileCount(items: Array<{ keyword: string }>): number {
     searchAdSuggestionProvider: async (_config, seed) => {
       coreSuggestionSeeds.push(seed);
       return [{
-        keyword: '엔진오일교환비용',
+        keyword: '에어컨이전설치비용',
         pcSearchVolume: 700,
         mobileSearchVolume: 2300,
         totalSearchVolume: 3000,
         competition: 'LOW',
         monthlyAveCpc: 340,
       }, {
-        keyword: '자동차보험 공식입장',
+        keyword: '오세훈 부동산 대책 발표',
         pcSearchVolume: 12000,
         mobileSearchVolume: 48000,
         totalSearchVolume: 60000,
@@ -4721,7 +4721,7 @@ function thinProfileCount(items: Array<{ keyword: string }>): number {
     },
     measureLiveSearchVolumeSeparate: async () => [],
     measureLiveDocumentCount: async (keyword) => (
-      keyword === '엔진오일교환비용'
+      keyword === '에어컨이전설치비용'
         ? { dc: 120, source: 'naver-api', confidence: 'high', isEstimated: false }
         : null
     ),
@@ -4734,13 +4734,13 @@ function thinProfileCount(items: Array<{ keyword: string }>): number {
   assert('core recovery uses bounded SearchAd anchors and rejects news residue before publication',
     coreSuggestionSeeds.length > 0
       && coreSuggestionSeeds.length <= 4
-      && coreSuggestionSeeds.some((seed) => /자동차/u.test(seed))
+      && coreSuggestionSeeds.some((seed) => /이사|입주청소|에어컨|보일러/u.test(seed))
       && coreSuggestionDirectCalls === 0
       && coreSuggestionSnapshot.board.some((item) => (
-        item.keyword === '엔진오일교환비용'
+        item.keyword === '에어컨이전설치비용'
         && item.grade === 'SSS'
       ))
-      && !coreSuggestionSnapshot.board.some((item) => /공식입장/u.test(item.keyword)),
+      && !coreSuggestionSnapshot.board.some((item) => /대책 발표/u.test(item.keyword)),
     JSON.stringify({
       seeds: coreSuggestionSeeds,
       directCalls: coreSuggestionDirectCalls,

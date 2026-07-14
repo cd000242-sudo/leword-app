@@ -8334,7 +8334,13 @@ export class MobileLiveGoldenRadar {
       queuedProbeCandidates.map((keyword) => keywordCompactId(keyword)).filter(Boolean),
     );
     const candidates = uniqueKeywords(measuredProbeOnly
-      ? measuredProbeCandidates
+      ? [
+        // Curated SearchAd rows already carry a trusted, exact volume
+        // measurement. Keep them in the run even when the synthetic/catalog
+        // probe builder has no candidate for the current recovery category.
+        ...searchAdSuggestionCandidates,
+        ...measuredProbeCandidates,
+      ]
       : [
         ...queuedProbeCandidates,
         ...measuredProbeCandidates,
@@ -8342,7 +8348,17 @@ export class MobileLiveGoldenRadar {
         ...autocompleteCandidates,
         ...buildBackfillCandidates(categoryId, liveSeeds, this.maxSeeds, this.now()),
       ], this.maxSeeds);
-    if (candidates.length === 0) return [];
+    if (candidates.length === 0) {
+      if (measuredProbeOnly && hasCuratedCoreSearchAdSeeds) {
+        console.info('[LIVE-GOLDEN] curated SearchAd measurement skipped', {
+          categoryId,
+          reason: 'no-measurable-candidates',
+          suggestionRows: searchAdSuggestionRows.length,
+          measuredProbeCandidates: measuredProbeCandidates.length,
+        });
+      }
+      return [];
+    }
     if (!measuredProbeOnly) {
       this.queueMeasuredProbeCandidates(candidates, categoryId, 'backfill-candidate', 40, false);
     }
