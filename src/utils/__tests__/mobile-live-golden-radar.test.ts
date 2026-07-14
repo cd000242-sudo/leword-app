@@ -4074,6 +4074,34 @@ function thinProfileCount(items: Array<{ keyword: string }>): number {
       weak: measuredProbePortfolio.filter((keyword) => /(?:렌터카|렌트카).{0,12}(?:숙소\s*예약|환불\s*규정)|강원도\s*펜션\s*추천\s*축제\s*일정|ETF.*(?:세액공제|신청\s*방법)|(?:프로바이오틱스|오메가3).{0,16}보험\s*적용|한옥마을\s*맛집\s*가격비교/u.test(keyword)),
     }));
 
+  const missingCoreMeasuredProbes: Array<[string, string[]]> = [
+    ['car', ['자동차 검사 예약', '엔진오일 교체 비용', '타이어 교체 비용']],
+    ['realestate', ['전세보증보험 가입 조건', '주택청약 납입인정액', '부동산 중개수수료 계산']],
+    ['home_life', ['이사 견적 비교', '에어컨 이전 설치 비용', '입주청소 비용']],
+    ['pet_dog', ['강아지 예방접종 비용', '반려견 보험 비교', '강아지 미용 비용']],
+    ['food', ['다이어트 도시락 가격 비교', '이유식 정기배송 가격 비교', '밀키트 가격 비교']],
+    ['fashion', ['러닝화 가격 비교', '향수 가격 비교', '선크림 성분 비교']],
+  ];
+  const missingCoreProbeResults = missingCoreMeasuredProbes.map(([category, expected]) => {
+    const candidates = __liveGoldenRadarTestInternals.buildMeasuredProbeCandidates(
+      category,
+      [],
+      720,
+      lottoGuardNow,
+    );
+    return { category, expected, candidates };
+  });
+  assert('every missing core supply lane has natural category-specific measured probes',
+    missingCoreProbeResults.every(({ expected, candidates }) => (
+      expected.every((keyword) => candidates.includes(keyword))
+      && !candidates.some((keyword) => /(?:공식입장|근황|프로필|인스타)/u.test(keyword))
+    )),
+    JSON.stringify(missingCoreProbeResults.map(({ category, expected, candidates }) => ({
+      category,
+      missing: expected.filter((keyword) => !candidates.includes(keyword)),
+      front: candidates.slice(0, 30),
+    }))));
+
   const queuePriorityProbeFile = path.join(process.cwd(), 'tmp', 'mobile-live-golden-queue-priority-test.json');
   const queuedWriterReadyKeyword = '\uC81C\uC8FC \uB80C\uD130\uCE74 \uC644\uC804\uC790\uCC28 \uAC00\uACA9\uBE44\uAD50';
   const queuedWeakSyntheticKeyword = '\uC695\uC2E4\uBB3C\uB54C\uC81C\uAC70 \uD504\uB9AC\uB79C\uC11C \uC2E0\uCCAD \uB300\uC0C1';
@@ -4490,7 +4518,7 @@ function thinProfileCount(items: Array<{ keyword: string }>): number {
       misses: 0,
     })),
   }), 'utf8');
-  const catchUpMeasuredKeywords: string[] = [];
+  const catchUpMeasuredBatches: string[][] = [];
   let catchUpAutocompleteCalls = 0;
   let catchUpSuggestionCalls = 0;
   let catchUpDirectCalls = 0;
@@ -4519,7 +4547,7 @@ function thinProfileCount(items: Array<{ keyword: string }>): number {
     },
     measureLiveSearchVolumeSeparate: async (_config, keywords, options) => {
       assert('catch-up queue volume pass keeps document count separated', options?.includeDocumentCount === false);
-      catchUpMeasuredKeywords.push(...keywords);
+      catchUpMeasuredBatches.push([...keywords]);
       return [];
     },
     measureLiveDocumentCount: async () => null,
@@ -4530,12 +4558,13 @@ function thinProfileCount(items: Array<{ keyword: string }>): number {
     },
   });
   const catchUpSnapshot = await catchUpRadar.runUntilTarget(4);
-  assert('live golden catch-up reserves most of the per-cycle SearchAd budget for new direct discovery',
-    new Set(catchUpMeasuredKeywords).size > 0
-      && new Set(catchUpMeasuredKeywords).size <= 12
-      && catchUpDirectCalls === 1
-      && catchUpDirectMaxCandidates === 40 - new Set(catchUpMeasuredKeywords).size
-      && catchUpDirectMaxCandidates >= 28
+  const catchUpMeasuredKeywords = catchUpMeasuredBatches.flat();
+  assert('live golden catch-up spends the queue canary remainder on curated measured probes',
+    catchUpMeasuredBatches.length >= 2
+      && new Set(catchUpMeasuredBatches[0]).size > 0
+      && new Set(catchUpMeasuredBatches[0]).size <= 12
+      && new Set(catchUpMeasuredKeywords).size <= 40
+      && catchUpDirectCalls === 0
       && catchUpSnapshot.successfulRuns === 1,
     JSON.stringify({
       measuredCount: new Set(catchUpMeasuredKeywords).size,
@@ -4546,11 +4575,11 @@ function thinProfileCount(items: Array<{ keyword: string }>): number {
       catchUpDirectMaxCandidates,
       firstMeasured: catchUpMeasuredKeywords.slice(0, 20),
     }));
-  assert('reserved queue budget stops expansion while bounded heavy direct uses only the shared remainder',
+  assert('queue remainder expansion skips autocomplete, SearchAd suggestions, and heavy direct',
     catchUpAutocompleteCalls === 0
       && catchUpSuggestionCalls === 0
-      && catchUpDirectCalls === 1
-      && catchUpMeasuredKeywords.length + catchUpDirectMaxCandidates <= 40,
+      && catchUpDirectCalls === 0
+      && new Set(catchUpMeasuredKeywords).size <= 40,
     JSON.stringify({
       catchUpAutocompleteCalls,
       catchUpSuggestionCalls,
@@ -4595,7 +4624,7 @@ function thinProfileCount(items: Array<{ keyword: string }>): number {
       misses: 0,
     })),
   }), 'utf8');
-  const residualMeasuredKeywords: string[] = [];
+  const residualMeasuredBatches: string[][] = [];
   let residualDirectCalls = 0;
   let residualDirectMaxCandidates = 0;
   const residualDirectRadar = new MobileLiveGoldenRadar({
@@ -4612,7 +4641,7 @@ function thinProfileCount(items: Array<{ keyword: string }>): number {
     autocompleteProvider: async () => [],
     searchAdSuggestionProvider: async () => [],
     measureLiveSearchVolumeSeparate: async (_config, keywords) => {
-      residualMeasuredKeywords.push(...keywords);
+      residualMeasuredBatches.push([...keywords]);
       return [];
     },
     measureLiveDocumentCount: async () => null,
@@ -4623,12 +4652,14 @@ function thinProfileCount(items: Array<{ keyword: string }>): number {
     },
   });
   await residualDirectRadar.runOnce();
-  assert('small queue canary leaves the same per-run budget available for heavy direct discovery',
-    residualMeasuredKeywords.length > 0
-      && residualMeasuredKeywords.length < 40
-      && residualDirectCalls === 1
-      && residualDirectMaxCandidates >= 12
-      && residualDirectMaxCandidates <= 40 - residualMeasuredKeywords.length,
+  const residualMeasuredKeywords = residualMeasuredBatches.flat();
+  const residualQueueCanaryMeasured = residualMeasuredKeywords.slice(0, 12);
+  assert('small queue canary spends the shared remainder on curated measured probes before heavy direct',
+    residualMeasuredBatches.length >= 2
+      && residualMeasuredBatches[0].length <= 12
+      && residualQueueKeywords.every((keyword) => residualQueueCanaryMeasured.includes(keyword))
+      && new Set(residualMeasuredKeywords).size <= 40
+      && residualDirectCalls === 0,
     JSON.stringify({
       measured: residualMeasuredKeywords,
       residualDirectCalls,
