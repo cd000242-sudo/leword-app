@@ -65,6 +65,8 @@ export async function fetchLiveGoldenBoardSnapshot(): Promise<any> {
 }
 
 function toFinite(value: unknown): number | null {
+    if (typeof value !== 'number' && typeof value !== 'string') return null;
+    if (typeof value === 'string' && value.trim() === '') return null;
     const num = Number(value);
     return Number.isFinite(num) ? num : null;
 }

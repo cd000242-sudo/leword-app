@@ -24,6 +24,14 @@ fs.writeFileSync(cacheFile, JSON.stringify({
       comp: 'LOW',
       at: measuredAtMs,
     },
+    '에어컨청소비용': {
+      pc: null,
+      mo: 3500,
+      total: 3500,
+      cpc: 180,
+      comp: 'LOW',
+      at: measuredAtMs,
+    },
   },
 }), 'utf8');
 fs.writeFileSync(boardFile, JSON.stringify({
@@ -59,6 +67,36 @@ fs.writeFileSync(boardFile, JSON.stringify({
     publicSearchVolumeLabel: '5k-10k',
     publicDocumentCountLabel: '100-299',
     publicReason: 'fixture',
+  }, {
+    id: '에어컨-청소-비용',
+    rank: 2,
+    keyword: '에어컨 청소 비용',
+    grade: 'SSS',
+    score: 98,
+    pcSearchVolume: 500,
+    mobileSearchVolume: 3500,
+    totalSearchVolume: 4000,
+    documentCount: 200,
+    goldenRatio: 20,
+    cpc: 180,
+    category: 'home_life',
+    source: 'mobile-live-golden-radar',
+    intent: 'Commercial',
+    evidence: ['mobile-live-seed-backfill', 'naver-openapi-exact-phrase'],
+    isMeasured: true,
+    searchVolumeSource: 'searchad',
+    searchVolumeConfidence: 'high',
+    isSearchVolumeEstimated: false,
+    documentCountSource: 'naver-api',
+    documentCountConfidence: 'high',
+    isDocumentCountEstimated: false,
+    discoveredAt: '2026-07-14T20:00:00.000Z',
+    updatedAt: '2026-07-14T20:00:00.000Z',
+    freshness: 'live',
+    isPublicPreview: false,
+    publicSearchVolumeLabel: '2k-5k',
+    publicDocumentCountLabel: '100-299',
+    publicReason: 'one-sided cache fixture',
   }],
 }), 'utf8');
 
@@ -109,6 +147,14 @@ async function run(): Promise<void> {
       && rebound?.searchVolumeBindingVersion === 'keyword-keyed-v2'
       && rebound?.searchVolumeMeasuredAt === '2026-07-15T00:30:00.000Z',
     JSON.stringify(after.verifiedSupply));
+
+  const partialCacheRow = [...(radar as any).board.values()]
+    .find((item: any) => item.keyword === '에어컨 청소 비용');
+  assert('one-sided null cache entry cannot be rebound with trusted v2 provenance',
+    partialCacheRow?.searchVolumeBindingVersion === undefined
+      && partialCacheRow?.searchVolumeMeasuredAt === undefined
+      && !(after.verifiedSupply || []).some((item: any) => item.keyword === '에어컨 청소 비용'),
+    JSON.stringify(partialCacheRow));
 
   const persisted = JSON.parse(fs.readFileSync(boardFile, 'utf8'));
   const persistedRow = persisted.items.find((item: any) => item.keyword === '원룸 청소 업체 가격');

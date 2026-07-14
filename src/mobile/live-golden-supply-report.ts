@@ -55,13 +55,20 @@ function roundRate(value: number): number {
   return Math.round(Math.max(0, value) * 10_000) / 10_000;
 }
 
+function finiteMeasuredNumber(value: unknown): number | null {
+  if (typeof value !== 'number' && typeof value !== 'string') return null;
+  if (typeof value === 'string' && value.trim() === '') return null;
+  const number = Number(value);
+  return Number.isFinite(number) ? number : null;
+}
+
 export function isTrustedLiveGoldenSupplyRow(item: MobileLiveGoldenBoardItem): boolean {
-  const pcSearchVolume = Number(item.pcSearchVolume);
-  const mobileSearchVolume = Number(item.mobileSearchVolume);
-  const totalSearchVolume = Number(item.totalSearchVolume);
-  const hasMeasuredSplit = Number.isFinite(pcSearchVolume)
-    && Number.isFinite(mobileSearchVolume)
-    && Number.isFinite(totalSearchVolume)
+  const pcSearchVolume = finiteMeasuredNumber(item.pcSearchVolume);
+  const mobileSearchVolume = finiteMeasuredNumber(item.mobileSearchVolume);
+  const totalSearchVolume = finiteMeasuredNumber(item.totalSearchVolume);
+  const hasMeasuredSplit = pcSearchVolume !== null
+    && mobileSearchVolume !== null
+    && totalSearchVolume !== null
     && pcSearchVolume + mobileSearchVolume > 0
     && pcSearchVolume + mobileSearchVolume === totalSearchVolume;
   const searchVolumeMeasuredAtMs = Date.parse(String(item.searchVolumeMeasuredAt || ''));

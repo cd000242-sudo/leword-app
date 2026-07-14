@@ -90,7 +90,16 @@ export function setSearchAdVolumeCached(
   v: { pc: number | null; mo: number | null; total: number | null; comp?: string; cpc?: number | null },
 ): void {
   if (!keyword) return;
-  if (typeof v.total !== 'number' || v.total <= 0) return;
+  if (
+    typeof v.pc !== 'number'
+    || !Number.isFinite(v.pc)
+    || typeof v.mo !== 'number'
+    || !Number.isFinite(v.mo)
+    || typeof v.total !== 'number'
+    || !Number.isFinite(v.total)
+    || v.total <= 0
+    || v.pc + v.mo !== v.total
+  ) return;
   const c = load();
   c.set(norm(keyword), { pc: v.pc, mo: v.mo, total: v.total, comp: v.comp, cpc: v.cpc ?? null, at: Date.now() });
   scheduleWrite();

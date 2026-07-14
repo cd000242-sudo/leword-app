@@ -131,6 +131,22 @@ assert('keyword binding marker cannot bless a total that differs from its PC/mob
     && inconsistentSplitReport.failureReasons.includes('untrusted-row-present'),
   JSON.stringify(inconsistentSplitReport));
 
+const oneSidedNullSplit = measuredItem('one-sided null split', 'finance', 5);
+oneSidedNullSplit.pcSearchVolume = null;
+oneSidedNullSplit.mobileSearchVolume = 1000;
+oneSidedNullSplit.totalSearchVolume = 1000;
+const oneSidedNullSplitReport = buildLiveGoldenSupplyReport([oneSidedNullSplit], {
+  nowMs: Date.parse('2026-07-11T10:00:00.000Z'),
+  verifiedTarget: 1,
+  minimumActiveCoreCategories: 1,
+});
+assert('one-sided null SearchAd split cannot be coerced to zero and counted as verified',
+  oneSidedNullSplitReport.verifiedCount === 0
+    && oneSidedNullSplitReport.untrustedCount === 1
+    && oneSidedNullSplitReport.measuredCompletenessRate === 0
+    && oneSidedNullSplitReport.failureReasons.includes('untrusted-row-present'),
+  JSON.stringify(oneSidedNullSplitReport));
+
 function shareBoundaryPortfolio(total: number): any[] {
   const dominant = Array.from({ length: 11 }, (_, index) => measuredItem(
     `dominant-policy-${index}`,

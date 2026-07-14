@@ -133,6 +133,28 @@ async function run(): Promise<void> {
     });
     assert('binding marker cannot bless a total that differs from its split', mismatchedTotal === null);
 
+    const oneSidedNullSplit = uploadRowFromDiscoveryResult({
+      keyword: 'one-sided null split',
+      searchVolume: 900,
+      pcSearchVolume: null,
+      mobileSearchVolume: 900,
+      searchVolumeBindingVersion: 'keyword-keyed-v2',
+      searchVolumeMeasuredAt: '2026-07-15T01:02:03.000Z',
+      documentCount: 300,
+    });
+    assert('one-sided null split cannot be coerced to zero during upload', oneSidedNullSplit === null);
+
+    const objectCoercionSplit = uploadRowFromDiscoveryResult({
+      keyword: 'object coercion split',
+      searchVolume: 900,
+      pcSearchVolume: [300],
+      mobileSearchVolume: 600,
+      searchVolumeBindingVersion: 'keyword-keyed-v2',
+      searchVolumeMeasuredAt: '2026-07-15T01:02:03.000Z',
+      documentCount: 300,
+    });
+    assert('array/object values cannot cross the numeric upload boundary', objectCoercionSplit === null);
+
     const unreliableExtras = uploadRowFromDiscoveryResult({
       keyword: '난방비 지원금 신청 방법',
       searchVolume: 1500,

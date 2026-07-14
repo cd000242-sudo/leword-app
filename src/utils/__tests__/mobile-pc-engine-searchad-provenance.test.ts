@@ -99,6 +99,23 @@ assert(
   JSON.stringify(unboundReplacement),
 );
 
+const oneSidedNullReplacement = mergeMeasuredMetric(baseMetric, {
+  keyword: 'exact keyword',
+  pcSearchVolume: null,
+  mobileSearchVolume: 700,
+  totalSearchVolume: 700,
+  measuredAtMs,
+  searchVolumeBindingVersion: 'keyword-keyed-v2',
+}, undefined);
+assert(
+  'one-sided null SearchAd row cannot replace or freshly bind an existing exact split',
+  oneSidedNullReplacement.pcSearchVolume === 10
+    && oneSidedNullReplacement.mobileSearchVolume === 20
+    && oneSidedNullReplacement.totalSearchVolume === 30
+    && oneSidedNullReplacement.searchVolumeMeasuredAt === '2026-07-14T00:00:00.000Z',
+  JSON.stringify(oneSidedNullReplacement),
+);
+
 const inconsistentExisting = mergeMeasuredMetric({
   ...baseMetric,
   totalSearchVolume: 999,

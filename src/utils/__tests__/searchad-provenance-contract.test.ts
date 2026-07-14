@@ -74,6 +74,10 @@ async function run(): Promise<void> {
     getNaverSearchAdKeywordSuggestions,
     getNaverSearchAdKeywordVolume,
   } = require('../naver-searchad-api');
+  const {
+    getSearchAdVolumeCached,
+    setSearchAdVolumeCached,
+  } = require('../searchad-volume-cache');
   const config = {
     customerId: '1000001',
     accessLicense: 'provenance-contract-access-license',
@@ -83,6 +87,16 @@ async function run(): Promise<void> {
   const rows = await getNaverSearchAdKeywordVolume(
     config,
     ['cachedalpha', 'missingbeta', 'measuredgamma'],
+  );
+  setSearchAdVolumeCached('partial-cache-entry', {
+    pc: null,
+    mo: 700,
+    total: 700,
+  });
+  assert(
+    'one-sided null SearchAd split is never persisted as an exact cache entry',
+    getSearchAdVolumeCached('partial-cache-entry') === null,
+    JSON.stringify(getSearchAdVolumeCached('partial-cache-entry')),
   );
   const missing = rows[1];
   assert(
