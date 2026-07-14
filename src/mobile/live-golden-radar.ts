@@ -6953,6 +6953,7 @@ export class MobileLiveGoldenRadar {
             clientSecret: env.naverClientSecret,
             }, backfillCategoryId, liveSeeds, runLimit, {
               measuredProbeOnly: queuedProbeDirect.attemptedCount > 0,
+              queueCanaryAttempted: queuedProbeDirect.attemptedCount > 0,
             })
           : [];
         if (backfill.length > 0) {
@@ -8375,7 +8376,7 @@ export class MobileLiveGoldenRadar {
     categoryId: string,
     liveSeeds: string[],
     targetLimit = this.cycleLimit,
-    options: { measuredProbeOnly?: boolean } = {},
+    options: { measuredProbeOnly?: boolean; queueCanaryAttempted?: boolean } = {},
   ): Promise<MDPResult[]> {
     const measuredProbeOnly = options.measuredProbeOnly === true;
     const measuredProbeCandidates = buildMeasuredProbeCandidates(
@@ -8416,6 +8417,12 @@ export class MobileLiveGoldenRadar {
     // Category recovery must not fan out into the SearchAd suggestion lane.
     // Exact measurement below remains bounded by the shared per-run budget.
     const hasCuratedCoreSearchAdSeeds = curatedCoreSearchAdSeedsForCategory(categoryId).length > 0;
+    const categoryCuratedRecoveryAllowed = categoryId !== 'all'
+      && hasCuratedCoreSearchAdSeeds
+      // A queue canary owns the remainder of that cycle. If this category has
+      // no queued probe at all, however, it still needs one bounded curated
+      // SearchAd pass or deficit lanes can remain permanently untouched.
+      && (measuredProbeOnly || options.queueCanaryAttempted !== true);
     const searchAdSuggestionRows = categoryId === 'all'
       ? (!measuredProbeOnly
         ? await this.discoverSearchAdSuggestionBackfillCandidates(
@@ -8424,7 +8431,7 @@ export class MobileLiveGoldenRadar {
           suggestionTargetLimit,
         )
         : [])
-      : (measuredProbeOnly && hasCuratedCoreSearchAdSeeds
+      : (categoryCuratedRecoveryAllowed
         ? await this.discoverSearchAdSuggestionBackfillCandidates(
           categoryId,
           liveSeeds,
@@ -8475,7 +8482,7 @@ export class MobileLiveGoldenRadar {
         ...buildBackfillCandidates(categoryId, liveSeeds, this.maxSeeds, this.now()),
       ], this.maxSeeds);
     if (candidates.length === 0) {
-      if (measuredProbeOnly && hasCuratedCoreSearchAdSeeds) {
+      if (categoryCuratedRecoveryAllowed) {
         console.info('[LIVE-GOLDEN] curated SearchAd measurement skipped', {
           categoryId,
           reason: 'no-measurable-candidates',
@@ -8527,7 +8534,7 @@ export class MobileLiveGoldenRadar {
     // measured. Measure those exact natural-language anchors first; these are
     // real SearchAd lookups and still pass the normal volume/document/publish
     // gates, so no synthetic board rows are introduced.
-    const curatedExactCandidates = measuredProbeOnly && hasCuratedCoreSearchAdSeeds
+    const curatedExactCandidates = categoryCuratedRecoveryAllowed
       ? curatedCoreSearchAdSeedsForCategory(categoryId)
       : [];
     const measuredSearchAdIds = new Set(
@@ -8560,7 +8567,7 @@ export class MobileLiveGoldenRadar {
       ...measuredVolumeRows,
     ], measurementLimit);
     const rows = await this.attachDocumentCountsToVolumeRows(volumeRows, categoryId, targetLimit, {
-      exactPhraseCandidateIds: measuredProbeOnly && hasCuratedCoreSearchAdSeeds
+      exactPhraseCandidateIds: categoryCuratedRecoveryAllowed
         ? suggestedRowIds
         : undefined,
     });
@@ -8635,7 +8642,7 @@ export class MobileLiveGoldenRadar {
       seen.add(id);
       out.push(prioritizedItem);
     }
-    if (measuredProbeOnly && hasCuratedCoreSearchAdSeeds) {
+    if (categoryCuratedRecoveryAllowed) {
       console.info('[LIVE-GOLDEN] curated SearchAd measurement', {
         categoryId,
         suggestionRows: suggestionRowsForRun.length,
