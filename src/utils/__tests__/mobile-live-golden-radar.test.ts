@@ -4530,22 +4530,27 @@ function thinProfileCount(items: Array<{ keyword: string }>): number {
     },
   });
   const catchUpSnapshot = await catchUpRadar.runUntilTarget(4);
-  assert('live golden catch-up advances the SSS-depth queue within the per-cycle SearchAd budget',
+  assert('live golden catch-up reserves most of the per-cycle SearchAd budget for new direct discovery',
     new Set(catchUpMeasuredKeywords).size > 0
-      && new Set(catchUpMeasuredKeywords).size <= 40
+      && new Set(catchUpMeasuredKeywords).size <= 12
+      && catchUpDirectCalls === 1
+      && catchUpDirectMaxCandidates === 40 - new Set(catchUpMeasuredKeywords).size
+      && catchUpDirectMaxCandidates >= 28
       && catchUpSnapshot.successfulRuns === 1,
     JSON.stringify({
       measuredCount: new Set(catchUpMeasuredKeywords).size,
       successfulRuns: catchUpSnapshot.successfulRuns,
       catchUpAutocompleteCalls,
       catchUpSuggestionCalls,
+      catchUpDirectCalls,
+      catchUpDirectMaxCandidates,
       firstMeasured: catchUpMeasuredKeywords.slice(0, 20),
     }));
-  assert('zero-yield measured queue stops before expansion and heavy direct can multiply SearchAd spend',
+  assert('reserved queue budget stops expansion while bounded heavy direct uses only the shared remainder',
     catchUpAutocompleteCalls === 0
       && catchUpSuggestionCalls === 0
-      && catchUpDirectCalls === 0
-      && catchUpDirectMaxCandidates === 0,
+      && catchUpDirectCalls === 1
+      && catchUpMeasuredKeywords.length + catchUpDirectMaxCandidates <= 40,
     JSON.stringify({
       catchUpAutocompleteCalls,
       catchUpSuggestionCalls,

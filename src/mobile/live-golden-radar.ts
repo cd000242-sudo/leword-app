@@ -238,6 +238,10 @@ const LIVE_BOARD_SPLIT_ENRICHMENT_LIMIT = 80;
 const LIVE_SEARCHAD_VOLUME_BATCH_SIZE = 4;
 const LIVE_SEARCHAD_VOLUME_MIN_REMAINING_MS = 2_000;
 const LIVE_SEARCHAD_MEASUREMENT_BUDGET_PER_RUN = 40;
+// A large persistent queue is a canary, not the discovery engine. Reserve most
+// of the fixed per-run ceiling for unseen category-deficit candidates so old
+// misses cannot starve supply recovery indefinitely.
+const LIVE_PROBE_QUEUE_MEASUREMENT_BUDGET_PER_RUN = 12;
 const LIVE_HEAVY_DIRECT_MIN_REMAINING_BUDGET = 12;
 const LIVE_PROBE_QUEUE_FILE_NAME = 'live-golden-probe-queue.json';
 const LIVE_PROBE_QUEUE_MAX_ITEMS = 5000;
@@ -7892,7 +7896,10 @@ export class MobileLiveGoldenRadar {
     categoryId: string,
     targetLimit = this.cycleLimit,
   ): Promise<{ results: MDPResult[]; attemptedCount: number }> {
-    const measurementLimit = Math.min(40, this.backfillMeasurementLimit(targetLimit));
+    const measurementLimit = Math.min(
+      LIVE_PROBE_QUEUE_MEASUREMENT_BUDGET_PER_RUN,
+      this.backfillMeasurementLimit(targetLimit),
+    );
     const prioritizedItems = this.priorityMeasuredProbeQueueItems(categoryId, measurementLimit * 2);
     const diverseItems = this.runnableMeasuredProbeQueueItems(categoryId, targetLimit);
     const queuedProbeItems: LiveMeasuredProbeQueueItem[] = [];
