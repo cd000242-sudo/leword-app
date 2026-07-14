@@ -238,6 +238,7 @@ const LIVE_BOARD_SPLIT_ENRICHMENT_LIMIT = 80;
 const LIVE_SEARCHAD_VOLUME_BATCH_SIZE = 4;
 const LIVE_SEARCHAD_VOLUME_MIN_REMAINING_MS = 2_000;
 const LIVE_SEARCHAD_MEASUREMENT_BUDGET_PER_RUN = 40;
+const LIVE_HEAVY_DIRECT_MIN_REMAINING_BUDGET = 12;
 const LIVE_PROBE_QUEUE_FILE_NAME = 'live-golden-probe-queue.json';
 const LIVE_PROBE_QUEUE_MAX_ITEMS = 5000;
 const LIVE_PROBE_QUEUE_FAMILY_MAX_ITEMS = 12;
@@ -6285,6 +6286,7 @@ export class MobileLiveGoldenRadar {
   private searchAdSleepUntilMs: number | null = null;
   private zeroYieldRetryAtMs: number | null = null;
   private cachePromotionProgressCount = 0;
+  private catchUpAttemptedPolicyKeys: Set<string> | null = null;
   private enabled = false;
   private running = false;
   private categoryIndex = 0;
@@ -6676,6 +6678,7 @@ export class MobileLiveGoldenRadar {
         return this.snapshot();
       }
       categoryId = this.nextCategory();
+      this.catchUpAttemptedPolicyKeys?.add(liveGoldenPolicyKeyForDiscoveryId(categoryId));
       categoryScanStarted = true;
       const selectedPolicyKey = liveGoldenPolicyKeyForDiscoveryId(categoryId);
       categoryVerifiedBeforeRun = this.sortedBoard()
@@ -6725,9 +6728,12 @@ export class MobileLiveGoldenRadar {
       const novelSssCount = countSss(
         qualityDirect.filter((item) => isNovelMdpResult(item, existingIdsForRun, existingClustersForRun)),
       );
-      // Heavy direct discovery is an alternative to an empty queue, never a
-      // second quota lane after the bounded queue canary has already run.
-      const shouldRunHeavyDirect = queuedProbeAttemptedCount === 0
+      // A full queue canary owns the run budget. A small category canary may
+      // hand only its unused share to heavy direct discovery; the shared
+      // per-run counter still caps both lanes at 40 SearchAd measurements.
+      const queueCanaryLeftDirectBudget = queuedProbeAttemptedCount > 0
+        && this.searchAdMeasurementBudgetRemaining >= LIVE_HEAVY_DIRECT_MIN_REMAINING_BUDGET;
+      const shouldRunHeavyDirect = (queuedProbeAttemptedCount === 0 || queueCanaryLeftDirectBudget)
         && this.searchAdMeasurementBudgetRemaining > 0
         && (
         novelQualityCount < runLimit
@@ -6938,7 +6944,12 @@ export class MobileLiveGoldenRadar {
         ? `${categoryId} ${result.summary.total} found (${fallbackCount} live issue fallback), ${published.length} published${enrichSuffix}`
         : `${categoryId} ${result.summary.total} found, ${published.length} published${enrichSuffix}`;
       const cacheInventoryAdvanced = this.cachePromotionProgressCount > cacheProgressAtRunStart;
-      if (this.enableBackfill && netVerifiedAdded <= 0 && !cacheInventoryAdvanced) {
+      if (
+        this.enableBackfill
+        && netVerifiedAdded <= 0
+        && !cacheInventoryAdvanced
+        && this.catchUpAttemptedPolicyKeys === null
+      ) {
         this.zeroYieldRetryAtMs = this.now().getTime() + LIVE_ZERO_YIELD_COOLDOWN_MS;
         this.lastMessage = `zero-yield cooldown active${formatKstRetryAt(this.zeroYieldRetryAtMs)}; ${this.lastMessage}`;
       }
@@ -6960,26 +6971,42 @@ export class MobileLiveGoldenRadar {
   async runUntilTarget(maxCycles = this.startupCatchUpCycles): Promise<MobileLiveGoldenRadarSnapshot> {
     const cycleBudget = Math.max(1, Math.min(8, Math.floor(maxCycles)));
     let snapshot = this.snapshot();
-    for (let cycle = 0; cycle < cycleBudget && this.needsSssDepthRefresh(snapshot); cycle += 1) {
-      const beforeAttempts = this.totalRuns + this.skippedRuns + this.failedRuns;
-      const beforeBoardCount = snapshot.boardCount;
-      const beforeSssReady = snapshot.board.filter((item) => isMeasuredSssBoardCandidate(item, this.now())).length;
-      const beforeCacheProgress = this.cachePromotionProgressCount;
-      snapshot = await this.runOnce();
-      const afterAttempts = this.totalRuns + this.skippedRuns + this.failedRuns;
-      const afterSssReady = snapshot.board.filter((item) => isMeasuredSssBoardCandidate(item, this.now())).length;
-      const cacheInventoryAdvanced = this.cachePromotionProgressCount > beforeCacheProgress;
-      if (snapshot.running || afterAttempts === beforeAttempts) break;
-      if (snapshot.searchAdQuota?.exhausted) break;
-      if (this.skippedRuns > 0 && /busy|skipped/i.test(snapshot.lastMessage || '')) break;
-      if (!cacheInventoryAdvanced && snapshot.boardCount <= beforeBoardCount && afterSssReady <= beforeSssReady) {
-        const queueSuffix = this.pendingMeasuredProbeQueue.length > 0
-          ? `; probe queue ${this.pendingMeasuredProbeQueue.length} waiting for next interval`
-          : '';
-        this.lastMessage = `catch-up paused: no new measured publishable rows; board ${snapshot.boardCount}/${this.boardTarget}${queueSuffix}`;
-        snapshot = this.snapshot();
-        break;
+    const previousCatchUpAttemptedPolicyKeys = this.catchUpAttemptedPolicyKeys;
+    this.catchUpAttemptedPolicyKeys = new Set<string>();
+    try {
+      for (let cycle = 0; cycle < cycleBudget && this.needsSssDepthRefresh(snapshot); cycle += 1) {
+        const beforeAttempts = this.totalRuns + this.skippedRuns + this.failedRuns;
+        const beforeBoardCount = snapshot.boardCount;
+        const beforeSssReady = snapshot.board.filter((item) => isMeasuredSssBoardCandidate(item, this.now())).length;
+        const beforeCacheProgress = this.cachePromotionProgressCount;
+        snapshot = await this.runOnce();
+        const afterAttempts = this.totalRuns + this.skippedRuns + this.failedRuns;
+        const afterSssReady = snapshot.board.filter((item) => isMeasuredSssBoardCandidate(item, this.now())).length;
+        const cacheInventoryAdvanced = this.cachePromotionProgressCount > beforeCacheProgress;
+        if (snapshot.running || afterAttempts === beforeAttempts) break;
+        if (snapshot.searchAdQuota?.exhausted) break;
+        if (this.skippedRuns > 0 && /busy|skipped/i.test(snapshot.lastMessage || '')) break;
+        if (!cacheInventoryAdvanced && snapshot.boardCount <= beforeBoardCount && afterSssReady <= beforeSssReady) {
+          const unattemptedDeficitPolicies = this.unattemptedCatchUpDeficitPolicyKeys();
+          if (this.enableBackfill && unattemptedDeficitPolicies.size > 0 && cycle + 1 < cycleBudget) {
+            this.lastMessage = `catch-up rotating to untried deficit categories (${unattemptedDeficitPolicies.size} remaining); board ${snapshot.boardCount}/${this.boardTarget}`;
+            snapshot = this.snapshot();
+            continue;
+          }
+          const queueSuffix = this.pendingMeasuredProbeQueue.length > 0
+            ? `; probe queue ${this.pendingMeasuredProbeQueue.length} waiting for next interval`
+            : '';
+          this.lastMessage = `catch-up paused: no new measured publishable rows; board ${snapshot.boardCount}/${this.boardTarget}${queueSuffix}`;
+          if (this.enableBackfill && unattemptedDeficitPolicies.size === 0) {
+            this.zeroYieldRetryAtMs = this.now().getTime() + LIVE_ZERO_YIELD_COOLDOWN_MS;
+            this.lastMessage = `zero-yield cooldown active${formatKstRetryAt(this.zeroYieldRetryAtMs)}; ${this.lastMessage}`;
+          }
+          snapshot = this.snapshot();
+          break;
+        }
       }
+    } finally {
+      this.catchUpAttemptedPolicyKeys = previousCatchUpAttemptedPolicyKeys;
     }
     return snapshot;
   }
@@ -8581,14 +8608,44 @@ export class MobileLiveGoldenRadar {
     for (const [categoryId, value] of this.categoryStats.entries()) {
       stats[categoryId] = { ...value };
     }
+    const unattemptedDeficitPolicies = this.unattemptedCatchUpDeficitPolicyKeys(verifiedCounts);
+    const candidates = unattemptedDeficitPolicies.size > 0
+      ? this.categories.filter((categoryId) => (
+        unattemptedDeficitPolicies.has(liveGoldenPolicyKeyForDiscoveryId(categoryId))
+      ))
+      : this.categories;
     return selectNextLiveGoldenDiscoveryCategory({
-      candidates: this.categories,
+      candidates,
       boardCount: visibleBoard.length,
       verifiedCounts,
       stats,
       nowMs: this.now().getTime(),
       cursor: this.categoryIndex,
     }).discoveryId;
+  }
+
+  private unattemptedCatchUpDeficitPolicyKeys(
+    knownVerifiedCounts?: Record<string, number>,
+  ): Set<string> {
+    const attempted = this.catchUpAttemptedPolicyKeys;
+    if (attempted === null) return new Set<string>();
+    const verifiedCounts = knownVerifiedCounts || (() => {
+      const counts: Record<string, number> = {};
+      for (const item of this.sortedBoard()) {
+        const key = liveGoldenPolicyKeyForDiscoveryId(item.category);
+        counts[key] = (counts[key] || 0) + 1;
+      }
+      return counts;
+    })();
+    const out = new Set<string>();
+    for (const categoryId of this.categories) {
+      const policyKey = liveGoldenPolicyKeyForDiscoveryId(categoryId);
+      if (attempted.has(policyKey)) continue;
+      const policy = LIVE_GOLDEN_CORE_CATEGORY_POLICIES.find((item) => item.key === policyKey);
+      if (!policy) continue;
+      if ((verifiedCounts[policyKey] || 0) < policy.minimumVerified) out.add(policyKey);
+    }
+    return out;
   }
 
   private recordCategoryOutcome(categoryId: string, published: number, failed: boolean): void {

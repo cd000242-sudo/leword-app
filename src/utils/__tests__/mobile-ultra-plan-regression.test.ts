@@ -714,6 +714,7 @@ assert('live golden board display is SSS-first with trusted publishable fallback
   'LIVE board display must keep SSS first but fill paid boards only with trusted measured publishable rows');
 assert('live golden heavy discovery cannot outlive a cycle or spend an unbounded SearchAd budget',
   /const LIVE_SEARCHAD_MEASUREMENT_BUDGET_PER_RUN = 40/.test(liveGoldenRadar)
+    && /const LIVE_HEAVY_DIRECT_MIN_REMAINING_BUDGET = 12/.test(liveGoldenRadar)
     && /const directMaxCandidates = Math\.min\(\s*LIVE_SEARCHAD_MEASUREMENT_BUDGET_PER_RUN,\s*directCandidateBudget/.test(liveGoldenRadar)
     && /searchAdMeasurementBudgetRemaining - batch\.length/.test(liveGoldenRadar)
     && /const direct = await this\.discover\(/.test(liveGoldenRadar)
@@ -723,7 +724,8 @@ assert('live golden heavy discovery cannot outlive a cycle or spend an unbounded
     && /includeCrossCategory:\s*false/.test(liveGoldenRadar)
     && /const backfillCategoryId = categoryId/.test(liveGoldenRadar)
     && /const shouldRunExpansionBackfill = queuedProbeDirect\.attemptedCount === 0\s*&& this\.searchAdMeasurementBudgetRemaining > 0/.test(liveGoldenRadar)
-    && /const shouldRunHeavyDirect = queuedProbeAttemptedCount === 0\s*&& this\.searchAdMeasurementBudgetRemaining > 0/.test(liveGoldenRadar)
+    && /const queueCanaryLeftDirectBudget = queuedProbeAttemptedCount > 0\s*&& this\.searchAdMeasurementBudgetRemaining >= LIVE_HEAVY_DIRECT_MIN_REMAINING_BUDGET/.test(liveGoldenRadar)
+    && /const shouldRunHeavyDirect = \(queuedProbeAttemptedCount === 0 \|\| queueCanaryLeftDirectBudget\)\s*&& this\.searchAdMeasurementBudgetRemaining > 0/.test(liveGoldenRadar)
     && /!catchUpModeBeforeCache\s*&& queuedProbeAttemptedCount === 0\s*&& this\.searchAdMeasurementBudgetRemaining > 0/.test(liveGoldenRadar)
     && /const searchAdSuggestionRows = categoryId === 'all'/.test(liveGoldenRadar)
     && /zero-yield cooldown active/.test(liveGoldenRadar)

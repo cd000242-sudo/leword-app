@@ -338,6 +338,39 @@ function thinProfileCount(items: Array<{ keyword: string }>): number {
       lastMessage: stalledCatchupSnapshot.lastMessage,
     }));
 
+  const deficitRotationRadar = new MobileLiveGoldenRadar({
+    notificationInbox: inbox,
+    runOnStart: false,
+    cycleLimit: 3,
+    boardTarget: 60,
+    maxCandidates: 180,
+    categories: ['health', 'education', 'it'],
+    getEnvConfig: () => ({
+      naverClientId: 'client',
+      naverClientSecret: 'secret',
+    }),
+    liveSeedProvider: async () => [],
+    enableBackfill: true,
+    autocompleteProvider: async () => [],
+    searchAdSuggestionProvider: async () => [],
+    measureLiveSearchVolumeSeparate: async () => [],
+    measureLiveDocumentCount: async () => null,
+    discover: async () => [],
+  });
+  const deficitRotationSnapshot = await deficitRotationRadar.runUntilTarget(3);
+  const scannedDeficitCategories = Object.entries(deficitRotationSnapshot.categoryStats || {})
+    .filter(([, stats]) => (stats?.scans || 0) > 0)
+    .map(([category]) => category)
+    .sort();
+  assert('bounded catch-up rotates across untried deficit policies before global cooldown',
+    deficitRotationSnapshot.totalRuns === 3
+      && scannedDeficitCategories.join(',') === ['education', 'health', 'it'].sort().join(','),
+    JSON.stringify({
+      totalRuns: deficitRotationSnapshot.totalRuns,
+      scannedDeficitCategories,
+      lastMessage: deficitRotationSnapshot.lastMessage,
+    }));
+
   const fullButWeakBoardFile = path.join(process.cwd(), 'tmp', 'mobile-live-golden-full-but-weak-depth-test.json');
   fs.writeFileSync(fullButWeakBoardFile, JSON.stringify({
     boardUpdatedAt: '2026-06-15T08:00:00.000Z',
@@ -4536,6 +4569,67 @@ function thinProfileCount(items: Array<{ keyword: string }>): number {
       lastMessage: catchUpCooldownSnapshot.lastMessage,
       nextRetryAt: catchUpCooldownSnapshot.nextRetryAt,
     }));
+  const residualQueueFile = path.join(process.cwd(), 'tmp', 'mobile-live-golden-residual-direct-budget-test.json');
+  const residualQueueKeywords = [
+    '\uB85C\uBD07\uCCAD\uC18C\uAE30 \uC6D0\uB8F8 \uAC00\uACA9\uBE44\uAD50',
+    '\uBB34\uC120\uCCAD\uC18C\uAE30 \uBC30\uD130\uB9AC \uAD50\uCCB4 \uBE44\uC6A9',
+    '\uCC3D\uBB38\uD615 \uC5D0\uC5B4\uCEE8 \uC124\uCE58 \uBE44\uC6A9',
+    '\uC81C\uC2B5\uAE30 \uC804\uAE30\uC694\uAE08 \uACC4\uC0B0',
+    '\uACF5\uAE30\uCCAD\uC815\uAE30 \uD544\uD130 \uAD50\uCCB4 \uBE44\uC6A9',
+  ];
+  fs.writeFileSync(residualQueueFile, JSON.stringify({
+    version: 1,
+    savedAt: '2026-06-15T08:00:00.000Z',
+    items: residualQueueKeywords.map((keyword, index) => ({
+      keyword,
+      category: 'electronics',
+      source: 'fixture-residual-direct-budget',
+      priority: 1000 - index,
+      firstSeenAt: `2026-06-15T08:0${index}:00.000Z`,
+      attempts: 0,
+      misses: 0,
+    })),
+  }), 'utf8');
+  const residualMeasuredKeywords: string[] = [];
+  let residualDirectCalls = 0;
+  let residualDirectMaxCandidates = 0;
+  const residualDirectRadar = new MobileLiveGoldenRadar({
+    notificationInbox: inbox,
+    runOnStart: false,
+    cycleLimit: 8,
+    boardTarget: 120,
+    maxCandidates: 220,
+    categories: ['electronics'],
+    probeQueueFile: residualQueueFile,
+    getEnvConfig: () => ({ naverClientId: 'client', naverClientSecret: 'secret' }),
+    liveSeedProvider: async () => [],
+    enableBackfill: true,
+    autocompleteProvider: async () => [],
+    searchAdSuggestionProvider: async () => [],
+    measureLiveSearchVolumeSeparate: async (_config, keywords) => {
+      residualMeasuredKeywords.push(...keywords);
+      return [];
+    },
+    measureLiveDocumentCount: async () => null,
+    discover: async (_config, options) => {
+      residualDirectCalls += 1;
+      residualDirectMaxCandidates = Number(options?.maxCandidates || 0);
+      return [];
+    },
+  });
+  await residualDirectRadar.runOnce();
+  assert('small queue canary leaves the same per-run budget available for heavy direct discovery',
+    residualMeasuredKeywords.length > 0
+      && residualMeasuredKeywords.length < 40
+      && residualDirectCalls === 1
+      && residualDirectMaxCandidates >= 12
+      && residualDirectMaxCandidates <= 40 - residualMeasuredKeywords.length,
+    JSON.stringify({
+      measured: residualMeasuredKeywords,
+      residualDirectCalls,
+      residualDirectMaxCandidates,
+    }));
+  fs.rmSync(residualQueueFile, { force: true });
   const writerReadyProbeSamples: Array<[string, string]> = [
     ['\uC1A1\uC9C0\uD638 \uBC14\uB2E4\uD558\uB298\uAE38 \uC608\uC57D \uBC29\uBC95', 'travel_domestic'],
     ['\uCFE0\uCFE0\uC81C\uC2B5\uAE30\uB80C\uD0C8 \uAD6C\uB9E4\uCC98 \uCD94\uCC9C', 'shopping'],
