@@ -6284,6 +6284,7 @@ export class MobileLiveGoldenRadar {
   private quotaRetryAtMs: number | null = null;
   private searchAdSleepUntilMs: number | null = null;
   private zeroYieldRetryAtMs: number | null = null;
+  private cachePromotionProgressCount = 0;
   private enabled = false;
   private running = false;
   private categoryIndex = 0;
@@ -6557,6 +6558,7 @@ export class MobileLiveGoldenRadar {
     let categoryScanStarted = false;
     let categoryVerifiedBeforeRun = 0;
     const startedAtMs = Date.now();
+    const cacheProgressAtRunStart = this.cachePromotionProgressCount;
     this.refreshMeasuredCachesFromDisk(true);
     let referenceProbeCount = 0;
     const sssReadyBeforeRun = this.measuredSssReadyBoardCount();
@@ -6935,7 +6937,8 @@ export class MobileLiveGoldenRadar {
       this.lastMessage = fallbackCount > 0
         ? `${categoryId} ${result.summary.total} found (${fallbackCount} live issue fallback), ${published.length} published${enrichSuffix}`
         : `${categoryId} ${result.summary.total} found, ${published.length} published${enrichSuffix}`;
-      if (this.enableBackfill && netVerifiedAdded <= 0) {
+      const cacheInventoryAdvanced = this.cachePromotionProgressCount > cacheProgressAtRunStart;
+      if (this.enableBackfill && netVerifiedAdded <= 0 && !cacheInventoryAdvanced) {
         this.zeroYieldRetryAtMs = this.now().getTime() + LIVE_ZERO_YIELD_COOLDOWN_MS;
         this.lastMessage = `zero-yield cooldown active${formatKstRetryAt(this.zeroYieldRetryAtMs)}; ${this.lastMessage}`;
       }
@@ -6961,13 +6964,15 @@ export class MobileLiveGoldenRadar {
       const beforeAttempts = this.totalRuns + this.skippedRuns + this.failedRuns;
       const beforeBoardCount = snapshot.boardCount;
       const beforeSssReady = snapshot.board.filter((item) => isMeasuredSssBoardCandidate(item, this.now())).length;
+      const beforeCacheProgress = this.cachePromotionProgressCount;
       snapshot = await this.runOnce();
       const afterAttempts = this.totalRuns + this.skippedRuns + this.failedRuns;
       const afterSssReady = snapshot.board.filter((item) => isMeasuredSssBoardCandidate(item, this.now())).length;
+      const cacheInventoryAdvanced = this.cachePromotionProgressCount > beforeCacheProgress;
       if (snapshot.running || afterAttempts === beforeAttempts) break;
       if (snapshot.searchAdQuota?.exhausted) break;
       if (this.skippedRuns > 0 && /busy|skipped/i.test(snapshot.lastMessage || '')) break;
-      if (snapshot.boardCount <= beforeBoardCount && afterSssReady <= beforeSssReady) {
+      if (!cacheInventoryAdvanced && snapshot.boardCount <= beforeBoardCount && afterSssReady <= beforeSssReady) {
         const queueSuffix = this.pendingMeasuredProbeQueue.length > 0
           ? `; probe queue ${this.pendingMeasuredProbeQueue.length} waiting for next interval`
           : '';
@@ -8968,7 +8973,31 @@ export class MobileLiveGoldenRadar {
         docs,
         ratio,
       );
-      if (grade === 'C') continue;
+      if (grade === 'C') {
+        this.board.set(item.id, {
+          ...item,
+          grade,
+          score: opportunityScore,
+          pcSearchVolume: pc,
+          mobileSearchVolume: mobile,
+          totalSearchVolume: measuredVolume,
+          goldenRatio: ratio,
+          cpc: finiteNumber(row.monthlyAveCpc) ?? finiteNumber(item.cpc),
+          searchVolumeSource: 'searchad',
+          searchVolumeConfidence: 'high',
+          isSearchVolumeEstimated: (row as any).svEstimated === true,
+          splitProbeZeroAt: undefined,
+          updatedAt: stamp,
+          freshness: 'live',
+          evidence: [...new Set([
+            ...(Array.isArray(item.evidence) ? item.evidence : []),
+            'persistent-cache-split-rejected-grade-c',
+            'searchad-pc-mobile-split-enriched',
+          ])].slice(0, 10),
+        });
+        changed += 1;
+        continue;
+      }
       const promoted: MobileLiveGoldenBoardItem = {
         ...item,
         grade,
@@ -9026,6 +9055,7 @@ export class MobileLiveGoldenRadar {
     }
 
     if (changed > 0) {
+      this.cachePromotionProgressCount += changed;
       this.pruneBoard();
       this.boardUpdatedAt = stamp;
       this.saveBoardToFile();

@@ -3306,9 +3306,43 @@ function thinProfileCount(items: Array<{ keyword: string }>): number {
   assert('zero split cache rows are not measured again after worker restart',
     !restartedMeasuredKeywords.includes('\uC81C\uC8FC \uB80C\uD130\uCE74 \uAC00\uACA9\uBE44\uAD50'),
     JSON.stringify(restartedMeasuredKeywords));
+  const zeroOnlyCatchupBoardFile = path.join(process.cwd(), 'tmp', 'mobile-live-golden-zero-only-catchup-board-test.json');
+  fs.rmSync(zeroOnlyCatchupBoardFile, { force: true });
+  let zeroOnlyCatchupCalls = 0;
+  const zeroOnlyCatchupRadar = new MobileLiveGoldenRadar({
+    notificationInbox: inbox,
+    runOnStart: false,
+    boardFile: zeroOnlyCatchupBoardFile,
+    keywordCacheFile: splitEnrichmentCacheFile,
+    boardTarget: 60,
+    categories: ['policy'],
+    getEnvConfig: () => ({ naverClientId: 'client', naverClientSecret: 'secret' }),
+    liveSeedProvider: async () => [],
+    enableBackfill: true,
+    discover: async () => [],
+    realDemandProbe: async () => ({ ok: true, suggestions: [] }),
+    measureLiveSearchVolumeSeparate: async (_config, keywords, options) => {
+      zeroOnlyCatchupCalls += 1;
+      assert('zero-only catch-up spends split measurement without document-count quota', options?.includeDocumentCount === false);
+      return keywords.map((keyword) => ({
+        keyword,
+        pcSearchVolume: 0,
+        mobileSearchVolume: 0,
+        documentCount: null,
+        competition: 'LOW',
+        monthlyAveCpc: 0,
+      }));
+    },
+  });
+  const zeroOnlyCatchupSnapshot = await zeroOnlyCatchupRadar.runUntilTarget(2);
+  assert('zero-only cache progress continues the bounded catch-up cycle without cooldown wait',
+    zeroOnlyCatchupCalls > 0 && zeroOnlyCatchupSnapshot.totalRuns === 2,
+    `calls=${zeroOnlyCatchupCalls},totalRuns=${zeroOnlyCatchupSnapshot.totalRuns},message=${zeroOnlyCatchupSnapshot.lastMessage}`);
   fs.rmSync(splitEnrichmentCacheFile, { force: true });
   fs.rmSync(splitEnrichmentBoardFile, { force: true });
   fs.rmSync(splitEnrichmentBoardFile.replace(/\.json$/, '') + '-realdemand.json', { force: true });
+  fs.rmSync(zeroOnlyCatchupBoardFile, { force: true });
+  fs.rmSync(zeroOnlyCatchupBoardFile.replace(/\.json$/, '') + '-realdemand.json', { force: true });
 
   const underfilledCacheDir = fs.mkdtempSync(path.join(os.tmpdir(), 'leword-phase1d-cache-'));
   const underfilledBoardFile = path.join(underfilledCacheDir, 'live-golden-board.json');
