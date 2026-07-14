@@ -8522,6 +8522,14 @@ export class MobileLiveGoldenRadar {
       ...measuredProbeCandidates,
     ], measurementLimit)
       .filter((keyword) => isHighYieldSearchAdSpendCandidate(keyword, probeCategoryFor(keyword), this.now()));
+    // When the probe queue is full, it can otherwise consume the entire
+    // measurement budget before the deficit lane's own curated anchors are
+    // measured. Measure those exact natural-language anchors first; these are
+    // real SearchAd lookups and still pass the normal volume/document/publish
+    // gates, so no synthetic board rows are introduced.
+    const curatedExactCandidates = measuredProbeOnly && hasCuratedCoreSearchAdSeeds
+      ? curatedCoreSearchAdSeedsForCategory(categoryId)
+      : [];
     const measuredSearchAdIds = new Set(
       measuredSearchAdCandidates.map((keyword) => keywordCompactId(keyword)).filter(Boolean),
     );
@@ -8538,6 +8546,7 @@ export class MobileLiveGoldenRadar {
       this.searchAdMeasurementBudgetRemaining - suggestionRowsForRun.length,
     );
     const searchAdCandidates = uniqueKeywords([
+      ...curatedExactCandidates,
       ...measuredSearchAdCandidates,
       ...fallbackSearchAdCandidates,
     ], Math.max(0, measurementLimit - suggestionRowsForRun.length));
