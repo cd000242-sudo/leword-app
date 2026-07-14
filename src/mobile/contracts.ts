@@ -132,6 +132,8 @@ export interface MobileKeywordMetric {
   isMeasured: boolean;
   searchVolumeSource?: MobileSearchVolumeSource;
   searchVolumeConfidence?: MobileMeasurementConfidence;
+  searchVolumeBindingVersion?: 'keyword-keyed-v2';
+  searchVolumeMeasuredAt?: string;
   isSearchVolumeEstimated?: boolean;
   documentCountSource?: MobileDocumentCountSource;
   documentCountConfidence?: MobileMeasurementConfidence;

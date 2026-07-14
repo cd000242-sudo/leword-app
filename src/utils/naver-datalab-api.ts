@@ -7,6 +7,11 @@ import { apiCache, cachedApiCall } from './api-cache';
 import { ErrorHandler } from './error-handler';
 import { rankRelatedKeywordCandidates } from './keyword-relevance';
 import {
+  alignSearchAdRowsByKeyword,
+  SEARCHAD_KEYWORD_BINDING_VERSION,
+  type SearchAdKeywordBindingVersion,
+} from './searchad-result-alignment';
+import {
   isNaverBlogOpenApiQuotaBlocked,
   isNaverBlogOpenApiQuotaExceededText,
   isNaverBlogOpenApiRateLimitedText,
@@ -717,8 +722,8 @@ export async function getBlogSearchFallback(
 export async function getNaverKeywordSearchVolumeSeparate(
   config: NaverDatalabConfig,
   keywords: string[],
-  options: { includeDocumentCount?: boolean } = {}
-): Promise<{ keyword: string; pcSearchVolume: number | null; mobileSearchVolume: number | null; documentCount: number | null; competition: string | null; monthlyAveCpc: number | null; pcSearchVolumeLt10?: boolean; mobileSearchVolumeLt10?: boolean; svEstimated?: boolean }[]> {
+  options: { includeDocumentCount?: boolean; forceFresh?: boolean } = {}
+): Promise<{ keyword: string; pcSearchVolume: number | null; mobileSearchVolume: number | null; documentCount: number | null; competition: string | null; monthlyAveCpc: number | null; pcSearchVolumeLt10?: boolean; mobileSearchVolumeLt10?: boolean; svEstimated?: boolean; searchVolumeBindingVersion?: SearchAdKeywordBindingVersion; searchVolumeMeasuredAt?: string }[]> {
   if (!config.clientId || !config.clientSecret) {
     throw new Error('네이버 API 인증 정보가 필요합니다');
   }
@@ -727,7 +732,7 @@ export async function getNaverKeywordSearchVolumeSeparate(
   const input = (keywords || []).map(k => String(k || '').trim()).filter(Boolean);
   if (input.length === 0) return [];
 
-  const results: { keyword: string; pcSearchVolume: number | null; mobileSearchVolume: number | null; documentCount: number | null; competition: string | null; monthlyAveCpc: number | null; pcSearchVolumeLt10?: boolean; mobileSearchVolumeLt10?: boolean; svEstimated?: boolean }[] = input.map(k => ({
+  const results: { keyword: string; pcSearchVolume: number | null; mobileSearchVolume: number | null; documentCount: number | null; competition: string | null; monthlyAveCpc: number | null; pcSearchVolumeLt10?: boolean; mobileSearchVolumeLt10?: boolean; svEstimated?: boolean; searchVolumeBindingVersion?: SearchAdKeywordBindingVersion; searchVolumeMeasuredAt?: string }[] = input.map(k => ({
     keyword: k,
     pcSearchVolume: null,
     mobileSearchVolume: null,
@@ -774,11 +779,14 @@ export async function getNaverKeywordSearchVolumeSeparate(
         try {
           // The SearchAd client aborts each HTTP attempt itself. Await the batch
           // instead of racing a fallback timer that leaves quota work orphaned.
-          const searchAdResults = await getNaverSearchAdKeywordVolume(searchAdConfig, batch) as any[];
+          const searchAdResults = await getNaverSearchAdKeywordVolume(searchAdConfig, batch, {
+            forceFresh: options.forceFresh === true,
+          }) as any[];
+          const alignedSearchAdResults = alignSearchAdRowsByKeyword(batch, searchAdResults);
 
           for (let j = 0; j < batch.length; j++) {
             const idx = i + j;
-            const r = searchAdResults && searchAdResults[j] ? searchAdResults[j] : null;
+            const r = alignedSearchAdResults[j];
             const pcVol: number | null = r && typeof r.pcSearchVolume === 'number' ? r.pcSearchVolume : null;
             const mobileVol: number | null = r && typeof r.mobileSearchVolume === 'number' ? r.mobileSearchVolume : null;
             results[idx].pcSearchVolume = pcVol;
@@ -790,6 +798,13 @@ export async function getNaverKeywordSearchVolumeSeparate(
             results[idx].mobileSearchVolumeLt10 = r && r.mobileSearchVolumeLt10 === true;
             // v2.49.18: svEstimated 플래그 전파 (휴리스틱 fallback → sanity-gate SSS 차단)
             results[idx].svEstimated = r && r.svEstimated === true;
+            if (r?.searchVolumeBindingVersion === SEARCHAD_KEYWORD_BINDING_VERSION) {
+              results[idx].searchVolumeBindingVersion = SEARCHAD_KEYWORD_BINDING_VERSION;
+              const measuredAtMs = Number(r.measuredAtMs);
+              if (Number.isFinite(measuredAtMs) && measuredAtMs > 0) {
+                results[idx].searchVolumeMeasuredAt = new Date(measuredAtMs).toISOString();
+              }
+            }
           }
         } catch (e: any) {
           for (let j = 0; j < batch.length; j++) {

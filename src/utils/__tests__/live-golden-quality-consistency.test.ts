@@ -48,6 +48,8 @@ function row(
     isMeasured: true,
     searchVolumeSource: 'searchad',
     searchVolumeConfidence: 'high',
+    searchVolumeBindingVersion: 'keyword-keyed-v2',
+    searchVolumeMeasuredAt: '2026-07-11T16:10:00.000Z',
     isSearchVolumeEstimated: false,
     documentCountSource: 'cache',
     documentCountConfidence: 'medium',

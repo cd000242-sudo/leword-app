@@ -12,6 +12,7 @@
  */
 
 import axios from 'axios';
+import { searchAdKeywordBindingMetadata } from './searchad-result-alignment';
 
 const UPLOAD_TIMEOUT_MS = 15_000;
 const MAX_UPLOAD_ROWS = 240;
@@ -75,6 +76,7 @@ export function uploadRowFromDiscoveryResult(result: unknown): Record<string, un
     const mobile = toFinite(row['mobileSearchVolume']);
     const searchVolume = toFinite(row['searchVolume']) ?? (pc !== null && mobile !== null ? pc + mobile : null);
     const documentCount = toFinite(row['documentCount']);
+    const bindingMetadata = searchAdKeywordBindingMetadata(row);
     if (
         !keyword
         || pc === null
@@ -82,8 +84,10 @@ export function uploadRowFromDiscoveryResult(result: unknown): Record<string, un
         || pc + mobile <= 0
         || searchVolume === null
         || searchVolume <= 0
+        || searchVolume !== pc + mobile
         || documentCount === null
         || documentCount <= 0
+        || !bindingMetadata
     ) {
         return null;
     }
@@ -103,6 +107,7 @@ export function uploadRowFromDiscoveryResult(result: unknown): Record<string, un
         intent: typeof row['intent'] === 'string' ? row['intent'] : undefined,
         searchVolumeSource: 'searchad',
         searchVolumeConfidence: 'high',
+        ...bindingMetadata,
         isSearchVolumeEstimated: false,
         documentCountSource: 'naver-api',
         documentCountConfidence: 'high',

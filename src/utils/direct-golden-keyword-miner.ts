@@ -1273,6 +1273,8 @@ function mapMeasuredRowToMdpResult(row: MeasuredKeywordRow, category: string, ca
     score,
     pcSearchVolume: typeof row.pcSearchVolume === 'number' && Number.isFinite(row.pcSearchVolume) ? row.pcSearchVolume : null,
     mobileSearchVolume: typeof row.mobileSearchVolume === 'number' && Number.isFinite(row.mobileSearchVolume) ? row.mobileSearchVolume : null,
+    searchVolumeBindingVersion: row.searchVolumeBindingVersion,
+    searchVolumeMeasuredAt: row.searchVolumeMeasuredAt,
     hasSmartBlock: false,
     hasViewSection: true,
     hasInfluencer: false,

@@ -16,6 +16,11 @@ import {
   selectSearchAdAccount,
 } from './searchad-account-pool';
 import { getSearchAdVolumeCached, setSearchAdVolumeCached } from './searchad-volume-cache';
+import {
+  alignSearchAdRowsByKeyword,
+  SEARCHAD_KEYWORD_BINDING_VERSION,
+  type SearchAdKeywordBindingVersion,
+} from './searchad-result-alignment';
 
 let lastSearchAdRequestAt = 0;
 // 429 발생 시 적응형으로 상향(상한 4s), 성공 시 완만히 회복(하한 900ms) — rate-limit 자동 완화
@@ -49,6 +54,7 @@ export interface KeywordSearchVolume {
    * "N일 전 측정" 신선도 라벨용. 값 자체는 항상 실측 절대값(추정 아님).
    */
   measuredAtMs?: number;
+  searchVolumeBindingVersion?: SearchAdKeywordBindingVersion;
 }
 
 /**
@@ -359,7 +365,28 @@ export async function getNaverSearchAdKeywordVolume(
   // 개별 재호출 fallback 제거 — 실측에서 회복률 0%로 효용 없고 Rate Limit 소진만 가속.
   // (Naver가 sv=0으로 반환하는 키워드는 실제로 데이터가 없음 — 단일 재호출해도 동일)
 
-  return results;
+  // Cache hits are collected before API misses, so append order is not request
+  // order. Every downstream consumer expects a one-to-one keyword row. Restore
+  // that contract by exact normalized keyword identity and fail closed on gaps.
+  return alignSearchAdRowsByKeyword(cleanKeywords, results).map((matched, index) => {
+    if (!matched) {
+      return {
+        keyword: cleanKeywords[index],
+        pcSearchVolume: null,
+        mobileSearchVolume: null,
+        totalSearchVolume: null,
+      };
+    }
+    const hasKeywordBoundSplit = typeof matched.pcSearchVolume === 'number'
+      && typeof matched.mobileSearchVolume === 'number';
+    return {
+      ...matched,
+      keyword: cleanKeywords[index],
+      ...(hasKeywordBoundSplit
+        ? { searchVolumeBindingVersion: SEARCHAD_KEYWORD_BINDING_VERSION }
+        : {}),
+    };
+  });
 }
 
 export interface KeywordSuggestion {
@@ -371,6 +398,8 @@ export interface KeywordSuggestion {
   monthlyPcQcCnt?: number;
   monthlyMobileQcCnt?: number;
   monthlyAveCpc?: number | null;
+  measuredAtMs?: number;
+  searchVolumeBindingVersion?: SearchAdKeywordBindingVersion;
 }
 
 /**
@@ -436,6 +465,7 @@ export async function getNaverSearchAdKeywordSuggestions(
     const data = await response.json();
     const keywordList = data.keywordList || data.relKeywordList || (data.result && (data.result.keywordList || data.result.relKeywordList)) || [];
 
+    const measuredAtMs = Date.now();
     const suggestions: KeywordSuggestion[] = keywordList.map((item: any) => {
       const pc = parseVolumeValue(item.monthlyPcQcCnt) || 0;
       const mo = parseVolumeValue(item.monthlyMobileQcCnt) || 0;
@@ -449,6 +479,8 @@ export async function getNaverSearchAdKeywordSuggestions(
         monthlyPcQcCnt: pc,
         monthlyMobileQcCnt: mo,
         monthlyAveCpc: aveCpc,
+        measuredAtMs,
+        searchVolumeBindingVersion: SEARCHAD_KEYWORD_BINDING_VERSION,
       };
     });
 

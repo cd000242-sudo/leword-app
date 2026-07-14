@@ -47,6 +47,8 @@ async function run(): Promise<void> {
       searchVolume: 2400,
       pcSearchVolume: 500,
       mobileSearchVolume: 1900,
+      searchVolumeBindingVersion: 'keyword-keyed-v2',
+      searchVolumeMeasuredAt: '2026-07-15T01:02:03.000Z',
       documentCount: 800,
       goldenRatio: 3,
       cpc: 120,
@@ -66,6 +68,8 @@ async function run(): Promise<void> {
         && measured['isSearchVolumeEstimated'] === false
         && measured['isDocumentCountEstimated'] === false
         && measured['searchVolumeSource'] === 'searchad'
+        && measured['searchVolumeBindingVersion'] === 'keyword-keyed-v2'
+        && measured['searchVolumeMeasuredAt'] === '2026-07-15T01:02:03.000Z'
         && measured['documentCountSource'] === 'naver-api'
         && measured['totalSearchVolume'] === 2400,
       JSON.stringify(measured));
@@ -98,11 +102,44 @@ async function run(): Promise<void> {
     });
     assert('rows without measured documents are rejected', docless === null);
 
+    const unboundSplit = uploadRowFromDiscoveryResult({
+      keyword: 'unbound searchad split',
+      searchVolume: 1200,
+      pcSearchVolume: 300,
+      mobileSearchVolume: 900,
+      documentCount: 300,
+    });
+    assert('unversioned split cannot be laundered into trusted SearchAd provenance', unboundSplit === null);
+
+    const invalidMeasuredAt = uploadRowFromDiscoveryResult({
+      keyword: 'invalid measured time',
+      searchVolume: 1200,
+      pcSearchVolume: 300,
+      mobileSearchVolume: 900,
+      searchVolumeBindingVersion: 'keyword-keyed-v2',
+      searchVolumeMeasuredAt: 'not-a-date',
+      documentCount: 300,
+    });
+    assert('current marker without a valid measurement time is rejected', invalidMeasuredAt === null);
+
+    const mismatchedTotal = uploadRowFromDiscoveryResult({
+      keyword: 'mismatched split total',
+      searchVolume: 999,
+      pcSearchVolume: 300,
+      mobileSearchVolume: 900,
+      searchVolumeBindingVersion: 'keyword-keyed-v2',
+      searchVolumeMeasuredAt: '2026-07-15T01:02:03.000Z',
+      documentCount: 300,
+    });
+    assert('binding marker cannot bless a total that differs from its split', mismatchedTotal === null);
+
     const unreliableExtras = uploadRowFromDiscoveryResult({
       keyword: '난방비 지원금 신청 방법',
       searchVolume: 1500,
       pcSearchVolume: 400,
       mobileSearchVolume: 1100,
+      searchVolumeBindingVersion: 'keyword-keyed-v2',
+      searchVolumeMeasuredAt: '2026-07-15T01:02:03.000Z',
       documentCount: 500,
       winnable: true,
       vacancySlots: 4,
@@ -115,7 +152,7 @@ async function run(): Promise<void> {
         && !('briefRecommendedWords' in unreliableExtras),
       JSON.stringify(unreliableExtras));
 
-    console.log('[live-board-uploader.test] passed: 9 / failed: 0');
+    console.log('[live-board-uploader.test] passed: 12 / failed: 0');
   } finally {
     if (savedUrl === undefined) delete process.env['LEWORD_LIVE_GOLDEN_INGEST_URL'];
     else process.env['LEWORD_LIVE_GOLDEN_INGEST_URL'] = savedUrl;

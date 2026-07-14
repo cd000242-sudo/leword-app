@@ -1171,7 +1171,11 @@ assert('mobile executor measures analysis and mindmap candidates with PC metrics
 assert('mobile executor preserves existing measured document counts when OpenAPI returns null',
   /documentMeasurement !== undefined && documentMeasurement !== null[\s\S]{0,100}\? documentMeasurement\.documentCount[\s\S]{0,100}: metric\.documentCount/.test(pcExecutor));
 assert('mobile executor marks SearchAd/OpenAPI measurement provenance and blocks estimated metrics',
-  /searchVolumeSource = volume \? 'searchad'/.test(pcExecutor)
+  /searchAdKeywordBindingMetadata/.test(pcExecutor)
+    && /const hasBoundVolumeSplit =/.test(pcExecutor)
+    && /searchVolumeSource = hasBoundVolumeSplit \? 'searchad'/.test(pcExecutor)
+    && /searchVolumeBindingVersion: retainedBindingMetadata/.test(pcExecutor)
+    && /searchVolumeMeasuredAt: retainedBindingMetadata/.test(pcExecutor)
     && /documentCountSource = documentMeasurement/.test(pcExecutor)
     && /documentCountConfidence = documentMeasurement/.test(pcExecutor)
     && /isDocumentCountEstimated = documentMeasurement/.test(pcExecutor)
@@ -1183,11 +1187,11 @@ assert('mobile executor measures total content documents with blog and cafe Open
     && /search\/\$\{endpoint\}\.json/.test(pcExecutor)
     && /fetchNaverDocumentCountMap/.test(pcExecutor)
     && /pc-naver-openapi-document-count/.test(pcExecutor));
-assert('mobile executor preserves existing measured search volume when SearchAd returns zero-only supplements',
+assert('mobile executor replaces search volume only with an explicitly keyword-bound SearchAd split',
   /const splitTotal = pcSearchVolume !== null \|\| mobileSearchVolume !== null/.test(pcExecutor)
-    && /totalFromVolume !== null && totalFromVolume > 0/.test(pcExecutor)
-    && /splitTotal !== null && splitTotal > 0/.test(pcExecutor)
-    && /: metric\.totalSearchVolume/.test(pcExecutor));
+    && /const totalSearchVolume = hasBoundVolumeSplit/.test(pcExecutor)
+    && /\? splitTotal[\s\S]{0,80}: metric\.totalSearchVolume/.test(pcExecutor)
+    && /retainedBindingMetadata = hasBoundVolumeSplit/.test(pcExecutor));
 assert('mobile executor wires golden discovery to PC MDP engine', /MDPEngine/.test(pcExecutor) && /runGoldenDiscoveryWithPcMdp/.test(pcExecutor));
 assert('mobile bulk golden direct supplement keeps measured SS/S quality backfill',
   /isQualityGoldenDiscoveryResult/.test(pcExecutor)

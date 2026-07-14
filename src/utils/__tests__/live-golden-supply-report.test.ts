@@ -21,6 +21,8 @@ function measuredItem(keyword: string, category: string, index: number): any {
     isMeasured: true,
     searchVolumeSource: 'searchad',
     searchVolumeConfidence: 'high',
+    searchVolumeBindingVersion: 'keyword-keyed-v2',
+    searchVolumeMeasuredAt: '2026-07-11T09:00:00.000Z',
     isSearchVolumeEstimated: false,
     documentCountSource: 'naver-api',
     documentCountConfidence: 'high',
@@ -102,6 +104,32 @@ assert('splitless total-only rows cannot satisfy measured completeness',
     && splitlessReport.measuredCompletenessRate === 0
     && splitlessReport.failureReasons.includes('untrusted-row-present'),
   JSON.stringify(splitlessReport));
+
+const unversioned = measuredItem('legacy positional binding', 'finance', 3);
+delete unversioned.searchVolumeBindingVersion;
+const unversionedReport = buildLiveGoldenSupplyReport([unversioned], {
+  nowMs: Date.parse('2026-07-11T10:00:00.000Z'),
+  verifiedTarget: 1,
+  minimumActiveCoreCategories: 1,
+});
+assert('legacy positional SearchAd bindings stay untrusted until keyword-keyed revalidation',
+  unversionedReport.verifiedCount === 0
+    && unversionedReport.untrustedCount === 1
+    && unversionedReport.failureReasons.includes('untrusted-row-present'),
+  JSON.stringify(unversionedReport));
+
+const inconsistentSplit = measuredItem('mismatched bound total', 'finance', 4);
+inconsistentSplit.totalSearchVolume = 999;
+const inconsistentSplitReport = buildLiveGoldenSupplyReport([inconsistentSplit], {
+  nowMs: Date.parse('2026-07-11T10:00:00.000Z'),
+  verifiedTarget: 1,
+  minimumActiveCoreCategories: 1,
+});
+assert('keyword binding marker cannot bless a total that differs from its PC/mobile split',
+  inconsistentSplitReport.verifiedCount === 0
+    && inconsistentSplitReport.untrustedCount === 1
+    && inconsistentSplitReport.failureReasons.includes('untrusted-row-present'),
+  JSON.stringify(inconsistentSplitReport));
 
 function shareBoundaryPortfolio(total: number): any[] {
   const dominant = Array.from({ length: 11 }, (_, index) => measuredItem(

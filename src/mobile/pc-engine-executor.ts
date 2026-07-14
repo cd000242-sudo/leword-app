@@ -62,6 +62,7 @@ import {
   getNaverSearchAdKeywordVolume,
   type KeywordSearchVolume,
 } from '../utils/naver-searchad-api';
+import { searchAdKeywordBindingMetadata } from '../utils/searchad-result-alignment';
 import {
   calculateMindmapMetricGrade,
 } from '../utils/mindmap-metrics';
@@ -290,15 +291,24 @@ function metricFromExpansion(
   };
 }
 
-function metricFromMdpResult(result: MDPResult, categoryId: string): MobileKeywordMetric {
+export function metricFromMdpResult(result: MDPResult, categoryId: string): MobileKeywordMetric {
   const totalSearchVolume = finiteNumber(result.searchVolume);
   const documentCount = finiteNumber(result.documentCount);
+  const pcSearchVolume = finiteNumber(result.pcSearchVolume);
+  const mobileSearchVolume = finiteNumber(result.mobileSearchVolume);
+  const hasConsistentBoundSplit = pcSearchVolume !== null
+    && mobileSearchVolume !== null
+    && totalSearchVolume !== null
+    && pcSearchVolume + mobileSearchVolume === totalSearchVolume;
+  const bindingMetadata = hasConsistentBoundSplit
+    ? searchAdKeywordBindingMetadata(result)
+    : null;
   return {
     keyword: normalizeKeyword(result.keyword),
     grade: normalizeGrade(result.grade, result.score),
     score: finiteNumber(result.score),
-    pcSearchVolume: null,
-    mobileSearchVolume: null,
+    pcSearchVolume,
+    mobileSearchVolume,
     totalSearchVolume,
     documentCount,
     goldenRatio: finiteNumber(result.goldenRatio),
@@ -312,6 +322,14 @@ function metricFromMdpResult(result: MDPResult, categoryId: string): MobileKeywo
       ...(result.externalSources || []),
     ].filter(Boolean),
     isMeasured: totalSearchVolume !== null && documentCount !== null,
+    ...(bindingMetadata
+      ? {
+          searchVolumeSource: 'searchad' as const,
+          searchVolumeConfidence: 'high' as const,
+          isSearchVolumeEstimated: false,
+          ...bindingMetadata,
+        }
+      : {}),
   };
 }
 
@@ -4194,30 +4212,47 @@ async function fetchSearchAdVolumeMap(
   return out;
 }
 
-function mergeMeasuredMetric(
+export function mergeMeasuredMetric(
   metric: MobileKeywordMetric,
   volume: KeywordSearchVolume | undefined,
   documentMeasurement: Awaited<ReturnType<typeof fetchNaverDocumentCount>> | undefined,
 ): MobileKeywordMetric {
-  const pcSearchVolume = finiteNumber(volume?.pcSearchVolume) ?? metric.pcSearchVolume;
-  const mobileSearchVolume = finiteNumber(volume?.mobileSearchVolume) ?? metric.mobileSearchVolume;
-  const totalFromVolume = finiteNumber(volume?.totalSearchVolume);
+  const volumePcSearchVolume = finiteNumber(volume?.pcSearchVolume);
+  const volumeMobileSearchVolume = finiteNumber(volume?.mobileSearchVolume);
+  const volumeBindingMetadata = searchAdKeywordBindingMetadata(volume);
+  const hasBoundVolumeSplit = volumePcSearchVolume !== null
+    && volumeMobileSearchVolume !== null
+    && volumeBindingMetadata !== null;
+  const pcSearchVolume = hasBoundVolumeSplit ? volumePcSearchVolume : metric.pcSearchVolume;
+  const mobileSearchVolume = hasBoundVolumeSplit ? volumeMobileSearchVolume : metric.mobileSearchVolume;
   const splitTotal = pcSearchVolume !== null || mobileSearchVolume !== null
     ? (pcSearchVolume || 0) + (mobileSearchVolume || 0)
     : null;
-  const totalSearchVolume = totalFromVolume !== null && totalFromVolume > 0
-    ? totalFromVolume
-    : splitTotal !== null && splitTotal > 0
-      ? splitTotal
-      : metric.totalSearchVolume;
+  const totalSearchVolume = hasBoundVolumeSplit
+    ? splitTotal
+    : metric.totalSearchVolume;
   const resolvedDocumentCount = documentMeasurement !== undefined && documentMeasurement !== null
     ? documentMeasurement.documentCount
     : metric.documentCount;
-  const cpc = finiteNumber(volume?.monthlyAveCpc) ?? metric.cpc;
+  const cpc = (hasBoundVolumeSplit ? finiteNumber(volume?.monthlyAveCpc) : null) ?? metric.cpc;
   const goldenRatio = ratioFromMetrics(totalSearchVolume, resolvedDocumentCount) ?? metric.goldenRatio;
-  const searchVolumeSource = volume ? 'searchad' : metric.searchVolumeSource;
-  const searchVolumeConfidence = volume ? 'high' : metric.searchVolumeConfidence;
-  const isSearchVolumeEstimated = Boolean(volume?.svEstimated) || metric.isSearchVolumeEstimated === true;
+  const searchVolumeSource = hasBoundVolumeSplit ? 'searchad' : metric.searchVolumeSource;
+  const searchVolumeConfidence = hasBoundVolumeSplit ? 'high' : metric.searchVolumeConfidence;
+  const isSearchVolumeEstimated = hasBoundVolumeSplit
+    ? Boolean(volume?.svEstimated)
+    : metric.isSearchVolumeEstimated === true;
+  const metricPcSearchVolume = finiteNumber(metric.pcSearchVolume);
+  const metricMobileSearchVolume = finiteNumber(metric.mobileSearchVolume);
+  const metricTotalSearchVolume = finiteNumber(metric.totalSearchVolume);
+  const metricHasConsistentSplit = metricPcSearchVolume !== null
+    && metricMobileSearchVolume !== null
+    && metricTotalSearchVolume !== null
+    && metricPcSearchVolume + metricMobileSearchVolume === metricTotalSearchVolume;
+  const retainedBindingMetadata = hasBoundVolumeSplit
+    ? volumeBindingMetadata
+    : metricHasConsistentSplit
+      ? searchAdKeywordBindingMetadata(metric)
+      : null;
   const documentCountSource = documentMeasurement
     ? documentMeasurement.source
     : metric.documentCountSource;
@@ -4229,7 +4264,7 @@ function mergeMeasuredMetric(
     : metric.isDocumentCountEstimated === true;
 
   let evidence = metric.evidence;
-  if (volume && totalSearchVolume !== null) {
+  if (hasBoundVolumeSplit && totalSearchVolume !== null) {
     evidence = addEvidence(evidence, 'pc-searchad-volume');
     if (volume.svEstimated) {
       evidence = addEvidence(evidence, 'pc-searchad-volume-estimated');
@@ -4256,6 +4291,8 @@ function mergeMeasuredMetric(
     isMeasured: totalSearchVolume !== null && resolvedDocumentCount !== null,
     searchVolumeSource,
     searchVolumeConfidence,
+    searchVolumeBindingVersion: retainedBindingMetadata?.searchVolumeBindingVersion,
+    searchVolumeMeasuredAt: retainedBindingMetadata?.searchVolumeMeasuredAt,
     isSearchVolumeEstimated,
     documentCountSource,
     documentCountConfidence,

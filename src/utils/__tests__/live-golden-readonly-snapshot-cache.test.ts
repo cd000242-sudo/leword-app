@@ -27,6 +27,8 @@ function row(keyword: string, category: string): Record<string, unknown> {
     isMeasured: true,
     searchVolumeSource: 'searchad',
     searchVolumeConfidence: 'high',
+    searchVolumeBindingVersion: 'keyword-keyed-v2',
+    searchVolumeMeasuredAt: '2026-07-12T00:00:00.000Z',
     isSearchVolumeEstimated: false,
     documentCountSource: 'naver-api',
     documentCountConfidence: 'high',

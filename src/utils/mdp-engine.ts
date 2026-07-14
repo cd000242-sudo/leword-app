@@ -31,6 +31,8 @@ export interface MDPResult {
     // 라다 mapDirectResult·서버 ingest 가 실측 판정에 사용. 추정 경로는 채우지 않는다.
     pcSearchVolume?: number | null;
     mobileSearchVolume?: number | null;
+    searchVolumeBindingVersion?: 'keyword-keyed-v2';
+    searchVolumeMeasuredAt?: string;
     // Phase 2: SERP Signals
     hasSmartBlock?: boolean;
     hasViewSection?: boolean;
@@ -524,6 +526,10 @@ export class MDPEngine {
                             documentCount: docCount,
                             goldenRatio: parseFloat(goldenRatio.toFixed(2)),
                             score: scoreForDisplay,
+                            pcSearchVolume: sig.pcSearchVolume,
+                            mobileSearchVolume: sig.mobileSearchVolume,
+                            searchVolumeBindingVersion: sig.searchVolumeBindingVersion,
+                            searchVolumeMeasuredAt: sig.searchVolumeMeasuredAt,
                             // Phase 2 Data
                             hasSmartBlock: serpSignal.hasSmartBlock,
                             hasViewSection: serpSignal.hasViewSection,

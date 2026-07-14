@@ -7,6 +7,7 @@ import {
   LIVE_GOLDEN_CORE_CATEGORY_POLICIES,
   liveGoldenPolicyKeyForDiscoveryId,
 } from './live-golden-category-policy';
+import { SEARCHAD_KEYWORD_BINDING_VERSION } from '../utils/searchad-result-alignment';
 
 export interface LiveGoldenSupplyReportOptions {
   nowMs?: number;
@@ -57,11 +58,17 @@ function roundRate(value: number): number {
 export function isTrustedLiveGoldenSupplyRow(item: MobileLiveGoldenBoardItem): boolean {
   const pcSearchVolume = Number(item.pcSearchVolume);
   const mobileSearchVolume = Number(item.mobileSearchVolume);
+  const totalSearchVolume = Number(item.totalSearchVolume);
   const hasMeasuredSplit = Number.isFinite(pcSearchVolume)
     && Number.isFinite(mobileSearchVolume)
-    && pcSearchVolume + mobileSearchVolume > 0;
+    && Number.isFinite(totalSearchVolume)
+    && pcSearchVolume + mobileSearchVolume > 0
+    && pcSearchVolume + mobileSearchVolume === totalSearchVolume;
+  const searchVolumeMeasuredAtMs = Date.parse(String(item.searchVolumeMeasuredAt || ''));
   return item.isMeasured !== false
     && hasMeasuredSplit
+    && item.searchVolumeBindingVersion === SEARCHAD_KEYWORD_BINDING_VERSION
+    && Number.isFinite(searchVolumeMeasuredAtMs)
     && hasTrustedSearchVolumeMeasurement(item)
     && hasTrustedDocumentCountMeasurement(item);
 }
@@ -93,8 +100,12 @@ export function buildLiveGoldenSupplyReport(
     } else {
       counts[key] = (counts[key] || 0) + 1;
     }
-    const updatedAtMs = Date.parse(String(item.updatedAt || ''));
-    if (!Number.isFinite(updatedAtMs) || nowMs - updatedAtMs > MAX_VERIFIED_AGE_MS) {
+    const measuredAtMs = Date.parse(String(item.searchVolumeMeasuredAt || item.updatedAt || ''));
+    if (
+      !Number.isFinite(measuredAtMs)
+      || measuredAtMs > nowMs + 5 * 60 * 1000
+      || nowMs - measuredAtMs > MAX_VERIFIED_AGE_MS
+    ) {
       staleVerifiedCount += 1;
     }
   }

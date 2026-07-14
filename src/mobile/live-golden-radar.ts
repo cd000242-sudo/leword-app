@@ -25,6 +25,8 @@ import {
 import {
   searchAdNextResetAtMs,
 } from '../utils/searchad-quota-governor';
+import { SEARCHAD_KEYWORD_BINDING_VERSION } from '../utils/searchad-result-alignment';
+import { getSearchAdVolumeCached } from '../utils/searchad-volume-cache';
 import {
   buildSearchAdAccountPool,
   summarizeSearchAdAccountPool,
@@ -262,6 +264,7 @@ const LIVE_CACHE_PROMOTION_BUDGET_PER_RUN = 24;
 const LIVE_CACHE_PROMOTION_BATCH_SIZE = 6;
 const LIVE_CACHE_PROMOTION_BATCH_TIMEOUT_MS = 16_000;
 const LIVE_CACHE_ZERO_SPLIT_RETRY_MS = 7 * 24 * 60 * 60 * 1000;
+const LIVE_CACHE_ZERO_SPLIT_EVIDENCE = 'searchad-pc-mobile-split-zero:v2-exact-fallback';
 const LIVE_CACHE_PROMOTION_MIN_VOLUME = 100;
 const LIVE_CACHE_PROMOTION_MIN_RATIO = 0.5;
 const LIVE_CACHE_PROMOTION_STRONG_NEED_MIN_RATIO = 0.08;
@@ -894,6 +897,37 @@ function normalizeDocumentCountSource(value: unknown): MobileDocumentCountSource
   return undefined;
 }
 
+function normalizeSearchVolumeBindingVersion(value: unknown): 'keyword-keyed-v2' | undefined {
+  return normalizeKeyword(value) === SEARCHAD_KEYWORD_BINDING_VERSION
+    ? SEARCHAD_KEYWORD_BINDING_VERSION
+    : undefined;
+}
+
+function hasCurrentSearchAdKeywordBinding(item: Partial<MobileKeywordMetric>): boolean {
+  return item.searchVolumeBindingVersion === SEARCHAD_KEYWORD_BINDING_VERSION;
+}
+
+function hasFreshCurrentSearchAdKeywordBinding(
+  item: Partial<MobileKeywordMetric>,
+  now: Date = new Date(),
+): boolean {
+  if (!hasCurrentSearchAdKeywordBinding(item)) return false;
+  const measuredAtMs = Date.parse(String(item.searchVolumeMeasuredAt || ''));
+  const nowMs = now.getTime();
+  return Number.isFinite(measuredAtMs)
+    && measuredAtMs <= nowMs + 5 * 60 * 1000
+    && nowMs - measuredAtMs <= LIVE_BOARD_MAX_AGE_MS;
+}
+
+function needsSearchAdKeywordBindingRevalidation(
+  item: Partial<MobileKeywordMetric>,
+  now: Date = new Date(),
+): boolean {
+  return item.searchVolumeSource === 'searchad'
+    && hasMeasuredPcMobileSplit(item)
+    && !hasFreshCurrentSearchAdKeywordBinding(item, now);
+}
+
 function measurementMetadataFromRow(row: any): Partial<MobileKeywordMetric> {
   const pc = finiteNumber(row?.pcSearchVolume);
   const mobile = finiteNumber(row?.mobileSearchVolume);
@@ -907,6 +941,16 @@ function measurementMetadataFromRow(row: any): Partial<MobileKeywordMetric> {
   const documentCountConfidence = normalizeMeasurementConfidence(row?.documentCountConfidence || row?.dcConfidence);
   if (searchVolumeSource) meta.searchVolumeSource = searchVolumeSource;
   if (searchVolumeConfidence) meta.searchVolumeConfidence = searchVolumeConfidence;
+  const searchVolumeBindingVersion = normalizeSearchVolumeBindingVersion(row?.searchVolumeBindingVersion);
+  if (searchVolumeBindingVersion) {
+    meta.searchVolumeBindingVersion = searchVolumeBindingVersion;
+    const measuredAtMs = finiteNumber(row?.measuredAtMs);
+    const searchVolumeMeasuredAt = normalizeKeyword(row?.searchVolumeMeasuredAt)
+      || (measuredAtMs !== null && measuredAtMs > 0 ? new Date(measuredAtMs).toISOString() : '');
+    if (Number.isFinite(Date.parse(searchVolumeMeasuredAt))) {
+      meta.searchVolumeMeasuredAt = searchVolumeMeasuredAt;
+    }
+  }
   if (row?.isSearchVolumeEstimated === true || row?.svEstimated === true) meta.isSearchVolumeEstimated = true;
   if (row?.isSearchVolumeEstimated === false || row?.svEstimated === false) meta.isSearchVolumeEstimated = false;
   if (searchVolumeSource === 'searchad' && hasSearchAdSplit && meta.isSearchVolumeEstimated === undefined) {
@@ -2823,12 +2867,15 @@ function hasVerifiedCacheSplitDemandProof(item: MobileLiveGoldenBoardItem): bool
   )) || hasLegacyDirectExactProof;
   return item.isMeasured === true
     && item.searchVolumeSource === 'searchad'
+    && hasCurrentSearchAdKeywordBinding(item)
     && hasGeneratedExactMeasurementProof
     && hasMeasuredPcMobileSplit(item)
     && hasTrustedCacheMeasurementForSplitPromotion(item);
 }
 
 function hasRecentCacheZeroSplitProbe(item: MobileLiveGoldenBoardItem, nowMs: number): boolean {
+  const evidence = Array.isArray(item.evidence) ? item.evidence : [];
+  if (!evidence.includes(LIVE_CACHE_ZERO_SPLIT_EVIDENCE)) return false;
   const zeroAtMs = Date.parse(String(item.splitProbeZeroAt || ''));
   return Number.isFinite(zeroAtMs)
     && nowMs >= zeroAtMs
@@ -6438,6 +6485,8 @@ function mapDirectResult(result: MDPResult, categoryId: string): MobileKeywordMe
     monthlyAveCpc?: number | null;
     searchVolumeSource?: MobileSearchVolumeSource;
     searchVolumeConfidence?: MobileMeasurementConfidence;
+    searchVolumeBindingVersion?: 'keyword-keyed-v2';
+    searchVolumeMeasuredAt?: string;
     isSearchVolumeEstimated?: boolean;
     documentCountSource?: MobileDocumentCountSource;
     documentCountConfidence?: MobileMeasurementConfidence;
@@ -6837,7 +6886,7 @@ export class MobileLiveGoldenRadar {
   private async measureLiveSearchVolumeRows(
     config: Parameters<typeof getNaverKeywordSearchVolumeSeparate>[0],
     keywords: string[],
-    options: { includeDocumentCount?: boolean },
+    options: { includeDocumentCount?: boolean; forceFresh?: boolean },
     totalTimeoutMs: number,
     onAttemptedKeywords?: (keywords: readonly string[]) => void,
   ): Promise<LiveSearchVolumeRow[]> {
@@ -7028,6 +7077,7 @@ export class MobileLiveGoldenRadar {
       if (!env.naverClientId || !env.naverClientSecret) {
         throw new Error('Naver Open API config missing');
       }
+      const cachedReboundCount = this.rebindCachedSearchAdRows();
       const searchAdConfig = searchAdConfigFromEnv(env);
       if (searchAdConfig) {
         const quota = this.searchAdQuotaState(searchAdConfig, this.now().getTime());
@@ -7044,7 +7094,7 @@ export class MobileLiveGoldenRadar {
         };
         if (quota.exhausted) {
           this.skippedRuns += 1;
-          this.lastMessage = `SearchAd daily soft ceiling reached (${quota.calls}/${quota.softCeiling}); worker sleeping until KST reset${formatKstRetryAt(quota.resetAtMs)}`;
+          this.lastMessage = `${cachedReboundCount > 0 ? `cache-key revalidated ${cachedReboundCount}; ` : ''}SearchAd daily soft ceiling reached (${quota.calls}/${quota.softCeiling}); worker sleeping until KST reset${formatKstRetryAt(quota.resetAtMs)}`;
           // SearchAd 호출은 중단하되, 시작 시 영속 캐시에서 복원한 실측·신뢰 가능 재고는
           // 공유 보드에 반영한다. 추가 측정 없이 API 읽기 전용 프로세스가 같은 Verified 재고를 본다.
           this.pruneBoard();
@@ -8516,6 +8566,7 @@ export class MobileLiveGoldenRadar {
           searchVolumeSource: 'searchad',
           searchVolumeConfidence: 'high',
           isSearchVolumeEstimated: false,
+          ...measurementMetadataFromRow(suggestion),
         } as LiveSearchVolumeRow,
       });
     };
@@ -9283,7 +9334,17 @@ export class MobileLiveGoldenRadar {
         seen.add(item.id);
         return true;
       });
-    return [...visible, ...references];
+    const nowMs = this.now().getTime();
+    const zeroSplitTombstones = [...this.board.values()]
+      .filter((item) => hasRecentCacheZeroSplitProbe(item, nowMs))
+      .filter((item) => {
+        if (seen.has(item.id)) return false;
+        seen.add(item.id);
+        return true;
+      })
+      .sort((a, b) => Date.parse(b.splitProbeZeroAt || '') - Date.parse(a.splitProbeZeroAt || ''))
+      .slice(0, Math.max(240, this.boardTarget * 12));
+    return [...visible, ...references, ...zeroSplitTombstones];
   }
 
   private clearQuotaRetryTimer(): void {
@@ -9582,6 +9643,8 @@ export class MobileLiveGoldenRadar {
       const incomingHasDirectSearchAdProof = incomingSplitTotal > 0
         && keyword.isMeasured === true
         && keyword.searchVolumeSource === 'searchad'
+        && hasCurrentSearchAdKeywordBinding(keyword)
+        && Number.isFinite(Date.parse(String(keyword.searchVolumeMeasuredAt || '')))
         && !incomingIsPersistentOverlay
         && hasTrustedSearchVolumeMeasurement(keyword)
         && hasTrustedDocumentCountMeasurement(keyword);
@@ -9652,6 +9715,20 @@ export class MobileLiveGoldenRadar {
         : incomingSplitTotal > 0
         ? keyword.isSearchVolumeEstimated
         : existing?.isSearchVolumeEstimated ?? keyword.isSearchVolumeEstimated;
+      const searchVolumeBindingVersion = preserveExistingExactProvenance
+        ? existing?.searchVolumeBindingVersion
+        : incomingSplitTotal > 0
+        ? keyword.searchVolumeBindingVersion
+        : existingSplitTotal > 0
+          ? existing?.searchVolumeBindingVersion
+          : keyword.searchVolumeBindingVersion;
+      const searchVolumeMeasuredAt = preserveExistingExactProvenance
+        ? existing?.searchVolumeMeasuredAt
+        : incomingSplitTotal > 0
+        ? keyword.searchVolumeMeasuredAt
+        : existingSplitTotal > 0
+          ? existing?.searchVolumeMeasuredAt
+          : keyword.searchVolumeMeasuredAt;
       const documentCountSource = preserveExistingExactProvenance
         ? existing?.documentCountSource || keyword.documentCountSource
         : keyword.documentCountSource || existing?.documentCountSource;
@@ -9695,6 +9772,8 @@ export class MobileLiveGoldenRadar {
         cpc,
         searchVolumeSource,
         searchVolumeConfidence,
+        searchVolumeBindingVersion,
+        searchVolumeMeasuredAt,
         isSearchVolumeEstimated,
         documentCountSource,
         documentCountConfidence,
@@ -9748,21 +9827,146 @@ export class MobileLiveGoldenRadar {
     }
   }
 
+  private rebindCachedSearchAdRows(limit: number = LIVE_CACHE_PROMOTION_BUDGET_PER_RUN): number {
+    const now = this.now();
+    const nowMs = now.getTime();
+    const cachedById = new Map<string, ReturnType<typeof getSearchAdVolumeCached>>();
+    const candidates = [...this.board.values()]
+      .filter((item) => ageMsFrom(item.updatedAt, nowMs) <= LIVE_BOARD_MAX_AGE_MS)
+      .filter((item) => hasCompleteLiveGoldenMetrics(item))
+      .filter((item) => needsSearchAdKeywordBindingRevalidation(item, now))
+      .filter((item) => isMeasuredCacheSearchAdSplitCandidate(item.keyword, item.category || 'all', now))
+      .filter((item) => isHumanNaturalGoldenMetric(item))
+      .filter((item) => {
+        const cached = getSearchAdVolumeCached(item.keyword);
+        const pc = finiteNumber(cached?.pc);
+        const mobile = finiteNumber(cached?.mo);
+        const total = finiteNumber(cached?.total);
+        if (
+          !cached
+          || pc === null
+          || mobile === null
+          || total === null
+          || pc + mobile <= 0
+          || pc + mobile !== total
+          || !Number.isFinite(cached.at)
+          || cached.at > nowMs + 5 * 60 * 1000
+          || nowMs - cached.at > LIVE_BOARD_MAX_AGE_MS
+        ) return false;
+        cachedById.set(item.id, cached);
+        return true;
+      })
+      .sort((a, b) => splitEnrichmentPriorityScore(b, nowMs) - splitEnrichmentPriorityScore(a, nowMs));
+    const selected = selectDeficitBalancedCachePromotionCandidates(
+      candidates,
+      this.verifiedSupplyBoard(),
+      Math.max(0, Math.min(LIVE_CACHE_PROMOTION_BUDGET_PER_RUN, Math.floor(limit))),
+    );
+    if (selected.length === 0) return 0;
+
+    const stamp = now.toISOString();
+    let changed = 0;
+    for (const item of selected) {
+      const cached = cachedById.get(item.id);
+      if (!cached) continue;
+      const pc = finiteNumber(cached.pc);
+      const mobile = finiteNumber(cached.mo);
+      const docs = finiteNumber(item.documentCount);
+      if (pc === null || mobile === null || docs === null || docs <= 0 || pc + mobile <= 0) continue;
+      const measuredVolume = pc + mobile;
+      const ratio = Number((measuredVolume / docs).toFixed(2));
+      const opportunityScore = liveUltimateOpportunityScore(item.keyword, measuredVolume, docs, ratio);
+      const grade = normalizeLiveMetricGrade(
+        item.keyword,
+        item.grade,
+        opportunityScore,
+        measuredVolume,
+        docs,
+        ratio,
+      );
+      const measuredAt = new Date(cached.at).toISOString();
+      const reboundInput: MobileLiveGoldenBoardItem = {
+        ...item,
+        grade,
+        score: opportunityScore,
+        pcSearchVolume: pc,
+        mobileSearchVolume: mobile,
+        totalSearchVolume: measuredVolume,
+        goldenRatio: ratio,
+        cpc: finiteNumber(cached.cpc) ?? finiteNumber(item.cpc),
+        searchVolumeSource: 'searchad',
+        searchVolumeConfidence: 'high',
+        searchVolumeBindingVersion: SEARCHAD_KEYWORD_BINDING_VERSION,
+        searchVolumeMeasuredAt: measuredAt,
+        isSearchVolumeEstimated: false,
+        splitProbeZeroAt: undefined,
+        updatedAt: stamp,
+        freshness: 'live',
+        evidence: [...new Set([
+          'searchad-keyword-keyed-v2-cache-rebind',
+          ...(Array.isArray(item.evidence) ? item.evidence : []),
+        ])].slice(0, 10),
+        publicSearchVolumeLabel: formatRange(measuredVolume, 'search'),
+        publicDocumentCountLabel: formatRange(docs, 'document'),
+      };
+      const rebound = applyKeywordAiJudge(reboundInput, { now });
+      this.board.set(item.id, rebound);
+      changed += 1;
+    }
+
+    if (changed > 0) {
+      this.cachePromotionProgressCount += changed;
+      this.pruneBoard();
+      this.boardUpdatedAt = stamp;
+      this.saveBoardToFile();
+      this.cachedSnapshot = null;
+      this.cachedSnapshotAtMs = 0;
+    }
+    return changed;
+  }
+
   private async enrichExistingBoardSearchAdMetrics(config: { clientId: string; clientSecret: string }): Promise<number> {
-    const nowMs = this.now().getTime();
+    const now = this.now();
+    const nowMs = now.getTime();
     const candidates = [...this.board.values()]
       .filter((item) => ageMsFrom(item.updatedAt, nowMs) <= LIVE_BOARD_MAX_AGE_MS)
       .filter((item) => hasCompleteLiveGoldenMetrics(item))
       .filter((item) => isLiveRadarUsableMetric(item, this.now()))
-      .filter((item) => !hasMeasuredPcMobileSplit(item) || !hasRealCpcValue(item))
+      .filter((item) => (
+        !hasMeasuredPcMobileSplit(item)
+        || !hasRealCpcValue(item)
+        || needsSearchAdKeywordBindingRevalidation(item, now)
+      ))
       .filter((item) => isHighYieldSearchAdSpendCandidate(item.keyword, item.category || 'all', this.now()))
       .sort((a, b) => splitEnrichmentPriorityScore(b, nowMs) - splitEnrichmentPriorityScore(a, nowMs))
       .slice(0, LIVE_BOARD_SPLIT_ENRICHMENT_LIMIT);
     if (candidates.length === 0) return 0;
 
-    const rows = await this.measureLiveSearchVolumeRows(config, candidates.map((item) => item.keyword), {
-      includeDocumentCount: false,
-    }, LIVE_SPLIT_ENRICHMENT_TIMEOUT_MS);
+    const rows: LiveSearchVolumeRow[] = [];
+    const measurementStartedAt = Date.now();
+    const revalidationCandidates = candidates.filter(
+      (item) => needsSearchAdKeywordBindingRevalidation(item, now),
+    );
+    const reusableCacheCandidates = candidates.filter(
+      (item) => !needsSearchAdKeywordBindingRevalidation(item, now),
+    );
+    for (const group of [
+      { items: revalidationCandidates, forceFresh: true },
+      { items: reusableCacheCandidates, forceFresh: false },
+    ]) {
+      if (group.items.length === 0) continue;
+      const remainingMs = LIVE_SPLIT_ENRICHMENT_TIMEOUT_MS - (Date.now() - measurementStartedAt);
+      if (remainingMs <= LIVE_SEARCHAD_VOLUME_MIN_REMAINING_MS) break;
+      rows.push(...await this.measureLiveSearchVolumeRows(
+        config,
+        group.items.map((item) => item.keyword),
+        {
+          includeDocumentCount: false,
+          forceFresh: group.forceFresh,
+        },
+        remainingMs,
+      ));
+    }
     if (rows.length === 0) return 0;
 
     const byCompactId = new Map<string, MobileLiveGoldenBoardItem>();
@@ -9817,6 +10021,7 @@ export class MobileLiveGoldenRadar {
         searchVolumeSource: 'searchad',
         searchVolumeConfidence: 'high',
         isSearchVolumeEstimated: (row as any).svEstimated === true,
+        ...measurementMetadataFromRow(row),
         updatedAt: stamp,
         freshness: 'live',
         evidence: [...new Set(evidence)].slice(0, 10),
@@ -9852,14 +10057,26 @@ export class MobileLiveGoldenRadar {
     const rankedCandidates = [...this.board.values()]
       .filter((item) => ageMsFrom(item.updatedAt, nowMs) <= LIVE_BOARD_MAX_AGE_MS)
       .filter((item) => hasCompleteLiveGoldenMetrics(item))
-      .filter((item) => isCachePromotionMeasurementCandidate(item, now))
-      .filter((item) => !hasMeasuredPcMobileSplit(item))
+      .filter((item) => (
+        isCachePromotionMeasurementCandidate(item, now)
+        || needsSearchAdKeywordBindingRevalidation(item, now)
+      ))
+      .filter((item) => (
+        !hasMeasuredPcMobileSplit(item)
+        || needsSearchAdKeywordBindingRevalidation(item, now)
+      ))
       .filter((item) => !hasRecentCacheZeroSplitProbe(item, nowMs))
       .filter((item) => isMeasuredCacheSearchAdSplitCandidate(item.keyword, item.category || 'all', now))
       .filter((item) => isHumanNaturalGoldenMetric(item))
-      .filter((item) => isCacheSplitPromotionPreflightCandidate(item, now))
+      .filter((item) => (
+        needsSearchAdKeywordBindingRevalidation(item, now)
+        || isCacheSplitPromotionPreflightCandidate(item, now)
+      ))
       .filter((item) => !LIVE_PROMOTION_SYNTHETIC_INTENT_CHAIN_RE.test(normalizeKeyword(item.keyword)))
-      .filter((item) => livePromotionPriorityBonus(item.keyword, item.category || 'all') > -300)
+      .filter((item) => (
+        needsSearchAdKeywordBindingRevalidation(item, now)
+        || livePromotionPriorityBonus(item.keyword, item.category || 'all') > -300
+      ))
       .sort((a, b) => splitEnrichmentPriorityScore(b, nowMs) - splitEnrichmentPriorityScore(a, nowMs));
     const candidates = selectDeficitBalancedCachePromotionCandidates(
       rankedCandidates,
@@ -9882,13 +10099,17 @@ export class MobileLiveGoldenRadar {
     if (this.realDemandEnabled) {
       try {
         const demandCheckCandidates = candidates.filter(
-          (item) => !hasTrustedCacheMeasurementForSplitPromotion(item),
+          (item) => (
+            !needsSearchAdKeywordBindingRevalidation(item, now)
+            && !hasTrustedCacheMeasurementForSplitPromotion(item)
+          ),
         );
         const demandVerdicts = await this.realDemandVerifier.verify(
           demandCheckCandidates.map((item) => item.keyword),
           LIVE_REAL_DEMAND_BUDGET_PER_CYCLE,
         );
         promotionCandidates = candidates.filter((item) => {
+          if (needsSearchAdKeywordBindingRevalidation(item, now)) return true;
           if (hasTrustedCacheMeasurementForSplitPromotion(item)) return true;
           const key = normalizeKeyword(item.keyword).toLowerCase().replace(/\s+/g, '');
           return demandVerdicts.get(key) !== 'fake';
@@ -9911,10 +10132,28 @@ export class MobileLiveGoldenRadar {
     const rows: Awaited<ReturnType<typeof this.measureLiveSearchVolumeSeparate>> = [];
     for (let i = 0; i < promotionCandidates.length; i += LIVE_CACHE_PROMOTION_BATCH_SIZE) {
       const batch = promotionCandidates.slice(i, i + LIVE_CACHE_PROMOTION_BATCH_SIZE);
-      const batchRows = await this.measureLiveSearchVolumeRows(config, batch.map((item) => item.keyword), {
-        includeDocumentCount: false,
-      }, LIVE_CACHE_PROMOTION_BATCH_TIMEOUT_MS);
-      rows.push(...batchRows);
+      const revalidationBatch = batch.filter(
+        (item) => needsSearchAdKeywordBindingRevalidation(item, now),
+      );
+      const reusableCacheBatch = batch.filter(
+        (item) => !needsSearchAdKeywordBindingRevalidation(item, now),
+      );
+      for (const group of [
+        { items: revalidationBatch, forceFresh: true },
+        { items: reusableCacheBatch, forceFresh: false },
+      ]) {
+        if (group.items.length === 0 || rows.length >= spendLimit) continue;
+        const batchRows = await this.measureLiveSearchVolumeRows(
+          config,
+          group.items.map((item) => item.keyword),
+          {
+            includeDocumentCount: false,
+            forceFresh: group.forceFresh,
+          },
+          LIVE_CACHE_PROMOTION_BATCH_TIMEOUT_MS,
+        );
+        rows.push(...batchRows);
+      }
       if (rows.length >= spendLimit) {
         break;
       }
@@ -9946,12 +10185,35 @@ export class MobileLiveGoldenRadar {
       const mobile = finiteNumber(row.mobileSearchVolume);
       const measuredVolume = (pc || 0) + (mobile || 0);
       const docs = finiteNumber(item.documentCount);
-      if (pc === null || mobile === null || docs === null || docs <= 0) continue;
-      if (measuredVolume <= 0) {
+      if (pc === null || mobile === null || docs === null || docs <= 0) {
         this.board.set(item.id, {
           ...item,
           splitProbeZeroAt: stamp,
           evidence: [...new Set([
+            LIVE_CACHE_ZERO_SPLIT_EVIDENCE,
+            ...(Array.isArray(item.evidence) ? item.evidence : []),
+            'searchad-pc-mobile-split-missing',
+          ])].slice(0, 10),
+          updatedAt: stamp,
+        });
+        changed += 1;
+        continue;
+      }
+      const rowMeasurementMeta = measurementMetadataFromRow(row);
+      if (measuredVolume <= 0) {
+        this.board.set(item.id, {
+          ...item,
+          pcSearchVolume: pc,
+          mobileSearchVolume: mobile,
+          totalSearchVolume: measuredVolume,
+          goldenRatio: 0,
+          searchVolumeSource: 'searchad',
+          searchVolumeConfidence: 'high',
+          isSearchVolumeEstimated: (row as any).svEstimated === true,
+          ...rowMeasurementMeta,
+          splitProbeZeroAt: stamp,
+          evidence: [...new Set([
+            LIVE_CACHE_ZERO_SPLIT_EVIDENCE,
             ...(Array.isArray(item.evidence) ? item.evidence : []),
             'searchad-pc-mobile-split-zero',
           ])].slice(0, 10),
@@ -9983,6 +10245,7 @@ export class MobileLiveGoldenRadar {
           searchVolumeSource: 'searchad',
           searchVolumeConfidence: 'high',
           isSearchVolumeEstimated: (row as any).svEstimated === true,
+          ...rowMeasurementMeta,
           splitProbeZeroAt: undefined,
           updatedAt: stamp,
           freshness: 'live',
@@ -10007,6 +10270,7 @@ export class MobileLiveGoldenRadar {
         searchVolumeSource: 'searchad',
         searchVolumeConfidence: 'high',
         isSearchVolumeEstimated: (row as any).svEstimated === true,
+        ...rowMeasurementMeta,
         splitProbeZeroAt: undefined,
         documentCountSource: item.documentCountSource || 'cache',
         documentCountConfidence: item.documentCountConfidence || 'medium',
@@ -10118,6 +10382,7 @@ export class MobileLiveGoldenRadar {
       // core golden-keyword inventory.
       .filter((item) => normalizeKeyword(item.lane) !== TRAFFIC_SURGE_LANE)
       .filter((item) => corePolicyKeys.has(liveGoldenPolicyKeyForDiscoveryId(item.category)))
+      .filter((item) => !needsSearchAdKeywordBindingRevalidation(item, now))
       .filter(isTrustedLiveGoldenSupplyRow);
     return selectMeasuredPublishableFallbackItems(
       candidates,
@@ -10192,9 +10457,14 @@ export class MobileLiveGoldenRadar {
       const pendingSplitEnrichment = ageMsFrom(item.updatedAt, nowMs) <= LIVE_BOARD_MAX_AGE_MS
         && hasCompleteLiveGoldenMetrics(item)
         && (isLiveRadarUsableMetric(item, now) || isMeasuredProExactKeywordMetric(item, now))
-        && (!hasMeasuredPcMobileSplit(item) || !hasRealCpcValue(item));
+        && (
+          !hasMeasuredPcMobileSplit(item)
+          || !hasRealCpcValue(item)
+          || needsSearchAdKeywordBindingRevalidation(item, now)
+        );
       if (pendingSplitEnrichment) continue;
       if (isMeasuredBoardReferenceMetric(item, now)) continue;
+      if (hasRecentCacheZeroSplitProbe(item, nowMs)) continue;
       this.board.delete(item.id);
     }
   }
@@ -10472,11 +10742,16 @@ export class MobileLiveGoldenRadar {
     const grade = totalSearchVolume !== null && documentCount !== null && documentCount > 0 && goldenRatio !== null
       ? normalizeLiveMetricGrade(keyword, row?.grade, score, totalSearchVolume, documentCount, goldenRatio)
       : normalizeGrade(row?.grade, score || 0);
-    if (grade === 'C') return null;
-    if (!hasCompleteLiveGoldenMetrics({ totalSearchVolume, documentCount, isMeasured })) return null;
+    const recentZeroSplitTombstone = hasRecentCacheZeroSplitProbe({
+      evidence: rawEvidence,
+      splitProbeZeroAt: normalizeKeyword(row?.splitProbeZeroAt) || undefined,
+    } as MobileLiveGoldenBoardItem, now.getTime());
+    if (grade === 'C' && !recentZeroSplitTombstone) return null;
+    if (!hasCompleteLiveGoldenMetrics({ totalSearchVolume, documentCount, isMeasured }) && !recentZeroSplitTombstone) return null;
     const surgeLane = normalizeKeyword(row?.lane) === TRAFFIC_SURGE_LANE;
     if (
-      !isLiveRadarUsableKeyword(keyword, totalSearchVolume, documentCount, now)
+      !recentZeroSplitTombstone
+      && !isLiveRadarUsableKeyword(keyword, totalSearchVolume, documentCount, now)
       && !isMeasuredProExactKeywordMetric({
         keyword,
         grade,
@@ -10584,6 +10859,7 @@ export class MobileLiveGoldenRadar {
         isMeasured: true,
       }, stamp, now);
       if (!item) continue;
+      if (!hasFreshCurrentSearchAdKeywordBinding(item, now)) continue;
       if (!hasTrustedSearchVolumeMeasurement(item) || !hasTrustedDocumentCountMeasurement(item)) continue;
       accepted.push(item);
     }
@@ -10736,6 +11012,7 @@ export class MobileLiveGoldenRadar {
         searchVolumeSource: 'searchad',
         searchVolumeConfidence: 'high',
         isSearchVolumeEstimated: false,
+        ...measurementMetadataFromRow(row),
         documentCountSource: 'naver-api',
         documentCountConfidence: 'high',
         isDocumentCountEstimated: false,
