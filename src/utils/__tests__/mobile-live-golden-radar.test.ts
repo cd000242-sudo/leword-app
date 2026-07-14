@@ -4102,6 +4102,38 @@ function thinProfileCount(items: Array<{ keyword: string }>): number {
       front: candidates.slice(0, 30),
     }))));
 
+  const phase1cCoreRecoveryCategories = [
+    'policy',
+    'finance',
+    'health',
+    'education',
+    'it',
+    'home_life',
+    'travel_domestic',
+    'car',
+    'realestate',
+    'parenting',
+    'food',
+    'shopping',
+  ];
+  const phase1cCoreRecoverySeeds = phase1cCoreRecoveryCategories.map((category) => ({
+    category,
+    seeds: __liveGoldenRadarTestInternals.curatedCoreSearchAdSeedsForCategory(category),
+  }));
+  assert('curated SearchAd anchors cover every Phase 1C core policy lane',
+    phase1cCoreRecoverySeeds.every(({ seeds }) => (
+      seeds.length >= 4
+      && seeds.every((seed) => seed.length >= 2 && !/(공식입장|근황|프로필|인스타)/u.test(seed))
+    )),
+    JSON.stringify(phase1cCoreRecoverySeeds));
+  assert('production default catch-up can scan all twelve core policy lanes in one startup',
+    __liveGoldenRadarTestInternals.resolveStartupCatchUpCycles(120, 15) >= phase1cCoreRecoveryCategories.length
+      && __liveGoldenRadarTestInternals.resolveStartupCatchUpCycles(120, 15, 3) === 3,
+    JSON.stringify({
+      defaultCycles: __liveGoldenRadarTestInternals.resolveStartupCatchUpCycles(120, 15),
+      explicitCycles: __liveGoldenRadarTestInternals.resolveStartupCatchUpCycles(120, 15, 3),
+    }));
+
   const queuePriorityProbeFile = path.join(process.cwd(), 'tmp', 'mobile-live-golden-queue-priority-test.json');
   const queuedWriterReadyKeyword = '\uC81C\uC8FC \uB80C\uD130\uCE74 \uC644\uC804\uC790\uCC28 \uAC00\uACA9\uBE44\uAD50';
   const queuedWeakSyntheticKeyword = '\uC695\uC2E4\uBB3C\uB54C\uC81C\uAC70 \uD504\uB9AC\uB79C\uC11C \uC2E0\uCCAD \uB300\uC0C1';
@@ -5855,7 +5887,7 @@ function thinProfileCount(items: Array<{ keyword: string }>): number {
   assert('live radar scheduler catches up while board is below target',
     schedulerCatchupDiscoverCalls >= 2
       && schedulerCatchupSnapshot.boardCount >= 8
-      && schedulerCatchupSnapshot.successfulRuns === 2,
+      && schedulerCatchupSnapshot.successfulRuns >= 2,
     `${schedulerCatchupDiscoverCalls}:${schedulerCatchupSnapshot.boardCount}:${schedulerCatchupSnapshot.successfulRuns}`);
 
   const workerSyncDir = path.join(root, 'tmp', 'live-golden-worker-sync-test');

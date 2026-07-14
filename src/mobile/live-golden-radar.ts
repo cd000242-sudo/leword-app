@@ -238,6 +238,7 @@ const LIVE_BOARD_SPLIT_ENRICHMENT_LIMIT = 80;
 const LIVE_SEARCHAD_VOLUME_BATCH_SIZE = 4;
 const LIVE_SEARCHAD_VOLUME_MIN_REMAINING_MS = 2_000;
 const LIVE_SEARCHAD_MEASUREMENT_BUDGET_PER_RUN = 40;
+const LIVE_STARTUP_CATCH_UP_CYCLE_MAX = 16;
 // A large persistent queue is a canary, not the discovery engine. Reserve most
 // of the fixed per-run ceiling for unseen category-deficit candidates so old
 // misses cannot starve supply recovery indefinitely.
@@ -4539,6 +4540,43 @@ const LIVE_CURATED_CORE_SEARCHAD_SEEDS: Record<string, readonly string[]> = Obje
   beauty: ['선크림', '수분크림', '쿠션 파운데이션', '여드름 화장품'],
 });
 
+const LIVE_CURATED_CORE_SEARCHAD_SEEDS_BY_POLICY: Record<string, readonly string[]> = Object.freeze({
+  policy: ['청년도약계좌', '근로장려금', '국민내일배움카드', '소상공인 지원금'],
+  finance_insurance: ['실비보험 청구', '자동차보험 비교', '주택담보대출 금리', '신용대출 갈아타기'],
+  health: ['임플란트 비용', '건강검진 비용', '도수치료 실비', '라식 수술 비용'],
+  education_jobs: ['컴퓨터활용능력 시험', '전산회계 자격증', '요양보호사 교육', '공인중개사 학원'],
+  it_ai: ['아이폰 수리', '노트북 수리', '데이터 복구', '윈도우 오류'],
+  home_life: ['이사 견적', '입주청소', '에어컨 이전설치', '보일러 교체'],
+  travel: ['제주 렌터카', '일본 항공권', '해외여행 유심', '여행 입장료'],
+  auto: ['자동차 검사', '엔진오일', '타이어 교체', '자동차 정비'],
+  realestate: ['전세보증보험', '주택청약 납입인정액', '부동산 중개수수료', '전월세 신고'],
+  parenting_pet: ['산후조리원 비용', '어린이집 비용', '아기 예방접종', '유아용품'],
+  food_recipe: ['다이어트 도시락', '밀키트', '이유식 정기배송', '반찬 정기배송'],
+  shopping_beauty: ['로봇청소기', '제습기', '무선청소기', '선크림'],
+});
+
+function curatedCoreSearchAdSeedsForCategory(categoryId: string): readonly string[] {
+  const normalizedCategoryId = normalizeKeyword(categoryId);
+  return LIVE_CURATED_CORE_SEARCHAD_SEEDS[normalizedCategoryId]
+    || LIVE_CURATED_CORE_SEARCHAD_SEEDS_BY_POLICY[liveGoldenPolicyKeyForDiscoveryId(normalizedCategoryId)]
+    || [];
+}
+
+function resolveStartupCatchUpCycles(
+  boardTarget: number,
+  cycleLimit: number,
+  requestedCycles?: number,
+): number {
+  const inferredCycles = Math.max(
+    LIVE_GOLDEN_CORE_CATEGORY_POLICIES.length,
+    Math.ceil(Math.max(1, boardTarget) / Math.max(1, cycleLimit)),
+  );
+  const rawCycles = Number.isFinite(requestedCycles) && Number(requestedCycles) > 0
+    ? Number(requestedCycles)
+    : inferredCycles;
+  return Math.max(1, Math.min(LIVE_STARTUP_CATCH_UP_CYCLE_MAX, Math.floor(rawCycles)));
+}
+
 const LIVE_CURATED_CORE_MEASURED_PROBE_IDS = new Set(
   Object.values(LIVE_CURATED_CORE_MEASURED_PROBES)
     .flat()
@@ -6345,6 +6383,7 @@ export const __liveGoldenRadarTestInternals = {
   buildDateAwareLiveSeedCandidates,
   buildMeasuredProbeCandidates,
   categoryAcceptsMeasuredProbe,
+  curatedCoreSearchAdSeedsForCategory,
   currentLottoRound,
   debugSearchAdMeasurableLiveCandidate,
   getLiveSeedBackfillIntents,
@@ -6371,6 +6410,7 @@ export const __liveGoldenRadarTestInternals = {
   isHumanNaturalGoldenMetric,
   goldenBoardSemanticId,
   publicPreviewLane,
+  resolveStartupCatchUpCycles,
   publicPreviewClusterKey,
   balancePublicPreviewCandidates,
   isPastMonthVolatileLiveKeyword,
@@ -6513,9 +6553,11 @@ export class MobileLiveGoldenRadar {
     this.maxCandidates = Math.max(120, Math.min(7200, Math.floor(
       options.maxCandidates || MOBILE_PC_PARITY_SLA.workerBudgets.liveGoldenMaxCandidates,
     )));
-    this.startupCatchUpCycles = Math.max(1, Math.min(8, Math.floor(
-      options.startupCatchUpCycles || Math.ceil(this.boardTarget / Math.max(1, this.cycleLimit)),
-    )));
+    this.startupCatchUpCycles = resolveStartupCatchUpCycles(
+      this.boardTarget,
+      this.cycleLimit,
+      options.startupCatchUpCycles,
+    );
     this.categories = (options.categories || DEFAULT_CATEGORIES)
       .map((item) => normalizeKeyword(item))
       .filter(Boolean);
@@ -7049,7 +7091,7 @@ export class MobileLiveGoldenRadar {
         ));
       if (
         catchUpModeBeforeCache
-        && (LIVE_CURATED_CORE_SEARCHAD_SEEDS[backfillCategoryId] || []).length > 0
+        && curatedCoreSearchAdSeedsForCategory(backfillCategoryId).length > 0
         && judgedResultMetrics.length > 0
       ) {
         console.info('[LIVE-GOLDEN] curated SearchAd publish gate', {
@@ -7149,7 +7191,7 @@ export class MobileLiveGoldenRadar {
   }
 
   async runUntilTarget(maxCycles = this.startupCatchUpCycles): Promise<MobileLiveGoldenRadarSnapshot> {
-    const cycleBudget = Math.max(1, Math.min(8, Math.floor(maxCycles)));
+    const cycleBudget = Math.max(1, Math.min(LIVE_STARTUP_CATCH_UP_CYCLE_MAX, Math.floor(maxCycles)));
     let snapshot = this.snapshot();
     const previousCatchUpAttemptedPolicyKeys = this.catchUpAttemptedPolicyKeys;
     this.catchUpAttemptedPolicyKeys = new Set<string>();
@@ -7990,7 +8032,7 @@ export class MobileLiveGoldenRadar {
       sssDepthMode ? 60 : 24,
       Math.ceil(targetLimit * (sssDepthMode ? 2.4 : 1.6)),
     ));
-    const curatedSearchAdSeeds = (LIVE_CURATED_CORE_SEARCHAD_SEEDS[categoryId] || [])
+    const curatedSearchAdSeeds = curatedCoreSearchAdSeedsForCategory(categoryId)
       .map((seed) => normalizeKeyword(seed))
       .filter(Boolean);
     const catalogSeeds = measuredProbeCategoryKeys(categoryId, liveSeeds)
@@ -8305,7 +8347,7 @@ export class MobileLiveGoldenRadar {
       );
     // Category recovery must not fan out into the SearchAd suggestion lane.
     // Exact measurement below remains bounded by the shared per-run budget.
-    const hasCuratedCoreSearchAdSeeds = (LIVE_CURATED_CORE_SEARCHAD_SEEDS[categoryId] || []).length > 0;
+    const hasCuratedCoreSearchAdSeeds = curatedCoreSearchAdSeedsForCategory(categoryId).length > 0;
     const searchAdSuggestionRows = categoryId === 'all'
       ? (!measuredProbeOnly
         ? await this.discoverSearchAdSuggestionBackfillCandidates(
