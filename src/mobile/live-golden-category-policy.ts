@@ -80,6 +80,21 @@ for (const item of LIVE_GOLDEN_CORE_CATEGORY_POLICIES) {
   }
 }
 
+// Classifiers used by older caches have a few semantically exact aliases that
+// are not discovery lanes themselves. Map only those known aliases so they can
+// count toward the same core policy without making the worker scan extra lanes.
+const POLICY_ALIAS_TARGETS: Readonly<Record<string, string>> = Object.freeze({
+  diet: 'food_recipe',
+  job: 'education_jobs',
+  self_development: 'education_jobs',
+  app: 'it_ai',
+  mental: 'health',
+});
+for (const [alias, policyKey] of Object.entries(POLICY_ALIAS_TARGETS)) {
+  const target = LIVE_GOLDEN_CORE_CATEGORY_POLICIES.find((item) => item.key === policyKey);
+  if (target) POLICY_BY_DISCOVERY_ID.set(alias, target);
+}
+
 export const LIVE_GOLDEN_DEFAULT_DISCOVERY_IDS: readonly string[] = Object.freeze(
   LIVE_GOLDEN_CORE_CATEGORY_POLICIES.flatMap((item) => item.discoveryIds),
 );

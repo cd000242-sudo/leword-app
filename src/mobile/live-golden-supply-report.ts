@@ -113,12 +113,16 @@ export function buildLiveGoldenSupplyReport(
     };
   });
   const activeCoreCategoryCount = categories.filter((item) => item.verifiedCount > 0).length;
-  const maximumCoreCategoryShare = categories.reduce((max, item) => Math.max(max, item.share), 0);
+  // Gate on the unrounded ratio. Rounding is presentation-only; otherwise a
+  // value just above 18% can be displayed as 0.18 and incorrectly pass.
+  const maximumCoreCategoryShareRaw = verified.length > 0
+    ? Math.max(0, ...Object.values(counts)) / verified.length
+    : 0;
   const measuredCompletenessRate = list.length > 0 ? verified.length / list.length : 0;
   const failureReasons: string[] = [];
   if (verified.length < verifiedTarget) failureReasons.push('verified-target-shortfall');
   if (activeCoreCategoryCount < minimumActiveCoreCategories) failureReasons.push('category-coverage-shortfall');
-  if (maximumCoreCategoryShare > 0.18) failureReasons.push('category-share-cap-exceeded');
+  if (maximumCoreCategoryShareRaw > 0.18) failureReasons.push('category-share-cap-exceeded');
   if (measuredCompletenessRate < 1) failureReasons.push('untrusted-row-present');
   if (unknownCategoryCount > 0) failureReasons.push('unknown-category-present');
   if (staleVerifiedCount > 0) failureReasons.push('stale-verified-row-present');
@@ -146,7 +150,7 @@ export function buildLiveGoldenSupplyReport(
     measuredCompletenessRate: roundRate(measuredCompletenessRate),
     activeCoreCategoryCount,
     minimumActiveCoreCategories,
-    maximumCoreCategoryShare: roundRate(maximumCoreCategoryShare),
+    maximumCoreCategoryShare: roundRate(maximumCoreCategoryShareRaw),
     categories,
     unknownCategoryCount,
     failureReasons,

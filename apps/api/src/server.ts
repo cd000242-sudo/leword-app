@@ -3769,7 +3769,9 @@ export function createLewordApiServer(options: LewordApiServerOptions = {}): htt
     if (req.method === 'GET' && url.pathname === '/health') {
       const liveGoldenSnapshot = liveGoldenRadar?.snapshot() || null;
       const liveGoldenWorker = readLiveGoldenWorkerHealth(liveGoldenWorkerHeartbeatFile);
-      const liveGoldenSupply = buildLiveGoldenSupplyReport(liveGoldenSnapshot?.board || []);
+      const liveGoldenSupply = buildLiveGoldenSupplyReport(
+        liveGoldenSnapshot?.verifiedSupply || liveGoldenSnapshot?.board || [],
+      );
       json(res, 200, {
         ok: true,
         service: 'leword-api',
@@ -3803,6 +3805,11 @@ export function createLewordApiServer(options: LewordApiServerOptions = {}): htt
         liveGolden: {
           enabled: !!liveGoldenRadar,
           boardCount: liveGoldenSnapshot?.boardCount || 0,
+          verifiedSupplyCount: liveGoldenSnapshot
+            ? (Array.isArray(liveGoldenSnapshot.verifiedSupply)
+              ? liveGoldenSnapshot.verifiedSupply.length
+              : liveGoldenSnapshot.boardCount)
+            : 0,
           boardTarget: liveGoldenSnapshot?.boardTarget || 0,
           boardUpdatedAt: liveGoldenSnapshot?.boardUpdatedAt,
           pendingProbeQueueCount: liveGoldenSnapshot?.pendingProbeQueueCount || 0,

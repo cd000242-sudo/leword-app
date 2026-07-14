@@ -284,6 +284,8 @@ export interface MobileLiveGoldenRadarSnapshot {
   publicPreviewCount: number;
   boardUpdatedAt?: string;
   board: MobileLiveGoldenBoardItem[];
+  /** Complete recent, trusted, publishable core inventory used by Phase gates. */
+  verifiedSupply?: MobileLiveGoldenBoardItem[];
   publicPreview: MobileLiveGoldenBoardItem[];
   totalRuns: number;
   successfulRuns: number;

@@ -103,6 +103,37 @@ assert('splitless total-only rows cannot satisfy measured completeness',
     && splitlessReport.failureReasons.includes('untrusted-row-present'),
   JSON.stringify(splitlessReport));
 
+function shareBoundaryPortfolio(total: number): any[] {
+  const dominant = Array.from({ length: 11 }, (_, index) => measuredItem(
+    `dominant-policy-${index}`,
+    LIVE_GOLDEN_CORE_CATEGORY_POLICIES[0].discoveryIds[0],
+    index,
+  ));
+  const remainingPolicies = LIVE_GOLDEN_CORE_CATEGORY_POLICIES.slice(1);
+  const remaining = Array.from({ length: total - dominant.length }, (_, index) => {
+    const policy = remainingPolicies[index % remainingPolicies.length];
+    return measuredItem(`balanced-${policy.key}-${index}`, policy.discoveryIds[0], index + 100);
+  });
+  return [...dominant, ...remaining];
+}
+
+const shareFailAt60 = buildLiveGoldenSupplyReport(shareBoundaryPortfolio(60), {
+  nowMs: Date.parse('2026-07-11T10:00:00.000Z'),
+});
+assert('11 of 60 fails the raw 18 percent share cap',
+  shareFailAt60.maximumCoreCategoryShare > 0.18
+    && shareFailAt60.failureReasons.includes('category-share-cap-exceeded'),
+  JSON.stringify(shareFailAt60));
+
+const sharePassAt62 = buildLiveGoldenSupplyReport(shareBoundaryPortfolio(62), {
+  nowMs: Date.parse('2026-07-11T10:00:00.000Z'),
+});
+assert('11 of 62 passes the raw 18 percent share cap',
+  sharePassAt62.maximumCoreCategoryShare < 0.18
+    && !sharePassAt62.failureReasons.includes('category-share-cap-exceeded')
+    && sharePassAt62.automatedSupplyGate === 'pass',
+  JSON.stringify(sharePassAt62));
+
 console.log('[live-golden-supply-report.test] passed');
 
 export {};

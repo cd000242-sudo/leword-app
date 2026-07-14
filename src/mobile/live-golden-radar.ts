@@ -256,6 +256,7 @@ const LIVE_PROBE_QUEUE_CATEGORY_SHARE_CAP = 0.32;
 const LIVE_PROBE_QUEUE_MAX_ATTEMPTS = 4;
 const LIVE_PROBE_QUEUE_NO_RESULT_MAX = 2;
 const LIVE_PROBE_QUEUE_RETRY_DELAY_MS = 90 * 60 * 1000;
+const LIVE_CURATED_EXACT_EXHAUSTED_RETRY_MS = 7 * 24 * 60 * 60 * 1000;
 const LIVE_CACHE_PROMOTION_MAX_CANDIDATES = 96;
 const LIVE_CACHE_PROMOTION_BUDGET_PER_RUN = 24;
 const LIVE_CACHE_PROMOTION_BATCH_SIZE = 6;
@@ -342,6 +343,7 @@ const SEASONAL_CONTENT_CLUSTER_SUFFIX_RE = new RegExp(`(?:${[
 ].join('|')})+$`, 'u');
 const EPISODE_LOOKUP_INTENT_RE = /\uBA87\uBD80\uC791/u;
 const CONTENT_LOOKUP_INTENT_RE = /(?:\uBA87\uBD80\uC791|\uCD9C\uC5F0\uC9C4|\uBC29\uC1A1\uC2DC\uAC04|\uC7AC\uBC29\uC1A1|\uB2E4\uC2DC\uBCF4\uAE30|\uACB0\uB9D0|\uCFE0\uD0A4\uC601\uC0C1|\uC6D0\uC791|\uB4F1\uC7A5\uC778\uBB3C|\uC778\uBB3C\uAD00\uACC4\uB3C4|\uACF5\uC2DD\uC601\uC0C1)/u;
+const NATURAL_HOW_TO_INTENT_RE = /(?:하는|쓰는|먹는|고르는|차리는|만드는|찾는|받는)법/u;
 const LIVE_ULTIMATE_NEED_INTENT_RE = new RegExp([
   '\\uC2E0\\uCCAD\\uBC29\\uBC95',
   '\\uC2E0\\uCCAD',
@@ -2809,7 +2811,19 @@ function hasTrustedCacheMeasurementForSplitPromotion(item: MobileLiveGoldenBoard
 
 function hasVerifiedCacheSplitDemandProof(item: MobileLiveGoldenBoardItem): boolean {
   const evidence = Array.isArray(item.evidence) ? item.evidence : [];
-  return evidence.includes('persistent-cache-split-promoted')
+  const hasLegacyDirectExactProof = item.source === 'mobile-live-golden-radar'
+    && item.searchVolumeSource === 'searchad'
+    && evidence.includes('mobile-live-seed-backfill')
+    && evidence.includes('naver-openapi-exact-phrase');
+  const hasGeneratedExactMeasurementProof = evidence.some((entry) => (
+    entry === 'persistent-cache-split-promoted'
+    || entry === 'searchad-pc-mobile-split-enriched'
+    || entry === 'searchad-live-issue-volume'
+    || entry === 'direct-searchad-exact-measured'
+  )) || hasLegacyDirectExactProof;
+  return item.isMeasured === true
+    && item.searchVolumeSource === 'searchad'
+    && hasGeneratedExactMeasurementProof
     && hasMeasuredPcMobileSplit(item)
     && hasTrustedCacheMeasurementForSplitPromotion(item);
 }
@@ -3062,8 +3076,28 @@ function inferLiveCategoryByRobustRules(keyword: string): string | null {
   return null;
 }
 
+function inferCoreRecoverySemanticCategory(keyword: string): string | null {
+  const clean = normalizeKeyword(keyword);
+  const compact = clean.replace(/\s+/g, '');
+  if (
+    /(?:포장이사|원룸이사|이삿짐|이사업체|입주청소|에어컨(?:이전)?설치|보일러교체|방충망교체|도어락설치|누수탐지|싱크대막힘|변기막힘|폐기물처리)/u.test(compact)
+  ) return 'home_life';
+  if (
+    /(?:전세|월세|전월세|부동산|주택청약|아파트).*(?:보증보험|중개수수료|계약|대출|시세|전입신고|확정일자|관리비|청약|갱신)/u.test(compact)
+  ) return 'realestate';
+  if (
+    /(?:아이폰|갤럭시|스마트폰|핸드폰|휴대폰).*(?:수리|액정|배터리교체|데이터복구|포렌식)/u.test(compact)
+  ) return 'smartphone';
+  if (
+    /(?:노트북|맥북).*(?:수리|액정|배터리교체|데이터복구|발열해결)/u.test(compact)
+  ) return 'laptop';
+  return null;
+}
+
 function inferLiveCategory(keyword: string, fallbackCategory: string): string {
   const clean = normalizeKeyword(keyword);
+  const semanticCoreCategory = inferCoreRecoverySemanticCategory(clean);
+  if (semanticCoreCategory) return semanticCoreCategory;
   const robustCategory = inferLiveCategoryByRobustRules(clean);
   if (robustCategory) return robustCategory;
   if (LIVE_LOTTERY_SIGNAL_RE.test(clean)) return 'life_tips';
@@ -3284,6 +3318,7 @@ function isLowValueLiveCandidate(keyword: string): boolean {
 function hasLiveUltimateNeedIntent(keyword: string): boolean {
   const clean = normalizeKeyword(keyword);
   if (!clean || (isLowValueLiveCandidate(clean) && !isActionableSportsLiveEventKeyword(clean))) return false;
+  if (NATURAL_HOW_TO_INTENT_RE.test(clean)) return true;
   if (hasUltimateHighValueNeedIntent(clean)) return true;
   if (LIVE_ULTIMATE_NEED_INTENT_RE.test(clean)) return true;
   const compact = clean.replace(/\s+/g, '');
@@ -4571,6 +4606,18 @@ const LIVE_CURATED_CORE_SEARCHAD_SEED_SUPPLEMENTS: Record<string, readonly strin
   shopping_beauty: ['\\uC81C\\uC2B5\\uAE30 10\\uB9AC\\uD130 \\uCD94\\uCC9C', '\\uB85C\\uBD07\\uCCAD\\uC18C\\uAE30 \\uBB3C\\uAC78\\uB808 \\uBE44\\uAD50', '\\uC120\\uD06C\\uB9BC \\uBB34\\uAE30\\uC790\\uCC28 \\uCD94\\uCC9C', '\\uC0F4\\uD478 \\uD0C8\\uBAA8 \\uC131\\uBD84 \\uBE44\\uAD50'],
 });
 
+// Additional exact phrases keep every deficit policy at the same bounded
+// 12-query recovery depth. They consume the existing measurement budget; they
+// do not raise the SearchAd ceiling or bypass quota accounting.
+const LIVE_CURATED_CORE_SEARCHAD_SEED_EXTRAS: Record<string, readonly string[]> = Object.freeze({
+  education_jobs: ['\\uCEF4\\uD65C 1\\uAE09 \\uC811\\uC218 \\uBC29\\uBC95', '\\uC804\\uC0B0\\uD68C\\uACC4 1\\uAE09 \\uC811\\uC218 \\uBC29\\uBC95', '\\uACF5\\uC778\\uC911\\uAC1C\\uC0AC \\uC2DC\\uD5D8 \\uC811\\uC218 \\uBC29\\uBC95', '\\uAC1C\\uC778\\uC0AC\\uC5C5\\uC790 \\uBD80\\uAC00\\uC138 \\uC2E0\\uACE0 \\uBC29\\uBC95'],
+  it_ai: ['ChatGPT \\uCD08\\uBCF4 \\uC0AC\\uC6A9\\uBC95', '\\uB85C\\uC9C0\\uD14D \\uB9C8\\uC6B0\\uC2A4 \\uC218\\uB9AC \\uBE44\\uC6A9', '\\uD578\\uB4DC\\uD3F0 \\uB370\\uC774\\uD130 \\uBCF5\\uAD6C \\uBE44\\uC6A9', '\\uB178\\uD2B8\\uBD81 SSD \\uAD50\\uCCB4 \\uBE44\\uC6A9'],
+  home_life: ['\\uC6D0\\uB8F8 \\uC785\\uC8FC\\uCCAD\\uC18C \\uAC00\\uACA9 \\uBE44\\uAD50', '24\\uD3C9 \\uC785\\uC8FC\\uCCAD\\uC18C \\uBE44\\uC6A9', '\\uC6D0\\uB8F8 \\uC774\\uC0AC \\uBE44\\uC6A9 \\uBE44\\uAD50', '\\uD3EC\\uC7A5\\uC774\\uC0AC \\uBE44\\uC6A9 \\uBE44\\uAD50', '\\uC785\\uC8FC\\uCCAD\\uC18C \\uC5C5\\uCCB4 \\uBE44\\uAD50', '\\uC5D0\\uC5B4\\uCEE8 \\uC774\\uC804 \\uC124\\uCE58 \\uBE44\\uC6A9', '\\uBCF4\\uC77C\\uB7EC \\uAD50\\uCCB4 \\uBE44\\uC6A9', '\\uC6D0\\uB8F8 \\uCCAD\\uC18C \\uC5C5\\uCCB4 \\uAC00\\uACA9'],
+  realestate: ['\\uC6D4\\uC138 \\uACC4\\uC57D \\uAC31\\uC2E0 \\uBC29\\uBC95', '\\uC544\\uD30C\\uD2B8 \\uAD00\\uB9AC\\uBE44 \\uC870\\uD68C', '\\uC804\\uC6D4\\uC138 \\uC2E0\\uACE0 \\uBC29\\uBC95', '\\uC544\\uD30C\\uD2B8 \\uC2E4\\uAC70\\uB798\\uAC00 \\uC870\\uD68C'],
+  food_recipe: ['\\uB450\\uBD80\\uC870\\uB9BC \\uB9CC\\uB4DC\\uB294\\uBC95', '\\uC800\\uB2F9 \\uB3C4\\uC2DC\\uB77D \\uB9CC\\uB4DC\\uB294\\uBC95', '\\uACE0\\uB2E8\\uBC31 \\uB3C4\\uC2DC\\uB77D \\uB808\\uC2DC\\uD53C', '\\uC9D1\\uB4E4\\uC774 \\uC74C\\uC2DD \\uBA54\\uB274 \\uCD94\\uCC9C'],
+  shopping_beauty: ['\\uC6D0\\uB8F8 \\uC81C\\uC2B5\\uAE30 \\uC804\\uAE30\\uC694\\uAE08 \\uBE44\\uAD50', '\\uB85C\\uBD07\\uCCAD\\uC18C\\uAE30 \\uBB3C\\uAC78\\uB808 \\uC131\\uB2A5 \\uBE44\\uAD50', '\\uBB34\\uC120\\uCCAD\\uC18C\\uAE30 \\uD761\\uC785\\uB825 \\uBE44\\uAD50', '\\uD0C8\\uBAA8 \\uC0F4\\uD478 \\uC131\\uBD84 \\uBE44\\uAD50'],
+});
+
 function curatedCoreSearchAdSeedsForCategory(categoryId: string): readonly string[] {
   const normalizedCategoryId = normalizeKeyword(categoryId);
   const base = LIVE_CURATED_CORE_SEARCHAD_SEEDS[normalizedCategoryId]
@@ -4580,10 +4627,52 @@ function curatedCoreSearchAdSeedsForCategory(categoryId: string): readonly strin
     ? normalizedCategoryId
     : liveGoldenPolicyKeyForDiscoveryId(normalizedCategoryId);
   const supplements = LIVE_CURATED_CORE_SEARCHAD_SEED_SUPPLEMENTS[supplementKey] || [];
-  return [...base, ...supplements]
+  const extras = LIVE_CURATED_CORE_SEARCHAD_SEED_EXTRAS[supplementKey] || [];
+  return [...supplements, ...extras, ...base]
     .map((seed) => seed.replace(/\\u([0-9a-f]{4})/gi, (_match, code) => String.fromCharCode(parseInt(code, 16))))
     .filter((seed, index, all) => all.indexOf(seed) === index)
     .slice(0, 12);
+}
+
+interface CuratedCoreSearchAdSeedRow {
+  keyword: string;
+  policyKey: string;
+}
+
+function curatedCoreSearchAdSeedRowsForCategory(categoryId: string): CuratedCoreSearchAdSeedRow[] {
+  const policyKey = liveGoldenPolicyKeyForDiscoveryId(normalizeKeyword(categoryId));
+  return curatedCoreSearchAdSeedsForCategory(categoryId).map((keyword) => ({ keyword, policyKey }));
+}
+
+function allocateCuratedRecoveryMeasurementBudget(
+  curatedCandidates: readonly string[],
+  suggestionRows: LiveSearchVolumeRow[],
+  measurementLimit: number,
+): { exactCandidates: string[]; suggestionRows: LiveSearchVolumeRow[] } {
+  const limit = Math.max(0, Math.floor(measurementLimit));
+  if (limit === 0) return { exactCandidates: [], suggestionRows: [] };
+  const curated = uniqueKeywords(
+    curatedCandidates.map((keyword) => normalizeKeyword(keyword)).filter(Boolean),
+    Math.min(12, limit),
+  );
+  const curatedIds = new Set(curated.map((keyword) => keywordCompactId(keyword)).filter(Boolean));
+  const prioritizedSuggestionRows = [
+    ...suggestionRows.filter((row) => curatedIds.has(keywordCompactId(row.keyword))),
+    ...suggestionRows.filter((row) => !curatedIds.has(keywordCompactId(row.keyword))),
+  ];
+  const suggestionIds = new Set(
+    prioritizedSuggestionRows.map((row) => keywordCompactId(row.keyword)).filter(Boolean),
+  );
+  const exactCandidates = curated
+    .filter((keyword) => !suggestionIds.has(keywordCompactId(keyword)))
+    .slice(0, limit);
+  return {
+    exactCandidates,
+    suggestionRows: uniqueVolumeRows(
+      prioritizedSuggestionRows,
+      Math.max(0, limit - exactCandidates.length),
+    ),
+  };
 }
 
 function resolveStartupCatchUpCycles(
@@ -4720,17 +4809,28 @@ function categoryAcceptsMeasuredProbe(keyword: string, categoryId: string): bool
   return compatible.includes(inferred);
 }
 
+function isSameLiveGoldenPolicy(leftCategoryId: string, rightCategoryId: string): boolean {
+  const left = liveGoldenPolicyKeyForDiscoveryId(normalizeKeyword(leftCategoryId));
+  const right = liveGoldenPolicyKeyForDiscoveryId(normalizeKeyword(rightCategoryId));
+  return Boolean(left && right && left !== 'all' && right !== 'all' && left === right);
+}
+
 function measuredProbeCategoryKeys(categoryId: string, liveSeeds: string[]): string[] {
   const normalizedCategory = normalizeKeyword(categoryId || 'all') || 'all';
   const inferredSeedCategories = liveSeeds
     .flatMap((seed) => {
       const clean = normalizeKeyword(seed);
       return [
-        inferLiveCategory(clean, normalizedCategory),
+        inferLiveCategory(clean, 'all'),
         LIVE_MEASURED_PROBE_HEALTH_BASE_RE.test(clean) ? 'health' : '',
       ];
     })
-    .filter(Boolean);
+    .filter((key) => Boolean(key) && (
+      normalizedCategory === 'all'
+      || isSameLiveGoldenPolicy(key, normalizedCategory)
+    ));
+  const compatibleCategories = (LIVE_MEASURED_PROBE_CATEGORY_COMPAT[normalizedCategory] || [])
+    .filter((key) => normalizedCategory === 'all' || isSameLiveGoldenPolicy(key, normalizedCategory));
   const portfolioKeys = normalizedCategory === 'all'
     ? LIVE_GOLDEN_DEFAULT_PORTFOLIO_CATEGORY_KEYS
     : [];
@@ -4739,7 +4839,7 @@ function measuredProbeCategoryKeys(categoryId: string, liveSeeds: string[]): str
     normalizedCategory,
     ...portfolioKeys,
     ...inferredSeedCategories,
-    ...(LIVE_MEASURED_PROBE_CATEGORY_COMPAT[normalizedCategory] || []),
+    ...compatibleCategories,
   ], 16);
 }
 
@@ -4770,9 +4870,62 @@ function measuredProbeQueueFamilyKey(keyword: string): string {
   return family;
 }
 
-function measuredProbeEffectiveCategory(item: Pick<LiveMeasuredProbeQueueItem, 'keyword' | 'category'>, fallbackCategory: string): string {
+function isCuratedExactRecoveryProbeSource(source: string): boolean {
+  return String(source || '').split(',').some((entry) => normalizeKeyword(entry) === 'curated-exact-recovery');
+}
+
+function measuredProbeEffectiveCategory(
+  item: Pick<LiveMeasuredProbeQueueItem, 'keyword' | 'category' | 'source'>,
+  fallbackCategory: string,
+): string {
   const fallback = normalizeKeyword(item.category) || normalizeKeyword(fallbackCategory) || 'all';
+  if (isCuratedExactRecoveryProbeSource(item.source)) return fallback;
   return inferLiveCategory(item.keyword, fallback) || fallback;
+}
+
+function canRunMeasuredProbeQueueItem(item: LiveMeasuredProbeQueueItem, nowMs: number): boolean {
+  const exhausted = item.attempts >= LIVE_PROBE_QUEUE_MAX_ATTEMPTS
+    || item.misses >= LIVE_PROBE_QUEUE_NO_RESULT_MAX;
+  const lastTriedAt = Date.parse(item.lastTriedAt || '');
+  if (exhausted) {
+    if (!isCuratedExactRecoveryProbeSource(item.source)) return false;
+    if (!Number.isFinite(lastTriedAt) || nowMs - lastTriedAt < LIVE_CURATED_EXACT_EXHAUSTED_RETRY_MS) {
+      return false;
+    }
+    item.attempts = 0;
+    item.misses = 0;
+    item.lastTriedAt = undefined;
+    return true;
+  }
+  return !Number.isFinite(lastTriedAt) || nowMs - lastTriedAt >= LIVE_PROBE_QUEUE_RETRY_DELAY_MS;
+}
+
+function selectCuratedExactRecoveryCandidates(
+  categoryId: string,
+  seedRows: readonly CuratedCoreSearchAdSeedRow[],
+  boardRows: readonly MobileLiveGoldenBoardItem[],
+  queueRows: LiveMeasuredProbeQueueItem[],
+  now: Date,
+): string[] {
+  const requestedPolicyKey = liveGoldenPolicyKeyForDiscoveryId(normalizeKeyword(categoryId));
+  const nowMs = now.getTime();
+  const recentTrustedIds = new Set(boardRows
+    .filter((item) => ageMsFrom(item.updatedAt, nowMs) <= LIVE_BOARD_MAX_AGE_MS)
+    .filter(isTrustedLiveGoldenSupplyRow)
+    .map((item) => keywordCompactId(item.keyword))
+    .filter(Boolean));
+  const queueById = new Map(queueRows
+    .map((item) => [keywordCompactId(item.keyword), item] as const)
+    .filter(([id]) => Boolean(id)));
+  return seedRows
+    .filter((row) => row.policyKey === requestedPolicyKey)
+    .map((row) => normalizeKeyword(row.keyword))
+    .filter(Boolean)
+    .filter((keyword) => !recentTrustedIds.has(keywordCompactId(keyword)))
+    .filter((keyword) => {
+      const queued = queueById.get(keywordCompactId(keyword));
+      return !queued || canRunMeasuredProbeQueueItem(queued, nowMs);
+    });
 }
 
 function measuredProbeQueueEffectiveScore(item: LiveMeasuredProbeQueueItem): number {
@@ -4784,7 +4937,15 @@ function mergeMeasuredProbeSources(existingSource: string, incomingSource: strin
     .flatMap((value) => String(value || '').split(','))
     .map((value) => normalizeKeyword(value))
     .filter(Boolean);
-  return [...new Set(sources)].slice(0, Math.max(1, Math.floor(limit))).join(',');
+  const uniqueSources = [...new Set(sources)];
+  // This tag changes retry semantics from a short generic retry to the
+  // seven-day curated tombstone. Never let it fall off when a legacy queue row
+  // already occupies the source cap.
+  const orderedSources = [
+    ...uniqueSources.filter((value) => isCuratedExactRecoveryProbeSource(value)),
+    ...uniqueSources.filter((value) => !isCuratedExactRecoveryProbeSource(value)),
+  ];
+  return orderedSources.slice(0, Math.max(1, Math.floor(limit))).join(',');
 }
 
 function trimMeasuredProbeQueueFamilyFlood(
@@ -5194,7 +5355,13 @@ function buildMeasuredProbeCandidates(
     ...liveSeeds.map((seed) => normalizeKeyword(seed)).filter(Boolean),
     ...normalizeLiveSeeds(liveSeeds, 160),
     ...liveSeeds.map((seed) => normalizeRobustLiveSeedBase(seed, now)).filter(Boolean),
-  ], 240).flatMap((seed) => buildSeedPhraseVariants(seed));
+  ], 240)
+    .flatMap((seed) => buildSeedPhraseVariants(seed))
+    .filter((seed) => (
+      normalizedCategory === 'all'
+      || isSameLiveGoldenPolicy(inferLiveCategory(seed, 'all'), normalizedCategory)
+      || categoryAcceptsMeasuredProbe(seed, normalizedCategory)
+    ));
   const liveBaseIds = new Set(liveBases.map((seed) => keywordCompactId(seed)).filter(Boolean));
   const liveCategoryIds = new Set(
     liveSeeds
@@ -6276,6 +6443,15 @@ function mapDirectResult(result: MDPResult, categoryId: string): MobileKeywordMe
     documentCountConfidence?: MobileMeasurementConfidence;
     isDocumentCountEstimated?: boolean;
   };
+  const declaredPolicyKey = (result.externalSources || [])
+    .map((entry) => normalizeKeyword(entry))
+    .find((entry) => entry.startsWith('curated-policy:'))
+    ?.slice('curated-policy:'.length);
+  const normalizedCategoryId = normalizeKeyword(categoryId || 'live');
+  const category = declaredPolicyKey
+    && liveGoldenPolicyKeyForDiscoveryId(normalizedCategoryId) === declaredPolicyKey
+    ? normalizedCategoryId
+    : inferLiveCategory(keyword, normalizedCategoryId);
   const measurementMeta = measurementMetadataFromRow(extra);
   return {
     keyword,
@@ -6287,7 +6463,7 @@ function mapDirectResult(result: MDPResult, categoryId: string): MobileKeywordMe
     documentCount,
     goldenRatio: finiteNumber(result.goldenRatio),
     cpc: finiteNumber(result.cpc) ?? finiteNumber(extra.monthlyAveCpc),
-    category: inferLiveCategory(keyword, categoryId || 'live'),
+    category,
     source: 'mobile-live-golden-radar',
     intent: result.intent || 'live-golden-discovery',
     evidence: [
@@ -6340,10 +6516,29 @@ function liveValueGateFields(
 
 function isLiveGoldenQualityConsistent(item: MobileLiveGoldenBoardItem, now: Date): boolean {
   if (!isHumanNaturalGoldenMetric(item)) return false;
+  if (evaluatePublishDecision(item).verdict !== 'publish') return false;
+  if (resolvedLiveBoardScore(item) <= 0) return false;
   const valueGrade = liveValueGateFields(item, now).valueGrade;
-  if (!valueGrade || !['S+', 'S', 'A'].includes(valueGrade)) return false;
-  return evaluatePublishDecision(item).verdict === 'publish'
-    && resolvedLiveBoardScore(item) > 0;
+  if (valueGrade && ['S+', 'S', 'A'].includes(valueGrade)) return true;
+  // Direct exact SearchAd suggestions already passed trusted SV/DC, PC/mobile
+  // split, natural-language and AI gates. Preserve those compact real queries
+  // (for example "제습기순위") even when the generic value verifier labels
+  // their compact spelling as C. Do not extend this exception to generic live
+  // issue/backfill rows.
+  const evidence = item.evidence || [];
+  const directSuggestionProof = normalizeKeyword(item.intent) === 'direct-golden-searchad-suggestions'
+    && evidence.some((entry) => (
+      entry === 'searchad-pc-mobile-split-enriched'
+      || entry === 'direct-searchad-exact-measured'
+    ));
+  // Backward compatibility for already-persisted production rows created by
+  // the same direct exact path before it wrote a dedicated evidence marker.
+  const legacyDirectExactProof = item.source === 'mobile-live-golden-radar'
+    && item.searchVolumeSource === 'searchad'
+    && evidence.includes('mobile-live-seed-backfill')
+    && evidence.includes('naver-openapi-exact-phrase');
+  return (directSuggestionProof || legacyDirectExactProof)
+    && isMeasuredProBoardFallbackMetric(item, now);
 }
 
 function resolvedLiveBoardScore(item: MobileLiveGoldenBoardItem): number {
@@ -6406,14 +6601,21 @@ export const __liveGoldenRadarTestInternals = {
   buildCacheDerivedCompoundNeedSeeds,
   buildDateAwareLiveSeedCandidates,
   buildMeasuredProbeCandidates,
+  measuredProbeCategoryKeys,
   categoryAcceptsMeasuredProbe,
   curatedCoreSearchAdSeedsForCategory,
+  curatedCoreSearchAdSeedRowsForCategory,
+  allocateCuratedRecoveryMeasurementBudget,
+  selectCuratedExactRecoveryCandidates,
+  canRunMeasuredProbeQueueItem,
   currentLottoRound,
   debugSearchAdMeasurableLiveCandidate,
   getLiveSeedBackfillIntents,
   getLiveDateHints,
   inferLiveCategory,
   isKnownPolicyProductNeedKeyword,
+  isCachePromotionMeasurementCandidate,
+  isCacheSplitPromotionPreflightCandidate,
   isInvalidNonProductCommerceExpansion,
   isSyntheticNoEffectLiveProbe,
   isMeasuredProbeIntentCompatible,
@@ -6428,6 +6630,9 @@ export const __liveGoldenRadarTestInternals = {
   isPolicyProductActionKeyword,
   isMeasuredExactDisplayPromotionCandidate,
   isMeasuredExactDisplayFallbackMetric,
+  isMeasuredCacheSearchAdSplitCandidate,
+  hasMeasuredPcMobileSplit,
+  hasRecentCacheZeroSplitProbe,
   isSearchAdMeasurableLiveCandidate,
   isHumanVisiblePublicPreviewCandidate,
   isSafePublicPreviewBackfillCandidate,
@@ -6634,6 +6839,7 @@ export class MobileLiveGoldenRadar {
     keywords: string[],
     options: { includeDocumentCount?: boolean },
     totalTimeoutMs: number,
+    onAttemptedKeywords?: (keywords: readonly string[]) => void,
   ): Promise<LiveSearchVolumeRow[]> {
     const startedAt = Date.now();
     const candidates = uniqueSearchAdMeasurementKeywords(keywords, Math.max(0, keywords.length))
@@ -6655,6 +6861,10 @@ export class MobileLiveGoldenRadar {
         0,
         this.searchAdMeasurementBudgetRemaining - batch.length,
       );
+      // Expose exactly the batches handed to SearchAd. Callers use this to
+      // distinguish an attempted empty result from candidates skipped after a
+      // total-timeout break, without changing the provider row contract.
+      onAttemptedKeywords?.(batch);
       // The underlying SearchAd client owns its finite fetch timeout. Await it so
       // runOnce cannot release while quota-spending work is still alive.
       const batchRows = await this.measureLiveSearchVolumeSeparate(config, batch, options);
@@ -6720,15 +6930,16 @@ export class MobileLiveGoldenRadar {
     }).automatedSupplyGate === 'pass';
   }
 
-  private needsSssDepthRefresh(snapshot: Pick<MobileLiveGoldenRadarSnapshot, 'board' | 'boardCount'>): boolean {
+  private needsSssDepthRefresh(snapshot: Pick<MobileLiveGoldenRadarSnapshot, 'board' | 'boardCount' | 'verifiedSupply'>): boolean {
     // Board size/SSS depth alone is not the Phase 2 gate. Keep catch-up
     // running while category coverage, share, completeness, or trust is
     // still failing; otherwise a full-looking board can strand the worker in
     // a policy-heavy portfolio forever.
-    if (!this.automatedSupplyGatePassing(snapshot.board)) return true;
+    const verifiedSupply = snapshot.verifiedSupply || snapshot.board;
+    if (!this.automatedSupplyGatePassing(verifiedSupply)) return true;
     if (snapshot.boardCount < this.boardTarget) return true;
     const now = this.now();
-    return snapshot.board
+    return verifiedSupply
       .filter((item) => isMeasuredSssBoardCandidate(item, now))
       .length < this.desiredSssReadyBoardCount();
   }
@@ -6890,6 +7101,7 @@ export class MobileLiveGoldenRadar {
         clientSecret: env.naverClientSecret,
       }, Math.max(runLimit, this.boardTarget - currentBoardCount));
       const boardAfterCachePromotion = this.sortedBoard();
+      const supplyAfterCachePromotion = this.verifiedSupplyBoard();
       const boardCountAfterCachePromotion = boardAfterCachePromotion.length;
       const desiredBoardSssCount = this.desiredSssReadyBoardCount();
       const boardSssReadyAfterCachePromotion = boardAfterCachePromotion
@@ -6900,7 +7112,7 @@ export class MobileLiveGoldenRadar {
         catchUpModeBeforeCache
         && promotedCacheCount > 0
         && !shouldContinueAfterCachePromotion
-        && this.automatedSupplyGatePassing(boardAfterCachePromotion)
+        && this.automatedSupplyGatePassing(supplyAfterCachePromotion)
         && (
           boardCountAfterCachePromotion >= this.boardTarget
           || boardCountAfterCachePromotion > currentBoardCount
@@ -6914,7 +7126,7 @@ export class MobileLiveGoldenRadar {
       this.catchUpAttemptedPolicyKeys?.add(liveGoldenPolicyKeyForDiscoveryId(categoryId));
       categoryScanStarted = true;
       const selectedPolicyKey = liveGoldenPolicyKeyForDiscoveryId(categoryId);
-      categoryVerifiedBeforeRun = this.sortedBoard()
+      categoryVerifiedBeforeRun = this.verifiedSupplyBoard()
         .filter((item) => liveGoldenPolicyKeyForDiscoveryId(item.category) === selectedPolicyKey)
         .length;
       const liveSeeds = await this.collectLiveSeeds(categoryId);
@@ -7183,7 +7395,7 @@ export class MobileLiveGoldenRadar {
       }) || [];
 
       const outcomePolicyKey = liveGoldenPolicyKeyForDiscoveryId(categoryId);
-      const categoryVerifiedAfterRun = this.sortedBoard()
+      const categoryVerifiedAfterRun = this.verifiedSupplyBoard()
         .filter((item) => liveGoldenPolicyKeyForDiscoveryId(item.category) === outcomePolicyKey)
         .length;
       const netVerifiedAdded = Math.max(0, categoryVerifiedAfterRun - categoryVerifiedBeforeRun);
@@ -7315,17 +7527,29 @@ export class MobileLiveGoldenRadar {
       this.pendingMeasuredProbeQueue.map((item) => [keywordCompactId(item.keyword), item]),
     );
     let changed = 0;
+    const curatedExactSource = isCuratedExactRecoveryProbeSource(source);
     for (const raw of candidates) {
       const clean = normalizeKeyword(raw);
       if (!clean) continue;
-      if (isWeakAutogeneratedProbeCombo(clean)) continue;
+      // Curated exact anchors are maintained, finite inputs rather than
+      // generated combinations. Every anchor that can spend SearchAd quota
+      // must also enter this queue so misses and publish rejections receive the
+      // same cooldown. Final publication quality gates still apply later.
+      if (!curatedExactSource && isWeakAutogeneratedProbeCombo(clean)) continue;
       const compact = keywordCompactId(clean);
       if (!compact) continue;
-      const inferred = inferLiveCategory(clean, categoryId || 'all');
-      if (!isLiveRadarUsableKeyword(clean, null, null, now)) continue;
-      if (!isLiveMeasuredProbeCandidate(clean, inferred || categoryId, now)) continue;
-      if (!isHighYieldSearchAdSpendCandidate(clean, inferred || categoryId, now)) continue;
-      if (this.board.has(keywordId(clean))) continue;
+      const inferred = curatedExactSource
+        ? normalizeKeyword(categoryId || 'all') || 'all'
+        : inferLiveCategory(clean, categoryId || 'all');
+      if (!curatedExactSource && !isLiveRadarUsableKeyword(clean, null, null, now)) continue;
+      if (!curatedExactSource && !isLiveMeasuredProbeCandidate(clean, inferred || categoryId, now)) continue;
+      if (!curatedExactSource && !isHighYieldSearchAdSpendCandidate(clean, inferred || categoryId, now)) continue;
+      // Curated recovery is allowed to remeasure stale or untrusted board rows.
+      // Recent trusted rows were already removed by
+      // selectCuratedExactRecoveryCandidates, so a bare board membership check
+      // would otherwise leave those recovery attempts without a persisted
+      // cooldown tombstone.
+      if (!curatedExactSource && this.board.has(keywordId(clean))) continue;
       const directNeedBase = isMeasuredDirectNeedBase(clean, inferred || categoryId);
       const cacheDerivedPenalty = source === 'cache-derived-probe' && !directNeedBase
         ? 320
@@ -7342,10 +7566,19 @@ export class MobileLiveGoldenRadar {
       const existing = existingById.get(compact);
       if (existing) {
         const mergedSource = mergeMeasuredProbeSources(existing.source, source);
-        if (priority > existing.priority || mergedSource !== existing.source) {
+        const desiredCategory = inferred || categoryId || 'all';
+        const categoryChanged = curatedExactSource
+          && normalizeKeyword(existing.category) !== normalizeKeyword(desiredCategory);
+        if (priority > existing.priority || mergedSource !== existing.source || categoryChanged) {
           existing.priority = Math.max(existing.priority, priority);
           existing.source = mergedSource;
-          existing.category = existing.category || inferred || categoryId || 'all';
+          // Curated exact anchors declare the recovery policy explicitly. A
+          // generic queue row may already exist under a classifier-derived
+          // category, so promotion must repair that category even when its
+          // priority is already higher and the curated source tag is present.
+          existing.category = curatedExactSource
+            ? desiredCategory
+            : existing.category || desiredCategory;
           changed += 1;
         }
         continue;
@@ -7382,12 +7615,11 @@ export class MobileLiveGoldenRadar {
         const compact = keywordCompactId(item.keyword);
         if (!compact || boardIds.has(compact)) return false;
         const effectiveCategory = measuredProbeEffectiveCategory(item, normalizedCategory);
-        if (!isLiveMeasuredProbeCandidate(item.keyword, effectiveCategory, now)) return false;
-        if (!isHighYieldSearchAdSpendCandidate(item.keyword, effectiveCategory, now)) return false;
-        if (item.attempts >= LIVE_PROBE_QUEUE_MAX_ATTEMPTS) return false;
-        if (item.misses >= LIVE_PROBE_QUEUE_NO_RESULT_MAX) return false;
-        const lastTriedAt = Date.parse(item.lastTriedAt || '');
-        if (Number.isFinite(lastTriedAt) && nowMs - lastTriedAt < LIVE_PROBE_QUEUE_RETRY_DELAY_MS) return false;
+        if (!isCuratedExactRecoveryProbeSource(item.source)) {
+          if (!isLiveMeasuredProbeCandidate(item.keyword, effectiveCategory, now)) return false;
+          if (!isHighYieldSearchAdSpendCandidate(item.keyword, effectiveCategory, now)) return false;
+        }
+        if (!canRunMeasuredProbeQueueItem(item, nowMs)) return false;
         if (normalizedCategory === 'all') return true;
         if (effectiveCategory === normalizedCategory) return true;
         return categoryAcceptsMeasuredProbe(item.keyword, normalizedCategory);
@@ -7415,11 +7647,11 @@ export class MobileLiveGoldenRadar {
       const compact = keywordCompactId(item.keyword);
       if (!compact || seen.has(compact) || boardIds.has(compact)) continue;
       const effectiveCategory = measuredProbeEffectiveCategory(item, normalizedCategory);
-      if (!isLiveMeasuredProbeCandidate(item.keyword, effectiveCategory, now)) continue;
-      if (!isHighYieldSearchAdSpendCandidate(item.keyword, effectiveCategory, now)) continue;
-      if (item.attempts >= LIVE_PROBE_QUEUE_MAX_ATTEMPTS || item.misses >= LIVE_PROBE_QUEUE_NO_RESULT_MAX) continue;
-      const lastTriedAt = Date.parse(item.lastTriedAt || '');
-      if (Number.isFinite(lastTriedAt) && nowMs - lastTriedAt < LIVE_PROBE_QUEUE_RETRY_DELAY_MS) continue;
+      if (!isCuratedExactRecoveryProbeSource(item.source)) {
+        if (!isLiveMeasuredProbeCandidate(item.keyword, effectiveCategory, now)) continue;
+        if (!isHighYieldSearchAdSpendCandidate(item.keyword, effectiveCategory, now)) continue;
+      }
+      if (!canRunMeasuredProbeQueueItem(item, nowMs)) continue;
       if (
         normalizedCategory !== 'all'
         && effectiveCategory !== normalizedCategory
@@ -7472,6 +7704,17 @@ export class MobileLiveGoldenRadar {
       const compact = keywordCompactId(item.keyword);
       if (!compact || !attemptedIds.has(compact)) continue;
       if (completeIds.has(compact)) {
+        if (isCuratedExactRecoveryProbeSource(item.source)) {
+          // Measurement completeness is not the publication decision. Keep a
+          // seven-day tombstone in case the measured row is rejected by the
+          // later quality/publish gates, preventing an expensive repeat on the
+          // very next worker cycle.
+          item.attempts = LIVE_PROBE_QUEUE_MAX_ATTEMPTS;
+          item.misses = 0;
+          item.lastTriedAt = stamp;
+          changed = true;
+          continue;
+        }
         this.pendingMeasuredProbeQueue.splice(index, 1);
         changed = true;
         continue;
@@ -7479,7 +7722,10 @@ export class MobileLiveGoldenRadar {
       item.attempts += 1;
       item.lastTriedAt = stamp;
       if (!volumeHitIds.has(compact)) item.misses += 1;
-      if (item.attempts >= LIVE_PROBE_QUEUE_MAX_ATTEMPTS || item.misses >= LIVE_PROBE_QUEUE_NO_RESULT_MAX) {
+      if (
+        (item.attempts >= LIVE_PROBE_QUEUE_MAX_ATTEMPTS || item.misses >= LIVE_PROBE_QUEUE_NO_RESULT_MAX)
+        && !isCuratedExactRecoveryProbeSource(item.source)
+      ) {
         this.pendingMeasuredProbeQueue.splice(index, 1);
       }
       changed = true;
@@ -7555,6 +7801,13 @@ export class MobileLiveGoldenRadar {
       if (!compact || !selectedIds.has(compact)) continue;
       touched += 1;
       if (completeIds.has(compact)) {
+        if (isCuratedExactRecoveryProbeSource(item.source)) {
+          item.attempts = LIVE_PROBE_QUEUE_MAX_ATTEMPTS;
+          item.misses = 0;
+          item.lastTriedAt = stamp;
+          changed = true;
+          continue;
+        }
         this.pendingMeasuredProbeQueue.splice(index, 1);
         removed += 1;
         changed = true;
@@ -7563,7 +7816,10 @@ export class MobileLiveGoldenRadar {
       item.attempts += 1;
       item.lastTriedAt = stamp;
       if (!volumeHitIds.has(compact)) item.misses += 1;
-      if (item.attempts >= LIVE_PROBE_QUEUE_MAX_ATTEMPTS || item.misses >= LIVE_PROBE_QUEUE_NO_RESULT_MAX) {
+      if (
+        (item.attempts >= LIVE_PROBE_QUEUE_MAX_ATTEMPTS || item.misses >= LIVE_PROBE_QUEUE_NO_RESULT_MAX)
+        && !isCuratedExactRecoveryProbeSource(item.source)
+      ) {
         this.pendingMeasuredProbeQueue.splice(index, 1);
         removed += 1;
       }
@@ -7603,15 +7859,30 @@ export class MobileLiveGoldenRadar {
         const keyword = normalizeKeyword(row?.keyword);
         const compact = keywordCompactId(keyword);
         if (!keyword || !compact || seen.has(compact)) continue;
-        if (!isLiveRadarUsableKeyword(keyword, null, null, now)) continue;
-        const category = inferLiveCategory(keyword, normalizeKeyword(row?.category) || 'all');
-        if (!isLiveMeasuredProbeCandidate(keyword, category || 'all', now)) continue;
-        if (!isHighYieldSearchAdSpendCandidate(keyword, category || 'all', now)) continue;
-        const attempts = Math.max(0, Math.floor(finiteNumber(row?.attempts) || 0));
-        const misses = Math.max(0, Math.floor(finiteNumber(row?.misses) || 0));
-        if (attempts >= LIVE_PROBE_QUEUE_MAX_ATTEMPTS || misses >= LIVE_PROBE_QUEUE_NO_RESULT_MAX) continue;
-        seen.add(compact);
         const source = mergeMeasuredProbeSources('', normalizeKeyword(row?.source) || 'persistent-probe-queue');
+        const curatedExactSource = isCuratedExactRecoveryProbeSource(source);
+        if (!curatedExactSource && !isLiveRadarUsableKeyword(keyword, null, null, now)) continue;
+        const storedCategory = normalizeKeyword(row?.category) || 'all';
+        const category = curatedExactSource
+          ? storedCategory
+          : inferLiveCategory(keyword, storedCategory);
+        if (!curatedExactSource) {
+          if (!isLiveMeasuredProbeCandidate(keyword, category || 'all', now)) continue;
+          if (!isHighYieldSearchAdSpendCandidate(keyword, category || 'all', now)) continue;
+        }
+        let attempts = Math.max(0, Math.floor(finiteNumber(row?.attempts) || 0));
+        let misses = Math.max(0, Math.floor(finiteNumber(row?.misses) || 0));
+        let lastTriedAt = normalizeKeyword(row?.lastTriedAt) || undefined;
+        if (attempts >= LIVE_PROBE_QUEUE_MAX_ATTEMPTS || misses >= LIVE_PROBE_QUEUE_NO_RESULT_MAX) {
+          if (!curatedExactSource) continue;
+          const lastTriedAtMs = Date.parse(lastTriedAt || '');
+          if (Number.isFinite(lastTriedAtMs) && now.getTime() - lastTriedAtMs >= LIVE_CURATED_EXACT_EXHAUSTED_RETRY_MS) {
+            attempts = 0;
+            misses = 0;
+            lastTriedAt = undefined;
+          }
+        }
+        seen.add(compact);
         normalizedSourceChanged = normalizedSourceChanged || source !== normalizeKeyword(row?.source);
         this.pendingMeasuredProbeQueue.push({
           keyword,
@@ -7619,7 +7890,7 @@ export class MobileLiveGoldenRadar {
           source,
           priority: finiteNumber(row?.priority) ?? preVolumeCandidateScore(keyword, category || 'all'),
           firstSeenAt: normalizeKeyword(row?.firstSeenAt) || this.now().toISOString(),
-          lastTriedAt: normalizeKeyword(row?.lastTriedAt) || undefined,
+          lastTriedAt,
           attempts,
           misses,
         });
@@ -7658,13 +7929,23 @@ export class MobileLiveGoldenRadar {
         const keyword = normalizeKeyword(row?.keyword);
         const compact = keywordCompactId(keyword);
         if (!keyword || !compact || seen.has(compact)) continue;
-        if (!isLiveRadarUsableKeyword(keyword, null, null, now)) continue;
-        const category = inferLiveCategory(keyword, normalizeKeyword(row?.category) || 'all');
-        if (!isLiveMeasuredProbeCandidate(keyword, category || 'all', now)) continue;
-        if (!isHighYieldSearchAdSpendCandidate(keyword, category || 'all', now)) continue;
+        const source = mergeMeasuredProbeSources('', normalizeKeyword(row?.source) || 'persistent-probe-queue');
+        const curatedExactSource = isCuratedExactRecoveryProbeSource(source);
+        if (!curatedExactSource && !isLiveRadarUsableKeyword(keyword, null, null, now)) continue;
+        const storedCategory = normalizeKeyword(row?.category) || 'all';
+        const category = curatedExactSource
+          ? storedCategory
+          : inferLiveCategory(keyword, storedCategory);
+        if (!curatedExactSource) {
+          if (!isLiveMeasuredProbeCandidate(keyword, category || 'all', now)) continue;
+          if (!isHighYieldSearchAdSpendCandidate(keyword, category || 'all', now)) continue;
+        }
         const attempts = Math.max(0, Math.floor(finiteNumber(row?.attempts) || 0));
         const misses = Math.max(0, Math.floor(finiteNumber(row?.misses) || 0));
-        if (attempts >= LIVE_PROBE_QUEUE_MAX_ATTEMPTS || misses >= LIVE_PROBE_QUEUE_NO_RESULT_MAX) continue;
+        if (
+          (attempts >= LIVE_PROBE_QUEUE_MAX_ATTEMPTS || misses >= LIVE_PROBE_QUEUE_NO_RESULT_MAX)
+          && !curatedExactSource
+        ) continue;
         seen.add(compact);
         count += 1;
       }
@@ -7684,9 +7965,17 @@ export class MobileLiveGoldenRadar {
           ...item,
           category: measuredProbeEffectiveCategory(item, item.category || 'all'),
         }))
-        .filter((item) => isLiveMeasuredProbeCandidate(item.keyword, item.category || 'all', now))
-        .filter((item) => isHighYieldSearchAdSpendCandidate(item.keyword, item.category || 'all', now))
-        .filter((item) => item.attempts < LIVE_PROBE_QUEUE_MAX_ATTEMPTS && item.misses < LIVE_PROBE_QUEUE_NO_RESULT_MAX)
+        .filter((item) => (
+          isCuratedExactRecoveryProbeSource(item.source)
+          || (
+            isLiveMeasuredProbeCandidate(item.keyword, item.category || 'all', now)
+            && isHighYieldSearchAdSpendCandidate(item.keyword, item.category || 'all', now)
+          )
+        ))
+        .filter((item) => (
+          isCuratedExactRecoveryProbeSource(item.source)
+          || (item.attempts < LIVE_PROBE_QUEUE_MAX_ATTEMPTS && item.misses < LIVE_PROBE_QUEUE_NO_RESULT_MAX)
+        ))
         .sort((a, b) => b.priority - a.priority || a.attempts - b.attempts);
       const trimmedItems = trimMeasuredProbeQueueFamilyFlood(filteredItems)
         .slice(0, LIVE_PROBE_QUEUE_MAX_ITEMS);
@@ -8076,6 +8365,7 @@ export class MobileLiveGoldenRadar {
     targetLimit: number,
     options: {
       curatedSeedsOnly?: boolean;
+      curatedSeeds?: readonly string[];
       maxSeedQueries?: number;
       maxRows?: number;
     } = {},
@@ -8101,7 +8391,9 @@ export class MobileLiveGoldenRadar {
       sssDepthMode ? 60 : 24,
       Math.ceil(targetLimit * (sssDepthMode ? 2.4 : 1.6)),
     ));
-    const curatedSearchAdSeeds = curatedCoreSearchAdSeedsForCategory(categoryId)
+    const curatedSearchAdSeeds = (Array.isArray(options.curatedSeeds)
+      ? options.curatedSeeds
+      : curatedCoreSearchAdSeedsForCategory(categoryId))
       .map((seed) => normalizeKeyword(seed))
       .filter(Boolean);
     const catalogSeeds = measuredProbeCategoryKeys(categoryId, liveSeeds)
@@ -8123,6 +8415,11 @@ export class MobileLiveGoldenRadar {
       .filter((seed) => !isUltimateLowValueLookupKeyword(seed))
       .filter((seed) => !isLowValueLiveCandidate(seed) && !isOverExpandedLiveCandidate(seed))
       .filter((seed) => !isNoisyLiveSeed(seed))
+      .filter((seed) => (
+        categoryId === 'all'
+        || isSameLiveGoldenPolicy(inferLiveCategory(seed, 'all'), categoryId)
+        || categoryAcceptsMeasuredProbe(seed, categoryId)
+      ))
       .slice(0, seedLimit);
     if (seeds.length === 0) return [];
 
@@ -8174,7 +8471,6 @@ export class MobileLiveGoldenRadar {
       if (
         categoryId !== 'all'
         && inferred !== categoryId
-        && !isCuratedCoreMeasuredProbe(clean)
         && !categoryAcceptsMeasuredProbe(clean, categoryId)
         && !sameCorePolicy
       ) {
@@ -8284,13 +8580,19 @@ export class MobileLiveGoldenRadar {
     if (queuedProbeItems.length === 0) return { results: [], attemptedCount: 0 };
 
     const categoryById = new Map<string, string>();
+    const curatedPolicyById = new Map<string, string>();
     const candidates: string[] = [];
     const seenCandidateKeywords = new Set<string>();
+    const selectedOwnerIds = new Set<string>();
     const candidateLimit = measurementLimit;
     const variantsByItem = queuedProbeItems.map((item) => {
       const effectiveCategory = measuredProbeEffectiveCategory(item, categoryId || 'all');
       return {
+        ownerId: keywordCompactId(item.keyword),
         effectiveCategory,
+        curatedPolicyKey: isCuratedExactRecoveryProbeSource(item.source)
+          ? liveGoldenPolicyKeyForDiscoveryId(effectiveCategory)
+          : '',
         variants: searchAdProbeMeasurementVariants(item.keyword)
           .filter((variant) => isHighYieldSearchAdSpendCandidate(variant, effectiveCategory, this.now())),
       };
@@ -8304,8 +8606,16 @@ export class MobileLiveGoldenRadar {
         const compact = keywordCompactId(variant);
         const exact = normalizeKeyword(variant);
         if (!compact || !exact || seenCandidateKeywords.has(exact)) continue;
-        if (!categoryById.has(compact)) categoryById.set(compact, entry.effectiveCategory);
+        if (entry.curatedPolicyKey) {
+          // A curated queue retry owns its declared policy even if a generic
+          // queue item generated the same compact variant first.
+          categoryById.set(compact, entry.effectiveCategory);
+          curatedPolicyById.set(compact, entry.curatedPolicyKey);
+        } else if (!categoryById.has(compact)) {
+          categoryById.set(compact, entry.effectiveCategory);
+        }
         seenCandidateKeywords.add(exact);
+        if (entry.ownerId) selectedOwnerIds.add(entry.ownerId);
         candidates.push(variant);
         added = true;
       }
@@ -8313,17 +8623,42 @@ export class MobileLiveGoldenRadar {
     }
     if (candidates.length === 0) return { results: [], attemptedCount: 0 };
 
+    const attemptedSearchAdKeywords: string[] = [];
     const volumeRows = await this.measureLiveSearchVolumeRows(config, candidates, {
       includeDocumentCount: false,
-    }, Math.min(LIVE_BACKFILL_TIMEOUT_MS, 90_000));
-    const rows = await this.attachDocumentCountsToVolumeRows(volumeRows, categoryId, targetLimit);
-    this.updateMeasuredProbeQueueAfterSelectedItems(queuedProbeItems, candidates, volumeRows, rows);
+    }, Math.min(LIVE_BACKFILL_TIMEOUT_MS, 90_000), (attempted) => {
+      attemptedSearchAdKeywords.push(...attempted);
+    });
+    const curatedExactQueueIds = new Set(curatedPolicyById.keys());
+    const rows = await this.attachDocumentCountsToVolumeRows(volumeRows, categoryId, targetLimit, {
+      exactPhraseCandidateIds: curatedExactQueueIds.size > 0 ? curatedExactQueueIds : undefined,
+    });
+    const attemptedCandidateIds = new Set(
+      attemptedSearchAdKeywords.map((keyword) => keywordCompactId(keyword)).filter(Boolean),
+    );
+    const actuallyAttemptedOwnerIds = new Set(variantsByItem
+      .filter((entry) => entry.ownerId && selectedOwnerIds.has(entry.ownerId))
+      .filter((entry) => entry.variants.some((variant) => (
+        attemptedCandidateIds.has(keywordCompactId(variant))
+      )))
+      .map((entry) => entry.ownerId));
+    const attemptedQueueItems = queuedProbeItems.filter((item) => (
+      actuallyAttemptedOwnerIds.has(keywordCompactId(item.keyword))
+    ));
+    this.updateMeasuredProbeQueueAfterSelectedItems(
+      attemptedQueueItems,
+      attemptedSearchAdKeywords,
+      volumeRows,
+      rows,
+    );
 
     const seen = new Set<string>();
     const out: MDPResult[] = [];
     const rejectedRows: Array<{ keyword: string; volume: number; docs: number; ratio: number; grade?: MobileResultGrade }> = [];
     for (const row of rows) {
-      const rowCategory = categoryById.get(keywordCompactId(row.keyword)) || categoryId || 'all';
+      const rowId = keywordCompactId(row.keyword);
+      const rowCategory = categoryById.get(rowId) || categoryId || 'all';
+      const curatedPolicyKey = curatedPolicyById.get(rowId);
       const item = rowToBackfillResult(row, rowCategory);
       if (!item) {
         const volume = rowSearchVolume(row);
@@ -8342,9 +8677,11 @@ export class MobileLiveGoldenRadar {
       out.push({
         ...item,
         score: Math.min(100, (item.score || 0) + 6),
+        categoryMatched: curatedPolicyKey ? true : item.categoryMatched,
         externalSources: uniqueKeywords([
           ...(item.externalSources || []),
           'queued-measured-probe-direct',
+          ...(curatedPolicyKey ? [`curated-policy:${curatedPolicyKey}`] : []),
         ], 8),
       });
     }
@@ -8423,6 +8760,27 @@ export class MobileLiveGoldenRadar {
       // no queued probe at all, however, it still needs one bounded curated
       // SearchAd pass or deficit lanes can remain permanently untouched.
       && (measuredProbeOnly || options.queueCanaryAttempted !== true);
+    // One eligibility decision owns both the suggestion-provider seeds and
+    // direct exact lookups. Recent successes and persisted miss tombstones
+    // therefore suppress every SearchAd call for the same curated anchor.
+    const curatedExactCandidates = categoryCuratedRecoveryAllowed
+      ? selectCuratedExactRecoveryCandidates(
+        categoryId,
+        curatedCoreSearchAdSeedRowsForCategory(categoryId),
+        [...this.board.values()],
+        this.pendingMeasuredProbeQueue,
+        this.now(),
+      )
+      : [];
+    if (curatedExactCandidates.length > 0) {
+      this.queueMeasuredProbeCandidates(
+        curatedExactCandidates,
+        categoryId,
+        'curated-exact-recovery',
+        520,
+        true,
+      );
+    }
     const searchAdSuggestionRows = categoryId === 'all'
       ? (!measuredProbeOnly
         ? await this.discoverSearchAdSuggestionBackfillCandidates(
@@ -8431,13 +8789,14 @@ export class MobileLiveGoldenRadar {
           suggestionTargetLimit,
         )
         : [])
-      : (categoryCuratedRecoveryAllowed
+      : (categoryCuratedRecoveryAllowed && curatedExactCandidates.length > 0
         ? await this.discoverSearchAdSuggestionBackfillCandidates(
           categoryId,
           liveSeeds,
           suggestionTargetLimit,
           {
             curatedSeedsOnly: true,
+            curatedSeeds: curatedExactCandidates,
             maxSeedQueries: 4,
             maxRows: measurementLimit,
           },
@@ -8481,7 +8840,11 @@ export class MobileLiveGoldenRadar {
         ...autocompleteCandidates,
         ...buildBackfillCandidates(categoryId, liveSeeds, this.maxSeeds, this.now()),
       ], this.maxSeeds);
-    if (candidates.length === 0) {
+    // Curated exact anchors are measured in the dedicated recovery allocation
+    // below and intentionally are not mixed into the generic candidate queue.
+    // A queue-canary cycle can have zero generic candidates while still owning
+    // eligible exact recovery work, so do not return before that allocation.
+    if (candidates.length === 0 && curatedExactCandidates.length === 0) {
       if (categoryCuratedRecoveryAllowed) {
         console.info('[LIVE-GOLDEN] curated SearchAd measurement skipped', {
           categoryId,
@@ -8534,9 +8897,9 @@ export class MobileLiveGoldenRadar {
     // measured. Measure those exact natural-language anchors first; these are
     // real SearchAd lookups and still pass the normal volume/document/publish
     // gates, so no synthetic board rows are introduced.
-    const curatedExactCandidates = categoryCuratedRecoveryAllowed
-      ? curatedCoreSearchAdSeedsForCategory(categoryId)
-      : [];
+    const curatedExactCandidateIds = new Set(
+      curatedExactCandidates.map((keyword) => keywordCompactId(keyword)).filter(Boolean),
+    );
     const measuredSearchAdIds = new Set(
       measuredSearchAdCandidates.map((keyword) => keywordCompactId(keyword)).filter(Boolean),
     );
@@ -8547,20 +8910,28 @@ export class MobileLiveGoldenRadar {
       .filter((keyword) => !measuredSearchAdIds.has(keywordCompactId(keyword)))
       .filter((keyword) => !suggestedRowIds.has(keywordCompactId(keyword)))
       .filter((keyword) => isHighYieldSearchAdSpendCandidate(keyword, probeCategoryFor(keyword), this.now()));
-    const suggestionRowsForRun = uniqueVolumeRows(searchAdSuggestionRows, measurementLimit);
+    const recoveryAllocation = allocateCuratedRecoveryMeasurementBudget(
+      curatedExactCandidates,
+      searchAdSuggestionRows,
+      measurementLimit,
+    );
+    const suggestionRowsForRun = recoveryAllocation.suggestionRows;
     this.searchAdMeasurementBudgetRemaining = Math.max(
       0,
       this.searchAdMeasurementBudgetRemaining - suggestionRowsForRun.length,
     );
     const searchAdCandidates = uniqueKeywords([
-      ...curatedExactCandidates,
+      ...recoveryAllocation.exactCandidates,
       ...measuredSearchAdCandidates,
       ...fallbackSearchAdCandidates,
     ], Math.max(0, measurementLimit - suggestionRowsForRun.length));
+    const measuredAttemptedKeywords: string[] = [];
     const measuredVolumeRows = searchAdCandidates.length > 0
       ? await this.measureLiveSearchVolumeRows(config, searchAdCandidates, {
         includeDocumentCount: false,
-      }, LIVE_BACKFILL_TIMEOUT_MS)
+      }, LIVE_BACKFILL_TIMEOUT_MS, (attempted) => {
+        measuredAttemptedKeywords.push(...attempted);
+      })
       : [];
     const volumeRows = uniqueVolumeRows([
       ...suggestionRowsForRun,
@@ -8568,13 +8939,16 @@ export class MobileLiveGoldenRadar {
     ], measurementLimit);
     const rows = await this.attachDocumentCountsToVolumeRows(volumeRows, categoryId, targetLimit, {
       exactPhraseCandidateIds: categoryCuratedRecoveryAllowed
-        ? suggestedRowIds
+        ? new Set([
+          ...suggestedRowIds,
+          ...curatedExactCandidateIds,
+        ])
         : undefined,
     });
     this.updateMeasuredProbeQueueAfterMeasurement(
       uniqueKeywords([
         ...suggestionRowsForRun.map((row) => row.keyword),
-        ...searchAdCandidates,
+        ...measuredAttemptedKeywords,
       ], measurementLimit * 2),
       volumeRows,
       rows,
@@ -8625,8 +8999,9 @@ export class MobileLiveGoldenRadar {
         });
         continue;
       }
-      const isAutocompleteExact = autocompleteCandidateIds.has(keywordCompactId(enrichedRow.keyword));
-      const prioritizedItem = isAutocompleteExact
+      const enrichedRowId = keywordCompactId(enrichedRow.keyword);
+      const isAutocompleteExact = autocompleteCandidateIds.has(enrichedRowId);
+      let prioritizedItem = isAutocompleteExact
         ? {
           ...item,
           score: Math.min(100, (item.score || 0) + 8),
@@ -8637,6 +9012,16 @@ export class MobileLiveGoldenRadar {
           ], 8),
         }
         : item;
+      if (curatedExactCandidateIds.has(enrichedRowId)) {
+        prioritizedItem = {
+          ...prioritizedItem,
+          categoryMatched: true,
+          externalSources: uniqueKeywords([
+            ...(prioritizedItem.externalSources || []),
+            `curated-policy:${liveGoldenPolicyKeyForDiscoveryId(categoryId)}`,
+          ], 8),
+        };
+      }
       const id = mdpResultId(item);
       if (seen.has(id)) continue;
       seen.add(id);
@@ -8803,6 +9188,7 @@ export class MobileLiveGoldenRadar {
       }
     }
     const board = this.sortedBoard();
+    const verifiedSupply = this.verifiedSupplyBoard();
     const publicPreviewIds = new Set(this.selectPublicPreview(board).map((item) => item.id));
     // 급등 레인은 규칙판정 exclude 로 등급을 강등하지 않는다(판정 정보는 유지) — 트래픽 상품.
     const markedBoard = board.map((item) => applyKeywordAiJudge({
@@ -8811,6 +9197,12 @@ export class MobileLiveGoldenRadar {
       isPublicPreview: publicPreviewIds.has(item.id),
       publishDecision: evaluatePublishDecision(item),
     }, { downgradeExcluded: normalizeKeyword(item.lane) !== TRAFFIC_SURGE_LANE }));
+    const markedVerifiedSupply = verifiedSupply.map((item) => applyKeywordAiJudge({
+      ...item,
+      ...liveValueGateFields(item, this.now()),
+      isPublicPreview: false,
+      publishDecision: evaluatePublishDecision(item),
+    }, { downgradeExcluded: true }));
     const filePendingProbeQueueCount = !this.running && this.refreshBoardFileOnSnapshot
       ? this.countMeasuredProbeQueueFile()
       : null;
@@ -8826,6 +9218,7 @@ export class MobileLiveGoldenRadar {
       publicPreviewCount: markedBoard.filter((item) => item.isPublicPreview).length,
       boardUpdatedAt: this.boardUpdatedAt,
       board: markedBoard,
+      verifiedSupply: markedVerifiedSupply,
       publicPreview: markedBoard.filter((item) => item.isPublicPreview),
       totalRuns: this.totalRuns,
       successfulRuns: this.successfulRuns,
@@ -9074,7 +9467,7 @@ export class MobileLiveGoldenRadar {
   }
 
   private selectNextCategory(): string {
-    const visibleBoard = this.sortedBoard();
+    const visibleBoard = this.verifiedSupplyBoard();
     const verifiedCounts: Record<string, number> = {};
     for (const item of visibleBoard) {
       const key = liveGoldenPolicyKeyForDiscoveryId(item.category);
@@ -9107,7 +9500,7 @@ export class MobileLiveGoldenRadar {
     if (attempted === null) return new Set<string>();
     const verifiedCounts = knownVerifiedCounts || (() => {
       const counts: Record<string, number> = {};
-      for (const item of this.sortedBoard()) {
+      for (const item of this.verifiedSupplyBoard()) {
         const key = liveGoldenPolicyKeyForDiscoveryId(item.category);
         counts[key] = (counts[key] || 0) + 1;
       }
@@ -9173,23 +9566,52 @@ export class MobileLiveGoldenRadar {
       const existing = this.board.get(id)
         || [...this.board.values()].find((item) => keywordCompactId(item.keyword) === compactId);
       const incomingVolume = finiteNumber(keyword.totalSearchVolume);
-      const docs = finiteNumber(keyword.documentCount);
       const incomingPc = finiteNumber(keyword.pcSearchVolume);
       const incomingMobile = finiteNumber(keyword.mobileSearchVolume);
       const incomingSplitTotal = incomingPc !== null && incomingMobile !== null
         ? incomingPc + incomingMobile
         : 0;
+      const incomingEvidence = (Array.isArray(keyword.evidence) ? keyword.evidence : [])
+        .map((entry) => normalizeKeyword(entry))
+        .filter(Boolean);
+      const incomingProvenance = [keyword.source, keyword.intent, ...incomingEvidence]
+        .map((entry) => normalizeKeyword(entry))
+        .join(' ');
+      const incomingIsPersistentOverlay = /(?:persistent-keyword-cache|persistent-measured-golden-cache)/i
+        .test(incomingProvenance);
+      const incomingHasDirectSearchAdProof = incomingSplitTotal > 0
+        && keyword.isMeasured === true
+        && keyword.searchVolumeSource === 'searchad'
+        && !incomingIsPersistentOverlay
+        && hasTrustedSearchVolumeMeasurement(keyword)
+        && hasTrustedDocumentCountMeasurement(keyword);
+      const existingHasExactDemandProof = existing
+        ? hasVerifiedCacheSplitDemandProof(existing)
+        : false;
+      const preserveExistingExactProvenance = existingHasExactDemandProof
+        && incomingIsPersistentOverlay
+        && !incomingHasDirectSearchAdProof;
+      const incomingDocumentCount = finiteNumber(keyword.documentCount);
+      const existingDocumentCount = finiteNumber(existing?.documentCount);
+      const docs = preserveExistingExactProvenance && existingDocumentCount !== null
+        ? existingDocumentCount
+        : incomingDocumentCount;
       const existingPc = finiteNumber(existing?.pcSearchVolume);
       const existingMobile = finiteNumber(existing?.mobileSearchVolume);
       const existingSplitTotal = existingPc !== null && existingMobile !== null
         ? existingPc + existingMobile
         : 0;
-      const pcSearchVolume = incomingSplitTotal > 0
+      const existingVolume = finiteNumber(existing?.totalSearchVolume);
+      const pcSearchVolume = preserveExistingExactProvenance
+        ? existingPc
+        : incomingSplitTotal > 0
         ? incomingPc
         : existingSplitTotal > 0
           ? existingPc
           : incomingPc;
-      const mobileSearchVolume = incomingSplitTotal > 0
+      const mobileSearchVolume = preserveExistingExactProvenance
+        ? existingMobile
+        : incomingSplitTotal > 0
         ? incomingMobile
         : existingSplitTotal > 0
           ? existingMobile
@@ -9197,7 +9619,9 @@ export class MobileLiveGoldenRadar {
       const splitTotal = pcSearchVolume !== null && mobileSearchVolume !== null
         ? pcSearchVolume + mobileSearchVolume
         : 0;
-      const volume = splitTotal > 0 ? splitTotal : incomingVolume;
+      const volume = preserveExistingExactProvenance
+        ? (existingSplitTotal > 0 ? existingSplitTotal : existingVolume)
+        : splitTotal > 0 ? splitTotal : incomingVolume;
       const ratio = volume !== null && docs !== null && docs > 0
         ? Number((volume / docs).toFixed(2))
         : finiteNumber(keyword.goldenRatio);
@@ -9206,23 +9630,53 @@ export class MobileLiveGoldenRadar {
         : finiteNumber(keyword.score);
       const incomingCpc = finiteNumber(keyword.cpc);
       const existingCpc = finiteNumber(existing?.cpc);
-      const cpc = incomingCpc !== null && incomingCpc > 0
+      const cpc = preserveExistingExactProvenance
+        ? existingCpc ?? incomingCpc
+        : incomingCpc !== null && incomingCpc > 0
         ? incomingCpc
         : existingCpc !== null && existingCpc > 0
           ? existingCpc
           : incomingCpc ?? existingCpc;
-      const searchVolumeSource = incomingSplitTotal > 0
+      const searchVolumeSource = preserveExistingExactProvenance
+        ? existing?.searchVolumeSource || keyword.searchVolumeSource
+        : incomingSplitTotal > 0
         ? keyword.searchVolumeSource
         : existing?.searchVolumeSource || keyword.searchVolumeSource;
-      const searchVolumeConfidence = incomingSplitTotal > 0
+      const searchVolumeConfidence = preserveExistingExactProvenance
+        ? existing?.searchVolumeConfidence || keyword.searchVolumeConfidence
+        : incomingSplitTotal > 0
         ? keyword.searchVolumeConfidence
         : existing?.searchVolumeConfidence || keyword.searchVolumeConfidence;
-      const isSearchVolumeEstimated = incomingSplitTotal > 0
+      const isSearchVolumeEstimated = preserveExistingExactProvenance
+        ? existing?.isSearchVolumeEstimated ?? keyword.isSearchVolumeEstimated
+        : incomingSplitTotal > 0
         ? keyword.isSearchVolumeEstimated
         : existing?.isSearchVolumeEstimated ?? keyword.isSearchVolumeEstimated;
-      const documentCountSource = keyword.documentCountSource || existing?.documentCountSource;
-      const documentCountConfidence = keyword.documentCountConfidence || existing?.documentCountConfidence;
-      const isDocumentCountEstimated = keyword.isDocumentCountEstimated ?? existing?.isDocumentCountEstimated;
+      const documentCountSource = preserveExistingExactProvenance
+        ? existing?.documentCountSource || keyword.documentCountSource
+        : keyword.documentCountSource || existing?.documentCountSource;
+      const documentCountConfidence = preserveExistingExactProvenance
+        ? existing?.documentCountConfidence || keyword.documentCountConfidence
+        : keyword.documentCountConfidence || existing?.documentCountConfidence;
+      const isDocumentCountEstimated = preserveExistingExactProvenance
+        ? existing?.isDocumentCountEstimated ?? keyword.isDocumentCountEstimated
+        : keyword.isDocumentCountEstimated ?? existing?.isDocumentCountEstimated;
+      const priorityIncomingEvidence = incomingEvidence.filter((entry) => (
+        entry.startsWith('curated-policy:')
+        || entry === 'searchad-pc-mobile-split-enriched'
+        || entry === 'naver-openapi-exact-phrase'
+        || entry === 'mobile-live-seed-backfill'
+        || entry === 'direct-searchad-exact-measured'
+      ));
+      const mergedEvidence = [...new Set([
+        // Policy ownership and exact-measurement proof affect persistence,
+        // category recovery and trust gates. Put fresh proof before legacy
+        // evidence so a full stale row cannot push it beyond the cap.
+        ...priorityIncomingEvidence,
+        ...(incomingHasDirectSearchAdProof ? ['direct-searchad-exact-measured'] : []),
+        ...(Array.isArray(existing?.evidence) ? existing.evidence : []),
+        ...incomingEvidence,
+      ].map((entry) => normalizeKeyword(entry)).filter(Boolean))].slice(0, 10);
       const splitProbeZeroAt = incomingSplitTotal > 0
         ? undefined
         : existing?.splitProbeZeroAt
@@ -9230,9 +9684,14 @@ export class MobileLiveGoldenRadar {
           || undefined;
       const metric = {
         ...keyword,
+        category: preserveExistingExactProvenance ? existing?.category || keyword.category : keyword.category,
+        source: preserveExistingExactProvenance ? existing?.source || keyword.source : keyword.source,
+        intent: preserveExistingExactProvenance ? existing?.intent || keyword.intent : keyword.intent,
+        evidence: mergedEvidence,
         pcSearchVolume,
         mobileSearchVolume,
         totalSearchVolume: volume ?? keyword.totalSearchVolume,
+        documentCount: docs ?? keyword.documentCount,
         cpc,
         searchVolumeSource,
         searchVolumeConfidence,
@@ -9240,11 +9699,13 @@ export class MobileLiveGoldenRadar {
         documentCountSource,
         documentCountConfidence,
         isDocumentCountEstimated,
+        isMeasured: preserveExistingExactProvenance ? existing?.isMeasured ?? keyword.isMeasured : keyword.isMeasured,
         splitProbeZeroAt,
       };
+      const gradeInput = preserveExistingExactProvenance ? existing?.grade || keyword.grade : keyword.grade;
       const grade = volume !== null && docs !== null && docs > 0 && ratio !== null
-        ? normalizeLiveMetricGrade(normalizedKeyword, keyword.grade, opportunityScore, volume, docs, ratio)
-        : keyword.grade;
+        ? normalizeLiveMetricGrade(normalizedKeyword, gradeInput, opportunityScore, volume, docs, ratio)
+        : gradeInput;
       if (grade === 'C') continue;
       const judgedMetric = applyKeywordAiJudge({
         ...metric,
@@ -9259,6 +9720,9 @@ export class MobileLiveGoldenRadar {
         && !isTrafficSurgeBoardMetric(judgedMetric as Partial<MobileLiveGoldenBoardItem>, now)
       ) continue;
       const boardId = existing?.id || id;
+      const measurementUpdatedAt = preserveExistingExactProvenance
+        ? existing?.updatedAt || stamp
+        : stamp;
       const item: MobileLiveGoldenBoardItem = {
         ...judgedMetric,
         keyword: normalizedKeyword,
@@ -9267,11 +9731,11 @@ export class MobileLiveGoldenRadar {
         id: boardId,
         rank: existing?.rank || 0,
         discoveredAt: existing?.discoveredAt || stamp,
-        updatedAt: stamp,
-        freshness: 'live',
+        updatedAt: measurementUpdatedAt,
+        freshness: freshnessFrom(measurementUpdatedAt, now.getTime()),
         isPublicPreview: false,
         publicSearchVolumeLabel: formatRange(metric.totalSearchVolume, 'search'),
-        publicDocumentCountLabel: formatRange(keyword.documentCount, 'document'),
+        publicDocumentCountLabel: formatRange(metric.documentCount, 'document'),
         publicReason: publicReason({ ...metric, grade, goldenRatio: ratio }),
       };
       this.board.set(boardId, item);
@@ -9399,7 +9863,7 @@ export class MobileLiveGoldenRadar {
       .sort((a, b) => splitEnrichmentPriorityScore(b, nowMs) - splitEnrichmentPriorityScore(a, nowMs));
     const candidates = selectDeficitBalancedCachePromotionCandidates(
       rankedCandidates,
-      this.sortedBoard(),
+      this.verifiedSupplyBoard(),
       spendLimit,
     );
     if (candidates.length === 0) {
@@ -9604,7 +10068,7 @@ export class MobileLiveGoldenRadar {
     return promotedCount;
   }
 
-  private sortedBoard(): MobileLiveGoldenBoardItem[] {
+  private qualityBoardCandidates(): MobileLiveGoldenBoardItem[] {
     const now = this.now();
     const nowMs = now.getTime();
     const base = [...this.board.values()]
@@ -9642,8 +10106,40 @@ export class MobileLiveGoldenRadar {
         || isTrafficSurgeBoardMetric(item, now)
       ))
       .filter((item) => isTrafficSurgeBoardMetric(item, now) || isLiveGoldenQualityConsistent(item, now));
-    const selected = selectLiveBoardItems(sorted, this.boardTarget, now);
-    return selected
+    return sorted;
+  }
+
+  private verifiedSupplyBoard(): MobileLiveGoldenBoardItem[] {
+    const now = this.now();
+    const nowMs = now.getTime();
+    const corePolicyKeys = new Set(LIVE_GOLDEN_CORE_CATEGORY_POLICIES.map((policy) => policy.key));
+    const candidates = this.qualityBoardCandidates()
+      // Traffic-surge is a separate product lane, not part of the Phase 1C
+      // core golden-keyword inventory.
+      .filter((item) => normalizeKeyword(item.lane) !== TRAFFIC_SURGE_LANE)
+      .filter((item) => corePolicyKeys.has(liveGoldenPolicyKeyForDiscoveryId(item.category)))
+      .filter(isTrustedLiveGoldenSupplyRow);
+    return selectMeasuredPublishableFallbackItems(
+      candidates,
+      Math.max(1, candidates.length),
+      now,
+    )
+      .sort((a, b) => {
+        const scoreDiff = boardDisplayQualitySortScore(b, now, nowMs) - boardDisplayQualitySortScore(a, now, nowMs);
+        if (scoreDiff !== 0) return scoreDiff;
+        return Date.parse(b.updatedAt) - Date.parse(a.updatedAt);
+      })
+      .map((item, index) => ({
+        ...item,
+        score: resolvedLiveBoardScore(item),
+        rank: index + 1,
+      }));
+  }
+
+  private sortedBoard(): MobileLiveGoldenBoardItem[] {
+    const now = this.now();
+    const nowMs = now.getTime();
+    return selectLiveBoardItems(this.qualityBoardCandidates(), this.boardTarget, now)
       .sort((a, b) => {
         const scoreDiff = boardDisplayQualitySortScore(b, now, nowMs) - boardDisplayQualitySortScore(a, now, nowMs);
         if (scoreDiff !== 0) return scoreDiff;
@@ -9657,7 +10153,10 @@ export class MobileLiveGoldenRadar {
   }
 
   private pruneBoard(): void {
-    const keepIds = new Set(this.sortedBoard().map((item) => item.id));
+    const keepIds = new Set([
+      ...this.sortedBoard().map((item) => item.id),
+      ...this.verifiedSupplyBoard().map((item) => item.id),
+    ]);
     const now = this.now();
     const nowMs = now.getTime();
     const minimumVisibleBoard = Math.min(this.publicPreviewCount, this.boardTarget);
@@ -9945,6 +10444,20 @@ export class MobileLiveGoldenRadar {
   private boardItemFromPersistedRow(row: any, stamp: string, now: Date): MobileLiveGoldenBoardItem | null {
     const keyword = normalizeKeyword(row?.keyword);
     if (!keyword) return null;
+    const rawEvidence = Array.isArray(row?.evidence)
+      ? row.evidence.map((entry: unknown) => normalizeKeyword(entry)).filter(Boolean)
+      : [];
+    const evidence = rawEvidence.slice(0, 8);
+    const storedCategory = normalizeKeyword(row?.category) || 'live';
+    // Old board files may have written the policy tag beyond the display
+    // evidence cap. Category restoration must inspect the full persisted proof.
+    const declaredPolicyKey = rawEvidence
+      .find((entry: string) => entry.startsWith('curated-policy:'))
+      ?.slice('curated-policy:'.length);
+    const category = declaredPolicyKey
+      && liveGoldenPolicyKeyForDiscoveryId(storedCategory) === declaredPolicyKey
+      ? storedCategory
+      : inferLiveCategory(keyword, storedCategory);
     const measurementMeta = measurementMetadataWithPersistentDefaults(row);
     const totalSearchVolume = finiteNumber(row?.totalSearchVolume);
     const documentCount = finiteNumber(row?.documentCount);
@@ -10004,12 +10517,10 @@ export class MobileLiveGoldenRadar {
       documentCount,
       goldenRatio,
       cpc: finiteNumber(row?.cpc),
-      category: inferLiveCategory(keyword, normalizeKeyword(row?.category) || 'live'),
+      category,
       source: normalizeKeyword(row?.source) || 'mobile-live-golden-radar',
       intent: normalizeKeyword(row?.intent) || 'live-golden-discovery',
-      evidence: Array.isArray(row?.evidence)
-        ? row.evidence.map((entry: unknown) => normalizeKeyword(entry)).filter(Boolean).slice(0, 8)
-        : [],
+      evidence,
       isMeasured,
       id,
       rank: finiteNumber(row?.rank) || 0,
