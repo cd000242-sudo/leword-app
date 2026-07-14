@@ -3199,6 +3199,8 @@ function thinProfileCount(items: Array<{ keyword: string }>): number {
   fs.rmSync(persistentKeywordCacheFile, { force: true });
 
   const splitEnrichmentCacheFile = path.join(process.cwd(), 'tmp', 'mobile-live-golden-split-enrichment-test.json');
+  const splitEnrichmentBoardFile = path.join(process.cwd(), 'tmp', 'mobile-live-golden-split-enrichment-board-test.json');
+  fs.rmSync(splitEnrichmentBoardFile, { force: true });
   fs.writeFileSync(splitEnrichmentCacheFile, JSON.stringify({
     __schemaVersion: 'test-cache',
     '\uCCAD\uB144\uBBF8\uB798\uC801\uAE08 \uAC00\uC785\uC2E0\uCCAD \uB300\uC0C1': {
@@ -3222,6 +3224,7 @@ function thinProfileCount(items: Array<{ keyword: string }>): number {
   const splitEnrichmentRadar = new MobileLiveGoldenRadar({
     notificationInbox: inbox,
     runOnStart: false,
+    boardFile: splitEnrichmentBoardFile,
     keywordCacheFile: splitEnrichmentCacheFile,
     categories: ['policy'],
     getEnvConfig: () => ({
@@ -3253,11 +3256,11 @@ function thinProfileCount(items: Array<{ keyword: string }>): number {
         }
         return {
           keyword,
-          pcSearchVolume: 3100,
-          mobileSearchVolume: 17900,
+          pcSearchVolume: 0,
+          mobileSearchVolume: 0,
           documentCount: null,
           competition: 'LOW',
-          monthlyAveCpc: 520,
+          monthlyAveCpc: 0,
         };
       });
     },
@@ -3272,15 +3275,40 @@ function thinProfileCount(items: Array<{ keyword: string }>): number {
         && item.documentCount === 360
         && item.cpc === 740
       ))
-      && splitEnrichmentSnapshot.board.some((item) => (
+      && !splitEnrichmentSnapshot.board.some((item) => (
         item.keyword === '\uC81C\uC8FC \uB80C\uD130\uCE74 \uAC00\uACA9\uBE44\uAD50'
-        && item.pcSearchVolume === 3100
-        && item.mobileSearchVolume === 17900
-        && item.documentCount === 850
-        && item.cpc === 520
       )),
     splitEnrichmentSnapshot.board.map((item) => `${item.keyword}:${item.pcSearchVolume}:${item.mobileSearchVolume}:${item.documentCount}:${item.cpc}`).join('|'));
+  const restartedMeasuredKeywords: string[] = [];
+  const restartedSplitEnrichmentRadar = new MobileLiveGoldenRadar({
+    notificationInbox: inbox,
+    runOnStart: false,
+    boardFile: splitEnrichmentBoardFile,
+    keywordCacheFile: splitEnrichmentCacheFile,
+    categories: ['policy'],
+    getEnvConfig: () => ({ naverClientId: 'client', naverClientSecret: 'secret' }),
+    liveSeedProvider: async () => [],
+    enableBackfill: false,
+    discover: async () => [],
+    measureLiveSearchVolumeSeparate: async (_config, keywords) => {
+      restartedMeasuredKeywords.push(...keywords);
+      return keywords.map((keyword) => ({
+        keyword,
+        pcSearchVolume: 0,
+        mobileSearchVolume: 0,
+        documentCount: null,
+        competition: 'LOW',
+        monthlyAveCpc: 0,
+      }));
+    },
+  });
+  await restartedSplitEnrichmentRadar.runOnce();
+  assert('zero split cache rows are not measured again after worker restart',
+    !restartedMeasuredKeywords.includes('\uC81C\uC8FC \uB80C\uD130\uCE74 \uAC00\uACA9\uBE44\uAD50'),
+    JSON.stringify(restartedMeasuredKeywords));
   fs.rmSync(splitEnrichmentCacheFile, { force: true });
+  fs.rmSync(splitEnrichmentBoardFile, { force: true });
+  fs.rmSync(splitEnrichmentBoardFile.replace(/\.json$/, '') + '-realdemand.json', { force: true });
 
   const underfilledCacheDir = fs.mkdtempSync(path.join(os.tmpdir(), 'leword-phase1d-cache-'));
   const underfilledBoardFile = path.join(underfilledCacheDir, 'live-golden-board.json');

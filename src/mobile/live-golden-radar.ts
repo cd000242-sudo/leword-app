@@ -249,6 +249,7 @@ const LIVE_CACHE_PROMOTION_MAX_CANDIDATES = 96;
 const LIVE_CACHE_PROMOTION_BUDGET_PER_RUN = 24;
 const LIVE_CACHE_PROMOTION_BATCH_SIZE = 6;
 const LIVE_CACHE_PROMOTION_BATCH_TIMEOUT_MS = 16_000;
+const LIVE_CACHE_ZERO_SPLIT_RETRY_MS = 7 * 24 * 60 * 60 * 1000;
 const LIVE_CACHE_PROMOTION_MIN_VOLUME = 100;
 const LIVE_CACHE_PROMOTION_MIN_RATIO = 0.5;
 const LIVE_CACHE_PROMOTION_STRONG_NEED_MIN_RATIO = 0.08;
@@ -2790,6 +2791,13 @@ function hasVerifiedCacheSplitDemandProof(item: MobileLiveGoldenBoardItem): bool
   return evidence.includes('persistent-cache-split-promoted')
     && hasMeasuredPcMobileSplit(item)
     && hasTrustedCacheMeasurementForSplitPromotion(item);
+}
+
+function hasRecentCacheZeroSplitProbe(item: MobileLiveGoldenBoardItem, nowMs: number): boolean {
+  const zeroAtMs = Date.parse(String(item.splitProbeZeroAt || ''));
+  return Number.isFinite(zeroAtMs)
+    && nowMs >= zeroAtMs
+    && nowMs - zeroAtMs < LIVE_CACHE_ZERO_SPLIT_RETRY_MS;
 }
 
 function isPublicPreviewCandidate(item: MobileLiveGoldenBoardItem): boolean {
@@ -8677,6 +8685,11 @@ export class MobileLiveGoldenRadar {
       const documentCountSource = keyword.documentCountSource || existing?.documentCountSource;
       const documentCountConfidence = keyword.documentCountConfidence || existing?.documentCountConfidence;
       const isDocumentCountEstimated = keyword.isDocumentCountEstimated ?? existing?.isDocumentCountEstimated;
+      const splitProbeZeroAt = incomingSplitTotal > 0
+        ? undefined
+        : existing?.splitProbeZeroAt
+          || normalizeKeyword((keyword as Partial<MobileLiveGoldenBoardItem>).splitProbeZeroAt)
+          || undefined;
       const metric = {
         ...keyword,
         pcSearchVolume,
@@ -8689,6 +8702,7 @@ export class MobileLiveGoldenRadar {
         documentCountSource,
         documentCountConfidence,
         isDocumentCountEstimated,
+        splitProbeZeroAt,
       };
       const grade = volume !== null && docs !== null && docs > 0 && ratio !== null
         ? normalizeLiveMetricGrade(normalizedKeyword, keyword.grade, opportunityScore, volume, docs, ratio)
@@ -8838,6 +8852,7 @@ export class MobileLiveGoldenRadar {
       .filter((item) => hasCompleteLiveGoldenMetrics(item))
       .filter((item) => isCachePromotionMeasurementCandidate(item, now))
       .filter((item) => !hasMeasuredPcMobileSplit(item))
+      .filter((item) => !hasRecentCacheZeroSplitProbe(item, nowMs))
       .filter((item) => isMeasuredCacheSearchAdSplitCandidate(item.keyword, item.category || 'all', now))
       .filter((item) => isHumanNaturalGoldenMetric(item))
       .filter((item) => isCacheSplitPromotionPreflightCandidate(item, now))
@@ -8929,7 +8944,20 @@ export class MobileLiveGoldenRadar {
       const mobile = finiteNumber(row.mobileSearchVolume);
       const measuredVolume = (pc || 0) + (mobile || 0);
       const docs = finiteNumber(item.documentCount);
-      if (pc === null || mobile === null || measuredVolume <= 0 || docs === null || docs <= 0) continue;
+      if (pc === null || mobile === null || docs === null || docs <= 0) continue;
+      if (measuredVolume <= 0) {
+        this.board.set(item.id, {
+          ...item,
+          splitProbeZeroAt: stamp,
+          evidence: [...new Set([
+            ...(Array.isArray(item.evidence) ? item.evidence : []),
+            'searchad-pc-mobile-split-zero',
+          ])].slice(0, 10),
+          updatedAt: stamp,
+        });
+        changed += 1;
+        continue;
+      }
       const ratio = Number((measuredVolume / docs).toFixed(2));
       const opportunityScore = liveUltimateOpportunityScore(item.keyword, measuredVolume, docs, ratio);
       const grade = normalizeLiveMetricGrade(
@@ -8953,6 +8981,7 @@ export class MobileLiveGoldenRadar {
         searchVolumeSource: 'searchad',
         searchVolumeConfidence: 'high',
         isSearchVolumeEstimated: (row as any).svEstimated === true,
+        splitProbeZeroAt: undefined,
         documentCountSource: item.documentCountSource || 'cache',
         documentCountConfidence: item.documentCountConfidence || 'medium',
         isDocumentCountEstimated: item.isDocumentCountEstimated === true,
@@ -9017,6 +9046,7 @@ export class MobileLiveGoldenRadar {
     const nowMs = now.getTime();
     const base = [...this.board.values()]
       .filter((item) => ageMsFrom(item.updatedAt, nowMs) <= LIVE_BOARD_MAX_AGE_MS)
+      .filter((item) => !hasRecentCacheZeroSplitProbe(item, nowMs))
       .filter(hasCompleteLiveGoldenMetrics)
       .filter((item) => (
         isLiveRadarUsableMetric(item, now)
@@ -9421,6 +9451,7 @@ export class MobileLiveGoldenRadar {
       rank: finiteNumber(row?.rank) || 0,
       discoveredAt: normalizeKeyword(row?.discoveredAt) || normalizeKeyword(row?.updatedAt) || stamp,
       updatedAt: normalizeKeyword(row?.updatedAt) || normalizeKeyword(row?.discoveredAt) || stamp,
+      splitProbeZeroAt: normalizeKeyword(row?.splitProbeZeroAt) || undefined,
       freshness: 'warm',
       isPublicPreview: false,
       publicSearchVolumeLabel: normalizeKeyword(row?.publicSearchVolumeLabel) || formatRange(totalSearchVolume, 'search'),
@@ -9666,9 +9697,11 @@ export class MobileLiveGoldenRadar {
   // 프로브 왕복 실패(unknown)는 절대 삭제 근거로 쓰지 않는다.
   private async enforceRealDemandOnBoard(): Promise<number> {
     if (!this.realDemandEnabled) return 0;
+    const nowMs = this.now().getTime();
     const targets = [...this.board.values()]
       .filter((item) => hasSyntheticProbeProvenance(item))
       .filter((item) => !hasVerifiedCacheSplitDemandProof(item))
+      .filter((item) => !hasRecentCacheZeroSplitProbe(item, nowMs))
       .filter((item) => {
         const verdict = this.realDemandVerifier.verdictFor(item.keyword);
         return !verdict || verdict.result === 'fake';

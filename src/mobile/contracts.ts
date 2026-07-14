@@ -247,6 +247,7 @@ export interface MobileLiveGoldenBoardItem extends MobileKeywordMetric {
   rank: number;
   discoveredAt: string;
   updatedAt: string;
+  splitProbeZeroAt?: string;
   freshness: MobileLiveGoldenFreshness;
   isPublicPreview: boolean;
   publicSearchVolumeLabel: string;
