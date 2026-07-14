@@ -4576,7 +4576,10 @@ function curatedCoreSearchAdSeedsForCategory(categoryId: string): readonly strin
   const base = LIVE_CURATED_CORE_SEARCHAD_SEEDS[normalizedCategoryId]
     || LIVE_CURATED_CORE_SEARCHAD_SEEDS_BY_POLICY[liveGoldenPolicyKeyForDiscoveryId(normalizedCategoryId)]
     || [];
-  const supplements = LIVE_CURATED_CORE_SEARCHAD_SEED_SUPPLEMENTS[normalizedCategoryId] || [];
+  const supplementKey = LIVE_CURATED_CORE_SEARCHAD_SEED_SUPPLEMENTS[normalizedCategoryId]
+    ? normalizedCategoryId
+    : liveGoldenPolicyKeyForDiscoveryId(normalizedCategoryId);
+  const supplements = LIVE_CURATED_CORE_SEARCHAD_SEED_SUPPLEMENTS[supplementKey] || [];
   return [...base, ...supplements]
     .map((seed) => seed.replace(/\\u([0-9a-f]{4})/gi, (_match, code) => String.fromCharCode(parseInt(code, 16))))
     .filter((seed, index, all) => all.indexOf(seed) === index)
