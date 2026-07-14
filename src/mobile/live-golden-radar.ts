@@ -69,6 +69,7 @@ import {
   selectNextLiveGoldenDiscoveryCategory,
   type LiveGoldenCategoryRunStats,
 } from './live-golden-category-policy';
+import { isTrustedLiveGoldenSupplyRow } from './live-golden-supply-report';
 
 export interface MobileLiveGoldenRadarRunGate {
   ok: boolean;
@@ -239,6 +240,7 @@ const LIVE_SEARCHAD_VOLUME_BATCH_SIZE = 4;
 const LIVE_SEARCHAD_VOLUME_MIN_REMAINING_MS = 2_000;
 const LIVE_SEARCHAD_MEASUREMENT_BUDGET_PER_RUN = 40;
 const LIVE_STARTUP_CATCH_UP_CYCLE_MAX = 16;
+const LIVE_STARTUP_CATCH_UP_ATTEMPT_MAX = 24;
 // A large persistent queue is a canary, not the discovery engine. Reserve most
 // of the fixed per-run ceiling for unseen category-deficit candidates so old
 // misses cannot starve supply recovery indefinitely.
@@ -260,7 +262,7 @@ const LIVE_CACHE_PROMOTION_MIN_VOLUME = 100;
 const LIVE_CACHE_PROMOTION_MIN_RATIO = 0.5;
 const LIVE_CACHE_PROMOTION_STRONG_NEED_MIN_RATIO = 0.08;
 const LIVE_CACHE_PROMOTION_STRONG_NEED_DOCUMENT_CEILING = 80_000;
-const LIVE_ZERO_YIELD_COOLDOWN_MS = 6 * 60 * 60 * 1000;
+const LIVE_ZERO_YIELD_COOLDOWN_MS = 12 * 60 * 1000;
 const LIVE_SEARCHAD_CANDIDATE_MIN_CHARS = 3;
 const LIVE_SEARCHAD_CANDIDATE_MAX_CHARS = 30;
 const LIVE_SEARCHAD_CANDIDATE_MAX_TOKENS = 5;
@@ -6657,7 +6659,7 @@ export class MobileLiveGoldenRadar {
     if (this.runOnStart) {
       this.startTimer = this.setTimeoutFn(() => {
         this.startTimer = null;
-        void this.runUntilTarget(this.startupCatchUpCycles);
+        void this.runUntilTarget(this.startupCatchUpCycles, { fillCategoryScans: true });
       }, this.runOnStartDelayMs);
     }
     this.lastMessage = 'live golden radar enabled';
@@ -7190,28 +7192,60 @@ export class MobileLiveGoldenRadar {
     return this.snapshot();
   }
 
-  async runUntilTarget(maxCycles = this.startupCatchUpCycles): Promise<MobileLiveGoldenRadarSnapshot> {
+  async runUntilTarget(
+    maxCycles = this.startupCatchUpCycles,
+    options: { fillCategoryScans?: boolean } = {},
+  ): Promise<MobileLiveGoldenRadarSnapshot> {
     const cycleBudget = Math.max(1, Math.min(LIVE_STARTUP_CATCH_UP_CYCLE_MAX, Math.floor(maxCycles)));
+    const fillCategoryScans = options.fillCategoryScans === true;
+    const attemptBudget = fillCategoryScans
+      ? Math.min(
+        LIVE_STARTUP_CATCH_UP_ATTEMPT_MAX,
+        cycleBudget + LIVE_GOLDEN_CORE_CATEGORY_POLICIES.length,
+      )
+      : cycleBudget;
     let snapshot = this.snapshot();
+    let completedCategoryScans = 0;
     const previousCatchUpAttemptedPolicyKeys = this.catchUpAttemptedPolicyKeys;
     this.catchUpAttemptedPolicyKeys = new Set<string>();
     try {
-      for (let cycle = 0; cycle < cycleBudget && this.needsSssDepthRefresh(snapshot); cycle += 1) {
+      for (
+        let attempt = 0;
+        attempt < attemptBudget
+          && (!fillCategoryScans || completedCategoryScans < cycleBudget)
+          && this.needsSssDepthRefresh(snapshot);
+        attempt += 1
+      ) {
         const beforeAttempts = this.totalRuns + this.skippedRuns + this.failedRuns;
         const beforeBoardCount = snapshot.boardCount;
         const beforeSssReady = snapshot.board.filter((item) => isMeasuredSssBoardCandidate(item, this.now())).length;
         const beforeCacheProgress = this.cachePromotionProgressCount;
+        const beforeCategoryScans = Object.values(snapshot.categoryStats || {})
+          .reduce((sum, item) => sum + Math.max(0, Number(item?.scans) || 0), 0);
         snapshot = await this.runOnce();
         const afterAttempts = this.totalRuns + this.skippedRuns + this.failedRuns;
         const afterSssReady = snapshot.board.filter((item) => isMeasuredSssBoardCandidate(item, this.now())).length;
+        const afterCategoryScans = Object.values(snapshot.categoryStats || {})
+          .reduce((sum, item) => sum + Math.max(0, Number(item?.scans) || 0), 0);
+        const categoryScansAdvanced = Math.max(0, afterCategoryScans - beforeCategoryScans);
+        completedCategoryScans += categoryScansAdvanced;
         const cacheInventoryAdvanced = this.cachePromotionProgressCount > beforeCacheProgress;
         if (snapshot.running || afterAttempts === beforeAttempts) break;
         if (snapshot.searchAdQuota?.exhausted) break;
         if (this.skippedRuns > 0 && /busy|skipped/i.test(snapshot.lastMessage || '')) break;
         if (!cacheInventoryAdvanced && snapshot.boardCount <= beforeBoardCount && afterSssReady <= beforeSssReady) {
           const unattemptedDeficitPolicies = this.unattemptedCatchUpDeficitPolicyKeys();
-          if (this.enableBackfill && unattemptedDeficitPolicies.size > 0 && cycle + 1 < cycleBudget) {
-            this.lastMessage = `catch-up rotating to untried deficit categories (${unattemptedDeficitPolicies.size} remaining); board ${snapshot.boardCount}/${this.boardTarget}`;
+          const hasCatchUpBudget = attempt + 1 < attemptBudget
+            && (!fillCategoryScans || completedCategoryScans < cycleBudget);
+          if (
+            this.enableBackfill
+            && hasCatchUpBudget
+            && (fillCategoryScans || unattemptedDeficitPolicies.size > 0)
+          ) {
+            const rotationReason = unattemptedDeficitPolicies.size > 0
+              ? `${unattemptedDeficitPolicies.size} untried deficit policies`
+              : `${cycleBudget - completedCategoryScans} category scans remaining`;
+            this.lastMessage = `catch-up rotating (${rotationReason}); board ${snapshot.boardCount}/${this.boardTarget}`;
             snapshot = this.snapshot();
             continue;
           }
@@ -8834,7 +8868,7 @@ export class MobileLiveGoldenRadar {
       if (!this.enabled) return;
       const snapshot = this.snapshot();
       void (snapshot.boardCount < this.boardTarget
-        ? this.runUntilTarget(this.startupCatchUpCycles)
+        ? this.runUntilTarget(this.startupCatchUpCycles, { fillCategoryScans: true })
         : this.runOnce());
     }, delayMs);
   }
@@ -9527,6 +9561,7 @@ export class MobileLiveGoldenRadar {
       .filter((item) => ageMsFrom(item.updatedAt, nowMs) <= LIVE_BOARD_MAX_AGE_MS)
       .filter((item) => !hasRecentCacheZeroSplitProbe(item, nowMs))
       .filter(hasCompleteLiveGoldenMetrics)
+      .filter(isTrustedLiveGoldenSupplyRow)
       .filter((item) => (
         isLiveRadarUsableMetric(item, now)
         || isMeasuredProExactKeywordMetric(item, now)

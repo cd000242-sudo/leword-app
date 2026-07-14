@@ -1,6 +1,7 @@
 import { MobileLiveGoldenRadar, __liveGoldenRadarTestInternals } from '../../mobile/live-golden-radar';
 import { MobileNotificationInbox } from '../../mobile/notification-inbox';
 import type { MobileKeywordResult } from '../../mobile/contracts';
+import { isTrustedLiveGoldenSupplyRow } from '../../mobile/live-golden-supply-report';
 import { markNaverBlogOpenApiQuotaBlocked } from '../naver-blog-api';
 import { measureDocumentCount } from '../measure-dc';
 import { setPersistent } from '../persistent-keyword-cache';
@@ -5592,7 +5593,17 @@ function thinProfileCount(items: Array<{ keyword: string }>): number {
       '근로장려금 지급일 조회',
       '문화누리카드 사용처 조회',
       '에너지바우처 잔액조회',
-    ].map((keyword, index) => previewBoardItem(keyword, 'policy', index)),
+    ].map((keyword, index) => previewBoardItem(keyword, 'policy', index)).concat([
+      '컴퓨터활용능력 시험일정',
+      '전산회계 자격증 시험일정',
+      '요양보호사 교육비용',
+      '공인중개사 학원비용',
+    ].map((keyword, index) => ({
+      ...previewBoardItem(keyword, 'education', index + 10),
+      searchVolumeSource: 'unknown',
+      searchVolumeConfidence: 'low',
+      isSearchVolumeEstimated: true,
+    }))),
   }), 'utf8');
   const deficitScheduledRadar = new MobileLiveGoldenRadar({
     notificationInbox: inbox,
@@ -5616,7 +5627,8 @@ function thinProfileCount(items: Array<{ keyword: string }>): number {
   assert('live radar uses deficit category policy instead of fixed round robin order',
     deficitScheduledCategory === 'education'
       && deficitScheduledSnapshot.categoryStats?.education?.scans === 1
-      && deficitScheduledSnapshot.categoryStats.education.published === 0,
+      && deficitScheduledSnapshot.categoryStats.education.published === 0
+      && deficitScheduledSnapshot.board.every(isTrustedLiveGoldenSupplyRow),
     `${deficitScheduledCategory}:${JSON.stringify(deficitScheduledSnapshot.categoryStats)}`);
   fs.rmSync(deficitSchedulerBoardFile, { force: true });
 

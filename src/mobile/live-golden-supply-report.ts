@@ -54,7 +54,7 @@ function roundRate(value: number): number {
   return Math.round(Math.max(0, value) * 10_000) / 10_000;
 }
 
-function isTrustedVerifiedRow(item: MobileLiveGoldenBoardItem): boolean {
+export function isTrustedLiveGoldenSupplyRow(item: MobileLiveGoldenBoardItem): boolean {
   const pcSearchVolume = Number(item.pcSearchVolume);
   const mobileSearchVolume = Number(item.mobileSearchVolume);
   const hasMeasuredSplit = Number.isFinite(pcSearchVolume)
@@ -80,7 +80,7 @@ export function buildLiveGoldenSupplyReport(
     ),
   );
   const list = Array.isArray(rows) ? rows : [];
-  const verified = list.filter(isTrustedVerifiedRow);
+  const verified = list.filter(isTrustedLiveGoldenSupplyRow);
   const counts: Record<string, number> = {};
   let unknownCategoryCount = 0;
   let staleVerifiedCount = 0;
