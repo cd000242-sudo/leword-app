@@ -87,6 +87,22 @@ assert('unmeasured fallback rows are excluded from verified supply',
     && incompleteReport.measuredCompletenessRate === 0,
   JSON.stringify(incompleteReport));
 
+const splitless = measuredItem('사대보험계산기프리랜서', 'insurance_safe', 2);
+splitless.pcSearchVolume = 0;
+splitless.mobileSearchVolume = 0;
+splitless.totalSearchVolume = 43600;
+const splitlessReport = buildLiveGoldenSupplyReport([splitless], {
+  nowMs: Date.parse('2026-07-11T10:00:00.000Z'),
+  verifiedTarget: 1,
+  minimumActiveCoreCategories: 1,
+});
+assert('splitless total-only rows cannot satisfy measured completeness',
+  splitlessReport.verifiedCount === 0
+    && splitlessReport.untrustedCount === 1
+    && splitlessReport.measuredCompletenessRate === 0
+    && splitlessReport.failureReasons.includes('untrusted-row-present'),
+  JSON.stringify(splitlessReport));
+
 console.log('[live-golden-supply-report.test] passed');
 
 export {};

@@ -55,7 +55,13 @@ function roundRate(value: number): number {
 }
 
 function isTrustedVerifiedRow(item: MobileLiveGoldenBoardItem): boolean {
+  const pcSearchVolume = Number(item.pcSearchVolume);
+  const mobileSearchVolume = Number(item.mobileSearchVolume);
+  const hasMeasuredSplit = Number.isFinite(pcSearchVolume)
+    && Number.isFinite(mobileSearchVolume)
+    && pcSearchVolume + mobileSearchVolume > 0;
   return item.isMeasured !== false
+    && hasMeasuredSplit
     && hasTrustedSearchVolumeMeasurement(item)
     && hasTrustedDocumentCountMeasurement(item);
 }
