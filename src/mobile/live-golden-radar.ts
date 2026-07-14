@@ -4560,11 +4560,27 @@ const LIVE_CURATED_CORE_SEARCHAD_SEEDS_BY_POLICY: Record<string, readonly string
   shopping_beauty: ['로봇청소기', '제습기', '무선청소기', '선크림'],
 });
 
+// SearchAd suggestions are inventory-dependent. Keep a small explicit set of
+// natural-language anchors for lanes that otherwise receive only catalogue
+// echoes. All rows still pass the normal intent, measurement, and publish gates.
+const LIVE_CURATED_CORE_SEARCHAD_SEED_SUPPLEMENTS: Record<string, readonly string[]> = Object.freeze({
+  education_jobs: ['\\uC694\\uC591\\uBCF4\\uD638\\uC0AC \\uD559\\uC6D0\\uBE44\\uC6A9', '\\uCEF4\\uD65C \\uC2DC\\uD5D8\\uC77C\\uC815', '\\uAD6D\\uBBFC\\uB0B4\\uC77C\\uBC30\\uC6C0\\uCE74\\uB4DC \\uC2E0\\uCCAD', '\\uACF5\\uC778\\uC911\\uAC1C\\uC0AC \\uC2DC\\uD5D8\\uC77C\\uC815'],
+  it_ai: ['\\uC544\\uC774\\uD3F0 \\uBC30\\uD130\\uB9AC \\uAD50\\uCCB4\\uBE44\\uC6A9', '\\uB178\\uD2B8\\uBD81 \\uBC1C\\uC5F4 \\uD574\\uACB0', 'ChatGPT \\uC0AC\\uC6A9\\uBC95', '\\uC708\\uB3C4\\uC6B0 \\uC5C5\\uB370\\uC774\\uD2B8 \\uC624\\uB958 \\uD574\\uACB0'],
+  realestate: ['\\uC804\\uC138\\uBCF4\\uC99D\\uBCF4\\uD5D8 \\uAC00\\uC785\\uC870\\uAC74', '\\uC8FC\\uD0DD\\uCCAD\\uC57D \\uBB34\\uC8FC\\uD0DD\\uAE30\\uAC04', '\\uBD80\\uB3D9\\uC0B0 \\uC911\\uAC1C\\uC218\\uC218\\uB8CC \\uACC4\\uC0B0', '\\uC6D4\\uC138 \\uACC4\\uC57D \\uAC31\\uC2E0'],
+  food_recipe: ['\\uB2E4\\uC774\\uC5B4\\uD2B8 \\uC2DD\\uB2E8 \\uCC28\\uB9AC\\uB294\\uBC95', '\\uB450\\uBD80\\uC870\\uB9BC \\uB808\\uC2DC\\uD53C', '\\uC5D0\\uC5B4\\uD504\\uB77C\\uC774\\uC5B4 \\uB2ED\\uB0A0\\uAC1C \\uC694\\uB9AC', '\\uC9D1\\uB4E4\\uC774 \\uC74C\\uC2DD \\uC900\\uBE44'],
+  shopping_beauty: ['\\uC81C\\uC2B5\\uAE30 10\\uB9AC\\uD130 \\uCD94\\uCC9C', '\\uB85C\\uBD07\\uCCAD\\uC18C\\uAE30 \\uBB3C\\uAC78\\uB808 \\uBE44\\uAD50', '\\uC120\\uD06C\\uB9BC \\uBB34\\uAE30\\uC790\\uCC28 \\uCD94\\uCC9C', '\\uC0F4\\uD478 \\uD0C8\\uBAA8 \\uC131\\uBD84 \\uBE44\\uAD50'],
+});
+
 function curatedCoreSearchAdSeedsForCategory(categoryId: string): readonly string[] {
   const normalizedCategoryId = normalizeKeyword(categoryId);
-  return LIVE_CURATED_CORE_SEARCHAD_SEEDS[normalizedCategoryId]
+  const base = LIVE_CURATED_CORE_SEARCHAD_SEEDS[normalizedCategoryId]
     || LIVE_CURATED_CORE_SEARCHAD_SEEDS_BY_POLICY[liveGoldenPolicyKeyForDiscoveryId(normalizedCategoryId)]
     || [];
+  const supplements = LIVE_CURATED_CORE_SEARCHAD_SEED_SUPPLEMENTS[normalizedCategoryId] || [];
+  return [...base, ...supplements]
+    .map((seed) => seed.replace(/\\u([0-9a-f]{4})/gi, (_match, code) => String.fromCharCode(parseInt(code, 16))))
+    .filter((seed, index, all) => all.indexOf(seed) === index)
+    .slice(0, 12);
 }
 
 function resolveStartupCatchUpCycles(
