@@ -4683,6 +4683,7 @@ function thinProfileCount(items: Array<{ keyword: string }>): number {
   }), 'utf8');
   const coreSuggestionSeeds: string[] = [];
   let coreSuggestionDirectCalls = 0;
+  let coreSuggestionExactPhraseMeasure = false;
   const coreSuggestionRadar = new MobileLiveGoldenRadar({
     notificationInbox: inbox,
     runOnStart: false,
@@ -4720,11 +4721,13 @@ function thinProfileCount(items: Array<{ keyword: string }>): number {
       }];
     },
     measureLiveSearchVolumeSeparate: async () => [],
-    measureLiveDocumentCount: async (keyword) => (
-      keyword === '에어컨이전설치비용'
-        ? { dc: 120, source: 'naver-api', confidence: 'high', isEstimated: false }
-        : null
-    ),
+    measureLiveDocumentCount: async (keyword, options) => {
+      if (keyword === '에어컨이전설치비용') {
+        coreSuggestionExactPhraseMeasure = options?.queryMode === 'exact-phrase';
+        return { dc: 120, source: 'naver-api', confidence: 'high', isEstimated: false };
+      }
+      return null;
+    },
     discover: async () => {
       coreSuggestionDirectCalls += 1;
       return [];
@@ -4736,6 +4739,7 @@ function thinProfileCount(items: Array<{ keyword: string }>): number {
       && coreSuggestionSeeds.length <= 4
       && coreSuggestionSeeds.some((seed) => /이사|입주청소|에어컨|보일러/u.test(seed))
       && coreSuggestionDirectCalls === 0
+      && coreSuggestionExactPhraseMeasure
       && coreSuggestionSnapshot.board.some((item) => (
         item.keyword === '에어컨이전설치비용'
         && item.grade === 'SSS'
@@ -4744,6 +4748,7 @@ function thinProfileCount(items: Array<{ keyword: string }>): number {
     JSON.stringify({
       seeds: coreSuggestionSeeds,
       directCalls: coreSuggestionDirectCalls,
+      exactPhraseMeasure: coreSuggestionExactPhraseMeasure,
       board: coreSuggestionSnapshot.board.map((item) => `${item.keyword}:${item.grade}:${item.goldenRatio}`),
     }));
   fs.rmSync(coreSuggestionQueueFile, { force: true });

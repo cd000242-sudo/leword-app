@@ -6122,7 +6122,12 @@ function rowToBackfillResult(
     hasViewSection: true,
     hasInfluencer: false,
     difficultyScore: docs > 0 ? Math.min(10, Math.max(1, Math.ceil(docs / Math.max(1, volume)))) : 10,
-    externalSources: ['mobile-live-seed-backfill'],
+    externalSources: [
+      'mobile-live-seed-backfill',
+      ...((row as any).documentCountQueryMode === 'exact-phrase'
+        ? ['naver-openapi-exact-phrase']
+        : []),
+    ],
     measurementOnly: false,
     categoryMatched: inferLiveCategory(keyword, categoryId) === categoryId,
   };
@@ -7816,6 +7821,7 @@ export class MobileLiveGoldenRadar {
     rows: LiveSearchVolumeRow[],
     categoryId: string,
     targetLimit: number,
+    options: { exactPhraseCandidateIds?: ReadonlySet<string> } = {},
   ): Promise<LiveSearchVolumeRow[]> {
     const now = this.now();
     const ranked = rows
@@ -7844,6 +7850,7 @@ export class MobileLiveGoldenRadar {
         const row = ranked[index];
         const keyword = normalizeKeyword(row.keyword);
         const volume = rowSearchVolume(row);
+        const exactPhrase = options.exactPhraseCandidateIds?.has(keywordCompactId(keyword)) === true;
         const existingDocumentCount = finiteNumber(row.documentCount);
         if (existingDocumentCount !== null && existingDocumentCount > 0) {
           measured.push({ index, row: { ...row, documentCount: existingDocumentCount } });
@@ -7854,12 +7861,21 @@ export class MobileLiveGoldenRadar {
             searchVolume: volume,
             scrapeTimeoutMs: 1600,
             scrapeOnly: this.documentQuotaBlockedForRun,
+            queryMode: exactPhrase ? 'exact-phrase' : 'broad',
           }).catch(() => null),
           5000,
           null,
         );
         if (!dc || dc.isEstimated || dc.dc <= 0) continue;
-        measured.push({ index, row: { ...row, documentCount: dc.dc, ...measurementMetadataFromDocumentCount(dc) } });
+        measured.push({
+          index,
+          row: {
+            ...row,
+            documentCount: dc.dc,
+            ...measurementMetadataFromDocumentCount(dc),
+            ...(exactPhrase ? { documentCountQueryMode: 'exact-phrase' } : {}),
+          } as LiveSearchVolumeRow,
+        });
       }
     });
     await Promise.all(workers);
@@ -8424,7 +8440,11 @@ export class MobileLiveGoldenRadar {
       ...suggestionRowsForRun,
       ...measuredVolumeRows,
     ], measurementLimit);
-    const rows = await this.attachDocumentCountsToVolumeRows(volumeRows, categoryId, targetLimit);
+    const rows = await this.attachDocumentCountsToVolumeRows(volumeRows, categoryId, targetLimit, {
+      exactPhraseCandidateIds: measuredProbeOnly && hasCuratedCoreSearchAdSeeds
+        ? suggestedRowIds
+        : undefined,
+    });
     this.updateMeasuredProbeQueueAfterMeasurement(
       uniqueKeywords([
         ...suggestionRowsForRun.map((row) => row.keyword),

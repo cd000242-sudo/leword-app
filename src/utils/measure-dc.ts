@@ -41,7 +41,12 @@ export interface DcMeasurement {
     /** 추정값 여부. caller 가 r.dcEstimated 동기화 필수. */
     isEstimated: boolean;
     /** 진단용 — API/scrape 양쪽 값, cross-check 사유. */
-    debug?: { apiDc?: number | null; scrapeDc?: number | null; crossCheck?: string };
+    debug?: {
+        apiDc?: number | null;
+        scrapeDc?: number | null;
+        crossCheck?: string;
+        queryMode?: 'broad' | 'exact-phrase';
+    };
 }
 
 export interface MeasureOpts {
@@ -58,6 +63,12 @@ export interface MeasureOpts {
      * 기존 scrapeWebDc 동작과 동일 — API 다시 호출하지 않고 widget noise 만 차단.
      */
     scrapeOnly?: boolean;
+    /**
+     * Exact phrase competition for a SearchAd-proven keyword. This bypasses
+     * the legacy broad persistent cache so the two document-count meanings
+     * can never be mixed.
+     */
+    queryMode?: 'broad' | 'exact-phrase';
 }
 
 const SCRAPE_UA = 'Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/120.0.0.0 Safari/537.36';
@@ -168,6 +179,14 @@ async function scrapeNaverBlogDc(keyword: string, timeoutMs: number): Promise<nu
     }
 }
 
+function exactPhraseQuery(keyword: string): string {
+    const clean = String(keyword || '')
+        .replace(/["“”]/g, ' ')
+        .replace(/\s+/g, ' ')
+        .trim();
+    return clean ? `"${clean}"` : clean;
+}
+
 /**
  * dc 측정 SSoT — 모든 dc 측정 path 의 단일 진입점.
  *
@@ -184,9 +203,12 @@ export async function measureDocumentCount(
 ): Promise<DcMeasurement> {
     const sv = opts.searchVolume ?? 0;
     const scrapeTimeoutMs = opts.scrapeTimeoutMs ?? 2000;
+    const queryMode = opts.queryMode === 'exact-phrase' ? 'exact-phrase' : 'broad';
+    const exactPhrase = queryMode === 'exact-phrase';
+    const queryKeyword = exactPhrase ? exactPhraseQuery(keyword) : keyword;
 
     // Use verified persistent cache even on API quota-avoidance paths.
-    if (!opts.skipCache) {
+    if (!opts.skipCache && !exactPhrase) {
         const cached = getPersistent(keyword);
         if (cached?.documentCount != null && cached.documentCount > 0) {
             const ageMs = Date.now() - ((cached as any).savedAt || 0);
@@ -205,17 +227,17 @@ export async function measureDocumentCount(
     //   기존 scrapeWebDc 와 동일 동작 (API 다시 호출 X, scrape 만).
     //   결과: source='scrape' confidence='high' (scrape 단독이지만 verify path 는 이미 API 가 한번 측정한 행만 호출 → 보강 검증임).
     if (opts.scrapeOnly) {
-        const scraped = await scrapeNaverBlogDc(keyword, scrapeTimeoutMs);
+        const scraped = await scrapeNaverBlogDc(queryKeyword, scrapeTimeoutMs);
         if (scraped != null && scraped > 0) {
-            return { dc: scraped, source: 'scrape', confidence: 'high', isEstimated: false, debug: { scrapeDc: scraped } };
+            return { dc: scraped, source: 'scrape', confidence: 'high', isEstimated: false, debug: { scrapeDc: scraped, queryMode } };
         }
         // scrape 실패 — fallback 하지 않고 명시적 fallback 반환 (caller 가 skip 결정)
         const fallback = sv > 0 ? Math.max(1, Math.round(sv * 0.5)) : 1;
-        return { dc: fallback, source: 'fallback', confidence: 'low', isEstimated: true, debug: { scrapeDc: null } };
+        return { dc: fallback, source: 'fallback', confidence: 'low', isEstimated: true, debug: { scrapeDc: null, queryMode } };
     }
 
     // [0] persistent cache — 24h fresh 검증 (v2.32.1 정책: API 검증 값만 저장됨)
-    if (!opts.skipCache) {
+    if (!opts.skipCache && !exactPhrase) {
         const cached = getPersistent(keyword);
         if (cached?.documentCount != null && cached.documentCount > 0) {
             const ageMs = Date.now() - ((cached as any).savedAt || 0);
@@ -231,7 +253,7 @@ export async function measureDocumentCount(
     }
 
     // [1] API
-    const apiDc = await getNaverBlogDocumentCount(keyword).catch(() => null);
+    const apiDc = await getNaverBlogDocumentCount(queryKeyword).catch(() => null);
 
     // [2] scrape — API 단독 신뢰 부족 시 보강
     let scrapeDc: number | null = null;
@@ -239,7 +261,7 @@ export async function measureDocumentCount(
     const apiFailed = apiDc == null || apiDc <= 0;
 
     if (!opts.skipScrape && (apiFailed || apiUndercountSuspected)) {
-        scrapeDc = await scrapeNaverBlogDc(keyword, scrapeTimeoutMs);
+        scrapeDc = await scrapeNaverBlogDc(queryKeyword, scrapeTimeoutMs);
     }
 
     // [Cross-check] API + scrape 양쪽 성공 — 10x 차이 시 API 신뢰
@@ -250,38 +272,38 @@ export async function measureDocumentCount(
         if (ratio >= CROSS_CHECK_DIVERGENT_RATIO) {
             console.warn(`[measure-dc] ⚠️ divergent "${keyword}": api=${apiDc} vs scrape=${scrapeDc} (${ratio.toFixed(1)}x) → API 신뢰`);
             // API 신뢰 — cache 저장
-            persistApiResult(keyword, apiDc, sv);
-            return { dc: apiDc, source: 'naver-api', confidence: 'high', isEstimated: false, debug: { apiDc, scrapeDc, crossCheck } };
+            if (!exactPhrase) persistApiResult(keyword, apiDc, sv);
+            return { dc: apiDc, source: 'naver-api', confidence: 'high', isEstimated: false, debug: { apiDc, scrapeDc, crossCheck, queryMode } };
         }
 
         // API undercount 의심 + scrape 가 5x 이상 더 큼 → scrape 채택 (v2.42.17 정책 계승)
         if (apiUndercountSuspected && scrapeDc > apiDc * 5) {
             console.warn(`[measure-dc] 🔧 API undercount "${keyword}": api=${apiDc} → scrape=${scrapeDc} 채택`);
             // scrape 값은 cache 미저장 (v2.32.1 정책)
-            return { dc: scrapeDc, source: 'scrape', confidence: 'medium', isEstimated: false, debug: { apiDc, scrapeDc, crossCheck } };
+            return { dc: scrapeDc, source: 'scrape', confidence: 'medium', isEstimated: false, debug: { apiDc, scrapeDc, crossCheck, queryMode } };
         }
 
         // 일반 케이스 — API 신뢰
-        persistApiResult(keyword, apiDc, sv);
-        return { dc: apiDc, source: 'naver-api', confidence: 'high', isEstimated: false, debug: { apiDc, scrapeDc, crossCheck } };
+        if (!exactPhrase) persistApiResult(keyword, apiDc, sv);
+        return { dc: apiDc, source: 'naver-api', confidence: 'high', isEstimated: false, debug: { apiDc, scrapeDc, crossCheck, queryMode } };
     }
 
     // [1-only] API 만 성공
     if (apiDc != null && apiDc > 0) {
-        persistApiResult(keyword, apiDc, sv);
-        return { dc: apiDc, source: 'naver-api', confidence: 'high', isEstimated: false, debug: { apiDc, scrapeDc } };
+        if (!exactPhrase) persistApiResult(keyword, apiDc, sv);
+        return { dc: apiDc, source: 'naver-api', confidence: 'high', isEstimated: false, debug: { apiDc, scrapeDc, queryMode } };
     }
 
     // [2-only] scrape 만 성공 — confidence medium (API 검증 부재)
     if (scrapeDc != null && scrapeDc > 0) {
         // persistent cache 미저장 (v2.32.1 정책 — API 검증 값만 저장)
-        return { dc: scrapeDc, source: 'scrape', confidence: 'medium', isEstimated: false, debug: { apiDc, scrapeDc } };
+        return { dc: scrapeDc, source: 'scrape', confidence: 'medium', isEstimated: false, debug: { apiDc, scrapeDc, queryMode } };
     }
 
     // [3] fallback — sv*0.5 추정. caller 가 dcEstimated=true 강제 마킹.
     const fallback = sv > 0 ? Math.max(1, Math.round(sv * 0.5)) : 1;
     console.warn(`[measure-dc] fallback "${keyword}": api/scrape 모두 실패, sv*0.5=${fallback} 추정`);
-    return { dc: fallback, source: 'fallback', confidence: 'low', isEstimated: true, debug: { apiDc, scrapeDc } };
+    return { dc: fallback, source: 'fallback', confidence: 'low', isEstimated: true, debug: { apiDc, scrapeDc, queryMode } };
 }
 
 function persistApiResult(keyword: string, dc: number, sv: number): void {
