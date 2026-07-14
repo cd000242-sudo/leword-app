@@ -52,8 +52,9 @@ assert('production reserves SearchAd quota for live golden supply instead of let
 assert('production prewarm is low-frequency and single-flight while live golden supply is below target',
   /leword-api:[\s\S]*LEWORD_MOBILE_PREWARM_INTERVAL_MINUTES:\s*\$\{LEWORD_MOBILE_PREWARM_INTERVAL_MINUTES:-360\}/.test(productionCompose)
     && /leword-api:[\s\S]*LEWORD_MOBILE_PREWARM_LIMIT:\s*\$\{LEWORD_MOBILE_PREWARM_LIMIT:-2\}/.test(productionCompose)
-    && /leword-api:[\s\S]*LEWORD_MOBILE_PREWARM_CONCURRENCY:\s*\$\{LEWORD_MOBILE_PREWARM_CONCURRENCY:-1\}/.test(productionCompose),
-  'prewarm must not overlap multiple expensive SearchAd hunters every hour');
+    && /leword-api:[\s\S]*LEWORD_MOBILE_PREWARM_CONCURRENCY:\s*\$\{LEWORD_MOBILE_PREWARM_CONCURRENCY:-1\}/.test(productionCompose)
+    && /leword-api:[\s\S]*LEWORD_MOBILE_PREWARM_ON_START:\s*\$\{LEWORD_MOBILE_PREWARM_ON_START:-false\}/.test(productionCompose),
+  'prewarm must not overlap expensive hunters or replay them on every API restart');
 assert('production reads additional SearchAd credentials from the shared secret file instead of container metadata',
   (productionCompose.match(/LEWORD_SEARCHAD_ACCOUNTS_FILE:\s*\/data\/searchad-accounts\.json/g) || []).length === 2
     && !/LEWORD_SEARCHAD_ACCOUNTS_B64:/.test(productionCompose),
