@@ -394,6 +394,18 @@ function getCachedNaverBlogDocumentCount(keyword: string, nowMs = Date.now()): n
   return cached.total;
 }
 
+/**
+ * Read-only cache hint for quota-aware candidate ordering. Callers must never
+ * treat this value as publication evidence; the normal measurement path still
+ * owns provenance and freshness checks.
+ */
+export function peekCachedNaverBlogDocumentCount(
+  keyword: string,
+  nowMs = Date.now(),
+): number | null {
+  return getCachedNaverBlogDocumentCount(keyword, nowMs);
+}
+
 function setCachedNaverBlogDocumentCount(keyword: string, total: number, nowMs = Date.now()): void {
   const key = documentCountCacheKey(keyword);
   if (!key || !Number.isFinite(total) || total < 0) return;

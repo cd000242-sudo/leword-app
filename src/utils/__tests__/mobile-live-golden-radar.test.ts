@@ -3819,23 +3819,11 @@ function thinProfileCount(items: Array<{ keyword: string }>): number {
     },
   });
   const cachePromotionSnapshot = await cachePromotionRadar.runOnce();
-  assert('persistent measured cache rows without provenance promote only writer-intent longtails after SearchAd pc/mobile split',
-    cachePromotionSplitCalls > 0
-      && cachePromotionSnapshot.board.some((item) => (
-        item.keyword === '\uC8FC\uD734\uC218\uB2F9\uACC4\uC0B0\uAE30 \uC54C\uBC14 \uC790\uB3D9\uACC4\uC0B0'
-        && item.pcSearchVolume === 1100
-        && item.mobileSearchVolume === 5100
-        && item.totalSearchVolume === 6200
-        && item.documentCount === 190
-        && item.searchVolumeSource === 'searchad'
-        && item.searchVolumeConfidence === 'high'
-        && item.documentCountSource === 'cache'
-        && item.documentCountConfidence === 'medium'
-        && item.aiJudge?.verdict === 'publish'
-      ))
-      && cachePromotionSnapshot.publicPreview.some((item) => item.keyword === '\uC8FC\uD734\uC218\uB2F9\uACC4\uC0B0\uAE30 \uC54C\uBC14 \uC790\uB3D9\uACC4\uC0B0')
-      && !cachePromotionSnapshot.board.some((item) => item.keyword === '\uC8FC\uD734\uC218\uB2F9\uACC4\uC0B0\uAE30')
-      && !cachePromotionSnapshot.board.some((item) => item.keyword === '\uC704\uB2C9\uC2A4\uCC3D\uBB38\uD615\uC5D0\uC5B4\uCEE8'),
+  assert('persistent measured cache rows without explicit DC provenance do not spend SearchAd or enter Verified',
+    cachePromotionSplitCalls === 0
+      && cachePromotionMeasuredKeywords.length === 0
+      && cachePromotionSnapshot.board.length === 0
+      && cachePromotionSnapshot.publicPreview.length === 0,
     JSON.stringify({
       splitCalls: cachePromotionSplitCalls,
       measured: cachePromotionMeasuredKeywords,
@@ -3852,7 +3840,7 @@ function thinProfileCount(items: Array<{ keyword: string }>): number {
   assert('cache promotion preflight skips rows guaranteed to fail the publishable longtail gate',
     !cachePromotionMeasuredKeywords.includes('\uC8FC\uD734\uC218\uB2F9\uACC4\uC0B0\uAE30')
       && !cachePromotionMeasuredKeywords.includes('\uADFC\uBB34\uC2DC\uAC04\uACC4\uC0B0\uAE30')
-      && cachePromotionMeasuredKeywords.includes('\uC8FC\uD734\uC218\uB2F9\uACC4\uC0B0\uAE30 \uC54C\uBC14 \uC790\uB3D9\uACC4\uC0B0'),
+      && !cachePromotionMeasuredKeywords.includes('\uC8FC\uD734\uC218\uB2F9\uACC4\uC0B0\uAE30 \uC54C\uBC14 \uC790\uB3D9\uACC4\uC0B0'),
     cachePromotionMeasuredKeywords.join('|'));
   fs.rmSync(cachePromotionFile, { force: true });
 
@@ -5491,8 +5479,8 @@ function thinProfileCount(items: Array<{ keyword: string }>): number {
       searchVolumeBindingVersion: 'keyword-keyed-v2',
       searchVolumeMeasuredAt: '2026-06-29T08:00:00.000Z',
       isSearchVolumeEstimated: false,
-      documentCountSource: 'cache',
-      documentCountConfidence: 'medium',
+      documentCountSource: 'naver-api',
+      documentCountConfidence: 'high',
       isDocumentCountEstimated: false,
       updatedAt: '2026-06-29T08:00:00.000Z',
       discoveredAt: '2026-06-29T08:00:00.000Z',
@@ -5514,7 +5502,7 @@ function thinProfileCount(items: Array<{ keyword: string }>): number {
       && proMeasuredDisplaySnapshot.publicPreview.length <= 5
       && proMeasuredDisplaySnapshot.board.every((item) => item.isMeasured === true)
       && proMeasuredDisplaySnapshot.board.every((item) => item.isSearchVolumeEstimated === false && item.isDocumentCountEstimated === false)
-      && proMeasuredDisplaySnapshot.board.every((item) => item.searchVolumeSource === 'searchad' && item.documentCountSource === 'cache')
+      && proMeasuredDisplaySnapshot.board.every((item) => item.searchVolumeSource === 'searchad' && item.documentCountSource === 'naver-api')
       && proMeasuredDisplaySnapshot.board.every((item) => ['S+', 'S', 'A'].includes(String(item.valueGrade)))
       && proMeasuredDisplaySnapshot.board.every((item) => item.publishDecision?.verdict === 'publish')
       && proMeasuredDisplaySnapshot.board.every((item) => Number(item.score) > 0)
@@ -6135,7 +6123,7 @@ function thinProfileCount(items: Array<{ keyword: string }>): number {
       return {
         dc: 360,
         source: 'scrape',
-        confidence: 'medium',
+        confidence: 'high',
         isEstimated: false,
         debug: { scrapeDc: 360 },
       };
@@ -6151,7 +6139,7 @@ function thinProfileCount(items: Array<{ keyword: string }>): number {
         item.keyword === '청년미래적금 가입신청 대상'
         && item.documentCount === 360
         && item.documentCountSource === 'scrape'
-        && item.documentCountConfidence === 'medium'
+        && item.documentCountConfidence === 'high'
         && item.isDocumentCountEstimated === false
       )),
     JSON.stringify({

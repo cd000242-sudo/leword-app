@@ -53,6 +53,7 @@ import { measureDocumentCount, type DcMeasurement } from '../utils/measure-dc';
 import {
   getNaverBlogOpenApiQuotaBlockedUntil,
   isNaverBlogOpenApiQuotaBlocked,
+  peekCachedNaverBlogDocumentCount,
 } from '../utils/naver-blog-api';
 import { evaluatePublishDecision } from './publish-decision';
 import {
@@ -125,6 +126,7 @@ export interface MobileLiveGoldenRadarOptions {
   measureLiveSearchVolumeSeparate?: typeof getNaverKeywordSearchVolumeSeparate;
   measureLiveDocumentCount?: typeof measureDocumentCount;
   getCachedSearchAdVolume?: typeof getSearchAdVolumeCached;
+  getCachedExactDocumentCount?: typeof peekCachedNaverBlogDocumentCount;
   autocompleteProvider?: typeof getNaverAutocompleteKeywords;
   searchAdSuggestionProvider?: typeof getNaverSearchAdKeywordSuggestions;
   searchAdQuotaState?: (config: NaverSearchAdConfig, nowMs: number) => LiveSearchAdQuotaState;
@@ -262,6 +264,9 @@ const LIVE_CURATED_EXACT_EXHAUSTED_RETRY_MS = 7 * 24 * 60 * 60 * 1000;
 const LIVE_CACHE_PROMOTION_MAX_CANDIDATES = 96;
 const LIVE_CACHE_PROMOTION_BUDGET_PER_RUN = 24;
 const LIVE_CACHE_EXACT_DOCUMENT_RECOVERY_BUDGET_PER_RUN = LIVE_CACHE_PROMOTION_BUDGET_PER_RUN;
+// This cache is discovery-only. Publication still requires a force-fresh
+// SearchAd split and trusted exact-phrase Naver OpenAPI evidence below.
+const LIVE_CACHE_EXACT_DISCOVERY_MAX_AGE_MS = 30 * 24 * 60 * 60 * 1000;
 const LIVE_CACHE_PROMOTION_BATCH_SIZE = 6;
 const LIVE_CACHE_PROMOTION_BATCH_TIMEOUT_MS = 16_000;
 const LIVE_CACHE_ZERO_SPLIT_RETRY_MS = 7 * 24 * 60 * 60 * 1000;
@@ -900,6 +905,12 @@ function normalizeDocumentCountSource(value: unknown): MobileDocumentCountSource
   return undefined;
 }
 
+function normalizeDocumentCountQueryMode(value: unknown): 'broad' | 'exact-phrase' | undefined {
+  const clean = normalizeKeyword(value).toLowerCase();
+  if (clean === 'broad' || clean === 'exact-phrase') return clean;
+  return undefined;
+}
+
 function normalizeSearchVolumeBindingVersion(value: unknown): 'keyword-keyed-v2' | undefined {
   return normalizeKeyword(value) === SEARCHAD_KEYWORD_BINDING_VERSION
     ? SEARCHAD_KEYWORD_BINDING_VERSION
@@ -942,6 +953,7 @@ function measurementMetadataFromRow(row: any): Partial<MobileKeywordMetric> {
     ?? (searchVolumeSource === 'searchad' && hasSearchAdSplit ? 'high' : undefined);
   const documentCountSource = normalizeDocumentCountSource(row?.documentCountSource || row?.dcSource);
   const documentCountConfidence = normalizeMeasurementConfidence(row?.documentCountConfidence || row?.dcConfidence);
+  const documentCountQueryMode = normalizeDocumentCountQueryMode(row?.documentCountQueryMode);
   if (searchVolumeSource) meta.searchVolumeSource = searchVolumeSource;
   if (searchVolumeConfidence) meta.searchVolumeConfidence = searchVolumeConfidence;
   const searchVolumeBindingVersion = normalizeSearchVolumeBindingVersion(row?.searchVolumeBindingVersion);
@@ -961,6 +973,7 @@ function measurementMetadataFromRow(row: any): Partial<MobileKeywordMetric> {
   }
   if (documentCountSource) meta.documentCountSource = documentCountSource;
   if (documentCountConfidence) meta.documentCountConfidence = documentCountConfidence;
+  if (documentCountQueryMode) meta.documentCountQueryMode = documentCountQueryMode;
   if (row?.isDocumentCountEstimated === true || row?.dcEstimated === true) meta.isDocumentCountEstimated = true;
   if (row?.isDocumentCountEstimated === false || row?.dcEstimated === false) meta.isDocumentCountEstimated = false;
   return meta;
@@ -1360,6 +1373,7 @@ function keywordCompactId(keyword: string): string {
 function goldenBoardSemanticId(keyword: string): string {
   const compact = keywordCompactId(keyword)
     .replace(/렌트카/gu, '렌터카');
+  if (/^(?:사대|4대)보험계산기$/u.test(compact)) return '4대보험계산기';
   if (/^근로장려금(?:금액|지급액)조회$/u.test(compact)) return '근로장려금지급액조회';
   if (/^(?:의료실비보험|실손보험|실비보험)청구서류$/u.test(compact)) return '실비보험청구서류';
   if (/^(?:국민)?내일배움카드자격$/u.test(compact)) return '내일배움카드자격';
@@ -1634,6 +1648,16 @@ function ratioOpportunityScore(ratio: number): number {
   if (ratio >= 3) return 42;
   if (ratio >= 2) return 26;
   return 0;
+}
+
+function exactDocumentRecoveryDiscoveryBonus(volume: number, documents: number | null): number {
+  if (documents === null || documents <= 0 || volume <= 0) return 0;
+  const ratio = volume / documents;
+  if (documents > 30_000 || ratio < LIVE_BOARD_MIN_DISPLAY_RATIO) return -900;
+  return 900
+    + documentScarcityScore(documents)
+    + ratioOpportunityScore(ratio)
+    + (volume >= 100 ? 40 : 0);
 }
 
 function boardScore(item: MobileLiveGoldenBoardItem): number {
@@ -2090,6 +2114,10 @@ const LIVE_KEYWORD_FINANCIAL_AUDIENCE_MISMATCH_RE = /(?:ISA|연금저축).*퇴�
 const LIVE_KEYWORD_AMBIGUOUS_SAVINGS_PAYOUT_RE = /(?:적금|예금).*지급일/u;
 const LIVE_KEYWORD_SAVINGS_PAYOUT_CONTEXT_RE = /(?:이자|만기|해지)/u;
 const LIVE_KEYWORD_CACHE_SEMANTIC_MISMATCH_RE = /(?:테슬라|엔비디아|삼성전자|애플|송지호).*소득기준(?:계산)?|청년들이공연예술.*(?:지급일|대상)|폭염취약.*마감일|(?:바다하늘길|둘레길|해수욕장|공원).*(?:좌석배치도|장단점.*예약|주차.*뚜벅이|입장료.*(?:예약|준비물)|경비.*예약방법)|(?:오사카|도쿄|후쿠오카).*항공권.*eSIM|제습기렌탈.*자취방소음.*조회|(?:루테인|영양제).*순위.*검사비용|(?:아이폰|갤럭시).*자취방.*(?:구매처|조회)/iu;
+const LIVE_EXACT_RECOVERY_SEMANTIC_HAZARD_RE = /(?:나스닥|코스피|코스닥)상장(?:가격|주가)/iu;
+const LIVE_EXACT_RECOVERY_CALCULATOR_CONTEXT_RE = /(?:근무|근로|퇴직|시급|주급|월급|연봉|급여|실수령|주휴|보험|세금|세액|부가세|소득세|양도세|취득세|중개수수료|대출|이자|상환|DSR|LTV|환율|전기요금|관리비|BMI|칼로리|임신|만나이).*계산기$/iu;
+const LIVE_EXACT_RECOVERY_EXAM_SCHEDULE_RE = /[0-9A-Za-z가-힣]{2,}(?:시험|자격증)일정$/u;
+const LIVE_EXACT_RECOVERY_COMPACT_SERVICE_RE = /[0-9A-Za-z가-힣]{3,}(?:비용|가격|견적|요금|수수료)$/u;
 const LIVE_KEYWORD_REPEATED_NEED_FRAGMENT_RE = /(?:자취방소음).*(?:자취방소음)|(?:사용처조회).*(?:사용처조회)|(?:가격비교).*(?:가격비교)/u;
 const LIVE_KEYWORD_PERSON_POLICY_CALC_RE = /^[가-힣]{2,4}소득기준계산$/u;
 const LIVE_KEYWORD_PERSON_POLICY_CALC_EXEMPT_RE = /^(?:가구|청년|근로|사업|중위|자녀)소득기준계산$/u;
@@ -2105,6 +2133,7 @@ function isHumanNaturalGoldenMetric(item: MobileLiveGoldenBoardItem): boolean {
   const clean = normalizeKeyword(item.keyword);
   if (!clean || isMalformedLiveKeyword(clean)) return false;
   if (LIVE_KEYWORD_PLATFORM_RESIDUE_RE.test(clean)) return false;
+  if (LIVE_EXACT_RECOVERY_SEMANTIC_HAZARD_RE.test(clean.replace(/\s+/g, ''))) return false;
   const compact = clean.replace(/\s+/gu, '');
   const intentFragmentCount = LIVE_KEYWORD_INTENT_FRAGMENTS.reduce(
     (count, fragment) => count + (compact.includes(fragment) ? 1 : 0),
@@ -2128,6 +2157,132 @@ function isHumanNaturalGoldenMetric(item: MobileLiveGoldenBoardItem): boolean {
     && !hasExactNaturalDemandEvidence(item)
   ) return false;
   return true;
+}
+
+const EXACT_DOCUMENT_EVIDENCE_MARKERS = new Set([
+  'naver-openapi-exact-phrase',
+  'exact-phrase-document-count',
+  'persistent-cache-exact-document-recovery',
+]);
+
+function hasExplicitTrustedDocumentCountProof(
+  item: Partial<MobileKeywordMetric>,
+): boolean {
+  return (finiteNumber(item.documentCount) || 0) > 0
+    && (item.documentCountSource === 'naver-api' || item.documentCountSource === 'scrape')
+    && item.documentCountConfidence === 'high'
+    && item.isDocumentCountEstimated !== true;
+}
+
+function hasExplicitTrustedExactDocumentCountProof(
+  item: Partial<MobileKeywordMetric>,
+): boolean {
+  return item.documentCountQueryMode === 'exact-phrase'
+    && item.documentCountSource === 'naver-api'
+    && hasExplicitTrustedDocumentCountProof(item);
+}
+
+function hasTrustedExactRecoveryProof(
+  item: Partial<MobileKeywordMetric> & { evidence?: string[] },
+  now: Date = new Date(),
+): boolean {
+  const evidence = Array.isArray(item.evidence) ? item.evidence : [];
+  return evidence.includes('persistent-cache-exact-document-recovery')
+    && evidence.includes('naver-openapi-exact-phrase')
+    && hasExplicitTrustedExactDocumentCountProof(item)
+    && hasMeasuredPcMobileSplit(item)
+    && hasTrustedSearchVolumeMeasurement(item as MobileKeywordMetric)
+    && hasTrustedDocumentCountMeasurement(item as MobileKeywordMetric)
+    && hasFreshCurrentSearchAdKeywordBinding(item, now)
+    && item.isSearchVolumeEstimated !== true
+    && item.isDocumentCountEstimated !== true;
+}
+
+function isTrustedExactRecoveryBroadUtility(keyword: string): boolean {
+  const compact = normalizeKeyword(keyword).replace(/\s+/g, '');
+  return LIVE_EXACT_RECOVERY_CALCULATOR_CONTEXT_RE.test(compact)
+    || LIVE_EXACT_RECOVERY_EXAM_SCHEDULE_RE.test(compact);
+}
+
+function isTrustedExactRecoveryBroadException(
+  item: Partial<MobileKeywordMetric> & { keyword?: string; evidence?: string[] },
+  now: Date = new Date(),
+): boolean {
+  const keyword = normalizeKeyword(item.keyword);
+  const volume = finiteNumber(item.totalSearchVolume) || 0;
+  const docs = finiteNumber(item.documentCount) || 0;
+  const ratio = finiteNumber(item.goldenRatio) || (docs > 0 ? volume / docs : 0);
+  const grade = normalizeGrade(item.grade, finiteNumber(item.score) || 0);
+  if (!keyword || !hasTrustedExactRecoveryProof(item, now) || docs <= 0 || docs > 10_000) return false;
+  if (isTrustedExactRecoveryBroadUtility(keyword)) {
+    return GRADE_RANK[grade] >= GRADE_RANK.SS
+      && volume >= 500
+      && ratio >= 3;
+  }
+  return LIVE_EXACT_RECOVERY_COMPACT_SERVICE_RE.test(keyword.replace(/\s+/g, ''))
+    && GRADE_RANK[grade] >= GRADE_RANK.S
+    && volume >= 300
+    && ratio >= 2;
+}
+
+function isTrustedExactRecoveryPreflightRow(
+  row: LiveSearchVolumeRow,
+  grade: MobileResultGrade,
+  now: Date = new Date(),
+): boolean {
+  const keyword = normalizeKeyword(row.keyword);
+  const pc = finiteNumber(row.pcSearchVolume);
+  const mobile = finiteNumber(row.mobileSearchVolume);
+  const volume = (pc || 0) + (mobile || 0);
+  const docs = finiteNumber(row.documentCount) || 0;
+  const ratio = docs > 0 ? volume / docs : 0;
+  const metadata = measurementMetadataFromRow(row);
+  const trustedVolume = pc !== null
+    && mobile !== null
+    && metadata.searchVolumeSource === 'searchad'
+    && metadata.searchVolumeConfidence === 'high'
+    && metadata.isSearchVolumeEstimated !== true
+    && hasFreshCurrentSearchAdKeywordBinding({ ...metadata, pcSearchVolume: pc, mobileSearchVolume: mobile }, now);
+  const trustedDocuments = (row as any).documentCountQueryMode === 'exact-phrase'
+    && metadata.documentCountSource === 'naver-api'
+    && metadata.documentCountConfidence === 'high'
+    && metadata.isDocumentCountEstimated !== true;
+  if (
+    !keyword
+    || !trustedVolume
+    || !trustedDocuments
+    || LIVE_EXACT_RECOVERY_SEMANTIC_HAZARD_RE.test(keyword.replace(/\s+/g, ''))
+    || !isHumanNaturalGoldenMetric({ keyword, evidence: [] } as MobileLiveGoldenBoardItem)
+    || GRADE_RANK[grade] < GRADE_RANK.A
+    || volume < 100
+    || docs <= 0
+    || docs > 30_000
+    || ratio < LIVE_BOARD_MIN_DISPLAY_RATIO
+  ) return false;
+
+  const broadOrStandalone = isStandaloneToolHeadKeyword(keyword)
+    || (isBroadHeadSssKeyword(keyword) && !hasWriterReadySpecificity(keyword))
+    || (isOverbroadNoEffectBoardKeyword({
+      keyword,
+      grade,
+      score: liveUltimateOpportunityScore(keyword, volume, docs, ratio),
+      totalSearchVolume: volume,
+      documentCount: docs,
+      goldenRatio: ratio,
+    }) && !hasWriterReadySpecificity(keyword));
+  if (!broadOrStandalone) return true;
+  const compactService = LIVE_EXACT_RECOVERY_COMPACT_SERVICE_RE.test(keyword.replace(/\s+/g, ''))
+    && GRADE_RANK[grade] >= GRADE_RANK.S
+    && volume >= 300
+    && docs <= 10_000
+    && ratio >= 2;
+  return compactService || (
+    GRADE_RANK[grade] >= GRADE_RANK.SS
+      && volume >= 500
+      && docs <= 10_000
+      && ratio >= 3
+      && isTrustedExactRecoveryBroadUtility(keyword)
+  );
 }
 
 function isActionableLiveKeyword(keyword: string): boolean {
@@ -2855,6 +3010,7 @@ function isCacheSplitPromotionPreflightCandidate(item: MobileLiveGoldenBoardItem
 function hasTrustedCacheMeasurementForSplitPromotion(item: MobileLiveGoldenBoardItem): boolean {
   return (finiteNumber(item.totalSearchVolume) || 0) > 0
     && (finiteNumber(item.documentCount) || 0) > 0
+    && hasExplicitTrustedDocumentCountProof(item)
     && item.isSearchVolumeEstimated !== true
     && item.isDocumentCountEstimated !== true
     && hasTrustedSearchVolumeMeasurement(item)
@@ -2866,7 +3022,8 @@ function hasVerifiedCacheSplitDemandProof(item: MobileLiveGoldenBoardItem): bool
   const hasLegacyDirectExactProof = item.source === 'mobile-live-golden-radar'
     && item.searchVolumeSource === 'searchad'
     && evidence.includes('mobile-live-seed-backfill')
-    && evidence.includes('naver-openapi-exact-phrase');
+    && evidence.includes('naver-openapi-exact-phrase')
+    && hasExplicitTrustedExactDocumentCountProof(item);
   const hasGeneratedExactMeasurementProof = evidence.some((entry) => (
     entry === 'persistent-cache-split-promoted'
     || entry === 'searchad-pc-mobile-split-enriched'
@@ -2875,6 +3032,8 @@ function hasVerifiedCacheSplitDemandProof(item: MobileLiveGoldenBoardItem): bool
   )) || hasLegacyDirectExactProof;
   return item.isMeasured === true
     && item.searchVolumeSource === 'searchad'
+    && item.searchVolumeConfidence === 'high'
+    && item.isSearchVolumeEstimated !== true
     && hasCurrentSearchAdKeywordBinding(item)
     && hasGeneratedExactMeasurementProof
     && hasMeasuredPcMobileSplit(item)
@@ -6165,9 +6324,18 @@ function isMeasuredProDisplayBackfillMetric(
   const ratio = finiteNumber(item.goldenRatio) || (volume > 0 && docs > 0 ? volume / docs : 0);
   const gradeRank = GRADE_RANK[item.grade as MobileResultGrade] || 0;
   const ai = item.aiJudge;
-  if (isStandaloneToolHeadKeyword(keyword)) return false;
-  if (isBroadHeadSssKeyword(keyword) && !hasWriterReadySpecificity(keyword)) return false;
-  if (isOverbroadNoEffectBoardKeyword(item) && !hasWriterReadySpecificity(keyword)) return false;
+  const trustedExactBroadException = isTrustedExactRecoveryBroadException(metric, now);
+  if (isStandaloneToolHeadKeyword(keyword) && !trustedExactBroadException) return false;
+  if (
+    isBroadHeadSssKeyword(keyword)
+    && !hasWriterReadySpecificity(keyword)
+    && !trustedExactBroadException
+  ) return false;
+  if (
+    isOverbroadNoEffectBoardKeyword(item)
+    && !hasWriterReadySpecificity(keyword)
+    && !trustedExactBroadException
+  ) return false;
   if (ai?.verdict === 'exclude' || ai?.spamRisk === 'high') return false;
   if (volume < 100 || docs <= 0 || docs > 30_000) return false;
   // 표시 하드 플로어와 동일 기준: 문서수 ≥ 검색량(비율 역전)은 실측이어도 황금이 아니다.
@@ -6537,6 +6705,7 @@ function isHighYieldSearchAdSpendCandidate(keyword: string, categoryId: string, 
 function rowToBackfillResult(
   row: LiveSearchVolumeRow,
   categoryId: string,
+  now: Date = new Date(),
 ): MDPResult | null {
   const keyword = normalizeKeyword(row.keyword);
   const pc = finiteNumber(row.pcSearchVolume) || 0;
@@ -6586,9 +6755,13 @@ function rowToBackfillResult(
     pcSearchVolume: pc,
     mobileSearchVolume: mobile,
     monthlyAveCpc: finiteNumber(row.monthlyAveCpc) || undefined,
+    documentCountQueryMode: (row as { documentCountQueryMode?: 'broad' | 'exact-phrase' }).documentCountQueryMode,
     ...measurementMetadataFromRow(row),
   });
-  return isLiveRadarQualityResult(enrichedResult) ? enrichedResult : null;
+  return isLiveRadarQualityResult(enrichedResult)
+    || isTrustedExactRecoveryPreflightRow(row, grade, now)
+    ? enrichedResult
+    : null;
 }
 
 function liveIssueFallbackGrade(score: number, docs: number | null): MobileResultGrade {
@@ -6665,6 +6838,7 @@ function mapDirectResult(result: MDPResult, categoryId: string): MobileKeywordMe
     isSearchVolumeEstimated?: boolean;
     documentCountSource?: MobileDocumentCountSource;
     documentCountConfidence?: MobileMeasurementConfidence;
+    documentCountQueryMode?: 'broad' | 'exact-phrase';
     isDocumentCountEstimated?: boolean;
   };
   const declaredPolicyKey = (result.externalSources || [])
@@ -6693,6 +6867,7 @@ function mapDirectResult(result: MDPResult, categoryId: string): MobileKeywordMe
       ...(result.externalSources || []),
     ].filter(Boolean),
     isMeasured: totalSearchVolume !== null && documentCount !== null,
+    documentCountQueryMode: extra.documentCountQueryMode,
     ...measurementMeta,
   };
 }
@@ -6721,10 +6896,12 @@ function liveValueGateFields(
     mode: 'lenient',
   });
   const productSpecificKeyword = isPublicPreviewProductOrShoppingKeyword(item);
+  const trustedExactDisplayOverride = hasTrustedExactRecoveryProof(item, now)
+    && isMeasuredProDisplayBackfillMetric(item, now);
   const safeCompactIntentOverride = !['S+', 'S', 'A'].includes(gate.valueGrade)
     && (gate.gates.notPersonDependent.passed || productSpecificKeyword)
     && gate.gates.ymylSafe.passed
-    && isMeasuredWriterReadyBoardMetric(item, now)
+    && (isMeasuredWriterReadyBoardMetric(item, now) || trustedExactDisplayOverride)
     && liveBoardOpportunityScore(item) > 0;
   if (safeCompactIntentOverride) {
     return {
@@ -6741,6 +6918,20 @@ function isLiveGoldenQualityConsistent(item: MobileLiveGoldenBoardItem, now: Dat
   if (resolvedLiveBoardScore(item) <= 0) return false;
   const valueGrade = liveValueGateFields(item, now).valueGrade;
   if (valueGrade && ['S+', 'S', 'A'].includes(valueGrade)) return true;
+  const searchVolume = finiteNumber(item.totalSearchVolume);
+  const documentCount = finiteNumber(item.documentCount);
+  if (searchVolume === null || documentCount === null) return false;
+  const fallbackValueGate = verifyKeywordValue({
+    keyword: item.keyword,
+    searchVolume,
+    documentCount,
+    mode: 'lenient',
+  });
+  // No legacy/direct fallback may bypass personal-dependency or YMYL safety.
+  if (
+    !fallbackValueGate.gates.notPersonDependent.passed
+    || !fallbackValueGate.gates.ymylSafe.passed
+  ) return false;
   // Direct exact SearchAd suggestions already passed trusted SV/DC, PC/mobile
   // split, natural-language and AI gates. Preserve those compact real queries
   // (for example "제습기순위") even when the generic value verifier labels
@@ -6757,9 +6948,10 @@ function isLiveGoldenQualityConsistent(item: MobileLiveGoldenBoardItem, now: Dat
   const legacyDirectExactProof = item.source === 'mobile-live-golden-radar'
     && item.searchVolumeSource === 'searchad'
     && evidence.includes('mobile-live-seed-backfill')
-    && evidence.includes('naver-openapi-exact-phrase');
-  return (directSuggestionProof || legacyDirectExactProof)
-    && isMeasuredProBoardFallbackMetric(item, now);
+    && evidence.includes('naver-openapi-exact-phrase')
+    && hasExplicitTrustedExactDocumentCountProof(item);
+  return ((directSuggestionProof || legacyDirectExactProof)
+    && isMeasuredProBoardFallbackMetric(item, now));
 }
 
 function resolvedLiveBoardScore(item: MobileLiveGoldenBoardItem): number {
@@ -6841,6 +7033,10 @@ export const __liveGoldenRadarTestInternals = {
   isSyntheticNoEffectLiveProbe,
   isMeasuredProbeIntentCompatible,
   isMeasuredProBoardFallbackMetric,
+  measuredProBoardFallbackRejectReason,
+  isMeasuredProDisplayBackfillMetric,
+  isPublishableLiveResultMetric,
+  isMeasuredProExactKeywordMetric,
   isLiveMeasuredProbeCandidate,
   isLiveRadarUsableKeyword,
   isSemanticallyMismatchedMeasuredProbe,
@@ -6858,6 +7054,11 @@ export const __liveGoldenRadarTestInternals = {
   isHumanVisiblePublicPreviewCandidate,
   isSafePublicPreviewBackfillCandidate,
   isHumanNaturalGoldenMetric,
+  isBlogActionableBoardMetric,
+  isLiveGoldenQualityConsistent,
+  liveValueGateFields,
+  hasTrustedExactRecoveryProof,
+  isTrustedExactRecoveryPreflightRow,
   goldenBoardSemanticId,
   publicPreviewLane,
   resolveStartupCatchUpCycles,
@@ -6871,6 +7072,8 @@ export const __liveGoldenRadarTestInternals = {
   mergeMeasuredProbeSources,
   measuredProbeQueueFamilyKey,
   normalizeLiveMetricGrade,
+  mapDirectResult,
+  rowToBackfillResult,
   publicLiveGoldenIntent,
   resolveDeclaredLiveCategory,
   normalizeLiveSeeds,
@@ -6913,6 +7116,7 @@ export class MobileLiveGoldenRadar {
   private readonly measureLiveSearchVolumeSeparate: typeof getNaverKeywordSearchVolumeSeparate;
   private readonly measureLiveDocumentCount: typeof measureDocumentCount;
   private readonly getCachedSearchAdVolume: typeof getSearchAdVolumeCached;
+  private readonly getCachedExactDocumentCount: typeof peekCachedNaverBlogDocumentCount;
   private readonly autocompleteProvider: typeof getNaverAutocompleteKeywords;
   private readonly searchAdSuggestionProvider: typeof getNaverSearchAdKeywordSuggestions;
   private readonly searchAdQuotaState: (config: NaverSearchAdConfig, nowMs: number) => LiveSearchAdQuotaState;
@@ -7022,6 +7226,7 @@ export class MobileLiveGoldenRadar {
     this.measureLiveSearchVolumeSeparate = options.measureLiveSearchVolumeSeparate || getNaverKeywordSearchVolumeSeparate;
     this.measureLiveDocumentCount = options.measureLiveDocumentCount || measureDocumentCount;
     this.getCachedSearchAdVolume = options.getCachedSearchAdVolume || getSearchAdVolumeCached;
+    this.getCachedExactDocumentCount = options.getCachedExactDocumentCount || peekCachedNaverBlogDocumentCount;
     this.autocompleteProvider = options.autocompleteProvider || getNaverAutocompleteKeywords;
     this.searchAdSuggestionProvider = options.searchAdSuggestionProvider || getNaverSearchAdKeywordSuggestions;
     this.searchAdQuotaState = options.searchAdQuotaState || ((config, nowMs) => {
@@ -9843,13 +10048,20 @@ export class MobileLiveGoldenRadar {
       const incomingProvenance = [keyword.source, keyword.intent, ...incomingEvidence]
         .map((entry) => normalizeKeyword(entry))
         .join(' ');
-      const incomingIsPersistentOverlay = /(?:persistent-keyword-cache|persistent-measured-golden-cache)/i
-        .test(incomingProvenance);
+      const incomingHasTrustedExactDocumentProof = hasExplicitTrustedExactDocumentCountProof(keyword);
+      const incomingHasExactRecoveryProof = incomingHasTrustedExactDocumentProof
+        && incomingEvidence.includes('persistent-cache-exact-document-recovery')
+        && incomingEvidence.includes('naver-openapi-exact-phrase');
+      const incomingIsPersistentOverlay = !incomingHasExactRecoveryProof
+        && /(?:persistent-keyword-cache|persistent-measured-golden-cache)/i.test(incomingProvenance);
       const incomingHasDirectSearchAdProof = incomingSplitTotal > 0
         && keyword.isMeasured === true
         && keyword.searchVolumeSource === 'searchad'
+        && keyword.searchVolumeConfidence === 'high'
+        && keyword.isSearchVolumeEstimated !== true
         && hasCurrentSearchAdKeywordBinding(keyword)
         && Number.isFinite(Date.parse(String(keyword.searchVolumeMeasuredAt || '')))
+        && hasExplicitTrustedDocumentCountProof(keyword)
         && !incomingIsPersistentOverlay
         && hasTrustedSearchVolumeMeasurement(keyword)
         && hasTrustedDocumentCountMeasurement(keyword);
@@ -9861,9 +10073,23 @@ export class MobileLiveGoldenRadar {
         && !incomingHasDirectSearchAdProof;
       const incomingDocumentCount = finiteNumber(keyword.documentCount);
       const existingDocumentCount = finiteNumber(existing?.documentCount);
-      const docs = preserveExistingExactProvenance && existingDocumentCount !== null
+      const existingHasTrustedExactDocumentProof = existing
+        ? hasExplicitTrustedExactDocumentCountProof(existing)
+        : false;
+      const incomingHasTrustedDocumentProof = hasExplicitTrustedDocumentCountProof(keyword);
+      const useExistingDocumentMeasurement = existingDocumentCount !== null
+        && (
+          preserveExistingExactProvenance
+          // A source-less broad count must never erase a trusted exact count.
+          // Fresh incoming SearchAd split metadata is still merged below.
+          || (existingHasTrustedExactDocumentProof && !incomingHasTrustedDocumentProof)
+        );
+      const docs = useExistingDocumentMeasurement
         ? existingDocumentCount
         : incomingDocumentCount;
+      const resultingHasTrustedExactDocumentProof = useExistingDocumentMeasurement
+        ? existingHasTrustedExactDocumentProof
+        : incomingHasTrustedExactDocumentProof;
       const existingPc = finiteNumber(existing?.pcSearchVolume);
       const existingMobile = finiteNumber(existing?.mobileSearchVolume);
       const existingSplitTotal = existingPc !== null && existingMobile !== null
@@ -9934,30 +10160,46 @@ export class MobileLiveGoldenRadar {
         : existingSplitTotal > 0
           ? existing?.searchVolumeMeasuredAt
           : keyword.searchVolumeMeasuredAt;
-      const documentCountSource = preserveExistingExactProvenance
-        ? existing?.documentCountSource || keyword.documentCountSource
-        : keyword.documentCountSource || existing?.documentCountSource;
-      const documentCountConfidence = preserveExistingExactProvenance
-        ? existing?.documentCountConfidence || keyword.documentCountConfidence
-        : keyword.documentCountConfidence || existing?.documentCountConfidence;
-      const isDocumentCountEstimated = preserveExistingExactProvenance
-        ? existing?.isDocumentCountEstimated ?? keyword.isDocumentCountEstimated
-        : keyword.isDocumentCountEstimated ?? existing?.isDocumentCountEstimated;
+      // DC metadata must travel with the DC value selected above. Falling back
+      // to the previous row's provenance would turn a new broad/unknown count
+      // into a trusted exact count after merge.
+      const documentCountSource = useExistingDocumentMeasurement
+        ? existing?.documentCountSource
+        : keyword.documentCountSource;
+      const documentCountConfidence = useExistingDocumentMeasurement
+        ? existing?.documentCountConfidence
+        : keyword.documentCountConfidence;
+      const documentCountQueryMode = useExistingDocumentMeasurement
+        ? existing?.documentCountQueryMode
+        : keyword.documentCountQueryMode;
+      const isDocumentCountEstimated = useExistingDocumentMeasurement
+        ? existing?.isDocumentCountEstimated
+        : keyword.isDocumentCountEstimated;
       const priorityIncomingEvidence = incomingEvidence.filter((entry) => (
         entry.startsWith('curated-policy:')
         || entry === 'searchad-pc-mobile-split-enriched'
-        || entry === 'naver-openapi-exact-phrase'
         || entry === 'mobile-live-seed-backfill'
         || entry === 'direct-searchad-exact-measured'
+      ));
+      const selectedDocumentEvidence = (
+        useExistingDocumentMeasurement
+          ? (Array.isArray(existing?.evidence) ? existing.evidence : [])
+          : incomingEvidence
+      ).map((entry) => normalizeKeyword(entry)).filter((entry) => (
+        resultingHasTrustedExactDocumentProof && EXACT_DOCUMENT_EVIDENCE_MARKERS.has(entry)
+      ));
+      const withoutStaleExactDocumentEvidence = (entries: string[]): string[] => entries.filter((entry) => (
+        !EXACT_DOCUMENT_EVIDENCE_MARKERS.has(normalizeKeyword(entry))
       ));
       const mergedEvidence = [...new Set([
         // Policy ownership and exact-measurement proof affect persistence,
         // category recovery and trust gates. Put fresh proof before legacy
         // evidence so a full stale row cannot push it beyond the cap.
+        ...selectedDocumentEvidence,
         ...priorityIncomingEvidence,
         ...(incomingHasDirectSearchAdProof ? ['direct-searchad-exact-measured'] : []),
-        ...(Array.isArray(existing?.evidence) ? existing.evidence : []),
-        ...incomingEvidence,
+        ...withoutStaleExactDocumentEvidence(Array.isArray(existing?.evidence) ? existing.evidence : []),
+        ...withoutStaleExactDocumentEvidence(incomingEvidence),
       ].map((entry) => normalizeKeyword(entry)).filter(Boolean))].slice(0, 10);
       const splitProbeZeroAt = incomingSplitTotal > 0
         ? undefined
@@ -9982,6 +10224,7 @@ export class MobileLiveGoldenRadar {
         isSearchVolumeEstimated,
         documentCountSource,
         documentCountConfidence,
+        documentCountQueryMode,
         isDocumentCountEstimated,
         isMeasured: preserveExistingExactProvenance ? existing?.isMeasured ?? keyword.isMeasured : keyword.isMeasured,
         splitProbeZeroAt,
@@ -10306,7 +10549,7 @@ export class MobileLiveGoldenRadar {
         || pc + mobile !== total
         || measuredAtMs === null
         || measuredAtMs > nowMs + 5 * 60 * 1000
-        || nowMs - measuredAtMs > LIVE_BOARD_MAX_AGE_MS
+        || nowMs - measuredAtMs > LIVE_CACHE_EXACT_DISCOVERY_MAX_AGE_MS
       ) continue;
 
       const discoveryItem: MobileKeywordMetric = {
@@ -10324,12 +10567,30 @@ export class MobileLiveGoldenRadar {
       if (!isHumanNaturalGoldenMetric(discoveryItem as MobileLiveGoldenBoardItem)) continue;
       if (LIVE_PROMOTION_SYNTHETIC_INTENT_CHAIN_RE.test(keyword)) continue;
 
+      const compactKeyword = keywordCompactId(keyword);
+      let cachedExactDocuments: number | null = null;
+      for (const query of uniqueKeywords([
+        compactKeyword ? `"${compactKeyword}"` : '',
+        keyword ? `"${keyword}"` : '',
+      ], 2)) {
+        try {
+          const cachedCount = this.getCachedExactDocumentCount(query, nowMs);
+          if (cachedCount !== null && cachedCount > 0) {
+            cachedExactDocuments = cachedCount;
+            break;
+          }
+        } catch {
+          // Discovery cache is an optimization only; never block fresh proof.
+        }
+      }
+
       rankedCandidates.push({
         item: discoveryItem,
         policyKey: resolved.policyKey,
         score: preVolumeCandidateScore(keyword, discoveryItem.category || 'all')
           + livePromotionPriorityBonus(keyword, discoveryItem.category || 'all')
-          + volumeOpportunityScore(total),
+          + volumeOpportunityScore(total)
+          + exactDocumentRecoveryDiscoveryBonus(total, cachedExactDocuments),
       });
     }
     rankedCandidates.sort((a, b) => b.score - a.score);
@@ -10427,7 +10688,7 @@ export class MobileLiveGoldenRadar {
         || documentMetadata.documentCountConfidence !== 'high'
         || documentMetadata.isDocumentCountEstimated === true
       ) continue;
-      const result = rowToBackfillResult(row, selectedCandidate.item.category || 'all');
+      const result = rowToBackfillResult(row, selectedCandidate.item.category || 'all', now);
       if (!result) continue;
       const metric = applyKeywordAiJudge(mapDirectResult({
         ...result,
@@ -10441,6 +10702,7 @@ export class MobileLiveGoldenRadar {
       if (
         !isPublishableLiveResultMetric(metric, now)
         && !isMeasuredProBoardFallbackMetric(metric as MobileLiveGoldenBoardItem, now)
+        && !isMeasuredProDisplayBackfillMetric(metric as MobileLiveGoldenBoardItem, now)
       ) continue;
       publishable.push(metric);
     }
@@ -10448,23 +10710,34 @@ export class MobileLiveGoldenRadar {
       return { attemptedCount, promotedCount: 0 };
     }
 
+    const verifiedBeforeIds = new Set(this.verifiedSupplyBoard().map((item) => (
+      goldenBoardSemanticId(item.keyword)
+    )));
     this.mergeBoard(publishable);
-    const promotedCount = publishable.filter((metric) => {
-      const id = keywordCompactId(metric.keyword);
-      return [...this.board.values()].some((item) => (
-        keywordCompactId(item.keyword) === id
-        && Array.isArray(item.evidence)
-        && item.evidence.includes('naver-openapi-exact-phrase')
-      ));
-    }).length;
-    if (promotedCount > 0) this.cachePromotionProgressCount += promotedCount;
+    const verifiedAfter = this.verifiedSupplyBoard();
+    const promoted = verifiedAfter.filter((item) => (
+      !verifiedBeforeIds.has(goldenBoardSemanticId(item.keyword))
+    ));
+    const promotedCount = promoted.length;
+    // A trusted publishable row is still useful progress when it refreshes an
+    // existing item. Keep catch-up moving through the unattempted tail, while
+    // reporting only true net-new Verified rows as promotedCount.
+    this.cachePromotionProgressCount += publishable.length;
     console.info('[LIVE-GOLDEN] persistent exact-document recovery completed', {
       inventory: this.persistentExactDocumentInventory.size,
       selected: selected.length,
       attemptedCount,
       freshRows: trustedFreshRows.length,
       exactRows: exactRows.length,
+      publishableCount: publishable.length,
       promotedCount,
+      promoted: promoted.slice(0, 12).map((item) => item.keyword),
+      notRetained: publishable
+        .filter((metric) => !verifiedAfter.some((item) => (
+          goldenBoardSemanticId(item.keyword) === goldenBoardSemanticId(metric.keyword)
+        )))
+        .slice(0, 12)
+        .map((metric) => metric.keyword),
     });
     return { attemptedCount, promotedCount };
   }
@@ -10489,6 +10762,9 @@ export class MobileLiveGoldenRadar {
     const rankedCandidates = [...this.board.values()]
       .filter((item) => ageMsFrom(item.updatedAt, nowMs) <= LIVE_BOARD_MAX_AGE_MS)
       .filter((item) => hasCompleteLiveGoldenMetrics(item))
+      // This lane refreshes only SearchAd. A source-less/cache DC would remain
+      // untrusted after spending quota, so leave it to exact-document recovery.
+      .filter((item) => hasExplicitTrustedDocumentCountProof(item))
       .filter((item) => (
         isCachePromotionMeasurementCandidate(item, now)
         || needsSearchAdKeywordBindingRevalidation(item, now)
@@ -10607,7 +10883,10 @@ export class MobileLiveGoldenRadar {
 
     const stamp = this.now().toISOString();
     let changed = 0;
-    let promotedCount = 0;
+    const verifiedBeforeIds = new Set(this.verifiedSupplyBoard().map((item) => (
+      goldenBoardSemanticId(item.keyword)
+    )));
+    const eligiblePromotionIds = new Set<string>();
     const rejectedSamples: Array<Record<string, unknown>> = [];
     for (const row of rows) {
       const keyword = normalizeKeyword(row.keyword);
@@ -10744,7 +11023,7 @@ export class MobileLiveGoldenRadar {
       }
       this.board.set(item.id, judged);
       changed += 1;
-      promotedCount += 1;
+      eligiblePromotionIds.add(goldenBoardSemanticId(judged.keyword));
     }
 
     if (changed > 0) {
@@ -10753,11 +11032,21 @@ export class MobileLiveGoldenRadar {
       this.boardUpdatedAt = stamp;
       this.saveBoardToFile();
     }
+    const verifiedAfter = this.verifiedSupplyBoard();
+    const promoted = verifiedAfter.filter((item) => {
+      const id = goldenBoardSemanticId(item.keyword);
+      return eligiblePromotionIds.has(id) && !verifiedBeforeIds.has(id);
+    });
+    const promotedCount = promoted.length;
     console.info('[LIVE-GOLDEN] cache promotion completed', {
       candidates: candidates.length,
       rows: rows.length,
       changed,
       promotedCount,
+      promoted: promoted.slice(0, 12).map((item) => item.keyword),
+      notRetained: [...eligiblePromotionIds]
+        .filter((id) => !verifiedAfter.some((item) => goldenBoardSemanticId(item.keyword) === id))
+        .slice(0, 12),
       targetLimit,
       rejectedSamples,
     });

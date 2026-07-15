@@ -48,6 +48,18 @@ const PERSON_DEPENDENT_TOKENS = [
     '아이돌', '연예인', '걸그룹', '보이그룹', '인플루언서 본명',
 ];
 
+function matchesPersonDependentToken(keyword: string, personToken: string): boolean {
+    if (!keyword.includes(personToken)) return false;
+    const lexicalTokens = keyword.split(/[^0-9A-Za-z가-힣]+/u).filter(Boolean);
+    if (lexicalTokens.includes(personToken)) return true;
+    // "레이" is also a syllable inside common product/auto terms. Treating
+    // 브레이크/디스플레이 as an IVE member silently blocks legitimate queries.
+    if (personToken === '레이' && /(?:브레이크|디스플레이|플레이|레이아웃|레이어|레이저|레이싱)/u.test(keyword)) {
+        return false;
+    }
+    return true;
+}
+
 const YMYL_HIGH_RISK_TOKENS = [
     // === 의료 (의료법 §56, 1년/1,000만원) ===
     '진단', '치료', '수술', '처방', '약물', '의료법',
@@ -251,7 +263,7 @@ export function verifyKeywordValue(input: VerifyInput): ValueGateResult {
 
     // === Kill-switch 3 게이트 ===
     // v2.42.62: allowPerson=true 면 PERSON 매칭 무시 (셀럽/연예 카테고리용)
-    const personMatched = PERSON_DEPENDENT_TOKENS.filter(p => kw.includes(p));
+    const personMatched = PERSON_DEPENDENT_TOKENS.filter(p => matchesPersonDependentToken(kw, p));
     const personPass = input.allowPerson === true ? true : (personMatched.length === 0);
 
     const ymylMatched = YMYL_HIGH_RISK_TOKENS.filter(y => kw.includes(y));

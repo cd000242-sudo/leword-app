@@ -33,6 +33,9 @@ eq('인물 게이트 notPersonDependent 실패', person.gates.notPersonDependent
 const personAllowed = verifyKeywordValue({ keyword: '아이유 콘서트 예매 방법', searchVolume: 5000, documentCount: 200, allowPerson: true, mode: 'lenient' });
 eq('allowPerson=true → 인물 게이트 통과', personAllowed.gates.notPersonDependent.passed, true);
 
+const brakeDisc = verifyKeywordValue({ keyword: '브레이크디스크 교체 시기', searchVolume: 1220, documentCount: 235, mode: 'lenient' });
+eq('브레이크의 레이는 인물명으로 오탐하지 않음', brakeDisc.gates.notPersonDependent.passed, true);
+
 // ── 검색량 0(측정 안 됨) → searchVolume 게이트 실패, valuable 아님 (default 0 정직성) ──
 const noVol = verifyKeywordValue({ keyword: '겨울 캠핑 난로 추천 비교 정리', searchVolume: 0, documentCount: 0, mode: 'lenient' });
 eq('검색량 0 게이트 실패', noVol.gates.searchVolume.passed, false);
@@ -44,7 +47,7 @@ assert('정상 롱테일 킬 안 됨', !good.isKilled, `isKilled=${good.isKilled
 assert('정상 롱테일 valuable', good.valuable === true, `valuable=${good.valuable}, q=${good.qualityScore}`);
 
 // ── 계약 불변식: 여러 입력에서 등급↔품질점수 밴드 + valuable 공식 일관 ──
-const samples = [ymyl, person, personAllowed, noVol, good];
+const samples = [ymyl, person, personAllowed, brakeDisc, noVol, good];
 samples.forEach((r, i) => {
   assert(`[${i}] qualityScore 0~100`, r.qualityScore >= 0 && r.qualityScore <= 100, `${r.qualityScore}`);
   // 등급↔품질점수 밴드(소스 390-396 계승): kill이면 C, 아니면 90/75/58/42 경계

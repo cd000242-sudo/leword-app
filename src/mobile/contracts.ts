@@ -137,6 +137,8 @@ export interface MobileKeywordMetric {
   isSearchVolumeEstimated?: boolean;
   documentCountSource?: MobileDocumentCountSource;
   documentCountConfidence?: MobileMeasurementConfidence;
+  /** Query shape used for the current documentCount measurement. */
+  documentCountQueryMode?: 'broad' | 'exact-phrase';
   isDocumentCountEstimated?: boolean;
   measurementStatus?: MobileKeywordMeasurementStatus;
   aiJudge?: MobileKeywordAiJudge;
