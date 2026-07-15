@@ -1,3 +1,4 @@
+import crypto from 'crypto';
 import type { MobileLiveGoldenBoardItem } from './contracts';
 import {
   hasTrustedDocumentCountMeasurement,
@@ -9,15 +10,60 @@ import {
 } from './live-golden-category-policy';
 import { SEARCHAD_KEYWORD_BINDING_VERSION } from '../utils/searchad-result-alignment';
 
+export interface LiveGoldenHumanReview {
+  reviewed: number;
+  precision: number;
+  malformedCount: number;
+  semanticDuplicateCount: number;
+  platformResidueCount: number;
+  sentenceResidueCount: number;
+  reviewedAt?: string;
+  boardFingerprint?: string;
+}
+
+export interface LiveGoldenHumanReviewAttestation {
+  schemaVersion: 'live-golden-human-review-v1';
+  fingerprintVersion: 'verified-supply-v1';
+  boardUpdatedAt: string;
+  boardFingerprint: string;
+  reviewedAt: string;
+  reviewer: string;
+  reviewed: number;
+  precisionPassed: number;
+  malformedCount: number;
+  semanticDuplicateCount: number;
+  platformResidueCount: number;
+  sentenceResidueCount: number;
+}
+
+export type LiveGoldenHumanReviewAttestationReason =
+  | 'accepted'
+  | 'invalid-payload'
+  | 'invalid-schema'
+  | 'invalid-fingerprint-version'
+  | 'board-version-mismatch'
+  | 'reviewer-missing'
+  | 'invalid-timestamps'
+  | 'review-before-board'
+  | 'review-in-future'
+  | 'board-fingerprint-mismatch'
+  | 'invalid-reviewed-count'
+  | 'invalid-precision-passed'
+  | 'invalid-malformed-count'
+  | 'invalid-semantic-duplicate-count'
+  | 'invalid-platform-residue-count'
+  | 'invalid-sentence-residue-count';
+
+export interface LiveGoldenHumanReviewAttestationResult {
+  review?: LiveGoldenHumanReview;
+  reason: LiveGoldenHumanReviewAttestationReason;
+}
+
 export interface LiveGoldenSupplyReportOptions {
   nowMs?: number;
   verifiedTarget?: number;
   minimumActiveCoreCategories?: number;
-  humanReview?: {
-    reviewed: number;
-    precision: number;
-    malformedCount: number;
-  };
+  humanReview?: LiveGoldenHumanReview;
 }
 
 export interface LiveGoldenSupplyCategoryReport {
@@ -50,6 +96,8 @@ export interface LiveGoldenSupplyReport {
 }
 
 const MAX_VERIFIED_AGE_MS = 7 * 24 * 60 * 60 * 1000;
+const MAX_REVIEW_CLOCK_SKEW_MS = 5 * 60 * 1000;
+export const LIVE_GOLDEN_HUMAN_REVIEW_FINGERPRINT_VERSION = 'verified-supply-v1' as const;
 
 function roundRate(value: number): number {
   return Math.round(Math.max(0, value) * 10_000) / 10_000;
@@ -60,6 +108,10 @@ function finiteMeasuredNumber(value: unknown): number | null {
   if (typeof value === 'string' && value.trim() === '') return null;
   const number = Number(value);
   return Number.isFinite(number) ? number : null;
+}
+
+function strictAttestationNumber(value: unknown): number {
+  return typeof value === 'number' ? value : Number.NaN;
 }
 
 export function isTrustedLiveGoldenSupplyRow(item: MobileLiveGoldenBoardItem): boolean {
@@ -87,6 +139,112 @@ export function isTrustedLiveGoldenSupplyRow(item: MobileLiveGoldenBoardItem): b
     && item.isDocumentCountEstimated !== true
     && hasTrustedSearchVolumeMeasurement(item)
     && hasTrustedDocumentCountMeasurement(item);
+}
+
+export function liveGoldenBoardFingerprint(
+  rows: readonly MobileLiveGoldenBoardItem[],
+  boardUpdatedAt = '',
+): string {
+  const canonical = (Array.isArray(rows) ? rows : [])
+    .filter(isTrustedLiveGoldenSupplyRow)
+    .map((item) => ({
+      id: String(item.id || ''),
+      keyword: String(item.keyword || ''),
+      category: String(item.category || ''),
+      intent: String(item.intent || ''),
+      grade: String(item.grade || ''),
+      pcSearchVolume: finiteMeasuredNumber(item.pcSearchVolume),
+      mobileSearchVolume: finiteMeasuredNumber(item.mobileSearchVolume),
+      totalSearchVolume: finiteMeasuredNumber(item.totalSearchVolume),
+      documentCount: finiteMeasuredNumber(item.documentCount),
+      searchVolumeSource: String(item.searchVolumeSource || ''),
+      searchVolumeConfidence: String(item.searchVolumeConfidence || ''),
+      searchVolumeBindingVersion: String(item.searchVolumeBindingVersion || ''),
+      searchVolumeMeasuredAt: String(item.searchVolumeMeasuredAt || ''),
+      isSearchVolumeEstimated: item.isSearchVolumeEstimated === true,
+      documentCountSource: String(item.documentCountSource || ''),
+      documentCountConfidence: String(item.documentCountConfidence || ''),
+      isDocumentCountEstimated: item.isDocumentCountEstimated === true,
+      updatedAt: String(item.updatedAt || ''),
+    }))
+    .sort((left, right) => {
+      const leftText = JSON.stringify(left);
+      const rightText = JSON.stringify(right);
+      return leftText < rightText ? -1 : leftText > rightText ? 1 : 0;
+    });
+  return crypto.createHash('sha256').update(JSON.stringify({
+    fingerprintVersion: LIVE_GOLDEN_HUMAN_REVIEW_FINGERPRINT_VERSION,
+    boardUpdatedAt: String(boardUpdatedAt || ''),
+    verifiedSupply: canonical,
+  })).digest('hex');
+}
+
+export function evaluateLiveGoldenHumanReviewAttestation(
+  value: unknown,
+  rows: readonly MobileLiveGoldenBoardItem[],
+  boardUpdatedAt: string | undefined,
+  nowMs = Date.now(),
+): LiveGoldenHumanReviewAttestationResult {
+  if (!value || typeof value !== 'object' || Array.isArray(value)) return { reason: 'invalid-payload' };
+  const input = value as Partial<LiveGoldenHumanReviewAttestation>;
+  const verifiedCount = (Array.isArray(rows) ? rows : []).filter(isTrustedLiveGoldenSupplyRow).length;
+  const reviewed = strictAttestationNumber(input.reviewed);
+  const precisionPassed = strictAttestationNumber(input.precisionPassed);
+  const malformedCount = strictAttestationNumber(input.malformedCount);
+  const semanticDuplicateCount = strictAttestationNumber(input.semanticDuplicateCount);
+  const platformResidueCount = strictAttestationNumber(input.platformResidueCount);
+  const sentenceResidueCount = strictAttestationNumber(input.sentenceResidueCount);
+  const reviewedAt = typeof input.reviewedAt === 'string' ? input.reviewedAt : '';
+  const reviewedAtMs = Date.parse(reviewedAt);
+  const boardUpdatedAtText = String(boardUpdatedAt || '');
+  const boardUpdatedAtMs = Date.parse(boardUpdatedAtText);
+  const boardFingerprint = liveGoldenBoardFingerprint(rows, boardUpdatedAtText);
+  if (input.schemaVersion !== 'live-golden-human-review-v1') return { reason: 'invalid-schema' };
+  if (input.fingerprintVersion !== LIVE_GOLDEN_HUMAN_REVIEW_FINGERPRINT_VERSION) {
+    return { reason: 'invalid-fingerprint-version' };
+  }
+  if (!boardUpdatedAtText || input.boardUpdatedAt !== boardUpdatedAtText) return { reason: 'board-version-mismatch' };
+  if (typeof input.reviewer !== 'string' || !input.reviewer.trim()) return { reason: 'reviewer-missing' };
+  if (!Number.isFinite(reviewedAtMs) || !Number.isFinite(boardUpdatedAtMs)) return { reason: 'invalid-timestamps' };
+  if (reviewedAtMs < boardUpdatedAtMs) return { reason: 'review-before-board' };
+  if (reviewedAtMs > nowMs + MAX_REVIEW_CLOCK_SKEW_MS) return { reason: 'review-in-future' };
+  if (input.boardFingerprint !== boardFingerprint) return { reason: 'board-fingerprint-mismatch' };
+  if (!Number.isInteger(reviewed) || reviewed < 0 || reviewed > verifiedCount) return { reason: 'invalid-reviewed-count' };
+  if (!Number.isInteger(precisionPassed) || precisionPassed < 0 || precisionPassed > reviewed) {
+    return { reason: 'invalid-precision-passed' };
+  }
+  if (!Number.isInteger(malformedCount) || malformedCount < 0) return { reason: 'invalid-malformed-count' };
+  if (!Number.isInteger(semanticDuplicateCount) || semanticDuplicateCount < 0) {
+    return { reason: 'invalid-semantic-duplicate-count' };
+  }
+  if (!Number.isInteger(platformResidueCount) || platformResidueCount < 0) {
+    return { reason: 'invalid-platform-residue-count' };
+  }
+  if (!Number.isInteger(sentenceResidueCount) || sentenceResidueCount < 0) {
+    return { reason: 'invalid-sentence-residue-count' };
+  }
+  return {
+    reason: 'accepted',
+    review: {
+      reviewed,
+      precision: reviewed > 0 ? precisionPassed / reviewed : 0,
+      malformedCount,
+      semanticDuplicateCount,
+      platformResidueCount,
+      sentenceResidueCount,
+      reviewedAt,
+      boardFingerprint,
+    },
+  };
+}
+
+export function parseLiveGoldenHumanReviewAttestation(
+  value: unknown,
+  rows: readonly MobileLiveGoldenBoardItem[],
+  boardUpdatedAt: string | undefined,
+  nowMs = Date.now(),
+): LiveGoldenHumanReview | undefined {
+  return evaluateLiveGoldenHumanReviewAttestation(value, rows, boardUpdatedAt, nowMs).review;
 }
 
 export function buildLiveGoldenSupplyReport(
@@ -163,6 +321,9 @@ export function buildLiveGoldenSupplyReport(
     superiorityGate = humanReview.reviewed >= verified.length
       && humanReview.precision >= 0.9
       && humanReview.malformedCount === 0
+      && humanReview.semanticDuplicateCount === 0
+      && humanReview.platformResidueCount === 0
+      && humanReview.sentenceResidueCount === 0
       ? 'pass'
       : 'fail';
   }

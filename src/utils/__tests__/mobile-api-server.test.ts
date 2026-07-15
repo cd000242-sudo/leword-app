@@ -10,6 +10,8 @@ import {
   MobilePushRegistry,
 } from '../../mobile/push-notifications';
 import { MobileLiveGoldenRadar } from '../../mobile/live-golden-radar';
+import { LIVE_GOLDEN_CORE_CATEGORY_POLICIES } from '../../mobile/live-golden-category-policy';
+import { liveGoldenBoardFingerprint } from '../../mobile/live-golden-supply-report';
 import { MobileNotificationInbox } from '../../mobile/notification-inbox';
 import { MobilePrewarmScheduler } from '../../mobile/prewarm-scheduler';
 import { InMemoryMobileResultCache } from '../../mobile/result-cache';
@@ -2975,6 +2977,106 @@ const result: MobileKeywordResult = {
   }
 
   console.log('[mobile-api-server-live-golden.test] passed');
+
+  const reviewRoot = fs.mkdtempSync(path.join(os.tmpdir(), 'leword-human-review-'));
+  const reviewFile = path.join(reviewRoot, 'live-golden-human-review.json');
+  const reviewBoardUpdatedAt = new Date().toISOString();
+  const reviewRows = LIVE_GOLDEN_CORE_CATEGORY_POLICIES.flatMap((policy) => (
+    Array.from({ length: 5 }, (_, index) => ({
+      id: `${policy.key}-${index}`,
+      keyword: `${policy.label} 사람 검수 ${index + 1}`,
+      category: policy.discoveryIds[0],
+      intent: 'Informational',
+      grade: 'S',
+      score: 80,
+      pcSearchVolume: 200,
+      mobileSearchVolume: 800,
+      totalSearchVolume: 1000,
+      documentCount: 200,
+      goldenRatio: 5,
+      source: 'searchad-measured',
+      isMeasured: true,
+      searchVolumeSource: 'searchad',
+      searchVolumeConfidence: 'high',
+      searchVolumeBindingVersion: 'keyword-keyed-v2',
+      searchVolumeMeasuredAt: reviewBoardUpdatedAt,
+      isSearchVolumeEstimated: false,
+      documentCountSource: 'naver-api',
+      documentCountConfidence: 'high',
+      isDocumentCountEstimated: false,
+      discoveredAt: reviewBoardUpdatedAt,
+      updatedAt: reviewBoardUpdatedAt,
+    } as any))
+  ));
+  const reviewSnapshot = {
+    board: reviewRows,
+    verifiedSupply: reviewRows,
+    boardCount: reviewRows.length,
+    boardTarget: 120,
+    boardUpdatedAt: reviewBoardUpdatedAt,
+    pendingProbeQueueCount: 0,
+  };
+  const validReviewAttestation = {
+    schemaVersion: 'live-golden-human-review-v1',
+    fingerprintVersion: 'verified-supply-v1',
+    boardUpdatedAt: reviewBoardUpdatedAt,
+    boardFingerprint: liveGoldenBoardFingerprint(reviewRows, reviewBoardUpdatedAt),
+    reviewedAt: new Date(Date.parse(reviewBoardUpdatedAt) + 1_000).toISOString(),
+    reviewer: 'human-reviewer',
+    reviewed: reviewRows.length,
+    precisionPassed: reviewRows.length,
+    malformedCount: 0,
+    semanticDuplicateCount: 0,
+    platformResidueCount: 0,
+    sentenceResidueCount: 0,
+  };
+  writeJson(reviewFile, validReviewAttestation);
+  const reviewedServer = createLewordApiServer({
+    entitlementVerifier: null,
+    liveGoldenRadar: {
+      snapshot: () => reviewSnapshot,
+      start: () => reviewSnapshot,
+      stop: () => reviewSnapshot,
+    } as any,
+    liveGoldenHumanReviewFile: reviewFile,
+    notificationInbox: new MobileNotificationInbox(),
+    prewarmService: null,
+    prewarmScheduler: null,
+  });
+  const reviewedPort = await listen(reviewedServer);
+  try {
+    const reviewMtimeBefore = fs.statSync(reviewFile).mtimeMs;
+    const acceptedHealth = await fetch(`http://127.0.0.1:${reviewedPort}/health`);
+    const acceptedHealthJson: any = await acceptedHealth.json();
+    assert('health accepts an exact-board full human review attestation',
+      acceptedHealthJson.liveGolden?.supply?.automatedSupplyGate === 'pass'
+        && acceptedHealthJson.liveGolden?.supply?.superiorityGate === 'pass'
+        && acceptedHealthJson.liveGolden?.humanReviewAttestation?.accepted === true
+        && acceptedHealthJson.liveGolden?.humanReviewAttestation?.reason === 'human-review-passed'
+        && fs.statSync(reviewFile).mtimeMs === reviewMtimeBefore,
+      JSON.stringify(acceptedHealthJson.liveGolden));
+    writeJson(reviewFile, { ...validReviewAttestation, precisionPassed: 53 });
+    const failedQualityHealth = await fetch(`http://127.0.0.1:${reviewedPort}/health`);
+    const failedQualityHealthJson: any = await failedQualityHealth.json();
+    assert('health binds but fails a human review below the precision threshold',
+      failedQualityHealthJson.liveGolden?.supply?.superiorityGate === 'fail'
+        && failedQualityHealthJson.liveGolden?.humanReviewAttestation?.accepted === true
+        && failedQualityHealthJson.liveGolden?.humanReviewAttestation?.reason === 'human-review-precision-below-threshold',
+      JSON.stringify(failedQualityHealthJson.liveGolden));
+    writeJson(reviewFile, { ...validReviewAttestation, boardFingerprint: 'stale-board-fingerprint' });
+    const staleHealth = await fetch(`http://127.0.0.1:${reviewedPort}/health`);
+    const staleHealthJson: any = await staleHealth.json();
+    assert('health rejects a stale human review when the board fingerprint differs',
+      staleHealthJson.liveGolden?.supply?.superiorityGate === 'pending-human-review'
+        && staleHealthJson.liveGolden?.humanReviewAttestation?.accepted === false
+        && staleHealthJson.liveGolden?.humanReviewAttestation?.reason === 'human-review-board-fingerprint-mismatch',
+      JSON.stringify(staleHealthJson.liveGolden));
+  } finally {
+    await close(reviewedServer);
+    fs.rmSync(reviewRoot, { recursive: true, force: true });
+  }
+
+  console.log('[mobile-api-server-human-review.test] passed');
 
   // ingest 라우트: 토큰 미설정=기능 꺼짐(503), 오토큰=401, 정상 push 는 SSoT 재검증 후 스냅샷 반영.
   const ingestRadar = new MobileLiveGoldenRadar({

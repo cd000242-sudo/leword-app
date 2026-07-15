@@ -14,6 +14,7 @@ services:
       LEWORD_MOBILE_KEYWORD_CACHE_FILE: /data/keyword-cache.json
       LEWORD_MOBILE_LIVE_GOLDEN_BOARD_FILE: /data/live-golden-board.json
       LEWORD_MOBILE_LIVE_GOLDEN_HEARTBEAT_FILE: /data/live-golden-worker-heartbeat.json
+      LEWORD_MOBILE_LIVE_GOLDEN_HUMAN_REVIEW_FILE: /data/live-golden-human-review.json
       LEWORD_MOBILE_LIVE_GOLDEN_ENABLED: "true"
       LEWORD_MOBILE_LIVE_GOLDEN_READONLY: "true"
       LEWORD_MOBILE_LIVE_GOLDEN_ON_START: "false"

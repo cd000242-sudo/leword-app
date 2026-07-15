@@ -1,4 +1,8 @@
-import { buildLiveGoldenSupplyReport } from '../../mobile/live-golden-supply-report';
+import {
+  buildLiveGoldenSupplyReport,
+  liveGoldenBoardFingerprint,
+  parseLiveGoldenHumanReviewAttestation,
+} from '../../mobile/live-golden-supply-report';
 import { LIVE_GOLDEN_CORE_CATEGORY_POLICIES } from '../../mobile/live-golden-category-policy';
 
 function assert(name: string, condition: boolean, detail?: string): void {
@@ -55,6 +59,86 @@ assert('automated supply cannot claim full superiority before blind human review
   balanced.superiorityGate === 'pending-human-review',
   JSON.stringify(balanced));
 
+const boardUpdatedAt = '2026-07-11T09:30:00.000Z';
+const validHumanReview = {
+  schemaVersion: 'live-golden-human-review-v1' as const,
+  fingerprintVersion: 'verified-supply-v1' as const,
+  boardUpdatedAt,
+  boardFingerprint: liveGoldenBoardFingerprint(balancedItems, boardUpdatedAt),
+  reviewedAt: '2026-07-11T10:00:00.000Z',
+  reviewer: 'human-reviewer',
+  reviewed: balancedItems.length,
+  precisionPassed: balancedItems.length,
+  malformedCount: 0,
+  semanticDuplicateCount: 0,
+  platformResidueCount: 0,
+  sentenceResidueCount: 0,
+};
+const parsedHumanReview = parseLiveGoldenHumanReviewAttestation(
+  validHumanReview,
+  balancedItems,
+  boardUpdatedAt,
+  Date.parse('2026-07-11T10:01:00.000Z'),
+);
+const humanApproved = buildLiveGoldenSupplyReport(balancedItems, {
+  nowMs: Date.parse('2026-07-11T10:01:00.000Z'),
+  humanReview: parsedHumanReview,
+});
+assert('exact-board human attestation can pass superiority after every blind-review gate passes',
+  parsedHumanReview?.reviewed === 60
+    && humanApproved.superiorityGate === 'pass',
+  JSON.stringify(humanApproved));
+assert('human attestation is rejected when the reviewed board fingerprint no longer matches',
+  parseLiveGoldenHumanReviewAttestation(
+    validHumanReview,
+    balancedItems.map((item, index) => index === 0 ? { ...item, intent: 'changed' } : item),
+    boardUpdatedAt,
+    Date.parse('2026-07-11T10:01:00.000Z'),
+  ) === undefined);
+assert('human attestation is bound to the exact board update version',
+  parseLiveGoldenHumanReviewAttestation(
+    validHumanReview,
+    balancedItems,
+    '2026-07-11T09:31:00.000Z',
+    Date.parse('2026-07-11T10:01:00.000Z'),
+  ) === undefined);
+assert('human attestation rejects null or string counters instead of coercing them to zero',
+  parseLiveGoldenHumanReviewAttestation(
+    { ...validHumanReview, malformedCount: null },
+    balancedItems,
+    boardUpdatedAt,
+    Date.parse('2026-07-11T10:01:00.000Z'),
+  ) === undefined
+    && parseLiveGoldenHumanReviewAttestation(
+      { ...validHumanReview, precisionPassed: '60' },
+      balancedItems,
+      boardUpdatedAt,
+      Date.parse('2026-07-11T10:01:00.000Z'),
+    ) === undefined);
+assert('90 percent human precision passes while 53 of 60 fails',
+  buildLiveGoldenSupplyReport(balancedItems, {
+    nowMs: Date.parse('2026-07-11T10:01:00.000Z'),
+    humanReview: { ...parsedHumanReview!, precision: 54 / 60 },
+  }).superiorityGate === 'pass'
+    && buildLiveGoldenSupplyReport(balancedItems, {
+      nowMs: Date.parse('2026-07-11T10:01:00.000Z'),
+      humanReview: { ...parsedHumanReview!, precision: 53 / 60 },
+    }).superiorityGate === 'fail');
+const duplicateFound = buildLiveGoldenSupplyReport(balancedItems, {
+  nowMs: Date.parse('2026-07-11T10:01:00.000Z'),
+  humanReview: { ...parsedHumanReview!, semanticDuplicateCount: 1 },
+});
+assert('human review cannot pass with semantic duplicates or platform and sentence residue',
+  duplicateFound.superiorityGate === 'fail'
+    && buildLiveGoldenSupplyReport(balancedItems, {
+      nowMs: Date.parse('2026-07-11T10:01:00.000Z'),
+      humanReview: { ...parsedHumanReview!, platformResidueCount: 1 },
+    }).superiorityGate === 'fail'
+    && buildLiveGoldenSupplyReport(balancedItems, {
+      nowMs: Date.parse('2026-07-11T10:01:00.000Z'),
+      humanReview: { ...parsedHumanReview!, sentenceResidueCount: 1 },
+    }).superiorityGate === 'fail');
+
 const dominatedItems = [
   ...Array.from({ length: 18 }, (_, index) => measuredItem(`정책 키워드 ${index}`, 'policy', index)),
   ...Array.from({ length: 5 }, (_, index) => measuredItem(`교육 키워드 ${index}`, 'education', index)),
@@ -73,6 +157,11 @@ assert('policy-dominated production-like portfolio fails with explicit reasons',
     && dominated.failureReasons.includes('category-coverage-shortfall')
     && dominated.failureReasons.includes('category-share-cap-exceeded'),
   JSON.stringify(dominated));
+assert('human attestation cannot override a failed automated supply gate',
+  buildLiveGoldenSupplyReport(dominatedItems, {
+    nowMs: Date.parse('2026-07-11T10:01:00.000Z'),
+    humanReview: parsedHumanReview,
+  }).superiorityGate === 'fail');
 
 const incomplete = measuredItem('미측정 후보', 'health', 1);
 incomplete.isMeasured = false;

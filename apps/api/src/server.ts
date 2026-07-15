@@ -76,7 +76,11 @@ import {
   readLiveGoldenWorkerHealth,
   resolveLiveGoldenWorkerHeartbeatFile,
 } from '../../../src/mobile/live-golden-worker-health';
-import { buildLiveGoldenSupplyReport } from '../../../src/mobile/live-golden-supply-report';
+import {
+  buildLiveGoldenSupplyReport,
+  evaluateLiveGoldenHumanReviewAttestation,
+  type LiveGoldenHumanReview,
+} from '../../../src/mobile/live-golden-supply-report';
 import { InMemoryMobileResultCache } from '../../../src/mobile/result-cache';
 import {
   applyKeywordAiJudge,
@@ -206,6 +210,7 @@ export interface LewordApiServerOptions {
   prewarmScheduler?: MobilePrewarmScheduler | null;
   liveGoldenRadar?: MobileLiveGoldenRadar | null;
   liveGoldenWorkerHeartbeatFile?: string;
+  liveGoldenHumanReviewFile?: string;
   authToken?: string | null;
   entitlementVerifier?: MobileEntitlementVerifier | null;
   apiGuardrails?: Partial<MobileApiGuardrailOptions> | null;
@@ -3539,6 +3544,8 @@ export function createLewordApiServer(options: LewordApiServerOptions = {}): htt
     });
   const liveGoldenWorkerHeartbeatFile = options.liveGoldenWorkerHeartbeatFile
     || resolveLiveGoldenWorkerHeartbeatFile();
+  const liveGoldenHumanReviewFile = options.liveGoldenHumanReviewFile
+    || String(process.env['LEWORD_MOBILE_LIVE_GOLDEN_HUMAN_REVIEW_FILE'] || '').trim();
   const entitlementVerifier = options.entitlementVerifier === null
     ? null
     : options.entitlementVerifier || createEnvironmentMobileEntitlementVerifier({
@@ -3769,9 +3776,53 @@ export function createLewordApiServer(options: LewordApiServerOptions = {}): htt
     if (req.method === 'GET' && url.pathname === '/health') {
       const liveGoldenSnapshot = liveGoldenRadar?.snapshot() || null;
       const liveGoldenWorker = readLiveGoldenWorkerHealth(liveGoldenWorkerHeartbeatFile);
+      const liveGoldenSupplyRows = liveGoldenSnapshot?.verifiedSupply || liveGoldenSnapshot?.board || [];
+      let liveGoldenHumanReview: LiveGoldenHumanReview | undefined;
+      let liveGoldenHumanReviewReason = liveGoldenHumanReviewFile
+        ? 'human-review-file-missing'
+        : 'human-review-not-configured';
+      if (liveGoldenSnapshot && liveGoldenHumanReviewFile && fs.existsSync(liveGoldenHumanReviewFile)) {
+        try {
+          const reviewStat = fs.lstatSync(liveGoldenHumanReviewFile);
+          if (!reviewStat.isFile()) {
+            liveGoldenHumanReviewReason = 'human-review-not-regular-file';
+          } else if (reviewStat.size > 64 * 1024) {
+            liveGoldenHumanReviewReason = 'human-review-file-too-large';
+          } else {
+            const evaluation = evaluateLiveGoldenHumanReviewAttestation(
+              JSON.parse(fs.readFileSync(liveGoldenHumanReviewFile, 'utf8')),
+              liveGoldenSupplyRows,
+              liveGoldenSnapshot.boardUpdatedAt,
+            );
+            liveGoldenHumanReview = evaluation.review;
+            liveGoldenHumanReviewReason = `human-review-${evaluation.reason}`;
+          }
+        } catch {
+          liveGoldenHumanReview = undefined;
+          liveGoldenHumanReviewReason = 'human-review-json-invalid-or-read-error';
+        }
+      }
       const liveGoldenSupply = buildLiveGoldenSupplyReport(
-        liveGoldenSnapshot?.verifiedSupply || liveGoldenSnapshot?.board || [],
+        liveGoldenSupplyRows,
+        { humanReview: liveGoldenHumanReview },
       );
+      if (liveGoldenHumanReview) {
+        liveGoldenHumanReviewReason = liveGoldenSupply.automatedSupplyGate !== 'pass'
+          ? 'automated-supply-gate-failed'
+          : liveGoldenHumanReview.reviewed < liveGoldenSupply.verifiedCount
+            ? 'human-review-incomplete'
+            : liveGoldenHumanReview.precision < 0.9
+              ? 'human-review-precision-below-threshold'
+              : liveGoldenHumanReview.malformedCount > 0
+                ? 'human-review-malformed-present'
+                : liveGoldenHumanReview.semanticDuplicateCount > 0
+                  ? 'human-review-semantic-duplicate-present'
+                  : liveGoldenHumanReview.platformResidueCount > 0
+                    ? 'human-review-platform-residue-present'
+                    : liveGoldenHumanReview.sentenceResidueCount > 0
+                      ? 'human-review-sentence-residue-present'
+                      : 'human-review-passed';
+      }
       json(res, 200, {
         ok: true,
         service: 'leword-api',
@@ -3816,6 +3867,12 @@ export function createLewordApiServer(options: LewordApiServerOptions = {}): htt
           searchAdQuota: liveGoldenSnapshot?.searchAdQuota,
           worker: liveGoldenWorker,
           supply: liveGoldenSupply,
+          humanReviewAttestation: {
+            configured: !!liveGoldenHumanReviewFile,
+            accepted: !!liveGoldenHumanReview,
+            qualityPassed: liveGoldenSupply.superiorityGate === 'pass',
+            reason: liveGoldenHumanReviewReason,
+          },
         },
         runtime: getMobileRuntimeReadiness(),
       });

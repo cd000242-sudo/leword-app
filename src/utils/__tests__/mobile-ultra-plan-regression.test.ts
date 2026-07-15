@@ -778,6 +778,7 @@ assert('api production compose deploys CI-published GHCR image',
     && /leword-live-golden-worker:/.test(apiProductionCompose)
     && /worker:live-golden/.test(apiProductionCompose)
     && /LEWORD_MOBILE_LIVE_GOLDEN_HEARTBEAT_FILE:\s*\/data\/live-golden-worker-heartbeat\.json/.test(apiProductionCompose)
+    && /LEWORD_MOBILE_LIVE_GOLDEN_HUMAN_REVIEW_FILE:\s*\/data\/live-golden-human-review\.json/.test(apiProductionCompose)
     && /healthcheck:[\s\S]*live-golden-worker-heartbeat\.json/.test(apiProductionCompose)
     && !/healthcheck:\s*\n\s*disable:\s*true/.test(apiProductionCompose)
     && /health/.test(apiProductionCompose));
