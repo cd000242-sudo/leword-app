@@ -191,10 +191,11 @@ assert('loads public and pro golden boards',
     && html.includes('function loadGoldenBoard()')
     && html.includes('renderPublicGoldenBoard')
     && html.includes('renderProGoldenBoard'));
-assert('pro golden board does not truncate full boards after the strict display filter',
+assert('authenticated Pro golden board renders the complete server snapshot without browser refiltering',
   proWebHtml.includes('const sourceRows = exact ? (Array.isArray(items) ? items : []) : filterDisplayGoldenItems(items || []);')
-    && proWebHtml.includes('if (strict.length >= target || strict.length === raw.length)')
-    && proWebHtml.includes('const filled = balanced.slice();'));
+    && proWebHtml.includes('return (Array.isArray(raw) ? raw : []).slice(0, target);')
+    && proWebHtml.includes("const grade = escapeHtml((exact ? (item && item.grade) : displayGradeForRow(item)) || '');")
+    && !proWebHtml.includes(".filter(function(item) { return displayGradeForRow(item) !== 'C'; });"));
 assert('keeps Pro sessions during transient auth failures and retries remembered credentials',
   proWebHtml.includes('function promptProRelogin(message)')
     && proWebHtml.includes('function markProSessionAuthPending(message)')
@@ -1055,9 +1056,9 @@ assert('LEWORD pro web renders measured extra-field flags (C4 web port)',
     && proWebHtml.includes('gk-flags')
     && proWebHtml.includes('가치게이트')
     && proWebHtml.includes('실측 SERP 진입'));
-assert('display-grade C rows are blocked from golden board render paths',
+assert('display-grade C rows are blocked from public/client-derived board paths only',
   /filterFreshGoldenItems\(items \|\| \[\]\)\.filter\(function\(item\) \{\s*return !shouldHideFromLiveGoldenBoard\(item\) && displayGradeForRow\(item\) !== 'C';/.test(proWebHtml)
-    && /proGoldenBoardItems[\s\S]{0,600}\.filter\(function\(item\) \{ return displayGradeForRow\(item\) !== 'C'; \}\)/.test(proWebHtml));
+    && !/proGoldenBoardItems[\s\S]{0,600}\.filter\(function\(item\) \{ return displayGradeForRow\(item\) !== 'C'; \}\)/.test(proWebHtml));
 assert('preview policy label is honest (no lower-five wording)',
   proWebHtml.includes('실측 검증 5선 공개') && !proWebHtml.includes('하위 5개 공개'));
 assert('golden board renders category tabs with counts and click filter',

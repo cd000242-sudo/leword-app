@@ -7943,7 +7943,7 @@ export function renderLewordProWeb(): string {
       const rows = Array.isArray(items) ? items : [];
       const measured = rows.filter(function(item) { return item.isMeasured !== false && (item.totalSearchVolume != null || item.documentCount != null || exact); }).length;
       const topTier = rows.filter(function(item) {
-        const grade = displayGradeForRow(item);
+        const grade = exact ? ((item && item.grade) || '-') : displayGradeForRow(item);
         return grade === 'SSS' || grade === 'SS';
       }).length;
       const profileLeak = rows.filter(function(item) { return isThinProfileKeywordText(item.keyword || ''); }).length;
@@ -8068,7 +8068,7 @@ export function renderLewordProWeb(): string {
         return;
       }
       qs('goldenBoardList').innerHTML = rows.map(function(item) {
-        const grade = escapeHtml(displayGradeForRow(item) || '');
+        const grade = escapeHtml((exact ? (item && item.grade) : displayGradeForRow(item)) || '');
         const measured = item && item.isMeasured !== false;
         const searchVolume = exact && measured ? fmt(item.totalSearchVolume) : escapeHtml(item.publicSearchVolumeLabel || '실측 대기');
         const documents = exact && measured ? fmt(item.documentCount) : escapeHtml(item.publicDocumentCountLabel || '실측 대기');
@@ -8145,29 +8145,12 @@ export function renderLewordProWeb(): string {
       return null;
     }
     function proGoldenBoardItems(snapshot) {
-      // 표시 정직화(displayGradeForRow)가 C 로 강등하는 행(비율 역전·트래픽 포착 약함 등)은
-      // 보드 채움 백필로도 노출하지 않는다 — C 는 황금키워드 기준 미달.
-      const raw = ((snapshot && (snapshot.board || snapshot.items || snapshot.keywords || snapshot.publicPreview)) || [])
-        .filter(function(item) { return displayGradeForRow(item) !== 'C'; });
+      // 인증된 Pro 스냅샷은 서버가 이미 측정·품질 게이트를 통과시킨 보드다.
+      // 브라우저 휴리스틱으로 다시 필터/재정렬하면 boardCount와 실제 표시가 달라지므로
+      // 서버 순서와 서버 등급을 그대로 사용한다.
+      const raw = (snapshot && (snapshot.board || snapshot.items || snapshot.keywords || snapshot.publicPreview)) || [];
       const target = Number(snapshot && snapshot.boardTarget) || 120;
-      const strict = filterDisplayGoldenItems(raw);
-      if (strict.length >= target || strict.length === raw.length) {
-        return strict.slice(0, target);
-      }
-      const balanced = balanceGoldenDisplayItems(filterFreshGoldenItems(raw));
-      if (balanced.length >= Math.min(target, raw.length)) return balanced.slice(0, target);
-      const seen = new Set(balanced.map(function(item) {
-        return normalizeText(item && item.keyword).toLowerCase();
-      }).filter(Boolean));
-      const filled = balanced.slice();
-      raw.forEach(function(item) {
-        if (filled.length >= target) return;
-        const key = normalizeText(item && item.keyword).toLowerCase();
-        if (!key || seen.has(key)) return;
-        seen.add(key);
-        filled.push(item);
-      });
-      return filled.slice(0, target);
+      return (Array.isArray(raw) ? raw : []).slice(0, target);
     }
     function renderProGoldenBoard(snapshot) {
       const items = proGoldenBoardItems(snapshot);
