@@ -6395,6 +6395,16 @@ const PUBLIC_LIVE_GOLDEN_INTENTS = new Set([
 ]);
 
 function publicLiveGoldenIntent(keyword: string, intent?: string): string {
+  const cleanKeyword = normalizeKeyword(keyword);
+  // A how-to query is informational even when the underlying action itself
+  // (for example, filing a tax return) is transactional.
+  if (/신고\s*방법/u.test(cleanKeyword)) return 'Informational';
+  // Product/service reviews, rankings, and comparisons are commercial
+  // investigation. Require a concrete commercial subject so informational
+  // queries such as "프로야구 순위" or "조선 후기" keep their source intent.
+  const hasCommercialInvestigationSignal = /(?:후기|순위|비교)/u.test(cleanKeyword);
+  const hasCommercialSubject = /(?:에어컨|제습기|공기청정기|청소기|세제|노트북|스마트폰|아이폰|갤럭시|자동차|타이어|보험|대출|카드|숙소|호텔|펜션|캠핑장|렌(?:트|터)카|화장품|세럼|크림|선크림|샴푸|사료)/u.test(cleanKeyword);
+  if (hasCommercialInvestigationSignal && hasCommercialSubject) return 'Commercial';
   const normalizedIntent = normalizeKeyword(intent);
   return PUBLIC_LIVE_GOLDEN_INTENTS.has(normalizedIntent)
     ? normalizedIntent

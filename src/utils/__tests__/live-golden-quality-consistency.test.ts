@@ -83,6 +83,33 @@ fs.writeFileSync(boardFile, JSON.stringify({
 }, null, 2), 'utf8');
 
 try {
+  const intentCorrections: Array<[string, string, string]> = [
+    ['삼성창문형에어컨 후기', 'Informational', 'Commercial'],
+    ['제습기순위', 'Transactional', 'Commercial'],
+    ['세탁세제순위', 'Transactional', 'Commercial'],
+    ['개인사업자 부가세 신고 방법', 'Transactional', 'Informational'],
+    ['제주렌터카후기', 'Informational', 'Commercial'],
+    ['로봇청소기순위', 'Transactional', 'Commercial'],
+    ['무선청소기 순위', 'Transactional', 'Commercial'],
+    ['창문형에어컨소음비교', 'Transactional', 'Commercial'],
+  ];
+  assert(
+    'public golden intents normalize reviews, rankings, comparisons, and filing how-to queries',
+    intentCorrections.every(([keyword, incoming, expected]) => (
+      __liveGoldenRadarTestInternals.publicLiveGoldenIntent(keyword, incoming) === expected
+    )),
+  );
+  assert(
+    'public intent normalization preserves direct application actions',
+    __liveGoldenRadarTestInternals.publicLiveGoldenIntent('임신바우처신청방법', 'Transactional') === 'Transactional',
+  );
+  const informationalMarkerCases = ['프로야구 순위', '임신 후기 증상', '조선 후기'];
+  assert(
+    'public intent normalization does not treat every ranking or historical-period keyword as commercial',
+    informationalMarkerCases.every((keyword) => (
+      __liveGoldenRadarTestInternals.publicLiveGoldenIntent(keyword, 'Informational') === 'Informational'
+    )),
+  );
   assert(
     'sentence-fragment candidates are rejected before SearchAd measurement spend',
     !__liveGoldenRadarTestInternals.isSearchAdMeasurableLiveCandidate('농식품바우처신청하는곳은', 'policy', now),
