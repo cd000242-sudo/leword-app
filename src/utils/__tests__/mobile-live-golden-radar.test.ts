@@ -156,6 +156,138 @@ function thinProfileCount(items: Array<{ keyword: string }>): number {
       && Math.max(...recoveryCounts.values()) <= Math.ceil(40 * 0.18),
     JSON.stringify(Object.fromEntries(recoveryCounts)));
 
+  const liveImbalanceDistribution: Array<[string, number]> = [
+    ['policy', 10],
+    ['finance', 5],
+    ['health', 5],
+    ['education', 5],
+    ['it', 5],
+    ['travel_domestic', 5],
+    ['car', 4],
+    ['realestate', 4],
+    ['pet_dog', 3],
+    ['shopping', 3],
+  ];
+  let liveImbalanceIndex = 500;
+  const liveImbalanceBoard = liveImbalanceDistribution.flatMap(([category, count]) => (
+    Array.from({ length: count }, (_, index) => (
+      previewBoardItem(`${category} live verified ${index}`, category, liveImbalanceIndex++)
+    ))
+  ));
+  assert('live imbalance regression fixture matches policy 10 of 49 with home and food empty',
+    liveImbalanceBoard.length === 49
+      && liveImbalanceBoard.filter((item) => item.category === 'policy').length === 10
+      && !liveImbalanceBoard.some((item) => item.category === 'home_life' || item.category === 'food'));
+
+  const overrepresentedPolicyCandidates = Array.from({ length: 20 }, (_, index) => ({
+    ...previewBoardItem(`policy pending ${index}`, 'policy', 700 + index),
+    pcSearchVolume: null,
+    mobileSearchVolume: null,
+  }));
+  const policyOnlyImbalanceSelection = (__liveGoldenRadarTestInternals as any)
+    .selectDeficitBalancedCachePromotionCandidates(
+      overrepresentedPolicyCandidates,
+      liveImbalanceBoard,
+      24,
+    );
+  assert('an overrepresented policy receives zero new measurements while core deficits remain',
+    policyOnlyImbalanceSelection.length === 0,
+    policyOnlyImbalanceSelection.map((item: any) => `${item.category}:${item.keyword}`).join('|'));
+
+  const deficitCandidates = [
+    ...Array.from({ length: 6 }, (_, index) => ({
+      ...previewBoardItem(`home pending ${index}`, 'home_life', 800 + index),
+      pcSearchVolume: null,
+      mobileSearchVolume: null,
+    })),
+    ...Array.from({ length: 6 }, (_, index) => ({
+      ...previewBoardItem(`food pending ${index}`, 'food', 900 + index),
+      pcSearchVolume: null,
+      mobileSearchVolume: null,
+    })),
+    ...overrepresentedPolicyCandidates,
+  ];
+  const deficitOnlySelection = (__liveGoldenRadarTestInternals as any)
+    .selectDeficitBalancedCachePromotionCandidates(
+      deficitCandidates,
+      liveImbalanceBoard,
+      24,
+    );
+  const deficitOnlyCounts = deficitOnlySelection.reduce((counts: Record<string, number>, item: any) => {
+    counts[item.category] = (counts[item.category] || 0) + 1;
+    return counts;
+  }, {});
+  assert('repair measurements close available deficits then safely grow under-share lanes without spilling into policy',
+    deficitOnlySelection.length === 12
+      && deficitOnlyCounts.home_life === 6
+      && deficitOnlyCounts.food === 6
+      && !deficitOnlyCounts.policy,
+    JSON.stringify(deficitOnlyCounts));
+
+  const legacyUncategorizedCandidates = [
+    {
+      ...previewBoardItem('원룸 입주청소 가격 비교', 'persistent-cache', 950),
+      pcSearchVolume: null,
+      mobileSearchVolume: null,
+    },
+    {
+      ...previewBoardItem('두부조림 만드는법', 'life_tips', 951),
+      pcSearchVolume: null,
+      mobileSearchVolume: null,
+    },
+    {
+      ...previewBoardItem('근무시간계산기 알바 자동계산', 'persistent-cache', 952),
+      pcSearchVolume: null,
+      mobileSearchVolume: null,
+    },
+    {
+      ...previewBoardItem('사대보험료계산기요율표준비물프리랜서', 'life_tips', 953),
+      pcSearchVolume: null,
+      mobileSearchVolume: null,
+    },
+  ];
+  const legacyUncategorizedSelection = (__liveGoldenRadarTestInternals as any)
+    .selectDeficitBalancedCachePromotionCandidates(
+      legacyUncategorizedCandidates,
+      [],
+      4,
+    );
+  assert('natural legacy persistent-cache rows resolve into their core deficit policies',
+    legacyUncategorizedSelection.length === 3
+      && legacyUncategorizedSelection.every((item: any) => !['persistent-cache', 'life_tips'].includes(item.category))
+      && !legacyUncategorizedSelection.some((item: any) => item.keyword.includes('준비물')),
+    legacyUncategorizedSelection.map((item: any) => `${item.category}:${item.keyword}`).join('|'));
+
+  let fullBoardIndex = 1_000;
+  const fullBoardDistribution: Array<[string, number]> = [
+    ['policy', 10],
+    ['finance', 6],
+    ['health', 5],
+    ['education', 5],
+    ['it', 5],
+    ['travel_domestic', 5],
+    ['car', 4],
+    ['realestate', 4],
+    ['pet_dog', 4],
+    ['shopping', 4],
+    ['home_life', 4],
+    ['food', 4],
+  ];
+  const fullBoard = fullBoardDistribution.flatMap(([category, count]) => (
+    Array.from({ length: count }, (_, index) => (
+      previewBoardItem(`${category} full verified ${index}`, category, fullBoardIndex++)
+    ))
+  ));
+  const futureDenominatorSelection = (__liveGoldenRadarTestInternals as any)
+    .selectDeficitBalancedCachePromotionCandidates(
+      overrepresentedPolicyCandidates,
+      fullBoard,
+      24,
+    );
+  assert('share admission never borrows a future denominator from unrelated attempted rows',
+    fullBoard.length === 60 && futureDenominatorSelection.length === 0,
+    JSON.stringify({ board: fullBoard.length, selected: futureDenominatorSelection.length }));
+
   const splitProbeNowMs = Date.parse('2026-07-15T01:00:00.000Z');
   assert(
     'legacy zero-split tombstones do not block the repaired exact SearchAd strategy',

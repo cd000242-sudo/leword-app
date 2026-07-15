@@ -3,14 +3,14 @@
  *
  * [배경] 등급 정의가 4곳으로 파편화돼 회귀의 근본원인이었다:
  *   - mdp-engine.calculateGrade  : 점수+지표 풀 래더, SSS=classic만 (winnable 경로 없음)
- *   - golden-discovery-floor     : 지표만, classic OR winnable
+ *   - golden-discovery-floor     : 지표만, classic + 레거시 winnable 경로
  *   - live-golden-radar.normalizeGrade : 점수만 (85→SSS, 지표 무시 → 가짜 SSS 누수)
  *   - mindmap-metrics.calculateMindmapMetricGrade : 지표만 래더
  * 임계값 85/1000/5000/5 가 ~29파일에 하드코딩 → 하나 바꾸면 하나 빠뜨려 회귀.
  *
- * [정본 결정] SSS = classic(고볼륨 저경쟁) OR winnable(저볼륨 문서수≪검색량). floor·CLAUDE.md·
- *   isStrictGoldenDiscoverySss 가 이미 winnable을 SSS로 인정하는데 mdp만 lagging → 정본은 둘 다 인정.
- *   임계값은 CLAUDE.md 등급 시스템과 mdp 래더를 그대로 계승(SS/S/A/B/C/D 무변경).
+ * [정본 결정] SSS = classic(고볼륨 저경쟁)만 인정한다. 저볼륨·저문서 후보는
+ *   하위 SS/S/A/B 래더로 평가하며 SSS로 우회 승격하지 않는다.
+ *   임계값은 AGENTS.md 통일 등급 시스템을 그대로 계승(SS/S/A/B/C/D 무변경).
  *
  * 이 파일이 유일한 임계값·판정 소스. 다른 모든 곳은 여기서 import (하드코딩 금지).
  */
@@ -21,8 +21,6 @@ export type Grade = 'SSS' | 'SS' | 'S' | 'A' | 'B' | 'C' | 'D';
 export const GRADE_THRESHOLDS = {
   /** classic SSS: 고볼륨 저경쟁 (검색량 1000+, 문서수 5000↓, 비율 5+, 점수 85+) */
   sssClassic: { volumeMin: 1000, docsMax: 5000, ratioMin: 5, scoreMin: 85 },
-  /** winnable SSS: 저볼륨(100~1500)이라도 문서수 500↓·비율 3+ 인 진짜 저경쟁 (점수 80+) */
-  sssWinnable: { volumeMin: 100, volumeMax: 1500, docsMax: 500, ratioMin: 3, scoreMin: 80 },
   ss: { volumeMin: 500, docsMax: 10000, ratioMin: 3, scoreMin: 75 },
   s: { volumeMin: 300, ratioMin: 2, scoreMin: 65 },
   a: { volumeMin: 100, scoreMin: 55 },
@@ -38,22 +36,16 @@ export function isClassicSss(volume: number, docs: number, ratio: number): boole
 }
 
 /**
- * winnable SSS 지표: 저볼륨(100~1500)이라도 '문서수 ≪ 검색량'(비율 ≥ 3)인 진짜 저경쟁만.
- * docs > volume(비율 1 미만)은 볼륨 무관 의미 없음 → 탈락. 절대 경쟁 상한 docs ≤ 500.
+ * 레거시 호환 별칭. AGENTS.md 통일 등급에서는 저볼륨 winnable SSS 경로가 폐기되어
+ * 항상 false다. 호출부를 한 번에 깨지 않으면서 SSS 우회 승격을 차단하기 위해 유지한다.
  */
-export function isWinnableSss(volume: number, docs: number, ratio: number): boolean {
-  return (
-    volume >= T.sssWinnable.volumeMin &&
-    volume <= T.sssWinnable.volumeMax &&
-    docs > 0 &&
-    docs <= T.sssWinnable.docsMax &&
-    ratio >= T.sssWinnable.ratioMin
-  );
+export function isWinnableSss(_volume: number, _docs: number, _ratio: number): boolean {
+  return false;
 }
 
-/** SSS 지표 = classic OR winnable. (점수 불문 — 지표 게이트만) */
+/** SSS 지표 = classic only. (점수 불문 — 지표 게이트만) */
 export function isGoldenSss(volume: number, docs: number, ratio: number): boolean {
-  return isClassicSss(volume, docs, ratio) || isWinnableSss(volume, docs, ratio);
+  return isClassicSss(volume, docs, ratio);
 }
 
 export interface GradeMetrics {
@@ -65,7 +57,7 @@ export interface GradeMetrics {
 
 /**
  * 정본 등급 배정자 — 점수 + 지표. 발굴/헌터가 사용.
- * SSS = (점수 85+ AND classic) OR (점수 80+ AND winnable). 이하 SS/S/A/B/C/D 는 CLAUDE.md·mdp 래더 계승.
+ * SSS = 점수 85+ AND classic. 이하 SS/S/A/B/C/D 는 AGENTS.md 통일 래더를 계승.
  */
 export function classifyGrade(m: GradeMetrics): Grade {
   const score = Number(m.score) || 0;
@@ -74,7 +66,6 @@ export function classifyGrade(m: GradeMetrics): Grade {
   const ratio = Number.isFinite(m.ratio) ? m.ratio : 0;
 
   if (score >= T.sssClassic.scoreMin && isClassicSss(volume, docs, ratio)) return 'SSS';
-  if (score >= T.sssWinnable.scoreMin && isWinnableSss(volume, docs, ratio)) return 'SSS';
   if (score >= T.ss.scoreMin && volume >= T.ss.volumeMin && docs <= T.ss.docsMax && ratio >= T.ss.ratioMin) return 'SS';
   if (score >= T.s.scoreMin && volume >= T.s.volumeMin && ratio >= T.s.ratioMin) return 'S';
   if (score >= T.a.scoreMin && volume >= T.a.volumeMin) return 'A';
@@ -84,7 +75,7 @@ export function classifyGrade(m: GradeMetrics): Grade {
 }
 
 /**
- * 지표-only 등급 래더 (점수 신호가 없는 경로 — 마인드맵). SSS 는 classic OR winnable.
+ * 지표-only 등급 래더 (점수 신호가 없는 경로 — 마인드맵). SSS 는 classic only.
  * 나머지 SS/S/A/B 는 마인드맵 기존 래더(문서수 상한 완화형) 계승.
  */
 export function classifyGradeByMetrics(volume: number, docs: number, ratio: number): Grade {

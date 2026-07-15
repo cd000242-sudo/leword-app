@@ -17,6 +17,7 @@ import {
   resolveDirectGoldenBulkSssTarget,
 } from '../utils/direct-golden-keyword-miner';
 import { classifyKeywordIntent, getNaverKeywordSearchVolumeSeparate } from '../utils/naver-datalab-api';
+import { classifyKeywordIntent as classifyStableKeywordIntent } from '../utils/keyword-intent-classifier';
 import { getNaverAutocompleteKeywords, probeNaverAutocompleteSuggestions } from '../utils/naver-autocomplete';
 import {
   getNaverSearchAdKeywordSuggestions,
@@ -36,14 +37,12 @@ import * as path from 'path';
 import {
   countSss,
   isActionableGoldenKeyword,
-  isClassicSssMetrics,
   isGoldenSssMetrics,
-  isWinnableSssMetrics,
   isQualityGoldenDiscoveryResult,
   rankGoldenDiscoveryResults,
   scoreGoldenKeywordVirality,
 } from '../utils/golden-discovery-floor';
-import { normalizeStoredGrade } from '../utils/grade';
+import { classifyGrade, normalizeStoredGrade } from '../utils/grade';
 import { verifyKeywordValue } from '../utils/pro-hunter-v12/keyword-value-verifier';
 import { RealDemandVerifier, type RealDemandVerifierOptions } from './real-demand-verifier';
 import { SurgeEmergenceTracker } from './surge-emergence-tracker';
@@ -125,6 +124,7 @@ export interface MobileLiveGoldenRadarOptions {
   liveSeedProvider?: (categoryId: string) => Promise<string[]>;
   measureLiveSearchVolumeSeparate?: typeof getNaverKeywordSearchVolumeSeparate;
   measureLiveDocumentCount?: typeof measureDocumentCount;
+  getCachedSearchAdVolume?: typeof getSearchAdVolumeCached;
   autocompleteProvider?: typeof getNaverAutocompleteKeywords;
   searchAdSuggestionProvider?: typeof getNaverSearchAdKeywordSuggestions;
   searchAdQuotaState?: (config: NaverSearchAdConfig, nowMs: number) => LiveSearchAdQuotaState;
@@ -261,6 +261,7 @@ const LIVE_PROBE_QUEUE_RETRY_DELAY_MS = 90 * 60 * 1000;
 const LIVE_CURATED_EXACT_EXHAUSTED_RETRY_MS = 7 * 24 * 60 * 60 * 1000;
 const LIVE_CACHE_PROMOTION_MAX_CANDIDATES = 96;
 const LIVE_CACHE_PROMOTION_BUDGET_PER_RUN = 24;
+const LIVE_CACHE_EXACT_DOCUMENT_RECOVERY_BUDGET_PER_RUN = LIVE_CACHE_PROMOTION_BUDGET_PER_RUN;
 const LIVE_CACHE_PROMOTION_BATCH_SIZE = 6;
 const LIVE_CACHE_PROMOTION_BATCH_TIMEOUT_MS = 16_000;
 const LIVE_CACHE_ZERO_SPLIT_RETRY_MS = 7 * 24 * 60 * 60 * 1000;
@@ -1359,6 +1360,11 @@ function keywordCompactId(keyword: string): string {
 function goldenBoardSemanticId(keyword: string): string {
   const compact = keywordCompactId(keyword)
     .replace(/렌트카/gu, '렌터카');
+  if (/^근로장려금(?:금액|지급액)조회$/u.test(compact)) return '근로장려금지급액조회';
+  if (/^(?:의료실비보험|실손보험|실비보험)청구서류$/u.test(compact)) return '실비보험청구서류';
+  if (/^(?:국민)?내일배움카드자격$/u.test(compact)) return '내일배움카드자격';
+  if (/^(?:국민)?내일배움카드사용처(?:조회)?$/u.test(compact)) return '내일배움카드사용처';
+  if (/^강아지(?:스케일링|치석제거)비용$/u.test(compact)) return '강아지치석제거비용';
   return compact.replace(/(렌터카)(?:가격비교|예약)$/u, '$1');
 }
 
@@ -3128,8 +3134,17 @@ function inferLiveCategoryByRobustRules(keyword: string): string | null {
 function inferCoreRecoverySemanticCategory(keyword: string): string | null {
   const clean = normalizeKeyword(keyword);
   const compact = clean.replace(/\s+/g, '');
+  if (/(?:자동차|차량)(?:정기)?검사/u.test(compact)) return 'car';
+  if (/(?:개인사업자|자영업자).*(?:부가세|부가가치세).*(?:신고|납부)/u.test(compact)) return 'finance';
+  if (/(?:국민)?내일배움카드/u.test(compact)) return 'education';
+  if (/문화누리카드/u.test(compact)) return 'policy';
   if (
-    /(?:포장이사|원룸이사|이삿짐|이사업체|입주청소|에어컨(?:이전)?설치|보일러교체|방충망교체|도어락설치|누수탐지|싱크대막힘|변기막힘|폐기물처리)/u.test(compact)
+    /(?:도배장판|욕실리모델링|주방인테리어|샷시교체|중문설치|붙박이장|층간소음매트)/u.test(compact)
+  ) return 'interior';
+  if (/(?:근무시간|시급|주휴수당|퇴직금|4대보험|사대보험).*(?:계산기|계산)/u.test(compact)) return 'education';
+  if (/전산회계.*(?:자격증|시험|일정|접수)/u.test(compact)) return 'education';
+  if (
+    /(?:포장이사|원룸이사|이삿짐|이사업체|입주청소|에어컨(?:이전)?설치|보일러교체|방충망교체|도어락(?:설치|교체)|누수탐지|싱크대막힘|변기막힘|폐기물처리)/u.test(compact)
   ) return 'home_life';
   if (
     /(?:전세|월세|전월세|부동산|주택청약|아파트).*(?:보증보험|중개수수료|계약|대출|시세|전입신고|확정일자|관리비|청약|갱신)/u.test(compact)
@@ -3164,6 +3179,21 @@ function inferLiveCategory(keyword: string, fallbackCategory: string): string {
   const primary = normalizeKeyword(classifyKeyword(clean).primary);
   if (primary && primary !== 'default' && primary !== 'all') return primary;
   return normalizeKeyword(fallbackCategory) || 'live';
+}
+
+function resolveDeclaredLiveCategory(
+  keyword: string,
+  storedCategory: string,
+  declaredPolicyKey?: string,
+): string {
+  const semanticCategory = inferCoreRecoverySemanticCategory(keyword);
+  if (semanticCategory) return semanticCategory;
+  const normalizedStoredCategory = normalizeKeyword(storedCategory) || 'live';
+  if (
+    declaredPolicyKey
+    && liveGoldenPolicyKeyForDiscoveryId(normalizedStoredCategory) === declaredPolicyKey
+  ) return normalizedStoredCategory;
+  return inferLiveCategory(keyword, normalizedStoredCategory);
 }
 
 function isLiveRadarUsableMetric(item: MobileKeywordMetric, now: Date = new Date()): boolean {
@@ -5823,16 +5853,96 @@ function cachePromotionPolicyCounts(items: MobileLiveGoldenBoardItem[]): Map<str
   return counts;
 }
 
+const LEGACY_CACHE_CATEGORY_IDS = new Set(['persistent-cache', 'life_tips', 'all', 'live', 'default']);
+const LEGACY_CACHE_NON_CORE_RESIDUE_RE = /(?:\uC900\uBE44\uBB3C|\uB9C8\uAC10\uC77C\s*\uD655\uC778|\uD604\uC7AC\s*\uC704\uCE58|\uC6F9\uD230|\uCD9C\uC5F0\uC9C4)/u;
+const LEGACY_CACHE_JOB_CALCULATOR_RE = /(?:(?:\uADFC\uBB34\s*\uC2DC\uAC04|\uC2DC\uAE09|\uC8FC\uD734\s*\uC218\uB2F9|\uD1F4\uC9C1\uAE08|[4\uC0AC]\uB300\s*\uBCF4\uD5D8).*(?:\uACC4\uC0B0\uAE30|\uACC4\uC0B0)|\uACC4\uC0B0\uAE30.*(?:\uC54C\uBC14|\uC77C\uC6A9\uC9C1|\uD504\uB9AC\uB79C\uC11C))/u;
+const LEGACY_CACHE_FOOD_RECIPE_RE = /(?:\uB450\uBD80\uC870\uB9BC|\uAE40\uCE58\uCC0C\uAC1C|\uB41C\uC7A5\uCC0C\uAC1C|\uB2ED\uBCF6\uC74C\uD0D5|\uC7A1\uCC44|\uAE40\uBC25|\uB3C4\uC2DC\uB77D|\uBC18\uCC2C).*(?:\uB808\uC2DC\uD53C|\uB9CC\uB4DC\uB294\s*\uBC95|\uC870\uB9AC\uBC95)/u;
+
+function resolveCachePromotionCoreCategory<T extends MobileKeywordMetric>(item: T): {
+  item: T;
+  policyKey: string;
+} | null {
+  const declaredCategory = normalizeKeyword(item.category) || 'all';
+  const keyword = normalizeKeyword(item.keyword);
+  if (!keyword) return null;
+  if (LEGACY_CACHE_CATEGORY_IDS.has(declaredCategory) && LEGACY_CACHE_NON_CORE_RESIDUE_RE.test(keyword)) {
+    return null;
+  }
+  const semanticCategory = inferCoreRecoverySemanticCategory(keyword);
+  const semanticPolicyKey = liveGoldenPolicyKeyForDiscoveryId(semanticCategory || '');
+  const semanticPolicy = LIVE_GOLDEN_CORE_CATEGORY_POLICIES.find((policy) => policy.key === semanticPolicyKey);
+  if (semanticCategory && semanticPolicy) {
+    return {
+      item: { ...item, category: semanticCategory },
+      policyKey: semanticPolicy.key,
+    };
+  }
+  const declaredPolicyKey = liveGoldenPolicyKeyForDiscoveryId(declaredCategory);
+  const declaredPolicy = LIVE_GOLDEN_CORE_CATEGORY_POLICIES.find((policy) => policy.key === declaredPolicyKey);
+  if (declaredPolicy) return { item, policyKey: declaredPolicy.key };
+  if (!LEGACY_CACHE_CATEGORY_IDS.has(declaredCategory)) return null;
+
+  if (LEGACY_CACHE_NON_CORE_RESIDUE_RE.test(keyword)) return null;
+  const inferredCategory = inferLiveCategory(keyword, declaredCategory);
+  const inferredPolicyKey = liveGoldenPolicyKeyForDiscoveryId(inferredCategory);
+  const inferredPolicy = LIVE_GOLDEN_CORE_CATEGORY_POLICIES.find((policy) => policy.key === inferredPolicyKey);
+  let resolvedCategory = inferredPolicy
+    ? inferredCategory
+    : LEGACY_CACHE_JOB_CALCULATOR_RE.test(keyword)
+      ? 'education'
+      : LEGACY_CACHE_FOOD_RECIPE_RE.test(keyword)
+        ? 'food'
+        : '';
+  const resolvedPolicyKey = liveGoldenPolicyKeyForDiscoveryId(resolvedCategory);
+  const resolvedPolicy = LIVE_GOLDEN_CORE_CATEGORY_POLICIES.find((policy) => policy.key === resolvedPolicyKey);
+  if (!resolvedPolicy) return null;
+  if (!resolvedPolicy.discoveryIds.includes(resolvedCategory)) {
+    resolvedCategory = resolvedPolicy.discoveryIds[0];
+  }
+  return {
+    item: {
+      ...item,
+      category: resolvedCategory,
+    },
+    policyKey: resolvedPolicy.key,
+  };
+}
+
+function resolveExactDocumentRecoveryCoreCategory<T extends MobileKeywordMetric>(item: T): {
+  item: T;
+  policyKey: string;
+} | null {
+  const keyword = normalizeKeyword(item.keyword);
+  if (!keyword || LEGACY_CACHE_NON_CORE_RESIDUE_RE.test(keyword)) return null;
+  // Persistent cache labels are discovery hints, never category proof. Infer
+  // independently from the keyword so a stale core label cannot manufacture
+  // coverage or dilute a dominant category in the Phase 1C report.
+  const inferredCategory = inferLiveCategory(keyword, 'all');
+  const policyKey = liveGoldenPolicyKeyForDiscoveryId(inferredCategory);
+  const policy = LIVE_GOLDEN_CORE_CATEGORY_POLICIES.find((entry) => entry.key === policyKey);
+  if (!policy) return null;
+  return {
+    item: { ...item, category: inferredCategory },
+    policyKey: policy.key,
+  };
+}
+
 function cachePromotionPolicyGroups<T extends MobileKeywordMetric>(sortedCandidates: T[]): Map<string, T[]> {
-  const corePolicyKeys = new Set(LIVE_GOLDEN_CORE_CATEGORY_POLICIES.map((item) => item.key));
   const groups = new Map<string, T[]>();
   for (const item of sortedCandidates) {
-    const policyKey = liveGoldenPolicyKeyForDiscoveryId(item.category);
-    if (!corePolicyKeys.has(policyKey)) continue;
-    if (!groups.has(policyKey)) groups.set(policyKey, []);
-    groups.get(policyKey)?.push(item);
+    const resolved = resolveCachePromotionCoreCategory(item);
+    if (!resolved) continue;
+    if (!groups.has(resolved.policyKey)) groups.set(resolved.policyKey, []);
+    groups.get(resolved.policyKey)?.push(resolved.item);
   }
   return groups;
+}
+
+function hasUnresolvedCoreCategoryDeficit(currentBoard: MobileLiveGoldenBoardItem[]): boolean {
+  const currentCounts = cachePromotionPolicyCounts(verifiedCachePromotionBoardItems(currentBoard));
+  return LIVE_GOLDEN_CORE_CATEGORY_POLICIES.some((policy) => (
+    (currentCounts.get(policy.key) || 0) < policy.minimumVerified
+  ));
 }
 
 function takeNextSemanticCacheCandidate<T extends MobileKeywordMetric>(
@@ -5850,6 +5960,16 @@ function takeNextSemanticCacheCandidate<T extends MobileKeywordMetric>(
   return undefined;
 }
 
+function hasSelectableSemanticCacheCandidate<T extends MobileKeywordMetric>(
+  group: T[],
+  selectedSemanticIds: Set<string>,
+): boolean {
+  return group.some((candidate) => {
+    const semanticId = goldenBoardSemanticId(candidate.keyword);
+    return Boolean(semanticId) && !selectedSemanticIds.has(semanticId);
+  });
+}
+
 function selectDeficitBalancedCachePromotionCandidates<T extends MobileKeywordMetric>(
   sortedCandidates: T[],
   currentBoard: MobileLiveGoldenBoardItem[],
@@ -5865,12 +5985,28 @@ function selectDeficitBalancedCachePromotionCandidates<T extends MobileKeywordMe
   const selectedSemanticIds = new Set(
     verifiedCurrentBoard.map((item) => goldenBoardSemanticId(item.keyword)).filter(Boolean),
   );
-  const projectedBoardSize = Math.max(1, verifiedCurrentBoard.length + target);
-  const maximumProjectedPerPolicy = Math.max(1, Math.floor(projectedBoardSize * 0.18));
+  const policyByKey = new Map(
+    LIVE_GOLDEN_CORE_CATEGORY_POLICIES.map((policy) => [policy.key, policy] as const),
+  );
+  const remainingDeficitByPolicy = new Map(
+    LIVE_GOLDEN_CORE_CATEGORY_POLICIES.map((policy) => [
+      policy.key,
+      Math.max(0, policy.minimumVerified - (currentCounts.get(policy.key) || 0)),
+    ] as const),
+  );
+  const deficitPolicyKeys = [...groups.keys()].filter((policyKey) => (
+    (remainingDeficitByPolicy.get(policyKey) || 0) > 0
+  ));
 
+  // Phase 1: close every deficit that this inventory can actually repair.
+  // Spending on a filled category while a selectable deficit row remains would
+  // delay the only work that can increase active-category coverage.
   while (selected.length < target) {
     let added = false;
-    const policyOrder = [...groups.keys()].sort((a, b) => {
+    const policyOrder = [...deficitPolicyKeys].sort((a, b) => {
+      const remainingA = (remainingDeficitByPolicy.get(a) || 0) - (selectedCounts.get(a) || 0);
+      const remainingB = (remainingDeficitByPolicy.get(b) || 0) - (selectedCounts.get(b) || 0);
+      if (remainingA !== remainingB) return remainingB - remainingA;
       const projectedA = (currentCounts.get(a) || 0) + (selectedCounts.get(a) || 0);
       const projectedB = (currentCounts.get(b) || 0) + (selectedCounts.get(b) || 0);
       if (projectedA !== projectedB) return projectedA - projectedB;
@@ -5878,12 +6014,61 @@ function selectDeficitBalancedCachePromotionCandidates<T extends MobileKeywordMe
     });
     for (const policyKey of policyOrder) {
       if (selected.length >= target) break;
-      const projectedCount = (currentCounts.get(policyKey) || 0) + (selectedCounts.get(policyKey) || 0);
-      if (projectedCount >= maximumProjectedPerPolicy) continue;
+      const selectedForPolicy = selectedCounts.get(policyKey) || 0;
+      if (selectedForPolicy >= (remainingDeficitByPolicy.get(policyKey) || 0)) continue;
       const next = takeNextSemanticCacheCandidate(groups.get(policyKey) || [], selectedSemanticIds);
       if (!next) continue;
       selected.push(next);
-      selectedCounts.set(policyKey, (selectedCounts.get(policyKey) || 0) + 1);
+      selectedCounts.set(policyKey, selectedForPolicy + 1);
+      added = true;
+    }
+    if (!added) break;
+  }
+
+  if (selected.length >= target) return selected;
+
+  const activeCorePolicyCount = [...currentCounts.values()].filter((count) => count > 0).length;
+  const unresolvedDeficitHasCandidate = deficitPolicyKeys.some((policyKey) => {
+    const remaining = (remainingDeficitByPolicy.get(policyKey) || 0) - (selectedCounts.get(policyKey) || 0);
+    return remaining > 0
+      && hasSelectableSemanticCacheCandidate(groups.get(policyKey) || [], selectedSemanticIds);
+  });
+  const hasAnyUnresolvedDeficit = LIVE_GOLDEN_CORE_CATEGORY_POLICIES.some((policy) => (
+    (currentCounts.get(policy.key) || 0) + (selectedCounts.get(policy.key) || 0) < policy.minimumVerified
+  ));
+
+  // Phase 2: the automated gate needs at least ten active policies, not four
+  // rows in every policy. Once ten are active and the remaining deficits have
+  // no usable row in this inventory, keep growing toward Verified 60 from
+  // under-share categories. The per-policy worst case ignores other attempted
+  // rows because they may fail publication; an already dominant category can
+  // therefore never borrow an optimistic future denominator.
+  const canSafelyFill = !hasAnyUnresolvedDeficit
+    || (activeCorePolicyCount >= 10 && !unresolvedDeficitHasCandidate);
+  if (!canSafelyFill) return selected;
+
+  const safePolicyKeys = [...groups.keys()];
+  while (selected.length < target) {
+    let added = false;
+    const policyOrder = [...safePolicyKeys].sort((a, b) => {
+      const projectedA = (currentCounts.get(a) || 0) + (selectedCounts.get(a) || 0);
+      const projectedB = (currentCounts.get(b) || 0) + (selectedCounts.get(b) || 0);
+      if (projectedA !== projectedB) return projectedA - projectedB;
+      return a.localeCompare(b);
+    });
+    for (const policyKey of policyOrder) {
+      if (selected.length >= target) break;
+      const policy = policyByKey.get(policyKey);
+      if (!policy) continue;
+      const selectedForPolicy = selectedCounts.get(policyKey) || 0;
+      const currentCount = currentCounts.get(policyKey) || 0;
+      const nextPolicyCount = currentCount + selectedForPolicy + 1;
+      const worstCaseBoardSize = Math.max(1, verifiedCurrentBoard.length + selectedForPolicy + 1);
+      if ((nextPolicyCount / worstCaseBoardSize) > policy.maximumBoardShare) continue;
+      const next = takeNextSemanticCacheCandidate(groups.get(policyKey) || [], selectedSemanticIds);
+      if (!next) continue;
+      selected.push(next);
+      selectedCounts.set(policyKey, selectedForPolicy + 1);
       added = true;
     }
     if (!added) break;
@@ -6010,22 +6195,14 @@ function isMeasuredCacheSearchAdSplitCandidate(keyword: string, categoryId: stri
 }
 
 function liveGradeFromMetrics(score: number, volume: number, docs: number, ratio: number, keyword = ''): MobileResultGrade {
-  let grade: MobileResultGrade = 'C';
-  // SSS: 고볼륨 classic 라우트 OR 저볼륨 winnable 라우트(문서수 ≪ 검색량).
-  if (
-    (score >= 85 && isClassicSssMetrics(volume, docs, ratio))
-    || (score >= 80 && isWinnableSssMetrics(volume, docs, ratio))
-  ) grade = LIVE_SSS_GRADE;
-  else if (score >= 75 && volume >= 500 && docs <= 10000 && ratio >= 3) grade = 'SS';
-  else if (score >= 65 && volume >= 300 && ratio >= 2) grade = 'S';
-  else if (score >= 55 && volume >= 100) grade = 'A';
-  else if (score >= 45) grade = 'B';
+  const classified = classifyGrade({ score, volume, docs, ratio });
+  const grade: MobileResultGrade = classified === 'D' ? 'C' : classified;
   return capSssForNeedIntent(grade, keyword);
 }
 
 function normalizeLiveMetricGrade(
   keyword: string,
-  currentGrade: unknown,
+  _currentGrade: unknown,
   _scoreValue: number | null,
   volume: number,
   docs: number,
@@ -6039,27 +6216,21 @@ function normalizeLiveMetricGrade(
   const computedScore = liveMetricScore(volume, docs, ratio, actionable);
   const opportunityScore = liveUltimateOpportunityScore(keyword, volume, docs, ratio);
   const score = Math.max(computedScore, opportunityScore);
-  const rowGrade = normalizeGrade(currentGrade, score);
-  const gateGrade = liveGradeFromMetrics(score, volume, docs, ratio, keyword);
-  if (
-    GRADE_RANK[gateGrade] > GRADE_RANK[rowGrade]
-    && gateGrade === LIVE_SSS_GRADE
-    && volume >= 1000
-    && docs > 0
-    && docs <= 5000
-    && ratio >= 5
-    && hasWriterReadySpecificity(keyword)
-    && !isOverbroadNoEffectBoardKeyword({
-      keyword,
-      totalSearchVolume: volume,
-      documentCount: docs,
-      goldenRatio: ratio,
-      grade: gateGrade,
-    })
-  ) {
-    return gateGrade;
-  }
-  return lowerGrade(rowGrade, gateGrade);
+  return liveGradeFromMetrics(score, volume, docs, ratio, keyword);
+}
+
+const PUBLIC_LIVE_GOLDEN_INTENTS = new Set([
+  'Informational',
+  'Transactional',
+  'Commercial',
+  'Navigational',
+]);
+
+function publicLiveGoldenIntent(keyword: string, intent?: string): string {
+  const normalizedIntent = normalizeKeyword(intent);
+  return PUBLIC_LIVE_GOLDEN_INTENTS.has(normalizedIntent)
+    ? normalizedIntent
+    : classifyStableKeywordIntent(keyword).intent;
 }
 
 function lowerGrade(a: MobileResultGrade, b: MobileResultGrade): MobileResultGrade {
@@ -6403,7 +6574,9 @@ function rowToBackfillResult(
     externalSources: [
       'mobile-live-seed-backfill',
       ...((row as any).documentCountQueryMode === 'exact-phrase'
-        ? ['naver-openapi-exact-phrase']
+        ? (measurementMetadataFromRow(row).documentCountSource === 'naver-api'
+          ? ['naver-openapi-exact-phrase']
+          : ['exact-phrase-document-count'])
         : []),
     ],
     measurementOnly: false,
@@ -6499,10 +6672,7 @@ function mapDirectResult(result: MDPResult, categoryId: string): MobileKeywordMe
     .find((entry) => entry.startsWith('curated-policy:'))
     ?.slice('curated-policy:'.length);
   const normalizedCategoryId = normalizeKeyword(categoryId || 'live');
-  const category = declaredPolicyKey
-    && liveGoldenPolicyKeyForDiscoveryId(normalizedCategoryId) === declaredPolicyKey
-    ? normalizedCategoryId
-    : inferLiveCategory(keyword, normalizedCategoryId);
+  const category = resolveDeclaredLiveCategory(keyword, normalizedCategoryId, declaredPolicyKey);
   const measurementMeta = measurementMetadataFromRow(extra);
   return {
     keyword,
@@ -6701,6 +6871,8 @@ export const __liveGoldenRadarTestInternals = {
   mergeMeasuredProbeSources,
   measuredProbeQueueFamilyKey,
   normalizeLiveMetricGrade,
+  publicLiveGoldenIntent,
+  resolveDeclaredLiveCategory,
   normalizeLiveSeeds,
   selectDeficitBalancedCachePromotionCandidates,
   boardScore,
@@ -6740,6 +6912,7 @@ export class MobileLiveGoldenRadar {
   private readonly liveSeedProvider?: (categoryId: string) => Promise<string[]>;
   private readonly measureLiveSearchVolumeSeparate: typeof getNaverKeywordSearchVolumeSeparate;
   private readonly measureLiveDocumentCount: typeof measureDocumentCount;
+  private readonly getCachedSearchAdVolume: typeof getSearchAdVolumeCached;
   private readonly autocompleteProvider: typeof getNaverAutocompleteKeywords;
   private readonly searchAdSuggestionProvider: typeof getNaverSearchAdKeywordSuggestions;
   private readonly searchAdQuotaState: (config: NaverSearchAdConfig, nowMs: number) => LiveSearchAdQuotaState;
@@ -6773,6 +6946,8 @@ export class MobileLiveGoldenRadar {
   private publishedCount = 0;
   private boardUpdatedAt?: string;
   private readonly board = new Map<string, MobileLiveGoldenBoardItem>();
+  private readonly persistentExactDocumentInventory = new Map<string, MobileKeywordMetric>();
+  private readonly exactDocumentRecoveryAttemptedIds = new Set<string>();
   private readonly cacheDerivedLiveSeeds: string[] = [];
   private readonly pendingMeasuredProbeQueue: LiveMeasuredProbeQueueItem[] = [];
   private lastBoardFileRefreshAtMs = 0;
@@ -6846,6 +7021,7 @@ export class MobileLiveGoldenRadar {
     this.liveSeedProvider = options.liveSeedProvider;
     this.measureLiveSearchVolumeSeparate = options.measureLiveSearchVolumeSeparate || getNaverKeywordSearchVolumeSeparate;
     this.measureLiveDocumentCount = options.measureLiveDocumentCount || measureDocumentCount;
+    this.getCachedSearchAdVolume = options.getCachedSearchAdVolume || getSearchAdVolumeCached;
     this.autocompleteProvider = options.autocompleteProvider || getNaverAutocompleteKeywords;
     this.searchAdSuggestionProvider = options.searchAdSuggestionProvider || getNaverSearchAdKeywordSuggestions;
     this.searchAdQuotaState = options.searchAdQuotaState || ((config, nowMs) => {
@@ -7144,14 +7320,25 @@ export class MobileLiveGoldenRadar {
       referenceProbeCount = this.refreshMeasuredReferenceSssProbeQueue();
 
       const catchUpModeBeforeCache = currentBoardCount < this.boardTarget;
+      const exactDocumentRecovery = hasSearchAdCredentials(env)
+        && !this.automatedSupplyGatePassing(this.verifiedSupplyBoard())
+        ? await this.recoverPersistentCacheWithExactDocumentCounts({
+            clientId: env.naverClientId,
+            clientSecret: env.naverClientSecret,
+          }, LIVE_CACHE_EXACT_DOCUMENT_RECOVERY_BUDGET_PER_RUN)
+        : { attemptedCount: 0, promotedCount: 0 };
       // Splitless persistent-cache rows already paid the expensive total-volume
       // and document-count measurement cost. Use that trusted inventory during
       // underfill too, but select it by core-policy deficit and preserve part of
       // the per-run budget for genuinely new discovery.
-      const promotedCacheCount = await this.promotePendingMeasuredCacheWithSearchAdMetrics({
-        clientId: env.naverClientId,
-        clientSecret: env.naverClientSecret,
-      }, Math.max(runLimit, this.boardTarget - currentBoardCount));
+      const promotedCacheCount = exactDocumentRecovery.promotedCount
+        + await this.promotePendingMeasuredCacheWithSearchAdMetrics({
+          clientId: env.naverClientId,
+          clientSecret: env.naverClientSecret,
+        }, Math.max(runLimit, this.boardTarget - currentBoardCount), Math.max(
+          0,
+          LIVE_CACHE_PROMOTION_BUDGET_PER_RUN - exactDocumentRecovery.attemptedCount,
+        ));
       const boardAfterCachePromotion = this.sortedBoard();
       const supplyAfterCachePromotion = this.verifiedSupplyBoard();
       const boardCountAfterCachePromotion = boardAfterCachePromotion.length;
@@ -7385,11 +7572,21 @@ export class MobileLiveGoldenRadar {
       }
       const judgedResultMetrics = resultMetrics
         .map((metric) => applyKeywordAiJudge(metric, { now: this.now() }));
-      const publishableResultMetrics = judgedResultMetrics
+      const publishableCandidateMetrics = judgedResultMetrics
         .filter((metric) => (
           isPublishableLiveResultMetric(metric, this.now())
           || isMeasuredProBoardFallbackMetric(metric as MobileLiveGoldenBoardItem, this.now())
         ));
+      const selectedCorePolicy = LIVE_GOLDEN_CORE_CATEGORY_POLICIES.find(
+        (policy) => policy.key === liveGoldenPolicyKeyForDiscoveryId(categoryId),
+      );
+      const publishableResultMetrics = selectedCorePolicy
+        ? selectDeficitBalancedCachePromotionCandidates(
+            publishableCandidateMetrics,
+            this.verifiedSupplyBoard(),
+            runLimit,
+          )
+        : publishableCandidateMetrics;
       if (
         catchUpModeBeforeCache
         && curatedCoreSearchAdSeedsForCategory(backfillCategoryId).length > 0
@@ -7916,7 +8113,7 @@ export class MobileLiveGoldenRadar {
         if (!curatedExactSource && !isLiveRadarUsableKeyword(keyword, null, null, now)) continue;
         const storedCategory = normalizeKeyword(row?.category) || 'all';
         const category = curatedExactSource
-          ? storedCategory
+          ? (inferCoreRecoverySemanticCategory(keyword) || storedCategory)
           : inferLiveCategory(keyword, storedCategory);
         if (!curatedExactSource) {
           if (!isLiveMeasuredProbeCandidate(keyword, category || 'all', now)) continue;
@@ -7986,7 +8183,7 @@ export class MobileLiveGoldenRadar {
         if (!curatedExactSource && !isLiveRadarUsableKeyword(keyword, null, null, now)) continue;
         const storedCategory = normalizeKeyword(row?.category) || 'all';
         const category = curatedExactSource
-          ? storedCategory
+          ? (inferCoreRecoverySemanticCategory(keyword) || storedCategory)
           : inferLiveCategory(keyword, storedCategory);
         if (!curatedExactSource) {
           if (!isLiveMeasuredProbeCandidate(keyword, category || 'all', now)) continue;
@@ -9244,18 +9441,24 @@ export class MobileLiveGoldenRadar {
     const verifiedSupply = this.verifiedSupplyBoard();
     const publicPreviewIds = new Set(this.selectPublicPreview(board).map((item) => item.id));
     // 급등 레인은 규칙판정 exclude 로 등급을 강등하지 않는다(판정 정보는 유지) — 트래픽 상품.
-    const markedBoard = board.map((item) => applyKeywordAiJudge({
-      ...item,
-      ...liveValueGateFields(item, this.now()),
-      isPublicPreview: publicPreviewIds.has(item.id),
-      publishDecision: evaluatePublishDecision(item),
-    }, { downgradeExcluded: normalizeKeyword(item.lane) !== TRAFFIC_SURGE_LANE }));
-    const markedVerifiedSupply = verifiedSupply.map((item) => applyKeywordAiJudge({
-      ...item,
-      ...liveValueGateFields(item, this.now()),
-      isPublicPreview: false,
-      publishDecision: evaluatePublishDecision(item),
-    }, { downgradeExcluded: true }));
+    const markedBoard = board.map((item) => {
+      const judged = applyKeywordAiJudge({
+        ...item,
+        ...liveValueGateFields(item, this.now()),
+        isPublicPreview: publicPreviewIds.has(item.id),
+        publishDecision: evaluatePublishDecision(item),
+      }, { downgradeExcluded: normalizeKeyword(item.lane) !== TRAFFIC_SURGE_LANE });
+      return { ...judged, intent: publicLiveGoldenIntent(judged.keyword, judged.intent) };
+    });
+    const markedVerifiedSupply = verifiedSupply.map((item) => {
+      const judged = applyKeywordAiJudge({
+        ...item,
+        ...liveValueGateFields(item, this.now()),
+        isPublicPreview: false,
+        publishDecision: evaluatePublishDecision(item),
+      }, { downgradeExcluded: true });
+      return { ...judged, intent: publicLiveGoldenIntent(judged.keyword, judged.intent) };
+    });
     const filePendingProbeQueueCount = !this.running && this.refreshBoardFileOnSnapshot
       ? this.countMeasuredProbeQueueFile()
       : null;
@@ -9930,7 +10133,7 @@ export class MobileLiveGoldenRadar {
   private async enrichExistingBoardSearchAdMetrics(config: { clientId: string; clientSecret: string }): Promise<number> {
     const now = this.now();
     const nowMs = now.getTime();
-    const candidates = [...this.board.values()]
+    const rankedCandidates = [...this.board.values()]
       .filter((item) => ageMsFrom(item.updatedAt, nowMs) <= LIVE_BOARD_MAX_AGE_MS)
       .filter((item) => hasCompleteLiveGoldenMetrics(item))
       .filter((item) => isLiveRadarUsableMetric(item, this.now()))
@@ -9940,7 +10143,31 @@ export class MobileLiveGoldenRadar {
         || needsSearchAdKeywordBindingRevalidation(item, now)
       ))
       .filter((item) => isHighYieldSearchAdSpendCandidate(item.keyword, item.category || 'all', this.now()))
-      .sort((a, b) => splitEnrichmentPriorityScore(b, nowMs) - splitEnrichmentPriorityScore(a, nowMs))
+      .sort((a, b) => splitEnrichmentPriorityScore(b, nowMs) - splitEnrichmentPriorityScore(a, nowMs));
+    const verifiedSupply = this.verifiedSupplyBoard();
+    const supplyRepairCandidates = rankedCandidates.filter((item) => (
+      !hasMeasuredPcMobileSplit(item) || needsSearchAdKeywordBindingRevalidation(item, now)
+    ));
+    const balancedSupplyRepairCandidates = selectDeficitBalancedCachePromotionCandidates(
+      supplyRepairCandidates,
+      verifiedSupply,
+      LIVE_BOARD_SPLIT_ENRICHMENT_LIMIT,
+    );
+    const cpcOnlyCandidates = hasUnresolvedCoreCategoryDeficit(verifiedSupply)
+      ? []
+      : rankedCandidates.filter((item) => (
+          hasMeasuredPcMobileSplit(item)
+          && !needsSearchAdKeywordBindingRevalidation(item, now)
+          && !hasRealCpcValue(item)
+        ));
+    const candidateIds = new Set<string>();
+    const candidates = [...balancedSupplyRepairCandidates, ...cpcOnlyCandidates]
+      .filter((item) => {
+        const id = keywordCompactId(item.keyword);
+        if (!id || candidateIds.has(id)) return false;
+        candidateIds.add(id);
+        return true;
+      })
       .slice(0, LIVE_BOARD_SPLIT_ENRICHMENT_LIMIT);
     if (candidates.length === 0) return 0;
 
@@ -10041,9 +10268,211 @@ export class MobileLiveGoldenRadar {
     return changed;
   }
 
+  private async recoverPersistentCacheWithExactDocumentCounts(
+    config: { clientId: string; clientSecret: string },
+    requestedLimit: number,
+  ): Promise<{ attemptedCount: number; promotedCount: number }> {
+    const empty = { attemptedCount: 0, promotedCount: 0 };
+    const limit = Math.min(
+      LIVE_CACHE_EXACT_DOCUMENT_RECOVERY_BUDGET_PER_RUN,
+      Math.max(0, Math.floor(requestedLimit)),
+      Math.max(0, this.searchAdMeasurementBudgetRemaining),
+    );
+    if (
+      limit === 0
+      || this.documentQuotaBlockedForRun
+      || this.persistentExactDocumentInventory.size === 0
+    ) return empty;
+
+    const now = this.now();
+    const nowMs = now.getTime();
+    const rankedCandidates: Array<{ item: MobileKeywordMetric; policyKey: string; score: number }> = [];
+    for (const rawItem of this.persistentExactDocumentInventory.values()) {
+      const candidateId = keywordCompactId(rawItem.keyword);
+      if (!candidateId || this.exactDocumentRecoveryAttemptedIds.has(candidateId)) continue;
+      const resolved = resolveExactDocumentRecoveryCoreCategory(rawItem);
+      if (!resolved) continue;
+
+      const cached = this.getCachedSearchAdVolume(resolved.item.keyword);
+      const pc = finiteNumber(cached?.pc);
+      const mobile = finiteNumber(cached?.mo);
+      const total = finiteNumber(cached?.total);
+      const measuredAtMs = finiteNumber(cached?.at);
+      if (
+        pc === null
+        || mobile === null
+        || total === null
+        || total < LIVE_CACHE_PROMOTION_MIN_VOLUME
+        || pc + mobile !== total
+        || measuredAtMs === null
+        || measuredAtMs > nowMs + 5 * 60 * 1000
+        || nowMs - measuredAtMs > LIVE_BOARD_MAX_AGE_MS
+      ) continue;
+
+      const discoveryItem: MobileKeywordMetric = {
+        ...resolved.item,
+        category: resolved.item.category,
+        // Candidate discovery may use the recent cache total. Publication below
+        // never consumes this object and accepts only a force-fresh SearchAd row.
+        totalSearchVolume: total,
+        pcSearchVolume: null,
+        mobileSearchVolume: null,
+      };
+      const keyword = normalizeKeyword(discoveryItem.keyword);
+      if (!isLiveRadarUsableKeyword(keyword, total, null, now)) continue;
+      if (!isMeasuredCacheSearchAdSplitCandidate(keyword, discoveryItem.category || 'all', now)) continue;
+      if (!isHumanNaturalGoldenMetric(discoveryItem as MobileLiveGoldenBoardItem)) continue;
+      if (LIVE_PROMOTION_SYNTHETIC_INTENT_CHAIN_RE.test(keyword)) continue;
+
+      rankedCandidates.push({
+        item: discoveryItem,
+        policyKey: resolved.policyKey,
+        score: preVolumeCandidateScore(keyword, discoveryItem.category || 'all')
+          + livePromotionPriorityBonus(keyword, discoveryItem.category || 'all')
+          + volumeOpportunityScore(total),
+      });
+    }
+    rankedCandidates.sort((a, b) => b.score - a.score);
+
+    const selected = selectDeficitBalancedCachePromotionCandidates(
+      rankedCandidates.map((candidate) => candidate.item),
+      this.verifiedSupplyBoard(),
+      limit,
+    );
+    if (selected.length === 0) return empty;
+
+    const selectedById = new Map<string, { item: MobileKeywordMetric; policyKey: string }>();
+    for (const item of selected) {
+      const resolved = resolveExactDocumentRecoveryCoreCategory(item);
+      const id = keywordCompactId(item.keyword);
+      if (!id || !resolved) continue;
+      selectedById.set(id, resolved);
+    }
+    if (selectedById.size === 0) return empty;
+
+    const attemptedIds = new Set<string>();
+    const volumeRows = await this.measureLiveSearchVolumeRows(
+      config,
+      [...selectedById.values()].map(({ item }) => item.keyword),
+      {
+        includeDocumentCount: false,
+        forceFresh: true,
+      },
+      LIVE_CACHE_PROMOTION_BATCH_TIMEOUT_MS,
+      (attemptedKeywords) => {
+        for (const keyword of attemptedKeywords) {
+          const id = keywordCompactId(keyword);
+          if (!id) continue;
+          attemptedIds.add(id);
+          // This includes empty SearchAd results and document-count failures.
+          // Repeating those every worker cycle would burn the same quota forever.
+          this.exactDocumentRecoveryAttemptedIds.add(id);
+        }
+      },
+    );
+    const attemptedCount = attemptedIds.size;
+    if (attemptedCount === 0 || volumeRows.length === 0) {
+      return { attemptedCount, promotedCount: 0 };
+    }
+
+    const trustedFreshRows = volumeRows
+      .filter((row) => selectedById.has(keywordCompactId(row.keyword)))
+      .filter((row) => {
+        const pc = finiteNumber(row.pcSearchVolume);
+        const mobile = finiteNumber(row.mobileSearchVolume);
+        if (pc === null || mobile === null || pc + mobile < LIVE_CACHE_PROMOTION_MIN_VOLUME) return false;
+        const metadata = measurementMetadataFromRow(row);
+        return row.svEstimated !== true
+          && metadata.searchVolumeSource === 'searchad'
+          && metadata.searchVolumeConfidence === 'high'
+          && metadata.isSearchVolumeEstimated !== true
+          && hasFreshCurrentSearchAdKeywordBinding({
+            ...metadata,
+            pcSearchVolume: pc,
+            mobileSearchVolume: mobile,
+          }, now);
+      })
+      .map((row) => ({
+        ...row,
+        // Never allow a provider-side or persistent broad count to skip the
+        // exact-phrase document pass.
+        documentCount: null,
+        documentCountSource: undefined,
+        documentCountConfidence: undefined,
+        isDocumentCountEstimated: undefined,
+      } as LiveSearchVolumeRow));
+    if (trustedFreshRows.length === 0) {
+      return { attemptedCount, promotedCount: 0 };
+    }
+
+    const exactPhraseCandidateIds = new Set(trustedFreshRows
+      .map((row) => keywordCompactId(row.keyword))
+      .filter(Boolean));
+    const exactRows = await this.attachDocumentCountsToVolumeRows(
+      trustedFreshRows,
+      'all',
+      trustedFreshRows.length,
+      { exactPhraseCandidateIds },
+    );
+
+    const publishable: MobileKeywordMetric[] = [];
+    for (const row of exactRows) {
+      const id = keywordCompactId(row.keyword);
+      const selectedCandidate = selectedById.get(id);
+      if (!selectedCandidate) continue;
+      if ((row as any).documentCountQueryMode !== 'exact-phrase') continue;
+      const documentMetadata = measurementMetadataFromRow(row);
+      if (
+        documentMetadata.documentCountSource !== 'naver-api'
+        || documentMetadata.documentCountConfidence !== 'high'
+        || documentMetadata.isDocumentCountEstimated === true
+      ) continue;
+      const result = rowToBackfillResult(row, selectedCandidate.item.category || 'all');
+      if (!result) continue;
+      const metric = applyKeywordAiJudge(mapDirectResult({
+        ...result,
+        categoryMatched: true,
+        externalSources: uniqueKeywords([
+          ...(result.externalSources || []),
+          'persistent-cache-exact-document-recovery',
+          `curated-policy:${selectedCandidate.policyKey}`,
+        ], 8),
+      }, selectedCandidate.item.category || 'all'), { now });
+      if (
+        !isPublishableLiveResultMetric(metric, now)
+        && !isMeasuredProBoardFallbackMetric(metric as MobileLiveGoldenBoardItem, now)
+      ) continue;
+      publishable.push(metric);
+    }
+    if (publishable.length === 0) {
+      return { attemptedCount, promotedCount: 0 };
+    }
+
+    this.mergeBoard(publishable);
+    const promotedCount = publishable.filter((metric) => {
+      const id = keywordCompactId(metric.keyword);
+      return [...this.board.values()].some((item) => (
+        keywordCompactId(item.keyword) === id
+        && Array.isArray(item.evidence)
+        && item.evidence.includes('naver-openapi-exact-phrase')
+      ));
+    }).length;
+    if (promotedCount > 0) this.cachePromotionProgressCount += promotedCount;
+    console.info('[LIVE-GOLDEN] persistent exact-document recovery completed', {
+      inventory: this.persistentExactDocumentInventory.size,
+      selected: selected.length,
+      attemptedCount,
+      freshRows: trustedFreshRows.length,
+      exactRows: exactRows.length,
+      promotedCount,
+    });
+    return { attemptedCount, promotedCount };
+  }
+
   private async promotePendingMeasuredCacheWithSearchAdMetrics(
     config: { clientId: string; clientSecret: string },
     targetLimit: number,
+    availableSpendBudget: number = LIVE_CACHE_PROMOTION_BUDGET_PER_RUN,
   ): Promise<number> {
     const nowMs = this.now().getTime();
     const now = this.now();
@@ -10054,6 +10483,7 @@ export class MobileLiveGoldenRadar {
     const spendLimit = Math.min(
       measurementLimit,
       LIVE_CACHE_PROMOTION_BUDGET_PER_RUN,
+      Math.max(0, Math.floor(availableSpendBudget)),
       Math.max(0, this.searchAdMeasurementBudgetRemaining),
     );
     const rankedCandidates = [...this.board.values()]
@@ -10555,6 +10985,7 @@ export class MobileLiveGoldenRadar {
   }
 
   private loadPersistentKeywordCacheFromFile(): void {
+    this.persistentExactDocumentInventory.clear();
     if (!this.keywordCacheFile) return;
     try {
       if (!fs.existsSync(this.keywordCacheFile)) return;
@@ -10613,6 +11044,14 @@ export class MobileLiveGoldenRadar {
           isMeasured: true,
           ...measurementMeta,
         };
+        const inventoryId = keywordCompactId(metric.keyword);
+        if (inventoryId) {
+          // Preserve the raw keyword as discovery inventory even when its old
+          // broad document count makes the cached metric grade C. Neither the
+          // cached total nor cached documents are allowed to reach publishing;
+          // the recovery lane remeasures both trusted inputs first.
+          this.persistentExactDocumentInventory.set(inventoryId, metric);
+        }
         if (metric.grade === 'C') return;
         if (!hasCompleteLiveGoldenMetrics(metric)) return;
         if (
@@ -10726,10 +11165,7 @@ export class MobileLiveGoldenRadar {
     const declaredPolicyKey = rawEvidence
       .find((entry: string) => entry.startsWith('curated-policy:'))
       ?.slice('curated-policy:'.length);
-    const category = declaredPolicyKey
-      && liveGoldenPolicyKeyForDiscoveryId(storedCategory) === declaredPolicyKey
-      ? storedCategory
-      : inferLiveCategory(keyword, storedCategory);
+    const category = resolveDeclaredLiveCategory(keyword, storedCategory, declaredPolicyKey);
     const measurementMeta = measurementMetadataWithPersistentDefaults(row);
     const totalSearchVolume = finiteNumber(row?.totalSearchVolume);
     const documentCount = finiteNumber(row?.documentCount);

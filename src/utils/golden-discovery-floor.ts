@@ -230,18 +230,18 @@ function goldenDiscoveryViralSortScore(item: GoldenDiscoveryLike): number {
 }
 
 // === SSS 메트릭 정의 (단일 진실원천) ===
-// 모든 SSS 판정(등급 라벨/board 게이트/디스커버리 floor)이 이 두 라우트를 공유한다.
+// 모든 SSS 판정(등급 라벨/board 게이트/디스커버리 floor)은 classic 라우트만 공유한다.
 
 // 등급 지표 판정 SSoT는 ./grade 로 이관(C1). 아래는 하위호환 별칭(동작 동일).
 /** @see grade.isClassicSss — 고볼륨 저경쟁 SSS 지표. */
 export function isClassicSssMetrics(volume: number, docs: number, ratio: number): boolean {
   return isClassicSss(volume, docs, ratio);
 }
-/** @see grade.isWinnableSss — 저볼륨 문서수≪검색량 SSS 지표. */
+/** @see grade.isWinnableSss — 폐기된 저볼륨 SSS 경로의 레거시 호환 별칭(항상 false). */
 export function isWinnableSssMetrics(volume: number, docs: number, ratio: number): boolean {
   return isWinnableSss(volume, docs, ratio);
 }
-/** @see grade.isGoldenSss — SSS 지표 = classic OR winnable. */
+/** @see grade.isGoldenSss — SSS 지표 = classic only. */
 export function isGoldenSssMetrics(volume: number, docs: number, ratio: number): boolean {
   return isGoldenSss(volume, docs, ratio);
 }
@@ -253,10 +253,7 @@ export function isStrictGoldenDiscoverySss(item: GoldenDiscoveryLike): boolean {
   const volume = readSearchVolume(item);
   const docs = readDocumentCount(item);
   const ratio = readGoldenRatio(item);
-  return (
-    ((score === null || score >= 85) && isClassicSssMetrics(volume, docs, ratio))
-    || ((score === null || score >= 80) && isWinnableSssMetrics(volume, docs, ratio))
-  );
+  return (score === null || score >= 85) && isClassicSssMetrics(volume, docs, ratio);
 }
 
 export function isActionableGoldenDiscoverySss(item: GoldenDiscoveryLike): boolean {

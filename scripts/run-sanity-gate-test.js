@@ -115,6 +115,8 @@ const testFiles = [
     path.join(__dirname, '..', 'src', 'utils', '__tests__', 'mobile-live-golden-binding-revalidation.test.ts'),
     path.join(__dirname, '..', 'src', 'utils', '__tests__', 'mobile-live-golden-binding-budget.test.ts'),
     path.join(__dirname, '..', 'src', 'utils', '__tests__', 'mobile-live-golden-stale-binding-revalidation.test.ts'),
+    path.join(__dirname, '..', 'src', 'utils', '__tests__', 'mobile-phase1c-quality-regression.test.ts'),
+    path.join(__dirname, '..', 'src', 'utils', '__tests__', 'mobile-live-golden-exact-document-recovery.test.ts'),
     path.join(__dirname, '..', 'src', 'utils', '__tests__', 'live-golden-quality-consistency.test.ts'),
     path.join(__dirname, '..', 'src', 'utils', '__tests__', 'live-golden-readonly-snapshot-cache.test.ts'),
 ];
