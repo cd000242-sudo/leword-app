@@ -79,6 +79,8 @@ import {
 import {
   buildLiveGoldenSupplyReport,
   evaluateLiveGoldenHumanReviewAttestation,
+  LIVE_GOLDEN_HUMAN_REVIEW_FINGERPRINT_VERSION,
+  liveGoldenBoardFingerprint,
   type LiveGoldenHumanReview,
 } from '../../../src/mobile/live-golden-supply-report';
 import { InMemoryMobileResultCache } from '../../../src/mobile/result-cache';
@@ -3872,6 +3874,12 @@ export function createLewordApiServer(options: LewordApiServerOptions = {}): htt
             accepted: !!liveGoldenHumanReview,
             qualityPassed: liveGoldenSupply.superiorityGate === 'pass',
             reason: liveGoldenHumanReviewReason,
+            target: liveGoldenSnapshot ? {
+              fingerprintVersion: LIVE_GOLDEN_HUMAN_REVIEW_FINGERPRINT_VERSION,
+              boardFingerprint: liveGoldenBoardFingerprint(liveGoldenSupplyRows),
+              boardUpdatedAt: liveGoldenSnapshot.boardUpdatedAt,
+              verifiedCount: liveGoldenSupply.verifiedCount,
+            } : null,
           },
         },
         runtime: getMobileRuntimeReadiness(),

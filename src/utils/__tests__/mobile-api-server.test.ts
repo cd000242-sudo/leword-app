@@ -3018,9 +3018,9 @@ const result: MobileKeywordResult = {
   };
   const validReviewAttestation = {
     schemaVersion: 'live-golden-human-review-v1',
-    fingerprintVersion: 'verified-supply-v1',
+    fingerprintVersion: 'verified-semantics-v2',
     boardUpdatedAt: reviewBoardUpdatedAt,
-    boardFingerprint: liveGoldenBoardFingerprint(reviewRows, reviewBoardUpdatedAt),
+    boardFingerprint: liveGoldenBoardFingerprint(reviewRows),
     reviewedAt: new Date(Date.parse(reviewBoardUpdatedAt) + 1_000).toISOString(),
     reviewer: 'human-reviewer',
     reviewed: reviewRows.length,
@@ -3053,8 +3053,30 @@ const result: MobileKeywordResult = {
         && acceptedHealthJson.liveGolden?.supply?.superiorityGate === 'pass'
         && acceptedHealthJson.liveGolden?.humanReviewAttestation?.accepted === true
         && acceptedHealthJson.liveGolden?.humanReviewAttestation?.reason === 'human-review-passed'
+        && acceptedHealthJson.liveGolden?.humanReviewAttestation?.target?.fingerprintVersion === 'verified-semantics-v2'
+        && acceptedHealthJson.liveGolden?.humanReviewAttestation?.target?.boardFingerprint === validReviewAttestation.boardFingerprint
+        && acceptedHealthJson.liveGolden?.humanReviewAttestation?.target?.verifiedCount === reviewRows.length
         && fs.statSync(reviewFile).mtimeMs === reviewMtimeBefore,
       JSON.stringify(acceptedHealthJson.liveGolden));
+    const refreshedReviewBoardUpdatedAt = new Date(Date.parse(reviewBoardUpdatedAt) + 60_000).toISOString();
+    const refreshedReviewRows = reviewRows.map((item, index) => index === 0 ? {
+      ...item,
+      pcSearchVolume: 250,
+      mobileSearchVolume: 850,
+      totalSearchVolume: 1100,
+      searchVolumeMeasuredAt: refreshedReviewBoardUpdatedAt,
+      updatedAt: refreshedReviewBoardUpdatedAt,
+    } : item);
+    reviewSnapshot.board = refreshedReviewRows;
+    reviewSnapshot.verifiedSupply = refreshedReviewRows;
+    reviewSnapshot.boardUpdatedAt = refreshedReviewBoardUpdatedAt;
+    const refreshedHealth = await fetch(`http://127.0.0.1:${reviewedPort}/health`);
+    const refreshedHealthJson: any = await refreshedHealth.json();
+    assert('health keeps the human review bound across measurement-only board refreshes',
+      refreshedHealthJson.liveGolden?.supply?.superiorityGate === 'pass'
+        && refreshedHealthJson.liveGolden?.humanReviewAttestation?.accepted === true
+        && refreshedHealthJson.liveGolden?.humanReviewAttestation?.reason === 'human-review-passed',
+      JSON.stringify(refreshedHealthJson.liveGolden));
     writeJson(reviewFile, { ...validReviewAttestation, precisionPassed: 53 });
     const failedQualityHealth = await fetch(`http://127.0.0.1:${reviewedPort}/health`);
     const failedQualityHealthJson: any = await failedQualityHealth.json();

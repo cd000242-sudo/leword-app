@@ -1,5 +1,6 @@
 import {
   buildLiveGoldenSupplyReport,
+  evaluateLiveGoldenHumanReviewAttestation,
   liveGoldenBoardFingerprint,
   parseLiveGoldenHumanReviewAttestation,
 } from '../../mobile/live-golden-supply-report';
@@ -62,9 +63,9 @@ assert('automated supply cannot claim full superiority before blind human review
 const boardUpdatedAt = '2026-07-11T09:30:00.000Z';
 const validHumanReview = {
   schemaVersion: 'live-golden-human-review-v1' as const,
-  fingerprintVersion: 'verified-supply-v1' as const,
+  fingerprintVersion: 'verified-semantics-v2' as const,
   boardUpdatedAt,
-  boardFingerprint: liveGoldenBoardFingerprint(balancedItems, boardUpdatedAt),
+  boardFingerprint: liveGoldenBoardFingerprint(balancedItems),
   reviewedAt: '2026-07-11T10:00:00.000Z',
   reviewer: 'human-reviewer',
   reviewed: balancedItems.length,
@@ -95,13 +96,55 @@ assert('human attestation is rejected when the reviewed board fingerprint no lon
     boardUpdatedAt,
     Date.parse('2026-07-11T10:01:00.000Z'),
   ) === undefined);
-assert('human attestation is bound to the exact board update version',
+assert('human attestation rejects row additions, removals, and category changes',
   parseLiveGoldenHumanReviewAttestation(
     validHumanReview,
+    [...balancedItems, measuredItem('새 검수 대상', 'policy', 99)],
+    boardUpdatedAt,
+    Date.parse('2026-07-11T10:01:00.000Z'),
+  ) === undefined
+    && parseLiveGoldenHumanReviewAttestation(
+      validHumanReview,
+      balancedItems.slice(1),
+      boardUpdatedAt,
+      Date.parse('2026-07-11T10:01:00.000Z'),
+    ) === undefined
+    && parseLiveGoldenHumanReviewAttestation(
+      validHumanReview,
+      balancedItems.map((item, index) => index === 0 ? { ...item, category: 'finance' } : item),
+      boardUpdatedAt,
+      Date.parse('2026-07-11T10:01:00.000Z'),
+    ) === undefined);
+assert('legacy fingerprint versions are rejected explicitly',
+  evaluateLiveGoldenHumanReviewAttestation(
+    { ...validHumanReview, fingerprintVersion: 'verified-supply-v1' },
     balancedItems,
+    boardUpdatedAt,
+    Date.parse('2026-07-11T10:01:00.000Z'),
+  ).reason === 'invalid-fingerprint-version');
+assert('a board timestamp beyond the allowed clock skew fails closed',
+  evaluateLiveGoldenHumanReviewAttestation(
+    validHumanReview,
+    balancedItems,
+    '2026-07-11T10:07:00.000Z',
+    Date.parse('2026-07-11T10:01:00.000Z'),
+  ).reason === 'board-in-future');
+const refreshedMetrics = balancedItems.map((item, index) => index === 0 ? {
+  ...item,
+  id: 'rekeyed-internal-row-id',
+  pcSearchVolume: 250,
+  mobileSearchVolume: 850,
+  totalSearchVolume: 1100,
+  searchVolumeMeasuredAt: '2026-07-11T09:31:00.000Z',
+  updatedAt: '2026-07-11T09:31:00.000Z',
+} : item);
+assert('human attestation survives a newer board save when the reviewed semantic set is unchanged',
+  parseLiveGoldenHumanReviewAttestation(
+    validHumanReview,
+    refreshedMetrics,
     '2026-07-11T09:31:00.000Z',
     Date.parse('2026-07-11T10:01:00.000Z'),
-  ) === undefined);
+  )?.reviewed === 60);
 assert('human attestation rejects null or string counters instead of coercing them to zero',
   parseLiveGoldenHumanReviewAttestation(
     { ...validHumanReview, malformedCount: null },

@@ -23,7 +23,7 @@ export interface LiveGoldenHumanReview {
 
 export interface LiveGoldenHumanReviewAttestation {
   schemaVersion: 'live-golden-human-review-v1';
-  fingerprintVersion: 'verified-supply-v1';
+  fingerprintVersion: 'verified-semantics-v2';
   boardUpdatedAt: string;
   boardFingerprint: string;
   reviewedAt: string;
@@ -45,6 +45,7 @@ export type LiveGoldenHumanReviewAttestationReason =
   | 'reviewer-missing'
   | 'invalid-timestamps'
   | 'review-before-board'
+  | 'board-in-future'
   | 'review-in-future'
   | 'board-fingerprint-mismatch'
   | 'invalid-reviewed-count'
@@ -97,7 +98,7 @@ export interface LiveGoldenSupplyReport {
 
 const MAX_VERIFIED_AGE_MS = 7 * 24 * 60 * 60 * 1000;
 const MAX_REVIEW_CLOCK_SKEW_MS = 5 * 60 * 1000;
-export const LIVE_GOLDEN_HUMAN_REVIEW_FINGERPRINT_VERSION = 'verified-supply-v1' as const;
+export const LIVE_GOLDEN_HUMAN_REVIEW_FINGERPRINT_VERSION = 'verified-semantics-v2' as const;
 
 function roundRate(value: number): number {
   return Math.round(Math.max(0, value) * 10_000) / 10_000;
@@ -143,29 +144,16 @@ export function isTrustedLiveGoldenSupplyRow(item: MobileLiveGoldenBoardItem): b
 
 export function liveGoldenBoardFingerprint(
   rows: readonly MobileLiveGoldenBoardItem[],
-  boardUpdatedAt = '',
 ): string {
+  // Human review covers query naturalness, category/intent fit, and semantic residue.
+  // Volatile measurements and timestamps stay under the automated supply gate, so a
+  // routine worker refresh cannot invalidate an otherwise identical human-reviewed set.
   const canonical = (Array.isArray(rows) ? rows : [])
     .filter(isTrustedLiveGoldenSupplyRow)
     .map((item) => ({
-      id: String(item.id || ''),
       keyword: String(item.keyword || ''),
       category: String(item.category || ''),
       intent: String(item.intent || ''),
-      grade: String(item.grade || ''),
-      pcSearchVolume: finiteMeasuredNumber(item.pcSearchVolume),
-      mobileSearchVolume: finiteMeasuredNumber(item.mobileSearchVolume),
-      totalSearchVolume: finiteMeasuredNumber(item.totalSearchVolume),
-      documentCount: finiteMeasuredNumber(item.documentCount),
-      searchVolumeSource: String(item.searchVolumeSource || ''),
-      searchVolumeConfidence: String(item.searchVolumeConfidence || ''),
-      searchVolumeBindingVersion: String(item.searchVolumeBindingVersion || ''),
-      searchVolumeMeasuredAt: String(item.searchVolumeMeasuredAt || ''),
-      isSearchVolumeEstimated: item.isSearchVolumeEstimated === true,
-      documentCountSource: String(item.documentCountSource || ''),
-      documentCountConfidence: String(item.documentCountConfidence || ''),
-      isDocumentCountEstimated: item.isDocumentCountEstimated === true,
-      updatedAt: String(item.updatedAt || ''),
     }))
     .sort((left, right) => {
       const leftText = JSON.stringify(left);
@@ -174,8 +162,7 @@ export function liveGoldenBoardFingerprint(
     });
   return crypto.createHash('sha256').update(JSON.stringify({
     fingerprintVersion: LIVE_GOLDEN_HUMAN_REVIEW_FINGERPRINT_VERSION,
-    boardUpdatedAt: String(boardUpdatedAt || ''),
-    verifiedSupply: canonical,
+    reviewedSemantics: canonical,
   })).digest('hex');
 }
 
@@ -196,17 +183,27 @@ export function evaluateLiveGoldenHumanReviewAttestation(
   const sentenceResidueCount = strictAttestationNumber(input.sentenceResidueCount);
   const reviewedAt = typeof input.reviewedAt === 'string' ? input.reviewedAt : '';
   const reviewedAtMs = Date.parse(reviewedAt);
-  const boardUpdatedAtText = String(boardUpdatedAt || '');
-  const boardUpdatedAtMs = Date.parse(boardUpdatedAtText);
-  const boardFingerprint = liveGoldenBoardFingerprint(rows, boardUpdatedAtText);
+  const currentBoardUpdatedAtText = String(boardUpdatedAt || '');
+  const currentBoardUpdatedAtMs = Date.parse(currentBoardUpdatedAtText);
+  const reviewedBoardUpdatedAtText = typeof input.boardUpdatedAt === 'string' ? input.boardUpdatedAt : '';
+  const reviewedBoardUpdatedAtMs = Date.parse(reviewedBoardUpdatedAtText);
+  const boardFingerprint = liveGoldenBoardFingerprint(rows);
   if (input.schemaVersion !== 'live-golden-human-review-v1') return { reason: 'invalid-schema' };
   if (input.fingerprintVersion !== LIVE_GOLDEN_HUMAN_REVIEW_FINGERPRINT_VERSION) {
     return { reason: 'invalid-fingerprint-version' };
   }
-  if (!boardUpdatedAtText || input.boardUpdatedAt !== boardUpdatedAtText) return { reason: 'board-version-mismatch' };
+  if (!currentBoardUpdatedAtText || !reviewedBoardUpdatedAtText) return { reason: 'board-version-mismatch' };
   if (typeof input.reviewer !== 'string' || !input.reviewer.trim()) return { reason: 'reviewer-missing' };
-  if (!Number.isFinite(reviewedAtMs) || !Number.isFinite(boardUpdatedAtMs)) return { reason: 'invalid-timestamps' };
-  if (reviewedAtMs < boardUpdatedAtMs) return { reason: 'review-before-board' };
+  if (
+    !Number.isFinite(reviewedAtMs)
+    || !Number.isFinite(currentBoardUpdatedAtMs)
+    || !Number.isFinite(reviewedBoardUpdatedAtMs)
+  ) return { reason: 'invalid-timestamps' };
+  if (
+    currentBoardUpdatedAtMs > nowMs + MAX_REVIEW_CLOCK_SKEW_MS
+    || reviewedBoardUpdatedAtMs > nowMs + MAX_REVIEW_CLOCK_SKEW_MS
+  ) return { reason: 'board-in-future' };
+  if (reviewedAtMs < reviewedBoardUpdatedAtMs) return { reason: 'review-before-board' };
   if (reviewedAtMs > nowMs + MAX_REVIEW_CLOCK_SKEW_MS) return { reason: 'review-in-future' };
   if (input.boardFingerprint !== boardFingerprint) return { reason: 'board-fingerprint-mismatch' };
   if (!Number.isInteger(reviewed) || reviewed < 0 || reviewed > verifiedCount) return { reason: 'invalid-reviewed-count' };
