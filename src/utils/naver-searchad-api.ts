@@ -78,27 +78,28 @@ const decodeHtmlEntities = (str: string): string => {
  */
 const parseVolumeValue = (value: number | string | null | undefined): number | null => {
   if (value === null || value === undefined) return null;
-  if (typeof value === 'number') return Number.isFinite(value) ? value : null;
+  if (typeof value === 'number') return Number.isFinite(value) && value >= 0 ? value : null;
 
-  const strValue = String(value);
+  const strValue = String(value).trim();
+  const normalized = strValue.toLowerCase();
 
   // "< 10" 패턴 감지: 검색량이 10 미만인 경우 0으로 반환 (UI에서 "< 10"으로 표시)
-  if (strValue.includes('<') || strValue.toLowerCase().includes('less')) {
+  if (/^<\s*10$/.test(normalized) || /^less\s+than\s+10$/.test(normalized)) {
     return 0; // 0을 반환하여 UI에서 "< 10"으로 표시하도록 함
   }
 
-  // 일반 숫자 파싱: 모든 비숫자 제거
-  const cleaned = strValue.replace(/[^0-9]/g, '');
-  if (!cleaned) return 0;
+  // 일반 숫자 파싱: 숫자/쉼표/소수점 외 문자가 섞인 값은 신뢰하지 않는다.
+  const cleaned = strValue.trim().replace(/,/g, '');
+  if (!/^\d+(?:\.\d+)?$/.test(cleaned)) return null;
 
-  const parsed = parseInt(cleaned, 10);
-  return Number.isFinite(parsed) ? parsed : 0;
+  const parsed = Number(cleaned);
+  return Number.isFinite(parsed) ? parsed : null;
 };
 
 const isLessThanTenVolume = (value: number | string | null | undefined): boolean => {
   if (value === null || value === undefined || typeof value === 'number') return false;
-  const strValue = String(value).toLowerCase();
-  return strValue.includes('<') || strValue.includes('less');
+  const strValue = String(value).trim().toLowerCase();
+  return /^<\s*10$/.test(strValue) || /^less\s+than\s+10$/.test(strValue);
 };
 
 /**
@@ -466,11 +467,12 @@ export async function getNaverSearchAdKeywordSuggestions(
     const keywordList = data.keywordList || data.relKeywordList || (data.result && (data.result.keywordList || data.result.relKeywordList)) || [];
 
     const measuredAtMs = Date.now();
-    const suggestions: KeywordSuggestion[] = keywordList.map((item: any) => {
-      const pc = parseVolumeValue(item.monthlyPcQcCnt) || 0;
-      const mo = parseVolumeValue(item.monthlyMobileQcCnt) || 0;
+    const suggestions: KeywordSuggestion[] = keywordList.flatMap((item: any) => {
+      const pc = parseVolumeValue(item.monthlyPcQcCnt);
+      const mo = parseVolumeValue(item.monthlyMobileQcCnt);
+      if (pc === null || mo === null || pc < 0 || mo < 0) return [];
       const aveCpc = parseVolumeValue(item.monthlyAveCpc);
-      return {
+      return [{
         keyword: decodeHtmlEntities(item.relKeyword || ''),
         pcSearchVolume: pc,
         mobileSearchVolume: mo,
@@ -481,13 +483,23 @@ export async function getNaverSearchAdKeywordSuggestions(
         monthlyAveCpc: aveCpc,
         measuredAtMs,
         searchVolumeBindingVersion: SEARCHAD_KEYWORD_BINDING_VERSION,
-      };
+      }];
     });
 
-    return suggestions
+    const selectedSuggestions = suggestions
       .filter(s => s.keyword && s.keyword !== seedKeyword)
       .sort((a, b) => b.totalSearchVolume - a.totalSearchVolume)
       .slice(0, limit);
+    for (const suggestion of selectedSuggestions) {
+      setSearchAdVolumeCached(suggestion.keyword, {
+        pc: suggestion.pcSearchVolume,
+        mo: suggestion.mobileSearchVolume,
+        total: suggestion.totalSearchVolume,
+        comp: suggestion.competition,
+        cpc: suggestion.monthlyAveCpc,
+      });
+    }
+    return selectedSuggestions;
 
   } catch (error: any) {
     console.warn('[NAVER-SEARCHAD] 제안 조회 실패:', error.message);

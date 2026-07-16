@@ -2118,7 +2118,7 @@ const result: MobileKeywordResult = {
       mobileSearchVolume: 9120,
       totalSearchVolume: 10080,
       documentCount: 900,
-      goldenRatio: 11.2,
+      goldenRatio: 99,
       cpc: 80,
       category: 'travel_domestic',
       source: 'live-golden-board-fixture',
@@ -2131,6 +2131,7 @@ const result: MobileKeywordResult = {
       isSearchVolumeEstimated: false,
       documentCountSource: 'naver-api',
       documentCountConfidence: 'high',
+      documentCountQueryMode: 'exact-phrase',
       isDocumentCountEstimated: false,
       updatedAt: '2026-06-15T03:00:00.000Z',
       discoveredAt: '2026-06-15T03:00:00.000Z',
@@ -2199,6 +2200,130 @@ const result: MobileKeywordResult = {
         && firstKeyword.source === 'live-golden-board-exact-match'
         && completed.result.summary.measured === 1,
       JSON.stringify(completed.result));
+
+    const canonicalOverlayExecutor: MobileJobExecutor = async () => ({
+        ...result,
+        keywords: [{
+          keyword: '한강유람선예약',
+          grade: 'S',
+          pcSearchVolume: 1800,
+          mobileSearchVolume: 4600,
+          totalSearchVolume: 6400,
+          documentCount: 350,
+          goldenRatio: 18.29,
+          cpc: 20,
+          category: 'travel_domestic',
+          source: 'pc-keyword-analysis-exact',
+          intent: 'requested-keyword',
+          evidence: ['pc-naver-openapi-document-count'],
+          isMeasured: true,
+          searchVolumeSource: 'searchad',
+          searchVolumeConfidence: 'high',
+          searchVolumeBindingVersion: 'keyword-keyed-v2',
+          searchVolumeMeasuredAt: '2026-06-01T00:00:00.000Z',
+          isSearchVolumeEstimated: false,
+          documentCountSource: 'naver-api',
+          documentCountConfidence: 'high',
+          documentCountQueryMode: 'broad',
+          isDocumentCountEstimated: false,
+          agentInsight: {
+            searchVolumeReason: '기존 분석 검색량 6,400 기준입니다.',
+            sourceSummary: 'PC 분석기 broad 문서수 기준',
+          },
+        }],
+        summary: {
+          total: 1,
+          sss: 0,
+          measured: 1,
+          elapsedMs: 1,
+          fromCache: false,
+          parityMode: 'pc-engine-plus',
+        },
+      });
+    const canonicalOverlayServer = createLewordApiServer({
+      entitlementVerifier: null,
+      resultCache: new InMemoryMobileResultCache(),
+      liveGoldenRadar: overlayRadar,
+      notificationInbox: overlayInbox,
+      prewarmService: null,
+      prewarmScheduler: null,
+      executor: canonicalOverlayExecutor,
+    });
+    const canonicalOverlayPort = await listen(canonicalOverlayServer);
+    const canonicalOverlayBaseUrl = `http://127.0.0.1:${canonicalOverlayPort}`;
+    try {
+      const canonicalAnalyze = await fetch(`${canonicalOverlayBaseUrl}/v1/keywords/analyze`, {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ keyword: '한강유람선예약', maxRelatedCount: 10 }),
+      });
+      const canonicalAnalyzeJson: any = await canonicalAnalyze.json();
+      const canonicalCompleted = await waitForCompletedJob(canonicalOverlayBaseUrl, canonicalAnalyzeJson.job.id);
+      const canonicalKeyword = canonicalCompleted.result.keywords[0];
+      assert('trusted full live board metric is canonical for exact keyword analysis',
+        canonicalKeyword.pcSearchVolume === 960
+          && canonicalKeyword.mobileSearchVolume === 9120
+          && canonicalKeyword.totalSearchVolume === 10080
+          && canonicalKeyword.documentCount === 900
+          && canonicalKeyword.goldenRatio === 11.2
+          && canonicalKeyword.source === 'live-golden-board-exact-match',
+        JSON.stringify(canonicalKeyword));
+      assert('canonical live board overlay preserves measurement provenance',
+        canonicalKeyword.searchVolumeBindingVersion === 'keyword-keyed-v2'
+          && canonicalKeyword.searchVolumeMeasuredAt === '2026-06-15T03:00:00.000Z'
+          && canonicalKeyword.documentCountQueryMode === 'exact-phrase',
+        JSON.stringify(canonicalKeyword));
+      assert('canonical live board overlay removes stale analysis numbers from agent insight',
+        String(canonicalKeyword.agentInsight?.searchVolumeReason || '').includes('10,080')
+          && !String(canonicalKeyword.agentInsight?.searchVolumeReason || '').includes('6,400'),
+        JSON.stringify(canonicalKeyword.agentInsight));
+    } finally {
+      await close(canonicalOverlayServer);
+    }
+
+    const staleBindingPayload = JSON.parse(fs.readFileSync(overlayBoardFile, 'utf8'));
+    staleBindingPayload.boardUpdatedAt = '2026-08-15T03:00:00.000Z';
+    staleBindingPayload.items[0].updatedAt = '2026-08-15T03:00:00.000Z';
+    staleBindingPayload.items[0].discoveredAt = '2026-08-15T03:00:00.000Z';
+    writeJson(overlayBoardFile, staleBindingPayload);
+    const staleOverlayRadar = new MobileLiveGoldenRadar({
+      notificationInbox: overlayInbox,
+      runOnStart: false,
+      boardFile: overlayBoardFile,
+      boardTarget: 5,
+      now: () => new Date('2026-08-15T03:05:00.000Z'),
+    });
+    const staleOverlayServer = createLewordApiServer({
+      entitlementVerifier: null,
+      resultCache: new InMemoryMobileResultCache(),
+      liveGoldenRadar: staleOverlayRadar,
+      notificationInbox: overlayInbox,
+      prewarmService: null,
+      prewarmScheduler: null,
+      executor: canonicalOverlayExecutor,
+    });
+    const staleOverlayPort = await listen(staleOverlayServer);
+    const staleOverlayBaseUrl = `http://127.0.0.1:${staleOverlayPort}`;
+    try {
+      const staleAnalyze = await fetch(`${staleOverlayBaseUrl}/v1/keywords/analyze`, {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ keyword: '한강유람선예약', maxRelatedCount: 10 }),
+      });
+      const staleAnalyzeJson: any = await staleAnalyze.json();
+      const staleCompleted = await waitForCompletedJob(staleOverlayBaseUrl, staleAnalyzeJson.job.id);
+      const staleKeyword = staleCompleted.result.keywords[0];
+      assert('stale SearchAd binding never overrides a fresh exact keyword analysis',
+        staleKeyword.pcSearchVolume === 1800
+          && staleKeyword.mobileSearchVolume === 4600
+          && staleKeyword.totalSearchVolume === 6400
+          && staleKeyword.documentCount === 350
+          && staleKeyword.source === 'pc-keyword-analysis-exact'
+          && !staleKeyword.evidence.includes('analysis-board-metric-sync'),
+        JSON.stringify(staleKeyword));
+    } finally {
+      await close(staleOverlayServer);
+    }
   } finally {
     await close(overlayServer);
     fs.rmSync(overlayBoardFile, { force: true });
@@ -2292,8 +2417,61 @@ const result: MobileKeywordResult = {
         && firstKeyword.documentCount === 350
         && firstKeyword.pcSearchVolume === 1800
         && firstKeyword.mobileSearchVolume === 4600
-        && firstKeyword.source === 'pc-keyword-analysis-exact',
+        && firstKeyword.source === 'pc-keyword-analysis-exact'
+        && !firstKeyword.evidence.includes('analysis-board-metric-sync'),
       JSON.stringify(completed.result));
+
+    const splitlessMissingServer = createLewordApiServer({
+      entitlementVerifier: null,
+      resultCache: new InMemoryMobileResultCache(),
+      liveGoldenRadar: overlaySplitRadar,
+      notificationInbox: overlaySplitInbox,
+      prewarmService: null,
+      prewarmScheduler: null,
+      executor: async () => ({
+        ...result,
+        keywords: [{
+          keyword: '한강 유람선 예약 디너',
+          grade: 'S',
+          pcSearchVolume: 120,
+          mobileSearchVolume: 880,
+          totalSearchVolume: 1000,
+          documentCount: 700,
+          goldenRatio: 1.43,
+          cpc: 0,
+          category: 'test',
+          source: 'fixture-related-only',
+          intent: 'related-keyword',
+          evidence: ['fixture related only'],
+          isMeasured: true,
+        }],
+        summary: {
+          total: 1,
+          sss: 0,
+          measured: 1,
+          elapsedMs: 1,
+          fromCache: false,
+          parityMode: 'pc-engine-plus',
+        },
+      }),
+    });
+    const splitlessMissingPort = await listen(splitlessMissingServer);
+    const splitlessMissingBaseUrl = `http://127.0.0.1:${splitlessMissingPort}`;
+    try {
+      const missingAnalyze = await fetch(`${splitlessMissingBaseUrl}/v1/keywords/analyze`, {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ keyword: '한강유람선예약', maxRelatedCount: 10 }),
+      });
+      const missingAnalyzeJson: any = await missingAnalyze.json();
+      const missingCompleted = await waitForCompletedJob(splitlessMissingBaseUrl, missingAnalyzeJson.job.id);
+      assert('noncanonical board row is never inserted when exact analysis row is absent',
+        missingCompleted.result.keywords[0]?.keyword === '한강 유람선 예약 디너'
+          && !missingCompleted.result.keywords.some((item: any) => item.source === 'live-golden-board-exact-match'),
+        JSON.stringify(missingCompleted.result));
+    } finally {
+      await close(splitlessMissingServer);
+    }
   } finally {
     await close(overlaySplitServer);
     fs.rmSync(overlaySplitBoardFile, { force: true });

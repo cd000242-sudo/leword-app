@@ -1,4 +1,5 @@
 import {
+  combineNaverDocumentCounts,
   mergeMeasuredMetric,
   metricFromMdpResult,
 } from '../../mobile/pc-engine-executor';
@@ -6,6 +7,13 @@ import {
 function assert(name: string, condition: boolean, detail?: string): void {
   if (!condition) throw new Error(`${name}${detail ? `: ${detail}` : ''}`);
 }
+
+assert(
+  'broad blog plus cafe label is emitted only when both OpenAPI scopes succeeded',
+  combineNaverDocumentCounts(120, 80) === 200
+    && combineNaverDocumentCounts(120, null) === null
+    && combineNaverDocumentCounts(null, 80) === null,
+);
 
 const baseMetric: any = {
   keyword: 'exact keyword',
@@ -140,6 +148,21 @@ assert(
   inconsistentReplacement.totalSearchVolume === 100
     && inconsistentReplacement.searchVolumeBindingVersion === 'keyword-keyed-v2',
   JSON.stringify(inconsistentReplacement),
+);
+
+const broadDocumentMeasurement = mergeMeasuredMetric(baseMetric, undefined, {
+  documentCount: 25,
+  source: 'naver-api',
+  confidence: 'high',
+  isEstimated: false,
+  queryMode: 'broad',
+});
+assert(
+  'PC OpenAPI document merge preserves broad query-mode provenance',
+  broadDocumentMeasurement.documentCount === 25
+    && broadDocumentMeasurement.documentCountSource === 'naver-api'
+    && broadDocumentMeasurement.documentCountQueryMode === 'broad',
+  JSON.stringify(broadDocumentMeasurement),
 );
 
 console.log('[mobile-pc-engine-searchad-provenance.test] passed');

@@ -370,6 +370,20 @@ export function renderLewordProWeb(): string {
       overflow-wrap: anywhere;
     }
     .keyword-analysis-meta { margin-top: 4px; color: var(--muted); font-size: 13px; }
+    .measurement-provenance {
+      display: flex;
+      flex-wrap: wrap;
+      gap: 6px 12px;
+      color: var(--muted);
+      font-size: 12px;
+      line-height: 1.45;
+    }
+    .measurement-provenance span {
+      border: 1px solid var(--line);
+      border-radius: 999px;
+      background: var(--surface-2);
+      padding: 4px 8px;
+    }
     .keyword-analysis-guide {
       border: 1px solid rgba(14,165,233,.22);
       border-radius: 8px;
@@ -1577,7 +1591,7 @@ export function renderLewordProWeb(): string {
           <div class="panel-title">
             <div>
               <h2>LIVE 황금키워드 보드</h2>
-              <div class="muted">서버가 계속 수집하고 실측한 황금키워드 후보입니다. 로그인 전에는 공개 5개, Pro 로그인 후에는 전체 보드와 정확 지표를 표시합니다.</div>
+              <div class="muted">서버가 계속 수집하고 실측한 황금키워드 후보입니다. 로그인 전에는 공개 5개, Pro 로그인 후에는 전체 보드와 각 행의 검색량·문서수 측정 기준을 표시합니다.</div>
             </div>
             <button class="btn blue" type="button" id="refreshGolden">보드 새로고침</button>
           </div>
@@ -3930,9 +3944,11 @@ export function renderLewordProWeb(): string {
       };
     }
     function browserLocalKeywordRow(keyword, searchAdItem, documentCount, index) {
+      const measuredAt = new Date().toISOString();
       const pc = searchAdItem ? parseNaverMetricNumber(searchAdItem.monthlyPcQcCnt) : null;
       const mobile = searchAdItem ? parseNaverMetricNumber(searchAdItem.monthlyMobileQcCnt) : null;
-      const total = (pc !== null || mobile !== null) ? (Number(pc || 0) + Number(mobile || 0)) : null;
+      const hasCompleteSearchVolumeSplit = pc !== null && mobile !== null;
+      const total = hasCompleteSearchVolumeSplit ? (pc + mobile) : null;
       const cpc = searchAdItem ? (parseNaverMetricNumber(searchAdItem.monthlyAveCpc) || parseNaverMetricNumber(searchAdItem.monthlyAvePcCpc) || parseNaverMetricNumber(searchAdItem.monthlyAveMobileCpc)) : null;
       const docs = documentCount === undefined ? null : documentCount;
       const ratio = total !== null && docs !== null && Number(docs) > 0 ? total / Math.max(1, Number(docs)) : null;
@@ -3951,8 +3967,14 @@ export function renderLewordProWeb(): string {
         source: 'browser-local-api',
         intent: '사용자 API 직접 실측',
         isMeasured: total !== null && docs !== null,
-        searchVolumeSource: total !== null ? 'naver-searchad-browser' : undefined,
-        documentCountSource: docs !== null ? 'naver-openapi-browser' : undefined,
+        searchVolumeSource: total !== null ? 'searchad' : undefined,
+        searchVolumeConfidence: total !== null ? 'high' : undefined,
+        searchVolumeMeasuredAt: total !== null ? measuredAt : undefined,
+        isSearchVolumeEstimated: total !== null ? false : undefined,
+        documentCountSource: docs !== null ? 'naver-api' : undefined,
+        documentCountConfidence: docs !== null ? 'high' : undefined,
+        documentCountQueryMode: docs !== null ? 'broad' : undefined,
+        isDocumentCountEstimated: docs !== null ? false : undefined,
         evidence: [
           total !== null ? 'naver-searchad-browser' : '',
           docs !== null ? 'naver-openapi-browser' : '',
@@ -5412,11 +5434,11 @@ export function renderLewordProWeb(): string {
       return Number.isFinite(n) ? n : null;
     }
     function rowGoldenRatio(row) {
-      const direct = rowNumber(row, 'goldenRatio');
-      if (direct !== null && direct > 0) return direct;
       const total = rowNumber(row, 'totalSearchVolume');
       const docs = rowNumber(row, 'documentCount');
       if (total !== null && docs !== null && docs > 0) return total / docs;
+      const direct = rowNumber(row, 'goldenRatio');
+      if (direct !== null && direct > 0) return direct;
       return null;
     }
     function isMeasuredDemandTooCrowded(row) {
@@ -5485,6 +5507,36 @@ export function renderLewordProWeb(): string {
     function keywordAnalysisMetricHtml(label, value) {
       return '<div class="keyword-analysis-metric"><span>' + escapeHtml(label) + '</span><strong>' + escapeHtml(value == null || value === '' ? '-' : String(value)) + '</strong></div>';
     }
+    function documentCountMetricLabel(row) {
+      if (row && row.documentCountQueryMode === 'exact-phrase') return '문서수(정확구문·블로그)';
+      const evidence = Array.isArray(row && row.evidence) ? row.evidence.join(' ') : '';
+      if (row && row.documentCountQueryMode === 'broad' && (String(row.source || '').indexOf('pc-keyword-analysis') >= 0 || evidence.indexOf('pc-naver-openapi-document-count') >= 0)) {
+        return '문서수(확장·블로그+카페)';
+      }
+      if (row && row.documentCountQueryMode === 'broad' && (row.source === 'browser-local-api' || evidence.indexOf('naver-openapi-browser') >= 0)) {
+        return '문서수(확장·블로그)';
+      }
+      if (row && row.documentCountQueryMode === 'broad') return '문서수(확장검색)';
+      return '문서수(측정방식 미기록)';
+    }
+    function measurementProvenanceHtml(row) {
+      const measuredAt = fmtTime(row && row.searchVolumeMeasuredAt);
+      const searchSource = row && row.searchVolumeSource === 'searchad'
+        ? '네이버 SearchAd 월간 검색량'
+        : '검색량 출처 미기록';
+      const searchTime = measuredAt === '-' ? '측정시각 미기록' : measuredAt + ' 측정';
+      const documentSource = row && row.documentCountSource === 'naver-api'
+        ? '네이버 OpenAPI'
+        : '문서수 출처 미기록';
+      const documentLabel = documentCountMetricLabel(row);
+      const documentMode = documentLabel.indexOf('문서수(') === 0
+        ? documentLabel.slice(4, -1)
+        : documentLabel;
+      return '<div class="measurement-provenance">'
+        + '<span>검색량: ' + escapeHtml(searchSource + ' · ' + searchTime) + '</span>'
+        + '<span>문서수: ' + escapeHtml(documentSource + ' · ' + documentMode + ' · 측정시각 미기록') + '</span>'
+        + '</div>';
+    }
     function naturalRelatedKeywords(row, limit) {
       const keyword = normalizeText(row && row.keyword);
       const compact = compactKeywordText(keyword);
@@ -5529,10 +5581,11 @@ export function renderLewordProWeb(): string {
         + keywordAnalysisMetricHtml('PC', fmt(row && row.pcSearchVolume))
         + keywordAnalysisMetricHtml('모바일', fmt(row && row.mobileSearchVolume))
         + keywordAnalysisMetricHtml('전체', fmt(row && row.totalSearchVolume))
-        + keywordAnalysisMetricHtml('문서수', fmt(row && row.documentCount))
+        + keywordAnalysisMetricHtml(documentCountMetricLabel(row), fmt(row && row.documentCount))
         + keywordAnalysisMetricHtml('경쟁비', fmt(rowGoldenRatio(row)))
         + keywordAnalysisMetricHtml('CPC', fmt(row && row.cpc))
         + '</div>'
+        + measurementProvenanceHtml(row)
         + '<div class="keyword-analysis-actions">' + keywordActionHtml(keyword) + '</div>'
         + shoppingProductPickHtml(row)
         + '</article>';
@@ -8072,7 +8125,7 @@ export function renderLewordProWeb(): string {
         const measured = item && item.isMeasured !== false;
         const searchVolume = exact && measured ? fmt(item.totalSearchVolume) : escapeHtml(item.publicSearchVolumeLabel || '실측 대기');
         const documents = exact && measured ? fmt(item.documentCount) : escapeHtml(item.publicDocumentCountLabel || '실측 대기');
-        const ratio = exact && measured ? fmt(item.goldenRatio) : (exact ? '실측 대기' : '🔒');
+        const ratio = exact && measured ? fmt(rowGoldenRatio(item)) : (exact ? '실측 대기' : '🔒');
         const sub = exact
           ? escapeHtml(item.intent || item.source || '실측 검색량과 문서수가 있습니다.')
           : escapeHtml(item.publicReason || '실측 후보');
@@ -8092,9 +8145,10 @@ export function renderLewordProWeb(): string {
           + '<div class="gk-side">'
           + '<div class="gk-metrics">'
           +   '<div class="gk-m"><div class="gk-ml">검색량</div><div class="gk-mv">' + searchVolume + '</div></div>'
-          +   '<div class="gk-m gk-hot"><div class="gk-ml">문서수</div><div class="gk-mv">' + documents + '</div></div>'
+          +   '<div class="gk-m gk-hot"><div class="gk-ml">' + escapeHtml(documentCountMetricLabel(item)) + '</div><div class="gk-mv">' + documents + '</div></div>'
           +   '<div class="gk-m gk-hot"><div class="gk-ml">비율</div><div class="gk-mv">' + ratio + '</div></div>'
           + '</div>'
+          + (exact ? measurementProvenanceHtml(item) : '')
           + '<div class="golden-actions">' + keywordActionHtml(item.keyword || '') + '</div>'
           + '</div>'
           + '<div class="gk-why">' + keywordIntentGuideHtml(item) + '</div>'
@@ -8117,7 +8171,7 @@ export function renderLewordProWeb(): string {
         payload.updatedAt,
         payload.previewPolicyLabel || '실측 검증 5선 공개'
       );
-      qs('goldenNotice').textContent = '무료 맛보기는 실측 통과 후보 5개만 보여줍니다. 더 많은 황금키워드와 정확 검색량·문서수·황금비율은 Pro 로그인 후 확인하세요.';
+      qs('goldenNotice').textContent = '무료 맛보기는 실측 통과 후보 5개만 보여줍니다. Pro 로그인 후 SearchAd 월간 검색량과 각 행에 표시된 문서수 측정 기준을 함께 확인하세요.';
       if (proFallback) {
         qs('goldenPolicy').textContent = 'Pro 세션 확인 중';
         qs('goldenNotice').textContent = 'Pro 세션입니다. 인증 스냅샷을 다시 확인하는 동안 공개 스냅샷을 잠금 없이 먼저 표시합니다.';
@@ -8163,7 +8217,7 @@ export function renderLewordProWeb(): string {
         snapshot.boardUpdatedAt || snapshot.lastFinishedAt,
         'Pro 전체 공개'
       );
-      qs('goldenNotice').textContent = 'Pro 로그인 상태입니다. 전체 순위와 정확 지표를 표시합니다.';
+      qs('goldenNotice').textContent = 'Pro 로그인 상태입니다. 전체 순위와 검색량·문서수의 측정 기준을 함께 표시합니다.';
       renderGoldenQuality(items, true, snapshot.boardCount || items.length, 0);
       renderGoldenRows(items, true, snapshot.boardTarget || items.length);
     }

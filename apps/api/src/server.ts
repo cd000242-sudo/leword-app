@@ -2413,7 +2413,11 @@ function metricFromLiveGoldenBoardItem(item: MobileKeywordMetric): MobileKeyword
     mobileSearchVolume: item.mobileSearchVolume,
     totalSearchVolume: item.totalSearchVolume,
     documentCount: item.documentCount,
-    goldenRatio: item.goldenRatio,
+    goldenRatio: typeof item.totalSearchVolume === 'number'
+      && typeof item.documentCount === 'number'
+      && item.documentCount > 0
+      ? Number((item.totalSearchVolume / item.documentCount).toFixed(2))
+      : item.goldenRatio,
     cpc: item.cpc,
     category: item.category || 'live-golden',
     source: 'live-golden-board-exact-match',
@@ -2424,9 +2428,12 @@ function metricFromLiveGoldenBoardItem(item: MobileKeywordMetric): MobileKeyword
       && item.documentCount !== null,
     searchVolumeSource: item.searchVolumeSource,
     searchVolumeConfidence: item.searchVolumeConfidence,
+    searchVolumeBindingVersion: item.searchVolumeBindingVersion,
+    searchVolumeMeasuredAt: item.searchVolumeMeasuredAt,
     isSearchVolumeEstimated: item.isSearchVolumeEstimated,
     documentCountSource: item.documentCountSource,
     documentCountConfidence: item.documentCountConfidence,
+    documentCountQueryMode: item.documentCountQueryMode,
     isDocumentCountEstimated: item.isDocumentCountEstimated,
     measurementStatus: item.measurementStatus,
   };
@@ -3299,64 +3306,73 @@ function supplementMeasuredPrewarmResult(
   };
 }
 
+function isCanonicalLiveGoldenExactMetric(board: MobileKeywordMetric): boolean {
+  const boardPcSearchVolume = typeof board.pcSearchVolume === 'number'
+    && Number.isFinite(board.pcSearchVolume)
+    && board.pcSearchVolume >= 0
+    ? board.pcSearchVolume
+    : null;
+  const boardMobileSearchVolume = typeof board.mobileSearchVolume === 'number'
+    && Number.isFinite(board.mobileSearchVolume)
+    && board.mobileSearchVolume >= 0
+    ? board.mobileSearchVolume
+    : null;
+  return boardPcSearchVolume !== null
+    && boardMobileSearchVolume !== null
+    && typeof board.totalSearchVolume === 'number'
+    && board.totalSearchVolume > 0
+    && boardPcSearchVolume + boardMobileSearchVolume === board.totalSearchVolume
+    && typeof board.documentCount === 'number'
+    && board.documentCount > 0
+    && board.isMeasured !== false
+    && board.searchVolumeSource === 'searchad'
+    && board.searchVolumeConfidence === 'high'
+    && board.searchVolumeBindingVersion === 'keyword-keyed-v2'
+    && typeof board.searchVolumeMeasuredAt === 'string'
+    && Number.isFinite(Date.parse(board.searchVolumeMeasuredAt))
+    && board.isSearchVolumeEstimated === false
+    && board.documentCountSource === 'naver-api'
+    && board.documentCountConfidence === 'high'
+    && board.documentCountQueryMode === 'exact-phrase'
+    && board.isDocumentCountEstimated === false;
+}
+
 function mergeExactMetricWithLiveBoard(
   current: MobileKeywordMetric,
   board: MobileKeywordMetric,
 ): MobileKeywordMetric {
-  const currentPcSearchVolume = typeof current.pcSearchVolume === 'number' && current.pcSearchVolume > 0
-    ? current.pcSearchVolume
-    : null;
-  const currentMobileSearchVolume = typeof current.mobileSearchVolume === 'number' && current.mobileSearchVolume > 0
-    ? current.mobileSearchVolume
-    : null;
-  const currentHasMeasuredCore = currentPcSearchVolume !== null
-    && currentMobileSearchVolume !== null
-    && typeof current.totalSearchVolume === 'number'
-    && current.totalSearchVolume > 0
-    && typeof current.documentCount === 'number'
-    && current.documentCount > 0;
-  if (currentHasMeasuredCore) {
-    return {
-      ...current,
-      score: current.score ?? board.score ?? null,
-      cpc: current.cpc ?? board.cpc,
-      category: current.category || board.category,
-      evidence: uniqueEvidence(current.evidence, board.evidence, 'analysis-board-metric-sync'),
-      isMeasured: true,
-    };
-  }
-
-  const boardPcSearchVolume = typeof board.pcSearchVolume === 'number' && board.pcSearchVolume > 0
+  const boardPcSearchVolume = typeof board.pcSearchVolume === 'number'
+    && Number.isFinite(board.pcSearchVolume)
+    && board.pcSearchVolume >= 0
     ? board.pcSearchVolume
     : null;
-  const boardMobileSearchVolume = typeof board.mobileSearchVolume === 'number' && board.mobileSearchVolume > 0
+  const boardMobileSearchVolume = typeof board.mobileSearchVolume === 'number'
+    && Number.isFinite(board.mobileSearchVolume)
+    && board.mobileSearchVolume >= 0
     ? board.mobileSearchVolume
     : null;
-  const pcSearchVolume = boardPcSearchVolume ?? current.pcSearchVolume;
-  const mobileSearchVolume = boardMobileSearchVolume ?? current.mobileSearchVolume;
-  const totalSearchVolume = board.totalSearchVolume ?? current.totalSearchVolume;
-  const documentCount = board.documentCount ?? current.documentCount;
-  const goldenRatio = board.goldenRatio
-    ?? (totalSearchVolume !== null && documentCount !== null && documentCount > 0
-      ? Number((totalSearchVolume / documentCount).toFixed(2))
-      : current.goldenRatio);
-
+  if (!isCanonicalLiveGoldenExactMetric(board)) return current;
+  const numberLabel = (value: number | null): string => (
+    typeof value === 'number' && Number.isFinite(value)
+      ? value.toLocaleString('en-US', { maximumFractionDigits: 2 })
+      : '-'
+  );
+  const agentInsight = current.agentInsight
+    ? {
+        ...current.agentInsight,
+        searchVolumeReason: `황금키워드 보드의 동일 키워드 실측값 기준입니다. 검색량 ${numberLabel(board.totalSearchVolume)} (PC ${numberLabel(boardPcSearchVolume)} / 모바일 ${numberLabel(boardMobileSearchVolume)}), 문서수 ${numberLabel(board.documentCount)}, 비율 ${numberLabel(board.goldenRatio)}입니다.`,
+        sourceSummary: 'LIVE 황금키워드 보드 · SearchAd 월간 검색량 · 네이버 정확구문 문서수',
+      }
+    : undefined;
   return {
     ...current,
     ...board,
     score: board.score ?? current.score ?? null,
-    pcSearchVolume,
-    mobileSearchVolume,
-    totalSearchVolume,
-    documentCount,
-    goldenRatio,
     cpc: board.cpc ?? current.cpc,
-    source: 'live-golden-board-exact-match',
     intent: current.intent || board.intent,
     evidence: uniqueEvidence(board.evidence, current.evidence, 'analysis-board-metric-sync'),
-    isMeasured: board.isMeasured !== false
-      && totalSearchVolume !== null
-      && documentCount !== null,
+    isMeasured: true,
+    agentInsight,
   };
 }
 
@@ -3372,12 +3388,11 @@ function overlayLiveGoldenExactKeyword(
   const seed = readKeywordAnalysisSeed(params);
   const seedKey = compactServerKeyword(seed);
   if (!seedKey) return result;
-  const boardItem = liveGoldenRadar.findMeasuredBoardItem(seed)
-    || (liveGoldenRadar.snapshot().board || [])
-      .find((item) => compactServerKeyword(item.keyword) === seedKey);
+  const boardItem = liveGoldenRadar.findMeasuredBoardItem(seed);
   if (!boardItem) return result;
 
   const exactMetric = metricFromLiveGoldenBoardItem(boardItem);
+  if (!isCanonicalLiveGoldenExactMetric(exactMetric)) return result;
   const mergedKeywords: MobileKeywordMetric[] = [];
   let inserted = false;
   for (const keyword of result.keywords) {

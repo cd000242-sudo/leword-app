@@ -4139,6 +4139,15 @@ async function fetchNaverOpenApiSearchTotal(
   }
 }
 
+export function combineNaverDocumentCounts(
+  blogTotal: number | null,
+  cafeTotal: number | null,
+): number | null {
+  if (blogTotal === null || cafeTotal === null) return null;
+  if (!Number.isFinite(blogTotal) || !Number.isFinite(cafeTotal) || blogTotal < 0 || cafeTotal < 0) return null;
+  return blogTotal + cafeTotal;
+}
+
 async function fetchNaverDocumentCount(
   keyword: string,
   env: Partial<EnvConfig>,
@@ -4148,18 +4157,20 @@ async function fetchNaverDocumentCount(
   source: 'naver-api';
   confidence: 'high';
   isEstimated: false;
+  queryMode: 'broad';
 } | null> {
   const [blogTotal, cafeTotal] = await Promise.all([
     fetchNaverOpenApiSearchTotal(keyword, 'blog', env, signal),
     fetchNaverOpenApiSearchTotal(keyword, 'cafearticle', env, signal),
   ]);
-  const totals = [blogTotal, cafeTotal].filter((value): value is number => value !== null && value >= 0);
-  if (totals.length === 0) return null;
+  const documentCount = combineNaverDocumentCounts(blogTotal, cafeTotal);
+  if (documentCount === null) return null;
   return {
-    documentCount: totals.reduce((sum, value) => sum + value, 0),
+    documentCount,
     source: 'naver-api',
     confidence: 'high',
     isEstimated: false,
+    queryMode: 'broad',
   };
 }
 
@@ -4261,6 +4272,9 @@ export function mergeMeasuredMetric(
   const documentCountConfidence = documentMeasurement
     ? documentMeasurement.confidence
     : metric.documentCountConfidence;
+  const documentCountQueryMode = documentMeasurement
+    ? documentMeasurement.queryMode
+    : metric.documentCountQueryMode;
   const isDocumentCountEstimated = documentMeasurement
     ? documentMeasurement.isEstimated
     : metric.isDocumentCountEstimated === true;
@@ -4298,6 +4312,7 @@ export function mergeMeasuredMetric(
     isSearchVolumeEstimated,
     documentCountSource,
     documentCountConfidence,
+    documentCountQueryMode,
     isDocumentCountEstimated,
   };
   const isMeasured = trustedCandidate.isMeasured

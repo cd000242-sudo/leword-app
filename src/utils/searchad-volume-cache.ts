@@ -20,6 +20,8 @@ const TTL_MS = TTL_DAYS * 24 * 60 * 60 * 1000;
 const SCHEMA = 'searchad-vol-v1';
 const MAX_ENTRIES = 80_000;
 const WRITE_DEBOUNCE_MS = 5000;
+const STALE_WRITE_LOCK_MS = 5 * 60 * 1000;
+const MAX_CLOCK_SKEW_MS = 5 * 60 * 1000;
 
 export interface SearchAdVolumeEntry {
   pc: number | null;
@@ -33,6 +35,23 @@ export interface SearchAdVolumeEntry {
 let cache: Map<string, SearchAdVolumeEntry> | null = null;
 let dirty = false;
 let writeTimer: NodeJS.Timeout | null = null;
+let diskFingerprint = '';
+
+function isValidDiskEntry(entry: SearchAdVolumeEntry, now: number): boolean {
+  return Number.isFinite(entry.at)
+    && now - entry.at <= TTL_MS
+    && entry.at <= now + MAX_CLOCK_SKEW_MS
+    && typeof entry.pc === 'number'
+    && Number.isFinite(entry.pc)
+    && entry.pc >= 0
+    && typeof entry.mo === 'number'
+    && Number.isFinite(entry.mo)
+    && entry.mo >= 0
+    && typeof entry.total === 'number'
+    && Number.isFinite(entry.total)
+    && entry.total > 0
+    && entry.pc + entry.mo === entry.total;
+}
 
 function cacheFile(): string {
   const explicit = process.env['LEWORD_SEARCHAD_VOLUME_CACHE_FILE'];
@@ -52,27 +71,37 @@ const norm = (k: string): string => String(k || '').toLowerCase().replace(/[\s+]
 function load(): Map<string, SearchAdVolumeEntry> {
   if (cache) return cache;
   cache = new Map();
+  syncFromDisk(true);
+  return cache;
+}
+
+function syncFromDisk(force: boolean = false): void {
+  if (!cache) return;
   try {
     const file = cacheFile();
-    if (fs.existsSync(file)) {
-      const parsed = JSON.parse(fs.readFileSync(file, 'utf8'));
-      if (parsed?.schemaVersion === SCHEMA && parsed?.entries) {
-        const now = Date.now();
-        for (const [k, v] of Object.entries(parsed.entries)) {
-          const e = v as SearchAdVolumeEntry;
-          if (e && typeof e.at === 'number' && now - e.at <= TTL_MS) cache.set(k, e);
-        }
-      }
+    if (!fs.existsSync(file)) return;
+    const stat = fs.statSync(file);
+    const fingerprint = `${stat.mtimeMs}:${stat.ctimeMs}:${stat.size}`;
+    if (!force && fingerprint === diskFingerprint) return;
+    const parsed = JSON.parse(fs.readFileSync(file, 'utf8'));
+    if (parsed?.schemaVersion !== SCHEMA || !parsed?.entries) return;
+    const now = Date.now();
+    for (const [k, v] of Object.entries(parsed.entries)) {
+      const e = v as SearchAdVolumeEntry;
+      if (!e || !isValidDiskEntry(e, now)) continue;
+      const existing = cache.get(k);
+      if (!existing || e.at > existing.at) cache.set(k, e);
     }
+    diskFingerprint = fingerprint;
   } catch {
     // 캐시는 최적화용 — 실패해도 정상 동작
   }
-  return cache;
 }
 
 /** 신선(<TTL)한 캐시 볼륨 반환. 없거나 만료면 null. ageMs 포함(신선도 라벨용). */
 export function getSearchAdVolumeCached(keyword: string): (SearchAdVolumeEntry & { ageMs: number }) | null {
   const c = load();
+  syncFromDisk();
   const key = norm(keyword);
   const e = c.get(key);
   if (!e) return null;
@@ -93,14 +122,17 @@ export function setSearchAdVolumeCached(
   if (
     typeof v.pc !== 'number'
     || !Number.isFinite(v.pc)
+    || v.pc < 0
     || typeof v.mo !== 'number'
     || !Number.isFinite(v.mo)
+    || v.mo < 0
     || typeof v.total !== 'number'
     || !Number.isFinite(v.total)
     || v.total <= 0
     || v.pc + v.mo !== v.total
   ) return;
   const c = load();
+  syncFromDisk();
   c.set(norm(keyword), { pc: v.pc, mo: v.mo, total: v.total, comp: v.comp, cpc: v.cpc ?? null, at: Date.now() });
   scheduleWrite();
 }
@@ -115,12 +147,83 @@ function scheduleWrite(): void {
   if (writeTimer && typeof writeTimer.unref === 'function') writeTimer.unref();
 }
 
+function writeLockClaimFiles(lockFile: string): string[] {
+  const dir = path.dirname(lockFile);
+  const prefix = `${path.basename(lockFile)}.claim-`;
+  try {
+    return fs.readdirSync(dir)
+      .filter((name) => name.startsWith(prefix))
+      .map((name) => path.join(dir, name));
+  } catch {
+    return [];
+  }
+}
+
 function flush(): void {
   if (!cache) return;
-  dirty = false;
+  const file = cacheFile();
+  const lockFile = `${file}.lock`;
+  const lockToken = `${process.pid}:${Date.now()}:${process.hrtime.bigint()}`;
+  let lockFd: number | null = null;
+  let tempFile = '';
   try {
-    const file = cacheFile();
     fs.mkdirSync(path.dirname(file), { recursive: true });
+    const existingClaims = writeLockClaimFiles(lockFile);
+    if (existingClaims.length > 0) {
+      for (const claimFile of existingClaims) {
+        if (fs.existsSync(lockFile)) break;
+        try { fs.renameSync(claimFile, lockFile); } catch { /* another process reconciled it */ }
+      }
+      dirty = true;
+      scheduleWrite();
+      return;
+    }
+    try {
+      lockFd = fs.openSync(lockFile, 'wx');
+      fs.writeFileSync(lockFd, lockToken, 'utf8');
+    } catch (error: any) {
+      if (error?.code === 'EEXIST') {
+        try {
+          const observedToken = fs.readFileSync(lockFile, 'utf8');
+          const observedStat = fs.statSync(lockFile);
+          const lockAgeMs = Date.now() - observedStat.mtimeMs;
+          if (lockAgeMs > STALE_WRITE_LOCK_MS) {
+            const claimFile = `${lockFile}.claim-${lockToken.replace(/:/g, '-')}`;
+            fs.renameSync(lockFile, claimFile);
+            const claimedToken = fs.readFileSync(claimFile, 'utf8');
+            const claimedStat = fs.statSync(claimFile);
+            const claimedObservedLock = claimedToken === observedToken
+              && claimedStat.mtimeMs === observedStat.mtimeMs
+              && claimedStat.size === observedStat.size;
+            if (claimedObservedLock) {
+              fs.rmSync(claimFile, { force: true });
+              lockFd = fs.openSync(lockFile, 'wx');
+              fs.writeFileSync(lockFd, lockToken, 'utf8');
+            } else {
+              if (!fs.existsSync(lockFile)) {
+                try { fs.renameSync(claimFile, lockFile); } catch { /* another owner won */ }
+              }
+              lockFd = null;
+            }
+          }
+        } catch {
+          lockFd = null;
+        }
+        if (lockFd === null) {
+          dirty = true;
+          scheduleWrite();
+          return;
+        }
+      } else {
+        throw error;
+      }
+    }
+    if (writeLockClaimFiles(lockFile).length > 0) {
+      dirty = true;
+      scheduleWrite();
+      return;
+    }
+    syncFromDisk(true);
     let entries = Array.from(cache.entries());
     if (entries.length > MAX_ENTRIES) {
       entries = entries.sort((a, b) => b[1].at - a[1].at).slice(0, MAX_ENTRIES);
@@ -128,9 +231,28 @@ function flush(): void {
     }
     const obj: Record<string, SearchAdVolumeEntry> = {};
     for (const [k, v] of entries) obj[k] = v;
-    fs.writeFileSync(file, JSON.stringify({ schemaVersion: SCHEMA, entries: obj }), 'utf8');
+    tempFile = `${file}.${process.pid}.${Date.now()}.tmp`;
+    fs.writeFileSync(tempFile, JSON.stringify({ schemaVersion: SCHEMA, entries: obj }), 'utf8');
+    fs.renameSync(tempFile, file);
+    tempFile = '';
+    const stat = fs.statSync(file);
+    diskFingerprint = `${stat.mtimeMs}:${stat.ctimeMs}:${stat.size}`;
+    dirty = false;
   } catch {
     // 영속 실패해도 인메모리로 동작
+    if (dirty) scheduleWrite();
+  } finally {
+    if (tempFile) {
+      try { fs.rmSync(tempFile, { force: true }); } catch { /* noop */ }
+    }
+    if (lockFd !== null) {
+      try { fs.closeSync(lockFd); } catch { /* noop */ }
+      try {
+        if (fs.readFileSync(lockFile, 'utf8') === lockToken) {
+          fs.rmSync(lockFile, { force: true });
+        }
+      } catch { /* noop */ }
+    }
   }
 }
 

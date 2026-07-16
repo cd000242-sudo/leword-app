@@ -9724,6 +9724,7 @@ export class MobileLiveGoldenRadar {
       .filter((item) => keywordCompactId(item.keyword) === compact)
       .filter((item) => ageMsFrom(item.updatedAt, nowMs) <= LIVE_BOARD_MAX_AGE_MS)
       .filter((item) => isMeasuredBoardReferenceMetric(item, now))
+      .filter((item) => hasFreshCurrentSearchAdKeywordBinding(item, now))
       .sort((a, b) => {
         const scoreDiff = boardSortScore(b, nowMs) - boardSortScore(a, nowMs);
         if (scoreDiff !== 0) return scoreDiff;
@@ -9737,6 +9738,7 @@ export class MobileLiveGoldenRadar {
     return [...this.board.values()]
       .filter((item) => ageMsFrom(item.updatedAt, nowMs) <= LIVE_BOARD_MAX_AGE_MS)
       .filter((item) => isMeasuredBoardReferenceMetric(item, now))
+      .filter((item) => hasFreshCurrentSearchAdKeywordBinding(item, now))
       .sort((a, b) => {
         const scoreDiff = boardSortScore(b, nowMs) - boardSortScore(a, nowMs);
         if (scoreDiff !== 0) return scoreDiff;
