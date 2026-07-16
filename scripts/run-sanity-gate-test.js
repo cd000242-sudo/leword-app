@@ -67,6 +67,7 @@ const testFiles = [
     path.join(__dirname, '..', 'src', 'utils', '__tests__', 'mobile-ui-release-gate.test.ts'),
     path.join(__dirname, '..', 'src', 'utils', '__tests__', 'mobile-prewarm-scheduler.test.ts'),
     path.join(__dirname, '..', 'src', 'utils', '__tests__', 'mobile-api-server.test.ts'),
+    path.join(__dirname, '..', 'src', 'utils', '__tests__', 'mobile-home-keyword-briefing-api-server.test.ts'),
     path.join(__dirname, '..', 'src', 'utils', '__tests__', 'mobile-api-guardrails.test.ts'),
     path.join(__dirname, '..', 'src', 'utils', '__tests__', 'mobile-api-ai-judge.test.ts'),
     path.join(__dirname, '..', 'src', 'utils', '__tests__', 'mobile-api-deploy-gate.test.ts'),

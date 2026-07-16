@@ -83,6 +83,14 @@ import {
   liveGoldenBoardFingerprint,
   type LiveGoldenHumanReview,
 } from '../../../src/mobile/live-golden-supply-report';
+import {
+  HomeKeywordBriefingRevisionConflictError,
+  HomeKeywordBriefingStorageError,
+  HomeKeywordBriefingValidationError,
+  publishHomeKeywordBriefing,
+  readHomeKeywordBriefing,
+  resolveHomeKeywordBriefingFile,
+} from '../../../src/mobile/home-keyword-briefing';
 import { InMemoryMobileResultCache } from '../../../src/mobile/result-cache';
 import {
   applyKeywordAiJudge,
@@ -184,11 +192,13 @@ const DEFAULT_LEADERS_PRO_ADMIN_TOKEN = 'qkrtjdgus2021645';
 const LIVE_GOLDEN_INGEST_MAX_BODY_BYTES = 512 * 1024;
 const ADMIN_SETTINGS_UNLOCK_ROUTE = '/v1/admin/settings/unlock';
 const ADMIN_SITE_CONTENT_ROUTE = '/v1/admin/site-content';
+const ADMIN_HOME_KEYWORD_BRIEFING_ROUTE = '/v1/admin/home-keyword-briefing';
 const ADMIN_DOWNLOAD_UPLOAD_ROUTE = '/v1/admin/downloads/upload';
 const ADMIN_DOWNLOAD_CHUNK_UPLOAD_ROUTE = '/v1/admin/downloads/upload-chunk';
 const ADMIN_COMMERCE_DASHBOARD_ROUTE = '/v1/admin/commerce/dashboard';
 const ADMIN_AI_WORKER_STATUS_ROUTE = '/v1/admin/ai-worker/status';
 const PUBLIC_SITE_CONTENT_ROUTE = '/v1/public/site-content';
+const PUBLIC_HOME_KEYWORD_BRIEFING_ROUTE = '/v1/public/home-keyword-briefing';
 const PUBLIC_COMMERCE_CATALOG_ROUTE = '/v1/public/commerce/catalog';
 const PUBLIC_ANALYTICS_COLLECT_ROUTE = '/v1/analytics/collect';
 const CHECKOUT_ORDER_ROUTE = '/v1/checkout/orders';
@@ -1994,6 +2004,18 @@ function handleBodyError(res: http.ServerResponse, err: unknown, maxBodyBytes: n
   json(res, 400, { ok: false, message: 'invalid json body' } satisfies MobileJobErrorResponse);
 }
 
+function homeKeywordBriefingStorageUnavailable(
+  res: http.ServerResponse,
+  error: HomeKeywordBriefingStorageError,
+): void {
+  console.error('[home-keyword-briefing] persistent storage unavailable', error);
+  json(res, 503, {
+    ok: false,
+    code: 'home-keyword-briefing-storage-unavailable',
+    message: '키워드 브리핑 저장소를 사용할 수 없습니다. 잠시 후 다시 시도하세요.',
+  }, { 'Cache-Control': 'no-store' });
+}
+
 type NaverApiSettingKey =
   | 'naverClientId'
   | 'naverClientSecret'
@@ -3764,6 +3786,21 @@ export function createLewordApiServer(options: LewordApiServerOptions = {}): htt
       return;
     }
 
+    if (req.method === 'GET' && url.pathname === PUBLIC_HOME_KEYWORD_BRIEFING_ROUTE) {
+      try {
+        json(res, 200, { ok: true, briefing: readHomeKeywordBriefing() }, {
+          'Cache-Control': 'no-store',
+        });
+      } catch (error) {
+        if (error instanceof HomeKeywordBriefingStorageError) {
+          homeKeywordBriefingStorageUnavailable(res, error);
+        } else {
+          throw error;
+        }
+      }
+      return;
+    }
+
     if (req.method === 'GET' && url.pathname === PUBLIC_COMMERCE_CATALOG_ROUTE) {
       json(res, 200, { ok: true, catalog: buildCommerceCatalog(readSiteContentDraft()) }, {
         'Cache-Control': 'no-store',
@@ -3993,6 +4030,73 @@ export function createLewordApiServer(options: LewordApiServerOptions = {}): htt
         json(res, 200, { ok: true, content, storage: siteContentFile() });
       } catch (err) {
         handleBodyError(res, err, maxBodyBytes);
+      }
+      return;
+    }
+
+    if ((req.method === 'GET' || req.method === 'PUT') && url.pathname === ADMIN_HOME_KEYWORD_BRIEFING_ROUTE) {
+      if (!sessionAwareEntitlementVerifier) {
+        json(res, 503, {
+          ok: false,
+          code: 'admin-auth-unconfigured',
+          message: '관리자 세션 인증이 구성되지 않았습니다.',
+        });
+        return;
+      }
+      if (!await authorizeMobileRequest(req, res, sessionAwareEntitlementVerifier, 'admin')) return;
+      if (req.method === 'GET') {
+        try {
+          const briefing = readHomeKeywordBriefing();
+          json(res, 200, {
+            ok: true,
+            briefing,
+            currentRevision: briefing?.revision || 0,
+            storage: resolveHomeKeywordBriefingFile(),
+          }, { 'Cache-Control': 'no-store' });
+        } catch (error) {
+          if (error instanceof HomeKeywordBriefingStorageError) {
+            homeKeywordBriefingStorageUnavailable(res, error);
+          } else {
+            throw error;
+          }
+        }
+        return;
+      }
+      try {
+        const body = await parseBody(req, maxBodyBytes) as Record<string, unknown>;
+        const briefing = publishHomeKeywordBriefing({
+          value: body?.briefing ?? body,
+          expectedRevision: body?.expectedRevision,
+          updatedBy: 'leaderspro-admin-session',
+        });
+        json(res, 200, {
+          ok: true,
+          briefing,
+          currentRevision: briefing.revision,
+          storage: resolveHomeKeywordBriefingFile(),
+        }, { 'Cache-Control': 'no-store' });
+      } catch (err) {
+        if (err instanceof HomeKeywordBriefingRevisionConflictError) {
+          json(res, 409, {
+            ok: false,
+            code: 'revision-conflict',
+            message: '다른 관리자 저장본이 먼저 반영되었습니다. 최신본을 다시 불러온 뒤 검수하세요.',
+            expectedRevision: err.expectedRevision,
+            currentRevision: err.currentRevision,
+          });
+        } else if (err instanceof MobileApiBodyTooLargeError) {
+          payloadTooLarge(res, maxBodyBytes);
+        } else if (err instanceof HomeKeywordBriefingValidationError) {
+          json(res, 422, {
+            ok: false,
+            code: 'invalid-home-keyword-briefing',
+            message: err.message,
+          });
+        } else if (err instanceof HomeKeywordBriefingStorageError) {
+          homeKeywordBriefingStorageUnavailable(res, err);
+        } else {
+          handleBodyError(res, err, maxBodyBytes);
+        }
       }
       return;
     }
