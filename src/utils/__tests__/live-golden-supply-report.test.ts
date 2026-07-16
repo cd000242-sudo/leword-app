@@ -31,6 +31,7 @@ function measuredItem(keyword: string, category: string, index: number): any {
     isSearchVolumeEstimated: false,
     documentCountSource: 'naver-api',
     documentCountConfidence: 'high',
+    documentCountQueryMode: 'exact-phrase',
     isDocumentCountEstimated: false,
     discoveredAt: '2026-07-11T09:00:00.000Z',
     updatedAt: '2026-07-11T09:00:00.000Z',
@@ -220,6 +221,64 @@ assert('unmeasured fallback rows are excluded from verified supply',
     && incompleteReport.untrustedCount === 1
     && incompleteReport.measuredCompletenessRate === 0,
   JSON.stringify(incompleteReport));
+
+const missingDocumentScope = measuredItem('missing exact scope', 'finance', 6);
+delete missingDocumentScope.documentCountQueryMode;
+const missingDocumentScopeReport = buildLiveGoldenSupplyReport([missingDocumentScope], {
+  nowMs: Date.parse('2026-07-11T10:00:00.000Z'),
+  verifiedTarget: 1,
+  minimumActiveCoreCategories: 1,
+});
+assert('document counts without an exact-phrase scope remain untrusted',
+  missingDocumentScopeReport.verifiedCount === 0
+    && missingDocumentScopeReport.untrustedCount === 1
+    && missingDocumentScopeReport.failureReasons.includes('untrusted-row-present'),
+  JSON.stringify(missingDocumentScopeReport));
+
+const broadDocumentScope = measuredItem('broad document scope', 'finance', 7);
+broadDocumentScope.documentCountQueryMode = 'broad';
+const broadDocumentScopeReport = buildLiveGoldenSupplyReport([broadDocumentScope], {
+  nowMs: Date.parse('2026-07-11T10:00:00.000Z'),
+  verifiedTarget: 1,
+  minimumActiveCoreCategories: 1,
+});
+assert('broad document counts cannot satisfy exact-phrase verified supply',
+  broadDocumentScopeReport.verifiedCount === 0
+    && broadDocumentScopeReport.untrustedCount === 1
+    && broadDocumentScopeReport.failureReasons.includes('untrusted-row-present'),
+  JSON.stringify(broadDocumentScopeReport));
+
+const scrapedDocumentCount = measuredItem('scraped document count', 'finance', 8);
+scrapedDocumentCount.documentCountSource = 'scrape';
+const scrapedDocumentCountReport = buildLiveGoldenSupplyReport([scrapedDocumentCount], {
+  nowMs: Date.parse('2026-07-11T10:00:00.000Z'),
+  verifiedTarget: 1,
+  minimumActiveCoreCategories: 1,
+});
+assert('scraped document counts remain untrusted even when labeled exact-phrase',
+  scrapedDocumentCountReport.verifiedCount === 0
+    && scrapedDocumentCountReport.untrustedCount === 1
+    && scrapedDocumentCountReport.failureReasons.includes('untrusted-row-present'),
+  JSON.stringify(scrapedDocumentCountReport));
+
+for (const [label, mutate] of [
+  ['missing measured flag', (item: any) => { delete item.isMeasured; }],
+  ['missing search-volume estimated flag', (item: any) => { delete item.isSearchVolumeEstimated; }],
+  ['missing document-count estimated flag', (item: any) => { delete item.isDocumentCountEstimated; }],
+] as const) {
+  const unknownProvenance = measuredItem(label, 'finance', 20);
+  mutate(unknownProvenance);
+  const unknownProvenanceReport = buildLiveGoldenSupplyReport([unknownProvenance], {
+    nowMs: Date.parse('2026-07-11T10:00:00.000Z'),
+    verifiedTarget: 1,
+    minimumActiveCoreCategories: 1,
+  });
+  assert(`${label} remains untrusted instead of being inferred as measured`,
+    unknownProvenanceReport.verifiedCount === 0
+      && unknownProvenanceReport.untrustedCount === 1
+      && unknownProvenanceReport.failureReasons.includes('untrusted-row-present'),
+    JSON.stringify(unknownProvenanceReport));
+}
 
 const splitless = measuredItem('사대보험계산기프리랜서', 'insurance_safe', 2);
 splitless.pcSearchVolume = 0;

@@ -126,18 +126,19 @@ export function isTrustedLiveGoldenSupplyRow(item: MobileLiveGoldenBoardItem): b
     && pcSearchVolume + mobileSearchVolume > 0
     && pcSearchVolume + mobileSearchVolume === totalSearchVolume;
   const searchVolumeMeasuredAtMs = Date.parse(String(item.searchVolumeMeasuredAt || ''));
-  return item.isMeasured !== false
+  return item.isMeasured === true
     && hasMeasuredSplit
     && documentCount !== null
     && documentCount > 0
     && item.searchVolumeSource === 'searchad'
     && item.searchVolumeConfidence === 'high'
-    && item.isSearchVolumeEstimated !== true
+    && item.isSearchVolumeEstimated === false
     && item.searchVolumeBindingVersion === SEARCHAD_KEYWORD_BINDING_VERSION
     && Number.isFinite(searchVolumeMeasuredAtMs)
-    && (item.documentCountSource === 'naver-api' || item.documentCountSource === 'scrape')
+    && item.documentCountSource === 'naver-api'
     && item.documentCountConfidence === 'high'
-    && item.isDocumentCountEstimated !== true
+    && item.documentCountQueryMode === 'exact-phrase'
+    && item.isDocumentCountEstimated === false
     && hasTrustedSearchVolumeMeasurement(item)
     && hasTrustedDocumentCountMeasurement(item);
 }

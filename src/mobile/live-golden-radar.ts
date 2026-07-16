@@ -933,6 +933,39 @@ function hasFreshCurrentSearchAdKeywordBinding(
     && nowMs - measuredAtMs <= LIVE_BOARD_MAX_AGE_MS;
 }
 
+function isLegacyPersistedExactDocumentRecoveryCandidate(
+  row: any,
+  item: MobileLiveGoldenBoardItem,
+  now: Date,
+): boolean {
+  const evidence = Array.isArray(row?.evidence)
+    ? row.evidence.map((entry: unknown) => normalizeKeyword(entry)).filter(Boolean)
+    : [];
+  const pc = finiteNumber(item.pcSearchVolume);
+  const mobile = finiteNumber(item.mobileSearchVolume);
+  const total = finiteNumber(item.totalSearchVolume);
+  return !normalizeKeyword(row?.documentCountQueryMode)
+    && evidence.includes('naver-openapi-exact-phrase')
+    && normalizeKeyword(row?.source) === 'mobile-live-golden-radar'
+    && item.isMeasured === true
+    && pc !== null
+    && pc >= 0
+    && mobile !== null
+    && mobile >= 0
+    && total !== null
+    && total > 0
+    && pc + mobile === total
+    && item.searchVolumeSource === 'searchad'
+    && item.searchVolumeConfidence === 'high'
+    && item.searchVolumeBindingVersion === SEARCHAD_KEYWORD_BINDING_VERSION
+    && item.isSearchVolumeEstimated === false
+    && hasFreshCurrentSearchAdKeywordBinding(item, now)
+    && item.documentCountSource === 'naver-api'
+    && item.documentCountConfidence === 'high'
+    && item.isDocumentCountEstimated === false
+    && (finiteNumber(item.documentCount) || 0) > 0;
+}
+
 function needsSearchAdKeywordBindingRevalidation(
   item: Partial<MobileKeywordMetric>,
   now: Date = new Date(),
@@ -3345,13 +3378,17 @@ function resolveDeclaredLiveCategory(
   storedCategory: string,
   declaredPolicyKey?: string,
 ): string {
-  const semanticCategory = inferCoreRecoverySemanticCategory(keyword);
-  if (semanticCategory) return semanticCategory;
   const normalizedStoredCategory = normalizeKeyword(storedCategory) || 'live';
+  const semanticCategory = inferCoreRecoverySemanticCategory(keyword);
   if (
     declaredPolicyKey
     && liveGoldenPolicyKeyForDiscoveryId(normalizedStoredCategory) === declaredPolicyKey
+    && (
+      !semanticCategory
+      || liveGoldenPolicyKeyForDiscoveryId(semanticCategory) === declaredPolicyKey
+    )
   ) return normalizedStoredCategory;
+  if (semanticCategory) return semanticCategory;
   return inferLiveCategory(keyword, normalizedStoredCategory);
 }
 
@@ -7161,7 +7198,12 @@ export class MobileLiveGoldenRadar {
   private boardUpdatedAt?: string;
   private readonly board = new Map<string, MobileLiveGoldenBoardItem>();
   private readonly persistentExactDocumentInventory = new Map<string, MobileKeywordMetric>();
-  private readonly exactDocumentRecoveryAttemptedIds = new Set<string>();
+  private readonly legacyPersistedExactDocumentInventory = new Map<string, MobileKeywordMetric>();
+  private readonly exactDocumentRecoveryCompletedIds = new Set<string>();
+  private readonly exactDocumentRecoveryFailureState = new Map<string, {
+    failures: number;
+    retryAtMs: number;
+  }>();
   private readonly cacheDerivedLiveSeeds: string[] = [];
   private readonly pendingMeasuredProbeQueue: LiveMeasuredProbeQueueItem[] = [];
   private lastBoardFileRefreshAtMs = 0;
@@ -7536,7 +7578,10 @@ export class MobileLiveGoldenRadar {
 
       const catchUpModeBeforeCache = currentBoardCount < this.boardTarget;
       const exactDocumentRecovery = hasSearchAdCredentials(env)
-        && !this.automatedSupplyGatePassing(this.verifiedSupplyBoard())
+        && (
+          this.legacyPersistedExactDocumentInventory.size > 0
+          || !this.automatedSupplyGatePassing(this.verifiedSupplyBoard())
+        )
         ? await this.recoverPersistentCacheWithExactDocumentCounts({
             clientId: env.naverClientId,
             clientSecret: env.naverClientSecret,
@@ -8716,7 +8761,18 @@ export class MobileLiveGoldenRadar {
         const volume = rowSearchVolume(row);
         const exactPhrase = options.exactPhraseCandidateIds?.has(keywordCompactId(keyword)) === true;
         const existingDocumentCount = finiteNumber(row.documentCount);
-        if (existingDocumentCount !== null && existingDocumentCount > 0) {
+        const existingDocumentMetadata = measurementMetadataFromRow(row);
+        const canReuseExistingDocumentCount = !exactPhrase || (
+          (row as any).documentCountQueryMode === 'exact-phrase'
+          && existingDocumentMetadata.documentCountSource === 'naver-api'
+          && existingDocumentMetadata.documentCountConfidence === 'high'
+          && existingDocumentMetadata.isDocumentCountEstimated === false
+        );
+        if (
+          existingDocumentCount !== null
+          && existingDocumentCount > 0
+          && canReuseExistingDocumentCount
+        ) {
           measured.push({ index, row: { ...row, documentCount: existingDocumentCount } });
           continue;
         }
@@ -10536,23 +10592,73 @@ export class MobileLiveGoldenRadar {
     if (
       limit === 0
       || this.documentQuotaBlockedForRun
-      || this.persistentExactDocumentInventory.size === 0
+      || (
+        this.persistentExactDocumentInventory.size === 0
+        && this.legacyPersistedExactDocumentInventory.size === 0
+      )
     ) return empty;
 
     const now = this.now();
     const nowMs = now.getTime();
+    const currentVerifiedIds = new Set(this.verifiedSupplyBoard()
+      .map((item) => keywordCompactId(item.keyword))
+      .filter(Boolean));
+    const recordRecoveryOutcomes = (
+      attemptedIds: ReadonlySet<string>,
+      completedIds: ReadonlySet<string> = new Set<string>(),
+    ): void => {
+      for (const id of attemptedIds) {
+        if (completedIds.has(id)) {
+          this.exactDocumentRecoveryCompletedIds.add(id);
+          this.exactDocumentRecoveryFailureState.delete(id);
+          continue;
+        }
+        const failures = (this.exactDocumentRecoveryFailureState.get(id)?.failures || 0) + 1;
+        const retryDelayMs = failures >= LIVE_PROBE_QUEUE_NO_RESULT_MAX
+          ? LIVE_CURATED_EXACT_EXHAUSTED_RETRY_MS
+          : LIVE_PROBE_QUEUE_RETRY_DELAY_MS;
+        this.exactDocumentRecoveryFailureState.set(id, {
+          failures,
+          retryAtMs: nowMs + retryDelayMs,
+        });
+      }
+    };
     const rankedCandidates: Array<{ item: MobileKeywordMetric; policyKey: string; score: number }> = [];
-    for (const rawItem of this.persistentExactDocumentInventory.values()) {
+    const recoveryInventory = new Map(this.persistentExactDocumentInventory);
+    for (const [id, item] of this.legacyPersistedExactDocumentInventory) {
+      recoveryInventory.set(id, item);
+    }
+    for (const rawItem of recoveryInventory.values()) {
       const candidateId = keywordCompactId(rawItem.keyword);
-      if (!candidateId || this.exactDocumentRecoveryAttemptedIds.has(candidateId)) continue;
+      if (!candidateId) continue;
+      if (currentVerifiedIds.has(candidateId)) {
+        this.exactDocumentRecoveryCompletedIds.add(candidateId);
+        this.exactDocumentRecoveryFailureState.delete(candidateId);
+        continue;
+      }
+      if (this.exactDocumentRecoveryCompletedIds.has(candidateId)) continue;
+      const failureState = this.exactDocumentRecoveryFailureState.get(candidateId);
+      if (failureState && failureState.retryAtMs > nowMs) continue;
       const resolved = resolveExactDocumentRecoveryCoreCategory(rawItem);
       if (!resolved) continue;
 
       const cached = this.getCachedSearchAdVolume(resolved.item.keyword);
-      const pc = finiteNumber(cached?.pc);
-      const mobile = finiteNumber(cached?.mo);
-      const total = finiteNumber(cached?.total);
-      const measuredAtMs = finiteNumber(cached?.at);
+      const legacyItem = this.legacyPersistedExactDocumentInventory.get(candidateId);
+      const useLegacyDiscovery = Boolean(
+        legacyItem && hasFreshCurrentSearchAdKeywordBinding(legacyItem, now),
+      );
+      const pc = useLegacyDiscovery
+        ? finiteNumber(legacyItem?.pcSearchVolume)
+        : finiteNumber(cached?.pc);
+      const mobile = useLegacyDiscovery
+        ? finiteNumber(legacyItem?.mobileSearchVolume)
+        : finiteNumber(cached?.mo);
+      const total = useLegacyDiscovery
+        ? finiteNumber(legacyItem?.totalSearchVolume)
+        : finiteNumber(cached?.total);
+      const measuredAtMs = useLegacyDiscovery
+        ? Date.parse(String(legacyItem?.searchVolumeMeasuredAt || ''))
+        : finiteNumber(cached?.at);
       if (
         pc === null
         || mobile === null
@@ -10637,14 +10743,12 @@ export class MobileLiveGoldenRadar {
           const id = keywordCompactId(keyword);
           if (!id) continue;
           attemptedIds.add(id);
-          // This includes empty SearchAd results and document-count failures.
-          // Repeating those every worker cycle would burn the same quota forever.
-          this.exactDocumentRecoveryAttemptedIds.add(id);
         }
       },
     );
     const attemptedCount = attemptedIds.size;
     if (attemptedCount === 0 || volumeRows.length === 0) {
+      recordRecoveryOutcomes(attemptedIds);
       return { attemptedCount, promotedCount: 0 };
     }
 
@@ -10675,6 +10779,7 @@ export class MobileLiveGoldenRadar {
         isDocumentCountEstimated: undefined,
       } as LiveSearchVolumeRow));
     if (trustedFreshRows.length === 0) {
+      recordRecoveryOutcomes(attemptedIds);
       return { attemptedCount, promotedCount: 0 };
     }
 
@@ -10719,6 +10824,7 @@ export class MobileLiveGoldenRadar {
       publishable.push(metric);
     }
     if (publishable.length === 0) {
+      recordRecoveryOutcomes(attemptedIds);
       return { attemptedCount, promotedCount: 0 };
     }
 
@@ -10727,6 +10833,10 @@ export class MobileLiveGoldenRadar {
     )));
     this.mergeBoard(publishable);
     const verifiedAfter = this.verifiedSupplyBoard();
+    const completedIds = new Set(verifiedAfter
+      .map((item) => keywordCompactId(item.keyword))
+      .filter((id) => attemptedIds.has(id)));
+    recordRecoveryOutcomes(attemptedIds, completedIds);
     const promoted = verifiedAfter.filter((item) => (
       !verifiedBeforeIds.has(goldenBoardSemanticId(item.keyword))
     ));
@@ -10736,7 +10846,7 @@ export class MobileLiveGoldenRadar {
     // reporting only true net-new Verified rows as promotedCount.
     this.cachePromotionProgressCount += publishable.length;
     console.info('[LIVE-GOLDEN] persistent exact-document recovery completed', {
-      inventory: this.persistentExactDocumentInventory.size,
+      inventory: recoveryInventory.size,
       selected: selected.length,
       attemptedCount,
       freshRows: trustedFreshRows.length,
@@ -11072,7 +11182,13 @@ export class MobileLiveGoldenRadar {
       .filter((item) => ageMsFrom(item.updatedAt, nowMs) <= LIVE_BOARD_MAX_AGE_MS)
       .filter((item) => !hasRecentCacheZeroSplitProbe(item, nowMs))
       .filter(hasCompleteLiveGoldenMetrics)
-      .filter(isTrustedLiveGoldenSupplyRow)
+      // Phase 1C core supply requires an exact-phrase Naver document count.
+      // Traffic-surge is a separate product lane with its own strict gate below,
+      // so do not make that lane inherit the core supply's document scope.
+      .filter((item) => (
+        normalizeKeyword(item.lane) === TRAFFIC_SURGE_LANE
+        || isTrustedLiveGoldenSupplyRow(item)
+      ))
       .filter((item) => (
         isLiveRadarUsableMetric(item, now)
         || isMeasuredProExactKeywordMetric(item, now)
@@ -11402,6 +11518,7 @@ export class MobileLiveGoldenRadar {
   private loadBoardFromFile(replaceExisting = false): void {
     if (!this.boardFile) return;
     try {
+      this.legacyPersistedExactDocumentInventory.clear();
       // board 파일이 아직 없어도 ingest inbox 는 병합해야 한다(워커 첫 저장 전 데스크톱 push 케이스).
       const raw = fs.existsSync(this.boardFile) ? fs.readFileSync(this.boardFile, 'utf8').trim() : '';
       const hasIngestRows = this.ingestFile ? fs.existsSync(this.ingestFile) : false;
@@ -11424,6 +11541,10 @@ export class MobileLiveGoldenRadar {
         const item = this.boardItemFromPersistedRow(row, stamp, now);
         if (!item) continue;
         this.board.set(item.id, item);
+        const inventoryId = keywordCompactId(item.keyword);
+        if (inventoryId && isLegacyPersistedExactDocumentRecoveryCandidate(row, item, now)) {
+          this.legacyPersistedExactDocumentInventory.set(inventoryId, item);
+        }
       }
       // 데스크톱 ingest inbox 병합 — inbox 는 API 컨테이너가 쓰고 board 파일은 워커가 쓴다(쓰기 소유 분리).
       // 동일 키워드는 더 최신 갱신본을 유지한다.

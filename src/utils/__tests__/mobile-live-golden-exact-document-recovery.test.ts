@@ -114,6 +114,287 @@ function pendingItem(keyword: string, category: string, index: number): any {
   ]))), 'utf8');
 
   const now = new Date('2026-07-15T02:00:00.000Z');
+  const legacyBoardOnlyKeyword = '\uBD99\uBC15\uC774\uC7A5 \uC124\uCE58 \uBE44\uC6A9';
+  const legacyBoardOnlyRow = {
+    id: 'legacy-board-only-exact',
+    keyword: legacyBoardOnlyKeyword,
+    category: 'home_life',
+    grade: 'SSS',
+    score: 95,
+    pcSearchVolume: 456,
+    mobileSearchVolume: 1824,
+    totalSearchVolume: 2280,
+    documentCount: 94,
+    goldenRatio: 24.26,
+    cpc: 180,
+    source: 'mobile-live-golden-radar',
+    intent: 'direct-golden-searchad-suggestions',
+    evidence: [
+      'mobile-live-seed-backfill',
+      'naver-openapi-exact-phrase',
+      'persistent-cache-exact-document-recovery',
+    ],
+    isMeasured: true,
+    searchVolumeSource: 'searchad',
+    searchVolumeConfidence: 'high',
+    searchVolumeBindingVersion: 'keyword-keyed-v2',
+    searchVolumeMeasuredAt: now.toISOString(),
+    isSearchVolumeEstimated: false,
+    documentCountSource: 'naver-api',
+    documentCountConfidence: 'high',
+    isDocumentCountEstimated: false,
+    discoveredAt: now.toISOString(),
+    updatedAt: now.toISOString(),
+  };
+  const legacyBoardOnlyFile = path.join(dir, 'legacy-board-only.json');
+  fs.writeFileSync(legacyBoardOnlyFile, JSON.stringify({
+    version: 1,
+    boardUpdatedAt: now.toISOString(),
+    items: [legacyBoardOnlyRow],
+  }), 'utf8');
+  const legacyVolumeCalls: Array<{ keywords: string[]; forceFresh?: boolean }> = [];
+  const legacyDocumentCalls: Array<{ keyword: string; queryMode?: string; scrapeOnly?: boolean }> = [];
+  const legacyBoardOnlyRadar = new MobileLiveGoldenRadar({
+    runOnStart: false,
+    boardFile: legacyBoardOnlyFile,
+    boardTarget: 60,
+    categories: ['home_life'],
+    enableBackfill: false,
+    now: () => now,
+    getEnvConfig: () => ({
+      naverClientId: 'legacy-board-client',
+      naverClientSecret: 'legacy-board-secret',
+      naverSearchAdAccessLicense: 'legacy-board-access-license',
+      naverSearchAdSecretKey: 'legacy-board-searchad-secret',
+    }),
+    searchAdQuotaState: () => ({
+      exhausted: false,
+      calls: 0,
+      remaining: 100,
+      softCeiling: 100,
+      dailyLimit: 100,
+      resetAtMs: now.getTime() + 24 * 60 * 60 * 1000,
+      accountCount: 1,
+      availableAccountCount: 1,
+      accounts: [],
+    }),
+    getCachedSearchAdVolume: () => null,
+    getCachedExactDocumentCount: () => null,
+    measureLiveSearchVolumeSeparate: async (_config, keywords, options) => {
+      legacyVolumeCalls.push({ keywords: [...keywords], forceFresh: options?.forceFresh });
+      return keywords.filter((keyword) => keyword === legacyBoardOnlyKeyword).map((keyword) => ({
+        keyword,
+        pcSearchVolume: 500,
+        mobileSearchVolume: 1900,
+        documentCount: null,
+        competition: 'LOW',
+        monthlyAveCpc: 180,
+        searchVolumeSource: 'searchad' as const,
+        searchVolumeConfidence: 'high' as const,
+        searchVolumeBindingVersion: 'keyword-keyed-v2' as const,
+        searchVolumeMeasuredAt: now.toISOString(),
+        isSearchVolumeEstimated: false,
+      }));
+    },
+    measureLiveDocumentCount: async (keyword, options) => {
+      legacyDocumentCalls.push({ keyword, queryMode: options?.queryMode, scrapeOnly: options?.scrapeOnly });
+      if (keyword !== legacyBoardOnlyKeyword) return null;
+      return { dc: 120, source: 'naver-api', confidence: 'high', isEstimated: false };
+    },
+    liveSeedProvider: async () => [],
+    discover: async () => [],
+  });
+  await legacyBoardOnlyRadar.runOnce();
+  const legacyVolumeCall = legacyVolumeCalls.find((call) => call.keywords.includes(legacyBoardOnlyKeyword));
+  const recoveredLegacyRow = [...(legacyBoardOnlyRadar as any).board.values()]
+    .find((item: any) => item.keyword === legacyBoardOnlyKeyword);
+  const recoveredVerifiedLegacyRow = (legacyBoardOnlyRadar.snapshot().verifiedSupply || [])
+    .find((item: any) => item.keyword === legacyBoardOnlyKeyword);
+  assert(
+    'scheduled recovery force-remeasures a board-only legacy exact row without relying on SearchAd cache discovery',
+    Boolean(legacyVolumeCall)
+      && legacyVolumeCall?.forceFresh === true
+      && legacyDocumentCalls.length === 1
+      && legacyDocumentCalls[0].keyword === legacyBoardOnlyKeyword
+      && legacyDocumentCalls[0].queryMode === 'exact-phrase'
+      && legacyDocumentCalls[0].scrapeOnly === false
+      && recoveredLegacyRow?.documentCountQueryMode === 'exact-phrase'
+      && recoveredLegacyRow?.documentCountSource === 'naver-api'
+      && recoveredVerifiedLegacyRow?.pcSearchVolume === 500
+      && recoveredVerifiedLegacyRow?.mobileSearchVolume === 1900
+      && recoveredVerifiedLegacyRow?.totalSearchVolume === 2400
+      && recoveredVerifiedLegacyRow?.documentCount === 120
+      && recoveredVerifiedLegacyRow?.searchVolumeBindingVersion === 'keyword-keyed-v2'
+      && recoveredVerifiedLegacyRow?.searchVolumeMeasuredAt === now.toISOString()
+      && recoveredVerifiedLegacyRow?.isSearchVolumeEstimated === false
+      && recoveredVerifiedLegacyRow?.documentCountSource === 'naver-api'
+      && recoveredVerifiedLegacyRow?.documentCountConfidence === 'high'
+      && recoveredVerifiedLegacyRow?.documentCountQueryMode === 'exact-phrase'
+      && recoveredVerifiedLegacyRow?.isDocumentCountEstimated === false
+      && recoveredVerifiedLegacyRow?.evidence?.includes('persistent-cache-exact-document-recovery')
+      && recoveredVerifiedLegacyRow?.evidence?.includes('naver-openapi-exact-phrase'),
+    { legacyVolumeCalls, legacyDocumentCalls, recoveredLegacyRow, recoveredVerifiedLegacyRow },
+  );
+  legacyBoardOnlyRadar.stop();
+
+  const retryBoardFile = path.join(dir, 'legacy-board-retry-cooldown.json');
+  fs.writeFileSync(retryBoardFile, JSON.stringify({
+    version: 1,
+    boardUpdatedAt: now.toISOString(),
+    items: [legacyBoardOnlyRow],
+  }), 'utf8');
+  let retryNow = new Date(now);
+  let retryDocumentSucceeds = false;
+  let retryVolumeCalls = 0;
+  let retryDocumentCalls = 0;
+  let retryCachedSearchAdAtMs: number | null = null;
+  const retryRadar = new MobileLiveGoldenRadar({
+    runOnStart: false,
+    boardFile: retryBoardFile,
+    boardTarget: 60,
+    categories: ['home_life'],
+    enableBackfill: false,
+    now: () => retryNow,
+    getCachedSearchAdVolume: () => retryCachedSearchAdAtMs === null ? null : ({
+      pc: 500,
+      mo: 1900,
+      total: 2400,
+      at: retryCachedSearchAdAtMs,
+      ageMs: Math.max(0, retryNow.getTime() - retryCachedSearchAdAtMs),
+    }),
+    getCachedExactDocumentCount: () => null,
+    measureLiveSearchVolumeSeparate: async (_config, keywords) => {
+      retryVolumeCalls += 1;
+      retryCachedSearchAdAtMs = retryNow.getTime();
+      return keywords.filter((keyword) => keyword === legacyBoardOnlyKeyword).map((keyword) => ({
+        keyword,
+        pcSearchVolume: 500,
+        mobileSearchVolume: 1900,
+        documentCount: null,
+        competition: 'LOW',
+        monthlyAveCpc: 180,
+        searchVolumeSource: 'searchad' as const,
+        searchVolumeConfidence: 'high' as const,
+        searchVolumeBindingVersion: 'keyword-keyed-v2' as const,
+        searchVolumeMeasuredAt: retryNow.toISOString(),
+        isSearchVolumeEstimated: false,
+      }));
+    },
+    measureLiveDocumentCount: async (keyword, options) => {
+      retryDocumentCalls += 1;
+      if (
+        !retryDocumentSucceeds
+        || keyword !== legacyBoardOnlyKeyword
+        || options?.queryMode !== 'exact-phrase'
+      ) return null;
+      return { dc: 120, source: 'naver-api', confidence: 'high', isEstimated: false };
+    },
+    liveSeedProvider: async () => [],
+    discover: async () => [],
+  });
+  (retryRadar as any).searchAdMeasurementBudgetRemaining = 40;
+  const firstRetryAttempt = await (retryRadar as any).recoverPersistentCacheWithExactDocumentCounts(
+    { clientId: 'retry-client', clientSecret: 'retry-secret' },
+    24,
+  );
+  const callsAfterFailure = { volume: retryVolumeCalls, document: retryDocumentCalls };
+  (retryRadar as any).searchAdMeasurementBudgetRemaining = 40;
+  const cooldownAttempt = await (retryRadar as any).recoverPersistentCacheWithExactDocumentCounts(
+    { clientId: 'retry-client', clientSecret: 'retry-secret' },
+    24,
+  );
+  assert(
+    'a transient exact-document failure waits through the 90-minute cooldown without spending more quota',
+    firstRetryAttempt.attemptedCount === 1
+      && firstRetryAttempt.promotedCount === 0
+      && cooldownAttempt.attemptedCount === 0
+      && retryVolumeCalls === callsAfterFailure.volume
+      && retryDocumentCalls === callsAfterFailure.document,
+    { firstRetryAttempt, cooldownAttempt, retryVolumeCalls, retryDocumentCalls },
+  );
+  retryNow = new Date(now.getTime() + 90 * 60 * 1000 + 1);
+  (retryRadar as any).searchAdMeasurementBudgetRemaining = 40;
+  const secondFailureAttempt = await (retryRadar as any).recoverPersistentCacheWithExactDocumentCounts(
+    { clientId: 'retry-client', clientSecret: 'retry-secret' },
+    24,
+  );
+  const secondFailureAtMs = retryNow.getTime();
+  const callsAfterSecondFailure = { volume: retryVolumeCalls, document: retryDocumentCalls };
+  retryNow = new Date(secondFailureAtMs + 90 * 60 * 1000 + 1);
+  retryDocumentSucceeds = true;
+  (retryRadar as any).searchAdMeasurementBudgetRemaining = 40;
+  const prematureSecondRetry = await (retryRadar as any).recoverPersistentCacheWithExactDocumentCounts(
+    { clientId: 'retry-client', clientSecret: 'retry-secret' },
+    24,
+  );
+  assert(
+    'a second consecutive failure escalates from 90 minutes to the seven-day backoff',
+    secondFailureAttempt.attemptedCount === 1
+      && secondFailureAttempt.promotedCount === 0
+      && prematureSecondRetry.attemptedCount === 0
+      && retryVolumeCalls === callsAfterSecondFailure.volume
+      && retryDocumentCalls === callsAfterSecondFailure.document,
+    { secondFailureAttempt, prematureSecondRetry, retryVolumeCalls, retryDocumentCalls },
+  );
+  retryNow = new Date(secondFailureAtMs + 7 * 24 * 60 * 60 * 1000 + 1);
+  (retryRadar as any).searchAdMeasurementBudgetRemaining = 40;
+  const recoveredAfterCooldown = await (retryRadar as any).recoverPersistentCacheWithExactDocumentCounts(
+    { clientId: 'retry-client', clientSecret: 'retry-secret' },
+    24,
+  );
+  const retryVerified = (retryRadar.snapshot().verifiedSupply || [])
+    .find((item: any) => item.keyword === legacyBoardOnlyKeyword);
+  const callsAfterSuccess = { volume: retryVolumeCalls, document: retryDocumentCalls };
+  (retryRadar as any).searchAdMeasurementBudgetRemaining = 40;
+  const completedAttempt = await (retryRadar as any).recoverPersistentCacheWithExactDocumentCounts(
+    { clientId: 'retry-client', clientSecret: 'retry-secret' },
+    24,
+  );
+  assert(
+    'a cooled-down retry can recover once, enter Verified, and then stop remeasurement',
+    recoveredAfterCooldown.attemptedCount === 1
+      && recoveredAfterCooldown.promotedCount === 1
+      && retryVerified?.documentCountQueryMode === 'exact-phrase'
+      && completedAttempt.attemptedCount === 0
+      && retryVolumeCalls === callsAfterSuccess.volume
+      && retryDocumentCalls === callsAfterSuccess.document,
+    { recoveredAfterCooldown, retryVerified, completedAttempt, retryVolumeCalls, retryDocumentCalls },
+  );
+  retryRadar.stop();
+
+  const ingestOnlyBoardFile = path.join(dir, 'legacy-ingest-only.json');
+  const ingestOnlyFile = path.join(dir, 'legacy-ingest-only-ingest.json');
+  fs.writeFileSync(ingestOnlyBoardFile, JSON.stringify({ version: 1, items: [] }), 'utf8');
+  fs.writeFileSync(ingestOnlyFile, JSON.stringify({ version: 1, items: [legacyBoardOnlyRow] }), 'utf8');
+  let ingestOnlyVolumeCalls = 0;
+  const ingestOnlyRadar = new MobileLiveGoldenRadar({
+    runOnStart: false,
+    boardFile: ingestOnlyBoardFile,
+    ingestFile: ingestOnlyFile,
+    boardTarget: 60,
+    categories: ['home_life'],
+    enableBackfill: false,
+    now: () => now,
+    getCachedSearchAdVolume: () => null,
+    measureLiveSearchVolumeSeparate: async () => {
+      ingestOnlyVolumeCalls += 1;
+      return [];
+    },
+    discover: async () => [],
+  });
+  const ingestOnlyInternal = ingestOnlyRadar as any;
+  ingestOnlyInternal.searchAdMeasurementBudgetRemaining = 40;
+  const ingestOnlyRecovery = await ingestOnlyInternal.recoverPersistentCacheWithExactDocumentCounts(
+    { clientId: 'legacy-ingest-client', clientSecret: 'legacy-ingest-secret' },
+    24,
+  );
+  assert(
+    'ingest-only evidence cannot open the trusted persisted-board exact recovery lane',
+    ingestOnlyRecovery.attemptedCount === 0 && ingestOnlyVolumeCalls === 0,
+    { ingestOnlyRecovery, ingestOnlyVolumeCalls },
+  );
+  ingestOnlyRadar.stop();
+
   const cachedVolumeByKeyword = new Map<string, number>(candidates.map(([keyword, , volume]) => [keyword, volume]));
   const volumeOptions: Array<{ includeDocumentCount?: boolean; forceFresh?: boolean }> = [];
   const measuredKeywords: string[] = [];

@@ -41,6 +41,7 @@ function result(keyword: string, index: number): any {
     isSearchVolumeEstimated: false,
     documentCountSource: 'naver-api',
     documentCountConfidence: 'high',
+    documentCountQueryMode: 'exact-phrase',
     isDocumentCountEstimated: false,
   };
 }
@@ -69,6 +70,7 @@ function floodResult(keyword: string, index: number, profile = false): any {
     isSearchVolumeEstimated: false,
     documentCountSource: 'naver-api',
     documentCountConfidence: 'high',
+    documentCountQueryMode: 'exact-phrase',
     isDocumentCountEstimated: false,
   };
 }
@@ -100,6 +102,7 @@ function previewBoardItem(keyword: string, category: string, index: number): any
     isSearchVolumeEstimated: false,
     documentCountSource: 'naver-api',
     documentCountConfidence: 'high',
+    documentCountQueryMode: 'exact-phrase',
     isDocumentCountEstimated: false,
     discoveredAt: '2026-07-05T00:00:00.000Z',
     updatedAt: '2026-07-05T00:00:00.000Z',
@@ -548,6 +551,7 @@ function thinProfileCount(items: Array<{ keyword: string }>): number {
       isSearchVolumeEstimated: false,
       documentCountSource: 'naver-api',
       documentCountConfidence: 'high',
+      documentCountQueryMode: 'exact-phrase',
       isDocumentCountEstimated: false,
       updatedAt: '2026-06-15T08:00:00.000Z',
       discoveredAt: '2026-06-15T08:00:00.000Z',
@@ -614,6 +618,7 @@ function thinProfileCount(items: Array<{ keyword: string }>): number {
       isSearchVolumeEstimated: false,
       documentCountSource: 'naver-api',
       documentCountConfidence: 'high',
+      documentCountQueryMode: 'exact-phrase',
       isDocumentCountEstimated: false,
       updatedAt: extraFieldsStamp,
       discoveredAt: extraFieldsStamp,
@@ -648,6 +653,7 @@ function thinProfileCount(items: Array<{ keyword: string }>): number {
       isSearchVolumeEstimated: false,
       documentCountSource: 'naver-api',
       documentCountConfidence: 'high',
+      documentCountQueryMode: 'exact-phrase',
       isDocumentCountEstimated: false,
       updatedAt: extraFieldsStamp,
       discoveredAt: extraFieldsStamp,
@@ -698,6 +704,70 @@ function thinProfileCount(items: Array<{ keyword: string }>): number {
     extraFieldsSnapshot.board.map((item) => item.keyword).join('|'));
   fs.rmSync(extraFieldsBoardFile, { force: true });
 
+  const legacyExactBoardFile = path.join(process.cwd(), 'tmp', 'mobile-live-golden-legacy-exact-test.json');
+  const legacyExactStamp = new Date().toISOString();
+  const legacyExactRow = (keyword: string, evidence: string[]) => ({
+    keyword,
+    grade: 'SS' as const,
+    score: 82,
+    totalSearchVolume: 1200,
+    pcSearchVolume: 200,
+    mobileSearchVolume: 1000,
+    documentCount: 120,
+    goldenRatio: 10,
+    category: 'home_life',
+    source: 'mobile-live-golden-radar',
+    intent: 'Commercial',
+    evidence,
+    searchVolumeSource: 'searchad',
+    searchVolumeConfidence: 'high',
+    searchVolumeBindingVersion: 'keyword-keyed-v2',
+    searchVolumeMeasuredAt: legacyExactStamp,
+    isSearchVolumeEstimated: false,
+    documentCountSource: 'naver-api',
+    documentCountConfidence: 'high',
+    isDocumentCountEstimated: false,
+    updatedAt: legacyExactStamp,
+    discoveredAt: legacyExactStamp,
+    isMeasured: true,
+  });
+  fs.writeFileSync(legacyExactBoardFile, JSON.stringify({
+    boardUpdatedAt: legacyExactStamp,
+    items: [
+      legacyExactRow('에어컨이전설치비용', [
+        'naver-openapi-exact-phrase',
+        'direct-searchad-exact-measured',
+      ]),
+      legacyExactRow('냉장고수리비용', ['naver-openapi-document-count']),
+    ],
+  }), 'utf8');
+  const legacyExactRadar = new MobileLiveGoldenRadar({
+    notificationInbox: inbox,
+    runOnStart: false,
+    cycleLimit: 1,
+    boardTarget: 10,
+    maxCandidates: 60,
+    boardFile: legacyExactBoardFile,
+    categories: ['home_life'],
+    enableBackfill: false,
+    discover: async () => [],
+  });
+  const legacyExactSnapshot = legacyExactRadar.snapshot();
+  const legacyExactPersistedItems = [...((legacyExactRadar as any).board.values() as Iterable<any>)];
+  const legacyExactItem = legacyExactPersistedItems.find((item) => item.keyword === '에어컨이전설치비용');
+  const unprovenLegacyItem = legacyExactPersistedItems.find((item) => item.keyword === '냉장고수리비용');
+  assert('legacy exact-phrase evidence alone never restores a missing query mode',
+    !!legacyExactItem
+      && legacyExactItem.documentCountQueryMode === undefined
+      && !legacyExactSnapshot.verifiedSupply.some((item) => item.keyword === legacyExactItem.keyword),
+    JSON.stringify(legacyExactItem));
+  assert('legacy rows without explicit exact-phrase evidence remain unclassified',
+    !!unprovenLegacyItem
+      && unprovenLegacyItem.documentCountQueryMode === undefined
+      && !legacyExactSnapshot.verifiedSupply.some((item) => item.keyword === unprovenLegacyItem.keyword),
+    JSON.stringify(unprovenLegacyItem));
+  fs.rmSync(legacyExactBoardFile, { force: true });
+
   // 정치 이벤트 × 정책 수급 tail 의미충돌 자동조합('정청래의총참석지급일' 계열) 회귀:
   // SearchAd 유령 검색량으로 SSS 지표가 붙어도 발굴 후보·usable·보드 전부 차단.
   assert('political-event x benefit-tail synthetic combos are semantically mismatched',
@@ -739,6 +809,7 @@ function thinProfileCount(items: Array<{ keyword: string }>): number {
     isSearchVolumeEstimated: false,
     documentCountSource: 'naver-api',
     documentCountConfidence: 'high',
+    documentCountQueryMode: 'exact-phrase',
     isDocumentCountEstimated: false,
     updatedAt: realDemandStamp,
     discoveredAt: realDemandStamp,
@@ -876,6 +947,10 @@ function thinProfileCount(items: Array<{ keyword: string }>): number {
   });
   const surgeSnapshot = await surgeRadar.runOnce();
   const surgeRows = surgeSnapshot.board.filter((item) => item.lane === 'traffic-surge');
+  assert('traffic-surge product rows stay outside Phase 1C verified supply',
+    surgeRows.length > 0
+      && !(surgeSnapshot.verifiedSupply || []).some((item) => item.lane === 'traffic-surge'),
+    JSON.stringify(surgeSnapshot.verifiedSupply || []));
   assert('traffic-surge lane reaches the board with real-user phrasings and survives info-lane gates',
     surgeRows.some((item) => item.keyword === '김부장 기본정보' && item.grade !== 'C')
       && surgeRows.some((item) => item.keyword === '김부장 등장인물')
@@ -917,6 +992,11 @@ function thinProfileCount(items: Array<{ keyword: string }>): number {
     enableBackfill: false,
     discover: async () => [],
   });
+  const surgeReloadSnapshot = surgeReloadRadar.snapshot();
+  assert('reloaded traffic-surge rows stay outside Phase 1C verified supply',
+    surgeReloadSnapshot.board.some((item) => item.lane === 'traffic-surge')
+      && !(surgeReloadSnapshot.verifiedSupply || []).some((item) => item.lane === 'traffic-surge'),
+    JSON.stringify(surgeReloadSnapshot.verifiedSupply || []));
   assert('traffic-surge rows survive the board file round-trip with lane and new-entry tags',
     surgeReloadRadar.snapshot().board.some((item) => item.lane === 'traffic-surge' && item.keyword === '김부장 기본정보')
       && surgeReloadRadar.snapshot().board.some((item) => item.keyword === '김부장 결말 해석' && item.surgeNewEntry === true),
@@ -963,6 +1043,7 @@ function thinProfileCount(items: Array<{ keyword: string }>): number {
       isSearchVolumeEstimated: false,
       documentCountSource: 'naver-api',
       documentCountConfidence: 'high',
+      documentCountQueryMode: 'exact-phrase',
       isDocumentCountEstimated: false,
       isMeasured: true,
       serpMeasured: true,
@@ -1045,6 +1126,7 @@ function thinProfileCount(items: Array<{ keyword: string }>): number {
       isSearchVolumeEstimated: false,
       documentCountSource: 'naver-api',
       documentCountConfidence: 'high',
+      documentCountQueryMode: 'exact-phrase',
       isDocumentCountEstimated: false,
       updatedAt: '2026-06-15T08:00:00.000Z',
       discoveredAt: '2026-06-15T08:00:00.000Z',
@@ -1125,7 +1207,7 @@ function thinProfileCount(items: Array<{ keyword: string }>): number {
     },
     measureLiveDocumentCount: async () => ({
       dc: 420,
-      source: 'scrape',
+      source: 'naver-api',
       confidence: 'high',
       isEstimated: false,
     }),
@@ -1135,15 +1217,29 @@ function thinProfileCount(items: Array<{ keyword: string }>): number {
     },
   });
   const backfillCatchupSnapshot = await backfillCatchupRadar.runOnce();
-  assert('live radar catch-up publishes measured backfill without opening a second direct SearchAd lane',
+  const backfillCatchupInternalBoard = [
+    ...((backfillCatchupRadar as any).board.values() as Iterable<any>),
+  ];
+  assert('broad scrape backfill stays outside verified supply without opening a second direct SearchAd lane',
     backfillCatchupVolumeCalls > 0
       && backfillCatchupDirectCalls === 0
       && backfillCatchupSnapshot.successfulRuns === 1
-      && backfillCatchupSnapshot.boardCount > 0,
+      && backfillCatchupSnapshot.boardCount === 0
+      && backfillCatchupInternalBoard.some((item: any) => (
+        item.keyword === '소상공인 특례보증 신청 방법'
+        && item.documentCountSource === 'scrape'
+        && item.documentCountQueryMode === undefined
+      )),
     JSON.stringify({
       volumeCalls: backfillCatchupVolumeCalls,
       directCalls: backfillCatchupDirectCalls,
       boardCount: backfillCatchupSnapshot.boardCount,
+      internalBoard: backfillCatchupInternalBoard.map((item: any) => ({
+        keyword: item.keyword,
+        source: item.documentCountSource,
+        mode: item.documentCountQueryMode,
+        evidence: item.evidence,
+      })),
       lastMessage: backfillCatchupSnapshot.lastMessage,
     }));
 
@@ -1200,14 +1296,23 @@ function thinProfileCount(items: Array<{ keyword: string }>): number {
     discover: async () => [],
   });
   const autocompleteBackfillSnapshot = await autocompleteBackfillRadar.runOnce();
-  assert('live radar measures measured policy need longtails instead of displaying raw issue seeds',
+  const autocompleteBackfillInternalBoard = [
+    ...((autocompleteBackfillRadar as any).board.values() as Iterable<any>),
+  ];
+  assert('broad autocomplete longtails remain recovery references instead of verified supply',
     autocompleteBackfillVolumeCalls > 0
       && autocompleteMeasuredKeywords.some((keyword) => keyword.replace(/\s+/g, '').includes('\uB18D\uC2DD\uD488\uBC14\uC6B0\uCC98\uC2E0\uCCAD'))
-      && autocompleteBackfillSnapshot.board.some((item) => item.keyword.replace(/\s+/g, '').includes('\uB18D\uC2DD\uD488\uBC14\uC6B0\uCC98\uC2E0\uCCAD'))
+      && autocompleteBackfillSnapshot.board.length === 0
+      && autocompleteBackfillInternalBoard.some((item: any) => (
+        item.keyword.replace(/\s+/g, '').includes('\uB18D\uC2DD\uD488\uBC14\uC6B0\uCC98\uC2E0\uCCAD')
+        && item.documentCountSource === 'scrape'
+        && item.documentCountQueryMode === undefined
+      ))
       && !autocompleteMeasuredKeywords.some((keyword) => keyword.includes('\uB85C\uB610')),
     JSON.stringify({
       measured: autocompleteMeasuredKeywords.slice(0, 30),
       board: autocompleteBackfillSnapshot.board.map((item) => item.keyword),
+      internalBoard: autocompleteBackfillInternalBoard.map((item: any) => item.keyword),
     }));
 
   const profileFloodRadar = new MobileLiveGoldenRadar({
@@ -1608,7 +1713,11 @@ function thinProfileCount(items: Array<{ keyword: string }>): number {
     allHealthPolicyMixProbeCandidates.slice(0, 160).join('|'));
   let measuredProbeVolumeCalls = 0;
   const measuredProbeVolumeKeywords: string[] = [];
-  const measuredProbeDocumentOptions: Array<{ keyword: string; scrapeOnly?: boolean }> = [];
+  const measuredProbeDocumentOptions: Array<{
+    keyword: string;
+    scrapeOnly?: boolean;
+    queryMode?: string;
+  }> = [];
   const measuredProbeRadar = new MobileLiveGoldenRadar({
     notificationInbox: inbox,
     runOnStart: false,
@@ -1646,7 +1755,11 @@ function thinProfileCount(items: Array<{ keyword: string }>): number {
         }));
     },
     measureLiveDocumentCount: async (keyword, options) => {
-      measuredProbeDocumentOptions.push({ keyword, scrapeOnly: options?.scrapeOnly });
+      measuredProbeDocumentOptions.push({
+        keyword,
+        scrapeOnly: options?.scrapeOnly,
+        queryMode: options?.queryMode,
+      });
       if (!/\uC81C\uC8FC\s*\uB80C\uD130\uCE74.*\uAC00\uACA9\uBE44\uAD50/.test(keyword)) return null;
       return {
         dc: 15,
@@ -1658,17 +1771,25 @@ function thinProfileCount(items: Array<{ keyword: string }>): number {
     discover: async () => [],
   });
   const measuredProbeSnapshot = await measuredProbeRadar.runOnce();
-  assert('measured probe backfill publishes only after SearchAd split and measured document count are attached',
+  const measuredProbeInternalBoard = [
+    ...((measuredProbeRadar as any).board.values() as Iterable<any>),
+  ];
+  assert('broad measured-probe documents stay outside exact verified supply',
     measuredProbeVolumeCalls > 0
       && measuredProbeVolumeKeywords.some((keyword) => /\uC81C\uC8FC\s*\uB80C\uD130\uCE74.*\uAC00\uACA9\uBE44\uAD50/.test(keyword))
-      && measuredProbeDocumentOptions.some((item) => /\uC81C\uC8FC\s*\uB80C\uD130\uCE74.*\uAC00\uACA9\uBE44\uAD50/.test(item.keyword))
-      && measuredProbeSnapshot.board.some((item) => (
+      && measuredProbeDocumentOptions.some((item) => (
+        /\uC81C\uC8FC\s*\uB80C\uD130\uCE74.*\uAC00\uACA9\uBE44\uAD50/.test(item.keyword)
+        && item.queryMode === 'broad'
+      ))
+      && measuredProbeSnapshot.board.length === 0
+      && measuredProbeInternalBoard.some((item: any) => (
         /\uC81C\uC8FC\s*\uB80C\uD130\uCE74.*\uAC00\uACA9\uBE44\uAD50/.test(item.keyword)
         && item.pcSearchVolume === 540
         && item.mobileSearchVolume === 1740
         && item.documentCount === 15
         && item.searchVolumeSource === 'searchad'
         && item.documentCountSource === 'scrape'
+        && item.documentCountQueryMode === undefined
         && item.isSearchVolumeEstimated === false
         && item.isDocumentCountEstimated === false
       )),
@@ -1676,6 +1797,7 @@ function thinProfileCount(items: Array<{ keyword: string }>): number {
       measured: measuredProbeVolumeKeywords.slice(0, 50),
       documents: measuredProbeDocumentOptions,
       board: measuredProbeSnapshot.board.map((item) => `${item.keyword}:${item.totalSearchVolume}:${item.documentCount}:${item.searchVolumeSource}:${item.documentCountSource}`),
+      internalBoard: measuredProbeInternalBoard.map((item: any) => `${item.keyword}:${item.documentCountSource}:${item.documentCountQueryMode || 'missing'}`),
       lastMessage: measuredProbeSnapshot.lastMessage,
     }));
   const noisyAutocompleteRegions = [
@@ -1755,6 +1877,9 @@ function thinProfileCount(items: Array<{ keyword: string }>): number {
     discover: async () => [],
   });
   const noisyProbeSnapshot = await noisyProbeRadar.runOnce();
+  const noisyProbeInternalBoard = [
+    ...((noisyProbeRadar as any).board.values() as Iterable<any>),
+  ];
   const noisyAutocompleteSuggestionIds = new Set(
     noisyAutocompleteSuggestions.map((keyword) => keyword.replace(/\s+/g, '')),
   );
@@ -1764,12 +1889,18 @@ function thinProfileCount(items: Array<{ keyword: string }>): number {
       && noisyProbeVolumeKeywords
         .slice(0, 16)
         .every((keyword) => !noisyAutocompleteSuggestionIds.has(keyword.replace(/\s+/g, '')))
-      && noisyProbeSnapshot.board.some((item) => /\uC81C\uC8FC\s*\uB80C\uD130\uCE74.*\uAC00\uACA9\uBE44\uAD50/.test(item.keyword)),
+      && noisyProbeSnapshot.board.length === 0
+      && noisyProbeInternalBoard.some((item: any) => (
+        /\uC81C\uC8FC\s*\uB80C\uD130\uCE74.*\uAC00\uACA9\uBE44\uAD50/.test(item.keyword)
+        && item.documentCountSource === 'scrape'
+        && item.documentCountQueryMode === undefined
+      )),
     JSON.stringify({
       first: noisyProbeVolumeKeywords.slice(0, 16),
       autocompleteCalls: noisyAutocompleteCalls,
       totalMeasured: noisyProbeVolumeKeywords.length,
       board: noisyProbeSnapshot.board.map((item) => item.keyword),
+      internalBoard: noisyProbeInternalBoard.map((item: any) => item.keyword),
     }));
   const policyBackfillCandidates = __liveGoldenRadarTestInternals.buildBackfillCandidates('policy', [
     '\uADFC\uB85C\uC7A5\uB824\uAE08',
@@ -2189,21 +2320,30 @@ function thinProfileCount(items: Array<{ keyword: string }>): number {
     }),
   });
   const liveIssueMeasuredFallbackSnapshot = await liveIssueMeasuredFallbackRadar.runOnce();
-  assert('live issue fallback is promoted only after measured search volume and document count are attached',
+  const liveIssueMeasuredFallbackInternalBoard = [
+    ...((liveIssueMeasuredFallbackRadar as any).board.values() as Iterable<any>),
+  ];
+  assert('broad live-issue fallback remains a measured recovery reference',
     measuredFallbackVolumeCalls > 0
-      && liveIssueMeasuredFallbackSnapshot.board.length >= 2
-      && liveIssueMeasuredFallbackSnapshot.board.every((item) => item.source === 'mobile-live-issue-measured-radar')
-      && liveIssueMeasuredFallbackSnapshot.board.every((item) => item.isMeasured && (item.totalSearchVolume || 0) > 0 && (item.documentCount || 0) > 0)
-      && liveIssueMeasuredFallbackSnapshot.board.every((item) => ['S+', 'S', 'A'].includes(String(item.valueGrade))),
-    `${liveIssueMeasuredFallbackSnapshot.lastMessage || ''} :: ${liveIssueMeasuredFallbackSnapshot.board.map((item) => `${item.keyword}:${item.totalSearchVolume}:${item.documentCount}:${item.source}`).join('|')}`);
+      && liveIssueMeasuredFallbackSnapshot.board.length === 0
+      && liveIssueMeasuredFallbackInternalBoard.length >= 2
+      && liveIssueMeasuredFallbackInternalBoard.every((item: any) => item.source === 'mobile-live-issue-measured-radar')
+      && liveIssueMeasuredFallbackInternalBoard.every((item: any) => (
+        item.isMeasured
+        && (item.totalSearchVolume || 0) > 0
+        && (item.documentCount || 0) > 0
+        && item.documentCountSource === 'scrape'
+        && item.documentCountQueryMode === undefined
+      )),
+    `${liveIssueMeasuredFallbackSnapshot.lastMessage || ''} :: ${liveIssueMeasuredFallbackInternalBoard.map((item: any) => `${item.keyword}:${item.totalSearchVolume}:${item.documentCount}:${item.source}`).join('|')}`);
   assert('live issue measured fallback preserves searchad pc mobile split and cpc',
-    liveIssueMeasuredFallbackSnapshot.board.some((item) => (
+    liveIssueMeasuredFallbackInternalBoard.some((item: any) => (
       item.keyword === '\uC18C\uC0C1\uACF5\uC778 \uD2B9\uB840\uBCF4\uC99D \uC2E0\uCCAD \uBC29\uBC95'
       && item.pcSearchVolume === 2400
       && item.mobileSearchVolume === 8600
       && item.cpc === 120
     )),
-    liveIssueMeasuredFallbackSnapshot.board.map((item) => `${item.keyword}:${item.pcSearchVolume}:${item.mobileSearchVolume}:${item.cpc}`).join('|'));
+    liveIssueMeasuredFallbackInternalBoard.map((item: any) => `${item.keyword}:${item.pcSearchVolume}:${item.mobileSearchVolume}:${item.cpc}`).join('|'));
 
   const publicQualityBoardFile = path.join(process.cwd(), 'tmp', 'mobile-live-golden-public-quality-test.json');
   fs.writeFileSync(publicQualityBoardFile, JSON.stringify({
@@ -2274,9 +2414,10 @@ function thinProfileCount(items: Array<{ keyword: string }>): number {
         searchVolumeBindingVersion: 'keyword-keyed-v2',
         searchVolumeMeasuredAt: '2026-06-13T08:20:00.000Z',
         isSearchVolumeEstimated: false,
-        documentCountSource: 'naver-api',
-        documentCountConfidence: 'high',
-        isDocumentCountEstimated: false,
+   documentCountSource: 'naver-api',
+   documentCountConfidence: 'high',
+    documentCountQueryMode: 'exact-phrase',
+   isDocumentCountEstimated: false,
         category: 'it',
         updatedAt: '2026-06-13T08:20:00.000Z',
         discoveredAt: '2026-06-13T08:20:00.000Z',
@@ -2327,9 +2468,10 @@ function thinProfileCount(items: Array<{ keyword: string }>): number {
       searchVolumeBindingVersion: 'keyword-keyed-v2',
       searchVolumeMeasuredAt: '2026-06-13T08:59:00.000Z',
       isSearchVolumeEstimated: false,
-      documentCountSource: 'naver-api',
-      documentCountConfidence: 'high',
-      isDocumentCountEstimated: false,
+   documentCountSource: 'naver-api',
+   documentCountConfidence: 'high',
+    documentCountQueryMode: 'exact-phrase',
+   isDocumentCountEstimated: false,
       updatedAt: '2026-06-13T08:59:00.000Z',
       discoveredAt: '2026-06-13T08:59:00.000Z',
       isMeasured: true,
@@ -2384,9 +2526,10 @@ function thinProfileCount(items: Array<{ keyword: string }>): number {
       searchVolumeBindingVersion: 'keyword-keyed-v2',
       searchVolumeMeasuredAt: '2026-06-13T08:50:00.000Z',
       isSearchVolumeEstimated: false,
-      documentCountSource: 'naver-api',
-      documentCountConfidence: 'high',
-      isDocumentCountEstimated: false,
+   documentCountSource: 'naver-api',
+   documentCountConfidence: 'high',
+    documentCountQueryMode: 'exact-phrase',
+   isDocumentCountEstimated: false,
       updatedAt: '2026-06-13T08:50:00.000Z',
       discoveredAt: '2026-06-13T08:50:00.000Z',
       isMeasured: true,
@@ -2451,9 +2594,10 @@ function thinProfileCount(items: Array<{ keyword: string }>): number {
       searchVolumeBindingVersion: 'keyword-keyed-v2',
       searchVolumeMeasuredAt: index < 3 ? '2026-06-13T08:55:00.000Z' : '2026-06-10T08:55:00.000Z',
       isSearchVolumeEstimated: false,
-      documentCountSource: 'naver-api',
-      documentCountConfidence: 'high',
-      isDocumentCountEstimated: false,
+     documentCountSource: 'naver-api',
+     documentCountConfidence: 'high',
+      documentCountQueryMode: 'exact-phrase',
+     isDocumentCountEstimated: false,
       updatedAt: index < 3 ? '2026-06-13T08:55:00.000Z' : '2026-06-10T08:55:00.000Z',
       discoveredAt: index < 3 ? '2026-06-13T08:55:00.000Z' : '2026-06-10T08:55:00.000Z',
       isMeasured: true,
@@ -2510,9 +2654,10 @@ function thinProfileCount(items: Array<{ keyword: string }>): number {
       searchVolumeBindingVersion: 'keyword-keyed-v2',
       searchVolumeMeasuredAt: '2026-06-13T08:59:00.000Z',
       isSearchVolumeEstimated: false,
-      documentCountSource: 'naver-api',
-      documentCountConfidence: 'high',
-      isDocumentCountEstimated: false,
+     documentCountSource: 'naver-api',
+     documentCountConfidence: 'high',
+      documentCountQueryMode: 'exact-phrase',
+     isDocumentCountEstimated: false,
       updatedAt: '2026-06-13T08:59:00.000Z',
       discoveredAt: '2026-06-13T08:59:00.000Z',
       isMeasured: true,
@@ -2577,9 +2722,10 @@ function thinProfileCount(items: Array<{ keyword: string }>): number {
       searchVolumeBindingVersion: 'keyword-keyed-v2',
       searchVolumeMeasuredAt: '2026-06-13T08:58:00.000Z',
       isSearchVolumeEstimated: false,
-      documentCountSource: 'naver-api',
-      documentCountConfidence: 'high',
-      isDocumentCountEstimated: false,
+     documentCountSource: 'naver-api',
+     documentCountConfidence: 'high',
+      documentCountQueryMode: 'exact-phrase',
+     isDocumentCountEstimated: false,
       updatedAt: '2026-06-13T08:58:00.000Z',
       discoveredAt: '2026-06-13T08:58:00.000Z',
       isMeasured: true,
@@ -2643,9 +2789,10 @@ function thinProfileCount(items: Array<{ keyword: string }>): number {
       searchVolumeBindingVersion: 'keyword-keyed-v2',
       searchVolumeMeasuredAt: '2026-06-13T08:59:00.000Z',
       isSearchVolumeEstimated: false,
-      documentCountSource: 'naver-api',
-      documentCountConfidence: 'high',
-      isDocumentCountEstimated: false,
+     documentCountSource: 'naver-api',
+     documentCountConfidence: 'high',
+      documentCountQueryMode: 'exact-phrase',
+     isDocumentCountEstimated: false,
       updatedAt: '2026-06-13T08:59:00.000Z',
       discoveredAt: '2026-06-13T08:59:00.000Z',
       isMeasured: true,
@@ -2703,6 +2850,7 @@ function thinProfileCount(items: Array<{ keyword: string }>): number {
       isSearchVolumeEstimated: false,
       documentCountSource: Number(documentCount) > 0 ? 'naver-api' : undefined,
       documentCountConfidence: Number(documentCount) > 0 ? 'high' : undefined,
+      documentCountQueryMode: Number(documentCount) > 0 ? 'exact-phrase' : undefined,
       isDocumentCountEstimated: false,
       updatedAt: '2026-06-13T09:01:00.000Z',
       discoveredAt: '2026-06-13T09:01:00.000Z',
@@ -2761,9 +2909,10 @@ function thinProfileCount(items: Array<{ keyword: string }>): number {
       searchVolumeBindingVersion: 'keyword-keyed-v2',
       searchVolumeMeasuredAt: '2026-06-13T09:03:00.000Z',
       isSearchVolumeEstimated: false,
-      documentCountSource: 'naver-api',
-      documentCountConfidence: 'high',
-      isDocumentCountEstimated: false,
+     documentCountSource: 'naver-api',
+     documentCountConfidence: 'high',
+      documentCountQueryMode: 'exact-phrase',
+     isDocumentCountEstimated: false,
       updatedAt: '2026-06-13T09:03:00.000Z',
       discoveredAt: '2026-06-13T09:03:00.000Z',
       isMeasured: true,
@@ -2820,9 +2969,10 @@ function thinProfileCount(items: Array<{ keyword: string }>): number {
       searchVolumeBindingVersion: 'keyword-keyed-v2',
       searchVolumeMeasuredAt: '2026-06-15T08:00:00.000Z',
       isSearchVolumeEstimated: false,
-      documentCountSource: 'naver-api',
-      documentCountConfidence: 'high',
-      isDocumentCountEstimated: false,
+     documentCountSource: 'naver-api',
+     documentCountConfidence: 'high',
+      documentCountQueryMode: 'exact-phrase',
+     isDocumentCountEstimated: false,
       updatedAt: '2026-06-15T08:00:00.000Z',
       discoveredAt: '2026-06-15T08:00:00.000Z',
       isMeasured: true,
@@ -2868,9 +3018,10 @@ function thinProfileCount(items: Array<{ keyword: string }>): number {
       searchVolumeBindingVersion: 'keyword-keyed-v2',
       searchVolumeMeasuredAt: '2026-06-15T08:00:00.000Z',
       isSearchVolumeEstimated: false,
-      documentCountSource: 'naver-api',
-      documentCountConfidence: 'high',
-      isDocumentCountEstimated: false,
+     documentCountSource: 'naver-api',
+     documentCountConfidence: 'high',
+      documentCountQueryMode: 'exact-phrase',
+     isDocumentCountEstimated: false,
       updatedAt: '2026-06-15T08:00:00.000Z',
       discoveredAt: '2026-06-15T08:00:00.000Z',
       isMeasured: true,
@@ -2910,9 +3061,10 @@ function thinProfileCount(items: Array<{ keyword: string }>): number {
     searchVolumeBindingVersion: 'keyword-keyed-v2',
     searchVolumeMeasuredAt: '2026-06-15T08:00:00.000Z',
     isSearchVolumeEstimated: false,
-    documentCountSource: 'naver-api',
-    documentCountConfidence: 'high',
-    isDocumentCountEstimated: false,
+     documentCountSource: 'naver-api',
+     documentCountConfidence: 'high',
+      documentCountQueryMode: 'exact-phrase',
+     isDocumentCountEstimated: false,
     updatedAt: '2026-06-15T08:00:00.000Z',
     discoveredAt: '2026-06-15T08:00:00.000Z',
     isMeasured: true,
@@ -2934,9 +3086,10 @@ function thinProfileCount(items: Array<{ keyword: string }>): number {
     searchVolumeBindingVersion: 'keyword-keyed-v2',
     searchVolumeMeasuredAt: '2026-06-15T08:00:00.000Z',
     isSearchVolumeEstimated: false,
-    documentCountSource: 'naver-api',
-    documentCountConfidence: 'high',
-    isDocumentCountEstimated: false,
+     documentCountSource: 'naver-api',
+     documentCountConfidence: 'high',
+      documentCountQueryMode: 'exact-phrase',
+     isDocumentCountEstimated: false,
     updatedAt: '2026-06-15T08:00:00.000Z',
     discoveredAt: '2026-06-15T08:00:00.000Z',
     isMeasured: true,
@@ -3071,9 +3224,9 @@ function thinProfileCount(items: Array<{ keyword: string }>): number {
       searchVolumeBindingVersion: 'keyword-keyed-v2',
       searchVolumeMeasuredAt: '2026-06-15T08:00:00.000Z',
       isSearchVolumeEstimated: false,
-      documentCountSource: 'naver-api',
-      documentCountConfidence: 'high',
-      isDocumentCountEstimated: false,
+     documentCountSource: 'naver-api',
+     documentCountConfidence: 'high',
+     isDocumentCountEstimated: false,
       updatedAt: '2026-06-15T08:00:00.000Z',
       discoveredAt: '2026-06-15T08:00:00.000Z',
       isMeasured: true,
@@ -3132,18 +3285,25 @@ function thinProfileCount(items: Array<{ keyword: string }>): number {
     discover: async () => [],
   });
   const referenceProbeSnapshot = await referenceProbeRadar.runOnce();
-  assert('measured broad references are converted into writer-ready SSS probe measurements',
+  const referenceProbeInternalBoard = [
+    ...((referenceProbeRadar as any).board.values() as Iterable<any>),
+  ];
+  assert('measured broad references produce writer-ready recovery probes without entering verified supply',
     referenceProbeMeasuredKeywords.includes(referenceProbeTarget)
-      && referenceProbeSnapshot.board.some((item) => (
+      && !referenceProbeSnapshot.board.some((item) => item.keyword === referenceProbeTarget)
+      && referenceProbeInternalBoard.some((item: any) => (
         item.keyword === referenceProbeTarget
         && item.grade === 'SSS'
         && item.pcSearchVolume === 1280
         && item.mobileSearchVolume === 5120
         && item.documentCount === 380
+        && item.documentCountSource === 'scrape'
+        && item.documentCountQueryMode === undefined
       )),
     JSON.stringify({
       measured: referenceProbeMeasuredKeywords.slice(0, 30),
       board: referenceProbeSnapshot.board.map((item) => `${item.keyword}:${item.grade}:${item.pcSearchVolume}:${item.mobileSearchVolume}:${item.documentCount}`),
+      internalBoard: referenceProbeInternalBoard.map((item: any) => `${item.keyword}:${item.documentCountSource}:${item.documentCountQueryMode || 'missing'}`),
       lastMessage: referenceProbeSnapshot.lastMessage,
     }));
   fs.rmSync(referenceProbeBoardFile, { force: true });
@@ -3179,9 +3339,10 @@ function thinProfileCount(items: Array<{ keyword: string }>): number {
       searchVolumeBindingVersion: 'keyword-keyed-v2',
       searchVolumeMeasuredAt: '2026-06-15T08:00:00.000Z',
       isSearchVolumeEstimated: false,
-      documentCountSource: 'naver-api',
-      documentCountConfidence: 'high',
-      isDocumentCountEstimated: false,
+     documentCountSource: 'naver-api',
+     documentCountConfidence: 'high',
+      documentCountQueryMode: 'exact-phrase',
+     isDocumentCountEstimated: false,
       updatedAt: '2026-06-15T08:00:00.000Z',
       discoveredAt: '2026-06-15T08:00:00.000Z',
       isMeasured: true,
@@ -3237,9 +3398,10 @@ function thinProfileCount(items: Array<{ keyword: string }>): number {
         searchVolumeBindingVersion: 'keyword-keyed-v2',
         searchVolumeMeasuredAt: '2026-06-21T17:04:21.000Z',
         isSearchVolumeEstimated: false,
-        documentCountSource: 'naver-api',
-        documentCountConfidence: 'high',
-        isDocumentCountEstimated: false,
+     documentCountSource: 'naver-api',
+     documentCountConfidence: 'high',
+      documentCountQueryMode: 'exact-phrase',
+     isDocumentCountEstimated: false,
         aiJudge: {
           verdict: 'publish',
           score: 100,
@@ -3290,9 +3452,10 @@ function thinProfileCount(items: Array<{ keyword: string }>): number {
       searchVolumeBindingVersion: 'keyword-keyed-v2',
       searchVolumeMeasuredAt: '2026-06-15T08:00:00.000Z',
       isSearchVolumeEstimated: false,
-      documentCountSource: 'naver-api',
-      documentCountConfidence: 'high',
-      isDocumentCountEstimated: false,
+     documentCountSource: 'naver-api',
+     documentCountConfidence: 'high',
+      documentCountQueryMode: 'exact-phrase',
+     isDocumentCountEstimated: false,
     },
     'KBO \uC62C\uC2A4\uD0C0\uC804 \uC608\uB9E4 \uC77C\uC815': {
       searchVolume: 15000,
@@ -3312,9 +3475,10 @@ function thinProfileCount(items: Array<{ keyword: string }>): number {
       searchVolumeBindingVersion: 'keyword-keyed-v2',
       searchVolumeMeasuredAt: '2026-06-15T08:00:00.000Z',
       isSearchVolumeEstimated: false,
-      documentCountSource: 'naver-api',
-      documentCountConfidence: 'high',
-      isDocumentCountEstimated: false,
+     documentCountSource: 'naver-api',
+     documentCountConfidence: 'high',
+      documentCountQueryMode: 'exact-phrase',
+     isDocumentCountEstimated: false,
     },
     '\uC81C\uC8FC \uB80C\uD130\uCE74 \uAC00\uACA9\uBE44\uAD50': {
       searchVolume: 21000,
@@ -3329,9 +3493,10 @@ function thinProfileCount(items: Array<{ keyword: string }>): number {
       searchVolumeBindingVersion: 'keyword-keyed-v2',
       searchVolumeMeasuredAt: '2026-06-15T08:00:00.000Z',
       isSearchVolumeEstimated: false,
-      documentCountSource: 'naver-api',
-      documentCountConfidence: 'high',
-      isDocumentCountEstimated: false,
+     documentCountSource: 'naver-api',
+     documentCountConfidence: 'high',
+      documentCountQueryMode: 'exact-phrase',
+     isDocumentCountEstimated: false,
     },
     '\uBB34\uC120\uCCAD\uC18C\uAE30 \uAC00\uACA9\uBE44\uAD50': {
       searchVolume: 16000,
@@ -3346,9 +3511,10 @@ function thinProfileCount(items: Array<{ keyword: string }>): number {
       searchVolumeBindingVersion: 'keyword-keyed-v2',
       searchVolumeMeasuredAt: '2026-06-15T08:00:00.000Z',
       isSearchVolumeEstimated: false,
-      documentCountSource: 'naver-api',
-      documentCountConfidence: 'high',
-      isDocumentCountEstimated: false,
+     documentCountSource: 'naver-api',
+     documentCountConfidence: 'high',
+      documentCountQueryMode: 'exact-phrase',
+     isDocumentCountEstimated: false,
     },
     '\uC5EC\uB984 \uC120\uD06C\uB9BC \uCD94\uCC9C': {
       searchVolume: 19000,
@@ -3363,9 +3529,10 @@ function thinProfileCount(items: Array<{ keyword: string }>): number {
       searchVolumeBindingVersion: 'keyword-keyed-v2',
       searchVolumeMeasuredAt: '2026-06-15T08:00:00.000Z',
       isSearchVolumeEstimated: false,
-      documentCountSource: 'naver-api',
-      documentCountConfidence: 'high',
-      isDocumentCountEstimated: false,
+     documentCountSource: 'naver-api',
+     documentCountConfidence: 'high',
+      documentCountQueryMode: 'exact-phrase',
+     isDocumentCountEstimated: false,
     },
     '\uCD08\uBCF5 \uC0BC\uACC4\uD0D5 \uC608\uC57D \uCD94\uCC9C': {
       searchVolume: 18000,
@@ -3380,9 +3547,10 @@ function thinProfileCount(items: Array<{ keyword: string }>): number {
       searchVolumeBindingVersion: 'keyword-keyed-v2',
       searchVolumeMeasuredAt: '2026-06-15T08:00:00.000Z',
       isSearchVolumeEstimated: false,
-      documentCountSource: 'naver-api',
-      documentCountConfidence: 'high',
-      isDocumentCountEstimated: false,
+     documentCountSource: 'naver-api',
+     documentCountConfidence: 'high',
+      documentCountQueryMode: 'exact-phrase',
+     isDocumentCountEstimated: false,
     },
     '\uCF58\uC11C\uD2B8 \uC608\uB9E4 \uC77C\uC815': {
       searchVolume: 17500,
@@ -3397,9 +3565,10 @@ function thinProfileCount(items: Array<{ keyword: string }>): number {
       searchVolumeBindingVersion: 'keyword-keyed-v2',
       searchVolumeMeasuredAt: '2026-06-15T08:00:00.000Z',
       isSearchVolumeEstimated: false,
-      documentCountSource: 'naver-api',
-      documentCountConfidence: 'high',
-      isDocumentCountEstimated: false,
+     documentCountSource: 'naver-api',
+     documentCountConfidence: 'high',
+      documentCountQueryMode: 'exact-phrase',
+     isDocumentCountEstimated: false,
     },
     '\uB3C4\uC218\uCE58\uB8CC \uBCF4\uD5D8 \uC801\uC6A9 \uBE44\uC6A9': {
       searchVolume: 5200,
@@ -3414,9 +3583,10 @@ function thinProfileCount(items: Array<{ keyword: string }>): number {
       searchVolumeBindingVersion: 'keyword-keyed-v2',
       searchVolumeMeasuredAt: '2026-06-15T08:00:00.000Z',
       isSearchVolumeEstimated: false,
-      documentCountSource: 'naver-api',
-      documentCountConfidence: 'high',
-      isDocumentCountEstimated: false,
+     documentCountSource: 'naver-api',
+     documentCountConfidence: 'high',
+      documentCountQueryMode: 'exact-phrase',
+     isDocumentCountEstimated: false,
     },
     'AI \uC601\uC0C1\uD234 \uAC00\uACA9\uBE44\uAD50': {
       searchVolume: 7200,
@@ -3431,9 +3601,10 @@ function thinProfileCount(items: Array<{ keyword: string }>): number {
       searchVolumeBindingVersion: 'keyword-keyed-v2',
       searchVolumeMeasuredAt: '2026-06-15T08:00:00.000Z',
       isSearchVolumeEstimated: false,
-      documentCountSource: 'naver-api',
-      documentCountConfidence: 'high',
-      isDocumentCountEstimated: false,
+     documentCountSource: 'naver-api',
+     documentCountConfidence: 'high',
+      documentCountQueryMode: 'exact-phrase',
+     isDocumentCountEstimated: false,
     },
     '1227\uD68C \uB85C\uB610 \uB2F9\uCCA8\uBC88\uD638': {
       searchVolume: 45000,
@@ -3485,17 +3656,19 @@ function thinProfileCount(items: Array<{ keyword: string }>): number {
       searchVolume: 26000,
       documentCount: 360,
       category: 'policy',
-      documentCountSource: 'naver-api',
-      documentCountConfidence: 'high',
-      isDocumentCountEstimated: false,
+     documentCountSource: 'naver-api',
+     documentCountConfidence: 'high',
+      documentCountQueryMode: 'exact-phrase',
+     isDocumentCountEstimated: false,
     },
     '\uC81C\uC8FC \uB80C\uD130\uCE74 \uAC00\uACA9\uBE44\uAD50': {
       searchVolume: 21000,
       documentCount: 850,
       category: 'travel_domestic',
-      documentCountSource: 'naver-api',
-      documentCountConfidence: 'high',
-      isDocumentCountEstimated: false,
+     documentCountSource: 'naver-api',
+     documentCountConfidence: 'high',
+      documentCountQueryMode: 'exact-phrase',
+     isDocumentCountEstimated: false,
     },
   }), 'utf8');
   let splitEnrichmentCalls = 0;
@@ -3656,9 +3829,10 @@ function thinProfileCount(items: Array<{ keyword: string }>): number {
       searchVolume: 26000,
       documentCount: 360,
       category: 'finance',
-      documentCountSource: 'naver-api',
-      documentCountConfidence: 'high',
-      isDocumentCountEstimated: false,
+     documentCountSource: 'naver-api',
+     documentCountConfidence: 'high',
+      documentCountQueryMode: 'exact-phrase',
+     isDocumentCountEstimated: false,
     },
   }), 'utf8');
   const underfilledMeasuredKeywords: string[] = [];
@@ -3865,9 +4039,10 @@ function thinProfileCount(items: Array<{ keyword: string }>): number {
       searchVolumeBindingVersion: 'keyword-keyed-v2',
       searchVolumeMeasuredAt: '2026-06-15T08:00:00.000Z',
       isSearchVolumeEstimated: false,
-      documentCountSource: 'naver-api',
-      documentCountConfidence: 'high',
-      isDocumentCountEstimated: false,
+     documentCountSource: 'naver-api',
+     documentCountConfidence: 'high',
+      documentCountQueryMode: 'exact-phrase',
+     isDocumentCountEstimated: false,
       updatedAt: '2026-06-15T08:00:00.000Z',
       discoveredAt: '2026-06-15T08:00:00.000Z',
       isMeasured: true,
@@ -3889,9 +4064,10 @@ function thinProfileCount(items: Array<{ keyword: string }>): number {
       searchVolumeBindingVersion: 'keyword-keyed-v2',
       searchVolumeMeasuredAt: '2026-06-15T08:00:00.000Z',
       isSearchVolumeEstimated: false,
-      documentCountSource: 'naver-api',
-      documentCountConfidence: 'high',
-      isDocumentCountEstimated: false,
+     documentCountSource: 'naver-api',
+     documentCountConfidence: 'high',
+      documentCountQueryMode: 'exact-phrase',
+     isDocumentCountEstimated: false,
       updatedAt: '2026-06-15T08:00:00.000Z',
       discoveredAt: '2026-06-15T08:00:00.000Z',
       isMeasured: true,
@@ -3936,9 +4112,10 @@ function thinProfileCount(items: Array<{ keyword: string }>): number {
       searchVolumeBindingVersion: 'keyword-keyed-v2',
       searchVolumeMeasuredAt: '2026-06-15T08:00:00.000Z',
       isSearchVolumeEstimated: false,
-      documentCountSource: 'naver-api',
-      documentCountConfidence: 'high',
-      isDocumentCountEstimated: false,
+     documentCountSource: 'naver-api',
+     documentCountConfidence: 'high',
+      documentCountQueryMode: 'exact-phrase',
+     isDocumentCountEstimated: false,
       updatedAt: '2026-06-15T08:00:00.000Z',
       discoveredAt: '2026-06-15T08:00:00.000Z',
       isMeasured: true,
@@ -3960,9 +4137,10 @@ function thinProfileCount(items: Array<{ keyword: string }>): number {
       searchVolumeBindingVersion: 'keyword-keyed-v2',
       searchVolumeMeasuredAt: '2026-06-15T08:00:00.000Z',
       isSearchVolumeEstimated: false,
-      documentCountSource: 'naver-api',
-      documentCountConfidence: 'high',
-      isDocumentCountEstimated: false,
+     documentCountSource: 'naver-api',
+     documentCountConfidence: 'high',
+      documentCountQueryMode: 'exact-phrase',
+     isDocumentCountEstimated: false,
       updatedAt: '2026-06-15T08:00:00.000Z',
       discoveredAt: '2026-06-15T08:00:00.000Z',
       isMeasured: true,
@@ -4437,7 +4615,7 @@ function thinProfileCount(items: Array<{ keyword: string }>): number {
     }, {
       keyword: queuedWriterReadyKeyword,
       category: 'travel_domestic',
-      source: 'fixture-queue',
+      source: 'curated-exact-recovery',
       priority: 999,
       firstSeenAt: '2026-06-15T08:00:00.000Z',
       attempts: 0,
@@ -4484,7 +4662,7 @@ function thinProfileCount(items: Array<{ keyword: string }>): number {
       keyword === queuedWriterReadyKeyword
         ? {
           dc: 90,
-          source: 'scrape',
+          source: 'naver-api',
           confidence: 'high',
           isEstimated: false,
         }
@@ -4503,6 +4681,8 @@ function thinProfileCount(items: Array<{ keyword: string }>): number {
         && item.pcSearchVolume === 640
         && item.mobileSearchVolume === 2140
         && item.documentCount === 90
+        && item.documentCountSource === 'naver-api'
+        && item.documentCountQueryMode === 'exact-phrase'
       )),
     JSON.stringify({
       measured: queuePriorityMeasuredKeywords.slice(0, 20),
@@ -4664,20 +4844,27 @@ function thinProfileCount(items: Array<{ keyword: string }>): number {
     discover: async () => [],
   });
   const queueVariantSnapshot = await queueVariantRadar.runOnce();
+  const queueVariantInternalBoard = [
+    ...((queueVariantRadar as any).board.values() as Iterable<any>),
+  ];
   const queueVariantAfter = JSON.parse(fs.readFileSync(queueVariantProbeFile, 'utf8'));
-  assert('spaced writer-ready queued probes preserve display text while SearchAd normalizes exact matching',
+  assert('spaced legacy probes preserve display text as broad recovery references',
     queueVariantMeasuredKeywords.includes(spacedTravelProbe)
       && queueVariantMeasuredKeywords.length <= 80
-      && queueVariantSnapshot.board.some((item) => (
+      && !queueVariantSnapshot.board.some((item) => item.keyword === spacedTravelProbe)
+      && queueVariantInternalBoard.some((item: any) => (
         item.keyword === spacedTravelProbe
         && item.grade === 'SSS'
         && item.pcSearchVolume === 540
         && item.mobileSearchVolume === 3660
         && item.documentCount === 140
+        && item.documentCountSource === 'scrape'
+        && item.documentCountQueryMode === undefined
       )),
     JSON.stringify({
       measured: queueVariantMeasuredKeywords,
       board: queueVariantSnapshot.board.map((item) => `${item.keyword}:${item.grade}:${item.pcSearchVolume}:${item.mobileSearchVolume}:${item.documentCount}`),
+      internalBoard: queueVariantInternalBoard.map((item: any) => `${item.keyword}:${item.documentCountSource}:${item.documentCountQueryMode || 'missing'}`),
       lastMessage: queueVariantSnapshot.lastMessage,
     }));
   assert('spaced writer-ready queued probe is removed after a measured variant succeeds',
@@ -5160,19 +5347,26 @@ function thinProfileCount(items: Array<{ keyword: string }>): number {
     discover: async () => [],
   });
   const volumeBatchSnapshot = await volumeBatchRadar.runOnce();
+  const volumeBatchInternalBoard = [
+    ...((volumeBatchRadar as any).board.values() as Iterable<any>),
+  ];
   assert('live golden volume measurement keeps partial successes across small SearchAd batches',
     volumeBatchSizes.length >= 2
       && volumeBatchSizes.every((size) => size <= 4)
-      && volumeBatchSnapshot.board.some((item) => (
+      && !volumeBatchSnapshot.board.some((item) => item.keyword === volumeBatchWinner)
+      && volumeBatchInternalBoard.some((item: any) => (
         item.keyword === volumeBatchWinner
         && item.grade === 'SSS'
         && item.pcSearchVolume === 900
         && item.mobileSearchVolume === 3300
         && item.documentCount === 160
+        && item.documentCountSource === 'scrape'
+        && item.documentCountQueryMode === undefined
       )),
     JSON.stringify({
       volumeBatchSizes,
       board: volumeBatchSnapshot.board.map((item) => `${item.keyword}:${item.grade}:${item.pcSearchVolume}:${item.mobileSearchVolume}:${item.documentCount}`),
+      internalBoard: volumeBatchInternalBoard.map((item: any) => `${item.keyword}:${item.documentCountSource}:${item.documentCountQueryMode || 'missing'}`),
     }));
   fs.rmSync(volumeBatchProbeFile, { force: true });
 
@@ -5255,9 +5449,10 @@ function thinProfileCount(items: Array<{ keyword: string }>): number {
       searchVolumeBindingVersion: 'keyword-keyed-v2',
       searchVolumeMeasuredAt: '2026-06-15T08:00:00.000Z',
       isSearchVolumeEstimated: false,
-      documentCountSource: 'naver-api',
-      documentCountConfidence: 'high',
-      isDocumentCountEstimated: false,
+     documentCountSource: 'naver-api',
+     documentCountConfidence: 'high',
+      documentCountQueryMode: 'exact-phrase',
+     isDocumentCountEstimated: false,
       updatedAt: '2026-06-15T08:00:00.000Z',
       discoveredAt: '2026-06-15T08:00:00.000Z',
       isMeasured: true,
@@ -5279,9 +5474,10 @@ function thinProfileCount(items: Array<{ keyword: string }>): number {
       searchVolumeBindingVersion: 'keyword-keyed-v2',
       searchVolumeMeasuredAt: '2026-06-29T08:00:00.000Z',
       isSearchVolumeEstimated: false,
-      documentCountSource: 'naver-api',
-      documentCountConfidence: 'high',
-      isDocumentCountEstimated: false,
+     documentCountSource: 'naver-api',
+     documentCountConfidence: 'high',
+      documentCountQueryMode: 'exact-phrase',
+     isDocumentCountEstimated: false,
       updatedAt: '2026-06-15T08:10:00.000Z',
       discoveredAt: '2026-06-15T08:10:00.000Z',
       isMeasured: true,
@@ -5326,9 +5522,10 @@ function thinProfileCount(items: Array<{ keyword: string }>): number {
     searchVolumeBindingVersion: 'keyword-keyed-v2',
     searchVolumeMeasuredAt: '2026-06-15T08:00:00.000Z',
     isSearchVolumeEstimated: false,
-    documentCountSource: 'naver-api',
-    documentCountConfidence: 'high',
-    isDocumentCountEstimated: false,
+       documentCountSource: 'naver-api',
+       documentCountConfidence: 'high',
+        documentCountQueryMode: 'exact-phrase',
+       isDocumentCountEstimated: false,
     updatedAt: '2026-06-15T08:00:00.000Z',
     discoveredAt: '2026-06-15T08:00:00.000Z',
     isMeasured: true,
@@ -5479,9 +5676,10 @@ function thinProfileCount(items: Array<{ keyword: string }>): number {
       searchVolumeBindingVersion: 'keyword-keyed-v2',
       searchVolumeMeasuredAt: '2026-06-29T08:00:00.000Z',
       isSearchVolumeEstimated: false,
-      documentCountSource: 'naver-api',
-      documentCountConfidence: 'high',
-      isDocumentCountEstimated: false,
+       documentCountSource: 'naver-api',
+       documentCountConfidence: 'high',
+        documentCountQueryMode: 'exact-phrase',
+       isDocumentCountEstimated: false,
       updatedAt: '2026-06-29T08:00:00.000Z',
       discoveredAt: '2026-06-29T08:00:00.000Z',
       isMeasured: true,
@@ -5596,9 +5794,10 @@ function thinProfileCount(items: Array<{ keyword: string }>): number {
         searchVolumeBindingVersion: 'keyword-keyed-v2',
         searchVolumeMeasuredAt: '2026-07-01T08:00:00.000Z',
         isSearchVolumeEstimated: false,
-        documentCountSource: 'naver-api',
-        documentCountConfidence: 'high',
-        isDocumentCountEstimated: false,
+       documentCountSource: 'naver-api',
+       documentCountConfidence: 'high',
+        documentCountQueryMode: 'exact-phrase',
+       isDocumentCountEstimated: false,
         updatedAt: '2026-07-01T08:00:00.000Z',
         discoveredAt: '2026-07-01T08:00:00.000Z',
         isMeasured: true,
@@ -5653,9 +5852,10 @@ function thinProfileCount(items: Array<{ keyword: string }>): number {
         searchVolumeBindingVersion: 'keyword-keyed-v2',
         searchVolumeMeasuredAt: '2026-07-01T08:10:00.000Z',
         isSearchVolumeEstimated: false,
-        documentCountSource: 'naver-api',
-        documentCountConfidence: 'high',
-        isDocumentCountEstimated: false,
+       documentCountSource: 'naver-api',
+       documentCountConfidence: 'high',
+        documentCountQueryMode: 'exact-phrase',
+       isDocumentCountEstimated: false,
         updatedAt: '2026-07-01T08:10:00.000Z',
         discoveredAt: '2026-07-01T08:10:00.000Z',
         isMeasured: true,
@@ -5678,9 +5878,10 @@ function thinProfileCount(items: Array<{ keyword: string }>): number {
         searchVolumeBindingVersion: 'keyword-keyed-v2',
         searchVolumeMeasuredAt: '2026-07-01T08:00:00.000Z',
         isSearchVolumeEstimated: false,
-        documentCountSource: 'naver-api',
-        documentCountConfidence: 'high',
-        isDocumentCountEstimated: false,
+       documentCountSource: 'naver-api',
+       documentCountConfidence: 'high',
+        documentCountQueryMode: 'exact-phrase',
+       isDocumentCountEstimated: false,
         updatedAt: '2026-07-01T08:00:00.000Z',
         discoveredAt: '2026-07-01T08:00:00.000Z',
         isMeasured: true,
@@ -5703,9 +5904,10 @@ function thinProfileCount(items: Array<{ keyword: string }>): number {
         searchVolumeBindingVersion: 'keyword-keyed-v2',
         searchVolumeMeasuredAt: '2026-07-01T08:20:00.000Z',
         isSearchVolumeEstimated: false,
-        documentCountSource: 'naver-api',
-        documentCountConfidence: 'high',
-        isDocumentCountEstimated: false,
+       documentCountSource: 'naver-api',
+       documentCountConfidence: 'high',
+        documentCountQueryMode: 'exact-phrase',
+       isDocumentCountEstimated: false,
         updatedAt: '2026-07-01T08:20:00.000Z',
         discoveredAt: '2026-07-01T08:20:00.000Z',
         isMeasured: true,
@@ -5772,9 +5974,10 @@ function thinProfileCount(items: Array<{ keyword: string }>): number {
         searchVolumeConfidence: 'high',
         searchVolumeBindingVersion: 'keyword-keyed-v2',
         searchVolumeMeasuredAt: '2026-06-15T08:00:00.000Z',
-        documentCountSource: 'naver-api',
-        documentCountConfidence: 'high',
-        isDocumentCountEstimated: false,
+       documentCountSource: 'naver-api',
+       documentCountConfidence: 'high',
+        documentCountQueryMode: 'exact-phrase',
+       isDocumentCountEstimated: false,
         updatedAt: '2026-06-15T08:00:00.000Z',
         discoveredAt: '2026-06-15T08:00:00.000Z',
         isMeasured: true,
@@ -5818,9 +6021,10 @@ function thinProfileCount(items: Array<{ keyword: string }>): number {
         searchVolumeBindingVersion: 'keyword-keyed-v2',
         searchVolumeMeasuredAt: '2026-06-15T08:00:00.000Z',
         isSearchVolumeEstimated: false,
-        documentCountSource: 'naver-api',
-        documentCountConfidence: 'high',
-        isDocumentCountEstimated: false,
+       documentCountSource: 'naver-api',
+       documentCountConfidence: 'high',
+        documentCountQueryMode: 'exact-phrase',
+       isDocumentCountEstimated: false,
         updatedAt: '2026-06-15T08:00:00.000Z',
         discoveredAt: '2026-06-15T08:00:00.000Z',
         isMeasured: true,
@@ -6131,11 +6335,15 @@ function thinProfileCount(items: Array<{ keyword: string }>): number {
     now: () => new Date(quotaScrapeNowMs),
   });
   const quotaScrapeSnapshot = await quotaScrapeRadar.runOnce();
-  assert('live radar uses verified scrape document counts when OpenAPI quota is exhausted',
+  const quotaScrapeInternalBoard = [
+    ...((quotaScrapeRadar as any).board.values() as Iterable<any>),
+  ];
+  assert('OpenAPI quota fallback keeps scrape documents outside verified supply',
     quotaScrapeVolumeCalls > 0
       && quotaScrapeDocumentCalls > 0
       && quotaScrapeSnapshot.skippedRuns === 0
-      && quotaScrapeSnapshot.board.some((item) => (
+      && quotaScrapeSnapshot.board.length === 0
+      && quotaScrapeInternalBoard.some((item: any) => (
         item.keyword === '청년미래적금 가입신청 대상'
         && item.documentCount === 360
         && item.documentCountSource === 'scrape'
@@ -6148,6 +6356,7 @@ function thinProfileCount(items: Array<{ keyword: string }>): number {
       skippedRuns: quotaScrapeSnapshot.skippedRuns,
       lastMessage: quotaScrapeSnapshot.lastMessage,
       board: quotaScrapeSnapshot.board,
+      internalBoard: quotaScrapeInternalBoard,
     }));
 
   let intervalRegistered = false;
@@ -6258,9 +6467,10 @@ function thinProfileCount(items: Array<{ keyword: string }>): number {
         intent: 'worker-measured-need',
         evidence: ['worker-board-file', 'measured-search-volume', 'measured-document-count'],
         isMeasured: true,
-        documentCountSource: 'naver-api',
-        documentCountConfidence: 'high',
-        isDocumentCountEstimated: false,
+       documentCountSource: 'naver-api',
+       documentCountConfidence: 'high',
+        documentCountQueryMode: 'exact-phrase',
+       isDocumentCountEstimated: false,
         searchVolumeSource: 'searchad',
         searchVolumeConfidence: 'high',
         searchVolumeBindingVersion: 'keyword-keyed-v2',
@@ -6284,9 +6494,10 @@ function thinProfileCount(items: Array<{ keyword: string }>): number {
         intent: 'worker-measured-need',
         evidence: ['worker-board-file', 'measured-search-volume', 'measured-document-count'],
         isMeasured: true,
-        documentCountSource: 'naver-api',
-        documentCountConfidence: 'high',
-        isDocumentCountEstimated: false,
+       documentCountSource: 'naver-api',
+       documentCountConfidence: 'high',
+        documentCountQueryMode: 'exact-phrase',
+       isDocumentCountEstimated: false,
         searchVolumeSource: 'searchad',
         searchVolumeConfidence: 'high',
         searchVolumeBindingVersion: 'keyword-keyed-v2',

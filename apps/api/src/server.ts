@@ -3306,7 +3306,11 @@ function supplementMeasuredPrewarmResult(
   };
 }
 
-function isCanonicalLiveGoldenExactMetric(board: MobileKeywordMetric): boolean {
+function canonicalLiveGoldenSearchVolumeSplit(board: MobileKeywordMetric): {
+  pc: number;
+  mobile: number;
+  total: number;
+} | null {
   const boardPcSearchVolume = typeof board.pcSearchVolume === 'number'
     && Number.isFinite(board.pcSearchVolume)
     && board.pcSearchVolume >= 0
@@ -3317,20 +3321,37 @@ function isCanonicalLiveGoldenExactMetric(board: MobileKeywordMetric): boolean {
     && board.mobileSearchVolume >= 0
     ? board.mobileSearchVolume
     : null;
-  return boardPcSearchVolume !== null
-    && boardMobileSearchVolume !== null
-    && typeof board.totalSearchVolume === 'number'
-    && board.totalSearchVolume > 0
-    && boardPcSearchVolume + boardMobileSearchVolume === board.totalSearchVolume
-    && typeof board.documentCount === 'number'
-    && board.documentCount > 0
+  if (
+    boardPcSearchVolume === null
+    || boardMobileSearchVolume === null
+    || typeof board.totalSearchVolume !== 'number'
+    || !Number.isFinite(board.totalSearchVolume)
+    || board.totalSearchVolume <= 0
+    || boardPcSearchVolume + boardMobileSearchVolume !== board.totalSearchVolume
+  ) return null;
+  return {
+    pc: boardPcSearchVolume,
+    mobile: boardMobileSearchVolume,
+    total: board.totalSearchVolume,
+  };
+}
+
+function isCanonicalLiveGoldenSearchVolumeMetric(board: MobileKeywordMetric): boolean {
+  return canonicalLiveGoldenSearchVolumeSplit(board) !== null
     && board.isMeasured !== false
     && board.searchVolumeSource === 'searchad'
     && board.searchVolumeConfidence === 'high'
     && board.searchVolumeBindingVersion === 'keyword-keyed-v2'
     && typeof board.searchVolumeMeasuredAt === 'string'
     && Number.isFinite(Date.parse(board.searchVolumeMeasuredAt))
-    && board.isSearchVolumeEstimated === false
+    && board.isSearchVolumeEstimated === false;
+}
+
+function isCanonicalLiveGoldenExactMetric(board: MobileKeywordMetric): boolean {
+  return isCanonicalLiveGoldenSearchVolumeMetric(board)
+    && typeof board.documentCount === 'number'
+    && Number.isFinite(board.documentCount)
+    && board.documentCount > 0
     && board.documentCountSource === 'naver-api'
     && board.documentCountConfidence === 'high'
     && board.documentCountQueryMode === 'exact-phrase'
@@ -3341,17 +3362,15 @@ function mergeExactMetricWithLiveBoard(
   current: MobileKeywordMetric,
   board: MobileKeywordMetric,
 ): MobileKeywordMetric {
-  const boardPcSearchVolume = typeof board.pcSearchVolume === 'number'
-    && Number.isFinite(board.pcSearchVolume)
-    && board.pcSearchVolume >= 0
-    ? board.pcSearchVolume
-    : null;
-  const boardMobileSearchVolume = typeof board.mobileSearchVolume === 'number'
-    && Number.isFinite(board.mobileSearchVolume)
-    && board.mobileSearchVolume >= 0
-    ? board.mobileSearchVolume
-    : null;
-  if (!isCanonicalLiveGoldenExactMetric(board)) return current;
+  const boardSplit = canonicalLiveGoldenSearchVolumeSplit(board);
+  if (!boardSplit || !isCanonicalLiveGoldenSearchVolumeMetric(board)) return current;
+  const syncExactDocuments = isCanonicalLiveGoldenExactMetric(board);
+  const mergedDocumentCount = syncExactDocuments ? board.documentCount : current.documentCount;
+  const mergedGoldenRatio = typeof mergedDocumentCount === 'number'
+    && Number.isFinite(mergedDocumentCount)
+    && mergedDocumentCount > 0
+    ? Number((boardSplit.total / mergedDocumentCount).toFixed(2))
+    : current.goldenRatio;
   const numberLabel = (value: number | null): string => (
     typeof value === 'number' && Number.isFinite(value)
       ? value.toLocaleString('en-US', { maximumFractionDigits: 2 })
@@ -3360,13 +3379,33 @@ function mergeExactMetricWithLiveBoard(
   const agentInsight = current.agentInsight
     ? {
         ...current.agentInsight,
-        searchVolumeReason: `황금키워드 보드의 동일 키워드 실측값 기준입니다. 검색량 ${numberLabel(board.totalSearchVolume)} (PC ${numberLabel(boardPcSearchVolume)} / 모바일 ${numberLabel(boardMobileSearchVolume)}), 문서수 ${numberLabel(board.documentCount)}, 비율 ${numberLabel(board.goldenRatio)}입니다.`,
-        sourceSummary: 'LIVE 황금키워드 보드 · SearchAd 월간 검색량 · 네이버 정확구문 문서수',
+        searchVolumeReason: `황금키워드 보드와 동일한 SearchAd 월간 검색량 ${numberLabel(boardSplit.total)} (PC ${numberLabel(boardSplit.pc)} / 모바일 ${numberLabel(boardSplit.mobile)}), 문서수 ${numberLabel(mergedDocumentCount)}, 비율 ${numberLabel(mergedGoldenRatio)} 기준입니다.`,
+        sourceSummary: syncExactDocuments
+          ? 'LIVE 황금키워드 보드 · SearchAd 월간 검색량 · 네이버 exact-phrase 문서수'
+          : `LIVE 황금키워드 보드 SearchAd 월간 검색량 · 현재 분석 ${current.documentCountQueryMode || 'unknown'} 문서수`,
       }
     : undefined;
+  if (!syncExactDocuments) {
+    return {
+      ...current,
+      pcSearchVolume: boardSplit.pc,
+      mobileSearchVolume: boardSplit.mobile,
+      totalSearchVolume: boardSplit.total,
+      goldenRatio: mergedGoldenRatio,
+      cpc: board.cpc ?? current.cpc,
+      evidence: uniqueEvidence(current.evidence, 'analysis-board-search-volume-sync'),
+      searchVolumeSource: board.searchVolumeSource,
+      searchVolumeConfidence: board.searchVolumeConfidence,
+      searchVolumeBindingVersion: board.searchVolumeBindingVersion,
+      searchVolumeMeasuredAt: board.searchVolumeMeasuredAt,
+      isSearchVolumeEstimated: board.isSearchVolumeEstimated,
+      agentInsight,
+    };
+  }
   return {
     ...current,
     ...board,
+    goldenRatio: mergedGoldenRatio,
     score: board.score ?? current.score ?? null,
     cpc: board.cpc ?? current.cpc,
     intent: current.intent || board.intent,
@@ -3392,7 +3431,8 @@ function overlayLiveGoldenExactKeyword(
   if (!boardItem) return result;
 
   const exactMetric = metricFromLiveGoldenBoardItem(boardItem);
-  if (!isCanonicalLiveGoldenExactMetric(exactMetric)) return result;
+  if (!isCanonicalLiveGoldenSearchVolumeMetric(exactMetric)) return result;
+  const canInsertExactBoardMetric = isCanonicalLiveGoldenExactMetric(exactMetric);
   const mergedKeywords: MobileKeywordMetric[] = [];
   let inserted = false;
   for (const keyword of result.keywords) {
@@ -3404,7 +3444,7 @@ function overlayLiveGoldenExactKeyword(
     }
     mergedKeywords.push(keyword);
   }
-  if (!inserted) {
+  if (!inserted && canInsertExactBoardMetric) {
     mergedKeywords.unshift({
       ...exactMetric,
       evidence: uniqueEvidence(exactMetric.evidence, 'analysis-board-metric-sync'),
