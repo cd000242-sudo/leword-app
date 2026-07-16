@@ -91,6 +91,13 @@ import {
   readHomeKeywordBriefing,
   resolveHomeKeywordBriefingFile,
 } from '../../../src/mobile/home-keyword-briefing';
+import {
+  HomeNoticesRevisionConflictError,
+  HomeNoticesStorageError,
+  HomeNoticesValidationError,
+  publishHomeNotices,
+  readHomeNotices,
+} from '../../../src/mobile/home-notices';
 import { InMemoryMobileResultCache } from '../../../src/mobile/result-cache';
 import {
   applyKeywordAiJudge,
@@ -193,12 +200,14 @@ const LIVE_GOLDEN_INGEST_MAX_BODY_BYTES = 512 * 1024;
 const ADMIN_SETTINGS_UNLOCK_ROUTE = '/v1/admin/settings/unlock';
 const ADMIN_SITE_CONTENT_ROUTE = '/v1/admin/site-content';
 const ADMIN_HOME_KEYWORD_BRIEFING_ROUTE = '/v1/admin/home-keyword-briefing';
+const ADMIN_HOME_NOTICES_ROUTE = '/v1/admin/home-notices';
 const ADMIN_DOWNLOAD_UPLOAD_ROUTE = '/v1/admin/downloads/upload';
 const ADMIN_DOWNLOAD_CHUNK_UPLOAD_ROUTE = '/v1/admin/downloads/upload-chunk';
 const ADMIN_COMMERCE_DASHBOARD_ROUTE = '/v1/admin/commerce/dashboard';
 const ADMIN_AI_WORKER_STATUS_ROUTE = '/v1/admin/ai-worker/status';
 const PUBLIC_SITE_CONTENT_ROUTE = '/v1/public/site-content';
 const PUBLIC_HOME_KEYWORD_BRIEFING_ROUTE = '/v1/public/home-keyword-briefing';
+const PUBLIC_HOME_NOTICES_ROUTE = '/v1/public/home-notices';
 const PUBLIC_COMMERCE_CATALOG_ROUTE = '/v1/public/commerce/catalog';
 const PUBLIC_ANALYTICS_COLLECT_ROUTE = '/v1/analytics/collect';
 const CHECKOUT_ORDER_ROUTE = '/v1/checkout/orders';
@@ -2016,6 +2025,18 @@ function homeKeywordBriefingStorageUnavailable(
   }, { 'Cache-Control': 'no-store' });
 }
 
+function homeNoticesStorageUnavailable(
+  res: http.ServerResponse,
+  error: HomeNoticesStorageError,
+): void {
+  console.error('[home-notices] persistent storage unavailable', error);
+  json(res, 503, {
+    ok: false,
+    code: 'home-notices-storage-unavailable',
+    message: '공지사항 저장소를 사용할 수 없습니다. 잠시 후 다시 시도하세요.',
+  }, { 'Cache-Control': 'no-store' });
+}
+
 type NaverApiSettingKey =
   | 'naverClientId'
   | 'naverClientSecret'
@@ -3801,6 +3822,21 @@ export function createLewordApiServer(options: LewordApiServerOptions = {}): htt
       return;
     }
 
+    if (req.method === 'GET' && url.pathname === PUBLIC_HOME_NOTICES_ROUTE) {
+      try {
+        json(res, 200, { ok: true, notices: readHomeNotices() }, {
+          'Cache-Control': 'no-store',
+        });
+      } catch (error) {
+        if (error instanceof HomeNoticesStorageError) {
+          homeNoticesStorageUnavailable(res, error);
+        } else {
+          throw error;
+        }
+      }
+      return;
+    }
+
     if (req.method === 'GET' && url.pathname === PUBLIC_COMMERCE_CATALOG_ROUTE) {
       json(res, 200, { ok: true, catalog: buildCommerceCatalog(readSiteContentDraft()) }, {
         'Cache-Control': 'no-store',
@@ -4096,6 +4132,71 @@ export function createLewordApiServer(options: LewordApiServerOptions = {}): htt
           homeKeywordBriefingStorageUnavailable(res, err);
         } else {
           handleBodyError(res, err, maxBodyBytes);
+        }
+      }
+      return;
+    }
+
+    if ((req.method === 'GET' || req.method === 'PUT') && url.pathname === ADMIN_HOME_NOTICES_ROUTE) {
+      if (!sessionAwareEntitlementVerifier) {
+        json(res, 503, {
+          ok: false,
+          code: 'admin-auth-unconfigured',
+          message: '관리자 세션 인증이 구성되지 않았습니다.',
+        }, { 'Cache-Control': 'no-store' });
+        return;
+      }
+      if (!await authorizeMobileRequest(req, res, sessionAwareEntitlementVerifier, 'admin')) return;
+      if (req.method === 'GET') {
+        try {
+          const notices = readHomeNotices();
+          json(res, 200, {
+            ok: true,
+            notices,
+            currentRevision: notices?.revision || 0,
+          }, { 'Cache-Control': 'no-store' });
+        } catch (error) {
+          if (error instanceof HomeNoticesStorageError) {
+            homeNoticesStorageUnavailable(res, error);
+          } else {
+            throw error;
+          }
+        }
+        return;
+      }
+      try {
+        const body = await parseBody(req, maxBodyBytes) as Record<string, unknown>;
+        const notices = publishHomeNotices({
+          value: body?.notices,
+          expectedRevision: body?.expectedRevision,
+          updatedBy: 'leaderspro-admin-session',
+        });
+        json(res, 200, {
+          ok: true,
+          notices,
+          currentRevision: notices.revision,
+        }, { 'Cache-Control': 'no-store' });
+      } catch (error) {
+        if (error instanceof HomeNoticesRevisionConflictError) {
+          json(res, 409, {
+            ok: false,
+            code: 'revision-conflict',
+            message: '다른 관리자 저장본이 먼저 반영되었습니다. 최신본을 다시 불러온 뒤 수정하세요.',
+            expectedRevision: error.expectedRevision,
+            currentRevision: error.currentRevision,
+          }, { 'Cache-Control': 'no-store' });
+        } else if (error instanceof MobileApiBodyTooLargeError) {
+          payloadTooLarge(res, maxBodyBytes);
+        } else if (error instanceof HomeNoticesValidationError) {
+          json(res, 422, {
+            ok: false,
+            code: 'invalid-home-notices',
+            message: error.message,
+          }, { 'Cache-Control': 'no-store' });
+        } else if (error instanceof HomeNoticesStorageError) {
+          homeNoticesStorageUnavailable(res, error);
+        } else {
+          handleBodyError(res, error, maxBodyBytes);
         }
       }
       return;
