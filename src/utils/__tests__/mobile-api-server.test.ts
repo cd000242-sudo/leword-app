@@ -1949,7 +1949,7 @@ const result: MobileKeywordResult = {
       isSearchVolumeEstimated: false,
      documentCountSource: 'naver-api',
      documentCountConfidence: 'high',
-      documentCountQueryMode: 'exact-phrase',
+      documentCountQueryMode: 'broad',
      isDocumentCountEstimated: false,
       updatedAt: '2026-06-15T02:50:00.000Z',
       discoveredAt: '2026-06-15T02:50:00.000Z',
@@ -1975,7 +1975,7 @@ const result: MobileKeywordResult = {
       isSearchVolumeEstimated: false,
      documentCountSource: 'naver-api',
      documentCountConfidence: 'high',
-      documentCountQueryMode: 'exact-phrase',
+      documentCountQueryMode: 'broad',
      isDocumentCountEstimated: false,
       updatedAt: '2026-06-15T02:50:00.000Z',
       discoveredAt: '2026-06-15T02:50:00.000Z',
@@ -2133,7 +2133,7 @@ const result: MobileKeywordResult = {
       isSearchVolumeEstimated: false,
       documentCountSource: 'naver-api',
       documentCountConfidence: 'high',
-      documentCountQueryMode: 'exact-phrase',
+      documentCountQueryMode: 'broad',
       isDocumentCountEstimated: false,
       updatedAt: '2026-06-15T03:00:00.000Z',
       discoveredAt: '2026-06-15T03:00:00.000Z',
@@ -2262,7 +2262,7 @@ const result: MobileKeywordResult = {
       const canonicalAnalyzeJson: any = await canonicalAnalyze.json();
       const canonicalCompleted = await waitForCompletedJob(canonicalOverlayBaseUrl, canonicalAnalyzeJson.job.id);
       const canonicalKeyword = canonicalCompleted.result.keywords[0];
-      assert('trusted full live board metric is canonical for exact keyword analysis',
+      assert('trusted broad live board metric is canonical for exact keyword analysis',
         canonicalKeyword.pcSearchVolume === 960
           && canonicalKeyword.mobileSearchVolume === 9120
           && canonicalKeyword.totalSearchVolume === 10080
@@ -2273,7 +2273,7 @@ const result: MobileKeywordResult = {
       assert('canonical live board overlay preserves measurement provenance',
         canonicalKeyword.searchVolumeBindingVersion === 'keyword-keyed-v2'
           && canonicalKeyword.searchVolumeMeasuredAt === '2026-06-15T03:00:00.000Z'
-          && canonicalKeyword.documentCountQueryMode === 'exact-phrase',
+          && canonicalKeyword.documentCountQueryMode === 'broad',
         JSON.stringify(canonicalKeyword));
       assert('canonical live board overlay removes stale analysis numbers from agent insight',
         String(canonicalKeyword.agentInsight?.searchVolumeReason || '').includes('10,080')
@@ -2284,8 +2284,8 @@ const result: MobileKeywordResult = {
     }
 
     const searchOnlyPayload = JSON.parse(fs.readFileSync(overlayBoardFile, 'utf8'));
-    delete searchOnlyPayload.items[0].documentCountQueryMode;
-    searchOnlyPayload.items[0].evidence = ['legacy document scope is unbound'];
+    searchOnlyPayload.items[0].documentCountQueryMode = 'exact-phrase';
+    searchOnlyPayload.items[0].evidence = ['legacy exact-phrase document scope'];
     writeJson(overlayBoardFile, searchOnlyPayload);
     const searchOnlyRadar = new MobileLiveGoldenRadar({
       notificationInbox: overlayInbox,
@@ -2314,7 +2314,7 @@ const result: MobileKeywordResult = {
       const searchOnlyAnalyzeJson: any = await searchOnlyAnalyze.json();
       const searchOnlyCompleted = await waitForCompletedJob(searchOnlyBaseUrl, searchOnlyAnalyzeJson.job.id);
       const searchOnlyKeyword = searchOnlyCompleted.result.keywords[0];
-      assert('trusted board SearchAd volume syncs without promoting unbound document scope',
+      assert('trusted board SearchAd volume syncs without promoting legacy exact-phrase documents',
         searchOnlyKeyword.pcSearchVolume === 960
           && searchOnlyKeyword.mobileSearchVolume === 9120
           && searchOnlyKeyword.totalSearchVolume === 10080
@@ -2409,7 +2409,7 @@ const result: MobileKeywordResult = {
       isSearchVolumeEstimated: false,
      documentCountSource: 'naver-api',
      documentCountConfidence: 'high',
-      documentCountQueryMode: 'exact-phrase',
+      documentCountQueryMode: 'broad',
      isDocumentCountEstimated: false,
       updatedAt: '2026-06-15T03:10:00.000Z',
       discoveredAt: '2026-06-15T03:10:00.000Z',
@@ -3029,7 +3029,7 @@ const result: MobileKeywordResult = {
           isSearchVolumeEstimated: false,
      documentCountSource: 'naver-api',
      documentCountConfidence: 'high',
-      documentCountQueryMode: 'exact-phrase',
+      documentCountQueryMode: 'broad',
      isDocumentCountEstimated: false,
         } as any,
         {
@@ -3055,7 +3055,7 @@ const result: MobileKeywordResult = {
           isSearchVolumeEstimated: false,
      documentCountSource: 'naver-api',
      documentCountConfidence: 'high',
-      documentCountQueryMode: 'exact-phrase',
+      documentCountQueryMode: 'broad',
      isDocumentCountEstimated: false,
         } as any,
         {
@@ -3081,7 +3081,7 @@ const result: MobileKeywordResult = {
           isSearchVolumeEstimated: false,
          documentCountSource: 'naver-api',
          documentCountConfidence: 'high',
-          documentCountQueryMode: 'exact-phrase',
+          documentCountQueryMode: 'broad',
          isDocumentCountEstimated: false,
         } as any,
         {
@@ -3240,7 +3240,7 @@ const result: MobileKeywordResult = {
       isSearchVolumeEstimated: false,
          documentCountSource: 'naver-api',
          documentCountConfidence: 'high',
-          documentCountQueryMode: 'exact-phrase',
+          documentCountQueryMode: 'broad',
          isDocumentCountEstimated: false,
       discoveredAt: reviewBoardUpdatedAt,
       updatedAt: reviewBoardUpdatedAt,
@@ -3286,7 +3286,7 @@ const result: MobileKeywordResult = {
     const reviewMtimeBefore = fs.statSync(reviewFile).mtimeMs;
     const acceptedHealth = await fetch(`http://127.0.0.1:${reviewedPort}/health`);
     const acceptedHealthJson: any = await acceptedHealth.json();
-    assert('health accepts an exact-board full human review attestation',
+    assert('health accepts a canonical broad-board full human review attestation',
       acceptedHealthJson.liveGolden?.supply?.automatedSupplyGate === 'pass'
         && acceptedHealthJson.liveGolden?.supply?.superiorityGate === 'pass'
         && acceptedHealthJson.liveGolden?.humanReviewAttestation?.accepted === true
@@ -3386,7 +3386,7 @@ const result: MobileKeywordResult = {
       isSearchVolumeEstimated: false,
          documentCountSource: 'naver-api',
          documentCountConfidence: 'high',
-          documentCountQueryMode: 'exact-phrase',
+          documentCountQueryMode: 'broad',
          isDocumentCountEstimated: false,
       isMeasured: true,
       serpMeasured: true,

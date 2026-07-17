@@ -53,7 +53,7 @@ function row(
     isSearchVolumeEstimated: false,
     documentCountSource: 'naver-api',
     documentCountConfidence: 'high',
-    documentCountQueryMode: 'exact-phrase',
+    documentCountQueryMode: 'broad',
     isDocumentCountEstimated: false,
     discoveredAt: '2026-07-11T16:10:00.000Z',
     updatedAt: '2026-07-11T16:10:00.000Z',

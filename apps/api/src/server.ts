@@ -3390,25 +3390,25 @@ function isCanonicalLiveGoldenSearchVolumeMetric(board: MobileKeywordMetric): bo
     && board.isSearchVolumeEstimated === false;
 }
 
-function isCanonicalLiveGoldenExactMetric(board: MobileKeywordMetric): boolean {
+function isCanonicalLiveGoldenDocumentMetric(board: MobileKeywordMetric): boolean {
   return isCanonicalLiveGoldenSearchVolumeMetric(board)
     && typeof board.documentCount === 'number'
     && Number.isFinite(board.documentCount)
     && board.documentCount > 0
     && board.documentCountSource === 'naver-api'
     && board.documentCountConfidence === 'high'
-    && board.documentCountQueryMode === 'exact-phrase'
+    && board.documentCountQueryMode === 'broad'
     && board.isDocumentCountEstimated === false;
 }
 
-function mergeExactMetricWithLiveBoard(
+function mergeCanonicalMetricWithLiveBoard(
   current: MobileKeywordMetric,
   board: MobileKeywordMetric,
 ): MobileKeywordMetric {
   const boardSplit = canonicalLiveGoldenSearchVolumeSplit(board);
   if (!boardSplit || !isCanonicalLiveGoldenSearchVolumeMetric(board)) return current;
-  const syncExactDocuments = isCanonicalLiveGoldenExactMetric(board);
-  const mergedDocumentCount = syncExactDocuments ? board.documentCount : current.documentCount;
+  const syncCanonicalDocuments = isCanonicalLiveGoldenDocumentMetric(board);
+  const mergedDocumentCount = syncCanonicalDocuments ? board.documentCount : current.documentCount;
   const mergedGoldenRatio = typeof mergedDocumentCount === 'number'
     && Number.isFinite(mergedDocumentCount)
     && mergedDocumentCount > 0
@@ -3423,12 +3423,12 @@ function mergeExactMetricWithLiveBoard(
     ? {
         ...current.agentInsight,
         searchVolumeReason: `황금키워드 보드와 동일한 SearchAd 월간 검색량 ${numberLabel(boardSplit.total)} (PC ${numberLabel(boardSplit.pc)} / 모바일 ${numberLabel(boardSplit.mobile)}), 문서수 ${numberLabel(mergedDocumentCount)}, 비율 ${numberLabel(mergedGoldenRatio)} 기준입니다.`,
-        sourceSummary: syncExactDocuments
-          ? 'LIVE 황금키워드 보드 · SearchAd 월간 검색량 · 네이버 exact-phrase 문서수'
+        sourceSummary: syncCanonicalDocuments
+          ? 'LIVE 황금키워드 보드 · SearchAd 월간 검색량 · 네이버 broad OpenAPI 문서수'
           : `LIVE 황금키워드 보드 SearchAd 월간 검색량 · 현재 분석 ${current.documentCountQueryMode || 'unknown'} 문서수`,
       }
     : undefined;
-  if (!syncExactDocuments) {
+  if (!syncCanonicalDocuments) {
     return {
       ...current,
       pcSearchVolume: boardSplit.pc,
@@ -3458,7 +3458,7 @@ function mergeExactMetricWithLiveBoard(
   };
 }
 
-function overlayLiveGoldenExactKeyword(
+function overlayLiveGoldenCanonicalKeyword(
   endpoint: MobileApiEndpointSpec,
   params: unknown,
   result: MobileKeywordResult,
@@ -3473,24 +3473,24 @@ function overlayLiveGoldenExactKeyword(
   const boardItem = liveGoldenRadar.findMeasuredBoardItem(seed);
   if (!boardItem) return result;
 
-  const exactMetric = metricFromLiveGoldenBoardItem(boardItem);
-  if (!isCanonicalLiveGoldenSearchVolumeMetric(exactMetric)) return result;
-  const canInsertExactBoardMetric = isCanonicalLiveGoldenExactMetric(exactMetric);
+  const canonicalMetric = metricFromLiveGoldenBoardItem(boardItem);
+  if (!isCanonicalLiveGoldenSearchVolumeMetric(canonicalMetric)) return result;
+  const canInsertCanonicalBoardMetric = isCanonicalLiveGoldenDocumentMetric(canonicalMetric);
   const mergedKeywords: MobileKeywordMetric[] = [];
   let inserted = false;
   for (const keyword of result.keywords) {
     const isExact = compactServerKeyword(keyword.keyword) === seedKey;
     if (isExact) {
-      mergedKeywords.push(mergeExactMetricWithLiveBoard(keyword, exactMetric));
+      mergedKeywords.push(mergeCanonicalMetricWithLiveBoard(keyword, canonicalMetric));
       inserted = true;
       continue;
     }
     mergedKeywords.push(keyword);
   }
-  if (!inserted && canInsertExactBoardMetric) {
+  if (!inserted && canInsertCanonicalBoardMetric) {
     mergedKeywords.unshift({
-      ...exactMetric,
-      evidence: uniqueEvidence(exactMetric.evidence, 'analysis-board-metric-sync'),
+      ...canonicalMetric,
+      evidence: uniqueEvidence(canonicalMetric.evidence, 'analysis-board-metric-sync'),
     });
   }
 
@@ -3530,7 +3530,7 @@ async function createJob(
       const cachedBaseResult = supplementMeasuredPrewarmResult(
         endpoint,
         splitParams.executorParams,
-        overlayLiveGoldenExactKeyword(endpoint, splitParams.executorParams, cachedResult, liveGoldenRadar),
+        overlayLiveGoldenCanonicalKeyword(endpoint, splitParams.executorParams, cachedResult, liveGoldenRadar),
         liveGoldenRadar,
         resultCache,
       ) || cachedResult;
@@ -3572,7 +3572,7 @@ async function createJob(
         const baseResult = supplementMeasuredPrewarmResult(
           endpoint,
           splitParams.executorParams,
-          overlayLiveGoldenExactKeyword(endpoint, splitParams.executorParams, result, liveGoldenRadar),
+          overlayLiveGoldenCanonicalKeyword(endpoint, splitParams.executorParams, result, liveGoldenRadar),
           liveGoldenRadar,
           resultCache,
         ) || result;

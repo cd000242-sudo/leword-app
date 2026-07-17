@@ -55,6 +55,15 @@ function makeSssMetric(index: number, prefix = '모바일 검증 키워드'): Mo
     intent: 'test',
     evidence: ['pc-engine-fixture', 'fixture-searchad-volume', 'fixture-naver-blog-document-count'],
     isMeasured: true,
+    searchVolumeSource: 'searchad',
+    searchVolumeConfidence: 'high',
+    searchVolumeBindingVersion: 'keyword-keyed-v2',
+    searchVolumeMeasuredAt: '2026-07-17T00:00:00.000Z',
+    isSearchVolumeEstimated: false,
+    documentCountSource: 'naver-api',
+    documentCountConfidence: 'high',
+    documentCountQueryMode: 'broad',
+    isDocumentCountEstimated: false,
   };
 }
 
@@ -94,6 +103,15 @@ async function measureFixtureMetrics(metrics: MobileKeywordMetric[]): Promise<Mo
         'fixture-naver-blog-document-count',
       ],
       isMeasured: true,
+      searchVolumeSource: 'searchad',
+      searchVolumeConfidence: 'high',
+      searchVolumeBindingVersion: 'keyword-keyed-v2',
+      searchVolumeMeasuredAt: '2026-07-17T00:00:00.000Z',
+      isSearchVolumeEstimated: false,
+      documentCountSource: 'naver-api',
+      documentCountConfidence: 'high',
+      documentCountQueryMode: 'broad',
+      isDocumentCountEstimated: false,
     };
   });
 }
@@ -680,7 +698,7 @@ async function runInjectedProTraffic(): Promise<void> {
 
 async function runAgentAssistQualityGate(): Promise<void> {
   const started = new Date().toISOString();
-  const metrics: MobileKeywordMetric[] = [
+  const metrics: MobileKeywordMetric[] = ([
     {
       keyword: '보도참고자료 고유가 피해지원금 신청·지급 마감 결과 7.3.',
       grade: 'SSS',
@@ -756,7 +774,18 @@ async function runAgentAssistQualityGate(): Promise<void> {
       evidence: ['fixture-searchad-volume', 'fixture-naver-blog-document-count'],
       isMeasured: true,
     },
-  ];
+  ] as MobileKeywordMetric[]).map((metric) => ({
+    ...metric,
+    searchVolumeSource: 'searchad',
+    searchVolumeConfidence: 'high',
+    searchVolumeBindingVersion: 'keyword-keyed-v2',
+    searchVolumeMeasuredAt: '2026-07-17T00:00:00.000Z',
+    isSearchVolumeEstimated: false,
+    documentCountSource: 'naver-api',
+    documentCountConfidence: 'high',
+    documentCountQueryMode: 'broad',
+    isDocumentCountEstimated: false,
+  }));
   const executor = createMobilePcEngineExecutor({
     runProTraffic: async (_params, context) => {
       context.progress(55, 'fixture agent quality adapter');
