@@ -1220,15 +1220,16 @@ function thinProfileCount(items: Array<{ keyword: string }>): number {
   const backfillCatchupInternalBoard = [
     ...((backfillCatchupRadar as any).board.values() as Iterable<any>),
   ];
-  assert('broad scrape backfill stays outside verified supply without opening a second direct SearchAd lane',
+  assert('canonical OpenAPI broad backfill enters verified supply without opening a second direct SearchAd lane',
     backfillCatchupVolumeCalls > 0
       && backfillCatchupDirectCalls === 0
       && backfillCatchupSnapshot.successfulRuns === 1
-      && backfillCatchupSnapshot.boardCount === 0
+      && backfillCatchupSnapshot.boardCount === 1
       && backfillCatchupInternalBoard.some((item: any) => (
         item.keyword === '소상공인 특례보증 신청 방법'
-        && item.documentCountSource === 'scrape'
-        && item.documentCountQueryMode === undefined
+        && item.documentCountSource === 'naver-api'
+        && item.documentCountQueryMode === 'broad'
+        && item.evidence?.includes('naver-openapi-broad')
       )),
     JSON.stringify({
       volumeCalls: backfillCatchupVolumeCalls,
@@ -1299,14 +1300,16 @@ function thinProfileCount(items: Array<{ keyword: string }>): number {
   const autocompleteBackfillInternalBoard = [
     ...((autocompleteBackfillRadar as any).board.values() as Iterable<any>),
   ];
-  assert('broad autocomplete longtails remain recovery references instead of verified supply',
+  assert('broad scrape autocomplete longtails remain recovery references instead of verified supply',
     autocompleteBackfillVolumeCalls > 0
       && autocompleteMeasuredKeywords.some((keyword) => keyword.replace(/\s+/g, '').includes('\uB18D\uC2DD\uD488\uBC14\uC6B0\uCC98\uC2E0\uCCAD'))
       && autocompleteBackfillSnapshot.board.length === 0
       && autocompleteBackfillInternalBoard.some((item: any) => (
         item.keyword.replace(/\s+/g, '').includes('\uB18D\uC2DD\uD488\uBC14\uC6B0\uCC98\uC2E0\uCCAD')
         && item.documentCountSource === 'scrape'
-        && item.documentCountQueryMode === undefined
+        && item.documentCountQueryMode === 'broad'
+        && item.evidence?.includes('naver-search-broad-scrape')
+        && !item.evidence?.includes('naver-openapi-broad')
       ))
       && !autocompleteMeasuredKeywords.some((keyword) => keyword.includes('\uB85C\uB610')),
     JSON.stringify({
@@ -1774,7 +1777,7 @@ function thinProfileCount(items: Array<{ keyword: string }>): number {
   const measuredProbeInternalBoard = [
     ...((measuredProbeRadar as any).board.values() as Iterable<any>),
   ];
-  assert('broad measured-probe documents stay outside exact verified supply',
+  assert('broad scrape measured-probe documents stay outside verified supply',
     measuredProbeVolumeCalls > 0
       && measuredProbeVolumeKeywords.some((keyword) => /\uC81C\uC8FC\s*\uB80C\uD130\uCE74.*\uAC00\uACA9\uBE44\uAD50/.test(keyword))
       && measuredProbeDocumentOptions.some((item) => (
@@ -1789,7 +1792,9 @@ function thinProfileCount(items: Array<{ keyword: string }>): number {
         && item.documentCount === 15
         && item.searchVolumeSource === 'searchad'
         && item.documentCountSource === 'scrape'
-        && item.documentCountQueryMode === undefined
+        && item.documentCountQueryMode === 'broad'
+        && item.evidence?.includes('naver-search-broad-scrape')
+        && !item.evidence?.includes('naver-openapi-broad')
         && item.isSearchVolumeEstimated === false
         && item.isDocumentCountEstimated === false
       )),
@@ -1893,7 +1898,8 @@ function thinProfileCount(items: Array<{ keyword: string }>): number {
       && noisyProbeInternalBoard.some((item: any) => (
         /\uC81C\uC8FC\s*\uB80C\uD130\uCE74.*\uAC00\uACA9\uBE44\uAD50/.test(item.keyword)
         && item.documentCountSource === 'scrape'
-        && item.documentCountQueryMode === undefined
+        && item.documentCountQueryMode === 'broad'
+        && item.evidence?.includes('naver-search-broad-scrape')
       )),
     JSON.stringify({
       first: noisyProbeVolumeKeywords.slice(0, 16),
@@ -2333,7 +2339,8 @@ function thinProfileCount(items: Array<{ keyword: string }>): number {
         && (item.totalSearchVolume || 0) > 0
         && (item.documentCount || 0) > 0
         && item.documentCountSource === 'scrape'
-        && item.documentCountQueryMode === undefined
+        && item.documentCountQueryMode === 'broad'
+        && item.evidence?.includes('naver-search-broad-scrape')
       )),
     `${liveIssueMeasuredFallbackSnapshot.lastMessage || ''} :: ${liveIssueMeasuredFallbackInternalBoard.map((item: any) => `${item.keyword}:${item.totalSearchVolume}:${item.documentCount}:${item.source}`).join('|')}`);
   assert('live issue measured fallback preserves searchad pc mobile split and cpc',
@@ -3298,7 +3305,8 @@ function thinProfileCount(items: Array<{ keyword: string }>): number {
         && item.mobileSearchVolume === 5120
         && item.documentCount === 380
         && item.documentCountSource === 'scrape'
-        && item.documentCountQueryMode === undefined
+        && item.documentCountQueryMode === 'broad'
+        && item.evidence?.includes('naver-search-broad-scrape')
       )),
     JSON.stringify({
       measured: referenceProbeMeasuredKeywords.slice(0, 30),
@@ -4682,7 +4690,8 @@ function thinProfileCount(items: Array<{ keyword: string }>): number {
         && item.mobileSearchVolume === 2140
         && item.documentCount === 90
         && item.documentCountSource === 'naver-api'
-        && item.documentCountQueryMode === 'exact-phrase'
+        && item.documentCountQueryMode === 'broad'
+        && item.evidence?.includes('naver-openapi-broad')
       )),
     JSON.stringify({
       measured: queuePriorityMeasuredKeywords.slice(0, 20),
@@ -4859,7 +4868,8 @@ function thinProfileCount(items: Array<{ keyword: string }>): number {
         && item.mobileSearchVolume === 3660
         && item.documentCount === 140
         && item.documentCountSource === 'scrape'
-        && item.documentCountQueryMode === undefined
+        && item.documentCountQueryMode === 'broad'
+        && item.evidence?.includes('naver-search-broad-scrape')
       )),
     JSON.stringify({
       measured: queueVariantMeasuredKeywords,
@@ -5182,7 +5192,7 @@ function thinProfileCount(items: Array<{ keyword: string }>): number {
   }), 'utf8');
   const coreSuggestionSeeds: string[] = [];
   let coreSuggestionDirectCalls = 0;
-  let coreSuggestionExactPhraseMeasure = false;
+  let coreSuggestionBroadMeasure = false;
   const coreSuggestionRadar = new MobileLiveGoldenRadar({
     notificationInbox: inbox,
     runOnStart: false,
@@ -5226,7 +5236,7 @@ function thinProfileCount(items: Array<{ keyword: string }>): number {
     measureLiveSearchVolumeSeparate: async () => [],
     measureLiveDocumentCount: async (keyword, options) => {
       if (keyword === '에어컨이전설치비용') {
-        coreSuggestionExactPhraseMeasure = options?.queryMode === 'exact-phrase';
+        coreSuggestionBroadMeasure = options?.queryMode === 'broad';
         return { dc: 120, source: 'naver-api', confidence: 'high', isEstimated: false };
       }
       return null;
@@ -5242,7 +5252,7 @@ function thinProfileCount(items: Array<{ keyword: string }>): number {
       && coreSuggestionSeeds.length <= 4
       && coreSuggestionSeeds.some((seed) => /이사|입주청소|에어컨|보일러/u.test(seed))
       && coreSuggestionDirectCalls === 0
-      && coreSuggestionExactPhraseMeasure
+      && coreSuggestionBroadMeasure
       && coreSuggestionSnapshot.board.some((item) => (
         item.keyword === '에어컨이전설치비용'
         && item.grade === 'SSS'
@@ -5251,7 +5261,7 @@ function thinProfileCount(items: Array<{ keyword: string }>): number {
     JSON.stringify({
       seeds: coreSuggestionSeeds,
       directCalls: coreSuggestionDirectCalls,
-      exactPhraseMeasure: coreSuggestionExactPhraseMeasure,
+      broadMeasure: coreSuggestionBroadMeasure,
       board: coreSuggestionSnapshot.board.map((item) => `${item.keyword}:${item.grade}:${item.goldenRatio}`),
     }));
   fs.rmSync(coreSuggestionQueueFile, { force: true });
@@ -5361,7 +5371,8 @@ function thinProfileCount(items: Array<{ keyword: string }>): number {
         && item.mobileSearchVolume === 3300
         && item.documentCount === 160
         && item.documentCountSource === 'scrape'
-        && item.documentCountQueryMode === undefined
+        && item.documentCountQueryMode === 'broad'
+        && item.evidence?.includes('naver-search-broad-scrape')
       )),
     JSON.stringify({
       volumeBatchSizes,

@@ -1322,7 +1322,8 @@ function runFallbackRegressionGuards(): void {
     'OpenAPI 012 should pause briefly instead of blocking the key until reset');
   assert('combined SearchAd/OpenAPI measurement serializes document lookup and preserves rate-limit recovery',
     naverDatalabSource.includes('const CONCURRENCY = 1')
-      && naverDatalabSource.includes('isNaverBlogOpenApiRateLimitedText(errorText)')
+      && naverDatalabSource.includes('getNaverBlogDocumentCount(originalKeyword')
+      && naverBlogApiSource.includes('markNaverBlogOpenApiRateLimited()')
       && naverDatalabSource.includes('await new Promise(r => setTimeout(r, 350))'),
     'direct golden measurement must not turn OpenAPI 012 into a five-minute all-category document blackout');
   assert('Naver OpenAPI logs do not expose client secret fragments',

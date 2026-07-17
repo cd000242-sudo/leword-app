@@ -242,10 +242,10 @@ const broadDocumentScopeReport = buildLiveGoldenSupplyReport([broadDocumentScope
   verifiedTarget: 1,
   minimumActiveCoreCategories: 1,
 });
-assert('broad document counts cannot satisfy exact-phrase verified supply',
-  broadDocumentScopeReport.verifiedCount === 0
-    && broadDocumentScopeReport.untrustedCount === 1
-    && broadDocumentScopeReport.failureReasons.includes('untrusted-row-present'),
+assert('canonical broad Naver OpenAPI document counts satisfy verified supply',
+  broadDocumentScopeReport.verifiedCount === 1
+    && broadDocumentScopeReport.untrustedCount === 0
+    && !broadDocumentScopeReport.failureReasons.includes('untrusted-row-present'),
   JSON.stringify(broadDocumentScopeReport));
 
 const scrapedDocumentCount = measuredItem('scraped document count', 'finance', 8);

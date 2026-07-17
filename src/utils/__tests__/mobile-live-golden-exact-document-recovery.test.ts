@@ -88,6 +88,61 @@ function pendingItem(keyword: string, category: string, index: number): any {
     safeFillCounts,
   );
 
+  const canonicalRefreshCalls: Array<{
+    keyword: string;
+    queryMode?: string;
+    skipCache?: boolean;
+    scrapeOnly?: boolean;
+  }> = [];
+  const canonicalRefreshRadar = new MobileLiveGoldenRadar({
+    runOnStart: false,
+    now: () => new Date('2026-07-15T02:00:00.000Z'),
+    measureLiveDocumentCount: async (keyword, options) => {
+      canonicalRefreshCalls.push({
+        keyword,
+        queryMode: options?.queryMode,
+        skipCache: options?.skipCache,
+        scrapeOnly: options?.scrapeOnly,
+      });
+      return {
+        dc: 400,
+        source: 'naver-api',
+        confidence: 'high',
+        isEstimated: false,
+        queryMode: 'broad',
+      };
+    },
+  });
+  const canonicalRefreshInternal = canonicalRefreshRadar as any;
+  const legacyExactBoardItem = {
+    ...trustedBoardItem('home_life', 9999),
+    keyword: '\uC5D0\uC5B4\uCEE8 \uCCAD\uC18C \uBE44\uC6A9 \uBE44\uAD50',
+    evidence: [
+      'mobile-live-seed-backfill',
+      'naver-openapi-exact-phrase',
+      'persistent-cache-exact-document-recovery',
+    ],
+  };
+  canonicalRefreshInternal.board.set(legacyExactBoardItem.id, legacyExactBoardItem);
+  canonicalRefreshInternal.canonicalDocumentRefreshPendingIds.add(legacyExactBoardItem.id);
+  const canonicalRefresh = await canonicalRefreshInternal.refreshCanonicalBoardDocumentCounts(12);
+  const canonicalRefreshedItem = canonicalRefreshInternal.board.get(legacyExactBoardItem.id);
+  assert(
+    'existing exact-phrase board rows are force-refreshed to the canonical broad OpenAPI document count',
+    canonicalRefresh.attemptedCount === 1
+      && canonicalRefresh.updatedCount === 1
+      && canonicalRefreshCalls.length === 1
+      && canonicalRefreshCalls[0].queryMode === 'broad'
+      && canonicalRefreshCalls[0].skipCache === true
+      && canonicalRefreshCalls[0].scrapeOnly === false
+      && canonicalRefreshedItem?.documentCount === 400
+      && canonicalRefreshedItem?.documentCountQueryMode === 'broad'
+      && canonicalRefreshedItem?.evidence?.includes('naver-openapi-broad')
+      && !canonicalRefreshedItem?.evidence?.includes('naver-openapi-exact-phrase')
+      && !canonicalRefreshedItem?.evidence?.includes('persistent-cache-exact-document-recovery'),
+    { canonicalRefresh, canonicalRefreshCalls, canonicalRefreshedItem },
+  );
+
   const dir = fs.mkdtempSync(path.join(os.tmpdir(), 'leword-exact-doc-recovery-'));
   const keywordCacheFile = path.join(dir, 'keyword-cache.json');
   const boardFile = path.join(dir, 'board.json');
@@ -205,34 +260,32 @@ function pendingItem(keyword: string, category: string, index: number): any {
     discover: async () => [],
   });
   await legacyBoardOnlyRadar.runOnce();
-  const legacyVolumeCall = legacyVolumeCalls.find((call) => call.keywords.includes(legacyBoardOnlyKeyword));
   const recoveredLegacyRow = [...(legacyBoardOnlyRadar as any).board.values()]
     .find((item: any) => item.keyword === legacyBoardOnlyKeyword);
   const recoveredVerifiedLegacyRow = (legacyBoardOnlyRadar.snapshot().verifiedSupply || [])
     .find((item: any) => item.keyword === legacyBoardOnlyKeyword);
   assert(
-    'scheduled recovery force-remeasures a board-only legacy exact row without relying on SearchAd cache discovery',
-    Boolean(legacyVolumeCall)
-      && legacyVolumeCall?.forceFresh === true
+    'scheduled canonical refresh updates a board-only exact row without spending SearchAd quota',
+    legacyVolumeCalls.length === 0
       && legacyDocumentCalls.length === 1
       && legacyDocumentCalls[0].keyword === legacyBoardOnlyKeyword
-      && legacyDocumentCalls[0].queryMode === 'exact-phrase'
+      && legacyDocumentCalls[0].queryMode === 'broad'
       && legacyDocumentCalls[0].scrapeOnly === false
-      && recoveredLegacyRow?.documentCountQueryMode === 'exact-phrase'
+      && recoveredLegacyRow?.documentCountQueryMode === 'broad'
       && recoveredLegacyRow?.documentCountSource === 'naver-api'
-      && recoveredVerifiedLegacyRow?.pcSearchVolume === 500
-      && recoveredVerifiedLegacyRow?.mobileSearchVolume === 1900
-      && recoveredVerifiedLegacyRow?.totalSearchVolume === 2400
+      && recoveredVerifiedLegacyRow?.pcSearchVolume === 456
+      && recoveredVerifiedLegacyRow?.mobileSearchVolume === 1824
+      && recoveredVerifiedLegacyRow?.totalSearchVolume === 2280
       && recoveredVerifiedLegacyRow?.documentCount === 120
       && recoveredVerifiedLegacyRow?.searchVolumeBindingVersion === 'keyword-keyed-v2'
       && recoveredVerifiedLegacyRow?.searchVolumeMeasuredAt === now.toISOString()
       && recoveredVerifiedLegacyRow?.isSearchVolumeEstimated === false
       && recoveredVerifiedLegacyRow?.documentCountSource === 'naver-api'
       && recoveredVerifiedLegacyRow?.documentCountConfidence === 'high'
-      && recoveredVerifiedLegacyRow?.documentCountQueryMode === 'exact-phrase'
+      && recoveredVerifiedLegacyRow?.documentCountQueryMode === 'broad'
       && recoveredVerifiedLegacyRow?.isDocumentCountEstimated === false
-      && recoveredVerifiedLegacyRow?.evidence?.includes('persistent-cache-exact-document-recovery')
-      && recoveredVerifiedLegacyRow?.evidence?.includes('naver-openapi-exact-phrase'),
+      && recoveredVerifiedLegacyRow?.evidence?.includes('canonical-broad-document-refresh')
+      && !recoveredVerifiedLegacyRow?.evidence?.includes('naver-openapi-exact-phrase'),
     { legacyVolumeCalls, legacyDocumentCalls, recoveredLegacyRow, recoveredVerifiedLegacyRow },
   );
   legacyBoardOnlyRadar.stop();
@@ -285,7 +338,7 @@ function pendingItem(keyword: string, category: string, index: number): any {
       if (
         !retryDocumentSucceeds
         || keyword !== legacyBoardOnlyKeyword
-        || options?.queryMode !== 'exact-phrase'
+        || options?.queryMode !== 'broad'
       ) return null;
       return { dc: 120, source: 'naver-api', confidence: 'high', isEstimated: false };
     },
@@ -354,7 +407,7 @@ function pendingItem(keyword: string, category: string, index: number): any {
     'a cooled-down retry can recover once, enter Verified, and then stop remeasurement',
     recoveredAfterCooldown.attemptedCount === 1
       && recoveredAfterCooldown.promotedCount === 1
-      && retryVerified?.documentCountQueryMode === 'exact-phrase'
+      && retryVerified?.documentCountQueryMode === 'broad'
       && completedAttempt.attemptedCount === 0
       && retryVolumeCalls === callsAfterSuccess.volume
       && retryDocumentCalls === callsAfterSuccess.document,
@@ -465,23 +518,23 @@ function pendingItem(keyword: string, category: string, index: number): any {
     { first, volumeOptions, measuredKeywords },
   );
   assert(
-    'exact-document recovery measures every returned row as an exact phrase without scrape fallback',
+    'canonical document recovery measures every returned row as broad OpenAPI total without scrape fallback',
     documentCalls.length > 0
-      && documentCalls.every((call) => call.queryMode === 'exact-phrase' && call.scrapeOnly === false),
+      && documentCalls.every((call) => call.queryMode === 'broad' && call.scrapeOnly === false),
     documentCalls,
   );
   const recoveredRows = [...internalRadar.board.values()].filter((item: any) => (
-    Array.isArray(item.evidence) && item.evidence.includes('naver-openapi-exact-phrase')
+    Array.isArray(item.evidence) && item.evidence.includes('naver-openapi-broad')
   )) as any[];
   assert(
-    'recovered board rows publish the fresh SearchAd total and exact document evidence instead of cached values',
+    'recovered board rows publish the fresh SearchAd total and canonical broad document evidence instead of cached values',
     recoveredRows.length > 0
       && recoveredRows.every((item) => (
         item.totalSearchVolume === freshVolumeByKeyword.get(item.keyword)
         && item.totalSearchVolume !== cachedVolumeByKeyword.get(item.keyword)
         && item.documentCount === 120
         && item.documentCountSource === 'naver-api'
-        && item.documentCountQueryMode === 'exact-phrase'
+        && item.documentCountQueryMode === 'broad'
       )),
     recoveredRows,
   );
@@ -624,21 +677,21 @@ function pendingItem(keyword: string, category: string, index: number): any {
     item.keyword.replace(/\s+/g, '').toLowerCase()
   )));
   assert(
-    'trusted exact display recovery admits natural A rows and narrow SS utility/schedule rows',
+    'canonical broad recovery retains actionable rows without exact-phrase-only utility exceptions',
     qualityRecovery.attemptedCount > 0
       && qualityVerifiedIds.has('농식품바우처자격조건')
       && qualityVerifiedIds.has('붙박이장설치비용')
       && qualityVerifiedIds.has('집청소비용')
-      && qualityVerifiedIds.has('근무시간계산기')
-      && qualityVerifiedIds.has('컴활시험일정')
-      && qualityVerifiedIds.has('어달해변숙소')
-      && qualityVerifiedIds.has('중고차이전비용')
       && qualityVerifiedIds.has('브레이크디스크교체시기')
-      && qualityVerifiedIds.has('자동차엔진오일교체주기'),
+      && qualityVerifiedIds.has('자동차엔진오일교체주기')
+      && !qualityVerifiedIds.has('근무시간계산기')
+      && !qualityVerifiedIds.has('컴활시험일정')
+      && !qualityVerifiedIds.has('어달해변숙소')
+      && !qualityVerifiedIds.has('중고차이전비용'),
     { qualityRecovery, qualityMeasuredKeywords, verified: [...qualityVerifiedIds] },
   );
   assert(
-    'exact recovery keeps semantic duplicates and low-quality or malformed opportunities out of Verified',
+    'canonical broad recovery keeps semantic duplicates and low-quality or malformed opportunities out of Verified',
     [...qualityVerifiedIds].filter((id) => id === '사대보험계산기' || id === '4대보험계산기').length <= 1
       && !qualityVerifiedIds.has('강아지미용비용')
       && !qualityVerifiedIds.has('도수치료실비')

@@ -14,7 +14,7 @@ const NAVER_BLOG_OPENAPI_QUOTA_COOLDOWN_MS = 5 * 60 * 1000;
 const NAVER_BLOG_OPENAPI_RATE_LIMIT_BACKOFF_MS = 2_500;
 const NAVER_BLOG_OPENAPI_STATE_SCHEMA = 1;
 const NAVER_BLOG_DOCUMENT_COUNT_CACHE_SCHEMA = 1;
-const NAVER_BLOG_DOCUMENT_COUNT_CACHE_TTL_MS = 24 * 60 * 60 * 1000;
+const NAVER_BLOG_DOCUMENT_COUNT_CACHE_TTL_MS = 15 * 60 * 1000;
 let legacyNaverBlogOpenApiQuotaBlockedUntil = 0;
 let naverBlogOpenApiRotationCursor = 0;
 let quotaStateLoaded = false;
@@ -421,29 +421,39 @@ function setCachedNaverBlogDocumentCount(keyword: string, total: number, nowMs =
  * @param keyword 검색할 키워드
  * @returns 블로그 문서 수
  */
-export async function getNaverBlogDocumentCount(keyword: string): Promise<number | null> {
+export async function getNaverBlogDocumentCount(
+  keyword: string,
+  options: {
+    forceFresh?: boolean;
+    config?: { clientId?: string; clientSecret?: string };
+  } = {},
+): Promise<number | null> {
   try {
-    const cached = getCachedNaverBlogDocumentCount(keyword);
+    const cached = options.forceFresh ? null : getCachedNaverBlogDocumentCount(keyword);
     if (cached !== null) {
       console.log(`[NAVER-BLOG-API] cache hit: "${keyword}" = ${cached.toLocaleString()}`);
       return cached;
     }
 
-    const envManager = EnvironmentManager.getInstance();
-    const config = envManager.getConfig();
+    const fallbackConfig = options.config
+      ? {
+        clientId: options.config.clientId || process.env['NAVER_CLIENT_ID'] || '',
+        clientSecret: options.config.clientSecret || process.env['NAVER_CLIENT_SECRET'] || '',
+      }
+      : (() => {
+        const config = EnvironmentManager.getInstance().getConfig();
+        return {
+          clientId: config.naverClientId || process.env['NAVER_CLIENT_ID'] || '',
+          clientSecret: config.naverClientSecret || process.env['NAVER_CLIENT_SECRET'] || '',
+        };
+      })();
     
-    const credential = selectNaverBlogOpenApiCredential({
-      clientId: config.naverClientId || process.env['NAVER_CLIENT_ID'] || '',
-      clientSecret: config.naverClientSecret || process.env['NAVER_CLIENT_SECRET'] || '',
-    });
+    const credential = selectNaverBlogOpenApiCredential(fallbackConfig);
     
     console.log(`[NAVER-BLOG-API] document count lookup: "${keyword}" (${credential?.label || 'no-key'})`);
     
     if (!credential) {
-      if (isNaverBlogOpenApiQuotaBlocked({
-        clientId: config.naverClientId || process.env['NAVER_CLIENT_ID'] || '',
-        clientSecret: config.naverClientSecret || process.env['NAVER_CLIENT_SECRET'] || '',
-      })) {
+      if (isNaverBlogOpenApiQuotaBlocked(fallbackConfig)) {
         console.warn(`[NAVER-BLOG-API] OpenAPI key pool quota cooldown active, skip document lookup: "${keyword}"`);
       } else {
         console.error(`[NAVER-BLOG-API] ❌ API 키가 설정되지 않았습니다!`);

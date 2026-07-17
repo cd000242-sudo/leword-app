@@ -137,7 +137,7 @@ export function isTrustedLiveGoldenSupplyRow(item: MobileLiveGoldenBoardItem): b
     && Number.isFinite(searchVolumeMeasuredAtMs)
     && item.documentCountSource === 'naver-api'
     && item.documentCountConfidence === 'high'
-    && item.documentCountQueryMode === 'exact-phrase'
+    && (item.documentCountQueryMode === 'broad' || item.documentCountQueryMode === 'exact-phrase')
     && item.isDocumentCountEstimated === false
     && hasTrustedSearchVolumeMeasurement(item)
     && hasTrustedDocumentCountMeasurement(item);
