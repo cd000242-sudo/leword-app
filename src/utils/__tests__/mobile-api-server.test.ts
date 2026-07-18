@@ -1409,6 +1409,8 @@ const result: MobileKeywordResult = {
     LEWORD_WEB_LOGIN_TIER: process.env['LEWORD_WEB_LOGIN_TIER'],
     LEWORD_ADMIN_LOGIN_ID: process.env['LEWORD_ADMIN_LOGIN_ID'],
     LEWORD_ADMIN_LOGIN_PASSWORD_SHA256: process.env['LEWORD_ADMIN_LOGIN_PASSWORD_SHA256'],
+    LEWORD_ADMIN_PANEL_LOGIN_ID_SHA256: process.env['LEWORD_ADMIN_PANEL_LOGIN_ID_SHA256'],
+    LEWORD_ADMIN_PANEL_LOGIN_PASSWORD_SHA256: process.env['LEWORD_ADMIN_PANEL_LOGIN_PASSWORD_SHA256'],
   };
   const rejectingPanelLoginRequests: any[] = [];
   const rejectingPanelLoginService = http.createServer((req, res) => {
@@ -1429,6 +1431,8 @@ const result: MobileKeywordResult = {
   process.env['LEWORD_WEB_LOGIN_TIER'] = 'unlimited';
   process.env['LEWORD_ADMIN_LOGIN_ID'] = 'configured-admin';
   process.env['LEWORD_ADMIN_LOGIN_PASSWORD_SHA256'] = crypto.createHash('sha256').update('configured-admin-pass', 'utf8').digest('hex');
+  process.env['LEWORD_ADMIN_PANEL_LOGIN_ID_SHA256'] = crypto.createHash('sha256').update('panel-admin', 'utf8').digest('hex');
+  process.env['LEWORD_ADMIN_PANEL_LOGIN_PASSWORD_SHA256'] = crypto.createHash('sha256').update('panel-admin-pass', 'utf8').digest('hex');
   const configuredAuthServer = createLewordApiServer({ executor, authToken: 'configured-static-token' });
   const configuredAuthPort = await listen(configuredAuthServer);
   const configuredAuthBaseUrl = `http://127.0.0.1:${configuredAuthPort}`;
@@ -1502,6 +1506,24 @@ const result: MobileKeywordResult = {
         && configuredAdminLoginJson.session?.tier === 'admin'
         && configuredAdminLoginJson.session?.source === 'configured-web-login',
       JSON.stringify({ status: configuredAdminLogin.status, body: configuredAdminLoginJson }));
+
+    const configuredPanelAdminLogin = await fetch(`${configuredAuthBaseUrl}/v1/web/session`, {
+      method: 'POST',
+      headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify({
+        userId: 'panel-admin',
+        password: 'panel-admin-pass',
+        adminLogin: true,
+      }),
+    });
+    const configuredPanelAdminLoginJson: any = await configuredPanelAdminLogin.json();
+    assert('configured admin panel hash login returns admin session without a separate remembered id',
+      configuredPanelAdminLogin.status === 200
+        && configuredPanelAdminLoginJson.ok === true
+        && configuredPanelAdminLoginJson.session?.userId === 'panel-admin'
+        && configuredPanelAdminLoginJson.session?.tier === 'admin'
+        && configuredPanelAdminLoginJson.session?.source === 'configured-web-login',
+      JSON.stringify({ status: configuredPanelAdminLogin.status, body: configuredPanelAdminLoginJson }));
   } finally {
     for (const [key, value] of Object.entries(previousConfiguredLoginEnv)) {
       if (value === undefined) delete process.env[key];
