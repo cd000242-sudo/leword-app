@@ -16,6 +16,7 @@ function assert(name: string, condition: boolean, detail?: string): void {
 }
 
 const root = path.join(__dirname, '..', '..', '..');
+fs.mkdirSync(path.join(root, 'tmp'), { recursive: true });
 
 function result(keyword: string, index: number): any {
   const searchVolume = 2200 + index * 100;
@@ -937,6 +938,7 @@ function thinProfileCount(items: Array<{ keyword: string }>): number {
       { keyword: '김햄찌 팝업스토어', searchVolume: 1, documentCount: 999_999, opportunity: 0.000001, ocrConfidence: 96 },
       // A larger stored opportunity must not move this row ahead of the admin's first row.
       { keyword: '라민 야 말', searchVolume: 999_999_999, documentCount: 1, opportunity: 999_999_999, ocrConfidence: 94 },
+      { keyword: 'C# 강의 추천', searchVolume: 777_777_777, documentCount: 1, opportunity: 777_777_777, ocrConfidence: 95 },
       { keyword: '김 햄찌 팝업 스토어', searchVolume: 888_888, documentCount: 1, opportunity: 888_888, ocrConfidence: 93 },
       { keyword: '경산 살해범', searchVolume: 20_000, documentCount: 100, opportunity: 200, ocrConfidence: 99 },
       { keyword: '검토가 필요한 후보', searchVolume: 20_000, documentCount: 100, opportunity: 200, ocrConfidence: 79 },
@@ -947,10 +949,27 @@ function thinProfileCount(items: Array<{ keyword: string }>): number {
   assert('Home briefing seed selector preserves reviewed admin order and ignores stored metrics for priority',
     typeof reviewedSeedSelector === 'function'
       && JSON.stringify(reviewedSeedSelector(reviewedHomeBriefing, homeBriefingNow))
-        === JSON.stringify(['김햄찌 팝업스토어', '라민 야 말']),
+        === JSON.stringify(['김햄찌 팝업스토어', '라민 야 말', 'C# 강의 추천']),
     typeof reviewedSeedSelector === 'function'
       ? JSON.stringify(reviewedSeedSelector(reviewedHomeBriefing, homeBriefingNow))
       : 'selector missing');
+  const spacingSensitiveSeeds = reviewedSeedSelector({
+    ...reviewedHomeBriefing,
+    rows: [
+      { keyword: '내 집 마련 신청', ocrConfidence: 99 },
+      { keyword: '세 달 후 일정', ocrConfidence: 99 },
+      { keyword: '몇 월 몇 일 신청', ocrConfidence: 99 },
+      { keyword: '최 영 중 청 주 시 의원', ocrConfidence: 99 },
+    ],
+  }, homeBriefingNow);
+  assert('Home briefing selector never guesses Korean OCR spacing before autocomplete proof',
+    JSON.stringify(spacingSensitiveSeeds) === JSON.stringify([
+      '내 집 마련 신청',
+      '세 달 후 일정',
+      '몇 월 몇 일 신청',
+      '최 영 중 청 주 시 의원',
+    ]),
+    JSON.stringify(spacingSensitiveSeeds));
   assert('Home briefing seed selector rejects stale snapshots',
     typeof reviewedSeedSelector === 'function'
       && reviewedSeedSelector({
@@ -987,11 +1006,18 @@ function thinProfileCount(items: Array<{ keyword: string }>): number {
     discover: async () => [],
     autocompleteProvider: async () => [],
     searchAdSuggestionProvider: async () => [],
-    realDemandProbe: async () => ({ ok: true, suggestions: [] }),
+    realDemandProbe: async (keyword: string) => ({
+      ok: true,
+      suggestions: keyword === '라민 야 말'
+        ? ['라민 야말']
+        : keyword === 'C# 강의 추천'
+          ? ['C 강의 추천']
+          : [],
+    }),
     measureLiveSearchVolumeSeparate: (async (_config: unknown, keywords: string[]) => {
       homeBriefingMeasuredKeywords.push([...keywords]);
       return keywords
-        .filter((keyword) => keyword === '김햄찌 팝업스토어')
+        .filter((keyword) => keyword === '김햄찌 팝업스토어' || keyword === '라민 야말')
         .map((keyword) => ({
           keyword,
           pcSearchVolume: 2_400,
@@ -1012,6 +1038,7 @@ function thinProfileCount(items: Array<{ keyword: string }>): number {
   });
   const homeBriefingSnapshot = await homeBriefingRadar.runOnce();
   const homeBriefingRow = homeBriefingSnapshot.board.find((item) => item.keyword === '김햄찌 팝업스토어');
+  const canonicalizedHomeBriefingRow = homeBriefingSnapshot.board.find((item) => item.keyword === '라민 야말');
   const measuredHomeBriefingFlat = homeBriefingMeasuredKeywords.flat();
   assert('reviewed Home briefing names are direct traffic-surge candidates even without autocomplete suggestions',
     measuredHomeBriefingFlat.includes('김햄찌 팝업스토어')
@@ -1020,6 +1047,15 @@ function thinProfileCount(items: Array<{ keyword: string }>): number {
       && homeBriefingRow?.evidence?.includes('home-keyword-briefing-reviewed') === true
       && !(homeBriefingSnapshot.verifiedSupply || []).some((item) => item.keyword === '김햄찌 팝업스토어'),
     JSON.stringify({ measured: homeBriefingMeasuredKeywords, row: homeBriefingRow }));
+  assert('reviewed Home briefing spacing changes only when autocomplete confirms the same compact keyword',
+    measuredHomeBriefingFlat.includes('라민 야말')
+      && !measuredHomeBriefingFlat.includes('라민 야 말')
+      && measuredHomeBriefingFlat.includes('C# 강의 추천')
+      && !measuredHomeBriefingFlat.includes('C 강의 추천')
+      && canonicalizedHomeBriefingRow?.evidence?.includes('home-keyword-briefing-autocomplete-canonicalized') === true
+      && canonicalizedHomeBriefingRow?.evidence?.includes('home-keyword-briefing-original:라민 야 말') === true
+      && canonicalizedHomeBriefingRow?.evidence?.includes('home-keyword-briefing-canonical:라민 야말') === true,
+    JSON.stringify({ measured: homeBriefingMeasuredKeywords, row: canonicalizedHomeBriefingRow }));
   assert('reviewed Home briefing metrics are never copied and publication requires exact fresh SearchAd plus canonical broad documents',
     homeBriefingRow?.pcSearchVolume === 2_400
       && homeBriefingRow.mobileSearchVolume === 9_600

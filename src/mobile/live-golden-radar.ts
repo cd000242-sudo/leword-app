@@ -12181,10 +12181,13 @@ export class MobileLiveGoldenRadar {
     if (heads.length === 0 && directSeeds.length === 0) return 0;
     const candidates = new Map<string, string>();
     const reviewedDirectCompacts = new Set<string>();
+    const reviewedDirectOriginalByCompact = new Map<string, string>();
+    const reviewedAutocompleteCanonicalByCompact = new Map<string, { original: string; canonical: string }>();
     for (const seed of directSeeds) {
       const compact = keywordCompactId(seed);
       if (!compact || reviewedDirectCompacts.has(compact)) continue;
       reviewedDirectCompacts.add(compact);
+      reviewedDirectOriginalByCompact.set(compact, seed);
       candidates.set(compact, seed);
     }
     const observedSuggestions: string[] = [];
@@ -12192,12 +12195,31 @@ export class MobileLiveGoldenRadar {
       try {
         const probe = await this.autocompleteEchoProbe!(query);
         if (!probe || probe.ok !== true) return;
+        const queryCompact = keywordCompactId(query);
+        const reviewedQueryOriginal = reviewedDirectOriginalByCompact.get(queryCompact);
         for (const suggestion of Array.isArray(probe.suggestions) ? probe.suggestions : []) {
           const clean = normalizeKeyword(suggestion);
           const compact = keywordCompactId(clean);
           if (!clean || compact.length < 4) continue;
           if (isMalformedLiveKeyword(clean) || SURGE_UNSAFE_RE.test(clean)) continue;
           observedSuggestions.push(clean);
+          if (
+            reviewedQueryOriginal
+            && compact === queryCompact
+            && clean.replace(/\s+/gu, '') === reviewedQueryOriginal.replace(/\s+/gu, '')
+            && clean !== reviewedQueryOriginal
+          ) {
+            // OCR spacing is not safe to guess: Korean broad document totals can
+            // change with the exact query string. Replace a reviewed spelling only
+            // when Naver autocomplete echoes the same compact keyword, then measure
+            // and display that exact canonical spelling.
+            candidates.set(compact, clean);
+            reviewedAutocompleteCanonicalByCompact.set(compact, {
+              original: reviewedQueryOriginal,
+              canonical: clean,
+            });
+            continue;
+          }
           if (!candidates.has(compact) && candidates.size < SURGE_CANDIDATES_PER_CYCLE) {
             candidates.set(compact, clean);
           }
@@ -12248,6 +12270,7 @@ export class MobileLiveGoldenRadar {
       const compactKeyword = keywordCompactId(keyword);
       const reviewedHomeBriefingCandidate = reviewedDirectCompacts.has(compactKeyword);
       const reviewedHomeBriefingExpansion = directSeeds.length > 0 && !reviewedHomeBriefingCandidate;
+      const reviewedAutocompleteCanonical = reviewedAutocompleteCanonicalByCompact.get(compactKeyword);
       const pc = finiteNumber(row.pcSearchVolume);
       const mobile = finiteNumber(row.mobileSearchVolume);
       const docs = finiteNumber(row.documentCount);
@@ -12284,6 +12307,13 @@ export class MobileLiveGoldenRadar {
               ...this.lastReviewedHomeKeywordBriefingEvidence,
               'traffic-surge',
               ...(reviewedHomeBriefingExpansion ? ['autocomplete-expansion'] : []),
+              ...(reviewedAutocompleteCanonical
+                ? [
+                    'home-keyword-briefing-autocomplete-canonicalized',
+                    `home-keyword-briefing-original:${reviewedAutocompleteCanonical.original}`,
+                    `home-keyword-briefing-canonical:${reviewedAutocompleteCanonical.canonical}`,
+                  ]
+                : []),
               'searchad-exact-remeasured',
               'naver-openapi-document-count-remeasured',
             ], 12)
