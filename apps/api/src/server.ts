@@ -1533,6 +1533,7 @@ function isPanelLoginAccepted(payload: any): boolean {
 
 interface ConfiguredWebLoginAccount {
   userId: string;
+  userIdSha256?: string;
   password?: string;
   passwordSha256?: string;
   tier: MobileEntitlementTier;
@@ -1562,20 +1563,31 @@ function passwordMatchesConfiguredLogin(account: ConfiguredWebLoginAccount, pass
   return !!configuredPassword && stringEqualsConstantTime(password, configuredPassword);
 }
 
+function userIdMatchesConfiguredLogin(account: ConfiguredWebLoginAccount, userId: string): boolean {
+  const configuredHash = normalizedSha256(account.userIdSha256);
+  if (configuredHash) {
+    const actualHash = crypto.createHash('sha256').update(userId, 'utf8').digest('hex');
+    return stringEqualsConstantTime(actualHash, configuredHash);
+  }
+  return !!account.userId && stringEqualsConstantTime(userId, account.userId);
+}
+
 function normalizeConfiguredWebLoginAccount(value: unknown, fallbackUserId = '', forcedAdminOnly = false): ConfiguredWebLoginAccount | null {
   const record = typeof value === 'string'
     ? { password: value }
     : (value && typeof value === 'object' ? value as Record<string, unknown> : {});
   const userId = String(record.userId || record.id || record.username || fallbackUserId || '').trim();
+  const userIdSha256 = normalizedSha256(record.userIdSha256 || record.userIdHash || record.idSha256 || record.idHash || record.usernameSha256 || record.usernameHash);
   const password = String(record.password || record.userPassword || record.pass || '').trim();
   const passwordSha256 = normalizedSha256(record.passwordSha256 || record.passwordHash || record.sha256);
-  if (!userId || (!password && !passwordSha256)) return null;
+  if ((!userId && !userIdSha256) || (!password && !passwordSha256)) return null;
   const tier = normalizeLoginTier(record.tier || record.plan || record.licenseType || (record.admin ? 'admin' : 'unlimited'));
   const adminOnly = forcedAdminOnly || tier === 'admin' || record.adminOnly === true || record.admin === true;
   const apiBaseUrl = String(record.apiBaseUrl || record.pcApiBaseUrl || '').trim().replace(/\/+$/, '');
   const expiresAt = record.expiresAt === undefined ? null : String(record.expiresAt || '').trim() || null;
   return {
-    userId,
+    userId: userId || fallbackUserId || (adminOnly ? 'admin' : 'web-user'),
+    userIdSha256: userIdSha256 || undefined,
     password: password || undefined,
     passwordSha256: passwordSha256 || undefined,
     tier,
@@ -1627,6 +1639,17 @@ function configuredWebLoginAccounts(): ConfiguredWebLoginAccount[] {
   }, '', true);
   if (adminAccount) accounts.push(adminAccount);
 
+  const adminPanelAccount = normalizeConfiguredWebLoginAccount({
+    userId: process.env['LEWORD_ADMIN_PANEL_LOGIN_ID'] || 'leaderspro-admin-panel',
+    userIdSha256: process.env['LEWORD_ADMIN_PANEL_LOGIN_ID_SHA256'],
+    password: process.env['LEWORD_ADMIN_PANEL_LOGIN_PASSWORD'],
+    passwordSha256: process.env['LEWORD_ADMIN_PANEL_LOGIN_PASSWORD_SHA256'],
+    tier: 'admin',
+    apiBaseUrl: process.env['LEWORD_ADMIN_LOGIN_API_BASE_URL'],
+    expiresAt: process.env['LEWORD_ADMIN_LOGIN_EXPIRES_AT'],
+  }, 'leaderspro-admin-panel', true);
+  if (adminPanelAccount) accounts.push(adminPanelAccount);
+
   return accounts;
 }
 
@@ -1642,9 +1665,9 @@ function verifyConfiguredWebLogin(body: any): {
   for (const account of accounts) {
     if (account.adminOnly && !adminRequested) continue;
     if (adminRequested && account.tier !== 'admin') continue;
-    if (!stringEqualsConstantTime(userId, account.userId)) continue;
+    if (!userIdMatchesConfiguredLogin(account, userId)) continue;
     if (!passwordMatchesConfiguredLogin(account, password)) continue;
-    return { ok: true, account };
+    return { ok: true, account: account.userIdSha256 ? { ...account, userId } : account };
   }
   return {
     ok: false,
