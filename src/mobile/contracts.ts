@@ -139,6 +139,8 @@ export interface MobileKeywordMetric {
   documentCountConfidence?: MobileMeasurementConfidence;
   /** Query shape used for the current documentCount measurement. */
   documentCountQueryMode?: 'broad' | 'exact-phrase';
+  /** Timestamp of the OpenAPI/scrape observation that produced documentCount. */
+  documentCountMeasuredAt?: string;
   isDocumentCountEstimated?: boolean;
   measurementStatus?: MobileKeywordMeasurementStatus;
   aiJudge?: MobileKeywordAiJudge;

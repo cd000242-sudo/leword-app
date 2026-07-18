@@ -1,19 +1,13 @@
 import {
-  combineNaverDocumentCounts,
+  documentCountBroadQueryKey,
   mergeMeasuredMetric,
   metricFromMdpResult,
+  selectForceFreshDocumentCountQueryKey,
 } from '../../mobile/pc-engine-executor';
 
 function assert(name: string, condition: boolean, detail?: string): void {
   if (!condition) throw new Error(`${name}${detail ? `: ${detail}` : ''}`);
 }
-
-assert(
-  'broad blog plus cafe label is emitted only when both OpenAPI scopes succeeded',
-  combineNaverDocumentCounts(120, 80) === 200
-    && combineNaverDocumentCounts(120, null) === null
-    && combineNaverDocumentCounts(null, 80) === null,
-);
 
 const baseMetric: any = {
   keyword: 'exact keyword',
@@ -156,13 +150,51 @@ const broadDocumentMeasurement = mergeMeasuredMetric(baseMetric, undefined, {
   confidence: 'high',
   isEstimated: false,
   queryMode: 'broad',
+  measuredAt: new Date(measuredAtMs).toISOString(),
 });
 assert(
   'PC OpenAPI document merge preserves broad query-mode provenance',
   broadDocumentMeasurement.documentCount === 25
     && broadDocumentMeasurement.documentCountSource === 'naver-api'
-    && broadDocumentMeasurement.documentCountQueryMode === 'broad',
+    && broadDocumentMeasurement.documentCountQueryMode === 'broad'
+    && broadDocumentMeasurement.documentCountMeasuredAt === new Date(measuredAtMs).toISOString(),
   JSON.stringify(broadDocumentMeasurement),
+);
+
+const documentMap = new Map<string, { documentCount: number; measuredAt: string }>();
+documentMap.set(documentCountBroadQueryKey('제주 렌터카'), {
+  documentCount: 1_234,
+  measuredAt: '2026-07-15T03:00:00.000Z',
+});
+documentMap.set(documentCountBroadQueryKey('제주렌터카'), {
+  documentCount: 5_678,
+  measuredAt: '2026-07-15T03:00:01.000Z',
+});
+assert(
+  'PC Blog map keeps spaced and unspaced broad queries as distinct measurements',
+  documentMap.size === 2
+    && documentMap.get(documentCountBroadQueryKey('제주 렌터카'))?.documentCount === 1_234
+    && documentMap.get(documentCountBroadQueryKey('제주 렌터카'))?.measuredAt === '2026-07-15T03:00:00.000Z'
+    && documentMap.get(documentCountBroadQueryKey('제주렌터카'))?.documentCount === 5_678
+    && documentMap.get(documentCountBroadQueryKey('제주렌터카'))?.measuredAt === '2026-07-15T03:00:01.000Z',
+  JSON.stringify(Array.from(documentMap.entries())),
+);
+
+const forceFreshKey = selectForceFreshDocumentCountQueryKey([
+  { keyword: '확장 후보', intent: 'how-to', source: 'pc-naver-autocomplete' },
+  { keyword: '사용자 요청 키워드', intent: 'requested-keyword', source: 'pc-keyword-analysis-exact' },
+  { keyword: '두 번째 요청형 후보', intent: 'requested-keyword', source: 'pc-keyword-analysis-exact' },
+] as any);
+assert(
+  'keyword-analysis selects only the first direct requested seed for force-fresh Blog measurement',
+  forceFreshKey === documentCountBroadQueryKey('사용자 요청 키워드'),
+  String(forceFreshKey),
+);
+assert(
+  'expansion-only metrics keep normal 15-minute document cache reuse',
+  selectForceFreshDocumentCountQueryKey([
+    { keyword: '확장 후보', intent: 'how-to', source: 'pc-naver-autocomplete' },
+  ] as any) === null,
 );
 
 console.log('[mobile-pc-engine-searchad-provenance.test] passed');

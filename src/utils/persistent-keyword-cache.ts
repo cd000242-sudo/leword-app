@@ -1,38 +1,63 @@
 /**
- * 🗄️ 영구 디스크 캐시 — 키워드 검색량/문서수 cross-run 보존
+ * Cross-run cache for measured keyword data.
  *
- * 이유: Naver SearchAd API가 배치 응답 비결정적 + 분당 Rate Limit.
- * 한 번 성공한 데이터를 디스크에 저장하면 다음 run에서 재활용 가능.
- * 메모리 apiCache 위에 덮어쓰는 계층.
+ * Document counts are safe to reuse only when they came from the unquoted
+ * Naver Blog OpenAPI total.  Search volume/CPC freshness is deliberately
+ * independent from document-count freshness, so updating those fields cannot
+ * extend the life of an old document measurement.
  */
 import * as fs from 'fs';
 import * as path from 'path';
+import { normalizeNaverBlogBroadQuery } from './naver-blog-api';
 
-interface PersistentCacheEntry {
+export type PersistentDocumentCountSource = 'naver-api' | 'scrape' | 'fallback' | 'legacy';
+export type PersistentDocumentCountConfidence = 'high' | 'medium' | 'low';
+export type PersistentDocumentCountQueryMode = 'broad' | 'exact-phrase';
+
+export interface PersistentCacheEntry {
   searchVolume: number | null;
   documentCount: number | null;
+  documentCountSource?: PersistentDocumentCountSource;
+  documentCountConfidence?: PersistentDocumentCountConfidence;
+  documentCountQueryMode?: PersistentDocumentCountQueryMode;
+  /** Exact normalized broad Blog query that produced this total. */
+  documentCountQueryKey?: string;
+  isDocumentCountEstimated?: boolean;
+  documentCountMeasuredAt?: string;
+  /** Epoch milliseconds when the document-count value was persisted. */
+  documentCountSavedAt?: number;
   realCpc?: number | null;
   compIdx?: number | null;
-  savedAt: number; // epoch ms
+  /** Epoch milliseconds for general cache fields such as search volume/CPC. */
+  savedAt: number;
 }
 
-// 🔥 v2.28.0: 24h → 7일. Phase 2(2026-07): 7일 → 30일 — 네이버 월검색량은 월단위 집계라 30일 내 값은
-//   사실상 동일(실측 절대값 유지). 재측정 폭증(하루 24회) 제거 목적. [[searchad-volume-cache]] 와 병행.
+export type PersistentCacheWrite = Omit<PersistentCacheEntry, 'savedAt' | 'documentCountSavedAt'>;
+export type PersistentDocumentCountEvidence = Pick<
+  PersistentCacheEntry,
+  | 'documentCount'
+  | 'documentCountSource'
+  | 'documentCountConfidence'
+  | 'documentCountQueryMode'
+  | 'documentCountQueryKey'
+  | 'isDocumentCountEstimated'
+  | 'documentCountMeasuredAt'
+  | 'documentCountSavedAt'
+>;
+
+// Keep document counts aligned with the canonical Naver Blog OpenAPI cache.
+// Search volume may remain cached for 30 days, but competition counts must not.
+export const PERSISTENT_DOCUMENT_COUNT_TTL_MS = 15 * 60 * 1000;
 const TTL_MS = 30 * 24 * 60 * 60 * 1000;
 const WRITE_DEBOUNCE_MS = 5000;
 const CACHE_FILE_NAME = 'keyword-cache.json';
-const MAX_ENTRIES = 50_000;   // 🔥 v2.13.0 M10: 디스크 캐시 상한 (초과 시 오래된 것부터 제거)
-// 🔥 스키마 버전 — 올리면 이전 버전 캐시는 로드 시 전부 무효화
-//    v2.13.0: 엣지케이스 19건 수정 (profitBonus 중복, Infinity, suffix bomb, sv 타이브레이커 등)
-// 🔥 v2.27.4 Fix: 스키마 stable 고정 — 매 릴리스마다 사용자 누적 캐시 폐기되던 결함 수정
-//   엔트리 구조(sv/dc/realCpc/compIdx/savedAt) 변경 시에만 bump
-// 🔥 v2.32.1: stable-v1 → stable-v2 bump — scrapeFallback 오염 문서수 (예: 아동수당 26) 일괄 폐기
-//   v2.32.1 이전: API rate-limit 시 HTML "N건" 첫 매치를 문서수로 저장 → 신뢰도 붕괴
-//   v2.32.1 이후: API 성공 값만 저장 + sanity check
-// v2.49.12: sanity-gate.ts 의 hash 를 자동 import — sanity-gate 변경 시 자동 무효화.
-//   회귀 방지: 게이트 로직 변경 forget 해도 schema 자동 bump → 옛 가짜 SSS 캐시 자동 폐기.
+const MAX_ENTRIES = 50_000;
+const DOCUMENT_COUNT_CACHE_KEY_PREFIX = '__document_count_broad__:';
+
 // eslint-disable-next-line @typescript-eslint/no-var-requires
 const { CACHE_SCHEMA_VERSION: SG_VER } = require('./sanity-gate');
+// Keep the existing schema so SearchAd volume/CPC data survives this migration.
+// Provenance-less document fields remain loaded only as untrusted diagnostics.
 const CACHE_SCHEMA_VERSION = `pk-${SG_VER}`;
 
 let cache: Map<string, PersistentCacheEntry> = new Map();
@@ -41,8 +66,216 @@ let loaded = false;
 let pendingWrite = false;
 let writeTimer: NodeJS.Timeout | null = null;
 
+function isFiniteNonNegative(value: unknown): value is number {
+  return typeof value === 'number' && Number.isFinite(value) && value >= 0;
+}
+
+function isValidIsoTimestamp(value: unknown): value is string {
+  return typeof value === 'string' && value.length > 0 && Number.isFinite(Date.parse(value));
+}
+
+/** Preserve spaces because they are part of the actual Blog broad query. */
+export function normalizePersistentDocumentCountQueryKey(keyword: unknown): string {
+  return normalizeNaverBlogBroadQuery(keyword).normalize('NFKC').toLowerCase();
+}
+
+function isValidDocumentCountQueryKey(value: unknown): value is string {
+  return typeof value === 'string'
+    && value.length > 0
+    && value === normalizePersistentDocumentCountQueryKey(value);
+}
+
+function documentCountStorageKey(keyword: unknown): string {
+  const queryKey = normalizePersistentDocumentCountQueryKey(keyword);
+  return queryKey ? `${DOCUMENT_COUNT_CACHE_KEY_PREFIX}${queryKey}` : '';
+}
+
+/** True only for the product-wide canonical document-count measurement. */
+export function isCanonicalPersistentDocumentCount(
+  entry: PersistentDocumentCountEvidence | null | undefined,
+  expectedQuery?: unknown,
+): boolean {
+  const expectedQueryKey = expectedQuery === undefined
+    ? ''
+    : normalizePersistentDocumentCountQueryKey(expectedQuery);
+  return Boolean(
+    entry
+      && isFiniteNonNegative(entry.documentCount)
+      && entry.documentCountSource === 'naver-api'
+      && entry.documentCountConfidence === 'high'
+      && entry.documentCountQueryMode === 'broad'
+      && (!expectedQueryKey || (
+        isValidDocumentCountQueryKey(entry.documentCountQueryKey)
+          && entry.documentCountQueryKey === expectedQueryKey
+      ))
+      && entry.isDocumentCountEstimated === false
+      && isValidIsoTimestamp(entry.documentCountMeasuredAt)
+      && typeof entry.documentCountSavedAt === 'number'
+      && Number.isFinite(entry.documentCountSavedAt),
+  );
+}
+
+/** Return a reusable official count, or null when provenance/freshness is unsafe. */
+export function getCanonicalPersistentDocumentCount(
+  entry: PersistentDocumentCountEvidence | null | undefined,
+  now = Date.now(),
+  expectedQuery?: unknown,
+): number | null {
+  if (!isCanonicalPersistentDocumentCount(entry, expectedQuery)) return null;
+  const savedAt = entry!.documentCountSavedAt!;
+  const age = now - savedAt;
+  if (age < 0 || age > PERSISTENT_DOCUMENT_COUNT_TTL_MS) return null;
+  return entry!.documentCount;
+}
+
+/**
+ * Pure merge used by both production writes and provenance regression tests.
+ * A secondary/noncanonical value can be retained for diagnostics, but it can
+ * never overwrite or refresh an existing canonical document count.
+ */
+export function mergePersistentCacheEntry(
+  existing: PersistentCacheEntry | null | undefined,
+  incoming: PersistentCacheWrite,
+  now = Date.now(),
+): PersistentCacheEntry | null {
+  const searchVolume = typeof incoming.searchVolume === 'number'
+    && Number.isFinite(incoming.searchVolume)
+    && incoming.searchVolume > 0
+    ? incoming.searchVolume
+    : (existing?.searchVolume ?? null);
+  const incomingHasDocumentCount = isFiniteNonNegative(incoming.documentCount);
+  const incomingQueryKey = isValidDocumentCountQueryKey(incoming.documentCountQueryKey)
+    ? incoming.documentCountQueryKey
+    : '';
+  const incomingDocumentMeasuredAtMs = Date.parse(String(incoming.documentCountMeasuredAt || ''));
+  const incomingIsCanonical = incomingHasDocumentCount
+    && incoming.documentCountSource === 'naver-api'
+    && incoming.documentCountConfidence === 'high'
+    && incoming.documentCountQueryMode === 'broad'
+    && Boolean(incomingQueryKey)
+    && incoming.isDocumentCountEstimated === false
+    && isValidIsoTimestamp(incoming.documentCountMeasuredAt)
+    && incomingDocumentMeasuredAtMs <= now + 5 * 60 * 1000;
+  const existingMatchesQuery = Boolean(
+    incomingQueryKey
+      && existing?.documentCountQueryKey === incomingQueryKey,
+  );
+  const existingIsCanonical = existingMatchesQuery
+    && isCanonicalPersistentDocumentCount(existing, incomingQueryKey);
+  const existingDocumentMeasuredAtMs = existing?.documentCountSavedAt
+    ?? Date.parse(String(existing?.documentCountMeasuredAt || ''));
+  const preserveCanonical = existingIsCanonical && (
+    !incomingIsCanonical
+    || incomingDocumentMeasuredAtMs < existingDocumentMeasuredAtMs
+  );
+
+  let documentFields: Pick<
+    PersistentCacheEntry,
+    | 'documentCount'
+    | 'documentCountSource'
+    | 'documentCountConfidence'
+    | 'documentCountQueryMode'
+    | 'documentCountQueryKey'
+    | 'isDocumentCountEstimated'
+    | 'documentCountMeasuredAt'
+    | 'documentCountSavedAt'
+  >;
+
+  if (preserveCanonical) {
+    documentFields = {
+      documentCount: existing!.documentCount,
+      documentCountSource: existing!.documentCountSource,
+      documentCountConfidence: existing!.documentCountConfidence,
+      documentCountQueryMode: existing!.documentCountQueryMode,
+      documentCountQueryKey: existing!.documentCountQueryKey,
+      isDocumentCountEstimated: existing!.isDocumentCountEstimated,
+      documentCountMeasuredAt: existing!.documentCountMeasuredAt,
+      documentCountSavedAt: existing!.documentCountSavedAt,
+    };
+  } else if (incomingHasDocumentCount) {
+    const source = incoming.documentCountSource ?? 'legacy';
+    documentFields = {
+      documentCount: incoming.documentCount,
+      documentCountSource: source,
+      documentCountConfidence: incoming.documentCountConfidence
+        ?? (source === 'scrape' ? 'medium' : source === 'legacy' ? 'low' : 'low'),
+      documentCountQueryMode: incoming.documentCountQueryMode,
+      documentCountQueryKey: incomingQueryKey || undefined,
+      // Only the exact canonical tuple may ever claim a non-estimated value.
+      isDocumentCountEstimated: !incomingIsCanonical,
+      documentCountMeasuredAt: isValidIsoTimestamp(incoming.documentCountMeasuredAt)
+        ? incoming.documentCountMeasuredAt
+        : undefined,
+      documentCountSavedAt: isValidIsoTimestamp(incoming.documentCountMeasuredAt)
+        ? Date.parse(incoming.documentCountMeasuredAt)
+        : now,
+    };
+  } else {
+    documentFields = {
+      documentCount: existingMatchesQuery ? (existing?.documentCount ?? null) : null,
+      documentCountSource: existingMatchesQuery ? existing?.documentCountSource : undefined,
+      documentCountConfidence: existingMatchesQuery ? existing?.documentCountConfidence : undefined,
+      documentCountQueryMode: existingMatchesQuery ? existing?.documentCountQueryMode : undefined,
+      documentCountQueryKey: existingMatchesQuery ? existing?.documentCountQueryKey : undefined,
+      isDocumentCountEstimated: existingMatchesQuery ? existing?.isDocumentCountEstimated : undefined,
+      documentCountMeasuredAt: existingMatchesQuery ? existing?.documentCountMeasuredAt : undefined,
+      documentCountSavedAt: existingMatchesQuery ? existing?.documentCountSavedAt : undefined,
+    };
+  }
+
+  if (searchVolume === null && documentFields.documentCount === null && !existing) return null;
+
+  return {
+    searchVolume,
+    ...documentFields,
+    realCpc: incoming.realCpc ?? existing?.realCpc ?? null,
+    compIdx: incoming.compIdx ?? existing?.compIdx ?? null,
+    savedAt: now,
+  };
+}
+
+function withoutDocumentCount(entry: PersistentCacheEntry): PersistentCacheEntry {
+  return {
+    ...entry,
+    documentCount: null,
+    documentCountSource: undefined,
+    documentCountConfidence: undefined,
+    documentCountQueryMode: undefined,
+    documentCountQueryKey: undefined,
+    isDocumentCountEstimated: undefined,
+    documentCountMeasuredAt: undefined,
+    documentCountSavedAt: undefined,
+  };
+}
+
+function withDocumentCountEvidence(
+  general: PersistentCacheEntry | null,
+  evidence: PersistentCacheEntry | null,
+): PersistentCacheEntry | null {
+  const base = general || evidence;
+  if (!base) return null;
+  const result = withoutDocumentCount({
+    ...base,
+    searchVolume: general?.searchVolume ?? evidence?.searchVolume ?? null,
+    realCpc: general?.realCpc ?? evidence?.realCpc ?? null,
+    compIdx: general?.compIdx ?? evidence?.compIdx ?? null,
+    savedAt: Math.max(general?.savedAt || 0, evidence?.savedAt || 0),
+  });
+  if (!evidence) return result;
+  return {
+    ...result,
+    documentCount: evidence.documentCount,
+    documentCountSource: evidence.documentCountSource,
+    documentCountConfidence: evidence.documentCountConfidence,
+    documentCountQueryMode: evidence.documentCountQueryMode,
+    documentCountQueryKey: evidence.documentCountQueryKey,
+    isDocumentCountEstimated: evidence.isDocumentCountEstimated,
+    documentCountMeasuredAt: evidence.documentCountMeasuredAt,
+    documentCountSavedAt: evidence.documentCountSavedAt,
+  };
+}
+
 function resolveCachePath(): string {
-  // Electron app 경로 우선, fallback으로 APPDATA
   try {
     // eslint-disable-next-line @typescript-eslint/no-var-requires
     const { app } = require('electron');
@@ -50,13 +283,10 @@ function resolveCachePath(): string {
       return path.join(app.getPath('userData'), CACHE_FILE_NAME);
     }
   } catch {
-    // ignore
+    // Electron is unavailable in CLI/test contexts.
   }
   const appData = process.env['APPDATA'] || '';
-  if (appData) {
-    return path.join(appData, 'blogger-admin-panel', CACHE_FILE_NAME);
-  }
-  // 마지막 fallback
+  if (appData) return path.join(appData, 'blogger-admin-panel', CACHE_FILE_NAME);
   return path.join(__dirname, '..', '..', CACHE_FILE_NAME);
 }
 
@@ -65,36 +295,35 @@ function ensureLoaded(): void {
   loaded = true;
   cachePath = resolveCachePath();
   try {
-    if (fs.existsSync(cachePath)) {
-      const raw = fs.readFileSync(cachePath, 'utf-8');
-      const parsed = JSON.parse(raw);
-      // 🔥 스키마 버전 체크 — 불일치면 전체 무효화
-      const savedVersion = parsed.__schemaVersion;
-      if (savedVersion !== CACHE_SCHEMA_VERSION) {
-        console.log(`[PERSISTENT-CACHE] 🔄 스키마 버전 변경 (${savedVersion || 'none'} → ${CACHE_SCHEMA_VERSION}) — 기존 캐시 폐기`);
-        cache = new Map();
-      } else {
-        const now = Date.now();
-        let validCount = 0;
-        let expiredCount = 0;
-        for (const [key, value] of Object.entries(parsed)) {
-          if (key === '__schemaVersion') continue;
-          const entry = value as PersistentCacheEntry;
-          if (!entry || typeof entry.savedAt !== 'number') continue;
-          if (now - entry.savedAt > TTL_MS) {
-            expiredCount++;
-            continue;
-          }
-          cache.set(key, entry);
-          validCount++;
-        }
-        console.log(`[PERSISTENT-CACHE] 🗄️ 로드 완료: ${validCount}개 유효, ${expiredCount}개 만료 제거`);
-      }
-    } else {
-      console.log(`[PERSISTENT-CACHE] 🗄️ 캐시 파일 없음, 새로 시작: ${cachePath}`);
+    if (!fs.existsSync(cachePath)) {
+      console.log(`[PERSISTENT-CACHE] cache file not found; starting empty: ${cachePath}`);
+      return;
     }
-  } catch (e: any) {
-    console.warn(`[PERSISTENT-CACHE] ⚠️ 로드 실패: ${e?.message || e}`);
+    const parsed = JSON.parse(fs.readFileSync(cachePath, 'utf-8'));
+    const savedVersion = parsed.__schemaVersion;
+    if (savedVersion !== CACHE_SCHEMA_VERSION) {
+      console.log(`[PERSISTENT-CACHE] schema changed (${savedVersion || 'none'} -> ${CACHE_SCHEMA_VERSION}); ignoring old cache`);
+      cache = new Map();
+      return;
+    }
+
+    const now = Date.now();
+    let validCount = 0;
+    let expiredCount = 0;
+    for (const [key, value] of Object.entries(parsed)) {
+      if (key === '__schemaVersion') continue;
+      const entry = value as PersistentCacheEntry;
+      if (!entry || typeof entry.savedAt !== 'number') continue;
+      if (now - entry.savedAt > TTL_MS) {
+        expiredCount++;
+        continue;
+      }
+      cache.set(key, entry);
+      validCount++;
+    }
+    console.log(`[PERSISTENT-CACHE] loaded ${validCount} entries; removed ${expiredCount} expired entries`);
+  } catch (error: any) {
+    console.warn(`[PERSISTENT-CACHE] load failed: ${error?.message || error}`);
     cache = new Map();
   }
 }
@@ -114,63 +343,94 @@ function flushToDisk(): void {
   if (!cachePath) return;
   try {
     const dir = path.dirname(cachePath);
-    if (!fs.existsSync(dir)) {
-      fs.mkdirSync(dir, { recursive: true });
-    }
-    // 🔥 v2.13.0 M10: 상한 초과 시 오래된 것부터 제거 (디스크 파일 성장 방지)
+    if (!fs.existsSync(dir)) fs.mkdirSync(dir, { recursive: true });
     if (cache.size > MAX_ENTRIES) {
       const entries = Array.from(cache.entries())
         .sort((a, b) => b[1].savedAt - a[1].savedAt)
         .slice(0, MAX_ENTRIES);
       cache = new Map(entries);
-      console.log(`[PERSISTENT-CACHE] 🧹 상한 초과 → ${cache.size}개로 축소 (최신순)`);
     }
-    const obj: Record<string, any> = { __schemaVersion: CACHE_SCHEMA_VERSION };
-    for (const [key, value] of cache.entries()) {
-      obj[key] = value;
-    }
+    const obj: Record<string, unknown> = { __schemaVersion: CACHE_SCHEMA_VERSION };
+    for (const [key, value] of cache.entries()) obj[key] = value;
     fs.writeFileSync(cachePath, JSON.stringify(obj), 'utf-8');
-    console.log(`[PERSISTENT-CACHE] 💾 저장 완료: ${cache.size}개 → ${cachePath}`);
-  } catch (e: any) {
-    console.warn(`[PERSISTENT-CACHE] ⚠️ 저장 실패: ${e?.message || e}`);
+  } catch (error: any) {
+    console.warn(`[PERSISTENT-CACHE] write failed: ${error?.message || error}`);
   }
 }
 
 export function getPersistent(keyword: string): PersistentCacheEntry | null {
   ensureLoaded();
-  const entry = cache.get(keyword) || cache.get(keyword.replace(/\s+/g, ''));
-  if (!entry) return null;
-  if (Date.now() - entry.savedAt > TTL_MS) {
-    cache.delete(keyword);
+  const now = Date.now();
+  const clean = keyword.replace(/\s+/g, '');
+  const queryKey = normalizePersistentDocumentCountQueryKey(keyword);
+  const storageKey = documentCountStorageKey(queryKey);
+  const readFresh = (key: string): PersistentCacheEntry | null => {
+    if (!key) return null;
+    const entry = cache.get(key) || null;
+    if (!entry) return null;
+    if (now - entry.savedAt <= TTL_MS) return entry;
+    cache.delete(key);
     return null;
-  }
-  return entry;
+  };
+  const general = readFresh(keyword) || readFresh(clean);
+  const exactDocumentEntry = readFresh(storageKey);
+  const compatibleLegacyEntry = general?.documentCountQueryKey === queryKey
+    ? general
+    : null;
+  const documentEntry = exactDocumentEntry?.documentCountQueryKey === queryKey
+    ? exactDocumentEntry
+    : compatibleLegacyEntry;
+  return withDocumentCountEvidence(general, documentEntry);
 }
 
-export function setPersistent(keyword: string, entry: Omit<PersistentCacheEntry, 'savedAt'>): void {
+function hasDocumentCountValue(entry: PersistentCacheEntry): boolean {
+  return isFiniteNonNegative(entry.documentCount);
+}
+
+function mergeInputWithDerivedDocumentQueryKey(
+  keyword: string,
+  entry: PersistentCacheWrite,
+): PersistentCacheWrite {
+  return {
+    ...entry,
+    documentCountQueryKey: normalizePersistentDocumentCountQueryKey(keyword),
+  };
+}
+
+function setGeneralPersistentAliases(
+  keyword: string,
+  clean: string,
+  entry: PersistentCacheEntry,
+): void {
+  const general = withoutDocumentCount(entry);
+  cache.set(keyword, general);
+  if (clean !== keyword) cache.set(clean, general);
+}
+
+function setExactPersistentDocumentEntry(
+  queryKey: string,
+  entry: PersistentCacheEntry,
+): void {
+  const storageKey = documentCountStorageKey(queryKey);
+  if (!storageKey || !hasDocumentCountValue(entry)) return;
+  cache.set(storageKey, entry);
+}
+
+export function setPersistent(keyword: string, entry: PersistentCacheWrite): void {
   ensureLoaded();
   if (!keyword) return;
-  // 🔥 v2.13.0 H3: sv/dc 둘 다 유효해야 저장 (불완전 데이터로 grade 계산 우회 방지)
-  const svOk = typeof entry.searchVolume === 'number' && entry.searchVolume > 0;
-  const dcOk = typeof entry.documentCount === 'number' && entry.documentCount > 0;
-  if (!svOk || !dcOk) return;
-
-  const existing = cache.get(keyword) || cache.get(keyword.replace(/\s+/g, ''));
-  // 기존 값과 머지 (더 좋은 데이터 유지)
-  const merged: PersistentCacheEntry = {
-    searchVolume: (typeof entry.searchVolume === 'number' && entry.searchVolume > 0)
-      ? entry.searchVolume
-      : (existing?.searchVolume ?? null),
-    documentCount: (typeof entry.documentCount === 'number' && entry.documentCount > 0)
-      ? entry.documentCount
-      : (existing?.documentCount ?? null),
-    realCpc: entry.realCpc ?? existing?.realCpc ?? null,
-    compIdx: entry.compIdx ?? existing?.compIdx ?? null,
-    savedAt: Date.now(),
-  };
-  cache.set(keyword, merged);
   const clean = keyword.replace(/\s+/g, '');
-  if (clean !== keyword) cache.set(clean, merged);
+  const queryKey = normalizePersistentDocumentCountQueryKey(keyword);
+  if (!queryKey) return;
+  const existing = getPersistent(keyword);
+  const merged = mergePersistentCacheEntry(
+    existing,
+    mergeInputWithDerivedDocumentQueryKey(keyword, entry),
+    Date.now(),
+  );
+  if (!merged) return;
+  setGeneralPersistentAliases(keyword, clean, merged);
+  setExactPersistentDocumentEntry(queryKey, merged);
   scheduleWrite();
 }
 
@@ -179,31 +439,44 @@ export function getCacheStats(): { size: number; path: string | null } {
   return { size: cache.size, path: cachePath };
 }
 
-/**
- * 영구 캐시에 저장된 모든 키워드(완전 데이터 보유) 반환
- * 시드 풀 사전 주입용
- */
 export function getAllKeywordsWithCompleteData(): Array<{
   keyword: string;
   searchVolume: number;
   documentCount: number;
+  documentCountSource: 'naver-api';
+  documentCountConfidence: 'high';
+  documentCountQueryMode: 'broad';
+  documentCountQueryKey: string;
+  isDocumentCountEstimated: false;
+  documentCountMeasuredAt: string;
+  documentCountSavedAt: number;
   savedAt: number;
 }> {
   ensureLoaded();
-  const result: Array<{ keyword: string; searchVolume: number; documentCount: number; savedAt: number }> = [];
-  const seen = new Set<string>();
-  for (const [key, entry] of cache.entries()) {
-    if (!entry || typeof entry.searchVolume !== 'number' || typeof entry.documentCount !== 'number') continue;
-    if (entry.searchVolume <= 0 || entry.documentCount <= 0) continue;
-    // 공백제거/원본 중 원본 선호 (공백 있는 형태가 사용자 친화적)
-    const hasSpace = key.includes(' ');
-    const canonKey = hasSpace ? key : key;
-    if (seen.has(canonKey)) continue;
-    seen.add(canonKey);
+  const result: ReturnType<typeof getAllKeywordsWithCompleteData> = [];
+  const now = Date.now();
+  const queryKeys = new Set<string>();
+  for (const entry of cache.values()) {
+    if (isValidDocumentCountQueryKey(entry.documentCountQueryKey)) {
+      queryKeys.add(entry.documentCountQueryKey);
+    }
+  }
+  for (const queryKey of queryKeys) {
+    const entry = getPersistent(queryKey);
+    if (!entry || typeof entry.searchVolume !== 'number' || entry.searchVolume <= 0) continue;
+    const documentCount = getCanonicalPersistentDocumentCount(entry, now, queryKey);
+    if (documentCount === null || documentCount <= 0) continue;
     result.push({
-      keyword: canonKey,
+      keyword: queryKey,
       searchVolume: entry.searchVolume,
-      documentCount: entry.documentCount,
+      documentCount,
+      documentCountSource: 'naver-api',
+      documentCountConfidence: 'high',
+      documentCountQueryMode: 'broad',
+      documentCountQueryKey: queryKey,
+      isDocumentCountEstimated: false,
+      documentCountMeasuredAt: entry.documentCountMeasuredAt!,
+      documentCountSavedAt: entry.documentCountSavedAt!,
       savedAt: entry.savedAt,
     });
   }

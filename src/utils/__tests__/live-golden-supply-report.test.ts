@@ -32,6 +32,7 @@ function measuredItem(keyword: string, category: string, index: number): any {
     documentCountSource: 'naver-api',
     documentCountConfidence: 'high',
     documentCountQueryMode: 'broad',
+    documentCountMeasuredAt: '2026-07-11T09:55:00.000Z',
     isDocumentCountEstimated: false,
     discoveredAt: '2026-07-11T09:00:00.000Z',
     updatedAt: '2026-07-11T09:00:00.000Z',
@@ -247,6 +248,19 @@ assert('canonical broad Naver OpenAPI document counts satisfy verified supply',
     && broadDocumentScopeReport.untrustedCount === 0
     && !broadDocumentScopeReport.failureReasons.includes('untrusted-row-present'),
   JSON.stringify(broadDocumentScopeReport));
+
+const staleDocumentMeasurement = measuredItem('stale broad document count', 'finance', 72);
+staleDocumentMeasurement.documentCountMeasuredAt = '2026-07-11T09:40:00.000Z';
+const staleDocumentMeasurementReport = buildLiveGoldenSupplyReport([staleDocumentMeasurement], {
+  nowMs: Date.parse('2026-07-11T10:00:00.000Z'),
+  verifiedTarget: 1,
+  minimumActiveCoreCategories: 1,
+});
+assert('a canonical document count outside the 15-minute cache window fails the stale gate',
+  staleDocumentMeasurementReport.staleVerifiedCount === 1
+    && staleDocumentMeasurementReport.automatedSupplyGate === 'fail'
+    && staleDocumentMeasurementReport.failureReasons.includes('stale-verified-row-present'),
+  JSON.stringify(staleDocumentMeasurementReport));
 
 const exactPhraseDocumentScope = measuredItem('exact phrase document scope', 'finance', 71);
 exactPhraseDocumentScope.documentCountQueryMode = 'exact-phrase';

@@ -14,11 +14,69 @@ import {
 import {
   getNaverBlogDocumentCount,
   isNaverBlogOpenApiQuotaBlocked,
+  NAVER_BLOG_DOCUMENT_COUNT_CACHE_TTL_MS,
+  normalizeNaverBlogBroadQuery,
+  peekCachedNaverBlogDocumentCountMeasurement,
 } from './naver-blog-api';
 
 export interface NaverDatalabConfig {
   clientId: string;
   clientSecret: string;
+}
+
+export interface NaverKeywordSearchVolumeSeparateResult {
+  keyword: string;
+  pcSearchVolume: number | null;
+  mobileSearchVolume: number | null;
+  documentCount: number | null;
+  competition: string | null;
+  monthlyAveCpc: number | null;
+  pcSearchVolumeLt10?: boolean;
+  mobileSearchVolumeLt10?: boolean;
+  svEstimated?: boolean;
+  searchVolumeBindingVersion?: SearchAdKeywordBindingVersion;
+  searchVolumeMeasuredAt?: string;
+  searchVolumeSource?: string;
+  searchVolumeConfidence?: 'high' | 'medium' | 'low';
+  isSearchVolumeEstimated?: boolean;
+  documentCountSource?: 'naver-api' | 'scrape' | 'fallback' | 'cache' | 'unknown' | 'none';
+  documentCountConfidence?: 'high' | 'medium' | 'low';
+  documentCountQueryMode?: 'broad' | 'exact-phrase';
+  documentCountMeasuredAt?: string;
+  isDocumentCountEstimated?: boolean;
+}
+
+/** True only for a reusable product-wide broad Blog OpenAPI measurement. */
+export function hasFreshCanonicalNaverDocumentCount(
+  result: Pick<
+    NaverKeywordSearchVolumeSeparateResult,
+    | 'documentCount'
+    | 'documentCountSource'
+    | 'documentCountConfidence'
+    | 'documentCountQueryMode'
+    | 'documentCountMeasuredAt'
+    | 'isDocumentCountEstimated'
+  >,
+  nowMs = Date.now(),
+): boolean {
+  const measuredAtMs = Date.parse(String(result.documentCountMeasuredAt || ''));
+  return typeof result.documentCount === 'number'
+    && Number.isFinite(result.documentCount)
+    && result.documentCount >= 0
+    && result.documentCountSource === 'naver-api'
+    && result.documentCountConfidence === 'high'
+    && result.documentCountQueryMode === 'broad'
+    && result.isDocumentCountEstimated === false
+    && Number.isFinite(measuredAtMs)
+    && measuredAtMs <= nowMs + 5 * 60 * 1000
+    && nowMs - measuredAtMs <= NAVER_BLOG_DOCUMENT_COUNT_CACHE_TTL_MS;
+}
+
+function canonicalBroadBlogDocumentQuery(keyword: string): string {
+  return String(keyword || '')
+    .replace(/["“”]/gu, ' ')
+    .replace(/\s+/g, ' ')
+    .trim();
 }
 
 // v2.43.28: 키워드 최근 추세 검증 (dead keyword 차단)
@@ -720,7 +778,7 @@ export async function getNaverKeywordSearchVolumeSeparate(
   config: NaverDatalabConfig,
   keywords: string[],
   options: { includeDocumentCount?: boolean; forceFresh?: boolean } = {}
-): Promise<{ keyword: string; pcSearchVolume: number | null; mobileSearchVolume: number | null; documentCount: number | null; competition: string | null; monthlyAveCpc: number | null; pcSearchVolumeLt10?: boolean; mobileSearchVolumeLt10?: boolean; svEstimated?: boolean; searchVolumeBindingVersion?: SearchAdKeywordBindingVersion; searchVolumeMeasuredAt?: string }[]> {
+): Promise<NaverKeywordSearchVolumeSeparateResult[]> {
   if (!config.clientId || !config.clientSecret) {
     throw new Error('네이버 API 인증 정보가 필요합니다');
   }
@@ -729,7 +787,7 @@ export async function getNaverKeywordSearchVolumeSeparate(
   const input = (keywords || []).map(k => String(k || '').trim()).filter(Boolean);
   if (input.length === 0) return [];
 
-  const results: { keyword: string; pcSearchVolume: number | null; mobileSearchVolume: number | null; documentCount: number | null; competition: string | null; monthlyAveCpc: number | null; pcSearchVolumeLt10?: boolean; mobileSearchVolumeLt10?: boolean; svEstimated?: boolean; searchVolumeBindingVersion?: SearchAdKeywordBindingVersion; searchVolumeMeasuredAt?: string }[] = input.map(k => ({
+  const results: NaverKeywordSearchVolumeSeparateResult[] = input.map(k => ({
     keyword: k,
     pcSearchVolume: null,
     mobileSearchVolume: null,
@@ -827,7 +885,9 @@ export async function getNaverKeywordSearchVolumeSeparate(
     // Serialize canonical document lookup so later categories are not blacked out.
     const CONCURRENCY = 1;
     const fetchApi = async (originalKeyword: string): Promise<number | null> => {
-      return getNaverBlogDocumentCount(originalKeyword, {
+      const broadQuery = normalizeNaverBlogBroadQuery(originalKeyword);
+      if (!broadQuery) return null;
+      return getNaverBlogDocumentCount(broadQuery, {
         forceFresh: options.forceFresh === true,
         config,
       });
@@ -856,7 +916,18 @@ export async function getNaverKeywordSearchVolumeSeparate(
             continue;
           }
           const dc = await fetchApiWithRetry(originalKeyword);
-          results[idx].documentCount = dc;
+          if (dc !== null) {
+            const broadQuery = normalizeNaverBlogBroadQuery(originalKeyword);
+            const measurement = peekCachedNaverBlogDocumentCountMeasurement(broadQuery);
+            if (measurement && measurement.total === dc) {
+              results[idx].documentCount = dc;
+              results[idx].documentCountSource = 'naver-api';
+              results[idx].documentCountConfidence = 'high';
+              results[idx].documentCountQueryMode = 'broad';
+              results[idx].documentCountMeasuredAt = measurement.measuredAt;
+              results[idx].isDocumentCountEstimated = false;
+            }
+          }
           await new Promise(r => setTimeout(r, 350));
         }
       })());

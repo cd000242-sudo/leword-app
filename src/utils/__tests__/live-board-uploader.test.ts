@@ -40,6 +40,14 @@ async function run(): Promise<void> {
         && snapshotTarget.token === 'test-token',
       JSON.stringify(snapshotTarget));
 
+    const canonicalDocumentMeasurement = {
+      documentCountSource: 'naver-api',
+      documentCountConfidence: 'high',
+      documentCountQueryMode: 'broad',
+      documentCountMeasuredAt: '2026-07-15T01:02:04.000Z',
+      isDocumentCountEstimated: false,
+    } as const;
+
     const measured = uploadRowFromDiscoveryResult({
       keyword: '청년 전세자금 대출 조건',
       grade: 'SSS',
@@ -50,6 +58,7 @@ async function run(): Promise<void> {
       searchVolumeBindingVersion: 'keyword-keyed-v2',
       searchVolumeMeasuredAt: '2026-07-15T01:02:03.000Z',
       documentCount: 800,
+      ...canonicalDocumentMeasurement,
       goldenRatio: 3,
       cpc: 120,
       serpMeasured: true,
@@ -71,6 +80,9 @@ async function run(): Promise<void> {
         && measured['searchVolumeBindingVersion'] === 'keyword-keyed-v2'
         && measured['searchVolumeMeasuredAt'] === '2026-07-15T01:02:03.000Z'
         && measured['documentCountSource'] === 'naver-api'
+        && measured['documentCountConfidence'] === 'high'
+        && measured['documentCountQueryMode'] === 'broad'
+        && measured['documentCountMeasuredAt'] === '2026-07-15T01:02:04.000Z'
         && measured['totalSearchVolume'] === 2400,
       JSON.stringify(measured));
     assert('measured extras ride the whitelist',
@@ -101,6 +113,33 @@ async function run(): Promise<void> {
       documentCount: 0,
     });
     assert('rows without measured documents are rejected', docless === null);
+
+    const provenanceFreeDocuments = uploadRowFromDiscoveryResult({
+      keyword: '숫자만 있는 문서수',
+      searchVolume: 1200,
+      pcSearchVolume: 300,
+      mobileSearchVolume: 900,
+      searchVolumeBindingVersion: 'keyword-keyed-v2',
+      searchVolumeMeasuredAt: '2026-07-15T01:02:03.000Z',
+      documentCount: 300,
+    });
+    assert('a numeric document count cannot be relabeled as trusted OpenAPI provenance', provenanceFreeDocuments === null);
+
+    const nonCanonicalDocuments = uploadRowFromDiscoveryResult({
+      keyword: '비정규 문서수 출처',
+      searchVolume: 1200,
+      pcSearchVolume: 300,
+      mobileSearchVolume: 900,
+      searchVolumeBindingVersion: 'keyword-keyed-v2',
+      searchVolumeMeasuredAt: '2026-07-15T01:02:03.000Z',
+      documentCount: 300,
+      documentCountSource: 'scrape',
+      documentCountConfidence: 'high',
+      documentCountQueryMode: 'exact-phrase',
+      documentCountMeasuredAt: '2026-07-15T01:02:04.000Z',
+      isDocumentCountEstimated: false,
+    });
+    assert('verified ingest rejects non-canonical document provenance instead of laundering it', nonCanonicalDocuments === null);
 
     const unboundSplit = uploadRowFromDiscoveryResult({
       keyword: 'unbound searchad split',
@@ -163,6 +202,7 @@ async function run(): Promise<void> {
       searchVolumeBindingVersion: 'keyword-keyed-v2',
       searchVolumeMeasuredAt: '2026-07-15T01:02:03.000Z',
       documentCount: 500,
+      ...canonicalDocumentMeasurement,
       winnable: true,
       vacancySlots: 4,
       briefRecommendedWords: 2000,
@@ -174,7 +214,7 @@ async function run(): Promise<void> {
         && !('briefRecommendedWords' in unreliableExtras),
       JSON.stringify(unreliableExtras));
 
-    console.log('[live-board-uploader.test] passed: 12 / failed: 0');
+    console.log('[live-board-uploader.test] passed: 14 / failed: 0');
   } finally {
     if (savedUrl === undefined) delete process.env['LEWORD_LIVE_GOLDEN_INGEST_URL'];
     else process.env['LEWORD_LIVE_GOLDEN_INGEST_URL'] = savedUrl;

@@ -101,6 +101,7 @@ import {
 import { InMemoryMobileResultCache } from '../../../src/mobile/result-cache';
 import {
   applyKeywordAiJudge,
+  hasFreshCanonicalDocumentCountMeasurement,
 } from '../../../src/mobile/keyword-ai-judge';
 import {
   createEnvironmentMobileEntitlementVerifier,
@@ -191,6 +192,7 @@ import {
   type MobileApiGuardrailOptions,
 } from '../../../src/mobile/api-guardrails';
 import { isMindmapExpansionKeywordCandidate } from '../../../src/utils/mindmap-expansion-quality';
+import { normalizeNaverBlogBroadQuery } from '../../../src/utils/naver-blog-api';
 
 const DEFAULT_LEWORD_LICENSE_SERVER_URL = 'https://script.google.com/macros/s/AKfycbxBOGkjVj4p-6XZ4SEFYKhW3FBmo5gt7Fv6djWhB1TljnDDmx_qlfZ4YdlJNohzIZ8NJw/exec';
 const DEFAULT_LEWORD_LICENSE_APP_ID = 'com.leword.keyword.master';
@@ -2298,6 +2300,10 @@ function compactServerKeyword(value: unknown): string {
   return String(value || '').toLowerCase().replace(/\s+/g, '').trim();
 }
 
+export function serverDocumentCountBroadQueryKey(value: unknown): string {
+  return normalizeNaverBlogBroadQuery(value).normalize('NFKC').toLowerCase();
+}
+
 function readKeywordAnalysisSeed(params: unknown): string {
   const raw = params && typeof params === 'object' && !Array.isArray(params)
     ? params as Record<string, unknown>
@@ -2378,10 +2384,11 @@ function isStrictMeasuredKeywordMetric(
   if (endpoint.product === 'mindmap-expansion') return isMindmapServerBoardCandidate(metric);
   if (endpoint.product === 'keyword-analysis' && isRequestedKeywordAnalysisMetric(metric)) {
     if (SYNTHETIC_RESULT_MARKER_PATTERN.test(metricRuntimeMarkerText(metric))) return false;
-    return (metric.isMeasured === true
+    return hasFreshCanonicalDocumentCountMeasurement(metric)
+      && ((metric.isMeasured === true
       && isNonNegativeFiniteMetric(metric.pcSearchVolume)
       && isNonNegativeFiniteMetric(metric.mobileSearchVolume))
-      || hasSearchAdMeasuredSplit(metric);
+      || hasSearchAdMeasuredSplit(metric));
   }
   if (metric.isMeasured !== true) return false;
   if (SYNTHETIC_RESULT_MARKER_PATTERN.test(metricRuntimeMarkerText(metric))) return false;
@@ -2393,7 +2400,8 @@ function isStrictMeasuredKeywordMetric(
   if (endpoint.product === 'kin-hidden-honey' && !isKinMeasuredBoardCandidate(metric)) return false;
   if (endpoint.product === 'youtube-golden' && metric.source === 'server-measured-youtube-prewarm' && !isYoutubeMeasuredBoardCandidate(metric)) return false;
   if (endpoint.product === 'keyword-analysis') {
-    return isNonNegativeFiniteMetric(metric.pcSearchVolume)
+    return hasFreshCanonicalDocumentCountMeasurement(metric)
+      && isNonNegativeFiniteMetric(metric.pcSearchVolume)
       && isNonNegativeFiniteMetric(metric.mobileSearchVolume);
   }
   return true;
@@ -2477,6 +2485,7 @@ function metricFromLiveGoldenBoardItem(item: MobileKeywordMetric): MobileKeyword
     documentCountSource: item.documentCountSource,
     documentCountConfidence: item.documentCountConfidence,
     documentCountQueryMode: item.documentCountQueryMode,
+    documentCountMeasuredAt: item.documentCountMeasuredAt,
     isDocumentCountEstimated: item.isDocumentCountEstimated,
     measurementStatus: item.measurementStatus,
   };
@@ -3398,7 +3407,8 @@ function isCanonicalLiveGoldenDocumentMetric(board: MobileKeywordMetric): boolea
     && board.documentCountSource === 'naver-api'
     && board.documentCountConfidence === 'high'
     && board.documentCountQueryMode === 'broad'
-    && board.isDocumentCountEstimated === false;
+    && board.isDocumentCountEstimated === false
+    && hasFreshCanonicalDocumentCountMeasurement(board);
 }
 
 function mergeCanonicalMetricWithLiveBoard(
@@ -3407,7 +3417,9 @@ function mergeCanonicalMetricWithLiveBoard(
 ): MobileKeywordMetric {
   const boardSplit = canonicalLiveGoldenSearchVolumeSplit(board);
   if (!boardSplit || !isCanonicalLiveGoldenSearchVolumeMetric(board)) return current;
-  const syncCanonicalDocuments = isCanonicalLiveGoldenDocumentMetric(board);
+  const syncCanonicalDocuments = isCanonicalLiveGoldenDocumentMetric(board)
+    && serverDocumentCountBroadQueryKey(current.keyword)
+      === serverDocumentCountBroadQueryKey(board.keyword);
   const mergedDocumentCount = syncCanonicalDocuments ? board.documentCount : current.documentCount;
   const mergedGoldenRatio = typeof mergedDocumentCount === 'number'
     && Number.isFinite(mergedDocumentCount)
@@ -3475,7 +3487,9 @@ function overlayLiveGoldenCanonicalKeyword(
 
   const canonicalMetric = metricFromLiveGoldenBoardItem(boardItem);
   if (!isCanonicalLiveGoldenSearchVolumeMetric(canonicalMetric)) return result;
-  const canInsertCanonicalBoardMetric = isCanonicalLiveGoldenDocumentMetric(canonicalMetric);
+  const canInsertCanonicalBoardMetric = isCanonicalLiveGoldenDocumentMetric(canonicalMetric)
+    && serverDocumentCountBroadQueryKey(seed)
+      === serverDocumentCountBroadQueryKey(canonicalMetric.keyword);
   const mergedKeywords: MobileKeywordMetric[] = [];
   let inserted = false;
   for (const keyword of result.keywords) {

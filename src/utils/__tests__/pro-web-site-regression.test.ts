@@ -266,6 +266,17 @@ assert('keyword analyzer and mindmap use user API executor before browser-local 
     && proWebHtml.includes('apiPost(feature.route, payloadBody, { userApiCredentials: true })')
     && proWebHtml.includes('서버 결과가 비어 있어 저장된 사용자 API 키로 직접 조회합니다.')
     && proWebHtml.includes('사용자 API 키 직접 조회 결과가 비어 있습니다.'));
+assert('browser-local Blog totals keep spaced broad-query identity and response timestamps',
+  proWebHtml.includes('function browserBlogBroadQueryKey(keyword)')
+    && proWebHtml.includes("normalizeBrowserBlogBroadQuery(keyword).normalize('NFKC').toLowerCase()")
+    && proWebHtml.includes('out.set(browserBlogBroadQueryKey(keyword), measurement)')
+    && proWebHtml.includes('const documentKey = browserBlogBroadQueryKey(candidate);')
+    && proWebHtml.includes('documentCountQueryKey: docs !== null ? browserBlogBroadQueryKey(keyword) : undefined')
+    && proWebHtml.includes('return Number.isFinite(total) ? { total: total, measuredAt: new Date().toISOString() } : null;')
+    && proWebHtml.includes('const controller = new AbortController();')
+    && proWebHtml.includes('signal: controller.signal')
+    && proWebHtml.includes('clearTimeout(timeout)')
+    && !proWebHtml.includes('out.set(normalizeSearchAdKey(keyword), count)'));
 assert('keyword graph remeasures with browser-local APIs instead of drawing synthetic bars',
   proWebHtml.includes('function fetchBrowserLocalExactMetric')
     && proWebHtml.includes('function renderMeasuredTrendGraph')
@@ -375,7 +386,8 @@ assert('live golden cards explain search intent and route shopping keywords away
     && proWebHtml.includes('function measurementProvenanceHtml')
     && proWebHtml.includes("documentCountQueryMode === 'exact-phrase'")
     && proWebHtml.includes('문서수(정확구문·블로그)')
-    && proWebHtml.includes('문서수(확장·블로그+카페)')
+    && proWebHtml.includes('문서수(확장·블로그)')
+    && proWebHtml.includes('row && row.documentCountMeasuredAt')
     && proWebHtml.includes('측정시각 미기록')
     && proWebHtml.includes('measurementProvenanceHtml(row)')
     && proWebHtml.includes('measurementProvenanceHtml(item)')

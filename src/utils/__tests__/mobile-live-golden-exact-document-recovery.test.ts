@@ -30,6 +30,7 @@ function trustedBoardItem(category: string, index: number): any {
     documentCountSource: 'naver-api',
     documentCountConfidence: 'high',
     documentCountQueryMode: 'exact-phrase',
+    documentCountMeasuredAt: '2026-07-15T02:00:00.000Z',
     isDocumentCountEstimated: false,
     updatedAt: '2026-07-15T01:00:00.000Z',
     discoveredAt: '2026-07-15T01:00:00.000Z',
@@ -110,6 +111,7 @@ function pendingItem(keyword: string, category: string, index: number): any {
         confidence: 'high',
         isEstimated: false,
         queryMode: 'broad',
+        measuredAt: '2026-07-15T02:00:00.000Z',
       };
     },
   });
@@ -197,6 +199,7 @@ function pendingItem(keyword: string, category: string, index: number): any {
     isSearchVolumeEstimated: false,
     documentCountSource: 'naver-api',
     documentCountConfidence: 'high',
+    documentCountMeasuredAt: now.toISOString(),
     isDocumentCountEstimated: false,
     discoveredAt: now.toISOString(),
     updatedAt: now.toISOString(),
@@ -254,7 +257,13 @@ function pendingItem(keyword: string, category: string, index: number): any {
     measureLiveDocumentCount: async (keyword, options) => {
       legacyDocumentCalls.push({ keyword, queryMode: options?.queryMode, scrapeOnly: options?.scrapeOnly });
       if (keyword !== legacyBoardOnlyKeyword) return null;
-      return { dc: 120, source: 'naver-api', confidence: 'high', isEstimated: false };
+      return {
+        dc: 120,
+        source: 'naver-api',
+        confidence: 'high',
+        isEstimated: false,
+        measuredAt: now.toISOString(),
+      };
     },
     liveSeedProvider: async () => [],
     discover: async () => [],
@@ -340,7 +349,13 @@ function pendingItem(keyword: string, category: string, index: number): any {
         || keyword !== legacyBoardOnlyKeyword
         || options?.queryMode !== 'broad'
       ) return null;
-      return { dc: 120, source: 'naver-api', confidence: 'high', isEstimated: false };
+      return {
+        dc: 120,
+        source: 'naver-api',
+        confidence: 'high',
+        isEstimated: false,
+        measuredAt: retryNow.toISOString(),
+      };
     },
     liveSeedProvider: async () => [],
     discover: async () => [],
@@ -499,6 +514,7 @@ function pendingItem(keyword: string, category: string, index: number): any {
         source: 'naver-api',
         confidence: 'high',
         isEstimated: false,
+        measuredAt: now.toISOString(),
       };
     },
   });
@@ -663,6 +679,7 @@ function pendingItem(keyword: string, category: string, index: number): any {
         source: 'naver-api',
         confidence: 'high',
         isEstimated: false,
+        measuredAt: now.toISOString(),
       };
     },
   });
@@ -726,6 +743,7 @@ function pendingItem(keyword: string, category: string, index: number): any {
     documentCountSource: 'naver-api',
     documentCountConfidence: 'high',
     documentCountQueryMode: 'exact-phrase',
+    documentCountMeasuredAt: now.toISOString(),
     isDocumentCountEstimated: false,
     evidence: ['naver-openapi-exact-phrase', 'persistent-cache-exact-document-recovery'],
     aiJudge: { verdict: 'publish', score: 100, spamRisk: 'low' },
@@ -820,6 +838,7 @@ function pendingItem(keyword: string, category: string, index: number): any {
     documentCountQueryMode: 'broad',
     documentCountSource: undefined,
     documentCountConfidence: undefined,
+    documentCountMeasuredAt: undefined,
     evidence: ['mobile-live-seed-backfill'],
   }], { pruneAndSave: false });
   const untrustedReplacement = [...mergeInternal.board.values()][0] as any;
@@ -856,12 +875,13 @@ function pendingItem(keyword: string, category: string, index: number): any {
     documentCountQueryMode: 'broad',
     documentCountSource: undefined,
     documentCountConfidence: undefined,
+    documentCountMeasuredAt: undefined,
     evidence: ['mobile-live-seed-backfill'],
   }], { pruneAndSave: false });
   const untrustedBroad = [...mergeInternal.board.values()].find((item: any) => item.keyword === '퇴직금계산기') as any;
   assert(
     'direct proof is not minted when the incoming document-count source and confidence are absent',
-    untrustedBroad && !untrustedBroad.evidence.includes('direct-searchad-exact-measured'),
+    !untrustedBroad || !untrustedBroad.evidence.includes('direct-searchad-exact-measured'),
     untrustedBroad,
   );
 

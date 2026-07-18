@@ -110,6 +110,7 @@ fs.writeFileSync(boardFile, JSON.stringify({
     documentCountSource: 'naver-api',
     documentCountConfidence: 'high',
     documentCountQueryMode: 'broad',
+    documentCountMeasuredAt: measuredAt,
     isDocumentCountEstimated: false,
     discoveredAt: '2026-07-15T00:00:00.000Z',
     updatedAt: '2026-07-15T00:00:00.000Z',

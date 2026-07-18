@@ -56,6 +56,16 @@ function keyword(overrides: Partial<MobileKeywordMetric>): MobileKeywordMetric {
     intent: 'golden-discovery',
     evidence: ['fixture-searchad-volume', 'fixture-naver-blog-document-count'],
     isMeasured: true,
+    searchVolumeSource: 'searchad',
+    searchVolumeConfidence: 'high',
+    searchVolumeBindingVersion: 'keyword-keyed-v2',
+    searchVolumeMeasuredAt: new Date().toISOString(),
+    isSearchVolumeEstimated: false,
+    documentCountSource: 'naver-api',
+    documentCountConfidence: 'high',
+    documentCountQueryMode: 'broad',
+    documentCountMeasuredAt: new Date().toISOString(),
+    isDocumentCountEstimated: false,
     ...overrides,
   };
 }

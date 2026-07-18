@@ -1626,6 +1626,7 @@ export function setupKeywordAnalysisHandlers(): void {
           documentCountSource?: string;
           documentCountConfidence?: string;
           documentCountQueryMode?: 'broad';
+          documentCountMeasuredAt?: string;
           isDocumentCountEstimated?: boolean;
           type: 'original' | 'expansion' | 'related' | 'suggested';
         }> = [];
@@ -1643,7 +1644,11 @@ export function setupKeywordAnalysisHandlers(): void {
         let docCountLastRequestAt = 0;
 
         // 🔥 문서수 조회 함수 (재시도 로직 포함 + 상세 로깅)
-        const fetchDocumentCount = async (keyword: string, maxRetries = 3): Promise<DcMeasurement | null> => {
+        const fetchDocumentCount = async (
+          keyword: string,
+          maxRetries = 3,
+          forceFresh = false,
+        ): Promise<DcMeasurement | null> => {
           const verboseDocLog = allKeywords.length <= 80;
           for (let retry = 0; retry < maxRetries; retry++) {
             try {
@@ -1662,6 +1667,10 @@ export function setupKeywordAnalysisHandlers(): void {
               if (verboseDocLog) console.log(`[DOC-COUNT] 📡 SSoT 조회 (${retry + 1}/${maxRetries}): "${keyword}"`);
               const measurement = await measureDocumentCount(keyword, {
                 queryMode: CANONICAL_DOCUMENT_COUNT_QUERY_MODE,
+                // A user's directly analyzed seed should match an immediate
+                // external broad-query check. Expansion rows still reuse the
+                // shared 15-minute cache to protect quota.
+                skipCache: forceFresh,
               });
               if (
                 !measurement.isEstimated
@@ -1717,7 +1726,11 @@ export function setupKeywordAnalysisHandlers(): void {
               const kw = allKeywords[i];
 
               // 문서수 조회 (재시도 로직 포함)
-              const documentMeasurement = await fetchDocumentCount(kw.keyword);
+              const documentMeasurement = await fetchDocumentCount(
+                kw.keyword,
+                3,
+                kw.type === 'original',
+              );
               const documentCount = documentMeasurement?.dc ?? -1;
 
               // 황금비율 계산 (검색량 / 문서수)
@@ -1742,6 +1755,7 @@ export function setupKeywordAnalysisHandlers(): void {
                 documentCountSource: documentMeasurement?.source,
                 documentCountConfidence: documentMeasurement?.confidence,
                 documentCountQueryMode: documentMeasurement ? 'broad' : undefined,
+                documentCountMeasuredAt: documentMeasurement?.measuredAt,
                 isDocumentCountEstimated: documentMeasurement?.isEstimated,
               };
 

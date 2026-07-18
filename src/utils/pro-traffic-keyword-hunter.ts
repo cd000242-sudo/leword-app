@@ -31,6 +31,13 @@ export interface ProTrafficKeyword {
   // 📊 기본 지표
   searchVolume: number | null;    // 월 검색량
   documentCount: number | null;   // 블로그 문서수
+  documentCountSource?: 'naver-api' | 'scrape' | 'fallback' | 'legacy';
+  documentCountConfidence?: 'high' | 'medium' | 'low';
+  documentCountQueryMode?: 'broad' | 'exact-phrase';
+  documentCountQueryKey?: string;
+  isDocumentCountEstimated?: boolean;
+  documentCountMeasuredAt?: string;
+  documentCountSavedAt?: number;
   goldenRatio: number;            // 황금비율 (검색량/문서수)
 
   // 🤖 MDP v2.0 심층 분석 지표
@@ -780,6 +787,7 @@ function isPremiumGoldenKeyword(
   criteria?: { minRatio?: number; maxDocuments?: number; strictGrade?: boolean }
 ): boolean {
   if (!r) return false;
+  if (getCanonicalPersistentDocumentCount(r, Date.now(), r.keyword) === null) return false;
   const svOk = typeof r.searchVolume === 'number' && Number.isFinite(r.searchVolume) && r.searchVolume > 0;
   const docOk = typeof r.documentCount === 'number' && Number.isFinite(r.documentCount) && r.documentCount > 0;
   if (!svOk || !docOk) return false;
@@ -1362,7 +1370,11 @@ import {
   selectProTrafficSssPromotionCandidates
 } from './pro-traffic-floor';
 import { getDiscoveryCategorySeeds, resolveDiscoveryCategoryIds } from './category-discovery-map';
-import { getNaverBlogDocumentCount } from './naver-blog-api';
+import {
+  getNaverBlogDocumentCount,
+  normalizeNaverBlogBroadQuery,
+  peekCachedNaverBlogDocumentCountMeasurement,
+} from './naver-blog-api';
 import { classifyKeywordIntent } from './keyword-intent-classifier';
 import { getNaverSerpSignal } from './naver-serp-signal-api';
 import { EnvironmentManager } from './environment-manager';
@@ -1800,7 +1812,13 @@ import {
 import { getTitleGenerator } from './mass-collection/keyword-title-generator';
 import { getRelatedKeywords } from './related-keyword-cache';
 import { mineUltimateDeepKeywords } from './ultimate-niche-finder';
-import { getPersistent, setPersistent, getAllKeywordsWithCompleteData } from './persistent-keyword-cache';
+import {
+  getPersistent,
+  setPersistent,
+  getAllKeywordsWithCompleteData,
+  getCanonicalPersistentDocumentCount,
+  isCanonicalPersistentDocumentCount,
+} from './persistent-keyword-cache';
 import { analyzeSeasonality, SeasonalityProfile } from './pro-hunter-v12/seasonality-analyzer';
 
 export type KeywordType =
@@ -1812,10 +1830,16 @@ export type KeywordType =
   | '🆕 신규키워드'      // 새로 생긴 제품/서비스
   | '🎯 롱테일꿀통';     // 긴 키워드, 낮은 경쟁
 
-// API 캐시 (성능 최적화)
-const apiCache = new Map<string, {
+interface ProApiCacheEntry {
   searchVolume: number | null;
   documentCount: number | null;
+  documentCountSource?: 'naver-api' | 'scrape' | 'fallback' | 'legacy';
+  documentCountConfidence?: 'high' | 'medium' | 'low';
+  documentCountQueryMode?: 'broad' | 'exact-phrase';
+  documentCountQueryKey?: string;
+  isDocumentCountEstimated?: boolean;
+  documentCountMeasuredAt?: string;
+  documentCountSavedAt?: number;
   compIdx?: number | null;
   realCpc?: number | null;
   hasSmartBlock?: boolean;
@@ -1826,7 +1850,93 @@ const apiCache = new Map<string, {
   intentBadge?: string;
   timestamp: number;
   isRealData?: boolean;
-}>();
+}
+
+// API 캐시 (성능 최적화)
+const apiCache = new Map<string, ProApiCacheEntry>();
+const PRO_DOCUMENT_COUNT_CACHE_KEY_PREFIX = '__document_count_broad__:';
+
+/** SearchAd aliases stay compact; Blog document identities retain spaces. */
+export function proDocumentCountBroadQueryKey(keyword: unknown): string {
+  return normalizeNaverBlogBroadQuery(keyword).normalize('NFKC').toLowerCase();
+}
+
+function proSearchAdCacheKey(keyword: unknown): string {
+  return String(keyword || '').replace(/\s/g, '');
+}
+
+function proDocumentCountCacheKey(keyword: unknown): string {
+  const queryKey = proDocumentCountBroadQueryKey(keyword);
+  return queryKey ? `${PRO_DOCUMENT_COUNT_CACHE_KEY_PREFIX}${queryKey}` : '';
+}
+
+function stripProDocumentCount(entry: ProApiCacheEntry): ProApiCacheEntry {
+  return {
+    ...entry,
+    documentCount: null,
+    documentCountSource: undefined,
+    documentCountConfidence: undefined,
+    documentCountQueryMode: undefined,
+    documentCountQueryKey: undefined,
+    isDocumentCountEstimated: undefined,
+    documentCountMeasuredAt: undefined,
+    documentCountSavedAt: undefined,
+    isRealData: false,
+  };
+}
+
+function getProApiCacheEntry(keyword: unknown, now = Date.now()): ProApiCacheEntry | undefined {
+  const rawKeyword = String(keyword || '');
+  const compactKey = proSearchAdCacheKey(rawKeyword);
+  const general = apiCache.get(compactKey) || apiCache.get(rawKeyword);
+  const queryKey = proDocumentCountBroadQueryKey(rawKeyword);
+  const documentEntry = apiCache.get(proDocumentCountCacheKey(queryKey));
+  const generalWithoutDocument = general ? stripProDocumentCount(general) : undefined;
+  if (!documentEntry
+    || getCanonicalPersistentDocumentCount(documentEntry, now, queryKey) === null) {
+    return generalWithoutDocument;
+  }
+  return {
+    ...(generalWithoutDocument || documentEntry),
+    documentCount: documentEntry.documentCount,
+    documentCountSource: documentEntry.documentCountSource,
+    documentCountConfidence: documentEntry.documentCountConfidence,
+    documentCountQueryMode: documentEntry.documentCountQueryMode,
+    documentCountQueryKey: documentEntry.documentCountQueryKey,
+    isDocumentCountEstimated: documentEntry.isDocumentCountEstimated,
+    documentCountMeasuredAt: documentEntry.documentCountMeasuredAt,
+    documentCountSavedAt: documentEntry.documentCountSavedAt,
+    timestamp: generalWithoutDocument
+      ? Math.min(generalWithoutDocument.timestamp, documentEntry.timestamp)
+      : documentEntry.timestamp,
+    isRealData: getCanonicalPersistentDocumentCount(documentEntry, now, queryKey) !== null,
+  };
+}
+
+function setProApiCacheEntry(keyword: unknown, entry: ProApiCacheEntry): void {
+  const rawKeyword = String(keyword || '');
+  const compactKey = proSearchAdCacheKey(rawKeyword);
+  if (!compactKey) return;
+  const existingGeneral = apiCache.get(compactKey) || apiCache.get(rawKeyword);
+  const general = stripProDocumentCount({
+    ...(existingGeneral || entry),
+    ...entry,
+    searchVolume: entry.searchVolume ?? existingGeneral?.searchVolume ?? null,
+    realCpc: entry.realCpc ?? existingGeneral?.realCpc ?? null,
+    compIdx: entry.compIdx ?? existingGeneral?.compIdx ?? null,
+  });
+  apiCache.set(compactKey, general);
+
+  const queryKey = proDocumentCountBroadQueryKey(rawKeyword);
+  const canonicalDocumentEntry: ProApiCacheEntry = {
+    ...entry,
+    documentCountQueryKey: queryKey,
+  };
+  if (entry.documentCountQueryKey === queryKey
+    && getCanonicalPersistentDocumentCount(canonicalDocumentEntry, Date.now(), queryKey) !== null) {
+    apiCache.set(proDocumentCountCacheKey(queryKey), canonicalDocumentEntry);
+  }
+}
 const keywordCache = new Map<string, any>();
 
 const realtimeSourceMap = new Map<string, string>();
@@ -1930,6 +2040,13 @@ interface ApiResult {
   keyword: string;
   searchVolume: number | null;  // null = API 실패
   documentCount: number | null; // null = API 실패
+  documentCountSource?: 'naver-api' | 'scrape' | 'fallback' | 'legacy';
+  documentCountConfidence?: 'high' | 'medium' | 'low';
+  documentCountQueryMode?: 'broad' | 'exact-phrase';
+  documentCountQueryKey?: string;
+  isDocumentCountEstimated?: boolean;
+  documentCountMeasuredAt?: string;
+  documentCountSavedAt?: number;
   compIdx?: number | null;      // 상업성 지수 (Search Ad)
   realCpc?: number | null;      // 실시간 CPC (Search Ad monthlyAveCpc)
   hasSmartBlock?: boolean;
@@ -1942,9 +2059,24 @@ interface ApiResult {
   error?: string;
 }
 
+interface BlogDocumentCountResult {
+  count: number | null;
+  success: boolean;
+  error?: string;
+  documentCountSource?: 'naver-api' | 'scrape';
+  documentCountConfidence?: 'high' | 'medium';
+  documentCountQueryMode?: 'broad';
+  documentCountQueryKey?: string;
+  isDocumentCountEstimated?: boolean;
+  documentCountMeasuredAt?: string;
+  documentCountSavedAt?: number;
+}
+
 async function fetchBlogDocumentCountScrape(
   keyword: string
-): Promise<{ count: number | null; success: boolean; error?: string }> {
+): Promise<BlogDocumentCountResult> {
+  const measuredAt = new Date().toISOString();
+  const documentCountSavedAt = Date.now();
   const q = String(keyword || '').replace(/\s+/g, ' ').trim();
   if (!q) return { count: null, success: false, error: 'empty keyword' };
 
@@ -2008,13 +2140,33 @@ async function fetchBlogDocumentCountScrape(
     const respDesktop = await axios.get(urlDesktop, { headers: commonHeaders, timeout: 4000 });
     const htmlDesktop = String(respDesktop.data || '');
     const nDesktop = await parseCountFromHtml(htmlDesktop);
-    if (typeof nDesktop === 'number' && Number.isFinite(nDesktop)) return { count: nDesktop, success: true };
+    if (typeof nDesktop === 'number' && Number.isFinite(nDesktop)) return {
+      count: nDesktop,
+      success: true,
+      documentCountSource: 'scrape',
+      documentCountConfidence: 'medium',
+      documentCountQueryMode: 'broad',
+      documentCountQueryKey: proDocumentCountBroadQueryKey(q),
+      isDocumentCountEstimated: true,
+      documentCountMeasuredAt: measuredAt,
+      documentCountSavedAt,
+    };
 
     const urlMobile = `https://m.search.naver.com/search.naver?where=m_blog&query=${encodeURIComponent(q)}`;
     const respMobile = await axios.get(urlMobile, { headers: commonHeaders, timeout: 4000 });
     const htmlMobile = String(respMobile.data || '');
     const nMobile = await parseCountFromHtml(htmlMobile);
-    if (typeof nMobile === 'number' && Number.isFinite(nMobile)) return { count: nMobile, success: true };
+    if (typeof nMobile === 'number' && Number.isFinite(nMobile)) return {
+      count: nMobile,
+      success: true,
+      documentCountSource: 'scrape',
+      documentCountConfidence: 'medium',
+      documentCountQueryMode: 'broad',
+      documentCountQueryKey: proDocumentCountBroadQueryKey(q),
+      isDocumentCountEstimated: true,
+      documentCountMeasuredAt: measuredAt,
+      documentCountSavedAt,
+    };
 
     return { count: null, success: false, error: 'parse failed' };
   } catch (e: any) {
@@ -2037,31 +2189,49 @@ async function fetchBlogDocumentCount(
   keyword: string,
   clientId: string,
   clientSecret: string
-): Promise<{ count: number | null; success: boolean; error?: string }> {
-  const normalizedKeyword = String(keyword || '').replace(/\s+/g, ' ').trim();
+): Promise<BlogDocumentCountResult> {
+  const normalizedKeyword = String(keyword || '')
+    .replace(/["“”]/g, ' ')
+    .replace(/\s+/g, ' ')
+    .trim();
+  const broadKeyword = normalizeNaverBlogBroadQuery(normalizedKeyword);
+  if (!broadKeyword) return { count: null, success: false, error: 'empty keyword' };
+  const canonicalResult = (
+    count: number,
+    measurement: { measuredAt: string; measuredAtMs: number },
+  ): BlogDocumentCountResult => {
+    const documentCountSavedAt = measurement.measuredAtMs;
+    return {
+      count,
+      success: true,
+      documentCountSource: 'naver-api',
+      documentCountConfidence: 'high',
+      documentCountQueryMode: 'broad',
+      documentCountQueryKey: proDocumentCountBroadQueryKey(broadKeyword),
+      isDocumentCountEstimated: false,
+      documentCountMeasuredAt: measurement.measuredAt,
+      documentCountSavedAt,
+    };
+  };
 
   for (let retry = 0; retry <= API_CONFIG.MAX_RETRIES; retry++) {
     try {
       apiStats.blogApiCalls++;
 
-      const axios = (await import('axios')).default;
-      const response = await axios.get('https://openapi.naver.com/v1/search/blog.json', {
-        params: { query: normalizedKeyword, display: 1 },
-        headers: {
-          'X-Naver-Client-Id': clientId,
-          'X-Naver-Client-Secret': clientSecret
-        },
-        timeout: API_CONFIG.API_TIMEOUT
+      const count = await getNaverBlogDocumentCount(broadKeyword, {
+        config: { clientId, clientSecret },
+        timeoutMs: API_CONFIG.API_TIMEOUT,
       });
-
-      if (response.data && response.data.total !== undefined) {
-        const count = response.data.total;
+      const measurement = count !== null
+        ? peekCachedNaverBlogDocumentCountMeasurement(broadKeyword)
+        : null;
+      if (count !== null && measurement && measurement.total === count) {
         apiStats.blogApiSuccess++;
-        return { count, success: true };
+        return canonicalResult(count, measurement);
       }
 
-      // 응답은 왔지만 데이터가 없는 경우
-      return { count: 0, success: true };
+      // A malformed response is not evidence of an actual zero-result query.
+      return { count: null, success: false, error: 'missing total' };
 
     } catch (error: any) {
       const status = error.response?.status;
@@ -2210,26 +2380,36 @@ export async function fetchKeywordDataParallel(
   let cacheHits = 0;
   let persistentHits = 0;
   for (const kw of uniqueKeywords) {
-    const cleanKw = kw.replace(/\s/g, '');
-    let cached = apiCache.get(kw) || apiCache.get(cleanKw);
+    let cached = getProApiCacheEntry(kw, nowTs);
 
     if (!cached || nowTs - (cached.timestamp || 0) >= CACHE_TTL) {
       const persisted = getPersistent(kw);
-      if (persisted && persisted.searchVolume !== null && persisted.documentCount !== null) {
+      const canonicalDc = getCanonicalPersistentDocumentCount(persisted, nowTs, kw);
+      if (persisted && persisted.searchVolume !== null && canonicalDc !== null) {
         cached = {
           searchVolume: persisted.searchVolume,
-          documentCount: persisted.documentCount,
+          documentCount: canonicalDc,
+          documentCountSource: persisted.documentCountSource,
+          documentCountConfidence: persisted.documentCountConfidence,
+          documentCountQueryMode: persisted.documentCountQueryMode,
+          documentCountQueryKey: persisted.documentCountQueryKey,
+          isDocumentCountEstimated: persisted.isDocumentCountEstimated,
+          documentCountMeasuredAt: persisted.documentCountMeasuredAt,
+          documentCountSavedAt: persisted.documentCountSavedAt,
           compIdx: persisted.compIdx ?? null,
           realCpc: persisted.realCpc ?? null,
           timestamp: nowTs,
-          isRealData: true
         };
-        apiCache.set(cleanKw, cached);
+        cached.isRealData = getCanonicalPersistentDocumentCount(cached, nowTs, kw) !== null;
+        setProApiCacheEntry(kw, cached);
         persistentHits++;
       }
     }
 
-    if (cached && nowTs - (cached.timestamp || 0) < CACHE_TTL && cached.searchVolume !== null && cached.documentCount !== null) {
+    if (cached
+      && nowTs - (cached.timestamp || 0) < CACHE_TTL
+      && cached.searchVolume !== null
+      && getCanonicalPersistentDocumentCount(cached, nowTs, kw) !== null) {
       results.set(kw, {
         keyword: kw,
         searchVolume: cached.searchVolume,
@@ -2242,6 +2422,13 @@ export async function fetchKeywordDataParallel(
         difficultyScore: cached.difficultyScore,
         intent: cached.intent,
         intentBadge: cached.intentBadge,
+        documentCountSource: cached.documentCountSource,
+        documentCountConfidence: cached.documentCountConfidence,
+        documentCountQueryMode: cached.documentCountQueryMode,
+        documentCountQueryKey: cached.documentCountQueryKey,
+        isDocumentCountEstimated: cached.isDocumentCountEstimated,
+        documentCountMeasuredAt: cached.documentCountMeasuredAt,
+        documentCountSavedAt: cached.documentCountSavedAt,
         success: true
       });
       cacheHits++;
@@ -2334,7 +2521,7 @@ export async function fetchKeywordDataParallel(
       const [blogResultRaw, serpResult, intentResult] = await Promise.all([
         hasBlogApi
           ? fetchBlogDocumentCount(normalizedKeyword, env.naverClientId!, env.naverClientSecret!)
-          : Promise.resolve({ count: null, success: false, error: 'API 키 없음' }),
+          : Promise.resolve<BlogDocumentCountResult>({ count: null, success: false, error: 'API 키 없음' }),
         skipSerpSignal ? Promise.resolve(null) : getNaverSerpSignal(normalizedKeyword),
         Promise.resolve(classifyKeywordIntent(normalizedKeyword))
       ]);
@@ -2380,6 +2567,13 @@ export async function fetchKeywordDataParallel(
         difficultyScore: serpSignal?.difficultyScore,
         intent: intentInfo?.intent,
         intentBadge: intentInfo?.badge,
+        documentCountSource: blogResult.documentCountSource,
+        documentCountConfidence: blogResult.documentCountConfidence,
+        documentCountQueryMode: blogResult.documentCountQueryMode,
+        documentCountQueryKey: blogResult.documentCountQueryKey,
+        isDocumentCountEstimated: blogResult.isDocumentCountEstimated,
+        documentCountMeasuredAt: blogResult.documentCountMeasuredAt,
+        documentCountSavedAt: blogResult.documentCountSavedAt,
         success,
         error: success ? undefined : `블로그: ${blogResult.error}, 검색광고: ${searchAdResult.error}`
       };
@@ -2407,20 +2601,35 @@ export async function fetchKeywordDataParallel(
           difficultyScore: result.difficultyScore,
           intent: result.intent,
           intentBadge: result.intentBadge,
+          documentCountSource: result.documentCountSource,
+          documentCountConfidence: result.documentCountConfidence,
+          documentCountQueryMode: result.documentCountQueryMode,
+          documentCountQueryKey: result.documentCountQueryKey,
+          isDocumentCountEstimated: result.isDocumentCountEstimated,
+          documentCountMeasuredAt: result.documentCountMeasuredAt,
+          documentCountSavedAt: result.documentCountSavedAt,
           timestamp: Date.now(),
-          isRealData: true
+          isRealData: getCanonicalPersistentDocumentCount(result, Date.now(), result.keyword) !== null,
         };
         // v2.46.0 B: 중복 키 저장 제거 — 정규화 키 1개만 사용. 캐시 압박 3배 감소.
         //   기존: keyword/normalizedKeyword/cleanKeyword 3개 모두 저장 → maxSize=1000 빠른 소진
         //   변경: cleanKeyword (가장 일반화된 형태) 하나만 저장
-        apiCache.set(cleanKeyword, cacheData);
+        setProApiCacheEntry(normalizedKeyword, cacheData);
         // 🗄️ 영구 캐시에도 저장 (cross-run 보존)
-        setPersistent(result.keyword, {
-          searchVolume: result.searchVolume,
-          documentCount: result.documentCount,
-          realCpc: result.realCpc ?? null,
-          compIdx: result.compIdx ?? null,
-        });
+        if (getCanonicalPersistentDocumentCount(result, Date.now(), result.keyword) !== null) {
+          setPersistent(result.keyword, {
+            searchVolume: result.searchVolume,
+            documentCount: result.documentCount,
+            documentCountSource: result.documentCountSource,
+            documentCountConfidence: result.documentCountConfidence,
+            documentCountQueryMode: result.documentCountQueryMode,
+            documentCountQueryKey: result.documentCountQueryKey,
+            isDocumentCountEstimated: result.isDocumentCountEstimated,
+            documentCountMeasuredAt: result.documentCountMeasuredAt,
+            realCpc: result.realCpc ?? null,
+            compIdx: result.compIdx ?? null,
+          });
+        }
       }
     }
 
@@ -2460,21 +2669,31 @@ async function fetchKeywordDataBatch(keywords: string[], options?: Parameters<ty
   // 🗄️ 영구 캐시에서 미리 로드 (cross-run 재활용)
   let persistentHits = 0;
   for (const kw of uniqueKeywords) {
-    const cleanKw = kw.replace(/\s/g, '');
-    const memCached = apiCache.get(kw) || apiCache.get(cleanKw);
-    if (memCached && memCached.searchVolume !== null && memCached.documentCount !== null) continue;
+    const memCached = getProApiCacheEntry(kw);
+    if (memCached
+      && memCached.searchVolume !== null
+      && getCanonicalPersistentDocumentCount(memCached, Date.now(), kw) !== null) continue;
     const persisted = getPersistent(kw);
-    if (persisted && (persisted.searchVolume !== null || persisted.documentCount !== null)) {
+    const canonicalDc = getCanonicalPersistentDocumentCount(persisted, Date.now(), kw);
+    if (persisted && (persisted.searchVolume !== null || canonicalDc !== null)) {
       const entry = {
         searchVolume: persisted.searchVolume,
-        documentCount: persisted.documentCount,
+        documentCount: canonicalDc,
+        documentCountSource: canonicalDc !== null ? persisted.documentCountSource : undefined,
+        documentCountConfidence: canonicalDc !== null ? persisted.documentCountConfidence : undefined,
+        documentCountQueryMode: canonicalDc !== null ? persisted.documentCountQueryMode : undefined,
+        documentCountQueryKey: canonicalDc !== null ? persisted.documentCountQueryKey : undefined,
+        isDocumentCountEstimated: canonicalDc !== null ? persisted.isDocumentCountEstimated : undefined,
+        documentCountMeasuredAt: canonicalDc !== null ? persisted.documentCountMeasuredAt : undefined,
+        documentCountSavedAt: canonicalDc !== null ? persisted.documentCountSavedAt : undefined,
         compIdx: persisted.compIdx ?? null,
         realCpc: persisted.realCpc ?? null,
         timestamp: Date.now(),
-        isRealData: true,
+        isRealData: false,
       };
+      entry.isRealData = getCanonicalPersistentDocumentCount(entry, Date.now(), kw) !== null;
       // v2.46.0 B: 정규화 키 1개만 저장 (중복 제거)
-      apiCache.set(cleanKw, entry);
+      setProApiCacheEntry(kw, entry);
       persistentHits++;
     }
   }
@@ -2484,11 +2703,11 @@ async function fetchKeywordDataBatch(keywords: string[], options?: Parameters<ty
 
   // 메모리 캐시에 완전한 데이터가 없는 키워드만 필터링
   const uncachedKeywords = uniqueKeywords.filter(kw => {
-    const cleanKw = kw.replace(/\s/g, '');
-    const cached = apiCache.get(kw) || apiCache.get(cleanKw);
+    const cached = getProApiCacheEntry(kw);
     if (!cached || Date.now() - cached.timestamp >= CACHE_TTL) return true;
     // sv, dc 중 하나라도 null이면 재호출 필요
-    return cached.searchVolume === null || cached.documentCount === null;
+    return cached.searchVolume === null
+      || getCanonicalPersistentDocumentCount(cached, Date.now(), kw) === null;
   });
 
   if (uncachedKeywords.length === 0) {
@@ -3264,6 +3483,7 @@ export async function huntProTrafficKeywords(options: {
 
   const isVerifiedMetrics = (r: ProTrafficKeyword): boolean => {
     if (!isProTrafficApiWorthyCandidate(r.keyword)) return false;
+    if (getCanonicalPersistentDocumentCount(r, Date.now(), r.keyword) === null) return false;
     const svOk = typeof r.searchVolume === 'number' && Number.isFinite(r.searchVolume) && r.searchVolume > 0;
     const dcOk = typeof r.documentCount === 'number' && Number.isFinite(r.documentCount) && r.documentCount > 0;
     return svOk && dcOk;
@@ -4029,12 +4249,30 @@ export async function huntProTrafficKeywords(options: {
 
   // 🎯 2단계: 네이버 검색광고 API로 연관 키워드 수집 + 검색량 조회
   // (실시간 유동성 키워드는 이미 0단계에서 allKeywords에 일부 반영될 수 있음)
-  const allKeywords: { keyword: string; source: string; searchVolume?: number | null; documentCount?: number | null; persistedAt?: number | null }[] = [];
+  const allKeywords: {
+    keyword: string;
+    source: string;
+    searchVolume?: number | null;
+    documentCount?: number | null;
+    documentCountSource?: 'naver-api' | 'scrape' | 'fallback' | 'legacy';
+    documentCountConfidence?: 'high' | 'medium' | 'low';
+    documentCountQueryMode?: 'broad' | 'exact-phrase';
+    documentCountQueryKey?: string;
+    isDocumentCountEstimated?: boolean;
+    documentCountMeasuredAt?: string;
+    documentCountSavedAt?: number;
+    persistedAt?: number | null;
+  }[] = [];
 
   // 🗄️ 영구 캐시의 완전 데이터 키워드를 시드 풀 최상위에 주입 (안정성 확보)
   // — 이전 run에서 성공한 키워드는 재사용하면 API 호출 없이 즉시 결과로 연결
   try {
-    const persistentSeeds = getAllKeywordsWithCompleteData();
+    const persistentSeeds = getAllKeywordsWithCompleteData()
+      .filter((entry) => getCanonicalPersistentDocumentCount(
+        entry,
+        Date.now(),
+        entry.keyword,
+      ) !== null);
     // 카테고리 모드: 카테고리 매칭되는 것만
     const isCatSpecified = mode === 'category' && category !== 'all' && category !== 'pro_premium' && category !== 'lite_standard';
     const filteredPersistent = isCatSpecified
@@ -4076,7 +4314,14 @@ export async function huntProTrafficKeywords(options: {
           source: 'persistent_cache',
           searchVolume: p.searchVolume,
           documentCount: p.documentCount,
-          persistedAt: p.savedAt,
+          documentCountSource: p.documentCountSource,
+          documentCountConfidence: p.documentCountConfidence,
+          documentCountQueryMode: p.documentCountQueryMode,
+          documentCountQueryKey: p.documentCountQueryKey,
+          isDocumentCountEstimated: p.isDocumentCountEstimated,
+          documentCountMeasuredAt: p.documentCountMeasuredAt,
+          documentCountSavedAt: p.documentCountSavedAt,
+          persistedAt: p.documentCountSavedAt,
         });
       }
     }
@@ -4188,12 +4433,17 @@ export async function huntProTrafficKeywords(options: {
                 // 🔥 SearchAd가 반환한 자연 키워드의 검색량을 캐시에 주입
                 // → fetchKeywordDataBatch 재조회 시 배치 매칭 실패 우회
                 if (svValue !== null && svValue > 0 && s.keyword) {
-                  const existing = apiCache.get(s.keyword);
+                  const existing = getProApiCacheEntry(s.keyword);
                   if (!existing || existing.searchVolume === null) {
                     const clean = s.keyword.replace(/\s/g, '');
-                    const entry = { searchVolume: svValue, documentCount: existing?.documentCount ?? null, isRealData: true, timestamp: Date.now() };
-                    apiCache.set(s.keyword, entry);
-                    apiCache.set(clean, entry);
+                    const entry = {
+                      ...existing,
+                      searchVolume: svValue,
+                      documentCount: existing?.documentCount ?? null,
+                      isRealData: getCanonicalPersistentDocumentCount(existing, Date.now(), s.keyword) !== null,
+                      timestamp: Date.now(),
+                    };
+                    setProApiCacheEntry(s.keyword, entry);
                   }
                 }
               }
@@ -4226,12 +4476,17 @@ export async function huntProTrafficKeywords(options: {
                   })();
                 // 🔥 SearchAd 자연 키워드의 검색량을 캐시에 주입 (재조회 우회)
                 if (svValue !== null && svValue > 0 && s.keyword) {
-                  const existing = apiCache.get(s.keyword);
+                  const existing = getProApiCacheEntry(s.keyword);
                   if (!existing || existing.searchVolume === null) {
                     const clean = s.keyword.replace(/\s/g, '');
-                    const entry = { searchVolume: svValue, documentCount: existing?.documentCount ?? null, isRealData: true, timestamp: Date.now() };
-                    apiCache.set(s.keyword, entry);
-                    apiCache.set(clean, entry);
+                    const entry = {
+                      ...existing,
+                      searchVolume: svValue,
+                      documentCount: existing?.documentCount ?? null,
+                      isRealData: getCanonicalPersistentDocumentCount(existing, Date.now(), s.keyword) !== null,
+                      timestamp: Date.now(),
+                    };
+                    setProApiCacheEntry(s.keyword, entry);
                   }
                 }
                 return {
@@ -4642,12 +4897,11 @@ export async function huntProTrafficKeywords(options: {
     const keyword = item.keyword;
     const source = item.source;
     // ⚠️ 캐시 조회: 원본 키워드와 clean 키워드 모두 확인
-    const cleanKeyword = keyword.replace(/\s/g, '');
-    const cached = apiCache.get(keyword) || apiCache.get(cleanKeyword);
+    const cached = getProApiCacheEntry(keyword);
     // ⚠️ 캐시된 실제 API 값을 우선 사용! (수집 단계 값은 부정확할 수 있음)
     const collectedVolume = (typeof (item as any).searchVolume === 'number') ? (item as any).searchVolume : null;
     const finalSearchVolume = cached?.searchVolume ?? collectedVolume ?? null;
-    const finalDocCount = cached?.documentCount ?? null;
+    const finalDocCount = getCanonicalPersistentDocumentCount(cached, Date.now(), keyword);
     const searchVolumeForCalc = finalSearchVolume ?? 0;
     const docCountForCalc = finalDocCount ?? 0;
 
@@ -4757,10 +5011,9 @@ export async function huntProTrafficKeywords(options: {
     const used = new Set(results.map(r => r.keyword));
     for (const cand of relaxedCandidates) {
       if (used.has(cand.keyword)) continue;
-      const cleanKw = cand.keyword.replace(/\s/g, '');
-      const cached = apiCache.get(cand.keyword) || apiCache.get(cleanKw);
+      const cached = getProApiCacheEntry(cand.keyword);
       const finalSearchVolume = cached?.searchVolume ?? null;
-      const finalDocCount = cached?.documentCount ?? null;
+      const finalDocCount = getCanonicalPersistentDocumentCount(cached, Date.now(), cand.keyword);
       const searchVolumeForCalc = finalSearchVolume ?? 0;
       const docCountForCalc = finalDocCount ?? 0;
       const goldenRatio = (finalSearchVolume !== null && finalDocCount !== null && finalDocCount > 0)
@@ -4990,7 +5243,11 @@ export async function huntProTrafficKeywords(options: {
       }
 
       const realSearchVolume = apiResult.searchVolume;
-      const realDocCount = apiResult.documentCount;
+      const realDocCount = getCanonicalPersistentDocumentCount(
+        apiResult,
+        Date.now(),
+        result.keyword,
+      );
       let realSearchVolumeForCalc: number | null = (typeof realSearchVolume === 'number') ? realSearchVolume : null;
       if (realSearchVolumeForCalc === null) {
         const collected = (typeof result.searchVolume === 'number' && Number.isFinite(result.searchVolume) && result.searchVolume > 0)
@@ -4999,7 +5256,9 @@ export async function huntProTrafficKeywords(options: {
         if (collected !== null) realSearchVolumeForCalc = collected;
       }
       const realSearchVolumeForGrade = realSearchVolumeForCalc ?? 0;
-      const isGolden = (typeof realSearchVolumeForCalc === 'number' && realSearchVolumeForCalc > 0) && (typeof realDocCount === 'number' && realDocCount > 0);
+      const isGolden = realDocCount !== null
+        && (typeof realSearchVolumeForCalc === 'number' && realSearchVolumeForCalc > 0)
+        && (typeof realDocCount === 'number' && realDocCount > 0);
 
       // 🚨 둘 다 0이거나 null이면 제외 (유효하지 않은 데이터)
       if ((realSearchVolumeForCalc === null || realSearchVolumeForCalc === 0) && (realDocCount === 0 || realDocCount === null)) {
@@ -5066,6 +5325,13 @@ export async function huntProTrafficKeywords(options: {
         ...result,
         searchVolume: realSearchVolumeForCalc,
         documentCount: realDocCount,
+        documentCountSource: apiResult.documentCountSource,
+        documentCountConfidence: apiResult.documentCountConfidence,
+        documentCountQueryMode: apiResult.documentCountQueryMode,
+        documentCountQueryKey: apiResult.documentCountQueryKey,
+        isDocumentCountEstimated: apiResult.isDocumentCountEstimated,
+        documentCountMeasuredAt: apiResult.documentCountMeasuredAt,
+        documentCountSavedAt: apiResult.documentCountSavedAt,
         goldenRatio: realGoldenRatio,
         isGolden,
         profitAnalysis: calculateProfitGoldenRatio(
@@ -5206,8 +5472,15 @@ export async function huntProTrafficKeywords(options: {
         ...result,
         searchVolume: realSearchVolumeForCalc,
         documentCount: realDocCount,
+        documentCountSource: apiResult.documentCountSource,
+        documentCountConfidence: apiResult.documentCountConfidence,
+        documentCountQueryMode: apiResult.documentCountQueryMode,
+        documentCountQueryKey: apiResult.documentCountQueryKey,
+        isDocumentCountEstimated: apiResult.isDocumentCountEstimated,
+        documentCountMeasuredAt: apiResult.documentCountMeasuredAt,
+        documentCountSavedAt: apiResult.documentCountSavedAt,
         goldenRatio: realGoldenRatio,
-        isGolden: true,
+        isGolden,
         grade: newGrade,
         profitAnalysis: nextProfitAnalysis,
         revenueEstimate: nextRevenueEstimate,
@@ -5397,7 +5670,7 @@ export async function huntProTrafficKeywords(options: {
           if (!api || !api.success) continue;
 
           const vol = (typeof api.searchVolume === 'number') ? api.searchVolume : null;
-          const doc = api.documentCount as number | null | undefined;
+          const doc = getCanonicalPersistentDocumentCount(api, Date.now(), kw);
           if (doc === null || doc === undefined || doc === 0) continue;
 
           const volForCalc = vol ?? 0;
@@ -5427,8 +5700,15 @@ export async function huntProTrafficKeywords(options: {
             ...analysis,
             searchVolume: vol,
             documentCount: doc,
+            documentCountSource: api.documentCountSource,
+            documentCountConfidence: api.documentCountConfidence,
+            documentCountQueryMode: api.documentCountQueryMode,
+            documentCountQueryKey: api.documentCountQueryKey,
+            isDocumentCountEstimated: api.isDocumentCountEstimated,
+            documentCountMeasuredAt: api.documentCountMeasuredAt,
+            documentCountSavedAt: api.documentCountSavedAt,
             goldenRatio: ratio,
-            isGolden: true,
+            isGolden: getCanonicalPersistentDocumentCount(api, Date.now(), kw) !== null,
             grade: newGrade,
             profitAnalysis: calculateProfitGoldenRatio(kw, volForCalc, doc, analysis.category, { realCpc: api.realCpc }),
             revenueEstimate: (() => {
@@ -7643,12 +7923,11 @@ export function analyzeKeyword(
 ): ProTrafficKeyword {
 
   // 🔥 캐시 조회 (원본 + clean 버전 모두)
-  const cleanKeyword = keyword.replace(/\s/g, '');
-  const cached = apiCache.get(keyword) || apiCache.get(cleanKeyword);
+  const cached = getProApiCacheEntry(keyword);
 
   // 🚨 캐시에 실제 데이터가 없으면 null (더미 데이터 절대 사용 안 함!)
   const searchVolume = cached?.searchVolume ?? null;
-  const documentCount = cached?.documentCount ?? null;
+  const documentCount = getCanonicalPersistentDocumentCount(cached, Date.now(), keyword);
   const compIdx = cached?.compIdx ?? null;
   const realCpc = cached?.realCpc ?? null;
   const hasSmartBlock = cached?.hasSmartBlock ?? false;
@@ -8896,9 +9175,9 @@ async function getSearchVolumeReal(keyword: string): Promise<number | null> {
       const volume = (pc !== null || mobile !== null) ? ((pc ?? 0) + (mobile ?? 0)) : null;
 
       if (volume !== null) {
-        const existing = apiCache.get(keyword) || { searchVolume: null, documentCount: null, timestamp: 0 };
-        apiCache.set(keyword, { ...existing, searchVolume: volume, timestamp: Date.now() });
-        apiCache.set(cleanKeyword, { ...existing, searchVolume: volume, timestamp: Date.now() });
+        const existing = getProApiCacheEntry(keyword)
+          || { searchVolume: null, documentCount: null, timestamp: 0 };
+        setProApiCacheEntry(keyword, { ...existing, searchVolume: volume, timestamp: Date.now() });
 
         return volume;
       }
@@ -8918,17 +9197,45 @@ async function getSearchVolumeReal(keyword: string): Promise<number | null> {
  */
 async function getDocumentCountReal(keyword: string): Promise<number | null> {
   try {
-    const cleanKeyword = keyword.replace(/\s/g, '');
-    const cached = apiCache.get(keyword) || apiCache.get(cleanKeyword);
-    if (cached && cached.documentCount !== null && Date.now() - cached.timestamp < CACHE_TTL) {
-      return cached.documentCount;
+    const canonicalKeyword = normalizeNaverBlogBroadQuery(keyword);
+    const cached = getProApiCacheEntry(canonicalKeyword);
+    const cachedDocumentCount = getCanonicalPersistentDocumentCount(
+      cached,
+      Date.now(),
+      canonicalKeyword,
+    );
+    if (cached && cachedDocumentCount !== null && Date.now() - cached.timestamp < CACHE_TTL) {
+      return cachedDocumentCount;
     }
 
-    const count = await getNaverBlogDocumentCount(keyword);
-    if (count !== null) {
-      const existing = apiCache.get(keyword) || { searchVolume: null, documentCount: null, timestamp: 0 };
-      apiCache.set(keyword, { ...existing, documentCount: count, timestamp: Date.now() });
-      apiCache.set(cleanKeyword, { ...existing, documentCount: count, timestamp: Date.now() });
+    const broadKeyword = normalizeNaverBlogBroadQuery(canonicalKeyword);
+    if (!broadKeyword) return null;
+    const count = await getNaverBlogDocumentCount(broadKeyword);
+    const measurement = count !== null
+      ? peekCachedNaverBlogDocumentCountMeasurement(broadKeyword)
+      : null;
+    if (count !== null && measurement && measurement.total === count) {
+      const existing = getProApiCacheEntry(canonicalKeyword)
+        || { searchVolume: null, documentCount: null, timestamp: 0 };
+      const canonicalEntry = {
+        ...existing,
+        documentCount: count,
+        documentCountSource: 'naver-api' as const,
+        documentCountConfidence: 'high' as const,
+        documentCountQueryMode: 'broad' as const,
+        documentCountQueryKey: proDocumentCountBroadQueryKey(broadKeyword),
+        isDocumentCountEstimated: false,
+        documentCountMeasuredAt: measurement.measuredAt,
+        documentCountSavedAt: measurement.measuredAtMs,
+        timestamp: Date.now(),
+        isRealData: false,
+      };
+      canonicalEntry.isRealData = getCanonicalPersistentDocumentCount(
+        canonicalEntry,
+        Date.now(),
+        broadKeyword,
+      ) !== null;
+      setProApiCacheEntry(broadKeyword, canonicalEntry);
 
       return count;
     }

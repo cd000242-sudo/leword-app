@@ -63,6 +63,7 @@ function makeSssMetric(index: number, prefix = '모바일 검증 키워드'): Mo
     documentCountSource: 'naver-api',
     documentCountConfidence: 'high',
     documentCountQueryMode: 'broad',
+    documentCountMeasuredAt: new Date().toISOString(),
     isDocumentCountEstimated: false,
   };
 }
@@ -111,6 +112,7 @@ async function measureFixtureMetrics(metrics: MobileKeywordMetric[]): Promise<Mo
       documentCountSource: 'naver-api',
       documentCountConfidence: 'high',
       documentCountQueryMode: 'broad',
+      documentCountMeasuredAt: new Date().toISOString(),
       isDocumentCountEstimated: false,
     };
   });
@@ -235,7 +237,9 @@ async function runMindmapExpansionWithInvestigativeSportsBridge(): Promise<void>
       && keywords.includes('\uB300\uD55C\uCD95\uAD6C\uD611\uD68C \uBE44\uB9AC \uC804\uB9D0')
       && keywords.includes('\uC774\uAC15\uC778 \uC774\uC7AC\uC131 \uD22C\uC785 \uC694\uCCAD')
       && keywords.includes('\uAE40\uBBFC\uC7AC \uAD50\uCCB4 \uD56D\uC758')
-      && result.keywords.some((item) => item.source === 'mindmap-semantic-bridge' && item.measurementStatus === 'unmeasured'),
+      && result.keywords.some((item) => item.source === 'mindmap-semantic-bridge'
+        && item.isMeasured === false
+        && (item.measurementStatus === 'unmeasured' || item.measurementStatus === 'synthetic-blocked')),
     keywords.join(', '));
 }
 
@@ -261,7 +265,9 @@ async function runMindmapExpansionKeepsSemanticBranchesWhenMeasurementIsEmpty():
   assert('mindmap keeps semantic expansion branches when volume measurement returns empty',
     keywords.includes('\uD64D\uBA85\uBCF4 \uAC10\uB3C5 \uB2E4\uC74C \uAC10\uB3C5 \uD6C4\uBCF4')
       && keywords.includes('\uB300\uD55C\uCD95\uAD6C\uD611\uD68C \uBE44\uB9AC \uC804\uB9D0')
-      && result.keywords.some((item) => item.source === 'mindmap-semantic-bridge' && item.measurementStatus === 'unmeasured'),
+      && result.keywords.some((item) => item.source === 'mindmap-semantic-bridge'
+        && item.isMeasured === false
+        && (item.measurementStatus === 'unmeasured' || item.measurementStatus === 'synthetic-blocked')),
     JSON.stringify(result));
 }
 
@@ -784,6 +790,7 @@ async function runAgentAssistQualityGate(): Promise<void> {
     documentCountSource: 'naver-api',
     documentCountConfidence: 'high',
     documentCountQueryMode: 'broad',
+    documentCountMeasuredAt: new Date().toISOString(),
     isDocumentCountEstimated: false,
   }));
   const executor = createMobilePcEngineExecutor({
@@ -901,6 +908,16 @@ async function runExternalAgentInsightInference(): Promise<void> {
           intent: 'measured-need',
           evidence: ['naver-autocomplete'],
           isMeasured: true,
+          searchVolumeSource: 'searchad',
+          searchVolumeConfidence: 'high',
+          searchVolumeBindingVersion: 'keyword-keyed-v2',
+          searchVolumeMeasuredAt: new Date().toISOString(),
+          isSearchVolumeEstimated: false,
+          documentCountSource: 'naver-api',
+          documentCountConfidence: 'high',
+          documentCountQueryMode: 'broad',
+          documentCountMeasuredAt: new Date().toISOString(),
+          isDocumentCountEstimated: false,
         }],
         summary: {
           total: 1,
@@ -1243,7 +1260,8 @@ function runFallbackRegressionGuards(): void {
     'startup prewarm must not let broad electronics queries block live/free golden boards');
   assert('default metric adapter measures volume before spending OpenAPI document quota',
     source.includes('shouldMeasureDocumentCount')
-      && source.includes('markNaverOpenApiQuotaBlocked')
+      && source.includes('getNaverBlogDocumentCount')
+      && source.includes('Product-wide SSoT: unquoted Naver Blog OpenAPI total only')
       && /const volumeMap = hasSearchAdConfig[\s\S]{0,420}const documentKeywords = hasOpenApiConfig/.test(source),
     'document count lookup should be quota-aware and volume-qualified');
   assert('shopping connect can run seedless auto discovery on the server',
@@ -1351,7 +1369,8 @@ function runFallbackRegressionGuards(): void {
     'OpenAPI 012 should pause briefly instead of blocking the key until reset');
   assert('combined SearchAd/OpenAPI measurement serializes document lookup and preserves rate-limit recovery',
     naverDatalabSource.includes('const CONCURRENCY = 1')
-      && naverDatalabSource.includes('getNaverBlogDocumentCount(originalKeyword')
+      && naverDatalabSource.includes('normalizeNaverBlogBroadQuery(originalKeyword)')
+      && naverDatalabSource.includes('getNaverBlogDocumentCount(broadQuery')
       && naverBlogApiSource.includes('markNaverBlogOpenApiRateLimited()')
       && naverDatalabSource.includes('await new Promise(r => setTimeout(r, 350))'),
     'direct golden measurement must not turn OpenAPI 012 into a five-minute all-category document blackout');

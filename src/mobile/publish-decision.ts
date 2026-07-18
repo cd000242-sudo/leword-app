@@ -2,6 +2,7 @@ import {
   type MobileKeywordMetric,
   type MobilePublishDecision,
 } from './contracts';
+import { hasFreshCanonicalDocumentCountMeasurement } from './keyword-ai-judge';
 
 function normalizeKeyword(value: unknown): string {
   return String(value || '').replace(/\s+/g, ' ').trim();
@@ -88,7 +89,10 @@ function buildClusterKeywords(keyword: string): string[] {
     .slice(0, 5);
 }
 
-export function evaluatePublishDecision(metric: MobileKeywordMetric): MobilePublishDecision {
+export function evaluatePublishDecision(
+  metric: MobileKeywordMetric,
+  now: Date = new Date(),
+): MobilePublishDecision {
   const keyword = normalizeKeyword(metric.keyword);
   const category = normalizeKeyword(metric.category);
   const volume = finiteNumber(metric.totalSearchVolume);
@@ -113,7 +117,8 @@ export function evaluatePublishDecision(metric: MobileKeywordMetric): MobilePubl
     && metric.documentCountSource === 'naver-api'
     && metric.documentCountConfidence === 'high'
     && metric.documentCountQueryMode === 'broad'
-    && metric.isDocumentCountEstimated === false;
+    && metric.isDocumentCountEstimated === false
+    && hasFreshCanonicalDocumentCountMeasurement(metric, now);
   const hasCanonicalMeasurement = metric.isMeasured === true
     && hasCanonicalSearchVolume
     && hasCanonicalDocumentCount;

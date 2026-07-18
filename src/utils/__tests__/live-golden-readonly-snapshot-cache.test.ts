@@ -33,6 +33,7 @@ function row(keyword: string, category: string): Record<string, unknown> {
     documentCountSource: 'naver-api',
     documentCountConfidence: 'high',
     documentCountQueryMode: 'broad',
+    documentCountMeasuredAt: '2026-07-12T00:00:00.000Z',
     isDocumentCountEstimated: false,
     discoveredAt: '2026-07-12T00:00:00.000Z',
     updatedAt: '2026-07-12T00:00:00.000Z',

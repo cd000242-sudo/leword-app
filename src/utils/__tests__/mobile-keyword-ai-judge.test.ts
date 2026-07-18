@@ -24,9 +24,13 @@ function measuredMetric(keyword: string, category: string, pc: number, mobile: n
     isMeasured: true,
     searchVolumeSource: 'searchad' as const,
     searchVolumeConfidence: 'high' as const,
+    searchVolumeBindingVersion: 'keyword-keyed-v2' as const,
+    searchVolumeMeasuredAt: now.toISOString(),
     isSearchVolumeEstimated: false,
     documentCountSource: 'naver-api' as const,
     documentCountConfidence: 'high' as const,
+    documentCountQueryMode: 'broad' as const,
+    documentCountMeasuredAt: now.toISOString(),
     isDocumentCountEstimated: false,
   };
 }

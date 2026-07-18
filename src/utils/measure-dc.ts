@@ -21,8 +21,16 @@
  *   - 추정값 fallback은 caller가 dcEstimated=true로 표시해 SSS를 차단
  */
 import axios from 'axios';
-import { getNaverBlogDocumentCount } from './naver-blog-api';
-import { setPersistent } from './persistent-keyword-cache';
+import {
+    getNaverBlogDocumentCount,
+    normalizeNaverBlogBroadQuery,
+    peekCachedNaverBlogDocumentCountMeasurement,
+} from './naver-blog-api';
+import {
+    getCanonicalPersistentDocumentCount,
+    getPersistent,
+    setPersistent,
+} from './persistent-keyword-cache';
 
 export type DcSource = 'cache' | 'naver-api' | 'scrape' | 'fallback';
 export type DcConfidence = 'high' | 'medium' | 'low';
@@ -45,6 +53,8 @@ export interface DcMeasurement {
     isEstimated: boolean;
     /** 실제 API/스크랩에 사용한 질의 의미. */
     queryMode?: DocumentCountQueryMode;
+    /** Time at which the underlying source was actually measured. */
+    measuredAt?: string;
     /** 진단용 — API/scrape 양쪽 값, cross-check 사유. */
     debug?: {
         apiDc?: number | null;
@@ -74,6 +84,10 @@ export interface MeasureOpts {
      * can never be mixed.
      */
     queryMode?: 'broad' | 'exact-phrase';
+    /** Cancel the complete lookup, including the scrape fallback. */
+    signal?: AbortSignal;
+    /** Naver Blog OpenAPI request timeout (ms). */
+    timeoutMs?: number;
 }
 
 const SCRAPE_UA = 'Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/120.0.0.0 Safari/537.36';
@@ -141,8 +155,15 @@ function extractNaverBlogDocumentCountFromHtml(html: string): number | null {
     return Math.max(...candidates);
 }
 
-async function scrapeNaverBlogDc(keyword: string, timeoutMs: number): Promise<number | null> {
+async function scrapeNaverBlogDc(
+    keyword: string,
+    timeoutMs: number,
+    signal?: AbortSignal,
+): Promise<number | null> {
     const ctrl = new AbortController();
+    const onAbort = () => ctrl.abort();
+    if (signal?.aborted) ctrl.abort();
+    signal?.addEventListener('abort', onAbort, { once: true });
     const kill = setTimeout(() => ctrl.abort(), timeoutMs);
     try {
         const url = `https://search.naver.com/search.naver?where=blog&query=${encodeURIComponent(keyword)}`;
@@ -179,6 +200,7 @@ async function scrapeNaverBlogDc(keyword: string, timeoutMs: number): Promise<nu
         return null;
     } finally {
         clearTimeout(kill);
+        signal?.removeEventListener('abort', onAbort);
     }
 }
 
@@ -186,10 +208,7 @@ export function documentCountQueryForMode(
     keyword: string,
     queryMode: DocumentCountQueryMode = CANONICAL_DOCUMENT_COUNT_QUERY_MODE,
 ): string {
-    const clean = String(keyword || '')
-        .replace(/["“”]/g, ' ')
-        .replace(/\s+/g, ' ')
-        .trim();
+    const clean = normalizeNaverBlogBroadQuery(keyword);
     return queryMode === 'exact-phrase' && clean ? `"${clean}"` : clean;
 }
 
@@ -197,14 +216,18 @@ export function selectDocumentCountMeasurement(
     apiDc: number | null,
     scrapeDc: number | null,
     queryMode: DocumentCountQueryMode = CANONICAL_DOCUMENT_COUNT_QUERY_MODE,
+    measuredAt?: string,
 ): DcMeasurement | null {
-    if (apiDc !== null && Number.isFinite(apiDc) && apiDc >= 0) {
+    const sourceMeasuredAt = String(measuredAt || '').trim();
+    const hasSourceMeasurementTime = Number.isFinite(Date.parse(sourceMeasuredAt));
+    if (apiDc !== null && Number.isFinite(apiDc) && apiDc >= 0 && hasSourceMeasurementTime) {
         return {
             dc: apiDc,
             source: 'naver-api',
             confidence: 'high',
             isEstimated: false,
             queryMode,
+            measuredAt: sourceMeasuredAt,
             debug: {
                 apiDc,
                 scrapeDc,
@@ -213,13 +236,14 @@ export function selectDocumentCountMeasurement(
             },
         };
     }
-    if (scrapeDc !== null && Number.isFinite(scrapeDc) && scrapeDc >= 0) {
+    if (scrapeDc !== null && Number.isFinite(scrapeDc) && scrapeDc >= 0 && hasSourceMeasurementTime) {
         return {
             dc: scrapeDc,
             source: 'scrape',
             confidence: 'medium',
-            isEstimated: false,
+            isEstimated: true,
             queryMode,
+            measuredAt: sourceMeasuredAt,
             debug: { apiDc, scrapeDc, queryMode },
         };
     }
@@ -240,6 +264,7 @@ export async function measureDocumentCount(
     keyword: string,
     opts: MeasureOpts = {}
 ): Promise<DcMeasurement> {
+    const invokedAt = new Date().toISOString();
     const sv = opts.searchVolume ?? 0;
     const scrapeTimeoutMs = opts.scrapeTimeoutMs ?? 2000;
     const queryMode: DocumentCountQueryMode = opts.queryMode === 'exact-phrase'
@@ -247,36 +272,87 @@ export async function measureDocumentCount(
         : CANONICAL_DOCUMENT_COUNT_QUERY_MODE;
     const exactPhrase = queryMode === 'exact-phrase';
     const queryKeyword = documentCountQueryForMode(keyword, queryMode);
+    const throwIfAborted = (): void => {
+        if (opts.signal?.aborted) throw new Error('document count lookup aborted');
+    };
+    throwIfAborted();
 
     // v2.49.17: scrapeOnly 분기 — verify path 에서 API rate-limit 회피용.
     //   기존 scrapeWebDc 와 동일 동작 (API 다시 호출 X, scrape 만).
-    //   결과: source='scrape' confidence='high' (scrape 단독이지만 verify path 는 이미 API 가 한번 측정한 행만 호출 → 보강 검증임).
+    //   결과: source='scrape' confidence='medium', isEstimated=true.
     if (opts.scrapeOnly) {
-        const scraped = await scrapeNaverBlogDc(queryKeyword, scrapeTimeoutMs);
+        if (!exactPhrase) {
+            const cachedEntry = getPersistent(keyword);
+            const cachedDc = getCanonicalPersistentDocumentCount(
+                cachedEntry,
+                Date.now(),
+                keyword,
+            );
+            if (cachedEntry && cachedDc !== null) {
+                return {
+                    dc: cachedDc,
+                    source: 'cache',
+                    confidence: 'high',
+                    isEstimated: false,
+                    queryMode: CANONICAL_DOCUMENT_COUNT_QUERY_MODE,
+                    measuredAt: cachedEntry.documentCountMeasuredAt,
+                    debug: { apiDc: cachedDc, queryMode },
+                };
+            }
+        }
+        const scraped = await scrapeNaverBlogDc(queryKeyword, scrapeTimeoutMs, opts.signal);
+        throwIfAborted();
         if (scraped != null && scraped > 0) {
-            return { dc: scraped, source: 'scrape', confidence: 'high', isEstimated: false, queryMode, debug: { scrapeDc: scraped, queryMode } };
+            return {
+                dc: scraped,
+                source: 'scrape',
+                confidence: 'medium',
+                isEstimated: true,
+                queryMode,
+                measuredAt: invokedAt,
+                debug: { scrapeDc: scraped, queryMode },
+            };
         }
         // scrape 실패 — fallback 하지 않고 명시적 fallback 반환 (caller 가 skip 결정)
         const fallback = sv > 0 ? Math.max(1, Math.round(sv * 0.5)) : 1;
-        return { dc: fallback, source: 'fallback', confidence: 'low', isEstimated: true, queryMode, debug: { scrapeDc: null, queryMode } };
+        return {
+            dc: fallback,
+            source: 'fallback',
+            confidence: 'low',
+            isEstimated: true,
+            queryMode,
+            measuredAt: invokedAt,
+            debug: { scrapeDc: null, queryMode },
+        };
     }
 
     // [1] API (전용 15분 캐시는 naver-blog-api가 관리하며 API 성공값만 담는다.)
     const apiDc = await getNaverBlogDocumentCount(queryKeyword, {
         forceFresh: opts.skipCache === true,
+        signal: opts.signal,
+        timeoutMs: opts.timeoutMs,
     }).catch(() => null);
+    throwIfAborted();
+    const apiMeasurement = apiDc !== null
+        ? peekCachedNaverBlogDocumentCountMeasurement(queryKeyword)
+        : null;
+    const verifiedApiDc = apiMeasurement && apiMeasurement.total === apiDc
+        ? apiDc
+        : null;
 
     // [2] scrape — OpenAPI가 실패했을 때만 비신뢰 보조값으로 사용한다.
     // OpenAPI total과 HTML 숫자가 다르면 제품 공통 문서수 정의인 OpenAPI가 항상 우선이다.
     let scrapeDc: number | null = null;
-    if (!opts.skipScrape && apiDc === null) {
-        scrapeDc = await scrapeNaverBlogDc(queryKeyword, scrapeTimeoutMs);
+    if (!opts.skipScrape && verifiedApiDc === null) {
+        scrapeDc = await scrapeNaverBlogDc(queryKeyword, scrapeTimeoutMs, opts.signal);
+        throwIfAborted();
     }
 
-    const measured = selectDocumentCountMeasurement(apiDc, scrapeDc, queryMode);
+    const sourceMeasuredAt = verifiedApiDc !== null ? apiMeasurement!.measuredAt : invokedAt;
+    const measured = selectDocumentCountMeasurement(verifiedApiDc, scrapeDc, queryMode, sourceMeasuredAt);
     if (measured) {
         if (measured.source === 'naver-api' && !exactPhrase) {
-            persistApiResult(keyword, measured.dc, sv);
+            persistApiResult(keyword, measured.dc, sv, measured.measuredAt ?? invokedAt);
         }
         return measured;
     }
@@ -284,15 +360,28 @@ export async function measureDocumentCount(
     // [3] fallback — sv*0.5 추정. caller 가 dcEstimated=true 강제 마킹.
     const fallback = sv > 0 ? Math.max(1, Math.round(sv * 0.5)) : 1;
     console.warn(`[measure-dc] fallback "${keyword}": api/scrape 모두 실패, sv*0.5=${fallback} 추정`);
-    return { dc: fallback, source: 'fallback', confidence: 'low', isEstimated: true, queryMode, debug: { apiDc, scrapeDc, queryMode } };
+    return {
+        dc: fallback,
+        source: 'fallback',
+        confidence: 'low',
+        isEstimated: true,
+        queryMode,
+        measuredAt: invokedAt,
+        debug: { apiDc, scrapeDc, queryMode },
+    };
 }
 
-function persistApiResult(keyword: string, dc: number, sv: number): void {
-    if (sv <= 0) return;  // sv 없으면 cache 저장 의미 없음 (setPersistent 가 거부)
+function persistApiResult(keyword: string, dc: number, sv: number, measuredAt: string): void {
+    if (sv <= 0) return;  // Search-volume keyed consumers need both official measurements.
     try {
         setPersistent(keyword, {
             searchVolume: sv,
             documentCount: dc,
+            documentCountSource: 'naver-api',
+            documentCountConfidence: 'high',
+            documentCountQueryMode: CANONICAL_DOCUMENT_COUNT_QUERY_MODE,
+            isDocumentCountEstimated: false,
+            documentCountMeasuredAt: measuredAt,
             realCpc: null,
             compIdx: null,
         });

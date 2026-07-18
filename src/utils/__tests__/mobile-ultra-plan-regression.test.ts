@@ -1182,10 +1182,10 @@ assert('mobile executor marks SearchAd/OpenAPI measurement provenance and blocks
     && /isDocumentCountEstimated = documentMeasurement/.test(pcExecutor)
     && /hasTrustedDocumentCountMeasurement/.test(pcExecutor)
     && /hasTrustedSearchVolumeMeasurement/.test(pcExecutor));
-assert('mobile executor measures total content documents with blog and cafe OpenAPI',
-  /fetchNaverOpenApiSearchTotal\(keyword, 'blog'/.test(pcExecutor)
-    && /fetchNaverOpenApiSearchTotal\(keyword, 'cafearticle'/.test(pcExecutor)
-    && /search\/\$\{endpoint\}\.json/.test(pcExecutor)
+assert('mobile executor uses the shared broad Naver Blog OpenAPI total without adding cafe documents',
+  /getNaverBlogDocumentCount\(broadQuery/.test(pcExecutor)
+    && !/cafearticle/.test(pcExecutor)
+    && /Product-wide SSoT: unquoted Naver Blog OpenAPI total only/.test(pcExecutor)
     && /fetchNaverDocumentCountMap/.test(pcExecutor)
     && /pc-naver-openapi-document-count/.test(pcExecutor));
 assert('mobile executor replaces search volume only with an explicitly keyword-bound SearchAd split',
@@ -1263,7 +1263,7 @@ assert('mobile executor merges per-user API credentials before server env defaul
     && /extractJobApiCredentials/.test(pcExecutor)
     && /mergeJobApiCredentials/.test(pcExecutor)
     && /const configured = normalizeKeyword\(env\[key\] \|\| ''\)/.test(pcExecutor)
-    && /createDefaultKeywordMetricsAdapter\(getJobEnvConfig\)/.test(pcExecutor)
+    && /createDefaultKeywordMetricsAdapter\(\s*getJobEnvConfig/.test(pcExecutor)
     && /runYoutubeGoldenWithPcEngine\(payload, ctx, getJobEnvConfig/.test(pcExecutor)
     && /runNaverMateWithPcEngine\(payload, ctx, jobMeasureKeywordMetrics, getJobEnvConfig/.test(pcExecutor));
 assert('api server defaults to mobile PC engine executor', /createMobilePcEngineExecutor/.test(apiServer));

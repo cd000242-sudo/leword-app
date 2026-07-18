@@ -18,7 +18,10 @@
 import { callAllSources, SourceTier } from './source-registry';
 import { getNaverAutocompleteKeywords } from '../naver-autocomplete';
 import { getKeywordTrend } from './source-storage';
-import { getNaverKeywordSearchVolumeSeparate } from '../naver-datalab-api';
+import {
+    getNaverKeywordSearchVolumeSeparate,
+    hasFreshCanonicalNaverDocumentCount,
+} from '../naver-datalab-api';
 import { estimateCPC, calculatePurchaseIntent, calculateCompetitionLevel } from '../profit-golden-keyword-engine';
 import { EnvironmentManager } from '../environment-manager';
 import { classifyKeyword, getCategoryById } from '../categories';
@@ -63,6 +66,19 @@ export interface RichKeywordRow {
     isBlueOcean: boolean;
     // 🔥 v2.41.0: dc 추정값 여부 — 분포 기반 동적 SSS 승격 풀에서 제외용 (신뢰도 가드)
     dcEstimated?: boolean;
+    dcConfidence?: 'high' | 'medium' | 'low';
+    dcSource?: 'naver-api' | 'scrape' | 'fallback' | 'cache';
+    dcQueryMode?: 'broad' | 'exact-phrase';
+    dcMeasuredAt?: string;
+    searchVolumeSource?: string;
+    searchVolumeConfidence?: 'high' | 'medium' | 'low';
+    searchVolumeMeasuredAt?: string;
+    isSearchVolumeEstimated?: boolean;
+    documentCountSource?: 'naver-api' | 'scrape' | 'fallback' | 'cache' | 'unknown' | 'none';
+    documentCountConfidence?: 'high' | 'medium' | 'low';
+    documentCountQueryMode?: 'broad' | 'exact-phrase';
+    documentCountMeasuredAt?: string;
+    isDocumentCountEstimated?: boolean;
     // v2.49.18: sv 가 휴리스틱 fallback 으로 빌려온 값인지 — sanity-gate [2] SV_ESTIMATED 가 SSS 자동 차단
     svEstimated?: boolean;
     // v2.49.5+: AI 브리핑 실측 결과 — true: 박스 떴음 (skip 권장), false: 안 떴음 (블로그 클릭 기회)
@@ -1715,11 +1731,11 @@ export async function buildRichFeed(
                 // 🔥 v2.28.0: dc=null 보존 — sv 기반 추정 문서수로 grade 기회 제공
                 //   기존: dc=null → continue → 후보 절반 탈락 (API 응답 미제공 키워드 다수)
                 //   신규: dc=null + sv>=30 이면 sv*0.5 로 추정 (보수적), sv<30 은 노이즈 컷
-                const hasValidDocCount = sig.documentCount !== null && sig.documentCount !== undefined && sig.documentCount > 0;
-                if (!hasValidDocCount && totalVolume < 30) continue;
-                const docCount = hasValidDocCount
-                    ? (sig.documentCount as number)
-                    : Math.max(10, Math.round(totalVolume * 0.5));
+                const hasValidDocCount = hasFreshCanonicalNaverDocumentCount(sig);
+                // Never synthesize a displayed competition count from search
+                // volume. Rows wait for a fresh official broad measurement.
+                if (!hasValidDocCount) continue;
+                const docCount = sig.documentCount as number;
                 const goldenRatio = totalVolume / Math.max(1, docCount);
 
                 const cat = classifyForFeed(sig.keyword);
@@ -1817,6 +1833,15 @@ export async function buildRichFeed(
                         sources: seed.sources,
                         classifyForFeed: cat.id,
                     }),
+                    dcConfidence: hasValidDocCount ? 'high' : 'low',
+                    dcSource: hasValidDocCount ? 'naver-api' : 'fallback',
+                    dcQueryMode: hasValidDocCount ? 'broad' : undefined,
+                    dcMeasuredAt: hasValidDocCount ? sig.documentCountMeasuredAt : undefined,
+                    documentCountSource: hasValidDocCount ? 'naver-api' : 'fallback',
+                    documentCountConfidence: hasValidDocCount ? 'high' : 'low',
+                    documentCountQueryMode: hasValidDocCount ? 'broad' : undefined,
+                    documentCountMeasuredAt: hasValidDocCount ? sig.documentCountMeasuredAt : undefined,
+                    isDocumentCountEstimated: !hasValidDocCount,
                     dcEstimated: !hasValidDocCount, // 🔥 v2.41.0: 동적 SSS 승격 풀 신뢰도 가드용
                     svEstimated, // v2.49.18: 휴리스틱 fallback 사용 시 true → promotion/fallback tier 의 sanity-gate 가 SSS 차단
                     // v2.43.25-26: 블로거 프로필 보정 + 사유 분해 (UI 칩용)
@@ -2303,24 +2328,32 @@ export async function buildRichFeed(
         //   실측 dc 행은 이미 신뢰. 추정값 (sv*0.5 fallback) 행만 재검증 필요
         // v2.43.52: persistent cache read-first — 24h 내 측정값 있으면 스크래핑 skip
         let persistentGet: ((k: string) => any) | null = null;
-        let persistentSet: ((k: string, e: any) => void) | null = null;
+        let getCanonicalPersistentDocumentCount: ((entry: any, now?: number) => number | null) | null = null;
         try {
             const pc = await import('../persistent-keyword-cache');
             persistentGet = pc.getPersistent;
-            persistentSet = pc.setPersistent;
+            getCanonicalPersistentDocumentCount = pc.getCanonicalPersistentDocumentCount;
         } catch {}
 
-        const FRESH_DC_MS = 24 * 60 * 60 * 1000;
         let cacheHits = 0;
         const initialNeeds = enrichedRows.filter(r => r.dcEstimated);
         // 캐시 적중 즉시 반영
         if (persistentGet) {
             for (const r of initialNeeds) {
                 const cached = persistentGet(r.keyword);
-                if (cached && cached.documentCount > 0 && (Date.now() - (cached.savedAt || 0) < FRESH_DC_MS)) {
-                    r.documentCount = cached.documentCount;
-                    r.goldenRatio = parseFloat((r.searchVolume / Math.max(1, cached.documentCount)).toFixed(2));
+                const canonicalDc = getCanonicalPersistentDocumentCount?.(cached) ?? null;
+                if (canonicalDc !== null && canonicalDc > 0) {
+                    r.documentCount = canonicalDc;
+                    r.goldenRatio = parseFloat((r.searchVolume / Math.max(1, canonicalDc)).toFixed(2));
                     (r as any).dcEstimated = false;
+                    (r as any).dcConfidence = 'high';
+                    (r as any).dcSource = 'naver-api';
+                    (r as any).dcQueryMode = 'broad';
+                    (r as any).dcMeasuredAt = cached.documentCountMeasuredAt;
+                    r.documentCountSource = 'naver-api';
+                    r.documentCountConfidence = 'high';
+                    r.documentCountQueryMode = 'broad';
+                    r.documentCountMeasuredAt = cached.documentCountMeasuredAt;
                     cacheHits++;
                 }
             }
@@ -2370,21 +2403,18 @@ export async function buildRichFeed(
                     const oldRatio = r.goldenRatio;
                     r.documentCount = scraped;
                     r.goldenRatio = parseFloat((r.searchVolume / Math.max(1, scraped)).toFixed(2));
-                    (r as any).dcEstimated = false; // 실측 데이터로 확정
-                    (r as any).dcConfidence = 'high'; // verify path 의 scrape 는 API 검증된 행에 대한 보강 → high
+                    // HTML is diagnostic-only: it can improve the displayed
+                    // estimate, but it is never official publication evidence.
+                    (r as any).dcEstimated = true;
+                    (r as any).dcConfidence = 'medium';
                     (r as any).dcSource = 'scrape';
+                    (r as any).dcQueryMode = m.queryMode ?? 'broad';
+                    (r as any).dcMeasuredAt = m.measuredAt;
+                    r.documentCountSource = 'scrape';
+                    r.documentCountConfidence = 'medium';
+                    r.documentCountQueryMode = m.queryMode ?? 'broad';
+                    r.documentCountMeasuredAt = m.measuredAt;
                     corrected++;
-                    // persistent cache 업데이트 (다음 호출에서 옛값 재사용 차단)
-                    if (persistentSet && r.searchVolume > 0) {
-                        try {
-                            persistentSet(r.keyword, {
-                                searchVolume: r.searchVolume,
-                                documentCount: scraped,
-                                realCpc: r.cpc,
-                                compIdx: null,
-                            });
-                        } catch {}
-                    }
                     if (r.goldenRatio < 1.0) {
                         (r as any).grade = '';
                         demoted++;
@@ -2917,6 +2947,19 @@ const MIN_ACCEPTABLE_TOTAL = 30;       // 이 미만이면 "실패"로 간주, �
 const { CACHE_SCHEMA_VERSION: SG_VER } = require('../sanity-gate');
 const CACHE_SCHEMA_VERSION = `rf-${SG_VER}`;
 
+function retainFreshCanonicalRichRows(result: RichFeedResult, nowMs = Date.now()): RichFeedResult {
+    const rows = (Array.isArray(result.rows) ? result.rows : [])
+        .filter((row) => hasFreshCanonicalNaverDocumentCount(row, nowMs));
+    if (rows.length === result.rows.length) return result;
+    return {
+        ...result,
+        total: rows.length,
+        rows,
+        byCategory: countBy(rows, 'category'),
+        bySource: countSources(rows),
+    };
+}
+
 function getDiskCachePath(): string {
     // app.getPath 가 있으면 userData, 없으면 temp 사용 (테스트/개발 환경)
     // 동적 require로 Electron 없어도 로드 실패 안 하도록
@@ -3023,8 +3066,8 @@ JSON 배열로만 응답 (코드블록 X, 다른 텍스트 X):
     const validated: RichKeywordRow[] = [];
     for (const sig of sigs) {
         const sv = (sig.pcSearchVolume || 0) + (sig.mobileSearchVolume || 0);
-        const dc = sig.documentCount || 0;
-        if (dc <= 0) continue;
+        if (!hasFreshCanonicalNaverDocumentCount(sig)) continue;
+        const dc = sig.documentCount as number;
         const ratio = sv / Math.max(1, dc);
         if (ratio < 1.0) continue;
         if (!isWritableKeyword(sig.keyword, dc, sv)) continue;
@@ -3057,6 +3100,16 @@ JSON 배열로만 응답 (코드블록 X, 다른 텍스트 X):
             sourceCount: 1,
             purchaseIntent: calculatePurchaseIntent(sig.keyword),
             isBlueOcean: ratio >= 5 && dc <= 2000,
+            dcEstimated: false,
+            dcConfidence: 'high',
+            dcSource: 'naver-api',
+            dcQueryMode: 'broad',
+            dcMeasuredAt: sig.documentCountMeasuredAt,
+            documentCountSource: 'naver-api',
+            documentCountConfidence: 'high',
+            documentCountQueryMode: 'broad',
+            documentCountMeasuredAt: sig.documentCountMeasuredAt,
+            isDocumentCountEstimated: false,
             claudeDiscovered: true,
             claudeReason: reasonByKw.get(sig.keyword) || '',
         });
@@ -3089,30 +3142,35 @@ export async function getCachedRichFeed(
     // 1) 메모리 캐시 (15분, force 아니면 우선)
     if (!force && cached && cached.expiresAt > now && cached.cacheKey === cacheKey && cached.result.total >= MIN_ACCEPTABLE_TOTAL) {
         try { onProgress?.({ step: 'cache', percent: 100, message: `캐시 사용 (${cached.result.total}건)` }); } catch {}
-        return cached.result;
+        const freshCached = retainFreshCanonicalRichRows(cached.result, now);
+        if (freshCached.total >= MIN_ACCEPTABLE_TOTAL) return freshCached;
+        cached = null;
     }
 
     // 2) 라이브 빌드 (aiAugmentation 옵션 함께 전달)
-    const result = await buildRichFeed(options, onProgress);
+    const built = await buildRichFeed(options, onProgress);
+    const completedAt = Date.now();
+    const result = retainFreshCanonicalRichRows(built, completedAt);
 
     // 3) 성공적인 빌드 — 캐시 양쪽 저장
     if (result.total >= MIN_ACCEPTABLE_TOTAL) {
-        cached = { result, expiresAt: now + CACHE_TTL, cacheKey };
+        cached = { result, expiresAt: completedAt + CACHE_TTL, cacheKey };
         writeDiskCache(result, cacheKey);
         return result;
     }
 
     // 4) 빌드 실패/부족 — 디스크 캐시 폴백 (24h 내 성공 결과 재사용)
     const disk = readDiskCache(cacheKey);
-    if (disk && disk.total >= MIN_ACCEPTABLE_TOTAL) {
-        console.warn(`[rich-feed] 빌드 부족(total=${result.total}) → 디스크 캐시 폴백 (${Math.round((now - disk.timestamp) / 60000)}분 전 저장, ${disk.total}건)`);
+    const freshDisk = disk ? retainFreshCanonicalRichRows(disk, completedAt) : null;
+    if (freshDisk && freshDisk.total >= MIN_ACCEPTABLE_TOTAL) {
+        console.warn(`[rich-feed] 빌드 부족(total=${result.total}) → 디스크 캐시 폴백 (${Math.round((completedAt - disk.timestamp) / 60000)}분 전 저장, ${disk.total}건)`);
         // 메모리에도 캐시 (다음 호출용)
-        cached = { result: disk, expiresAt: now + CACHE_TTL, cacheKey };
-        return disk;
+        cached = { result: freshDisk, expiresAt: completedAt + CACHE_TTL, cacheKey };
+        return freshDisk;
     }
 
     // 5) 폴백도 없음 — 빌드 결과 그대로 반환 (적을 수 있음)
-    cached = { result, expiresAt: now + CACHE_TTL, cacheKey };
+    cached = { result, expiresAt: completedAt + CACHE_TTL, cacheKey };
     return result;
 }
 

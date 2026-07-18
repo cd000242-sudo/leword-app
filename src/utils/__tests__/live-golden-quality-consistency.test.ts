@@ -54,6 +54,7 @@ function row(
     documentCountSource: 'naver-api',
     documentCountConfidence: 'high',
     documentCountQueryMode: 'broad',
+    documentCountMeasuredAt: '2026-07-11T16:25:00.000Z',
     isDocumentCountEstimated: false,
     discoveredAt: '2026-07-11T16:10:00.000Z',
     updatedAt: '2026-07-11T16:10:00.000Z',

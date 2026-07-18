@@ -1580,6 +1580,11 @@ const result: MobileKeywordResult = {
           intent: '신청방법',
           evidence: ['fixture cache result'],
           isMeasured: true,
+          documentCountSource: 'naver-api',
+          documentCountConfidence: 'high',
+          documentCountQueryMode: 'broad',
+          documentCountMeasuredAt: new Date().toISOString(),
+          isDocumentCountEstimated: false,
         }],
         summary: {
           total: 1,
@@ -1632,6 +1637,7 @@ const result: MobileKeywordResult = {
   console.log('[mobile-api-server-cache.test] passed');
 
   const proTrafficPrewarmCache = new InMemoryMobileResultCache();
+  const proTrafficMeasuredAt = new Date().toISOString();
   proTrafficPrewarmCache.set('pro-traffic-hunter', {
     qualityProfile: 'publishable-v2',
     categoryId: 'all',
@@ -1657,6 +1663,16 @@ const result: MobileKeywordResult = {
       intent: 'prewarmed',
       evidence: ['pro traffic prewarm fixture'],
       isMeasured: true,
+      searchVolumeSource: 'searchad',
+      searchVolumeConfidence: 'high',
+      searchVolumeBindingVersion: 'keyword-keyed-v2',
+      searchVolumeMeasuredAt: proTrafficMeasuredAt,
+      isSearchVolumeEstimated: false,
+      documentCountSource: 'naver-api',
+      documentCountConfidence: 'high',
+      documentCountQueryMode: 'broad',
+      documentCountMeasuredAt: proTrafficMeasuredAt,
+      isDocumentCountEstimated: false,
     })),
     summary: {
       total: 30,
@@ -1740,6 +1756,16 @@ const result: MobileKeywordResult = {
       intent: 'prewarmed',
       evidence: ['pro traffic shallow prewarm fixture'],
       isMeasured: true,
+      searchVolumeSource: 'searchad',
+      searchVolumeConfidence: 'high',
+      searchVolumeBindingVersion: 'keyword-keyed-v2',
+      searchVolumeMeasuredAt: proTrafficMeasuredAt,
+      isSearchVolumeEstimated: false,
+      documentCountSource: 'naver-api',
+      documentCountConfidence: 'high',
+      documentCountQueryMode: 'broad',
+      documentCountMeasuredAt: proTrafficMeasuredAt,
+      isDocumentCountEstimated: false,
     })),
     summary: {
       total: 30,
@@ -1772,6 +1798,16 @@ const result: MobileKeywordResult = {
           intent: 'measured',
           evidence: ['fresh expanded fixture'],
           isMeasured: true,
+          searchVolumeSource: 'searchad',
+          searchVolumeConfidence: 'high',
+          searchVolumeBindingVersion: 'keyword-keyed-v2',
+          searchVolumeMeasuredAt: proTrafficMeasuredAt,
+          isSearchVolumeEstimated: false,
+          documentCountSource: 'naver-api',
+          documentCountConfidence: 'high',
+          documentCountQueryMode: 'broad',
+          documentCountMeasuredAt: proTrafficMeasuredAt,
+          isDocumentCountEstimated: false,
         })),
         summary: {
           total: 60,
@@ -1876,6 +1912,16 @@ const result: MobileKeywordResult = {
           intent: 'measured',
           evidence: ['fresh measured fixture'],
           isMeasured: true,
+          searchVolumeSource: 'searchad',
+          searchVolumeConfidence: 'high',
+          searchVolumeBindingVersion: 'keyword-keyed-v2',
+          searchVolumeMeasuredAt: proTrafficMeasuredAt,
+          isSearchVolumeEstimated: false,
+          documentCountSource: 'naver-api',
+          documentCountConfidence: 'high',
+          documentCountQueryMode: 'broad',
+          documentCountMeasuredAt: proTrafficMeasuredAt,
+          isDocumentCountEstimated: false,
         }],
         summary: {
           total: 1,
@@ -1947,10 +1993,11 @@ const result: MobileKeywordResult = {
       searchVolumeBindingVersion: 'keyword-keyed-v2',
       searchVolumeMeasuredAt: '2026-06-15T02:50:00.000Z',
       isSearchVolumeEstimated: false,
-     documentCountSource: 'naver-api',
-     documentCountConfidence: 'high',
+      documentCountSource: 'naver-api',
+      documentCountConfidence: 'high',
       documentCountQueryMode: 'broad',
-     isDocumentCountEstimated: false,
+      documentCountMeasuredAt: '2026-06-15T02:50:00.000Z',
+      isDocumentCountEstimated: false,
       updatedAt: '2026-06-15T02:50:00.000Z',
       discoveredAt: '2026-06-15T02:50:00.000Z',
       isMeasured: true,
@@ -1973,10 +2020,11 @@ const result: MobileKeywordResult = {
       searchVolumeBindingVersion: 'keyword-keyed-v2',
       searchVolumeMeasuredAt: '2026-06-15T02:50:00.000Z',
       isSearchVolumeEstimated: false,
-     documentCountSource: 'naver-api',
-     documentCountConfidence: 'high',
+      documentCountSource: 'naver-api',
+      documentCountConfidence: 'high',
       documentCountQueryMode: 'broad',
-     isDocumentCountEstimated: false,
+      documentCountMeasuredAt: '2026-06-15T02:50:00.000Z',
+      isDocumentCountEstimated: false,
       updatedAt: '2026-06-15T02:50:00.000Z',
       discoveredAt: '2026-06-15T02:50:00.000Z',
       isMeasured: true,
@@ -1985,6 +2033,7 @@ const result: MobileKeywordResult = {
   const intentSeparatedRadar = new MobileLiveGoldenRadar({
     notificationInbox: intentSeparatedInbox,
     runOnStart: false,
+    getEnvConfig: () => ({ naverClientId: '', naverClientSecret: '' }),
     boardFile: intentSeparatedBoardFile,
     boardTarget: 5,
     now: () => new Date('2026-06-15T02:55:00.000Z'),
@@ -1999,6 +2048,7 @@ const result: MobileKeywordResult = {
     autoDiscovery: true,
     qualityProfile: 'intent-separated-v3',
   };
+  const intentSeparatedMeasuredAt = new Date().toISOString();
   intentSeparatedResultCache.set('naver-mate-hunter', intentSeparatedNaverMateParams, {
     ...result,
     keywords: [{
@@ -2019,6 +2069,16 @@ const result: MobileKeywordResult = {
         'origin:live-golden-board-fixture',
       ],
       isMeasured: true,
+      searchVolumeSource: 'searchad',
+      searchVolumeConfidence: 'high',
+      searchVolumeBindingVersion: 'keyword-keyed-v2',
+      searchVolumeMeasuredAt: intentSeparatedMeasuredAt,
+      isSearchVolumeEstimated: false,
+      documentCountSource: 'naver-api',
+      documentCountConfidence: 'high',
+      documentCountQueryMode: 'broad',
+      documentCountMeasuredAt: intentSeparatedMeasuredAt,
+      isDocumentCountEstimated: false,
     }],
     summary: {
       total: 1,
@@ -2054,6 +2114,16 @@ const result: MobileKeywordResult = {
           intent: 'naver-mate',
           evidence: ['pc-naver-autocomplete'],
           isMeasured: true,
+          searchVolumeSource: 'searchad',
+          searchVolumeConfidence: 'high',
+          searchVolumeBindingVersion: 'keyword-keyed-v2',
+          searchVolumeMeasuredAt: intentSeparatedMeasuredAt,
+          isSearchVolumeEstimated: false,
+          documentCountSource: 'naver-api',
+          documentCountConfidence: 'high',
+          documentCountQueryMode: 'broad',
+          documentCountMeasuredAt: intentSeparatedMeasuredAt,
+          isDocumentCountEstimated: false,
         }],
         summary: {
           total: 1,
@@ -2110,8 +2180,12 @@ const result: MobileKeywordResult = {
 
   const overlayInbox = new MobileNotificationInbox();
   const overlayBoardFile = path.join(os.tmpdir(), `leword-live-board-overlay-${Date.now()}.json`);
+  const overlayMeasuredAt = new Date().toISOString();
+  const overlayAnalysisMeasuredAt = new Date(Date.parse(overlayMeasuredAt) + 60_000).toISOString();
+  const overlayRadarNow = new Date(Date.parse(overlayMeasuredAt) + 5 * 60_000);
+  const staleOverlaySearchMeasuredAt = new Date(Date.parse(overlayMeasuredAt) - 8 * 24 * 60 * 60_000).toISOString();
   writeJson(overlayBoardFile, {
-    boardUpdatedAt: '2026-06-15T03:00:00.000Z',
+    boardUpdatedAt: overlayMeasuredAt,
     items: [{
       keyword: '한강유람선예약',
       grade: 'S',
@@ -2129,23 +2203,25 @@ const result: MobileKeywordResult = {
       searchVolumeSource: 'searchad',
       searchVolumeConfidence: 'high',
       searchVolumeBindingVersion: 'keyword-keyed-v2',
-      searchVolumeMeasuredAt: '2026-06-15T03:00:00.000Z',
+      searchVolumeMeasuredAt: overlayMeasuredAt,
       isSearchVolumeEstimated: false,
       documentCountSource: 'naver-api',
       documentCountConfidence: 'high',
       documentCountQueryMode: 'broad',
+      documentCountMeasuredAt: overlayMeasuredAt,
       isDocumentCountEstimated: false,
-      updatedAt: '2026-06-15T03:00:00.000Z',
-      discoveredAt: '2026-06-15T03:00:00.000Z',
+      updatedAt: overlayMeasuredAt,
+      discoveredAt: overlayMeasuredAt,
       isMeasured: true,
     }],
   });
   const overlayRadar = new MobileLiveGoldenRadar({
     notificationInbox: overlayInbox,
     runOnStart: false,
+    getEnvConfig: () => ({ naverClientId: '', naverClientSecret: '' }),
     boardFile: overlayBoardFile,
     boardTarget: 5,
-    now: () => new Date('2026-06-15T03:05:00.000Z'),
+    now: () => new Date(overlayRadarNow),
   });
   const overlayServer = createLewordApiServer({
     entitlementVerifier: null,
@@ -2222,11 +2298,12 @@ const result: MobileKeywordResult = {
           searchVolumeSource: 'searchad',
           searchVolumeConfidence: 'high',
           searchVolumeBindingVersion: 'keyword-keyed-v2',
-          searchVolumeMeasuredAt: '2026-06-01T00:00:00.000Z',
+          searchVolumeMeasuredAt: staleOverlaySearchMeasuredAt,
           isSearchVolumeEstimated: false,
           documentCountSource: 'naver-api',
           documentCountConfidence: 'high',
           documentCountQueryMode: 'broad',
+          documentCountMeasuredAt: overlayMeasuredAt,
           isDocumentCountEstimated: false,
           agentInsight: {
             searchVolumeReason: '기존 분석 검색량 6,400 기준입니다.',
@@ -2272,7 +2349,7 @@ const result: MobileKeywordResult = {
         JSON.stringify(canonicalKeyword));
       assert('canonical live board overlay preserves measurement provenance',
         canonicalKeyword.searchVolumeBindingVersion === 'keyword-keyed-v2'
-          && canonicalKeyword.searchVolumeMeasuredAt === '2026-06-15T03:00:00.000Z'
+          && canonicalKeyword.searchVolumeMeasuredAt === overlayMeasuredAt
           && canonicalKeyword.documentCountQueryMode === 'broad',
         JSON.stringify(canonicalKeyword));
       assert('canonical live board overlay removes stale analysis numbers from agent insight',
@@ -2283,6 +2360,121 @@ const result: MobileKeywordResult = {
       await close(canonicalOverlayServer);
     }
 
+    const spacedQueryBoardFile = path.join(
+      os.tmpdir(),
+      `leword-live-board-overlay-query-key-${Date.now()}.json`,
+    );
+    writeJson(spacedQueryBoardFile, {
+      boardUpdatedAt: overlayMeasuredAt,
+      items: [{
+        keyword: '제주렌터카',
+        grade: 'SS',
+        score: 80,
+        pcSearchVolume: 960,
+        mobileSearchVolume: 9120,
+        totalSearchVolume: 10080,
+        documentCount: 222,
+        goldenRatio: 45.41,
+        cpc: 80,
+        category: 'travel_domestic',
+        source: 'live-golden-board-fixture',
+        intent: '예약',
+        evidence: ['fixture unspaced broad query'],
+        searchVolumeSource: 'searchad',
+        searchVolumeConfidence: 'high',
+        searchVolumeBindingVersion: 'keyword-keyed-v2',
+        searchVolumeMeasuredAt: overlayMeasuredAt,
+        isSearchVolumeEstimated: false,
+        documentCountSource: 'naver-api',
+        documentCountConfidence: 'high',
+        documentCountQueryMode: 'broad',
+        documentCountMeasuredAt: overlayMeasuredAt,
+        isDocumentCountEstimated: false,
+        updatedAt: overlayMeasuredAt,
+        discoveredAt: overlayMeasuredAt,
+        isMeasured: true,
+      }],
+    });
+    const spacedQueryRadar = new MobileLiveGoldenRadar({
+      notificationInbox: overlayInbox,
+      runOnStart: false,
+      getEnvConfig: () => ({ naverClientId: '', naverClientSecret: '' }),
+      boardFile: spacedQueryBoardFile,
+      boardTarget: 5,
+      now: () => new Date(overlayRadarNow),
+    });
+    const spacedQueryServer = createLewordApiServer({
+      entitlementVerifier: null,
+      resultCache: new InMemoryMobileResultCache(),
+      liveGoldenRadar: spacedQueryRadar,
+      notificationInbox: overlayInbox,
+      prewarmService: null,
+      prewarmScheduler: null,
+      executor: async () => ({
+        ...result,
+        keywords: [{
+          keyword: '제주 렌터카',
+          grade: 'S',
+          pcSearchVolume: 1800,
+          mobileSearchVolume: 4600,
+          totalSearchVolume: 6400,
+          documentCount: 111,
+          goldenRatio: 57.66,
+          cpc: 20,
+          category: 'travel_domestic',
+          source: 'pc-keyword-analysis-exact',
+          intent: 'requested-keyword',
+          evidence: ['pc-naver-openapi-document-count'],
+          isMeasured: true,
+          searchVolumeSource: 'searchad',
+          searchVolumeConfidence: 'high',
+          searchVolumeBindingVersion: 'keyword-keyed-v2',
+          searchVolumeMeasuredAt: overlayAnalysisMeasuredAt,
+          isSearchVolumeEstimated: false,
+          documentCountSource: 'naver-api',
+          documentCountConfidence: 'high',
+          documentCountQueryMode: 'broad',
+          documentCountMeasuredAt: overlayAnalysisMeasuredAt,
+          isDocumentCountEstimated: false,
+        }],
+        summary: {
+          total: 1,
+          sss: 0,
+          measured: 1,
+          elapsedMs: 1,
+          fromCache: false,
+          parityMode: 'pc-engine-plus',
+        },
+      }),
+    });
+    const spacedQueryPort = await listen(spacedQueryServer);
+    const spacedQueryBaseUrl = `http://127.0.0.1:${spacedQueryPort}`;
+    try {
+      const response = await fetch(`${spacedQueryBaseUrl}/v1/keywords/analyze`, {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ keyword: '제주 렌터카', maxRelatedCount: 10 }),
+      });
+      const responseJson: any = await response.json();
+      const completed = await waitForCompletedJob(spacedQueryBaseUrl, responseJson.job.id);
+      const keyword = completed.result.keywords[0];
+      assert('spaced and unspaced Blog queries share SearchAd aliases without sharing documents',
+        keyword.keyword === '제주 렌터카'
+          && keyword.pcSearchVolume === 960
+          && keyword.mobileSearchVolume === 9120
+          && keyword.totalSearchVolume === 10080
+          && keyword.documentCount === 111
+          && keyword.documentCountMeasuredAt === overlayAnalysisMeasuredAt
+          && keyword.documentCountSource === 'naver-api'
+          && keyword.source === 'pc-keyword-analysis-exact'
+          && keyword.evidence.includes('analysis-board-search-volume-sync')
+          && !keyword.evidence.includes('analysis-board-metric-sync'),
+        JSON.stringify(keyword));
+    } finally {
+      await close(spacedQueryServer);
+      fs.rmSync(spacedQueryBoardFile, { force: true });
+    }
+
     const searchOnlyPayload = JSON.parse(fs.readFileSync(overlayBoardFile, 'utf8'));
     searchOnlyPayload.items[0].documentCountQueryMode = 'exact-phrase';
     searchOnlyPayload.items[0].evidence = ['legacy exact-phrase document scope'];
@@ -2290,9 +2482,10 @@ const result: MobileKeywordResult = {
     const searchOnlyRadar = new MobileLiveGoldenRadar({
       notificationInbox: overlayInbox,
       runOnStart: false,
+      getEnvConfig: () => ({ naverClientId: '', naverClientSecret: '' }),
       boardFile: overlayBoardFile,
       boardTarget: 5,
-      now: () => new Date('2026-06-15T03:05:00.000Z'),
+      now: () => new Date(overlayRadarNow),
     });
     const searchOnlyServer = createLewordApiServer({
       entitlementVerifier: null,
@@ -2323,7 +2516,7 @@ const result: MobileKeywordResult = {
           && searchOnlyKeyword.source === 'pc-keyword-analysis-exact',
         JSON.stringify(searchOnlyKeyword));
       assert('search-only board sync preserves broad document provenance',
-        searchOnlyKeyword.searchVolumeMeasuredAt === '2026-06-15T03:00:00.000Z'
+        searchOnlyKeyword.searchVolumeMeasuredAt === overlayMeasuredAt
           && searchOnlyKeyword.documentCountQueryMode === 'broad'
           && searchOnlyKeyword.evidence.includes('analysis-board-search-volume-sync')
           && !searchOnlyKeyword.evidence.includes('analysis-board-metric-sync'),
@@ -2337,16 +2530,18 @@ const result: MobileKeywordResult = {
     }
 
     const staleBindingPayload = JSON.parse(fs.readFileSync(overlayBoardFile, 'utf8'));
-    staleBindingPayload.boardUpdatedAt = '2026-08-15T03:00:00.000Z';
-    staleBindingPayload.items[0].updatedAt = '2026-08-15T03:00:00.000Z';
-    staleBindingPayload.items[0].discoveredAt = '2026-08-15T03:00:00.000Z';
+    staleBindingPayload.boardUpdatedAt = overlayMeasuredAt;
+    staleBindingPayload.items[0].searchVolumeMeasuredAt = staleOverlaySearchMeasuredAt;
+    staleBindingPayload.items[0].updatedAt = overlayMeasuredAt;
+    staleBindingPayload.items[0].discoveredAt = overlayMeasuredAt;
     writeJson(overlayBoardFile, staleBindingPayload);
     const staleOverlayRadar = new MobileLiveGoldenRadar({
       notificationInbox: overlayInbox,
       runOnStart: false,
+      getEnvConfig: () => ({ naverClientId: '', naverClientSecret: '' }),
       boardFile: overlayBoardFile,
       boardTarget: 5,
-      now: () => new Date('2026-08-15T03:05:00.000Z'),
+      now: () => new Date(overlayRadarNow),
     });
     const staleOverlayServer = createLewordApiServer({
       entitlementVerifier: null,
@@ -2389,7 +2584,7 @@ const result: MobileKeywordResult = {
   const overlaySplitInbox = new MobileNotificationInbox();
   const overlaySplitBoardFile = path.join(os.tmpdir(), `leword-live-board-overlay-split-${Date.now()}.json`);
   writeJson(overlaySplitBoardFile, {
-    boardUpdatedAt: '2026-06-15T03:10:00.000Z',
+    boardUpdatedAt: overlayMeasuredAt,
     items: [{
       keyword: '한강유람선예약',
       grade: 'SS',
@@ -2407,21 +2602,23 @@ const result: MobileKeywordResult = {
       searchVolumeSource: 'searchad',
       searchVolumeConfidence: 'high',
       isSearchVolumeEstimated: false,
-     documentCountSource: 'naver-api',
-     documentCountConfidence: 'high',
+      documentCountSource: 'naver-api',
+      documentCountConfidence: 'high',
       documentCountQueryMode: 'broad',
-     isDocumentCountEstimated: false,
-      updatedAt: '2026-06-15T03:10:00.000Z',
-      discoveredAt: '2026-06-15T03:10:00.000Z',
+      documentCountMeasuredAt: overlayMeasuredAt,
+      isDocumentCountEstimated: false,
+      updatedAt: overlayMeasuredAt,
+      discoveredAt: overlayMeasuredAt,
       isMeasured: true,
     }],
   });
   const overlaySplitRadar = new MobileLiveGoldenRadar({
     notificationInbox: overlaySplitInbox,
     runOnStart: false,
+    getEnvConfig: () => ({ naverClientId: '', naverClientSecret: '' }),
     boardFile: overlaySplitBoardFile,
     boardTarget: 5,
-    now: () => new Date('2026-06-15T03:15:00.000Z'),
+    now: () => new Date(overlayRadarNow),
   });
   const overlaySplitServer = createLewordApiServer({
     entitlementVerifier: null,
@@ -2446,6 +2643,16 @@ const result: MobileKeywordResult = {
         intent: 'requested-keyword',
         evidence: ['fixture exact split'],
         isMeasured: true,
+        searchVolumeSource: 'searchad',
+        searchVolumeConfidence: 'high',
+        searchVolumeBindingVersion: 'keyword-keyed-v2',
+        searchVolumeMeasuredAt: overlayMeasuredAt,
+        isSearchVolumeEstimated: false,
+        documentCountSource: 'naver-api',
+        documentCountConfidence: 'high',
+        documentCountQueryMode: 'broad',
+        documentCountMeasuredAt: overlayMeasuredAt,
+        isDocumentCountEstimated: false,
       }],
       summary: {
         total: 1,
@@ -2500,6 +2707,16 @@ const result: MobileKeywordResult = {
           intent: 'related-keyword',
           evidence: ['fixture related only'],
           isMeasured: true,
+          searchVolumeSource: 'searchad',
+          searchVolumeConfidence: 'high',
+          searchVolumeBindingVersion: 'keyword-keyed-v2',
+          searchVolumeMeasuredAt: overlayMeasuredAt,
+          isSearchVolumeEstimated: false,
+          documentCountSource: 'naver-api',
+          documentCountConfidence: 'high',
+          documentCountQueryMode: 'broad',
+          documentCountMeasuredAt: overlayMeasuredAt,
+          isDocumentCountEstimated: false,
         }],
         summary: {
           total: 1,
@@ -2580,14 +2797,9 @@ const result: MobileKeywordResult = {
     });
     const analyzeJson: any = await analyze.json();
     const completed = await waitForCompletedJob(partialExactBaseUrl, analyzeJson.job.id);
-    const firstKeyword = completed.result.keywords[0];
-    assert('keyword analysis keeps SearchAd-measured exact keyword when document count is unavailable',
-      completed.result.keywords.length === 1
-        && firstKeyword.keyword === '2026 근로장려금'
-        && firstKeyword.pcSearchVolume === 1200
-        && firstKeyword.mobileSearchVolume === 8400
-        && firstKeyword.documentCount === null
-        && firstKeyword.isMeasured === false,
+    assert('keyword analysis hides an exact keyword when canonical document count is unavailable',
+      completed.result.keywords.length === 0
+        && completed.result.summary.measured === 0,
       JSON.stringify(completed.result));
   } finally {
     await close(partialExactServer);
@@ -2596,6 +2808,7 @@ const result: MobileKeywordResult = {
   console.log('[mobile-api-server-live-board-overlay-split.test] passed');
 
   let strictExecutorCalls = 0;
+  const strictMeasuredAt = new Date().toISOString();
   const uncleanKeywordResult: MobileKeywordResult = {
     ...result,
     keywords: [{
@@ -2612,6 +2825,16 @@ const result: MobileKeywordResult = {
       intent: 'requested-keyword',
       evidence: ['pc-searchad-volume', 'pc-naver-blog-document-count'],
       isMeasured: true,
+      searchVolumeSource: 'searchad',
+      searchVolumeConfidence: 'high',
+      searchVolumeBindingVersion: 'keyword-keyed-v2',
+      searchVolumeMeasuredAt: strictMeasuredAt,
+      isSearchVolumeEstimated: false,
+      documentCountSource: 'naver-api',
+      documentCountConfidence: 'high',
+      documentCountQueryMode: 'broad',
+      documentCountMeasuredAt: strictMeasuredAt,
+      isDocumentCountEstimated: false,
     }, {
       keyword: '더미키워드',
       grade: 'SSS',
@@ -2826,11 +3049,11 @@ const result: MobileKeywordResult = {
     });
     const sourceOnlyJson: any = await sourceOnly.json();
     const sourceOnlyCompleted = await waitForCompletedJob(mindmapSourceOnlyBaseUrl, sourceOnlyJson.job.id);
-    assert('mindmap keeps trusted source-only semantic branches as unmeasured expansion rows',
+    assert('mindmap keeps source-only semantic branches visible but marks them synthetic-blocked',
       sourceOnlyCompleted.result.keywords.length === 1
         && sourceOnlyCompleted.result.keywords[0].keyword === '홍명보 감독 다음 감독 후보'
         && sourceOnlyCompleted.result.keywords[0].source === 'mindmap-semantic-bridge'
-        && sourceOnlyCompleted.result.keywords[0].measurementStatus === 'unmeasured'
+        && sourceOnlyCompleted.result.keywords[0].measurementStatus === 'synthetic-blocked'
         && sourceOnlyCompleted.result.summary.total === 1
         && sourceOnlyCompleted.result.summary.measured === 0,
       JSON.stringify(sourceOnlyCompleted.result));
@@ -3027,10 +3250,11 @@ const result: MobileKeywordResult = {
           searchVolumeBindingVersion: 'keyword-keyed-v2',
           searchVolumeMeasuredAt: new Date().toISOString(),
           isSearchVolumeEstimated: false,
-     documentCountSource: 'naver-api',
-     documentCountConfidence: 'high',
-      documentCountQueryMode: 'broad',
-     isDocumentCountEstimated: false,
+          documentCountSource: 'naver-api',
+          documentCountConfidence: 'high',
+          documentCountQueryMode: 'broad',
+          documentCountMeasuredAt: new Date().toISOString(),
+          isDocumentCountEstimated: false,
         } as any,
         {
           keyword: `제주 렌터카 ${batch}차 가격비교`,
@@ -3053,10 +3277,11 @@ const result: MobileKeywordResult = {
           searchVolumeBindingVersion: 'keyword-keyed-v2',
           searchVolumeMeasuredAt: new Date().toISOString(),
           isSearchVolumeEstimated: false,
-     documentCountSource: 'naver-api',
-     documentCountConfidence: 'high',
-      documentCountQueryMode: 'broad',
-     isDocumentCountEstimated: false,
+          documentCountSource: 'naver-api',
+          documentCountConfidence: 'high',
+          documentCountQueryMode: 'broad',
+          documentCountMeasuredAt: new Date().toISOString(),
+          isDocumentCountEstimated: false,
         } as any,
         {
           keyword: `도수치료 ${batch}차 보험 적용 비용`,
@@ -3079,10 +3304,11 @@ const result: MobileKeywordResult = {
           searchVolumeBindingVersion: 'keyword-keyed-v2',
           searchVolumeMeasuredAt: new Date().toISOString(),
           isSearchVolumeEstimated: false,
-         documentCountSource: 'naver-api',
-         documentCountConfidence: 'high',
+          documentCountSource: 'naver-api',
+          documentCountConfidence: 'high',
           documentCountQueryMode: 'broad',
-         isDocumentCountEstimated: false,
+          documentCountMeasuredAt: new Date().toISOString(),
+          isDocumentCountEstimated: false,
         } as any,
         {
           keyword: `2026 흠뻑쇼 ${batch}차 일정`,
@@ -3238,10 +3464,11 @@ const result: MobileKeywordResult = {
       searchVolumeBindingVersion: 'keyword-keyed-v2',
       searchVolumeMeasuredAt: reviewBoardUpdatedAt,
       isSearchVolumeEstimated: false,
-         documentCountSource: 'naver-api',
-         documentCountConfidence: 'high',
-          documentCountQueryMode: 'broad',
-         isDocumentCountEstimated: false,
+      documentCountSource: 'naver-api',
+      documentCountConfidence: 'high',
+      documentCountQueryMode: 'broad',
+      documentCountMeasuredAt: reviewBoardUpdatedAt,
+      isDocumentCountEstimated: false,
       discoveredAt: reviewBoardUpdatedAt,
       updatedAt: reviewBoardUpdatedAt,
     } as any))
@@ -3384,10 +3611,11 @@ const result: MobileKeywordResult = {
       searchVolumeBindingVersion: 'keyword-keyed-v2',
       searchVolumeMeasuredAt: new Date().toISOString(),
       isSearchVolumeEstimated: false,
-         documentCountSource: 'naver-api',
-         documentCountConfidence: 'high',
-          documentCountQueryMode: 'broad',
-         isDocumentCountEstimated: false,
+      documentCountSource: 'naver-api',
+      documentCountConfidence: 'high',
+      documentCountQueryMode: 'broad',
+      documentCountMeasuredAt: new Date().toISOString(),
+      isDocumentCountEstimated: false,
       isMeasured: true,
       serpMeasured: true,
       winnable: true,

@@ -5,6 +5,7 @@ import type {
   MobileKeywordResult,
   MobileResultGrade,
 } from './contracts';
+import { NAVER_BLOG_DOCUMENT_COUNT_CACHE_TTL_MS } from '../utils/naver-blog-api';
 
 const ARTICLE_TITLE_KEYWORD_RE = /(보도참고자료|보도자료|브리핑|해명자료|설명자료|첨부파일|공고문|입장문|마감\s*결과|결과\s*\d{1,2}\.\d{1,2}|고유가\s*피해지원금\s*신청.*지급\s*마감)/u;
 
@@ -26,10 +27,32 @@ function finiteNumber(value: unknown): number | null {
 export function hasTrustedDocumentCountMeasurement(metric: MobileKeywordMetric): boolean {
   const source = normalizeText(metric.documentCountSource).toLowerCase();
   const confidence = normalizeText(metric.documentCountConfidence).toLowerCase();
+  const queryMode = normalizeText(metric.documentCountQueryMode).toLowerCase();
+  const documentCount = finiteNumber(metric.documentCount);
   if (metric.isDocumentCountEstimated === true || (metric as any).dcEstimated === true) return false;
-  if (source === 'fallback') return false;
-  if (confidence === 'low') return false;
-  return true;
+  return documentCount !== null
+    && documentCount >= 0
+    && source === 'naver-api'
+    && confidence === 'high'
+    && (queryMode === 'broad' || queryMode === 'exact-phrase');
+}
+
+export function hasCanonicalDocumentCountMeasurement(metric: MobileKeywordMetric): boolean {
+  if (!hasTrustedDocumentCountMeasurement(metric) || metric.documentCountQueryMode !== 'broad') return false;
+  const measuredAtMs = Date.parse(String(metric.documentCountMeasuredAt || ''));
+  return Number.isFinite(measuredAtMs);
+}
+
+export function hasFreshCanonicalDocumentCountMeasurement(
+  metric: MobileKeywordMetric,
+  now: Date = new Date(),
+): boolean {
+  if (!hasCanonicalDocumentCountMeasurement(metric)) return false;
+  const measuredAtMs = Date.parse(String(metric.documentCountMeasuredAt || ''));
+  const nowMs = now.getTime();
+  return Number.isFinite(measuredAtMs)
+    && measuredAtMs <= nowMs + 5 * 60 * 1000
+    && nowMs - measuredAtMs <= NAVER_BLOG_DOCUMENT_COUNT_CACHE_TTL_MS;
 }
 
 export function hasTrustedSearchVolumeMeasurement(metric: MobileKeywordMetric): boolean {

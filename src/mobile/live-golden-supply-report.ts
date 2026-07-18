@@ -9,6 +9,7 @@ import {
   liveGoldenPolicyKeyForDiscoveryId,
 } from './live-golden-category-policy';
 import { SEARCHAD_KEYWORD_BINDING_VERSION } from '../utils/searchad-result-alignment';
+import { NAVER_BLOG_DOCUMENT_COUNT_CACHE_TTL_MS } from '../utils/naver-blog-api';
 
 export interface LiveGoldenHumanReview {
   reviewed: number;
@@ -126,6 +127,7 @@ export function isTrustedLiveGoldenSupplyRow(item: MobileLiveGoldenBoardItem): b
     && pcSearchVolume + mobileSearchVolume > 0
     && pcSearchVolume + mobileSearchVolume === totalSearchVolume;
   const searchVolumeMeasuredAtMs = Date.parse(String(item.searchVolumeMeasuredAt || ''));
+  const documentCountMeasuredAtMs = Date.parse(String(item.documentCountMeasuredAt || ''));
   return item.isMeasured === true
     && hasMeasuredSplit
     && documentCount !== null
@@ -135,6 +137,7 @@ export function isTrustedLiveGoldenSupplyRow(item: MobileLiveGoldenBoardItem): b
     && item.isSearchVolumeEstimated === false
     && item.searchVolumeBindingVersion === SEARCHAD_KEYWORD_BINDING_VERSION
     && Number.isFinite(searchVolumeMeasuredAtMs)
+    && Number.isFinite(documentCountMeasuredAtMs)
     && item.documentCountSource === 'naver-api'
     && item.documentCountConfidence === 'high'
     && item.documentCountQueryMode === 'broad'
@@ -272,11 +275,15 @@ export function buildLiveGoldenSupplyReport(
     } else {
       counts[key] = (counts[key] || 0) + 1;
     }
-    const measuredAtMs = Date.parse(String(item.searchVolumeMeasuredAt || item.updatedAt || ''));
+    const searchVolumeMeasuredAtMs = Date.parse(String(item.searchVolumeMeasuredAt || ''));
+    const documentCountMeasuredAtMs = Date.parse(String(item.documentCountMeasuredAt || ''));
     if (
-      !Number.isFinite(measuredAtMs)
-      || measuredAtMs > nowMs + 5 * 60 * 1000
-      || nowMs - measuredAtMs > MAX_VERIFIED_AGE_MS
+      !Number.isFinite(searchVolumeMeasuredAtMs)
+      || searchVolumeMeasuredAtMs > nowMs + 5 * 60 * 1000
+      || nowMs - searchVolumeMeasuredAtMs > MAX_VERIFIED_AGE_MS
+      || !Number.isFinite(documentCountMeasuredAtMs)
+      || documentCountMeasuredAtMs > nowMs + 5 * 60 * 1000
+      || nowMs - documentCountMeasuredAtMs > NAVER_BLOG_DOCUMENT_COUNT_CACHE_TTL_MS
     ) {
       staleVerifiedCount += 1;
     }

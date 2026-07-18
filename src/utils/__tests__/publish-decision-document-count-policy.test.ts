@@ -21,6 +21,7 @@ const canonicalMetric: any = {
   documentCountSource: 'naver-api',
   documentCountConfidence: 'high',
   documentCountQueryMode: 'broad',
+  documentCountMeasuredAt: new Date().toISOString(),
   isDocumentCountEstimated: false,
 };
 
@@ -45,6 +46,13 @@ const scraped = evaluatePublishDecision({
 });
 assert('scraped document counts cannot create a publish recommendation',
   scraped.verdict !== 'publish', JSON.stringify(scraped));
+
+const staleDocumentCount = evaluatePublishDecision({
+  ...canonicalMetric,
+  documentCountMeasuredAt: new Date(Date.now() - 16 * 60 * 1000).toISOString(),
+});
+assert('a document count older than the canonical OpenAPI cache window cannot publish',
+  staleDocumentCount.verdict !== 'publish', JSON.stringify(staleDocumentCount));
 
 const mismatchedSplit = evaluatePublishDecision({
   ...canonicalMetric,
