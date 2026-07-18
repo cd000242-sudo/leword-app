@@ -1792,7 +1792,7 @@ export function renderLewordProWeb(): string {
               </div>
               <div>
                 <label>AI 추론 보조</label>
-                <div class="muted" style="min-height:44px; line-height:1.5;">Claude/Manus/OpenAI 키가 있으면 서버 job이 키워드 니즈 추론, 후보 의도 분류, 부적합 키워드 제거에 활용할 수 있게 요청 헤더로 전달합니다.</div>
+                <div class="muted" style="min-height:44px; line-height:1.5;">Claude 또는 OpenAI 키가 있으면 이미 실측된 상위 후보의 검색 이유·의도·연관어 설명을 외부 AI로 보강합니다. 키워드와 문서수를 새로 만들거나 고치지는 않습니다. Manus 키는 현재 Pro Web 추론 보조에서는 사용하지 않습니다.</div>
               </div>
             </div>
             <div class="settings-actions">
@@ -1825,7 +1825,7 @@ export function renderLewordProWeb(): string {
               <label class="admin-ai-provider" data-admin-ai-provider="api">
                 <input type="radio" name="adminAiWorkerProvider" value="api" />
                 <strong>API 키 보조</strong>
-                <span>CLI 로그인 작업자 대신 Claude/OpenAI/Manus API 키 기반 추론 보조만 사용합니다.</span>
+                <span>CLI 로그인 작업자 대신 Claude/OpenAI API 키로 이미 실측된 결과의 설명만 보강합니다. Manus는 현재 이 경로에 연결되어 있지 않습니다.</span>
               </label>
             </div>
             <div class="agent-window-options">
@@ -4649,58 +4649,55 @@ export function renderLewordProWeb(): string {
         id: 'client-fallback-' + index + '-' + keyword.toLowerCase().replace(/\\s+/g, '-'),
         rank: index + 1,
         keyword: keyword,
-        grade: '검증',
-        freshness: 'live',
+        grade: '미측정',
+        freshness: 'unknown',
         isMeasured: false,
         publicSearchVolumeLabel: '브라우저 검색',
-        publicDocumentCountLabel: '서버 복구 후 실측',
-        publicReason: source || '서버 미연결 · 사이트 자체 검색 후보',
-        category: goldenDisplayLane({ keyword: keyword, source: source || 'browser-fallback' }),
-        source: 'browser-fallback',
+        publicDocumentCountLabel: '미측정 · 서버 연결 필요',
+        publicReason: source || '서버 미연결 · 검색 보조 후보',
+        category: goldenDisplayLane({ keyword: keyword, source: source || 'browser-helper' }),
+        source: 'browser-helper',
         publishDecision: clientFallbackPublishDecision(keyword),
         discoveredAt: new Date().toISOString(),
         updatedAt: new Date().toISOString(),
       };
     }
+    function clientGoldenFailureReason(error) {
+      const message = String(error && error.message ? error.message : error || '');
+      if (isAuthErrorMessage(message)) return 'AUTH_REQUIRED';
+      if (isOfflineProSession()) return 'OFFLINE_SESSION';
+      if (/HTTP\\s*50\\d|HTTP 50\\d/i.test(message)) return 'HTTP_5XX';
+      if (/HTTP\\s*404|HTTP 404/i.test(message)) return 'SNAPSHOT_ROUTE_NOT_FOUND';
+      if (/Failed to fetch|NetworkError|Load failed|ECONN|ENOTFOUND|ETIMEDOUT|timeout/i.test(message)) return 'NETWORK_ERROR';
+      if (/missing|empty|snapshot/i.test(message)) return 'SNAPSHOT_EMPTY';
+      return 'SNAPSHOT_UNAVAILABLE';
+    }
     function buildClientGoldenFallbackPayload(error) {
-      const proMode = hasActiveProSession();
-      const target = proMode ? 120 : 5;
-      const keywords = clientFallbackIntentKeywords('', 'pro-traffic', target);
-      const items = keywords.map(function(keyword, index) {
-        return clientFallbackBoardItem(keyword, index, '서버 미연결 · 브라우저 자체 후보');
-      });
       return {
-        ok: true,
+        ok: false,
         clientFallback: true,
         error: error && error.message ? error.message : String(error || ''),
+        failureReason: clientGoldenFailureReason(error),
         updatedAt: new Date().toISOString(),
         boardTarget: 120,
         boardCount: 0,
         lockedCount: 0,
-        publicPreviewCount: items.length,
+        publicPreviewCount: 0,
         running: false,
         exactMetricsLocked: true,
-        previewPolicyLabel: '서버 미연결 · 미검증 참고 후보',
-        publicPreview: items,
+        previewPolicyLabel: '실측 스냅샷 연결 필요',
+        publicPreview: [],
       };
     }
     function renderClientGoldenFallback(error) {
       const payload = buildClientGoldenFallbackPayload(error);
-      if (hasActiveProSession()) {
-        const items = payload.publicPreview || [];
-        const fallbackPolicy = isOfflineProSession()
-          ? '오프라인 Pro 후보 · 미검증 참고 후보'
-          : 'Pro 브라우저 후보 · 미검증 참고 후보';
-        setGoldenSummary(0, payload.boardTarget, items.length, 0, false, payload.updatedAt, fallbackPolicy);
-        qs('goldenNotice').textContent = '서버가 꺼져 있어 Pro 세션을 로컬로 유지하고 사이트 자체 후보를 표시합니다. 단, 아래 목록은 황금키워드가 아닌 미검증 참고 후보입니다. 검색량·문서수는 가짜로 채우지 않으며, 사용자 API 키 조회가 가능한 기능은 직접 실측으로 전환됩니다.';
-        renderGoldenQuality(items, false, 0, 0);
-        renderGoldenRows(items, true, items.length);
-      } else {
-        renderPublicGoldenBoard(payload);
-      }
-      qs('goldenState').textContent = '미검증 참고';
-      if (!hasActiveProSession()) qs('goldenNotice').textContent = '서버 연결이 불안정해 사이트 자체 검색 후보를 표시합니다. 검색량·문서수는 가짜로 채우지 않고, 서버 복구 후 실측값으로 교체됩니다.';
-      log('LIVE 황금키워드 서버 fallback: ' + (payload.error || 'server unavailable'));
+      const reason = payload.failureReason || 'SNAPSHOT_UNAVAILABLE';
+      setGoldenSummary(0, payload.boardTarget, 0, 0, false, payload.updatedAt, '실측 서버 연결 필요');
+      renderGoldenQuality([], false, 0, 0);
+      renderGoldenRows([], hasActiveProSession(), 0);
+      qs('goldenState').textContent = '연결 오류';
+      qs('goldenNotice').textContent = '실측 황금키워드 스냅샷을 불러오지 못했습니다. 임시 조합 키워드는 황금키워드로 표시하지 않습니다. 원인 코드: ' + reason + ' · 보드 새로고침 또는 Pro 재로그인을 시도하세요.';
+      log('LIVE 황금키워드 스냅샷 unavailable [' + reason + ']: ' + (payload.error || 'server unavailable'));
     }
     function isServerUnavailableError(message) {
       const text = String(message || '');
@@ -4733,14 +4730,14 @@ export function renderLewordProWeb(): string {
       });
       const metrics = [
         { label: '후보', value: fmt(keywords.length) },
-        { label: '실측', value: '서버 복구 후' },
-        { label: '출처', value: '브라우저 fallback' },
+        { label: '실측', value: '연결 후 재조회' },
+        { label: '출처', value: '브라우저 검색 보조' },
         { label: '시간', value: new Date().toLocaleTimeString('ko-KR') },
       ];
       if (feature.id) {
         renderToolResultPanel(feature, feature.title + ' 브라우저 검색 후보', '서버/API 연결이 불안정해 사이트 자체 후보를 먼저 보여줍니다. 검색량·문서수·SSS 등급은 가짜로 표시하지 않습니다.', metrics, rows);
       } else {
-        renderLookupInsight(feature.title + ' 브라우저 검색 후보', '서버/API 연결이 불안정해 사이트 자체 후보를 먼저 보여줍니다. 검색량·문서수·SSS 등급은 서버 복구 후 실측됩니다.', metrics, rows);
+        renderLookupInsight(feature.title + ' 브라우저 검색 후보', '서버/API 연결이 불안정해 사이트 자체 후보를 먼저 보여줍니다. 서버 연결 후 다시 실행해야 검색량·문서수를 실측합니다.', metrics, rows);
         qs('keywordRows').innerHTML = '<tr><td colspan="12" class="muted">서버 미연결 상태입니다. 아래 브라우저 검색 후보에서 네이버/구글 검색으로 먼저 검증하세요.</td></tr>';
       }
       setResult({
@@ -5701,6 +5698,14 @@ export function renderLewordProWeb(): string {
       const summary = result && result.summary ? result.summary : {};
       const sss = summary.sss == null ? rows.filter(function(row) { return row.grade === 'SSS'; }).length : summary.sss;
       const measured = summary.measured == null ? rows.filter(function(row) { return row.isMeasured; }).length : summary.measured;
+      const externalAiProvider = normalizeText(summary.agentInsightExternalProvider || '');
+      const externalAiCount = Number(summary.agentInsightExternalCount || 0);
+      const externalAiError = normalizeText(summary.agentInsightExternalError || '');
+      const externalAiStatus = externalAiProvider && externalAiCount > 0
+        ? externalAiProvider + ' · ' + externalAiCount + '개 설명 보강'
+        : externalAiError
+          ? '외부 AI 실패 · 규칙 보조만 적용'
+          : '규칙 보조';
       const topRows = rows.slice(0, 5).map(function(row) {
         return '<li><strong>' + escapeHtml(row.keyword || '-') + '</strong>'
           + '<span>등급 ' + escapeHtml(row.grade || '-') + ' · 전체 ' + fmt(row.totalSearchVolume) + ' · PC ' + fmt(row.pcSearchVolume) + ' · 모바일 ' + fmt(row.mobileSearchVolume) + ' · 문서 ' + fmt(row.documentCount) + ' · 황금비 ' + fmt(row.goldenRatio) + '</span>'
@@ -5725,6 +5730,7 @@ export function renderLewordProWeb(): string {
         { label: 'SSS 후보', value: fmt(sss) },
         { label: '실측 완료', value: fmt(measured) },
         { label: '발행 추천', value: fmt(publishReady) },
+        { label: 'AI 보조', value: externalAiStatus },
         { label: '처리 시간', value: summary.elapsedMs == null ? '-' : fmt(summary.elapsedMs) + 'ms' },
       ], [toolbar].concat(topRows));
     }
@@ -6133,10 +6139,17 @@ export function renderLewordProWeb(): string {
       const apiSettings = readUserApiSettings();
       if (settings.provider === 'api') {
         const serverApi = settings.lastServerStatus && settings.lastServerStatus.apiAssist;
-        const count = serverApi && Number.isFinite(Number(serverApi.count))
-          ? Number(serverApi.count)
-          : ['anthropicApiKey', 'manusApiKey', 'openaiApiKey'].filter(function(key) { return !!apiSettings[key]; }).length;
-        return { ready: count > 0, status: count > 0 ? 'ready' : 'missing', detail: count > 0 ? 'AI API 키 ' + count + '개 사용 가능' : 'Claude/OpenAI/Manus API 키 중 하나 이상 필요' };
+        const count = ['anthropicApiKey', 'openaiApiKey'].filter(function(key) { return !!apiSettings[key]; }).length;
+        const manusOnly = !!apiSettings.manusApiKey && count === 0;
+        return {
+          ready: count > 0,
+          status: count > 0 ? 'ready' : 'missing',
+          detail: count > 0
+            ? '외부 추론 API ' + count + '개 사용 가능' + (serverApi && serverApi.count ? ' · 서버 저장 아님' : '')
+            : manusOnly
+              ? 'Manus 키는 저장됐지만 Pro Web 추론 경로에는 연결되지 않았습니다. Claude 또는 OpenAI 키가 필요합니다.'
+              : 'Claude 또는 OpenAI API 키가 필요합니다.',
+        };
       }
       if (settings.provider === 'claude-code') {
         const worker = adminAiWorkerServerWorker(settings, 'claudeCode');
@@ -6460,7 +6473,7 @@ export function renderLewordProWeb(): string {
         includeAiInference: true,
         forceExternalInference: true,
         externalAi: true,
-        maxAgentRows: featureId === 'pro-traffic-hunter' ? 30 : featureId === 'naver-mate-hunter' ? 30 : 20,
+        maxAgentRows: 8,
         mindmapAssist: adminWorker ? adminWorker.mindmapAssist !== false : true,
         keywordResearchAssist: adminWorker ? adminWorker.keywordResearchAssist !== false : true,
         usageWindowHours: adminWorker && adminWorker.usageWindowHours ? adminWorker.usageWindowHours : null,
@@ -7433,15 +7446,14 @@ export function renderLewordProWeb(): string {
         },
         {
           id: 'ai',
-          label: 'AI 추론 보조 키',
+          label: 'AI 추론 보조 키 (Claude/OpenAI)',
           required: false,
           anyOf: true,
           keys: [
             { id: 'anthropicApiKey', label: 'Claude API Key' },
-            { id: 'manusApiKey', label: 'Manus API Key' },
             { id: 'openaiApiKey', label: 'OpenAI API Key' },
           ],
-          usage: '니즈 추론, 의도 분류, 부적합 후보 제거 보조',
+          usage: '이미 실측된 상위 후보의 검색 이유·의도·연관어 설명 보조 (새 후보/문서수 생성 안 함)',
         },
       ];
     }
@@ -7870,12 +7882,20 @@ export function renderLewordProWeb(): string {
       const openReady = !!(settings.naverClientId && settings.naverClientSecret);
       const adReady = !!(settings.naverSearchAdAccessLicense && settings.naverSearchAdSecretKey && settings.naverSearchAdCustomerId);
       const youtubeReady = !!settings.youtubeApiKey;
-      const aiReadyCount = ['anthropicApiKey', 'manusApiKey', 'openaiApiKey'].filter(function(key) { return !!settings[key]; }).length;
+      const aiReadyCount = ['anthropicApiKey', 'openaiApiKey'].filter(function(key) { return !!settings[key]; }).length;
+      const openApiLabel = payload && payload.openApiProbeError
+        ? '실호출 실패'
+        : payload && payload.openApiProbe && Number.isFinite(Number(payload.openApiProbe.total))
+          ? '실호출 정상(문서 ' + fmt(Number(payload.openApiProbe.total)) + ')'
+          : openReady
+            ? '저장됨·미검증'
+            : '미설정';
       qs('naverApiSettingsMessage').textContent =
-        '브라우저 로컬 저장 · 네이버 API ' + apiSettingsReadyLabel(openReady)
-        + ' · 네이버 검색광고 ' + apiSettingsReadyLabel(adReady)
-        + ' · 유튜브 ' + apiSettingsReadyLabel(youtubeReady)
-        + ' · AI 추론 ' + aiReadyCount + '/3'
+        '브라우저 로컬 저장 · 네이버 문서수 API ' + openApiLabel
+        + ' · 네이버 검색광고 ' + (adReady ? '저장됨·실행 시 검증' : '미설정')
+        + ' · 유튜브 ' + (youtubeReady ? '저장됨' : '미설정')
+        + ' · AI 추론 ' + aiReadyCount + '/2'
+        + (settings.manusApiKey ? ' · Manus(Pro Web 미연결)' : '')
         + ' · 서버 공용 저장 아님 · 실행 요청에만 전달';
       renderApiSettingsChecklist(settings);
     }
@@ -7910,7 +7930,7 @@ export function renderLewordProWeb(): string {
       }
     }
     async function checkNaverApiSettings() {
-      openProgress('API 연동상태 확인', '브라우저 로컬 API 키 저장 상태를 항목별로 확인하고 있습니다.');
+      openProgress('API 연동상태 확인', '저장 상태를 확인하고 네이버 문서수 API를 1회 읽기 전용 실호출합니다.');
       try {
         const settings = readUserApiSettings();
         updateProgress(25, '네이버 API 키 저장 여부를 확인합니다.');
@@ -7925,8 +7945,30 @@ export function renderLewordProWeb(): string {
             usage: group.usage,
           };
         });
-        updateProgress(55, '네이버 검색광고, 유튜브, AI 보조 키를 확인합니다.');
-        renderNaverApiStatusMessage({ localSettings: settings });
+        let openApiProbe = null;
+        let openApiProbeError = '';
+        const openApiCheck = checks.find(function(check) { return check.id === 'naver-openapi'; });
+        if (settings.naverClientId && settings.naverClientSecret) {
+          updateProgress(45, '네이버 블로그 문서수 API를 기준 키워드로 1회 실호출합니다.');
+          try {
+            openApiProbe = await fetchBrowserNaverBlogDocumentCount('네이버');
+            if (!openApiProbe || !Number.isFinite(Number(openApiProbe.total))) throw new Error('문서수 total이 없는 응답입니다.');
+            if (openApiCheck) {
+              openApiCheck.ready = true;
+              openApiCheck.status = 'verified';
+              openApiCheck.probeDocumentCount = Number(openApiProbe.total);
+            }
+          } catch (probeError) {
+            openApiProbeError = probeError && probeError.message ? probeError.message : String(probeError || 'unknown');
+            if (openApiCheck) {
+              openApiCheck.ready = false;
+              openApiCheck.status = 'error';
+              openApiCheck.error = openApiProbeError;
+            }
+          }
+        }
+        updateProgress(70, '네이버 검색광고, 유튜브, AI 보조 키 저장 상태를 확인합니다.');
+        renderNaverApiStatusMessage({ localSettings: settings, openApiProbe: openApiProbe, openApiProbeError: openApiProbeError });
         setResult({
           userApiSettings: {
             storage: 'browser-local',
@@ -7934,14 +7976,19 @@ export function renderLewordProWeb(): string {
             openApiReady: !!(settings.naverClientId && settings.naverClientSecret),
             searchAdReady: !!(settings.naverSearchAdAccessLicense && settings.naverSearchAdSecretKey && settings.naverSearchAdCustomerId),
             youtubeReady: !!settings.youtubeApiKey,
-            aiInferenceReady: ['anthropicApiKey', 'manusApiKey', 'openaiApiKey'].filter(function(key) { return !!settings[key]; }).length,
+            aiInferenceReady: ['anthropicApiKey', 'openaiApiKey'].filter(function(key) { return !!settings[key]; }).length,
+            openApiProbe: openApiProbe,
+            openApiProbeError: openApiProbeError || null,
             checks: checks,
           },
         });
         const missingRequired = checks.filter(function(check) {
           return (check.id === 'naver-openapi' || check.id === 'naver-searchad') && !check.ready;
         });
-        if (missingRequired.length) {
+        const failedOpenApi = checks.find(function(check) { return check.id === 'naver-openapi' && check.status === 'error'; });
+        if (failedOpenApi) {
+          qs('naverApiSettingsMessage').textContent = '네이버 API 키는 저장됐지만 문서수 실호출에 실패했습니다: ' + failedOpenApi.error + ' · Client ID/Secret, 애플리케이션 검색 API 권한, 등록 도메인을 확인하세요.';
+        } else if (missingRequired.length) {
           qs('naverApiSettingsMessage').textContent = '필수 API 키 누락: ' + missingRequired.map(function(check) { return check.label; }).join(', ') + '를 입력해야 실측 발굴을 실행할 수 있습니다.';
         }
         log('사용자 API 로컬 설정 확인 완료: ' + checks.map(function(check) { return check.label + '=' + check.status; }).join(', '));

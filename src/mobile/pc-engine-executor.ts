@@ -95,6 +95,9 @@ import {
   isUltimateLowValueLookupKeyword,
 } from './keyword-ai-judge';
 
+const EXTERNAL_AGENT_MAX_ROWS = 8;
+const EXTERNAL_AGENT_MAX_OUTPUT_TOKENS = 4096;
+
 export class MobilePcEngineNotConnectedError extends Error {
   constructor(product: MobileKeywordProduct) {
     super(`${product} PC engine adapter is not connected yet`);
@@ -206,7 +209,7 @@ function normalizeAgentAssistContext(value: unknown): MobileAgentAssistContext |
     includeAiInference: raw.includeAiInference !== false,
     forceExternalInference: raw.forceExternalInference === true,
     externalAi: raw.externalAi === true,
-    maxAgentRows: clampInt(raw.maxAgentRows, 20, 1, 40),
+    maxAgentRows: clampInt(raw.maxAgentRows, EXTERNAL_AGENT_MAX_ROWS, 1, EXTERNAL_AGENT_MAX_ROWS),
     mindmapAssist: raw.mindmapAssist !== false,
     keywordResearchAssist: raw.keywordResearchAssist !== false,
     usageWindowHours: Number.isFinite(usageWindowHours) && usageWindowHours > 0 ? usageWindowHours : null,
@@ -1388,7 +1391,18 @@ type ExternalAgentInsightItem = Partial<MobileKeywordAgentInsight> & {
 type ExternalAgentInsightResponse = {
   provider: 'anthropic' | 'openai';
   items: ExternalAgentInsightItem[];
+  recoveryError?: string;
 };
+
+class ExternalAgentInsightCallError extends Error {
+  constructor(
+    readonly provider: ExternalAgentInsightResponse['provider'],
+    message: string,
+  ) {
+    super(message);
+    this.name = 'ExternalAgentInsightCallError';
+  }
+}
 
 function shouldUseExternalAgentInsight(
   agent: MobileAgentAssistContext | undefined,
@@ -1519,38 +1533,43 @@ function buildExternalAgentInsightPrompt(
   });
 }
 
-async function callExternalAgentInsightModel(
-  env: Partial<EnvConfig>,
+function externalAgentErrorDetail(error: unknown): string {
+  return normalizeKeyword(error instanceof Error ? error.message : String(error || 'unknown error')).slice(0, 180);
+}
+
+async function callAnthropicAgentInsightModel(
+  anthropicKey: string,
   prompt: string,
 ): Promise<ExternalAgentInsightResponse> {
-  const anthropicKey = envValue(env, 'anthropicApiKey', 'ANTHROPIC_API_KEY', 'CLAUDE_API_KEY');
-  if (anthropicKey.startsWith('sk-ant-')) {
-    const model = normalizeKeyword(process.env['LEWORD_AGENT_CLAUDE_MODEL']) || 'claude-sonnet-4-6';
-    const data = await fetchJsonWithTimeout('https://api.anthropic.com/v1/messages', {
-      method: 'POST',
-      headers: {
-        'content-type': 'application/json',
-        'x-api-key': anthropicKey,
-        'anthropic-version': '2023-06-01',
-      },
-      body: JSON.stringify({
-        model,
-        max_tokens: 4096,
-        temperature: 0.2,
-        system: '너는 한국 검색 의도와 네이버 자동완성 흐름을 읽는 LEWORD 키워드 리서치 에이전트다. 근거 없는 수치 생성과 기계식 접미사를 금지한다.',
-        messages: [{ role: 'user', content: prompt }],
-      }),
-    }, 18000);
-    const text = Array.isArray(data.content)
-      ? data.content.map((part) => typeof part === 'object' && part ? normalizeKeyword((part as Record<string, unknown>).text) : '').join('\n')
-      : '';
-    const parsed = extractJsonObject(text);
-    const items = Array.isArray(parsed.items) ? parsed.items as ExternalAgentInsightItem[] : [];
-    return { provider: 'anthropic', items };
-  }
+  const model = normalizeKeyword(process.env['LEWORD_AGENT_CLAUDE_MODEL']) || 'claude-sonnet-4-6';
+  const data = await fetchJsonWithTimeout('https://api.anthropic.com/v1/messages', {
+    method: 'POST',
+    headers: {
+      'content-type': 'application/json',
+      'x-api-key': anthropicKey,
+      'anthropic-version': '2023-06-01',
+    },
+    body: JSON.stringify({
+      model,
+      max_tokens: EXTERNAL_AGENT_MAX_OUTPUT_TOKENS,
+      temperature: 0.2,
+      system: '너는 한국 검색 의도와 네이버 자동완성 흐름을 읽는 LEWORD 키워드 리서치 에이전트다. 근거 없는 수치 생성과 기계식 접미사를 금지한다.',
+      messages: [{ role: 'user', content: prompt }],
+    }),
+  }, 18000);
+  const text = Array.isArray(data.content)
+    ? data.content.map((part) => typeof part === 'object' && part ? normalizeKeyword((part as Record<string, unknown>).text) : '').join('\n')
+    : '';
+  const parsed = extractJsonObject(text);
+  const items = Array.isArray(parsed.items) ? parsed.items as ExternalAgentInsightItem[] : [];
+  if (!items.length) throw new Error('response contained no valid insight items');
+  return { provider: 'anthropic', items };
+}
 
-  const openAiKey = envValue(env, 'openaiApiKey', 'OPENAI_API_KEY');
-  if (!openAiKey.startsWith('sk-')) return { provider: 'openai', items: [] };
+async function callOpenAiAgentInsightModel(
+  openAiKey: string,
+  prompt: string,
+): Promise<ExternalAgentInsightResponse> {
   const model = normalizeKeyword(process.env['LEWORD_AGENT_OPENAI_MODEL']) || 'gpt-4o-mini';
   const data = await fetchJsonWithTimeout('https://api.openai.com/v1/chat/completions', {
     method: 'POST',
@@ -1560,6 +1579,7 @@ async function callExternalAgentInsightModel(
     },
     body: JSON.stringify({
       model,
+      max_tokens: EXTERNAL_AGENT_MAX_OUTPUT_TOKENS,
       temperature: 0.2,
       response_format: { type: 'json_object' },
       messages: [
@@ -1577,7 +1597,51 @@ async function callExternalAgentInsightModel(
   );
   const parsed = extractJsonObject(content);
   const items = Array.isArray(parsed.items) ? parsed.items as ExternalAgentInsightItem[] : [];
+  if (!items.length) throw new Error('response contained no valid insight items');
   return { provider: 'openai', items };
+}
+
+async function callExternalAgentInsightModel(
+  env: Partial<EnvConfig>,
+  prompt: string,
+): Promise<ExternalAgentInsightResponse> {
+  const anthropicKey = envValue(env, 'anthropicApiKey', 'ANTHROPIC_API_KEY', 'CLAUDE_API_KEY');
+  const openAiKey = envValue(env, 'openaiApiKey', 'OPENAI_API_KEY');
+  const hasAnthropic = anthropicKey.startsWith('sk-ant-');
+  const hasOpenAi = openAiKey.startsWith('sk-');
+
+  if (hasAnthropic) {
+    try {
+      return await callAnthropicAgentInsightModel(anthropicKey, prompt);
+    } catch (anthropicError) {
+      const anthropicDetail = externalAgentErrorDetail(anthropicError);
+      if (!hasOpenAi) {
+        throw new ExternalAgentInsightCallError('anthropic', `anthropic failed: ${anthropicDetail}`);
+      }
+      try {
+        const fallback = await callOpenAiAgentInsightModel(openAiKey, prompt);
+        return {
+          ...fallback,
+          recoveryError: `anthropic failed: ${anthropicDetail}; recovered with openai`,
+        };
+      } catch (openAiError) {
+        throw new ExternalAgentInsightCallError(
+          'openai',
+          `anthropic failed: ${anthropicDetail}; openai fallback failed: ${externalAgentErrorDetail(openAiError)}`,
+        );
+      }
+    }
+  }
+
+  if (hasOpenAi) {
+    try {
+      return await callOpenAiAgentInsightModel(openAiKey, prompt);
+    } catch (openAiError) {
+      throw new ExternalAgentInsightCallError('openai', `openai failed: ${externalAgentErrorDetail(openAiError)}`);
+    }
+  }
+
+  throw new ExternalAgentInsightCallError('openai', 'no supported external AI key configured');
 }
 
 function mergeExternalAgentInsightItem(
@@ -1630,22 +1694,36 @@ async function withExternalAgentInsight(
   env: Partial<EnvConfig>,
 ): Promise<MobileKeywordResult> {
   if (!shouldUseExternalAgentInsight(agent, env) || result.keywords.length === 0 || !agent) return result;
-  const maxRows = clampInt(agent.maxAgentRows, 20, 1, 40);
+  const maxRows = clampInt(agent.maxAgentRows, EXTERNAL_AGENT_MAX_ROWS, 1, EXTERNAL_AGENT_MAX_ROWS);
   const sliced = withKeywordResultSummary(result, result.keywords.slice(0, maxRows));
   try {
     const prompt = buildExternalAgentInsightPrompt(sliced, params, product, agent);
     const response = await callExternalAgentInsightModel(env, prompt);
     if (!response.items.length) return result;
-    const byKeyword = new Map<string, ExternalAgentInsightItem>();
     const byIndex = new Map<number, ExternalAgentInsightItem>();
-    for (const item of response.items) {
+    const allowedIndexByKeyword = new Map<string, number>();
+    sliced.keywords.forEach((metric, index) => {
+      const key = compactKeyword(metric.keyword);
+      if (key && !allowedIndexByKeyword.has(key)) allowedIndexByKeyword.set(key, index);
+    });
+    for (const rawItem of response.items) {
+      if (!rawItem || typeof rawItem !== 'object' || Array.isArray(rawItem)) continue;
+      const item = rawItem as ExternalAgentInsightItem;
       const key = compactKeyword(normalizeKeyword(item.keyword || item.originalKeyword || ''));
-      if (key) byKeyword.set(key, item);
-      if (Number.isInteger(item.index)) byIndex.set(Number(item.index), item);
+      const rawIndex = Number.isInteger(item.index) ? Number(item.index) : null;
+      const indexFromKeyword = key ? allowedIndexByKeyword.get(key) : undefined;
+      if (key && indexFromKeyword === undefined) continue;
+      if (rawIndex !== null && (rawIndex < 0 || rawIndex >= sliced.keywords.length)) continue;
+      if (rawIndex !== null && indexFromKeyword !== undefined && rawIndex !== indexFromKeyword) continue;
+      const targetIndex = indexFromKeyword ?? rawIndex;
+      if (targetIndex === null || targetIndex === undefined || byIndex.has(targetIndex)) continue;
+      byIndex.set(targetIndex, item);
+      if (byIndex.size >= maxRows) break;
     }
     let mergedCount = 0;
     const keywords = result.keywords.map((metric, index) => {
-      const item = byKeyword.get(compactKeyword(metric.keyword)) || byIndex.get(index);
+      if (index >= sliced.keywords.length) return metric;
+      const item = byIndex.get(index);
       if (!item) return metric;
       mergedCount += 1;
       return mergeExternalAgentInsightItem(metric, item, response.provider);
@@ -1657,13 +1735,19 @@ async function withExternalAgentInsight(
         ...summarized.summary,
         agentInsightExternalProvider: response.provider,
         agentInsightExternalCount: mergedCount,
+        ...(response.recoveryError ? { agentInsightExternalError: response.recoveryError } : {}),
       },
     };
   } catch (error) {
+    const provider = error instanceof ExternalAgentInsightCallError ? error.provider : undefined;
     return {
       ...result,
       summary: {
         ...result.summary,
+        ...(provider ? {
+          agentInsightExternalProvider: provider,
+          agentInsightExternalCount: 0,
+        } : {}),
         agentInsightExternalError: normalizeKeyword((error as Error).message).slice(0, 180),
       },
     };

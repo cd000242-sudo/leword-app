@@ -1291,7 +1291,9 @@ async function buildAdminAiWorkerStatus(body: AdminAiWorkerStatusRequest) {
     probeAdminAiCliWorker(codexCommand, [['auth', 'status'], ['login', 'status'], ['status']]),
     probeAdminAiCliWorker(claudeCommand, [['status', '--json'], ['doctor'], ['status']]),
   ]);
-  const apiCount = [apiAssist.anthropic, apiAssist.manus, apiAssist.openai].filter(Boolean).length;
+  // Pro Web external inference currently has providers for Anthropic/OpenAI only.
+  // Keep reporting whether a Manus key is present, but never claim that key alone is executable here.
+  const apiCount = [apiAssist.anthropic, apiAssist.openai].filter(Boolean).length;
   const ready = {
     codex: codex.loggedIn === true,
     claudeCode: claudeCode.loggedIn === true,
@@ -1302,7 +1304,7 @@ async function buildAdminAiWorkerStatus(body: AdminAiWorkerStatusRequest) {
     selectedProvider,
     checkedAt: new Date().toISOString(),
     workers: { codex, claudeCode },
-    apiAssist: { ...apiAssist, count: apiCount },
+    apiAssist: { ...apiAssist, manusConnected: false, count: apiCount },
     ready: {
       ...ready,
       selected: selectedProvider === 'api'

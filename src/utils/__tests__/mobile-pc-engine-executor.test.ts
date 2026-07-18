@@ -854,95 +854,130 @@ async function runAgentAssistQualityGate(): Promise<void> {
     JSON.stringify(result.keywords.map((item) => item.agentInsight)));
 }
 
+function makeExternalAgentInsightMetric(keyword = '송지호바다하늘길입장료'): MobileKeywordMetric {
+  return {
+    keyword,
+    grade: 'SSS',
+    score: 91,
+    pcSearchVolume: 450,
+    mobileSearchVolume: 2060,
+    totalSearchVolume: 2510,
+    documentCount: 157,
+    goldenRatio: 15.99,
+    cpc: 0,
+    category: 'travel_domestic',
+    source: 'fixture',
+    intent: 'measured-need',
+    evidence: ['naver-autocomplete'],
+    isMeasured: true,
+    searchVolumeSource: 'searchad',
+    searchVolumeConfidence: 'high',
+    searchVolumeBindingVersion: 'keyword-keyed-v2',
+    searchVolumeMeasuredAt: new Date().toISOString(),
+    isSearchVolumeEstimated: false,
+    documentCountSource: 'naver-api',
+    documentCountConfidence: 'high',
+    documentCountQueryMode: 'broad',
+    documentCountMeasuredAt: new Date().toISOString(),
+    isDocumentCountEstimated: false,
+  };
+}
+
+function externalAgentOpenAiResponse(
+  keyword = '송지호바다하늘길입장료',
+  extraItems: Array<Record<string, unknown>> = [],
+) {
+  return {
+    ok: true,
+    status: 200,
+    statusText: 'OK',
+    json: async () => ({
+      choices: [{
+        message: {
+          content: JSON.stringify({
+            items: [{
+              index: 0,
+              keyword,
+              subject: '송지호 바다하늘길',
+              searchVolumeReason: '강원 고성 송지호 바다하늘길을 여름 여행 코스로 확인하면서 입장료와 주차, 운영시간을 한 번에 보려는 방문 전 검색 수요입니다.',
+              combinationIntent: '입장료, 주차, 운영시간, 둘레길 코스를 표로 묶어 방문 전 체크리스트 글로 작성합니다.',
+              autocompleteKeywords: ['송지호 바다하늘길 입장료', '송지호 바다하늘길 주차', '송지호 바다하늘길 운영시간'],
+              relatedKeywords: ['송지호 해수욕장', '고성 송지호 둘레길'],
+              expandedKeywords: ['송지호 바다하늘길 입장료', '송지호 바다하늘길 주차', '송지호 바다하늘길 운영시간', '고성 송지호 바다하늘길 후기'],
+              label: '여행/방문 전 확인',
+              route: 'blog-seo',
+            }, ...extraItems],
+          }),
+        },
+      }],
+    }),
+    text: async () => '',
+  };
+}
+
 async function runExternalAgentInsightInference(): Promise<void> {
   const previousFetch = (globalThis as any).fetch;
+  let promptRows = 0;
+  let openAiCalls = 0;
   (globalThis as any).fetch = async (url: string, init: { body?: string }) => {
+    openAiCalls += 1;
     assert('external agent insight uses OpenAI endpoint when only OpenAI key exists',
       String(url).includes('api.openai.com/v1/chat/completions'));
     const body = JSON.parse(String(init.body || '{}'));
     assert('external agent prompt asks for JSON object response',
       body.response_format?.type === 'json_object');
-    return {
-      ok: true,
-      status: 200,
-      statusText: 'OK',
-      json: async () => ({
-        choices: [{
-          message: {
-            content: JSON.stringify({
-              items: [{
-                index: 0,
-                keyword: '송지호바다하늘길입장료',
-                subject: '송지호 바다하늘길',
-                searchVolumeReason: '강원 고성 송지호 바다하늘길을 여름 여행 코스로 확인하면서 입장료와 주차, 운영시간을 한 번에 보려는 방문 전 검색 수요입니다.',
-                combinationIntent: '입장료, 주차, 운영시간, 둘레길 코스를 표로 묶어 방문 전 체크리스트 글로 작성합니다.',
-                autocompleteKeywords: ['송지호 바다하늘길 입장료', '송지호 바다하늘길 주차', '송지호 바다하늘길 운영시간'],
-                relatedKeywords: ['송지호 해수욕장', '고성 송지호 둘레길'],
-                expandedKeywords: ['송지호 바다하늘길 입장료', '송지호 바다하늘길 주차', '송지호 바다하늘길 운영시간', '고성 송지호 바다하늘길 후기'],
-                label: '여행/방문 전 확인',
-                route: 'blog-seo',
-              }],
-            }),
-          },
-        }],
-      }),
-      text: async () => '',
-    };
+    assert('external agent OpenAI response is capped at 4096 tokens', body.max_tokens === 4096, JSON.stringify(body));
+    const userPrompt = JSON.parse(String(body.messages?.find((message: any) => message.role === 'user')?.content || '{}'));
+    promptRows = Array.isArray(userPrompt.rows) ? userPrompt.rows.length : 0;
+    return externalAgentOpenAiResponse('송지호바다하늘길입장료', [
+      { index: 1, subject: '허용된 두 번째 행 설명' },
+      { index: 9, keyword: '송지호 바다하늘길 근처 맛집', subject: '8행 밖 조작 시도' },
+      { index: 2, keyword: '송지호 바다하늘길 가족여행', subject: '키워드와 인덱스 불일치' },
+      { keyword: '응답에만 있는 환각 키워드', subject: '허용 목록 밖 조작 시도' },
+      { index: 0, subject: '중복 행 덮어쓰기 시도' },
+    ]);
   };
   try {
+    const keywords = [
+      '송지호바다하늘길입장료',
+      '송지호 바다하늘길 주차',
+      '송지호 바다하늘길 운영시간',
+      '송지호 바다하늘길 예약',
+      '송지호 바다하늘길 둘레길',
+      '송지호 바다하늘길 소요시간',
+      '송지호 바다하늘길 반려견',
+      '송지호 바다하늘길 유모차',
+      '송지호 바다하늘길 일몰시간',
+      '송지호 바다하늘길 근처 맛집',
+      '송지호 바다하늘길 가족여행',
+      '송지호 바다하늘길 후기',
+    ];
     const executor = createMobilePcEngineExecutor({
       getEnvConfig: () => ({ openaiApiKey: 'sk-test-external-agent' }),
-      runProTraffic: async () => ({
-        keywords: [{
-          keyword: '송지호바다하늘길입장료',
-          grade: 'SSS',
-          score: 91,
-          pcSearchVolume: 450,
-          mobileSearchVolume: 2060,
-          totalSearchVolume: 2510,
-          documentCount: 157,
-          goldenRatio: 15.99,
-          cpc: 0,
-          category: 'travel_domestic',
-          source: 'fixture',
-          intent: 'measured-need',
-          evidence: ['naver-autocomplete'],
-          isMeasured: true,
-          searchVolumeSource: 'searchad',
-          searchVolumeConfidence: 'high',
-          searchVolumeBindingVersion: 'keyword-keyed-v2',
-          searchVolumeMeasuredAt: new Date().toISOString(),
-          isSearchVolumeEstimated: false,
-          documentCountSource: 'naver-api',
-          documentCountConfidence: 'high',
-          documentCountQueryMode: 'broad',
-          documentCountMeasuredAt: new Date().toISOString(),
-          isDocumentCountEstimated: false,
-        }],
+      runHomeBoard: async () => ({
+        keywords: keywords.map((keyword) => makeExternalAgentInsightMetric(keyword)),
         summary: {
-          total: 1,
-          sss: 1,
-          measured: 1,
+          total: keywords.length,
+          sss: keywords.length,
+          measured: keywords.length,
           elapsedMs: 1,
           fromCache: false,
           parityMode: 'pc-engine-plus',
         },
       }),
     });
-    const result = await executor(makeJob('pro-traffic-hunter', {
+    const result = await executor(makeJob('home-board-hunter', {
       categoryId: 'travel_domestic',
-      targetCount: 1,
-      includeSeasonal: true,
-      includeEvergreen: true,
-      includeFreshIssue: true,
+      targetCount: keywords.length,
+      requireSplusFloor: true,
       agentAssist: {
         enabled: true,
         provider: 'codex',
-        featureId: 'pro-traffic-hunter',
+        featureId: 'home-board-hunter',
         includeAiInference: true,
         forceExternalInference: true,
         externalAi: true,
-        maxAgentRows: 1,
+        maxAgentRows: 30,
       },
     }), {
       signal: new AbortController().signal,
@@ -958,8 +993,147 @@ async function runExternalAgentInsightInference(): Promise<void> {
         && insight.searchVolumeReason?.includes('강원 고성 송지호 바다하늘길')
         && insight.autocompleteKeywords?.includes('송지호 바다하늘길 주차')
         && externalSummary.agentInsightExternalProvider === 'openai'
-        && externalSummary.agentInsightExternalCount === 1,
+        && externalSummary.agentInsightExternalCount === 2,
       JSON.stringify({ insight, summary: result.summary }));
+    assert('external agent batches at most eight result rows in one call',
+      promptRows === 8 && openAiCalls === 1,
+      JSON.stringify({ promptRows, openAiCalls }));
+    assert('external agent output cannot modify rows outside the eight-row prompt scope',
+      result.keywords[1]?.agentInsight?.subject === '허용된 두 번째 행 설명'
+        && result.keywords[8]?.agentInsight?.generatedBy !== 'external-agent:openai'
+        && result.keywords[9]?.agentInsight?.generatedBy !== 'external-agent:openai'
+        && result.keywords[10]?.agentInsight?.generatedBy !== 'external-agent:openai',
+      JSON.stringify(result.keywords.map((item, index) => ({
+        index,
+        keyword: item.keyword,
+        generatedBy: item.agentInsight?.generatedBy,
+        subject: item.agentInsight?.subject,
+      }))));
+  } finally {
+    (globalThis as any).fetch = previousFetch;
+  }
+}
+
+async function runExternalAgentInsightProviderFallback(): Promise<void> {
+  const previousFetch = (globalThis as any).fetch;
+  const calls: string[] = [];
+  (globalThis as any).fetch = async (url: string, init: { body?: string }) => {
+    const target = String(url);
+    const body = JSON.parse(String(init.body || '{}'));
+    if (target.includes('api.anthropic.com/v1/messages')) {
+      calls.push('anthropic');
+      assert('Anthropic output is capped at 4096 tokens', body.max_tokens === 4096, JSON.stringify(body));
+      return {
+        ok: false,
+        status: 429,
+        statusText: 'Too Many Requests',
+        json: async () => ({}),
+        text: async () => 'quota exceeded',
+      };
+    }
+    calls.push('openai');
+    assert('OpenAI fallback uses a 4096 token cap', body.max_tokens === 4096, JSON.stringify(body));
+    return externalAgentOpenAiResponse();
+  };
+  try {
+    const executor = createMobilePcEngineExecutor({
+      getEnvConfig: () => ({
+        anthropicApiKey: 'sk-ant-test-external-agent',
+        openaiApiKey: 'sk-test-external-agent',
+      }),
+      runProTraffic: async () => ({
+        keywords: [makeExternalAgentInsightMetric()],
+        summary: {
+          total: 1,
+          sss: 1,
+          measured: 1,
+          elapsedMs: 1,
+          fromCache: false,
+          parityMode: 'pc-engine-plus',
+        },
+      }),
+    });
+    const result = await executor(makeJob('pro-traffic-hunter', {
+      categoryId: 'travel_domestic',
+      targetCount: 1,
+      agentAssist: {
+        enabled: true,
+        provider: 'api',
+        featureId: 'pro-traffic-hunter',
+        includeAiInference: true,
+        forceExternalInference: true,
+        externalAi: true,
+        maxAgentRows: 30,
+      },
+    }), {
+      signal: new AbortController().signal,
+      progress: () => {},
+    });
+    assert('Anthropic failure falls back once to OpenAI in the same job',
+      calls.join(',') === 'anthropic,openai',
+      calls.join(','));
+    assert('fallback summary and evidence identify the actual OpenAI provider and recovered error',
+      result.summary.agentInsightExternalProvider === 'openai'
+        && result.summary.agentInsightExternalCount === 1
+        && String(result.summary.agentInsightExternalError || '').includes('anthropic failed')
+        && String(result.summary.agentInsightExternalError || '').includes('recovered with openai')
+        && result.keywords[0]?.evidence.includes('external-agent:openai')
+        && result.keywords[0]?.agentInsight?.generatedBy === 'external-agent:openai',
+      JSON.stringify(result));
+  } finally {
+    (globalThis as any).fetch = previousFetch;
+  }
+}
+
+async function runExternalAgentInsightFailureSummary(): Promise<void> {
+  const previousFetch = (globalThis as any).fetch;
+  let calls = 0;
+  (globalThis as any).fetch = async () => {
+    calls += 1;
+    return {
+      ok: false,
+      status: 500,
+      statusText: 'Server Error',
+      json: async () => ({}),
+      text: async () => 'temporary provider failure',
+    };
+  };
+  try {
+    const executor = createMobilePcEngineExecutor({
+      getEnvConfig: () => ({ openaiApiKey: 'sk-test-external-agent' }),
+      runProTraffic: async () => ({
+        keywords: [makeExternalAgentInsightMetric()],
+        summary: {
+          total: 1,
+          sss: 1,
+          measured: 1,
+          elapsedMs: 1,
+          fromCache: false,
+          parityMode: 'pc-engine-plus',
+        },
+      }),
+    });
+    const result = await executor(makeJob('pro-traffic-hunter', {
+      categoryId: 'travel_domestic',
+      targetCount: 1,
+      agentAssist: {
+        enabled: true,
+        provider: 'api',
+        includeAiInference: true,
+        forceExternalInference: true,
+        externalAi: true,
+      },
+    }), {
+      signal: new AbortController().signal,
+      progress: () => {},
+    });
+    assert('external provider failure is not retried and keeps provider/count/error diagnostics',
+      calls === 1
+        && result.summary.agentInsightExternalProvider === 'openai'
+        && result.summary.agentInsightExternalCount === 0
+        && String(result.summary.agentInsightExternalError || '').includes('openai failed: 500 Server Error')
+        && !result.keywords[0]?.evidence.includes('external-agent:openai'),
+      JSON.stringify({ calls, summary: result.summary, evidence: result.keywords[0]?.evidence }));
   } finally {
     (globalThis as any).fetch = previousFetch;
   }
@@ -1393,6 +1567,8 @@ function runFallbackRegressionGuards(): void {
   await runInjectedProTraffic();
   await runAgentAssistQualityGate();
   await runExternalAgentInsightInference();
+  await runExternalAgentInsightProviderFallback();
+  await runExternalAgentInsightFailureSummary();
   await runHomeBoardDefaultAdapter();
   await runInjectedKinHiddenHoney();
   await runInjectedShoppingConnect();

@@ -881,16 +881,29 @@ function thinProfileCount(items: Array<{ keyword: string }>): number {
   // 실시간 급등 레인 회귀(승인 2026-07-09): 트렌딩 헤드 → 자동완성 실수요 확장 → 실측 →
   // 기회지수 게이트 → lane 태깅. 정보형 게이트(프로필/lookup/50만 상한)가 급등 상품을 죽이지
   // 않고, 기회지수 미달(비율<10)·저수요(sv<3000) 후보는 레인에 오르지 못한다.
+  const trafficSurgeGateMeasuredAt = new Date().toISOString();
+  const trafficSurgeGateProvenance = {
+    searchVolumeSource: 'searchad',
+    searchVolumeConfidence: 'high',
+    searchVolumeBindingVersion: 'keyword-keyed-v2',
+    searchVolumeMeasuredAt: trafficSurgeGateMeasuredAt,
+    documentCountSource: 'naver-api',
+    documentCountConfidence: 'high',
+    documentCountQueryMode: 'broad',
+    documentCountMeasuredAt: trafficSurgeGateMeasuredAt,
+  } as const;
   assert('traffic-surge gate accepts competitor-class rows and rejects weak ones',
     __liveGoldenRadarTestInternals.isTrafficSurgeBoardMetric({
       keyword: '김부장 기본정보', lane: 'traffic-surge',
       totalSearchVolume: 1469920, documentCount: 5189,
       isSearchVolumeEstimated: false, isDocumentCountEstimated: false,
+      ...trafficSurgeGateProvenance,
     }, new Date())
       && __liveGoldenRadarTestInternals.isTrafficSurgeBoardMetric({
         keyword: '노시환 하지원 열애설', lane: 'traffic-surge',
         totalSearchVolume: 24430, documentCount: 129,
         isSearchVolumeEstimated: false, isDocumentCountEstimated: false,
+        ...trafficSurgeGateProvenance,
       }, new Date())
       && !__liveGoldenRadarTestInternals.isTrafficSurgeBoardMetric({
         keyword: '기회지수 미달 키워드', lane: 'traffic-surge',
@@ -908,6 +921,132 @@ function thinProfileCount(items: Array<{ keyword: string }>): number {
         isSearchVolumeEstimated: false, isDocumentCountEstimated: false,
       }, new Date()),
     'surge gate contract');
+
+  const homeBriefingNow = new Date('2026-07-18T03:00:00.000Z');
+  const reviewedHomeBriefing = {
+    snapshotId: 'home-briefing-reviewed-fixture',
+    title: '홈 부방장 키워드',
+    author: 'admin',
+    publishedAt: '2026-07-17T03:00:00.000Z',
+    revision: 7,
+    formulaVersion: 'search-volume-divided-by-documents-plus-one-v1',
+    source: 'admin-image-ocr-reviewed',
+    sourceImages: [],
+    rows: [
+      // These values are deliberately wrong. The radar may use only the reviewed name.
+      { keyword: '김햄찌 팝업스토어', searchVolume: 1, documentCount: 999_999, opportunity: 0.000001, ocrConfidence: 96 },
+      // A larger stored opportunity must not move this row ahead of the admin's first row.
+      { keyword: '라민 야 말', searchVolume: 999_999_999, documentCount: 1, opportunity: 999_999_999, ocrConfidence: 94 },
+      { keyword: '김 햄찌 팝업 스토어', searchVolume: 888_888, documentCount: 1, opportunity: 888_888, ocrConfidence: 93 },
+      { keyword: '경산 살해범', searchVolume: 20_000, documentCount: 100, opportunity: 200, ocrConfidence: 99 },
+      { keyword: '검토가 필요한 후보', searchVolume: 20_000, documentCount: 100, opportunity: 200, ocrConfidence: 79 },
+    ],
+    updatedBy: 'admin',
+  } as any;
+  const reviewedSeedSelector = (__liveGoldenRadarTestInternals as any).selectReviewedHomeKeywordBriefingSeeds;
+  assert('Home briefing seed selector preserves reviewed admin order and ignores stored metrics for priority',
+    typeof reviewedSeedSelector === 'function'
+      && JSON.stringify(reviewedSeedSelector(reviewedHomeBriefing, homeBriefingNow))
+        === JSON.stringify(['김햄찌 팝업스토어', '라민 야 말']),
+    typeof reviewedSeedSelector === 'function'
+      ? JSON.stringify(reviewedSeedSelector(reviewedHomeBriefing, homeBriefingNow))
+      : 'selector missing');
+  assert('Home briefing seed selector rejects stale snapshots',
+    typeof reviewedSeedSelector === 'function'
+      && reviewedSeedSelector({
+        ...reviewedHomeBriefing,
+        publishedAt: '2026-07-10T02:59:59.999Z',
+      }, homeBriefingNow).length === 0
+      && reviewedSeedSelector({
+        ...reviewedHomeBriefing,
+        source: 'unreviewed-import',
+      }, homeBriefingNow).length === 0);
+
+  const homeBriefingBoardFile = path.join(process.cwd(), 'tmp', 'mobile-live-golden-home-briefing-test.json');
+  for (const file of [
+    homeBriefingBoardFile,
+    homeBriefingBoardFile.replace(/\.json$/, '') + '-ingest.json',
+    homeBriefingBoardFile.replace(/\.json$/, '') + '-realdemand.json',
+    homeBriefingBoardFile.replace(/\.json$/, '') + '-surge-seen.json',
+    path.join(path.dirname(homeBriefingBoardFile), 'live-golden-probe-queue.json'),
+  ]) fs.rmSync(file, { force: true });
+  const homeBriefingMeasuredKeywords: string[][] = [];
+  const homeBriefingRadar = new MobileLiveGoldenRadar({
+    notificationInbox: inbox,
+    runOnStart: false,
+    cycleLimit: 1,
+    boardTarget: 10,
+    maxCandidates: 60,
+    boardFile: homeBriefingBoardFile,
+    categories: ['entertainment'],
+    now: () => new Date(homeBriefingNow),
+    getEnvConfig: () => ({ naverClientId: 'client', naverClientSecret: 'secret' }),
+    liveSeedProvider: async () => [],
+    homeKeywordBriefingProvider: () => reviewedHomeBriefing,
+    enableBackfill: true,
+    discover: async () => [],
+    autocompleteProvider: async () => [],
+    searchAdSuggestionProvider: async () => [],
+    realDemandProbe: async () => ({ ok: true, suggestions: [] }),
+    measureLiveSearchVolumeSeparate: (async (_config: unknown, keywords: string[]) => {
+      homeBriefingMeasuredKeywords.push([...keywords]);
+      return keywords
+        .filter((keyword) => keyword === '김햄찌 팝업스토어')
+        .map((keyword) => ({
+          keyword,
+          pcSearchVolume: 2_400,
+          mobileSearchVolume: 9_600,
+          documentCount: 240,
+          competition: null,
+          monthlyAveCpc: 70,
+          searchVolumeBindingVersion: 'keyword-keyed-v2',
+          searchVolumeMeasuredAt: homeBriefingNow.toISOString(),
+          documentCountSource: 'naver-api',
+          documentCountConfidence: 'high',
+          documentCountQueryMode: 'broad',
+          documentCountMeasuredAt: homeBriefingNow.toISOString(),
+          isDocumentCountEstimated: false,
+          svEstimated: false,
+        }));
+    }) as never,
+  });
+  const homeBriefingSnapshot = await homeBriefingRadar.runOnce();
+  const homeBriefingRow = homeBriefingSnapshot.board.find((item) => item.keyword === '김햄찌 팝업스토어');
+  const measuredHomeBriefingFlat = homeBriefingMeasuredKeywords.flat();
+  assert('reviewed Home briefing names are direct traffic-surge candidates even without autocomplete suggestions',
+    measuredHomeBriefingFlat.includes('김햄찌 팝업스토어')
+      && Boolean(homeBriefingRow)
+      && homeBriefingRow?.lane === 'traffic-surge'
+      && homeBriefingRow?.evidence?.includes('home-keyword-briefing-reviewed') === true
+      && !(homeBriefingSnapshot.verifiedSupply || []).some((item) => item.keyword === '김햄찌 팝업스토어'),
+    JSON.stringify({ measured: homeBriefingMeasuredKeywords, row: homeBriefingRow }));
+  assert('reviewed Home briefing metrics are never copied and publication requires exact fresh SearchAd plus canonical broad documents',
+    homeBriefingRow?.pcSearchVolume === 2_400
+      && homeBriefingRow.mobileSearchVolume === 9_600
+      && homeBriefingRow.totalSearchVolume === 12_000
+      && homeBriefingRow.documentCount === 240
+      && homeBriefingRow.goldenRatio === 50
+      && homeBriefingRow.searchVolumeBindingVersion === 'keyword-keyed-v2'
+      && homeBriefingRow.searchVolumeMeasuredAt === homeBriefingNow.toISOString()
+      && homeBriefingRow.isSearchVolumeEstimated === false
+      && homeBriefingRow.documentCountSource === 'naver-api'
+      && homeBriefingRow.documentCountConfidence === 'high'
+      && homeBriefingRow.documentCountQueryMode === 'broad'
+      && homeBriefingRow.documentCountMeasuredAt === homeBriefingNow.toISOString()
+      && homeBriefingRow.isDocumentCountEstimated === false,
+    JSON.stringify(homeBriefingRow));
+  assert('unsafe, low-confidence, and compact-duplicate Home briefing rows do not spend measurement budget',
+    !measuredHomeBriefingFlat.includes('경산 살해범')
+      && !measuredHomeBriefingFlat.includes('검토가 필요한 후보')
+      && measuredHomeBriefingFlat.filter((keyword) => keyword.replace(/\s+/g, '') === '김햄찌팝업스토어').length === 1,
+    JSON.stringify(homeBriefingMeasuredKeywords));
+  for (const file of [
+    homeBriefingBoardFile,
+    homeBriefingBoardFile.replace(/\.json$/, '') + '-ingest.json',
+    homeBriefingBoardFile.replace(/\.json$/, '') + '-realdemand.json',
+    homeBriefingBoardFile.replace(/\.json$/, '') + '-surge-seen.json',
+    path.join(path.dirname(homeBriefingBoardFile), 'live-golden-probe-queue.json'),
+  ]) fs.rmSync(file, { force: true });
 
   const surgeBoardFile = path.join(process.cwd(), 'tmp', 'mobile-live-golden-surge-test.json');
   fs.rmSync(surgeBoardFile, { force: true });

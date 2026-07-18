@@ -81,6 +81,10 @@ import {
   buildLiveGoldenSupplyReport,
   isTrustedLiveGoldenSupplyRow,
 } from './live-golden-supply-report';
+import {
+  readHomeKeywordBriefing,
+  type HomeKeywordBriefingSnapshot,
+} from './home-keyword-briefing';
 
 export interface MobileLiveGoldenRadarRunGate {
   ok: boolean;
@@ -129,6 +133,7 @@ export interface MobileLiveGoldenRadarOptions {
     options: Parameters<typeof discoverDirectGoldenKeywords>[1],
   ) => Promise<MDPResult[]>;
   liveSeedProvider?: (categoryId: string) => Promise<string[]>;
+  homeKeywordBriefingProvider?: () => HomeKeywordBriefingSnapshot | null;
   measureLiveSearchVolumeSeparate?: typeof getNaverKeywordSearchVolumeSeparate;
   measureLiveDocumentCount?: typeof measureDocumentCount;
   getCachedSearchAdVolume?: typeof getSearchAdVolumeCached;
@@ -182,6 +187,49 @@ const SURGE_HEADS_PER_CYCLE = 8;
 const SURGE_CANDIDATES_PER_CYCLE = 40;
 const SURGE_SECOND_LEVEL_PROBES = 3;
 const SURGE_UNSAFE_RE = /(?:사망|숨진|숨져|자살|극단적\s*선택|부고|별세|살인|살해|성폭행|성추행|성범죄|마약|음란|야동|시신|참사|유서|시체)/u;
+const HOME_KEYWORD_BRIEFING_SOURCE = 'home-keyword-briefing-reviewed';
+const HOME_KEYWORD_BRIEFING_MAX_AGE_MS = 7 * 24 * 60 * 60 * 1000;
+const HOME_KEYWORD_BRIEFING_MIN_OCR_CONFIDENCE = 80;
+const HOME_KEYWORD_BRIEFING_MAX_SEEDS = 80;
+const HOME_KEYWORD_BRIEFING_SEEDS_PER_CYCLE = 8;
+const HOME_KEYWORD_BRIEFING_MEASUREMENTS_PER_CYCLE = 16;
+
+function selectReviewedHomeKeywordBriefingSeeds(
+  snapshot: HomeKeywordBriefingSnapshot | null | undefined,
+  now: Date = new Date(),
+  limit = HOME_KEYWORD_BRIEFING_MAX_SEEDS,
+): string[] {
+  if (!snapshot || snapshot.source !== 'admin-image-ocr-reviewed') return [];
+  const publishedAtMs = Date.parse(snapshot.publishedAt || '');
+  if (!Number.isFinite(publishedAtMs)) return [];
+  const ageMs = now.getTime() - publishedAtMs;
+  if (ageMs < 0 || ageMs > HOME_KEYWORD_BRIEFING_MAX_AGE_MS) return [];
+  const ranked = (Array.isArray(snapshot.rows) ? snapshot.rows : [])
+    .map((row) => ({
+      keyword: normalizeKeyword(row.keyword),
+      confidence: finiteNumber(row.ocrConfidence),
+    }))
+    .filter((row) => row.keyword)
+    .filter((row) => row.confidence === null || row.confidence >= HOME_KEYWORD_BRIEFING_MIN_OCR_CONFIDENCE)
+    .filter((row) => !isMalformedLiveKeyword(row.keyword))
+    .filter((row) => !SURGE_UNSAFE_RE.test(row.keyword))
+    .filter((row) => !LIVE_KEYWORD_PLATFORM_RESIDUE_RE.test(row.keyword))
+    .filter((row) => {
+      const compactLength = keywordCompactId(row.keyword).length;
+      return compactLength >= LIVE_SEARCHAD_CANDIDATE_MIN_CHARS
+        && compactLength <= LIVE_SEARCHAD_CANDIDATE_MAX_CHARS;
+    });
+  const selected: string[] = [];
+  const seen = new Set<string>();
+  for (const row of ranked) {
+    const compact = keywordCompactId(row.keyword);
+    if (!compact || seen.has(compact)) continue;
+    seen.add(compact);
+    selected.push(row.keyword);
+    if (selected.length >= Math.max(1, Math.min(HOME_KEYWORD_BRIEFING_MAX_SEEDS, Math.floor(limit)))) break;
+  }
+  return selected;
+}
 
 function isTrafficSurgeBoardMetric(
   item: Partial<MobileLiveGoldenBoardItem> & { keyword?: string },
@@ -192,6 +240,9 @@ function isTrafficSurgeBoardMetric(
   if (!keyword || isMalformedLiveKeyword(keyword)) return false;
   if (SURGE_UNSAFE_RE.test(keyword)) return false;
   if (item.isSearchVolumeEstimated === true || item.isDocumentCountEstimated === true) return false;
+  if (!hasFreshCurrentSearchAdKeywordBinding(item as MobileKeywordMetric, now)) return false;
+  if (!hasTrustedSearchVolumeMeasurement(item as MobileKeywordMetric)) return false;
+  if (!hasFreshCanonicalDocumentCountMeasurement(item as MobileKeywordMetric, now)) return false;
   const volume = finiteNumber(item.totalSearchVolume) || 0;
   const docs = finiteNumber(item.documentCount);
   if (volume < SURGE_MIN_VOLUME || docs === null || docs <= 0 || docs > SURGE_MAX_DOCUMENTS) return false;
@@ -7154,6 +7205,7 @@ export const __liveGoldenRadarTestInternals = {
   selectDeficitBalancedCachePromotionCandidates,
   boardScore,
   writerReadySssProbePriorityScore,
+  selectReviewedHomeKeywordBriefingSeeds,
 };
 
 export class MobileLiveGoldenRadar {
@@ -7187,6 +7239,7 @@ export class MobileLiveGoldenRadar {
     options: Parameters<typeof discoverDirectGoldenKeywords>[1],
   ) => Promise<MDPResult[]>;
   private readonly liveSeedProvider?: (categoryId: string) => Promise<string[]>;
+  private readonly homeKeywordBriefingProvider: () => HomeKeywordBriefingSnapshot | null;
   private readonly measureLiveSearchVolumeSeparate: typeof getNaverKeywordSearchVolumeSeparate;
   private readonly measureLiveDocumentCount: typeof measureDocumentCount;
   private readonly getCachedSearchAdVolume: typeof getSearchAdVolumeCached;
@@ -7249,6 +7302,7 @@ export class MobileLiveGoldenRadar {
   private lastSearchAdQuota?: MobileLiveGoldenRadarSnapshot['searchAdQuota'];
   private documentQuotaBlockedForRun = false;
   private searchAdMeasurementBudgetRemaining = 0;
+  private lastReviewedHomeKeywordBriefingEvidence: string[] = [];
 
   constructor(options: MobileLiveGoldenRadarOptions = {}) {
     this.notificationInbox = options.notificationInbox || null;
@@ -7306,6 +7360,10 @@ export class MobileLiveGoldenRadar {
     this.getEnvConfig = options.getEnvConfig || (() => EnvironmentManager.getInstance().getConfig());
     this.discover = options.discover || discoverDirectGoldenKeywords;
     this.liveSeedProvider = options.liveSeedProvider;
+    this.homeKeywordBriefingProvider = options.homeKeywordBriefingProvider
+      || (options.liveSeedProvider
+        ? () => null
+        : () => readHomeKeywordBriefing());
     this.measureLiveSearchVolumeSeparate = options.measureLiveSearchVolumeSeparate || getNaverKeywordSearchVolumeSeparate;
     this.measureLiveDocumentCount = options.measureLiveDocumentCount || measureDocumentCount;
     this.getCachedSearchAdVolume = options.getCachedSearchAdVolume || getSearchAdVolumeCached;
@@ -7674,6 +7732,24 @@ export class MobileLiveGoldenRadar {
         .filter((item) => liveGoldenPolicyKeyForDiscoveryId(item.category) === selectedPolicyKey)
         .length;
       const liveSeeds = await this.collectLiveSeeds(categoryId);
+      const reviewedHomeKeywordSeeds = this.collectReviewedHomeKeywordBriefingSeeds();
+      let homeBriefingSurgeAdded = 0;
+      if (reviewedHomeKeywordSeeds.length > 0) {
+        try {
+          homeBriefingSurgeAdded = await this.huntTrafficSurgeCandidates(
+            {
+              clientId: env.naverClientId,
+              clientSecret: env.naverClientSecret,
+            },
+            reviewedHomeKeywordSeeds,
+            reviewedHomeKeywordSeeds,
+            true,
+            HOME_KEYWORD_BRIEFING_MEASUREMENTS_PER_CYCLE,
+          );
+        } catch (err) {
+          console.warn('[LIVE-GOLDEN] reviewed home briefing remeasurement failed:', (err as Error)?.message || err);
+        }
+      }
       const directMaxCandidates = Math.min(
         LIVE_SEARCHAD_MEASUREMENT_BUDGET_PER_RUN,
         directCandidateBudget(this.maxCandidates, runLimit),
@@ -7928,10 +8004,10 @@ export class MobileLiveGoldenRadar {
         console.warn('[LIVE-GOLDEN] 실수요 검증 스킵(발굴은 정상):', (err as Error)?.message || err);
       }
       // 실시간 급등 레인: 트렌딩 헤드 자동완성 확장 → 실측 → 기회지수 게이트.
-      let surgeAdded = 0;
+      let surgeAdded = homeBriefingSurgeAdded;
       if (!(catchUpModeBeforeCache && this.enableBackfill)) {
         try {
-          surgeAdded = await this.huntTrafficSurgeCandidates({
+          surgeAdded += await this.huntTrafficSurgeCandidates({
             clientId: env.naverClientId,
             clientSecret: env.naverClientSecret,
           }, this.lastRawLiveSeeds.length > 0 ? this.lastRawLiveSeeds : liveSeeds);
@@ -8692,6 +8768,29 @@ export class MobileLiveGoldenRadar {
     }
     if (changed > 0) this.saveMeasuredProbeQueueToFile();
     return changed;
+  }
+
+  private collectReviewedHomeKeywordBriefingSeeds(): string[] {
+    this.lastReviewedHomeKeywordBriefingEvidence = [];
+    try {
+      const snapshot = this.homeKeywordBriefingProvider();
+      const allSeeds = selectReviewedHomeKeywordBriefingSeeds(snapshot, this.now());
+      if (!snapshot || allSeeds.length === 0) return [];
+      this.lastReviewedHomeKeywordBriefingEvidence = [
+        HOME_KEYWORD_BRIEFING_SOURCE,
+        `home-keyword-briefing-snapshot:${normalizeKeyword(snapshot.snapshotId)}`,
+        `home-keyword-briefing-revision:${snapshot.revision}`,
+        `home-keyword-briefing-published:${snapshot.publishedAt}`,
+      ];
+      const start = (Math.max(0, this.totalRuns - 1) * HOME_KEYWORD_BRIEFING_SEEDS_PER_CYCLE) % allSeeds.length;
+      return uniqueKeywords([
+        ...allSeeds.slice(start),
+        ...allSeeds.slice(0, start),
+      ], Math.min(HOME_KEYWORD_BRIEFING_SEEDS_PER_CYCLE, allSeeds.length));
+    } catch (err) {
+      console.warn('[LIVE-GOLDEN] reviewed home briefing unavailable:', (err as Error)?.message || err);
+      return [];
+    }
   }
 
   private async collectLiveSeeds(categoryId: string): Promise<string[]> {
@@ -12064,14 +12163,30 @@ export class MobileLiveGoldenRadar {
   private async huntTrafficSurgeCandidates(
     config: { clientId: string; clientSecret: string },
     liveSeeds: string[],
+    reviewedDirectSeeds: string[] = [],
+    includeAutocomplete = true,
+    maxMeasuredCandidates = SURGE_CANDIDATES_PER_CYCLE,
   ): Promise<number> {
-    if (!this.autocompleteEchoProbe) return 0;
-    const heads = uniqueKeywords(liveSeeds || [], SURGE_HEADS_PER_CYCLE * 3)
+    const directSeeds = uniqueKeywords(reviewedDirectSeeds || [], HOME_KEYWORD_BRIEFING_SEEDS_PER_CYCLE)
+      .map((seed) => normalizeKeyword(seed))
+      .filter((seed) => seed && !isMalformedLiveKeyword(seed) && !SURGE_UNSAFE_RE.test(seed))
+      .filter((seed) => !LIVE_KEYWORD_PLATFORM_RESIDUE_RE.test(seed));
+    if (directSeeds.length === 0 && (!includeAutocomplete || !this.autocompleteEchoProbe)) return 0;
+    const heads = !includeAutocomplete || !this.autocompleteEchoProbe
+      ? []
+      : uniqueKeywords(liveSeeds || [], SURGE_HEADS_PER_CYCLE * 3)
       .map((seed) => normalizeKeyword(seed))
       .filter((seed) => seed && !isMalformedLiveKeyword(seed) && !SURGE_UNSAFE_RE.test(seed))
       .slice(0, SURGE_HEADS_PER_CYCLE);
-    if (heads.length === 0) return 0;
+    if (heads.length === 0 && directSeeds.length === 0) return 0;
     const candidates = new Map<string, string>();
+    const reviewedDirectCompacts = new Set<string>();
+    for (const seed of directSeeds) {
+      const compact = keywordCompactId(seed);
+      if (!compact || reviewedDirectCompacts.has(compact)) continue;
+      reviewedDirectCompacts.add(compact);
+      candidates.set(compact, seed);
+    }
     const observedSuggestions: string[] = [];
     const collectFrom = async (query: string): Promise<void> => {
       try {
@@ -12079,7 +12194,7 @@ export class MobileLiveGoldenRadar {
         if (!probe || probe.ok !== true) return;
         for (const suggestion of Array.isArray(probe.suggestions) ? probe.suggestions : []) {
           const clean = normalizeKeyword(suggestion);
-          const compact = clean.toLowerCase().replace(/\s+/g, '');
+          const compact = keywordCompactId(clean);
           if (!clean || compact.length < 4) continue;
           if (isMalformedLiveKeyword(clean) || SURGE_UNSAFE_RE.test(clean)) continue;
           observedSuggestions.push(clean);
@@ -12098,20 +12213,27 @@ export class MobileLiveGoldenRadar {
     // Phase 2: 자동완성 신규 진입 감지 — 이전 스냅샷에 없던 제안어(fresh)를 우선 측정하고,
     // 신규 진입 상위 몇 개는 2차 확장해 경쟁 툴 리스트에 오르기 전 롱테일을 선점한다.
     // 콜드스타트(첫 관측)는 기준선 수집만 하고 fresh 를 만들지 않는다.
-    const firstPassCount = observedSuggestions.length;
-    const { fresh } = this.surgeEmergence.observe(observedSuggestions);
-    for (const freshKeyword of fresh.slice(0, SURGE_SECOND_LEVEL_PROBES)) {
-      if (candidates.size >= SURGE_CANDIDATES_PER_CYCLE) break;
-      await collectFrom(freshKeyword);
-    }
-    if (observedSuggestions.length > firstPassCount) {
-      this.surgeEmergence.observe(observedSuggestions.slice(firstPassCount));
+    let fresh: string[] = [];
+    if (observedSuggestions.length > 0) {
+      const firstPassCount = observedSuggestions.length;
+      ({ fresh } = this.surgeEmergence.observe(observedSuggestions));
+      for (const freshKeyword of fresh.slice(0, SURGE_SECOND_LEVEL_PROBES)) {
+        if (candidates.size >= SURGE_CANDIDATES_PER_CYCLE) break;
+        await collectFrom(freshKeyword);
+      }
+      if (observedSuggestions.length > firstPassCount) {
+        this.surgeEmergence.observe(observedSuggestions.slice(firstPassCount));
+      }
     }
     if (candidates.size === 0) return 0;
-    const freshCompacts = new Set(fresh.map((kw) => kw.toLowerCase().replace(/\s+/g, '')));
+    const freshCompacts = new Set(fresh.map((kw) => keywordCompactId(kw)));
     const orderedCandidates = [...candidates.entries()]
-      .sort((a, b) => Number(freshCompacts.has(b[0])) - Number(freshCompacts.has(a[0])))
-      .map(([, keyword]) => keyword);
+      .sort((a, b) => (
+        Number(reviewedDirectCompacts.has(b[0])) - Number(reviewedDirectCompacts.has(a[0]))
+        || Number(freshCompacts.has(b[0])) - Number(freshCompacts.has(a[0]))
+      ))
+      .map(([, keyword]) => keyword)
+      .slice(0, Math.max(1, Math.min(SURGE_CANDIDATES_PER_CYCLE, Math.floor(maxMeasuredCandidates))));
     const rows = await this.measureLiveSearchVolumeRows(
       config,
       orderedCandidates,
@@ -12123,6 +12245,9 @@ export class MobileLiveGoldenRadar {
     let added = 0;
     for (const row of rows) {
       const keyword = normalizeKeyword(row.keyword);
+      const compactKeyword = keywordCompactId(keyword);
+      const reviewedHomeBriefingCandidate = reviewedDirectCompacts.has(compactKeyword);
+      const reviewedHomeBriefingExpansion = directSeeds.length > 0 && !reviewedHomeBriefingCandidate;
       const pc = finiteNumber(row.pcSearchVolume);
       const mobile = finiteNumber(row.mobileSearchVolume);
       const docs = finiteNumber(row.documentCount);
@@ -12144,9 +12269,25 @@ export class MobileLiveGoldenRadar {
         goldenRatio: ratio,
         cpc: finiteNumber(row.monthlyAveCpc),
         category: inferLiveCategory(keyword, 'live_issue'),
-        source: 'traffic-surge-autocomplete',
-        intent: 'traffic-surge',
-        evidence: ['traffic-surge', 'autocomplete-expansion', 'searchad-volume', 'naver-openapi-document-count'],
+        source: reviewedHomeBriefingCandidate
+          ? HOME_KEYWORD_BRIEFING_SOURCE
+          : reviewedHomeBriefingExpansion
+            ? 'home-keyword-briefing-autocomplete'
+          : 'traffic-surge-autocomplete',
+        intent: reviewedHomeBriefingCandidate
+          ? 'home-keyword-briefing-reviewed-surge'
+          : reviewedHomeBriefingExpansion
+            ? 'home-keyword-briefing-reviewed-surge-extension'
+          : 'traffic-surge',
+        evidence: reviewedHomeBriefingCandidate || reviewedHomeBriefingExpansion
+          ? uniqueKeywords([
+              ...this.lastReviewedHomeKeywordBriefingEvidence,
+              'traffic-surge',
+              ...(reviewedHomeBriefingExpansion ? ['autocomplete-expansion'] : []),
+              'searchad-exact-remeasured',
+              'naver-openapi-document-count-remeasured',
+            ], 12)
+          : ['traffic-surge', 'autocomplete-expansion', 'searchad-volume', 'naver-openapi-document-count'],
         isMeasured: true,
         searchVolumeSource: 'searchad',
         searchVolumeConfidence: 'high',
@@ -12160,11 +12301,19 @@ export class MobileLiveGoldenRadar {
         isPublicPreview: false,
         publicSearchVolumeLabel: formatRange(volume, 'search'),
         publicDocumentCountLabel: formatRange(docs, 'document'),
-        publicReason: '실시간 급등 · 자동완성 실수요 · 문서 공급 공백',
+        publicReason: reviewedHomeBriefingCandidate
+          ? '홈 브리핑 검수 후보 · SearchAd 검색량/Naver 문서수 재실측'
+          : reviewedHomeBriefingExpansion
+            ? '홈 브리핑 연관 후보 · 자동완성 확장 후 SearchAd/Naver API 재실측'
+          : '실시간 급등 · 자동완성 실수요 · 문서 공급 공백',
         lane: TRAFFIC_SURGE_LANE,
         // 관측 사실: 우리 스냅샷 기준 자동완성에 최근(48h) 처음 등장한 제안어
-        ...(this.surgeEmergence.isRecentNewEntry(keyword) ? { surgeNewEntry: true } : {}),
+        ...(!reviewedHomeBriefingCandidate && this.surgeEmergence.isRecentNewEntry(keyword)
+          ? { surgeNewEntry: true }
+          : {}),
       };
+      if (!hasFreshCurrentSearchAdKeywordBinding(candidate, now)) continue;
+      if (!hasTrustedSearchVolumeMeasurement(candidate)) continue;
       if (!hasFreshCanonicalDocumentCountMeasurement(candidate, now)) continue;
       if (!isTrafficSurgeBoardMetric(candidate, now)) continue;
       const existing = this.board.get(candidate.id);

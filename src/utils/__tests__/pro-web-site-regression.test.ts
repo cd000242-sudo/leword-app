@@ -15,6 +15,9 @@ function assert(name: string, condition: unknown, detail = ''): void {
 
 const html = renderLewordLanding();
 const proWebHtml = renderLewordProWeb();
+const goldenFallbackPayloadStart = proWebHtml.indexOf('function buildClientGoldenFallbackPayload(error)');
+const goldenFallbackPayloadEnd = proWebHtml.indexOf('function renderClientGoldenFallback(error)', goldenFallbackPayloadStart);
+const goldenFallbackPayloadBlock = proWebHtml.slice(goldenFallbackPayloadStart, goldenFallbackPayloadEnd);
 
 assert('includes AdSense site verification script',
   html.includes('ca-pub-4008574892672964')
@@ -215,28 +218,34 @@ assert('health polling does not overwrite live board counts with missing metrics
     && html.includes('Number.isFinite(Number(liveGolden.boardCount))')
     && html.includes('Number.isFinite(Number(liveGolden.boardTarget))')
     && !html.includes("(health.liveGolden.boardCount || 0) + '/' + (health.liveGolden.boardTarget || 120)"));
-assert('falls back to browser-side golden keyword search when the server is unavailable',
+assert('server failure keeps the golden board empty instead of inventing browser candidates',
   html.includes('function buildClientGoldenFallbackPayload')
     && html.includes('function renderClientGoldenFallback')
     && html.includes('function renderClientFeatureFallback')
     && html.includes('function isServerUnavailableError')
     && html.includes('renderClientGoldenFallback(err)')
     && html.includes('renderClientFeatureFallback(feature, displayKeyword, err)')
-    && html.includes('검색량·문서수는 가짜로 채우지 않고')
-    && html.includes('오프라인 Pro 후보')
-    && html.includes('서버가 꺼져 있어 Pro 세션을 로컬로 유지하고 사이트 자체 후보를 표시합니다.'));
-assert('unmeasured browser fallback never claims a full verified golden board',
-  proWebHtml.includes('boardCount: 0,')
-    && proWebHtml.includes("setGoldenSummary(0, payload.boardTarget, items.length, 0, false")
-    && !proWebHtml.includes('setGoldenSummary(120, 120, items.length, 0, false')
-    && proWebHtml.includes('미검증 참고 후보'),
-  'offline candidates must stay visibly separate from verified inventory');
-assert('golden board browser fallback is not just one seed keyword expansion chain',
-  proWebHtml.includes("const keywords = clientFallbackIntentKeywords('', 'pro-traffic', target)")
-    && proWebHtml.includes('function clientFallbackSeedExpansionKeywords')
+    && goldenFallbackPayloadBlock.includes('publicPreviewCount: 0')
+    && goldenFallbackPayloadBlock.includes('publicPreview: []')
+    && !goldenFallbackPayloadBlock.includes('clientFallbackIntentKeywords')
+    && !goldenFallbackPayloadBlock.includes('clientFallbackBoardItem')
+    && proWebHtml.includes('임시 조합 키워드는 황금키워드로 표시하지 않습니다.')
+    && proWebHtml.includes("setGoldenSummary(0, payload.boardTarget, 0, 0, false")
+    && !proWebHtml.includes('서버 복구 후 실측'));
+assert('golden snapshot failure exposes a useful reason code without confusing auth and server errors',
+  proWebHtml.includes('function clientGoldenFailureReason(error)')
+    && proWebHtml.includes("return 'AUTH_REQUIRED'")
+    && proWebHtml.includes("return 'NETWORK_ERROR'")
+    && proWebHtml.includes("return 'HTTP_5XX'")
+    && proWebHtml.includes("return 'SNAPSHOT_ROUTE_NOT_FOUND'")
+    && proWebHtml.includes("qs('goldenState').textContent = '연결 오류'"));
+assert('browser search helpers remain explicitly unmeasured and separate from the golden board',
+  proWebHtml.includes('function clientFallbackSeedExpansionKeywords')
     && proWebHtml.includes('for (let tailIndex = 0; tailIndex < maxTailCount; tailIndex += 1)')
     && proWebHtml.includes('clientFallbackSeedExpansionKeywords(displayKeyword || compactKeywordInput(), featureId, 12)')
-    && !proWebHtml.includes("const keywords = clientFallbackIntentKeywords(compactKeywordInput(), 'pro-traffic', target)"));
+    && proWebHtml.includes("source: 'browser-helper'")
+    && proWebHtml.includes("grade: '미측정'")
+    && proWebHtml.includes("{ label: '실측', value: '연결 후 재조회' }"));
 assert('keyword lookup button is labeled as direct lookup, not server lookup',
   proWebHtml.includes('<button class="btn primary" type="submit">조회하기</button>')
     && proWebHtml.includes('키워드를 입력하고 조회하기를 실행하세요.')
@@ -779,6 +788,11 @@ assert('user API key settings are first-class, local-only, and secret-safe',
     && /id="manusApiKey"[^>]*type="password"/.test(html)
     && /id="openaiApiKey"[^>]*type="password"/.test(html)
     && html.includes(' · AI 추론 ')
+    && html.includes("AI 추론 ' + aiReadyCount + '/2")
+    && html.includes('Manus 키는 현재 Pro Web 추론 보조에서는 사용하지 않습니다.')
+    && html.includes('Manus(Pro Web 미연결)')
+    && html.includes('maxAgentRows: 8')
+    && html.includes("{ label: 'AI 보조', value: externalAiStatus }")
     && html.includes('id="apiSettingsChecklist"')
     && html.includes('function apiSettingGroups')
     && html.includes('function apiSettingGroupState')
@@ -798,6 +812,16 @@ assert('user API key settings are first-class, local-only, and secret-safe',
     && html.includes('API 키 필요')
     && html.includes('서버 공용 저장 아님')
     && !html.includes("naverApiSettings: apiUrl('/v1/mobile/api-settings/naver')"));
+
+assert('Naver document-count connection check performs a real read-only OpenAPI probe',
+  proWebHtml.includes("fetchBrowserNaverBlogDocumentCount('네이버')")
+    && proWebHtml.includes('openApiProbeError')
+    && proWebHtml.includes("openApiCheck.status = 'verified'")
+    && proWebHtml.includes("openApiCheck.status = 'error'")
+    && proWebHtml.includes("'저장됨·미검증'")
+    && proWebHtml.includes("'실호출 실패'")
+    && proWebHtml.includes("'실호출 정상(문서 '"),
+  'stored keys and a successful document-count API call must not be reported as the same state');
 
 const settingsHydrateIndex = html.indexOf("if (next === 'settings') {\n        hydrateNaverApiSettingsForm();\n        startApiAutofillGuard(30000);");
 const loadFalseIndex = html.indexOf('if (opts.load === false) return;');

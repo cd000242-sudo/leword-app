@@ -161,6 +161,34 @@ const result: MobileKeywordResult = {
           && adminAiStatusJson.apiAssist?.count === 1
           && adminAiStatusJson.apiAssist?.openai === true
           && !JSON.stringify(adminAiStatusJson).includes('sk-'));
+      const externalAiEnvKeys = ['OPENAI_API_KEY', 'ANTHROPIC_API_KEY', 'CLAUDE_API_KEY'] as const;
+      const externalAiEnvBefore = Object.fromEntries(externalAiEnvKeys.map((key) => [key, process.env[key]]));
+      try {
+        for (const key of externalAiEnvKeys) delete process.env[key];
+        const manusOnlyStatus = await fetch(`${baseUrl}/v1/admin/ai-worker/status`, {
+          method: 'POST',
+          headers: { 'Content-Type': 'application/json' },
+          body: JSON.stringify({
+            selectedProvider: 'api',
+            apiAssist: { manus: true },
+          }),
+        });
+        const manusOnlyStatusJson: any = await manusOnlyStatus.json();
+        assert('Manus-only status does not claim the unconnected Pro Web inference path is ready',
+          manusOnlyStatus.ok
+            && manusOnlyStatusJson.ready?.api === false
+            && manusOnlyStatusJson.ready?.selected === false
+            && manusOnlyStatusJson.apiAssist?.manus === true
+            && manusOnlyStatusJson.apiAssist?.manusConnected === false
+            && manusOnlyStatusJson.apiAssist?.count === 0,
+          JSON.stringify(manusOnlyStatusJson));
+      } finally {
+        for (const key of externalAiEnvKeys) {
+          const value = externalAiEnvBefore[key];
+          if (value === undefined) delete process.env[key];
+          else process.env[key] = value;
+        }
+      }
       assert('admin AI worker status probes server CLIs',
         adminAiStatusJson.workers?.codex?.status === 'not-installed'
           && adminAiStatusJson.workers?.claudeCode?.status === 'not-installed');
